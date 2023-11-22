@@ -16,13 +16,11 @@
 #include "SkDevice.h"
 #include "SkForceLinking.h"
 #include "SkGraphics.h"
-#include "SkImageDecoder.h"
 #include "SkImageEncoder.h"
 #include "SkOSFile.h"
 #include "SkPathOpsDebug.h"
 #include "SkPicture.h"
 #include "SkRTConf.h"
-#include "SkRunnable.h"
 #include "SkTSort.h"
 #include "SkStream.h"
 #include "SkString.h"
@@ -32,7 +30,7 @@
 #include "SkTemplates.h"
 #include "SkTime.h"
 
-__SK_FORCE_IMAGE_DECODER_LINKING;
+#include <stdlib.h>
 
 /* add local exceptions here */
 /* TODO : add command flag interface */
@@ -258,9 +256,9 @@ struct TestRunner {
     SkTDArray<class TestRunnable*> fRunnables;
 };
 
-class TestRunnable : public SkRunnable {
+class TestRunnable {
 public:
-    void run() override {
+    void operator()() {
         SkGraphics::SetTLSFontCacheLimit(1 * 1024 * 1024);
         (*fTestFun)(&fState);
     }
@@ -298,15 +296,14 @@ public:
 
 TestRunner::~TestRunner() {
     for (int index = 0; index < fRunnables.count(); index++) {
-        SkDELETE(fRunnables[index]);
+        delete fRunnables[index];
     }
 }
 
 void TestRunner::render() {
-    SkTaskGroup tg;
-    for (int index = 0; index < fRunnables.count(); ++ index) {
-        tg.add(fRunnables[index]);
-    }
+    SkTaskGroup().batch(fRunnables.count(), [&](int i) {
+        (*fRunnables[i])();
+    });
 }
 
 ////////////////////////////////////////////////
@@ -440,7 +437,7 @@ static void writePict(const SkBitmap& bitmap, const char* outDir, const char* pn
 }
 
 void TestResult::testOne() {
-    SkPicture* pic = NULL;
+    SkPicture* pic = nullptr;
     {
     #if DEBUG_SHOW_TEST_NAME
         if (fTestStep == kCompareBits) {
@@ -470,7 +467,7 @@ void TestResult::testOne() {
             SkDebugf("invalid stream %s\n", path.c_str());
             goto finish;
         }
-        pic = SkPicture::CreateFromStream(&stream, &SkImageDecoder::DecodeMemory);
+        pic = SkPicture::CreateFromStream(&stream);
         if (!pic) {
             SkDebugf("unable to decode %s\n", fFilename);
             goto finish;
@@ -530,8 +527,8 @@ DEFINE_string2(match, m, "PathOpsSkpClipThreaded",
         "^ and $ requires an exact match\n"
         "If a test does not match any list entry,\n"
         "it is skipped unless some list entry starts with ~");
-DEFINE_string2(dir, d, NULL, "range of directories (e.g., 1-100)");
-DEFINE_string2(skp, s, NULL, "skp to test");
+DEFINE_string2(dir, d, nullptr, "range of directories (e.g., 1-100)");
+DEFINE_string2(skp, s, nullptr, "skp to test");
 DEFINE_bool2(single, z, false, "run tests on a single thread internally.");
 DEFINE_int32(testIndex, 0, "override local test index (PathOpsSkpClipOneOff only).");
 DEFINE_bool2(verbose, v, false, "enable verbose output.");
@@ -611,7 +608,7 @@ public:
         while (fNames && ++fIndex < fNames->count()) {
             return (*fNames)[fIndex];
         }
-        return NULL;
+        return nullptr;
     }
 
     void set(const SkCommandLineFlags::StringArray& names) {
@@ -680,7 +677,7 @@ static void testSkpClip(TestState* data) {
         return;
     }
     statusFile.appendf("%s%s", PATH_SLASH, statName.c_str());
-    SkFILE* file = sk_fopen(statusFile.c_str(), kWrite_SkFILE_Flag);
+    FILE* file = sk_fopen(statusFile.c_str(), kWrite_SkFILE_Flag);
     if (!file) {
             SkDebugf("failed to create %s", statusFile.c_str());
             return;
@@ -702,7 +699,7 @@ bool Less(const SortByName& a, const SortByName& b) {
 
 static bool doOneDir(TestState* state, bool threaded) {
     int dirNo = state->fResult.fDirNo;
-    SkString dirName = get_in_path(dirNo, NULL);
+    SkString dirName = get_in_path(dirNo, nullptr);
     if (!dirName.size()) {
         return false;
     }
@@ -796,8 +793,8 @@ static void encodeFound(TestState& state) {
         if (!filename.endsWith(".skp")) {
             filename.append(".skp");
         }
-        *testRunner.fRunnables.append() = SkNEW_ARGS(TestRunnableEncode,
-                (&testSkpClipEncode, result.fDirNo, filename.c_str(), &testRunner));
+        *testRunner.fRunnables.append() = new TestRunnableEncode(&testSkpClipEncode, result.fDirNo,
+                                                                 filename.c_str(), &testRunner);
     }
     testRunner.render();
 }
@@ -820,18 +817,17 @@ private:
 
 typedef SkTRegistry<Test*(*)(void*)> TestRegistry;
 
-#define DEF_TEST(name)                                        \
-    static void test_##name();                       \
-    class name##Class : public Test {                                   \
-    public:                                                             \
-        static Test* Factory(void*) { return SkNEW(name##Class); }      \
-    protected:                                                          \
-        void onGetName(SkString* name) override {            \
-            name->set(#name);                                           \
-        }                                                               \
-        void onRun() override { test_##name(); } \
-    };                                                                  \
-    static TestRegistry gReg_##name##Class(name##Class::Factory);       \
+#define DEF_TEST(name)                                                \
+    static void test_##name();                                        \
+    class name##Class : public Test {                                 \
+    public:                                                           \
+        static Test* Factory(void*) { return new name##Class; }       \
+                                                                      \
+    protected:                                                        \
+        void onGetName(SkString* name) override { name->set(#name); } \
+        void onRun() override { test_##name(); }                      \
+    };                                                                \
+    static TestRegistry gReg_##name##Class(name##Class::Factory);     \
     static void test_##name()
 
 DEF_TEST(PathOpsSkpClip) {
@@ -865,8 +861,7 @@ DEF_TEST(PathOpsSkpClipThreaded) {
     int dirNo;
     gDirs.reset();
     while ((dirNo = gDirs.next()) > 0) {
-        *testRunner.fRunnables.append() = SkNEW_ARGS(TestRunnableDir,
-                (&testSkpClipMain, dirNo, &testRunner));
+        *testRunner.fRunnables.append() = new TestRunnableDir(&testSkpClipMain, dirNo, &testRunner);
     }
     testRunner.render();
     TestState state;
@@ -911,7 +906,7 @@ DEF_TEST(PathOpsSkpClipUberThreaded) {
     int dirNo;
     gDirs.reset();
     while ((dirNo = gDirs.next()) > 0) {
-        SkString dirName = get_in_path(dirNo, NULL);
+        SkString dirName = get_in_path(dirNo, nullptr);
         if (!dirName.size()) {
             continue;
         }
@@ -931,8 +926,8 @@ DEF_TEST(PathOpsSkpClipUberThreaded) {
                 int count = sorted.get()[dirNo - firstDirNo].count();
                 if (SkTSearch<SortByName, Less>(sorted.get()[dirNo - firstDirNo].begin(),
                         count, &name, sizeof(&name)) < 0) {
-                    *testRunner.fRunnables.append() = SkNEW_ARGS(TestRunnableFile,
-                            (&testSkpClip, dirNo, filename.c_str(), &testRunner));
+                    *testRunner.fRunnables.append() = new TestRunnableFile(
+                            &testSkpClip, dirNo, filename.c_str(), &testRunner);
                 }
             }
     checkEarlyExit:
@@ -942,7 +937,7 @@ DEF_TEST(PathOpsSkpClipUberThreaded) {
     }
     testRunner.render();
     SkAutoTDeleteArray<SkTDArray<TestResult> > results(new SkTDArray<TestResult>[dirCount]);
-    if (!buildTests(results.get(), NULL)) {
+    if (!buildTests(results.get(), nullptr)) {
         return;
     }
     SkTDArray<TestResult> allResults;
@@ -1041,10 +1036,10 @@ public:
         if (fReg) {
             TestRegistry::Factory fact = fReg->factory();
             fReg = fReg->next();
-            Test* test = fact(NULL);
+            Test* test = fact(nullptr);
             return test;
         }
-        return NULL;
+        return nullptr;
     }
 
 private:
@@ -1089,20 +1084,18 @@ int tool_main(int argc, char** argv) {
 #else
     header.append(" SK_RELEASE");
 #endif
-    header.appendf(" skia_arch_width=%d", (int)sizeof(void*) * 8);
     if (FLAGS_verbose) {
         header.appendf("\n");
     }
     SkDebugf("%s", header.c_str());
     Iter iter;
     Test* test;
-    while ((test = iter.next()) != NULL) {
+    while ((test = iter.next()) != nullptr) {
         SkAutoTDelete<Test> owned(test);
         if (!SkCommandLineFlags::ShouldSkip(FLAGS_match, test->getName())) {
             test->run();
         }
     }
-    SkGraphics::Term();
     return 0;
 }
 

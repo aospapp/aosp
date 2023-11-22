@@ -16,7 +16,7 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.libcorelegacy22">
+    package="android.libcorelegacy22.cts">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.READ_LOGS" />
@@ -25,7 +25,7 @@
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.libcorelegacy22"
+                     android:targetPackage="android.libcorelegacy22.cts"
                      android:label="CTS tests of android APIs last available in API 22">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

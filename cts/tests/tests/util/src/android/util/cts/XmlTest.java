@@ -391,7 +391,7 @@ public class XmlTest extends AndroidTestCase {
 
     public void testAsAttributeSet() {
         XmlResourceParser xp = getContext().getResources().getLayout(
-                com.android.cts.util.R.layout.xml_test);
+                android.util.cts.R.layout.xml_test);
         int eventType = -1;
         try {
             eventType = xp.getEventType();

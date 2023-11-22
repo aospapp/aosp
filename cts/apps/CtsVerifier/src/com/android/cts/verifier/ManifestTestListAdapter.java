@@ -154,6 +154,7 @@ public class ManifestTestListAdapter extends TestListAdapter {
     List<ResolveInfo> getResolveInfosForParent() {
         Intent mainIntent = new Intent(Intent.ACTION_MAIN);
         mainIntent.addCategory(CATEGORY_MANUAL_TEST);
+        mainIntent.setPackage(mContext.getPackageName());
 
         PackageManager packageManager = mContext.getPackageManager();
         List<ResolveInfo> list = packageManager.queryIntentActivities(mainIntent,

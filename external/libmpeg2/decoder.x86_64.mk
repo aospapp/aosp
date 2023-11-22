@@ -7,7 +7,14 @@ libmpeg2d_srcs_c_x86_64     +=  decoder/x86/impeg2d_function_selector.c
 libmpeg2d_srcs_c_x86_64     +=  decoder/x86/impeg2d_function_selector_avx2.c
 libmpeg2d_srcs_c_x86_64     +=  decoder/x86/impeg2d_function_selector_ssse3.c
 libmpeg2d_srcs_c_x86_64     +=  decoder/x86/impeg2d_function_selector_sse42.c
+libmpeg2d_srcs_c_x86_64     +=  common/x86/ideint_function_selector.c
+libmpeg2d_srcs_c_x86_64     +=  common/x86/ideint_function_selector_ssse3.c
+libmpeg2d_srcs_c_x86_64     +=  common/x86/ideint_function_selector_sse42.c
 
+libmpeg2d_srcs_c_x86_64     +=  common/x86/icv_variance_ssse3.c
+libmpeg2d_srcs_c_x86_64     +=  common/x86/icv_sad_ssse3.c
+libmpeg2d_srcs_c_x86_64     +=  common/x86/ideint_cac_ssse3.c
+libmpeg2d_srcs_c_x86_64     +=  common/x86/ideint_spatial_filter_ssse3.c
 
 libmpeg2d_srcs_c_x86_64     +=  common/x86/impeg2_idct_recon_sse42_intr.c
 libmpeg2d_srcs_c_x86_64     +=  common/x86/impeg2_inter_pred_sse42_intr.c

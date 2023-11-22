@@ -16,19 +16,17 @@
 
 package com.android.tv.settings.connectivity;
 
-import android.app.Fragment;
+import android.support.annotation.Nullable;
 import android.os.Bundle;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.TextView;
 
 import com.android.tv.settings.R;
+import com.android.tv.settings.dialog.ProgressDialogFragment;
 
 /**
  * Displays a UI for showing that the user must enter a PIN for WPS to continue
  */
-public class WpsPinFragment extends Fragment {
+public class WpsPinFragment extends ProgressDialogFragment {
 
     private static final String KEY_PIN = "pin";
 
@@ -41,13 +39,11 @@ public class WpsPinFragment extends Fragment {
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle icicle) {
-        final View view = inflater.inflate(R.layout.wps_fragment, container, false);
-        final TextView titleView = (TextView) view.findViewById(R.id.title);
-        titleView.setText(getActivity().getString(R.string.wifi_wps_onstart_pin,
+    public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        setTitle(getString(R.string.wifi_wps_onstart_pin,
                 getArguments().getString(KEY_PIN)));
-        final TextView descriptionView = (TextView) view.findViewById(R.id.description);
-        descriptionView.setText(getActivity().getString(R.string.wifi_wps_onstart_pin_description));
-        return view;
+        setSummary(R.string.wifi_wps_onstart_pin_description);
+        setIcon(R.drawable.ic_wps);
     }
 }

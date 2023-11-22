@@ -16,7 +16,7 @@
 
 <resources>
     <!-- Category mapping from ATSC to canonical genre -->
-    <string-array name="genre_mapping_atsc">
+    <string-array name="genre_mapping_atsc" translatable="false">
         <item>Education|EDUCATION</item>
         <item>Entertainment|ENTERTAINMENT</item>
         <item>Movie|MOVIES</item>
@@ -162,7 +162,7 @@
     </string-array>
 
     <!-- Category mapping from DVB to canonical genre -->
-    <string-array name="genre_mapping_dvb">
+    <string-array name="genre_mapping_dvb" translatable="false">
         <item>movie/drama|MOVIES</item>
         <item>detective/thriller|MOVIES</item>
         <item>adventure/western/war|MOVIES</item>
@@ -245,31 +245,45 @@
     </string-array>
 
     <!-- Category mapping from ISDB to canonical genre -->
-    <string-array name="genre_mapping_isdb">
+    <string-array name="genre_mapping_isdb" translatable="false">
         <item>Animation|MOVIES</item>
+        <item>Animation, Special effect|FAMILY_KIDS</item>
         <item>Baseball|SPORTS</item>
         <item>Children\'s song|MUSIC</item>
         <item>Classic, opera|MUSIC</item>
+        <!-- Obviously a typo but the latest revision of the standard ARIB STD - B10 Version 4.6-E2
+             still has it. Keep this for completeness. -->
         <item>Cocking variety|ENTERTAINMENT</item>
+        <item>Cooking variety|ENTERTAINMENT</item>
         <item>Comedy program|ENTERTAINMENT</item>
         <item>Comic story, Entertainment|ENTERTAINMENT</item>
         <item>Computer, TV games|TECH_SCIENCE</item>
         <item>Conversation, languages|EDUCATION</item>
+        <item>Culture, Traditional Culture|EDUCATION</item>
         <item>Dance, Ballet|ENTERTAINMENT</item>
         <item>Discussion, conference|NEWS</item>
+        <item>Documentary, Education|EDUCATION</item>
         <item>Economics, market report|NEWS</item>
         <item>Educational problem|EDUCATION</item>
+        <item>Event introduction, Information|ENTERTAINMENT</item>
         <item>Events|ENTERTAINMENT</item>
         <item>Fashion|LIFE_STYLE</item>
         <item>Folk music, world music|MUSIC</item>
         <item>Game|GAMING</item>
         <item>Gardening, pet, handicrafts|LIFE_STYLE</item>
+        <item>General documentaries|EDUCATION</item>
         <item>Golf|SPORTS</item>
         <item>Gossip/tabloid show|ENTERTAINMENT</item>
+        <!-- Obviously a typo but the latest revision of the standard ARIB STD - B10 Version 4.6-E2
+             still has it. Keep this for completeness. -->
         <item>Gourmet, cocking|LIFE_STYLE</item>
+        <item>Gourmet, cooking|LIFE_STYLE</item>
         <item>Health, medical treatment|LIFE_STYLE</item>
+        <item>History, Travels|EDUCATION</item>
         <item>Hobby/Education|LIFE_STYLE</item>
         <item>Horse race, public race|SPORTS</item>
+        <item>Information, Tabloid show|LIFE_STYLE</item>
+        <item>Interviews, Discussions|EDUCATION</item>
         <item>Japanese animation|FAMILY_KIDS</item>
         <item>Japanese ballad, Japanese traditional music|MUSIC</item>
         <item>Japanese chess (shogi) and "go"|GAMING</item>
@@ -293,6 +307,7 @@
         <item>Musical|MUSIC</item>
         <item>Music, art, industrial art|ARTS</item>
         <item>Music variety|ENTERTAINMENT</item>
+        <item>Natures, Animals, Environments|ANIMAL_WILDLIFE</item>
         <item>News analysis|NEWS</item>
         <item>Olympic, international games|SPORTS</item>
         <item>Other ball games|SPORTS</item>
@@ -309,12 +324,16 @@
         <item>Regular, general|NEWS</item>
         <item>Shopping, mail-order business|SHOPPING</item>
         <item>Soccer|SPORTS</item>
+        <item>Society, Current affairs|EDUCATION</item>
+        <item>Space, Science, Medical science|TECH_SCIENCE</item>
         <item>Special effects|FAMILY_KIDS</item>
         <item>Special program, documentary|NEWS</item>
         <item>Special report|NEWS</item>
+        <item>Sports documentaries|SPORTS</item>
         <item>Sports news|SPORTS</item>
         <item>Sumo, combative sports|SPORTS</item>
         <item>Talk variety|ENTERTAINMENT</item>
+        <item>Theater, Performance|ENTERTAINMENT</item>
         <item>Tour variety|ENTERTAINMENT</item>
         <item>Traffic report|NEWS</item>
         <item>Trip, fishing, outdoor entertainment|ANIMAL_WILDLIFE</item>
@@ -323,7 +342,7 @@
     </string-array>
 
     <!-- Category mapping from ISDB in Brazil to canonical genre -->
-    <string-array name="genre_mapping_isdb_br">
+    <string-array name="genre_mapping_isdb_br" translatable="false">
         <item>Biografia|NEWS</item>
         <item>Culinária|LIFE_STYLE</item>
         <item>Documentário|NEWS</item>

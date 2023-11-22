@@ -25,6 +25,8 @@ import android.content.DialogInterface;
 import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.Handler;
+import android.support.annotation.IntDef;
+import android.support.annotation.UiThread;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -40,12 +42,22 @@ import android.widget.Toast;
 
 import com.android.tv.settings.R;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+
 public abstract class PinDialogFragment extends SafeDismissDialogFragment {
     private static final String TAG = "PinDialogFragment";
     private static final boolean DEBUG = false;
 
     protected static final String ARG_TYPE = "type";
 
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef({PIN_DIALOG_TYPE_UNLOCK_CHANNEL,
+            PIN_DIALOG_TYPE_UNLOCK_PROGRAM,
+            PIN_DIALOG_TYPE_ENTER_PIN,
+            PIN_DIALOG_TYPE_NEW_PIN,
+            PIN_DIALOG_TYPE_OLD_PIN})
+    public @interface PinDialogType {}
     /**
      * PIN code dialog for unlock channel
      */
@@ -77,7 +89,7 @@ public abstract class PinDialogFragment extends SafeDismissDialogFragment {
     private static final int DISABLE_PIN_DURATION_MILLIS = 60 * 1000; // 1 minute
 
     public interface ResultListener {
-        void pinFragmentDone(boolean success);
+        void pinFragmentDone(int requestCode, boolean success);
     }
 
     public static final String DIALOG_TAG = PinDialogFragment.class.getName();
@@ -218,10 +230,10 @@ public abstract class PinDialogFragment extends SafeDismissDialogFragment {
         boolean result = mRetCode == PIN_DIALOG_RESULT_SUCCESS;
         Fragment f = getTargetFragment();
         if (f instanceof ResultListener) {
-            ((ResultListener) f).pinFragmentDone(result);
+            ((ResultListener) f).pinFragmentDone(getTargetRequestCode(), result);
         } else if (getActivity() instanceof ResultListener) {
             final ResultListener listener = (ResultListener) getActivity();
-            listener.pinFragmentDone(result);
+            listener.pinFragmentDone(getTargetRequestCode(), result);
         }
     }
 
@@ -567,7 +579,8 @@ public abstract class PinDialogFragment extends SafeDismissDialogFragment {
                 if (i != CURRENT_NUMBER_VIEW_INDEX) {
                     mNumberViews[i].setText("");
                 } else if (mCurrentValue >= mMinValue && mCurrentValue <= mMaxValue) {
-                    mNumberViews[i].setText(String.valueOf(mCurrentValue));
+                    // Bullet
+                    mNumberViews[i].setText("\u2022");
                 }
             }
         }

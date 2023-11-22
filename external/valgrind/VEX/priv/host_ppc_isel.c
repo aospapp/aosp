@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2004-2013 OpenWorks LLP
+   Copyright (C) 2004-2015 OpenWorks LLP
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -2475,19 +2475,21 @@ static HReg iselWordExpr_R_wrk ( ISelEnv* env, IRExpr* e,
 static Bool uInt_fits_in_16_bits ( UInt u ) 
 {
    /* Is u the same as the sign-extend of its lower 16 bits? */
-   Int i = u & 0xFFFF;
-   i <<= 16;
-   i >>= 16;
-   return toBool(u == (UInt)i);
+   UInt v = u & 0xFFFF;
+
+   v = (Int)(v << 16) >> 16;   /* sign extend */
+
+   return u == v;
 }
 
 static Bool uLong_fits_in_16_bits ( ULong u ) 
 {
    /* Is u the same as the sign-extend of its lower 16 bits? */
-   Long i = u & 0xFFFFULL;
-   i <<= 48;
-   i >>= 48;
-   return toBool(u == (ULong)i);
+   ULong v = u & 0xFFFFULL;
+
+   v = (Long)(v << 48) >> 48;   /* sign extend */
+
+   return u == v;
 }
 
 static Bool uLong_is_4_aligned ( ULong u )
@@ -4362,7 +4364,7 @@ static HReg iselDfp64Expr_wrk(ISelEnv* env, IRExpr* e, IREndness IEndianess)
        }
       default:
          vex_printf( "ERROR: iselDfp64Expr_wrk, UNKNOWN unop case %d\n",
-                     e->Iex.Unop.op );
+                     (Int)e->Iex.Unop.op );
       }
    }
 
@@ -4721,7 +4723,7 @@ static void iselDfp128Expr_wrk(HReg* rHi, HReg *rLo, ISelEnv* env, IRExpr* e,
       }
       default:
          vex_printf( "ERROR: iselDfp128Expr_wrk, UNKNOWN binop case %d\n",
-                     e->Iex.Binop.op );
+                     (Int)e->Iex.Binop.op );
          break;
       }
    }

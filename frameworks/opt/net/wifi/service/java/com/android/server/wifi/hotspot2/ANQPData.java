@@ -1,9 +1,13 @@
 package com.android.server.wifi.hotspot2;
 
+import com.android.server.wifi.Clock;
 import com.android.server.wifi.anqp.ANQPElement;
 import com.android.server.wifi.anqp.Constants;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class ANQPData {
@@ -34,13 +38,15 @@ public class ANQPData {
     private final long mCtime;
     private final long mExpiry;
     private final int mRetry;
+    private final Clock mClock;
 
-    public ANQPData(NetworkDetail network,
+    public ANQPData(Clock clock, NetworkDetail network,
                     Map<Constants.ANQPElementType, ANQPElement> anqpElements) {
 
+        mClock = clock;
         mNetwork = network;
-        mANQPElements = anqpElements != null ? Collections.unmodifiableMap(anqpElements) : null;
-        mCtime = System.currentTimeMillis();
+        mANQPElements = anqpElements != null ? new HashMap<>(anqpElements) : null;
+        mCtime = mClock.currentTimeMillis();
         mRetry = 0;
         if (anqpElements == null) {
             mExpiry = mCtime + ANQP_HOLDOFF_TIME;
@@ -53,10 +59,11 @@ public class ANQPData {
         }
     }
 
-    public ANQPData(NetworkDetail network, ANQPData existing) {
+    public ANQPData(Clock clock, NetworkDetail network, ANQPData existing) {
+        mClock = clock;
         mNetwork = network;
         mANQPElements = null;
-        mCtime = System.currentTimeMillis();
+        mCtime = mClock.currentTimeMillis();
         if (existing == null) {
             mRetry = 0;
             mExpiry = mCtime + ANQP_HOLDOFF_TIME;
@@ -64,6 +71,23 @@ public class ANQPData {
         else {
             mRetry = Math.max(existing.getRetry() + 1, MAX_RETRY);
             mExpiry = ANQP_HOLDOFF_TIME * (1<<mRetry);
+        }
+    }
+
+    public List<Constants.ANQPElementType> disjoint(List<Constants.ANQPElementType> querySet) {
+        if (mANQPElements == null) {
+            // Ignore the query set for pending responses, it has minimal probability to happen
+            // and a new query will be reissued on the next round anyway.
+            return null;
+        }
+        else {
+            List<Constants.ANQPElementType> additions = new ArrayList<>();
+            for (Constants.ANQPElementType element : querySet) {
+                if (!mANQPElements.containsKey(element)) {
+                    additions.add(element);
+                }
+            }
+            return additions.isEmpty() ? null : additions;
         }
     }
 
@@ -76,17 +100,27 @@ public class ANQPData {
     }
 
     public boolean expired() {
-        return expired(System.currentTimeMillis());
+        return expired(mClock.currentTimeMillis());
     }
 
     public boolean expired(long at) {
         return mExpiry <= at;
     }
 
+    protected boolean hasData() {
+        return mANQPElements != null;
+    }
+
+    protected void merge(Map<Constants.ANQPElementType, ANQPElement> data) {
+        if (data != null) {
+            mANQPElements.putAll(data);
+        }
+    }
+
     protected boolean isValid(NetworkDetail nwk) {
         return mANQPElements != null &&
                 nwk.getAnqpDomainID() == mNetwork.getAnqpDomainID() &&
-                mExpiry > System.currentTimeMillis();
+                mExpiry > mClock.currentTimeMillis();
     }
 
     private int getRetry() {
@@ -102,7 +136,7 @@ public class ANQPData {
         else {
             sb.append(", ").append(mANQPElements.size()).append(" elements, ");
         }
-        long now = System.currentTimeMillis();
+        long now = mClock.currentTimeMillis();
         sb.append(Utils.toHMS(now-mCtime)).append(" old, expires in ").
                 append(Utils.toHMS(mExpiry-now)).append(' ');
         if (brief) {

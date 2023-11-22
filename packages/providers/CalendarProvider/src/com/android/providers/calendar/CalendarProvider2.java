@@ -436,6 +436,8 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
     /** set to 'true' to enable debug logging for recurrence exception code */
     private static final boolean DEBUG_EXCEPTION = false;
 
+    private final ThreadLocal<Boolean> mCallingPackageErrorLogged = new ThreadLocal<Boolean>();
+
     private Context mContext;
     private ContentResolver mContentResolver;
 
@@ -955,13 +957,13 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
                 int startDay;
                 int endDay;
                 try {
-                    startDay = Integer.valueOf(uri.getPathSegments().get(2));
+                    startDay = Integer.parseInt(uri.getPathSegments().get(2));
                 } catch (NumberFormatException nfe) {
                     throw new IllegalArgumentException("Cannot parse start day "
                             + uri.getPathSegments().get(2));
                 }
                 try {
-                    endDay = Integer.valueOf(uri.getPathSegments().get(3));
+                    endDay = Integer.parseInt(uri.getPathSegments().get(3));
                 } catch (NumberFormatException nfe) {
                     throw new IllegalArgumentException("Cannot parse end day "
                             + uri.getPathSegments().get(3));
@@ -4584,6 +4586,7 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
     private void doSendUpdateNotification() {
         Intent intent = new Intent(Intent.ACTION_PROVIDER_CHANGED,
                 CalendarContract.CONTENT_URI);
+        intent.addFlags(Intent.FLAG_RECEIVER_REPLACE_PENDING);
         if (Log.isLoggable(TAG, Log.INFO)) {
             Log.i(TAG, "Sending notification intent: " + intent);
         }
@@ -5082,7 +5085,10 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
             // If the calling package is null, use the best available as a fallback.
             return getCachedCallingPackage();
         }
-
+        if (!Boolean.TRUE.equals(mCallingPackageErrorLogged.get())) {
+            Log.e(TAG, "Failed to get the cached calling package.", new Throwable());
+            mCallingPackageErrorLogged.set(Boolean.TRUE);
+        }
         final PackageManager pm = getContext().getPackageManager();
         final int uid = Binder.getCallingUid();
         final String[] packages = pm.getPackagesForUid(uid);

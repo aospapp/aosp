@@ -104,7 +104,7 @@ static int x509_cb(int operation, ASN1_VALUE **pval, const ASN1_ITEM *it,
 		ret->akid = NULL;
 		ret->aux = NULL;
 		ret->crldp = NULL;
-		CRYPTO_new_ex_data(&g_ex_data_class, ret, &ret->ex_data);
+		CRYPTO_new_ex_data(&ret->ex_data);
 		break;
 
 		case ASN1_OP_D2I_POST:
@@ -146,12 +146,12 @@ X509 *X509_up_ref(X509 *x)
 	return x;
 	}
 
-int X509_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func,
+int X509_get_ex_new_index(long argl, void *argp, CRYPTO_EX_unused *unused,
 	     CRYPTO_EX_dup *dup_func, CRYPTO_EX_free *free_func)
         {
 	int index;
 	if (!CRYPTO_get_ex_new_index(&g_ex_data_class, &index, argl, argp,
-			new_func, dup_func, free_func))
+			dup_func, free_func))
 		{
 		return -1;
 		}
@@ -178,22 +178,21 @@ void *X509_get_ex_data(X509 *r, int idx)
 
 X509 *d2i_X509_AUX(X509 **a, const unsigned char **pp, long length)
 {
-	const unsigned char *q;
+	const unsigned char *q = *pp;
 	X509 *ret;
 	int freeret = 0;
 
-	/* Save start position */
-	q = *pp;
-
 	if (!a || *a == NULL)
 		freeret = 1;
-	ret = d2i_X509(a, pp, length);
+	ret = d2i_X509(a, &q, length);
 	/* If certificate unreadable then forget it */
 	if(!ret) return NULL;
 	/* update length */
-	length -= *pp - q;
-	if(!length) return ret;
-	if(!d2i_X509_CERT_AUX(&ret->aux, pp, length)) goto err;
+	length -= q - *pp;
+	/* Parse auxiliary information if there is any. */
+	if (length > 0 && !d2i_X509_CERT_AUX(&ret->aux, &q, length))
+		goto err;
+	*pp = q;
 	return ret;
 	err:
 	if (freeret)

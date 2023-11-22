@@ -20,8 +20,8 @@
 #include "VolumeManager.h"
 #include "ResponseCode.h"
 
-#include <base/stringprintf.h>
-#include <base/logging.h>
+#include <android-base/stringprintf.h>
+#include <android-base/logging.h>
 #include <cutils/fs.h>
 #include <private/android_filesystem_config.h>
 
@@ -123,10 +123,7 @@ status_t PublicVolume::doMount() {
         setPath(mRawPath);
     }
 
-    if (fs_prepare_dir(mRawPath.c_str(), 0700, AID_ROOT, AID_ROOT) ||
-            fs_prepare_dir(mFuseDefault.c_str(), 0700, AID_ROOT, AID_ROOT) ||
-            fs_prepare_dir(mFuseRead.c_str(), 0700, AID_ROOT, AID_ROOT) ||
-            fs_prepare_dir(mFuseWrite.c_str(), 0700, AID_ROOT, AID_ROOT)) {
+    if (fs_prepare_dir(mRawPath.c_str(), 0700, AID_ROOT, AID_ROOT)) {
         PLOG(ERROR) << getId() << " failed to create mount points";
         return -errno;
     }
@@ -144,6 +141,13 @@ status_t PublicVolume::doMount() {
     if (!(getMountFlags() & MountFlags::kVisible)) {
         // Not visible to apps, so no need to spin up FUSE
         return OK;
+    }
+
+    if (fs_prepare_dir(mFuseDefault.c_str(), 0700, AID_ROOT, AID_ROOT) ||
+            fs_prepare_dir(mFuseRead.c_str(), 0700, AID_ROOT, AID_ROOT) ||
+            fs_prepare_dir(mFuseWrite.c_str(), 0700, AID_ROOT, AID_ROOT)) {
+        PLOG(ERROR) << getId() << " failed to create FUSE mount points";
+        return -errno;
     }
 
     dev_t before = GetDevice(mFuseWrite);
@@ -190,11 +194,11 @@ status_t PublicVolume::doMount() {
 }
 
 status_t PublicVolume::doUnmount() {
-    if (mFusePid > 0) {
-        kill(mFusePid, SIGTERM);
-        TEMP_FAILURE_RETRY(waitpid(mFusePid, nullptr, 0));
-        mFusePid = 0;
-    }
+    // Unmount the storage before we kill the FUSE process. If we kill
+    // the FUSE process first, most file system operations will return
+    // ENOTCONN until the unmount completes. This is an exotic and unusual
+    // error code and might cause broken behaviour in applications.
+    KillProcessesUsingPath(getPath());
 
     ForceUnmount(kAsecPath);
 
@@ -202,6 +206,12 @@ status_t PublicVolume::doUnmount() {
     ForceUnmount(mFuseRead);
     ForceUnmount(mFuseWrite);
     ForceUnmount(mRawPath);
+
+    if (mFusePid > 0) {
+        kill(mFusePid, SIGTERM);
+        TEMP_FAILURE_RETRY(waitpid(mFusePid, nullptr, 0));
+        mFusePid = 0;
+    }
 
     rmdir(mFuseDefault.c_str());
     rmdir(mFuseRead.c_str());

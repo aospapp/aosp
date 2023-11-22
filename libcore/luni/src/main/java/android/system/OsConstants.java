@@ -232,12 +232,14 @@ public final class OsConstants {
     public static final int ESPIPE = placeholder();
     public static final int ESRCH = placeholder();
     public static final int ESTALE = placeholder();
+    /** @hide */ public static final int ETH_P_ALL = placeholder();
     /** @hide */ public static final int ETH_P_ARP = placeholder();
     /** @hide */ public static final int ETH_P_IP = placeholder();
     /** @hide */ public static final int ETH_P_IPV6 = placeholder();
     public static final int ETIME = placeholder();
     public static final int ETIMEDOUT = placeholder();
     public static final int ETXTBSY = placeholder();
+    /** @hide */ public static final int EUSERS = placeholder();
     // On Linux, EWOULDBLOCK == EAGAIN. Use EAGAIN instead, to reduce confusion.
     public static final int EXDEV = placeholder();
     public static final int EXIT_FAILURE = placeholder();
@@ -245,6 +247,7 @@ public final class OsConstants {
     public static final int FD_CLOEXEC = placeholder();
     public static final int FIONREAD = placeholder();
     public static final int F_DUPFD = placeholder();
+    /** @hide */ public static final int F_DUPFD_CLOEXEC = placeholder();
     public static final int F_GETFD = placeholder();
     public static final int F_GETFL = placeholder();
     public static final int F_GETLK = placeholder();
@@ -309,9 +312,11 @@ public final class OsConstants {
     public static final int IP_MULTICAST_IF = placeholder();
     public static final int IP_MULTICAST_LOOP = placeholder();
     public static final int IP_MULTICAST_TTL = placeholder();
+    /** @hide */ public static final int IP_RECVTOS = placeholder();
     public static final int IP_TOS = placeholder();
     public static final int IP_TTL = placeholder();
     public static final int MAP_FIXED = placeholder();
+    /** @hide */ public static final int MAP_POPULATE = placeholder();
     public static final int MAP_PRIVATE = placeholder();
     public static final int MAP_SHARED = placeholder();
     public static final int MCAST_JOIN_GROUP = placeholder();
@@ -349,6 +354,7 @@ public final class OsConstants {
     public static final int O_RDONLY = placeholder();
     public static final int O_RDWR = placeholder();
     public static final int O_SYNC = placeholder();
+    /** @hide */ public static final int O_DSYNC = placeholder();
     public static final int O_TRUNC = placeholder();
     public static final int O_WRONLY = placeholder();
     public static final int POLLERR = placeholder();
@@ -489,6 +495,8 @@ public final class OsConstants {
     public static final int S_IXOTH = placeholder();
     public static final int S_IXUSR = placeholder();
     public static final int TCP_NODELAY = placeholder();
+    /** @hide */ public static final int TIOCOUTQ = placeholder();
+    /** @hide */ public static final int UNIX_PATH_MAX = placeholder();
     public static final int WCONTINUED = placeholder();
     public static final int WEXITED = placeholder();
     public static final int WNOHANG = placeholder();

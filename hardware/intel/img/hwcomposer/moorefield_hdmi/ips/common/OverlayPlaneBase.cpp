@@ -378,6 +378,7 @@ BufferMapper* OverlayPlaneBase::getTTMMapper(BufferMapper& grallocMapper, struct
         // calculate stride
         switch (format) {
         case HAL_PIXEL_FORMAT_YV12:
+        case HAL_PIXEL_FORMAT_INTEL_YV12:
         case HAL_PIXEL_FORMAT_I420:
             uint32_t yStride_align;
             yStride_align = DisplayQuery::getOverlayLumaStrideAlignment(grallocMapper.getFormat());
@@ -696,6 +697,12 @@ bool OverlayPlaneBase::bufferOffsetSetup(BufferMapper& mapper)
         backBuffer->OBUF_0U = backBuffer->OBUF_0V + (uvStride * (h / 2));
         backBuffer->OCMD |= OVERLAY_FORMAT_PLANAR_YUV420;
         break;
+    case HAL_PIXEL_FORMAT_INTEL_YV12:    // INTEL_YV12
+        backBuffer->OBUF_0Y = 0;
+        backBuffer->OBUF_0V = yStride * align_to(h, 32);
+        backBuffer->OBUF_0U = backBuffer->OBUF_0V + (uvStride * (align_to(h, 32) / 2));
+        backBuffer->OCMD |= OVERLAY_FORMAT_PLANAR_YUV420;
+        break;
     case HAL_PIXEL_FORMAT_I420:    // I420
         backBuffer->OBUF_0Y = 0;
         backBuffer->OBUF_0U = yStride * h;
@@ -800,6 +807,7 @@ bool OverlayPlaneBase::coordinateSetup(BufferMapper& mapper)
 
     switch (format) {
     case HAL_PIXEL_FORMAT_YV12:              // YV12
+    case HAL_PIXEL_FORMAT_INTEL_YV12:        // INTEL_YV12
     case HAL_PIXEL_FORMAT_I420:              // I420
     case HAL_PIXEL_FORMAT_NV12:              // NV12
     case OMX_INTEL_COLOR_FormatYUV420PackedSemiPlanar:          // NV12
@@ -1122,6 +1130,9 @@ bool OverlayPlaneBase::colorSetup(BufferMapper& mapper)
         return false;
     }
 
+    if (mPipeConfig == (0x2 << 6))
+        return true;
+
     uint32_t format = mapper.getFormat();
     if (format != OMX_INTEL_COLOR_FormatYUV420PackedSemiPlanar &&
         format != OMX_INTEL_COLOR_FormatYUV420PackedSemiPlanar_Tiled) {
@@ -1147,8 +1158,7 @@ bool OverlayPlaneBase::colorSetup(BufferMapper& mapper)
     backBuffer->OCONFIG &= ~(1 << 5);
     backBuffer->OCONFIG |= (payload->csc_mode << 5);
 
-    // no level expansion for video on HDMI
-    if (payload->video_range || mPipeConfig == (0x2 << 6)) {
+    if  (payload->video_range) {
         // full range, no need to do level expansion
         backBuffer->OCLRC0 = 0x1000000;
         backBuffer->OCLRC1 = 0x80;

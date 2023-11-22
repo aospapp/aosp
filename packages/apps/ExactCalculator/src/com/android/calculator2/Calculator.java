@@ -32,7 +32,9 @@ import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.PropertyValuesHolder;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ClipData;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.Color;
@@ -71,7 +73,8 @@ import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 
 public class Calculator extends Activity
-        implements OnTextSizeChangeListener, OnLongClickListener, CalculatorText.OnPasteListener {
+        implements OnTextSizeChangeListener, OnLongClickListener, CalculatorText.OnPasteListener,
+        AlertDialogFragment.OnClickListener {
 
     /**
      * Constant for an invalid resource id.
@@ -311,6 +314,7 @@ public class Calculator extends Activity
 
     @Override
     protected void onSaveInstanceState(@NonNull Bundle outState) {
+        mEvaluator.cancelAll(true);
         // If there's an animation in progress, cancel it first to ensure our state is up-to-date.
         if (mCurrentAnimator != null) {
             mCurrentAnimator.cancel();
@@ -445,19 +449,27 @@ public class Calculator extends Activity
         }
     }
 
+    /**
+     * Switch to INPUT from RESULT state in response to input of the specified button_id.
+     * View.NO_ID is treated as an incomplete function id.
+     */
+    private void switchToInput(int button_id) {
+        if (KeyMaps.isBinary(button_id) || KeyMaps.isSuffix(button_id)) {
+            mEvaluator.collapse();
+        } else {
+            announceClearedForAccessibility();
+            mEvaluator.clear();
+        }
+        setState(CalculatorState.INPUT);
+    }
+
     // Add the given button id to input expression.
     // If appropriate, clear the expression before doing so.
     private void addKeyToExpr(int id) {
         if (mCurrentState == CalculatorState.ERROR) {
             setState(CalculatorState.INPUT);
         } else if (mCurrentState == CalculatorState.RESULT) {
-            if (KeyMaps.isBinary(id) || KeyMaps.isSuffix(id)) {
-                mEvaluator.collapse();
-            } else {
-                announceClearForAccessibility();
-                mEvaluator.clear();
-            }
-            setState(CalculatorState.INPUT);
+            switchToInput(id);
         }
         if (!mEvaluator.append(id)) {
             // TODO: Some user visible feedback?
@@ -653,6 +665,11 @@ public class Calculator extends Activity
         } else {
             mEvaluator.delete();
         }
+        if (mEvaluator.getExpr().isEmpty()
+                && (mUnprocessedChars == null || mUnprocessedChars.isEmpty())) {
+            // Resulting formula won't be announced, since it's empty.
+            announceClearedForAccessibility();
+        }
         redisplayAfterFormulaChange();
     }
 
@@ -710,8 +727,8 @@ public class Calculator extends Activity
         animatorSet.start();
     }
 
-    private void announceClearForAccessibility() {
-        mResultText.announceForAccessibility(getResources().getString(R.string.desc_clr));
+    private void announceClearedForAccessibility() {
+        mResultText.announceForAccessibility(getResources().getString(R.string.cleared));
     }
 
     private void onClear() {
@@ -719,7 +736,7 @@ public class Calculator extends Activity
             return;
         }
         cancelIfEvaluating(true);
-        announceClearForAccessibility();
+        announceClearedForAccessibility();
         reveal(mCurrentButton, R.color.calculator_accent_color, new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator animation) {
@@ -834,7 +851,15 @@ public class Calculator extends Activity
         mFormulaText.setTranslationY(0.0f);
 
         mFormulaText.requestFocus();
-     }
+    }
+
+    @Override
+    public void onClick(AlertDialogFragment fragment, int which) {
+        if (which == DialogInterface.BUTTON_POSITIVE) {
+            // Timeout extension request.
+            mEvaluator.setLongTimeOut();
+        }
+    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -876,7 +901,7 @@ public class Calculator extends Activity
     }
 
     private void displayMessage(String s) {
-        AlertDialogFragment.showMessageDialog(this, s);
+        AlertDialogFragment.showMessageDialog(this, s, null);
     }
 
     private void displayFraction() {
@@ -911,6 +936,10 @@ public class Calculator extends Activity
         int current = 0;
         int len = moreChars.length();
         boolean lastWasDigit = false;
+        if (mCurrentState == CalculatorState.RESULT && len != 0) {
+            // Clear display immediately for incomplete function name.
+            switchToInput(KeyMaps.keyForChar(moreChars.charAt(current)));
+        }
         while (current < len) {
             char c = moreChars.charAt(current);
             int k = KeyMaps.keyForChar(c);
@@ -991,7 +1020,7 @@ public class Calculator extends Activity
                 setState(CalculatorState.INPUT);
                 mEvaluator.clear();
             }
-            mEvaluator.addSaved();
+            mEvaluator.appendSaved();
             redisplayAfterFormulaChange();
         } else {
             addChars(item.coerceToText(this).toString(), false);

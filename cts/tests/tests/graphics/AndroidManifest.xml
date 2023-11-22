@@ -16,7 +16,7 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.graphics">
+    package="android.graphics.cts">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
@@ -54,7 +54,7 @@
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.graphics"
+                     android:targetPackage="android.graphics.cts"
                      android:label="CTS tests of android.graphics">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

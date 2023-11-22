@@ -21,7 +21,7 @@ namespace {
 class ValueHandle : public testing::Test {
 protected:
   Constant *ConstantV;
-  std::auto_ptr<BitCastInst> BitcastV;
+  std::unique_ptr<BitCastInst> BitcastV;
 
   ValueHandle() :
     ConstantV(ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0)),
@@ -29,7 +29,7 @@ protected:
   }
 };
 
-class ConcreteCallbackVH : public CallbackVH {
+class ConcreteCallbackVH final : public CallbackVH {
 public:
   ConcreteCallbackVH(Value *V) : CallbackVH(V) {}
 };
@@ -235,7 +235,7 @@ TEST_F(ValueHandle, CallbackVH_Comparisons) {
 }
 
 TEST_F(ValueHandle, CallbackVH_CallbackOnDeletion) {
-  class RecordingVH : public CallbackVH {
+  class RecordingVH final : public CallbackVH {
   public:
     int DeletedCalls;
     int AURWCalls;
@@ -261,7 +261,7 @@ TEST_F(ValueHandle, CallbackVH_CallbackOnDeletion) {
 }
 
 TEST_F(ValueHandle, CallbackVH_CallbackOnRAUW) {
-  class RecordingVH : public CallbackVH {
+  class RecordingVH final : public CallbackVH {
   public:
     int DeletedCalls;
     Value *AURWArgument;
@@ -291,7 +291,7 @@ TEST_F(ValueHandle, CallbackVH_CallbackOnRAUW) {
 }
 
 TEST_F(ValueHandle, CallbackVH_DeletionCanRAUW) {
-  class RecoveringVH : public CallbackVH {
+  class RecoveringVH final : public CallbackVH {
   public:
     int DeletedCalls;
     Value *AURWArgument;
@@ -320,7 +320,7 @@ TEST_F(ValueHandle, CallbackVH_DeletionCanRAUW) {
   // a CallbackVH to remove the uses before the check for no uses.
   RecoveringVH RVH;
   RVH = BitcastV.get();
-  std::auto_ptr<BinaryOperator> BitcastUser(
+  std::unique_ptr<BinaryOperator> BitcastUser(
     BinaryOperator::CreateAdd(RVH, 
                               Constant::getNullValue(Type::getInt32Ty(getGlobalContext()))));
   EXPECT_EQ(BitcastV.get(), BitcastUser->getOperand(0));
@@ -339,7 +339,7 @@ TEST_F(ValueHandle, DestroyingOtherVHOnSameValueDoesntBreakIteration) {
   // arrangement of other VHs so that the bad behavior would be
   // triggered in whichever order callbacks run.
 
-  class DestroyingVH : public CallbackVH {
+  class DestroyingVH final : public CallbackVH {
   public:
     std::unique_ptr<WeakVH> ToClear[2];
     DestroyingVH(Value *V) {
@@ -384,7 +384,7 @@ TEST_F(ValueHandle, AssertingVHCheckedLast) {
   // Value deletion, the CallbackVH should get a chance to do so
   // before the AssertingVHs assert.
 
-  class ClearingVH : public CallbackVH {
+  class ClearingVH final : public CallbackVH {
   public:
     AssertingVH<Value> *ToClear[2];
     ClearingVH(Value *V,

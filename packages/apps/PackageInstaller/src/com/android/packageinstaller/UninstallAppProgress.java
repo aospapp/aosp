@@ -27,6 +27,9 @@ import android.content.pm.IPackageManager;
 import android.content.pm.PackageInstaller;
 import android.content.pm.PackageManager;
 import android.content.pm.UserInfo;
+import android.content.res.Configuration;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -35,7 +38,9 @@ import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.provider.Settings;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -61,14 +66,22 @@ public class UninstallAppProgress extends Activity implements OnClickListener {
     private UserHandle mUser;
     private IBinder mCallback;
 
-    private TextView mStatusTextView;
     private Button mOkButton;
     private Button mDeviceManagerButton;
-    private ProgressBar mProgressBar;
-    private View mOkPanel;
+    private Button mUsersButton;
     private volatile int mResultCode = -1;
 
+    /**
+     * If initView was called. We delay this call to not have to call it at all if the uninstall is
+     * quick
+     */
+    private boolean mIsViewInitialized;
+
+    /** Amount of time to wait until we show the UI */
+    private static final int QUICK_INSTALL_DELAY_MILLIS = 500;
+
     private static final int UNINSTALL_COMPLETE = 1;
+    private static final int UNINSTALL_IS_SLOW = 2;
 
     private boolean isProfileOfOrSame(UserManager userManager, int userId, int profileId) {
         if (userId == profileId) {
@@ -80,8 +93,21 @@ public class UninstallAppProgress extends Activity implements OnClickListener {
 
     private Handler mHandler = new Handler() {
         public void handleMessage(Message msg) {
+            if (isFinishing() || isDestroyed()) {
+                return;
+            }
+
             switch (msg.what) {
+                case UNINSTALL_IS_SLOW:
+                    initView();
+                    break;
                 case UNINSTALL_COMPLETE:
+                    mHandler.removeMessages(UNINSTALL_IS_SLOW);
+
+                    if (msg.arg1 != PackageManager.DELETE_SUCCEEDED) {
+                        initView();
+                    }
+
                     mResultCode = msg.arg1;
                     final String packageName = (String) msg.obj;
 
@@ -180,15 +206,19 @@ public class UninstallAppProgress extends Activity implements OnClickListener {
                                 mDeviceManagerButton.setVisibility(View.VISIBLE);
                             } else {
                                 mDeviceManagerButton.setVisibility(View.GONE);
+                                mUsersButton.setVisibility(View.VISIBLE);
                             }
-                            if (blockingUserId == UserHandle.USER_OWNER) {
+                            // TODO: b/25442806
+                            if (blockingUserId == UserHandle.USER_SYSTEM) {
                                 statusText = getString(R.string.uninstall_blocked_device_owner);
                             } else if (blockingUserId == UserHandle.USER_NULL) {
                                 Log.d(TAG, "Uninstall failed for " + packageName + " with code "
                                         + msg.arg1 + " no blocking user");
                                 statusText = getString(R.string.uninstall_failed);
                             } else {
-                                statusText = getString(R.string.uninstall_blocked_profile_owner);
+                                statusText = mAllUsers
+                                        ? getString(R.string.uninstall_all_blocked_profile_owner) :
+                                        getString(R.string.uninstall_blocked_profile_owner);
                             }
                             break;
                         }
@@ -198,11 +228,10 @@ public class UninstallAppProgress extends Activity implements OnClickListener {
                             statusText = getString(R.string.uninstall_failed);
                             break;
                     }
-                    mStatusTextView.setText(statusText);
-
-                    // Hide the progress bar; Show the ok button
-                    mProgressBar.setVisibility(View.INVISIBLE);
-                    mOkPanel.setVisibility(View.VISIBLE);
+                    findViewById(R.id.progress_view).setVisibility(View.GONE);
+                    findViewById(R.id.status_view).setVisibility(View.VISIBLE);
+                    ((TextView)findViewById(R.id.status_text)).setText(statusText);
+                    findViewById(R.id.ok_panel).setVisibility(View.VISIBLE);
                     break;
                 default:
                     break;
@@ -213,11 +242,34 @@ public class UninstallAppProgress extends Activity implements OnClickListener {
     @Override
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
+
         Intent intent = getIntent();
         mAppInfo = intent.getParcelableExtra(PackageUtil.INTENT_ATTR_APPLICATION_INFO);
+        mCallback = intent.getIBinderExtra(PackageInstaller.EXTRA_CALLBACK);
+
+        // This currently does not support going through a onDestroy->onCreate cycle. Hence if that
+        // happened, just fail the operation for mysterious reasons.
+        if (icicle != null) {
+            mResultCode = PackageManager.DELETE_FAILED_INTERNAL_ERROR;
+
+            if (mCallback != null) {
+                final IPackageDeleteObserver2 observer = IPackageDeleteObserver2.Stub
+                        .asInterface(mCallback);
+                try {
+                    observer.onPackageDeleted(mAppInfo.packageName, mResultCode, null);
+                } catch (RemoteException ignored) {
+                }
+                finish();
+            } else {
+                setResultAndFinish(mResultCode);
+            }
+
+            return;
+        }
+
         mAllUsers = intent.getBooleanExtra(Intent.EXTRA_UNINSTALL_ALL_USERS, false);
-        if (mAllUsers && UserHandle.myUserId() != UserHandle.USER_OWNER) {
-            throw new SecurityException("Only owner user can request uninstall for all users");
+        if (mAllUsers && !UserManager.get(this).isAdminUser()) {
+            throw new SecurityException("Only admin user can request uninstall for all users");
         }
         mUser = intent.getParcelableExtra(Intent.EXTRA_USER);
         if (mUser == null) {
@@ -230,8 +282,21 @@ public class UninstallAppProgress extends Activity implements OnClickListener {
                         + "request uninstall for user " + mUser);
             }
         }
-        mCallback = intent.getIBinderExtra(PackageInstaller.EXTRA_CALLBACK);
-        initView();
+
+        PackageDeleteObserver observer = new PackageDeleteObserver();
+
+        // Make window transparent until initView is called. In many cases we can avoid showing the
+        // UI at all as the app is uninstalled very quickly. If we show the UI and instantly remove
+        // it, it just looks like a flicker.
+        getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        getWindow().setStatusBarColor(Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(Color.TRANSPARENT);
+
+        getPackageManager().deletePackageAsUser(mAppInfo.packageName, observer,
+                mAllUsers ? PackageManager.DELETE_ALL_USERS : 0, mUser.getIdentifier());
+
+        mHandler.sendMessageDelayed(mHandler.obtainMessage(UNINSTALL_IS_SLOW),
+                QUICK_INSTALL_DELAY_MILLIS);
     }
     
     class PackageDeleteObserver extends IPackageDeleteObserver.Stub {
@@ -249,6 +314,28 @@ public class UninstallAppProgress extends Activity implements OnClickListener {
     }
     
     public void initView() {
+        if (mIsViewInitialized) {
+            return;
+        }
+        mIsViewInitialized = true;
+
+        // We set the window background to translucent in constructor, revert this
+        TypedValue attribute = new TypedValue();
+        getTheme().resolveAttribute(android.R.attr.windowBackground, attribute, true);
+        if (attribute.type >= TypedValue.TYPE_FIRST_COLOR_INT &&
+                attribute.type <= TypedValue.TYPE_LAST_COLOR_INT) {
+            getWindow().setBackgroundDrawable(new ColorDrawable(attribute.data));
+        } else {
+            getWindow().setBackgroundDrawable(getResources().getDrawable(attribute.resourceId,
+                    getTheme()));
+        }
+
+        getTheme().resolveAttribute(android.R.attr.navigationBarColor, attribute, true);
+        getWindow().setNavigationBarColor(attribute.data);
+
+        getTheme().resolveAttribute(android.R.attr.statusBarColor, attribute, true);
+        getWindow().setStatusBarColor(attribute.data);
+
         boolean isUpdate = ((mAppInfo.flags & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0);
         setTitle(isUpdate ? R.string.uninstall_update_title : R.string.uninstall_application_title);
 
@@ -256,9 +343,8 @@ public class UninstallAppProgress extends Activity implements OnClickListener {
         // Initialize views
         View snippetView = findViewById(R.id.app_snippet);
         PackageUtil.initSnippetForInstalledApp(this, mAppInfo, snippetView);
-        mStatusTextView = (TextView) findViewById(R.id.center_text);
-        mStatusTextView.setText(R.string.uninstalling);
         mDeviceManagerButton = (Button) findViewById(R.id.device_manager_button);
+        mUsersButton = (Button) findViewById(R.id.users_button);
         mDeviceManagerButton.setVisibility(View.GONE);
         mDeviceManagerButton.setOnClickListener(new OnClickListener() {
             @Override
@@ -271,24 +357,19 @@ public class UninstallAppProgress extends Activity implements OnClickListener {
                 finish();
             }
         });
-        mProgressBar = (ProgressBar) findViewById(R.id.progress_bar);
-        mProgressBar.setIndeterminate(true);
+        mUsersButton.setVisibility(View.GONE);
+        mUsersButton.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(Settings.ACTION_USER_SETTINGS);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NO_HISTORY | Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+                finish();
+            }
+        });
         // Hide button till progress is being displayed
-        mOkPanel = (View) findViewById(R.id.ok_panel);
         mOkButton = (Button) findViewById(R.id.ok_button);
         mOkButton.setOnClickListener(this);
-        mOkPanel.setVisibility(View.INVISIBLE);
-        IPackageManager packageManager =
-                IPackageManager.Stub.asInterface(ServiceManager.getService("package"));
-        PackageDeleteObserver observer = new PackageDeleteObserver();
-        try {
-            packageManager.deletePackageAsUser(mAppInfo.packageName, observer,
-                    mUser.getIdentifier(),
-                    mAllUsers ? PackageManager.DELETE_ALL_USERS : 0);
-        } catch (RemoteException e) {
-            // Shouldn't happen.
-            Log.e(TAG, "Failed to talk to package manager", e);
-        }
     }
 
     public void onClick(View v) {

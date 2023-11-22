@@ -39,7 +39,7 @@ public:
                        uint32_t usrLen,
                        const RsScriptCall *sc) override;
 
-    void forEachKernelSetup(uint32_t slot, MTLaunchStruct * mtls) override;
+    void forEachKernelSetup(uint32_t slot, MTLaunchStructForEach * mtls) override;
     void invokeInit() override;
     void invokeFreeChildren() override;
 
@@ -65,7 +65,7 @@ public:
 
 protected:
     RsScriptIntrinsicID mID;
-    outer_foreach_t mRootPtr;
+    ForEachFunc_t mRootPtr;
     ObjectBaseRef<const Element> mElement;
 
 };

@@ -80,6 +80,18 @@ AllocationCubeCreateFromBitmap {
     ret RsAllocation
 }
 
+AllocationSetupBufferQueue {
+    param RsAllocation alloc
+    param uint32_t numAlloc
+    sync
+}
+
+AllocationShareBufferQueue {
+    param RsAllocation alloc1
+    param RsAllocation alloc2
+    sync
+}
+
 AllocationGetSurface {
     param RsAllocation alloc
     sync
@@ -311,8 +323,8 @@ ClosureCreate {
     param RsScriptKernelID kernelID
     param RsAllocation returnValue
     param RsScriptFieldID * fieldIDs
-    param uintptr_t * values
-    param int * sizes
+    param const int64_t * values
+    param const int * sizes
     param RsClosure * depClosures
     param RsScriptFieldID * depFieldIDs
     ret RsClosure
@@ -323,7 +335,7 @@ InvokeClosureCreate {
     param RsScriptInvokeID invokeID
     param const void * params
     param const RsScriptFieldID * fieldIDs
-    param const uintptr_t * values
+    param const int64_t * values
     param const int * sizes
     ret RsClosure
 }
@@ -332,14 +344,14 @@ ClosureSetArg {
   param RsClosure closureID
   param uint32_t index
   param uintptr_t value
-  param size_t valueSize
+  param int valueSize
 }
 
 ClosureSetGlobal {
   param RsClosure closureID
   param RsScriptFieldID fieldID
-  param uintptr_t value
-  param size_t valueSize
+  param int64_t value
+  param int valueSize
 }
 
 SamplerCreate {
@@ -396,6 +408,14 @@ ScriptForEachMulti {
     param RsAllocation * ains
     param RsAllocation aout
     param const void * usr
+    param const RsScriptCall * sc
+}
+
+ScriptReduce {
+    param RsScript s
+    param uint32_t slot
+    param RsAllocation * ains
+    param RsAllocation aout
     param const RsScriptCall * sc
 }
 
@@ -519,4 +539,5 @@ AllocationIoSend {
 
 AllocationIoReceive {
     param RsAllocation alloc
+    ret int64_t
     }

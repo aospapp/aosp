@@ -28,6 +28,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 
 /**
  * A microbenchmark that tests the performance of get() and iteration on various map
@@ -71,6 +72,15 @@ public class MapBenchmark {
     Tree {
       @Override Map<Element, Element> create(Collection<Element> keys) {
         Map<Element, Element> map = Maps.newTreeMap();
+        for (Element element: keys) {
+          map.put(element, element);
+        }
+        return map;
+      }
+    },
+    SkipList {
+      @Override Map<Element, Element> create(Collection<Element> keys) {
+        Map<Element, Element> map = new ConcurrentSkipListMap<Element, Element>();
         for (Element element: keys) {
           map.put(element, element);
         }

@@ -22,8 +22,7 @@
     <group>Wearable</group>
     <package>com.example.android.wearable.gridviewpager</package>
 
-    <minSdk>18</minSdk>
-    <targetSdkVersion>22</targetSdkVersion>
+    <targetSdkVersionWear>22</targetSdkVersionWear>
 
     <strings>
         <intro>

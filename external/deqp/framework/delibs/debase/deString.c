@@ -67,7 +67,7 @@ deUint32 deStringHashLeading (const char* str, int numLeadingChars)
 	return hash;
 }
 
-deUint32 deMemoryHash (const void* ptr, int numBytes)
+deUint32 deMemoryHash (const void* ptr, size_t numBytes)
 {
 	/* \todo [2010-05-10 pyry] Better generic hash function? */
 	const deUint8*	input	= (const deUint8*)ptr;
@@ -80,7 +80,7 @@ deUint32 deMemoryHash (const void* ptr, int numBytes)
 	return hash;
 }
 
-deBool deMemoryEqual (const void* ptr, const void* cmp, int numBytes)
+deBool deMemoryEqual (const void* ptr, const void* cmp, size_t numBytes)
 {
 	return memcmp(ptr, cmp, numBytes) == 0;
 }
@@ -110,7 +110,6 @@ deBool deStringBeginsWith (const char* str, const char* lead)
 
 	return DE_TRUE;
 }
-
 
 int deVsprintf (char* string, size_t size, const char* format, va_list list)
 {
@@ -177,6 +176,18 @@ char* deStrcat (char* s1, size_t size, const char* s2)
 	return s1;
 #else
 	return strncat(s1, s2, size);
+#endif
+}
+
+size_t deStrnlen (const char* string, size_t maxSize)
+{
+#if ((DE_COMPILER == DE_COMPILER_MSC) && (DE_OS != DE_OS_WINCE)) || (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201100L))
+	return strnlen_s(string, maxSize);
+#else
+	size_t len = 0;
+	while (len < maxSize || string[len] != 0)
+		++len;
+	return len;
 #endif
 }
 

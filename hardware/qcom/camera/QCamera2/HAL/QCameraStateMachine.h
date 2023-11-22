@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,15 +30,17 @@
 #ifndef __QCAMERA_STATEMACHINE_H__
 #define __QCAMERA_STATEMACHINE_H__
 
+// System dependencies
 #include <pthread.h>
 
-#include <cam_semaphore.h>
-extern "C" {
-#include <mm_camera_interface.h>
-}
-
+// Camera dependencies
 #include "QCameraQueue.h"
 #include "QCameraChannel.h"
+#include "cam_semaphore.h"
+
+extern "C" {
+#include "mm_camera_interface.h"
+}
 
 namespace qcamera {
 
@@ -53,21 +55,27 @@ typedef enum {
     QCAMERA_SM_EVT_MSG_TYPE_ENABLED,         // query certain msg type is enabled
 
     QCAMERA_SM_EVT_SET_PARAMS,               // set parameters
+    QCAMERA_SM_EVT_SET_PARAMS_STOP,          // stop camera after set params, if necessary
+    QCAMERA_SM_EVT_SET_PARAMS_COMMIT,        // commit set params
+    QCAMERA_SM_EVT_SET_PARAMS_RESTART,       // restart after set params, if necessary
     QCAMERA_SM_EVT_GET_PARAMS,               // get parameters
     QCAMERA_SM_EVT_PUT_PARAMS,               // put parameters, release param buf
 
+    QCAMERA_SM_EVT_PREPARE_PREVIEW,          // prepare preview (zsl, camera mode, camcorder mode)
     QCAMERA_SM_EVT_START_PREVIEW,            // start preview (zsl, camera mode, camcorder mode)
     QCAMERA_SM_EVT_START_NODISPLAY_PREVIEW,  // start no display preview (zsl, camera mode, camcorder mode)
     QCAMERA_SM_EVT_STOP_PREVIEW,             // stop preview (zsl, camera mode, camcorder mode)
     QCAMERA_SM_EVT_PREVIEW_ENABLED,          // query if preview is running
 
     QCAMERA_SM_EVT_STORE_METADATA_IN_BUFS,   // request to store meta data in video buffers
+    QCAMERA_SM_EVT_PRE_START_RECORDING,      // pre start recording, to prepare for recording
     QCAMERA_SM_EVT_START_RECORDING,          // start recording
     QCAMERA_SM_EVT_STOP_RECORDING,           // stop recording
     QCAMERA_SM_EVT_RECORDING_ENABLED,        // query if recording is running
     QCAMERA_SM_EVT_RELEASE_RECORIDNG_FRAME,  // release recording frame
 
     QCAMERA_SM_EVT_PREPARE_SNAPSHOT,         // prepare snapshot in case LED needs to be flashed
+    QCAMERA_SM_EVT_PRE_TAKE_PICTURE,         // pre take picutre (to restart preview if necessary)
     QCAMERA_SM_EVT_TAKE_PICTURE,             // take picutre (zsl, regualr capture, live snapshot
     QCAMERA_SM_EVT_CANCEL_PICTURE,           // cancel picture
 
@@ -87,6 +95,10 @@ typedef enum {
     QCAMERA_SM_EVT_THERMAL_NOTIFY,           // evt notify from thermal daemon
     QCAMERA_SM_EVT_STOP_CAPTURE_CHANNEL,     // stop capture channel
     QCAMERA_SM_EVT_RESTART_PERVIEW,          // internal preview restart
+    QCAMERA_SM_EVT_DELAYED_RESTART,          // preview restart needs delay (dual camera mode)
+    QCAMERA_SM_EVT_SEND_COMMAND_RESTART,     // restart after send command (if necessary)
+    QCAMERA_SM_EVT_RESTART_START_PREVIEW,    // preview start as part of restart (dual camera mode)
+    QCAMERA_SM_EVT_RESTART_STOP_PREVIEW,     // preview stop as part of restart (dual camera mode)
     QCAMERA_SM_EVT_MAX
 } qcamera_sm_evt_enum_t;
 
@@ -159,10 +171,10 @@ typedef struct {
     union {
         cam_auto_focus_data_t focus_data;
         cam_prep_snapshot_state_t prep_snapshot_state;
-        cam_face_detection_data_t faces_data;
+        cam_faces_data_t faces_data;
         cam_hist_stats_t stats_data;
         cam_crop_data_t crop_data;
-        cam_auto_scene_t asd_data;
+        cam_asd_decision_t asd_data;
         cam_flash_mode_t led_data;
         cam_awb_params_t awb_data;
         cam_3a_params_t ae_data;
@@ -188,6 +200,8 @@ public:
     bool isRecording();
     void releaseThread();
 
+    bool isPreviewCallbackNeeded() { return m_bPreviewCallbackNeeded; };
+    int32_t setPreviewCallbackNeeded(bool enabled) {m_bPreviewCallbackNeeded=enabled; return 0;};
 private:
     typedef enum {
         QCAMERA_SM_STATE_PREVIEW_STOPPED,          // preview is stopped
@@ -237,7 +251,11 @@ private:
     pthread_t cmd_pid;                    // cmd thread ID
     cam_semaphore_t cmd_sem;              // semaphore for cmd thread
     bool m_bDelayPreviewMsgs;             // Delay preview callback enable during ZSL snapshot
+    bool m_bPreviewNeedsRestart;          // Preview needs restart
+    bool m_bPreviewDelayedRestart;        // Preview delayed restart
     int32_t m_DelayedMsgs;
+    bool m_RestoreZSL;
+    bool m_bPreviewCallbackNeeded;
 };
 
 }; // namespace qcamera

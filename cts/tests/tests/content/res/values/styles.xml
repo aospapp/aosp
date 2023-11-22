@@ -33,6 +33,9 @@
         <item name="type14">TypedArray Test!</item>
         <item name="type15">@array/difficultyLevel</item>
         <item name="type16">Typed Value!</item>
+        <item name="type17">@color/testcolor_orientation</item>
+        <item name="typeEmpty">@empty</item>
+        <item name="typeUndefined">@null</item>
     </style>
 
     <style name="TextViewWithoutColorAndAppearance">

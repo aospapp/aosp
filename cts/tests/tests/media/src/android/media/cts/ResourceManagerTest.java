@@ -23,13 +23,13 @@ public class ResourceManagerTest
         extends ActivityInstrumentationTestCase2<ResourceManagerStubActivity> {
 
     public ResourceManagerTest() {
-        super("com.android.cts.media", ResourceManagerStubActivity.class);
+        super("android.media.cts", ResourceManagerStubActivity.class);
     }
 
     private void doTestReclaimResource(int type1, int type2) throws Exception {
         Bundle extras = new Bundle();
         ResourceManagerStubActivity activity = launchActivity(
-                "com.android.cts.media", ResourceManagerStubActivity.class, extras);
+                "android.media.cts", ResourceManagerStubActivity.class, extras);
         activity.testReclaimResource(type1, type2);
         activity.finish();
     }

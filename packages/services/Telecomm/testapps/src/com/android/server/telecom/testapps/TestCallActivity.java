@@ -20,6 +20,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.telecom.VideoProfile;
 
 /**
  * This activity exists in order to add an icon to the launcher. This activity has no UI of its own
@@ -58,7 +59,8 @@ public class TestCallActivity extends Activity {
         final String action = intent != null ? intent.getAction() : null;
         final Uri data = intent != null ? intent.getData() : null;
         if (ACTION_NEW_INCOMING_CALL.equals(action) && data != null) {
-            CallNotificationReceiver.sendIncomingCallIntent(this, data, false);
+            CallNotificationReceiver.sendIncomingCallIntent(this, data,
+                    VideoProfile.STATE_AUDIO_ONLY);
         } else if (ACTION_NEW_UNKNOWN_CALL.equals(action) && data != null) {
             CallNotificationReceiver.addNewUnknownCall(this, data, intent.getExtras());
         } else if (ACTION_HANGUP_CALLS.equals(action)) {

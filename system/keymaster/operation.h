@@ -105,9 +105,15 @@ class Operation {
     virtual keymaster_error_t Update(const AuthorizationSet& input_params, const Buffer& input,
                                      AuthorizationSet* output_params, Buffer* output,
                                      size_t* input_consumed) = 0;
-    virtual keymaster_error_t Finish(const AuthorizationSet& input_params, const Buffer& signature,
-                                     AuthorizationSet* output_params, Buffer* output) = 0;
+    virtual keymaster_error_t Finish(const AuthorizationSet& input_params, const Buffer& input,
+                                     const Buffer& signature, AuthorizationSet* output_params,
+                                     Buffer* output) = 0;
     virtual keymaster_error_t Abort() = 0;
+
+protected:
+    // Helper function for implementing Finish() methods that need to call Update() to process
+    // input, but don't expect any output.
+    keymaster_error_t UpdateForFinish(const AuthorizationSet& input_params, const Buffer& input);
 
   private:
     const keymaster_purpose_t purpose_;

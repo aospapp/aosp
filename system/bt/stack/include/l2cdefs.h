@@ -40,7 +40,9 @@
 #define L2CAP_CMD_AMP_MOVE_CFM_RSP          0x11
 #define L2CAP_CMD_BLE_UPDATE_REQ            0x12
 #define L2CAP_CMD_BLE_UPDATE_RSP            0x13
-
+#define L2CAP_CMD_BLE_CREDIT_BASED_CONN_REQ 0x14
+#define L2CAP_CMD_BLE_CREDIT_BASED_CONN_RES 0x15
+#define L2CAP_CMD_BLE_FLOW_CTRL_CREDIT      0x16
 
 /* Define some packet and header lengths
 */
@@ -57,7 +59,6 @@
 #define L2CAP_ECHO_RSP_LEN      0           /* Data is optional                     */
 #define L2CAP_INFO_REQ_LEN      2           /* Info type                            */
 #define L2CAP_INFO_RSP_LEN      4           /* Info type, result (data is optional) */
-#define L2CAP_BCST_OVERHEAD     2           /* Additional broadcast packet overhead */
 #define L2CAP_UCD_OVERHEAD      2           /* Additional connectionless packet overhead */
 
 #define L2CAP_AMP_CONN_REQ_LEN  5           /* PSM, CID, and remote controller ID   */
@@ -69,6 +70,9 @@
 #define L2CAP_CMD_BLE_UPD_REQ_LEN   8       /* Min and max interval, latency, tout  */
 #define L2CAP_CMD_BLE_UPD_RSP_LEN   2       /* Result                               */
 
+#define L2CAP_CMD_BLE_CREDIT_BASED_CONN_REQ_LEN 10 /* LE_PSM, SCID, MTU, MPS, Init Credit */
+#define L2CAP_CMD_BLE_CREDIT_BASED_CONN_RES_LEN 10 /* DCID, MTU, MPS, Init credit, Result */
+#define L2CAP_CMD_BLE_FLOW_CTRL_CREDIT_LEN      4  /* CID, Credit */
 
 /* Define the packet boundary flags
 */
@@ -97,6 +101,16 @@
 #define L2CAP_CONN_NO_LINK           255        /* Add a couple of our own for internal use */
 #define L2CAP_CONN_CANCEL            256        /* L2CAP connection cancelled */
 
+/* Define the LE L2CAP connection result codes
+*/
+#define L2CAP_LE_CONN_OK                        0
+#define L2CAP_LE_NO_PSM                         2
+#define L2CAP_LE_NO_RESOURCES                   4
+#define L2CAP_LE_INSUFFICIENT_AUTHENTICATION    5
+#define L2CAP_LE_INSUFFICIENT_AUTHORIZATION     6
+#define L2CAP_LE_INSUFFICIENT_ENCRYP_KEY_SIZE   7
+#define L2CAP_LE_INSUFFICIENT_ENCRYP            8
+#define L2CAP_LE_INVALID_SOURCE_CID             9   /* We don't like peer device response */
 
 /* Define L2CAP Move Channel Response result codes
 */
@@ -257,8 +271,8 @@
 #define L2CAP_BLE_EXTFEA_MASK 0
 #endif
 
-/* Define a value that tells L2CAP to use the default HCI ACL buffer pool */
-#define L2CAP_DEFAULT_ERM_POOL_ID       0xFF
+/* Define a value that tells L2CAP to use the default HCI ACL buffer size */
+#define L2CAP_INVALID_ERM_BUF_SIZE      0
 /* Define a value that tells L2CAP to use the default MPS */
 #define L2CAP_DEFAULT_ERM_MPS           0x0000
 
@@ -269,10 +283,13 @@
 #define L2CAP_EXT_CONTROL_OVERHEAD 4   /* Extended Control Field       */
 #define L2CAP_MAX_HEADER_FCS       (L2CAP_PKT_OVERHEAD + L2CAP_EXT_CONTROL_OVERHEAD + L2CAP_SDU_LEN_OVERHEAD + L2CAP_FCS_LEN)
                                    /* length(2), channel(2), control(4), SDU length(2) FCS(2) */
+
 /* To optimize this, it must be a multiplum of the L2CAP PDU length AND match the 3DH5 air
  * including the l2cap headers in each packet - to match the latter - the -5 is added
+ * Changed it to  8087 to have same value between BTIF and L2cap layers
  */
-#define L2CAP_MAX_SDU_LENGTH     (GKI_BUF4_SIZE - (L2CAP_MIN_OFFSET + L2CAP_MAX_HEADER_FCS) -5)
+#define L2CAP_MAX_SDU_LENGTH     (8080 + 26 - (L2CAP_MIN_OFFSET + 6))
+#define L2CAP_MAX_BUF_SIZE      (10240 + 24)
 
 /* Part of L2CAP_MIN_OFFSET that is not part of L2CAP
 */

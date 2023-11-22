@@ -16,6 +16,7 @@
 
 namespace clang {
   class ASTContext;
+  class ObjCInterfaceDecl;
   class QualType;
   class Expr;
 
@@ -35,8 +36,8 @@ public:
     ClassId_NSMutableDictionary,
     ClassId_NSNumber,
     ClassId_NSMutableSet,
-    ClassId_NSCountedSet,
     ClassId_NSMutableOrderedSet,
+    ClassId_NSValue
   };
   static const unsigned NumClassIds = 10;
 
@@ -215,6 +216,13 @@ public:
   /// \brief Returns one of NSIntegral typedef names if \param T is a typedef
   /// of that name in objective-c.
   StringRef GetNSIntegralKind(QualType T) const;
+
+  /// \brief Returns \c true if \p Id is currently defined as a macro.
+  bool isMacroDefined(StringRef Id) const;
+
+  /// \brief Returns \c true if \p InterfaceDecl is subclass of \p NSClassKind
+  bool isSubclassOfNSClass(ObjCInterfaceDecl *InterfaceDecl,
+                           NSClassIdKindKind NSClassKind) const;
 
 private:
   bool isObjCTypedef(QualType T, StringRef name, IdentifierInfo *&II) const;

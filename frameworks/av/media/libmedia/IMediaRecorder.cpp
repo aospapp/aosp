@@ -23,7 +23,8 @@
 
 #include <utils/Log.h>
 #include <binder/Parcel.h>
-#include <camera/ICamera.h>
+#include <camera/android/hardware/ICamera.h>
+#include <camera/ICameraRecordingProxy.h>
 #include <media/IMediaRecorderClient.h>
 #include <media/IMediaRecorder.h>
 #include <gui/Surface.h>
@@ -54,7 +55,9 @@ enum {
     SET_PREVIEW_SURFACE,
     SET_CAMERA,
     SET_LISTENER,
-    SET_CLIENT_NAME
+    SET_CLIENT_NAME,
+    PAUSE,
+    RESUME
 };
 
 class BpMediaRecorder: public BpInterface<IMediaRecorder>
@@ -65,7 +68,7 @@ public:
     {
     }
 
-    status_t setCamera(const sp<ICamera>& camera, const sp<ICameraRecordingProxy>& proxy)
+    status_t setCamera(const sp<hardware::ICamera>& camera, const sp<ICameraRecordingProxy>& proxy)
     {
         ALOGV("setCamera(%p,%p)", camera.get(), proxy.get());
         Parcel data, reply;
@@ -276,6 +279,24 @@ public:
         return reply.readInt32();
     }
 
+    status_t pause()
+    {
+        ALOGV("pause");
+        Parcel data, reply;
+        data.writeInterfaceToken(IMediaRecorder::getInterfaceDescriptor());
+        remote()->transact(PAUSE, data, &reply);
+        return reply.readInt32();
+    }
+
+    status_t resume()
+    {
+        ALOGV("resume");
+        Parcel data, reply;
+        data.writeInterfaceToken(IMediaRecorder::getInterfaceDescriptor());
+        remote()->transact(RESUME, data, &reply);
+        return reply.readInt32();
+    }
+
     status_t close()
     {
         ALOGV("close");
@@ -338,6 +359,18 @@ status_t BnMediaRecorder::onTransact(
             ALOGV("START");
             CHECK_INTERFACE(IMediaRecorder, data, reply);
             reply->writeInt32(start());
+            return NO_ERROR;
+        } break;
+        case PAUSE: {
+            ALOGV("PAUSE");
+            CHECK_INTERFACE(IMediaRecorder, data, reply);
+            reply->writeInt32(pause());
+            return NO_ERROR;
+        } break;
+        case RESUME: {
+            ALOGV("RESUME");
+            CHECK_INTERFACE(IMediaRecorder, data, reply);
+            reply->writeInt32(resume());
             return NO_ERROR;
         } break;
         case PREPARE: {
@@ -447,9 +480,10 @@ status_t BnMediaRecorder::onTransact(
         case SET_CAMERA: {
             ALOGV("SET_CAMERA");
             CHECK_INTERFACE(IMediaRecorder, data, reply);
-            sp<ICamera> camera = interface_cast<ICamera>(data.readStrongBinder());
+            sp<hardware::ICamera> camera =
+                    interface_cast<hardware::ICamera>(data.readStrongBinder());
             sp<ICameraRecordingProxy> proxy =
-                interface_cast<ICameraRecordingProxy>(data.readStrongBinder());
+                    interface_cast<ICameraRecordingProxy>(data.readStrongBinder());
             reply->writeInt32(setCamera(camera, proxy));
             return NO_ERROR;
         } break;

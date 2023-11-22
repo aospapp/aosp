@@ -98,35 +98,9 @@ static bthl_callbacks_t sBluetoothHdpCallbacks = {
 // Define native functions
 
 static void classInitNative(JNIEnv* env, jclass clazz) {
-    int err;
-//    const bt_interface_t* btInf;
-//    bt_status_t status;
-
     method_onAppRegistrationState = env->GetMethodID(clazz, "onAppRegistrationState", "(II)V");
     method_onChannelStateChanged = env->GetMethodID(clazz, "onChannelStateChanged",
-                                                    "(I[BIIILjava/io/FileDescriptor;)V");
-
-/*
-    if ( (btInf = getBluetoothInterface()) == NULL) {
-        ALOGE("Bluetooth module is not loaded");
-        return;
-    }
-
-    if ( (sBluetoothHdpInterface = (bthl_interface_t *)
-          btInf->get_profile_interface(BT_PROFILE_HEALTH_ID)) == NULL) {
-        ALOGE("Failed to get Bluetooth Handsfree Interface");
-        return;
-    }
-
-    // TODO(BT) do this only once or
-    //          Do we need to do this every time the BT reenables?
-    if ( (status = sBluetoothHdpInterface->init(&sBluetoothHdpCallbacks)) != BT_STATUS_SUCCESS) {
-        ALOGE("Failed to initialize Bluetooth HDP, status: %d", status);
-        sBluetoothHdpInterface = NULL;
-        return;
-    }
-*/
-
+            "(I[BIIILjava/io/FileDescriptor;)V");
     ALOGI("%s: succeeds", __FUNCTION__);
 }
 
@@ -168,7 +142,6 @@ static void initializeNative(JNIEnv *env, jobject object) {
 
 static void cleanupNative(JNIEnv *env, jobject object) {
     const bt_interface_t* btInf;
-    bt_status_t status;
 
     if ( (btInf = getBluetoothInterface()) == NULL) {
         ALOGE("Bluetooth module is not loaded");
@@ -195,7 +168,10 @@ static jint registerHealthAppNative(JNIEnv *env, jobject object, jint data_type,
     bthl_reg_param_t reg_param;
     int app_id;
 
-    if (!sBluetoothHdpInterface) return NULL;
+    if (!sBluetoothHdpInterface) {
+        ALOGE("Failed to register health app. No Bluetooth Health Interface available");
+        return -1;
+    }
 
     mdep_cfg.mdep_role = (bthl_mdep_role_t) role;
     mdep_cfg.data_type = data_type;

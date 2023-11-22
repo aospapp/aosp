@@ -69,15 +69,6 @@ system_libs := \
     GLESv3 \
     OpenSLES \
     OpenMAXAL \
-    bcc \
-    bcinfo \
-    cutils \
-    gui \
-    RScpp \
-    RScpp_static \
-    RS \
-    ui \
-    utils \
     mediandk \
     atomic
 
@@ -198,6 +189,17 @@ else
   LOCAL_LDFLAGS += $($(my)RELRO_LDFLAGS)
 endif
 
+# We enable shared text relocation warnings by default. These are not allowed in
+# current versions of Android (android-21 for LP64 ABIs, android-23 for LP32
+# ABIs).
+LOCAL_LDFLAGS += -Wl,--warn-shared-textrel
+
+# We enable fatal linker warnings by default.
+# If LOCAL_DISABLE_FATAL_LINKER_WARNINGS is true, we don't enable this check.
+ifneq ($(LOCAL_DISABLE_FATAL_LINKER_WARNINGS),true)
+  LOCAL_LDFLAGS += -Wl,--fatal-warnings
+endif
+
 # By default, we protect against format string vulnerabilities
 # If LOCAL_DISABLE_FORMAT_STRING_CHECKS is true, we disable the protections.
 ifeq ($(LOCAL_DISABLE_FORMAT_STRING_CHECKS),true)
@@ -235,6 +237,9 @@ ifdef LOCAL_ARM_MODE
       $(call __ndk_info,   LOCAL_ARM_MODE must be defined to either 'arm' or 'thumb' in $(LOCAL_MAKEFILE) not '$(LOCAL_ARM_MODE)')\
       $(call __ndk_error, Aborting)\
   )
+  my_link_arm_mode := $(LOCAL_ARM_MODE)
+else
+  my_link_arm_mode := thumb
 endif
 
 # As a special case, the original Android build system
@@ -277,8 +282,8 @@ endif
 
 neon_sources := $(strip $(neon_sources))
 ifdef neon_sources
-  ifeq ($(filter $(TARGET_ARCH_ABI), armeabi-v7a armeabi-v7a-hard x86),)
-    $(call __ndk_info,NEON support is only possible for armeabi-v7a ABI, its variant armeabi-v7a-hard and x86 ABI)
+  ifeq ($(filter $(TARGET_ARCH_ABI), armeabi-v7a armeabi-v7a-hard arm64-v8a x86 x86_64),)
+    $(call __ndk_info,NEON support is only possible for armeabi-v7a ABI, its variant armeabi-v7a-hard, and arm64-v8a, x86 and x86_64 ABIs)
     $(call __ndk_info,Please add checks against TARGET_ARCH_ABI in $(LOCAL_MAKEFILE))
     $(call __ndk_error,Aborting)
   endif
@@ -397,7 +402,7 @@ endif
 #
 ifneq (,$(call module-has-c++-features,$(LOCAL_MODULE),rtti exceptions))
     ifeq (system,$(NDK_APP_STL))
-      LOCAL_LDLIBS := $(LOCAL_LDLIBS) $(call host-path,$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/$(TOOLCHAIN_VERSION)/libs/$(TARGET_ARCH_ABI)/libsupc++$(TARGET_LIB_EXTENSION))
+      LOCAL_LDLIBS := $(LOCAL_LDLIBS) $(call host-path,$(NDK_ROOT)/sources/cxx-stl/gnu-libstdc++/4.9/libs/$(TARGET_ARCH_ABI)/libsupc++$(TARGET_LIB_EXTENSION))
     endif
 endif
 
@@ -409,7 +414,6 @@ ifneq ($(LOCAL_RENDERSCRIPT_INCLUDES_OVERRIDE),)
 else
     LOCAL_RENDERSCRIPT_INCLUDES := \
         $(RENDERSCRIPT_TOOLCHAIN_HEADER) \
-        $(TARGET_C_INCLUDES)/rs/scriptc \
         $(LOCAL_RENDERSCRIPT_INCLUDES)
 endif
 
@@ -487,6 +491,11 @@ ifneq ($(filter -l%,$(LOCAL_LDLIBS)),)
     endif
 endif
 
+my_ldflags := $(TARGET_LDFLAGS) $(LOCAL_LDFLAGS) $(NDK_APP_LDFLAGS)
+ifneq ($(filter armeabi%,$(TARGET_ARCH_ABI)),)
+    my_ldflags += $(TARGET_$(my_link_arm_mode)_LDFLAGS)
+endif
+
 # When LOCAL_SHORT_COMMANDS is defined to 'true' we are going to write the
 # list of all object files and/or static/shared libraries that appear on the
 # command line to a file, then use the @<listfile> syntax to invoke it.
@@ -505,7 +514,7 @@ $(LOCAL_BUILT_MODULE): PRIVATE_OBJECTS := $(LOCAL_OBJECTS)
 $(LOCAL_BUILT_MODULE): PRIVATE_LIBGCC := $(TARGET_LIBGCC)
 
 $(LOCAL_BUILT_MODULE): PRIVATE_LD := $(TARGET_LD)
-$(LOCAL_BUILT_MODULE): PRIVATE_LDFLAGS := $(TARGET_LDFLAGS) $(LOCAL_LDFLAGS) $(NDK_APP_LDFLAGS)
+$(LOCAL_BUILT_MODULE): PRIVATE_LDFLAGS := $(my_ldflags)
 $(LOCAL_BUILT_MODULE): PRIVATE_LDLIBS  := $(LOCAL_LDLIBS) $(TARGET_LDLIBS)
 
 $(LOCAL_BUILT_MODULE): PRIVATE_NAME := $(notdir $(LOCAL_BUILT_MODULE))

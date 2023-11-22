@@ -4,6 +4,7 @@
     <string name="description">This print serivice exposes one fake printer and
          on print sends an email to svetoslavganov@google.com</string>
     <string name="settings">This is an activitiy with some print service settings.</string>
+    <string name="info">More info about %1$s.</string>
     <string name="settings_activity_label">Settings activity</string>
     <string name="add_pritners_activity_label">Add printers activity</string>
 
@@ -22,6 +23,7 @@
     <string name="block_now">Block now</string>
     <string name="block_delayed">Block delayed</string>
     <string name="block_and_delayed_unblock">Block and delayed unblock</string>
+    <string name="print_slowly">Print slowly (showing a progress)</string>
     <string name="cancel_yes">Cancel</string>
     <string name="cancel_no">Don\'t cancel</string>
 

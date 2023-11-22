@@ -17,6 +17,7 @@
 #include "tsan_flags.h"
 #include "tsan_rtl.h"
 #include "tsan_mman.h"
+#include "ubsan/ubsan_flags.h"
 
 namespace __tsan {
 
@@ -28,8 +29,8 @@ Flags *flags() {
 #ifdef TSAN_EXTERNAL_HOOKS
 extern "C" const char* __tsan_default_options();
 #else
-extern "C" SANITIZER_INTERFACE_ATTRIBUTE
-const char *WEAK __tsan_default_options() {
+SANITIZER_WEAK_DEFAULT_IMPL
+const char *__tsan_default_options() {
   return "";
 }
 #endif
@@ -54,30 +55,51 @@ void RegisterTsanFlags(FlagParser *parser, Flags *f) {
 }
 
 void InitializeFlags(Flags *f, const char *env) {
-  FlagParser parser;
-  RegisterTsanFlags(&parser, f);
-  RegisterCommonFlags(&parser);
-
-  f->SetDefaults();
-
   SetCommonFlagsDefaults();
   {
     // Override some common flags defaults.
     CommonFlags cf;
     cf.CopyFrom(*common_flags());
     cf.allow_addr2line = true;
-#ifndef SANITIZER_GO
-    cf.detect_deadlocks = true;
-#endif
+    if (kGoMode) {
+      // Does not work as expected for Go: runtime handles SIGABRT and crashes.
+      cf.abort_on_error = false;
+      // Go does not have mutexes.
+    } else {
+      cf.detect_deadlocks = true;
+    }
     cf.print_suppressions = false;
     cf.stack_trace_format = "    #%n %f %S %M";
+    cf.exitcode = 66;
     OverrideCommonFlags(cf);
   }
 
+  f->SetDefaults();
+
+  FlagParser parser;
+  RegisterTsanFlags(&parser, f);
+  RegisterCommonFlags(&parser);
+
+#if TSAN_CONTAINS_UBSAN
+  __ubsan::Flags *uf = __ubsan::flags();
+  uf->SetDefaults();
+
+  FlagParser ubsan_parser;
+  __ubsan::RegisterUbsanFlags(&ubsan_parser, uf);
+  RegisterCommonFlags(&ubsan_parser);
+#endif
+
   // Let a frontend override.
   parser.ParseString(__tsan_default_options());
+#if TSAN_CONTAINS_UBSAN
+  const char *ubsan_default_options = __ubsan::MaybeCallUbsanDefaultOptions();
+  ubsan_parser.ParseString(ubsan_default_options);
+#endif
   // Override from command line.
   parser.ParseString(env);
+#if TSAN_CONTAINS_UBSAN
+  ubsan_parser.ParseString(GetEnv("UBSAN_OPTIONS"));
+#endif
 
   // Sanity check.
   if (!f->report_bugs) {

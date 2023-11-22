@@ -2,12 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "src/v8.h"
-
 #include "test/cctest/compiler/function-tester.h"
 
-using namespace v8::internal;
-using namespace v8::internal::compiler;
+namespace v8 {
+namespace internal {
+namespace compiler {
 
 TEST(Conditional) {
   FunctionTester T("(function(a) { return a ? 23 : 42; })");
@@ -168,6 +167,33 @@ TEST(ForInContinueStatement) {
 }
 
 
+TEST(ForOfContinueStatement) {
+  const char* src =
+      "(function(a,b) {"
+      "  var r = '-';"
+      "  for (var x of a) {"
+      "    r += x + '-';"
+      "    if (b) continue;"
+      "    r += 'X-';"
+      "  }"
+      "  return r;"
+      "})";
+  FunctionTester T(src);
+
+  CompileRun(
+      "function wrap(v) {"
+      "  var iterable = {};"
+      "  function next() { return { done:!v.length, value:v.shift() }; };"
+      "  iterable[Symbol.iterator] = function() { return { next:next }; };"
+      "  return iterable;"
+      "}");
+
+  T.CheckCall(T.Val("-"), T.NewObject("wrap([])"), T.true_value());
+  T.CheckCall(T.Val("-1-2-"), T.NewObject("wrap([1,2])"), T.true_value());
+  T.CheckCall(T.Val("-1-X-2-X-"), T.NewObject("wrap([1,2])"), T.false_value());
+}
+
+
 TEST(SwitchStatement) {
   const char* src =
       "(function(a,b) {"
@@ -280,3 +306,82 @@ TEST(NestedForConditional) {
   T.CheckCall(T.Val(2), T.Val(2), T.false_value());
   T.CheckCall(T.undefined(), T.Val(1), T.null());
 }
+
+
+TEST(IfTrue) {
+  FunctionTester T("(function(a,b) { if (true) return a; return b; })");
+
+  T.CheckCall(T.Val(55), T.Val(55), T.Val(11));
+  T.CheckCall(T.Val(666), T.Val(666), T.Val(-444));
+}
+
+
+TEST(TernaryTrue) {
+  FunctionTester T("(function(a,b) { return true ? a : b; })");
+
+  T.CheckCall(T.Val(77), T.Val(77), T.Val(11));
+  T.CheckCall(T.Val(111), T.Val(111), T.Val(-444));
+}
+
+
+TEST(IfFalse) {
+  FunctionTester T("(function(a,b) { if (false) return a; return b; })");
+
+  T.CheckCall(T.Val(11), T.Val(22), T.Val(11));
+  T.CheckCall(T.Val(-555), T.Val(333), T.Val(-555));
+}
+
+
+TEST(TernaryFalse) {
+  FunctionTester T("(function(a,b) { return false ? a : b; })");
+
+  T.CheckCall(T.Val(99), T.Val(33), T.Val(99));
+  T.CheckCall(T.Val(-99), T.Val(-33), T.Val(-99));
+}
+
+
+TEST(WhileTrue) {
+  FunctionTester T("(function(a,b) { while (true) return a; return b; })");
+
+  T.CheckCall(T.Val(551), T.Val(551), T.Val(111));
+  T.CheckCall(T.Val(661), T.Val(661), T.Val(-444));
+}
+
+
+TEST(WhileFalse) {
+  FunctionTester T("(function(a,b) { while (false) return a; return b; })");
+
+  T.CheckCall(T.Val(115), T.Val(551), T.Val(115));
+  T.CheckCall(T.Val(-445), T.Val(661), T.Val(-445));
+}
+
+
+TEST(DoWhileTrue) {
+  FunctionTester T(
+      "(function(a,b) { do { return a; } while (true); return b; })");
+
+  T.CheckCall(T.Val(7551), T.Val(7551), T.Val(7111));
+  T.CheckCall(T.Val(7661), T.Val(7661), T.Val(-7444));
+}
+
+
+TEST(DoWhileFalse) {
+  FunctionTester T(
+      "(function(a,b) { do { "
+      "; } while (false); return b; })");
+
+  T.CheckCall(T.Val(8115), T.Val(8551), T.Val(8115));
+  T.CheckCall(T.Val(-8445), T.Val(8661), T.Val(-8445));
+}
+
+
+TEST(EmptyFor) {
+  FunctionTester T("(function(a,b) { if (a) for(;;) ; return b; })");
+
+  T.CheckCall(T.Val(8126.1), T.Val(0.0), T.Val(8126.1));
+  T.CheckCall(T.Val(1123.1), T.Val(0.0), T.Val(1123.1));
+}
+
+}  // namespace compiler
+}  // namespace internal
+}  // namespace v8

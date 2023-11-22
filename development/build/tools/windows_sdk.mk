@@ -11,12 +11,9 @@
 # This way we avoid the headache of building a full SDK in MinGW mode, which is
 # made complicated by the fact the build system does not support cross-compilation.
 
-# We can only use this under Linux with the mingw32 package installed.
+# We can only use this under Linux
 ifneq ($(shell uname),Linux)
 $(error Linux is required to create a Windows SDK)
-endif
-ifeq ($(strip $(shell which i586-mingw32msvc-gcc 2>/dev/null)),)
-$(error MinGW is required to build a Windows SDK. Please 'apt-get install mingw32')
 endif
 ifeq ($(strip $(shell which unix2dos todos 2>/dev/null)),)
 $(error Need a unix2dos command. Please 'apt-get install tofrodos')
@@ -31,29 +28,24 @@ include $(TOPDIR)sdk/build/windows_sdk_tools.mk
 # Windows executables. All the targets specified here are located in
 # the topdir/development directory and are somehow platform-dependent.
 WIN_TARGETS := \
-	aapt adb aidl \
+	aapt \
+	aapt2 \
+	adb \
+	aidl \
 	aprotoc \
 	bcc_compat \
+	clang \
 	etc1tool \
 	dexdump dmtracedump \
 	fastboot \
 	hprof-conv \
 	llvm-rs-cc \
-	prebuilt \
 	sqlite3 \
 	zipalign \
 	split-select \
 	$(WIN_SDK_TARGETS)
 
-# This is the list of *Linux* build tools that we need
-# in order to be able to make the WIN_TARGETS. They are
-# build prerequisites.
-WIN_BUILD_PREREQ := \
-	acp \
-	llvm-tblgen \
-	clang-tblgen \
-	$(WIN_SDK_BUILD_PREREQ)
-
+WIN_TARGETS := $(foreach t,$(WIN_TARGETS),$(ALL_MODULES.host_cross_$(t).INSTALLED))
 
 # MAIN_SDK_NAME/DIR is set in build/core/Makefile
 WIN_SDK_NAME := $(subst $(HOST_OS)-$(SDK_HOST_ARCH),windows,$(MAIN_SDK_NAME))
@@ -80,11 +72,10 @@ endef
 win_sdk: $(WIN_SDK_ZIP)
 	$(call winsdk-banner,Done)
 
-winsdk-tools: $(WIN_BUILD_PREREQ)
-	$(call winsdk-banner,Build Windows Tools)
-	$(hide) USE_MINGW=1 USE_CCACHE="" $(MAKE) PRODUCT-$(TARGET_PRODUCT)-$(strip $(WIN_TARGETS)) $(if $(hide),,showcommands)
+winsdk-tools: $(WIN_TARGETS)
+	$(call winsdk-banner,Tools Done)
 
-$(WIN_SDK_ZIP): winsdk-tools sdk
+$(WIN_SDK_ZIP): $(WIN_TARGETS) $(INTERNAL_SDK_TARGET)
 	$(call winsdk-banner,Build $(WIN_SDK_NAME))
 	$(call winsdk-info)
 	$(hide) rm -rf $(WIN_SDK_DIR)

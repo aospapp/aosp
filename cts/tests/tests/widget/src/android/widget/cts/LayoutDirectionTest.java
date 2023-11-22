@@ -20,7 +20,7 @@ import android.test.ActivityInstrumentationTestCase2;
 import android.test.UiThreadTest;
 import android.view.ViewGroup;
 import android.widget.*;
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 import static android.view.View.LAYOUT_DIRECTION_LTR;
 import static android.view.View.LAYOUT_DIRECTION_RTL;

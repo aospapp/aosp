@@ -27,7 +27,7 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner
 
 src_dirs := src \
-    ../telecom/src
+    ../telecom/src/android/telecom/cts/TestUtils.java
 
 res_dirs := res \
     ../telecom/res
@@ -38,9 +38,12 @@ LOCAL_RESOURCE_DIR := $(addprefix $(LOCAL_PATH)/, $(res_dirs))
 
 LOCAL_AAPT_FLAGS := \
     --auto-add-overlay \
-    --extra-packages com.android.cts.telecom \
-    --rename-manifest-package com.android.cts.telecom2 \
+    --extra-packages android.telecom.cts \
+    --rename-manifest-package android.telecom2.cts \
 
 LOCAL_SDK_VERSION := current
+
+# Tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
 
 include $(BUILD_CTS_PACKAGE)

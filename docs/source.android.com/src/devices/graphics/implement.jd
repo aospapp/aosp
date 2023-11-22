@@ -203,9 +203,9 @@ buffers to be acquired and released in a synchronized way. Explicit
 synchronization allows producers and consumers of graphics buffers to signal
 when they are done with a buffer. This allows the Android system to
 asynchronously queue buffers to be read or written with the certainty that
-another consumer or producer does not currently need them. See the <a
-href="#synchronization_framework">Synchronization framework</a> section for an overview of
-this mechanism.</p>
+another consumer or producer does not currently need them. See the
+<a href="{@docRoot}devices/graphics/index.html#synchronization_framework">Synchronization
+framework</a> section for an overview of this mechanism.</p>
 
 <p>The benefits of explicit synchronization include less behavior variation
 between devices, better debugging support, and improved testing metrics. For

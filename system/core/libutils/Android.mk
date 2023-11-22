@@ -15,7 +15,6 @@
 LOCAL_PATH:= $(call my-dir)
 
 commonSources:= \
-	BasicHashtable.cpp \
 	CallStack.cpp \
 	FileMap.cpp \
 	JenkinsHash.cpp \
@@ -23,7 +22,6 @@ commonSources:= \
 	Log.cpp \
 	NativeHandle.cpp \
 	Printer.cpp \
-	ProcessCallStack.cpp \
 	PropertyMap.cpp \
 	RefBase.cpp \
 	SharedBuffer.cpp \
@@ -41,27 +39,20 @@ commonSources:= \
 
 host_commonCflags := -DLIBUTILS_NATIVE=1 $(TOOL_CFLAGS) -Werror
 
-ifeq ($(HOST_OS),windows)
-ifeq ($(strip $(USE_CYGWIN),),)
-# Under MinGW, ctype.h doesn't need multi-byte support
-host_commonCflags += -DMB_CUR_MAX=1
-endif
-endif
-
 # For the host
 # =====================================================
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES:= $(commonSources)
-ifeq ($(HOST_OS), linux)
-LOCAL_SRC_FILES += Looper.cpp
-endif
-ifeq ($(HOST_OS),darwin)
-LOCAL_CFLAGS += -Wno-unused-parameter
-endif
+LOCAL_SRC_FILES_linux := Looper.cpp ProcessCallStack.cpp
+LOCAL_CFLAGS_darwin := -Wno-unused-parameter
 LOCAL_MODULE:= libutils
 LOCAL_STATIC_LIBRARIES := liblog
 LOCAL_CFLAGS += $(host_commonCflags)
+# Under MinGW, ctype.h doesn't need multi-byte support
+LOCAL_CFLAGS_windows := -DMB_CUR_MAX=1
 LOCAL_MULTILIB := both
+LOCAL_MODULE_HOST_OS := darwin linux windows
+LOCAL_C_INCLUDES += external/safe-iop/include
 include $(BUILD_HOST_STATIC_LIBRARY)
 
 
@@ -75,12 +66,13 @@ LOCAL_SRC_FILES:= \
 	$(commonSources) \
 	BlobCache.cpp \
 	Looper.cpp \
+	ProcessCallStack.cpp \
 	Trace.cpp
 
 ifeq ($(TARGET_ARCH),mips)
 LOCAL_CFLAGS += -DALIGN_DOUBLE
 endif
-LOCAL_CFLAGS += -Werror
+LOCAL_CFLAGS += -Werror -fvisibility=protected
 
 LOCAL_STATIC_LIBRARIES := \
 	libcutils \
@@ -91,7 +83,10 @@ LOCAL_SHARED_LIBRARIES := \
         liblog \
         libdl
 
-LOCAL_MODULE:= libutils
+LOCAL_MODULE := libutils
+LOCAL_CLANG := true
+LOCAL_SANITIZE := integer
+LOCAL_C_INCLUDES += external/safe-iop/include
 include $(BUILD_STATIC_LIBRARY)
 
 # For the device, shared
@@ -105,22 +100,22 @@ LOCAL_SHARED_LIBRARIES := \
         libdl \
         liblog
 LOCAL_CFLAGS := -Werror
+LOCAL_C_INCLUDES += external/safe-iop/include
 
+LOCAL_CLANG := true
+LOCAL_SANITIZE := integer
 include $(BUILD_SHARED_LIBRARY)
-
-# Include subdirectory makefiles
-# ============================================================
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := SharedBufferTest
-LOCAL_STATIC_LIBRARIES := libutils libcutils
+LOCAL_STATIC_LIBRARIES := libutils
 LOCAL_SHARED_LIBRARIES := liblog
 LOCAL_SRC_FILES := SharedBufferTest.cpp
 include $(BUILD_NATIVE_TEST)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := SharedBufferTest
-LOCAL_STATIC_LIBRARIES := libutils libcutils
+LOCAL_STATIC_LIBRARIES := libutils
 LOCAL_SHARED_LIBRARIES := liblog
 LOCAL_SRC_FILES := SharedBufferTest.cpp
 include $(BUILD_HOST_NATIVE_TEST)

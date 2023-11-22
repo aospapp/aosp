@@ -30,7 +30,7 @@
 
 // Total btsnoop memory log buffer size
 #ifndef BTSNOOP_MEM_BUFFER_SIZE
-static const size_t BTSNOOP_MEM_BUFFER_SIZE = (128 * 1024);
+static const size_t BTSNOOP_MEM_BUFFER_SIZE = (256 * 1024);
 #endif
 
 // Block size for copying buffers (for compression/encoding etc.)
@@ -42,12 +42,18 @@ static const uint8_t MAX_LINE_LENGTH = 128;
 static ringbuffer_t *buffer = NULL;
 static uint64_t last_timestamp_ms = 0;
 
+static size_t btsnoop_calculate_packet_length(uint16_t type, const uint8_t *data, size_t length);
+
 static void btsnoop_cb(const uint16_t type, const uint8_t *data, const size_t length) {
   btsnooz_header_t header;
 
+  size_t included_length = btsnoop_calculate_packet_length(type, data, length);
+  if (included_length == 0)
+    return;
+
   // Make room in the ring buffer
 
-  while (ringbuffer_available(buffer) < (length + sizeof(btsnooz_header_t))) {
+  while (ringbuffer_available(buffer) < (included_length + sizeof(btsnooz_header_t))) {
     ringbuffer_pop(buffer, (uint8_t *)&header, sizeof(btsnooz_header_t));
     ringbuffer_delete(buffer, header.length - 1);
   }
@@ -57,19 +63,68 @@ static void btsnoop_cb(const uint16_t type, const uint8_t *data, const size_t le
   const uint64_t now = btif_debug_ts();
 
   header.type = REDUCE_HCI_TYPE_TO_SIGNIFICANT_BITS(type);
-  header.length = length;
+  header.length = included_length + 1;  // +1 for type byte
+  header.packet_length = length + 1;  // +1 for type byte.
   header.delta_time_ms = last_timestamp_ms ? now - last_timestamp_ms : 0;
   last_timestamp_ms = now;
 
   ringbuffer_insert(buffer, (uint8_t *)&header, sizeof(btsnooz_header_t));
-  ringbuffer_insert(buffer, data, length - 1);
+  ringbuffer_insert(buffer, data, included_length);
+}
+
+static size_t btsnoop_calculate_packet_length(uint16_t type, const uint8_t *data, size_t length) {
+  static const size_t HCI_ACL_HEADER_SIZE = 4;
+  static const size_t L2CAP_HEADER_SIZE = 4;
+  static const size_t L2CAP_CID_OFFSET = (HCI_ACL_HEADER_SIZE + 2);
+  static const uint16_t L2CAP_SIGNALING_CID = 0x0001;
+
+  // Maximum amount of ACL data to log.
+  // Enough for an RFCOMM frame up to the frame check;
+  // not enough for a HID report or audio data.
+  static const size_t MAX_HCI_ACL_LEN = 14;
+
+  // Calculate packet length to be included
+
+  switch (type) {
+    case BT_EVT_TO_LM_HCI_CMD:
+      return length;
+
+    case BT_EVT_TO_BTU_HCI_EVT:
+      return length;
+
+    case BT_EVT_TO_LM_HCI_ACL:
+    case BT_EVT_TO_BTU_HCI_ACL:
+    {
+      size_t len_hci_acl = HCI_ACL_HEADER_SIZE + L2CAP_HEADER_SIZE;
+      // Check if we have enough data for an L2CAP header
+      if (length > len_hci_acl) {
+        uint16_t l2cap_cid = data[L2CAP_CID_OFFSET] | (data[L2CAP_CID_OFFSET + 1] << 8);
+        if (l2cap_cid == L2CAP_SIGNALING_CID) {
+          // For the signaling CID, take the full packet.
+          // That way, the PSM setup is captured, allowing decoding of PSMs down the road.
+          return length;
+        } else {
+          // Otherwise, return as much as we reasonably can
+          len_hci_acl = MAX_HCI_ACL_LEN;
+        }
+      }
+      return len_hci_acl < length ? len_hci_acl : length;
+    }
+
+    case BT_EVT_TO_LM_HCI_SCO:
+    case BT_EVT_TO_BTU_HCI_SCO:
+      // We're not logging SCO packets at this time since they are not currently used.
+      // FALLTHROUGH
+    default:
+      return 0;
+  }
 }
 
 static bool btsnoop_compress(ringbuffer_t *rb_dst, ringbuffer_t *rb_src) {
   assert(rb_dst != NULL);
   assert(rb_src != NULL);
 
-  z_stream zs = {0};
+  z_stream zs = {.zalloc = Z_NULL, .zfree = Z_NULL, .opaque = Z_NULL};
   if (deflateInit(&zs, Z_DEFAULT_COMPRESSION) != Z_OK)
     return false;
 
@@ -77,15 +132,16 @@ static bool btsnoop_compress(ringbuffer_t *rb_dst, ringbuffer_t *rb_src) {
   uint8_t block_src[BLOCK_SIZE];
   uint8_t block_dst[BLOCK_SIZE];
 
-  while (ringbuffer_size(rb_src) > 0) {
-    zs.avail_in = ringbuffer_pop(rb_src, block_src, BLOCK_SIZE);
+  const size_t num_blocks = (ringbuffer_size(rb_src) + BLOCK_SIZE - 1) / BLOCK_SIZE;
+  for (size_t i = 0; i < num_blocks; ++i) {
+    zs.avail_in = ringbuffer_peek(rb_src, i * BLOCK_SIZE, block_src, BLOCK_SIZE);
     zs.next_in = block_src;
 
     do {
       zs.avail_out = BLOCK_SIZE;
       zs.next_out = block_dst;
 
-      int err = deflate(&zs, ringbuffer_size(rb_src) == 0 ? Z_FINISH : Z_NO_FLUSH);
+      int err = deflate(&zs, (i == num_blocks - 1) ? Z_FINISH : Z_NO_FLUSH);
       if (err == Z_STREAM_ERROR) {
         rc = false;
         break;
@@ -107,7 +163,7 @@ void btif_debug_btsnoop_init(void) {
 }
 
 void btif_debug_btsnoop_dump(int fd) {
-  dprintf(fd, "\n--- BEGIN:BTSNOOP_LOG_SUMMARY (%zu bytes in) ---\n", ringbuffer_size(buffer));
+  dprintf(fd, "--- BEGIN:BTSNOOP_LOG_SUMMARY (%zu bytes in) ---\n", ringbuffer_size(buffer));
 
   ringbuffer_t *ringbuffer = ringbuffer_init(BTSNOOP_MEM_BUFFER_SIZE);
   if (ringbuffer == NULL) {
@@ -135,16 +191,18 @@ void btif_debug_btsnoop_dump(int fd) {
   uint8_t b64_in[3] = {0};
   char b64_out[5] = {0};
 
-  size_t i = sizeof(btsnooz_preamble_t);
+  size_t line_length = 0;
   while (ringbuffer_size(ringbuffer) > 0) {
     size_t read = ringbuffer_pop(ringbuffer, b64_in, 3);
-    if (i > 0 && i % MAX_LINE_LENGTH == 0)
+    if (line_length >= MAX_LINE_LENGTH) {
       dprintf(fd, "\n");
-    i += b64_ntop(b64_in, read, b64_out, 5);
+      line_length = 0;
+    }
+    line_length += b64_ntop(b64_in, read, b64_out, 5);
     dprintf(fd, "%s", b64_out);
   }
 
-  dprintf(fd, "\n--- END:BTSNOOP_LOG_SUMMARY (%zu bytes out) ---\n", i);
+  dprintf(fd, "\n--- END:BTSNOOP_LOG_SUMMARY ---\n");
 
 error:
   ringbuffer_free(ringbuffer);

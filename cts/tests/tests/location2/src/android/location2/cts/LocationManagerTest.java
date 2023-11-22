@@ -253,7 +253,7 @@ public class LocationManagerTest extends InstrumentationTestCase {
         }
 
         try {
-            mManager.addNmeaListener(null);
+            mManager.addNmeaListener((NmeaListener) null);
             fail("Should have failed to add null as a gps status nmea listener");
         } catch (SecurityException e) {
             // expected

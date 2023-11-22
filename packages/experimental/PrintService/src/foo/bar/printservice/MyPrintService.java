@@ -16,9 +16,15 @@
 
 package foo.bar.printservice;
 
+import android.annotation.NonNull;
+import android.app.PendingIntent;
 import android.content.Intent;
+import android.graphics.BitmapFactory;
+import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
+import android.os.CancellationSignal;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -28,15 +34,16 @@ import android.print.PrintAttributes.Margins;
 import android.print.PrintAttributes.MediaSize;
 import android.print.PrintAttributes.Resolution;
 import android.print.PrintJobId;
-import android.print.PrintJobInfo;
 import android.print.PrinterCapabilitiesInfo;
 import android.print.PrinterId;
 import android.print.PrinterInfo;
+import android.printservice.CustomPrinterIconCallback;
 import android.printservice.PrintJob;
 import android.printservice.PrintService;
 import android.printservice.PrinterDiscoverySession;
 import android.util.ArrayMap;
 import android.util.Log;
+import com.android.internal.os.SomeArgs;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -213,6 +220,36 @@ public class MyPrintService extends PrintService {
         mHandler.sendMessageDelayed(message, STANDARD_DELAY_MILLIS);
     }
 
+    /**
+     * Pretend that the print job has progressed.
+     *
+     * @param printJobId ID of the print job to progress
+     * @param progress the new value to progress to
+     */
+    void handlePrintJobProgress(@NonNull PrintJobId printJobId, int progress) {
+        final PrintJob printJob = mProcessedPrintJobs.get(printJobId);
+        if (printJob == null) {
+            return;
+        }
+
+        if (printJob.isQueued()) {
+            printJob.start();
+        }
+
+        if (progress == 100) {
+            handleQueuedPrintJob(printJobId);
+        } else {
+            if (Build.VERSION.SDK_INT >= 24) {
+                printJob.setProgress((float) progress / 100);
+                printJob.setStatus("Printing progress: " + progress + "%");
+            }
+
+            Message message = mHandler.obtainMessage(
+                    MyHandler.MSG_HANDLE_PRINT_JOB_PROGRESS, progress + 10, 0, printJobId);
+            mHandler.sendMessageDelayed(message, 1000);
+        }
+    }
+
     void handleQueuedPrintJob(PrintJobId printJobId) {
         final PrintJob printJob = mProcessedPrintJobs.get(printJobId);
         if (printJob == null) {
@@ -223,78 +260,82 @@ public class MyPrintService extends PrintService {
             printJob.start();
         }
 
-        final PrintJobInfo info = printJob.getInfo();
-        final File file = new File(getFilesDir(), info.getLabel() + ".pdf");
-
-        mFakePrintTask = new AsyncTask<ParcelFileDescriptor, Void, Void>() {
-            @Override
-            protected Void doInBackground(ParcelFileDescriptor... params) {
-                InputStream in = new BufferedInputStream(new FileInputStream(
-                        params[0].getFileDescriptor()));
-                OutputStream out = null;
-                try {
-                    out = new BufferedOutputStream(new FileOutputStream(file));
-                    final byte[] buffer = new byte[8192];
-                    while (true) {
+        try {
+            final File file = File.createTempFile(this.getClass().getSimpleName(), ".pdf",
+                    getFilesDir());
+            mFakePrintTask = new AsyncTask<ParcelFileDescriptor, Void, Void>() {
+                @Override
+                protected Void doInBackground(ParcelFileDescriptor... params) {
+                    InputStream in = new BufferedInputStream(new FileInputStream(
+                            params[0].getFileDescriptor()));
+                    OutputStream out = null;
+                    try {
+                        out = new BufferedOutputStream(new FileOutputStream(file));
+                        final byte[] buffer = new byte[8192];
+                        while (true) {
+                            if (isCancelled()) {
+                                break;
+                            }
+                            final int readByteCount = in.read(buffer);
+                            if (readByteCount < 0) {
+                                break;
+                            }
+                            out.write(buffer, 0, readByteCount);
+                        }
+                    } catch (IOException ioe) {
+                        throw new RuntimeException(ioe);
+                    } finally {
+                        if (in != null) {
+                            try {
+                                in.close();
+                            } catch (IOException ioe) {
+                                /* ignore */
+                            }
+                        }
+                        if (out != null) {
+                            try {
+                                out.close();
+                            } catch (IOException ioe) {
+                                /* ignore */
+                            }
+                        }
                         if (isCancelled()) {
-                            break;
-                        }
-                        final int readByteCount = in.read(buffer);
-                        if (readByteCount < 0) {
-                            break;
-                        }
-                        out.write(buffer, 0, readByteCount);
-                    }
-                } catch (IOException ioe) {
-                    throw new RuntimeException(ioe);
-                } finally {
-                    if (in != null) {
-                        try {
-                            in.close();
-                        } catch (IOException ioe) {
-                            /* ignore */
+                            file.delete();
                         }
                     }
-                    if (out != null) {
-                        try {
-                            out.close();
-                        } catch (IOException ioe) {
-                            /* ignore */
-                        }
-                    }
-                    if (isCancelled()) {
-                        file.delete();
-                    }
-                }
-                return null;
-            }
-
-            @Override
-            protected void onPostExecute(Void result) {
-                if (printJob.isStarted()) {
-                    printJob.complete();
+                    return null;
                 }
 
-                file.setReadable(true, false);
+                @Override
+                protected void onPostExecute(Void result) {
+                    if (printJob.isStarted()) {
+                        printJob.complete();
+                    }
 
-                // Quick and dirty to show the file - use a content provider instead.
-                Intent intent = new Intent(Intent.ACTION_VIEW);
-                intent.setDataAndType(Uri.fromFile(file), "application/pdf");
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(intent, null);
+                    file.setReadable(true, false);
 
-                mFakePrintTask = null;
-            }
+                    // Quick and dirty to show the file - use a content provider instead.
+                    Intent intent = new Intent(Intent.ACTION_VIEW);
+                    intent.setDataAndType(Uri.fromFile(file), "application/pdf");
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(intent, null);
 
-            @Override
-            protected void onCancelled(Void result) {
-                if (printJob.isStarted()) {
-                    printJob.cancel();
+                    mFakePrintTask = null;
                 }
-            }
-        };
-        mFakePrintTask.executeOnExecutor(AsyncTask.SERIAL_EXECUTOR,
-                printJob.getDocument().getData());
+
+                @Override
+                protected void onCancelled(Void result) {
+                    if (printJob.isStarted()) {
+                        printJob.cancel();
+                    }
+                }
+            };
+            mFakePrintTask.executeOnExecutor(AsyncTask.SERIAL_EXECUTOR,
+                    printJob.getDocument().getData());
+        } catch (IOException e) {
+            Log.e(LOG_TAG, "Could not create temporary file: %s", e);
+            return;
+        }
     }
 
     private final class MyHandler extends Handler {
@@ -302,6 +343,7 @@ public class MyPrintService extends PrintService {
         public static final int MSG_HANDLE_FAIL_PRINT_JOB = 2;
         public static final int MSG_HANDLE_BLOCK_PRINT_JOB = 3;
         public static final int MSG_HANDLE_UNBLOCK_PRINT_JOB = 4;
+        public static final int MSG_HANDLE_PRINT_JOB_PROGRESS = 5;
 
         public MyHandler(Looper looper) {
             super(looper);
@@ -329,6 +371,11 @@ public class MyPrintService extends PrintService {
                     PrintJobId printJobId = (PrintJobId) message.obj;
                     handleUnblockPrintJob(printJobId);
                 } break;
+
+                case MSG_HANDLE_PRINT_JOB_PROGRESS: {
+                    PrintJobId printJobId = (PrintJobId) message.obj;
+                    handlePrintJobProgress(printJobId, message.arg1);
+                } break;
             }
         }
     }
@@ -339,13 +386,43 @@ public class MyPrintService extends PrintService {
         private final List<PrinterInfo> mFakePrinters = new ArrayList<PrinterInfo>();
 
         public FakePrinterDiscoverySession() {
-            for (int i = 0; i < 2; i++) {
+            for (int i = 0; i < 6; i++) {
                 String name = "Printer " + i;
-                PrinterInfo printer = new PrinterInfo
-                        .Builder(generatePrinterId(name), name, (i % 2 == 1)
-                                ? PrinterInfo.STATUS_UNAVAILABLE : PrinterInfo.STATUS_IDLE)
-                        .build();
-                mFakePrinters.add(printer);
+
+                PrinterInfo.Builder builder = new PrinterInfo.Builder(generatePrinterId(name), name,
+                        (i == 1 || i == 2) ? PrinterInfo.STATUS_UNAVAILABLE
+                                : PrinterInfo.STATUS_IDLE);
+
+                if (i != 3) {
+                    builder.setDescription("Launch a menu to select behavior.");
+                }
+
+                if (i != 4) {
+                    if (Build.VERSION.SDK_INT >= 24) {
+                        builder.setIconResourceId(R.drawable.printer);
+                    }
+                }
+
+                if (i % 2 == 0) {
+                    if (Build.VERSION.SDK_INT >= 24) {
+                        Intent infoIntent = new Intent(MyPrintService.this, InfoActivity.class);
+                        infoIntent.putExtra(InfoActivity.PRINTER_NAME, name);
+
+                        PendingIntent infoPendingIntent = PendingIntent.getActivity(
+                                getApplicationContext(),
+                                i, infoIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+                        builder.setInfoIntent(infoPendingIntent);
+                    }
+                }
+
+                if (i == 5) {
+                    if (Build.VERSION.SDK_INT >= 24) {
+                        builder.setHasCustomPrinterIcon(true);
+                    }
+                }
+
+                mFakePrinters.add(builder.build());
             }
         }
 
@@ -353,7 +430,6 @@ public class MyPrintService extends PrintService {
         public void onDestroy() {
             Log.i(LOG_TAG, "FakePrinterDiscoverySession#onDestroy()");
             mSesionHandler.removeMessages(SessionHandler.MSG_ADD_FIRST_BATCH_FAKE_PRINTERS);
-            mSesionHandler.removeMessages(SessionHandler.MSG_ADD_SECOND_BATCH_FAKE_PRINTERS);
         }
 
         @Override
@@ -362,10 +438,6 @@ public class MyPrintService extends PrintService {
             Message message1 = mSesionHandler.obtainMessage(
                     SessionHandler.MSG_ADD_FIRST_BATCH_FAKE_PRINTERS, this);
             mSesionHandler.sendMessageDelayed(message1, 0);
-
-            Message message2 = mSesionHandler.obtainMessage(
-                    SessionHandler.MSG_ADD_SECOND_BATCH_FAKE_PRINTERS, this);
-//            mSesionHandler.sendMessageDelayed(message2, 10000);
         }
 
         @Override
@@ -377,30 +449,60 @@ public class MyPrintService extends PrintService {
         @Override
         public void onStartPrinterStateTracking(PrinterId printerId) {
             Log.i(LOG_TAG, "FakePrinterDiscoverySession#onStartPrinterStateTracking()");
-            PrinterInfo printer = findPrinterInfo(printerId);
-            if (printer != null) {
-                PrinterCapabilitiesInfo capabilities =
-                        new PrinterCapabilitiesInfo.Builder(printerId)
-                    .setMinMargins(new Margins(200, 200, 200, 200))
-                    .addMediaSize(MediaSize.ISO_A4, true)
-                    .addMediaSize(MediaSize.ISO_A5, false)
-                    .addResolution(new Resolution("R1", getString(
-                            R.string.resolution_200x200), 200, 200), false)
-                    .addResolution(new Resolution("R2", getString(
-                            R.string.resolution_300x300), 300, 300), true)
-                    .setColorModes(PrintAttributes.COLOR_MODE_COLOR
-                            | PrintAttributes.COLOR_MODE_MONOCHROME,
-                            PrintAttributes.COLOR_MODE_MONOCHROME)
-                    .build();
 
-                printer = new PrinterInfo.Builder(printer)
-                    .setCapabilities(capabilities)
-                    .build();
+            final int printerCount = mFakePrinters.size();
+            for (int i = printerCount - 1; i >= 0; i--) {
+                PrinterInfo printer = mFakePrinters.remove(i);
 
-                List<PrinterInfo> printers = new ArrayList<PrinterInfo>();
-                printers.add(printer);
-                addPrinters(printers);
+                if (printer.getId().equals(printerId)) {
+                    PrinterCapabilitiesInfo.Builder b = new PrinterCapabilitiesInfo.Builder(
+                            printerId)
+                                    .setMinMargins(new Margins(200, 200, 200, 200))
+                                    .addMediaSize(MediaSize.ISO_A4, true)
+                                    .addMediaSize(MediaSize.NA_GOVT_LETTER, false)
+                                    .addMediaSize(MediaSize.JPN_YOU4, false)
+                                    .addResolution(new Resolution("R1", getString(
+                                            R.string.resolution_200x200), 200, 200), false)
+                                    .addResolution(new Resolution("R2", getString(
+                                            R.string.resolution_300x300), 300, 300), true)
+                                    .setColorModes(PrintAttributes.COLOR_MODE_COLOR
+                                            | PrintAttributes.COLOR_MODE_MONOCHROME,
+                                            PrintAttributes.COLOR_MODE_MONOCHROME);
+
+                    if (Build.VERSION.SDK_INT >= 23) {
+                        b.setDuplexModes(PrintAttributes.DUPLEX_MODE_LONG_EDGE
+                                        | PrintAttributes.DUPLEX_MODE_NONE,
+                                PrintAttributes.DUPLEX_MODE_LONG_EDGE);
+                    }
+
+                    PrinterCapabilitiesInfo capabilities = b.build();
+
+                    printer = new PrinterInfo.Builder(printer)
+                            .setCapabilities(capabilities)
+                            .build();
+                }
+
+                mFakePrinters.add(printer);
             }
+
+            addPrinters(mFakePrinters);
+        }
+
+        @Override
+        public void onRequestCustomPrinterIcon(final PrinterId printerId,
+                final CancellationSignal cancellationSignal,
+                final CustomPrinterIconCallback callbacks) {
+            Log.i(LOG_TAG, "FakePrinterDiscoverySession#onRequestCustomPrinterIcon() " + printerId);
+
+            SomeArgs args = SomeArgs.obtain();
+            args.arg1 = cancellationSignal;
+            args.arg2 = callbacks;
+
+            Message msg = mSesionHandler.obtainMessage(
+                    SessionHandler.MSG_SUPPLY_CUSTOM_PRINTER_ICON, args);
+
+            // Pretend the bitmap icon takes 5 seconds to load
+            mSesionHandler.sendMessageDelayed(msg, 5000);
         }
 
         @Override
@@ -414,42 +516,17 @@ public class MyPrintService extends PrintService {
         }
 
         private void addFirstBatchFakePrinters() {
-            List<PrinterInfo> printers = mFakePrinters.subList(0, mFakePrinters.size() / 2);
+            List<PrinterInfo> printers = mFakePrinters.subList(0, mFakePrinters.size());
             addPrinters(printers);
-        }
-
-        private void addSecondBatchFakePrinters() {
-            List<PrinterInfo> printers = mFakePrinters.subList(0, mFakePrinters.size() / 2
-                    /* mFakePrinters.size() / 2, mFakePrinters.size()*/);
-            final int printerCount = mFakePrinters.size();
-            for (int i = printerCount - 1; i >= 0; i--) {
-                PrinterInfo printer = new PrinterInfo.Builder(mFakePrinters.get(i))
-                        .setStatus(PrinterInfo.STATUS_UNAVAILABLE).build();
-                printers.add(printer);
-            }
-            addPrinters(printers);
-        }
-
-        private PrinterInfo findPrinterInfo(PrinterId printerId) {
-            List<PrinterInfo> printers = getPrinters();
-            final int printerCount = getPrinters().size();
-            for (int i = 0; i < printerCount; i++) {
-                PrinterInfo printer = printers.get(i);
-                if (printer.getId().equals(printerId)) {
-                    return printer;
-                }
-            }
-            return null;
         }
 
         private void cancellAddingFakePrinters() {
             mSesionHandler.removeMessages(SessionHandler.MSG_ADD_FIRST_BATCH_FAKE_PRINTERS);
-            mSesionHandler.removeMessages(SessionHandler.MSG_ADD_SECOND_BATCH_FAKE_PRINTERS);
         }
 
         final class SessionHandler extends Handler {
             public static final int MSG_ADD_FIRST_BATCH_FAKE_PRINTERS = 1;
-            public static final int MSG_ADD_SECOND_BATCH_FAKE_PRINTERS = 2;
+            public static final int MSG_SUPPLY_CUSTOM_PRINTER_ICON = 2;
 
             public SessionHandler(Looper looper) {
                 super(looper);
@@ -461,9 +538,17 @@ public class MyPrintService extends PrintService {
                     case MSG_ADD_FIRST_BATCH_FAKE_PRINTERS: {
                         addFirstBatchFakePrinters();
                     } break;
+                    case MSG_SUPPLY_CUSTOM_PRINTER_ICON: {
+                        SomeArgs args = (SomeArgs) message.obj;
+                        CancellationSignal cancellationSignal = (CancellationSignal) args.arg1;
+                        CustomPrinterIconCallback callbacks = (CustomPrinterIconCallback) args.arg2;
+                        args.recycle();
 
-                    case MSG_ADD_SECOND_BATCH_FAKE_PRINTERS: {
-                        addSecondBatchFakePrinters();
+                        if (!cancellationSignal.isCanceled()) {
+                            callbacks.onCustomPrinterIconLoaded(Icon.createWithBitmap(
+                                    BitmapFactory.decodeResource(getResources(),
+                                    R.raw.red_printer)));
+                        }
                     } break;
                 }
             }

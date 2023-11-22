@@ -426,6 +426,10 @@ public class DateFormatRegressionTest extends com.ibm.icu.dev.test.TestFmwk {
         try {
             TimeZone z = new SimpleTimeZone((int) (1.25 * 3600000), "FAKEZONE");
             TimeZone.setDefault(z);
+            // Android patch (http://b/28949992) start.
+            // ICU TimeZone.setDefault() not supported on Android.
+            z = TimeZone.getDefault();
+            // Android patch (http://b/28949992) end.
             SimpleDateFormat f = new SimpleDateFormat();
             if (!f.getTimeZone().equals(z))
                 errln("Fail: SimpleTimeZone should use TimeZone.getDefault()");
@@ -1282,7 +1286,7 @@ public class DateFormatRegressionTest extends com.ibm.icu.dev.test.TestFmwk {
         String text = new String("--mon-02-march-2011");
         SimpleDateFormat format = new SimpleDateFormat(pattern);
 
-        format.setBooleanAttribute(DateFormat.BooleanAttribute.PARSE_PARTIAL_MATCH, false);      
+        format.setBooleanAttribute(DateFormat.BooleanAttribute.PARSE_PARTIAL_LITERAL_MATCH, false);      
         try {
             format.parse(text);
             errln("parse partial match did NOT fail in strict mode!");
@@ -1290,7 +1294,7 @@ public class DateFormatRegressionTest extends com.ibm.icu.dev.test.TestFmwk {
             // expected
         }
 
-        format.setBooleanAttribute(DateFormat.BooleanAttribute.PARSE_PARTIAL_MATCH, true);
+        format.setBooleanAttribute(DateFormat.BooleanAttribute.PARSE_PARTIAL_LITERAL_MATCH, true);
         try {
             format.parse(text);
         } catch (ParseException pe) {

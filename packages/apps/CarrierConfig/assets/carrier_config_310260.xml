@@ -12,5 +12,9 @@
 <int name="maxImageWidth" value="2592" />
 <int name="volte_replacement_rat_int" value="3" />
 <boolean name="carrier_wfc_ims_available_bool" value="true" />
+<boolean name="carrier_ims_gba_required_bool" value="true" />
+<boolean name="carrier_vt_available_bool" value="true" />
+<int name="wfc_spn_format_idx_int" value="1" />
+<string-array name="wfc_operator_error_codes_string_array" num="1"><item value="REG09|0" /></string-array>
 </carrier_config>
 </carrier_config_list>

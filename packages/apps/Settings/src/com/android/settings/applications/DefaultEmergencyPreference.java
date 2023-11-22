@@ -16,6 +16,7 @@
 
 package com.android.settings.applications;
 
+import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
@@ -29,8 +30,9 @@ import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.ArraySet;
 import android.util.AttributeSet;
-
+import com.android.internal.telephony.SmsApplication;
 import com.android.settings.AppListPreference;
+import com.android.settings.SelfAvailablePreference;
 
 import java.util.List;
 import java.util.Objects;
@@ -39,8 +41,10 @@ import java.util.Set;
 /**
  * A preference for choosing the default emergency app
  */
-public class DefaultEmergencyPreference extends AppListPreference {
+public class DefaultEmergencyPreference extends AppListPreference
+        implements SelfAvailablePreference {
 
+    private static final boolean DEFAULT_EMERGENCY_APP_IS_CONFIGURABLE = false;
     private final ContentResolver mContentResolver;
 
     public static final Intent QUERY_INTENT = new Intent(
@@ -49,10 +53,7 @@ public class DefaultEmergencyPreference extends AppListPreference {
     public DefaultEmergencyPreference(Context context, AttributeSet attrs) {
         super(context, attrs);
         mContentResolver = context.getContentResolver();
-
-        if (isAvailable(context)) {
-            load();
-        }
+        load();
     }
 
     @Override
@@ -111,11 +112,9 @@ public class DefaultEmergencyPreference extends AppListPreference {
                 continue;
             }
 
-            // Get earliest installed app, but prioritize system apps.
-            if (bestMatch == null
-                    || !isSystemApp(bestMatch) && isSystemApp(packageInfo)
-                    || isSystemApp(bestMatch) == isSystemApp(packageInfo)
-                    && bestMatch.firstInstallTime > packageInfo.firstInstallTime) {
+            // Get earliest installed system app.
+            if (isSystemApp(packageInfo) && (bestMatch == null ||
+                    bestMatch.firstInstallTime > packageInfo.firstInstallTime)) {
                 bestMatch = packageInfo;
             }
         }
@@ -133,12 +132,7 @@ public class DefaultEmergencyPreference extends AppListPreference {
         return packages;
     }
 
-    public static boolean isAvailable(Context context) {
-        return isCapable(context)
-                && context.getPackageManager().resolveActivity(QUERY_INTENT, 0) != null;
-    }
-
-    public static boolean isCapable(Context context) {
+    private static boolean isCapable(Context context) {
         return TelephonyManager.EMERGENCY_ASSISTANCE_ENABLED
                 && context.getResources().getBoolean(
                 com.android.internal.R.bool.config_voice_capable);
@@ -147,5 +141,25 @@ public class DefaultEmergencyPreference extends AppListPreference {
     private static boolean isSystemApp(PackageInfo info) {
         return info.applicationInfo != null
                 && (info.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
+    }
+
+    public boolean isAvailable(Context context) {
+        return DEFAULT_EMERGENCY_APP_IS_CONFIGURABLE
+                && isCapable(context)
+                && context.getPackageManager().resolveActivity(QUERY_INTENT, 0) != null;
+    }
+
+    public static boolean hasEmergencyPreference(String pkg, Context context) {
+        Intent i = new Intent(QUERY_INTENT);
+        i.setPackage(pkg);
+        final List<ResolveInfo> resolveInfos =
+                context.getPackageManager().queryIntentActivities(i, 0);
+        return resolveInfos != null && resolveInfos.size() != 0;
+    }
+
+    public static boolean isEmergencyDefault(String pkg, Context context) {
+        String defaultPackage = Settings.Secure.getString(context.getContentResolver(),
+                Settings.Secure.EMERGENCY_ASSISTANCE_APPLICATION);
+        return defaultPackage != null && defaultPackage.equals(pkg);
     }
 }

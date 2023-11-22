@@ -7,7 +7,3 @@ typedef struct {
 
 anon myStruct;
 
-int root(int num) {
-    return 10;
-}
-

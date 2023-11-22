@@ -16,8 +16,8 @@
 
 package android.hardware.cts;
 
-
 import android.hardware.GeomagneticField;
+import android.platform.test.annotations.Presubmit;
 import android.test.AndroidTestCase;
 
 import java.util.GregorianCalendar;
@@ -29,6 +29,7 @@ public class GeomagneticFieldTest extends AndroidTestCase {
     private static final float ALTITUDE_OF_CHENGDU = 500f;
     private static final long TEST_TIME = new GregorianCalendar(2010, 5, 1).getTimeInMillis();
 
+    @Presubmit
     public void testGeomagneticField() {
         GeomagneticField geomagneticField = new GeomagneticField(LATITUDE_OF_CHENGDU,
                 LONGITUDE_OF_CHENGDU, ALTITUDE_OF_CHENGDU, TEST_TIME);

@@ -67,8 +67,8 @@ static SLresult IBassBoost_IsEnabled(SLBassBoostItf self, SLboolean *pEnabled)
     } else {
         IBassBoost *thiz = (IBassBoost *) self;
         interface_lock_exclusive(thiz);
-        SLboolean enabled = thiz->mEnabled;
 #if !defined(ANDROID)
+        SLboolean enabled = thiz->mEnabled;
         *pEnabled = enabled;
         result = SL_RESULT_SUCCESS;
 #else

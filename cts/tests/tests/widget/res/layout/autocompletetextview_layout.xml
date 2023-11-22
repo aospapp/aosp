@@ -24,7 +24,7 @@
         android:layout_height="wrap_content"
         android:text="@string/notify" />
 
-    <AutoCompleteTextView android:id="@+id/autocompletetv_edit"
+    <android.widget.cts.AutoCompleteTextViewNoIme android:id="@+id/autocompletetv_edit"
         android:completionThreshold="1"
         android:completionHint="@string/tabs_1"
         android:layout_width="match_parent"

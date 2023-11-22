@@ -31,28 +31,32 @@ public:
     ObjectBaseRef<const Element> mElement;
 
     ScriptIntrinsic(Context *);
-    virtual ~ScriptIntrinsic();
+    ~ScriptIntrinsic() override;
 
     bool init(Context *rsc, RsScriptIntrinsicID iid, Element *e);
 
 
-    virtual void serialize(Context *rsc, OStream *stream) const;
-    virtual RsA3DClassID getClassId() const;
-    virtual bool freeChildren();
+    void serialize(Context *rsc, OStream *stream) const override;
+    RsA3DClassID getClassId() const override;
+    bool freeChildren() override;
 
-    virtual void runForEach(Context* rsc,
-                            uint32_t slot,
-                            const Allocation ** ains,
-                            size_t inLen,
-                            Allocation* aout,
-                            const void* usr,
-                            size_t usrBytes,
-                            const RsScriptCall* sc = nullptr);
+    void runForEach(Context* rsc,
+                    uint32_t slot,
+                    const Allocation ** ains,
+                    size_t inLen,
+                    Allocation* aout,
+                    const void* usr,
+                    size_t usrBytes,
+                    const RsScriptCall* sc = nullptr) override;
 
-    virtual void Invoke(Context *rsc, uint32_t slot, const void *data, size_t len);
-    virtual void setupScript(Context *rsc);
-    virtual uint32_t run(Context *);
-    virtual bool isInstrinsic() const { return true; }
+    void runReduce(Context *rsc, uint32_t slot,
+                   const Allocation ** ains, size_t inLen,
+                   Allocation *aout, const RsScriptCall *sc) override;
+
+    void Invoke(Context *rsc, uint32_t slot, const void *data, size_t len) override;
+    void setupScript(Context *rsc) override;
+    uint32_t run(Context *) override;
+    bool isIntrinsic() const override { return true; }
 protected:
     uint32_t mIntrinsicID;
 

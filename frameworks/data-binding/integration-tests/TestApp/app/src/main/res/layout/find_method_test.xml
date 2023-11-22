@@ -11,7 +11,8 @@
   ~ See the License for the specific language governing permissions and
   ~ limitations under the License.
   -->
-<layout xmlns:android="http://schemas.android.com/apk/res/android">
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:app="http://schemas.android.com/apk/res-auto">
     <data>
         <variable name="obj" type="android.databinding.testapp.vo.FindMethodBindingObject"/>
         <import type="android.databinding.testapp.vo.FindMethodBindingObject.Bar"/>
@@ -134,5 +135,9 @@
             android:id="@+id/textView26"
             android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:text="@{obj.observableClass.x}"/>
+        <TextView
+                android:id="@+id/textView27"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                app:tag="@{1}"/>
     </LinearLayout>
 </layout>

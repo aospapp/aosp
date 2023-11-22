@@ -25,7 +25,7 @@ import android.os.Build;
  * Helper for accessing features in {@link android.content.Intent}
  * introduced after API level 4 in a backwards compatible fashion.
  */
-public class IntentCompat {
+public final class IntentCompat {
 
     interface IntentCompatImpl {
         Intent makeMainActivity(ComponentName componentName);
@@ -172,6 +172,12 @@ public class IntentCompat {
      * {@link android.content.Intent#EXTRA_TEXT}.
      */
     public static final String EXTRA_HTML_TEXT = "android.intent.extra.HTML_TEXT";
+
+    /**
+     * Indicates an activity optimized for Leanback mode, and that should
+     * be displayed in the Leanback launcher.
+     */
+    public static final String CATEGORY_LEANBACK_LAUNCHER = "android.intent.category.LEANBACK_LAUNCHER";
 
     /**
      * If set in an Intent passed to {@link Context#startActivity Context.startActivity()},

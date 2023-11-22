@@ -57,7 +57,18 @@ enum {
 /*******************************************************************************
 * Static constant definitions
 *******************************************************************************/
-static const UINT8 CE_DEFAULT_LF_PMM[NCI_T3T_PMM_LEN] = {0x20, 0x79, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};   /* Default PMm param */
+/* Default PMm param */
+static const UINT8 CE_DEFAULT_LF_PMM[NCI_T3T_PMM_LEN] =
+{
+    0x01,    /* This PAD0 is used to identify HCE-F on Android */
+    0xFE,    /* This PAD0 is used to identify HCE-F on Android */
+    0xFF,
+    0xFF,
+    0xFF,
+    0xFF,
+    0xFF,
+    0xFF
+};
 
 /*******************************************************************************
 **

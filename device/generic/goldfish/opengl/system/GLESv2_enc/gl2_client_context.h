@@ -5,6 +5,8 @@
 
 #include "gl2_client_proc.h"
 
+#include "gl2_types.h"
+
 
 struct gl2_client_context_t {
 

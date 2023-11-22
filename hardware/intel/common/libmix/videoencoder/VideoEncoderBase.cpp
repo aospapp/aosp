@@ -21,6 +21,9 @@
 #include <va/va_tpi.h>
 #include <va/va_android.h>
 
+#define min(X,Y) (((X) < (Y)) ? (X) : (Y))
+#define max(X,Y) (((X) > (Y)) ? (X) : (Y))
+
 VideoEncoderBase::VideoEncoderBase()
     :mInitialized(true)
     ,mStarted(false)
@@ -864,7 +867,7 @@ Encode_Status VideoEncoderBase::querySupportedSurfaceMemTypes() {
             continue;
     }
 
-    delete attribs;
+    delete[] attribs;
 
     return ENCODE_SUCCESS;
 }

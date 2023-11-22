@@ -28,8 +28,10 @@ Thumb2RelativePatcher::Thumb2RelativePatcher(RelativePatcherTargetProvider* prov
                              kMaxPositiveDisplacement, kMaxNegativeDisplacement) {
 }
 
-void Thumb2RelativePatcher::PatchCall(std::vector<uint8_t>* code, uint32_t literal_offset,
-                                      uint32_t patch_offset, uint32_t target_offset) {
+void Thumb2RelativePatcher::PatchCall(std::vector<uint8_t>* code,
+                                      uint32_t literal_offset,
+                                      uint32_t patch_offset,
+                                      uint32_t target_offset) {
   DCHECK_LE(literal_offset + 4u, code->size());
   DCHECK_EQ(literal_offset & 1u, 0u);
   DCHECK_EQ(patch_offset & 1u, 0u);
@@ -54,10 +56,10 @@ void Thumb2RelativePatcher::PatchCall(std::vector<uint8_t>* code, uint32_t liter
   SetInsn32(code, literal_offset, value);
 }
 
-void Thumb2RelativePatcher::PatchDexCacheReference(std::vector<uint8_t>* code,
-                                                   const LinkerPatch& patch,
-                                                   uint32_t patch_offset,
-                                                   uint32_t target_offset) {
+void Thumb2RelativePatcher::PatchPcRelativeReference(std::vector<uint8_t>* code,
+                                                     const LinkerPatch& patch,
+                                                     uint32_t patch_offset,
+                                                     uint32_t target_offset) {
   uint32_t literal_offset = patch.LiteralOffset();
   uint32_t pc_literal_offset = patch.PcInsnOffset();
   uint32_t pc_base = patch_offset + (pc_literal_offset - literal_offset) + 4u /* PC adjustment */;
@@ -77,11 +79,14 @@ void Thumb2RelativePatcher::PatchDexCacheReference(std::vector<uint8_t>* code,
 std::vector<uint8_t> Thumb2RelativePatcher::CompileThunkCode() {
   // The thunk just uses the entry point in the ArtMethod. This works even for calls
   // to the generic JNI and interpreter trampolines.
-  arm::Thumb2Assembler assembler;
+  ArenaPool pool;
+  ArenaAllocator arena(&pool);
+  arm::Thumb2Assembler assembler(&arena);
   assembler.LoadFromOffset(
       arm::kLoadWord, arm::PC, arm::R0,
       ArtMethod::EntryPointFromQuickCompiledCodeOffset(kArmPointerSize).Int32Value());
   assembler.bkpt(0);
+  assembler.FinalizeCode();
   std::vector<uint8_t> thunk_code(assembler.CodeSize());
   MemoryRegion code(thunk_code.data(), thunk_code.size());
   assembler.FinalizeInstructions(code);
@@ -109,8 +114,9 @@ uint32_t Thumb2RelativePatcher::GetInsn32(ArrayRef<const uint8_t> code, uint32_t
       (static_cast<uint32_t>(addr[3]) << 8);
 }
 
-template <typename Alloc>
-uint32_t Thumb2RelativePatcher::GetInsn32(std::vector<uint8_t, Alloc>* code, uint32_t offset) {
+template <typename Vector>
+uint32_t Thumb2RelativePatcher::GetInsn32(Vector* code, uint32_t offset) {
+  static_assert(std::is_same<typename Vector::value_type, uint8_t>::value, "Invalid value type");
   return GetInsn32(ArrayRef<const uint8_t>(*code), offset);
 }
 

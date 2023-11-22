@@ -21,6 +21,13 @@ package org.apache.harmony.jpda.tests.share;
 
 public class AllTests {
   public static void main(String[] args) {
+    junit.framework.TestResult result = junit.textui.TestRunner.run(suite());
+    if (!result.wasSuccessful()) {
+        System.exit(1);
+    }
+  }
+
+  public static junit.framework.Test suite() {
     junit.framework.TestSuite suite = new junit.framework.TestSuite();
 
     //
@@ -55,6 +62,7 @@ public class AllTests {
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ArrayReference.GetValuesTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ArrayReference.LengthTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ArrayReference.SetValues002Test.class);
+    suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ArrayReference.SetValues003Test.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ArrayReference.SetValuesTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ArrayType.NewInstanceTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ClassLoaderReference.VisibleClassesTest.class);
@@ -62,9 +70,13 @@ public class AllTests {
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ClassObjectReference.ReflectedTypeTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ClassType.InvokeMethod002Test.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ClassType.InvokeMethod003Test.class);
+    suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ClassType.InvokeMethodAfterMultipleThreadSuspensionTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ClassType.InvokeMethodWithSuspensionTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ClassType.InvokeMethodTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ClassType.NewInstance002Test.class);
+    suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ClassType.NewInstanceTagTest.class);
+    suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ClassType.NewInstanceAfterMultipleThreadSuspensionTest.class);
+    suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ClassType.NewInstanceStringTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ClassType.NewInstanceTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ClassType.NewInstanceWithSuspensionTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ClassType.SetValues002Test.class);
@@ -83,6 +95,7 @@ public class AllTests {
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.CombinedEvents003Test.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.CombinedEventsTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.CombinedExceptionEventsTest.class);
+    suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.EventWithExceptionTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.ExceptionCaughtTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.ExceptionUncaughtTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.ExceptionWithLocationTest.class);
@@ -93,13 +106,15 @@ public class AllTests {
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.MethodEntryTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.MethodExitTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.MethodExitWithReturnValueTest.class);
-    suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.SingleStepWithLocationTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.SingleStepTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.SingleStepThroughReflectionTest.class);
+    suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.SingleStepWithLocationTest.class);
+    suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.SingleStepWithPendingExceptionTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.ThreadEndTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.ThreadStartTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.VMDeath002Test.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.VMDeathTest.class);
+    suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.InterfaceType.InvokeMethodTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Method.BytecodesTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Method.IsObsoleteTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Method.LineTableTest.class);
@@ -127,6 +142,9 @@ public class AllTests {
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ObjectReference.InvokeMethod002Test.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ObjectReference.InvokeMethod003Test.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ObjectReference.InvokeMethodTest.class);
+    suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ObjectReference.InvokeMethodAfterMultipleThreadSuspensionTest.class);
+    suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ObjectReference.InvokeMethodDefault002Test.class);
+    suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ObjectReference.InvokeMethodDefaultTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ObjectReference.InvokeMethodWithSuspensionTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ObjectReference.IsCollectedTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ObjectReference.MonitorInfoTest.class);
@@ -214,10 +232,6 @@ public class AllTests {
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.VirtualMachine.SuspendTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.VirtualMachine.TopLevelThreadGroupsTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.VirtualMachine.VersionTest.class);
-
-    junit.framework.TestResult result = junit.textui.TestRunner.run(suite);
-    if (!result.wasSuccessful()) {
-        System.exit(1);
-    }
+    return suite;
   }
 }

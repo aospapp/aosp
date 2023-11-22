@@ -28,13 +28,12 @@
     <string name="p12_description" msgid="4128352087331630024">"ໃບຮັບຮອງໃນແຫລ່ງເກັບກະແຈ PKCS12."</string>
     <string name="one_userkey" msgid="3500697912370644881">"ນຶ່ງກະແຈຜູ່ໃຊ້"</string>
     <string name="one_usercrt" msgid="7690798336332403106">"ນຶ່ງໃບຮັບຮອງຜູ່ໃຊ້"</string>
-    <string name="one_cacrt" msgid="2667950425420663146">"ນຶ່ງໃບຮັບຮອງ CA"</string>
+    <string name="one_cacrt" msgid="2667950425420663146">"ໃບຢັ້ງຢືນ CA ໜຶ່ງໃບ"</string>
     <string name="n_cacrts" msgid="2141498640685639208">"%d ໃບຮັບຮອງ CA"</string>
     <string name="password_error" msgid="2042471639556516356">"ພິມລະຫັດຜ່ານທີ່ຖືກຕ້ອງ."</string>
     <string name="password_empty_error" msgid="591713406761723025">"ພິມລະຫັດຜ່ານ."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"ພິມຊື່."</string>
     <string name="name_char_error" msgid="3176618568784938968">"ພິມຊື່ທີ່ມີພຽງແຕ່ໂຕອັກສອນ ແລະໂຕເລກ."</string>
-    <string name="storage_error" msgid="8306802455802770779">"ບໍ່ສາມາດບັນທຶກໃບຮັບຮອງໄດ້. ແຕະ \"ຕົກລົງ\" ເພື່ອລອງໃໝ່ອີກຄັ້ງ."</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"ບໍ່ສາມາດບັນທຶກໃບຮັບຮອງໄດ້. ບ່ອນຈັດເກັບຂໍ້ມູນລັບບໍ່ໄດ້ເປີດນຳໃຊ້ ຫຼືຖືກເປີດຢ່າງບໍ່ຖືກຕ້ອງ."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"ໃບຮັບຮອງບໍ່ໄດ້ຖືກຕິດຕັ້ງເທື່ອ."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"ບໍ່ມີໃບຮັບຮອງເພື່ອຕິດຕັ້ງ."</string>

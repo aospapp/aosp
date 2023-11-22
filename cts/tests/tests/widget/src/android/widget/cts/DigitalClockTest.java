@@ -16,7 +16,7 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -42,7 +42,7 @@ public class DigitalClockTest extends ActivityInstrumentationTestCase<DigitalClo
     private Context mContext;
 
     public DigitalClockTest() {
-        super("com.android.cts.widget", DigitalClockCtsActivity.class);
+        super("android.widget.cts", DigitalClockCtsActivity.class);
     }
 
     @Override
@@ -114,7 +114,7 @@ public class DigitalClockTest extends ActivityInstrumentationTestCase<DigitalClo
     private AttributeSet getAttributeSet(int resourceId) {
         XmlResourceParser parser = mActivity.getResources().getXml(resourceId);
         try {
-            XmlUtils.beginDocument(parser, "com.android.cts.widget.alarmclock.DigitalClock");
+            XmlUtils.beginDocument(parser, "android.widget.cts.alarmclock.DigitalClock");
         } catch (XmlPullParserException e) {
             fail("unexpected XmlPullParserException.");
         } catch (IOException e) {

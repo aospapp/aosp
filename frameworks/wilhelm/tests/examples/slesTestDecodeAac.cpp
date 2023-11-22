@@ -96,8 +96,6 @@ static int endiannessKeyIndex = -1;
  * Note that this size is queried and displayed at l.XXX for demonstration/test purposes.
  *  */
 #define PCM_METADATA_VALUE_SIZE 32
-/* used to query metadata values */
-static SLMetadataInfo *pcmMetaData = NULL;
 /* we only want to query / display the PCM format once */
 static bool formatQueried = false;
 #endif

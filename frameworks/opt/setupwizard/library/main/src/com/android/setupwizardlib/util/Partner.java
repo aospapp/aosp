@@ -29,10 +29,12 @@ import android.util.Log;
 import com.android.setupwizardlib.annotations.VisibleForTesting;
 
 /**
- * Utilities to discover and interact with partner customizations. There can only be one set of
- * customizations on a device, and it must be bundled with the system.
+ * Utilities to discover and interact with partner customizations. An overlay package is one that
+ * registers the broadcast receiver for {@code com.android.setupwizard.action.PARTNER_CUSTOMIZATION}
+ * in its manifest. There can only be one customization APK on a device, and it must be bundled with
+ * the system.
  *
- * Derived from com.android.launcher3/Partner.java
+ * <p>Derived from {@code com.android.launcher3/Partner.java}
  */
 public class Partner {
     private static final String TAG = "(SUW) Partner";
@@ -105,8 +107,8 @@ public class Partner {
     /**
      * Find and return partner details, or {@code null} if none exists. A partner package is marked
      * by a broadcast receiver declared in the manifest that handles the
-     * com.android.setupwizard.action.PARTNER_CUSTOMIZATION intent action. The overlay package must
-     * also be a system package.
+     * {@code com.android.setupwizard.action.PARTNER_CUSTOMIZATION} intent action. The overlay
+     * package must also be a system package.
      */
     public static synchronized Partner get(Context context) {
         if (!sSearched) {

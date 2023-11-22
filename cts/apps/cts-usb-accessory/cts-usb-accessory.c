@@ -29,7 +29,9 @@
 #include <usbhost/usbhost.h>
 #include <linux/usb/f_accessory.h>
 
-struct usb_device *sDevice = NULL;
+static struct usb_device *sDevice = NULL;
+static int sAfterUnplug = 0;
+static char* sDeviceSerial = NULL;
 
 static void* message_thread(void* arg) {
     int *endpoints = (int *)arg;
@@ -67,12 +69,13 @@ static void milli_sleep(int millis) {
     nanosleep(&tm, NULL);
 }
 
-static void send_string(struct usb_device *device, int index, const char* string) {
+static int send_string(struct usb_device *device, int index, const char* string) {
     int ret = usb_device_control_transfer(device, USB_DIR_OUT | USB_TYPE_VENDOR,
-            ACCESSORY_SEND_STRING, 0, index, (void *)string, strlen(string) + 1, 0);
+            ACCESSORY_SEND_STRING, 0, index, (void *)string, strlen(string) + 1, 1000);
 
     // some devices can't handle back-to-back requests, so delay a bit
     milli_sleep(10);
+    return ret;
 }
 
 static int usb_device_added(const char *devname, void* client_data) {
@@ -88,6 +91,13 @@ static int usb_device_added(const char *devname, void* client_data) {
         return 0;
     }
 
+    char* serial = usb_device_get_serial(device);
+    if (sDeviceSerial && (!serial || strcmp(sDeviceSerial, serial))) {
+        free(serial);
+        return 0;
+    }
+    free(serial);
+
     vendorId = usb_device_get_vendor_id(device);
     productId = usb_device_get_product_id(device);
 
@@ -101,6 +111,7 @@ static int usb_device_added(const char *devname, void* client_data) {
         printf("Found Android device in accessory mode (%x:%x)...\n",
                vendorId, productId);
         sDevice = device;
+        sDeviceSerial = usb_device_get_serial(sDevice);
 
         usb_descriptor_iter_init(device, &iter);
         while ((desc = usb_descriptor_iter_next(&iter)) != NULL && (!intf || !ep1 || !ep2)) {
@@ -143,22 +154,33 @@ static int usb_device_added(const char *devname, void* client_data) {
 
         uint16_t protocol = 0;
         ret = usb_device_control_transfer(device, USB_DIR_IN | USB_TYPE_VENDOR,
-                ACCESSORY_GET_PROTOCOL, 0, 0, &protocol, sizeof(protocol), 0);
-        if (ret == 2)
+                ACCESSORY_GET_PROTOCOL, 0, 0, &protocol, sizeof(protocol), 1000);
+        if (ret == 2) {
             printf("Device supports protocol version %d\n", protocol);
-        else
+        } else {
             fprintf(stderr, "Failed to read protocol version\n");
+        }
 
-        send_string(device, ACCESSORY_STRING_MANUFACTURER, "Android CTS");
-        send_string(device, ACCESSORY_STRING_MODEL, "CTS USB Accessory");
-        send_string(device, ACCESSORY_STRING_DESCRIPTION, "CTS USB Accessory");
-        send_string(device, ACCESSORY_STRING_VERSION, "1.0");
-        send_string(device, ACCESSORY_STRING_URI,
-                "http://source.android.com/compatibility/cts-intro.html");
-        send_string(device, ACCESSORY_STRING_SERIAL, "1234567890");
+        ret = (ret < 0) ? ret :
+                send_string(device, ACCESSORY_STRING_MANUFACTURER, "Android CTS");
+        ret = (ret < 0) ? ret :
+                send_string(device, ACCESSORY_STRING_MODEL, "CTS USB Accessory");
+        ret = (ret < 0) ? ret :
+                send_string(device, ACCESSORY_STRING_DESCRIPTION, "CTS USB Accessory");
+        ret = (ret < 0) ? ret :
+                send_string(device, ACCESSORY_STRING_VERSION, "1.0");
+        ret = (ret < 0) ? ret :
+                send_string(device, ACCESSORY_STRING_URI,
+                        "http://source.android.com/compatibility/cts-intro.html");
+        ret = (ret < 0) ? ret :
+                send_string(device, ACCESSORY_STRING_SERIAL, "1234567890");
 
-        ret = usb_device_control_transfer(device, USB_DIR_OUT | USB_TYPE_VENDOR,
-                ACCESSORY_START, 0, 0, 0, 0, 0);
+        ret = (ret < 0) ? ret :
+                usb_device_control_transfer(device, USB_DIR_OUT | USB_TYPE_VENDOR,
+                        ACCESSORY_START, 0, 0, 0, 0, 1000);
+        if (ret < 0) {
+            fprintf(stderr, "Failed to start accessory mode\n");
+        }
         return 0;
     }
 
@@ -172,8 +194,13 @@ static int usb_device_removed(const char *devname, void* client_data) {
     if (sDevice && !strcmp(usb_device_get_name(sDevice), devname)) {
         usb_device_close(sDevice);
         sDevice = NULL;
-        // exit when we are disconnected
-        return 1;
+        if (sAfterUnplug) {
+            // exit when we are disconnected the second time
+            free(sDeviceSerial);
+            return 1;
+        } else {
+            sAfterUnplug = 1;
+        }
     }
     return 0;
 }

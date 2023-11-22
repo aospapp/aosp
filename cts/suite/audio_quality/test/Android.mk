@@ -14,16 +14,9 @@
 # limitations under the License.
 #
 
-# build only for linux
-ifeq ($(HOST_OS),linux)
-
 LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
-LOCAL_CPP_EXTENSION := .cpp
-LOCAL_MODULE_TAGS := optional
-LOCAL_SRC_FILES := $(patsubst ./%,%, $(shell cd $(LOCAL_PATH); \
-  find . -name "*.cpp" -and -not -name ".*"))
-#LOCAL_SRC_FILES := 	AudioRecordPlayTest.cpp
+LOCAL_SRC_FILES := $(call all-subdir-cpp-files)
 
 #$(info $(LOCAL_SRC_FILES))
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../lib/include $(LOCAL_PATH)/../lib/src external/gtest/include \
@@ -35,7 +28,6 @@ LOCAL_STATIC_LIBRARIES := libutils libgtest_host libgtest_main_host  liblog libc
 LOCAL_WHOLE_STATIC_LIBRARIES := libcts_audio_quality
 LOCAL_CFLAGS:= -g -fno-exceptions
 LOCAL_LDFLAGS:= -g -lrt -ldl -lm -fno-exceptions -lpthread
+LOCAL_MODULE_HOST_OS := linux
 LOCAL_MODULE:= cts_audio_quality_test
 include $(BUILD_HOST_EXECUTABLE)
-
-endif # linux

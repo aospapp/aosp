@@ -15,7 +15,7 @@
  */
 package android.content.res.cts;
 
-import com.android.cts.content.R;
+import android.content.cts.R;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -26,12 +26,15 @@ import android.content.res.AssetManager;
 import android.content.res.Resources;
 import android.content.res.XmlResourceParser;
 import android.test.AndroidTestCase;
+import android.test.suitebuilder.annotation.SmallTest;
 import android.util.TypedValue;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.Arrays;
+import java.util.HashSet;
 
 
 public class AssetManagerTest extends AndroidTestCase{
@@ -43,6 +46,7 @@ public class AssetManagerTest extends AndroidTestCase{
         mAssets = mContext.getAssets();
     }
 
+    @SmallTest
     public void testAssetOperations() throws IOException, XmlPullParserException {
         final Resources res = getContext().getResources();
         final TypedValue value = new TypedValue();
@@ -113,6 +117,65 @@ public class AssetManagerTest extends AndroidTestCase{
 
         assertNotNull(mAssets.getLocales());
 
+    }
+
+    @SmallTest
+    public void testClose() throws IOException, XmlPullParserException {
+        final AssetManager assets = new AssetManager();
+        assets.close();
+
+        // Should no-op.
+        assets.close();
+
+        try {
+            assets.openXmlResourceParser("AndroidManifest.xml");
+            fail("Expected RuntimeException");
+        } catch (RuntimeException e) {
+            // Expected.
+        }
+    }
+
+    @SmallTest
+    public void testGetNonSystemLocales() {
+        // This is the list of locales built into this test package. It is basically the locales
+        // specified in the Android.mk files (assuming they have corresponding resources), plus the
+        // special case for Filipino.
+        final String KNOWN_LOCALES[] = {
+            "cs",
+            "fil",
+            "fil-PH",
+            "fr",
+            "fr-FR",
+            "kok",
+            "kok-419",
+            "kok-419-variant",
+            "kok-IN",
+            "kok-Knda",
+            "kok-Knda-419",
+            "kok-Knda-419-variant",
+            "kok-variant",
+            "tgl",
+            "tgl-PH",
+            "xx",
+            "xx-YY"
+        };
+
+        final HashSet<String> KNOWN_LOCALES_SET =
+                new HashSet<String>(Arrays.asList(KNOWN_LOCALES));
+
+        final String PSEUDO_OR_EMPTY_LOCALES[] = {
+            "",
+            "en-XA",
+            "ar-XB"
+        };
+
+        String locales[] = mAssets.getNonSystemLocales();
+        HashSet<String> localesSet = new HashSet<String>(Arrays.asList(locales));
+        for (String l : PSEUDO_OR_EMPTY_LOCALES) {
+            localesSet.remove(l);
+        }
+
+        assertEquals(KNOWN_LOCALES_SET, localesSet);
     }
 
     private void assertContextEquals(final String expect, final InputStream inputStream)

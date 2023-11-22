@@ -22,15 +22,17 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Typeface;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.test.suitebuilder.annotation.MediumTest;
 import android.uirendering.cts.bitmapcomparers.BitmapComparer;
 import android.uirendering.cts.bitmapcomparers.MSSIMComparer;
 import android.uirendering.cts.bitmapverifiers.GoldenImageVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 import android.uirendering.cts.testinfrastructure.CanvasClient;
 
-import com.android.cts.uirendering.R;
+import android.uirendering.cts.R;
+import org.junit.Test;
 
+@MediumTest
 public class FontRenderingTests extends ActivityTestBase {
     // Thresholds are barely loose enough for differences between sw and hw renderers.
     private static final double REGULAR_THRESHOLD = 0.92;
@@ -51,58 +53,55 @@ public class FontRenderingTests extends ActivityTestBase {
 
         final Typeface typeface = Typeface.create(family, style);
         createTest()
-                .addCanvasClient(new CanvasClient() {
-                    @Override
-                    public void draw(Canvas canvas, int width, int height) {
-                        Paint p = new Paint();
-                        p.setAntiAlias(true);
-                        p.setColor(Color.BLACK);
-                        p.setTextSize(26);
-                        p.setTypeface(typeface);
-                        canvas.drawText(sTestString1, 1, 20, p);
-                        canvas.drawText(sTestString2, 1, 50, p);
-                        canvas.drawText(sTestString3, 1, 80, p);
-                    }
+                .addCanvasClient((canvas, width, height) -> {
+                    Paint p = new Paint();
+                    p.setAntiAlias(true);
+                    p.setColor(Color.BLACK);
+                    p.setTextSize(26);
+                    p.setTypeface(typeface);
+                    canvas.drawText(sTestString1, 1, 20, p);
+                    canvas.drawText(sTestString2, 1, 50, p);
+                    canvas.drawText(sTestString3, 1, 80, p);
                 })
                 .runWithVerifier(new GoldenImageVerifier(goldenBitmap, comparer));
     }
 
-    @SmallTest
+    @Test
     public void testDefaultFont() {
         fontTestBody("sans-serif",
                 Typeface.NORMAL,
                 R.drawable.hello1);
     }
 
-    @SmallTest
+    @Test
     public void testBoldFont() {
         fontTestBody("sans-serif",
                 Typeface.BOLD,
                 R.drawable.bold1);
     }
 
-    @SmallTest
+    @Test
     public void testItalicFont() {
         fontTestBody("sans-serif",
                 Typeface.ITALIC,
                 R.drawable.italic1);
     }
 
-    @SmallTest
+    @Test
     public void testBoldItalicFont() {
         fontTestBody("sans-serif",
                 Typeface.BOLD | Typeface.ITALIC,
                 R.drawable.bolditalic1);
     }
 
-    @SmallTest
+    @Test
     public void testMediumFont() {
         fontTestBody("sans-serif-medium",
                 Typeface.NORMAL,
                 R.drawable.medium1);
     }
 
-    @SmallTest
+    @Test
     public void testMediumBoldFont() {
         // bold attribute on medium base font = black
         fontTestBody("sans-serif-medium",
@@ -110,28 +109,28 @@ public class FontRenderingTests extends ActivityTestBase {
                 R.drawable.black1);
     }
 
-    @SmallTest
+    @Test
     public void testMediumItalicFont() {
         fontTestBody("sans-serif-medium",
                 Typeface.ITALIC,
                 R.drawable.mediumitalic1);
     }
 
-    @SmallTest
+    @Test
     public void testMediumBoldItalicFont() {
         fontTestBody("sans-serif-medium",
                 Typeface.BOLD | Typeface.ITALIC,
                 R.drawable.blackitalic1);
     }
 
-    @SmallTest
+    @Test
     public void testLightFont() {
         fontTestBody("sans-serif-light",
                 Typeface.NORMAL,
                 R.drawable.light1);
     }
 
-    @SmallTest
+    @Test
     public void testLightBoldFont() {
         // bold attribute on light base font = medium
         fontTestBody("sans-serif-light",
@@ -139,28 +138,28 @@ public class FontRenderingTests extends ActivityTestBase {
                 R.drawable.medium1);
     }
 
-    @SmallTest
+    @Test
     public void testLightItalicFont() {
         fontTestBody("sans-serif-light",
                 Typeface.ITALIC,
                 R.drawable.lightitalic1);
     }
 
-    @SmallTest
+    @Test
     public void testLightBoldItalicFont() {
         fontTestBody("sans-serif-light",
                 Typeface.BOLD | Typeface.ITALIC,
                 R.drawable.mediumitalic1);
     }
 
-    @SmallTest
+    @Test
     public void testThinFont() {
         fontTestBody("sans-serif-thin",
                 Typeface.NORMAL,
                 R.drawable.thin1);
     }
 
-    @SmallTest
+    @Test
     public void testThinBoldFont() {
         // bold attribute on thin base font = normal
         fontTestBody("sans-serif-thin",
@@ -168,28 +167,28 @@ public class FontRenderingTests extends ActivityTestBase {
                 R.drawable.hello1);
     }
 
-    @SmallTest
+    @Test
     public void testThinItalicFont() {
         fontTestBody("sans-serif-thin",
                 Typeface.ITALIC,
                 R.drawable.thinitalic1);
     }
 
-    @SmallTest
+    @Test
     public void testThinBoldItalicFont() {
         fontTestBody("sans-serif-thin",
                 Typeface.BOLD | Typeface.ITALIC,
                 R.drawable.italic1);
     }
 
-    @SmallTest
+    @Test
     public void testBlackFont() {
         fontTestBody("sans-serif-black",
                 Typeface.NORMAL,
                 R.drawable.black1);
     }
 
-    @SmallTest
+    @Test
     public void testBlackBoldFont() {
         // bold attribute on black base font = black
         fontTestBody("sans-serif-black",
@@ -197,14 +196,14 @@ public class FontRenderingTests extends ActivityTestBase {
                 R.drawable.black1);
     }
 
-    @SmallTest
+    @Test
     public void testBlackItalicFont() {
         fontTestBody("sans-serif-black",
                 Typeface.ITALIC,
                 R.drawable.blackitalic1);
     }
 
-    @SmallTest
+    @Test
     public void testBlackBoldItalicFont() {
         fontTestBody("sans-serif-black",
                 Typeface.BOLD | Typeface.ITALIC,
@@ -213,42 +212,42 @@ public class FontRenderingTests extends ActivityTestBase {
 
     /* condensed fonts */
 
-    @SmallTest
+    @Test
     public void testCondensedFont() {
         fontTestBody("sans-serif-condensed",
                 Typeface.NORMAL,
                 R.drawable.condensed1);
     }
 
-    @SmallTest
+    @Test
     public void testCondensedBoldFont() {
         fontTestBody("sans-serif-condensed",
                 Typeface.BOLD,
                 R.drawable.condensedbold1);
     }
 
-    @SmallTest
+    @Test
     public void testCondensedItalicFont() {
         fontTestBody("sans-serif-condensed",
                 Typeface.ITALIC,
                 R.drawable.condenseditalic1);
     }
 
-    @SmallTest
+    @Test
     public void testCondensedBoldItalicFont() {
         fontTestBody("sans-serif-condensed",
                 Typeface.BOLD | Typeface.ITALIC,
                 R.drawable.condensedbolditalic1);
     }
 
-    @SmallTest
+    @Test
     public void testCondensedLightFont() {
         fontTestBody("sans-serif-condensed-light",
                 Typeface.NORMAL,
                 R.drawable.condensedlight1);
     }
 
-    @SmallTest
+    @Test
     public void testCondensedLightItalicFont() {
         fontTestBody("sans-serif-condensed-light",
                 Typeface.ITALIC,

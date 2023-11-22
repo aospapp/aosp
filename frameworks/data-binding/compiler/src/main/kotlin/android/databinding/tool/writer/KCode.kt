@@ -13,13 +13,14 @@
 
 package android.databinding.tool.writer
 
+import android.databinding.tool.util.StringUtils
 import java.util.BitSet
 
 class KCode (private val s : String? = null){
 
     private var sameLine = false
 
-    private val lineSeparator = System.getProperty("line.separator")
+    private val lineSeparator = StringUtils.LINE_SEPARATOR
 
     class Appendix(val glue : String, val code : KCode)
 
@@ -30,14 +31,14 @@ class KCode (private val s : String? = null){
         private val indentCache = arrayListOf<String>()
         fun indent(n: Int): String {
             if (cachedIndentations.get(n)) {
-                return indentCache.get(n)
+                return indentCache[n]
             }
-            val s = (0..n-1).fold(""){prev, next -> "${prev}    "}
+            val s = (0..n-1).fold(""){prev, next -> "$prev    "}
             cachedIndentations.set(n, true )
-            while (indentCache.size() <= n) {
+            while (indentCache.size <= n) {
                 indentCache.add("");
             }
-            indentCache.set(n, s)
+            indentCache[n] = s
             return s
         }
     }
@@ -54,7 +55,7 @@ class KCode (private val s : String? = null){
         return this
     }
 
-    fun tab(s : String?, init : (KCode.() -> Unit)? = null) : KCode {
+    infix fun tab(s : String?, init : (KCode.() -> Unit)? = null) : KCode {
         val c = KCode(s)
         if (init != null) {
             c.init()
@@ -62,49 +63,29 @@ class KCode (private val s : String? = null){
         return tab(c)
     }
 
-    private fun tab(c : KCode?) : KCode {
-        if (isNull(c)) {
+    fun tab(c : KCode?) : KCode {
+        if (c == null || isNull(c)) {
             return this
         }
         nodes.add(c)
         return this
     }
 
-    fun nls(vararg codes : KCode?) : KCode {
-        codes.forEach { nl(it) }
-        return this
-    }
-
-    fun nls(codes : Collection<KCode?>) : KCode {
-        codes.forEach { nl(it) }
-        return this
-    }
-
-    fun nl(c : KCode?) : KCode {
-        if (isNull(c)) {
+    infix fun nl(c : KCode?) : KCode {
+        if (c == null || isNull(c)) {
             return this
         }
         nodes.add(c)
-        c!!.sameLine = true
+        c.sameLine = true
         return this
     }
 
-    fun nl(s : String?, init : (KCode.() -> Unit)? = null) : KCode {
+    infix fun nl(s : String?, init : (KCode.() -> Unit)? = null) : KCode {
         val c = KCode(s)
         if (init != null) {
             c.init()
         }
         return nl(c)
-    }
-
-    fun apps(glue : String = "", vararg codes : KCode?) : KCode {
-        codes.forEach { app(glue, it)}
-        return this
-    }
-
-    fun apps(glue : String = "", codes : Collection<KCode?>) : KCode {
-        codes.forEach { app(glue, it)}
-        return this
     }
 
     fun app(glue : String = "", c : KCode?) : KCode {
@@ -115,7 +96,7 @@ class KCode (private val s : String? = null){
         return this
     }
 
-    fun app(s : String) : KCode {
+    infix fun app(s : String) : KCode {
         val c = KCode(s)
         return app("", c)
     }

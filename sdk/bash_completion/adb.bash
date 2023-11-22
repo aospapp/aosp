@@ -43,9 +43,7 @@ _adb() {
             *)
                 if [[ $where == OPT_SERIAL ]]; then
                     where=OPT_SERIAL_ARG
-                elif [[ $where == OPT_SERIAL_ARG ]]; then
                     serial=${cur}
-                    where=OPTIONS
                 else
                     where=COMMAND
                     break
@@ -210,7 +208,19 @@ _adb_cmd_shell() {
     i=$((i+1))
     case "$cur" in
         ls)
-            _adb_shell_ls $serial $i
+            _adb_shell_file_command $serial $i "--color -A -C -F -H -L -R -S -Z -a -c -d -f -h -i -k -l -m -n -p -q -r -s -t -u -x -1"
+            ;;
+        cat)
+            _adb_shell_file_command $serial $i "-h -e -t -u -v"
+            ;;
+        dumpsys)
+            _adb_cmd_shell_dumpsys "$serial" $i
+            ;;
+        am)
+            _adb_cmd_shell_am "$serial" $i
+            ;;
+        pm)
+            _adb_cmd_shell_pm "$serial" $i
             ;;
         /*)
             _adb_util_list_files $serial "$cur"
@@ -220,6 +230,81 @@ _adb_cmd_shell() {
             ;;
     esac
 
+    return 0
+}
+
+_adb_cmd_shell_dumpsys() {
+    local serial i cur
+    local -a args
+    local candidates
+
+    unset IFS
+
+    serial=$1
+    i=$2
+
+    if [ "$serial" != "none" ]; then
+        args=(-s $serial)
+    fi
+
+    if (( $i == $COMP_CWORD )) ; then
+        cur="${COMP_WORDS[COMP_CWORD]}"
+        # First line is a header, so need "1d".
+        candidates=$(command adb ${args[@]} shell dumpsys -l 2> /dev/null | sed -e '1d;s/^  *//' | tr -d '\r')
+        candidates="-l $candidates"
+        COMPREPLY=( $(compgen -W "$candidates" -- "$cur") )
+        return 0
+    fi
+
+    COMPREPLY=( )
+    return 0
+}
+
+_adb_cmd_shell_am() {
+    local serial i cur
+    local candidates
+
+    unset IFS
+
+    serial=$1
+    i=$2
+
+    if (( $i == $COMP_CWORD )) ; then
+        cur="${COMP_WORDS[COMP_CWORD]}"
+        candidates="broadcast clear-debug-app clear-watch-heap dumpheap force-stop get-config get-inactive hang idle-maintenance instrument kill kill-all monitor package-importance profile restart screen-compat send-trim-memory set-debug-app set-inactive set-watch-heap stack start startservice start-user stopservice stop-user suppress-resize-config-changes switch-user task to-app-uri to-intent-uri to-uri"
+        COMPREPLY=( $(compgen -W "$candidates" -- "$cur") )
+        return 0
+    fi
+
+    COMPREPLY=( )
+    return 0
+}
+
+
+_adb_cmd_shell_pm() {
+    local serial i cur
+    local candidates
+
+    unset IFS
+
+    serial=$1
+    i=$2
+
+    if (( $i == $COMP_CWORD )) ; then
+        cur="${COMP_WORDS[COMP_CWORD]}"
+        candidates="-l -lf -p clear create-user default-state disable disable-until-used disable-user dump enable get-app-link get-install-location get-max-users grant hide install install-abandon install-commit install-create install-write list move-package move-primary-storage path remove-user reset-permissions revoke set-app-link set-installer set-install-location set-permission-enforced trim-caches unhide uninstall"
+        COMPREPLY=( $(compgen -W "$candidates" -- "$cur") )
+        return 0
+    fi
+
+    if (( $i + 1 == $COMP_CWORD )) && [[ "${COMP_WORDS[COMP_CWORD -1]}" == "list" ]]  ; then
+        cur="${COMP_WORDS[COMP_CWORD]}"
+        candidates="packages permission-groups permissions instrumentation features libraries users"
+        COMPREPLY=( $(compgen -W "$candidates" -- "$cur") )
+        return 0
+    fi
+
+    COMPREPLY=( )
     return 0
 }
 
@@ -263,8 +348,8 @@ _adb_cmd_uninstall() {
     COMPREPLY=( ${COMPREPLY[@]:-} $(compgen -W "${packages}" -- "${cur}") )
 }
 
-_adb_shell_ls() {
-    local serial i cur file
+_adb_shell_file_command() {
+    local serial i cur file options
     local -a args
 
     serial=$1
@@ -272,6 +357,7 @@ _adb_shell_ls() {
     if [ "$serial" != "none" ]; then
         args=(-s $serial)
     fi
+    options=$3
 
     where=OPTIONS
     for ((; i <= COMP_CWORD; i++)); do
@@ -294,8 +380,8 @@ _adb_shell_ls() {
 
     case $where in
         OPTIONS)
-            COMPREPLY=( $(compgen -W "$OPTIONS" -- "$cur") )
-            _adb_util_list_files $serial "$file"
+            unset IFS
+            COMPREPLY=( $(compgen -W "$options" -- "$cur") )
             ;;
         FILE)
             _adb_util_list_files $serial "$file"
@@ -317,19 +403,25 @@ _adb_util_list_files() {
         args=(-s $serial)
     fi
 
-    toks=( ${toks[@]-} $(
-        command adb ${args[@]} shell ls -dF ${file}"*" '2>' /dev/null 2> /dev/null | tr -d '\r' | {
-            while read -r tmp; do
-                filetype=${tmp%% *}
-                filename=${tmp:${#filetype}+1}
-                if [[ ${filetype:${#filetype}-1:1} == d ]]; then
-                    printf '%s/\n' "$filename"
-                else
-                    printf '%s\n' "$filename"
-                fi
-            done
-        }
-    ))
+    if [[ $( command adb ${args[@]} shell ls -dF / '2>/dev/null' | tr -d '\r' ) == "d /" ]] ; then
+        toks=( ${toks[@]-} $(
+            command adb ${args[@]} shell ls -dF ${file}"*" '2>' /dev/null 2> /dev/null | tr -d '\r' | {
+                while read -r tmp; do
+                    filetype=${tmp%% *}
+                    filename=${tmp:${#filetype}+1}
+                    if [[ ${filetype:${#filetype}-1:1} == d ]]; then
+                        printf '%s/\n' "$filename"
+                    else
+                        printf '%s\n' "$filename"
+                    fi
+                done
+            }
+        ))
+    else
+        toks=( ${toks[@]-} $(
+            command adb ${args[@]} shell ls -dp ${file}"*" '2>/dev/null' 2> /dev/null | tr -d '\r'
+        ))
+    fi
 
     # Since we're probably doing file completion here, don't add a space after.
     if [[ $(type -t compopt) = "builtin" ]]; then

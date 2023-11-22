@@ -96,40 +96,16 @@ static void bta2dp_audio_state_callback(btav_audio_state_t state, bt_bdaddr_t* b
 static btav_callbacks_t sBluetoothA2dpCallbacks = {
     sizeof(sBluetoothA2dpCallbacks),
     bta2dp_connection_state_callback,
-    bta2dp_audio_state_callback
+    bta2dp_audio_state_callback,
+    NULL, /* audio_config_cb */
 };
 
 static void classInitNative(JNIEnv* env, jclass clazz) {
-    int err;
-    const bt_interface_t* btInf;
-    bt_status_t status;
-
     method_onConnectionStateChanged =
         env->GetMethodID(clazz, "onConnectionStateChanged", "(I[B)V");
 
     method_onAudioStateChanged =
         env->GetMethodID(clazz, "onAudioStateChanged", "(I[B)V");
-    /*
-    if ( (btInf = getBluetoothInterface()) == NULL) {
-        ALOGE("Bluetooth module is not loaded");
-        return;
-    }
-
-    if ( (sBluetoothA2dpInterface = (btav_interface_t *)
-          btInf->get_profile_interface(BT_PROFILE_ADVANCED_AUDIO_ID)) == NULL) {
-        ALOGE("Failed to get Bluetooth A2DP Interface");
-        return;
-    }
-    */
-
-    // TODO(BT) do this only once or
-    //          Do we need to do this every time the BT reenables?
-    /*
-    if ( (status = sBluetoothA2dpInterface->init(&sBluetoothA2dpCallbacks)) != BT_STATUS_SUCCESS) {
-        ALOGE("Failed to initialize Bluetooth A2DP, status: %d", status);
-        sBluetoothA2dpInterface = NULL;
-        return;
-    }*/
 
     ALOGI("%s: succeeds", __FUNCTION__);
 }
@@ -172,7 +148,6 @@ static void initNative(JNIEnv *env, jobject object) {
 
 static void cleanupNative(JNIEnv *env, jobject object) {
     const bt_interface_t* btInf;
-    bt_status_t status;
 
     if ( (btInf = getBluetoothInterface()) == NULL) {
         ALOGE("Bluetooth module is not loaded");
@@ -241,7 +216,7 @@ static JNINativeMethod sMethods[] = {
 
 int register_com_android_bluetooth_a2dp(JNIEnv* env)
 {
-    return jniRegisterNativeMethods(env, "com/android/bluetooth/a2dp/A2dpStateMachine", 
+    return jniRegisterNativeMethods(env, "com/android/bluetooth/a2dp/A2dpStateMachine",
                                     sMethods, NELEM(sMethods));
 }
 

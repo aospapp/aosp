@@ -15,10 +15,10 @@
  */
 package com.android.cts.tradefed.testtype;
 
+import com.android.compatibility.common.util.AbiUtils;
 import com.android.cts.tradefed.UnitTests;
 import com.android.cts.tradefed.build.StubCtsBuildHelper;
 import com.android.cts.tradefed.result.PlanCreator;
-import com.android.cts.util.AbiUtils;
 import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;

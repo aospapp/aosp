@@ -29,7 +29,7 @@ LOCAL_SRC_FILES:= \
     rsg_generator.c
 
 LOCAL_CXX_STL := none
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 
 include $(BUILD_HOST_EXECUTABLE)
 
@@ -39,7 +39,7 @@ RSG_GENERATOR_SUPPORT:=$(LOCAL_BUILT_MODULE)
 include $(CLEAR_VARS)
 LOCAL_CLANG := true
 LOCAL_MODULE := libRSSupport
-LOCAL_SDK_VERSION := 8
+LOCAL_SDK_VERSION := 9
 
 
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES
@@ -53,8 +53,8 @@ GEN := $(addprefix $(generated_sources_dir)/, \
         )
 
 $(GEN) : PRIVATE_PATH := $(LOCAL_PATH)
-$(GEN) : PRIVATE_CUSTOM_TOOL = $(RSG_GENERATOR_SUPPORT) $< $@ <$(PRIVATE_PATH)/rs.spec
-$(GEN) : $(RSG_GENERATOR_SUPPORT) $(LOCAL_PATH)/rs.spec
+$(GEN) : PRIVATE_CUSTOM_TOOL = cat $(PRIVATE_PATH)/rs.spec $(PRIVATE_PATH)/rs_compat.spec | $(RSG_GENERATOR_SUPPORT) $< $@
+$(GEN) : $(RSG_GENERATOR_SUPPORT) $(LOCAL_PATH)/rs.spec $(LOCAL_PATH)/rs_compat.spec
 $(GEN): $(generated_sources_dir)/%.h : $(LOCAL_PATH)/%.h.rsg
 	$(transform-generated-source)
 
@@ -70,8 +70,8 @@ GEN := $(addprefix $(generated_sources_dir)/, \
         )
 
 $(GEN) : PRIVATE_PATH := $(LOCAL_PATH)
-$(GEN) : PRIVATE_CUSTOM_TOOL = $(RSG_GENERATOR_SUPPORT) $< $@ <$(PRIVATE_PATH)/rs.spec
-$(GEN) : $(RSG_GENERATOR_SUPPORT) $(LOCAL_PATH)/rs.spec
+$(GEN) : PRIVATE_CUSTOM_TOOL = cat $(PRIVATE_PATH)/rs.spec $(PRIVATE_PATH)/rs_compat.spec | $(RSG_GENERATOR_SUPPORT) $< $@
+$(GEN) : $(RSG_GENERATOR_SUPPORT) $(LOCAL_PATH)/rs.spec $(LOCAL_PATH)/rs_compat.spec
 $(GEN): $(generated_sources_dir)/%.cpp : $(LOCAL_PATH)/%.cpp.rsg
 	$(transform-generated-source)
 
@@ -81,8 +81,12 @@ rs_generated_source += $(GEN)
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 LOCAL_SRC_FILES:= \
-	rsAdapter.cpp \
 	rsAllocation.cpp \
+	rsApiAllocation.cpp \
+	rsApiContext.cpp \
+	rsApiDevice.cpp \
+	rsApiElement.cpp \
+	rsApiType.cpp \
 	rsClosure.cpp \
 	rsCompatibilityLib.cpp \
 	rsComponent.cpp \
@@ -133,32 +137,48 @@ LOCAL_SRC_FILES:= \
 	cpu_ref/rsCpuIntrinsicHistogram.cpp \
 	cpu_ref/rsCpuIntrinsicLUT.cpp \
 	cpu_ref/rsCpuIntrinsicResize.cpp \
-	cpu_ref/rsCpuIntrinsicYuvToRGB.cpp \
-	cpu_ref/rsCpuRuntimeMathFuncs.cpp
+	cpu_ref/rsCpuIntrinsicYuvToRGB.cpp
 
 ifeq ($(ARCH_ARM_HAVE_ARMV7A),true)
 LOCAL_CFLAGS_arm := -DARCH_ARM_HAVE_VFP -DARCH_ARM_USE_INTRINSICS
 LOCAL_ASFLAGS_arm := -mfpu=neon
-# frameworks/rs/cpu_ref/rsCpuIntrinsics_neon_3DLUT.S does not compile.
-LOCAL_CLANG_ASFLAGS_arm += -no-integrated-as
 LOCAL_SRC_FILES_arm := \
-        cpu_ref/rsCpuIntrinsics_neon_3DLUT.S \
-	cpu_ref/rsCpuIntrinsics_neon_ColorMatrix.S \
-        cpu_ref/rsCpuIntrinsics_neon_Blend.S \
-        cpu_ref/rsCpuIntrinsics_neon_Blur.S \
-	cpu_ref/rsCpuIntrinsics_neon_Convolve.S \
-	cpu_ref/rsCpuIntrinsics_neon_Resize.S \
-        cpu_ref/rsCpuIntrinsics_neon_YuvToRGB.S
+    cpu_ref/rsCpuIntrinsics_neon_3DLUT.S \
+    cpu_ref/rsCpuIntrinsics_neon_Blend.S \
+    cpu_ref/rsCpuIntrinsics_neon_Blur.S \
+    cpu_ref/rsCpuIntrinsics_neon_ColorMatrix.S \
+    cpu_ref/rsCpuIntrinsics_neon_Convolve.S \
+    cpu_ref/rsCpuIntrinsics_neon_Resize.S \
+    cpu_ref/rsCpuIntrinsics_neon_YuvToRGB.S
 endif
 
+LOCAL_CFLAGS_arm64 += \
+    -DARCH_ARM_USE_INTRINSICS \
+    -DARCH_ARM64_USE_INTRINSICS \
+    -DARCH_ARM64_HAVE_NEON
+LOCAL_SRC_FILES_arm64 += \
+    cpu_ref/rsCpuIntrinsics_advsimd_3DLUT.S \
+    cpu_ref/rsCpuIntrinsics_advsimd_Blend.S \
+    cpu_ref/rsCpuIntrinsics_advsimd_Blur.S \
+    cpu_ref/rsCpuIntrinsics_advsimd_ColorMatrix.S \
+    cpu_ref/rsCpuIntrinsics_advsimd_Convolve.S \
+    cpu_ref/rsCpuIntrinsics_advsimd_Resize.S \
+    cpu_ref/rsCpuIntrinsics_advsimd_YuvToRGB.S
+
+LOCAL_CFLAGS_x86 += -DARCH_X86_HAVE_SSSE3
+LOCAL_SRC_FILES_x86 += cpu_ref/rsCpuIntrinsics_x86.cpp
+LOCAL_CFLAGS_x86_64 += -DARCH_X86_HAVE_SSSE3
+LOCAL_SRC_FILES_x86_64 += cpu_ref/rsCpuIntrinsics_x86.cpp
+
 LOCAL_REQUIRED_MODULES := libblasV8
-LOCAL_LDFLAGS += -llog -ldl
-LOCAL_NDK_STL_VARIANT := stlport_static
+LOCAL_STATIC_LIBRARIES := libbnnmlowpV8
+LOCAL_LDFLAGS += -llog -ldl -Wl,--exclude-libs,libc++_static.a
+LOCAL_NDK_STL_VARIANT := c++_static
 
-LOCAL_C_INCLUDES += frameworks/compile/libbcc/include
 LOCAL_C_INCLUDES += external/cblas/include
+LOCAL_C_INCLUDES += external/gemmlowp/eight_bit_int_gemm
 
-LOCAL_CFLAGS += $(rs_base_CFLAGS)
+LOCAL_CFLAGS += $(rs_base_CFLAGS) -DGEMMLOWP_USE_STLPORT
 
 LOCAL_MODULE:= libRSSupport
 LOCAL_MODULE_TAGS := optional

@@ -27,6 +27,8 @@ import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
 import android.net.VpnService;
+import android.os.ParcelFileDescriptor;
+import android.os.Process;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject;
 import android.support.test.uiautomator.UiObjectNotFoundException;
@@ -40,11 +42,18 @@ import android.test.MoreAsserts;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.android.cts.net.hostside.IRemoteSocketFactory;
+
+import java.io.BufferedReader;
 import java.io.Closeable;
 import java.io.FileDescriptor;
+import java.io.FileOutputStream;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.Inet6Address;
@@ -52,6 +61,8 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
+import java.nio.charset.StandardCharsets;
 import java.util.Random;
 
 /**
@@ -79,11 +90,14 @@ public class VpnTest extends InstrumentationTestCase {
     public static String TAG = "VpnTest";
     public static int TIMEOUT_MS = 3 * 1000;
     public static int SOCKET_TIMEOUT_MS = 100;
+    public static String TEST_HOST = "connectivitycheck.gstatic.com";
 
     private UiDevice mDevice;
     private MyActivity mActivity;
     private String mPackageName;
     private ConnectivityManager mCM;
+    private RemoteSocketFactoryClient mRemoteSocketFactoryClient;
+
     Network mNetwork;
     NetworkCallback mCallback;
     final Object mLock = new Object();
@@ -107,11 +121,14 @@ public class VpnTest extends InstrumentationTestCase {
                 MyActivity.class, null);
         mPackageName = mActivity.getPackageName();
         mCM = (ConnectivityManager) mActivity.getSystemService(mActivity.CONNECTIVITY_SERVICE);
+        mRemoteSocketFactoryClient = new RemoteSocketFactoryClient(mActivity);
+        mRemoteSocketFactoryClient.bind();
         mDevice.waitForIdle();
     }
 
     @Override
     public void tearDown() throws Exception {
+        mRemoteSocketFactoryClient.unbind();
         if (mCallback != null) {
             mCM.unregisterNetworkCallback(mCallback);
         }
@@ -441,7 +458,7 @@ public class VpnTest extends InstrumentationTestCase {
         }
     }
 
-    private void checkTrafficOnVpn() throws IOException, ErrnoException {
+    private void checkTrafficOnVpn() throws Exception {
         checkUdpEcho("192.0.2.251", "192.0.2.2");
         checkUdpEcho("2001:db8:dead:beef::f00", "2001:db8:1:2::ffe");
         checkPing("2001:db8:dead:beef::f00");
@@ -449,19 +466,73 @@ public class VpnTest extends InstrumentationTestCase {
         checkTcpReflection("2001:db8:dead:beef::f00", "2001:db8:1:2::ffe");
     }
 
-    private void checkNoTrafficOnVpn() throws IOException, ErrnoException {
+    private void checkNoTrafficOnVpn() throws Exception {
         checkUdpEcho("192.0.2.251", null);
         checkUdpEcho("2001:db8:dead:beef::f00", null);
         checkTcpReflection("192.0.2.252", null);
         checkTcpReflection("2001:db8:dead:beef::f00", null);
     }
 
+    private FileDescriptor openSocketFd(String host, int port, int timeoutMs) throws Exception {
+        Socket s = new Socket(host, port);
+        s.setSoTimeout(timeoutMs);
+        return ParcelFileDescriptor.fromSocket(s).getFileDescriptor();
+    }
+
+    private FileDescriptor openSocketFdInOtherApp(
+            String host, int port, int timeoutMs) throws Exception {
+        Log.d(TAG, String.format("Creating test socket in UID=%d, my UID=%d",
+                mRemoteSocketFactoryClient.getUid(), Os.getuid()));
+        FileDescriptor fd = mRemoteSocketFactoryClient.openSocketFd(host, port, TIMEOUT_MS);
+        return fd;
+    }
+
+    private void sendRequest(FileDescriptor fd, String host) throws Exception {
+        String request = "GET /generate_204 HTTP/1.1\r\n" +
+                "Host: " + host + "\r\n" +
+                "Connection: keep-alive\r\n\r\n";
+        byte[] requestBytes = request.getBytes(StandardCharsets.UTF_8);
+        int ret = Os.write(fd, requestBytes, 0, requestBytes.length);
+        Log.d(TAG, "Wrote " + ret + "bytes");
+
+        String expected = "HTTP/1.1 204 No Content\r\n";
+        byte[] response = new byte[expected.length()];
+        Os.read(fd, response, 0, response.length);
+
+        String actual = new String(response, StandardCharsets.UTF_8);
+        assertEquals(expected, actual);
+        Log.d(TAG, "Got response: " + actual);
+    }
+
+    private void assertSocketStillOpen(FileDescriptor fd, String host) throws Exception {
+        try {
+            sendRequest(fd, host);
+        } finally {
+            Os.close(fd);
+        }
+    }
+
+    private void assertSocketClosed(FileDescriptor fd, String host) throws Exception {
+        try {
+            sendRequest(fd, host);
+            fail("Socket opened before VPN connects should be closed when VPN connects");
+        } catch (ErrnoException expected) {
+            assertEquals(ECONNABORTED, expected.errno);
+        } finally {
+            Os.close(fd);
+        }
+    }
+
     public void testDefault() throws Exception {
         if (!supportedHardware()) return;
+
+        FileDescriptor fd = openSocketFdInOtherApp(TEST_HOST, 80, TIMEOUT_MS);
 
         startVpn(new String[] {"192.0.2.2/32", "2001:db8:1:2::ffe/128"},
                  new String[] {"0.0.0.0/0", "::/0"},
                  "", "");
+
+        assertSocketClosed(fd, TEST_HOST);
 
         checkTrafficOnVpn();
     }
@@ -469,9 +540,14 @@ public class VpnTest extends InstrumentationTestCase {
     public void testAppAllowed() throws Exception {
         if (!supportedHardware()) return;
 
+        FileDescriptor fd = openSocketFdInOtherApp(TEST_HOST, 80, TIMEOUT_MS);
+
+        String allowedApps = mRemoteSocketFactoryClient.getPackageName() + "," + mPackageName;
         startVpn(new String[] {"192.0.2.2/32", "2001:db8:1:2::ffe/128"},
                  new String[] {"192.0.2.0/24", "2001:db8::/32"},
-                 mPackageName, "");
+                 allowedApps, "");
+
+        assertSocketClosed(fd, TEST_HOST);
 
         checkTrafficOnVpn();
     }
@@ -479,9 +555,16 @@ public class VpnTest extends InstrumentationTestCase {
     public void testAppDisallowed() throws Exception {
         if (!supportedHardware()) return;
 
+        FileDescriptor localFd = openSocketFd(TEST_HOST, 80, TIMEOUT_MS);
+        FileDescriptor remoteFd = openSocketFdInOtherApp(TEST_HOST, 80, TIMEOUT_MS);
+
+        String disallowedApps = mRemoteSocketFactoryClient.getPackageName() + "," + mPackageName;
         startVpn(new String[] {"192.0.2.2/32", "2001:db8:1:2::ffe/128"},
                  new String[] {"192.0.2.0/24", "2001:db8::/32"},
-                 "", mPackageName);
+                 "", disallowedApps);
+
+        assertSocketStillOpen(localFd, TEST_HOST);
+        assertSocketStillOpen(remoteFd, TEST_HOST);
 
         checkNoTrafficOnVpn();
     }

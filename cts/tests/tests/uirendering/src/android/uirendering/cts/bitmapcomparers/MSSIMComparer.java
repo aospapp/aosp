@@ -15,7 +15,7 @@
  */
 package android.uirendering.cts.bitmapcomparers;
 
-import com.android.cts.uirendering.ScriptC_MSSIMComparer;
+import android.uirendering.cts.ScriptC_MSSIMComparer;
 
 import android.content.res.Resources;
 import android.graphics.Color;

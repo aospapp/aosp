@@ -33,11 +33,11 @@ public class ManualPackageInstallTest extends BasePackageInstallTest {
     private static final BySelector POPUP_BUTTON_SELECTOR = By
             .clazz(android.widget.Button.class.getName())
             .res("android:id/button1")
-            .pkg("com.google.android.packageinstaller");
-    private static final BySelector POPUP_TEXT_SELECTOR = By
-            .clazz(android.widget.TextView.class.getName())
-            .res("android:id/alertTitle")
-            .pkg("com.google.android.packageinstaller");
+            .pkg("com.android.settings");
+    private static final BySelector POPUP_IMAGE_SELECTOR = By
+            .clazz(android.widget.ImageView.class.getName())
+            .res("com.android.settings:id/admin_support_icon")
+            .pkg("com.android.settings");
     private static final BySelector INSTALL_BUTTON_SELECTOR = By
             .clazz(android.widget.Button.class.getName())
             .res("com.android.packageinstaller:id/ok_button")
@@ -106,9 +106,9 @@ public class ManualPackageInstallTest extends BasePackageInstallTest {
     }
 
     private void automateDismissInstallBlockedDialog() {
-        mDevice.wait(Until.hasObject(POPUP_TEXT_SELECTOR), AUTOMATOR_WAIT_TIMEOUT);
-        UiObject2 text = mDevice.findObject(POPUP_TEXT_SELECTOR);
-        assertNotNull("Alert dialog not found", text);
+        mDevice.wait(Until.hasObject(POPUP_IMAGE_SELECTOR), AUTOMATOR_WAIT_TIMEOUT);
+        UiObject2 icon = mDevice.findObject(POPUP_IMAGE_SELECTOR);
+        assertNotNull("Policy transparency dialog icon not found", icon);
         // "OK" button only present in the dialog if it is blocked by policy.
         UiObject2 button = mDevice.findObject(POPUP_BUTTON_SELECTOR);
         assertNotNull("OK button not found", button);

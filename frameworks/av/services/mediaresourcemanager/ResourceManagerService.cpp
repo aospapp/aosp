@@ -19,6 +19,7 @@
 #define LOG_TAG "ResourceManagerService"
 #include <utils/Log.h>
 
+#include <binder/IMediaResourceMonitor.h>
 #include <binder/IServiceManager.h>
 #include <dirent.h>
 #include <media/stagefright/ProcessInfo.h>
@@ -42,7 +43,7 @@ static String8 getString(const Vector<T> &items) {
     return itemsStr;
 }
 
-static bool hasResourceType(String8 type, Vector<MediaResource> resources) {
+static bool hasResourceType(MediaResource::Type type, Vector<MediaResource> resources) {
     for (size_t i = 0; i < resources.size(); ++i) {
         if (resources[i].mType == type) {
             return true;
@@ -51,7 +52,7 @@ static bool hasResourceType(String8 type, Vector<MediaResource> resources) {
     return false;
 }
 
-static bool hasResourceType(String8 type, ResourceInfos infos) {
+static bool hasResourceType(MediaResource::Type type, ResourceInfos infos) {
     for (size_t i = 0; i < infos.size(); ++i) {
         if (hasResourceType(type, infos[i].resources)) {
             return true;
@@ -89,27 +90,62 @@ static ResourceInfo& getResourceInfoForEdit(
     return infos.editItemAt(infos.size() - 1);
 }
 
-status_t ResourceManagerService::dump(int fd, const Vector<String16>& /* args */) {
-    Mutex::Autolock lock(mLock);
+static void notifyResourceGranted(int pid, const Vector<MediaResource> &resources) {
+    static const char* const kServiceName = "media_resource_monitor";
+    sp<IBinder> binder = defaultServiceManager()->checkService(String16(kServiceName));
+    if (binder != NULL) {
+        sp<IMediaResourceMonitor> service = interface_cast<IMediaResourceMonitor>(binder);
+        for (size_t i = 0; i < resources.size(); ++i) {
+            if (resources[i].mSubType == MediaResource::kAudioCodec) {
+                service->notifyResourceGranted(pid, IMediaResourceMonitor::TYPE_AUDIO_CODEC);
+            } else if (resources[i].mSubType == MediaResource::kVideoCodec) {
+                service->notifyResourceGranted(pid, IMediaResourceMonitor::TYPE_VIDEO_CODEC);
+            }
+        }
+    }
+}
 
+status_t ResourceManagerService::dump(int fd, const Vector<String16>& /* args */) {
     String8 result;
+
+    if (checkCallingPermission(String16("android.permission.DUMP")) == false) {
+        result.format("Permission Denial: "
+                "can't dump ResourceManagerService from pid=%d, uid=%d\n",
+                IPCThreadState::self()->getCallingPid(),
+                IPCThreadState::self()->getCallingUid());
+        write(fd, result.string(), result.size());
+        return PERMISSION_DENIED;
+    }
+
+    PidResourceInfosMap mapCopy;
+    bool supportsMultipleSecureCodecs;
+    bool supportsSecureWithNonSecureCodec;
+    String8 serviceLog;
+    {
+        Mutex::Autolock lock(mLock);
+        mapCopy = mMap;  // Shadow copy, real copy will happen on write.
+        supportsMultipleSecureCodecs = mSupportsMultipleSecureCodecs;
+        supportsSecureWithNonSecureCodec = mSupportsSecureWithNonSecureCodec;
+        serviceLog = mServiceLog->toString("    " /* linePrefix */);
+    }
+
     const size_t SIZE = 256;
     char buffer[SIZE];
-
     snprintf(buffer, SIZE, "ResourceManagerService: %p\n", this);
     result.append(buffer);
     result.append("  Policies:\n");
-    snprintf(buffer, SIZE, "    SupportsMultipleSecureCodecs: %d\n", mSupportsMultipleSecureCodecs);
+    snprintf(buffer, SIZE, "    SupportsMultipleSecureCodecs: %d\n", supportsMultipleSecureCodecs);
     result.append(buffer);
-    snprintf(buffer, SIZE, "    SupportsSecureWithNonSecureCodec: %d\n", mSupportsSecureWithNonSecureCodec);
+    snprintf(buffer, SIZE, "    SupportsSecureWithNonSecureCodec: %d\n",
+            supportsSecureWithNonSecureCodec);
     result.append(buffer);
 
     result.append("  Processes:\n");
-    for (size_t i = 0; i < mMap.size(); ++i) {
-        snprintf(buffer, SIZE, "    Pid: %d\n", mMap.keyAt(i));
+    for (size_t i = 0; i < mapCopy.size(); ++i) {
+        snprintf(buffer, SIZE, "    Pid: %d\n", mapCopy.keyAt(i));
         result.append(buffer);
 
-        const ResourceInfos &infos = mMap.valueAt(i);
+        const ResourceInfos &infos = mapCopy.valueAt(i);
         for (size_t j = 0; j < infos.size(); ++j) {
             result.append("      Client:\n");
             snprintf(buffer, SIZE, "        Id: %lld\n", (long long)infos[j].clientId);
@@ -127,17 +163,14 @@ status_t ResourceManagerService::dump(int fd, const Vector<String16>& /* args */
         }
     }
     result.append("  Events logs (most recent at top):\n");
-    result.append(mServiceLog->toString("    " /* linePrefix */));
+    result.append(serviceLog);
 
     write(fd, result.string(), result.size());
     return OK;
 }
 
 ResourceManagerService::ResourceManagerService()
-    : mProcessInfo(new ProcessInfo()),
-      mServiceLog(new ServiceLog()),
-      mSupportsMultipleSecureCodecs(true),
-      mSupportsSecureWithNonSecureCodec(true) {}
+    : ResourceManagerService(new ProcessInfo()) {}
 
 ResourceManagerService::ResourceManagerService(sp<ProcessInfoInterface> processInfo)
     : mProcessInfo(processInfo),
@@ -173,10 +206,15 @@ void ResourceManagerService::addResource(
     mServiceLog->add(log);
 
     Mutex::Autolock lock(mLock);
+    if (!mProcessInfo->isValidPid(pid)) {
+        ALOGE("Rejected addResource call with invalid pid.");
+        return;
+    }
     ResourceInfos& infos = getResourceInfosForEdit(pid, mMap);
     ResourceInfo& info = getResourceInfoForEdit(clientId, client, infos);
     // TODO: do the merge instead of append.
     info.resources.appendVector(resources);
+    notifyResourceGranted(pid, resources);
 }
 
 void ResourceManagerService::removeResource(int pid, int64_t clientId) {
@@ -186,6 +224,10 @@ void ResourceManagerService::removeResource(int pid, int64_t clientId) {
     mServiceLog->add(log);
 
     Mutex::Autolock lock(mLock);
+    if (!mProcessInfo->isValidPid(pid)) {
+        ALOGE("Rejected removeResource call with invalid pid.");
+        return;
+    }
     ssize_t index = mMap.indexOfKey(pid);
     if (index < 0) {
         ALOGV("removeResource: didn't find pid %d for clientId %lld", pid, (long long) clientId);
@@ -225,16 +267,20 @@ bool ResourceManagerService::reclaimResource(
     Vector<sp<IResourceManagerClient>> clients;
     {
         Mutex::Autolock lock(mLock);
+        if (!mProcessInfo->isValidPid(callingPid)) {
+            ALOGE("Rejected reclaimResource call with invalid callingPid.");
+            return false;
+        }
         const MediaResource *secureCodec = NULL;
         const MediaResource *nonSecureCodec = NULL;
         const MediaResource *graphicMemory = NULL;
         for (size_t i = 0; i < resources.size(); ++i) {
-            String8 type = resources[i].mType;
-            if (resources[i].mType == kResourceSecureCodec) {
+            MediaResource::Type type = resources[i].mType;
+            if (resources[i].mType == MediaResource::kSecureCodec) {
                 secureCodec = &resources[i];
-            } else if (type == kResourceNonSecureCodec) {
+            } else if (type == MediaResource::kNonSecureCodec) {
                 nonSecureCodec = &resources[i];
-            } else if (type == kResourceGraphicMemory) {
+            } else if (type == MediaResource::kGraphicMemory) {
                 graphicMemory = &resources[i];
             }
         }
@@ -242,19 +288,19 @@ bool ResourceManagerService::reclaimResource(
         // first pass to handle secure/non-secure codec conflict
         if (secureCodec != NULL) {
             if (!mSupportsMultipleSecureCodecs) {
-                if (!getAllClients_l(callingPid, String8(kResourceSecureCodec), &clients)) {
+                if (!getAllClients_l(callingPid, MediaResource::kSecureCodec, &clients)) {
                     return false;
                 }
             }
             if (!mSupportsSecureWithNonSecureCodec) {
-                if (!getAllClients_l(callingPid, String8(kResourceNonSecureCodec), &clients)) {
+                if (!getAllClients_l(callingPid, MediaResource::kNonSecureCodec, &clients)) {
                     return false;
                 }
             }
         }
         if (nonSecureCodec != NULL) {
             if (!mSupportsSecureWithNonSecureCodec) {
-                if (!getAllClients_l(callingPid, String8(kResourceSecureCodec), &clients)) {
+                if (!getAllClients_l(callingPid, MediaResource::kSecureCodec, &clients)) {
                     return false;
                 }
             }
@@ -274,11 +320,11 @@ bool ResourceManagerService::reclaimResource(
         if (clients.size() == 0) {
             // if we are here, run the fourth pass to free one codec with the different type.
             if (secureCodec != NULL) {
-                MediaResource temp(String8(kResourceNonSecureCodec), 1);
+                MediaResource temp(MediaResource::kNonSecureCodec, 1);
                 getClientForResource_l(callingPid, &temp, &clients);
             }
             if (nonSecureCodec != NULL) {
-                MediaResource temp(String8(kResourceSecureCodec), 1);
+                MediaResource temp(MediaResource::kSecureCodec, 1);
                 getClientForResource_l(callingPid, &temp, &clients);
             }
         }
@@ -296,6 +342,10 @@ bool ResourceManagerService::reclaimResource(
             failedClient = clients[i];
             break;
         }
+    }
+
+    if (failedClient == NULL) {
+        return true;
     }
 
     {
@@ -320,11 +370,11 @@ bool ResourceManagerService::reclaimResource(
         }
     }
 
-    return (failedClient == NULL);
+    return false;
 }
 
 bool ResourceManagerService::getAllClients_l(
-        int callingPid, const String8 &type, Vector<sp<IResourceManagerClient>> *clients) {
+        int callingPid, MediaResource::Type type, Vector<sp<IResourceManagerClient>> *clients) {
     Vector<sp<IResourceManagerClient>> temp;
     for (size_t i = 0; i < mMap.size(); ++i) {
         ResourceInfos &infos = mMap.editValueAt(i);
@@ -334,7 +384,7 @@ bool ResourceManagerService::getAllClients_l(
                     // some higher/equal priority process owns the resource,
                     // this request can't be fulfilled.
                     ALOGE("getAllClients_l: can't reclaim resource %s from pid %d",
-                            type.string(), mMap.keyAt(i));
+                            asString(type), mMap.keyAt(i));
                     return false;
                 }
                 temp.push_back(infos[j].client);
@@ -342,7 +392,7 @@ bool ResourceManagerService::getAllClients_l(
         }
     }
     if (temp.size() == 0) {
-        ALOGV("getAllClients_l: didn't find any resource %s", type.string());
+        ALOGV("getAllClients_l: didn't find any resource %s", asString(type));
         return true;
     }
     clients->appendVector(temp);
@@ -350,7 +400,7 @@ bool ResourceManagerService::getAllClients_l(
 }
 
 bool ResourceManagerService::getLowestPriorityBiggestClient_l(
-        int callingPid, const String8 &type, sp<IResourceManagerClient> *client) {
+        int callingPid, MediaResource::Type type, sp<IResourceManagerClient> *client) {
     int lowestPriorityPid;
     int lowestPriority;
     int callingPriority;
@@ -375,7 +425,7 @@ bool ResourceManagerService::getLowestPriorityBiggestClient_l(
 }
 
 bool ResourceManagerService::getLowestPriorityPid_l(
-        const String8 &type, int *lowestPriorityPid, int *lowestPriority) {
+        MediaResource::Type type, int *lowestPriorityPid, int *lowestPriority) {
     int pid = -1;
     int priority = -1;
     for (size_t i = 0; i < mMap.size(); ++i) {
@@ -422,7 +472,7 @@ bool ResourceManagerService::isCallingPriorityHigher_l(int callingPid, int pid) 
 }
 
 bool ResourceManagerService::getBiggestClient_l(
-        int pid, const String8 &type, sp<IResourceManagerClient> *client) {
+        int pid, MediaResource::Type type, sp<IResourceManagerClient> *client) {
     ssize_t index = mMap.indexOfKey(pid);
     if (index < 0) {
         ALOGE("getBiggestClient_l: can't find resource info for pid %d", pid);
@@ -445,7 +495,7 @@ bool ResourceManagerService::getBiggestClient_l(
     }
 
     if (clientTemp == NULL) {
-        ALOGE("getBiggestClient_l: can't find resource type %s for pid %d", type.string(), pid);
+        ALOGE("getBiggestClient_l: can't find resource type %s for pid %d", asString(type), pid);
         return false;
     }
 

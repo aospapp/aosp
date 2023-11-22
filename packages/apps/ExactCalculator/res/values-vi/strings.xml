@@ -22,6 +22,7 @@
     <string name="mode_deg" msgid="1146123354434332479">"deg"</string>
     <string name="mode_rad" msgid="1434228830085760996">"rad"</string>
     <string name="clr" msgid="6730945431543327337">"xóa"</string>
+    <string name="cleared" msgid="3952521190281880880">"đã xóa"</string>
     <string name="del" msgid="5878069000864178910">"xóa"</string>
     <string name="desc_const_e" msgid="1889187337970539507">"Số Euler"</string>
     <string name="desc_const_pi" msgid="5430918714009441655">"pi"</string>
@@ -52,8 +53,8 @@
     <string name="desc_switch_deg" msgid="6675211986921592374">"chuyển sang độ"</string>
     <string name="desc_switch_rad" msgid="2845875847488919914">"chuyển sang radian"</string>
     <string name="desc_eq" msgid="3349320880874699285">"bằng"</string>
-    <string name="desc_clr" msgid="737502124268890797">"xóa"</string>
-    <string name="desc_del" msgid="7879515781929311432">"xóa"</string>
+    <string name="desc_clr" msgid="737502124268890797">"xóa sạch"</string>
+    <string name="desc_del" msgid="7879515781929311432">"gạch bỏ"</string>
     <string name="desc_inv_off" msgid="3672218250519616068">"hiển thị hàm nghịch"</string>
     <string name="desc_inv_on" msgid="2515675590767677178">"ẩn hàm nghịch"</string>
     <string name="error_nan" msgid="5674077944929888710">"Không phải số"</string>

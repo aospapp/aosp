@@ -18,32 +18,30 @@
 
 #define LOG_TAG "bt_btif_sock_sdp"
 
-#include <stdint.h>
-#include <stdbool.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
+#include "btif_sock_sdp.h"
+
 #include <errno.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
 #include <hardware/bluetooth.h>
 #include <hardware/bt_sock.h>
 
-#include "btif_common.h"
-#include "btif_util.h"
-#include "btif_sock_util.h"
-#include "bta_api.h"
-#include "bt_target.h"
-#include "gki.h"
-#include "hcimsgs.h"
-#include "sdp_api.h"
-#include "btu.h"
-#include "btm_api.h"
-#include "btm_int.h"
-#include "btif_sock_sdp.h"
-#include "utl.h"
 #include "../bta/pb/bta_pbs_int.h"
 #include "../include/bta_op_api.h"
+#include "bt_target.h"
+#include "bta_api.h"
 #include "bta_jv_api.h"
+#include "btif_common.h"
+#include "btif_sock_util.h"
+#include "btif_util.h"
+#include "btm_api.h"
+#include "btm_int.h"
+#include "btu.h"
+#include "bt_common.h"
+#include "hcimsgs.h"
+#include "sdp_api.h"
+#include "utl.h"
 
 // This module provides an abstraction on top of the lower-level SDP database
 // code for registration and discovery of various bluetooth sockets.
@@ -92,8 +90,6 @@ static const tBTA_OP_FMT bta_ops_obj_fmt[OBEX_PUSH_NUM_FORMATS] = {
                           | BTA_OP_VMSG_MASK    \
                           | BTA_OP_ANY_MASK)
 #endif
-
-
 
 #define RESERVED_SCN_PBS 19
 #define RESERVED_SCN_OPS 12
@@ -201,7 +197,6 @@ static int add_sdp_by_uuid(const char *name,  const uint8_t *uuid,
   if (!SDP_AddSequence(handle, (uint16_t)ATTR_ID_SERVICE_CLASS_ID_LIST,
                        1, &type, &type_len, &type_buf_ptr))
     goto error;
-
 
   APPL_TRACE_DEBUG("add_sdp_by_uuid: service registered successfully, "
                    "service_name: %s, handle: 0x%08x", name, handle);

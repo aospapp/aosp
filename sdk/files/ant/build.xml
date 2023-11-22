@@ -481,10 +481,6 @@
     <target name="-build-setup" depends="-setup">
         <!-- find location of build tools -->
         <getbuildtools name="android.build.tools.dir" verbose="${verbose}" />
-        <property name="aidl" location="${android.build.tools.dir}/aidl${exe}" />
-        <property name="aapt" location="${android.build.tools.dir}/aapt${exe}" />
-        <property name="dx" location="${android.build.tools.dir}/dx${bat}" />
-        <property name="zipalign" location="${android.build.tools.dir}/zipalign${exe}" />
 
         <!-- read the previous build mode -->
         <property file="${out.build.prop.file}" />

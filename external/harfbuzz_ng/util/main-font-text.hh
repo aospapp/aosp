@@ -31,6 +31,38 @@
 
 /* main() body for utilities taking font and processing text.*/
 
+static char *
+locale_to_utf8 (char *s)
+{
+  char *t;
+  GError *error = NULL;
+
+  t = g_locale_to_utf8 (s, -1, NULL, NULL, &error);
+  if (!t)
+  {
+     fail (true, "Failed converting text to UTF-8");
+  }
+
+  return t;
+}
+
+static hb_bool_t
+message_func (hb_buffer_t *buffer,
+	      hb_font_t *font,
+	      const char *message,
+	      void *user_data)
+{
+  fprintf (stderr, "HB: %s\n", message);
+  char buf[4096];
+  hb_buffer_serialize_glyphs (buffer, 0, hb_buffer_get_length (buffer),
+			      buf, sizeof (buf), NULL,
+			      font,
+			      HB_BUFFER_SERIALIZE_FORMAT_TEXT,
+			      HB_BUFFER_SERIALIZE_FLAG_DEFAULT);
+  printf ("HB: buffer [%s]\n", buf);
+  return true;
+}
+
 template <typename consumer_t, int default_font_size, int subpixel_bits>
 struct main_font_text_t
 {
@@ -46,18 +78,20 @@ struct main_font_text_t
     options.parse (&argc, &argv);
 
     argc--, argv++;
-    if (argc && !font_opts.font_file) font_opts.font_file = argv[0], argc--, argv++;
-    if (argc && !input.text && !input.text_file) input.text = argv[0], argc--, argv++;
+    if (argc && !font_opts.font_file) font_opts.font_file = locale_to_utf8 (argv[0]), argc--, argv++;
+    if (argc && !input.text && !input.text_file) input.text = locale_to_utf8 (argv[0]), argc--, argv++;
     if (argc)
       fail (true, "Too many arguments on the command line");
     if (!font_opts.font_file)
       options.usage ();
     if (!input.text && !input.text_file)
-      input.text_file = "-";
+      input.text_file = g_strdup ("-");
 
     consumer.init (&font_opts);
 
     hb_buffer_t *buffer = hb_buffer_create ();
+    if (debug)
+      hb_buffer_set_message_func (buffer, message_func, NULL, NULL);
     unsigned int text_len;
     const char *text;
     while ((text = input.get_line (&text_len)))

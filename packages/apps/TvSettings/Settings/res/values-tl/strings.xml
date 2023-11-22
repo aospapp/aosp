@@ -24,30 +24,35 @@
     <string name="header_category_preferences" msgid="175105555164713972">"Mga Kagustuhan"</string>
     <string name="header_category_accessories" msgid="823295909353025991">"Remote at mga accessory"</string>
     <string name="header_category_personal" msgid="8893959635328775096">"Personal"</string>
+    <string name="accounts_category_title" msgid="7591072907146317425">"Mga Account"</string>
     <string name="add_account" msgid="4098060223200619258">"Magdagdag ng account"</string>
-    <string name="account_header_sync" msgid="2679585471372319471">"I-sync"</string>
     <string name="account_header_remove_account" msgid="3288957118207682685">"Alisin ang account"</string>
     <string name="account_sync" msgid="773808124331714965">"Pumili ng naka-sync na apps"</string>
     <string name="sync_now" msgid="8732244492880016471">"Mag-sync ngayon"</string>
-    <string name="sync_cancel" msgid="5839264070098894371">"Kanselahin ang pag-sync"</string>
     <string name="sync_in_progress" msgid="1330721038775646022">"Nagsi-sync..."</string>
     <string name="last_synced" msgid="6178494892357077274">"Huling na-sync <xliff:g id="TIME">%1s</xliff:g>"</string>
     <string name="sync_disabled" msgid="3089360175872892781">"Naka-disable"</string>
-    <string name="sync_is_failing" msgid="8229476000384257186">"Hindi gumagana nang maayos ang sync sa kasalukuyan. Magbabalik ito sa loob ng ilang sandali."</string>
     <string name="account_remove" msgid="4313580520737295272">"Alisin ang account"</string>
     <string name="account_remove_failed" msgid="980654375770693544">"Hindi maalis ang account"</string>
+    <!-- no translation found for sync_item_title (2716687595867726981) -->
+    <skip />
+    <string name="sync_one_time_sync" msgid="3575080833667908804">"I-sync ngayon<xliff:g id="LAST_SYNC_TIME">
+%1$s</xliff:g>"</string>
+    <string name="sync_failed" msgid="5514824149810480551">"Hindi na-sync"</string>
+    <string name="sync_active" msgid="6891115263481154378">"Aktibo ang pag-sync"</string>
     <string name="connectivity_network" msgid="8321537111272398501">"Network"</string>
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Palaging available ang pagsa-scan"</string>
     <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Hayaan ang serbisyo sa lokasyon ng google at ang iba pang mga app na mag-scan ng mga network, kahit na naka-off ang Wi-Fi"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
-    <string name="device_daydream" msgid="4933581408059561077">"Daydream"</string>
+    <string name="device_daydream" msgid="3354366974209179614">"Screen saver"</string>
     <string name="device_display" msgid="101455384386372747">"Display"</string>
+    <string name="device_sound" msgid="9214182566287657481">"Tunog"</string>
+    <string name="device_surround_sound" msgid="6272196310566546860">"Surround sound"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"Mga tunog ng system"</string>
     <string name="device_apps" msgid="9180435229638772838">"Apps"</string>
     <string name="device_storage_reset" msgid="1425978936501134425">"Storage at pag-reset"</string>
-    <string name="device_storage" msgid="5536683600091277826">"Storage"</string>
     <string name="device_backup_restore" msgid="5627523987587511884">"I-backup &amp; ibalik"</string>
     <string name="device_reset" msgid="2827002349560023125">"Pag-reset ng factory data"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Pag-calibrate"</string>
@@ -57,14 +62,12 @@
     <string name="apps_system" msgid="2499191125802829425">"Mga app ng system"</string>
     <string name="apps_running" msgid="6430310491739956228">"Mga gumaganang app"</string>
     <string name="accessories_add" msgid="1347802656349218830">"Magdagdag ng accessory"</string>
-    <string name="accessories_wifi_display" msgid="1107690327150126038">"Display ng Wi-Fi"</string>
     <string name="accessory_state_pairing" msgid="7501989679637780963">"Ipinapares…"</string>
     <string name="accessory_state_connecting" msgid="8777884957977608529">"Kumokonekta..."</string>
     <string name="accessory_state_error" msgid="4529815543328841909">"Hindi maipares"</string>
     <string name="accessory_state_canceled" msgid="4419328837733619447">"Kinansela"</string>
     <string name="accessory_state_paired" msgid="1959238931866401476">"Naipares na"</string>
     <string name="accessory_options" msgid="4799658564005710297">"Accessory"</string>
-    <string name="accessory_rename" msgid="3250766501262581206">"Palitan ang pangalan"</string>
     <string name="accessory_unpair" msgid="8242725516604465355">"Alisin sa pagkakapares"</string>
     <string name="accessory_battery" msgid="7021788232835772126">"Baterya <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Inaalis sa pagkakapares ang device…"</string>
@@ -72,9 +75,6 @@
     <string name="accessories_add_title" msgid="6940361421891873321">"Naghahanap ng mga accessory…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Bago mo ipares ang iyong mga Bluetooth device, tiyaking nasa pairing mode ang mga ito"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"May nakitang isang device at awtomatikong ipapares sa loob ng <xliff:g id="COUNTDOWN">%1$s</xliff:g> (na) segundo"</string>
-    <string name="accessories_add_title_multiple" msgid="8455249961819802466">"Nakakita ng maraming device"</string>
-    <string name="accessories_add_multiple" msgid="3900633668371061399">"Upang pumili ng ibang device, pindutin ang button para sa pagpapares sa device na ito"</string>
-    <string name="accessories_add_multiple_select" msgid="3696794187001405647">"Upang ipares sa napiling device, pindutin nang matagal ang button sa pagpapares ng device na ito sa loob ng 5 segundo"</string>
     <string name="error_action_not_supported" msgid="300552308104354666">"Hindi sinusuportahan ang pagkilos na ito"</string>
     <string name="bluetooth_pairing_request" msgid="4523088117471287665">"Kahilingan sa pagpapares ng bluetooth"</string>
     <string name="bluetooth_confirm_passkey_msg" msgid="7031117992819855434">"Upang makipagpares sa: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;, tiyaking ipinapakita nito ang passkey na: &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt;"</string>
@@ -97,6 +97,7 @@
     <string name="system_accessibility" msgid="6215431399759498005">"Accessibility"</string>
     <string name="system_developer_options" msgid="3237985523474863638">"Mga pagpipilian ng developer"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Wala"</string>
+    <string name="system_diagnostic" msgid="7269638365915225701">"Paggamit at Diagnostics"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Pag-update ng system"</string>
     <string name="about_preference" msgid="4131396784531360434">"Tungkol dito"</string>
     <string name="device_name" msgid="2670488158531273028">"Pangalan ng device"</string>
@@ -116,6 +117,36 @@
     <string name="about_ads" msgid="3364786994943748337">"Mga ad"</string>
     <string name="show_dev_on" msgid="8997172736024819952">"Isa ka nang developer!"</string>
     <string name="show_dev_already" msgid="7525967300421794483">"Hindi na kailangan, isa ka nang developer"</string>
+    <string name="device_info_default" msgid="4519181343309136050">"Hindi alam"</string>
+    <string name="selinux_status" msgid="8000422283341040360">"Status ng SELinux"</string>
+    <string name="selinux_status_disabled" msgid="4925733135520787807">"Naka-disable"</string>
+    <string name="selinux_status_permissive" msgid="4806219236988993826">"Nagpapahintulot"</string>
+    <string name="selinux_status_enforcing" msgid="8839484208185347776">"Nagpapatupad"</string>
+    <string name="additional_system_update_settings_list_item_title" msgid="6285273598178967613">"Karagdagang update ng system"</string>
+    <string name="device_status" msgid="4379924151946190768">"Status"</string>
+    <string name="device_status_summary" msgid="180586140242936323">"Network, mga serial number at iba pang impormasyon"</string>
+    <string name="manual" msgid="4957388668881541669">"Manu-mano"</string>
+    <string name="regulatory_information" msgid="5448865708097003189">"Impormasyon sa regulasyon"</string>
+    <string name="device_feedback" msgid="209146642122579479">"Magpadala ng feedback tungkol sa device na ito"</string>
+    <string name="fcc_equipment_id" msgid="8295142996591094301">"Equipment ID"</string>
+    <string name="baseband_version" msgid="2229081246529676107">"Bersyon ng baseband"</string>
+    <string name="kernel_version" msgid="2418845475938044903">"Bersyon ng Kernel"</string>
+    <string name="status_unavailable" msgid="831018565485085059">"Hindi available"</string>
+    <string name="device_status_title" msgid="1629253652287243543">"Status"</string>
+    <string name="battery_status_title" msgid="2557264957661087826">"Status ng baterya"</string>
+    <string name="battery_level_title" msgid="100046129713781009">"Antas ng baterya"</string>
+    <string name="sim_status_title" msgid="498929467188844611">"Status ng SIM"</string>
+    <string name="imei_information_title" msgid="5208860549282877136">"Impormasyon ng IMEI"</string>
+    <string name="status_bt_address" msgid="1571721865060122393">"Address ng bluetooth"</string>
+    <string name="status_up_time" msgid="1674116490191446110">"Oras na naka-up"</string>
+    <string name="status_wimax_mac_address" msgid="1102907383444152052">"4G MAC address"</string>
+    <string name="legal_information" msgid="2346024659831852038">"Legal na impormasyon"</string>
+    <string name="copyright_title" msgid="5564228453228549353">"Copyright"</string>
+    <string name="license_title" msgid="4482927105870812604">"Lisensya"</string>
+    <string name="terms_title" msgid="8480859222932736291">"Mga tuntunin at kundisyon"</string>
+    <string name="webview_license_title" msgid="8843666223583780825">"Lisensya ng System WebView"</string>
+    <string name="wallpaper_attributions" msgid="8622098625739634898">"Mga Wallpaper"</string>
+    <string name="wallpaper_attributions_values" msgid="1565931506291182879">"Mga provider ng koleksyon ng imahe na galing sa satellite:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"Mahina"</item>
     <item msgid="5986166866411161790">"Katamtaman"</item>
@@ -129,10 +160,10 @@
     <string name="title_internet_connection" msgid="8710084774588697646">"Koneksyon sa internet"</string>
     <string name="connected" msgid="7563100162902079938">"Nakakonekta"</string>
     <string name="not_connected" msgid="6858480380326923017">"Hindi nakakonekta"</string>
-    <string name="wifi_setting_header_available_networks" msgid="6244107218643835636">"Wi-Fi"</string>
-    <string name="wifi_setting_header_other_options" msgid="1530334691232749342">"IBA PANG MGA OPSYON"</string>
+    <string name="wifi_setting_header_other_options" msgid="3638677601577777216">"Iba pang mga pagpipilian"</string>
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"Tingnan lahat"</string>
-    <string name="wifi_setting_available_networks" msgid="1244646604369133314">"MGA AVAILABLE NA NETWORK"</string>
+    <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"Tumingin ng mas kaunti"</string>
+    <string name="wifi_setting_available_networks" msgid="6713791371350513043">"Mga available na network"</string>
     <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"Kumonekta sa pamamagitan ng WPS"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"Magdagdag ng bagong network"</string>
     <string name="security_type" msgid="524443802004143058">"Uri ng seguridad"</string>
@@ -185,20 +216,20 @@
     <string name="wifi_ip_settings_invalid_gateway" msgid="3292444764474145026">"Maglagay ng wastong gateway address"</string>
     <string name="wifi_ip_settings_invalid_dns" msgid="6172189835428184828">"Maglagay ng wastong DNS address"</string>
     <string name="wifi_ip_settings_invalid_network_prefix_length" msgid="6209978918929182270">"Maglagay ng network prefix na may haba na 0 at 32"</string>
-    <string name="wifi_ip_address_hint" msgid="1895267564692073689">"Maglagay ng wastong IP address.\nHalimbawa: 192.168.1.128"</string>
-    <string name="wifi_dns1_hint" msgid="214345156394229347">"Maglagay ng wastong IP address o iwanan itong blangko.\nHalimbawa: 8.8.8.8"</string>
-    <string name="wifi_dns2_hint" msgid="1075709328208368894">"Maglagay ng wastong IP address o iwanan itong blangko.\nHalimbawa: 8.8.4.4"</string>
-    <string name="wifi_gateway_hint" msgid="7687219682024189028">"Maglagay ng wastong address o iwanang walang laman.\nHalimbawa: 192.168.1.1"</string>
-    <string name="wifi_network_prefix_length_hint" msgid="332915798888599682">"Maglagay ng wastong network prefix length.\nHalimbawa: 24"</string>
+    <string name="wifi_ip_address_description" msgid="6548838784556001283">"Maglagay ng wastong IP address.\nHalimbawa: <xliff:g id="ID_1">192.168.1.128</xliff:g>"</string>
+    <string name="wifi_dns1_description" msgid="2463500547232077393">"Maglagay ng wastong IP address o iwanan itong blangko.\nHalimbawa: <xliff:g id="ID_1">8.8.8.8</xliff:g>"</string>
+    <string name="wifi_dns2_description" msgid="8005473174044015359">"Maglagay ng wastong IP address o iwanan itong blangko.\nHalimbawa: <xliff:g id="ID_1">8.8.4.4</xliff:g>"</string>
+    <string name="wifi_gateway_description" msgid="4773751224452216231">"Maglagay ng wastong IP address o iwanan itong blangko.\nHalimbawa: <xliff:g id="ID_1">192.168.1.1</xliff:g>"</string>
+    <string name="wifi_network_prefix_length_description" msgid="4849589333293194414">"Maglagay ng wastong haba ng prefix ng network.\nHalimbawa: <xliff:g id="ID_1">24</xliff:g>"</string>
     <string name="proxy_error_invalid_host" msgid="3660415920668138953">"Hindi wasto ang Hostname"</string>
     <string name="proxy_error_invalid_exclusion_list" msgid="4921547051724987804">"Hindi wasto ang pagbubukod na ito. Maglagay ng listahan ng mga ibinukod na domain na hinihiwalay ng mga kuwit."</string>
     <string name="proxy_error_empty_port" msgid="6835658067776408062">"Hindi maaaring walang nakalagay sa field ng port"</string>
     <string name="proxy_error_empty_host_set_port" msgid="4428793978424303244">"Kung walang nakalagay sa field ng host, iwanang walang nakalagay sa field ng port."</string>
     <string name="proxy_error_invalid_port" msgid="1434922103959603993">"Hindi wasto ang port"</string>
     <string name="proxy_warning_limited_support" msgid="6160239282535986523">"Ang HTTP proxy ay ginagamit ng browser ngunit hindi ito maaaring gamitin ng ibang app"</string>
-    <string name="proxy_port_hint" msgid="8532733797275927007">"Maglagay ng wastong port.\nHalimbawa: 8080"</string>
-    <string name="proxy_exclusionlist_hint" msgid="86175095050438325">"Maglagay ng listahang pinaghiwa-hiwalay ng kuwit ng mga ibinukod na domain o iwanan itong blangko.\nHalimbawa: example.com,mycomp.test.com,localhost"</string>
-    <string name="proxy_hostname_hint" msgid="3719688422767210803">"Maglagay ng wastong hostname.\nHalimbawa: proxy.example.com"</string>
+    <string name="proxy_port_description" msgid="6791098212244367568">"Maglagay ng wastong port.\nHalimbawa: <xliff:g id="ID_1">8080</xliff:g>"</string>
+    <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"Maglagay ng listahang pinaghiwa-hiwalay ng kuwit ng mga ibinukod na domain o iwanan itong blangko.\nHalimbawa: <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>"</string>
+    <string name="proxy_hostname_description" msgid="5824391500254472447">"Maglagay ng wastong hostname.\nHalimbawa: <xliff:g id="ID_1">proxy.example.com</xliff:g>"</string>
     <string name="wifi_summary_title_connected" msgid="8329216588732277139">"Nakakonekta sa network"</string>
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"Hindi nakakonekta sa network"</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"Nakakonekta na sa <xliff:g id="SSID">%1$s</xliff:g>. Kumonekta sa ibang network?"</string>
@@ -217,27 +248,33 @@
     <string name="storage_media_cache_usage" msgid="5906737163212649904">"Naka-cache na data"</string>
     <string name="storage_eject" msgid="113476702798691558">"I-eject"</string>
     <string name="storage_format" msgid="3759273736493279595">"Burahin at i-format"</string>
+    <string name="storage_format_as_private" msgid="4169495230765116075">"Burahin at i-format bilang storage ng device"</string>
+    <string name="storage_format_as_public" msgid="8568317076021814054">"Burahin at i-format bilang naaalis na storage"</string>
     <string name="storage_format_for_private" msgid="7095270113028182032">"I-format bilang storage ng device"</string>
     <string name="storage_not_connected" msgid="6378589497819596096">"Hindi nakakonekta"</string>
-    <string name="storage_migrate" msgid="658894157418304023">"Mag-migrate ng data"</string>
-    <string name="storage_forget" msgid="8541387048014779836">"Kalimutan ang internal storage na ito"</string>
+    <string name="storage_migrate" msgid="1304058078948715456">"Ilipat ang data sa storage na ito"</string>
+    <string name="storage_migrate_away" msgid="3410590501311323877">"I-migrate ang data sa ibang storage"</string>
+    <string name="storage_no_apps" msgid="579118619398668670">"Walang mga iba-back up na app"</string>
+    <string name="storage_forget" msgid="8731986045697320463">"Kalimutan ang storage ng device na ito"</string>
     <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"Upang magamit ang mga app o data na nilalaman ng drive na ito, i-plug muli ito. Kung hindi naman, maaari mong piliing kalimutan ang storage na ito kung hindi available ang drive.\n\nKung pipiliin mong Kalimutan ito, mawawala nang tuluyan ang lahat ng data na nilalaman ng drive.\n\nMaaari mong i-install muli ang mga app sa ibang pagkakataon, ngunit mawawala ang data na nakaimbak sa drive na ito."</string>
     <string name="storage_device_storage_section" msgid="7797805634316822741">"Storage ng device"</string>
     <string name="storage_removable_storage_section" msgid="3264955106565590076">"Naaalis na storage"</string>
     <string name="storage_reset_section" msgid="7324235036547192861">"I-reset"</string>
     <string name="storage_mount_success" msgid="4624254886950093443">"Na-mount na ang <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_mount_failure" msgid="2469026716895846633">"Hindi ma-mount ang <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_mount_adopted" msgid="3360994581083675640">"nakakonektang muli ang USB storage"</string>
     <string name="storage_unmount_success" msgid="7921627277443856151">"Hindi na-eject nang ligtas ang <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_unmount_failure" msgid="6322048355281833871">"Hindi na-eject nang ligtas ang <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_unmount_failure_cant_find" msgid="240731723168567217">"Hindi makita ang drive na ie-eject"</string>
     <string name="storage_format_success" msgid="6252068844653804319">"Na-format na ang <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_format_failure" msgid="7336977074523932399">"Hindi ma-format ang <xliff:g id="NAME">%1$s</xliff:g>"</string>
-    <string name="storage_wizard_format_as_private_title" msgid="1433086533563409114">"I-format bilang internal storage"</string>
+    <string name="storage_wizard_format_as_private_title" msgid="1887035626526247913">"I-format bilang storage ng device"</string>
     <string name="storage_wizard_format_as_private_description" msgid="5814513630861655168">"Kinakailangan nito na naka-format ang USB drive upang gawin itong secure. Pagkatapos ng secure na pagfo-format, gagana lang ang drive na ito sa device na ito. Kung ifo-format, mabubura ang lahat ng data na kasalukuyang nakaimbak sa drive. Upang maiwasan ang pagkawala ng data, isaalang-alang ang pagba-back up nito."</string>
     <string name="storage_wizard_format_as_public_title" msgid="977475385015522171">"Burahin at I-format"</string>
-    <string name="storage_wizard_format_as_public_description" msgid="8591201523650249337">"Pagkatapos ma-format, maaari mo nang gamitin ang USB drive na ito sa iba pang mga device. Mabubura ang lahat ng data. Isaalang-alang muna ang pagba-back up bago ang paglilipat ng mga app sa iba pang internal storage."</string>
+    <string name="storage_wizard_format_as_public_description" msgid="184405877453834449">"Pagkatapos ma-format, maaari mo nang gamitin ang USB drive na ito sa iba pang mga device. Mabubura ang lahat ng data. Isaalang-alang muna ang pagba-back up sa pamamagitan ng paglilipat ng mga app sa iba pang storage ng device."</string>
     <string name="storage_wizard_format_progress_title" msgid="143911640282435570">"Fino-format ang USB Drive…"</string>
     <string name="storage_wizard_format_progress_description" msgid="5320980721352781920">"Maaari itong magtagal. Mangyaring huwag alisin ang drive."</string>
+    <string name="storage_wizard_migrate_choose_title" msgid="4247584708563925746">"Piliin ang storage kung saan ima-migrate ang data"</string>
     <string name="storage_wizard_migrate_confirm_title" msgid="369820166257265495">"Ilipat ang data sa <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_wizard_migrate_confirm_description" msgid="2916497196106413598">"Ilipat ang data ng iyong mga larawan, file at app sa <xliff:g id="NAME">%1$s</xliff:g>. Maaari itong magtagal nang ilang minuto. Maaaring hindi gumana nang maayos ang ilang app sa panahon ng paglipat."</string>
     <string name="storage_wizard_migrate_confirm_action_move_now" msgid="512504294066473542">"Ilipat ngayon"</string>
@@ -253,18 +290,18 @@
     <string name="storage_wizard_back_up_apps_title" msgid="452805102278225533">"Mga app na naka-imbak sa <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_wizard_back_up_apps_and_data_title" msgid="1738767666148200795">"Mga app at data na naka-imbak sa <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_wizard_back_up_apps_space_available" msgid="7209210725057470544">"<xliff:g id="SIZE">%1$s</xliff:g> ang available"</string>
-    <string name="storage_wizard_eject_internal_title" msgid="3717872796166039893">"I-eject ang internal storage"</string>
-    <string name="storage_wizard_eject_internal_description" msgid="6107781224687080575">"Hihinto sa paggana ang mga app sa storage ng device na ito kapag na-eject ito. Ang USB drive na ito ay naka-format upang gumana lang sa device na ito. Hindi ito gagana sa anumang iba pang mga device."</string>
-    <string name="sotrage_wizard_eject_progress_title" msgid="8034235439954334978">"Ine-eject ang <xliff:g id="NAME">%1$s</xliff:g>…"</string>
+    <string name="storage_wizard_eject_private_title" msgid="2844023177159233031">"I-eject ang storage ng device"</string>
+    <string name="storage_wizard_eject_private_description" msgid="8966427719795472538">"Hihinto sa paggana ang mga app sa storage ng device na ito kapag na-eject ito. Ang USB drive na ito ay naka-format upang gumana sa device na ito lang. Hindi ito gagana sa anumang iba pang mga device."</string>
+    <string name="storage_wizard_eject_progress_title" msgid="8823133087157003820">"Ine-eject ang <xliff:g id="NAME">%1$s</xliff:g>…"</string>
     <string name="storage_wizard_move_app_title" msgid="37057801779891287">"Ginamit na storage"</string>
     <string name="storage_wizard_move_app_progress_title" msgid="7807062446517628864">"Inililipat ang <xliff:g id="NAME">%1$s</xliff:g>…"</string>
     <string name="storage_wizard_move_app_progress_description" msgid="3693104566187904724">"Huwag alisin ang drive sa panahon ng paglipat.\nAng <xliff:g id="APPNAME">%1$s</xliff:g> app sa device na ito ay hindi magiging available hanggang sa makumpleto ang paglipat."</string>
-    <string name="storage_wizard_forget_confirm_title" msgid="1183642893909026951">"Kalimutan ang internal storage?"</string>
+    <string name="storage_wizard_forget_confirm_title" msgid="4321200084208420221">"Kalimutan ang storage ng device na ito?"</string>
     <string name="storage_wizard_forget_confirm_description" msgid="4264263982217111372">"Mawawala nang tuluyan ang lahat ng data na nakaimbak sa drive na ito gamit ang \'Kalimutan.\' Gusto mo bang magpatuloy?"</string>
     <string name="storage_wizard_forget_action" msgid="2532812620271112355">"Kalimutan"</string>
     <string name="storage_new_title" msgid="3098495209500607438">"Nakakonekta ang USB drive"</string>
     <string name="storage_new_action_browse" msgid="9041125660441839453">"Mag-browse"</string>
-    <string name="storage_new_action_adopt" msgid="1903427557119380415">"I-set up bilang internal na storage"</string>
+    <string name="storage_new_action_adopt" msgid="880224317112988974">"I-set up bilang storage ng device"</string>
     <string name="storage_new_action_format_public" msgid="5604328981214071670">"I-set up bilang naaalis na storage"</string>
     <string name="storage_new_action_eject" msgid="4069294152676217949">"I-eject"</string>
     <string name="storage_missing_title" msgid="2803464623922381858">"Inalis ang <xliff:g id="NAME">%1$s</xliff:g>"</string>
@@ -274,6 +311,7 @@
     <string name="app_forward_locked" msgid="6078781450044847966">"Pinoprotektahan sa pagkopya ang app."</string>
     <string name="invalid_location" msgid="5269044848535157307">"Hindi wasto ang lokasyon ng pag-install."</string>
     <string name="system_package" msgid="9200255718634512790">"Hindi ma-install ang mga pag-update sa system sa external media."</string>
+    <string name="move_error_device_admin" msgid="2060627704270836951">"Hindi ma-install ang Administrator ng Device sa external na media."</string>
     <string name="learn_more_action" msgid="7015991954404958779">"Matuto nang higit pa"</string>
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"Subukang muli"</string>
     <string name="wifi_wps_title" msgid="1872305810119408482">"Hinahanap ang WPS router…"</string>
@@ -293,7 +331,15 @@
     <string name="system_set_time_format" msgid="4447882066895090612">"Gumamit ng 24 na oras na format"</string>
     <string name="desc_set_time_format" msgid="3131006238681763219">"<xliff:g id="STATE">%1$s</xliff:g> (<xliff:g id="SAMPLE">%2$s</xliff:g>)"</string>
     <string name="system_auto_date_time" msgid="3629668599205033272">"Awtomatikong petsa at oras"</string>
-    <string name="desc_auto_date_time" msgid="6997571927680580633">"Gamitin ang oras na ibinigay ng network"</string>
+  <string-array name="auto_date_time_entries">
+    <item msgid="4590792581242018007">"Gamitin ang oras na mula sa network"</item>
+    <item msgid="3807025813081244357">"I-off"</item>
+  </string-array>
+  <string-array name="auto_date_time_ts_entries">
+    <item msgid="8463479794795616025">"Gamitin ang oras na mula sa network"</item>
+    <item msgid="2475903014233987786">"Gamitin ang oras na mula sa transport stream"</item>
+    <item msgid="150957081326946463">"I-off"</item>
+  </string-array>
     <string name="system_location" msgid="502463575930545806">"Lokasyon"</string>
     <string name="system_desc_location" msgid="4243551425631207495">"Hayaan ang apps na humiling ng iyong pahintulot na gamitin ang impormasyon ng iyong lokasyon"</string>
     <string name="system_network_location_confirm" msgid="8435144328428634060">"Pahintulot sa lokasyon"</string>
@@ -317,6 +363,7 @@
     <string name="delete_location_history_desc" msgid="4142806827237093397">"Tatanggalin nito ang lahat ng inimbak ng Kasaysayan ng Lokasyon mula sa device na ito para sa Google Account na ito. Hindi mo mababawi ang pagtatanggal na ito. Hindi na gagana ang ilang apps, kasama na ang Google Now."</string>
     <string name="system_services" msgid="7230571820151215779">"Mga Serbisyo"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Mga setting ng serbisyo"</string>
+    <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Text na high contrast"</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Mga Caption"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Mga setting para sa text overlay para sa paglalagay ng mga nakasarang caption sa video"</string>
     <string name="captions_display" msgid="735692527287125548">"Display"</string>
@@ -324,7 +371,7 @@
     <string name="captions_display_off" msgid="496953007835201523">"Naka-off"</string>
     <string name="display_options" msgid="5504549024985225774">"Mga opsyon sa pagpapakita"</string>
     <string name="captions_configure" msgid="5537548915977371014">"I-configure"</string>
-    <string name="captions_lanaguage" msgid="3291057448460880449">"Wika"</string>
+    <string name="captions_language" msgid="2835554055388996343">"Wika"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"Laki ng text"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"Istilo ng caption"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"Mga custom na opsyon"</string>
@@ -332,12 +379,19 @@
     <string name="captions_textcolor" msgid="3233568269335050287">"Kulay ng text"</string>
     <string name="captions_edgetype" msgid="841331274533086103">"Uri ng gilid"</string>
     <string name="captions_edgecolor" msgid="845125757332620884">"Kulay ng gilid"</string>
+    <string name="captions_backgroundshow" msgid="9177987321551275698">"Ipakita ang background"</string>
     <string name="captions_backgroundcolor" msgid="448518890988125453">"Kulay ng background"</string>
     <string name="captions_backgroundopacity" msgid="2643722493273126220">"Opacity ng background"</string>
     <string name="captioning_preview_text" msgid="72080729155950127">"Ganito ang magiging hitsura ng mga caption"</string>
     <string name="captions_textopacity" msgid="5536765490446288641">"Opacity ng text"</string>
+    <string name="captions_windowshow" msgid="5716898740522196707">"Ipakita ang window"</string>
     <string name="captions_windowcolor" msgid="8986165172260903279">"Kulay ng window"</string>
     <string name="captions_windowopacity" msgid="2784473496224936703">"Opacity ng window"</string>
+    <string name="captions_style_0" msgid="2068865433439146533">"Puti sa itim"</string>
+    <string name="captions_style_1" msgid="8878565905353923498">"Itim sa puti"</string>
+    <string name="captions_style_2" msgid="1486695984924671199">"Dilaw sa itim"</string>
+    <string name="captions_style_3" msgid="3217829874170162074">"Dilaw sa asul"</string>
+    <string name="captions_style_custom" msgid="3645114505000714364">"Custom"</string>
     <string name="color_white" msgid="65537523012024751">"Puti"</string>
     <string name="color_black" msgid="8804213372565106403">"Itim"</string>
     <string name="color_red" msgid="5630553203246525989">"Pula"</string>
@@ -346,13 +400,14 @@
     <string name="color_cyan" msgid="796226330055745">"Cyan"</string>
     <string name="color_yellow" msgid="1023390829879874964">"Dilaw"</string>
     <string name="color_magenta" msgid="6395786485839439122">"Magenta"</string>
-    <string name="system_accessibility_status" msgid="4389074529913575327">"Estado"</string>
+    <string name="system_accessibility_status" msgid="6150600992901856367">"I-enable"</string>
     <string name="system_accessibility_config" msgid="3216531917536720277">"Configuration"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="8200707259067035823">"Gamitin ang <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
     <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"Makokolekta ng <xliff:g id="SERVICE">%1$s</xliff:g> ang lahat ng tekstong tina-type mo, bukod sa mga password. Kasama dito ang personal na data gaya ng mga numero ng credit card."</string>
     <string name="system_accessibility_service_off_confirm_title" msgid="963297812889694832">"Ihinto ang <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
     <string name="system_accessibility_service_off_confirm_desc" msgid="6714782635926048678">"Ang pagpili sa OK ay magpapahinto sa <xliff:g id="SERVICE">%1$s</xliff:g>."</string>
     <string name="system_accessibility_tts_output" msgid="8905477795536714590">"Text to speech"</string>
+    <string name="system_accessibility_tts_engine_config" msgid="5331139536083054552">"Configuration ng engine"</string>
     <string name="system_speak_passwords" msgid="5264650214879185873">"Bigkasin ang mga password"</string>
     <string name="system_preferred_engine" msgid="8258210139854655567">"Gustong engine"</string>
     <string name="system_speech_rate" msgid="8099856582088545576">"Rate ng pagsasalita"</string>
@@ -421,6 +476,7 @@
     <string name="disagree" msgid="9170636026862400981">"Hindi Sumasang-ayon"</string>
     <string name="security_unknown_sources_title" msgid="769762478057744545">"Mga hindi kilalang pinagmulan"</string>
     <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Payagan ang pag-install ng apps galing sa mga pinagmulan maliban sa Play Store"</string>
+    <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"Payagan ang mga hindi kilalang pinagmulan"</string>
     <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"Ang iyong device at personal na data ay mas madaling maatake ng apps na galing sa mga hindi kilalang pinagmulan. Sumasang-ayon ka na ikaw lang ang may responsibilidad para sa anumang pinsala sa iyong device o kawalan ng data na maaaring magresulta sa paggamit ng apps na ito."</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"I-verify ang apps"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"Huwag payagan o magbigay ng babala bago ang pag-install ng apps na maaaring magdulot ng pinsala"</string>
@@ -479,26 +535,27 @@
     <string name="inputs_game" msgid="1114086481110094757">"Game console"</string>
     <string name="inputs_aux" msgid="5704676433978730340">"Aux"</string>
     <string name="inputs_custom_name" msgid="5584925321693432362">"Custom na pangalan"</string>
+    <string name="inputs_custom_name_description_fmt" msgid="7123031859468901866">"Maglagay ng pangalan para sa <xliff:g id="INPUT">%1$s</xliff:g> input."</string>
     <string name="inputs_hide" msgid="1575971556150395486">"Nakatago"</string>
-    <string name="inputs_hide_desc" msgid="8172670556559886526">"Hindi ipinapakita kapag nagpapalit ng mga input"</string>
-    <string name="inputs_custom_title" msgid="374036983231176581">"Custom na pangalan:"</string>
+    <string name="inputs_show" msgid="5069718540369447778">"Ipakita ang input na ito"</string>
+    <string name="input_header_names" msgid="6958427658951236078">"Pangalan"</string>
     <string name="inputs_hdmi_control" msgid="2462240356665628563">"Control sa HDMI"</string>
     <string name="inputs_hdmi_control_desc" msgid="2300590479729796132">"Payagan ang TV na kontrolin ang mga HDMI device"</string>
     <string name="inputs_device_auto_off" msgid="7510049770946999285">"I-auto power off ang device"</string>
     <string name="inputs_device_auto_off_desc" msgid="2679638131351116942">"I-off ang mga HDMI device na nakakabit sa TV"</string>
     <string name="inputs_tv_auto_on" msgid="2627932269256793797">"I-auto power on ang TV"</string>
     <string name="inputs_tv_auto_on_desc" msgid="7658625130577708249">"I-on ang TV na may HDMI device"</string>
-    <plurals name="inputs_header_connected_input" formatted="false" msgid="4694899943180976672">
-      <item quantity="one">MGA NAKAKONEKTANG INPUT</item>
-      <item quantity="other">MGA NAKAKONEKTANG INPUT</item>
+    <plurals name="inputs_header_connected_input" formatted="false" msgid="3158173055262045630">
+      <item quantity="one">Mga Nakakonektang Input</item>
+      <item quantity="other">Mga Nakakonektang Input</item>
     </plurals>
-    <plurals name="inputs_header_standby_input" formatted="false" msgid="1903575597797993135">
-      <item quantity="one">MGA NAKA-STANDBY NA INPUT</item>
-      <item quantity="other">MGA NAKA-STANDBY NA INPUT</item>
+    <plurals name="inputs_header_standby_input" formatted="false" msgid="8614849472167217134">
+      <item quantity="one">Mga Naka-standby na Input</item>
+      <item quantity="other">Mga Naka-standby na Input</item>
     </plurals>
-    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="2979766871256996256">
-      <item quantity="one">MGA HINDI NAKAKONEKTANG INPUT</item>
-      <item quantity="other">MGA HINDI NAKAKONEKTANG INPUT</item>
+    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="1092697966171944243">
+      <item quantity="one">Mga Hindi Nakakonektang Input</item>
+      <item quantity="other">Mga Hindi Nakakonektang Input</item>
     </plurals>
     <string name="user_add_profile_item_summary" msgid="2946168478936086933">"Higpitan ang pag-access sa mga app at ibang content sa iyong account"</string>
     <string name="user_new_profile_name" msgid="336521054830056189">"Pinaghihigpitang Profile"</string>
@@ -510,6 +567,7 @@
     <string name="restricted_profile_switch_to" msgid="1926433350907032138">"Pumasok sa pinaghihigpitang profile"</string>
     <string name="restricted_profile_switch_out" msgid="1893784095623209495">"Lumabas sa pinaghihigpitang profile"</string>
     <string name="restricted_profile_delete_title" msgid="3445944923018324707">"I-delete ang pinaghihigpitang profile"</string>
+    <string name="restricted_profile_create_title" msgid="1392190365829029390">"Gumawa ng pinaghihigpitang profile"</string>
     <string name="restricted_profile_configure_title" msgid="4684188123147519620">"Mga Setting"</string>
     <string name="restricted_profile_configure_apps_title" msgid="11507255932348492">"Mga pinapayagang app"</string>
     <plurals name="restricted_profile_configure_apps_description" formatted="false" msgid="1138147479259808487">
@@ -522,6 +580,7 @@
     <string name="restricted_profile_configure_apps_description_loading" msgid="5269477581791409700">"Sandali lang…"</string>
     <string name="restricted_profile_change_password_title" msgid="2848537651211816659">"Palitan ang pin"</string>
     <string name="restriction_description" msgid="3104855945910233028">"<xliff:g id="DESCRIPTION">%1$s</xliff:g>\n<xliff:g id="VALUE">%2$s</xliff:g>"</string>
+    <string name="app_sees_restricted_accounts_and_controlled_by" msgid="6677671440081319908">"Maa-access ng app na ito ang iyong mga account. Kinokontrol ng <xliff:g id="APP">%1$s</xliff:g>"</string>
     <string name="pin_enter_unlock_channel" msgid="5980400420298506069">"Ilagay ang PIN upang mapanood ang channel na ito"</string>
     <string name="pin_enter_unlock_program" msgid="52453773316071511">"Ilagay ang PIN upang mapanood ang programang ito"</string>
     <string name="pin_enter_pin" msgid="821552376577935497">"Ilagay ang PIN"</string>
@@ -532,9 +591,9 @@
     <string name="pin_toast_wrong" msgid="4628358195224633248">"Maling PIN, subukang muli"</string>
     <string name="pin_toast_not_match" msgid="5886041789737632996">"Subukang muli, hindi tumutugma ang PIN"</string>
     <string name="wifi_setup_input_password" msgid="1596168874369038536">"Ilagay ang password para sa <xliff:g id="SSID">%1$s</xliff:g>"</string>
-    <string name="wifi_setup_connection_success" msgid="6262755735033937164">"Matagumpay na nakakonekta."</string>
-    <string name="wifi_setup_save_success" msgid="4829154865874318015">"Matagumpay na na-save."</string>
-    <string name="device_apps_app_management_version" msgid="1004679024556315208">"bersyon <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
+    <string name="wifi_setup_connection_success" msgid="3846993789166071184">"Matagumpay na nakakonekta"</string>
+    <string name="wifi_setup_save_success" msgid="4785799603638549254">"Matagumpay na na-save"</string>
+    <string name="device_apps_app_management_version" msgid="2267065043941006486">"Bersyon <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
     <string name="device_apps_app_management_open" msgid="8009823973422120839">"Buksan"</string>
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Sapilitang ihinto"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Kung sapilitan mong ihihinto ang isang app, maaari itong magloko."</string>
@@ -560,13 +619,13 @@
     <string name="settings_cancel" msgid="304280412158061225">"Kanselahin"</string>
     <string name="settings_on" msgid="6892236264945435013">"Naka-on"</string>
     <string name="settings_off" msgid="449272161738237637">"Naka-off"</string>
-    <string name="device_daydreams_none" msgid="7364189761517824834">"Wala"</string>
-    <string name="device_daydreams_select" msgid="3691552535056569158">"Daydream"</string>
+    <string name="device_daydreams_none" msgid="2767107052779579259">"I-off ang screen"</string>
+    <string name="device_daydreams_select" msgid="2112338101206187695">"Screen saver"</string>
     <string name="device_daydreams_test" msgid="9038920213402659591">"Magsimula ngayon"</string>
-    <string name="device_daydreams_sleep" msgid="8766795993034660366">"Kailan magde-daydream"</string>
-    <string name="device_daydreams_sleep_description" msgid="5269460120567642259">"Nag-uumpisa ang pagde-daydream pagkatapos ng panahon ng kawalan ng aktibidad na ito. Kung walang napiling daydream, mag-o-off ang display."</string>
+    <string name="device_daydreams_sleep" msgid="7676938708373592766">"Kailan magsisimula"</string>
+    <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"Magsisimula ang screen saver pagkatapos ng panahon ng kawalan ng aktibidad na ito. Kung walang piniling screen saver, mag-o-off ang display."</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"Pagkalipas ng <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> na walang aktibidad"</string>
-    <string name="device_daydreams_screen_off" msgid="5002473979169042970">"Kailan magsi-sleep"</string>
+    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"I-sleep ang device"</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"Mag-o-off ang screen pagkatapos ng panahong ito ng kawalan ng aktibidad."</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"Walang account na kasalukuyang nag-iimbak ng naka-back up na data"</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
@@ -578,8 +637,8 @@
     <string name="factory_reset_description" msgid="5381170999141355891">"Buburahin nito ang lahat ng data sa internal storage ng iyong device, kasama ang: iyong Google account, data at mga setting ng system at app, at mga na-download na app"</string>
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Burahin ang lahat ng iyong personal na impormasyon at na-download na app? Hindi mo mababawi ang pagkilos na ito!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Burahin lahat"</string>
-    <string name="select_title" msgid="3905067953686121845">"Pumili ng pangalan para sa iyong ^1"</string>
-    <string name="select_description" msgid="4070142015460337658">"Makakatulong ang isang pangalan sa pagkilala ng iyong ^1 kapag ina-access ito mula sa ibang device tulad ng iyong telepono, tablet o computer."</string>
+    <string name="select_device_name_title" msgid="5165800500130943604">"Pumili ng pangalan para sa iyong <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
+    <string name="select_device_name_description" msgid="2697127827643821315">"Makakatulong ang isang pangalan na matukoy ang iyong <xliff:g id="DEVICEMODEL">%1$s</xliff:g> kapag ina-access ito mula sa iba pang mga device tulad ng iyong telepono, tablet o computer."</string>
   <string-array name="rooms">
     <item msgid="7085399612393981553">"Sala"</item>
     <item msgid="3722089849939477581">"Media Room"</item>
@@ -590,12 +649,18 @@
     <item msgid="8120010459866284578">"Kusina"</item>
   </string-array>
     <string name="custom_room" msgid="8991561978321502549">"Maglagay ng Custom na Pangalan…"</string>
-    <string name="settings_status_title" msgid="3890412726442124167">"Napangalanan na ang ^1 na ito"</string>
-    <string name="settings_status_description" msgid="3600745966132434139">"\"^1\" ang pangalan ng ^2 na ito. Gusto mo ba itong baguhin?"</string>
+    <string name="device_rename_title" msgid="2629557295786267185">"Palitan ang pangalan ng <xliff:g id="DEVICEMODEL">%1$s</xliff:g> na ito"</string>
+    <string name="device_rename_description" msgid="2461752788563877107">"Ang <xliff:g id="DEVICEMODEL">%1$s</xliff:g> na ito ay kasalukuyang pinangalanang \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\""</string>
     <string name="change_setting" msgid="2047402388786162246">"Baguhin"</string>
     <string name="keep_settings" msgid="6798327196645732517">"Huwag baguhin"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"Mga Pahintulot"</string>
     <string name="device_apps_permissions" msgid="2966387603529725982">"Pahintulot sa app"</string>
     <string name="app_permissions_group_summary" msgid="7906834786705287901">"Pinapayagan ang <xliff:g id="COUNT_0">%d</xliff:g> sa <xliff:g id="COUNT_1">%d</xliff:g> (na) app"</string>
+    <string name="bluetooth_permission_request" msgid="6649813878683015301">"Kahilingan sa pahintulot sa Bluetooth"</string>
     <string name="security_patch" msgid="2131617390189164481">"Antas ng patch ng seguridad ng Android"</string>
+    <string name="choose_application" msgid="5662960665577780353">"Pumili ng application"</string>
+    <string name="experimental_preference" msgid="1137673985823581797">"(Pang-eksperimento)"</string>
+    <string name="reboot_safemode_action" msgid="8129550438717110406">"Mag-reboot sa safe mode"</string>
+    <string name="reboot_safemode_confirm" msgid="3329475617645192086">"Gusto mo bang mag-reboot sa safe mode?"</string>
+    <string name="reboot_safemode_desc" msgid="5031024337104679492">"Idi-disable nito ang lahat ng na-install mong third party na application. Mare-restore ang mga ito kapag muli kang nag-reboot."</string>
 </resources>

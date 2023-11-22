@@ -335,12 +335,39 @@ class RangeCoveredRegister {
     }
 
     /**
+     * Test if the range specified by (low, high) is covered.
+     *
+     * If it is LINEAR mode, the range will be quantized to nearest step boundary. If it is the
+     * ROTATE2D mode, it is the same as isFullyCovered().
+     *
+     * @param low The low end of the range.
+     * @param high The high end of the range.
+     * @return if the specified range is covered, return true; otherwise false.
+     */
+    public boolean isRangeCovered(int low, int high) {
+        if (mMode == MODE.LINEAR) {
+            int iLow = Math.max(Math.round((low - mLow) / mStep), 0);
+            int iHigh = Math.min(Math.round((high - mLow) / mStep), mCovered.length-1);
+
+            for (int i = iLow; i <= iHigh; ++i) {
+                if (!mCovered[i]) {
+                    return false;
+                }
+            }
+            return true;
+
+        } else {
+            return isFullyCovered();
+        }
+    }
+
+    /**
      * Test if the range defined is fully covered.
      *
      * @return if the range is fully covered, return true; otherwise false.
      */
     public boolean isFullyCovered() {
-        for (boolean i:mCovered) {
+        for (boolean i : mCovered) {
             if (!i) return false;
         }
         return true;

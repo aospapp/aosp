@@ -34,7 +34,7 @@ public class FocusFinderTest extends ActivityInstrumentationTestCase2<FocusFinde
     private Button mBottomRight;
 
     public FocusFinderTest() {
-        super("com.android.cts.view", FocusFinderCtsActivity.class);
+        super("android.view.cts", FocusFinderCtsActivity.class);
     }
 
     @Override
@@ -46,6 +46,10 @@ public class FocusFinderTest extends ActivityInstrumentationTestCase2<FocusFinde
         mTopRight = getActivity().topRightButton;
         mBottomLeft = getActivity().bottomLeftButton;
         mBottomRight = getActivity().bottomRightButton;
+        mTopLeft.setNextFocusLeftId(View.NO_ID);
+        mTopRight.setNextFocusLeftId(View.NO_ID);
+        mBottomLeft.setNextFocusLeftId(View.NO_ID);
+        mBottomRight.setNextFocusLeftId(View.NO_ID);
     }
 
     public void testGetInstance() {
@@ -168,5 +172,51 @@ public class FocusFinderTest extends ActivityInstrumentationTestCase2<FocusFinde
         assertEquals(mBottomRight, view);
         assertEquals(0, deltas[0]);
         assertEquals(-1, deltas[1]);
+    }
+
+    public void testFindNextAndPrevFocusAvoidingChain() {
+        mBottomRight.setNextFocusForwardId(mBottomLeft.getId());
+        mBottomLeft.setNextFocusForwardId(mTopRight.getId());
+        // Follow the chain
+        assertNextFocus(mBottomRight, View.FOCUS_FORWARD, mBottomLeft);
+        assertNextFocus(mBottomLeft, View.FOCUS_FORWARD, mTopRight);
+        assertNextFocus(mTopRight, View.FOCUS_BACKWARD, mBottomLeft);
+        assertNextFocus(mBottomLeft, View.FOCUS_BACKWARD, mBottomRight);
+
+        // Now go to the one not in the chain
+        assertNextFocus(mTopRight, View.FOCUS_FORWARD, mTopLeft);
+        assertNextFocus(mBottomRight, View.FOCUS_BACKWARD, mTopLeft);
+
+        // Now go back to the top of the chain
+        assertNextFocus(mTopLeft, View.FOCUS_FORWARD, mBottomRight);
+        assertNextFocus(mTopLeft, View.FOCUS_BACKWARD, mTopRight);
+
+        // Now make the chain a circle -- this is the pathological case
+        mTopRight.setNextFocusForwardId(mBottomRight.getId());
+        // Fall back to the next one in a chain.
+        assertNextFocus(mTopLeft, View.FOCUS_FORWARD, mTopRight);
+        assertNextFocus(mTopLeft, View.FOCUS_BACKWARD, mBottomRight);
+
+        //Now do branching focus changes
+        mTopRight.setNextFocusForwardId(View.NO_ID);
+        mBottomRight.setNextFocusForwardId(mTopRight.getId());
+        assertNextFocus(mBottomRight, View.FOCUS_FORWARD, mTopRight);
+        assertNextFocus(mBottomLeft, View.FOCUS_FORWARD, mTopRight);
+        // From the tail, it jumps out of the chain
+        assertNextFocus(mTopRight, View.FOCUS_FORWARD, mTopLeft);
+
+        // Back from the head of a tree goes out of the tree
+        // We don't know which is the head of the focus chain since it is branching.
+        View prevFocus1 = mFocusFinder.findNextFocus(mLayout, mBottomLeft, View.FOCUS_BACKWARD);
+        View prevFocus2 = mFocusFinder.findNextFocus(mLayout, mBottomRight, View.FOCUS_BACKWARD);
+        assertTrue(prevFocus1 == mTopLeft || prevFocus2 == mTopLeft);
+
+        // From outside, it chooses an arbitrary head of the chain
+        View nextFocus = mFocusFinder.findNextFocus(mLayout, mTopLeft, View.FOCUS_FORWARD);
+        assertTrue(nextFocus == mBottomRight || nextFocus == mBottomLeft);
+
+        // Going back from the tail of the split chain, it chooses an arbitrary head
+        nextFocus = mFocusFinder.findNextFocus(mLayout, mTopRight, View.FOCUS_BACKWARD);
+        assertTrue(nextFocus == mBottomRight || nextFocus == mBottomLeft);
     }
 }

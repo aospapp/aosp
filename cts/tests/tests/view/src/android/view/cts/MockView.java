@@ -17,7 +17,6 @@
 package android.view.cts;
 
 import android.content.Context;
-import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
@@ -28,9 +27,9 @@ import android.util.SparseArray;
 import android.view.ContextMenu;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.PointerIcon;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewParent;
 import android.view.ContextMenu.ContextMenuInfo;
 
 public class MockView extends View {
@@ -55,6 +54,7 @@ public class MockView extends View {
     private boolean mCalledOnSetAlpha = false;
     private boolean mCalledOnTouchEvent = false;
     private boolean mCalledOnTrackballEvent = false;
+    private boolean mCalledOnHoverEvent = false;
     private boolean mCalledOnWindowFocusChanged = false;
     private boolean mCalledDispatchRestoreInstanceState = false;
     private boolean mCalledDispatchSaveInstanceState = false;
@@ -69,9 +69,17 @@ public class MockView extends View {
     private boolean mCalledComputeScroll = false;
     private boolean mCalledDispatchKeyEventPreIme = false;
     private boolean mCalledOnKeyPreIme = false;
+    private boolean mCalledOnResolvePointerIcon = false;
+    private boolean mCalledOnVisibilityAggregated = false;
+    private boolean mCalledDispatchStartTemporaryDetach = false;
+    private boolean mCalledDispatchFinishTemporaryDetach = false;
+    private boolean mCalledOnStartTemporaryDetach = false;
+    private boolean mCalledOnFinishTemporaryDetach = false;
 
     private int mOldWidth = -1;
     private int mOldHeight = -1;
+
+    private boolean mLastAggregatedVisibility;
 
     public MockView(Context context) {
         super(context);
@@ -209,12 +217,22 @@ public class MockView extends View {
         return super.onTrackballEvent(event);
     }
 
+    @Override
+    public boolean onHoverEvent(MotionEvent event) {
+        mCalledOnHoverEvent = true;
+        return super.onHoverEvent(event);
+    }
+
     public boolean hasCalledOnTouchEvent() {
         return mCalledOnTouchEvent;
     }
 
     public boolean hasCalledOnTrackballEvent() {
         return mCalledOnTrackballEvent;
+    }
+
+    public boolean hasCalledOnHoverEvent() {
+        return mCalledOnHoverEvent;
     }
 
     @Override
@@ -595,6 +613,71 @@ public class MockView extends View {
         return mCalledOnKeyPreIme;
     }
 
+    @Override
+    public PointerIcon onResolvePointerIcon(MotionEvent event, int pointerIndex) {
+        mCalledOnResolvePointerIcon = true;
+        return super.onResolvePointerIcon(event, pointerIndex);
+    }
+
+    public boolean hasCalledOnResolvePointerIcon() {
+        return mCalledOnResolvePointerIcon;
+    }
+
+    @Override
+    public void onVisibilityAggregated(boolean isVisible) {
+        super.onVisibilityAggregated(isVisible);
+        mCalledOnVisibilityAggregated = true;
+        mLastAggregatedVisibility = isVisible;
+    }
+
+    public boolean hasCalledOnVisibilityAggregated() {
+        return mCalledOnVisibilityAggregated;
+    }
+
+    public boolean getLastAggregatedVisibility() {
+        return mLastAggregatedVisibility;
+    }
+
+    @Override
+    public void dispatchStartTemporaryDetach() {
+        super.dispatchStartTemporaryDetach();
+        mCalledDispatchStartTemporaryDetach = true;
+    }
+
+    @Override
+    public void dispatchFinishTemporaryDetach() {
+        super.dispatchFinishTemporaryDetach();
+        mCalledDispatchFinishTemporaryDetach = true;
+    }
+
+    @Override
+    public void onStartTemporaryDetach() {
+        super.onStartTemporaryDetach();
+        mCalledOnStartTemporaryDetach = true;
+    }
+
+    @Override
+    public void onFinishTemporaryDetach() {
+        super.onFinishTemporaryDetach();
+        mCalledOnFinishTemporaryDetach = true;
+    }
+
+    public boolean hasCalledDispatchStartTemporaryDetach() {
+        return mCalledDispatchStartTemporaryDetach;
+    }
+
+    public boolean hasCalledDispatchFinishTemporaryDetach() {
+        return mCalledDispatchFinishTemporaryDetach;
+    }
+
+    public boolean hasCalledOnStartTemporaryDetach() {
+        return mCalledOnStartTemporaryDetach;
+    }
+
+    public boolean hasCalledOnFinishTemporaryDetach() {
+        return mCalledOnFinishTemporaryDetach;
+    }
+
     public void reset() {
         mCalledOnCreateContextMenu = false;
 
@@ -618,6 +701,7 @@ public class MockView extends View {
         mCalledOnSetAlpha = false;
         mCalledOnTouchEvent = false;
         mCalledOnTrackballEvent = false;
+        mCalledOnHoverEvent = false;
         mCalledOnWindowFocusChanged = false;
         mCalledDispatchRestoreInstanceState = false;
         mCalledDispatchSaveInstanceState = false;
@@ -632,8 +716,16 @@ public class MockView extends View {
         mCalledComputeScroll = false;
         mCalledDispatchKeyEventPreIme = false;
         mCalledOnKeyPreIme = false;
+        mCalledOnResolvePointerIcon = false;
+        mCalledOnVisibilityAggregated = false;
+        mCalledOnVisibilityAggregated = false;
+        mCalledDispatchStartTemporaryDetach = false;
+        mCalledDispatchFinishTemporaryDetach = false;
+        mCalledOnStartTemporaryDetach = false;
+        mCalledOnFinishTemporaryDetach = false;
 
         mOldWidth = -1;
         mOldHeight = -1;
+        mLastAggregatedVisibility = false;
     }
 }

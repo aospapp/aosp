@@ -19,6 +19,7 @@
 #include "drmcompositor.h"
 #include "drmdisplaycompositor.h"
 #include "drmresources.h"
+#include "platform.h"
 
 #include <sstream>
 #include <stdlib.h>
@@ -27,51 +28,60 @@
 
 namespace android {
 
-DrmCompositor::DrmCompositor(DrmResources *drm) : drm_(drm) {
+DrmCompositor::DrmCompositor(DrmResources *drm) : drm_(drm), frame_no_(0) {
 }
 
 DrmCompositor::~DrmCompositor() {
 }
 
 int DrmCompositor::Init() {
-  for (DrmResources::ConnectorIter iter = drm_->begin_connectors();
-       iter != drm_->end_connectors(); ++iter) {
-    int display = (*iter)->display();
+  for (auto &conn : drm_->connectors()) {
+    int display = conn->display();
     int ret = compositor_map_[display].Init(drm_, display);
     if (ret) {
       ALOGE("Failed to initialize display compositor for %d", display);
       return ret;
     }
   }
+  planner_ = Planner::CreateInstance(drm_);
+  if (!planner_) {
+    ALOGE("Failed to create planner instance for composition");
+    return -ENOMEM;
+  }
 
   return 0;
 }
 
-Composition *DrmCompositor::CreateComposition(Importer *importer) {
-  DrmComposition *composition = new DrmComposition(drm_, importer);
-  if (!composition) {
-    ALOGE("Failed to allocate drm composition");
-    return NULL;
-  }
-  int ret = composition->Init();
+std::unique_ptr<DrmComposition> DrmCompositor::CreateComposition(
+    Importer *importer) {
+  std::unique_ptr<DrmComposition> composition(
+      new DrmComposition(drm_, importer, planner_.get()));
+  int ret = composition->Init(++frame_no_);
   if (ret) {
     ALOGE("Failed to initialize drm composition %d", ret);
-    delete composition;
-    return NULL;
+    return nullptr;
   }
   return composition;
 }
 
-int DrmCompositor::QueueComposition(Composition *composition) {
-  DrmComposition *drm_composition = (DrmComposition *)composition;
-  for (DrmResources::ConnectorIter iter = drm_->begin_connectors();
-       iter != drm_->end_connectors(); ++iter) {
-    int display = (*iter)->display();
+int DrmCompositor::QueueComposition(
+    std::unique_ptr<DrmComposition> composition) {
+  int ret;
+
+  ret = composition->Plan(compositor_map_);
+  if (ret)
+    return ret;
+
+  ret = composition->DisableUnusedPlanes();
+  if (ret)
+    return ret;
+
+  for (auto &conn : drm_->connectors()) {
+    int display = conn->display();
     int ret = compositor_map_[display].QueueComposition(
-        drm_composition->TakeDisplayComposition(display));
+        composition->TakeDisplayComposition(display));
     if (ret) {
-      ALOGE("Failed to queue composition for display %d", display);
-      delete composition;
+      ALOGE("Failed to queue composition for display %d (%d)", display, ret);
       return ret;
     }
   }
@@ -90,8 +100,7 @@ int DrmCompositor::Composite() {
 
 void DrmCompositor::Dump(std::ostringstream *out) const {
   *out << "DrmCompositor stats:\n";
-  for (DrmResources::ConnectorIter iter = drm_->begin_connectors();
-       iter != drm_->end_connectors(); ++iter)
-    compositor_map_[(*iter)->display()].Dump(out);
+  for (auto &conn : drm_->connectors())
+    compositor_map_[conn->display()].Dump(out);
 }
 }

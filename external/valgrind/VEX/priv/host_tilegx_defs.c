@@ -7,7 +7,7 @@
   This file is part of Valgrind, a dynamic binary instrumentation
   framework.
 
-  Copyright (C) 2010-2013 Tilera Corp.
+  Copyright (C) 2010-2015 Tilera Corp.
 
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -1271,7 +1271,7 @@ static Int display_insn ( struct tilegx_decoded_instruction
       if (op->type == TILEGX_OP_TYPE_REGISTER)
         vex_printf("r%d", (Int) decoded[i].operand_values[n]);
       else
-        vex_printf("%ld", (unsigned long)decoded[i].operand_values[n]);
+        vex_printf("%llu", (ULong)decoded[i].operand_values[n]);
 
       if (n != (decoded[i].opcode->num_operands - 1))
         vex_printf(", ");
@@ -1306,7 +1306,7 @@ Int decode_and_display ( tilegx_bundle_bits *p, Int count, ULong pc )
 
     Int n, k, bundled = 0;
 
-    for(k = 0; decode[k].opcode && (k <TILEGX_MAX_INSTRUCTIONS_PER_BUNDLE);
+    for(k = 0; (k < TILEGX_MAX_INSTRUCTIONS_PER_BUNDLE) && decode[k].opcode;
         k++) {
       if (decode[k].opcode->mnemonic != TILEGX_OPC_FNOP)
         bundled++;
@@ -1317,7 +1317,7 @@ Int decode_and_display ( tilegx_bundle_bits *p, Int count, ULong pc )
       vex_printf("{ ");
 
     n = bundled;
-    for(k = 0; decode[k].opcode && (k <TILEGX_MAX_INSTRUCTIONS_PER_BUNDLE);
+    for(k = 0; (k < TILEGX_MAX_INSTRUCTIONS_PER_BUNDLE) && decode[k].opcode;
         k++) {
       if (decode[k].opcode->mnemonic == TILEGX_OPC_FNOP)
         continue;

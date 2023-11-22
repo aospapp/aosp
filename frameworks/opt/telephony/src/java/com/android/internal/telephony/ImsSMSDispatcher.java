@@ -32,11 +32,10 @@ import com.android.internal.telephony.gsm.GsmSMSDispatcher;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public final class ImsSMSDispatcher extends SMSDispatcher {
+public class ImsSMSDispatcher extends SMSDispatcher {
     private static final String TAG = "RIL_ImsSms";
 
     private SMSDispatcher mCdmaDispatcher;
@@ -50,7 +49,7 @@ public final class ImsSMSDispatcher extends SMSDispatcher {
     private boolean mIms = false;
     private String mImsSmsFormat = SmsConstants.FORMAT_UNKNOWN;
 
-    public ImsSMSDispatcher(PhoneBase phone, SmsStorageMonitor storageMonitor,
+    public ImsSMSDispatcher(Phone phone, SmsStorageMonitor storageMonitor,
             SmsUsageMonitor usageMonitor) {
         super(phone, usageMonitor, null);
         Rlog.d(TAG, "ImsSMSDispatcher created");
@@ -63,9 +62,8 @@ public final class ImsSMSDispatcher extends SMSDispatcher {
         mCdmaInboundSmsHandler = CdmaInboundSmsHandler.makeInboundSmsHandler(phone.getContext(),
                 storageMonitor, phone, (CdmaSMSDispatcher) mCdmaDispatcher);
         mGsmDispatcher = new GsmSMSDispatcher(phone, usageMonitor, this, mGsmInboundSmsHandler);
-        Thread broadcastThread = new Thread(new SmsBroadcastUndelivered(phone.getContext(),
-                mGsmInboundSmsHandler, mCdmaInboundSmsHandler));
-        broadcastThread.start();
+        SmsBroadcastUndelivered.initialize(phone.getContext(),
+            mGsmInboundSmsHandler, mCdmaInboundSmsHandler);
 
         mCi.registerForOn(this, EVENT_RADIO_ON, null);
         mCi.registerForImsNetworkStateChanged(this, EVENT_IMS_STATE_CHANGED, null);
@@ -73,7 +71,7 @@ public final class ImsSMSDispatcher extends SMSDispatcher {
 
     /* Updates the phone object when there is a change */
     @Override
-    protected void updatePhoneObject(PhoneBase phone) {
+    protected void updatePhoneObject(Phone phone) {
         Rlog.d(TAG, "In IMS updatePhoneObject ");
         super.updatePhoneObject(phone);
         mCdmaDispatcher.updatePhoneObject(phone);
@@ -158,7 +156,7 @@ public final class ImsSMSDispatcher extends SMSDispatcher {
     }
 
     @Override
-    protected void sendData(String destAddr, String scAddr, int destPort,
+    public void sendData(String destAddr, String scAddr, int destPort,
             byte[] data, PendingIntent sentIntent, PendingIntent deliveryIntent) {
         if (isCdmaMo()) {
             mCdmaDispatcher.sendData(destAddr, scAddr, destPort,
@@ -170,7 +168,7 @@ public final class ImsSMSDispatcher extends SMSDispatcher {
     }
 
     @Override
-    protected void sendMultipartText(String destAddr, String scAddr,
+    public void sendMultipartText(String destAddr, String scAddr,
             ArrayList<String> parts, ArrayList<PendingIntent> sentIntents,
             ArrayList<PendingIntent> deliveryIntents, Uri messageUri, String callingPkg,
             boolean persistMessage) {
@@ -197,7 +195,7 @@ public final class ImsSMSDispatcher extends SMSDispatcher {
     }
 
     @Override
-    protected void sendText(String destAddr, String scAddr, String text, PendingIntent sentIntent,
+    public void sendText(String destAddr, String scAddr, String text, PendingIntent sentIntent,
             PendingIntent deliveryIntent, Uri messageUri, String callingPkg,
             boolean persistMessage) {
         Rlog.d(TAG, "sendText");
@@ -275,7 +273,7 @@ public final class ImsSMSDispatcher extends SMSDispatcher {
         }
 
         // format didn't match, need to re-encode.
-        HashMap map = tracker.mData;
+        HashMap map = tracker.getData();
 
         // to re-encode, fields needed are:  scAddr, destAddr, and
         //   text if originally sent as sendText or

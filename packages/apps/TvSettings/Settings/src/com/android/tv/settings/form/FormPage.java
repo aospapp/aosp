@@ -33,6 +33,9 @@ public class FormPage implements Parcelable {
     public static final String DATA_KEY_SUMMARY_STRING =
             "com.android.tv.settings.form.FormPage.summaryString";
 
+    public static final String DATA_KEY_SECONDARY_STRING =
+            "com.android.tv.settings.form.FormPage.secondaryString";
+
     enum Type {
         MULTIPLE_CHOICE, TEXT_INPUT, PASSWORD_INPUT, INTENT
     }
@@ -175,6 +178,12 @@ public class FormPage implements Parcelable {
     public String getDataSummary() {
         return (mFormData != null && mFormData.containsKey(DATA_KEY_SUMMARY_STRING)) ? mFormData
                 .getString(DATA_KEY_SUMMARY_STRING) : "";
+    }
+
+    public String getDataSecondary() {
+        return (mFormData != null && mFormData.containsKey(DATA_KEY_SECONDARY_STRING))
+                ? mFormData.getString(DATA_KEY_SECONDARY_STRING)
+                : "";
     }
 
     public void clearData() {

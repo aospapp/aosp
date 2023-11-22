@@ -1,33 +1,46 @@
 ; RUN: llc -mtriple=x86_64-windows-msvc < %s | FileCheck %s
 
-@str = internal unnamed_addr constant [10 x i8] c"recovered\00", align 1
+@str = linkonce_odr unnamed_addr constant [27 x i8] c"GetExceptionCode(): 0x%lx\0A\00", align 1
 
+declare i32 @llvm.eh.exceptioncode(token)
 declare i32 @__C_specific_handler(...)
 declare void @crash()
-declare i32 @puts(i8*)
+declare i32 @printf(i8* nocapture readonly, ...) nounwind
 
-define i32 @main() {
+define i32 @main() personality i8* bitcast (i32 (...)* @__C_specific_handler to i8*) {
 entry:
   invoke void @crash()
           to label %__try.cont unwind label %lpad
 
-lpad:
-  %0 = landingpad { i8*, i32 } personality i8* bitcast (i32 (...)* @__C_specific_handler to i8*)
-          catch i8* null
-  call i32 @puts(i8* getelementptr inbounds ([10 x i8], [10 x i8]* @str, i64 0, i64 0))
-  br label %__try.cont
-
 __try.cont:
   ret i32 0
 
-eh.resume:
-  resume { i8*, i32 } %0
+lpad:
+  %cs1 = catchswitch within none [label %catchall] unwind to caller
+
+catchall:
+  %p = catchpad within %cs1 [i8* null, i32 64, i8* null]
+  %code = call i32 @llvm.eh.exceptioncode(token %p)
+  call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([27 x i8], [27 x i8]* @str, i64 0, i64 0), i32 %code) [ "funclet"(token %p) ]
+  catchret from %p to label %__try.cont
 }
 
+; Check that we can get the exception code from eax to the printf.
+
 ; CHECK-LABEL: main:
+; CHECK: callq crash
+; CHECK: retq
+; CHECK: .LBB0_2: # %catchall
+; CHECK: leaq str(%rip), %rcx
+; CHECK: movl %eax, %edx
+; CHECK: callq printf
+
 ; CHECK: .seh_handlerdata
+; CHECK-NEXT: .Lmain$parent_frame_offset
+; CHECK-NEXT: .long (.Llsda_end0-.Llsda_begin0)/16
+; CHECK-NEXT: .Llsda_begin0:
+; CHECK-NEXT: .long .Ltmp{{[0-9]+}}@IMGREL
+; CHECK-NEXT: .long .Ltmp{{[0-9]+}}@IMGREL+1
 ; CHECK-NEXT: .long 1
-; CHECK-NEXT: .Ltmp{{[0-9]+}}@IMGREL
-; CHECK-NEXT: .Ltmp{{[0-9]+}}@IMGREL+1
-; CHECK-NEXT: 1
-; CHECK-NEXT: .Ltmp{{[0-9]+}}@IMGREL
+; CHECK-NEXT: .long .LBB0_2@IMGREL
+; CHECK-NEXT: .Llsda_end0:

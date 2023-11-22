@@ -1,5 +1,4 @@
 /*
- *
  * q_ingress.c             INGRESS.
  *
  *              This program is free software; you can redistribute it and/or
@@ -8,20 +7,9 @@
  *              2 of the License, or (at your option) any later version.
  *
  * Authors:    J Hadi Salim
- *
- * This is here just in case it is needed
- * useless right now; might be useful in the future
- *
  */
 
 #include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <syslog.h>
-#include <fcntl.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <string.h>
 
 #include "utils.h"
@@ -29,23 +17,20 @@
 
 static void explain(void)
 {
-	fprintf(stderr, "Usage: ... ingress \n");
+	fprintf(stderr, "Usage: ... ingress\n");
 }
 
-static int ingress_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nlmsghdr *n)
+static int ingress_parse_opt(struct qdisc_util *qu, int argc, char **argv,
+			     struct nlmsghdr *n)
 {
-
-	if (argc > 0) {
-		while (argc > 0) {
-
-			if (strcmp(*argv, "handle") == 0) {
-				NEXT_ARG();
-				argc--; argv++;
-			} else {
-				fprintf(stderr, "What is \"%s\"?\n", *argv);
-				explain();
-				return -1;
-			}
+	while (argc > 0) {
+		if (strcmp(*argv, "handle") == 0) {
+			NEXT_ARG();
+			argc--; argv++;
+		} else {
+			fprintf(stderr, "What is \"%s\"?\n", *argv);
+			explain();
+			return -1;
 		}
 	}
 
@@ -53,10 +38,10 @@ static int ingress_parse_opt(struct qdisc_util *qu, int argc, char **argv, struc
 	return 0;
 }
 
-static int ingress_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
+static int ingress_print_opt(struct qdisc_util *qu, FILE *f,
+			     struct rtattr *opt)
 {
-
-		fprintf(f, "---------------- ");
+	fprintf(f, "---------------- ");
 	return 0;
 }
 

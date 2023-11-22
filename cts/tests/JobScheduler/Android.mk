@@ -26,8 +26,11 @@ LOCAL_STATIC_JAVA_LIBRARIES := ctsdeviceutil ctstestrunner
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
+# Tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
+
 # Must match the package name in CtsTestCaseList.mk
-LOCAL_PACKAGE_NAME := CtsJobSchedulerDeviceTestCases
+LOCAL_PACKAGE_NAME := CtsJobSchedulerTestCases
 
 LOCAL_SDK_VERSION := current
 

@@ -1,5 +1,4 @@
 _Exit
-_Z16__libc_init_vdsov
 __FD_CLR_chk
 __FD_ISSET_chk
 __FD_SET_chk
@@ -59,7 +58,6 @@ __p_time
 __p_type
 __pthread_cleanup_pop
 __pthread_cleanup_push
-__pthread_gettid
 __putlong
 __putshort
 __read_chk
@@ -81,7 +79,6 @@ __res_nsend
 __res_ownok
 __res_queriesmatch
 __res_querydomain
-__res_randomid
 __res_send
 __res_send_setqhook
 __res_send_setrhook
@@ -142,9 +139,6 @@ acct
 alarm
 alphasort
 alphasort64
-android_getaddrinfofornet
-android_gethostbyaddrfornet
-android_gethostbynamefornet
 android_set_abort_message
 arc4random
 arc4random_buf
@@ -208,9 +202,7 @@ dup2
 dup3
 duplocale
 endmntent
-endpwent
 endservent
-endusershell
 endutent
 epoll_create
 epoll_create1
@@ -314,7 +306,6 @@ fwprintf
 fwrite
 fwscanf
 gai_strerror
-get_malloc_leak_info
 getaddrinfo
 getauxval
 getc
@@ -378,7 +369,6 @@ getsockopt
 gettid
 gettimeofday
 getuid
-getusershell
 getutent
 getwc
 getwchar
@@ -541,7 +531,6 @@ mkstemp64
 mkstemps
 mktemp
 mktime
-mktime_tz
 mlock
 mlockall
 mmap
@@ -784,7 +773,6 @@ setsockopt
 setstate
 settimeofday
 setuid
-setusershell
 setutent
 setvbuf
 setxattr

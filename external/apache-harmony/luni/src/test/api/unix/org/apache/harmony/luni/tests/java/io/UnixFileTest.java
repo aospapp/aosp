@@ -23,7 +23,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
+import tests.support.resource.Support_Resources;
+
 import junit.framework.TestCase;
+
+import libcore.io.Libcore;
 
 /**
  * Please note that this case can only be passed on Linux due to some file
@@ -105,11 +109,11 @@ public class UnixFileTest extends TestCase {
                 // exit the subprocess safely
                 proc.waitFor();
 
-                // filter unnecessary information
-                String[] txtResult = outputResult.resStr
-                        .split("\\D|\\p{javaLowerCase}|\\p{javaUpperCase}");
+                // Split the results and look for the matching numerical values
+                String[] txtResult = outputResult.resStr.split(" ");
                 for (int i = 0, j = 0; i < txtResult.length; i++) {
-                    if (txtResult[i].length() > 3) {
+                    String text = txtResult[i];
+                    if (text.matches("[0-9]+") && text.length() > 3) {
                         result[j++] = Long.parseLong(txtResult[i]) * 1024L;
                     }
                 }
@@ -363,7 +367,7 @@ public class UnixFileTest extends TestCase {
         if (!testDir.exists()) {
             testDir.mkdir();
         }
-        root = System.getProperty("user.name").equals("root");
+        root = false; //System.getProperty("user.name").equals("root");
     }
 
     @Override
@@ -376,10 +380,10 @@ public class UnixFileTest extends TestCase {
         super.tearDown();
     }
 
-    public void test_getCanonicalPath() throws IOException,
-            InterruptedException {
-        File tmpFolder1 = new File("folder1");
-        tmpFolder1.mkdirs();
+    public void test_getCanonicalPath() throws Exception {
+
+        File tempFolder = Support_Resources.createTempFolder();
+        File tmpFolder1 = new File(tempFolder, "folder1");
         tmpFolder1.deleteOnExit();
 
         File tmpFolder2 = new File(tmpFolder1.toString() + "/folder2");
@@ -395,27 +399,29 @@ public class UnixFileTest extends TestCase {
         tmpFolder4.deleteOnExit();
 
         // make a link to folder1/folder2
-        Process ln = Runtime.getRuntime().exec("ln -s folder1/folder2 folder2");
-        ln.waitFor();
-        File linkFile = new File("folder2");
+        String tempFolderAbsolutePath = tempFolder.getAbsolutePath();
+        String target = tempFolderAbsolutePath + "/folder1/folder2";
+        String linkName = tempFolderAbsolutePath + "/folder2";
+        Libcore.os.symlink(target, linkName);
+        File linkFile = new File(tempFolder, "folder2");
         linkFile.deleteOnExit();
 
-        File file = new File("folder2");
+        File file = new File(tempFolder, "folder2");
         assertEquals(tmpFolder2.getCanonicalPath(), file.getCanonicalPath());
 
-        file = new File("folder1/folder2");
+        file = new File(tempFolder, "folder1/folder2");
         assertEquals(tmpFolder2.getCanonicalPath(), file.getCanonicalPath());
 
-        file = new File("folder2/folder3");
+        file = new File(tempFolder, "folder2/folder3");
         assertEquals(tmpFolder3.getCanonicalPath(), file.getCanonicalPath());
 
-        file = new File("folder2/folder3/folder4");
+        file = new File(tempFolder, "folder2/folder3/folder4");
         assertEquals(tmpFolder4.getCanonicalPath(), file.getCanonicalPath());
 
-        file = new File("folder1/folder2/folder3");
+        file = new File(tempFolder, "folder1/folder2/folder3");
         assertEquals(tmpFolder3.getCanonicalPath(), file.getCanonicalPath());
 
-        file = new File("folder1/folder2/folder3/folder4");
+        file = new File(tempFolder, "folder1/folder2/folder3/folder4");
         assertEquals(tmpFolder4.getCanonicalPath(), file.getCanonicalPath());
     }
 }

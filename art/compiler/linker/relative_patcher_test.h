@@ -30,6 +30,7 @@
 #include "linker/relative_patcher.h"
 #include "method_reference.h"
 #include "oat.h"
+#include "oat_quick_method_header.h"
 #include "utils/array_ref.h"
 #include "vector_output_stream.h"
 
@@ -43,10 +44,23 @@ class RelativePatcherTest : public testing::Test {
       : compiler_options_(),
         verification_results_(&compiler_options_),
         inliner_map_(),
-        driver_(&compiler_options_, &verification_results_, &inliner_map_,
-                Compiler::kQuick, instruction_set, nullptr,
-                false, nullptr, nullptr, nullptr, 1u,
-                false, false, "", nullptr, -1, ""),
+        driver_(&compiler_options_,
+                &verification_results_,
+                &inliner_map_,
+                Compiler::kQuick,
+                instruction_set,
+                /* instruction_set_features*/ nullptr,
+                /* boot_image */ false,
+                /* app_image */ false,
+                /* image_classes */ nullptr,
+                /* compiled_classes */ nullptr,
+                /* compiled_methods */ nullptr,
+                /* thread_count */ 1u,
+                /* dump_stats */ false,
+                /* dump_passes */ false,
+                /* timer */ nullptr,
+                /* swap_fd */ -1,
+                /* profile_compilation_info */ nullptr),
         error_msg_(),
         instruction_set_(instruction_set),
         features_(InstructionSetFeatures::FromVariant(instruction_set, variant, &error_msg_)),
@@ -72,9 +86,15 @@ class RelativePatcherTest : public testing::Test {
                          const ArrayRef<const LinkerPatch>& patches) {
     compiled_method_refs_.push_back(method_ref);
     compiled_methods_.emplace_back(new CompiledMethod(
-        &driver_, instruction_set_, code,
-        0u, 0u, 0u, nullptr, ArrayRef<const uint8_t>(), ArrayRef<const uint8_t>(),
-        ArrayRef<const uint8_t>(), ArrayRef<const uint8_t>(),
+        &driver_,
+        instruction_set_,
+        code,
+        /* frame_size_in_bytes */ 0u,
+        /* core_spill_mask */ 0u,
+        /* fp_spill_mask */ 0u,
+        /* src_mapping_table */ ArrayRef<const SrcMapElem>(),
+        /* vmap_table */ ArrayRef<const uint8_t>(),
+        /* cfi_info */ ArrayRef<const uint8_t>(),
         patches));
   }
 
@@ -92,7 +112,7 @@ class RelativePatcherTest : public testing::Test {
 
       offset += sizeof(OatQuickMethodHeader);
       uint32_t quick_code_offset = offset + compiled_method->CodeDelta();
-      const auto& code = *compiled_method->GetQuickCode();
+      const auto code = compiled_method->GetQuickCode();
       offset += code.size();
 
       method_offset_map_.map.Put(compiled_method_refs_[idx], quick_code_offset);
@@ -124,23 +144,32 @@ class RelativePatcherTest : public testing::Test {
 
       out_.WriteFully(dummy_header, sizeof(OatQuickMethodHeader));
       offset += sizeof(OatQuickMethodHeader);
-      ArrayRef<const uint8_t> code(*compiled_method->GetQuickCode());
+      ArrayRef<const uint8_t> code = compiled_method->GetQuickCode();
       if (!compiled_method->GetPatches().empty()) {
         patched_code_.assign(code.begin(), code.end());
         code = ArrayRef<const uint8_t>(patched_code_);
         for (const LinkerPatch& patch : compiled_method->GetPatches()) {
-          if (patch.Type() == kLinkerPatchCallRelative) {
+          if (patch.GetType() == LinkerPatch::Type::kCallRelative) {
             auto result = method_offset_map_.FindMethodOffset(patch.TargetMethod());
             uint32_t target_offset =
                 result.first ? result.second : kTrampolineOffset + compiled_method->CodeDelta();
             patcher_->PatchCall(&patched_code_, patch.LiteralOffset(),
                                 offset + patch.LiteralOffset(), target_offset);
-          } else if (patch.Type() == kLinkerPatchDexCacheArray) {
+          } else if (patch.GetType() == LinkerPatch::Type::kDexCacheArray) {
             uint32_t target_offset = dex_cache_arrays_begin_ + patch.TargetDexCacheElementOffset();
-            patcher_->PatchDexCacheReference(&patched_code_, patch,
-                                             offset + patch.LiteralOffset(), target_offset);
+            patcher_->PatchPcRelativeReference(&patched_code_,
+                                               patch,
+                                               offset + patch.LiteralOffset(),
+                                               target_offset);
+          } else if (patch.GetType() == LinkerPatch::Type::kStringRelative) {
+            uint32_t target_offset = string_index_to_offset_map_.Get(patch.TargetStringIndex());
+            patcher_->PatchPcRelativeReference(&patched_code_,
+                                               patch,
+                                               offset + patch.LiteralOffset(),
+                                               target_offset);
           } else {
-            LOG(FATAL) << "Bad patch type.";
+            LOG(FATAL) << "Bad patch type. " << patch.GetType();
+            UNREACHABLE();
           }
         }
       }
@@ -163,7 +192,7 @@ class RelativePatcherTest : public testing::Test {
       ++idx;
     }
     CHECK_NE(idx, compiled_method_refs_.size());
-    CHECK_EQ(compiled_methods_[idx]->GetQuickCode()->size(), expected_code.size());
+    CHECK_EQ(compiled_methods_[idx]->GetQuickCode().size(), expected_code.size());
 
     auto result = method_offset_map_.FindMethodOffset(method_ref);
     CHECK(result.first);  // Must have been linked.
@@ -242,6 +271,7 @@ class RelativePatcherTest : public testing::Test {
   MethodOffsetMap method_offset_map_;
   std::unique_ptr<RelativePatcher> patcher_;
   uint32_t dex_cache_arrays_begin_;
+  SafeMap<uint32_t, uint32_t> string_index_to_offset_map_;
   std::vector<MethodReference> compiled_method_refs_;
   std::vector<std::unique_ptr<CompiledMethod>> compiled_methods_;
   std::vector<uint8_t> patched_code_;

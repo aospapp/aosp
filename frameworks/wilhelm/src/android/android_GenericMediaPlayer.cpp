@@ -114,6 +114,7 @@ static const char *media_info_type_to_string(media_info_type info)
 //--------------------------------------------------
 // IMediaPlayerClient implementation
 void MediaPlayerNotificationClient::notify(int msg, int ext1, int ext2, const Parcel *obj) {
+    (void)media_event_type_to_string; // Suppresses -Wunused-function.
     SL_LOGV("MediaPlayerNotificationClient::notify(msg=%s (%d), ext1=%d, ext2=%d)",
             media_event_type_to_string((enum media_event_type) msg), msg, ext1, ext2);
 
@@ -173,6 +174,7 @@ void MediaPlayerNotificationClient::notify(int msg, int ext1, int ext2, const Pa
 
       case MEDIA_ERROR:
         {
+        (void)media_error_type_to_string; // Suppresses -Wunused-function.
         SL_LOGV("MediaPlayerNotificationClient::notify(msg=MEDIA_ERROR, ext1=%s (%d), ext2=%d)",
                 media_error_type_to_string((media_error_type) ext1), ext1, ext2);
         Mutex::Autolock _l(mLock);
@@ -191,6 +193,7 @@ void MediaPlayerNotificationClient::notify(int msg, int ext1, int ext2, const Pa
         break;
 
       case MEDIA_INFO:
+        (void)media_info_type_to_string; // Suppresses -Wunused-function.
         SL_LOGV("MediaPlayerNotificationClient::notify(msg=MEDIA_INFO, ext1=%s (%d), ext2=%d)",
                 media_info_type_to_string((media_info_type) ext1), ext1, ext2);
         switch (ext1) {

@@ -3080,6 +3080,13 @@ static void rw_i93_data_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p_
         }
         else
         {
+            /* free retry buffer */
+            if (p_i93->p_retry_cmd)
+            {
+                GKI_freebuf (p_i93->p_retry_cmd);
+                p_i93->p_retry_cmd = NULL;
+                p_i93->retry_count = 0;
+            }
             NFC_SetStaticRfCback (NULL);
             p_i93->state = RW_I93_STATE_NOT_ACTIVATED;
         }

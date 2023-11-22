@@ -8,6 +8,9 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Trace;
 import android.os.UserHandle;
+import android.os.UserManager;
+import android.telecom.Connection;
+import android.telecom.DefaultDialerManager;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
@@ -23,6 +26,30 @@ import android.widget.Toast;
  * which interacts with the rest of Telecom, both of which run only as the primary user.
  */
 public class CallIntentProcessor {
+    public interface Adapter {
+        void processOutgoingCallIntent(Context context, CallsManager callsManager,
+                Intent intent);
+        void processIncomingCallIntent(CallsManager callsManager, Intent intent);
+        void processUnknownCallIntent(CallsManager callsManager, Intent intent);
+    }
+
+    public static class AdapterImpl implements Adapter {
+        @Override
+        public void processOutgoingCallIntent(Context context, CallsManager callsManager,
+                Intent intent) {
+            CallIntentProcessor.processOutgoingCallIntent(context, callsManager, intent);
+        }
+
+        @Override
+        public void processIncomingCallIntent(CallsManager callsManager, Intent intent) {
+            CallIntentProcessor.processIncomingCallIntent(callsManager, intent);
+        }
+
+        @Override
+        public void processUnknownCallIntent(CallsManager callsManager, Intent intent) {
+            CallIntentProcessor.processUnknownCallIntent(callsManager, intent);
+        }
+    }
 
     public static final String KEY_IS_UNKNOWN_CALL = "is_unknown_call";
     public static final String KEY_IS_INCOMING_CALL = "is_incoming_call";
@@ -31,6 +58,12 @@ public class CallIntentProcessor {
      *  dialer and thus allowed to make emergency calls.
      */
     public static final String KEY_IS_PRIVILEGED_DIALER = "is_privileged_dialer";
+
+    /**
+     * The user initiating the outgoing call.
+     */
+    public static final String KEY_INITIATING_USER = "initiating_user";
+
 
     private final Context mContext;
     private final CallsManager mCallsManager;
@@ -63,9 +96,6 @@ public class CallIntentProcessor {
             Context context,
             CallsManager callsManager,
             Intent intent) {
-        if (shouldPreventDuplicateVideoCall(context, callsManager, intent)) {
-            return;
-        }
 
         Uri handle = intent.getData();
         String scheme = handle.getScheme();
@@ -87,10 +117,29 @@ public class CallIntentProcessor {
             clientExtras = new Bundle();
         }
 
+        // Ensure call subject is passed on to the connection service.
+        if (intent.hasExtra(TelecomManager.EXTRA_CALL_SUBJECT)) {
+            String callsubject = intent.getStringExtra(TelecomManager.EXTRA_CALL_SUBJECT);
+            clientExtras.putString(TelecomManager.EXTRA_CALL_SUBJECT, callsubject);
+        }
+
+        final int videoState = intent.getIntExtra( TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE,
+                VideoProfile.STATE_AUDIO_ONLY);
+        clientExtras.putInt(TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE, videoState);
+
         final boolean isPrivilegedDialer = intent.getBooleanExtra(KEY_IS_PRIVILEGED_DIALER, false);
 
+        boolean fixedInitiatingUser = fixInitiatingUserIfNecessary(context, intent);
+        // Show the toast to warn user that it is a personal call though initiated in work profile.
+        if (fixedInitiatingUser) {
+            Toast.makeText(context, R.string.toast_personal_call_msg, Toast.LENGTH_LONG).show();
+        }
+
+        UserHandle initiatingUser = intent.getParcelableExtra(KEY_INITIATING_USER);
+
         // Send to CallsManager to ensure the InCallUI gets kicked off before the broadcast returns
-        Call call = callsManager.startOutgoingCall(handle, phoneAccountHandle, clientExtras);
+        Call call = callsManager
+                .startOutgoingCall(handle, phoneAccountHandle, clientExtras, initiatingUser);
 
         if (call != null) {
             // Asynchronous calls should not usually be made inside a BroadcastReceiver because once
@@ -99,7 +148,8 @@ public class CallIntentProcessor {
             // process will be running throughout the duration of the phone call and should never
             // be killed.
             NewOutgoingCallIntentBroadcaster broadcaster = new NewOutgoingCallIntentBroadcaster(
-                    context, callsManager, call, intent, isPrivilegedDialer);
+                    context, callsManager, call, intent, new PhoneNumberUtilsAdapterImpl(),
+                    isPrivilegedDialer);
             final int result = broadcaster.processIntent();
             final boolean success = result == DisconnectCause.NOT_DISCONNECTED;
 
@@ -107,6 +157,29 @@ public class CallIntentProcessor {
                 disconnectCallAndShowErrorDialog(context, call, result);
             }
         }
+    }
+
+    /**
+     * If the call is initiated from managed profile but there is no work dialer installed, treat
+     * the call is initiated from its parent user.
+     *
+     * @return whether the initiating user is fixed.
+     */
+    static boolean fixInitiatingUserIfNecessary(Context context, Intent intent) {
+        final UserHandle initiatingUser = intent.getParcelableExtra(KEY_INITIATING_USER);
+        if (UserUtil.isManagedProfile(context, initiatingUser)) {
+            boolean noDialerInstalled = DefaultDialerManager.getInstalledDialerApplications(context,
+                    initiatingUser.getIdentifier()).size() == 0;
+            if (noDialerInstalled) {
+                final UserManager userManager = UserManager.get(context);
+                UserHandle parentUserHandle =
+                        userManager.getProfileParent(
+                                initiatingUser.getIdentifier()).getUserHandle();
+                intent.putExtra(KEY_INITIATING_USER, parentUserHandle);
+                return true;
+            }
+        }
+        return false;
     }
 
     static void processIncomingCallIntent(CallsManager callsManager, Intent intent) {
@@ -169,33 +242,6 @@ public class CallIntentProcessor {
             errorIntent.putExtra(ErrorDialogActivity.ERROR_MESSAGE_ID_EXTRA, errorMessageId);
             errorIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             context.startActivityAsUser(errorIntent, UserHandle.CURRENT);
-        }
-    }
-
-    /**
-     * Whether an outgoing video call should be prevented from going out. Namely, don't allow an
-     * outgoing video call if there is already an ongoing video call. Notify the user if their call
-     * is not sent.
-     *
-     * @return {@code true} if the outgoing call is a video call and should be prevented from going
-     *     out, {@code false} otherwise.
-     */
-    private static boolean shouldPreventDuplicateVideoCall(
-            Context context,
-            CallsManager callsManager,
-            Intent intent) {
-        int intentVideoState = intent.getIntExtra(TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE,
-                VideoProfile.STATE_AUDIO_ONLY);
-        if (VideoProfile.isAudioOnly(intentVideoState)
-                || !callsManager.hasVideoCall()) {
-            return false;
-        } else {
-            // Display an error toast to the user.
-            Toast.makeText(
-                    context,
-                    context.getResources().getString(R.string.duplicate_video_call_not_allowed),
-                    Toast.LENGTH_LONG).show();
-            return true;
         }
     }
 }

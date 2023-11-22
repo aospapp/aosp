@@ -152,7 +152,7 @@ public:
     int flush();
 
     int setFrameParameters(camera3_capture_request_t *request,
-            cam_stream_ID_t streamID, uint32_t snapshotStreamId);
+            cam_stream_ID_t streamID, int blob_request, uint32_t snapshotStreamId);
     int32_t setReprocParameters(camera3_capture_request_t *request,
             metadata_buffer_t *reprocParam, uint32_t snapshotStreamId);
     int translateToHalMetadata(const camera3_capture_request_t *request,
@@ -208,6 +208,7 @@ private:
 
     int validateCaptureRequest(camera3_capture_request_t *request);
     int validateStreamDimensions(camera3_stream_configuration_t *streamList);
+    int validateStreamRotations(camera3_stream_configuration_t *streamList);
     void deriveMinFrameDuration();
     int32_t handlePendingReprocResults(uint32_t frame_number);
     int64_t getMinFrameDuration(const camera3_capture_request_t *request);
@@ -260,6 +261,7 @@ private:
     bool mEnableRawDump;
     QCamera3HeapMemory *mParamHeap;
     metadata_buffer_t* mParameters;
+    metadata_buffer_t* mPrevParameters;
     bool m_bWNROn;
     bool m_bIsVideo;
     bool m_bIs4KVideo;
@@ -304,6 +306,8 @@ private:
         uint32_t num_buffers;
         // List of pending buffers
         List<PendingBufferInfo> mPendingBufferList;
+        // Last frame number requested
+        uint32_t last_frame_number;
     } PendingBuffersMap;
 
     typedef struct {
@@ -339,6 +343,7 @@ private:
     const camera_module_callbacks_t *mCallbacks;
 
     uint8_t mCaptureIntent;
+    cam_stream_size_info_t mStreamConfigInfo;
 
     static const QCameraMap EFFECT_MODES_MAP[];
     static const QCameraMap WHITE_BALANCE_MODES_MAP[];

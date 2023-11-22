@@ -21,6 +21,6 @@
         </shape>
     </item>
     <item android:top="8dp" android:bottom="8dp" android:left="8dp" android:right="8dp"
-            android:drawable="@drawable/ic_person_white" />
+            android:drawable="@drawable/ic_person" />
 </layer-list>
 

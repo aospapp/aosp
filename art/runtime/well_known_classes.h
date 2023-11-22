@@ -38,7 +38,7 @@ struct WellKnownClasses {
   static jmethodID StringInitToStringFactoryMethodID(jmethodID string_init);
 
   static mirror::Class* ToClass(jclass global_jclass)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   static jclass com_android_dex_Dex;
   static jclass dalvik_system_DexFile;
@@ -46,11 +46,15 @@ struct WellKnownClasses {
   static jclass dalvik_system_DexPathList__Element;
   static jclass dalvik_system_PathClassLoader;
   static jclass dalvik_system_VMRuntime;
+  static jclass java_lang_annotation_Annotation__array;
   static jclass java_lang_BootClassLoader;
   static jclass java_lang_ClassLoader;
   static jclass java_lang_ClassNotFoundException;
   static jclass java_lang_Daemons;
   static jclass java_lang_Error;
+  static jclass java_lang_ExceptionInInitializerError;
+  static jclass java_lang_IllegalAccessError;
+  static jclass java_lang_NoClassDefFoundError;
   static jclass java_lang_Object;
   static jclass java_lang_OutOfMemoryError;
   static jclass java_lang_reflect_AbstractMethod;
@@ -70,6 +74,8 @@ struct WellKnownClasses {
   static jclass java_util_ArrayList;
   static jclass java_util_Collections;
   static jclass java_nio_DirectByteBuffer;
+  static jclass libcore_reflect_AnnotationFactory;
+  static jclass libcore_reflect_AnnotationMember;
   static jclass libcore_util_EmptyArray;
   static jclass org_apache_harmony_dalvik_ddmc_Chunk;
   static jclass org_apache_harmony_dalvik_ddmc_DdmServer;
@@ -131,10 +137,13 @@ struct WellKnownClasses {
   static jmethodID java_lang_Thread__UncaughtExceptionHandler_uncaughtException;
   static jmethodID java_lang_ThreadGroup_removeThread;
   static jmethodID java_nio_DirectByteBuffer_init;
+  static jmethodID libcore_reflect_AnnotationFactory_createAnnotation;
+  static jmethodID libcore_reflect_AnnotationMember_init;
   static jmethodID org_apache_harmony_dalvik_ddmc_DdmServer_broadcast;
   static jmethodID org_apache_harmony_dalvik_ddmc_DdmServer_dispatch;
 
   static jfieldID dalvik_system_DexFile_cookie;
+  static jfieldID dalvik_system_DexFile_fileName;
   static jfieldID dalvik_system_DexPathList_dexElements;
   static jfieldID dalvik_system_DexPathList__Element_dexFile;
   static jfieldID dalvik_system_PathClassLoader_pathList;
@@ -148,6 +157,7 @@ struct WellKnownClasses {
   static jfieldID java_lang_Thread_uncaughtHandler;
   static jfieldID java_lang_Thread_nativePeer;
   static jfieldID java_lang_ThreadGroup_groups;
+  static jfieldID java_lang_ThreadGroup_ngroups;
   static jfieldID java_lang_ThreadGroup_mainThreadGroup;
   static jfieldID java_lang_ThreadGroup_name;
   static jfieldID java_lang_ThreadGroup_parent;

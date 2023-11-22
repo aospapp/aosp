@@ -110,6 +110,11 @@ static int parseOption(int argc, char** argv) {
 }
 
 
+static void dumpReduceInfo(FILE *info, const char *Kind, const char *Name) {
+  if (Name)
+    fprintf(info, "  %s(%s)\n", Kind, Name);
+}
+
 static int dumpInfo(bcinfo::MetadataExtractor *ME) {
   if (!ME) {
     return 1;
@@ -141,6 +146,20 @@ static int dumpInfo(bcinfo::MetadataExtractor *ME) {
   for (size_t i = 0; i < ME->getExportForEachSignatureCount(); i++) {
     fprintf(info, "%u - %s - %u\n", sigList[i], nameList[i],
             inputCountList[i]);
+  }
+
+  fprintf(info, "exportReduceCount: %zu\n", ME->getExportReduceCount());
+  const bcinfo::MetadataExtractor::Reduce *reduceList =
+      ME->getExportReduceList();
+  for (size_t i = 0; i < ME->getExportReduceCount(); i++) {
+    const bcinfo::MetadataExtractor::Reduce &reduce = reduceList[i];
+    fprintf(info, "%u - %s - %u - %u\n", reduce.mSignature, reduce.mReduceName,
+            reduce.mInputCount, reduce.mAccumulatorDataSize);
+    dumpReduceInfo(info, "initializer",  reduce.mInitializerName);
+    dumpReduceInfo(info, "accumulator",  reduce.mAccumulatorName);
+    dumpReduceInfo(info, "combiner",     reduce.mCombinerName);
+    dumpReduceInfo(info, "outconverter", reduce.mOutConverterName);
+    dumpReduceInfo(info, "halter",       reduce.mHalterName);
   }
 
   fprintf(info, "objectSlotCount: %zu\n", ME->getObjectSlotCount());
@@ -194,6 +213,20 @@ static void dumpMetadata(bcinfo::MetadataExtractor *ME) {
   for (size_t i = 0; i < ME->getExportForEachSignatureCount(); i++) {
     printf("exportForEachSignatureList[%zu]: %s - 0x%08x - %u\n", i, nameList[i],
            sigList[i], inputCountList[i]);
+  }
+  printf("\n");
+
+  printf("exportReduceCount: %zu\n", ME->getExportReduceCount());
+  const bcinfo::MetadataExtractor::Reduce *reduceList = ME->getExportReduceList();
+  for (size_t i = 0; i < ME->getExportReduceCount(); i++) {
+    const bcinfo::MetadataExtractor::Reduce &reduce = reduceList[i];
+    printf("exportReduceList[%zu]: %s - 0x%08x - %u - %u\n", i, reduce.mReduceName,
+           reduce.mSignature, reduce.mInputCount, reduce.mAccumulatorDataSize);
+    dumpReduceInfo(stdout, "initializer",  reduce.mInitializerName);
+    dumpReduceInfo(stdout, "accumulator",  reduce.mAccumulatorName);
+    dumpReduceInfo(stdout, "combiner",     reduce.mCombinerName);
+    dumpReduceInfo(stdout, "outconverter", reduce.mOutConverterName);
+    dumpReduceInfo(stdout, "halter",       reduce.mHalterName);
   }
   printf("\n");
 
@@ -319,11 +352,12 @@ int main(int argc, char** argv) {
         inFile.c_str(), false);
 
     std::unique_ptr<llvm::Module> module;
-    llvm::ErrorOr<llvm::Module*> moduleOrError = llvm::parseBitcodeFile(mem.get()->getMemBufferRef(), ctx);
+    llvm::ErrorOr<std::unique_ptr<llvm::Module> > moduleOrError =
+        llvm::parseBitcodeFile(mem.get()->getMemBufferRef(), ctx);
     std::error_code ec = moduleOrError.getError();
     if (!ec) {
-        module.reset(moduleOrError.get());
-        ec = module->materializeAllPermanently();
+        module = std::move(moduleOrError.get());
+        ec = module->materializeAll();
     }
     std::string errmsg;
     if (ec) {

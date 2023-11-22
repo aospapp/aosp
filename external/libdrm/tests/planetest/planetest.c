@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
 			goto out;
 		}
 
-		plane[i]->bo = create_sp_bo(dev, plane_w, plane_h, 16, 32,
+		plane[i]->bo = create_sp_bo(dev, plane_w, plane_h, 16,
 				plane[i]->format, 0);
 		if (!plane[i]->bo) {
 			printf("failed to create plane bo\n");

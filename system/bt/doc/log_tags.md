@@ -1,18 +1,17 @@
 Log Tags
 ===
-This document lists all of the log tags used by bluedroid.
+This document lists all of the log tags used by the Bluetooth stack.
 
 * audio_a2dp_hw
-* bluedroid
 * BTA_AG_CO:
 * bta_sys_main
+* bt_btif
 * bt_btif_config
 * bt_btif_config_transcode
 * bt_classic_peer
 * bte_conf
 * BtGatt.btif
 * BtGatt.btif_test
-* bt_gki
 * bt_hci
 * bt_hci_h4
 * bt_hci_inject

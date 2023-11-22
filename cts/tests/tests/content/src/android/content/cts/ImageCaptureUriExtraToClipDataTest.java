@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.android.cts.content;
+package android.content.cts;
 
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -70,25 +70,25 @@ public class ImageCaptureUriExtraToClipDataTest extends AndroidTestCase {
     public void testUriExtraOutputMigratedToClipData_imageCaptureIntent() {
         startActivityWithAction(MediaStore.ACTION_IMAGE_CAPTURE);
         waitForFileReady();
-        testFileContents();
+        assertFileContents();
     }
 
     public void testUriExtraOutputMigratedToClipData_imageCaptureSecureIntent() {
         startActivityWithAction(MediaStore.ACTION_IMAGE_CAPTURE_SECURE);
         waitForFileReady();
-        testFileContents();
+        assertFileContents();
     }
 
     public void testUriExtraOutputMigratedToClipData_videoCaptureIntent() {
         startActivityWithAction(MediaStore.ACTION_VIDEO_CAPTURE);
         waitForFileReady();
-        testFileContents();
+        assertFileContents();
     }
 
     private void startActivityWithAction(String action) {
         Intent intent = new Intent(action);
-        intent.setComponent(new ComponentName("com.android.cts.content",
-                        "com.android.cts.content.ImageCaptureActivity"));
+        intent.setComponent(new ComponentName("android.content.cts",
+                        "android.content.cts.ImageCaptureActivity"));
         intent.putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(mTestFile));
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         getContext().startActivity(intent);
@@ -102,7 +102,7 @@ public class ImageCaptureUriExtraToClipDataTest extends AndroidTestCase {
         }
     }
 
-    private void testFileContents() {
+    private void assertFileContents() {
         char[] buffer = new char[TEST_INPUT.length()];
         try {
             FileReader reader = new FileReader(mTestFile);

@@ -65,10 +65,9 @@ import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.widget.LockPatternUtils;
 import com.android.internal.widget.LockPatternView;
 import com.android.internal.widget.LockPatternView.Cell;
+import com.android.internal.widget.LockPatternView.DisplayMode;
 
 import java.util.List;
-
-import static com.android.internal.widget.LockPatternView.DisplayMode;
 
 /**
  * Settings screens to show the UI flows for encrypting/decrypting the device.
@@ -107,6 +106,8 @@ public class CryptKeeper extends Activity implements TextView.OnEditorActionList
     private static final String FORCE_VIEW_PROGRESS = "progress";
     private static final String FORCE_VIEW_ERROR = "error";
     private static final String FORCE_VIEW_PASSWORD = "password";
+
+    private static final String STATE_COOLDOWN = "cooldown";
 
     /** When encryption is detected, this flag indicates whether or not we've checked for errors. */
     private boolean mValidationComplete;
@@ -340,7 +341,6 @@ public class CryptKeeper extends Activity implements TextView.OnEditorActionList
     final private static int sWidgetsToDisable = StatusBarManager.DISABLE_EXPAND
             | StatusBarManager.DISABLE_NOTIFICATION_ICONS
             | StatusBarManager.DISABLE_NOTIFICATION_ALERTS
-            | StatusBarManager.DISABLE_SYSTEM_INFO
             | StatusBarManager.DISABLE_HOME
             | StatusBarManager.DISABLE_SEARCH
             | StatusBarManager.DISABLE_RECENT;
@@ -427,6 +427,10 @@ public class CryptKeeper extends Activity implements TextView.OnEditorActionList
         mStatusBar = (StatusBarManager) getSystemService(Context.STATUS_BAR_SERVICE);
         mStatusBar.disable(sWidgetsToDisable);
 
+        if (savedInstanceState != null) {
+            mCooldown = savedInstanceState.getBoolean(STATE_COOLDOWN);
+        }
+
         setAirplaneModeIfNecessary();
         mAudioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         // Check for (and recover) retained instance data
@@ -436,6 +440,11 @@ public class CryptKeeper extends Activity implements TextView.OnEditorActionList
             mWakeLock = retained.wakelock;
             Log.d(TAG, "Restoring wakelock from NonConfigurationInstanceState");
         }
+    }
+
+    @Override
+    public void  onSaveInstanceState(Bundle savedInstanceState) {
+        savedInstanceState.putBoolean(STATE_COOLDOWN, mCooldown);
     }
 
     /**
@@ -789,6 +798,8 @@ public class CryptKeeper extends Activity implements TextView.OnEditorActionList
         // Asynchronously throw up the IME, since there are issues with requesting it to be shown
         // immediately.
         if (mLockPatternView == null && !mCooldown) {
+            getWindow().setSoftInputMode(
+                                WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
             mHandler.postDelayed(new Runnable() {
                 @Override public void run() {
                     imm.showSoftInputUnchecked(0, null);

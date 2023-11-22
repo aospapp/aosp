@@ -48,6 +48,17 @@ description:
 test: vector
 end:
 
+function: cross
+version: 24
+attrib: const
+w: 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 left_vector
+arg: #2#1 right_vector
+test: vector
+end:
+
 function: distance
 version: 9
 attrib: const
@@ -64,6 +75,17 @@ description:
 test: vector
 end:
 
+function: distance
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2
+arg: #2#1 left_vector
+arg: #2#1 right_vector
+test: vector
+end:
+
 function: dot
 version: 9
 attrib: const
@@ -75,6 +97,17 @@ arg: #2#1 right_vector
 summary: Dot product of two vectors
 description:
  Computes the dot product of two vectors.
+test: vector
+end:
+
+function: dot
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2
+arg: #2#1 left_vector
+arg: #2#1 right_vector
 test: vector
 end:
 
@@ -151,6 +184,16 @@ description:
 test: vector
 end:
 
+function: length
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2
+arg: #2#1 v
+test: vector
+end:
+
 function: native_distance
 version: 21
 attrib: const
@@ -164,6 +207,17 @@ description:
  Computes the approximate distance between two points.
 
  See also @distance(), @fast_distance().
+test: vector
+end:
+
+function: native_distance
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2
+arg: #2#1 left_vector
+arg: #2#1 right_vector
 test: vector
 end:
 
@@ -182,6 +236,16 @@ description:
 test: vector
 end:
 
+function: native_length
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2
+arg: #2#1 v
+test: vector
+end:
+
 function: native_normalize
 version: 21
 attrib: const
@@ -194,6 +258,16 @@ description:
  Approximately normalizes a vector.
 
  See also @normalize(), @fast_normalize().
+test: vector
+end:
+
+function: native_normalize
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 test: vector
 end:
 
@@ -212,5 +286,15 @@ description:
  positive values.
 
  See also @fast_normalize(), @native_normalize().
+test: vector
+end:
+
+function: normalize
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 test: vector
 end:

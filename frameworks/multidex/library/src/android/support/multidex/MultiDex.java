@@ -60,8 +60,9 @@ public final class MultiDex {
 
     private static final String OLD_SECONDARY_FOLDER_NAME = "secondary-dexes";
 
-    private static final String SECONDARY_FOLDER_NAME = "code_cache" + File.separator +
-        "secondary-dexes";
+    private static final String CODE_CACHE_NAME = "code_cache";
+
+    private static final String CODE_CACHE_SECONDARY_FOLDER_NAME = "secondary-dexes";
 
     private static final int MAX_SUPPORTED_SDK_VERSION = 20;
 
@@ -155,7 +156,7 @@ public final class MultiDex {
                       + "continuing without cleaning.", t);
                 }
 
-                File dexDir = new File(applicationInfo.dataDir, SECONDARY_FOLDER_NAME);
+                File dexDir = getDexDir(context, applicationInfo);
                 List<File> files = MultiDexExtractor.load(context, applicationInfo, dexDir, false);
                 if (checkValidZipFiles(files)) {
                     installSecondaryDexes(loader, dexDir, files);
@@ -363,6 +364,42 @@ public final class MultiDex {
         }
     }
 
+    private static File getDexDir(Context context, ApplicationInfo applicationInfo)
+            throws IOException {
+        File cache = new File(applicationInfo.dataDir, CODE_CACHE_NAME);
+        try {
+            mkdirChecked(cache);
+        } catch (IOException e) {
+            /* If we can't emulate code_cache, then store to filesDir. This means abandoning useless
+             * files on disk if the device ever updates to android 5+. But since this seems to
+             * happen only on some devices running android 2, this should cause no pollution.
+             */
+            cache = new File(context.getFilesDir(), CODE_CACHE_NAME);
+            mkdirChecked(cache);
+        }
+        File dexDir = new File(cache, CODE_CACHE_SECONDARY_FOLDER_NAME);
+        mkdirChecked(dexDir);
+        return dexDir;
+    }
+
+    private static void mkdirChecked(File dir) throws IOException {
+        dir.mkdir();
+        if (!dir.isDirectory()) {
+            File parent = dir.getParentFile();
+            if (parent == null) {
+                Log.e(TAG, "Failed to create dir " + dir.getPath() + ". Parent file is null.");
+            } else {
+                Log.e(TAG, "Failed to create dir " + dir.getPath() +
+                        ". parent file is a dir " + parent.isDirectory() +
+                        ", a file " + parent.isFile() +
+                        ", exists " + parent.exists() +
+                        ", readable " + parent.canRead() +
+                        ", writable " + parent.canWrite());
+            }
+            throw new IOException("Failed to create directory " + dir.getPath());
+        }
+    }
+
     /**
      * Installer for platform versions 19.
      */
@@ -388,9 +425,9 @@ public final class MultiDex {
                     Log.w(TAG, "Exception in makeDexElement", e);
                 }
                 Field suppressedExceptionsField =
-                        findField(loader, "dexElementsSuppressedExceptions");
+                        findField(dexPathList, "dexElementsSuppressedExceptions");
                 IOException[] dexElementsSuppressedExceptions =
-                        (IOException[]) suppressedExceptionsField.get(loader);
+                        (IOException[]) suppressedExceptionsField.get(dexPathList);
 
                 if (dexElementsSuppressedExceptions == null) {
                     dexElementsSuppressedExceptions =
@@ -406,7 +443,7 @@ public final class MultiDex {
                     dexElementsSuppressedExceptions = combined;
                 }
 
-                suppressedExceptionsField.set(loader, dexElementsSuppressedExceptions);
+                suppressedExceptionsField.set(dexPathList, dexElementsSuppressedExceptions);
             }
         }
 

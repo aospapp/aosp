@@ -34,12 +34,12 @@ import android.widget.FrameLayout;
 import com.android.setupwizardlib.R;
 
 /**
- * Class to draw the illustration of setup wizard. The aspectRatio attribute determines the aspect
- * ratio of the top padding, which is leaving space for the illustration. Draws an illustration
- * (foreground) to fit the width of the view and fills the rest with the background.
+ * Class to draw the illustration of setup wizard. The {@code aspectRatio} attribute determines the
+ * aspect ratio of the top padding, which leaves space for the illustration. Draws the illustration
+ * drawable to fit the width of the view and fills the rest with the background.
  *
- * If an aspect ratio is set, then the aspect ratio of the source drawable is maintained. Otherwise
- * the the aspect ratio will be ignored, only increasing the width of the illustration.
+ * <p>If an aspect ratio is set, then the aspect ratio of the source drawable is maintained.
+ * Otherwise the the aspect ratio will be ignored, only increasing the width of the illustration.
  */
 public class Illustration extends FrameLayout {
 
@@ -141,6 +141,7 @@ public class Illustration extends FrameLayout {
             setPadding(0, illustrationHeight, 0, 0);
         }
         if (VERSION.SDK_INT >= VERSION_CODES.LOLLIPOP) {
+            //noinspection AndroidLintInlinedApi
             setOutlineProvider(ViewOutlineProvider.BOUNDS);
         }
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
@@ -211,6 +212,7 @@ public class Illustration extends FrameLayout {
                 return drawable.isAutoMirrored();
             } else if (VERSION.SDK_INT >= VERSION_CODES.JELLY_BEAN_MR1) {
                 final int flags = getContext().getApplicationInfo().flags;
+                //noinspection AndroidLintInlinedApi
                 return (flags & ApplicationInfo.FLAG_SUPPORTS_RTL) != 0;
             }
         }

@@ -31,7 +31,7 @@ public class Main {
     }
   }
 
-  static void testIntervalHole(int arg, boolean test) {
+  static void $opt$noinline$testIntervalHole(int arg, boolean test) {
     // Move the argument to callee save to ensure it is in
     // a readable register.
     moveArgToCalleeSave();
@@ -44,27 +44,39 @@ public class Main {
       // The environment use of `arg` should not make it live.
       doStaticNativeCallLiveVreg();
     }
+    if (staticField1 == 2) {
+      throw new Error("");
+    }
   }
 
   static native void doStaticNativeCallLiveVreg();
 
-  static {
-    System.loadLibrary("arttest");
+  public static void main(String[] args) {
+    System.loadLibrary(args[0]);
+    if (testLiveArgument(staticField3) != staticField3) {
+      throw new Error("Expected " + staticField3);
+    }
+
+    if (testLiveArgument(staticField3) != staticField3) {
+      throw new Error("Expected " + staticField3);
+    }
+
+    testWrapperIntervalHole(1, true);
+    testWrapperIntervalHole(1, false);
   }
 
-  public static void main(String[] args) {
-    if (testLiveArgument(42) != 42) {
-      throw new Error("Expected 42");
+  // Wrapper method to avoid inlining, which affects liveness
+  // of dex registers.
+  static void testWrapperIntervalHole(int arg, boolean test) {
+    try {
+      Thread.sleep(0);
+      $opt$noinline$testIntervalHole(arg, test);
+    } catch (Exception e) {
+      throw new Error(e);
     }
-
-    if (testLiveArgument(42) != 42) {
-      throw new Error("Expected 42");
-    }
-
-    testIntervalHole(1, true);
-    testIntervalHole(1, false);
   }
 
   static int staticField1;
   static int staticField2;
+  static int staticField3 = 42;
 }

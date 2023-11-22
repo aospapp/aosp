@@ -7,22 +7,12 @@
 namespace android {
 
 MinikinFontSkia::MinikinFontSkia(SkTypeface *typeface) :
+    MinikinFont(typeface->uniqueID()),
     mTypeface(typeface) {
 }
 
 MinikinFontSkia::~MinikinFontSkia() {
     SkSafeUnref(mTypeface);
-}
-
-bool MinikinFontSkia::GetGlyph(uint32_t codepoint, uint32_t *glyph) const {
-    SkPaint paint;
-    paint.setTypeface(mTypeface);
-    paint.setTextEncoding(SkPaint::kUTF32_TextEncoding);
-    uint16_t glyph16;
-    paint.textToGlyphs(&codepoint, sizeof(codepoint), &glyph16);
-    *glyph  = glyph16;
-    //printf("glyph for U+%04x = %d\n", codepoint, glyph16);
-    return !!glyph;
 }
 
 static void MinikinFontSkia_SetSkiaPaint(SkTypeface* typeface, SkPaint* skPaint, const MinikinPaint& paint) {
@@ -58,24 +48,24 @@ void MinikinFontSkia::GetBounds(MinikinRect* bounds, uint32_t glyph_id,
     bounds->mBottom = skBounds.fBottom;
 }
 
-bool MinikinFontSkia::GetTable(uint32_t tag, uint8_t *buf, size_t *size) {
-    if (buf == NULL) {
-        const size_t tableSize = mTypeface->getTableSize(tag);
-        *size = tableSize;
-        return tableSize != 0;
-    } else {
-        const size_t actualSize = mTypeface->getTableData(tag, 0, *size, buf);
-        *size = actualSize;
-        return actualSize != 0;
+const void* MinikinFontSkia::GetTable(uint32_t tag, size_t* size, MinikinDestroyFunc* destroy) {
+    // we don't have a buffer to the font data, copy to own buffer
+    const size_t tableSize = mTypeface->getTableSize(tag);
+    *size = tableSize;
+    if (tableSize == 0) {
+        return nullptr;
     }
+    void* buf = malloc(tableSize);
+    if (buf == nullptr) {
+        return nullptr;
+    }
+    mTypeface->getTableData(tag, 0, tableSize, buf);
+    *destroy = free;
+    return buf;
 }
 
 SkTypeface *MinikinFontSkia::GetSkTypeface() {
     return mTypeface;
-}
-
-int32_t MinikinFontSkia::GetUniqueId() const {
-    return mTypeface->uniqueID();
 }
 
 }

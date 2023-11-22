@@ -21,7 +21,7 @@
     <string name="title_select_cert" msgid="3588447616418041699">"Pumili ng certificate"</string>
     <string name="requesting_application" msgid="1589142627467598421">"Humiling ng certificate ang app na %s. Bibigyang-daan ng pagpili ng certificate ang app na magamit ang pagkakakilanlang ito sa mga server ngayon at sa hinaharap."</string>
     <string name="requesting_server" msgid="5832565605998634370">"Natukoy ng app ang humihiling na server bilang %s, ngunit dapat mo lang bigyan ng access sa certificate ang app kung pinagkakatiwalaan mo ang app."</string>
-    <string name="install_new_cert_message" msgid="4451971501142085495">"Maaari kang mag-install ng mga certificate mula sa isang PKCS#12 file na may %1$s o %2$s na extension na matatagpuan sa panlabas na storage."</string>
+    <string name="install_new_cert_message" msgid="4451971501142085495">"Maaari kang mag-install ng mga certificate mula sa isang PKCS#12 file na may %1$s o %2$s na extension na matatagpuan sa external storage."</string>
     <string name="install_new_cert_button_label" msgid="510732745267546907">"I-install"</string>
     <string name="allow_button" msgid="5340501035618157678">"Payagan"</string>
     <string name="deny_button" msgid="3766539809121892584">"Tanggihan"</string>

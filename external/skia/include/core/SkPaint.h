@@ -9,7 +9,6 @@
 #define SkPaint_DEFINED
 
 #include "SkColor.h"
-#include "SkDrawLooper.h"
 #include "SkFilterQuality.h"
 #include "SkMatrix.h"
 #include "SkXfermode.h"
@@ -20,7 +19,7 @@ class SkAutoGlyphCache;
 class SkColorFilter;
 class SkData;
 class SkDescriptor;
-struct SkDeviceProperties;
+class SkDrawLooper;
 class SkReadBuffer;
 class SkWriteBuffer;
 class SkGlyph;
@@ -33,12 +32,8 @@ class SkPathEffect;
 struct SkPoint;
 class SkRasterizer;
 class SkShader;
+class SkSurfaceProps;
 class SkTypeface;
-
-typedef const SkGlyph& (*SkDrawCacheProc)(SkGlyphCache*, const char**,
-                                           SkFixed x, SkFixed y);
-
-typedef const SkGlyph& (*SkMeasureCacheProc)(SkGlyphCache*, const char**);
 
 #define kBicubicFilterBitmap_Flag kHighQualityFilterBitmap_Flag
 
@@ -52,9 +47,11 @@ class SK_API SkPaint {
 public:
     SkPaint();
     SkPaint(const SkPaint& paint);
+    SkPaint(SkPaint&& paint);
     ~SkPaint();
 
     SkPaint& operator=(const SkPaint&);
+    SkPaint& operator=(SkPaint&&);
 
     /** operator== may give false negatives: two paints that draw equivalently
         may return false.  It will never give false positives: two paints that
@@ -116,8 +113,6 @@ public:
         kAutoHinting_Flag     = 0x800,  //!< mask to force Freetype's autohinter
         kVerticalText_Flag    = 0x1000,
         kGenA8FromLCD_Flag    = 0x2000, // hack for GDI -- do not use if you can help it
-        kDistanceFieldTextTEMP_Flag = 0x4000, //!< TEMPORARY mask to enable distance fields
-                                              // currently overrides LCD and subpixel rendering
         // when adding extra flags, note that the fFlags member is specified
         // with a bit-width and you'll have to expand it.
 
@@ -284,44 +279,6 @@ public:
     */
     void setDevKernText(bool devKernText);
 
-    /** Helper for getFlags(), returns true if kDistanceFieldTextTEMP_Flag bit is set
-     @return true if the distanceFieldText bit is set in the paint's flags.
-     */
-    bool isDistanceFieldTextTEMP() const {
-        return SkToBool(this->getFlags() & kDistanceFieldTextTEMP_Flag);
-    }
-
-    /** Helper for setFlags(), setting or clearing the kDistanceFieldTextTEMP_Flag bit
-     @param distanceFieldText true to set the kDistanceFieldTextTEMP_Flag bit in the paint's
-     flags, false to clear it.
-     */
-    void setDistanceFieldTextTEMP(bool distanceFieldText);
-
-#ifdef SK_SUPPORT_LEGACY_FILTERLEVEL_ENUM
-    enum FilterLevel {
-        kNone_FilterLevel   = kNone_SkFilterQuality,
-        kLow_FilterLevel    = kLow_SkFilterQuality,
-        kMedium_FilterLevel = kMedium_SkFilterQuality,
-        kHigh_FilterLevel   = kHigh_SkFilterQuality
-    };
-
-    /**
-     *  Return the filter level. This affects the quality (and performance) of
-     *  drawing scaled images.
-     */
-    FilterLevel getFilterLevel() const {
-        return (FilterLevel)this->getFilterQuality();
-    }
-
-    /**
-     *  Set the filter level. This affects the quality (and performance) of
-     *  drawing scaled images.
-     */
-    void setFilterLevel(FilterLevel level) {
-        this->setFilterQuality((SkFilterQuality)level);
-    }
-#endif
-
     /**
      *  Return the filter level. This affects the quality (and performance) of
      *  drawing scaled images.
@@ -329,7 +286,7 @@ public:
     SkFilterQuality getFilterQuality() const {
         return (SkFilterQuality)fBitfields.fFilterQuality;
     }
-    
+
     /**
      *  Set the filter quality. This affects the quality (and performance) of
      *  drawing scaled images.
@@ -438,6 +395,15 @@ public:
     /** Cap enum specifies the settings for the paint's strokecap. This is the
         treatment that is applied to the beginning and end of each non-closed
         contour (e.g. lines).
+
+        If the cap is round or square, the caps are drawn when the contour has
+        a zero length. Zero length contours can be created by following moveTo
+        with a lineTo at the same point, or a moveTo followed by a close.
+
+        A dash with an on interval of zero also creates a zero length contour.
+
+        The zero length contour draws the square cap without rotation, since
+        the no direction can be inferred.
     */
     enum Cap {
         kButt_Cap,      //!< begin/end contours with no extension
@@ -663,13 +629,6 @@ public:
     SkAnnotation* setAnnotation(SkAnnotation*);
 
     /**
-     *  Returns true if there is an annotation installed on this paint, and
-     *  the annotation specifics no-drawing.
-     */
-    SK_ATTR_DEPRECATED("use getAnnotation and check for non-null")
-    bool isNoDrawAnnotation() const { return this->getAnnotation() != NULL; }
-
-    /**
      *  Return the paint's SkDrawLooper (if any). Does not affect the looper's
      *  reference count.
      */
@@ -854,8 +813,7 @@ public:
         to zero. Note: this does not look at the text-encoding setting in the
         paint, only at the typeface.
     */
-    void glyphsToUnichars(const uint16_t glyphs[], int count,
-                          SkUnichar text[]) const;
+    void glyphsToUnichars(const uint16_t glyphs[], int count, SkUnichar text[]) const;
 
     /** Return the number of drawable units in the specified text buffer.
         This looks at the current TextEncoding field of the paint. If you also
@@ -922,14 +880,66 @@ public:
                       SkRect bounds[] = NULL) const;
 
     /** Return the path (outline) for the specified text.
-        Note: just like SkCanvas::drawText, this will respect the Align setting
-              in the paint.
-    */
+     *  Note: just like SkCanvas::drawText, this will respect the Align setting
+     *        in the paint.
+     *
+     *  @param text         the text
+     *  @param length       number of bytes of text
+     *  @param x            The x-coordinate of the origin of the text.
+     *  @param y            The y-coordinate of the origin of the text.
+     *  @param path         The outline of the text.
+     */
     void getTextPath(const void* text, size_t length, SkScalar x, SkScalar y,
                      SkPath* path) const;
 
+    /** Return the path (outline) for the specified text.
+     *  Note: just like SkCanvas::drawText, this will respect the Align setting
+     *        in the paint.
+     *
+     *  @param text         the text
+     *  @param length       number of bytes of text
+     *  @param pos          array of positions, used to position each character
+     *  @param path         The outline of the text.
+     */
     void getPosTextPath(const void* text, size_t length,
                         const SkPoint pos[], SkPath* path) const;
+
+    /** Return the number of intervals that intersect the intercept along the axis of the advance.
+     *  The return count is zero or a multiple of two, and is at most the number of glyphs * 2 in
+     *  the string. The caller may pass nullptr for intervals to determine the size of the interval
+     *  array, or may conservatively pre-allocate an array with length * 2 entries. The computed
+     *  intervals are cached by glyph to improve performance for multiple calls.
+     *  This permits constructing an underline that skips the descenders. 
+     *
+     *  @param text         the text
+     *  @param length       number of bytes of text
+     *  @param x            The x-coordinate of the origin of the text.
+     *  @param y            The y-coordinate of the origin of the text.
+     *  @param bounds       The lower and upper line parallel to the advance.
+     *  @param array        If not null, the found intersections.
+     *
+     *  @return             The number of intersections, which may be zero.
+     */
+    int getTextIntercepts(const void* text, size_t length, SkScalar x, SkScalar y,
+                          const SkScalar bounds[2], SkScalar* intervals) const;
+
+    /** Return the number of intervals that intersect the intercept along the axis of the advance.
+     *  The return count is zero or a multiple of two, and is at most the number of glyphs * 2 in
+     *  string. The caller may pass nullptr for intervals to determine the size of the interval
+     *  array, or may conservatively pre-allocate an array with length * 2 entries. The computed
+     *  intervals are cached by glyph to improve performance for multiple calls.
+     *  This permits constructing an underline that skips the descenders. 
+     *
+     *  @param text         the text
+     *  @param length       number of bytes of text
+     *  @param pos          array of positions, used to position each character
+     *  @param bounds       The lower and upper line parallel to the advance.
+     *  @param array        If not null, the glyph bounds contained by the advance parallel lines.
+     *
+     *  @return             The number of intersections, which may be zero.
+     */
+    int getPosTextIntercepts(const void* text, size_t length, const SkPoint pos[],
+                             const SkScalar bounds[2], SkScalar* intervals) const;
 
     /**
      *  Return a rectangle that represents the union of the bounds of all
@@ -950,12 +960,7 @@ public:
      bounds (i.e. there is nothing complex like a patheffect that would make
      the bounds computation expensive.
      */
-    bool canComputeFastBounds() const {
-        if (this->getLooper()) {
-            return this->getLooper()->canComputeFastBounds(*this);
-        }
-        return !this->getRasterizer();
-    }
+    bool canComputeFastBounds() const;
 
     /** Only call this if canComputeFastBounds() returned true. This takes a
      raw rectangle (the raw bounds of a shape), and adjusts it for stylistic
@@ -1020,6 +1025,8 @@ public:
         return SetTextMatrix(matrix, fTextSize, fTextScaleX, fTextSkewX);
     }
 
+    typedef const SkGlyph& (*GlyphCacheProc)(SkGlyphCache*, const char**);
+
     SK_TO_STRING_NONVIRT()
 
 private:
@@ -1056,25 +1063,29 @@ private:
         uint32_t fBitfieldsUInt;
     };
 
-    SkDrawCacheProc    getDrawCacheProc() const;
-    SkMeasureCacheProc getMeasureCacheProc(bool needFullMetrics) const;
+    GlyphCacheProc getGlyphCacheProc(bool needFullMetrics) const;
 
     SkScalar measure_text(SkGlyphCache*, const char* text, size_t length,
                           int* count, SkRect* bounds) const;
+
+    enum class FakeGamma {
+        Off = 0, On
+    };
 
     /*
      * Allocs an SkDescriptor on the heap and return it to the caller as a refcnted
      * SkData.  Caller is responsible for managing the lifetime of this object.
      */
-    void getScalerContextDescriptor(SkAutoDescriptor*, const SkDeviceProperties* deviceProperties,
-                                    const SkMatrix*, bool ignoreGamma) const;
+    void getScalerContextDescriptor(SkAutoDescriptor*, const SkSurfaceProps& surfaceProps,
+                                    FakeGamma fakeGamma, const SkMatrix*) const;
 
-    SkGlyphCache* detachCache(const SkDeviceProperties* deviceProperties, const SkMatrix*,
-                              bool ignoreGamma) const;
+    SkGlyphCache* detachCache(const SkSurfaceProps* surfaceProps, FakeGamma fakeGamma,
+                              const SkMatrix*) const;
 
-    void descriptorProc(const SkDeviceProperties* deviceProperties, const SkMatrix* deviceMatrix,
+    void descriptorProc(const SkSurfaceProps* surfaceProps, FakeGamma fakeGamma,
+                        const SkMatrix* deviceMatrix,
                         void (*proc)(SkTypeface*, const SkDescriptor*, void*),
-                        void* context, bool ignoreGamma = false) const;
+                        void* context) const;
 
     /*
      * The luminance color is used to determine which Gamma Canonical color to map to.  This is
@@ -1082,8 +1093,6 @@ private:
      * they need to generate new masks based off a given color.
      */
     SkColor computeLuminanceColor() const;
-
-    static void Term();
 
     enum {
         /*  This is the size we use when we ask for a glyph's path. We then
@@ -1127,17 +1136,15 @@ private:
     friend class SkAutoGlyphCacheNoGamma;
     friend class SkCanvas;
     friend class SkDraw;
-    friend class SkGraphics; // So Term() can be called.
     friend class SkPDFDevice;
-    friend class GrBitmapTextContext;
+    friend class GrAtlasTextBlob;
     friend class GrAtlasTextContext;
-    friend class GrDistanceFieldTextContext;
     friend class GrStencilAndCoverTextContext;
     friend class GrPathRendering;
-    friend class GrTextContext;
+    friend class GrTextUtils;
     friend class GrGLPathRendering;
     friend class SkScalerContext;
-    friend class SkTextToPathIter;
+    friend class SkTextBaseIter;
     friend class SkCanonicalizePaint;
 };
 

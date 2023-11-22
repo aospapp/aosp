@@ -260,7 +260,7 @@ void mca_dcb_dealloc(tMCA_DCB *p_dcb, tMCA_DCB_EVT *p_data)
     tMCA_CTRL   evt_data;
 
     MCA_TRACE_DEBUG("mca_dcb_dealloc");
-    mca_free_buf ((void **)&p_dcb->p_data);
+    osi_free_and_reset((void **)&p_dcb->p_data);
     if (p_data)
     {
         /* non-NULL -> an action function -> report disconnect event */

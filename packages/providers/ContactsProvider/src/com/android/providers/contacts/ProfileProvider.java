@@ -27,7 +27,9 @@ import android.net.Uri;
 import android.os.CancellationSignal;
 import android.provider.ContactsContract.Intents;
 
+import java.io.FileDescriptor;
 import java.io.FileNotFoundException;
+import java.io.PrintWriter;
 import java.util.Locale;
 
 /**
@@ -64,6 +66,7 @@ public class ProfileProvider extends AbstractContactsProvider {
     @Override
     public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs,
             String sortOrder, CancellationSignal cancellationSignal) {
+        incrementStats(mQueryStats);
         return mDelegate.queryLocal(uri, projection, selection, selectionArgs, sortOrder, -1,
                 cancellationSignal);
     }
@@ -103,8 +106,8 @@ public class ProfileProvider extends AbstractContactsProvider {
         mDelegate.notifyChange();
     }
 
-    protected void notifyChange(boolean syncToNetwork) {
-        mDelegate.notifyChange(syncToNetwork);
+    protected void notifyChange(boolean syncToNetwork, boolean syncToMetadataNetWork) {
+        mDelegate.notifyChange(syncToNetwork, syncToMetadataNetWork);
     }
 
     protected Locale getLocale() {
@@ -146,5 +149,10 @@ public class ProfileProvider extends AbstractContactsProvider {
     private void sendProfileChangedBroadcast() {
         final Intent intent = new Intent(Intents.ACTION_PROFILE_CHANGED);
         mDelegate.getContext().sendBroadcast(intent, READ_CONTACTS_PERMISSION);
+    }
+
+    @Override
+    public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
+        dump(pw, "Profile");
     }
 }

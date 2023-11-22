@@ -236,6 +236,12 @@ void MtpProperty::setCurrentValue(const uint16_t* string) {
         mCurrentValue.str = NULL;
 }
 
+void MtpProperty::setCurrentValue(MtpDataPacket& packet) {
+    free(mCurrentValue.str);
+    mCurrentValue.str = NULL;
+    readValue(packet, mCurrentValue);
+}
+
 void MtpProperty::setFormRange(int min, int max, int step) {
     mFormFlag = kFormRange;
     switch (mType) {
@@ -544,7 +550,7 @@ MtpPropertyValue* MtpProperty::readArrayValues(MtpDataPacket& packet, uint32_t& 
     MtpPropertyValue* result = new MtpPropertyValue[length];
     for (uint32_t i = 0; i < length; i++)
         if (!readValue(packet, result[i])) {
-            delete result;
+            delete [] result;
             return NULL;
         }
     return result;

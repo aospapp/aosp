@@ -16,12 +16,13 @@
 
 package android.databinding.tool;
 
+import com.google.common.base.Objects;
+
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.misc.NotNull;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.ParseTreeListener;
 import org.antlr.v4.runtime.tree.TerminalNode;
-import org.apache.commons.lang3.ObjectUtils;
 
 import android.databinding.parser.BindingExpressionBaseVisitor;
 import android.databinding.parser.BindingExpressionParser;
@@ -218,7 +219,7 @@ public class ExpressionVisitor extends BindingExpressionBaseVisitor<Expr> {
             List<Expr> args = new ArrayList<Expr>();
             if (ctx.args != null) {
                 for (ParseTree item : ctx.args.children) {
-                    if (ObjectUtils.equals(item.getText(), ",")) {
+                    if (Objects.equal(item.getText(), ",")) {
                         continue;
                     }
                     args.add(item.accept(this));
@@ -298,7 +299,7 @@ public class ExpressionVisitor extends BindingExpressionBaseVisitor<Expr> {
             final List<Expr> args = new ArrayList<Expr>();
             if (ctx.resourceParameters() != null) {
                 for (ParseTree item : ctx.resourceParameters().expressionList().children) {
-                    if (ObjectUtils.equals(item.getText(), ",")) {
+                    if (Objects.equal(item.getText(), ",")) {
                         continue;
                     }
                     args.add(item.accept(this));

@@ -450,7 +450,8 @@ static jbyteArray getThumbnail(JNIEnv *env, jobject jobj, jstring jfilename)
 #endif
             goto noThumbnail;
         }
-        uchar* thumbnailPointer = ExifSection->Data + ImageInfo.ThumbnailOffset + 8;
+        const jbyte* thumbnailPointer =
+                (const jbyte*) (ExifSection->Data + ImageInfo.ThumbnailOffset + 8);
 
         jbyteArray byteArray = (*env)->NewByteArray(env, ImageInfo.ThumbnailSize);
         if (byteArray == NULL) {
@@ -640,7 +641,7 @@ static jstring getAttributes(JNIEnv *env, jobject jobj, jstring jfilename)
 
     if (ImageInfo.DigitalZoomRatio > 1.0){
         // Digital zoom used.  Shame on you!
-        bufLen = addKeyValueDouble(&buf, bufLen, "DigitalZoomRatio", ImageInfo.DigitalZoomRatio, "%1.3f");
+        bufLen = addKeyValueDouble(&buf, bufLen, "DigitalZoomRatio", ImageInfo.DigitalZoomRatio, "%5.3f");
         if (bufLen == 0) return NULL;
     }
 
@@ -657,7 +658,7 @@ static jstring getAttributes(JNIEnv *env, jobject jobj, jstring jfilename)
     }
 
     if (ImageInfo.ApertureFNumber){
-        bufLen = addKeyValueDouble(&buf, bufLen, "FNumber", (double)ImageInfo.ApertureFNumber, "%3.3f");
+        bufLen = addKeyValueDouble(&buf, bufLen, "FNumber", (double)ImageInfo.ApertureFNumber, "%5.3f");
         if (bufLen == 0) return NULL;
     }
 

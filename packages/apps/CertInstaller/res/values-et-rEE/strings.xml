@@ -28,13 +28,12 @@
     <string name="p12_description" msgid="4128352087331630024">"Sertifikaadid PKCS12 võtmete andmebaasis."</string>
     <string name="one_userkey" msgid="3500697912370644881">"üks kasutajavõti"</string>
     <string name="one_usercrt" msgid="7690798336332403106">"üks kasutaja sertifikaat"</string>
-    <string name="one_cacrt" msgid="2667950425420663146">"üks CA sertifikaat"</string>
+    <string name="one_cacrt" msgid="2667950425420663146">"üks CA-sertifikaat"</string>
     <string name="n_cacrts" msgid="2141498640685639208">"%d CA sertifikaadid"</string>
     <string name="password_error" msgid="2042471639556516356">"Sisestage õige parool."</string>
     <string name="password_empty_error" msgid="591713406761723025">"Sisestage parool."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"Sisestage nimi."</string>
     <string name="name_char_error" msgid="3176618568784938968">"Sisestage nimi, mis sisaldab ainult tähti ja numbreid."</string>
-    <string name="storage_error" msgid="8306802455802770779">"Sertifikaati ei saanud salvestada. Uuesti proovimiseks puudutage nuppu OK."</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"Sertifikaati ei saanud salvestada. Mandaatide salvestus on keelatud või valesti lähtestatud."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"Sertifikaat ei ole installitud."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"Installitav sertifikaat puudub."</string>

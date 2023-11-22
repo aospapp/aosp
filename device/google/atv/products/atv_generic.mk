@@ -34,13 +34,7 @@ PRODUCT_AAPT_PREF_CONFIG := xhdpi
 
 # From build/target/product/full_base.mk
 PRODUCT_PACKAGES += \
-    Galaxy4 \
-    HoloSpiralWallpaper \
-    LiveWallpapers \
     LiveWallpapersPicker \
-    MagicSmokeWallpapers \
-    NoiseField \
-    PhaseBeam \
     PhotoTable
 
 $(call inherit-product, $(SRC_TARGET_DIR)/product/locales_full.mk)

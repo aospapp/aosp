@@ -59,6 +59,9 @@ enum GpuRegister {
   SP   = 29,  // Stack pointer.
   S8   = 30,  // Saved value/frame pointer.
   RA   = 31,  // Return address.
+  TR   = S1,  // ART Thread Register
+  TMP  = T8,  // scratch register (in addition to AT)
+  TMP2 = T3,  // scratch register (in addition to AT, reserved for assembler)
   kNumberOfGpuRegisters = 32,
   kNoGpuRegister = -1  // Signals an illegal register.
 };
@@ -98,6 +101,7 @@ enum FpuRegister {
   F29 = 29,
   F30 = 30,
   F31 = 31,
+  FTMP = F8,  // scratch register
   kNumberOfFpuRegisters = 32,
   kNoFpuRegister = -1,
 };

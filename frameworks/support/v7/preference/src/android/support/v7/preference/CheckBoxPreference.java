@@ -23,6 +23,7 @@ import android.util.AttributeSet;
 import android.view.View;
 import android.view.accessibility.AccessibilityManager;
 import android.widget.Checkable;
+import android.widget.CompoundButton;
 
 /**
  * A {@link Preference} that provides checkbox widget
@@ -30,11 +31,25 @@ import android.widget.Checkable;
  * <p>
  * This preference will store a boolean into the SharedPreferences.
  *
- * @attr ref android.R.styleable#CheckBoxPreference_summaryOff
- * @attr ref android.R.styleable#CheckBoxPreference_summaryOn
- * @attr ref android.R.styleable#CheckBoxPreference_disableDependentsState
+ * @attr name android:summaryOff
+ * @attr name android:summaryOn
+ * @attr name android:disableDependentsState
  */
 public class CheckBoxPreference extends TwoStatePreference {
+    private final Listener mListener = new Listener();
+
+    private class Listener implements CompoundButton.OnCheckedChangeListener {
+        @Override
+        public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+            if (!callChangeListener(isChecked)) {
+                // Listener didn't like it, change it back.
+                // CompoundButton will make sure we don't recurse.
+                buttonView.setChecked(!isChecked);
+                return;
+            }
+            CheckBoxPreference.this.setChecked(isChecked);
+        }
+    }
 
     public CheckBoxPreference(Context context, AttributeSet attrs, int defStyleAttr) {
         this(context, attrs, defStyleAttr, 0);
@@ -61,7 +76,8 @@ public class CheckBoxPreference extends TwoStatePreference {
     }
 
     public CheckBoxPreference(Context context, AttributeSet attrs) {
-        this(context, attrs, R.attr.checkBoxPreferenceStyle);
+        this(context, attrs, TypedArrayUtils.getAttr(context, R.attr.checkBoxPreferenceStyle,
+                android.R.attr.checkBoxPreferenceStyle));
     }
 
     public CheckBoxPreference(Context context) {
@@ -72,10 +88,7 @@ public class CheckBoxPreference extends TwoStatePreference {
     public void onBindViewHolder(PreferenceViewHolder holder) {
         super.onBindViewHolder(holder);
 
-        View checkboxView = holder.findViewById(R.id.checkbox);
-        if (checkboxView != null && checkboxView instanceof Checkable) {
-            ((Checkable) checkboxView).setChecked(mChecked);
-        }
+        syncCheckboxView(holder.findViewById(android.R.id.checkbox));
 
         syncSummaryView(holder);
     }
@@ -96,7 +109,7 @@ public class CheckBoxPreference extends TwoStatePreference {
             return;
         }
 
-        View checkboxView = view.findViewById(R.id.checkbox);
+        View checkboxView = view.findViewById(android.R.id.checkbox);
         syncCheckboxView(checkboxView);
 
         View summaryView = view.findViewById(android.R.id.summary);
@@ -104,8 +117,14 @@ public class CheckBoxPreference extends TwoStatePreference {
     }
 
     private void syncCheckboxView(View view) {
+        if (view instanceof CompoundButton) {
+            ((CompoundButton) view).setOnCheckedChangeListener(null);
+        }
         if (view instanceof Checkable) {
             ((Checkable) view).setChecked(mChecked);
+        }
+        if (view instanceof CompoundButton) {
+            ((CompoundButton) view).setOnCheckedChangeListener(mListener);
         }
     }
 }

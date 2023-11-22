@@ -31,6 +31,8 @@ public class MockVideoCallCallback extends InCallService.VideoCall.Callback {
     private int mVideoQuality = MockVideoProvider.VIDEO_QUALITY_UNDEFINED;
     private int mCallSessionEvent = MockVideoProvider.SESSION_EVENT_UNDEFINED;
     private int mPeerWidth = MockVideoProvider.PEER_WIDTH_UNDEFINED;
+    private int mResponseStatus;
+    private VideoProfile mRequestedProfile = null;
     private VideoProfile mResponseProfile = null;
     private VideoProfile mRequestProfile = null;
 
@@ -58,6 +60,8 @@ public class MockVideoCallCallback extends InCallService.VideoCall.Callback {
     @Override
     public void onSessionModifyResponseReceived(int status, VideoProfile requestedProfile,
             VideoProfile responseProfile) {
+        mResponseStatus = status;
+        mRequestedProfile = requestedProfile;
         mResponseProfile = responseProfile;
     }
 
@@ -164,12 +168,30 @@ public class MockVideoCallCallback extends InCallService.VideoCall.Callback {
     }
 
     /**
-     * Returns the last received response video profile.
+     * Returns the last {@code requestedProfile} received via onSessionModifyResponseReceived.
+     *
+     * @return The video profile.
+     */
+    public VideoProfile getRequestedProfile() {
+        return mRequestedProfile;
+    }
+
+    /**
+     * Returns the last {@code responseProfile} received via onSessionModifyResponseReceived.
      *
      * @return The video profile.
      */
     public VideoProfile getResponseProfile() {
         return mResponseProfile;
+    }
+
+    /**
+     * Returns the last {@code status} received via onSessionModifyResponseReceived..
+     *
+     * @return The response status.
+     */
+    public int getResponseStatus() {
+        return mResponseStatus;
     }
 
     /**

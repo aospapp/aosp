@@ -162,7 +162,7 @@ public abstract class FragmentTransaction {
     public static final int TRANSIT_EXIT_MASK = 0x2000;
 
     /** @hide */
-    @IntDef({TRANSIT_NONE, TRANSIT_FRAGMENT_OPEN, TRANSIT_FRAGMENT_CLOSE})
+    @IntDef({TRANSIT_NONE, TRANSIT_FRAGMENT_OPEN, TRANSIT_FRAGMENT_CLOSE, TRANSIT_FRAGMENT_FADE})
     @Retention(RetentionPolicy.SOURCE)
     private @interface Transit {}
 
@@ -212,7 +212,7 @@ public abstract class FragmentTransaction {
     /**
      * Select a standard transition animation for this transaction.  May be
      * one of {@link #TRANSIT_NONE}, {@link #TRANSIT_FRAGMENT_OPEN},
-     * or {@link #TRANSIT_FRAGMENT_CLOSE}
+     * {@link #TRANSIT_FRAGMENT_CLOSE}, or {@link #TRANSIT_FRAGMENT_FADE}.
      */
     public abstract FragmentTransaction setTransition(@Transit int transit);
 
@@ -303,4 +303,45 @@ public abstract class FragmentTransaction {
      * to change unexpectedly on the user.
      */
     public abstract int commitAllowingStateLoss();
+
+    /**
+     * Commits this transaction synchronously. Any added fragments will be
+     * initialized and brought completely to the lifecycle state of their host
+     * and any removed fragments will be torn down accordingly before this
+     * call returns. Committing a transaction in this way allows fragments
+     * to be added as dedicated, encapsulated components that monitor the
+     * lifecycle state of their host while providing firmer ordering guarantees
+     * around when those fragments are fully initialized and ready. Fragments
+     * that manage views will have those views created and attached.
+     *
+     * <p>Calling <code>commitNow</code> is preferable to calling
+     * {@link #commit()} followed by {@link FragmentManager#executePendingTransactions()}
+     * as the latter will have the side effect of attempting to commit <em>all</em>
+     * currently pending transactions whether that is the desired behavior
+     * or not.</p>
+     *
+     * <p>Transactions committed in this way may not be added to the
+     * FragmentManager's back stack, as doing so would break other expected
+     * ordering guarantees for other asynchronously committed transactions.
+     * This method will throw {@link IllegalStateException} if the transaction
+     * previously requested to be added to the back stack with
+     * {@link #addToBackStack(String)}.</p>
+     *
+     * <p class="note">A transaction can only be committed with this method
+     * prior to its containing activity saving its state.  If the commit is
+     * attempted after that point, an exception will be thrown.  This is
+     * because the state after the commit can be lost if the activity needs to
+     * be restored from its state.  See {@link #commitAllowingStateLoss()} for
+     * situations where it may be okay to lose the commit.</p>
+     */
+    public abstract void commitNow();
+
+    /**
+     * Like {@link #commitNow} but allows the commit to be executed after an
+     * activity's state is saved.  This is dangerous because the commit can
+     * be lost if the activity needs to later be restored from its state, so
+     * this should only be used for cases where it is okay for the UI state
+     * to change unexpectedly on the user.
+     */
+    public abstract void commitNowAllowingStateLoss();
 }

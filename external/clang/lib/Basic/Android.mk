@@ -25,6 +25,7 @@ clang_basic_SRC_FILES := \
   CharInfo.cpp \
   Diagnostic.cpp \
   DiagnosticIDs.cpp \
+  DiagnosticOptions.cpp \
   FileManager.cpp \
   FileSystemStatCache.cpp \
   IdentifierTable.cpp \

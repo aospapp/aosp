@@ -19,13 +19,15 @@ package android.telephony.cts;
 import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.cts.util.ReadElf;
 import android.cts.util.TestThread;
 import android.net.ConnectivityManager;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Looper;
+import android.telecom.PhoneAccount;
+import android.telecom.PhoneAccountHandle;
+import android.telecom.TelecomManager;
 import android.telephony.CellLocation;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
@@ -49,8 +51,8 @@ public class TelephonyManagerTest extends AndroidTestCase {
     protected void setUp() throws Exception {
         super.setUp();
         mTelephonyManager =
-            (TelephonyManager)getContext().getSystemService(Context.TELEPHONY_SERVICE);
-        mCm = (ConnectivityManager)getContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+                (TelephonyManager) getContext().getSystemService(Context.TELEPHONY_SERVICE);
+        mCm = (ConnectivityManager) getContext().getSystemService(Context.CONNECTIVITY_SERVICE);
     }
 
     @Override
@@ -96,9 +98,7 @@ public class TelephonyManagerTest extends AndroidTestCase {
         });
         t.start();
         synchronized (mLock) {
-            while (!mOnCellLocationChangedCalled) {
-                mLock.wait();
-            }
+            mLock.wait(TOLERANCE);
         }
         assertTrue(mOnCellLocationChangedCalled);
 
@@ -163,6 +163,13 @@ public class TelephonyManagerTest extends AndroidTestCase {
         mTelephonyManager.getDeviceId(mTelephonyManager.getDefaultSim());
         mTelephonyManager.getDeviceSoftwareVersion();
         mTelephonyManager.getPhoneCount();
+
+        TelecomManager telecomManager = (TelecomManager) getContext()
+            .getSystemService(Context.TELECOM_SERVICE);
+        PhoneAccountHandle defaultAccount = telecomManager
+            .getDefaultOutgoingPhoneAccount(PhoneAccount.SCHEME_TEL);
+        mTelephonyManager.getVoicemailRingtoneUri(defaultAccount);
+        mTelephonyManager.isVoicemailVibrationEnabled(defaultAccount);
     }
 
     /**
@@ -225,7 +232,10 @@ public class TelephonyManagerTest extends AndroidTestCase {
                 break;
 
             case TelephonyManager.PHONE_TYPE_NONE:
-                if (mCm.getNetworkInfo(ConnectivityManager.TYPE_WIFI) != null) {
+                boolean nwSupported = mCm.isNetworkSupported(mCm.TYPE_WIFI);
+                PackageManager packageManager = getContext().getPackageManager();
+                // only check serial number & MAC address if device report wifi feature
+                if (packageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)) {
                     assertSerialNumber();
                     assertMacAddress(getWifiMacAddress());
                 } else if (mCm.getNetworkInfo(ConnectivityManager.TYPE_BLUETOOTH) != null) {

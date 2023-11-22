@@ -43,8 +43,8 @@ void deInt32_computeLUTs (void)
 
 	for (ndx = 0; ndx < (1<<RCP_LUT_BITS); ndx++)
 	{
-		deUint32	val = (1u << RCP_LUT_BITS) | ndx;
-		deUint32	rcp = (int)((1u << DE_RCP_FRAC_BITS) / ((double)val / (1<<RCP_LUT_BITS)));
+		deUint32	val = (1u << RCP_LUT_BITS) | (deUint32)ndx;
+		deUint32	rcp = (deUint32)((1u << DE_RCP_FRAC_BITS) / ((double)val / (1<<RCP_LUT_BITS)));
 
 		if ((ndx & 3) == 0)
 			printf("\t");
@@ -76,6 +76,15 @@ void deInt32_selfTest (void)
 	deRandom_init(&rnd, 0xdeadbeefu-1);
 
 	/* Test deClz32(). */
+	{
+		int i;
+		for (i = 0; i < 32; i++)
+		{
+			DE_TEST_ASSERT(deClz32(1u << i) == 31-i);
+			DE_TEST_ASSERT(deClz32((1u << i) | ((1u << i)-1u)) == 31-i);
+		}
+	}
+
 	DE_TEST_ASSERT(deClz32(0) == 32);
 	DE_TEST_ASSERT(deClz32(1) == 31);
 	DE_TEST_ASSERT(deClz32(0xF1) == 24);
@@ -86,9 +95,25 @@ void deInt32_selfTest (void)
 	DE_TEST_ASSERT(deClz32(0x40000000) == 1);
 	DE_TEST_ASSERT(deClz32(0x80000000) == 0);
 
+	/* Test deCtz32(). */
+	{
+		int i;
+		for (i = 0; i < 32; i++)
+		{
+			DE_TEST_ASSERT(deCtz32(1u << i) == i);
+			DE_TEST_ASSERT(deCtz32(~((1u << i)-1u)) == i);
+		}
+	}
+
+	DE_TEST_ASSERT(deCtz32(0) == 32);
+	DE_TEST_ASSERT(deCtz32(1) == 0);
+	DE_TEST_ASSERT(deCtz32(0x3F4) == 2);
+	DE_TEST_ASSERT(deCtz32(0x3F40) == 6);
+	DE_TEST_ASSERT(deCtz32(0xFFFFFFFF) == 0);
+
 	/* Test simple inputs for dePop32(). */
-	DE_TEST_ASSERT(dePop32(0) == 0);
-	DE_TEST_ASSERT(dePop32(~0) == 32);
+	DE_TEST_ASSERT(dePop32(0u) == 0);
+	DE_TEST_ASSERT(dePop32(~0u) == 32);
 	DE_TEST_ASSERT(dePop32(0xFF) == 8);
 	DE_TEST_ASSERT(dePop32(0xFF00FF) == 16);
 	DE_TEST_ASSERT(dePop32(0x3333333) == 14);
@@ -97,8 +122,8 @@ void deInt32_selfTest (void)
 	/* dePop32(): Check exp2(N) values and inverses. */
 	for (numBits = 0; numBits < 32; numBits++)
 	{
-		DE_TEST_ASSERT(dePop32(1<<numBits) == 1);
-		DE_TEST_ASSERT(dePop32(~(1<<numBits)) == 31);
+		DE_TEST_ASSERT(dePop32(1u<<numBits) == 1);
+		DE_TEST_ASSERT(dePop32(~(1u<<numBits)) == 31);
 	}
 
 	/* Check exp2(N) values. */
@@ -119,10 +144,10 @@ void deInt32_selfTest (void)
 
 		for (iter = 0; iter < NUM_ITERS; iter++)
 		{
-			const int	EPS = 1 << (DE_RCP_FRAC_BITS - NUM_ACCURATE_BITS);
+			const deUint32	EPS = 1u << (DE_RCP_FRAC_BITS - NUM_ACCURATE_BITS);
 
-			deUint32	val = (deRandom_getUint32(&rnd) & ((1u<<numBits)-1)) | (1u<<numBits);
-			deUint32	ref = (deUint32)(((1.0f / (double)val) * (double)(1<<DE_RCP_FRAC_BITS)) * (double)(1u<<numBits));
+			deUint32		val = (deRandom_getUint32(&rnd) & ((1u<<numBits)-1)) | (1u<<numBits);
+			deUint32		ref = (deUint32)(((1.0f / (double)val) * (double)(1<<DE_RCP_FRAC_BITS)) * (double)(1u<<numBits));
 
 			deRcp32(val, &rcp, &exp);
 
@@ -155,6 +180,38 @@ void deInt32_selfTest (void)
 	DE_TEST_ASSERT(deIntMinValue32(1) == -1);
 	DE_TEST_ASSERT(deIntMinValue32(2) == -2);
 	DE_TEST_ASSERT(deIntMinValue32(32) == -0x7FFFFFFF - 1);
+
+	DE_TEST_ASSERT(deSignExtendTo32((int)0x0, 1) == 0);
+	DE_TEST_ASSERT(deSignExtendTo32((int)0x1, 1) == (int)0xFFFFFFFF);
+	DE_TEST_ASSERT(deSignExtendTo32((int)0x3, 3) == 3);
+	DE_TEST_ASSERT(deSignExtendTo32((int)0x6, 3) == (int)0xFFFFFFFE);
+	DE_TEST_ASSERT(deSignExtendTo32((int)0x3, 4) == 3);
+	DE_TEST_ASSERT(deSignExtendTo32((int)0xC, 4) == (int)0xFFFFFFFC);
+	DE_TEST_ASSERT(deSignExtendTo32((int)0x7FC3, 16) == (int)0x7FC3);
+	DE_TEST_ASSERT(deSignExtendTo32((int)0x84A0, 16) == (int)0xFFFF84A0);
+	DE_TEST_ASSERT(deSignExtendTo32((int)0xFFC3, 17) == (int)0xFFC3);
+	DE_TEST_ASSERT(deSignExtendTo32((int)0x184A0, 17) == (int)0xFFFF84A0);
+	DE_TEST_ASSERT(deSignExtendTo32((int)0x7A016601, 32) == (int)0x7A016601);
+	DE_TEST_ASSERT(deSignExtendTo32((int)0x8A016601, 32) == (int)0x8A016601);
+
+	DE_TEST_ASSERT(deReverseBytes32(0x11223344) == 0x44332211);
+	DE_TEST_ASSERT(deReverseBytes32(0xfecddeef) == 0xefdecdfe);
+	DE_TEST_ASSERT(deReverseBytes16(0x1122) == 0x2211);
+	DE_TEST_ASSERT(deReverseBytes16(0xdeef) == 0xefde);
+
+	DE_TEST_ASSERT(deInt64InInt32Range((deInt64)0x7FFFFFF));
+	DE_TEST_ASSERT(deInt64InInt32Range(0));
+	DE_TEST_ASSERT(deInt64InInt32Range(1));
+	DE_TEST_ASSERT(deInt64InInt32Range(-1));
+	DE_TEST_ASSERT(deInt64InInt32Range(-((deInt64)0x7FFFFFF)));
+	DE_TEST_ASSERT(deInt64InInt32Range(-((deInt64)0x8000 << 16)));
+	DE_TEST_ASSERT(deInt64InInt32Range((deInt64)deIntMinValue32(32)));
+
+	DE_TEST_ASSERT(!deInt64InInt32Range((((deInt64)0x7FFFFFF) << 32) | (deInt64)0xFFFFFFFF));
+	DE_TEST_ASSERT(!deInt64InInt32Range((deInt64)0x7FFFFFFF + 1));
+	DE_TEST_ASSERT(!deInt64InInt32Range(-((deInt64)0x7FFFFFFF + 2)));
+	DE_TEST_ASSERT(!deInt64InInt32Range(-((((deInt64)0x7FFFFFF) << 32) | (deInt64)0xFFFFFFFF)));
+	DE_TEST_ASSERT(!deInt64InInt32Range((deInt64)deIntMinValue32(32) - 1));
 }
 
 DE_END_EXTERN_C

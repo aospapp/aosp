@@ -5,7 +5,3 @@ struct s {
     int x:1;
 } myStruct;
 
-int root(int num) {
-    return 10;
-}
-

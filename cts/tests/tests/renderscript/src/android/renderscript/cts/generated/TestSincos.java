@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ package android.renderscript.cts;
 import android.renderscript.Allocation;
 import android.renderscript.RSRuntimeException;
 import android.renderscript.Element;
+import android.renderscript.cts.Target;
 
 import java.util.Arrays;
 
@@ -82,7 +83,7 @@ public class TestSincos extends RSBaseCompute {
                 ArgumentsFloatFloatFloat args = new ArgumentsFloatFloatFloat();
                 args.inV = arrayInV[i];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeSincos(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -170,7 +171,7 @@ public class TestSincos extends RSBaseCompute {
                 ArgumentsFloatFloatFloat args = new ArgumentsFloatFloatFloat();
                 args.inV = arrayInV[i * 2 + j];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeSincos(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -258,7 +259,7 @@ public class TestSincos extends RSBaseCompute {
                 ArgumentsFloatFloatFloat args = new ArgumentsFloatFloatFloat();
                 args.inV = arrayInV[i * 4 + j];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeSincos(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -346,7 +347,7 @@ public class TestSincos extends RSBaseCompute {
                 ArgumentsFloatFloatFloat args = new ArgumentsFloatFloatFloat();
                 args.inV = arrayInV[i * 4 + j];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeSincos(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -394,10 +395,401 @@ public class TestSincos extends RSBaseCompute {
                 (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
     }
 
+    public class ArgumentsHalfHalfHalf {
+        public short inV;
+        public double inVDouble;
+        public Target.Floaty outCos;
+        public Target.Floaty out;
+    }
+
+    private void checkSincosHalfHalfHalf() {
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x9ffeac75l, false);
+        try {
+            Allocation outCos = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
+            script.set_gAllocOutCos(outCos);
+            script.forEach_testSincosHalfHalfHalf(inV, out);
+            verifyResultsSincosHalfHalfHalf(inV, outCos, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testSincosHalfHalfHalf: " + e.toString());
+        }
+        try {
+            Allocation outCos = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
+            scriptRelaxed.set_gAllocOutCos(outCos);
+            scriptRelaxed.forEach_testSincosHalfHalfHalf(inV, out);
+            verifyResultsSincosHalfHalfHalf(inV, outCos, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testSincosHalfHalfHalf: " + e.toString());
+        }
+    }
+
+    private void verifyResultsSincosHalfHalfHalf(Allocation inV, Allocation outCos, Allocation out, boolean relaxed) {
+        short[] arrayInV = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayInV, (short) 42);
+        inV.copyTo(arrayInV);
+        short[] arrayOutCos = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayOutCos, (short) 42);
+        outCos.copyTo(arrayOutCos);
+        short[] arrayOut = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 1 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalf args = new ArgumentsHalfHalfHalf();
+                args.inV = arrayInV[i];
+                args.inVDouble = Float16Utils.convertFloat16ToDouble(args.inV);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeSincos(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.outCos.couldBe(Float16Utils.convertFloat16ToDouble(arrayOutCos[i * 1 + j]))) {
+                    valid = false;
+                }
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 1 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inV: ");
+                        appendVariableToMessage(message, args.inV);
+                        message.append("\n");
+                        message.append("Expected output outCos: ");
+                        appendVariableToMessage(message, args.outCos);
+                        message.append("\n");
+                        message.append("Actual   output outCos: ");
+                        appendVariableToMessage(message, arrayOutCos[i * 1 + j]);
+                        message.append("\n");
+                        message.append("Actual   output outCos (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOutCos[i * 1 + j]));
+                        if (!args.outCos.couldBe(Float16Utils.convertFloat16ToDouble(arrayOutCos[i * 1 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 1 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 1 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 1 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkSincosHalfHalfHalf" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkSincosHalf2Half2Half2() {
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x1b528cc9l, false);
+        try {
+            Allocation outCos = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
+            script.set_gAllocOutCos(outCos);
+            script.forEach_testSincosHalf2Half2Half2(inV, out);
+            verifyResultsSincosHalf2Half2Half2(inV, outCos, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testSincosHalf2Half2Half2: " + e.toString());
+        }
+        try {
+            Allocation outCos = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
+            scriptRelaxed.set_gAllocOutCos(outCos);
+            scriptRelaxed.forEach_testSincosHalf2Half2Half2(inV, out);
+            verifyResultsSincosHalf2Half2Half2(inV, outCos, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testSincosHalf2Half2Half2: " + e.toString());
+        }
+    }
+
+    private void verifyResultsSincosHalf2Half2Half2(Allocation inV, Allocation outCos, Allocation out, boolean relaxed) {
+        short[] arrayInV = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayInV, (short) 42);
+        inV.copyTo(arrayInV);
+        short[] arrayOutCos = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayOutCos, (short) 42);
+        outCos.copyTo(arrayOutCos);
+        short[] arrayOut = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 2 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalf args = new ArgumentsHalfHalfHalf();
+                args.inV = arrayInV[i * 2 + j];
+                args.inVDouble = Float16Utils.convertFloat16ToDouble(args.inV);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeSincos(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.outCos.couldBe(Float16Utils.convertFloat16ToDouble(arrayOutCos[i * 2 + j]))) {
+                    valid = false;
+                }
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inV: ");
+                        appendVariableToMessage(message, args.inV);
+                        message.append("\n");
+                        message.append("Expected output outCos: ");
+                        appendVariableToMessage(message, args.outCos);
+                        message.append("\n");
+                        message.append("Actual   output outCos: ");
+                        appendVariableToMessage(message, arrayOutCos[i * 2 + j]);
+                        message.append("\n");
+                        message.append("Actual   output outCos (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOutCos[i * 2 + j]));
+                        if (!args.outCos.couldBe(Float16Utils.convertFloat16ToDouble(arrayOutCos[i * 2 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 2 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkSincosHalf2Half2Half2" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkSincosHalf3Half3Half3() {
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x79f19d98l, false);
+        try {
+            Allocation outCos = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            script.set_gAllocOutCos(outCos);
+            script.forEach_testSincosHalf3Half3Half3(inV, out);
+            verifyResultsSincosHalf3Half3Half3(inV, outCos, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testSincosHalf3Half3Half3: " + e.toString());
+        }
+        try {
+            Allocation outCos = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            scriptRelaxed.set_gAllocOutCos(outCos);
+            scriptRelaxed.forEach_testSincosHalf3Half3Half3(inV, out);
+            verifyResultsSincosHalf3Half3Half3(inV, outCos, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testSincosHalf3Half3Half3: " + e.toString());
+        }
+    }
+
+    private void verifyResultsSincosHalf3Half3Half3(Allocation inV, Allocation outCos, Allocation out, boolean relaxed) {
+        short[] arrayInV = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInV, (short) 42);
+        inV.copyTo(arrayInV);
+        short[] arrayOutCos = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOutCos, (short) 42);
+        outCos.copyTo(arrayOutCos);
+        short[] arrayOut = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 3 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalf args = new ArgumentsHalfHalfHalf();
+                args.inV = arrayInV[i * 4 + j];
+                args.inVDouble = Float16Utils.convertFloat16ToDouble(args.inV);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeSincos(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.outCos.couldBe(Float16Utils.convertFloat16ToDouble(arrayOutCos[i * 4 + j]))) {
+                    valid = false;
+                }
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inV: ");
+                        appendVariableToMessage(message, args.inV);
+                        message.append("\n");
+                        message.append("Expected output outCos: ");
+                        appendVariableToMessage(message, args.outCos);
+                        message.append("\n");
+                        message.append("Actual   output outCos: ");
+                        appendVariableToMessage(message, arrayOutCos[i * 4 + j]);
+                        message.append("\n");
+                        message.append("Actual   output outCos (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOutCos[i * 4 + j]));
+                        if (!args.outCos.couldBe(Float16Utils.convertFloat16ToDouble(arrayOutCos[i * 4 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 4 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkSincosHalf3Half3Half3" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkSincosHalf4Half4Half4() {
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xd890ae67l, false);
+        try {
+            Allocation outCos = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            script.set_gAllocOutCos(outCos);
+            script.forEach_testSincosHalf4Half4Half4(inV, out);
+            verifyResultsSincosHalf4Half4Half4(inV, outCos, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testSincosHalf4Half4Half4: " + e.toString());
+        }
+        try {
+            Allocation outCos = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            scriptRelaxed.set_gAllocOutCos(outCos);
+            scriptRelaxed.forEach_testSincosHalf4Half4Half4(inV, out);
+            verifyResultsSincosHalf4Half4Half4(inV, outCos, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testSincosHalf4Half4Half4: " + e.toString());
+        }
+    }
+
+    private void verifyResultsSincosHalf4Half4Half4(Allocation inV, Allocation outCos, Allocation out, boolean relaxed) {
+        short[] arrayInV = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInV, (short) 42);
+        inV.copyTo(arrayInV);
+        short[] arrayOutCos = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOutCos, (short) 42);
+        outCos.copyTo(arrayOutCos);
+        short[] arrayOut = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 4 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalf args = new ArgumentsHalfHalfHalf();
+                args.inV = arrayInV[i * 4 + j];
+                args.inVDouble = Float16Utils.convertFloat16ToDouble(args.inV);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeSincos(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.outCos.couldBe(Float16Utils.convertFloat16ToDouble(arrayOutCos[i * 4 + j]))) {
+                    valid = false;
+                }
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inV: ");
+                        appendVariableToMessage(message, args.inV);
+                        message.append("\n");
+                        message.append("Expected output outCos: ");
+                        appendVariableToMessage(message, args.outCos);
+                        message.append("\n");
+                        message.append("Actual   output outCos: ");
+                        appendVariableToMessage(message, arrayOutCos[i * 4 + j]);
+                        message.append("\n");
+                        message.append("Actual   output outCos (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOutCos[i * 4 + j]));
+                        if (!args.outCos.couldBe(Float16Utils.convertFloat16ToDouble(arrayOutCos[i * 4 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 4 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkSincosHalf4Half4Half4" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
     public void testSincos() {
         checkSincosFloatFloatFloat();
         checkSincosFloat2Float2Float2();
         checkSincosFloat3Float3Float3();
         checkSincosFloat4Float4Float4();
+        checkSincosHalfHalfHalf();
+        checkSincosHalf2Half2Half2();
+        checkSincosHalf3Half3Half3();
+        checkSincosHalf4Half4Half4();
     }
 }

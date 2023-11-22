@@ -19,6 +19,7 @@
 
     <string name="my_string1">blue</string>
     <string name="my_string2">purple</string>
+    <string name="no_restart_text">Hello world!</string>
 
     <string-array name="my_string_array">
         <item>@string/my_string1</item>

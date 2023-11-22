@@ -19,6 +19,7 @@
 
 #include <media/stagefright/foundation/ABase.h>
 #include <media/stagefright/MediaSource.h>
+#include <media/IMediaExtractor.h>
 #include <utils/Errors.h>
 #include <utils/KeyedVector.h>
 #include <utils/RefBase.h>
@@ -43,6 +44,11 @@ struct NuMediaExtractor : public RefBase {
         SAMPLE_FLAG_ENCRYPTED   = 2,
     };
 
+    // identical to IMediaExtractor::GetTrackMetaDataFlags
+    enum GetTrackFormatFlags {
+        kIncludeExtensiveMetaData = 1, // reads sample table and possibly stream headers
+    };
+
     NuMediaExtractor();
 
     status_t setDataSource(
@@ -55,7 +61,7 @@ struct NuMediaExtractor : public RefBase {
     status_t setDataSource(const sp<DataSource> &datasource);
 
     size_t countTracks() const;
-    status_t getTrackFormat(size_t index, sp<AMessage> *format) const;
+    status_t getTrackFormat(size_t index, sp<AMessage> *format, uint32_t flags = 0) const;
 
     status_t getFileFormat(sp<AMessage> *format) const;
 
@@ -83,8 +89,12 @@ private:
         kIsVorbis       = 1,
     };
 
+    enum {
+        kMaxTrackCount = 16384,
+    };
+
     struct TrackInfo {
-        sp<MediaSource> mSource;
+        sp<IMediaSource> mSource;
         size_t mTrackIndex;
         status_t mFinalResult;
         MediaBuffer *mSample;
@@ -97,7 +107,7 @@ private:
 
     sp<DataSource> mDataSource;
 
-    sp<MediaExtractor> mImpl;
+    sp<IMediaExtractor> mImpl;
     bool mIsWidevineExtractor;
 
     Vector<TrackInfo> mSelectedTracks;
@@ -112,7 +122,8 @@ private:
     void releaseTrackSamples();
 
     bool getTotalBitrate(int64_t *bitRate) const;
-    void updateDurationAndBitrate();
+    status_t updateDurationAndBitrate();
+    status_t appendVorbisNumPageSamples(TrackInfo *info, const sp<ABuffer> &buffer);
 
     DISALLOW_EVIL_CONSTRUCTORS(NuMediaExtractor);
 };

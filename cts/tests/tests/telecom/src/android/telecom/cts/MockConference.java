@@ -16,6 +16,7 @@
 
 package android.telecom.cts;
 
+import android.os.Bundle;
 import android.telecom.Conference;
 import android.telecom.Connection;
 import android.telecom.DisconnectCause;
@@ -31,6 +32,8 @@ public class MockConference extends Conference {
 
     private RemoteConference mRemoteConference = null;
     private String mDtmfString = "";
+    public BaseTelecomTestWithMockServices.InvokeCounter mOnExtrasChanged =
+            new BaseTelecomTestWithMockServices.InvokeCounter("onExtrasChanged");
 
     public MockConference(PhoneAccountHandle phoneAccount) {
         super(phoneAccount);

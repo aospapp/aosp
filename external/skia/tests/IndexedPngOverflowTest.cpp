@@ -5,10 +5,9 @@
  * found in the LICENSE file.
  */
 
+#include "CodecPriv.h"
 #include "SkBitmap.h"
 #include "SkCanvas.h"
-#include "SkForceLinking.h"
-#include "SkImageDecoder.h"
 #include "SkImageInfo.h"
 #include "SkSurface.h"
 #include "Test.h"
@@ -31,14 +30,11 @@ unsigned char gPng[] = {
 
 DEF_TEST(IndexedPngOverflow, reporter) {
     SkBitmap image;
-    SkForceLinking(false);
-    bool success = SkImageDecoder::DecodeMemory(
-        gPng, sizeof(gPng), &image, SkColorType::kUnknown_SkColorType,
-        SkImageDecoder::kDecodePixels_Mode);
+    bool success = decode_memory(gPng, sizeof(gPng), &image);
     REPORTER_ASSERT(reporter, success);
 
     SkAutoTUnref<SkSurface> surface(SkSurface::NewRaster(SkImageInfo::MakeN32Premul(20, 1)));
     SkCanvas* canvas = surface->getCanvas();
     SkRect destRect = SkRect::MakeXYWH(0, 0, 20, 1);
-    canvas->drawBitmapRect(image, destRect, NULL);
+    canvas->drawBitmapRect(image, destRect, nullptr);
 }

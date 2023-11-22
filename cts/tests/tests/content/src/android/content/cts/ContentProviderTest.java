@@ -27,7 +27,7 @@ import android.net.Uri;
 import android.os.ParcelFileDescriptor;
 import android.test.AndroidTestCase;
 
-import com.android.cts.content.R;
+import android.content.cts.R;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -37,7 +37,7 @@ import java.io.IOException;
  * Test {@link ContentProvider}.
  */
 public class ContentProviderTest extends AndroidTestCase {
-    private static final String TEST_PACKAGE_NAME = "com.android.cts.content";
+    private static final String TEST_PACKAGE_NAME = "android.content.cts";
     private static final String TEST_FILE_NAME = "testFile.tmp";
     private static final String TEST_DB_NAME = "test.db";
 

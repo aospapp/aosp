@@ -18,6 +18,8 @@
 
 #include <endian.h>
 
+#define DAY_IN_MS (1000 * 60 * 60 * 24)
+
 namespace gatekeeper {
 
 void GateKeeper::Enroll(const EnrollRequest &request, EnrollResponse *response) {
@@ -242,15 +244,35 @@ void GateKeeper::MintAuthToken(UniquePtr<uint8_t> *auth_token, uint32_t *length,
     auth_token->reset(reinterpret_cast<uint8_t *>(token));
 }
 
+/*
+ * Calculates the timeout in milliseconds as a function of the failure
+ * counter 'x' as follows:
+ *
+ * [0. 5) -> 0
+ * 5 -> 30
+ * [6, 10) -> 0
+ * [11, 30) -> 30
+ * [30, 140) -> 30 * (2^((x - 30)/10))
+ * [140, inf) -> 1 day
+ *
+ */
 uint32_t GateKeeper::ComputeRetryTimeout(const failure_record_t *record) {
+    static const int failure_timeout_ms = 30000;
+    if (record->failure_counter == 0) return 0;
+
     if (record->failure_counter > 0 && record->failure_counter <= 10) {
         if (record->failure_counter % 5 == 0) {
-            return 30000;
+            return failure_timeout_ms;
+        }  else {
+            return 0;
         }
-    } else {
-        return 30000;
+    } else if (record->failure_counter < 30) {
+        return failure_timeout_ms;
+    } else if (record->failure_counter < 140) {
+        return failure_timeout_ms << ((record->failure_counter - 30) / 10);
     }
-    return 0;
+
+    return DAY_IN_MS;
 }
 
 bool GateKeeper::ThrottleRequest(uint32_t uid, uint64_t timestamp,

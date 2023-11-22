@@ -19,7 +19,7 @@ LOCAL_MODULE:= libLLVMOption
 
 LOCAL_CFLAGS := -D__android__
 
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_HOST_OS := darwin linux windows
 
 include $(LLVM_HOST_BUILD_MK)
 include $(BUILD_HOST_STATIC_LIBRARY)
@@ -34,8 +34,6 @@ LOCAL_SRC_FILES := $(option_SRC_FILES)
 LOCAL_MODULE:= libLLVMOption
 
 LOCAL_CFLAGS := -D__android__
-
-LOCAL_MODULE_TAGS := optional
 
 include $(LLVM_DEVICE_BUILD_MK)
 include $(BUILD_STATIC_LIBRARY)

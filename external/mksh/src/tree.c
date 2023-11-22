@@ -1,9 +1,9 @@
-/*	$OpenBSD: tree.c,v 1.20 2012/06/27 07:17:19 otto Exp $	*/
+/*	$OpenBSD: tree.c,v 1.21 2015/09/01 13:12:31 tedu Exp $	*/
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
- *		 2011, 2012, 2013, 2015
- *	Thorsten Glaser <tg@mirbsd.org>
+ *		 2011, 2012, 2013, 2015, 2016
+ *	mirabilos <m@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
  * are retained or reproduced in an accompanying document, permission
@@ -23,7 +23,7 @@
 
 #include "sh.h"
 
-__RCSID("$MirOS: src/bin/mksh/tree.c,v 1.72.2.1 2015/04/12 22:32:35 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/tree.c,v 1.80 2016/01/14 22:30:43 tg Exp $");
 
 #define INDENT	8
 
@@ -226,7 +226,6 @@ ptree(struct op *t, int indent, struct shf *shf)
 				shf_putc('\n', shf);
 				shf_puts(iop->heredoc, shf);
 				fptreef(shf, indent, "%s",
-				    iop->ioflag & IONDELIM ? "<<" :
 				    evalstr(iop->delim, 0));
 				need_nl = true;
 			}
@@ -265,6 +264,8 @@ pioact(struct shf *shf, struct ioword *iop)
 		shf_puts("<<", shf);
 		if (flag & IOSKIP)
 			shf_putc('-', shf);
+		else if (flag & IOHERESTR)
+			shf_putc('<', shf);
 		break;
 	case IOCAT:
 		shf_puts(">>", shf);
@@ -283,17 +284,15 @@ pioact(struct shf *shf, struct ioword *iop)
 	}
 	/* name/delim are NULL when printing syntax errors */
 	if (type == IOHERE) {
-		if (iop->delim)
+		if (iop->delim && !(iop->ioflag & IONDELIM))
 			wdvarput(shf, iop->delim, 0, WDS_TPUTS);
-		if (flag & IOHERESTR)
-			shf_putc(' ', shf);
-	} else if (iop->name) {
+	} else if (iop->ioname) {
 		if (flag & IONAMEXP)
-			print_value_quoted(shf, iop->name);
+			print_value_quoted(shf, iop->ioname);
 		else
-			wdvarput(shf, iop->name, 0, WDS_TPUTS);
-		shf_putc(' ', shf);
+			wdvarput(shf, iop->ioname, 0, WDS_TPUTS);
 	}
+	shf_putc(' ', shf);
 	prevent_semicolon = false;
 }
 
@@ -309,7 +308,7 @@ wdvarput(struct shf *shf, const char *wp, int quotelevel, int opmode)
 	 *	`...` -> $(...)
 	 *	'foo' -> "foo"
 	 *	x${foo:-"hi"} -> x${foo:-hi} unless WDS_TPUTS
-	 *	x${foo:-'hi'} -> x${foo:-hi} unless WDS_KEEPQ
+	 *	x${foo:-'hi'} -> x${foo:-hi}
 	 * could change encoding to:
 	 *	OQUOTE ["'] ... CQUOTE ["']
 	 *	COMSUB [(`] ...\0	(handle $ ` \ and maybe " in `...` case)
@@ -319,12 +318,12 @@ wdvarput(struct shf *shf, const char *wp, int quotelevel, int opmode)
 		case EOS:
 			return (--wp);
 		case ADELIM:
+			if (*wp == /*{*/'}') {
+				++wp;
+				goto wdvarput_csubst;
+			}
 		case CHAR:
 			c = *wp++;
-			if ((opmode & WDS_MAGIC) &&
-			    (ISMAGIC(c) || c == '[' || c == '!' ||
-			    c == '-' || c == ']' || c == '*' || c == '?'))
-				shf_putc(MAGIC, shf);
 			shf_putc(c, shf);
 			break;
 		case QCHAR: {
@@ -336,8 +335,7 @@ wdvarput(struct shf *shf, const char *wp, int quotelevel, int opmode)
 				if (quotelevel == 0)
 					doq = true;
 			} else {
-				if (!(opmode & WDS_KEEPQ))
-					doq = false;
+				doq = false;
 			}
 			if (doq)
 				shf_putc('\\', shf);
@@ -389,25 +387,20 @@ wdvarput(struct shf *shf, const char *wp, int quotelevel, int opmode)
 			wp = wdvarput(shf, wp, 0, opmode);
 			break;
 		case CSUBST:
-			if (*wp++ == '}')
+			if (*wp++ == '}') {
+ wdvarput_csubst:
 				shf_putc('}', shf);
+			}
 			return (wp);
 		case OPAT:
-			if (opmode & WDS_MAGIC) {
-				shf_putc(MAGIC, shf);
-				shf_putchar(*wp++ | 0x80, shf);
-			} else {
-				shf_putchar(*wp++, shf);
-				shf_putc('(', shf);
-			}
+			shf_putchar(*wp++, shf);
+			shf_putc('(', shf);
 			break;
 		case SPAT:
 			c = '|';
 			if (0)
 		case CPAT:
 				c = /*(*/ ')';
-			if (opmode & WDS_MAGIC)
-				shf_putc(MAGIC, shf);
 			shf_putc(c, shf);
 			break;
 		}
@@ -594,8 +587,10 @@ wdscan(const char *wp, int c)
 		case EOS:
 			return (wp);
 		case ADELIM:
-			if (c == ADELIM)
+			if (c == ADELIM && nest == 0)
 				return (wp + 1);
+			if (*wp == /*{*/'}')
+				goto wdscan_csubst;
 			/* FALLTHROUGH */
 		case CHAR:
 		case QCHAR:
@@ -617,6 +612,7 @@ wdscan(const char *wp, int c)
 				;
 			break;
 		case CSUBST:
+ wdscan_csubst:
 			wp++;
 			if (c == CSUBST && nest == 0)
 				return (wp);
@@ -673,8 +669,8 @@ iocopy(struct ioword **iow, Area *ap)
 		q = alloc(sizeof(struct ioword), ap);
 		ior[i] = q;
 		*q = *p;
-		if (p->name != NULL)
-			q->name = wdcopy(p->name, ap);
+		if (p->ioname != NULL)
+			q->ioname = wdcopy(p->ioname, ap);
 		if (p->delim != NULL)
 			q->delim = wdcopy(p->delim, ap);
 		if (p->heredoc != NULL)
@@ -696,8 +692,7 @@ tfree(struct op *t, Area *ap)
 	if (t == NULL)
 		return;
 
-	if (t->str != NULL)
-		afree(t->str, ap);
+	afree(t->str, ap);
 
 	if (t->vars != NULL) {
 		for (w = t->vars; *w != NULL; w++)
@@ -732,12 +727,9 @@ iofree(struct ioword **iow, Area *ap)
 
 	iop = iow;
 	while ((p = *iop++) != NULL) {
-		if (p->name != NULL)
-			afree(p->name, ap);
-		if (p->delim != NULL)
-			afree(p->delim, ap);
-		if (p->heredoc != NULL)
-			afree(p->heredoc, ap);
+		afree(p->ioname, ap);
+		afree(p->delim, ap);
+		afree(p->heredoc, ap);
 		afree(p, ap);
 	}
 	afree(iow, ap);
@@ -748,6 +740,8 @@ fpFUNCTf(struct shf *shf, int i, bool isksh, const char *k, struct op *v)
 {
 	if (isksh)
 		fptreef(shf, i, "%s %s %T", Tfunction, k, v);
+	else if (ktsearch(&keywords, k, hash(k)))
+		fptreef(shf, i, "%s %s() %T", Tfunction, k, v);
 	else
 		fptreef(shf, i, "%s() %T", k, v);
 }
@@ -822,6 +816,10 @@ dumpwdvar_i(struct shf *shf, const char *wp, int quotelevel)
 			shf_puts("EOS", shf);
 			return (--wp);
 		case ADELIM:
+			if (*wp == /*{*/'}') {
+				shf_puts("]ADELIM(})", shf);
+				return (wp + 1);
+			}
 			shf_puts("ADELIM=", shf);
 			if (0)
 		case CHAR:
@@ -934,18 +932,18 @@ dumpioact(struct shf *shf, struct op *t)
 		DB(IOHERESTR)
 		DB(IONDELIM)
 		shf_fprintf(shf, ",unit=%d", (int)iop->unit);
-		if (iop->delim) {
+		if (iop->delim && !(iop->ioflag & IONDELIM)) {
 			shf_puts(",delim<", shf);
 			dumpwdvar(shf, iop->delim);
 			shf_putc('>', shf);
 		}
-		if (iop->name) {
+		if (iop->ioname) {
 			if (iop->ioflag & IONAMEXP) {
 				shf_puts(",name=", shf);
-				print_value_quoted(shf, iop->name);
+				print_value_quoted(shf, iop->ioname);
 			} else {
 				shf_puts(",name<", shf);
-				dumpwdvar(shf, iop->name);
+				dumpwdvar(shf, iop->ioname);
 				shf_putc('>', shf);
 			}
 		}

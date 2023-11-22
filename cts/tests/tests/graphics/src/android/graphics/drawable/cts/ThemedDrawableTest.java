@@ -32,7 +32,7 @@ import android.os.Debug;
 import android.test.AndroidTestCase;
 import android.view.Gravity;
 
-import com.android.cts.graphics.R;
+import android.graphics.cts.R;
 
 @TargetApi(21)
 public class ThemedDrawableTest extends AndroidTestCase {

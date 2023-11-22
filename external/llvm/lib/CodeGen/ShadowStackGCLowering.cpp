@@ -112,7 +112,7 @@ public:
     case 1:
       // Find all 'return', 'resume', and 'unwind' instructions.
       while (StateBB != StateE) {
-        BasicBlock *CurBB = StateBB++;
+        BasicBlock *CurBB = &*StateBB++;
 
         // Branches and invokes do not escape, only unwind, resume, and return
         // do.
@@ -120,7 +120,7 @@ public:
         if (!isa<ReturnInst>(TI) && !isa<ResumeInst>(TI))
           continue;
 
-        Builder.SetInsertPoint(TI->getParent(), TI);
+        Builder.SetInsertPoint(TI);
         return &Builder;
       }
 
@@ -144,10 +144,14 @@ public:
       BasicBlock *CleanupBB = BasicBlock::Create(C, CleanupBBName, &F);
       Type *ExnTy =
           StructType::get(Type::getInt8PtrTy(C), Type::getInt32Ty(C), nullptr);
-      Constant *PersFn = F.getParent()->getOrInsertFunction(
-          "__gcc_personality_v0", FunctionType::get(Type::getInt32Ty(C), true));
+      if (!F.hasPersonalityFn()) {
+        Constant *PersFn = F.getParent()->getOrInsertFunction(
+            "__gcc_personality_v0",
+            FunctionType::get(Type::getInt32Ty(C), true));
+        F.setPersonalityFn(PersFn);
+      }
       LandingPadInst *LPad =
-          LandingPadInst::Create(ExnTy, PersFn, 1, "cleanup.lpad", CleanupBB);
+          LandingPadInst::Create(ExnTy, 1, "cleanup.lpad", CleanupBB);
       LPad->setCleanup(true);
       ResumeInst *RI = ResumeInst::Create(LPad, CleanupBB);
 
@@ -159,8 +163,8 @@ public:
 
         // Split the basic block containing the function call.
         BasicBlock *CallBB = CI->getParent();
-        BasicBlock *NewBB =
-            CallBB->splitBasicBlock(CI, CallBB->getName() + ".cont");
+        BasicBlock *NewBB = CallBB->splitBasicBlock(
+            CI->getIterator(), CallBB->getName() + ".cont");
 
         // Remove the unconditional branch inserted at the end of CallBB.
         CallBB->getInstList().pop_back();
@@ -180,7 +184,7 @@ public:
         delete CI;
       }
 
-      Builder.SetInsertPoint(RI->getParent(), RI);
+      Builder.SetInsertPoint(RI);
       return &Builder;
     }
   }

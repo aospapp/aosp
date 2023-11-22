@@ -1,5 +1,11 @@
-Writing Unit and Rendering Tests
-================================
+Writing Skia Tests
+==================
+
++   [Unit Tests](#test)
++   [Rendering Tests](#gm)
++   [Benchmark Tests](#bench)
+
+<span id="test"></span>
 
 Writing a Unit Test
 -------------------
@@ -23,15 +29,13 @@ Writing a Unit Test
             REPORTER_ASSERT(reporter, lifeIsGood);
         }
 
-2.  Add a line to `gyp/tests.gypi`:
+2.  Recompile and run test:
 
-        '../tests/NewUnitTest.cpp',
-
-3.  Recompile and run test:
-
-        ./gyp_skia
+        python bin/sync-and-gyp
         ninja -C out/Debug dm
         out/Debug/dm --match NewUnitTest
+
+<span id="gm"></span>
 
 Writing a Rendering Test
 ------------------------
@@ -54,22 +58,59 @@ Writing a Rendering Test
             canvas->drawLine(16, 16, 112, 112, p);
         }
 
-2.  Add a line to `gyp/gmslides.gypi`:
+2.  Recompile and run test:
 
-        '../gm/newgmtest.cpp',
-
-3.  Recompile and run test:
-
-        ./gyp_skia
+        python bin/sync-and-gyp
         ninja -C out/Debug dm
         out/Debug/dm --match newgmtest
 
-4.  Run the GM inside SampleApp:
+3.  Run the GM inside SampleApp:
 
-        ./gyp_skia
+        python bin/sync-and-gyp
         ninja -C out/Debug SampleApp
         out/Debug/SampleApp --slide GM:newgmtest
 
     On MacOS, try this:
 
         out/Debug/SampleApp.app/Contents/MacOS/SampleApp --slide GM:newgmtest
+
+<span id="bench"></span>
+
+Writing a Benchmark Test
+------------------------
+
+1.  Add a file `bench/FooBench.cpp`:
+
+    <!--?prettify lang=cc?-->
+
+        /*
+         * Copyright ........
+         *
+         * Use of this source code is governed by a BSD-style license
+         * that can be found in the LICENSE file.
+         */
+        #include "Benchmark.h"
+        #include "SkCanvas.h"
+        namespace {
+        class FooBench : public Benchmark {
+        public:
+            FooBench() {}
+            virtual ~FooBench() {}
+        protected:
+            const char* onGetName() override { return "Foo"; }
+            SkIPoint onGetSize() override { return SkIPoint{100, 100}; }
+            void onDraw(int loops, SkCanvas* canvas) override {
+                while (loops-- > 0) {
+                    canvas->drawLine(0.0f, 0.0f, 100.0f, 100.0f, SkPaint());
+                }
+            }
+        };
+        }  // namespace
+        DEF_BENCH(return new FooBench;)
+
+
+2.  Recompile and run nanobench:
+
+        python bin/sync-and-gyp
+        ninja -C out/Release nanobench
+        out/Release/nanobench --match Foo

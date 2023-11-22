@@ -222,6 +222,8 @@ void Element::compute() {
         ctNoPadding ++;
     }
 
+    mBits = bits;
+    mBitsUnpadded = bitsUnpadded;
     mHal.state.elementSizeBytes = getSizeBytes();
 }
 
@@ -434,30 +436,4 @@ RsElement rsi_ElementCreate2(Context *rsc,
 }
 
 }
-}
-
-extern "C" void rsaElementGetNativeData(RsContext con, RsElement elem,
-                             uint32_t *elemData, uint32_t elemDataSize) {
-    rsAssert(elemDataSize == 5);
-    // we will pack mType; mKind; mNormalized; mVectorSize; NumSubElements
-    Element *e = static_cast<Element *>(elem);
-
-    (*elemData++) = (uint32_t)e->getType();
-    (*elemData++) = (uint32_t)e->getKind();
-    (*elemData++) = e->getComponent().getIsNormalized() ? 1 : 0;
-    (*elemData++) = e->getComponent().getVectorSize();
-    (*elemData++) = e->getFieldCount();
-}
-
-extern "C" void rsaElementGetSubElements(RsContext con, RsElement elem, uintptr_t *ids,
-                              const char **names, size_t *arraySizes, uint32_t dataSize) {
-    Element *e = static_cast<Element *>(elem);
-    rsAssert(e->getFieldCount() == dataSize);
-
-    for (uint32_t i = 0; i < dataSize; i ++) {
-        e->getField(i)->incUserRef();
-        ids[i] = (uintptr_t)e->getField(i);
-        names[i] = e->getFieldName(i);
-        arraySizes[i] = e->getFieldArraySize(i);
-    }
 }

@@ -96,12 +96,10 @@ nmea_tokenizer_init( NmeaTokenizer*  t, const char*  p, const char*  end )
         if (q == NULL)
             q = end;
 
-        if (q > p) {
-            if (count < MAX_NMEA_TOKENS) {
-                t->tokens[count].p   = p;
-                t->tokens[count].end = q;
-                count += 1;
-            }
+        if (count < MAX_NMEA_TOKENS) {
+            t->tokens[count].p   = p;
+            t->tokens[count].end = q;
+            count += 1;
         }
         if (q < end)
             q += 1;

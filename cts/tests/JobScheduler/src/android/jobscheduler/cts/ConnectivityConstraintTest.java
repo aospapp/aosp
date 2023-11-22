@@ -76,7 +76,20 @@ public class ConnectivityConstraintTest extends ConstraintTest {
     @Override
     public void tearDown() throws Exception {
         // Ensure that we leave WiFi in its previous state.
-        mWifiManager.setWifiEnabled(mInitialWiFiState);
+        NetworkInfo.State expectedState = mInitialWiFiState ?
+            NetworkInfo.State.CONNECTED : NetworkInfo.State.DISCONNECTED;
+        ConnectivityActionReceiver receiver =
+            new ConnectivityActionReceiver(ConnectivityManager.TYPE_WIFI,
+                                           expectedState);
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
+        mContext.registerReceiver(receiver, filter);
+
+        assertTrue(mWifiManager.setWifiEnabled(mInitialWiFiState));
+        assertTrue("Failure to restore previous WiFi state.",
+                    receiver.waitForStateChange());
+
+        mContext.unregisterReceiver(receiver);
     }
 
     // --------------------------------------------------------------------------------------------

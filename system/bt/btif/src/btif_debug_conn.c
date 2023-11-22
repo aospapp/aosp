@@ -42,8 +42,9 @@ static char *format_ts(const uint64_t ts, char *buffer, int len) {
   const time_t secs = ms / 1000;
   struct tm *ptm = localtime(&secs);
 
-  strftime(buffer, len, "%m-%d %H:%M:%S.%%03u", ptm);
-  snprintf(buffer, len, buffer, (uint16_t)(ms % 1000));
+  char tempbuff[20];
+  strftime(tempbuff, sizeof(tempbuff), "%m-%d %H:%M:%S", ptm);
+  snprintf(buffer, len, "%s.%03u", tempbuff, (uint16_t)(ms % 1000));
 
   return buffer;
 }

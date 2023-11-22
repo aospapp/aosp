@@ -31,7 +31,6 @@
 namespace keymaster {
 
 const size_t kPssOverhead = 2;
-const size_t kMinPssSaltSize = 20;
 
 // Overhead for PKCS#1 v1.5 signature padding of undigested messages.  Digested messages have
 // additional overhead, for the digest algorithmIdentifier required by PKCS#1.
@@ -76,10 +75,6 @@ RsaOperation* RsaOperationFactory::CreateRsaOperation(const Key& key,
     keymaster_digest_t digest = KM_DIGEST_NONE;
     if (require_digest && !GetAndValidateDigest(begin_params, key, &digest, error))
         return nullptr;
-    if (!require_digest && begin_params.find(TAG_DIGEST) != -1) {
-        *error = KM_ERROR_UNSUPPORTED_DIGEST;
-        return nullptr;
-    }
 
     UniquePtr<EVP_PKEY, EVP_PKEY_Delete> rsa(GetRsaKey(key, error));
     if (!rsa.get())
@@ -177,7 +172,7 @@ keymaster_error_t RsaOperation::StoreData(const Buffer& input, size_t* input_con
     return KM_ERROR_OK;
 }
 
-keymaster_error_t RsaOperation::SetRsaPaddingInEvpContext(EVP_PKEY_CTX* pkey_ctx) {
+keymaster_error_t RsaOperation::SetRsaPaddingInEvpContext(EVP_PKEY_CTX* pkey_ctx, bool signing) {
     keymaster_error_t error;
     int openssl_padding = GetOpensslPadding(&error);
     if (error != KM_ERROR_OK)
@@ -185,6 +180,15 @@ keymaster_error_t RsaOperation::SetRsaPaddingInEvpContext(EVP_PKEY_CTX* pkey_ctx
 
     if (EVP_PKEY_CTX_set_rsa_padding(pkey_ctx, openssl_padding) <= 0)
         return TranslateLastOpenSslError();
+
+    if (signing && openssl_padding == RSA_PKCS1_PSS_PADDING) {
+        // Also need to set the length of the salt used in the padding generation.  We set it equal
+        // to the length of the selected digest.
+        assert(digest_algorithm_);
+        if (EVP_PKEY_CTX_set_rsa_pss_saltlen(pkey_ctx, EVP_MD_size(digest_algorithm_)) <= 0)
+            return TranslateLastOpenSslError();
+    }
+
     return KM_ERROR_OK;
 }
 
@@ -242,8 +246,7 @@ int RsaDigestingOperation::GetOpensslPadding(keymaster_error_t* error) {
             *error = KM_ERROR_INCOMPATIBLE_PADDING_MODE;
             return -1;
         }
-        if (EVP_MD_size(digest_algorithm_) + kPssOverhead + kMinPssSaltSize >
-            (size_t)EVP_PKEY_size(rsa_key_)) {
+        if (EVP_MD_size(digest_algorithm_) * 2 + kPssOverhead > (size_t)EVP_PKEY_size(rsa_key_)) {
             LOG_E("Input too long: %d-byte digest cannot be used with %d-byte RSA key in PSS "
                   "padding mode",
                   EVP_MD_size(digest_algorithm_), EVP_PKEY_size(rsa_key_));
@@ -269,7 +272,7 @@ keymaster_error_t RsaSignOperation::Begin(const AuthorizationSet& input_params,
     if (EVP_DigestSignInit(&digest_ctx_, &pkey_ctx, digest_algorithm_, nullptr /* engine */,
                            rsa_key_) != 1)
         return TranslateLastOpenSslError();
-    return SetRsaPaddingInEvpContext(pkey_ctx);
+    return SetRsaPaddingInEvpContext(pkey_ctx, true /* signing */);
 }
 
 keymaster_error_t RsaSignOperation::Update(const AuthorizationSet& additional_params,
@@ -286,10 +289,14 @@ keymaster_error_t RsaSignOperation::Update(const AuthorizationSet& additional_pa
     return KM_ERROR_OK;
 }
 
-keymaster_error_t RsaSignOperation::Finish(const AuthorizationSet& /* additional_params */,
-                                           const Buffer& /* signature */,
+keymaster_error_t RsaSignOperation::Finish(const AuthorizationSet& additional_params,
+                                           const Buffer& input, const Buffer& /* signature */,
                                            AuthorizationSet* /* output_params */, Buffer* output) {
     assert(output);
+
+    keymaster_error_t error = UpdateForFinish(additional_params, input);
+    if (error != KM_ERROR_OK)
+        return error;
 
     if (digest_ == KM_DIGEST_NONE)
         return SignUndigested(output);
@@ -388,7 +395,7 @@ keymaster_error_t RsaVerifyOperation::Begin(const AuthorizationSet& input_params
     EVP_PKEY_CTX* pkey_ctx;
     if (EVP_DigestVerifyInit(&digest_ctx_, &pkey_ctx, digest_algorithm_, NULL, rsa_key_) != 1)
         return TranslateLastOpenSslError();
-    return SetRsaPaddingInEvpContext(pkey_ctx);
+    return SetRsaPaddingInEvpContext(pkey_ctx, false /* signing */);
 }
 
 keymaster_error_t RsaVerifyOperation::Update(const AuthorizationSet& additional_params,
@@ -405,10 +412,14 @@ keymaster_error_t RsaVerifyOperation::Update(const AuthorizationSet& additional_
     return KM_ERROR_OK;
 }
 
-keymaster_error_t RsaVerifyOperation::Finish(const AuthorizationSet& /* additional_params */,
-                                             const Buffer& signature,
+keymaster_error_t RsaVerifyOperation::Finish(const AuthorizationSet& additional_params,
+                                             const Buffer& input, const Buffer& signature,
                                              AuthorizationSet* /* output_params */,
                                              Buffer* /* output */) {
+    keymaster_error_t error = UpdateForFinish(additional_params, input);
+    if (error != KM_ERROR_OK)
+        return error;
+
     if (digest_ == KM_DIGEST_NONE)
         return VerifyUndigested(signature);
     else
@@ -506,11 +517,16 @@ struct EVP_PKEY_CTX_Delete {
     void operator()(EVP_PKEY_CTX* p) { EVP_PKEY_CTX_free(p); }
 };
 
-keymaster_error_t RsaEncryptOperation::Finish(const AuthorizationSet& /* additional_params */,
-                                              const Buffer& /* signature */,
+keymaster_error_t RsaEncryptOperation::Finish(const AuthorizationSet& additional_params,
+                                              const Buffer& input, const Buffer& /* signature */,
                                               AuthorizationSet* /* output_params */,
                                               Buffer* output) {
-    assert(output);
+    if (!output)
+        return KM_ERROR_OUTPUT_PARAMETER_NULL;
+
+    keymaster_error_t error = UpdateForFinish(additional_params, input);
+    if (error != KM_ERROR_OK)
+        return error;
 
     UniquePtr<EVP_PKEY_CTX, EVP_PKEY_CTX_Delete> ctx(
         EVP_PKEY_CTX_new(rsa_key_, nullptr /* engine */));
@@ -520,7 +536,7 @@ keymaster_error_t RsaEncryptOperation::Finish(const AuthorizationSet& /* additio
     if (EVP_PKEY_encrypt_init(ctx.get()) <= 0)
         return TranslateLastOpenSslError();
 
-    keymaster_error_t error = SetRsaPaddingInEvpContext(ctx.get());
+    error = SetRsaPaddingInEvpContext(ctx.get(), false /* signing */);
     if (error != KM_ERROR_OK)
         return error;
     error = SetOaepDigestIfRequired(ctx.get());
@@ -554,11 +570,16 @@ keymaster_error_t RsaEncryptOperation::Finish(const AuthorizationSet& /* additio
     return KM_ERROR_OK;
 }
 
-keymaster_error_t RsaDecryptOperation::Finish(const AuthorizationSet& /* additional_params */,
-                                              const Buffer& /* signature */,
+keymaster_error_t RsaDecryptOperation::Finish(const AuthorizationSet& additional_params,
+                                              const Buffer& input, const Buffer& /* signature */,
                                               AuthorizationSet* /* output_params */,
                                               Buffer* output) {
-    assert(output);
+    if (!output)
+        return KM_ERROR_OUTPUT_PARAMETER_NULL;
+
+    keymaster_error_t error = UpdateForFinish(additional_params, input);
+    if (error != KM_ERROR_OK)
+        return error;
 
     UniquePtr<EVP_PKEY_CTX, EVP_PKEY_CTX_Delete> ctx(
         EVP_PKEY_CTX_new(rsa_key_, nullptr /* engine */));
@@ -568,7 +589,7 @@ keymaster_error_t RsaDecryptOperation::Finish(const AuthorizationSet& /* additio
     if (EVP_PKEY_decrypt_init(ctx.get()) <= 0)
         return TranslateLastOpenSslError();
 
-    keymaster_error_t error = SetRsaPaddingInEvpContext(ctx.get());
+    error = SetRsaPaddingInEvpContext(ctx.get(), false /* signing */);
     if (error != KM_ERROR_OK)
         return error;
     error = SetOaepDigestIfRequired(ctx.get());

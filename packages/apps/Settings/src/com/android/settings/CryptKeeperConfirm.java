@@ -17,7 +17,6 @@
 package com.android.settings;
 
 import android.app.Activity;
-import android.app.Fragment;
 import android.app.StatusBarManager;
 import android.content.Context;
 import android.content.Intent;
@@ -34,7 +33,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.internal.widget.LockPatternUtils;
 
 import java.util.Locale;
@@ -45,7 +44,7 @@ public class CryptKeeperConfirm extends InstrumentedFragment {
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.CRYPT_KEEPER_CONFIRM;
+        return MetricsEvent.CRYPT_KEEPER_CONFIRM;
     }
 
     public static class Blank extends Activity {
@@ -122,16 +121,16 @@ public class CryptKeeperConfirm extends InstrumentedFragment {
             // 1. The owner info.
             LockPatternUtils utils = new LockPatternUtils(getActivity());
             utils.setVisiblePatternEnabled(
-                    utils.isVisiblePatternEnabled(UserHandle.USER_OWNER),
-                    UserHandle.USER_OWNER);
-            if (utils.isOwnerInfoEnabled(UserHandle.USER_OWNER)) {
-                utils.setOwnerInfo(utils.getOwnerInfo(UserHandle.USER_OWNER),
-                                   UserHandle.USER_OWNER);
+                    utils.isVisiblePatternEnabled(UserHandle.USER_SYSTEM),
+                    UserHandle.USER_SYSTEM);
+            if (utils.isOwnerInfoEnabled(UserHandle.USER_SYSTEM)) {
+                utils.setOwnerInfo(utils.getOwnerInfo(UserHandle.USER_SYSTEM),
+                                   UserHandle.USER_SYSTEM);
             }
             int value = Settings.System.getInt(getContext().getContentResolver(),
                                                Settings.System.TEXT_SHOW_PASSWORD,
                                                1);
-            utils.setVisiblePasswordEnabled(value != 0, UserHandle.USER_OWNER);
+            utils.setVisiblePasswordEnabled(value != 0, UserHandle.USER_SYSTEM);
 
             Intent intent = new Intent(getActivity(), Blank.class);
             intent.putExtras(getArguments());

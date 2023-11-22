@@ -17,7 +17,7 @@
 #ifndef ART_RUNTIME_GC_GC_CAUSE_H_
 #define ART_RUNTIME_GC_GC_CAUSE_H_
 
-#include <ostream>
+#include <iosfwd>
 
 namespace art {
 namespace gc {
@@ -39,8 +39,14 @@ enum GcCause {
   kGcCauseDisableMovingGc,
   // Not a real GC cause, used when we trim the heap.
   kGcCauseTrim,
+  // Not a real GC cause, used to implement exclusion between GC and instrumentation.
+  kGcCauseInstrumentation,
+  // Not a real GC cause, used to add or remove app image spaces.
+  kGcCauseAddRemoveAppImageSpace,
   // GC triggered for background transition when both foreground and background collector are CMS.
   kGcCauseHomogeneousSpaceCompact,
+  // Class linker cause, used to guard filling art methods with special values.
+  kGcCauseClassLinker,
 };
 
 const char* PrettyCause(GcCause cause);

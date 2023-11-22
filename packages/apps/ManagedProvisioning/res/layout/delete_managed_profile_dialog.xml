@@ -36,28 +36,7 @@
                 style="@style/MainText"
                 android:paddingTop="@dimen/row_padding_top"/>
 
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="@dimen/row_height"
-                android:paddingTop="@dimen/main_text_padding_between_text"
-                android:layout_alignParentLeft="true"
-                android:layout_centerInParent="true"
-                android:layout_gravity="center_vertical">
-                <ImageView
-                    android:id="@+id/delete_managed_profile_mdm_icon_view"
-                    android:layout_width="@dimen/icon_width_height"
-                    android:layout_height="@dimen/icon_width_height"
-                    android:scaleType="centerInside"
-                    android:gravity="center_vertical"/>
-                <TextView
-                    android:id="@+id/delete_managed_profile_device_manager_name"
-                    android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:paddingLeft="@dimen/mdm_app_name_padding_left"
-                    android:gravity="center_vertical"
-                    android:textColor="@color/text_black"
-                    android:textSize="@dimen/main_text_size"/>
-            </LinearLayout>
+            <include layout="@layout/device_manager_icon_label" />
 
             <TextView
                 android:id="@+id/delete_managed_profile_read_more_link"
@@ -80,7 +59,7 @@
 
         <Button
             android:id="@+id/delete_managed_profile_positive_button"
-            android:layout_alignParentRight="true"
+            android:layout_alignParentEnd="true"
             android:layout_alignParentBottom="true"
             android:text="@string/delete_profile"
             style="@style/TransparentButton" />
@@ -88,7 +67,7 @@
         <Button
             android:id="@+id/delete_managed_profile_negative_button"
             android:layout_alignParentBottom="true"
-            android:layout_toLeftOf="@id/delete_managed_profile_positive_button"
+            android:layout_toStartOf="@id/delete_managed_profile_positive_button"
             android:text="@string/cancel_delete_profile"
             style="@style/TransparentButton" />
 

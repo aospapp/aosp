@@ -21,7 +21,10 @@ import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import android.hardware.cts.helpers.SensorCtsHelper;
+import android.text.TextUtils;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -30,7 +33,7 @@ import java.util.concurrent.TimeUnit;
  * <p>To execute these test cases, the following command can be used:</p>
  * <pre>
  * adb shell am instrument -e class android.hardware.cts.SensorParameterRangeTest \
- *     -w com.android.cts.hardware/android.test.AndroidJUnitRunner
+ *     -w android.hardware.cts/android.test.AndroidJUnitRunner
  * </pre>
  */
 public class SensorParameterRangeTest extends SensorTestCase {
@@ -51,14 +54,25 @@ public class SensorParameterRangeTest extends SensorTestCase {
     private static final double PRESSURE_MIN_FREQUENCY = 1.0;
     private static final double PRESSURE_MAX_FREQUENCY = 10.0;
 
+    // Note these FIFO minimum constants come from the CCD.  In version
+    // 6.0 of the CCD, these are in section 7.3.9.
+    private static final int ACCELEROMETER_MIN_FIFO_LENGTH = 3000;
+    private static final int UNCAL_MAGNETOMETER_MIN_FIFO_LENGTH = 600;
+    private static final int PRESSURE_MIN_FIFO_LENGTH = 300;
+    private static final int GAME_ROTATION_VECTOR_MIN_FIFO_LENGTH = 300;
+    private static final int PROXIMITY_SENSOR_MIN_FIFO_LENGTH = 100;
+    private static final int STEP_DETECTOR_MIN_FIFO_LENGTH = 100;
+
     private boolean mHasHifiSensors;
+    private boolean mVrModeHighPerformance;
     private SensorManager mSensorManager;
 
     @Override
     public void setUp() {
+        PackageManager pm = getContext().getPackageManager();
         mSensorManager = (SensorManager) getContext().getSystemService(Context.SENSOR_SERVICE);
-        mHasHifiSensors = getContext().getPackageManager().hasSystemFeature(
-                PackageManager.FEATURE_HIFI_SENSORS);
+        mHasHifiSensors = pm.hasSystemFeature(PackageManager.FEATURE_HIFI_SENSORS);
+        mVrModeHighPerformance = pm.hasSystemFeature(PackageManager.FEATURE_VR_MODE_HIGH_PERFORMANCE);
     }
 
     public void testAccelerometerRange() {
@@ -86,30 +100,90 @@ public class SensorParameterRangeTest extends SensorTestCase {
     }
 
     public void testPressureRange() {
-        checkSensorRangeAndFrequency(
-                mSensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE),
-                PRESSURE_MAX_RANGE,
-                PRESSURE_MIN_FREQUENCY,
-                PRESSURE_MAX_FREQUENCY);
+        if (mHasHifiSensors) {
+            checkSensorRangeAndFrequency(
+                    mSensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE),
+                    PRESSURE_MAX_RANGE,
+                    PRESSURE_MIN_FREQUENCY,
+                    PRESSURE_MAX_FREQUENCY);
+        }
     }
 
     private void checkSensorRangeAndFrequency(
           Sensor sensor, double maxRange, double minFrequency, double maxFrequency) {
-        if (!mHasHifiSensors) return;
+        if (!mHasHifiSensors && !mVrModeHighPerformance) return;
         assertTrue(String.format("%s Range actual=%.2f expected=%.2f %s",
                     sensor.getName(), sensor.getMaximumRange(), maxRange,
                     SensorCtsHelper.getUnitsForSensor(sensor)),
                 sensor.getMaximumRange() >= maxRange);
         double actualMinFrequency = SensorCtsHelper.getFrequency(sensor.getMaxDelay(),
                 TimeUnit.MICROSECONDS);
-        assertTrue(String.format("%s Min Frequency actual=%.2f expected=%dHz",
+        assertTrue(String.format("%s Min Frequency actual=%.2f expected=%.2fHz",
                     sensor.getName(), actualMinFrequency, minFrequency), actualMinFrequency <=
                 minFrequency + 0.1);
 
         double actualMaxFrequency = SensorCtsHelper.getFrequency(sensor.getMinDelay(),
                 TimeUnit.MICROSECONDS);
-        assertTrue(String.format("%s Max Frequency actual=%.2f expected=%dHz",
+        assertTrue(String.format("%s Max Frequency actual=%.2f expected=%.2fHz",
                     sensor.getName(), actualMaxFrequency, maxFrequency), actualMaxFrequency >=
                 maxFrequency - 0.1);
+    }
+
+    public void testAccelerometerFifoLength() throws Throwable {
+        if (!mHasHifiSensors) return;
+        checkMinFifoLength(Sensor.TYPE_ACCELEROMETER, ACCELEROMETER_MIN_FIFO_LENGTH);
+    }
+
+    public void testUncalMagnetometerFifoLength() throws Throwable {
+        if (!mHasHifiSensors) return;
+        checkMinFifoLength(
+                Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED,
+                UNCAL_MAGNETOMETER_MIN_FIFO_LENGTH);
+    }
+
+    public void testPressureFifoLength() throws Throwable {
+        if (!mHasHifiSensors) return;
+        checkMinFifoLength(Sensor.TYPE_PRESSURE, PRESSURE_MIN_FIFO_LENGTH);
+    }
+
+    public void testGameRotationVectorFifoLength() throws Throwable {
+        if (!mHasHifiSensors) return;
+        checkMinFifoLength(Sensor.TYPE_GAME_ROTATION_VECTOR, GAME_ROTATION_VECTOR_MIN_FIFO_LENGTH);
+    }
+
+    public void testProximityFifoLength() throws Throwable {
+        if (!mHasHifiSensors) return;
+        checkMinFifoLength(Sensor.TYPE_PROXIMITY, PROXIMITY_SENSOR_MIN_FIFO_LENGTH);
+    }
+
+    public void testStepDetectorFifoLength() throws Throwable {
+        if (!mHasHifiSensors) return;
+        checkMinFifoLength(Sensor.TYPE_STEP_DETECTOR, STEP_DETECTOR_MIN_FIFO_LENGTH);
+    }
+
+    private void checkMinFifoLength(int sensorType, int minRequiredLength) {
+        Sensor sensor = mSensorManager.getDefaultSensor(sensorType);
+        assertTrue(String.format("sensor of type=%d (null)", sensorType), sensor != null);
+        int reservedLength = sensor.getFifoReservedEventCount();
+        assertTrue(String.format("Sensor=%s, min required fifo length=%d actual=%d",
+                    sensor.getName(), minRequiredLength, reservedLength),
+                    reservedLength >= minRequiredLength);
+    }
+
+    public void testStaticSensorId() {
+        // all static sensors should have id of 0
+        List<Sensor> sensors = mSensorManager.getSensorList(Sensor.TYPE_ALL);
+        List<String> errors = new ArrayList<>();
+        for (Sensor s : sensors) {
+            int id = s.getId();
+            if (id != 0) {
+                errors.add(String.format("sensor \"%s\" has id %d", s.getName(), s));
+            }
+        }
+        if (errors.size() > 0) {
+            String message = "Static sensors should have id of 0, violations: < " +
+                    TextUtils.join(", ", errors) + " >";
+            fail(message);
+        }
     }
 }

@@ -57,15 +57,6 @@ public class ForceEarlyReturnTest extends JDWPSyncTestCase {
         return "org.apache.harmony.jpda.tests.jdwp.ThreadReference.ForceEarlyReturnDebuggee";
     }
 
-    // ForceEarlyReturn needs canForceEarlyReturn VM capability support
-    private boolean isCapability() {
-        // check capability, relevant for this test
-        logWriter.println("=> Check capability: canForceEarlyReturn");
-        debuggeeWrapper.vmMirror.capabilities();
-        boolean isCapability = debuggeeWrapper.vmMirror.targetVMCapabilities.canForceEarlyReturn;
-        return isCapability;
-    }
-
     private String toString(Value value) {
 
         switch (value.getTag()) {
@@ -83,14 +74,14 @@ public class ForceEarlyReturnTest extends JDWPSyncTestCase {
         return "";
     }
 
-    public void RunTestForceEarlyReturn() {
+    private void RunTestForceEarlyReturn() {
         logWriter.println("==> " + thisTestName + " for " + thisCommandName
                 + ": START...");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        if (!isCapability()) {
-            logWriter
-                    .println("##WARNING: this VM dosn't possess capability: canForceEarlyReturn");
+        // ForceEarlyReturn needs canForceEarlyReturn VM capability support
+        if (!debuggeeWrapper.vmMirror.canForceEarlyReturn()) {
+            logWriter.println("##WARNING: this VM dosn't possess capability: canForceEarlyReturn");
             return;
         }
         // Tell debuggee to start a thread
@@ -243,9 +234,9 @@ public class ForceEarlyReturnTest extends JDWPSyncTestCase {
                 + ": START...");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        if (!isCapability()) {
-            logWriter
-                    .println("##WARNING: this VM dosn't possess capability: canForceEarlyReturn");
+        // ForceEarlyReturn needs canForceEarlyReturn VM capability support
+        if (!debuggeeWrapper.vmMirror.canForceEarlyReturn()) {
+            logWriter.println("##WARNING: this VM dosn't possess capability: canForceEarlyReturn");
             return;
         }
         // Tell debuggee to start a thread

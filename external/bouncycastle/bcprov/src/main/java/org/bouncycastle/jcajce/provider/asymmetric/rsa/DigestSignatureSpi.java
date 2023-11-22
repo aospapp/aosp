@@ -25,6 +25,9 @@ import org.bouncycastle.asn1.x509.DigestInfo;
 import org.bouncycastle.crypto.AsymmetricBlockCipher;
 import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.Digest;
+// BEGIN android-added
+import org.bouncycastle.crypto.digests.AndroidDigestFactory;
+// END android-added
 // BEGIN android-removed
 // import org.bouncycastle.crypto.digests.MD2Digest;
 // import org.bouncycastle.crypto.digests.MD4Digest;
@@ -38,10 +41,8 @@ import org.bouncycastle.crypto.Digest;
 // import org.bouncycastle.crypto.digests.SHA256Digest;
 // import org.bouncycastle.crypto.digests.SHA384Digest;
 // import org.bouncycastle.crypto.digests.SHA512Digest;
+// import org.bouncycastle.crypto.digests.SHA512tDigest;
 // END android-removed
-// BEGIN android-added
-import org.bouncycastle.crypto.digests.AndroidDigestFactory;
-// END android-added
 import org.bouncycastle.crypto.encodings.PKCS1Encoding;
 import org.bouncycastle.crypto.engines.RSABlindedEngine;
 import org.bouncycastle.util.Arrays;
@@ -312,6 +313,24 @@ public class DigestSignatureSpi
     }
 
     // BEGIN android-removed
+    // static public class SHA512_224
+    //     extends DigestSignatureSpi
+    // {
+    //     public SHA512_224()
+    //     {
+    //         super(NISTObjectIdentifiers.id_sha512_224, new SHA512tDigest(224), new PKCS1Encoding(new RSABlindedEngine()));
+    //     }
+    // }
+
+    // static public class SHA512_256
+    //     extends DigestSignatureSpi
+    // {
+    //     public SHA512_256()
+    //     {
+    //         super(NISTObjectIdentifiers.id_sha512_256, new SHA512tDigest(256), new PKCS1Encoding(new RSABlindedEngine()));
+    //     }
+    // }
+
     // static public class MD2
     //     extends DigestSignatureSpi
     // {

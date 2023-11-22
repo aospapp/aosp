@@ -22,92 +22,205 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 src_files := \
-	ucln_in.cpp decContext.c \
-	ulocdata.c utmscale.c decNumber.c
+	decContext.c \
+	decNumber.c \
+	ucln_in.cpp \
+	ulocdata.c \
+	utmscale.c
 
 src_files += \
-        indiancal.cpp   dtptngen.cpp dtrule.cpp   \
-        persncal.cpp    rbtz.cpp     reldtfmt.cpp \
-        taiwncal.cpp    tzrule.cpp   tztrans.cpp  \
-        udatpg.cpp      vtzone.cpp                \
-	anytrans.cpp    astro.cpp    buddhcal.cpp \
-	basictz.cpp     calendar.cpp casetrn.cpp  \
-	choicfmt.cpp    coleitr.cpp  coll.cpp     \
-	collation.cpp \
+	affixpatternparser.cpp \
+	alphaindex.cpp \
+	anytrans.cpp \
+	astro.cpp \
+	basictz.cpp \
+	bocsu.cpp \
+	brktrans.cpp \
+	buddhcal.cpp \
+	calendar.cpp \
+	casetrn.cpp \
+	cecal.cpp \
+	chnsecal.cpp \
+	choicfmt.cpp \
+	coleitr.cpp \
 	collationbuilder.cpp \
-	collationcompare.cpp collationdata.cpp \
-	collationdatabuilder.cpp collationdatareader.cpp \
-	collationdatawriter.cpp collationfastlatin.cpp \
-	collationfastlatinbuilder.cpp collationfcd.cpp \
-	collationiterator.cpp collationkeys.cpp collationroot.cpp \
-	collationrootelements.cpp collationruleparser.cpp \
-	collationsets.cpp collationsettings.cpp \
-	collationtailoring.cpp collationweights.cpp \
+	collationcompare.cpp \
+	collation.cpp \
+	collationdatabuilder.cpp \
+	collationdata.cpp \
+	collationdatareader.cpp \
+	collationdatawriter.cpp \
+	collationfastlatinbuilder.cpp \
+	collationfastlatin.cpp \
+	collationfcd.cpp \
+	collationiterator.cpp \
+	collationkeys.cpp \
+	collationroot.cpp \
+	collationrootelements.cpp \
+	collationruleparser.cpp \
+	collationsets.cpp \
+	collationsettings.cpp \
+	collationtailoring.cpp \
+	collationweights.cpp \
+	coll.cpp \
 	compactdecimalformat.cpp \
-	cpdtrans.cpp    csdetect.cpp csmatch.cpp  \
-	csr2022.cpp     csrecog.cpp  csrmbcs.cpp  \
-	csrsbcs.cpp     csrucode.cpp csrutf8.cpp  \
-	curramt.cpp     currfmt.cpp  currunit.cpp \
+	coptccal.cpp \
+	cpdtrans.cpp \
+	csdetect.cpp \
+	csmatch.cpp \
+	csr2022.cpp \
+	csrecog.cpp \
+	csrmbcs.cpp \
+	csrsbcs.cpp \
+	csrucode.cpp \
+	csrutf8.cpp \
+	curramt.cpp \
+	currfmt.cpp \
+	currpinf.cpp \
+	currunit.cpp \
 	dangical.cpp \
-	datefmt.cpp     dcfmtsym.cpp decimfmt.cpp \
+	datefmt.cpp \
+	dcfmtsym.cpp \
+	decfmtst.cpp \
 	decimalformatpattern.cpp \
-	digitlst.cpp    dtfmtsym.cpp esctrn.cpp   \
-	filteredbrk.cpp \
-	fmtable_cnv.cpp fmtable.cpp  format.cpp   \
-	funcrepl.cpp    gender.cpp \
-	gregocal.cpp gregoimp.cpp \
-	hebrwcal.cpp 	identifier_info.cpp \
-	inputext.cpp islamcal.cpp \
-	japancal.cpp    measfmt.cpp measunit.cpp  \
-	measure.cpp  \
-	msgfmt.cpp      name2uni.cpp nfrs.cpp     \
-	nfrule.cpp      nfsubs.cpp   nortrans.cpp \
-	nultrans.cpp    numfmt.cpp   olsontz.cpp  \
-	quant.cpp       quantityformatter.cpp \
-	rbnf.cpp     rbt.cpp      \
-	rbt_data.cpp    rbt_pars.cpp rbt_rule.cpp \
-	rbt_set.cpp     regexcmp.cpp regexst.cpp  \
-	regeximp.cpp 	region.cpp \
+	decimfmt.cpp \
+	decimfmtimpl.cpp \
+	digitaffix.cpp \
+	digitaffixesandpadding.cpp \
+	digitformatter.cpp \
+	digitgrouping.cpp \
+	digitinterval.cpp \
+	digitlst.cpp \
+	dtfmtsym.cpp \
+	dtitvfmt.cpp \
+	dtitvinf.cpp \
+	dtptngen.cpp \
+	dtrule.cpp \
+	esctrn.cpp \
+	ethpccal.cpp \
+	fmtable_cnv.cpp \
+	fmtable.cpp \
+	format.cpp \
+	fphdlimp.cpp \
+	fpositer.cpp\
+	funcrepl.cpp \
+	gender.cpp \
+	gregocal.cpp \
+	gregoimp.cpp \
+	hebrwcal.cpp \
+	identifier_info.cpp \
+	indiancal.cpp \
+	inputext.cpp \
+	islamcal.cpp \
+	japancal.cpp \
+	locdspnm.cpp \
+	measfmt.cpp \
+	measunit.cpp \
+	measure.cpp \
+	msgfmt.cpp \
+	name2uni.cpp \
+	nfrs.cpp \
+	nfrule.cpp \
+	nfsubs.cpp \
+	nortrans.cpp \
+	nultrans.cpp \
+	numfmt.cpp \
+	numsys.cpp \
+	olsontz.cpp \
+	persncal.cpp \
+	pluralaffix.cpp \
+	plurfmt.cpp \
+	plurrule.cpp \
+	precision.cpp \
+	quant.cpp \
+	quantityformatter.cpp \
+	rbnf.cpp \
+	rbt.cpp \
+	rbt_data.cpp \
+	rbt_pars.cpp \
+	rbt_rule.cpp \
+	rbt_set.cpp \
+	rbtz.cpp \
+	regexcmp.cpp \
+	regeximp.cpp \
+	regexst.cpp \
+	regextxt.cpp \
+	region.cpp \
 	reldatefmt.cpp \
-	rematch.cpp     remtrans.cpp repattrn.cpp \
+	reldtfmt.cpp \
+	rematch.cpp \
+	remtrans.cpp \
+	repattrn.cpp \
 	rulebasedcollator.cpp \
+	scientificnumberformatter.cpp \
 	scriptset.cpp \
-	search.cpp      simpletz.cpp smpdtfmt.cpp \
-	sortkey.cpp     strmatch.cpp strrepl.cpp  \
-	stsearch.cpp    timezone.cpp \
-	titletrn.cpp    tolowtrn.cpp toupptrn.cpp \
-	translit.cpp    transreg.cpp tridpars.cpp \
-	ucal.cpp        \
-	ucol.cpp        ucoleitr.cpp \
-	ucol_res.cpp    ucol_sit.cpp \
-	ucsdet.cpp      ucurr.cpp    udat.cpp     \
-	uitercollationiterator.cpp \
-	umsg.cpp        unesctrn.cpp uni2name.cpp \
-	unum.cpp        uregexc.cpp  uregex.cpp   \
-	usearch.cpp     \
+	search.cpp \
+	selfmt.cpp \
+	sharedbreakiterator.cpp \
+	simpletz.cpp \
+	smallintformatter.cpp \
+	smpdtfmt.cpp \
+	smpdtfst.cpp \
+	sortkey.cpp \
+	standardplural.cpp \
+	strmatch.cpp \
+	strrepl.cpp \
+	stsearch.cpp \
+	taiwncal.cpp \
+	timezone.cpp \
+	titletrn.cpp \
+	tmunit.cpp \
+	tmutamt.cpp \
+	tmutfmt.cpp \
+	tolowtrn.cpp \
+	toupptrn.cpp \
+	translit.cpp \
+	transreg.cpp \
+	tridpars.cpp \
+	tzfmt.cpp \
+	tzgnames.cpp \
+	tznames.cpp \
+	tznames_impl.cpp \
+	tzrule.cpp \
+	tztrans.cpp \
+	ucal.cpp \
+	ucol.cpp \
+	ucoleitr.cpp \
+	ucol_res.cpp \
+	ucol_sit.cpp \
+	ucsdet.cpp \
+	ucurr.cpp \
+	udat.cpp \
+	udateintervalformat.cpp \
+	udatpg.cpp \
 	ufieldpositer.cpp \
+	uitercollationiterator.cpp \
+	umsg.cpp \
+	unesctrn.cpp \
+	uni2name.cpp \
+	unum.cpp \
+	upluralrules.cpp \
+	uregexc.cpp \
+	uregex.cpp \
+	usearch.cpp \
+	uspoof_build.cpp \
+	uspoof_conf.cpp \
+	uspoof.cpp \
+	uspoof_impl.cpp \
+	uspoof_wsconf.cpp \
 	utf16collationiterator.cpp \
 	utf8collationiterator.cpp \
-	utrans.cpp   windtfmt.cpp \
-	winnmfmt.cpp    zonemeta.cpp \
-	numsys.cpp      chnsecal.cpp \
-	cecal.cpp       coptccal.cpp ethpccal.cpp \
-	brktrans.cpp    wintzimpl.cpp plurrule.cpp \
-	plurfmt.cpp     dtitvfmt.cpp dtitvinf.cpp \
-	tmunit.cpp      tmutamt.cpp  tmutfmt.cpp  \
-        currpinf.cpp    uspoof.cpp   uspoof_impl.cpp \
-        uspoof_build.cpp     \
-        regextxt.cpp    selfmt.cpp   uspoof_conf.cpp \
-        uspoof_wsconf.cpp ztrans.cpp zrule.cpp  \
-        vzone.cpp       fphdlimp.cpp fpositer.cpp\
-        locdspnm.cpp    \
-        alphaindex.cpp  bocsu.cpp    decfmtst.cpp \
-        smpdtfst.cpp    smpdtfst.h   tzfmt.cpp \
-        tzgnames.cpp    tznames.cpp  tznames_impl.cpp \
-        udateintervalformat.cpp  upluralrules.cpp \
-        sharedbreakiterator.cpp \
-        scientificnumberformatter.cpp
-
+	utrans.cpp \
+	valueformatter.cpp \
+	windtfmt.cpp \
+	winnmfmt.cpp \
+	wintzimpl.cpp \
+	visibledigits.cpp \
+	vtzone.cpp \
+	vzone.cpp \
+	zonemeta.cpp \
+	zrule.cpp \
+	ztrans.cpp
 
 c_includes = \
 	$(LOCAL_PATH) \
@@ -130,8 +243,8 @@ LOCAL_RTTI_FLAG := -frtti
 LOCAL_SHARED_LIBRARIES += libicuuc $(optional_android_logging_libraries)
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := libicui18n
-LOCAL_ADDITIONAL_DEPENDENCIES += $(LOCAL_PATH)/Android.mk
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
+LOCAL_CLANG := true
 include $(BUILD_SHARED_LIBRARY)
 
 
@@ -147,9 +260,9 @@ LOCAL_SHARED_LIBRARIES += libicuuc-host $(optional_android_logging_libraries)
 LOCAL_LDLIBS += -lm -lpthread
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := libicui18n-host
-LOCAL_ADDITIONAL_DEPENDENCIES += $(LOCAL_PATH)/Android.mk
 LOCAL_MULTILIB := both
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
+LOCAL_CLANG := true
 include $(BUILD_HOST_SHARED_LIBRARY)
 
 #
@@ -171,4 +284,5 @@ LOCAL_CFLAGS += -Os
 LOCAL_EXPORT_CFLAGS += -DU_STATIC_IMPLEMENTATION=1
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := libicui18n_static
+LOCAL_CLANG := true
 include $(BUILD_STATIC_LIBRARY)

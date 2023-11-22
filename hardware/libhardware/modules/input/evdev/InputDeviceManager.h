@@ -22,10 +22,12 @@
 
 #include <utils/Timers.h>
 
-#include "InputDevice.h"
 #include "InputHub.h"
 
 namespace android {
+
+class InputDeviceInterface;
+class InputHostInterface;
 
 /**
  * InputDeviceManager keeps the mapping of InputDeviceNodes to
@@ -34,14 +36,18 @@ namespace android {
  */
 class InputDeviceManager : public InputCallbackInterface {
 public:
+    explicit InputDeviceManager(InputHostInterface* host) :
+        mHost(host) {}
     virtual ~InputDeviceManager() override = default;
 
-    virtual void onInputEvent(std::shared_ptr<InputDeviceNode> node, InputEvent& event,
+    virtual void onInputEvent(const std::shared_ptr<InputDeviceNode>& node, InputEvent& event,
             nsecs_t event_time) override;
-    virtual void onDeviceAdded(std::shared_ptr<InputDeviceNode> node) override;
-    virtual void onDeviceRemoved(std::shared_ptr<InputDeviceNode> node) override;
+    virtual void onDeviceAdded(const std::shared_ptr<InputDeviceNode>& node) override;
+    virtual void onDeviceRemoved(const std::shared_ptr<InputDeviceNode>& node) override;
 
 private:
+    InputHostInterface* mHost;
+
     template<class T, class U>
     using DeviceMap = std::unordered_map<std::shared_ptr<T>, std::shared_ptr<U>>;
 

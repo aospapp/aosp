@@ -9,8 +9,9 @@
 
 #include "builders/GrGLProgramBuilder.h"
 #include "GrProcessor.h"
-#include "GrGLProcessor.h"
 #include "GrGLPathRendering.h"
+#include "glsl/GrGLSLFragmentProcessor.h"
+#include "glsl/GrGLSLProgramDataManager.h"
 #include "SkRTConf.h"
 #include "SkTSearch.h"
 
@@ -19,11 +20,11 @@ SK_CONF_DECLARE(bool, c_DisplayCache, "gpu.displayCache", false,
                 "Display program cache usage.");
 #endif
 
-typedef GrGLProgramDataManager::UniformHandle UniformHandle;
+typedef GrGLSLProgramDataManager::UniformHandle UniformHandle;
 
 struct GrGLGpu::ProgramCache::Entry {
-    SK_DECLARE_INST_COUNT(Entry);
-    Entry() : fProgram(NULL), fLRUStamp(0) {}
+    
+    Entry() : fProgram(nullptr), fLRUStamp(0) {}
 
     SkAutoTUnref<GrGLProgram>   fProgram;
     unsigned int                fLRUStamp;
@@ -52,13 +53,13 @@ GrGLGpu::ProgramCache::ProgramCache(GrGLGpu* gpu)
 #endif
 {
     for (int i = 0; i < 1 << kHashBits; ++i) {
-        fHashTable[i] = NULL;
+        fHashTable[i] = nullptr;
     }
 }
 
 GrGLGpu::ProgramCache::~ProgramCache() {
     for (int i = 0; i < fCount; ++i){
-        SkDELETE(fEntries[i]);
+        delete fEntries[i];
     }
     // dump stats
 #ifdef PROGRAM_CACHE_STATS
@@ -76,13 +77,30 @@ GrGLGpu::ProgramCache::~ProgramCache() {
 #endif
 }
 
-void GrGLGpu::ProgramCache::abandon() {
+void GrGLGpu::ProgramCache::reset() {
     for (int i = 0; i < fCount; ++i) {
         SkASSERT(fEntries[i]->fProgram.get());
         fEntries[i]->fProgram->abandon();
-        SkDELETE(fEntries[i]);
+        delete fEntries[i];
+        fEntries[i] = nullptr;
     }
     fCount = 0;
+
+    // zero out hash table
+    for (int i = 0; i < 1 << kHashBits; i++) {
+        fHashTable[i] = nullptr;
+    }
+
+    fCurrLRUStamp = 0;
+#ifdef PROGRAM_CACHE_STATS
+    fTotalRequests = 0;
+    fCacheMisses = 0;
+    fHashMisses = 0;
+#endif
+}
+
+void GrGLGpu::ProgramCache::abandon() {
+    this->reset();
 }
 
 int GrGLGpu::ProgramCache::search(const GrProgramDesc& desc) const {
@@ -90,12 +108,12 @@ int GrGLGpu::ProgramCache::search(const GrProgramDesc& desc) const {
     return SkTSearch(fEntries, fCount, desc, sizeof(Entry*), less);
 }
 
-GrGLProgram* GrGLGpu::ProgramCache::getProgram(const DrawArgs& args) {
+GrGLProgram* GrGLGpu::ProgramCache::refProgram(const DrawArgs& args) {
 #ifdef PROGRAM_CACHE_STATS
     ++fTotalRequests;
 #endif
 
-    Entry* entry = NULL;
+    Entry* entry = nullptr;
 
     uint32_t hashIdx = args.fDesc->getChecksum();
     hashIdx ^= hashIdx >> 16;
@@ -110,7 +128,7 @@ GrGLProgram* GrGLGpu::ProgramCache::getProgram(const DrawArgs& args) {
     }
 
     int entryIdx;
-    if (NULL == entry) {
+    if (nullptr == entry) {
         entryIdx = this->search(*args.fDesc);
         if (entryIdx >= 0) {
             entry = fEntries[entryIdx];
@@ -120,18 +138,18 @@ GrGLProgram* GrGLGpu::ProgramCache::getProgram(const DrawArgs& args) {
         }
     }
 
-    if (NULL == entry) {
+    if (nullptr == entry) {
         // We have a cache miss
 #ifdef PROGRAM_CACHE_STATS
         ++fCacheMisses;
 #endif
         GrGLProgram* program = GrGLProgramBuilder::CreateProgram(args, fGpu);
-        if (NULL == program) {
-            return NULL;
+        if (nullptr == program) {
+            return nullptr;
         }
         int purgeIdx = 0;
         if (fCount < kMaxEntries) {
-            entry = SkNEW(Entry);
+            entry = new Entry;
             purgeIdx = fCount++;
             fEntries[purgeIdx] = entry;
         } else {
@@ -145,7 +163,7 @@ GrGLProgram* GrGLGpu::ProgramCache::getProgram(const DrawArgs& args) {
             entry = fEntries[purgeIdx];
             int purgedHashIdx = entry->fProgram->getDesc().getChecksum() & ((1 << kHashBits) - 1);
             if (fHashTable[purgedHashIdx] == entry) {
-                fHashTable[purgedHashIdx] = NULL;
+                fHashTable[purgedHashIdx] = nullptr;
             }
         }
         SkASSERT(fEntries[purgeIdx] == entry);
@@ -193,5 +211,5 @@ GrGLProgram* GrGLGpu::ProgramCache::getProgram(const DrawArgs& args) {
         }
     }
     ++fCurrLRUStamp;
-    return entry->fProgram;
+    return SkRef(entry->fProgram.get());
 }

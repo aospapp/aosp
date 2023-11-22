@@ -18,116 +18,178 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:padding="10dip"
-    android:orientation="vertical">
+    android:orientation="vertical"
+>
 
     <ScrollView
-       android:layout_width="match_parent"
-       android:layout_height="match_parent"
-       android:id="@+id/scrollView">
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:id="@+id/scrollView"
+    >
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:orientation="vertical"
+        >
 
-        <LinearLayout
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="vertical"
+                android:gravity="bottom"
+                android:id="@+id/audio_general_headset_port_exists"
+                android:text="@string/audio_general_headset_port_exists" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+            >
+
+                <Button
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-          <TextView
-              android:layout_width="wrap_content"
-              android:layout_height="wrap_content"
-              android:layout_weight="1"
-              android:id="@+id/info_text"
-              android:text="@string/audio_frequency_mic_instructions"/>
+                    android:id="@+id/audio_general_headset_no"
+                    android:text="@string/audio_general_headset_no"
+                    android:nextFocusForward="@+id/audio_general_headset_yes"
+                    android:nextFocusDown="@+id/audio_frequency_mic_speakers_ready_btn"
+                    android:nextFocusRight="@+id/audio_general_headset_yes" />
 
-           <ProgressBar
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:id="@+id/audio_frequency_mic_progress_bar"/>
-         </LinearLayout>
+                <Button
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:id="@+id/audio_general_headset_yes"
+                    android:text="@string/audio_general_headset_yes"
+                    android:nextFocusForward="@+id/audio_frequency_mic_speakers_ready_btn"
+                    android:nextFocusDown="@+id/audio_frequency_mic_speakers_ready_btn"
+                    android:nextFocusLeft="@+id/audio_general_headset_no"
+                    android:nextFocusRight="@+id/audio_frequency_mic_speakers_ready_btn" />
 
-          <Button
-              android:layout_width="match_parent"
-              android:layout_height="wrap_content"
-              android:id="@+id/audio_frequency_mic_speakers_ready_btn"
-              android:text="@string/audio_frequency_mic_speakers_ready_btn"/>
+            </LinearLayout>
 
-          <TextView
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+            >
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:id="@+id/info_text"
+                    android:text="@string/audio_frequency_mic_instructions" />
+
+                <ProgressBar
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:id="@+id/audio_frequency_mic_progress_bar" />
+            </LinearLayout>
+
+            <Button
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:id="@+id/audio_frequency_mic_speakers_ready_btn"
+                android:text="@string/audio_frequency_mic_speakers_ready_btn"
+                android:nextFocusForward="@+id/audio_frequency_mic_test1_btn"
+                android:nextFocusUp="@+id/audio_general_headset_yes"
+                android:nextFocusDown="@+id/audio_frequency_mic_test1_btn"
+                android:nextFocusLeft="@+id/audio_general_headset_yes"
+                android:nextFocusRight="@+id/audio_frequency_mic_test1_btn" />
+
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:scrollbars="vertical"
                 android:gravity="bottom"
                 android:id="@+id/audio_frequency_mic_speakers_ready_status"
-                android:text="@string/audio_frequency_mic_speakers_ready_status"/>
+                android:text="@string/audio_frequency_mic_speakers_ready_status" />
 
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:id="@+id/audio_frequency_mic_layout_test1">
+                android:id="@+id/audio_frequency_mic_layout_test1"
+            >
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/audio_frequency_mic_instructions2"
-                android:id="@+id/audio_frequency_mic_instructions2"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/audio_frequency_mic_instructions2"
+                    android:id="@+id/audio_frequency_mic_instructions2" />
 
-              <Button
+                <Button
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/audio_frequency_mic_test1_btn"
-                    android:id="@+id/audio_frequency_mic_test1_btn"/>
+                    android:id="@+id/audio_frequency_mic_test1_btn"
+                    android:nextFocusForward="@+id/audio_frequency_mic_mic_ready_btn"
+                    android:nextFocusUp="@+id/audio_frequency_mic_speakers_ready_btn"
+                    android:nextFocusDown="@+id/audio_frequency_mic_mic_ready_btn"
+                    android:nextFocusLeft="@+id/audio_frequency_mic_speakers_ready_btn"
+                    android:nextFocusRight="@+id/audio_frequency_mic_mic_ready_btn" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/audio_frequency_mic_results_text"
-                    android:id="@+id/audio_frequency_mic_results1_text"/>
-          </LinearLayout>
+                    android:id="@+id/audio_frequency_mic_results1_text" />
+            </LinearLayout>
 
-          <LinearLayout
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:id="@+id/audio_frequency_mic_layout_test2a">
+                android:id="@+id/audio_frequency_mic_layout_test2a"
+            >
 
-            <Button
+                <Button
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:id="@+id/audio_frequency_mic_mic_ready_btn"
+                    android:text="@string/audio_frequency_mic_mic_ready_btn"
+                    android:nextFocusForward="@+id/audio_frequency_mic_test2_btn"
+                    android:nextFocusUp="@+id/audio_frequency_mic_test1_btn"
+                    android:nextFocusDown="@+id/audio_frequency_mic_test2_btn"
+                    android:nextFocusLeft="@+id/audio_frequency_mic_test1_btn"
+                    android:nextFocusRight="@+id/audio_frequency_mic_test2_btn" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/audio_frequency_mic_usb_status"
+                    android:id="@+id/audio_frequency_mic_usb_status" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:orientation="vertical"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:id="@+id/audio_frequency_mic_mic_ready_btn"
-                android:text="@string/audio_frequency_mic_mic_ready_btn"/>
+                android:layout_height="match_parent"
+                android:id="@+id/audio_frequency_mic_layout_test2b"
+            >
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/audio_frequency_mic_usb_status"
-                android:id="@+id/audio_frequency_mic_usb_status"/>
-           </LinearLayout>
+                <Button
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/audio_frequency_mic_test2_btn"
+                    android:id="@+id/audio_frequency_mic_test2_btn"
+                    android:nextFocusForward="@+id/pass_button"
+                    android:nextFocusUp="@+id/audio_frequency_mic_mic_ready_btn"
+                    android:nextFocusDown="@+id/pass_button"
+                    android:nextFocusLeft="@+id/audio_frequency_mic_mic_ready_btn"
+                    android:nextFocusRight="@+id/pass_button" />
 
-          <LinearLayout
-              android:orientation="vertical"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent"
-              android:id="@+id/audio_frequency_mic_layout_test2b">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/audio_frequency_mic_results_text"
+                    android:id="@+id/audio_frequency_mic_results_text" />
 
-            <Button
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/audio_frequency_mic_test2_btn"
-                android:id="@+id/audio_frequency_mic_test2_btn"/>
+            </LinearLayout>
 
-              <TextView
-                  android:layout_width="wrap_content"
-                  android:layout_height="wrap_content"
-                  android:text="@string/audio_frequency_mic_results_text"
-                  android:id="@+id/audio_frequency_mic_results_text"/>
-
+            <include layout="@layout/pass_fail_buttons" />
         </LinearLayout>
-
-        <include layout="@layout/pass_fail_buttons"/>
-        </LinearLayout>
-      </ScrollView>
+    </ScrollView>
 
 </LinearLayout>

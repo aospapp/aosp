@@ -17,7 +17,6 @@ includes=(
   "-isystem ${ANDROID_BUILD_TOP}/bionic/libc/kernel/uapi/asm-arm64"
   "-isystem ${ANDROID_BUILD_TOP}/bionic/libm/include"
   "-isystem ${ANDROID_BUILD_TOP}/bionic/libm/include/arm64"
-  "-include ${ANDROID_BUILD_TOP}/build/core/combo/include/arch/linux-arm64/AndroidConfig.h"
 )
 
 # Copy libm.so to libpthread.so to allow -lpthread to work.

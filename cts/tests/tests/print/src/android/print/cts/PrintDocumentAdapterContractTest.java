@@ -111,7 +111,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         print(adapter);
 
         // Wait for write.
-        waitForWriteAdapterCallback();
+        waitForWriteAdapterCallback(1);
 
         // Select the second printer.
         selectPrinter("Second printer");
@@ -122,11 +122,14 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         // Click the print button.
         clickPrintButton();
 
+        // Answer the dialog for the print service cloud warning
+        answerPrintServicesWarning(true);
+
         // Wait for finish.
         waitForAdapterFinishCallbackCalled();
 
         // Wait for the session to be destroyed to isolate tests.
-        waitForPrinterDiscoverySessionDestroyCallbackCalled();
+        waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
 
         // Verify the expected calls.
         InOrder inOrder = inOrder(adapter);
@@ -142,6 +145,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
                 .setResolution(new Resolution("PDF resolution", "PDF resolution", 300, 300))
                 .setMinMargins(Margins.NO_MARGINS)
                 .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+                .setDuplexMode(PrintAttributes.DUPLEX_MODE_NONE)
                 .build();
         verifyLayoutCall(inOrder, adapter, firstOldAttributes, firstNewAttributes, true);
 
@@ -230,7 +234,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         print(adapter);
 
         // Wait for write.
-        waitForWriteAdapterCallback();
+        waitForWriteAdapterCallback(1);
 
         // Cancel the printing.
         getUiDevice().pressBack(); // wakes up the device.
@@ -240,7 +244,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         waitForAdapterFinishCallbackCalled();
 
         // Wait for the session to be destroyed to isolate tests.
-        waitForPrinterDiscoverySessionDestroyCallbackCalled();
+        waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
 
         // Verify the expected calls.
         InOrder inOrder = inOrder(adapter);
@@ -256,6 +260,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
                 .setResolution(new Resolution("PDF resolution", "PDF resolution", 300, 300))
                 .setMinMargins(Margins.NO_MARGINS)
                 .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+                .setDuplexMode(PrintAttributes.DUPLEX_MODE_NONE)
                 .build();
         verifyLayoutCall(inOrder, adapter, firstOldAttributes, firstNewAttributes, true);
 
@@ -325,7 +330,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         print(adapter);
 
         // Wait for write.
-        waitForWriteAdapterCallback();
+        waitForWriteAdapterCallback(1);
 
         // Open the print options.
         openPrintOptions();
@@ -363,11 +368,14 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         // Click the print button.
         clickPrintButton();
 
+        // Answer the dialog for the print service cloud warning
+        answerPrintServicesWarning(true);
+
         // Wait for a finish.
         waitForAdapterFinishCallbackCalled();
 
         // Wait for the session to be destroyed to isolate tests.
-        waitForPrinterDiscoverySessionDestroyCallbackCalled();
+        waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
 
         // Verify the expected calls.
         InOrder inOrder = inOrder(adapter);
@@ -383,6 +391,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
                 .setResolution(new Resolution("PDF resolution", "PDF resolution", 300, 300))
                 .setMinMargins(Margins.NO_MARGINS)
                 .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+                .setDuplexMode(PrintAttributes.DUPLEX_MODE_NONE)
                 .build();
         verifyLayoutCall(inOrder, adapter, firstOldAttributes, firstNewAttributes, true);
 
@@ -525,7 +534,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         print(adapter);
 
         // Wait for write.
-        waitForWriteAdapterCallback();
+        waitForWriteAdapterCallback(1);
 
         // Open the print options.
         openPrintOptions();
@@ -552,11 +561,14 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         // Click the print button.
         clickPrintButton();
 
+        // Answer the dialog for the print service cloud warning
+        answerPrintServicesWarning(true);
+
         // Wait for a finish.
         waitForAdapterFinishCallbackCalled();
 
         // Wait for the session to be destroyed to isolate tests.
-        waitForPrinterDiscoverySessionDestroyCallbackCalled();
+        waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
 
         // Verify the expected calls.
         InOrder inOrder = inOrder(adapter);
@@ -572,6 +584,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
                 .setResolution(new Resolution("PDF resolution", "PDF resolution", 300, 300))
                 .setMinMargins(Margins.NO_MARGINS)
                 .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+                .setDuplexMode(PrintAttributes.DUPLEX_MODE_NONE)
                 .build();
         verifyLayoutCall(inOrder, adapter, firstOldAttributes, firstNewAttributes, true);
 
@@ -613,6 +626,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
                 .setResolution(new Resolution("PDF resolution", "PDF resolution", 300, 300))
                 .setMinMargins(new Margins(200, 200, 200, 200))
                 .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+                .setDuplexMode(PrintAttributes.DUPLEX_MODE_NONE)
                 .build();
         verifyLayoutCall(inOrder, adapter, fourthOldAttributes, fourthNewAttributes, true);
 
@@ -685,7 +699,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         print(adapter);
 
         // Wait for write.
-        waitForWriteAdapterCallback();
+        waitForWriteAdapterCallback(1);
 
         // Open the print options.
         openPrintOptions();
@@ -699,11 +713,14 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         // Click the print button.
         clickPrintButton();
 
+        // Answer the dialog for the print service cloud warning
+        answerPrintServicesWarning(true);
+
         // Wait for a finish.
         waitForAdapterFinishCallbackCalled();
 
         // Wait for the session to be destroyed to isolate tests.
-        waitForPrinterDiscoverySessionDestroyCallbackCalled();
+        waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
 
         // Verify the expected calls.
         InOrder inOrder = inOrder(adapter);
@@ -718,6 +735,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
                 .setMediaSize(MediaSize.NA_LETTER)
                 .setResolution(new Resolution("PDF resolution", "PDF resolution", 300, 300))
                 .setMinMargins(Margins.NO_MARGINS).setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+                .setDuplexMode(PrintAttributes.DUPLEX_MODE_NONE)
                 .build();
         verifyLayoutCall(inOrder, adapter, firstOldAttributes, firstNewAttributes, true);
 
@@ -812,7 +830,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         print(adapter);
 
         // Wait for write.
-        waitForWriteAdapterCallback();
+        waitForWriteAdapterCallback(1);
 
         // Open the print options.
         openPrintOptions();
@@ -823,11 +841,14 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         // Click the print button.
         clickPrintButton();
 
+        // Answer the dialog for the print service cloud warning
+        answerPrintServicesWarning(true);
+
         // Wait for a finish.
         waitForAdapterFinishCallbackCalled();
 
         // Wait for the session to be destroyed to isolate tests.
-        waitForPrinterDiscoverySessionDestroyCallbackCalled();
+        waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
 
         // Verify the expected calls.
         InOrder inOrder = inOrder(adapter);
@@ -842,6 +863,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
                 .setMediaSize(MediaSize.NA_LETTER)
                 .setResolution(new Resolution("PDF resolution", "PDF resolution", 300, 300))
                 .setMinMargins(Margins.NO_MARGINS).setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+                .setDuplexMode(PrintAttributes.DUPLEX_MODE_NONE)
                 .build();
         verifyLayoutCall(inOrder, adapter, firstOldAttributes, firstNewAttributes, true);
 
@@ -918,7 +940,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         print(adapter);
 
         // Wait for write.
-        waitForWriteAdapterCallback();
+        waitForWriteAdapterCallback(1);
 
         // Open the print options.
         openPrintOptions();
@@ -932,11 +954,14 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         // Click the print button.
         clickPrintButton();
 
+        // Answer the dialog for the print service cloud warning
+        answerPrintServicesWarning(true);
+
         // Wait for a finish.
         waitForAdapterFinishCallbackCalled();
 
         // Wait for the session to be destroyed to isolate tests.
-        waitForPrinterDiscoverySessionDestroyCallbackCalled();
+        waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
 
         // Verify the expected calls.
         InOrder inOrder = inOrder(adapter);
@@ -951,6 +976,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
                 .setMediaSize(MediaSize.NA_LETTER)
                 .setResolution(new Resolution("PDF resolution", "PDF resolution", 300, 300))
                 .setMinMargins(Margins.NO_MARGINS).setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+                .setDuplexMode(PrintAttributes.DUPLEX_MODE_NONE)
                 .build();
         verifyLayoutCall(inOrder, adapter, firstOldAttributes, firstNewAttributes, true);
 
@@ -1043,7 +1069,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         waitForAdapterFinishCallbackCalled();
 
         // Wait for the session to be destroyed to isolate tests.
-        waitForPrinterDiscoverySessionDestroyCallbackCalled();
+        waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
 
         // Verify the expected calls.
         InOrder inOrder = inOrder(adapter);
@@ -1058,6 +1084,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
                 .setMediaSize(MediaSize.NA_LETTER)
                 .setResolution(new Resolution("PDF resolution", "PDF resolution", 300, 300))
                 .setMinMargins(Margins.NO_MARGINS).setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+                .setDuplexMode(PrintAttributes.DUPLEX_MODE_NONE)
                 .build();
         verifyLayoutCall(inOrder, adapter, firstOldAttributes, firstNewAttributes, true);
 
@@ -1124,7 +1151,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         print(adapter);
 
         // Wait for write.
-        waitForWriteAdapterCallback();
+        waitForWriteAdapterCallback(1);
 
         // Cancel printing.
         getUiDevice().pressBack(); // wakes up the device.
@@ -1137,7 +1164,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         waitForAdapterFinishCallbackCalled();
 
         // Wait for the session to be destroyed to isolate tests.
-        waitForPrinterDiscoverySessionDestroyCallbackCalled();
+        waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
 
         // Verify the expected calls.
         InOrder inOrder = inOrder(adapter);
@@ -1152,6 +1179,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
                 .setMediaSize(MediaSize.NA_LETTER)
                 .setResolution(new Resolution("PDF resolution", "PDF resolution", 300, 300))
                 .setMinMargins(Margins.NO_MARGINS).setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+                .setDuplexMode(PrintAttributes.DUPLEX_MODE_NONE)
                 .build();
         verifyLayoutCall(inOrder, adapter, firstOldAttributes, firstNewAttributes, true);
 
@@ -1209,7 +1237,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         waitForAdapterFinishCallbackCalled();
 
         // Wait for the session to be destroyed to isolate tests.
-        waitForPrinterDiscoverySessionDestroyCallbackCalled();
+        waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
 
         // Verify the expected calls.
         InOrder inOrder = inOrder(adapter);
@@ -1224,6 +1252,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
                 .setMediaSize(MediaSize.NA_LETTER)
                 .setResolution(new Resolution("PDF resolution", "PDF resolution", 300, 300))
                 .setMinMargins(Margins.NO_MARGINS).setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+                .setDuplexMode(PrintAttributes.DUPLEX_MODE_NONE)
                 .build();
         verifyLayoutCall(inOrder, adapter, firstOldAttributes, firstNewAttributes, true);
 
@@ -1281,7 +1310,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         print(adapter);
 
         // Wait for write.
-        waitForWriteAdapterCallback();
+        waitForWriteAdapterCallback(1);
 
         // Cancel printing.
         getUiDevice().pressBack(); // wakes up the device.
@@ -1291,7 +1320,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         waitForAdapterFinishCallbackCalled();
 
         // Wait for the session to be destroyed to isolate tests.
-        waitForPrinterDiscoverySessionDestroyCallbackCalled();
+        waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
 
         // Verify the expected calls.
         InOrder inOrder = inOrder(adapter);
@@ -1306,6 +1335,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
                 .setMediaSize(MediaSize.NA_LETTER)
                 .setResolution(new Resolution("PDF resolution", "PDF resolution", 300, 300))
                 .setMinMargins(Margins.NO_MARGINS).setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+                .setDuplexMode(PrintAttributes.DUPLEX_MODE_NONE)
                 .build();
         verifyLayoutCall(inOrder, adapter, firstOldAttributes, firstNewAttributes, true);
 
@@ -1350,7 +1380,6 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
                 Object[] args = invocation.getArguments();
                 ParcelFileDescriptor fd = (ParcelFileDescriptor) args[1];
                 WriteResultCallback callback = (WriteResultCallback) args[3];
-                PageRange[] pages = (PageRange[]) args[0];
                 writeBlankPages(printAttributes[0], fd, Integer.MAX_VALUE, Integer.MAX_VALUE);
                 fd.close();
                 // Write wrong pages.
@@ -1373,7 +1402,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         print(adapter);
 
         // Wait for write.
-        waitForWriteAdapterCallback();
+        waitForWriteAdapterCallback(1);
 
         // Cancel printing.
         getUiDevice().pressBack(); // wakes up the device.
@@ -1383,7 +1412,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         waitForAdapterFinishCallbackCalled();
 
         // Wait for the session to be destroyed to isolate tests.
-        waitForPrinterDiscoverySessionDestroyCallbackCalled();
+        waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
 
         // Verify the expected calls.
         InOrder inOrder = inOrder(adapter);
@@ -1398,6 +1427,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
                 .setMediaSize(MediaSize.NA_LETTER)
                 .setResolution(new Resolution("PDF resolution", "PDF resolution", 300, 300))
                 .setMinMargins(Margins.NO_MARGINS).setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+                .setDuplexMode(PrintAttributes.DUPLEX_MODE_NONE)
                 .build();
         verifyLayoutCall(inOrder, adapter, firstOldAttributes, firstNewAttributes, true);
 
@@ -1454,7 +1484,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         waitForAdapterFinishCallbackCalled();
 
         // Wait for the session to be destroyed to isolate tests.
-        waitForPrinterDiscoverySessionDestroyCallbackCalled();
+        waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
 
         // Verify the expected calls.
         InOrder inOrder = inOrder(adapter);
@@ -1469,6 +1499,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
                 .setMediaSize(MediaSize.NA_LETTER)
                 .setResolution(new Resolution("PDF resolution", "PDF resolution", 300, 300))
                 .setMinMargins(Margins.NO_MARGINS).setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+                .setDuplexMode(PrintAttributes.DUPLEX_MODE_NONE)
                 .build();
         verifyLayoutCall(inOrder, adapter, firstOldAttributes, firstNewAttributes, true);
 
@@ -1523,7 +1554,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         print(adapter);
 
         // Wait for write.
-        waitForWriteAdapterCallback();
+        waitForWriteAdapterCallback(1);
 
         // Cancel printing.
         getUiDevice().pressBack(); // wakes up the device.
@@ -1533,7 +1564,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         waitForAdapterFinishCallbackCalled();
 
         // Wait for the session to be destroyed to isolate tests.
-        waitForPrinterDiscoverySessionDestroyCallbackCalled();
+        waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
 
         // Verify the expected calls.
         InOrder inOrder = inOrder(adapter);
@@ -1548,6 +1579,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
                 .setMediaSize(MediaSize.NA_LETTER)
                 .setResolution(new Resolution("PDF resolution", "PDF resolution", 300, 300))
                 .setMinMargins(Margins.NO_MARGINS).setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+                .setDuplexMode(PrintAttributes.DUPLEX_MODE_NONE)
                 .build();
         verifyLayoutCall(inOrder, adapter, firstOldAttributes, firstNewAttributes, true);
 
@@ -1561,6 +1593,224 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
 
         // No other call are expected.
         verifyNoMoreInteractions(adapter);
+    }
+
+    /**
+     * Pretend to have written two pages, but only actually write one page
+     *
+     * @throws Exception If anything is unexpected
+     */
+    public void testNotEnoughPages() throws Exception {
+        if (!supportsPrinting()) {
+            return;
+        }
+
+        FirstPrintService.setCallbacks(createFirstMockPrintServiceCallbacks());
+        SecondPrintService.setCallbacks(createSecondMockPrintServiceCallbacks());
+
+        final PrintAttributes[] printAttributes = new PrintAttributes[1];
+
+        final PrintDocumentAdapter adapter = createMockPrintDocumentAdapter(
+                new Answer<Void>() {
+                    @Override
+                    public Void answer(InvocationOnMock invocation) throws Throwable {
+                        printAttributes[0] = (PrintAttributes) invocation.getArguments()[1];
+                        LayoutResultCallback callback = (LayoutResultCallback) invocation
+                                .getArguments()[3];
+
+                        // Lay out two pages
+                        PrintDocumentInfo info = new PrintDocumentInfo.Builder(PRINT_JOB_NAME)
+                                .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
+                                .setPageCount(2)
+                                .build();
+                        callback.onLayoutFinished(info, true);
+                        return null;
+                    }
+                }, new Answer<Void>() {
+                    @Override
+                    public Void answer(InvocationOnMock invocation) throws Throwable {
+                        Object[] args = invocation.getArguments();
+                        PageRange[] pages = (PageRange[]) args[0];
+                        ParcelFileDescriptor fd = (ParcelFileDescriptor) args[1];
+                        WriteResultCallback callback = (WriteResultCallback) args[3];
+
+                        // Write only one pages
+                        writeBlankPages(printAttributes[0], fd, 0, 0);
+                        fd.close();
+
+                        // Break the contract and report that two pages were written
+                        callback.onWriteFinished(pages);
+                        onWriteCalled();
+                        return null;
+                    }
+                }, new Answer<Void>() {
+                    @Override
+                    public Void answer(InvocationOnMock invocation) throws Throwable {
+                        onFinishCalled();
+                        return null;
+                    }
+                });
+
+        print(adapter);
+        waitForWriteAdapterCallback(1);
+        selectPrinter("First printer");
+        clickPrintButton();
+
+        // Answer the dialog for the print service cloud warning
+        answerPrintServicesWarning(true);
+
+        waitForAdapterFinishCallbackCalled();
+
+        // Wait for the session to be destroyed to isolate tests.
+        waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
+    }
+
+    /**
+     * Executes a print process with a given print document info
+     *
+     * @param info The print document info to declare on layout
+     */
+    private void printDocumentInfoBaseTest(final PrintDocumentInfo info) throws Exception {
+        if (!supportsPrinting()) {
+            return;
+        }
+        // Configure the print services.
+        FirstPrintService.setCallbacks(createFirstMockPrintServiceCallbacks());
+        SecondPrintService.setCallbacks(createSecondMockPrintServiceCallbacks());
+
+        final PrintAttributes[] printAttributes = new PrintAttributes[1];
+
+        // Create a mock print adapter.
+        final PrintDocumentAdapter adapter = createMockPrintDocumentAdapter(
+                new Answer<Void>() {
+                    @Override
+                    public Void answer(InvocationOnMock invocation) throws Throwable {
+                        printAttributes[0] = (PrintAttributes) invocation.getArguments()[1];
+                        LayoutResultCallback callback = (LayoutResultCallback) invocation.getArguments()[3];
+                        callback.onLayoutFinished(info, false);
+                        // Mark layout was called.
+                        onLayoutCalled();
+                        return null;
+                    }
+                }, new Answer<Void>() {
+                    @Override
+                    public Void answer(InvocationOnMock invocation) throws Throwable {
+                        Object[] args = invocation.getArguments();
+                        PageRange[] pages = (PageRange[]) args[0];
+                        ParcelFileDescriptor fd = (ParcelFileDescriptor) args[1];
+                        WriteResultCallback callback = (WriteResultCallback) args[3];
+                        writeBlankPages(printAttributes[0], fd, 0, 1);
+                        fd.close();
+                        callback.onWriteFinished(pages);
+                        // Mark write was called.
+                        onWriteCalled();
+                        return null;
+                    }
+                }, new Answer<Void>() {
+                    @Override
+                    public Void answer(InvocationOnMock invocation) throws Throwable {
+                        // Mark finish was called.
+                        onFinishCalled();
+                        return null;
+                    }
+                });
+
+        // Start printing.
+        print(adapter);
+
+        // Select the second printer.
+        selectPrinter("Second printer");
+
+        // Wait for layout.
+        waitForLayoutAdapterCallbackCount(2);
+
+        // Click the print button.
+        clickPrintButton();
+
+        // Answer the dialog for the print service cloud warning
+        answerPrintServicesWarning(true);
+
+        // Wait for the session to be destroyed to isolate tests.
+        waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
+    }
+
+    /**
+     * Test that the default values of the PrintDocumentInfo are fine.
+     *
+     * @throws Exception If anything unexpected happens
+     */
+    public void testDocumentInfoNothingSet() throws Exception {
+        printDocumentInfoBaseTest((new PrintDocumentInfo.Builder(PRINT_JOB_NAME)).build());
+    }
+
+    /**
+     * Test that a unknown page count is handled correctly.
+     *
+     * @throws Exception If anything unexpected happens
+     */
+    public void testDocumentInfoUnknownPageCount() throws Exception {
+        printDocumentInfoBaseTest((new PrintDocumentInfo.Builder(PRINT_JOB_NAME))
+                .setPageCount(PrintDocumentInfo.PAGE_COUNT_UNKNOWN).build());
+    }
+
+    /**
+     * Test that zero page count is handled correctly.
+     *
+     * @throws Exception If anything unexpected happens
+     */
+    public void testDocumentInfoZeroPageCount() throws Exception {
+        printDocumentInfoBaseTest((new PrintDocumentInfo.Builder(PRINT_JOB_NAME))
+                .setPageCount(0).build());
+    }
+
+    /**
+     * Test that page count one is handled correctly. (The document has two pages)
+     *
+     * @throws Exception If anything unexpected happens
+     */
+    public void testDocumentInfoOnePageCount() throws Exception {
+        printDocumentInfoBaseTest((new PrintDocumentInfo.Builder(PRINT_JOB_NAME))
+                .setPageCount(1).build());
+    }
+
+    /**
+     * Test that page count three is handled correctly. (The document has two pages)
+     *
+     * @throws Exception If anything unexpected happens
+     */
+    public void testDocumentInfoThreePageCount() throws Exception {
+        printDocumentInfoBaseTest((new PrintDocumentInfo.Builder(PRINT_JOB_NAME))
+                .setPageCount(3).build());
+    }
+
+    /**
+     * Test that a photo content type is handled correctly.
+     *
+     * @throws Exception If anything unexpected happens
+     */
+    public void testDocumentInfoContentTypePhoto() throws Exception {
+        printDocumentInfoBaseTest((new PrintDocumentInfo.Builder(PRINT_JOB_NAME))
+                .setContentType(PrintDocumentInfo.CONTENT_TYPE_PHOTO).build());
+    }
+
+    /**
+     * Test that a unknown content type is handled correctly.
+     *
+     * @throws Exception If anything unexpected happens
+     */
+    public void testDocumentInfoContentTypeUnknown() throws Exception {
+        printDocumentInfoBaseTest((new PrintDocumentInfo.Builder(PRINT_JOB_NAME))
+                .setContentType(PrintDocumentInfo.CONTENT_TYPE_UNKNOWN).build());
+    }
+
+    /**
+     * Test that a undefined content type is handled correctly.
+     *
+     * @throws Exception If anything unexpected happens
+     */
+    public void testDocumentInfoContentTypeNonDefined() throws Exception {
+        printDocumentInfoBaseTest((new PrintDocumentInfo.Builder(PRINT_JOB_NAME))
+                .setContentType(-23).build());
     }
 
     private PrintServiceCallbacks createFirstMockPrintServiceCallbacks() {
@@ -1636,7 +1886,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
                 }
                 return null;
             }
-        }, null, null, null, null, new Answer<Void>() {
+        }, null, null, null, null, null, new Answer<Void>() {
                 @Override
                 public Void answer(InvocationOnMock invocation) throws Throwable {
                     // Take a note onDestroy was called.

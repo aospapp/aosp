@@ -64,6 +64,20 @@ public class CarrierConfigManagerTest extends AndroidTestCase {
             // Static default in CarrierConfigManager will be returned when no sim card present.
             assertEquals("Config doesn't match static default.",
                     config.getBoolean(CarrierConfigManager.KEY_ADDITIONAL_CALL_SETTING_BOOL), true);
+
+            assertEquals("KEY_VVM_DESTINATION_NUMBER_STRING doesn't match static default.",
+                config.getString(CarrierConfigManager.KEY_VVM_DESTINATION_NUMBER_STRING), "");
+            assertEquals("KEY_VVM_PORT_NUMBER_INT doesn't match static default.",
+                config.getInt(CarrierConfigManager.KEY_VVM_PORT_NUMBER_INT), 0);
+            assertEquals("KEY_VVM_TYPE_STRING doesn't match static default.",
+                config.getString(CarrierConfigManager.KEY_VVM_TYPE_STRING), "");
+            assertEquals("KEY_VVM_CELLULAR_DATA_REQUIRED_BOOLEAN doesn't match static default.",
+                config.getBoolean(CarrierConfigManager.KEY_VVM_CELLULAR_DATA_REQUIRED_BOOL),
+                false);
+            assertEquals("KEY_VVM_PREFETCH_BOOLEAN doesn't match static default.",
+                config.getBoolean(CarrierConfigManager.KEY_VVM_PREFETCH_BOOL), true);
+            assertEquals("KEY_CARRIER_VVM_PACKAGE_NAME_STRING doesn't match static default.",
+                config.getString(CarrierConfigManager.KEY_CARRIER_VVM_PACKAGE_NAME_STRING), "");
         }
     }
 
@@ -74,7 +88,7 @@ public class CarrierConfigManagerTest extends AndroidTestCase {
 
     public void testGetConfigForSubId() {
         PersistableBundle config =
-                mConfigManager.getConfigForSubId(SubscriptionManager.getDefaultSubId());
+                mConfigManager.getConfigForSubId(SubscriptionManager.getDefaultSubscriptionId());
         checkConfig(config);
     }
 
@@ -86,7 +100,8 @@ public class CarrierConfigManagerTest extends AndroidTestCase {
     public void testNotifyConfigChangedForSubId() {
         try {
             if (isSimCardPresent()) {
-                mConfigManager.notifyConfigChangedForSubId(SubscriptionManager.getDefaultSubId());
+                mConfigManager.notifyConfigChangedForSubId(
+                        SubscriptionManager.getDefaultSubscriptionId());
                 fail("Expected SecurityException. App doesn't have carrier privileges.");
             }
         } catch (SecurityException expected) {

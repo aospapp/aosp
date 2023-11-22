@@ -363,7 +363,7 @@ public class PKCS10CertificationRequest
         try
         {
             ASN1Sequence seq = (ASN1Sequence)ASN1Primitive.fromByteArray(key.getEncoded());
-            this.reqInfo = new CertificationRequestInfo(subject, new SubjectPublicKeyInfo(seq), attributes);
+            this.reqInfo = new CertificationRequestInfo(subject, SubjectPublicKeyInfo.getInstance(seq), attributes);
         }
         catch (IOException e)
         {
@@ -414,7 +414,7 @@ public class PKCS10CertificationRequest
         
         try
         {
-            X509EncodedKeySpec      xspec = new X509EncodedKeySpec(new DERBitString(subjectPKInfo).getBytes());
+            X509EncodedKeySpec      xspec = new X509EncodedKeySpec(new DERBitString(subjectPKInfo).getOctets());
             AlgorithmIdentifier     keyAlg = subjectPKInfo.getAlgorithm();
             try
             {
@@ -432,9 +432,9 @@ public class PKCS10CertificationRequest
                 //
                 // try an alternate
                 //
-                if (keyAlgorithms.get(keyAlg.getObjectId()) != null)
+                if (keyAlgorithms.get(keyAlg.getAlgorithm()) != null)
                 {
-                    String  keyAlgorithm = (String)keyAlgorithms.get(keyAlg.getObjectId());
+                    String  keyAlgorithm = (String)keyAlgorithms.get(keyAlg.getAlgorithm());
                     
                     if (provider == null)
                     {
@@ -507,9 +507,9 @@ public class PKCS10CertificationRequest
             //
             // try an alternate
             //
-            if (oids.get(sigAlgId.getObjectId()) != null)
+            if (oids.get(sigAlgId.getAlgorithm()) != null)
             {
-                String  signatureAlgorithm = (String)oids.get(sigAlgId.getObjectId());
+                String  signatureAlgorithm = (String)oids.get(sigAlgId.getAlgorithm());
 
                 if (provider == null)
                 {
@@ -539,7 +539,7 @@ public class PKCS10CertificationRequest
             throw new SignatureException("exception encoding TBS cert request - " + e);
         }
 
-        return sig.verify(sigBits.getBytes());
+        return sig.verify(sigBits.getOctets());
     }
 
     /**
@@ -596,14 +596,14 @@ public class PKCS10CertificationRequest
 
         if (params != null && !DERNull.INSTANCE.equals(params))
         {
-            if (sigAlgId.getObjectId().equals(PKCSObjectIdentifiers.id_RSASSA_PSS))
+            if (sigAlgId.getAlgorithm().equals(PKCSObjectIdentifiers.id_RSASSA_PSS))
             {
                 RSASSAPSSparams rsaParams = RSASSAPSSparams.getInstance(params);
-                return getDigestAlgName(rsaParams.getHashAlgorithm().getObjectId()) + "withRSAandMGF1";
+                return getDigestAlgName(rsaParams.getHashAlgorithm().getAlgorithm()) + "withRSAandMGF1";
             }
         }
 
-        return sigAlgId.getObjectId().getId();
+        return sigAlgId.getAlgorithm().getId();
     }
 
     private static String getDigestAlgName(

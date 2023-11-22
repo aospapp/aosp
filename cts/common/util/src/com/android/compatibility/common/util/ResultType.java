@@ -30,9 +30,16 @@ public enum ResultType {
     WARNING;
 
     /**
-     * Return string used in the XML report
+     * @return a string to be used in the report.
      */
-    public String getXmlString() {
+    public String toReportString() {
         return name().toLowerCase();
+    }
+
+    /**
+     * Returns a {@link ResultType} given a string from the report.
+     */
+    public static ResultType parseReportString(String value) {
+        return ResultType.valueOf(value.toUpperCase());
     }
 }

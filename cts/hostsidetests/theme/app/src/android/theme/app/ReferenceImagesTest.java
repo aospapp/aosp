@@ -25,6 +25,9 @@ import java.io.File;
  */
 public class ReferenceImagesTest extends ActivityInstrumentationTestCase2<GenerateImagesActivity> {
 
+    /** Overall test timeout is 30 minutes. Should only take about 5. */
+    private static final int TEST_RESULT_TIMEOUT = 30 * 60 * 1000;
+
     public ReferenceImagesTest() {
         super(GenerateImagesActivity.class);
     }
@@ -33,20 +36,12 @@ public class ReferenceImagesTest extends ActivityInstrumentationTestCase2<Genera
         setActivityInitialTouchMode(true);
 
         final GenerateImagesActivity activity = getActivity();
-        activity.waitForCompletion();
-
+        assertTrue("Activity failed to complete within " + TEST_RESULT_TIMEOUT + " ms",
+                activity.waitForCompletion(TEST_RESULT_TIMEOUT));
         assertTrue(activity.getFinishReason(), activity.isFinishSuccess());
 
-        final File outputDir = activity.getOutputDir();
-        final File outputZip = new File(outputDir.getParentFile(), outputDir.getName() + ".zip");
-        if (outputZip.exists()) {
-            // Remove any old test results.
-            outputZip.delete();
-        }
-
-        ThemeTestUtils.compressDirectory(outputDir, outputZip);
-        ThemeTestUtils.deleteDirectory(outputDir);
-
-        assertTrue("Generated reference image ZIP", outputZip.exists());
+        final File outputZip = activity.getOutputZip();
+        assertTrue("Failed to generate reference image ZIP",
+                outputZip != null && outputZip.exists());
     }
 }

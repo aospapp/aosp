@@ -234,6 +234,7 @@ void AudioPolicyService::doReleaseOutput(audio_io_handle_t output,
 status_t AudioPolicyService::getInputForAttr(const audio_attributes_t *attr,
                                              audio_io_handle_t *input,
                                              audio_session_t session,
+                                             pid_t pid __unused,
                                              uid_t uid __unused,
                                              uint32_t samplingRate,
                                              audio_format_t format,
@@ -427,7 +428,7 @@ audio_io_handle_t AudioPolicyService::getOutputForEffect(const effect_descriptor
 status_t AudioPolicyService::registerEffect(const effect_descriptor_t *desc,
                                 audio_io_handle_t io,
                                 uint32_t strategy,
-                                int session,
+                                audio_session_t session,
                                 int id)
 {
     if (mpAudioPolicy == NULL) {
@@ -488,7 +489,7 @@ bool AudioPolicyService::isSourceActive(audio_source_t source) const
     return mpAudioPolicy->is_source_active(mpAudioPolicy, source);
 }
 
-status_t AudioPolicyService::queryDefaultPreProcessing(int audioSession,
+status_t AudioPolicyService::queryDefaultPreProcessing(audio_session_t audioSession,
                                                        effect_descriptor_t *descriptors,
                                                        uint32_t *count)
 {
@@ -615,6 +616,16 @@ status_t AudioPolicyService::startAudioSource(const struct audio_port_config *so
 }
 
 status_t AudioPolicyService::stopAudioSource(audio_io_handle_t handle)
+{
+    return INVALID_OPERATION;
+}
+
+status_t AudioPolicyService::setMasterMono(bool mono)
+{
+    return INVALID_OPERATION;
+}
+
+status_t AudioPolicyService::getMasterMono(bool *mono)
 {
     return INVALID_OPERATION;
 }

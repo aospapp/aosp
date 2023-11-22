@@ -129,7 +129,7 @@ Decode_Status VideoDecoderAVCSecure::processModularInputBuffer(VideoDecodeBuffer
             return DECODE_MEMORY_FAIL;
         }
 
-        mFrameData = pFrameInfo->data;
+        mFrameData = (uint8_t *)pFrameInfo + pFrameInfo->data_offset_from_frameinfo;
         mFrameSize = pFrameInfo->size;
         VTRACE("mFrameData = %p, mFrameSize = %d", mFrameData, mFrameSize);
 
@@ -146,7 +146,7 @@ Decode_Status VideoDecoderAVCSecure::processModularInputBuffer(VideoDecodeBuffer
             nalu_size = pFrameInfo->nalus[i].length;
             nalu_type = pFrameInfo->nalus[i].type;
             nalu_offset = pFrameInfo->nalus[i].offset;
-            nalu_data = pFrameInfo->nalus[i].data;
+            nalu_data = ((uint8_t *)pFrameInfo) + pFrameInfo->nalus[i].data_offset_from_frameinfo;
             naluType  = nalu_type & NALU_TYPE_MASK;
 
             VTRACE("nalu_type = 0x%x, nalu_size = %d, nalu_offset = 0x%x", nalu_type, nalu_size, nalu_offset);
@@ -208,8 +208,8 @@ Decode_Status VideoDecoderAVCSecure::processModularInputBuffer(VideoDecodeBuffer
         VTRACE("Decoding clear video ...");
         mIsEncryptData = 0;
         mFrameSize = buffer->size;
-        mFrameData = buffer->data;
-        clear_data = buffer->data;
+        mFrameData = (uint8_t *)pFrameInfo + (int)pFrameInfo->data_offset_from_frameinfo;
+        clear_data = (uint8_t *)pFrameInfo + (int)pFrameInfo->data_offset_from_frameinfo;
         clear_data_size = buffer->size;
     }
 

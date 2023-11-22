@@ -30,7 +30,7 @@ namespace collector {
 namespace space {
 
 // An alloc space is a space where objects may be allocated and garbage collected. Not final as may
-// be overridden by a ValgrindMallocSpace.
+// be overridden by a MemoryToolMallocSpace.
 class DlMallocSpace : public MallocSpace {
  public:
   // Create a DlMallocSpace from an existing mem_map.
@@ -46,30 +46,30 @@ class DlMallocSpace : public MallocSpace {
   static DlMallocSpace* Create(const std::string& name, size_t initial_size, size_t growth_limit,
                                size_t capacity, uint8_t* requested_begin, bool can_move_objects);
 
-  // Virtual to allow ValgrindMallocSpace to intercept.
+  // Virtual to allow MemoryToolMallocSpace to intercept.
   virtual mirror::Object* AllocWithGrowth(Thread* self, size_t num_bytes, size_t* bytes_allocated,
                                           size_t* usable_size,
                                           size_t* bytes_tl_bulk_allocated)
-      OVERRIDE LOCKS_EXCLUDED(lock_);
-  // Virtual to allow ValgrindMallocSpace to intercept.
+      OVERRIDE REQUIRES(!lock_);
+  // Virtual to allow MemoryToolMallocSpace to intercept.
   virtual mirror::Object* Alloc(Thread* self, size_t num_bytes, size_t* bytes_allocated,
                                 size_t* usable_size, size_t* bytes_tl_bulk_allocated)
-      OVERRIDE LOCKS_EXCLUDED(lock_) {
+      OVERRIDE REQUIRES(!lock_) {
     return AllocNonvirtual(self, num_bytes, bytes_allocated, usable_size,
                            bytes_tl_bulk_allocated);
   }
-  // Virtual to allow ValgrindMallocSpace to intercept.
+  // Virtual to allow MemoryToolMallocSpace to intercept.
   virtual size_t AllocationSize(mirror::Object* obj, size_t* usable_size) OVERRIDE {
     return AllocationSizeNonvirtual(obj, usable_size);
   }
-  // Virtual to allow ValgrindMallocSpace to intercept.
+  // Virtual to allow MemoryToolMallocSpace to intercept.
   virtual size_t Free(Thread* self, mirror::Object* ptr) OVERRIDE
-      LOCKS_EXCLUDED(lock_)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
-  // Virtual to allow ValgrindMallocSpace to intercept.
+      REQUIRES(!lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
+  // Virtual to allow MemoryToolMallocSpace to intercept.
   virtual size_t FreeList(Thread* self, size_t num_ptrs, mirror::Object** ptrs) OVERRIDE
-      LOCKS_EXCLUDED(lock_)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      REQUIRES(!lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   size_t MaxBytesBulkAllocatedFor(size_t num_bytes) OVERRIDE {
     return num_bytes;
@@ -86,7 +86,7 @@ class DlMallocSpace : public MallocSpace {
   // Faster non-virtual allocation path.
   mirror::Object* AllocNonvirtual(Thread* self, size_t num_bytes, size_t* bytes_allocated,
                                   size_t* usable_size, size_t* bytes_tl_bulk_allocated)
-      LOCKS_EXCLUDED(lock_);
+      REQUIRES(!lock_);
 
   // Faster non-virtual allocation size path.
   size_t AllocationSizeNonvirtual(mirror::Object* obj, size_t* usable_size);
@@ -104,7 +104,7 @@ class DlMallocSpace : public MallocSpace {
 
   // Perform a mspace_inspect_all which calls back for each allocation chunk. The chunk may not be
   // in use, indicated by num_bytes equaling zero.
-  void Walk(WalkCallback callback, void* arg) OVERRIDE LOCKS_EXCLUDED(lock_);
+  void Walk(WalkCallback callback, void* arg) OVERRIDE REQUIRES(!lock_);
 
   // Returns the number of bytes that the space has currently obtained from the system. This is
   // greater or equal to the amount of live data in the space.
@@ -136,7 +136,7 @@ class DlMallocSpace : public MallocSpace {
   }
 
   void LogFragmentationAllocFailure(std::ostream& os, size_t failed_alloc_bytes) OVERRIDE
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
  protected:
   DlMallocSpace(MemMap* mem_map, size_t initial_size, const std::string& name, void* mspace,
@@ -147,7 +147,7 @@ class DlMallocSpace : public MallocSpace {
   mirror::Object* AllocWithoutGrowthLocked(Thread* self, size_t num_bytes, size_t* bytes_allocated,
                                            size_t* usable_size,
                                            size_t* bytes_tl_bulk_allocated)
-      EXCLUSIVE_LOCKS_REQUIRED(lock_);
+      REQUIRES(lock_);
 
   void* CreateAllocator(void* base, size_t morecore_start, size_t initial_size,
                         size_t /*maximum_size*/, bool /*low_memory_mode*/) OVERRIDE {

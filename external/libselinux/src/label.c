@@ -86,6 +86,7 @@ struct selabel_handle *selabel_open(unsigned int backend,
 	rec->validating = selabel_is_validate_set(opts, nopts);
 
 	if ((*initfuncs[backend])(rec, opts, nopts)) {
+		free(rec->spec_file);
 		free(rec);
 		rec = NULL;
 	}
@@ -149,9 +150,19 @@ int selabel_lookup_best_match(struct selabel_handle *rec, char **con,
 	return *con ? 0 : -1;
 }
 
+enum selabel_cmp_result selabel_cmp(struct selabel_handle *h1,
+				    struct selabel_handle *h2)
+{
+	if (!h1->func_cmp || h1->func_cmp != h2->func_cmp)
+		return SELABEL_INCOMPARABLE;
+
+	return h1->func_cmp(h1, h2);
+}
+
 void selabel_close(struct selabel_handle *rec)
 {
 	rec->func_close(rec);
+	free(rec->spec_file);
 	free(rec);
 }
 

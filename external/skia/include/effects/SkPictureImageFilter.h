@@ -16,18 +16,17 @@ public:
     /**
      *  Refs the passed-in picture.
      */
-    static SkPictureImageFilter* Create(const SkPicture* picture) {
-        return SkNEW_ARGS(SkPictureImageFilter, (picture));
+    static SkImageFilter* Create(const SkPicture* picture) {
+        return new SkPictureImageFilter(picture);
     }
 
     /**
      *  Refs the passed-in picture. cropRect can be used to crop or expand the destination rect when
      *  the picture is drawn. (No scaling is implied by the dest rect; only the CTM is applied.)
      */
-    static SkPictureImageFilter* Create(const SkPicture* picture, const SkRect& cropRect) {
-        return SkNEW_ARGS(SkPictureImageFilter, (picture, cropRect,
-                                                 kDeviceSpace_PictureResolution,
-                                                 kLow_SkFilterQuality));
+    static SkImageFilter* Create(const SkPicture* picture, const SkRect& cropRect) {
+        return new SkPictureImageFilter(picture, cropRect, kDeviceSpace_PictureResolution,
+                                        kLow_SkFilterQuality);
     }
 
     /**
@@ -37,19 +36,13 @@ public:
      *  expand the destination rect when the picture is drawn. (No scaling is implied by the
      *  dest rect; only the CTM is applied.)
      */
-    static SkPictureImageFilter* CreateForLocalSpace(const SkPicture* picture,
+    static SkImageFilter* CreateForLocalSpace(const SkPicture* picture,
                                                      const SkRect& cropRect,
                                                      SkFilterQuality filterQuality) {
-        return SkNEW_ARGS(SkPictureImageFilter, (picture, cropRect,
-                                                 kLocalSpace_PictureResolution, filterQuality));
+        return new SkPictureImageFilter(picture, cropRect, kLocalSpace_PictureResolution,
+                                        filterQuality);
     }
-#ifdef SK_SUPPORT_LEGACY_FILTERLEVEL_ENUM
-    static SkPictureImageFilter* CreateForLocalSpace(const SkPicture* picture,
-                                                     const SkRect& cropRect,
-                                                     SkPaint::FilterLevel filterLevel) {
-        return CreateForLocalSpace(picture, cropRect, (SkFilterQuality)filterLevel);
-    }
-#endif
+
     SK_TO_STRING_OVERRIDE()
     SK_DECLARE_PUBLIC_FLATTENABLE_DESERIALIZATION_PROCS(SkPictureImageFilter)
 
@@ -59,10 +52,8 @@ protected:
         kLocalSpace_PictureResolution
     };
 
-    explicit SkPictureImageFilter(const SkPicture* picture);
-    SkPictureImageFilter(const SkPicture* picture, const SkRect& cropRect,
-                         PictureResolution, SkFilterQuality);
     virtual ~SkPictureImageFilter();
+
     /*  Constructs an SkPictureImageFilter object from an SkReadBuffer.
      *  Note: If the SkPictureImageFilter object construction requires bitmap
      *  decoding, the decoder must be set on the SkReadBuffer parameter by calling
@@ -70,13 +61,15 @@ protected:
      *  @param SkReadBuffer Serialized picture data.
      */
     void flatten(SkWriteBuffer&) const override;
-    virtual bool onFilterImage(Proxy*, const SkBitmap& src, const Context&,
-                               SkBitmap* result, SkIPoint* offset) const override;
+    bool onFilterImageDeprecated(Proxy*, const SkBitmap& src, const Context&, SkBitmap* result,
+                                 SkIPoint* offset) const override;
 
 private:
+    explicit SkPictureImageFilter(const SkPicture* picture);
+    SkPictureImageFilter(const SkPicture* picture, const SkRect& cropRect,
+                         PictureResolution, SkFilterQuality);
 
-
-    void drawPictureAtDeviceResolution(Proxy*, SkBaseDevice*, const SkIRect& deviceBounds,
+    void drawPictureAtDeviceResolution(SkBaseDevice*, const SkIRect& deviceBounds,
                                        const Context&) const;
     void drawPictureAtLocalResolution(Proxy*, SkBaseDevice*, const SkIRect& deviceBounds,
                                       const Context&) const;
@@ -85,6 +78,7 @@ private:
     SkRect                fCropRect;
     PictureResolution     fPictureResolution;
     SkFilterQuality       fFilterQuality;
+
     typedef SkImageFilter INHERITED;
 };
 

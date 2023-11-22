@@ -25,6 +25,8 @@
         <TextView
             android:text="@{str}"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content" >
+            <tag android:id="@+id/customTag" android:value="Hello"/>
+        </TextView>
     </LinearLayout>
 </layout>

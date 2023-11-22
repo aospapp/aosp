@@ -19,7 +19,7 @@ package android.content.res.cts;
 import android.content.res.Resources;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
-import com.android.cts.content.R;
+import android.content.cts.R;
 
 import java.io.IOException;
 import java.io.InputStream;

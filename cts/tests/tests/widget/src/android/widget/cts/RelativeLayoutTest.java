@@ -16,7 +16,7 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -46,7 +46,7 @@ public class RelativeLayoutTest extends
     private Activity mActivity;
 
     public RelativeLayoutTest() {
-        super("com.android.cts.widget", RelativeLayoutCtsActivity.class);
+        super("android.widget.cts", RelativeLayoutCtsActivity.class);
     }
 
     @Override
@@ -294,6 +294,25 @@ public class RelativeLayoutTest extends
         assertTrue(layoutParams instanceof RelativeLayout.LayoutParams);
         assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, layoutParams.width);
         assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, layoutParams.height);
+    }
+
+    public void testGenerateLayoutParamsFromMarginParams() {
+        MyRelativeLayout layout = new MyRelativeLayout(mActivity);
+        ViewGroup.MarginLayoutParams lp = new ViewGroup.MarginLayoutParams(3, 5);
+        lp.leftMargin = 1;
+        lp.topMargin = 2;
+        lp.rightMargin = 3;
+        lp.bottomMargin = 4;
+        RelativeLayout.LayoutParams generated = (RelativeLayout.LayoutParams)
+                layout.generateLayoutParams(lp);
+        assertNotNull(generated);
+        assertEquals(3, generated.width);
+        assertEquals(5, generated.height);
+
+        assertEquals(1, generated.leftMargin);
+        assertEquals(2, generated.topMargin);
+        assertEquals(3, generated.rightMargin);
+        assertEquals(4, generated.bottomMargin);
     }
 
     public void testOnMeasure() {

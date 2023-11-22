@@ -78,7 +78,9 @@ public class HeadsetService extends ProfileService {
         } catch (Exception e) {
             Log.w(TAG,"Unable to unregister headset receiver",e);
         }
-        mStateMachine.doQuit();
+        if (mStateMachine != null) {
+            mStateMachine.doQuit();
+        }
         return true;
     }
 
@@ -241,6 +243,21 @@ public class HeadsetService extends ProfileService {
             HeadsetService service = getService();
             if (service == null) return false;
             return service.disconnectAudio();
+        }
+
+        public void setAudioRouteAllowed(boolean allowed) {
+            HeadsetService service = getService();
+            if (service == null) return;
+            service.setAudioRouteAllowed(allowed);
+        }
+
+        public boolean getAudioRouteAllowed() {
+            HeadsetService service = getService();
+            if (service != null) {
+                return service.getAudioRouteAllowed();
+            }
+
+            return false;
         }
 
         public boolean startScoUsingVirtualVoiceCall(BluetoothDevice device) {
@@ -446,6 +463,14 @@ public class HeadsetService extends ProfileService {
 
     int getAudioState(BluetoothDevice device) {
         return mStateMachine.getAudioState(device);
+    }
+
+    public void setAudioRouteAllowed(boolean allowed) {
+        mStateMachine.setAudioRouteAllowed(allowed);
+    }
+
+    public boolean getAudioRouteAllowed() {
+        return mStateMachine.getAudioRouteAllowed();
     }
 
     boolean connectAudio() {

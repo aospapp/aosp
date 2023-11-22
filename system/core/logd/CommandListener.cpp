@@ -25,17 +25,20 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#include <string>
+
+#include <android-base/stringprintf.h>
 #include <cutils/sockets.h>
 #include <private/android_filesystem_config.h>
 #include <sysutils/SocketClient.h>
 
 #include "CommandListener.h"
 #include "LogCommand.h"
+#include "LogUtils.h"
 
 CommandListener::CommandListener(LogBuffer *buf, LogReader * /*reader*/,
                                  LogListener * /*swl*/) :
-        FrameworkListener(getLogSocket()),
-        mBuf(*buf) {
+        FrameworkListener(getLogSocket()) {
     // registerCmd(new ShutdownCmd(buf, writer, swl));
     registerCmd(new ClearCmd(buf));
     registerCmd(new GetBufSizeCmd(buf));
@@ -47,10 +50,9 @@ CommandListener::CommandListener(LogBuffer *buf, LogReader * /*reader*/,
     registerCmd(new ReinitCmd());
 }
 
-CommandListener::ShutdownCmd::ShutdownCmd(LogBuffer *buf, LogReader *reader,
+CommandListener::ShutdownCmd::ShutdownCmd(LogReader *reader,
                                           LogListener *swl) :
         LogCommand("shutdown"),
-        mBuf(*buf),
         mReader(*reader),
         mSwl(*swl) {
 }
@@ -95,8 +97,7 @@ int CommandListener::ClearCmd::runCommand(SocketClient *cli,
         return 0;
     }
 
-    mBuf.clear((log_id_t) id, uid);
-    cli->sendMsg("success");
+    cli->sendMsg(mBuf.clear((log_id_t) id, uid) ? "busy" : "success");
     return 0;
 }
 
@@ -191,22 +192,13 @@ CommandListener::GetStatisticsCmd::GetStatisticsCmd(LogBuffer *buf) :
         mBuf(*buf) {
 }
 
-static void package_string(char **strp) {
-    const char *a = *strp;
-    if (!a) {
-        a = "";
-    }
-
+static std::string package_string(const std::string &str) {
     // Calculate total buffer size prefix, count is the string length w/o nul
     char fmt[32];
-    for(size_t l = strlen(a), y = 0, x = 6; y != x; y = x, x = strlen(fmt) - 2) {
+    for(size_t l = str.length(), y = 0, x = 6; y != x; y = x, x = strlen(fmt) - 2) {
         snprintf(fmt, sizeof(fmt), "%zu\n%%s\n\f", l + x);
     }
-
-    char *b = *strp;
-    *strp = NULL;
-    asprintf(strp, fmt, a);
-    free(b);
+    return android::base::StringPrintf(fmt, str.c_str());
 }
 
 int CommandListener::GetStatisticsCmd::runCommand(SocketClient *cli,
@@ -218,9 +210,20 @@ int CommandListener::GetStatisticsCmd::runCommand(SocketClient *cli,
     }
 
     unsigned int logMask = -1;
+    pid_t pid = 0;
     if (argc > 1) {
         logMask = 0;
         for (int i = 1; i < argc; ++i) {
+            static const char _pid[] = "pid=";
+            if (!strncmp(argv[i], _pid, sizeof(_pid) - 1)) {
+                pid = atol(argv[i] + sizeof(_pid) - 1);
+                if (pid == 0) {
+                    cli->sendMsg("PID Error");
+                    return 0;
+                }
+                continue;
+            }
+
             int id = atoi(argv[i]);
             if ((id < LOG_ID_MIN) || (LOG_ID_MAX <= id)) {
                 cli->sendMsg("Range Error");
@@ -230,16 +233,8 @@ int CommandListener::GetStatisticsCmd::runCommand(SocketClient *cli,
         }
     }
 
-    char *buf = NULL;
-
-    mBuf.formatStatistics(&buf, uid, logMask);
-    if (!buf) {
-        cli->sendMsg("Failed");
-    } else {
-        package_string(&buf);
-        cli->sendMsg(buf);
-        free(buf);
-    }
+    cli->sendMsg(package_string(mBuf.formatStatistics(uid, pid,
+                                                      logMask)).c_str());
     return 0;
 }
 
@@ -251,15 +246,7 @@ CommandListener::GetPruneListCmd::GetPruneListCmd(LogBuffer *buf) :
 int CommandListener::GetPruneListCmd::runCommand(SocketClient *cli,
                                          int /*argc*/, char ** /*argv*/) {
     setname();
-    char *buf = NULL;
-    mBuf.formatPrune(&buf);
-    if (!buf) {
-        cli->sendMsg("Failed");
-    } else {
-        package_string(&buf);
-        cli->sendMsg(buf);
-        free(buf);
-    }
+    cli->sendMsg(package_string(mBuf.formatPrune()).c_str());
     return 0;
 }
 
@@ -276,20 +263,15 @@ int CommandListener::SetPruneListCmd::runCommand(SocketClient *cli,
         return 0;
     }
 
-    char *cp = NULL;
+    std::string str;
     for (int i = 1; i < argc; ++i) {
-        char *p = cp;
-        if (p) {
-            cp = NULL;
-            asprintf(&cp, "%s %s", p, argv[i]);
-            free(p);
-        } else {
-            asprintf(&cp, "%s", argv[i]);
+        if (str.length()) {
+            str += " ";
         }
+        str += argv[i];
     }
 
-    int ret = mBuf.initPrune(cp);
-    free(cp);
+    int ret = mBuf.initPrune(str.c_str());
 
     if (ret) {
         cli->sendMsg("Invalid");

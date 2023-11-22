@@ -31,9 +31,6 @@ public class CodeTagInfo extends TagInfo {
   }
 
   public CodeTagInfo(String text, SourcePositionInfo sp) {
-    // TODO: the correct behavior is to escape the text,
-    // but we'll have to update the Android sources before making the switch.
-    //super("@code", "@code", encode(text), sp);
-    super("@code", "@code", text, sp);
+    super("@code", "@code", encode(text), sp);
   }
 }

@@ -24,6 +24,11 @@ import java.util.UUID;
 import libcore.io.Libcore;
 
 public class FileTest extends junit.framework.TestCase {
+
+    static {
+        System.loadLibrary("javacoretests");
+    }
+
     private static File createTemporaryDirectory() throws Exception {
         String base = System.getProperty("java.io.tmpdir");
         File directory = new File(base, UUID.randomUUID().toString());
@@ -270,5 +275,97 @@ public class FileTest extends junit.framework.TestCase {
         assertTrue(existsAsFile.exists());
         assertFalse(badParent.exists());
         assertFalse(badParent.mkdirs());
+    }
+
+    // http://b/23523042 : Test that creating a directory and file with
+    // a surrogate pair in the name works as expected and roundtrips correctly.
+    public void testFilesWithSurrogatePairs() throws Exception {
+        File base = createTemporaryDirectory();
+        // U+13000 encodes to the surrogate pair D80C + DC00 in UTF16
+        // and the 4 byte UTF-8 sequence [ 0xf0, 0x93, 0x80, 0x80 ]. The
+        // file name must be encoded using the 4 byte UTF-8 sequence before
+        // it reaches the file system.
+        File subDir = new File(base, "dir_\uD80C\uDC00");
+        assertTrue(subDir.mkdir());
+        File subFile = new File(subDir, "file_\uD80C\uDC00");
+        assertTrue(subFile.createNewFile());
+
+        File[] files = base.listFiles();
+        assertEquals(1, files.length);
+        assertEquals("dir_\uD80C\uDC00", files[0].getName());
+
+        files = subDir.listFiles();
+        assertEquals(1, files.length);
+        assertEquals("file_\uD80C\uDC00", files[0].getName());
+
+        // Throws on error.
+        nativeTestFilesWithSurrogatePairs(base.getAbsolutePath());
+    }
+
+    // http://b/25878034
+    //
+    // SELinux prevents stat(2) from working on some parts of the system partition, and there
+    // isn't currently a CTS test that enforces this for the system partition as a whole (and it
+    // isn't clear that there can be one). This particular file has a special label
+    // (see file_contexts) that makes sure it isn't unstattable but then again this file might
+    // disappear soon or be absent on some devices.
+    //
+    // TODO: This isn't a very good test. uncrypt is scheduled to disappear somewhere
+    // in the near future. Is there a better candidate file ?
+    public void testExistsOnSystem() {
+        File sh = new File("/system/bin/uncrypt");
+        assertTrue(sh.exists());
+        try {
+            android.system.Os.stat(sh.getAbsolutePath());
+            fail();
+        } catch (android.system.ErrnoException expected) {
+        }
+    }
+
+    // http://b/25859957
+    //
+    // OpenJdk is treating empty parent string as a special case,
+    // it substitutes parent string with the filesystem default parent value "/"
+    // This wasn't the case before the switch to openJdk.
+    public void testEmptyParentString() {
+        File f1 = new File("", "foo.bar");
+        File f2 = new File((String)null, "foo.bar");
+        assertEquals("foo.bar", f1.toString());
+        assertEquals("foo.bar", f2.toString());
+    }
+
+    // http://b/27273930
+    public void testJavaIoTmpdirMutable() throws Exception {
+        final String oldTmpDir = System.getProperty("java.io.tmpdir");
+        final String directoryName = "/newTemp" + Integer.toString(Math.randomIntInternal());
+        final String newTmpDir = oldTmpDir + directoryName;
+        File subDir = new File(oldTmpDir, directoryName);
+        assertTrue(subDir.mkdir());
+        try {
+            System.setProperty("java.io.tmpdir", newTmpDir);
+            File tempFile = File.createTempFile("foo", ".bar");
+            assertTrue(tempFile.getAbsolutePath().contains(directoryName));
+        } finally {
+            System.setProperty("java.io.tmpdir", oldTmpDir);
+        }
+    }
+
+    private static native void nativeTestFilesWithSurrogatePairs(String base);
+
+    // http://b/27731686
+    public void testBug27731686() {
+        File file = new File("/test1", "/");
+        assertEquals("/test1", file.getPath());
+        assertEquals("test1", file.getName());
+    }
+
+    public void testFileNameNormalization() {
+        assertEquals("/", new File("/", "/").getPath());
+        assertEquals("/", new File("/", "").getPath());
+        assertEquals("/", new File("", "/").getPath());
+        assertEquals("", new File("", "").getPath());
+
+        assertEquals("/foo/bar", new File("/foo/", "/bar/").getPath());
+        assertEquals("/foo/bar", new File("/foo", "/bar//").getPath());
     }
 }

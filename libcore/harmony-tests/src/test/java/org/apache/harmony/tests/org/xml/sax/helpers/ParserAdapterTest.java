@@ -14,12 +14,16 @@
  * limitations under the License.
  */
 
-package tests.api.org.xml.sax.helpers;
+package org.apache.harmony.tests.org.xml.sax.helpers;
 
 import java.io.IOException;
 
 import junit.framework.TestCase;
 
+import org.apache.harmony.tests.org.xml.sax.support.MethodLogger;
+import org.apache.harmony.tests.org.xml.sax.support.MockHandler;
+import org.apache.harmony.tests.org.xml.sax.support.MockParser;
+import org.apache.harmony.tests.org.xml.sax.support.MockResolver;
 import org.xml.sax.AttributeList;
 import org.xml.sax.Attributes;
 import org.xml.sax.ContentHandler;
@@ -35,11 +39,6 @@ import org.xml.sax.SAXNotSupportedException;
 import org.xml.sax.helpers.AttributeListImpl;
 import org.xml.sax.helpers.LocatorImpl;
 import org.xml.sax.helpers.ParserAdapter;
-
-import tests.api.org.xml.sax.support.MethodLogger;
-import tests.api.org.xml.sax.support.MockHandler;
-import tests.api.org.xml.sax.support.MockParser;
-import tests.api.org.xml.sax.support.MockResolver;
 
 @SuppressWarnings("deprecation")
 public class ParserAdapterTest extends TestCase {
@@ -85,7 +84,7 @@ public class ParserAdapterTest extends TestCase {
 
     public void testParserAdapter() {
         System.setProperty("org.xml.sax.parser",
-                "tests.api.org.xml.sax.support.DoNothingParser");
+                "org.apache.harmony.tests.org.xml.sax.support.DoNothingParser");
 
         try {
             new ParserAdapter();

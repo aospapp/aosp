@@ -433,7 +433,11 @@ DateFormatTest::escape(UnicodeString& s)
 /**
  * This MUST be kept in sync with DateFormatSymbols.gPatternChars.
  */
+#if UDAT_HAS_PATTERN_CHAR_FOR_TIME_SEPARATOR
 static const char* PATTERN_CHARS = "GyMdkHmsSEDFwWahKzYeugAZvcLQqVUOXxr:";
+#else
+static const char* PATTERN_CHARS = "GyMdkHmsSEDFwWahKzYeugAZvcLQqVUOXxr";
+#endif
 
 /**
  * A list of the names of all the fields in DateFormat.
@@ -501,7 +505,11 @@ void DateFormatTest::TestFieldPosition() {
     assertEquals("patternChars", PATTERN_CHARS, rootSyms.getLocalPatternChars(buf));
     assertEquals("patternChars", PATTERN_CHARS, DateFormatSymbols::getPatternUChars());
     assertTrue("DATEFORMAT_FIELD_NAMES", DATEFORMAT_FIELD_NAMES_LENGTH == UDAT_FIELD_COUNT);
+#if UDAT_HAS_PATTERN_CHAR_FOR_TIME_SEPARATOR
     assertTrue("Data", UDAT_FIELD_COUNT == uprv_strlen(PATTERN_CHARS));
+#else
+    assertTrue("Data", UDAT_FIELD_COUNT == uprv_strlen(PATTERN_CHARS) + 1); // +1 for missing TIME_SEPARATOR pattern char
+#endif
 
     // Create test formatters
     const int32_t COUNT = 4;
@@ -531,22 +539,38 @@ void DateFormatTest::TestFieldPosition() {
         "", "1997", "August", "13", "", "", "34", "12", "", "Wednesday",
         "", "", "", "", "PM", "2", "", "Pacific Daylight Time", "", "",
         "", "", "", "", "", "", "", "", "", "",
+#if UDAT_HAS_PATTERN_CHAR_FOR_TIME_SEPARATOR
         "", "", "", "", "", ":",
+#else
+        "", "", "", "", "", "",
+#endif
 
         "", "1997", "ao\\u00FBt", "13", "", "14", "34", "12", "", "mercredi",
         "", "", "", "", "", "", "", "heure d\\u2019\\u00E9t\\u00E9 du Pacifique", "", "",
         "", "", "", "", "",  "", "", "", "", "",
+#if UDAT_HAS_PATTERN_CHAR_FOR_TIME_SEPARATOR
         "", "", "", "", "", ":",
+#else
+        "", "", "", "", "", "",
+#endif
 
         "AD", "1997", "8", "13", "14", "14", "34", "12", "5", "Wed",
         "225", "2", "33", "3", "PM", "2", "2", "PDT", "1997", "4",
         "1997", "2450674", "52452513", "-0700", "PT",  "4", "8", "3", "3", "uslax",
+#if UDAT_HAS_PATTERN_CHAR_FOR_TIME_SEPARATOR
         "1997", "GMT-7", "-07", "-07", "1997", ":",
+#else
+        "1997", "GMT-7", "-07", "-07", "1997", "",
+#endif
 
         "Anno Domini", "1997", "August", "0013", "0014", "0014", "0034", "0012", "5130", "Wednesday",
         "0225", "0002", "0033", "0003", "PM", "0002", "0002", "Pacific Daylight Time", "1997", "Wednesday",
         "1997", "2450674", "52452513", "GMT-07:00", "Pacific Time",  "Wednesday", "August", "3rd quarter", "3rd quarter", "Los Angeles Time",
+#if UDAT_HAS_PATTERN_CHAR_FOR_TIME_SEPARATOR
         "1997", "GMT-07:00", "-0700", "-0700", "1997", ":",
+#else
+        "1997", "GMT-07:00", "-0700", "-0700", "1997", "",
+#endif
     };
 
     const int32_t EXPECTED_LENGTH = sizeof(EXPECTED)/sizeof(EXPECTED[0]);
@@ -1290,7 +1314,7 @@ DateFormatTest::TestLocaleDateFormat() // Bug 495
         DateFormat::FULL, Locale::getFrench());
     DateFormat *dfUS = DateFormat::createDateTimeInstance(DateFormat::FULL,
         DateFormat::FULL, Locale::getUS());
-    UnicodeString expectedFRENCH ( "lundi 15 septembre 1997 00:00:00 heure d\\u2019\\u00E9t\\u00E9 du Pacifique", -1, US_INV );
+    UnicodeString expectedFRENCH ( "lundi 15 septembre 1997 \\u00E0 00:00:00 heure d\\u2019\\u00E9t\\u00E9 du Pacifique", -1, US_INV );
     expectedFRENCH = expectedFRENCH.unescape();
     UnicodeString expectedUS ( "Monday, September 15, 1997 at 12:00:00 AM Pacific Daylight Time" );
     logln((UnicodeString)"Date set to : " + dateToString(testDate));
@@ -1318,6 +1342,8 @@ DateFormatTest::TestLocaleDateFormat() // Bug 495
 void
 DateFormatTest::TestFormattingLocaleTimeSeparator()
 {
+    // This test not as useful is it once was, since timeSeparator
+    // in the Arabic is changed back to ":" in CLDR 28.
     const UDate testDate = 874266720000.;  // Sun Sep 14 21:52:00 CET 1997
     logln((UnicodeString)"Date set to : " + dateToString(testDate));
 
@@ -1338,7 +1364,7 @@ DateFormatTest::TestFormattingLocaleTimeSeparator()
     dfLatn->setTimeZone(*tz);
 
     const UnicodeString expectedArab = UnicodeString(
-            "\\u0669\\u060C\\u0665\\u0662 \\u0645", -1, US_INV).unescape();
+            "\\u0669:\\u0665\\u0662 \\u0645", -1, US_INV).unescape();
 
     const UnicodeString expectedLatn = UnicodeString(
             "9:52 \\u0645", -1, US_INV).unescape();
@@ -1696,8 +1722,8 @@ void DateFormatTest::TestShortDays()
         "EEEEEE d MMM y",  "fp", "2013 01 13 0:00:00", "s\\u00F6 13 jan. 2013", "2013 01 13 0:00:00",
         "EEEEEE d MMM y",  "fp", "2013 01 16 0:00:00", "on 16 jan. 2013",       "2013 01 16 0:00:00",
         "EEEEEE d",        "fp", "1970 01 17 0:00:00", "l\\u00F6 17",          "1970 01 17 0:00:00",
-        "cccccc d",        "fp", "1970 01 17 0:00:00", "L\\u00F6 17",          "1970 01 17 0:00:00",
-        "cccccc",          "fp", "1970 01 03 0:00:00", "L\\u00F6",             "1970 01 03 0:00:00",
+        "cccccc d",        "fp", "1970 01 17 0:00:00", "l\\u00F6 17",          "1970 01 17 0:00:00",
+        "cccccc",          "fp", "1970 01 03 0:00:00", "l\\u00F6",             "1970 01 03 0:00:00",
     };
     expect(EN_DATA, ARRAY_SIZE(EN_DATA), Locale("en", "", ""));
     expect(SV_DATA, ARRAY_SIZE(SV_DATA), Locale("sv", "", ""));
@@ -1807,8 +1833,8 @@ void DateFormatTest::TestNarrowNames()
             "ccccc", "1970 01 02 0:00:00", "P",
             "ccccc", "1970 01 03 0:00:00", "S",
             
-            "h:mm a",     "2015 01 01 10:00:00", "10:00 dopoledne",
-            "h:mm a",     "2015 01 01 22:00:00", "10:00 odpoledne",
+            "h:mm a",     "2015 01 01 10:00:00", "10:00 dop.",
+            "h:mm a",     "2015 01 01 22:00:00", "10:00 odp.",
             "h:mm aaaaa", "2015 01 01 10:00:00", "10:00 dop.",
             "h:mm aaaaa", "2015 01 01 22:00:00", "10:00 odp.",
         };
@@ -1818,8 +1844,8 @@ void DateFormatTest::TestNarrowNames()
 
             "h:mm a",     "2015 01 01 10:00:00", "10:00 a. m.",
             "h:mm a",     "2015 01 01 22:00:00", "10:00 p. m.",
-            "h:mm aaaaa", "2015 01 01 10:00:00", "10:00 a.m.",
-            "h:mm aaaaa", "2015 01 01 22:00:00", "10:00 p.m.",
+            "h:mm aaaaa", "2015 01 01 10:00:00", "10:00 a. m.",
+            "h:mm aaaaa", "2015 01 01 22:00:00", "10:00 p. m.",
         };
 
       expectFormat(EN_DATA, ARRAY_SIZE(EN_DATA), Locale("en", "", ""));
@@ -1860,6 +1886,9 @@ void DateFormatTest::TestQuarters()
         "qq",   "fp", "1970 04 01", "02",          "1970 04 01",
         "qqq",  "fp", "1970 07 01", "Q3",          "1970 07 01",
         "qqqq", "fp", "1970 10 01", "4th quarter", "1970 10 01",
+
+        "Qyy",  "fp", "2015 04 01", "215",         "2015 04 01",
+        "QQyy", "fp", "2015 07 01", "0315",        "2015 07 01",
     };
 
     expect(EN_DATA, ARRAY_SIZE(EN_DATA), Locale("en", "", ""));
@@ -3105,8 +3134,8 @@ void DateFormatTest::TestTimeZoneDisplayName()
         { "bg", "Europe/London", "2004-07-15T00:00:00Z", "ZZZZ", "\\u0413\\u0440\\u0438\\u043D\\u0443\\u0438\\u0447+01:00", "+1:00" },
         { "bg", "Europe/London", "2004-07-15T00:00:00Z", "z", "\\u0413\\u0440\\u0438\\u043D\\u0443\\u0438\\u0447+1", "+1:00" },
         { "bg", "Europe/London", "2004-07-15T00:00:00Z", "zzzz", "\\u0411\\u0440\\u0438\\u0442\\u0430\\u043d\\u0441\\u043a\\u043e \\u043b\\u044f\\u0442\\u043d\\u043e \\u0447\\u0430\\u0441\\u043e\\u0432\\u043e \\u0432\\u0440\\u0435\\u043c\\u0435", "+1:00" },
-        { "bg", "Europe/London", "2004-07-15T00:00:00Z", "v", "\\u0412\\u0435\\u043b\\u0438\\u043a\\u043e\\u0431\\u0440\\u0438\\u0442\\u0430\\u043d\\u0438\\u044f", "Europe/London" },
-        { "bg", "Europe/London", "2004-07-15T00:00:00Z", "vvvv", "\\u0412\\u0435\\u043b\\u0438\\u043a\\u043e\\u0431\\u0440\\u0438\\u0442\\u0430\\u043d\\u0438\\u044f", "Europe/London" },
+        { "bg", "Europe/London", "2004-07-15T00:00:00Z", "v", "\\u041E\\u0431\\u0435\\u0434\\u0438\\u043D\\u0435\\u043D\\u043E\\u0442\\u043E \\u043A\\u0440\\u0430\\u043B\\u0441\\u0442\\u0432\\u043E", "Europe/London" },
+        { "bg", "Europe/London", "2004-07-15T00:00:00Z", "vvvv", "\\u041E\\u0431\\u0435\\u0434\\u0438\\u043D\\u0435\\u043D\\u043E\\u0442\\u043E \\u043A\\u0440\\u0430\\u043B\\u0441\\u0442\\u0432\\u043E", "Europe/London" },
 
         { "bg", "Etc/GMT+3", "2004-01-15T00:00:00Z", "Z", "-0300", "-3:00" },
         { "bg", "Etc/GMT+3", "2004-01-15T00:00:00Z", "ZZZZ", "\\u0413\\u0440\\u0438\\u043D\\u0443\\u0438\\u0447-03:00", "-3:00" },
@@ -4052,7 +4081,7 @@ void DateFormatTest::TestMonthPatterns()
                                                             CharsToUnicodeString("2 s\\u00ECyu\\u00E8bis ren-chen"),
                                                             CharsToUnicodeString("2 w\\u01D4yu\\u00E8 ren-chen") } },
         { "fr@calendar=chinese",      DateFormat::kShort, { UnicodeString("2/4/29"),        UnicodeString("2/4bis/29"),             UnicodeString("2/5/29") } },
-        { "en@calendar=dangi",        DateFormat::kLong,  { UnicodeString("3bis 2, 2012(29)"),  UnicodeString("4 2, 2012(29)"),     UnicodeString("5 1, 2012(29)") } },   // Google Patch
+        { "en@calendar=dangi",        DateFormat::kLong,  { UnicodeString("3bis 2, 2012(29)"),  UnicodeString("4 2, 2012(29)"),       UnicodeString("5 1, 2012(29)") } },              // Google Patch
         { "en@calendar=dangi",        DateFormat::kShort, { UnicodeString("3bis/2/2012"),   UnicodeString("4/2/2012"),              UnicodeString("5/1/2012") } },
         { "en@calendar=dangi",        -2,                 { UnicodeString("78x29-3bis-2"),  UnicodeString("78x29-4-2"),             UnicodeString("78x29-5-1") } },
         { "ko@calendar=dangi",        DateFormat::kLong,  { CharsToUnicodeString("\\uC784\\uC9C4\\uB144 \\uC7243\\uC6D4 2\\uC77C"),
@@ -4428,7 +4457,7 @@ void DateFormatTest::TestDateFormatLeniency() {
        }
        sdmft->setBooleanAttribute(UDAT_PARSE_ALLOW_WHITESPACE, itemPtr->leniency, status).
               setBooleanAttribute(UDAT_PARSE_ALLOW_NUMERIC, itemPtr->leniency, status).
-              setBooleanAttribute(UDAT_PARSE_PARTIAL_MATCH, itemPtr->leniency, status);
+              setBooleanAttribute(UDAT_PARSE_PARTIAL_LITERAL_MATCH, itemPtr->leniency, status);
        UDate d = sdmft->parse(itemPtr->parseString, pos);       
 
        if(itemPtr->expectedResult.length() == 0) {
@@ -4568,7 +4597,7 @@ void DateFormatTest::TestParseLeniencyAPIs() {
     assertTrue("isCalendarLenient default", fmt->isCalendarLenient());
     assertTrue("ALLOW_WHITESPACE default", fmt->getBooleanAttribute(UDAT_PARSE_ALLOW_WHITESPACE, status));
     assertTrue("ALLOW_NUMERIC default", fmt->getBooleanAttribute(UDAT_PARSE_ALLOW_NUMERIC, status));
-    assertTrue("PARTIAL_MATCH default", fmt->getBooleanAttribute(UDAT_PARSE_PARTIAL_MATCH, status));
+    assertTrue("PARTIAL_MATCH default", fmt->getBooleanAttribute(UDAT_PARSE_PARTIAL_LITERAL_MATCH, status));
     assertTrue("MULTIPLE_PATTERNS default", fmt->getBooleanAttribute(UDAT_PARSE_MULTIPLE_PATTERNS_FOR_MATCH, status));
 
     // Set calendar to strict
@@ -4587,7 +4616,7 @@ void DateFormatTest::TestParseLeniencyAPIs() {
     assertFalse("ALLOW_WHITESPACE after setLenient(FALSE)", fmt->getBooleanAttribute(UDAT_PARSE_ALLOW_WHITESPACE, status));
     assertFalse("ALLOW_NUMERIC  after setLenient(FALSE)", fmt->getBooleanAttribute(UDAT_PARSE_ALLOW_NUMERIC, status));
     // These two boolean attributes are NOT affected according to the API specification
-    assertTrue("PARTIAL_MATCH after setLenient(FALSE)", fmt->getBooleanAttribute(UDAT_PARSE_PARTIAL_MATCH, status));
+    assertTrue("PARTIAL_MATCH after setLenient(FALSE)", fmt->getBooleanAttribute(UDAT_PARSE_PARTIAL_LITERAL_MATCH, status));
     assertTrue("MULTIPLE_PATTERNS after setLenient(FALSE)", fmt->getBooleanAttribute(UDAT_PARSE_MULTIPLE_PATTERNS_FOR_MATCH, status));
 
     // Allow white space leniency
@@ -4759,12 +4788,12 @@ void DateFormatTest::TestDFSCreateForLocaleNonGregorianLocale() {
         return;
     }
 
-    // Android change: All locales default to Gregorian calendar:
+    // Android: All locales default to Gregorian calendar:
     int32_t count;
     const UnicodeString *months = sym->getShortMonths(count);
 
     // First persian month.
-    UnicodeString expected("\\u0698\\u0627\\u0646\\u0648\\u06CC\\u0647\\u0654");  // Android patch: Gregorian date
+    UnicodeString expected("\\u0698\\u0627\\u0646\\u0648\\u06CC\\u0647\\u0654");  // Android-changed
     assertEquals("", expected.unescape(), months[0]);
 }
 

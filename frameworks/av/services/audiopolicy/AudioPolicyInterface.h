@@ -158,14 +158,14 @@ public:
                                       int indexMax) = 0;
 
     // sets the new stream volume at a level corresponding to the supplied index for the
-    // supplied device. By convention, specifying AUDIO_DEVICE_OUT_DEFAULT means
+    // supplied device. By convention, specifying AUDIO_DEVICE_OUT_DEFAULT_FOR_VOLUME means
     // setting volume for all devices
     virtual status_t setStreamVolumeIndex(audio_stream_type_t stream,
                                           int index,
                                           audio_devices_t device) = 0;
 
     // retrieve current volume index for the specified stream and the
-    // specified device. By convention, specifying AUDIO_DEVICE_OUT_DEFAULT means
+    // specified device. By convention, specifying AUDIO_DEVICE_OUT_DEFAULT_FOR_VOLUME means
     // querying the volume of the active device.
     virtual status_t getStreamVolumeIndex(audio_stream_type_t stream,
                                           int *index,
@@ -225,8 +225,12 @@ public:
 
     virtual status_t startAudioSource(const struct audio_port_config *source,
                                       const audio_attributes_t *attributes,
-                                      audio_io_handle_t *handle) = 0;
+                                      audio_io_handle_t *handle,
+                                      uid_t uid) = 0;
     virtual status_t stopAudioSource(audio_io_handle_t handle) = 0;
+
+    virtual status_t setMasterMono(bool mono) = 0;
+    virtual status_t getMasterMono(bool *mono) = 0;
 };
 
 
@@ -308,7 +312,7 @@ public:
     virtual status_t setVoiceVolume(float volume, int delayMs = 0) = 0;
 
     // move effect to the specified output
-    virtual status_t moveEffects(int session,
+    virtual status_t moveEffects(audio_session_t session,
                                      audio_io_handle_t srcOutput,
                                      audio_io_handle_t dstOutput) = 0;
 
@@ -328,9 +332,15 @@ public:
 
     virtual void onAudioPatchListUpdate() = 0;
 
-    virtual audio_unique_id_t newAudioUniqueId() = 0;
+    virtual audio_unique_id_t newAudioUniqueId(audio_unique_id_use_t use) = 0;
 
     virtual void onDynamicPolicyMixStateUpdate(String8 regId, int32_t state) = 0;
+
+    virtual void onRecordingConfigurationUpdate(int event, audio_session_t session,
+                    audio_source_t source,
+                    const struct audio_config_base *clientConfig,
+                    const struct audio_config_base *deviceConfig,
+                    audio_patch_handle_t patchHandle) = 0;
 };
 
 extern "C" AudioPolicyInterface* createAudioPolicyManager(AudioPolicyClientInterface *clientInterface);

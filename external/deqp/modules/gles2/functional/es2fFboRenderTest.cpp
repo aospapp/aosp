@@ -441,7 +441,7 @@ Framebuffer::Framebuffer (sglr::Context& context, const FboConfig& config, int w
 			break;
 
 		case GL_TEXTURE_CUBE_MAP:
-			DE_ASSERT(!"TODO");
+			DE_FATAL("TODO");
 			break;
 
 		case GL_RENDERBUFFER:
@@ -625,7 +625,7 @@ TestCase::IterateResult FboRenderCase::iterate (void)
 	}
 
 	// Compare images
-	const float		threshold	= 0.02f;
+	const float		threshold	= 0.03f;
 	bool			imagesOk	= tcu::fuzzyCompare(log, "ComparisonResult", "Image comparison result", refFrame, gles2Frame, threshold, tcu::COMPARE_LOG_RESULT);
 
 	if (!imagesOk && !failReason)

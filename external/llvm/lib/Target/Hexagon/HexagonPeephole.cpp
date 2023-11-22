@@ -75,6 +75,7 @@ static cl::opt<bool> DisableOptExtTo64("disable-hexagon-opt-ext-to-64",
     cl::desc("Disable Optimization of extensions to i64."));
 
 namespace llvm {
+  FunctionPass *createHexagonPeephole();
   void initializeHexagonPeepholePass(PassRegistry&);
 }
 
@@ -123,7 +124,7 @@ bool HexagonPeephole::runOnMachineFunction(MachineFunction &MF) {
   // Loop over all of the basic blocks.
   for (MachineFunction::iterator MBBb = MF.begin(), MBBe = MF.end();
        MBBb != MBBe; ++MBBb) {
-    MachineBasicBlock* MBB = MBBb;
+    MachineBasicBlock *MBB = &*MBBb;
     PeepholeMap.clear();
     PeepholeDoubleRegsMap.clear();
 
@@ -179,7 +180,7 @@ bool HexagonPeephole::runOnMachineFunction(MachineFunction &MF) {
         unsigned DstReg = Dst.getReg();
         unsigned SrcReg = Src1.getReg();
         PeepholeDoubleRegsMap[DstReg] =
-          std::make_pair(*&SrcReg, 1/*Hexagon::subreg_hireg*/);
+          std::make_pair(*&SrcReg, Hexagon::subreg_hireg);
       }
 
       // Look for P=NOT(P).

@@ -18,13 +18,19 @@ package android.text.cts;
 
 
 import android.test.AndroidTestCase;
+import android.test.suitebuilder.annotation.SmallTest;
 import android.text.Editable;
 import android.text.InputFilter;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.TextWatcher;
+import android.text.style.BulletSpan;
+import android.text.style.ParagraphStyle;
+import android.text.style.QuoteSpan;
+import android.text.style.RelativeSizeSpan;
 import android.text.style.StrikethroughSpan;
+import android.text.style.SubscriptSpan;
 import android.text.style.TabStopSpan;
 import android.text.style.UnderlineSpan;
 
@@ -553,6 +559,11 @@ public class SpannableStringBuilderTest extends AndroidTestCase {
         UnderlineSpan span2 = new UnderlineSpan();
         builder.setSpan(span1, 1, 2, Spanned.SPAN_POINT_POINT);
         builder.setSpan(span2, 4, 8, Spanned.SPAN_MARK_POINT);
+
+        Object[] emptySpans = builder.getSpans(0, 10, null);
+        assertNotNull(emptySpans);
+        assertEquals(0, emptySpans.length);
+
         UnderlineSpan[] underlineSpans = builder.getSpans(0, 10, UnderlineSpan.class);
         assertEquals(2, underlineSpans.length);
         assertSame(span1, underlineSpans[0]);
@@ -564,6 +575,110 @@ public class SpannableStringBuilderTest extends AndroidTestCase {
         builder.getSpans(-1, 100, UnderlineSpan.class);
 
         builder.getSpans(4, 1, UnderlineSpan.class);
+    }
+
+    @SmallTest
+    public void testGetSpans_returnsEmptyIfSetSpanIsNotCalled() {
+        String text = "p_in_s";
+        SpannableStringBuilder builder = new SpannableStringBuilder(text);
+        Object[] spans = builder.getSpans(0, text.length(), Object.class);
+        assertEquals(0, spans.length);
+    }
+
+    @SmallTest
+    public void testGetSpans_returnsSpansInInsertionOrderWhenTheLaterCoversTheFirst() {
+        String text = "p_in_s";
+        SpannableStringBuilder builder = new SpannableStringBuilder(text);
+        Object first = new SubscriptSpan();
+        Object second = new SubscriptSpan();
+        int flags = Spanned.SPAN_EXCLUSIVE_EXCLUSIVE;
+        builder.setSpan(first, 2, 4, flags);
+        builder.setSpan(second, 0, text.length(), flags);
+
+        Object[] spans = builder.getSpans(0, text.length(), Object.class);
+
+        assertNotNull(spans);
+        assertEquals(2, spans.length);
+        assertEquals(first, spans[0]);
+        assertEquals(second, spans[1]);
+    }
+
+    @SmallTest
+    public void testGetSpans_returnsSpansSortedFirstByPriorityThenByInsertionOrder() {
+        String text = "p_in_s";
+        SpannableStringBuilder builder = new SpannableStringBuilder(text);
+        Object first = new SubscriptSpan();
+        Object second = new SubscriptSpan();
+        Object third = new SubscriptSpan();
+        Object fourth = new SubscriptSpan();
+
+        int flags = Spanned.SPAN_EXCLUSIVE_EXCLUSIVE;
+        int flagsPriority = Spanned.SPAN_EXCLUSIVE_EXCLUSIVE | Spanned.SPAN_PRIORITY;
+
+        builder.setSpan(first, 2, 4, flags);
+        builder.setSpan(second, 2, 4, flagsPriority);
+        builder.setSpan(third, 0, text.length(), flags);
+        builder.setSpan(fourth, 0, text.length(), flagsPriority);
+
+        Object[] spans = builder.getSpans(0, text.length(), Object.class);
+
+        assertNotNull(spans);
+        assertEquals(4, spans.length);
+        assertEquals(second, spans[0]);
+        assertEquals(fourth, spans[1]);
+        assertEquals(first, spans[2]);
+        assertEquals(third, spans[3]);
+    }
+
+    @SmallTest
+    public void testGetSpans_returnsSpansInInsertionOrderAfterRemoveSpanCalls() {
+        String text = "p_in_s";
+        SpannableStringBuilder builder = new SpannableStringBuilder(text);
+        Object first = new SubscriptSpan();
+        Object second = new SubscriptSpan();
+        Object third = new SubscriptSpan();
+        Object fourth = new SubscriptSpan();
+
+        int flags = Spanned.SPAN_EXCLUSIVE_EXCLUSIVE;
+        builder.setSpan(first, 2, 4, flags);
+        builder.setSpan(second, 0, text.length(), flags);
+        builder.setSpan(third, 2, 4, flags);
+        builder.removeSpan(first);
+        builder.removeSpan(second);
+        builder.setSpan(fourth, 0, text.length(), flags);
+
+        Object[] spans = builder.getSpans(0, text.length(), Object.class);
+
+        assertNotNull(spans);
+        assertEquals(2, spans.length);
+        assertEquals(third, spans[0]);
+        assertEquals(fourth, spans[1]);
+    }
+
+    @SmallTest
+    public void testGetSpans_sortsByPriorityEvenWhenSortParamIsFalse() {
+        String text = "p_in_s";
+        SpannableStringBuilder builder = new SpannableStringBuilder(text);
+        Object first = new SubscriptSpan();
+        Object second = new UnderlineSpan();
+        Object third = new BulletSpan();
+        Object fourth = new QuoteSpan();
+
+        builder.setSpan(first, 2, 4, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        builder.setSpan(second, 1, text.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        builder.setSpan(third, 2, text.length(), 1 << Spanned.SPAN_PRIORITY_SHIFT);
+        builder.setSpan(fourth, 0, text.length(), 2 << Spanned.SPAN_PRIORITY_SHIFT);
+
+        Object[] spans = builder.getSpans(0, text.length(), Object.class, false);
+
+        assertNotNull(spans);
+        assertEquals(4, spans.length);
+        // priority spans are first
+        assertEquals(fourth, spans[0]);
+        assertEquals(third, spans[1]);
+        // other spans should be there
+        assertEquals(second, spans[2]);
+        assertEquals(first, spans[3]);
     }
 
     public void testLength() {

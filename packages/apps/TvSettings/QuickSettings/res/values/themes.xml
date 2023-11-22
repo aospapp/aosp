@@ -43,7 +43,7 @@
         <item name="android:listPreferredItemPaddingStart">16dip</item>
         <item name="android:listPreferredItemPaddingEnd">16dip</item>
 
-        <item name="preferenceTheme">@style/PreferenceThemeOverlay.v14</item>
+        <item name="preferenceTheme">@style/PreferenceThemeOverlay.v14.Leanback</item>
     </style>
 
     <style name="Theme.QuickSettings.Floating">

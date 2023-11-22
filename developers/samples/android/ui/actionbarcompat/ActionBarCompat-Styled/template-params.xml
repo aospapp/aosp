@@ -19,8 +19,6 @@
     <group>UI</group>
     <package>com.example.android.actionbarcompat.styled</package>
 
-    <dependency>com.android.support:appcompat-v7:18.0.+</dependency>
-
     <!-- change minSdk if needed-->
     <minSdk>7</minSdk>
 
@@ -54,16 +52,16 @@
 
     <description>
 <![CDATA[
-This sample shows you how to use ActionBarCompat with a customized theme. It utilizes a 
+This sample shows you how to use ActionBarCompat with a customized theme. It utilizes a
 split action bar when running on a device with a narrow display, and shows three tabs.
 ]]>
     </description>
     <intro>
 <![CDATA[
-This sample shows how to style an ActionBar using the [support library][1] on devices running 
+This sample shows how to style an ActionBar using the [support library][1] on devices running
 Android v2.1+ using a custom theme.
 
-This Activity extends from ActionBarActivity, which provides all of the function 
+This Activity extends from ActionBarActivity, which provides all of the function
 necessary to display a compatible Action Bar on devices running Android v2.1+.
 A custom application theme and styles are defined in XML.
 

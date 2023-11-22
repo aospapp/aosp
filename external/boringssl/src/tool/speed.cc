@@ -21,6 +21,7 @@
 #include <string.h>
 
 #include <openssl/aead.h>
+#include <openssl/curve25519.h>
 #include <openssl/digest.h>
 #include <openssl/err.h>
 #include <openssl/obj.h>
@@ -36,15 +37,8 @@
 #endif
 
 #include "../crypto/test/scoped_types.h"
+#include "internal.h"
 
-
-extern "C" {
-// These values are DER encoded, RSA private keys.
-extern const uint8_t kDERRSAPrivate2048[];
-extern size_t kDERRSAPrivate2048Len;
-extern const uint8_t kDERRSAPrivate4096[];
-extern size_t kDERRSAPrivate4096Len;
-}
 
 // TimeResults represents the results of benchmarking a function.
 struct TimeResults {
@@ -404,6 +398,75 @@ static bool SpeedECDSA(const std::string &selected) {
          SpeedECDSACurve("ECDSA P-521", NID_secp521r1, selected);
 }
 
+static bool Speed25519(const std::string &selected) {
+  if (!selected.empty() && selected.find("25519") == std::string::npos) {
+    return true;
+  }
+
+  TimeResults results;
+
+  uint8_t public_key[32], private_key[64];
+
+  if (!TimeFunction(&results, [&public_key, &private_key]() -> bool {
+        ED25519_keypair(public_key, private_key);
+        return true;
+      })) {
+    return false;
+  }
+
+  results.Print("Ed25519 key generation");
+
+  static const uint8_t kMessage[] = {0, 1, 2, 3, 4, 5};
+  uint8_t signature[64];
+
+  if (!TimeFunction(&results, [&private_key, &signature]() -> bool {
+        return ED25519_sign(signature, kMessage, sizeof(kMessage),
+                            private_key) == 1;
+      })) {
+    return false;
+  }
+
+  results.Print("Ed25519 signing");
+
+  if (!TimeFunction(&results, [&public_key, &signature]() -> bool {
+        return ED25519_verify(kMessage, sizeof(kMessage), signature,
+                              public_key) == 1;
+      })) {
+    fprintf(stderr, "Ed25519 verify failed.\n");
+    return false;
+  }
+
+  results.Print("Ed25519 verify");
+
+  if (!TimeFunction(&results, []() -> bool {
+        uint8_t out[32], in[32];
+        memset(in, 0, sizeof(in));
+        X25519_public_from_private(out, in);
+        return true;
+      })) {
+    fprintf(stderr, "Curve25519 base-point multiplication failed.\n");
+    return false;
+  }
+
+  results.Print("Curve25519 base-point multiplication");
+
+  if (!TimeFunction(&results, []() -> bool {
+        uint8_t out[32], in1[32], in2[32];
+        memset(in1, 0, sizeof(in1));
+        memset(in2, 0, sizeof(in2));
+        in1[0] = 1;
+        in2[0] = 9;
+        return X25519(out, in1, in2) == 1;
+      })) {
+    fprintf(stderr, "Curve25519 arbitrary point multiplication failed.\n");
+    return false;
+  }
+
+  results.Print("Curve25519 arbitrary point multiplication");
+
+  return true;
+}
+
 bool Speed(const std::vector<std::string> &args) {
   std::string selected;
   if (args.size() > 1) {
@@ -414,9 +477,9 @@ bool Speed(const std::vector<std::string> &args) {
     selected = args[0];
   }
 
-  RSA *key = NULL;
-  const uint8_t *inp = kDERRSAPrivate2048;
-  if (NULL == d2i_RSAPrivateKey(&key, &inp, kDERRSAPrivate2048Len)) {
+  RSA *key = RSA_private_key_from_bytes(kDERRSAPrivate2048,
+                                        kDERRSAPrivate2048Len);
+  if (key == NULL) {
     fprintf(stderr, "Failed to parse RSA key.\n");
     ERR_print_errors_fp(stderr);
     return false;
@@ -427,10 +490,22 @@ bool Speed(const std::vector<std::string> &args) {
   }
 
   RSA_free(key);
-  key = NULL;
+  key = RSA_private_key_from_bytes(kDERRSAPrivate3Prime2048,
+                                   kDERRSAPrivate3Prime2048Len);
+  if (key == NULL) {
+    fprintf(stderr, "Failed to parse RSA key.\n");
+    ERR_print_errors_fp(stderr);
+    return false;
+  }
 
-  inp = kDERRSAPrivate4096;
-  if (NULL == d2i_RSAPrivateKey(&key, &inp, kDERRSAPrivate4096Len)) {
+  if (!SpeedRSA("RSA 2048 (3 prime, e=3)", key, selected)) {
+    return false;
+  }
+
+  RSA_free(key);
+  key = RSA_private_key_from_bytes(kDERRSAPrivate4096,
+                                   kDERRSAPrivate4096Len);
+  if (key == NULL) {
     fprintf(stderr, "Failed to parse 4096-bit RSA key.\n");
     ERR_print_errors_fp(stderr);
     return 1;
@@ -455,7 +530,12 @@ bool Speed(const std::vector<std::string> &args) {
       !SpeedAEAD(EVP_aead_aes_256_gcm(), "AES-256-GCM", kTLSADLen, selected) ||
       !SpeedAEAD(EVP_aead_chacha20_poly1305(), "ChaCha20-Poly1305", kTLSADLen,
                  selected) ||
+      !SpeedAEAD(EVP_aead_chacha20_poly1305_old(), "ChaCha20-Poly1305-Old",
+                 kTLSADLen, selected) ||
       !SpeedAEAD(EVP_aead_rc4_md5_tls(), "RC4-MD5", kLegacyADLen, selected) ||
+      !SpeedAEAD(EVP_aead_rc4_sha1_tls(), "RC4-SHA1", kLegacyADLen, selected) ||
+      !SpeedAEAD(EVP_aead_des_ede3_cbc_sha1_tls(), "DES-EDE3-CBC-SHA1",
+                 kLegacyADLen, selected) ||
       !SpeedAEAD(EVP_aead_aes_128_cbc_sha1_tls(), "AES-128-CBC-SHA1",
                  kLegacyADLen, selected) ||
       !SpeedAEAD(EVP_aead_aes_256_cbc_sha1_tls(), "AES-256-CBC-SHA1",
@@ -465,7 +545,8 @@ bool Speed(const std::vector<std::string> &args) {
       !SpeedHash(EVP_sha512(), "SHA-512", selected) ||
       !SpeedRandom(selected) ||
       !SpeedECDH(selected) ||
-      !SpeedECDSA(selected)) {
+      !SpeedECDSA(selected) ||
+      !Speed25519(selected)) {
     return false;
   }
 

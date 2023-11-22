@@ -32,10 +32,12 @@
 
 #include "SkPaint.h"
 #include "SkTypeface.h"
-#include "MinikinSkia.h"
-#include "MinikinUtils.h"
-#include "Paint.h"
-#include "minikin/LineBreaker.h"
+#include <hwui/MinikinSkia.h>
+#include <hwui/MinikinUtils.h>
+#include <hwui/Paint.h>
+#include <minikin/FontCollection.h>
+#include <minikin/LineBreaker.h>
+#include <minikin/MinikinFont.h>
 
 namespace android {
 
@@ -117,9 +119,17 @@ static void nFinishBuilder(JNIEnv*, jclass, jlong nativePtr) {
     b->finish();
 }
 
-static jlong nLoadHyphenator(JNIEnv* env, jclass, jstring patternData) {
-    ScopedStringChars str(env, patternData);
-    Hyphenator* hyphenator = Hyphenator::load(str.get(), str.size());
+static jlong nLoadHyphenator(JNIEnv* env, jclass, jobject buffer, jint offset) {
+    const uint8_t* bytebuf = nullptr;
+    if (buffer != nullptr) {
+        void* rawbuf = env->GetDirectBufferAddress(buffer);
+        if (rawbuf != nullptr) {
+            bytebuf = reinterpret_cast<const uint8_t*>(rawbuf) + offset;
+        } else {
+            ALOGE("failed to get direct buffer address");
+        }
+    }
+    Hyphenator* hyphenator = Hyphenator::loadBinary(bytebuf);
     return reinterpret_cast<jlong>(hyphenator);
 }
 
@@ -146,7 +156,7 @@ static jfloat nAddStyleRun(JNIEnv* env, jclass, jlong nativePtr,
         jlong nativePaint, jlong nativeTypeface, jint start, jint end, jboolean isRtl) {
     LineBreaker* b = reinterpret_cast<LineBreaker*>(nativePtr);
     Paint* paint = reinterpret_cast<Paint*>(nativePaint);
-    TypefaceImpl* typeface = reinterpret_cast<TypefaceImpl*>(nativeTypeface);
+    Typeface* typeface = reinterpret_cast<Typeface*>(nativeTypeface);
     FontCollection *font;
     MinikinPaint minikinPaint;
     FontStyle style = MinikinUtils::prepareMinikinPaint(&minikinPaint, &font, paint, typeface);
@@ -172,12 +182,12 @@ static void nGetWidths(JNIEnv* env, jclass, jlong nativePtr, jfloatArray widths)
     env->SetFloatArrayRegion(widths, 0, b->size(), b->charWidths());
 }
 
-static JNINativeMethod gMethods[] = {
+static const JNINativeMethod gMethods[] = {
     // TODO performance: many of these are candidates for fast jni, awaiting guidance
     {"nNewBuilder", "()J", (void*) nNewBuilder},
     {"nFreeBuilder", "(J)V", (void*) nFreeBuilder},
     {"nFinishBuilder", "(J)V", (void*) nFinishBuilder},
-    {"nLoadHyphenator", "(Ljava/lang/String;)J", (void*) nLoadHyphenator},
+    {"nLoadHyphenator", "(Ljava/nio/ByteBuffer;I)J", (void*) nLoadHyphenator},
     {"nSetLocale", "(JLjava/lang/String;J)V", (void*) nSetLocale},
     {"nSetupParagraph", "(J[CIFIF[IIII)V", (void*) nSetupParagraph},
     {"nSetIndents", "(J[I)V", (void*) nSetIndents},

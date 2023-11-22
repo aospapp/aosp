@@ -1,5 +1,29 @@
 /* -*- mode: C; c-basic-offset: 3; -*- */
 
+/*
+   This file is part of MemCheck, a heavyweight Valgrind tool for
+   detecting memory errors.
+
+   Copyright (C) 2012-2015  Florian Krohm
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 2 of the
+   License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+   02111-1307, USA.
+
+   The GNU General Public License is contained in the file COPYING.
+*/
+
 #include <assert.h>    // assert
 #include <stdio.h>     // printf
 #include <stdlib.h>    // malloc
@@ -75,7 +99,7 @@ main(int argc, char *argv[])
       if (strcmp(argv[i], "-v") == 0) ++verbose;
       else if (strcmp(argv[i], "--help") == 0) {
         printf("\nvbit-test [ -v | --help ]\n");
-        printf("\n\t-v       verbose mode; show number of 1, 2, 3 and 4 operand tests\n");
+        printf("\n\t-v       verbose mode; show number of tests\n");
         printf("\n\t-v -v    verbose mode; shows IROps being tested\n");
         printf("\n\t-v -v -v verbose mode, extreme edition\n\n");
         return 0;
@@ -112,13 +136,13 @@ main(int argc, char *argv[])
       const irop_t *op = get_irop(opkind);
       if (op == NULL) continue;
 
-      test_data_t *data = new_test_data(op);
-
       if (op->undef_kind == UNDEF_UNKNOWN) {
          fprintf(stderr, "...skipping %s; unknown undef propagation\n",
                  op->name);
          continue;
       }
+
+      test_data_t *data = new_test_data(op);
 
       if (verbose > 1) printf("Testing operator %s\n", op->name);
 
@@ -151,8 +175,9 @@ main(int argc, char *argv[])
    }
 
    if (verbose) 
-      printf("\nvbit-test ran  %d unary, %d binary, %d ternary and %d qernary tests.\n",
-	  num_unary_tests, num_binary_tests, num_ternary_tests,
-	  num_qernary_tests);
+      printf("\nvbit-test ran  %d unary, %d binary, %d ternary and"
+             " %d qernary tests.\n\n",
+             num_unary_tests, num_binary_tests, num_ternary_tests,
+             num_qernary_tests);
    return 0;
 }

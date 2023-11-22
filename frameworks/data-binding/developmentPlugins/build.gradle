@@ -1,13 +1,13 @@
-ext.rootFolder = "${project.projectDir}/.."
+ext.dataBindingRootFolder = "${project.projectDir}/.."
 apply from: '../propLoader.gradle'
 subprojects {
     apply plugin: 'maven'
-    group = config.group
-    version = config.extraPluginsVersion
+    group = dataBindingConfig.group
+    version = dataBindingConfig.extraPluginsVersion
     uploadArchives {
         repositories {
             mavenDeployer {
-                repository(url: "file://${config.extraPluginsRepoDir}")
+                repository(url: "file://${dataBindingConfig.internalPrebuiltsRepoDir}")
             }
         }
     }

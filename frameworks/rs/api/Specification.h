@@ -19,6 +19,7 @@
 
 // See Generator.cpp for documentation of the .spec file format.
 
+#include <climits>
 #include <fstream>
 #include <list>
 #include <map>
@@ -95,6 +96,8 @@ struct ParameterDefinition {
     std::string rsAllocName;    // e.g. gAllocInX
     std::string javaAllocName;  // e.g. inX
     std::string javaArrayName;  // e.g. arrayInX
+    std::string doubleVariableName; // e.g. inXDouble, used in .java for storing Float16 parameters
+                                    // in double.
 
     // If non empty, the mininum and maximum values to be used when generating the test data.
     std::string minValue;
@@ -116,6 +119,8 @@ struct ParameterDefinition {
     void parseParameterDefinition(const std::string& type, const std::string& name,
                                   const std::string& testOption, int lineNumber, bool isReturn,
                                   Scanner* scanner);
+
+    bool isFloat16Parameter() const { return specType.compare("f16") == 0; }
 };
 
 struct VersionInfo {
@@ -124,8 +129,8 @@ struct VersionInfo {
      * If non zero, both versions should be at least 9, the API level that introduced
      * RenderScript.
      */
-    int minVersion;
-    int maxVersion;
+    unsigned int minVersion;
+    unsigned int maxVersion;
     // Either 0, 32 or 64.  If 0, this definition is valid for both 32 and 64 bits.
     int intSize;
 
@@ -134,12 +139,14 @@ struct VersionInfo {
      * we are interested in.  This may alter maxVersion.  This method returns false if the
      * minVersion is greater than the maxApiLevel.
      */
-    bool scan(Scanner* scanner, int maxApiLevel);
+    bool scan(Scanner* scanner, unsigned int maxApiLevel);
     /* Return true if the target can be found whitin the range. */
     bool includesVersion(int target) const {
         return (minVersion == 0 || target >= minVersion) &&
                (maxVersion == 0 || target <= maxVersion);
     }
+
+    static constexpr unsigned int kUnreleasedVersion = UINT_MAX;
 };
 
 // We have three type of definitions
@@ -266,11 +273,12 @@ public:
     std::string getValue() const { return mValue; }
 
     // Parse a constant specification and add it to specFile.
-    static void scanConstantSpecification(Scanner* scanner, SpecFile* specFile, int maxApiLevel);
+    static void scanConstantSpecification(Scanner* scanner, SpecFile* specFile, unsigned int maxApiLevel);
 };
 
 enum TypeKind {
     SIMPLE,
+    RS_OBJECT,
     STRUCT,
     ENUM,
 };
@@ -312,7 +320,7 @@ public:
     const std::vector<std::string>& getValueComments() const { return mValueComments; }
 
     // Parse a type specification and add it to specFile.
-    static void scanTypeSpecification(Scanner* scanner, SpecFile* specFile, int maxApiLevel);
+    static void scanTypeSpecification(Scanner* scanner, SpecFile* specFile, unsigned int maxApiLevel);
 };
 
 // Maximum number of placeholders (like #1, #2) in function specifications.
@@ -342,12 +350,19 @@ private:
      * "": Don't test.  This is the default.
      */
     std::string mTest;
+    bool mInternal;               // Internal. Not visible to users. (Default: false)
+    bool mIntrinsic;              // Compiler intrinsic that is lowered to an internal API.
+                                  // (Default: false)
     std::string mAttribute;       // Function attributes.
     std::string mPrecisionLimit;  // Maximum precision required when checking output of this
                                   // function.
 
     // The vectors of values with which we'll replace #1, #2, ...
     std::vector<std::vector<std::string> > mReplaceables;
+
+    // i-th entry is true if each entry in mReplaceables[i] has an equivalent
+    // RS numerical type (i.e. present in TYPES global)
+    std::vector<bool> mIsRSTAllowed;
 
     /* The collection of permutations for this specification, i.e. this class instantianted
      * for specific values of #1, #2, etc.  Owned.
@@ -365,23 +380,34 @@ private:
     std::vector<ParameterEntry*> mParameters;  // The parameters.  Owned.
     std::vector<std::string> mInline;          // The inline code to be included in the header
 
-    /* Substitute the placeholders in the strings (e.g. #1, #2, ...) by the corresponding
-     * entries in mReplaceables.  indexOfReplaceable1 selects with value to use for #1,
-     * same for 2, 3, and 4.
+    /* Substitute the placeholders in the strings (e.g. #1, #2, ...) by the
+     * corresponding entries in mReplaceables.  Substitute placeholders for RS
+     * types (#RST_1, #RST_2, ...) by the RS Data type strings (UNSIGNED_8,
+     * FLOAT_32 etc.) of the corresponding types in mReplaceables.
+     * indexOfReplaceable1 selects with value to use for #1, same for 2, 3, and
+     * 4.
      */
     std::string expandString(std::string s, int indexOfReplaceable[MAX_REPLACEABLES]) const;
     void expandStringVector(const std::vector<std::string>& in,
                             int replacementIndexes[MAX_REPLACEABLES],
                             std::vector<std::string>* out) const;
 
+    // Helper function used by expandString to perform #RST_* substitution
+    std::string expandRSTypeInString(const std::string &s,
+                                     const std::string &pattern,
+                                     const std::string &cTypeStr) const;
+
     // Fill the mPermutations field.
     void createPermutations(Function* function, Scanner* scanner);
 
 public:
-    FunctionSpecification(Function* function) : mFunction(function), mReturn(nullptr) {}
+    FunctionSpecification(Function* function) : mFunction(function), mInternal(false),
+        mIntrinsic(false), mReturn(nullptr) {}
     ~FunctionSpecification();
 
     Function* getFunction() const { return mFunction; }
+    bool isInternal() const { return mInternal; }
+    bool isIntrinsic() const { return mIntrinsic; }
     std::string getAttribute() const { return mAttribute; }
     std::string getTest() const { return mTest; }
     std::string getPrecisionLimit() const { return mPrecisionLimit; }
@@ -401,7 +427,7 @@ public:
     void parseTest(Scanner* scanner);
 
     // Return true if we need to generate tests for this function.
-    bool hasTests(int versionOfTestFiles) const;
+    bool hasTests(unsigned int versionOfTestFiles) const;
 
     bool hasInline() const { return mInline.size() > 0; }
 
@@ -413,8 +439,14 @@ public:
         return mAttribute.empty() || mAttribute[0] != '=';
     }
 
+    /* Check if RST_i is present in 's' and report an error if 'allow' is false
+     * or the i-th replacement list is not a valid candidate for RST_i
+     * replacement
+     */
+    void checkRSTPatternValidity(const std::string &s, bool allow, Scanner *scanner);
+
     // Parse a function specification and add it to specFile.
-    static void scanFunctionSpecification(Scanner* scanner, SpecFile* specFile, int maxApiLevel);
+    static void scanFunctionSpecification(Scanner* scanner, SpecFile* specFile, unsigned int maxApiLevel);
 };
 
 /* A concrete version of a function specification, where all placeholders have been replaced by
@@ -526,7 +558,7 @@ public:
                !mDocumentedFunctions.empty();
     }
 
-    bool readSpecFile(int maxApiLevel);
+    bool readSpecFile(unsigned int maxApiLevel);
 
     /* These are called by the parser to keep track of the specifications defined in this file.
      * hasDocumentation is true if this specification containes the documentation.
@@ -561,9 +593,9 @@ public:
     /* Parse the spec file and create the object hierarchy, adding a pointer to mSpecFiles.
      * We won't include information passed the specified level.
      */
-    bool readSpecFile(const std::string& fileName, int maxApiLevel);
+    bool readSpecFile(const std::string& fileName, unsigned int maxApiLevel);
     // Generate all the files.
-    bool generateFiles(bool forVerification, int maxApiLevel) const;
+    bool generateFiles(bool forVerification, unsigned int maxApiLevel) const;
 
     const std::vector<SpecFile*>& getSpecFiles() const { return mSpecFiles; }
     const std::map<std::string, Constant*>& getConstants() const { return mConstants; }
@@ -574,7 +606,7 @@ public:
     std::string getHtmlAnchor(const std::string& name) const;
 
     // Returns the maximum API level specified in any spec file.
-    int getMaximumApiLevel();
+    unsigned int getMaximumApiLevel();
 };
 
 // Singleton that represents the collection of all the specs we're processing.
@@ -583,5 +615,11 @@ extern SystemSpecification systemSpecification;
 // Table of equivalences of numerical types.
 extern const NumericalType TYPES[];
 extern const int NUM_TYPES;
+
+/* Given a renderscript type (string) calculate the vector size and base type. If the type
+ * is not a vector the vector size is 1 and baseType is just the type itself.
+ */
+void getVectorSizeAndBaseType(const std::string& type, std::string& vectorSize,
+                              std::string& baseType);
 
 #endif  // ANDROID_RS_API_GENERATOR_SPECIFICATION_H

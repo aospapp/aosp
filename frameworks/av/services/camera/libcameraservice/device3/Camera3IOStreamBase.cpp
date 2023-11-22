@@ -31,9 +31,9 @@ namespace camera3 {
 
 Camera3IOStreamBase::Camera3IOStreamBase(int id, camera3_stream_type_t type,
         uint32_t width, uint32_t height, size_t maxSize, int format,
-        android_dataspace dataSpace, camera3_stream_rotation_t rotation) :
+        android_dataspace dataSpace, camera3_stream_rotation_t rotation, int setId) :
         Camera3Stream(id, type,
-                width, height, maxSize, format, dataSpace, rotation),
+                width, height, maxSize, format, dataSpace, rotation, setId),
         mTotalBufferCount(0),
         mHandoutTotalBufferCount(0),
         mHandoutOutputBufferCount(0),
@@ -42,7 +42,8 @@ Camera3IOStreamBase::Camera3IOStreamBase(int id, camera3_stream_type_t type,
 
     mCombinedFence = new Fence();
 
-    if (maxSize > 0 && format != HAL_PIXEL_FORMAT_BLOB) {
+    if (maxSize > 0 &&
+            (format != HAL_PIXEL_FORMAT_BLOB && format != HAL_PIXEL_FORMAT_RAW_OPAQUE)) {
         ALOGE("%s: Bad format for size-only stream: %d", __FUNCTION__,
                 format);
         mState = STATE_ERROR;
@@ -123,6 +124,7 @@ status_t Camera3IOStreamBase::disconnectLocked() {
     switch (mState) {
         case STATE_IN_RECONFIG:
         case STATE_CONFIGURED:
+        case STATE_ABANDONED:
             // OK
             break;
         default:

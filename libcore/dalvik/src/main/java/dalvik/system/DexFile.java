@@ -34,7 +34,12 @@ import libcore.io.Libcore;
  * read-only by the VM.
  */
 public final class DexFile {
+  /**
+   * If close is called, mCookie becomes null but the internal cookie is preserved if the close
+   * failed so that we can free resources in the finalizer.
+   */
     private Object mCookie;
+    private Object mInternalCookie;
     private final String mFileName;
     private final CloseGuard guard = CloseGuard.get();
 
@@ -58,6 +63,20 @@ public final class DexFile {
     public DexFile(File file) throws IOException {
         this(file.getPath());
     }
+    /*
+     * Private version with class loader argument.
+     *
+     * @param file
+     *            the File object referencing the actual DEX file
+     * @param loader
+     *            the class loader object creating the DEX file object
+     * @param elements
+     *            the temporary dex path list elements from DexPathList.makeElements
+     */
+    DexFile(File file, ClassLoader loader, DexPathList.Element[] elements)
+            throws IOException {
+        this(file.getPath(), loader, elements);
+    }
 
     /**
      * Opens a DEX file from a given filename. This will usually be a ZIP/JAR
@@ -77,7 +96,22 @@ public final class DexFile {
      *             access rights missing for opening it
      */
     public DexFile(String fileName) throws IOException {
-        mCookie = openDexFile(fileName, null, 0);
+        this(fileName, null, null);
+    }
+
+    /*
+     * Private version with class loader argument.
+     *
+     * @param fileName
+     *            the filename of the DEX file
+     * @param loader
+     *            the class loader creating the DEX file object
+     * @param elements
+     *            the temporary dex path list elements from DexPathList.makeElements
+     */
+    DexFile(String fileName, ClassLoader loader, DexPathList.Element[] elements) throws IOException {
+        mCookie = openDexFile(fileName, null, 0, loader, elements);
+        mInternalCookie = mCookie;
         mFileName = fileName;
         guard.open("close");
         //System.out.println("DEX FILE cookie is " + mCookie + " fileName=" + fileName);
@@ -93,8 +127,13 @@ public final class DexFile {
      *  File that will hold the optimized form of the DEX data.
      * @param flags
      *  Enable optional features.
+     * @param loader
+     *  The class loader creating the DEX file object.
+     * @param elements
+     *  The temporary dex path list elements from DexPathList.makeElements
      */
-    private DexFile(String sourceName, String outputName, int flags) throws IOException {
+    private DexFile(String sourceName, String outputName, int flags, ClassLoader loader,
+            DexPathList.Element[] elements) throws IOException {
         if (outputName != null) {
             try {
                 String parent = new File(outputName).getParent();
@@ -108,9 +147,8 @@ public final class DexFile {
             }
         }
 
-        mCookie = openDexFile(sourceName, outputName, flags);
+        mCookie = openDexFile(sourceName, outputName, flags, loader, elements);
         mFileName = sourceName;
-        guard.open("close");
         //System.out.println("DEX FILE cookie is " + mCookie + " sourceName=" + sourceName + " outputName=" + outputName);
     }
 
@@ -148,7 +186,39 @@ public final class DexFile {
          * decided to open it multiple times.  In practice this may not
          * be a real issue.
          */
-        return new DexFile(sourcePathName, outputPathName, flags);
+        return loadDex(sourcePathName, outputPathName, flags, null, null);
+    }
+
+    /*
+     * Private version of loadDex that also takes a class loader.
+     *
+     * @param sourcePathName
+     *  Jar or APK file with "classes.dex".  (May expand this to include
+     *  "raw DEX" in the future.)
+     * @param outputPathName
+     *  File that will hold the optimized form of the DEX data.
+     * @param flags
+     *  Enable optional features.  (Currently none defined.)
+     * @param loader
+     *  Class loader that is aloading the DEX file.
+     * @param elements
+     *  The temporary dex path list elements from DexPathList.makeElements
+     * @return
+     *  A new or previously-opened DexFile.
+     * @throws IOException
+     *  If unable to open the source or output file.
+     */
+    static DexFile loadDex(String sourcePathName, String outputPathName,
+        int flags, ClassLoader loader, DexPathList.Element[] elements) throws IOException {
+
+        /*
+         * TODO: we may want to cache previously-opened DexFile objects.
+         * The cache would be synchronized with close().  This would help
+         * us avoid mapping the same DEX more than once when an app
+         * decided to open it multiple times.  In practice this may not
+         * be a real issue.
+         */
+        return new DexFile(sourcePathName, outputPathName, flags, loader, elements);
     }
 
     /**
@@ -167,17 +237,20 @@ public final class DexFile {
     /**
      * Closes the DEX file.
      * <p>
-     * This may not be able to release any resources. If classes from this
-     * DEX file are still resident, the DEX file can't be unmapped.
+     * This may not be able to release all of the resources. If classes from this DEX file are
+     * still resident, the DEX file can't be unmapped. In the case where we do not release all
+     * the resources, close is called again in the finalizer.
      *
      * @throws IOException
      *             if an I/O error occurs during closing the file, which
      *             normally should not happen
      */
     public void close() throws IOException {
-        if (mCookie != null) {
+        if (mInternalCookie != null) {
+            if (closeDexFile(mInternalCookie)) {
+                mInternalCookie = null;
+            }
             guard.close();
-            closeDexFile(mCookie);
             mCookie = null;
         }
     }
@@ -216,14 +289,14 @@ public final class DexFile {
      * @hide
      */
     public Class loadClassBinaryName(String name, ClassLoader loader, List<Throwable> suppressed) {
-        return defineClass(name, loader, mCookie, suppressed);
+        return defineClass(name, loader, mCookie, this, suppressed);
     }
 
     private static Class defineClass(String name, ClassLoader loader, Object cookie,
-                                     List<Throwable> suppressed) {
+                                     DexFile dexFile, List<Throwable> suppressed) {
         Class result = null;
         try {
-            result = defineClassNative(name, loader, cookie);
+            result = defineClassNative(name, loader, cookie, dexFile);
         } catch (NoClassDefFoundError e) {
             if (suppressed != null) {
                 suppressed.add(e);
@@ -279,7 +352,11 @@ public final class DexFile {
             if (guard != null) {
                 guard.warnIfOpen();
             }
-            close();
+            if (mInternalCookie != null && !closeDexFile(mInternalCookie)) {
+                throw new AssertionError("Failed to close dex file in finalizer.");
+            }
+            mInternalCookie = null;
+            mCookie = null;
         } finally {
             super.finalize();
         }
@@ -290,22 +367,40 @@ public final class DexFile {
      * Open a DEX file.  The value returned is a magic VM cookie.  On
      * failure, an IOException is thrown.
      */
-    private static Object openDexFile(String sourceName, String outputName, int flags) throws IOException {
+    private static Object openDexFile(String sourceName, String outputName, int flags,
+            ClassLoader loader, DexPathList.Element[] elements) throws IOException {
         // Use absolute paths to enable the use of relative paths when testing on host.
         return openDexFileNative(new File(sourceName).getAbsolutePath(),
-                                 (outputName == null) ? null : new File(outputName).getAbsolutePath(),
-                                 flags);
+                                 (outputName == null)
+                                     ? null
+                                     : new File(outputName).getAbsolutePath(),
+                                 flags,
+                                 loader,
+                                 elements);
     }
 
-    private static native void closeDexFile(Object cookie);
-    private static native Class defineClassNative(String name, ClassLoader loader, Object cookie)
+    /*
+     * Returns true if the dex file is backed by a valid oat file.
+     */
+    /*package*/ boolean isBackedByOatFile() {
+        return isBackedByOatFile(mCookie);
+    }
+
+    /*
+     * Returns true if we managed to close the dex file.
+     */
+    private static native boolean closeDexFile(Object cookie);
+    private static native Class defineClassNative(String name, ClassLoader loader, Object cookie,
+                                                  DexFile dexFile)
             throws ClassNotFoundException, NoClassDefFoundError;
     private static native String[] getClassNameList(Object cookie);
+    private static native boolean isBackedByOatFile(Object cookie);
     /*
      * Open a DEX file.  The value returned is a magic VM cookie.  On
      * failure, an IOException is thrown.
      */
-    private static native Object openDexFileNative(String sourceName, String outputName, int flags);
+    private static native Object openDexFileNative(String sourceName, String outputName, int flags,
+            ClassLoader loader, DexPathList.Element[] elements);
 
     /**
      * Returns true if the VM believes that the apk/jar file is out of date
@@ -323,38 +418,67 @@ public final class DexFile {
             throws FileNotFoundException, IOException;
 
     /**
-     * See {@link #getDexOptNeeded(String, String, String, boolean)}.
+     * See {@link #getDexOptNeeded(String, String, int)}.
      *
      * @hide
      */
     public static final int NO_DEXOPT_NEEDED = 0;
 
     /**
-     * See {@link #getDexOptNeeded(String, String, String, boolean)}.
+     * See {@link #getDexOptNeeded(String, String, int)}.
      *
      * @hide
      */
     public static final int DEX2OAT_NEEDED = 1;
 
     /**
-     * See {@link #getDexOptNeeded(String, String, String, boolean)}.
+     * See {@link #getDexOptNeeded(String, String, int)}.
      *
      * @hide
      */
     public static final int PATCHOAT_NEEDED = 2;
 
     /**
-     * See {@link #getDexOptNeeded(String, String, String, boolean)}.
+     * See {@link #getDexOptNeeded(String, String, int)}.
      *
      * @hide
      */
     public static final int SELF_PATCHOAT_NEEDED = 3;
 
     /**
+     * Returns whether the given filter is a valid filter.
+     *
+     * @hide
+     */
+    public native static boolean isValidCompilerFilter(String filter);
+
+    /**
+     * Returns whether the given filter is based on profiles.
+     *
+     * @hide
+     */
+    public native static boolean isProfileGuidedCompilerFilter(String filter);
+
+    /**
+     * Returns the version of the compiler filter that is not based on profiles.
+     * If the input is not a valid filter, or the filter is already not based on
+     * profiles, this returns the input.
+     *
+     * @hide
+     */
+    public native static String getNonProfileGuidedCompilerFilter(String filter);
+
+    /**
      * Returns the VM's opinion of what kind of dexopt is needed to make the
-     * apk/jar file up to date.
+     * apk/jar file up to date, where {@code targetMode} is used to indicate what
+     * type of compilation the caller considers up-to-date, and {@code newProfile}
+     * is used to indicate whether profile information has changed recently.
      *
      * @param fileName the absolute path to the apk/jar file to examine.
+     * @param compilerFilter a compiler filter to use for what a caller considers up-to-date.
+     * @param newProfile flag that describes whether a profile corresponding
+     *        to the dex file has been recently updated and should be considered
+     *        in the state of the file.
      * @return NO_DEXOPT_NEEDED if the apk/jar is already up to date.
      *         DEX2OAT_NEEDED if dex2oat should be called on the apk/jar file.
      *         PATCHOAT_NEEDED if patchoat should be called on the apk/jar
@@ -369,7 +493,18 @@ public final class DexFile {
      *
      * @hide
      */
-    public static native int getDexOptNeeded(String fileName, String pkgname,
-            String instructionSet, boolean defer)
+    public static native int getDexOptNeeded(String fileName,
+            String instructionSet, String compilerFilter, boolean newProfile)
             throws FileNotFoundException, IOException;
+
+    /**
+     * Returns the status of the dex file {@code fileName}. The returned string is
+     * an opaque, human readable representation of the current status. The output
+     * is only meant for debugging and is not guaranteed to be stable across
+     * releases and/or devices.
+     *
+     * @hide
+     */
+    public static native String getDexFileStatus(String fileName, String instructionSet)
+        throws FileNotFoundException;
 }

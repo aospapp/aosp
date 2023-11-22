@@ -19,7 +19,6 @@ package android.permission.cts;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.Environment;
-import android.os.SystemProperties;
 import android.system.Os;
 import android.system.OsConstants;
 import android.system.StructStatVfs;
@@ -108,8 +107,8 @@ public class FileSystemPermissionTest extends AndroidTestCase {
                 .getInstalledApplications(PackageManager.GET_UNINSTALLED_PACKAGES);
         String myAppDirectory = getContext().getApplicationInfo().dataDir;
         for (ApplicationInfo app : apps) {
-            if (!myAppDirectory.equals(app.dataDir)) {
-                writableDirs.addAll(getWritableDirectoryiesAndSubdirectoriesOf(new File(app.dataDir)));
+            if (app.dataDir != null && !myAppDirectory.equals(app.dataDir)) {
+                writableDirs.addAll(getWritableDirectoriesAndSubdirectoriesOf(new File(app.dataDir)));
             }
         }
 
@@ -263,6 +262,20 @@ public class FileSystemPermissionTest extends AndroidTestCase {
     }
 
     @MediumTest
+    public void testProcSelfPagemapNotAccessible() {
+        // Note: can't use f.canRead() here, since the security check is done
+        // during the open() process. access(R_OK) return OK even through
+        // open() eventually fails.
+        try {
+            new FileInputStream("/proc/self/pagemap");
+            fail("Device is missing the following kernel security patch: "
+                 + "https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ab676b7d6fbf4b294bf198fb27ade5b0e865c7ce");
+        } catch (FileNotFoundException e) {
+            // expected
+        }
+    }
+
+    @MediumTest
     public void testTcpDefaultRwndSane() throws Exception {
         File f = new File("/proc/sys/net/ipv4/tcp_default_init_rwnd");
         assertTrue(f.canRead());
@@ -277,12 +290,45 @@ public class FileSystemPermissionTest extends AndroidTestCase {
     public void testIdletimerDirectoryExistsAndSane() throws Exception {
         File dir = new File("/sys/class/xt_idletimer");
         assertTrue(dir.isDirectory());
-        assertTrue(dir.canRead());
         assertFalse(dir.canWrite());
         assertTrue(dir.canExecute());
 
         assertFileOwnedBy(dir, "root");
         assertFileOwnedByGroup(dir, "root");
+    }
+
+
+    @MediumTest
+    public void testProcfsMmapRndBitsExistsAndSane() throws Exception {
+        String arch = System.getProperty("os.arch");
+        boolean supported = false;
+        boolean supported_64 = false;
+
+        if (arch.equals("aarch64") || arch.equals("x86_64"))
+            supported_64 = true;
+        else if (arch.startsWith("arm") || arch.endsWith("86"))
+            supported = true;
+
+        /* 64-bit OS should support running 32-bit applications */
+        if (supported_64) {
+            File f = new File("/proc/sys/vm/mmap_rnd_compat_bits");
+            assertTrue(f.exists());
+            assertFalse(f.canRead());
+            assertFalse(f.canWrite());
+            assertFalse(f.canExecute());
+            assertFileOwnedBy(f, "root");
+            assertFileOwnedByGroup(f, "root");
+        }
+
+        if (supported_64 || supported) {
+            File f = new File("/proc/sys/vm/mmap_rnd_bits");
+            assertTrue(f.exists());
+            assertFalse(f.canRead());
+            assertFalse(f.canWrite());
+            assertFalse(f.canExecute());
+            assertFileOwnedBy(f, "root");
+            assertFileOwnedByGroup(f, "root");
+        }
     }
 
     /**
@@ -360,7 +406,6 @@ public class FileSystemPermissionTest extends AndroidTestCase {
     @MediumTest
     public void testDeviceTreeCpuCurrent() throws Exception {
         String arch = System.getProperty("os.arch");
-        String flavor = SystemProperties.get("ro.build.flavor");
         String[] osVersion = System.getProperty("os.version").split("\\.");
         /*
          * Perform the test for only arm-based architecture and
@@ -418,7 +463,7 @@ public class FileSystemPermissionTest extends AndroidTestCase {
     @LargeTest
     public void testAllOtherDirectoriesNotWritable() throws Exception {
         File start = new File("/");
-        Set<File> writableDirs = getWritableDirectoryiesAndSubdirectoriesOf(start);
+        Set<File> writableDirs = getWritableDirectoriesAndSubdirectoriesOf(start);
 
         assertTrue("Found writable directories: " + writableDirs.toString(),
                 writableDirs.isEmpty());
@@ -529,6 +574,7 @@ public class FileSystemPermissionTest extends AndroidTestCase {
                     "/data/misc/bluetooth",
                     "/data/misc/dhcp",
                     "/data/misc/lockscreen",
+                    "/data/misc/sensor",
                     "/data/misc/webwidgets",
                     "/data/misc/webwidgets/chess",
                     "/data/misc/widgets",
@@ -578,7 +624,6 @@ public class FileSystemPermissionTest extends AndroidTestCase {
                     "/mnt_ext/badablk3",
                     "/mnt_ext/cache",
                     "/mnt_ext/data",
-                    "/system/etc/dhcpcd/dhcpcd-run-hooks",
                     "/system/etc/security/drm",
                     "/synthesis/hades",
                     "/synthesis/chimaira",
@@ -609,7 +654,7 @@ public class FileSystemPermissionTest extends AndroidTestCase {
         Set<File> writableDirs = new HashSet<File>();
         for (String dir : OTHER_RANDOM_DIRECTORIES) {
             File start = new File(dir);
-            writableDirs.addAll(getWritableDirectoryiesAndSubdirectoriesOf(start));
+            writableDirs.addAll(getWritableDirectoriesAndSubdirectoriesOf(start));
         }
 
         assertTrue("Found writable directories: " + writableDirs.toString(),
@@ -785,7 +830,11 @@ public class FileSystemPermissionTest extends AndroidTestCase {
                 new File("/dev/ashmem"),
                 new File("/dev/binder"),
                 new File("/dev/card0"),       // b/13159510
+                new File("/dev/renderD128"),
+                new File("/dev/renderD129"),  // b/23798677
                 new File("/dev/dri/card0"),   // b/13159510
+                new File("/dev/dri/renderD128"),
+                new File("/dev/dri/renderD129"), // b/23798677
                 new File("/dev/felica"),     // b/11142586
                 new File("/dev/felica_ant"), // b/11142586
                 new File("/dev/felica_cen"), // b/11142586
@@ -1026,7 +1075,7 @@ public class FileSystemPermissionTest extends AndroidTestCase {
         return retval;
     }
 
-    private Set<File> getWritableDirectoryiesAndSubdirectoriesOf(File dir) throws Exception {
+    private Set<File> getWritableDirectoriesAndSubdirectoriesOf(File dir) throws Exception {
         Set<File> retval = new HashSet<File>();
         if (!dir.isDirectory()) {
             return retval;
@@ -1055,7 +1104,7 @@ public class FileSystemPermissionTest extends AndroidTestCase {
         }
 
         for (File f : subFiles) {
-            retval.addAll(getWritableDirectoryiesAndSubdirectoriesOf(f));
+            retval.addAll(getWritableDirectoriesAndSubdirectoriesOf(f));
         }
 
         return retval;

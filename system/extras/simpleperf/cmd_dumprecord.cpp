@@ -20,19 +20,26 @@
 #include <string>
 #include <vector>
 
-#include <base/logging.h>
-#include <base/stringprintf.h>
+#include <android-base/logging.h>
+#include <android-base/stringprintf.h>
+#include <android-base/strings.h>
 
 #include "command.h"
 #include "event_attr.h"
+#include "perf_regs.h"
 #include "record.h"
 #include "record_file.h"
+#include "utils.h"
 
 using namespace PerfFileFormat;
 
-class DumpRecordCommandImpl {
+class DumpRecordCommand : public Command {
  public:
-  DumpRecordCommandImpl() : record_filename_("perf.data") {
+  DumpRecordCommand()
+      : Command("dump", "dump perf record file",
+                "Usage: simpleperf dumprecord [options] [perf_record_file]\n"
+                "    Dump different parts of a perf record file. Default file is perf.data.\n"),
+        record_filename_("perf.data"), record_file_arch_(GetBuildArch()) {
   }
 
   bool Run(const std::vector<std::string>& args);
@@ -46,11 +53,10 @@ class DumpRecordCommandImpl {
 
   std::string record_filename_;
   std::unique_ptr<RecordFileReader> record_file_reader_;
-
-  std::vector<int> features_;
+  ArchType record_file_arch_;
 };
 
-bool DumpRecordCommandImpl::Run(const std::vector<std::string>& args) {
+bool DumpRecordCommand::Run(const std::vector<std::string>& args) {
   if (!ParseOptions(args)) {
     return false;
   }
@@ -58,6 +64,14 @@ bool DumpRecordCommandImpl::Run(const std::vector<std::string>& args) {
   if (record_file_reader_ == nullptr) {
     return false;
   }
+  std::string arch = record_file_reader_->ReadFeatureString(FEAT_ARCH);
+  if (!arch.empty()) {
+    record_file_arch_ = GetArchType(arch);
+    if (record_file_arch_ == ARCH_UNSUPPORTED) {
+      return false;
+    }
+  }
+  ScopedCurrentArch scoped_arch(record_file_arch_);
   DumpFileHeader();
   DumpAttrSection();
   DumpDataSection();
@@ -66,47 +80,51 @@ bool DumpRecordCommandImpl::Run(const std::vector<std::string>& args) {
   return true;
 }
 
-bool DumpRecordCommandImpl::ParseOptions(const std::vector<std::string>& args) {
-  if (args.size() == 2) {
-    record_filename_ = args[1];
+bool DumpRecordCommand::ParseOptions(const std::vector<std::string>& args) {
+  if (args.size() == 1) {
+    record_filename_ = args[0];
+  } else if (args.size() > 1) {
+    ReportUnknownOption(args, 1);
+    return false;
   }
   return true;
 }
 
 static const std::string GetFeatureName(int feature);
 
-void DumpRecordCommandImpl::DumpFileHeader() {
-  const FileHeader* header = record_file_reader_->FileHeader();
+void DumpRecordCommand::DumpFileHeader() {
+  const FileHeader& header = record_file_reader_->FileHeader();
   printf("magic: ");
   for (size_t i = 0; i < 8; ++i) {
-    printf("%c", header->magic[i]);
+    printf("%c", header.magic[i]);
   }
   printf("\n");
-  printf("header_size: %" PRId64 "\n", header->header_size);
-  if (header->header_size != sizeof(*header)) {
-    PLOG(WARNING) << "record file header size doesn't match expected header size "
-                  << sizeof(*header);
+  printf("header_size: %" PRId64 "\n", header.header_size);
+  if (header.header_size != sizeof(header)) {
+    PLOG(WARNING) << "record file header size " << header.header_size
+                  << "doesn't match expected header size " << sizeof(header);
   }
-  printf("attr_size: %" PRId64 "\n", header->attr_size);
-  if (header->attr_size != sizeof(FileAttr)) {
-    PLOG(WARNING) << "record file attr size doesn't match expected attr size " << sizeof(FileAttr);
+  printf("attr_size: %" PRId64 "\n", header.attr_size);
+  if (header.attr_size != sizeof(FileAttr)) {
+    PLOG(WARNING) << "record file attr size " << header.attr_size
+                  << " doesn't match expected attr size " << sizeof(FileAttr);
   }
-  printf("attrs[file section]: offset %" PRId64 ", size %" PRId64 "\n", header->attrs.offset,
-         header->attrs.size);
-  printf("data[file section]: offset %" PRId64 ", size %" PRId64 "\n", header->data.offset,
-         header->data.size);
+  printf("attrs[file section]: offset %" PRId64 ", size %" PRId64 "\n", header.attrs.offset,
+         header.attrs.size);
+  printf("data[file section]: offset %" PRId64 ", size %" PRId64 "\n", header.data.offset,
+         header.data.size);
   printf("event_types[file section]: offset %" PRId64 ", size %" PRId64 "\n",
-         header->event_types.offset, header->event_types.size);
+         header.event_types.offset, header.event_types.size);
 
-  features_.clear();
+  std::vector<int> features;
   for (size_t i = 0; i < FEAT_MAX_NUM; ++i) {
     size_t j = i / 8;
     size_t k = i % 8;
-    if ((header->features[j] & (1 << k)) != 0) {
-      features_.push_back(i);
+    if ((header.features[j] & (1 << k)) != 0) {
+      features.push_back(i);
     }
   }
-  for (auto& feature : features_) {
+  for (auto& feature : features) {
     printf("feature: %s\n", GetFeatureName(feature).c_str());
   }
 }
@@ -127,7 +145,7 @@ static const std::string GetFeatureName(int feature) {
       {FEAT_EVENT_DESC, "event_desc"},
       {FEAT_CPU_TOPOLOGY, "cpu_topology"},
       {FEAT_NUMA_TOPOLOGY, "numa_topology"},
-      {FEAT_BRANCH_STACK, "branck_stack"},
+      {FEAT_BRANCH_STACK, "branch_stack"},
       {FEAT_PMU_MAPPINGS, "pmu_mappings"},
       {FEAT_GROUP_DESC, "group_desc"},
   };
@@ -138,18 +156,21 @@ static const std::string GetFeatureName(int feature) {
   return android::base::StringPrintf("unknown_feature(%d)", feature);
 }
 
-void DumpRecordCommandImpl::DumpAttrSection() {
-  std::vector<const FileAttr*> attrs = record_file_reader_->AttrSection();
+void DumpRecordCommand::DumpAttrSection() {
+  const std::vector<FileAttr>& attrs = record_file_reader_->AttrSection();
   for (size_t i = 0; i < attrs.size(); ++i) {
-    auto& attr = attrs[i];
+    const auto& attr = attrs[i];
     printf("file_attr %zu:\n", i + 1);
-    DumpPerfEventAttr(attr->attr, 1);
-    printf("  ids[file_section]: offset %" PRId64 ", size %" PRId64 "\n", attr->ids.offset,
-           attr->ids.size);
-    std::vector<uint64_t> ids = record_file_reader_->IdsForAttr(attr);
-    if (ids.size() > 0) {
+    DumpPerfEventAttr(attr.attr, 1);
+    printf("  ids[file_section]: offset %" PRId64 ", size %" PRId64 "\n", attr.ids.offset,
+           attr.ids.size);
+    std::vector<uint64_t> ids;
+    if (!record_file_reader_->ReadIdsForAttr(attr, &ids)) {
+      return;
+    }
+    if (!ids.empty()) {
       printf("  ids:");
-      for (auto& id : ids) {
+      for (const auto& id : ids) {
         printf(" %" PRId64, id);
       }
       printf("\n");
@@ -157,48 +178,38 @@ void DumpRecordCommandImpl::DumpAttrSection() {
   }
 }
 
-void DumpRecordCommandImpl::DumpDataSection() {
-  std::vector<std::unique_ptr<const Record>> records = record_file_reader_->DataSection();
-  for (auto& record : records) {
+void DumpRecordCommand::DumpDataSection() {
+  record_file_reader_->ReadDataSection([](std::unique_ptr<Record> record) {
     record->Dump();
-  }
+    return true;
+  }, false);
 }
 
-void DumpRecordCommandImpl::DumpFeatureSection() {
-  std::vector<SectionDesc> sections = record_file_reader_->FeatureSectionDescriptors();
-  CHECK_EQ(sections.size(), features_.size());
-  for (size_t i = 0; i < features_.size(); ++i) {
-    int feature = features_[i];
-    SectionDesc& section = sections[i];
+void DumpRecordCommand::DumpFeatureSection() {
+  std::map<int, SectionDesc> section_map = record_file_reader_->FeatureSectionDescriptors();
+  for (const auto& pair : section_map) {
+    int feature = pair.first;
+    const auto& section = pair.second;
     printf("feature section for %s: offset %" PRId64 ", size %" PRId64 "\n",
            GetFeatureName(feature).c_str(), section.offset, section.size);
     if (feature == FEAT_BUILD_ID) {
-      const char* p = record_file_reader_->DataAtOffset(section.offset);
-      const char* end = p + section.size;
-      while (p < end) {
-        const perf_event_header* header = reinterpret_cast<const perf_event_header*>(p);
-        CHECK_LE(p + header->size, end);
-        CHECK_EQ(PERF_RECORD_BUILD_ID, header->type);
-        BuildIdRecord record(header);
-        record.Dump(1);
-        p += header->size;
+      std::vector<BuildIdRecord> records = record_file_reader_->ReadBuildIdFeature();
+      for (auto& r : records) {
+        r.Dump(1);
       }
+    } else if (feature == FEAT_OSRELEASE) {
+      std::string s = record_file_reader_->ReadFeatureString(feature);
+      PrintIndented(1, "osrelease: %s\n", s.c_str());
+    } else if (feature == FEAT_ARCH) {
+      std::string s = record_file_reader_->ReadFeatureString(feature);
+      PrintIndented(1, "arch: %s\n", s.c_str());
+    } else if (feature == FEAT_CMDLINE) {
+      std::vector<std::string> cmdline = record_file_reader_->ReadCmdlineFeature();
+      PrintIndented(1, "cmdline: %s\n", android::base::Join(cmdline, ' ').c_str());
     }
   }
 }
 
-class DumpRecordCommand : public Command {
- public:
-  DumpRecordCommand()
-      : Command("dump", "dump perf record file",
-                "Usage: simpleperf dumprecord [options] [perf_record_file]\n"
-                "    Dump different parts of a perf record file. Default file is perf.data.\n") {
-  }
-
-  bool Run(const std::vector<std::string>& args) override {
-    DumpRecordCommandImpl impl;
-    return impl.Run(args);
-  }
-};
-
-DumpRecordCommand dumprecord_cmd;
+void RegisterDumpRecordCommand() {
+  RegisterCommand("dump", [] { return std::unique_ptr<Command>(new DumpRecordCommand); });
+}

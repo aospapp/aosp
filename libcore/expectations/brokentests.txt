@@ -8,18 +8,6 @@
   bug: 5834665
 },
 {
-  description: "libcore.java.net.URLConnectionTest#testServerShutdownInput fails on ICL27 mysid-userdebug (5534202 is caused by 5731252)",
-  name: "libcore.java.net.URLConnectionTest#testServerShutdownInput",
-  bug: 5534202
-},
-{
-  description: "This test has been failing in our continuous build recently.",
-  names: [
-    "libcore.java.net.URLConnectionTest#testConnectTimeouts"
-  ],
-  bug: 3441111
-},
-{
   description: "We're retiring the security manager. Unfortunately, tests all over the place
                 need to check that they're secure, so they all fail when we refuse to install
                 a security manager. This suppresses all of these failures.",
@@ -45,6 +33,13 @@
   result: EXEC_FAILED,
   failure: "connect to the Internet",
   pattern: ".*java.net.UnknownHostException:.*jcltest.apache.org.*"
+},
+{
+  description: "Some tests (ExcludedProxyTest) connect to a public webserver to check that the HTTP client works",
+  result: EXEC_FAILED,
+  names: [
+    "com.android.org.apache.harmony.luni.tests.java.net.ExcludedProxyTest"
+  ]
 },
 {
   description: "Some tests depend on ICU data, which has changed. Others make assumptions about floating point rounding",
@@ -123,8 +118,8 @@
   description: "Destroys MD5 provider, hurts succeeding tests",
   result: EXEC_FAILED,
   names: [
-      "tests.api.javax.security.cert.X509CertificateTest#testVerifyPublicKey",
-      "tests.api.javax.security.cert.X509CertificateTest#testVerifyPublicKeyString"
+      "org.apache.harmony.tests.api.javax.security.cert.X509CertificateTest#testVerifyPublicKey",
+      "org.apache.harmony.tests.api.javax.security.cert.X509CertificateTest#testVerifyPublicKeyString"
   ]
 },
 {
@@ -154,6 +149,22 @@
   modes: [device],
   names: [
       "org.apache.harmony.tests.java.lang.reflect.GenericSignatureFormatErrorTest#test_signatureFormatError"
+  ]
+},
+{
+  description: "Requires functional Support_Jetty",
+  bug: 28535961,
+  result: EXEC_FAILED,
+  names: [
+      "com.android.org.apache.harmony.luni.tests.java.net.URLClassLoaderTest"
+  ]
+},
+{
+  description: "Unable to execute Support_AvailTest",
+  result: EXEC_FAILED,
+  bug: 28535603,
+  names: [
+      "com.android.org.apache.harmony.luni.tests.internal.process.SystemProcessTest#test_interrupt"
   ]
 }
 ]

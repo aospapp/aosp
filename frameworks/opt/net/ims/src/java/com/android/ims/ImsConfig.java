@@ -38,6 +38,38 @@ public class ImsConfig {
     private Context mContext;
 
     /**
+     * Broadcast action: the feature enable status was changed
+     *
+     * @hide
+     */
+    public static final String ACTION_IMS_FEATURE_CHANGED =
+            "com.android.intent.action.IMS_FEATURE_CHANGED";
+
+    /**
+     * Broadcast action: the configuration was changed
+     *
+     * @hide
+     */
+    public static final String ACTION_IMS_CONFIG_CHANGED =
+            "com.android.intent.action.IMS_CONFIG_CHANGED";
+
+    /**
+     * Extra parameter "item" of intent ACTION_IMS_FEATURE_CHANGED and ACTION_IMS_CONFIG_CHANGED.
+     * It is the value of FeatureConstants or ConfigConstants.
+     *
+     * @hide
+     */
+    public static final String EXTRA_CHANGED_ITEM = "item";
+
+    /**
+     * Extra parameter "value" of intent ACTION_IMS_FEATURE_CHANGED and ACTION_IMS_CONFIG_CHANGED.
+     * It is the new value of "item".
+     *
+     * @hide
+     */
+    public static final String EXTRA_NEW_VALUE = "value";
+
+    /**
     * Defines IMS service/capability feature constants.
     */
     public static class FeatureConstants {
@@ -66,6 +98,18 @@ public class ImsConfig {
          * GSMA IR.94 over WiFi.
          */
         public static final int FEATURE_TYPE_VIDEO_OVER_WIFI = 3;
+
+        /**
+         * FEATURE_TYPE_UT supports features defined in 3GPP and
+         * GSMA IR.92 over LTE.
+         */
+        public static final int FEATURE_TYPE_UT_OVER_LTE = 4;
+
+       /**
+         * FEATURE_TYPE_UT_OVER_WIFI supports features defined in 3GPP and
+         * GSMA IR.92 over WiFi.
+         */
+        public static final int FEATURE_TYPE_UT_OVER_WIFI = 5;
     }
 
     /**
@@ -176,59 +220,215 @@ public class ImsConfig {
          */
         public static final int PUBLISH_TIMER_EXTENDED = 16;
         /**
+         *
+         * Value is in Integer format.
+         */
+        public static final int CAPABILITY_DISCOVERY_ENABLED = 17;
+        /**
          * Period of time the capability information of the  contact is cached on handset.
          * Value is in Integer format.
          */
-        public static final int CAPABILITIES_CACHE_EXPIRATION = 17;
+        public static final int CAPABILITIES_CACHE_EXPIRATION = 18;
         /**
          * Peiod of time the availability information of a contact is cached on device.
          * Value is in Integer format.
          */
-        public static final int AVAILABILITY_CACHE_EXPIRATION = 18;
+        public static final int AVAILABILITY_CACHE_EXPIRATION = 19;
         /**
          * Interval between successive capabilities polling.
          * Value is in Integer format.
          */
-        public static final int CAPABILITIES_POLL_INTERVAL = 19;
+        public static final int CAPABILITIES_POLL_INTERVAL = 20;
         /**
          * Minimum time between two published messages from the device.
          * Value is in Integer format.
          */
-        public static final int SOURCE_THROTTLE_PUBLISH = 20;
+        public static final int SOURCE_THROTTLE_PUBLISH = 21;
         /**
          * The Maximum number of MDNs contained in one Request Contained List.
          * Value is in Integer format.
          */
-        public static final int MAX_NUMENTRIES_IN_RCL = 21;
+        public static final int MAX_NUMENTRIES_IN_RCL = 22;
         /**
          * Expiration timer for subscription of a Request Contained List, used in capability polling.
          * Value is in Integer format.
          */
-        public static final int CAPAB_POLL_LIST_SUB_EXP = 22;
+        public static final int CAPAB_POLL_LIST_SUB_EXP = 23;
         /**
          * Applies compression to LIST Subscription.
          * Value is in Integer format. Enable (1), Disable(0).
          */
-        public static final int GZIP_FLAG = 23;
+        public static final int GZIP_FLAG = 24;
         /**
          * VOLTE Status for EAB/s status of Enabled (1), or Disabled (0).
          * Value is in Integer format.
          */
-        public static final int EAB_SETTING_ENABLED = 24;
+        public static final int EAB_SETTING_ENABLED = 25;
         /**
          * Wi-Fi calling roaming status.
          * Value is in Integer format. ON (1), OFF(0).
          */
-        public static final int VOICE_OVER_WIFI_ROAMING = 25;
+        public static final int VOICE_OVER_WIFI_ROAMING = 26;
         /**
          * Wi-Fi calling modem - WfcModeFeatureValueConstants.
          * Value is in Integer format.
          */
-        public static final int VOICE_OVER_WIFI_MODE = 26;
+        public static final int VOICE_OVER_WIFI_MODE = 27;
+        /**
+         * VOLTE Status for voice over wifi status of Enabled (1), or Disabled (0).
+         * Value is in Integer format.
+         */
+        public static final int VOICE_OVER_WIFI_SETTING_ENABLED = 28;
+        /**
+         * Mobile data enabled.
+         * Value is in Integer format. On (1), OFF(0).
+         */
+        public static final int MOBILE_DATA_ENABLED = 29;
+        /**
+         * VoLTE user opted in status.
+         * Value is in Integer format. Opted-in (1) Opted-out (0).
+         */
+        public static final int VOLTE_USER_OPT_IN_STATUS = 30;
+        /**
+         * Proxy for Call Session Control Function(P-CSCF) address for Local-BreakOut(LBO).
+         * Value is in String format.
+         */
+        public static final int LBO_PCSCF_ADDRESS = 31;
+        /**
+         * Keep Alive Enabled for SIP.
+         * Value is in Integer format. On(1), OFF(0).
+         */
+        public static final int KEEP_ALIVE_ENABLED = 32;
+        /**
+         * Registration retry Base Time value in seconds.
+         * Value is in Integer format.
+         */
+        public static final int REGISTRATION_RETRY_BASE_TIME_SEC = 33;
+        /**
+         * Registration retry Max Time value in seconds.
+         * Value is in Integer format.
+         */
+        public static final int REGISTRATION_RETRY_MAX_TIME_SEC = 34;
+        /**
+         * Smallest RTP port for speech codec.
+         * Value is in integer format.
+         */
+        public static final int SPEECH_START_PORT = 35;
+        /**
+         * Largest RTP port for speech code.
+         * Value is in Integer format.
+         */
+        public static final int SPEECH_END_PORT = 36;
+        /**
+         * SIP Timer A's value in milliseconds. Timer A is the INVITE request
+         * retransmit interval, for UDP only.
+         * Value is in Integer format.
+         */
+        public static final int SIP_INVITE_REQ_RETX_INTERVAL_MSEC = 37;
+        /**
+         * SIP Timer B's value in milliseconds. Timer B is the wait time for
+         * INVITE message to be acknowledged.
+         * Value is in Integer format.
+         */
+        public static final int SIP_INVITE_RSP_WAIT_TIME_MSEC = 38;
+        /**
+         * SIP Timer D's value in milliseconds. Timer D is the wait time for
+         * response retransmits of the invite client transactions.
+         * Value is in Integer format.
+         */
+        public static final int SIP_INVITE_RSP_RETX_WAIT_TIME_MSEC = 39;
+        /**
+         * SIP Timer E's value in milliseconds. Timer E is the value Non-INVITE
+         * request retransmit interval, for UDP only.
+         * Value is in Integer format.
+         */
+        public static final int SIP_NON_INVITE_REQ_RETX_INTERVAL_MSEC = 40;
+        /**
+         * SIP Timer F's value in milliseconds. Timer F is the Non-INVITE transaction
+         * timeout timer.
+         * Value is in Integer format.
+         */
+        public static final int SIP_NON_INVITE_TXN_TIMEOUT_TIMER_MSEC = 41;
+        /**
+         * SIP Timer G's value in milliseconds. Timer G is the value of INVITE response
+         * retransmit interval.
+         * Value is in Integer format.
+         */
+        public static final int SIP_INVITE_RSP_RETX_INTERVAL_MSEC = 42;
+        /**
+         * SIP Timer H's value in milliseconds. Timer H is the value of wait time for
+         * ACK receipt.
+         * Value is in Integer format.
+         */
+        public static final int SIP_ACK_RECEIPT_WAIT_TIME_MSEC = 43;
+        /**
+         * SIP Timer I's value in milliseconds. Timer I is the value of wait time for
+         * ACK retransmits.
+         * Value is in Integer format.
+         */
+        public static final int SIP_ACK_RETX_WAIT_TIME_MSEC = 44;
+        /**
+         * SIP Timer J's value in milliseconds. Timer J is the value of wait time for
+         * non-invite request retransmission.
+         * Value is in Integer format.
+         */
+        public static final int SIP_NON_INVITE_REQ_RETX_WAIT_TIME_MSEC = 45;
+        /**
+         * SIP Timer K's value in milliseconds. Timer K is the value of wait time for
+         * non-invite response retransmits.
+         * Value is in Integer format.
+         */
+        public static final int SIP_NON_INVITE_RSP_RETX_WAIT_TIME_MSEC = 46;
+        /**
+         * AMR WB octet aligned dynamic payload type.
+         * Value is in Integer format.
+         */
+        public static final int AMR_WB_OCTET_ALIGNED_PT = 47;
+        /**
+         * AMR WB bandwidth efficient payload type.
+         * Value is in Integer format.
+         */
+        public static final int AMR_WB_BANDWIDTH_EFFICIENT_PT = 48;
+        /**
+         * AMR octet aligned dynamic payload type.
+         * Value is in Integer format.
+         */
+        public static final int AMR_OCTET_ALIGNED_PT = 49;
+        /**
+         * AMR bandwidth efficient payload type.
+         * Value is in Integer format.
+         */
+        public static final int AMR_BANDWIDTH_EFFICIENT_PT = 50;
+        /**
+         * DTMF WB payload type.
+         * Value is in Integer format.
+         */
+        public static final int DTMF_WB_PT = 51;
+        /**
+         * DTMF NB payload type.
+         * Value is in Integer format.
+         */
+        public static final int DTMF_NB_PT = 52;
+        /**
+         * AMR Default encoding mode.
+         * Value is in Integer format.
+         */
+        public static final int AMR_DEFAULT_MODE = 53;
+        /**
+         * SMS Public Service Identity.
+         * Value is in String format.
+         */
+        public static final int SMS_PSI = 54;
+        /**
+         * Video Quality - VideoQualityFeatureValuesConstants.
+         * Value is in Integer format.
+         */
+        public static final int VIDEO_QUALITY = 55;
+
 
         // Expand the operator config items as needed here, need to change
         // PROVISIONED_CONFIG_END after that.
-        public static final int PROVISIONED_CONFIG_END = VOICE_OVER_WIFI_MODE;
+        public static final int PROVISIONED_CONFIG_END = VIDEO_QUALITY;
 
         // Expand the operator config items as needed here.
     }
@@ -255,6 +455,14 @@ public class ImsConfig {
         public static final int VIDEO_QUALITY_UNKNOWN = -1;
         public static final int VIDEO_QUALITY_LOW = 0;
         public static final int VIDEO_QUALITY_HIGH = 1;
+    }
+
+    /**
+     * Defines IMS video quality feature value.
+     */
+    public static class VideoQualityFeatureValuesConstants {
+        public static final int LOW = 0;
+        public static final int HIGH = 1;
     }
 
    /**
@@ -451,39 +659,4 @@ public class ImsConfig {
                     ImsReasonInfo.CODE_LOCAL_SERVICE_UNAVAILABLE);
         }
     }
-
-    /**
-     * Gets the value for IMS feature item for video call quality.
-     *
-     * @param listener, provided if caller needs to be notified for set result.
-     * @return void
-     *
-     * @throws ImsException if calling the IMS service results in an error.
-     */
-    public void getVideoQuality(ImsConfigListener listener) throws ImsException {
-        try {
-            miConfig.getVideoQuality(listener);
-        } catch (RemoteException e) {
-            throw new ImsException("getVideoQuality()", e,
-                    ImsReasonInfo.CODE_LOCAL_SERVICE_UNAVAILABLE);
-        }
-    }
-
-    /**
-     * Sets the value for IMS feature item video quality.
-     *
-     * @param quality, defines the value of video quality.
-     * @param listener, provided if caller needs to be notified for set result.
-     * @return void
-     *
-     * @throws ImsException if calling the IMS service results in an error.
-     */
-     public void setVideoQuality(int quality, ImsConfigListener listener) throws ImsException {
-        try {
-            miConfig.setVideoQuality(quality, listener);
-        } catch (RemoteException e) {
-            throw new ImsException("setVideoQuality()", e,
-                    ImsReasonInfo.CODE_LOCAL_SERVICE_UNAVAILABLE);
-        }
-     }
 }

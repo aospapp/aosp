@@ -17,5 +17,6 @@
 <int name="maxImageWidth" value="2592" />
 <boolean name="enabledMMS" value="true" />
 <boolean name="enableMultipartSMS" value="true" />
+<string name="carrier_eri_file_name_string">eri_310120.xml</string>
 </carrier_config>
 </carrier_config_list>

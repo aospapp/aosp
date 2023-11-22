@@ -154,12 +154,6 @@ OPENSSL_EXPORT point_conversion_form_t EC_KEY_get_conv_form(const EC_KEY *key);
 OPENSSL_EXPORT void EC_KEY_set_conv_form(EC_KEY *key,
                                          point_conversion_form_t cform);
 
-/* EC_KEY_precompute_mult precomputes multiplies of the generator of the
- * underlying group in order to speed up operations that calculate generator
- * multiples. If |ctx| is not NULL, it may be used. It returns one on success
- * and zero otherwise. */
-OPENSSL_EXPORT int EC_KEY_precompute_mult(EC_KEY *key, BN_CTX *ctx);
-
 /* EC_KEY_check_key performs several checks on |key| (possibly including an
  * expensive check that the public key is in the primary subgroup). It returns
  * one if all checks pass and zero otherwise. If it returns zero then detail
@@ -192,7 +186,7 @@ OPENSSL_EXPORT int EC_KEY_generate_key(EC_KEY *key);
 OPENSSL_EXPORT EC_KEY *d2i_ECPrivateKey(EC_KEY **out_key, const uint8_t **inp,
                                         long len);
 
-/* i2d_ECParameters marshals an EC private key from |key| to an ASN.1, DER
+/* i2d_ECPrivateKey marshals an EC private key from |key| to an ASN.1, DER
  * structure. If |outp| is not NULL then the result is written to |*outp| and
  * |*outp| is advanced just past the output. It returns the number of bytes in
  * the result, whether written or not, or a negative value on error. */
@@ -215,8 +209,8 @@ OPENSSL_EXPORT int i2d_ECParameters(const EC_KEY *key, uint8_t **outp);
 
 /* o2i_ECPublicKey parses an EC point from |len| bytes at |*inp| into
  * |*out_key|. Note that this differs from the d2i format in that |*out_key|
- * must be non-NULL. On successful exit, |*inp| is advanced past the DER
- * structure. It returns |*out_key| or NULL on error. */
+ * must be non-NULL with a group set. On successful exit, |*inp| is advanced by
+ * |len| bytes. It returns |*out_key| or NULL on error. */
 OPENSSL_EXPORT EC_KEY *o2i_ECPublicKey(EC_KEY **out_key, const uint8_t **inp,
                                        long len);
 
@@ -232,7 +226,7 @@ OPENSSL_EXPORT int i2o_ECPublicKey(const EC_KEY *key, unsigned char **outp);
  * These functions are wrappers. See |ex_data.h| for details. */
 
 OPENSSL_EXPORT int EC_KEY_get_ex_new_index(long argl, void *argp,
-                                           CRYPTO_EX_new *new_func,
+                                           CRYPTO_EX_unused *unused,
                                            CRYPTO_EX_dup *dup_func,
                                            CRYPTO_EX_free *free_func);
 OPENSSL_EXPORT int EC_KEY_set_ex_data(EC_KEY *r, int idx, void *arg);

@@ -14,8 +14,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * along with this program; if not, see <http://www.gnu.org/licenses>.
  */
 /*
  * based on ip.c, iproute.c
@@ -25,22 +24,20 @@
  *	Masahide NAKAMURA @USAGI
  */
 
+#include <alloca.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <endian.h>
 #include <time.h>
 #include <netdb.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
-#include <linux/xfrm.h>
-#include <linux/in.h>
-#include <linux/in6.h>
 
 #include "utils.h"
 #include "xfrm.h"
+#include "ip_common.h"
 
 #define STRBUF_SIZE	(128)
 #define STRBUF_CAT(buf, str) \
@@ -359,7 +356,7 @@ void xfrm_stats_print(struct xfrm_stats *s, FILE *fp, const char *prefix)
 
 	if (prefix)
 		fputs(prefix, fp);
-	fprintf(fp, "  replay-window %u replay %u failed %u%s", 
+	fprintf(fp, "  replay-window %u replay %u failed %u%s",
 		s->replay_window, s->replay, s->integrity_failed, _SL_);
 }
 
@@ -410,7 +407,7 @@ void xfrm_lifetime_print(struct xfrm_lifetime_cfg *cfg,
 
 		if (prefix)
 			fputs(prefix, fp);
-		fprintf(fp, "  expire add: soft %llu(sec), hard %llu(sec)%s", 
+		fprintf(fp, "  expire add: soft %llu(sec), hard %llu(sec)%s",
 			(unsigned long long) cfg->soft_add_expires_seconds,
 			(unsigned long long) cfg->hard_add_expires_seconds,
 			_SL_);
@@ -457,13 +454,15 @@ void xfrm_selector_print(struct xfrm_selector *sel, __u16 family,
 		fputs(prefix, fp);
 
 	memset(abuf, '\0', sizeof(abuf));
-	fprintf(fp, "src %s/%u ", rt_addr_n2a(f, sizeof(sel->saddr),
-					      &sel->saddr, abuf, sizeof(abuf)),
+	fprintf(fp, "src %s/%u ",
+		rt_addr_n2a(f, sizeof(sel->saddr), &sel->saddr,
+			    abuf, sizeof(abuf)),
 		sel->prefixlen_s);
 
 	memset(abuf, '\0', sizeof(abuf));
-	fprintf(fp, "dst %s/%u ", rt_addr_n2a(f, sizeof(sel->daddr),
-					      &sel->daddr, abuf, sizeof(abuf)),
+	fprintf(fp, "dst %s/%u ",
+		rt_addr_n2a(f, sizeof(sel->daddr), &sel->daddr,
+			    abuf, sizeof(abuf)),
 		sel->prefixlen_d);
 
 	if (sel->proto)
@@ -537,12 +536,14 @@ static void __xfrm_algo_print(struct xfrm_algo *algo, int type, int len,
 		goto fin;
 	}
 
-	fprintf(fp, "0x");
-	for (i = 0; i < keylen; i ++)
-		fprintf(fp, "%.2x", (unsigned char)algo->alg_key[i]);
+	if (keylen > 0) {
+		fprintf(fp, "0x");
+		for (i = 0; i < keylen; i ++)
+			fprintf(fp, "%.2x", (unsigned char)algo->alg_key[i]);
 
-	if (show_stats > 0)
-		fprintf(fp, " (%d bits)", algo->alg_key_len);
+		if (show_stats > 0)
+			fprintf(fp, " (%d bits)", algo->alg_key_len);
+	}
 
  fin:
 	if (newline)
@@ -558,16 +559,13 @@ static inline void xfrm_algo_print(struct xfrm_algo *algo, int type, int len,
 static void xfrm_aead_print(struct xfrm_algo_aead *algo, int len,
 			    FILE *fp, const char *prefix)
 {
-	struct {
-		struct xfrm_algo algo;
-		char key[algo->alg_key_len / 8];
-	} base;
+	struct xfrm_algo *base_algo = alloca(sizeof(*base_algo) + algo->alg_key_len / 8);
 
-	memcpy(base.algo.alg_name, algo->alg_name, sizeof(base.algo.alg_name));
-	base.algo.alg_key_len = algo->alg_key_len;
-	memcpy(base.algo.alg_key, algo->alg_key, algo->alg_key_len / 8);
+	memcpy(base_algo->alg_name, algo->alg_name, sizeof(base_algo->alg_name));
+	base_algo->alg_key_len = algo->alg_key_len;
+	memcpy(base_algo->alg_key, algo->alg_key, algo->alg_key_len / 8);
 
-	__xfrm_algo_print(&base.algo, XFRMA_ALG_AEAD, len, fp, prefix, 0);
+	__xfrm_algo_print(base_algo, XFRMA_ALG_AEAD, len, fp, prefix, 0);
 
 	fprintf(fp, " %d", algo->alg_icv_len);
 
@@ -577,16 +575,13 @@ static void xfrm_aead_print(struct xfrm_algo_aead *algo, int len,
 static void xfrm_auth_trunc_print(struct xfrm_algo_auth *algo, int len,
 				  FILE *fp, const char *prefix)
 {
-	struct {
-		struct xfrm_algo algo;
-		char key[algo->alg_key_len / 8];
-	} base;
+	struct xfrm_algo *base_algo = alloca(sizeof(*base_algo) + algo->alg_key_len / 8);
 
-	memcpy(base.algo.alg_name, algo->alg_name, sizeof(base.algo.alg_name));
-	base.algo.alg_key_len = algo->alg_key_len;
-	memcpy(base.algo.alg_key, algo->alg_key, algo->alg_key_len / 8);
+	memcpy(base_algo->alg_name, algo->alg_name, sizeof(base_algo->alg_name));
+	base_algo->alg_key_len = algo->alg_key_len;
+	memcpy(base_algo->alg_key, algo->alg_key, algo->alg_key_len / 8);
 
-	__xfrm_algo_print(&base.algo, XFRMA_ALG_AUTH_TRUNC, len, fp, prefix, 0);
+	__xfrm_algo_print(base_algo, XFRMA_ALG_AUTH_TRUNC, len, fp, prefix, 0);
 
 	fprintf(fp, " %d", algo->alg_trunc_len);
 
@@ -594,7 +589,7 @@ static void xfrm_auth_trunc_print(struct xfrm_algo_auth *algo, int len,
 }
 
 static void xfrm_tmpl_print(struct xfrm_user_tmpl *tmpls, int len,
-			    __u16 family, FILE *fp, const char *prefix)
+			    FILE *fp, const char *prefix)
 {
 	int ntmpls = len / sizeof(struct xfrm_user_tmpl);
 	int i;
@@ -665,7 +660,7 @@ int xfrm_parse_mark(struct xfrm_mark *mark, int *argcp, char ***argvp)
 
 	NEXT_ARG();
 	if (get_u32(&mark->v, *argv, 0)) {
-		invarg("Illegal \"mark\" value\n", *argv);
+		invarg("MARK value is invalid\n", *argv);
 	}
 	if (argc > 1)
 		NEXT_ARG();
@@ -677,7 +672,7 @@ int xfrm_parse_mark(struct xfrm_mark *mark, int *argcp, char ***argvp)
 	if (strcmp(*argv, "mask") == 0) {
 		NEXT_ARG();
 		if (get_u32(&mark->m, *argv, 0)) {
-			invarg("Illegal \"mark\" mask\n", *argv);
+			invarg("MASK value is invalid\n", *argv);
 		}
 	} else {
 		mark->m = 0xffffffff;
@@ -697,7 +692,8 @@ void xfrm_xfrma_print(struct rtattr *tb[], __u16 family,
 	if (tb[XFRMA_MARK]) {
 		struct rtattr *rta = tb[XFRMA_MARK];
 		struct xfrm_mark *m = (struct xfrm_mark *) RTA_DATA(rta);
-		fprintf(fp, "\tmark %d/0x%x\n", m->v, m->m);
+		fprintf(fp, "\tmark %#x/%#x", m->v, m->m);
+		fprintf(fp, "%s", _SL_);
 	}
 
 	if (tb[XFRMA_ALG_AUTH] && !tb[XFRMA_ALG_AUTH_TRUNC]) {
@@ -762,15 +758,15 @@ void xfrm_xfrma_print(struct rtattr *tb[], __u16 family,
 
 		memset(abuf, '\0', sizeof(abuf));
 		fprintf(fp, "addr %s",
-			rt_addr_n2a(family, sizeof(e->encap_oa),
-				    &e->encap_oa, abuf, sizeof(abuf)));
+			rt_addr_n2a(family, sizeof(e->encap_oa), &e->encap_oa,
+				    abuf, sizeof(abuf)));
 		fprintf(fp, "%s", _SL_);
 	}
 
 	if (tb[XFRMA_TMPL]) {
 		struct rtattr *rta = tb[XFRMA_TMPL];
 		xfrm_tmpl_print((struct xfrm_user_tmpl *) RTA_DATA(rta),
-				RTA_PAYLOAD(rta), family, fp, prefix);
+				RTA_PAYLOAD(rta), fp, prefix);
 	}
 
 	if (tb[XFRMA_COADDR]) {
@@ -815,6 +811,62 @@ void xfrm_xfrma_print(struct rtattr *tb[], __u16 family,
 		fprintf(fp, "%s", _SL_);
 	}
 
+	if (tb[XFRMA_REPLAY_VAL]) {
+		struct xfrm_replay_state *replay;
+
+		if (prefix)
+			fputs(prefix, fp);
+		fprintf(fp, "anti-replay context: ");
+
+		if (RTA_PAYLOAD(tb[XFRMA_REPLAY_VAL]) < sizeof(*replay)) {
+			fprintf(fp, "(ERROR truncated)");
+			fprintf(fp, "%s", _SL_);
+			return;
+		}
+
+		replay = (struct xfrm_replay_state *)RTA_DATA(tb[XFRMA_REPLAY_VAL]);
+		fprintf(fp, "seq 0x%x, oseq 0x%x, bitmap 0x%08x",
+			replay->seq, replay->oseq, replay->bitmap);
+		fprintf(fp, "%s", _SL_);
+	}
+
+	if (tb[XFRMA_REPLAY_ESN_VAL]) {
+		struct xfrm_replay_state_esn *replay;
+		unsigned int i, j;
+
+		if (prefix)
+			fputs(prefix, fp);
+		fprintf(fp, "anti-replay esn context:");
+
+		if (RTA_PAYLOAD(tb[XFRMA_REPLAY_ESN_VAL]) < sizeof(*replay)) {
+			fprintf(fp, "(ERROR truncated)");
+			fprintf(fp, "%s", _SL_);
+			return;
+		}
+		fprintf(fp, "%s", _SL_);
+
+		replay = (struct xfrm_replay_state_esn *)RTA_DATA(tb[XFRMA_REPLAY_ESN_VAL]);
+		if (prefix)
+			fputs(prefix, fp);
+		fprintf(fp, " seq-hi 0x%x, seq 0x%x, oseq-hi 0x%0x, oseq 0x%0x",
+			replay->seq_hi, replay->seq, replay->oseq_hi,
+			replay->oseq);
+		fprintf(fp, "%s", _SL_);
+		if (prefix)
+			fputs(prefix, fp);
+		fprintf(fp, " replay_window %u, bitmap-length %u",
+			replay->replay_window, replay->bmp_len);
+		for (i = replay->bmp_len, j = 0; i; i--) {
+			if (j++ % 8 == 0) {
+				fprintf(fp, "%s", _SL_);
+				if (prefix)
+					fputs(prefix, fp);
+				fprintf(fp, " ");
+			}
+			fprintf(fp, "%08x ", replay->bmp[i - 1]);
+		}
+		fprintf(fp, "%s", _SL_);
+	}
 }
 
 static int xfrm_selector_iszero(struct xfrm_selector *s)
@@ -858,8 +910,19 @@ void xfrm_state_info_print(struct xfrm_usersa_info *xsinfo,
 		XFRM_FLAG_PRINT(fp, flags, XFRM_STATE_ICMP, "icmp");
 		XFRM_FLAG_PRINT(fp, flags, XFRM_STATE_AF_UNSPEC, "af-unspec");
 		XFRM_FLAG_PRINT(fp, flags, XFRM_STATE_ALIGN4, "align4");
+		XFRM_FLAG_PRINT(fp, flags, XFRM_STATE_ESN, "esn");
 		if (flags)
 			fprintf(fp, "%x", flags);
+	}
+	if (show_stats > 0 && tb[XFRMA_SA_EXTRA_FLAGS]) {
+		__u32 extra_flags = *(__u32 *)RTA_DATA(tb[XFRMA_SA_EXTRA_FLAGS]);
+
+		fprintf(fp, "extra_flag ");
+		XFRM_FLAG_PRINT(fp, extra_flags,
+				XFRM_SA_XFLAG_DONT_ENCAP_DSCP,
+				"dont-encap-dscp");
+		if (extra_flags)
+			fprintf(fp, "%x", extra_flags);
 	}
 	if (show_stats > 0)
 		fprintf(fp, " (0x%s)", strxf_mask8(xsinfo->flags));
@@ -1015,7 +1078,7 @@ int xfrm_id_parse(xfrm_address_t *saddr, struct xfrm_id *id, __u16 *family,
 
 			get_prefix(&src, *argv, preferred_family);
 			if (src.family == AF_UNSPEC)
-				invarg("\"src\" address family is AF_UNSPEC", *argv);
+				invarg("value after \"src\" has an unrecognized address family", *argv);
 			if (family)
 				*family = src.family;
 
@@ -1028,7 +1091,7 @@ int xfrm_id_parse(xfrm_address_t *saddr, struct xfrm_id *id, __u16 *family,
 
 			get_prefix(&dst, *argv, preferred_family);
 			if (dst.family == AF_UNSPEC)
-				invarg("\"dst\" address family is AF_UNSPEC", *argv);
+				invarg("value after \"dst\" has an unrecognized address family", *argv);
 			if (family)
 				*family = dst.family;
 
@@ -1043,7 +1106,7 @@ int xfrm_id_parse(xfrm_address_t *saddr, struct xfrm_id *id, __u16 *family,
 
 			ret = xfrm_xfrmproto_getbyname(*argv);
 			if (ret < 0)
-				invarg("\"XFRM-PROTO\" is invalid", *argv);
+				invarg("XFRM-PROTO value is invalid", *argv);
 
 			id->proto = (__u8)ret;
 
@@ -1054,7 +1117,7 @@ int xfrm_id_parse(xfrm_address_t *saddr, struct xfrm_id *id, __u16 *family,
 
 			NEXT_ARG();
 			if (get_u32(&spi, *argv, 0))
-				invarg("\"SPI\" is invalid", *argv);
+				invarg("SPI value is invalid", *argv);
 
 			spi = htonl(spi);
 			id->spi = spi;
@@ -1072,7 +1135,19 @@ int xfrm_id_parse(xfrm_address_t *saddr, struct xfrm_id *id, __u16 *family,
 	}
 
 	if (src.family && dst.family && (src.family != dst.family))
-		invarg("the same address family is required between \"src\" and \"dst\"", *argv);
+		invarg("the same address family is required between values after \"src\" and \"dst\"", *argv);
+
+	if (id->spi && id->proto) {
+		if (xfrm_xfrmproto_is_ro(id->proto)) {
+			fprintf(stderr, "\"spi\" is invalid with XFRM-PROTO value \"%s\"\n",
+			        strxf_xfrmproto(id->proto));
+			exit(1);
+		} else if (id->proto == IPPROTO_COMP && ntohl(id->spi) >= 0x10000) {
+			fprintf(stderr, "SPI value is too large with XFRM-PROTO value \"%s\"\n",
+			        strxf_xfrmproto(id->proto));
+			exit(1);
+		}
+	}
 
 	if (loose == 0 && id->proto == 0)
 		missarg("XFRM-PROTO");
@@ -1101,7 +1176,7 @@ int xfrm_mode_parse(__u8 *mode, int *argcp, char ***argvp)
 	else if (matches(*argv, "beet") == 0)
 		*mode = XFRM_MODE_BEET;
 	else
-		invarg("\"MODE\" is invalid", *argv);
+		invarg("MODE value is invalid", *argv);
 
 	*argcp = argc;
 	*argvp = argv;
@@ -1119,7 +1194,7 @@ int xfrm_encap_type_parse(__u16 *type, int *argcp, char ***argvp)
 	else if (strcmp(*argv, "espinudp") == 0)
 		*type = 2;
 	else
-		invarg("\"ENCAP-TYPE\" is invalid", *argv);
+		invarg("ENCAP-TYPE value is invalid", *argv);
 
 	*argcp = argc;
 	*argvp = argv;
@@ -1134,7 +1209,7 @@ int xfrm_reqid_parse(__u32 *reqid, int *argcp, char ***argvp)
 	char **argv = *argvp;
 
 	if (get_u32(reqid, *argv, 0))
-		invarg("\"REQID\" is invalid", *argv);
+		invarg("REQID value is invalid", *argv);
 
 	*argcp = argc;
 	*argvp = argv;
@@ -1168,7 +1243,7 @@ static int xfrm_selector_upspec_parse(struct xfrm_selector *sel,
 					upspec = pp->p_proto;
 				else {
 					if (get_u8(&upspec, *argv, 0))
-						invarg("\"PROTO\" is invalid", *argv);
+						invarg("PROTO value is invalid", *argv);
 				}
 			}
 			sel->proto = upspec;
@@ -1181,7 +1256,7 @@ static int xfrm_selector_upspec_parse(struct xfrm_selector *sel,
 			NEXT_ARG();
 
 			if (get_u16(&sel->sport, *argv, 0))
-				invarg("\"PORT\" is invalid", *argv);
+				invarg("value after \"sport\" is invalid", *argv);
 			sel->sport = htons(sel->sport);
 			if (sel->sport)
 				sel->sport_mask = ~((__u16)0);
@@ -1194,7 +1269,7 @@ static int xfrm_selector_upspec_parse(struct xfrm_selector *sel,
 			NEXT_ARG();
 
 			if (get_u16(&sel->dport, *argv, 0))
-				invarg("\"PORT\" is invalid", *argv);
+				invarg("value after \"dport\" is invalid", *argv);
 			sel->dport = htons(sel->dport);
 			if (sel->dport)
 				sel->dport_mask = ~((__u16)0);
@@ -1208,7 +1283,7 @@ static int xfrm_selector_upspec_parse(struct xfrm_selector *sel,
 
 			if (get_u16(&sel->sport, *argv, 0) ||
 			    (sel->sport & ~((__u16)0xff)))
-				invarg("\"type\" value is invalid", *argv);
+				invarg("value after \"type\" is invalid", *argv);
 			sel->sport = htons(sel->sport);
 			sel->sport_mask = ~((__u16)0);
 
@@ -1222,7 +1297,7 @@ static int xfrm_selector_upspec_parse(struct xfrm_selector *sel,
 
 			if (get_u16(&sel->dport, *argv, 0) ||
 			    (sel->dport & ~((__u16)0xff)))
-				invarg("\"code\" value is invalid", *argv);
+				invarg("value after \"code\" is invalid", *argv);
 			sel->dport = htons(sel->dport);
 			sel->dport_mask = ~((__u16)0);
 
@@ -1239,7 +1314,7 @@ static int xfrm_selector_upspec_parse(struct xfrm_selector *sel,
 				uval = htonl(get_addr32(*argv));
 			else {
 				if (get_unsigned(&uval, *argv, 0)<0) {
-					fprintf(stderr, "invalid value of \"key\"\n");
+					fprintf(stderr, "value after \"key\" is invalid\n");
 					exit(-1);
 				}
 			}
@@ -1268,9 +1343,10 @@ static int xfrm_selector_upspec_parse(struct xfrm_selector *sel,
 		case IPPROTO_UDP:
 		case IPPROTO_SCTP:
 		case IPPROTO_DCCP:
+		case IPPROTO_IP: /* to allow shared SA for different protocols */
 			break;
 		default:
-			fprintf(stderr, "\"sport\" and \"dport\" are invalid with proto=%s\n", strxf_proto(sel->proto));
+			fprintf(stderr, "\"sport\" and \"dport\" are invalid with PROTO value \"%s\"\n", strxf_proto(sel->proto));
 			exit(1);
 		}
 	}
@@ -1281,7 +1357,7 @@ static int xfrm_selector_upspec_parse(struct xfrm_selector *sel,
 		case IPPROTO_MH:
 			break;
 		default:
-			fprintf(stderr, "\"type\" and \"code\" are invalid with proto=%s\n", strxf_proto(sel->proto));
+			fprintf(stderr, "\"type\" and \"code\" are invalid with PROTO value \"%s\"\n", strxf_proto(sel->proto));
 			exit(1);
 		}
 	}
@@ -1290,7 +1366,7 @@ static int xfrm_selector_upspec_parse(struct xfrm_selector *sel,
 		case IPPROTO_GRE:
 			break;
 		default:
-			fprintf(stderr, "\"key\" is invalid with proto=%s\n", strxf_proto(sel->proto));
+			fprintf(stderr, "\"key\" is invalid with PROTO value \"%s\"\n", strxf_proto(sel->proto));
 			exit(1);
 		}
 	}
@@ -1318,7 +1394,7 @@ int xfrm_selector_parse(struct xfrm_selector *sel, int *argcp, char ***argvp)
 
 			get_prefix(&src, *argv, preferred_family);
 			if (src.family == AF_UNSPEC)
-				invarg("\"src\" address family is AF_UNSPEC", *argv);
+				invarg("value after \"src\" has an unrecognized address family", *argv);
 			sel->family = src.family;
 
 			memcpy(&sel->saddr, &src.data, sizeof(sel->saddr));
@@ -1331,7 +1407,7 @@ int xfrm_selector_parse(struct xfrm_selector *sel, int *argcp, char ***argvp)
 
 			get_prefix(&dst, *argv, preferred_family);
 			if (dst.family == AF_UNSPEC)
-				invarg("\"dst\" address family is AF_UNSPEC", *argv);
+				invarg("value after \"dst\" has an unrecognized address family", *argv);
 			sel->family = dst.family;
 
 			memcpy(&sel->daddr, &dst.data, sizeof(sel->daddr));
@@ -1349,7 +1425,7 @@ int xfrm_selector_parse(struct xfrm_selector *sel, int *argcp, char ***argvp)
 			else {
 				ifindex = ll_name_to_index(*argv);
 				if (ifindex <= 0)
-					invarg("\"DEV\" is invalid", *argv);
+					invarg("DEV value is invalid", *argv);
 			}
 			sel->ifindex = ifindex;
 
@@ -1372,7 +1448,7 @@ int xfrm_selector_parse(struct xfrm_selector *sel, int *argcp, char ***argvp)
 	}
 
 	if (src.family && dst.family && (src.family != dst.family))
-		invarg("the same address family is required between \"src\" and \"dst\"", *argv);
+		invarg("the same address family is required between values after \"src\" and \"dst\"", *argv);
 
 	if (argc == *argcp)
 		missarg("SELECTOR");
@@ -1394,44 +1470,44 @@ int xfrm_lifetime_cfg_parse(struct xfrm_lifetime_cfg *lft,
 		NEXT_ARG();
 		ret = get_u64(&lft->soft_add_expires_seconds, *argv, 0);
 		if (ret)
-			invarg("\"time-soft\" value is invalid", *argv);
+			invarg("value after \"time-soft\" is invalid", *argv);
 	} else if (strcmp(*argv, "time-hard") == 0) {
 		NEXT_ARG();
 		ret = get_u64(&lft->hard_add_expires_seconds, *argv, 0);
 		if (ret)
-			invarg("\"time-hard\" value is invalid", *argv);
+			invarg("value after \"time-hard\" is invalid", *argv);
 	} else if (strcmp(*argv, "time-use-soft") == 0) {
 		NEXT_ARG();
 		ret = get_u64(&lft->soft_use_expires_seconds, *argv, 0);
 		if (ret)
-			invarg("\"time-use-soft\" value is invalid", *argv);
+			invarg("value after \"time-use-soft\" is invalid", *argv);
 	} else if (strcmp(*argv, "time-use-hard") == 0) {
 		NEXT_ARG();
 		ret = get_u64(&lft->hard_use_expires_seconds, *argv, 0);
 		if (ret)
-			invarg("\"time-use-hard\" value is invalid", *argv);
+			invarg("value after \"time-use-hard\" is invalid", *argv);
 	} else if (strcmp(*argv, "byte-soft") == 0) {
 		NEXT_ARG();
 		ret = get_u64(&lft->soft_byte_limit, *argv, 0);
 		if (ret)
-			invarg("\"byte-soft\" value is invalid", *argv);
+			invarg("value after \"byte-soft\" is invalid", *argv);
 	} else if (strcmp(*argv, "byte-hard") == 0) {
 		NEXT_ARG();
 		ret = get_u64(&lft->hard_byte_limit, *argv, 0);
 		if (ret)
-			invarg("\"byte-hard\" value is invalid", *argv);
+			invarg("value after \"byte-hard\" is invalid", *argv);
 	} else if (strcmp(*argv, "packet-soft") == 0) {
 		NEXT_ARG();
 		ret = get_u64(&lft->soft_packet_limit, *argv, 0);
 		if (ret)
-			invarg("\"packet-soft\" value is invalid", *argv);
+			invarg("value after \"packet-soft\" is invalid", *argv);
 	} else if (strcmp(*argv, "packet-hard") == 0) {
 		NEXT_ARG();
 		ret = get_u64(&lft->hard_packet_limit, *argv, 0);
 		if (ret)
-			invarg("\"packet-hard\" value is invalid", *argv);
+			invarg("value after \"packet-hard\" is invalid", *argv);
 	} else
-		invarg("\"LIMIT\" is invalid", *argv);
+		invarg("LIMIT value is invalid", *argv);
 
 	*argcp = argc;
 	*argvp = argv;

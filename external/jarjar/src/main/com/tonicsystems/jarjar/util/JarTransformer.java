@@ -29,7 +29,9 @@ abstract public class JarTransformer implements JarProcessor
             try {
                 reader = new ClassReader(struct.data);
             } catch (Exception e) {
-                return true; // TODO?
+                // Android-changed: Made this failure fatal to highlight class version issues.
+                // http://b/27637680
+                throw new RuntimeException("Failed to load " + struct.name, e);
             }
             GetNameClassWriter w = new GetNameClassWriter(ClassWriter.COMPUTE_MAXS);
             reader.accept(transform(w), ClassReader.EXPAND_FRAMES);

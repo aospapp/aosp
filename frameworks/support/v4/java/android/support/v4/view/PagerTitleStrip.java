@@ -44,7 +44,8 @@ import java.lang.ref.WeakReference;
  *
  * <p>For an interactive indicator, see {@link PagerTabStrip}.</p>
  */
-public class PagerTitleStrip extends ViewGroup implements ViewPager.Decor {
+@ViewPager.DecorView
+public class PagerTitleStrip extends ViewGroup {
     private static final String TAG = "PagerTitleStrip";
 
     ViewPager mPager;
@@ -253,7 +254,7 @@ public class PagerTitleStrip extends ViewGroup implements ViewPager.Decor {
         final PagerAdapter adapter = pager.getAdapter();
 
         pager.setInternalPageChangeListener(mPageListener);
-        pager.setOnAdapterChangeListener(mPageListener);
+        pager.addOnAdapterChangeListener(mPageListener);
         mPager = pager;
         updateAdapter(mWatchingAdapter != null ? mWatchingAdapter.get() : null, adapter);
     }
@@ -264,7 +265,7 @@ public class PagerTitleStrip extends ViewGroup implements ViewPager.Decor {
         if (mPager != null) {
             updateAdapter(mPager.getAdapter(), null);
             mPager.setInternalPageChangeListener(null);
-            mPager.setOnAdapterChangeListener(null);
+            mPager.removeOnAdapterChangeListener(mPageListener);
             mPager = null;
         }
     }
@@ -423,35 +424,37 @@ public class PagerTitleStrip extends ViewGroup implements ViewPager.Decor {
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         final int widthMode = MeasureSpec.getMode(widthMeasureSpec);
-        final int heightMode = MeasureSpec.getMode(heightMeasureSpec);
-        final int widthSize = MeasureSpec.getSize(widthMeasureSpec);
-        final int heightSize = MeasureSpec.getSize(heightMeasureSpec);
-
         if (widthMode != MeasureSpec.EXACTLY) {
             throw new IllegalStateException("Must measure with an exact width");
         }
 
-        int childHeight = heightSize;
-        int minHeight = getMinHeight();
-        int padding = 0;
-        padding = getPaddingTop() + getPaddingBottom();
-        childHeight -= padding;
+        final int heightPadding = getPaddingTop() + getPaddingBottom();
+        final int childHeightSpec = getChildMeasureSpec(heightMeasureSpec,
+                heightPadding, LayoutParams.WRAP_CONTENT);
 
-        final int maxWidth = Math.max(0, (int) (widthSize * 0.8f));
-        final int childWidthSpec = MeasureSpec.makeMeasureSpec(maxWidth, MeasureSpec.AT_MOST);
-        final int maxHeight = Math.min(0, childHeight);
-        final int childHeightSpec = MeasureSpec.makeMeasureSpec(maxHeight, MeasureSpec.AT_MOST);
+        final int widthSize = MeasureSpec.getSize(widthMeasureSpec);
+        final int widthPadding = (int) (widthSize * 0.2f);
+        final int childWidthSpec = getChildMeasureSpec(widthMeasureSpec,
+                widthPadding, LayoutParams.WRAP_CONTENT);
 
         mPrevText.measure(childWidthSpec, childHeightSpec);
         mCurrText.measure(childWidthSpec, childHeightSpec);
         mNextText.measure(childWidthSpec, childHeightSpec);
 
+        final int height;
+        final int heightMode = MeasureSpec.getMode(heightMeasureSpec);
         if (heightMode == MeasureSpec.EXACTLY) {
-            setMeasuredDimension(widthSize, heightSize);
+            height = MeasureSpec.getSize(heightMeasureSpec);
         } else {
-            int textHeight = mCurrText.getMeasuredHeight();
-            setMeasuredDimension(widthSize, Math.max(minHeight, textHeight + padding));
+            final int textHeight = mCurrText.getMeasuredHeight();
+            final int minHeight = getMinHeight();
+            height = Math.max(minHeight, textHeight + heightPadding);
         }
+
+        final int childState = ViewCompat.getMeasuredState(mCurrText);
+        final int measuredHeight = ViewCompat.resolveSizeAndState(height, heightMeasureSpec,
+                childState << ViewCompat.MEASURED_HEIGHT_STATE_SHIFT);
+        setMeasuredDimension(widthSize, measuredHeight);
     }
 
     @Override
@@ -501,7 +504,8 @@ public class PagerTitleStrip extends ViewGroup implements ViewPager.Decor {
         }
 
         @Override
-        public void onAdapterChanged(PagerAdapter oldAdapter, PagerAdapter newAdapter) {
+        public void onAdapterChanged(ViewPager viewPager, PagerAdapter oldAdapter,
+                PagerAdapter newAdapter) {
             updateAdapter(oldAdapter, newAdapter);
         }
 

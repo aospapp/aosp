@@ -538,6 +538,9 @@ int WifiEvent::parse() {
 }
 
 int WifiRequest::create(int family, uint8_t cmd, int flags, int hdrlen) {
+
+    destroy();
+
     mMsg = nlmsg_alloc();
     if (mMsg != NULL) {
         genlmsg_put(mMsg, /* pid = */ 0, /* seq = */ 0, family,

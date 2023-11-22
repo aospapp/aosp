@@ -25,12 +25,16 @@ import android.support.v7.media.MediaRouteSelector;
  * Media route discovery fragment.
  * <p>
  * This fragment takes care of registering a callback for media route discovery
- * during the activity's {@link android.app.Activity#onStart onStart()} phase
- * and removing it during the {@link android.app.Activity#onStart onStop()} phase.
+ * during the {@link Fragment#onStart onStart()} phase
+ * and removing it during the {@link Fragment#onStop onStop()} phase.
  * </p><p>
  * The application must supply a route selector to specify the kinds of routes
  * to discover.  The application may also override {@link #onCreateCallback} to
  * provide the {@link MediaRouter} callback to register.
+ * </p><p>
+ * Note that the discovery callback makes the application be connected with all the
+ * {@link android.support.v7.media.MediaRouteProviderService media route provider services}
+ * while it is registered.
  * </p>
  */
 public class MediaRouteDiscoveryFragment extends Fragment {
@@ -53,7 +57,7 @@ public class MediaRouteDiscoveryFragment extends Fragment {
 
     private void ensureRouter() {
         if (mRouter == null) {
-            mRouter = MediaRouter.getInstance(getActivity());
+            mRouter = MediaRouter.getInstance(getContext());
         }
     }
 

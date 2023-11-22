@@ -482,6 +482,49 @@ public class MutableMethodImplementation implements MethodImplementation {
         } while (true);
     }
 
+    private int mapCodeAddressToIndex(int codeAddress) {
+        float avgCodeUnitsPerInstruction = 1.9f;
+
+        int index = (int)(codeAddress/avgCodeUnitsPerInstruction);
+        if (index >= instructionList.size()) {
+            index = instructionList.size() - 1;
+        }
+
+        MethodLocation guessedLocation = instructionList.get(index);
+
+        if (guessedLocation.codeAddress == codeAddress) {
+            return index;
+        } else if (guessedLocation.codeAddress > codeAddress) {
+            do {
+                index--;
+            } while (instructionList.get(index).codeAddress > codeAddress);
+            return index;
+        } else {
+            do {
+                index++;
+            } while (index < instructionList.size() && instructionList.get(index).codeAddress <= codeAddress);
+            return index-1;
+        }
+    }
+
+    @Nonnull
+    public Label newLabelForAddress(int codeAddress) {
+        if (codeAddress < 0 || codeAddress > instructionList.get(instructionList.size()-1).codeAddress) {
+            throw new IndexOutOfBoundsException(String.format("codeAddress %d out of bounds", codeAddress));
+        }
+        MethodLocation referent = instructionList.get(mapCodeAddressToIndex(codeAddress));
+        return referent.addNewLabel();
+    }
+
+    @Nonnull
+    public Label newLabelForIndex(int instructionIndex) {
+        if (instructionIndex < 0 || instructionIndex >= instructionList.size()) {
+            throw new IndexOutOfBoundsException(String.format("instruction index %d out of bounds", instructionIndex));
+        }
+        MethodLocation referent = instructionList.get(instructionIndex);
+        return referent.addNewLabel();
+    }
+
     @Nonnull
     private Label newLabel(@Nonnull int[] codeAddressToIndex, int codeAddress) {
         MethodLocation referent = instructionList.get(mapCodeAddressToIndex(codeAddressToIndex, codeAddress));
@@ -511,82 +554,90 @@ public class MutableMethodImplementation implements MethodImplementation {
                                           @Nonnull Instruction instruction) {
         switch (instruction.getOpcode().format) {
             case Format10t:
-                setInstruction(location, newBuilderInstruction10t(location.codeAddress, codeAddressToIndex,
-                        (Instruction10t)instruction));
+                setInstruction(location, newBuilderInstruction10t(location.codeAddress,
+                        codeAddressToIndex,
+                        (Instruction10t) instruction));
                 return;
             case Format10x:
-                setInstruction(location, newBuilderInstruction10x((Instruction10x)instruction));
+                setInstruction(location, newBuilderInstruction10x((Instruction10x) instruction));
                 return;
             case Format11n:
-                setInstruction(location, newBuilderInstruction11n((Instruction11n)instruction));
+                setInstruction(location, newBuilderInstruction11n((Instruction11n) instruction));
                 return;
             case Format11x:
-                setInstruction(location, newBuilderInstruction11x((Instruction11x)instruction));
+                setInstruction(location, newBuilderInstruction11x((Instruction11x) instruction));
                 return;
             case Format12x:
-                setInstruction(location, newBuilderInstruction12x((Instruction12x)instruction));
+                setInstruction(location, newBuilderInstruction12x((Instruction12x) instruction));
                 return;
             case Format20bc:
-                setInstruction(location, newBuilderInstruction20bc((Instruction20bc)instruction));
+                setInstruction(location, newBuilderInstruction20bc((Instruction20bc) instruction));
                 return;
             case Format20t:
-                setInstruction(location, newBuilderInstruction20t(location.codeAddress, codeAddressToIndex,
-                        (Instruction20t)instruction));
+                setInstruction(location, newBuilderInstruction20t(location.codeAddress,
+                        codeAddressToIndex,
+                        (Instruction20t) instruction));
                 return;
             case Format21c:
-                setInstruction(location, newBuilderInstruction21c((Instruction21c)instruction));
+                setInstruction(location, newBuilderInstruction21c((Instruction21c) instruction));
                 return;
             case Format21ih:
-                setInstruction(location, newBuilderInstruction21ih((Instruction21ih)instruction));
+                setInstruction(location, newBuilderInstruction21ih((Instruction21ih) instruction));
                 return;
             case Format21lh:
-                setInstruction(location, newBuilderInstruction21lh((Instruction21lh)instruction));
+                setInstruction(location, newBuilderInstruction21lh((Instruction21lh) instruction));
                 return;
             case Format21s:
-                setInstruction(location, newBuilderInstruction21s((Instruction21s)instruction));
+                setInstruction(location, newBuilderInstruction21s((Instruction21s) instruction));
                 return;
             case Format21t:
-                setInstruction(location, newBuilderInstruction21t(location.codeAddress, codeAddressToIndex,
-                        (Instruction21t)instruction));
+                setInstruction(location, newBuilderInstruction21t(location.codeAddress,
+                        codeAddressToIndex,
+                        (Instruction21t) instruction));
                 return;
             case Format22b:
-                setInstruction(location, newBuilderInstruction22b((Instruction22b)instruction));
+                setInstruction(location, newBuilderInstruction22b((Instruction22b) instruction));
                 return;
             case Format22c:
-                setInstruction(location, newBuilderInstruction22c((Instruction22c)instruction));
+                setInstruction(location, newBuilderInstruction22c((Instruction22c) instruction));
                 return;
             case Format22s:
-                setInstruction(location, newBuilderInstruction22s((Instruction22s)instruction));
+                setInstruction(location, newBuilderInstruction22s((Instruction22s) instruction));
                 return;
             case Format22t:
-                setInstruction(location, newBuilderInstruction22t(location.codeAddress, codeAddressToIndex,
-                        (Instruction22t)instruction));
+                setInstruction(location, newBuilderInstruction22t(location.codeAddress,
+                        codeAddressToIndex,
+                        (Instruction22t) instruction));
                 return;
             case Format22x:
-                setInstruction(location, newBuilderInstruction22x((Instruction22x)instruction));
+                setInstruction(location, newBuilderInstruction22x((Instruction22x) instruction));
                 return;
             case Format23x:
-                setInstruction(location, newBuilderInstruction23x((Instruction23x)instruction));
+                setInstruction(location, newBuilderInstruction23x((Instruction23x) instruction));
+                return;
+            case Format25x:
+                setInstruction(location, newBuilderInstruction25x((Instruction25x) instruction));
                 return;
             case Format30t:
-                setInstruction(location, newBuilderInstruction30t(location.codeAddress, codeAddressToIndex,
-                        (Instruction30t)instruction));
+                setInstruction(location, newBuilderInstruction30t(location.codeAddress,
+                        codeAddressToIndex,
+                        (Instruction30t) instruction));
                 return;
             case Format31c:
-                setInstruction(location, newBuilderInstruction31c((Instruction31c)instruction));
+                setInstruction(location, newBuilderInstruction31c((Instruction31c) instruction));
                 return;
             case Format31i:
-                setInstruction(location, newBuilderInstruction31i((Instruction31i)instruction));
+                setInstruction(location, newBuilderInstruction31i((Instruction31i) instruction));
                 return;
             case Format31t:
                 setInstruction(location, newBuilderInstruction31t(location, codeAddressToIndex,
-                        (Instruction31t)instruction));
+                        (Instruction31t) instruction));
                 return;
             case Format32x:
-                setInstruction(location, newBuilderInstruction32x((Instruction32x)instruction));
+                setInstruction(location, newBuilderInstruction32x((Instruction32x) instruction));
                 return;
             case Format35c:
-                setInstruction(location, newBuilderInstruction35c((Instruction35c)instruction));
+                setInstruction(location, newBuilderInstruction35c((Instruction35c) instruction));
                 return;
             case Format3rc:
                 setInstruction(location, newBuilderInstruction3rc((Instruction3rc)instruction));
@@ -818,6 +869,18 @@ public class MutableMethodImplementation implements MethodImplementation {
                 instruction.getRegisterF(),
                 instruction.getRegisterG(),
                 instruction.getReference());
+    }
+
+    @Nonnull
+    private BuilderInstruction25x newBuilderInstruction25x(@Nonnull Instruction25x instruction) {
+        return new BuilderInstruction25x(
+                instruction.getOpcode(),
+                instruction.getParameterRegisterCount(),
+                instruction.getRegisterFixedC(),
+                instruction.getRegisterParameterD(),
+                instruction.getRegisterParameterE(),
+                instruction.getRegisterParameterF(),
+                instruction.getRegisterParameterG());
     }
 
     @Nonnull

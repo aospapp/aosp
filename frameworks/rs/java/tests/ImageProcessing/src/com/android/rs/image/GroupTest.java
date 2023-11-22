@@ -69,11 +69,18 @@ public class GroupTest extends TestBase {
         Type connect = tb.create();
 
         if (mUseNative) {
-            ScriptGroup.Builder b = new ScriptGroup.Builder(mRS);
-            b.addKernel(mConvolve.getKernelID());
-            b.addKernel(mMatrix.getKernelID());
-            b.addConnection(connect, mConvolve.getKernelID(), mMatrix.getKernelID());
-            mGroup = b.create();
+            ScriptGroup.Builder2 b = new ScriptGroup.Builder2(mRS);
+            ScriptGroup.Input in = b.addInput();
+            ScriptGroup.Closure c;
+
+            c = b.addKernel(mConvolve.getKernelID(),
+                            connect,
+                            new ScriptGroup.Binding(mConvolve.getFieldID_Input(), in));
+
+            c = b.addKernel(mMatrix.getKernelID(),
+                            mOutPixelsAllocation.getType(),
+                            c.getReturn());
+            mGroup = b.create("group", c.getReturn());
         } else {
             mScratchPixelsAllocation1 = Allocation.createTyped(mRS, connect);
         }
@@ -82,8 +89,7 @@ public class GroupTest extends TestBase {
     public void runTest() {
         mConvolve.setInput(mInPixelsAllocation);
         if (mUseNative) {
-            mGroup.setOutput(mMatrix.getKernelID(), mOutPixelsAllocation);
-            mGroup.execute();
+            mOutPixelsAllocation = (Allocation)mGroup.execute(mInPixelsAllocation)[0];
         } else {
             mConvolve.forEach(mScratchPixelsAllocation1);
             mMatrix.forEach(mScratchPixelsAllocation1, mOutPixelsAllocation);

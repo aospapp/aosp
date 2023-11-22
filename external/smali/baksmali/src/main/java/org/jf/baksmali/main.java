@@ -31,9 +31,12 @@ package org.jf.baksmali;
 import com.google.common.collect.Lists;
 import org.apache.commons.cli.*;
 import org.jf.dexlib2.DexFileFactory;
+import org.jf.dexlib2.DexFileFactory.MultipleDexFilesException;
 import org.jf.dexlib2.analysis.InlineMethodResolver;
 import org.jf.dexlib2.dexbacked.DexBackedDexFile;
 import org.jf.dexlib2.dexbacked.DexBackedOdexFile;
+import org.jf.dexlib2.dexbacked.OatFile.OatDexFile;
+import org.jf.dexlib2.iface.DexFile;
 import org.jf.util.ConsoleUtil;
 import org.jf.util.SmaliHelpFormatter;
 
@@ -82,6 +85,45 @@ public class main {
     }
 
     /**
+     * A more programmatic-friendly entry point for baksmali
+     *
+     * @param options a baksmaliOptions object with the options to run baksmali with
+     * @param inputDexFile The DexFile to disassemble
+     * @return true if disassembly completed with no errors, or false if errors were encountered
+     */
+    public static boolean run(@Nonnull baksmaliOptions options, @Nonnull DexFile inputDexFile) throws IOException {
+        if (options.bootClassPathEntries.isEmpty() &&
+                (options.deodex || options.registerInfo != 0 || options.normalizeVirtualMethods)) {
+            if (inputDexFile instanceof DexBackedOdexFile) {
+                options.bootClassPathEntries = ((DexBackedOdexFile)inputDexFile).getDependencies();
+            } else {
+                options.bootClassPathEntries = getDefaultBootClassPathForApi(options.apiLevel,
+                        options.experimental);
+            }
+        }
+
+        if (options.customInlineDefinitions == null && inputDexFile instanceof DexBackedOdexFile) {
+            options.inlineResolver =
+                    InlineMethodResolver.createInlineMethodResolver(
+                            ((DexBackedOdexFile)inputDexFile).getOdexVersion());
+        }
+
+        boolean errorOccurred = false;
+        if (options.disassemble) {
+            errorOccurred = !baksmali.disassembleDexFile(inputDexFile, options);
+        }
+
+        if (options.dump) {
+            if (!(inputDexFile instanceof DexBackedDexFile)) {
+                throw new IllegalArgumentException("Annotated hex-dumps require a DexBackedDexFile");
+            }
+            dump.dump((DexBackedDexFile)inputDexFile, options.dumpFileName, options.apiLevel);
+        }
+
+        return !errorOccurred;
+    }
+
+    /**
      * Run!
      */
     public static void main(String[] args) throws IOException {
@@ -99,11 +141,6 @@ public class main {
         }
 
         baksmaliOptions options = new baksmaliOptions();
-
-        boolean disassemble = true;
-        boolean doDump = false;
-        String dumpFileName = null;
-        boolean setBootClassPath = false;
 
         String[] remainingArgs = commandLine.getArgs();
         Option[] clOptions = commandLine.getOptions();
@@ -185,12 +222,14 @@ public class main {
                     if (bcp != null && bcp.charAt(0) == ':') {
                         options.addExtraClassPath(bcp);
                     } else {
-                        setBootClassPath = true;
                         options.setBootClassPath(bcp);
                     }
                     break;
                 case 'x':
                     options.deodex = true;
+                    break;
+                case 'X':
+                    options.experimental = true;
                     break;
                 case 'm':
                     options.noAccessorComments = true;
@@ -214,12 +253,15 @@ public class main {
                 case 'k':
                     options.checkPackagePrivateAccess = true;
                     break;
+                case 'n':
+                    options.normalizeVirtualMethods = true;
+                    break;
                 case 'N':
-                    disassemble = false;
+                    options.disassemble = false;
                     break;
                 case 'D':
-                    doDump = true;
-                    dumpFileName = commandLine.getOptionValue("D");
+                    options.dump = true;
+                    options.dumpFileName = commandLine.getOptionValue("D");
                     break;
                 case 'I':
                     options.ignoreErrors = true;
@@ -237,25 +279,29 @@ public class main {
             return;
         }
 
-        if (options.jobs <= 0) {
-            options.jobs = Runtime.getRuntime().availableProcessors();
-            if (options.jobs > 6) {
-                options.jobs = 6;
-            }
-        }
-
-        String inputDexFileName = remainingArgs[0];
-
-        File dexFileFile = new File(inputDexFileName);
+        String inputDexPath = remainingArgs[0];
+        File dexFileFile = new File(inputDexPath);
         if (!dexFileFile.exists()) {
-            System.err.println("Can't find the file " + inputDexFileName);
+            System.err.println("Can't find the file " + inputDexPath);
             System.exit(1);
         }
 
         //Read in and parse the dex file
-        DexBackedDexFile dexFile = DexFileFactory.loadDexFile(dexFileFile, options.dexEntry, options.apiLevel);
+        DexBackedDexFile dexFile = null;
+        try {
+            dexFile = DexFileFactory.loadDexFile(dexFileFile, options.dexEntry, options.apiLevel, options.experimental);
+        } catch (MultipleDexFilesException ex) {
+            System.err.println(String.format("%s contains multiple dex files. You must specify which one to " +
+                    "disassemble with the -e option", dexFileFile.getName()));
+            System.err.println("Valid entries include:");
 
-        if (dexFile.isOdexFile()) {
+            for (OatDexFile oatDexFile: ex.oatFile.getDexFiles()) {
+                System.err.println(oatDexFile.filename);
+            }
+            System.exit(1);
+        }
+
+        if (dexFile.hasOdexOpcodes()) {
             if (!options.deodex) {
                 System.err.println("Warning: You are disassembling an odex file without deodexing it. You");
                 System.err.println("won't be able to re-assemble the results unless you deodex it with the -x");
@@ -266,32 +312,18 @@ public class main {
             options.deodex = false;
         }
 
-        if (!setBootClassPath && (options.deodex || options.registerInfo != 0)) {
-            if (dexFile instanceof DexBackedOdexFile) {
-                options.bootClassPathEntries = ((DexBackedOdexFile)dexFile).getDependencies();
-            } else {
-                options.bootClassPathEntries = getDefaultBootClassPathForApi(options.apiLevel);
+        if (options.dump) {
+            if (options.dumpFileName == null) {
+                options.dumpFileName =  inputDexPath + ".dump";
             }
         }
 
-        if (options.customInlineDefinitions == null && dexFile instanceof DexBackedOdexFile) {
-            options.inlineResolver =
-                    InlineMethodResolver.createInlineMethodResolver(((DexBackedOdexFile)dexFile).getOdexVersion());
-        }
-
-        boolean errorOccurred = false;
-        if (disassemble) {
-            errorOccurred = !baksmali.disassembleDexFile(dexFile, options);
-        }
-
-        if (doDump) {
-            if (dumpFileName == null) {
-                dumpFileName = commandLine.getOptionValue(inputDexFileName + ".dump");
+        try {
+            if (!run(options, dexFile)) {
+                System.exit(1);
             }
-            dump.dump(dexFile, dumpFileName, options.apiLevel);
-        }
-
-        if (errorOccurred) {
+        } catch (IllegalArgumentException ex) {
+            System.err.println(ex.getMessage());
             System.exit(1);
         }
     }
@@ -352,6 +384,10 @@ public class main {
                         "odex file")
                 .create("x");
 
+        Option experimentalOption = OptionBuilder.withLongOpt("experimental")
+                .withDescription("enable experimental opcodes to be disassembled, even if they aren't necessarily supported in the Android runtime yet")
+                .create("X");
+
         Option useLocalsOption = OptionBuilder.withLongOpt("use-locals")
                 .withDescription("output the .locals directive with the number of non-parameter registers, rather" +
                         " than the .register directive with the total number of register")
@@ -381,9 +417,9 @@ public class main {
                 .create("r");
 
         Option classPathOption = OptionBuilder.withLongOpt("bootclasspath")
-                .withDescription("the bootclasspath jars to use, for analysis. Defaults to " +
-                        "core.jar:ext.jar:framework.jar:android.policy.jar:services.jar. If the value begins with a " +
-                        ":, it will be appended to the default bootclasspath instead of replacing it")
+                .withDescription("A colon-separated list of bootclasspath jar/oat files to use for analysis. Add an " +
+                        "initial colon to specify that the jars/oats should be appended to the default bootclasspath " +
+                        "instead of replacing it")
                 .hasOptionalArg()
                 .withArgName("BOOTCLASSPATH")
                 .create("c");
@@ -435,6 +471,10 @@ public class main {
                         "4.2.1.")
                 .create("k");
 
+        Option normalizeVirtualMethods = OptionBuilder.withLongOpt("normalize-virtual-methods")
+                .withDescription("Normalize virtual method references to the reference the base method.")
+                .create("n");
+
         Option dumpOption = OptionBuilder.withLongOpt("dump-to")
                 .withDescription("dumps the given dex file into a single annotated dump file named FILE" +
                         " (<dexfile>.dump by default), along with the normal disassembly")
@@ -469,6 +509,7 @@ public class main {
         basicOptions.addOption(outputDirOption);
         basicOptions.addOption(noParameterRegistersOption);
         basicOptions.addOption(deodexerantOption);
+        basicOptions.addOption(experimentalOption);
         basicOptions.addOption(useLocalsOption);
         basicOptions.addOption(sequentialLabelsOption);
         basicOptions.addOption(noDebugInfoOption);
@@ -483,6 +524,7 @@ public class main {
         basicOptions.addOption(noImplicitReferencesOption);
         basicOptions.addOption(dexEntryOption);
         basicOptions.addOption(checkPackagePrivateAccessOption);
+        basicOptions.addOption(normalizeVirtualMethods);
 
         debugOptions.addOption(dumpOption);
         debugOptions.addOption(ignoreErrorsOption);
@@ -496,9 +538,9 @@ public class main {
             options.addOption((Option)option);
         }
     }
-    
+
     @Nonnull
-    private static List<String> getDefaultBootClassPathForApi(int apiLevel) {
+    private static List<String> getDefaultBootClassPathForApi(int apiLevel, boolean experimental) {
         if (apiLevel < 9) {
             return Lists.newArrayList(
                     "/system/framework/core.jar",
@@ -536,8 +578,7 @@ public class main {
                     "/system/framework/services.jar",
                     "/system/framework/apache-xml.jar",
                     "/system/framework/filterfw.jar");
-
-        } else {
+        } else if (apiLevel < 21) {
             // this is correct as of api 17/4.2.2
             return Lists.newArrayList(
                     "/system/framework/core.jar",
@@ -549,6 +590,22 @@ public class main {
                     "/system/framework/mms-common.jar",
                     "/system/framework/android.policy.jar",
                     "/system/framework/services.jar",
+                    "/system/framework/apache-xml.jar");
+        } else { // api >= 21
+            // TODO: verify, add new ones?
+            return Lists.newArrayList(
+                    "/system/framework/core-libart.jar",
+                    "/system/framework/conscrypt.jar",
+                    "/system/framework/okhttp.jar",
+                    "/system/framework/core-junit.jar",
+                    "/system/framework/bouncycastle.jar",
+                    "/system/framework/ext.jar",
+                    "/system/framework/framework.jar",
+                    "/system/framework/telephony-common.jar",
+                    "/system/framework/voip-common.jar",
+                    "/system/framework/ims-common.jar",
+                    "/system/framework/mms-common.jar",
+                    "/system/framework/android.policy.jar",
                     "/system/framework/apache-xml.jar");
         }
     }

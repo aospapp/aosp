@@ -22,21 +22,21 @@
             android:layout_centerInParent="true">
         <TableRow>
             <android.view.cts.TestButton android:id="@+id/top_left_button"
-                    android:layout_width="match_parent"
+                    android:layout_width="60dp"
                     android:layout_height="match_parent"
                     android:text="TL" />
             <android.view.cts.TestButton android:id="@+id/top_right_button"
-                    android:layout_width="match_parent"
+                    android:layout_width="60dp"
                     android:layout_height="match_parent"
                     android:text="TR" />
         </TableRow>
         <TableRow>
             <android.view.cts.TestButton android:id="@+id/bottom_left_button"
-                    android:layout_width="match_parent"
+                    android:layout_width="60dp"
                     android:layout_height="match_parent"
                     android:text="BL" />
             <android.view.cts.TestButton android:id="@+id/bottom_right_button"
-                    android:layout_width="match_parent"
+                    android:layout_width="60dp"
                     android:layout_height="match_parent"
                     android:text="BR" />
         </TableRow>  

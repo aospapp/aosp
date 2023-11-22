@@ -16,8 +16,15 @@
 
 package android.support.v7.widget;
 
+import org.hamcrest.CoreMatchers;
+import org.hamcrest.MatcherAssert;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import android.content.Context;
+import android.support.test.runner.AndroidJUnit4;
 import android.support.v7.util.AsyncListUtil;
+import android.test.suitebuilder.annotation.MediumTest;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
@@ -25,7 +32,12 @@ import android.widget.TextView;
 import java.util.BitSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import static org.junit.Assert.*;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+
+@MediumTest
+@RunWith(AndroidJUnit4.class)
 public class AsyncListUtilLayoutTest extends BaseRecyclerViewInstrumentationTest {
 
     private static final boolean DEBUG = false;
@@ -46,7 +58,8 @@ public class AsyncListUtilLayoutTest extends BaseRecyclerViewInstrumentationTest
     public int mStartPrefetch = 0;
     public int mEndPrefetch = 0;
 
-    public void testAsyncListUtil() throws Throwable {
+    @Test
+    public void asyncListUtil() throws Throwable {
         mRecyclerView = inflateWrappedRV();
         mRecyclerView.setHasFixedSize(true);
 
@@ -76,8 +89,13 @@ public class AsyncListUtilLayoutTest extends BaseRecyclerViewInstrumentationTest
         mDataCallback.expectTilesInRange(rangeStart, rangeSize);
         mAdapter.expectItemsInRange(rangeStart, rangeSize);
 
-        mAsyncListUtil = new AsyncListUtil<String>(String.class, TILE_SIZE, mDataCallback,
-                mViewCallback);
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mAsyncListUtil = new AsyncListUtil<String>(
+                        String.class, TILE_SIZE, mDataCallback, mViewCallback);
+            }
+        });
 
         mRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
@@ -299,11 +317,17 @@ public class AsyncListUtilLayoutTest extends BaseRecyclerViewInstrumentationTest
             mLayoutLatch = new CountDownLatch(count);
         }
 
-        public void waitForLayout(long timeout) throws InterruptedException {
-            mLayoutLatch.await(timeout * (DEBUG ? 100 : 1), TimeUnit.SECONDS);
-            assertEquals("all expected layouts should be executed at the expected time",
-                    0, mLayoutLatch.getCount());
-            getInstrumentation().waitForIdleSync();
+        public void waitForLayout(int seconds) throws Throwable {
+            mLayoutLatch.await(seconds * (DEBUG ? 100 : 1), SECONDS);
+            checkForMainThreadException();
+            MatcherAssert.assertThat("all layouts should complete on time",
+                    mLayoutLatch.getCount(), CoreMatchers.is(0L));
+            // use a runnable to ensure RV layout is finished
+            getInstrumentation().runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                }
+            });
         }
 
         @Override

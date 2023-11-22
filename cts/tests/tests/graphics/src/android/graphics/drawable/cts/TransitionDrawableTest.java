@@ -16,7 +16,7 @@
 
 package android.graphics.drawable.cts;
 
-import com.android.cts.graphics.R;
+import android.graphics.cts.R;
 
 import android.content.res.Resources;
 import android.graphics.Bitmap;

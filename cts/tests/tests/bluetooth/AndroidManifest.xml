@@ -15,12 +15,13 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.bluetooth">
+    package="android.bluetooth.cts">
 
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
 
     <application>
         <uses-library android:name="android.test.runner" />
@@ -28,7 +29,7 @@
 
     <!-- This is a self-instrumenting test package. -->
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.bluetooth"
+                     android:targetPackage="android.bluetooth.cts"
                      android:label="CTS tests of bluetooth component">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

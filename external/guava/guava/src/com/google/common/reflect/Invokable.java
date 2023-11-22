@@ -263,17 +263,10 @@ public abstract class Invokable<T, R> extends Element implements GenericDeclarat
         if (types.length == rawParamTypes.length
             && rawParamTypes[0] == getDeclaringClass().getEnclosingClass()) {
           // first parameter is the hidden 'this'
-          return copyOfRange(types, 1, types.length);
+          return Arrays.copyOfRange(types, 1, types.length);
         }
       }
       return types;
-    }
-
-    private static Type[] copyOfRange(Type[] array, int start, int end) {
-      int length = end - start;
-      Type[] newArray = new Type[length];
-      System.arraycopy(array, start, newArray, 0, length);
-      return newArray;
     }
 
     @Override Type[] getGenericExceptionTypes() {

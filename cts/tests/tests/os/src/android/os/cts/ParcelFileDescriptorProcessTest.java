@@ -89,10 +89,10 @@ public class ParcelFileDescriptorProcessTest extends AndroidTestCase {
         // Bring up both remote processes and wire them to each other
         redIntent = new Intent();
         redIntent.setComponent(new ComponentName(
-                "com.android.cts.os", "android.os.cts.ParcelFileDescriptorPeer$Red"));
+                "android.os.cts", "android.os.cts.ParcelFileDescriptorPeer$Red"));
         blueIntent = new Intent();
         blueIntent.setComponent(new ComponentName(
-                "com.android.cts.os", "android.os.cts.ParcelFileDescriptorPeer$Blue"));
+                "android.os.cts", "android.os.cts.ParcelFileDescriptorPeer$Blue"));
         redConn = new PeerConnection();
         blueConn = new PeerConnection();
         context.startService(redIntent);

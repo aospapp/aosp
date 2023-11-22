@@ -10,7 +10,7 @@
 #define GrGLPath_DEFINED
 
 #include "../GrPath.h"
-#include "gl/GrGLFunctions.h"
+#include "gl/GrGLTypes.h"
 
 class GrGLGpu;
 
@@ -22,14 +22,22 @@ class GrGLGpu;
 
 class GrGLPath : public GrPath {
 public:
-    static void InitPathObject(GrGLGpu*,
-                               GrGLuint pathID,
-                               const SkPath&,
-                               const SkStrokeRec&);
+    static bool InitPathObjectPathDataCheckingDegenerates(GrGLGpu*,
+                                                          GrGLuint pathID,
+                                                          const SkPath&);
+    static void InitPathObjectPathData(GrGLGpu*,
+                                       GrGLuint pathID,
+                                       const SkPath&);
+    static void InitPathObjectStroke(GrGLGpu* gpu, GrGLuint pathID, const GrStrokeInfo& stroke);
 
-    GrGLPath(GrGLGpu* gpu, const SkPath& path, const SkStrokeRec& stroke);
+    static void InitPathObjectEmptyPath(GrGLGpu*, GrGLuint pathID);
+
+
+    GrGLPath(GrGLGpu* gpu, const SkPath& path, const GrStrokeInfo& stroke);
     GrGLuint pathID() const { return fPathID; }
 
+    bool shouldStroke() const { return fShouldStroke; }
+    bool shouldFill() const { return fShouldFill; }
 protected:
     void onRelease() override;
     void onAbandon() override;
@@ -39,6 +47,8 @@ private:
     size_t onGpuMemorySize() const override { return 100; }
 
     GrGLuint fPathID;
+    bool fShouldStroke;
+    bool fShouldFill;
 
     typedef GrPath INHERITED;
 };

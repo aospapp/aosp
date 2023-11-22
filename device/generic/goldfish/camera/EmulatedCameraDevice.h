@@ -396,7 +396,7 @@ protected:
             inline status_t startThread(bool one_burst)
             {
                 mOneBurst = one_burst;
-                return run(NULL, ANDROID_PRIORITY_URGENT_DISPLAY, 0);
+                return run("Camera_startThread", ANDROID_PRIORITY_URGENT_DISPLAY, 0);
             }
 
             /* Overriden base class method.

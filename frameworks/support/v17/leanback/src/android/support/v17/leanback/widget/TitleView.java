@@ -23,14 +23,72 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import static android.support.v17.leanback.widget.TitleViewAdapter.BRANDING_VIEW_VISIBLE;
+import static android.support.v17.leanback.widget.TitleViewAdapter.SEARCH_VIEW_VISIBLE;
+import static android.support.v17.leanback.widget.TitleViewAdapter.FULL_VIEW_VISIBLE;
+
 /**
  * Title view for a leanback fragment.
  */
-public class TitleView extends FrameLayout {
+public class TitleView extends FrameLayout implements TitleViewAdapter.Provider {
 
     private ImageView mBadgeView;
     private TextView mTextView;
     private SearchOrbView mSearchOrbView;
+    private int flags = FULL_VIEW_VISIBLE;
+    private boolean mHasSearchListener = false;
+
+    private final TitleViewAdapter mTitleViewAdapter = new TitleViewAdapter() {
+        @Override
+        public View getSearchAffordanceView() {
+            return TitleView.this.getSearchAffordanceView();
+        }
+
+        @Override
+        public void setOnSearchClickedListener(View.OnClickListener listener) {
+            TitleView.this.setOnSearchClickedListener(listener);
+        }
+
+        @Override
+        public void setAnimationEnabled(boolean enable) {
+            TitleView.this.enableAnimation(enable);
+        }
+
+        @Override
+        public Drawable getBadgeDrawable() {
+            return TitleView.this.getBadgeDrawable();
+        }
+
+        @Override
+        public SearchOrbView.Colors getSearchAffordanceColors() {
+            return TitleView.this.getSearchAffordanceColors();
+        }
+
+        @Override
+        public CharSequence getTitle() {
+            return TitleView.this.getTitle();
+        }
+
+        @Override
+        public void setBadgeDrawable(Drawable drawable) {
+            TitleView.this.setBadgeDrawable(drawable);
+        }
+
+        @Override
+        public void setSearchAffordanceColors(SearchOrbView.Colors colors) {
+            TitleView.this.setSearchAffordanceColors(colors);
+        }
+
+        @Override
+        public void setTitle(CharSequence titleText) {
+            TitleView.this.setTitle(titleText);
+        }
+
+        @Override
+        public void updateComponentsVisibility(int flags) {
+            TitleView.this.updateComponentsVisibility(flags);
+        }
+    };
 
     public TitleView(Context context) {
         this(context, null);
@@ -57,8 +115,9 @@ public class TitleView extends FrameLayout {
     /**
      * Sets the title text.
      */
-    public void setTitle(String titleText) {
+    public void setTitle(CharSequence titleText) {
         mTextView.setText(titleText);
+        updateBadgeVisibility();
     }
 
     /**
@@ -74,13 +133,7 @@ public class TitleView extends FrameLayout {
      */
     public void setBadgeDrawable(Drawable drawable) {
         mBadgeView.setImageDrawable(drawable);
-        if (drawable != null) {
-            mBadgeView.setVisibility(View.VISIBLE);
-            mTextView.setVisibility(View.GONE);
-        } else {
-            mBadgeView.setVisibility(View.GONE);
-            mTextView.setVisibility(View.VISIBLE);
-        }
+        updateBadgeVisibility();
     }
 
     /**
@@ -94,7 +147,9 @@ public class TitleView extends FrameLayout {
      * Sets the listener to be called when the search affordance is clicked.
      */
     public void setOnSearchClickedListener(View.OnClickListener listener) {
+        mHasSearchListener = listener != null;
         mSearchOrbView.setOnOrbClickedListener(listener);
+        updateSearchOrbViewVisiblity();
     }
 
     /**
@@ -123,5 +178,48 @@ public class TitleView extends FrameLayout {
      */
     public void enableAnimation(boolean enable) {
         mSearchOrbView.enableOrbColorAnimation(enable && mSearchOrbView.hasFocus());
+    }
+
+    /**
+     * Based on the flag, it updates the visibility of the individual components -
+     * BadgeView, TextView and SearchView.
+     *
+     * @param flags integer representing the visibility of TitleView components.
+     * @see TitleViewAdapter#SEARCH_VIEW_VISIBLE
+     * @see TitleViewAdapter#BRANDING_VIEW_VISIBLE
+     * @see TitleViewAdapter#FULL_VIEW_VISIBLE
+     */
+    public void updateComponentsVisibility(int flags) {
+        this.flags = flags;
+
+        if ((flags & BRANDING_VIEW_VISIBLE) == BRANDING_VIEW_VISIBLE) {
+            updateBadgeVisibility();
+        } else {
+            mBadgeView.setVisibility(View.GONE);
+            mTextView.setVisibility(View.GONE);
+        }
+        updateSearchOrbViewVisiblity();
+    }
+
+    private void updateSearchOrbViewVisiblity() {
+        int visibility = mHasSearchListener && (flags & SEARCH_VIEW_VISIBLE) == SEARCH_VIEW_VISIBLE
+                ? View.VISIBLE : View.INVISIBLE;
+        mSearchOrbView.setVisibility(visibility);
+    }
+
+    private void updateBadgeVisibility() {
+        Drawable drawable = mBadgeView.getDrawable();
+        if (drawable != null) {
+            mBadgeView.setVisibility(View.VISIBLE);
+            mTextView.setVisibility(View.GONE);
+        } else {
+            mBadgeView.setVisibility(View.GONE);
+            mTextView.setVisibility(View.VISIBLE);
+        }
+    }
+
+    @Override
+    public TitleViewAdapter getTitleViewAdapter() {
+        return mTitleViewAdapter;
     }
 }

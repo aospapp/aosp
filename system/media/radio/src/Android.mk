@@ -16,8 +16,8 @@ LOCAL_SHARED_LIBRARIES := \
 LOCAL_MODULE := libradio_metadata
 LOCAL_MODULE_TAGS := optional
 
-LOCAL_CFLAGS += \
-	-fvisibility=hidden
+LOCAL_CFLAGS := -Werror -Wall
+LOCAL_CFLAGS += -fvisibility=hidden
 
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/../include
 

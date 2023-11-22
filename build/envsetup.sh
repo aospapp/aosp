@@ -1,25 +1,27 @@
 function hmm() {
 cat <<EOF
 Invoke ". build/envsetup.sh" from your shell to add the following functions to your environment:
-- lunch:   lunch <product_name>-<build_variant>
-- tapas:   tapas [<App1> <App2> ...] [arm|x86|mips|armv5|arm64|x86_64|mips64] [eng|userdebug|user]
-- croot:   Changes directory to the top of the tree.
-- m:       Makes from the top of the tree.
-- mm:      Builds all of the modules in the current directory, but not their dependencies.
-- mmm:     Builds all of the modules in the supplied directories, but not their dependencies.
-           To limit the modules being built use the syntax: mmm dir/:target1,target2.
-- mma:     Builds all of the modules in the current directory, and their dependencies.
-- mmma:    Builds all of the modules in the supplied directories, and their dependencies.
-- cgrep:   Greps on all local C/C++ files.
-- ggrep:   Greps on all local Gradle files.
-- jgrep:   Greps on all local Java files.
-- resgrep: Greps on all local res/*.xml files.
-- mangrep: Greps on all local AndroidManifest.xml files.
-- sepgrep: Greps on all local sepolicy files.
-- sgrep:   Greps on all local source files.
-- godir:   Go to the directory containing a file.
+- lunch:     lunch <product_name>-<build_variant>
+- tapas:     tapas [<App1> <App2> ...] [arm|x86|mips|armv5|arm64|x86_64|mips64] [eng|userdebug|user]
+- croot:     Changes directory to the top of the tree.
+- m:         Makes from the top of the tree.
+- mm:        Builds all of the modules in the current directory, but not their dependencies.
+- mmm:       Builds all of the modules in the supplied directories, but not their dependencies.
+             To limit the modules being built use the syntax: mmm dir/:target1,target2.
+- mma:       Builds all of the modules in the current directory, and their dependencies.
+- mmma:      Builds all of the modules in the supplied directories, and their dependencies.
+- provision: Flash device with all required partitions. Options will be passed on to fastboot.
+- cgrep:     Greps on all local C/C++ files.
+- ggrep:     Greps on all local Gradle files.
+- jgrep:     Greps on all local Java files.
+- resgrep:   Greps on all local res/*.xml files.
+- mangrep:   Greps on all local AndroidManifest.xml files.
+- mgrep:     Greps on all local Makefiles files.
+- sepgrep:   Greps on all local sepolicy files.
+- sgrep:     Greps on all local source files.
+- godir:     Go to the directory containing a file.
 
-Environemnt options:
+Environment options:
 - SANITIZE_HOST: Set to 'true' to use ASAN for all host modules. Note that
                  ASAN_OPTIONS=detect_leaks=0 will be set by default until the
                  build is leak-check clean.
@@ -29,15 +31,68 @@ EOF
     T=$(gettop)
     local A
     A=""
-    for i in `cat $T/build/envsetup.sh | sed -n "/^[ \t]*function /s/function \([a-z_]*\).*/\1/p" | sort | uniq`; do
+    for i in `cat $T/build/envsetup.sh | sed -n "/^[[:blank:]]*function /s/function \([a-z_]*\).*/\1/p" | sort | uniq`; do
       A="$A $i"
     done
     echo $A
 }
 
+# Get all the build variables needed by this script in a single call to the build system.
+function build_build_var_cache()
+{
+    T=$(gettop)
+    # Grep out the variable names from the script.
+    cached_vars=`cat $T/build/envsetup.sh | tr '()' '  ' | awk '{for(i=1;i<=NF;i++) if($i~/get_build_var/) print $(i+1)}' | sort -u | tr '\n' ' '`
+    cached_abs_vars=`cat $T/build/envsetup.sh | tr '()' '  ' | awk '{for(i=1;i<=NF;i++) if($i~/get_abs_build_var/) print $(i+1)}' | sort -u | tr '\n' ' '`
+    # Call the build system to dump the "<val>=<value>" pairs as a shell script.
+    build_dicts_script=`\cd $T; CALLED_FROM_SETUP=true BUILD_SYSTEM=build/core \
+                        command make --no-print-directory -f build/core/config.mk \
+                        dump-many-vars \
+                        DUMP_MANY_VARS="$cached_vars" \
+                        DUMP_MANY_ABS_VARS="$cached_abs_vars" \
+                        DUMP_VAR_PREFIX="var_cache_" \
+                        DUMP_ABS_VAR_PREFIX="abs_var_cache_"`
+    local ret=$?
+    if [ $ret -ne 0 ]
+    then
+        unset build_dicts_script
+        return $ret
+    fi
+    # Excute the script to store the "<val>=<value>" pairs as shell variables.
+    eval "$build_dicts_script"
+    ret=$?
+    unset build_dicts_script
+    if [ $ret -ne 0 ]
+    then
+        return $ret
+    fi
+    BUILD_VAR_CACHE_READY="true"
+}
+
+# Delete the build var cache, so that we can still call into the build system
+# to get build variables not listed in this script.
+function destroy_build_var_cache()
+{
+    unset BUILD_VAR_CACHE_READY
+    for v in $cached_vars; do
+      unset var_cache_$v
+    done
+    unset cached_vars
+    for v in $cached_abs_vars; do
+      unset abs_var_cache_$v
+    done
+    unset cached_abs_vars
+}
+
 # Get the value of a build variable as an absolute path.
 function get_abs_build_var()
 {
+    if [ "$BUILD_VAR_CACHE_READY" = "true" ]
+    then
+        eval echo \"\${abs_var_cache_$1}\"
+    return
+    fi
+
     T=$(gettop)
     if [ ! "$T" ]; then
         echo "Couldn't locate the top of the tree.  Try setting TOP." >&2
@@ -50,6 +105,12 @@ function get_abs_build_var()
 # Get the exact value of a build variable.
 function get_build_var()
 {
+    if [ "$BUILD_VAR_CACHE_READY" = "true" ]
+    then
+        eval echo \"\${var_cache_$1}\"
+    return
+    fi
+
     T=$(gettop)
     if [ ! "$T" ]; then
         echo "Couldn't locate the top of the tree.  Try setting TOP." >&2
@@ -160,23 +221,8 @@ function setpaths()
         export ANDROID_TOOLCHAIN_2ND_ARCH=$gccprebuiltdir/$toolchaindir2
     fi
 
-    unset ANDROID_KERNEL_TOOLCHAIN_PATH
-    case $ARCH in
-        arm)
-            # Legacy toolchain configuration used for ARM kernel compilation
-            toolchaindir=arm/arm-eabi-$targetgccversion/bin
-            if [ -d "$gccprebuiltdir/$toolchaindir" ]; then
-                 export ARM_EABI_TOOLCHAIN="$gccprebuiltdir/$toolchaindir"
-                 ANDROID_KERNEL_TOOLCHAIN_PATH="$ARM_EABI_TOOLCHAIN":
-            fi
-            ;;
-        *)
-            # No need to set ARM_EABI_TOOLCHAIN for other ARCHs
-            ;;
-    esac
-
     export ANDROID_DEV_SCRIPTS=$T/development/scripts:$T/prebuilts/devtools/tools:$T/external/selinux/prebuilts/bin
-    export ANDROID_BUILD_PATHS=$(get_build_var ANDROID_BUILD_PATHS):$ANDROID_TOOLCHAIN:$ANDROID_TOOLCHAIN_2ND_ARCH:$ANDROID_KERNEL_TOOLCHAIN_PATH$ANDROID_DEV_SCRIPTS:
+    export ANDROID_BUILD_PATHS=$(get_build_var ANDROID_BUILD_PATHS):$ANDROID_TOOLCHAIN:$ANDROID_TOOLCHAIN_2ND_ARCH:$ANDROID_DEV_SCRIPTS:
 
     # If prebuilts/android-emulator/<system>/ exists, prepend it to our PATH
     # to ensure that the corresponding 'emulator' binaries are used.
@@ -197,6 +243,7 @@ function setpaths()
     fi
 
     export PATH=$ANDROID_BUILD_PATHS$PATH
+    export PYTHONPATH=$T/development/python-packages:$PYTHONPATH
 
     unset ANDROID_JAVA_TOOLCHAIN
     unset ANDROID_PRE_BUILD_PATHS
@@ -333,7 +380,9 @@ function choosetype()
         fi
     done
 
+    build_build_var_cache
     set_stuff_for_environment
+    destroy_build_var_cache
 }
 
 #
@@ -347,9 +396,10 @@ function chooseproduct()
     if [ "x$TARGET_PRODUCT" != x ] ; then
         default_value=$TARGET_PRODUCT
     else
-        default_value=full
+        default_value=aosp_arm
     fi
 
+    export TARGET_BUILD_APPS=
     export TARGET_PRODUCT=
     local ANSWER
     while [ -z "$TARGET_PRODUCT" ]
@@ -377,7 +427,9 @@ function chooseproduct()
         fi
     done
 
+    build_build_var_cache
     set_stuff_for_environment
+    destroy_build_var_cache
 }
 
 function choosevariant()
@@ -440,8 +492,10 @@ function choosecombo()
     choosevariant $3
 
     echo
+    build_build_var_cache
     set_stuff_for_environment
     printconfig
+    destroy_build_var_cache
 }
 
 # Clear this variable.  It will be built up again when the vendorsetup.sh
@@ -523,16 +577,6 @@ function lunch()
 
     export TARGET_BUILD_APPS=
 
-    local product=$(echo -n $selection | sed -e "s/-.*$//")
-    check_product $product
-    if [ $? -ne 0 ]
-    then
-        echo
-        echo "** Don't have a product spec for: '$product'"
-        echo "** Do you have the right repo manifest?"
-        product=
-    fi
-
     local variant=$(echo -n $selection | sed -e "s/^[^\-]*-//")
     check_variant $variant
     if [ $? -ne 0 ]
@@ -541,6 +585,18 @@ function lunch()
         echo "** Invalid variant: '$variant'"
         echo "** Must be one of ${VARIANT_CHOICES[@]}"
         variant=
+    fi
+
+    local product=$(echo -n $selection | sed -e "s/-.*$//")
+    TARGET_PRODUCT=$product \
+    TARGET_BUILD_VARIANT=$variant \
+    build_build_var_cache
+    if [ $? -ne 0 ]
+    then
+        echo
+        echo "** Don't have a product spec for: '$product'"
+        echo "** Do you have the right repo manifest?"
+        product=
     fi
 
     if [ -z "$product" -o -z "$variant" ]
@@ -557,6 +613,7 @@ function lunch()
 
     set_stuff_for_environment
     printconfig
+    destroy_build_var_cache
 }
 
 # Tab completion for lunch.
@@ -594,10 +651,10 @@ function tapas()
         return
     fi
 
-    local product=full
+    local product=aosp_arm
     case $arch in
-      x86)    product=full_x86;;
-      mips)   product=full_mips;;
+      x86)    product=aosp_x86;;
+      mips)   product=aosp_mips;;
       armv5)  product=generic_armv5;;
       arm64)  product=aosp_arm64;;
       x86_64) product=aosp_x86_64;;
@@ -619,8 +676,10 @@ function tapas()
     export TARGET_BUILD_TYPE=release
     export TARGET_BUILD_APPS=$apps
 
+    build_build_var_cache
     set_stuff_for_environment
     printconfig
+    destroy_build_var_cache
 }
 
 function gettop
@@ -764,9 +823,14 @@ function mmm()
                 MAKEFILE="$MAKEFILE $MFILE"
             else
                 case $DIR in
-                  showcommands | snod | dist | incrementaljavac | *=*) ARGS="$ARGS $DIR";;
+                  showcommands | snod | dist | *=*) ARGS="$ARGS $DIR";;
                   GET-INSTALL-PATH) GET_INSTALL_PATH=$DIR;;
-                  *) echo "No Android.mk in $DIR."; return 1;;
+                  *) if [ -d $DIR ]; then
+                         echo "No Android.mk in $DIR.";
+                     else
+                         echo "Couldn't locate the directory $DIR";
+                     fi
+                     return 1;;
                 esac
             fi
         done
@@ -793,7 +857,10 @@ function mma()
       return 1
     fi
     local MY_PWD=`PWD= /bin/pwd|sed 's:'$T'/::'`
-    $DRV make -C $T -f build/core/main.mk $@ all_modules BUILD_MODULES_IN_PATHS="$MY_PWD"
+    local MODULES_IN_PATHS=MODULES-IN-$MY_PWD
+    # Convert "/" to "-".
+    MODULES_IN_PATHS=${MODULES_IN_PATHS//\//-}
+    $DRV make -C $T -f build/core/main.mk $@ $MODULES_IN_PATHS
   fi
 }
 
@@ -811,23 +878,27 @@ function mmma()
       MY_PWD=`echo $MY_PWD|sed 's:'$T'/::'`
     fi
     local DIR=
-    local MODULE_PATHS=
+    local MODULES_IN_PATHS=
     local ARGS=
     for DIR in $DIRS ; do
       if [ -d $DIR ]; then
-        if [ "$MY_PWD" = "" ]; then
-          MODULE_PATHS="$MODULE_PATHS $DIR"
-        else
-          MODULE_PATHS="$MODULE_PATHS $MY_PWD/$DIR"
+        # Remove the leading ./ and trailing / if any exists.
+        DIR=${DIR#./}
+        DIR=${DIR%/}
+        if [ "$MY_PWD" != "" ]; then
+          DIR=$MY_PWD/$DIR
         fi
+        MODULES_IN_PATHS="$MODULES_IN_PATHS MODULES-IN-$DIR"
       else
         case $DIR in
-          showcommands | snod | dist | incrementaljavac | *=*) ARGS="$ARGS $DIR";;
+          showcommands | snod | dist | *=*) ARGS="$ARGS $DIR";;
           *) echo "Couldn't find directory $DIR"; return 1;;
         esac
       fi
     done
-    $DRV make -C $T -f build/core/main.mk $DASH_ARGS $ARGS all_modules BUILD_MODULES_IN_PATHS="$MODULE_PATHS"
+    # Convert "/" to "-".
+    MODULES_IN_PATHS=${MODULES_IN_PATHS//\//-}
+    $DRV make -C $T -f build/core/main.mk $DASH_ARGS $ARGS $MODULES_IN_PATHS
   else
     echo "Couldn't locate the top of the tree.  Try setting TOP."
     return 1
@@ -871,18 +942,18 @@ function qpid() {
         append='$'
         shift
     elif [ "$1" = "--help" -o "$1" = "-h" ]; then
-		echo "usage: qpid [[--exact] <process name|pid>"
-		return 255
-	fi
+        echo "usage: qpid [[--exact] <process name|pid>"
+        return 255
+    fi
 
     local EXE="$1"
     if [ "$EXE" ] ; then
-		qpid | \grep "$prepend$EXE$append"
-	else
-		adb shell ps \
-			| tr -d '\r' \
-			| sed -e 1d -e 's/^[^ ]* *\([0-9]*\).* \([^ ]*\)$/\1 \2/'
-	fi
+        qpid | \grep "$prepend$EXE$append"
+    else
+        adb shell ps \
+            | tr -d '\r' \
+            | sed -e 1d -e 's/^[^ ]* *\([0-9]*\).* \([^ ]*\)$/\1 \2/'
+    fi
 }
 
 function pid()
@@ -903,7 +974,7 @@ function pid()
         echo "$PID"
     else
         echo "usage: pid [--exact] <process name>"
-		return 255
+        return 255
     fi
 }
 
@@ -916,25 +987,25 @@ function pid()
 
 function coredump_setup()
 {
-	echo "Getting root...";
-	adb root;
-	adb wait-for-device;
+    echo "Getting root...";
+    adb root;
+    adb wait-for-device;
 
-	echo "Remounting root parition read-write...";
-	adb shell mount -w -o remount -t rootfs rootfs;
-	sleep 1;
-	adb wait-for-device;
-	adb shell mkdir -p /cores;
-	adb shell mount -t tmpfs tmpfs /cores;
-	adb shell chmod 0777 /cores;
+    echo "Remounting root partition read-write...";
+    adb shell mount -w -o remount -t rootfs rootfs;
+    sleep 1;
+    adb wait-for-device;
+    adb shell mkdir -p /cores;
+    adb shell mount -t tmpfs tmpfs /cores;
+    adb shell chmod 0777 /cores;
 
-	echo "Granting SELinux permission to dump in /cores...";
-	adb shell restorecon -R /cores;
+    echo "Granting SELinux permission to dump in /cores...";
+    adb shell restorecon -R /cores;
 
-	echo "Set core pattern.";
-	adb shell 'echo /cores/core.%p > /proc/sys/kernel/core_pattern';
+    echo "Set core pattern.";
+    adb shell 'echo /cores/core.%p > /proc/sys/kernel/core_pattern';
 
-	echo "Done."
+    echo "Done."
 }
 
 # coredump_enable - enable core dumps for the specified process
@@ -945,13 +1016,13 @@ function coredump_setup()
 
 function coredump_enable()
 {
-	local PID=$1;
-	if [ -z "$PID" ]; then
-		printf "Expecting a PID!\n";
-		return;
-	fi;
-	echo "Setting core limit for $PID to infinite...";
-	adb shell prlimit $PID 4 -1 -1
+    local PID=$1;
+    if [ -z "$PID" ]; then
+        printf "Expecting a PID!\n";
+        return;
+    fi;
+    echo "Setting core limit for $PID to infinite...";
+    adb shell prlimit $PID 4 -1 -1
 }
 
 # core - send SIGV and pull the core for process
@@ -962,28 +1033,28 @@ function coredump_enable()
 
 function core()
 {
-	local PID=$1;
+    local PID=$1;
 
-	if [ -z "$PID" ]; then
-		printf "Expecting a PID!\n";
-		return;
-	fi;
+    if [ -z "$PID" ]; then
+        printf "Expecting a PID!\n";
+        return;
+    fi;
 
-	local CORENAME=core.$PID;
-	local COREPATH=/cores/$CORENAME;
-	local SIG=SEGV;
+    local CORENAME=core.$PID;
+    local COREPATH=/cores/$CORENAME;
+    local SIG=SEGV;
 
-	coredump_enable $1;
+    coredump_enable $1;
 
-	local done=0;
-	while [ $(adb shell "[ -d /proc/$PID ] && echo -n yes") ]; do
-		printf "\tSending SIG%s to %d...\n" $SIG $PID;
-		adb shell kill -$SIG $PID;
-		sleep 1;
-	done;
+    local done=0;
+    while [ $(adb shell "[ -d /proc/$PID ] && echo -n yes") ]; do
+        printf "\tSending SIG%s to %d...\n" $SIG $PID;
+        adb shell kill -$SIG $PID;
+        sleep 1;
+    done;
 
-	adb shell "while [ ! -f $COREPATH ] ; do echo waiting for $COREPATH to be generated; sleep 1; done"
-	echo "Done: core is under $COREPATH on device.";
+    adb shell "while [ ! -f $COREPATH ] ; do echo waiting for $COREPATH to be generated; sleep 1; done"
+    echo "Done: core is under $COREPATH on device.";
 }
 
 # systemstack - dump the current stack trace of all threads in the system process
@@ -1061,14 +1132,16 @@ case `uname -s` in
     Darwin)
         function sgrep()
         {
-            find -E . -name .repo -prune -o -name .git -prune -o  -type f -iregex '.*\.(c|h|cc|cpp|S|java|xml|sh|mk|aidl)' -print0 | xargs -0 grep --color -n "$@"
+            find -E . -name .repo -prune -o -name .git -prune -o  -type f -iregex '.*\.(c|h|cc|cpp|S|java|xml|sh|mk|aidl|vts)' \
+                -exec grep --color -n "$@" {} +
         }
 
         ;;
     *)
         function sgrep()
         {
-            find . -name .repo -prune -o -name .git -prune -o  -type f -iregex '.*\.\(c\|h\|cc\|cpp\|S\|java\|xml\|sh\|mk\|aidl\)' -print0 | xargs -0 grep --color -n "$@"
+            find . -name .repo -prune -o -name .git -prune -o  -type f -iregex '.*\.\(c\|h\|cc\|cpp\|S\|java\|xml\|sh\|mk\|aidl\|vts\)' \
+                -exec grep --color -n "$@" {} +
         }
         ;;
 esac
@@ -1080,61 +1153,73 @@ function gettargetarch
 
 function ggrep()
 {
-    find . -name .repo -prune -o -name .git -prune -o -name out -prune -o -type f -name "*\.gradle" -print0 | xargs -0 grep --color -n "$@"
+    find . -name .repo -prune -o -name .git -prune -o -name out -prune -o -type f -name "*\.gradle" \
+        -exec grep --color -n "$@" {} +
 }
 
 function jgrep()
 {
-    find . -name .repo -prune -o -name .git -prune -o -name out -prune -o -type f -name "*\.java" -print0 | xargs -0 grep --color -n "$@"
+    find . -name .repo -prune -o -name .git -prune -o -name out -prune -o -type f -name "*\.java" \
+        -exec grep --color -n "$@" {} +
 }
 
 function cgrep()
 {
-    find . -name .repo -prune -o -name .git -prune -o -name out -prune -o -type f \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) -print0 | xargs -0 grep --color -n "$@"
+    find . -name .repo -prune -o -name .git -prune -o -name out -prune -o -type f \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) \
+        -exec grep --color -n "$@" {} +
 }
 
 function resgrep()
 {
-    for dir in `find . -name .repo -prune -o -name .git -prune -o -name out -prune -o -name res -type d`; do find $dir -type f -name '*\.xml' -print0 | xargs -0 grep --color -n "$@"; done;
+    for dir in `find . -name .repo -prune -o -name .git -prune -o -name out -prune -o -name res -type d`; do
+        find $dir -type f -name '*\.xml' -exec grep --color -n "$@" {} +
+    done
 }
 
 function mangrep()
 {
-    find . -name .repo -prune -o -name .git -prune -o -path ./out -prune -o -type f -name 'AndroidManifest.xml' -print0 | xargs -0 grep --color -n "$@"
+    find . -name .repo -prune -o -name .git -prune -o -path ./out -prune -o -type f -name 'AndroidManifest.xml' \
+        -exec grep --color -n "$@" {} +
 }
 
 function sepgrep()
 {
-    find . -name .repo -prune -o -name .git -prune -o -path ./out -prune -o -name sepolicy -type d -print0 | xargs -0 grep --color -n -r --exclude-dir=\.git "$@"
+    find . -name .repo -prune -o -name .git -prune -o -path ./out -prune -o -name sepolicy -type d \
+        -exec grep --color -n -r --exclude-dir=\.git "$@" {} +
 }
 
 function rcgrep()
 {
-    find . -name .repo -prune -o -name .git -prune -o -name out -prune -o -type f -name "*\.rc*" -print0 | xargs -0 grep --color -n "$@"
+    find . -name .repo -prune -o -name .git -prune -o -name out -prune -o -type f -name "*\.rc*" \
+        -exec grep --color -n "$@" {} +
 }
 
 case `uname -s` in
     Darwin)
         function mgrep()
         {
-            find -E . -name .repo -prune -o -name .git -prune -o -path ./out -prune -o -type f -iregex '.*/(Makefile|Makefile\..*|.*\.make|.*\.mak|.*\.mk)' -print0 | xargs -0 grep --color -n "$@"
+            find -E . -name .repo -prune -o -name .git -prune -o -path ./out -prune -o -type f -iregex '.*/(Makefile|Makefile\..*|.*\.make|.*\.mak|.*\.mk)' \
+                -exec grep --color -n "$@" {} +
         }
 
         function treegrep()
         {
-            find -E . -name .repo -prune -o -name .git -prune -o -type f -iregex '.*\.(c|h|cpp|S|java|xml)' -print0 | xargs -0 grep --color -n -i "$@"
+            find -E . -name .repo -prune -o -name .git -prune -o -type f -iregex '.*\.(c|h|cpp|S|java|xml)' \
+                -exec grep --color -n -i "$@" {} +
         }
 
         ;;
     *)
         function mgrep()
         {
-            find . -name .repo -prune -o -name .git -prune -o -path ./out -prune -o -regextype posix-egrep -iregex '(.*\/Makefile|.*\/Makefile\..*|.*\.make|.*\.mak|.*\.mk)' -type f -print0 | xargs -0 grep --color -n "$@"
+            find . -name .repo -prune -o -name .git -prune -o -path ./out -prune -o -regextype posix-egrep -iregex '(.*\/Makefile|.*\/Makefile\..*|.*\.make|.*\.mak|.*\.mk)' -type f \
+                -exec grep --color -n "$@" {} +
         }
 
         function treegrep()
         {
-            find . -name .repo -prune -o -name .git -prune -o -regextype posix-egrep -iregex '.*\.(c|h|cpp|S|java|xml)' -type f -print0 | xargs -0 grep --color -n -i "$@"
+            find . -name .repo -prune -o -name .git -prune -o -regextype posix-egrep -iregex '.*\.(c|h|cpp|S|java|xml)' -type f \
+                -exec grep --color -n -i "$@" {} +
         }
 
         ;;
@@ -1355,14 +1440,20 @@ function godir () {
         return
     fi
     T=$(gettop)
-    if [[ ! -f $T/filelist ]]; then
+    if [ ! "$OUT_DIR" = "" ]; then
+        mkdir -p $OUT_DIR
+        FILELIST=$OUT_DIR/filelist
+    else
+        FILELIST=$T/filelist
+    fi
+    if [[ ! -f $FILELIST ]]; then
         echo -n "Creating index..."
-        (\cd $T; find . -wholename ./out -prune -o -wholename ./.repo -prune -o -type f > filelist)
+        (\cd $T; find . -wholename ./out -prune -o -wholename ./.repo -prune -o -type f > $FILELIST)
         echo " Done"
         echo ""
     fi
     local lines
-    lines=($(\grep "$1" $T/filelist | sed -e 's/\/[^/]*$//' | sort | uniq))
+    lines=($(\grep "$1" $FILELIST | sed -e 's/\/[^/]*$//' | sort | uniq))
     if [[ ${#lines[@]} = 0 ]]; then
         echo "Not found"
         return
@@ -1393,11 +1484,7 @@ function godir () {
     \cd $T/$pathname
 }
 
-# Force JAVA_HOME to point to java 1.7 if it isn't already set.
-#
-# Note that the MacOS path for java 1.7 includes a minor revision number (sigh).
-# For some reason, installing the JDK doesn't make it show up in the
-# JavaVM.framework/Versions/1.7/ folder.
+# Force JAVA_HOME to point to java 1.7/1.8 if it isn't already set.
 function set_java_home() {
     # Clear the existing JAVA_HOME value if we set it ourselves, so that
     # we can reset it later, depending on the version of java the build
@@ -1410,14 +1497,26 @@ function set_java_home() {
     fi
 
     if [ ! "$JAVA_HOME" ]; then
-      case `uname -s` in
-          Darwin)
-              export JAVA_HOME=$(/usr/libexec/java_home -v 1.7)
-              ;;
-          *)
-              export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64
-              ;;
-      esac
+      if [ -n "$LEGACY_USE_JAVA7" ]; then
+        echo Warning: Support for JDK 7 will be dropped. Switch to JDK 8.
+        case `uname -s` in
+            Darwin)
+                export JAVA_HOME=$(/usr/libexec/java_home -v 1.7)
+                ;;
+            *)
+                export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64
+                ;;
+        esac
+      else
+        case `uname -s` in
+            Darwin)
+                export JAVA_HOME=$(/usr/libexec/java_home -v 1.8)
+                ;;
+            *)
+                export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+                ;;
+        esac
+      fi
 
       # Keep track of the fact that we set JAVA_HOME ourselves, so that
       # we can change it on the next envsetup.sh, if required.
@@ -1431,9 +1530,9 @@ function pez {
     local retval=$?
     if [ $retval -ne 0 ]
     then
-        echo -e "\e[0;31mFAILURE\e[00m"
+        echo $'\E'"[0;31mFAILURE\e[00m"
     else
-        echo -e "\e[0;32mSUCCESS\e[00m"
+        echo $'\E'"[0;32mSUCCESS\e[00m"
     fi
     return $retval
 }
@@ -1455,9 +1554,9 @@ function make()
     local secs=$(($tdiff % 60))
     local ncolors=$(tput colors 2>/dev/null)
     if [ -n "$ncolors" ] && [ $ncolors -ge 8 ]; then
-        color_failed="\e[0;31m"
-        color_success="\e[0;32m"
-        color_reset="\e[00m"
+        color_failed=$'\E'"[0;31m"
+        color_success=$'\E'"[0;32m"
+        color_reset=$'\E'"[00m"
     else
         color_failed=""
         color_success=""
@@ -1465,9 +1564,9 @@ function make()
     fi
     echo
     if [ $ret -eq 0 ] ; then
-        echo -n -e "${color_success}#### make completed successfully "
+        echo -n "${color_success}#### make completed successfully "
     else
-        echo -n -e "${color_failed}#### make failed to build some targets "
+        echo -n "${color_failed}#### make failed to build some targets "
     fi
     if [ $hours -gt 0 ] ; then
         printf "(%02g:%02g:%02g (hh:mm:ss))" $hours $mins $secs
@@ -1476,9 +1575,38 @@ function make()
     elif [ $secs -gt 0 ] ; then
         printf "(%s seconds)" $secs
     fi
-    echo -e " ####${color_reset}"
+    echo " ####${color_reset}"
     echo
     return $ret
+}
+
+function provision()
+{
+    if [ ! "$ANDROID_PRODUCT_OUT" ]; then
+        echo "Couldn't locate output files.  Try running 'lunch' first." >&2
+        return 1
+    fi
+    if [ ! -e "$ANDROID_PRODUCT_OUT/provision-device" ]; then
+        echo "There is no provisioning script for the device." >&2
+        return 1
+    fi
+
+    # Check if user really wants to do this.
+    if [ "$1" = "--no-confirmation" ]; then
+        shift 1
+    else
+        echo "This action will reflash your device."
+        echo ""
+        echo "ALL DATA ON THE DEVICE WILL BE IRREVOCABLY ERASED."
+        echo ""
+        echo -n "Are you sure you want to do this (yes/no)? "
+        read
+        if [[ "${REPLY}" != "yes" ]] ; then
+            echo "Not taking any action. Exiting." >&2
+            return 1
+        fi
+    fi
+    "$ANDROID_PRODUCT_OUT/provision-device" "$@"
 }
 
 if [ "x$SHELL" != "x/bin/bash" ]; then
@@ -1493,7 +1621,8 @@ fi
 
 # Execute the contents of any vendorsetup.sh files we can find.
 for f in `test -d device && find -L device -maxdepth 4 -name 'vendorsetup.sh' 2> /dev/null | sort` \
-         `test -d vendor && find -L vendor -maxdepth 4 -name 'vendorsetup.sh' 2> /dev/null | sort`
+         `test -d vendor && find -L vendor -maxdepth 4 -name 'vendorsetup.sh' 2> /dev/null | sort` \
+         `test -d product && find -L product -maxdepth 4 -name 'vendorsetup.sh' 2> /dev/null | sort`
 do
     echo "including $f"
     . $f

@@ -19,6 +19,9 @@
 #ifndef BTIF_STORAGE_H
 #define BTIF_STORAGE_H
 
+#include <hardware/bluetooth.h>
+
+#include "bt_target.h"
 #include "bt_types.h"
 
 /*******************************************************************************
@@ -93,11 +96,11 @@ bt_status_t btif_storage_set_remote_device_property(bt_bdaddr_t *remote_bd_addr,
 **
 ** Function         btif_storage_add_remote_device
 **
-** Description      BTIF storage API - Adds a newly discovered device to NVRAM
-**                  along with the timestamp. Also, stores the various
+** Description      BTIF storage API - Adds a newly discovered device to
+**                  track along with the timestamp. Also, stores the various
 **                  properties - RSSI, BDADDR, NAME (if found in EIR)
 **
-** Returns          BT_STATUS_SUCCESS if the store was successful,
+** Returns          BT_STATUS_SUCCESS if successful,
 **                  BT_STATUS_FAIL otherwise
 **
 *******************************************************************************/
@@ -261,53 +264,15 @@ bt_status_t btif_storage_remove_hid_info(bt_bdaddr_t *remote_bd_addr);
 
 /*******************************************************************************
 **
-** Function         btif_storage_load_autopair_device_list
+** Function         btif_storage_is_retricted_device
 **
-** Description      BTIF storage API - Populates auto pair device list
+** Description      BTIF storage API - checks if this device is a restricted device
 **
-** Returns          BT_STATUS_SUCCESS if the auto pair blacklist is successfully populated
-**                  BT_STATUS_FAIL otherwise
-**
-*******************************************************************************/
-bt_status_t btif_storage_load_autopair_device_list();
-
-/*******************************************************************************
-**
-** Function         btif_storage_is_device_autopair_blacklisted
-**
-** Description      BTIF storage API  Checks if the given device is blacklisted for auto pairing
-**
-** Returns          TRUE if the device is found in the auto pair blacklist
+** Returns          TRUE  if the device is labled as restricted
 **                  FALSE otherwise
 **
 *******************************************************************************/
-
-BOOLEAN  btif_storage_is_device_autopair_blacklisted(bt_bdaddr_t *remote_bd_addr);
-
-/*******************************************************************************
-**
-** Function         btif_storage_add_device_to_autopair_blacklist
-**
-** Description      BTIF storage API - Add a remote device to the auto pairing blacklist
-**
-** Returns          BT_STATUS_SUCCESS if the device is successfully added to the auto pair blacklist
-**                  BT_STATUS_FAIL otherwise
-**
-*******************************************************************************/
-
-bt_status_t btif_storage_add_device_to_autopair_blacklist(bt_bdaddr_t *remote_bd_addr);
-
-/*******************************************************************************
-**
-** Function         btif_storage_is_fixed_pin_zeros_keyboard
-**
-** Description      BTIF storage API - checks if this device has fixed PIN key device list
-**
-** Returns          TRUE   if the device is found in the fixed pin keyboard device list
-**                  FALSE otherwise
-**
-*******************************************************************************/
-BOOLEAN btif_storage_is_fixed_pin_zeros_keyboard(bt_bdaddr_t *remote_bd_addr);
+BOOLEAN btif_storage_is_restricted_device(const bt_bdaddr_t *remote_bd_addr);
 
 #if (BLE_INCLUDED == TRUE)
 bt_status_t btif_storage_add_ble_bonding_key( bt_bdaddr_t *remote_bd_addr,
@@ -348,5 +313,10 @@ bt_status_t btif_storage_set_remote_addr_type(bt_bdaddr_t *remote_bd_addr,
 
 bt_status_t btif_storage_get_remote_version(const bt_bdaddr_t *remote_bd_addr,
                                   bt_remote_version_t *p_ver);
+
+/******************************************************************************
+ * Exported for unit tests
+ *****************************************************************************/
+size_t btif_split_uuids_string(const char *str, bt_uuid_t *p_uuid, size_t max_uuids);
 
 #endif /* BTIF_STORAGE_H */

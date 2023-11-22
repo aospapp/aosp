@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,5 +38,25 @@ float3 __attribute__((kernel)) testAtan2Float3Float3Float3(float3 inNumerator, u
 
 float4 __attribute__((kernel)) testAtan2Float4Float4Float4(float4 inNumerator, unsigned int x) {
     float4 inDenominator = rsGetElementAt_float4(gAllocInDenominator, x);
+    return atan2(inNumerator, inDenominator);
+}
+
+half __attribute__((kernel)) testAtan2HalfHalfHalf(half inNumerator, unsigned int x) {
+    half inDenominator = rsGetElementAt_half(gAllocInDenominator, x);
+    return atan2(inNumerator, inDenominator);
+}
+
+half2 __attribute__((kernel)) testAtan2Half2Half2Half2(half2 inNumerator, unsigned int x) {
+    half2 inDenominator = rsGetElementAt_half2(gAllocInDenominator, x);
+    return atan2(inNumerator, inDenominator);
+}
+
+half3 __attribute__((kernel)) testAtan2Half3Half3Half3(half3 inNumerator, unsigned int x) {
+    half3 inDenominator = rsGetElementAt_half3(gAllocInDenominator, x);
+    return atan2(inNumerator, inDenominator);
+}
+
+half4 __attribute__((kernel)) testAtan2Half4Half4Half4(half4 inNumerator, unsigned int x) {
+    half4 inDenominator = rsGetElementAt_half4(gAllocInDenominator, x);
     return atan2(inNumerator, inDenominator);
 }

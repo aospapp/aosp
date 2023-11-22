@@ -15,12 +15,18 @@
  */
 package com.android.cts.verifier.camera.intents;
 
-import android.content.BroadcastReceiver;
+import android.app.job.JobInfo;
+import android.app.job.JobParameters;
+import android.app.job.JobScheduler;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.hardware.Camera;
+import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.View;
@@ -29,6 +35,7 @@ import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
+import com.android.cts.verifier.camera.intents.CameraContentJobService;
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 import com.android.cts.verifier.TestResult;
@@ -36,12 +43,12 @@ import com.android.cts.verifier.TestResult;
 import java.util.TreeSet;
 
 /**
- * Tests for manual verification of camera intents being fired.
+ * Tests for manual verification of uri trigger being fired.
  *
- * android.hardware.Camera.ACTION_NEW_PICTURE - this should fire
+ * MediaStore.Images.Media.EXTERNAL_CONTENT_URI - this should fire
  *  when a new picture was captured by the camera app, and it has been
  *  added to the media store.
- * android.hardware.Camera.ACTION_NEW_VIDEO - this should fire when a new
+ * MediaStore.Video.Media.EXTERNAL_CONTENT_URI - this should fire when a new
  *  video has been captured by the camera app, and it has been added
  *  to the media store.
  *
@@ -70,21 +77,12 @@ implements OnClickListener, SurfaceHolder.Callback {
     private static final int STAGE_INTENT_PICTURE = 2;
     private static final int STAGE_INTENT_VIDEO = 3;
 
-    private static String[]  EXPECTED_INTENTS = new String[] {
-        Camera.ACTION_NEW_PICTURE,
-        Camera.ACTION_NEW_VIDEO,
-        null,
-        Camera.ACTION_NEW_VIDEO
-    };
-
     private ImageButton mPassButton;
     private ImageButton mFailButton;
     private Button mStartTestButton;
 
     private int mState = STATE_OFF;
 
-    private BroadcastReceiver mReceiver;
-    private IntentFilter mFilterPicture;
     private boolean mActivityResult = false;
     private boolean mDetectCheating = false;
 
@@ -92,45 +90,41 @@ implements OnClickListener, SurfaceHolder.Callback {
     private final TreeSet<String> mTestedCombinations = new TreeSet<String>();
     private final TreeSet<String> mUntestedCombinations = new TreeSet<String>();
 
-    /* Callback from mReceiver#onReceive */
-    public void onReceivedIntent(Intent intent) {
-        Log.v(TAG, "Received intent " + intent.toString());
-        if (mState == STATE_STARTED) {
+    private CameraContentJobService.TestEnvironment mTestEnv;
+    private static final int CAMERA_JOB_ID = CameraIntentsActivity.class.hashCode();
+    private static final int JOB_TYPE_IMAGE = 0;
+    private static final int JOB_TYPE_VIDEO = 1;
 
-            /* this can happen if..
-              the camera apps intent finishes,
-              user returns to cts verifier,
-              user leaves cts verifier and tries to fake receiver intents
-              */
-            if (mDetectCheating) {
-                Log.w(TAG, "Cheating attempt suppressed");
+    private static int[] TEST_JOB_TYPES = new int[] {
+        JOB_TYPE_IMAGE,
+        JOB_TYPE_VIDEO,
+        JOB_TYPE_IMAGE,
+        JOB_TYPE_VIDEO
+    };
 
-                mState = STATE_FAILED;
-            }
-
-            String expectedIntent = EXPECTED_INTENTS[getStageIndex()];
-            if (expectedIntent != intent.getAction()) {
-                Log.e(TAG, "FAIL: Test # " + getStageIndex()
-                    + " must not broadcast "
-                    + intent.getAction()
-                    + ", expected: "
-                    + (expectedIntent != null ? expectedIntent : "no intent"));
-
-                mState = STATE_FAILED;
-            }
-
-            if (mState != STATE_FAILED) {
-                mState = STATE_SUCCESSFUL;
-
-                mPassButton.setEnabled(true);
-                mFailButton.setEnabled(false);
-            }
-            else {
-                mPassButton.setEnabled(false);
-                mFailButton.setEnabled(true);
-            }
-
+    private JobInfo makeJobInfo(int jobType) {
+        JobInfo.Builder builder = new JobInfo.Builder(CAMERA_JOB_ID,
+                new ComponentName(this, CameraContentJobService.class));
+        // Look for specific changes to images in the provider.
+        Uri uriToTrigger = null;
+        switch (jobType) {
+            case JOB_TYPE_IMAGE:
+                uriToTrigger = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
+                break;
+            case JOB_TYPE_VIDEO:
+                uriToTrigger = MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
+                break;
+            default:
+                Log.e(TAG, "Unknown jobType" + jobType);
+                return null;
         }
+        builder.addTriggerContentUri(new JobInfo.TriggerContentUri(
+                uriToTrigger,
+                JobInfo.TriggerContentUri.FLAG_NOTIFY_FOR_DESCENDANTS));
+        // For testing purposes, react quickly.
+        builder.setTriggerContentUpdateDelay(100);
+        builder.setTriggerContentMaxDelay(100);
+        return builder.build();
     }
 
     private int getStageIndex()
@@ -236,41 +230,18 @@ implements OnClickListener, SurfaceHolder.Callback {
                 (TextView) findViewById(R.id.instruction_text);
         instructionLabel.setText(R.string.ci_instruction_text_photo_label);
 
-        /* Display the instructions to launch camera app and take a photo
-        */
+        /* Display the instructions to launch camera app and take a photo */
         TextView cameraExtraLabel =
                 (TextView) findViewById(R.id.instruction_extra_text);
         cameraExtraLabel.setText(getStageInstructionLabel(getStageIndex()));
 
         mStartTestButton.setEnabled(true);
-
-        mReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                onReceivedIntent(intent);
-            }
-        };
-
-        mFilterPicture = new IntentFilter();
-        mFilterPicture.addAction(Camera.ACTION_NEW_PICTURE);
-        mFilterPicture.addAction(Camera.ACTION_NEW_VIDEO);
-
-        try {
-            mFilterPicture.addDataType("video/*");
-            mFilterPicture.addDataType("image/*");
-        }
-        catch(IntentFilter.MalformedMimeTypeException e) {
-            Log.e(TAG, "Caught exceptione e " + e.toString());
-        }
-        registerReceiver(mReceiver, mFilterPicture);
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-
         Log.v(TAG, "onDestroy");
-        this.unregisterReceiver(mReceiver);
     }
 
     @Override
@@ -281,7 +252,6 @@ implements OnClickListener, SurfaceHolder.Callback {
     @Override
     public void onPause() {
         super.onPause();
-
         /*
         When testing INTENT_PICTURE, INTENT_VIDEO,
         do not allow user to cheat by going to camera app and re-firing
@@ -307,12 +277,11 @@ implements OnClickListener, SurfaceHolder.Callback {
 
             if (mState != STATE_FAILED
                 && getStageIndex() == STAGE_INTENT_PICTURE) {
-
                 mPassButton.setEnabled(true);
                 mFailButton.setEnabled(false);
 
                 mState = STATE_SUCCESSFUL;
-                /* successful, unless we get the mediastore intent back
+                /* successful, unless we get the URI trigger back
                  at some point later on */
             }
         }
@@ -323,15 +292,84 @@ implements OnClickListener, SurfaceHolder.Callback {
         return mReportBuilder.toString();
     }
 
+    private class WaitForTriggerTask extends AsyncTask<Void, Void, Boolean> {
+        protected Boolean doInBackground(Void... param) {
+            try {
+                boolean executed = mTestEnv.awaitExecution();
+                // Check latest test param
+                if (executed && mState == STATE_STARTED) {
+
+                    // this can happen if..
+                    //  the camera apps intent finishes,
+                    //  user returns to cts verifier,
+                    //  user leaves cts verifier and tries to fake receiver intents
+                    if (mDetectCheating) {
+                        Log.w(TAG, "Cheating attempt suppressed");
+                        mState = STATE_FAILED;
+                    }
+
+                    // For STAGE_INTENT_PICTURE test, if EXTRA_OUTPUT is not assigned in intent,
+                    // file should NOT be saved so triggering this is a test failure.
+                    if (getStageIndex() == STAGE_INTENT_PICTURE) {
+                        Log.e(TAG, "FAIL: STAGE_INTENT_PICTURE test should not create file");
+                        mState = STATE_FAILED;
+                    }
+
+                    if (mState != STATE_FAILED) {
+                        mState = STATE_SUCCESSFUL;
+                        return true;
+                    } else {
+                        return false;
+                    }
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            if (getStageIndex() == STAGE_INTENT_PICTURE) {
+                // STAGE_INTENT_PICTURE should timeout
+                return true;
+            } else {
+                Log.e(TAG, "FAIL: timeout waiting for URI trigger");
+                return false;
+            }
+        }
+
+        protected void onPostExecute(Boolean pass) {
+            if (pass) {
+                mPassButton.setEnabled(true);
+                mFailButton.setEnabled(false);
+            } else {
+                mPassButton.setEnabled(false);
+                mFailButton.setEnabled(true);
+            }
+        }
+    }
+
     @Override
     public void onClick(View view) {
         Log.v(TAG, "Click detected");
+
+        final int stageIndex = getStageIndex();
 
         if (view == mStartTestButton) {
             Log.v(TAG, "Starting testing... ");
 
 
             mState = STATE_STARTED;
+
+            JobScheduler jobScheduler = (JobScheduler) getSystemService(
+                    Context.JOB_SCHEDULER_SERVICE);
+            jobScheduler.cancelAll();
+
+            mTestEnv = CameraContentJobService.TestEnvironment.getTestEnvironment();
+
+            mTestEnv.setUp();
+
+            JobInfo job = makeJobInfo(TEST_JOB_TYPES[stageIndex]);
+            jobScheduler.schedule(job);
+
+            new WaitForTriggerTask().execute();
 
             /* we can allow user to fail immediately */
             mFailButton.setEnabled(true);
@@ -340,10 +378,10 @@ implements OnClickListener, SurfaceHolder.Callback {
                 which will run the camera app itself */
             String intentStr = null;
             Intent cameraIntent = null;
-            if (getStageIndex() == STAGE_INTENT_PICTURE) {
+            if (stageIndex == STAGE_INTENT_PICTURE) {
                 intentStr = android.provider.MediaStore.ACTION_IMAGE_CAPTURE;
             }
-            else if (getStageIndex() == STAGE_INTENT_VIDEO) {
+            else if (stageIndex == STAGE_INTENT_VIDEO) {
                 intentStr = android.provider.MediaStore.ACTION_VIDEO_CAPTURE;
             }
 
@@ -353,11 +391,12 @@ implements OnClickListener, SurfaceHolder.Callback {
             }
 
             mStartTestButton.setEnabled(false);
-
         }
 
         if(view == mPassButton || view == mFailButton) {
-            final int stageIndex = getStageIndex();
+            // Stop any running wait
+            mTestEnv.cancelWait();
+
             for (int counter = 0; counter < NUM_STAGES; counter++) {
                 String combination = getStageString(counter) + "\n";
 

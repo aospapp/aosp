@@ -22,6 +22,7 @@
     <string name="mode_deg" msgid="1146123354434332479">"grd"</string>
     <string name="mode_rad" msgid="1434228830085760996">"rad"</string>
     <string name="clr" msgid="6730945431543327337">"pst"</string>
+    <string name="cleared" msgid="3952521190281880880">"u pastruan"</string>
     <string name="del" msgid="5878069000864178910">"fsh"</string>
     <string name="desc_const_e" msgid="1889187337970539507">"Konstante matematikore"</string>
     <string name="desc_const_pi" msgid="5430918714009441655">"pi"</string>
@@ -60,7 +61,7 @@
     <string name="error_syntax" msgid="4786987111228645602">"Shprehje e pasaktë"</string>
     <string name="error_aborted" msgid="3402238176316342537">"U ndërpre"</string>
     <string name="error_overflow" msgid="7800547394563434764">"Infinit?"</string>
-    <string name="error_zero_divide" msgid="458040988686661801">"S\'mund të pjesëtohet me 0"</string>
+    <string name="error_zero_divide" msgid="458040988686661801">"Nuk pjesëtohet me 0"</string>
     <string name="text_copied_toast" msgid="2104264466812485425">"Teksti u kopjua"</string>
     <string name="cancelled" msgid="1618889609742874632">"Llogaritja u anulua"</string>
     <string name="timeout" msgid="802690170415591535">"Koha e pritjes mbaroi. Vlera mund të jetë në infinit ose e papërcaktuar."</string>

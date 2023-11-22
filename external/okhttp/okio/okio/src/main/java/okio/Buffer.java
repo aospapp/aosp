@@ -1242,8 +1242,8 @@ public final class Buffer implements BufferedSource, BufferedSink, Cloneable {
         fromIndex -= segmentByteCount;
       } else {
         byte[] data = s.data;
-        for (long pos = s.pos + fromIndex, limit = s.limit; pos < limit; pos++) {
-          if (data[(int) pos] == b) return offset + pos - s.pos;
+        for (int pos = (int) (s.pos + fromIndex), limit = s.limit; pos < limit; pos++) {
+          if (data[pos] == b) return offset + pos - s.pos;
         }
         fromIndex = 0;
       }
@@ -1251,6 +1251,24 @@ public final class Buffer implements BufferedSource, BufferedSink, Cloneable {
       s = s.next;
     } while (s != head);
     return -1L;
+  }
+
+  @Override public long indexOf(ByteString bytes) throws IOException {
+    return indexOf(bytes, 0);
+  }
+
+  @Override public long indexOf(ByteString bytes, long fromIndex) throws IOException {
+    if (bytes.size() == 0) throw new IllegalArgumentException("bytes is empty");
+    while (true) {
+      fromIndex = indexOf(bytes.getByte(0), fromIndex);
+      if (fromIndex == -1) {
+        return -1;
+      }
+      if (rangeEquals(fromIndex, bytes)) {
+        return fromIndex;
+      }
+      fromIndex++;
+    }
   }
 
   @Override public long indexOfElement(ByteString targetBytes) {
@@ -1282,6 +1300,19 @@ public final class Buffer implements BufferedSource, BufferedSink, Cloneable {
       s = s.next;
     } while (s != head);
     return -1L;
+  }
+
+  boolean rangeEquals(long offset, ByteString bytes) {
+    int byteCount = bytes.size();
+    if (size - offset < byteCount) {
+      return false;
+    }
+    for (int i = 0; i < byteCount; i++) {
+      if (getByte(offset + i) != bytes.getByte(i)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @Override public void flush() {

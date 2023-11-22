@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
- This script builds Eclipse plugins, and the monitor & adt-bundle products.
+ This script builds the monitor product which is composed of a bunch of Eclipse plugins.
 
  To run this script:
    - Have Maven3 in your path
@@ -57,36 +57,6 @@
                     <url>${target-platform.base.url}/jdt</url>
                     <layout>p2</layout>
                 </repository>
-                <repository>
-                    <id>cdt</id>
-                    <url>${target-platform.base.url}/cdt</url>
-                    <layout>p2</layout>
-                </repository>
-                <repository>
-                    <id>emf</id>
-                    <url>${target-platform.base.url}/emf</url>
-                    <layout>p2</layout>
-                </repository>
-                <repository>
-                    <id>wtp</id>
-                    <url>${target-platform.base.url}/wtp</url>
-                    <layout>p2</layout>
-                </repository>
-                <repository>
-                    <id>gef</id>
-                    <url>${target-platform.base.url}/gef</url>
-                    <layout>p2</layout>
-                </repository>
-                <repository>
-                    <id>pde</id>
-                    <url>${target-platform.base.url}/pde</url>
-                    <layout>p2</layout>
-                </repository>
-                <repository>
-                    <id>egit</id>
-                    <url>${target-platform.base.url}/egit</url>
-                    <layout>p2</layout>
-                </repository>
             </repositories>
         </profile>
         <profile>
@@ -109,22 +79,12 @@
         <module>plugins/com.android.ide.eclipse.monitor</module>
         <module>plugins/com.android.ide.eclipse.traceview</module>
 
-        <module>plugins/com.android.ide.eclipse.adt</module>
-        <module>plugins/com.android.ide.eclipse.adt.overlay</module>
-        <module>plugins/com.android.ide.eclipse.adt.package</module>
-        <module>plugins/com.android.ide.eclipse.ndk</module>
-
         <module>features/com.android.ide.eclipse.ddms</module>
         <module>features/com.android.ide.eclipse.gldebugger</module>
         <module>features/com.android.ide.eclipse.hierarchyviewer</module>
         <module>features/com.android.ide.eclipse.traceview</module>
         <module>features/com.android.ide.eclipse.monitor</module>
 
-        <module>features/com.android.ide.eclipse.adt</module>
-        <module>features/com.android.ide.eclipse.adt.package</module>
-        <module>features/com.android.ide.eclipse.ndk</module>
-
-        <module>artifacts/p2repo</module>
         <module>artifacts/bundles</module>
     </modules>
 
@@ -138,14 +98,6 @@
                 <artifactId>target-platform-configuration</artifactId>
                 <version>${tycho-version}</version>
                 <configuration>
-                    <!--
-                    <target>
-                        <artifact>
-                            <groupId>adt.group</groupId>
-                            <artifactId>helios</artifactId>
-                            <version>1.0.0-SNAPSHOT</version>
-                        </artifact>
-                    </target> -->
                     <environments>
                         <environment>
                             <os>win32</os>

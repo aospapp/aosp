@@ -15,11 +15,10 @@
  */
 
 apply plugin: 'com.android.application'
-apply plugin: 'com.android.databinding'
 
 android {
-    compileSdkVersion 21
-    buildToolsVersion "22"
+    compileSdkVersion dataBindingConfig.compileSdkVersion
+    buildToolsVersion dataBindingConfig.buildToolsVersion
 
     defaultConfig {
         applicationId "com.android.databinding.appwithspaces"
@@ -27,6 +26,9 @@ android {
         targetSdkVersion 21
         versionCode 1
         versionName "1.0"
+    }
+    dataBinding {
+        enabled = true
     }
     buildTypes {
         release {

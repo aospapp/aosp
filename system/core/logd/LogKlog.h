@@ -19,16 +19,16 @@
 
 #include <sysutils/SocketListener.h>
 #include <log/log_read.h>
-#include "LogReader.h"
 
-char *log_strtok_r(char *str, char **saveptr);
+char *log_strntok_r(char *s, size_t *len, char **saveptr, size_t *sublen);
+
+class LogBuffer;
+class LogReader;
 
 class LogKlog : public SocketListener {
     LogBuffer *logbuf;
     LogReader *reader;
     const log_time signature;
-    const int fdWrite; // /dev/kmsg
-    const int fdRead;  // /proc/kmsg
     // Set once thread is started, separates KLOG_ACTION_READ_ALL
     // and KLOG_ACTION_READ phases.
     bool initialized;
@@ -42,14 +42,18 @@ class LogKlog : public SocketListener {
 
 public:
     LogKlog(LogBuffer *buf, LogReader *reader, int fdWrite, int fdRead, bool auditd);
-    int log(const char *buf);
-    void synchronize(const char *buf);
+    int log(const char *buf, size_t len);
+    void synchronize(const char *buf, size_t len);
 
+    bool isMonotonic() { return logbuf->isMonotonic(); }
     static void convertMonotonicToReal(log_time &real) { real += correction; }
+    static void convertRealToMonotonic(log_time &real) { real -= correction; }
 
 protected:
-    void sniffTime(log_time &now, const char **buf, bool reverse);
-    void calculateCorrection(const log_time &monotonic, const char *real_string);
+    void sniffTime(log_time &now, const char **buf, size_t len, bool reverse);
+    pid_t sniffPid(const char *buf, size_t len);
+    void calculateCorrection(const log_time &monotonic,
+                             const char *real_string, size_t len);
     virtual bool onDataAvailable(SocketClient *cli);
 
 };

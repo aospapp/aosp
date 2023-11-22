@@ -22,7 +22,7 @@
 
 .macro lanepair dst, src, xr0, xr1, yr0, yr1, zr0, zr1
 
-            vmov.s32    r6, r7, \src
+            vmov        r6, r7, \src
 
             add         r6, r6, r3
             add         r7, r7, r3
@@ -118,7 +118,7 @@ ENTRY(rsdIntrinsic3DLUT_K)
             vmov.u16    d8[0], r6
             vmov.u16    d8[1], r7
             vmov.u16    d8[2], r12
-            vmov.s32    d9, r4, r5
+            vmov        d9, r4, r5
 
             subs        r2, #8
             bge         2f

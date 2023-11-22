@@ -35,10 +35,13 @@ import android.nfc.tech.Ndef;
 import android.nfc.tech.NfcA;
 import android.nfc.tech.NfcF;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.util.Log;
+
+import java.io.IOException;
 
 /**
  * Represents the local NFC adapter.
@@ -294,6 +297,7 @@ public final class NfcAdapter {
     static INfcAdapter sService;
     static INfcTag sTagService;
     static INfcCardEmulation sCardEmulationService;
+    static INfcFCardEmulation sNfcFCardEmulationService;
 
     /**
      * The NfcAdapter object for each application context.
@@ -313,6 +317,8 @@ public final class NfcAdapter {
     final Context mContext;
     final HashMap<NfcUnlockHandler, INfcUnlockHandler> mNfcUnlockHandlers;
     final Object mLock;
+
+    ITagRemovedCallback mTagRemovedListener; // protected by mLock
 
     /**
      * A callback to be invoked when the system finds a tag while the foreground activity is
@@ -385,6 +391,14 @@ public final class NfcAdapter {
     }
 
     /**
+     * A callback that is invoked when a tag is removed from the field.
+     * @see NfcAdapter#ignore
+     */
+    public interface OnTagRemovedListener {
+        void onTagRemoved();
+    }
+
+    /**
      * A callback to be invoked when an application has registered as a
      * handler to unlock the device given an NFC tag at the lockscreen.
      * @hide
@@ -413,7 +427,7 @@ public final class NfcAdapter {
             return false;
         }
         try {
-            return pm.hasSystemFeature(PackageManager.FEATURE_NFC);
+            return pm.hasSystemFeature(PackageManager.FEATURE_NFC, 0);
         } catch (RemoteException e) {
             Log.e(TAG, "Package manager query failed, assuming no NFC feature", e);
             return false;
@@ -449,6 +463,13 @@ public final class NfcAdapter {
                 sCardEmulationService = sService.getNfcCardEmulationInterface();
             } catch (RemoteException e) {
                 Log.e(TAG, "could not retrieve card emulation service");
+                throw new UnsupportedOperationException();
+            }
+
+            try {
+                sNfcFCardEmulationService = sService.getNfcFCardEmulationInterface();
+            } catch (RemoteException e) {
+                Log.e(TAG, "could not retrieve NFC-F card emulation service");
                 throw new UnsupportedOperationException();
             }
 
@@ -533,6 +554,7 @@ public final class NfcAdapter {
         mContext = context;
         mNfcActivityManager = new NfcActivityManager(this);
         mNfcUnlockHandlers = new HashMap<NfcUnlockHandler, INfcUnlockHandler>();
+        mTagRemovedListener = null;
         mLock = new Object();
     }
 
@@ -571,6 +593,15 @@ public final class NfcAdapter {
     }
 
     /**
+     * Returns the binder interface to the NFC-F card emulation service.
+     * @hide
+     */
+    public INfcFCardEmulation getNfcFCardEmulationService() {
+        isEnabled();
+        return sNfcFCardEmulationService;
+    }
+
+    /**
      * NFC service dead - attempt best effort recovery
      * @hide
      */
@@ -599,6 +630,12 @@ public final class NfcAdapter {
             sCardEmulationService = service.getNfcCardEmulationInterface();
         } catch (RemoteException ee) {
             Log.e(TAG, "could not retrieve NFC card emulation service during service recovery");
+        }
+
+        try {
+            sNfcFCardEmulationService = service.getNfcFCardEmulationInterface();
+        } catch (RemoteException ee) {
+            Log.e(TAG, "could not retrieve NFC-F card emulation service during service recovery");
         }
 
         return;
@@ -914,7 +951,7 @@ public final class NfcAdapter {
      *
      * <p>If you want to prevent the Android OS from sending default NDEF
      * messages completely (for all activities), you can include a
-     * {@code &lt;meta-data>} element inside the {@code &lt;application>}
+     * {@code <meta-data>} element inside the {@code <application>}
      * element of your AndroidManifest.xml file, like this:
      * <pre>
      * &lt;application ...>
@@ -1022,7 +1059,7 @@ public final class NfcAdapter {
      *
      * <p>If you want to prevent the Android OS from sending default NDEF
      * messages completely (for all activities), you can include a
-     * {@code &lt;meta-data>} element inside the {@code &lt;application>}
+     * {@code <meta-data>} element inside the {@code <application>}
      * element of your AndroidManifest.xml file, like this:
      * <pre>
      * &lt;application ...>
@@ -1466,6 +1503,75 @@ public final class NfcAdapter {
             return sService.isNdefPushEnabled();
         } catch (RemoteException e) {
             attemptDeadServiceRecovery(e);
+            return false;
+        }
+    }
+
+    /**
+     * Signals that you are no longer interested in communicating with an NFC tag
+     * for as long as it remains in range.
+     *
+     * All future attempted communication to this tag will fail with {@link IOException}.
+     * The NFC controller will be put in a low-power polling mode, allowing the device
+     * to save power in cases where it's "attached" to a tag all the time (e.g. a tag in
+     * car dock).
+     *
+     * Additionally the debounceMs parameter allows you to specify for how long the tag needs
+     * to have gone out of range, before it will be dispatched again.
+     *
+     * Note: the NFC controller typically polls at a pretty slow interval (100 - 500 ms).
+     * This means that if the tag repeatedly goes in and out of range (for example, in
+     * case of a flaky connection), and the controller happens to poll every time the
+     * tag is out of range, it *will* re-dispatch the tag after debounceMs, despite the tag
+     * having been "in range" during the interval.
+     *
+     * Note 2: if a tag with another UID is detected after this API is called, its effect
+     * will be cancelled; if this tag shows up before the amount of time specified in
+     * debounceMs, it will be dispatched again.
+     *
+     * Note 3: some tags have a random UID, in which case this API won't work reliably.
+     *
+     * @param tag        the {@link android.nfc.Tag Tag} to ignore.
+     * @param debounceMs minimum amount of time the tag needs to be out of range before being
+     *                   dispatched again.
+     * @param tagRemovedListener listener to be called when the tag is removed from the field.
+     *                           Note that this will only be called if the tag has been out of range
+     *                           for at least debounceMs, or if another tag came into range before
+     *                           debounceMs. May be null in case you don't want a callback.
+     * @param handler the {@link android.os.Handler Handler} that will be used for delivering
+     *                the callback. if the handler is null, then the thread used for delivering
+     *                the callback is unspecified.
+     * @return false if the tag couldn't be found (or has already gone out of range), true otherwise
+     */
+    public boolean ignore(final Tag tag, int debounceMs,
+                          final OnTagRemovedListener tagRemovedListener, final Handler handler) {
+        ITagRemovedCallback.Stub iListener = null;
+        if (tagRemovedListener != null) {
+            iListener = new ITagRemovedCallback.Stub() {
+                @Override
+                public void onTagRemoved() throws RemoteException {
+                    if (handler != null) {
+                        handler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                tagRemovedListener.onTagRemoved();
+                            }
+                        });
+                    } else {
+                        tagRemovedListener.onTagRemoved();
+                    }
+                    synchronized (mLock) {
+                        mTagRemovedListener = null;
+                    }
+                }
+            };
+        }
+        synchronized (mLock) {
+            mTagRemovedListener = iListener;
+        }
+        try {
+            return sService.ignore(tag.getServiceHandle(), debounceMs, iListener);
+        } catch (RemoteException e) {
             return false;
         }
     }

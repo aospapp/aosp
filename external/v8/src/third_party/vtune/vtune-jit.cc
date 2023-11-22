@@ -192,12 +192,13 @@ void VTUNEJITInterface::event_handler(const v8::JitCodeEvent* event) {
         jmethod.method_size = static_cast<unsigned int>(event->code_len);
         jmethod.method_name = temp_method_name;
 
-        Handle<UnboundScript> script = event->script;
+        Local<UnboundScript> script = event->script;
 
         if (*script != NULL) {
           // Get the source file name and set it to jmethod.source_file_name
           if ((*script->GetScriptName())->IsString()) {
-            Handle<String> script_name = script->GetScriptName()->ToString();
+            Local<String> script_name =
+                Local<String>::Cast(script->GetScriptName());
             temp_file_name = new char[script_name->Utf8Length() + 1];
             script_name->WriteUtf8(temp_file_name);
             jmethod.source_file_name = temp_file_name;
@@ -271,10 +272,10 @@ void VTUNEJITInterface::event_handler(const v8::JitCodeEvent* event) {
 
 }  // namespace internal
 
-void InitializeVtuneForV8(v8::Isolate::CreateParams& params) {
+v8::JitCodeEventHandler GetVtuneCodeEventHandler() {
   v8::V8::SetFlagsFromString("--nocompact_code_space",
                              (int)strlen("--nocompact_code_space"));
-  params.code_event_handler = vTune::internal::VTUNEJITInterface::event_handler;
+  return vTune::internal::VTUNEJITInterface::event_handler;
 }
 
 }  // namespace vTune

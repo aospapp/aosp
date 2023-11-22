@@ -15,7 +15,6 @@
  */
 package com.android.settings.applications;
 
-import android.Manifest;
 import android.app.AppGlobals;
 import android.app.AppOpsManager;
 import android.app.AppOpsManager.PackageOps;
@@ -32,7 +31,6 @@ import android.util.SparseArray;
 
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.settingslib.applications.ApplicationsState.AppEntry;
-import com.android.settingslib.applications.ApplicationsState.AppFilter;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -94,7 +92,8 @@ public abstract class AppStateAppOpsBridge extends AppStateBaseBridge {
                 .getUserId(uid)));
         try {
             permissionState.packageInfo = mIPackageManager.getPackageInfo(pkg,
-                    PackageManager.GET_PERMISSIONS, permissionState.userHandle.getIdentifier());
+                    PackageManager.GET_PERMISSIONS | PackageManager.MATCH_UNINSTALLED_PACKAGES,
+                    permissionState.userHandle.getIdentifier());
             // Check static permission state (whatever that is declared in package manifest)
             String[] requestedPermissions = permissionState.packageInfo.requestedPermissions;
             int[] permissionFlags = permissionState.packageInfo.requestedPermissionsFlags;

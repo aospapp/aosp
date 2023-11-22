@@ -1089,7 +1089,7 @@ public abstract class TypeToken<T> extends TypeCapture<T> implements Serializabl
           }
 
           @Override Iterable<? extends Class<?>> getInterfaces(Class<?> type) {
-            return Arrays.<Class<?>>asList(type.getInterfaces());
+            return Arrays.asList(type.getInterfaces());
           }
 
           @Nullable

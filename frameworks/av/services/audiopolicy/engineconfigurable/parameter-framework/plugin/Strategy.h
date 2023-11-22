@@ -29,10 +29,10 @@ class Strategy : public CFormattedSubsystemObject
 public:
     Strategy(const std::string &mappingValue,
              CInstanceConfigurableElement *instanceConfigurableElement,
-             const CMappingContext &context);
+             const CMappingContext &context,
+             core::log::Logger& logger);
 
 protected:
-    virtual bool receiveFromHW(std::string &error);
     virtual bool sendToHW(std::string &error);
 
 private:
@@ -44,6 +44,4 @@ private:
     android::AudioPolicyPluginInterface *mPolicyPluginInterface;
 
     android::routing_strategy mId; /**< strategy identifier to link with audio.h.*/
-    uint32_t mApplicableOutputDevice; /**< applicable output device for this strategy. */
-    static const uint32_t mDefaultApplicableOutputDevice = 0; /**< default output device. */
 };

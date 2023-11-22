@@ -17,7 +17,6 @@
 #ifndef ART_RUNTIME_BASE_LOGGING_H_
 #define ART_RUNTIME_BASE_LOGGING_H_
 
-#include <memory>
 #include <ostream>
 
 #include "base/macros.h"
@@ -25,6 +24,7 @@
 namespace art {
 
 enum LogSeverity {
+  NONE,            // Fake level, don't log at all.
   VERBOSE,
   DEBUG,
   INFO,
@@ -38,7 +38,9 @@ enum LogSeverity {
 // and the "-verbose:" command line argument.
 struct LogVerbosity {
   bool class_linker;  // Enabled with "-verbose:class".
+  bool collector;
   bool compiler;
+  bool deopt;
   bool gc;
   bool heap;
   bool jdwp;
@@ -48,10 +50,13 @@ struct LogVerbosity {
   bool oat;
   bool profiler;
   bool signals;
+  bool simulator;
   bool startup;
   bool third_party_jni;  // Enabled with "-verbose:third-party-jni".
   bool threads;
   bool verifier;
+  bool image;
+  bool systrace_lock_logging;  // Enabled with "-verbose:sys-locks".
 };
 
 // Global log verbosity setting, initialized by InitLogging.
@@ -237,7 +242,7 @@ class LogMessage {
  public:
   LogMessage(const char* file, unsigned int line, LogSeverity severity, int error);
 
-  ~LogMessage();  // TODO: enable LOCKS_EXCLUDED(Locks::logging_lock_).
+  ~LogMessage();  // TODO: enable REQUIRES(!Locks::logging_lock_).
 
   // Returns the stream associated with the message, the LogMessage performs output when it goes
   // out of scope.

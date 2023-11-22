@@ -95,12 +95,14 @@ public final class OpenSSLProvider extends Provider {
         put("Alg.Alias.KeyPairGenerator.1.2.840.113549.1.1.1", "RSA");
 
         put("KeyPairGenerator.EC", PREFIX + "OpenSSLECKeyPairGenerator");
+        put("Alg.Alias.KeyPairGenerator.1.2.840.10045.2.1", "EC");
 
         /* == KeyFactory == */
         put("KeyFactory.RSA", PREFIX + "OpenSSLRSAKeyFactory");
         put("Alg.Alias.KeyFactory.1.2.840.113549.1.1.1", "RSA");
 
         put("KeyFactory.EC", PREFIX + "OpenSSLECKeyFactory");
+        put("Alg.Alias.KeyFactory.1.2.840.10045.2.1", "EC");
 
         /* == KeyAgreement == */
         putECDHKeyAgreementImplClass("OpenSSLECDHKeyAgreement");
@@ -123,10 +125,10 @@ public final class OpenSSLProvider extends Provider {
 
         putSignatureImplClass("SHA224WithRSA", "OpenSSLSignature$SHA224RSA");
         put("Alg.Alias.Signature.SHA224WithRSAEncryption", "SHA224WithRSA");
-        put("Alg.Alias.Signature.1.2.840.113549.1.1.11", "SHA224WithRSA");
+        put("Alg.Alias.Signature.1.2.840.113549.1.1.14", "SHA224WithRSA");
         put("Alg.Alias.Signature.2.16.840.1.101.3.4.2.4with1.2.840.113549.1.1.1",
                 "SHA224WithRSA");
-        put("Alg.Alias.Signature.2.16.840.1.101.3.4.2.4with1.2.840.113549.1.1.11",
+        put("Alg.Alias.Signature.2.16.840.1.101.3.4.2.4with1.2.840.113549.1.1.14",
                 "SHA224WithRSA");
 
         putSignatureImplClass("SHA256WithRSA", "OpenSSLSignature$SHA256RSA");
@@ -151,12 +153,12 @@ public final class OpenSSLProvider extends Provider {
 
         putRAWRSASignatureImplClass("OpenSSLSignatureRawRSA");
 
-        putSignatureImplClass("ECDSA", "OpenSSLSignature$SHA1ECDSA");
-        put("Alg.Alias.Signature.SHA1withECDSA", "ECDSA");
-        put("Alg.Alias.Signature.ECDSAwithSHA1", "ECDSA");
+        putSignatureImplClass("SHA1withECDSA", "OpenSSLSignature$SHA1ECDSA");
+        put("Alg.Alias.Signature.ECDSA", "SHA1withECDSA");
+        put("Alg.Alias.Signature.ECDSAwithSHA1", "SHA1withECDSA");
         // iso(1) member-body(2) us(840) ansi-x962(10045) signatures(4) ecdsa-with-SHA1(1)
-        put("Alg.Alias.Signature.1.2.840.10045.4.1", "ECDSA");
-        put("Alg.Alias.Signature.1.3.14.3.2.26with1.2.840.10045.2.1", "ECDSA");
+        put("Alg.Alias.Signature.1.2.840.10045.4.1", "SHA1withECDSA");
+        put("Alg.Alias.Signature.1.3.14.3.2.26with1.2.840.10045.2.1", "SHA1withECDSA");
 
         // iso(1) member-body(2) us(840) ansi-x962(10045) signatures(4) ecdsa-with-SHA2(3)
         putSignatureImplClass("SHA224withECDSA", "OpenSSLSignature$SHA224ECDSA");
@@ -179,6 +181,21 @@ public final class OpenSSLProvider extends Provider {
         // ecdsa-with-SHA512(4)
         put("Alg.Alias.Signature.1.2.840.10045.4.3.4", "SHA512withECDSA");
         put("Alg.Alias.Signature.2.16.840.1.101.3.4.2.3with1.2.840.10045.2.1", "SHA512withECDSA");
+
+        putSignatureImplClass("SHA1withRSA/PSS", "OpenSSLSignature$SHA1RSAPSS");
+        put("Alg.Alias.Signature.SHA1withRSAandMGF1", "SHA1withRSA/PSS");
+
+        putSignatureImplClass("SHA224withRSA/PSS", "OpenSSLSignature$SHA224RSAPSS");
+        put("Alg.Alias.Signature.SHA224withRSAandMGF1", "SHA224withRSA/PSS");
+
+        putSignatureImplClass("SHA256withRSA/PSS", "OpenSSLSignature$SHA256RSAPSS");
+        put("Alg.Alias.Signature.SHA256withRSAandMGF1", "SHA256withRSA/PSS");
+
+        putSignatureImplClass("SHA384withRSA/PSS", "OpenSSLSignature$SHA384RSAPSS");
+        put("Alg.Alias.Signature.SHA384withRSAandMGF1", "SHA384withRSA/PSS");
+
+        putSignatureImplClass("SHA512withRSA/PSS", "OpenSSLSignature$SHA512RSAPSS");
+        put("Alg.Alias.Signature.SHA512withRSAandMGF1", "SHA512withRSA/PSS");
 
         /* === SecureRandom === */
         /*
@@ -228,8 +245,7 @@ public final class OpenSSLProvider extends Provider {
 
         putSymmetricCipherImplClass("ARC4", "OpenSSLCipher$EVP_CIPHER$ARC4");
 
-        if (NativeConstants.IS_BORINGSSL) {
-            /* EVP_AEAD is only supported in BoringSSL right now. */
+        if (NativeConstants.HAS_EVP_AEAD) {
             putSymmetricCipherImplClass("AES/GCM/NoPadding", "OpenSSLCipher$EVP_AEAD$AES$GCM");
             put("Alg.Alias.Cipher.GCM", "AES/GCM/NoPadding");
         }

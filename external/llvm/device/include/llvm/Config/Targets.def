@@ -32,6 +32,7 @@
 
 #if defined(FORCE_BUILD_ARM)
   LLVM_TARGET(ARM)
+  LLVM_TARGET(AArch64)
 #endif
 
 #elif defined(__aarch64__)

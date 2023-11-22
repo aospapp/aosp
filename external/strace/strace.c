@@ -32,6 +32,7 @@
 #include <stdarg.h>
 #include <sys/param.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <sys/resource.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
@@ -44,6 +45,7 @@
 #endif
 
 #include "ptrace.h"
+#include "printsiginfo.h"
 
 /* In some libc, these aren't declared. Do it ourself: */
 extern char **environ;
@@ -194,51 +196,68 @@ strerror(int err_no)
 #endif /* HAVE_STERRROR */
 
 static void
-usage(FILE *ofp, int exitval)
+usage()
 {
-	fprintf(ofp, "\
-usage: strace [-CdffhiqrtttTvVxxy] [-I n] [-e expr]...\n\
+	printf("\
+usage: strace [-CdffhiqrtttTvVwxxy] [-I n] [-e expr]...\n\
               [-a column] [-o file] [-s strsize] [-P path]...\n\
               -p pid... / [-D] [-E var=val]... [-u username] PROG [ARGS]\n\
-   or: strace -c[df] [-I n] [-e expr]... [-O overhead] [-S sortby]\n\
+   or: strace -c[dfw] [-I n] [-e expr]... [-O overhead] [-S sortby]\n\
               -p pid... / [-D] [-E var=val]... [-u username] PROG [ARGS]\n\
--c -- count time, calls, and errors for each syscall and report summary\n\
--C -- like -c but also print regular output\n\
--w -- summarise syscall latency (default is system time)\n\
--d -- enable debug output to stderr\n\
--D -- run tracer process as a detached grandchild, not as parent\n\
--f -- follow forks, -ff -- with output into separate files\n\
--i -- print instruction pointer at time of syscall\n\
--q -- suppress messages about attaching, detaching, etc.\n\
--r -- print relative timestamp, -t -- absolute timestamp, -tt -- with usecs\n\
--T -- print time spent in each syscall\n\
--v -- verbose mode: print unabbreviated argv, stat, termios, etc. args\n\
--x -- print non-ascii strings in hex, -xx -- print all strings in hex\n\
--y -- print paths associated with file descriptor arguments\n\
--yy -- print ip:port pairs associated with socket file descriptors\n\
--h -- print help message, -V -- print version\n\
--a column -- alignment COLUMN for printing syscall results (default %d)\n\
--b execve -- detach on this syscall\n\
--e expr -- a qualifying expression: option=[!]all or option=[!]val1[,val2]...\n\
-   options: trace, abbrev, verbose, raw, signal, read, write\n\
--I interruptible --\n\
-   1: no signals are blocked\n\
-   2: fatal signals are blocked while decoding syscall (default)\n\
-   3: fatal signals are always blocked (default if '-o FILE PROG')\n\
-   4: fatal signals and SIGTSTP (^Z) are always blocked\n\
-      (useful to make 'strace -o FILE PROG' not stop on ^Z)\n\
--o file -- send trace output to FILE instead of stderr\n\
--O overhead -- set overhead for tracing syscalls to OVERHEAD usecs\n\
--p pid -- trace process with process id PID, may be repeated\n\
--s strsize -- limit length of print strings to STRSIZE chars (default %d)\n\
--S sortby -- sort syscall counts by: time, calls, name, nothing (default %s)\n\
--u username -- run command as username handling setuid and/or setgid\n\
--E var=val -- put var=val in the environment for command\n\
--E var -- remove var from the environment for command\n\
--P path -- trace accesses to path\n\
+\n\
+Output format:\n\
+  -a column      alignment COLUMN for printing syscall results (default %d)\n\
+  -i             print instruction pointer at time of syscall\n\
+  -o file        send trace output to FILE instead of stderr\n\
+  -q             suppress messages about attaching, detaching, etc.\n\
+  -r             print relative timestamp\n\
+  -s strsize     limit length of print strings to STRSIZE chars (default %d)\n\
+  -t             print absolute timestamp\n\
+  -tt            print absolute timestamp with usecs\n\
+  -T             print time spent in each syscall\n\
+  -x             print non-ascii strings in hex\n\
+  -xx            print all strings in hex\n\
+  -y             print paths associated with file descriptor arguments\n\
+  -yy            print ip:port pairs associated with socket file descriptors\n\
+\n\
+Statistics:\n\
+  -c             count time, calls, and errors for each syscall and report summary\n\
+  -C             like -c but also print regular output\n\
+  -O overhead    set overhead for tracing syscalls to OVERHEAD usecs\n\
+  -S sortby      sort syscall counts by: time, calls, name, nothing (default %s)\n\
+  -w             summarise syscall latency (default is system time)\n\
+\n\
+Filtering:\n\
+  -e expr        a qualifying expression: option=[!]all or option=[!]val1[,val2]...\n\
+     options:    trace, abbrev, verbose, raw, signal, read, write\n\
+  -P path        trace accesses to path\n\
+\n\
+Tracing:\n\
+  -b execve      detach on execve syscall\n\
+  -D             run tracer process as a detached grandchild, not as parent\n\
+  -f             follow forks\n\
+  -ff            follow forks with output into separate files\n\
+  -I interruptible\n\
+     1:          no signals are blocked\n\
+     2:          fatal signals are blocked while decoding syscall (default)\n\
+     3:          fatal signals are always blocked (default if '-o FILE PROG')\n\
+     4:          fatal signals and SIGTSTP (^Z) are always blocked\n\
+                 (useful to make 'strace -o FILE PROG' not stop on ^Z)\n\
+\n\
+Startup:\n\
+  -E var         remove var from the environment for command\n\
+  -E var=val     put var=val in the environment for command\n\
+  -p pid         trace process with process id PID, may be repeated\n\
+  -u username    run command as username handling setuid and/or setgid\n\
+\n\
+Miscellaneous:\n\
+  -d             enable debug output to stderr\n\
+  -v             verbose mode: print unabbreviated argv, stat, termios, etc. args\n\
+  -h             print help message\n\
+  -V             print version\n\
 "
 #ifdef USE_LIBUNWIND
-"-k obtain stack trace between each syscall (experimental)\n\
+"  -k             obtain stack trace between each syscall (experimental)\n\
 "
 #endif
 /* ancient, no one should use it
@@ -248,7 +267,7 @@ usage: strace [-CdffhiqrtttTvVxxy] [-I n] [-e expr]...\n\
 -z -- print only succeeding syscalls\n\
  */
 , DEFAULT_ACOLUMN, DEFAULT_STRLEN, DEFAULT_SORTBY);
-	exit(exitval);
+	exit(0);
 }
 
 static void ATTRIBUTE_NORETURN
@@ -308,6 +327,17 @@ void error_msg_and_die(const char *fmt, ...)
 	die();
 }
 
+void error_msg_and_help(const char *fmt, ...)
+{
+	if (fmt != NULL) {
+		va_list p;
+		va_start(p, fmt);
+		verror_msg(0, fmt, p);
+	}
+	fprintf(stderr, "Try '%s -h' for more information.\n", progname);
+	die();
+}
+
 void perror_msg(const char *fmt, ...)
 {
 	va_list p;
@@ -324,19 +354,10 @@ void perror_msg_and_die(const char *fmt, ...)
 	die();
 }
 
-void die_out_of_memory(void)
-{
-	static bool recursed = 0;
-	if (recursed)
-		exit(1);
-	recursed = 1;
-	error_msg_and_die("Out of memory");
-}
-
 static void
 error_opt_arg(int opt, const char *arg)
 {
-	error_msg_and_die("Invalid -%c argument: '%s'", opt, arg);
+	error_msg_and_help("invalid -%c argument: '%s'", opt, arg);
 }
 
 #if USE_SEIZE
@@ -676,10 +697,9 @@ expand_tcbtab(void)
 	   So tcbtab is a table of pointers.  Since we never
 	   free the TCBs, we allocate a single chunk of many.  */
 	unsigned int i = tcbtabsize;
-	struct tcb *newtcbs = calloc(tcbtabsize, sizeof(newtcbs[0]));
-	struct tcb **newtab = realloc(tcbtab, tcbtabsize * 2 * sizeof(tcbtab[0]));
-	if (!newtab || !newtcbs)
-		die_out_of_memory();
+	struct tcb *newtcbs = xcalloc(tcbtabsize, sizeof(newtcbs[0]));
+	struct tcb **newtab = xreallocarray(tcbtab, tcbtabsize * 2,
+					    sizeof(tcbtab[0]));
 	tcbtabsize *= 2;
 	tcbtab = newtab;
 	while (i < tcbtabsize)
@@ -711,7 +731,8 @@ alloctcb(int pid)
 
 			nprocs++;
 			if (debug_flag)
-				fprintf(stderr, "new tcb for pid %d, active tcbs:%d\n", tcp->pid, nprocs);
+				error_msg("new tcb for pid %d, active tcbs:%d",
+					  tcp->pid, nprocs);
 			return tcp;
 		}
 	}
@@ -732,7 +753,8 @@ droptcb(struct tcb *tcp)
 
 	nprocs--;
 	if (debug_flag)
-		fprintf(stderr, "dropped tcb for pid %d, %d remain\n", tcp->pid, nprocs);
+		error_msg("dropped tcb for pid %d, %d remain",
+			  tcp->pid, nprocs);
 
 	if (tcp->outf) {
 		if (followfork >= 2) {
@@ -861,8 +883,8 @@ detach(struct tcb *tcp)
 		}
 		sig = WSTOPSIG(status);
 		if (debug_flag)
-			fprintf(stderr, "detach wait: event:%d sig:%d\n",
-					(unsigned)status >> 16, sig);
+			error_msg("detach wait: event:%d sig:%d",
+				  (unsigned)status >> 16, sig);
 		if (use_seize) {
 			unsigned event = (unsigned)status >> 16;
 			if (event == PTRACE_EVENT_STOP /*&& sig == SIGTRAP*/) {
@@ -915,7 +937,7 @@ detach(struct tcb *tcp)
 
  drop:
 	if (!qflag && (tcp->flags & TCB_ATTACHED))
-		fprintf(stderr, "Process %u detached\n", tcp->pid);
+		error_msg("Process %u detached", tcp->pid);
 
 	droptcb(tcp);
 }
@@ -1017,11 +1039,11 @@ startup_attach(void)
 					if (ptrace_attach_or_seize(tid) < 0) {
 						++nerr;
 						if (debug_flag)
-							fprintf(stderr, "attach to pid %d failed\n", tid);
+							error_msg("attach to pid %d failed", tid);
 						continue;
 					}
 					if (debug_flag)
-						fprintf(stderr, "attach to pid %d succeeded\n", tid);
+						error_msg("attach to pid %d succeeded", tid);
 					cur_tcp = tcp;
 					if (tid != tcp->pid)
 						cur_tcp = alloctcb(tid);
@@ -1042,10 +1064,13 @@ startup_attach(void)
 					continue;
 				}
 				if (!qflag) {
-					fprintf(stderr, ntid > 1
-? "Process %u attached with %u threads\n"
-: "Process %u attached\n",
-						tcp->pid, ntid);
+					if (ntid > 1)
+						error_msg("Process %u attached"
+							  " with %u threads",
+							  tcp->pid, ntid);
+					else
+						error_msg("Process %u attached",
+							  tcp->pid);
 				}
 				if (!(tcp->flags & TCB_ATTACHED)) {
 					/* -p PID, we failed to attach to PID itself
@@ -1065,7 +1090,7 @@ startup_attach(void)
 		tcp->flags |= TCB_ATTACHED | TCB_STARTUP | post_attach_sigstop;
 		newoutf(tcp);
 		if (debug_flag)
-			fprintf(stderr, "attach to pid %d (main) succeeded\n", tcp->pid);
+			error_msg("attach to pid %d (main) succeeded", tcp->pid);
 
 		if (daemonized_tracer) {
 			/*
@@ -1076,9 +1101,7 @@ startup_attach(void)
 		}
 
 		if (!qflag)
-			fprintf(stderr,
-				"Process %u attached\n",
-				tcp->pid);
+			error_msg("Process %u attached", tcp->pid);
 	} /* for each tcbtab[] */
 
  ret:
@@ -1233,7 +1256,7 @@ startup_child(char **argv)
 	 * On NOMMU, can be safely freed only after execve in tracee.
 	 * It's hard to know when that happens, so we just leak it.
 	 */
-	params_for_tracee.pathname = NOMMU_SYSTEM ? strdup(pathname) : pathname;
+	params_for_tracee.pathname = NOMMU_SYSTEM ? xstrdup(pathname) : pathname;
 
 #if defined HAVE_PRCTL && defined PR_SET_PTRACER && defined PR_SET_PTRACER_ANY
 	if (daemonized_tracer)
@@ -1353,7 +1376,7 @@ test_ptrace_seize(void)
 	if (ptrace(PTRACE_SEIZE, pid, 0, 0) == 0) {
 		post_attach_sigstop = 0; /* this sets use_seize to 1 */
 	} else if (debug_flag) {
-		fprintf(stderr, "PTRACE_SEIZE doesn't work\n");
+		error_msg("PTRACE_SEIZE doesn't work");
 	}
 
 	kill(pid, SIGKILL);
@@ -1445,12 +1468,8 @@ init(int argc, char *argv[])
 
 	/* Allocate the initial tcbtab.  */
 	tcbtabsize = argc;	/* Surely enough for all -p args.  */
-	tcbtab = calloc(tcbtabsize, sizeof(tcbtab[0]));
-	if (!tcbtab)
-		die_out_of_memory();
-	tcp = calloc(tcbtabsize, sizeof(*tcp));
-	if (!tcp)
-		die_out_of_memory();
+	tcbtab = xcalloc(tcbtabsize, sizeof(tcbtab[0]));
+	tcp = xcalloc(tcbtabsize, sizeof(*tcp));
 	for (tcbi = 0; tcbi < tcbtabsize; tcbi++)
 		tcbtab[tcbi] = tcp++;
 
@@ -1480,13 +1499,13 @@ init(int argc, char *argv[])
 			break;
 		case 'c':
 			if (cflag == CFLAG_BOTH) {
-				error_msg_and_die("-c and -C are mutually exclusive");
+				error_msg_and_help("-c and -C are mutually exclusive");
 			}
 			cflag = CFLAG_ONLY_STATS;
 			break;
 		case 'C':
 			if (cflag == CFLAG_ONLY_STATS) {
-				error_msg_and_die("-c and -C are mutually exclusive");
+				error_msg_and_help("-c and -C are mutually exclusive");
 			}
 			cflag = CFLAG_BOTH;
 			break;
@@ -1503,7 +1522,7 @@ init(int argc, char *argv[])
 			followfork++;
 			break;
 		case 'h':
-			usage(stdout, 0);
+			usage();
 			break;
 		case 'i':
 			iflag = 1;
@@ -1548,7 +1567,7 @@ init(int argc, char *argv[])
 			qualify(optarg);
 			break;
 		case 'o':
-			outfname = strdup(optarg);
+			outfname = xstrdup(optarg);
 			break;
 		case 'O':
 			i = string_to_uint(optarg);
@@ -1572,7 +1591,7 @@ init(int argc, char *argv[])
 			set_sortby(optarg);
 			break;
 		case 'u':
-			username = strdup(optarg);
+			username = xstrdup(optarg);
 			break;
 #ifdef USE_LIBUNWIND
 		case 'k':
@@ -1589,36 +1608,35 @@ init(int argc, char *argv[])
 				error_opt_arg(c, optarg);
 			break;
 		default:
-			usage(stderr, 1);
+			error_msg_and_help(NULL);
 			break;
 		}
 	}
 	argv += optind;
 	/* argc -= optind; - no need, argc is not used below */
 
-	acolumn_spaces = malloc(acolumn + 1);
-	if (!acolumn_spaces)
-		die_out_of_memory();
+	acolumn_spaces = xmalloc(acolumn + 1);
 	memset(acolumn_spaces, ' ', acolumn);
 	acolumn_spaces[acolumn] = '\0';
 
 	/* Must have PROG [ARGS], or -p PID. Not both. */
-	if (!argv[0] == !nprocs)
-		usage(stderr, 1);
+	if (!argv[0] == !nprocs) {
+		error_msg_and_help("must have PROG [ARGS] or -p PID");
+	}
 
 	if (nprocs != 0 && daemonized_tracer) {
-		error_msg_and_die("-D and -p are mutually exclusive");
+		error_msg_and_help("-D and -p are mutually exclusive");
 	}
 
 	if (!followfork)
 		followfork = optF;
 
 	if (followfork >= 2 && cflag) {
-		error_msg_and_die("(-c or -C) and -ff are mutually exclusive");
+		error_msg_and_help("(-c or -C) and -ff are mutually exclusive");
 	}
 
 	if (count_wallclock && !cflag) {
-		error_msg_and_die("-w must be given with (-c or -C)");
+		error_msg_and_help("-w must be given with (-c or -C)");
 	}
 
 	if (cflag == CFLAG_ONLY_STATS) {
@@ -1667,7 +1685,7 @@ init(int argc, char *argv[])
 				     PTRACE_O_TRACEFORK |
 				     PTRACE_O_TRACEVFORK;
 	if (debug_flag)
-		fprintf(stderr, "ptrace_setoptions = %#x\n", ptrace_setoptions);
+		error_msg("ptrace_setoptions = %#x", ptrace_setoptions);
 	test_ptrace_seize();
 
 	/* Check if they want to redirect the output. */
@@ -1679,7 +1697,7 @@ init(int argc, char *argv[])
 			 * when using popen, so prohibit it.
 			 */
 			if (followfork >= 2)
-				error_msg_and_die("Piping the output and -ff are mutually exclusive");
+				error_msg_and_help("piping the output and -ff are mutually exclusive");
 			shared_log = strace_popen(outfname + 1);
 		}
 		else if (followfork < 2)
@@ -1691,15 +1709,14 @@ init(int argc, char *argv[])
 	}
 
 	if (!outfname || outfname[0] == '|' || outfname[0] == '!') {
-		char *buf = malloc(BUFSIZ);
-		if (!buf)
-			die_out_of_memory();
+		char *buf = xmalloc(BUFSIZ);
 		setvbuf(shared_log, buf, _IOLBF, BUFSIZ);
 	}
 	if (outfname && argv[0]) {
 		if (!opt_intr)
 			opt_intr = INTR_NEVER;
-		qflag = 1;
+		if (!qflag)
+			qflag = 1;
 	}
 	if (!opt_intr)
 		opt_intr = INTR_WHILE_WAIT;
@@ -1800,8 +1817,7 @@ cleanup(void)
 		if (!tcp->pid)
 			continue;
 		if (debug_flag)
-			fprintf(stderr,
-				"cleanup: looking at pid %u\n", tcp->pid);
+			error_msg("cleanup: looking at pid %u", tcp->pid);
 		if (tcp->pid == strace_child) {
 			kill(tcp->pid, SIGCONT);
 			kill(tcp->pid, fatal_sig);
@@ -1862,7 +1878,7 @@ print_debug_info(const int pid, int status)
 			e = "STOP";
 		sprintf(evbuf, ",EVENT_%s (%u)", e, event);
 	}
-	fprintf(stderr, " [wait(0x%06x) = %u] %s%s\n", status, pid, buf, evbuf);
+	error_msg("[wait(0x%06x) = %u] %s%s", status, pid, buf, evbuf);
 }
 
 static struct tcb *
@@ -1887,7 +1903,7 @@ maybe_allocate_tcb(const int pid, int status)
 		tcp->flags |= TCB_ATTACHED | TCB_STARTUP | post_attach_sigstop;
 		newoutf(tcp);
 		if (!qflag)
-			fprintf(stderr, "Process %d attached\n", pid);
+			error_msg("Process %d attached", pid);
 		return tcp;
 	} else {
 		/* This can happen if a clone call used
@@ -2010,15 +2026,14 @@ static void
 startup_tcb(struct tcb *tcp)
 {
 	if (debug_flag)
-		fprintf(stderr, "pid %d has TCB_STARTUP, initializing it\n",
-			tcp->pid);
+		error_msg("pid %d has TCB_STARTUP, initializing it", tcp->pid);
 
 	tcp->flags &= ~TCB_STARTUP;
 
 	if (!use_seize) {
 		if (debug_flag)
-			fprintf(stderr, "setting opts 0x%x on pid %d\n",
-				ptrace_setoptions, tcp->pid);
+			error_msg("setting opts 0x%x on pid %d",
+				  ptrace_setoptions, tcp->pid);
 		if (ptrace(PTRACE_SETOPTIONS, tcp->pid, NULL, ptrace_setoptions) < 0) {
 			if (errno != ESRCH) {
 				/* Should never happen, really */
@@ -2205,13 +2220,13 @@ trace(void)
 	 */
 	if (sig == SIGSTOP && (tcp->flags & TCB_IGNORE_ONE_SIGSTOP)) {
 		if (debug_flag)
-			fprintf(stderr, "ignored SIGSTOP on pid %d\n", tcp->pid);
+			error_msg("ignored SIGSTOP on pid %d", tcp->pid);
 		tcp->flags &= ~TCB_IGNORE_ONE_SIGSTOP;
 		goto restart_tracee_with_sig_0;
 	}
 
 	if (sig != syscall_trap_sig) {
-		siginfo_t si;
+		siginfo_t si = {};
 
 		/*
 		 * True if tracee is stopped by signal

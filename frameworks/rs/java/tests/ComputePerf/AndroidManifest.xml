@@ -18,7 +18,7 @@
     package="com.example.android.rs.computeperf">
 
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />    
-    <uses-sdk android:minSdkVersion="14" />
+    <uses-sdk android:minSdkVersion="19" />
     <application android:label="Compute Perf">
         <activity android:name="ComputePerf">
             <intent-filter>

@@ -22,7 +22,7 @@ import com.google.common.annotations.GwtCompatible;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
-import java.util.SortedSet;
+import java.util.NavigableSet;
 import java.util.Set;
 
 /**
@@ -80,11 +80,11 @@ public interface SortedMultiset<E> extends SortedMultisetBridge<E>, SortedIterab
   Entry<E> pollLastEntry();
 
   /**
-   * Returns a {@link SortedSet} view of the distinct elements in this multiset.
+   * Returns a {@link NavigableSet} view of the distinct elements in this multiset.
    * 
-   * @since 14.0
+   * @since 14.0 (present with return type {@code SortedSet} since 11.0)
    */
-  @Override SortedSet<E> elementSet();
+  @Override NavigableSet<E> elementSet();
   
   /**
    * {@inheritDoc}

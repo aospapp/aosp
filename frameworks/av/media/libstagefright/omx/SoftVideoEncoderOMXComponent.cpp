@@ -23,7 +23,6 @@
 
 #include "include/SoftVideoEncoderOMXComponent.h"
 
-#include <hardware/gralloc.h>
 #include <media/hardware/HardwareAPI.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/foundation/ALooper.h>
@@ -71,7 +70,6 @@ SoftVideoEncoderOMXComponent::SoftVideoEncoderOMXComponent(
       mBitrate(192000),
       mFramerate(30 << 16), // Q16 format
       mColorFormat(OMX_COLOR_FormatYUV420Planar),
-      mGrallocModule(NULL),
       mMinOutputBufferSize(384), // arbitrary, using one uncompressed macroblock
       mMinCompressionRatio(1),   // max output size is normally the input size
       mComponentRole(componentRole),
@@ -172,6 +170,11 @@ void SoftVideoEncoderOMXComponent::updatePortParams() {
 
 OMX_ERRORTYPE SoftVideoEncoderOMXComponent::internalSetPortParams(
         const OMX_PARAM_PORTDEFINITIONTYPE *port) {
+
+    if (!isValidOMXParam(port)) {
+        return OMX_ErrorBadParameter;
+    }
+
     if (port->nPortIndex == kInputPortIndex) {
         mWidth = port->format.video.nFrameWidth;
         mHeight = port->format.video.nFrameHeight;
@@ -218,6 +221,10 @@ OMX_ERRORTYPE SoftVideoEncoderOMXComponent::internalSetParameter(
             const OMX_PARAM_COMPONENTROLETYPE *roleParams =
                 (const OMX_PARAM_COMPONENTROLETYPE *)param;
 
+            if (!isValidOMXParam(roleParams)) {
+                return OMX_ErrorBadParameter;
+            }
+
             if (strncmp((const char *)roleParams->cRole,
                         mComponentRole,
                         OMX_MAX_STRINGNAME_SIZE - 1)) {
@@ -242,6 +249,10 @@ OMX_ERRORTYPE SoftVideoEncoderOMXComponent::internalSetParameter(
         {
             const OMX_VIDEO_PARAM_PORTFORMATTYPE* format =
                 (const OMX_VIDEO_PARAM_PORTFORMATTYPE *)param;
+
+            if (!isValidOMXParam(format)) {
+                return OMX_ErrorBadParameter;
+            }
 
             if (format->nPortIndex == kInputPortIndex) {
                 if (format->eColorFormat == OMX_COLOR_FormatYUV420Planar ||
@@ -271,6 +282,10 @@ OMX_ERRORTYPE SoftVideoEncoderOMXComponent::internalSetParameter(
             // storeMetaDataInBuffers
             const StoreMetaDataInBuffersParams *storeParam =
                 (const StoreMetaDataInBuffersParams *)param;
+
+            if (!isValidOMXParam(storeParam)) {
+                return OMX_ErrorBadParameter;
+            }
 
             if (storeParam->nPortIndex == kOutputPortIndex) {
                 return storeParam->bStoreMetaData ? OMX_ErrorUnsupportedSetting : OMX_ErrorNone;
@@ -306,6 +321,10 @@ OMX_ERRORTYPE SoftVideoEncoderOMXComponent::internalGetParameter(
             OMX_VIDEO_PARAM_PORTFORMATTYPE *formatParams =
                 (OMX_VIDEO_PARAM_PORTFORMATTYPE *)param;
 
+            if (!isValidOMXParam(formatParams)) {
+                return OMX_ErrorBadParameter;
+            }
+
             if (formatParams->nPortIndex == kInputPortIndex) {
                 if (formatParams->nIndex >= NELEM(kSupportedColorFormats)) {
                     return OMX_ErrorNoMore;
@@ -330,6 +349,10 @@ OMX_ERRORTYPE SoftVideoEncoderOMXComponent::internalGetParameter(
         {
             OMX_VIDEO_PARAM_PROFILELEVELTYPE *profileLevel =
                   (OMX_VIDEO_PARAM_PROFILELEVELTYPE *) param;
+
+            if (!isValidOMXParam(profileLevel)) {
+                return OMX_ErrorBadParameter;
+            }
 
             if (profileLevel->nPortIndex != kOutputPortIndex) {
                 ALOGE("Invalid port index: %u", profileLevel->nPortIndex);
@@ -358,6 +381,7 @@ OMX_ERRORTYPE SoftVideoEncoderOMXComponent::internalGetParameter(
 }
 
 // static
+__attribute__((no_sanitize("integer")))
 void SoftVideoEncoderOMXComponent::ConvertFlexYUVToPlanar(
         uint8_t *dst, size_t dstStride, size_t dstVStride,
         struct android_ycbcr *ycbcr, int32_t width, int32_t height) {
@@ -400,6 +424,7 @@ void SoftVideoEncoderOMXComponent::ConvertFlexYUVToPlanar(
 }
 
 // static
+__attribute__((no_sanitize("integer")))
 void SoftVideoEncoderOMXComponent::ConvertYUV420SemiPlanarToYUV420Planar(
         const uint8_t *inYVU, uint8_t* outYUV, int32_t width, int32_t height) {
     // TODO: add support for stride
@@ -430,6 +455,7 @@ void SoftVideoEncoderOMXComponent::ConvertYUV420SemiPlanarToYUV420Planar(
 }
 
 // static
+__attribute__((no_sanitize("integer")))
 void SoftVideoEncoderOMXComponent::ConvertRGB32ToPlanar(
         uint8_t *dstY, size_t dstStride, size_t dstVStride,
         const uint8_t *src, size_t width, size_t height, size_t srcStride,
@@ -497,13 +523,6 @@ const uint8_t *SoftVideoEncoderOMXComponent::extractGraphicBuffer(
         return NULL;
     }
 
-    if (mGrallocModule == NULL) {
-        CHECK_EQ(0, hw_get_module(GRALLOC_HARDWARE_MODULE_ID, &mGrallocModule));
-    }
-
-    const gralloc_module_t *grmodule =
-        (const gralloc_module_t *)mGrallocModule;
-
     buffer_handle_t handle;
     int format;
     size_t srcStride;
@@ -561,19 +580,21 @@ const uint8_t *SoftVideoEncoderOMXComponent::extractGraphicBuffer(
         return NULL;
     }
 
+    auto& mapper = GraphicBufferMapper::get();
+
     void *bits = NULL;
     struct android_ycbcr ycbcr;
     status_t res;
     if (format == HAL_PIXEL_FORMAT_YCbCr_420_888) {
-        res = grmodule->lock_ycbcr(
-                 grmodule, handle,
+        res = mapper.lockYCbCr(
+                 handle,
                  GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_NEVER,
-                 0, 0, width, height, &ycbcr);
+                 Rect(width, height), &ycbcr);
     } else {
-        res = grmodule->lock(
-                 grmodule, handle,
+        res = mapper.lock(
+                 handle,
                  GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_NEVER,
-                 0, 0, width, height, &bits);
+                 Rect(width, height), &bits);
     }
     if (res != OK) {
         ALOGE("Unable to lock image buffer %p for access", handle);
@@ -604,6 +625,7 @@ const uint8_t *SoftVideoEncoderOMXComponent::extractGraphicBuffer(
         case HAL_PIXEL_FORMAT_YCbCr_420_888:
             ConvertFlexYUVToPlanar(dst, dstStride, dstVStride, &ycbcr, width, height);
             break;
+        case HAL_PIXEL_FORMAT_RGBX_8888:
         case HAL_PIXEL_FORMAT_RGBA_8888:
         case HAL_PIXEL_FORMAT_BGRA_8888:
             ConvertRGB32ToPlanar(
@@ -617,7 +639,7 @@ const uint8_t *SoftVideoEncoderOMXComponent::extractGraphicBuffer(
             break;
     }
 
-    if (grmodule->unlock(grmodule, handle) != OK) {
+    if (mapper.unlock(handle) != OK) {
         ALOGE("Unable to unlock image buffer %p for access", handle);
     }
 

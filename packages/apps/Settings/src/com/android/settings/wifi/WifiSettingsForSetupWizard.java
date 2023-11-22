@@ -19,6 +19,7 @@ package com.android.settings.wifi;
 import android.app.Dialog;
 import android.net.wifi.WifiConfiguration;
 import android.os.Bundle;
+import android.support.v7.preference.PreferenceScreen;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -26,6 +27,7 @@ import android.view.MenuInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 
@@ -94,7 +96,8 @@ public class WifiSettingsForSetupWizard extends WifiSettings {
     @Override
     public void onAccessPointsChanged() {
         super.onAccessPointsChanged();
-        updateFooter(getPreferenceScreen().getPreferenceCount() == 0);
+        PreferenceScreen preferenceScreen = getPreferenceScreen();
+        updateFooter(preferenceScreen == null || preferenceScreen.getPreferenceCount() == 0);
     }
 
     @Override
@@ -141,23 +144,22 @@ public class WifiSettingsForSetupWizard extends WifiSettings {
     }
 
     @Override
-    protected TextView initEmptyView() {
+    protected TextView initEmptyTextView() {
         final LayoutInflater inflater = LayoutInflater.from(getActivity());
         mEmptyFooter = (TextView) inflater.inflate(R.layout.setup_wifi_empty, getListView(), false);
         return mEmptyFooter;
     }
 
     protected void updateFooter(boolean isEmpty) {
-        if (isEmpty != mListLastEmpty && hasListView()) {
-            final ListView list = getListView();
-            list.removeFooterView(mEmptyFooter);
-            list.removeFooterView(mAddOtherNetworkItem);
-            list.removeFooterView(mMacAddressFooter);
+        if (isEmpty != mListLastEmpty) {
             if (isEmpty) {
-                list.addFooterView(mEmptyFooter, null, false);
+                setFooterView(mEmptyFooter);
             } else {
-                list.addFooterView(mAddOtherNetworkItem, null, true);
-                list.addFooterView(mMacAddressFooter, null, false);
+                LinearLayout layout = new LinearLayout(getContext());
+                layout.setOrientation(LinearLayout.VERTICAL);
+                layout.addView(mAddOtherNetworkItem);
+                layout.addView(mMacAddressFooter);
+                setFooterView(layout);
             }
             mListLastEmpty = isEmpty;
         }

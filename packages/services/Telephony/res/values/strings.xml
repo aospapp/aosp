@@ -139,6 +139,8 @@
     <string name="phone_accounts_make_sip_calls_with">Make SIP calls with</string>
     <!-- Entry in dialog to "ask first" for accounts when making a call -->
     <string name="phone_accounts_ask_every_time">Ask first</string>
+    <!-- Account label for when a SIM account has no service (i.e. airplane mode) -->
+    <string name="phone_accounts_default_account_label">No network available</string>
 
     <!-- Label for heading of the per-account settings section in the phone accounts settings
          screen. -->
@@ -258,9 +260,9 @@
     <!-- Title of the progress dialog displayed while updating Call settings -->
     <string name="updating_title">Call settings</string>
     <!-- Toast in Call settings when asked to launch settings for a secondary user -->
-    <string name="call_settings_primary_user_only">Call settings can only be changed by the primary user.</string>
+    <string name="call_settings_admin_user_only">Call settings can only be changed by the admin user.</string>
     <!-- Title of the "Call settings" settings screen, with a text label identifying which SIM the settings are for. -->
-    <string name="call_settings_with_label">Call settings (<xliff:g id="subscriptionlabel" example="Verizon">%s</xliff:g>)</string>
+    <string name="call_settings_with_label">Settings (<xliff:g id="subscriptionlabel" example="Mock Carrier">%s</xliff:g>)</string>
     <!-- Title of the alert dialog displayed if an error occurs while updating Call settings -->
     <string name="error_updating_title">Call settings error</string>
     <!-- Toast in Call settings dialog while settings are being read -->
@@ -273,6 +275,12 @@
     <string name="response_error">Unexpected response from network.</string>
     <!-- Status message displayed in the "Call settings error" dialog -->
     <string name="exception_error">Network or SIM card error.</string>
+    <!-- Status message displayed in the "Call settings error" dialog when
+         current SS request is modified to a different request by STK CC -->
+    <string name="stk_cc_ss_to_dial_error">SS request modified to DIAL request.</string>
+    <string name="stk_cc_ss_to_ussd_error">SS request modified to USSD request.</string>
+    <string name="stk_cc_ss_to_ss_error">SS request modified to new SS request.</string>
+
     <!-- Status message displayed in the "Call settings error" dialog when operation fails due to FDN
          [CHAR LIMIT=NONE] -->
     <string name="fdn_check_failure">Your Phone app\'s Fixed Dialing Numbers setting is turned on. As a result, some call-related features aren\'t working.</string>
@@ -387,6 +395,8 @@
      <string name="preferred_network_mode_lte_gsm_umts_summary">Preferred network mode: LTE / GSM / UMTS</string>
      <!-- Mobile network settings, summary for preferred network mode LTE / CDMA [CHAR LIMIT=100] -->
      <string name="preferred_network_mode_lte_cdma_summary">Preferred network mode: LTE / CDMA</string>
+     <!-- Mobile network settings, summary for preferred network mode TDSCDMTA [CHAR LIMIT=100] -->
+     <string name="preferred_network_mode_tdscdma_summary">Preferred network mode: TDSCDMA</string>
 
     <string-array name="preferred_network_mode_choices">
         <item>LTE / WCDMA</item>
@@ -427,6 +437,8 @@
     <string name="data_enabled">Data enabled</string>
     <!-- Mobile network settings screen, setting summary text when check box is not selected (explains what selecting it would do) [CHAR LIMITS=40] -->
     <string name="data_enable_summary">Allow data usage</string>
+    <!-- Mobile network settings screen, title for alert dialog -->
+    <string name="dialog_alert_title">Attention</string>
     <!-- Mobile network settings screen, setting check box name -->
     <string name="roaming">Data roaming</string>
     <!-- Mobile network settings screen, setting summary text when check box is selected -->
@@ -663,6 +675,17 @@
     <string-array name="enabled_networks_cdma_only_lte_values" translatable="false">
         <item>"8"</item>
         <item>"10"</item>
+    </string-array>
+
+    <string-array name="enabled_networks_tdscdma_choices" translatable="false">
+        <item>@string/network_lte</item>
+        <item>@string/network_3G</item>
+        <item>@string/network_2G</item>
+    </string-array>
+    <string-array name="enabled_networks_tdscdma_values" translatable="false">
+        <item>"22"</item>
+        <item>"18"</item>
+        <item>"1"</item>
     </string-array>
 
     <!-- CDMA System select strings -->
@@ -935,6 +958,8 @@
     <string name="incall_error_power_off">Turn off airplane mode to make a call.</string>
     <!-- In-call screen: call failure message displayed in an error dialog when in airplane mode, WFC is enabled, not wifi-only, and not connected to wireless networks. [CHAR_LIMIT=NONE] -->
     <string name="incall_error_power_off_wfc">Turn off airplane mode or connect to a wireless network to make a call.</string>
+    <!-- In-call screen: call failure message displayed when the user attempts to make a non-emergency call while the phone is in emergency callback mode. -->
+    <string name="incall_error_ecm_emergency_only">Exit emergency callback mode to make a non-emergency call.</string>
     <!-- In-call screen: call failure message displayed in an error dialog.
          This string is currently unused (see comments in InCallScreen.java.) -->
     <string name="incall_error_emergency_only">Not registered on network.</string>
@@ -945,7 +970,7 @@
     <!-- In-call screen: call failure message displayed in an error dialog -->
     <string name="incall_error_no_phone_number_supplied">To place a call, enter a valid number.</string>
     <!-- In-call screen: call failure message displayed in an error dialog -->
-    <string name="incall_error_call_failed">Can\'t call.</string>
+    <string name="incall_error_call_failed">Call failed.</string>
     <!-- In-call screen: status message displayed in a dialog when starting an MMI -->
     <string name="incall_status_dialed_mmi">Starting MMI sequence\u2026</string>
     <!-- In-call screen: message displayed in an error dialog -->
@@ -962,6 +987,8 @@
     <string name="incall_error_supp_service_reject">Can\'t reject call.</string>
     <!-- In-call screen: message displayed in an error dialog -->
     <string name="incall_error_supp_service_hangup">Can\'t release call(s).</string>
+    <!-- In-call screen: message displayed in an error dialog -->
+    <string name="incall_error_supp_service_hold">Can\'t hold calls.</string>
     <!-- In-call screen: call failure message displayed in an error dialog when WFC is enabled, is wifi-only, and not connected to a wireless network. [CHAR_LIMIT=NONE] -->
     <string name="incall_error_wfc_only_no_wireless_network">Connect to a wireless network to make a call.</string>
 
@@ -971,6 +998,8 @@
     <string name="emergency_enable_radio_dialog_message">Turning on radio\u2026</string>
     <!-- Status message for the "radio enable" UI for emergency calls -->
     <string name="emergency_enable_radio_dialog_retry">No service. Trying again\u2026</string>
+    <!-- Toast message shown when user tries to turn on airplane mode while in an emergency call -->
+    <string name="radio_off_during_emergency_call">Cannot enter airplane mode during an emergency call.</string>
 
     <!-- Dialer text on Emergency Dialer -->
     <!-- Emergency dialer: message displayed in an error dialog -->
@@ -1015,6 +1044,11 @@
     <string name="importingSimContacts">Importing SIM contacts</string>
     <!-- Import a single contact entry from contacts to the SIM card -->
     <string name="importToFDNfromContacts">Import from contacts</string>
+
+    <!-- Message shown when a single contact is imported from SIM card -->
+    <string name="singleContactImportedMsg">Imported contact</string>
+    <!-- Message shown when a single contact could not be imported from SIM card -->
+    <string name="failedToImportSingleContactMsg">Failed to import contact</string>
 
     <!-- Hearing aid settings -->
     <string name="hac_mode_title">Hearing aids</string>
@@ -1274,7 +1308,7 @@
     <string name="wifi_calling_settings_key">button_wifi_calling_settings_key</string>
 
     <!-- Hint appearing below a selected action on the emergency dialer telling user to tap again to execute the action [CHAR LIMIT=NONE] -->
-    <string name="emergency_action_launch_hint">Touch again to open</string>
+    <string name="emergency_action_launch_hint">Tap again to open</string>
 
     <!-- Strings for IMAP -->
 
@@ -1285,6 +1319,11 @@
     <!-- Call failure reason: SIM card and roaming capabilities have already been activated. [CHAR LIMIT=NONE]-->
     <string name="callFailed_cdma_activation">
         A SIM card has activated your service and updated your phone\'s roaming capabilities.
+    </string>
+
+    <!-- Call failure reason: Cannot add a call because there are already too many active calls. -->
+    <string name="callFailed_cdma_call_limit">
+        There are too many active calls. Please end or merge existing calls before placing a new one.
     </string>
 
 </resources>

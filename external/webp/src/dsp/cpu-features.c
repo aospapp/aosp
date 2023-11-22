@@ -52,7 +52,7 @@ static __inline__ void x86_cpuid(int func, int values[4])
     __asm__ __volatile__ ( \
       "push %%ebx\n"
       "cpuid\n" \
-      "mov %1, %%ebx\n"
+      "mov %%ebx, %1\n"
       "pop %%ebx\n"
       : "=a" (a), "=r" (b), "=c" (c), "=d" (d) \
       : "a" (func) \

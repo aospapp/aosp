@@ -18,6 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="applicationLabel" msgid="3906689777043645443">"جهات الاتصال"</string>
     <string name="launcherActivityLabel" msgid="6497230399032392417">"جهات الاتصال"</string>
+    <string name="quickContactActivityLabel" msgid="7985456650689347268">"عرض جهة الاتصال"</string>
+    <string name="editContactActivityLabel" msgid="1129944572070802839">"تعديل جهة الاتصال"</string>
     <string name="contactsList" msgid="8661624236494819731">"جهات الاتصال"</string>
     <string name="shortcutContact" msgid="749243779392912958">"الاتصال بـ"</string>
     <string name="shortcutDialContact" msgid="746622101599186779">"طلب مباشر"</string>
@@ -50,36 +52,52 @@
     <string name="menu_create_contact_shortcut" msgid="1217971915748509640">"وضع على الشاشة الرئيسية"</string>
     <string name="menu_call" msgid="3992595586042260618">"الاتصال بجهة الاتصال"</string>
     <string name="menu_sendSMS" msgid="5535886767547006515">"إرسال رسالة لجهة الاتصال"</string>
-    <string name="menu_splitAggregate" msgid="8368636463748691868">"فصل"</string>
+    <string name="menu_splitAggregate" msgid="2627252205317945563">"إلغاء الربط"</string>
     <string name="menu_editGroup" msgid="5062005185370983720">"تعديل"</string>
     <string name="menu_deleteGroup" msgid="3486380004411482874">"حذف"</string>
     <string name="menu_new_contact_action_bar" msgid="7263362129442119188">"إضافة جهة اتصال"</string>
     <string name="menu_new_group_action_bar" msgid="3520232877587377175">"إضافة مجموعة"</string>
-    <string name="splitConfirmation_title" msgid="633640935430370530">"فصل جهة الاتصال؟"</string>
-    <string name="splitConfirmation" msgid="740190210499587175">"سيتم فصل جهة الاتصال هذه إلى عدة جهات اتصال."</string>
-    <string name="menu_joinAggregate" msgid="4050157483569357666">"دمج"</string>
+    <string name="splitConfirmation" msgid="7342030840130187290">"هل تريد إلغاء ربط جهة الاتصال هذه إلى جهات اتصال متعددة؟"</string>
+    <string name="splitConfirmation_positive_button" msgid="9129409098807939699">"إلغاء الربط"</string>
+    <string name="splitConfirmationWithPendingChanges" msgid="7719062163511895696">"هل تريد حفظ التغييرات التي أجريتها وإلغاء ربط جهة الاتصال هذه إلى جهات اتصال متعددة؟"</string>
+    <string name="splitConfirmationWithPendingChanges_positive_button" msgid="9073444264887244032">"حفظ وإلغاء الربط"</string>
+    <string name="joinConfirmation" msgid="8262614843581924365">"هل تريد حفظ التغييرات التي أجريتها والربط بجهة الاتصال المحددة؟"</string>
+    <string name="joinConfirmation_positive_button" msgid="4573092849769149516">"حفظ وربط"</string>
+    <string name="menu_joinAggregate" msgid="3599512127797513606">"ربط"</string>
     <string name="menu_save" msgid="1727844363591825909">"حفظ"</string>
-    <string name="titleJoinContactDataWith" msgid="7684875775798635354">"ضم جهات الاتصال"</string>
-    <string name="blurbJoinContactDataWith" msgid="8736488417422708236">"اختر جهة الاتصال التي تريد ضمها إلى <xliff:g id="NAME">%s</xliff:g>:"</string>
+    <string name="titleJoinContactDataWith" msgid="6825255752748313944">"ربط جهات الاتصال"</string>
+    <string name="blurbJoinContactDataWith" msgid="5864256698061641841">"اختر جهة الاتصال التي تريد ربطها بـ <xliff:g id="NAME">%s</xliff:g>:"</string>
     <string name="showAllContactsJoinItem" msgid="2189695051430392383">"عرض جميع جهات الاتصال"</string>
     <string name="separatorJoinAggregateSuggestions" msgid="2831414448851313345">"جهات الاتصال المقترحة"</string>
     <string name="separatorJoinAggregateAll" msgid="7939932265026181043">"جميع جهات الاتصال"</string>
-    <string name="contactsJoinedMessage" msgid="656936718666768589">"تم دمج جهات الاتصال."</string>
-    <string name="contacts_deleted_toast" msgid="286851430992788215">"تم حذف جهات الاتصال."</string>
+    <string name="contactsJoinedMessage" msgid="3343535986195643136">"تم ربط جهات الاتصال"</string>
+    <plurals name="contacts_deleted_toast" formatted="false" msgid="1477708624197262295">
+      <item quantity="zero">تم حذف جهة الاتصال</item>
+      <item quantity="two">تم حذف جهتي الاتصال</item>
+      <item quantity="few">تم حذف جهات الاتصال</item>
+      <item quantity="many">تم حذف جهات الاتصال</item>
+      <item quantity="other">تم حذف جهات الاتصال</item>
+      <item quantity="one">تم حذف جهة الاتصال</item>
+    </plurals>
     <string name="menu_set_ring_tone" msgid="8728345772068064946">"تعيين نغمة رنين"</string>
     <string name="menu_redirect_calls_to_vm" msgid="4181789196416396656">"جميع المكالمات إلى البريد الصوتي"</string>
-    <string name="readOnlyContactWarning" msgid="7808825687289848259">"لا يمكنك حذف جهات الاتصال من حسابات للقراءة فقط، ولكن يمكنك إخفاؤها في قوائم جهات الاتصال."</string>
-    <string name="readOnlyContactDeleteConfirmation" msgid="2137170726670196909">"تحتوي جهة الاتصال هذه على معلومات من عدة حسابات. وسيتم إخفاء المعلومات من الحسابات التي للقراءة فقط في قوائم جهات الاتصال، وليس حذفها."</string>
-    <string name="batch_merge_single_contact_warning" msgid="982585201970392110">"يجب تحديد جهتي اتصال على الأقل لإجراء الدمج."</string>
-    <string name="batch_merge_confirmation" msgid="8551299480317422420">"سيتم دمج جهات الاتصال المحددة في جهة اتصال واحدة."</string>
-    <string name="batch_delete_confirmation" msgid="2564172328268885394">"سيتم حذف جهات الاتصال المحددة."</string>
-    <string name="batch_delete_read_only_contact_confirmation" msgid="6614878716815412523">"سيتم إخفاء المعلومات من الحسابات المخصصة للقراءة فقط في قوائم جهات الاتصال، وليس حذفها."</string>
-    <string name="batch_delete_multiple_accounts_confirmation" msgid="5189722181586680185">"تحتوي جهات الاتصال هذه على معلومات من حسابات متعددة. وسيتم إخفاء المعلومات من الحسابات المخصصة للقراءة فقط في قوائم جهات الاتصال، وليس حذفها."</string>
-    <string name="multipleContactDeleteConfirmation" msgid="938900978442960800">"سيؤدي حذف جهة الاتصال هذه إلى حذف المعلومات من عدة حسابات."</string>
-    <string name="deleteConfirmation" msgid="811706994761610640">"سيتم حذف جهة الاتصال هذه."</string>
+    <string name="readOnlyContactWarning" msgid="5526727661978307833">"يتعذر حذف جهات الاتصال من حساباتك المخصصة للقراءة فقط، ولكن يمكن إخفاؤها."</string>
+    <string name="readOnlyContactWarning_positive_button" msgid="6541862607313811926">"إخفاء"</string>
+    <string name="readOnlyContactDeleteConfirmation" msgid="8782086424739664753">"تتضمن جهة الاتصال التي تريد حذفها تفاصيل من حسابات متعددة. وسيتم إخفاء التفاصيل الواردة من الحسابات المخصصة للقراءة فقط، وليس حذفها."</string>
+    <string name="batch_link_single_contact_warning" msgid="1346058571502058767">"يجب تحديد جهتي اتصال على الأقل لإجراء الربط."</string>
+    <string name="batch_link_confirmation" msgid="5845237114309114908">"هل تريد ربط جهات الاتصال المحددة؟"</string>
+    <string name="batch_link_confirmation_positive_button" msgid="5018899675473363525">"ربط"</string>
+    <string name="single_delete_confirmation" msgid="3106905986948679720">"هل تريد حذف جهة الاتصال هذه؟"</string>
+    <string name="batch_delete_confirmation" msgid="3984346060324014108">"هل تريد حذف جهات الاتصال المحددة؟"</string>
+    <string name="batch_delete_read_only_contact_confirmation" msgid="8411117621035639964">"يتعذر حذف جهات الاتصال من حساباتك المخصصة للقراءة فقط، ولكن يمكن إخفاؤها."</string>
+    <string name="batch_delete_multiple_accounts_confirmation" msgid="8207205649127030030">"تتضمن جهات الاتصال التي تريد حذفها تفاصيل من حسابات متعددة. وسيتم إخفاء التفاصيل الواردة من الحسابات المخصصة للقراءة فقط، وليس حذفها."</string>
+    <string name="multipleContactDeleteConfirmation" msgid="5235324124905653550">"سيؤدي حذف جهة الاتصال هذه إلى حذف تفاصيل من عدة حسابات."</string>
+    <string name="deleteConfirmation" msgid="3512271779086656043">"هل تريد حذف جهة الاتصال هذه؟"</string>
+    <string name="deleteConfirmation_positive_button" msgid="7857888845028586365">"حذف"</string>
     <string name="menu_discard" msgid="6854657936970228164">"إلغاء التغييرات"</string>
     <string name="invalidContactMessage" msgid="8215051456181842274">"جهة الاتصال غير موجودة."</string>
-    <string name="createContactShortcutSuccessful" msgid="7874133287558150877">"تمت إضافة أداة جهات الاتصال إلى الشاشة الرئيسية."</string>
+    <string name="createContactShortcutSuccessful_NoName" msgid="8831303345367275472">"تمت إضافة جهة الاتصال إلى الشاشة الرئيسية."</string>
+    <string name="createContactShortcutSuccessful" msgid="953651153238790069">"تمت إضافة <xliff:g id="NAME">%s</xliff:g> إلى الشاشة الرئيسية."</string>
     <string name="pickerNewContactHeader" msgid="7750705279843568147">"إنشاء جهة اتصال جديدة"</string>
     <string name="pickerNewContactText" msgid="6166997164401048211">"إنشاء جهة اتصال جديدة"</string>
   <string-array name="otherLabels">
@@ -92,14 +110,18 @@
     <string name="customLabelPickerTitle" msgid="1081475101983255212">"اسم تصنيف مخصص"</string>
     <string name="send_to_voicemail_checkbox" msgid="9001686764070676353">"إرسال المكالمات إلى البريد الصوتي مباشرة"</string>
     <string name="removePhoto" msgid="4898105274130284565">"إزالة الصور"</string>
-    <string name="noContacts" msgid="8579310973261953559">"لا توجد جهات اتصال."</string>
+    <string name="noContacts" msgid="4955659076981974652">"ليست هناك جهات اتصال"</string>
     <string name="noGroups" msgid="8614664663561385253">"لا توجد مجموعات."</string>
     <string name="noAccounts" msgid="7768267764545265909">"يجب توفير حساب لإنشاء مجموعات."</string>
     <string name="emptyGroup" msgid="7502116218697177370">"ليس هناك أشخاص في هذه المجموعة."</string>
     <string name="addPeopleToGroup" msgid="7879585947222263516">"لإضافة البعض، ابدأ في تعديل المجموعة."</string>
     <string name="savingContact" msgid="4075751076741924939">"جارٍ حفظ جهة الاتصال..."</string>
-    <string name="contactSavedToast" msgid="7152589189385441091">"تم حفظ جهة الاتصال."</string>
+    <string name="contactSavedToast" msgid="9171862279493213075">"تم حفظ جهة الاتصال."</string>
+    <string name="contactUnlinkedToast" msgid="7122823195786012553">"تم إلغاء ربط جهات الاتصال"</string>
     <string name="contactSavedErrorToast" msgid="3207250533172944892">"تعذر حفظ التغييرات التي تم إجراؤها على جهة الاتصال."</string>
+    <string name="contactUnlinkErrorToast" msgid="2758070702785994171">"تعذر إلغاء ربط جهة الاتصال."</string>
+    <string name="contactJoinErrorToast" msgid="3977932531264809035">"تعذر ربط جهة الاتصال."</string>
+    <string name="contactGenericErrorToast" msgid="7774911165341591714">"حدث خطأ أثناء حفظ جهة الاتصال."</string>
     <string name="contactPhotoSavedErrorToast" msgid="4079032272022979114">"تعذر حفظ تغييرات صورة جهة الاتصال."</string>
     <string name="groupSavedToast" msgid="1168756874239833756">"تم حفظ المجموعة."</string>
     <string name="groupSavedErrorToast" msgid="7984466936615304740">"تعذر حفظ التغييرات التي تم إجراؤها على المجموعة."</string>
@@ -129,7 +151,7 @@
       <item quantity="other">توجد <xliff:g id="COUNT">%d</xliff:g> من جهات الاتصال</item>
       <item quantity="one">توجد جهة اتصال واحدة</item>
     </plurals>
-    <string name="all_contacts_tab_label" msgid="6250372293594147703">"كل جهات الاتصال"</string>
+    <string name="all_contacts_tab_label" msgid="5948889261993124839">"الكل"</string>
     <string name="favorites_tab_label" msgid="1524869648904016414">"المفضلة"</string>
     <string name="callBack" msgid="5498224409038809224">"معاودة الاتصال"</string>
     <string name="callAgain" msgid="3197312117049874778">"الاتصال مرة أخرى"</string>
@@ -178,15 +200,7 @@
     <string name="primary_photo" msgid="8517942231868516999">"الصورة الأساسية"</string>
     <string name="description_star" msgid="2605854427360036550">"مفضل"</string>
     <string name="edit_contact" msgid="7529281274005689512">"تعديل جهة الاتصال"</string>
-    <plurals name="merge_info" formatted="false" msgid="2489323424994280962">
-      <item quantity="zero">لم يتم دمج أية جهات اتصال من أية مصادر (<xliff:g id="COUNT">%0$d</xliff:g>)</item>
-      <item quantity="two">تم دمج جهات الاتصال من مصدرين (<xliff:g id="COUNT">%0$d</xliff:g>)</item>
-      <item quantity="few">تم دمج جهات الاتصال من <xliff:g id="COUNT">%0$d</xliff:g> مصادر</item>
-      <item quantity="many">تم دمج جهات الاتصال من <xliff:g id="COUNT">%0$d</xliff:g> مصدرًا</item>
-      <item quantity="other">تم دمج جهات الاتصال من <xliff:g id="COUNT">%0$d</xliff:g> من المصادر</item>
-      <item quantity="one">تم دمج جهة اتصال واحدة</item>
-    </plurals>
-    <string name="aggregation_suggestion_join_dialog_message" msgid="3842757977671434836">"هل تريد ضم جهة الاتصال الحالية إلى جهة الاتصال المحددة؟"</string>
+    <string name="aggregation_suggestion_join_dialog_message" msgid="6786192560870357912">"هل تريد ربط جهة الاتصال الحالية بجهة الاتصال المحددة؟"</string>
     <string name="aggregation_suggestion_edit_dialog_message" msgid="6549585283910518095">"هل تريد التبديل إلى تعديل جهة الاتصال المحددة؟ سيتم نسخ المعلومات التي أدخلتها حتى الآن."</string>
     <string name="menu_copyContact" msgid="1573960845106822639">"نسخ إلى جهات الاتصال الخاصة بي"</string>
     <string name="add_to_my_contacts" msgid="1068274916793627723">"إضافة إلى \"جهات الاتصال الخاصة بي\""</string>
@@ -202,11 +216,11 @@
     <string name="activity_title_confirm_add_detail" msgid="4065089866210730616">"إضافة إلى جهة اتصال"</string>
     <string name="non_phone_close" msgid="7608506439725515667">"إغلاق"</string>
     <string name="widget_name_and_phonetic" msgid="8739586586600099979">"<xliff:g id="DISPLAY_NAME">%1$s</xliff:g> (<xliff:g id="PHONETIC_NAME">%2$s</xliff:g>)"</string>
-    <string name="date_year_toggle" msgid="7356532842767854606">"عرض السنة"</string>
+    <string name="date_year_toggle" msgid="7122002148518724139">"تضمين العام"</string>
     <string name="social_widget_label" msgid="6378905543028924592">"جهة الاتصال"</string>
     <string name="social_widget_loading" msgid="5327336597364074608">"جارٍ التحميل…"</string>
     <string name="contacts_unavailable_create_contact" msgid="7014525713871959208">"إنشاء جهة اتصال جديدة"</string>
-    <string name="contacts_unavailable_add_account" msgid="7911101713860139754">"تسجيل الدخول إلى حساب"</string>
+    <string name="contacts_unavailable_add_account" msgid="4347232421410561500">"إضافة حساب"</string>
     <string name="contacts_unavailable_import_contacts" msgid="4957393255392437529">"استيراد جهات الاتصال"</string>
     <string name="create_group_dialog_title" msgid="6874527142828424475">"إنشاء مجموعة جديدة"</string>
     <string name="create_group_item_label" msgid="4411981763169654825">"إنشاء مجموعة جديدة"</string>
@@ -235,12 +249,14 @@
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> من الأشخاص</item>
       <item quantity="one">شخص واحد (<xliff:g id="COUNT_0">%1$d</xliff:g>)</item>
     </plurals>
-    <string name="toast_join_with_empty_contact" msgid="2238581529864542985">"اكتب اسم جهة الاتصال قبل الانضمام إلى جهة اتصال أخرى."</string>
+    <string name="toast_join_with_empty_contact" msgid="1215465657839085613">"اكتب اسم جهة الاتصال قبل ربطها بجهة اتصال أخرى."</string>
     <string name="copy_text" msgid="3257145021583508761">"نسخ إلى الحافظة"</string>
     <string name="set_default" msgid="4417505153468300351">"تعيين كافتراضي"</string>
     <string name="clear_default" msgid="7193185801596678067">"محو الإعدادات الافتراضية"</string>
     <string name="toast_text_copied" msgid="5143776250008541719">"تم نسخ النص"</string>
-    <string name="cancel_confirmation_dialog_message" msgid="5885724679874403115">"هل تريد تجاهل التغييرات؟"</string>
+    <string name="cancel_confirmation_dialog_message" msgid="5058226498605989285">"هل تريد تجاهل التغييرات ومغادرة التعديل؟"</string>
+    <string name="cancel_confirmation_dialog_cancel_editing_button" msgid="3057023972074640671">"تجاهل"</string>
+    <string name="cancel_confirmation_dialog_keep_editing_button" msgid="7737724111972855348">"متابعة التعديلات"</string>
     <string name="call_type_and_date" msgid="747163730039311423">"<xliff:g id="CALL_TYPE">%1$s</xliff:g> <xliff:g id="CALL_SHORT_DATE">%2$s</xliff:g>"</string>
     <string name="profile_display_name" msgid="4127389543625918771">"إعداد الملف الشخصي"</string>
     <string name="enter_contact_name" msgid="1738391320566349924">"اكتب اسم الشخص"</string>
@@ -248,12 +264,11 @@
     <string name="local_profile_title" msgid="2021416826991393684">"ملفي الشخصي المحلي"</string>
     <string name="external_profile_title" msgid="8034998767621359438">"ملفي الشخصي في <xliff:g id="EXTERNAL_SOURCE">%1$s</xliff:g>"</string>
     <string name="toast_displaying_all_contacts" msgid="2737388783898593875">"عرض جميع جهات الاتصال"</string>
-    <string name="no_account_prompt" msgid="6424883302325061025">"‏تعمل جهات الاتصال بشكلٍ أفضل من خلال حساب Google.\n\n• يمكنك الدخول من أي متصفح ويب.\n• يمكنك الاحتفاظ بنسخة احتياطية من جهات اتصالك بشكلٍ آمن."</string>
     <string name="generic_no_account_prompt" msgid="7218827704367325460">"يمكنك الاحتفاظ بجهات اتصالك في أمان حتى إذا فقدت هاتفك: من خلال المزامنة مع خدمة عبر الإنترنت."</string>
     <string name="generic_no_account_prompt_title" msgid="753783911899054860">"إضافة حساب"</string>
     <string name="contact_editor_prompt_zero_accounts" msgid="1785345895691886499">"لن يتم الاحتفاظ بنسخة احتياطية من جهة الاتصال الجديدة. هل تريد إضافة حساب يحتفظ بنسخة احتياطية من جهات الاتصال على الإنترنت؟"</string>
-    <string name="contact_editor_prompt_one_account" msgid="8669032699767375976">"ستتم مزامنة جهة الاتصال الجديدة مع <xliff:g id="ACCOUNT_NAME">%1$s</xliff:g>."</string>
-    <string name="contact_editor_prompt_multiple_accounts" msgid="611828200100438242">"يمكنك مزامنة جهة الاتصال الجديدة مع أحد الحسابات التالية. ما الذي تريد استخدامه منها؟"</string>
+    <string name="contact_editor_prompt_one_account" msgid="3087691056345099310">"سيتم حفظ جهات الاتصال الجديدة في <xliff:g id="ACCOUNT_NAME">%1$s</xliff:g>."</string>
+    <string name="contact_editor_prompt_multiple_accounts" msgid="8565761674283473549">"اختيار حساب افتراضي لجهات الاتصال الجديدة:"</string>
     <string name="contact_editor_title_new_contact" msgid="7192223018128934940">"إضافة جهة اتصال جديدة"</string>
     <string name="contact_editor_title_existing_contact" msgid="4898475703683187798">"تعديل جهة الاتصال"</string>
     <string name="keep_local" msgid="1258761699192993322">"الاحتفاظ بها محليًا"</string>
@@ -298,7 +313,63 @@
     <string name="content_description_recent_call" msgid="5183800406316723676">"المكالمة الأخيرة. <xliff:g id="CALL_TYPE">%s</xliff:g>. <xliff:g id="PHONE_NUMBER">%s</xliff:g>. <xliff:g id="DATE">%s</xliff:g>. انقر لمعاودة الاتصال"</string>
     <string name="message_from_you_prefix" msgid="7180706529908434482">"أنت: <xliff:g id="SMS_BODY">%s</xliff:g>"</string>
     <string name="contact_editor_hangouts_im_alert" msgid="114855385615225735">"‏تعمل Hangouts بشكل أفضل عند إدخال معرف الشخص في Hangouts في حقل البريد الإلكتروني أو حقل الهاتف."</string>
-    <string name="compact_editor_more_fields" msgid="2874181192382284115">"المزيد من الحقول"</string>
+    <string name="compact_editor_more_fields" msgid="5987638193568699600">"المزيد من الحقول"</string>
     <string name="compact_editor_change_photo_content_description" msgid="5495487714301211540">"تغيير الصورة"</string>
+    <string name="compact_editor_failed_to_load" msgid="4557094426388044958">"أخفق فتح المحرر."</string>
+    <string name="compact_editor_account_selector_title" msgid="5119592614151786601">"الحفظ في"</string>
+    <string name="compact_editor_account_selector_description" msgid="2127184829759350507">"جارٍ الحفظ حاليًا في <xliff:g id="ACCOUNT_NAME">%s</xliff:g>. يمكنك النقر نقرًا مزدوجًا لاختيار حساب آخر."</string>
+    <plurals name="compact_editor_linked_contacts_selector_title" formatted="false" msgid="9156207930915878316">
+      <item quantity="zero">جهات الاتصال المرتبطة (<xliff:g id="COUNT">%d</xliff:g>)</item>
+      <item quantity="two">جهات الاتصال المرتبطة (<xliff:g id="COUNT">%d</xliff:g>)</item>
+      <item quantity="few">جهات الاتصال المرتبطة (<xliff:g id="COUNT">%d</xliff:g>)</item>
+      <item quantity="many">جهات الاتصال المرتبطة (<xliff:g id="COUNT">%d</xliff:g>)</item>
+      <item quantity="other">جهات الاتصال المرتبطة (<xliff:g id="COUNT">%d</xliff:g>)</item>
+      <item quantity="one">جهة اتصال مرتبطة</item>
+    </plurals>
+    <string name="quickcontact_contacts_number" msgid="6036916944287597682">"<xliff:g id="COUNT">%d</xliff:g> جهة اتصال مرتبطة"</string>
     <string name="quick_contact_display_name_with_phonetic" msgid="3692038078718876610">"<xliff:g id="DISPLAY_NAME">%s</xliff:g> (<xliff:g id="PHONETIC_NAME">%s</xliff:g>)"</string>
+    <string name="quickcontact_suggestion_link_button" msgid="3244619714781727946">"ربط جهات الاتصال"</string>
+    <string name="quickcontact_suggestion_cancel_button" msgid="8236954313106630862">"إلغاء"</string>
+    <plurals name="quickcontact_suggestion_card_title" formatted="false" msgid="2660005966628746406">
+      <item quantity="zero"><xliff:g id="COUNT">%d</xliff:g> تكرار محتمل</item>
+      <item quantity="two">تكراران (<xliff:g id="COUNT">%d</xliff:g>) محتملان</item>
+      <item quantity="few"><xliff:g id="COUNT">%d</xliff:g> تكرارات محتملة</item>
+      <item quantity="many"><xliff:g id="COUNT">%d</xliff:g> تكرارًا محتملاً</item>
+      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> تكرار محتمل</item>
+      <item quantity="one">تكرار واحد محتمل</item>
+    </plurals>
+    <plurals name="quickcontact_suggestions_number" formatted="false" msgid="495992931510695330">
+      <item quantity="zero"><xliff:g id="COUNT">%d</xliff:g> جهة اتصال مقترنة</item>
+      <item quantity="two">جهتا اتصال مقترنتان (<xliff:g id="COUNT">%d</xliff:g>)</item>
+      <item quantity="few"><xliff:g id="COUNT">%d</xliff:g> جهات اتصال مقترنة</item>
+      <item quantity="many"><xliff:g id="COUNT">%d</xliff:g> جهة اتصال مقترنة</item>
+      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> جهة اتصال مقترنة</item>
+      <item quantity="one">جهة اتصال واحدة مقترنة</item>
+    </plurals>
+    <plurals name="quickcontact_suggestion_account_type_number" formatted="false" msgid="3001681298924002373">
+      <item quantity="zero">(<xliff:g id="COUNT">%d</xliff:g>)</item>
+      <item quantity="two">(<xliff:g id="COUNT">%d</xliff:g>)</item>
+      <item quantity="few">(<xliff:g id="COUNT">%d</xliff:g>)</item>
+      <item quantity="many">(<xliff:g id="COUNT">%d</xliff:g>)</item>
+      <item quantity="other">(<xliff:g id="COUNT">%d</xliff:g>)</item>
+      <item quantity="one"></item>
+    </plurals>
+    <string name="quickcontact_suggestion_account_type" msgid="5878263654735376962">"<xliff:g id="ACCOUNT_TYPE_0">%s</xliff:g><xliff:g id="ACCOUNT_TYPE_NUMBER">%s</xliff:g>"</string>
+    <string name="suggestion_card_this_contact_title" msgid="3039457405374454914">"جهة الاتصال هذه"</string>
+    <string name="suggestion_card_duplicates_title" msgid="9107788743178980902">"التكرارات المحتملة"</string>
+    <string name="suggestion_card_help_message" msgid="4474061044387181093">"ربما تمثل جهات الاتصال هذه شخصًا واحدًا. يمكنك ربطها معًا كجهة اتصال واحدة."</string>
+    <string name="compact_editor_linked_contacts_title" msgid="4417919183651782674">"جهات الاتصال المرتبطة"</string>
+    <string name="from_your_accounts" msgid="1746293107836889912">"من حساباتك"</string>
+    <string name="take_a_photo_button" msgid="6268693854069113488">"التقاط صورة"</string>
+    <string name="all_photos_button" msgid="1943122929420111351">"جميع الصور"</string>
+    <string name="photo_picker_title" msgid="5272832995550042801">"اختيار صورة"</string>
+    <string name="contact_from_account_name" msgid="2078526819634079406">"من <xliff:g id="ACCOUNT_NAME">%s</xliff:g>"</string>
+    <string name="editor_delete_view_description" msgid="8583095381562991959">"حذف <xliff:g id="DATA_TYPE">%s </xliff:g><xliff:g id="DATA_KIND">%s</xliff:g>"</string>
+    <string name="editor_delete_view_description_short" msgid="7335518371270844912">"حذف <xliff:g id="DATA_KIND">%s</xliff:g>"</string>
+    <string name="photo_view_description_not_checked" msgid="8876314195990885177">"تم إلغاء تحديد صورة من <xliff:g id="ACCOUNT_TYPE">%s </xliff:g><xliff:g id="USER_NAME">%s </xliff:g>"</string>
+    <string name="photo_view_description_checked" msgid="3906597168607472795">"تم تحديد صورة من <xliff:g id="ACCOUNT_TYPE">%s </xliff:g><xliff:g id="USER_NAME">%s </xliff:g>"</string>
+    <string name="photo_view_description_not_checked_no_info" msgid="2749154927006406981">"لم يتم تحديد صورة من حساب غير معروف"</string>
+    <string name="photo_view_description_checked_no_info" msgid="4974335987092590591">"تم تحديد صورة من حساب غير معروف"</string>
+    <string name="locale_change_in_progress" msgid="1124266507671178413">"يتم تحديث قائمة جهات الاتصال لتعكس التغيير الذي حدث في اللغة.\n\nالرجاء الانتظار..."</string>
+    <string name="menu_blocked_numbers" msgid="5272951629083025995">"الأرقام المحظورة"</string>
 </resources>

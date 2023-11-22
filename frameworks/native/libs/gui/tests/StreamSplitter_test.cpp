@@ -52,48 +52,25 @@ struct DummyListener : public BnConsumerListener {
     virtual void onSidebandStreamChanged() {}
 };
 
-class CountedAllocator : public BnGraphicBufferAlloc {
-public:
-    CountedAllocator() : mAllocCount(0) {
-        sp<ISurfaceComposer> composer(ComposerService::getComposerService());
-        mAllocator = composer->createGraphicBufferAlloc();
-    }
-
-    virtual ~CountedAllocator() {}
-
-    virtual sp<GraphicBuffer> createGraphicBuffer(uint32_t w, uint32_t h,
-            PixelFormat format, uint32_t usage, status_t* error) {
-        ++mAllocCount;
-        sp<GraphicBuffer> buffer = mAllocator->createGraphicBuffer(w, h, format,
-                usage, error);
-        return buffer;
-    }
-
-    int getAllocCount() const { return mAllocCount; }
-
-private:
-    sp<IGraphicBufferAlloc> mAllocator;
-    int mAllocCount;
-};
-
 static const uint32_t TEST_DATA = 0x12345678u;
 
 TEST_F(StreamSplitterTest, OneInputOneOutput) {
-    sp<CountedAllocator> allocator(new CountedAllocator);
-
     sp<IGraphicBufferProducer> inputProducer;
     sp<IGraphicBufferConsumer> inputConsumer;
-    BufferQueue::createBufferQueue(&inputProducer, &inputConsumer, allocator);
+    BufferQueue::createBufferQueue(&inputProducer, &inputConsumer);
 
     sp<IGraphicBufferProducer> outputProducer;
     sp<IGraphicBufferConsumer> outputConsumer;
-    BufferQueue::createBufferQueue(&outputProducer, &outputConsumer, allocator);
+    BufferQueue::createBufferQueue(&outputProducer, &outputConsumer);
     ASSERT_EQ(OK, outputConsumer->consumerConnect(new DummyListener, false));
 
     sp<StreamSplitter> splitter;
     status_t status = StreamSplitter::createSplitter(inputConsumer, &splitter);
     ASSERT_EQ(OK, status);
     ASSERT_EQ(OK, splitter->addOutput(outputProducer));
+
+    // Never allow the output BufferQueue to allocate a buffer
+    ASSERT_EQ(OK, outputProducer->allowAllocation(false));
 
     IGraphicBufferProducer::QueueBufferOutput qbOutput;
     ASSERT_EQ(OK, inputProducer->connect(new DummyProducerListener,
@@ -103,7 +80,7 @@ TEST_F(StreamSplitterTest, OneInputOneOutput) {
     sp<Fence> fence;
     sp<GraphicBuffer> buffer;
     ASSERT_EQ(IGraphicBufferProducer::BUFFER_NEEDS_REALLOCATION,
-            inputProducer->dequeueBuffer(&slot, &fence, false, 0, 0, 0,
+            inputProducer->dequeueBuffer(&slot, &fence, 0, 0, 0,
                     GRALLOC_USAGE_SW_WRITE_OFTEN));
     ASSERT_EQ(OK, inputProducer->requestBuffer(slot, &buffer));
 
@@ -114,10 +91,13 @@ TEST_F(StreamSplitterTest, OneInputOneOutput) {
     ASSERT_EQ(OK, buffer->unlock());
 
     IGraphicBufferProducer::QueueBufferInput qbInput(0, false,
-            HAL_DATASPACE_UNKNOWN,
-            Rect(0, 0, 1, 1), NATIVE_WINDOW_SCALING_MODE_FREEZE, 0, false,
-            Fence::NO_FENCE);
+            HAL_DATASPACE_UNKNOWN, Rect(0, 0, 1, 1),
+            NATIVE_WINDOW_SCALING_MODE_FREEZE, 0, Fence::NO_FENCE);
     ASSERT_EQ(OK, inputProducer->queueBuffer(slot, qbInput, &qbOutput));
+
+    // Now that we have dequeued/allocated one buffer, prevent any further
+    // allocations
+    ASSERT_EQ(OK, inputProducer->allowAllocation(false));
 
     BufferItem item;
     ASSERT_EQ(OK, outputConsumer->acquireBuffer(&item, 0));
@@ -128,29 +108,28 @@ TEST_F(StreamSplitterTest, OneInputOneOutput) {
     ASSERT_EQ(*dataOut, TEST_DATA);
     ASSERT_EQ(OK, item.mGraphicBuffer->unlock());
 
-    ASSERT_EQ(OK, outputConsumer->releaseBuffer(item.mBuf, item.mFrameNumber,
+    ASSERT_EQ(OK, outputConsumer->releaseBuffer(item.mSlot, item.mFrameNumber,
             EGL_NO_DISPLAY, EGL_NO_SYNC_KHR, Fence::NO_FENCE));
 
+    // This should succeed even with allocation disabled since it will have
+    // received the buffer back from the output BufferQueue
     ASSERT_EQ(IGraphicBufferProducer::BUFFER_NEEDS_REALLOCATION,
-            inputProducer->dequeueBuffer(&slot, &fence, false, 0, 0, 0,
+            inputProducer->dequeueBuffer(&slot, &fence, 0, 0, 0,
                     GRALLOC_USAGE_SW_WRITE_OFTEN));
-
-    ASSERT_EQ(1, allocator->getAllocCount());
 }
 
 TEST_F(StreamSplitterTest, OneInputMultipleOutputs) {
     const int NUM_OUTPUTS = 4;
-    sp<CountedAllocator> allocator(new CountedAllocator);
 
     sp<IGraphicBufferProducer> inputProducer;
     sp<IGraphicBufferConsumer> inputConsumer;
-    BufferQueue::createBufferQueue(&inputProducer, &inputConsumer, allocator);
+    BufferQueue::createBufferQueue(&inputProducer, &inputConsumer);
 
     sp<IGraphicBufferProducer> outputProducers[NUM_OUTPUTS] = {};
     sp<IGraphicBufferConsumer> outputConsumers[NUM_OUTPUTS] = {};
     for (int output = 0; output < NUM_OUTPUTS; ++output) {
         BufferQueue::createBufferQueue(&outputProducers[output],
-                &outputConsumers[output], allocator);
+                &outputConsumers[output]);
         ASSERT_EQ(OK, outputConsumers[output]->consumerConnect(
                     new DummyListener, false));
     }
@@ -160,6 +139,9 @@ TEST_F(StreamSplitterTest, OneInputMultipleOutputs) {
     ASSERT_EQ(OK, status);
     for (int output = 0; output < NUM_OUTPUTS; ++output) {
         ASSERT_EQ(OK, splitter->addOutput(outputProducers[output]));
+
+        // Never allow the output BufferQueues to allocate a buffer
+        ASSERT_EQ(OK, outputProducers[output]->allowAllocation(false));
     }
 
     IGraphicBufferProducer::QueueBufferOutput qbOutput;
@@ -170,7 +152,7 @@ TEST_F(StreamSplitterTest, OneInputMultipleOutputs) {
     sp<Fence> fence;
     sp<GraphicBuffer> buffer;
     ASSERT_EQ(IGraphicBufferProducer::BUFFER_NEEDS_REALLOCATION,
-            inputProducer->dequeueBuffer(&slot, &fence, false, 0, 0, 0,
+            inputProducer->dequeueBuffer(&slot, &fence, 0, 0, 0,
                     GRALLOC_USAGE_SW_WRITE_OFTEN));
     ASSERT_EQ(OK, inputProducer->requestBuffer(slot, &buffer));
 
@@ -181,10 +163,13 @@ TEST_F(StreamSplitterTest, OneInputMultipleOutputs) {
     ASSERT_EQ(OK, buffer->unlock());
 
     IGraphicBufferProducer::QueueBufferInput qbInput(0, false,
-            HAL_DATASPACE_UNKNOWN,
-            Rect(0, 0, 1, 1), NATIVE_WINDOW_SCALING_MODE_FREEZE, 0, false,
-            Fence::NO_FENCE);
+            HAL_DATASPACE_UNKNOWN, Rect(0, 0, 1, 1),
+            NATIVE_WINDOW_SCALING_MODE_FREEZE, 0, Fence::NO_FENCE);
     ASSERT_EQ(OK, inputProducer->queueBuffer(slot, qbInput, &qbOutput));
+
+    // Now that we have dequeued/allocated one buffer, prevent any further
+    // allocations
+    ASSERT_EQ(OK, inputProducer->allowAllocation(false));
 
     for (int output = 0; output < NUM_OUTPUTS; ++output) {
         BufferItem item;
@@ -196,16 +181,16 @@ TEST_F(StreamSplitterTest, OneInputMultipleOutputs) {
         ASSERT_EQ(*dataOut, TEST_DATA);
         ASSERT_EQ(OK, item.mGraphicBuffer->unlock());
 
-        ASSERT_EQ(OK, outputConsumers[output]->releaseBuffer(item.mBuf,
+        ASSERT_EQ(OK, outputConsumers[output]->releaseBuffer(item.mSlot,
                     item.mFrameNumber, EGL_NO_DISPLAY, EGL_NO_SYNC_KHR,
                     Fence::NO_FENCE));
     }
 
+    // This should succeed even with allocation disabled since it will have
+    // received the buffer back from the output BufferQueues
     ASSERT_EQ(IGraphicBufferProducer::BUFFER_NEEDS_REALLOCATION,
-            inputProducer->dequeueBuffer(&slot, &fence, false, 0, 0, 0,
+            inputProducer->dequeueBuffer(&slot, &fence, 0, 0, 0,
                     GRALLOC_USAGE_SW_WRITE_OFTEN));
-
-    ASSERT_EQ(1, allocator->getAllocCount());
 }
 
 TEST_F(StreamSplitterTest, OutputAbandonment) {
@@ -231,7 +216,7 @@ TEST_F(StreamSplitterTest, OutputAbandonment) {
     sp<Fence> fence;
     sp<GraphicBuffer> buffer;
     ASSERT_EQ(IGraphicBufferProducer::BUFFER_NEEDS_REALLOCATION,
-            inputProducer->dequeueBuffer(&slot, &fence, false, 0, 0, 0,
+            inputProducer->dequeueBuffer(&slot, &fence, 0, 0, 0,
                     GRALLOC_USAGE_SW_WRITE_OFTEN));
     ASSERT_EQ(OK, inputProducer->requestBuffer(slot, &buffer));
 
@@ -239,14 +224,13 @@ TEST_F(StreamSplitterTest, OutputAbandonment) {
     outputConsumer->consumerDisconnect();
 
     IGraphicBufferProducer::QueueBufferInput qbInput(0, false,
-            HAL_DATASPACE_UNKNOWN,
-            Rect(0, 0, 1, 1), NATIVE_WINDOW_SCALING_MODE_FREEZE, 0, false,
-            Fence::NO_FENCE);
+            HAL_DATASPACE_UNKNOWN, Rect(0, 0, 1, 1),
+            NATIVE_WINDOW_SCALING_MODE_FREEZE, 0, Fence::NO_FENCE);
     ASSERT_EQ(OK, inputProducer->queueBuffer(slot, qbInput, &qbOutput));
 
     // Input should be abandoned
-    ASSERT_EQ(NO_INIT, inputProducer->dequeueBuffer(&slot, &fence, false, 0, 0,
-            0, GRALLOC_USAGE_SW_WRITE_OFTEN));
+    ASSERT_EQ(NO_INIT, inputProducer->dequeueBuffer(&slot, &fence, 0, 0, 0,
+            GRALLOC_USAGE_SW_WRITE_OFTEN));
 }
 
 } // namespace android

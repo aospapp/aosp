@@ -34,7 +34,6 @@
     <string name="password_empty_error" msgid="591713406761723025">"Ketikkan sandi."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"Ketikkan nama."</string>
     <string name="name_char_error" msgid="3176618568784938968">"Ketikkan nama yang hanya berisi huruf dan angka."</string>
-    <string name="storage_error" msgid="8306802455802770779">"Tidak dapat menyimpan sertifikat. Sentuh Oke untuk mencoba lagi."</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"Tidak dapat menyimpan sertifikat. Penyimpanan kredensial tidak diaktifkan atau dimulai dengan semestinya."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"Sertifikat tidak terpasang."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"Tidak ada sertifikat untuk memasang."</string>

@@ -38,7 +38,8 @@ def main():
 
     NAME = os.path.basename(__file__).split(".")[0]
 
-    RELATIVE_ERROR_TOLERANCE = 0.1
+    NUM_SAMPLES_PER_MODE = 4
+    SNR_TOLERANCE = 3 # unit in db
 
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
@@ -60,7 +61,7 @@ def main():
 
         for reprocess_format in reprocess_formats:
             # List of variances for R, G, B.
-            variances = []
+            snrs = [[], [], []]
             nr_modes_reported = []
 
             # NR mode 0 with low gain
@@ -77,71 +78,90 @@ def main():
             img = its.image.decompress_jpeg_to_rgb_image(cap["data"])
             its.image.write_image(img, "%s_low_gain_fmt=jpg.jpg" % (NAME))
             tile = its.image.get_image_patch(img, 0.45, 0.45, 0.1, 0.1)
-            ref_variance = its.image.compute_image_variances(tile)
-            print "Ref variances:", ref_variance
+            ref_snr = its.image.compute_image_snrs(tile)
+            print "Ref SNRs:", ref_snr
 
+            e, s = its.target.get_target_exposure_combos(cam)["maxSensitivity"]
             for nr_mode in range(5):
                 # Skip unavailable modes
                 if not its.caps.noise_reduction_mode(props, nr_mode):
                     nr_modes_reported.append(nr_mode)
-                    variances.append(0)
+                    for channel in range(3):
+                        snrs[channel].append(0)
                     continue
 
-                # NR modes with high gain
-                e, s = its.target.get_target_exposure_combos(cam) \
-                    ["maxSensitivity"]
-                req = its.objects.manual_capture_request(s, e)
-                req["android.noiseReduction.mode"] = nr_mode
-                cap = cam.do_capture(req, out_surface, reprocess_format)
-                nr_modes_reported.append(
-                    cap["metadata"]["android.noiseReduction.mode"])
+                rgb_snr_list = []
+                # Capture several images to account for per frame noise
+                # variations
+                for n in range(NUM_SAMPLES_PER_MODE):
+                    req = its.objects.manual_capture_request(s, e)
+                    req["android.noiseReduction.mode"] = nr_mode
+                    cap = cam.do_capture(req, out_surface, reprocess_format)
 
-                img = its.image.decompress_jpeg_to_rgb_image(cap["data"])
-                its.image.write_image(
-                    img, "%s_high_gain_nr=%d_fmt=jpg.jpg" % (NAME, nr_mode))
-                tile = its.image.get_image_patch(img, 0.45, 0.45, 0.1, 0.1)
-                # Get the variances for R, G, and B channels
-                variance = its.image.compute_image_variances(tile)
-                variances.append(
-                    [variance[chan] / ref_variance[chan] for chan in range(3)])
-            print "Variances with NR mode [0,1,2,3,4]:", variances
+                    img = its.image.decompress_jpeg_to_rgb_image(cap["data"])
+                    if n == 0:
+                        its.image.write_image(
+                                img,
+                                "%s_high_gain_nr=%d_fmt=jpg.jpg"
+                                        %(NAME, nr_mode))
+                        nr_modes_reported.append(
+                                cap["metadata"]["android.noiseReduction.mode"])
+
+                    tile = its.image.get_image_patch(img, 0.45, 0.45, 0.1, 0.1)
+                    # Get the variances for R, G, and B channels
+                    rgb_snrs = its.image.compute_image_snrs(tile)
+                    rgb_snr_list.append(rgb_snrs)
+
+                r_snrs = [rgb[0] for rgb in rgb_snr_list]
+                g_snrs = [rgb[1] for rgb in rgb_snr_list]
+                b_snrs = [rgb[2] for rgb in rgb_snr_list]
+                rgb_snrs = [numpy.mean(r_snrs),
+                            numpy.mean(g_snrs),
+                            numpy.mean(b_snrs)]
+                print "NR mode", nr_mode, "SNRs:"
+                print "    R SNR:", rgb_snrs[0],\
+                        "Min:", min(r_snrs), "Max:", max(r_snrs)
+                print "    G SNR:", rgb_snrs[1],\
+                        "Min:", min(g_snrs), "Max:", max(g_snrs)
+                print "    B SNR:", rgb_snrs[2],\
+                        "Min:", min(b_snrs), "Max:", max(b_snrs)
+
+                for chan in range(3):
+                    snrs[chan].append(rgb_snrs[chan])
 
             # Draw a plot.
-            for chan in range(3):
-                line = []
-                for nr_mode in range(5):
-                    line.append(variances[nr_mode][chan])
-                pylab.plot(range(5), line, "rgb"[chan])
+            for channel in range(3):
+                pylab.plot(range(5), snrs[channel], "rgb"[channel])
 
-            matplotlib.pyplot.savefig("%s_plot_%s_variances.png" %
+            matplotlib.pyplot.savefig("%s_plot_%s_SNRs.png" %
                                       (NAME, reprocess_format))
 
             assert(nr_modes_reported == [0,1,2,3,4])
 
             for j in range(3):
-                # Smaller variance is better
+                # Larger is better
                 # Verify OFF(0) is not better than FAST(1)
-                assert(variances[0][j] >
-                       variances[1][j] * (1.0 - RELATIVE_ERROR_TOLERANCE))
+                assert(snrs[j][0] <
+                       snrs[j][1] + SNR_TOLERANCE)
                 # Verify FAST(1) is not better than HQ(2)
-                assert(variances[1][j] >
-                       variances[2][j] * (1.0 - RELATIVE_ERROR_TOLERANCE))
+                assert(snrs[j][1] <
+                       snrs[j][2] + SNR_TOLERANCE)
                 # Verify HQ(2) is better than OFF(0)
-                assert(variances[0][j] > variances[2][j])
+                assert(snrs[j][0] < snrs[j][2])
                 if its.caps.noise_reduction_mode(props, 3):
                     # Verify OFF(0) is not better than MINIMAL(3)
-                    assert(variances[0][j] >
-                           variances[3][j] * (1.0 - RELATIVE_ERROR_TOLERANCE))
+                    assert(snrs[j][0] <
+                           snrs[j][3] + SNR_TOLERANCE)
                     # Verify MINIMAL(3) is not better than HQ(2)
-                    assert(variances[3][j] >
-                           variances[2][j] * (1.0 - RELATIVE_ERROR_TOLERANCE))
+                    assert(snrs[j][3] <
+                           snrs[j][2] + SNR_TOLERANCE)
                     # Verify ZSL(4) is close to MINIMAL(3)
-                    assert(numpy.isclose(variances[4][j], variances[3][j],
-                                         RELATIVE_ERROR_TOLERANCE))
+                    assert(numpy.isclose(snrs[j][4], snrs[j][3],
+                                         atol=SNR_TOLERANCE))
                 else:
                     # Verify ZSL(4) is close to OFF(0)
-                    assert(numpy.isclose(variances[4][j], variances[0][j],
-                                         RELATIVE_ERROR_TOLERANCE))
+                    assert(numpy.isclose(snrs[j][4], snrs[j][0],
+                                         atol=SNR_TOLERANCE))
 
 if __name__ == '__main__':
     main()

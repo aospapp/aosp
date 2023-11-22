@@ -1,7 +1,7 @@
 
 LOCAL_PATH:=$(call my-dir)
 
-rs_base_CFLAGS := -Werror -Wall -Wno-unused-parameter -Wno-unused-variable -fno-exceptions -std=c++11
+rs_base_CFLAGS := -Werror -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -fno-exceptions -std=c++11
 ifeq ($(TARGET_BUILD_PDK), true)
   rs_base_CFLAGS += -D__RS_PDK__
 endif
@@ -19,9 +19,7 @@ ifeq ($(RS_FIND_OFFSETS), true)
 endif
 
 include $(CLEAR_VARS)
-ifneq ($(HOST_OS),windows)
 LOCAL_CLANG := true
-endif
 LOCAL_MODULE := libRSDriver
 LOCAL_MODULE_TARGET_ARCH_WARN := arm mips mips64 x86 x86_64 arm64
 
@@ -47,11 +45,11 @@ LOCAL_SRC_FILES:= \
 	driver/rsdVertexArray.cpp
 
 
-LOCAL_SHARED_LIBRARIES += libRS libRSCpuRef
+LOCAL_SHARED_LIBRARIES += libRS_internal libRSCpuRef
 LOCAL_SHARED_LIBRARIES += liblog libcutils libutils libEGL libGLESv1_CM libGLESv2
 LOCAL_SHARED_LIBRARIES += libui libgui libsync
 
-LOCAL_SHARED_LIBRARIES += libbcc libbcinfo libLLVM
+LOCAL_SHARED_LIBRARIES += libbcinfo libLLVM
 
 LOCAL_C_INCLUDES += frameworks/compile/libbcc/include
 
@@ -81,7 +79,7 @@ LOCAL_SRC_FILES:= \
     rsg_generator.c
 
 LOCAL_CXX_STL := none
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 
 include $(BUILD_HOST_EXECUTABLE)
 
@@ -89,10 +87,8 @@ include $(BUILD_HOST_EXECUTABLE)
 RSG_GENERATOR:=$(LOCAL_BUILT_MODULE)
 
 include $(CLEAR_VARS)
-ifneq ($(HOST_OS),windows)
 LOCAL_CLANG := true
-endif
-LOCAL_MODULE := libRS
+LOCAL_MODULE := libRS_internal
 LOCAL_MODULE_TARGET_ARCH_WARN := arm mips mips64 x86 x86_64 arm64
 
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES
@@ -118,7 +114,6 @@ LOCAL_GENERATED_SOURCES += $(GEN)
 # Generate custom source files
 
 GEN := $(addprefix $(generated_sources)/, \
-            rsgApi.cpp \
             rsgApiReplay.cpp \
         )
 
@@ -134,7 +129,6 @@ rs_generated_source += $(GEN)
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 LOCAL_SRC_FILES:= \
-	rsAdapter.cpp \
 	rsAllocation.cpp \
 	rsAnimation.cpp \
 	rsComponent.cpp \
@@ -177,7 +171,7 @@ LOCAL_SHARED_LIBRARIES += liblog libcutils libutils libEGL libGLESv1_CM libGLESv
 LOCAL_SHARED_LIBRARIES += libgui libsync libdl libui
 LOCAL_SHARED_LIBRARIES += libft2 libpng libz
 
-LOCAL_SHARED_LIBRARIES += libbcc libbcinfo libLLVM
+LOCAL_SHARED_LIBRARIES += libbcinfo libLLVM
 
 LOCAL_C_INCLUDES += external/freetype/include
 LOCAL_C_INCLUDES += frameworks/compile/libbcc/include
@@ -190,6 +184,73 @@ LOCAL_CFLAGS += $(rs_base_CFLAGS)
 LOCAL_CFLAGS += -Wno-deprecated-register
 
 LOCAL_CPPFLAGS += -fno-exceptions
+
+LOCAL_MODULE_TAGS := optional
+
+include $(BUILD_SHARED_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_CLANG := true
+LOCAL_MODULE := libRS
+LOCAL_MODULE_TARGET_ARCH_WARN := arm mips mips64 x86 x86_64 arm64
+
+LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+generated_sources:= $(local-generated-sources-dir)
+
+# Generate custom headers
+
+GEN := $(addprefix $(generated_sources)/, \
+            rsgApiStructs.h \
+            rsgApiFuncDecl.h \
+        )
+
+$(GEN) : PRIVATE_PATH := $(LOCAL_PATH)
+$(GEN) : PRIVATE_CUSTOM_TOOL = cat $(PRIVATE_PATH)/rs.spec $(PRIVATE_PATH)/rsg.spec | $(RSG_GENERATOR) $< $@
+$(GEN) : $(RSG_GENERATOR) $(LOCAL_PATH)/rs.spec $(LOCAL_PATH)/rsg.spec
+$(GEN): $(generated_sources)/%.h : $(LOCAL_PATH)/%.h.rsg
+	$(transform-generated-source)
+
+# used in jni/Android.mk
+rs_generated_source += $(GEN)
+LOCAL_GENERATED_SOURCES += $(GEN)
+
+# Generate custom source files
+
+GEN := $(addprefix $(generated_sources)/, \
+            rsgApi.cpp \
+        )
+
+$(GEN) : PRIVATE_PATH := $(LOCAL_PATH)
+$(GEN) : PRIVATE_CUSTOM_TOOL = cat $(PRIVATE_PATH)/rs.spec $(PRIVATE_PATH)/rsg.spec | $(RSG_GENERATOR) $< $@
+$(GEN) : $(RSG_GENERATOR) $(LOCAL_PATH)/rs.spec $(LOCAL_PATH)/rsg.spec
+$(GEN): $(generated_sources)/%.cpp : $(LOCAL_PATH)/%.cpp.rsg
+	$(transform-generated-source)
+
+# used in jni/Android.mk
+rs_generated_source += $(GEN)
+
+LOCAL_GENERATED_SOURCES += $(GEN)
+
+LOCAL_SRC_FILES:= \
+	rsApiAllocation.cpp \
+	rsApiContext.cpp \
+	rsApiDevice.cpp \
+	rsApiElement.cpp \
+	rsApiFileA3D.cpp \
+	rsApiMesh.cpp \
+	rsApiType.cpp \
+
+LOCAL_SHARED_LIBRARIES += libRS_internal
+LOCAL_SHARED_LIBRARIES += liblog
+
+LOCAL_CFLAGS += $(rs_base_CFLAGS)
+# TODO: external/freetype still uses the register keyword
+# Bug: 17163086
+LOCAL_CFLAGS += -Wno-deprecated-register
+
+LOCAL_CPPFLAGS += -fno-exceptions
+
+LOCAL_LDFLAGS += -Wl,--version-script,${LOCAL_PATH}/libRS.map
 
 LOCAL_MODULE_TAGS := optional
 
@@ -240,7 +301,6 @@ LOCAL_CFLAGS += -fPIC
 LOCAL_CPPFLAGS += -fno-exceptions
 
 LOCAL_SRC_FILES:= \
-	rsAdapter.cpp \
 	rsAllocation.cpp \
 	rsAnimation.cpp \
 	rsComponent.cpp \

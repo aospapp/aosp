@@ -126,7 +126,9 @@ typedef enum {
 /* IVD_API_COMMAND_TYPE_T:API command type                                   */
 typedef enum {
     IVD_CMD_VIDEO_NA                          = 0x7FFFFFFF,
-    IVD_CMD_VIDEO_CTL                         = IV_CMD_DUMMY_ELEMENT + 1,
+    IVD_CMD_CREATE                            = IV_CMD_DUMMY_ELEMENT + 1,
+    IVD_CMD_DELETE,
+    IVD_CMD_VIDEO_CTL,
     IVD_CMD_VIDEO_DECODE,
     IVD_CMD_GET_DISPLAY_FRAME,
     IVD_CMD_REL_DISPLAY_FRAME,
@@ -226,7 +228,8 @@ typedef enum {
     IVD_DEC_REF_BUF_NULL                        = 0x28,
     IVD_DEC_FRM_SKIPPED                         = 0x29,
     IVD_RES_CHANGED                             = 0x2a,
-    IVD_DUMMY_ELEMENT_FOR_CODEC_EXTENSIONS      = 0x300,
+    IVD_MEM_ALLOC_FAILED                        = 0x2b,
+    IVD_DUMMY_ELEMENT_FOR_CODEC_EXTENSIONS      = 0xD0,
 }IVD_ERROR_CODES_T;
 
 
@@ -255,10 +258,10 @@ typedef struct {
 }ivd_out_bufdesc_t;
 
 /*****************************************************************************/
-/*   Initialize decoder                                                      */
+/*   Create decoder                                                          */
 /*****************************************************************************/
 
-/* IVD_API_COMMAND_TYPE_T::e_cmd = IVD_CMD_INIT                              */
+/* IVD_API_COMMAND_TYPE_T::e_cmd = IVD_CMD_CREATE                            */
 
 
 typedef struct {
@@ -273,26 +276,36 @@ typedef struct {
     IVD_API_COMMAND_TYPE_T                  e_cmd;
 
     /**
-     *no memrecords which are allocated on request of codec through fill mem records
-     */
-    UWORD32                                 u4_num_mem_rec;
-    /**
-     * maximum height for which codec should be initialized
-     */
-    UWORD32                                 u4_frm_max_wd;
-    /**
-     * maximum width for which codec should be initialized
-     */
-    UWORD32                                 u4_frm_max_ht;
-    /**
      * format in which codec has to give out frame data for display
      */
     IV_COLOR_FORMAT_T                       e_output_format;
+
     /**
-     * pointer to memrecord array, which contains allocated resources
+     * Flag to indicate shared display buffer mode
      */
-    iv_mem_rec_t                            *pv_mem_rec_location;
-}ivd_init_ip_t;
+    UWORD32                                 u4_share_disp_buf;
+
+    /**
+     * Pointer to a function for aligned allocation.
+     */
+    void    *(*pf_aligned_alloc)(void *pv_mem_ctxt, WORD32 alignment, WORD32 size);
+
+    /**
+     * Pointer to a function for aligned free.
+     */
+    void   (*pf_aligned_free)(void *pv_mem_ctxt, void *pv_buf);
+
+    /**
+     * Pointer to memory context that is needed during alloc/free for custom
+     * memory managers. This will be passed as first argument to pf_aligned_alloc and
+     * pf_aligned_free.
+     * If application is using standard memory functions like
+     * malloc/aligned_malloc/memalign/free/aligned_free,
+     * then this is not needed and can be set to NULL
+     */
+    void    *pv_mem_ctxt;
+
+}ivd_create_ip_t;
 
 
 typedef struct {
@@ -305,8 +318,49 @@ typedef struct {
      * u4_error_code
      */
     UWORD32                                 u4_error_code;
-}ivd_init_op_t;
 
+    /**
+     * Codec Handle
+     */
+    void                                    *pv_handle;
+
+}ivd_create_op_t;
+
+
+/*****************************************************************************/
+/*  Delete decoder                                                           */
+/*****************************************************************************/
+
+/* IVD_API_COMMAND_TYPE_T::e_cmd = IVD_CMD_DELETE                              */
+
+
+
+typedef struct {
+    /**
+     * u4_size of the structure
+     */
+    UWORD32                                     u4_size;
+
+    /**
+     * cmd
+     */
+    IVD_API_COMMAND_TYPE_T                       e_cmd;
+
+}ivd_delete_ip_t;
+
+
+typedef struct {
+    /**
+     * u4_size of the structure
+     */
+    UWORD32                                     u4_size;
+
+    /**
+     * error_code
+     */
+    UWORD32                                     u4_error_code;
+
+}ivd_delete_op_t;
 
 /*****************************************************************************/
 /*   Video Decode                                                            */

@@ -18,6 +18,8 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_CFLAGS += \
 	-Wall \
+	-Wextra \
+	-Werror \
 	-fvisibility=hidden \
 	-std=c99
 

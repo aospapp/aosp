@@ -16,8 +16,6 @@
 
 package com.android.settings.fuelgauge;
 
-import static android.os.PowerManager.ACTION_POWER_SAVE_MODE_CHANGING;
-
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -34,13 +32,17 @@ import android.provider.Settings.Global;
 import android.util.Log;
 import android.widget.Switch;
 
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.R;
 import com.android.settings.SettingsActivity;
 import com.android.settings.SettingsPreferenceFragment;
 import com.android.settings.Utils;
+import com.android.settings.dashboard.conditional.BatterySaverCondition;
+import com.android.settings.dashboard.conditional.ConditionManager;
 import com.android.settings.notification.SettingPref;
 import com.android.settings.widget.SwitchBar;
+
+import static android.os.PowerManager.ACTION_POWER_SAVE_MODE_CHANGING;
 
 public class BatterySaverSettings extends SettingsPreferenceFragment
         implements SwitchBar.OnSwitchChangeListener {
@@ -63,7 +65,7 @@ public class BatterySaverSettings extends SettingsPreferenceFragment
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.FUELGAUGE_BATTERY_SAVER;
+        return MetricsEvent.FUELGAUGE_BATTERY_SAVER;
     }
 
     @Override
@@ -144,6 +146,8 @@ public class BatterySaverSettings extends SettingsPreferenceFragment
             if (DEBUG) Log.d(TAG, "Setting mode failed, fallback to current value");
             mHandler.post(mUpdateSwitch);
         }
+        // TODO: Remove once broadcast is in place.
+        ConditionManager.get(getContext()).getCondition(BatterySaverCondition.class).refreshState();
     }
 
     private void updateSwitch() {

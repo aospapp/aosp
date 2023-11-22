@@ -35,6 +35,7 @@ import android.widget.TextView;
 
 import com.android.settings.R;
 import com.android.setupwizardlib.SetupWizardLayout;
+import com.android.setupwizardlib.view.Illustration;
 
 import java.text.NumberFormat;
 import java.util.List;
@@ -119,10 +120,12 @@ public abstract class StorageWizardBase extends Activity {
         scrollView.setVerticalFadingEdgeEnabled(true);
         scrollView.setFadingEdgeLength(scrollView.getVerticalFadingEdgeLength() * 2);
 
-        // Our header assets already have padding baked in
-        final View title = findViewById(R.id.suw_layout_title);
-        title.setPadding(title.getPaddingLeft(), 0, title.getPaddingRight(),
-                title.getPaddingBottom());
+        if (findViewById(R.id.suw_layout_decor) instanceof Illustration) {
+            // Our header illustration already have padding baked in
+            final View title = findViewById(R.id.suw_layout_title);
+            title.setPadding(title.getPaddingLeft(), 0, title.getPaddingRight(),
+                    title.getPaddingBottom());
+        }
     }
 
     @Override
@@ -166,13 +169,27 @@ public abstract class StorageWizardBase extends Activity {
         secondBody.setVisibility(View.VISIBLE);
     }
 
-    protected void setIllustrationInternal(boolean internal) {
-        if (internal) {
-            getSetupWizardLayout().setIllustration(R.drawable.bg_internal_storage_header,
-                    R.drawable.bg_header_horizontal_tile);
-        } else {
-            getSetupWizardLayout().setIllustration(R.drawable.bg_portable_storage_header,
-                    R.drawable.bg_header_horizontal_tile);
+    protected static final int ILLUSTRATION_SETUP = 0;
+    protected static final int ILLUSTRATION_INTERNAL = 1;
+    protected static final int ILLUSTRATION_PORTABLE = 2;
+
+    protected void setIllustrationType(int type) {
+        switch (type) {
+            case ILLUSTRATION_SETUP:
+                getSetupWizardLayout().setIllustration(
+                        R.drawable.bg_setup_header,
+                        R.drawable.bg_header_horizontal_tile);
+                break;
+            case ILLUSTRATION_INTERNAL:
+                getSetupWizardLayout().setIllustration(
+                        R.drawable.bg_internal_storage_header,
+                        R.drawable.bg_header_horizontal_tile);
+                break;
+            case ILLUSTRATION_PORTABLE:
+                getSetupWizardLayout().setIllustration(
+                        R.drawable.bg_portable_storage_header,
+                        R.drawable.bg_header_horizontal_tile);
+                break;
         }
     }
 

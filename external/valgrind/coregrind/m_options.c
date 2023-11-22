@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2000-2013 Nicholas Nethercote
+   Copyright (C) 2000-2015 Nicholas Nethercote
       njn@valgrind.org
 
    This program is free software; you can redistribute it and/or
@@ -67,8 +67,6 @@ const HChar *VG_(clo_vgdb_prefix)    = NULL;
 const HChar *VG_(arg_vgdb_prefix)    = NULL;
 Bool   VG_(clo_vgdb_shadow_registers) = False;
 
-Bool   VG_(clo_db_attach)      = False;
-const HChar*  VG_(clo_db_command)     = GDB_PATH " -nw %f %p";
 Int    VG_(clo_gen_suppressions) = 0;
 Int    VG_(clo_sanity_level)   = 1;
 Int    VG_(clo_verbosity)      = 1;
@@ -131,12 +129,25 @@ UInt   VG_(clo_max_threads)    = MAX_THREADS_DEFAULT;
 Word   VG_(clo_main_stacksize) = 0; /* use client's rlimit.stack */
 Word   VG_(clo_valgrind_stacksize) = VG_DEFAULT_STACK_ACTIVE_SZB;
 Bool   VG_(clo_wait_for_gdb)   = False;
-VgSmc  VG_(clo_smc_check)      = Vg_SmcStack;
 UInt   VG_(clo_kernel_variant) = 0;
-Bool   VG_(clo_dsymutil)       = False;
+Bool   VG_(clo_dsymutil)       = True;
 Bool   VG_(clo_sigill_diag)    = True;
 UInt   VG_(clo_unw_stack_scan_thresh) = 0; /* disabled by default */
 UInt   VG_(clo_unw_stack_scan_frames) = 5;
+
+// Set clo_smc_check so that it provides transparent self modifying
+// code support for "correct" programs at the smallest achievable
+// expense for this arch.
+#if defined(VGA_x86) || defined(VGA_amd64) || defined(VGA_s390x)
+VgSmc VG_(clo_smc_check) = Vg_SmcAllNonFile;
+#elif defined(VGA_ppc32) || defined(VGA_ppc64be) || defined(VGA_ppc64le) \
+      || defined(VGA_arm) || defined(VGA_arm64) \
+      || defined(VGA_mips32) || defined(VGA_mips64) \
+      || defined(VGA_tilegx)
+VgSmc VG_(clo_smc_check) = Vg_SmcStack;
+#else
+#  error "Unknown arch"
+#endif
 
 #if defined(VGO_darwin)
 UInt VG_(clo_resync_filter) = 1; /* enabled, but quiet */
@@ -300,7 +311,7 @@ static HChar const* consume_field ( HChar const* c ) {
    return c;
 }
 
-/* Should we trace into this child executable (across execve etc) ?
+/* Should we trace into this child executable (across execve, spawn etc) ?
    This involves considering --trace-children=,
    --trace-children-skip=, --trace-children-skip-by-arg=, and the name
    of the executable.  'child_argv' must not include the name of the

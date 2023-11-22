@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (C) 1996-2015, International Business Machines Corporation and    *
+ * Copyright (C) 1996-2016, International Business Machines Corporation and    *
  * others. All Rights Reserved.                                                *
  *******************************************************************************
  */
@@ -21,6 +21,7 @@ import com.ibm.icu.impl.ICUDebug;
 import com.ibm.icu.impl.ICUResourceBundle;
 import com.ibm.icu.impl.PatternProps;
 import com.ibm.icu.lang.UCharacter;
+import com.ibm.icu.math.BigDecimal;
 import com.ibm.icu.util.ULocale;
 import com.ibm.icu.util.ULocale.Category;
 import com.ibm.icu.util.UResourceBundle;
@@ -119,34 +120,34 @@ import com.ibm.icu.util.UResourceBundleIterator;
  *
  * <table border="0" width="630">
  *   <tr>
- *     <td width="21"></td>
- *     <td width="257" valign="top"><strong>&lt;&lt; thousand &gt;&gt;</strong></td>
- *     <td width="340" valign="top">[the rule whose base value is 1,000 is applicable to 25,340]</td>
+ *     <td style="width: 21;"></td>
+ *     <td style="width: 257; vertical-align: top;"><strong>&lt;&lt; thousand &gt;&gt;</strong></td>
+ *     <td style="width: 340; vertical-align: top;">[the rule whose base value is 1,000 is applicable to 25,340]</td>
  *   </tr>
  *   <tr>
- *     <td width="21"></td>
- *     <td width="257" valign="top"><strong>twenty-&gt;&gt;</strong> thousand &gt;&gt;</td>
- *     <td width="340" valign="top">[25,340 over 1,000 is 25. The rule for 20 applies.]</td>
+ *     <td style="width: 21;"></td>
+ *     <td style="width: 257; vertical-align: top;"><strong>twenty-&gt;&gt;</strong> thousand &gt;&gt;</td>
+ *     <td style="width: 340; vertical-align: top;">[25,340 over 1,000 is 25. The rule for 20 applies.]</td>
  *   </tr>
  *   <tr>
- *     <td width="21"></td>
- *     <td width="257" valign="top">twenty-<strong>five</strong> thousand &gt;&gt;</td>
- *     <td width="340" valign="top">[25 mod 10 is 5. The rule for 5 is &quot;five.&quot;</td>
+ *     <td style="width: 21;"></td>
+ *     <td style="width: 257; vertical-align: top;">twenty-<strong>five</strong> thousand &gt;&gt;</td>
+ *     <td style="width: 340; vertical-align: top;">[25 mod 10 is 5. The rule for 5 is &quot;five.&quot;</td>
  *   </tr>
  *   <tr>
- *     <td width="21"></td>
- *     <td width="257" valign="top">twenty-five thousand <strong>&lt;&lt; hundred &gt;&gt;</strong></td>
- *     <td width="340" valign="top">[25,340 mod 1,000 is 340. The rule for 100 applies.]</td>
+ *     <td style="width: 21;"></td>
+ *     <td style="width: 257; vertical-align: top;">twenty-five thousand <strong>&lt;&lt; hundred &gt;&gt;</strong></td>
+ *     <td style="width: 340; vertical-align: top;">[25,340 mod 1,000 is 340. The rule for 100 applies.]</td>
  *   </tr>
  *   <tr>
- *     <td width="21"></td>
- *     <td width="257" valign="top">twenty-five thousand <strong>three</strong> hundred &gt;&gt;</td>
- *     <td width="340" valign="top">[340 over 100 is 3. The rule for 3 is &quot;three.&quot;]</td>
+ *     <td style="width: 21;"></td>
+ *     <td style="width: 257; vertical-align: top;">twenty-five thousand <strong>three</strong> hundred &gt;&gt;</td>
+ *     <td style="width: 340; vertical-align: top;">[340 over 100 is 3. The rule for 3 is &quot;three.&quot;]</td>
  *   </tr>
  *   <tr>
- *     <td width="21"></td>
- *     <td width="257" valign="top">twenty-five thousand three hundred <strong>forty</strong></td>
- *     <td width="340" valign="top">[340 mod 100 is 40. The rule for 40 applies. Since 40 divides
+ *     <td style="width: 21;"></td>
+ *     <td style="width: 257; vertical-align: top;">twenty-five thousand three hundred <strong>forty</strong></td>
+ *     <td style="width: 340; vertical-align: top;">[340 mod 100 is 40. The rule for 40 applies. Since 40 divides
  *     evenly by 10, the hyphen and substitution in the brackets are omitted.]</td>
  *   </tr>
  * </table>
@@ -208,22 +209,22 @@ import com.ibm.icu.util.UResourceBundleIterator;
  *
  * <table border="0" width="100%">
  *   <tr>
- *     <td width="5%" valign="top"></td>
- *     <td width="8%" valign="top"><em>bv</em>:</td>
+ *     <td style="width: 5%; vertical-align: top;"></td>
+ *     <td style="width: 8%; vertical-align: top;"><em>bv</em>:</td>
  *     <td valign="top"><em>bv</em> specifies the rule's base value. <em>bv</em> is a decimal
  *     number expressed using ASCII digits. <em>bv</em> may contain spaces, period, and commas,
  *     which are ignored. The rule's divisor is the highest power of 10 less than or equal to
  *     the base value.</td>
  *   </tr>
  *   <tr>
- *     <td width="5%" valign="top"></td>
- *     <td width="8%" valign="top"><em>bv</em>/<em>rad</em>:</td>
+ *     <td style="width: 5%; vertical-align: top;"></td>
+ *     <td style="width: 8%; vertical-align: top;"><em>bv</em>/<em>rad</em>:</td>
  *     <td valign="top"><em>bv</em> specifies the rule's base value. The rule's divisor is the
  *     highest power of <em>rad</em> less than or equal to the base value.</td>
  *   </tr>
  *   <tr>
- *     <td width="5%" valign="top"></td>
- *     <td width="8%" valign="top"><em>bv</em>&gt;:</td>
+ *     <td style="width: 5%; vertical-align: top;"></td>
+ *     <td style="width: 8%; vertical-align: top;"><em>bv</em>&gt;:</td>
  *     <td valign="top"><em>bv</em> specifies the rule's base value. To calculate the divisor,
  *     let the radix be 10, and the exponent be the highest exponent of the radix that yields a
  *     result less than or equal to the base value. Every &gt; character after the base value
@@ -231,8 +232,8 @@ import com.ibm.icu.util.UResourceBundleIterator;
  *     raised to the power of the exponent; otherwise, the divisor is 1.</td>
  *   </tr>
  *   <tr>
- *     <td width="5%" valign="top"></td>
- *     <td width="8%" valign="top"><em>bv</em>/<em>rad</em>&gt;:</td>
+ *     <td style="width: 5%; vertical-align: top;"></td>
+ *     <td style="width: 8%; vertical-align: top;"><em>bv</em>/<em>rad</em>&gt;:</td>
  *     <td valign="top"><em>bv</em> specifies the rule's base value. To calculate the divisor,
  *     let the radix be <em>rad</em>, and the exponent be the highest exponent of the radix that
  *     yields a result less than or equal to the base value. Every &gt; character after the radix
@@ -240,29 +241,60 @@ import com.ibm.icu.util.UResourceBundleIterator;
  *     raised to the power of the exponent; otherwise, the divisor is 1.</td>
  *   </tr>
  *   <tr>
- *     <td width="5%" valign="top"></td>
- *     <td width="8%" valign="top">-x:</td>
+ *     <td style="width: 5%; vertical-align: top;"></td>
+ *     <td style="width: 8%; vertical-align: top;">-x:</td>
  *     <td valign="top">The rule is a negative-number rule.</td>
  *   </tr>
  *   <tr>
- *     <td width="5%" valign="top"></td>
- *     <td width="8%" valign="top">x.x:</td>
- *     <td valign="top">The rule is an <em>improper fraction rule.</em></td>
+ *     <td style="width: 5%; vertical-align: top;"></td>
+ *     <td style="width: 8%; vertical-align: top;">x.x:</td>
+ *     <td valign="top">The rule is an <em>improper fraction rule</em>. If the full stop in
+ *     the middle of the rule name is replaced with the decimal point
+ *     that is used in the language or DecimalFormatSymbols, then that rule will
+ *     have precedence when formatting and parsing this rule. For example, some
+ *     languages use the comma, and can thus be written as x,x instead. For example,
+ *     you can use "x.x: &lt;&lt; point &gt;&gt;;x,x: &lt;&lt; comma &gt;&gt;;" to
+ *     handle the decimal point that matches the language's natural spelling of
+ *     the punctuation of either the full stop or comma.</td>
  *   </tr>
  *   <tr>
- *     <td width="5%" valign="top"></td>
- *     <td width="8%" valign="top">0.x:</td>
- *     <td valign="top">The rule is a <em>proper fraction rule.</em></td>
+ *     <td style="width: 5%; vertical-align: top;"></td>
+ *     <td style="width: 8%; vertical-align: top;">0.x:</td>
+ *     <td valign="top">The rule is a <em>proper fraction rule</em>. If the full stop in
+ *     the middle of the rule name is replaced with the decimal point
+ *     that is used in the language or DecimalFormatSymbols, then that rule will
+ *     have precedence when formatting and parsing this rule. For example, some
+ *     languages use the comma, and can thus be written as 0,x instead. For example,
+ *     you can use "0.x: point &gt;&gt;;0,x: comma &gt;&gt;;" to
+ *     handle the decimal point that matches the language's natural spelling of
+ *     the punctuation of either the full stop or comma</td>
  *   </tr>
  *   <tr>
- *     <td width="5%" valign="top"></td>
- *     <td width="8%" valign="top">x.0:</td>
- *     <td valign="top">The rule is a <em>master rule.</em></td>
+ *     <td style="width: 5%; vertical-align: top;"></td>
+ *     <td style="width: 8%; vertical-align: top;">x.0:</td>
+ *     <td valign="top">The rule is a <em>master rule</em>. If the full stop in
+ *     the middle of the rule name is replaced with the decimal point
+ *     that is used in the language or DecimalFormatSymbols, then that rule will
+ *     have precedence when formatting and parsing this rule. For example, some
+ *     languages use the comma, and can thus be written as x,0 instead. For example,
+ *     you can use "x.0: &lt;&lt; point;x,0: &lt;&lt; comma;" to
+ *     handle the decimal point that matches the language's natural spelling of
+ *     the punctuation of either the full stop or comma</td>
  *   </tr>
  *   <tr>
- *     <td width="5%" valign="top"></td>
- *     <td width="8%" valign="top"><em>nothing</em></td>
- *     <td valign="top">If the rule's rule descriptor is left out, the base value is one plus the
+ *     <td style="width: 5%; vertical-align: top;"></td>
+ *     <td style="width: 8%; vertical-align: top;">Inf:</td>
+ *     <td style="vertical-align: top;">The rule for infinity.</td>
+ *   </tr>
+ *   <tr>
+ *     <td style="width: 5%; vertical-align: top;"></td>
+ *     <td style="width: 8%; vertical-align: top;">NaN:</td>
+ *     <td style="vertical-align: top;">The rule for an IEEE 754 NaN (not a number).</td>
+ *   </tr>
+ *   <tr>
+ *     <td style="width: 5%; vertical-align: top;"></td>
+ *     <td style="width: 8%; vertical-align: top;"><em>nothing</em></td>
+ *     <td style="vertical-align: top;">If the rule's rule descriptor is left out, the base value is one plus the
  *     preceding rule's base value (or zero if this is the first rule in the list) in a normal
  *     rule set.&nbsp; In a fraction rule set, the base value is the same as the preceding rule's
  *     base value.</td>
@@ -328,124 +360,124 @@ import com.ibm.icu.util.UResourceBundleIterator;
  *
  * <table border="0" width="100%">
  *   <tr>
- *     <td width="37"></td>
- *     <td width="23">&gt;&gt;</td>
- *     <td width="165" valign="top">in normal rule</td>
+ *     <td style="width: 37;"></td>
+ *     <td style="width: 23;">&gt;&gt;</td>
+ *     <td style="width: 165; vertical-align: top;">in normal rule</td>
  *     <td>Divide the number by the rule's divisor and format the remainder</td>
  *   </tr>
  *   <tr>
- *     <td width="37"></td>
- *     <td width="23"></td>
- *     <td width="165" valign="top">in negative-number rule</td>
+ *     <td style="width: 37;"></td>
+ *     <td style="width: 23;"></td>
+ *     <td style="width: 165; vertical-align: top;">in negative-number rule</td>
  *     <td>Find the absolute value of the number and format the result</td>
  *   </tr>
  *   <tr>
- *     <td width="37"></td>
- *     <td width="23"></td>
- *     <td width="165" valign="top">in fraction or master rule</td>
+ *     <td style="width: 37;"></td>
+ *     <td style="width: 23;"></td>
+ *     <td style="width: 165; vertical-align: top;">in fraction or master rule</td>
  *     <td>Isolate the number's fractional part and format it.</td>
  *   </tr>
  *   <tr>
- *     <td width="37"></td>
- *     <td width="23"></td>
- *     <td width="165" valign="top">in rule in fraction rule set</td>
+ *     <td style="width: 37;"></td>
+ *     <td style="width: 23;"></td>
+ *     <td style="width: 165; vertical-align: top;">in rule in fraction rule set</td>
  *     <td>Not allowed.</td>
  *   </tr>
  *   <tr>
- *     <td width="37"></td>
- *     <td width="23">&gt;&gt;&gt;</td>
- *     <td width="165" valign="top">in normal rule</td>
+ *     <td style="width: 37;"></td>
+ *     <td style="width: 23;">&gt;&gt;&gt;</td>
+ *     <td style="width: 165; vertical-align: top;">in normal rule</td>
  *     <td>Divide the number by the rule's divisor and format the remainder,
  *       but bypass the normal rule-selection process and just use the
  *       rule that precedes this one in this rule list.</td>
  *   </tr>
  *   <tr>
- *     <td width="37"></td>
- *     <td width="23"></td>
- *     <td width="165" valign="top">in all other rules</td>
+ *     <td style="width: 37;"></td>
+ *     <td style="width: 23;"></td>
+ *     <td style="width: 165; vertical-align: top;">in all other rules</td>
  *     <td>Not allowed.</td>
  *   </tr>
  *   <tr>
- *     <td width="37"></td>
- *     <td width="23">&lt;&lt;</td>
- *     <td width="165" valign="top">in normal rule</td>
+ *     <td style="width: 37;"></td>
+ *     <td style="width: 23;">&lt;&lt;</td>
+ *     <td style="width: 165; vertical-align: top;">in normal rule</td>
  *     <td>Divide the number by the rule's divisor and format the quotient</td>
  *   </tr>
  *   <tr>
- *     <td width="37"></td>
- *     <td width="23"></td>
- *     <td width="165" valign="top">in negative-number rule</td>
+ *     <td style="width: 37;"></td>
+ *     <td style="width: 23;"></td>
+ *     <td style="width: 165; vertical-align: top;">in negative-number rule</td>
  *     <td>Not allowed.</td>
  *   </tr>
  *   <tr>
- *     <td width="37"></td>
- *     <td width="23"></td>
- *     <td width="165" valign="top">in fraction or master rule</td>
+ *     <td style="width: 37;"></td>
+ *     <td style="width: 23;"></td>
+ *     <td style="width: 165; vertical-align: top;">in fraction or master rule</td>
  *     <td>Isolate the number's integral part and format it.</td>
  *   </tr>
  *   <tr>
- *     <td width="37"></td>
- *     <td width="23"></td>
- *     <td width="165" valign="top">in rule in fraction rule set</td>
+ *     <td style="width: 37;"></td>
+ *     <td style="width: 23;"></td>
+ *     <td style="width: 165; vertical-align: top;">in rule in fraction rule set</td>
  *     <td>Multiply the number by the rule's base value and format the result.</td>
  *   </tr>
  *   <tr>
- *     <td width="37"></td>
- *     <td width="23">==</td>
- *     <td width="165" valign="top">in all rule sets</td>
+ *     <td style="width: 37;"></td>
+ *     <td style="width: 23;">==</td>
+ *     <td style="width: 165; vertical-align: top;">in all rule sets</td>
  *     <td>Format the number unchanged</td>
  *   </tr>
  *   <tr>
- *     <td width="37"></td>
- *     <td width="23">[]</td>
- *     <td width="165" valign="top">in normal rule</td>
+ *     <td style="width: 37;"></td>
+ *     <td style="width: 23;">[]</td>
+ *     <td style="width: 165; vertical-align: top;">in normal rule</td>
  *     <td>Omit the optional text if the number is an even multiple of the rule's divisor</td>
  *   </tr>
  *   <tr>
- *     <td width="37"></td>
- *     <td width="23"></td>
- *     <td width="165" valign="top">in negative-number rule</td>
+ *     <td style="width: 37;"></td>
+ *     <td style="width: 23;"></td>
+ *     <td style="width: 165; vertical-align: top;">in negative-number rule</td>
  *     <td>Not allowed.</td>
  *   </tr>
  *   <tr>
- *     <td width="37"></td>
- *     <td width="23"></td>
- *     <td width="165" valign="top">in improper-fraction rule</td>
+ *     <td style="width: 37;"></td>
+ *     <td style="width: 23;"></td>
+ *     <td style="width: 165; vertical-align: top;">in improper-fraction rule</td>
  *     <td>Omit the optional text if the number is between 0 and 1 (same as specifying both an
  *     x.x rule and a 0.x rule)</td>
  *   </tr>
  *   <tr>
- *     <td width="37"></td>
- *     <td width="23"></td>
- *     <td width="165" valign="top">in master rule</td>
+ *     <td style="width: 37;"></td>
+ *     <td style="width: 23;"></td>
+ *     <td style="width: 165; vertical-align: top;">in master rule</td>
  *     <td>Omit the optional text if the number is an integer (same as specifying both an x.x
  *     rule and an x.0 rule)</td>
  *   </tr>
  *   <tr>
- *     <td width="37"></td>
- *     <td width="23"></td>
- *     <td width="165" valign="top">in proper-fraction rule</td>
+ *     <td style="width: 37;"></td>
+ *     <td style="width: 23;"></td>
+ *     <td style="width: 165; vertical-align: top;">in proper-fraction rule</td>
  *     <td>Not allowed.</td>
  *   </tr>
  *   <tr>
- *     <td width="37"></td>
- *     <td width="23"></td>
- *     <td width="165" valign="top">in rule in fraction rule set</td>
+ *     <td style="width: 37;"></td>
+ *     <td style="width: 23;"></td>
+ *     <td style="width: 165; vertical-align: top;">in rule in fraction rule set</td>
  *     <td>Omit the optional text if multiplying the number by the rule's base value yields 1.</td>
  *   </tr>
  *   <tr>
- *     <td width="37">$(cardinal,<i>plural syntax</i>)$</td>
- *     <td width="23"></td>
- *     <td width="165" valign="top">in all rule sets</td>
+ *     <td style="width: 37;">$(cardinal,<i>plural syntax</i>)$</td>
+ *     <td style="width: 23;"></td>
+ *     <td style="width: 165; vertical-align: top;">in all rule sets</td>
  *     <td>This provides the ability to choose a word based on the number divided by the radix to the power of the
  *     exponent of the base value for the specified locale, which is normally equivalent to the &lt;&lt; value.
  *     This uses the cardinal plural rules from PluralFormat. All strings used in the plural format are treated
  *     as the same base value for parsing.</td>
  *   </tr>
  *   <tr>
- *     <td width="37">$(ordinal,<i>plural syntax</i>)$</td>
- *     <td width="23"></td>
- *     <td width="165" valign="top">in all rule sets</td>
+ *     <td style="width: 37;">$(ordinal,<i>plural syntax</i>)$</td>
+ *     <td style="width: 23;"></td>
+ *     <td style="width: 165; vertical-align: top;">in all rule sets</td>
  *     <td>This provides the ability to choose a word based on the number divided by the radix to the power of the
  *     exponent of the base value for the specified locale, which is normally equivalent to the &lt;&lt; value.
  *     This uses the ordinal plural rules from PluralFormat. All strings used in the plural format are treated
@@ -458,20 +490,20 @@ import com.ibm.icu.util.UResourceBundleIterator;
  *
  * <table border="0" width="100%">
  *   <tr>
- *     <td width="42"></td>
- *     <td width="166" valign="top">a rule set name</td>
+ *     <td style="width: 42;"></td>
+ *     <td style="width: 166; vertical-align: top;">a rule set name</td>
  *     <td>Perform the mathematical operation on the number, and format the result using the
  *     named rule set.</td>
  *   </tr>
  *   <tr>
- *     <td width="42"></td>
- *     <td width="166" valign="top">a DecimalFormat pattern</td>
+ *     <td style="width: 42;"></td>
+ *     <td style="width: 166; vertical-align: top;">a DecimalFormat pattern</td>
  *     <td>Perform the mathematical operation on the number, and format the result using a
  *     DecimalFormat with the specified pattern.&nbsp; The pattern must begin with 0 or #.</td>
  *   </tr>
  *   <tr>
- *     <td width="42"></td>
- *     <td width="166" valign="top">nothing</td>
+ *     <td style="width: 42;"></td>
+ *     <td style="width: 166; vertical-align: top;">nothing</td>
  *     <td>Perform the mathematical operation on the number, and format the result using the rule
  *     set containing the current rule, except:<ul>
  *       <li>You can't have an empty substitution descriptor with a == substitution.</li>
@@ -543,12 +575,12 @@ public class RuleBasedNumberFormat extends NumberFormat {
      * The formatter's rule sets.
      */
     private transient NFRuleSet[] ruleSets = null;
-    
+
     /**
-     * The formatter's rule sets' descriptions.
+     * The formatter's rule names mapped to rule sets.
      */
-    private transient String[] ruleSetDescriptions = null;
-    
+    private transient Map<String, NFRuleSet> ruleSetsMap = null;
+
     /**
      * A pointer to the formatter's default rule set.  This is always included
      * in ruleSets.
@@ -561,6 +593,12 @@ public class RuleBasedNumberFormat extends NumberFormat {
      * @serial
      */
     private ULocale locale = null;
+
+    /**
+     * The formatter's rounding mode.
+     * @serial
+     */
+    private int roundingMode = BigDecimal.ROUND_UNNECESSARY;
 
     /**
      * Collator to be used in lenient parsing.  This variable is lazy-evaluated:
@@ -585,6 +623,18 @@ public class RuleBasedNumberFormat extends NumberFormat {
      * here so it can be shared by different NFSubstitutions.
      */
     private transient DecimalFormat decimalFormat = null;
+
+    /**
+     * The rule used when dealing with infinity. This is lazy-evaluated, and derived from decimalFormat.
+     * It is here so it can be shared by different NFRuleSets.
+     */
+    private transient NFRule defaultInfinityRule = null;
+
+    /**
+     * The rule used when dealing with IEEE 754 NaN. This is lazy-evaluated, and derived from decimalFormat.
+     * It is here so it can be shared by different NFRuleSets.
+     */
+    private transient NFRule defaultNaNRule = null;
 
     /**
      * Flag specifying whether lenient parse mode is on or off.  Off by default.
@@ -797,19 +847,18 @@ public class RuleBasedNumberFormat extends NumberFormat {
         catch (MissingResourceException e1) {
         }
 
-        try {
-            UResourceBundle locb = bundle.get(locnames[format-1]);
-            localizations = new String[locb.getSize()][];
+        // We use findTopLevel() instead of get() because
+        // it's faster when we know that it's usually going to fail.
+        UResourceBundle locNamesBundle = bundle.findTopLevel(locnames[format - 1]);
+        if (locNamesBundle != null) {
+            localizations = new String[locNamesBundle.getSize()][];
             for (int i = 0; i < localizations.length; ++i) {
-                localizations[i] = locb.get(i).getStringArray();
+                localizations[i] = locNamesBundle.get(i).getStringArray();
             }
         }
-        catch (MissingResourceException e) {
-            // might have description and no localizations, or no description...
-        }
+        // else there are no localized names. It's not that important.
 
         init(description.toString(), localizations);
-
     }
 
     private static final String[] rulenames = {
@@ -910,8 +959,8 @@ public class RuleBasedNumberFormat extends NumberFormat {
         // accumulate the descriptions of all the rule sets in a
         // StringBuffer, then cast it to a String and return it
         StringBuilder result = new StringBuilder();
-        for (int i = 0; i < ruleSets.length; i++) {
-            result.append(ruleSets[i].toString());
+        for (NFRuleSet ruleSet : ruleSets) {
+            result.append(ruleSet.toString());
         }
         return result.toString();
     }
@@ -926,6 +975,7 @@ public class RuleBasedNumberFormat extends NumberFormat {
         // have an implementation-independent streaming format
         out.writeUTF(this.toString());
         out.writeObject(this.locale);
+        out.writeInt(this.roundingMode);
     }
 
     /**
@@ -944,6 +994,10 @@ public class RuleBasedNumberFormat extends NumberFormat {
         } catch (Exception e) {
             loc = ULocale.getDefault(Category.FORMAT);
         }
+        try {
+            roundingMode = in.readInt();
+        } catch (Exception ignored) {
+        }
 
         // build a brand-new RuleBasedNumberFormat from the description,
         // then steal its substructure.  This object's substructure and
@@ -951,11 +1005,14 @@ public class RuleBasedNumberFormat extends NumberFormat {
         // get swept up by the garbage collector
         RuleBasedNumberFormat temp = new RuleBasedNumberFormat(description, loc);
         ruleSets = temp.ruleSets;
+        ruleSetsMap = temp.ruleSetsMap;
         defaultRuleSet = temp.defaultRuleSet;
         publicRuleSetNames = temp.publicRuleSetNames;
         decimalFormatSymbols = temp.decimalFormatSymbols;
         decimalFormat = temp.decimalFormat;
         locale = temp.locale;
+        defaultInfinityRule = temp.defaultInfinityRule;
+        defaultNaNRule = temp.defaultNaNRule;
     }
 
 
@@ -995,8 +1052,7 @@ public class RuleBasedNumberFormat extends NumberFormat {
     private String[] getNameListForLocale(ULocale loc) {
         if (loc != null && ruleSetDisplayNames != null) {
             String[] localeNames = { loc.getBaseName(), ULocale.getDefault(Category.DISPLAY).getBaseName() };
-            for (int i = 0; i < localeNames.length; ++i) {
-                String lname = localeNames[i];
+            for (String lname : localeNames) {
                 while (lname.length() > 0) {
                     String[] names = ruleSetDisplayNames.get(lname);
                     if (names != null) {
@@ -1164,7 +1220,7 @@ public class RuleBasedNumberFormat extends NumberFormat {
     }
 
     /**
-     * <strong><font face=helvetica color=red>NEW</font></strong>
+     * <strong style="font-family: helvetica; color: red;">NEW</strong>
      * Implement com.ibm.icu.text.NumberFormat:
      * Format a BigInteger.
      * @stable ICU 2.0
@@ -1176,7 +1232,7 @@ public class RuleBasedNumberFormat extends NumberFormat {
     }
 
     /**
-     * <strong><font face=helvetica color=red>NEW</font></strong>
+     * <strong style="font-family: helvetica; color: red;">NEW</strong>
      * Implement com.ibm.icu.text.NumberFormat:
      * Format a BigDecimal.
      * @stable ICU 2.0
@@ -1188,7 +1244,7 @@ public class RuleBasedNumberFormat extends NumberFormat {
     }
 
     /**
-     * <strong><font face=helvetica color=red>NEW</font></strong>
+     * <strong style="font-family: helvetica; color: red;">NEW</strong>
      * Implement com.ibm.icu.text.NumberFormat:
      * Format a BigDecimal.
      * @stable ICU 2.0
@@ -1228,7 +1284,7 @@ public class RuleBasedNumberFormat extends NumberFormat {
 
         // keep track of the largest number of characters consumed in
         // the various trials, and the result that corresponds to it
-        Number result = Long.valueOf(0);
+        Number result = NFRule.ZERO;
         ParsePosition highWaterMark = new ParsePosition(workingPos.getIndex());
 
         // iterate over the public rule sets (beginning with the default one)
@@ -1409,10 +1465,18 @@ public class RuleBasedNumberFormat extends NumberFormat {
             if (decimalFormat != null) {
                 decimalFormat.setDecimalFormatSymbols(decimalFormatSymbols);
             }
-            
+            if (defaultInfinityRule != null) {
+                defaultInfinityRule = null;
+                getDefaultInfinityRule(); // Reset with the new DecimalFormatSymbols
+            }
+            if (defaultNaNRule != null) {
+                defaultNaNRule = null;
+                getDefaultNaNRule(); // Reset with the new DecimalFormatSymbols
+            }
+
             // Apply the new decimalFormatSymbols by reparsing the rulesets
-            for (int i = 0; i < ruleSets.length; i++) {
-                ruleSets[i].parseRules(ruleSetDescriptions[i], this);
+            for (NFRuleSet ruleSet : ruleSets) {
+                ruleSet.setDecimalFormatSymbols(decimalFormatSymbols);
             }
         }
     }
@@ -1440,6 +1504,41 @@ public class RuleBasedNumberFormat extends NumberFormat {
             capitalizationBrkIter = BreakIterator.getSentenceInstance(locale);
         }
     }
+
+    /**
+     * Returns the rounding mode.
+     *
+     * @return A rounding mode, between <code>BigDecimal.ROUND_UP</code> and
+     * <code>BigDecimal.ROUND_UNNECESSARY</code>.
+     * @see #setRoundingMode
+     * @see java.math.BigDecimal
+     * @draft ICU 56
+     */
+    @Override
+    public int getRoundingMode() {
+        return roundingMode;
+    }
+
+    /**
+     * Sets the rounding mode. This has no effect unless the rounding increment is greater
+     * than zero.
+     *
+     * @param roundingMode A rounding mode, between <code>BigDecimal.ROUND_UP</code> and
+     * <code>BigDecimal.ROUND_UNNECESSARY</code>.
+     * @exception IllegalArgumentException if <code>roundingMode</code> is unrecognized.
+     * @see #getRoundingMode
+     * @see java.math.BigDecimal
+     * @draft ICU 56
+     */
+    @Override
+    public void setRoundingMode(int roundingMode) {
+        if (roundingMode < BigDecimal.ROUND_UP || roundingMode > BigDecimal.ROUND_UNNECESSARY) {
+            throw new IllegalArgumentException("Invalid rounding mode: " + roundingMode);
+        }
+
+        this.roundingMode = roundingMode;
+    }
+
 
     //-----------------------------------------------------------------------
     // package-internal API
@@ -1490,17 +1589,37 @@ public class RuleBasedNumberFormat extends NumberFormat {
 
     DecimalFormat getDecimalFormat() {
         if (decimalFormat == null) {
-            decimalFormat = (DecimalFormat)NumberFormat.getInstance(locale);
-
-            if (decimalFormatSymbols != null) {
-                decimalFormat.setDecimalFormatSymbols(decimalFormatSymbols);
-            }
+            // Don't use NumberFormat.getInstance, which can cause a recursive call
+            String pattern = getPattern(locale, NUMBERSTYLE);
+            decimalFormat = new DecimalFormat(pattern, getDecimalFormatSymbols());
         }
         return decimalFormat;
     }
 
     PluralFormat createPluralFormat(PluralRules.PluralType pluralType, String pattern) {
         return new PluralFormat(locale, pluralType, pattern, getDecimalFormat());
+    }
+
+    /**
+     * Returns the default rule for infinity. This object is lazily created: this function
+     * creates it the first time it's called.
+     */
+    NFRule getDefaultInfinityRule() {
+        if (defaultInfinityRule == null) {
+            defaultInfinityRule = new NFRule(this, "Inf: " + getDecimalFormatSymbols().getInfinity());
+        }
+        return defaultInfinityRule;
+    }
+
+    /**
+     * Returns the default rule for NaN. This object is lazily created: this function
+     * creates it the first time it's called.
+     */
+    NFRule getDefaultNaNRule() {
+        if (defaultNaNRule == null) {
+            defaultNaNRule = new NFRule(this, "NaN: " + getDecimalFormatSymbols().getNaN());
+        }
+        return defaultNaNRule;
     }
 
     //-----------------------------------------------------------------------
@@ -1579,15 +1698,21 @@ public class RuleBasedNumberFormat extends NumberFormat {
         // pre-flight parsing the description and count the number of
         // rule sets (";%" marks the end of one rule set and the beginning
         // of the next)
-        int numRuleSets = 0;
-        for (int p = descBuf.indexOf(";%"); p != -1; p = descBuf.indexOf(";%", p)) {
+        int numRuleSets = 1;
+        int p = 0;
+        while ((p = descBuf.indexOf(";%", p)) != -1) {
             ++numRuleSets;
-            ++p;
+            p += 2; // Skip the length of ";%"
         }
-        ++numRuleSets;
 
         // our rule list is an array of the appropriate size
         ruleSets = new NFRuleSet[numRuleSets];
+        ruleSetsMap = new HashMap<String, NFRuleSet>(numRuleSets * 2 + 1);
+        defaultRuleSet = null;
+
+        // Used to count the number of public rule sets
+        // Public rule sets have names that begin with % instead of %%.
+        int publicRuleSetCount = 0;
 
         // divide up the descriptions into individual rule-set descriptions
         // and store them in a temporary array.  At each step, we also
@@ -1596,18 +1721,34 @@ public class RuleBasedNumberFormat extends NumberFormat {
         // the rest of the descriptions and finish initializing everything
         // because we have to know the names and locations of all the rule
         // sets before we can actually set everything up
-        ruleSetDescriptions = new String[numRuleSets];
+        String[] ruleSetDescriptions = new String[numRuleSets];
 
         int curRuleSet = 0;
         int start = 0;
-        for (int p = descBuf.indexOf(";%"); p != -1; p = descBuf.indexOf(";%", start)) {
+
+        while (curRuleSet < ruleSets.length) {
+            p = descBuf.indexOf(";%", start);
+            if (p < 0) {
+                p = descBuf.length() - 1;
+            }
             ruleSetDescriptions[curRuleSet] = descBuf.substring(start, p + 1);
-            ruleSets[curRuleSet] = new NFRuleSet(ruleSetDescriptions, curRuleSet);
+            NFRuleSet ruleSet = new NFRuleSet(this, ruleSetDescriptions, curRuleSet);
+            ruleSets[curRuleSet] = ruleSet;
+            String currentName = ruleSet.getName();
+            ruleSetsMap.put(currentName, ruleSet);
+            if (!currentName.startsWith("%%")) {
+                ++publicRuleSetCount;
+                if (defaultRuleSet == null
+                        && currentName.equals("%spellout-numbering")
+                        || currentName.equals("%digits-ordinal")
+                        || currentName.equals("%duration"))
+                {
+                    defaultRuleSet = ruleSet;
+                }
+            }
             ++curRuleSet;
             start = p + 1;
         }
-        ruleSetDescriptions[curRuleSet] = descBuf.substring(start);
-        ruleSets[curRuleSet] = new NFRuleSet(ruleSetDescriptions, curRuleSet);
 
         // now we can take note of the formatter's default rule set, which
         // is the last public rule set in the description (it's the last
@@ -1622,20 +1763,7 @@ public class RuleBasedNumberFormat extends NumberFormat {
         // Set the default ruleset to the last public ruleset, unless one of the predefined
         // ruleset names %spellout-numbering, %digits-ordinal, or %duration is found
 
-        boolean defaultNameFound = false;
-        int n = ruleSets.length;
-        defaultRuleSet = ruleSets[ruleSets.length - 1];
-
-        while (--n >= 0) {
-            String currentName = ruleSets[n].getName();
-            if (currentName.equals("%spellout-numbering") || currentName.equals("%digits-ordinal") || currentName.equals("%duration")) {
-                defaultRuleSet = ruleSets[n];
-                defaultNameFound = true;
-                break;
-            }
-        }
-
-        if ( !defaultNameFound ) {
+        if (defaultRuleSet == null) {
             for (int i = ruleSets.length - 1; i >= 0; --i) {
                 if (!ruleSets[i].getName().startsWith("%%")) {
                     defaultRuleSet = ruleSets[i];
@@ -1643,24 +1771,18 @@ public class RuleBasedNumberFormat extends NumberFormat {
                 }
             }
         }
+        if (defaultRuleSet == null) {
+            defaultRuleSet = ruleSets[ruleSets.length - 1];
+        }
 
         // finally, we can go back through the temporary descriptions
         // list and finish setting up the substructure
         for (int i = 0; i < ruleSets.length; i++) {
-            ruleSets[i].parseRules(ruleSetDescriptions[i], this);
+            ruleSets[i].parseRules(ruleSetDescriptions[i]);
         }
 
         // Now that the rules are initialized, the 'real' default rule
         // set can be adjusted by the localization data.
-
-        // count the number of public rule sets
-        // (public rule sets have names that begin with % instead of %%)
-        int publicRuleSetCount = 0;
-        for (int i = 0; i < ruleSets.length; i++) {
-            if (!ruleSets[i].getName().startsWith("%%")) {
-                ++publicRuleSetCount;
-            }
-        }
 
         // prepare an array of the proper size and copy the names into it
         String[] publicRuleSetTemp = new String[publicRuleSetCount];
@@ -1787,26 +1909,6 @@ public class RuleBasedNumberFormat extends NumberFormat {
         return result;
     }
 
-//    /**
-//     * This function is called ONLY DURING CONSTRUCTION to fill in the
-//     * defaultRuleSet variable once we've set up all the rule sets.
-//     * The default rule set is the last public rule set in the description.
-//     * (It's the last rather than the first so that a caller can append
-//     * text to the end of an existing formatter description to change its
-//     * behavior.)
-//     */
-//    private void initDefaultRuleSet() {
-//        // seek backward from the end of the list until we reach a rule set
-//        // whose name DOESN'T begin with %%.  That's the default rule set
-//        for (int i = ruleSets.length - 1; i >= 0; --i) {
-//            if (!ruleSets[i].getName().startsWith("%%")) {
-//                defaultRuleSet = ruleSets[i];
-//                return;
-//            }
-//        }
-//        defaultRuleSet = ruleSets[ruleSets.length - 1];
-//    }
-
     //-----------------------------------------------------------------------
     // formatting implementation
     //-----------------------------------------------------------------------
@@ -1826,7 +1928,11 @@ public class RuleBasedNumberFormat extends NumberFormat {
         // position of 0 and the number being formatted) to the rule set
         // for formatting
         StringBuffer result = new StringBuffer();
-        ruleSet.format(number, result, 0);
+        if (getRoundingMode() != BigDecimal.ROUND_UNNECESSARY) {
+            // We convert to a string because BigDecimal insists on excessive precision.
+            number = new BigDecimal(Double.toString(number)).setScale(getMaximumFractionDigits(), roundingMode).doubleValue();
+        }
+        ruleSet.format(number, result, 0, 0);
         postProcess(result, ruleSet);
         return result.toString();
     }
@@ -1851,7 +1957,7 @@ public class RuleBasedNumberFormat extends NumberFormat {
         // position of 0 and the number being formatted) to the rule set
         // for formatting
         StringBuffer result = new StringBuffer();
-        ruleSet.format(number, result, 0);
+        ruleSet.format(number, result, 0, 0);
         postProcess(result, ruleSet);
         return result.toString();
     }
@@ -1913,11 +2019,10 @@ public class RuleBasedNumberFormat extends NumberFormat {
      * @return The rule set with that name
      */
     NFRuleSet findRuleSet(String name) throws IllegalArgumentException {
-        for (int i = 0; i < ruleSets.length; i++) {
-            if (ruleSets[i].getName().equals(name)) {
-                return ruleSets[i];
-            }
+        NFRuleSet result = ruleSetsMap.get(name);
+        if (result == null) {
+            throw new IllegalArgumentException("No rule set named " + name);
         }
-        throw new IllegalArgumentException("No rule set named " + name);
+        return result;
     }
 }

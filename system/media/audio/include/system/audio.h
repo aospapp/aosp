@@ -28,6 +28,19 @@
 
 __BEGIN_DECLS
 
+/* The macro FCC_2 highlights places where there are 2-channel assumptions.
+ * This is typically due to legacy implementation of stereo input or output.
+ * Search also for "2", "left", "right", "[0]", "[1]", ">> 16", "<< 16", etc.
+ * Do not change this value.
+ */
+#define FCC_2 2     // FCC_2 = Fixed Channel Count 2
+
+/* The macro FCC_8 highlights places where there are 8-channel assumptions.
+ * This is typically due to audio mixer and resampler limitations.
+ * Do not change this value without verifying all locations that use it.
+ */
+#define FCC_8 8     // FCC_8 = Fixed Channel Count 8
+
 /* The enums were moved here mostly from
  * frameworks/base/include/media/AudioSystem.h
  */
@@ -64,6 +77,8 @@ typedef enum {
     AUDIO_STREAM_REROUTING        = 11, /* For dynamic policy output mixes */
     AUDIO_STREAM_PATCH            = 12, /* For internal audio flinger tracks. Fixed volume */
     AUDIO_STREAM_PUBLIC_CNT       = AUDIO_STREAM_TTS + 1,
+    AUDIO_STREAM_FOR_POLICY_CNT   = AUDIO_STREAM_PATCH, /* number of streams considered by
+                                           audio policy for volume and routing */
     AUDIO_STREAM_CNT              = AUDIO_STREAM_PATCH + 1,
 } audio_stream_type_t;
 
@@ -120,6 +135,7 @@ enum {
     AUDIO_FLAG_HW_HOTWORD                 = 0x20,
     AUDIO_FLAG_BYPASS_INTERRUPTION_POLICY = 0x40,
     AUDIO_FLAG_BYPASS_MUTE                = 0x80,
+    AUDIO_FLAG_LOW_LATENCY                = 0x100,
 };
 
 /* Do not change these values without updating their counterparts
@@ -140,6 +156,9 @@ typedef enum {
                                           /* An example of remote presentation is Wifi Display */
                                           /*  where a dongle attached to a TV can be used to   */
                                           /*  play the mix captured by this audio source.      */
+    AUDIO_SOURCE_UNPROCESSED         = 9, /* Source for unprocessed sound.
+                                             Usage examples include level measurement and raw
+                                             signal analysis. */
     AUDIO_SOURCE_CNT,
     AUDIO_SOURCE_MAX                 = AUDIO_SOURCE_CNT - 1,
     AUDIO_SOURCE_FM_TUNER            = 1998,
@@ -161,6 +180,7 @@ typedef struct {
 } audio_attributes_t;
 
 /* special audio session values
+ * do not need to have audio_unique_id_get_use(session) == AUDIO_UNIQUE_ID_USE_SESSION
  * (XXX: should this be living in the audio effects land?)
  */
 typedef enum {
@@ -179,13 +199,44 @@ typedef enum {
      * and requests a new session ID to be allocated
      * TODO use unique values for AUDIO_SESSION_OUTPUT_MIX and AUDIO_SESSION_ALLOCATE,
      * after all uses have been updated from 0 to the appropriate symbol, and have been tested.
+     * Corresponds to AudioManager.AUDIO_SESSION_ID_GENERATE and AudioSystem.AUDIO_SESSION_ALLOCATE.
      */
     AUDIO_SESSION_ALLOCATE = 0,
+
+    /* For use with AudioRecord::start(), this indicates no trigger session.
+     * It is also used with output tracks and patch tracks, which never have a session.
+     */
+    AUDIO_SESSION_NONE = 0,
 } audio_session_t;
 
-/* a unique ID allocated by AudioFlinger for use as a audio_io_handle_t or audio_session_t */
+/* a unique ID allocated by AudioFlinger for use as an audio_io_handle_t, audio_session_t,
+ * effect ID (int), audio_module_handle_t, and audio_patch_handle_t.
+ * Audio port IDs (audio_port_handle_t) are allocated by AudioPolicy
+ * in a different namespace than AudioFlinger unique IDs.
+ */
 typedef int audio_unique_id_t;
 
+/* Possible uses for an audio_unique_id_t */
+typedef enum {
+    AUDIO_UNIQUE_ID_USE_UNSPECIFIED = 0,
+    AUDIO_UNIQUE_ID_USE_SESSION = 1,    // for allocated sessions, not special AUDIO_SESSION_*
+    AUDIO_UNIQUE_ID_USE_MODULE = 2,
+    AUDIO_UNIQUE_ID_USE_EFFECT = 3,
+    AUDIO_UNIQUE_ID_USE_PATCH = 4,
+    AUDIO_UNIQUE_ID_USE_OUTPUT = 5,
+    AUDIO_UNIQUE_ID_USE_INPUT = 6,
+    // 7 is available
+    AUDIO_UNIQUE_ID_USE_MAX = 8,  // must be a power-of-two
+    AUDIO_UNIQUE_ID_USE_MASK = AUDIO_UNIQUE_ID_USE_MAX - 1
+} audio_unique_id_use_t;
+
+/* Return the use of an audio_unique_id_t */
+static inline audio_unique_id_use_t audio_unique_id_get_use(audio_unique_id_t id)
+{
+    return (audio_unique_id_use_t) (id & AUDIO_UNIQUE_ID_USE_MASK);
+}
+
+/* Reserved audio_unique_id_t values.  FIXME: not a complete list. */
 #define AUDIO_UNIQUE_ID_ALLOCATE AUDIO_SESSION_ALLOCATE
 
 /* Audio sub formats (see enum audio_format). */
@@ -237,8 +288,9 @@ typedef enum {
 } audio_format_vorbis_sub_fmt_t;
 
 
-/* Audio format consists of a main format field (upper 8 bits) and a sub format
- * field (lower 24 bits).
+/* Audio format  is a 32-bit word that consists of:
+ *   main format field (upper 8 bits)
+ *   sub format field (lower 24 bits).
  *
  * The main format indicates the main codec type. The sub format field
  * indicates options and parameters for each format. The sub format is mainly
@@ -262,7 +314,9 @@ typedef enum {
     AUDIO_FORMAT_E_AC3               = 0x0A000000UL,
     AUDIO_FORMAT_DTS                 = 0x0B000000UL,
     AUDIO_FORMAT_DTS_HD              = 0x0C000000UL,
-    AUDIO_FORMAT_MAIN_MASK           = 0xFF000000UL,
+    // IEC61937 is encoded audio wrapped in 16-bit PCM.
+    AUDIO_FORMAT_IEC61937            = 0x0D000000UL,
+    AUDIO_FORMAT_MAIN_MASK           = 0xFF000000UL, /* Deprecated. Use audio_get_main_format() */
     AUDIO_FORMAT_SUB_MASK            = 0x00FFFFFFUL,
 
     /* Aliases */
@@ -483,14 +537,14 @@ typedef enum {
  */
 enum {
     AUDIO_CHANNEL_INDEX_HDR  = AUDIO_CHANNEL_REPRESENTATION_INDEX << AUDIO_CHANNEL_COUNT_MAX,
-    AUDIO_CHANNEL_INDEX_MASK_1 =  AUDIO_CHANNEL_INDEX_HDR | (1 << 1) - 1,
-    AUDIO_CHANNEL_INDEX_MASK_2 =  AUDIO_CHANNEL_INDEX_HDR | (1 << 2) - 1,
-    AUDIO_CHANNEL_INDEX_MASK_3 =  AUDIO_CHANNEL_INDEX_HDR | (1 << 3) - 1,
-    AUDIO_CHANNEL_INDEX_MASK_4 =  AUDIO_CHANNEL_INDEX_HDR | (1 << 4) - 1,
-    AUDIO_CHANNEL_INDEX_MASK_5 =  AUDIO_CHANNEL_INDEX_HDR | (1 << 5) - 1,
-    AUDIO_CHANNEL_INDEX_MASK_6 =  AUDIO_CHANNEL_INDEX_HDR | (1 << 6) - 1,
-    AUDIO_CHANNEL_INDEX_MASK_7 =  AUDIO_CHANNEL_INDEX_HDR | (1 << 7) - 1,
-    AUDIO_CHANNEL_INDEX_MASK_8 =  AUDIO_CHANNEL_INDEX_HDR | (1 << 8) - 1,
+    AUDIO_CHANNEL_INDEX_MASK_1 =  AUDIO_CHANNEL_INDEX_HDR | ((1 << 1) - 1),
+    AUDIO_CHANNEL_INDEX_MASK_2 =  AUDIO_CHANNEL_INDEX_HDR | ((1 << 2) - 1),
+    AUDIO_CHANNEL_INDEX_MASK_3 =  AUDIO_CHANNEL_INDEX_HDR | ((1 << 3) - 1),
+    AUDIO_CHANNEL_INDEX_MASK_4 =  AUDIO_CHANNEL_INDEX_HDR | ((1 << 4) - 1),
+    AUDIO_CHANNEL_INDEX_MASK_5 =  AUDIO_CHANNEL_INDEX_HDR | ((1 << 5) - 1),
+    AUDIO_CHANNEL_INDEX_MASK_6 =  AUDIO_CHANNEL_INDEX_HDR | ((1 << 6) - 1),
+    AUDIO_CHANNEL_INDEX_MASK_7 =  AUDIO_CHANNEL_INDEX_HDR | ((1 << 7) - 1),
+    AUDIO_CHANNEL_INDEX_MASK_8 =  AUDIO_CHANNEL_INDEX_HDR | ((1 << 8) - 1),
     // FIXME FCC_8
 };
 
@@ -616,6 +670,8 @@ enum {
     /* limited-output speaker device for acoustic safety */
     AUDIO_DEVICE_OUT_SPEAKER_SAFE              = 0x400000,
     AUDIO_DEVICE_OUT_IP                        = 0x800000,
+    /* audio bus implemented by the audio system (e.g an MOST stereo channel) */
+    AUDIO_DEVICE_OUT_BUS                       = 0x1000000,
     AUDIO_DEVICE_OUT_DEFAULT                   = AUDIO_DEVICE_BIT_DEFAULT,
     AUDIO_DEVICE_OUT_ALL      = (AUDIO_DEVICE_OUT_EARPIECE |
                                  AUDIO_DEVICE_OUT_SPEAKER |
@@ -641,6 +697,7 @@ enum {
                                  AUDIO_DEVICE_OUT_AUX_LINE |
                                  AUDIO_DEVICE_OUT_SPEAKER_SAFE |
                                  AUDIO_DEVICE_OUT_IP |
+                                 AUDIO_DEVICE_OUT_BUS |
                                  AUDIO_DEVICE_OUT_DEFAULT),
     AUDIO_DEVICE_OUT_ALL_A2DP = (AUDIO_DEVICE_OUT_BLUETOOTH_A2DP |
                                  AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_HEADPHONES |
@@ -678,6 +735,8 @@ enum {
     AUDIO_DEVICE_IN_BLUETOOTH_A2DP        = AUDIO_DEVICE_BIT_IN | 0x20000,
     AUDIO_DEVICE_IN_LOOPBACK              = AUDIO_DEVICE_BIT_IN | 0x40000,
     AUDIO_DEVICE_IN_IP                    = AUDIO_DEVICE_BIT_IN | 0x80000,
+    /* audio bus implemented by the audio system (e.g an MOST stereo channel) */
+    AUDIO_DEVICE_IN_BUS                   = AUDIO_DEVICE_BIT_IN | 0x100000,
     AUDIO_DEVICE_IN_DEFAULT               = AUDIO_DEVICE_BIT_IN | AUDIO_DEVICE_BIT_DEFAULT,
 
     AUDIO_DEVICE_IN_ALL     = (AUDIO_DEVICE_IN_COMMUNICATION |
@@ -700,6 +759,7 @@ enum {
                                AUDIO_DEVICE_IN_BLUETOOTH_A2DP |
                                AUDIO_DEVICE_IN_LOOPBACK |
                                AUDIO_DEVICE_IN_IP |
+                               AUDIO_DEVICE_IN_BUS |
                                AUDIO_DEVICE_IN_DEFAULT),
     AUDIO_DEVICE_IN_ALL_SCO = AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET,
     AUDIO_DEVICE_IN_ALL_USB  = (AUDIO_DEVICE_IN_USB_ACCESSORY |
@@ -826,9 +886,24 @@ static const audio_config_t AUDIO_CONFIG_INITIALIZER = {
     frame_count: 0,
 };
 
+struct audio_config_base {
+    uint32_t sample_rate;
+    audio_channel_mask_t channel_mask;
+    audio_format_t  format;
+};
+
+typedef struct audio_config_base audio_config_base_t;
+
+static const audio_config_base_t AUDIO_CONFIG_BASE_INITIALIZER = {
+    sample_rate: 0,
+    channel_mask: AUDIO_CHANNEL_NONE,
+    format: AUDIO_FORMAT_DEFAULT
+};
 
 /* audio hw module handle functions or structures referencing a module */
-typedef int audio_module_handle_t;
+typedef enum {
+    AUDIO_MODULE_HANDLE_NONE = 0,
+} audio_module_handle_t;
 
 /******************************
  *  Volume control
@@ -1035,8 +1110,9 @@ struct audio_port {
  * But the same patch receives another system wide unique handle allocated by the framework.
  * This unique handle is used for all transactions inside the framework.
  */
-typedef int audio_patch_handle_t;
-#define AUDIO_PATCH_HANDLE_NONE 0
+typedef enum {
+    AUDIO_PATCH_HANDLE_NONE = 0,
+} audio_patch_handle_t;
 
 #define AUDIO_PATCH_PORTS_MAX   16
 
@@ -1365,15 +1441,44 @@ static inline bool audio_is_valid_format(audio_format_t format)
     case AUDIO_FORMAT_E_AC3:
     case AUDIO_FORMAT_DTS:
     case AUDIO_FORMAT_DTS_HD:
+    case AUDIO_FORMAT_IEC61937:
         return true;
     default:
         return false;
     }
 }
 
+/**
+ * Extract the primary format, eg. PCM, AC3, etc.
+ */
+static inline audio_format_t audio_get_main_format(audio_format_t format)
+{
+    return (audio_format_t)(format & AUDIO_FORMAT_MAIN_MASK);
+}
+
+/**
+ * Is the data plain PCM samples that can be scaled and mixed?
+ */
 static inline bool audio_is_linear_pcm(audio_format_t format)
 {
-    return ((format & AUDIO_FORMAT_MAIN_MASK) == AUDIO_FORMAT_PCM);
+    return (audio_get_main_format(format) == AUDIO_FORMAT_PCM);
+}
+
+/**
+ * For this format, is the number of PCM audio frames directly proportional
+ * to the number of data bytes?
+ *
+ * In other words, is the format transported as PCM audio samples,
+ * but not necessarily scalable or mixable.
+ * This returns true for real PCM, but also for AUDIO_FORMAT_IEC61937,
+ * which is transported as 16 bit PCM audio, but where the encoded data
+ * cannot be mixed or scaled.
+ */
+static inline bool audio_has_proportional_frames(audio_format_t format)
+{
+    audio_format_t mainFormat = audio_get_main_format(format);
+    return (mainFormat == AUDIO_FORMAT_PCM
+            || mainFormat == AUDIO_FORMAT_IEC61937);
 }
 
 static inline size_t audio_bytes_per_sample(audio_format_t format)
@@ -1389,6 +1494,7 @@ static inline size_t audio_bytes_per_sample(audio_format_t format)
         size = sizeof(uint8_t) * 3;
         break;
     case AUDIO_FORMAT_PCM_16_BIT:
+    case AUDIO_FORMAT_IEC61937:
         size = sizeof(int16_t);
         break;
     case AUDIO_FORMAT_PCM_8_BIT:
@@ -1425,14 +1531,16 @@ static inline bool audio_device_is_digital(audio_devices_t device) {
         return (~AUDIO_DEVICE_BIT_IN & device & (AUDIO_DEVICE_IN_ALL_USB |
                           AUDIO_DEVICE_IN_HDMI |
                           AUDIO_DEVICE_IN_SPDIF |
-                          AUDIO_DEVICE_IN_IP)) != 0;
+                          AUDIO_DEVICE_IN_IP |
+                          AUDIO_DEVICE_IN_BUS)) != 0;
     } else {
         // output
         return (device & (AUDIO_DEVICE_OUT_ALL_USB |
                           AUDIO_DEVICE_OUT_HDMI |
                           AUDIO_DEVICE_OUT_HDMI_ARC |
                           AUDIO_DEVICE_OUT_SPDIF |
-                          AUDIO_DEVICE_OUT_IP)) != 0;
+                          AUDIO_DEVICE_OUT_IP |
+                          AUDIO_DEVICE_OUT_BUS)) != 0;
     }
 }
 

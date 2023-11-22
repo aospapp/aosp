@@ -16,20 +16,41 @@
 
 package android.voicesettings.cts;
 
+import static android.provider.Settings.ACTION_VOICE_CONTROL_BATTERY_SAVER_MODE;
+
+import android.cts.util.BroadcastTestBase;
+import android.cts.util.BroadcastUtils;
 import android.content.Context;
 import android.os.PowerManager;
 import android.util.Log;
 
-import common.src.android.voicesettings.common.Utils;
-
-public class BatterySaverModeTest extends VoiceSettingsTestBase {
+public class BatterySaverModeTest extends BroadcastTestBase {
     static final String TAG = "BatterySaverModeTest";
+    private static final String VOICE_SETTINGS_PACKAGE = "android.voicesettings.service";
+    private static final String VOICE_INTERACTION_CLASS =
+        "android.voicesettings.service.VoiceInteractionMain";
+    protected static final String FEATURE_VOICE_RECOGNIZERS = "android.software.voice_recognizers";
 
     public BatterySaverModeTest() {
         super();
     }
 
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp();
+        mContext = getInstrumentation().getTargetContext();
+        mHasFeature = mContext.getPackageManager().hasSystemFeature(FEATURE_VOICE_RECOGNIZERS);
+    }
+
     public void testAll() throws Exception {
+        if (!mHasFeature) {
+            Log.i(TAG, "The device doesn't support feature: " + FEATURE_VOICE_RECOGNIZERS);
+            return;
+        }
+        if (!isIntentSupported(ACTION_VOICE_CONTROL_BATTERY_SAVER_MODE)) {
+            Log.e(TAG, "Voice intent for Battery Saver Mode NOT supported. existing the test");
+            return;
+        }
         startTestActivity("BATTERYSAVER_MODE");
         boolean modeIsOn = isModeOn();
         Log.i(TAG, "Before testing, BATTERYSAVER_MODE is set to: " + modeIsOn);
@@ -37,25 +58,25 @@ public class BatterySaverModeTest extends VoiceSettingsTestBase {
             // mode is currently ON.
             // run a test to turn it off.
             // After successful run of the test, run a test to turn it back on.
-            if (!runTest(Utils.TestcaseType.BATTERYSAVER_MODE_OFF, false)) {
+            if (!runTest(BroadcastUtils.TestcaseType.BATTERYSAVER_MODE_OFF, false)) {
                 // the test failed. don't test the next one.
                 return;
             }
-            runTest(Utils.TestcaseType.BATTERYSAVER_MODE_ON, true);
+            runTest(BroadcastUtils.TestcaseType.BATTERYSAVER_MODE_ON, true);
         } else {
             // mode is currently OFF.
             // run a test to turn it on.
             // After successful run of the test, run a test to turn it back off.
-            if (!runTest(Utils.TestcaseType.BATTERYSAVER_MODE_ON, true)) {
+            if (!runTest(BroadcastUtils.TestcaseType.BATTERYSAVER_MODE_ON, true)) {
                 // the test failed. don't test the next one.
                 return;
             }
-            runTest(Utils.TestcaseType.BATTERYSAVER_MODE_OFF, false);
+            runTest(BroadcastUtils.TestcaseType.BATTERYSAVER_MODE_OFF, false);
         }
     }
 
-    private boolean runTest(Utils.TestcaseType test, boolean expectedMode) throws Exception {
-        if (!startTestAndWaitForBroadcast(test)) {
+    private boolean runTest(BroadcastUtils.TestcaseType test, boolean expectedMode) throws Exception {
+        if (!startTestAndWaitForBroadcast(test, VOICE_SETTINGS_PACKAGE, VOICE_INTERACTION_CLASS)) {
             return false;
         }
 

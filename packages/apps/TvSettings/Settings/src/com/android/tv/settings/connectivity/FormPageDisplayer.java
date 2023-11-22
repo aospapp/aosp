@@ -44,7 +44,10 @@ public class FormPageDisplayer
     public static final int DISPLAY_TYPE_TEXT_INPUT = 1;
     public static final int DISPLAY_TYPE_LIST_CHOICE = 2;
     public static final int DISPLAY_TYPE_LOADING = 3;
-    public static final int DISPLAY_TYPE_PASSWORD_INPUT = 4;
+    // Minimum 8 characters
+    public static final int DISPLAY_TYPE_PSK_INPUT = 4;
+
+    private static final int PSK_MIN_LENGTH = 8;
 
     public interface FormPageInfo {
         /**
@@ -66,6 +69,11 @@ public class FormPageDisplayer
          * @return the way this form page should be displayed.
          */
         int getDisplayType();
+
+        /**
+         * @return the default value for this input
+         */
+        int getDefaultPrefillResourceId();
 
         /**
          * @return the set of choices for this form page.
@@ -104,9 +112,9 @@ public class FormPageDisplayer
     }
 
     @Override
-    public boolean onPasswordInputComplete(String text) {
+    public boolean onPasswordInputComplete(String text, boolean obfuscate) {
         if (mPasswordInputWizardFragmentListener != null) {
-            return mPasswordInputWizardFragmentListener.onPasswordInputComplete(text);
+            return mPasswordInputWizardFragmentListener.onPasswordInputComplete(text, obfuscate);
         }
         return true;
     }
@@ -145,10 +153,9 @@ public class FormPageDisplayer
                         currentFormPage, formPageResultListener, previousFormPage, forward,
                         emptyAllowed);
 
-            case DISPLAY_TYPE_PASSWORD_INPUT:
-                return displayPasswordInput(formPageInfo, titleArgument, descriptionArgument,
-                        currentFormPage, formPageResultListener, previousFormPage, forward,
-                        emptyAllowed);
+            case DISPLAY_TYPE_PSK_INPUT:
+                return displayPskInput(formPageInfo, titleArgument, descriptionArgument,
+                        currentFormPage, formPageResultListener, previousFormPage, forward);
 
             case DISPLAY_TYPE_LOADING:
                 return displayLoading(formPageInfo, titleArgument, showProgress, forward);
@@ -206,10 +213,13 @@ public class FormPageDisplayer
             String descriptionArgument, final FormPage formPage,
             final FormPageResultListener listener, FormPage lastPage, boolean forward,
             final boolean emptyAllowed) {
+        final String prefill = lastPage != null && !TextUtils.isEmpty(lastPage.getDataSummary())
+                ? lastPage.getDataSummary() : getDefaultPrefill(formPageInfo);
         Fragment fragment = TextInputWizardFragment.newInstance(
                 getTitle(formPageInfo, titleArgument),
                 getDescription(formPageInfo, descriptionArgument),
-                formPageInfo.getInputType(), lastPage == null ? null : lastPage.getDataSummary());
+                formPageInfo.getInputType(),
+                prefill);
         displayFragment(fragment, forward);
 
         mTextInputWizardFragmentListener = new TextInputWizardFragment.Listener() {
@@ -227,22 +237,29 @@ public class FormPageDisplayer
         return fragment;
     }
 
-    private Fragment displayPasswordInput(FormPageInfo formPageInfo, String titleArgument,
+    private Fragment displayPskInput(FormPageInfo formPageInfo, String titleArgument,
             String descriptionArgument, final FormPage formPage,
-            final FormPageResultListener listener, FormPage lastPage, boolean forward,
-            final boolean emptyAllowed) {
-        Fragment fragment = PasswordInputWizardFragment.newInstance(
-                getTitle(formPageInfo, titleArgument),
-                getDescription(formPageInfo, descriptionArgument),
-                lastPage == null ? null : lastPage.getDataSummary());
+            final FormPageResultListener listener, FormPage lastPage, boolean forward) {
+        boolean obfuscate = lastPage != null
+                ? TextUtils.equals(
+                          lastPage.getDataSecondary(), PasswordInputWizardFragment.OPTION_OBFUSCATE)
+                : false;
+        Fragment fragment =
+                PasswordInputWizardFragment.newInstance(getTitle(formPageInfo, titleArgument),
+                        getDescription(formPageInfo, descriptionArgument),
+                        lastPage == null ? null : lastPage.getDataSummary(), obfuscate);
         displayFragment(fragment, forward);
 
         mPasswordInputWizardFragmentListener = new PasswordInputWizardFragment.Listener() {
             @Override
-            public boolean onPasswordInputComplete(String text) {
-                if (!TextUtils.isEmpty(text) || emptyAllowed) {
+            public boolean onPasswordInputComplete(String text, boolean obfuscate) {
+                if (!TextUtils.isEmpty(text) && text.length() >= PSK_MIN_LENGTH) {
                     Bundle result = new Bundle();
                     result.putString(FormPage.DATA_KEY_SUMMARY_STRING, text);
+                    if (obfuscate) {
+                        result.putString(FormPage.DATA_KEY_SECONDARY_STRING,
+                                PasswordInputWizardFragment.OPTION_OBFUSCATE);
+                    }
                     listener.onBundlePageResult(formPage, result);
                     return true;
                 }
@@ -268,5 +285,11 @@ public class FormPageDisplayer
         int descriptionResourceId = formPageInfo.getDescriptionResourceId();
         return (descriptionResourceId != 0) ? mContext.getString(descriptionResourceId, argument)
                 : null;
+    }
+
+    private String getDefaultPrefill(FormPageInfo formPageInfo) {
+        int defaultPrefillResourceId = formPageInfo.getDefaultPrefillResourceId();
+        return (defaultPrefillResourceId != 0)
+                ? mContext.getString(defaultPrefillResourceId) : null;
     }
 }

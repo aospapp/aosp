@@ -9,6 +9,7 @@
 #include "SkCanvas.h"
 #include "SkColorShader.h"
 #include "SkPaint.h"
+#include "SkRandom.h"
 #include "SkSurface.h"
 
 #if SK_SUPPORT_GPU
@@ -36,7 +37,7 @@ protected:
 
     void onDraw(SkCanvas* canvas) override {
         GrContext* context = canvas->getGrContext();
-        if (NULL == context) {
+        if (nullptr == context) {
             return;
         }
 
@@ -44,9 +45,9 @@ protected:
         size.fWidth /= 10;
         size.fHeight /= 10;
         SkImageInfo info = SkImageInfo::MakeN32Premul(size);
-        SkSurface* surface = SkSurface::NewRenderTarget(context, SkSurface::kNo_Budgeted, info);
+        SkSurface* surface = SkSurface::NewRenderTarget(context, SkBudgeted::kNo, info);
 
-        if (NULL == surface) {
+        if (nullptr == surface) {
             return;
         }
 
@@ -57,7 +58,7 @@ protected:
             for (int y = 0; y < 10; ++y) {
               surface->getCanvas()->discard();
               // Make something that isn't too close to the background color, black.
-              SkColor color = rand.nextU() | 0xFF404040;
+              SkColor color = sk_tool_utils::color_to_565(rand.nextU() | 0xFF404040);
               switch (rand.nextULessThan(3)) {
                   case 0:
                       surface->getCanvas()->drawColor(color);
@@ -72,7 +73,7 @@ protected:
                       surface->getCanvas()->drawPaint(paint);
                       break;
               }
-              surface->draw(canvas, 10.f*x, 10.f*y, NULL);
+              surface->draw(canvas, 10.f*x, 10.f*y, nullptr);
             }
         }
 
@@ -86,7 +87,7 @@ private:
 
 //////////////////////////////////////////////////////////////////////////////
 
-DEF_GM( return SkNEW(DiscardGM); )
+DEF_GM(return new DiscardGM;)
 
 } // end namespace
 

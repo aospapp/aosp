@@ -1,11 +1,12 @@
-
 /*
  * Copyright 2011 Google Inc.
  *
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
+
 #include "gm.h"
+#include "SkPath.h"
 
 typedef SkScalar (*MakePathProc)(SkPath*);
 
@@ -197,7 +198,7 @@ protected:
                 canvas->save();
                 canvas->clipRect(clipR);
 
-                const SkRect* clipPtr = doclip ? &clipR : NULL;
+                const SkRect* clipPtr = doclip ? &clipR : nullptr;
 
                 show(canvas, path, paint, clipPtr, clipR.fTop, clipR.centerY());
                 show(canvas, path, paint, clipPtr, clipR.centerY(), clipR.fBottom);
@@ -214,8 +215,5 @@ private:
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static skiagm::GM* MyFactory(void*) { return new PathFillGM; }
-static skiagm::GMRegistry reg(MyFactory);
-
-static skiagm::GM* F1(void*) { return new PathInverseFillGM; }
-static skiagm::GMRegistry gR1(F1);
+DEF_GM( return new PathFillGM; )
+DEF_GM( return new PathInverseFillGM; )

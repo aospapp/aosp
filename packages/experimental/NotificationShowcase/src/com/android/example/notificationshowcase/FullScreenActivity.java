@@ -22,17 +22,35 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
+import android.os.PowerManager;
 import android.view.View;
+import android.view.WindowManager;
 
 public class FullScreenActivity extends Activity {
     private static final String TAG = "NotificationShowcase";
 
     public static final String EXTRA_ID = "id";
+    private Handler mHandler = new Handler(Looper.getMainLooper());
+    private PowerManager.WakeLock mWakeLock;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         setContentView(R.layout.full_screen);
+
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        mWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Incoming Call");
+        mWakeLock.acquire(15 * 1000);
+
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON |
+                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD |
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED |
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
+
         final Intent intent = getIntent();
         if (intent != null && intent.hasExtra(EXTRA_ID)) {
             final int id = intent.getIntExtra(EXTRA_ID, -1);
@@ -42,9 +60,19 @@ public class FullScreenActivity extends Activity {
                 noMa.cancel(NotificationService.NOTIFICATION_ID + id);
             }
         }
+
+        mHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                dismiss(null);
+            }
+        }, 30 * 1000);
     }
 
     public void dismiss(View v) {
+        if (mWakeLock.isHeld()) {
+            mWakeLock.release();
+        }
         finish();
     }
 

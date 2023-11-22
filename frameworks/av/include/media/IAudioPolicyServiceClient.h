@@ -37,6 +37,12 @@ public:
     virtual void onAudioPatchListUpdate() = 0;
     // Notifies a change in the mixing state of a specific mix in a dynamic audio policy
     virtual void onDynamicPolicyMixStateUpdate(String8 regId, int32_t state) = 0;
+    // Notifies a change of audio recording configuration
+    virtual void onRecordingConfigurationUpdate(int event, audio_session_t session,
+            audio_source_t source,
+            const audio_config_base_t *clientConfig,
+            const audio_config_base_t *deviceConfig,
+            audio_patch_handle_t patchHandle) = 0;
 };
 
 

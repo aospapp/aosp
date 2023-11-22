@@ -2,6 +2,7 @@ package com.android.server.wifi.hotspot2;
 
 import android.util.Log;
 
+import com.android.server.wifi.Clock;
 import com.android.server.wifi.anqp.ANQPElement;
 import com.android.server.wifi.anqp.Constants;
 
@@ -12,15 +13,19 @@ import java.util.List;
 import java.util.Map;
 
 public class AnqpCache {
+    private static final boolean DBG = false;
+
     private static final long CACHE_RECHECK = 60000L;
     private static final boolean STANDARD_ESS = true;  // Regular AP keying; see CacheKey below.
     private long mLastSweep;
+    private Clock mClock;
 
     private final HashMap<CacheKey, ANQPData> mANQPCache;
 
-    public AnqpCache() {
+    public AnqpCache(Clock clock) {
+        mClock = clock;
         mANQPCache = new HashMap<>();
-        mLastSweep = System.currentTimeMillis();
+        mLastSweep = mClock.currentTimeMillis();
     }
 
     private static class CacheKey {
@@ -115,19 +120,22 @@ public class AnqpCache {
         }
     }
 
-    public boolean initiate(NetworkDetail network) {
+    public List<Constants.ANQPElementType> initiate(NetworkDetail network,
+                                                    List<Constants.ANQPElementType> querySet) {
         CacheKey key = CacheKey.buildKey(network, STANDARD_ESS);
 
         synchronized (mANQPCache) {
             ANQPData data = mANQPCache.get(key);
             if (data == null || data.expired()) {
-                mANQPCache.put(key, new ANQPData(network, data));
-                return true;
+                mANQPCache.put(key, new ANQPData(mClock, network, data));
+                return querySet;
             }
             else {
+                List<Constants.ANQPElementType> newList = data.disjoint(querySet);
                 Log.d(Utils.hs2LogTag(getClass()),
-                      String.format("BSSID %012x already in cache: %s", network.getBSSID(), data));
-                return false;
+                        String.format("New ANQP elements for BSSID %012x: %s",
+                                network.getBSSID(), newList));
+                return newList;
             }
         }
     }
@@ -140,8 +148,14 @@ public class AnqpCache {
         // Networks with a 0 ANQP Domain ID are still cached, but with a very short expiry, just
         // long enough to prevent excessive re-querying.
         synchronized (mANQPCache) {
-            ANQPData data = new ANQPData(network, anqpElements);
-            mANQPCache.put(key, data);
+            ANQPData data = mANQPCache.get(key);
+            if (data != null && data.hasData()) {
+                data.merge(anqpElements);
+            }
+            else {
+                data = new ANQPData(mClock, network, anqpElements);
+                mANQPCache.put(key, data);
+            }
         }
     }
 
@@ -157,7 +171,8 @@ public class AnqpCache {
     }
 
     public void clear(boolean all, boolean debug) {
-        long now = System.currentTimeMillis();
+        if (DBG) Log.d(Utils.hs2LogTag(getClass()), "Clearing ANQP cache: all: " + all);
+        long now = mClock.currentTimeMillis();
         synchronized (mANQPCache) {
             if (all) {
                 mANQPCache.clear();
@@ -182,7 +197,7 @@ public class AnqpCache {
     }
 
     public void dump(PrintWriter out) {
-        out.println("Last sweep " + Utils.toHMS(System.currentTimeMillis() - mLastSweep) + " ago.");
+        out.println("Last sweep " + Utils.toHMS(mClock.currentTimeMillis() - mLastSweep) + " ago.");
         for (ANQPData anqpData : mANQPCache.values()) {
             out.println(anqpData.toString(false));
         }

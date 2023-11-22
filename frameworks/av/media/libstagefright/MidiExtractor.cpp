@@ -178,6 +178,7 @@ MidiEngine::MidiEngine(const sp<DataSource> &dataSource,
         mEasConfig = EAS_Config();
         trackMetadata->setInt32(kKeySampleRate, mEasConfig->sampleRate);
         trackMetadata->setInt32(kKeyChannelCount, mEasConfig->numChannels);
+        trackMetadata->setInt32(kKeyPcmEncoding, kAudioEncodingPcm16bit);
     }
     mIsInitialized = true;
 }
@@ -281,7 +282,7 @@ size_t MidiExtractor::countTracks()
     return mInitCheck == OK ? 1 : 0;
 }
 
-sp<MediaSource> MidiExtractor::getTrack(size_t index)
+sp<IMediaSource> MidiExtractor::getTrack(size_t index)
 {
     if (mInitCheck != OK || index > 0) {
         return NULL;

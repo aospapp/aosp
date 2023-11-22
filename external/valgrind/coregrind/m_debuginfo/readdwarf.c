@@ -8,7 +8,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2000-2013 Julian Seward
+   Copyright (C) 2000-2015 Julian Seward
       jseward@acm.org
 
    This program is free software; you can redistribute it and/or
@@ -29,7 +29,7 @@
    The GNU General Public License is contained in the file COPYING.
 */
 
-#if defined(VGO_linux) || defined(VGO_darwin)
+#if defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_solaris)
 
 #include "pub_core_basics.h"
 #include "pub_core_debuginfo.h"
@@ -269,7 +269,8 @@ void process_extended_line_op( struct _DebugInfo* di,
    switch (op_code) {
       case DW_LNE_end_sequence:
          if (0) VG_(printf)("1001: si->o %#lx, smr.a %#lx\n",
-                            di->text_debug_bias, state_machine_regs.address );
+                            (UWord)di->text_debug_bias,
+                            state_machine_regs.address );
          /* JRS: added for compliance with spec; is pointless due to
             reset_state_machine below */
          state_machine_regs.end_sequence = 1; 
@@ -454,9 +455,9 @@ void read_dwarf2_lineblock ( struct _DebugInfo* di,
 
       It seems to me that the Intel Fortran compiler generates bad
       DWARF2 line info code: It sets "is_stmt" of the state machine in
-      the the line info reader to be always false. Thus, there is
-      never a statement boundary generated and therefore never a
-      instruction range/line number mapping generated for valgrind.
+      the line info reader to be always false. Thus, there is never
+      a statement boundary generated and therefore never an instruction
+      range/line number mapping generated for valgrind.
 
       Please have a look at the DWARF2 specification, Ch. 6.2
       (x86.ddj.com/ftp/manuals/tools/dwarf.pdf).  Perhaps I understand
@@ -464,7 +465,7 @@ void read_dwarf2_lineblock ( struct _DebugInfo* di,
 
       I just had a look at the GDB DWARF2 reader...  They completely
       ignore "is_stmt" when recording line info ;-) That's the reason
-      "objdump -S" works on files from the the intel fortran compiler.
+      "objdump -S" works on files from the intel fortran compiler.
 
       Therefore: */
    info.li_default_is_stmt = True; 
@@ -618,10 +619,11 @@ void read_dwarf2_lineblock ( struct _DebugInfo* di,
          Int advAddr = adv;
          state_machine_regs.address += adv;
 
-         if (0) VG_(printf)("smr.a += %#lx\n", adv );
+         if (0) VG_(printf)("smr.a += %#lx\n", (UWord)adv );
          adv = (op_code % info.li_line_range) + info.li_line_base;
          if (0) VG_(printf)("1002: di->o %#lx, smr.a %#lx\n",
-                            di->text_debug_bias, state_machine_regs.address );
+                            (UWord)di->text_debug_bias,
+                            state_machine_regs.address );
          state_machine_regs.line += adv;
 
          if (di->ddump_line)
@@ -660,7 +662,8 @@ void read_dwarf2_lineblock ( struct _DebugInfo* di,
 
          case DW_LNS_copy:
             if (0) VG_(printf)("1002: di->o %#lx, smr.a %#lx\n",
-                               di->text_debug_bias, state_machine_regs.address );
+                               (UWord)di->text_debug_bias,
+                               state_machine_regs.address );
             if (state_machine_regs.is_stmt) {
                /* only add a statement if there was a previous boundary */
                if (state_machine_regs.last_address) {
@@ -684,11 +687,11 @@ void read_dwarf2_lineblock ( struct _DebugInfo* di,
             break;
 
          case DW_LNS_advance_pc: {
-            Word adv = info.li_min_insn_length * step_leb128U(&data);
+            UWord adv = info.li_min_insn_length * step_leb128U(&data);
             state_machine_regs.address += adv;
             if (0) VG_(printf)("smr.a += %#lx\n", adv );
             if (di->ddump_line)
-               VG_(printf)("  Advance PC by %ld to 0x%lx\n", 
+               VG_(printf)("  Advance PC by %lu to 0x%lx\n", 
                            adv, state_machine_regs.address);
             break;
          }
@@ -733,7 +736,7 @@ void read_dwarf2_lineblock ( struct _DebugInfo* di,
             Word adv = (((255 - info.li_opcode_base) / info.li_line_range)
                           * info.li_min_insn_length);
             state_machine_regs.address += adv;
-            if (0) VG_(printf)("smr.a += %#lx\n", adv );
+            if (0) VG_(printf)("smr.a += %#lx\n", (UWord)adv );
             if (di->ddump_line)
                VG_(printf)("  Advance PC by constant %ld to 0x%lx\n", 
                            adv, (Addr)state_machine_regs.address);
@@ -741,7 +744,7 @@ void read_dwarf2_lineblock ( struct _DebugInfo* di,
          }
          case DW_LNS_fixed_advance_pc: {
             /* XXX: Need something to get 2 bytes */
-            Word adv = ML_(cur_step_UShort)(&data);
+            UWord adv = ML_(cur_step_UShort)(&data);
             state_machine_regs.address += adv;
             if (0) VG_(printf)("smr.a += %#lx\n", adv );
             if (di->ddump_line)
@@ -1131,7 +1134,7 @@ void ML_(read_debuginfo_dwarf3)
       
       if (0) {
          HChar* str_name = ML_(cur_read_strdup)(ui.name, "di.rdd3.3");
-         VG_(printf)("debug_line_sz %lld, ui.stmt_list %lld  %s\n",
+         VG_(printf)("debug_line_sz %llu, ui.stmt_list %llu  %s\n",
                      escn_debug_line.szB, ui.stmt_list, str_name );
          ML_(dinfo_free)(str_name);
       }
@@ -1437,7 +1440,7 @@ void ML_(read_debuginfo_dwarf1) (
 	 }        
       }  
 
-      /* Move on the the next DIE. */
+      /* Move on the next DIE. */
       die_offset += die_szb;
 
    } /* Looping over DIEs */
@@ -1719,11 +1722,11 @@ void ML_(read_debuginfo_dwarf1) (
 
 /* --------------- Decls --------------- */
 
-#if defined(VGP_x86_linux)
+#if defined(VGP_x86_linux) || defined(VGP_x86_solaris)
 #  define FP_REG         5
 #  define SP_REG         4
 #  define RA_REG_DEFAULT 8
-#elif defined(VGP_amd64_linux)
+#elif defined(VGP_amd64_linux) || defined(VGP_amd64_solaris)
 #  define FP_REG         6
 #  define SP_REG         7
 #  define RA_REG_DEFAULT 16
@@ -1825,6 +1828,7 @@ enum dwarf_cfa_secondary_ops
     DW_CFA_GNU_window_save    = 0x2d, /* GNU extension */
     DW_CFA_GNU_args_size      = 0x2e, /* GNU extension */
     DW_CFA_GNU_negative_offset_extended = 0x2f, /* GNU extension */
+    DW_CFA_ORCL_arg_loc       = 0x30, /* Oracle extension */
     DW_CFA_hi_user            = 0x3f
   };
 
@@ -2023,6 +2027,7 @@ typedef
       DiCursor ehframe_image;
       Addr     ehframe_avma;
       Addr     text_bias;
+      Addr     got_avma;
    }
    AddressDecodingInfo;
 
@@ -2650,6 +2655,7 @@ static Addr step_encoded_Addr ( const AddressDecodingInfo* adi,
    UChar    encoding      = adi->encoding;
    DiCursor ehframe_image = adi->ehframe_image;
    Addr     ehframe_avma  = adi->ehframe_avma;
+   Addr     got_avma      = adi->got_avma;
 
    vg_assert((encoding & DW_EH_PE_indirect) == 0);
 
@@ -2661,8 +2667,7 @@ static Addr step_encoded_Addr ( const AddressDecodingInfo* adi,
          base = ehframe_avma + ML_(cur_minus)(*data, ehframe_image);
          break;
       case DW_EH_PE_datarel:
-         vg_assert(0);
-         base = /* data base address */ 0;
+         base = got_avma;
          break;
       case DW_EH_PE_textrel:
          vg_assert(0);
@@ -3361,6 +3366,11 @@ static Int run_CF_instruction ( /*MOD*/UnwindContext* ctx,
          }
          break;
 
+      case DW_CFA_ORCL_arg_loc:
+         if (di->ddump_frames)
+            VG_(printf)("  DW_CFA_ORCL_arg_loc\n");
+         break;
+
       default: 
          VG_(message)(Vg_DebugMsg, "DWARF2 CFI reader: unhandled CFI "
                                    "instruction 0:%d\n", (Int)lo6); 
@@ -3439,30 +3449,30 @@ static Int show_CF_instruction ( DiCursor instrIN,
 
       case DW_CFA_advance_loc1:
          delta = (UInt)ML_(cur_step_UChar)(&instr);
-         VG_(printf)("  sci:DW_CFA_advance_loc1(%d)\n", delta); 
+         VG_(printf)("  sci:DW_CFA_advance_loc1(%u)\n", delta); 
          break;
 
       case DW_CFA_advance_loc2:
          delta = (UInt)ML_(cur_step_UShort)(&instr);
-         VG_(printf)("  sci:DW_CFA_advance_loc2(%d)\n", delta); 
+         VG_(printf)("  sci:DW_CFA_advance_loc2(%u)\n", delta); 
          break;
 
       case DW_CFA_advance_loc4:
          delta = (UInt)ML_(cur_step_UInt)(&instr);
-         VG_(printf)("  DW_CFA_advance_loc4(%d)\n", delta); 
+         VG_(printf)("  DW_CFA_advance_loc4(%u)\n", delta); 
          break;
 
       case DW_CFA_def_cfa:
          reg = step_leb128( &instr, 0 );
          off = step_leb128( &instr, 0 );
-         VG_(printf)("  DW_CFA_def_cfa: r%d ofs %d\n", (Int)reg, (Int)off); 
+         VG_(printf)("  DW_CFA_def_cfa: r%d ofs %d\n", reg, off); 
          break;
 
       case DW_CFA_def_cfa_sf:
          reg = step_leb128( &instr, 0 );
          off = step_leb128( &instr, 1 );
          VG_(printf)("  DW_CFA_def_cfa_sf: r%d ofs %d\n", 
-                     (Int)reg, (Int)(off * data_a_f));
+                     reg, off * data_a_f);
          break;
 
       case DW_CFA_register:
@@ -3572,6 +3582,11 @@ static Int show_CF_instruction ( DiCursor instrIN,
 
       case DW_CFA_GNU_window_save:
          VG_(printf)("  sci:DW_CFA_GNU_window_save\n");
+         break;
+
+      case DW_CFA_ORCL_arg_loc:
+         /* :TODO: Print all arguments when implemented in libdwarf. */
+         VG_(printf)("  sci:DW_CFA_ORCL_arg_loc\n");
          break;
 
       default: 
@@ -3728,7 +3743,7 @@ void ML_(read_callframe_info_dwarf3)
 
    if (di->trace_cfi) {
       VG_(printf)("\n-----------------------------------------------\n");
-      VG_(printf)("CFI info: szB %lld, _avma %#lx\n",
+      VG_(printf)("CFI info: szB %llu, _avma %#lx\n",
                   escn_frame.szB, frame_avma );
       VG_(printf)("CFI info: name %s\n", di->fsm.filename );
    }
@@ -3776,11 +3791,11 @@ void ML_(read_callframe_info_dwarf3)
       ciefde_start = data;
       if (di->trace_cfi) 
          VG_(printf)("\ncie/fde.start   = (frame_image + 0x%llx)\n", 
-                     ML_(cur_minus)(ciefde_start, frame_image));
+                     (ULong)ML_(cur_minus)(ciefde_start, frame_image));
 
       ciefde_len = (ULong)ML_(cur_step_UInt)(&data);
       if (di->trace_cfi) 
-         VG_(printf)("cie/fde.length  = %lld\n", ciefde_len);
+         VG_(printf)("cie/fde.length  = %llu\n", ciefde_len);
 
       /* Apparently, if the .length field is zero, we are at the end
          of the sequence.  This is stated in the Generic Elf
@@ -3789,7 +3804,7 @@ void ML_(read_callframe_info_dwarf3)
       if (ciefde_len == 0) {
          if (di->ddump_frames)
             VG_(printf)("%08llx ZERO terminator\n\n",
-                        ML_(cur_minus)(ciefde_start, frame_image));
+                        (ULong)ML_(cur_minus)(ciefde_start, frame_image));
          return;
       }
 
@@ -3813,7 +3828,7 @@ void ML_(read_callframe_info_dwarf3)
       }
 
       if (di->trace_cfi) 
-         VG_(printf)("cie.pointer     = %lld\n", cie_pointer);
+         VG_(printf)("cie.pointer     = %llu\n", cie_pointer);
 
       /* If cie_pointer is zero for .eh_frame or all ones for .debug_frame,
          we've got a CIE; else it's an FDE. */
@@ -4008,6 +4023,7 @@ void ML_(read_callframe_info_dwarf3)
             adi.ehframe_image = frame_image;
             adi.ehframe_avma  = frame_avma;
             adi.text_bias     = di->text_debug_bias;
+            adi.got_avma      = di->got_avma;
             show_CF_instructions( the_CIEs[this_CIE].instrs, 
                                   the_CIEs[this_CIE].ilen, &adi,
                                   the_CIEs[this_CIE].code_a_f,
@@ -4043,7 +4059,7 @@ void ML_(read_callframe_info_dwarf3)
             look_for = cie_pointer;
 
          for (cie = 0; cie < n_CIEs; cie++) {
-            if (0) VG_(printf)("look for %lld   %lld\n",
+            if (0) VG_(printf)("look for %llu   %llu\n",
                                look_for, the_CIEs[cie].offset );
             if (the_CIEs[cie].offset == look_for)
                break;
@@ -4058,6 +4074,7 @@ void ML_(read_callframe_info_dwarf3)
          adi.ehframe_image = frame_image;
          adi.ehframe_avma  = frame_avma;
          adi.text_bias     = di->text_debug_bias;
+         adi.got_avma      = di->got_avma;
          fde_initloc = step_encoded_Addr(&adi, &data);
          if (di->trace_cfi) 
             VG_(printf)("fde.initloc     = %#lx\n", fde_initloc);
@@ -4066,6 +4083,7 @@ void ML_(read_callframe_info_dwarf3)
          adi.ehframe_image = frame_image;
          adi.ehframe_avma  = frame_avma;
          adi.text_bias     = di->text_debug_bias;
+         adi.got_avma      = di->got_avma;
 
          /* WAS (incorrectly):
             fde_arange = read_encoded_Addr(&nbytes, &adi, data);
@@ -4158,6 +4176,7 @@ void ML_(read_callframe_info_dwarf3)
          adi.ehframe_image = frame_image;
          adi.ehframe_avma  = frame_avma;
          adi.text_bias     = di->text_debug_bias;
+         adi.got_avma      = di->got_avma;
 
          if (di->trace_cfi)
             show_CF_instructions( fde_instrs, fde_ilen, &adi,
@@ -4214,7 +4233,7 @@ void ML_(read_callframe_info_dwarf3)
     return;
 }
 
-#endif // defined(VGO_linux) || defined(VGO_darwin)
+#endif // defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_solaris)
 
 /*--------------------------------------------------------------------*/
 /*--- end                                                          ---*/

@@ -5,10 +5,12 @@
  * found in the LICENSE file.
  */
 
+// IWYU pragma: private, include "SkTypes.h"
+
 #ifndef SkPostConfig_DEFINED
 #define SkPostConfig_DEFINED
 
-#if defined(SK_BUILD_FOR_WIN32) || defined(SK_BUILD_FOR_WINCE)
+#if defined(SK_BUILD_FOR_WIN32)
 #  define SK_BUILD_FOR_WIN
 #endif
 
@@ -24,13 +26,12 @@
 
 /**
  * Matrix calculations may be float or double.
- * The default is double, as that is faster given our impl uses doubles
- * for intermediate calculations.
+ * The default is float, as that's what Chromium's using.
  */
 #if defined(SK_MSCALAR_IS_DOUBLE) && defined(SK_MSCALAR_IS_FLOAT)
 #  error "cannot define both SK_MSCALAR_IS_DOUBLE and SK_MSCALAR_IS_FLOAT"
 #elif !defined(SK_MSCALAR_IS_DOUBLE) && !defined(SK_MSCALAR_IS_FLOAT)
-#  define SK_MSCALAR_IS_DOUBLE
+#  define SK_MSCALAR_IS_FLOAT
 #endif
 
 #if defined(SK_CPU_LENDIAN) && defined(SK_CPU_BENDIAN)
@@ -99,44 +100,9 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef SkNEW
-#  define SkNEW(type_name)                           (new type_name)
-#  define SkNEW_ARGS(type_name, args)                (new type_name args)
-#  define SkNEW_ARRAY(type_name, count)              (new type_name[(count)])
-#  define SkNEW_PLACEMENT(buf, type_name)            (new (buf) type_name)
-#  define SkNEW_PLACEMENT_ARGS(buf, type_name, args) (new (buf) type_name args)
-#  define SkDELETE(obj)                              (delete (obj))
-#  define SkDELETE_ARRAY(array)                      (delete[] (array))
-#endif
+// TODO(mdempsky): Move elsewhere as appropriate.
+#include <new>
 
-#ifndef SK_CRASH
-#  ifdef SK_BUILD_FOR_WIN
-#    define SK_CRASH() __debugbreak()
-#  else
-#    if 1   // set to 0 for infinite loop, which can help connecting gdb
-#      define SK_CRASH() do { SkNO_RETURN_HINT(); *(int *)(uintptr_t)0xbbadbeef = 0; } while (false)
-#    else
-#      define SK_CRASH() do { SkNO_RETURN_HINT(); } while (true)
-#    endif
-#  endif
-#endif
-
-///////////////////////////////////////////////////////////////////////////////
-
-/**
- * SK_ENABLE_INST_COUNT controlls printing how many reference counted objects
- * are still held on exit.
- * Defaults to 1 in DEBUG and 0 in RELEASE.
- */
-#ifndef SK_ENABLE_INST_COUNT
-// Only enabled for static builds, because instance counting relies on static
-// variables in functions defined in header files.
-#  if SK_DEVELOPER && !defined(SKIA_DLL)
-#    define SK_ENABLE_INST_COUNT 1
-#  else
-#    define SK_ENABLE_INST_COUNT 0
-#  endif
-#endif
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -170,17 +136,22 @@
 #
 #endif
 
-#ifndef SK_ALWAYSBREAK
-#  ifdef SK_DEBUG
-#    define SK_ALWAYSBREAK(cond) do { \
-              if (cond) break; \
-              SkNO_RETURN_HINT(); \
-              SkDebugf("%s:%d: failed assertion \"%s\"\n", __FILE__, __LINE__, #cond); \
-              SK_CRASH(); \
-        } while (false)
-#  else
-#    define SK_ALWAYSBREAK(cond) do { if (cond) break; SK_CRASH(); } while (false)
-#  endif
+#if defined(GOOGLE3)
+    void SkDebugfForDumpStackTrace(const char* data, void* unused);
+    void DumpStackTrace(int skip_count, void w(const char*, void*), void* arg);
+#  define SK_DUMP_GOOGLE3_STACK() DumpStackTrace(0, SkDebugfForDumpStackTrace, nullptr)
+#else
+#  define SK_DUMP_GOOGLE3_STACK()
+#endif
+
+#ifndef SK_ABORT
+#  define SK_ABORT(msg) \
+    do { \
+       SkNO_RETURN_HINT(); \
+       SkDebugf("%s:%d: fatal error: \"%s\"\n", __FILE__, __LINE__, #msg); \
+       SK_DUMP_GOOGLE3_STACK(); \
+       sk_abort_no_print(); \
+    } while (false)
 #endif
 
 /**
@@ -233,13 +204,6 @@
 #endif
 
 //////////////////////////////////////////////////////////////////////////////////////////////
-#ifndef SK_BUILD_FOR_WINCE
-#  include <string.h>
-#  include <stdlib.h>
-#else
-#  define _CMNINTRIN_DECLARE_ONLY
-#  include "cmnintrin.h"
-#endif
 
 #if defined SK_DEBUG && defined SK_BUILD_FOR_WIN32
 #  ifdef free
@@ -317,12 +281,15 @@
 
 //////////////////////////////////////////////////////////////////////
 
-#if defined(__clang__) || defined(__GNUC__)
-#  define SK_PREFETCH(ptr) __builtin_prefetch(ptr)
-#  define SK_WRITE_PREFETCH(ptr) __builtin_prefetch(ptr, 1)
+#if SK_CPU_SSE_LEVEL >= SK_CPU_SSE_LEVEL_SSE1
+    #define SK_PREFETCH(ptr)       _mm_prefetch(reinterpret_cast<const char*>(ptr), _MM_HINT_T0)
+    #define SK_WRITE_PREFETCH(ptr) _mm_prefetch(reinterpret_cast<const char*>(ptr), _MM_HINT_T0)
+#elif defined(__GNUC__)
+    #define SK_PREFETCH(ptr)       __builtin_prefetch(ptr)
+    #define SK_WRITE_PREFETCH(ptr) __builtin_prefetch(ptr, 1)
 #else
-#  define SK_PREFETCH(ptr)
-#  define SK_WRITE_PREFETCH(ptr)
+    #define SK_PREFETCH(ptr)
+    #define SK_WRITE_PREFETCH(ptr)
 #endif
 
 //////////////////////////////////////////////////////////////////////
@@ -375,6 +342,16 @@
 
 #ifndef GR_TEST_UTILS
 #  define GR_TEST_UTILS 1
+#endif
+
+//////////////////////////////////////////////////////////////////////
+
+#ifndef SK_HISTOGRAM_BOOLEAN
+#  define SK_HISTOGRAM_BOOLEAN(name, value)
+#endif
+
+#ifndef SK_HISTOGRAM_ENUMERATION
+#  define SK_HISTOGRAM_ENUMERATION(name, value, boundary_value)
 #endif
 
 #endif // SkPostConfig_DEFINED

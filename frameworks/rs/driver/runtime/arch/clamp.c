@@ -26,6 +26,7 @@ extern T __attribute__((overloadable)) clamp(T amount, T low, T high) {         
     return amount < low ? low : (amount > high ? high : amount);                    \
 }
 
+S_CLAMP(half);
 //_CLAMP(float);  implemented in .ll
 S_CLAMP(double);
 S_CLAMP(char);
@@ -90,6 +91,7 @@ extern T##4 __attribute__((overloadable)) clamp(T##4 amount, T low, T high) {   
     return r;                                                                       \
 }
 
+V_CLAMP(half);
 //V_CLAMP(float);  implemented in .ll
 V_CLAMP(double);
 V_CLAMP(char);

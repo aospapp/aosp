@@ -26,3 +26,5 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := ims-common
 
 include $(BUILD_JAVA_LIBRARY)
+
+include $(call all-makefiles-under,$(LOCAL_PATH))

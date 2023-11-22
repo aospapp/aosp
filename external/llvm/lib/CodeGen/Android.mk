@@ -11,6 +11,7 @@ codegen_SRC_FILES := \
   CallingConvLower.cpp \
   CodeGen.cpp \
   CodeGenPrepare.cpp \
+  CoreCLRGC.cpp \
   CriticalAntiDepBreaker.cpp \
   DeadMachineInstructionElim.cpp \
   DFAPacketizer.cpp \
@@ -21,17 +22,22 @@ codegen_SRC_FILES := \
   ExecutionDepsFix.cpp \
   ExpandISelPseudos.cpp \
   ExpandPostRAPseudos.cpp \
+  FaultMaps.cpp \
+  FuncletLayout.cpp \
   GCMetadata.cpp \
   GCMetadataPrinter.cpp \
   GCRootLowering.cpp \
   GCStrategy.cpp \
   GlobalMerge.cpp \
   IfConversion.cpp \
+  ImplicitNullChecks.cpp \
   InlineSpiller.cpp \
   InterferenceCache.cpp \
+  InterleavedAccessPass.cpp \
   IntrinsicLowering.cpp \
   LatencyPriorityQueue.cpp \
   LexicalScopes.cpp \
+  LiveDebugValues.cpp \
   LiveDebugVariables.cpp \
   LiveIntervalAnalysis.cpp \
   LiveInterval.cpp \
@@ -44,6 +50,7 @@ codegen_SRC_FILES := \
   LiveVariables.cpp \
   LLVMTargetMachine.cpp \
   LocalStackSlotAllocation.cpp \
+  LowerEmuTLS.cpp \
   MachineBasicBlock.cpp \
   MachineBlockFrequencyInfo.cpp \
   MachineBlockPlacement.cpp \
@@ -72,8 +79,11 @@ codegen_SRC_FILES := \
   MachineSSAUpdater.cpp \
   MachineTraceMetrics.cpp \
   MachineVerifier.cpp \
+  MIRPrinter.cpp \
+  MIRPrintingPass.cpp \
   OcamlGC.cpp \
   OptimizePHIs.cpp \
+  ParallelCG.cpp \
   Passes.cpp \
   PeepholeOptimizer.cpp \
   PHIElimination.cpp \
@@ -95,6 +105,7 @@ codegen_SRC_FILES := \
   ScheduleDAGInstrs.cpp \
   ScheduleDAGPrinter.cpp \
   ScoreboardHazardRecognizer.cpp \
+  ShrinkWrap.cpp \
   ShadowStackGC.cpp \
   ShadowStackGCLowering.cpp \
   SjLjEHPrepare.cpp \
@@ -127,9 +138,10 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(codegen_SRC_FILES)
 LOCAL_MODULE:= libLLVMCodeGen
 
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_HOST_OS := darwin linux windows
 
 include $(LLVM_HOST_BUILD_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
 include $(LLVM_GEN_INTRINSICS_MK)
 include $(BUILD_HOST_STATIC_LIBRARY)
 
@@ -141,9 +153,8 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(codegen_SRC_FILES)
 LOCAL_MODULE:= libLLVMCodeGen
 
-LOCAL_MODULE_TAGS := optional
-
 include $(LLVM_DEVICE_BUILD_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
 include $(LLVM_GEN_INTRINSICS_MK)
 include $(BUILD_STATIC_LIBRARY)
 endif

@@ -164,7 +164,7 @@ unw_step (unw_cursor_t *cursor)
   if (unlikely (ret == -UNW_ESTOPUNWIND))
     return ret;
 
-  if (unlikely (ret < 0))
+  if (unlikely (ret <= 0))
     return 0;
 
   return (c->dwarf.ip == 0) ? 0 : 1;

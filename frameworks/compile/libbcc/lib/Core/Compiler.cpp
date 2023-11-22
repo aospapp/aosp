@@ -32,8 +32,10 @@
 #include <llvm/Transforms/Vectorize.h>
 
 #include "bcc/Assert.h"
+#include "bcc/Config/Config.h"
 #include "bcc/Renderscript/RSScript.h"
 #include "bcc/Renderscript/RSTransforms.h"
+#include "bcc/Renderscript/RSUtils.h"
 #include "bcc/Script.h"
 #include "bcc/Source.h"
 #include "bcc/Support/CompilerConfig.h"
@@ -74,11 +76,13 @@ const char *Compiler::GetErrorString(enum ErrorCode pErrCode) {
     return "Error loading input bitcode";
   case kIllegalGlobalFunction:
     return "Use of undefined external function";
+  case kErrInvalidTargetMachine:
+    return "Invalid/unexpected llvm::TargetMachine.";
   }
 
   // This assert should never be reached as the compiler verifies that the
   // above switch coveres all enum values.
-  assert(false && "Unknown error code encountered");
+  bccAssert(false && "Unknown error code encountered");
   return  "";
 }
 
@@ -143,69 +147,85 @@ Compiler::~Compiler() {
 }
 
 
+// This function has complete responsibility for creating and executing the
+// exact list of compiler passes.
 enum Compiler::ErrorCode Compiler::runPasses(Script &pScript,
                                              llvm::raw_pwrite_stream &pResult) {
   // Pass manager for link-time optimization
-  llvm::legacy::PassManager passes;
+  llvm::legacy::PassManager transformPasses;
 
   // Empty MCContext.
   llvm::MCContext *mc_context = nullptr;
 
-  passes.add(createTargetTransformInfoWrapperPass(mTarget->getTargetIRAnalysis()));
+  transformPasses.add(
+      createTargetTransformInfoWrapperPass(mTarget->getTargetIRAnalysis()));
 
-  // Add our custom passes.
-  if (!addCustomPasses(pScript, passes)) {
-    return kErrCustomPasses;
+  // Add some initial custom passes.
+  addInvokeHelperPass(transformPasses);
+  addExpandKernelPass(transformPasses);
+  addDebugInfoPass(pScript, transformPasses);
+  addInvariantPass(transformPasses);
+  if (mTarget->getOptLevel() != llvm::CodeGenOpt::None) {
+    if (!addInternalizeSymbolsPass(pScript, transformPasses))
+      return kErrCustomPasses;
   }
+  addGlobalInfoPass(pScript, transformPasses);
 
   if (mTarget->getOptLevel() == llvm::CodeGenOpt::None) {
-    passes.add(llvm::createGlobalOptimizerPass());
-    passes.add(llvm::createConstantMergePass());
+    transformPasses.add(llvm::createGlobalOptimizerPass());
+    transformPasses.add(llvm::createConstantMergePass());
 
   } else {
     // FIXME: Figure out which passes should be executed.
     llvm::PassManagerBuilder Builder;
     Builder.Inliner = llvm::createFunctionInliningPass();
-    Builder.populateLTOPassManager(passes);
+    Builder.populateLTOPassManager(transformPasses);
 
     /* FIXME: Reenable autovectorization after rebase.
        bug 19324423
     // Add vectorization passes after LTO passes are in
     // additional flag: -unroll-runtime
-    passes.add(llvm::createLoopUnrollPass(-1, 16, 0, 1));
+    transformPasses.add(llvm::createLoopUnrollPass(-1, 16, 0, 1));
     // Need to pass appropriate flags here: -scalarize-load-store
-    passes.add(llvm::createScalarizerPass());
-    passes.add(llvm::createCFGSimplificationPass());
-    passes.add(llvm::createScopedNoAliasAAPass());
-    passes.add(llvm::createScalarEvolutionAliasAnalysisPass());
+    transformPasses.add(llvm::createScalarizerPass());
+    transformPasses.add(llvm::createCFGSimplificationPass());
+    transformPasses.add(llvm::createScopedNoAliasAAPass());
+    transformPasses.add(llvm::createScalarEvolutionAliasAnalysisPass());
     // additional flags: -slp-vectorize-hor -slp-vectorize-hor-store (unnecessary?)
-    passes.add(llvm::createSLPVectorizerPass());
-    passes.add(llvm::createDeadCodeEliminationPass());
-    passes.add(llvm::createInstructionCombiningPass());
+    transformPasses.add(llvm::createSLPVectorizerPass());
+    transformPasses.add(llvm::createDeadCodeEliminationPass());
+    transformPasses.add(llvm::createInstructionCombiningPass());
     */
   }
 
   // These passes have to come after LTO, since we don't want to examine
   // functions that are never actually called.
-  if (!addPostLTOCustomPasses(passes)) {
-    return kErrCustomPasses;
-  }
+  if (llvm::Triple(getTargetMachine().getTargetTriple()).getArch() == llvm::Triple::x86_64)
+    transformPasses.add(createRSX86_64CallConvPass());  // Add pass to correct calling convention for X86-64.
+  transformPasses.add(createRSIsThreadablePass());      // Add pass to mark script as threadable.
 
   // RSEmbedInfoPass needs to come after we have scanned for non-threadable
   // functions.
   // Script passed to RSCompiler must be a RSScript.
   RSScript &script = static_cast<RSScript &>(pScript);
   if (script.getEmbedInfo())
-    passes.add(createRSEmbedInfoPass());
+    transformPasses.add(createRSEmbedInfoPass());
+
+  // Execute the passes.
+  transformPasses.run(pScript.getSource().getModule());
+
+  // Run backend separately to avoid interference between debug metadata
+  // generation and backend initialization.
+  llvm::legacy::PassManager codeGenPasses;
 
   // Add passes to the pass manager to emit machine code through MC layer.
-  if (mTarget->addPassesToEmitMC(passes, mc_context, pResult,
+  if (mTarget->addPassesToEmitMC(codeGenPasses, mc_context, pResult,
                                  /* DisableVerify */false)) {
     return kPrepareCodeGenPass;
   }
 
   // Execute the passes.
-  passes.run(pScript.getSource().getModule());
+  codeGenPasses.run(pScript.getSource().getModule());
 
   return kSuccess;
 }
@@ -221,8 +241,8 @@ enum Compiler::ErrorCode Compiler::compile(Script &pScript,
   }
 
   const std::string &triple = module.getTargetTriple();
-  const llvm::DataLayout *dl = getTargetMachine().getDataLayout();
-  unsigned int pointerSize = dl->getPointerSizeInBits();
+  const llvm::DataLayout dl = getTargetMachine().createDataLayout();
+  unsigned int pointerSize = dl.getPointerSizeInBits();
   if (triple == "armv7-none-linux-gnueabi") {
     if (pointerSize != 32) {
       return kErrInvalidSource;
@@ -235,12 +255,25 @@ enum Compiler::ErrorCode Compiler::compile(Script &pScript,
     return kErrInvalidSource;
   }
 
+  if (getTargetMachine().getTargetTriple().getArch() == llvm::Triple::x86) {
+    // Detect and fail if TargetMachine datalayout is different than what we
+    // expect.  This is to detect changes in default target layout for x86 and
+    // update X86_CUSTOM_DL_STRING in include/bcc/Config/Config.h appropriately.
+    if (dl.getStringRepresentation().compare(X86_DEFAULT_DL_STRING) != 0) {
+      return kErrInvalidTargetMachine;
+    }
+  }
+
+  // Sanitize module's target information.
+  module.setTargetTriple(getTargetMachine().getTargetTriple().str());
+  module.setDataLayout(getTargetMachine().createDataLayout());
+
   // Materialize the bitcode module.
   if (module.getMaterializer() != nullptr) {
     // A module with non-null materializer means that it is a lazy-load module.
-    // Materialize it now via invoking MaterializeAllPermanently(). This
-    // function returns false when the materialization is successful.
-    std::error_code ec = module.materializeAllPermanently();
+    // Materialize it now.  This function returns false when the materialization
+    // is successful.
+    std::error_code ec = module.materializeAll();
     if (ec) {
       ALOGE("Failed to materialize the module `%s'! (%s)",
             module.getModuleIdentifier().c_str(), ec.message().c_str());
@@ -320,9 +353,11 @@ bool Compiler::addInternalizeSymbolsPass(Script &pScript, llvm::legacy::PassMana
   size_t exportVarCount = me.getExportVarCount();
   size_t exportFuncCount = me.getExportFuncCount();
   size_t exportForEachCount = me.getExportForEachSignatureCount();
+  size_t exportReduceCount = me.getExportReduceCount();
   const char **exportVarNameList = me.getExportVarNameList();
   const char **exportFuncNameList = me.getExportFuncNameList();
   const char **exportForEachNameList = me.getExportForEachNameList();
+  const bcinfo::MetadataExtractor::Reduce *exportReduceList = me.getExportReduceList();
   size_t i;
 
   for (i = 0; i < exportVarCount; ++i) {
@@ -333,18 +368,41 @@ bool Compiler::addInternalizeSymbolsPass(Script &pScript, llvm::legacy::PassMana
     export_symbols.push_back(exportFuncNameList[i]);
   }
 
-  // Expanded foreach functions should not be internalized, too.
-  // expanded_foreach_funcs keeps the .expand version of the kernel names
-  // around until createInternalizePass() is finished making its own
-  // copy of the visible symbols.
-  std::vector<std::string> expanded_foreach_funcs;
+  // Expanded foreach functions should not be internalized; nor should
+  // general reduction initializer, combiner, and outconverter
+  // functions. keep_funcs keeps the names of these functions around
+  // until createInternalizePass() is finished making its own copy of
+  // the visible symbols.
+  std::vector<std::string> keep_funcs;
+  keep_funcs.reserve(exportForEachCount + exportReduceCount*4);
+
   for (i = 0; i < exportForEachCount; ++i) {
-    expanded_foreach_funcs.push_back(
-        std::string(exportForEachNameList[i]) + ".expand");
+    keep_funcs.push_back(std::string(exportForEachNameList[i]) + ".expand");
+  }
+  auto keepFuncsPushBackIfPresent = [&keep_funcs](const char *Name) {
+    if (Name) keep_funcs.push_back(Name);
+  };
+  for (i = 0; i < exportReduceCount; ++i) {
+    keep_funcs.push_back(std::string(exportReduceList[i].mAccumulatorName) + ".expand");
+    keepFuncsPushBackIfPresent(exportReduceList[i].mInitializerName);
+    if (exportReduceList[i].mCombinerName != nullptr) {
+      keep_funcs.push_back(exportReduceList[i].mCombinerName);
+    } else {
+      keep_funcs.push_back(nameReduceCombinerFromAccumulator(exportReduceList[i].mAccumulatorName));
+    }
+    keepFuncsPushBackIfPresent(exportReduceList[i].mOutConverterName);
   }
 
-  for (i = 0; i < exportForEachCount; i++) {
-      export_symbols.push_back(expanded_foreach_funcs[i].c_str());
+  for (auto &symbol_name : keep_funcs) {
+    export_symbols.push_back(symbol_name.c_str());
+  }
+
+  // http://b/26165616 - WAR for this bug defines the __truncxfhf2 function in
+  // frameworks/rs/driver/runtime.  Don't internalize this function for x86, so
+  // that a script can find and link against it.
+  llvm::Triple triple(getTargetMachine().getTargetTriple());
+  if (triple.getArch() == llvm::Triple::x86) {
+    export_symbols.push_back("__truncxfhf2");
   }
 
   pPM.add(llvm::createInternalizePass(export_symbols));
@@ -352,69 +410,36 @@ bool Compiler::addInternalizeSymbolsPass(Script &pScript, llvm::legacy::PassMana
   return true;
 }
 
-bool Compiler::addInvokeHelperPass(llvm::legacy::PassManager &pPM) {
+void Compiler::addInvokeHelperPass(llvm::legacy::PassManager &pPM) {
   llvm::Triple arch(getTargetMachine().getTargetTriple());
   if (arch.isArch64Bit()) {
     pPM.add(createRSInvokeHelperPass());
   }
-  return true;
 }
 
-bool Compiler::addExpandForEachPass(Script &pScript, llvm::legacy::PassManager &pPM) {
-  // Expand ForEach on CPU path to reduce launch overhead.
+void Compiler::addDebugInfoPass(Script &pScript, llvm::legacy::PassManager &pPM) {
+  if (pScript.getSource().getDebugInfoEnabled())
+    pPM.add(createRSAddDebugInfoPass());
+}
+
+void Compiler::addExpandKernelPass(llvm::legacy::PassManager &pPM) {
+  // Expand ForEach and reduce on CPU path to reduce launch overhead.
   bool pEnableStepOpt = true;
-  pPM.add(createRSForEachExpandPass(pEnableStepOpt));
-
-  return true;
+  pPM.add(createRSKernelExpandPass(pEnableStepOpt));
 }
 
-bool Compiler::addGlobalInfoPass(Script &pScript, llvm::legacy::PassManager &pPM) {
+void Compiler::addGlobalInfoPass(Script &pScript, llvm::legacy::PassManager &pPM) {
   // Add additional information about RS global variables inside the Module.
   RSScript &script = static_cast<RSScript &>(pScript);
   if (script.getEmbedGlobalInfo()) {
     pPM.add(createRSGlobalInfoPass(script.getEmbedGlobalInfoSkipConstant()));
   }
-
-  return true;
 }
 
-bool Compiler::addInvariantPass(llvm::legacy::PassManager &pPM) {
+void Compiler::addInvariantPass(llvm::legacy::PassManager &pPM) {
   // Mark Loads from RsExpandKernelDriverInfo as "load.invariant".
   // Should run after ExpandForEach and before inlining.
   pPM.add(createRSInvariantPass());
-
-  return true;
-}
-
-bool Compiler::addCustomPasses(Script &pScript, llvm::legacy::PassManager &pPM) {
-  if (!addInvokeHelperPass(pPM))
-    return false;
-
-  if (!addExpandForEachPass(pScript, pPM))
-    return false;
-
-  if (!addInvariantPass(pPM))
-    return false;
-
-  if (!addInternalizeSymbolsPass(pScript, pPM))
-    return false;
-
-  if (!addGlobalInfoPass(pScript, pPM))
-    return false;
-
-  return true;
-}
-
-bool Compiler::addPostLTOCustomPasses(llvm::legacy::PassManager &pPM) {
-  // Add pass to correct calling convention for X86-64.
-  llvm::Triple arch(getTargetMachine().getTargetTriple());
-  if (arch.getArch() == llvm::Triple::x86_64)
-    pPM.add(createRSX86_64CallConvPass());
-
-  // Add pass to mark script as threadable.
-  pPM.add(createRSIsThreadablePass());
-
-  return true;
 }
 
 enum Compiler::ErrorCode Compiler::screenGlobalFunctions(Script &pScript) {
@@ -439,4 +464,12 @@ enum Compiler::ErrorCode Compiler::screenGlobalFunctions(Script &pScript) {
 
   return kSuccess;
 
+}
+
+void Compiler::translateGEPs(Script &pScript) {
+  llvm::legacy::PassManager pPM;
+  pPM.add(createRSX86TranslateGEPPass());
+
+  // Materialization done in screenGlobalFunctions above.
+  pPM.run(pScript.getSource().getModule());
 }

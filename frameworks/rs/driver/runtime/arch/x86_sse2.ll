@@ -100,3 +100,8 @@ define <4 x float> @_Z4sqrtDv4_f(<4 x float> %in) nounwind readnone alwaysinline
   %1 = tail call <4 x float> @llvm.sqrt.v4f32(<4 x float> %in) nounwind readnone
   ret <4 x float> %1
 }
+
+define float @_Z3powff(float %v1, float %v2) nounwind readnone alwaysinline {
+  %1 = tail call float @llvm.pow.f32(float  %v1, float %v2)
+  ret float %1
+}

@@ -8,8 +8,8 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright IBM Corp. 2010-2013
-   Copyright (C) 2012-2013  Florian Krohm   (britzel@acm.org)
+   Copyright IBM Corp. 2010-2015
+   Copyright (C) 2012-2015  Florian Krohm   (britzel@acm.org)
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License as
@@ -559,7 +559,7 @@ doHelperCall(/*OUT*/UInt *stackAdjustAfterCall,
          IRType type = typeOfIRExpr(env->type_env, args[i]);
          if (type != Ity_I64) {
             ++arg_errors;
-            vex_printf("calling %s: argument #%d has type ", callee->name, i);
+            vex_printf("calling %s: argument #%u has type ", callee->name, i);
             ppIRType(type);
             vex_printf("; Ity_I64 is required\n");
          }
@@ -2143,6 +2143,42 @@ s390_isel_float128_expr_wrk(HReg *dst_hi, HReg *dst_lo, ISelEnv *env,
          return;
       }
 
+      case Iop_RoundF128toInt: {
+         IRExpr *irrm;
+         IRExpr *left;
+         s390_bfp_round_t rm;
+         HReg op_hi, op_lo;
+         HReg f0, f2, f4, f6;           /* real registers */
+
+         f4 = make_fpr(4); /* source */
+         f6 = make_fpr(6); /* source */
+         f0 = make_fpr(0); /* destination */
+         f2 = make_fpr(2); /* destination */
+
+         irrm = expr->Iex.Binop.arg1;
+         left = expr->Iex.Binop.arg2;
+         
+         if (s390_host_has_fpext) {
+            rm = get_bfp_rounding_mode(env, irrm);
+         } else {
+            set_bfp_rounding_mode_in_fpc(env, irrm);
+            rm = S390_BFP_ROUND_PER_FPC;
+         }
+
+         s390_isel_float128_expr(&op_hi, &op_lo, env, left);
+         /* operand --> (f4, f6) */
+         addInstr(env, s390_insn_move(8, f4, op_hi));
+         addInstr(env, s390_insn_move(8, f6, op_lo));
+         addInstr(env, s390_insn_bfp128_convert(16, S390_BFP_F128_TO_F128I,
+                                                f0, f2, f4, f6, rm));
+         /* (f0, f2) --> destination */
+         *dst_hi = newVRegF(env);
+         *dst_lo = newVRegF(env);
+         addInstr(env, s390_insn_move(8, *dst_hi, f0));
+         addInstr(env, s390_insn_move(8, *dst_lo, f2));
+         return;
+      }
+
       default:
          goto irreducible;
       }
@@ -2378,6 +2414,8 @@ s390_isel_float_expr_wrk(ISelEnv *env, IRExpr *expr)
          return dst;
 
       case Iop_F64toF32:  conv = S390_BFP_F64_TO_F32; goto convert_float;
+      case Iop_RoundF32toInt: conv = S390_BFP_F32_TO_F32I; goto convert_float;
+      case Iop_RoundF64toInt: conv = S390_BFP_F64_TO_F64I; goto convert_float;
       case Iop_I32StoF32: conv = S390_BFP_I32_TO_F32; goto convert_int;
       case Iop_I32UtoF32: conv = S390_BFP_U32_TO_F32; goto convert_int;
       case Iop_I64StoF32: conv = S390_BFP_I64_TO_F32; goto convert_int;

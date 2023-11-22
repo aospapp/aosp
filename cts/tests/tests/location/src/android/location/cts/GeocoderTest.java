@@ -41,6 +41,11 @@ public class GeocoderTest extends AndroidTestCase {
         }
     }
 
+    public void testIsPresent() {
+        Geocoder geocoder = new Geocoder(getContext());
+        assertTrue(geocoder.isPresent());
+    }
+
     public void testGetFromLocation() throws IOException, InterruptedException {
         Geocoder geocoder = new Geocoder(getContext());
 

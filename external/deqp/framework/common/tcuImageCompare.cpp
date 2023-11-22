@@ -101,9 +101,9 @@ static int findNumPositionDeviationFailingPixels (const PixelBufferAccess& error
 	const int			beginX				= (acceptOutOfBoundsAsAnyValue) ? (maxPositionDeviation.x()) : (0);
 	const int			beginY				= (acceptOutOfBoundsAsAnyValue) ? (maxPositionDeviation.y()) : (0);
 	const int			beginZ				= (acceptOutOfBoundsAsAnyValue) ? (maxPositionDeviation.z()) : (0);
-	const int			endX				= (acceptOutOfBoundsAsAnyValue) ? (width  - maxPositionDeviation.x()) : (0);
-	const int			endY				= (acceptOutOfBoundsAsAnyValue) ? (height - maxPositionDeviation.y()) : (0);
-	const int			endZ				= (acceptOutOfBoundsAsAnyValue) ? (depth  - maxPositionDeviation.z()) : (0);
+	const int			endX				= (acceptOutOfBoundsAsAnyValue) ? (width  - maxPositionDeviation.x()) : (width);
+	const int			endY				= (acceptOutOfBoundsAsAnyValue) ? (height - maxPositionDeviation.y()) : (height);
+	const int			endZ				= (acceptOutOfBoundsAsAnyValue) ? (depth  - maxPositionDeviation.z()) : (depth);
 
 	TCU_CHECK_INTERNAL(result.getWidth() == width && result.getHeight() == height && result.getDepth() == depth);
 
@@ -427,8 +427,9 @@ static deInt32 getPositionOfIEEEFloatWithoutDenormals (float x)
 			// the gap here too to keep the float enumeration continuous.
 			//
 			// Denormals occupy one exponent pattern. Removing one from
-			// exponent should to the trick.
-			return (deInt32)(f.bits() - (1u << 23u));
+			// exponent should to the trick. Add one since the removed range
+			// contained one representable value, 0.
+			return (deInt32)(f.bits() - (1u << 23u) + 1u);
 		}
 	}
 }

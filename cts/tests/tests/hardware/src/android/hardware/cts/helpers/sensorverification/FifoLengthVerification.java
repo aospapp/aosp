@@ -64,10 +64,10 @@ public class FifoLengthVerification extends AbstractSensorVerification {
             return null;
         }
         long expectedReportLatencyUs = environment.getMaxReportLatencyUs();
-        long fifoMaxEventCount = environment.getSensor().getFifoMaxEventCount();
+        long fifoReservedEventCount = environment.getSensor().getFifoReservedEventCount();
         int maximumExpectedSamplingPeriodUs = environment.getMaximumExpectedSamplingPeriodUs();
-        if (fifoMaxEventCount > 0 && maximumExpectedSamplingPeriodUs != Integer.MAX_VALUE) {
-            long fifoBasedReportLatencyUs = fifoMaxEventCount * maximumExpectedSamplingPeriodUs;
+        if (fifoReservedEventCount > 0 && maximumExpectedSamplingPeriodUs != Integer.MAX_VALUE) {
+            long fifoBasedReportLatencyUs = fifoReservedEventCount * maximumExpectedSamplingPeriodUs;
             // If the device goes into suspend mode and the sensor is a non wake-up sensor, the
             // FIFO will keep overwriting itself and the reportLatency will be equal to the time
             // it takes to fill up the FIFO.
@@ -83,8 +83,7 @@ public class FifoLengthVerification extends AbstractSensorVerification {
             }
         }
 
-        return new FifoLengthVerification(environment.getSensor().getFifoMaxEventCount(),
-                expectedReportLatencyUs);
+        return new FifoLengthVerification((int) fifoReservedEventCount, expectedReportLatencyUs);
     }
 
     /**
@@ -98,6 +97,7 @@ public class FifoLengthVerification extends AbstractSensorVerification {
             return;
         }
         int batchCount = 0;
+        int maxBatchCount = 0;
         boolean success, endofbatch = false;
         long maxTsDiff = -1;
         for (long timestampDiff : mRecvdTimeStampDiffs) {
@@ -105,11 +105,12 @@ public class FifoLengthVerification extends AbstractSensorVerification {
             // Any event that arrives within before 0.5*expectedReportLatency is considered
             // to be in the same batch of events, else it is considered as the beginning of a new
             // batch.
-            if (timestampDiff < 0.5 * mExpectedReportLatencyUs/1000) {
+            if (timestampDiff < mExpectedReportLatencyUs/1000/2) {
                 batchCount++;
             } else {
                 endofbatch = true;
-                break;
+                maxBatchCount = (maxBatchCount >= batchCount) ? maxBatchCount : batchCount;
+                batchCount = 0;
             }
         }
         Log.v("SensorFifoLengthVerification", "batchCount =" +batchCount + " mExpected=" +

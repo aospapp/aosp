@@ -20,6 +20,8 @@
 void *platform_init(struct audio_device *adev);
 void platform_deinit(void *platform);
 const char *platform_get_snd_device_name(snd_device_t snd_device);
+int platform_get_snd_device_name_extn(void *platform, snd_device_t snd_device,
+                                      char *device_name);
 void platform_add_backend_name(void *platform, char *mixer_path,
                                                     snd_device_t snd_device);
 bool platform_send_gain_dep_cal(void *platform, int level);
@@ -41,6 +43,9 @@ int platform_switch_voice_call_usecase_route_post(void *platform,
 int platform_start_voice_call(void *platform, uint32_t vsid);
 int platform_stop_voice_call(void *platform, uint32_t vsid);
 int platform_set_voice_volume(void *platform, int volume);
+void platform_set_speaker_gain_in_combo(struct audio_device *adev,
+                                        snd_device_t snd_device,
+                                        bool enable);
 int platform_set_mic_mute(void *platform, bool state);
 int platform_get_sample_rate(void *platform, uint32_t *rate);
 int platform_set_device_mute(void *platform, bool state, char *dir);
@@ -48,6 +53,10 @@ snd_device_t platform_get_output_snd_device(void *platform, audio_devices_t devi
 snd_device_t platform_get_input_snd_device(void *platform, audio_devices_t out_device);
 int platform_set_hdmi_channels(void *platform, int channel_count);
 int platform_edid_get_max_channels(void *platform);
+void platform_add_operator_specific_device(snd_device_t snd_device,
+                                           const char *operator,
+                                           const char *mixer_path,
+                                           unsigned int acdb_id);
 
 /* returns the latency for a usecase in Us */
 int64_t platform_render_latency(audio_usecase_t usecase);
@@ -62,7 +71,7 @@ int platform_set_snd_device_backend(snd_device_t snd_device, const char * backen
                                     const char * hw_interface);
 
 /* From platform_info.c */
-int platform_info_init(void *);
+int platform_info_init(const char *filename, void *);
 
 int platform_get_usecase_index(const char * usecase);
 int platform_set_usecase_pcm_id(audio_usecase_t usecase, int32_t type, int32_t pcm_id);
@@ -76,5 +85,8 @@ bool platform_can_split_snd_device(snd_device_t in_snd_device,
 bool platform_check_backends_match(snd_device_t snd_device1, snd_device_t snd_device2);
 
 int platform_set_parameters(void *platform, struct str_parms *parms);
+
+bool platform_check_and_set_capture_backend_cfg(struct audio_device* adev,
+                   struct audio_usecase *usecase, snd_device_t snd_device);
 
 #endif // AUDIO_PLATFORM_API_H

@@ -845,27 +845,18 @@ ibm-1363_P110-1997 { UTR22* } # Korean KSC MBCS with \ <-> Won mapping
                         x-IBM1363 { JAVA* }
 
 windows-949-2000 { UTR22* }
-                        # BEGIN android-removed
-                        # windows-949 { JAVA* WINDOWS* }
-                        # KS_C_5601-1987 { WINDOWS }
-                        # KS_C_5601-1989 { WINDOWS }
-                        # KSC_5601 { MIME WINDOWS } # Needed by iso-2022
-                        # csKSC56011987 { WINDOWS }
-                        # korean { WINDOWS }
-                        # iso-ir-149 { WINDOWS }
-                        # END android-removed
-                        # BEGIN android-added
+                        # BEGIN android-changed
                         windows-949 { JAVA* WINDOWS }
                         EUC-KR { IANA* MIME* WINDOWS }
                         KS_C_5601-1987 { WINDOWS* IANA }
                         KS_C_5601-1989 { WINDOWS IANA }
-                        KSC_5601 { IANA WINDOWS } # Needed by iso-2022
+                        KSC_5601 { IANA MIME WINDOWS } # Needed by iso-2022
                         csKSC56011987 { IANA WINDOWS }
                         korean { IANA WINDOWS }
                         iso-ir-149 { IANA WINDOWS }
                         csEUCKR { IANA WINDOWS }
                         5601
-                        # END android-added
+                        # END android-changed
                         ms949 { JAVA }
                         x-KSC5601 { JAVA }
 
@@ -879,15 +870,17 @@ windows-874-2000 { UTR22* }   # Thai (w/ euro update)
                         # BEGIN android-changed
                         TIS-620 { IANA* WINDOWS JAVA }
                         windows-874 { JAVA WINDOWS* }
-                        # END android-changed
                         MS874 { JAVA* }
+                        # END android-changed
                         # iso-8859-11 { WINDOWS } # iso-8859-11 is similar to TIS-620. ibm-13162 is a closer match.
 
 ibm-874_P100-1995 { UTR22* }    # Thai PC (w/o euro update).
                         ibm-874 { IBM* JAVA }
                         ibm-9066 { IBM }    # Yes ibm-874 == ibm-9066. ibm-1161 has the euro update.
                         cp874 { JAVA* }
-                        TIS-620 { IANA* JAVA }  # This is actually separate from ibm-874, which is similar to this table
+                        # BEGIN android-changed
+                        # TIS-620 { IANA* JAVA }  # This is actually separate from ibm-874, which is similar to this table
+                        # END android-changed
                         tis620.2533 { JAVA }    # This is actually separate from ibm-874, which is similar to this table
                         eucTH               # eucTH is an unusual alias from Solaris.  eucTH has fewer mappings than TIS620
                         x-IBM874 { JAVA }
@@ -917,9 +910,7 @@ ibm-860_P100-1995 { UTR22* }    ibm-860 { IBM* } IBM860 { IANA* MIME* JAVA } cp8
 ibm-861_P100-1995 { UTR22* }    ibm-861 { IBM* } IBM861 { IANA* MIME* WINDOWS JAVA } cp861 { IANA MIME JAVA* } 861 { IANA JAVA } cp-is { IANA JAVA } csIBM861 { IANA JAVA } windows-861 { WINDOWS* } # PC Iceland
 ibm-862_P100-1995 { UTR22* }    ibm-862 { IBM* } IBM862 { IANA* MIME* JAVA } cp862 { IANA MIME JAVA* } 862 { IANA JAVA } csPC862LatinHebrew { IANA JAVA } DOS-862 { WINDOWS } windows-862 { WINDOWS* }    # PC Hebrew visual order (w/o euro update)
 ibm-863_P100-1995 { UTR22* }    ibm-863 { IBM* } IBM863 { IANA* MIME* JAVA } cp863 { IANA MIME JAVA* } 863 { IANA JAVA } csIBM863 { IANA JAVA }    # PC Canadian French
-# BEGIN Android-changed
-ibm-864_X110-1999 { UTR22* }    ibm-864 { IBM* } IBM864 { IANA* JAVA } cp864 { IANA MIME* JAVA* } csIBM864 { IANA JAVA } # PC Arabic (w/o euro update)
-# END Android-changed
+ibm-864_X110-1999 { UTR22* }    ibm-864 { IBM* } IBM864 { IANA* MIME* JAVA } cp864 { IANA MIME JAVA* } csIBM864 { IANA JAVA } # PC Arabic (w/o euro update)
 ibm-865_P100-1995 { UTR22* }    ibm-865 { IBM* } IBM865 { IANA* MIME* JAVA } cp865 { IANA MIME JAVA* } 865 { IANA JAVA } csIBM865 { IANA JAVA }    # PC Nordic
 ibm-866_P100-1995 { UTR22* }    ibm-866 { IBM* } IBM866 { IANA* MIME* JAVA } cp866 { IANA MIME WINDOWS JAVA* } 866 { IANA JAVA } csIBM866 { IANA JAVA } windows-866 { WINDOWS* } # PC Russian (w/o euro update)
 ibm-867_P100-1998 { UTR22* }    ibm-867 { IBM* } x-IBM867 { JAVA* } # PC Hebrew (w/ euro update) Updated version of ibm-862

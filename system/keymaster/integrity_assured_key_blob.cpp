@@ -50,9 +50,9 @@ class HmacCleanup {
 };
 
 static keymaster_error_t ComputeHmac(const uint8_t* serialized_data, size_t serialized_data_size,
-                              const AuthorizationSet& hidden, uint8_t hmac[HMAC_SIZE]) {
+                                     const AuthorizationSet& hidden, uint8_t hmac[HMAC_SIZE]) {
     size_t hidden_bytes_size = hidden.SerializedSize();
-    UniquePtr<uint8_t[]> hidden_bytes(new  (std::nothrow) uint8_t[hidden_bytes_size]);
+    UniquePtr<uint8_t[]> hidden_bytes(new (std::nothrow) uint8_t[hidden_bytes_size]);
     if (!hidden_bytes.get())
         return KM_ERROR_MEMORY_ALLOCATION_FAILED;
     hidden.Serialize(hidden_bytes.get(), hidden_bytes.get() + hidden_bytes_size);
@@ -108,7 +108,7 @@ keymaster_error_t DeserializeIntegrityAssuredBlob(const KeymasterKeyBlob& key_bl
     const uint8_t* p = key_blob.begin();
     const uint8_t* end = key_blob.end();
 
-    if (p > end || p +  HMAC_SIZE > end)
+    if (p > end || p + HMAC_SIZE > end)
         return KM_ERROR_INVALID_KEY_BLOB;
 
     uint8_t computed_hmac[HMAC_SIZE];
@@ -118,6 +118,20 @@ keymaster_error_t DeserializeIntegrityAssuredBlob(const KeymasterKeyBlob& key_bl
         return error;
 
     if (CRYPTO_memcmp(key_blob.end() - HMAC_SIZE, computed_hmac, HMAC_SIZE) != 0)
+        return KM_ERROR_INVALID_KEY_BLOB;
+
+    return DeserializeIntegrityAssuredBlob_NoHmacCheck(key_blob, key_material, hw_enforced,
+                                                       sw_enforced);
+}
+
+keymaster_error_t DeserializeIntegrityAssuredBlob_NoHmacCheck(const KeymasterKeyBlob& key_blob,
+                                                              KeymasterKeyBlob* key_material,
+                                                              AuthorizationSet* hw_enforced,
+                                                              AuthorizationSet* sw_enforced) {
+    const uint8_t* p = key_blob.begin();
+    const uint8_t* end = key_blob.end() - HMAC_SIZE;
+
+    if (p > end)
         return KM_ERROR_INVALID_KEY_BLOB;
 
     if (*p != BLOB_VERSION)

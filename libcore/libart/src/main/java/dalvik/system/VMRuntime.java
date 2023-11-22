@@ -39,7 +39,7 @@ public final class VMRuntime {
     // instruction set name should not exceed 7 characters. See installd
     // and the package manager for the actual propeties.
     private static final Map<String, String> ABI_TO_INSTRUCTION_SET_MAP
-            = new HashMap<String, String>();
+            = new HashMap<String, String>(16);
     static {
         ABI_TO_INSTRUCTION_SET_MAP.put("armeabi", "arm");
         ABI_TO_INSTRUCTION_SET_MAP.put("armeabi-v7a", "arm");
@@ -288,6 +288,11 @@ public final class VMRuntime {
     public native boolean isDebuggerActive();
 
     /**
+     * Returns true if native debugging is on.
+     */
+    public native boolean isNativeDebuggable();
+
+    /**
      * Registers a native allocation so that the heap knows about it and performs GC as required.
      * If the number of native allocated bytes exceeds the native allocation watermark, the
      * function requests a concurrent GC. If the native bytes allocated exceeds a second higher
@@ -349,7 +354,8 @@ public final class VMRuntime {
     /**
      * Register application info
      */
-    public static native void registerAppInfo(String appDir, String processName, String pkgname);
+    public static native void registerAppInfo(String packageName, String appDir,
+             String[] codePaths, String foreignDexProfileDir);
 
     /**
      * Returns the runtime instruction set corresponding to a given ABI. Multiple
@@ -389,4 +395,16 @@ public final class VMRuntime {
      */
     public static native String getCurrentInstructionSet();
 
+    /**
+     * Return true if the dalvik cache was pruned when booting. This may have happened for
+     * various reasons, e.g., after an OTA. The return value is for the current instruction
+     * set.
+     */
+    public static native boolean didPruneDalvikCache();
+
+    /**
+     * Register the current execution thread to the runtime as sensitive thread.
+     * Should be called just once. Subsequent calls are ignored.
+     */
+    public static native void registerSensitiveThread();
 }

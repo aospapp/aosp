@@ -16,6 +16,8 @@
 
 package android.support.v7.widget;
 
+import static android.support.v7.widget.SuggestionsAdapter.getColumnString;
+
 import android.annotation.TargetApi;
 import android.app.PendingIntent;
 import android.app.SearchManager;
@@ -34,14 +36,18 @@ import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.os.ResultReceiver;
 import android.speech.RecognizerIntent;
+import android.support.annotation.Nullable;
+import android.support.v4.content.res.ConfigurationHelper;
+import android.support.v4.os.ParcelableCompat;
+import android.support.v4.os.ParcelableCompatCreatorCallbacks;
+import android.support.v4.view.AbsSavedState;
 import android.support.v4.view.KeyEventCompat;
 import android.support.v4.widget.CursorAdapter;
 import android.support.v7.appcompat.R;
-import android.support.v7.internal.widget.TintManager;
-import android.support.v7.internal.widget.TintTypedArray;
-import android.support.v7.internal.widget.ViewUtils;
 import android.support.v7.view.CollapsibleActionView;
 import android.text.Editable;
 import android.text.InputType;
@@ -51,10 +57,15 @@ import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.text.style.ImageSpan;
 import android.util.AttributeSet;
+import android.util.DisplayMetrics;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
+import android.view.TouchDelegate;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.ViewTreeObserver;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
@@ -69,8 +80,6 @@ import android.widget.TextView.OnEditorActionListener;
 
 import java.lang.reflect.Method;
 import java.util.WeakHashMap;
-
-import static android.support.v7.widget.SuggestionsAdapter.getColumnString;
 
 /**
  * A widget that provides a user interface for the user to enter a search query and submit a request
@@ -123,6 +132,12 @@ public class SearchView extends LinearLayoutCompat implements CollapsibleActionV
     private final ImageView mVoiceButton;
     private final View mDropDownAnchor;
 
+    private UpdatableTouchDelegate mTouchDelegate;
+    private Rect mSearchSrcTextViewBounds = new Rect();
+    private Rect mSearchSrtTextViewBoundsExpanded = new Rect();
+    private int[] mTemp = new int[2];
+    private int[] mTemp2 = new int[2];
+
     /** Icon optionally displayed when the SearchView is collapsed. */
     private final ImageView mCollapsedIcon;
 
@@ -162,7 +177,7 @@ public class SearchView extends LinearLayoutCompat implements CollapsibleActionV
     private SearchableInfo mSearchable;
     private Bundle mAppSearchData;
 
-    private final TintManager mTintManager;
+    private final AppCompatDrawableManager mDrawableManager;
 
     static final AutoCompleteTextViewReflector HIDDEN_METHOD_INVOKER = new AutoCompleteTextViewReflector();
 
@@ -278,10 +293,10 @@ public class SearchView extends LinearLayoutCompat implements CollapsibleActionV
     public SearchView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
 
+        mDrawableManager = AppCompatDrawableManager.get();
+
         final TintTypedArray a = TintTypedArray.obtainStyledAttributes(context,
                 attrs, R.styleable.SearchView, defStyleAttr, 0);
-        // Keep the TintManager in case we need it later
-        mTintManager = a.getTintManager();
 
         final LayoutInflater inflater = LayoutInflater.from(context);
         final int layoutResId = a.getResourceId(
@@ -455,6 +470,8 @@ public class SearchView extends LinearLayoutCompat implements CollapsibleActionV
      *
      * @see TextView#setImeOptions(int)
      * @param imeOptions the options to set on the query text field
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SearchView_android_imeOptions
      */
     public void setImeOptions(int imeOptions) {
         mSearchSrcTextView.setImeOptions(imeOptions);
@@ -464,6 +481,8 @@ public class SearchView extends LinearLayoutCompat implements CollapsibleActionV
      * Returns the IME options set on the query text field.
      * @return the ime options
      * @see TextView#setImeOptions(int)
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SearchView_android_imeOptions
      */
     public int getImeOptions() {
         return mSearchSrcTextView.getImeOptions();
@@ -474,6 +493,8 @@ public class SearchView extends LinearLayoutCompat implements CollapsibleActionV
      *
      * @see TextView#setInputType(int)
      * @param inputType the input type to set on the query text field
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SearchView_android_inputType
      */
     public void setInputType(int inputType) {
         mSearchSrcTextView.setInputType(inputType);
@@ -482,6 +503,8 @@ public class SearchView extends LinearLayoutCompat implements CollapsibleActionV
     /**
      * Returns the input type set on the query text field.
      * @return the input type
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SearchView_android_inputType
      */
     public int getInputType() {
         return mSearchSrcTextView.getInputType();
@@ -603,8 +626,9 @@ public class SearchView extends LinearLayoutCompat implements CollapsibleActionV
      * from being displayed.
      *
      * @param hint the hint text to display or {@code null} to clear
+     * @attr ref android.support.v7.appcompat.R.styleable#SearchView_queryHint
      */
-    public void setQueryHint(CharSequence hint) {
+    public void setQueryHint(@Nullable CharSequence hint) {
         mQueryHint = hint;
         updateQueryHint();
     }
@@ -622,8 +646,12 @@ public class SearchView extends LinearLayoutCompat implements CollapsibleActionV
      *     inflated
      * </ol>
      *
+     *
+     *
      * @return the displayed query hint text, or {@code null} if none set
+     * @attr ref android.support.v7.appcompat.R.styleable#SearchView_queryHint
      */
+    @Nullable
     public CharSequence getQueryHint() {
         final CharSequence hint;
         if (mQueryHint != null) {
@@ -645,6 +673,8 @@ public class SearchView extends LinearLayoutCompat implements CollapsibleActionV
      * <p>The default value is true.</p>
      *
      * @param iconified whether the search field should be iconified by default
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SearchView_iconifiedByDefault
      */
     public void setIconifiedByDefault(boolean iconified) {
         if (mIconifiedByDefault == iconified) return;
@@ -656,6 +686,8 @@ public class SearchView extends LinearLayoutCompat implements CollapsibleActionV
     /**
      * Returns the default iconified state of the search field.
      * @return
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SearchView_iconifiedByDefault
      */
     public boolean isIconfiedByDefault() {
         return mIconifiedByDefault;
@@ -763,6 +795,8 @@ public class SearchView extends LinearLayoutCompat implements CollapsibleActionV
 
     /**
      * Makes the view at most this many pixels wide
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SearchView_android_maxWidth
      */
     public void setMaxWidth(int maxpixels) {
         mMaxWidth = maxpixels;
@@ -774,6 +808,8 @@ public class SearchView extends LinearLayoutCompat implements CollapsibleActionV
      * Gets the specified maximum width in pixels, if set. Returns zero if
      * no maximum width was specified.
      * @return the maximum width of the view
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SearchView_android_maxWidth
      */
     public int getMaxWidth() {
         return mMaxWidth;
@@ -811,12 +847,58 @@ public class SearchView extends LinearLayoutCompat implements CollapsibleActionV
                 break;
         }
         widthMode = MeasureSpec.EXACTLY;
-        super.onMeasure(MeasureSpec.makeMeasureSpec(width, widthMode), heightMeasureSpec);
+
+        int heightMode = MeasureSpec.getMode(heightMeasureSpec);
+        int height = MeasureSpec.getSize(heightMeasureSpec);
+
+        switch (heightMode) {
+            case MeasureSpec.AT_MOST:
+            case MeasureSpec.UNSPECIFIED:
+                height = Math.min(getPreferredHeight(), height);
+                break;
+        }
+        heightMode = MeasureSpec.EXACTLY;
+
+        super.onMeasure(MeasureSpec.makeMeasureSpec(width, widthMode),
+                MeasureSpec.makeMeasureSpec(height, heightMode));
+    }
+
+    @Override
+    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+        super.onLayout(changed, left, top, right, bottom);
+
+        if (changed) {
+            // Expand mSearchSrcTextView touch target to be the height of the parent in order to
+            // allow it to be up to 48dp.
+            getChildBoundsWithinSearchView(mSearchSrcTextView, mSearchSrcTextViewBounds);
+            mSearchSrtTextViewBoundsExpanded.set(
+                    mSearchSrcTextViewBounds.left, 0, mSearchSrcTextViewBounds.right, bottom - top);
+            if (mTouchDelegate == null) {
+                mTouchDelegate = new UpdatableTouchDelegate(mSearchSrtTextViewBoundsExpanded,
+                        mSearchSrcTextViewBounds, mSearchSrcTextView);
+                setTouchDelegate(mTouchDelegate);
+            } else {
+                mTouchDelegate.setBounds(mSearchSrtTextViewBoundsExpanded, mSearchSrcTextViewBounds);
+            }
+        }
+    }
+
+    private void getChildBoundsWithinSearchView(View view, Rect rect) {
+        view.getLocationInWindow(mTemp);
+        getLocationInWindow(mTemp2);
+        final int top = mTemp[1] - mTemp2[1];
+        final int left = mTemp[0] - mTemp2[0];
+        rect.set(left, top, left + view.getWidth(), top + view.getHeight());
     }
 
     private int getPreferredWidth() {
         return getContext().getResources()
                 .getDimensionPixelSize(R.dimen.abc_search_view_preferred_width);
+    }
+
+    private int getPreferredHeight() {
+        return getContext().getResources()
+                .getDimensionPixelSize(R.dimen.abc_search_view_preferred_height);
     }
 
     private void updateViewsVisibility(final boolean collapsed) {
@@ -829,7 +911,15 @@ public class SearchView extends LinearLayoutCompat implements CollapsibleActionV
         mSearchButton.setVisibility(visCollapsed);
         updateSubmitButton(hasText);
         mSearchEditFrame.setVisibility(collapsed ? GONE : VISIBLE);
-        mCollapsedIcon.setVisibility(mIconifiedByDefault ? GONE : VISIBLE);
+
+        final int iconVisibility;
+        if (mCollapsedIcon.getDrawable() == null || mIconifiedByDefault) {
+            iconVisibility = GONE;
+        } else {
+            iconVisibility = VISIBLE;
+        }
+        mCollapsedIcon.setVisibility(iconVisibility);
+
         updateCloseButton();
         updateVoiceButton(!hasText);
         updateSubmitArea();
@@ -1259,6 +1349,64 @@ public class SearchView extends LinearLayoutCompat implements CollapsibleActionV
         setIconified(false);
     }
 
+    static class SavedState extends AbsSavedState {
+        boolean isIconified;
+
+        SavedState(Parcelable superState) {
+            super(superState);
+        }
+
+        public SavedState(Parcel source, ClassLoader loader) {
+            super(source, loader);
+            isIconified = (Boolean) source.readValue(null);
+        }
+
+        @Override
+        public void writeToParcel(Parcel dest, int flags) {
+            super.writeToParcel(dest, flags);
+            dest.writeValue(isIconified);
+        }
+
+        @Override
+        public String toString() {
+            return "SearchView.SavedState{"
+                    + Integer.toHexString(System.identityHashCode(this))
+                    + " isIconified=" + isIconified + "}";
+        }
+
+        public static final Parcelable.Creator<SavedState> CREATOR = ParcelableCompat.newCreator(
+                new ParcelableCompatCreatorCallbacks<SavedState>() {
+                    @Override
+                    public SavedState createFromParcel(Parcel in, ClassLoader loader) {
+                        return new SavedState(in, loader);
+                    }
+
+                    @Override
+                    public SavedState[] newArray(int size) {
+                        return new SavedState[size];
+                    }
+                });
+    }
+
+    @Override
+    protected Parcelable onSaveInstanceState() {
+        Parcelable superState = super.onSaveInstanceState();
+        SavedState ss = new SavedState(superState);
+        ss.isIconified = isIconified();
+        return ss;
+    }
+
+    @Override
+    protected void onRestoreInstanceState(Parcelable state) {
+        if (!(state instanceof SavedState)) {
+            super.onRestoreInstanceState(state);
+            return;
+        }
+        SavedState ss = (SavedState) state;
+        super.onRestoreInstanceState(ss.getSuperState());
+        updateViewsVisibility(ss.isIconified);
+        requestLayout();
+    }
 
     private void adjustDropDownSizeAndPosition() {
         if (mDropDownAnchor.getWidth() > 1) {
@@ -1621,6 +1769,101 @@ public class SearchView extends LinearLayoutCompat implements CollapsibleActionV
         }
     };
 
+    private static class UpdatableTouchDelegate extends TouchDelegate {
+        /**
+         * View that should receive forwarded touch events
+         */
+        private final View mDelegateView;
+
+        /**
+         * Bounds in local coordinates of the containing view that should be mapped to the delegate
+         * view. This rect is used for initial hit testing.
+         */
+        private final Rect mTargetBounds;
+
+        /**
+         * Bounds in local coordinates of the containing view that are actual bounds of the delegate
+         * view. This rect is used for event coordinate mapping.
+         */
+        private final Rect mActualBounds;
+
+        /**
+         * mTargetBounds inflated to include some slop. This rect is to track whether the motion events
+         * should be considered to be be within the delegate view.
+         */
+        private final Rect mSlopBounds;
+
+        private final int mSlop;
+
+        /**
+         * True if the delegate had been targeted on a down event (intersected mTargetBounds).
+         */
+        private boolean mDelegateTargeted;
+
+        public UpdatableTouchDelegate(Rect targetBounds, Rect actualBounds, View delegateView) {
+            super(targetBounds, delegateView);
+            mSlop = ViewConfiguration.get(delegateView.getContext()).getScaledTouchSlop();
+            mTargetBounds = new Rect();
+            mSlopBounds = new Rect();
+            mActualBounds = new Rect();
+            setBounds(targetBounds, actualBounds);
+            mDelegateView = delegateView;
+        }
+
+        public void setBounds(Rect desiredBounds, Rect actualBounds) {
+            mTargetBounds.set(desiredBounds);
+            mSlopBounds.set(desiredBounds);
+            mSlopBounds.inset(-mSlop, -mSlop);
+            mActualBounds.set(actualBounds);
+        }
+
+        @Override
+        public boolean onTouchEvent(MotionEvent event) {
+            final int x = (int) event.getX();
+            final int y = (int) event.getY();
+            boolean sendToDelegate = false;
+            boolean hit = true;
+            boolean handled = false;
+
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    if (mTargetBounds.contains(x, y)) {
+                        mDelegateTargeted = true;
+                        sendToDelegate = true;
+                    }
+                    break;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_MOVE:
+                    sendToDelegate = mDelegateTargeted;
+                    if (sendToDelegate) {
+                        if (!mSlopBounds.contains(x, y)) {
+                            hit = false;
+                        }
+                    }
+                    break;
+                case MotionEvent.ACTION_CANCEL:
+                    sendToDelegate = mDelegateTargeted;
+                    mDelegateTargeted = false;
+                    break;
+            }
+            if (sendToDelegate) {
+                if (hit && !mActualBounds.contains(x, y)) {
+                    // Offset event coordinates to be in the center of the target view since we
+                    // are within the targetBounds, but not inside the actual bounds of
+                    // mDelegateView
+                    event.setLocation(mDelegateView.getWidth() / 2,
+                            mDelegateView.getHeight() / 2);
+                } else {
+                    // Offset event coordinates to the target view coordinates.
+                    event.setLocation(x - mActualBounds.left, y - mActualBounds.top);
+                }
+
+                handled = mDelegateView.dispatchTouchEvent(event);
+            }
+            return handled;
+        }
+    }
+
     /**
      * Local subclass for AutoCompleteTextView.
      * @hide
@@ -1641,6 +1884,14 @@ public class SearchView extends LinearLayoutCompat implements CollapsibleActionV
         public SearchAutoComplete(Context context, AttributeSet attrs, int defStyle) {
             super(context, attrs, defStyle);
             mThreshold = getThreshold();
+        }
+
+        @Override
+        protected void onFinishInflate() {
+            super.onFinishInflate();
+            DisplayMetrics metrics = getResources().getDisplayMetrics();
+            setMinWidth((int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
+                    getSearchViewTextMinWidthDp(), metrics));
         }
 
         void setSearchView(SearchView searchView) {
@@ -1737,6 +1988,23 @@ public class SearchView extends LinearLayoutCompat implements CollapsibleActionV
                 }
             }
             return super.onKeyPreIme(keyCode, event);
+        }
+
+        /**
+         * Get minimum width of the search view text entry area.
+         */
+        private int getSearchViewTextMinWidthDp() {
+            final Configuration config = getResources().getConfiguration();
+            final int widthDp = ConfigurationHelper.getScreenWidthDp(getResources());
+            final int heightDp = ConfigurationHelper.getScreenHeightDp(getResources());
+
+            if (widthDp >= 960 && heightDp >= 720
+                    && config.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+                return 256;
+            } else if (widthDp >= 600 || (widthDp >= 640 && heightDp >= 480)) {
+                return 192;
+            }
+            return 160;
         }
     }
 

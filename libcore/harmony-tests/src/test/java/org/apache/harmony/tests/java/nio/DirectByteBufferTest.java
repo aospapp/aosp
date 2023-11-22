@@ -37,7 +37,6 @@ public class DirectByteBufferTest extends ByteBufferTest {
 
     /**
      * @tests java.nio.ByteBuffer#allocateDirect(int)
-     *
      */
     public void testAllocatedByteBuffer_IllegalArg() {
         try {
@@ -75,7 +74,7 @@ public class DirectByteBufferTest extends ByteBufferTest {
 
             // 2 byte swaps.
             ShortBuffer shortBuf = buf.asShortBuffer();
-            short[] shortArray = new short[] { 42, 24 };
+            short[] shortArray = new short[]{42, 24};
 
             // Write.
             shortBuf.put(shortArray);
@@ -89,7 +88,7 @@ public class DirectByteBufferTest extends ByteBufferTest {
             buf.position(i);
             // 4 byte swaps.
             IntBuffer intBuf = buf.asIntBuffer();
-            int[] intArray = new int[] { 967, 1983 };
+            int[] intArray = new int[]{967, 1983};
             // Write.
             intBuf.put(intArray);
             // Read
@@ -103,7 +102,7 @@ public class DirectByteBufferTest extends ByteBufferTest {
             buf.position(i);
             // 8 byte swaps.
             LongBuffer longBuf = buf.asLongBuffer();
-            long[] longArray = new long[] { 2147484614L, 2147485823L };
+            long[] longArray = new long[]{2147484614L, 2147485823L};
             // Write.
             longBuf.put(longArray);
             // Read
@@ -113,5 +112,20 @@ public class DirectByteBufferTest extends ByteBufferTest {
             assertEquals(2147484614L, longArray[0]);
             assertEquals(2147485823L, longArray[1]);
         }
+    }
+
+    public void testIsAccessible() {
+        buf.clear();
+        assertTrue(buf.isAccessible());
+        buf.get(0);
+        buf.setAccessible(false);
+        try {
+            buf.get(0);
+            fail("should throw exception");
+        } catch (IllegalStateException e) {
+            // expected
+        }
+        buf.setAccessible(true);
+        buf.get(0);
     }
 }

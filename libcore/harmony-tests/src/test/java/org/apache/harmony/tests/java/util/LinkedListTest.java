@@ -27,11 +27,16 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.NoSuchElementException;
+import java.util.Spliterator;
 
+import libcore.java.util.ForEachRemainingTester;
+import libcore.java.util.SpliteratorTester;
 import org.apache.harmony.testframework.serialization.SerializationTest;
 import org.apache.harmony.testframework.serialization.SerializationTest.SerializableAssert;
 
 import tests.support.Support_ListTest;
+
+import static libcore.java.util.RemoveIfTester.*;
 
 public class LinkedListTest extends junit.framework.TestCase {
 
@@ -935,6 +940,55 @@ public class LinkedListTest extends junit.framework.TestCase {
         assertEquals(testObjOne, testList.pollLast());
         assertEquals(0, testList.size());
         assertNull(testList.peekLast());
+    }
+
+    public void test_forEachRemaining_iterator() throws Exception {
+        ForEachRemainingTester.runTests(LinkedList.class, new String[]{ "foo", "bar", "baz "});
+        ForEachRemainingTester.runTests(LinkedList.class, new String[] { "foo" });
+    }
+
+    public void test_spliterator() throws Exception {
+        ArrayList<Integer> testElements = new ArrayList<>(
+                Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16));
+        LinkedList<Integer> list = new LinkedList<>();
+        list.addAll(testElements);
+
+        SpliteratorTester.runBasicIterationTests(list.spliterator(), testElements);
+        SpliteratorTester.runBasicSplitTests(list, testElements);
+        SpliteratorTester.testSpliteratorNPE(list.spliterator());
+
+        assertTrue(list.spliterator().hasCharacteristics(
+                Spliterator.ORDERED | Spliterator.SIZED | Spliterator.SUBSIZED));
+
+        SpliteratorTester.runOrderedTests(list);
+        SpliteratorTester.runSizedTests(list, 16 /* expected size */);
+        SpliteratorTester.runSubSizedTests(list, 16 /* expected size */);
+    }
+
+    public void test_spliterator_CME() throws Exception {
+        LinkedList<Integer> list = new LinkedList<>();
+        list.add(52);
+
+        Spliterator<Integer> sp = list.spliterator();
+        try {
+            sp.tryAdvance(value -> list.add(value));
+            fail();
+        } catch (ConcurrentModificationException expected) {
+        }
+
+        try {
+            sp.forEachRemaining(value -> list.add(value));
+            fail();
+        } catch (ConcurrentModificationException expected) {
+        }
+    }
+
+    public void test_removeIf() {
+        runBasicRemoveIfTests(LinkedList<Integer>::new);
+        runBasicRemoveIfTestsUnordered(LinkedList<Integer>::new);
+        runRemoveIfOnEmpty(LinkedList<Integer>::new);
+        testRemoveIfNPE(LinkedList<Integer>::new);
+        testRemoveIfCME(LinkedList<Integer>::new);
     }
 
     /**

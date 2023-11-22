@@ -19,6 +19,5 @@
 <resources>
     <!-- A list of apps to be removed from the managed profile. -->
     <string-array name="disallowed_apps_managed_profile">
-        <item>com.android.server.telecom</item>
     </string-array>
 </resources>

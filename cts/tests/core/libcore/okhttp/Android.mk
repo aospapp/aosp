@@ -20,5 +20,5 @@ endif
 
 include $(CLEAR_VARS)
 LOCAL_PACKAGE_NAME := android.core.tests.libcore.package.okhttp
-LOCAL_STATIC_JAVA_LIBRARIES := okhttp-nojarjar junit4-target bouncycastle-nojarjar okhttp-tests-nojarjar
+LOCAL_STATIC_JAVA_LIBRARIES := okhttp-nojarjar bouncycastle-nojarjar okhttp-tests-nojarjar
 include $(BUILD_CTSCORE_PACKAGE)

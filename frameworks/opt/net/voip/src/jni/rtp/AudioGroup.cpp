@@ -502,7 +502,7 @@ private:
 
     int mMode;
     int mSampleRate;
-    int mSampleCount;
+    size_t mSampleCount;
     int mDeviceSocket;
     bool mPlatformHasAec;
 
@@ -786,7 +786,7 @@ bool AudioGroup::DeviceThread::threadLoop()
 {
     int mode = mGroup->mMode;
     int sampleRate = mGroup->mSampleRate;
-    int sampleCount = mGroup->mSampleCount;
+    size_t sampleCount = mGroup->mSampleCount;
     int deviceSocket = mGroup->mDeviceSocket;
 
     // Find out the frame count for AudioTrack and AudioRecord.
@@ -799,7 +799,7 @@ bool AudioGroup::DeviceThread::threadLoop()
         ALOGE("cannot compute frame count");
         return false;
     }
-    ALOGD("reported frame count: output %d, input %d", output, input);
+    ALOGD("reported frame count: output %zu, input %zu", output, input);
 
     if (output < sampleCount * 2) {
         output = sampleCount * 2;
@@ -807,7 +807,7 @@ bool AudioGroup::DeviceThread::threadLoop()
     if (input < sampleCount * 2) {
         input = sampleCount * 2;
     }
-    ALOGD("adjusted frame count: output %d, input %d", output, input);
+    ALOGD("adjusted frame count: output %zu, input %zu", output, input);
 
     // Initialize AudioTrack and AudioRecord.
     sp<AudioTrack> track = new AudioTrack();
@@ -815,11 +815,11 @@ bool AudioGroup::DeviceThread::threadLoop()
     if (track->set(AUDIO_STREAM_VOICE_CALL, sampleRate, AUDIO_FORMAT_PCM_16_BIT,
                 AUDIO_CHANNEL_OUT_MONO, output, AUDIO_OUTPUT_FLAG_NONE, NULL /*callback_t*/,
                 NULL /*user*/, 0 /*notificationFrames*/, 0 /*sharedBuffer*/,
-                false /*threadCanCallJava*/, 0 /*sessionId*/,
+                false /*threadCanCallJava*/, AUDIO_SESSION_ALLOCATE,
                 AudioTrack::TRANSFER_OBTAIN) != NO_ERROR ||
             record->set(AUDIO_SOURCE_VOICE_COMMUNICATION, sampleRate, AUDIO_FORMAT_PCM_16_BIT,
                 AUDIO_CHANNEL_IN_MONO, input, NULL /*callback_t*/, NULL /*user*/,
-                0 /*notificationFrames*/, false /*threadCanCallJava*/, 0 /*sessionId*/,
+                0 /*notificationFrames*/, false /*threadCanCallJava*/, AUDIO_SESSION_ALLOCATE,
                 AudioRecord::TRANSFER_OBTAIN) != NO_ERROR) {
         ALOGE("cannot initialize audio device");
         return false;

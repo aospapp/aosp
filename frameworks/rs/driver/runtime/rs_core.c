@@ -3,6 +3,11 @@
 
 #include "rsCpuCoreRuntime.h"
 
+extern float __attribute__((overloadable)) rsFrac(float v) {
+    int i = (int)floor(v);
+    return fmin(v - i, 0x1.fffffep-1f);
+}
+
 /* Function declarations from libRS */
 extern float4 __attribute__((overloadable)) convert_float4(uchar4 c);
 
@@ -274,3 +279,37 @@ PRIM_DEBUG(double3)
 PRIM_DEBUG(double4)
 
 #undef PRIM_DEBUG
+
+// Convert the half values to float before handing off to the driver.  This
+// eliminates the need in the driver to properly support the half datatype
+// (either by adding compiler flags for half or link against compiler_rt).
+// Also, pass the bit-equivalent ushort to be printed.
+extern void __attribute__((overloadable)) rsDebug(const char *s, float f,
+                                                  ushort us);
+extern void __attribute__((overloadable)) rsDebug(const char *s, half h) {
+    rsDebug(s, (float) h, *(ushort *) &h);
+}
+
+extern void __attribute__((overloadable)) rsDebug(const char *s,
+                                                  const float2 *f,
+                                                  const ushort2 *us);
+extern void __attribute__((overloadable)) rsDebug(const char *s, half2 h2) {
+    float2 f = convert_float2(h2);
+    rsDebug(s, &f, (ushort2 *) &h2);
+}
+
+extern void __attribute__((overloadable)) rsDebug(const char *s,
+                                                  const float3 *f,
+                                                  const ushort3 *us);
+extern void __attribute__((overloadable)) rsDebug(const char *s, half3 h3) {
+    float3 f = convert_float3(h3);
+    rsDebug(s, &f, (ushort3 *) &h3);
+}
+
+extern void __attribute__((overloadable)) rsDebug(const char *s,
+                                                  const float4 *f,
+                                                  const ushort4 *us);
+extern void __attribute__((overloadable)) rsDebug(const char *s, half4 h4) {
+    float4 f = convert_float4(h4);
+    rsDebug(s, &f, (ushort4 *) &h4);
+}

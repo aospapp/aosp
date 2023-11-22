@@ -23,8 +23,9 @@ LOCAL_JAVA_LIBRARIES := android.test.runner
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src) \
                    $(call all-renderscript-files-under, src)
-#LOCAL_STATIC_JAVA_LIBRARIES := android.renderscript
 
 LOCAL_PACKAGE_NAME := ImageProcessing
+LOCAL_SDK_VERSION := current
+LOCAL_MIN_SDK_VERSION := 23
 
 include $(BUILD_PACKAGE)

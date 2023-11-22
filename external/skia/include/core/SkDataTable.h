@@ -8,10 +8,10 @@
 #ifndef SkDataTable_DEFINED
 #define SkDataTable_DEFINED
 
+#include "../private/SkTDArray.h"
 #include "SkChunkAlloc.h"
 #include "SkData.h"
 #include "SkString.h"
-#include "SkTDArray.h"
 
 /**
  *  Like SkData, SkDataTable holds an immutable data buffer. The data buffer is
@@ -20,8 +20,6 @@
  */
 class SK_API SkDataTable : public SkRefCnt {
 public:
-    SK_DECLARE_INST_COUNT(SkDataTable)
-
     /**
      *  Returns true if the table is empty (i.e. has no entries).
      */

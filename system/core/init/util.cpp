@@ -32,21 +32,23 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include <base/file.h>
+#include <android-base/file.h>
+#include <android-base/strings.h>
 
 /* for ANDROID_SOCKET_* */
 #include <cutils/sockets.h>
-#include <base/stringprintf.h>
+#include <android-base/stringprintf.h>
 
 #include <private/android_filesystem_config.h>
 
 #include "init.h"
 #include "log.h"
+#include "property_service.h"
 #include "util.h"
 
 /*
  * android_name_to_id - returns the integer uid/gid associated with the given
- * name, or -1U on error.
+ * name, or UINT_MAX on error.
  */
 static unsigned int android_name_to_id(const char *name)
 {
@@ -58,27 +60,35 @@ static unsigned int android_name_to_id(const char *name)
             return info[n].aid;
     }
 
-    return -1U;
+    return UINT_MAX;
 }
 
-/*
- * decode_uid - decodes and returns the given string, which can be either the
- * numeric or name representation, into the integer uid or gid. Returns -1U on
- * error.
- */
-unsigned int decode_uid(const char *s)
+static unsigned int do_decode_uid(const char *s)
 {
     unsigned int v;
 
     if (!s || *s == '\0')
-        return -1U;
+        return UINT_MAX;
     if (isalpha(s[0]))
         return android_name_to_id(s);
 
     errno = 0;
     v = (unsigned int) strtoul(s, 0, 0);
     if (errno)
-        return -1U;
+        return UINT_MAX;
+    return v;
+}
+
+/*
+ * decode_uid - decodes and returns the given string, which can be either the
+ * numeric or name representation, into the integer uid or gid. Returns
+ * UINT_MAX on error.
+ */
+unsigned int decode_uid(const char *s) {
+    unsigned int v = do_decode_uid(s);
+    if (v == UINT_MAX) {
+        ERROR("decode_uid: Unable to find UID for '%s'. Returning UINT_MAX\n", s);
+    }
     return v;
 }
 
@@ -92,11 +102,15 @@ int create_socket(const char *name, int type, mode_t perm, uid_t uid,
                   gid_t gid, const char *socketcon)
 {
     struct sockaddr_un addr;
-    int fd, ret;
+    int fd, ret, savederrno;
     char *filecon;
 
-    if (socketcon)
-        setsockcreatecon(socketcon);
+    if (socketcon) {
+        if (setsockcreatecon(socketcon) == -1) {
+            ERROR("setsockcreatecon(\"%s\") failed: %s\n", socketcon, strerror(errno));
+            return -1;
+        }
+    }
 
     fd = socket(PF_UNIX, type, 0);
     if (fd < 0) {
@@ -126,16 +140,26 @@ int create_socket(const char *name, int type, mode_t perm, uid_t uid,
     }
 
     ret = bind(fd, (struct sockaddr *) &addr, sizeof (addr));
-    if (ret) {
-        ERROR("Failed to bind socket '%s': %s\n", name, strerror(errno));
-        goto out_unlink;
-    }
+    savederrno = errno;
 
     setfscreatecon(NULL);
     freecon(filecon);
 
-    chown(addr.sun_path, uid, gid);
-    chmod(addr.sun_path, perm);
+    if (ret) {
+        ERROR("Failed to bind socket '%s': %s\n", name, strerror(savederrno));
+        goto out_unlink;
+    }
+
+    ret = lchown(addr.sun_path, uid, gid);
+    if (ret) {
+        ERROR("Failed to lchown socket '%s': %s\n", addr.sun_path, strerror(errno));
+        goto out_unlink;
+    }
+    ret = fchmodat(AT_FDCWD, addr.sun_path, perm, AT_SYMLINK_NOFOLLOW);
+    if (ret) {
+        ERROR("Failed to fchmodat socket '%s': %s\n", addr.sun_path, strerror(errno));
+        goto out_unlink;
+    }
 
     INFO("Created socket '%s' with mode '%o', user '%d', group '%d'\n",
          addr.sun_path, perm, uid, gid);
@@ -401,32 +425,16 @@ void open_devnull_stdio(void)
     }
 }
 
-void import_kernel_cmdline(bool in_qemu, std::function<void(char*,bool)> import_kernel_nv)
-{
-    char cmdline[2048];
-    char *ptr;
-    int fd;
+void import_kernel_cmdline(bool in_qemu,
+                           std::function<void(const std::string&, const std::string&, bool)> fn) {
+    std::string cmdline;
+    android::base::ReadFileToString("/proc/cmdline", &cmdline);
 
-    fd = open("/proc/cmdline", O_RDONLY | O_CLOEXEC);
-    if (fd >= 0) {
-        int n = read(fd, cmdline, sizeof(cmdline) - 1);
-        if (n < 0) n = 0;
-
-        /* get rid of trailing newline, it happens */
-        if (n > 0 && cmdline[n-1] == '\n') n--;
-
-        cmdline[n] = 0;
-        close(fd);
-    } else {
-        cmdline[0] = 0;
-    }
-
-    ptr = cmdline;
-    while (ptr && *ptr) {
-        char *x = strchr(ptr, ' ');
-        if (x != 0) *x++ = 0;
-        import_kernel_nv(ptr, in_qemu);
-        ptr = x;
+    for (const auto& entry : android::base::Split(android::base::Trim(cmdline), " ")) {
+        std::vector<std::string> pieces = android::base::Split(entry, "=");
+        if (pieces.size() == 2) {
+            fn(pieces[0], pieces[1], in_qemu);
+        }
     }
 }
 
@@ -471,4 +479,85 @@ std::string bytes_to_hex(const uint8_t* bytes, size_t bytes_len) {
     for (size_t i = 0; i < bytes_len; i++)
         android::base::StringAppendF(&hex, "%02x", bytes[i]);
     return hex;
+}
+
+/*
+ * Returns true is pathname is a directory
+ */
+bool is_dir(const char* pathname) {
+    struct stat info;
+    if (stat(pathname, &info) == -1) {
+        return false;
+    }
+    return S_ISDIR(info.st_mode);
+}
+
+bool expand_props(const std::string& src, std::string* dst) {
+    const char* src_ptr = src.c_str();
+
+    if (!dst) {
+        return false;
+    }
+
+    /* - variables can either be $x.y or ${x.y}, in case they are only part
+     *   of the string.
+     * - will accept $$ as a literal $.
+     * - no nested property expansion, i.e. ${foo.${bar}} is not supported,
+     *   bad things will happen
+     */
+    while (*src_ptr) {
+        const char* c;
+
+        c = strchr(src_ptr, '$');
+        if (!c) {
+            dst->append(src_ptr);
+            return true;
+        }
+
+        dst->append(src_ptr, c);
+        c++;
+
+        if (*c == '$') {
+            dst->push_back(*(c++));
+            src_ptr = c;
+            continue;
+        } else if (*c == '\0') {
+            return true;
+        }
+
+        std::string prop_name;
+        if (*c == '{') {
+            c++;
+            const char* end = strchr(c, '}');
+            if (!end) {
+                // failed to find closing brace, abort.
+                ERROR("unexpected end of string in '%s', looking for }\n", src.c_str());
+                return false;
+            }
+            prop_name = std::string(c, end);
+            c = end + 1;
+        } else {
+            prop_name = c;
+            ERROR("using deprecated syntax for specifying property '%s', use ${name} instead\n",
+                  c);
+            c += prop_name.size();
+        }
+
+        if (prop_name.empty()) {
+            ERROR("invalid zero-length prop name in '%s'\n", src.c_str());
+            return false;
+        }
+
+        std::string prop_val = property_get(prop_name.c_str());
+        if (prop_val.empty()) {
+            ERROR("property '%s' doesn't exist while expanding '%s'\n",
+                  prop_name.c_str(), src.c_str());
+            return false;
+        }
+
+        dst->append(prop_val);
+        src_ptr = c;
+    }
+
+    return true;
 }

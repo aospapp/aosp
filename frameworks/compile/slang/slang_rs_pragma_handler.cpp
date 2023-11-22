@@ -16,8 +16,11 @@
 
 #include "slang_rs_pragma_handler.h"
 
+#include <map>
 #include <sstream>
 #include <string>
+
+#include "clang/AST/ASTContext.h"
 
 #include "clang/Basic/TokenKinds.h"
 
@@ -27,6 +30,8 @@
 
 #include "slang_assert.h"
 #include "slang_rs_context.h"
+#include "slang_rs_export_reduce.h"
+#include "slang_version.h"
 
 namespace slang {
 
@@ -116,6 +121,222 @@ class RSJavaPackageNamePragmaHandler : public RSPragmaHandler {
         }
       }
     }
+  }
+};
+
+class RSReducePragmaHandler : public RSPragmaHandler {
+ public:
+  RSReducePragmaHandler(llvm::StringRef Name, RSContext *Context)
+      : RSPragmaHandler(Name, Context) { }
+
+  void HandlePragma(clang::Preprocessor &PP,
+                    clang::PragmaIntroducerKind Introducer,
+                    clang::Token &FirstToken) override {
+    // #pragma rs reduce(name)
+    //   initializer(initializename)
+    //   accumulator(accumulatename)
+    //   combiner(combinename)
+    //   outconverter(outconvertname)
+    //   halter(haltname)
+
+    const clang::SourceLocation PragmaLocation = FirstToken.getLocation();
+
+    clang::Token &PragmaToken = FirstToken;
+
+    // Grab "reduce(name)" ("reduce" is already known to be the first
+    // token) and all the "keyword(value)" contributions
+    KeywordValueMapType KeywordValueMap({std::make_pair(RSExportReduce::KeyReduce, ""),
+                                         std::make_pair(RSExportReduce::KeyInitializer, ""),
+                                         std::make_pair(RSExportReduce::KeyAccumulator, ""),
+                                         std::make_pair(RSExportReduce::KeyCombiner, ""),
+                                         std::make_pair(RSExportReduce::KeyOutConverter, "")});
+    if (mContext->getTargetAPI() >= SLANG_FEATURE_GENERAL_REDUCTION_HALTER_API) {
+      // Halter functionality has not been released, nor has its
+      // specification been finalized with partners.  We do not have a
+      // specification that extends through the full RenderScript
+      // software stack, either.
+      KeywordValueMap.insert(std::make_pair(RSExportReduce::KeyHalter, ""));
+    }
+    while (PragmaToken.is(clang::tok::identifier)) {
+      if (!ProcessKeywordAndValue(PP, PragmaToken, KeywordValueMap))
+        return;
+    }
+
+    // Make sure there's no end-of-line garbage
+    if (PragmaToken.isNot(clang::tok::eod)) {
+      PP.Diag(PragmaToken.getLocation(),
+              PP.getDiagnostics().getCustomDiagID(
+                clang::DiagnosticsEngine::Error,
+                "did not expect '%0' here for '#pragma rs %1'"))
+          << PP.getSpelling(PragmaToken) << getName();
+      return;
+    }
+
+    // Make sure we have an accumulator
+    if (KeywordValueMap[RSExportReduce::KeyAccumulator].empty()) {
+      PP.Diag(PragmaLocation, PP.getDiagnostics().getCustomDiagID(
+                                clang::DiagnosticsEngine::Error,
+                                "missing '%0' for '#pragma rs %1'"))
+          << RSExportReduce::KeyAccumulator << getName();
+      return;
+    }
+
+    // Make sure the reduction kernel name is unique.  (If we were
+    // worried there might be a VERY large number of pragmas, then we
+    // could do something more efficient than walking a list to search
+    // for duplicates.)
+    for (auto I = mContext->export_reduce_begin(),
+              E = mContext->export_reduce_end();
+         I != E; ++I) {
+      if ((*I)->getNameReduce() == KeywordValueMap[RSExportReduce::KeyReduce]) {
+        PP.Diag(PragmaLocation, PP.getDiagnostics().getCustomDiagID(
+                                  clang::DiagnosticsEngine::Error,
+                                  "reduction kernel '%0' declared multiple "
+                                  "times (first one is at %1)"))
+            << KeywordValueMap[RSExportReduce::KeyReduce]
+            << (*I)->getLocation().printToString(PP.getSourceManager());
+        return;
+      }
+    }
+
+    // Check API version.
+    if (mContext->getTargetAPI() < SLANG_FEATURE_GENERAL_REDUCTION_API) {
+      PP.Diag(PragmaLocation,
+              PP.getDiagnostics().getCustomDiagID(
+                clang::DiagnosticsEngine::Error,
+                "reduction kernels are not supported in SDK levels %0-%1"))
+          << SLANG_MINIMUM_TARGET_API
+          << (SLANG_FEATURE_GENERAL_REDUCTION_API - 1);
+      return;
+    }
+
+    // Handle backward reference from pragma (see Backend::HandleTopLevelDecl for forward reference).
+    MarkUsed(PP, KeywordValueMap[RSExportReduce::KeyInitializer]);
+    MarkUsed(PP, KeywordValueMap[RSExportReduce::KeyAccumulator]);
+    MarkUsed(PP, KeywordValueMap[RSExportReduce::KeyCombiner]);
+    MarkUsed(PP, KeywordValueMap[RSExportReduce::KeyOutConverter]);
+    MarkUsed(PP, KeywordValueMap[RSExportReduce::KeyHalter]);
+
+    mContext->addExportReduce(RSExportReduce::Create(mContext, PragmaLocation,
+                                                     KeywordValueMap[RSExportReduce::KeyReduce],
+                                                     KeywordValueMap[RSExportReduce::KeyInitializer],
+                                                     KeywordValueMap[RSExportReduce::KeyAccumulator],
+                                                     KeywordValueMap[RSExportReduce::KeyCombiner],
+                                                     KeywordValueMap[RSExportReduce::KeyOutConverter],
+                                                     KeywordValueMap[RSExportReduce::KeyHalter]));
+  }
+
+ private:
+  typedef std::map<std::string, std::string> KeywordValueMapType;
+
+  void MarkUsed(clang::Preprocessor &PP, const std::string &FunctionName) {
+    if (FunctionName.empty())
+      return;
+
+    clang::ASTContext &ASTC = mContext->getASTContext();
+    clang::TranslationUnitDecl *TUDecl = ASTC.getTranslationUnitDecl();
+    slangAssert(TUDecl);
+    if (const clang::IdentifierInfo *II = PP.getIdentifierInfo(FunctionName)) {
+      for (auto Decl : TUDecl->lookup(II)) {
+        clang::FunctionDecl *FDecl = Decl->getAsFunction();
+        if (!FDecl || !FDecl->isThisDeclarationADefinition())
+          continue;
+        // Handle backward reference from pragma (see
+        // Backend::HandleTopLevelDecl for forward reference).
+        mContext->markUsedByReducePragma(FDecl, RSContext::CheckNameNo);
+      }
+    }
+  }
+
+  // Return comma-separated list of all keys in the map
+  static std::string ListKeywords(const KeywordValueMapType &KeywordValueMap) {
+    std::string Ret;
+    bool First = true;
+    for (auto const &entry : KeywordValueMap) {
+      if (First)
+        First = false;
+      else
+        Ret += ", ";
+      Ret += "'";
+      Ret += entry.first;
+      Ret += "'";
+    }
+    return Ret;
+  }
+
+  // Parse "keyword(value)" and set KeywordValueMap[keyword] = value.  (Both
+  // "keyword" and "value" are identifiers.)
+  // Does both syntactic validation and the following semantic validation:
+  // - The keyword must be present in the map.
+  // - The map entry for the keyword must not contain a value.
+  bool ProcessKeywordAndValue(clang::Preprocessor &PP,
+                              clang::Token &PragmaToken,
+                              KeywordValueMapType &KeywordValueMap) {
+    // The current token must be an identifier in KeywordValueMap
+    KeywordValueMapType::iterator Entry;
+    if (PragmaToken.isNot(clang::tok::identifier) ||
+        ((Entry = KeywordValueMap.find(
+            PragmaToken.getIdentifierInfo()->getName())) ==
+         KeywordValueMap.end())) {
+      // Note that we should never get here for the "reduce" token
+      // itself, which should already have been recognized.
+      PP.Diag(PragmaToken.getLocation(),
+              PP.getDiagnostics().getCustomDiagID(
+                clang::DiagnosticsEngine::Error,
+                "did not recognize '%0' for '#pragma %1'; expected one of "
+                "the following keywords: %2"))
+          << PragmaToken.getIdentifierInfo()->getName() << getName()
+          << ListKeywords(KeywordValueMap);
+      return false;
+    }
+    // ... and there must be no value for this keyword yet
+    if (!Entry->second.empty()) {
+      PP.Diag(PragmaToken.getLocation(),
+              PP.getDiagnostics().getCustomDiagID(
+                clang::DiagnosticsEngine::Error,
+                "more than one '%0' for '#pragma rs %1'"))
+          << Entry->first << getName();
+      return false;
+    }
+    PP.LexUnexpandedToken(PragmaToken);
+
+    // The current token must be clang::tok::l_paren
+    if (PragmaToken.isNot(clang::tok::l_paren)) {
+      PP.Diag(PragmaToken.getLocation(),
+              PP.getDiagnostics().getCustomDiagID(
+                clang::DiagnosticsEngine::Error,
+                "missing '(' after '%0' for '#pragma rs %1'"))
+          << Entry->first << getName();
+      return false;
+    }
+    PP.LexUnexpandedToken(PragmaToken);
+
+    // The current token must be an identifier (a name)
+    if (PragmaToken.isNot(clang::tok::identifier)) {
+      PP.Diag(PragmaToken.getLocation(),
+              PP.getDiagnostics().getCustomDiagID(
+                clang::DiagnosticsEngine::Error,
+                "missing name after '%0(' for '#pragma rs %1'"))
+          << Entry->first << getName();
+      return false;
+    }
+    const std::string Name = PragmaToken.getIdentifierInfo()->getName();
+    PP.LexUnexpandedToken(PragmaToken);
+
+    // The current token must be clang::tok::r_paren
+    if (PragmaToken.isNot(clang::tok::r_paren)) {
+      PP.Diag(PragmaToken.getLocation(),
+              PP.getDiagnostics().getCustomDiagID(
+                clang::DiagnosticsEngine::Error,
+                "missing ')' after '%0(%1' for '#pragma rs %2'"))
+          << Entry->first << Name << getName();
+      return false;
+    }
+    PP.LexUnexpandedToken(PragmaToken);
+
+    // Success
+    Entry->second = Name;
+    return true;
   }
 };
 
@@ -349,6 +570,10 @@ void AddPragmaHandlers(clang::Preprocessor &PP, RSContext *RsContext) {
   // For #pragma rs java_package_name
   PP.AddPragmaHandler(
       "rs", new RSJavaPackageNamePragmaHandler("java_package_name", RsContext));
+
+  // For #pragma rs reduce
+  PP.AddPragmaHandler(
+      "rs", new RSReducePragmaHandler(RSExportReduce::KeyReduce, RsContext));
 
   // For #pragma rs set_reflect_license
   PP.AddPragmaHandler(

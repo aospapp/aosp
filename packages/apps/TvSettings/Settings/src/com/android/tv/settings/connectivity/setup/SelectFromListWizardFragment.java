@@ -19,16 +19,21 @@ package com.android.tv.settings.connectivity.setup;
 import android.app.Activity;
 import android.app.Fragment;
 import android.content.Context;
+import android.content.res.Resources;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.util.Log;
+import android.support.v17.leanback.widget.VerticalGridView;
+import android.support.v7.util.SortedList;
+import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.util.SortedListAdapterCallback;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver.OnPreDrawListener;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.AdapterView;
 import android.widget.FrameLayout;
@@ -38,23 +43,44 @@ import android.widget.TextView;
 import com.android.tv.settings.R;
 import com.android.tv.settings.connectivity.WifiSecurity;
 import com.android.tv.settings.util.AccessibilityHelper;
-import com.android.tv.settings.widget.ScrollAdapterView;
-import com.android.tv.settings.widget.ScrollArrayAdapter;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.List;
+import java.util.TreeSet;
 
 /**
  * Displays a UI for selecting a wifi network from a list in the "wizard" style.
  */
 public class SelectFromListWizardFragment extends Fragment {
 
-    private static final String TAG = "SelectFromListWizardFragment";
-    private static final boolean DEBUG = false;
-
     public static class ListItemComparator implements Comparator<ListItem> {
         @Override
         public int compare(ListItem o1, ListItem o2) {
+            int pinnedPos1 = o1.getPinnedPosition();
+            int pinnedPos2 = o2.getPinnedPosition();
+
+            if (pinnedPos1 != PinnedListItem.UNPINNED && pinnedPos2 == PinnedListItem.UNPINNED) {
+                if (pinnedPos1 == PinnedListItem.FIRST) return -1;
+                if (pinnedPos1 == PinnedListItem.LAST) return 1;
+            }
+
+            if (pinnedPos1 == PinnedListItem.UNPINNED && pinnedPos2 != PinnedListItem.UNPINNED) {
+                if (pinnedPos2 == PinnedListItem.FIRST) return 1;
+                if (pinnedPos2 == PinnedListItem.LAST) return -1;
+            }
+
+            if (pinnedPos1 != PinnedListItem.UNPINNED && pinnedPos2 != PinnedListItem.UNPINNED) {
+                if (pinnedPos1 == pinnedPos2) {
+                    PinnedListItem po1 = (PinnedListItem) o1;
+                    PinnedListItem po2 = (PinnedListItem) o2;
+                    return po1.getPinnedPriority() - po2.getPinnedPriority();
+                }
+                if (pinnedPos1 == PinnedListItem.LAST) return 1;
+
+                return -1;
+            }
+
             ScanResult o1ScanResult = o1.getScanResult();
             ScanResult o2ScanResult = o2.getScanResult();
             if (o1ScanResult == null) {
@@ -95,7 +121,8 @@ public class SelectFromListWizardFragment extends Fragment {
 
         public ListItem(ScanResult scanResult) {
             mName = scanResult.SSID;
-            mIconResource = WifiSecurity.isOpen(scanResult) ? R.drawable.setup_wifi_signal_open
+            mIconResource = WifiSecurity.NONE == WifiSecurity.getSecurity(scanResult)
+                    ? R.drawable.setup_wifi_signal_open
                     : R.drawable.setup_wifi_signal_lock;
             mIconLevel = WifiManager.calculateSignalLevel(scanResult.level, 4);
             mHasIconLevel = true;
@@ -122,6 +149,15 @@ public class SelectFromListWizardFragment extends Fragment {
             return mScanResult;
         }
 
+        /**
+         * Returns whether this item is pinned to the front/back of a sorted list.  Returns
+         * PinnedListItem.UNPINNED if the item is not pinned.
+         * @return  the pinned/unpinned setting for this item.
+         */
+        public int getPinnedPosition() {
+            return PinnedListItem.UNPINNED;
+        }
+
         @Override
         public String toString() {
             return mName;
@@ -131,8 +167,7 @@ public class SelectFromListWizardFragment extends Fragment {
 
             @Override
             public ListItem createFromParcel(Parcel source) {
-                ScanResult scanResult = (ScanResult) source.readParcelable(
-                        ScanResult.class.getClassLoader());
+                ScanResult scanResult = source.readParcelable(ScanResult.class.getClassLoader());
                 if (scanResult == null) {
                     return new ListItem(source.readString(), source.readInt());
                 } else {
@@ -175,15 +210,179 @@ public class SelectFromListWizardFragment extends Fragment {
         }
     }
 
+    public static class PinnedListItem extends ListItem {
+        public static final int UNPINNED = 0;
+        public static final int FIRST = 1;
+        public static final int LAST = 2;
+
+        private int mPinnedPosition;
+        private int mPinnedPriority;
+
+        public PinnedListItem(
+                String name, int iconResource, int pinnedPosition, int pinnedPriority) {
+            super(name, iconResource);
+            mPinnedPosition = pinnedPosition;
+            mPinnedPriority = pinnedPriority;
+        }
+
+        @Override
+        public int getPinnedPosition() {
+            return mPinnedPosition;
+        }
+
+        /**
+         * Returns the priority for this item, which is used for ordering the item between pinned
+         * items in a sorted list.  For example, if two items are pinned to the front of the list
+         * (FIRST), the priority value is used to determine their ordering.
+         * @return  the sorting priority for this item
+         */
+        public int getPinnedPriority() {
+            return mPinnedPriority;
+        }
+    }
+
     public interface Listener {
         void onListSelectionComplete(ListItem listItem);
         void onListFocusChanged(ListItem listItem);
+    }
+
+    private static interface ActionListener {
+        public void onClick(ListItem item);
+        public void onFocus(ListItem item);
+    }
+
+    private static class ListItemViewHolder extends RecyclerView.ViewHolder {
+        public ListItemViewHolder(View v) {
+            super(v);
+        }
+
+        public void init(ListItem item, View.OnClickListener onClick,
+                View.OnFocusChangeListener onFocusChange) {
+            TextView title = (TextView) itemView.findViewById(R.id.list_item_text);
+            title.setText(item.getName());
+            itemView.setOnClickListener(onClick);
+            itemView.setOnFocusChangeListener(onFocusChange);
+
+            int iconResource = item.getIconResource();
+            ImageView icon = (ImageView) itemView.findViewById(R.id.list_item_icon);
+            // Set the icon if there is one.
+            if (iconResource == 0) {
+                icon.setVisibility(View.GONE);
+                return;
+            }
+            icon.setVisibility(View.VISIBLE);
+            icon.setImageResource(iconResource);
+            if (item.hasIconLevel()) {
+                icon.setImageLevel(item.getIconLevel());
+            }
+        }
+    }
+
+    private class VerticalListAdapter extends RecyclerView.Adapter {
+        private SortedList mItems;
+        private final ActionListener mActionListener;
+
+        public VerticalListAdapter(ActionListener actionListener, List<ListItem> choices) {
+            super();
+            mActionListener = actionListener;
+            ListItemComparator comparator = new ListItemComparator();
+            mItems = new SortedList<ListItem>(
+                    ListItem.class, new SortedListAdapterCallback<ListItem>(this) {
+                        @Override
+                        public int compare(ListItem t0, ListItem t1) {
+                            return comparator.compare(t0, t1);
+                        }
+
+                        @Override
+                        public boolean areContentsTheSame(ListItem oldItem, ListItem newItem) {
+                            return comparator.compare(oldItem, newItem) == 0;
+                        }
+
+                        @Override
+                        public boolean areItemsTheSame(ListItem item1, ListItem item2) {
+                            return item1.equals(item2);
+                        }
+                    });
+            mItems.addAll(choices.toArray(new ListItem[0]), false);
+        }
+
+        private View.OnClickListener createClickListener(final ListItem item) {
+            return new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (v == null || v.getWindowToken() == null || mActionListener == null) {
+                        return;
+                    }
+                    mActionListener.onClick(item);
+                }
+            };
+        }
+
+        private View.OnFocusChangeListener createFocusListener(final ListItem item) {
+            return new View.OnFocusChangeListener() {
+                @Override
+                public void onFocusChange(View v, boolean hasFocus) {
+                    if (v == null || v.getWindowToken() == null || mActionListener == null
+                            || !hasFocus) {
+                        return;
+                    }
+                    mActionListener.onFocus(item);
+                }
+            };
+        }
+
+        @Override
+        public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+            LayoutInflater inflater = (LayoutInflater) parent.getContext().getSystemService(
+                    Context.LAYOUT_INFLATER_SERVICE);
+            View v = inflater.inflate(R.layout.setup_list_item, parent, false);
+            return new ListItemViewHolder(v);
+        }
+
+        @Override
+        public void onBindViewHolder(RecyclerView.ViewHolder baseHolder, int position) {
+            if (position >= mItems.size()) {
+                return;
+            }
+
+            ListItemViewHolder viewHolder = (ListItemViewHolder) baseHolder;
+            ListItem item = (ListItem) mItems.get(position);
+            viewHolder.init((ListItem) item, createClickListener(item), createFocusListener(item));
+        }
+
+        public SortedList<ListItem> getItems() {
+            return mItems;
+        }
+
+        @Override
+        public int getItemCount() {
+            return mItems.size();
+        }
+
+        public void updateItems(List<ListItem> inputItems) {
+            TreeSet<ListItem> newItemSet = new TreeSet<ListItem>(new ListItemComparator());
+            for (ListItem item: inputItems) {
+                newItemSet.add(item);
+            }
+            ArrayList<ListItem> toRemove = new ArrayList<ListItem>();
+            for (int j = 0 ; j < mItems.size(); j++) {
+                ListItem oldItem = (ListItem) mItems.get(j);
+                if (!newItemSet.contains(oldItem)) {
+                    toRemove.add(oldItem);
+                }
+            }
+            for (ListItem item: toRemove) {
+                mItems.remove(item);
+            }
+            mItems.addAll(inputItems.toArray(new ListItem[0]), true);
+        }
     }
 
     private static final String EXTRA_TITLE = "title";
     private static final String EXTRA_DESCRIPTION = "description";
     private static final String EXTRA_LIST_ELEMENTS = "list_elements";
     private static final String EXTRA_LAST_SELECTION = "last_selection";
+    private static final int SELECT_ITEM_DELAY = 100;
 
     public static SelectFromListWizardFragment newInstance(String title, String description,
             ArrayList<ListItem> listElements, ListItem lastSelection) {
@@ -199,35 +398,61 @@ public class SelectFromListWizardFragment extends Fragment {
 
     private Handler mHandler;
     private View mMainView;
-    private ScrollArrayAdapter<ListItem> mAdapter;
-    private ScrollAdapterView mScrollAdapterView;
-    private ArrayList<ListItem> mListItems;
-    private ListItem mLastSelected;
+    private VerticalGridView mListView;
+    private String mLastSelectedName;
+    private OnPreDrawListener mOnListPreDrawListener;
+    private Runnable mSelectItemRunnable;
 
-    public void update(ArrayList<ListItem> listElements) {
-        ListItem lastSelection = mLastSelected;
-        mListItems = listElements;
-        mAdapter.clear();
-        mAdapter.addAll(listElements);
-        if (lastSelection != null) {
-            for (int i = 0, size = listElements.size(); i < size; i++) {
-                if (lastSelection.equals(listElements.get(i))) {
-                    if (DEBUG) {
-                        Log.d(TAG, "Found " + lastSelection.getName() + " with ssid "
-                                + (mLastSelected.getScanResult() == null ? null
-                                        : mLastSelected.getScanResult().SSID)
-                                + " and bssid " + (mLastSelected.getScanResult() == null ? null
-                                        : mLastSelected.getScanResult().BSSID));
-                    }
-                    mScrollAdapterView.setSelection(i);
-                    break;
-                }
+    private void updateSelected(String lastSelectionName) {
+        SortedList<ListItem> items = ((VerticalListAdapter) mListView.getAdapter()).getItems();
+        for (int i = 0; i < items.size(); i++) {
+            ListItem item = (ListItem) items.get(i);
+            if (lastSelectionName.equals(item.getName())) {
+                mListView.setSelectedPosition(i);
+                break;
             }
         }
+        mLastSelectedName = lastSelectionName;
+    }
+
+    public void update(List<ListItem> listElements) {
+        // We want keep the highlight on the same selected item from before the update.  This is
+        // currently not possible (b/28120126).  So we post a runnable to run after the update
+        // completes.
+        if (mSelectItemRunnable != null) {
+            mHandler.removeCallbacks(mSelectItemRunnable);
+        }
+
+        final String lastSelected = mLastSelectedName;
+        mSelectItemRunnable = () -> {
+            updateSelected(lastSelected);
+            if (mOnListPreDrawListener != null) {
+                mListView.getViewTreeObserver().removeOnPreDrawListener(mOnListPreDrawListener);
+                mOnListPreDrawListener = null;
+            }
+            mSelectItemRunnable = null;
+        };
+
+        if (mOnListPreDrawListener != null) {
+            mListView.getViewTreeObserver().removeOnPreDrawListener(mOnListPreDrawListener);
+        }
+
+        mOnListPreDrawListener = () -> {
+            mHandler.removeCallbacks(mSelectItemRunnable);
+            // Pre-draw can be called multiple times per update.  We delay the runnable to select
+            // the item so that it will only run after the last pre-draw of this batch of update.
+            mHandler.postDelayed(mSelectItemRunnable, SELECT_ITEM_DELAY);
+            return true;
+        };
+
+        mListView.getViewTreeObserver().addOnPreDrawListener(mOnListPreDrawListener);
+        ((VerticalListAdapter) mListView.getAdapter()).updateItems(listElements);
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle icicle) {
+        Resources resources = getContext().getResources();
+
         mHandler = new Handler();
         mMainView = inflater.inflate(R.layout.account_content_area, container, false);
 
@@ -236,9 +461,6 @@ public class SelectFromListWizardFragment extends Fragment {
         descriptionArea.addView(content);
 
         final ViewGroup actionArea = (ViewGroup) mMainView.findViewById(R.id.action);
-        mScrollAdapterView = (ScrollAdapterView) inflater.inflate(
-                R.layout.setup_scroll_adapter_view, actionArea, false);
-        actionArea.addView(mScrollAdapterView);
 
         TextView titleText = (TextView) content.findViewById(R.id.title_text);
         TextView descriptionText = (TextView) content.findViewById(R.id.description_text);
@@ -246,30 +468,6 @@ public class SelectFromListWizardFragment extends Fragment {
         Bundle args = getArguments();
         String title = args.getString(EXTRA_TITLE);
         String description = args.getString(EXTRA_DESCRIPTION);
-        mListItems = args.getParcelableArrayList(EXTRA_LIST_ELEMENTS);
-        ListItem lastSelection = args.getParcelable(EXTRA_LAST_SELECTION);
-
-        mAdapter = new ScrollArrayAdapter<ListItem>(getActivity(), R.layout.setup_list_item,
-                R.id.list_item_text, mListItems) {
-            @Override
-            public View getView(int position, View convertView, ViewGroup parent) {
-                View v = super.getView(position, convertView, parent);
-                ListItem item = getItem(position);
-                FrameLayout iconHolder = (FrameLayout) v.findViewById(R.id.list_item_icon);
-                iconHolder.removeAllViews();
-                Activity a = getActivity();
-                if (a != null) {
-                    ImageView icon = new ImageView(a);
-                    icon.setImageResource(item.getIconResource());
-                    if (item.hasIconLevel()) {
-                        icon.setImageLevel(item.getIconLevel());
-                    }
-                    iconHolder.addView(icon);
-                }
-                return v;
-            }
-        };
-        mScrollAdapterView.setAdapter(mAdapter);
 
         boolean forceFocusable = AccessibilityHelper.forceFocusableViews(getActivity());
         if (title != null) {
@@ -294,49 +492,53 @@ public class SelectFromListWizardFragment extends Fragment {
             descriptionText.setVisibility(View.GONE);
         }
 
+        ArrayList<ListItem> listItems = args.getParcelableArrayList(EXTRA_LIST_ELEMENTS);
+
+        mListView =
+                (VerticalGridView) inflater.inflate(R.layout.setup_list_view, actionArea, false);
+        mListView.setWindowAlignment(VerticalGridView.WINDOW_ALIGN_BOTH_EDGE);
+        mListView.setWindowAlignmentOffsetPercent(
+                resources.getFloat(R.dimen.setup_scroll_list_window_offset_percent));
+
+        actionArea.addView(mListView);
+        ActionListener actionListener = new ActionListener() {
+            @Override
+            public void onClick(ListItem item) {
+                Activity a = getActivity();
+                if (a instanceof Listener && isResumed()) {
+                    ((Listener) a).onListSelectionComplete(item);
+                }
+            }
+
+            @Override
+            public void onFocus(ListItem item) {
+                Activity a = getActivity();
+                mLastSelectedName = item.getName();
+                if (a instanceof Listener) {
+                    ((Listener) a).onListFocusChanged(item);
+                }
+            }
+        };
+        mListView.setAdapter(new VerticalListAdapter(actionListener, listItems));
+
+        ListItem lastSelection = args.getParcelable(EXTRA_LAST_SELECTION);
         if (lastSelection != null) {
-            for (int i = 0, size = mListItems.size(); i < size; i++) {
-                if (lastSelection.equals(mListItems.get(i))) {
-                    mScrollAdapterView.setSelection(i);
-                    break;
-                }
-            }
+            updateSelected(lastSelection.getName());
         }
-
-        mScrollAdapterView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> pare, View view, int position, long id) {
-                Activity a = getActivity();
-                if (a instanceof Listener) {
-                    ((Listener) a).onListSelectionComplete(mListItems.get(position));
-                }
-            }
-        });
-
-        mScrollAdapterView.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                mLastSelected = mListItems.get(position);
-                if (DEBUG) {
-                    Log.d(TAG, "Scrolled to " + mLastSelected.getName() + " with ssid "
-                            + (mLastSelected.getScanResult() == null ? null
-                                    : mLastSelected.getScanResult().SSID) + " and bssid "
-                            + (mLastSelected.getScanResult() == null ? null
-                                    : mLastSelected.getScanResult().BSSID));
-                }
-                Activity a = getActivity();
-                if (a instanceof Listener) {
-                    ((Listener) a).onListFocusChanged(mLastSelected);
-                }
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
-            }
-
-        });
-
         return mMainView;
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        if (mSelectItemRunnable != null) {
+            mHandler.removeCallbacks(mSelectItemRunnable);
+            mSelectItemRunnable = null;
+        }
+        if (mOnListPreDrawListener != null) {
+            mListView.getViewTreeObserver().removeOnPreDrawListener(mOnListPreDrawListener);
+            mOnListPreDrawListener = null;
+        }
     }
 
     @Override

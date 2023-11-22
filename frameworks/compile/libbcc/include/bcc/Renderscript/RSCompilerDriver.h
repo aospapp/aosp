@@ -111,6 +111,10 @@ public:
     return mEnableGlobalMerge;
   }
 
+  const CompilerConfig * getConfig() const {
+    return mConfig;
+  }
+
   // Set to true if we should embed global variable information in the code.
   void setEmbedGlobalInfo(bool v) {
     mEmbedGlobalInfo = v;

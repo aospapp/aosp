@@ -150,7 +150,7 @@ AudioTrack myTrack = new AudioTrack(
 <p>Application developers should use audio attributes when creating or updating applications for
 Android 5.0. However, applications are not required to take advantage of attributes; they can
 handle legacy stream types only or remain unaware of attributes (i.e. a generic media player that
-doesn’t know anything about the content it’s playing).</p>
+doesn't know anything about the content it's playing).</p>
 
 <p>In such cases, the framework maintains backwards compatibility with older devices and Android
 releases by automatically translating legacy audio stream types to audio attributes. However, the
@@ -166,7 +166,7 @@ releases.</p>
 </tr>
 <tr>
   <td>
-  <code>CONTENT_TYPE_SPEECH</code><br>
+  <code>CONTENT_TYPE_SPEECH</code><br />
   <code>USAGE_VOICE_COMMUNICATION</code>
   </td>
   <td>
@@ -175,7 +175,7 @@ releases.</p>
 </tr>
 <tr>
   <td>
-  <code>CONTENT_TYPE_SONIFICATION</code><br>
+  <code>CONTENT_TYPE_SONIFICATION</code><br />
   <code>USAGE_ASSISTANCE_SONIFICATION</code>
   </td>
   <td>
@@ -184,7 +184,7 @@ releases.</p>
 </tr>
 <tr>
   <td>
-  <code>CONTENT_TYPE_SONIFICATION</code><br>
+  <code>CONTENT_TYPE_SONIFICATION</code><br />
   <code>USAGE_NOTIFICATION_RINGTONE</code>
   </td>
   <td>
@@ -193,12 +193,12 @@ releases.</p>
 </tr>
 <tr>
   <td>
-  <code>CONTENT_TYPE_MUSIC</code><br>
-  <code>USAGE_UNKNOWN</code><br>
-  <code>USAGE_MEDIA</code><br>
-  <code>USAGE_GAME</code><br>
-  <code>USAGE_ASSISTANCE_ACCESSIBILITY</code><br>
-  <code>USAGE_ASSISTANCE_NAVIGATION_GUIDANCE</code><br>
+  <code>CONTENT_TYPE_MUSIC</code><br />
+  <code>USAGE_UNKNOWN</code><br />
+  <code>USAGE_MEDIA</code><br />
+  <code>USAGE_GAME</code><br />
+  <code>USAGE_ASSISTANCE_ACCESSIBILITY</code><br />
+  <code>USAGE_ASSISTANCE_NAVIGATION_GUIDANCE</code>
   </td>
   <td>
   <code>STREAM_MUSIC</code>
@@ -206,7 +206,7 @@ releases.</p>
 </tr>
 <tr>
   <td>
-  <code>CONTENT_TYPE_SONIFICATION</code><br>
+  <code>CONTENT_TYPE_SONIFICATION</code><br />
   <code>USAGE_ALARM</code>
   </td>
   <td>
@@ -215,12 +215,12 @@ releases.</p>
 </tr>
 <tr>
   <td>
-  <code>CONTENT_TYPE_SONIFICATION</code><br>
-  <code>USAGE_NOTIFICATION</code><br>
-  <code>USAGE_NOTIFICATION_COMMUNICATION_REQUEST</code><br>
-  <code>USAGE_NOTIFICATION_COMMUNICATION_INSTANT</code><br>
-  <code>USAGE_NOTIFICATION_COMMUNICATION_DELAYED</code><br>
-  <code>USAGE_NOTIFICATION_EVENT</code><br>
+  <code>CONTENT_TYPE_SONIFICATION</code><br />
+  <code>USAGE_NOTIFICATION</code><br />
+  <code>USAGE_NOTIFICATION_COMMUNICATION_REQUEST</code><br />
+  <code>USAGE_NOTIFICATION_COMMUNICATION_INSTANT</code><br />
+  <code>USAGE_NOTIFICATION_COMMUNICATION_DELAYED</code><br />
+  <code>USAGE_NOTIFICATION_EVENT</code>
   </td>
   <td>
   <code>STREAM_NOTIFICATION</code>
@@ -244,7 +244,7 @@ releases.</p>
 </tr>
 <tr>
   <td>
-  <code>CONTENT_TYPE_SONIFICATION</code><br>
+  <code>CONTENT_TYPE_SONIFICATION</code><br />
   <code>USAGE_VOICE_COMMUNICATION_SIGNALLING</code>
   </td>
   <td>

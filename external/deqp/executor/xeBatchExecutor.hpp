@@ -80,20 +80,20 @@ private:
 	bool					iterate				(void);
 
 	void					onStateChanged		(CommLinkState state, const char* message);
-	void					onTestLogData		(const deUint8* bytes, int numBytes);
-	void					onInfoLogData		(const deUint8* bytes, int numBytes);
+	void					onTestLogData		(const deUint8* bytes, size_t numBytes);
+	void					onInfoLogData		(const deUint8* bytes, size_t numBytes);
 
 	void					launchTestSet		(const TestSet& testSet);
 
 	// Callbacks for CommLink.
 	static void				enqueueStateChanged	(void* userPtr, CommLinkState state, const char* message);
-	static void				enqueueTestLogData	(void* userPtr, const deUint8* bytes, int numBytes);
-	static void				enqueueInfoLogData	(void* userPtr, const deUint8* bytes, int numBytes);
+	static void				enqueueTestLogData	(void* userPtr, const deUint8* bytes, size_t numBytes);
+	static void				enqueueInfoLogData	(void* userPtr, const deUint8* bytes, size_t numBytes);
 
 	// Called in CallQueue dispatch.
-	static void				dispatchStateChanged	(CallReader data);
-	static void				dispatchTestLogData		(CallReader data);
-	static void				dispatchInfoLogData		(CallReader data);
+	static void				dispatchStateChanged	(CallReader& data);
+	static void				dispatchTestLogData		(CallReader& data);
+	static void				dispatchInfoLogData		(CallReader& data);
 
 	enum State
 	{

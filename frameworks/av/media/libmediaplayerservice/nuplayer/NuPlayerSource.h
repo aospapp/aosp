@@ -46,8 +46,6 @@ struct NuPlayer::Source : public AHandler {
         kWhatFlagsChanged,
         kWhatVideoSizeChanged,
         kWhatBufferingUpdate,
-        kWhatBufferingStart,
-        kWhatBufferingEnd,
         kWhatPauseOnBufferingStart,
         kWhatResumeOnBufferingEnd,
         kWhatCacheStats,
@@ -121,6 +119,8 @@ struct NuPlayer::Source : public AHandler {
     virtual bool isStreaming() const {
         return true;
     }
+
+    virtual void setOffloadAudio(bool /* offload */) {}
 
 protected:
     virtual ~Source() {}

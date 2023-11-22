@@ -89,7 +89,7 @@ status_t ISVBuffer::initBufferInfo(uint32_t hackFormat)
     mColorFormat = info.format;
 #else
     IMG_native_handle_t* grallocHandle = (IMG_native_handle_t*)mGrallocHandle;
-    mStride = grallocHandle->iWidth;
+    mStride = grallocHandle->aiStride[0];
     mSurfaceHeight = grallocHandle->iHeight;
     mColorFormat = (hackFormat != 0) ? hackFormat : grallocHandle->iFormat;
 #endif

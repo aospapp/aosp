@@ -14,12 +14,9 @@
 
 <layout xmlns:android="http://schemas.android.com/apk/res/android"
         xmlns:bind="http://schemas.android.com/apk/res-auto">
-
-
-
-
     <data>
         <variable name="objectInLand" type="android.databinding.testapp.vo.NotBindableVo"/>
+        <variable name="objectInBoth" type="Object"/>
     </data>
     <LinearLayout
             android:orientation="vertical"

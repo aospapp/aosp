@@ -17,9 +17,13 @@
 
 package org.apache.harmony.tests.java.util;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.ConcurrentModificationException;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 import java.io.ObjectOutputStream;
 import java.io.ByteArrayOutputStream;
@@ -27,7 +31,9 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.lang.reflect.InvocationTargetException;
+import java.util.Spliterator;
 
+import libcore.java.util.SpliteratorTester;
 import org.apache.harmony.testframework.serialization.SerializationTest;
 
 public class HashSetTest extends junit.framework.TestCase {
@@ -211,6 +217,64 @@ public class HashSetTest extends junit.framework.TestCase {
         hs.add("world");
         SerializationTest.verifySelf(hs, comparator);
         SerializationTest.verifyGolden(this, hs, comparator);
+    }
+
+    /*
+     * Bug 26294011
+     */
+    public void test_empty_clone() throws Exception {
+        HashSet<Integer> emptyHs = new HashSet<Integer>();
+        HashSet<Integer> cloned = (HashSet) emptyHs.clone();
+        cloned.add(new Integer(8));
+    }
+
+    public void test_forEach() throws Exception {
+      HashSet<Integer> hs = new HashSet<>();
+      hs.add(0);
+      hs.add(1);
+      hs.add(2);
+
+      HashSet<Integer> output = new HashSet<>();
+      hs.forEach(k -> output.add(k));
+
+      assertEquals(hs, output);
+    }
+
+    public void test_forEach_NPE() throws Exception {
+        HashSet<String> set = new HashSet<>();
+        try {
+            set.forEach(null);
+            fail();
+        } catch(NullPointerException expected) {}
+    }
+
+    public void test_forEach_CME() throws Exception {
+        HashSet<String> set = new HashSet<>();
+        set.add("one");
+        set.add("two");
+        try {
+            set.forEach(new java.util.function.Consumer<String>() {
+                    @Override
+                    public void accept(String k) {set.add("foo");}
+                });
+            fail();
+        } catch(ConcurrentModificationException expected) {}
+    }
+
+    public void test_spliterator() throws Exception {
+        HashSet<String> hashSet = new HashSet<>();
+        List<String> keys = Arrays.asList(
+                "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p");
+        hashSet.addAll(keys);
+
+        ArrayList<String> expectedKeys = new ArrayList<>(keys);
+        SpliteratorTester.runBasicIterationTests_unordered(hashSet.spliterator(), expectedKeys,
+                String::compareTo);
+        SpliteratorTester.runBasicSplitTests(hashSet, expectedKeys);
+        SpliteratorTester.testSpliteratorNPE(hashSet.spliterator());
+
+        assertTrue(hashSet.spliterator().hasCharacteristics(Spliterator.DISTINCT));
+        SpliteratorTester.runDistinctTests(keys);
     }
 
     /**

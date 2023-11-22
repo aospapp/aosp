@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2000-2013 Julian Seward 
+   Copyright (C) 2000-2015 Julian Seward 
       jseward@acm.org
 
    This program is free software; you can redistribute it and/or
@@ -49,7 +49,8 @@
    Assertery.
    ------------------------------------------------------------------ */
 
-#if defined(VGP_x86_linux) || defined(VGP_x86_darwin)
+#if defined(VGP_x86_linux) || defined(VGP_x86_darwin) \
+    || defined(VGP_x86_solaris)
 #  define GET_STARTREGS(srP)                              \
       { UInt eip, esp, ebp;                               \
         __asm__ __volatile__(                             \
@@ -65,7 +66,8 @@
         (srP)->r_sp = (ULong)esp;                         \
         (srP)->misc.X86.r_ebp = ebp;                      \
       }
-#elif defined(VGP_amd64_linux) || defined(VGP_amd64_darwin)
+#elif defined(VGP_amd64_linux) || defined(VGP_amd64_darwin) \
+      || defined(VGP_amd64_solaris)
 #  define GET_STARTREGS(srP)                              \
       { ULong rip, rsp, rbp;                              \
         __asm__ __volatile__(                             \
@@ -85,8 +87,8 @@
       { UInt cia, r1, lr;                                 \
         __asm__ __volatile__(                             \
            "mflr 0;"                   /* r0 = lr */      \
-           "bl m_libcassert_get_ip;"   /* lr = pc */      \
-           "m_libcassert_get_ip:\n"                       \
+           "bl 0f;"                    /* lr = pc */      \
+           "0:\n"                                         \
            "mflr %0;"                  /* %0 = pc */      \
            "mtlr 0;"                   /* restore lr */   \
            "mr %1,1;"                  /* %1 = r1 */      \
@@ -104,8 +106,8 @@
       { ULong cia, r1, lr;                                \
         __asm__ __volatile__(                             \
            "mflr 0;"                   /* r0 = lr */      \
-           "bl .m_libcassert_get_ip;"  /* lr = pc */      \
-           ".m_libcassert_get_ip:\n"                      \
+           "bl 0f;"                    /* lr = pc */      \
+           "0:\n"                                         \
            "mflr %0;"                  /* %0 = pc */      \
            "mtlr 0;"                   /* restore lr */   \
            "mr %1,1;"                  /* %1 = r1 */      \
@@ -178,8 +180,8 @@
 #  define GET_STARTREGS(srP)                              \
       { UInt pc, sp, fp, ra, gp;                          \
       asm("move $8, $31;"             /* t0 = ra */       \
-          "bal m_libcassert_get_ip;"  /* ra = pc */       \
-          "m_libcassert_get_ip:\n"                        \
+          "bal 0f;"                   /* ra = pc */       \
+          "0:\n"                                          \
           "move %0, $31;"                                 \
           "move $31, $8;"             /* restore lr */    \
           "move %1, $29;"                                 \
@@ -201,10 +203,10 @@
       }
 #elif defined(VGP_mips64_linux)
 #  define GET_STARTREGS(srP)                              \
-      { ULong pc, sp, fp, ra, gp;                          \
+      { ULong pc, sp, fp, ra, gp;                         \
       asm("move $8, $31;"             /* t0 = ra */       \
-          "bal m_libcassert_get_ip;"  /* ra = pc */       \
-          "m_libcassert_get_ip:\n"                        \
+          "bal 0f;"                   /* ra = pc */       \
+          "0:\n"                                          \
           "move %0, $31;"                                 \
           "move $31, $8;"             /* restore lr */    \
           "move %1, $29;"                                 \
@@ -291,7 +293,7 @@ void VG_(exit_now)( Int status )
 {
 #if defined(VGO_linux)
    (void)VG_(do_syscall1)(__NR_exit_group, status );
-#elif defined(VGO_darwin)
+#elif defined(VGO_darwin) || defined(VGO_solaris)
    (void)VG_(do_syscall1)(__NR_exit, status );
 #else
 #  error Unknown OS
@@ -360,7 +362,7 @@ static void show_sched_status_wrk ( Bool host_stacktrace,
    }
 
    VG_(printf)("\nsched status:\n"); 
-   VG_(printf)("  running_tid=%d\n", VG_(get_running_tid)());
+   VG_(printf)("  running_tid=%u\n", VG_(get_running_tid)());
    for (i = 1; i < VG_N_THREADS; i++) {
       VgStack* stack 
          = (VgStack*)VG_(threads)[i].os_state.valgrind_stack_base;
@@ -387,7 +389,7 @@ static void show_sched_status_wrk ( Bool host_stacktrace,
             VG_(printf)("client stack range: ???????\n");
       }
       if (stack_usage && stack != 0)
-          VG_(printf)("valgrind stack top usage: %ld of %ld\n",
+          VG_(printf)("valgrind stack top usage: %lu of %lu\n",
                       VG_(clo_valgrind_stacksize)
                         - VG_(am_get_VgStack_unused_szB)
                                (stack, VG_(clo_valgrind_stacksize)),
@@ -505,8 +507,15 @@ void VG_(tool_panic) ( const HChar* str )
 }
 
 /* Print some helpful-ish text about unimplemented things, and give up. */
-void VG_(unimplemented) ( const HChar* msg )
+void VG_(unimplemented) ( const HChar* format, ... )
 {
+   va_list vargs;
+   HChar msg[256];
+
+   va_start(vargs, format);
+   VG_(vsnprintf)(msg, sizeof(msg), format, vargs);
+   va_end(vargs);
+
    if (VG_(clo_xml))
       VG_(printf_xml)("</valgrindoutput>\n");
    VG_(umsg)("\n");

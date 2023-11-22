@@ -1,10 +1,10 @@
-/*	$OpenBSD: misc.c,v 1.40 2015/03/18 15:12:36 tedu Exp $	*/
-/*	$OpenBSD: path.c,v 1.12 2005/03/30 17:16:37 deraadt Exp $	*/
+/*	$OpenBSD: misc.c,v 1.41 2015/09/10 22:48:58 nicm Exp $	*/
+/*	$OpenBSD: path.c,v 1.13 2015/09/05 09:47:08 jsg Exp $	*/
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
  *		 2011, 2012, 2013, 2014, 2015
- *	Thorsten Glaser <tg@mirbsd.org>
+ *	mirabilos <m@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
  * are retained or reproduced in an accompanying document, permission
@@ -30,7 +30,7 @@
 #include <grp.h>
 #endif
 
-__RCSID("$MirOS: src/bin/mksh/misc.c,v 1.219.2.3 2015/03/20 22:21:04 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/misc.c,v 1.240 2015/10/09 16:11:17 tg Exp $");
 
 #define KSH_CHVT_FLAG
 #ifdef MKSH_SMALL
@@ -52,7 +52,7 @@ static const unsigned char *pat_scan(const unsigned char *,
     const unsigned char *, bool) MKSH_A_PURE;
 static int do_gmatch(const unsigned char *, const unsigned char *,
     const unsigned char *, const unsigned char *) MKSH_A_PURE;
-static const unsigned char *cclass(const unsigned char *, unsigned char)
+static const unsigned char *gmatch_cclass(const unsigned char *, unsigned char)
     MKSH_A_PURE;
 #ifdef KSH_CHVT_CODE
 static void chvt(const Getopt *);
@@ -93,12 +93,8 @@ setctypes(const char *s, int t)
 void
 initctypes(void)
 {
-	int c;
-
-	for (c = 'a'; c <= 'z'; c++)
-		chtypes[c] |= C_ALPHA;
-	for (c = 'A'; c <= 'Z'; c++)
-		chtypes[c] |= C_ALPHA;
+	setctypes(letters_uc, C_ALPHA);
+	setctypes(letters_lc, C_ALPHA);
 	chtypes['_'] |= C_ALPHA;
 	setctypes("0123456789", C_DIGIT);
 	/* \0 added automatically */
@@ -126,6 +122,17 @@ Xcheck_grow(XString *xsp, const char *xp, size_t more)
 
 
 #define SHFLAGS_DEFNS
+#define FN(sname,cname,flags,ochar)		\
+	static const struct {			\
+		/* character flag (if any) */	\
+		char c;				\
+		/* OF_* */			\
+		unsigned char optflags;		\
+		/* long name of option */	\
+		char name[sizeof(sname)];	\
+	} shoptione_ ## cname = {		\
+		ochar, flags, sname		\
+	};
 #include "sh_flags.gen"
 
 #define OFC(i) (options[i][-2])
@@ -166,11 +173,11 @@ struct options_info {
 	int opts[NELEM(options)];
 };
 
-static char *options_fmt_entry(char *, size_t, unsigned int, const void *);
+static void options_fmt_entry(char *, size_t, unsigned int, const void *);
 static void printoptions(bool);
 
 /* format a single select menu item */
-static char *
+static void
 options_fmt_entry(char *buf, size_t buflen, unsigned int i, const void *arg)
 {
 	const struct options_info *oi = (const struct options_info *)arg;
@@ -178,7 +185,6 @@ options_fmt_entry(char *buf, size_t buflen, unsigned int i, const void *arg)
 	shf_snprintf(buf, buflen, "%-*s %s",
 	    oi->opt_width, OFN(oi->opts[i]),
 	    Flag(oi->opts[i]) ? "on" : "off");
-	return (buf);
 }
 
 static void
@@ -545,7 +551,7 @@ getn(const char *s, int *ai)
 		if (num.u > 214748364U)
 			/* overflow on multiplication */
 			return (0);
-		num.u = num.u * 10U + (unsigned int)(c - '0');
+		num.u = num.u * 10U + (unsigned int)ksh_numdig(c);
 		/* now: num.u <= 2147483649U */
 	} while ((c = *s++));
 
@@ -776,7 +782,7 @@ do_gmatch(const unsigned char *s, const unsigned char *se,
 		}
 		switch (*p++) {
 		case '[':
-			if (sc == 0 || (p = cclass(p, sc)) == NULL)
+			if (sc == 0 || (p = gmatch_cclass(p, sc)) == NULL)
 				return (0);
 			break;
 
@@ -889,7 +895,7 @@ do_gmatch(const unsigned char *s, const unsigned char *se,
 }
 
 static const unsigned char *
-cclass(const unsigned char *p, unsigned char sub)
+gmatch_cclass(const unsigned char *p, unsigned char sub)
 {
 	unsigned char c, d;
 	bool notp, found = false;
@@ -1007,7 +1013,7 @@ ksh_getopt(const char **argv, Getopt *go, const char *optionsp)
 		const char *arg = argv[go->optind], flag = arg ? *arg : '\0';
 
 		go->p = 1;
-		if (flag == '-' && arg[1] == '-' && arg[2] == '\0') {
+		if (flag == '-' && ksh_isdash(arg + 1)) {
 			go->optind++;
 			go->p = 0;
 			go->info |= GI_MINUSMINUS;
@@ -1220,7 +1226,7 @@ print_value_quoted(struct shf *shf, const char *s)
  */
 void
 print_columns(struct shf *shf, unsigned int n,
-    char *(*func)(char *, size_t, unsigned int, const void *),
+    void (*func)(char *, size_t, unsigned int, const void *),
     const void *arg, size_t max_oct, size_t max_colz, bool prefcol)
 {
 	unsigned int i, r, c, rows, cols, nspace, max_col;
@@ -1249,17 +1255,20 @@ print_columns(struct shf *shf, unsigned int n,
 	str = alloc(max_oct, ATEMP);
 
 	/*
-	 * We use (max_col + 1) to consider the space separator.
-	 * Note that no space is printed after the last column
-	 * to avoid problems with terminals that have auto-wrap.
+	 * We use (max_col + 2) to consider the separator space.
+	 * Note that no spaces are printed after the last column
+	 * to avoid problems with terminals that have auto-wrap,
+	 * but we need to also take this into account in x_cols.
 	 */
-	cols = x_cols / (max_col + 1);
+	cols = (x_cols + 1) / (max_col + 2);
 
 	/* if we can only print one column anyway, skip the goo */
 	if (cols < 2) {
-		for (i = 0; i < n; ++i)
-			shf_fprintf(shf, "%s\n",
-			    (*func)(str, max_oct, i, arg));
+		for (i = 0; i < n; ++i) {
+			(*func)(str, max_oct, i, arg);
+			shf_puts(str, shf);
+			shf_putc('\n', shf);
+		}
 		goto out;
 	}
 
@@ -1270,18 +1279,19 @@ print_columns(struct shf *shf, unsigned int n,
 	}
 
 	nspace = (x_cols - max_col * cols) / cols;
+	if (nspace < 2)
+		nspace = 2;
 	max_col = -max_col;
-	if (nspace <= 0)
-		nspace = 1;
 	for (r = 0; r < rows; r++) {
 		for (c = 0; c < cols; c++) {
-			i = c * rows + r;
-			if (i < n) {
-				shf_fprintf(shf, "%*s", max_col,
-				    (*func)(str, max_oct, i, arg));
-				if (c + 1 < cols)
-					shf_fprintf(shf, "%*s", nspace, null);
-			}
+			if ((i = c * rows + r) >= n)
+				break;
+			(*func)(str, max_oct, i, arg);
+			if (i + rows >= n)
+				shf_puts(str, shf);
+			else
+				shf_fprintf(shf, "%*s%*s",
+				    max_col, str, nspace, null);
 		}
 		shf_putchar('\n', shf);
 	}
@@ -1402,12 +1412,12 @@ do_realpath(const char *upath)
 	/* max. recursion depth */
 	int symlinks = 32;
 
-	if (upath[0] == '/') {
+	if (mksh_abspath(upath)) {
 		/* upath is an absolute pathname */
 		strdupx(ipath, upath, ATEMP);
 	} else {
 		/* upath is a relative pathname, prepend cwd */
-		if ((tp = ksh_get_wd()) == NULL || tp[0] != '/')
+		if ((tp = ksh_get_wd()) == NULL || !mksh_abspath(tp))
 			return (NULL);
 		ipath = shf_smprintf("%s%s%s", tp, "/", upath);
 		afree(tp, ATEMP);
@@ -1510,7 +1520,7 @@ do_realpath(const char *upath)
 			tp = shf_smprintf("%s%s%s", ldest, *ip ? "/" : "", ip);
 			afree(ipath, ATEMP);
 			ip = ipath = tp;
-			if (ldest[0] != '/') {
+			if (!mksh_abspath(ldest)) {
 				/* symlink target is a relative path */
 				xp = Xrestpos(xs, xp, pos);
 			} else
@@ -1560,16 +1570,14 @@ do_realpath(const char *upath)
 	}
 
 	/* return target path */
-	if (ldest != NULL)
-		afree(ldest, ATEMP);
+	afree(ldest, ATEMP);
 	afree(ipath, ATEMP);
 	return (Xclose(xs, xp));
 
  notfound:
 	/* save; freeing memory might trash it */
 	llen = errno;
-	if (ldest != NULL)
-		afree(ldest, ATEMP);
+	afree(ldest, ATEMP);
 	afree(ipath, ATEMP);
 	Xfree(xs, xp);
 	errno = llen;
@@ -1610,7 +1618,7 @@ make_path(const char *cwd, const char *file,
 	if (!file)
 		file = null;
 
-	if (file[0] == '/') {
+	if (mksh_abspath(file)) {
 		*phys_pathp = 0;
 		use_cdpath = false;
 	} else {
@@ -1627,15 +1635,15 @@ make_path(const char *cwd, const char *file,
 		if (!plist)
 			use_cdpath = false;
 		else if (use_cdpath) {
-			char *pend;
+			char *pend = plist;
 
-			for (pend = plist; *pend && *pend != ':'; pend++)
-				;
+			while (*pend && *pend != MKSH_PATHSEPC)
+				++pend;
 			plen = pend - plist;
 			*cdpathp = *pend ? pend + 1 : NULL;
 		}
 
-		if ((!use_cdpath || !plen || plist[0] != '/') &&
+		if ((!use_cdpath || !plen || !mksh_abspath(plist)) &&
 		    (cwd && *cwd)) {
 			len = strlen(cwd);
 			XcheckN(*xsp, xp, len);
@@ -1721,7 +1729,7 @@ simplify_path(char *p)
 				continue;
 			else if (len == 2 && tp[1] == '.') {
 				/* parent level, but how? */
-				if (*p == '/')
+				if (mksh_abspath(p))
 					/* absolute path, only one way */
 					goto strip_last_component;
 				else if (dp > sp) {
@@ -1921,7 +1929,7 @@ c_cd(const char **wp)
 		/* Ignore failure (happens if readonly or integer) */
 		setstr(oldpwd_s, current_wd, KSH_RETURN_ERROR);
 
-	if (Xstring(xs, xp)[0] != '/') {
+	if (!mksh_abspath(Xstring(xs, xp))) {
 		pwd = NULL;
 	} else if (!physical) {
 		goto norealpath_PWD;
@@ -1999,9 +2007,9 @@ chvt(const Getopt *go)
 #endif
 	    }
 	}
-	if ((fd = open(dv, O_RDWR | O_BINARY)) < 0) {
+	if ((fd = binopen2(dv, O_RDWR)) < 0) {
 		sleep(1);
-		if ((fd = open(dv, O_RDWR | O_BINARY)) < 0) {
+		if ((fd = binopen2(dv, O_RDWR)) < 0) {
 			errorf("%s: %s %s", "chvt", "can't open", dv);
 		}
 	}
@@ -2194,8 +2202,8 @@ unbksl(bool cstyle, int (*fg)(void), void (*fp)(int))
 		wc = 0;
 		i = 3;
 		while (i--)
-			if ((c = (*fg)()) >= '0' && c <= '7')
-				wc = (wc << 3) + (c - '0');
+			if ((c = (*fg)()) >= ord('0') && c <= ord('7'))
+				wc = (wc << 3) + ksh_numdig(c);
 			else {
 				(*fp)(c);
 				break;
@@ -2204,13 +2212,13 @@ unbksl(bool cstyle, int (*fg)(void), void (*fp)(int))
 	case 'U':
 		i = 8;
 		if (/* CONSTCOND */ 0)
-		/* FALLTHROUGH */
+			/* FALLTHROUGH */
 	case 'u':
-		i = 4;
+		  i = 4;
 		if (/* CONSTCOND */ 0)
-		/* FALLTHROUGH */
+			/* FALLTHROUGH */
 	case 'x':
-		i = cstyle ? -1 : 2;
+		  i = cstyle ? -1 : 2;
 		/**
 		 * x:	look for a hexadecimal number with up to
 		 *	two (C style: arbitrary) digits; convert
@@ -2221,12 +2229,12 @@ unbksl(bool cstyle, int (*fg)(void), void (*fp)(int))
 		wc = 0;
 		while (i--) {
 			wc <<= 4;
-			if ((c = (*fg)()) >= '0' && c <= '9')
-				wc += c - '0';
-			else if (c >= 'A' && c <= 'F')
-				wc += c - 'A' + 10;
-			else if (c >= 'a' && c <= 'f')
-				wc += c - 'a' + 10;
+			if ((c = (*fg)()) >= ord('0') && c <= ord('9'))
+				wc += ksh_numdig(c);
+			else if (c >= ord('A') && c <= ord('F'))
+				wc += ksh_numuc(c) + 10;
+			else if (c >= ord('a') && c <= ord('f'))
+				wc += ksh_numlc(c) + 10;
 			else {
 				wc >>= 4;
 				(*fp)(c);

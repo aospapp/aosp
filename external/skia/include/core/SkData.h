@@ -8,9 +8,10 @@
 #ifndef SkData_DEFINED
 #define SkData_DEFINED
 
+#include <stdio.h>
+
 #include "SkRefCnt.h"
 
-struct SkFILE;
 class SkStream;
 
 /**
@@ -20,8 +21,6 @@ class SkStream;
  */
 class SK_API SkData : public SkRefCnt {
 public:
-    SK_DECLARE_INST_COUNT(SkData)
-
     /**
      *  Returns the number of bytes stored.
      */
@@ -71,9 +70,9 @@ public:
 
     /**
      *  Function that, if provided, will be called when the SkData goes out
-     *  of scope, allowing for custom allocation/freeing of the data.
+     *  of scope, allowing for custom allocation/freeing of the data's contents.
      */
-    typedef void (*ReleaseProc)(const void* ptr, size_t length, void* context);
+    typedef void (*ReleaseProc)(const void* ptr, void* context);
 
     /**
      *  Create a new dataref by copying the specified data
@@ -95,17 +94,17 @@ public:
     static SkData* NewWithCString(const char cstr[]);
 
     /**
-     *  Create a new dataref, taking the data ptr as is, and using the
+     *  Create a new dataref, taking the ptr as is, and using the
      *  releaseproc to free it. The proc may be NULL.
      */
-    static SkData* NewWithProc(const void* data, size_t length, ReleaseProc proc, void* context);
+    static SkData* NewWithProc(const void* ptr, size_t length, ReleaseProc proc, void* context);
 
     /**
      *  Call this when the data parameter is already const and will outlive the lifetime of the
      *  SkData. Suitable for with const globals.
      */
     static SkData* NewWithoutCopy(const void* data, size_t length) {
-        return NewWithProc(data, length, NULL, NULL);
+        return NewWithProc(data, length, DummyReleaseProc, NULL);
     }
 
     /**
@@ -121,13 +120,13 @@ public:
     static SkData* NewFromFileName(const char path[]);
 
     /**
-     *  Create a new dataref from a SkFILE.
-     *  This does not take ownership of the SkFILE, nor close it.
-     *  The caller is free to close the SkFILE at its convenience.
-     *  The SkFILE must be open for reading only.
+     *  Create a new dataref from a stdio FILE.
+     *  This does not take ownership of the FILE, nor close it.
+     *  The caller is free to close the FILE at its convenience.
+     *  The FILE must be open for reading only.
      *  Returns NULL on failure.
      */
-    static SkData* NewFromFILE(SkFILE* f);
+    static SkData* NewFromFILE(FILE* f);
 
     /**
      *  Create a new dataref from a file descriptor.
@@ -160,12 +159,11 @@ public:
 private:
     ReleaseProc fReleaseProc;
     void*       fReleaseProcContext;
-
     void*       fPtr;
     size_t      fSize;
 
     SkData(const void* ptr, size_t size, ReleaseProc, void* context);
-    SkData(size_t size);   // inplace new/delete
+    explicit SkData(size_t size);   // inplace new/delete
     virtual ~SkData();
 
 
@@ -182,6 +180,8 @@ private:
 
     // shared internal factory
     static SkData* PrivateNewWithCopy(const void* srcOrNull, size_t length);
+
+    static void DummyReleaseProc(const void*, void*) {}
 
     typedef SkRefCnt INHERITED;
 };

@@ -34,6 +34,7 @@ import java.security.Security;
 import java.security.SecurityPermission;
 import java.security.Provider.Service;
 import java.util.Collection;
+import java.util.ConcurrentModificationException;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Locale;
@@ -198,6 +199,38 @@ public class ProviderTest extends TestCase {
             }
             fail("Incorrect set");
         }
+    }
+
+    public final void testForEach() {
+        p.put("MessageDigest.SHA-1", "aaa.bbb.ccc.ddd");
+        p.put("MessageDigest.abc", "value 1");
+
+        HashMap<String, String> hm = new HashMap<>();
+        p.forEach((k,v)-> hm.put((String)k, (String)v));
+
+        assertEquals(p.size(), hm.size());
+        for(String key : hm.keySet()) {
+          assertEquals(p.get(key), hm.get(key));
+        }
+    }
+
+    public void testForEachNPE() throws Exception {
+        try {
+            p.forEach(null);
+            fail();
+        } catch(NullPointerException expected) {}
+    }
+
+    public void testForEachCME() throws Exception {
+        p.put("MessageDigest.SHA-1", "aaa.bbb.ccc.ddd");
+        p.put("MessageDigest.abc", "value 1");
+        try {
+            p.forEach(new java.util.function.BiConsumer<Object, Object>() {
+                    @Override
+                    public void accept(Object k, Object v) {p.put("foo", "bar");}
+                });
+            fail();
+        } catch(ConcurrentModificationException expected) {}
     }
 
     /*
@@ -387,11 +420,11 @@ public class ProviderTest extends TestCase {
 
         Provider.Service s[] = new Provider.Service[3];
 
-        s[0] = new Provider.Service(p, "type1", "algorithm1", "className1",
+        s[0] = new Provider.Service(myProvider, "type1", "algorithm1", "className1",
                 null, null);
-        s[1] = new Provider.Service(p, "type2", "algorithm2", "className2",
+        s[1] = new Provider.Service(myProvider, "type2", "algorithm2", "className2",
                 null, null);
-        s[2] = new Provider.Service(p, "type3", "algorithm3", "className3",
+        s[2] = new Provider.Service(myProvider, "type3", "algorithm3", "className3",
                 null, null);
         myProvider.putService(s[0]);
         myProvider.putService(s[1]);
@@ -424,11 +457,11 @@ public class ProviderTest extends TestCase {
         MyProvider myProvider = new MyProvider(null, 1, null);
         Provider.Service s[] = new Provider.Service[3];
 
-        s[0] = new Provider.Service(p, "type1", "algorithm1", "className1",
+        s[0] = new Provider.Service(myProvider, "type1", "algorithm1", "className1",
                 null, null);
-        s[1] = new Provider.Service(p, "type2", "algorithm2", "className2",
+        s[1] = new Provider.Service(myProvider, "type2", "algorithm2", "className2",
                 null, null);
-        s[2] = new Provider.Service(p, "type3", "algorithm3", "className3",
+        s[2] = new Provider.Service(myProvider, "type3", "algorithm3", "className3",
                 null, null);
         myProvider.putService(s[0]);
         myProvider.putService(s[1]);
@@ -482,11 +515,11 @@ public class ProviderTest extends TestCase {
 
         Provider.Service s[] = new Provider.Service[3];
 
-        s[0] = new Provider.Service(p, "type0", "algorithm0", "className0",
+        s[0] = new Provider.Service(myProvider, "type0", "algorithm0", "className0",
                 null, null);
-        s[1] = new Provider.Service(p, "type1", "algorithm1", "className1",
+        s[1] = new Provider.Service(myProvider, "type1", "algorithm1", "className1",
                 null, null);
-        s[2] = new Provider.Service(p, "type2", "algorithm2", "className2",
+        s[2] = new Provider.Service(myProvider, "type2", "algorithm2", "className2",
                 null, null);
 
         try {

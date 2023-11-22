@@ -26,9 +26,19 @@
 // table-lookup read barriers.
 
 #ifdef ART_USE_READ_BARRIER
+#if ART_READ_BARRIER_TYPE_IS_BAKER
 #define USE_BAKER_READ_BARRIER
-// #define USE_BROOKS_READ_BARRIER
-// #define USE_TABLE_LOOKUP_READ_BARRIER
+#elif ART_READ_BARRIER_TYPE_IS_BROOKS
+#define USE_BROOKS_READ_BARRIER
+#elif ART_READ_BARRIER_TYPE_IS_TABLELOOKUP
+#define USE_TABLE_LOOKUP_READ_BARRIER
+#else
+#error "ART read barrier type must be set"
+#endif
+#endif  // ART_USE_READ_BARRIER
+
+#ifdef ART_HEAP_POISONING
+#define USE_HEAP_POISONING
 #endif
 
 #if defined(USE_BAKER_READ_BARRIER) || defined(USE_BROOKS_READ_BARRIER)
@@ -42,10 +52,5 @@
 #if defined(USE_BAKER_READ_BARRIER) && defined(USE_BROOKS_READ_BARRIER)
 #error "Only one of Baker or Brooks can be enabled at a time."
 #endif
-
-// A placeholder marker to indicate places to add read barriers in the
-// assembly code. This is a development time aid and to be removed
-// after read barriers are added.
-#define THIS_LOAD_REQUIRES_READ_BARRIER
 
 #endif  // ART_RUNTIME_READ_BARRIER_C_H_

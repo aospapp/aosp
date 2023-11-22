@@ -26,6 +26,7 @@
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/foundation/hexdump.h>
 #include <media/stagefright/MediaErrors.h>
+#include <utils/misc.h>
 
 #include <math.h>
 
@@ -54,6 +55,14 @@ static void InitOMXParams(T *params) {
     params->nVersion.s.nRevision = 0;
     params->nVersion.s.nStep = 0;
 }
+
+static const OMX_U32 kSupportedProfiles[] = {
+    OMX_AUDIO_AACObjectLC,
+    OMX_AUDIO_AACObjectHE,
+    OMX_AUDIO_AACObjectHE_PS,
+    OMX_AUDIO_AACObjectLD,
+    OMX_AUDIO_AACObjectELD,
+};
 
 SoftAAC2::SoftAAC2(
         const char *name,
@@ -198,16 +207,24 @@ status_t SoftAAC2::initDecoder() {
         mDrcWrap.setParam(DRC_PRES_MODE_WRAP_ENCODER_TARGET, DRC_DEFAULT_MOBILE_ENC_LEVEL);
     }
 
+    // By default, the decoder creates a 5.1 channel downmix signal.
+    // For seven and eight channel input streams, enable 6.1 and 7.1 channel output
+    aacDecoder_SetParam(mAACDecoder, AAC_PCM_MAX_OUTPUT_CHANNELS, -1);
+
     return status;
 }
 
 OMX_ERRORTYPE SoftAAC2::internalGetParameter(
         OMX_INDEXTYPE index, OMX_PTR params) {
-    switch (index) {
+    switch ((OMX_U32) index) {
         case OMX_IndexParamAudioAac:
         {
             OMX_AUDIO_PARAM_AACPROFILETYPE *aacParams =
                 (OMX_AUDIO_PARAM_AACPROFILETYPE *)params;
+
+            if (!isValidOMXParam(aacParams)) {
+                return OMX_ErrorBadParameter;
+            }
 
             if (aacParams->nPortIndex != 0) {
                 return OMX_ErrorUndefined;
@@ -244,6 +261,10 @@ OMX_ERRORTYPE SoftAAC2::internalGetParameter(
             OMX_AUDIO_PARAM_PCMMODETYPE *pcmParams =
                 (OMX_AUDIO_PARAM_PCMMODETYPE *)params;
 
+            if (!isValidOMXParam(pcmParams)) {
+                return OMX_ErrorBadParameter;
+            }
+
             if (pcmParams->nPortIndex != 1) {
                 return OMX_ErrorUndefined;
             }
@@ -271,6 +292,29 @@ OMX_ERRORTYPE SoftAAC2::internalGetParameter(
             return OMX_ErrorNone;
         }
 
+        case OMX_IndexParamAudioProfileQuerySupported:
+        {
+            OMX_AUDIO_PARAM_ANDROID_PROFILETYPE *profileParams =
+                (OMX_AUDIO_PARAM_ANDROID_PROFILETYPE *)params;
+
+            if (!isValidOMXParam(profileParams)) {
+                return OMX_ErrorBadParameter;
+            }
+
+            if (profileParams->nPortIndex != 0) {
+                return OMX_ErrorUndefined;
+            }
+
+            if (profileParams->nProfileIndex >= NELEM(kSupportedProfiles)) {
+                return OMX_ErrorNoMore;
+            }
+
+            profileParams->eProfile =
+                kSupportedProfiles[profileParams->nProfileIndex];
+
+            return OMX_ErrorNone;
+        }
+
         default:
             return SimpleSoftOMXComponent::internalGetParameter(index, params);
     }
@@ -283,6 +327,10 @@ OMX_ERRORTYPE SoftAAC2::internalSetParameter(
         {
             const OMX_PARAM_COMPONENTROLETYPE *roleParams =
                 (const OMX_PARAM_COMPONENTROLETYPE *)params;
+
+            if (!isValidOMXParam(roleParams)) {
+                return OMX_ErrorBadParameter;
+            }
 
             if (strncmp((const char *)roleParams->cRole,
                         "audio_decoder.aac",
@@ -297,6 +345,10 @@ OMX_ERRORTYPE SoftAAC2::internalSetParameter(
         {
             const OMX_AUDIO_PARAM_AACPROFILETYPE *aacParams =
                 (const OMX_AUDIO_PARAM_AACPROFILETYPE *)params;
+
+            if (!isValidOMXParam(aacParams)) {
+                return OMX_ErrorBadParameter;
+            }
 
             if (aacParams->nPortIndex != 0) {
                 return OMX_ErrorUndefined;
@@ -318,9 +370,14 @@ OMX_ERRORTYPE SoftAAC2::internalSetParameter(
         {
             const OMX_AUDIO_PARAM_ANDROID_AACPRESENTATIONTYPE *aacPresParams =
                     (const OMX_AUDIO_PARAM_ANDROID_AACPRESENTATIONTYPE *)params;
+
+            if (!isValidOMXParam(aacPresParams)) {
+                return OMX_ErrorBadParameter;
+            }
+
             // for the following parameters of the OMX_AUDIO_PARAM_AACPROFILETYPE structure,
             // a value of -1 implies the parameter is not set by the application:
-            //   nMaxOutputChannels     uses default platform properties, see configureDownmix()
+            //   nMaxOutputChannels     -1 by default 
             //   nDrcCut                uses default platform properties, see initDecoder()
             //   nDrcBoost                idem
             //   nHeavyCompression        idem
@@ -384,6 +441,10 @@ OMX_ERRORTYPE SoftAAC2::internalSetParameter(
             const OMX_AUDIO_PARAM_PCMMODETYPE *pcmParams =
                 (OMX_AUDIO_PARAM_PCMMODETYPE *)params;
 
+            if (!isValidOMXParam(pcmParams)) {
+                return OMX_ErrorBadParameter;
+            }
+
             if (pcmParams->nPortIndex != 1) {
                 return OMX_ErrorUndefined;
             }
@@ -398,18 +459,6 @@ OMX_ERRORTYPE SoftAAC2::internalSetParameter(
 
 bool SoftAAC2::isConfigured() const {
     return mInputBufferCount > 0;
-}
-
-void SoftAAC2::configureDownmix() const {
-    char value[PROPERTY_VALUE_MAX];
-    if (!(property_get("media.aac_51_output_enabled", value, NULL)
-            && (!strcmp(value, "1") || !strcasecmp(value, "true")))) {
-        ALOGI("limiting to stereo output");
-        aacDecoder_SetParam(mAACDecoder, AAC_PCM_MAX_OUTPUT_CHANNELS, 2);
-        // By default, the decoder creates a 5.1 channel downmix signal
-        // for seven and eight channel input streams. To enable 6.1 and 7.1 channel output
-        // use aacDecoder_SetParam(mAACDecoder, AAC_PCM_MAX_OUTPUT_CHANNELS, -1)
-    }
 }
 
 bool SoftAAC2::outputDelayRingBufferPutSamples(INT_PCM *samples, int32_t numSamples) {
@@ -546,7 +595,6 @@ void SoftAAC2::onQueueFilled(OMX_U32 /* portIndex */) {
                 notifyEmptyBufferDone(inHeader);
                 inHeader = NULL;
 
-                configureDownmix();
                 // Only send out port settings changed event if both sample rate
                 // and numChannels are valid.
                 if (mStreamInfo->sampleRate && mStreamInfo->numChannels) {
@@ -600,12 +648,15 @@ void SoftAAC2::onQueueFilled(OMX_U32 /* portIndex */) {
                         signalError = true;
                     } else {
                         adtsHeaderSize = (protectionAbsent ? 7 : 9);
+                        if (aac_frame_length < adtsHeaderSize) {
+                            signalError = true;
+                        } else {
+                            inBuffer[0] = (UCHAR *)adtsHeader + adtsHeaderSize;
+                            inBufferLength[0] = aac_frame_length - adtsHeaderSize;
 
-                        inBuffer[0] = (UCHAR *)adtsHeader + adtsHeaderSize;
-                        inBufferLength[0] = aac_frame_length - adtsHeaderSize;
-
-                        inHeader->nOffset += adtsHeaderSize;
-                        inHeader->nFilledLen -= adtsHeaderSize;
+                            inHeader->nOffset += adtsHeaderSize;
+                            inHeader->nFilledLen -= adtsHeaderSize;
+                        }
                     }
                 }
 
@@ -742,31 +793,31 @@ void SoftAAC2::onQueueFilled(OMX_U32 /* portIndex */) {
                  * Thus, we could not say for sure whether a stream is
                  * AAC+/eAAC+ until the first data frame is decoded.
                  */
-                if (mInputBufferCount <= 2 || mOutputBufferCount > 1) { // TODO: <= 1
-                    if (mStreamInfo->sampleRate != prevSampleRate ||
-                        mStreamInfo->numChannels != prevNumChannels) {
-                        ALOGI("Reconfiguring decoder: %d->%d Hz, %d->%d channels",
-                              prevSampleRate, mStreamInfo->sampleRate,
-                              prevNumChannels, mStreamInfo->numChannels);
-
-                        notify(OMX_EventPortSettingsChanged, 1, 0, NULL);
-                        mOutputPortSettingsChange = AWAITING_DISABLED;
-
-                        if (inHeader && inHeader->nFilledLen == 0) {
-                            inInfo->mOwnedByUs = false;
-                            mInputBufferCount++;
-                            inQueue.erase(inQueue.begin());
-                            mLastInHeader = NULL;
-                            inInfo = NULL;
-                            notifyEmptyBufferDone(inHeader);
-                            inHeader = NULL;
-                        }
+                if (!mStreamInfo->sampleRate || !mStreamInfo->numChannels) {
+                    if ((mInputBufferCount > 2) && (mOutputBufferCount <= 1)) {
+                        ALOGW("Invalid AAC stream");
+                        mSignalledError = true;
+                        notify(OMX_EventError, OMX_ErrorUndefined, decoderErr, NULL);
                         return;
                     }
-                } else if (!mStreamInfo->sampleRate || !mStreamInfo->numChannels) {
-                    ALOGW("Invalid AAC stream");
-                    mSignalledError = true;
-                    notify(OMX_EventError, OMX_ErrorUndefined, decoderErr, NULL);
+                } else if ((mStreamInfo->sampleRate != prevSampleRate) ||
+                           (mStreamInfo->numChannels != prevNumChannels)) {
+                    ALOGI("Reconfiguring decoder: %d->%d Hz, %d->%d channels",
+                          prevSampleRate, mStreamInfo->sampleRate,
+                          prevNumChannels, mStreamInfo->numChannels);
+
+                    notify(OMX_EventPortSettingsChanged, 1, 0, NULL);
+                    mOutputPortSettingsChange = AWAITING_DISABLED;
+
+                    if (inHeader && inHeader->nFilledLen == 0) {
+                        inInfo->mOwnedByUs = false;
+                        mInputBufferCount++;
+                        inQueue.erase(inQueue.begin());
+                        mLastInHeader = NULL;
+                        inInfo = NULL;
+                        notifyEmptyBufferDone(inHeader);
+                        inHeader = NULL;
+                    }
                     return;
                 }
                 if (inHeader && inHeader->nFilledLen == 0) {
@@ -801,10 +852,10 @@ void SoftAAC2::onQueueFilled(OMX_U32 /* portIndex */) {
             while (mOutputDelayCompensated > 0) {
                 // a buffer big enough for MAX_CHANNEL_COUNT channels of decoded HE-AAC
                 INT_PCM tmpOutBuffer[2048 * MAX_CHANNEL_COUNT];
- 
-                 // run DRC check
-                 mDrcWrap.submitStreamData(mStreamInfo);
-                 mDrcWrap.update();
+
+                // run DRC check
+                mDrcWrap.submitStreamData(mStreamInfo);
+                mDrcWrap.update();
 
                 AAC_DECODER_ERROR decoderErr =
                     aacDecoder_DecodeFrame(mAACDecoder,

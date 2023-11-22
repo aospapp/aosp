@@ -16,7 +16,8 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
+import android.test.suitebuilder.annotation.MediumTest;
+import android.widget.cts.R;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -73,7 +74,7 @@ public class AbsListViewTest extends ActivityInstrumentationTestCase2<ListViewCt
     private static final float DELTA = 0.001f;
 
     public AbsListViewTest() {
-        super("com.android.cts.widget", ListViewCtsActivity.class);
+        super("android.widget.cts", ListViewCtsActivity.class);
     }
 
 
@@ -646,6 +647,98 @@ public class AbsListViewTest extends ActivityInstrumentationTestCase2<ListViewCt
         assertTrue(listView.isTextFilterEnabled());
         assertFalse(listView.hasTextFilter());
         assertFalse(listView.isInFilterMode());
+    }
+
+    @MediumTest
+    public void testSetItemChecked_multipleModeSameValue()
+            throws Throwable {
+        // Calling setItemChecked with the same value in multiple choice mode should not cause
+        // requestLayout
+        mListView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mListView.setItemChecked(0, false);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+        assertFalse(mListView.isLayoutRequested());
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mListView.setItemChecked(0, false);
+            }
+        });
+        assertFalse(mListView.isLayoutRequested());
+    }
+
+    @MediumTest
+    public void testSetItemChecked_singleModeSameValue()
+            throws Throwable {
+        // Calling setItemChecked with the same value in single choice mode should not cause
+        // requestLayout
+        mListView.setChoiceMode(ListView.CHOICE_MODE_SINGLE);
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mListView.setItemChecked(0, false);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+        assertFalse(mListView.isLayoutRequested());
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mListView.setItemChecked(0, false);
+            }
+        });
+        assertFalse(mListView.isLayoutRequested());
+    }
+
+    @MediumTest
+    public void testSetItemChecked_multipleModeDifferentValue()
+            throws Throwable {
+        // Calling setItemChecked with a different value in multiple choice mode should cause
+        // requestLayout
+        mListView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mListView.setItemChecked(0, false);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+        assertFalse(mListView.isLayoutRequested());
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mListView.setItemChecked(0, true);
+            }
+        });
+        assertTrue(mListView.isLayoutRequested());
+    }
+
+    @MediumTest
+    public void testSetItemChecked_singleModeDifferentValue()
+            throws Throwable {
+        // Calling setItemChecked with a different value in single choice mode should cause
+        // requestLayout
+        mListView.setChoiceMode(ListView.CHOICE_MODE_SINGLE);
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mListView.setItemChecked(0, false);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+        assertFalse(mListView.isLayoutRequested());
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mListView.setItemChecked(0, true);
+            }
+        });
+        assertTrue(mListView.isLayoutRequested());
     }
 
     public void testLayoutChildren() {

@@ -5,6 +5,12 @@ Building LLVM With Autotools
 .. contents::
    :local:
 
+.. warning::
+
+    Building LLVM with autoconf is deprecated as of 3.8. The autoconf build
+    system will be removed in 3.9. Please migrate to using CMake. For more
+    information see: `Building LLVM with CMake <CMake.html>`_
+
 Overview
 ========
 
@@ -121,7 +127,7 @@ To configure LLVM, follow these steps:
 
    .. code-block:: console
 
-     % SRC_ROOT/configure --prefix=/install/path [other options]
+     % $LLVM_SRC_DIR/configure --prefix=/install/path [other options]
 
 Compiling the LLVM Suite Source Code
 ------------------------------------
@@ -187,7 +193,7 @@ source code:
 ``gmake install``
 
   Installs LLVM header files, libraries, tools, and documentation in a hierarchy
-  under ``$PREFIX``, specified with ``./configure --prefix=[dir]``, which
+  under ``$PREFIX``, specified with ``$LLVM_SRC_DIR/configure --prefix=[dir]``, which
   defaults to ``/usr/local``.
 
 ``gmake -C runtime install-bytecode``
@@ -240,7 +246,7 @@ There are some HTML documents that have not yet been converted to the new
 system (which uses the easy-to-read and easy-to-write
 `reStructuredText <http://sphinx-doc.org/rest.html>`_ plaintext markup
 language).
-The generated documentation is built in the ``SRC_ROOT/docs`` directory using
+The generated documentation is built in the ``$LLVM_SRC_DIR/docs`` directory using
 a special makefile.
 For instructions on how to install Sphinx, see
 `Sphinx Introduction for LLVM Developers
@@ -250,7 +256,7 @@ HTML documentation by doing the following:
 
 .. code-block:: console
 
-  $ cd SRC_ROOT/docs
+  $ cd $LLVM_SRC_DIR/docs
   $ make -f Makefile.sphinx
 
 This creates a ``_build/html`` sub-directory with all of the HTML files, not
@@ -296,7 +302,7 @@ This is accomplished in the typical autoconf manner:
 
   .. code-block:: console
 
-    % SRC_ROOT/configure
+    % $LLVM_SRC_DIR/configure
 
 The LLVM build will place files underneath *OBJ_ROOT* in directories named after
 the build type:

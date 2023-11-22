@@ -14,6 +14,6 @@ level:        INTERMEDIATE
 icon:         Wearable/src/main/res/drawable-xxhdpi/ic_launcher.png
 apiRefs:
     - android:android.app.IntentService
-    - com.google.android.gms.wearable.DataApi
-    - com.google.android.gms.wearable.Node
+    - gms:com.google.android.gms.wearable.DataApi
+    - gms:com.google.android.gms.wearable.Node
 license: apache2

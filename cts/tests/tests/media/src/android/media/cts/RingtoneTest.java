@@ -49,12 +49,21 @@ public class RingtoneTest extends InstrumentationTestCase {
         mOriginalRingerMode = mAudioManager.getRingerMode();
         mOriginalVolume = mAudioManager.getStreamVolume(AudioManager.STREAM_RING);
         mOriginalStreamType = mRingtone.getStreamType();
-        // set ringer to a reasonable volume
+
         int maxVolume = mAudioManager.getStreamMaxVolume(AudioManager.STREAM_RING);
-        mAudioManager.setStreamVolume(AudioManager.STREAM_RING, maxVolume / 2,
-                AudioManager.FLAG_ALLOW_RINGER_MODES);
-        // make sure that we are not in silent mode
-        mAudioManager.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
+
+        try {
+            Utils.toggleNotificationPolicyAccess(
+                    mContext.getPackageName(), getInstrumentation(), true);
+            // set ringer to a reasonable volume
+            mAudioManager.setStreamVolume(AudioManager.STREAM_RING, maxVolume / 2,
+                    AudioManager.FLAG_ALLOW_RINGER_MODES);
+            // make sure that we are not in silent mode
+            mAudioManager.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
+        } finally {
+            Utils.toggleNotificationPolicyAccess(
+                    mContext.getPackageName(), getInstrumentation(), false);
+        }
 
         mDefaultRingUri = RingtoneManager.getActualDefaultRingtoneUri(mContext,
                 RingtoneManager.TYPE_RINGTONE);
@@ -80,9 +89,16 @@ public class RingtoneTest extends InstrumentationTestCase {
             mRingtone.setStreamType(mOriginalStreamType);
         }
         if (mAudioManager != null) {
-            mAudioManager.setRingerMode(mOriginalRingerMode);
-            mAudioManager.setStreamVolume(AudioManager.STREAM_RING, mOriginalVolume,
-                    AudioManager.FLAG_ALLOW_RINGER_MODES);
+            try {
+                Utils.toggleNotificationPolicyAccess(
+                        mContext.getPackageName(), getInstrumentation(), true);
+                mAudioManager.setRingerMode(mOriginalRingerMode);
+                mAudioManager.setStreamVolume(AudioManager.STREAM_RING, mOriginalVolume,
+                        AudioManager.FLAG_ALLOW_RINGER_MODES);
+            } finally {
+                Utils.toggleNotificationPolicyAccess(
+                        mContext.getPackageName(), getInstrumentation(), false);
+            }
         }
         RingtoneManager.setActualDefaultRingtoneUri(mContext, RingtoneManager.TYPE_RINGTONE,
                 mDefaultRingUri);

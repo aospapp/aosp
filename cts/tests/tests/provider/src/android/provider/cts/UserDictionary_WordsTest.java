@@ -26,6 +26,10 @@ import android.test.AndroidTestCase;
 import java.util.ArrayList;
 import java.util.Locale;
 
+/**
+ * NOTE: user dictionary is now accessible only by the current spellchecker and keyboard, so this
+ * test make sure they are not accessible by apps.
+ */
 public class UserDictionary_WordsTest extends AndroidTestCase {
 
     private ContentResolver mContentResolver;
@@ -68,14 +72,8 @@ public class UserDictionary_WordsTest extends AndroidTestCase {
 
         Cursor cursor = mContentResolver.query(UserDictionary.Words.CONTENT_URI, WORDS_PROJECTION,
                 UserDictionary.Words.WORD + "='" + word + "'", null, null);
-        assertTrue(cursor.moveToFirst());
-        mAddedBackup.add(Uri.withAppendedPath(UserDictionary.Words.CONTENT_URI,
-                cursor.getString(ID_INDEX)));
+        assertFalse("cursor is not empty", cursor.moveToFirst());
 
-        assertEquals(1, cursor.getCount());
-        assertEquals(word, cursor.getString(WORD_INDEX));
-        assertEquals(frequency, cursor.getInt(FREQUENCY_INDEX));
-        assertNull(cursor.getString(LOCALE_INDEX));
         cursor.close();
     }
 
@@ -92,14 +90,8 @@ public class UserDictionary_WordsTest extends AndroidTestCase {
 
         Cursor cursor = mContentResolver.query(UserDictionary.Words.CONTENT_URI, WORDS_PROJECTION,
                 UserDictionary.Words.WORD + "='" + word + "'", null, null);
-        assertTrue(cursor.moveToFirst());
-        mAddedBackup.add(Uri.withAppendedPath(UserDictionary.Words.CONTENT_URI,
-                cursor.getString(ID_INDEX)));
+        assertFalse("cursor is not empty", cursor.moveToFirst());
 
-        assertEquals(1, cursor.getCount());
-        assertEquals(word, cursor.getString(WORD_INDEX));
-        assertEquals(expectedFrequency, cursor.getInt(FREQUENCY_INDEX));
-        assertEquals(locale.toString(), cursor.getString(LOCALE_INDEX));
         cursor.close();
     }
 }

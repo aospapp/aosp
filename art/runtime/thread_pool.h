@@ -59,9 +59,12 @@ class ThreadPoolWorker {
 
   virtual ~ThreadPoolWorker();
 
+  // Set the "nice" priorty for this worker.
+  void SetPthreadPriority(int priority);
+
  protected:
   ThreadPoolWorker(ThreadPool* thread_pool, const std::string& name, size_t stack_size);
-  static void* Callback(void* arg) LOCKS_EXCLUDED(Locks::mutator_lock_);
+  static void* Callback(void* arg) REQUIRES(!Locks::mutator_lock_);
   virtual void Run();
 
   ThreadPool* const thread_pool_;
@@ -82,22 +85,25 @@ class ThreadPool {
   }
 
   // Broadcast to the workers and tell them to empty out the work queue.
-  void StartWorkers(Thread* self);
+  void StartWorkers(Thread* self) REQUIRES(!task_queue_lock_);
 
   // Do not allow workers to grab any new tasks.
-  void StopWorkers(Thread* self);
+  void StopWorkers(Thread* self) REQUIRES(!task_queue_lock_);
 
   // Add a new task, the first available started worker will process it. Does not delete the task
   // after running it, it is the caller's responsibility.
-  void AddTask(Thread* self, Task* task);
+  void AddTask(Thread* self, Task* task) REQUIRES(!task_queue_lock_);
 
-  explicit ThreadPool(const char* name, size_t num_threads);
+  // Remove all tasks in the queue.
+  void RemoveAllTasks(Thread* self) REQUIRES(!task_queue_lock_);
+
+  ThreadPool(const char* name, size_t num_threads);
   virtual ~ThreadPool();
 
   // Wait for all tasks currently on queue to get completed.
-  void Wait(Thread* self, bool do_work, bool may_hold_locks);
+  void Wait(Thread* self, bool do_work, bool may_hold_locks) REQUIRES(!task_queue_lock_);
 
-  size_t GetTaskCount(Thread* self);
+  size_t GetTaskCount(Thread* self) REQUIRES(!task_queue_lock_);
 
   // Returns the total amount of workers waited for tasks.
   uint64_t GetWaitTime() const {
@@ -106,18 +112,21 @@ class ThreadPool {
 
   // Provides a way to bound the maximum number of worker threads, threads must be less the the
   // thread count of the thread pool.
-  void SetMaxActiveWorkers(size_t threads);
+  void SetMaxActiveWorkers(size_t threads) REQUIRES(!task_queue_lock_);
+
+  // Set the "nice" priorty for threads in the pool.
+  void SetPthreadPriority(int priority);
 
  protected:
   // get a task to run, blocks if there are no tasks left
-  virtual Task* GetTask(Thread* self);
+  virtual Task* GetTask(Thread* self) REQUIRES(!task_queue_lock_);
 
   // Try to get a task, returning null if there is none available.
-  Task* TryGetTask(Thread* self);
-  Task* TryGetTaskLocked() EXCLUSIVE_LOCKS_REQUIRED(task_queue_lock_);
+  Task* TryGetTask(Thread* self) REQUIRES(!task_queue_lock_);
+  Task* TryGetTaskLocked() REQUIRES(task_queue_lock_);
 
   // Are we shutting down?
-  bool IsShuttingDown() const EXCLUSIVE_LOCKS_REQUIRED(task_queue_lock_) {
+  bool IsShuttingDown() const REQUIRES(task_queue_lock_) {
     return shutting_down_;
   }
 
@@ -142,58 +151,6 @@ class ThreadPool {
   friend class ThreadPoolWorker;
   friend class WorkStealingWorker;
   DISALLOW_COPY_AND_ASSIGN(ThreadPool);
-};
-
-class WorkStealingTask : public Task {
- public:
-  WorkStealingTask() : ref_count_(0) {}
-
-  size_t GetRefCount() const {
-    return ref_count_;
-  }
-
-  virtual void StealFrom(Thread* self, WorkStealingTask* source) = 0;
-
- private:
-  // How many people are referencing this task.
-  size_t ref_count_;
-
-  friend class WorkStealingWorker;
-};
-
-class WorkStealingWorker : public ThreadPoolWorker {
- public:
-  virtual ~WorkStealingWorker();
-
-  bool IsRunningTask() const {
-    return task_ != nullptr;
-  }
-
- protected:
-  WorkStealingTask* task_;
-
-  WorkStealingWorker(ThreadPool* thread_pool, const std::string& name, size_t stack_size);
-  virtual void Run();
-
- private:
-  friend class WorkStealingThreadPool;
-  DISALLOW_COPY_AND_ASSIGN(WorkStealingWorker);
-};
-
-class WorkStealingThreadPool : public ThreadPool {
- public:
-  explicit WorkStealingThreadPool(const char* name, size_t num_threads);
-  virtual ~WorkStealingThreadPool();
-
- private:
-  Mutex work_steal_lock_;
-  // Which thread we are stealing from (round robin).
-  size_t steal_index_;
-
-  // Find a task to steal from
-  WorkStealingTask* FindTaskToStealFrom() EXCLUSIVE_LOCKS_REQUIRED(work_steal_lock_);
-
-  friend class WorkStealingWorker;
 };
 
 }  // namespace art

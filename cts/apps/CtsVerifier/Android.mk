@@ -27,38 +27,65 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-Iaidl-files-unde
 
 LOCAL_STATIC_JAVA_LIBRARIES := android-ex-camera2 \
                                android-support-v4 \
-                               compatibility-common-util-devicesidelib_v2 \
+                               compatibility-common-util-devicesidelib \
                                cts-sensors-tests \
+                               cts-location-tests \
                                ctstestrunner \
                                apache-commons-math \
                                androidplot \
                                ctsverifier-opencv \
-                               core-tests \
+                               core-tests-support \
                                android-support-v4  \
                                mockito-target \
                                mockwebserver \
-                               compatibility-device-util_v2 \
+                               compatibility-device-util \
 
 LOCAL_PACKAGE_NAME := CtsVerifier
-
-LOCAL_AAPT_FLAGS += --version-name "6.0_r0 $(BUILD_NUMBER)"
 
 LOCAL_JNI_SHARED_LIBRARIES := libctsverifier_jni libaudioloopback_jni
 
 LOCAL_PROGUARD_FLAG_FILES := proguard.flags
 
-LOCAL_SDK_VERSION := current
+LOCAL_SDK_VERSION := test_current
 
 LOCAL_DEX_PREOPT := false
 
+LOCAL_JAVA_LANGUAGE_VERSION := 1.8
+
 include $(BUILD_PACKAGE)
 
+# Build CTS verifier framework as a libary.
+
+include $(CLEAR_VARS)
+
+define java-files-in
+$(sort $(patsubst ./%,%, \
+  $(shell cd $(LOCAL_PATH) ; \
+          find -L $(1) -maxdepth 1 -name *.java -and -not -name ".*") \
+ ))
+endef
+
+LOCAL_MODULE := cts-verifier-framework
+LOCAL_AAPT_FLAGS := --auto-add-overlay --extra-packages android.support.v4
+LOCAL_SDK_VERSION := current
+LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
+LOCAL_SRC_FILES := \
+    $(call java-files-in, src/com/android/cts/verifier) \
+    $(call java-files-in, src/com/android/cts/verifier/backup) \
+    $(call all-java-files-under, src/android) \
+    $(call all-Iaidl-files-under, src)
+
+LOCAL_STATIC_JAVA_LIBRARIES := android-support-v4 \
+                               compatibility-common-util-devicesidelib \
+                               compatibility-device-util \
+
+include $(BUILD_STATIC_JAVA_LIBRARY)
 
 # opencv library
 include $(CLEAR_VARS)
 
 LOCAL_PREBUILT_STATIC_JAVA_LIBRARIES := \
-        ctsverifier-opencv:libs/opencv-android.jar
+        ctsverifier-opencv:libs/opencv3-android.jar
 
 include $(BUILD_MULTI_PREBUILT)
 

@@ -5,6 +5,7 @@
 #define GUARD_gl2_encoder_context_t
 
 #include "IOStream.h"
+#include "ChecksumCalculator.h"
 #include "gl2_client_context.h"
 
 
@@ -15,8 +16,9 @@
 struct gl2_encoder_context_t : public gl2_client_context_t {
 
 	IOStream *m_stream;
+	ChecksumCalculator *m_checksumCalculator;
 
-	gl2_encoder_context_t(IOStream *stream);
+	gl2_encoder_context_t(IOStream *stream, ChecksumCalculator *checksumCalculator);
 };
 
 #endif  // GUARD_gl2_encoder_context_t

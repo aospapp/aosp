@@ -16,10 +16,12 @@
 
 package com.android.settings.notification;
 
+import android.annotation.Nullable;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.DialogFragment;
 import android.app.NotificationManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.pm.ApplicationInfo;
@@ -31,38 +33,36 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.preference.Preference;
-import android.preference.Preference.OnPreferenceChangeListener;
-import android.preference.PreferenceScreen;
-import android.preference.SwitchPreference;
+import android.provider.Settings;
 import android.provider.Settings.Secure;
+import android.support.v14.preference.SwitchPreference;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.Preference.OnPreferenceChangeListener;
+import android.support.v7.preference.PreferenceScreen;
 import android.text.TextUtils;
 import android.util.ArraySet;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.TextView;
+import android.widget.Toast;
 
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.R;
-import com.android.settings.SettingsPreferenceFragment;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class ZenAccessSettings extends SettingsPreferenceFragment {
+public class ZenAccessSettings extends EmptyTextSettings {
 
     private final SettingObserver mObserver = new SettingObserver();
+    private static final String ENABLED_SERVICES_SEPARATOR = ":";
 
     private Context mContext;
     private PackageManager mPkgMan;
     private NotificationManager mNoMan;
-    private TextView mEmpty;
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.NOTIFICATION_ZEN_MODE_ACCESS;
+        return MetricsEvent.NOTIFICATION_ZEN_MODE_ACCESS;
     }
 
     @Override
@@ -76,12 +76,9 @@ public class ZenAccessSettings extends SettingsPreferenceFragment {
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-            Bundle savedInstanceState) {
-        final View v =  inflater.inflate(R.layout.managed_service_settings, container, false);
-        mEmpty = (TextView) v.findViewById(android.R.id.empty);
-        mEmpty.setText(R.string.zen_access_empty_text);
-        return v;
+    public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        setEmptyText(R.string.zen_access_empty_text);
     }
 
     @Override
@@ -90,6 +87,9 @@ public class ZenAccessSettings extends SettingsPreferenceFragment {
         reloadList();
         getContentResolver().registerContentObserver(
                 Secure.getUriFor(Secure.ENABLED_NOTIFICATION_POLICY_ACCESS_PACKAGES), false,
+                mObserver);
+        getContentResolver().registerContentObserver(
+                Secure.getUriFor(Secure.ENABLED_NOTIFICATION_LISTENERS), false,
                 mObserver);
     }
 
@@ -104,7 +104,7 @@ public class ZenAccessSettings extends SettingsPreferenceFragment {
         screen.removeAll();
         final ArrayList<ApplicationInfo> apps = new ArrayList<>();
         final ArraySet<String> requesting = mNoMan.getPackagesRequestingNotificationPolicyAccess();
-        if (requesting != null && !requesting.isEmpty()) {
+        if (!requesting.isEmpty()) {
             final List<ApplicationInfo> installed = mPkgMan.getInstalledApplications(0);
             if (installed != null) {
                 for (ApplicationInfo app : installed) {
@@ -114,34 +114,55 @@ public class ZenAccessSettings extends SettingsPreferenceFragment {
                 }
             }
         }
+        ArraySet<String> autoApproved = getEnabledNotificationListeners();
+        requesting.addAll(autoApproved);
         Collections.sort(apps, new PackageItemInfo.DisplayNameComparator(mPkgMan));
         for (ApplicationInfo app : apps) {
             final String pkg = app.packageName;
             final CharSequence label = app.loadLabel(mPkgMan);
-            final SwitchPreference pref = new SwitchPreference(mContext);
+            final SwitchPreference pref = new SwitchPreference(getPrefContext());
             pref.setPersistent(false);
             pref.setIcon(app.loadIcon(mPkgMan));
             pref.setTitle(label);
             pref.setChecked(hasAccess(pkg));
+            if (autoApproved.contains(pkg)) {
+                pref.setEnabled(false);
+                pref.setSummary(getString(R.string.zen_access_disabled_package_warning));
+            }
             pref.setOnPreferenceChangeListener(new OnPreferenceChangeListener() {
                 @Override
                 public boolean onPreferenceChange(Preference preference, Object newValue) {
                     final boolean access = (Boolean) newValue;
-                    if (!access) {
-                        // disabling access
-                        setAccess(mContext, pkg, access);
-                        return true;
+                    if (access) {
+                        new ScaryWarningDialogFragment()
+                                .setPkgInfo(pkg, label)
+                                .show(getFragmentManager(), "dialog");
+                    } else {
+                        new FriendlyWarningDialogFragment()
+                                .setPkgInfo(pkg, label)
+                                .show(getFragmentManager(), "dialog");
                     }
-                    // enabling access: show a scary dialog first
-                    new ScaryWarningDialogFragment()
-                            .setPkgInfo(pkg, label)
-                            .show(getFragmentManager(), "dialog");
                     return false;
                 }
             });
             screen.addPreference(pref);
         }
-        mEmpty.setVisibility(apps.isEmpty() ? View.VISIBLE : View.GONE);
+    }
+
+    private ArraySet<String> getEnabledNotificationListeners() {
+        ArraySet<String> packages = new ArraySet<>();
+        String settingValue = Settings.Secure.getString(getContext().getContentResolver(),
+                Settings.Secure.ENABLED_NOTIFICATION_LISTENERS);
+        if (!TextUtils.isEmpty(settingValue)) {
+            String[] restored = settingValue.split(ENABLED_SERVICES_SEPARATOR);
+            for (int i = 0; i < restored.length; i++) {
+                ComponentName value = ComponentName.unflattenFromString(restored[i]);
+                if (null != value) {
+                    packages.add(value.getPackageName());
+                }
+            }
+        }
+        return packages;
     }
 
     private boolean hasAccess(String pkg) {
@@ -158,6 +179,16 @@ public class ZenAccessSettings extends SettingsPreferenceFragment {
         });
     }
 
+    private static void deleteRules(final Context context, final String pkg) {
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                final NotificationManager mgr = context.getSystemService(NotificationManager.class);
+                mgr.removeAutomaticZenRules(pkg);
+            }
+        });
+    }
+
     private final class SettingObserver extends ContentObserver {
         public SettingObserver() {
             super(new Handler(Looper.getMainLooper()));
@@ -169,6 +200,9 @@ public class ZenAccessSettings extends SettingsPreferenceFragment {
         }
     }
 
+    /**
+     * Warning dialog when allowing zen access warning about the privileges being granted.
+     */
     public static class ScaryWarningDialogFragment extends DialogFragment {
         static final String KEY_PKG = "p";
         static final String KEY_LABEL = "l";
@@ -203,6 +237,53 @@ public class ZenAccessSettings extends SettingsPreferenceFragment {
                                 }
                             })
                     .setNegativeButton(R.string.deny,
+                            new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface dialog, int id) {
+                                    // pass
+                                }
+                            })
+                    .create();
+        }
+    }
+
+    /**
+     * Warning dialog when revoking zen access warning that zen rule instances will be deleted.
+     */
+    public static class FriendlyWarningDialogFragment extends DialogFragment {
+        static final String KEY_PKG = "p";
+        static final String KEY_LABEL = "l";
+
+        public FriendlyWarningDialogFragment setPkgInfo(String pkg, CharSequence label) {
+            Bundle args = new Bundle();
+            args.putString(KEY_PKG, pkg);
+            args.putString(KEY_LABEL, TextUtils.isEmpty(label) ? pkg : label.toString());
+            setArguments(args);
+            return this;
+        }
+
+        @Override
+        public Dialog onCreateDialog(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            final Bundle args = getArguments();
+            final String pkg = args.getString(KEY_PKG);
+            final String label = args.getString(KEY_LABEL);
+
+            final String title = getResources().getString(
+                    R.string.zen_access_revoke_warning_dialog_title, label);
+            final String summary = getResources()
+                    .getString(R.string.zen_access_revoke_warning_dialog_summary);
+            return new AlertDialog.Builder(getContext())
+                    .setMessage(summary)
+                    .setTitle(title)
+                    .setCancelable(true)
+                    .setPositiveButton(R.string.okay,
+                            new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface dialog, int id) {
+                                    deleteRules(getContext(), pkg);
+                                    setAccess(getContext(), pkg, false);
+                                }
+                            })
+                    .setNegativeButton(R.string.cancel,
                             new DialogInterface.OnClickListener() {
                                 public void onClick(DialogInterface dialog, int id) {
                                     // pass

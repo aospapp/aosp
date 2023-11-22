@@ -16,9 +16,21 @@
 
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
-    <fragment class="com.android.wallpaper.livepicker.LiveWallpaperActivity$WallpaperDialog"
-        android:id="@+id/live_wallpaper_fragment"
+    android:layout_height="match_parent"
+    android:paddingLeft="@dimen/screen_margin_sides"
+    android:paddingRight="@dimen/screen_margin_sides">
+    <ListView
+        android:id="@android:id/list"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:drawSelectorOnTop="false" />
+
+    <TextView
+        android:id="@android:id/empty"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:visibility="gone"
+        android:text="@string/live_wallpaper_empty"
+        android:textAppearance="?android:attr/textAppearanceMedium" />
 </FrameLayout>

@@ -66,7 +66,7 @@ size_t AudioResamplerCubic::resampleStereo16(int32_t* out, size_t outFrameCount,
     // fetch first buffer
     if (mBuffer.frameCount == 0) {
         mBuffer.frameCount = inFrameCount;
-        provider->getNextBuffer(&mBuffer, mPTS);
+        provider->getNextBuffer(&mBuffer);
         if (mBuffer.raw == NULL) {
             return 0;
         }
@@ -75,7 +75,6 @@ size_t AudioResamplerCubic::resampleStereo16(int32_t* out, size_t outFrameCount,
     int16_t *in = mBuffer.i16;
 
     while (outputIndex < outputSampleCount) {
-        int32_t sample;
         int32_t x;
 
         // calculate output sample
@@ -97,8 +96,7 @@ size_t AudioResamplerCubic::resampleStereo16(int32_t* out, size_t outFrameCount,
                 inputIndex = 0;
                 provider->releaseBuffer(&mBuffer);
                 mBuffer.frameCount = inFrameCount;
-                provider->getNextBuffer(&mBuffer,
-                                        calculateOutputPTS(outputIndex / 2));
+                provider->getNextBuffer(&mBuffer);
                 if (mBuffer.raw == NULL) {
                     goto save_state;  // ugly, but efficient
                 }
@@ -135,7 +133,7 @@ size_t AudioResamplerCubic::resampleMono16(int32_t* out, size_t outFrameCount,
     // fetch first buffer
     if (mBuffer.frameCount == 0) {
         mBuffer.frameCount = inFrameCount;
-        provider->getNextBuffer(&mBuffer, mPTS);
+        provider->getNextBuffer(&mBuffer);
         if (mBuffer.raw == NULL) {
             return 0;
         }
@@ -166,8 +164,7 @@ size_t AudioResamplerCubic::resampleMono16(int32_t* out, size_t outFrameCount,
                 inputIndex = 0;
                 provider->releaseBuffer(&mBuffer);
                 mBuffer.frameCount = inFrameCount;
-                provider->getNextBuffer(&mBuffer,
-                                        calculateOutputPTS(outputIndex / 2));
+                provider->getNextBuffer(&mBuffer);
                 if (mBuffer.raw == NULL) {
                     goto save_state;  // ugly, but efficient
                 }

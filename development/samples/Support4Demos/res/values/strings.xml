@@ -30,8 +30,9 @@
     <string name="pick_result">Pick a result to send, or BACK to cancel.</string>
     <string name="corky">Corky</string>
     <string name="violet">Violet</string>
-    <string name="receive_result_instructions">Press the button to get an activity result, which will be displayed here:</string>
-    <string name="receive_result_result">Get Result</string>
+    <string name="receive_result_instructions">Press the buttons below to get an activity or intent sender result, which will be displayed here:</string>
+    <string name="receive_result_result">Get Activity Result</string>
+    <string name="receive_result_intentsender">Get IntentSender Result</string>
 
     <!-- Fragment API -->
 
@@ -138,6 +139,30 @@
     <string name="accessibility_delegate_button">Button</string>
     <string name="accessibility_delegate_custom_text_added">Custom text added via an accessibility delegate.</string>
 
+    <string name="accessibility_roledescription_title">Accessibility/Role Description</string>
+    <string name="accessibility_roledescription_instructions">
+        1. Make sure that you have TalkBack 4.5 or later from the Play Store.
+        \n2. Enable TalkBack from Settings->Accessibility.
+        \n3. Go back to this activity.
+        \n4. Touch the two items below.
+        \n5. The first item has a role description, but the second item does not.</string>
+    <string name="accessibility_roledescription_item">Android rocks!</string>
+    <string name="accessibility_roledescription_role">Custom role description</string>
+    <string name="accessibility_roledescription_example">
+        One possible use of role description is to notate heading levels in structured text:</string>
+    <string name="accessibility_roledescription_h1_item">Milky Way Galaxy</string>
+    <string name="accessibility_roledescription_h2_item">Solar System</string>
+    <string name="accessibility_roledescription_h3_item">Planet Earth</string>
+    <string name="accessibility_roledescription_h1_role">heading level 1</string>
+    <string name="accessibility_roledescription_h2_role">heading level 2</string>
+    <string name="accessibility_roledescription_h3_role">heading level 3</string>
+    <string name="accessibility_roledescription_counterexample">
+        Do not set the role description for standard widgets.
+        \nThe following button has a role description, which is incorrect.
+        \nYou should let accessibility services determine feedback for standard widgets.</string>
+    <string name="accessibility_roledescription_button_item">Click me</string>
+    <string name="accessibility_roledescription_button_role">Button with incorrect role description</string>
+
     <string name="share_text">Share some text</string>
     <string name="share_file">Share a file</string>
     <string name="share_multiple_file">Share multiple files</string>
@@ -156,22 +181,33 @@
 
     <string name="sample_transport_controller_activity">Media/TransportController</string>
 
-    <string name="drawer_layout_support">Widget/Drawer layout</string>
-
-    <string name="drawer_layout_summary">This activity illustrates the use of sliding drawers. The drawer may be pulled out from the starting edge, which is left on left-to-right locales, with an edge swipe. If this demo is running on Ice Cream Sandwich or newer you may tap the icon at the starting side of the action bar to open the drawer as well.</string>
-
-    <!-- Title of the navigation drawer, used by accessibility to announce state changes. -->
-    <string name="drawer_title">Navigation</string>
-
-    <!-- Description of the icon that opens the navigation drawer, used by accessibility. -->
-    <string name="drawer_open">Open navigation drawer</string>
-
-    <!-- Description of the icon that closes the navigation drawer, used by accessibility. -->
-    <string name="drawer_close">Close navigation drawer</string>
+    <string name="view_pager_layout_support">View/View pager</string>
 
     <string name="sliding_pane_layout_support">Widget/Sliding pane layout</string>
 
     <string name="sliding_pane_layout_summary">This activity illustrates the use of sliding panes. The content pane may be slid to one side on narrow devices to reveal the left pane used to select content. Sliding panes can be used to fit a UI intended for wider screens in a smaller space. Tapping the Action Bar\'s Up button at the left side of the bar will navigate up in the hierarchy, represented by the left pane. If you rotate the device to landscape mode, on most devices you will see that both panes fit together side by side with no sliding necessary.</string>
+
+    <!-- MediaBrowserCompat Sample -->
+
+    <string name="media_browser_support">Media/MediaBrowserCompat Sample</string>
+    <string name="favorite">Favorite</string>
+    <string name="error_no_metadata">Unable to retrieve metadata.</string>
+    <string name="browse_genres">Genres</string>
+    <string name="browse_genre_subtitle">Songs by genre</string>
+    <string name="browse_musics_by_genre_subtitle">%1$s songs</string>
+    <string name="random_queue_title">Random music</string>
+    <string name="error_cannot_skip">Cannot skip</string>
+    <string name="error_loading_media">Error Loading Media</string>
+    <string name="play_item">Play item</string>
+    <string name="skip_previous">Skip to previous</string>
+    <string name="play_pause">play or pause</string>
+    <string name="skip_next">Skip to next</string>
+    <string name="no_search_results">No search results.</string>
+    <string name="label_pause">Pause</string>
+    <string name="label_play">Play</string>
+    <string name="label_previous">Previous</string>
+    <string name="label_next">Next</string>
+    <string name="error_empty_metadata">Empty metadata!</string>
 
     <!-- ExploreByTouchHelper -->
 
@@ -183,7 +219,9 @@
     <string name="content_loading_progress_bar">Widget/Content Loading Progress Bar</string>
 
     <!--  Swipe refresh -->
-    <string name="swipe">Widget/SwipeRefreshLayout</string>
+    <string name="swipe_list">Widget/SwipeRefreshLayout ListView</string>
+    <string name="swipe_text">Widget/SwipeRefreshLayout TextView</string>
+    <string name="swipe_nested_sv">Widget/SwipeRefreshLayout NestedScrollView</string>
 
     <string name="nested_scroll">Widget/Nested Scrolling</string>
 
@@ -191,4 +229,7 @@
     <string name="regular">regular</string>
     <string name="round">round</string>
 
+    <string name="drawable_compat_no_tint">Not tint</string>
+    <string name="drawable_compat_color_tint">Color tint</string>
+    <string name="drawable_compat_color_list_tint">Color state list</string>
 </resources>

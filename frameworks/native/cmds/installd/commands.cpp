@@ -14,179 +14,317 @@
 ** limitations under the License.
 */
 
-#include "installd.h"
+#include "commands.h"
 
-#include <base/stringprintf.h>
-#include <base/logging.h>
+#include <errno.h>
+#include <inttypes.h>
+#include <stdlib.h>
+#include <sys/capability.h>
+#include <sys/file.h>
+#include <sys/resource.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/xattr.h>
+#include <unistd.h>
+
+#include <android-base/stringprintf.h>
+#include <android-base/strings.h>
+#include <android-base/logging.h>
+#include <android-base/unique_fd.h>
+#include <cutils/fs.h>
+#include <cutils/log.h>               // TODO: Move everything to base/logging.
 #include <cutils/sched_policy.h>
 #include <diskusage/dirsize.h>
 #include <logwrap/logwrap.h>
-#include <system/thread_defs.h>
+#include <private/android_filesystem_config.h>
 #include <selinux/android.h>
+#include <system/thread_defs.h>
 
-#include <inttypes.h>
-#include <sys/capability.h>
-#include <sys/file.h>
-#include <unistd.h>
+#include <globals.h>
+#include <installd_deps.h>
+#include <utils.h>
+
+#ifndef LOG_TAG
+#define LOG_TAG "installd"
+#endif
 
 using android::base::StringPrintf;
 
-/* Directory records that are used in execution of commands. */
-dir_rec_t android_data_dir;
-dir_rec_t android_asec_dir;
-dir_rec_t android_app_dir;
-dir_rec_t android_app_private_dir;
-dir_rec_t android_app_lib_dir;
-dir_rec_t android_media_dir;
-dir_rec_t android_mnt_expand_dir;
-dir_rec_array_t android_system_dirs;
+namespace android {
+namespace installd {
 
-static const char* kCpPath = "/system/bin/cp";
+static constexpr const char* kCpPath = "/system/bin/cp";
+static constexpr const char* kXattrDefault = "user.default";
 
-int install(const char *uuid, const char *pkgname, uid_t uid, gid_t gid, const char *seinfo)
-{
-    if ((uid < AID_SYSTEM) || (gid < AID_SYSTEM)) {
-        ALOGE("invalid uid/gid: %d %d\n", uid, gid);
-        return -1;
+#define MIN_RESTRICTED_HOME_SDK_VERSION 24 // > M
+
+typedef int fd_t;
+
+static bool property_get_bool(const char* property_name, bool default_value = false) {
+    char tmp_property_value[kPropertyValueMax];
+    bool have_property = get_property(property_name, tmp_property_value, nullptr) > 0;
+    if (!have_property) {
+        return default_value;
+    }
+    return strcmp(tmp_property_value, "true") == 0;
+}
+
+// Keep profile paths in sync with ActivityThread.
+constexpr const char* PRIMARY_PROFILE_NAME = "primary.prof";
+static std::string create_primary_profile(const std::string& profile_dir) {
+    return StringPrintf("%s/%s", profile_dir.c_str(), PRIMARY_PROFILE_NAME);
+}
+
+int create_app_data(const char *uuid, const char *pkgname, userid_t userid, int flags,
+        appid_t appid, const char* seinfo, int target_sdk_version) {
+    uid_t uid = multiuser_get_uid(userid, appid);
+    int target_mode = target_sdk_version >= MIN_RESTRICTED_HOME_SDK_VERSION ? 0700 : 0751;
+    if (flags & FLAG_STORAGE_CE) {
+        auto path = create_data_user_ce_package_path(uuid, userid, pkgname);
+        if (fs_prepare_dir_strict(path.c_str(), target_mode, uid, uid) != 0) {
+            PLOG(ERROR) << "Failed to prepare " << path;
+            return -1;
+        }
+        if (selinux_android_setfilecon(path.c_str(), pkgname, seinfo, uid) < 0) {
+            PLOG(ERROR) << "Failed to setfilecon " << path;
+            return -1;
+        }
+    }
+    if (flags & FLAG_STORAGE_DE) {
+        auto path = create_data_user_de_package_path(uuid, userid, pkgname);
+        if (fs_prepare_dir_strict(path.c_str(), target_mode, uid, uid) == -1) {
+            PLOG(ERROR) << "Failed to prepare " << path;
+            // TODO: include result once 25796509 is fixed
+            return 0;
+        }
+        if (selinux_android_setfilecon(path.c_str(), pkgname, seinfo, uid) < 0) {
+            PLOG(ERROR) << "Failed to setfilecon " << path;
+            // TODO: include result once 25796509 is fixed
+            return 0;
+        }
+
+        if (property_get_bool("dalvik.vm.usejitprofiles")) {
+            const std::string profile_path = create_data_user_profile_package_path(userid, pkgname);
+            // read-write-execute only for the app user.
+            if (fs_prepare_dir_strict(profile_path.c_str(), 0700, uid, uid) != 0) {
+                PLOG(ERROR) << "Failed to prepare " << profile_path;
+                return -1;
+            }
+            std::string profile_file = create_primary_profile(profile_path);
+            // read-write only for the app user.
+            if (fs_prepare_file_strict(profile_file.c_str(), 0600, uid, uid) != 0) {
+                PLOG(ERROR) << "Failed to prepare " << profile_path;
+                return -1;
+            }
+            const std::string ref_profile_path = create_data_ref_profile_package_path(pkgname);
+            // dex2oat/profman runs under the shared app gid and it needs to read/write reference
+            // profiles.
+            appid_t shared_app_gid = multiuser_get_shared_app_gid(uid);
+            if (fs_prepare_dir_strict(
+                    ref_profile_path.c_str(), 0700, shared_app_gid, shared_app_gid) != 0) {
+                PLOG(ERROR) << "Failed to prepare " << ref_profile_path;
+                return -1;
+            }
+        }
+    }
+    return 0;
+}
+
+int migrate_app_data(const char *uuid, const char *pkgname, userid_t userid, int flags) {
+    // This method only exists to upgrade system apps that have requested
+    // forceDeviceEncrypted, so their default storage always lives in a
+    // consistent location.  This only works on non-FBE devices, since we
+    // never want to risk exposing data on a device with real CE/DE storage.
+
+    auto ce_path = create_data_user_ce_package_path(uuid, userid, pkgname);
+    auto de_path = create_data_user_de_package_path(uuid, userid, pkgname);
+
+    // If neither directory is marked as default, assume CE is default
+    if (getxattr(ce_path.c_str(), kXattrDefault, nullptr, 0) == -1
+            && getxattr(de_path.c_str(), kXattrDefault, nullptr, 0) == -1) {
+        if (setxattr(ce_path.c_str(), kXattrDefault, nullptr, 0, 0) != 0) {
+            PLOG(ERROR) << "Failed to mark default storage " << ce_path;
+            return -1;
+        }
     }
 
-    std::string _pkgdir(create_data_user_package_path(uuid, 0, pkgname));
-    const char* pkgdir = _pkgdir.c_str();
+    // Migrate default data location if needed
+    auto target = (flags & FLAG_STORAGE_DE) ? de_path : ce_path;
+    auto source = (flags & FLAG_STORAGE_DE) ? ce_path : de_path;
 
-    if (mkdir(pkgdir, 0751) < 0) {
-        ALOGE("cannot create dir '%s': %s\n", pkgdir, strerror(errno));
-        return -1;
-    }
-    if (chmod(pkgdir, 0751) < 0) {
-        ALOGE("cannot chmod dir '%s': %s\n", pkgdir, strerror(errno));
-        unlink(pkgdir);
-        return -1;
-    }
-
-    if (selinux_android_setfilecon(pkgdir, pkgname, seinfo, uid) < 0) {
-        ALOGE("cannot setfilecon dir '%s': %s\n", pkgdir, strerror(errno));
-        unlink(pkgdir);
-        return -errno;
-    }
-
-    if (chown(pkgdir, uid, gid) < 0) {
-        ALOGE("cannot chown dir '%s': %s\n", pkgdir, strerror(errno));
-        unlink(pkgdir);
-        return -1;
+    if (getxattr(target.c_str(), kXattrDefault, nullptr, 0) == -1) {
+        LOG(WARNING) << "Requested default storage " << target
+                << " is not active; migrating from " << source;
+        if (delete_dir_contents_and_dir(target) != 0) {
+            PLOG(ERROR) << "Failed to delete";
+            return -1;
+        }
+        if (rename(source.c_str(), target.c_str()) != 0) {
+            PLOG(ERROR) << "Failed to rename";
+            return -1;
+        }
     }
 
     return 0;
 }
 
-int uninstall(const char *uuid, const char *pkgname, userid_t userid)
-{
-    std::string _pkgdir(create_data_user_package_path(uuid, userid, pkgname));
-    const char* pkgdir = _pkgdir.c_str();
+static bool clear_profile(const std::string& profile) {
+    base::unique_fd ufd(open(profile.c_str(), O_WRONLY | O_NOFOLLOW | O_CLOEXEC));
+    if (ufd.get() < 0) {
+        if (errno != ENOENT) {
+            PLOG(WARNING) << "Could not open profile " << profile;
+            return false;
+        } else {
+            // Nothing to clear. That's ok.
+            return true;
+        }
+    }
 
-    remove_profile_file(pkgname);
+    if (flock(ufd.get(), LOCK_EX | LOCK_NB) != 0) {
+        if (errno != EWOULDBLOCK) {
+            PLOG(WARNING) << "Error locking profile " << profile;
+        }
+        // This implies that the app owning this profile is running
+        // (and has acquired the lock).
+        //
+        // If we can't acquire the lock bail out since clearing is useless anyway
+        // (the app will write again to the profile).
+        //
+        // Note:
+        // This does not impact the this is not an issue for the profiling correctness.
+        // In case this is needed because of an app upgrade, profiles will still be
+        // eventually cleared by the app itself due to checksum mismatch.
+        // If this is needed because profman advised, then keeping the data around
+        // until the next run is again not an issue.
+        //
+        // If the app attempts to acquire a lock while we've held one here,
+        // it will simply skip the current write cycle.
+        return false;
+    }
 
-    /* delete contents AND directory, no exceptions */
-    return delete_dir_contents(pkgdir, 1, NULL);
+    bool truncated = ftruncate(ufd.get(), 0) == 0;
+    if (!truncated) {
+        PLOG(WARNING) << "Could not truncate " << profile;
+    }
+    if (flock(ufd.get(), LOCK_UN) != 0) {
+        PLOG(WARNING) << "Error unlocking profile " << profile;
+    }
+    return truncated;
 }
 
-int renamepkg(const char *oldpkgname, const char *newpkgname)
-{
-    char oldpkgdir[PKG_PATH_MAX];
-    char newpkgdir[PKG_PATH_MAX];
-
-    if (create_pkg_path(oldpkgdir, oldpkgname, PKG_DIR_POSTFIX, 0))
-        return -1;
-    if (create_pkg_path(newpkgdir, newpkgname, PKG_DIR_POSTFIX, 0))
-        return -1;
-
-    if (rename(oldpkgdir, newpkgdir) < 0) {
-        ALOGE("cannot rename dir '%s' to '%s': %s\n", oldpkgdir, newpkgdir, strerror(errno));
-        return -errno;
-    }
-    return 0;
+static bool clear_reference_profile(const char* pkgname) {
+    std::string reference_profile_dir = create_data_ref_profile_package_path(pkgname);
+    std::string reference_profile = create_primary_profile(reference_profile_dir);
+    return clear_profile(reference_profile);
 }
 
-int fix_uid(const char *uuid, const char *pkgname, uid_t uid, gid_t gid)
-{
-    struct stat s;
-
-    if ((uid < AID_SYSTEM) || (gid < AID_SYSTEM)) {
-        ALOGE("invalid uid/gid: %d %d\n", uid, gid);
-        return -1;
-    }
-
-    std::string _pkgdir(create_data_user_package_path(uuid, 0, pkgname));
-    const char* pkgdir = _pkgdir.c_str();
-
-    if (stat(pkgdir, &s) < 0) return -1;
-
-    if (s.st_uid != 0 || s.st_gid != 0) {
-        ALOGE("fixing uid of non-root pkg: %s %" PRIu32 " %" PRIu32 "\n", pkgdir, s.st_uid, s.st_gid);
-        return -1;
-    }
-
-    if (chmod(pkgdir, 0751) < 0) {
-        ALOGE("cannot chmod dir '%s': %s\n", pkgdir, strerror(errno));
-        unlink(pkgdir);
-        return -errno;
-    }
-    if (chown(pkgdir, uid, gid) < 0) {
-        ALOGE("cannot chown dir '%s': %s\n", pkgdir, strerror(errno));
-        unlink(pkgdir);
-        return -errno;
-    }
-
-    return 0;
+static bool clear_current_profile(const char* pkgname, userid_t user) {
+    std::string profile_dir = create_data_user_profile_package_path(user, pkgname);
+    std::string profile = create_primary_profile(profile_dir);
+    return clear_profile(profile);
 }
 
-int delete_user_data(const char *uuid, const char *pkgname, userid_t userid)
-{
-    std::string _pkgdir(create_data_user_package_path(uuid, userid, pkgname));
-    const char* pkgdir = _pkgdir.c_str();
-
-    return delete_dir_contents(pkgdir, 0, NULL);
+static bool clear_current_profiles(const char* pkgname) {
+    bool success = true;
+    std::vector<userid_t> users = get_known_users(/*volume_uuid*/ nullptr);
+    for (auto user : users) {
+        success &= clear_current_profile(pkgname, user);
+    }
+    return success;
 }
 
-int make_user_data(const char *uuid, const char *pkgname, uid_t uid, userid_t userid, const char* seinfo)
-{
-    std::string _pkgdir(create_data_user_package_path(uuid, userid, pkgname));
-    const char* pkgdir = _pkgdir.c_str();
-
-    if (mkdir(pkgdir, 0751) < 0) {
-        ALOGE("cannot create dir '%s': %s\n", pkgdir, strerror(errno));
-        return -errno;
-    }
-    if (chmod(pkgdir, 0751) < 0) {
-        ALOGE("cannot chmod dir '%s': %s\n", pkgdir, strerror(errno));
-        unlink(pkgdir);
-        return -errno;
-    }
-
-    if (selinux_android_setfilecon(pkgdir, pkgname, seinfo, uid) < 0) {
-        ALOGE("cannot setfilecon dir '%s': %s\n", pkgdir, strerror(errno));
-        unlink(pkgdir);
-        return -errno;
-    }
-
-    if (chown(pkgdir, uid, uid) < 0) {
-        ALOGE("cannot chown dir '%s': %s\n", pkgdir, strerror(errno));
-        unlink(pkgdir);
-        return -errno;
-    }
-
-    return 0;
+int clear_app_profiles(const char* pkgname) {
+    bool success = true;
+    success &= clear_reference_profile(pkgname);
+    success &= clear_current_profiles(pkgname);
+    return success ? 0 : -1;
 }
 
-int copy_complete_app(const char *from_uuid, const char *to_uuid,
-        const char *package_name, const char *data_app_name, appid_t appid,
-        const char* seinfo) {
+int clear_app_data(const char *uuid, const char *pkgname, userid_t userid, int flags,
+        ino_t ce_data_inode) {
+    std::string suffix = "";
+    bool only_cache = false;
+    if (flags & FLAG_CLEAR_CACHE_ONLY) {
+        suffix = CACHE_DIR_POSTFIX;
+        only_cache = true;
+    } else if (flags & FLAG_CLEAR_CODE_CACHE_ONLY) {
+        suffix = CODE_CACHE_DIR_POSTFIX;
+        only_cache = true;
+    }
+
+    int res = 0;
+    if (flags & FLAG_STORAGE_CE) {
+        auto path = create_data_user_ce_package_path(uuid, userid, pkgname, ce_data_inode) + suffix;
+        if (access(path.c_str(), F_OK) == 0) {
+            res |= delete_dir_contents(path);
+        }
+    }
+    if (flags & FLAG_STORAGE_DE) {
+        auto path = create_data_user_de_package_path(uuid, userid, pkgname) + suffix;
+        if (access(path.c_str(), F_OK) == 0) {
+            // TODO: include result once 25796509 is fixed
+            delete_dir_contents(path);
+        }
+        if (!only_cache) {
+            if (!clear_current_profile(pkgname, userid)) {
+                res |= -1;
+            }
+        }
+    }
+    return res;
+}
+
+static int destroy_app_reference_profile(const char *pkgname) {
+    return delete_dir_contents_and_dir(
+        create_data_ref_profile_package_path(pkgname),
+        /*ignore_if_missing*/ true);
+}
+
+static int destroy_app_current_profiles(const char *pkgname, userid_t userid) {
+    return delete_dir_contents_and_dir(
+        create_data_user_profile_package_path(userid, pkgname),
+        /*ignore_if_missing*/ true);
+}
+
+int destroy_app_profiles(const char *pkgname) {
+    int result = 0;
+    std::vector<userid_t> users = get_known_users(/*volume_uuid*/ nullptr);
+    for (auto user : users) {
+        result |= destroy_app_current_profiles(pkgname, user);
+    }
+    result |= destroy_app_reference_profile(pkgname);
+    return result;
+}
+
+int destroy_app_data(const char *uuid, const char *pkgname, userid_t userid, int flags,
+        ino_t ce_data_inode) {
+    int res = 0;
+    if (flags & FLAG_STORAGE_CE) {
+        res |= delete_dir_contents_and_dir(
+                create_data_user_ce_package_path(uuid, userid, pkgname, ce_data_inode));
+    }
+    if (flags & FLAG_STORAGE_DE) {
+        res |= delete_dir_contents_and_dir(
+                create_data_user_de_package_path(uuid, userid, pkgname));
+        destroy_app_current_profiles(pkgname, userid);
+        // TODO(calin): If the package is still installed by other users it's probably
+        // beneficial to keep the reference profile around.
+        // Verify if it's ok to do that.
+        destroy_app_reference_profile(pkgname);
+    }
+    return res;
+}
+
+int move_complete_app(const char *from_uuid, const char *to_uuid, const char *package_name,
+        const char *data_app_name, appid_t appid, const char* seinfo, int target_sdk_version) {
     std::vector<userid_t> users = get_known_users(from_uuid);
 
     // Copy app
     {
-        std::string from(create_data_app_package_path(from_uuid, data_app_name));
-        std::string to(create_data_app_package_path(to_uuid, data_app_name));
-        std::string to_parent(create_data_app_path(to_uuid));
+        auto from = create_data_app_package_path(from_uuid, data_app_name);
+        auto to = create_data_app_package_path(to_uuid, data_app_name);
+        auto to_parent = create_data_app_path(to_uuid);
 
         char *argv[] = {
             (char*) kCpPath,
@@ -216,25 +354,17 @@ int copy_complete_app(const char *from_uuid, const char *to_uuid,
 
     // Copy private data for all known users
     for (auto user : users) {
-        std::string from(create_data_user_package_path(from_uuid, user, package_name));
-        std::string to(create_data_user_package_path(to_uuid, user, package_name));
-        std::string to_parent(create_data_user_path(to_uuid, user));
 
         // Data source may not exist for all users; that's okay
-        if (access(from.c_str(), F_OK) != 0) {
-            LOG(INFO) << "Missing source " << from;
+        auto from_ce = create_data_user_ce_package_path(from_uuid, user, package_name);
+        if (access(from_ce.c_str(), F_OK) != 0) {
+            LOG(INFO) << "Missing source " << from_ce;
             continue;
         }
 
-        std::string user_path(create_data_user_path(to_uuid, user));
-        if (fs_prepare_dir(user_path.c_str(), 0771, AID_SYSTEM, AID_SYSTEM) != 0) {
-            LOG(ERROR) << "Failed to prepare user target " << user_path;
-            goto fail;
-        }
-
-        uid_t uid = multiuser_get_uid(user, appid);
-        if (make_user_data(to_uuid, package_name, uid, user, seinfo) != 0) {
-            LOG(ERROR) << "Failed to create package target " << to;
+        if (create_app_data(to_uuid, package_name, user, FLAG_STORAGE_CE | FLAG_STORAGE_DE,
+                appid, seinfo, target_sdk_version) != 0) {
+            LOG(ERROR) << "Failed to create package target on " << to_uuid;
             goto fail;
         }
 
@@ -245,23 +375,42 @@ int copy_complete_app(const char *from_uuid, const char *to_uuid,
             (char*) "-R", /* recurse into subdirectories (DEST must be a directory) */
             (char*) "-P", /* Do not follow symlinks [default] */
             (char*) "-d", /* don't dereference symlinks */
-            (char*) from.c_str(),
-            (char*) to_parent.c_str()
+            nullptr,
+            nullptr
         };
 
-        LOG(DEBUG) << "Copying " << from << " to " << to;
-        int rc = android_fork_execvp(ARRAY_SIZE(argv), argv, NULL, false, true);
+        {
+            auto from = create_data_user_de_package_path(from_uuid, user, package_name);
+            auto to = create_data_user_de_path(to_uuid, user);
+            argv[6] = (char*) from.c_str();
+            argv[7] = (char*) to.c_str();
 
-        if (rc != 0) {
-            LOG(ERROR) << "Failed copying " << from << " to " << to
-                    << ": status " << rc;
+            LOG(DEBUG) << "Copying " << from << " to " << to;
+            int rc = android_fork_execvp(ARRAY_SIZE(argv), argv, NULL, false, true);
+            if (rc != 0) {
+                LOG(ERROR) << "Failed copying " << from << " to " << to << " with status " << rc;
+                goto fail;
+            }
+        }
+        {
+            auto from = create_data_user_ce_package_path(from_uuid, user, package_name);
+            auto to = create_data_user_ce_path(to_uuid, user);
+            argv[6] = (char*) from.c_str();
+            argv[7] = (char*) to.c_str();
+
+            LOG(DEBUG) << "Copying " << from << " to " << to;
+            int rc = android_fork_execvp(ARRAY_SIZE(argv), argv, NULL, false, true);
+            if (rc != 0) {
+                LOG(ERROR) << "Failed copying " << from << " to " << to << " with status " << rc;
+                goto fail;
+            }
+        }
+
+        if (restorecon_app_data(to_uuid, package_name, user, FLAG_STORAGE_CE | FLAG_STORAGE_DE,
+                appid, seinfo) != 0) {
+            LOG(ERROR) << "Failed to restorecon";
             goto fail;
         }
-    }
-
-    if (restorecon_data(to_uuid, package_name, seinfo, multiuser_get_uid(0, appid)) != 0) {
-        LOG(ERROR) << "Failed to restorecon";
-        goto fail;
     }
 
     // We let the framework scan the new location and persist that before
@@ -272,80 +421,52 @@ int copy_complete_app(const char *from_uuid, const char *to_uuid,
 fail:
     // Nuke everything we might have already copied
     {
-        std::string to(create_data_app_package_path(to_uuid, data_app_name));
+        auto to = create_data_app_package_path(to_uuid, data_app_name);
         if (delete_dir_contents(to.c_str(), 1, NULL) != 0) {
             LOG(WARNING) << "Failed to rollback " << to;
         }
     }
     for (auto user : users) {
-        std::string to(create_data_user_package_path(to_uuid, user, package_name));
-        if (delete_dir_contents(to.c_str(), 1, NULL) != 0) {
-            LOG(WARNING) << "Failed to rollback " << to;
+        {
+            auto to = create_data_user_de_package_path(to_uuid, user, package_name);
+            if (delete_dir_contents(to.c_str(), 1, NULL) != 0) {
+                LOG(WARNING) << "Failed to rollback " << to;
+            }
+        }
+        {
+            auto to = create_data_user_ce_package_path(to_uuid, user, package_name);
+            if (delete_dir_contents(to.c_str(), 1, NULL) != 0) {
+                LOG(WARNING) << "Failed to rollback " << to;
+            }
         }
     }
     return -1;
 }
 
-int make_user_config(userid_t userid)
-{
-    if (ensure_config_user_dirs(userid) == -1) {
-        return -1;
+int create_user_data(const char *uuid, userid_t userid, int user_serial ATTRIBUTE_UNUSED,
+        int flags) {
+    if (flags & FLAG_STORAGE_DE) {
+        if (uuid == nullptr) {
+            return ensure_config_user_dirs(userid);
+        }
     }
-
     return 0;
 }
 
-int delete_user(const char *uuid, userid_t userid)
-{
-    int status = 0;
-
-    std::string data_path(create_data_user_path(uuid, userid));
-    if (delete_dir_contents(data_path.c_str(), 1, NULL) != 0) {
-        status = -1;
-    }
-
-    std::string media_path(create_data_media_path(uuid, userid));
-    if (delete_dir_contents(media_path.c_str(), 1, NULL) != 0) {
-        status = -1;
-    }
-
-    // Config paths only exist on internal storage
-    if (uuid == nullptr) {
-        char config_path[PATH_MAX];
-        if ((create_user_config_path(config_path, userid) != 0)
-                || (delete_dir_contents(config_path, 1, NULL) != 0)) {
-            status = -1;
+int destroy_user_data(const char *uuid, userid_t userid, int flags) {
+    int res = 0;
+    if (flags & FLAG_STORAGE_DE) {
+        res |= delete_dir_contents_and_dir(create_data_user_de_path(uuid, userid), true);
+        if (uuid == nullptr) {
+            res |= delete_dir_contents_and_dir(create_data_misc_legacy_path(userid), true);
+            res |= delete_dir_contents_and_dir(create_data_user_profiles_path(userid), true);
         }
     }
-
-    return status;
-}
-
-int delete_cache(const char *uuid, const char *pkgname, userid_t userid)
-{
-    std::string _cachedir(
-            create_data_user_package_path(uuid, userid, pkgname) + CACHE_DIR_POSTFIX);
-    const char* cachedir = _cachedir.c_str();
-
-    /* delete contents, not the directory, no exceptions */
-    return delete_dir_contents(cachedir, 0, NULL);
-}
-
-int delete_code_cache(const char *uuid, const char *pkgname, userid_t userid)
-{
-    std::string _codecachedir(
-            create_data_user_package_path(uuid, userid, pkgname) + CODE_CACHE_DIR_POSTFIX);
-    const char* codecachedir = _codecachedir.c_str();
-
-    struct stat s;
-
-    /* it's okay if code cache is missing */
-    if (lstat(codecachedir, &s) == -1 && errno == ENOENT) {
-        return 0;
+    if (flags & FLAG_STORAGE_CE) {
+        res |= delete_dir_contents_and_dir(create_data_user_ce_path(uuid, userid), true);
+        res |= delete_dir_contents_and_dir(create_data_media_path(uuid, userid), true);
     }
-
-    /* delete contents, not the directory, no exceptions */
-    return delete_dir_contents(codecachedir, 0, NULL);
+    return res;
 }
 
 /* Try to ensure free_size bytes of storage are available.
@@ -355,16 +476,11 @@ int delete_code_cache(const char *uuid, const char *pkgname, userid_t userid)
  * also require that apps constantly modify file metadata even
  * when just reading from the cache, which is pretty awful.
  */
-int free_cache(const char *uuid, int64_t free_size)
-{
+int free_cache(const char *uuid, int64_t free_size) {
     cache_t* cache;
     int64_t avail;
-    DIR *d;
-    struct dirent *de;
-    char tmpdir[PATH_MAX];
-    char *dirpos;
 
-    std::string data_path(create_data_path(uuid));
+    auto data_path = create_data_path(uuid);
 
     avail = data_disk_free(data_path);
     if (avail < 0) return -1;
@@ -374,97 +490,18 @@ int free_cache(const char *uuid, int64_t free_size)
 
     cache = start_cache_collection();
 
-    // Special case for owner on internal storage
-    if (uuid == nullptr) {
-        std::string _tmpdir(create_data_user_path(nullptr, 0));
-        add_cache_files(cache, _tmpdir.c_str(), "cache");
-    }
-
-    // Search for other users and add any cache files from them.
-    std::string _tmpdir(create_data_path(uuid) + "/" + SECONDARY_USER_PREFIX);
-    strcpy(tmpdir, _tmpdir.c_str());
-
-    dirpos = tmpdir + strlen(tmpdir);
-    d = opendir(tmpdir);
-    if (d != NULL) {
-        while ((de = readdir(d))) {
-            if (de->d_type == DT_DIR) {
-                const char *name = de->d_name;
-                    /* always skip "." and ".." */
-                if (name[0] == '.') {
-                    if (name[1] == 0) continue;
-                    if ((name[1] == '.') && (name[2] == 0)) continue;
-                }
-                if ((strlen(name)+(dirpos-tmpdir)) < (sizeof(tmpdir)-1)) {
-                    strcpy(dirpos, name);
-                    //ALOGI("adding cache files from %s\n", tmpdir);
-                    add_cache_files(cache, tmpdir, "cache");
-                } else {
-                    ALOGW("Path exceeds limit: %s%s", tmpdir, name);
-                }
-            }
-        }
-        closedir(d);
-    }
-
-    // Collect cache files on external storage for all users (if it is mounted as part
-    // of the internal storage).
-    strcpy(tmpdir, android_media_dir.path);
-    dirpos = tmpdir + strlen(tmpdir);
-    d = opendir(tmpdir);
-    if (d != NULL) {
-        while ((de = readdir(d))) {
-            if (de->d_type == DT_DIR) {
-                const char *name = de->d_name;
-                    /* skip any dir that doesn't start with a number, so not a user */
-                if (name[0] < '0' || name[0] > '9') {
-                    continue;
-                }
-                if ((strlen(name)+(dirpos-tmpdir)) < (sizeof(tmpdir)-1)) {
-                    strcpy(dirpos, name);
-                    if (lookup_media_dir(tmpdir, "Android") == 0
-                            && lookup_media_dir(tmpdir, "data") == 0) {
-                        //ALOGI("adding cache files from %s\n", tmpdir);
-                        add_cache_files(cache, tmpdir, "cache");
-                    }
-                } else {
-                    ALOGW("Path exceeds limit: %s%s", tmpdir, name);
-                }
-            }
-        }
-        closedir(d);
+    auto users = get_known_users(uuid);
+    for (auto user : users) {
+        add_cache_files(cache, create_data_user_ce_path(uuid, user));
+        add_cache_files(cache, create_data_user_de_path(uuid, user));
+        add_cache_files(cache,
+                StringPrintf("%s/Android/data", create_data_media_path(uuid, user).c_str()));
     }
 
     clear_cache_files(data_path, cache, free_size);
     finish_cache_collection(cache);
 
     return data_disk_free(data_path) >= free_size ? 0 : -1;
-}
-
-int move_dex(const char *src, const char *dst, const char *instruction_set)
-{
-    char src_dex[PKG_PATH_MAX];
-    char dst_dex[PKG_PATH_MAX];
-
-    if (validate_apk_path(src)) {
-        ALOGE("invalid apk path '%s' (bad prefix)\n", src);
-        return -1;
-    }
-    if (validate_apk_path(dst)) {
-        ALOGE("invalid apk path '%s' (bad prefix)\n", dst);
-        return -1;
-    }
-
-    if (create_cache_path(src_dex, src, instruction_set)) return -1;
-    if (create_cache_path(dst_dex, dst, instruction_set)) return -1;
-
-    ALOGV("move %s -> %s\n", src_dex, dst_dex);
-    if (rename(src_dex, dst_dex) < 0) {
-        ALOGE("Couldn't move %s: %s\n", src_dex, strerror(errno));
-        return -1;
-    } else {
-        return 0;
-    }
 }
 
 int rm_dex(const char *path, const char *instruction_set)
@@ -476,7 +513,7 @@ int rm_dex(const char *path, const char *instruction_set)
         return -1;
     }
 
-    if (create_cache_path(dex_path, path, instruction_set)) return -1;
+    if (!create_cache_path(dex_path, path, instruction_set)) return -1;
 
     ALOGV("unlink %s\n", dex_path);
     if (unlink(dex_path) < 0) {
@@ -489,185 +526,101 @@ int rm_dex(const char *path, const char *instruction_set)
     }
 }
 
-int get_size(const char *uuid, const char *pkgname, int userid, const char *apkpath,
-             const char *libdirpath, const char *fwdlock_apkpath, const char *asecpath,
-             const char *instruction_set, int64_t *_codesize, int64_t *_datasize,
-             int64_t *_cachesize, int64_t* _asecsize)
-{
+static void add_app_data_size(std::string& path, int64_t *codesize, int64_t *datasize,
+        int64_t *cachesize) {
     DIR *d;
     int dfd;
     struct dirent *de;
     struct stat s;
-    char path[PKG_PATH_MAX];
 
-    int64_t codesize = 0;
-    int64_t datasize = 0;
-    int64_t cachesize = 0;
-    int64_t asecsize = 0;
+    d = opendir(path.c_str());
+    if (d == nullptr) {
+        PLOG(WARNING) << "Failed to open " << path;
+        return;
+    }
+    dfd = dirfd(d);
+    while ((de = readdir(d))) {
+        const char *name = de->d_name;
 
-    /* count the source apk as code -- but only if it's not
-     * on the /system partition and its not on the sdcard. */
-    if (validate_system_app_path(apkpath) &&
-            strncmp(apkpath, android_asec_dir.path, android_asec_dir.len) != 0) {
-        if (stat(apkpath, &s) == 0) {
-            codesize += stat_size(&s);
-            if (S_ISDIR(s.st_mode)) {
-                d = opendir(apkpath);
-                if (d != NULL) {
-                    dfd = dirfd(d);
-                    codesize += calculate_dir_size(dfd);
-                    closedir(d);
-                }
+        int64_t statsize = 0;
+        if (fstatat(dfd, name, &s, AT_SYMLINK_NOFOLLOW) == 0) {
+            statsize = stat_size(&s);
+        }
+
+        if (de->d_type == DT_DIR) {
+            int subfd;
+            int64_t dirsize = 0;
+            /* always skip "." and ".." */
+            if (name[0] == '.') {
+                if (name[1] == 0) continue;
+                if ((name[1] == '.') && (name[2] == 0)) continue;
             }
-        }
-    }
-
-    /* count the forward locked apk as code if it is given */
-    if (fwdlock_apkpath != NULL && fwdlock_apkpath[0] != '!') {
-        if (stat(fwdlock_apkpath, &s) == 0) {
-            codesize += stat_size(&s);
-        }
-    }
-
-    /* count the cached dexfile as code */
-    if (!create_cache_path(path, apkpath, instruction_set)) {
-        if (stat(path, &s) == 0) {
-            codesize += stat_size(&s);
-        }
-    }
-
-    /* add in size of any libraries */
-    if (libdirpath != NULL && libdirpath[0] != '!') {
-        d = opendir(libdirpath);
-        if (d != NULL) {
-            dfd = dirfd(d);
-            codesize += calculate_dir_size(dfd);
-            closedir(d);
-        }
-    }
-
-    /* compute asec size if it is given */
-    if (asecpath != NULL && asecpath[0] != '!') {
-        if (stat(asecpath, &s) == 0) {
-            asecsize += stat_size(&s);
-        }
-    }
-
-    std::vector<userid_t> users;
-    if (userid == -1) {
-        users = get_known_users(uuid);
-    } else {
-        users.push_back(userid);
-    }
-
-    for (auto user : users) {
-        std::string _pkgdir(create_data_user_package_path(uuid, user, pkgname));
-        const char* pkgdir = _pkgdir.c_str();
-
-        d = opendir(pkgdir);
-        if (d == NULL) {
-            PLOG(WARNING) << "Failed to open " << pkgdir;
-            continue;
-        }
-        dfd = dirfd(d);
-
-        /* most stuff in the pkgdir is data, except for the "cache"
-         * directory and below, which is cache, and the "lib" directory
-         * and below, which is code...
-         */
-        while ((de = readdir(d))) {
-            const char *name = de->d_name;
-
-            if (de->d_type == DT_DIR) {
-                int subfd;
-                int64_t statsize = 0;
-                int64_t dirsize = 0;
-                    /* always skip "." and ".." */
-                if (name[0] == '.') {
-                    if (name[1] == 0) continue;
-                    if ((name[1] == '.') && (name[2] == 0)) continue;
-                }
-                if (fstatat(dfd, name, &s, AT_SYMLINK_NOFOLLOW) == 0) {
-                    statsize = stat_size(&s);
-                }
-                subfd = openat(dfd, name, O_RDONLY | O_DIRECTORY);
-                if (subfd >= 0) {
-                    dirsize = calculate_dir_size(subfd);
-                }
-                if(!strcmp(name,"lib")) {
-                    codesize += dirsize + statsize;
-                } else if(!strcmp(name,"cache")) {
-                    cachesize += dirsize + statsize;
-                } else {
-                    datasize += dirsize + statsize;
-                }
-            } else if (de->d_type == DT_LNK && !strcmp(name,"lib")) {
-                // This is the symbolic link to the application's library
-                // code.  We'll count this as code instead of data, since
-                // it is not something that the app creates.
-                if (fstatat(dfd, name, &s, AT_SYMLINK_NOFOLLOW) == 0) {
-                    codesize += stat_size(&s);
-                }
+            subfd = openat(dfd, name, O_RDONLY | O_DIRECTORY);
+            if (subfd >= 0) {
+                dirsize = calculate_dir_size(subfd);
+                close(subfd);
+            }
+            // TODO: check xattrs!
+            if (!strcmp(name, "cache") || !strcmp(name, "code_cache")) {
+                *datasize += statsize;
+                *cachesize += dirsize;
             } else {
-                if (fstatat(dfd, name, &s, AT_SYMLINK_NOFOLLOW) == 0) {
-                    datasize += stat_size(&s);
-                }
+                *datasize += dirsize + statsize;
             }
+        } else if (de->d_type == DT_LNK && !strcmp(name, "lib")) {
+            *codesize += statsize;
+        } else {
+            *datasize += statsize;
         }
+    }
+    closedir(d);
+}
+
+int get_app_size(const char *uuid, const char *pkgname, int userid, int flags, ino_t ce_data_inode,
+        const char *code_path, int64_t *codesize, int64_t *datasize, int64_t *cachesize,
+        int64_t* asecsize) {
+    DIR *d;
+    int dfd;
+
+    d = opendir(code_path);
+    if (d != nullptr) {
+        dfd = dirfd(d);
+        *codesize += calculate_dir_size(dfd);
         closedir(d);
     }
-    *_codesize = codesize;
-    *_datasize = datasize;
-    *_cachesize = cachesize;
-    *_asecsize = asecsize;
+
+    if (flags & FLAG_STORAGE_CE) {
+        auto path = create_data_user_ce_package_path(uuid, userid, pkgname, ce_data_inode);
+        add_app_data_size(path, codesize, datasize, cachesize);
+    }
+    if (flags & FLAG_STORAGE_DE) {
+        auto path = create_data_user_de_package_path(uuid, userid, pkgname);
+        add_app_data_size(path, codesize, datasize, cachesize);
+    }
+
+    *asecsize = 0;
+
     return 0;
 }
 
-int create_cache_path(char path[PKG_PATH_MAX], const char *src, const char *instruction_set)
-{
-    char *tmp;
-    int srclen;
-    int dstlen;
-
-    srclen = strlen(src);
-
-        /* demand that we are an absolute path */
-    if ((src == 0) || (src[0] != '/') || strstr(src,"..")) {
-        return -1;
-    }
-
-    if (srclen > PKG_PATH_MAX) {        // XXX: PKG_NAME_MAX?
-        return -1;
-    }
-
-    dstlen = srclen + strlen(DALVIK_CACHE_PREFIX) +
-        strlen(instruction_set) +
-        strlen(DALVIK_CACHE_POSTFIX) + 2;
-
-    if (dstlen > PKG_PATH_MAX) {
-        return -1;
-    }
-
-    sprintf(path,"%s%s/%s%s",
-            DALVIK_CACHE_PREFIX,
-            instruction_set,
-            src + 1, /* skip the leading / */
-            DALVIK_CACHE_POSTFIX);
-
-    for(tmp = path + strlen(DALVIK_CACHE_PREFIX) + strlen(instruction_set) + 1; *tmp; tmp++) {
-        if (*tmp == '/') {
-            *tmp = '@';
+int get_app_data_inode(const char *uuid, const char *pkgname, int userid, int flags, ino_t *inode) {
+    struct stat buf;
+    memset(&buf, 0, sizeof(buf));
+    if (flags & FLAG_STORAGE_CE) {
+        auto path = create_data_user_ce_package_path(uuid, userid, pkgname);
+        if (stat(path.c_str(), &buf) == 0) {
+            *inode = buf.st_ino;
+            return 0;
         }
     }
-
-    return 0;
+    return -1;
 }
 
 static int split_count(const char *str)
 {
   char *ctx;
   int count = 0;
-  char buf[PROPERTY_VALUE_MAX];
+  char buf[kPropertyValueMax];
 
   strncpy(buf, str, sizeof(buf));
   char *pBuf = buf;
@@ -696,7 +649,7 @@ static int split(char *buf, const char **argv)
 }
 
 static void run_patchoat(int input_fd, int oat_fd, const char* input_file_name,
-    const char* output_file_name, const char *pkgname __unused, const char *instruction_set)
+    const char* output_file_name, const char *pkgname ATTRIBUTE_UNUSED, const char *instruction_set)
 {
     static const int MAX_INT_LEN = 12;      // '-'+10dig+'\0' -OR- 0x+8dig
     static const unsigned int MAX_INSTRUCTION_SET_LEN = 7;
@@ -735,19 +688,10 @@ static void run_patchoat(int input_fd, int oat_fd, const char* input_file_name,
     ALOGE("execv(%s) failed: %s\n", PATCHOAT_BIN, strerror(errno));
 }
 
-static bool check_boolean_property(const char* property_name, bool default_value = false) {
-    char tmp_property_value[PROPERTY_VALUE_MAX];
-    bool have_property = property_get(property_name, tmp_property_value, nullptr) > 0;
-    if (!have_property) {
-        return default_value;
-    }
-    return strcmp(tmp_property_value, "true") == 0;
-}
-
-static void run_dex2oat(int zip_fd, int oat_fd, const char* input_file_name,
-    const char* output_file_name, int swap_fd, const char *pkgname, const char *instruction_set,
-    bool vm_safe_mode, bool debuggable)
-{
+static void run_dex2oat(int zip_fd, int oat_fd, int image_fd, const char* input_file_name,
+        const char* output_file_name, int swap_fd, const char *instruction_set,
+        const char* compiler_filter, bool vm_safe_mode, bool debuggable, bool post_bootcomplete,
+        int profile_fd, const char* shared_libraries) {
     static const unsigned int MAX_INSTRUCTION_SET_LEN = 7;
 
     if (strlen(instruction_set) >= MAX_INSTRUCTION_SET_LEN) {
@@ -756,56 +700,59 @@ static void run_dex2oat(int zip_fd, int oat_fd, const char* input_file_name,
         return;
     }
 
-    char prop_buf[PROPERTY_VALUE_MAX];
-    bool profiler = (property_get("dalvik.vm.profiler", prop_buf, "0") > 0) && (prop_buf[0] == '1');
+    char dex2oat_Xms_flag[kPropertyValueMax];
+    bool have_dex2oat_Xms_flag = get_property("dalvik.vm.dex2oat-Xms", dex2oat_Xms_flag, NULL) > 0;
 
-    char dex2oat_Xms_flag[PROPERTY_VALUE_MAX];
-    bool have_dex2oat_Xms_flag = property_get("dalvik.vm.dex2oat-Xms", dex2oat_Xms_flag, NULL) > 0;
+    char dex2oat_Xmx_flag[kPropertyValueMax];
+    bool have_dex2oat_Xmx_flag = get_property("dalvik.vm.dex2oat-Xmx", dex2oat_Xmx_flag, NULL) > 0;
 
-    char dex2oat_Xmx_flag[PROPERTY_VALUE_MAX];
-    bool have_dex2oat_Xmx_flag = property_get("dalvik.vm.dex2oat-Xmx", dex2oat_Xmx_flag, NULL) > 0;
-
-    char dex2oat_compiler_filter_flag[PROPERTY_VALUE_MAX];
-    bool have_dex2oat_compiler_filter_flag = property_get("dalvik.vm.dex2oat-filter",
-                                                          dex2oat_compiler_filter_flag, NULL) > 0;
-
-    char dex2oat_threads_buf[PROPERTY_VALUE_MAX];
-    bool have_dex2oat_threads_flag = property_get("dalvik.vm.dex2oat-threads", dex2oat_threads_buf,
+    char dex2oat_threads_buf[kPropertyValueMax];
+    bool have_dex2oat_threads_flag = get_property(post_bootcomplete
+                                                      ? "dalvik.vm.dex2oat-threads"
+                                                      : "dalvik.vm.boot-dex2oat-threads",
+                                                  dex2oat_threads_buf,
                                                   NULL) > 0;
-    char dex2oat_threads_arg[PROPERTY_VALUE_MAX + 2];
+    char dex2oat_threads_arg[kPropertyValueMax + 2];
     if (have_dex2oat_threads_flag) {
         sprintf(dex2oat_threads_arg, "-j%s", dex2oat_threads_buf);
     }
 
-    char dex2oat_isa_features_key[PROPERTY_KEY_MAX];
+    char dex2oat_isa_features_key[kPropertyKeyMax];
     sprintf(dex2oat_isa_features_key, "dalvik.vm.isa.%s.features", instruction_set);
-    char dex2oat_isa_features[PROPERTY_VALUE_MAX];
-    bool have_dex2oat_isa_features = property_get(dex2oat_isa_features_key,
+    char dex2oat_isa_features[kPropertyValueMax];
+    bool have_dex2oat_isa_features = get_property(dex2oat_isa_features_key,
                                                   dex2oat_isa_features, NULL) > 0;
 
-    char dex2oat_isa_variant_key[PROPERTY_KEY_MAX];
+    char dex2oat_isa_variant_key[kPropertyKeyMax];
     sprintf(dex2oat_isa_variant_key, "dalvik.vm.isa.%s.variant", instruction_set);
-    char dex2oat_isa_variant[PROPERTY_VALUE_MAX];
-    bool have_dex2oat_isa_variant = property_get(dex2oat_isa_variant_key,
+    char dex2oat_isa_variant[kPropertyValueMax];
+    bool have_dex2oat_isa_variant = get_property(dex2oat_isa_variant_key,
                                                  dex2oat_isa_variant, NULL) > 0;
 
     const char *dex2oat_norelocation = "-Xnorelocate";
     bool have_dex2oat_relocation_skip_flag = false;
 
-    char dex2oat_flags[PROPERTY_VALUE_MAX];
-    int dex2oat_flags_count = property_get("dalvik.vm.dex2oat-flags",
+    char dex2oat_flags[kPropertyValueMax];
+    int dex2oat_flags_count = get_property("dalvik.vm.dex2oat-flags",
                                  dex2oat_flags, NULL) <= 0 ? 0 : split_count(dex2oat_flags);
     ALOGV("dalvik.vm.dex2oat-flags=%s\n", dex2oat_flags);
 
     // If we booting without the real /data, don't spend time compiling.
-    char vold_decrypt[PROPERTY_VALUE_MAX];
-    bool have_vold_decrypt = property_get("vold.decrypt", vold_decrypt, "") > 0;
+    char vold_decrypt[kPropertyValueMax];
+    bool have_vold_decrypt = get_property("vold.decrypt", vold_decrypt, "") > 0;
     bool skip_compilation = (have_vold_decrypt &&
                              (strcmp(vold_decrypt, "trigger_restart_min_framework") == 0 ||
                              (strcmp(vold_decrypt, "1") == 0)));
 
-    bool use_jit = check_boolean_property("debug.usejit");
-    bool generate_debug_info = check_boolean_property("debug.generate-debug-info");
+    bool generate_debug_info = property_get_bool("debug.generate-debug-info");
+
+    char app_image_format[kPropertyValueMax];
+    char image_format_arg[strlen("--image-format=") + kPropertyValueMax];
+    bool have_app_image_format =
+            image_fd >= 0 && get_property("dalvik.vm.appimageformat", app_image_format, NULL) > 0;
+    if (have_app_image_format) {
+        sprintf(image_format_arg, "--image-format=%s", app_image_format);
+    }
 
     static const char* DEX2OAT_BIN = "/system/bin/dex2oat";
 
@@ -818,15 +765,15 @@ static void run_dex2oat(int zip_fd, int oat_fd, const char* input_file_name,
     char oat_fd_arg[strlen("--oat-fd=") + MAX_INT_LEN];
     char oat_location_arg[strlen("--oat-location=") + PKG_PATH_MAX];
     char instruction_set_arg[strlen("--instruction-set=") + MAX_INSTRUCTION_SET_LEN];
-    char instruction_set_variant_arg[strlen("--instruction-set-variant=") + PROPERTY_VALUE_MAX];
-    char instruction_set_features_arg[strlen("--instruction-set-features=") + PROPERTY_VALUE_MAX];
-    char profile_file_arg[strlen("--profile-file=") + PKG_PATH_MAX];
-    char top_k_profile_threshold_arg[strlen("--top-k-profile-threshold=") + PROPERTY_VALUE_MAX];
-    char dex2oat_Xms_arg[strlen("-Xms") + PROPERTY_VALUE_MAX];
-    char dex2oat_Xmx_arg[strlen("-Xmx") + PROPERTY_VALUE_MAX];
-    char dex2oat_compiler_filter_arg[strlen("--compiler-filter=") + PROPERTY_VALUE_MAX];
+    char instruction_set_variant_arg[strlen("--instruction-set-variant=") + kPropertyValueMax];
+    char instruction_set_features_arg[strlen("--instruction-set-features=") + kPropertyValueMax];
+    char dex2oat_Xms_arg[strlen("-Xms") + kPropertyValueMax];
+    char dex2oat_Xmx_arg[strlen("-Xmx") + kPropertyValueMax];
+    char dex2oat_compiler_filter_arg[strlen("--compiler-filter=") + kPropertyValueMax];
     bool have_dex2oat_swap_fd = false;
     char dex2oat_swap_fd[strlen("--swap-fd=") + MAX_INT_LEN];
+    bool have_dex2oat_image_fd = false;
+    char dex2oat_image_fd[strlen("--app-image-fd=") + MAX_INT_LEN];
 
     sprintf(zip_fd_arg, "--zip-fd=%d", zip_fd);
     sprintf(zip_location_arg, "--zip-location=%s", input_file_name);
@@ -839,23 +786,9 @@ static void run_dex2oat(int zip_fd, int oat_fd, const char* input_file_name,
         have_dex2oat_swap_fd = true;
         sprintf(dex2oat_swap_fd, "--swap-fd=%d", swap_fd);
     }
-
-    bool have_profile_file = false;
-    bool have_top_k_profile_threshold = false;
-    if (profiler && (strcmp(pkgname, "*") != 0)) {
-        char profile_file[PKG_PATH_MAX];
-        snprintf(profile_file, sizeof(profile_file), "%s/%s",
-                 DALVIK_CACHE_PREFIX "profiles", pkgname);
-        struct stat st;
-        if ((stat(profile_file, &st) == 0) && (st.st_size > 0)) {
-            sprintf(profile_file_arg, "--profile-file=%s", profile_file);
-            have_profile_file = true;
-            if (property_get("dalvik.vm.profile.top-k-thr", prop_buf, NULL) > 0) {
-                snprintf(top_k_profile_threshold_arg, sizeof(top_k_profile_threshold_arg),
-                         "--top-k-profile-threshold=%s", prop_buf);
-                have_top_k_profile_threshold = true;
-            }
-        }
+    if (image_fd >= 0) {
+        have_dex2oat_image_fd = true;
+        sprintf(dex2oat_image_fd, "--app-image-fd=%d", image_fd);
     }
 
     if (have_dex2oat_Xms_flag) {
@@ -864,6 +797,10 @@ static void run_dex2oat(int zip_fd, int oat_fd, const char* input_file_name,
     if (have_dex2oat_Xmx_flag) {
         sprintf(dex2oat_Xmx_arg, "-Xmx%s", dex2oat_Xmx_flag);
     }
+
+    // Compute compiler filter.
+
+    bool have_dex2oat_compiler_filter_flag;
     if (skip_compilation) {
         strcpy(dex2oat_compiler_filter_arg, "--compiler-filter=verify-none");
         have_dex2oat_compiler_filter_flag = true;
@@ -871,36 +808,53 @@ static void run_dex2oat(int zip_fd, int oat_fd, const char* input_file_name,
     } else if (vm_safe_mode) {
         strcpy(dex2oat_compiler_filter_arg, "--compiler-filter=interpret-only");
         have_dex2oat_compiler_filter_flag = true;
-    } else if (use_jit) {
-        strcpy(dex2oat_compiler_filter_arg, "--compiler-filter=verify-at-runtime");
+    } else if (compiler_filter != nullptr &&
+            strlen(compiler_filter) + strlen("--compiler-filter=") <
+                    arraysize(dex2oat_compiler_filter_arg)) {
+        sprintf(dex2oat_compiler_filter_arg, "--compiler-filter=%s", compiler_filter);
         have_dex2oat_compiler_filter_flag = true;
-    } else if (have_dex2oat_compiler_filter_flag) {
-        sprintf(dex2oat_compiler_filter_arg, "--compiler-filter=%s", dex2oat_compiler_filter_flag);
+    } else {
+        char dex2oat_compiler_filter_flag[kPropertyValueMax];
+        have_dex2oat_compiler_filter_flag = get_property("dalvik.vm.dex2oat-filter",
+                                                         dex2oat_compiler_filter_flag, NULL) > 0;
+        if (have_dex2oat_compiler_filter_flag) {
+            sprintf(dex2oat_compiler_filter_arg,
+                    "--compiler-filter=%s",
+                    dex2oat_compiler_filter_flag);
+        }
     }
 
     // Check whether all apps should be compiled debuggable.
     if (!debuggable) {
+        char prop_buf[kPropertyValueMax];
         debuggable =
-                (property_get("dalvik.vm.always_debuggable", prop_buf, "0") > 0) &&
+                (get_property("dalvik.vm.always_debuggable", prop_buf, "0") > 0) &&
                 (prop_buf[0] == '1');
     }
+    char profile_arg[strlen("--profile-file-fd=") + MAX_INT_LEN];
+    if (profile_fd != -1) {
+        sprintf(profile_arg, "--profile-file-fd=%d", profile_fd);
+    }
+
 
     ALOGV("Running %s in=%s out=%s\n", DEX2OAT_BIN, input_file_name, output_file_name);
 
     const char* argv[7  // program name, mandatory arguments and the final NULL
                      + (have_dex2oat_isa_variant ? 1 : 0)
                      + (have_dex2oat_isa_features ? 1 : 0)
-                     + (have_profile_file ? 1 : 0)
-                     + (have_top_k_profile_threshold ? 1 : 0)
                      + (have_dex2oat_Xms_flag ? 2 : 0)
                      + (have_dex2oat_Xmx_flag ? 2 : 0)
                      + (have_dex2oat_compiler_filter_flag ? 1 : 0)
                      + (have_dex2oat_threads_flag ? 1 : 0)
                      + (have_dex2oat_swap_fd ? 1 : 0)
+                     + (have_dex2oat_image_fd ? 1 : 0)
                      + (have_dex2oat_relocation_skip_flag ? 2 : 0)
                      + (generate_debug_info ? 1 : 0)
                      + (debuggable ? 1 : 0)
-                     + dex2oat_flags_count];
+                     + (have_app_image_format ? 1 : 0)
+                     + dex2oat_flags_count
+                     + (profile_fd == -1 ? 0 : 1)
+                     + (shared_libraries != nullptr ? 4 : 0)];
     int i = 0;
     argv[i++] = DEX2OAT_BIN;
     argv[i++] = zip_fd_arg;
@@ -913,12 +867,6 @@ static void run_dex2oat(int zip_fd, int oat_fd, const char* input_file_name,
     }
     if (have_dex2oat_isa_features) {
         argv[i++] = instruction_set_features_arg;
-    }
-    if (have_profile_file) {
-        argv[i++] = profile_file_arg;
-    }
-    if (have_top_k_profile_threshold) {
-        argv[i++] = top_k_profile_threshold_arg;
     }
     if (have_dex2oat_Xms_flag) {
         argv[i++] = RUNTIME_ARG;
@@ -937,11 +885,17 @@ static void run_dex2oat(int zip_fd, int oat_fd, const char* input_file_name,
     if (have_dex2oat_swap_fd) {
         argv[i++] = dex2oat_swap_fd;
     }
+    if (have_dex2oat_image_fd) {
+        argv[i++] = dex2oat_image_fd;
+    }
     if (generate_debug_info) {
         argv[i++] = "--generate-debug-info";
     }
     if (debuggable) {
         argv[i++] = "--debuggable";
+    }
+    if (have_app_image_format) {
+        argv[i++] = image_format_arg;
     }
     if (dex2oat_flags_count) {
         i += split(dex2oat_flags, argv + i);
@@ -950,37 +904,20 @@ static void run_dex2oat(int zip_fd, int oat_fd, const char* input_file_name,
         argv[i++] = RUNTIME_ARG;
         argv[i++] = dex2oat_norelocation;
     }
+    if (profile_fd != -1) {
+        argv[i++] = profile_arg;
+    }
+    if (shared_libraries != nullptr) {
+        argv[i++] = RUNTIME_ARG;
+        argv[i++] = "-classpath";
+        argv[i++] = RUNTIME_ARG;
+        argv[i++] = shared_libraries;
+    }
     // Do not add after dex2oat_flags, they should override others for debugging.
     argv[i] = NULL;
 
     execv(DEX2OAT_BIN, (char * const *)argv);
     ALOGE("execv(%s) failed: %s\n", DEX2OAT_BIN, strerror(errno));
-}
-
-static int wait_child(pid_t pid)
-{
-    int status;
-    pid_t got_pid;
-
-    while (1) {
-        got_pid = waitpid(pid, &status, 0);
-        if (got_pid == -1 && errno == EINTR) {
-            printf("waitpid interrupted, retrying\n");
-        } else {
-            break;
-        }
-    }
-    if (got_pid != pid) {
-        ALOGW("waitpid failed: wanted %d, got %d: %s\n",
-            (int) pid, (int) got_pid, strerror(errno));
-        return 1;
-    }
-
-    if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
-        return 0;
-    } else {
-        return status;      /* always nonzero */
-    }
 }
 
 /*
@@ -1004,8 +941,8 @@ static bool ShouldUseSwapFileForDexopt() {
     }
 
     // Check the "override" property. If it exists, return value == "true".
-    char dex2oat_prop_buf[PROPERTY_VALUE_MAX];
-    if (property_get("dalvik.vm.dex2oat-swap", dex2oat_prop_buf, "") > 0) {
+    char dex2oat_prop_buf[kPropertyValueMax];
+    if (get_property("dalvik.vm.dex2oat-swap", dex2oat_prop_buf, "") > 0) {
         if (strcmp(dex2oat_prop_buf, "true") == 0) {
             return true;
         } else {
@@ -1020,7 +957,7 @@ static bool ShouldUseSwapFileForDexopt() {
         return true;
     }
 
-    bool is_low_mem = check_boolean_property("ro.config.low_ram");
+    bool is_low_mem = property_get_bool("ro.config.low_ram");
     if (is_low_mem) {
         return true;
     }
@@ -1029,74 +966,465 @@ static bool ShouldUseSwapFileForDexopt() {
     return kDefaultProvideSwapFile;
 }
 
-/*
- * Computes the odex file for the given apk_path and instruction_set.
- * /system/framework/whatever.jar -> /system/framework/oat/<isa>/whatever.odex
- *
- * Returns false if it failed to determine the odex file path.
- */
-static bool calculate_odex_file_path(char path[PKG_PATH_MAX],
-                                     const char *apk_path,
-                                     const char *instruction_set)
-{
-    if (strlen(apk_path) + strlen("oat/") + strlen(instruction_set)
-        + strlen("/") + strlen("odex") + 1 > PKG_PATH_MAX) {
-      ALOGE("apk_path '%s' may be too long to form odex file path.\n", apk_path);
-      return false;
+static void SetDex2OatAndPatchOatScheduling(bool set_to_bg) {
+    if (set_to_bg) {
+        if (set_sched_policy(0, SP_BACKGROUND) < 0) {
+            ALOGE("set_sched_policy failed: %s\n", strerror(errno));
+            exit(70);
+        }
+        if (setpriority(PRIO_PROCESS, 0, ANDROID_PRIORITY_BACKGROUND) < 0) {
+            ALOGE("setpriority failed: %s\n", strerror(errno));
+            exit(71);
+        }
+    }
+}
+
+static void close_all_fds(const std::vector<fd_t>& fds, const char* description) {
+    for (size_t i = 0; i < fds.size(); i++) {
+        if (close(fds[i]) != 0) {
+            PLOG(WARNING) << "Failed to close fd for " << description << " at index " << i;
+        }
+    }
+}
+
+static fd_t open_profile_dir(const std::string& profile_dir) {
+    fd_t profile_dir_fd = TEMP_FAILURE_RETRY(open(profile_dir.c_str(),
+            O_PATH | O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW));
+    if (profile_dir_fd < 0) {
+        // In a multi-user environment, these directories can be created at
+        // different points and it's possible we'll attempt to open a profile
+        // dir before it exists.
+        if (errno != ENOENT) {
+            PLOG(ERROR) << "Failed to open profile_dir: " << profile_dir;
+        }
+    }
+    return profile_dir_fd;
+}
+
+static fd_t open_primary_profile_file_from_dir(const std::string& profile_dir, mode_t open_mode) {
+    fd_t profile_dir_fd  = open_profile_dir(profile_dir);
+    if (profile_dir_fd < 0) {
+        return -1;
     }
 
-    strcpy(path, apk_path);
-    char *end = strrchr(path, '/');
-    if (end == NULL) {
-      ALOGE("apk_path '%s' has no '/'s in it?!\n", apk_path);
-      return false;
-    }
-    const char *apk_end = apk_path + (end - path); // strrchr(apk_path, '/');
+    fd_t profile_fd = -1;
+    std::string profile_file = create_primary_profile(profile_dir);
 
-    strcpy(end + 1, "oat/");       // path = /system/framework/oat/\0
-    strcat(path, instruction_set); // path = /system/framework/oat/<isa>\0
-    strcat(path, apk_end);         // path = /system/framework/oat/<isa>/whatever.jar\0
-    end = strrchr(path, '.');
-    if (end == NULL) {
-      ALOGE("apk_path '%s' has no extension.\n", apk_path);
-      return false;
+    profile_fd = TEMP_FAILURE_RETRY(open(profile_file.c_str(), open_mode | O_NOFOLLOW));
+    if (profile_fd == -1) {
+        // It's not an error if the profile file does not exist.
+        if (errno != ENOENT) {
+            PLOG(ERROR) << "Failed to lstat profile_dir: " << profile_dir;
+        }
     }
-    strcpy(end + 1, "odex");
+    // TODO(calin): use AutoCloseFD instead of closing the fd manually.
+    if (close(profile_dir_fd) != 0) {
+        PLOG(WARNING) << "Could not close profile dir " << profile_dir;
+    }
+    return profile_fd;
+}
+
+static fd_t open_primary_profile_file(userid_t user, const char* pkgname) {
+    std::string profile_dir = create_data_user_profile_package_path(user, pkgname);
+    return open_primary_profile_file_from_dir(profile_dir, O_RDONLY);
+}
+
+static fd_t open_reference_profile(uid_t uid, const char* pkgname, bool read_write) {
+    std::string reference_profile_dir = create_data_ref_profile_package_path(pkgname);
+    int flags = read_write ? O_RDWR | O_CREAT : O_RDONLY;
+    fd_t fd = open_primary_profile_file_from_dir(reference_profile_dir, flags);
+    if (fd < 0) {
+        return -1;
+    }
+    if (read_write) {
+        // Fix the owner.
+        if (fchown(fd, uid, uid) < 0) {
+            close(fd);
+            return -1;
+        }
+    }
+    return fd;
+}
+
+static void open_profile_files(uid_t uid, const char* pkgname,
+            /*out*/ std::vector<fd_t>* profiles_fd, /*out*/ fd_t* reference_profile_fd) {
+    // Open the reference profile in read-write mode as profman might need to save the merge.
+    *reference_profile_fd = open_reference_profile(uid, pkgname, /*read_write*/ true);
+    if (*reference_profile_fd < 0) {
+        // We can't access the reference profile file.
+        return;
+    }
+
+    std::vector<userid_t> users = get_known_users(/*volume_uuid*/ nullptr);
+    for (auto user : users) {
+        fd_t profile_fd = open_primary_profile_file(user, pkgname);
+        // Add to the lists only if both fds are valid.
+        if (profile_fd >= 0) {
+            profiles_fd->push_back(profile_fd);
+        }
+    }
+}
+
+static void drop_capabilities(uid_t uid) {
+    if (setgid(uid) != 0) {
+        ALOGE("setgid(%d) failed in installd during dexopt\n", uid);
+        exit(64);
+    }
+    if (setuid(uid) != 0) {
+        ALOGE("setuid(%d) failed in installd during dexopt\n", uid);
+        exit(65);
+    }
+    // drop capabilities
+    struct __user_cap_header_struct capheader;
+    struct __user_cap_data_struct capdata[2];
+    memset(&capheader, 0, sizeof(capheader));
+    memset(&capdata, 0, sizeof(capdata));
+    capheader.version = _LINUX_CAPABILITY_VERSION_3;
+    if (capset(&capheader, &capdata[0]) < 0) {
+        ALOGE("capset failed: %s\n", strerror(errno));
+        exit(66);
+    }
+}
+
+static constexpr int PROFMAN_BIN_RETURN_CODE_COMPILE = 0;
+static constexpr int PROFMAN_BIN_RETURN_CODE_SKIP_COMPILATION = 1;
+static constexpr int PROFMAN_BIN_RETURN_CODE_BAD_PROFILES = 2;
+static constexpr int PROFMAN_BIN_RETURN_CODE_ERROR_IO = 3;
+static constexpr int PROFMAN_BIN_RETURN_CODE_ERROR_LOCKING = 4;
+
+static void run_profman_merge(const std::vector<fd_t>& profiles_fd, fd_t reference_profile_fd) {
+    static const size_t MAX_INT_LEN = 32;
+    static const char* PROFMAN_BIN = "/system/bin/profman";
+
+    std::vector<std::string> profile_args(profiles_fd.size());
+    char profile_buf[strlen("--profile-file-fd=") + MAX_INT_LEN];
+    for (size_t k = 0; k < profiles_fd.size(); k++) {
+        sprintf(profile_buf, "--profile-file-fd=%d", profiles_fd[k]);
+        profile_args[k].assign(profile_buf);
+    }
+    char reference_profile_arg[strlen("--reference-profile-file-fd=") + MAX_INT_LEN];
+    sprintf(reference_profile_arg, "--reference-profile-file-fd=%d", reference_profile_fd);
+
+    // program name, reference profile fd, the final NULL and the profile fds
+    const char* argv[3 + profiles_fd.size()];
+    int i = 0;
+    argv[i++] = PROFMAN_BIN;
+    argv[i++] = reference_profile_arg;
+    for (size_t k = 0; k < profile_args.size(); k++) {
+        argv[i++] = profile_args[k].c_str();
+    }
+    // Do not add after dex2oat_flags, they should override others for debugging.
+    argv[i] = NULL;
+
+    execv(PROFMAN_BIN, (char * const *)argv);
+    ALOGE("execv(%s) failed: %s\n", PROFMAN_BIN, strerror(errno));
+    exit(68);   /* only get here on exec failure */
+}
+
+// Decides if profile guided compilation is needed or not based on existing profiles.
+// Returns true if there is enough information in the current profiles that worth
+// a re-compilation of the package.
+// If the return value is true all the current profiles would have been merged into
+// the reference profiles accessible with open_reference_profile().
+static bool analyse_profiles(uid_t uid, const char* pkgname) {
+    std::vector<fd_t> profiles_fd;
+    fd_t reference_profile_fd = -1;
+    open_profile_files(uid, pkgname, &profiles_fd, &reference_profile_fd);
+    if (profiles_fd.empty() || (reference_profile_fd == -1)) {
+        // Skip profile guided compilation because no profiles were found.
+        // Or if the reference profile info couldn't be opened.
+        close_all_fds(profiles_fd, "profiles_fd");
+        if ((reference_profile_fd != - 1) && (close(reference_profile_fd) != 0)) {
+            PLOG(WARNING) << "Failed to close fd for reference profile";
+        }
+        return false;
+    }
+
+    ALOGV("PROFMAN (MERGE): --- BEGIN '%s' ---\n", pkgname);
+
+    pid_t pid = fork();
+    if (pid == 0) {
+        /* child -- drop privileges before continuing */
+        drop_capabilities(uid);
+        run_profman_merge(profiles_fd, reference_profile_fd);
+        exit(68);   /* only get here on exec failure */
+    }
+    /* parent */
+    int return_code = wait_child(pid);
+    bool need_to_compile = false;
+    bool should_clear_current_profiles = false;
+    bool should_clear_reference_profile = false;
+    if (!WIFEXITED(return_code)) {
+        LOG(WARNING) << "profman failed for package " << pkgname << ": " << return_code;
+    } else {
+        return_code = WEXITSTATUS(return_code);
+        switch (return_code) {
+            case PROFMAN_BIN_RETURN_CODE_COMPILE:
+                need_to_compile = true;
+                should_clear_current_profiles = true;
+                should_clear_reference_profile = false;
+                break;
+            case PROFMAN_BIN_RETURN_CODE_SKIP_COMPILATION:
+                need_to_compile = false;
+                should_clear_current_profiles = false;
+                should_clear_reference_profile = false;
+                break;
+            case PROFMAN_BIN_RETURN_CODE_BAD_PROFILES:
+                LOG(WARNING) << "Bad profiles for package " << pkgname;
+                need_to_compile = false;
+                should_clear_current_profiles = true;
+                should_clear_reference_profile = true;
+                break;
+            case PROFMAN_BIN_RETURN_CODE_ERROR_IO:  // fall-through
+            case PROFMAN_BIN_RETURN_CODE_ERROR_LOCKING:
+                // Temporary IO problem (e.g. locking). Ignore but log a warning.
+                LOG(WARNING) << "IO error while reading profiles for package " << pkgname;
+                need_to_compile = false;
+                should_clear_current_profiles = false;
+                should_clear_reference_profile = false;
+                break;
+           default:
+                // Unknown return code or error. Unlink profiles.
+                LOG(WARNING) << "Unknown error code while processing profiles for package " << pkgname
+                        << ": " << return_code;
+                need_to_compile = false;
+                should_clear_current_profiles = true;
+                should_clear_reference_profile = true;
+                break;
+        }
+    }
+    close_all_fds(profiles_fd, "profiles_fd");
+    if (close(reference_profile_fd) != 0) {
+        PLOG(WARNING) << "Failed to close fd for reference profile";
+    }
+    if (should_clear_current_profiles) {
+        clear_current_profiles(pkgname);
+    }
+    if (should_clear_reference_profile) {
+        clear_reference_profile(pkgname);
+    }
+    return need_to_compile;
+}
+
+static void run_profman_dump(const std::vector<fd_t>& profile_fds,
+                             fd_t reference_profile_fd,
+                             const std::vector<std::string>& dex_locations,
+                             const std::vector<fd_t>& apk_fds,
+                             fd_t output_fd) {
+    std::vector<std::string> profman_args;
+    static const char* PROFMAN_BIN = "/system/bin/profman";
+    profman_args.push_back(PROFMAN_BIN);
+    profman_args.push_back("--dump-only");
+    profman_args.push_back(StringPrintf("--dump-output-to-fd=%d", output_fd));
+    if (reference_profile_fd != -1) {
+        profman_args.push_back(StringPrintf("--reference-profile-file-fd=%d",
+                                            reference_profile_fd));
+    }
+    for (fd_t profile_fd : profile_fds) {
+        profman_args.push_back(StringPrintf("--profile-file-fd=%d", profile_fd));
+    }
+    for (const std::string& dex_location : dex_locations) {
+        profman_args.push_back(StringPrintf("--dex-location=%s", dex_location.c_str()));
+    }
+    for (fd_t apk_fd : apk_fds) {
+        profman_args.push_back(StringPrintf("--apk-fd=%d", apk_fd));
+    }
+    const char **argv = new const char*[profman_args.size() + 1];
+    size_t i = 0;
+    for (const std::string& profman_arg : profman_args) {
+        argv[i++] = profman_arg.c_str();
+    }
+    argv[i] = NULL;
+
+    execv(PROFMAN_BIN, (char * const *)argv);
+    ALOGE("execv(%s) failed: %s\n", PROFMAN_BIN, strerror(errno));
+    exit(68);   /* only get here on exec failure */
+}
+
+static const char* get_location_from_path(const char* path) {
+    static constexpr char kLocationSeparator = '/';
+    const char *location = strrchr(path, kLocationSeparator);
+    if (location == NULL) {
+        return path;
+    } else {
+        // Skip the separator character.
+        return location + 1;
+    }
+}
+
+// Dumps the contents of a profile file, using pkgname's dex files for pretty
+// printing the result.
+bool dump_profile(uid_t uid, const char* pkgname, const char* code_path_string) {
+    std::vector<fd_t> profile_fds;
+    fd_t reference_profile_fd = -1;
+    std::string out_file_name = StringPrintf("/data/misc/profman/%s.txt", pkgname);
+
+    ALOGV("PROFMAN (DUMP): --- BEGIN '%s' ---\n", pkgname);
+
+    open_profile_files(uid, pkgname, &profile_fds, &reference_profile_fd);
+
+    const bool has_reference_profile = (reference_profile_fd != -1);
+    const bool has_profiles = !profile_fds.empty();
+
+    if (!has_reference_profile && !has_profiles) {
+        ALOGE("profman dump: no profiles to dump for '%s'", pkgname);
+        return false;
+    }
+
+    fd_t output_fd = open(out_file_name.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW);
+    if (fchmod(output_fd, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH) < 0) {
+        ALOGE("installd cannot chmod '%s' dump_profile\n", out_file_name.c_str());
+        return false;
+    }
+    std::vector<std::string> code_full_paths = base::Split(code_path_string, ";");
+    std::vector<std::string> dex_locations;
+    std::vector<fd_t> apk_fds;
+    for (const std::string& code_full_path : code_full_paths) {
+        const char* full_path = code_full_path.c_str();
+        fd_t apk_fd = open(full_path, O_RDONLY | O_NOFOLLOW);
+        if (apk_fd == -1) {
+            ALOGE("installd cannot open '%s'\n", full_path);
+            return false;
+        }
+        dex_locations.push_back(get_location_from_path(full_path));
+        apk_fds.push_back(apk_fd);
+    }
+
+    pid_t pid = fork();
+    if (pid == 0) {
+        /* child -- drop privileges before continuing */
+        drop_capabilities(uid);
+        run_profman_dump(profile_fds, reference_profile_fd, dex_locations,
+                         apk_fds, output_fd);
+        exit(68);   /* only get here on exec failure */
+    }
+    /* parent */
+    close_all_fds(apk_fds, "apk_fds");
+    close_all_fds(profile_fds, "profile_fds");
+    if (close(reference_profile_fd) != 0) {
+        PLOG(WARNING) << "Failed to close fd for reference profile";
+    }
+    int return_code = wait_child(pid);
+    if (!WIFEXITED(return_code)) {
+        LOG(WARNING) << "profman failed for package " << pkgname << ": "
+                << return_code;
+        return false;
+    }
     return true;
 }
 
-int dexopt(const char *apk_path, uid_t uid, bool is_public,
-           const char *pkgname, const char *instruction_set, int dexopt_needed,
-           bool vm_safe_mode, bool debuggable, const char* oat_dir)
-{
-    struct utimbuf ut;
-    struct stat input_stat;
-    char out_path[PKG_PATH_MAX];
-    char swap_file_name[PKG_PATH_MAX];
-    const char *input_file;
-    char in_odex_path[PKG_PATH_MAX];
-    int res, input_fd=-1, out_fd=-1, swap_fd=-1;
+static void trim_extension(char* path) {
+  // Trim the extension.
+  int pos = strlen(path);
+  for (; pos >= 0 && path[pos] != '.'; --pos) {}
+  if (pos >= 0) {
+      path[pos] = '\0';  // Trim extension
+  }
+}
 
+static bool add_extension_to_file_name(char* file_name, const char* extension) {
+    if (strlen(file_name) + strlen(extension) + 1 > PKG_PATH_MAX) {
+        return false;
+    }
+    strcat(file_name, extension);
+    return true;
+}
+
+static int open_output_file(char* file_name, bool recreate, int permissions) {
+    int flags = O_RDWR | O_CREAT;
+    if (recreate) {
+        if (unlink(file_name) < 0) {
+            if (errno != ENOENT) {
+                PLOG(ERROR) << "open_output_file: Couldn't unlink " << file_name;
+            }
+        }
+        flags |= O_EXCL;
+    }
+    return open(file_name, flags, permissions);
+}
+
+static bool set_permissions_and_ownership(int fd, bool is_public, int uid, const char* path) {
+    if (fchmod(fd,
+               S_IRUSR|S_IWUSR|S_IRGRP |
+               (is_public ? S_IROTH : 0)) < 0) {
+        ALOGE("installd cannot chmod '%s' during dexopt\n", path);
+        return false;
+    } else if (fchown(fd, AID_SYSTEM, uid) < 0) {
+        ALOGE("installd cannot chown '%s' during dexopt\n", path);
+        return false;
+    }
+    return true;
+}
+
+static bool create_oat_out_path(const char* apk_path, const char* instruction_set,
+            const char* oat_dir, /*out*/ char* out_path) {
     // Early best-effort check whether we can fit the the path into our buffers.
     // Note: the cache path will require an additional 5 bytes for ".swap", but we'll try to run
-    // without a swap file, if necessary.
+    // without a swap file, if necessary. Reference profiles file also add an extra ".prof"
+    // extension to the cache path (5 bytes).
     if (strlen(apk_path) >= (PKG_PATH_MAX - 8)) {
         ALOGE("apk_path too long '%s'\n", apk_path);
-        return -1;
+        return false;
     }
 
     if (oat_dir != NULL && oat_dir[0] != '!') {
         if (validate_apk_path(oat_dir)) {
             ALOGE("invalid oat_dir '%s'\n", oat_dir);
-            return -1;
+            return false;
         }
-        if (calculate_oat_file_path(out_path, oat_dir, apk_path, instruction_set)) {
-            return -1;
+        if (!calculate_oat_file_path(out_path, oat_dir, apk_path, instruction_set)) {
+            return false;
         }
     } else {
-        if (create_cache_path(out_path, apk_path, instruction_set)) {
-            return -1;
+        if (!create_cache_path(out_path, apk_path, instruction_set)) {
+            return false;
         }
+    }
+    return true;
+}
+
+// TODO: Consider returning error codes.
+bool merge_profiles(uid_t uid, const char *pkgname) {
+    return analyse_profiles(uid, pkgname);
+}
+
+int dexopt(const char* apk_path, uid_t uid, const char* pkgname, const char* instruction_set,
+           int dexopt_needed, const char* oat_dir, int dexopt_flags, const char* compiler_filter,
+           const char* volume_uuid ATTRIBUTE_UNUSED, const char* shared_libraries)
+{
+    struct utimbuf ut;
+    struct stat input_stat;
+    char out_path[PKG_PATH_MAX];
+    char swap_file_name[PKG_PATH_MAX];
+    char image_path[PKG_PATH_MAX];
+    const char *input_file;
+    char in_odex_path[PKG_PATH_MAX];
+    int res;
+    fd_t input_fd=-1, out_fd=-1, image_fd=-1, swap_fd=-1;
+    bool is_public = ((dexopt_flags & DEXOPT_PUBLIC) != 0);
+    bool vm_safe_mode = (dexopt_flags & DEXOPT_SAFEMODE) != 0;
+    bool debuggable = (dexopt_flags & DEXOPT_DEBUGGABLE) != 0;
+    bool boot_complete = (dexopt_flags & DEXOPT_BOOTCOMPLETE) != 0;
+    bool profile_guided = (dexopt_flags & DEXOPT_PROFILE_GUIDED) != 0;
+
+    CHECK(pkgname != nullptr);
+    CHECK(pkgname[0] != 0);
+
+    fd_t reference_profile_fd = -1;
+    // Public apps should not be compiled with profile information ever. Same goes for the special
+    // package '*' used for the system server.
+    if (!is_public && pkgname[0] != '*') {
+        // Open reference profile in read only mode as dex2oat does not get write permissions.
+        reference_profile_fd = open_reference_profile(uid, pkgname, /*read_write*/ false);
+        // Note: it's OK to not find a profile here.
+    }
+
+    if ((dexopt_flags & ~DEXOPT_MASK) != 0) {
+        LOG_FATAL("dexopt flags contains unknown fields\n");
+    }
+
+    if (!create_oat_out_path(apk_path, instruction_set, oat_dir, out_path)) {
+        return false;
     }
 
     switch (dexopt_needed) {
@@ -1129,49 +1457,62 @@ int dexopt(const char *apk_path, uid_t uid, bool is_public,
         return -1;
     }
 
-    unlink(out_path);
-    out_fd = open(out_path, O_RDWR | O_CREAT | O_EXCL, 0644);
+    out_fd = open_output_file(out_path, /*recreate*/true, /*permissions*/0644);
     if (out_fd < 0) {
         ALOGE("installd cannot open '%s' for output during dexopt\n", out_path);
         goto fail;
     }
-    if (fchmod(out_fd,
-               S_IRUSR|S_IWUSR|S_IRGRP |
-               (is_public ? S_IROTH : 0)) < 0) {
-        ALOGE("installd cannot chmod '%s' during dexopt\n", out_path);
+    if (!set_permissions_and_ownership(out_fd, is_public, uid, out_path)) {
         goto fail;
-    }
-    if (fchown(out_fd, AID_SYSTEM, uid) < 0) {
-        ALOGE("installd cannot chown '%s' during dexopt\n", out_path);
-        goto fail;
-    }
-
-    // Create profile file if there is a package name present.
-    if (strcmp(pkgname, "*") != 0) {
-        create_profile_file(pkgname, uid);
     }
 
     // Create a swap file if necessary.
     if (ShouldUseSwapFileForDexopt()) {
         // Make sure there really is enough space.
-        size_t out_len = strlen(out_path);
-        if (out_len + strlen(".swap") + 1 <= PKG_PATH_MAX) {
-            strcpy(swap_file_name, out_path);
-            strcpy(swap_file_name + strlen(out_path), ".swap");
-            unlink(swap_file_name);
-            swap_fd = open(swap_file_name, O_RDWR | O_CREAT | O_EXCL, 0600);
-            if (swap_fd < 0) {
-                // Could not create swap file. Optimistically go on and hope that we can compile
-                // without it.
-                ALOGE("installd could not create '%s' for swap during dexopt\n", swap_file_name);
-            } else {
-                // Immediately unlink. We don't really want to hit flash.
-                unlink(swap_file_name);
-            }
-        } else {
-            // Swap file path is too long. Try to run without.
-            ALOGE("installd could not create swap file for path %s during dexopt\n", out_path);
+        strcpy(swap_file_name, out_path);
+        if (add_extension_to_file_name(swap_file_name, ".swap")) {
+            swap_fd = open_output_file(swap_file_name, /*recreate*/true, /*permissions*/0600);
         }
+        if (swap_fd < 0) {
+            // Could not create swap file. Optimistically go on and hope that we can compile
+            // without it.
+            ALOGE("installd could not create '%s' for swap during dexopt\n", swap_file_name);
+        } else {
+            // Immediately unlink. We don't really want to hit flash.
+            if (unlink(swap_file_name) < 0) {
+                PLOG(ERROR) << "Couldn't unlink swap file " << swap_file_name;
+            }
+        }
+    }
+
+    // Avoid generating an app image for extract only since it will not contain any classes.
+    strcpy(image_path, out_path);
+    trim_extension(image_path);
+    if (add_extension_to_file_name(image_path, ".art")) {
+      char app_image_format[kPropertyValueMax];
+      bool have_app_image_format =
+              get_property("dalvik.vm.appimageformat", app_image_format, NULL) > 0;
+      // Use app images only if it is enabled (by a set image format) and we are compiling
+      // profile-guided (so the app image doesn't conservatively contain all classes).
+      if (profile_guided && have_app_image_format) {
+          // Recreate is true since we do not want to modify a mapped image. If the app is already
+          // running and we modify the image file, it can cause crashes (b/27493510).
+          image_fd = open_output_file(image_path, /*recreate*/true, /*permissions*/0600);
+          if (image_fd < 0) {
+              // Could not create application image file. Go on since we can compile without it.
+              ALOGE("installd could not create '%s' for image file during dexopt\n", image_path);
+          } else if (!set_permissions_and_ownership(image_fd, is_public, uid, image_path)) {
+              image_fd = -1;
+          }
+      }
+      // If we have a valid image file path but no image fd, erase the image file.
+      if (image_fd < 0) {
+          if (unlink(image_path) < 0) {
+              if (errno != ENOENT) {
+                  PLOG(ERROR) << "Couldn't unlink image file " << image_path;
+              }
+          }
+      }
     }
 
     ALOGV("DexInv: --- BEGIN '%s' ---\n", input_file);
@@ -1180,32 +1521,9 @@ int dexopt(const char *apk_path, uid_t uid, bool is_public,
     pid = fork();
     if (pid == 0) {
         /* child -- drop privileges before continuing */
-        if (setgid(uid) != 0) {
-            ALOGE("setgid(%d) failed in installd during dexopt\n", uid);
-            exit(64);
-        }
-        if (setuid(uid) != 0) {
-            ALOGE("setuid(%d) failed in installd during dexopt\n", uid);
-            exit(65);
-        }
-        // drop capabilities
-        struct __user_cap_header_struct capheader;
-        struct __user_cap_data_struct capdata[2];
-        memset(&capheader, 0, sizeof(capheader));
-        memset(&capdata, 0, sizeof(capdata));
-        capheader.version = _LINUX_CAPABILITY_VERSION_3;
-        if (capset(&capheader, &capdata[0]) < 0) {
-            ALOGE("capset failed: %s\n", strerror(errno));
-            exit(66);
-        }
-        if (set_sched_policy(0, SP_BACKGROUND) < 0) {
-            ALOGE("set_sched_policy failed: %s\n", strerror(errno));
-            exit(70);
-        }
-        if (setpriority(PRIO_PROCESS, 0, ANDROID_PRIORITY_BACKGROUND) < 0) {
-            ALOGE("setpriority failed: %s\n", strerror(errno));
-            exit(71);
-        }
+        drop_capabilities(uid);
+
+        SetDex2OatAndPatchOatScheduling(boot_complete);
         if (flock(out_fd, LOCK_EX | LOCK_NB) != 0) {
             ALOGE("flock(%s) failed: %s\n", out_path, strerror(errno));
             exit(67);
@@ -1215,14 +1533,11 @@ int dexopt(const char *apk_path, uid_t uid, bool is_public,
             || dexopt_needed == DEXOPT_SELF_PATCHOAT_NEEDED) {
             run_patchoat(input_fd, out_fd, input_file, out_path, pkgname, instruction_set);
         } else if (dexopt_needed == DEXOPT_DEX2OAT_NEEDED) {
-            const char *input_file_name = strrchr(input_file, '/');
-            if (input_file_name == NULL) {
-                input_file_name = input_file;
-            } else {
-                input_file_name++;
-            }
-            run_dex2oat(input_fd, out_fd, input_file_name, out_path, swap_fd, pkgname,
-                        instruction_set, vm_safe_mode, debuggable);
+            // Pass dex2oat the relative path to the input file.
+            const char *input_file_name = get_location_from_path(input_file);
+            run_dex2oat(input_fd, out_fd, image_fd, input_file_name, out_path, swap_fd,
+                        instruction_set, compiler_filter, vm_safe_mode, debuggable, boot_complete,
+                        reference_profile_fd, shared_libraries);
         } else {
             ALOGE("Invalid dexopt needed: %d\n", dexopt_needed);
             exit(73);
@@ -1244,8 +1559,14 @@ int dexopt(const char *apk_path, uid_t uid, bool is_public,
 
     close(out_fd);
     close(input_fd);
-    if (swap_fd != -1) {
+    if (swap_fd >= 0) {
         close(swap_fd);
+    }
+    if (reference_profile_fd >= 0) {
+        close(reference_profile_fd);
+    }
+    if (image_fd >= 0) {
+        close(image_fd);
     }
     return 0;
 
@@ -1257,13 +1578,29 @@ fail:
     if (input_fd >= 0) {
         close(input_fd);
     }
+    if (reference_profile_fd >= 0) {
+        close(reference_profile_fd);
+        // We failed to compile. Unlink the reference profile. Current profiles are already unlinked
+        // when profmoan advises compilation.
+        clear_reference_profile(pkgname);
+    }
+    if (swap_fd >= 0) {
+        close(swap_fd);
+    }
+    if (image_fd >= 0) {
+        close(image_fd);
+    }
     return -1;
 }
 
 int mark_boot_complete(const char* instruction_set)
 {
   char boot_marker_path[PKG_PATH_MAX];
-  sprintf(boot_marker_path,"%s%s/.booting", DALVIK_CACHE_PREFIX, instruction_set);
+  sprintf(boot_marker_path,
+          "%s/%s/%s/.booting",
+          android_data_dir.path,
+          DALVIK_CACHE,
+          instruction_set);
 
   ALOGV("mark_boot_complete : %s", boot_marker_path);
   if (unlink(boot_marker_path) != 0) {
@@ -1296,251 +1633,12 @@ void mkinnerdirs(char* path, int basepos, mode_t mode, int uid, int gid,
     }
 }
 
-int movefileordir(char* srcpath, char* dstpath, int dstbasepos,
-        int dstuid, int dstgid, struct stat* statbuf)
-{
-    DIR *d;
-    struct dirent *de;
-    int res;
-
-    int srcend = strlen(srcpath);
-    int dstend = strlen(dstpath);
-
-    if (lstat(srcpath, statbuf) < 0) {
-        ALOGW("Unable to stat %s: %s\n", srcpath, strerror(errno));
-        return 1;
-    }
-
-    if ((statbuf->st_mode&S_IFDIR) == 0) {
-        mkinnerdirs(dstpath, dstbasepos, S_IRWXU|S_IRWXG|S_IXOTH,
-                dstuid, dstgid, statbuf);
-        ALOGV("Renaming %s to %s (uid %d)\n", srcpath, dstpath, dstuid);
-        if (rename(srcpath, dstpath) >= 0) {
-            if (chown(dstpath, dstuid, dstgid) < 0) {
-                ALOGE("cannot chown %s: %s\n", dstpath, strerror(errno));
-                unlink(dstpath);
-                return 1;
-            }
-        } else {
-            ALOGW("Unable to rename %s to %s: %s\n",
-                srcpath, dstpath, strerror(errno));
-            return 1;
-        }
-        return 0;
-    }
-
-    d = opendir(srcpath);
-    if (d == NULL) {
-        ALOGW("Unable to opendir %s: %s\n", srcpath, strerror(errno));
-        return 1;
-    }
-
-    res = 0;
-
-    while ((de = readdir(d))) {
-        const char *name = de->d_name;
-            /* always skip "." and ".." */
-        if (name[0] == '.') {
-            if (name[1] == 0) continue;
-            if ((name[1] == '.') && (name[2] == 0)) continue;
-        }
-
-        if ((srcend+strlen(name)) >= (PKG_PATH_MAX-2)) {
-            ALOGW("Source path too long; skipping: %s/%s\n", srcpath, name);
-            continue;
-        }
-
-        if ((dstend+strlen(name)) >= (PKG_PATH_MAX-2)) {
-            ALOGW("Destination path too long; skipping: %s/%s\n", dstpath, name);
-            continue;
-        }
-
-        srcpath[srcend] = dstpath[dstend] = '/';
-        strcpy(srcpath+srcend+1, name);
-        strcpy(dstpath+dstend+1, name);
-
-        if (movefileordir(srcpath, dstpath, dstbasepos, dstuid, dstgid, statbuf) != 0) {
-            res = 1;
-        }
-
-        // Note: we will be leaving empty directories behind in srcpath,
-        // but that is okay, the package manager will be erasing all of the
-        // data associated with .apks that disappear.
-
-        srcpath[srcend] = dstpath[dstend] = 0;
-    }
-
-    closedir(d);
-    return res;
-}
-
-int movefiles()
-{
-    DIR *d;
-    int dfd, subfd;
-    struct dirent *de;
-    struct stat s;
-    char buf[PKG_PATH_MAX+1];
-    int bufp, bufe, bufi, readlen;
-
-    char srcpkg[PKG_NAME_MAX];
-    char dstpkg[PKG_NAME_MAX];
-    char srcpath[PKG_PATH_MAX];
-    char dstpath[PKG_PATH_MAX];
-    int dstuid=-1, dstgid=-1;
-    int hasspace;
-
-    d = opendir(UPDATE_COMMANDS_DIR_PREFIX);
-    if (d == NULL) {
-        goto done;
-    }
-    dfd = dirfd(d);
-
-        /* Iterate through all files in the directory, executing the
-         * file movements requested there-in.
-         */
-    while ((de = readdir(d))) {
-        const char *name = de->d_name;
-
-        if (de->d_type == DT_DIR) {
-            continue;
-        } else {
-            subfd = openat(dfd, name, O_RDONLY);
-            if (subfd < 0) {
-                ALOGW("Unable to open update commands at %s%s\n",
-                        UPDATE_COMMANDS_DIR_PREFIX, name);
-                continue;
-            }
-
-            bufp = 0;
-            bufe = 0;
-            buf[PKG_PATH_MAX] = 0;
-            srcpkg[0] = dstpkg[0] = 0;
-            while (1) {
-                bufi = bufp;
-                while (bufi < bufe && buf[bufi] != '\n') {
-                    bufi++;
-                }
-                if (bufi < bufe) {
-                    buf[bufi] = 0;
-                    ALOGV("Processing line: %s\n", buf+bufp);
-                    hasspace = 0;
-                    while (bufp < bufi && isspace(buf[bufp])) {
-                        hasspace = 1;
-                        bufp++;
-                    }
-                    if (buf[bufp] == '#' || bufp == bufi) {
-                        // skip comments and empty lines.
-                    } else if (hasspace) {
-                        if (dstpkg[0] == 0) {
-                            ALOGW("Path before package line in %s%s: %s\n",
-                                    UPDATE_COMMANDS_DIR_PREFIX, name, buf+bufp);
-                        } else if (srcpkg[0] == 0) {
-                            // Skip -- source package no longer exists.
-                        } else {
-                            ALOGV("Move file: %s (from %s to %s)\n", buf+bufp, srcpkg, dstpkg);
-                            if (!create_move_path(srcpath, srcpkg, buf+bufp, 0) &&
-                                    !create_move_path(dstpath, dstpkg, buf+bufp, 0)) {
-                                movefileordir(srcpath, dstpath,
-                                        strlen(dstpath)-strlen(buf+bufp),
-                                        dstuid, dstgid, &s);
-                            }
-                        }
-                    } else {
-                        char* div = strchr(buf+bufp, ':');
-                        if (div == NULL) {
-                            ALOGW("Bad package spec in %s%s; no ':' sep: %s\n",
-                                    UPDATE_COMMANDS_DIR_PREFIX, name, buf+bufp);
-                        } else {
-                            *div = 0;
-                            div++;
-                            if (strlen(buf+bufp) < PKG_NAME_MAX) {
-                                strcpy(dstpkg, buf+bufp);
-                            } else {
-                                srcpkg[0] = dstpkg[0] = 0;
-                                ALOGW("Package name too long in %s%s: %s\n",
-                                        UPDATE_COMMANDS_DIR_PREFIX, name, buf+bufp);
-                            }
-                            if (strlen(div) < PKG_NAME_MAX) {
-                                strcpy(srcpkg, div);
-                            } else {
-                                srcpkg[0] = dstpkg[0] = 0;
-                                ALOGW("Package name too long in %s%s: %s\n",
-                                        UPDATE_COMMANDS_DIR_PREFIX, name, div);
-                            }
-                            if (srcpkg[0] != 0) {
-                                if (!create_pkg_path(srcpath, srcpkg, PKG_DIR_POSTFIX, 0)) {
-                                    if (lstat(srcpath, &s) < 0) {
-                                        // Package no longer exists -- skip.
-                                        srcpkg[0] = 0;
-                                    }
-                                } else {
-                                    srcpkg[0] = 0;
-                                    ALOGW("Can't create path %s in %s%s\n",
-                                            div, UPDATE_COMMANDS_DIR_PREFIX, name);
-                                }
-                                if (srcpkg[0] != 0) {
-                                    if (!create_pkg_path(dstpath, dstpkg, PKG_DIR_POSTFIX, 0)) {
-                                        if (lstat(dstpath, &s) == 0) {
-                                            dstuid = s.st_uid;
-                                            dstgid = s.st_gid;
-                                        } else {
-                                            // Destination package doesn't
-                                            // exist...  due to original-package,
-                                            // this is normal, so don't be
-                                            // noisy about it.
-                                            srcpkg[0] = 0;
-                                        }
-                                    } else {
-                                        srcpkg[0] = 0;
-                                        ALOGW("Can't create path %s in %s%s\n",
-                                                div, UPDATE_COMMANDS_DIR_PREFIX, name);
-                                    }
-                                }
-                                ALOGV("Transfering from %s to %s: uid=%d\n",
-                                    srcpkg, dstpkg, dstuid);
-                            }
-                        }
-                    }
-                    bufp = bufi+1;
-                } else {
-                    if (bufp == 0) {
-                        if (bufp < bufe) {
-                            ALOGW("Line too long in %s%s, skipping: %s\n",
-                                    UPDATE_COMMANDS_DIR_PREFIX, name, buf);
-                        }
-                    } else if (bufp < bufe) {
-                        memcpy(buf, buf+bufp, bufe-bufp);
-                        bufe -= bufp;
-                        bufp = 0;
-                    }
-                    readlen = read(subfd, buf+bufe, PKG_PATH_MAX-bufe);
-                    if (readlen < 0) {
-                        ALOGW("Failure reading update commands in %s%s: %s\n",
-                                UPDATE_COMMANDS_DIR_PREFIX, name, strerror(errno));
-                        break;
-                    } else if (readlen == 0) {
-                        break;
-                    }
-                    bufe += readlen;
-                    buf[bufe] = 0;
-                    ALOGV("Read buf: %s\n", buf);
-                }
-            }
-            close(subfd);
-        }
-    }
-    closedir(d);
-done:
-    return 0;
-}
-
 int linklib(const char* uuid, const char* pkgname, const char* asecLibDir, int userId)
 {
     struct stat s, libStat;
     int rc = 0;
 
-    std::string _pkgdir(create_data_user_package_path(uuid, userId, pkgname));
+    std::string _pkgdir(create_data_user_ce_package_path(uuid, userId, pkgname));
     std::string _libsymlink(_pkgdir + PKG_LIB_POSTFIX);
 
     const char* pkgdir = _pkgdir.c_str();
@@ -1713,69 +1811,35 @@ fail:
     return -1;
 }
 
-int restorecon_data(const char* uuid, const char* pkgName,
-                    const char* seinfo, uid_t uid)
-{
-    struct dirent *entry;
-    DIR *d;
-    struct stat s;
-    int ret = 0;
+int restorecon_app_data(const char* uuid, const char* pkgName, userid_t userid, int flags,
+        appid_t appid, const char* seinfo) {
+    int res = 0;
 
     // SELINUX_ANDROID_RESTORECON_DATADATA flag is set by libselinux. Not needed here.
-    unsigned int flags = SELINUX_ANDROID_RESTORECON_RECURSE;
+    unsigned int seflags = SELINUX_ANDROID_RESTORECON_RECURSE;
 
     if (!pkgName || !seinfo) {
         ALOGE("Package name or seinfo tag is null when trying to restorecon.");
         return -1;
     }
 
-    // Special case for owner on internal storage
-    if (uuid == nullptr) {
-        std::string path(create_data_user_package_path(nullptr, 0, pkgName));
-
-        if (selinux_android_restorecon_pkgdir(path.c_str(), seinfo, uid, flags) < 0) {
+    uid_t uid = multiuser_get_uid(userid, appid);
+    if (flags & FLAG_STORAGE_CE) {
+        auto path = create_data_user_ce_package_path(uuid, userid, pkgName);
+        if (selinux_android_restorecon_pkgdir(path.c_str(), seinfo, uid, seflags) < 0) {
             PLOG(ERROR) << "restorecon failed for " << path;
-            ret |= -1;
+            res = -1;
+        }
+    }
+    if (flags & FLAG_STORAGE_DE) {
+        auto path = create_data_user_de_package_path(uuid, userid, pkgName);
+        if (selinux_android_restorecon_pkgdir(path.c_str(), seinfo, uid, seflags) < 0) {
+            PLOG(ERROR) << "restorecon failed for " << path;
+            // TODO: include result once 25796509 is fixed
         }
     }
 
-    // Relabel package directory for all secondary users.
-    std::string userdir(create_data_path(uuid) + "/" + SECONDARY_USER_PREFIX);
-    d = opendir(userdir.c_str());
-    if (d == NULL) {
-        return -1;
-    }
-
-    while ((entry = readdir(d))) {
-        if (entry->d_type != DT_DIR) {
-            continue;
-        }
-
-        const char *user = entry->d_name;
-        // Ignore "." and ".."
-        if (!strcmp(user, ".") || !strcmp(user, "..")) {
-            continue;
-        }
-
-        // user directories start with a number
-        if (user[0] < '0' || user[0] > '9') {
-            ALOGE("Expecting numbered directory during restorecon. Instead got '%s'.", user);
-            continue;
-        }
-
-        std::string pkgdir(StringPrintf("%s%s/%s", userdir.c_str(), user, pkgName));
-        if (stat(pkgdir.c_str(), &s) < 0) {
-            continue;
-        }
-
-        if (selinux_android_restorecon_pkgdir(pkgdir.c_str(), seinfo, s.st_uid, flags) < 0) {
-            PLOG(ERROR) << "restorecon failed for " << pkgdir;
-            ret |= -1;
-        }
-    }
-
-    closedir(d);
-    return ret;
+    return res;
 }
 
 int create_oat_dir(const char* oat_dir, const char* instruction_set)
@@ -1834,29 +1898,84 @@ int link_file(const char* relative_path, const char* from_base, const char* to_b
     return 0;
 }
 
-int calculate_oat_file_path(char path[PKG_PATH_MAX], const char *oat_dir, const char *apk_path,
-        const char *instruction_set) {
-    char *file_name_start;
-    char *file_name_end;
+// Helper for move_ab, so that we can have common failure-case cleanup.
+static bool unlink_and_rename(const char* from, const char* to) {
+    // Check whether "from" exists, and if so whether it's regular. If it is, unlink. Otherwise,
+    // return a failure.
+    struct stat s;
+    if (stat(to, &s) == 0) {
+        if (!S_ISREG(s.st_mode)) {
+            LOG(ERROR) << from << " is not a regular file to replace for A/B.";
+            return false;
+        }
+        if (unlink(to) != 0) {
+            LOG(ERROR) << "Could not unlink " << to << " to move A/B.";
+            return false;
+        }
+    } else {
+        // This may be a permission problem. We could investigate the error code, but we'll just
+        // let the rename failure do the work for us.
+    }
 
-    file_name_start = strrchr(apk_path, '/');
-    if (file_name_start == NULL) {
-         ALOGE("apk_path '%s' has no '/'s in it\n", apk_path);
+    // Try to rename "to" to "from."
+    if (rename(from, to) != 0) {
+        PLOG(ERROR) << "Could not rename " << from << " to " << to;
+        return false;
+    }
+
+    return true;
+}
+
+int move_ab(const char* apk_path, const char* instruction_set, const char* oat_dir) {
+    if (apk_path == nullptr || instruction_set == nullptr || oat_dir == nullptr) {
+        LOG(ERROR) << "Cannot move_ab with null input";
         return -1;
     }
-    file_name_end = strrchr(apk_path, '.');
-    if (file_name_end < file_name_start) {
-        ALOGE("apk_path '%s' has no extension\n", apk_path);
+    if (validate_apk_path(apk_path) != 0) {
+        LOG(ERROR) << "invalid apk_path " << apk_path;
+        return -1;
+    }
+    if (validate_apk_path(oat_dir) != 0) {
+        LOG(ERROR) << "invalid oat_dir " << oat_dir;
         return -1;
     }
 
-    // Calculate file_name
-    int file_name_len = file_name_end - file_name_start - 1;
-    char file_name[file_name_len + 1];
-    memcpy(file_name, file_name_start + 1, file_name_len);
-    file_name[file_name_len] = '\0';
+    char a_path[PKG_PATH_MAX];
+    if (!calculate_oat_file_path(a_path, oat_dir, apk_path, instruction_set)) {
+        return -1;
+    }
 
-    // <apk_parent_dir>/oat/<isa>/<file_name>.odex
-    snprintf(path, PKG_PATH_MAX, "%s/%s/%s.odex", oat_dir, instruction_set, file_name);
+    // B path = A path + ".b"
+    std::string b_path = StringPrintf("%s.b", a_path);
+
+    // Check whether B exists.
+    {
+        struct stat s;
+        if (stat(b_path.c_str(), &s) != 0) {
+            // Silently ignore for now. The service calling this isn't smart enough to understand
+            // lack of artifacts at the moment.
+            return -1;
+        }
+        if (!S_ISREG(s.st_mode)) {
+            LOG(ERROR) << "A/B artifact " << b_path << " is not a regular file.";
+            // Try to unlink, but swallow errors.
+            unlink(b_path.c_str());
+            return -1;
+        }
+    }
+
+    // Rename B to A.
+    if (!unlink_and_rename(b_path.c_str(), a_path)) {
+        // Delete the b_path so we don't try again (or fail earlier).
+        if (unlink(b_path.c_str()) != 0) {
+            PLOG(ERROR) << "Could not unlink " << b_path;
+        }
+
+        return -1;
+    }
+
     return 0;
 }
+
+}  // namespace installd
+}  // namespace android

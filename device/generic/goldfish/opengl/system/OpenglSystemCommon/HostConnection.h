@@ -18,6 +18,7 @@
 
 #include "IOStream.h"
 #include "renderControl_enc.h"
+#include "ChecksumCalculator.h"
 
 class GLEncoder;
 class gl_client_context_t;
@@ -33,6 +34,7 @@ public:
     GLEncoder *glEncoder();
     GL2Encoder *gl2Encoder();
     renderControl_encoder_context_t *rcEncoder();
+    ChecksumCalculator *checksumHelper() { return &m_checksumHelper; }
 
     void flush() {
         if (m_stream) {
@@ -44,12 +46,16 @@ private:
     HostConnection();
     static gl_client_context_t  *s_getGLContext();
     static gl2_client_context_t *s_getGL2Context();
+    // setProtocol initilizes GL communication protocol for checksums
+    // should be called when m_rcEnc is created
+    void setChecksumHelper(renderControl_encoder_context_t *rcEnc);
 
 private:
     IOStream *m_stream;
     GLEncoder   *m_glEnc;
     GL2Encoder  *m_gl2Enc;
     renderControl_encoder_context_t *m_rcEnc;
+    ChecksumCalculator m_checksumHelper;
 };
 
 #endif

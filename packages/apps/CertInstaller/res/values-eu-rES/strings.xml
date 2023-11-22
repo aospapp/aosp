@@ -34,9 +34,8 @@
     <string name="password_empty_error" msgid="591713406761723025">"Idatzi pasahitza."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"Idatzi izena."</string>
     <string name="name_char_error" msgid="3176618568784938968">"Idatzi hizkiak eta zenbakiak soilik dituen izena."</string>
-    <string name="storage_error" msgid="8306802455802770779">"Ezin izan da ziurtagiria gorde. Ukitu Ados berriro saiatzeko."</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"Ezin izan da ziurtagiria gorde. Kredentzialen biltegia ez dago gaituta edo ez da behar bezala abiarazi."</string>
-    <string name="cert_not_saved" msgid="4037698479662830270">"Ziurtagiria ez dago instalatuta."</string>
+    <string name="cert_not_saved" msgid="4037698479662830270">"Ziurtagiria ez da instalatu."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"Ez dago ziurtagiririk instalatzeko."</string>
     <string name="invalid_cert" msgid="7704228670980743590">"Ziurtagiriak ez du balio."</string>
     <string name="cert_is_added" msgid="6996557598167000500">"<xliff:g id="CREDENTIAL">%s</xliff:g> instalatu da."</string>

@@ -50,7 +50,7 @@ typedef UINT8   tSMP_ASSO_MODEL;
     #define SMP_MAX_CONN    2
 #endif
 
-#define SMP_WAIT_FOR_RSP_TOUT           30
+#define SMP_WAIT_FOR_RSP_TIMEOUT_MS      (30 * 1000)
 
 #define SMP_OPCODE_INIT                   0x04
 
@@ -268,7 +268,7 @@ typedef struct
 typedef struct
 {
     tSMP_CALLBACK   *p_callback;
-    TIMER_LIST_ENT  rsp_timer_ent;
+    alarm_t         *smp_rsp_timer_ent;
     UINT8           trace_level;
     BD_ADDR         pairing_bda;
     tSMP_STATE      state;
@@ -339,7 +339,8 @@ typedef struct
     UINT8           rcvd_cmd_len;
     UINT16          total_tx_unacked;
     BOOLEAN         wait_for_authorization_complete;
-}tSMP_CB;
+    UINT8           cert_failure; /*failure case for certification */
+} tSMP_CB;
 
 /* Server Action functions are of this type */
 typedef void (*tSMP_ACT)(tSMP_CB *p_cb, tSMP_INT_DATA *p_data);
@@ -479,7 +480,7 @@ extern void smp_reset_control_value(tSMP_CB *p_cb);
 extern void smp_proc_pairing_cmpl(tSMP_CB *p_cb);
 extern void smp_convert_string_to_tk(BT_OCTET16 tk, UINT32 passkey);
 extern void smp_mask_enc_key(UINT8 loc_enc_size, UINT8 * p_data);
-extern void smp_rsp_timeout(TIMER_LIST_ENT *p_tle);
+extern void smp_rsp_timeout(void *data);
 extern void smp_xor_128(BT_OCTET16 a, BT_OCTET16 b);
 extern BOOLEAN smp_encrypt_data (UINT8 *key, UINT8 key_len,
                                  UINT8 *plain_text, UINT8 pt_len,

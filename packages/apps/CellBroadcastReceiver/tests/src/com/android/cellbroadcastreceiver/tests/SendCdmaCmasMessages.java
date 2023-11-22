@@ -53,7 +53,7 @@ public class SendCdmaCmasMessages {
 
     private static final String IS91_TEXT = "IS91 SHORT MSG";   // max length 14 chars
 
-    public static void testSendCmasPresAlert(Activity activity, int messageId, int subId) {
+    public static void testSendCmasPresAlert(Activity activity, int messageId) {
         SmsCbMessage cbMessage = createCmasSmsMessage(
                 SmsEnvelope.SERVICE_CATEGORY_CMAS_PRESIDENTIAL_LEVEL_ALERT, messageId, "en",
                 PRES_ALERT, SmsCbCmasInfo.CMAS_CATEGORY_GEO,
@@ -62,13 +62,12 @@ public class SendCdmaCmasMessages {
 
         Intent intent = new Intent(Telephony.Sms.Intents.SMS_EMERGENCY_CB_RECEIVED_ACTION);
         intent.putExtra("message", cbMessage);
-        intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
         activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL,
                 Manifest.permission.RECEIVE_EMERGENCY_BROADCAST,
                 AppOpsManager.OP_RECEIVE_EMERGECY_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
-    public static void testSendCmasExtremeAlert(Activity activity, int messageId, int subId) {
+    public static void testSendCmasExtremeAlert(Activity activity, int messageId) {
         SmsCbMessage cbMessage = createCmasSmsMessage(
                 SmsEnvelope.SERVICE_CATEGORY_CMAS_EXTREME_THREAT, messageId, "en",
                 EXTREME_ALERT, SmsCbCmasInfo.CMAS_CATEGORY_MET,
@@ -77,13 +76,12 @@ public class SendCdmaCmasMessages {
 
         Intent intent = new Intent(Telephony.Sms.Intents.SMS_EMERGENCY_CB_RECEIVED_ACTION);
         intent.putExtra("message", cbMessage);
-        intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
         activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL,
                 Manifest.permission.RECEIVE_EMERGENCY_BROADCAST,
                 AppOpsManager.OP_RECEIVE_EMERGECY_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
-    public static void testSendCmasSevereAlert(Activity activity, int messageId, int subId) {
+    public static void testSendCmasSevereAlert(Activity activity, int messageId) {
         SmsCbMessage cbMessage = createCmasSmsMessage(
                 SmsEnvelope.SERVICE_CATEGORY_CMAS_SEVERE_THREAT, messageId, "en",
                 SEVERE_ALERT, SmsCbCmasInfo.CMAS_CATEGORY_HEALTH,
@@ -92,13 +90,12 @@ public class SendCdmaCmasMessages {
 
         Intent intent = new Intent(Telephony.Sms.Intents.SMS_EMERGENCY_CB_RECEIVED_ACTION);
         intent.putExtra("message", cbMessage);
-        intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
         activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL,
                 Manifest.permission.RECEIVE_EMERGENCY_BROADCAST,
                 AppOpsManager.OP_RECEIVE_EMERGECY_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
-    public static void testSendCmasAmberAlert(Activity activity, int messageId, int subId) {
+    public static void testSendCmasAmberAlert(Activity activity, int messageId) {
         SmsCbMessage cbMessage = createCmasSmsMessage(
                 SmsEnvelope.SERVICE_CATEGORY_CMAS_CHILD_ABDUCTION_EMERGENCY, messageId, "en",
                 AMBER_ALERT, SmsCbCmasInfo.CMAS_CATEGORY_UNKNOWN,
@@ -107,13 +104,12 @@ public class SendCdmaCmasMessages {
 
         Intent intent = new Intent(Telephony.Sms.Intents.SMS_EMERGENCY_CB_RECEIVED_ACTION);
         intent.putExtra("message", cbMessage);
-        intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
         activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL,
                 Manifest.permission.RECEIVE_EMERGENCY_BROADCAST,
                 AppOpsManager.OP_RECEIVE_EMERGECY_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
-    public static void testSendCmasMonthlyTest(Activity activity, int messageId, int subId) {
+    public static void testSendCmasMonthlyTest(Activity activity, int messageId) {
         SmsCbMessage cbMessage = createCmasSmsMessage(
                 SmsEnvelope.SERVICE_CATEGORY_CMAS_TEST_MESSAGE, messageId, "en",
                 MONTHLY_TEST_ALERT, SmsCbCmasInfo.CMAS_CATEGORY_UNKNOWN,
@@ -122,7 +118,6 @@ public class SendCdmaCmasMessages {
 
         Intent intent = new Intent(Telephony.Sms.Intents.SMS_EMERGENCY_CB_RECEIVED_ACTION);
         intent.putExtra("message", cbMessage);
-        intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
         activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL,
                 Manifest.permission.RECEIVE_EMERGENCY_BROADCAST,
                 AppOpsManager.OP_RECEIVE_EMERGECY_SMS, null, null, Activity.RESULT_OK, null, null);

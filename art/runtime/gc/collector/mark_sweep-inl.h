@@ -29,16 +29,24 @@ namespace gc {
 namespace collector {
 
 template<typename MarkVisitor, typename ReferenceVisitor>
-inline void MarkSweep::ScanObjectVisit(mirror::Object* obj, const MarkVisitor& visitor,
+inline void MarkSweep::ScanObjectVisit(mirror::Object* obj,
+                                       const MarkVisitor& visitor,
                                        const ReferenceVisitor& ref_visitor) {
   DCHECK(IsMarked(obj)) << "Scanning unmarked object " << obj << "\n" << heap_->DumpSpaces();
-  obj->VisitReferences<false>(visitor, ref_visitor);
+  obj->VisitReferences(visitor, ref_visitor);
   if (kCountScannedTypes) {
     mirror::Class* klass = obj->GetClass<kVerifyNone>();
-    if (UNLIKELY(klass == mirror::Class::GetJavaLangClass())) {
+    uint32_t class_flags = klass->GetClassFlags();
+    if ((class_flags & mirror::kClassFlagNoReferenceFields) != 0) {
+      ++no_reference_class_count_;
+    } else if (class_flags == mirror::kClassFlagNormal) {
+      ++normal_count_;
+    } else if (class_flags == mirror::kClassFlagObjectArray) {
+      ++object_array_count_;
+    } else if (class_flags == mirror::kClassFlagClass) {
       ++class_count_;
-    } else if (UNLIKELY(klass->IsArrayClass<kVerifyNone>())) {
-      ++array_count_;
+    } else if ((class_flags & mirror::kClassFlagReference) != 0) {
+      ++reference_count_;
     } else {
       ++other_count_;
     }

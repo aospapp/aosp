@@ -297,12 +297,20 @@ void rw_t2t_conn_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p_data)
         break;
 
     case NFC_DATA_CEVT:
-        if (  (p_data != NULL)
-            &&(  (p_data->data.status == NFC_STATUS_OK)
-               ||(p_data->data.status == NFC_STATUS_CONTINUE)  )  )
+        if (p_data != NULL)
         {
-            rw_t2t_proc_data (conn_id, &(p_data->data));
-            break;
+            if ( (p_data->data.status == NFC_STATUS_OK)
+               ||(p_data->data.status == NFC_STATUS_CONTINUE) )
+            {
+                rw_t2t_proc_data (conn_id, &(p_data->data));
+                break;
+            }
+            else if (p_data->data.p_data != NULL)
+            {
+                /* Free the response buffer in case of error response */
+                GKI_freebuf ((BT_HDR *) (p_data->data.p_data));
+                p_data->data.p_data = NULL;
+            }
         }
         /* Data event with error status...fall through to NFC_ERROR_CEVT case */
 

@@ -21,6 +21,7 @@
 #include <linux/fs.h>
 
 #include <list>
+#include <sstream>
 #include <string>
 
 #include <fcntl.h>
@@ -74,14 +75,24 @@ enum MountExternalKind {
   MOUNT_EXTERNAL_WRITE = 3,
 };
 
-static void RuntimeAbort(JNIEnv* env) {
-  env->FatalError("RuntimeAbort");
+static void RuntimeAbort(JNIEnv* env, int line, const char* msg) {
+  std::ostringstream oss;
+  oss << __FILE__ << ":" << line << ": " << msg;
+  env->FatalError(oss.str().c_str());
 }
 
 // This signal handler is for zygote mode, since the zygote must reap its children
 static void SigChldHandler(int /*signal_number*/) {
   pid_t pid;
   int status;
+
+  // It's necessary to save and restore the errno during this function.
+  // Since errno is stored per thread, changing it here modifies the errno
+  // on the thread on which this signal handler executes. If a signal occurs
+  // between a call and an errno check, it's possible to get the errno set
+  // here.
+  // See b/23572286 for extra information.
+  int saved_errno = errno;
 
   while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
      // Log process-death status that we care about.  In general it is
@@ -118,6 +129,8 @@ static void SigChldHandler(int /*signal_number*/) {
   if (pid < 0 && errno != ECHILD) {
     ALOGW("Zygote SIGCHLD error in waitpid: %s", strerror(errno));
   }
+
+  errno = saved_errno;
 }
 
 // Configures the SIGCHLD handler for the zygote process. This is configured
@@ -159,12 +172,11 @@ static void SetGids(JNIEnv* env, jintArray javaGids) {
 
   ScopedIntArrayRO gids(env, javaGids);
   if (gids.get() == NULL) {
-      RuntimeAbort(env);
+    RuntimeAbort(env, __LINE__, "Getting gids int array failed");
   }
   int rc = setgroups(gids.size(), reinterpret_cast<const gid_t*>(&gids[0]));
   if (rc == -1) {
-    ALOGE("setgroups failed");
-    RuntimeAbort(env);
+    RuntimeAbort(env, __LINE__, "setgroups failed");
   }
 }
 
@@ -184,8 +196,7 @@ static void SetRLimits(JNIEnv* env, jobjectArray javaRlimits) {
     ScopedLocalRef<jobject> javaRlimitObject(env, env->GetObjectArrayElement(javaRlimits, i));
     ScopedIntArrayRO javaRlimit(env, reinterpret_cast<jintArray>(javaRlimitObject.get()));
     if (javaRlimit.size() != 3) {
-      ALOGE("rlimits array must have a second dimension of size 3");
-      RuntimeAbort(env);
+      RuntimeAbort(env, __LINE__, "rlimits array must have a second dimension of size 3");
     }
 
     rlim.rlim_cur = javaRlimit[1];
@@ -195,7 +206,7 @@ static void SetRLimits(JNIEnv* env, jobjectArray javaRlimits) {
     if (rc == -1) {
       ALOGE("setrlimit(%d, {%ld, %ld}) failed", javaRlimit[0], rlim.rlim_cur,
             rlim.rlim_max);
-      RuntimeAbort(env);
+      RuntimeAbort(env, __LINE__, "setrlimit failed");
     }
   }
 }
@@ -206,8 +217,7 @@ extern "C" int gMallocLeakZygoteChild;
 static void EnableKeepCapabilities(JNIEnv* env) {
   int rc = prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);
   if (rc == -1) {
-    ALOGE("prctl(PR_SET_KEEPCAPS) failed");
-    RuntimeAbort(env);
+    RuntimeAbort(env, __LINE__, "prctl(PR_SET_KEEPCAPS) failed");
   }
 }
 
@@ -219,8 +229,7 @@ static void DropCapabilitiesBoundingSet(JNIEnv* env) {
         ALOGE("prctl(PR_CAPBSET_DROP) failed with EINVAL. Please verify "
               "your kernel is compiled with file capabilities support");
       } else {
-        ALOGE("prctl(PR_CAPBSET_DROP) failed");
-        RuntimeAbort(env);
+        RuntimeAbort(env, __LINE__, "prctl(PR_CAPBSET_DROP) failed");
       }
     }
   }
@@ -241,7 +250,7 @@ static void SetCapabilities(JNIEnv* env, int64_t permitted, int64_t effective) {
 
   if (capset(&capheader, &capdata[0]) == -1) {
     ALOGE("capset(%" PRId64 ", %" PRId64 ") failed", permitted, effective);
-    RuntimeAbort(env);
+    RuntimeAbort(env, __LINE__, "capset failed");
   }
 }
 
@@ -249,7 +258,7 @@ static void SetSchedulerPolicy(JNIEnv* env) {
   errno = -set_sched_policy(0, SP_DEFAULT);
   if (errno != 0) {
     ALOGE("set_sched_policy(0, SP_DEFAULT) failed");
-    RuntimeAbort(env);
+    RuntimeAbort(env, __LINE__, "set_sched_policy(0, SP_DEFAULT) failed");
   }
 }
 
@@ -292,9 +301,6 @@ static bool MountEmulatedStorage(uid_t uid, jint mount_mode,
         ALOGW("Failed to unshare(): %s", strerror(errno));
         return false;
     }
-
-    // Unmount storage provided by root namespace and mount requested view
-    UnmountTree("/storage");
 
     String8 storageSource;
     if (mount_mode == MOUNT_EXTERNAL_DEFAULT) {
@@ -358,10 +364,9 @@ static void DetachDescriptors(JNIEnv* env, jintArray fdsToClose) {
     return;
   }
   jsize count = env->GetArrayLength(fdsToClose);
-  jint *ar = env->GetIntArrayElements(fdsToClose, 0);
-  if (!ar) {
-      ALOGE("Bad fd array");
-      RuntimeAbort(env);
+  ScopedIntArrayRO ar(env, fdsToClose);
+  if (ar.get() == NULL) {
+      RuntimeAbort(env, __LINE__, "Bad fd array");
   }
   jsize i;
   int devnull;
@@ -369,13 +374,13 @@ static void DetachDescriptors(JNIEnv* env, jintArray fdsToClose) {
     devnull = open("/dev/null", O_RDWR);
     if (devnull < 0) {
       ALOGE("Failed to open /dev/null: %s", strerror(errno));
-      RuntimeAbort(env);
+      RuntimeAbort(env, __LINE__, "Failed to open /dev/null");
       continue;
     }
     ALOGV("Switching descriptor %d to /dev/null: %s", ar[i], strerror(errno));
     if (dup2(devnull, ar[i]) < 0) {
       ALOGE("Failed dup2() on descriptor %d: %s", ar[i], strerror(errno));
-      RuntimeAbort(env);
+      RuntimeAbort(env, __LINE__, "Failed dup2()");
     }
     close(devnull);
   }
@@ -408,6 +413,27 @@ void SetThreadName(const char* thread_name) {
   }
 }
 
+#ifdef ENABLE_SCHED_BOOST
+static void SetForkLoad(bool boost) {
+  // set scheduler knob to boost forked processes
+  pid_t currentPid = getpid();
+  // fits at most "/proc/XXXXXXX/sched_init_task_load\0"
+  char schedPath[35];
+  snprintf(schedPath, sizeof(schedPath), "/proc/%u/sched_init_task_load", currentPid);
+  int schedBoostFile = open(schedPath, O_WRONLY);
+  if (schedBoostFile < 0) {
+    ALOGW("Unable to set zygote scheduler boost");
+    return;
+  }
+  if (boost) {
+    write(schedBoostFile, "100\0", 4);
+  } else {
+    write(schedBoostFile, "0\0", 2);
+  }
+  close(schedBoostFile);
+}
+#endif
+
 // Utility routine to fork zygote and specialize the child process.
 static pid_t ForkAndSpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArray javaGids,
                                      jint debug_flags, jobjectArray javaRlimits,
@@ -417,6 +443,10 @@ static pid_t ForkAndSpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArra
                                      bool is_system_server, jintArray fdsToClose,
                                      jstring instructionSet, jstring dataDir) {
   SetSigChldHandler();
+
+#ifdef ENABLE_SCHED_BOOST
+  SetForkLoad(true);
+#endif
 
   pid_t pid = fork();
 
@@ -458,8 +488,7 @@ static pid_t ForkAndSpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArra
         // FUSE hasn't been created yet by init.
         // In either case, continue without external storage.
       } else {
-        ALOGE("Cannot continue without emulated storage");
-        RuntimeAbort(env);
+        RuntimeAbort(env, __LINE__, "Cannot continue without emulated storage");
       }
     }
 
@@ -487,13 +516,13 @@ static pid_t ForkAndSpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArra
     int rc = setresgid(gid, gid, gid);
     if (rc == -1) {
       ALOGE("setresgid(%d) failed: %s", gid, strerror(errno));
-      RuntimeAbort(env);
+      RuntimeAbort(env, __LINE__, "setresgid failed");
     }
 
     rc = setresuid(uid, uid, uid);
     if (rc == -1) {
       ALOGE("setresuid(%d) failed: %s", uid, strerror(errno));
-      RuntimeAbort(env);
+      RuntimeAbort(env, __LINE__, "setresuid failed");
     }
 
     if (NeedsNoRandomizeWorkaround()) {
@@ -515,8 +544,7 @@ static pid_t ForkAndSpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArra
         se_info = new ScopedUtfChars(env, java_se_info);
         se_info_c_str = se_info->c_str();
         if (se_info_c_str == NULL) {
-          ALOGE("se_info_c_str == NULL");
-          RuntimeAbort(env);
+          RuntimeAbort(env, __LINE__, "se_info_c_str == NULL");
         }
     }
     const char* se_name_c_str = NULL;
@@ -525,15 +553,14 @@ static pid_t ForkAndSpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArra
         se_name = new ScopedUtfChars(env, java_se_name);
         se_name_c_str = se_name->c_str();
         if (se_name_c_str == NULL) {
-          ALOGE("se_name_c_str == NULL");
-          RuntimeAbort(env);
+          RuntimeAbort(env, __LINE__, "se_name_c_str == NULL");
         }
     }
     rc = selinux_android_setcontext(uid, is_system_server, se_info_c_str, se_name_c_str);
     if (rc == -1) {
       ALOGE("selinux_android_setcontext(%d, %d, \"%s\", \"%s\") failed", uid,
             is_system_server, se_info_c_str, se_name_c_str);
-      RuntimeAbort(env);
+      RuntimeAbort(env, __LINE__, "selinux_android_setcontext failed");
     }
 
     // Make it easier to debug audit logs by setting the main thread's name to the
@@ -551,13 +578,18 @@ static pid_t ForkAndSpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArra
     UnsetSigChldHandler();
 
     env->CallStaticVoidMethod(gZygoteClass, gCallPostForkChildHooks, debug_flags,
-                              is_system_server ? NULL : instructionSet);
+                              is_system_server, instructionSet);
     if (env->ExceptionCheck()) {
-      ALOGE("Error calling post fork hooks.");
-      RuntimeAbort(env);
+      RuntimeAbort(env, __LINE__, "Error calling post fork hooks.");
     }
   } else if (pid > 0) {
     // the parent process
+
+#ifdef ENABLE_SCHED_BOOST
+    // unset scheduler knob
+    SetForkLoad(false);
+#endif
+
   }
   return pid;
 }
@@ -570,10 +602,36 @@ static jint com_android_internal_os_Zygote_nativeForkAndSpecialize(
         jint debug_flags, jobjectArray rlimits,
         jint mount_external, jstring se_info, jstring se_name,
         jintArray fdsToClose, jstring instructionSet, jstring appDataDir) {
-    // Grant CAP_WAKE_ALARM to the Bluetooth process.
     jlong capabilities = 0;
-    if (uid == AID_BLUETOOTH) {
-        capabilities |= (1LL << CAP_WAKE_ALARM);
+
+    // Grant CAP_WAKE_ALARM to the Bluetooth process.
+    // Additionally, allow bluetooth to open packet sockets so it can start the DHCP client.
+    // TODO: consider making such functionality an RPC to netd.
+    if (multiuser_get_app_id(uid) == AID_BLUETOOTH) {
+      capabilities |= (1LL << CAP_WAKE_ALARM);
+      capabilities |= (1LL << CAP_NET_RAW);
+      capabilities |= (1LL << CAP_NET_BIND_SERVICE);
+    }
+
+    // Grant CAP_BLOCK_SUSPEND to processes that belong to GID "wakelock"
+    bool gid_wakelock_found = false;
+    if (gid == AID_WAKELOCK) {
+      gid_wakelock_found = true;
+    } else if (gids != NULL) {
+      jsize gids_num = env->GetArrayLength(gids);
+      ScopedIntArrayRO ar(env, gids);
+      if (ar.get() == NULL) {
+        RuntimeAbort(env, __LINE__, "Bad gids array");
+      }
+      for (int i = 0; i < gids_num; i++) {
+        if (ar[i] == AID_WAKELOCK) {
+          gid_wakelock_found = true;
+          break;
+        }
+      }
+    }
+    if (gid_wakelock_found) {
+      capabilities |= (1LL << CAP_BLOCK_SUSPEND);
     }
 
     return ForkAndSpecializeCommon(env, uid, gid, gids, debug_flags,
@@ -600,24 +658,36 @@ static jint com_android_internal_os_Zygote_nativeForkSystemServer(
       int status;
       if (waitpid(pid, &status, WNOHANG) == pid) {
           ALOGE("System server process %d has died. Restarting Zygote!", pid);
-          RuntimeAbort(env);
+          RuntimeAbort(env, __LINE__, "System server process has died. Restarting Zygote!");
       }
   }
   return pid;
 }
 
-static JNINativeMethod gMethods[] = {
+static void com_android_internal_os_Zygote_nativeUnmountStorageOnInit(JNIEnv* env, jclass) {
+    // Zygote process unmount root storage space initially before every child processes are forked.
+    // Every forked child processes (include SystemServer) only mount their own root storage space
+    // And no need unmount storage operation in MountEmulatedStorage method.
+    // Zygote process does not utilize root storage spaces and unshared its mount namespace from the ART.
+
+    UnmountTree("/storage");
+    return;
+}
+
+static const JNINativeMethod gMethods[] = {
     { "nativeForkAndSpecialize",
       "(II[II[[IILjava/lang/String;Ljava/lang/String;[ILjava/lang/String;Ljava/lang/String;)I",
       (void *) com_android_internal_os_Zygote_nativeForkAndSpecialize },
     { "nativeForkSystemServer", "(II[II[[IJJ)I",
-      (void *) com_android_internal_os_Zygote_nativeForkSystemServer }
+      (void *) com_android_internal_os_Zygote_nativeForkSystemServer },
+    { "nativeUnmountStorageOnInit", "()V",
+      (void *) com_android_internal_os_Zygote_nativeUnmountStorageOnInit }
 };
 
 int register_com_android_internal_os_Zygote(JNIEnv* env) {
   gZygoteClass = MakeGlobalRefOrDie(env, FindClassOrDie(env, kZygoteClassName));
   gCallPostForkChildHooks = GetStaticMethodIDOrDie(env, gZygoteClass, "callPostForkChildHooks",
-                                                   "(ILjava/lang/String;)V");
+                                                   "(IZLjava/lang/String;)V");
 
   return RegisterMethodsOrDie(env, "com/android/internal/os/Zygote", gMethods, NELEM(gMethods));
 }

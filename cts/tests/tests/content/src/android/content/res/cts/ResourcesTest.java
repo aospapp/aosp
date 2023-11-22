@@ -16,7 +16,7 @@
 
 package android.content.res.cts;
 
-import com.android.cts.content.R;
+import android.content.cts.R;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -32,6 +32,7 @@ import android.content.res.TypedArray;
 import android.content.res.XmlResourceParser;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
+import android.os.LocaleList;
 import android.test.AndroidTestCase;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
@@ -48,9 +49,9 @@ public class ResourcesTest extends AndroidTestCase {
     private static final String CONFIG_VARYING = "configVarying";
     private static final String SIMPLE = "simple";
     private static final String CONFIG_VARYING_SIMPLE = "configVarying/simple";
-    private static final String PACKAGE_NAME = "com.android.cts.content";
+    private static final String PACKAGE_NAME = "android.content.cts";
     private static final String COM_ANDROID_CTS_STUB_IDENTIFIER =
-                "com.android.cts.content:configVarying/simple";
+                "android.content.cts:configVarying/simple";
     private Resources mResources;
 
     @Override
@@ -216,14 +217,64 @@ public class ResourcesTest extends AndroidTestCase {
         assertEquals(0xff00ff00, color);
     }
 
+    public Resources createNewResources() {
+        final DisplayMetrics dm = new DisplayMetrics();
+        dm.setToDefaults();
+        final Configuration cfg = new Configuration();
+        cfg.setToDefaults();
+        return new Resources(new AssetManager(), dm, cfg);
+    }
+
     public void testUpdateConfiguration() {
-        final Configuration cfg = mResources.getConfiguration();
+        Resources res = createNewResources();
+        final Configuration cfg = new Configuration(res.getConfiguration());
         assertTrue(cfg.fontScale != 5);
 
         cfg.fontScale = 5;
-        mResources.updateConfiguration(cfg, null);
-        Configuration cfgNew = mResources.getConfiguration();
-        assertEquals(5.0f, cfgNew.fontScale, 0.001f);
+        res.updateConfiguration(cfg, null);
+        assertEquals(5.0f, res.getConfiguration().fontScale, 0.001f);
+    }
+
+    public void testUpdateConfiguration_emptyLocaleIsOverridden() {
+        Resources res = createNewResources();
+        res.getConfiguration().setLocales(null);
+        assertTrue(res.getConfiguration().getLocales().isEmpty());
+
+        final Configuration cfg = new Configuration();
+        cfg.setToDefaults();
+        assertTrue(cfg.getLocales().isEmpty());
+
+        res.updateConfiguration(cfg, null);
+        assertEquals(LocaleList.getDefault(), res.getConfiguration().getLocales());
+    }
+
+    public void testUpdateConfiguration_copyLocales() {
+        Resources res = createNewResources();
+        final Configuration cfg = new Configuration(res.getConfiguration());
+
+        cfg.setLocales(LocaleList.forLanguageTags("az-Arab,ru"));
+
+        res.updateConfiguration(cfg, null);
+
+        // Depending on the locales available in the framework resources, the LocaleList may be
+        // re-arranged. Check that any valid permutation is present.
+        final LocaleList locales = res.getConfiguration().getLocales();
+        assertTrue(LocaleList.forLanguageTags("az-Arab,ru").equals(locales) ||
+                LocaleList.forLanguageTags("ru,az-Arab").equals(locales));
+    }
+
+    public void testUpdateConfiguration_emptyAfterUpdate() {
+        Resources res = createNewResources();
+        final Configuration cfg = new Configuration(res.getConfiguration());
+        cfg.setLocales(LocaleList.forLanguageTags("az-Arab"));
+
+        res.updateConfiguration(cfg, null);
+        assertEquals(LocaleList.forLanguageTags("az-Arab"), res.getConfiguration().getLocales());
+
+        res.getConfiguration().setLocales(null);
+        cfg.setLocales(null);
+        res.updateConfiguration(cfg, null);
+        assertEquals(LocaleList.getDefault(), res.getConfiguration().getLocales());
     }
 
     public void testGetDimensionPixelSize() {
@@ -254,6 +305,20 @@ public class ResourcesTest extends AndroidTestCase {
         assertNotNull(draw);
         assertEquals(212 * targetDensity / defaultDensity, draw.getIntrinsicWidth(), 1);
         assertEquals(142 * targetDensity / defaultDensity, draw.getIntrinsicHeight(), 1);
+    }
+
+    public void testGetDrawableForDensity() {
+        final Drawable ldpi = mResources.getDrawableForDensity(
+                R.drawable.density_test, DisplayMetrics.DENSITY_LOW);
+        assertEquals(300, ldpi.getIntrinsicWidth());
+
+        final Drawable mdpi = mResources.getDrawableForDensity(
+                R.drawable.density_test, DisplayMetrics.DENSITY_MEDIUM);
+        assertEquals(200, mdpi.getIntrinsicWidth());
+
+        final Drawable hdpi = mResources.getDrawableForDensity(
+                R.drawable.density_test, DisplayMetrics.DENSITY_HIGH);
+        assertEquals(100, hdpi.getIntrinsicWidth());
     }
 
     public void testGetAnimation() throws Exception {
@@ -319,9 +384,25 @@ public class ResourcesTest extends AndroidTestCase {
             //expected
         }
 
-        mResources.getValue("com.android.cts.content:raw/text", tv, false);
+        mResources.getValue("android.content.cts:raw/text", tv, false);
         assertNotNull(tv);
         assertEquals("res/raw/text.txt", tv.coerceToString());
+    }
+
+    public void testGetValueForDensity() {
+        final TypedValue tv = new TypedValue();
+
+        mResources.getValueForDensity(R.string.density_string,
+                DisplayMetrics.DENSITY_LOW, tv, false);
+        assertEquals("ldpi", tv.coerceToString());
+
+        mResources.getValueForDensity(R.string.density_string,
+                DisplayMetrics.DENSITY_MEDIUM, tv, false);
+        assertEquals("mdpi", tv.coerceToString());
+
+        mResources.getValueForDensity(R.string.density_string,
+                DisplayMetrics.DENSITY_HIGH, tv, false);
+        assertEquals("hdpi", tv.coerceToString());
     }
 
     public void testGetAssets() {
@@ -456,7 +537,7 @@ public class ResourcesTest extends AndroidTestCase {
     private Resources resourcesForLanguage(final String lang) {
         final Configuration config = new Configuration();
         config.updateFrom(mResources.getConfiguration());
-        config.locale = new Locale(lang);
+        config.setLocale(new Locale(lang));
         return new Resources(mResources.getAssets(), mResources.getDisplayMetrics(), config);
     }
 

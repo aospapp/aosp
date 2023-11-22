@@ -133,6 +133,8 @@ public class SoundPool {
     private final IAppOpsService mAppOps;
     private final IAppOpsCallback mAppOpsCallback;
 
+    private static IAudioService sService;
+
     /**
      * Constructor. Constructs a SoundPool object with the following
      * characteristics:
@@ -166,7 +168,7 @@ public class SoundPool {
         updateAppOpsPlayAudio();
         // register a callback to monitor whether the OP_PLAY_AUDIO is still allowed
         mAppOpsCallback = new IAppOpsCallback.Stub() {
-            public void opChanged(int op, String packageName) {
+            public void opChanged(int op, int uid, String packageName) {
                 synchronized (mLock) {
                     if (op == AppOpsManager.OP_PLAY_AUDIO) {
                         updateAppOpsPlayAudio();
@@ -492,7 +494,34 @@ public class SoundPool {
         }
     }
 
+    private static IAudioService getService()
+    {
+        if (sService != null) {
+            return sService;
+        }
+        IBinder b = ServiceManager.getService(Context.AUDIO_SERVICE);
+        sService = IAudioService.Stub.asInterface(b);
+        return sService;
+    }
+
     private boolean isRestricted() {
+        IAudioService service = getService();
+        boolean cameraSoundForced = false;
+
+        try {
+            cameraSoundForced = service.isCameraSoundForced();
+        } catch (RemoteException e) {
+            Log.e(TAG, "Cannot access AudioService in isRestricted()");
+        }
+
+        if (cameraSoundForced &&
+                ((mAttributes.getAllFlags() & AudioAttributes.FLAG_AUDIBILITY_ENFORCED) != 0)
+// FIXME: should also check usage when set properly by camera app
+//                && (mAttributes.getUsage() == AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                ) {
+            return false;
+        }
+
         if ((mAttributes.getAllFlags() & AudioAttributes.FLAG_BYPASS_INTERRUPTION_POLICY) != 0) {
             return false;
         }

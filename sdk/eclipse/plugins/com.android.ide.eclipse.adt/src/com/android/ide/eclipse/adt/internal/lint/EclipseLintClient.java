@@ -36,6 +36,7 @@ import com.android.tools.lint.client.api.Configuration;
 import com.android.tools.lint.client.api.IssueRegistry;
 import com.android.tools.lint.client.api.JavaParser;
 import com.android.tools.lint.client.api.LintClient;
+import com.android.tools.lint.client.api.LintDriver;
 import com.android.tools.lint.client.api.XmlParser;
 import com.android.tools.lint.detector.api.ClassContext;
 import com.android.tools.lint.detector.api.Context;
@@ -368,7 +369,7 @@ public class EclipseLintClient extends LintClient {
 
     @NonNull
     @Override
-    public Configuration getConfiguration(@NonNull Project project) {
+    public Configuration getConfiguration(@NonNull Project project, @Nullable LintDriver driver) {
         return getConfigurationFor(project);
     }
 

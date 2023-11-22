@@ -15,6 +15,7 @@ x86_codegen_TBLGEN_TABLES := \
 x86_codegen_SRC_FILES := \
   X86AsmPrinter.cpp \
   X86CallFrameOptimization.cpp \
+  X86ExpandPseudo.cpp \
   X86FastISel.cpp \
   X86FixupLEAs.cpp \
   X86FloatingPoint.cpp \
@@ -24,6 +25,7 @@ x86_codegen_SRC_FILES := \
   X86InstrInfo.cpp \
   X86MachineFunctionInfo.cpp \
   X86MCInstLower.cpp \
+  X86OptimizeLEAs.cpp \
   X86PadShortFunction.cpp \
   X86RegisterInfo.cpp \
   X86SelectionDAGInfo.cpp \
@@ -31,7 +33,8 @@ x86_codegen_SRC_FILES := \
   X86TargetMachine.cpp \
   X86TargetObjectFile.cpp \
   X86TargetTransformInfo.cpp \
-  X86VZeroUpper.cpp
+  X86VZeroUpper.cpp \
+  X86WinEHState.cpp
 
 # For the host
 # =====================================================
@@ -44,10 +47,11 @@ LOCAL_SRC_FILES := $(x86_codegen_SRC_FILES)
 
 LOCAL_MODULE:= libLLVMX86CodeGen
 
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_HOST_OS := darwin linux windows
 
 include $(LLVM_HOST_BUILD_MK)
 include $(LLVM_TBLGEN_RULES_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
 include $(LLVM_GEN_INTRINSICS_MK)
 include $(BUILD_HOST_STATIC_LIBRARY)
 
@@ -63,10 +67,9 @@ LOCAL_SRC_FILES := $(x86_codegen_SRC_FILES)
 
 LOCAL_MODULE:= libLLVMX86CodeGen
 
-LOCAL_MODULE_TAGS := optional
-
 include $(LLVM_DEVICE_BUILD_MK)
 include $(LLVM_TBLGEN_RULES_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
 include $(LLVM_GEN_INTRINSICS_MK)
 include $(BUILD_STATIC_LIBRARY)
 endif

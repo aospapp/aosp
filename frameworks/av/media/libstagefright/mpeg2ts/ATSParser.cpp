@@ -122,7 +122,7 @@ struct ATSParser::Stream : public RefBase {
     void setPID(unsigned pid) { mElementaryPID = pid; }
 
     // Parse the payload and set event when PES with a sync frame is detected.
-    // This method knows when a PES starts; so record mPesStartOffset in that
+    // This method knows when a PES starts; so record mPesStartOffsets in that
     // case.
     status_t parse(
             unsigned continuity_counter,
@@ -157,7 +157,7 @@ private:
     bool mEOSReached;
 
     uint64_t mPrevPTS;
-    off64_t mPesStartOffset;
+    List<off64_t> mPesStartOffsets;
 
     ElementaryStreamQueue *mQueue;
 
@@ -205,16 +205,19 @@ private:
 };
 
 ATSParser::SyncEvent::SyncEvent(off64_t offset)
-    : mInit(false), mOffset(offset), mTimeUs(0) {}
+    : mHasReturnedData(false), mOffset(offset), mTimeUs(0) {}
 
 void ATSParser::SyncEvent::init(off64_t offset, const sp<MediaSource> &source,
         int64_t timeUs) {
-    mInit = true;
+    mHasReturnedData = true;
     mOffset = offset;
     mMediaSource = source;
     mTimeUs = timeUs;
 }
 
+void ATSParser::SyncEvent::reset() {
+    mHasReturnedData = false;
+}
 ////////////////////////////////////////////////////////////////////////////////
 
 ATSParser::Program::Program(
@@ -509,7 +512,7 @@ int64_t ATSParser::Program::recoverPTS(uint64_t PTS_33bit) {
         mLastRecoveredPTS = static_cast<int64_t>(PTS_33bit);
     } else {
         mLastRecoveredPTS = static_cast<int64_t>(
-                ((mLastRecoveredPTS - PTS_33bit + 0x100000000ll)
+                ((mLastRecoveredPTS - static_cast<int64_t>(PTS_33bit) + 0x100000000ll)
                 & 0xfffffffe00000000ull) | PTS_33bit);
         // We start from 0, but recovered PTS could be slightly below 0.
         // Clamp it to 0 as rest of the pipeline doesn't take negative pts.
@@ -524,15 +527,10 @@ int64_t ATSParser::Program::recoverPTS(uint64_t PTS_33bit) {
 }
 
 sp<MediaSource> ATSParser::Program::getSource(SourceType type) {
-    size_t index = (type == AUDIO) ? 0 : 0;
-
     for (size_t i = 0; i < mStreams.size(); ++i) {
         sp<MediaSource> source = mStreams.editValueAt(i)->getSource(type);
         if (source != NULL) {
-            if (index == 0) {
-                return source;
-            }
-            --index;
+            return source;
         }
     }
 
@@ -545,6 +543,8 @@ bool ATSParser::Program::hasSource(SourceType type) const {
         if (type == AUDIO && stream->isAudio()) {
             return true;
         } else if (type == VIDEO && stream->isVideo()) {
+            return true;
+        } else if (type == META && stream->isMeta()) {
             return true;
         }
     }
@@ -664,6 +664,7 @@ status_t ATSParser::Stream::parse(
         ALOGI("discontinuity on stream pid 0x%04x", mElementaryPID);
 
         mPayloadStarted = false;
+        mPesStartOffsets.clear();
         mBuffer->setRange(0, 0);
         mExpectedContinuityCounter = -1;
 
@@ -700,7 +701,7 @@ status_t ATSParser::Stream::parse(
         }
 
         mPayloadStarted = true;
-        mPesStartOffset = offset;
+        mPesStartOffsets.push_back(offset);
     }
 
     if (!mPayloadStarted) {
@@ -775,6 +776,7 @@ void ATSParser::Stream::signalDiscontinuity(
     }
 
     mPayloadStarted = false;
+    mPesStartOffsets.clear();
     mEOSReached = false;
     mBuffer->setRange(0, 0);
 
@@ -1108,7 +1110,9 @@ void ATSParser::Stream::onPayloadData(
                 int64_t timeUs;
                 if (accessUnit->meta()->findInt64("timeUs", &timeUs)) {
                     found = true;
-                    event->init(mPesStartOffset, mSource, timeUs);
+                    off64_t pesStartOffset = *mPesStartOffsets.begin();
+                    event->init(pesStartOffset, mSource, timeUs);
+                    mPesStartOffsets.erase(mPesStartOffsets.begin());
                 }
             }
         }
@@ -1434,8 +1438,8 @@ status_t ATSParser::parseAdaptationField(ABitReader *br, unsigned PID) {
 
             // The number of bytes received by this parser up to and
             // including the final byte of this PCR_ext field.
-            size_t byteOffsetFromStart =
-                mNumTSPacketsParsed * 188 + byteOffsetFromStartOfTSPacket;
+            uint64_t byteOffsetFromStart =
+                uint64_t(mNumTSPacketsParsed) * 188 + byteOffsetFromStartOfTSPacket;
 
             for (size_t i = 0; i < mPrograms.size(); ++i) {
                 updatePCR(PID, PCR, byteOffsetFromStart);
@@ -1499,23 +1503,38 @@ status_t ATSParser::parseTS(ABitReader *br, SyncEvent *event) {
 }
 
 sp<MediaSource> ATSParser::getSource(SourceType type) {
-    int which = -1;  // any
-
+    sp<MediaSource> firstSourceFound;
     for (size_t i = 0; i < mPrograms.size(); ++i) {
         const sp<Program> &program = mPrograms.editItemAt(i);
-
-        if (which >= 0 && (int)program->number() != which) {
+        sp<MediaSource> source = program->getSource(type);
+        if (source == NULL) {
             continue;
         }
+        if (firstSourceFound == NULL) {
+            firstSourceFound = source;
+        }
+        // Prefer programs with both audio/video
+        switch (type) {
+            case VIDEO: {
+                if (program->hasSource(AUDIO)) {
+                    return source;
+                }
+                break;
+            }
 
-        sp<MediaSource> source = program->getSource(type);
+            case AUDIO: {
+                if (program->hasSource(VIDEO)) {
+                    return source;
+                }
+                break;
+            }
 
-        if (source != NULL) {
-            return source;
+            default:
+                return source;
         }
     }
 
-    return NULL;
+    return firstSourceFound;
 }
 
 bool ATSParser::hasSource(SourceType type) const {
@@ -1537,9 +1556,10 @@ bool ATSParser::PTSTimeDeltaEstablished() {
     return mPrograms.editItemAt(0)->PTSTimeDeltaEstablished();
 }
 
+__attribute__((no_sanitize("integer")))
 void ATSParser::updatePCR(
-        unsigned /* PID */, uint64_t PCR, size_t byteOffsetFromStart) {
-    ALOGV("PCR 0x%016" PRIx64 " @ %zu", PCR, byteOffsetFromStart);
+        unsigned /* PID */, uint64_t PCR, uint64_t byteOffsetFromStart) {
+    ALOGV("PCR 0x%016" PRIx64 " @ %" PRIx64, PCR, byteOffsetFromStart);
 
     if (mNumPCRs == 2) {
         mPCR[0] = mPCR[1];
@@ -1555,6 +1575,7 @@ void ATSParser::updatePCR(
     ++mNumPCRs;
 
     if (mNumPCRs == 2) {
+        /* Unsigned overflow here */
         double transportRate =
             (mPCRBytes[1] - mPCRBytes[0]) * 27E6 / (mPCR[1] - mPCR[0]);
 
@@ -1712,6 +1733,13 @@ bool ATSParser::PSISection::isCRCOkay() const {
 
     unsigned sectionLength = U16_AT(data + 1) & 0xfff;
     ALOGV("sectionLength %u, skip %u", sectionLength, mSkipBytes);
+
+
+    if(sectionLength < mSkipBytes) {
+        ALOGE("b/28333006");
+        android_errorWriteLog(0x534e4554, "28333006");
+        return false;
+    }
 
     // Skip the preceding field present when payload start indicator is on.
     sectionLength -= mSkipBytes;

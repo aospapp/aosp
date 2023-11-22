@@ -17,19 +17,19 @@
 
 SkWriteBuffer::SkWriteBuffer(uint32_t flags)
     : fFlags(flags)
-    , fFactorySet(NULL)
-    , fNamedFactorySet(NULL)
-    , fBitmapHeap(NULL)
-    , fTFSet(NULL) {
+    , fFactorySet(nullptr)
+    , fNamedFactorySet(nullptr)
+    , fBitmapHeap(nullptr)
+    , fTFSet(nullptr) {
 }
 
 SkWriteBuffer::SkWriteBuffer(void* storage, size_t storageSize, uint32_t flags)
     : fFlags(flags)
-    , fFactorySet(NULL)
-    , fNamedFactorySet(NULL)
+    , fFactorySet(nullptr)
+    , fNamedFactorySet(nullptr)
     , fWriter(storage, storageSize)
-    , fBitmapHeap(NULL)
-    , fTFSet(NULL) {
+    , fBitmapHeap(nullptr)
+    , fTFSet(nullptr) {
 }
 
 SkWriteBuffer::~SkWriteBuffer() {
@@ -165,12 +165,12 @@ void SkWriteBuffer::writeBitmap(const SkBitmap& bitmap) {
     //    the size of the encoded data. A non-zero size signifies that encoded data was written.
     // 3. Call SkBitmap::flatten. After writing a boolean value of false, signifying that a heap was
     //    not used, write a zero to signify that the data was not encoded.
-    bool useBitmapHeap = fBitmapHeap != NULL;
+    bool useBitmapHeap = fBitmapHeap != nullptr;
     // Write a bool: true if the SkBitmapHeap is to be used, in which case the reader must use an
     // SkBitmapHeapReader to read the SkBitmap. False if the bitmap was serialized another way.
     this->writeBool(useBitmapHeap);
     if (useBitmapHeap) {
-        SkASSERT(NULL == fPixelSerializer);
+        SkASSERT(nullptr == fPixelSerializer);
         int32_t slot = fBitmapHeap->insert(bitmap);
         fWriter.write32(slot);
         // crbug.com/155875
@@ -187,7 +187,7 @@ void SkWriteBuffer::writeBitmap(const SkBitmap& bitmap) {
     if (pixelRef) {
         // see if the pixelref already has an encoded version
         SkAutoDataUnref existingData(pixelRef->refEncodedData());
-        if (existingData.get() != NULL) {
+        if (existingData.get() != nullptr) {
             // Assumes that if the client did not set a serializer, they are
             // happy to get the encoded data.
             if (!fPixelSerializer || fPixelSerializer->useEncodedData(existingData->data(),
@@ -198,13 +198,11 @@ void SkWriteBuffer::writeBitmap(const SkBitmap& bitmap) {
         }
 
         // see if the caller wants to manually encode
-        if (fPixelSerializer) {
-            SkASSERT(NULL == fBitmapHeap);
-            SkAutoLockPixels alp(bitmap);
-            SkAutoDataUnref data(fPixelSerializer->encodePixels(bitmap.info(),
-                                                                bitmap.getPixels(),
-                                                                bitmap.rowBytes()));
-            if (data.get() != NULL) {
+        SkAutoPixmapUnlock result;
+        if (fPixelSerializer && bitmap.requestLock(&result)) {
+            SkASSERT(nullptr == fBitmapHeap);
+            SkAutoDataUnref data(fPixelSerializer->encode(result.pixmap()));
+            if (data.get() != nullptr) {
                 // if we have to "encode" the bitmap, then we assume there is no
                 // offset to share, since we are effectively creating a new pixelref
                 write_encoded_bitmap(this, data, SkIPoint::Make(0, 0));
@@ -217,8 +215,21 @@ void SkWriteBuffer::writeBitmap(const SkBitmap& bitmap) {
     SkBitmap::WriteRawPixels(this, bitmap);
 }
 
+void SkWriteBuffer::writeImage(const SkImage* image) {
+    this->writeInt(image->width());
+    this->writeInt(image->height());
+
+    SkAutoTUnref<SkData> encoded(image->encode(this->getPixelSerializer()));
+    if (encoded && encoded->size() > 0) {
+        write_encoded_bitmap(this, encoded, SkIPoint::Make(0, 0));
+        return;
+    }
+
+    this->writeUInt(0); // signal no pixels (in place of the size of the encoded data)
+}
+
 void SkWriteBuffer::writeTypeface(SkTypeface* obj) {
-    if (NULL == obj || NULL == fTFSet) {
+    if (nullptr == obj || nullptr == fTFSet) {
         fWriter.write32(0);
     } else {
         fWriter.write32(fTFSet->add(obj));
@@ -227,18 +238,18 @@ void SkWriteBuffer::writeTypeface(SkTypeface* obj) {
 
 SkFactorySet* SkWriteBuffer::setFactoryRecorder(SkFactorySet* rec) {
     SkRefCnt_SafeAssign(fFactorySet, rec);
-    if (fNamedFactorySet != NULL) {
+    if (fNamedFactorySet != nullptr) {
         fNamedFactorySet->unref();
-        fNamedFactorySet = NULL;
+        fNamedFactorySet = nullptr;
     }
     return rec;
 }
 
 SkNamedFactorySet* SkWriteBuffer::setNamedFactoryRecorder(SkNamedFactorySet* rec) {
     SkRefCnt_SafeAssign(fNamedFactorySet, rec);
-    if (fFactorySet != NULL) {
+    if (fFactorySet != nullptr) {
         fFactorySet->unref();
-        fFactorySet = NULL;
+        fFactorySet = nullptr;
     }
     return rec;
 }
@@ -250,9 +261,9 @@ SkRefCntSet* SkWriteBuffer::setTypefaceRecorder(SkRefCntSet* rec) {
 
 void SkWriteBuffer::setBitmapHeap(SkBitmapHeap* bitmapHeap) {
     SkRefCnt_SafeAssign(fBitmapHeap, bitmapHeap);
-    if (bitmapHeap != NULL) {
-        SkASSERT(NULL == fPixelSerializer);
-        fPixelSerializer.reset(NULL);
+    if (bitmapHeap != nullptr) {
+        SkASSERT(nullptr == fPixelSerializer);
+        fPixelSerializer.reset(nullptr);
     }
 }
 
@@ -260,9 +271,9 @@ void SkWriteBuffer::setPixelSerializer(SkPixelSerializer* serializer) {
     fPixelSerializer.reset(serializer);
     if (serializer) {
         serializer->ref();
-        SkASSERT(NULL == fBitmapHeap);
+        SkASSERT(nullptr == fBitmapHeap);
         SkSafeUnref(fBitmapHeap);
-        fBitmapHeap = NULL;
+        fBitmapHeap = nullptr;
     }
 }
 
@@ -277,19 +288,19 @@ void SkWriteBuffer::writeFlattenable(const SkFlattenable* flattenable) {
      *  The distinction is important, since 0-index is 32bits (always), but a
      *  0-functionptr might be 32 or 64 bits.
      */
-    if (NULL == flattenable) {
+    if (nullptr == flattenable) {
         if (this->isValidating()) {
             this->writeString("");
-        } else if (fFactorySet != NULL || fNamedFactorySet != NULL) {
+        } else if (fFactorySet != nullptr || fNamedFactorySet != nullptr) {
             this->write32(0);
         } else {
-            this->writeFunctionPtr(NULL);
+            this->writeFunctionPtr(nullptr);
         }
         return;
     }
 
     SkFlattenable::Factory factory = flattenable->getFactory();
-    SkASSERT(factory != NULL);
+    SkASSERT(factory != nullptr);
 
     /*
      *  We can write 1 of 3 versions of the flattenable:

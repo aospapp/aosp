@@ -15,8 +15,10 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.media">
+    package="android.media.cts">
 
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.INTERNET" />
@@ -34,6 +36,13 @@
             android:label="AudioManagerStub"/>
         <activity android:name="android.media.cts.AudioManagerStubHelper"
             android:label="AudioManagerStubHelper"/>
+        <activity android:name="android.media.cts.DecodeAccuracyTestActivity"
+            android:label="DecodeAccuracyTestActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
         <activity android:name="android.media.cts.MediaStubActivity"
             android:label="MediaStubActivity"
             android:screenOrientation="nosensor"
@@ -88,7 +97,7 @@
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.media"
+                     android:targetPackage="android.media.cts"
                      android:label="CTS tests of android.media">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

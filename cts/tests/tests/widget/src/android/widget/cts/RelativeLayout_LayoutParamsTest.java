@@ -16,10 +16,11 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.ViewAsserts;
+import android.util.LayoutDirection;
 import android.view.View;
 import android.view.ViewGroup.MarginLayoutParams;
 import android.widget.RelativeLayout;
@@ -31,7 +32,7 @@ public class RelativeLayout_LayoutParamsTest extends
         ActivityInstrumentationTestCase2<RelativeLayoutCtsActivity> {
 
     public RelativeLayout_LayoutParamsTest() {
-        super("com.android.cts.widget", RelativeLayoutCtsActivity.class);
+        super("android.widget.cts", RelativeLayoutCtsActivity.class);
     }
 
     public void testConstructor() {
@@ -413,6 +414,29 @@ public class RelativeLayout_LayoutParamsTest extends
         layoutParams.addRule(RelativeLayout.ALIGN_LEFT, Integer.MIN_VALUE);
         rules = layoutParams.getRules();
         assertEquals(Integer.MIN_VALUE, rules[RelativeLayout.ALIGN_LEFT]);
+    }
+
+    public void testRemoveRule() {
+        RelativeLayout.LayoutParams layoutParams = new RelativeLayout.LayoutParams(200, 300);
+
+        layoutParams.addRule(RelativeLayout.ALIGN_PARENT_START, RelativeLayout.TRUE);
+        layoutParams.resolveLayoutDirection(LayoutDirection.LTR);
+        assertEquals(0, layoutParams.getRule(RelativeLayout.ALIGN_PARENT_START));
+        assertEquals(RelativeLayout.TRUE, layoutParams.getRule(RelativeLayout.ALIGN_PARENT_LEFT));
+        assertEquals(0, layoutParams.getRule(RelativeLayout.CENTER_HORIZONTAL));
+
+        layoutParams.removeRule(RelativeLayout.ALIGN_PARENT_START);
+        layoutParams.addRule(RelativeLayout.CENTER_HORIZONTAL, RelativeLayout.TRUE);
+        layoutParams.resolveLayoutDirection(LayoutDirection.LTR);
+        assertEquals(0, layoutParams.getRule(RelativeLayout.ALIGN_PARENT_START));
+        assertEquals(0, layoutParams.getRule(RelativeLayout.ALIGN_PARENT_LEFT));
+        assertEquals(RelativeLayout.TRUE, layoutParams.getRule(RelativeLayout.CENTER_HORIZONTAL));
+
+        layoutParams.removeRule(RelativeLayout.CENTER_HORIZONTAL);
+        layoutParams.resolveLayoutDirection(LayoutDirection.LTR);
+        assertEquals(0, layoutParams.getRule(RelativeLayout.ALIGN_PARENT_START));
+        assertEquals(0, layoutParams.getRule(RelativeLayout.ALIGN_PARENT_LEFT));
+        assertEquals(0, layoutParams.getRule(RelativeLayout.CENTER_HORIZONTAL));
     }
 
     public void testDebug() {

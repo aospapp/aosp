@@ -17,56 +17,61 @@
 #include "event_fd.h"
 
 #include <fcntl.h>
+#include <poll.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <atomic>
 #include <memory>
 
-#include <base/file.h>
-#include <base/logging.h>
-#include <base/stringprintf.h>
+#include <android-base/file.h>
+#include <android-base/logging.h>
+#include <android-base/stringprintf.h>
 
 #include "event_type.h"
 #include "perf_event.h"
 #include "utils.h"
+
+std::vector<char> EventFd::data_process_buffer_;
 
 static int perf_event_open(perf_event_attr* attr, pid_t pid, int cpu, int group_fd,
                            unsigned long flags) {
   return syscall(__NR_perf_event_open, attr, pid, cpu, group_fd, flags);
 }
 
-std::unique_ptr<EventFd> EventFd::OpenEventFileForProcess(const perf_event_attr& attr, pid_t pid) {
-  return OpenEventFile(attr, pid, -1);
-}
-
-std::unique_ptr<EventFd> EventFd::OpenEventFileForCpu(const perf_event_attr& attr, int cpu) {
-  return OpenEventFile(attr, -1, cpu);
-}
-
-std::unique_ptr<EventFd> EventFd::OpenEventFile(const perf_event_attr& attr, pid_t pid, int cpu) {
+std::unique_ptr<EventFd> EventFd::OpenEventFile(const perf_event_attr& attr, pid_t tid, int cpu,
+                                                bool report_error) {
   perf_event_attr perf_attr = attr;
   std::string event_name = "unknown event";
-  const EventType* event_type =
-      EventTypeFactory::FindEventTypeByConfig(perf_attr.type, perf_attr.config);
+  const EventType* event_type = FindEventTypeByConfig(perf_attr.type, perf_attr.config);
   if (event_type != nullptr) {
     event_name = event_type->name;
   }
-  int perf_event_fd = perf_event_open(&perf_attr, pid, cpu, -1, 0);
+  int perf_event_fd = perf_event_open(&perf_attr, tid, cpu, -1, 0);
   if (perf_event_fd == -1) {
-    // It depends whether the perf_event_file configuration is supported by the kernel and the
-    // machine. So fail to open the file is not an error.
-    PLOG(DEBUG) << "open perf_event_file (event " << event_name << ", pid " << pid << ", cpu "
-                << cpu << ") failed";
+    if (report_error) {
+      PLOG(ERROR) << "open perf_event_file (event " << event_name << ", tid " << tid << ", cpu "
+                  << cpu << ") failed";
+    } else {
+      PLOG(DEBUG) << "open perf_event_file (event " << event_name << ", tid " << tid << ", cpu "
+                  << cpu << ") failed";
+    }
     return nullptr;
   }
   if (fcntl(perf_event_fd, F_SETFD, FD_CLOEXEC) == -1) {
-    PLOG(ERROR) << "fcntl(FD_CLOEXEC) for perf_event_file (event " << event_name << ", pid " << pid
-                << ", cpu " << cpu << ") failed";
+    if (report_error) {
+      PLOG(ERROR) << "fcntl(FD_CLOEXEC) for perf_event_file (event " << event_name << ", tid "
+                  << tid << ", cpu " << cpu << ") failed";
+    } else {
+      PLOG(DEBUG) << "fcntl(FD_CLOEXEC) for perf_event_file (event " << event_name << ", tid "
+                  << tid << ", cpu " << cpu << ") failed";
+    }
     return nullptr;
   }
-  return std::unique_ptr<EventFd>(new EventFd(perf_event_fd, event_name, pid, cpu));
+  return std::unique_ptr<EventFd>(new EventFd(perf_event_fd, event_name, tid, cpu));
 }
 
 EventFd::~EventFd() {
@@ -77,8 +82,8 @@ EventFd::~EventFd() {
 }
 
 std::string EventFd::Name() const {
-  return android::base::StringPrintf("perf_event_file(event %s, pid %d, cpu %d)",
-                                     event_name_.c_str(), pid_, cpu_);
+  return android::base::StringPrintf("perf_event_file(event %s, tid %d, cpu %d)",
+                                     event_name_.c_str(), tid_, cpu_);
 }
 
 uint64_t EventFd::Id() const {
@@ -89,24 +94,6 @@ uint64_t EventFd::Id() const {
     }
   }
   return id_;
-}
-
-bool EventFd::EnableEvent() {
-  int result = ioctl(perf_event_fd_, PERF_EVENT_IOC_ENABLE, 0);
-  if (result < 0) {
-    PLOG(ERROR) << "ioctl(enable) " << Name() << " failed";
-    return false;
-  }
-  return true;
-}
-
-bool EventFd::DisableEvent() {
-  int result = ioctl(perf_event_fd_, PERF_EVENT_IOC_DISABLE, 0);
-  if (result < 0) {
-    PLOG(ERROR) << "ioctl(disable) " << Name() << " failed";
-    return false;
-  }
-  return true;
 }
 
 bool EventFd::ReadCounter(PerfCounter* counter) const {
@@ -132,6 +119,9 @@ bool EventFd::MmapContent(size_t mmap_pages) {
   mmap_metadata_page_ = reinterpret_cast<perf_event_mmap_page*>(mmap_addr_);
   mmap_data_buffer_ = reinterpret_cast<char*>(mmap_addr_) + page_size;
   mmap_data_buffer_size_ = mmap_len_ - page_size;
+  if (data_process_buffer_.size() < mmap_data_buffer_size_) {
+    data_process_buffer_.resize(mmap_data_buffer_size_);
+  }
   return true;
 }
 
@@ -147,9 +137,9 @@ size_t EventFd::GetAvailableMmapData(char** pdata) {
   // in [write_head, read_head). The kernel is responsible for updating write_head, and the user
   // is responsible for updating read_head.
 
-  uint64_t buf_mask = mmap_data_buffer_size_ - 1;
-  uint64_t write_head = mmap_metadata_page_->data_head & buf_mask;
-  uint64_t read_head = mmap_metadata_page_->data_tail & buf_mask;
+  size_t buf_mask = mmap_data_buffer_size_ - 1;
+  size_t write_head = static_cast<size_t>(mmap_metadata_page_->data_head & buf_mask);
+  size_t read_head = static_cast<size_t>(mmap_metadata_page_->data_tail & buf_mask);
 
   if (read_head == write_head) {
     // No available data.
@@ -159,12 +149,28 @@ size_t EventFd::GetAvailableMmapData(char** pdata) {
   // Make sure we can see the data after the fence.
   std::atomic_thread_fence(std::memory_order_acquire);
 
-  *pdata = mmap_data_buffer_ + read_head;
+  // Copy records from mapped buffer to data_process_buffer. Note that records can be wrapped
+  // at the end of the mapped buffer.
+  char* to = data_process_buffer_.data();
   if (read_head < write_head) {
-    return write_head - read_head;
+    char* from = mmap_data_buffer_ + read_head;
+    size_t n = write_head - read_head;
+    memcpy(to, from, n);
+    to += n;
   } else {
-    return mmap_data_buffer_size_ - read_head;
+    char* from = mmap_data_buffer_ + read_head;
+    size_t n = mmap_data_buffer_size_ - read_head;
+    memcpy(to, from, n);
+    to += n;
+    from = mmap_data_buffer_;
+    n = write_head;
+    memcpy(to, from, n);
+    to += n;
   }
+  size_t read_bytes = to - data_process_buffer_.data();
+  *pdata = data_process_buffer_.data();
+  DiscardMmapData(read_bytes);
+  return read_bytes;
 }
 
 void EventFd::DiscardMmapData(size_t discard_size) {
@@ -175,4 +181,9 @@ void EventFd::PreparePollForMmapData(pollfd* poll_fd) {
   memset(poll_fd, 0, sizeof(pollfd));
   poll_fd->fd = perf_event_fd_;
   poll_fd->events = POLLIN;
+}
+
+bool IsEventAttrSupportedByKernel(perf_event_attr attr) {
+  auto event_fd = EventFd::OpenEventFile(attr, getpid(), -1, false);
+  return event_fd != nullptr;
 }

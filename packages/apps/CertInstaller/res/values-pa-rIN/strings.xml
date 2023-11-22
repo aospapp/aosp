@@ -34,7 +34,6 @@
     <string name="password_empty_error" msgid="591713406761723025">"ਪਾਸਵਰਡ ਟਾਈਪ ਕਰੋ।"</string>
     <string name="name_empty_error" msgid="3808800768660110354">"ਇੱਕ ਨਾਮ ਟਾਈਪ ਕਰੋ।"</string>
     <string name="name_char_error" msgid="3176618568784938968">"ਇੱਕ ਨਾਮ ਟਾਈਪ ਕਰੋ ਜਿਸ ਵਿੱਚ ਕੇਵਲ ਅੱਖਰ ਅਤੇ ਸੰਖਿਆਵਾਂ ਹੋਣ।"</string>
-    <string name="storage_error" msgid="8306802455802770779">"ਸਰਟੀਫਿਕੇਟ ਸੁਰੱਖਿਅਤ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਿਆ। ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰਨ ਲਈ ਠੀਕ ਨੂੰ ਛੋਹਵੋ।"</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"ਸਰਟੀਫਿਕੇਟ ਸੁਰੱਖਿਅਤ ਨਹੀਂ ਕਰ ਸਕਿਆ। ਕ੍ਰੈਡੈਂਸ਼ੀਅਲ ਸਟੋਰੇਜ ਸਮਰਥਿਤ ਨਹੀਂ ਹੈ ਜਾਂ ਸਹੀ ਢੰਗ ਨਾਲ ਸ਼ੁਰੂ ਨਹੀਂ ਹੋਈ ਹੈ।"</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"ਸਰਟੀਫਿਕੇਟ ਇੰਸਟੌਲ ਨਹੀਂ ਕੀਤਾ ਹੈ।"</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"ਇੰਸਟੌਲ ਕਰਨ ਲਈ ਕੋਈ ਸਰਟੀਫਿਕੇਟ ਨਹੀਂ ਮਿਲਿਆ।"</string>
@@ -47,7 +46,7 @@
     <string name="no_cert_file_found" product="default" msgid="1942077544887243999">"SD ਕਾਰਡ ਵਿੱਚ ਕੋਈ ਸਰਟੀਫਿਕੇਟ ਫਾਈਲ ਨਹੀਂ ਮਿਲੀ।"</string>
     <string name="sdcard_not_present" product="nosdcard" msgid="9197143240492611196">"USB ਸਟੋਰੇਜ ਉਪਲਬਧ ਨਹੀਂ ਹੈ।"</string>
     <string name="sdcard_not_present" product="default" msgid="3866952732541932947">"SD ਕਾਰਡ ਮੌਜੂਦ ਨਹੀਂ ਹੈ।"</string>
-    <string name="only_primary_user_allowed" msgid="4005084935023047716">"ਕੇਵਲ ਇਸ ਡਿਵਾਈਸ ਦਾ ਮਾਲਕ ਸਰਟੀਫਿਕੇਟ ਇੰਸਟੌਲ ਕਰ ਸਕਦਾ ਹੈ।"</string>
+    <string name="only_primary_user_allowed" msgid="4005084935023047716">"ਕੇਵਲ ਇਸ ਡੀਵਾਈਸ ਦਾ ਮਾਲਕ ਸਰਟੀਫਿਕੇਟ ਇੰਸਟੌਲ ਕਰ ਸਕਦਾ ਹੈ।"</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"ਕ੍ਰੈਡੈਂਸ਼ੀਅਲ ਵਰਤੋਂ:"</string>
   <string-array name="credential_usage">
     <item msgid="375085478373011304">"VPN ਅਤੇ ਐਪਸ"</item>
@@ -59,7 +58,7 @@
     <string name="wifi_install_label" msgid="1449629407724323233">"ਸਥਾਪਿਤ ਕਰੋ"</string>
     <string name="wifi_installing_label" msgid="8387393993627129025">"ਇੰਸਟੌਲ ਕਰ ਰਿਹਾ ਹੈ"</string>
     <string name="wifi_cancel_label" msgid="1328748037608392134">"ਰੱਦ ਕਰੋ"</string>
-    <string name="wifi_dismiss_label" msgid="1916684434873972698">"ਬਰਖਾਸਤ ਕਰੋ"</string>
+    <string name="wifi_dismiss_label" msgid="1916684434873972698">"ਖਾਰਜ ਕਰੋ"</string>
     <string name="wifi_no_config" msgid="1835743123288916755">"ਕੋਈ ਨਹੀਂ"</string>
     <string name="wifi_config_text" msgid="8259587306773310314">"ਨਾਂ: %1$s\nFQDN: %2$s\nਰੋਮਿੰਗ ਕੰਸੋਰਟੀਅਮਸ: %3$s\nਖੇਤਰ: %4$s\nਪ੍ਰਮਾਣਿਤ ਵਿਧੀ: EAP-%5$s\n"</string>
     <string name="wifi_ttls_config_text" msgid="2002413183253872168">"ਉਪਭੋਗਤਾ ਨਾਂ: %s\n"</string>

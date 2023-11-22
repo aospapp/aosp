@@ -92,7 +92,7 @@
 
    Free slots are chained together in a singly linked list. An index of
    zero indicates the end of the chain. Note that zero cannot conflict
-   with an index into the string table as the minumum index is at least
+   with an index into the string table as the minimum index is at least
    four (see above).
 
    The typical way to traverse the segment names is:
@@ -125,9 +125,11 @@ enum {
    max_refcount  = 0x7fff,      // 2 bytes - F-bit
    max_slotsize  = 0xffff,      // 2 bytes
    max_slotindex = 0x7fffffff,  // 4 bytes - F-bit
-   fbit_mask = 0x80,
+   fbit_mask_value = 0x80,
    end_of_chain = 0
 };
+
+static const UInt fbit_mask = fbit_mask_value;
 
 /* The old segname implementation allowed for 1000 names on Android and
    6000 names on other platforms. Each name was allowed to be 1000 characters

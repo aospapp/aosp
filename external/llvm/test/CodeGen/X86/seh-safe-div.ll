@@ -23,39 +23,29 @@
 @str1 = internal constant [27 x i8] c"EXCEPTION_ACCESS_VIOLATION\00"
 @str2 = internal constant [29 x i8] c"EXCEPTION_INT_DIVIDE_BY_ZERO\00"
 
-define i32 @safe_div(i32* %n, i32* %d) {
+define i32 @safe_div(i32* %n, i32* %d) personality i8* bitcast (i32 (...)* @__C_specific_handler to i8*) {
 entry:
   %r = alloca i32, align 4
   invoke void @try_body(i32* %r, i32* %n, i32* %d)
-          to label %__try.cont unwind label %lpad
+          to label %__try.cont unwind label %lpad0
 
-lpad:
-  %vals = landingpad { i8*, i32 } personality i8* bitcast (i32 (...)* @__C_specific_handler to i8*)
-          catch i8* bitcast (i32 (i8*, i8*)* @safe_div_filt0 to i8*)
-          catch i8* bitcast (i32 (i8*, i8*)* @safe_div_filt1 to i8*)
-  %ehptr = extractvalue { i8*, i32 } %vals, 0
-  %sel = extractvalue { i8*, i32 } %vals, 1
-  %filt0_val = call i32 @llvm.eh.typeid.for(i8* bitcast (i32 (i8*, i8*)* @safe_div_filt0 to i8*))
-  %is_filt0 = icmp eq i32 %sel, %filt0_val
-  br i1 %is_filt0, label %handler0, label %eh.dispatch1
-
-eh.dispatch1:
-  %filt1_val = call i32 @llvm.eh.typeid.for(i8* bitcast (i32 (i8*, i8*)* @safe_div_filt1 to i8*))
-  %is_filt1 = icmp eq i32 %sel, %filt1_val
-  br i1 %is_filt1, label %handler1, label %eh.resume
+lpad0:
+  %cs0 = catchswitch within none [label %handler0] unwind label %lpad1
 
 handler0:
-  call void @puts(i8* getelementptr ([27 x i8], [27 x i8]* @str1, i32 0, i32 0))
+  %p0 = catchpad within %cs0 [i8* bitcast (i32 (i8*, i8*)* @safe_div_filt0 to i8*)]
+  call void @puts(i8* getelementptr ([27 x i8], [27 x i8]* @str1, i32 0, i32 0)) [ "funclet"(token %p0) ]
   store i32 -1, i32* %r, align 4
-  br label %__try.cont
+  catchret from %p0 to label %__try.cont
+
+lpad1:
+  %cs1 = catchswitch within none [label %handler1] unwind to caller
 
 handler1:
-  call void @puts(i8* getelementptr ([29 x i8], [29 x i8]* @str2, i32 0, i32 0))
+  %p1 = catchpad within %cs1 [i8* bitcast (i32 (i8*, i8*)* @safe_div_filt1 to i8*)]
+  call void @puts(i8* getelementptr ([29 x i8], [29 x i8]* @str2, i32 0, i32 0)) [ "funclet"(token %p1) ]
   store i32 -2, i32* %r, align 4
-  br label %__try.cont
-
-eh.resume:
-  resume { i8*, i32 } %vals
+  catchret from %p1 to label %__try.cont
 
 __try.cont:
   %safe_ret = load i32, i32* %r, align 4
@@ -68,52 +58,40 @@ __try.cont:
 ; CHECK: .seh_proc safe_div
 ; CHECK: .seh_handler __C_specific_handler, @unwind, @except
 ; CHECK: .Ltmp0:
-; CHECK: leaq [[rloc:.*\(%rsp\)]], %rcx
+; CHECK: leaq [[rloc:.*\(%rbp\)]], %rcx
 ; CHECK: callq try_body
 ; CHECK-NEXT: .Ltmp1
-; CHECK: .LBB0_7:
+; CHECK: [[cont_bb:\.LBB0_[0-9]+]]:
 ; CHECK: movl [[rloc]], %eax
 ; CHECK: retq
 
 ; Landing pad code
 
-; CHECK: .Ltmp3:
-; CHECK: movl $1, %[[sel:[a-z]+]]
-; CHECK: .Ltmp4
-; CHECK: movl $2, %[[sel]]
-; CHECK: .L{{.*}}:
-; CHECK: cmpl $1, %[[sel]]
-
-; CHECK: # %handler0
+; CHECK: [[handler0:\.LBB0_[0-9]+]]: # %handler0
 ; CHECK: callq puts
 ; CHECK: movl $-1, [[rloc]]
-; CHECK: jmp .LBB0_7
+; CHECK: jmp [[cont_bb]]
 
-; CHECK: cmpl $2, %[[sel]]
-
-; CHECK: # %handler1
+; CHECK: [[handler1:\.LBB0_[0-9]+]]: # %handler1
 ; CHECK: callq puts
 ; CHECK: movl $-2, [[rloc]]
-; CHECK: jmp .LBB0_7
-
-; FIXME: EH preparation should eliminate the 'resume' instr and we should not do
-; the previous 'cmp;jeq'.
-; CHECK-NOT: _Unwind_Resume
-; CHECK: ud2
+; CHECK: jmp [[cont_bb]]
 
 ; CHECK: .seh_handlerdata
-; CHECK: .long 2
-; CHECK: .long .Ltmp0@IMGREL
-; CHECK: .long .Ltmp1@IMGREL+1
-; CHECK: .long safe_div_filt0@IMGREL
-; CHECK: .long .Ltmp3@IMGREL
-; CHECK: .long .Ltmp0@IMGREL
-; CHECK: .long .Ltmp1@IMGREL+1
-; CHECK: .long safe_div_filt1@IMGREL
-; CHECK: .long .Ltmp4@IMGREL
+; CHECK-NEXT: .Lsafe_div$parent_frame_offset
+; CHECK-NEXT: .long (.Llsda_end0-.Llsda_begin0)/16
+; CHECK-NEXT: .Llsda_begin0:
+; CHECK-NEXT: .long .Ltmp0@IMGREL+1
+; CHECK-NEXT: .long .Ltmp1@IMGREL+1
+; CHECK-NEXT: .long safe_div_filt0@IMGREL
+; CHECK-NEXT: .long [[handler0]]@IMGREL
+; CHECK-NEXT: .long .Ltmp0@IMGREL+1
+; CHECK-NEXT: .long .Ltmp1@IMGREL+1
+; CHECK-NEXT: .long safe_div_filt1@IMGREL
+; CHECK-NEXT: .long [[handler1]]@IMGREL
+; CHECK-NEXT: .Llsda_end0:
 ; CHECK: .text
 ; CHECK: .seh_endproc
-
 
 define void @try_body(i32* %r, i32* %n, i32* %d) {
 entry:
@@ -183,11 +161,6 @@ define i32 @main() {
   %r3 = call i32 @safe_div(i32* %n.addr, i32* null)
   call void (i8*, ...) @printf(i8* getelementptr ([21 x i8], [21 x i8]* @str_result, i32 0, i32 0), i32 %r3)
   ret i32 0
-}
-
-define void @_Unwind_Resume() {
-  call void @abort()
-  unreachable
 }
 
 declare i32 @__C_specific_handler(...)

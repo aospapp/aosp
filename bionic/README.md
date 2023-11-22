@@ -96,7 +96,6 @@ libc/
   dns/
     # Contains the DNS resolver (originates from NetBSD code).
 
-  upstream-dlmalloc/
   upstream-freebsd/
   upstream-netbsd/
   upstream-openbsd/
@@ -118,6 +117,10 @@ libc/
     # legacy mess that needs to be sorted out, either by replacing it with
     # current upstream source in one of the upstream directories or by
     # switching the file to C++ and cleaning it up.
+
+  malloc_debug/
+    # The code that implements the functionality to enable debugging of
+    # native allocation problems.
 
   stdio/
     # These are legacy files of dubious provenance. We're working to clean
@@ -169,9 +172,10 @@ As mentioned above, this is currently a two-step process:
 Updating tzdata
 ---------------
 
-This is fully automated:
+This is fully automated (and these days handled by the libcore team, because
+they own icu, and that needs to be updated in sync with bionic):
 
-  1. Run update-tzdata.py.
+  1. Run update-tzdata.py in external/icu/tools/.
 
 
 Verifying changes
@@ -194,14 +198,15 @@ The tests are all built from the tests/ directory.
 ### Device tests
 
     $ mma
+    $ adb remount
     $ adb sync
     $ adb shell /data/nativetest/bionic-unit-tests/bionic-unit-tests32
     $ adb shell \
         /data/nativetest/bionic-unit-tests-static/bionic-unit-tests-static32
     # Only for 64-bit targets
-    $ adb shell /data/nativetest/bionic-unit-tests/bionic-unit-tests64
+    $ adb shell /data/nativetest64/bionic-unit-tests/bionic-unit-tests64
     $ adb shell \
-        /data/nativetest/bionic-unit-tests-static/bionic-unit-tests-static64
+        /data/nativetest64/bionic-unit-tests-static/bionic-unit-tests-static64
 
 ### Host tests
 
@@ -256,18 +261,33 @@ First, build and run the host tests as usual (see above).
 The coverage report is now available at `covreport/index.html`.
 
 
-LP32 ABI bugs
--------------
+Attaching GDB to the tests
+--------------------------
+
+Bionic's test runner will run each test in its own process by default to prevent
+tests failures from impacting other tests. This also has the added benefit of
+running them in parallel, so they are much faster.
+
+However, this also makes it difficult to run the tests under GDB. To prevent
+each test from being forked, run the tests with the flag `--no-isolate`.
+
+
+32-bit ABI bugs
+---------------
 
 This probably belongs in the NDK documentation rather than here, but these
-are the known ABI bugs in LP32:
+are the known ABI bugs in the 32-bit ABI:
 
- * `time_t` is 32-bit. <http://b/5819737>
+ * `time_t` is 32-bit. <http://b/5819737>. In the 64-bit ABI, time_t is
+   64-bit.
 
- * `off_t` is 32-bit. There is `off64_t`, but no `_FILE_OFFSET_BITS` support.
-   Many of the `off64_t` functions are missing in older releases, and
-   stdio uses 32-bit offsets, so there's no way to fully implement
-   `_FILE_OFFSET_BITS`.
+ * `off_t` is 32-bit. There is `off64_t`, and in newer releases there is
+   almost-complete support for `_FILE_OFFSET_BITS`. Unfortunately our stdio
+   implementation uses 32-bit offsets and -- worse -- function pointers to
+   functions that use 32-bit offsets, so there's no good way to implement
+   the last few pieces <http://b/24807045>. In the 64-bit ABI, off_t is
+   off64_t.
 
  * `sigset_t` is too small on ARM and x86 (but correct on MIPS), so support
-   for real-time signals is broken. <http://b/5828899>
+   for real-time signals is broken. <http://b/5828899> In the 64-bit ABI,
+   `sigset_t` is the correct size for every architecture.

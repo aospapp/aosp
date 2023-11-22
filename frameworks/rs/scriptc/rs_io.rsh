@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,10 @@
  *
  * Receive a new set of contents from the queue.
  *
+ * This function should not be called from inside a kernel, or from any function
+ * that may be called directly or indirectly from a kernel. Doing so would cause a
+ * runtime error.
+ *
  * Parameters:
  *   a: Allocation to work on.
  */
@@ -44,6 +48,10 @@ extern void __attribute__((overloadable))
  * rsAllocationIoSend: Send new content to the queue
  *
  * Send the contents of the Allocation to the queue.
+ *
+ * This function should not be called from inside a kernel, or from any function
+ * that may be called directly or indirectly from a kernel. Doing so would cause a
+ * runtime error.
  *
  * Parameters:
  *   a: Allocation to work on.

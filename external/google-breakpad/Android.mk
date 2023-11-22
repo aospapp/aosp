@@ -14,6 +14,8 @@
 
 LOCAL_PATH := $(call my-dir)
 
+# Static library.
+# =================================================
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := breakpad_client
@@ -46,4 +48,58 @@ LOCAL_C_INCLUDES := \
 
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_C_INCLUDES)
 
+# Work around b/25435766 core2md segfault.
+LOCAL_CLANG_CFLAGS_x86 += -mno-stackrealign
+LOCAL_CLANG := true
+
 include $(BUILD_STATIC_LIBRARY)
+
+# core2md binary.
+# =================================================
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := core2md
+
+LOCAL_CPP_EXTENSION := .cc
+
+LOCAL_SRC_FILES := src/tools/linux/core2md/core2md.cc
+
+LOCAL_STATIC_LIBRARIES := breakpad_client
+
+# Work around b/25435766 core2md segfault.
+LOCAL_CLANG_CFLAGS_x86 += -mno-stackrealign
+LOCAL_CLANG := true
+
+include $(BUILD_EXECUTABLE)
+
+# dump_syms host tool.
+# =================================================
+include $(CLEAR_VARS)
+LOCAL_MODULE := dump_syms
+LOCAL_MODULE_HOST_OS := linux
+LOCAL_CLANG := true
+LOCAL_CPPFLAGS_linux := -DHAVE_A_OUT_H -Wno-unused-parameter
+LOCAL_CPP_EXTENSION := .cc
+LOCAL_C_INCLUDES := \
+    $(LOCAL_PATH)/src
+LOCAL_SRC_FILES := \
+    src/common/dwarf/bytereader.cc \
+    src/common/dwarf/dwarf2diehandler.cc \
+    src/common/dwarf/dwarf2reader.cc \
+    src/common/dwarf_cfi_to_module.cc \
+    src/common/dwarf_cu_to_module.cc \
+    src/common/dwarf_line_to_module.cc \
+    src/common/language.cc \
+    src/common/module.cc \
+    src/common/stabs_reader.cc \
+    src/common/stabs_to_module.cc
+LOCAL_SRC_FILES_linux := \
+    src/common/linux/crc32.cc \
+    src/common/linux/dump_symbols.cc \
+    src/common/linux/elfutils.cc \
+    src/common/linux/elf_symbols_to_module.cc \
+    src/common/linux/file_id.cc \
+    src/common/linux/linux_libc_support.cc \
+    src/common/linux/memory_mapped_file.cc \
+    src/tools/linux/dump_syms/dump_syms.cc
+include $(BUILD_HOST_EXECUTABLE)

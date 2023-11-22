@@ -61,16 +61,6 @@ public class MonitorInfoTest extends JDWPSyncTestCase {
     public void testMonitorInfo001() {
         String thisTestName = "testMonitorInfo001";
 
-        //check capability, relevant for this test
-        logWriter.println("=> Check capability: canGetMonitorInfo");
-        debuggeeWrapper.vmMirror.capabilities();
-        boolean isCapability = debuggeeWrapper.vmMirror.targetVMCapabilities.canGetMonitorInfo;
-        if (!isCapability) {
-            logWriter.println("##WARNING: this VM doesn't possess capability: canGetMonitorInfo");
-            return;
-        }
-
-
         logWriter.println("==> " + thisTestName + " for " + thisCommandName + ": START...");
         String failMessage = "";
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);

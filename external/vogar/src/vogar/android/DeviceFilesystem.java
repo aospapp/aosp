@@ -16,10 +16,10 @@
 
 package vogar.android;
 
+import com.google.common.collect.ImmutableList;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -36,9 +36,9 @@ public final class DeviceFilesystem {
     private final List<String> targetProcessPrefix;
     private final Log log;
 
-    public DeviceFilesystem(Log log, String... targetProcessPrefix) {
+    public DeviceFilesystem(Log log, ImmutableList<String> targetProcessPrefix) {
         this.log = log;
-        this.targetProcessPrefix = Arrays.asList(targetProcessPrefix);
+        this.targetProcessPrefix = targetProcessPrefix;
     }
 
     public void mkdirs(File name) {
@@ -71,7 +71,7 @@ public final class DeviceFilesystem {
 
         List<String> rawResult = new Command.Builder(log)
                 .args(args)
-                .permitNonZeroExitStatus()
+                .permitNonZeroExitStatus(true)
                 .execute();
         // fail if this failed for any reason other than the file existing.
         if (!rawResult.isEmpty() && !rawResult.get(0).contains("File exists")) {
@@ -85,7 +85,12 @@ public final class DeviceFilesystem {
         args.add("ls");
         args.add(dir.getPath());
 
-        List<String> rawResult = new Command(log, args).execute();
+        List<String> rawResult = new Command.Builder(log)
+                .args(args)
+                // Note: When all supported versions of Android correctly return the exit code
+                // from adb we can rely on the exit code to detect failure. Until then: no.
+                .permitNonZeroExitStatus(true)
+                .execute();
         List<File> files = new ArrayList<File>();
         for (String fileString : rawResult) {
             if (fileString.equals(dir.getPath() + ": No such file or directory")) {

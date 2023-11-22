@@ -20,19 +20,20 @@
 class CodecBench : public Benchmark {
 public:
     // Calls encoded->ref()
-    CodecBench(SkString basename, SkData* encoded, SkColorType colorType);
+    CodecBench(SkString basename, SkData* encoded, SkColorType colorType, SkAlphaType alphaType);
 
 protected:
     const char* onGetName() override;
     bool isSuitableFor(Backend backend) override;
-    void onDraw(const int n, SkCanvas* canvas) override;
-    void onPreDraw() override;
+    void onDraw(int n, SkCanvas* canvas) override;
+    void onDelayedSetup() override;
 
 private:
     SkString                fName;
     const SkColorType       fColorType;
+    const SkAlphaType       fAlphaType;
     SkAutoTUnref<SkData>    fData;
-    SkImageInfo             fInfo;          // Set in onPreDraw.
+    SkImageInfo             fInfo;          // Set in onDelayedSetup.
     SkAutoMalloc            fPixelStorage;
     typedef Benchmark INHERITED;
 };

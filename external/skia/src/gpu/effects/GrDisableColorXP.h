@@ -15,31 +15,25 @@ class GrProcOptInfo;
 
 class GrDisableColorXPFactory : public GrXPFactory {
 public:
-    static GrXPFactory* Create() {
-        return SkNEW(GrDisableColorXPFactory);
-    }
+    static GrXPFactory* Create() { return new GrDisableColorXPFactory; }
 
-    bool supportsRGBCoverage(GrColor knownColor, uint32_t knownColorFlags) const override {
-        return true;
-    }
-
-    void getInvariantOutput(const GrProcOptInfo& colorPOI, const GrProcOptInfo& coveragePOI,
-                            GrXPFactory::InvariantOutput* output) const override {
-        output->fBlendedColorFlags = 0;
-        output->fWillBlendWithDst = 0;
+    void getInvariantBlendedColor(const GrProcOptInfo& colorPOI,
+                                  GrXPFactory::InvariantBlendedColor* blendedColor) const override {
+        blendedColor->fKnownColorFlags = kNone_GrColorComponentFlags;
+        blendedColor->fWillBlendWithDst = false;
     }
 
 private:
     GrDisableColorXPFactory();
 
-    GrXferProcessor* onCreateXferProcessor(const GrDrawTargetCaps& caps,
-                                           const GrProcOptInfo& colorPOI,
-                                           const GrProcOptInfo& coveragePOI,
-                                           const GrDeviceCoordTexture* dstCopy) const override;
+    GrXferProcessor* onCreateXferProcessor(const GrCaps& caps,
+                                           const GrPipelineOptimizations& optimizations,
+                                           bool hasMixedSamples,
+                                           const DstTexture* dstTexture) const override;
 
-    bool willReadDstColor(const GrDrawTargetCaps& caps,
-                          const GrProcOptInfo& colorPOI,
-                          const GrProcOptInfo& coveragePOI) const override {
+    bool onWillReadDstColor(const GrCaps& caps,
+                            const GrPipelineOptimizations& optimizations,
+                            bool hasMixedSamples) const override {
         return false;
     }
 

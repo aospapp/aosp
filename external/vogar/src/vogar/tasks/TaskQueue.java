@@ -101,6 +101,10 @@ public final class TaskQueue {
         }
     }
 
+    public boolean hasFailedTasks() {
+        return !failedTasks.isEmpty();
+    }
+
     public void printProblemTasks() {
         for (Task task : failedTasks) {
             String message = "Failed task: " + task + " " + task.result;

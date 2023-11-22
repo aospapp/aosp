@@ -43,7 +43,10 @@ public class KeyPairGeneratorSpi
         SecureRandom random)
     {
         param = new RSAKeyGenerationParameters(defaultPublicExponent,
-            random, strength, defaultTests);
+            // BEGIN android-changed
+            // Was: random, strength, defaultTests);
+            (random != null) ? random : new SecureRandom(), strength, defaultTests);
+            // END android-changed
 
         engine.init(param);
     }
@@ -61,7 +64,10 @@ public class KeyPairGeneratorSpi
 
         param = new RSAKeyGenerationParameters(
             rsaParams.getPublicExponent(),
-            random, rsaParams.getKeysize(), defaultTests);
+            // BEGIN android-changed
+            // Was: random, rsaParams.getKeysize(), defaultTests);
+            (random != null) ? random : new SecureRandom(), rsaParams.getKeysize(), defaultTests);
+            // END android-changed
 
         engine.init(param);
     }

@@ -12,8 +12,11 @@
 #include "SkPicture.h"
 #include "SkRect.h"
 #include "SkRefCnt.h"
+#include "SkString.h"
+#include "SkTime.h"
 
 class SkCanvas;
+class SkPixelSerializer;
 class SkWStream;
 
 /** SK_ScalarDefaultDPI is 72 DPI.
@@ -32,8 +35,6 @@ class SkWStream;
  */
 class SK_API SkDocument : public SkRefCnt {
 public:
-    SK_DECLARE_INST_COUNT(SkDocument)
-
     /**
      *  Create a PDF-backed document, writing the results into a SkWStream.
      *
@@ -56,6 +57,24 @@ public:
      */
     static SkDocument* CreatePDF(SkWStream*,
                                  SkScalar dpi = SK_ScalarDefaultRasterDPI);
+
+    /**
+     *  @param jpegEncoder For PDF documents, if a jpegEncoder is set,
+     *         use it to encode SkImages and SkBitmaps as [JFIF]JPEGs.
+     *         This feature is deprecated and is only supplied for
+     *         backwards compatability.
+     *
+     *         The prefered method to create PDFs with JPEG images is
+     *         to use SkImage::NewFromEncoded() and not jpegEncoder.
+     *         Chromium uses NewFromEncoded.
+     *
+     *         If the encoder is unset, or if jpegEncoder->onEncode()
+     *         returns NULL, fall back on encoding images losslessly
+     *         with Deflate.
+     */
+    static SkDocument* CreatePDF(SkWStream*,
+                                 SkScalar dpi,
+                                 SkPixelSerializer* jpegEncoder);
 
     /**
      *  Create a PDF-backed document, writing the results into a file.
@@ -105,6 +124,34 @@ public:
      *  The stream output must be ignored, and should not be trusted.
      */
     void abort();
+
+    /**
+     *  Set the document's metadata, if supported by the document
+     *  type.  The creationDate and modifiedDate parameters can be
+     *  nullptr.  For example:
+     *
+     *  SkDocument* make_doc(SkWStream* output) {
+     *      std::vector<SkDocument::Attribute> info;
+     *      info.emplace_back(SkString("Title"), SkString("..."));
+     *      info.emplace_back(SkString("Author"), SkString("..."));
+     *      info.emplace_back(SkString("Subject"), SkString("..."));
+     *      info.emplace_back(SkString("Keywords"), SkString("..."));
+     *      info.emplace_back(SkString("Creator"), SkString("..."));
+     *      SkTime::DateTime now;
+     *      SkTime::GetDateTime(&now);
+     *      SkDocument* doc = SkDocument::CreatePDF(output);
+     *      doc->setMetadata(&info[0], (int)info.size(), &now, &now);
+     *      return doc;
+     *  }
+     */
+    struct Attribute {
+        SkString fKey, fValue;
+        Attribute(const SkString& k, const SkString& v) : fKey(k), fValue(v) {}
+    };
+    virtual void setMetadata(const SkDocument::Attribute[],
+                             int /* attributeCount */,
+                             const SkTime::DateTime* /* creationDate */,
+                             const SkTime::DateTime* /* modifiedDate */) {}
 
 protected:
     SkDocument(SkWStream*, void (*)(SkWStream*, bool aborted));

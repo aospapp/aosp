@@ -71,6 +71,11 @@
      SK_B32_SHIFT == SK_BGRA_B32_SHIFT)
 
 
+#define SK_A_INDEX  (SK_A32_SHIFT/8)
+#define SK_R_INDEX  (SK_R32_SHIFT/8)
+#define SK_G_INDEX  (SK_G32_SHIFT/8)
+#define SK_B_INDEX  (SK_B32_SHIFT/8)
+
 #if defined(SK_PMCOLOR_IS_RGBA) && !LOCAL_PMCOLOR_SHIFTS_EQUIVALENT_TO_RGBA
     #error "SK_PMCOLOR_IS_RGBA does not match SK_*32_SHIFT values"
 #endif
@@ -193,7 +198,7 @@ static inline unsigned Sk255To256(U8CPU value) {
 /** Multiplify value by 0..256, and shift the result down 8
     (i.e. return (value * alpha256) >> 8)
  */
-#define SkAlphaMul(value, alpha256)     (SkMulS16(value, alpha256) >> 8)
+#define SkAlphaMul(value, alpha256)     (((value) * (alpha256)) >> 8)
 
 //  The caller may want negative values, so keep all params signed (int)
 //  so we don't accidentally slip into unsigned math and lose the sign
@@ -213,9 +218,13 @@ static inline int SkAlphaBlend255(S16CPU src, S16CPU dst, U8CPU alpha) {
     SkASSERT((int16_t)dst == dst);
     SkASSERT((uint8_t)alpha == alpha);
 
-    int prod = SkMulS16(src - dst, alpha) + 128;
+    int prod = (src - dst) * alpha + 128;
     prod = (prod + (prod >> 8)) >> 8;
     return dst + prod;
+}
+
+static inline U8CPU SkUnitScalarClampToByte(SkScalar x) {
+    return static_cast<U8CPU>(SkScalarPin(x, 0, 1) * 255 + 0.5);
 }
 
 #define SK_R16_BITS     5
@@ -368,6 +377,18 @@ static inline void SkBlendRGB16(const uint16_t src[], uint16_t dst[],
 #else
     #define SkPMColorAssert(c)
 #endif
+
+static inline bool SkPMColorValid(SkPMColor c) {
+    auto a = SkGetPackedA32(c);
+    bool valid = a <= SK_A32_MASK
+              && SkGetPackedR32(c) <= a
+              && SkGetPackedG32(c) <= a
+              && SkGetPackedB32(c) <= a;
+    if (valid) {
+        SkPMColorAssert(c);  // Make sure we're consistent when it counts.
+    }
+    return valid;
+}
 
 /**
  *  Pack the components into a SkPMColor, checking (in the debug version) that

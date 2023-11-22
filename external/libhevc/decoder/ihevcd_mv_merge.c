@@ -309,7 +309,7 @@ void ihevcd_collocated_mvp(mv_ctxt_t *ps_mv_ctxt,
             cur_poc = ps_slice_hdr->i4_abs_pic_order_cnt;
 
             slice_idx = *(ps_mv_buf_col->pu1_pic_slice_map + col_ctb_x + col_ctb_y * ps_sps->i2_pic_wd_in_ctb);
-
+            slice_idx &= (MAX_SLICE_HDR_CNT - 1);
             if(au4_list_col[0] == 0)
             {
                 col_ref_poc_l0 =

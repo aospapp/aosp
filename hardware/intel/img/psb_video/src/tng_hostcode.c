@@ -2858,7 +2858,7 @@ static void tng__setvideo_params(context_ENC_p ctx, IMG_UINT32 ui32StreamIndex)
             
                     psMtxEncContext->ui32SPEMvdClipRange = F_ENCODE(1, TOPAZHP_CR_SPE_MVD_CLIP_ENABLE)
                         | F_ENCODE( 62, TOPAZHP_CR_SPE_MVD_POS_CLIP)
-                        | F_ENCODE(-64, TOPAZHP_CR_SPE_MVD_NEG_CLIP);
+                        | F_ENCODE((uint32_t)(-64), TOPAZHP_CR_SPE_MVD_NEG_CLIP);
                 }
                 break;
             case IMG_STANDARD_MPEG4:

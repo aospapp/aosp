@@ -11,6 +11,7 @@
 
 #include <cstdlib>
 #include <type_traits>
+#include <cassert>
 
 #ifndef EXIT_FAILURE
 #error EXIT_FAILURE not defined
@@ -32,12 +33,23 @@
 #error RAND_MAX not defined
 #endif
 
+template <class TestType, class IntType>
+void test_div_struct() {
+    TestType obj;
+    static_assert(sizeof(obj) >= sizeof(IntType) * 2, ""); // >= to account for alignment.
+    static_assert((std::is_same<decltype(obj.quot), IntType>::value), "");
+    static_assert((std::is_same<decltype(obj.rem), IntType>::value), "");
+    ((void) obj);
+};
+
 int main()
 {
     std::size_t s = 0;
-    std::div_t d;
-    std::ldiv_t ld;
-    std::lldiv_t lld;
+    ((void)s);
+    static_assert((std::is_same<std::size_t, decltype(sizeof(int))>::value), "");
+    test_div_struct<std::div_t, int>();
+    test_div_struct<std::ldiv_t, long>();
+    test_div_struct<std::lldiv_t, long long>();
     char** endptr = 0;
     static_assert((std::is_same<decltype(std::atof("")), double>::value), "");
     static_assert((std::is_same<decltype(std::atoi("")), int>::value), "");
@@ -75,12 +87,14 @@ int main()
     static_assert((std::is_same<decltype(std::div(0LL,0LL)), std::lldiv_t>::value), "");
     static_assert((std::is_same<decltype(std::ldiv(0L,0L)), std::ldiv_t>::value), "");
     static_assert((std::is_same<decltype(std::lldiv(0LL,0LL)), std::lldiv_t>::value), "");
-    static_assert((std::is_same<decltype(std::mblen("",0)), int>::value), "");
     wchar_t* pw = 0;
     const wchar_t* pwc = 0;
     char* pc = 0;
+#ifndef _LIBCPP_HAS_NO_THREAD_UNSAFE_C_FUNCTIONS
+    static_assert((std::is_same<decltype(std::mblen("",0)), int>::value), "");
     static_assert((std::is_same<decltype(std::mbtowc(pw,"",0)), int>::value), "");
     static_assert((std::is_same<decltype(std::wctomb(pc,L' ')), int>::value), "");
+#endif
     static_assert((std::is_same<decltype(std::mbstowcs(pw,"",0)), std::size_t>::value), "");
     static_assert((std::is_same<decltype(std::wcstombs(pc,pwc,0)), std::size_t>::value), "");
 }

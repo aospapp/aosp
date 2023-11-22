@@ -4,7 +4,7 @@ static rtree_node_elm_t *
 node_alloc(size_t nelms)
 {
 
-	return (calloc(nelms, sizeof(rtree_node_elm_t)));
+	return ((rtree_node_elm_t *)calloc(nelms, sizeof(rtree_node_elm_t)));
 }
 
 static void
@@ -39,11 +39,13 @@ TEST_BEGIN(test_rtree_extrema)
 		assert_false(rtree_new(&rtree, i, node_alloc, node_dalloc),
 		    "Unexpected rtree_new() failure");
 
-		rtree_set(&rtree, 0, &node_a);
+		assert_false(rtree_set(&rtree, 0, &node_a),
+		    "Unexpected rtree_set() failure");
 		assert_ptr_eq(rtree_get(&rtree, 0, true), &node_a,
 		    "rtree_get() should return previously set value");
 
-		rtree_set(&rtree, ~((uintptr_t)0), &node_b);
+		assert_false(rtree_set(&rtree, ~((uintptr_t)0), &node_b),
+		    "Unexpected rtree_set() failure");
 		assert_ptr_eq(rtree_get(&rtree, ~((uintptr_t)0), true), &node_b,
 		    "rtree_get() should return previously set value");
 
@@ -66,20 +68,22 @@ TEST_BEGIN(test_rtree_bits)
 		    "Unexpected rtree_new() failure");
 
 		for (j = 0; j < sizeof(keys)/sizeof(uintptr_t); j++) {
-			rtree_set(&rtree, keys[j], &node);
+			assert_false(rtree_set(&rtree, keys[j], &node),
+			    "Unexpected rtree_set() failure");
 			for (k = 0; k < sizeof(keys)/sizeof(uintptr_t); k++) {
 				assert_ptr_eq(rtree_get(&rtree, keys[k], true),
 				    &node, "rtree_get() should return "
 				    "previously set value and ignore "
 				    "insignificant key bits; i=%u, j=%u, k=%u, "
-				    "set key=%#"PRIxPTR", get key=%#"PRIxPTR, i,
+				    "set key=%#"FMTxPTR", get key=%#"FMTxPTR, i,
 				    j, k, keys[j], keys[k]);
 			}
 			assert_ptr_null(rtree_get(&rtree,
 			    (((uintptr_t)1) << (sizeof(uintptr_t)*8-i)), false),
 			    "Only leftmost rtree leaf should be set; "
 			    "i=%u, j=%u", i, j);
-			rtree_set(&rtree, keys[j], NULL);
+			assert_false(rtree_set(&rtree, keys[j], NULL),
+			    "Unexpected rtree_set() failure");
 		}
 
 		rtree_delete(&rtree);
@@ -106,7 +110,8 @@ TEST_BEGIN(test_rtree_random)
 
 		for (j = 0; j < NSET; j++) {
 			keys[j] = (uintptr_t)gen_rand64(sfmt);
-			rtree_set(&rtree, keys[j], &node);
+			assert_false(rtree_set(&rtree, keys[j], &node),
+			    "Unexpected rtree_set() failure");
 			assert_ptr_eq(rtree_get(&rtree, keys[j], true), &node,
 			    "rtree_get() should return previously set value");
 		}
@@ -116,7 +121,8 @@ TEST_BEGIN(test_rtree_random)
 		}
 
 		for (j = 0; j < NSET; j++) {
-			rtree_set(&rtree, keys[j], NULL);
+			assert_false(rtree_set(&rtree, keys[j], NULL),
+			    "Unexpected rtree_set() failure");
 			assert_ptr_null(rtree_get(&rtree, keys[j], true),
 			    "rtree_get() should return previously set value");
 		}

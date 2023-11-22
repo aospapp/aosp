@@ -16,6 +16,7 @@
 
 #include "check_jni.h"
 
+#include <iomanip>
 #include <sys/mman.h>
 #include <zlib.h>
 
@@ -65,6 +66,8 @@ namespace art {
 #define kFlag_Invocation    0x8000      // Part of the invocation interface (JavaVM*).
 
 #define kFlag_ForceTrace    0x80000000  // Add this to a JNI function's flags if you want to trace every call.
+
+class VarArgs;
 /*
  * Java primitive types:
  * B - jbyte
@@ -125,11 +128,121 @@ union JniValueType {
   jshort S;
   const void* V;  // void
   jboolean Z;
+  const VarArgs* va;
+};
+
+/*
+ * A structure containing all the information needed to validate varargs arguments.
+ *
+ * Note that actually getting the arguments from this structure mutates it so should only be done on
+ * owned copies.
+ */
+class VarArgs {
+ public:
+  VarArgs(jmethodID m, va_list var) : m_(m), type_(kTypeVaList), cnt_(0) {
+    va_copy(vargs_, var);
+  }
+
+  VarArgs(jmethodID m, const jvalue* vals) : m_(m), type_(kTypePtr), cnt_(0), ptr_(vals) {}
+
+  ~VarArgs() {
+    if (type_ == kTypeVaList) {
+      va_end(vargs_);
+    }
+  }
+
+  VarArgs(VarArgs&& other) {
+    m_ = other.m_;
+    cnt_ = other.cnt_;
+    type_ = other.type_;
+    if (other.type_ == kTypeVaList) {
+      va_copy(vargs_, other.vargs_);
+    } else {
+      ptr_ = other.ptr_;
+    }
+  }
+
+  // This method is const because we need to ensure that one only uses the GetValue method on an
+  // owned copy of the VarArgs. This is because getting the next argument from a va_list is a
+  // mutating operation. Therefore we pass around these VarArgs with the 'const' qualifier and when
+  // we want to use one we need to Clone() it.
+  VarArgs Clone() const {
+    if (type_ == kTypeVaList) {
+      // const_cast needed to make sure the compiler is okay with va_copy, which (being a macro) is
+      // messed up if the source argument is not the exact type 'va_list'.
+      return VarArgs(m_, cnt_, const_cast<VarArgs*>(this)->vargs_);
+    } else {
+      return VarArgs(m_, cnt_, ptr_);
+    }
+  }
+
+  jmethodID GetMethodID() const {
+    return m_;
+  }
+
+  JniValueType GetValue(char fmt) {
+    JniValueType o;
+    if (type_ == kTypeVaList) {
+      switch (fmt) {
+        case 'Z': o.Z = static_cast<jboolean>(va_arg(vargs_, jint)); break;
+        case 'B': o.B = static_cast<jbyte>(va_arg(vargs_, jint)); break;
+        case 'C': o.C = static_cast<jchar>(va_arg(vargs_, jint)); break;
+        case 'S': o.S = static_cast<jshort>(va_arg(vargs_, jint)); break;
+        case 'I': o.I = va_arg(vargs_, jint); break;
+        case 'J': o.J = va_arg(vargs_, jlong); break;
+        case 'F': o.F = static_cast<jfloat>(va_arg(vargs_, jdouble)); break;
+        case 'D': o.D = va_arg(vargs_, jdouble); break;
+        case 'L': o.L = va_arg(vargs_, jobject); break;
+        default:
+          LOG(FATAL) << "Illegal type format char " << fmt;
+          UNREACHABLE();
+      }
+    } else {
+      CHECK(type_ == kTypePtr);
+      jvalue v = ptr_[cnt_];
+      cnt_++;
+      switch (fmt) {
+        case 'Z': o.Z = v.z; break;
+        case 'B': o.B = v.b; break;
+        case 'C': o.C = v.c; break;
+        case 'S': o.S = v.s; break;
+        case 'I': o.I = v.i; break;
+        case 'J': o.J = v.j; break;
+        case 'F': o.F = v.f; break;
+        case 'D': o.D = v.d; break;
+        case 'L': o.L = v.l; break;
+        default:
+          LOG(FATAL) << "Illegal type format char " << fmt;
+          UNREACHABLE();
+      }
+    }
+    return o;
+  }
+
+ private:
+  VarArgs(jmethodID m, uint32_t cnt, va_list var) : m_(m), type_(kTypeVaList), cnt_(cnt) {
+    va_copy(vargs_, var);
+  }
+
+  VarArgs(jmethodID m, uint32_t cnt, const jvalue* vals) : m_(m), type_(kTypePtr), cnt_(cnt), ptr_(vals) {}
+
+  enum VarArgsType {
+    kTypeVaList,
+    kTypePtr,
+  };
+
+  jmethodID m_;
+  VarArgsType type_;
+  uint32_t cnt_;
+  union {
+    va_list vargs_;
+    const jvalue* ptr_;
+  };
 };
 
 class ScopedCheck {
  public:
-  explicit ScopedCheck(int flags, const char* functionName, bool has_method = true)
+  ScopedCheck(int flags, const char* functionName, bool has_method = true)
       : function_name_(functionName), flags_(flags), indent_(0), has_method_(has_method) {
   }
 
@@ -155,7 +268,7 @@ class ScopedCheck {
    * Assumes "jobj" has already been validated.
    */
   bool CheckInstanceFieldID(ScopedObjectAccess& soa, jobject java_object, jfieldID fid)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     mirror::Object* o = soa.Decode<mirror::Object*>(java_object);
     if (o == nullptr) {
       AbortF("field operation on NULL object: %p", java_object);
@@ -199,7 +312,7 @@ class ScopedCheck {
    */
   bool CheckMethodAndSig(ScopedObjectAccess& soa, jobject jobj, jclass jc,
                          jmethodID mid, Primitive::Type type, InvokeType invoke)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     ArtMethod* m = CheckMethodID(soa, mid);
     if (m == nullptr) {
       return false;
@@ -246,7 +359,7 @@ class ScopedCheck {
    * Assumes "java_class" has already been validated.
    */
   bool CheckStaticFieldID(ScopedObjectAccess& soa, jclass java_class, jfieldID fid)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     mirror::Class* c = soa.Decode<mirror::Class*>(java_class);
     ArtField* f = CheckFieldID(soa, fid);
     if (f == nullptr) {
@@ -269,7 +382,7 @@ class ScopedCheck {
    * Instances of "java_class" must be instances of the method's declaring class.
    */
   bool CheckStaticMethod(ScopedObjectAccess& soa, jclass java_class, jmethodID mid)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     ArtMethod* m = CheckMethodID(soa, mid);
     if (m == nullptr) {
       return false;
@@ -290,7 +403,7 @@ class ScopedCheck {
    * will be handled automatically by the instanceof check.)
    */
   bool CheckVirtualMethod(ScopedObjectAccess& soa, jobject java_object, jmethodID mid)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     ArtMethod* m = CheckMethodID(soa, mid);
     if (m == nullptr) {
       return false;
@@ -338,12 +451,12 @@ class ScopedCheck {
    * z - jsize (for lengths; use i if negative values are okay)
    * v - JavaVM*
    * E - JNIEnv*
-   * . - no argument; just print "..." (used for varargs JNI calls)
+   * . - VarArgs* for Jni calls with variable length arguments
    *
    * Use the kFlag_NullableUtf flag where 'u' field(s) are nullable.
    */
   bool Check(ScopedObjectAccess& soa, bool entry, const char* fmt, JniValueType* args)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     ArtMethod* traceMethod = nullptr;
     if (has_method_ && soa.Vm()->IsTracingEnabled()) {
       // We need to guard some of the invocation interface's calls: a bad caller might
@@ -443,7 +556,7 @@ class ScopedCheck {
   }
 
   bool CheckReflectedMethod(ScopedObjectAccess& soa, jobject jmethod)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     mirror::Object* method = soa.Decode<mirror::Object*>(jmethod);
     if (method == nullptr) {
       AbortF("expected non-null method");
@@ -461,7 +574,7 @@ class ScopedCheck {
   }
 
   bool CheckConstructor(ScopedObjectAccess& soa, jmethodID mid)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     ArtMethod* method = soa.DecodeMethod(mid);
     if (method == nullptr) {
       AbortF("expected non-null constructor");
@@ -475,7 +588,7 @@ class ScopedCheck {
   }
 
   bool CheckReflectedField(ScopedObjectAccess& soa, jobject jfield)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     mirror::Object* field = soa.Decode<mirror::Object*>(jfield);
     if (field == nullptr) {
       AbortF("expected non-null java.lang.reflect.Field");
@@ -491,7 +604,7 @@ class ScopedCheck {
   }
 
   bool CheckThrowable(ScopedObjectAccess& soa, jthrowable jobj)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     mirror::Object* obj = soa.Decode<mirror::Object*>(jobj);
     if (!obj->GetClass()->IsThrowableClass()) {
       AbortF("expected java.lang.Throwable but got object of type "
@@ -502,7 +615,7 @@ class ScopedCheck {
   }
 
   bool CheckThrowableClass(ScopedObjectAccess& soa, jclass jc)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     mirror::Class* c = soa.Decode<mirror::Class*>(jc);
     if (!c->IsThrowableClass()) {
       AbortF("expected java.lang.Throwable class but got object of "
@@ -533,7 +646,7 @@ class ScopedCheck {
   }
 
   bool CheckInstantiableNonArray(ScopedObjectAccess& soa, jclass jc)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     mirror::Class* c = soa.Decode<mirror::Class*>(jc);
     if (!c->IsInstantiableNonArray()) {
       AbortF("can't make objects of type %s: %p", PrettyDescriptor(c).c_str(), c);
@@ -543,7 +656,7 @@ class ScopedCheck {
   }
 
   bool CheckPrimitiveArrayType(ScopedObjectAccess& soa, jarray array, Primitive::Type type)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     if (!CheckArray(soa, array)) {
       return false;
     }
@@ -558,7 +671,7 @@ class ScopedCheck {
 
   bool CheckFieldAccess(ScopedObjectAccess& soa, jobject obj, jfieldID fid, bool is_static,
                         Primitive::Type type)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     if (is_static && !CheckStaticFieldID(soa, down_cast<jclass>(obj), fid)) {
       return false;
     }
@@ -619,7 +732,7 @@ class ScopedCheck {
    * to "running" mode before doing the checks.
    */
   bool CheckInstance(ScopedObjectAccess& soa, InstanceKind kind, jobject java_object, bool null_ok)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     const char* what = nullptr;
     switch (kind) {
     case kClass:
@@ -715,7 +828,7 @@ class ScopedCheck {
   }
 
   bool CheckPossibleHeapValue(ScopedObjectAccess& soa, char fmt, JniValueType arg)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     switch (fmt) {
       case 'a':  // jarray
         return CheckArray(soa, arg.a);
@@ -735,9 +848,33 @@ class ScopedCheck {
         return CheckThread(arg.E);
       case 'L':  // jobject
         return CheckInstance(soa, kObject, arg.L, true);
+      case '.':  // A VarArgs list
+        return CheckVarArgs(soa, arg.va);
       default:
         return CheckNonHeapValue(fmt, arg);
     }
+  }
+
+  bool CheckVarArgs(ScopedObjectAccess& soa, const VarArgs* args_p)
+      SHARED_REQUIRES(Locks::mutator_lock_) {
+    CHECK(args_p != nullptr);
+    VarArgs args(args_p->Clone());
+    ArtMethod* m = CheckMethodID(soa, args.GetMethodID());
+    if (m == nullptr) {
+      return false;
+    }
+    uint32_t len = 0;
+    const char* shorty = m->GetShorty(&len);
+    // Skip the return type
+    CHECK_GE(len, 1u);
+    len--;
+    shorty++;
+    for (uint32_t i = 0; i < len; i++) {
+      if (!CheckPossibleHeapValue(soa, shorty[i], args.GetValue(shorty[i]))) {
+        return false;
+      }
+    }
+    return true;
   }
 
   bool CheckNonHeapValue(char fmt, JniValueType arg) {
@@ -785,7 +922,7 @@ class ScopedCheck {
 
   void TracePossibleHeapValue(ScopedObjectAccess& soa, bool entry, char fmt, JniValueType arg,
                               std::string* msg)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     switch (fmt) {
       case 'L':  // jobject fall-through.
       case 'a':  // jarray fall-through.
@@ -829,6 +966,24 @@ class ScopedCheck {
         *msg += PrettyMethod(m);
         if (!entry) {
           StringAppendF(msg, " (%p)", mid);
+        }
+        break;
+      }
+      case '.': {
+        const VarArgs* va = arg.va;
+        VarArgs args(va->Clone());
+        ArtMethod* m = soa.DecodeMethod(args.GetMethodID());
+        uint32_t len;
+        const char* shorty = m->GetShorty(&len);
+        CHECK_GE(len, 1u);
+        // Skip past return value.
+        len--;
+        shorty++;
+        // Remove the previous ', ' from the message.
+        msg->erase(msg->length() - 2);
+        for (uint32_t i = 0; i < len; i++) {
+          *msg += ", ";
+          TracePossibleHeapValue(soa, entry, shorty[i], args.GetValue(shorty[i]), msg);
         }
         break;
       }
@@ -946,7 +1101,7 @@ class ScopedCheck {
    * Since we're dealing with objects, switch to "running" mode.
    */
   bool CheckArray(ScopedObjectAccess& soa, jarray java_array)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     if (UNLIKELY(java_array == nullptr)) {
       AbortF("jarray was NULL");
       return false;
@@ -983,7 +1138,7 @@ class ScopedCheck {
   }
 
   ArtField* CheckFieldID(ScopedObjectAccess& soa, jfieldID fid)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     if (fid == nullptr) {
       AbortF("jfieldID was NULL");
       return nullptr;
@@ -999,7 +1154,7 @@ class ScopedCheck {
   }
 
   ArtMethod* CheckMethodID(ScopedObjectAccess& soa, jmethodID mid)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     if (mid == nullptr) {
       AbortF("jmethodID was NULL");
       return nullptr;
@@ -1014,7 +1169,7 @@ class ScopedCheck {
     return m;
   }
 
-  bool CheckThread(JNIEnv* env) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+  bool CheckThread(JNIEnv* env) SHARED_REQUIRES(Locks::mutator_lock_) {
     Thread* self = Thread::Current();
     if (self == nullptr) {
       AbortF("a thread (tid %d) is making JNI calls without being attached", GetTid());
@@ -1083,10 +1238,29 @@ class ScopedCheck {
     }
 
     const char* errorKind = nullptr;
-    uint8_t utf8 = CheckUtfBytes(bytes, &errorKind);
+    const uint8_t* utf8 = CheckUtfBytes(bytes, &errorKind);
     if (errorKind != nullptr) {
+      // This is an expensive loop that will resize often, but this isn't supposed to hit in
+      // practice anyways.
+      std::ostringstream oss;
+      oss << std::hex;
+      const uint8_t* tmp = reinterpret_cast<const uint8_t*>(bytes);
+      while (*tmp != 0) {
+        if (tmp == utf8) {
+          oss << "<";
+        }
+        oss << "0x" << std::setfill('0') << std::setw(2) << static_cast<uint32_t>(*tmp);
+        if (tmp == utf8) {
+          oss << '>';
+        }
+        tmp++;
+        if (*tmp != 0) {
+          oss << ' ';
+        }
+      }
+
       AbortF("input is not valid Modified UTF-8: illegal %s byte %#x\n"
-          "    string: '%s'", errorKind, utf8, bytes);
+          "    string: '%s'\n    input: '%s'", errorKind, *utf8, bytes, oss.str().c_str());
       return false;
     }
     return true;
@@ -1094,11 +1268,11 @@ class ScopedCheck {
 
   // Checks whether |bytes| is valid modified UTF-8. We also accept 4 byte UTF
   // sequences in place of encoded surrogate pairs.
-  static uint8_t CheckUtfBytes(const char* bytes, const char** errorKind) {
+  static const uint8_t* CheckUtfBytes(const char* bytes, const char** errorKind) {
     while (*bytes != '\0') {
-      uint8_t utf8 = *(bytes++);
+      const uint8_t* utf8 = reinterpret_cast<const uint8_t*>(bytes++);
       // Switch on the high four bits.
-      switch (utf8 >> 4) {
+      switch (*utf8 >> 4) {
       case 0x00:
       case 0x01:
       case 0x02:
@@ -1118,11 +1292,11 @@ class ScopedCheck {
         return utf8;
       case 0x0f:
         // Bit pattern 1111, which might be the start of a 4 byte sequence.
-        if ((utf8 & 0x08) == 0) {
+        if ((*utf8 & 0x08) == 0) {
           // Bit pattern 1111 0xxx, which is the start of a 4 byte sequence.
           // We consume one continuation byte here, and fall through to consume two more.
-          utf8 = *(bytes++);
-          if ((utf8 & 0xc0) != 0x80) {
+          utf8 = reinterpret_cast<const uint8_t*>(bytes++);
+          if ((*utf8 & 0xc0) != 0x80) {
             *errorKind = "continuation";
             return utf8;
           }
@@ -1135,8 +1309,8 @@ class ScopedCheck {
         FALLTHROUGH_INTENDED;
       case 0x0e:
         // Bit pattern 1110, so there are two additional bytes.
-        utf8 = *(bytes++);
-        if ((utf8 & 0xc0) != 0x80) {
+        utf8 = reinterpret_cast<const uint8_t*>(bytes++);
+        if ((*utf8 & 0xc0) != 0x80) {
           *errorKind = "continuation";
           return utf8;
         }
@@ -1146,8 +1320,8 @@ class ScopedCheck {
       case 0x0c:
       case 0x0d:
         // Bit pattern 110x, so there is one additional byte.
-        utf8 = *(bytes++);
-        if ((utf8 & 0xc0) != 0x80) {
+        utf8 = reinterpret_cast<const uint8_t*>(bytes++);
+        if ((*utf8 & 0xc0) != 0x80) {
           *errorKind = "continuation";
           return utf8;
         }
@@ -1206,6 +1380,8 @@ class GuardedCopy {
       const_cast<char*>(copy->StartRedZone())[i] = kCanary[j];
       if (kCanary[j] == '\0') {
         j = 0;
+      } else {
+        j++;
       }
     }
 
@@ -1217,6 +1393,8 @@ class GuardedCopy {
       const_cast<char*>(copy->EndRedZone())[i] = kCanary[j];
       if (kCanary[j] == '\0') {
         j = 0;
+      } else {
+        j++;
       }
     }
 
@@ -1367,6 +1545,8 @@ class GuardedCopy {
       }
       if (kCanary[j] == '\0') {
         j = 0;
+      } else {
+        j++;
       }
     }
 
@@ -1381,6 +1561,8 @@ class GuardedCopy {
       }
       if (kCanary[j] == '\0') {
         j = 0;
+      } else {
+        j++;
       }
     }
     return true;
@@ -1808,8 +1990,9 @@ class CheckJNI {
   static jobject NewObjectV(JNIEnv* env, jclass c, jmethodID mid, va_list vargs) {
     ScopedObjectAccess soa(env);
     ScopedCheck sc(kFlag_Default, __FUNCTION__);
-    JniValueType args[3] = {{.E = env}, {.c = c}, {.m = mid}};
-    if (sc.Check(soa, true, "Ecm", args) && sc.CheckInstantiableNonArray(soa, c) &&
+    VarArgs rest(mid, vargs);
+    JniValueType args[4] = {{.E = env}, {.c = c}, {.m = mid}, {.va = &rest}};
+    if (sc.Check(soa, true, "Ecm.", args) && sc.CheckInstantiableNonArray(soa, c) &&
         sc.CheckConstructor(soa, mid)) {
       JniValueType result;
       result.L = baseEnv(env)->NewObjectV(env, c, mid, vargs);
@@ -1831,8 +2014,9 @@ class CheckJNI {
   static jobject NewObjectA(JNIEnv* env, jclass c, jmethodID mid, jvalue* vargs) {
     ScopedObjectAccess soa(env);
     ScopedCheck sc(kFlag_Default, __FUNCTION__);
-    JniValueType args[3] = {{.E = env}, {.c = c}, {.m = mid}};
-    if (sc.Check(soa, true, "Ecm", args) && sc.CheckInstantiableNonArray(soa, c) &&
+    VarArgs rest(mid, vargs);
+    JniValueType args[4] = {{.E = env}, {.c = c}, {.m = mid}, {.va = &rest}};
+    if (sc.Check(soa, true, "Ecm.", args) && sc.CheckInstantiableNonArray(soa, c) &&
         sc.CheckConstructor(soa, mid)) {
       JniValueType result;
       result.L = baseEnv(env)->NewObjectA(env, c, mid, vargs);
@@ -2279,6 +2463,9 @@ class CheckJNI {
     ScopedCheck sc(kFlag_Default, __FUNCTION__);
     JniValueType args[2] = {{.E = env}, {.L = obj}};
     if (sc.Check(soa, true, "EL", args)) {
+      if (obj != nullptr) {
+        down_cast<JNIEnvExt*>(env)->RecordMonitorEnter(obj);
+      }
       JniValueType result;
       result.i = baseEnv(env)->MonitorEnter(env, obj);
       if (sc.Check(soa, false, "i", &result)) {
@@ -2293,6 +2480,9 @@ class CheckJNI {
     ScopedCheck sc(kFlag_ExcepOkay, __FUNCTION__);
     JniValueType args[2] = {{.E = env}, {.L = obj}};
     if (sc.Check(soa, true, "EL", args)) {
+      if (obj != nullptr) {
+        down_cast<JNIEnvExt*>(env)->CheckMonitorRelease(obj);
+      }
       JniValueType result;
       result.i = baseEnv(env)->MonitorExit(env, obj);
       if (sc.Check(soa, false, "i", &result)) {
@@ -2661,25 +2851,25 @@ class CheckJNI {
   }
 
   static bool CheckCallArgs(ScopedObjectAccess& soa, ScopedCheck& sc, JNIEnv* env, jobject obj,
-                            jclass c, jmethodID mid, InvokeType invoke)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+                            jclass c, jmethodID mid, InvokeType invoke, const VarArgs* vargs)
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     bool checked;
     switch (invoke) {
       case kVirtual: {
         DCHECK(c == nullptr);
-        JniValueType args[3] = {{.E = env}, {.L = obj}, {.m = mid}};
-        checked = sc.Check(soa, true, "ELm", args);
+        JniValueType args[4] = {{.E = env}, {.L = obj}, {.m = mid}, {.va = vargs}};
+        checked = sc.Check(soa, true, "ELm.", args);
         break;
       }
       case kDirect: {
-        JniValueType args[4] = {{.E = env}, {.L = obj}, {.c = c}, {.m = mid}};
-        checked = sc.Check(soa, true, "ELcm", args);
+        JniValueType args[5] = {{.E = env}, {.L = obj}, {.c = c}, {.m = mid}, {.va = vargs}};
+        checked = sc.Check(soa, true, "ELcm.", args);
         break;
       }
       case kStatic: {
         DCHECK(obj == nullptr);
-        JniValueType args[3] = {{.E = env}, {.c = c}, {.m = mid}};
-        checked = sc.Check(soa, true, "Ecm", args);
+        JniValueType args[4] = {{.E = env}, {.c = c}, {.m = mid}, {.va = vargs}};
+        checked = sc.Check(soa, true, "Ecm.", args);
         break;
       }
       default:
@@ -2696,7 +2886,8 @@ class CheckJNI {
     ScopedObjectAccess soa(env);
     ScopedCheck sc(kFlag_Default, function_name);
     JniValueType result;
-    if (CheckCallArgs(soa, sc, env, obj, c, mid, invoke) &&
+    VarArgs rest(mid, vargs);
+    if (CheckCallArgs(soa, sc, env, obj, c, mid, invoke, &rest) &&
         sc.CheckMethodAndSig(soa, obj, c, mid, type, invoke)) {
       const char* result_check;
       switch (type) {
@@ -2879,7 +3070,8 @@ class CheckJNI {
     ScopedObjectAccess soa(env);
     ScopedCheck sc(kFlag_Default, function_name);
     JniValueType result;
-    if (CheckCallArgs(soa, sc, env, obj, c, mid, invoke) &&
+    VarArgs rest(mid, vargs);
+    if (CheckCallArgs(soa, sc, env, obj, c, mid, invoke, &rest) &&
         sc.CheckMethodAndSig(soa, obj, c, mid, type, invoke)) {
       const char* result_check;
       switch (type) {

@@ -1,9 +1,26 @@
+/*
+ * Copyright (C) 2015 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package android.test.anno;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.util.TreeMap;
 
 public class TestAnnotations {
@@ -65,7 +82,7 @@ public class TestAnnotations {
             AnnoFancyField aff;
             aff = (AnnoFancyField) f.getAnnotation(AnnoFancyField.class);
             if (aff != null) {
-                System.out.println("    aff: " + aff + " / " + aff.getClass());
+                System.out.println("    aff: " + aff + " / " + Proxy.isProxyClass(aff.getClass()));
                 System.out.println("    --> nombre is '" + aff.nombre() + "'");
             }
         }
@@ -142,7 +159,23 @@ public class TestAnnotations {
         System.out.println("");
     }
 
-
+    public static void testVisibilityCompatibility() throws Exception {
+        if (!VMRuntime.isAndroid()) {
+            return;
+        }
+        Object runtime = VMRuntime.getRuntime();
+        int currentSdkVersion = VMRuntime.getTargetSdkVersion(runtime);
+        // SDK version 23 is M.
+        int oldSdkVersion = 23;
+        VMRuntime.setTargetSdkVersion(runtime, oldSdkVersion);
+        // This annotation has CLASS retention, but is visible to the runtime in M and earlier.
+        Annotation anno = SimplyNoted.class.getAnnotation(AnnoSimpleTypeInvis.class);
+        if (anno == null) {
+            System.out.println("testVisibilityCompatibility failed: " +
+                    "SimplyNoted.get(AnnoSimpleTypeInvis) should not be null");
+        }
+        VMRuntime.setTargetSdkVersion(runtime, currentSdkVersion);
+    }
 
     public static void main(String[] args) {
         System.out.println("TestAnnotations...");
@@ -168,6 +201,9 @@ public class TestAnnotations {
         // this is expected to be non-null
         Annotation anno = SimplyNoted.class.getAnnotation(AnnoSimpleType.class);
         System.out.println("SimplyNoted.get(AnnoSimpleType) = " + anno);
+        // this is expected to be null
+        anno = SimplyNoted.class.getAnnotation(AnnoSimpleTypeInvis.class);
+        System.out.println("SimplyNoted.get(AnnoSimpleTypeInvis) = " + anno);
         // this is non-null if the @Inherited tag is present
         anno = SubNoted.class.getAnnotation(AnnoSimpleType.class);
         System.out.println("SubNoted.get(AnnoSimpleType) = " + anno);
@@ -180,5 +216,84 @@ public class TestAnnotations {
         printAnnotationArray("    ", TestAnnotations.class.getPackage().getAnnotations());
         System.out.println("Package declared annotations:");
         printAnnotationArray("    ", TestAnnotations.class.getPackage().getDeclaredAnnotations());
+
+        System.out.println();
+
+        // Test inner classes.
+        System.out.println("Inner Classes:");
+        new ClassWithInnerClasses().print();
+
+        System.out.println();
+
+        // Test TypeNotPresentException.
+        try {
+            AnnoMissingClass missingAnno =
+                ClassWithMissingAnnotation.class.getAnnotation(AnnoMissingClass.class);
+            System.out.println("Get annotation with missing class should not throw");
+            System.out.println(missingAnno.value());
+            System.out.println("Getting value of missing annotaton should have thrown");
+        } catch (TypeNotPresentException expected) {
+            System.out.println("Got expected TypeNotPresentException");
+        }
+
+        // Test renamed enums.
+        try {
+            for (Method m: RenamedNoted.class.getDeclaredMethods()) {
+                Annotation[] annos = m.getDeclaredAnnotations();
+                System.out.println("  annotations on METH " + m + ":");
+            }
+        } catch (NoSuchFieldError expected) {
+            System.out.println("Got expected NoSuchFieldError");
+        }
+
+        // Test if annotations marked VISIBILITY_BUILD are visible to runtime in M and earlier.
+        try {
+            testVisibilityCompatibility();
+        } catch (Exception e) {
+            System.out.println("testVisibilityCompatibility failed: " + e);
+        }
+    }
+
+    private static class VMRuntime {
+        private static Class vmRuntimeClass;
+        private static Method getRuntimeMethod;
+        private static Method getTargetSdkVersionMethod;
+        private static Method setTargetSdkVersionMethod;
+        static {
+            init();
+        }
+
+        private static void init() {
+            try {
+                vmRuntimeClass = Class.forName("dalvik.system.VMRuntime");
+            } catch (Exception e) {
+                return;
+            }
+            try {
+                getRuntimeMethod = vmRuntimeClass.getDeclaredMethod("getRuntime");
+                getTargetSdkVersionMethod =
+                        vmRuntimeClass.getDeclaredMethod("getTargetSdkVersion");
+                setTargetSdkVersionMethod =
+                        vmRuntimeClass.getDeclaredMethod("setTargetSdkVersion", Integer.TYPE);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        public static boolean isAndroid() {
+            return vmRuntimeClass != null;
+        }
+
+        public static Object getRuntime() throws Exception {
+            return getRuntimeMethod.invoke(null);
+        }
+
+        public static int getTargetSdkVersion(Object runtime) throws Exception {
+            return (int) getTargetSdkVersionMethod.invoke(runtime);
+        }
+
+        public static void setTargetSdkVersion(Object runtime, int version) throws Exception {
+            setTargetSdkVersionMethod.invoke(runtime, version);
+        }
     }
 }

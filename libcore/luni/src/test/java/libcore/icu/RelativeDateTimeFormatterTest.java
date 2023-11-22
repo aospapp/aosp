@@ -16,8 +16,6 @@
 
 package libcore.icu;
 
-import android.icu.util.ULocale;
-
 import java.util.Calendar;
 import java.util.Locale;
 import java.util.TimeZone;
@@ -663,5 +661,42 @@ public class RelativeDateTimeFormatterTest extends junit.framework.TestCase {
         base - 60 * DAY_IN_MILLIS, base, DAY_IN_MILLIS, FORMAT_SHOW_YEAR));
     assertEquals("December 7", getRelativeTimeSpanString(en_US, tz,
         base - 60 * DAY_IN_MILLIS, base, DAY_IN_MILLIS, FORMAT_NO_YEAR));
+  }
+
+  // Check for missing ICU data. http://b/25821045
+  public void test_bug25821045() {
+    final TimeZone tz = TimeZone.getDefault();
+    final long now = System.currentTimeMillis();
+    final long time = now + 1000;
+    final int minResolution = 1000 * 60;
+    final int transitionResolution = minResolution;
+    final int flags = FORMAT_ABBREV_RELATIVE;
+    // Exercise all available locales, forcing the ICU implementation to pre-cache the data. This
+    // highlights data issues. It can take a while.
+    for (Locale locale : Locale.getAvailableLocales()) {
+      // In (e.g.) ICU56 an exception is thrown on the first use for a locale if required data for
+      // the "other" plural is missing. It doesn't matter what is actually formatted.
+      try {
+        RelativeDateTimeFormatter.getRelativeDateTimeString(
+            locale, tz, time, now, minResolution, transitionResolution, flags);
+      } catch (IllegalStateException e) {
+        fail("Failed to format for " + locale);
+      }
+    }
+  }
+
+  // Check for ICU data lookup fallback failure. http://b/25883157
+  public void test_bug25883157() {
+    final Locale locale = new Locale("en", "GB");
+    final TimeZone tz = TimeZone.getTimeZone("GMT");
+
+    final Calendar cal = Calendar.getInstance(tz, locale);
+    cal.set(2015, Calendar.JUNE, 19, 12, 0, 0);
+
+    final long base = cal.getTimeInMillis();
+    final long time = base + 2 * WEEK_IN_MILLIS;
+
+    assertEquals("In 2 wk", getRelativeTimeSpanString(
+        locale, tz, time, base, WEEK_IN_MILLIS, FORMAT_ABBREV_RELATIVE));
   }
 }

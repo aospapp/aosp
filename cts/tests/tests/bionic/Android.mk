@@ -1,6 +1,6 @@
 LOCAL_PATH := $(call my-dir)
 
-test_executable := bionic-unit-tests-cts
+test_executable := CtsBionicTestCases
 list_executable := $(test_executable)_list
 
 include $(CLEAR_VARS)
@@ -25,6 +25,9 @@ LOCAL_STATIC_LIBRARIES += \
     libtinyxml2 \
     liblog \
     libgtest \
+
+# Tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
 
 LOCAL_CTS_TEST_PACKAGE := android.bionic
 include $(BUILD_CTS_EXECUTABLE)

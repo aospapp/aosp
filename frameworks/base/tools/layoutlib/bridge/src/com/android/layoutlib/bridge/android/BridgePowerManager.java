@@ -86,7 +86,12 @@ public class BridgePowerManager implements IPowerManager {
     }
 
     @Override
-    public void shutdown(boolean confirm, boolean wait) {
+    public void rebootSafeMode(boolean confirm, boolean wait) {
+        // pass for now.
+    }
+
+    @Override
+    public void shutdown(boolean confirm, String reason, boolean wait) {
         // pass for now.
     }
 
@@ -148,6 +153,11 @@ public class BridgePowerManager implements IPowerManager {
 
     @Override
     public boolean isDeviceIdleMode() throws RemoteException {
+        return false;
+    }
+
+    @Override
+    public boolean isLightDeviceIdleMode() throws RemoteException {
         return false;
     }
 

@@ -100,23 +100,23 @@ define void @test11(i32* %P) {
 }
 
 declare i32 @__gxx_personality_v0(...)
-define void @test_invoke_vararg_cast(i32* %a, i32* %b) {
+define void @test_invoke_vararg_cast(i32* %a, i32* %b) personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
 entry:
   %0 = bitcast i32* %b to i8*
   %1 = bitcast i32* %a to i64*
-  invoke void (i32, ...)* @varargs(i32 1, i8* %0, i64* %1)
+  invoke void (i32, ...) @varargs(i32 1, i8* %0, i64* %1)
           to label %invoke.cont unwind label %lpad
 
 invoke.cont:                                      ; preds = %entry
   ret void
 
 lpad:                                             ; preds = %entry
-  %2 = landingpad { i8*, i32 } personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*)
+  %2 = landingpad { i8*, i32 }
           cleanup
   ret void
 ; CHECK-LABEL: test_invoke_vararg_cast
 ; CHECK-LABEL: entry:
-; CHECK: invoke void (i32, ...)* @varargs(i32 1, i32* %b, i32* %a)
+; CHECK: invoke void (i32, ...) @varargs(i32 1, i32* %b, i32* %a)
 }
 
 define i8* @test13(i64 %A) {
@@ -722,7 +722,7 @@ define i1 @test67(i1 %a, i32 %b) {
 ; CHECK: ret i1 false
 }
 
-%s = type { i32, i32, i32 }
+%s = type { i32, i32, i16 }
 
 define %s @test68(%s *%p, i64 %i) {
 ; CHECK-LABEL: @test68(
@@ -1062,6 +1062,43 @@ define i8 @test85(i32 %a) {
 ; CHECK: [[CST:%.*]] = trunc i32 [[SHR]] to i8
 }
 
+define i16 @test86(i16 %v) {
+  %a = sext i16 %v to i32
+  %s = ashr i32 %a, 4
+  %t = trunc i32 %s to i16
+  ret i16 %t
+
+; CHECK-LABEL: @test86(
+; CHECK:  [[ASHR:%.*]] = ashr i16 %v, 4
+; CHECK-NEXT: ret i16 [[ASHR]]
+}
+
+define i16 @test87(i16 %v) {
+  %c = sext i16 %v to i32
+  %m = mul nsw i32 %c, 16
+  %a = ashr i32 %m, 16
+  %t = trunc i32 %a to i16
+  ret i16 %t
+
+; CHECK-LABEL: @test87(
+; CHECK:  [[ASHR:%.*]] = ashr i16 %v, 12
+; CHECK-NEXT: ret i16 [[ASHR]]
+}
+
+define i16 @test88(i16 %v) {
+  %a = sext i16 %v to i32
+  %s = ashr i32 %a, 18
+  %t = trunc i32 %s to i16
+  ret i16 %t
+
+; Do not optimize to ashr i16 (shift by 18)
+; CHECK-LABEL: @test88(
+; CHECK: [[SEXT:%.*]] = sext i16 %v to i32
+; CHECK-NEXT: [[ASHR:%.*]] = ashr i32 [[SEXT]], 18
+; CHECK-NEXT: [[TRUNC:%.*]] = trunc i32 [[ASHR]] to i16
+; CHECK-NEXT: ret i16 [[TRUNC]]
+}
+
 ; Overflow on a float to int or int to float conversion is undefined (PR21130).
 
 define i8 @overflow_fptosi() {
@@ -1103,4 +1140,48 @@ define i32 @PR21388(i32* %v) {
 ; CHECK-NEXT: %[[icmp:.*]] = icmp slt i32* %v, null
 ; CHECK-NEXT: %[[sext:.*]] = sext i1 %[[icmp]] to i32
 ; CHECK-NEXT: ret i32 %[[sext]]
+}
+
+define float @sitofp_zext(i16 %a) {
+; CHECK-LABEL: @sitofp_zext(
+; CHECK-NEXT: %[[sitofp:.*]] = uitofp i16 %a to float
+; CHECK-NEXT: ret float %[[sitofp]]
+  %zext = zext i16 %a to i32
+  %sitofp = sitofp i32 %zext to float
+  ret float %sitofp
+}
+
+define i1 @PR23309(i32 %A, i32 %B) {
+; CHECK-LABEL: @PR23309(
+; CHECK-NEXT: %[[sub:.*]] = sub i32 %A, %B
+; CHECK-NEXT: %[[and:.*]] = and i32 %[[sub]], 1
+; CHECK-NEXT: %[[cmp:.*]] = icmp ne i32 %[[and]], 0
+; CHECK-NEXT: ret i1 %[[cmp]]
+  %add = add i32 %A, -4
+  %sub = sub nsw i32 %add, %B
+  %trunc = trunc i32 %sub to i1
+  ret i1 %trunc
+}
+
+define i1 @PR23309v2(i32 %A, i32 %B) {
+; CHECK-LABEL: @PR23309v2(
+; CHECK-NEXT: %[[sub:.*]] = add i32 %A, %B
+; CHECK-NEXT: %[[and:.*]] = and i32 %[[sub]], 1
+; CHECK-NEXT: %[[cmp:.*]] = icmp ne i32 %[[and]], 0
+; CHECK-NEXT: ret i1 %[[cmp]]
+  %add = add i32 %A, -4
+  %sub = add nuw i32 %add, %B
+  %trunc = trunc i32 %sub to i1
+  ret i1 %trunc
+}
+
+define i16 @PR24763(i8 %V) {
+; CHECK-LABEL: @PR24763(
+; CHECK-NEXT: %[[sh:.*]] = ashr i8
+; CHECK-NEXT: %[[ext:.*]] = sext i8 %[[sh]] to i16
+; CHECK-NEXT: ret i16 %[[ext]]
+  %conv = sext i8 %V to i32
+  %l = lshr i32 %conv, 1
+  %t = trunc i32 %l to i16
+  ret i16 %t
 }

@@ -355,12 +355,12 @@ void deMutex_selfTest (void)
 
 typedef struct TestBuffer_s
 {
-	deInt32			buffer[32];
+	deUint32		buffer[32];
 	deSemaphore		empty;
 	deSemaphore		fill;
 
-	deInt32			producerSum;
-	deInt32			consumerSum;
+	deUint32		producerHash;
+	deUint32		consumerHash;
 } TestBuffer;
 
 void producerThread (void* arg)
@@ -375,16 +375,16 @@ void producerThread (void* arg)
 
 	for (ndx = 0; ndx <= numToProduce; ndx++)
 	{
-		deInt32 val;
+		deUint32 val;
 
 		if (ndx == numToProduce)
 		{
-			val = 0; /* End. */
+			val = 0u; /* End. */
 		}
 		else
 		{
-			val = (deInt32)deRandom_getUint32(&random);
-			val = val ? val : 1;
+			val = deRandom_getUint32(&random);
+			val = val ? val : 1u;
 		}
 
 		deSemaphore_decrement(buffer->empty);
@@ -394,7 +394,7 @@ void producerThread (void* arg)
 
 		deSemaphore_increment(buffer->fill);
 
-		buffer->producerSum += val;
+		buffer->producerHash ^= val;
 	}
 }
 
@@ -414,7 +414,7 @@ void consumerThread (void* arg)
 
 		deSemaphore_increment(buffer->empty);
 
-		buffer->consumerSum += val;
+		buffer->consumerHash ^= val;
 
 		if (val == 0)
 			break;
@@ -463,7 +463,7 @@ void deSemaphore_selfTest (void)
 
 		deSemaphore_destroy(testBuffer.empty);
 		deSemaphore_destroy(testBuffer.fill);
-		DE_TEST_ASSERT(testBuffer.producerSum == testBuffer.consumerSum);
+		DE_TEST_ASSERT(testBuffer.producerHash == testBuffer.consumerHash);
 	}
 }
 
@@ -471,16 +471,55 @@ void deAtomic_selfTest (void)
 {
 	/* Single-threaded tests. */
 	{
-		volatile int a = 11;
-		DE_TEST_ASSERT(deAtomicIncrement32(&a) == 12);
+		volatile deInt32 a = 11;
+		DE_TEST_ASSERT(deAtomicIncrementInt32(&a) == 12);
 		DE_TEST_ASSERT(a == 12);
-		DE_TEST_ASSERT(deAtomicIncrement32(&a) == 13);
+		DE_TEST_ASSERT(deAtomicIncrementInt32(&a) == 13);
 		DE_TEST_ASSERT(a == 13);
 
-		DE_TEST_ASSERT(deAtomicDecrement32(&a) == 12);
+		a = -2;
+		DE_TEST_ASSERT(deAtomicIncrementInt32(&a) == -1);
+		DE_TEST_ASSERT(a == -1);
+		DE_TEST_ASSERT(deAtomicIncrementInt32(&a) == 0);
+		DE_TEST_ASSERT(a == 0);
+
+		a = 11;
+		DE_TEST_ASSERT(deAtomicDecrementInt32(&a) == 10);
+		DE_TEST_ASSERT(a == 10);
+		DE_TEST_ASSERT(deAtomicDecrementInt32(&a) == 9);
+		DE_TEST_ASSERT(a == 9);
+
+		a = 0;
+		DE_TEST_ASSERT(deAtomicDecrementInt32(&a) == -1);
+		DE_TEST_ASSERT(a == -1);
+		DE_TEST_ASSERT(deAtomicDecrementInt32(&a) == -2);
+		DE_TEST_ASSERT(a == -2);
+
+		a = 0x7fffffff;
+		DE_TEST_ASSERT(deAtomicIncrementInt32(&a) == (int)0x80000000);
+		DE_TEST_ASSERT(a == (int)0x80000000);
+		DE_TEST_ASSERT(deAtomicDecrementInt32(&a) == (int)0x7fffffff);
+		DE_TEST_ASSERT(a == 0x7fffffff);
+	}
+
+	{
+		volatile deUint32 a = 11;
+		DE_TEST_ASSERT(deAtomicIncrementUint32(&a) == 12);
 		DE_TEST_ASSERT(a == 12);
-		DE_TEST_ASSERT(deAtomicDecrement32(&a) == 11);
-		DE_TEST_ASSERT(a == 11);
+		DE_TEST_ASSERT(deAtomicIncrementUint32(&a) == 13);
+		DE_TEST_ASSERT(a == 13);
+
+		a = 0x7fffffff;
+		DE_TEST_ASSERT(deAtomicIncrementUint32(&a) == 0x80000000);
+		DE_TEST_ASSERT(a == 0x80000000);
+		DE_TEST_ASSERT(deAtomicDecrementUint32(&a) == 0x7fffffff);
+		DE_TEST_ASSERT(a == 0x7fffffff);
+
+		a = 0xfffffffe;
+		DE_TEST_ASSERT(deAtomicIncrementUint32(&a) == 0xffffffff);
+		DE_TEST_ASSERT(a == 0xffffffff);
+		DE_TEST_ASSERT(deAtomicDecrementUint32(&a) == 0xfffffffe);
+		DE_TEST_ASSERT(a == 0xfffffffe);
 	}
 
 	{
@@ -500,6 +539,40 @@ void deAtomic_selfTest (void)
 		DE_TEST_ASSERT(deAtomicCompareExchange32(&p, 7, 8) == 7);
 		DE_TEST_ASSERT(p == 8);
 	}
+
+#if (DE_PTR_SIZE == 8)
+	{
+		volatile deInt64 a = 11;
+		DE_TEST_ASSERT(deAtomicIncrementInt64(&a) == 12);
+		DE_TEST_ASSERT(a == 12);
+		DE_TEST_ASSERT(deAtomicIncrementInt64(&a) == 13);
+		DE_TEST_ASSERT(a == 13);
+
+		a = -2;
+		DE_TEST_ASSERT(deAtomicIncrementInt64(&a) == -1);
+		DE_TEST_ASSERT(a == -1);
+		DE_TEST_ASSERT(deAtomicIncrementInt64(&a) == 0);
+		DE_TEST_ASSERT(a == 0);
+
+		a = 11;
+		DE_TEST_ASSERT(deAtomicDecrementInt64(&a) == 10);
+		DE_TEST_ASSERT(a == 10);
+		DE_TEST_ASSERT(deAtomicDecrementInt64(&a) == 9);
+		DE_TEST_ASSERT(a == 9);
+
+		a = 0;
+		DE_TEST_ASSERT(deAtomicDecrementInt64(&a) == -1);
+		DE_TEST_ASSERT(a == -1);
+		DE_TEST_ASSERT(deAtomicDecrementInt64(&a) == -2);
+		DE_TEST_ASSERT(a == -2);
+
+		a = (deInt64)((1ull << 63) - 1ull);
+		DE_TEST_ASSERT(deAtomicIncrementInt64(&a) == (deInt64)(1ull << 63));
+		DE_TEST_ASSERT(a == (deInt64)(1ull << 63));
+		DE_TEST_ASSERT(deAtomicDecrementInt64(&a) == (deInt64)((1ull << 63) - 1));
+		DE_TEST_ASSERT(a == (deInt64)((1ull << 63) - 1));
+	}
+#endif /* (DE_PTR_SIZE == 8) */
 
 	/* \todo [2012-10-26 pyry] Implement multi-threaded tests. */
 }

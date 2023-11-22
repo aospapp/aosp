@@ -16,12 +16,16 @@
 
 
 //#define LOG_NDEBUG 0
-#define LOG_TAG "OMXVideoDecoder"
+#define LOG_TAG "OMXVideoDecoderAVCSecure"
 #include <wrs_omxil_core/log.h>
 #include "OMXVideoDecoderAVCSecure.h"
 #include <time.h>
 #include <signal.h>
 #include <pthread.h>
+#include <sys/mman.h>
+#include <cutils/ashmem.h>
+#include <OMX_IntelIndexExt.h>
+#include <OMXComponentCodecBase.h>
 
 #include "LogDumpHelper.h"
 #include "VideoFrameInfo.h"
@@ -168,7 +172,9 @@ OMX_ERRORTYPE OMXVideoDecoderAVCSecure::ProcessorProcess(
     int ret_value;
 
     OMX_BUFFERHEADERTYPE *pInput = *pBuffers[INPORT_INDEX];
-    ProtectedDataBuffer *dataBuffer = (ProtectedDataBuffer *)pInput->pBuffer;
+    native_handle_t *native_handle = (native_handle_t *)pInput->pBuffer;
+    ProtectedDataBuffer *dataBuffer = (ProtectedDataBuffer *) native_handle->data[1];
+
     // Check that we are dealing with the right buffer
     if (dataBuffer->magic != PROTECTED_DATA_BUFFER_MAGIC)
     {
@@ -270,8 +276,8 @@ OMX_ERRORTYPE OMXVideoDecoderAVCSecure::PrepareWVCDecodeBuffer(OMX_BUFFERHEADERT
    if (buffer->nOffset != 0) {
        ALOGW("buffer offset %u is not zero!!!", buffer->nOffset);
    }
-
-   ProtectedDataBuffer *dataBuffer = (ProtectedDataBuffer *)buffer->pBuffer;
+   native_handle_t *native_handle = (native_handle_t *)buffer->pBuffer;
+   ProtectedDataBuffer *dataBuffer = (ProtectedDataBuffer *) native_handle->data[1];
    if (dataBuffer->clear) {
        p->data = dataBuffer->data + buffer->nOffset;
        p->size = buffer->nFilledLen;
@@ -346,7 +352,9 @@ OMX_ERRORTYPE OMXVideoDecoderAVCSecure::PrepareCENCDecodeBuffer(OMX_BUFFERHEADER
         ALOGW("buffer offset %u is not zero!!!", buffer->nOffset);
     }
 
-    ProtectedDataBuffer *dataBuffer = (ProtectedDataBuffer *)buffer->pBuffer;
+    native_handle_t *native_handle = (native_handle_t *)buffer->pBuffer;
+    ProtectedDataBuffer *dataBuffer = (ProtectedDataBuffer *) native_handle->data[1];
+
     p->data = dataBuffer->data;
     p->size = sizeof(frame_info_t);
     p->flag |= IS_SECURE_DATA;
@@ -371,7 +379,8 @@ OMX_ERRORTYPE OMXVideoDecoderAVCSecure::PreparePRASFDecodeBuffer(OMX_BUFFERHEADE
         ALOGW("PR:buffer offset %u is not zero!!!", buffer->nOffset);
     }
 
-    ProtectedDataBuffer *dataBuffer = (ProtectedDataBuffer *)buffer->pBuffer;
+    native_handle_t *native_handle = (native_handle_t *)buffer->pBuffer;
+    ProtectedDataBuffer *dataBuffer = (ProtectedDataBuffer *) native_handle->data[1];
     if (dataBuffer->clear) {
         p->data = dataBuffer->data + buffer->nOffset;
         p->size = buffer->nFilledLen;
@@ -433,14 +442,16 @@ OMX_ERRORTYPE OMXVideoDecoderAVCSecure::PreparePRASFDecodeBuffer(OMX_BUFFERHEADE
 OMX_ERRORTYPE OMXVideoDecoderAVCSecure::PrepareDecodeBuffer(OMX_BUFFERHEADERTYPE *buffer, buffer_retain_t *retain, VideoDecodeBuffer *p) {
     OMX_ERRORTYPE ret;
 
-    ret = OMXVideoDecoderBase::PrepareDecodeBuffer(buffer, retain, p);
+    ret = OMXVideoDecoderBase::PrepareDecodeNativeHandleBuffer(buffer, retain, p);
     CHECK_RETURN_VALUE("OMXVideoDecoderBase::PrepareDecodeBuffer");
 
     if (buffer->nFilledLen == 0) {
         return OMX_ErrorNone;
     }
+    native_handle_t *native_handle = (native_handle_t *)buffer->pBuffer;
 
-    ProtectedDataBuffer *dataBuffer = (ProtectedDataBuffer *)buffer->pBuffer;
+    ProtectedDataBuffer *dataBuffer = (ProtectedDataBuffer *) native_handle->data[1];
+
     // Check that we are dealing with the right buffer
     if (dataBuffer->magic != PROTECTED_DATA_BUFFER_MAGIC)
     {
@@ -487,6 +498,7 @@ OMX_ERRORTYPE OMXVideoDecoderAVCSecure::BuildHandlerList(void) {
     OMXVideoDecoderBase::BuildHandlerList();
     AddHandler(OMX_IndexParamVideoAvc, GetParamVideoAvc, SetParamVideoAvc);
     AddHandler(OMX_IndexParamVideoProfileLevelQuerySupported, GetParamVideoAVCProfileLevel, SetParamVideoAVCProfileLevel);
+    AddHandler(static_cast<OMX_INDEXTYPE>(OMX_IndexExtAllocateNativeHandle), GetExtAllocateNativeHandle, SetExtAllocateNativeHandle);
     return OMX_ErrorNone;
 }
 
@@ -544,6 +556,22 @@ OMX_ERRORTYPE OMXVideoDecoderAVCSecure::SetParamVideoAVCProfileLevel(OMX_PTR pSt
     return OMX_ErrorUnsupportedSetting;
 }
 
+
+OMX_ERRORTYPE OMXVideoDecoderAVCSecure::GetExtAllocateNativeHandle(OMX_PTR pStructure) {
+    (void) pStructure; // unused parameter
+
+    return OMX_ErrorNone;
+
+}
+
+OMX_ERRORTYPE OMXVideoDecoderAVCSecure::SetExtAllocateNativeHandle(OMX_PTR pStructure) {
+    OMX_ERRORTYPE ret;
+    android:: EnableAndroidNativeBuffersParams  *p = (android::EnableAndroidNativeBuffersParams  *)pStructure;
+    CHECK_TYPE_HEADER(p);
+    CHECK_SET_PARAM_STATE();
+
+    return OMX_ErrorNone;
+}
 OMX_U8* OMXVideoDecoderAVCSecure::MemAllocDataBuffer(OMX_U32 nSizeBytes, OMX_PTR pUserData) {
     OMXVideoDecoderAVCSecure* p = (OMXVideoDecoderAVCSecure *)pUserData;
     if (p) {
@@ -574,22 +602,33 @@ OMX_U8* OMXVideoDecoderAVCSecure::MemAllocDataBuffer(OMX_U32 nSizeBytes) {
             __FUNCTION__, mNumInportBuffers);
         return NULL;
     }
-    
-    ProtectedDataBuffer *pBuffer = new ProtectedDataBuffer;
-    if (pBuffer == NULL)
-    {
-        ALOGE("%s: failed to allocate memory.", __FUNCTION__);
+
+
+    int fd = ashmem_create_region("protectd-content-buffer", sizeof(ProtectedDataBuffer));
+    if(fd < 0) {
+        ALOGE("Unable to create ashmem region");
         return NULL;
     }
 
+    native_handle_t *native = native_handle_create(1, 2);
+
+    native->data[0] = fd;
+    ProtectedDataBuffer *pBuffer =(ProtectedDataBuffer *) mmap(NULL, sizeof(ProtectedDataBuffer), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (pBuffer == MAP_FAILED) {
+        ALOGE("%s: mmap failed", __FUNCTION__);
+        return NULL;
+    }
+    native->data[1] = (int) pBuffer;
+    // Use a random value as the buffer id
+    native->data[2] = rand();
     ++mNumInportBuffers;
 
     Init_ProtectedDataBuffer(pBuffer);
     
     pBuffer->size = INPORT_BUFFER_SIZE;
 
-    ALOGV("Allocating buffer = %#x, data = %#x",  (uint32_t)pBuffer, (uint32_t)pBuffer->data);
-    return (OMX_U8 *) pBuffer;
+    ALOGV("Allocating native=[%p] buffer = %#x, data = %#x data_end=  %#x size=%d",(OMX_U8 *)native,(uint32_t)pBuffer, (uint32_t)pBuffer->data, (uint32_t)pBuffer->data + sizeof(ProtectedDataBuffer) ,sizeof(ProtectedDataBuffer));
+    return (OMX_U8 *) native;
 }
 
 void OMXVideoDecoderAVCSecure::MemFreeDataBuffer(OMX_U8 *pBuffer) {
@@ -607,15 +646,20 @@ void OMXVideoDecoderAVCSecure::MemFreeDataBuffer(OMX_U8 *pBuffer) {
         return;
     }
     
-    ProtectedDataBuffer *p = (ProtectedDataBuffer*) pBuffer;
-    if (p->magic != PROTECTED_DATA_BUFFER_MAGIC)
+    native_handle_t *native_handle = (native_handle_t *) pBuffer;
+
+    ProtectedDataBuffer *dataBuffer = (ProtectedDataBuffer *) native_handle->data[1];
+    if (dataBuffer->magic != PROTECTED_DATA_BUFFER_MAGIC)
     {
-        ALOGE("%s: attempting to free buffer with a wrong magic 0x%08x", __FUNCTION__, p->magic);
+        ALOGE("%s: attempting to free buffer with a wrong magic 0x%08x", __FUNCTION__, dataBuffer->magic);
         return;
     }
 
-    ALOGV("Freeing Data buffer %p with data = %p", p, p->data);
-    delete p;
+    if (munmap(dataBuffer, sizeof(ProtectedDataBuffer)) != 0) {
+        ALOGE("%s: Faild to munmap %p",__FUNCTION__, dataBuffer);
+        return;
+    }
+    ALOGV("Free databuffer %p with data = %p", dataBuffer, dataBuffer->data);
     --mNumInportBuffers;
 }
 

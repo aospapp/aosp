@@ -16,7 +16,7 @@
 
 package android.media.cts;
 
-import com.android.cts.media.R;
+import android.media.cts.R;
 
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
@@ -175,7 +175,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
     }
 
     public void testThumbnailH264() {
-        testThumbnail(R.raw.video_1280x720_mp4_h264_8192kbps_30fps_aac_stereo_128kbps_44100hz);
+        testThumbnail(R.raw.bbb_s4_1280x720_mp4_h264_mp31_8mbps_30fps_aac_he_mono_40kbps_44100hz);
     }
 
     public void testThumbnailH263() {
@@ -187,14 +187,14 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
     }
 
     public void testThumbnailVP8() {
-        testThumbnail(R.raw.video_640x360_webm_vp8_2048kbps_30fps_vorbis_stereo_128kbps_48000hz);
+        testThumbnail(R.raw.bbb_s1_640x360_webm_vp8_2mbps_30fps_vorbis_5ch_320kbps_48000hz);
     }
 
     public void testThumbnailVP9() {
-        testThumbnail(R.raw.video_1280x720_webm_vp9_4096kbps_30fps_vorbis_stereo_128kbps_44100hz);
+        testThumbnail(R.raw.bbb_s1_640x360_webm_vp9_0p21_1600kbps_30fps_vorbis_stereo_128kbps_48000hz);
     }
 
     public void testThumbnailHEVC() {
-        testThumbnail(R.raw.video_1280x720_mp4_hevc_1150kbps_30fps_aac_stereo_128kbps_48000hz);
+        testThumbnail(R.raw.bbb_s1_720x480_mp4_hevc_mp3_1600kbps_30fps_aac_he_6ch_240kbps_48000hz);
     }
 }

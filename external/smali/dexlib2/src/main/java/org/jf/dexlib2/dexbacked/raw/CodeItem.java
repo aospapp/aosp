@@ -100,10 +100,10 @@ public class CodeItem {
                     int triesCount = reader.readUshort();
                     out.annotate(2, "tries_size = %d", triesCount);
 
-                    int debugInfoOffset = reader.readSmallUint();
+                    int debugInfoOffset = reader.readInt();
                     out.annotate(4, "debug_info_off = 0x%x", debugInfoOffset);
 
-                    if (debugInfoOffset != 0) {
+                    if (debugInfoOffset > 0) {
                         addDebugInfoIdentity(debugInfoOffset, itemIdentity);
                     }
 
@@ -128,6 +128,9 @@ public class CodeItem {
                                 switch (instruction.getOpcode().format) {
                                     case Format10x:
                                         annotateInstruction10x(out, instruction);
+                                        break;
+                                    case Format25x:
+                                        annotateInstruction25x(out, (Instruction25x) instruction);
                                         break;
                                     case Format35c:
                                         annotateInstruction35c(out, (Instruction35c)instruction);
@@ -280,6 +283,30 @@ public class CodeItem {
 
                 out.annotate(6, String.format("%s {%s}, %s",
                         instruction.getOpcode().name, Joiner.on(", ").join(args), reference));
+            }
+
+            private void annotateInstruction25x(@Nonnull AnnotatedBytes out,
+                    @Nonnull Instruction25x instruction) {
+                List<String> args = Lists.newArrayList();
+
+                int registerCount = instruction.getRegisterCount(); //at least 1.
+                if (registerCount == 2) {
+                    args.add(formatRegister(instruction.getRegisterParameterD()));
+                } else if (registerCount == 3) {
+                    args.add(formatRegister(instruction.getRegisterParameterD()));
+                    args.add(formatRegister(instruction.getRegisterParameterE()));
+                } else if (registerCount == 4) {
+                    args.add(formatRegister(instruction.getRegisterParameterD()));
+                    args.add(formatRegister(instruction.getRegisterParameterE()));
+                    args.add(formatRegister(instruction.getRegisterParameterF()));
+                } else if (registerCount == 5) {
+                    args.add(formatRegister(instruction.getRegisterParameterD()));
+                    args.add(formatRegister(instruction.getRegisterParameterE()));
+                    args.add(formatRegister(instruction.getRegisterParameterF()));
+                    args.add(formatRegister(instruction.getRegisterParameterG()));
+                }
+                out.annotate(6, String.format("%s %s, {%s}",
+                        instruction.getOpcode().name, instruction.getRegisterFixedC(), Joiner.on(", ").join(args)));
             }
 
             private void annotateInstruction3rc(@Nonnull AnnotatedBytes out, @Nonnull Instruction3rc instruction) {

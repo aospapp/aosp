@@ -374,16 +374,28 @@ void ihevc_intra_pred_luma_ref_substitution(UWORD8 *pu1_top_left,
                 ihevc_memset_mul_8(&pu1_dst[two_nt - 1 - (nt - 1)], 0, nt);
             }
 
-            if(nbr_flags & 0xC)
+            /* Bottom - left availability is checked for every 8x8 TU position and set accordingly */
             {
-                for(i = nt; i < two_nt; i++)
+                if(nbr_flags & 0x8)
+                {
+                    for(i = nt; i < (nt + 8); i++)
                     pu1_dst[two_nt - 1 - i] = pu1_left[i * src_strd];
-            }
-            else
-            {
-                ihevc_memset_mul_8(&pu1_dst[two_nt - 1 - (two_nt - 1)], 0, nt);
-            }
+                }
+                else
+                {
+                    ihevc_memset_mul_8(&pu1_dst[nt - 8], 0, 8);
+                }
 
+                if(nbr_flags & 0x4)
+                {
+                    for(i = (nt + 8); i < two_nt; i++)
+                        pu1_dst[two_nt - 1 - i] = pu1_left[i * src_strd];
+                }
+                else
+                {
+                    ihevc_memset_mul_8(&pu1_dst[0], 0, 8);
+                }
+            }
 
             if(nbr_flags & 0x300)
             {
@@ -485,14 +497,47 @@ void ihevc_intra_pred_luma_ref_substitution(UWORD8 *pu1_top_left,
                 ihevc_memset_mul_8(&pu1_dst[two_nt - 1 - (nt - 1)], 0, nt);
             }
 
-            if(nbr_flags & 0xF)
+            /* Bottom - left availability is checked for every 8x8 TU position and set accordingly */
             {
-                for(i = nt; i < two_nt; i++)
+                if(nbr_flags & 0x8)
+                {
+                    for(i = nt; i < (nt + 8); i++)
                     pu1_dst[two_nt - 1 - i] = pu1_left[i * src_strd];
-            }
-            else
-            {
-                ihevc_memset_mul_8(&pu1_dst[two_nt - 1 - (two_nt - 1)], 0, nt);
+                }
+                else
+                {
+                    ihevc_memset_mul_8(&pu1_dst[24], 0, 8);
+                }
+
+                if(nbr_flags & 0x4)
+                {
+                    for(i = (nt + 8); i < (nt + 16); i++)
+                        pu1_dst[two_nt - 1 - i] = pu1_left[i * src_strd];
+                }
+                else
+                {
+                    ihevc_memset_mul_8(&pu1_dst[16], 0, 8);
+                }
+
+                if(nbr_flags & 0x2)
+                {
+                    for(i = (nt + 16); i < (nt + 24); i++)
+                        pu1_dst[two_nt - 1 - i] = pu1_left[i * src_strd];
+                }
+                else
+                {
+                    ihevc_memset_mul_8(&pu1_dst[8], 0, 8);
+                }
+
+                if(nbr_flags & 0x1)
+                {
+                    for(i = (nt + 24); i < (two_nt); i++)
+                        pu1_dst[two_nt - 1 - i] = pu1_left[i * src_strd];
+                }
+                else
+                {
+                    ihevc_memset_mul_8(&pu1_dst[0], 0, 8);
+                }
             }
 
 

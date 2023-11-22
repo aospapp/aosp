@@ -19,24 +19,29 @@ package android.widget.cts;
 
 import android.app.Activity;
 import android.content.Context;
+import android.graphics.drawable.Drawable;
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.UiThreadTest;
+import android.test.suitebuilder.annotation.SmallTest;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.LinearLayout;
+import android.widget.LinearLayout.LayoutParams;
 import android.widget.ListView;
 import android.widget.RelativeLayout;
 import android.widget.TabWidget;
 import android.widget.TextView;
-import android.widget.LinearLayout.LayoutParams;
+import android.widget.cts.util.TestUtils;
 
 /**
  * Test {@link TabWidget}.
  */
+@SmallTest
 public class TabWidgetTest extends ActivityInstrumentationTestCase2<TabHostCtsActivity> {
     private Activity mActivity;
 
     public TabWidgetTest() {
-        super("com.android.cts.widget", TabHostCtsActivity.class);
+        super("android.widget.cts", TabHostCtsActivity.class);
     }
 
     @Override
@@ -51,6 +56,76 @@ public class TabWidgetTest extends ActivityInstrumentationTestCase2<TabHostCtsAc
         new TabWidget(mActivity, null);
 
         new TabWidget(mActivity, null, 0);
+    }
+
+    public void testConstructorWithStyle() {
+        TabWidget tabWidget = new TabWidget(mActivity, null, 0, R.style.TabWidgetCustomStyle);
+
+        assertFalse(tabWidget.isStripEnabled());
+
+        Drawable leftStripDrawable = tabWidget.getLeftStripDrawable();
+        assertNotNull(leftStripDrawable);
+        TestUtils.assertAllPixelsOfColor("Left strip green", leftStripDrawable,
+                leftStripDrawable.getIntrinsicWidth(), leftStripDrawable.getIntrinsicHeight(),
+                true, 0xFF00FF00, 1, false);
+
+        Drawable rightStripDrawable = tabWidget.getRightStripDrawable();
+        assertNotNull(rightStripDrawable);
+        TestUtils.assertAllPixelsOfColor("Right strip red", rightStripDrawable,
+                rightStripDrawable.getIntrinsicWidth(), rightStripDrawable.getIntrinsicHeight(),
+                true, 0xFFFF0000, 1, false);
+    }
+
+    public void testInflateFromXml() {
+        LayoutInflater inflater = LayoutInflater.from(mActivity);
+        TabWidget tabWidget = (TabWidget) inflater.inflate(R.layout.tabhost_custom, null, false);
+
+        assertFalse(tabWidget.isStripEnabled());
+
+        Drawable leftStripDrawable = tabWidget.getLeftStripDrawable();
+        assertNotNull(leftStripDrawable);
+        TestUtils.assertAllPixelsOfColor("Left strip red", leftStripDrawable,
+                leftStripDrawable.getIntrinsicWidth(), leftStripDrawable.getIntrinsicHeight(),
+                true, 0xFFFF0000, 1, false);
+
+        Drawable rightStripDrawable = tabWidget.getRightStripDrawable();
+        assertNotNull(rightStripDrawable);
+        TestUtils.assertAllPixelsOfColor("Right strip green", rightStripDrawable,
+                rightStripDrawable.getIntrinsicWidth(), rightStripDrawable.getIntrinsicHeight(),
+                true, 0xFF00FF00, 1, false);
+    }
+
+    @UiThreadTest
+    public void testTabCount() {
+        TabHostCtsActivity activity = getActivity();
+        TabWidget tabWidget = activity.getTabWidget();
+
+        // We have one tab added in onCreate() of our activity
+        assertEquals(1, tabWidget.getTabCount());
+
+        for (int i = 1; i < 10; i++) {
+            tabWidget.addView(new TextView(mActivity));
+            assertEquals(i + 1, tabWidget.getTabCount());
+        }
+    }
+
+    @UiThreadTest
+    public void testTabViews() {
+        TabHostCtsActivity activity = getActivity();
+        TabWidget tabWidget = activity.getTabWidget();
+
+        // We have one tab added in onCreate() of our activity. We "reach" into the default tab
+        // indicator layout in the same way we do in TabHost_TabSpecTest tests.
+        TextView tab0 = (TextView) tabWidget.getChildTabViewAt(0).findViewById(android.R.id.title);
+        assertNotNull(tab0);
+        assertEquals(TabHostCtsActivity.INITIAL_TAB_LABEL, tab0.getText());
+
+        for (int i = 1; i < 10; i++) {
+            TextView toAdd = new TextView(mActivity);
+            toAdd.setText("Tab #" + i);
+            tabWidget.addView(toAdd);
+            assertEquals(toAdd, tabWidget.getChildTabViewAt(i));
+        }
     }
 
     public void testChildDrawableStateChanged() {
@@ -138,8 +213,11 @@ public class TabWidgetTest extends ActivityInstrumentationTestCase2<TabHostCtsAc
         }
     }
 
+    @UiThreadTest
     public void testSetEnabled() {
-        TabWidget tabWidget = new TabWidget(mActivity);
+        TabHostCtsActivity activity = getActivity();
+        TabWidget tabWidget = activity.getTabWidget();
+
         tabWidget.addView(new TextView(mActivity));
         tabWidget.addView(new TextView(mActivity));
         assertTrue(tabWidget.isEnabled());
@@ -192,6 +270,78 @@ public class TabWidgetTest extends ActivityInstrumentationTestCase2<TabHostCtsAc
         } catch (NullPointerException e) {
             // issue 1695243
         }
+    }
+
+    @UiThreadTest
+    public void testStripEnabled() {
+        TabHostCtsActivity activity = getActivity();
+        TabWidget tabWidget = activity.getTabWidget();
+
+        tabWidget.setStripEnabled(true);
+        assertTrue(tabWidget.isStripEnabled());
+
+        tabWidget.setStripEnabled(false);
+        assertFalse(tabWidget.isStripEnabled());
+    }
+
+    @UiThreadTest
+    public void testStripDrawables() {
+        TabHostCtsActivity activity = getActivity();
+        TabWidget tabWidget = activity.getTabWidget();
+
+        // Test setting left strip drawable
+        tabWidget.setLeftStripDrawable(R.drawable.icon_green);
+        Drawable leftStripDrawable = tabWidget.getLeftStripDrawable();
+        assertNotNull(leftStripDrawable);
+        TestUtils.assertAllPixelsOfColor("Left strip green", leftStripDrawable,
+                leftStripDrawable.getIntrinsicWidth(), leftStripDrawable.getIntrinsicHeight(),
+                true, 0xFF00FF00, 1, false);
+
+        tabWidget.setLeftStripDrawable(activity.getResources().getDrawable(
+                R.drawable.icon_red, null));
+        leftStripDrawable = tabWidget.getLeftStripDrawable();
+        assertNotNull(leftStripDrawable);
+        TestUtils.assertAllPixelsOfColor("Left strip red", leftStripDrawable,
+                leftStripDrawable.getIntrinsicWidth(), leftStripDrawable.getIntrinsicHeight(),
+                true, 0xFFFF0000, 1, false);
+
+        // Test setting right strip drawable
+        tabWidget.setRightStripDrawable(R.drawable.icon_red);
+        Drawable rightStripDrawable = tabWidget.getRightStripDrawable();
+        assertNotNull(rightStripDrawable);
+        TestUtils.assertAllPixelsOfColor("Right strip red", rightStripDrawable,
+                rightStripDrawable.getIntrinsicWidth(), rightStripDrawable.getIntrinsicHeight(),
+                true, 0xFFFF0000, 1, false);
+
+        tabWidget.setRightStripDrawable(activity.getResources().getDrawable(
+                R.drawable.icon_green, null));
+        rightStripDrawable = tabWidget.getRightStripDrawable();
+        assertNotNull(rightStripDrawable);
+        TestUtils.assertAllPixelsOfColor("Left strip green", rightStripDrawable,
+                rightStripDrawable.getIntrinsicWidth(), rightStripDrawable.getIntrinsicHeight(),
+                true, 0xFF00FF00, 1, false);
+    }
+
+    @UiThreadTest
+    public void testDividerDrawables() {
+        TabHostCtsActivity activity = getActivity();
+        TabWidget tabWidget = activity.getTabWidget();
+
+        tabWidget.setDividerDrawable(R.drawable.icon_blue);
+        Drawable dividerDrawable = tabWidget.getDividerDrawable();
+        assertNotNull(dividerDrawable);
+        TestUtils.assertAllPixelsOfColor("Divider blue", dividerDrawable,
+                dividerDrawable.getIntrinsicWidth(), dividerDrawable.getIntrinsicHeight(),
+                true, 0xFF0000FF, 1, false);
+
+        tabWidget.setDividerDrawable(activity.getResources().getDrawable(
+                R.drawable.icon_yellow, null));
+        dividerDrawable = tabWidget.getDividerDrawable();
+        assertNotNull(dividerDrawable);
+        TestUtils.assertAllPixelsOfColor("Divider yellow", dividerDrawable,
+                dividerDrawable.getIntrinsicWidth(), dividerDrawable.getIntrinsicHeight(),
+                true, 0xFFFFFF00, 1, false);
+
     }
 
     public void testOnFocusChange() {

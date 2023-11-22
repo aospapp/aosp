@@ -3,6 +3,7 @@ package org.bouncycastle.asn1.util;
 import java.io.IOException;
 import java.util.Enumeration;
 
+import org.bouncycastle.asn1.ASN1ApplicationSpecific;
 import org.bouncycastle.asn1.ASN1Boolean;
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1Enumerated;
@@ -25,13 +26,16 @@ import org.bouncycastle.asn1.DERApplicationSpecific;
 import org.bouncycastle.asn1.DERBMPString;
 import org.bouncycastle.asn1.DERBitString;
 import org.bouncycastle.asn1.DERExternal;
+import org.bouncycastle.asn1.DERGraphicString;
 import org.bouncycastle.asn1.DERIA5String;
 import org.bouncycastle.asn1.DERNull;
 import org.bouncycastle.asn1.DERPrintableString;
 import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.DERT61String;
 import org.bouncycastle.asn1.DERUTF8String;
+import org.bouncycastle.asn1.DERVideotexString;
 import org.bouncycastle.asn1.DERVisibleString;
+import org.bouncycastle.util.Strings;
 import org.bouncycastle.util.encoders.Hex;
 
 public class ASN1Dump
@@ -50,7 +54,7 @@ public class ASN1Dump
         ASN1Primitive obj,
         StringBuffer    buf)
     {
-        String nl = System.getProperty("line.separator");
+        String nl = Strings.lineSeparator();
         if (obj instanceof ASN1Sequence)
         {
             Enumeration     e = ((ASN1Sequence)obj).getObjects();
@@ -237,6 +241,14 @@ public class ASN1Dump
         {
             buf.append(indent + "T61String(" + ((DERT61String)obj).getString() + ") " + nl);
         }
+        else if (obj instanceof DERGraphicString)
+        {
+            buf.append(indent + "GraphicString(" + ((DERGraphicString)obj).getString() + ") " + nl);
+        }
+        else if (obj instanceof DERVideotexString)
+        {
+            buf.append(indent + "VideotexString(" + ((DERVideotexString)obj).getString() + ") " + nl);
+        }
         else if (obj instanceof ASN1UTCTime)
         {
             buf.append(indent + "UTCTime(" + ((ASN1UTCTime)obj).getTime() + ") " + nl);
@@ -286,7 +298,7 @@ public class ASN1Dump
     
     private static String outputApplicationSpecific(String type, String indent, boolean verbose, ASN1Primitive obj, String nl)
     {
-        DERApplicationSpecific app = (DERApplicationSpecific)obj;
+        ASN1ApplicationSpecific app = ASN1ApplicationSpecific.getInstance(obj);
         StringBuffer buf = new StringBuffer();
 
         if (app.isConstructed())
@@ -353,7 +365,7 @@ public class ASN1Dump
 
     private static String dumpBinaryDataAsString(String indent, byte[] bytes)
     {
-        String nl = System.getProperty("line.separator");
+        String nl = Strings.lineSeparator();
         StringBuffer buf = new StringBuffer();
 
         indent += TAB;

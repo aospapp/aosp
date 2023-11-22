@@ -62,7 +62,29 @@ struct AMessage : public RefBase {
     AMessage();
     AMessage(uint32_t what, const sp<const AHandler> &handler);
 
-    static sp<AMessage> FromParcel(const Parcel &parcel);
+    // Construct an AMessage from a parcel.
+    // nestingAllowed determines how many levels AMessage can be nested inside
+    // AMessage. The default value here is arbitrarily set to 255.
+    // FromParcel() returns NULL on error, which occurs when the input parcel
+    // contains
+    // - an AMessage nested deeper than maxNestingLevel; or
+    // - an item whose type is not recognized by this function.
+    // Types currently recognized by this function are:
+    //   Item types      set/find function suffixes
+    //   ==========================================
+    //     int32_t                Int32
+    //     int64_t                Int64
+    //     size_t                 Size
+    //     float                  Float
+    //     double                 Double
+    //     AString                String
+    //     AMessage               Message
+    static sp<AMessage> FromParcel(const Parcel &parcel,
+                                   size_t maxNestingLevel = 255);
+
+    // Write this AMessage to a parcel.
+    // All items in the AMessage must have types that are recognized by
+    // FromParcel(); otherwise, TRESPASS error will occur.
     void writeToParcel(Parcel *parcel) const;
 
     void setWhat(uint32_t what);
@@ -126,6 +148,15 @@ struct AMessage : public RefBase {
     // Warning: RefBase items, i.e. "objects" are _not_ copied but only have
     // their refcount incremented.
     sp<AMessage> dup() const;
+
+    // Performs a shallow or deep comparison of |this| and |other| and returns
+    // an AMessage with the differences.
+    // Warning: RefBase items, i.e. "objects" are _not_ copied but only have
+    // their refcount incremented.
+    // This is true for AMessages that have no corresponding AMessage equivalent in |other|.
+    // (E.g. there is no such key or the type is different.) On the other hand, changes in
+    // the AMessage (or AMessages if deep is |false|) are returned in new objects.
+    sp<AMessage> changesFrom(const sp<const AMessage> &other, bool deep = false) const;
 
     AString debugString(int32_t indent = 0) const;
 

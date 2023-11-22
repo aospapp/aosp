@@ -128,7 +128,7 @@ int AmrCodec::encode(void *payload, int16_t *samples)
     return length;
 }
 
-int AmrCodec::decode(int16_t *samples, int count, void *payload, int length)
+int AmrCodec::decode(int16_t *samples, int /* count */, void *payload, int length)
 {
     unsigned char *bytes = (unsigned char *)payload;
     Frame_Type_3GPP type;
@@ -208,7 +208,7 @@ public:
         }
     }
 
-    int set(int sampleRate, const char *fmtp) {
+    int set(int sampleRate, const char */* fmtp */) {
         return (sampleRate == 8000 && mEncoder && mDecoder) ? 160 : -1;
     }
 

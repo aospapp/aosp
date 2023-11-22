@@ -34,7 +34,6 @@
     <string name="password_empty_error" msgid="591713406761723025">"비밀번호를 입력하세요."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"이름을 입력하세요."</string>
     <string name="name_char_error" msgid="3176618568784938968">"문자와 숫자만 들어 있는 이름을 입력하세요."</string>
-    <string name="storage_error" msgid="8306802455802770779">"인증서를 저장할 수 없습니다. \'확인\'을 터치하여 다시 시도하세요."</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"인증서를 저장할 수 없습니다. 자격증명 저장소를 사용하도록 설정하지 않았거나 적절하게 초기화하지 않았습니다."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"인증서가 설치되지 않았습니다."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"설치할 인증서가 없습니다."</string>

@@ -12,6 +12,7 @@ namespace test0 {
     opaque();
   }
   // CHECK-LABEL:    define void @_ZN5test04testEv()
+  // CHECK-SAME: personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*)
   // CHECK:      [[AS:%.*]] = alloca [10 x [[A:%.*]]], align
   // CHECK-NEXT: [[ENDVAR:%.*]] = alloca [[A]]*
   // CHECK-NEXT: [[EXN:%.*]] = alloca i8*
@@ -50,7 +51,7 @@ namespace test0 {
   // CHECK:      ret void
 
   // Partial destroy for initialization.
-  // CHECK:      landingpad { i8*, i32 } personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*)
+  // CHECK:      landingpad { i8*, i32 }
   // CHECK-NEXT:   cleanup
   // CHECK:      [[PARTIAL_END:%.*]] = load [[A]]*, [[A]]** [[ENDVAR]]
   // CHECK-NEXT: [[T0:%.*]] = icmp eq [[A]]* [[E_BEGIN]], [[PARTIAL_END]]
@@ -62,7 +63,7 @@ namespace test0 {
   // CHECK-NEXT: br i1 [[T0]],
 
   // Primary EH destructor.
-  // CHECK:      landingpad { i8*, i32 } personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*)
+  // CHECK:      landingpad { i8*, i32 }
   // CHECK-NEXT:   cleanup
   // CHECK:      [[E0:%.*]] = getelementptr inbounds [10 x [[A]]], [10 x [[A]]]* [[AS]], i32 0, i32 0
   // CHECK-NEXT: [[E_END:%.*]] = getelementptr inbounds [[A]], [[A]]* [[E0]], i64 10
@@ -72,7 +73,7 @@ namespace test0 {
   // FIXME: There's some really bad block ordering here which causes
   // the partial destroy for the primary normal destructor to fall
   // within the primary EH destructor.
-  // CHECK:      landingpad { i8*, i32 } personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*)
+  // CHECK:      landingpad { i8*, i32 }
   // CHECK-NEXT:   cleanup
   // CHECK:      [[T0:%.*]] = icmp eq [[A]]* [[ED_BEGIN]], [[ED_CUR]]
   // CHECK-NEXT: br i1 [[T0]]
@@ -99,6 +100,7 @@ namespace test1 {
     B v = { 5, 6, 7, 8 };
   }
   // CHECK-LABEL:    define void @_ZN5test14testEv()
+  // CHECK-SAME: personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*)
   // CHECK:      [[V:%.*]] = alloca [[B:%.*]], align 4
   // CHECK-NEXT: alloca i8*
   // CHECK-NEXT: alloca i32
@@ -114,9 +116,9 @@ namespace test1 {
   // CHECK-NEXT: ret void
 
   // FIXME: again, the block ordering is pretty bad here
-  // CHECK:      landingpad { i8*, i32 } personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*)
+  // CHECK:      landingpad { i8*, i32 }
   // CHECK-NEXT:   cleanup
-  // CHECK:      landingpad { i8*, i32 } personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*)
+  // CHECK:      landingpad { i8*, i32 }
   // CHECK-NEXT:   cleanup
   // CHECK:      invoke void @_ZN5test11AD1Ev([[A]]* [[Y]])
   // CHECK:      invoke void @_ZN5test11AD1Ev([[A]]* [[X]])
@@ -129,6 +131,7 @@ namespace test2 {
     A v[4][7];
 
     // CHECK-LABEL:    define void @_ZN5test24testEv()
+    // CHECK-SAME: personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*)
     // CHECK:      [[V:%.*]] = alloca [4 x [7 x [[A:%.*]]]], align 1
     // CHECK-NEXT: alloca i8*
     // CHECK-NEXT: alloca i32
@@ -144,7 +147,7 @@ namespace test2 {
     // CHECK-NEXT: br i1 [[DONE]],
 
     // Partial destruction landing pad.
-    // CHECK:      landingpad { i8*, i32 } personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*)
+    // CHECK:      landingpad { i8*, i32 }
     // CHECK-NEXT:   cleanup
     // CHECK:      [[EMPTY:%.*]] = icmp eq [[A]]* [[BEGIN]], [[CUR]]
     // CHECK-NEXT: br i1 [[EMPTY]],
@@ -170,3 +173,34 @@ namespace test3 {
     // invoke void @_ZN5test31BD1Ev(
   }
 }
+
+namespace test4 {
+  struct A { A(unsigned i); ~A(); };
+  void test() {
+    A v[2][3] = { { A(0), A(1), A(2) }, { A(3), A(4), A(5) } };
+  }
+}
+// CHECK-LABEL: define void @_ZN5test44testEv()
+// CHECK:       [[ARRAY:%.*]] = alloca [2 x [3 x [[A:%.*]]]], align
+// CHECK:       [[A0:%.*]] = getelementptr inbounds [2 x [3 x [[A]]]], [2 x [3 x [[A]]]]* [[ARRAY]], i64 0, i64 0
+// CHECK-NEXT:  store [3 x [[A]]]* [[A0]],
+// CHECK-NEXT:  [[A00:%.*]] = getelementptr inbounds [3 x [[A]]], [3 x [[A]]]* [[A0]], i64 0, i64 0
+// CHECK-NEXT:  store [[A]]* [[A00]],
+// CHECK-NEXT:  invoke void @_ZN5test41AC1Ej([[A]]* [[A00]], i32 0)
+// CHECK:       [[A01:%.*]] = getelementptr inbounds [[A]], [[A]]* [[A00]], i64 1
+// CHECK-NEXT:  store [[A]]* [[A01]],
+// CHECK-NEXT:  invoke void @_ZN5test41AC1Ej([[A]]* [[A01]], i32 1)
+// CHECK:       [[A02:%.*]] = getelementptr inbounds [[A]], [[A]]* [[A01]], i64 1
+// CHECK-NEXT:  store [[A]]* [[A02]],
+// CHECK-NEXT:  invoke void @_ZN5test41AC1Ej([[A]]* [[A02]], i32 2)
+// CHECK:       [[A1:%.*]] = getelementptr inbounds [3 x [[A]]], [3 x [[A]]]* [[A0]], i64 1
+// CHECK-NEXT:  store [3 x [[A]]]* [[A1]],
+// CHECK-NEXT:  [[A10:%.*]] = getelementptr inbounds [3 x [[A]]], [3 x [[A]]]* [[A1]], i64 0, i64 0
+// CHECK-NEXT:  store [[A]]* [[A10]],
+// CHECK-NEXT:  invoke void @_ZN5test41AC1Ej([[A]]* [[A10]], i32 3)
+// CHECK:       [[A11:%.*]] = getelementptr inbounds [[A]], [[A]]* [[A10]], i64 1
+// CHECK-NEXT:  store [[A]]* [[A11]],
+// CHECK-NEXT:  invoke void @_ZN5test41AC1Ej([[A]]* [[A11]], i32 4)
+// CHECK:       [[A12:%.*]] = getelementptr inbounds [[A]], [[A]]* [[A11]], i64 1
+// CHECK-NEXT:  store [[A]]* [[A12]],
+// CHECK-NEXT:  invoke void @_ZN5test41AC1Ej([[A]]* [[A12]], i32 5)

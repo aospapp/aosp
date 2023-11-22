@@ -615,6 +615,7 @@ status_t FLACParser::init()
             mTrackMetadata->setCString(kKeyMIMEType, MEDIA_MIMETYPE_AUDIO_RAW);
             mTrackMetadata->setInt32(kKeyChannelCount, getChannels());
             mTrackMetadata->setInt32(kKeySampleRate, getSampleRate());
+            mTrackMetadata->setInt32(kKeyPcmEncoding, kAudioEncodingPcm16bit);
             // sample rate is non-zero, so division by zero not possible
             mTrackMetadata->setInt64(kKeyDuration,
                     (getTotalSamples() * 1000000LL) / getSampleRate());
@@ -807,7 +808,7 @@ size_t FLACExtractor::countTracks()
     return mInitCheck == OK ? 1 : 0;
 }
 
-sp<MediaSource> FLACExtractor::getTrack(size_t index)
+sp<IMediaSource> FLACExtractor::getTrack(size_t index)
 {
     if (mInitCheck != OK || index > 0) {
         return NULL;

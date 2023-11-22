@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -215,6 +215,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     acos(float4 v);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    acos(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    acos(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    acos(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    acos(half4 v);
+#endif
+
 /*
  * acosh: Inverse hyperbolic cosine
  *
@@ -233,6 +253,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     acosh(float4 v);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    acosh(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    acosh(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    acosh(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    acosh(half4 v);
+#endif
 
 /*
  * acospi: Inverse cosine divided by pi
@@ -255,6 +295,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     acospi(float4 v);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    acospi(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    acospi(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    acospi(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    acospi(half4 v);
+#endif
+
 /*
  * asin: Inverse sine
  *
@@ -274,6 +334,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     asin(float4 v);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    asin(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    asin(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    asin(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    asin(half4 v);
+#endif
+
 /*
  * asinh: Inverse hyperbolic sine
  *
@@ -292,6 +372,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     asinh(float4 v);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    asinh(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    asinh(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    asinh(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    asinh(half4 v);
+#endif
 
 /*
  * asinpi: Inverse sine divided by pi
@@ -314,6 +414,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     asinpi(float4 v);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    asinpi(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    asinpi(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    asinpi(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    asinpi(half4 v);
+#endif
+
 /*
  * atan: Inverse tangent
  *
@@ -332,6 +452,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     atan(float4 v);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    atan(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    atan(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    atan(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    atan(half4 v);
+#endif
 
 /*
  * atan2: Inverse tangent of a ratio
@@ -355,6 +495,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     atan2(float4 numerator, float4 denominator);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    atan2(half numerator, half denominator);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    atan2(half2 numerator, half2 denominator);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    atan2(half3 numerator, half3 denominator);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    atan2(half4 numerator, half4 denominator);
+#endif
 
 /*
  * atan2pi: Inverse tangent of a ratio, divided by pi
@@ -381,6 +541,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     atan2pi(float4 numerator, float4 denominator);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    atan2pi(half numerator, half denominator);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    atan2pi(half2 numerator, half2 denominator);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    atan2pi(half3 numerator, half3 denominator);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    atan2pi(half4 numerator, half4 denominator);
+#endif
+
 /*
  * atanh: Inverse hyperbolic tangent
  *
@@ -399,6 +579,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     atanh(float4 v);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    atanh(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    atanh(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    atanh(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    atanh(half4 v);
+#endif
 
 /*
  * atanpi: Inverse tangent divided by pi
@@ -421,6 +621,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     atanpi(float4 v);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    atanpi(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    atanpi(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    atanpi(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    atanpi(half4 v);
+#endif
+
 /*
  * cbrt: Cube root
  *
@@ -439,6 +659,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     cbrt(float4 v);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    cbrt(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    cbrt(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    cbrt(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    cbrt(half4 v);
+#endif
 
 /*
  * ceil: Smallest integer not less than a value
@@ -460,6 +700,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     ceil(float4 v);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    ceil(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    ceil(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    ceil(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    ceil(half4 v);
+#endif
 
 /*
  * clamp: Restrain a value to a range
@@ -778,6 +1038,41 @@ extern ulong4 __attribute__((const, overloadable))
     clamp(ulong4 value, ulong min_value, ulong max_value);
 #endif
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    clamp(half value, half min_value, half max_value);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    clamp(half2 value, half2 min_value, half2 max_value);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    clamp(half3 value, half3 min_value, half3 max_value);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    clamp(half4 value, half4 min_value, half4 max_value);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    clamp(half2 value, half min_value, half max_value);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    clamp(half3 value, half min_value, half max_value);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    clamp(half4 value, half min_value, half max_value);
+#endif
+
 /*
  * clz: Number of leading 0 bits
  *
@@ -878,6 +1173,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     copysign(float4 magnitude_value, float4 sign_value);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    copysign(half magnitude_value, half sign_value);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    copysign(half2 magnitude_value, half2 sign_value);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    copysign(half3 magnitude_value, half3 sign_value);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    copysign(half4 magnitude_value, half4 sign_value);
+#endif
+
 /*
  * cos: Cosine
  *
@@ -897,6 +1212,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     cos(float4 v);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    cos(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    cos(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    cos(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    cos(half4 v);
+#endif
+
 /*
  * cosh: Hypebolic cosine
  *
@@ -915,6 +1250,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     cosh(float4 v);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    cosh(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    cosh(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    cosh(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    cosh(half4 v);
+#endif
 
 /*
  * cospi: Cosine of a number multiplied by pi
@@ -937,6 +1292,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     cospi(float4 v);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    cospi(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    cospi(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    cospi(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    cospi(half4 v);
+#endif
+
 /*
  * degrees: Converts radians into degrees
  *
@@ -953,6 +1328,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     degrees(float4 v);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    degrees(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    degrees(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    degrees(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    degrees(half4 v);
+#endif
 
 /*
  * erf: Mathematical error function
@@ -971,6 +1366,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     erf(float4 v);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    erf(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    erf(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    erf(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    erf(half4 v);
+#endif
+
 /*
  * erfc: Mathematical complementary error function
  *
@@ -987,6 +1402,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     erfc(float4 v);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    erfc(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    erfc(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    erfc(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    erfc(half4 v);
+#endif
 
 /*
  * exp: e raised to a number
@@ -1007,6 +1442,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     exp(float4 v);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    exp(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    exp(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    exp(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    exp(half4 v);
+#endif
+
 /*
  * exp10: 10 raised to a number
  *
@@ -1025,6 +1480,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     exp10(float4 v);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    exp10(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    exp10(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    exp10(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    exp10(half4 v);
+#endif
 
 /*
  * exp2: 2 raised to a number
@@ -1045,6 +1520,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     exp2(float4 v);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    exp2(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    exp2(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    exp2(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    exp2(half4 v);
+#endif
+
 /*
  * expm1: e raised to a number minus one
  *
@@ -1063,6 +1558,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     expm1(float4 v);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    expm1(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    expm1(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    expm1(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    expm1(half4 v);
+#endif
 
 /*
  * fabs: Absolute value of a float
@@ -1083,6 +1598,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     fabs(float4 v);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    fabs(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    fabs(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    fabs(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    fabs(half4 v);
+#endif
+
 /*
  * fdim: Positive difference between two values
  *
@@ -1101,6 +1636,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     fdim(float4 a, float4 b);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    fdim(half a, half b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    fdim(half2 a, half2 b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    fdim(half3 a, half3 b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    fdim(half4 a, half4 b);
+#endif
 
 /*
  * floor: Smallest integer not greater than a value
@@ -1123,6 +1678,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     floor(float4 v);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    floor(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    floor(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    floor(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    floor(half4 v);
+#endif
+
 /*
  * fma: Multiply and add
  *
@@ -1144,6 +1719,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     fma(float4 multiplicand1, float4 multiplicand2, float4 offset);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    fma(half multiplicand1, half multiplicand2, half offset);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    fma(half2 multiplicand1, half2 multiplicand2, half2 offset);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    fma(half3 multiplicand1, half3 multiplicand2, half3 offset);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    fma(half4 multiplicand1, half4 multiplicand2, half4 offset);
+#endif
+
 /*
  * fmax: Maximum of two floats
  *
@@ -1163,6 +1758,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     fmax(float4 a, float4 b);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    fmax(half a, half b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    fmax(half2 a, half2 b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    fmax(half3 a, half3 b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    fmax(half4 a, half4 b);
+#endif
+
 extern float2 __attribute__((const, overloadable))
     fmax(float2 a, float b);
 
@@ -1171,6 +1786,21 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     fmax(float4 a, float b);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    fmax(half2 a, half b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    fmax(half3 a, half b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    fmax(half4 a, half b);
+#endif
 
 /*
  * fmin: Minimum of two floats
@@ -1191,6 +1821,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     fmin(float4 a, float4 b);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    fmin(half a, half b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    fmin(half2 a, half2 b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    fmin(half3 a, half3 b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    fmin(half4 a, half4 b);
+#endif
+
 extern float2 __attribute__((const, overloadable))
     fmin(float2 a, float b);
 
@@ -1199,6 +1849,21 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     fmin(float4 a, float b);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    fmin(half2 a, half b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    fmin(half3 a, half b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    fmin(half4 a, half b);
+#endif
 
 /*
  * fmod: Modulo
@@ -1220,6 +1885,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     fmod(float4 numerator, float4 denominator);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    fmod(half numerator, half denominator);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    fmod(half2 numerator, half2 denominator);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    fmod(half3 numerator, half3 denominator);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    fmod(half4 numerator, half4 denominator);
+#endif
 
 /*
  * fract: Positive fractional part
@@ -1245,29 +1930,97 @@ extern float3 __attribute__((overloadable))
 extern float4 __attribute__((overloadable))
     fract(float4 v, float4* floor);
 
+#if !defined(RS_VERSION) || (RS_VERSION <= 23)
 static inline float __attribute__((const, overloadable))
     fract(float v) {
     float unused;
     return fract(v, &unused);
 }
+#endif
 
+#if !defined(RS_VERSION) || (RS_VERSION <= 23)
 static inline float2 __attribute__((const, overloadable))
     fract(float2 v) {
     float2 unused;
     return fract(v, &unused);
 }
+#endif
 
+#if !defined(RS_VERSION) || (RS_VERSION <= 23)
 static inline float3 __attribute__((const, overloadable))
     fract(float3 v) {
     float3 unused;
     return fract(v, &unused);
 }
+#endif
 
+#if !defined(RS_VERSION) || (RS_VERSION <= 23)
 static inline float4 __attribute__((const, overloadable))
     fract(float4 v) {
     float4 unused;
     return fract(v, &unused);
 }
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern float __attribute__((overloadable))
+    fract(float v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern float2 __attribute__((overloadable))
+    fract(float2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern float3 __attribute__((overloadable))
+    fract(float3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern float4 __attribute__((overloadable))
+    fract(float4 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((overloadable))
+    fract(half v, half* floor);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((overloadable))
+    fract(half2 v, half2* floor);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((overloadable))
+    fract(half3 v, half3* floor);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((overloadable))
+    fract(half4 v, half4* floor);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((overloadable))
+    fract(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((overloadable))
+    fract(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((overloadable))
+    fract(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((overloadable))
+    fract(half4 v);
+#endif
 
 /*
  * frexp: Binary mantissa and exponent
@@ -1293,6 +2046,26 @@ extern float3 __attribute__((overloadable))
 
 extern float4 __attribute__((overloadable))
     frexp(float4 v, int4* exponent);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((overloadable))
+    frexp(half v, int* exponent);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((overloadable))
+    frexp(half2 v, int2* exponent);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((overloadable))
+    frexp(half3 v, int3* exponent);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((overloadable))
+    frexp(half4 v, int4* exponent);
+#endif
 
 /*
  * half_recip: Reciprocal computed to 16 bit precision
@@ -1400,6 +2173,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     hypot(float4 a, float4 b);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    hypot(half a, half b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    hypot(half2 a, half2 b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    hypot(half3 a, half3 b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    hypot(half4 a, half4 b);
+#endif
+
 /*
  * ilogb: Base two exponent
  *
@@ -1423,6 +2216,26 @@ extern int3 __attribute__((const, overloadable))
 
 extern int4 __attribute__((const, overloadable))
     ilogb(float4 v);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern int __attribute__((const, overloadable))
+    ilogb(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern int2 __attribute__((const, overloadable))
+    ilogb(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern int3 __attribute__((const, overloadable))
+    ilogb(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern int4 __attribute__((const, overloadable))
+    ilogb(half4 v);
+#endif
 
 /*
  * ldexp: Creates a floating point from mantissa and exponent
@@ -1448,6 +2261,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     ldexp(float4 mantissa, int4 exponent);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    ldexp(half mantissa, int exponent);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    ldexp(half2 mantissa, int2 exponent);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    ldexp(half3 mantissa, int3 exponent);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    ldexp(half4 mantissa, int4 exponent);
+#endif
+
 extern float2 __attribute__((const, overloadable))
     ldexp(float2 mantissa, int exponent);
 
@@ -1456,6 +2289,21 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     ldexp(float4 mantissa, int exponent);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    ldexp(half2 mantissa, int exponent);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    ldexp(half3 mantissa, int exponent);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    ldexp(half4 mantissa, int exponent);
+#endif
 
 /*
  * lgamma: Natural logarithm of the gamma function
@@ -1480,6 +2328,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     lgamma(float4 v);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    lgamma(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    lgamma(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    lgamma(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    lgamma(half4 v);
+#endif
+
 extern float __attribute__((overloadable))
     lgamma(float v, int* sign_of_gamma);
 
@@ -1491,6 +2359,26 @@ extern float3 __attribute__((overloadable))
 
 extern float4 __attribute__((overloadable))
     lgamma(float4 v, int4* sign_of_gamma);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((overloadable))
+    lgamma(half v, int* sign_of_gamma);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((overloadable))
+    lgamma(half2 v, int2* sign_of_gamma);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((overloadable))
+    lgamma(half3 v, int3* sign_of_gamma);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((overloadable))
+    lgamma(half4 v, int4* sign_of_gamma);
+#endif
 
 /*
  * log: Natural logarithm
@@ -1511,6 +2399,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     log(float4 v);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    log(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    log(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    log(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    log(half4 v);
+#endif
+
 /*
  * log10: Base 10 logarithm
  *
@@ -1529,6 +2437,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     log10(float4 v);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    log10(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    log10(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    log10(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    log10(half4 v);
+#endif
 
 /*
  * log1p: Natural logarithm of a value plus 1
@@ -1549,6 +2477,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     log1p(float4 v);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    log1p(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    log1p(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    log1p(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    log1p(half4 v);
+#endif
+
 /*
  * log2: Base 2 logarithm
  *
@@ -1567,6 +2515,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     log2(float4 v);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    log2(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    log2(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    log2(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    log2(half4 v);
+#endif
 
 /*
  * logb: Base two exponent
@@ -1592,6 +2560,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     logb(float4 v);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    logb(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    logb(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    logb(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    logb(half4 v);
+#endif
+
 /*
  * mad: Multiply and add
  *
@@ -1613,6 +2601,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     mad(float4 multiplicand1, float4 multiplicand2, float4 offset);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    mad(half multiplicand1, half multiplicand2, half offset);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    mad(half2 multiplicand1, half2 multiplicand2, half2 offset);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    mad(half3 multiplicand1, half3 multiplicand2, half3 offset);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    mad(half4 multiplicand1, half4 multiplicand2, half4 offset);
+#endif
+
 /*
  * max: Maximum
  *
@@ -1630,6 +2638,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     max(float4 a, float4 b);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    max(half a, half b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    max(half2 a, half2 b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    max(half3 a, half3 b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    max(half4 a, half4 b);
+#endif
+
 extern float2 __attribute__((const, overloadable))
     max(float2 a, float b);
 
@@ -1638,6 +2666,21 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     max(float4 a, float b);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    max(half2 a, half b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    max(half3 a, half b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    max(half4 a, half b);
+#endif
 
 #if !defined(RS_VERSION) || (RS_VERSION <= 20)
 static inline char __attribute__((const, overloadable))
@@ -2056,6 +3099,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     min(float4 a, float4 b);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    min(half a, half b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    min(half2 a, half2 b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    min(half3 a, half3 b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    min(half4 a, half4 b);
+#endif
+
 extern float2 __attribute__((const, overloadable))
     min(float2 a, float b);
 
@@ -2064,6 +3127,21 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     min(float4 a, float b);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    min(half2 a, half b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    min(half3 a, half b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    min(half4 a, half b);
+#endif
 
 #if !defined(RS_VERSION) || (RS_VERSION <= 20)
 static inline char __attribute__((const, overloadable))
@@ -2485,6 +3563,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     mix(float4 start, float4 stop, float4 fraction);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    mix(half start, half stop, half fraction);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    mix(half2 start, half2 stop, half2 fraction);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    mix(half3 start, half3 stop, half3 fraction);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    mix(half4 start, half4 stop, half4 fraction);
+#endif
+
 extern float2 __attribute__((const, overloadable))
     mix(float2 start, float2 stop, float fraction);
 
@@ -2494,13 +3592,28 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     mix(float4 start, float4 stop, float fraction);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    mix(half2 start, half2 stop, half fraction);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    mix(half3 start, half3 stop, half fraction);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    mix(half4 start, half4 stop, half fraction);
+#endif
+
 /*
  * modf: Integral and fractional components
  *
  * Returns the integral and fractional components of a number.
  *
  * Both components will have the same sign as x.  For example, for an input of -3.72f,
- * iret will be set to -3.f and .72f will be returned.
+ * *integral_part will be set to -3.f and .72f will be returned.
  *
  * Parameters:
  *   v: Source value.
@@ -2520,6 +3633,26 @@ extern float3 __attribute__((overloadable))
 extern float4 __attribute__((overloadable))
     modf(float4 v, float4* integral_part);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((overloadable))
+    modf(half v, half* integral_part);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((overloadable))
+    modf(half2 v, half2* integral_part);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((overloadable))
+    modf(half3 v, half3* integral_part);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((overloadable))
+    modf(half4 v, half4* integral_part);
+#endif
+
 /*
  * nan: Not a Number
  *
@@ -2530,6 +3663,16 @@ extern float4 __attribute__((overloadable))
  */
 extern float __attribute__((const, overloadable))
     nan(uint v);
+
+/*
+ * nan_half: Not a Number
+ *
+ *  Returns a half-precision floating point NaN value (Not a Number).
+ */
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    nan_half(void);
+#endif
 
 /*
  * native_acos: Approximate inverse cosine
@@ -2560,6 +3703,26 @@ extern float4 __attribute__((const, overloadable))
     native_acos(float4 v);
 #endif
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_acos(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_acos(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_acos(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_acos(half4 v);
+#endif
+
 /*
  * native_acosh: Approximate inverse hyperbolic cosine
  *
@@ -2585,6 +3748,26 @@ extern float3 __attribute__((const, overloadable))
 #if (defined(RS_VERSION) && (RS_VERSION >= 21))
 extern float4 __attribute__((const, overloadable))
     native_acosh(float4 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_acosh(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_acosh(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_acosh(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_acosh(half4 v);
 #endif
 
 /*
@@ -2618,6 +3801,26 @@ extern float4 __attribute__((const, overloadable))
     native_acospi(float4 v);
 #endif
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_acospi(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_acospi(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_acospi(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_acospi(half4 v);
+#endif
+
 /*
  * native_asin: Approximate inverse sine
  *
@@ -2647,6 +3850,26 @@ extern float4 __attribute__((const, overloadable))
     native_asin(float4 v);
 #endif
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_asin(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_asin(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_asin(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_asin(half4 v);
+#endif
+
 /*
  * native_asinh: Approximate inverse hyperbolic sine
  *
@@ -2672,6 +3895,26 @@ extern float3 __attribute__((const, overloadable))
 #if (defined(RS_VERSION) && (RS_VERSION >= 21))
 extern float4 __attribute__((const, overloadable))
     native_asinh(float4 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_asinh(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_asinh(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_asinh(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_asinh(half4 v);
 #endif
 
 /*
@@ -2705,6 +3948,26 @@ extern float4 __attribute__((const, overloadable))
     native_asinpi(float4 v);
 #endif
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_asinpi(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_asinpi(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_asinpi(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_asinpi(half4 v);
+#endif
+
 /*
  * native_atan: Approximate inverse tangent
  *
@@ -2730,6 +3993,26 @@ extern float3 __attribute__((const, overloadable))
 #if (defined(RS_VERSION) && (RS_VERSION >= 21))
 extern float4 __attribute__((const, overloadable))
     native_atan(float4 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_atan(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_atan(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_atan(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_atan(half4 v);
 #endif
 
 /*
@@ -2761,6 +4044,26 @@ extern float3 __attribute__((const, overloadable))
 #if (defined(RS_VERSION) && (RS_VERSION >= 21))
 extern float4 __attribute__((const, overloadable))
     native_atan2(float4 numerator, float4 denominator);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_atan2(half numerator, half denominator);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_atan2(half2 numerator, half2 denominator);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_atan2(half3 numerator, half3 denominator);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_atan2(half4 numerator, half4 denominator);
 #endif
 
 /*
@@ -2797,6 +4100,26 @@ extern float4 __attribute__((const, overloadable))
     native_atan2pi(float4 numerator, float4 denominator);
 #endif
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_atan2pi(half numerator, half denominator);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_atan2pi(half2 numerator, half2 denominator);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_atan2pi(half3 numerator, half3 denominator);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_atan2pi(half4 numerator, half4 denominator);
+#endif
+
 /*
  * native_atanh: Approximate inverse hyperbolic tangent
  *
@@ -2822,6 +4145,26 @@ extern float3 __attribute__((const, overloadable))
 #if (defined(RS_VERSION) && (RS_VERSION >= 21))
 extern float4 __attribute__((const, overloadable))
     native_atanh(float4 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_atanh(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_atanh(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_atanh(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_atanh(half4 v);
 #endif
 
 /*
@@ -2853,6 +4196,26 @@ extern float4 __attribute__((const, overloadable))
     native_atanpi(float4 v);
 #endif
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_atanpi(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_atanpi(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_atanpi(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_atanpi(half4 v);
+#endif
+
 /*
  * native_cbrt: Approximate cube root
  *
@@ -2878,6 +4241,26 @@ extern float3 __attribute__((const, overloadable))
 #if (defined(RS_VERSION) && (RS_VERSION >= 21))
 extern float4 __attribute__((const, overloadable))
     native_cbrt(float4 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_cbrt(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_cbrt(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_cbrt(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_cbrt(half4 v);
 #endif
 
 /*
@@ -2907,6 +4290,26 @@ extern float4 __attribute__((const, overloadable))
     native_cos(float4 v);
 #endif
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_cos(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_cos(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_cos(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_cos(half4 v);
+#endif
+
 /*
  * native_cosh: Approximate hypebolic cosine
  *
@@ -2932,6 +4335,26 @@ extern float3 __attribute__((const, overloadable))
 #if (defined(RS_VERSION) && (RS_VERSION >= 21))
 extern float4 __attribute__((const, overloadable))
     native_cosh(float4 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_cosh(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_cosh(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_cosh(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_cosh(half4 v);
 #endif
 
 /*
@@ -2963,6 +4386,26 @@ extern float4 __attribute__((const, overloadable))
     native_cospi(float4 v);
 #endif
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_cospi(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_cospi(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_cospi(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_cospi(half4 v);
+#endif
+
 /*
  * native_divide: Approximate division
  *
@@ -2986,6 +4429,26 @@ extern float3 __attribute__((const, overloadable))
 #if (defined(RS_VERSION) && (RS_VERSION >= 21))
 extern float4 __attribute__((const, overloadable))
     native_divide(float4 left_vector, float4 right_vector);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_divide(half left_vector, half right_vector);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_divide(half2 left_vector, half2 right_vector);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_divide(half3 left_vector, half3 right_vector);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_divide(half4 left_vector, half4 right_vector);
 #endif
 
 /*
@@ -3018,6 +4481,26 @@ extern float4 __attribute__((const, overloadable))
     native_exp(float4 v);
 #endif
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_exp(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_exp(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_exp(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_exp(half4 v);
+#endif
+
 /*
  * native_exp10: Approximate 10 raised to a number
  *
@@ -3046,6 +4529,26 @@ extern float3 __attribute__((const, overloadable))
 #if (defined(RS_VERSION) && (RS_VERSION >= 18))
 extern float4 __attribute__((const, overloadable))
     native_exp10(float4 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_exp10(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_exp10(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_exp10(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_exp10(half4 v);
 #endif
 
 /*
@@ -3078,6 +4581,26 @@ extern float4 __attribute__((const, overloadable))
     native_exp2(float4 v);
 #endif
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_exp2(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_exp2(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_exp2(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_exp2(half4 v);
+#endif
+
 /*
  * native_expm1: Approximate e raised to a number minus one
  *
@@ -3105,6 +4628,26 @@ extern float4 __attribute__((const, overloadable))
     native_expm1(float4 v);
 #endif
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_expm1(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_expm1(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_expm1(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_expm1(half4 v);
+#endif
+
 /*
  * native_hypot: Approximate hypotenuse
  *
@@ -3130,6 +4673,26 @@ extern float3 __attribute__((const, overloadable))
 #if (defined(RS_VERSION) && (RS_VERSION >= 21))
 extern float4 __attribute__((const, overloadable))
     native_hypot(float4 a, float4 b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_hypot(half a, half b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_hypot(half2 a, half2 b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_hypot(half3 a, half3 b);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_hypot(half4 a, half4 b);
 #endif
 
 /*
@@ -3161,6 +4724,26 @@ extern float4 __attribute__((const, overloadable))
     native_log(float4 v);
 #endif
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_log(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_log(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_log(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_log(half4 v);
+#endif
+
 /*
  * native_log10: Approximate base 10 logarithm
  *
@@ -3190,6 +4773,26 @@ extern float4 __attribute__((const, overloadable))
     native_log10(float4 v);
 #endif
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_log10(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_log10(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_log10(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_log10(half4 v);
+#endif
+
 /*
  * native_log1p: Approximate natural logarithm of a value plus 1
  *
@@ -3215,6 +4818,26 @@ extern float3 __attribute__((const, overloadable))
 #if (defined(RS_VERSION) && (RS_VERSION >= 21))
 extern float4 __attribute__((const, overloadable))
     native_log1p(float4 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_log1p(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_log1p(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_log1p(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_log1p(half4 v);
 #endif
 
 /*
@@ -3244,6 +4867,26 @@ extern float3 __attribute__((const, overloadable))
 #if (defined(RS_VERSION) && (RS_VERSION >= 18))
 extern float4 __attribute__((const, overloadable))
     native_log2(float4 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_log2(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_log2(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_log2(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_log2(half4 v);
 #endif
 
 /*
@@ -3277,6 +4920,26 @@ extern float4 __attribute__((const, overloadable))
     native_powr(float4 base, float4 exponent);
 #endif
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_powr(half base, half exponent);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_powr(half2 base, half2 exponent);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_powr(half3 base, half3 exponent);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_powr(half4 base, half4 exponent);
+#endif
+
 /*
  * native_recip: Approximate reciprocal
  *
@@ -3302,6 +4965,26 @@ extern float3 __attribute__((const, overloadable))
 #if (defined(RS_VERSION) && (RS_VERSION >= 21))
 extern float4 __attribute__((const, overloadable))
     native_recip(float4 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_recip(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_recip(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_recip(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_recip(half4 v);
 #endif
 
 /*
@@ -3331,6 +5014,26 @@ extern float4 __attribute__((const, overloadable))
     native_rootn(float4 v, int4 n);
 #endif
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_rootn(half v, int n);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_rootn(half2 v, int2 n);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_rootn(half3 v, int3 n);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_rootn(half4 v, int4 n);
+#endif
+
 /*
  * native_rsqrt: Approximate reciprocal of a square root
  *
@@ -3358,6 +5061,26 @@ extern float4 __attribute__((const, overloadable))
     native_rsqrt(float4 v);
 #endif
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_rsqrt(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_rsqrt(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_rsqrt(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_rsqrt(half4 v);
+#endif
+
 /*
  * native_sin: Approximate sine
  *
@@ -3383,6 +5106,26 @@ extern float3 __attribute__((const, overloadable))
 #if (defined(RS_VERSION) && (RS_VERSION >= 21))
 extern float4 __attribute__((const, overloadable))
     native_sin(float4 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_sin(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_sin(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_sin(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_sin(half4 v);
 #endif
 
 /*
@@ -3418,6 +5161,26 @@ extern float4 __attribute__((overloadable))
     native_sincos(float4 v, float4* cos);
 #endif
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((overloadable))
+    native_sincos(half v, half* cos);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((overloadable))
+    native_sincos(half2 v, half2* cos);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((overloadable))
+    native_sincos(half3 v, half3* cos);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((overloadable))
+    native_sincos(half4 v, half4* cos);
+#endif
+
 /*
  * native_sinh: Approximate hyperbolic sine
  *
@@ -3443,6 +5206,26 @@ extern float3 __attribute__((const, overloadable))
 #if (defined(RS_VERSION) && (RS_VERSION >= 21))
 extern float4 __attribute__((const, overloadable))
     native_sinh(float4 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_sinh(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_sinh(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_sinh(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_sinh(half4 v);
 #endif
 
 /*
@@ -3474,6 +5257,26 @@ extern float4 __attribute__((const, overloadable))
     native_sinpi(float4 v);
 #endif
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_sinpi(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_sinpi(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_sinpi(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_sinpi(half4 v);
+#endif
+
 /*
  * native_sqrt: Approximate square root
  *
@@ -3501,6 +5304,26 @@ extern float4 __attribute__((const, overloadable))
     native_sqrt(float4 v);
 #endif
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_sqrt(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_sqrt(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_sqrt(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_sqrt(half4 v);
+#endif
+
 /*
  * native_tan: Approximate tangent
  *
@@ -3524,6 +5347,26 @@ extern float3 __attribute__((const, overloadable))
 #if (defined(RS_VERSION) && (RS_VERSION >= 21))
 extern float4 __attribute__((const, overloadable))
     native_tan(float4 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_tan(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_tan(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_tan(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_tan(half4 v);
 #endif
 
 /*
@@ -3551,6 +5394,26 @@ extern float3 __attribute__((const, overloadable))
 #if (defined(RS_VERSION) && (RS_VERSION >= 21))
 extern float4 __attribute__((const, overloadable))
     native_tanh(float4 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_tanh(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_tanh(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_tanh(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_tanh(half4 v);
 #endif
 
 /*
@@ -3582,6 +5445,26 @@ extern float4 __attribute__((const, overloadable))
     native_tanpi(float4 v);
 #endif
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    native_tanpi(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    native_tanpi(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    native_tanpi(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    native_tanpi(half4 v);
+#endif
+
 /*
  * nextafter: Next floating point number
  *
@@ -3601,6 +5484,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     nextafter(float4 v, float4 target);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    nextafter(half v, half target);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    nextafter(half2 v, half2 target);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    nextafter(half3 v, half3 target);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    nextafter(half4 v, half4 target);
+#endif
 
 /*
  * pow: Base raised to an exponent
@@ -3622,6 +5525,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     pow(float4 base, float4 exponent);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    pow(half base, half exponent);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    pow(half2 base, half2 exponent);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    pow(half3 base, half3 exponent);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    pow(half4 base, half4 exponent);
+#endif
+
 /*
  * pown: Base raised to an integer exponent
  *
@@ -3641,6 +5564,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     pown(float4 base, int4 exponent);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    pown(half base, int exponent);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    pown(half2 base, int2 exponent);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    pown(half3 base, int3 exponent);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    pown(half4 base, int4 exponent);
+#endif
 
 /*
  * powr: Positive base raised to an exponent
@@ -3664,6 +5607,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     powr(float4 base, float4 exponent);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    powr(half base, half exponent);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    powr(half2 base, half2 exponent);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    powr(half3 base, half3 exponent);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    powr(half4 base, half4 exponent);
+#endif
+
 /*
  * radians: Converts degrees into radians
  *
@@ -3680,6 +5643,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     radians(float4 v);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    radians(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    radians(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    radians(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    radians(half4 v);
+#endif
 
 /*
  * remainder: Remainder of a division
@@ -3702,6 +5685,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     remainder(float4 numerator, float4 denominator);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    remainder(half numerator, half denominator);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    remainder(half2 numerator, half2 denominator);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    remainder(half3 numerator, half3 denominator);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    remainder(half4 numerator, half4 denominator);
+#endif
 
 /*
  * remquo: Remainder and quotient of a division
@@ -3737,6 +5740,26 @@ extern float3 __attribute__((overloadable))
 extern float4 __attribute__((overloadable))
     remquo(float4 numerator, float4 denominator, int4* quotient);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((overloadable))
+    remquo(half numerator, half denominator, int* quotient);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((overloadable))
+    remquo(half2 numerator, half2 denominator, int2* quotient);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((overloadable))
+    remquo(half3 numerator, half3 denominator, int3* quotient);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((overloadable))
+    remquo(half4 numerator, half4 denominator, int4* quotient);
+#endif
+
 /*
  * rint: Round to even
  *
@@ -3760,6 +5783,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     rint(float4 v);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    rint(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    rint(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    rint(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    rint(half4 v);
+#endif
+
 /*
  * rootn: Nth root
  *
@@ -3778,6 +5821,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     rootn(float4 v, int4 n);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    rootn(half v, int n);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    rootn(half2 v, int2 n);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    rootn(half3 v, int3 n);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    rootn(half4 v, int4 n);
+#endif
 
 /*
  * round: Round away from zero
@@ -3802,6 +5865,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     round(float4 v);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    round(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    round(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    round(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    round(half4 v);
+#endif
+
 /*
  * rsqrt: Reciprocal of a square root
  *
@@ -3820,6 +5903,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     rsqrt(float4 v);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    rsqrt(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    rsqrt(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    rsqrt(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    rsqrt(half4 v);
+#endif
 
 /*
  * sign: Sign of a value
@@ -3842,6 +5945,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     sign(float4 v);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    sign(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    sign(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    sign(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    sign(half4 v);
+#endif
+
 /*
  * sin: Sine
  *
@@ -3860,6 +5983,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     sin(float4 v);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    sin(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    sin(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    sin(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    sin(half4 v);
+#endif
 
 /*
  * sincos: Sine and cosine
@@ -3886,6 +6029,26 @@ extern float3 __attribute__((overloadable))
 extern float4 __attribute__((overloadable))
     sincos(float4 v, float4* cos);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((overloadable))
+    sincos(half v, half* cos);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((overloadable))
+    sincos(half2 v, half2* cos);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((overloadable))
+    sincos(half3 v, half3* cos);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((overloadable))
+    sincos(half4 v, half4* cos);
+#endif
+
 /*
  * sinh: Hyperbolic sine
  *
@@ -3904,6 +6067,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     sinh(float4 v);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    sinh(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    sinh(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    sinh(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    sinh(half4 v);
+#endif
 
 /*
  * sinpi: Sine of a number multiplied by pi
@@ -3926,6 +6109,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     sinpi(float4 v);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    sinpi(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    sinpi(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    sinpi(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    sinpi(half4 v);
+#endif
+
 /*
  * sqrt: Square root
  *
@@ -3944,6 +6147,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     sqrt(float4 v);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    sqrt(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    sqrt(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    sqrt(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    sqrt(half4 v);
+#endif
 
 /*
  * step: 0 if less than a value, 0 otherwise
@@ -3966,6 +6189,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     step(float4 edge, float4 v);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    step(half edge, half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    step(half2 edge, half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    step(half3 edge, half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    step(half4 edge, half4 v);
+#endif
+
 extern float2 __attribute__((const, overloadable))
     step(float2 edge, float v);
 
@@ -3974,6 +6217,21 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     step(float4 edge, float v);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    step(half2 edge, half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    step(half3 edge, half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    step(half4 edge, half v);
+#endif
 
 #if (defined(RS_VERSION) && (RS_VERSION >= 21))
 extern float2 __attribute__((const, overloadable))
@@ -3988,6 +6246,21 @@ extern float3 __attribute__((const, overloadable))
 #if (defined(RS_VERSION) && (RS_VERSION >= 21))
 extern float4 __attribute__((const, overloadable))
     step(float edge, float4 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    step(half edge, half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    step(half edge, half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    step(half edge, half4 v);
 #endif
 
 /*
@@ -4009,6 +6282,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     tan(float4 v);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    tan(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    tan(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    tan(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    tan(half4 v);
+#endif
+
 /*
  * tanh: Hyperbolic tangent
  *
@@ -4027,6 +6320,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     tanh(float4 v);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    tanh(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    tanh(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    tanh(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    tanh(half4 v);
+#endif
 
 /*
  * tanpi: Tangent of a number multiplied by pi
@@ -4049,6 +6362,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     tanpi(float4 v);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    tanpi(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    tanpi(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    tanpi(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    tanpi(half4 v);
+#endif
+
 /*
  * tgamma: Gamma function
  *
@@ -4067,6 +6400,26 @@ extern float3 __attribute__((const, overloadable))
 
 extern float4 __attribute__((const, overloadable))
     tgamma(float4 v);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    tgamma(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    tgamma(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    tgamma(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    tgamma(half4 v);
+#endif
 
 /*
  * trunc: Truncates a floating point
@@ -4089,6 +6442,26 @@ extern float3 __attribute__((const, overloadable))
 extern float4 __attribute__((const, overloadable))
     trunc(float4 v);
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half __attribute__((const, overloadable))
+    trunc(half v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half2 __attribute__((const, overloadable))
+    trunc(half2 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half3 __attribute__((const, overloadable))
+    trunc(half3 v);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern half4 __attribute__((const, overloadable))
+    trunc(half4 v);
+#endif
+
 /*
  * rsClamp: Restrain a value to a range
  *
@@ -4101,42 +6474,42 @@ extern float4 __attribute__((const, overloadable))
  *   low: Lower bound.
  *   high: Upper bound.
  */
-extern char __attribute__((const, always_inline, overloadable
+extern char __attribute__((const, overloadable
 #if (defined(RS_VERSION) && (RS_VERSION >= 22))
 , deprecated("Use clamp() instead.")
 #endif
 ))
     rsClamp(char amount, char low, char high);
 
-extern uchar __attribute__((const, always_inline, overloadable
+extern uchar __attribute__((const, overloadable
 #if (defined(RS_VERSION) && (RS_VERSION >= 22))
 , deprecated("Use clamp() instead.")
 #endif
 ))
     rsClamp(uchar amount, uchar low, uchar high);
 
-extern short __attribute__((const, always_inline, overloadable
+extern short __attribute__((const, overloadable
 #if (defined(RS_VERSION) && (RS_VERSION >= 22))
 , deprecated("Use clamp() instead.")
 #endif
 ))
     rsClamp(short amount, short low, short high);
 
-extern ushort __attribute__((const, always_inline, overloadable
+extern ushort __attribute__((const, overloadable
 #if (defined(RS_VERSION) && (RS_VERSION >= 22))
 , deprecated("Use clamp() instead.")
 #endif
 ))
     rsClamp(ushort amount, ushort low, ushort high);
 
-extern int __attribute__((const, always_inline, overloadable
+extern int __attribute__((const, overloadable
 #if (defined(RS_VERSION) && (RS_VERSION >= 22))
 , deprecated("Use clamp() instead.")
 #endif
 ))
     rsClamp(int amount, int low, int high);
 
-extern uint __attribute__((const, always_inline, overloadable
+extern uint __attribute__((const, overloadable
 #if (defined(RS_VERSION) && (RS_VERSION >= 22))
 , deprecated("Use clamp() instead.")
 #endif

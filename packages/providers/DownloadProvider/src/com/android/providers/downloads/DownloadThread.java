@@ -16,11 +16,18 @@
 
 package com.android.providers.downloads;
 
+import static android.provider.Downloads.Impl.COLUMN_CONTROL;
+import static android.provider.Downloads.Impl.COLUMN_DELETED;
+import static android.provider.Downloads.Impl.COLUMN_STATUS;
+import static android.provider.Downloads.Impl.CONTROL_PAUSED;
 import static android.provider.Downloads.Impl.STATUS_BAD_REQUEST;
 import static android.provider.Downloads.Impl.STATUS_CANCELED;
 import static android.provider.Downloads.Impl.STATUS_CANNOT_RESUME;
 import static android.provider.Downloads.Impl.STATUS_FILE_ERROR;
 import static android.provider.Downloads.Impl.STATUS_HTTP_DATA_ERROR;
+import static android.provider.Downloads.Impl.STATUS_PAUSED_BY_APP;
+import static android.provider.Downloads.Impl.STATUS_QUEUED_FOR_WIFI;
+import static android.provider.Downloads.Impl.STATUS_RUNNING;
 import static android.provider.Downloads.Impl.STATUS_SUCCESS;
 import static android.provider.Downloads.Impl.STATUS_TOO_MANY_REDIRECTS;
 import static android.provider.Downloads.Impl.STATUS_UNHANDLED_HTTP_CODE;
@@ -28,7 +35,9 @@ import static android.provider.Downloads.Impl.STATUS_UNKNOWN_ERROR;
 import static android.provider.Downloads.Impl.STATUS_WAITING_FOR_NETWORK;
 import static android.provider.Downloads.Impl.STATUS_WAITING_TO_RETRY;
 import static android.text.format.DateUtils.SECOND_IN_MILLIS;
+
 import static com.android.providers.downloads.Constants.TAG;
+
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_MOVED_PERM;
 import static java.net.HttpURLConnection.HTTP_MOVED_TEMP;
@@ -38,6 +47,8 @@ import static java.net.HttpURLConnection.HTTP_PRECON_FAILED;
 import static java.net.HttpURLConnection.HTTP_SEE_OTHER;
 import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
 
+import android.app.job.JobInfo;
+import android.app.job.JobParameters;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
@@ -45,23 +56,21 @@ import android.drm.DrmManagerClient;
 import android.drm.DrmOutputStream;
 import android.net.ConnectivityManager;
 import android.net.INetworkPolicyListener;
+import android.net.Network;
 import android.net.NetworkInfo;
 import android.net.NetworkPolicyManager;
 import android.net.TrafficStats;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
-import android.os.PowerManager;
 import android.os.Process;
 import android.os.SystemClock;
-import android.os.WorkSource;
 import android.provider.Downloads;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.system.OsConstants;
 import android.util.Log;
+import android.util.MathUtils;
 import android.util.Pair;
-
-import com.android.providers.downloads.DownloadInfo.NetworkState;
 
 import libcore.io.IoUtils;
 
@@ -76,6 +85,10 @@ import java.net.MalformedURLException;
 import java.net.ProtocolException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.security.GeneralSecurityException;
+
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
 
 /**
  * Task which executes a given {@link DownloadInfo}: making network requests,
@@ -88,7 +101,7 @@ import java.net.URLConnection;
  * Failed network requests are retried several times before giving up. Local
  * disk errors fail immediately and are not retried.
  */
-public class DownloadThread implements Runnable {
+public class DownloadThread extends Thread {
 
     // TODO: bind each download to a specific network interface to avoid state
     // checking races once we have ConnectivityManager API
@@ -103,6 +116,10 @@ public class DownloadThread implements Runnable {
     private final Context mContext;
     private final SystemFacade mSystemFacade;
     private final DownloadNotifier mNotifier;
+    private final NetworkPolicyManager mNetworkPolicy;
+
+    private final DownloadJobService mJobService;
+    private final JobParameters mParams;
 
     private final long mId;
 
@@ -132,6 +149,14 @@ public class DownloadThread implements Runnable {
         public String mETag;
 
         public String mErrorMsg;
+
+        private static final String NOT_CANCELED = COLUMN_STATUS + " != '" + STATUS_CANCELED + "'";
+        private static final String NOT_DELETED = COLUMN_DELETED + " == '0'";
+        private static final String NOT_PAUSED = "(" + COLUMN_CONTROL + " IS NULL OR "
+                + COLUMN_CONTROL + " != '" + CONTROL_PAUSED + "')";
+
+        private static final String SELECTION_VALID = NOT_CANCELED + " AND " + NOT_DELETED + " AND "
+                + NOT_PAUSED;
 
         public DownloadInfoDelta(DownloadInfo info) {
             mUri = info.mUri;
@@ -178,8 +203,12 @@ public class DownloadThread implements Runnable {
          */
         public void writeToDatabaseOrThrow() throws StopRequestException {
             if (mContext.getContentResolver().update(mInfo.getAllDownloadsUri(),
-                    buildContentValues(), Downloads.Impl.COLUMN_DELETED + " == '0'", null) == 0) {
-                throw new StopRequestException(STATUS_CANCELED, "Download deleted or missing!");
+                    buildContentValues(), SELECTION_VALID, null) == 0) {
+                if (mInfo.queryDownloadControl() == CONTROL_PAUSED) {
+                    throw new StopRequestException(STATUS_PAUSED_BY_APP, "Download paused!");
+                } else {
+                    throw new StopRequestException(STATUS_CANCELED, "Download deleted or missing!");
+                }
             }
         }
     }
@@ -196,6 +225,9 @@ public class DownloadThread implements Runnable {
     private long mLastUpdateBytes = 0;
     private long mLastUpdateTime = 0;
 
+    private boolean mIgnoreBlocked;
+    private Network mNetwork;
+
     private int mNetworkType = ConnectivityManager.TYPE_NONE;
 
     /** Historical bytes/second speed of this download. */
@@ -205,11 +237,17 @@ public class DownloadThread implements Runnable {
     /** Bytes transferred since current sample started. */
     private long mSpeedSampleBytes;
 
-    public DownloadThread(Context context, SystemFacade systemFacade, DownloadNotifier notifier,
-            DownloadInfo info) {
-        mContext = context;
-        mSystemFacade = systemFacade;
-        mNotifier = notifier;
+    /** Flag indicating that thread must be halted */
+    private volatile boolean mShutdownRequested;
+
+    public DownloadThread(DownloadJobService service, JobParameters params, DownloadInfo info) {
+        mContext = service;
+        mSystemFacade = Helpers.getSystemFacade(mContext);
+        mNotifier = Helpers.getDownloadNotifier(mContext);
+        mNetworkPolicy = mContext.getSystemService(NetworkPolicyManager.class);
+
+        mJobService = service;
+        mParams = params;
 
         mId = info.mId;
         mInfo = info;
@@ -222,29 +260,38 @@ public class DownloadThread implements Runnable {
 
         // Skip when download already marked as finished; this download was
         // probably started again while racing with UpdateThread.
-        if (DownloadInfo.queryDownloadStatus(mContext.getContentResolver(), mId)
-                == Downloads.Impl.STATUS_SUCCESS) {
+        if (mInfo.queryDownloadStatus() == Downloads.Impl.STATUS_SUCCESS) {
             logDebug("Already finished; skipping");
             return;
         }
 
-        final NetworkPolicyManager netPolicy = NetworkPolicyManager.from(mContext);
-        PowerManager.WakeLock wakeLock = null;
-        final PowerManager pm = (PowerManager) mContext.getSystemService(Context.POWER_SERVICE);
-
         try {
-            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, Constants.TAG);
-            wakeLock.setWorkSource(new WorkSource(mInfo.mUid));
-            wakeLock.acquire();
-
             // while performing download, register for rules updates
-            netPolicy.registerListener(mPolicyListener);
+            mNetworkPolicy.registerListener(mPolicyListener);
 
             logDebug("Starting");
 
+            mInfoDelta.mStatus = STATUS_RUNNING;
+            mInfoDelta.writeToDatabase();
+
+            // If we're showing a foreground notification for the requesting
+            // app, the download isn't affected by the blocked status of the
+            // requesting app
+            mIgnoreBlocked = mInfo.isVisible();
+
+            // Use the caller's default network to make this connection, since
+            // they might be subject to restrictions that we shouldn't let them
+            // circumvent
+            mNetwork = mSystemFacade.getActiveNetwork(mInfo.mUid, mIgnoreBlocked);
+            if (mNetwork == null) {
+                throw new StopRequestException(STATUS_WAITING_FOR_NETWORK,
+                        "No network associated with requesting UID");
+            }
+
             // Remember which network this download started on; used to
             // determine if errors were due to network changes.
-            final NetworkInfo info = mSystemFacade.getActiveNetworkInfo(mInfo.mUid);
+            final NetworkInfo info = mSystemFacade.getNetworkInfo(mNetwork, mInfo.mUid,
+                    mIgnoreBlocked);
             if (info != null) {
                 mNetworkType = info.getType();
             }
@@ -287,7 +334,8 @@ public class DownloadThread implements Runnable {
                 }
 
                 if (mInfoDelta.mNumFailed < Constants.MAX_RETRIES) {
-                    final NetworkInfo info = mSystemFacade.getActiveNetworkInfo(mInfo.mUid);
+                    final NetworkInfo info = mSystemFacade.getNetworkInfo(mNetwork, mInfo.mUid,
+                            mIgnoreBlocked);
                     if (info != null && info.getType() == mNetworkType && info.isConnected()) {
                         // Underlying network is still intact, use normal backoff
                         mInfoDelta.mStatus = STATUS_WAITING_TO_RETRY;
@@ -305,6 +353,13 @@ public class DownloadThread implements Runnable {
                 }
             }
 
+            // If we're waiting for a network that must be unmetered, our status
+            // is actually queued so we show relevant notifications
+            if (mInfoDelta.mStatus == STATUS_WAITING_FOR_NETWORK
+                    && !mInfo.isMeteredAllowed(mInfoDelta.mTotalBytes)) {
+                mInfoDelta.mStatus = STATUS_QUEUED_FOR_WIFI;
+            }
+
         } catch (Throwable t) {
             mInfoDelta.mStatus = STATUS_UNKNOWN_ERROR;
             mInfoDelta.mErrorMsg = t.toString();
@@ -320,20 +375,29 @@ public class DownloadThread implements Runnable {
 
             mInfoDelta.writeToDatabase();
 
-            if (Downloads.Impl.isStatusCompleted(mInfoDelta.mStatus)) {
-                mInfo.sendIntentIfRequested();
-            }
-
             TrafficStats.clearThreadStatsTag();
             TrafficStats.clearThreadStatsUid();
 
-            netPolicy.unregisterListener(mPolicyListener);
-
-            if (wakeLock != null) {
-                wakeLock.release();
-                wakeLock = null;
-            }
+            mNetworkPolicy.unregisterListener(mPolicyListener);
         }
+
+        if (Downloads.Impl.isStatusCompleted(mInfoDelta.mStatus)) {
+            mInfo.sendIntentIfRequested();
+            if (mInfo.shouldScanFile(mInfoDelta.mStatus)) {
+                DownloadScanner.requestScanBlocking(mContext, mInfo.mId, mInfoDelta.mFileName,
+                        mInfoDelta.mMimeType);
+            }
+        } else if (mInfoDelta.mStatus == STATUS_WAITING_TO_RETRY
+                || mInfoDelta.mStatus == STATUS_WAITING_FOR_NETWORK
+                || mInfoDelta.mStatus == STATUS_QUEUED_FOR_WIFI) {
+            Helpers.scheduleJob(mContext, DownloadInfo.queryDownloadInfo(mContext, mId));
+        }
+
+        mJobService.jobFinishedInternal(mParams, false);
+    }
+
+    public void requestShutdown() {
+        mShutdownRequested = true;
     }
 
     /**
@@ -352,6 +416,13 @@ public class DownloadThread implements Runnable {
         }
 
         boolean cleartextTrafficPermitted = mSystemFacade.isCleartextTrafficPermitted(mInfo.mUid);
+        SSLContext appContext;
+        try {
+            appContext = mSystemFacade.getSSLContextForPackage(mContext, mInfo.mPackage);
+        } catch (GeneralSecurityException e) {
+            // This should never happen.
+            throw new StopRequestException(STATUS_UNKNOWN_ERROR, "Unable to create SSLContext.");
+        }
         int redirectionCount = 0;
         while (redirectionCount++ < Constants.MAX_REDIRECTS) {
             // Enforce the cleartext traffic opt-out for the UID. This cannot be enforced earlier
@@ -366,11 +437,18 @@ public class DownloadThread implements Runnable {
             // response with body.
             HttpURLConnection conn = null;
             try {
+                // Check that the caller is allowed to make network connections. If so, make one on
+                // their behalf to open the url.
                 checkConnectivity();
-                conn = (HttpURLConnection) url.openConnection();
+                conn = (HttpURLConnection) mNetwork.openConnection(url);
                 conn.setInstanceFollowRedirects(false);
                 conn.setConnectTimeout(DEFAULT_TIMEOUT);
                 conn.setReadTimeout(DEFAULT_TIMEOUT);
+                // If this is going over HTTPS configure the trust to be the same as the calling
+                // package.
+                if (conn instanceof HttpsURLConnection) {
+                    ((HttpsURLConnection)conn).setSSLSocketFactory(appContext.getSocketFactory());
+                }
 
                 addRequestHeaders(conn, resuming);
 
@@ -530,7 +608,7 @@ public class DownloadThread implements Runnable {
 
         } finally {
             if (drmClient != null) {
-                drmClient.release();
+                drmClient.close();
             }
 
             IoUtils.closeQuietly(in);
@@ -553,7 +631,12 @@ public class DownloadThread implements Runnable {
             throws StopRequestException {
         final byte buffer[] = new byte[Constants.BUFFER_SIZE];
         while (true) {
-            checkPausedOrCanceled();
+            if (mPolicyDirty) checkConnectivity();
+
+            if (mShutdownRequested) {
+                throw new StopRequestException(STATUS_HTTP_DATA_ERROR,
+                        "Local halt requested; job probably timed out");
+            }
 
             int len = -1;
             try {
@@ -624,12 +707,6 @@ public class DownloadThread implements Runnable {
         } else if (Downloads.Impl.isStatusSuccess(mInfoDelta.mStatus)) {
             // When success, open access if local file
             if (mInfoDelta.mFileName != null) {
-                try {
-                    // TODO: remove this once PackageInstaller works with content://
-                    Os.chmod(mInfoDelta.mFileName, 0644);
-                } catch (ErrnoException ignored) {
-                }
-
                 if (mInfo.mDestination != Downloads.Impl.DESTINATION_FILE_URI) {
                     try {
                         // Move into final resting place, if needed
@@ -659,38 +736,16 @@ public class DownloadThread implements Runnable {
         // checking connectivity will apply current policy
         mPolicyDirty = false;
 
-        final NetworkState networkUsable = mInfo.checkCanUseNetwork(mInfoDelta.mTotalBytes);
-        if (networkUsable != NetworkState.OK) {
-            int status = Downloads.Impl.STATUS_WAITING_FOR_NETWORK;
-            if (networkUsable == NetworkState.UNUSABLE_DUE_TO_SIZE) {
-                status = Downloads.Impl.STATUS_QUEUED_FOR_WIFI;
-                mInfo.notifyPauseDueToSize(true);
-            } else if (networkUsable == NetworkState.RECOMMENDED_UNUSABLE_DUE_TO_SIZE) {
-                status = Downloads.Impl.STATUS_QUEUED_FOR_WIFI;
-                mInfo.notifyPauseDueToSize(false);
-            }
-            throw new StopRequestException(status, networkUsable.name());
+        final NetworkInfo info = mSystemFacade.getNetworkInfo(mNetwork, mInfo.mUid,
+                mIgnoreBlocked);
+        if (info == null || !info.isConnected()) {
+            throw new StopRequestException(STATUS_WAITING_FOR_NETWORK, "Network is disconnected");
         }
-    }
-
-    /**
-     * Check if the download has been paused or canceled, stopping the request
-     * appropriately if it has been.
-     */
-    private void checkPausedOrCanceled() throws StopRequestException {
-        synchronized (mInfo) {
-            if (mInfo.mControl == Downloads.Impl.CONTROL_PAUSED) {
-                throw new StopRequestException(
-                        Downloads.Impl.STATUS_PAUSED_BY_APP, "download paused by owner");
-            }
-            if (mInfo.mStatus == Downloads.Impl.STATUS_CANCELED || mInfo.mDeleted) {
-                throw new StopRequestException(Downloads.Impl.STATUS_CANCELED, "download canceled");
-            }
+        if (info.isRoaming() && !mInfo.isRoamingAllowed()) {
+            throw new StopRequestException(STATUS_WAITING_FOR_NETWORK, "Network is roaming");
         }
-
-        // if policy has been changed, trigger connectivity check
-        if (mPolicyDirty) {
-            checkConnectivity();
+        if (info.isMetered() && !mInfo.isMeteredAllowed(mInfoDelta.mTotalBytes)) {
+            throw new StopRequestException(STATUS_WAITING_FOR_NETWORK, "Network is metered");
         }
     }
 
@@ -775,17 +830,8 @@ public class DownloadThread implements Runnable {
 
     private void parseUnavailableHeaders(HttpURLConnection conn) {
         long retryAfter = conn.getHeaderFieldInt("Retry-After", -1);
-        if (retryAfter < 0) {
-            retryAfter = 0;
-        } else {
-            if (retryAfter < Constants.MIN_RETRY_AFTER) {
-                retryAfter = Constants.MIN_RETRY_AFTER;
-            } else if (retryAfter > Constants.MAX_RETRY_AFTER) {
-                retryAfter = Constants.MAX_RETRY_AFTER;
-            }
-            retryAfter += Helpers.sRandom.nextInt(Constants.MIN_RETRY_AFTER + 1);
-        }
-
+        retryAfter = MathUtils.constrain(retryAfter, Constants.MIN_RETRY_AFTER,
+                Constants.MAX_RETRY_AFTER);
         mInfoDelta.mRetryAfter = (int) (retryAfter * SECOND_IN_MILLIS);
     }
 
@@ -849,6 +895,22 @@ public class DownloadThread implements Runnable {
         public void onRestrictBackgroundChanged(boolean restrictBackground) {
             // caller is NPMS, since we only register with them
             mPolicyDirty = true;
+        }
+
+        @Override
+        public void onRestrictBackgroundWhitelistChanged(int uid, boolean whitelisted) {
+            // caller is NPMS, since we only register with them
+            if (uid == mInfo.mUid) {
+                mPolicyDirty = true;
+            }
+        }
+
+        @Override
+        public void onRestrictBackgroundBlacklistChanged(int uid, boolean blacklisted) {
+            // caller is NPMS, since we only register with them
+            if (uid == mInfo.mUid) {
+                mPolicyDirty = true;
+            }
         }
     };
 

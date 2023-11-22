@@ -145,10 +145,61 @@ void X86Assembler::movl(const Address& dst, Label* lbl) {
   EmitLabel(lbl, dst.length_ + 5);
 }
 
+void X86Assembler::movntl(const Address& dst, Register src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x0F);
+  EmitUint8(0xC3);
+  EmitOperand(src, dst);
+}
+
 void X86Assembler::bswapl(Register dst) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0x0F);
   EmitUint8(0xC8 + dst);
+}
+
+void X86Assembler::bsfl(Register dst, Register src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x0F);
+  EmitUint8(0xBC);
+  EmitRegisterOperand(dst, src);
+}
+
+void X86Assembler::bsfl(Register dst, const Address& src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x0F);
+  EmitUint8(0xBC);
+  EmitOperand(dst, src);
+}
+
+void X86Assembler::bsrl(Register dst, Register src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x0F);
+  EmitUint8(0xBD);
+  EmitRegisterOperand(dst, src);
+}
+
+void X86Assembler::bsrl(Register dst, const Address& src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x0F);
+  EmitUint8(0xBD);
+  EmitOperand(dst, src);
+}
+
+void X86Assembler::popcntl(Register dst, Register src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0xF3);
+  EmitUint8(0x0F);
+  EmitUint8(0xB8);
+  EmitRegisterOperand(dst, src);
+}
+
+void X86Assembler::popcntl(Register dst, const Address& src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0xF3);
+  EmitUint8(0x0F);
+  EmitUint8(0xB8);
+  EmitOperand(dst, src);
 }
 
 void X86Assembler::movzxb(Register dst, ByteRegister src) {
@@ -272,6 +323,14 @@ void X86Assembler::cmovl(Condition condition, Register dst, Register src) {
   EmitUint8(0x0F);
   EmitUint8(0x40 + condition);
   EmitRegisterOperand(dst, src);
+}
+
+
+void X86Assembler::cmovl(Condition condition, Register dst, const Address& src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x0F);
+  EmitUint8(0x40 + condition);
+  EmitOperand(dst, src);
 }
 
 
@@ -685,12 +744,29 @@ void X86Assembler::ucomiss(XmmRegister a, XmmRegister b) {
 }
 
 
+void X86Assembler::ucomiss(XmmRegister a, const Address& b) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x0F);
+  EmitUint8(0x2E);
+  EmitOperand(a, b);
+}
+
+
 void X86Assembler::ucomisd(XmmRegister a, XmmRegister b) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0x66);
   EmitUint8(0x0F);
   EmitUint8(0x2E);
   EmitXmmRegisterOperand(a, b);
+}
+
+
+void X86Assembler::ucomisd(XmmRegister a, const Address& b) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitUint8(0x0F);
+  EmitUint8(0x2E);
+  EmitOperand(a, b);
 }
 
 
@@ -1194,11 +1270,26 @@ void X86Assembler::imull(Register dst, Register src) {
 }
 
 
-void X86Assembler::imull(Register reg, const Immediate& imm) {
+void X86Assembler::imull(Register dst, Register src, const Immediate& imm) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
-  EmitUint8(0x69);
-  EmitOperand(reg, Operand(reg));
-  EmitImmediate(imm);
+  // See whether imm can be represented as a sign-extended 8bit value.
+  int32_t v32 = static_cast<int32_t>(imm.value());
+  if (IsInt<8>(v32)) {
+    // Sign-extension works.
+    EmitUint8(0x6B);
+    EmitOperand(dst, Operand(src));
+    EmitUint8(static_cast<uint8_t>(v32 & 0xFF));
+  } else {
+    // Not representable, use full immediate.
+    EmitUint8(0x69);
+    EmitOperand(dst, Operand(src));
+    EmitImmediate(imm);
+  }
+}
+
+
+void X86Assembler::imull(Register reg, const Immediate& imm) {
+  imull(reg, reg, imm);
 }
 
 
@@ -1387,6 +1478,26 @@ void X86Assembler::shrd(Register dst, Register src, const Immediate& imm) {
 }
 
 
+void X86Assembler::roll(Register reg, const Immediate& imm) {
+  EmitGenericShift(0, Operand(reg), imm);
+}
+
+
+void X86Assembler::roll(Register operand, Register shifter) {
+  EmitGenericShift(0, Operand(operand), shifter);
+}
+
+
+void X86Assembler::rorl(Register reg, const Immediate& imm) {
+  EmitGenericShift(1, Operand(reg), imm);
+}
+
+
+void X86Assembler::rorl(Register operand, Register shifter) {
+  EmitGenericShift(1, Operand(operand), shifter);
+}
+
+
 void X86Assembler::negl(Register reg) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0xF7);
@@ -1474,6 +1585,38 @@ void X86Assembler::j(Condition condition, Label* label) {
 }
 
 
+void X86Assembler::j(Condition condition, NearLabel* label) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  if (label->IsBound()) {
+    static const int kShortSize = 2;
+    int offset = label->Position() - buffer_.Size();
+    CHECK_LE(offset, 0);
+    CHECK(IsInt<8>(offset - kShortSize));
+    EmitUint8(0x70 + condition);
+    EmitUint8((offset - kShortSize) & 0xFF);
+  } else {
+    EmitUint8(0x70 + condition);
+    EmitLabelLink(label);
+  }
+}
+
+
+void X86Assembler::jecxz(NearLabel* label) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  if (label->IsBound()) {
+    static const int kShortSize = 2;
+    int offset = label->Position() - buffer_.Size();
+    CHECK_LE(offset, 0);
+    CHECK(IsInt<8>(offset - kShortSize));
+    EmitUint8(0xE3);
+    EmitUint8((offset - kShortSize) & 0xFF);
+  } else {
+    EmitUint8(0xE3);
+    EmitLabelLink(label);
+  }
+}
+
+
 void X86Assembler::jmp(Register reg) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0xFF);
@@ -1507,11 +1650,50 @@ void X86Assembler::jmp(Label* label) {
 }
 
 
+void X86Assembler::jmp(NearLabel* label) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  if (label->IsBound()) {
+    static const int kShortSize = 2;
+    int offset = label->Position() - buffer_.Size();
+    CHECK_LE(offset, 0);
+    CHECK(IsInt<8>(offset - kShortSize));
+    EmitUint8(0xEB);
+    EmitUint8((offset - kShortSize) & 0xFF);
+  } else {
+    EmitUint8(0xEB);
+    EmitLabelLink(label);
+  }
+}
+
+
 void X86Assembler::repne_scasw() {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0x66);
   EmitUint8(0xF2);
   EmitUint8(0xAF);
+}
+
+
+void X86Assembler::repe_cmpsw() {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitUint8(0xF3);
+  EmitUint8(0xA7);
+}
+
+
+void X86Assembler::repe_cmpsl() {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0xF3);
+  EmitUint8(0xA7);
+}
+
+
+void X86Assembler::rep_movsw() {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitUint8(0xF3);
+  EmitUint8(0xA5);
 }
 
 
@@ -1616,6 +1798,21 @@ void X86Assembler::Bind(Label* label) {
 }
 
 
+void X86Assembler::Bind(NearLabel* label) {
+  int bound = buffer_.Size();
+  CHECK(!label->IsBound());  // Labels can only be bound once.
+  while (label->IsLinked()) {
+    int position = label->LinkPosition();
+    uint8_t delta = buffer_.Load<uint8_t>(position);
+    int offset = bound - (position + 1);
+    CHECK(IsInt<8>(offset));
+    buffer_.Store<int8_t>(position, offset);
+    label->position_ = delta != 0u ? label->position_ - delta : 0;
+  }
+  label->BindTo(bound);
+}
+
+
 void X86Assembler::EmitOperand(int reg_or_opcode, const Operand& operand) {
   CHECK_GE(reg_or_opcode, 0);
   CHECK_LT(reg_or_opcode, 8);
@@ -1627,6 +1824,10 @@ void X86Assembler::EmitOperand(int reg_or_opcode, const Operand& operand) {
   // Emit the rest of the encoded operand.
   for (int i = 1; i < length; i++) {
     EmitUint8(operand.encoding_[i]);
+  }
+  AssemblerFixup* fixup = operand.GetFixup();
+  if (fixup != nullptr) {
+    EmitFixup(fixup);
   }
 }
 
@@ -1673,6 +1874,21 @@ void X86Assembler::EmitLabelLink(Label* label) {
   CHECK(!label->IsBound());
   int position = buffer_.Size();
   EmitInt32(label->position_);
+  label->LinkTo(position);
+}
+
+
+void X86Assembler::EmitLabelLink(NearLabel* label) {
+  CHECK(!label->IsBound());
+  int position = buffer_.Size();
+  if (label->IsLinked()) {
+    // Save the delta in the byte that we have to play with.
+    uint32_t delta = position - label->LinkPosition();
+    CHECK(IsUint<8>(delta));
+    EmitUint8(delta & 0xFF);
+  } else {
+    EmitUint8(0);
+  }
   label->LinkTo(position);
 }
 
@@ -1910,12 +2126,12 @@ void X86Assembler::LoadRef(ManagedRegister mdest, FrameOffset src) {
 }
 
 void X86Assembler::LoadRef(ManagedRegister mdest, ManagedRegister base, MemberOffset offs,
-                           bool poison_reference) {
+                           bool unpoison_reference) {
   X86ManagedRegister dest = mdest.AsX86();
   CHECK(dest.IsCpuRegister() && dest.IsCpuRegister());
   movl(dest.AsCpuRegister(), Address(base.AsX86().AsCpuRegister(), offs));
-  if (kPoisonHeapReferences && poison_reference) {
-    negl(dest.AsCpuRegister());
+  if (unpoison_reference) {
+    MaybeUnpoisonHeapReference(dest.AsCpuRegister());
   }
 }
 
@@ -2163,7 +2379,7 @@ void X86Assembler::GetCurrentThread(FrameOffset offset,
 }
 
 void X86Assembler::ExceptionPoll(ManagedRegister /*scratch*/, size_t stack_adjust) {
-  X86ExceptionSlowPath* slow = new X86ExceptionSlowPath(stack_adjust);
+  X86ExceptionSlowPath* slow = new (GetArena()) X86ExceptionSlowPath(stack_adjust);
   buffer_.EnqueueSlowPath(slow);
   fs()->cmpl(Address::Absolute(Thread::ExceptionOffset<4>()), Immediate(0));
   j(kNotEqual, slow->Entry());
@@ -2183,6 +2399,61 @@ void X86ExceptionSlowPath::Emit(Assembler *sasm) {
   // this call should never return
   __ int3();
 #undef __
+}
+
+void X86Assembler::AddConstantArea() {
+  ArrayRef<const int32_t> area = constant_area_.GetBuffer();
+  // Generate the data for the literal area.
+  for (size_t i = 0, e = area.size(); i < e; i++) {
+    AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+    EmitInt32(area[i]);
+  }
+}
+
+size_t ConstantArea::AppendInt32(int32_t v) {
+  size_t result = buffer_.size() * elem_size_;
+  buffer_.push_back(v);
+  return result;
+}
+
+size_t ConstantArea::AddInt32(int32_t v) {
+  for (size_t i = 0, e = buffer_.size(); i < e; i++) {
+    if (v == buffer_[i]) {
+      return i * elem_size_;
+    }
+  }
+
+  // Didn't match anything.
+  return AppendInt32(v);
+}
+
+size_t ConstantArea::AddInt64(int64_t v) {
+  int32_t v_low = Low32Bits(v);
+  int32_t v_high = High32Bits(v);
+  if (buffer_.size() > 1) {
+    // Ensure we don't pass the end of the buffer.
+    for (size_t i = 0, e = buffer_.size() - 1; i < e; i++) {
+      if (v_low == buffer_[i] && v_high == buffer_[i + 1]) {
+        return i * elem_size_;
+      }
+    }
+  }
+
+  // Didn't match anything.
+  size_t result = buffer_.size() * elem_size_;
+  buffer_.push_back(v_low);
+  buffer_.push_back(v_high);
+  return result;
+}
+
+size_t ConstantArea::AddDouble(double v) {
+  // Treat the value as a 64-bit integer value.
+  return AddInt64(bit_cast<int64_t, double>(v));
+}
+
+size_t ConstantArea::AddFloat(float v) {
+  // Treat the value as a 32-bit integer value.
+  return AddInt32(bit_cast<int32_t, float>(v));
 }
 
 }  // namespace x86

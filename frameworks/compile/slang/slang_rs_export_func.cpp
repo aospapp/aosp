@@ -105,7 +105,7 @@ RSExportFunc *RSExportFunc::Create(RSContext *Context,
     slangAssert(!T.isNull());
 
     RSExportType *ET =
-      RSExportType::Create(Context, T.getTypePtr());
+      RSExportType::Create(Context, T.getTypePtr(), NotLegacyKernelArgument);
 
     if (ET == nullptr) {
       fprintf(stderr, "Failed to export the function %s. There's at least one "

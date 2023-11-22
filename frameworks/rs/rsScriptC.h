@@ -20,10 +20,6 @@
 #include "rsEnv.h"
 #include "rsScript.h"
 
-#if !defined(RS_COMPATIBILITY_LIB) && !defined(ANDROID_RS_SERIALIZE)
-#include "bcinfo/BitcodeTranslator.h"
-#endif
-
 // ---------------------------------------------------------------------------
 namespace android {
 namespace renderscript {
@@ -38,18 +34,22 @@ public:
     ScriptC(Context *);
     virtual ~ScriptC();
 
-    virtual void Invoke(Context *rsc, uint32_t slot, const void *data, size_t len);
+    void Invoke(Context *rsc, uint32_t slot, const void *data, size_t len) override;
 
     virtual uint32_t run(Context *);
 
-    virtual void runForEach(Context *rsc,
-                            uint32_t slot,
-                            const Allocation ** ains,
-                            size_t inLen,
-                            Allocation * aout,
-                            const void * usr,
-                            size_t usrBytes,
-                            const RsScriptCall *sc = nullptr);
+    void runForEach(Context *rsc,
+                    uint32_t slot,
+                    const Allocation ** ains,
+                    size_t inLen,
+                    Allocation * aout,
+                    const void * usr,
+                    size_t usrBytes,
+                    const RsScriptCall *sc = nullptr) override;
+
+    void runReduce(Context *rsc, uint32_t slot,
+                   const Allocation ** ains, size_t inLen,
+                   Allocation *aout, const RsScriptCall *sc) override;
 
     virtual void serialize(Context *rsc, OStream *stream) const {    }
     virtual RsA3DClassID getClassId() const { return RS_A3D_CLASS_ID_SCRIPT_C; }
@@ -64,10 +64,6 @@ public:
 
 #if !defined(RS_COMPATIBILITY_LIB)
     static bool createCacheDir(const char *cacheDir);
-#endif
-private:
-#if !defined(RS_COMPATIBILITY_LIB) && !defined(ANDROID_RS_SERIALIZE)
-    bcinfo::BitcodeTranslator *BT;
 #endif
 };
 

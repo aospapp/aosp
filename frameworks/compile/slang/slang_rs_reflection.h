@@ -81,6 +81,7 @@ private:
   int mNextExportVarSlot;
   int mNextExportFuncSlot;
   int mNextExportForEachSlot;
+  int mNextExportReduceSlot;
 
   GeneratedFile mOut;
 
@@ -101,6 +102,7 @@ private:
     mNextExportVarSlot = 0;
     mNextExportFuncSlot = 0;
     mNextExportForEachSlot = 0;
+    mNextExportReduceSlot = 0;
   }
 
 public:
@@ -127,6 +129,7 @@ public:
   inline int getNextExportVarSlot() { return mNextExportVarSlot++; }
   inline int getNextExportFuncSlot() { return mNextExportFuncSlot++; }
   inline int getNextExportForEachSlot() { return mNextExportForEachSlot++; }
+  inline int getNextExportReduceSlot() { return mNextExportReduceSlot++; }
 
   bool startClass(AccessModifier AM, bool IsStatic,
                   const std::string &ClassName, const char *SuperClassName,
@@ -169,6 +172,8 @@ public:
   inline void clearFieldIndexMap() { mFieldIndexMap.clear(); }
 
 private:
+  static bool exportableReduce(const RSExportType *ResultType);
+
   bool genScriptClass(const std::string &ClassName, std::string &ErrorMsg);
   void genScriptClassConstructor();
 
@@ -188,7 +193,7 @@ private:
   void genRecordTypeExportVariable(const RSExportVar *EV);
   void genPrivateExportVariable(const std::string &TypeName,
                                 const std::string &VarName);
-  void genSetExportVariable(const std::string &TypeName, const RSExportVar *EV);
+  void genSetExportVariable(const std::string &TypeName, const RSExportVar *EV, unsigned Dimension);
   void genGetExportVariable(const std::string &TypeName,
                             const std::string &VarName);
   void genGetFieldID(const std::string &VarName);
@@ -196,6 +201,11 @@ private:
   void genExportFunction(const RSExportFunc *EF);
 
   void genExportForEach(const RSExportForEach *EF);
+
+  void genExportReduce(const RSExportReduce *ER);
+  void genExportReduceAllocationVariant(const RSExportReduce *ER);
+  void genExportReduceArrayVariant(const RSExportReduce *ER);
+  void genExportReduceResultType(const RSExportType *ResultType);
 
   void genTypeCheck(const RSExportType *ET, const char *VarName);
 
@@ -234,6 +244,8 @@ private:
   void genNewItemBufferPackerIfNull();
 
   void genPairwiseDimCheck(std::string name0, std::string name1);
+  void genVectorLengthCompatibilityCheck(const std::string &ArrayName, unsigned VecSize);
+  void genNullArrayCheck(const std::string &ArrayName);
 
 public:
   RSReflectionJava(const RSContext *Context,

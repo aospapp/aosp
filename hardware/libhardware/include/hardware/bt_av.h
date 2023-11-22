@@ -38,13 +38,13 @@ typedef enum {
 /** Callback for connection state change.
  *  state will have one of the values from btav_connection_state_t
  */
-typedef void (* btav_connection_state_callback)(btav_connection_state_t state, 
+typedef void (* btav_connection_state_callback)(btav_connection_state_t state,
                                                     bt_bdaddr_t *bd_addr);
 
 /** Callback for audiopath state change.
  *  state will have one of the values from btav_audio_state_t
  */
-typedef void (* btav_audio_state_callback)(btav_audio_state_t state, 
+typedef void (* btav_audio_state_callback)(btav_audio_state_t state,
                                                bt_bdaddr_t *bd_addr);
 
 /** Callback for audio configuration change.
@@ -66,15 +66,15 @@ typedef struct {
     btav_audio_config_callback audio_config_cb;
 } btav_callbacks_t;
 
-/** 
+/**
  * NOTE:
  *
  * 1. AVRCP 1.0 shall be supported initially. AVRCP passthrough commands
- *    shall be handled internally via uinput 
+ *    shall be handled internally via uinput
  *
  * 2. A2DP data path shall be handled via a socket pipe between the AudioFlinger
  *    android_audio_hw library and the Bluetooth stack.
- * 
+ *
  */
 /** Represents the standard BT-AV interface.
  *  Used for both the A2DP source and sink interfaces.
@@ -96,6 +96,12 @@ typedef struct {
 
     /** Closes the interface. */
     void  (*cleanup)( void );
+
+    /** Sends Audio Focus State. */
+    void  (*set_audio_focus_state)( int focus_state );
+
+    /** Sets the audio track gain. */
+    void  (*set_audio_track_gain)( float gain );
 } btav_interface_t;
 
 __END_DECLS

@@ -16,7 +16,7 @@
 
 package com.google.common.reflect;
 
-import static org.truth0.Truth.ASSERT;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -194,13 +194,13 @@ public class MutableTypeToInstanceMapTest extends TestCase {
     assertEquals(ImmutableList.of(1), map.getInstance(type));
   }
 
-  public void testGeneriArrayType() {
+  public void testGenericArrayType() {
     @SuppressWarnings("unchecked") // Trying to test generic array
     ImmutableList<Integer>[] array = new ImmutableList[] {ImmutableList.of(1)};
     TypeToken<ImmutableList<Integer>[]> type = new TypeToken<ImmutableList<Integer>[]>() {};
     map.putInstance(type, array);
     assertEquals(1, map.size());
-    ASSERT.that(map.getInstance(type)).has().exactly(array[0]).inOrder();
+    assertThat(map.getInstance(type)).asList().has().exactly(array[0]).inOrder();
   }
 
   public void testWildcardType() {

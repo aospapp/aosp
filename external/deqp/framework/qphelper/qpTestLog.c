@@ -144,7 +144,7 @@ typedef struct qpKeyStringMap_s
 	char*	string;
 } qpKeyStringMap;
 
-static const char* LOG_FORMAT_VERSION = "0.3.3";
+static const char* LOG_FORMAT_VERSION = "0.3.4";
 
 /* Mapping enum to above strings... */
 static const qpKeyStringMap s_qpTestTypeMap[] =
@@ -279,12 +279,12 @@ DE_INLINE void int64ToString (deInt64 val, char buf[32])
 	deSprintf(&buf[0], 32, "%lld", (long long int)val);
 }
 
-DE_INLINE void floatToString (float value, char* buf, int bufSize)
+DE_INLINE void floatToString (float value, char* buf, size_t bufSize)
 {
 	deSprintf(buf, bufSize, "%f", value);
 }
 
-DE_INLINE void doubleToString (double value, char* buf, int bufSize)
+DE_INLINE void doubleToString (double value, char* buf, size_t bufSize)
 {
 	deSprintf(buf, bufSize, "%f", value);
 }
@@ -350,7 +350,7 @@ qpTestLog* qpTestLog_createFileLog (const char* fileName, deUint32 flags)
 	}
 
 	log->flags			= flags;
-	log->writer			= qpXmlWriter_createFileWriter(log->outputFile, 0);
+	log->writer			= qpXmlWriter_createFileWriter(log->outputFile, 0, !(flags & QP_TEST_LOG_NO_FLUSH));
 	log->lock			= deMutex_create(DE_NULL);
 	log->isSessionOpen	= DE_FALSE;
 	log->isCaseOpen		= DE_FALSE;
@@ -419,7 +419,8 @@ deBool qpTestLog_startCase (qpTestLog* log, const char* testCasePath, qpTestCase
 	/* Flush XML and write out #beginTestCaseResult. */
 	qpXmlWriter_flush(log->writer);
 	fprintf(log->outputFile, "\n#beginTestCaseResult %s\n", testCasePath);
-	qpTestLog_flushFile(log);
+	if (!(log->flags & QP_TEST_LOG_NO_FLUSH))
+		qpTestLog_flushFile(log);
 
 	log->isCaseOpen = DE_TRUE;
 
@@ -473,7 +474,8 @@ deBool qpTestLog_endCase (qpTestLog* log, qpTestResult result, const char* resul
 	/* Flush XML and write #endTestCaseResult. */
 	qpXmlWriter_flush(log->writer);
 	fprintf(log->outputFile, "\n#endTestCaseResult\n");
-	qpTestLog_flushFile(log);
+	if (!(log->flags & QP_TEST_LOG_NO_FLUSH))
+		qpTestLog_flushFile(log);
 
 	log->isCaseOpen = DE_FALSE;
 
@@ -627,8 +629,8 @@ deBool qpTestLog_writeFloat (qpTestLog* log, const char* name, const char* descr
 
 typedef struct Buffer_s
 {
-	int			capacity;
-	int			size;
+	size_t		capacity;
+	size_t		size;
 	deUint8*	data;
 } Buffer;
 
@@ -645,12 +647,12 @@ void Buffer_deinit (Buffer* buffer)
 	Buffer_init(buffer);
 }
 
-deBool Buffer_resize (Buffer* buffer, int newSize)
+deBool Buffer_resize (Buffer* buffer, size_t newSize)
 {
 	/* Grow buffer if necessary. */
 	if (newSize > buffer->capacity)
 	{
-		int			newCapacity	= deAlign32(deMax32(2*buffer->capacity, newSize), 512);
+		size_t		newCapacity	= (size_t)deAlign32(deMax32(2*(int)buffer->capacity, (int)newSize), 512);
 		deUint8*	newData		= (deUint8*)deMalloc(newCapacity);
 		if (!newData)
 			return DE_FALSE;
@@ -665,9 +667,9 @@ deBool Buffer_resize (Buffer* buffer, int newSize)
 	return DE_TRUE;
 }
 
-deBool Buffer_append (Buffer* buffer, const deUint8* data, int numBytes)
+deBool Buffer_append (Buffer* buffer, const deUint8* data, size_t numBytes)
 {
-	int offset = buffer->size;
+	size_t offset = buffer->size;
 
 	if (!Buffer_resize(buffer, buffer->size + numBytes))
 		return DE_FALSE;
@@ -681,7 +683,7 @@ deBool Buffer_append (Buffer* buffer, const deUint8* data, int numBytes)
 void pngWriteData (png_structp png, png_bytep dataPtr, png_size_t numBytes)
 {
 	Buffer* buffer = (Buffer*)png_get_io_ptr(png);
-	if (!Buffer_append(buffer, (const deUint8*)dataPtr, (int)numBytes))
+	if (!Buffer_append(buffer, (const deUint8*)dataPtr, numBytes))
 		png_error(png, "unable to resize PNG write buffer!");
 }
 
@@ -696,7 +698,7 @@ static deBool writeCompressedPNG (png_structp png, png_infop info, png_byte** ro
 	if (setjmp(png_jmpbuf(png)) == 0)
 	{
 		/* Write data. */
-		png_set_IHDR(png, info, width, height,
+		png_set_IHDR(png, info, (png_uint_32)width, (png_uint_32)height,
 			8,
 			colorFormat,
 			PNG_INTERLACE_NONE,
@@ -725,7 +727,7 @@ static deBool compressImagePNG (Buffer* buffer, qpImageFormat imageFormat, int w
 	DE_ASSERT(imageFormat == QP_IMAGE_FORMAT_RGB888 || imageFormat == QP_IMAGE_FORMAT_RGBA8888);
 
 	/* Allocate & set row pointers. */
-	rowPointers = (png_byte**)deMalloc(height * sizeof(png_byte*));
+	rowPointers = (png_byte**)deMalloc((size_t)height * sizeof(png_byte*));
 	if (!rowPointers)
 		return DE_FALSE;
 
@@ -845,7 +847,7 @@ deBool qpTestLog_writeImage	(
 	int				numAttribs			= 0;
 	Buffer			compressedBuffer;
 	const void*		writeDataPtr		= DE_NULL;
-	int				writeDataBytes		= -1;
+	size_t			writeDataBytes		= ~(size_t)0;
 
 	DE_ASSERT(log && name);
 	DE_ASSERT(deInRange32(width, 1, 16384));
@@ -899,11 +901,11 @@ deBool qpTestLog_writeImage	(
 			else
 			{
 				/* Need to re-pack pixels. */
-				if (Buffer_resize(&compressedBuffer, packedStride*height))
+				if (Buffer_resize(&compressedBuffer, (size_t)(packedStride*height)))
 				{
 					int row;
 					for (row = 0; row < height; row++)
-						memcpy(&compressedBuffer.data[packedStride*row], &((const deUint8*)data)[row*stride], pixelSize*width);
+						memcpy(&compressedBuffer.data[packedStride*row], &((const deUint8*)data)[row*stride], (size_t)(pixelSize*width));
 				}
 				else
 				{
@@ -913,7 +915,7 @@ deBool qpTestLog_writeImage	(
 				}
 			}
 
-			writeDataBytes = packedStride*height;
+			writeDataBytes = (size_t)(packedStride*height);
 			break;
 		}
 
@@ -1024,6 +1026,7 @@ deBool qpTestLog_endShaderProgram (qpTestLog* log)
 deBool qpTestLog_writeShader (qpTestLog* log, qpShaderType type, const char* source, deBool compileOk, const char* infoLog)
 {
 	const char*		tagName				= QP_LOOKUP_STRING(s_qpShaderTypeMap, type);
+	const char*		sourceStr			= ((log->flags & QP_TEST_LOG_EXCLUDE_SHADER_SOURCES) == 0 || !compileOk) ? source : "";
 	int				numShaderAttribs	= 0;
 	qpXmlAttribute	shaderAttribs[4];
 
@@ -1034,7 +1037,7 @@ deBool qpTestLog_writeShader (qpTestLog* log, qpShaderType type, const char* sou
 	shaderAttribs[numShaderAttribs++]	= qpSetStringAttrib("CompileStatus", compileOk ? "OK" : "Fail");
 
 	if (!qpXmlWriter_startElement(log->writer, tagName, numShaderAttribs, shaderAttribs) ||
-		!qpXmlWriter_writeStringElement(log->writer, "ShaderSource", source) ||
+		!qpXmlWriter_writeStringElement(log->writer, "ShaderSource", sourceStr) ||
 		!qpXmlWriter_writeStringElement(log->writer, "InfoLog", infoLog) ||
 		!qpXmlWriter_endElement(log->writer, tagName))
 	{
@@ -1216,12 +1219,34 @@ deBool qpTestLog_endSection (qpTestLog* log)
  *//*--------------------------------------------------------------------*/
 deBool qpTestLog_writeKernelSource (qpTestLog* log, const char* source)
 {
+	const char*		sourceStr	= (log->flags & QP_TEST_LOG_EXCLUDE_SHADER_SOURCES) != 0 ? "" : source;
+
 	DE_ASSERT(log);
 	deMutex_lock(log->lock);
 
-	if (!qpXmlWriter_writeStringElement(log->writer, "KernelSource", source))
+	if (!qpXmlWriter_writeStringElement(log->writer, "KernelSource", sourceStr))
 	{
 		qpPrintf("qpTestLog_writeKernelSource(): Writing XML failed\n");
+		deMutex_unlock(log->lock);
+		return DE_FALSE;
+	}
+
+	deMutex_unlock(log->lock);
+	return DE_TRUE;
+}
+
+/*--------------------------------------------------------------------*//*!
+ * \brief Write a SPIR-V module assembly source into the log.
+ *//*--------------------------------------------------------------------*/
+deBool qpTestLog_writeSpirVAssemblySource (qpTestLog* log, const char* source)
+{
+	DE_ASSERT(log);
+	DE_ASSERT(ContainerStack_getTop(&log->containerStack) == CONTAINERTYPE_SHADERPROGRAM);
+	deMutex_lock(log->lock);
+
+	if (!qpXmlWriter_writeStringElement(log->writer, "SpirVAssemblySource", source))
+	{
+		qpPrintf("qpTestLog_writeSpirVAssemblySource(): Writing XML failed\n");
 		deMutex_unlock(log->lock);
 		return DE_FALSE;
 	}

@@ -17,6 +17,7 @@ LOCAL_SHARED_LIBRARIES := \
 	liblog \
 	libOpenSLES
 
+LOCAL_CFLAGS := -Werror -Wall
 ifeq ($(TARGET_OS),linux)
 	LOCAL_CFLAGS += -DXP_UNIX
 	#LOCAL_SHARED_LIBRARIES += librt
@@ -48,6 +49,7 @@ ifeq ($(TARGET_OS),linux)
 	LOCAL_CFLAGS += -DXP_UNIX
 endif
 
+LOCAL_CFLAGS := -Werror -Wall
 LOCAL_CFLAGS += -UNDEBUG
 
 LOCAL_MODULE:= slesTest_multiplay
@@ -79,6 +81,7 @@ ifeq ($(TARGET_OS),linux)
 	LOCAL_CFLAGS += -DXP_UNIX
 endif
 
+LOCAL_CFLAGS := -Werror -Wall
 LOCAL_CFLAGS += -UNDEBUG
 
 LOCAL_MODULE:= slesTest_engine
@@ -110,6 +113,7 @@ ifeq ($(TARGET_OS),linux)
 	LOCAL_CFLAGS += -DXP_UNIX
 endif
 
+LOCAL_CFLAGS := -Werror -Wall
 LOCAL_CFLAGS += -UNDEBUG
 
 LOCAL_MODULE:= slesTest_object
@@ -136,6 +140,7 @@ ifeq ($(TARGET_OS),linux)
 	LOCAL_CFLAGS += -DXP_UNIX
 endif
 
+LOCAL_CFLAGS := -Werror -Wall
 LOCAL_CFLAGS += -UNDEBUG
 
 LOCAL_MODULE:= slesTest_configbq
@@ -166,6 +171,7 @@ ifeq ($(TARGET_OS),linux)
 	LOCAL_CFLAGS += -DXP_UNIX
 endif
 
+LOCAL_CFLAGS := -Werror -Wall
 LOCAL_CFLAGS += -UNDEBUG
 
 LOCAL_MODULE:= slesTest_reverb
@@ -196,6 +202,7 @@ ifeq ($(TARGET_OS),linux)
 	LOCAL_CFLAGS += -DXP_UNIX
 endif
 
+LOCAL_CFLAGS := -Werror -Wall
 LOCAL_CFLAGS += -UNDEBUG
 
 LOCAL_MODULE:= slesTest_srcsink
@@ -227,6 +234,7 @@ ifeq ($(TARGET_OS),linux)
 	LOCAL_CFLAGS += -DXP_UNIX
 endif
 
+LOCAL_CFLAGS := -Werror -Wall
 LOCAL_CFLAGS += -UNDEBUG
 
 LOCAL_MODULE:= slesTest_outputmix
@@ -257,6 +265,7 @@ ifeq ($(TARGET_OS),linux)
 	LOCAL_CFLAGS += -DXP_UNIX
 endif
 
+LOCAL_CFLAGS := -Werror -Wall
 LOCAL_CFLAGS += -UNDEBUG
 
 LOCAL_MODULE:= slesTest_urimime
@@ -287,6 +296,7 @@ ifeq ($(TARGET_OS),linux)
 	LOCAL_CFLAGS += -DXP_UNIX
 endif
 
+LOCAL_CFLAGS := -Werror -Wall
 LOCAL_CFLAGS += -UNDEBUG
 
 LOCAL_MODULE:= slesTest_dim
@@ -317,6 +327,7 @@ ifeq ($(TARGET_OS),linux)
 	LOCAL_CFLAGS += -DXP_UNIX
 endif
 
+LOCAL_CFLAGS := -Werror -Wall
 LOCAL_CFLAGS += -UNDEBUG
 
 LOCAL_MODULE:= slesTest_multithread
@@ -351,6 +362,7 @@ ifeq ($(TARGET_OS),linux)
 	LOCAL_CFLAGS += -DXP_UNIX
 endif
 
+LOCAL_CFLAGS := -Werror -Wall
 LOCAL_CFLAGS += -UNDEBUG
 
 LOCAL_MODULE:= slesTest_playbq
@@ -381,6 +393,7 @@ ifeq ($(TARGET_OS),linux)
 	LOCAL_CFLAGS += -DXP_UNIX
 endif
 
+LOCAL_CFLAGS := -Werror -Wall
 LOCAL_CFLAGS += -UNDEBUG
 
 LOCAL_MODULE:= slesTest_monkey
@@ -411,6 +424,7 @@ ifeq ($(TARGET_OS),linux)
 	LOCAL_CFLAGS += -DXP_UNIX
 endif
 
+LOCAL_CFLAGS := -Werror -Wall
 LOCAL_CFLAGS += -UNDEBUG
 
 LOCAL_MODULE:= slesTest_xa
@@ -442,6 +456,7 @@ ifeq ($(TARGET_OS),linux)
 	LOCAL_CFLAGS += -DXP_UNIX
 endif
 
+LOCAL_CFLAGS := -Werror -Wall
 LOCAL_CFLAGS += -UNDEBUG
 
 LOCAL_MODULE:= slesTest_dual
@@ -476,7 +491,7 @@ ifeq ($(TARGET_OS),linux)
 	LOCAL_CFLAGS += -DXP_UNIX
 endif
 
-LOCAL_CFLAGS += -UNDEBUG
+LOCAL_CFLAGS += -UNDEBUG -Wall -Wextra -Werror
 
 LOCAL_MODULE:= xaplay
 

@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 %s -emit-llvm -o - -ffreestanding -triple=i686-apple-darwin9 | FileCheck %s
+// REQUIRES: x86-registered-target
 
 // Also test serialization of atomic operations here, to avoid duplicating the
 // test.
@@ -105,6 +106,14 @@ int fi3e(atomic_int *i) {
   return atomic_fetch_or(i, 1);
 }
 
+int fi3f(int *i) {
+  // CHECK-LABEL: @fi3f
+  // CHECK-NOT: store volatile
+  // CHECK: atomicrmw or
+  // CHECK-NOT: {{ or }}
+  return __atomic_fetch_or(i, (short)1, memory_order_seq_cst);
+}
+
 _Bool fi4(_Atomic(int) *i) {
   // CHECK-LABEL: @fi4(
   // CHECK: [[PAIR:%[.0-9A-Z_a-z]+]] = cmpxchg i32* [[PTR:%[.0-9A-Z_a-z]+]], i32 [[EXPECTED:%[.0-9A-Z_a-z]+]], i32 [[DESIRED:%[.0-9A-Z_a-z]+]]
@@ -170,8 +179,8 @@ struct S fd1(struct S *a) {
   // CHECK-LABEL: @fd1
   // CHECK: [[RETVAL:%.*]] = alloca %struct.S, align 4
   // CHECK: [[RET:%.*]]    = alloca %struct.S, align 4
-  // CHECK: [[CALL:%.*]]   = call i64 @__atomic_load_8(
   // CHECK: [[CAST:%.*]]   = bitcast %struct.S* [[RET]] to i64*
+  // CHECK: [[CALL:%.*]]   = call i64 @__atomic_load_8(
   // CHECK: store i64 [[CALL]], i64* [[CAST]], align 4
   struct S ret;
   __atomic_load(a, &ret, memory_order_seq_cst);
@@ -186,8 +195,9 @@ void fd2(struct S *a, struct S *b) {
   // CHECK-NEXT: store %struct.S* %b, %struct.S** [[B_ADDR]], align 4
   // CHECK-NEXT: [[LOAD_A_PTR:%.*]] = load %struct.S*, %struct.S** [[A_ADDR]], align 4
   // CHECK-NEXT: [[LOAD_B_PTR:%.*]] = load %struct.S*, %struct.S** [[B_ADDR]], align 4
-  // CHECK-NEXT: [[COERCED_A:%.*]] = bitcast %struct.S* [[LOAD_A_PTR]] to i8*
+  // CHECK-NEXT: [[COERCED_A_TMP:%.*]] = bitcast %struct.S* [[LOAD_A_PTR]] to i64*
   // CHECK-NEXT: [[COERCED_B:%.*]] = bitcast %struct.S* [[LOAD_B_PTR]] to i64*
+  // CHECK-NEXT: [[COERCED_A:%.*]] = bitcast i64* [[COERCED_A_TMP]] to i8*
   // CHECK-NEXT: [[LOAD_B:%.*]] = load i64, i64* [[COERCED_B]], align 4
   // CHECK-NEXT: call void @__atomic_store_8(i8* [[COERCED_A]], i64 [[LOAD_B]],
   // CHECK-NEXT: ret void
@@ -205,11 +215,12 @@ void fd3(struct S *a, struct S *b, struct S *c) {
   // CHECK-NEXT: [[LOAD_A_PTR:%.*]] = load %struct.S*, %struct.S** [[A_ADDR]], align 4
   // CHECK-NEXT: [[LOAD_B_PTR:%.*]] = load %struct.S*, %struct.S** [[B_ADDR]], align 4
   // CHECK-NEXT: [[LOAD_C_PTR:%.*]] = load %struct.S*, %struct.S** [[C_ADDR]], align 4
-  // CHECK-NEXT: [[COERCED_A:%.*]] = bitcast %struct.S* [[LOAD_A_PTR]] to i8*
+  // CHECK-NEXT: [[COERCED_A_TMP:%.*]] = bitcast %struct.S* [[LOAD_A_PTR]] to i64*
   // CHECK-NEXT: [[COERCED_B:%.*]] = bitcast %struct.S* [[LOAD_B_PTR]] to i64*
+  // CHECK-NEXT: [[COERCED_C:%.*]] = bitcast %struct.S* [[LOAD_C_PTR]] to i64*
+  // CHECK-NEXT: [[COERCED_A:%.*]] = bitcast i64* [[COERCED_A_TMP]] to i8*
   // CHECK-NEXT: [[LOAD_B:%.*]] = load i64, i64* [[COERCED_B]], align 4
   // CHECK-NEXT: [[CALL:%.*]] = call i64 @__atomic_exchange_8(i8* [[COERCED_A]], i64 [[LOAD_B]],
-  // CHECK-NEXT: [[COERCED_C:%.*]] = bitcast %struct.S* [[LOAD_C_PTR]] to i64*
   // CHECK-NEXT: store i64 [[CALL]], i64* [[COERCED_C]], align 4
 
   __atomic_exchange(a, b, c, memory_order_seq_cst);
@@ -226,9 +237,11 @@ _Bool fd4(struct S *a, struct S *b, struct S *c) {
   // CHECK-NEXT: [[LOAD_A_PTR:%.*]] = load %struct.S*, %struct.S** [[A_ADDR]], align 4
   // CHECK-NEXT: [[LOAD_B_PTR:%.*]] = load %struct.S*, %struct.S** [[B_ADDR]], align 4
   // CHECK-NEXT: [[LOAD_C_PTR:%.*]] = load %struct.S*, %struct.S** [[C_ADDR]], align 4
-  // CHECK-NEXT: [[COERCED_A:%.*]] = bitcast %struct.S* [[LOAD_A_PTR]] to i8*
-  // CHECK-NEXT: [[COERCED_B:%.*]] = bitcast %struct.S* [[LOAD_B_PTR]] to i8*
+  // CHECK-NEXT: [[COERCED_A_TMP:%.*]] = bitcast %struct.S* [[LOAD_A_PTR]] to i64*
+  // CHECK-NEXT: [[COERCED_B_TMP:%.*]] = bitcast %struct.S* [[LOAD_B_PTR]] to i64*
   // CHECK-NEXT: [[COERCED_C:%.*]] = bitcast %struct.S* [[LOAD_C_PTR]] to i64*
+  // CHECK-NEXT: [[COERCED_A:%.*]] = bitcast i64* [[COERCED_A_TMP]] to i8*
+  // CHECK-NEXT: [[COERCED_B:%.*]] = bitcast i64* [[COERCED_B_TMP]] to i8*
   // CHECK-NEXT: [[LOAD_C:%.*]] = load i64, i64* [[COERCED_C]], align 4
   // CHECK-NEXT: [[CALL:%.*]] = call zeroext i1 @__atomic_compare_exchange_8(i8* [[COERCED_A]], i8* [[COERCED_B]], i64 [[LOAD_C]]
   // CHECK-NEXT: ret i1 [[CALL]]
@@ -302,6 +315,8 @@ struct Sixteen {
 struct Seventeen {
   char c[17];
 } seventeen;
+
+struct Incomplete;
 
 int lock_free(struct Incomplete *incomplete) {
   // CHECK-LABEL: @lock_free

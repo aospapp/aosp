@@ -25,7 +25,7 @@ public abstract class MeasureRun {
      */
     public void prepare(int i) throws Exception {
         // default empty implementation
-    };
+    }
 
     abstract public void run(int i) throws Exception;
 }

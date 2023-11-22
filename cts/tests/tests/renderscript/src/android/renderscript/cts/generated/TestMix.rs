@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,6 +46,30 @@ float4 __attribute__((kernel)) testMixFloat4Float4Float4Float4(float4 inStart, u
     return mix(inStart, inStop, inFraction);
 }
 
+half __attribute__((kernel)) testMixHalfHalfHalfHalf(half inStart, unsigned int x) {
+    half inStop = rsGetElementAt_half(gAllocInStop, x);
+    half inFraction = rsGetElementAt_half(gAllocInFraction, x);
+    return mix(inStart, inStop, inFraction);
+}
+
+half2 __attribute__((kernel)) testMixHalf2Half2Half2Half2(half2 inStart, unsigned int x) {
+    half2 inStop = rsGetElementAt_half2(gAllocInStop, x);
+    half2 inFraction = rsGetElementAt_half2(gAllocInFraction, x);
+    return mix(inStart, inStop, inFraction);
+}
+
+half3 __attribute__((kernel)) testMixHalf3Half3Half3Half3(half3 inStart, unsigned int x) {
+    half3 inStop = rsGetElementAt_half3(gAllocInStop, x);
+    half3 inFraction = rsGetElementAt_half3(gAllocInFraction, x);
+    return mix(inStart, inStop, inFraction);
+}
+
+half4 __attribute__((kernel)) testMixHalf4Half4Half4Half4(half4 inStart, unsigned int x) {
+    half4 inStop = rsGetElementAt_half4(gAllocInStop, x);
+    half4 inFraction = rsGetElementAt_half4(gAllocInFraction, x);
+    return mix(inStart, inStop, inFraction);
+}
+
 float2 __attribute__((kernel)) testMixFloat2Float2FloatFloat2(float2 inStart, unsigned int x) {
     float2 inStop = rsGetElementAt_float2(gAllocInStop, x);
     float inFraction = rsGetElementAt_float(gAllocInFraction, x);
@@ -61,5 +85,23 @@ float3 __attribute__((kernel)) testMixFloat3Float3FloatFloat3(float3 inStart, un
 float4 __attribute__((kernel)) testMixFloat4Float4FloatFloat4(float4 inStart, unsigned int x) {
     float4 inStop = rsGetElementAt_float4(gAllocInStop, x);
     float inFraction = rsGetElementAt_float(gAllocInFraction, x);
+    return mix(inStart, inStop, inFraction);
+}
+
+half2 __attribute__((kernel)) testMixHalf2Half2HalfHalf2(half2 inStart, unsigned int x) {
+    half2 inStop = rsGetElementAt_half2(gAllocInStop, x);
+    half inFraction = rsGetElementAt_half(gAllocInFraction, x);
+    return mix(inStart, inStop, inFraction);
+}
+
+half3 __attribute__((kernel)) testMixHalf3Half3HalfHalf3(half3 inStart, unsigned int x) {
+    half3 inStop = rsGetElementAt_half3(gAllocInStop, x);
+    half inFraction = rsGetElementAt_half(gAllocInFraction, x);
+    return mix(inStart, inStop, inFraction);
+}
+
+half4 __attribute__((kernel)) testMixHalf4Half4HalfHalf4(half4 inStart, unsigned int x) {
+    half4 inStop = rsGetElementAt_half4(gAllocInStop, x);
+    half inFraction = rsGetElementAt_half(gAllocInFraction, x);
     return mix(inStart, inStop, inFraction);
 }

@@ -21,23 +21,24 @@ clang_static_analyzer_checkers_SRC_FILES := \
   BasicObjCFoundationChecks.cpp \
   BoolAssignmentChecker.cpp \
   BuiltinFunctionChecker.cpp \
-  CStringChecker.cpp \
-  CStringSyntaxChecker.cpp \
   CallAndMessageChecker.cpp \
   CastSizeChecker.cpp \
   CastToStructChecker.cpp \
+  CheckerDocumentation.cpp \
   CheckObjCDealloc.cpp \
   CheckObjCInstMethSignature.cpp \
   CheckSecuritySyntaxOnly.cpp \
   CheckSizeofPointer.cpp \
-  CheckerDocumentation.cpp \
   ChrootChecker.cpp \
   ClangCheckers.cpp \
+  CStringChecker.cpp \
+  CStringSyntaxChecker.cpp \
   DeadStoresChecker.cpp \
   DebugCheckers.cpp \
   DereferenceChecker.cpp \
   DirectIvarAssignment.cpp \
   DivZeroChecker.cpp \
+  DynamicTypeChecker.cpp \
   DynamicTypePropagation.cpp \
   ExprInspectionChecker.cpp \
   FixedAddressChecker.cpp \
@@ -45,21 +46,24 @@ clang_static_analyzer_checkers_SRC_FILES := \
   IdenticalExprChecker.cpp \
   IvarInvalidationChecker.cpp \
   LLVMConventionsChecker.cpp \
+  LocalizationChecker.cpp \
   MacOSKeychainAPIChecker.cpp \
   MacOSXAPIChecker.cpp \
   MallocChecker.cpp \
   MallocOverflowSecurityChecker.cpp \
   MallocSizeofChecker.cpp \
+  NonNullParamChecker.cpp \
+  NoReturnFunctionChecker.cpp \
   NSAutoreleasePoolChecker.cpp \
   NSErrorChecker.cpp \
-  NoReturnFunctionChecker.cpp \
-  NonNullParamChecker.cpp \
+  NullabilityChecker.cpp \
   ObjCAtSyncChecker.cpp \
   ObjCContainersASTChecker.cpp \
   ObjCContainersChecker.cpp \
   ObjCMissingSuperCallChecker.cpp \
   ObjCSelfInitChecker.cpp \
   ObjCUnusedIVarsChecker.cpp \
+  PaddingChecker.cpp \
   PointerArithChecker.cpp \
   PointerSubChecker.cpp \
   PthreadLockChecker.cpp \
@@ -74,11 +78,12 @@ clang_static_analyzer_checkers_SRC_FILES := \
   TraversalChecker.cpp \
   UndefBranchChecker.cpp \
   UndefCapturedBlockVarChecker.cpp \
-  UndefResultChecker.cpp \
   UndefinedArraySubscriptChecker.cpp \
   UndefinedAssignmentChecker.cpp \
+  UndefResultChecker.cpp \
   UnixAPIChecker.cpp \
   UnreachableCodeChecker.cpp \
+  VforkChecker.cpp \
   VirtualCallChecker.cpp \
   VLASizeChecker.cpp
 

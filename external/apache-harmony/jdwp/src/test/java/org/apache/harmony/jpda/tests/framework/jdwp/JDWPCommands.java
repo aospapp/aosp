@@ -157,6 +157,8 @@ public class JDWPCommands {
      */
     public class InterfaceTypeCommandSet {
         public static final byte CommandSetID = 5;
+
+        public static final byte InvokeMethodCommand = 1;
     }
 
     /**

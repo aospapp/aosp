@@ -27,6 +27,8 @@
  */
 
 #include <stdio_ext.h>
+
+#include <errno.h>
 #include <stdlib.h>
 
 #include "local.h"
@@ -74,7 +76,7 @@ void _flushlbf() {
 }
 
 int __fsetlocking(FILE* fp, int type) {
-  int old_state = _EXT(fp)->_stdio_handles_locking ? FSETLOCKING_INTERNAL : FSETLOCKING_BYCALLER;
+  int old_state = _EXT(fp)->_caller_handles_locking ? FSETLOCKING_BYCALLER : FSETLOCKING_INTERNAL;
   if (type == FSETLOCKING_QUERY) {
     return old_state;
   }
@@ -84,7 +86,7 @@ int __fsetlocking(FILE* fp, int type) {
     __libc_fatal("Bad type (%d) passed to __fsetlocking", type);
   }
 
-  _EXT(fp)->_stdio_handles_locking = (type == FSETLOCKING_INTERNAL);
+  _EXT(fp)->_caller_handles_locking = (type == FSETLOCKING_BYCALLER);
   return old_state;
 }
 
@@ -98,4 +100,13 @@ int feof_unlocked(FILE* fp) {
 
 int ferror_unlocked(FILE* fp) {
   return __sferror(fp);
+}
+
+int fileno_unlocked(FILE* fp) {
+  int fd = fp->_file;
+  if (fd == -1) {
+    errno = EBADF;
+    return -1;
+  }
+  return fd;
 }

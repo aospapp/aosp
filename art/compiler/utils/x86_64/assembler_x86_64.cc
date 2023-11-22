@@ -194,6 +194,21 @@ void X86_64Assembler::movl(const Address& dst, const Immediate& imm) {
   EmitImmediate(imm);
 }
 
+void X86_64Assembler::movntl(const Address& dst, CpuRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitOptionalRex32(src, dst);
+  EmitUint8(0x0F);
+  EmitUint8(0xC3);
+  EmitOperand(src.LowBits(), dst);
+}
+
+void X86_64Assembler::movntq(const Address& dst, CpuRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitRex64(src, dst);
+  EmitUint8(0x0F);
+  EmitUint8(0xC3);
+  EmitOperand(src.LowBits(), dst);
+}
 
 void X86_64Assembler::cmov(Condition c, CpuRegister dst, CpuRegister src) {
   cmov(c, dst, src, true);
@@ -205,6 +220,19 @@ void X86_64Assembler::cmov(Condition c, CpuRegister dst, CpuRegister src, bool i
   EmitUint8(0x0F);
   EmitUint8(0x40 + c);
   EmitRegisterOperand(dst.LowBits(), src.LowBits());
+}
+
+
+void X86_64Assembler::cmov(Condition c, CpuRegister dst, const Address& src, bool is64bit) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  if (is64bit) {
+    EmitRex64(dst, src);
+  } else {
+    EmitOptionalRex32(dst, src);
+  }
+  EmitUint8(0x0F);
+  EmitUint8(0x40 + c);
+  EmitOperand(dst.LowBits(), src);
 }
 
 
@@ -1198,14 +1226,16 @@ void X86_64Assembler::xchgl(CpuRegister reg, const Address& address) {
 
 void X86_64Assembler::cmpw(const Address& address, const Immediate& imm) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  CHECK(imm.is_int32());
+  EmitOperandSizeOverride();
   EmitOptionalRex32(address);
-  EmitUint8(0x66);
   EmitComplex(7, address, imm);
 }
 
 
 void X86_64Assembler::cmpl(CpuRegister reg, const Immediate& imm) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  CHECK(imm.is_int32());
   EmitOptionalRex32(reg);
   EmitComplex(7, Operand(reg), imm);
 }
@@ -1237,6 +1267,7 @@ void X86_64Assembler::cmpl(const Address& address, CpuRegister reg) {
 
 void X86_64Assembler::cmpl(const Address& address, const Immediate& imm) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  CHECK(imm.is_int32());
   EmitOptionalRex32(address);
   EmitComplex(7, address, imm);
 }
@@ -1672,25 +1703,30 @@ void X86_64Assembler::imull(CpuRegister dst, CpuRegister src) {
   EmitOperand(dst.LowBits(), Operand(src));
 }
 
-void X86_64Assembler::imull(CpuRegister reg, const Immediate& imm) {
+void X86_64Assembler::imull(CpuRegister dst, CpuRegister src, const Immediate& imm) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   CHECK(imm.is_int32());  // imull only supports 32b immediate.
 
-  EmitOptionalRex32(reg, reg);
+  EmitOptionalRex32(dst, src);
 
   // See whether imm can be represented as a sign-extended 8bit value.
   int32_t v32 = static_cast<int32_t>(imm.value());
   if (IsInt<8>(v32)) {
     // Sign-extension works.
     EmitUint8(0x6B);
-    EmitOperand(reg.LowBits(), Operand(reg));
+    EmitOperand(dst.LowBits(), Operand(src));
     EmitUint8(static_cast<uint8_t>(v32 & 0xFF));
   } else {
     // Not representable, use full immediate.
     EmitUint8(0x69);
-    EmitOperand(reg.LowBits(), Operand(reg));
+    EmitOperand(dst.LowBits(), Operand(src));
     EmitImmediate(imm);
   }
+}
+
+
+void X86_64Assembler::imull(CpuRegister reg, const Immediate& imm) {
+  imull(reg, reg, imm);
 }
 
 
@@ -1846,6 +1882,46 @@ void X86_64Assembler::sarq(CpuRegister operand, CpuRegister shifter) {
 }
 
 
+void X86_64Assembler::roll(CpuRegister reg, const Immediate& imm) {
+  EmitGenericShift(false, 0, reg, imm);
+}
+
+
+void X86_64Assembler::roll(CpuRegister operand, CpuRegister shifter) {
+  EmitGenericShift(false, 0, operand, shifter);
+}
+
+
+void X86_64Assembler::rorl(CpuRegister reg, const Immediate& imm) {
+  EmitGenericShift(false, 1, reg, imm);
+}
+
+
+void X86_64Assembler::rorl(CpuRegister operand, CpuRegister shifter) {
+  EmitGenericShift(false, 1, operand, shifter);
+}
+
+
+void X86_64Assembler::rolq(CpuRegister reg, const Immediate& imm) {
+  EmitGenericShift(true, 0, reg, imm);
+}
+
+
+void X86_64Assembler::rolq(CpuRegister operand, CpuRegister shifter) {
+  EmitGenericShift(true, 0, operand, shifter);
+}
+
+
+void X86_64Assembler::rorq(CpuRegister reg, const Immediate& imm) {
+  EmitGenericShift(true, 1, reg, imm);
+}
+
+
+void X86_64Assembler::rorq(CpuRegister operand, CpuRegister shifter) {
+  EmitGenericShift(true, 1, operand, shifter);
+}
+
+
 void X86_64Assembler::negl(CpuRegister reg) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitOptionalRex32(reg);
@@ -1951,6 +2027,38 @@ void X86_64Assembler::j(Condition condition, Label* label) {
 }
 
 
+void X86_64Assembler::j(Condition condition, NearLabel* label) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  if (label->IsBound()) {
+    static const int kShortSize = 2;
+    int offset = label->Position() - buffer_.Size();
+    CHECK_LE(offset, 0);
+    CHECK(IsInt<8>(offset - kShortSize));
+    EmitUint8(0x70 + condition);
+    EmitUint8((offset - kShortSize) & 0xFF);
+  } else {
+    EmitUint8(0x70 + condition);
+    EmitLabelLink(label);
+  }
+}
+
+
+void X86_64Assembler::jrcxz(NearLabel* label) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  if (label->IsBound()) {
+    static const int kShortSize = 2;
+    int offset = label->Position() - buffer_.Size();
+    CHECK_LE(offset, 0);
+    CHECK(IsInt<8>(offset - kShortSize));
+    EmitUint8(0xE3);
+    EmitUint8((offset - kShortSize) & 0xFF);
+  } else {
+    EmitUint8(0xE3);
+    EmitLabelLink(label);
+  }
+}
+
+
 void X86_64Assembler::jmp(CpuRegister reg) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitOptionalRex32(reg);
@@ -1983,6 +2091,30 @@ void X86_64Assembler::jmp(Label* label) {
     EmitUint8(0xE9);
     EmitLabelLink(label);
   }
+}
+
+
+void X86_64Assembler::jmp(NearLabel* label) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  if (label->IsBound()) {
+    static const int kShortSize = 2;
+    int offset = label->Position() - buffer_.Size();
+    CHECK_LE(offset, 0);
+    CHECK(IsInt<8>(offset - kShortSize));
+    EmitUint8(0xEB);
+    EmitUint8((offset - kShortSize) & 0xFF);
+  } else {
+    EmitUint8(0xEB);
+    EmitLabelLink(label);
+  }
+}
+
+
+void X86_64Assembler::rep_movsw() {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitUint8(0xF3);
+  EmitUint8(0xA5);
 }
 
 
@@ -2064,12 +2196,134 @@ void X86_64Assembler::bswapq(CpuRegister dst) {
   EmitUint8(0xC8 + dst.LowBits());
 }
 
+void X86_64Assembler::bsfl(CpuRegister dst, CpuRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xBC);
+  EmitRegisterOperand(dst.LowBits(), src.LowBits());
+}
+
+void X86_64Assembler::bsfl(CpuRegister dst, const Address& src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xBC);
+  EmitOperand(dst.LowBits(), src);
+}
+
+void X86_64Assembler::bsfq(CpuRegister dst, CpuRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitRex64(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xBC);
+  EmitRegisterOperand(dst.LowBits(), src.LowBits());
+}
+
+void X86_64Assembler::bsfq(CpuRegister dst, const Address& src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitRex64(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xBC);
+  EmitOperand(dst.LowBits(), src);
+}
+
+void X86_64Assembler::bsrl(CpuRegister dst, CpuRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xBD);
+  EmitRegisterOperand(dst.LowBits(), src.LowBits());
+}
+
+void X86_64Assembler::bsrl(CpuRegister dst, const Address& src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xBD);
+  EmitOperand(dst.LowBits(), src);
+}
+
+void X86_64Assembler::bsrq(CpuRegister dst, CpuRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitRex64(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xBD);
+  EmitRegisterOperand(dst.LowBits(), src.LowBits());
+}
+
+void X86_64Assembler::bsrq(CpuRegister dst, const Address& src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitRex64(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xBD);
+  EmitOperand(dst.LowBits(), src);
+}
+
+void X86_64Assembler::popcntl(CpuRegister dst, CpuRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0xF3);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xB8);
+  EmitRegisterOperand(dst.LowBits(), src.LowBits());
+}
+
+void X86_64Assembler::popcntl(CpuRegister dst, const Address& src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0xF3);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xB8);
+  EmitOperand(dst.LowBits(), src);
+}
+
+void X86_64Assembler::popcntq(CpuRegister dst, CpuRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0xF3);
+  EmitRex64(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xB8);
+  EmitRegisterOperand(dst.LowBits(), src.LowBits());
+}
+
+void X86_64Assembler::popcntq(CpuRegister dst, const Address& src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0xF3);
+  EmitRex64(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xB8);
+  EmitOperand(dst.LowBits(), src);
+}
 
 void X86_64Assembler::repne_scasw() {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0x66);
   EmitUint8(0xF2);
   EmitUint8(0xAF);
+}
+
+
+void X86_64Assembler::repe_cmpsw() {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitUint8(0xF3);
+  EmitUint8(0xA7);
+}
+
+
+void X86_64Assembler::repe_cmpsl() {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0xF3);
+  EmitUint8(0xA7);
+}
+
+
+void X86_64Assembler::repe_cmpsq() {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0xF3);
+  EmitRex64();
+  EmitUint8(0xA7);
 }
 
 
@@ -2100,6 +2354,21 @@ void X86_64Assembler::Bind(Label* label) {
     int next = buffer_.Load<int32_t>(position);
     buffer_.Store<int32_t>(position, bound - (position + 4));
     label->position_ = next;
+  }
+  label->BindTo(bound);
+}
+
+
+void X86_64Assembler::Bind(NearLabel* label) {
+  int bound = buffer_.Size();
+  CHECK(!label->IsBound());  // Labels can only be bound once.
+  while (label->IsLinked()) {
+    int position = label->LinkPosition();
+    uint8_t delta = buffer_.Load<uint8_t>(position);
+    int offset = bound - (position + 1);
+    CHECK(IsInt<8>(offset));
+    buffer_.Store<int8_t>(position, offset);
+    label->position_ = delta != 0u ? label->position_ - delta : 0;
   }
   label->BindTo(bound);
 }
@@ -2170,6 +2439,21 @@ void X86_64Assembler::EmitLabelLink(Label* label) {
   CHECK(!label->IsBound());
   int position = buffer_.Size();
   EmitInt32(label->position_);
+  label->LinkTo(position);
+}
+
+
+void X86_64Assembler::EmitLabelLink(NearLabel* label) {
+  CHECK(!label->IsBound());
+  int position = buffer_.Size();
+  if (label->IsLinked()) {
+    // Save the delta in the byte that we have to play with.
+    uint32_t delta = position - label->LinkPosition();
+    CHECK(IsUint<8>(delta));
+    EmitUint8(delta & 0xFF);
+  } else {
+    EmitUint8(0);
+  }
   label->LinkTo(position);
 }
 
@@ -2597,12 +2881,12 @@ void X86_64Assembler::LoadRef(ManagedRegister mdest, FrameOffset src) {
 }
 
 void X86_64Assembler::LoadRef(ManagedRegister mdest, ManagedRegister base, MemberOffset offs,
-                              bool poison_reference) {
+                              bool unpoison_reference) {
   X86_64ManagedRegister dest = mdest.AsX86_64();
   CHECK(dest.IsCpuRegister() && dest.IsCpuRegister());
   movl(dest.AsCpuRegister(), Address(base.AsX86_64().AsCpuRegister(), offs));
-  if (kPoisonHeapReferences && poison_reference) {
-    negl(dest.AsCpuRegister());
+  if (unpoison_reference) {
+    MaybeUnpoisonHeapReference(dest.AsCpuRegister());
   }
 }
 
@@ -2860,7 +3144,7 @@ class X86_64ExceptionSlowPath FINAL : public SlowPath {
 };
 
 void X86_64Assembler::ExceptionPoll(ManagedRegister /*scratch*/, size_t stack_adjust) {
-  X86_64ExceptionSlowPath* slow = new X86_64ExceptionSlowPath(stack_adjust);
+  X86_64ExceptionSlowPath* slow = new (GetArena()) X86_64ExceptionSlowPath(stack_adjust);
   buffer_.EnqueueSlowPath(slow);
   gs()->cmpl(Address::Absolute(Thread::ExceptionOffset<8>(), true), Immediate(0));
   j(kNotEqual, slow->Entry());
@@ -2883,14 +3167,21 @@ void X86_64ExceptionSlowPath::Emit(Assembler *sasm) {
 }
 
 void X86_64Assembler::AddConstantArea() {
-  const std::vector<int32_t>& area = constant_area_.GetBuffer();
+  ArrayRef<const int32_t> area = constant_area_.GetBuffer();
   for (size_t i = 0, e = area.size(); i < e; i++) {
     AssemblerBuffer::EnsureCapacity ensured(&buffer_);
     EmitInt32(area[i]);
   }
 }
 
-int ConstantArea::AddInt32(int32_t v) {
+size_t ConstantArea::AppendInt32(int32_t v) {
+  size_t result = buffer_.size() * elem_size_;
+  buffer_.push_back(v);
+  return result;
+}
+
+size_t ConstantArea::AddInt32(int32_t v) {
+  // Look for an existing match.
   for (size_t i = 0, e = buffer_.size(); i < e; i++) {
     if (v == buffer_[i]) {
       return i * elem_size_;
@@ -2898,12 +3189,10 @@ int ConstantArea::AddInt32(int32_t v) {
   }
 
   // Didn't match anything.
-  int result = buffer_.size() * elem_size_;
-  buffer_.push_back(v);
-  return result;
+  return AppendInt32(v);
 }
 
-int ConstantArea::AddInt64(int64_t v) {
+size_t ConstantArea::AddInt64(int64_t v) {
   int32_t v_low = v;
   int32_t v_high = v >> 32;
   if (buffer_.size() > 1) {
@@ -2916,18 +3205,18 @@ int ConstantArea::AddInt64(int64_t v) {
   }
 
   // Didn't match anything.
-  int result = buffer_.size() * elem_size_;
+  size_t result = buffer_.size() * elem_size_;
   buffer_.push_back(v_low);
   buffer_.push_back(v_high);
   return result;
 }
 
-int ConstantArea::AddDouble(double v) {
+size_t ConstantArea::AddDouble(double v) {
   // Treat the value as a 64-bit integer value.
   return AddInt64(bit_cast<int64_t, double>(v));
 }
 
-int ConstantArea::AddFloat(float v) {
+size_t ConstantArea::AddFloat(float v) {
   // Treat the value as a 32-bit integer value.
   return AddInt32(bit_cast<int32_t, float>(v));
 }

@@ -119,21 +119,17 @@ when SurfaceFlinger is actively compositing one buffer or two into a third, for
 instance, it is using OpenGL ES. This makes compositing lower power than having
 the GPU conduct all computation.</p>
 
-<p>The Hardware Composer HAL conducts the other half of the work. This HAL is
-the central point for all Android graphics rendering. Hardware Composer must
-support events, one of which is VSYNC. Another is hotplug for plug-and-play
-HDMI support.</p>
-
-<p>See the
-<a href="{@docRoot}devices/graphics.html#hardware_composer_hal">Hardware
-Composer HAL</a> section for more information.</p>
+<p>The <a href="{@docRoot}devices/graphics/architecture.html#hwcomposer">Hardware
+Composer HAL</a> conducts the other half of the work and is the central point
+for all Android graphics rendering. The Hardware Composer must support events,
+one of which is VSYNC (another is hotplug for plug-and-playHDMI support).</p>
 
 <h3 id="gralloc">Gralloc</h3>
 
-<p>The graphics memory allocator is needed to allocate memory that is requested
-by image producers. See the <a
-href="{@docRoot}devices/graphics.html#gralloc">Gralloc HAL</a> section for more
-information.</p>
+<p>The graphics memory allocator (Gralloc) is needed to allocate memory
+requested by image producers. For details, see <a
+href="{@docRoot}devices/graphics/architecture.html#gralloc_HAL">Gralloc HAL</a>.
+</p>
 
 <h2 id="data_flow">Data flow</h2>
 
@@ -209,8 +205,9 @@ as the central point for all Android graphics rendering.</p>
 <p>Since Android graphics offer no explicit parallelism, vendors have long
 implemented their own implicit synchronization within their own drivers. This
 is no longer required with the Android graphics synchronization framework. See
-the <a href="#explicit_synchronization">Explicit synchronization</a> section
-for implementation instructions.</p>
+the
+<a href="{@docRoot}devices/graphics/implement.html#explicit_synchronization">Explicit
+synchronization</a> section for implementation instructions.</p>
 
 <p>The synchronization framework explicitly describes dependencies between
 different asynchronous operations in the system. The framework provides a

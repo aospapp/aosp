@@ -33,6 +33,7 @@ package com.google.protobuf.nano;
 import java.io.IOException;
 import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.ReadOnlyBufferException;
 
 /**
@@ -61,6 +62,7 @@ public final class CodedOutputByteBufferNano {
 
   private CodedOutputByteBufferNano(final ByteBuffer buffer) {
     this.buffer = buffer;
+    this.buffer.order(ByteOrder.LITTLE_ENDIAN);
   }
 
   /**
@@ -170,6 +172,14 @@ public final class CodedOutputByteBufferNano {
                          throws IOException {
     writeTag(fieldNumber, WireFormatNano.WIRETYPE_LENGTH_DELIMITED);
     writeBytesNoTag(value);
+  }
+
+  /** Write a {@code bytes} field, including tag, to the stream. */
+  public void writeBytes(final int fieldNumber, final byte[] value,
+                         final int offset, final int length)
+                         throws IOException {
+    writeTag(fieldNumber, WireFormatNano.WIRETYPE_LENGTH_DELIMITED);
+    writeBytesNoTag(value, offset, length);
   }
 
   /** Write a {@code uint32} field, including tag, to the stream. */
@@ -490,6 +500,13 @@ public final class CodedOutputByteBufferNano {
         bytes[j++] = (byte) (0x80 | (0x3F & (codePoint >>> 6)));
         bytes[j++] = (byte) (0x80 | (0x3F & codePoint));
       } else {
+        // If we are surrogates and we're not a surrogate pair, always throw an
+        // IllegalArgumentException instead of an ArrayOutOfBoundsException.
+        if ((Character.MIN_SURROGATE <= c && c <= Character.MAX_SURROGATE)
+            && (i + 1 == sequence.length()
+                || !Character.isSurrogatePair(c, sequence.charAt(i + 1)))) {
+          throw new IllegalArgumentException("Unpaired surrogate at index " + i);
+        }
         throw new ArrayIndexOutOfBoundsException("Failed writing " + c + " at index " + j);
       }
     }
@@ -513,6 +530,13 @@ public final class CodedOutputByteBufferNano {
   public void writeBytesNoTag(final byte[] value) throws IOException {
     writeRawVarint32(value.length);
     writeRawBytes(value);
+  }
+
+  /** Write a {@code bytes} field to the stream. */
+  public void writeBytesNoTag(final byte[] value, final int offset, final int length)
+                              throws IOException {
+    writeRawVarint32(length);
+    writeRawBytes(value, offset, length);
   }
 
   /** Write a {@code uint32} field to the stream. */
@@ -652,6 +676,15 @@ public final class CodedOutputByteBufferNano {
   public static int computeBytesSize(final int fieldNumber,
                                      final byte[] value) {
     return computeTagSize(fieldNumber) + computeBytesSizeNoTag(value);
+  }
+
+  /**
+   * Compute the number of bytes that would be needed to encode a
+   * {@code bytes} field of the given length, including tag.
+   */
+  public static int computeBytesSize(final int fieldNumber,
+                                     final int length) {
+    return computeTagSize(fieldNumber) + computeBytesSizeNoTag(length);
   }
 
   /**
@@ -832,6 +865,14 @@ public final class CodedOutputByteBufferNano {
    */
   public static int computeBytesSizeNoTag(final byte[] value) {
     return computeRawVarint32Size(value.length) + value.length;
+  }
+
+  /**
+   * Compute the number of bytes that would be needed to encode a
+   * {@code bytes} field of the given length.
+   */
+  public static int computeBytesSizeNoTag(final int length) {
+    return computeRawVarint32Size(length) + length;
   }
 
   /**
@@ -1037,24 +1078,20 @@ public final class CodedOutputByteBufferNano {
 
   /** Write a little-endian 32-bit integer. */
   public void writeRawLittleEndian32(final int value) throws IOException {
-    writeRawByte((value      ) & 0xFF);
-    writeRawByte((value >>  8) & 0xFF);
-    writeRawByte((value >> 16) & 0xFF);
-    writeRawByte((value >> 24) & 0xFF);
+    if (buffer.remaining() < 4) {
+      throw new OutOfSpaceException(buffer.position(), buffer.limit());
+    }
+    buffer.putInt(value);
   }
 
   public static final int LITTLE_ENDIAN_32_SIZE = 4;
 
   /** Write a little-endian 64-bit integer. */
   public void writeRawLittleEndian64(final long value) throws IOException {
-    writeRawByte((int)(value      ) & 0xFF);
-    writeRawByte((int)(value >>  8) & 0xFF);
-    writeRawByte((int)(value >> 16) & 0xFF);
-    writeRawByte((int)(value >> 24) & 0xFF);
-    writeRawByte((int)(value >> 32) & 0xFF);
-    writeRawByte((int)(value >> 40) & 0xFF);
-    writeRawByte((int)(value >> 48) & 0xFF);
-    writeRawByte((int)(value >> 56) & 0xFF);
+    if (buffer.remaining() < 8) {
+      throw new OutOfSpaceException(buffer.position(), buffer.limit());
+    }
+    buffer.putLong(value);
   }
 
   public static final int LITTLE_ENDIAN_64_SIZE = 8;

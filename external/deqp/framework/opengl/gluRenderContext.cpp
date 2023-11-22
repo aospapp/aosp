@@ -33,6 +33,7 @@
 #include "tcuPlatform.hpp"
 #include "tcuCommandLine.hpp"
 #include "deStringUtil.hpp"
+#include "deSTLUtil.hpp"
 
 namespace glu
 {
@@ -154,25 +155,10 @@ RenderContext* createDefaultRenderContext (tcu::Platform& platform, const tcu::C
 	else
 		factory = registry.getDefaultFactory();
 
-	try
-	{
-		if (cmdLine.getSurfaceType() == tcu::SURFACETYPE_FBO)
-			return new FboRenderContext(*factory, config, cmdLine);
-		else
-			return factory->createContext(config, cmdLine);
-
-	}
-	catch (const std::exception&)
-	{
-		// If ES31 context is not available, try using wrapper.
-		if (config.type.getAPI() == ApiType::es(3,1))
-		{
-			tcu::print("Warning: Unable to create native OpenGL ES 3.1 context, will use wrapper context.\n");
-			return new ES3PlusWrapperContext(*factory, config, cmdLine);
-		}
-		else
-			throw;
-	}
+	if (cmdLine.getSurfaceType() == tcu::SURFACETYPE_FBO)
+		return new FboRenderContext(*factory, config, cmdLine);
+	else
+		return factory->createContext(config, cmdLine);
 }
 
 static std::vector<std::string> getExtensions (const glw::Functions& gl, ApiType apiType)
@@ -223,6 +209,13 @@ static std::vector<std::string> getExtensions (const glw::Functions& gl, ApiType
 	}
 }
 
+bool hasExtension (const glw::Functions& gl, ApiType apiType, const std::string& extension)
+{
+	std::vector<std::string> extensions(getExtensions(gl, apiType));
+
+	return de::contains(extensions.begin(), extensions.end(), extension);
+}
+
 void initCoreFunctions (glw::Functions* dst, const glw::FunctionLoader* loader, ApiType apiType)
 {
 	static const struct
@@ -234,6 +227,7 @@ void initCoreFunctions (glw::Functions* dst, const glw::FunctionLoader* loader, 
 		{ ApiType::es(2,0),		glw::initES20		},
 		{ ApiType::es(3,0),		glw::initES30		},
 		{ ApiType::es(3,1),		glw::initES31		},
+		{ ApiType::es(3,2),		glw::initES32		},
 		{ ApiType::core(3,0),	glw::initGL30Core	},
 		{ ApiType::core(3,1),	glw::initGL31Core	},
 		{ ApiType::core(3,2),	glw::initGL32Core	},

@@ -7,6 +7,7 @@ clang_static_analyzer_core_TBLGEN_TABLES := \
   CommentNodes.inc \
   DeclNodes.inc \
   DiagnosticCommonKinds.inc \
+  DiagnosticFrontendKinds.inc \
   StmtNodes.inc
 
 clang_static_analyzer_core_SRC_FILES := \
@@ -18,35 +19,38 @@ clang_static_analyzer_core_SRC_FILES := \
   BugReporter.cpp \
   BugReporterVisitors.cpp \
   CallEvent.cpp \
-  Checker.cpp \
   CheckerContext.cpp \
+  Checker.cpp \
   CheckerHelpers.cpp \
   CheckerManager.cpp \
   CheckerRegistry.cpp \
   CommonBugCategories.cpp \
   ConstraintManager.cpp \
   CoreEngine.cpp \
+  DynamicTypeMap.cpp \
   Environment.cpp \
   ExplodedGraph.cpp \
-  ExprEngine.cpp \
-  ExprEngineC.cpp \
-  ExprEngineCXX.cpp \
   ExprEngineCallAndReturn.cpp \
+  ExprEngineC.cpp \
+  ExprEngine.cpp \
+  ExprEngineCXX.cpp \
   ExprEngineObjC.cpp \
   FunctionSummary.cpp \
   HTMLDiagnostics.cpp \
+  IssueHash.cpp \
+  LoopWidening.cpp \
   MemRegion.cpp \
   PathDiagnostic.cpp \
   PlistDiagnostics.cpp \
   ProgramState.cpp \
   RangeConstraintManager.cpp \
   RegionStore.cpp \
-  SValBuilder.cpp \
-  SVals.cpp \
   SimpleConstraintManager.cpp \
   SimpleSValBuilder.cpp \
   Store.cpp \
   SubEngine.cpp \
+  SValBuilder.cpp \
+  SVals.cpp \
   SymbolManager.cpp
 
 # For the host only

@@ -48,7 +48,8 @@ public:
     static RSSIMonitorCommand* instance(wifi_handle handle, wifi_request_id id);
     virtual int setCallbackHandler(wifi_rssi_event_handler nHandler, u32 event);
     virtual int handleEvent(WifiEvent &event);
-    virtual wifi_error unregisterHandler(u32 subCmd, wifi_request_id id);
+    virtual wifi_error unregisterHandler(u32 subCmd);
+    virtual void setReqId(wifi_request_id reqid);
 };
 
 #ifdef __cplusplus

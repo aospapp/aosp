@@ -16,12 +16,11 @@
 package android.uirendering.cts.testclasses;
 
 import android.graphics.Point;
-import com.android.cts.uirendering.R;
+import android.test.suitebuilder.annotation.MediumTest;
+import android.uirendering.cts.R;
 
-import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Rect;
-import android.test.suitebuilder.annotation.SmallTest;
 import android.uirendering.cts.bitmapcomparers.BitmapComparer;
 import android.uirendering.cts.bitmapcomparers.MSSIMComparer;
 import android.uirendering.cts.bitmapverifiers.RectVerifier;
@@ -29,10 +28,12 @@ import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 import android.uirendering.cts.testinfrastructure.CanvasClient;
 import android.uirendering.cts.testinfrastructure.ViewInitializer;
 import android.view.View;
+import org.junit.Test;
 
+@MediumTest
 public class InfrastructureTests extends ActivityTestBase {
 
-    @SmallTest
+    @Test
     public void testScreenshot() {
         for (int i = 0 ; i < 500 ; i ++) {
             takeScreenshot(new Point());
@@ -45,13 +46,10 @@ public class InfrastructureTests extends ActivityTestBase {
      * by verifying that two paths that should render differently *do* render
      * differently.
      */
-    @SmallTest
+    @Test
     public void testRenderSpecIsolation() {
-        CanvasClient canvasClient = new CanvasClient() {
-            @Override
-            public void draw(Canvas canvas, int width, int height) {
-                canvas.drawColor(canvas.isHardwareAccelerated() ? Color.BLACK : Color.WHITE);
-            }
+        CanvasClient canvasClient = (canvas, width, height) -> {
+            canvas.drawColor(canvas.isHardwareAccelerated() ? Color.BLACK : Color.WHITE);
         };
         BitmapComparer inverseComparer = new BitmapComparer() {
             @Override
@@ -70,15 +68,10 @@ public class InfrastructureTests extends ActivityTestBase {
                 .runWithComparer(inverseComparer);
     }
 
-    @SmallTest
+    @Test
     public void testViewInitializer() {
         final Rect clipRect = new Rect(0, 0, 50, 50);
-        ViewInitializer viewInitializer = new ViewInitializer() {
-            @Override
-            public void initializeView(View view) {
-                view.setClipBounds(clipRect);
-            }
-        };
+        ViewInitializer viewInitializer = view -> view.setClipBounds(clipRect);
         createTest()
                 .addLayout(R.layout.simple_red_layout, viewInitializer)
                 .runWithVerifier(new RectVerifier(Color.WHITE, Color.RED, clipRect));

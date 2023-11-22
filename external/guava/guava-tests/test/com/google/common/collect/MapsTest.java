@@ -18,9 +18,10 @@ package com.google.common.collect;
 
 import static com.google.common.collect.Maps.transformEntries;
 import static com.google.common.collect.Maps.transformValues;
+import static com.google.common.collect.Maps.unmodifiableNavigableMap;
 import static com.google.common.collect.testing.Helpers.mapEntry;
+import static com.google.common.truth.Truth.assertThat;
 import static java.util.Arrays.asList;
-import static org.truth0.Truth.ASSERT;
 
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.GwtIncompatible;
@@ -40,7 +41,7 @@ import com.google.common.testing.SerializableTester;
 import junit.framework.TestCase;
 
 import java.io.IOException;
-import java.io.StringBufferInputStream;
+import java.io.StringReader;
 import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Collection;
@@ -55,6 +56,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.NavigableMap;
+import java.util.NavigableSet;
 import java.util.Properties;
 import java.util.Set;
 import java.util.SortedMap;
@@ -241,9 +244,9 @@ public class MapsTest extends TestCase {
     assertEquals(Collections.emptyMap(), map);
     map.put(new Derived("foo"), 1);
     map.put(new Derived("bar"), 2);
-    ASSERT.that(map.keySet()).has().exactly(
+    assertThat(map.keySet()).has().exactly(
         new Derived("bar"), new Derived("foo")).inOrder();
-    ASSERT.that(map.values()).has().exactly(2, 1).inOrder();
+    assertThat(map.values()).has().exactly(2, 1).inOrder();
     assertNull(map.comparator());
   }
 
@@ -252,9 +255,9 @@ public class MapsTest extends TestCase {
     assertEquals(Collections.emptyMap(), map);
     map.put(new LegacyComparable("foo"), 1);
     map.put(new LegacyComparable("bar"), 2);
-    ASSERT.that(map.keySet()).has().exactly(
+    assertThat(map.keySet()).has().exactly(
         new LegacyComparable("bar"), new LegacyComparable("foo")).inOrder();
-    ASSERT.that(map.values()).has().exactly(2, 1).inOrder();
+    assertThat(map.values()).has().exactly(2, 1).inOrder();
     assertNull(map.comparator());
   }
 
@@ -523,13 +526,13 @@ public class MapsTest extends TestCase {
     SortedMapDifference<Integer, String> diff1 =
         Maps.difference(left, right);
     assertFalse(diff1.areEqual());
-    ASSERT.that(diff1.entriesOnlyOnLeft().entrySet()).has().exactly(
+    assertThat(diff1.entriesOnlyOnLeft().entrySet()).has().exactly(
         Maps.immutableEntry(4, "d"), Maps.immutableEntry(2, "b")).inOrder();
-    ASSERT.that(diff1.entriesOnlyOnRight().entrySet()).has().item(
+    assertThat(diff1.entriesOnlyOnRight().entrySet()).has().item(
         Maps.immutableEntry(6, "z"));
-    ASSERT.that(diff1.entriesInCommon().entrySet()).has().item(
+    assertThat(diff1.entriesInCommon().entrySet()).has().item(
         Maps.immutableEntry(1, "a"));
-    ASSERT.that(diff1.entriesDiffering().entrySet()).has().exactly(
+    assertThat(diff1.entriesDiffering().entrySet()).has().exactly(
         Maps.immutableEntry(5, ValueDifferenceImpl.create("e", "g")),
         Maps.immutableEntry(3, ValueDifferenceImpl.create("c", "f"))).inOrder();
     assertEquals("not equal: only on left={4=d, 2=b}: only on right={6=z}: "
@@ -538,11 +541,11 @@ public class MapsTest extends TestCase {
     SortedMapDifference<Integer, String> diff2 =
         Maps.difference(right, left);
     assertFalse(diff2.areEqual());
-    ASSERT.that(diff2.entriesOnlyOnLeft().entrySet()).has().item(
+    assertThat(diff2.entriesOnlyOnLeft().entrySet()).has().item(
         Maps.immutableEntry(6, "z"));
-    ASSERT.that(diff2.entriesOnlyOnRight().entrySet()).has().exactly(
+    assertThat(diff2.entriesOnlyOnRight().entrySet()).has().exactly(
         Maps.immutableEntry(2, "b"), Maps.immutableEntry(4, "d")).inOrder();
-    ASSERT.that(diff1.entriesInCommon().entrySet()).has().item(
+    assertThat(diff1.entriesInCommon().entrySet()).has().item(
         Maps.immutableEntry(1, "a"));
     assertEquals(ImmutableMap.of(
             3, ValueDifferenceImpl.create("f", "c"),
@@ -562,13 +565,13 @@ public class MapsTest extends TestCase {
         Maps.difference(left, right);
     left.put(6, "z");
     assertFalse(diff1.areEqual());
-    ASSERT.that(diff1.entriesOnlyOnLeft().entrySet()).has().exactly(
+    assertThat(diff1.entriesOnlyOnLeft().entrySet()).has().exactly(
         Maps.immutableEntry(2, "b"), Maps.immutableEntry(4, "d")).inOrder();
-    ASSERT.that(diff1.entriesOnlyOnRight().entrySet()).has().item(
+    assertThat(diff1.entriesOnlyOnRight().entrySet()).has().item(
         Maps.immutableEntry(6, "z"));
-    ASSERT.that(diff1.entriesInCommon().entrySet()).has().item(
+    assertThat(diff1.entriesInCommon().entrySet()).has().item(
         Maps.immutableEntry(1, "a"));
-    ASSERT.that(diff1.entriesDiffering().entrySet()).has().exactly(
+    assertThat(diff1.entriesDiffering().entrySet()).has().exactly(
         Maps.immutableEntry(3, ValueDifferenceImpl.create("c", "f")),
         Maps.immutableEntry(5, ValueDifferenceImpl.create("e", "g"))).inOrder();
     try {
@@ -625,7 +628,7 @@ public class MapsTest extends TestCase {
     assertEquals(ImmutableMap.of("one", 3, "two", 3, "three", 5), map);
     assertEquals(Integer.valueOf(5), map.get("three"));
     assertNull(map.get("five"));
-    ASSERT.that(map.entrySet()).has().exactly(
+    assertThat(map.entrySet()).has().exactly(
         mapEntry("one", 3),
         mapEntry("two", 3),
         mapEntry("three", 5)).inOrder();
@@ -648,13 +651,13 @@ public class MapsTest extends TestCase {
     Map<String, Integer> map = Maps.asMap(strings, LENGTH_FUNCTION);
     assertEquals(ImmutableMap.of("one", 3, "two", 3, "three", 5), map);
     assertEquals(Integer.valueOf(3), map.remove("two"));
-    ASSERT.that(strings).has().exactly("one", "three").inOrder();
+    assertThat(strings).has().exactly("one", "three").inOrder();
   }
 
   public void testAsMapEmpty() {
     Set<String> strings = ImmutableSet.of();
     Map<String, Integer> map = Maps.asMap(strings, LENGTH_FUNCTION);
-    ASSERT.that(map.entrySet()).isEmpty();
+    assertThat(map.entrySet()).isEmpty();
     assertTrue(map.isEmpty());
     assertNull(map.get("five"));
   }
@@ -681,14 +684,14 @@ public class MapsTest extends TestCase {
     assertEquals(ImmutableMap.of("one", 3, "two", 3, "three", 5), map);
     assertEquals(Integer.valueOf(5), map.get("three"));
     assertNull(map.get("five"));
-    ASSERT.that(map.entrySet()).has().exactly(
+    assertThat(map.entrySet()).has().exactly(
         mapEntry("one", 3),
         mapEntry("three", 5),
         mapEntry("two", 3)).inOrder();
-    ASSERT.that(map.tailMap("onea").entrySet()).has().exactly(
+    assertThat(map.tailMap("onea").entrySet()).has().exactly(
         mapEntry("three", 5),
         mapEntry("two", 3)).inOrder();
-    ASSERT.that(map.subMap("one", "two").entrySet()).has().exactly(
+    assertThat(map.subMap("one", "two").entrySet()).has().exactly(
         mapEntry("one", 3),
         mapEntry("three", 5)).inOrder();
   }
@@ -714,7 +717,7 @@ public class MapsTest extends TestCase {
     assertEquals(
         ImmutableSortedMap.of("five", 4, "four", 4, "three", 5),
         headMap);
-    ASSERT.that(map.entrySet()).has().exactly(
+    assertThat(map.entrySet()).has().exactly(
         mapEntry("five", 4),
         mapEntry("four", 4),
         mapEntry("three", 5),
@@ -727,7 +730,7 @@ public class MapsTest extends TestCase {
     SortedMap<String, Integer> map = Maps.asMap(strings, LENGTH_FUNCTION);
     assertEquals(ImmutableMap.of("one", 3, "two", 3, "three", 5), map);
     assertEquals(Integer.valueOf(3), map.remove("two"));
-    ASSERT.that(strings).has().exactly("one", "three").inOrder();
+    assertThat(strings).has().exactly("one", "three").inOrder();
   }
 
   public void testAsMapSortedSubViewKeySetsDoNotSupportAdd() {
@@ -758,7 +761,165 @@ public class MapsTest extends TestCase {
   public void testAsMapSortedEmpty() {
     SortedSet<String> strings = new NonNavigableSortedSet();
     SortedMap<String, Integer> map = Maps.asMap(strings, LENGTH_FUNCTION);
-    ASSERT.that(map.entrySet()).isEmpty();
+    assertThat(map.entrySet()).isEmpty();
+    assertTrue(map.isEmpty());
+    assertNull(map.get("five"));
+  }
+
+  @GwtIncompatible("NavigableMap")
+  public void testAsMapReturnsNavigableMapForNavigableSetInput() {
+    Set<String> set = Sets.newTreeSet();
+    assertTrue(Maps.asMap(set, Functions.identity()) instanceof NavigableMap);
+  }
+
+  @GwtIncompatible("NavigableMap")
+  public void testAsMapNavigable() {
+    NavigableSet<String> strings =
+        Sets.newTreeSet(asList("one", "two", "three"));
+    NavigableMap<String, Integer> map = Maps.asMap(strings, LENGTH_FUNCTION);
+    assertEquals(ImmutableMap.of("one", 3, "two", 3, "three", 5), map);
+    assertEquals(Integer.valueOf(5), map.get("three"));
+    assertNull(map.get("five"));
+    assertThat(map.entrySet()).has().exactly(
+        mapEntry("one", 3),
+        mapEntry("three", 5),
+        mapEntry("two", 3)).inOrder();
+    assertThat(map.tailMap("onea").entrySet()).has().exactly(
+        mapEntry("three", 5),
+        mapEntry("two", 3)).inOrder();
+    assertThat(map.subMap("one", "two").entrySet()).has().exactly(
+        mapEntry("one", 3),
+        mapEntry("three", 5)).inOrder();
+
+    assertEquals(ImmutableSortedMap.of("two", 3, "three", 5),
+        map.tailMap("three", true));
+    assertEquals(ImmutableSortedMap.of("one", 3, "three", 5),
+        map.headMap("two", false));
+    assertEquals(ImmutableSortedMap.of("three", 5),
+        map.subMap("one", false, "tr", true));
+
+    assertEquals("three", map.higherKey("one"));
+    assertEquals("three", map.higherKey("r"));
+    assertEquals("three", map.ceilingKey("r"));
+    assertEquals("one", map.ceilingKey("one"));
+    assertEquals(mapEntry("three", 5), map.higherEntry("one"));
+    assertEquals(mapEntry("one", 3), map.ceilingEntry("one"));
+    assertEquals("one", map.lowerKey("three"));
+    assertEquals("one", map.lowerKey("r"));
+    assertEquals("one", map.floorKey("r"));
+    assertEquals("three", map.floorKey("three"));
+
+    assertThat(map.descendingMap().entrySet()).has().exactly(
+        mapEntry("two", 3),
+        mapEntry("three", 5),
+        mapEntry("one", 3)).inOrder();
+    assertEquals(map.headMap("three", true),
+        map.descendingMap().tailMap("three", true));
+    assertThat(map.tailMap("three", false).entrySet()).has().item(
+        mapEntry("two", 3));
+    assertNull(map.tailMap("three", true).lowerEntry("three"));
+    assertThat(map.headMap("two", false).values()).has().exactly(3, 5).inOrder();
+    assertThat(map.headMap("two", false).descendingMap().values())
+        .has().exactly(5, 3).inOrder();
+    assertThat(map.descendingKeySet()).has().exactly(
+        "two", "three", "one").inOrder();
+
+    assertEquals(mapEntry("one", 3), map.pollFirstEntry());
+    assertEquals(mapEntry("two", 3), map.pollLastEntry());
+    assertEquals(1, map.size());
+  }
+
+  @GwtIncompatible("NavigableMap")
+  public void testAsMapNavigableReadsThrough() {
+    NavigableSet<String> strings = Sets.newTreeSet();
+    Collections.addAll(strings, "one", "two", "three");
+    NavigableMap<String, Integer> map = Maps.asMap(strings, LENGTH_FUNCTION);
+    assertNull(map.comparator());
+    assertEquals(ImmutableSortedMap.of("one", 3, "two", 3, "three", 5), map);
+    assertNull(map.get("four"));
+    strings.add("four");
+    assertEquals(
+        ImmutableSortedMap.of("one", 3, "two", 3, "three", 5, "four", 4),
+        map);
+    assertEquals(Integer.valueOf(4), map.get("four"));
+    SortedMap<String, Integer> headMap = map.headMap("two");
+    assertEquals(
+        ImmutableSortedMap.of("four", 4, "one", 3, "three", 5),
+        headMap);
+    strings.add("five");
+    strings.remove("one");
+    assertEquals(
+        ImmutableSortedMap.of("five", 4, "four", 4, "three", 5),
+        headMap);
+    assertThat(map.entrySet()).has().exactly(
+        mapEntry("five", 4),
+        mapEntry("four", 4),
+        mapEntry("three", 5),
+        mapEntry("two", 3)).inOrder();
+
+    NavigableMap<String, Integer> tailMap = map.tailMap("s", true);
+    NavigableMap<String, Integer> subMap = map.subMap("a", true, "t", false);
+
+    strings.add("six");
+    strings.remove("two");
+    assertThat(tailMap.entrySet()).has().exactly(
+        mapEntry("six", 3),
+        mapEntry("three", 5)).inOrder();
+    assertThat(subMap.entrySet()).has().exactly(
+        mapEntry("five", 4),
+        mapEntry("four", 4),
+        mapEntry("six", 3)).inOrder();
+  }
+
+  @GwtIncompatible("NavigableMap")
+  public void testAsMapNavigableWritesThrough() {
+    NavigableSet<String> strings = Sets.newTreeSet();
+    Collections.addAll(strings, "one", "two", "three");
+    NavigableMap<String, Integer> map = Maps.asMap(strings, LENGTH_FUNCTION);
+    assertEquals(ImmutableMap.of("one", 3, "two", 3, "three", 5), map);
+    assertEquals(Integer.valueOf(3), map.remove("two"));
+    assertThat(strings).has().exactly("one", "three").inOrder();
+    assertEquals(mapEntry("three", 5),
+        map.subMap("one", false, "zzz", true).pollLastEntry());
+    assertThat(strings).has().item("one");
+  }
+
+  @GwtIncompatible("NavigableMap")
+  public void testAsMapNavigableSubViewKeySetsDoNotSupportAdd() {
+    NavigableMap<String, Integer> map = Maps.asMap(
+        Sets.<String>newTreeSet(), LENGTH_FUNCTION);
+    try {
+      map.descendingKeySet().add("a");
+      fail();
+    } catch (UnsupportedOperationException expected) {
+    }
+    try {
+      map.subMap("a", true, "z", false).keySet().add("a");
+      fail();
+    } catch (UnsupportedOperationException expected) {
+    }
+    try {
+      map.tailMap("a", true).keySet().add("a");
+      fail();
+    } catch (UnsupportedOperationException expected) {
+    }
+    try {
+      map.headMap("r", true).keySet().add("a");
+      fail();
+    } catch (UnsupportedOperationException expected) {
+    }
+    try {
+      map.headMap("r", false).tailMap("m", true).keySet().add("a");
+      fail();
+    } catch (UnsupportedOperationException expected) {
+    }
+  }
+
+  @GwtIncompatible("NavigableMap")
+  public void testAsMapNavigableEmpty() {
+    NavigableSet<String> strings = ImmutableSortedSet.of();
+    NavigableMap<String, Integer> map = Maps.asMap(strings, LENGTH_FUNCTION);
+    assertThat(map.entrySet()).isEmpty();
     assertTrue(map.isEmpty());
     assertNull(map.get("five"));
   }
@@ -767,7 +928,7 @@ public class MapsTest extends TestCase {
     Iterable<String> strings = ImmutableList.of("one", "two", "three");
     ImmutableMap<String, Integer> map = Maps.toMap(strings, LENGTH_FUNCTION);
     assertEquals(ImmutableMap.of("one", 3, "two", 3, "three", 5), map);
-    ASSERT.that(map.entrySet()).has().exactly(
+    assertThat(map.entrySet()).has().exactly(
         mapEntry("one", 3),
         mapEntry("two", 3),
         mapEntry("three", 5)).inOrder();
@@ -777,7 +938,7 @@ public class MapsTest extends TestCase {
     Iterator<String> strings = ImmutableList.of("one", "two", "three").iterator();
     ImmutableMap<String, Integer> map = Maps.toMap(strings, LENGTH_FUNCTION);
     assertEquals(ImmutableMap.of("one", 3, "two", 3, "three", 5), map);
-    ASSERT.that(map.entrySet()).has().exactly(
+    assertThat(map.entrySet()).has().exactly(
         mapEntry("one", 3),
         mapEntry("two", 3),
         mapEntry("three", 5)).inOrder();
@@ -787,7 +948,7 @@ public class MapsTest extends TestCase {
     Iterable<String> strings = ImmutableList.of("one", "two", "three", "two", "one");
     ImmutableMap<String, Integer> map = Maps.toMap(strings, LENGTH_FUNCTION);
     assertEquals(ImmutableMap.of("one", 3, "two", 3, "three", 5), map);
-    ASSERT.that(map.entrySet()).has().exactly(
+    assertThat(map.entrySet()).has().exactly(
         mapEntry("one", 3),
         mapEntry("two", 3),
         mapEntry("three", 5)).inOrder();
@@ -895,7 +1056,7 @@ public class MapsTest extends TestCase {
     // Now test values loaded from a stream.
     String props = "test\n second = 2\n Third item :   a short  phrase   ";
 
-    testProp.load(new StringBufferInputStream(props));
+    testProp.load(new StringReader(props));
 
     result = Maps.fromProperties(testProp);
     assertEquals(4, result.size());
@@ -913,7 +1074,7 @@ public class MapsTest extends TestCase {
     testProp = new Properties(System.getProperties());
     String override = "test\njava.version : hidden";
 
-    testProp.load(new StringBufferInputStream(override));
+    testProp.load(new StringReader(override));
 
     result = Maps.fromProperties(testProp);
     assertTrue(result.size() > 2);
@@ -955,37 +1116,6 @@ public class MapsTest extends TestCase {
       Maps.fromProperties(properties);
       fail();
     } catch (ClassCastException expected) {}
-  }
-
-  /**
-   * Constructs a "nefarious" map entry with the specified key and value,
-   * meaning an entry that is suitable for testing that map entries cannot be
-   * modified via a nefarious implementation of equals. This is used for testing
-   * unmodifiable collections of map entries; for example, it should not be
-   * possible to access the raw (modifiable) map entry via a nefarious equals
-   * method.
-   */
-  public static <K, V> Map.Entry<K, V> nefariousEntry(
-      final K key, final V value) {
-    return new AbstractMapEntry<K, V>() {
-        @Override public K getKey() {
-          return key;
-        }
-        @Override public V getValue() {
-          return value;
-        }
-        @Override public V setValue(V value) {
-          throw new UnsupportedOperationException();
-        }
-        @SuppressWarnings("unchecked")
-        @Override public boolean equals(Object o) {
-          if (o instanceof Map.Entry) {
-            Map.Entry<K, V> e = (Map.Entry<K, V>) o;
-            e.setValue(value); // muhahaha!
-          }
-          return super.equals(o);
-        }
-      };
   }
 
   public void testAsConverter_nominal() throws Exception {
@@ -1487,6 +1617,21 @@ public class MapsTest extends TestCase {
     assertTrue(transformed instanceof SortedMap);
   }
 
+  @GwtIncompatible("NavigableMap")
+  public void testTransformValuesSecretlyNavigable() {
+    Map<String, Integer> map = ImmutableSortedMap.of("a", 4, "b", 9);
+    Map<String, Double> transformed;
+
+    transformed = transformValues(map, SQRT_FUNCTION);
+    assertEquals(ImmutableMap.of("a", 2.0, "b", 3.0), transformed);
+    assertTrue(transformed instanceof NavigableMap);
+
+    transformed =
+        transformValues((SortedMap<String, Integer>) map, SQRT_FUNCTION);
+    assertEquals(ImmutableMap.of("a", 2.0, "b", 3.0), transformed);
+    assertTrue(transformed instanceof NavigableMap);
+  }
+
   public void testTransformEntries() {
     Map<String, String> map = ImmutableMap.of("a", "4", "b", "9");
     EntryTransformer<String, String, String> concat =
@@ -1514,6 +1659,27 @@ public class MapsTest extends TestCase {
 
     assertEquals(ImmutableMap.of("a", "a4", "b", "b9"), transformed);
     assertTrue(transformed instanceof SortedMap);
+  }
+
+  @GwtIncompatible("NavigableMap")
+  public void testTransformEntriesSecretlyNavigable() {
+    Map<String, String> map = ImmutableSortedMap.of("a", "4", "b", "9");
+    EntryTransformer<String, String, String> concat =
+        new EntryTransformer<String, String, String>() {
+          @Override
+          public String transformEntry(String key, String value) {
+            return key + value;
+          }
+        };
+    Map<String, String> transformed;
+
+    transformed = transformEntries(map, concat);
+    assertEquals(ImmutableMap.of("a", "a4", "b", "b9"), transformed);
+    assertTrue(transformed instanceof NavigableMap);
+
+    transformed = transformEntries((SortedMap<String, String>) map, concat);
+    assertEquals(ImmutableMap.of("a", "a4", "b", "b9"), transformed);
+    assertTrue(transformed instanceof NavigableMap);
   }
 
   @SuppressWarnings("unused")
@@ -1610,6 +1776,15 @@ public class MapsTest extends TestCase {
     assertEquals(ImmutableSortedMap.of("a", 2.0, "b", 3.0), transformed);
   }
 
+  @GwtIncompatible("NavigableMap")
+  public void testNavigableMapTransformValues() {
+    NavigableMap<String, Integer> map = ImmutableSortedMap.of("a", 4, "b", 9);
+    NavigableMap<String, Double> transformed =
+        transformValues(map, SQRT_FUNCTION);
+
+    assertEquals(ImmutableSortedMap.of("a", 2.0, "b", 3.0), transformed);
+  }
+
   public void testSortedMapTransformEntries() {
     SortedMap<String, String> map =
         sortedNotNavigable(ImmutableSortedMap.of("a", "4", "b", "9"));
@@ -1627,5 +1802,161 @@ public class MapsTest extends TestCase {
      * can't easily do so while maintaining GWT compatibility.
      */
     assertEquals(ImmutableSortedMap.of("a", "a4", "b", "b9"), transformed);
+  }
+
+  @GwtIncompatible("NavigableMap")
+  public void testNavigableMapTransformEntries() {
+    NavigableMap<String, String> map =
+        ImmutableSortedMap.of("a", "4", "b", "9");
+    EntryTransformer<String, String, String> concat =
+        new EntryTransformer<String, String, String>() {
+          @Override
+          public String transformEntry(String key, String value) {
+            return key + value;
+          }
+        };
+    NavigableMap<String, String> transformed = transformEntries(map, concat);
+
+    assertEquals(ImmutableSortedMap.of("a", "a4", "b", "b9"), transformed);
+  }
+
+  @GwtIncompatible("NavigableMap")
+  public void testUnmodifiableNavigableMap() {
+    TreeMap<Integer, String> mod = Maps.newTreeMap();
+    mod.put(1, "one");
+    mod.put(2, "two");
+    mod.put(3, "three");
+
+    NavigableMap<Integer, String> unmod = unmodifiableNavigableMap(mod);
+
+    /* unmod is a view. */
+    mod.put(4, "four");
+    assertEquals("four", unmod.get(4));
+    assertEquals("four", unmod.descendingMap().get(4));
+
+    ensureNotDirectlyModifiable(unmod);
+    ensureNotDirectlyModifiable(unmod.descendingMap());
+    ensureNotDirectlyModifiable(unmod.headMap(2, true));
+    ensureNotDirectlyModifiable(unmod.subMap(1, true, 3, true));
+    ensureNotDirectlyModifiable(unmod.tailMap(2, true));
+
+    Collection<String> values = unmod.values();
+    try {
+      values.add("4");
+      fail("UnsupportedOperationException expected");
+    } catch (UnsupportedOperationException expected) {
+    }
+    try {
+      values.remove("four");
+      fail("UnsupportedOperationException expected");
+    } catch (UnsupportedOperationException expected) {
+    }
+    try {
+      values.removeAll(Collections.singleton("four"));
+      fail("UnsupportedOperationException expected");
+    } catch (UnsupportedOperationException expected) {
+    }
+    try {
+      values.retainAll(Collections.singleton("four"));
+      fail("UnsupportedOperationException expected");
+    } catch (UnsupportedOperationException expected) {
+    }
+    try {
+      Iterator<String> iterator = values.iterator();
+      iterator.next();
+      iterator.remove();
+      fail("UnsupportedOperationException expected");
+    } catch (UnsupportedOperationException expected) {
+    }
+
+    Set<Map.Entry<Integer, String>> entries = unmod.entrySet();
+    try {
+      Iterator<Map.Entry<Integer, String>> iterator = entries.iterator();
+      iterator.next();
+      iterator.remove();
+      fail("UnsupportedOperationException expected");
+    } catch (UnsupportedOperationException expected) {
+    }
+    Map.Entry<Integer, String> entry = entries.iterator().next();
+    try {
+      entry.setValue("four");
+      fail("UnsupportedOperationException expected");
+    } catch (UnsupportedOperationException expected) {
+    }
+    entry = unmod.lowerEntry(1);
+    assertNull(entry);
+    entry = unmod.floorEntry(2);
+    try {
+      entry.setValue("four");
+      fail("UnsupportedOperationException expected");
+    } catch (UnsupportedOperationException expected) {
+    }
+    entry = unmod.ceilingEntry(2);
+    try {
+      entry.setValue("four");
+      fail("UnsupportedOperationException expected");
+    } catch (UnsupportedOperationException expected) {
+    }
+    entry = unmod.lowerEntry(2);
+    try {
+      entry.setValue("four");
+      fail("UnsupportedOperationException expected");
+    } catch (UnsupportedOperationException expected) {
+    }
+    entry = unmod.higherEntry(2);
+    try {
+      entry.setValue("four");
+      fail("UnsupportedOperationException expected");
+    } catch (UnsupportedOperationException expected) {
+    }
+    entry = unmod.firstEntry();
+    try {
+      entry.setValue("four");
+      fail("UnsupportedOperationException expected");
+    } catch (UnsupportedOperationException expected) {
+    }
+    entry = unmod.lastEntry();
+    try {
+      entry.setValue("four");
+      fail("UnsupportedOperationException expected");
+    } catch (UnsupportedOperationException expected) {
+    }
+        @SuppressWarnings("unchecked")
+    Map.Entry<Integer, String> entry2 =
+        (Map.Entry<Integer, String>) entries.toArray()[0];
+    try {
+      entry2.setValue("four");
+      fail("UnsupportedOperationException expected");
+    } catch (UnsupportedOperationException expected) {
+    }
+  }
+
+  @GwtIncompatible("NavigableMap")
+  void ensureNotDirectlyModifiable(NavigableMap<Integer, String> unmod) {
+    try {
+      unmod.put(4, "four");
+      fail("UnsupportedOperationException expected");
+    } catch (UnsupportedOperationException expected) {
+    }
+    try {
+      unmod.putAll(Collections.singletonMap(4, "four"));
+      fail("UnsupportedOperationException expected");
+    } catch (UnsupportedOperationException expected) {
+    }
+    try {
+      unmod.remove("four");
+      fail("UnsupportedOperationException expected");
+    } catch (UnsupportedOperationException expected) {
+    }
+    try {
+      unmod.pollFirstEntry();
+      fail("UnsupportedOperationException expected");
+    } catch (UnsupportedOperationException expected) {
+    }
+    try {
+      unmod.pollLastEntry();
+      fail("UnsupportedOperationException expected");
+    } catch (UnsupportedOperationException expected) {
+    }
   }
 }

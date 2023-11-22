@@ -43,7 +43,6 @@ TdlsCommand* TdlsCommand::mTdlsCommandInstance  = NULL;
 TdlsCommand::TdlsCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd)
         : WifiVendorCommand(handle, id, vendor_id, subcmd)
 {
-    ALOGV("TdlsCommand %p constructed", this);
     memset(&mHandler, 0, sizeof(mHandler));
     memset(&mTDLSgetStatusRspParams, 0, sizeof(wifi_tdls_status));
     mRequestId = 0;
@@ -51,7 +50,6 @@ TdlsCommand::TdlsCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd)
 
 TdlsCommand::~TdlsCommand()
 {
-    ALOGW("TdlsCommand %p distructor", this);
     mTdlsCommandInstance = NULL;
     unregisterVendorHandler(mVendor_id, mSubcmd);
 }
@@ -75,7 +73,7 @@ TdlsCommand* TdlsCommand::instance(wifi_handle handle)
         {
             /* upper layer must have cleaned up the handle and reinitialized,
                so we need to update the same */
-            ALOGI("Handle different, update the handle");
+            ALOGV("Handle different, update the handle");
             mTdlsCommandInstance->mInfo = (hal_info *)handle;
         }
     }
@@ -117,7 +115,7 @@ int TdlsCommand::handleEvent(WifiEvent &event)
                         (struct nlattr *)mVendorData,
                         mDataLen, NULL);
 
-                ALOGI("QCA_NL80211_VENDOR_SUBCMD_TDLS_STATE Received");
+                ALOGV("QCA_NL80211_VENDOR_SUBCMD_TDLS_STATE Received");
                 if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_TDLS_MAC_ADDR])
                 {
                     ALOGE("%s: QCA_WLAN_VENDOR_ATTR_TDLS_MAC_ADDR not found",
@@ -128,7 +126,7 @@ int TdlsCommand::handleEvent(WifiEvent &event)
                   (u8 *)nla_data(tb_vendor[QCA_WLAN_VENDOR_ATTR_TDLS_MAC_ADDR]),
                   nla_len(tb_vendor[QCA_WLAN_VENDOR_ATTR_TDLS_MAC_ADDR]));
 
-                ALOGI(MAC_ADDR_STR, MAC_ADDR_ARRAY(addr));
+                ALOGV(MAC_ADDR_STR, MAC_ADDR_ARRAY(addr));
 
                 if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_TDLS_STATE])
                 {
@@ -138,7 +136,7 @@ int TdlsCommand::handleEvent(WifiEvent &event)
                 }
                 status.state = (wifi_tdls_state)
                     get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_TDLS_STATE]);
-                ALOGI("TDLS: State New : %d ", status.state);
+                ALOGV("TDLS: State New : %d ", status.state);
 
                 if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_TDLS_REASON])
                 {
@@ -148,7 +146,7 @@ int TdlsCommand::handleEvent(WifiEvent &event)
                 }
                 status.reason = (wifi_tdls_reason)
                     get_s32(tb_vendor[QCA_WLAN_VENDOR_ATTR_TDLS_REASON]);
-                ALOGI("TDLS: Reason : %d ", status.reason);
+                ALOGV("TDLS: Reason : %d ", status.reason);
 
                 if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_TDLS_CHANNEL])
                 {
@@ -158,7 +156,7 @@ int TdlsCommand::handleEvent(WifiEvent &event)
                 }
                 status.channel =
                     get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_TDLS_CHANNEL]);
-                ALOGI("TDLS: channel : %d ", status.channel);
+                ALOGV("TDLS: channel : %d ", status.channel);
 
                 if (!tb_vendor[
                         QCA_WLAN_VENDOR_ATTR_TDLS_GLOBAL_OPERATING_CLASS])
@@ -169,7 +167,7 @@ int TdlsCommand::handleEvent(WifiEvent &event)
                 }
                 status.global_operating_class = get_u32(
                    tb_vendor[QCA_WLAN_VENDOR_ATTR_TDLS_GLOBAL_OPERATING_CLASS]);
-                ALOGI("TDLS: global_operating_class: %d ",
+                ALOGV("TDLS: global_operating_class: %d ",
                         status.global_operating_class);
 
                 if (mHandler.on_tdls_state_changed)
@@ -189,7 +187,6 @@ int TdlsCommand::handleEvent(WifiEvent &event)
 
 int TdlsCommand::handleResponse(WifiEvent &reply)
 {
-    ALOGI("Received a TDLS response message from Driver");
     u32 status;
     int i = 0;
     WifiVendorCommand::handleResponse(reply);
@@ -206,7 +203,7 @@ int TdlsCommand::handleResponse(WifiEvent &reply)
                         (struct nlattr *)mVendorData,
                         mDataLen, NULL);
 
-                ALOGI("QCA_NL80211_VENDOR_SUBCMD_TDLS_GET_STATUS Received");
+                ALOGV("QCA_NL80211_VENDOR_SUBCMD_TDLS_GET_STATUS Received");
                 memset(&mTDLSgetStatusRspParams, 0, sizeof(wifi_tdls_status));
 
                 if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_TDLS_GET_STATUS_STATE])
@@ -217,7 +214,7 @@ int TdlsCommand::handleResponse(WifiEvent &reply)
                 }
                 mTDLSgetStatusRspParams.state = (wifi_tdls_state)get_u32(
                         tb_vendor[QCA_WLAN_VENDOR_ATTR_TDLS_GET_STATUS_STATE]);
-                ALOGI("TDLS: State : %u ", mTDLSgetStatusRspParams.state);
+                ALOGV("TDLS: State : %u ", mTDLSgetStatusRspParams.state);
 
                 if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_TDLS_GET_STATUS_REASON])
                 {
@@ -227,7 +224,7 @@ int TdlsCommand::handleResponse(WifiEvent &reply)
                 }
                 mTDLSgetStatusRspParams.reason = (wifi_tdls_reason)get_s32(
                         tb_vendor[QCA_WLAN_VENDOR_ATTR_TDLS_GET_STATUS_REASON]);
-                ALOGI("TDLS: Reason : %d ", mTDLSgetStatusRspParams.reason);
+                ALOGV("TDLS: Reason : %d ", mTDLSgetStatusRspParams.reason);
 
                 if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_TDLS_GET_STATUS_CHANNEL])
                 {
@@ -237,7 +234,7 @@ int TdlsCommand::handleResponse(WifiEvent &reply)
                 }
                 mTDLSgetStatusRspParams.channel = get_u32(tb_vendor[
                         QCA_WLAN_VENDOR_ATTR_TDLS_GET_STATUS_CHANNEL]);
-                ALOGI("TDLS: channel : %d ", mTDLSgetStatusRspParams.channel);
+                ALOGV("TDLS: channel : %d ", mTDLSgetStatusRspParams.channel);
 
                 if (!tb_vendor[
                   QCA_WLAN_VENDOR_ATTR_TDLS_GET_STATUS_GLOBAL_OPERATING_CLASS])
@@ -250,7 +247,7 @@ int TdlsCommand::handleResponse(WifiEvent &reply)
                 mTDLSgetStatusRspParams.global_operating_class =
                   get_u32(tb_vendor[
                   QCA_WLAN_VENDOR_ATTR_TDLS_GET_STATUS_GLOBAL_OPERATING_CLASS]);
-                ALOGI("TDLS: global_operating_class: %d ",
+                ALOGV("TDLS: global_operating_class: %d ",
                         mTDLSgetStatusRspParams.global_operating_class);
             }
             break;
@@ -336,14 +333,14 @@ void TdlsCommand::getCapsRspParams(wifi_tdls_capabilities *caps)
         !!(mTDLSgetCaps.tdlsSupportedFeatures & IS_PER_MAC_TDLS_SUPPORTED);
     caps->is_off_channel_tdls_supported =
         !!(mTDLSgetCaps.tdlsSupportedFeatures & IS_OFF_CHANNEL_TDLS_SUPPORTED);
-    ALOGI("TDLS capabilities:");
-    ALOGI("max_concurrent_tdls_session_numChannel : %d\n",
+    ALOGV("TDLS capabilities:");
+    ALOGV("max_concurrent_tdls_session_numChannel : %d\n",
             caps->max_concurrent_tdls_session_num);
-    ALOGI("is_global_tdls_supported : %d\n",
+    ALOGV("is_global_tdls_supported : %d\n",
             caps->is_global_tdls_supported);
-    ALOGI("is_per_mac_tdls_supported : %d\n",
+    ALOGV("is_per_mac_tdls_supported : %d\n",
             caps->is_per_mac_tdls_supported);
-    ALOGI("is_off_channel_tdls_supported : %d \n",
+    ALOGV("is_off_channel_tdls_supported : %d \n",
             caps->is_off_channel_tdls_supported);
 }
 
@@ -368,7 +365,6 @@ wifi_error wifi_enable_tdls(wifi_interface_handle iface,
     wifi_handle handle = getWifiHandle(iface);
     pTdlsCommand = TdlsCommand::instance(handle);
 
-    ALOGI("%s: Enter", __FUNCTION__);
     if (pTdlsCommand == NULL) {
         ALOGE("%s: Error TdlsCommand NULL", __FUNCTION__);
         return WIFI_ERROR_UNKNOWN;
@@ -388,14 +384,14 @@ wifi_error wifi_enable_tdls(wifi_interface_handle iface,
     nl_data = pTdlsCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
     if (!nl_data)
         goto cleanup;
-    ALOGD("%s: MAC_ADDR: " MAC_ADDR_STR, __FUNCTION__, MAC_ADDR_ARRAY(addr));
+    ALOGV("%s: MAC_ADDR: " MAC_ADDR_STR, __FUNCTION__, MAC_ADDR_ARRAY(addr));
     ret = pTdlsCommand->put_bytes(QCA_WLAN_VENDOR_ATTR_TDLS_ENABLE_MAC_ADDR,
                                   (char *)addr, 6);
     if (ret < 0)
         goto cleanup;
 
     if (params != NULL) {
-        ALOGD("%s: Channel: %d, Global operating class: %d, "
+        ALOGV("%s: Channel: %d, Global operating class: %d, "
             "Max Latency: %dms, Min Bandwidth: %dKbps",
             __FUNCTION__, params->channel, params->global_operating_class,
             params->max_latency_ms, params->min_bandwidth_kbps);
@@ -428,7 +424,6 @@ wifi_error wifi_enable_tdls(wifi_interface_handle iface,
     }
 
 cleanup:
-    ALOGI("%s: Exit", __FUNCTION__);
     return (wifi_error)ret;
 }
 
@@ -449,7 +444,6 @@ wifi_error wifi_disable_tdls(wifi_interface_handle iface, mac_addr addr)
     wifi_handle handle = getWifiHandle(iface);
     pTdlsCommand = TdlsCommand::instance(handle);
 
-    ALOGI("%s: Enter", __FUNCTION__);
     if (pTdlsCommand == NULL) {
         ALOGE("%s: Error TdlsCommand NULL", __FUNCTION__);
         return WIFI_ERROR_UNKNOWN;
@@ -464,8 +458,8 @@ wifi_error wifi_disable_tdls(wifi_interface_handle iface, mac_addr addr)
     ret = pTdlsCommand->set_iface_id(iinfo->name);
     if (ret < 0)
         goto cleanup;
-    ALOGD("%s: ifindex obtained:%d", __FUNCTION__, ret);
-    ALOGD("%s: MAC_ADDR: " MAC_ADDR_STR, __FUNCTION__, MAC_ADDR_ARRAY(addr));
+    ALOGV("%s: ifindex obtained:%d", __FUNCTION__, ret);
+    ALOGV("%s: MAC_ADDR: " MAC_ADDR_STR, __FUNCTION__, MAC_ADDR_ARRAY(addr));
 
     /* Add the attributes */
     nl_data = pTdlsCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
@@ -483,7 +477,6 @@ wifi_error wifi_disable_tdls(wifi_interface_handle iface, mac_addr addr)
     }
 
 cleanup:
-    ALOGI("%s: Exit", __FUNCTION__);
     delete pTdlsCommand;
     return (wifi_error)ret;
 }
@@ -501,7 +494,6 @@ wifi_error wifi_get_tdls_status(wifi_interface_handle iface, mac_addr addr,
     wifi_handle handle = getWifiHandle(iface);
     pTdlsCommand = TdlsCommand::instance(handle);
 
-    ALOGI("%s: Enter", __FUNCTION__);
     if (pTdlsCommand == NULL) {
         ALOGE("%s: Error TdlsCommand NULL", __FUNCTION__);
         return WIFI_ERROR_UNKNOWN;
@@ -516,7 +508,7 @@ wifi_error wifi_get_tdls_status(wifi_interface_handle iface, mac_addr addr,
     ret = pTdlsCommand->set_iface_id(iinfo->name);
     if (ret < 0)
         goto cleanup;
-    ALOGD("%s: ifindex obtained:%d", __FUNCTION__, ret);
+    ALOGV("%s: ifindex obtained:%d", __FUNCTION__, ret);
 
     /* Add the attributes */
     nl_data = pTdlsCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
@@ -535,7 +527,6 @@ wifi_error wifi_get_tdls_status(wifi_interface_handle iface, mac_addr addr,
     pTdlsCommand->getStatusRspParams(status);
 
 cleanup:
-    ALOGI("%s: Exit", __FUNCTION__);
     return (wifi_error)ret;
 }
 
@@ -545,7 +536,6 @@ wifi_error wifi_get_tdls_capabilities(wifi_interface_handle iface,
 {
     int ret = 0;
     TdlsCommand *pTdlsCommand;
-    ALOGI("%s: Enter", __FUNCTION__);
 
     if (capabilities == NULL) {
         ALOGE("%s: capabilities is NULL", __FUNCTION__);
@@ -579,7 +569,6 @@ wifi_error wifi_get_tdls_capabilities(wifi_interface_handle iface,
     pTdlsCommand->getCapsRspParams(capabilities);
 
 cleanup:
-    ALOGI("%s: Exit", __FUNCTION__);
     if (ret < 0)
         memset(capabilities, 0, sizeof(wifi_tdls_capabilities));
     delete pTdlsCommand;

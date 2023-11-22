@@ -312,6 +312,13 @@ static void check_and_set_gain_dep_cal()
  * Effect Control Interface Implementation
  */
 
+static inline int16_t clamp16(int32_t sample)
+{
+    if ((sample>>15) ^ (sample>>31))
+        sample = 0x7FFF ^ (sample>>31);
+    return sample;
+}
+
 static int vol_effect_process(effect_handle_t self,
                               audio_buffer_t *in_buffer,
                               audio_buffer_t *out_buffer)
@@ -330,10 +337,15 @@ static int vol_effect_process(effect_handle_t self,
 
     // calculation based on channel count 2
     if (in_buffer->raw != out_buffer->raw) {
-        memcpy(out_buffer->raw, in_buffer->raw, out_buffer->frameCount * 2 * sizeof(int16_t));
-    } else {
-        ALOGW("%s: something wrong, didn't handle in_buffer and out_buffer same address case",
-              __func__);
+        if (context->config.outputCfg.accessMode == EFFECT_BUFFER_ACCESS_ACCUMULATE) {
+            size_t i;
+            for (i = 0; i < out_buffer->frameCount*2; i++) {
+                out_buffer->s16[i] = clamp16(out_buffer->s16[i] + in_buffer->s16[i]);
+            }
+        } else {
+            memcpy(out_buffer->raw, in_buffer->raw, out_buffer->frameCount * 2 * sizeof(int16_t));
+        }
+
     }
 
 exit:
@@ -374,6 +386,12 @@ static int vol_effect_command(effect_handle_t self,
 
     case EFFECT_CMD_SET_CONFIG:
         ALOGV("%s :: cmd called EFFECT_CMD_SET_CONFIG", __func__);
+        if (p_cmd_data == NULL || cmd_size != sizeof(effect_config_t)
+                || p_reply_data == NULL || reply_size == NULL || *reply_size != sizeof(int)) {
+            return -EINVAL;
+        }
+        context->config = *(effect_config_t *)p_cmd_data;
+        *(int *)p_reply_data = 0;
         break;
 
     case EFFECT_CMD_GET_CONFIG:
@@ -420,7 +438,7 @@ static int vol_effect_command(effect_handle_t self,
 
         // After changing the state and if device is speaker
         // recalculate gain dep cal level
-        if (context->dev_id & AUDIO_DEVICE_OUT_SPEAKER) {
+        if (context->dev_id == AUDIO_DEVICE_OUT_SPEAKER) {
                 check_and_set_gain_dep_cal();
         }
 
@@ -447,7 +465,7 @@ static int vol_effect_command(effect_handle_t self,
 
         // After changing the state and if device is speaker
         // recalculate gain dep cal level
-        if (context->dev_id & AUDIO_DEVICE_OUT_SPEAKER) {
+        if (context->dev_id == AUDIO_DEVICE_OUT_SPEAKER) {
             check_and_set_gain_dep_cal();
         }
 
@@ -478,8 +496,8 @@ static int vol_effect_command(effect_handle_t self,
                __func__, context->dev_id, new_device);
 
         // check if old or new device is speaker
-        if ((context->dev_id & AUDIO_DEVICE_OUT_SPEAKER) ||
-            (new_device & AUDIO_DEVICE_OUT_SPEAKER)) {
+        if ((context->dev_id ==  AUDIO_DEVICE_OUT_SPEAKER) ||
+            (new_device == AUDIO_DEVICE_OUT_SPEAKER)) {
             recompute_gain_dep_cal_Level = true;
         }
 
@@ -504,7 +522,7 @@ static int vol_effect_command(effect_handle_t self,
             goto exit;
         }
 
-        if (context->dev_id & AUDIO_DEVICE_OUT_SPEAKER) {
+        if (context->dev_id == AUDIO_DEVICE_OUT_SPEAKER) {
             recompute_gain_dep_cal_Level = true;
         }
 
@@ -600,7 +618,7 @@ static int lib_init()
 
 static int vol_prc_lib_create(const effect_uuid_t *uuid,
                               int32_t session_id,
-                              int32_t io_id,
+                              int32_t io_id __unused,
                               effect_handle_t *p_handle)
 {
     int itt = 0;
@@ -664,25 +682,36 @@ static int vol_prc_lib_create(const effect_uuid_t *uuid,
 
 static int vol_prc_lib_release(effect_handle_t handle)
 {
-    struct listnode *node = NULL;
+    struct listnode *node, *temp_node_next;
     vol_listener_context_t *context = NULL;
     vol_listener_context_t *recv_contex = (vol_listener_context_t *)handle;
-    int status = -1;
+    int status = -EINVAL;
     bool recompute_flag = false;
     int active_stream_count = 0;
+    uint32_t session_id;
+    uint32_t stream_type;
+    effect_uuid_t uuid;
+
     ALOGV("%s context %p", __func__, handle);
+
+    if (recv_contex == NULL) {
+        return status;
+    }
     pthread_mutex_lock(&vol_listner_init_lock);
+    session_id = recv_contex->session_id;
+    stream_type = recv_contex->stream_type;
+    uuid = recv_contex->desc->uuid;
 
     // check if the handle/context provided is valid
-    list_for_each(node, &vol_effect_list) {
+    list_for_each_safe(node, temp_node_next, &vol_effect_list) {
         context = node_to_item(node, struct vol_listener_context_s, effect_list_node);
-        if ((memcmp(&(context->desc->uuid), &(recv_contex->desc->uuid), sizeof(effect_uuid_t)) == 0)
-            && (context->session_id == recv_contex->session_id)
-            && (context->stream_type == recv_contex->stream_type)) {
+        if ((memcmp(&(context->desc->uuid), &uuid, sizeof(effect_uuid_t)) == 0)
+            && (context->session_id == session_id)
+            && (context->stream_type == stream_type)) {
             ALOGV("--- Found something to remove ---");
-            list_remove(&context->effect_list_node);
+            list_remove(node);
             PRINT_STREAM_TYPE(context->stream_type);
-            if (context->dev_id && AUDIO_DEVICE_OUT_SPEAKER) {
+            if (context->dev_id == AUDIO_DEVICE_OUT_SPEAKER) {
                 recompute_flag = true;
             }
             free(context);
@@ -694,6 +723,8 @@ static int vol_prc_lib_release(effect_handle_t handle)
 
     if (status != 0) {
         ALOGE("something wrong ... <<<--- Found NOTHING to remove ... ???? --->>>>>");
+        pthread_mutex_unlock(&vol_listner_init_lock);
+        return status;
     }
 
     // if there are no active streams, reset cal and volume level

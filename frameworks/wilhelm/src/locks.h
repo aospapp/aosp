@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "Configuration.h"
+
 /** \file locks.h Mutual exclusion and condition variables */
 
 #ifdef USE_DEBUG

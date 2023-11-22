@@ -26,6 +26,7 @@
 #include "tcuVector.hpp"
 #include "tcuSurface.hpp"
 #include "tcuImageCompare.hpp"
+#include "tcuStringTemplate.hpp"
 #include "gluPixelTransfer.hpp"
 #include "gluRenderContext.hpp"
 #include "gluCallLogWrapper.hpp"
@@ -53,6 +54,9 @@ namespace Functional
 {
 namespace
 {
+
+using std::map;
+using std::string;
 
 static std::string sampleMaskToString (const std::vector<deUint32>& bitfield, int numBits)
 {
@@ -101,7 +105,7 @@ static std::vector<deUint32> genAllSetToNthBitSampleMask (int nthBit)
 	for (int ndx = 0; ndx < numWords - 1; ++ndx)
 		mask[ndx] = 0xFFFFFFFF;
 
-	mask[numWords - 1] = (deUint32)((1ULL << topWordBits) - (deUint32)1);
+	mask[numWords - 1] = deBitMask32(0, (int)topWordBits);
 	return mask;
 }
 
@@ -222,8 +226,12 @@ DefaultFBOMultisampleCase::~DefaultFBOMultisampleCase (void)
 
 void DefaultFBOMultisampleCase::init (void)
 {
+	const bool					isES32 = glu::contextSupports(m_context.getRenderContext().getType(), glu::ApiType::es(3, 2));
+	map<string, string>			args;
+	args["GLSL_VERSION_DECL"] = isES32 ? getGLSLVersionDeclaration(glu::GLSL_VERSION_320_ES) : getGLSLVersionDeclaration(glu::GLSL_VERSION_310_ES);
+
 	static const char* vertShaderSource =
-		"#version 310 es\n"
+		"${GLSL_VERSION_DECL}\n"
 		"in highp vec4 a_position;\n"
 		"in mediump vec4 a_color;\n"
 		"out mediump vec4 v_color;\n"
@@ -234,7 +242,7 @@ void DefaultFBOMultisampleCase::init (void)
 		"}\n";
 
 	static const char* fragShaderSource =
-		"#version 310 es\n"
+		"${GLSL_VERSION_DECL}\n"
 		"in mediump vec4 v_color;\n"
 		"layout(location = 0) out mediump vec4 o_color;\n"
 		"void main()\n"
@@ -260,7 +268,9 @@ void DefaultFBOMultisampleCase::init (void)
 
 	DE_ASSERT(!m_program);
 
-	m_program = new glu::ShaderProgram(m_context.getRenderContext(), glu::makeVtxFragSources(vertShaderSource, fragShaderSource));
+	m_program = new glu::ShaderProgram(m_context.getRenderContext(), glu::ProgramSources()
+		<< glu::VertexSource(tcu::StringTemplate(vertShaderSource).specialize(args))
+		<< glu::FragmentSource(tcu::StringTemplate(fragShaderSource).specialize(args)));
 	if (!m_program->isOk())
 		throw tcu::TestError("Failed to compile program", DE_NULL, __FILE__, __LINE__);
 
@@ -490,7 +500,7 @@ void MaskInvertCase::drawPattern (bool invert) const
 	for (int triNdx = 0; triNdx < numTriangles; triNdx++)
 	{
 		const float	angle0	= 2.0f*DE_PI * (float)triNdx			/ (float)numTriangles;
-		const float	angle1	= 2.0f*DE_PI * (float)(triNdx + 0.5f)	/ (float)numTriangles;
+		const float	angle1	= 2.0f*DE_PI * ((float)triNdx + 0.5f)	/ (float)numTriangles;
 		const Vec4	color	= Vec4(0.4f + (float)triNdx/(float)numTriangles*0.6f,
 		                           0.5f + (float)triNdx/(float)numTriangles*0.3f,
 		                           0.6f - (float)triNdx/(float)numTriangles*0.5f,
@@ -499,7 +509,7 @@ void MaskInvertCase::drawPattern (bool invert) const
 
 		const int			wordCount		= getEffectiveSampleMaskWordCount(m_numSamples - 1);
 		const GLbitfield	finalWordBits	= m_numSamples - 32 * ((m_numSamples-1) / 32);
-		const GLbitfield	finalWordMask	= (GLbitfield)(1ULL << finalWordBits) - 1UL;
+		const GLbitfield	finalWordMask	= (GLbitfield)deBitMask32(0, (int)finalWordBits);
 
 		for (int wordNdx = 0; wordNdx < wordCount; ++wordNdx)
 		{
@@ -809,7 +819,7 @@ MaskConstancyCase::IterateResult MaskConstancyCase::iterate (void)
 			{
 				const int			wordCount		= getEffectiveSampleMaskWordCount(m_numSamples - 1);
 				const GLbitfield	finalWordBits	= m_numSamples - 32 * ((m_numSamples-1) / 32);
-				const GLbitfield	finalWordMask	= (GLbitfield)(1ULL << finalWordBits) - 1UL;
+				const GLbitfield	finalWordMask	= (GLbitfield)deBitMask32(0, (int)finalWordBits);
 
 				for (int wordNdx = 0; wordNdx < wordCount; ++wordNdx)
 				{
@@ -936,7 +946,7 @@ SampleMaskHighBitsCase::IterateResult SampleMaskHighBitsCase::iterate (void)
 
 			const int			wordCount		= getEffectiveSampleMaskWordCount(m_numSamples - 1);
 			const GLbitfield	finalWordBits	= m_numSamples - 32 * ((m_numSamples-1) / 32);
-			const GLbitfield	finalWordMask	= (GLbitfield)(1ULL << finalWordBits) - 1UL;
+			const GLbitfield	finalWordMask	= (GLbitfield)deBitMask32(0, (int)finalWordBits);
 
 			for (int wordNdx = 0; wordNdx < wordCount; ++wordNdx)
 			{

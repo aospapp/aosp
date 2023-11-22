@@ -50,7 +50,7 @@ public class SystraceOptionsDialogV2 extends TitleAreaDialog implements ISystrac
             "Settings to use while capturing system level trace";
     private static final String DEFAULT_TRACE_FNAME = "trace.html"; //$NON-NLS-1$
     private static final Set<String> sCommonTags = ImmutableSet.of(
-            "app", "dalvik", "gfx", "res", "rs", "sched", "view", "webview");
+            "am", "app", "dalvik", "disk", "gfx", "input", "res", "sched", "view", "webview", "wm");
 
     private Text mDestinationText;
     private String mDestinationPath;

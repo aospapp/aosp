@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="7559008249836700599">"Transmissões por celular"</string>
-    <string name="sms_cb_settings" msgid="971917159442705371">"Config. de transmissão por celular"</string>
+    <string name="sms_cb_settings" msgid="971917159442705371">"Configurar transmissão por celular"</string>
     <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"As configurações de transmissão celular não estão disponíveis para este usuário"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"OK"</string>
     <string name="no_cell_broadcasts" msgid="5409324337492758562">"Não há alertas ativos em sua área. É possível alterar as configurações de alerta utilizando a opção do menu \"Configurações\"."</string>

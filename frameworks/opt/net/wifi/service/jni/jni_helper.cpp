@@ -1,5 +1,5 @@
 /*
- * Copyright 2008, The Android Open Source Project
+ * Copyright 2016, The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -239,6 +239,30 @@ jlong JNIHelper::getLongArrayField(jobject obj, const char *name, int index)
     jlong value = elem[index];
     mEnv->ReleaseLongArrayElements(array, elem, 0);
     return value;
+}
+
+void JNIHelper::getByteArrayField(jobject obj, const char *name, byte* buf, int size) {
+    JNIObject<jclass> cls(*this, mEnv->GetObjectClass(obj));
+    jfieldID field = mEnv->GetFieldID(cls, name, "[B");
+    if (field == 0) {
+        THROW(*this, "Error in accessing field definition");
+        return;
+    }
+
+    JNIObject<jbyteArray> array(*this, (jbyteArray)mEnv->GetObjectField(obj, field));
+    if (array == NULL) {
+        THROW(*this, "Error in accessing array");
+        return;
+    }
+
+    jbyte *elem = mEnv->GetByteArrayElements(array, 0);
+    if (elem == NULL) {
+        THROW(*this, "Error in accessing index element");
+        return;
+    }
+
+    memcpy(buf, elem, size);
+    mEnv->ReleaseByteArrayElements(array, elem, 0);
 }
 
 jlong JNIHelper::getStaticLongArrayField(jobject obj, const char *name, int index)
@@ -502,6 +526,27 @@ void JNIHelper::reportEvent(jclass cls, const char *method, const char *signatur
     va_end(params);
 }
 
+void JNIHelper::callMethod(jobject obj, const char *method, const char *signature, ...)
+{
+    va_list params;
+    va_start(params, signature);
+
+    jclass cls = mEnv->GetObjectClass(obj);
+    jmethodID methodID = mEnv->GetMethodID(cls, method, signature);
+    if (methodID == 0) {
+        ALOGE("Error in getting method ID");
+        return;
+    }
+
+    mEnv->CallVoidMethodV(obj, methodID, params);
+    if (mEnv->ExceptionCheck()) {
+        mEnv->ExceptionDescribe();
+        mEnv->ExceptionClear();
+    }
+
+    va_end(params);
+}
+
 jboolean JNIHelper::callStaticMethod(jclass cls, const char *method, const char *signature, ...)
 {
     va_list params;
@@ -524,26 +569,35 @@ jboolean JNIHelper::callStaticMethod(jclass cls, const char *method, const char 
     return result;
 }
 
-JNIObject<jobject> JNIHelper::createObject(const char *className)
+JNIObject<jobject> JNIHelper::createObject(const char *className) {
+    return createObjectWithArgs(className, "()V");
+}
+
+JNIObject<jobject> JNIHelper::createObjectWithArgs(
+    const char *className, const char *signature, ...)
 {
+    va_list params;
+    va_start(params, signature);
+
     JNIObject<jclass> cls(*this, mEnv->FindClass(className));
     if (cls == NULL) {
         ALOGE("Error in finding class %s", className);
         return JNIObject<jobject>(*this, NULL);
     }
 
-    jmethodID constructor = mEnv->GetMethodID(cls, "<init>", "()V");
+    jmethodID constructor = mEnv->GetMethodID(cls, "<init>", signature);
     if (constructor == 0) {
         ALOGE("Error in constructor ID for %s", className);
         return JNIObject<jobject>(*this, NULL);
     }
 
-    JNIObject<jobject> obj(*this, mEnv->NewObject(cls, constructor));
+    JNIObject<jobject> obj(*this, mEnv->NewObjectV(cls, constructor, params));
     if (obj == NULL) {
         ALOGE("Could not create new object of %s", className);
         return JNIObject<jobject>(*this, NULL);
     }
 
+    va_end(params);
     return obj;
 }
 
@@ -608,15 +662,15 @@ void JNIHelper::setObjectArrayElement(jobjectArray array, int index, jobject obj
     mEnv->SetObjectArrayElement(array, index, obj);
 }
 
-void JNIHelper::setByteArrayRegion(jbyteArray array, int from, int to, jbyte *bytes) {
+void JNIHelper::setByteArrayRegion(jbyteArray array, int from, int to, const jbyte *bytes) {
     mEnv->SetByteArrayRegion(array, from, to, bytes);
 }
 
-void JNIHelper::setIntArrayRegion(jintArray array, int from, int to, jint *ints) {
+void JNIHelper::setIntArrayRegion(jintArray array, int from, int to, const jint *ints) {
     mEnv->SetIntArrayRegion(array, from, to, ints);
 }
 
-void JNIHelper::setLongArrayRegion(jlongArray array, int from, int to, jlong *longs) {
+void JNIHelper::setLongArrayRegion(jlongArray array, int from, int to, const jlong *longs) {
     mEnv->SetLongArrayRegion(array, from, to, longs);
 }
 

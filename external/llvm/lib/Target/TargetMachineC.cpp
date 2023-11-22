@@ -32,26 +32,34 @@
 
 using namespace llvm;
 
-inline TargetMachine *unwrap(LLVMTargetMachineRef P) {
-  return reinterpret_cast<TargetMachine*>(P);
+namespace llvm {
+// Friend to the TargetMachine, access legacy API that are made private in C++
+struct C_API_PRIVATE_ACCESS {
+  static const DataLayout &getDataLayout(const TargetMachine &T) {
+    return T.getDataLayout();
+  }
+};
 }
-inline Target *unwrap(LLVMTargetRef P) {
+
+static TargetMachine *unwrap(LLVMTargetMachineRef P) {
+  return reinterpret_cast<TargetMachine *>(P);
+}
+static Target *unwrap(LLVMTargetRef P) {
   return reinterpret_cast<Target*>(P);
 }
-inline LLVMTargetMachineRef wrap(const TargetMachine *P) {
-  return
-    reinterpret_cast<LLVMTargetMachineRef>(const_cast<TargetMachine*>(P));
+static LLVMTargetMachineRef wrap(const TargetMachine *P) {
+  return reinterpret_cast<LLVMTargetMachineRef>(const_cast<TargetMachine *>(P));
 }
-inline LLVMTargetRef wrap(const Target * P) {
+static LLVMTargetRef wrap(const Target * P) {
   return reinterpret_cast<LLVMTargetRef>(const_cast<Target*>(P));
 }
 
 LLVMTargetRef LLVMGetFirstTarget() {
-  if(TargetRegistry::begin() == TargetRegistry::end()) {
+  if (TargetRegistry::targets().begin() == TargetRegistry::targets().end()) {
     return nullptr;
   }
 
-  const Target* target = &*TargetRegistry::begin();
+  const Target *target = &*TargetRegistry::targets().begin();
   return wrap(target);
 }
 LLVMTargetRef LLVMGetNextTarget(LLVMTargetRef T) {
@@ -60,28 +68,25 @@ LLVMTargetRef LLVMGetNextTarget(LLVMTargetRef T) {
 
 LLVMTargetRef LLVMGetTargetFromName(const char *Name) {
   StringRef NameRef = Name;
-  for (TargetRegistry::iterator IT = TargetRegistry::begin(),
-                                IE = TargetRegistry::end(); IT != IE; ++IT) {
-    if (IT->getName() == NameRef)
-      return wrap(&*IT);
-  }
-  
-  return nullptr;
+  auto I = std::find_if(
+      TargetRegistry::targets().begin(), TargetRegistry::targets().end(),
+      [&](const Target &T) { return T.getName() == NameRef; });
+  return I != TargetRegistry::targets().end() ? wrap(&*I) : nullptr;
 }
 
 LLVMBool LLVMGetTargetFromTriple(const char* TripleStr, LLVMTargetRef *T,
                                  char **ErrorMessage) {
   std::string Error;
-  
+
   *T = wrap(TargetRegistry::lookupTarget(TripleStr, Error));
-  
+
   if (!*T) {
     if (ErrorMessage)
       *ErrorMessage = strdup(Error.c_str());
 
     return 1;
   }
-  
+
   return 0;
 }
 
@@ -148,10 +153,7 @@ LLVMTargetMachineRef LLVMCreateTargetMachine(LLVMTargetRef T,
     CM, OL));
 }
 
-
-void LLVMDisposeTargetMachine(LLVMTargetMachineRef T) {
-  delete unwrap(T);
-}
+void LLVMDisposeTargetMachine(LLVMTargetMachineRef T) { delete unwrap(T); }
 
 LLVMTargetRef LLVMGetTargetMachineTarget(LLVMTargetMachineRef T) {
   const Target* target = &(unwrap(T)->getTarget());
@@ -159,7 +161,7 @@ LLVMTargetRef LLVMGetTargetMachineTarget(LLVMTargetMachineRef T) {
 }
 
 char* LLVMGetTargetMachineTriple(LLVMTargetMachineRef T) {
-  std::string StringRep = unwrap(T)->getTargetTriple();
+  std::string StringRep = unwrap(T)->getTargetTriple().str();
   return strdup(StringRep.c_str());
 }
 
@@ -173,8 +175,9 @@ char* LLVMGetTargetMachineFeatureString(LLVMTargetMachineRef T) {
   return strdup(StringRep.c_str());
 }
 
+/** Deprecated: use LLVMGetDataLayout(LLVMModuleRef M) instead. */
 LLVMTargetDataRef LLVMGetTargetMachineData(LLVMTargetMachineRef T) {
-  return wrap(unwrap(T)->getDataLayout());
+  return wrap(&C_API_PRIVATE_ACCESS::getDataLayout(*unwrap(T)));
 }
 
 void LLVMSetTargetMachineAsmVerbosity(LLVMTargetMachineRef T,
@@ -193,14 +196,7 @@ static LLVMBool LLVMTargetMachineEmit(LLVMTargetMachineRef T, LLVMModuleRef M,
 
   std::string error;
 
-  const DataLayout *td = TM->getDataLayout();
-
-  if (!td) {
-    error = "No DataLayout in TargetMachine";
-    *ErrorMessage = strdup(error.c_str());
-    return true;
-  }
-  Mod->setDataLayout(*td);
+  Mod->setDataLayout(TM->createDataLayout());
 
   TargetMachine::CodeGenFileType ft;
   switch (codegen) {
@@ -242,7 +238,6 @@ LLVMBool LLVMTargetMachineEmitToMemoryBuffer(LLVMTargetMachineRef T,
   SmallString<0> CodeString;
   raw_svector_ostream OStream(CodeString);
   bool Result = LLVMTargetMachineEmit(T, M, OStream, codegen, ErrorMessage);
-  OStream.flush();
 
   StringRef Data = OStream.str();
   *OutMemBuf =

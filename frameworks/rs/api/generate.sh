@@ -31,7 +31,7 @@ mkdir -p slangtest
 #    This can be manually changed when cut&pasting the snippet into guide_toc.cs.
 # 3. rsIs/Clear/SetObject is documented in rs_object_info but also found in rs_graphics.
 #    The latter must appear after the former.
-./generator rs_core.spec rs_value_types.spec rs_object_types.spec rs_convert.spec rs_math.spec rs_vector_math.spec rs_matrix.spec rs_quaternion.spec rs_atomic.spec rs_time.spec rs_allocation_data.spec rs_object_info.spec rs_for_each.spec rs_io.spec rs_debug.spec rs_graphics.spec
+./generator rs_core.spec rs_value_types.spec rs_object_types.spec rs_convert.spec rs_math.spec rs_vector_math.spec rs_matrix.spec rs_quaternion.spec rs_atomic.spec rs_time.spec rs_allocation_create.spec rs_allocation_data.spec rs_object_info.spec rs_for_each.spec rs_io.spec rs_debug.spec rs_graphics.spec
 
 rm generator
 
@@ -46,11 +46,14 @@ rmdir scriptc
 rm -f ../../base/docs/html/guide/topics/renderscript/reference/*.jd
 mv docs/*.jd ../../base/docs/html/guide/topics/renderscript/reference/
 
-for i in {11..23}
+# Current API level : 24
+RS_API_LEVEL=24
+
+for ((i=11; i<=RS_API_LEVEL; i++))
   do
     mv slangtest/all$i.rs ../../compile/slang/tests/P_all_api_$i
 done
-rmdir slangtest
+rm -rf slangtest
 
 mv RSStubsWhiteList.cpp ../../compile/libbcc/lib/Renderscript/
 

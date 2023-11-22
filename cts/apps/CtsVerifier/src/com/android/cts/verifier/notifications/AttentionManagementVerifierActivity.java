@@ -60,6 +60,11 @@ public class AttentionManagementVerifierActivity
     private static final int MODE_URI = 1;
     private static final int MODE_PHONE = 2;
     private static final int MODE_EMAIL = 3;
+    private static final int SEND_A = 0x1;
+    private static final int SEND_B = 0x2;
+    private static final int SEND_C = 0x4;
+    private static final int SEND_ALL = SEND_A | SEND_B | SEND_C;
+
 
     private Uri mAliceUri;
     private Uri mBobUri;
@@ -129,7 +134,17 @@ public class AttentionManagementVerifierActivity
             if (mAliceUri == null) { status = FAIL; }
             if (mBobUri == null) { status = FAIL; }
             if (mCharlieUri != null) { status = FAIL; }
-            next();
+
+            if (status == PASS && !isStarred(mAliceUri)) {
+                status = RETEST;
+                Log.i("InsertContactsTest", "Alice is not yet starred");
+                delay();
+            } else {
+                Log.i("InsertContactsTest", "Alice is: " + mAliceUri);
+                Log.i("InsertContactsTest", "Bob is: " + mBobUri);
+                Log.i("InsertContactsTest", "Charlie is: " + mCharlieUri);
+                next();
+            }
         }
     }
 
@@ -528,6 +543,8 @@ public class AttentionManagementVerifierActivity
 
     // A starts at the top then falls to the bottom
     protected class InterruptionOrderTest extends InteractiveTestCase {
+        boolean mSawElevation = false;
+
         @Override
         View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.attention_interruption_order);
@@ -535,15 +552,21 @@ public class AttentionManagementVerifierActivity
 
         @Override
         void setUp() {
-            sendNotifications(MODE_NONE, false, true);
+            // send B & C noisy
+            sendNotifications(SEND_B | SEND_C, MODE_NONE, false, true);
             status = READY;
-            // wait for notifications to move through the system
-            delay();
+            // wait for then to not be recently noisy any more
+            delay(15000);
         }
 
         @Override
         void test() {
             if (status == READY) {
+                // send A noisy
+                sendNotifications(SEND_A, MODE_NONE, false, true);
+                status = RETEST;
+                delay();
+            } else if (status == RETEST) {
                 MockListener.probeListenerOrder(mContext,
                         new MockListener.StringListResultCatcher() {
                             @Override
@@ -551,36 +574,28 @@ public class AttentionManagementVerifierActivity
                                 int rankA = findTagInKeys(ALICE, orderedKeys);
                                 int rankB = findTagInKeys(BOB, orderedKeys);
                                 int rankC = findTagInKeys(CHARLIE, orderedKeys);
-                                if (rankA < rankB && rankA < rankC) {
-                                    status = RETEST;
-                                    delay(12000);
+                                if (!mSawElevation) {
+                                    if (rankA < rankB && rankA < rankC) {
+                                        mSawElevation = true;
+                                        status = RETEST;
+                                        delay(15000);
+                                    } else {
+                                        logFail("noisy notification did not sort to top.");
+                                        status = FAIL;
+                                        next();
+                                    }
                                 } else {
-                                    logFail("noisy notification did not sort to top.");
-                                    status = FAIL;
-                                    next();
+                                    if (rankA > rankB && rankA > rankC) {
+                                        status = PASS;
+                                    } else {
+                                        logFail("noisy notification did not fade back into the list.");
+                                        status = FAIL;
+                                    }
                                 }
                             }
                         });
                 delay();  // in case the catcher never returns
-            } else {
-                MockListener.probeListenerOrder(mContext,
-                        new MockListener.StringListResultCatcher() {
-                            @Override
-                            public void accept(List<String> orderedKeys) {
-                                int rankA = findTagInKeys(ALICE, orderedKeys);
-                                int rankB = findTagInKeys(BOB, orderedKeys);
-                                int rankC = findTagInKeys(CHARLIE, orderedKeys);
-                                if (rankA > rankB && rankA > rankC) {
-                                    status = PASS;
-                                } else {
-                                    logFail("noisy notification did not fade back into the list.");
-                                    status = FAIL;
-                                }
-                                next();
-                            }
-                        });
-                delay();  // in case the catcher never returns
-            }
+           }
         }
 
         @Override
@@ -796,11 +811,12 @@ public class AttentionManagementVerifierActivity
     // usePriorities false:
     //   MODE_NONE: C, B, A
     //   otherwise: A, B ,C
-    private void sendNotifications(int annotationMode, boolean usePriorities, boolean noisy) {
-        // TODO(cwren) Fixes flakey tests due to bug 17644321. Remove this line when it is fixed.
-        int baseId = NOTIFICATION_ID + (noisy ? 3 : 0);
+    private void sendNotifications(int annotationMode, boolean uriMode, boolean noisy) {
+        sendNotifications(SEND_ALL, annotationMode, uriMode, noisy);
+    }
 
-        // C, B, A when sorted by time.  Times must be in the past.
+    private void sendNotifications(int which, int uriMode, boolean usePriorities, boolean noisy) {
+        // C, B, A when sorted by time.  Times must be in the past
         long whenA = System.currentTimeMillis() - 4000000L;
         long whenB = System.currentTimeMillis() - 2000000L;
         long whenC = System.currentTimeMillis() - 1000000L;
@@ -810,36 +826,42 @@ public class AttentionManagementVerifierActivity
         int priorityB = usePriorities ? Notification.PRIORITY_MAX : Notification.PRIORITY_DEFAULT;
         int priorityC = usePriorities ? Notification.PRIORITY_LOW : Notification.PRIORITY_DEFAULT;
 
-        Notification.Builder alice = new Notification.Builder(mContext)
-                .setContentTitle(ALICE)
-                .setContentText(ALICE)
-                .setSmallIcon(R.drawable.ic_stat_alice)
-                .setPriority(priorityA)
-                .setCategory(Notification.CATEGORY_MESSAGE)
-                .setWhen(whenA);
-        alice.setDefaults(noisy ? Notification.DEFAULT_SOUND | Notification.DEFAULT_VIBRATE : 0);
-        addPerson(annotationMode, alice, mAliceUri, ALICE_PHONE, ALICE_EMAIL);
-        mNm.notify(ALICE, baseId + 1, alice.build());
-
-        Notification.Builder bob = new Notification.Builder(mContext)
-                .setContentTitle(BOB)
-                .setContentText(BOB)
-                .setSmallIcon(R.drawable.ic_stat_bob)
-                .setPriority(priorityB)
-                .setCategory(Notification.CATEGORY_MESSAGE)
-                .setWhen(whenB);
-        addPerson(annotationMode, bob, mBobUri, BOB_PHONE, BOB_EMAIL);
-        mNm.notify(BOB, baseId + 2, bob.build());
-
-        Notification.Builder charlie = new Notification.Builder(mContext)
-                .setContentTitle(CHARLIE)
-                .setContentText(CHARLIE)
-                .setSmallIcon(R.drawable.ic_stat_charlie)
-                .setPriority(priorityC)
-                .setCategory(Notification.CATEGORY_MESSAGE)
-                .setWhen(whenC);
-        addPerson(annotationMode, charlie, mCharlieUri, CHARLIE_PHONE, CHARLIE_EMAIL);
-        mNm.notify(CHARLIE, baseId + 3, charlie.build());
+        if ((which & SEND_B) != 0) {
+            Notification.Builder bob = new Notification.Builder(mContext)
+                    .setContentTitle(BOB)
+                    .setContentText(BOB)
+                    .setSmallIcon(R.drawable.ic_stat_bob)
+                    .setPriority(priorityB)
+                    .setCategory(Notification.CATEGORY_MESSAGE)
+                    .setWhen(whenB);
+            bob.setDefaults(noisy ? Notification.DEFAULT_SOUND | Notification.DEFAULT_VIBRATE : 0);
+            addPerson(uriMode, bob, mBobUri, BOB_PHONE, BOB_EMAIL);
+            mNm.notify(BOB, NOTIFICATION_ID + 2, bob.build());
+        }
+        if ((which & SEND_C) != 0) {
+            Notification.Builder charlie = new Notification.Builder(mContext)
+                    .setContentTitle(CHARLIE)
+                    .setContentText(CHARLIE)
+                    .setSmallIcon(R.drawable.ic_stat_charlie)
+                    .setPriority(priorityC)
+                    .setCategory(Notification.CATEGORY_MESSAGE)
+                    .setWhen(whenC);
+            charlie.setDefaults(noisy ? Notification.DEFAULT_SOUND | Notification.DEFAULT_VIBRATE : 0);
+            addPerson(uriMode, charlie, mCharlieUri, CHARLIE_PHONE, CHARLIE_EMAIL);
+            mNm.notify(CHARLIE, NOTIFICATION_ID + 3, charlie.build());
+        }
+        if ((which & SEND_A) != 0) {
+            Notification.Builder alice = new Notification.Builder(mContext)
+                    .setContentTitle(ALICE)
+                    .setContentText(ALICE)
+                    .setSmallIcon(R.drawable.ic_stat_alice)
+                    .setPriority(priorityA)
+                    .setCategory(Notification.CATEGORY_MESSAGE)
+                    .setWhen(whenA);
+            alice.setDefaults(noisy ? Notification.DEFAULT_SOUND | Notification.DEFAULT_VIBRATE : 0);
+            addPerson(uriMode, alice, mAliceUri, ALICE_PHONE, ALICE_EMAIL);
+            mNm.notify(ALICE, NOTIFICATION_ID + 1, alice.build());
+        }
     }
 
     private void addPerson(int mode, Notification.Builder note,
@@ -918,6 +940,28 @@ public class AttentionManagementVerifierActivity
             }
         }
         return null;
+    }
+
+    private boolean isStarred(Uri uri) {
+        Cursor c = null;
+        boolean starred = false;
+        try {
+            String[] projection = new String[] { ContactsContract.Contacts.STARRED };
+            c = mContext.getContentResolver().query(uri, projection, null, null, null);
+            if (c != null && c.getCount() > 0) {
+                int starredIdx = c.getColumnIndex(ContactsContract.Contacts.STARRED);
+                while (c.moveToNext()) {
+                    starred |= c.getInt(starredIdx) == 1;
+                }
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "Problem getting content resolver or performing contacts query.", t);
+        } finally {
+            if (c != null) {
+                c.close();
+            }
+        }
+        return starred;
     }
 
     /** Search a list of notification keys for a givcen tag. */

@@ -50,10 +50,6 @@ typedef UINT16 (tBTA_HL_ALLOCATE_PSM) (void);
 #define BTA_HL_L2C_RTRANS_TOUT          2000
 #define BTA_HL_L2C_MON_TOUT             12000
 #define BTA_HL_L2C_MPS                  1017
-#define BTA_HL_L2C_USER_RX_POOL_ID      L2CAP_DEFAULT_ERM_POOL_ID
-#define BTA_HL_L2C_USER_TX_POOL_ID      L2CAP_DEFAULT_ERM_POOL_ID /* todo this should be based on data type */
-#define BTA_HL_L2C_FCR_RX_POOL_ID       L2CAP_DEFAULT_ERM_POOL_ID
-#define BTA_HL_L2C_FCR_TX_POOL_ID       L2CAP_DEFAULT_ERM_POOL_ID
 
 /* L2CAP FCS setting*/
 #define BTA_HL_MCA_USE_FCS              MCA_FCS_USE
@@ -61,6 +57,7 @@ typedef UINT16 (tBTA_HL_ALLOCATE_PSM) (void);
 #define BTA_HL_L2C_USE_FCS              1
 #define BTA_HL_L2C_NO_FCS               0
 #define BTA_HL_DEFAULT_SOURCE_FCS       BTA_HL_L2C_USE_FCS
+#define BTA_HL_MCA_FCS_USE_MASK         MCA_FCS_USE_MASK
 
 /* SDP Operations */
 #define BTA_HL_SDP_OP_NONE                  0
@@ -709,12 +706,12 @@ extern "C"
     extern BOOLEAN bta_hl_find_sdp_idx_using_ctrl_psm(tBTA_HL_SDP *p_sdp,
                                                       UINT16 ctrl_psm,
                                                       UINT8 *p_sdp_idx);
-    extern UINT8 bta_hl_set_user_tx_pool_id(UINT16 max_tx_size);
-    extern UINT8 bta_hl_set_user_rx_pool_id(UINT16 mtu);
+    extern UINT16 bta_hl_set_user_tx_buf_size(UINT16 max_tx_size);
+    extern UINT16 bta_hl_set_user_rx_buf_size(UINT16 mtu);
     extern UINT8 bta_hl_set_tx_win_size(UINT16 mtu, UINT16 mps);
     extern UINT16 bta_hl_set_mps(UINT16 mtu);
     extern void bta_hl_clean_mdl_cb(UINT8 app_idx, UINT8 mcl_idx, UINT8 mdl_idx);
-    extern BT_HDR * bta_hl_get_buf(UINT16 data_size);
+    extern BT_HDR * bta_hl_get_buf(UINT16 data_size, BOOLEAN fcs_use);
     extern BOOLEAN bta_hl_find_service_in_db( UINT8 app_idx, UINT8 mcl_idx,
                                               UINT16 service_uuid,
                                               tSDP_DISC_REC **pp_rec );

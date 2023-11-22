@@ -13,6 +13,7 @@
   -->
 <layout xmlns:android="http://schemas.android.com/apk/res/android">
     <data>
+        <import type="android.databinding.testapp.vo.FindFieldBindingObject.Inner"/>
         <variable name="obj" type="android.databinding.testapp.vo.FindFieldBindingObject"/>
     </data>
     <LinearLayout
@@ -23,5 +24,10 @@
             android:text="@{obj.mPublicField}"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content" />
+        <TextView
+                android:id="@+id/textView2"
+                android:text="@{Inner.HELLO}"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
     </LinearLayout>
 </layout>

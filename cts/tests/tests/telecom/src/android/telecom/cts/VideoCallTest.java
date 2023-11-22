@@ -17,8 +17,10 @@
 package android.telecom.cts;
 
 import android.graphics.SurfaceTexture;
+import android.net.Uri;
 import android.telecom.Call;
 import android.telecom.Connection;
+import android.telecom.Connection.VideoProvider;
 import android.telecom.InCallService;
 import android.telecom.VideoProfile;
 import android.util.Log;
@@ -168,6 +170,58 @@ public class VideoCallTest extends BaseTelecomTestWithMockServices {
     }
 
     /**
+     * Test handling of session modify responses.
+     */
+    public void testReceiveSessionModifyResponse() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        VideoProfile fromVideoProfile = new VideoProfile(VideoProfile.STATE_AUDIO_ONLY);
+        VideoProfile toVideoProfile = new VideoProfile(VideoProfile.STATE_BIDIRECTIONAL);
+
+        placeAndVerifyCall(VideoProfile.STATE_AUDIO_ONLY);
+        final MockConnection connection = verifyConnectionForOutgoingCall();
+
+        final MockInCallService inCallService = mInCallCallbacks.getService();
+        final Call call = inCallService.getLastCall();
+        final MockVideoProvider mockVideoProvider = connection.getMockVideoProvider();
+        assertVideoCallbackRegistered(inCallService, call, true);
+
+        final MockVideoCallCallback callback = inCallService.getVideoCallCallback(call);
+
+        mockVideoProvider.sendMockSessionModifyResponse(
+                VideoProvider.SESSION_MODIFY_REQUEST_SUCCESS, fromVideoProfile,
+                toVideoProfile);
+        assertRequestReceived(callback, VideoProvider.SESSION_MODIFY_REQUEST_SUCCESS,
+                fromVideoProfile, toVideoProfile);
+
+        mockVideoProvider.sendMockSessionModifyResponse(
+                VideoProvider.SESSION_MODIFY_REQUEST_FAIL, fromVideoProfile,
+                toVideoProfile);
+        assertRequestReceived(callback, VideoProvider.SESSION_MODIFY_REQUEST_FAIL,
+                fromVideoProfile, toVideoProfile);
+
+        mockVideoProvider.sendMockSessionModifyResponse(
+                VideoProvider.SESSION_MODIFY_REQUEST_INVALID, fromVideoProfile,
+                toVideoProfile);
+        assertRequestReceived(callback, VideoProvider.SESSION_MODIFY_REQUEST_INVALID,
+                fromVideoProfile, toVideoProfile);
+
+        mockVideoProvider.sendMockSessionModifyResponse(
+                VideoProvider.SESSION_MODIFY_REQUEST_REJECTED_BY_REMOTE, fromVideoProfile,
+                toVideoProfile);
+        assertRequestReceived(callback, VideoProvider.SESSION_MODIFY_REQUEST_REJECTED_BY_REMOTE,
+                fromVideoProfile, toVideoProfile);
+
+        mockVideoProvider.sendMockSessionModifyResponse(
+                VideoProvider.SESSION_MODIFY_REQUEST_TIMED_OUT, fromVideoProfile,
+                toVideoProfile);
+        assertRequestReceived(callback, VideoProvider.SESSION_MODIFY_REQUEST_TIMED_OUT,
+                fromVideoProfile, toVideoProfile);
+    }
+
+    /**
      * Tests ability to start a video call, delaying the creation of the provider until after
      * the call has been initiated (rather than immediately when the call is created).  This more
      * closely mimics the lifespan of a {@code VideoProvider} instance as it is reasonable to
@@ -193,8 +247,8 @@ public class VideoCallTest extends BaseTelecomTestWithMockServices {
             // registered.
             assertVideoCallbackRegistered(inCallService, call, false);
 
-            // Trigger delayed creation of video provider and registration of callbacks and assert that
-            // it happened.
+            // Trigger delayed creation of video provider and registration of callbacks and assert
+            // that it happened.
             connection.createMockVideoProvider();
             assertVideoCallbackRegistered(inCallService, call, true);
 
@@ -340,6 +394,56 @@ public class VideoCallTest extends BaseTelecomTestWithMockServices {
                                 Connection.VideoProvider.SESSION_EVENT_CAMERA_READY);
                     }
                 });
+
+        assertCallSessionEventReceived(inCallService.getVideoCallCallback(call),
+                Connection.VideoProvider.SESSION_EVENT_CAMERA_FAILURE,
+                new Work() {
+                    @Override
+                    public void doWork() {
+                        connection.sendMockCallSessionEvent(
+                                Connection.VideoProvider.SESSION_EVENT_CAMERA_FAILURE);
+                    }
+                });
+
+        assertCallSessionEventReceived(inCallService.getVideoCallCallback(call),
+                Connection.VideoProvider.SESSION_EVENT_TX_START,
+                new Work() {
+                    @Override
+                    public void doWork() {
+                        connection.sendMockCallSessionEvent(
+                                Connection.VideoProvider.SESSION_EVENT_TX_START);
+                    }
+                });
+
+        assertCallSessionEventReceived(inCallService.getVideoCallCallback(call),
+                Connection.VideoProvider.SESSION_EVENT_TX_STOP,
+                new Work() {
+                    @Override
+                    public void doWork() {
+                        connection.sendMockCallSessionEvent(
+                                Connection.VideoProvider.SESSION_EVENT_TX_STOP);
+                    }
+                });
+
+        assertCallSessionEventReceived(inCallService.getVideoCallCallback(call),
+                Connection.VideoProvider.SESSION_EVENT_RX_PAUSE,
+                new Work() {
+                    @Override
+                    public void doWork() {
+                        connection.sendMockCallSessionEvent(
+                                Connection.VideoProvider.SESSION_EVENT_RX_PAUSE);
+                    }
+                });
+
+        assertCallSessionEventReceived(inCallService.getVideoCallCallback(call),
+                Connection.VideoProvider.SESSION_EVENT_RX_RESUME,
+                new Work() {
+                    @Override
+                    public void doWork() {
+                        connection.sendMockCallSessionEvent(
+                                Connection.VideoProvider.SESSION_EVENT_RX_RESUME);
+                    }
+                });
     }
 
     /**
@@ -467,6 +571,25 @@ public class VideoCallTest extends BaseTelecomTestWithMockServices {
         assertZoomChanged(mockVideoProvider, 10.0f);
 
         call.disconnect();
+    }
+
+    public void testSetPauseImage() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        placeAndVerifyCall(VideoProfile.STATE_BIDIRECTIONAL);
+        final MockConnection connection = verifyConnectionForOutgoingCall();
+
+        final MockInCallService inCallService = mInCallCallbacks.getService();
+        final Call call = inCallService.getLastCall();
+        assertVideoCallbackRegistered(inCallService, call, true);
+        final MockVideoProvider mockVideoProvider = connection.getMockVideoProvider();
+        final InCallService.VideoCall videoCall = call.getVideoCall();
+
+        final Uri pauseImageUri = Uri.fromParts("file", "test.png", "");
+        videoCall.setPauseImage(pauseImageUri);
+        assertPauseUriChanged(mockVideoProvider, pauseImageUri);
     }
 
     /**
@@ -760,6 +883,31 @@ public class VideoCallTest extends BaseTelecomTestWithMockServices {
     }
 
     /**
+     * Asserts whether the pause image URI has changed to the expected value.
+     *
+     * @param mockVideoProvider The mock video provider.
+     * @param expected The expected URI.
+     */
+    private void assertPauseUriChanged(final MockVideoProvider mockVideoProvider,
+            final Uri expected) {
+        waitUntilConditionIsTrueOrTimeout(
+                new Condition() {
+                    @Override
+                    public Object expected() {
+                        return expected;
+                    }
+
+                    @Override
+                    public Object actual() {
+                        return mockVideoProvider.getPauseImageUri();
+                    }
+                },
+                TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
+                "Pause image URI should be " + expected
+        );
+    }
+
+    /**
      * Asserts whether a response video profile has been received
      *
      * @param videoCallCallback The video call callback.
@@ -838,5 +986,61 @@ public class VideoCallTest extends BaseTelecomTestWithMockServices {
                 TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
                 "Session modify response video state should be " + expected
         );
+    }
+
+    /**
+     * Asserts whether a session modify response has been received with the expected values.
+     *
+     * @param videoCallCallback The video call callback.
+     * @param expectedResponseStatus The expected status.
+     * @param expectedFromProfile The expected from profile.
+     * @param expectedToProfile The expected to profile.
+     */
+    private void assertRequestReceived(final MockVideoCallCallback videoCallCallback,
+            final int expectedResponseStatus, final VideoProfile expectedFromProfile,
+            final VideoProfile expectedToProfile) {
+
+        final String expected = buildRequestString(expectedResponseStatus, expectedFromProfile,
+                expectedToProfile);
+
+        waitUntilConditionIsTrueOrTimeout(
+                new Condition() {
+                    @Override
+                    public Object expected() {
+                        return expected;
+                    }
+
+                    @Override
+                    public Object actual() {
+                        int responseStatus = videoCallCallback.getResponseStatus();
+                        VideoProfile fromProfile = videoCallCallback.getRequestedProfile();
+                        VideoProfile toProfile = videoCallCallback.getResponseProfile();
+                        return buildRequestString(responseStatus, fromProfile, toProfile);
+                    }
+                },
+                TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
+                "Session modify response should match expected."
+        );
+    }
+
+    /**
+     * Creates a string representation of the parameters passed to
+     * {@link android.telecom.InCallService.VideoCall.Callback#onSessionModifyResponseReceived(int,
+     * VideoProfile, VideoProfile)}.
+     *
+     * @param status The status.
+     * @param fromProfile The from profile.
+     * @param toProfile The to profile.
+     * @return String representation.
+     */
+    private String buildRequestString(int status, VideoProfile fromProfile, VideoProfile toProfile) {
+        StringBuilder expectedSb = new StringBuilder();
+        expectedSb.append("Status: ");
+        expectedSb.append(status);
+        expectedSb.append(" From: ");
+        expectedSb.append(fromProfile);
+        expectedSb.append(" To: ");
+        expectedSb.append(toProfile);
+        return expectedSb.toString();
     }
 }

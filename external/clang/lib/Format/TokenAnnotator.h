@@ -59,7 +59,7 @@ public:
       I->Tok->Previous = Current;
       Current = Current->Next;
       Current->Children.clear();
-      for (const auto& Child : Node.Children) {
+      for (const auto &Child : Node.Children) {
         Children.push_back(new AnnotatedLine(Child));
         Current->Children.push_back(Children.back());
       }
@@ -78,6 +78,21 @@ public:
       Current->Role.reset();
       Current = Current->Next;
     }
+  }
+
+  /// \c true if this line starts with the given tokens in order, ignoring
+  /// comments.
+  template <typename... Ts> bool startsWith(Ts... Tokens) const {
+    return startsWith(First, Tokens...);
+  }
+
+  /// \c true if this line looks like a function definition instead of a
+  /// function declaration. Asserts MightBeFunctionDecl.
+  bool mightBeFunctionDefinition() const {
+    assert(MightBeFunctionDecl);
+    // FIXME: Line.Last points to other characters than tok::semi
+    // and tok::lbrace.
+    return !Last->isOneOf(tok::semi, tok::comment);
   }
 
   FormatToken *First;
@@ -107,6 +122,18 @@ private:
   // Disallow copying.
   AnnotatedLine(const AnnotatedLine &) = delete;
   void operator=(const AnnotatedLine &) = delete;
+
+  template <typename A, typename... Ts>
+  bool startsWith(FormatToken *Tok, A K1) const {
+    while (Tok && Tok->is(tok::comment))
+      Tok = Tok->Next;
+    return Tok && Tok->is(K1);
+  }
+
+  template <typename A, typename... Ts>
+  bool startsWith(FormatToken *Tok, A K1, Ts... Tokens) const {
+    return startsWith(Tok, K1) && startsWith(Tok->Next, Tokens...);
+  }
 };
 
 /// \brief Determines extra information about the tokens comprising an
@@ -137,6 +164,8 @@ private:
   bool mustBreakBefore(const AnnotatedLine &Line, const FormatToken &Right);
 
   bool canBreakBefore(const AnnotatedLine &Line, const FormatToken &Right);
+
+  bool mustBreakForReturnType(const AnnotatedLine &Line) const;
 
   void printDebugInfo(const AnnotatedLine &Line);
 

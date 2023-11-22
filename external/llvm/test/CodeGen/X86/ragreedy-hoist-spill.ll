@@ -1,6 +1,6 @@
 ; RUN: llc < %s -mtriple=x86_64-apple-macosx -regalloc=greedy | FileCheck %s
 
-; This testing case is reduced from 254.gap SyFgets funciton.
+; This testing case is reduced from 254.gap SyFgets function.
 ; We make sure a spill is not hoisted to a hotter outer loop.
 
 %struct.TMP.1 = type { %struct.TMP.2*, %struct.TMP.2*, [1024 x i8] }
@@ -30,7 +30,7 @@ if.then:
 if.end:
   switch i64 undef, label %if.end25 [
     i64 0, label %if.then4
-    i64 1, label %land.lhs.true14
+    i64 1, label %if.end25
   ]
 
 if.then4:

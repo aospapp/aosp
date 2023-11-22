@@ -22,6 +22,7 @@
     <string name="mode_deg" msgid="1146123354434332479">"digrii"</string>
     <string name="mode_rad" msgid="1434228830085760996">"rediani"</string>
     <string name="clr" msgid="6730945431543327337">"futa"</string>
+    <string name="cleared" msgid="3952521190281880880">"zimefutwa"</string>
     <string name="del" msgid="5878069000864178910">"futa"</string>
     <string name="desc_const_e" msgid="1889187337970539507">"nambari ya Euler"</string>
     <string name="desc_const_pi" msgid="5430918714009441655">"pi"</string>
@@ -52,7 +53,7 @@
     <string name="desc_switch_deg" msgid="6675211986921592374">"badilisha hadi digrii"</string>
     <string name="desc_switch_rad" msgid="2845875847488919914">"badilisha hadi rediani"</string>
     <string name="desc_eq" msgid="3349320880874699285">"sawa na"</string>
-    <string name="desc_clr" msgid="737502124268890797">"futa"</string>
+    <string name="desc_clr" msgid="737502124268890797">"ondoa"</string>
     <string name="desc_del" msgid="7879515781929311432">"futa"</string>
     <string name="desc_inv_off" msgid="3672218250519616068">"Onyesha chaguo za kukokotoa za kinyume"</string>
     <string name="desc_inv_on" msgid="2515675590767677178">"ficha chaguo za kukokotoa za kinyume"</string>

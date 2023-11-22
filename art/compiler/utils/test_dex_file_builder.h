@@ -21,6 +21,7 @@
 #include <set>
 #include <map>
 #include <vector>
+#include <zlib.h>
 
 #include "base/bit_utils.h"
 #include "base/logging.h"
@@ -87,12 +88,13 @@ class TestDexFileBuilder {
     std::memset(header_data.data, 0, sizeof(header_data.data));
     DexFile::Header* header = reinterpret_cast<DexFile::Header*>(&header_data.data);
     std::copy_n(DexFile::kDexMagic, 4u, header->magic_);
-    std::copy_n(DexFile::kDexMagicVersion, 4u, header->magic_ + 4u);
-    header->header_size_ = sizeof(header);
+    std::copy_n(DexFile::kDexMagicVersions[0], 4u, header->magic_ + 4u);
+    header->header_size_ = sizeof(DexFile::Header);
     header->endian_tag_ = DexFile::kDexEndianConstant;
     header->link_size_ = 0u;  // Unused.
     header->link_off_ = 0u;  // Unused.
-    header->map_off_ = 0u;  // Unused.
+    header->map_off_ = 0u;  // Unused. TODO: This is wrong. Dex files created by this builder
+                            //               cannot be verified. b/26808512
 
     uint32_t data_section_size = 0u;
 
@@ -161,7 +163,6 @@ class TestDexFileBuilder {
     uint32_t total_size = data_section_offset + data_section_size;
 
     dex_file_data_.resize(total_size);
-    std::memcpy(&dex_file_data_[0], header_data.data, sizeof(DexFile::Header));
 
     for (const auto& entry : strings_) {
       CHECK_LT(entry.first.size(), 128u);
@@ -210,13 +211,27 @@ class TestDexFileBuilder {
       Write32(raw_offset + 4u, GetStringIdx(entry.first.name));
     }
 
-    // Leave checksum and signature as zeros.
+    // Leave signature as zeros.
+
+    header->file_size_ = dex_file_data_.size();
+
+    // Write the complete header early, as part of it needs to be checksummed.
+    std::memcpy(&dex_file_data_[0], header_data.data, sizeof(DexFile::Header));
+
+    // Checksum starts after the checksum field.
+    size_t skip = sizeof(header->magic_) + sizeof(header->checksum_);
+    header->checksum_ = adler32(adler32(0L, Z_NULL, 0),
+                                dex_file_data_.data() + skip,
+                                dex_file_data_.size() - skip);
+
+    // Write the complete header again, just simpler that way.
+    std::memcpy(&dex_file_data_[0], header_data.data, sizeof(DexFile::Header));
 
     std::string error_msg;
     std::unique_ptr<const DexFile> dex_file(DexFile::Open(
-        &dex_file_data_[0], dex_file_data_.size(), dex_location, 0u, nullptr, &error_msg));
+        &dex_file_data_[0], dex_file_data_.size(), dex_location, 0u, nullptr, false, &error_msg));
     CHECK(dex_file != nullptr) << error_msg;
-    return std::move(dex_file);
+    return dex_file;
   }
 
   uint32_t GetStringIdx(const std::string& type) {

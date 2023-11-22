@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package android.midi.cts;
 
 import android.content.Context;
@@ -49,19 +50,26 @@ public class MidiEchoTest extends AndroidTestCase {
     private static final long TIMESTAMP_DATA_MASK = 0x00000000FFFFFFFFL;
     private static final long NANOS_PER_MSEC = 1000L * 1000L;
 
+    // On a fast device in 2016, the test fails if timeout is 3 but works if it is 4.
+    // So this timeout value is very generous.
+    private static final int TIMEOUT_OPEN_MSEC = 1000; // arbitrary
+    // On a fast device in 2016, the test fails if timeout is 0 but works if it is 1.
+    // So this timeout value is very generous.
+    private static final int TIMEOUT_STATUS_MSEC = 500; // arbitrary
+
     // Store device and ports related to the Echo service.
     static class MidiTestContext {
         MidiDeviceInfo echoInfo;
-        MidiDevice     echoDevice;
-        MidiInputPort  echoInputPort;
+        MidiDevice echoDevice;
+        MidiInputPort echoInputPort;
         MidiOutputPort echoOutputPort;
     }
 
     // Store complete MIDI message so it can be put in an array.
     static class MidiMessage {
         public final byte[] data;
-        public final long   timestamp;
-        public final long   timeReceived;
+        public final long timestamp;
+        public final long timeReceived;
 
         MidiMessage(byte[] buffer, int offset, int length, long timestamp) {
             timeReceived = System.nanoTime();
@@ -84,7 +92,12 @@ public class MidiEchoTest extends AndroidTestCase {
 
         public synchronized MidiDevice waitForOpen(int msec)
                 throws InterruptedException {
-            wait(msec);
+            long deadline = System.currentTimeMillis() + msec;
+            long timeRemaining = msec;
+            while (mDevice == null && timeRemaining > 0) {
+                wait(timeRemaining);
+                timeRemaining = deadline - System.currentTimeMillis();
+            }
             return mDevice;
         }
     }
@@ -109,8 +122,8 @@ public class MidiEchoTest extends AndroidTestCase {
         }
 
         /**
-         * Wait until count messages have arrived.
-         * This is a cumulative total.
+         * Wait until count messages have arrived. This is a cumulative total.
+         *
          * @param count
          * @param timeoutMs
          * @throws InterruptedException
@@ -170,8 +183,7 @@ public class MidiEchoTest extends AndroidTestCase {
         // Open device.
         MyTestOpenCallback callback = new MyTestOpenCallback();
         midiManager.openDevice(echoInfo, callback, null);
-        int timeoutMs = 1000;
-        MidiDevice echoDevice = callback.waitForOpen(timeoutMs);
+        MidiDevice echoDevice = callback.waitForOpen(TIMEOUT_OPEN_MSEC);
         assertTrue("could not open " + ECHO_PRODUCT, echoDevice != null);
 
         // Query echo service directly to see if it is getting status updates.
@@ -325,7 +337,9 @@ public class MidiEchoTest extends AndroidTestCase {
         MyLoggingReceiver receiver = new MyLoggingReceiver();
         mc.echoOutputPort.connect(receiver);
 
-        final byte[] buffer = { (byte) 0x93, 0x47, 0x52 };
+        final byte[] buffer = {
+                (byte) 0x93, 0x47, 0x52
+        };
         long timestamp = 0x0123765489ABFEDCL;
 
         mc.echoInputPort.send(buffer, 0, 0, timestamp); // should be a NOOP
@@ -365,7 +379,9 @@ public class MidiEchoTest extends AndroidTestCase {
 
         final int numMessages = 10;
         final long maxLatencyNanos = 15 * NANOS_PER_MSEC; // generally < 3 msec on N6
-        byte[] buffer = { (byte) 0x93, 0, 64 };
+        byte[] buffer = {
+                (byte) 0x93, 0, 64
+        };
 
         // Send multiple messages in a burst.
         for (int index = 0; index < numMessages; index++) {
@@ -386,7 +402,8 @@ public class MidiEchoTest extends AndroidTestCase {
             long elapsedNanos = message.timeReceived - message.timestamp;
             // If this test fails then there may be a problem with the thread scheduler
             // or there may be kernel activity that is blocking execution at the user level.
-            assertTrue("MIDI round trip latency[" + index + "] too large, " + elapsedNanos + " nanoseconds",
+            assertTrue("MIDI round trip latency[" + index + "] too large, " + elapsedNanos
+                    + " nanoseconds",
                     (elapsedNanos < maxLatencyNanos));
         }
 
@@ -414,8 +431,7 @@ public class MidiEchoTest extends AndroidTestCase {
 
         // Send various length messages with sequential bytes.
         long timestamp = TIMESTAMP_MARKER;
-        for (int messageIndex = 0; messageIndex < numMessages;
-                messageIndex++) {
+        for (int messageIndex = 0; messageIndex < numMessages; messageIndex++) {
             // Sweep numData across critical region of
             // MidiPortImpl.MAX_PACKET_DATA_SIZE
             int numData = 1000 + messageIndex;
@@ -481,5 +497,99 @@ public class MidiEchoTest extends AndroidTestCase {
         assertTrue("input port opened twice", echoInputPort2 == null);
 
         tearDownEchoServer(mc);
+    }
+
+    // Store history of status changes.
+    private class MyDeviceCallback extends MidiManager.DeviceCallback {
+        private MidiDeviceStatus mStatus;
+        private MidiDeviceInfo mInfo;
+
+        public MyDeviceCallback(MidiDeviceInfo info) {
+            mInfo = info;
+        }
+
+        @Override
+        public synchronized void onDeviceStatusChanged(MidiDeviceStatus status) {
+            super.onDeviceStatusChanged(status);
+            // Filter out status reports from unrelated devices.
+            if (mInfo.equals(status.getDeviceInfo())) {
+                mStatus = status;
+                notifyAll();
+            }
+        }
+
+        // Wait for a timeout or a notify().
+        // Return status message or a null if it times out.
+        public synchronized MidiDeviceStatus waitForStatus(int msec)
+                throws InterruptedException {
+            long deadline = System.currentTimeMillis() + msec;
+            long timeRemaining = msec;
+            while (mStatus == null && timeRemaining > 0) {
+                wait(timeRemaining);
+                timeRemaining = deadline - System.currentTimeMillis();
+            }
+            return mStatus;
+        }
+
+
+        public synchronized void clear() {
+            mStatus = null;
+        }
+    }
+
+    // Test callback for onDeviceStatusChanged().
+    public void testDeviceCallback() throws Exception {
+
+        PackageManager pm = mContext.getPackageManager();
+        if (!pm.hasSystemFeature(PackageManager.FEATURE_MIDI)) {
+            return; // Not supported so don't test it.
+        }
+        MidiManager midiManager = (MidiManager) mContext.getSystemService(
+                Context.MIDI_SERVICE);
+
+        MidiDeviceInfo echoInfo = findEchoDevice();
+
+        // Open device.
+        MyTestOpenCallback callback = new MyTestOpenCallback();
+        midiManager.openDevice(echoInfo, callback, null);
+        MidiDevice echoDevice = callback.waitForOpen(TIMEOUT_OPEN_MSEC);
+        assertTrue("could not open " + ECHO_PRODUCT, echoDevice != null);
+        MyDeviceCallback deviceCallback = new MyDeviceCallback(echoInfo);
+        try {
+
+            midiManager.registerDeviceCallback(deviceCallback, null);
+
+            MidiDeviceStatus status = deviceCallback.waitForStatus(TIMEOUT_STATUS_MSEC);
+            assertEquals("we should not have any status yet", null, status);
+
+            // Open input port.
+            MidiInputPort echoInputPort = echoDevice.openInputPort(0);
+            assertTrue("could not open input port", echoInputPort != null);
+
+            status = deviceCallback.waitForStatus(TIMEOUT_STATUS_MSEC);
+            assertTrue("should have status by now", null != status);
+            assertEquals("input port open?", true, status.isInputPortOpen(0));
+
+            deviceCallback.clear();
+            echoInputPort.close();
+            status = deviceCallback.waitForStatus(TIMEOUT_STATUS_MSEC);
+            assertTrue("should have status by now", null != status);
+            assertEquals("input port closed?", false, status.isInputPortOpen(0));
+
+            // Make sure we do NOT get called after unregistering.
+            midiManager.unregisterDeviceCallback(deviceCallback);
+            deviceCallback.clear();
+            echoInputPort = echoDevice.openInputPort(0);
+            assertTrue("could not open input port", echoInputPort != null);
+
+            status = deviceCallback.waitForStatus(TIMEOUT_STATUS_MSEC);
+            assertEquals("should not get status after unregistering", null, status);
+
+            echoInputPort.close();
+        } finally {
+            // Safe to call twice.
+            midiManager.unregisterDeviceCallback(deviceCallback);
+            echoDevice.close();
+        }
     }
 }

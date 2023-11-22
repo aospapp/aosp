@@ -308,10 +308,11 @@ public class MmsSmsProvider extends ContentProvider {
     @Override
     public boolean onCreate() {
         setAppOps(AppOpsManager.OP_READ_SMS, AppOpsManager.OP_WRITE_SMS);
-        mOpenHelper = MmsSmsDatabaseHelper.getInstance(getContext());
+        mOpenHelper = MmsSmsDatabaseHelper.getInstanceForCe(getContext());
         mUseStrictPhoneNumberComparation =
             getContext().getResources().getBoolean(
                     com.android.internal.R.bool.config_use_strict_phone_number_comparation);
+        TelephonyBackupAgent.DeferredSmsMmsRestoreService.startIfFilesExist(getContext());
         return true;
     }
 

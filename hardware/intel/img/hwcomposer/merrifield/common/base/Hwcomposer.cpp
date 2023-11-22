@@ -81,6 +81,8 @@ bool Hwcomposer::prepare(size_t numDisplays,
             VTRACE("device %d doesn't exist", i);
             continue;
         }
+		if (device->getType() != IDisplayDevice::DEVICE_PRIMARY)
+			continue;
 
         device->prePrepare(displays[i]);
     }
@@ -91,6 +93,9 @@ bool Hwcomposer::prepare(size_t numDisplays,
             VTRACE("device %d doesn't exist", i);
             continue;
         }
+
+		if (device->getType() != IDisplayDevice::DEVICE_PRIMARY)
+			continue;
 
         ret = device->prepare(displays[i]);
         if (ret == false) {
@@ -131,6 +136,9 @@ bool Hwcomposer::commit(size_t numDisplays,
             VTRACE("device %d is disconnected", i);
             continue;
         }
+
+		if (device->getType() != IDisplayDevice::DEVICE_PRIMARY)
+			continue;
 
         ret = device->commit(displays[i], mDisplayContext);
         if (ret == false) {

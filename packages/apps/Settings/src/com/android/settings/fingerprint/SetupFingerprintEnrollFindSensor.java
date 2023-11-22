@@ -18,9 +18,11 @@ package com.android.settings.fingerprint;
 
 import android.content.Intent;
 import android.content.res.Resources;
+import android.os.UserHandle;
 import android.view.View;
 import android.widget.Button;
 
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.ChooseLockSettingsHelper;
 import com.android.settings.R;
 import com.android.settings.SetupWizardUtils;
@@ -30,9 +32,17 @@ public class SetupFingerprintEnrollFindSensor extends FingerprintEnrollFindSenso
         implements NavigationBar.NavigationBarListener {
 
     @Override
+    protected int getContentView() {
+        return R.layout.setup_fingerprint_enroll_find_sensor;
+    }
+
+    @Override
     protected Intent getEnrollingIntent() {
         Intent intent = new Intent(this, SetupFingerprintEnrollEnrolling.class);
         intent.putExtra(ChooseLockSettingsHelper.EXTRA_KEY_CHALLENGE_TOKEN, mToken);
+        if (mUserId != UserHandle.USER_NULL) {
+            intent.putExtra(Intent.EXTRA_USER_ID, mUserId);
+        }
         SetupWizardUtils.copySetupExtras(getIntent(), intent);
         return intent;
     }
@@ -69,5 +79,10 @@ public class SetupFingerprintEnrollFindSensor extends FingerprintEnrollFindSenso
     @Override
     public void onNavigateNext() {
         onNextButtonClick();
+    }
+
+    @Override
+    protected int getMetricsCategory() {
+        return MetricsEvent.FINGERPRINT_FIND_SENSOR_SETUP;
     }
 }

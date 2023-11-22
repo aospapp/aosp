@@ -22,6 +22,24 @@ include Makefile.sources
 
 ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
 
+AM_DISTCHECK_CONFIGURE_FLAGS = \
+	--enable-udev \
+	--enable-libkms \
+	--enable-intel \
+	--enable-radeon \
+	--enable-amdgpu \
+	--enable-nouveau \
+	--enable-vmwgfx \
+	--enable-omap-experimental-api \
+	--enable-exynos-experimental-api \
+	--enable-freedreno \
+	--enable-freedreno-kgsl\
+	--enable-tegra-experimental-api \
+	--enable-install-test-programs \
+	--enable-cairo-tests \
+	--enable-manpages \
+	--enable-valgrind
+
 pkgconfigdir = @pkgconfigdir@
 pkgconfig_DATA = libdrm.pc
 
@@ -41,6 +59,10 @@ if HAVE_RADEON
 RADEON_SUBDIR = radeon
 endif
 
+if HAVE_AMDGPU
+AMDGPU_SUBDIR = amdgpu
+endif
+
 if HAVE_OMAP
 OMAP_SUBDIR = omap
 endif
@@ -57,19 +79,39 @@ if HAVE_TEGRA
 TEGRA_SUBDIR = tegra
 endif
 
+if BUILD_MANPAGES
+if HAVE_MANPAGES_STYLESHEET
+MAN_SUBDIR = man
+endif
+endif
+
 if HAVE_ROCKCHIP
 ROCKCHIP_SUBDIR = rockchip
 endif
 
-SUBDIRS = . $(LIBKMS_SUBDIR) $(INTEL_SUBDIR) $(NOUVEAU_SUBDIR) $(RADEON_SUBDIR) $(OMAP_SUBDIR) $(EXYNOS_SUBDIR) $(FREEDRENO_SUBDIR) $(TEGRA_SUBDIR) $(ROCKCHIP_SUBDIR) tests man
+SUBDIRS = \
+	. \
+	$(LIBKMS_SUBDIR) \
+	$(INTEL_SUBDIR) \
+	$(NOUVEAU_SUBDIR) \
+	$(RADEON_SUBDIR) \
+	$(AMDGPU_SUBDIR) \
+	$(OMAP_SUBDIR) \
+	$(EXYNOS_SUBDIR) \
+	$(FREEDRENO_SUBDIR) \
+	$(TEGRA_SUBDIR) \
+	tests \
+	$(MAN_SUBDIR) \
+	$(ROCKCHIP_SUBDIR)
 
 libdrm_la_LTLIBRARIES = libdrm.la
 libdrm_ladir = $(libdir)
 libdrm_la_LDFLAGS = -version-number 2:4:0 -no-undefined
-libdrm_la_LIBADD = @CLOCK_LIB@
+libdrm_la_LIBADD = @CLOCK_LIB@ -lm
 
 libdrm_la_CPPFLAGS = -I$(top_srcdir)/include/drm
 AM_CFLAGS = \
+	$(WARN_CFLAGS) \
 	$(VALGRIND_CFLAGS)
 
 libdrm_la_SOURCES = $(LIBDRM_FILES)

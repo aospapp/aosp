@@ -67,12 +67,20 @@ class AssemblerTestInfrastructure {
 
   // This is intended to be run as a test.
   bool CheckTools() {
-    if (!FileExists(FindTool(assembler_cmd_name_))) {
+    std::string asm_tool = FindTool(assembler_cmd_name_);
+    if (!FileExists(asm_tool)) {
+      LOG(ERROR) << "Could not find assembler from " << assembler_cmd_name_;
+      LOG(ERROR) << "FindTool returned " << asm_tool;
+      FindToolDump(assembler_cmd_name_);
       return false;
     }
     LOG(INFO) << "Chosen assembler command: " << GetAssemblerCommand();
 
-    if (!FileExists(FindTool(objdump_cmd_name_))) {
+    std::string objdump_tool = FindTool(objdump_cmd_name_);
+    if (!FileExists(objdump_tool)) {
+      LOG(ERROR) << "Could not find objdump from " << objdump_cmd_name_;
+      LOG(ERROR) << "FindTool returned " << objdump_tool;
+      FindToolDump(objdump_cmd_name_);
       return false;
     }
     LOG(INFO) << "Chosen objdump command: " << GetObjdumpCommand();
@@ -80,7 +88,11 @@ class AssemblerTestInfrastructure {
     // Disassembly is optional.
     std::string disassembler = GetDisassembleCommand();
     if (disassembler.length() != 0) {
-      if (!FileExists(FindTool(disassembler_cmd_name_))) {
+      std::string disassembler_tool = FindTool(disassembler_cmd_name_);
+      if (!FileExists(disassembler_tool)) {
+        LOG(ERROR) << "Could not find disassembler from " << disassembler_cmd_name_;
+        LOG(ERROR) << "FindTool returned " << disassembler_tool;
+        FindToolDump(disassembler_cmd_name_);
         return false;
       }
       LOG(INFO) << "Chosen disassemble command: " << GetDisassembleCommand();
@@ -216,9 +228,9 @@ class AssemblerTestInfrastructure {
 
     bool success = Exec(args, error_msg);
     if (!success) {
-      LOG(INFO) << "Assembler command line:";
+      LOG(ERROR) << "Assembler command line:";
       for (std::string arg : args) {
-        LOG(INFO) << arg;
+        LOG(ERROR) << arg;
       }
     }
     return success;
@@ -493,7 +505,7 @@ class AssemblerTestInfrastructure {
     std::string error_msg;
     if (!Exec(args, &error_msg)) {
       EXPECT_TRUE(false) << error_msg;
-      return "";
+      UNREACHABLE();
     }
 
     std::ifstream in(tmp_file.c_str());
@@ -506,6 +518,54 @@ class AssemblerTestInfrastructure {
     in.close();
     std::remove(tmp_file.c_str());
     return line;
+  }
+
+  // Helper for below. If name_predicate is empty, search for all files, otherwise use it for the
+  // "-name" option.
+  static void FindToolDumpPrintout(std::string name_predicate, std::string tmp_file) {
+    std::string gcc_path = GetRootPath() + GetGCCRootPath();
+    std::vector<std::string> args;
+    args.push_back("find");
+    args.push_back(gcc_path);
+    if (!name_predicate.empty()) {
+      args.push_back("-name");
+      args.push_back(name_predicate);
+    }
+    args.push_back("|");
+    args.push_back("sort");
+    args.push_back(">");
+    args.push_back(tmp_file);
+    std::string sh_args = Join(args, ' ');
+
+    args.clear();
+    args.push_back("/bin/sh");
+    args.push_back("-c");
+    args.push_back(sh_args);
+
+    std::string error_msg;
+    if (!Exec(args, &error_msg)) {
+      EXPECT_TRUE(false) << error_msg;
+      UNREACHABLE();
+    }
+
+    LOG(ERROR) << "FindToolDump: gcc_path=" << gcc_path
+               << " cmd=" << sh_args;
+    std::ifstream in(tmp_file.c_str());
+    if (in) {
+      std::string line;
+      while (std::getline(in, line)) {
+        LOG(ERROR) << line;
+      }
+    }
+    in.close();
+    std::remove(tmp_file.c_str());
+  }
+
+  // For debug purposes.
+  void FindToolDump(std::string tool_name) {
+    // Check with the tool name.
+    FindToolDumpPrintout(architecture_string_ + "*" + tool_name, GetTmpnam());
+    FindToolDumpPrintout("", GetTmpnam());
   }
 
   // Use a consistent tmpnam, so store it.

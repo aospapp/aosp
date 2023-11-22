@@ -23,16 +23,19 @@
 #include "base/unix_file/fd_file.h"
 #include "class_linker-inl.h"
 #include "common_compiler_test.h"
+#include "debug/method_debug_info.h"
+#include "driver/compiler_options.h"
 #include "elf_writer.h"
+#include "elf_writer_quick.h"
 #include "gc/space/image_space.h"
 #include "image_writer.h"
+#include "linker/multi_oat_relative_patcher.h"
 #include "lock_word.h"
 #include "mirror/object-inl.h"
 #include "oat_writer.h"
 #include "scoped_thread_state_change.h"
 #include "signal_catcher.h"
 #include "utils.h"
-#include "vector_output_stream.h"
 
 namespace art {
 
@@ -42,9 +45,21 @@ class ImageTest : public CommonCompilerTest {
     ReserveImageSpace();
     CommonCompilerTest::SetUp();
   }
+  void TestWriteRead(ImageHeader::StorageMode storage_mode);
 };
 
-TEST_F(ImageTest, WriteRead) {
+void ImageTest::TestWriteRead(ImageHeader::StorageMode storage_mode) {
+  CreateCompilerDriver(Compiler::kOptimizing, kRuntimeISA, kIsTargetBuild ? 2U : 16U);
+
+  // Set inline filter values.
+  compiler_options_->SetInlineDepthLimit(CompilerOptions::kDefaultInlineDepthLimit);
+  compiler_options_->SetInlineMaxCodeUnits(CompilerOptions::kDefaultInlineMaxCodeUnits);
+
+  ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
+  // Enable write for dex2dex.
+  for (const DexFile* dex_file : class_linker->GetBootClassPath()) {
+    dex_file->EnableWrite();
+  }
   // Create a generic location tmp file, to be the base of the .art and .oat temporary files.
   ScratchFile location;
   ScratchFile image_location(location, ".art");
@@ -63,30 +78,93 @@ TEST_F(ImageTest, WriteRead) {
   ScratchFile oat_file(OS::CreateEmptyFile(oat_filename.c_str()));
 
   const uintptr_t requested_image_base = ART_BASE_ADDRESS;
-  std::unique_ptr<ImageWriter> writer(new ImageWriter(*compiler_driver_, requested_image_base,
-                                                      /*compile_pic*/false));
+  std::unordered_map<const DexFile*, size_t> dex_file_to_oat_index_map;
+  std::vector<const char*> oat_filename_vector(1, oat_filename.c_str());
+  for (const DexFile* dex_file : class_linker->GetBootClassPath()) {
+    dex_file_to_oat_index_map.emplace(dex_file, 0);
+  }
+  std::unique_ptr<ImageWriter> writer(new ImageWriter(*compiler_driver_,
+                                                      requested_image_base,
+                                                      /*compile_pic*/false,
+                                                      /*compile_app_image*/false,
+                                                      storage_mode,
+                                                      oat_filename_vector,
+                                                      dex_file_to_oat_index_map));
   // TODO: compile_pic should be a test argument.
   {
     {
       jobject class_loader = nullptr;
-      ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
       TimingLogger timings("ImageTest::WriteRead", false, false);
       TimingLogger::ScopedTiming t("CompileAll", &timings);
-      for (const DexFile* dex_file : class_linker->GetBootClassPath()) {
-        dex_file->EnableWrite();
-      }
+      compiler_driver_->SetDexFilesForOatFile(class_linker->GetBootClassPath());
       compiler_driver_->CompileAll(class_loader, class_linker->GetBootClassPath(), &timings);
 
       t.NewTiming("WriteElf");
       SafeMap<std::string, std::string> key_value_store;
-      OatWriter oat_writer(class_linker->GetBootClassPath(), 0, 0, 0, compiler_driver_.get(),
-                           writer.get(), &timings, &key_value_store);
-      bool success = writer->PrepareImageAddressSpace() &&
-          compiler_driver_->WriteElf(GetTestAndroidRoot(),
-                                     !kIsTargetBuild,
-                                     class_linker->GetBootClassPath(),
-                                     &oat_writer,
-                                     oat_file.GetFile());
+      const std::vector<const DexFile*>& dex_files = class_linker->GetBootClassPath();
+      std::unique_ptr<ElfWriter> elf_writer = CreateElfWriterQuick(
+          compiler_driver_->GetInstructionSet(),
+          compiler_driver_->GetInstructionSetFeatures(),
+          &compiler_driver_->GetCompilerOptions(),
+          oat_file.GetFile());
+      elf_writer->Start();
+      OatWriter oat_writer(/*compiling_boot_image*/true, &timings);
+      OutputStream* rodata = elf_writer->StartRoData();
+      for (const DexFile* dex_file : dex_files) {
+        ArrayRef<const uint8_t> raw_dex_file(
+            reinterpret_cast<const uint8_t*>(&dex_file->GetHeader()),
+            dex_file->GetHeader().file_size_);
+        oat_writer.AddRawDexFileSource(raw_dex_file,
+                                       dex_file->GetLocation().c_str(),
+                                       dex_file->GetLocationChecksum());
+      }
+      std::unique_ptr<MemMap> opened_dex_files_map;
+      std::vector<std::unique_ptr<const DexFile>> opened_dex_files;
+      bool dex_files_ok = oat_writer.WriteAndOpenDexFiles(
+          rodata,
+          oat_file.GetFile(),
+          compiler_driver_->GetInstructionSet(),
+          compiler_driver_->GetInstructionSetFeatures(),
+          &key_value_store,
+          /* verify */ false,           // Dex files may be dex-to-dex-ed, don't verify.
+          &opened_dex_files_map,
+          &opened_dex_files);
+      ASSERT_TRUE(dex_files_ok);
+
+      bool image_space_ok = writer->PrepareImageAddressSpace();
+      ASSERT_TRUE(image_space_ok);
+
+      linker::MultiOatRelativePatcher patcher(compiler_driver_->GetInstructionSet(),
+                                              instruction_set_features_.get());
+      oat_writer.PrepareLayout(compiler_driver_.get(), writer.get(), dex_files, &patcher);
+      size_t rodata_size = oat_writer.GetOatHeader().GetExecutableOffset();
+      size_t text_size = oat_writer.GetSize() - rodata_size;
+      elf_writer->SetLoadedSectionSizes(rodata_size, text_size, oat_writer.GetBssSize());
+
+      writer->UpdateOatFileLayout(/* oat_index */ 0u,
+                                  elf_writer->GetLoadedSize(),
+                                  oat_writer.GetOatDataOffset(),
+                                  oat_writer.GetSize());
+
+      bool rodata_ok = oat_writer.WriteRodata(rodata);
+      ASSERT_TRUE(rodata_ok);
+      elf_writer->EndRoData(rodata);
+
+      OutputStream* text = elf_writer->StartText();
+      bool text_ok = oat_writer.WriteCode(text);
+      ASSERT_TRUE(text_ok);
+      elf_writer->EndText(text);
+
+      bool header_ok = oat_writer.WriteHeader(elf_writer->GetStream(), 0u, 0u, 0u);
+      ASSERT_TRUE(header_ok);
+
+      writer->UpdateOatFileHeader(/* oat_index */ 0u, oat_writer.GetOatHeader());
+
+      elf_writer->WriteDynamicSection();
+      elf_writer->WriteDebugInfo(oat_writer.GetMethodDebugInfo());
+      elf_writer->WritePatchLocations(oat_writer.GetAbsolutePatchLocations());
+
+      bool success = elf_writer->End();
       ASSERT_TRUE(success);
     }
   }
@@ -95,10 +173,14 @@ TEST_F(ImageTest, WriteRead) {
   ASSERT_TRUE(dup_oat.get() != nullptr);
 
   {
-    bool success_image =
-        writer->Write(image_file.GetFilename(), dup_oat->GetPath(), dup_oat->GetPath());
+    std::vector<const char*> dup_oat_filename(1, dup_oat->GetPath().c_str());
+    std::vector<const char*> dup_image_filename(1, image_file.GetFilename().c_str());
+    bool success_image = writer->Write(kInvalidFd,
+                                       dup_image_filename,
+                                       dup_oat_filename);
     ASSERT_TRUE(success_image);
-    bool success_fixup = ElfWriter::Fixup(dup_oat.get(), writer->GetOatDataBegin());
+    bool success_fixup = ElfWriter::Fixup(dup_oat.get(),
+                                          writer->GetOatDataBegin(0));
     ASSERT_TRUE(success_fixup);
 
     ASSERT_EQ(dup_oat->FlushCloseOrErase(), 0) << "Could not flush and close oat file "
@@ -117,7 +199,7 @@ TEST_F(ImageTest, WriteRead) {
     ASSERT_NE(0U, bitmap_section.Size());
 
     gc::Heap* heap = Runtime::Current()->GetHeap();
-    ASSERT_TRUE(!heap->GetContinuousSpaces().empty());
+    ASSERT_TRUE(heap->HaveContinuousSpaces());
     gc::space::ContinuousSpace* space = heap->GetNonMovingSpace();
     ASSERT_FALSE(space->IsImageSpace());
     ASSERT_TRUE(space != nullptr);
@@ -143,7 +225,7 @@ TEST_F(ImageTest, WriteRead) {
   java_lang_dex_file_ = nullptr;
 
   MemMap::Init();
-  std::unique_ptr<const DexFile> dex(LoadExpectSingleDexFile(GetLibCoreDexFileName().c_str()));
+  std::unique_ptr<const DexFile> dex(LoadExpectSingleDexFile(GetLibCoreDexFileNames()[0].c_str()));
 
   RuntimeOptions options;
   std::string image("-Ximage:");
@@ -165,12 +247,19 @@ TEST_F(ImageTest, WriteRead) {
   class_linker_ = runtime_->GetClassLinker();
 
   gc::Heap* heap = Runtime::Current()->GetHeap();
-  ASSERT_TRUE(heap->HasImageSpace());
+  ASSERT_TRUE(heap->HasBootImageSpace());
   ASSERT_TRUE(heap->GetNonMovingSpace()->IsMallocSpace());
 
-  gc::space::ImageSpace* image_space = heap->GetImageSpace();
+  // We loaded the runtime with an explicit image, so it must exist.
+  gc::space::ImageSpace* image_space = heap->GetBootImageSpaces()[0];
   ASSERT_TRUE(image_space != nullptr);
-  ASSERT_LE(image_space->Size(), image_file_size);
+  if (storage_mode == ImageHeader::kStorageModeUncompressed) {
+    // Uncompressed, image should be smaller than file.
+    ASSERT_LE(image_space->Size(), image_file_size);
+  } else {
+    // Compressed, file should be smaller than image.
+    ASSERT_LE(image_file_size, image_space->Size());
+  }
 
   image_space->VerifyImageAllocations();
   uint8_t* image_begin = image_space->Begin();
@@ -198,6 +287,19 @@ TEST_F(ImageTest, WriteRead) {
   CHECK_EQ(0, rmdir_result);
 }
 
+TEST_F(ImageTest, WriteReadUncompressed) {
+  TestWriteRead(ImageHeader::kStorageModeUncompressed);
+}
+
+TEST_F(ImageTest, WriteReadLZ4) {
+  TestWriteRead(ImageHeader::kStorageModeLZ4);
+}
+
+TEST_F(ImageTest, WriteReadLZ4HC) {
+  TestWriteRead(ImageHeader::kStorageModeLZ4HC);
+}
+
+
 TEST_F(ImageTest, ImageHeaderIsValid) {
     uint32_t image_begin = ART_BASE_ADDRESS;
     uint32_t image_size_ = 16 * KB;
@@ -217,9 +319,17 @@ TEST_F(ImageTest, ImageHeaderIsValid) {
                              oat_data_begin,
                              oat_data_end,
                              oat_file_end,
+                             /*boot_image_begin*/0U,
+                             /*boot_image_size*/0U,
+                             /*boot_oat_begin*/0U,
+                             /*boot_oat_size_*/0U,
                              sizeof(void*),
-                             /*compile_pic*/false);
+                             /*compile_pic*/false,
+                             /*is_pic*/false,
+                             ImageHeader::kDefaultStorageMode,
+                             /*data_size*/0u);
     ASSERT_TRUE(image_header.IsValid());
+    ASSERT_TRUE(!image_header.IsAppImage());
 
     char* magic = const_cast<char*>(image_header.GetMagic());
     strcpy(magic, "");  // bad magic

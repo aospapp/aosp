@@ -4,19 +4,19 @@ package android.support.design.widget {
     ctor public AppBarLayout(android.content.Context);
     ctor public AppBarLayout(android.content.Context, android.util.AttributeSet);
     method public void addOnOffsetChangedListener(android.support.design.widget.AppBarLayout.OnOffsetChangedListener);
-    method public float getTargetElevation();
+    method public deprecated float getTargetElevation();
     method public final int getTotalScrollRange();
     method public void removeOnOffsetChangedListener(android.support.design.widget.AppBarLayout.OnOffsetChangedListener);
     method public void setExpanded(boolean);
     method public void setExpanded(boolean, boolean);
-    method public void setTargetElevation(float);
+    method public deprecated void setTargetElevation(float);
   }
 
-  public static class AppBarLayout.Behavior extends android.support.design.widget.ViewOffsetBehavior {
+  public static class AppBarLayout.Behavior extends android.support.design.widget.HeaderBehavior {
     ctor public AppBarLayout.Behavior();
     ctor public AppBarLayout.Behavior(android.content.Context, android.util.AttributeSet);
-    method public boolean onInterceptTouchEvent(android.support.design.widget.CoordinatorLayout, android.support.design.widget.AppBarLayout, android.view.MotionEvent);
     method public boolean onLayoutChild(android.support.design.widget.CoordinatorLayout, android.support.design.widget.AppBarLayout, int);
+    method public boolean onMeasureChild(android.support.design.widget.CoordinatorLayout, android.support.design.widget.AppBarLayout, int, int, int, int);
     method public boolean onNestedFling(android.support.design.widget.CoordinatorLayout, android.support.design.widget.AppBarLayout, android.view.View, float, float, boolean);
     method public void onNestedPreScroll(android.support.design.widget.CoordinatorLayout, android.support.design.widget.AppBarLayout, android.view.View, int, int, int[]);
     method public void onNestedScroll(android.support.design.widget.CoordinatorLayout, android.support.design.widget.AppBarLayout, android.view.View, int, int, int, int);
@@ -24,11 +24,16 @@ package android.support.design.widget {
     method public android.os.Parcelable onSaveInstanceState(android.support.design.widget.CoordinatorLayout, android.support.design.widget.AppBarLayout);
     method public boolean onStartNestedScroll(android.support.design.widget.CoordinatorLayout, android.support.design.widget.AppBarLayout, android.view.View, android.view.View, int);
     method public void onStopNestedScroll(android.support.design.widget.CoordinatorLayout, android.support.design.widget.AppBarLayout, android.view.View);
-    method public boolean onTouchEvent(android.support.design.widget.CoordinatorLayout, android.support.design.widget.AppBarLayout, android.view.MotionEvent);
+    method public void setDragCallback(android.support.design.widget.AppBarLayout.Behavior.DragCallback);
   }
 
-  protected static class AppBarLayout.Behavior.SavedState extends android.view.View.BaseSavedState {
-    ctor public AppBarLayout.Behavior.SavedState(android.os.Parcel);
+  public static abstract class AppBarLayout.Behavior.DragCallback {
+    ctor public AppBarLayout.Behavior.DragCallback();
+    method public abstract boolean canDrag(android.support.design.widget.AppBarLayout);
+  }
+
+  protected static class AppBarLayout.Behavior.SavedState extends android.support.v4.view.AbsSavedState {
+    ctor public AppBarLayout.Behavior.SavedState(android.os.Parcel, java.lang.ClassLoader);
     ctor public AppBarLayout.Behavior.SavedState(android.os.Parcelable);
     field public static final android.os.Parcelable.Creator<android.support.design.widget.AppBarLayout.Behavior.SavedState> CREATOR;
   }
@@ -49,20 +54,61 @@ package android.support.design.widget {
     field public static final int SCROLL_FLAG_ENTER_ALWAYS_COLLAPSED = 8; // 0x8
     field public static final int SCROLL_FLAG_EXIT_UNTIL_COLLAPSED = 2; // 0x2
     field public static final int SCROLL_FLAG_SCROLL = 1; // 0x1
+    field public static final int SCROLL_FLAG_SNAP = 16; // 0x10
   }
 
   public static abstract interface AppBarLayout.OnOffsetChangedListener {
     method public abstract void onOffsetChanged(android.support.design.widget.AppBarLayout, int);
   }
 
-  public static class AppBarLayout.ScrollingViewBehavior extends android.support.design.widget.ViewOffsetBehavior {
+  public static class AppBarLayout.ScrollingViewBehavior extends android.support.design.widget.HeaderScrollingViewBehavior {
     ctor public AppBarLayout.ScrollingViewBehavior();
     ctor public AppBarLayout.ScrollingViewBehavior(android.content.Context, android.util.AttributeSet);
-    method public int getOverlayTop();
     method public boolean layoutDependsOn(android.support.design.widget.CoordinatorLayout, android.view.View, android.view.View);
     method public boolean onDependentViewChanged(android.support.design.widget.CoordinatorLayout, android.view.View, android.view.View);
-    method public boolean onMeasureChild(android.support.design.widget.CoordinatorLayout, android.view.View, int, int, int, int);
-    method public void setOverlayTop(int);
+  }
+
+  public class BottomSheetBehavior extends android.support.design.widget.CoordinatorLayout.Behavior {
+    ctor public BottomSheetBehavior();
+    ctor public BottomSheetBehavior(android.content.Context, android.util.AttributeSet);
+    method public static android.support.design.widget.BottomSheetBehavior<V> from(V);
+    method public final int getPeekHeight();
+    method public boolean getSkipCollapsed();
+    method public final int getState();
+    method public boolean isHideable();
+    method public void setBottomSheetCallback(android.support.design.widget.BottomSheetBehavior.BottomSheetCallback);
+    method public void setHideable(boolean);
+    method public final void setPeekHeight(int);
+    method public void setSkipCollapsed(boolean);
+    method public final void setState(int);
+    field public static final int STATE_COLLAPSED = 4; // 0x4
+    field public static final int STATE_DRAGGING = 1; // 0x1
+    field public static final int STATE_EXPANDED = 3; // 0x3
+    field public static final int STATE_HIDDEN = 5; // 0x5
+    field public static final int STATE_SETTLING = 2; // 0x2
+  }
+
+  public static abstract class BottomSheetBehavior.BottomSheetCallback {
+    ctor public BottomSheetBehavior.BottomSheetCallback();
+    method public abstract void onSlide(android.view.View, float);
+    method public abstract void onStateChanged(android.view.View, int);
+  }
+
+  protected static class BottomSheetBehavior.SavedState extends android.support.v4.view.AbsSavedState {
+    ctor public BottomSheetBehavior.SavedState(android.os.Parcel);
+    ctor public BottomSheetBehavior.SavedState(android.os.Parcel, java.lang.ClassLoader);
+    ctor public BottomSheetBehavior.SavedState(android.os.Parcelable, int);
+    field public static final android.os.Parcelable.Creator<android.support.design.widget.BottomSheetBehavior.SavedState> CREATOR;
+  }
+
+  public class BottomSheetDialog extends android.support.v7.app.AppCompatDialog {
+    ctor public BottomSheetDialog(android.content.Context);
+    ctor public BottomSheetDialog(android.content.Context, int);
+    ctor protected BottomSheetDialog(android.content.Context, boolean, android.content.DialogInterface.OnCancelListener);
+  }
+
+  public class BottomSheetDialogFragment extends android.support.v7.app.AppCompatDialogFragment {
+    ctor public BottomSheetDialogFragment();
   }
 
   public class CollapsingToolbarLayout extends android.widget.FrameLayout {
@@ -70,20 +116,39 @@ package android.support.design.widget {
     ctor public CollapsingToolbarLayout(android.content.Context, android.util.AttributeSet);
     ctor public CollapsingToolbarLayout(android.content.Context, android.util.AttributeSet, int);
     method public int getCollapsedTitleGravity();
+    method public android.graphics.Typeface getCollapsedTitleTypeface();
     method public android.graphics.drawable.Drawable getContentScrim();
     method public int getExpandedTitleGravity();
+    method public int getExpandedTitleMarginBottom();
+    method public int getExpandedTitleMarginEnd();
+    method public int getExpandedTitleMarginStart();
+    method public int getExpandedTitleMarginTop();
+    method public android.graphics.Typeface getExpandedTitleTypeface();
+    method public long getScrimAnimationDuration();
+    method public int getScrimVisibleHeightTrigger();
     method public android.graphics.drawable.Drawable getStatusBarScrim();
     method public java.lang.CharSequence getTitle();
     method public boolean isTitleEnabled();
     method public void setCollapsedTitleGravity(int);
     method public void setCollapsedTitleTextAppearance(int);
     method public void setCollapsedTitleTextColor(int);
+    method public void setCollapsedTitleTypeface(android.graphics.Typeface);
     method public void setContentScrim(android.graphics.drawable.Drawable);
     method public void setContentScrimColor(int);
     method public void setContentScrimResource(int);
     method public void setExpandedTitleColor(int);
     method public void setExpandedTitleGravity(int);
+    method public void setExpandedTitleMargin(int, int, int, int);
+    method public void setExpandedTitleMarginBottom(int);
+    method public void setExpandedTitleMarginEnd(int);
+    method public void setExpandedTitleMarginStart(int);
+    method public void setExpandedTitleMarginTop(int);
     method public void setExpandedTitleTextAppearance(int);
+    method public void setExpandedTitleTypeface(android.graphics.Typeface);
+    method public void setScrimAnimationDuration(long);
+    method public void setScrimVisibleHeightTrigger(int);
+    method public void setScrimsShown(boolean);
+    method public void setScrimsShown(boolean, boolean);
     method public void setStatusBarScrim(android.graphics.drawable.Drawable);
     method public void setStatusBarScrimColor(int);
     method public void setStatusBarScrimResource(int);
@@ -131,8 +196,8 @@ package android.support.design.widget {
     ctor public CoordinatorLayout.Behavior();
     ctor public CoordinatorLayout.Behavior(android.content.Context, android.util.AttributeSet);
     method public boolean blocksInteractionBelow(android.support.design.widget.CoordinatorLayout, V);
-    method public final int getScrimColor(android.support.design.widget.CoordinatorLayout, V);
-    method public final float getScrimOpacity(android.support.design.widget.CoordinatorLayout, V);
+    method public int getScrimColor(android.support.design.widget.CoordinatorLayout, V);
+    method public float getScrimOpacity(android.support.design.widget.CoordinatorLayout, V);
     method public static java.lang.Object getTag(android.view.View);
     method public boolean isDirty(android.support.design.widget.CoordinatorLayout, V);
     method public boolean layoutDependsOn(android.support.design.widget.CoordinatorLayout, V, android.view.View);
@@ -172,27 +237,61 @@ package android.support.design.widget {
     field public int keyline;
   }
 
-  protected static class CoordinatorLayout.SavedState extends android.view.View.BaseSavedState {
-    ctor public CoordinatorLayout.SavedState(android.os.Parcel);
+  protected static class CoordinatorLayout.SavedState extends android.support.v4.view.AbsSavedState {
+    ctor public CoordinatorLayout.SavedState(android.os.Parcel, java.lang.ClassLoader);
     ctor public CoordinatorLayout.SavedState(android.os.Parcelable);
     field public static final android.os.Parcelable.Creator<android.support.design.widget.CoordinatorLayout.SavedState> CREATOR;
   }
 
-  public class FloatingActionButton extends android.widget.ImageView {
+  public class FloatingActionButton extends android.support.design.widget.VisibilityAwareImageButton {
     ctor public FloatingActionButton(android.content.Context);
     ctor public FloatingActionButton(android.content.Context, android.util.AttributeSet);
     ctor public FloatingActionButton(android.content.Context, android.util.AttributeSet, int);
+    method public float getCompatElevation();
+    method public android.graphics.drawable.Drawable getContentBackground();
+    method public boolean getContentRect(android.graphics.Rect);
+    method public int getSize();
+    method public boolean getUseCompatPadding();
     method public void hide();
+    method public void hide(android.support.design.widget.FloatingActionButton.OnVisibilityChangedListener);
+    method public void setCompatElevation(float);
     method public void setRippleColor(int);
+    method public void setSize(int);
+    method public void setUseCompatPadding(boolean);
     method public void show();
+    method public void show(android.support.design.widget.FloatingActionButton.OnVisibilityChangedListener);
+    field public static final int SIZE_AUTO = -1; // 0xffffffff
+    field public static final int SIZE_MINI = 1; // 0x1
+    field public static final int SIZE_NORMAL = 0; // 0x0
   }
 
   public static class FloatingActionButton.Behavior extends android.support.design.widget.CoordinatorLayout.Behavior {
     ctor public FloatingActionButton.Behavior();
+    ctor public FloatingActionButton.Behavior(android.content.Context, android.util.AttributeSet);
     method public boolean layoutDependsOn(android.support.design.widget.CoordinatorLayout, android.support.design.widget.FloatingActionButton, android.view.View);
     method public boolean onDependentViewChanged(android.support.design.widget.CoordinatorLayout, android.support.design.widget.FloatingActionButton, android.view.View);
     method public void onDependentViewRemoved(android.support.design.widget.CoordinatorLayout, android.support.design.widget.FloatingActionButton, android.view.View);
     method public boolean onLayoutChild(android.support.design.widget.CoordinatorLayout, android.support.design.widget.FloatingActionButton, int);
+  }
+
+  public static abstract class FloatingActionButton.OnVisibilityChangedListener {
+    ctor public FloatingActionButton.OnVisibilityChangedListener();
+    method public void onHidden(android.support.design.widget.FloatingActionButton);
+    method public void onShown(android.support.design.widget.FloatingActionButton);
+  }
+
+   abstract class HeaderBehavior extends android.support.design.widget.ViewOffsetBehavior {
+    ctor public HeaderBehavior();
+    ctor public HeaderBehavior(android.content.Context, android.util.AttributeSet);
+  }
+
+   abstract class HeaderScrollingViewBehavior extends android.support.design.widget.ViewOffsetBehavior {
+    ctor public HeaderScrollingViewBehavior();
+    ctor public HeaderScrollingViewBehavior(android.content.Context, android.util.AttributeSet);
+    method public final int getOverlayTop();
+    method protected void layoutChild(android.support.design.widget.CoordinatorLayout, android.view.View, int);
+    method public boolean onMeasureChild(android.support.design.widget.CoordinatorLayout, android.view.View, int, int, int, int);
+    method public final void setOverlayTop(int);
   }
 
   public class NavigationView extends android.widget.FrameLayout {
@@ -200,6 +299,8 @@ package android.support.design.widget {
     ctor public NavigationView(android.content.Context, android.util.AttributeSet);
     ctor public NavigationView(android.content.Context, android.util.AttributeSet, int);
     method public void addHeaderView(android.view.View);
+    method public int getHeaderCount();
+    method public android.view.View getHeaderView(int);
     method public android.graphics.drawable.Drawable getItemBackground();
     method public android.content.res.ColorStateList getItemIconTintList();
     method public android.content.res.ColorStateList getItemTextColor();
@@ -220,8 +321,8 @@ package android.support.design.widget {
     method public abstract boolean onNavigationItemSelected(android.view.MenuItem);
   }
 
-  public static class NavigationView.SavedState extends android.view.View.BaseSavedState {
-    ctor public NavigationView.SavedState(android.os.Parcel);
+  public static class NavigationView.SavedState extends android.support.v4.view.AbsSavedState {
+    ctor public NavigationView.SavedState(android.os.Parcel, java.lang.ClassLoader);
     ctor public NavigationView.SavedState(android.os.Parcelable);
     field public static final android.os.Parcelable.Creator<android.support.design.widget.NavigationView.SavedState> CREATOR;
     field public android.os.Bundle menuState;
@@ -232,6 +333,7 @@ package android.support.design.widget {
     method public int getDuration();
     method public android.view.View getView();
     method public boolean isShown();
+    method public boolean isShownOrQueued();
     method public static android.support.design.widget.Snackbar make(android.view.View, java.lang.CharSequence, int);
     method public static android.support.design.widget.Snackbar make(android.view.View, int, int);
     method public android.support.design.widget.Snackbar setAction(int, android.view.View.OnClickListener);
@@ -261,6 +363,7 @@ package android.support.design.widget {
 
   public class SwipeDismissBehavior extends android.support.design.widget.CoordinatorLayout.Behavior {
     ctor public SwipeDismissBehavior();
+    method public boolean canSwipeDismissView(android.view.View);
     method public int getDragState();
     method public void setDragDismissDistance(float);
     method public void setEndAlphaSwipeDistance(float);
@@ -281,10 +384,16 @@ package android.support.design.widget {
     method public abstract void onDragStateChanged(int);
   }
 
+  public final class TabItem extends android.view.View {
+    ctor public TabItem(android.content.Context);
+    ctor public TabItem(android.content.Context, android.util.AttributeSet);
+  }
+
   public class TabLayout extends android.widget.HorizontalScrollView {
     ctor public TabLayout(android.content.Context);
     ctor public TabLayout(android.content.Context, android.util.AttributeSet);
     ctor public TabLayout(android.content.Context, android.util.AttributeSet, int);
+    method public void addOnTabSelectedListener(android.support.design.widget.TabLayout.OnTabSelectedListener);
     method public void addTab(android.support.design.widget.TabLayout.Tab);
     method public void addTab(android.support.design.widget.TabLayout.Tab, int);
     method public void addTab(android.support.design.widget.TabLayout.Tab, boolean);
@@ -297,9 +406,10 @@ package android.support.design.widget {
     method public android.content.res.ColorStateList getTabTextColors();
     method public android.support.design.widget.TabLayout.Tab newTab();
     method public void removeAllTabs();
+    method public void removeOnTabSelectedListener(android.support.design.widget.TabLayout.OnTabSelectedListener);
     method public void removeTab(android.support.design.widget.TabLayout.Tab);
     method public void removeTabAt(int);
-    method public void setOnTabSelectedListener(android.support.design.widget.TabLayout.OnTabSelectedListener);
+    method public deprecated void setOnTabSelectedListener(android.support.design.widget.TabLayout.OnTabSelectedListener);
     method public void setScrollPosition(int, float, boolean);
     method public void setSelectedTabIndicatorColor(int);
     method public void setSelectedTabIndicatorHeight(int);
@@ -307,8 +417,9 @@ package android.support.design.widget {
     method public void setTabMode(int);
     method public void setTabTextColors(android.content.res.ColorStateList);
     method public void setTabTextColors(int, int);
-    method public void setTabsFromPagerAdapter(android.support.v4.view.PagerAdapter);
+    method public deprecated void setTabsFromPagerAdapter(android.support.v4.view.PagerAdapter);
     method public void setupWithViewPager(android.support.v4.view.ViewPager);
+    method public void setupWithViewPager(android.support.v4.view.ViewPager, boolean);
     field public static final int GRAVITY_CENTER = 1; // 0x1
     field public static final int GRAVITY_FILL = 0; // 0x0
     field public static final int MODE_FIXED = 1; // 0x1
@@ -356,19 +467,33 @@ package android.support.design.widget {
     method public void onTabUnselected(android.support.design.widget.TabLayout.Tab);
   }
 
+  public class TextInputEditText extends android.support.v7.widget.AppCompatEditText {
+    ctor public TextInputEditText(android.content.Context);
+    ctor public TextInputEditText(android.content.Context, android.util.AttributeSet);
+    ctor public TextInputEditText(android.content.Context, android.util.AttributeSet, int);
+  }
+
   public class TextInputLayout extends android.widget.LinearLayout {
     ctor public TextInputLayout(android.content.Context);
     ctor public TextInputLayout(android.content.Context, android.util.AttributeSet);
     ctor public TextInputLayout(android.content.Context, android.util.AttributeSet, int);
+    method public int getCounterMaxLength();
     method public android.widget.EditText getEditText();
     method public java.lang.CharSequence getError();
     method public java.lang.CharSequence getHint();
+    method public android.graphics.Typeface getTypeface();
+    method public boolean isCounterEnabled();
     method public boolean isErrorEnabled();
     method public boolean isHintAnimationEnabled();
+    method public boolean isHintEnabled();
+    method public android.os.Parcelable onSaveInstanceState();
+    method public void setCounterEnabled(boolean);
+    method public void setCounterMaxLength(int);
     method public void setError(java.lang.CharSequence);
     method public void setErrorEnabled(boolean);
     method public void setHint(java.lang.CharSequence);
     method public void setHintAnimationEnabled(boolean);
+    method public void setHintEnabled(boolean);
     method public void setHintTextAppearance(int);
     method public void setTypeface(android.graphics.Typeface);
   }
@@ -378,8 +503,15 @@ package android.support.design.widget {
     ctor public ViewOffsetBehavior(android.content.Context, android.util.AttributeSet);
     method public int getLeftAndRightOffset();
     method public int getTopAndBottomOffset();
+    method protected void layoutChild(android.support.design.widget.CoordinatorLayout, V, int);
     method public boolean setLeftAndRightOffset(int);
     method public boolean setTopAndBottomOffset(int);
+  }
+
+   class VisibilityAwareImageButton extends android.widget.ImageButton {
+    ctor public VisibilityAwareImageButton(android.content.Context);
+    ctor public VisibilityAwareImageButton(android.content.Context, android.util.AttributeSet);
+    ctor public VisibilityAwareImageButton(android.content.Context, android.util.AttributeSet, int);
   }
 
 }

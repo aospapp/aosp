@@ -45,7 +45,7 @@ import android.util.Log;
 import android.util.SparseArray;
 
 import com.android.settings.R;
-import com.android.settings.Utils;
+import com.android.settingslib.Utils;
 import com.android.settingslib.applications.InterestingConfigChanges;
 
 import java.util.ArrayList;
@@ -781,7 +781,8 @@ public class RunningState {
         mPm = mApplicationContext.getPackageManager();
         mUm = (UserManager)mApplicationContext.getSystemService(Context.USER_SERVICE);
         mMyUserId = UserHandle.myUserId();
-        mHideManagedProfiles = mMyUserId != UserHandle.USER_OWNER;
+        UserInfo userInfo = mUm.getUserInfo(mMyUserId);
+        mHideManagedProfiles = userInfo == null || !userInfo.canHaveProfile();
         mResumed = false;
         mBackgroundThread = new HandlerThread("RunningState:Background");
         mBackgroundThread.start();

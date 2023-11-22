@@ -198,6 +198,11 @@ typedef struct
     /* format in which codec has to give out frame data for display */
     IV_COLOR_FORMAT_T e_output_format;
 
+    /**
+     * Flag to enable/disable deinterlacing
+     */
+    UWORD32 u4_deinterlace;
+
 } impeg2d_fill_mem_rec_ip_t;
 
 typedef struct
@@ -229,6 +234,11 @@ typedef struct
     /* Flag to enable sharing of reference buffers between decoder
      and application */
     UWORD32 u4_share_disp_buf;
+
+    /**
+     * Flag to enable/disable deinterlacing
+     */
+    UWORD32 u4_deinterlace;
 
 } impeg2d_init_ip_t;
 

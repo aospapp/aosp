@@ -595,19 +595,30 @@ AString AMessage::debugString(int32_t indent) const {
 }
 
 // static
-sp<AMessage> AMessage::FromParcel(const Parcel &parcel) {
+sp<AMessage> AMessage::FromParcel(const Parcel &parcel, size_t maxNestingLevel) {
     int32_t what = parcel.readInt32();
     sp<AMessage> msg = new AMessage();
     msg->setWhat(what);
 
     msg->mNumItems = static_cast<size_t>(parcel.readInt32());
+    if (msg->mNumItems > kMaxNumItems) {
+        ALOGE("Too large number of items clipped.");
+        msg->mNumItems = kMaxNumItems;
+    }
+
     for (size_t i = 0; i < msg->mNumItems; ++i) {
         Item *item = &msg->mItems[i];
 
         const char *name = parcel.readCString();
-        item->setName(name, strlen(name));
-        item->mType = static_cast<Type>(parcel.readInt32());
+        if (name == NULL) {
+            ALOGE("Failed reading name for an item. Parsing aborted.");
+            msg->mNumItems = i;
+            break;
+        }
 
+        item->mType = static_cast<Type>(parcel.readInt32());
+        // setName() happens below so that we don't leak memory when parsing
+        // is aborted in the middle.
         switch (item->mType) {
             case kTypeInt32:
             {
@@ -641,13 +652,34 @@ sp<AMessage> AMessage::FromParcel(const Parcel &parcel) {
 
             case kTypeString:
             {
-                item->u.stringValue = new AString(parcel.readCString());
+                const char *stringValue = parcel.readCString();
+                if (stringValue == NULL) {
+                    ALOGE("Failed reading string value from a parcel. "
+                        "Parsing aborted.");
+                    msg->mNumItems = i;
+                    continue;
+                    // The loop will terminate subsequently.
+                } else {
+                    item->u.stringValue = new AString(stringValue);
+                }
                 break;
             }
 
             case kTypeMessage:
             {
-                sp<AMessage> subMsg = AMessage::FromParcel(parcel);
+                if (maxNestingLevel == 0) {
+                    ALOGE("Too many levels of AMessage nesting.");
+                    return NULL;
+                }
+                sp<AMessage> subMsg = AMessage::FromParcel(
+                        parcel,
+                        maxNestingLevel - 1);
+                if (subMsg == NULL) {
+                    // This condition will be triggered when there exists an
+                    // object that cannot cross process boundaries or when the
+                    // level of nested AMessage is too deep.
+                    return NULL;
+                }
                 subMsg->incStrong(msg.get());
 
                 item->u.refValue = subMsg.get();
@@ -657,9 +689,11 @@ sp<AMessage> AMessage::FromParcel(const Parcel &parcel) {
             default:
             {
                 ALOGE("This type of object cannot cross process boundaries.");
-                TRESPASS();
+                return NULL;
             }
         }
+
+        item->setName(name, strlen(name));
     }
 
     return msg;
@@ -725,6 +759,126 @@ void AMessage::writeToParcel(Parcel *parcel) const {
             }
         }
     }
+}
+
+sp<AMessage> AMessage::changesFrom(const sp<const AMessage> &other, bool deep) const {
+    if (other == NULL) {
+        return const_cast<AMessage*>(this);
+    }
+
+    sp<AMessage> diff = new AMessage;
+    if (mWhat != other->mWhat) {
+        diff->setWhat(mWhat);
+    }
+    if (mHandler != other->mHandler) {
+        diff->setTarget(mHandler.promote());
+    }
+
+    for (size_t i = 0; i < mNumItems; ++i) {
+        const Item &item = mItems[i];
+        const Item *oitem = other->findItem(item.mName, item.mType);
+        switch (item.mType) {
+            case kTypeInt32:
+                if (oitem == NULL || item.u.int32Value != oitem->u.int32Value) {
+                    diff->setInt32(item.mName, item.u.int32Value);
+                }
+                break;
+
+            case kTypeInt64:
+                if (oitem == NULL || item.u.int64Value != oitem->u.int64Value) {
+                    diff->setInt64(item.mName, item.u.int64Value);
+                }
+                break;
+
+            case kTypeSize:
+                if (oitem == NULL || item.u.sizeValue != oitem->u.sizeValue) {
+                    diff->setSize(item.mName, item.u.sizeValue);
+                }
+                break;
+
+            case kTypeFloat:
+                if (oitem == NULL || item.u.floatValue != oitem->u.floatValue) {
+                    diff->setFloat(item.mName, item.u.sizeValue);
+                }
+                break;
+
+            case kTypeDouble:
+                if (oitem == NULL || item.u.doubleValue != oitem->u.doubleValue) {
+                    diff->setDouble(item.mName, item.u.sizeValue);
+                }
+                break;
+
+            case kTypeString:
+                if (oitem == NULL || *item.u.stringValue != *oitem->u.stringValue) {
+                    diff->setString(item.mName, *item.u.stringValue);
+                }
+                break;
+
+            case kTypeRect:
+                if (oitem == NULL || memcmp(&item.u.rectValue, &oitem->u.rectValue, sizeof(Rect))) {
+                    diff->setRect(
+                            item.mName, item.u.rectValue.mLeft, item.u.rectValue.mTop,
+                            item.u.rectValue.mRight, item.u.rectValue.mBottom);
+                }
+                break;
+
+            case kTypePointer:
+                if (oitem == NULL || item.u.ptrValue != oitem->u.ptrValue) {
+                    diff->setPointer(item.mName, item.u.ptrValue);
+                }
+                break;
+
+            case kTypeBuffer:
+            {
+                sp<ABuffer> myBuf = static_cast<ABuffer *>(item.u.refValue);
+                if (myBuf == NULL) {
+                    if (oitem == NULL || oitem->u.refValue != NULL) {
+                        diff->setBuffer(item.mName, NULL);
+                    }
+                    break;
+                }
+                sp<ABuffer> oBuf = oitem == NULL ? NULL : static_cast<ABuffer *>(oitem->u.refValue);
+                if (oBuf == NULL
+                        || myBuf->size() != oBuf->size()
+                        || (!myBuf->data() ^ !oBuf->data()) // data nullness differs
+                        || (myBuf->data() && memcmp(myBuf->data(), oBuf->data(), myBuf->size()))) {
+                    diff->setBuffer(item.mName, myBuf);
+                }
+                break;
+            }
+
+            case kTypeMessage:
+            {
+                sp<AMessage> myMsg = static_cast<AMessage *>(item.u.refValue);
+                if (myMsg == NULL) {
+                    if (oitem == NULL || oitem->u.refValue != NULL) {
+                        diff->setMessage(item.mName, NULL);
+                    }
+                    break;
+                }
+                sp<AMessage> oMsg =
+                    oitem == NULL ? NULL : static_cast<AMessage *>(oitem->u.refValue);
+                sp<AMessage> changes = myMsg->changesFrom(oMsg, deep);
+                if (changes->countEntries()) {
+                    diff->setMessage(item.mName, deep ? changes : myMsg);
+                }
+                break;
+            }
+
+            case kTypeObject:
+                if (oitem == NULL || item.u.refValue != oitem->u.refValue) {
+                    diff->setObject(item.mName, item.u.refValue);
+                }
+                break;
+
+            default:
+            {
+                ALOGE("Unknown type %d", item.mType);
+                TRESPASS();
+            }
+        }
+    }
+    return diff;
 }
 
 size_t AMessage::countEntries() const {

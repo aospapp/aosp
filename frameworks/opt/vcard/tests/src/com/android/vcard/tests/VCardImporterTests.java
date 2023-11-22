@@ -869,6 +869,39 @@ public class VCardImporterTests extends VCardTestsBase {
                 .put(Note.NOTE, "\u30E1\u30E2");
     }
 
+    public void testV21Japanese3_Parsing() {
+        mVerifier.initForImportTest(VCardConfig.VCARD_TYPE_V21_JAPANESE, R.raw.v21_japanese_3);
+        mVerifier.addPropertyNodesVerifierElem()
+                .addExpectedNodeWithOrder("N", "\u4f0a\u80fd;\u572d\u4e00;\u4f0a\u4e88;;",
+                        Arrays.asList("\u4f0a\u80fd", "\u572d\u4e00", "\u4f0a\u4e88",
+                                "", ""),
+                        null, mContentValuesForSJis, null, null)
+                .addExpectedNodeWithOrder("FN", "\u4f0a\u80fd\u0020\u572d\u4e00\u0020\u4f0a\u4e88",
+                        null, null, mContentValuesForSJis, null, null);
+    }
+
+    public void testV21Japanese3_Parsing_Utf8() {
+        mVerifier.initForImportTest(V21, R.raw.v21_japanese_3);
+        mVerifier.addPropertyNodesVerifierElem()
+                .addExpectedNodeWithOrder("N", "\u4f0a\u80fd;\u572d\u4e00;\u4f0a\u4e88;;",
+                        Arrays.asList("\u4f0a\u80fd", "\u572d\u4e00", "\u4f0a\u4e88",
+                                "", ""),
+                        null, mContentValuesForSJis, null, null)
+                .addExpectedNodeWithOrder("FN", "\u4f0a\u80fd\u0020\u572d\u4e00\u0020\u4f0a\u4e88",
+                        null, null, mContentValuesForSJis, null, null);
+    }
+
+    public void testV30Japanese_Parsing() {
+        mVerifier.initForImportTest(V30, R.raw.v30_japanese);
+        mVerifier.addPropertyNodesVerifierElem()
+                .addExpectedNodeWithOrder("N", "\u4f0a\u80fd;\u572d\u4e00;\u4f0a\u4e88;;",
+                        Arrays.asList("\u4f0a\u80fd", "\u572d\u4e00", "\u4f0a\u4e88",
+                                "", ""),
+                        null, mContentValuesForSJis, null, null)
+                .addExpectedNodeWithOrder("FN", "\u4f0a\u80fd\u0020\u572d\u4e00\u0020\u4f0a\u4e88",
+                        null, null, mContentValuesForSJis, null, null);
+    }
+
     public void testV21MultipleEntryCase_Parse() {
         mVerifier.initForImportTest(VCardConfig.VCARD_TYPE_V21_JAPANESE, R.raw.v21_multiple_entry);
         mVerifier.addPropertyNodesVerifierElem()

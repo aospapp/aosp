@@ -27,6 +27,7 @@ static int help(int argc, char **argv);
 static int set_discoverable(int argc, char **argv);
 static int set_name(int argc, char **argv);
 static int set_pcm_loopback(int argc, char **argv);
+static int set_sco_route(int argc, char **argv);
 
 static bool write_hci_command(hci_packet_t type, const void *packet, size_t length);
 static const command_t *find_command(const char *name);
@@ -37,6 +38,7 @@ static const command_t commands[] = {
   { "setDiscoverable", "(true|false) - whether the controller should be discoverable.", set_discoverable },
   { "setName", "<name> - sets the device's Bluetooth name to <name>.", set_name },
   { "setPcmLoopback", "(true|false) - enables or disables PCM loopback on the controller.", set_pcm_loopback },
+  { "setScoRoute", "(pcm|i2s|uart) - sets the SCO packet route to one of the specified buses.", set_sco_route },
 };
 
 static int help(int argc, char **argv) {
@@ -91,7 +93,7 @@ static int set_name(int argc, char **argv) {
   if (!write_hci_command(HCI_PACKET_COMMAND, packet, sizeof(packet)))
     return 1;
 
-  memset(&packet[0], sizeof(packet), 0);
+  memset(&packet[0], 0, sizeof(packet));
   packet[0] = 0x52;
   packet[1] = 0x0C;
   packet[2] = 0xF1;  // HCI command packet length.
@@ -116,6 +118,31 @@ static int set_pcm_loopback(int argc, char **argv) {
   uint8_t packet[] = { 0x24, 0xFC, 0x01, 0x00 };
   if (argv[0][0] == 't')
     packet[ARRAY_SIZE(packet) - 1] = 0x01;
+
+  return !write_hci_command(HCI_PACKET_COMMAND, packet, ARRAY_SIZE(packet));
+}
+
+static int set_sco_route(int argc, char **argv) {
+  if (argc != 1) {
+    printf("SCO route parameter must be specified.\n");
+    return 1;
+  }
+
+  uint8_t route = 0xFF;
+  if (!strcmp(argv[0], "pcm"))
+    route = 0;
+  else if (!strcmp(argv[0], "i2s"))
+    route = 3;
+  else if (!strcmp(argv[0], "uart"))
+    route = 1;
+
+  if (route == 0xFF) {
+    printf("Invalid SCO route specified: %s\n", argv[0]);
+    return 2;
+  }
+
+  uint8_t packet[] = { 0x1C, 0xFC, 0x05, 0x00, 0x02, 0x00, 0x00, 0x00 };
+  packet[3] = route;
 
   return !write_hci_command(HCI_PACKET_COMMAND, packet, ARRAY_SIZE(packet));
 }
@@ -149,7 +176,10 @@ static bool write_hci_command(hci_packet_t type, const void *packet, size_t leng
   addr.sin_family = AF_INET;
   addr.sin_addr.s_addr = htonl(0x7F000001);
   addr.sin_port = htons(8873);
-  if (connect(sock, (const struct sockaddr *)&addr, sizeof(addr)) == -1)
+  int ret;
+  OSI_NO_INTR(ret = connect(sock, (const struct sockaddr *)&addr,
+                            sizeof(addr)));
+  if (ret == -1)
     goto error;
 
   if (send(sock, &type, 1, 0) != 1)

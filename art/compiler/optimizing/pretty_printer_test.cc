@@ -30,43 +30,41 @@ namespace art {
 static void TestCode(const uint16_t* data, const char* expected) {
   ArenaPool pool;
   ArenaAllocator allocator(&pool);
-  HGraph* graph = CreateGraph(&allocator);
-  HGraphBuilder builder(graph);
-  const DexFile::CodeItem* item = reinterpret_cast<const DexFile::CodeItem*>(data);
-  bool graph_built = builder.BuildGraph(*item);
-  ASSERT_TRUE(graph_built);
+  HGraph* graph = CreateCFG(&allocator, data);
   StringPrettyPrinter printer(graph);
   printer.VisitInsertionOrder();
   ASSERT_STREQ(expected, printer.str().c_str());
 }
 
-TEST(PrettyPrinterTest, ReturnVoid) {
+class PrettyPrinterTest : public CommonCompilerTest {};
+
+TEST_F(PrettyPrinterTest, ReturnVoid) {
   const uint16_t data[] = ZERO_REGISTER_CODE_ITEM(
       Instruction::RETURN_VOID);
 
   const char* expected =
       "BasicBlock 0, succ: 1\n"
-      "  2: SuspendCheck\n"
-      "  3: Goto 1\n"
+      "  0: SuspendCheck\n"
+      "  1: Goto 1\n"
       "BasicBlock 1, pred: 0, succ: 2\n"
-      "  0: ReturnVoid\n"
+      "  2: ReturnVoid\n"
       "BasicBlock 2, pred: 1\n"
-      "  1: Exit\n";
+      "  3: Exit\n";
 
   TestCode(data, expected);
 }
 
-TEST(PrettyPrinterTest, CFG1) {
+TEST_F(PrettyPrinterTest, CFG1) {
   const char* expected =
-    "BasicBlock 0, succ: 1\n"
-    "  3: SuspendCheck\n"
-    "  4: Goto 1\n"
-    "BasicBlock 1, pred: 0, succ: 2\n"
-    "  0: Goto 2\n"
-    "BasicBlock 2, pred: 1, succ: 3\n"
-    "  1: ReturnVoid\n"
-    "BasicBlock 3, pred: 2\n"
-    "  2: Exit\n";
+      "BasicBlock 0, succ: 1\n"
+      "  0: SuspendCheck\n"
+      "  1: Goto 1\n"
+      "BasicBlock 1, pred: 0, succ: 2\n"
+      "  2: Goto 2\n"
+      "BasicBlock 2, pred: 1, succ: 3\n"
+      "  3: ReturnVoid\n"
+      "BasicBlock 3, pred: 2\n"
+      "  4: Exit\n";
 
   const uint16_t data[] =
     ZERO_REGISTER_CODE_ITEM(
@@ -76,19 +74,19 @@ TEST(PrettyPrinterTest, CFG1) {
   TestCode(data, expected);
 }
 
-TEST(PrettyPrinterTest, CFG2) {
+TEST_F(PrettyPrinterTest, CFG2) {
   const char* expected =
-    "BasicBlock 0, succ: 1\n"
-    "  4: SuspendCheck\n"
-    "  5: Goto 1\n"
-    "BasicBlock 1, pred: 0, succ: 2\n"
-    "  0: Goto 2\n"
-    "BasicBlock 2, pred: 1, succ: 3\n"
-    "  1: Goto 3\n"
-    "BasicBlock 3, pred: 2, succ: 4\n"
-    "  2: ReturnVoid\n"
-    "BasicBlock 4, pred: 3\n"
-    "  3: Exit\n";
+      "BasicBlock 0, succ: 1\n"
+      "  0: SuspendCheck\n"
+      "  1: Goto 1\n"
+      "BasicBlock 1, pred: 0, succ: 2\n"
+      "  2: Goto 2\n"
+      "BasicBlock 2, pred: 1, succ: 3\n"
+      "  3: Goto 3\n"
+      "BasicBlock 3, pred: 2, succ: 4\n"
+      "  4: ReturnVoid\n"
+      "BasicBlock 4, pred: 3\n"
+      "  5: Exit\n";
 
   const uint16_t data[] = ZERO_REGISTER_CODE_ITEM(
     Instruction::GOTO | 0x100,
@@ -98,19 +96,19 @@ TEST(PrettyPrinterTest, CFG2) {
   TestCode(data, expected);
 }
 
-TEST(PrettyPrinterTest, CFG3) {
+TEST_F(PrettyPrinterTest, CFG3) {
   const char* expected =
-    "BasicBlock 0, succ: 1\n"
-    "  4: SuspendCheck\n"
-    "  5: Goto 1\n"
-    "BasicBlock 1, pred: 0, succ: 3\n"
-    "  0: Goto 3\n"
-    "BasicBlock 2, pred: 3, succ: 4\n"
-    "  1: ReturnVoid\n"
-    "BasicBlock 3, pred: 1, succ: 2\n"
-    "  2: Goto 2\n"
-    "BasicBlock 4, pred: 2\n"
-    "  3: Exit\n";
+      "BasicBlock 0, succ: 1\n"
+      "  0: SuspendCheck\n"
+      "  1: Goto 1\n"
+      "BasicBlock 1, pred: 0, succ: 3\n"
+      "  2: Goto 3\n"
+      "BasicBlock 2, pred: 3, succ: 4\n"
+      "  4: ReturnVoid\n"
+      "BasicBlock 3, pred: 1, succ: 2\n"
+      "  3: Goto 2\n"
+      "BasicBlock 4, pred: 2\n"
+      "  5: Exit\n";
 
   const uint16_t data1[] = ZERO_REGISTER_CODE_ITEM(
     Instruction::GOTO | 0x200,
@@ -134,16 +132,16 @@ TEST(PrettyPrinterTest, CFG3) {
   TestCode(data3, expected);
 }
 
-TEST(PrettyPrinterTest, CFG4) {
+TEST_F(PrettyPrinterTest, CFG4) {
   const char* expected =
-    "BasicBlock 0, succ: 1\n"
-    "  3: SuspendCheck\n"
-    "  4: Goto 1\n"
-    "BasicBlock 1, pred: 0, 1, succ: 1\n"
-    "  0: SuspendCheck\n"
-    "  1: Goto 1\n"
-    "BasicBlock 2\n"
-    "  2: Exit\n";
+      "BasicBlock 0, succ: 3\n"
+      "  1: SuspendCheck\n"
+      "  2: Goto 3\n"
+      "BasicBlock 1, pred: 3, 1, succ: 1\n"
+      "  3: SuspendCheck\n"
+      "  4: Goto 1\n"
+      "BasicBlock 3, pred: 0, succ: 1\n"
+      "  0: Goto 1\n";
 
   const uint16_t data1[] = ZERO_REGISTER_CODE_ITEM(
     Instruction::NOP,
@@ -157,17 +155,15 @@ TEST(PrettyPrinterTest, CFG4) {
   TestCode(data2, expected);
 }
 
-TEST(PrettyPrinterTest, CFG5) {
+TEST_F(PrettyPrinterTest, CFG5) {
   const char* expected =
-    "BasicBlock 0, succ: 1\n"
-    "  3: SuspendCheck\n"
-    "  4: Goto 1\n"
-    "BasicBlock 1, pred: 0, 2, succ: 3\n"
-    "  0: ReturnVoid\n"
-    "BasicBlock 2, succ: 1\n"
-    "  1: Goto 1\n"
-    "BasicBlock 3, pred: 1\n"
-    "  2: Exit\n";
+      "BasicBlock 0, succ: 1\n"
+      "  0: SuspendCheck\n"
+      "  1: Goto 1\n"
+      "BasicBlock 1, pred: 0, succ: 3\n"
+      "  2: ReturnVoid\n"
+      "BasicBlock 3, pred: 1\n"
+      "  3: Exit\n";
 
   const uint16_t data[] = ZERO_REGISTER_CODE_ITEM(
     Instruction::RETURN_VOID,
@@ -177,25 +173,23 @@ TEST(PrettyPrinterTest, CFG5) {
   TestCode(data, expected);
 }
 
-TEST(PrettyPrinterTest, CFG6) {
+TEST_F(PrettyPrinterTest, CFG6) {
   const char* expected =
-    "BasicBlock 0, succ: 1\n"
-    "  0: Local [4, 3, 2]\n"
-    "  1: IntConstant [2]\n"
-    "  10: SuspendCheck\n"
-    "  11: Goto 1\n"
-    "BasicBlock 1, pred: 0, succ: 3, 2\n"
-    "  2: StoreLocal(0, 1)\n"
-    "  3: LoadLocal(0) [5]\n"
-    "  4: LoadLocal(0) [5]\n"
-    "  5: Equal(3, 4) [6]\n"
-    "  6: If(5)\n"
-    "BasicBlock 2, pred: 1, succ: 3\n"
-    "  7: Goto 3\n"
-    "BasicBlock 3, pred: 1, 2, succ: 4\n"
-    "  8: ReturnVoid\n"
-    "BasicBlock 4, pred: 3\n"
-    "  9: Exit\n";
+      "BasicBlock 0, succ: 1\n"
+      "  3: IntConstant [4, 4]\n"
+      "  1: SuspendCheck\n"
+      "  2: Goto 1\n"
+      "BasicBlock 1, pred: 0, succ: 5, 2\n"
+      "  4: Equal(3, 3) [5]\n"
+      "  5: If(4)\n"
+      "BasicBlock 2, pred: 1, succ: 3\n"
+      "  6: Goto 3\n"
+      "BasicBlock 3, pred: 5, 2, succ: 4\n"
+      "  7: ReturnVoid\n"
+      "BasicBlock 4, pred: 3\n"
+      "  8: Exit\n"
+      "BasicBlock 5, pred: 1, succ: 3\n"
+      "  0: Goto 3\n";
 
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
@@ -206,26 +200,24 @@ TEST(PrettyPrinterTest, CFG6) {
   TestCode(data, expected);
 }
 
-TEST(PrettyPrinterTest, CFG7) {
+TEST_F(PrettyPrinterTest, CFG7) {
   const char* expected =
-    "BasicBlock 0, succ: 1\n"
-    "  0: Local [4, 3, 2]\n"
-    "  1: IntConstant [2]\n"
-    "  11: SuspendCheck\n"
-    "  12: Goto 1\n"
-    "BasicBlock 1, pred: 0, succ: 3, 2\n"
-    "  2: StoreLocal(0, 1)\n"
-    "  3: LoadLocal(0) [5]\n"
-    "  4: LoadLocal(0) [5]\n"
-    "  5: Equal(3, 4) [6]\n"
-    "  6: If(5)\n"
-    "BasicBlock 2, pred: 1, 3, succ: 3\n"
-    "  7: Goto 3\n"
-    "BasicBlock 3, pred: 1, 2, succ: 2\n"
-    "  8: SuspendCheck\n"
-    "  9: Goto 2\n"
-    "BasicBlock 4\n"
-    "  10: Exit\n";
+      "BasicBlock 0, succ: 1\n"
+      "  4: IntConstant [5, 5]\n"
+      "  2: SuspendCheck\n"
+      "  3: Goto 1\n"
+      "BasicBlock 1, pred: 0, succ: 5, 6\n"
+      "  5: Equal(4, 4) [6]\n"
+      "  6: If(5)\n"
+      "BasicBlock 2, pred: 6, 3, succ: 3\n"
+      "  11: Goto 3\n"
+      "BasicBlock 3, pred: 5, 2, succ: 2\n"
+      "  8: SuspendCheck\n"
+      "  9: Goto 2\n"
+      "BasicBlock 5, pred: 1, succ: 3\n"
+      "  0: Goto 3\n"
+      "BasicBlock 6, pred: 1, succ: 2\n"
+      "  1: Goto 2\n";
 
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
@@ -236,18 +228,16 @@ TEST(PrettyPrinterTest, CFG7) {
   TestCode(data, expected);
 }
 
-TEST(PrettyPrinterTest, IntConstant) {
+TEST_F(PrettyPrinterTest, IntConstant) {
   const char* expected =
-    "BasicBlock 0, succ: 1\n"
-    "  0: Local [2]\n"
-    "  1: IntConstant [2]\n"
-    "  5: SuspendCheck\n"
-    "  6: Goto 1\n"
-    "BasicBlock 1, pred: 0, succ: 2\n"
-    "  2: StoreLocal(0, 1)\n"
-    "  3: ReturnVoid\n"
-    "BasicBlock 2, pred: 1\n"
-    "  4: Exit\n";
+      "BasicBlock 0, succ: 1\n"
+      "  2: IntConstant\n"
+      "  0: SuspendCheck\n"
+      "  1: Goto 1\n"
+      "BasicBlock 1, pred: 0, succ: 2\n"
+      "  3: ReturnVoid\n"
+      "BasicBlock 2, pred: 1\n"
+      "  4: Exit\n";
 
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,

@@ -21,7 +21,7 @@
 
     <instrumentation
         android:name="android.test.InstrumentationTestRunner"
-        android:targetPackage="com.android.exactcalculator"
+        android:targetPackage="com.android.calculator2"
         android:label="BoundedRational and Calculator Functional Test" />
 
     <application>

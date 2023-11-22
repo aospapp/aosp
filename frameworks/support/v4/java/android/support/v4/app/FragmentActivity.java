@@ -19,15 +19,19 @@ package android.support.v4.app;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentSender;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Parcelable;
+import android.support.annotation.CallSuper;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.util.SimpleArrayMap;
+import android.support.v4.util.SparseArrayCompat;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -40,8 +44,6 @@ import android.view.Window;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Base class for activities that want to use the support-based
@@ -52,11 +54,6 @@ import java.util.List;
  * and loader support, you must use the {@link #getSupportFragmentManager()}
  * and {@link #getSupportLoaderManager()} methods respectively to access
  * those features.
- *
- * <p class="note"><strong>Note:</strong> If you want to implement an activity that includes
- * an <a href="{@docRoot}guide/topics/ui/actionbar.html">action bar</a>, you should instead use
- * the {@link android.support.v7.app.ActionBarActivity} class, which is a subclass of this one,
- * so allows you to use {@link android.support.v4.app.Fragment} APIs on API level 7 and higher.</p>
  *
  * <p>Known limitations:</p>
  * <ul>
@@ -75,12 +72,16 @@ import java.util.List;
  * state, this may be a snapshot slightly before what the user last saw.</p>
  * </ul>
  */
-public class FragmentActivity extends BaseFragmentActivityHoneycomb implements
+public class FragmentActivity extends BaseFragmentActivityJB implements
         ActivityCompat.OnRequestPermissionsResultCallback,
         ActivityCompatApi23.RequestPermissionsRequestCodeValidator {
     private static final String TAG = "FragmentActivity";
 
     static final String FRAGMENTS_TAG = "android:support:fragments";
+    static final String NEXT_CANDIDATE_REQUEST_INDEX_TAG = "android:support:next_request_index";
+    static final String ALLOCATED_REQUEST_INDICIES_TAG = "android:support:request_indicies";
+    static final String REQUEST_FRAGMENT_WHO_TAG = "android:support:request_fragment_who";
+    static final int MAX_NUM_PENDING_FRAGMENT_ACTIVITY_RESULTS = 0xffff - 1;
 
     // This is the SDK API version of Honeycomb (3.0).
     private static final int HONEYCOMB = 11;
@@ -118,11 +119,24 @@ public class FragmentActivity extends BaseFragmentActivityHoneycomb implements
     boolean mOptionsMenuInvalidated;
     boolean mRequestedPermissionsFromFragment;
 
+    // A hint for the next candidate request index. Request indicies are ints between 0 and 2^16-1
+    // which are encoded into the upper 16 bits of the requestCode for
+    // Fragment.startActivityForResult(...) calls. This allows us to dispatch onActivityResult(...)
+    // to the appropriate Fragment. Request indicies are allocated by allocateRequestIndex(...).
+    int mNextCandidateRequestIndex;
+    // A map from request index to Fragment "who" (i.e. a Fragment's unique identifier). Used to
+    // keep track of the originating Fragment for Fragment.startActivityForResult(...) calls, so we
+    // can dispatch the onActivityResult(...) to the appropriate Fragment. Will only contain entries
+    // for startActivityForResult calls where a result has not yet been delivered.
+    SparseArrayCompat<String> mPendingFragmentActivityResults;
+
     static final class NonConfigurationInstances {
         Object custom;
-        List<Fragment> fragments;
+        FragmentManagerNonConfig fragments;
         SimpleArrayMap<String, LoaderManager> loaders;
     }
+
+    MediaControllerCompat mMediaController;
 
     // ------------------------------------------------------------------------
     // HOOKS INTO ACTIVITY
@@ -134,23 +148,21 @@ public class FragmentActivity extends BaseFragmentActivityHoneycomb implements
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         mFragments.noteStateNotSaved();
-        int index = requestCode>>16;
-        if (index != 0) {
-            index--;
-            final int activeFragmentsCount = mFragments.getActiveFragmentsCount();
-            if (activeFragmentsCount == 0 || index < 0 || index >= activeFragmentsCount) {
-                Log.w(TAG, "Activity result fragment index out of range: 0x"
-                        + Integer.toHexString(requestCode));
+        int requestIndex = requestCode>>16;
+        if (requestIndex != 0) {
+            requestIndex--;
+
+            String who = mPendingFragmentActivityResults.get(requestIndex);
+            mPendingFragmentActivityResults.remove(requestIndex);
+            if (who == null) {
+                Log.w(TAG, "Activity result delivered for unknown Fragment.");
                 return;
             }
-            final List<Fragment> activeFragments =
-                    mFragments.getActiveFragments(new ArrayList<Fragment>(activeFragmentsCount));
-            Fragment frag = activeFragments.get(index);
-            if (frag == null) {
-                Log.w(TAG, "Activity result no fragment exists for index: 0x"
-                        + Integer.toHexString(requestCode));
+            Fragment targetFragment = mFragments.findFragmentByWho(who);
+            if (targetFragment == null) {
+                Log.w(TAG, "Activity result no fragment exists for who: " + who);
             } else {
-                frag.onActivityResult(requestCode&0xffff, resultCode, data);
+                targetFragment.onActivityResult(requestCode & 0xffff, resultCode, data);
             }
             return;
         }
@@ -164,8 +176,41 @@ public class FragmentActivity extends BaseFragmentActivityHoneycomb implements
      */
     public void onBackPressed() {
         if (!mFragments.getSupportFragmentManager().popBackStackImmediate()) {
-            supportFinishAfterTransition();
+            onBackPressedNotHandled();
         }
+    }
+
+    /**
+     * Sets a {@link MediaControllerCompat} for later retrieval via
+     * {@link #getSupportMediaController()}.
+     *
+     * <p>On API 21 and later, this controller will be tied to the window of the activity and
+     * media key and volume events which are received while the Activity is in the foreground
+     * will be forwarded to the controller and used to invoke transport controls or adjust the
+     * volume. Prior to API 21, the global handling of media key and volume events through an
+     * active {@link android.support.v4.media.session.MediaSessionCompat} and media button receiver
+     * will still be respected.</p>
+     *
+     * @param mediaController The controller for the session which should receive
+     *     media keys and volume changes on API 21 and later.
+     * @see #setMediaController(android.media.session.MediaController)
+     */
+    final public void setSupportMediaController(MediaControllerCompat mediaController) {
+        mMediaController = mediaController;
+        if (android.os.Build.VERSION.SDK_INT >= 21) {
+            ActivityCompat21.setMediaController(this, mediaController.getMediaController());
+        }
+    }
+
+    /**
+     * Retrieves the current {@link MediaControllerCompat} for sending media key and volume events.
+     *
+     * @return The controller which should receive events.
+     * @see #setSupportMediaController(android.support.v4.media.session.MediaController)
+     * @see #getMediaController()
+     */
+    final public MediaControllerCompat getSupportMediaController() {
+        return mMediaController;
     }
 
     /**
@@ -223,6 +268,34 @@ public class FragmentActivity extends BaseFragmentActivityHoneycomb implements
     }
 
     /**
+     * {@inheritDoc}
+     *
+     * <p><strong>Note:</strong> If you override this method you must call
+     * <code>super.onMultiWindowModeChanged</code> to correctly dispatch the event
+     * to support fragments attached to this activity.</p>
+     *
+     * @param isInMultiWindowMode True if the activity is in multi-window mode.
+     */
+    @CallSuper
+    public void onMultiWindowModeChanged(boolean isInMultiWindowMode) {
+        mFragments.dispatchMultiWindowModeChanged(isInMultiWindowMode);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p><strong>Note:</strong> If you override this method you must call
+     * <code>super.onPictureInPictureModeChanged</code> to correctly dispatch the event
+     * to support fragments attached to this activity.</p>
+     *
+     * @param isInPictureInPictureMode True if the activity is in picture-in-picture mode.
+     */
+    @CallSuper
+    public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode) {
+        mFragments.dispatchPictureInPictureModeChanged(isInPictureInPictureMode);
+    }
+
+    /**
      * Dispatch configuration change to all fragments.
      */
     @Override
@@ -249,7 +322,30 @@ public class FragmentActivity extends BaseFragmentActivityHoneycomb implements
         if (savedInstanceState != null) {
             Parcelable p = savedInstanceState.getParcelable(FRAGMENTS_TAG);
             mFragments.restoreAllState(p, nc != null ? nc.fragments : null);
+
+            // Check if there are any pending onActivityResult calls to descendent Fragments.
+            if (savedInstanceState.containsKey(NEXT_CANDIDATE_REQUEST_INDEX_TAG)) {
+                mNextCandidateRequestIndex =
+                        savedInstanceState.getInt(NEXT_CANDIDATE_REQUEST_INDEX_TAG);
+                int[] requestCodes = savedInstanceState.getIntArray(ALLOCATED_REQUEST_INDICIES_TAG);
+                String[] fragmentWhos = savedInstanceState.getStringArray(REQUEST_FRAGMENT_WHO_TAG);
+                if (requestCodes == null || fragmentWhos == null ||
+                            requestCodes.length != fragmentWhos.length) {
+                    Log.w(TAG, "Invalid requestCode mapping in savedInstanceState.");
+                } else {
+                    mPendingFragmentActivityResults = new SparseArrayCompat<>(requestCodes.length);
+                    for (int i = 0; i < requestCodes.length; i++) {
+                        mPendingFragmentActivityResults.put(requestCodes[i], fragmentWhos[i]);
+                    }
+                }
+            }
         }
+
+        if (mPendingFragmentActivityResults == null) {
+            mPendingFragmentActivityResults = new SparseArrayCompat<>();
+            mNextCandidateRequestIndex = 0;
+        }
+
         mFragments.dispatchCreate();
     }
 
@@ -464,7 +560,7 @@ public class FragmentActivity extends BaseFragmentActivityHoneycomb implements
 
         Object custom = onRetainCustomNonConfigurationInstance();
 
-        List<Fragment> fragments = mFragments.retainNonConfig();
+        FragmentManagerNonConfig fragments = mFragments.retainNestedNonConfig();
         SimpleArrayMap<String, LoaderManager> loaders = mFragments.retainLoaderNonConfig();
 
         if (fragments == null && loaders == null && custom == null) {
@@ -487,6 +583,18 @@ public class FragmentActivity extends BaseFragmentActivityHoneycomb implements
         Parcelable p = mFragments.saveAllState();
         if (p != null) {
             outState.putParcelable(FRAGMENTS_TAG, p);
+        }
+        if (mPendingFragmentActivityResults.size() > 0) {
+            outState.putInt(NEXT_CANDIDATE_REQUEST_INDEX_TAG, mNextCandidateRequestIndex);
+
+            int[] requestCodes = new int[mPendingFragmentActivityResults.size()];
+            String[] fragmentWhos = new String[mPendingFragmentActivityResults.size()];
+            for (int i = 0; i < mPendingFragmentActivityResults.size(); i++) {
+                requestCodes[i] = mPendingFragmentActivityResults.keyAt(i);
+                fragmentWhos[i] = mPendingFragmentActivityResults.valueAt(i);
+            }
+            outState.putIntArray(ALLOCATED_REQUEST_INDICIES_TAG, requestCodes);
+            outState.putStringArray(REQUEST_FRAGMENT_WHO_TAG, fragmentWhos);
         }
     }
 
@@ -697,6 +805,13 @@ public class FragmentActivity extends BaseFragmentActivityHoneycomb implements
             mRetaining = retaining;
             mHandler.removeMessages(MSG_REALLY_STOPPED);
             onReallyStop();
+        } else if (retaining) {
+            // We're already really stopped, but we've been asked to retain.
+            // Our fragments are taken care of but we need to mark the loaders for retention.
+            // In order to do this correctly we need to restart the loaders first before
+            // handing them off to the next activity.
+            mFragments.doLoaderStart();
+            mFragments.doLoaderStop(true);
         }
     }
 
@@ -719,6 +834,10 @@ public class FragmentActivity extends BaseFragmentActivityHoneycomb implements
 
     /**
      * Called when a fragment is attached to the activity.
+     *
+     * <p>This is called after the attached fragment's <code>onAttach</code> and before
+     * the attached fragment's <code>onCreate</code> if the fragment has not yet had a previous
+     * call to <code>onCreate</code>.</p>
      */
     @SuppressWarnings("unused")
     public void onAttachFragment(Fragment fragment) {
@@ -742,25 +861,28 @@ public class FragmentActivity extends BaseFragmentActivityHoneycomb implements
      */
     @Override
     public void startActivityForResult(Intent intent, int requestCode) {
-        if (requestCode != -1 && (requestCode&0xffff0000) != 0) {
-            throw new IllegalArgumentException("Can only use lower 16 bits for requestCode");
+        // If this was started from a Fragment we've already checked the upper 16 bits were not in
+        // use, and then repurposed them for the Fragment's index.
+        if (!mStartedActivityFromFragment) {
+            if (requestCode != -1) {
+                checkForValidRequestCode(requestCode);
+            }
         }
         super.startActivityForResult(intent, requestCode);
     }
 
     @Override
     public final void validateRequestPermissionsRequestCode(int requestCode) {
-        // We use 8 bits of the request code to encode the fragment id when
+        // We use 16 bits of the request code to encode the fragment id when
         // requesting permissions from a fragment. Hence, requestPermissions()
         // should validate the code against that but we cannot override it as
         // we can not then call super and also the ActivityCompat would call
         // back to this override. To handle this we use dependency inversion
         // where we are the validator of request codes when requesting
         // permissions in ActivityCompat.
-        if (mRequestedPermissionsFromFragment) {
-            mRequestedPermissionsFromFragment = false;
-        } else if ((requestCode & 0xffffff00) != 0) {
-            throw new IllegalArgumentException("Can only use lower 8 bits for requestCode");
+        if (!mRequestedPermissionsFromFragment
+                && requestCode != -1) {
+            checkForValidRequestCode(requestCode);
         }
     }
 
@@ -783,23 +905,21 @@ public class FragmentActivity extends BaseFragmentActivityHoneycomb implements
      */
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
             @NonNull int[] grantResults) {
-        int index = (requestCode>>8)&0xff;
+        int index = (requestCode >> 16) & 0xffff;
         if (index != 0) {
             index--;
-            final int activeFragmentsCount = mFragments.getActiveFragmentsCount();
-            if (activeFragmentsCount == 0 || index < 0 || index >= activeFragmentsCount) {
-                Log.w(TAG, "Activity result fragment index out of range: 0x"
-                        + Integer.toHexString(requestCode));
+
+            String who = mPendingFragmentActivityResults.get(index);
+            mPendingFragmentActivityResults.remove(index);
+            if (who == null) {
+                Log.w(TAG, "Activity result delivered for unknown Fragment.");
                 return;
             }
-            final List<Fragment> activeFragments =
-                    mFragments.getActiveFragments(new ArrayList<Fragment>(activeFragmentsCount));
-            Fragment frag = activeFragments.get(index);
+            Fragment frag = mFragments.findFragmentByWho(who);
             if (frag == null) {
-                Log.w(TAG, "Activity result no fragment exists for index: 0x"
-                        + Integer.toHexString(requestCode));
+                Log.w(TAG, "Activity result no fragment exists for who: " + who);
             } else {
-                frag.onRequestPermissionsResult(requestCode&0xff, permissions, grantResults);
+                frag.onRequestPermissionsResult(requestCode & 0xffff, permissions, grantResults);
             }
         }
     }
@@ -809,14 +929,71 @@ public class FragmentActivity extends BaseFragmentActivityHoneycomb implements
      */
     public void startActivityFromFragment(Fragment fragment, Intent intent,
             int requestCode) {
-        if (requestCode == -1) {
-            super.startActivityForResult(intent, -1);
-            return;
+        startActivityFromFragment(fragment, intent, requestCode, null);
+    }
+
+    /**
+     * Called by Fragment.startActivityForResult() to implement its behavior.
+     */
+    public void startActivityFromFragment(Fragment fragment, Intent intent,
+            int requestCode, @Nullable Bundle options) {
+        mStartedActivityFromFragment = true;
+        try {
+            if (requestCode == -1) {
+                ActivityCompat.startActivityForResult(this, intent, -1, options);
+                return;
+            }
+            checkForValidRequestCode(requestCode);
+            int requestIndex = allocateRequestIndex(fragment);
+            ActivityCompat.startActivityForResult(
+                    this, intent, ((requestIndex + 1) << 16) + (requestCode & 0xffff), options);
+        } finally {
+            mStartedActivityFromFragment = false;
         }
-        if ((requestCode&0xffff0000) != 0) {
-            throw new IllegalArgumentException("Can only use lower 16 bits for requestCode");
+    }
+
+    /**
+     * Called by Fragment.startIntentSenderForResult() to implement its behavior.
+     */
+    public void startIntentSenderFromFragment(Fragment fragment, IntentSender intent,
+            int requestCode, @Nullable Intent fillInIntent, int flagsMask, int flagsValues,
+            int extraFlags, Bundle options) throws IntentSender.SendIntentException {
+        mStartedIntentSenderFromFragment = true;
+        try {
+            if (requestCode == -1) {
+                ActivityCompat.startIntentSenderForResult(this, intent, requestCode, fillInIntent,
+                        flagsMask, flagsValues, extraFlags, options);
+                return;
+            }
+            checkForValidRequestCode(requestCode);
+            int requestIndex = allocateRequestIndex(fragment);
+            ActivityCompat.startIntentSenderForResult(this, intent,
+                    ((requestIndex + 1) << 16) + (requestCode & 0xffff), fillInIntent,
+                    flagsMask, flagsValues, extraFlags, options);
+        } finally {
+            mStartedIntentSenderFromFragment = false;
         }
-        super.startActivityForResult(intent, ((fragment.mIndex+1)<<16) + (requestCode&0xffff));
+    }
+
+    // Allocates the next available startActivityForResult request index.
+    private int allocateRequestIndex(Fragment fragment) {
+        // Sanity check that we havn't exhaused the request index space.
+        if (mPendingFragmentActivityResults.size() >= MAX_NUM_PENDING_FRAGMENT_ACTIVITY_RESULTS) {
+            throw new IllegalStateException("Too many pending Fragment activity results.");
+        }
+
+        // Find an unallocated request index in the mPendingFragmentActivityResults map.
+        while (mPendingFragmentActivityResults.indexOfKey(mNextCandidateRequestIndex) >= 0) {
+            mNextCandidateRequestIndex =
+                    (mNextCandidateRequestIndex + 1) % MAX_NUM_PENDING_FRAGMENT_ACTIVITY_RESULTS;
+        }
+
+        int requestIndex = mNextCandidateRequestIndex;
+        mPendingFragmentActivityResults.put(requestIndex, fragment.mWho);
+        mNextCandidateRequestIndex =
+                (mNextCandidateRequestIndex + 1) % MAX_NUM_PENDING_FRAGMENT_ACTIVITY_RESULTS;
+
+        return requestIndex;
     }
 
     /**
@@ -828,12 +1005,15 @@ public class FragmentActivity extends BaseFragmentActivityHoneycomb implements
             ActivityCompat.requestPermissions(this, permissions, requestCode);
             return;
         }
-        if ((requestCode&0xffffff00) != 0) {
-            throw new IllegalArgumentException("Can only use lower 8 bits for requestCode");
+        checkForValidRequestCode(requestCode);
+        try {
+            mRequestedPermissionsFromFragment = true;
+            int requestIndex = allocateRequestIndex(fragment);
+            ActivityCompat.requestPermissions(this, permissions,
+                    ((requestIndex + 1) << 16) + (requestCode & 0xffff));
+        } finally {
+            mRequestedPermissionsFromFragment = false;
         }
-        mRequestedPermissionsFromFragment = true;
-        ActivityCompat.requestPermissions(this, permissions,
-                ((fragment.mIndex + 1) << 8) + (requestCode & 0xff));
     }
 
     class HostCallbacks extends FragmentHostCallback<FragmentActivity> {
@@ -869,6 +1049,20 @@ public class FragmentActivity extends BaseFragmentActivityHoneycomb implements
         @Override
         public void onStartActivityFromFragment(Fragment fragment, Intent intent, int requestCode) {
             FragmentActivity.this.startActivityFromFragment(fragment, intent, requestCode);
+        }
+
+        @Override
+        public void onStartActivityFromFragment(
+                Fragment fragment, Intent intent, int requestCode, @Nullable Bundle options) {
+            FragmentActivity.this.startActivityFromFragment(fragment, intent, requestCode, options);
+        }
+
+        @Override
+        public void onStartIntentSenderFromFragment(Fragment fragment, IntentSender intent,
+                int requestCode, @Nullable Intent fillInIntent, int flagsMask, int flagsValues,
+                int extraFlags, Bundle options) throws IntentSender.SendIntentException {
+            FragmentActivity.this.startIntentSenderFromFragment(fragment, intent, requestCode,
+                    fillInIntent, flagsMask, flagsValues, extraFlags, options);
         }
 
         @Override

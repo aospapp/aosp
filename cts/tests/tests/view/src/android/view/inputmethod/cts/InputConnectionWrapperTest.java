@@ -18,6 +18,7 @@ package android.view.inputmethod.cts;
 
 
 import android.os.Bundle;
+import android.os.Handler;
 import android.test.AndroidTestCase;
 import android.text.TextUtils;
 import android.view.KeyEvent;
@@ -54,6 +55,8 @@ public class InputConnectionWrapperTest extends AndroidTestCase {
         assertTrue(inputConnection.isCommitTextCalled);
         wrapper.deleteSurroundingText(10, 100);
         assertTrue(inputConnection.isDeleteSurroundingTextCalled);
+        wrapper.deleteSurroundingTextInCodePoints(10, 100);
+        assertTrue(inputConnection.isDeleteSurroundingTextInCodePointsCalled);
         wrapper.endBatchEdit();
         assertTrue(inputConnection.isEndBatchEditCalled);
         wrapper.finishComposingText();
@@ -86,6 +89,11 @@ public class InputConnectionWrapperTest extends AndroidTestCase {
         assertTrue(inputConnection.isSetComposingRegionCalled);
         wrapper.requestCursorUpdates(InputConnection.CURSOR_UPDATE_IMMEDIATE);
         assertTrue(inputConnection.isRequestCursorUpdatesCalled);
+        wrapper.closeConnection();
+        assertTrue(inputConnection.isCloseConnectionCalled);
+        assertFalse(inputConnection.isGetHandlerCalled);
+        assertNull(inputConnection.getHandler());
+        assertTrue(inputConnection.isGetHandlerCalled);
     }
 
     private class MockInputConnection implements InputConnection {
@@ -95,6 +103,7 @@ public class InputConnectionWrapperTest extends AndroidTestCase {
         public boolean isCommitCorrectionCalled;
         public boolean isCommitTextCalled;
         public boolean isDeleteSurroundingTextCalled;
+        public boolean isDeleteSurroundingTextInCodePointsCalled;
         public boolean isEndBatchEditCalled;
         public boolean isFinishComposingTextCalled;
         public boolean isGetCursorCapsModeCalled;
@@ -111,6 +120,8 @@ public class InputConnectionWrapperTest extends AndroidTestCase {
         public boolean isSetComposingRegionCalled;
         public boolean isSetSelectionCalled;
         public boolean isRequestCursorUpdatesCalled;
+        public boolean isGetHandlerCalled;
+        public boolean isCloseConnectionCalled;
 
         public boolean beginBatchEdit() {
             isBeginBatchEditCalled = true;
@@ -139,6 +150,11 @@ public class InputConnectionWrapperTest extends AndroidTestCase {
 
         public boolean deleteSurroundingText(int beforeLength, int afterLength) {
             isDeleteSurroundingTextCalled = true;
+            return false;
+        }
+
+        public boolean deleteSurroundingTextInCodePoints(int beforeLength, int afterLength) {
+            isDeleteSurroundingTextInCodePointsCalled = true;
             return false;
         }
 
@@ -220,6 +236,15 @@ public class InputConnectionWrapperTest extends AndroidTestCase {
         public boolean requestCursorUpdates(int cursorUpdateMode) {
             isRequestCursorUpdatesCalled = true;
             return false;
+        }
+
+        public Handler getHandler() {
+            isGetHandlerCalled = true;
+            return null;
+        }
+
+        public void closeConnection() {
+            isCloseConnectionCalled = true;
         }
     }
 }

@@ -138,18 +138,22 @@ public class CalculatorText extends AlignedTextView implements View.OnLongClickL
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        // Prevent shrinking/resizing with our variable textSize.
-        if (!isLaidOut()) {
-            setTextSize(TypedValue.COMPLEX_UNIT_PX, mMaximumTextSize);
-            setMinHeight(getLineHeight() + getCompoundPaddingBottom() + getCompoundPaddingTop());
-        }
-
         // Re-calculate our textSize based on new width.
         final int width = MeasureSpec.getSize(widthMeasureSpec)
                 - getPaddingLeft() - getPaddingRight();
         if (mWidthConstraint != width) {
             mWidthConstraint = width;
-            setTextSize(TypedValue.COMPLEX_UNIT_PX, getVariableTextSize(getText()));
+
+            if (!isLaidOut()) {
+                // Prevent shrinking/resizing with our variable textSize.
+                setTextSizeInternal(TypedValue.COMPLEX_UNIT_PX, mMaximumTextSize,
+                        false /* notifyListener */);
+                setMinHeight(getLineHeight() + getCompoundPaddingBottom()
+                        + getCompoundPaddingTop());
+            }
+
+            setTextSizeInternal(TypedValue.COMPLEX_UNIT_PX, getVariableTextSize(getText()),
+                    false);
         }
 
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
@@ -164,14 +168,17 @@ public class CalculatorText extends AlignedTextView implements View.OnLongClickL
         setTextSize(TypedValue.COMPLEX_UNIT_PX, getVariableTextSize(text.toString()));
     }
 
-    @Override
-    public void setTextSize(int unit, float size) {
+    private void setTextSizeInternal(int unit, float size, boolean notifyListener) {
         final float oldTextSize = getTextSize();
         super.setTextSize(unit, size);
-
-        if (mOnTextSizeChangeListener != null && getTextSize() != oldTextSize) {
+        if (notifyListener && mOnTextSizeChangeListener != null && getTextSize() != oldTextSize) {
             mOnTextSizeChangeListener.onTextSizeChanged(this, oldTextSize);
         }
+    }
+
+    @Override
+    public void setTextSize(int unit, float size) {
+        setTextSizeInternal(unit, size, true);
     }
 
     public float getMinimumTextSize() {

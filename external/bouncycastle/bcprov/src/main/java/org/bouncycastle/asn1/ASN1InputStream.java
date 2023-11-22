@@ -236,11 +236,11 @@ public class ASN1InputStream
         //
         int length = readLength();
 
-        if (length < 0) // indefinite length method
+        if (length < 0) // indefinite-length method
         {
             if (!isConstructed)
             {
-                throw new IOException("indefinite length primitive encoding encountered");
+                throw new IOException("indefinite-length primitive encoding encountered");
             }
 
             IndefiniteLengthInputStream indIn = new IndefiniteLengthInputStream(this, limit);
@@ -430,7 +430,7 @@ public class ASN1InputStream
         switch (tagNo)
         {
             case BIT_STRING:
-                return DERBitString.fromInputStream(defIn.getRemaining(), defIn);
+                return ASN1BitString.fromInputStream(defIn.getRemaining(), defIn);
             case BMP_STRING:
                 return new DERBMPString(getBMPCharBuffer(defIn));
             case BOOLEAN:
@@ -465,6 +465,10 @@ public class ASN1InputStream
                 return new DERUTF8String(defIn.toByteArray());
             case VISIBLE_STRING:
                 return new DERVisibleString(defIn.toByteArray());
+            case GRAPHIC_STRING:
+                return new DERGraphicString(defIn.toByteArray());
+            case VIDEOTEX_STRING:
+                return new DERVideotexString(defIn.toByteArray());
             default:
                 throw new IOException("unknown tag " + tagNo + " encountered");
         }

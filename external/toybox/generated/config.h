@@ -1,17 +1,19 @@
 #define CFG_TOYBOX_CONTAINER 1
 #define USE_TOYBOX_CONTAINER(...) __VA_ARGS__
-#define CFG_TOYBOX_FIFREEZE 1
-#define USE_TOYBOX_FIFREEZE(...) __VA_ARGS__
-#define CFG_TOYBOX_ICONV 1
-#define USE_TOYBOX_ICONV(...) __VA_ARGS__
 #define CFG_TOYBOX_FALLOCATE 1
 #define USE_TOYBOX_FALLOCATE(...) __VA_ARGS__
-#define CFG_TOYBOX_UTMPX 1
-#define USE_TOYBOX_UTMPX(...) __VA_ARGS__
-#define CFG_TOYBOX_SHADOW 1
-#define USE_TOYBOX_SHADOW(...) __VA_ARGS__
+#define CFG_TOYBOX_FIFREEZE 1
+#define USE_TOYBOX_FIFREEZE(...) __VA_ARGS__
+#define CFG_TOYBOX_FORK 1
+#define USE_TOYBOX_FORK(...) __VA_ARGS__
+#define CFG_TOYBOX_ICONV 1
+#define USE_TOYBOX_ICONV(...) __VA_ARGS__
 #define CFG_TOYBOX_ON_ANDROID 1
 #define USE_TOYBOX_ON_ANDROID(...) __VA_ARGS__
+#define CFG_TOYBOX_SHADOW 0
+#define USE_TOYBOX_SHADOW(...)
+#define CFG_TOYBOX_UTMPX 0
+#define USE_TOYBOX_UTMPX(...)
 #define CFG_BASENAME 1
 #define USE_BASENAME(...) __VA_ARGS__
 #define CFG_CAL 1
@@ -38,6 +40,8 @@
 #define USE_CP(...) __VA_ARGS__
 #define CFG_CP_MORE 1
 #define USE_CP_MORE(...) __VA_ARGS__
+#define CFG_CP_PRESERVE 1
+#define USE_CP_PRESERVE(...) __VA_ARGS__
 #define CFG_MV 1
 #define USE_MV(...) __VA_ARGS__
 #define CFG_MV_MORE 1
@@ -64,6 +68,8 @@
 #define USE_EXPAND(...) __VA_ARGS__
 #define CFG_FALSE 1
 #define USE_FALSE(...) __VA_ARGS__
+#define CFG_FILE 0
+#define USE_FILE(...)
 #define CFG_FIND 1
 #define USE_FIND(...) __VA_ARGS__
 #define CFG_GREP 1
@@ -76,8 +82,12 @@
 #define USE_HEAD(...) __VA_ARGS__
 #define CFG_ID 1
 #define USE_ID(...) __VA_ARGS__
-#define CFG_ID_SELINUX 1
-#define USE_ID_SELINUX(...) __VA_ARGS__
+#define CFG_ID_Z 1
+#define USE_ID_Z(...) __VA_ARGS__
+#define CFG_IONICE 1
+#define USE_IONICE(...) __VA_ARGS__
+#define CFG_IORENICE 1
+#define USE_IORENICE(...) __VA_ARGS__
 #define CFG_GROUPS 1
 #define USE_GROUPS(...) __VA_ARGS__
 #define CFG_LOGNAME 1
@@ -100,14 +110,24 @@
 #define USE_LS_Z(...) __VA_ARGS__
 #define CFG_MKDIR 1
 #define USE_MKDIR(...) __VA_ARGS__
+#define CFG_MKDIR_Z 1
+#define USE_MKDIR_Z(...) __VA_ARGS__
 #define CFG_MKFIFO 1
 #define USE_MKFIFO(...) __VA_ARGS__
+#define CFG_MKFIFO_Z 1
+#define USE_MKFIFO_Z(...) __VA_ARGS__
+#define CFG_MKNOD 1
+#define USE_MKNOD(...) __VA_ARGS__
+#define CFG_MKNOD_Z 1
+#define USE_MKNOD_Z(...) __VA_ARGS__
 #define CFG_NICE 1
 #define USE_NICE(...) __VA_ARGS__
 #define CFG_NL 1
 #define USE_NL(...) __VA_ARGS__
 #define CFG_NOHUP 1
 #define USE_NOHUP(...) __VA_ARGS__
+#define CFG_NPROC 0
+#define USE_NPROC(...)
 #define CFG_OD 1
 #define USE_OD(...) __VA_ARGS__
 #define CFG_PASTE 1
@@ -116,6 +136,10 @@
 #define USE_PATCH(...) __VA_ARGS__
 #define CFG_PRINTF 1
 #define USE_PRINTF(...) __VA_ARGS__
+#define CFG_PS 1
+#define USE_PS(...) __VA_ARGS__
+#define CFG_TTOP 0
+#define USE_TTOP(...)
 #define CFG_PWD 1
 #define USE_PWD(...) __VA_ARGS__
 #define CFG_RENICE 1
@@ -144,6 +168,8 @@
 #define USE_TAIL(...) __VA_ARGS__
 #define CFG_TAIL_SEEK 1
 #define USE_TAIL_SEEK(...) __VA_ARGS__
+#define CFG_TASKSET 1
+#define USE_TASKSET(...) __VA_ARGS__
 #define CFG_TEE 1
 #define USE_TEE(...) __VA_ARGS__
 #define CFG_TIME 1
@@ -154,6 +180,8 @@
 #define USE_TRUE(...) __VA_ARGS__
 #define CFG_TTY 1
 #define USE_TTY(...) __VA_ARGS__
+#define CFG_ULIMIT 1
+#define USE_ULIMIT(...) __VA_ARGS__
 #define CFG_UNAME 1
 #define USE_UNAME(...) __VA_ARGS__
 #define CFG_UNIQ 1
@@ -164,6 +192,8 @@
 #define USE_UUDECODE(...)
 #define CFG_UUENCODE 0
 #define USE_UUENCODE(...)
+#define CFG_VI 0
+#define USE_VI(...)
 #define CFG_WC 1
 #define USE_WC(...) __VA_ARGS__
 #define CFG_WHO 0
@@ -198,6 +228,8 @@
 #define USE_CRONTAB(...)
 #define CFG_DD 1
 #define USE_DD(...) __VA_ARGS__
+#define CFG_DHCP6 0
+#define USE_DHCP6(...)
 #define CFG_DHCP 0
 #define USE_DHCP(...)
 #define CFG_DHCPD 0
@@ -234,6 +266,8 @@
 #define USE_ICONV(...)
 #define CFG_INIT 0
 #define USE_INIT(...)
+#define CFG_IOTOP 0
+#define USE_IOTOP(...)
 #define CFG_IP 0
 #define USE_IP(...)
 #define CFG_IPCRM 0
@@ -248,6 +282,8 @@
 #define USE_LAST(...)
 #define CFG_LOGGER 0
 #define USE_LOGGER(...)
+#define CFG_LSOF 1
+#define USE_LSOF(...) __VA_ARGS__
 #define CFG_MDEV 0
 #define USE_MDEV(...)
 #define CFG_MDEV_CONF 0
@@ -274,10 +310,10 @@
 #define USE_DEALLOCVT(...)
 #define CFG_PGREP 1
 #define USE_PGREP(...) __VA_ARGS__
+#define CFG_PKILL 1
+#define USE_PKILL(...) __VA_ARGS__
 #define CFG_PING 0
 #define USE_PING(...)
-#define CFG_PS 0
-#define USE_PS(...)
 #define CFG_RESET 0
 #define USE_RESET(...)
 #define CFG_ROUTE 1
@@ -302,6 +338,8 @@
 #define USE_TELNETD(...)
 #define CFG_TEST 0
 #define USE_TEST(...)
+#define CFG_TFTP 0
+#define USE_TFTP(...)
 #define CFG_TFTPD 0
 #define USE_TFTPD(...)
 #define CFG_TOP 1
@@ -328,6 +366,8 @@
 #define USE_FSTYPE(...)
 #define CFG_BLOCKDEV 1
 #define USE_BLOCKDEV(...) __VA_ARGS__
+#define CFG_BUNZIP2 1
+#define USE_BUNZIP2(...) __VA_ARGS__
 #define CFG_BZCAT 1
 #define USE_BZCAT(...) __VA_ARGS__
 #define CFG_CHCON 1
@@ -350,16 +390,22 @@
 #define USE_FACTOR(...)
 #define CFG_FALLOCATE 1
 #define USE_FALLOCATE(...) __VA_ARGS__
+#define CFG_FLOCK 1
+#define USE_FLOCK(...) __VA_ARGS__
 #define CFG_FREE 1
 #define USE_FREE(...) __VA_ARGS__
 #define CFG_FREERAMDISK 1
 #define USE_FREERAMDISK(...) __VA_ARGS__
 #define CFG_FSFREEZE 1
 #define USE_FSFREEZE(...) __VA_ARGS__
+#define CFG_FSYNC 0
+#define USE_FSYNC(...)
 #define CFG_HELP 1
 #define USE_HELP(...) __VA_ARGS__
 #define CFG_HELP_EXTRAS 1
 #define USE_HELP_EXTRAS(...) __VA_ARGS__
+#define CFG_HOSTID 0
+#define USE_HOSTID(...)
 #define CFG_IFCONFIG 1
 #define USE_IFCONFIG(...) __VA_ARGS__
 #define CFG_INOTIFYD 1
@@ -452,8 +498,8 @@
 #define USE_TIMEOUT(...) __VA_ARGS__
 #define CFG_TRUNCATE 1
 #define USE_TRUNCATE(...) __VA_ARGS__
-#define CFG_UPTIME 0
-#define USE_UPTIME(...)
+#define CFG_UPTIME 1
+#define USE_UPTIME(...) __VA_ARGS__
 #define CFG_USLEEP 1
 #define USE_USLEEP(...) __VA_ARGS__
 #define CFG_VCONFIG 1
@@ -464,6 +510,8 @@
 #define USE_W(...)
 #define CFG_WHICH 1
 #define USE_WHICH(...) __VA_ARGS__
+#define CFG_XXD 1
+#define USE_XXD(...) __VA_ARGS__
 #define CFG_YES 1
 #define USE_YES(...) __VA_ARGS__
 #define CFG_DMESG 1
@@ -500,6 +548,12 @@
 #define USE_SKELETON(...)
 #define CFG_SKELETON_ALIAS 0
 #define USE_SKELETON_ALIAS(...)
+#define CFG_TEST_HUMAN_READABLE 0
+#define USE_TEST_HUMAN_READABLE(...)
+#define CFG_TEST_MANY_OPTIONS 0
+#define USE_TEST_MANY_OPTIONS(...)
+#define CFG_TEST_SCANKEY 0
+#define USE_TEST_SCANKEY(...)
 #define CFG_GETENFORCE 1
 #define USE_GETENFORCE(...) __VA_ARGS__
 #define CFG_GETPROP 1
@@ -540,3 +594,5 @@
 #define USE_TOYBOX_DEBUG(...)
 #define CFG_TOYBOX_UID_SYS 100
 #define CFG_TOYBOX_UID_USR 500
+#define CFG_TOYBOX_MUSL_NOMMU_IS_BROKEN 0
+#define USE_TOYBOX_MUSL_NOMMU_IS_BROKEN(...)

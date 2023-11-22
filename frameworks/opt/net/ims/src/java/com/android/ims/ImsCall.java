@@ -386,6 +386,16 @@ public class ImsCall implements ICall {
         }
 
         /**
+         * Called when the call supp service is received
+         * The default implementation calls {@link #onCallStateChanged}.
+         *
+         * @param call the call object that carries out the IMS call
+         */
+        public void onCallSuppServiceReceived(ImsCall call,
+            ImsSuppServiceNotification suppServiceInfo) {
+        }
+
+        /**
          * Called when TTY mode of remote party changed
          *
          * @param call the call object that carries out the IMS call
@@ -1572,6 +1582,10 @@ public class ImsCall implements ICall {
     }
 
     private void notifyConferenceStateUpdated(ImsConferenceState state) {
+        if (state == null || state.mParticipants == null) {
+            return;
+        }
+
         Set<Entry<String, Bundle>> participants = state.mParticipants.entrySet();
 
         if (participants == null) {
@@ -1612,8 +1626,7 @@ public class ImsCall implements ICall {
             }
         }
 
-        if (mConferenceParticipants != null && !mConferenceParticipants.isEmpty()
-                && mListener != null) {
+        if (mConferenceParticipants != null && mListener != null) {
             try {
                 mListener.onConferenceParticipantsStateChanged(this, mConferenceParticipants);
             } catch (Throwable t) {
@@ -1654,9 +1667,6 @@ public class ImsCall implements ICall {
                 mSessionEndDuringMerge = true;
                 mSessionEndDuringMergeReasonInfo = reasonInfo;
                 return;
-            } else if (mTerminationRequestPending) {
-                // Abort the merge if we receive a termination request from telephony or the user.
-                clearMergeInfo();
             }
 
             // If we are terminating the conference call, notify using conference listeners.
@@ -1704,16 +1714,21 @@ public class ImsCall implements ICall {
         }
     }
 
-    private void maybeMarkPeerAsMerged() {
-        if (!isSessionAlive(mMergePeer.mSession)) {
+    private void markCallAsMerged(boolean playDisconnectTone) {
+        if (!isSessionAlive(mSession)) {
             // If the peer is dead, let's not play a disconnect sound for it when we
             // unbury the termination callback.
-            logi("maybeMarkPeerAsMerged");
-            mMergePeer.setIsMerged(true);
-            mMergePeer.mSessionEndDuringMerge = true;
-            mMergePeer.mSessionEndDuringMergeReasonInfo = new ImsReasonInfo(
-                    ImsReasonInfo.CODE_UNSPECIFIED, 0,
-                    "Call ended during conference merge process.");
+            logi("markCallAsMerged");
+            setIsMerged(playDisconnectTone);
+            mSessionEndDuringMerge = true;
+            String reasonInfo;
+            if (playDisconnectTone) {
+                reasonInfo = "Call ended by network";
+            } else {
+                reasonInfo = "Call ended during conference merge process.";
+            }
+            mSessionEndDuringMergeReasonInfo = new ImsReasonInfo(
+                    ImsReasonInfo.CODE_UNSPECIFIED, 0, reasonInfo);
         }
     }
 
@@ -1782,7 +1797,7 @@ public class ImsCall implements ICall {
                     this.mHold = false;
                     swapRequired = true;
                 }
-                maybeMarkPeerAsMerged();
+                mMergePeer.markCallAsMerged(false);
                 finalHostCall = this;
                 finalPeerCall = mMergePeer;
             } else {
@@ -1828,6 +1843,16 @@ public class ImsCall implements ICall {
                     // brought up.
                     mMergePeer.mHold = false;
                     this.mHold = true;
+                    if (mConferenceParticipants != null && !mConferenceParticipants.isEmpty()) {
+                        mMergePeer.mConferenceParticipants = mConferenceParticipants;
+                    }
+                    // At this point both host & peer will have participant information.
+                    // Peer will transition to host & the participant information
+                    // from that will be used
+                    // HostCall that failed to merge will remain as a single call with
+                    // mConferenceParticipants, which should not be used.
+                    // Expectation is that if this call becomes part of a conference call in future,
+                    // mConferenceParticipants will be overriten with new CEP that is received.
                     finalHostCall = mMergePeer;
                     finalPeerCall = this;
                     swapRequired = true;
@@ -1857,7 +1882,7 @@ public class ImsCall implements ICall {
                     // only disconnected to be added to the conference.
                     finalHostCall = this;
                     finalPeerCall = mMergePeer;
-                    maybeMarkPeerAsMerged();
+                    mMergePeer.markCallAsMerged(false);
                     swapRequired = false;
                     setIsMerged(false);
                     mMergePeer.setIsMerged(true);
@@ -1876,6 +1901,9 @@ public class ImsCall implements ICall {
             }
 
             listener = finalHostCall.mListener;
+
+            updateCallProfile(finalPeerCall);
+            updateCallProfile(finalHostCall);
 
             // Clear all the merge related flags.
             clearMergeInfo();
@@ -1904,13 +1932,28 @@ public class ImsCall implements ICall {
             }
             if (mConferenceParticipants != null && !mConferenceParticipants.isEmpty()) {
                 try {
-                    listener.onConferenceParticipantsStateChanged(this, mConferenceParticipants);
+                    listener.onConferenceParticipantsStateChanged(finalHostCall,
+                            mConferenceParticipants);
                 } catch (Throwable t) {
                     loge("processMergeComplete :: ", t);
                 }
             }
         }
         return;
+    }
+
+    private static void updateCallProfile(ImsCall call) {
+        if (call != null) {
+            call.updateCallProfile();
+        }
+    }
+
+    private void updateCallProfile() {
+        synchronized (mLockObj) {
+            if (mSession != null) {
+                mCallProfile = mSession.getCallProfile();
+            }
+        }
     }
 
     /**
@@ -1982,12 +2025,14 @@ public class ImsCall implements ICall {
 
             // Ensure the calls being conferenced into the conference has isMerged = false.
             // Ensure any terminations are surfaced from this session.
-            setIsMerged(false);
+            markCallAsMerged(true);
+            setCallSessionMergePending(false);
             notifySessionTerminatedDuringMerge();
 
+            // Perform the same cleanup on the merge peer if it exists.
             if (mMergePeer != null) {
-                // Perform the same cleanup on the merge peer if it exists.
-                mMergePeer.setIsMerged(false);
+                mMergePeer.markCallAsMerged(true);
+                mMergePeer.setCallSessionMergePending(false);
                 mMergePeer.notifySessionTerminatedDuringMerge();
             } else {
                 loge("processMergeFailed :: No merge peer!");
@@ -2162,7 +2207,10 @@ public class ImsCall implements ICall {
                 return;
             }
 
-            synchronized(mLockObj) {
+            logi("callSessionHoldFailed :: session=" + session +
+                    ", reasonInfo=" + reasonInfo);
+
+            synchronized (mLockObj) {
                 mHold = false;
             }
 
@@ -2795,6 +2843,33 @@ public class ImsCall implements ICall {
                 }
             }
         }
+
+        @Override
+        public void callSessionSuppServiceReceived(ImsCallSession session,
+                ImsSuppServiceNotification suppServiceInfo ) {
+            if (isTransientConferenceSession(session)) {
+                logi("callSessionSuppServiceReceived :: not supported for transient conference"
+                        + " session=" + session);
+                return;
+            }
+
+            logi("callSessionSuppServiceReceived :: session=" + session +
+                     ", suppServiceInfo" + suppServiceInfo);
+
+            ImsCall.Listener listener;
+
+            synchronized(ImsCall.this) {
+                listener = mListener;
+            }
+
+            if (listener != null) {
+                try {
+                    listener.onCallSuppServiceReceived(ImsCall.this, suppServiceInfo);
+                } catch (Throwable t) {
+                    loge("callSessionSuppServiceReceived :: ", t);
+                }
+            }
+        }
     }
 
     /**
@@ -3043,6 +3118,10 @@ public class ImsCall implements ICall {
         sb.append(isOnHold() ? "Y" : "N");
         sb.append(" mute:");
         sb.append(isMuted() ? "Y" : "N");
+        if (mCallProfile != null) {
+            sb.append(" tech:");
+            sb.append(mCallProfile.getCallExtra(ImsCallProfile.EXTRA_CALL_RAT_TYPE));
+        }
         sb.append(" updateRequest:");
         sb.append(updateRequestToString(mUpdateRequest));
         sb.append(" merging:");

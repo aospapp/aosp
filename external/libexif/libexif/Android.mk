@@ -51,6 +51,9 @@ LOCAL_SRC_FILES:= \
     pentax/mnote-pentax-entry.c \
     pentax/mnote-pentax-tag.c
 
+# Because all the include statements in the header files are in double layer
+# ("libexif/XXXX.h") style, we need to set the export root to the parent folder.
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/..
 
 LOCAL_MODULE := libexif
 

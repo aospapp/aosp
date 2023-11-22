@@ -13,8 +13,6 @@
 
 #include "vp9/common/vp9_entropymv.h"
 #include "vp9/common/vp9_entropy.h"
-#include "vpx_ports/mem.h"
-#include "vp9/common/vp9_onyxc_int.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,8 +26,8 @@ typedef struct {
 
 struct macroblock_plane {
   DECLARE_ALIGNED(16, int16_t, src_diff[64 * 64]);
-  int16_t *qcoeff;
-  int16_t *coeff;
+  tran_low_t *qcoeff;
+  tran_low_t *coeff;
   uint16_t *eobs;
   struct buf_2d src;
 
@@ -42,8 +40,6 @@ struct macroblock_plane {
   int16_t *round;
 
   int64_t quant_thred[2];
-  // Zbin Over Quant value
-  int16_t zbin_extra;
 };
 
 /* The [2] dimension is for whether we skip the EOB node (i.e. if previous
@@ -51,11 +47,18 @@ struct macroblock_plane {
 typedef unsigned int vp9_coeff_cost[PLANE_TYPES][REF_TYPES][COEF_BANDS][2]
                                    [COEFF_CONTEXTS][ENTROPY_TOKENS];
 
+typedef struct {
+  int_mv ref_mvs[MAX_REF_FRAMES][MAX_MV_REF_CANDIDATES];
+  uint8_t mode_context[MAX_REF_FRAMES];
+} MB_MODE_INFO_EXT;
+
 typedef struct macroblock MACROBLOCK;
 struct macroblock {
   struct macroblock_plane plane[MAX_MB_PLANE];
 
   MACROBLOCKD e_mbd;
+  MB_MODE_INFO_EXT *mbmi_ext;
+  MB_MODE_INFO_EXT *mbmi_ext_base;
   int skip_block;
   int select_tx_size;
   int skip_recode;
@@ -69,6 +72,11 @@ struct macroblock {
   int rdmult;
   int mb_energy;
 
+  // These are set to their default values at the beginning, and then adjusted
+  // further in the encoding process.
+  BLOCK_SIZE min_partition_size;
+  BLOCK_SIZE max_partition_size;
+
   int mv_best_ref_index[MAX_REF_FRAMES];
   unsigned int max_mv_context[MAX_REF_FRAMES];
   unsigned int source_variance;
@@ -76,16 +84,12 @@ struct macroblock {
   int pred_mv_sad[MAX_REF_FRAMES];
 
   int nmvjointcost[MV_JOINTS];
-  int nmvcosts[2][MV_VALS];
   int *nmvcost[2];
-  int nmvcosts_hp[2][MV_VALS];
   int *nmvcost_hp[2];
   int **mvcost;
 
   int nmvjointsadcost[MV_JOINTS];
-  int nmvsadcosts[2][MV_VALS];
   int *nmvsadcost[2];
-  int nmvsadcosts_hp[2][MV_VALS];
   int *nmvsadcost_hp[2];
   int **mvsadcost;
 
@@ -96,15 +100,16 @@ struct macroblock {
   int mv_row_min;
   int mv_row_max;
 
+  // Notes transform blocks where no coefficents are coded.
+  // Set during mode selection. Read during block encoding.
   uint8_t zcoeff_blk[TX_SIZES][256];
+
   int skip;
 
   int encode_breakout;
 
   // note that token_costs is the cost when eob node is skipped
   vp9_coeff_cost token_costs[TX_SIZES];
-
-  int in_static_area;
 
   int optimize;
 
@@ -116,15 +121,26 @@ struct macroblock {
   int quant_fp;
 
   // skip forward transform and quantization
-  int skip_txfm[MAX_MB_PLANE];
+  uint8_t skip_txfm[MAX_MB_PLANE << 2];
+  #define SKIP_TXFM_NONE 0
+  #define SKIP_TXFM_AC_DC 1
+  #define SKIP_TXFM_AC_ONLY 2
 
-  int64_t bsse[MAX_MB_PLANE];
+  int64_t bsse[MAX_MB_PLANE << 2];
 
   // Used to store sub partition's choices.
   MV pred_mv[MAX_REF_FRAMES];
 
-  void (*fwd_txm4x4)(const int16_t *input, int16_t *output, int stride);
-  void (*itxm_add)(const int16_t *input, uint8_t *dest, int stride, int eob);
+  // Strong color activity detection. Used in RTC coding mode to enhance
+  // the visual quality at the boundary of moving color objects.
+  uint8_t color_sensitivity[2];
+
+  void (*fwd_txm4x4)(const int16_t *input, tran_low_t *output, int stride);
+  void (*itxm_add)(const tran_low_t *input, uint8_t *dest, int stride, int eob);
+#if CONFIG_VP9_HIGHBITDEPTH
+  void (*highbd_itxm_add)(const tran_low_t *input, uint8_t *dest, int stride,
+                          int eob, int bd);
+#endif
 };
 
 #ifdef __cplusplus

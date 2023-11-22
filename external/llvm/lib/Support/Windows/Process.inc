@@ -156,10 +156,6 @@ Optional<std::string> Process::GetEnv(StringRef Name) {
   return std::string(Res.data());
 }
 
-static std::error_code windows_error(DWORD E) {
-  return mapWindowsError(E);
-}
-
 static void AllocateAndPush(const SmallVectorImpl<char> &S,
                             SmallVectorImpl<const char *> &Vector,
                             SpecificBumpPtrAllocator<char> &Allocator) {
@@ -235,7 +231,7 @@ Process::GetArgumentVector(SmallVectorImpl<const char *> &Args,
   wchar_t **UnicodeCommandLine =
       CommandLineToArgvW(GetCommandLineW(), &ArgCount);
   if (!UnicodeCommandLine)
-    return windows_error(::GetLastError());
+    return mapWindowsError(::GetLastError());
 
   Args.reserve(ArgCount);
   std::error_code ec;
@@ -421,16 +417,23 @@ const char *Process::ResetColor() {
   return 0;
 }
 
+// Include GetLastError() in a fatal error message.
+static void ReportLastErrorFatal(const char *Msg) {
+  std::string ErrMsg;
+  MakeErrMsg(&ErrMsg, Msg);
+  report_fatal_error(ErrMsg);
+}
+
 unsigned Process::GetRandomNumber() {
   HCRYPTPROV HCPC;
   if (!::CryptAcquireContextW(&HCPC, NULL, NULL, PROV_RSA_FULL,
                               CRYPT_VERIFYCONTEXT))
-    report_fatal_error("Could not acquire a cryptographic context");
+    ReportLastErrorFatal("Could not acquire a cryptographic context");
 
   ScopedCryptContext CryptoProvider(HCPC);
   unsigned Ret;
   if (!::CryptGenRandom(CryptoProvider, sizeof(Ret),
                         reinterpret_cast<BYTE *>(&Ret)))
-    report_fatal_error("Could not generate a random number");
+    ReportLastErrorFatal("Could not generate a random number");
   return Ret;
 }

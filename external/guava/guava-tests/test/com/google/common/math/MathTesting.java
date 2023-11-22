@@ -149,6 +149,7 @@ public class MathTesting {
     longValues.addAll(Iterables.transform(POSITIVE_INTEGER_CANDIDATES, TO_LONG));
     // Add boundary values manually to avoid over/under flow (this covers 2^N for 31 and 63).
     longValues.add(Integer.MAX_VALUE + 1L, Long.MAX_VALUE - 1L, Long.MAX_VALUE);
+
     // Now add values near 2^N for lots of values of N.
     for (int exponent : asList(32, 33, 39, 40, 41, 47, 48, 49, 55, 56, 57)) {
       long x = 1L << exponent;
@@ -176,10 +177,6 @@ public class MathTesting {
 
   static final Iterable<BigInteger> ALL_BIGINTEGER_CANDIDATES;
 
-  static final int MAX_EXPONENT = 1023; // Double.MAX_EXPONENT not present in JDK5
-
-  static final double MIN_NORMAL = 2.2250738585072014E-308;
-
   static {
     ImmutableSet.Builder<BigInteger> bigValues = ImmutableSet.builder();
     // First of all add all the long candidate values.
@@ -188,7 +185,7 @@ public class MathTesting {
     bigValues.add(BigInteger.valueOf(Long.MAX_VALUE).add(ONE));
     // Now add values near 2^N for lots of values of N.
     for (int exponent : asList(64, 65, 71, 72, 73, 79, 80, 81, 255, 256, 257, 511, 512, 513,
-        MAX_EXPONENT - 1, MAX_EXPONENT, MAX_EXPONENT + 1)) {
+        Double.MAX_EXPONENT - 1, Double.MAX_EXPONENT, Double.MAX_EXPONENT + 1)) {
       BigInteger x = ONE.shiftLeft(exponent);
       bigValues.add(x, x.add(ONE), x.subtract(ONE));
     }
@@ -219,11 +216,11 @@ public class MathTesting {
     integralBuilder.addAll(Doubles.asList(0.0, -0.0, Double.MAX_VALUE, -Double.MAX_VALUE));
     // Add small multiples of MIN_VALUE and MIN_NORMAL
     for (int scale = 1; scale <= 4; scale++) {
-      for (double d : Doubles.asList(Double.MIN_VALUE, MIN_NORMAL)) {
+      for (double d : Doubles.asList(Double.MIN_VALUE, Double.MIN_NORMAL)) {
         fractionalBuilder.add(d * scale).add(-d * scale);
       }
     }
-    for (double d : Doubles.asList(0, 1, 2, 7, 51, 102, Integer.MIN_VALUE,
+    for (double d : Doubles.asList(0, 1, 2, 7, 51, 102, Math.scalb(1.0, 53), Integer.MIN_VALUE,
         Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE)) {
       for (double delta : Doubles.asList(0.0, 1.0, 2.0)) {
         integralBuilder.addAll(Doubles.asList(d + delta, d - delta, -d - delta, -d + delta));

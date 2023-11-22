@@ -95,18 +95,20 @@ struct BpCrypto : public BpInterface<ICrypto> {
     }
 
     virtual ssize_t decrypt(
-            bool secure,
+            DestinationType dstType,
             const uint8_t key[16],
             const uint8_t iv[16],
-            CryptoPlugin::Mode mode,
+            CryptoPlugin::Mode mode, const CryptoPlugin::Pattern &pattern,
             const sp<IMemory> &sharedBuffer, size_t offset,
             const CryptoPlugin::SubSample *subSamples, size_t numSubSamples,
             void *dstPtr,
             AString *errorDetailMsg) {
         Parcel data, reply;
         data.writeInterfaceToken(ICrypto::getInterfaceDescriptor());
-        data.writeInt32(secure);
+        data.writeInt32((int32_t)dstType);
         data.writeInt32(mode);
+        data.writeInt32(pattern.mEncryptBlocks);
+        data.writeInt32(pattern.mSkipBlocks);
 
         static const uint8_t kDummy[16] = { 0 };
 
@@ -134,8 +136,12 @@ struct BpCrypto : public BpInterface<ICrypto> {
         data.writeInt32(numSubSamples);
         data.write(subSamples, sizeof(CryptoPlugin::SubSample) * numSubSamples);
 
-        if (secure) {
+        if (dstType == kDestinationTypeNativeHandle) {
+            data.writeNativeHandle(static_cast<native_handle_t *>(dstPtr));
+        } else if (dstType == kDestinationTypeOpaqueHandle) {
             data.writeInt64(static_cast<uint64_t>(reinterpret_cast<uintptr_t>(dstPtr)));
+        } else {
+            dstType = kDestinationTypeVmPointer;
         }
 
         remote()->transact(DECRYPT, data, &reply);
@@ -146,7 +152,7 @@ struct BpCrypto : public BpInterface<ICrypto> {
             errorDetailMsg->setTo(reply.readCString());
         }
 
-        if (!secure && result >= 0) {
+        if (dstType == kDestinationTypeVmPointer && result >= 0) {
             reply.read(dstPtr, result);
         }
 
@@ -261,7 +267,11 @@ status_t BnCrypto::onTransact(
             CHECK_INTERFACE(ICrypto, data, reply);
 
             const char *mime = data.readCString();
-            reply->writeInt32(requiresSecureDecoderComponent(mime));
+            if (mime == NULL) {
+                reply->writeInt32(BAD_VALUE);
+            } else {
+                reply->writeInt32(requiresSecureDecoderComponent(mime));
+            }
 
             return OK;
         }
@@ -270,8 +280,11 @@ status_t BnCrypto::onTransact(
         {
             CHECK_INTERFACE(ICrypto, data, reply);
 
-            bool secure = data.readInt32() != 0;
+            DestinationType dstType = (DestinationType)data.readInt32();
             CryptoPlugin::Mode mode = (CryptoPlugin::Mode)data.readInt32();
+            CryptoPlugin::Pattern pattern;
+            pattern.mEncryptBlocks = data.readInt32();
+            pattern.mSkipBlocks = data.readInt32();
 
             uint8_t key[16];
             data.read(key, sizeof(key));
@@ -282,6 +295,10 @@ status_t BnCrypto::onTransact(
             size_t totalSize = data.readInt32();
             sp<IMemory> sharedBuffer =
                 interface_cast<IMemory>(data.readStrongBinder());
+            if (sharedBuffer == NULL) {
+                reply->writeInt32(BAD_VALUE);
+                return OK;
+            }
             int32_t offset = data.readInt32();
 
             int32_t numSubSamples = data.readInt32();
@@ -293,27 +310,53 @@ status_t BnCrypto::onTransact(
                     subSamples,
                     sizeof(CryptoPlugin::SubSample) * numSubSamples);
 
-            void *secureBufferId, *dstPtr;
-            if (secure) {
+            native_handle_t *nativeHandle = NULL;
+            void *secureBufferId = NULL, *dstPtr;
+            if (dstType == kDestinationTypeNativeHandle) {
+                nativeHandle = data.readNativeHandle();
+                dstPtr = static_cast<void *>(nativeHandle);
+            } else if (dstType == kDestinationTypeOpaqueHandle) {
                 secureBufferId = reinterpret_cast<void *>(static_cast<uintptr_t>(data.readInt64()));
+                dstPtr = secureBufferId;
             } else {
+                dstType = kDestinationTypeVmPointer;
                 dstPtr = malloc(totalSize);
             }
 
             AString errorDetailMsg;
             ssize_t result;
 
-            if (offset + totalSize > sharedBuffer->size()) {
+            size_t sumSubsampleSizes = 0;
+            bool overflow = false;
+            for (int32_t i = 0; i < numSubSamples; ++i) {
+                CryptoPlugin::SubSample &ss = subSamples[i];
+                if (sumSubsampleSizes <= SIZE_MAX - ss.mNumBytesOfEncryptedData) {
+                    sumSubsampleSizes += ss.mNumBytesOfEncryptedData;
+                } else {
+                    overflow = true;
+                }
+                if (sumSubsampleSizes <= SIZE_MAX - ss.mNumBytesOfClearData) {
+                    sumSubsampleSizes += ss.mNumBytesOfClearData;
+                } else {
+                    overflow = true;
+                }
+            }
+
+            if (overflow || sumSubsampleSizes != totalSize) {
+                result = -EINVAL;
+            } else if (totalSize > sharedBuffer->size()) {
+                result = -EINVAL;
+            } else if ((size_t)offset > sharedBuffer->size() - totalSize) {
                 result = -EINVAL;
             } else {
                 result = decrypt(
-                    secure,
+                    dstType,
                     key,
                     iv,
-                    mode,
+                    mode, pattern,
                     sharedBuffer, offset,
                     subSamples, numSubSamples,
-                    secure ? secureBufferId : dstPtr,
+                    dstPtr,
                     &errorDetailMsg);
             }
 
@@ -323,13 +366,21 @@ status_t BnCrypto::onTransact(
                 reply->writeCString(errorDetailMsg.c_str());
             }
 
-            if (!secure) {
+            if (dstType == kDestinationTypeVmPointer) {
                 if (result >= 0) {
                     CHECK_LE(result, static_cast<ssize_t>(totalSize));
                     reply->write(dstPtr, result);
                 }
                 free(dstPtr);
                 dstPtr = NULL;
+            } else if (dstType == kDestinationTypeNativeHandle) {
+                int err;
+                if ((err = native_handle_close(nativeHandle)) < 0) {
+                    ALOGW("secure buffer native_handle_close failed: %d", err);
+                }
+                if ((err = native_handle_delete(nativeHandle)) < 0) {
+                    ALOGW("secure buffer native_handle_delete failed: %d", err);
+                }
             }
 
             delete[] subSamples;

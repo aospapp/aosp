@@ -180,12 +180,12 @@ public class SingleStepTest extends JDWPSyncTestCase {
         logWriter.println("==> testSingleStep001 PASSED!");
     }
 
-    protected void beforeDebuggeeStart(JDWPUnitDebuggeeWrapper debuggeeWrapper) {
+    protected void beforeConnectionSetUp() {
         settings.setAttachConnectorKind();
         if (settings.getTransportAddress() == null) {
             settings.setTransportAddress(TestOptions.DEFAULT_ATTACHING_ADDRESS);
         }
         logWriter.println("ATTACH connector kind");
-        super.beforeDebuggeeStart(debuggeeWrapper);
+        super.beforeConnectionSetUp();
     }
 }

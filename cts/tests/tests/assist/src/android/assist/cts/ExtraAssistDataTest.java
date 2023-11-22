@@ -66,6 +66,10 @@ public class ExtraAssistDataTest extends AssistTestBase {
     }
 
     public void testAssistContentAndAssistData() throws Exception {
+        if (mActivityManager.isLowRamDevice()) {
+            Log.d(TAG, "Not running assist tests on low-RAM device.");
+            return;
+        }
         mTestActivity.startTest(TEST_CASE_TYPE);
         waitForAssistantToBeReady(mReadyLatch);
         mTestActivity.start3pApp(TEST_CASE_TYPE);

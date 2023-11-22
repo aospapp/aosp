@@ -21,6 +21,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.IndentingPrintWriter;
 
 import java.util.Collections;
@@ -28,8 +29,10 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Listens for and caches car dock state. */
-class DockManager {
-    interface Listener {
+@VisibleForTesting
+public class DockManager {
+    @VisibleForTesting
+    public interface Listener {
         void onDockChanged(boolean isDocked);
     }
 
@@ -37,10 +40,15 @@ class DockManager {
     private class DockBroadcastReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
-            if (Intent.ACTION_DOCK_EVENT.equals(intent.getAction())) {
-                int dockState = intent.getIntExtra(
-                        Intent.EXTRA_DOCK_STATE, Intent.EXTRA_DOCK_STATE_UNDOCKED);
-                onDockChanged(dockState);
+            Log.startSession("DM.oR");
+            try {
+                if (Intent.ACTION_DOCK_EVENT.equals(intent.getAction())) {
+                    int dockState = intent.getIntExtra(
+                            Intent.EXTRA_DOCK_STATE, Intent.EXTRA_DOCK_STATE_UNDOCKED);
+                    onDockChanged(dockState);
+                }
+            } finally {
+                Log.endSession();
             }
         }
     }
@@ -65,7 +73,8 @@ class DockManager {
         context.registerReceiver(mReceiver, intentFilter);
     }
 
-    void addListener(Listener listener) {
+    @VisibleForTesting
+    public void addListener(Listener listener) {
         mListeners.add(listener);
     }
 

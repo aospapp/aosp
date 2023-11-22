@@ -14,7 +14,7 @@
      limitations under the License.
 -->
 
-<com.android.cts.widget.alarmclock.DigitalClock android:id="@+id/digitalClock"
+<android.widget.cts.alarmclock.DigitalClock android:id="@+id/digitalClock"
      xmlns:android="http://schemas.android.com/apk/res/android"
      android:layout_width="wrap_content"
      android:layout_height="208dip"
@@ -45,4 +45,4 @@
              android:text="@string/pm"
              android:textSize="28sp"/>
      </LinearLayout>
-</com.android.cts.widget.alarmclock.DigitalClock>
+</android.widget.cts.alarmclock.DigitalClock>

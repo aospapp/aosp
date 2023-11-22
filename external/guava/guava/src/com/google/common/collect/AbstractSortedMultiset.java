@@ -20,7 +20,7 @@ import com.google.common.annotations.GwtCompatible;
 
 import java.util.Comparator;
 import java.util.Iterator;
-import java.util.SortedSet;
+import java.util.NavigableSet;
 
 import javax.annotation.Nullable;
 
@@ -48,13 +48,13 @@ abstract class AbstractSortedMultiset<E> extends AbstractMultiset<E> implements 
   }
 
   @Override
-  public SortedSet<E> elementSet() {
-    return (SortedSet<E>) super.elementSet();
+  public NavigableSet<E> elementSet() {
+    return (NavigableSet<E>) super.elementSet();
   }
 
   @Override
-  SortedSet<E> createElementSet() {
-    return new SortedMultisets.ElementSet<E>(this);
+  NavigableSet<E> createElementSet() {
+    return new SortedMultisets.NavigableElementSet<E>(this);
   }
 
   @Override

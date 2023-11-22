@@ -1,5 +1,5 @@
-URL: https://gerrit.chromium.org/gerrit/gitweb?p=webm%2Flibwebp.git
-Version: v0.4.3
+URL: https://chromium.googlesource.com/webm/libwebp
+Version: v0.5.0
 License: Google BSD like
 
 Local modifications:
@@ -13,6 +13,8 @@ Local modifications:
 - Added a local copy of cpu-features.[hc] to src/dsp
 - Removed WEBP_ANDROID_NEON check in dsp.h to avoid breaking non-NEON builds
   where the flags in Android.mk are not set correctly currently.
+- Marked variable "status" in WebPParseHeaders as volatile to work around
+  b/25845393
 
 The Android.mk file creates WebP decoder and encoder static libraries which
 can be added to any application by adding to LOCAL_STATIC_LIBRARIES

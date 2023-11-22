@@ -34,6 +34,7 @@ IMAGE_SRC_METADATA="images/camera2/metadata/"
 
 # Prepend this path to each <img src="foo"> in javadocs
 JAVADOC_IMAGE_SRC_METADATA="../../../../" + IMAGE_SRC_METADATA
+NDKDOC_IMAGE_SRC_METADATA="../" + IMAGE_SRC_METADATA
 
 _context_buf = None
 
@@ -126,6 +127,86 @@ def path_name(node):
   path.append(node)
 
   return ".".join((i.name for i in path))
+
+def ndk(name):
+  """
+  Return the NDK version of given name, which replace
+  the leading "android" to "acamera"
+
+  Args:
+    name: name string of an entry
+
+  Returns:
+    A NDK version name string of the input name
+  """
+  name_list = name.split(".")
+  if name_list[0] == "android":
+    name_list[0] = "acamera"
+  return ".".join(name_list)
+
+def protobuf_type(entry):
+  """
+  Return the protocol buffer message type for input metadata entry.
+  Only support types used by static metadata right now
+
+  Returns:
+    A string of protocol buffer type. Ex: "optional int32" or "repeated RangeInt"
+  """
+  typeName = None
+  if entry.typedef is None:
+    typeName = entry.type
+  else:
+    typeName = entry.typedef.name
+
+  typename_to_protobuftype = {
+    "rational"               : "Rational",
+    "size"                   : "Size",
+    "sizeF"                  : "SizeF",
+    "rectangle"              : "Rect",
+    "streamConfigurationMap" : "StreamConfigurations",
+    "rangeInt"               : "RangeInt",
+    "rangeLong"              : "RangeLong",
+    "colorSpaceTransform"    : "ColorSpaceTransform",
+    "blackLevelPattern"      : "BlackLevelPattern",
+    "byte"                   : "int32", # protocol buffer don't support byte
+    "boolean"                : "bool",
+    "float"                  : "float",
+    "double"                 : "double",
+    "int32"                  : "int32",
+    "int64"                  : "int64",
+    "enumList"               : "int32"
+  }
+
+  if typeName not in typename_to_protobuftype:
+    print >> sys.stderr,\
+      "  ERROR: Could not find protocol buffer type for {%s} type {%s} typedef {%s}" % \
+          (entry.name, entry.type, entry.typedef)
+
+  proto_type = typename_to_protobuftype[typeName]
+
+  prefix = "optional"
+  if entry.container == 'array':
+    has_variable_size = False
+    for size in entry.container_sizes:
+      try:
+        size_int = int(size)
+      except ValueError:
+        has_variable_size = True
+
+    if has_variable_size:
+      prefix = "repeated"
+
+  return "%s %s" %(prefix, proto_type)
+
+
+def protobuf_name(entry):
+  """
+  Return the protocol buffer field name for input metadata entry
+
+  Returns:
+    A string. Ex: "android_colorCorrection_availableAberrationModes"
+  """
+  return entry.name.replace(".", "_")
 
 def has_descendants_with_enums(node):
   """
@@ -754,7 +835,7 @@ def javadoc(metadata, indent = 4):
     # Convert metadata entry "android.x.y.z" to form
     # "{@link CaptureRequest#X_Y_Z android.x.y.z}"
     def javadoc_crossref_filter(node):
-      if node.applied_visibility == 'public':
+      if node.applied_visibility in ('public', 'java_public'):
         return '{@link %s#%s %s}' % (kind_mapping[node.kind],
                                      jkey_identifier(node.name),
                                      node.name)
@@ -764,7 +845,7 @@ def javadoc(metadata, indent = 4):
     # For each public tag "android.x.y.z" referenced, add a
     # "@see CaptureRequest#X_Y_Z"
     def javadoc_crossref_see_filter(node_set):
-      node_set = (x for x in node_set if x.applied_visibility == 'public')
+      node_set = (x for x in node_set if x.applied_visibility in ('public', 'java_public'))
 
       text = '\n'
       for node in node_set:
@@ -787,6 +868,81 @@ def javadoc(metadata, indent = 4):
     return javatext
 
   return javadoc_formatter
+
+def ndkdoc(metadata, indent = 4):
+  """
+  Returns a function to format a markdown syntax text block as a
+  NDK camera API C/C++ comment section, given a set of metadata
+
+  Args:
+    metadata: A Metadata instance, representing the the top-level root
+      of the metadata for cross-referencing
+    indent: baseline level of indentation for comment block
+  Returns:
+    A function that transforms a String text block as follows:
+    - Indent and * for insertion into a comment block
+    - Trailing whitespace removed
+    - Entire body rendered via markdown
+    - All tag names converted to appropriate NDK tag name for each tag
+
+  Example:
+    "This is a comment for NDK\n" +
+    "     with multiple lines, that should be   \n" +
+    "     formatted better\n" +
+    "\n" +
+    "    That covers multiple lines as well\n"
+    "    And references android.control.mode\n"
+
+    transforms to
+    "    * This is a comment for NDK\n" +
+    "    * with multiple lines, that should be\n" +
+    "    * formatted better\n" +
+    "    * That covers multiple lines as well\n" +
+    "    * and references ACAMERA_CONTROL_MODE\n" +
+    "    *\n" +
+    "    * @see ACAMERA_CONTROL_MODE\n"
+  """
+  def ndkdoc_formatter(text):
+    # render with markdown => HTML
+    ndktext = md(text, NDKDOC_IMAGE_SRC_METADATA, False)
+
+    # Convert metadata entry "android.x.y.z" to form
+    # NDK tag format of "ACAMERA_X_Y_Z"
+    def ndkdoc_crossref_filter(node):
+      if node.applied_ndk_visible == 'true':
+        return csym(ndk(node.name))
+      else:
+        return node.name
+
+    # For each public tag "android.x.y.z" referenced, add a
+    # "@see ACAMERA_X_Y_Z"
+    def ndkdoc_crossref_see_filter(node_set):
+      node_set = (x for x in node_set if x.applied_ndk_visible == 'true')
+
+      text = '\n'
+      for node in node_set:
+        text = text + '\n@see %s' % (csym(ndk(node.name)))
+
+      return text if text != '\n' else ''
+
+    ndktext = filter_tags(ndktext, metadata, ndkdoc_crossref_filter, ndkdoc_crossref_see_filter)
+
+    ndktext = ndk_replace_tag_wildcards(ndktext, metadata)
+
+    comment_prefix = " " * indent + " * ";
+
+    def line_filter(line):
+      # Indent each line
+      # Add ' * ' to it for stylistic reasons
+      # Strip right side of trailing whitespace
+      return (comment_prefix + line).rstrip()
+
+    # Process each line with above filter
+    ndktext = "\n".join(line_filter(i) for i in ndktext.split("\n")) + "\n"
+
+    return ndktext
+
+  return ndkdoc_formatter
 
 def dedent(text):
   """
@@ -813,7 +969,7 @@ def dedent(text):
 
   return text
 
-def md(text, img_src_prefix=""):
+def md(text, img_src_prefix="", table_ext=True):
     """
     Run text through markdown to produce HTML.
 
@@ -857,7 +1013,7 @@ def md(text, img_src_prefix=""):
     text = dedent(text)
 
     # full list of extensions at http://pythonhosted.org/Markdown/extensions/
-    md_extensions = ['tables'] # make <table> with ASCII |_| tables
+    md_extensions = ['tables'] if table_ext else []# make <table> with ASCII |_| tables
     # render with markdown
     text = markdown.markdown(text, md_extensions)
 
@@ -960,6 +1116,28 @@ def filter_tags(text, metadata, filter_function, summary_function = None):
     else:
       return text
 
+def ndk_replace_tag_wildcards(text, metadata):
+    """
+    Find all references to tags in the form android.xxx.* or android.xxx.yyy.*
+    in the provided text, and replace them by NDK format of "ACAMERA_XXX_*" or
+    "ACAMERA_XXX_YYY_*"
+
+    Args:
+      text: A string representing a block of text destined for output
+      metadata: A Metadata instance, the root of the metadata properties tree
+    """
+    tag_match = r"android\.([a-zA-Z0-9\n]+)\.\*"
+    tag_match_2 = r"android\.([a-zA-Z0-9\n]+)\.([a-zA-Z0-9\n]+)\*"
+
+    def filter_sub(match):
+      return "ACAMERA_" + match.group(1).upper() + "_*"
+    def filter_sub_2(match):
+      return "ACAMERA_" + match.group(1).upper() + match.group(2).upper() + "_*"
+
+    text = re.sub(tag_match, filter_sub, text)
+    text = re.sub(tag_match_2, filter_sub_2, text)
+    return text
+
 def filter_links(text, filter_function, summary_function = None):
     """
     Find all references to tags in the form {@link xxx#yyy [zzz]} in the
@@ -1052,6 +1230,18 @@ def remove_synthetic(entries):
     An iterable of Entry nodes
   """
   return (e for e in entries if not e.synthetic)
+
+def filter_ndk_visible(entries):
+  """
+  Filter the given entries by removing those that are not NDK visible.
+
+  Args:
+    entries: An iterable of Entry nodes
+
+  Yields:
+    An iterable of Entry nodes
+  """
+  return (e for e in entries if e.applied_ndk_visible == 'true')
 
 def wbr(text):
   """

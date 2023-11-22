@@ -24,5 +24,6 @@
         <item>com.android.settings</item>
         <item>com.android.providers.downloads</item>
         <item>com.android.providers.downloads.ui</item>
-        </string-array>
+        <item>com.android.documentsui</item>
+    </string-array>
 </resources>

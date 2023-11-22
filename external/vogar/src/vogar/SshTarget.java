@@ -16,10 +16,11 @@
 
 package vogar;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -34,8 +35,10 @@ public final class SshTarget extends Target {
     private final String host;
     private final int port;
     private final DeviceFilesystem deviceFilesystem;
+    private final ImmutableList<String> sshCommandPrefixList;
 
-    public SshTarget(String hostAndPort, Log log) {
+    @VisibleForTesting
+    public SshTarget(Log log, String hostAndPort) {
         this.log = log;
         int colon = hostAndPort.indexOf(":");
         if (colon != -1) {
@@ -45,15 +48,16 @@ public final class SshTarget extends Target {
             host = hostAndPort;
             port = 22;
         }
-        deviceFilesystem = new DeviceFilesystem(log, "ssh", "-p", Integer.toString(port), host, "-C");
+        sshCommandPrefixList = ImmutableList.of("ssh", "-p", Integer.toString(port), host, "-C");
+        deviceFilesystem = new DeviceFilesystem(log, sshCommandPrefixList);
     }
 
-    @Override public File defaultDeviceDir() {
+    public static File defaultDeviceDir() {
         return new File("/data/local/tmp/vogar");
     }
 
-    @Override public List<String> targetProcessPrefix() {
-        return Arrays.asList("ssh", "-p", Integer.toString(port), host, "-C");
+    @Override protected ImmutableList<String> targetProcessPrefix() {
+        return sshCommandPrefixList;
     }
 
     @Override public void await(File nonEmptyDirectory) {
@@ -61,8 +65,9 @@ public final class SshTarget extends Target {
 
     @Override public void rm(File file) {
         new Command.Builder(log)
-                .args("ssh", "-p", Integer.toString(port), host, "-C", "rm", "-r", file.getPath())
-                .permitNonZeroExitStatus()
+                .args(sshCommandPrefixList)
+                .args("rm", "-r", file.getPath())
+                .permitNonZeroExitStatus(true)
                 .execute();
     }
 
@@ -70,7 +75,9 @@ public final class SshTarget extends Target {
         // TODO: move this to device set up
         // The default environment doesn't include $USER, so dalvikvm doesn't set "user.name".
         // DeviceDalvikVm uses this to set "user.name" manually with -D.
-        String line = new Command(log, "ssh", "-p", Integer.toString(port), host, "-C", "id")
+        String line = new Command.Builder(log)
+                .args(sshCommandPrefixList)
+                .args("id")
                 .execute().get(0);
         // TODO: use 'id -un' when we don't need to support anything older than M
         Matcher m = Pattern.compile("^uid=\\d+\\((\\S+)\\) gid=\\d+\\(\\S+\\).*").matcher(line);

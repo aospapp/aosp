@@ -326,6 +326,26 @@ public class BluetoothMapContentObserver {
         }
     }
 
+    public int getObserverRemoteFeatureMask() {
+        if (V) Log.v(TAG, "getObserverRemoteFeatureMask : " + mMapEventReportVersion
+            + " mMapSupportedFeatures: " + mMapSupportedFeatures);
+        return mMapSupportedFeatures;
+    }
+
+    public void setObserverRemoteFeatureMask(int remoteSupportedFeatures) {
+        mMapSupportedFeatures = remoteSupportedFeatures;
+        if ((BluetoothMapUtils.MAP_FEATURE_EXTENDED_EVENT_REPORT_11_BIT
+                & mMapSupportedFeatures) != 0) {
+            mMapEventReportVersion = BluetoothMapUtils.MAP_EVENT_REPORT_V11;
+        }
+        // Make sure support for all formats result in latest version returned
+        if ((BluetoothMapUtils.MAP_FEATURE_EVENT_REPORT_V12_BIT
+                & mMapSupportedFeatures) != 0) {
+            mMapEventReportVersion = BluetoothMapUtils.MAP_EVENT_REPORT_V12;
+        }
+        if (V) Log.d(TAG, "setObserverRemoteFeatureMask : " + mMapEventReportVersion
+            + " mMapSupportedFeatures : " + mMapSupportedFeatures);
+    }
 
     private Map<Long, Msg> getMsgListSms() {
         return mMsgListSms;
@@ -448,8 +468,7 @@ public class BluetoothMapContentObserver {
         return smsType;
     }
 
-    private final ContentObserver mObserver = new ContentObserver(
-            new Handler(Looper.getMainLooper())) {
+    private final ContentObserver mObserver = new ContentObserver(new Handler()) {
         @Override
         public void onChange(boolean selfChange) {
             onChange(selfChange, null);
@@ -864,28 +883,48 @@ public class BluetoothMapContentObserver {
     public int setNotificationRegistration(int notificationStatus) throws RemoteException {
         // Forward the request to the MNS thread as a message - including the MAS instance ID.
         if(D) Log.d(TAG,"setNotificationRegistration() enter");
+        if (mMnsClient == null) {
+            return ResponseCodes.OBEX_HTTP_UNAVAILABLE;
+        }
         Handler mns = mMnsClient.getMessageHandler();
-        if(mns != null) {
+        if (mns != null) {
             Message msg = mns.obtainMessage();
-            msg.what = BluetoothMnsObexClient.MSG_MNS_NOTIFICATION_REGISTRATION;
+            if (mMnsClient.isValidMnsRecord()) {
+                msg.what = BluetoothMnsObexClient.MSG_MNS_NOTIFICATION_REGISTRATION;
+            } else {
+                //Trigger SDP Search and notificaiton registration , if SDP record not found.
+                msg.what = BluetoothMnsObexClient.MSG_MNS_SDP_SEARCH_REGISTRATION;
+                if (mMnsClient.mMnsLstRegRqst != null &&
+                        (mMnsClient.mMnsLstRegRqst.isSearchInProgress())) {
+                    /*  1. Disallow next Notification ON Request :
+                     *     - Respond "Service Unavailable" as SDP Search and last notification
+                     *       registration ON request is already InProgress.
+                     *     - Next notification ON Request will be allowed ONLY after search
+                     *       and connect for last saved request [Replied with OK ] is processed.
+                     */
+                    if (notificationStatus == BluetoothMapAppParams.NOTIFICATION_STATUS_YES) {
+                        return ResponseCodes.OBEX_HTTP_UNAVAILABLE;
+                    } else {
+                        /*  2. Allow next Notification OFF Request:
+                         *    - Keep the SDP search still in progress.
+                         *    - Disconnect and Deregister the contentObserver.
+                         */
+                        msg.what = BluetoothMnsObexClient.MSG_MNS_NOTIFICATION_REGISTRATION;
+                    }
+                }
+            }
             msg.arg1 = mMasId;
             msg.arg2 = notificationStatus;
             mns.sendMessageDelayed(msg, 10); // Send message without forcing a context switch
             /* Some devices - e.g. PTS needs to get the unregister confirm before we actually
              * disconnect the MNS. */
-            if(D) Log.d(TAG,"setNotificationRegistration() MSG_MNS_NOTIFICATION_REGISTRATION " +
-                    "send to MNS");
+            if(D) Log.d(TAG,"setNotificationRegistration() send : " + msg.what + " to MNS ");
+            return ResponseCodes.OBEX_HTTP_OK;
         } else {
             // This should not happen except at shutdown.
             if(D) Log.d(TAG,"setNotificationRegistration() Unable to send registration request");
             return ResponseCodes.OBEX_HTTP_UNAVAILABLE;
         }
-        if(notificationStatus == BluetoothMapAppParams.NOTIFICATION_STATUS_YES) {
-            registerObserver();
-        } else {
-            unregisterObserver();
-        }
-        return ResponseCodes.OBEX_HTTP_OK;
     }
 
     boolean eventMaskContainsContacts(long mask) {
@@ -3006,7 +3045,23 @@ public class BluetoothMapContentObserver {
                 return;
             }
 
-            if (action.equals(ACTION_MESSAGE_DELIVERY)) {
+            if (action.equals(ACTION_MESSAGE_SENT)) {
+                int result = intent.getIntExtra(EXTRA_MESSAGE_SENT_RESULT,
+                        Activity.RESULT_CANCELED);
+                msgInfo.partsSent++;
+                if(result != Activity.RESULT_OK) {
+                    /* If just one of the parts in the message fails, we need to send the
+                     * entire message again
+                     */
+                    msgInfo.failedSent = true;
+                }
+                if(D) Log.d(TAG, "onReceive: msgInfo.partsSent = " + msgInfo.partsSent
+                        + ", msgInfo.parts = " + msgInfo.parts + " result = " + result);
+
+                if (msgInfo.partsSent == msgInfo.parts) {
+                    actionMessageSent(context, intent, msgInfo);
+                }
+            } else if (action.equals(ACTION_MESSAGE_DELIVERY)) {
                 long timestamp = intent.getLongExtra(EXTRA_MESSAGE_SENT_TIMESTAMP, 0);
                 int status = -1;
                 if(msgInfo.timestamp == timestamp) {
@@ -3023,6 +3078,9 @@ public class BluetoothMapContentObserver {
                     if(status != 0/*0 is success*/) {
                         msgInfo.statusDelivered = status;
                         if(D) Log.d(TAG, "msgInfo.statusDelivered = " + status);
+                        Sms.moveMessageToFolder(mContext, msgInfo.uri, Sms.MESSAGE_TYPE_FAILED, 0);
+                    } else {
+                        Sms.moveMessageToFolder(mContext, msgInfo.uri, Sms.MESSAGE_TYPE_SENT, 0);
                     }
                 }
                 if (msgInfo.partsDelivered == msgInfo.parts) {
@@ -3030,6 +3088,67 @@ public class BluetoothMapContentObserver {
                 }
             } else {
                 Log.d(TAG, "onReceive: Unknown action " + action);
+            }
+        }
+
+        private void actionMessageSent(Context context, Intent intent, PushMsgInfo msgInfo) {
+            /* As the MESSAGE_SENT intent is forwarded from the MAP service, we use the intent
+             * to carry the result, as getResult() will not return the correct value.
+             */
+            boolean delete = false;
+
+            if(D) Log.d(TAG,"actionMessageSent(): msgInfo.failedSent = " + msgInfo.failedSent);
+
+            msgInfo.sendInProgress = false;
+
+            if (msgInfo.failedSent == false) {
+                if(D) Log.d(TAG, "actionMessageSent: result OK");
+                if (msgInfo.transparent == 0) {
+                    if (!Sms.moveMessageToFolder(context, msgInfo.uri,
+                            Sms.MESSAGE_TYPE_SENT, 0)) {
+                        Log.w(TAG, "Failed to move " + msgInfo.uri + " to SENT");
+                    }
+                } else {
+                    delete = true;
+                }
+
+                Event evt = new Event(EVENT_TYPE_SENDING_SUCCESS, msgInfo.id,
+                        getSmsFolderName(Sms.MESSAGE_TYPE_SENT), null, mSmsType);
+                sendEvent(evt);
+
+            } else {
+                if (msgInfo.retry == 1) {
+                    /* Notify failure, but keep message in outbox for resending */
+                    msgInfo.resend = true;
+                    msgInfo.partsSent = 0; // Reset counter for the retry
+                    msgInfo.failedSent = false;
+                    Event evt = new Event(EVENT_TYPE_SENDING_FAILURE, msgInfo.id,
+                            getSmsFolderName(Sms.MESSAGE_TYPE_OUTBOX), null, mSmsType);
+                    sendEvent(evt);
+                } else {
+                    if (msgInfo.transparent == 0) {
+                        if (!Sms.moveMessageToFolder(context, msgInfo.uri,
+                                Sms.MESSAGE_TYPE_FAILED, 0)) {
+                            Log.w(TAG, "Failed to move " + msgInfo.uri + " to FAILED");
+                        }
+                    } else {
+                        delete = true;
+                    }
+
+                    Event evt = new Event(EVENT_TYPE_SENDING_FAILURE, msgInfo.id,
+                            getSmsFolderName(Sms.MESSAGE_TYPE_FAILED), null, mSmsType);
+                    sendEvent(evt);
+                }
+            }
+
+            if (delete == true) {
+                /* Delete from Observer message list to avoid delete notifications */
+                synchronized(getMsgListSms()) {
+                    getMsgListSms().remove(msgInfo.id);
+                }
+
+                /* Delete from DB */
+                mResolver.delete(msgInfo.uri, null, null);
             }
         }
 
@@ -3279,7 +3398,9 @@ public class BluetoothMapContentObserver {
     };
 
     public void init() {
-        mSmsBroadcastReceiver.register();
+        if (mSmsBroadcastReceiver != null) {
+            mSmsBroadcastReceiver.register();
+        }
         registerPhoneServiceStateListener();
         mInitialized = true;
     }
@@ -3287,7 +3408,9 @@ public class BluetoothMapContentObserver {
     public void deinit() {
         mInitialized = false;
         unregisterObserver();
-        mSmsBroadcastReceiver.unregister();
+        if (mSmsBroadcastReceiver != null) {
+            mSmsBroadcastReceiver.unregister();
+        }
         unRegisterPhoneServiceStateListener();
         failPendingMessages();
         removeDeletedMessages();

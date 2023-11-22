@@ -18,7 +18,5 @@
 -->
 
 <resources>
-    <dimen name="live_wallpaper_grid_item_width">224dip</dimen>
-    <dimen name="live_wallpaper_grid_item_height">192dip</dimen>
-    <dimen name="live_wallpaper_preview_button_width">200dip</dimen>
+    <dimen name="screen_margin_sides">128dip</dimen>
 </resources>

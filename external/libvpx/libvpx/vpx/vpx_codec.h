@@ -69,7 +69,7 @@ extern "C" {
 
   /*!\brief Decorator indicating a function is potentially unused */
 #ifdef UNUSED
-#elif __GNUC__
+#elif defined(__GNUC__) || defined(__clang__)
 #define UNUSED __attribute__ ((unused))
 #else
 #define UNUSED
@@ -83,7 +83,7 @@ extern "C" {
    * types, removing or reassigning enums, adding/removing/rearranging
    * fields to structures
    */
-#define VPX_CODEC_ABI_VERSION (2 + VPX_IMAGE_ABI_VERSION) /**<\hideinitializer*/
+#define VPX_CODEC_ABI_VERSION (3 + VPX_IMAGE_ABI_VERSION) /**<\hideinitializer*/
 
   /*!\brief Algorithm return codes */
   typedef enum {
@@ -203,9 +203,11 @@ extern "C" {
     const char              *err_detail;  /**< Detailed info, if available */
     vpx_codec_flags_t        init_flags;  /**< Flags passed at init time */
     union {
-      struct vpx_codec_dec_cfg  *dec;   /**< Decoder Configuration Pointer */
-      struct vpx_codec_enc_cfg  *enc;   /**< Encoder Configuration Pointer */
-      void                      *raw;
+      /**< Decoder Configuration Pointer */
+      const struct vpx_codec_dec_cfg *dec;
+      /**< Encoder Configuration Pointer */
+      const struct vpx_codec_enc_cfg *enc;
+      const void                     *raw;
     }                        config;      /**< Configuration pointer aliasing union */
     vpx_codec_priv_t        *priv;        /**< Algorithm private storage */
   } vpx_codec_ctx_t;
@@ -215,9 +217,9 @@ extern "C" {
    * This enumeration determines the bit depth of the codec.
    */
   typedef enum vpx_bit_depth {
-    VPX_BITS_8,   /**< 8 bits  */
-    VPX_BITS_10,  /**< 10 bits */
-    VPX_BITS_12   /**< 12 bits */
+    VPX_BITS_8  =  8,  /**<  8 bits */
+    VPX_BITS_10 = 10,  /**< 10 bits */
+    VPX_BITS_12 = 12,  /**< 12 bits */
   } vpx_bit_depth_t;
 
   /*

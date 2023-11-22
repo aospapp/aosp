@@ -16,10 +16,13 @@
 
 package com.android.wallpaper.livepicker;
 
+import android.app.ActionBar;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.WallpaperManager;
 import android.app.WallpaperInfo;
 import android.app.Dialog;
+import android.content.DialogInterface;
 import android.graphics.Rect;
 import android.service.wallpaper.IWallpaperConnection;
 import android.service.wallpaper.IWallpaperService;
@@ -33,6 +36,9 @@ import android.os.RemoteException;
 import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
 import android.os.Bundle;
+import android.service.wallpaper.WallpaperService;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
@@ -42,10 +48,10 @@ import android.view.LayoutInflater;
 import android.util.Log;
 import android.widget.TextView;
 
+import java.io.IOException;
+
 public class LiveWallpaperPreview extends Activity {
-    static final String EXTRA_LIVE_WALLPAPER_INTENT = "android.live_wallpaper.intent";
-    static final String EXTRA_LIVE_WALLPAPER_SETTINGS = "android.live_wallpaper.settings";
-    static final String EXTRA_LIVE_WALLPAPER_PACKAGE = "android.live_wallpaper.package";
+    static final String EXTRA_LIVE_WALLPAPER_INFO = "android.live_wallpaper.info";
 
     private static final String LOG_TAG = "LiveWallpaperPreview";
 
@@ -55,67 +61,102 @@ public class LiveWallpaperPreview extends Activity {
     private String mSettings;
     private String mPackageName;
     private Intent mWallpaperIntent;
+
     private View mView;
     private Dialog mDialog;
-
-    static void showPreview(Activity activity, int code, Intent intent, WallpaperInfo info) {
-        if (info == null) {
-            Log.w(LOG_TAG, "Failure showing preview", new Throwable());
-            return;
-        }
-        Intent preview = new Intent(activity, LiveWallpaperPreview.class);
-        preview.putExtra(EXTRA_LIVE_WALLPAPER_INTENT, intent);
-        preview.putExtra(EXTRA_LIVE_WALLPAPER_SETTINGS, info.getSettingsActivity());
-        preview.putExtra(EXTRA_LIVE_WALLPAPER_PACKAGE, info.getPackageName());
-        activity.startActivityForResult(preview, code);
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        init();
+    }
 
+    protected void init() {
         Bundle extras = getIntent().getExtras();
-        mWallpaperIntent = (Intent) extras.get(EXTRA_LIVE_WALLPAPER_INTENT);
-        if (mWallpaperIntent == null) {
+        WallpaperInfo info = extras.getParcelable(EXTRA_LIVE_WALLPAPER_INFO);
+        if (info == null) {
             setResult(RESULT_CANCELED);
             finish();
         }
 
-        setContentView(R.layout.live_wallpaper_preview);
-        mView = findViewById(R.id.configure);
+        initUI(info);
+    }
 
-        mSettings = extras.getString(EXTRA_LIVE_WALLPAPER_SETTINGS);
-        mPackageName = extras.getString(EXTRA_LIVE_WALLPAPER_PACKAGE);
-        if (mSettings == null) {
-            mView.setVisibility(View.GONE);
-        }
+    protected void initUI(WallpaperInfo info) {
+        mSettings = info.getSettingsActivity();
+        mPackageName = info.getPackageName();
+        mWallpaperIntent = new Intent(WallpaperService.SERVICE_INTERFACE)
+                .setClassName(info.getPackageName(), info.getServiceName());
+
+        final ActionBar actionBar = getActionBar();
+        actionBar.setCustomView(R.layout.live_wallpaper_preview);
+        mView = actionBar.getCustomView();
 
         mWallpaperManager = WallpaperManager.getInstance(this);
-
         mWallpaperConnection = new WallpaperConnection(mWallpaperIntent);
     }
 
-    public void setLiveWallpaper(View v) {
-        try {
-            mWallpaperManager.getIWallpaperManager().setWallpaperComponent(
-                    mWallpaperIntent.getComponent());
-            mWallpaperManager.setWallpaperOffsetSteps(0.5f, 0.0f);
-            mWallpaperManager.setWallpaperOffsets(v.getRootView().getWindowToken(), 0.5f, 0.0f);
-            setResult(RESULT_OK);
-        } catch (RemoteException e) {
-            // do nothing
-        } catch (RuntimeException e) {
-            Log.w(LOG_TAG, "Failure setting wallpaper", e);
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        if (mSettings != null) {
+            getMenuInflater().inflate(R.menu.menu_preview, menu);
         }
-        finish();
+        return super.onCreateOptionsMenu(menu);
     }
 
-    @SuppressWarnings({"UnusedDeclaration"})
-    public void configureLiveWallpaper(View v) {
-        Intent intent = new Intent();
-        intent.setComponent(new ComponentName(mPackageName, mSettings));
-        intent.putExtra(WallpaperSettingsActivity.EXTRA_PREVIEW_MODE, true);
-        startActivity(intent);
+    public void setLiveWallpaper(final View v) {
+        if (mWallpaperManager.getWallpaperId(WallpaperManager.FLAG_LOCK) < 0) {
+            // The lock screen does not have a wallpaper, so no need to prompt; can only set both.
+            try {
+                setLiveWallpaper(v.getRootView().getWindowToken());
+                setResult(RESULT_OK);
+            } catch (RuntimeException e) {
+                Log.w(LOG_TAG, "Failure setting wallpaper", e);
+            }
+            finish();
+        } else {
+            // Otherwise, prompt to either set on home or both home and lock screen.
+            new AlertDialog.Builder(this)
+                    .setTitle(R.string.set_live_wallpaper)
+                    .setItems(R.array.which_wallpaper_options, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            try {
+                                setLiveWallpaper(v.getRootView().getWindowToken());
+                                if (which == 1) {
+                                    // "Home screen and lock screen"; clear the lock screen so it
+                                    // shows through to the live wallpaper on home.
+                                    mWallpaperManager.clear(WallpaperManager.FLAG_LOCK);
+                                }
+                                setResult(RESULT_OK);
+                            } catch (RuntimeException e) {
+                                Log.w(LOG_TAG, "Failure setting wallpaper", e);
+                            } catch (IOException e) {
+                                Log.w(LOG_TAG, "Failure setting wallpaper", e);
+                            }
+                            finish();
+                        }
+                    })
+                    .show();
+        }
+    }
+
+    private void setLiveWallpaper(IBinder windowToken) {
+        mWallpaperManager.setWallpaperComponent(mWallpaperIntent.getComponent());
+        mWallpaperManager.setWallpaperOffsetSteps(0.5f, 0.0f);
+        mWallpaperManager.setWallpaperOffsets(windowToken, 0.5f, 0.0f);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.configure) {
+            Intent intent = new Intent();
+            intent.setComponent(new ComponentName(mPackageName, mSettings));
+            intent.putExtra(WallpaperSettingsActivity.EXTRA_PREVIEW_MODE, true);
+            startActivity(intent);
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     @Override
@@ -240,7 +281,7 @@ public class LiveWallpaperPreview extends Activity {
                 if (!bindService(mIntent, this, Context.BIND_AUTO_CREATE)) {
                     return false;
                 }
-                
+
                 mConnected = true;
                 return true;
             }

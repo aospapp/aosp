@@ -24,6 +24,7 @@ import android.util.Log;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.util.Arrays;
 import java.util.Random;
 import java.util.List;
 import java.util.ArrayList;
@@ -41,6 +42,7 @@ public class NsdManagerTest extends AndroidTestCase {
     NsdManager.RegistrationListener mRegistrationListener;
     NsdManager.DiscoveryListener mDiscoveryListener;
     NsdManager.ResolveListener mResolveListener;
+    private NsdServiceInfo mResolvedService;
 
     public NsdManagerTest() {
         initRegistrationListener();
@@ -119,6 +121,7 @@ public class NsdManagerTest extends AndroidTestCase {
 
             @Override
             public void onServiceResolved(NsdServiceInfo serviceInfo) {
+                mResolvedService = serviceInfo;
                 setEvent("onServiceResolved", serviceInfo);
             }
         };
@@ -254,14 +257,87 @@ public class NsdManagerTest extends AndroidTestCase {
         if (DBG) Log.d(TAG, "Tear down test ...");
     }
 
-    public void runTest() throws Exception {
+    public void testNDSManager() throws Exception {
+        EventData lastEvent = null;
+
+        if (DBG) Log.d(TAG, "Starting test ...");
+
         NsdServiceInfo si = new NsdServiceInfo();
         si.setServiceType(SERVICE_TYPE);
         si.setServiceName(mServiceName);
 
-        EventData lastEvent = null;
+        byte testByteArray[] = new byte[] {-128, 127, 2, 1, 0, 1, 2};
+        String String256 = "1_________2_________3_________4_________5_________6_________" +
+                 "7_________8_________9_________10________11________12________13________" +
+                 "14________15________16________17________18________19________20________" +
+                 "21________22________23________24________25________123456";
 
-        if (DBG) Log.d(TAG, "Starting test ...");
+        // Illegal attributes
+        try {
+            si.setAttribute(null, (String) null);
+            fail("Could set null key");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        try {
+            si.setAttribute("", (String) null);
+            fail("Could set empty key");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        try {
+            si.setAttribute(String256, (String) null);
+            fail("Could set key with 255 characters");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        try {
+            si.setAttribute("key", String256.substring(3));
+            fail("Could set key+value combination with more than 255 characters");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        try {
+            si.setAttribute("key", String256.substring(4));
+            fail("Could set key+value combination with 255 characters");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        try {
+            si.setAttribute(new String(new byte[]{0x19}), (String) null);
+            fail("Could set key with invalid character");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        try {
+            si.setAttribute("=", (String) null);
+            fail("Could set key with invalid character");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        try {
+            si.setAttribute(new String(new byte[]{0x7F}), (String) null);
+            fail("Could set key with invalid character");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        // Allowed attributes
+        si.setAttribute("booleanAttr", (String) null);
+        si.setAttribute("keyValueAttr", "value");
+        si.setAttribute("keyEqualsAttr", "=");
+        si.setAttribute(" whiteSpaceKeyValueAttr ", " value ");
+        si.setAttribute("binaryDataAttr", testByteArray);
+        si.setAttribute("nullBinaryDataAttr", (byte[]) null);
+        si.setAttribute("emptyBinaryDataAttr", new byte[]{});
+        si.setAttribute("longkey", String256.substring(9));
 
         ServerSocket socket;
         int localPort;
@@ -347,6 +423,25 @@ public class NsdManagerTest extends AndroidTestCase {
         mNsdManager.resolveService(si, mResolveListener);
         lastEvent = waitForCallback("onServiceResolved");                   // id = 4
 
+        assertNotNull(mResolvedService);
+
+        // Check Txt attributes
+        assertEquals(8, mResolvedService.getAttributes().size());
+        assertTrue(mResolvedService.getAttributes().containsKey("booleanAttr"));
+        assertNull(mResolvedService.getAttributes().get("booleanAttr"));
+        assertEquals("value", new String(mResolvedService.getAttributes().get("keyValueAttr")));
+        assertEquals("=", new String(mResolvedService.getAttributes().get("keyEqualsAttr")));
+        assertEquals(" value ", new String(mResolvedService.getAttributes()
+                .get(" whiteSpaceKeyValueAttr ")));
+        assertEquals(String256.substring(9), new String(mResolvedService.getAttributes()
+                .get("longkey")));
+        assertTrue(Arrays.equals(testByteArray,
+                mResolvedService.getAttributes().get("binaryDataAttr")));
+        assertTrue(mResolvedService.getAttributes().containsKey("nullBinaryDataAttr"));
+        assertNull(mResolvedService.getAttributes().get("nullBinaryDataAttr"));
+        assertTrue(mResolvedService.getAttributes().containsKey("emptyBinaryDataAttr"));
+        assertNull(mResolvedService.getAttributes().get("emptyBinaryDataAttr"));
+
         assertTrue(lastEvent != null);
         assertTrue(lastEvent.mSucceeded);
 
@@ -394,7 +489,41 @@ public class NsdManagerTest extends AndroidTestCase {
         registeredName = lastEvent.mInfo.getServiceName();
 
         // Expect a record to be discovered
-        lastEvent = waitForCallback("onServiceFound");                      // id = 8
+        // Expect a service record to be discovered (and filter the ones
+        // that are unrelated to this test)
+        found = false;
+        for (int i = 0; i < 32; i++) {
+
+            lastEvent = waitForCallback("onServiceFound");                  // id = 8
+            if (lastEvent == null) {
+                // no more onServiceFound events are being reported!
+                break;
+            }
+
+            assertTrue(lastEvent.mSucceeded);
+
+            if (DBG) Log.d(TAG, "id = " + String.valueOf(mWaitId) + ": ServiceName = " +
+                    lastEvent.mInfo.getServiceName());
+
+            if (lastEvent.mInfo.getServiceName().equals(registeredName)) {
+                // Save it, as it will get overwritten with new serviceFound events
+                si = lastEvent.mInfo;
+                found = true;
+            }
+
+            // Remove this event from the event cache, so it won't be found by subsequent
+            // calls to waitForCallback
+            synchronized (mEventCache) {
+                mEventCache.remove(lastEvent);
+            }
+        }
+
+        assertTrue(found);
+
+        // Resolve the service
+        clearEventCache();
+        mNsdManager.resolveService(si, mResolveListener);
+        lastEvent = waitForCallback("onServiceResolved");                   // id = 9
 
         assertTrue(lastEvent != null);
         assertTrue(lastEvent.mSucceeded);
@@ -404,11 +533,16 @@ public class NsdManagerTest extends AndroidTestCase {
 
         assertTrue(lastEvent.mInfo.getServiceName().equals(registeredName));
 
+        assertNotNull(mResolvedService);
+
+        // Check that we don't have any TXT records
+        assertEquals(0, mResolvedService.getAttributes().size());
+
         checkForAdditionalEvents();
         clearEventCache();
 
         mNsdManager.stopServiceDiscovery(mDiscoveryListener);
-        lastEvent = waitForCallback("onDiscoveryStopped");                  // id = 9
+        lastEvent = waitForCallback("onDiscoveryStopped");                  // id = 10
         assertTrue(lastEvent != null);
         assertTrue(lastEvent.mSucceeded);
         assertTrue(checkCacheSize(1));
@@ -418,7 +552,7 @@ public class NsdManagerTest extends AndroidTestCase {
 
         mNsdManager.unregisterService(mRegistrationListener);
 
-        lastEvent =  waitForCallback("onServiceUnregistered");              // id = 10
+        lastEvent =  waitForCallback("onServiceUnregistered");              // id = 11
         assertTrue(lastEvent != null);
         assertTrue(lastEvent.mSucceeded);
         assertTrue(checkCacheSize(1));

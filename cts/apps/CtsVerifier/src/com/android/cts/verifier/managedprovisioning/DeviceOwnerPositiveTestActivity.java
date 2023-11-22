@@ -16,6 +16,8 @@
 
 package com.android.cts.verifier.managedprovisioning;
 
+import static com.android.cts.verifier.managedprovisioning.Utils.createInteractiveTestItem;
+
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.admin.DevicePolicyManager;
@@ -49,22 +51,9 @@ import com.android.cts.verifier.TestResult;
 public class DeviceOwnerPositiveTestActivity extends PassFailButtons.TestListActivity {
     private static final String TAG = "DeviceOwnerPositiveTestActivity";
 
-    static final String EXTRA_COMMAND = "extra-command";
+    private static final String ACTION_CHECK_DEVICE_OWNER =
+            "com.android.cts.verifier.managedprovisioning.action.CHECK_DEVICE_OWNER";
     static final String EXTRA_TEST_ID = "extra-test-id";
-    static final String COMMAND_SET_POLICY = "set-policy";
-    static final String EXTRA_POLICY = "extra-policy";
-    static final String EXTRA_PARAMETER_1 = "extra_parameter_1";
-    static final String EXTRA_PARAMETER_2 = "extra_parameter_2";
-    static final String COMMAND_ADD_USER_RESTRICTION = "add-user-restriction";
-    static final String COMMAND_CLEAR_USER_RESTRICTION = "clear-user-restriction";
-    static final String EXTRA_RESTRICTION = "extra-restriction";
-    static final String COMMAND_TEAR_DOWN = "tear-down";
-    static final String COMMAND_CHECK_DEVICE_OWNER = "check-device-owner";
-    static final String COMMAND_SET_GLOBAL_SETTING = "set-global-setting";
-    static final String COMMAND_SET_STATUSBAR_DISABLED = "set-statusbar-disabled";
-    static final String COMMAND_SET_KEYGUARD_DISABLED = "set-keyguard-disabled";
-    static final String COMMAND_CHECK_PERMISSION_LOCKDOWN = "check-permission-lockdown";
-    static final String EXTRA_SETTING = "extra-setting";
 
     private static final String CHECK_DEVICE_OWNER_TEST_ID = "CHECK_DEVICE_OWNER";
     private static final String DEVICE_ADMIN_SETTINGS_ID = "DEVICE_ADMIN_SETTINGS";
@@ -75,11 +64,30 @@ public class DeviceOwnerPositiveTestActivity extends PassFailButtons.TestListAct
             PermissionLockdownTestActivity.class.getName();
     private static final String DISALLOW_CONFIG_BT_ID = "DISALLOW_CONFIG_BT";
     private static final String DISALLOW_CONFIG_WIFI_ID = "DISALLOW_CONFIG_WIFI";
+    private static final String DISALLOW_CONFIG_VPN_ID = "DISALLOW_CONFIG_VPN";
+    private static final String DISALLOW_USB_FILE_TRANSFER_ID = "DISALLOW_USB_FILE_TRANSFER";
+    private static final String SET_USER_ICON_TEST_ID = "SET_USER_ICON";
+    private static final String DISALLOW_DATA_ROAMING_ID = "DISALLOW_DATA_ROAMING";
+    private static final String POLICY_TRANSPARENCY_TEST_ID = "POLICY_TRANSPARENCY";
     private static final String REMOVE_DEVICE_OWNER_TEST_ID = "REMOVE_DEVICE_OWNER";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (ACTION_CHECK_DEVICE_OWNER.equals(getIntent().getAction())) {
+            DevicePolicyManager dpm = (DevicePolicyManager) getSystemService(
+                    Context.DEVICE_POLICY_SERVICE);
+            if (dpm.isDeviceOwnerApp(getPackageName())) {
+                TestResult.setPassedResult(this, getIntent().getStringExtra(EXTRA_TEST_ID),
+                        null, null);
+            } else {
+                TestResult.setFailedResult(this, getIntent().getStringExtra(EXTRA_TEST_ID),
+                        getString(R.string.device_owner_incorrect_device_owner), null);
+            }
+            finish();
+            return;
+        }
+
         setContentView(R.layout.positive_device_owner);
         setInfoResources(R.string.device_owner_positive_tests,
                 R.string.device_owner_positive_tests_info, 0);
@@ -117,25 +125,21 @@ public class DeviceOwnerPositiveTestActivity extends PassFailButtons.TestListAct
 
     @Override
     public void finish() {
-        // Pass and fail buttons are known to call finish() when clicked, and this is when we want
-        // to remove the device owner.
-        startActivity(createTearDownIntent());
+        // If this activity was started for checking device owner status, then no need to do any
+        // tear down.
+        if (!ACTION_CHECK_DEVICE_OWNER.equals(getIntent().getAction())) {
+            // Pass and fail buttons are known to call finish() when clicked,
+            // and this is when we want to remove the device owner.
+            startActivity(createTearDownIntent());
+        }
         super.finish();
-    }
-
-    /**
-     * Enable Pass Button when all tests passed.
-     */
-    private void updatePassButton() {
-        getPassButton().setEnabled(mAdapter.allTestsPassed());
     }
 
     private void addTestsToAdapter(final ArrayTestListAdapter adapter) {
         adapter.add(createTestItem(this, CHECK_DEVICE_OWNER_TEST_ID,
                 R.string.device_owner_check_device_owner_test,
-                new Intent(this, CommandReceiver.class)
-                        .putExtra(EXTRA_COMMAND, COMMAND_CHECK_DEVICE_OWNER)
-                        ));
+                new Intent(ACTION_CHECK_DEVICE_OWNER)
+                        .putExtra(EXTRA_TEST_ID, getIntent().getStringExtra(EXTRA_TEST_ID))));
 
         // device admin settings
         adapter.add(createInteractiveTestItem(this, DEVICE_ADMIN_SETTINGS_ID,
@@ -166,6 +170,37 @@ public class DeviceOwnerPositiveTestActivity extends PassFailButtons.TestListAct
                                     new Intent(Settings.ACTION_WIFI_SETTINGS))}));
         }
 
+        // DISALLOW_CONFIG_VPN
+        adapter.add(createInteractiveTestItem(this, DISALLOW_CONFIG_VPN_ID,
+                R.string.device_owner_disallow_config_vpn,
+                R.string.device_owner_disallow_config_vpn_info,
+                new ButtonInfo[] {
+                        new ButtonInfo(
+                                R.string.device_owner_user_vpn_restriction_set,
+                                createSetUserRestrictionIntent(
+                                        UserManager.DISALLOW_CONFIG_VPN)),
+                        new ButtonInfo(
+                                R.string.device_owner_settings_go,
+                                new Intent(Settings.ACTION_VPN_SETTINGS)),
+                        new ButtonInfo(
+                                R.string.device_owner_vpn_test,
+                                new Intent(this, VpnTestActivity.class))}));
+
+        // DISALLOW_DATA_ROAMING
+        if(packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            adapter.add(createInteractiveTestItem(this, DISALLOW_DATA_ROAMING_ID,
+                    R.string.device_owner_disallow_data_roaming,
+                    R.string.device_owner_disallow_data_roaming_info,
+                    new ButtonInfo[] {
+                            new ButtonInfo(
+                                    R.string.device_owner_user_restriction_set,
+                                    createSetUserRestrictionIntent(
+                                            UserManager.DISALLOW_DATA_ROAMING)),
+                            new ButtonInfo(
+                                    R.string.device_owner_settings_go,
+                                    new Intent(Settings.ACTION_DATA_ROAMING_SETTINGS))}));
+        }
+
         // DISALLOW_CONFIG_BLUETOOTH
         if (packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)) {
             adapter.add(createInteractiveTestItem(this, DISALLOW_CONFIG_BT_ID,
@@ -181,6 +216,17 @@ public class DeviceOwnerPositiveTestActivity extends PassFailButtons.TestListAct
                                     new Intent(Settings.ACTION_BLUETOOTH_SETTINGS))}));
         }
 
+        // DISALLOW_USB_FILE_TRANSFER
+        adapter.add(createInteractiveTestItem(this, DISALLOW_USB_FILE_TRANSFER_ID,
+                R.string.device_owner_disallow_usb_file_transfer_test,
+                R.string.device_owner_disallow_usb_file_transfer_test_info,
+                new ButtonInfo[] {
+                        new ButtonInfo(
+                                R.string.device_owner_user_restriction_set,
+                                createSetUserRestrictionIntent(
+                                        UserManager.DISALLOW_USB_FILE_TRANSFER)),
+                }));
+
         // setStatusBarDisabled
         adapter.add(createInteractiveTestItem(this, DISABLE_STATUS_BAR_TEST_ID,
                 R.string.device_owner_disable_statusbar_test,
@@ -189,11 +235,13 @@ public class DeviceOwnerPositiveTestActivity extends PassFailButtons.TestListAct
                         new ButtonInfo(
                                 R.string.device_owner_disable_statusbar_button,
                                 createDeviceOwnerIntentWithBooleanParameter(
-                                        COMMAND_SET_STATUSBAR_DISABLED, true)),
+                                        CommandReceiverActivity.COMMAND_SET_STATUSBAR_DISABLED,
+                                                true)),
                         new ButtonInfo(
                                 R.string.device_owner_reenable_statusbar_button,
                                 createDeviceOwnerIntentWithBooleanParameter(
-                                        COMMAND_SET_STATUSBAR_DISABLED, false))}));
+                                        CommandReceiverActivity.COMMAND_SET_STATUSBAR_DISABLED,
+                                                false))}));
 
         // setKeyguardDisabled
         adapter.add(createInteractiveTestItem(this, DISABLE_KEYGUARD_TEST_ID,
@@ -203,16 +251,40 @@ public class DeviceOwnerPositiveTestActivity extends PassFailButtons.TestListAct
                         new ButtonInfo(
                                 R.string.device_owner_disable_keyguard_button,
                                 createDeviceOwnerIntentWithBooleanParameter(
-                                        COMMAND_SET_KEYGUARD_DISABLED, true)),
+                                        CommandReceiverActivity.COMMAND_SET_KEYGUARD_DISABLED,
+                                                true)),
                         new ButtonInfo(
                                 R.string.device_owner_reenable_keyguard_button,
                                 createDeviceOwnerIntentWithBooleanParameter(
-                                        COMMAND_SET_KEYGUARD_DISABLED, false))}));
+                                        CommandReceiverActivity.COMMAND_SET_KEYGUARD_DISABLED,
+                                                false))}));
+
+        adapter.add(createInteractiveTestItem(this, SET_USER_ICON_TEST_ID,
+                R.string.device_owner_set_user_icon,
+                R.string.device_owner_set_user_icon_instruction,
+                new ButtonInfo[] {
+                        new ButtonInfo(
+                                R.string.device_owner_set_user_icon_button,
+                                createSetUserIconIntent()),
+                        new ButtonInfo(
+                                R.string.device_owner_settings_go,
+                                new Intent(Settings.ACTION_SETTINGS))}));
 
         // setPermissionGrantState
         adapter.add(createTestItem(this, CHECK_PERMISSION_LOCKDOWN_TEST_ID,
                 R.string.device_profile_owner_permission_lockdown_test,
                 new Intent(PermissionLockdownTestActivity.ACTION_CHECK_PERMISSION_LOCKDOWN)));
+
+        // Policy Transparency
+        final Intent policyTransparencyTestIntent = new Intent(this,
+                PolicyTransparencyTestListActivity.class);
+        policyTransparencyTestIntent.putExtra(
+                PolicyTransparencyTestListActivity.EXTRA_IS_DEVICE_OWNER, true);
+        policyTransparencyTestIntent.putExtra(
+                PolicyTransparencyTestActivity.EXTRA_TEST_ID, POLICY_TRANSPARENCY_TEST_ID);
+        adapter.add(createTestItem(this, POLICY_TRANSPARENCY_TEST_ID,
+                R.string.device_profile_owner_policy_transparency_test,
+                policyTransparencyTestIntent));
 
         // removeDeviceOwner
         adapter.add(createInteractiveTestItem(this, REMOVE_DEVICE_OWNER_TEST_ID,
@@ -223,111 +295,36 @@ public class DeviceOwnerPositiveTestActivity extends PassFailButtons.TestListAct
                         createTearDownIntent())));
     }
 
-    static TestListItem createInteractiveTestItem(Activity activity, String id, int titleRes,
-            int infoRes, ButtonInfo buttonInfo) {
-        return createInteractiveTestItem(activity, id, titleRes, infoRes,
-                new ButtonInfo[] { buttonInfo });
-    }
-
-    static TestListItem createInteractiveTestItem(Activity activity, String id, int titleRes,
-            int infoRes, ButtonInfo[] buttonInfos) {
-        return TestListItem.newTest(activity, titleRes,
-                id, new Intent(activity, IntentDrivenTestActivity.class)
-                .putExtra(IntentDrivenTestActivity.EXTRA_ID, id)
-                .putExtra(IntentDrivenTestActivity.EXTRA_TITLE, titleRes)
-                .putExtra(IntentDrivenTestActivity.EXTRA_INFO, infoRes)
-                .putExtra(IntentDrivenTestActivity.EXTRA_BUTTONS, buttonInfos),
-                null);
-    }
 
     static TestListItem createTestItem(Activity activity, String id, int titleRes,
             Intent intent) {
-        return TestListItem.newTest(activity, titleRes, id, intent.putExtra(EXTRA_TEST_ID, id),
-                null);
+        intent.putExtra(EXTRA_TEST_ID, id);
+        return TestListItem.newTest(activity, titleRes, id, intent, null);
     }
 
     private Intent createTearDownIntent() {
-        return new Intent(this, CommandReceiver.class)
-                .putExtra(EXTRA_COMMAND, COMMAND_TEAR_DOWN);
+        return new Intent(this, CommandReceiverActivity.class)
+                .putExtra(CommandReceiverActivity.EXTRA_COMMAND,
+                        CommandReceiverActivity.COMMAND_REMOVE_DEVICE_OWNER);
     }
 
     private Intent createDeviceOwnerIntentWithBooleanParameter(String command, boolean value) {
-        return new Intent(this, CommandReceiver.class)
-                .putExtra(EXTRA_COMMAND, command)
-                .putExtra(EXTRA_PARAMETER_1, value);
+        return new Intent(this, CommandReceiverActivity.class)
+                .putExtra(CommandReceiverActivity.EXTRA_COMMAND, command)
+                .putExtra(CommandReceiverActivity.EXTRA_ENFORCED, value);
     }
 
     private Intent createSetUserRestrictionIntent(String restriction) {
-        return new Intent(this, CommandReceiver.class)
-                .putExtra(EXTRA_COMMAND, COMMAND_ADD_USER_RESTRICTION)
-                .putExtra(EXTRA_RESTRICTION, restriction);
+        return new Intent(this, CommandReceiverActivity.class)
+                .putExtra(CommandReceiverActivity.EXTRA_COMMAND,
+                        CommandReceiverActivity.COMMAND_SET_USER_RESTRICTION)
+                .putExtra(CommandReceiverActivity.EXTRA_USER_RESTRICTION, restriction)
+                .putExtra(CommandReceiverActivity.EXTRA_ENFORCED, true);
     }
 
-    public static class CommandReceiver extends Activity {
-        @Override
-        public void onCreate(Bundle savedInstanceState) {
-            super.onCreate(savedInstanceState);
-            Intent intent = getIntent();
-            String command = intent.getStringExtra(EXTRA_COMMAND);
-            try {
-                DevicePolicyManager dpm = (DevicePolicyManager)
-                        getSystemService(Context.DEVICE_POLICY_SERVICE);
-                ComponentName admin = DeviceAdminTestReceiver.getReceiverComponentName();
-                Log.i(TAG, "Command: " + command);
-
-                if (COMMAND_ADD_USER_RESTRICTION.equals(command)) {
-                    String restrictionKey = intent.getStringExtra(EXTRA_RESTRICTION);
-                    dpm.addUserRestriction(admin, restrictionKey);
-                    Log.i(TAG, "Added user restriction " + restrictionKey);
-                } else if (COMMAND_CLEAR_USER_RESTRICTION.equals(command)) {
-                    String restrictionKey = intent.getStringExtra(EXTRA_RESTRICTION);
-                    dpm.clearUserRestriction(admin, restrictionKey);
-                    Log.i(TAG, "Cleared user restriction " + restrictionKey);
-                } else if (COMMAND_TEAR_DOWN.equals(command)) {
-                    tearDown(dpm, admin);
-                } else if (COMMAND_SET_GLOBAL_SETTING.equals(command)) {
-                    final String setting = intent.getStringExtra(EXTRA_SETTING);
-                    final String value = intent.getStringExtra(EXTRA_PARAMETER_1);
-                    dpm.setGlobalSetting(admin, setting, value);
-                } else if (COMMAND_SET_STATUSBAR_DISABLED.equals(command)) {
-                    final boolean value = intent.getBooleanExtra(EXTRA_PARAMETER_1, false);
-                    dpm.setStatusBarDisabled(admin, value);
-                } else if (COMMAND_SET_KEYGUARD_DISABLED.equals(command)) {
-                    final boolean value = intent.getBooleanExtra(EXTRA_PARAMETER_1, false);
-                    if (value) {
-                        dpm.resetPassword(null, 0);
-                    }
-                    dpm.setKeyguardDisabled(admin, value);
-                } else if (COMMAND_CHECK_DEVICE_OWNER.equals(command)) {
-                    if (dpm.isDeviceOwnerApp(getPackageName())) {
-                        TestResult.setPassedResult(this, intent.getStringExtra(EXTRA_TEST_ID),
-                                null, null);
-                    } else {
-                        TestResult.setFailedResult(this, intent.getStringExtra(EXTRA_TEST_ID),
-                                getString(R.string.device_owner_incorrect_device_owner), null);
-                    }
-                } else {
-                    Log.e(TAG, "Invalid command: " + command);
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Command " + command + " failed with exception " + e);
-            } finally {
-                // No matter what happened, don't let the activity run
-                finish();
-            }
-        }
-
-        private void tearDown(DevicePolicyManager dpm, ComponentName admin) {
-            if (dpm == null || !dpm.isDeviceOwnerApp(getPackageName())) {
-                return;
-            }
-
-            dpm.setStatusBarDisabled(admin, false);
-            dpm.setKeyguardDisabled(admin, false);
-            dpm.clearUserRestriction(admin, UserManager.DISALLOW_CONFIG_BLUETOOTH);
-            dpm.clearUserRestriction(admin, UserManager.DISALLOW_CONFIG_WIFI);
-            dpm.clearDeviceOwnerApp(getPackageName());
-        }
+    private Intent createSetUserIconIntent() {
+        return new Intent(this, CommandReceiverActivity.class)
+                .putExtra(CommandReceiverActivity.EXTRA_COMMAND,
+                        CommandReceiverActivity.COMMAND_SET_USER_ICON);
     }
 }
-

@@ -104,7 +104,7 @@ struct CounterExpression {
 };
 
 /// \brief A Counter expression builder is used to construct the
-/// counter expressions. It avoids unecessary duplication
+/// counter expressions. It avoids unnecessary duplication
 /// and simplifies algebraic expressions.
 class CounterExpressionBuilder {
   /// \brief A list of all the counter expressions
@@ -236,7 +236,7 @@ class CounterMappingContext {
 
 public:
   CounterMappingContext(ArrayRef<CounterExpression> Expressions,
-                        ArrayRef<uint64_t> CounterValues = ArrayRef<uint64_t>())
+                        ArrayRef<uint64_t> CounterValues = None)
       : Expressions(Expressions), CounterValues(CounterValues) {}
 
   void setCounts(ArrayRef<uint64_t> Counts) { CounterValues = Counts; }
@@ -410,7 +410,7 @@ public:
   /// \brief Load the coverage mapping from the given files.
   static ErrorOr<std::unique_ptr<CoverageMapping>>
   load(StringRef ObjectFilename, StringRef ProfileFilename,
-       Triple::ArchType Arch = Triple::ArchType::UnknownArch);
+       StringRef Arch = StringRef());
 
   /// \brief The number of functions that couldn't have their profiles mapped.
   ///
@@ -443,7 +443,7 @@ public:
 
   /// \brief Get the list of function instantiations in the file.
   ///
-  /// Fucntions that are instantiated more than once, such as C++ template
+  /// Functions that are instantiated more than once, such as C++ template
   /// specializations, have distinct coverage records for each instantiation.
   std::vector<const FunctionRecord *> getInstantiations(StringRef Filename);
 
@@ -484,7 +484,26 @@ template<> struct DenseMapInfo<coverage::CounterExpression> {
   }
 };
 
+const std::error_category &coveragemap_category();
+
+enum class coveragemap_error {
+  success = 0,
+  eof,
+  no_data_found,
+  unsupported_version,
+  truncated,
+  malformed
+};
+
+inline std::error_code make_error_code(coveragemap_error E) {
+  return std::error_code(static_cast<int>(E), coveragemap_category());
+}
 
 } // end namespace llvm
+
+namespace std {
+template <>
+struct is_error_code_enum<llvm::coveragemap_error> : std::true_type {};
+}
 
 #endif // LLVM_PROFILEDATA_COVERAGEMAPPING_H_

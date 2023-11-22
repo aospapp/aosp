@@ -27,6 +27,7 @@ import android.content.Context;
 import android.os.AsyncResult;
 import android.os.Message;
 import android.os.SystemProperties;
+import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.Rlog;
 import android.text.TextUtils;
@@ -45,7 +46,7 @@ import com.android.internal.util.BitwiseInputStream;
 /**
  * {@hide}
  */
-public final class RuimRecords extends IccRecords {
+public class RuimRecords extends IccRecords {
     static final String LOG_TAG = "RuimRecords";
 
     private boolean  mOtaCommited=false;
@@ -136,6 +137,7 @@ public final class RuimRecords extends IccRecords {
         mMncLength = UNINITIALIZED;
         log("setting0 mMncLength" + mMncLength);
         mIccId = null;
+        mFullIccId = null;
 
         mAdnCache.reset();
 
@@ -669,8 +671,9 @@ public final class RuimRecords extends IccRecords {
                 }
 
                 mIccId = IccUtils.bcdToString(data, 0, data.length);
+                mFullIccId = IccUtils.bchToString(data, 0, data.length);
 
-                log("iccid: " + mIccId);
+                log("iccid: " + SubscriptionInfo.givePrintableIccid(mFullIccId));
 
             break;
 

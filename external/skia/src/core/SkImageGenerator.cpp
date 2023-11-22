@@ -6,52 +6,50 @@
  */
 
 #include "SkImageGenerator.h"
+#include "SkNextID.h"
 
-SkImageGenerator::Result SkImageGenerator::getPixels(const SkImageInfo& info, void* pixels,
-                                                     size_t rowBytes, const Options* options,
-                                                     SkPMColor ctable[], int* ctableCount) {
+SkImageGenerator::SkImageGenerator(const SkImageInfo& info)
+    : fInfo(info)
+    , fUniqueID(SkNextID::ImageID())
+{}
+
+bool SkImageGenerator::getPixels(const SkImageInfo& info, void* pixels, size_t rowBytes,
+                                 SkPMColor ctable[], int* ctableCount) {
     if (kUnknown_SkColorType == info.colorType()) {
-        return kInvalidConversion;
+        return false;
     }
-    if (NULL == pixels) {
-        return kInvalidParameters;
+    if (nullptr == pixels) {
+        return false;
     }
     if (rowBytes < info.minRowBytes()) {
-        return kInvalidParameters;
+        return false;
     }
 
     if (kIndex_8_SkColorType == info.colorType()) {
-        if (NULL == ctable || NULL == ctableCount) {
-            return kInvalidParameters;
+        if (nullptr == ctable || nullptr == ctableCount) {
+            return false;
         }
     } else {
         if (ctableCount) {
             *ctableCount = 0;
         }
-        ctableCount = NULL;
-        ctable = NULL;
+        ctableCount = nullptr;
+        ctable = nullptr;
     }
 
-    // Default options.
-    Options optsStorage;
-    if (NULL == options) {
-        options = &optsStorage;
-    }
-    const Result result = this->onGetPixels(info, pixels, rowBytes, *options, ctable, ctableCount);
-
-    if ((kIncompleteInput == result || kSuccess == result) && ctableCount) {
+    const bool success = this->onGetPixels(info, pixels, rowBytes, ctable, ctableCount);
+    if (success && ctableCount) {
         SkASSERT(*ctableCount >= 0 && *ctableCount <= 256);
     }
-    return result;
+    return success;
 }
 
-SkImageGenerator::Result SkImageGenerator::getPixels(const SkImageInfo& info, void* pixels,
-                                                     size_t rowBytes) {
+bool SkImageGenerator::getPixels(const SkImageInfo& info, void* pixels, size_t rowBytes) {
     SkASSERT(kIndex_8_SkColorType != info.colorType());
     if (kIndex_8_SkColorType == info.colorType()) {
-        return kInvalidConversion;
+        return false;
     }
-    return this->getPixels(info, pixels, rowBytes, NULL, NULL, NULL);
+    return this->getPixels(info, pixels, rowBytes, nullptr, nullptr);
 }
 
 bool SkImageGenerator::getYUV8Planes(SkISize sizes[3], void* planes[3], size_t rowBytes[3],
@@ -64,9 +62,9 @@ bool SkImageGenerator::getYUV8Planes(SkISize sizes[3], void* planes[3], size_t r
         ((planes[0]) && (planes[1]) && (planes[2]) &&
          (0  != rowBytes[0]) && (0  != rowBytes[1]) && (0  != rowBytes[2]));
     bool isValidWithoutPlanes =
-        ((NULL == planes) ||
-         ((NULL == planes[0]) && (NULL == planes[1]) && (NULL == planes[2]))) &&
-        ((NULL == rowBytes) ||
+        ((nullptr == planes) ||
+         ((nullptr == planes[0]) && (nullptr == planes[1]) && (nullptr == planes[2]))) &&
+        ((nullptr == rowBytes) ||
          ((0 == rowBytes[0]) && (0 == rowBytes[1]) && (0 == rowBytes[2])));
 
     // Either we have all planes and rowBytes information or we have none of it
@@ -106,25 +104,144 @@ bool SkImageGenerator::onGetYUV8Planes(SkISize sizes[3], void* planes[3], size_t
     return this->onGetYUV8Planes(sizes, planes, rowBytes);
 }
 
+GrTexture* SkImageGenerator::generateTexture(GrContext* ctx, const SkIRect* subset) {
+    if (subset && !SkIRect::MakeWH(fInfo.width(), fInfo.height()).contains(*subset)) {
+        return nullptr;
+    }
+    return this->onGenerateTexture(ctx, subset);
+}
+
+bool SkImageGenerator::computeScaledDimensions(SkScalar scale, SupportedSizes* sizes) {
+    if (scale > 0 && scale <= 1) {
+        return this->onComputeScaledDimensions(scale, sizes);
+    }
+    return false;
+}
+
+bool SkImageGenerator::generateScaledPixels(const SkISize& scaledSize,
+                                            const SkIPoint& subsetOrigin,
+                                            const SkPixmap& subsetPixels) {
+    if (scaledSize.width() <= 0 || scaledSize.height() <= 0) {
+        return false;
+    }
+    if (subsetPixels.width() <= 0 || subsetPixels.height() <= 0) {
+        return false;
+    }
+    const SkIRect subset = SkIRect::MakeXYWH(subsetOrigin.x(), subsetOrigin.y(),
+                                             subsetPixels.width(), subsetPixels.height());
+    if (!SkIRect::MakeWH(scaledSize.width(), scaledSize.height()).contains(subset)) {
+        return false;
+    }
+    return this->onGenerateScaledPixels(scaledSize, subsetOrigin, subsetPixels);
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////////
 
-SkData* SkImageGenerator::onRefEncodedData() {
-    return NULL;
+SkData* SkImageGenerator::onRefEncodedData(SK_REFENCODEDDATA_CTXPARAM) {
+    return nullptr;
 }
 
-#ifdef SK_SUPPORT_LEGACY_OPTIONLESS_GET_PIXELS
-SkImageGenerator::Result SkImageGenerator::onGetPixels(const SkImageInfo&, void*, size_t,
-                                                       SkPMColor*, int*) {
-    return kUnimplemented;
+bool SkImageGenerator::onGetPixels(const SkImageInfo& info, void* dst, size_t rb,
+                                   SkPMColor* colors, int* colorCount) {
+    return false;
 }
-#endif
 
-SkImageGenerator::Result SkImageGenerator::onGetPixels(const SkImageInfo& info, void* dst,
-                                                       size_t rb, const Options& options,
-                                                       SkPMColor* colors, int* colorCount) {
-#ifdef SK_SUPPORT_LEGACY_OPTIONLESS_GET_PIXELS
-    return this->onGetPixels(info, dst, rb, colors, colorCount);
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+#include "SkBitmap.h"
+#include "SkColorTable.h"
+
+static bool reset_and_return_false(SkBitmap* bitmap) {
+    bitmap->reset();
+    return false;
+}
+
+bool SkImageGenerator::tryGenerateBitmap(SkBitmap* bitmap, const SkImageInfo* infoPtr,
+                                         SkBitmap::Allocator* allocator) {
+    SkImageInfo info = infoPtr ? *infoPtr : this->getInfo();
+    if (0 == info.getSafeSize(info.minRowBytes())) {
+        return false;
+    }
+    if (!bitmap->setInfo(info)) {
+        return reset_and_return_false(bitmap);
+    }
+
+    SkPMColor ctStorage[256];
+    memset(ctStorage, 0xFF, sizeof(ctStorage)); // init with opaque-white for the moment
+    SkAutoTUnref<SkColorTable> ctable(new SkColorTable(ctStorage, 256));
+    if (!bitmap->tryAllocPixels(allocator, ctable)) {
+        // SkResourceCache's custom allcator can'thandle ctables, so it may fail on
+        // kIndex_8_SkColorTable.
+        // https://bug.skia.org/4355
+#if 1
+        // ignroe the allocator, and see if we can succeed without it
+        if (!bitmap->tryAllocPixels(nullptr, ctable)) {
+            return reset_and_return_false(bitmap);
+        }
 #else
-    return kUnimplemented;
+        // this is the up-scale technique, not fully debugged, but we keep it here at the moment
+        // to remind ourselves that this might be better than ignoring the allocator.
+
+        info = SkImageInfo::MakeN32(info.width(), info.height(), info.alphaType());
+        if (!bitmap->setInfo(info)) {
+            return reset_and_return_false(bitmap);
+        }
+        // we pass nullptr for the ctable arg, since we are now explicitly N32
+        if (!bitmap->tryAllocPixels(allocator, nullptr)) {
+            return reset_and_return_false(bitmap);
+        }
 #endif
+    }
+
+    bitmap->lockPixels();
+    if (!bitmap->getPixels()) {
+        return reset_and_return_false(bitmap);
+    }
+
+    int ctCount = 0;
+    if (!this->getPixels(bitmap->info(), bitmap->getPixels(), bitmap->rowBytes(),
+                         ctStorage, &ctCount)) {
+        return reset_and_return_false(bitmap);
+    }
+
+    if (ctCount > 0) {
+        SkASSERT(kIndex_8_SkColorType == bitmap->colorType());
+        // we and bitmap should be owners
+        SkASSERT(!ctable->unique());
+
+        // Now we need to overwrite the ctable we built earlier, with the correct colors.
+        // This does mean that we may have made the table too big, but that cannot be avoided
+        // until we can change SkImageGenerator's API to return us the ctable *before* we have to
+        // allocate space for all the pixels.
+        ctable->dangerous_overwriteColors(ctStorage, ctCount);
+    } else {
+        SkASSERT(kIndex_8_SkColorType != bitmap->colorType());
+        // we should be the only owner
+        SkASSERT(ctable->unique());
+    }
+    return true;
+}
+
+#include "SkGraphics.h"
+
+static SkGraphics::ImageGeneratorFromEncodedFactory gFactory;
+
+SkGraphics::ImageGeneratorFromEncodedFactory
+SkGraphics::SetImageGeneratorFromEncodedFactory(ImageGeneratorFromEncodedFactory factory)
+{
+    ImageGeneratorFromEncodedFactory prev = gFactory;
+    gFactory = factory;
+    return prev;
+}
+
+SkImageGenerator* SkImageGenerator::NewFromEncoded(SkData* data) {
+    if (nullptr == data) {
+        return nullptr;
+    }
+    if (gFactory) {
+        if (SkImageGenerator* generator = gFactory(data)) {
+            return generator;
+        }
+    }
+    return SkImageGenerator::NewFromEncodedImpl(data);
 }

@@ -35,6 +35,7 @@ namespace intel {
 #define N_VERT_UV_TAPS                  3
 #define N_PHASES                        17
 #define MAX_TAPS                        5
+#define XRGB_BPP                        4
 
 // Filter cutoff frequency limits.
 #define MIN_CUTOFF_FREQ                 1.0
@@ -56,6 +57,7 @@ namespace intel {
 
 // overlay register values
 #define OVERLAY_FORMAT_MASK             (0xf << 10)
+#define OVERLAY_FORMAT_PLANAR_XRGB      (0x1 << 10)
 #define OVERLAY_FORMAT_PACKED_YUV422    (0x8 << 10)
 #define OVERLAY_FORMAT_PLANAR_NV12_1    (0x7 << 10)
 #define OVERLAY_FORMAT_PLANAR_NV12_2    (0xb << 10)
@@ -76,6 +78,8 @@ namespace intel {
 #define OVERLAY_MIRRORING_HORIZONTAL    (0x1 << 17)
 #define OVERLAY_MIRRORING_VERTIACAL     (0x2 << 17)
 #define OVERLAY_MIRRORING_BOTH          (0x3 << 17)
+
+#define OVERLAY_CONFIG_BYPASS_DISABLE   (0x1 << 4)
 
 #define BUF_TYPE                (0x1<<5)
 #define BUF_TYPE_FRAME          (0x0<<5)

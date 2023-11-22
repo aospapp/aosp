@@ -24,7 +24,9 @@ import com.android.cts.verifier.sensors.reporting.SensorTestDetails;
 
 import junit.framework.Assert;
 
-import android.app.Activity;
+//import android.app.Activity;
+import com.android.cts.verifier.PassFailButtons;
+
 import android.content.Context;
 import android.content.Intent;
 import android.hardware.cts.helpers.ActivityResultMultiplexedLatch;
@@ -70,7 +72,7 @@ import java.util.concurrent.TimeUnit;
  *                                            tests that require operator interaction
  */
 public abstract class BaseSensorTestActivity
-        extends Activity
+        extends PassFailButtons.Activity
         implements View.OnClickListener, Runnable, ISensorTestStateContainer {
     @Deprecated
     protected static final String LOG_TAG = "SensorTest";
@@ -538,6 +540,10 @@ public abstract class BaseSensorTestActivity
 
         private final StringBuilder mOverallSummaryBuilder = new StringBuilder("\n");
 
+        public void logCustomView(View view) {
+            new ViewAppender(view).append();
+        }
+
         void logTestStart(String testName) {
             // TODO: log the sensor information and expected execution time of each test
             TextAppender textAppender = new TextAppender(R.layout.snsr_test_title);
@@ -645,26 +651,18 @@ public abstract class BaseSensorTestActivity
         }
     }
 
-    private class TextAppender {
-        private final TextView mTextView;
+    private class ViewAppender {
+        protected final View mView;
 
-        public TextAppender(int textViewResId) {
-            mTextView = (TextView) getLayoutInflater().inflate(textViewResId, null /* viewGroup */);
-        }
-
-        public void setText(String text) {
-            mTextView.setText(text);
-        }
-
-        public void setText(int textResId) {
-            mTextView.setText(textResId);
+        public ViewAppender(View view) {
+            mView = view;
         }
 
         public void append() {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    mLogLayout.addView(mTextView);
+                    mLogLayout.addView(mView);
                     mLogScrollView.post(new Runnable() {
                         @Override
                         public void run() {
@@ -673,6 +671,23 @@ public abstract class BaseSensorTestActivity
                     });
                 }
             });
+        }
+    }
+
+    private class TextAppender extends ViewAppender{
+        private final TextView mTextView;
+
+        public TextAppender(int textViewResId) {
+            super(getLayoutInflater().inflate(textViewResId, null /* viewGroup */));
+            mTextView = (TextView) mView;
+        }
+
+        public void setText(String text) {
+            mTextView.setText(text);
+        }
+
+        public void setText(int textResId) {
+            mTextView.setText(textResId);
         }
     }
 }

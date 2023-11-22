@@ -53,7 +53,8 @@ a runtime is required to support only valid .dex files.</p>
         </td>
 
         <td>
-          The <code>magic</code> number of the <code>.dex</code> file must be: <code>dex\n035\0</code>
+          The <code>magic</code> number of the <code>.dex</code> file must be
+          <code>dex\n035\0</code> or <code>dex\n037\0</code>.
         </td>
       </tr>
 
@@ -231,7 +232,7 @@ a runtime is required to support only valid .dex files.</p>
         </td>
 
         <td>
-          For each <code>type_id_item</code>, the <code>desciptor_idx</code> field must contain a valid
+          For each <code>type_id_item</code>, the <code>descriptor_idx</code> field must contain a valid
           reference into the <code>string_ids</code> list. The referenced string must be a valid type
           descriptor.
         </td>
@@ -451,8 +452,7 @@ a runtime is required to support only valid .dex files.</p>
           The <code>C</code> operand of the <code>invoke-virtual</code>,
           <code>invoke-super</code>, <code>invoke-direct</code> and
           <code>invoke-static</code> instructions must be a valid index into the
-          method constant pool. In all cases, the referenced
-          <code>method_id</code> must belong to a class (not an interface).
+          method constant pool.
         </td>
       </tr>
 
@@ -465,8 +465,7 @@ a runtime is required to support only valid .dex files.</p>
           The <code>B</code> operand of the <code>invoke-virtual/range</code>,
           <code>invoke-super/range</code>, <code>invoke-direct/range</code>, and
           <code>invoke-static/range</code> instructions must be a valid index
-          into the method constant pool. In all cases, the referenced
-          <code>method_id</code> must belong to a class (not an interface).
+          into the method constant pool.
         </td>
       </tr>
 
@@ -589,6 +588,34 @@ a runtime is required to support only valid .dex files.</p>
           All registers referred to by an instruction in a double-width (pair)
           fashion must be valid for the current method. That is, their indices
           must be non-negative and smaller than <code>registers_size-1</code>.
+        </td>
+      </tr>
+      <tr>
+        <td>
+          A24
+        </td>
+
+        <td>
+          The <code>method_id</code> operand of the <code>invoke-virtual</code>
+          and <code>invoke-direct</code> instructions must belong to a class
+          (not an interface). In Dex files prior to version <code>037</code>
+          the same must be true of <code>invoke-super</code> and
+          <code>invoke-static</code> instructions.
+        </td>
+      </tr>
+
+      <tr>
+        <td>
+          A25
+        </td>
+
+        <td>
+          The <code>method_id</code> operand of the
+          <code>invoke-virtual/range</code> and
+          <code>invoke-direct/range</code> instructions must belong to a class
+          (not an interface). In Dex files prior to version <code>037</code>
+          the same must be true of <code>invoke-super/range</code> and
+          <code>invoke-static/range</code> instructions.
         </td>
       </tr>
     </table>

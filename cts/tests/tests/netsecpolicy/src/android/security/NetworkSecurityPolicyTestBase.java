@@ -98,7 +98,7 @@ abstract class NetworkSecurityPolicyTestBase extends AndroidTestCase {
             conn.setReadTimeout(5000);
             conn.getResponseCode();
             fail();
-        } catch (UnknownServiceException e) {
+        } catch (IOException e) {
             if ((e.getMessage() == null) || (!e.getMessage().toLowerCase().contains("cleartext"))) {
                 fail("Exception with which request failed does not mention cleartext: " + e);
             }

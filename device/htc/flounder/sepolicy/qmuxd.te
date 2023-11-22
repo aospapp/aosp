@@ -1,5 +1,5 @@
 # Qualcomm Management Interface Multiplexer
-type qmuxd, domain;
+type qmuxd, domain, domain_deprecated;
 type qmuxd_exec, exec_type, file_type;
 
 # Started by init

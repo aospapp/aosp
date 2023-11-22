@@ -33,7 +33,7 @@ $_ZN4baseC2Ev = comdat any
 @_ZTV4base = external unnamed_addr constant [4 x i8*]
 @llvm.global_ctors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 65535, void ()* @_GLOBAL__sub_I_decl_derived_member.cpp, i8* null }]
 
-define internal void @__cxx_global_var_init() section ".text.startup" {
+define internal void @__cxx_global_var_init() section ".text.startup" !dbg !10 {
 entry:
   call void @_ZN3fooC2Ev(%struct.foo* @f) #2, !dbg !33
   %0 = call i32 @__cxa_atexit(void (i8*)* bitcast (void (%struct.foo*)* @_ZN3fooD2Ev to void (i8*)*), i8* bitcast (%struct.foo* @f to i8*), i8* @__dso_handle) #2, !dbg !33
@@ -41,7 +41,7 @@ entry:
 }
 
 ; Function Attrs: inlinehint nounwind uwtable
-define linkonce_odr void @_ZN3fooC2Ev(%struct.foo* %this) unnamed_addr #0 comdat align 2 {
+define linkonce_odr void @_ZN3fooC2Ev(%struct.foo* %this) unnamed_addr #0 comdat align 2 !dbg !14 {
 entry:
   %this.addr = alloca %struct.foo*, align 8
   store %struct.foo* %this, %struct.foo** %this.addr, align 8
@@ -53,7 +53,7 @@ entry:
 }
 
 ; Function Attrs: inlinehint uwtable
-define linkonce_odr void @_ZN3fooD2Ev(%struct.foo* %this) unnamed_addr #1 comdat align 2 {
+define linkonce_odr void @_ZN3fooD2Ev(%struct.foo* %this) unnamed_addr #1 comdat align 2 !dbg !24 {
 entry:
   %this.addr = alloca %struct.foo*, align 8
   store %struct.foo* %this, %struct.foo** %this.addr, align 8
@@ -71,7 +71,7 @@ declare i32 @__cxa_atexit(void (i8*)*, i8*, i8*) #2
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #3
 
 ; Function Attrs: inlinehint nounwind uwtable
-define linkonce_odr void @_ZN4baseC2Ev(%struct.base* %this) unnamed_addr #0 comdat align 2 {
+define linkonce_odr void @_ZN4baseC2Ev(%struct.base* %this) unnamed_addr #0 comdat align 2 !dbg !19 {
 entry:
   %this.addr = alloca %struct.base*, align 8
   store %struct.base* %this, %struct.base** %this.addr, align 8
@@ -100,52 +100,52 @@ attributes #4 = { "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "n
 !llvm.module.flags = !{!30, !31}
 !llvm.ident = !{!32}
 
-!0 = !MDCompileUnit(language: DW_LANG_C_plus_plus, producer: "clang version 3.7.0 (trunk 227104) (llvm/trunk 227103)", isOptimized: false, emissionKind: 1, file: !1, enums: !2, retainedTypes: !3, subprograms: !9, globals: !28, imports: !2)
-!1 = !MDFile(filename: "decl-derived-member.cpp", directory: "/tmp/dbginfo")
+!0 = distinct !DICompileUnit(language: DW_LANG_C_plus_plus, producer: "clang version 3.7.0 (trunk 227104) (llvm/trunk 227103)", isOptimized: false, emissionKind: 1, file: !1, enums: !2, retainedTypes: !3, subprograms: !9, globals: !28, imports: !2)
+!1 = !DIFile(filename: "decl-derived-member.cpp", directory: "/tmp/dbginfo")
 !2 = !{}
 !3 = !{!4, !8}
-!4 = !MDCompositeType(tag: DW_TAG_structure_type, name: "foo", line: 5, size: 64, align: 64, file: !1, elements: !5, identifier: "_ZTS3foo")
+!4 = !DICompositeType(tag: DW_TAG_structure_type, name: "foo", line: 5, size: 64, align: 64, file: !1, elements: !5, identifier: "_ZTS3foo")
 !5 = !{!6}
-!6 = !MDDerivedType(tag: DW_TAG_member, name: "b", line: 6, size: 64, align: 64, file: !1, scope: !"_ZTS3foo", baseType: !7)
-!7 = !MDDerivedType(tag: DW_TAG_typedef, name: "base_type", line: 4, file: !1, baseType: !"_ZTS4base")
-!8 = !MDCompositeType(tag: DW_TAG_structure_type, name: "base", line: 1, flags: DIFlagFwdDecl, file: !1, identifier: "_ZTS4base")
+!6 = !DIDerivedType(tag: DW_TAG_member, name: "b", line: 6, size: 64, align: 64, file: !1, scope: !"_ZTS3foo", baseType: !7)
+!7 = !DIDerivedType(tag: DW_TAG_typedef, name: "base_type", line: 4, file: !1, baseType: !"_ZTS4base")
+!8 = !DICompositeType(tag: DW_TAG_structure_type, name: "base", line: 1, flags: DIFlagFwdDecl, file: !1, identifier: "_ZTS4base")
 !9 = !{!10, !14, !19, !24, !26}
-!10 = !MDSubprogram(name: "__cxx_global_var_init", line: 8, isLocal: true, isDefinition: true, flags: DIFlagPrototyped, isOptimized: false, scopeLine: 8, file: !1, scope: !11, type: !12, function: void ()* @__cxx_global_var_init, variables: !2)
-!11 = !MDFile(filename: "decl-derived-member.cpp", directory: "/tmp/dbginfo")
-!12 = !MDSubroutineType(types: !13)
+!10 = distinct !DISubprogram(name: "__cxx_global_var_init", line: 8, isLocal: true, isDefinition: true, flags: DIFlagPrototyped, isOptimized: false, scopeLine: 8, file: !1, scope: !11, type: !12, variables: !2)
+!11 = !DIFile(filename: "decl-derived-member.cpp", directory: "/tmp/dbginfo")
+!12 = !DISubroutineType(types: !13)
 !13 = !{null}
-!14 = !MDSubprogram(name: "foo", linkageName: "_ZN3fooC2Ev", line: 5, isLocal: false, isDefinition: true, flags: DIFlagArtificial | DIFlagPrototyped, isOptimized: false, scopeLine: 5, file: !1, scope: !"_ZTS3foo", type: !15, function: void (%struct.foo*)* @_ZN3fooC2Ev, declaration: !18, variables: !2)
-!15 = !MDSubroutineType(types: !16)
+!14 = distinct !DISubprogram(name: "foo", linkageName: "_ZN3fooC2Ev", line: 5, isLocal: false, isDefinition: true, flags: DIFlagArtificial | DIFlagPrototyped, isOptimized: false, scopeLine: 5, file: !1, scope: !"_ZTS3foo", type: !15, declaration: !18, variables: !2)
+!15 = !DISubroutineType(types: !16)
 !16 = !{null, !17}
-!17 = !MDDerivedType(tag: DW_TAG_pointer_type, size: 64, align: 64, flags: DIFlagArtificial | DIFlagObjectPointer, baseType: !"_ZTS3foo")
-!18 = !MDSubprogram(name: "foo", isLocal: false, isDefinition: false, flags: DIFlagArtificial | DIFlagPrototyped, isOptimized: false, scope: !"_ZTS3foo", type: !15)
-!19 = !MDSubprogram(name: "base", linkageName: "_ZN4baseC2Ev", line: 1, isLocal: false, isDefinition: true, flags: DIFlagArtificial | DIFlagPrototyped, isOptimized: false, scopeLine: 1, file: !1, scope: !"_ZTS4base", type: !20, function: void (%struct.base*)* @_ZN4baseC2Ev, declaration: !23, variables: !2)
-!20 = !MDSubroutineType(types: !21)
+!17 = !DIDerivedType(tag: DW_TAG_pointer_type, size: 64, align: 64, flags: DIFlagArtificial | DIFlagObjectPointer, baseType: !"_ZTS3foo")
+!18 = !DISubprogram(name: "foo", isLocal: false, isDefinition: false, flags: DIFlagArtificial | DIFlagPrototyped, isOptimized: false, scope: !"_ZTS3foo", type: !15)
+!19 = distinct !DISubprogram(name: "base", linkageName: "_ZN4baseC2Ev", line: 1, isLocal: false, isDefinition: true, flags: DIFlagArtificial | DIFlagPrototyped, isOptimized: false, scopeLine: 1, file: !1, scope: !"_ZTS4base", type: !20, declaration: !23, variables: !2)
+!20 = !DISubroutineType(types: !21)
 !21 = !{null, !22}
-!22 = !MDDerivedType(tag: DW_TAG_pointer_type, size: 64, align: 64, flags: DIFlagArtificial | DIFlagObjectPointer, baseType: !"_ZTS4base")
-!23 = !MDSubprogram(name: "base", isLocal: false, isDefinition: false, flags: DIFlagArtificial | DIFlagPrototyped, isOptimized: false, scope: !"_ZTS4base", type: !20)
-!24 = !MDSubprogram(name: "~foo", linkageName: "_ZN3fooD2Ev", line: 5, isLocal: false, isDefinition: true, flags: DIFlagArtificial | DIFlagPrototyped, isOptimized: false, scopeLine: 5, file: !1, scope: !"_ZTS3foo", type: !15, function: void (%struct.foo*)* @_ZN3fooD2Ev, declaration: !25, variables: !2)
-!25 = !MDSubprogram(name: "~foo", isLocal: false, isDefinition: false, flags: DIFlagArtificial | DIFlagPrototyped, isOptimized: false, scope: !"_ZTS3foo", type: !15)
-!26 = !MDSubprogram(name: "", linkageName: "_GLOBAL__sub_I_decl_derived_member.cpp", isLocal: true, isDefinition: true, flags: DIFlagArtificial, isOptimized: false, file: !1, scope: !11, type: !27, function: void ()* @_GLOBAL__sub_I_decl_derived_member.cpp, variables: !2)
-!27 = !MDSubroutineType(types: !2)
+!22 = !DIDerivedType(tag: DW_TAG_pointer_type, size: 64, align: 64, flags: DIFlagArtificial | DIFlagObjectPointer, baseType: !"_ZTS4base")
+!23 = !DISubprogram(name: "base", isLocal: false, isDefinition: false, flags: DIFlagArtificial | DIFlagPrototyped, isOptimized: false, scope: !"_ZTS4base", type: !20)
+!24 = distinct !DISubprogram(name: "~foo", linkageName: "_ZN3fooD2Ev", line: 5, isLocal: false, isDefinition: true, flags: DIFlagArtificial | DIFlagPrototyped, isOptimized: false, scopeLine: 5, file: !1, scope: !"_ZTS3foo", type: !15, declaration: !25, variables: !2)
+!25 = !DISubprogram(name: "~foo", isLocal: false, isDefinition: false, flags: DIFlagArtificial | DIFlagPrototyped, isOptimized: false, scope: !"_ZTS3foo", type: !15)
+!26 = distinct !DISubprogram(name: "", linkageName: "_GLOBAL__sub_I_decl_derived_member.cpp", isLocal: true, isDefinition: true, flags: DIFlagArtificial, isOptimized: false, file: !1, scope: !11, type: !27, variables: !2)
+!27 = !DISubroutineType(types: !2)
 !28 = !{!29}
-!29 = !MDGlobalVariable(name: "f", line: 8, isLocal: false, isDefinition: true, scope: null, file: !11, type: !"_ZTS3foo", variable: %struct.foo* @f)
+!29 = !DIGlobalVariable(name: "f", line: 8, isLocal: false, isDefinition: true, scope: null, file: !11, type: !"_ZTS3foo", variable: %struct.foo* @f)
 !30 = !{i32 2, !"Dwarf Version", i32 4}
 !31 = !{i32 2, !"Debug Info Version", i32 3}
 !32 = !{!"clang version 3.7.0 (trunk 227104) (llvm/trunk 227103)"}
-!33 = !MDLocation(line: 8, column: 5, scope: !10)
-!34 = !MDLocalVariable(tag: DW_TAG_arg_variable, name: "this", arg: 1, flags: DIFlagArtificial | DIFlagObjectPointer, scope: !14, type: !35)
-!35 = !MDDerivedType(tag: DW_TAG_pointer_type, size: 64, align: 64, baseType: !"_ZTS3foo")
-!36 = !MDExpression()
-!37 = !MDLocation(line: 0, scope: !14)
-!38 = !MDLocation(line: 5, column: 8, scope: !14)
-!39 = !MDLocalVariable(tag: DW_TAG_arg_variable, name: "this", arg: 1, flags: DIFlagArtificial | DIFlagObjectPointer, scope: !24, type: !35)
-!40 = !MDLocation(line: 0, scope: !24)
-!41 = !MDLocation(line: 5, column: 8, scope: !42)
-!42 = distinct !MDLexicalBlock(line: 5, column: 8, file: !1, scope: !24)
-!43 = !MDLocation(line: 5, column: 8, scope: !24)
-!44 = !MDLocalVariable(tag: DW_TAG_arg_variable, name: "this", arg: 1, flags: DIFlagArtificial | DIFlagObjectPointer, scope: !19, type: !45)
-!45 = !MDDerivedType(tag: DW_TAG_pointer_type, size: 64, align: 64, baseType: !"_ZTS4base")
-!46 = !MDLocation(line: 0, scope: !19)
-!47 = !MDLocation(line: 1, column: 8, scope: !19)
-!48 = !MDLocation(line: 0, scope: !26)
+!33 = !DILocation(line: 8, column: 5, scope: !10)
+!34 = !DILocalVariable(name: "this", arg: 1, flags: DIFlagArtificial | DIFlagObjectPointer, scope: !14, type: !35)
+!35 = !DIDerivedType(tag: DW_TAG_pointer_type, size: 64, align: 64, baseType: !"_ZTS3foo")
+!36 = !DIExpression()
+!37 = !DILocation(line: 0, scope: !14)
+!38 = !DILocation(line: 5, column: 8, scope: !14)
+!39 = !DILocalVariable(name: "this", arg: 1, flags: DIFlagArtificial | DIFlagObjectPointer, scope: !24, type: !35)
+!40 = !DILocation(line: 0, scope: !24)
+!41 = !DILocation(line: 5, column: 8, scope: !42)
+!42 = distinct !DILexicalBlock(line: 5, column: 8, file: !1, scope: !24)
+!43 = !DILocation(line: 5, column: 8, scope: !24)
+!44 = !DILocalVariable(name: "this", arg: 1, flags: DIFlagArtificial | DIFlagObjectPointer, scope: !19, type: !45)
+!45 = !DIDerivedType(tag: DW_TAG_pointer_type, size: 64, align: 64, baseType: !"_ZTS4base")
+!46 = !DILocation(line: 0, scope: !19)
+!47 = !DILocation(line: 1, column: 8, scope: !19)
+!48 = !DILocation(line: 0, scope: !26)

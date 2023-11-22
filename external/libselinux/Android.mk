@@ -37,23 +37,22 @@ common_HOST_FILES := \
 	src/init.c \
 	src/label.c \
 	src/label_file.c \
-	src/label_android_property.c
+	src/label_android_property.c \
+	src/label_support.c
 
-
-common_COPY_HEADERS_TO := selinux
-common_COPY_HEADERS := include/selinux/selinux.h include/selinux/label.h include/selinux/context.h include/selinux/avc.h include/selinux/android.h 
 
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(common_SRC_FILES) $(common_HOST_FILES) src/android.c
 LOCAL_MODULE:= libselinux
 LOCAL_MODULE_TAGS := eng
-LOCAL_STATIC_LIBRARIES := libmincrypt
-LOCAL_C_INCLUDES := external/pcre
-LOCAL_WHOLE_STATIC_LIBRARIES := libpcre
+LOCAL_STATIC_LIBRARIES := libcrypto_static
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
+LOCAL_WHOLE_STATIC_LIBRARIES := libpcre libpackagelistparser
 # 1003 corresponds to auditd, from system/core/logd/event.logtags
 LOCAL_CFLAGS := -DAUDITD_LOG_TAG=1003
 # mapping.c has redundant check of array p_in->perms.
 LOCAL_CLANG_CFLAGS += -Wno-pointer-bool-conversion
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
 
 include $(BUILD_STATIC_LIBRARY)
 
@@ -68,22 +67,21 @@ LOCAL_SRC_FILES := $(common_HOST_FILES)
 LOCAL_MODULE:= libselinux
 LOCAL_MODULE_TAGS := eng
 LOCAL_WHOLE_STATIC_LIBRARIES := libpcre
-LOCAL_C_INCLUDES := external/pcre
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
 include $(BUILD_HOST_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(common_SRC_FILES) $(common_HOST_FILES) src/android.c
 LOCAL_MODULE:= libselinux
 LOCAL_MODULE_TAGS := eng
-LOCAL_COPY_HEADERS_TO := $(common_COPY_HEADERS_TO)
-LOCAL_COPY_HEADERS := $(common_COPY_HEADERS)
-LOCAL_STATIC_LIBRARIES := libmincrypt
-LOCAL_C_INCLUDES := external/pcre
-LOCAL_SHARED_LIBRARIES := liblog libpcre
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
+LOCAL_SHARED_LIBRARIES := libcrypto liblog libpcre libpackagelistparser
 # 1003 corresponds to auditd, from system/core/logd/event.logtags
 LOCAL_CFLAGS := -DAUDITD_LOG_TAG=1003
 # mapping.c has redundant check of array p_in->perms.
 LOCAL_CLANG_CFLAGS += -Wno-pointer-bool-conversion
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
 
 include $(BUILD_SHARED_LIBRARY)
 
@@ -97,8 +95,24 @@ endif
 LOCAL_SRC_FILES := $(common_HOST_FILES)
 LOCAL_MODULE:= libselinux
 LOCAL_MODULE_TAGS := eng
-LOCAL_COPY_HEADERS_TO := $(common_COPY_HEADERS_TO)
-LOCAL_COPY_HEADERS := $(common_COPY_HEADERS)
+LOCAL_WHOLE_STATIC_LIBRARIES := libpcre
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
+include $(BUILD_HOST_SHARED_LIBRARY)
+
+#################################
+include $(CLEAR_VARS)
+LOCAL_CFLAGS := -DHOST
+
+ifeq ($(HOST_OS),darwin)
+LOCAL_CFLAGS += -DDARWIN
+endif
+
+LOCAL_MODULE := sefcontext_compile
+LOCAL_MODULE_TAGS := eng
+LOCAL_C_INCLUDES := ../src/label_file.h
+LOCAL_SRC_FILES := utils/sefcontext_compile.c
+LOCAL_STATIC_LIBRARIES := libselinux
 LOCAL_WHOLE_STATIC_LIBRARIES := libpcre
 LOCAL_C_INCLUDES := external/pcre
-include $(BUILD_HOST_SHARED_LIBRARY)
+include $(BUILD_HOST_EXECUTABLE)

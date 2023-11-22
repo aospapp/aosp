@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2000-2013 Julian Seward 
+   Copyright (C) 2000-2015 Julian Seward 
       jseward@acm.org
 
    This program is free software; you can redistribute it and/or
@@ -653,7 +653,7 @@ void* VG_(memcpy) ( void *dest, const void *src, SizeT sz )
    }
 
    /* If we're unlucky, the alignment constraints for the fast case
-      above won't apply, and we'll have to to it all here.  Hence the
+      above won't apply, and we'll have to do it all here.  Hence the
       unrolling. */
    while (sz >= 4) {
       d[0] = s[0];

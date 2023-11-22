@@ -46,7 +46,7 @@ inline bool SpaceBitmap<kAlignment>::AtomicTestAndSet(const mirror::Object* obj)
       DCHECK(Test(obj));
       return true;
     }
-  } while (!atomic_entry->CompareExchangeWeakSequentiallyConsistent(old_word, old_word | mask));
+  } while (!atomic_entry->CompareExchangeWeakRelaxed(old_word, old_word | mask));
   DCHECK(Test(obj));
   return false;
 }
@@ -167,7 +167,14 @@ inline bool SpaceBitmap<kAlignment>::Modify(const mirror::Object* obj) {
   uintptr_t* address = &bitmap_begin_[index];
   uintptr_t old_word = *address;
   if (kSetBit) {
-    *address = old_word | mask;
+    // Check the bit before setting the word incase we are trying to mark a read only bitmap
+    // like an image space bitmap. This bitmap is mapped as read only and will fault if we
+    // attempt to change any words. Since all of the objects are marked, this will never
+    // occur if we check before setting the bit. This also prevents dirty pages that would
+    // occur if the bitmap was read write and we did not check the bit.
+    if ((old_word & mask) == 0) {
+      *address = old_word | mask;
+    }
   } else {
     *address = old_word & ~mask;
   }

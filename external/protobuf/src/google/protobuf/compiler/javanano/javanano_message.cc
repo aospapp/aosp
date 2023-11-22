@@ -232,6 +232,10 @@ void MessageGenerator::Generate(io::Printer* printer) {
         printer, lazy_init);
   }
 
+  // Insertion point for proto compiler plugins
+  printer->Print("\n// @@protoc_insertion_point(class_scope:$classname$)\n",
+                 "classname", descriptor_->full_name());
+
   // Constructor, with lazy init code if needed
   if (lazy_init && field_generators_.saved_defaults_needed()) {
     printer->Print(
@@ -384,7 +388,7 @@ void MessageGenerator::GenerateMergeFromMethods(io::Printer* printer) {
   printer->Indent();
   if (params_.store_unknown_fields()) {
     printer->Print(
-        "if (!storeUnknownField(input, tag)) {\n"
+        "if (!super.storeUnknownField(input, tag)) {\n"
         "  return this;\n"
         "}\n");
   } else {

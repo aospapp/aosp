@@ -34,7 +34,6 @@
     <string name="password_empty_error" msgid="591713406761723025">"Taipkan kata laluan."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"Taipkan nama."</string>
     <string name="name_char_error" msgid="3176618568784938968">"Taip nama yang mengandungi hanya huruf dan nombor."</string>
-    <string name="storage_error" msgid="8306802455802770779">"Tidak dapat menyimpan sijil. Sentuh OK untuk mencuba semula."</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"Tidak dapat menyimpan sijil. Storan bukti kelayakan tidak didayakan atau dimulakan dengan betul."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"Sijil tidak dipasang."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"Tiada sijil untuk dipasangkan."</string>

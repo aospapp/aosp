@@ -25,30 +25,26 @@ import android.net.EthernetManager;
 import android.net.IpConfiguration;
 import android.net.LinkAddress;
 import android.net.LinkProperties;
+import android.net.Network;
 import android.net.NetworkInfo;
-import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiConfiguration.KeyMgmt;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.text.TextUtils;
-import android.util.Log;
-import android.util.Pair;
 
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
+import com.android.settingslib.wifi.AccessPoint;
+import com.android.settingslib.wifi.WifiTracker;
+
 import java.util.List;
 
 /**
  * Listens for changes to the current connectivity status.
  */
-public class ConnectivityListener {
+public class ConnectivityListener implements WifiTracker.WifiListener {
 
     public interface Listener {
-        void onConnectivityChange(Intent intent);
+        void onConnectivityChange();
     }
 
     public interface WifiNetworkListener {
@@ -60,33 +56,24 @@ public class ConnectivityListener {
 
     private final Context mContext;
     private final Listener mListener;
-    private final IntentFilter mFilter;
-    private final BroadcastReceiver mReceiver;
     private boolean mStarted;
+
+    private WifiTracker mWifiTracker;
 
     private final ConnectivityManager mConnectivityManager;
     private final WifiManager mWifiManager;
     private final EthernetManager mEthernetManager;
     private WifiNetworkListener mWifiListener;
-    private final BroadcastReceiver mWifiListReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            if (mWifiListener != null) {
-                mWifiListener.onWifiListChanged();
-                mWifiListener = null;
-            }
-        }
-    };
     private final BroadcastReceiver mWifiEnabledReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            mListener.onConnectivityChange(intent);
+            mListener.onConnectivityChange();
         }
     };
     private final EthernetManager.Listener mEthernetListener = new EthernetManager.Listener() {
         @Override
         public void onAvailabilityChanged(boolean isAvailable) {
-            mListener.onConnectivityChange(null);
+            mListener.onConnectivityChange();
         }
     };
 
@@ -107,11 +94,10 @@ public class ConnectivityListener {
 
         @Override
         public String toString() {
-            return new StringBuilder()
-                .append("mNetworkType ").append(mNetworkType)
-                .append("  miWifiSsid ").append(mWifiSsid)
-                .append("  mWifiSignalStrength ").append(mWifiSignalStrength)
-                .toString();
+            return
+                    "mNetworkType " + mNetworkType +
+                    "  miWifiSsid " + mWifiSsid +
+                    "  mWifiSignalStrength " + mWifiSignalStrength;
         }
     }
 
@@ -124,21 +110,7 @@ public class ConnectivityListener {
         mWifiManager = (WifiManager) mContext.getSystemService(Context.WIFI_SERVICE);
         mEthernetManager = (EthernetManager) mContext.getSystemService(Context.ETHERNET_SERVICE);
         mListener = listener;
-        mFilter = new IntentFilter();
-        mFilter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
-        mFilter.addAction(ConnectivityManager.INET_CONDITION_ACTION);
-        mFilter.addAction(WifiManager.RSSI_CHANGED_ACTION);
-        mReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                if (DEBUG) {
-                    Log.d(TAG, "Connectivity change!");
-                }
-                if (updateConnectivityStatus()) {
-                    mListener.onConnectivityChange(intent);
-                }
-            }
-        };
+        mWifiTracker = new WifiTracker(context, this, true, true);
     }
 
     /**
@@ -149,9 +121,7 @@ public class ConnectivityListener {
         if (!mStarted) {
             mStarted = true;
             updateConnectivityStatus();
-            mContext.registerReceiver(mReceiver, mFilter);
-            mContext.registerReceiver(mWifiListReceiver, new IntentFilter(
-                    WifiManager.SCAN_RESULTS_AVAILABLE_ACTION));
+            mWifiTracker.startTracking();
             mContext.registerReceiver(mWifiEnabledReceiver, new IntentFilter(
                     WifiManager.WIFI_STATE_CHANGED_ACTION));
             mEthernetManager.addListener(mEthernetListener);
@@ -165,22 +135,15 @@ public class ConnectivityListener {
     public void stop() {
         if (mStarted) {
             mStarted = false;
-            mContext.unregisterReceiver(mReceiver);
-            mContext.unregisterReceiver(mWifiListReceiver);
+            mWifiTracker.stopTracking();
             mContext.unregisterReceiver(mWifiEnabledReceiver);
             mWifiListener = null;
             mEthernetManager.removeListener(mEthernetListener);
         }
     }
 
-    /**
-     * Listener is notified when results are available via onWifiListChanged.
-     * Listener should call {@link getAvailableNetworks} to retrieve results.
-     */
-    public void scanWifiAccessPoints(WifiNetworkListener callbackListener) {
-        if (DEBUG) Log.d(TAG, "scanning for wifi access points");
-        mWifiListener = callbackListener;
-        mWifiManager.startScan();
+    public void setWifiListener(WifiNetworkListener wifiListener) {
+        mWifiListener = wifiListener;
     }
 
     public ConnectivityStatus getConnectivityStatus() {
@@ -214,35 +177,46 @@ public class ConnectivityListener {
      * Return whether Ethernet port is available.
      */
     public boolean isEthernetAvailable() {
-        if (mConnectivityManager.isNetworkSupported(ConnectivityManager.TYPE_ETHERNET)) {
-            return mEthernetManager.isAvailable();
-        }
+        return mConnectivityManager.isNetworkSupported(ConnectivityManager.TYPE_ETHERNET)
+                && mEthernetManager.isAvailable();
+    }
 
-        return false;
+    private Network getFirstEthernet() {
+        final Network[] networks = mConnectivityManager.getAllNetworks();
+        for (final Network network : networks) {
+            NetworkInfo networkInfo = mConnectivityManager.getNetworkInfo(network);
+            if (networkInfo != null && networkInfo.getType() == ConnectivityManager.TYPE_ETHERNET) {
+                return network;
+            }
+        }
+        return null;
     }
 
     public String getEthernetMacAddress() {
-        NetworkInfo networkInfo = mConnectivityManager.getActiveNetworkInfo();
-        if (networkInfo == null ||networkInfo.getType() != ConnectivityManager.TYPE_ETHERNET) {
-            return "";
-        } else {
-            return networkInfo.getExtraInfo();
-        }
+        final Network network = getFirstEthernet();
+        return network != null ? mConnectivityManager.getNetworkInfo(network).getExtraInfo() : null;
     }
 
     public String getEthernetIpAddress() {
-        LinkProperties linkProperties =
-                mConnectivityManager.getLinkProperties(ConnectivityManager.TYPE_ETHERNET);
-
-        for (LinkAddress linkAddress: linkProperties.getAllLinkAddresses()) {
-            InetAddress address = linkAddress.getAddress();
-            if (address instanceof Inet4Address) {
-                return address.getHostAddress();
-            }
+        final Network network = getFirstEthernet();
+        if (network == null) {
+            return null;
         }
-
-        // IPv6 address will not be shown like WifiInfo internally does.
-        return "";
+        final StringBuilder sb = new StringBuilder();
+        boolean gotAddress = false;
+        final LinkProperties linkProperties = mConnectivityManager.getLinkProperties(network);
+        for (LinkAddress linkAddress : linkProperties.getLinkAddresses()) {
+            if (gotAddress) {
+                sb.append("\n");
+            }
+            sb.append(linkAddress.getAddress().getHostAddress());
+            gotAddress = true;
+        }
+        if (gotAddress) {
+            return sb.toString();
+        } else {
+            return null;
+        }
     }
 
     public int getWifiSignalStrength(int maxLevel) {
@@ -286,54 +260,8 @@ public class ConnectivityListener {
      * Return a list of wifi networks. Ensure that if a wifi network is connected that it appears
      * as the first item on the list.
      */
-    public List<ScanResult> getAvailableNetworks() {
-        if (DEBUG) Log.d(TAG, "getAvailableNetworks");
-        WifiInfo connectedWifiInfo = mWifiManager.getConnectionInfo();
-        String currentConnectedSSID = connectedWifiInfo == null ? "" : connectedWifiInfo.getSSID();
-        currentConnectedSSID = WifiInfo.removeDoubleQuotes(currentConnectedSSID);
-        WifiSecurity currentConnectedSecurity = WifiConfigHelper.getCurrentConnectionSecurity(
-                mWifiManager, connectedWifiInfo);
-
-        // TODO : Refactor with similar code in SelectFromListWizard
-        final List<ScanResult> results = mWifiManager.getScanResults();
-
-        if (results.size() == 0) {
-            Log.w(TAG, "No results found! Initiate scan...");
-            mWifiManager.startScan();
-        }
-
-        final HashMap<Pair<String, WifiSecurity>, ScanResult> consolidatedScanResults =
-                new HashMap<Pair<String, WifiSecurity>, ScanResult>();
-        HashMap<Pair<String, WifiSecurity>, Boolean> specialNetworks = new HashMap<
-                Pair<String, WifiSecurity>, Boolean>();
-        for (ScanResult result : results) {
-            if (TextUtils.isEmpty(result.SSID)) {
-                continue;
-            }
-
-            Pair<String, WifiSecurity> key = Pair.create(
-                    result.SSID, WifiSecurity.getSecurity(result));
-            ScanResult existing = consolidatedScanResults.get(key);
-
-            if (WifiConfigHelper.areSameNetwork(mWifiManager, result, connectedWifiInfo)) {
-                // The currently connected network should always be included.
-                consolidatedScanResults.put(key, result);
-                specialNetworks.put(key, true);
-            } else {
-                if (existing == null ||
-                        (!specialNetworks.containsKey(key) && existing.level < result.level)) {
-                    consolidatedScanResults.put(key, result);
-                }
-            }
-        }
-
-        ArrayList<ScanResult> networkList = new ArrayList<ScanResult>(
-                consolidatedScanResults.size());
-        networkList.addAll(consolidatedScanResults.values());
-        ScanResultComparator comparator = connectedWifiInfo == null ? new ScanResultComparator() :
-                new ScanResultComparator(currentConnectedSSID, currentConnectedSecurity);
-        Collections.sort(networkList, comparator);
-        return networkList;
+    public List<AccessPoint> getAvailableNetworks() {
+        return mWifiTracker.getAccessPoints();
     }
 
     public IpConfiguration getIpConfiguration() {
@@ -422,6 +350,23 @@ public class ConnectivityListener {
                 default:
                     return setNetworkType(ConnectivityStatus.NETWORK_NONE);
             }
+        }
+    }
+
+    @Override
+    public void onWifiStateChanged(int state) {
+        mListener.onConnectivityChange();
+    }
+
+    @Override
+    public void onConnectedChanged() {
+
+    }
+
+    @Override
+    public void onAccessPointsChanged() {
+        if (mWifiListener != null) {
+            mWifiListener.onWifiListChanged();
         }
     }
 }

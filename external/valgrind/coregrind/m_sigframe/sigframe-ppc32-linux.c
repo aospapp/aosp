@@ -8,9 +8,9 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2000-2013 Nicholas Nethercote
+   Copyright (C) 2000-2015 Nicholas Nethercote
       njn@valgrind.org
-   Copyright (C) 2004-2013 Paul Mackerras
+   Copyright (C) 2004-2015 Paul Mackerras
       paulus@samba.org
 
    This program is free software; you can redistribute it and/or
@@ -624,6 +624,7 @@ void stack_mcontext ( struct vki_mcontext *mc,
 
 /* EXPORTED */
 void VG_(sigframe_create)( ThreadId tid, 
+                           Bool on_altstack,
                            Addr sp_top_of_frame,
                            const vki_siginfo_t *siginfo,
                            const struct vki_ucontext *siguc,
@@ -751,7 +752,7 @@ void VG_(sigframe_create)( ThreadId tid,
    if (0)
       VG_(printf)("pushed signal frame; %%R1 now = %#lx, "
                   "next %%CIA = %#x, status=%d\n",
-		  sp, tst->arch.vex.guest_CIA, tst->status);
+		  sp, tst->arch.vex.guest_CIA, (Int)tst->status);
 }
 
 
@@ -900,7 +901,7 @@ void VG_(sigframe_destroy)( ThreadId tid, Bool isRT )
 
    if (VG_(clo_trace_signals))
       VG_(message)(Vg_DebugMsg,
-                   "vg_pop_signal_frame (thread %d): "
+                   "vg_pop_signal_frame (thread %u): "
                    "isRT=%d valid magic; EIP=%#x\n",
                    tid, has_siginfo, tst->arch.vex.guest_CIA);
 
@@ -927,7 +928,7 @@ void VG_(sigframe_destroy)( ThreadId tid, Bool isRT )
 //..    if (VG_(clo_trace_signals))
 //..       VG_(message)(
 //..          Vg_DebugMsg, 
-//..          "VG_(signal_return) (thread %d): isRT=%d valid magic; EIP=%p", 
+//..          "VG_(signal_return) (thread %u): isRT=%d valid magic; EIP=%p", 
 //..          tid, isRT, tst->arch.vex.guest_EIP);
 //.. 
 //..    /* tell the tools */

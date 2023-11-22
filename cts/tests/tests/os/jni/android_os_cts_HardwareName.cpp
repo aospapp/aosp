@@ -16,15 +16,13 @@
  */
 #include <jni.h>
 
-#include <cutils/properties.h>
+#include <sys/system_properties.h>
 
 jstring android_os_cts_HardwareName_getName(JNIEnv* env, jobject thiz)
 {
-    char name[PROPERTY_VALUE_MAX];
-    int ret;
+    char name[PROP_VALUE_MAX];
 
-    ret = property_get("ro.boot.hardware", name, NULL);
-    if (ret <= 0) {
+    if (__system_property_get("ro.boot.hardware", name) <= 0) {
         return NULL;
     }
 

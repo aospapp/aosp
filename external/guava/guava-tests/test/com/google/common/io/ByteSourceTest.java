@@ -164,7 +164,7 @@ public class ByteSourceTest extends IoTestCase {
   }
 
   public void testHash() throws IOException {
-    ByteSource byteSource = new TestByteSource("hamburger\n".getBytes(Charsets.US_ASCII.name()));
+    ByteSource byteSource = new TestByteSource("hamburger\n".getBytes(Charsets.US_ASCII));
 
     // Pasted this expected string from `echo hamburger | md5sum`
     assertEquals("cfa0c5002275c90508338a5cdb2a9781", byteSource.hash(Hashing.md5()).toString());
@@ -219,8 +219,8 @@ public class ByteSourceTest extends IoTestCase {
 
   /**
    * @param input      the size of the input source
-   * @param offset     the first argument to {@link ByteStreams#slice}
-   * @param length     the second argument to {@link ByteStreams#slice}
+   * @param offset     the first argument to {@link ByteSource#slice}
+   * @param length     the second argument to {@link ByteSource#slice}
    * @param expectRead the number of bytes we expect to read
    */
   private static void assertCorrectSlice(

@@ -23,15 +23,17 @@
     <package>com.example.android.wearable.speedtracker</package>
 
     <minSdk>18</minSdk>
-    <targetSdkVersion>22</targetSdkVersion>
+    <targetSdkVersion>23</targetSdkVersion>
+    <targetSdkVersionWear>23</targetSdkVersionWear>
 
     <wearable>
         <has_handheld_app>true</has_handheld_app>
     </wearable>
 
-    <dependency>com.google.android.gms:play-services-location:7.3.0</dependency>
-    <dependency_wearable>com.google.android.gms:play-services-location:7.3.0</dependency_wearable>
+    <dependency>com.android.support:design:24.0.0</dependency>
 
+    <dependency>com.google.android.gms:play-services-location</dependency>
+    <dependency_wearable>com.google.android.gms:play-services-location</dependency_wearable>
 
     <strings>
         <intro>

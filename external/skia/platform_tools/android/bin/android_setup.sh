@@ -31,10 +31,11 @@ while (( "$#" )); do
     BUILDTYPE=Release
   elif [[ "$1" == "--clang" ]]; then
     USE_CLANG="true"
+    export GYP_DEFINES="skia_clang_build=1 $GYP_DEFINES"
   elif [[ "$1" == "--logcat" ]]; then
     LOGCAT=1
   elif [[ "$1" == "--verbose" ]]; then
-    set -x
+    VERBOSE="true"
   else
     APP_ARGS=("${APP_ARGS[@]}" "${1}")
   fi
@@ -69,15 +70,9 @@ if [ -z "$ANDROID_SDK_ROOT" ]; then
   fi
 fi
 
-# check to see that gclient sync ran successfully
-THIRD_PARTY_EXTERNAL_DIR=${SCRIPT_DIR}/../third_party/externals
-if [ ! -d "$THIRD_PARTY_EXTERNAL_DIR" ]; then
-	echo ""
-	echo "ERROR: Unable to find the required third_party dependencies needed to build."
-	echo "       To fix this add the following line to your .gclient file and run 'gclient sync'"
-	echo "        target_os = ['android']"
-	echo ""
-	exit 1;
+if [ -z "$ANDROID_HOME" ]; then
+  echo "ANDROID_HOME not set so we are setting it to a default value of ANDROID_SDK_ROOT"
+  exportVar ANDROID_HOME $ANDROID_SDK_ROOT
 fi
 
 # Helper function to configure the GYP defines to the appropriate values
@@ -118,7 +113,7 @@ setup_device() {
       ANDROID_ARCH="arm"
       ;;
     arm64 | nexus_9)
-      DEFINES="${DEFINES} skia_arch_type=arm64 skia_arch_width=64"
+      DEFINES="${DEFINES} skia_arch_type=arm64 arm_version=8"
       ANDROID_ARCH="arm64"
       ;;
     x86)
@@ -130,17 +125,17 @@ setup_device() {
       ANDROID_ARCH="x86_64"
       ;;
     mips)
-      DEFINES="${DEFINES} skia_arch_type=mips skia_arch_width=32"
+      DEFINES="${DEFINES} skia_arch_type=mips32"
       DEFINES="${DEFINES} skia_resource_cache_mb_limit=32"
       ANDROID_ARCH="mips"
       ;;
     mips_dsp2)
-      DEFINES="${DEFINES} skia_arch_type=mips skia_arch_width=32"
+      DEFINES="${DEFINES} skia_arch_type=mips32"
       DEFINES="${DEFINES} mips_arch_variant=mips32r2 mips_dsp=2"
       ANDROID_ARCH="mips"
       ;;
     mips64)
-      DEFINES="${DEFINES} skia_arch_type=mips skia_arch_width=64"
+      DEFINES="${DEFINES} skia_arch_type=mips64"
       ANDROID_ARCH="mips64"
       ;;
     *)
@@ -165,6 +160,7 @@ setup_device() {
   source $SCRIPT_DIR/utils/setup_toolchain.sh
 
   DEFINES="${DEFINES} android_toolchain=${TOOLCHAIN_TYPE}"
+  DEFINES="${DEFINES} android_buildtype=${BUILDTYPE}"
   exportVar GYP_DEFINES "$DEFINES $GYP_DEFINES"
 
   SKIA_SRC_DIR=$(cd "${SCRIPT_DIR}/../../.."; pwd)

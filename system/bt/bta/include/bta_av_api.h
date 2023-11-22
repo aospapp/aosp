@@ -64,6 +64,7 @@ typedef UINT8 tBTA_AV_STATUS;
 #define BTA_AV_FEAT_ADV_CTRL    0x0200  /* remote control Advanced Control command/response */
 #define BTA_AV_FEAT_DELAY_RPT   0x0400  /* allow delay reporting */
 #define BTA_AV_FEAT_ACP_START   0x0800  /* start stream when 2nd SNK was accepted   */
+#define BTA_AV_FEAT_APP_SETTING 0x2000  /* Player app setting support */
 
 /* Internal features */
 #define BTA_AV_FEAT_NO_SCO_SSPD 0x8000  /* Do not suspend av streaming as to AG events(SCO or Call) */
@@ -244,15 +245,17 @@ typedef UINT8 tBTA_AV_ERR;
 #define BTA_AV_RECONFIG_EVT     14      /* reconfigure response */
 #define BTA_AV_SUSPEND_EVT      15      /* suspend response */
 #define BTA_AV_PENDING_EVT      16      /* incoming connection pending:
-                                         * signal channel is open and stream is not open
-                                         * after BTA_AV_SIG_TIME_VAL ms */
+                                         * signal channel is open and stream is
+                                         * not open after
+                                         * BTA_AV_SIGNALLING_TIMEOUT_MS */
 #define BTA_AV_META_MSG_EVT     17      /* metadata messages */
 #define BTA_AV_REJECT_EVT       18      /* incoming connection rejected */
 #define BTA_AV_RC_FEAT_EVT      19      /* remote control channel peer supported features update */
-#define BTA_AV_MEDIA_SINK_CFG_EVT    20      /* command to configure codec */
+#define BTA_AV_MEDIA_SINK_CFG_EVT    20 /* command to configure codec */
 #define BTA_AV_MEDIA_DATA_EVT   21      /* sending data to Media Task */
+#define BTA_AV_OFFLOAD_START_RSP_EVT 22 /* a2dp offload start response */
 /* Max BTA event */
-#define BTA_AV_MAX_EVT          22
+#define BTA_AV_MAX_EVT          23
 
 
 typedef UINT8 tBTA_AV_EVT;
@@ -362,6 +365,7 @@ typedef struct
 {
     UINT8           rc_handle;
     tBTA_AV_FEAT    peer_features;
+    BD_ADDR         peer_addr;
 } tBTA_AV_RC_FEAT;
 
 /* data associated with BTA_AV_REMOTE_CMD_EVT */
@@ -448,13 +452,20 @@ typedef union
     tBTA_AV_META_MSG    meta_msg;
     tBTA_AV_REJECT      reject;
     tBTA_AV_RC_FEAT     rc_feat;
+    tBTA_AV_STATUS      status;
 } tBTA_AV;
+
+typedef struct
+{
+    UINT8 *codec_info;
+    BD_ADDR bd_addr;;
+} tBTA_AVK_CONFIG;
 
 /* union of data associated with AV Media callback */
 typedef union
 {
     BT_HDR     *p_data;
-    UINT8      *codec_info;
+    tBTA_AVK_CONFIG avk_config;
 } tBTA_AV_MEDIA;
 
 
@@ -560,7 +571,7 @@ void BTA_AvDisable(void);
 **
 *******************************************************************************/
 void BTA_AvRegister(tBTA_AV_CHNL chnl, const char *p_service_name,
-                            UINT8 app_id, tBTA_AV_DATA_CBACK  *p_data_cback);
+                    UINT8 app_id, tBTA_AV_DATA_CBACK  *p_data_cback, UINT16 service_uuid);
 
 /*******************************************************************************
 **
@@ -702,6 +713,20 @@ void BTA_AvRemoteCmd(UINT8 rc_handle, UINT8 label, tBTA_AV_RC rc_id,
 
 /*******************************************************************************
 **
+** Function         BTA_AvRemoteVendorUniqueCmd
+**
+** Description      Send a remote control command with Vendor Unique rc_id.
+**                  This function can only be used if AV is enabled with
+**                  feature BTA_AV_FEAT_RCCT.
+**
+** Returns          void
+**
+*******************************************************************************/
+void BTA_AvRemoteVendorUniqueCmd(UINT8 rc_handle, UINT8 label, tBTA_AV_STATE key_state,
+                                         UINT8* p_msg, UINT8 buf_len);
+
+/*******************************************************************************
+**
 ** Function         BTA_AvVendorCmd
 **
 ** Description      Send a vendor dependent remote control command.  This
@@ -783,6 +808,32 @@ void BTA_AvMetaRsp(UINT8 rc_handle, UINT8 label, tBTA_AV_CODE rsp_code,
 **
 *******************************************************************************/
 void BTA_AvMetaCmd(UINT8 rc_handle, UINT8 label, tBTA_AV_CMD cmd_code, BT_HDR *p_pkt);
+
+/*******************************************************************************
+**
+** Function         BTA_AvOffloadStart
+**
+** Description      Request Starting of A2DP Offload.
+**                  This function is used to start A2DP offload if vendor lib has
+**                  the feature enabled.
+**
+** Returns          void
+**
+*******************************************************************************/
+void BTA_AvOffloadStart(tBTA_AV_HNDL hndl);
+
+/*******************************************************************************
+**
+** Function         BTA_AvOffloadStartRsp
+**
+** Description      Response from vendor library indicating response for
+**                  OffloadStart.
+**
+** Returns          void
+**
+*******************************************************************************/
+void BTA_AvOffloadStartRsp(tBTA_AV_HNDL hndl, tBTA_AV_STATUS status);
+
 
 #ifdef __cplusplus
 }

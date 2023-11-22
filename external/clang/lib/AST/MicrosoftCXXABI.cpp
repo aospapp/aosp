@@ -31,11 +31,12 @@ class MicrosoftNumberingContext : public MangleNumberingContext {
   llvm::DenseMap<const Type *, unsigned> ManglingNumbers;
   unsigned LambdaManglingNumber;
   unsigned StaticLocalNumber;
+  unsigned StaticThreadlocalNumber;
 
 public:
   MicrosoftNumberingContext()
       : MangleNumberingContext(), LambdaManglingNumber(0),
-        StaticLocalNumber(0) {}
+        StaticLocalNumber(0), StaticThreadlocalNumber(0) {}
 
   unsigned getManglingNumber(const CXXMethodDecl *CallOperator) override {
     return ++LambdaManglingNumber;
@@ -47,6 +48,8 @@ public:
   }
 
   unsigned getStaticLocalNumber(const VarDecl *VD) override {
+    if (VD->getTLSKind())
+      return ++StaticThreadlocalNumber;
     return ++StaticLocalNumber;
   }
 
@@ -67,6 +70,11 @@ class MicrosoftCXXABI : public CXXABI {
   llvm::SmallDenseMap<std::pair<const CXXConstructorDecl *, unsigned>, Expr *>
       CtorToDefaultArgExpr;
 
+  llvm::SmallDenseMap<TagDecl *, DeclaratorDecl *>
+      UnnamedTagDeclToDeclaratorDecl;
+  llvm::SmallDenseMap<TagDecl *, TypedefNameDecl *>
+      UnnamedTagDeclToTypedefNameDecl;
+
 public:
   MicrosoftCXXABI(ASTContext &Ctx) : Context(Ctx) { }
 
@@ -81,17 +89,7 @@ public:
   }
 
   bool isNearlyEmpty(const CXXRecordDecl *RD) const override {
-    // FIXME: Audit the corners
-    if (!RD->isDynamicClass())
-      return false;
-
-    const ASTRecordLayout &Layout = Context.getASTRecordLayout(RD);
-
-    // In the Microsoft ABI, classes can have one or two vtable pointers.
-    CharUnits PointerSize =
-        Context.toCharUnitsFromBits(Context.getTargetInfo().getPointerWidth(0));
-    return Layout.getNonVirtualSize() == PointerSize ||
-      Layout.getNonVirtualSize() == PointerSize * 2;
+    llvm_unreachable("unapplicable to the MS ABI");
   }
 
   void addDefaultArgExprForConstructor(const CXXConstructorDecl *CD,
@@ -115,6 +113,34 @@ public:
     assert(CD != nullptr);
     assert(RecordToCopyCtor[RD] == nullptr || RecordToCopyCtor[RD] == CD);
     RecordToCopyCtor[RD] = CD;
+  }
+
+  void addTypedefNameForUnnamedTagDecl(TagDecl *TD,
+                                       TypedefNameDecl *DD) override {
+    TD = TD->getCanonicalDecl();
+    DD = cast<TypedefNameDecl>(DD->getCanonicalDecl());
+    TypedefNameDecl *&I = UnnamedTagDeclToTypedefNameDecl[TD];
+    if (!I)
+      I = DD;
+  }
+
+  TypedefNameDecl *getTypedefNameForUnnamedTagDecl(const TagDecl *TD) override {
+    return UnnamedTagDeclToTypedefNameDecl.lookup(
+        const_cast<TagDecl *>(TD->getCanonicalDecl()));
+  }
+
+  void addDeclaratorForUnnamedTagDecl(TagDecl *TD,
+                                      DeclaratorDecl *DD) override {
+    TD = TD->getCanonicalDecl();
+    DD = cast<DeclaratorDecl>(DD->getCanonicalDecl());
+    DeclaratorDecl *&I = UnnamedTagDeclToDeclaratorDecl[TD];
+    if (!I)
+      I = DD;
+  }
+
+  DeclaratorDecl *getDeclaratorForUnnamedTagDecl(const TagDecl *TD) override {
+    return UnnamedTagDeclToDeclaratorDecl.lookup(
+        const_cast<TagDecl *>(TD->getCanonicalDecl()));
   }
 
   MangleNumberingContext *createMangleNumberingContext() const override {
@@ -176,8 +202,9 @@ MSVtorDispAttr::Mode CXXRecordDecl::getMSVtorDispMode() const {
 //     // slot.
 //     void *FunctionPointerOrVirtualThunk;
 //
-//     // An offset to add to the address of the vbtable pointer after (possibly)
-//     // selecting the virtual base but before resolving and calling the function.
+//     // An offset to add to the address of the vbtable pointer after
+//     // (possibly) selecting the virtual base but before resolving and calling
+//     // the function.
 //     // Only needed if the class has any virtual bases or bases at a non-zero
 //     // offset.
 //     int NonVirtualBaseAdjustment;
@@ -213,29 +240,28 @@ getMSMemberPointerSlots(const MemberPointerType *MPT) {
 
 std::pair<uint64_t, unsigned> MicrosoftCXXABI::getMemberPointerWidthAndAlign(
     const MemberPointerType *MPT) const {
-  const TargetInfo &Target = Context.getTargetInfo();
-  assert(Target.getTriple().getArch() == llvm::Triple::x86 ||
-         Target.getTriple().getArch() == llvm::Triple::x86_64);
-  unsigned Ptrs, Ints;
-  std::tie(Ptrs, Ints) = getMSMemberPointerSlots(MPT);
   // The nominal struct is laid out with pointers followed by ints and aligned
   // to a pointer width if any are present and an int width otherwise.
+  const TargetInfo &Target = Context.getTargetInfo();
   unsigned PtrSize = Target.getPointerWidth(0);
   unsigned IntSize = Target.getIntWidth();
+
+  unsigned Ptrs, Ints;
+  std::tie(Ptrs, Ints) = getMSMemberPointerSlots(MPT);
   uint64_t Width = Ptrs * PtrSize + Ints * IntSize;
   unsigned Align;
 
   // When MSVC does x86_32 record layout, it aligns aggregate member pointers to
   // 8 bytes.  However, __alignof usually returns 4 for data memptrs and 8 for
   // function memptrs.
-  if (Ptrs + Ints > 1 && Target.getTriple().getArch() == llvm::Triple::x86)
-    Align = 8 * 8;
+  if (Ptrs + Ints > 1 && Target.getTriple().isArch32Bit())
+    Align = 64;
   else if (Ptrs)
     Align = Target.getPointerAlign(0);
   else
     Align = Target.getIntAlign();
 
-  if (Target.getTriple().getArch() == llvm::Triple::x86_64)
+  if (Target.getTriple().isArch64Bit())
     Width = llvm::RoundUpToAlignment(Width, Align);
   return std::make_pair(Width, Align);
 }

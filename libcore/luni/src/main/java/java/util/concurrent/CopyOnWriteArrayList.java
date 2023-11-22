@@ -23,12 +23,16 @@ import java.io.Serializable;
 import java.util.AbstractList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.ConcurrentModificationException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.NoSuchElementException;
 import java.util.RandomAccess;
+import java.util.function.Consumer;
+import java.util.function.UnaryOperator;
+
 import libcore.util.EmptyArray;
 import libcore.util.Objects;
 
@@ -363,6 +367,49 @@ public class CopyOnWriteArrayList<E> implements List<E>, RandomAccess, Cloneable
         return removeOrRetain(collection, true, 0, elements.length) != 0;
     }
 
+    @Override
+    public synchronized void replaceAll(UnaryOperator<E> operator) {
+        replaceInRange(0, elements.length,operator);
+    }
+
+    private void replaceInRange(int from, int to, UnaryOperator<E> operator) {
+        java.util.Objects.requireNonNull(operator);
+        Object[] newElements = new Object[elements.length];
+        System.arraycopy(elements, 0, newElements, 0, newElements.length);
+        for (int i = from; i < to; i++) {
+            @SuppressWarnings("unchecked") E e = (E) elements[i];
+            newElements[i] = operator.apply(e);
+        }
+        elements = newElements;
+    }
+
+    @Override
+    public synchronized void sort(Comparator<? super E> c) {
+        sortInRange(0, elements.length, c);
+    }
+
+    private synchronized void sortInRange(int from, int to, Comparator<? super E> c) {
+        java.util.Objects.requireNonNull(c);
+        Object[] newElements = new Object[elements.length];
+        System.arraycopy(elements, 0, newElements, 0, newElements.length);
+        Arrays.sort((E[])newElements, from, to, c);
+        elements = newElements;
+    }
+
+    @Override
+    public void forEach(Consumer<? super E> action) {
+        forInRange(0, elements.length, action);
+    }
+
+    private void forInRange(int from, int to, Consumer<? super E> action) {
+        java.util.Objects.requireNonNull(action);
+        Object[] newElements = new Object[elements.length];
+        System.arraycopy(elements, 0, newElements, 0, newElements.length);
+        for (int i = from; i < to; i++) {
+            action.accept((E)newElements[i]);
+        }
+    }
+
     /**
      * Removes or retains the elements in {@code collection}. Returns the number
      * of elements removed.
@@ -647,6 +694,29 @@ public class CopyOnWriteArrayList<E> implements List<E>, RandomAccess, Cloneable
                 return removed != 0;
             }
         }
+
+        @Override
+        public void forEach(Consumer<? super E> action) {
+            CopyOnWriteArrayList.this.forInRange(slice.from, slice.to, action);
+        }
+
+        @Override
+        public void replaceAll(UnaryOperator<E> operator) {
+            synchronized (CopyOnWriteArrayList.this) {
+                slice.checkConcurrentModification(elements);
+                CopyOnWriteArrayList.this.replaceInRange(slice.from, slice.to, operator);
+                slice = new Slice(elements, slice.from, slice.to);
+            }
+        }
+
+        @Override
+        public synchronized void sort(Comparator<? super E> c) {
+            synchronized (CopyOnWriteArrayList.this) {
+                slice.checkConcurrentModification(elements);
+                CopyOnWriteArrayList.this.sortInRange(slice.from, slice.to, c);
+                slice = new Slice(elements, slice.from, slice.to);
+            }
+        }
     }
 
     static class Slice {
@@ -746,6 +816,17 @@ public class CopyOnWriteArrayList<E> implements List<E>, RandomAccess, Cloneable
 
         public void set(E object) {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void forEachRemaining(Consumer<? super E> action) {
+            java.util.Objects.requireNonNull(action);
+            Object[] elements = snapshot;
+            for (int i = index; i < to; i++) {
+                @SuppressWarnings("unchecked") E e = (E) elements[i];
+                action.accept(e);
+            }
+            index = to;
         }
     }
 

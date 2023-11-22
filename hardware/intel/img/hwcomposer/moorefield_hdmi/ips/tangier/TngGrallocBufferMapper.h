@@ -25,7 +25,7 @@ namespace intel {
 
 class TngGrallocBufferMapper : public GrallocBufferMapperBase {
 public:
-    TngGrallocBufferMapper(IMG_gralloc_module_public_t& module,
+    TngGrallocBufferMapper(gralloc_module_t const& module,
                                DataBuffer& buffer);
     virtual ~TngGrallocBufferMapper();
 public:
@@ -40,7 +40,7 @@ private:
     bool mapKhandle();
 
 private:
-    IMG_gralloc_module_t& mIMGGrallocModule;
+    gralloc_module_t const& mGrallocModule;
     void* mBufferObject;
     native_handle_t* mClonedHandle;
 };

@@ -19,6 +19,9 @@
         <variable name="sparseIntArray" type="android.util.SparseIntArray"/>
         <variable name="sparseLongArray" type="android.util.SparseLongArray"/>
         <variable name="longSparseArray" type="android.util.LongSparseArray&lt;String>"/>
+        <variable name="index" type="int"/>
+        <variable name="indexObj" type="Object"/>
+        <variable name="obj" type="android.databinding.testapp.vo.BracketObject"/>
     </data>
     <LinearLayout
             android:layout_width="match_parent"
@@ -28,32 +31,46 @@
         <TextView android:layout_width="wrap_content"
                   android:layout_height="wrap_content"
                   android:id="@+id/arrayText"
-                  android:text="@{array[0]}"/>
+                  android:text="@{array[index]}"/>
+
+        <TextView android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:id="@+id/indexObj"
+                  android:text="@{array[indexObj]}"/>
 
         <TextView android:layout_width="wrap_content"
                   android:layout_height="wrap_content"
                   android:id="@+id/sparseArrayText"
-                  android:text='@{sparseArray[0]}'/>
+                  android:text='@{sparseArray[index]}'/>
+
+        <TextView android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:id="@+id/sparseArrayTextObj"
+                  android:text='@{sparseArray[indexObj]}'/>
 
         <TextView android:layout_width="wrap_content"
                   android:layout_height="wrap_content"
                   android:id="@+id/sparseBooleanArrayText"
-                  android:text='@{"" + sparseBooleanArray[0]}'/>
+                  android:text='@{"" + sparseBooleanArray[index]}'/>
 
         <TextView android:layout_width="wrap_content"
                   android:layout_height="wrap_content"
                   android:id="@+id/sparseIntArrayText"
-                  android:text='@{"" + sparseIntArray[0]}'/>
+                  android:text='@{"" + sparseIntArray[index]}'/>
 
         <TextView android:layout_width="wrap_content"
                   android:layout_height="wrap_content"
                   android:id="@+id/sparseLongArrayText"
-                  android:text='@{"" + sparseLongArray[0]}'/>
+                  android:text='@{"" + sparseLongArray[index]}'/>
 
         <TextView android:layout_width="wrap_content"
                   android:layout_height="wrap_content"
                   android:id="@+id/longSparseArrayText"
-                  android:text='@{longSparseArray[0]}'/>
+                  android:text='@{longSparseArray[index]}'/>
 
+        <TextView android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:id="@+id/bracketMap"
+                  android:text='@{obj.map["Hello"]}'/>
     </LinearLayout>
 </layout>

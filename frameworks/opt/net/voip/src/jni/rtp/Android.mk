@@ -53,8 +53,7 @@ LOCAL_C_INCLUDES += \
 	frameworks/av/media/libstagefright/codecs/amrnb/dec/src \
 	$(call include-path-for, audio-effects)
 
-LOCAL_CFLAGS += -fvisibility=hidden
-
-
+# getInput() is deprecated but we want to continue to track the usage of it elsewhere
+LOCAL_CFLAGS += -fvisibility=hidden -Wall -Wextra -Wno-deprecated-declarations -Werror
 
 include $(BUILD_SHARED_LIBRARY)

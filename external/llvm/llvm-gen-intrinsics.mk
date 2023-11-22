@@ -2,8 +2,6 @@
 INTRINSICTD := $(LLVM_ROOT_PATH)/include/llvm/IR/Intrinsics.td
 INTRINSICTDS := $(wildcard $(dir $(INTRINSICTD))/Intrinsics*.td)
 
-LOCAL_SRC_FILES := $(INTRINSICTD) $(LOCAL_SRC_FILES)
-
 ifeq ($(LOCAL_MODULE_CLASS),)
 	LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 endif

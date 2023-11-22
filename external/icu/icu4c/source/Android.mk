@@ -16,6 +16,8 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 # Uncomment to be able to use ALOG* with #include "cutils/log.h".
+optional_android_logging_includes :=
+optional_android_logging_libraries :=
 #optional_android_logging_includes := system/core/include
 #optional_android_logging_libraries := liblog
 

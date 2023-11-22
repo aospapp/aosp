@@ -48,29 +48,36 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import javax.security.auth.x500.X500Principal;
+
 import junit.framework.TestCase;
-import org.apache.harmony.security.asn1.ASN1Boolean;
-import org.apache.harmony.security.asn1.ASN1Integer;
-import org.apache.harmony.security.asn1.ASN1OctetString;
-import org.apache.harmony.security.asn1.ASN1Oid;
-import org.apache.harmony.security.asn1.ASN1Sequence;
-import org.apache.harmony.security.asn1.ASN1Type;
+
 import org.apache.harmony.security.tests.support.TestKeyPair;
 import org.apache.harmony.security.tests.support.cert.MyCRL;
 import org.apache.harmony.security.tests.support.cert.TestUtils;
-import org.apache.harmony.security.x501.Name;
-import org.apache.harmony.security.x509.CertificatePolicies;
-import org.apache.harmony.security.x509.GeneralName;
-import org.apache.harmony.security.x509.GeneralNames;
-import org.apache.harmony.security.x509.NameConstraints;
-import org.apache.harmony.security.x509.ORAddress;
-import org.apache.harmony.security.x509.OtherName;
-import org.apache.harmony.security.x509.PolicyInformation;
-import org.apache.harmony.security.x509.PrivateKeyUsagePeriod;
+
+import sun.security.util.ObjectIdentifier;
+import sun.security.util.DerOutputStream;
+
+import sun.security.x509.CertificatePoliciesExtension;
+import sun.security.x509.CertificatePolicyId;
+import sun.security.x509.DNSName;
+import sun.security.x509.EDIPartyName;
+import sun.security.x509.GeneralNames;
+import sun.security.x509.GeneralName;
+import sun.security.x509.GeneralNameInterface;
+import sun.security.x509.IPAddressName;
+import sun.security.x509.OIDName;
+import sun.security.x509.OtherName;
+import sun.security.x509.PolicyInformation;
+import sun.security.x509.PrivateKeyUsageExtension;
+import sun.security.x509.RFC822Name;
+import sun.security.x509.SubjectAlternativeNameExtension;
+import sun.security.x509.URIName;
+import sun.security.x509.X400Address;
+import sun.security.x509.X500Name;
 
 /**
  * X509CertSelectorTest
@@ -79,59 +86,47 @@ public class X509CertSelectorTest extends TestCase {
 
     byte[][] constraintBytes = new byte[][] {
             {
-                    48, 34, -96, 15, 48, 13, -127, 8, 56, 50, 50, 46, 78,
-                    97, 109, 101, -128, 1, 0, -95, 15, 48, 13, -127, 8, 56,
-                    50, 50, 46, 78, 97, 109, 101, -128, 1, 0},
-            {
-                    48, 42, -96, 19, 48, 17, -127, 12, 114, 102, 99, 64,
-                    56, 50, 50, 46, 78, 97, 109, 101, -128, 1, 0, -95, 19,
-                    48, 17, -127, 12, 114, 102, 99, 64, 56, 50, 50, 46, 78,
-                    97, 109, 101, -128, 1, 0},
-            {
-                    48, 34, -96, 15, 48, 13, -126, 8, 78, 97, 109, 101, 46,
-                    111, 114, 103, -128, 1, 0, -95, 15, 48, 13, -126, 8,
-                    78, 97, 109, 101, 46, 111, 114, 103, -128, 1, 0},
-            {
-                    48, 42, -96, 19, 48, 17, -126, 12, 100, 78, 83, 46, 78,
-                    97, 109, 101, 46, 111, 114, 103, -128, 1, 0, -95, 19,
-                    48, 17, -126, 12, 100, 78, 83, 46, 78, 97, 109, 101,
-                    46, 111, 114, 103, -128, 1, 0},
-            {
-                    48, 54, -96, 25, 48, 23, -122, 18, 104, 116, 116, 112,
-                    58, 47, 47, 82, 101, 115, 111, 117, 114, 99, 101, 46,
-                    73, 100, -128, 1, 0, -95, 25, 48, 23, -122, 18, 104,
-                    116, 116, 112, 58, 47, 47, 82, 101, 115, 111, 117, 114,
-                    99, 101, 46, 73, 100, -128, 1, 0},
-            {
-                    48, 70, -96, 33, 48, 31, -122, 26, 104, 116, 116, 112,
-                    58, 47, 47, 117, 110, 105, 102, 111, 114, 109, 46, 82,
-                    101, 115, 111, 117, 114, 99, 101, 46, 73, 100, -128, 1,
-                    0, -95, 33, 48, 31, -122, 26, 104, 116, 116, 112, 58,
-                    47, 47, 117, 110, 105, 102, 111, 114, 109, 46, 82, 101,
-                    115, 111, 117, 114, 99, 101, 46, 73, 100, -128, 1, 0},
-            {
-                    48, 26, -96, 11, 48, 9, -121, 4, 1, 1, 1, 1, -128, 1,
-                    0, -95, 11, 48, 9, -121, 4, 1, 1, 1, 1, -128, 1, 0},
-            {
-                    48, 50, -96, 23, 48, 21, -121, 16, 1, 1, 1, 1, 1, 1, 1,
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, -128, 1, 0, -95, 23, 48, 21,
-                    -121, 16, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                    1, -128, 1, 0}};
+                    48, 28, -96, 12, 48, 10, -127, 8, 56, 50, 50, 46, 78,
+                    97, 109, 101, -95, 12, 48, 10, -127, 8, 56, 50, 50, 46, 78,
+                    97, 109, 101},
+            {       48, 36, -96, 16, 48, 14, -127, 12, 114, 102, 99, 64, 56, 50,
+                    50, 46, 78, 97, 109, 101, -95, 16, 48, 14, -127, 12, 114,
+                    102, 99, 64, 56, 50, 50, 46, 78, 97, 109, 101},
+            {       48, 28, -96, 12, 48, 10, -126, 8, 78, 97, 109, 101, 46, 111,
+                    114, 103, -95, 12, 48, 10, -126, 8, 78, 97, 109, 101, 46,
+                    111, 114, 103},
+            {       48, 36, -96, 16, 48, 14, -126, 12, 100, 78, 83, 46, 78, 97,
+                    109, 101, 46, 111, 114, 103, -95, 16, 48, 14, -126, 12, 100,
+                    78, 83, 46, 78, 97, 109, 101, 46, 111, 114, 103},
+            {       48, 34, -96, 15, 48, 13, -122, 11, 82, 101, 115, 111, 117,
+                    114, 99, 101, 46, 73, 100, -95, 15, 48, 13, -122, 11, 82,
+                    101, 115, 111, 117, 114, 99, 101, 46, 73, 100},
+            {       48, 50, -96, 23, 48, 21, -122, 19, 117, 110, 105, 102, 111,
+                    114, 109, 46, 82, 101, 115, 111, 117, 114, 99, 101, 46, 73,
+                    100, -95, 23, 48, 21, -122, 19, 117, 110, 105, 102, 111,
+                    114, 109, 46, 82, 101, 115, 111, 117, 114, 99, 101, 46, 73,
+                    100},
+            {       48, 20, -96, 8, 48, 6, -121, 4, 1, 1, 1, 1, -95, 8, 48, 6,
+                    -121, 4, 1, 1, 1, 1},
+            {       48, 44, -96, 20, 48, 18, -121, 16, 1, 1, 1, 1, 1, 1, 1, 1,
+                    1, 1, 1, 1, 1, 1, 1, 1, -95, 20, 48, 18, -121, 16, 1, 1, 1,
+                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+            };
 
     /**
      * java.security.cert.X509CertSelector#addSubjectAlternativeName(int, byte[])
      */
     public void test_addSubjectAlternativeNameLintLbyte_array() throws IOException {
         // Regression for HARMONY-2487
-        int[] types = { GeneralName.OTHER_NAME,
-                        GeneralName.RFC822_NAME,
-                        GeneralName.DNS_NAME,
-                        GeneralName.X400_ADDR,
-                        GeneralName.DIR_NAME,
-                        GeneralName.EDIP_NAME,
-                        GeneralName.UR_ID,
-                        GeneralName.IP_ADDR,
-                        GeneralName.REG_ID };
+        int[] types = { GeneralNameInterface.NAME_ANY,
+                GeneralNameInterface.NAME_RFC822,
+                GeneralNameInterface.NAME_DNS,
+                GeneralNameInterface.NAME_X400,
+                GeneralNameInterface.NAME_DIRECTORY,
+                GeneralNameInterface.NAME_EDI,
+                GeneralNameInterface.NAME_URI,
+                GeneralNameInterface.NAME_IP,
+                GeneralNameInterface.NAME_OID };
         for (int i = 0; i < types.length; i++) {
             try {
                 new X509CertSelector().addSubjectAlternativeName(types[i],
@@ -147,15 +142,19 @@ public class X509CertSelectorTest extends TestCase {
      */
     public void test_addSubjectAlternativeNameLintLjava_lang_String() {
         // Regression for HARMONY-727
-        int[] types = { GeneralName.OTHER_NAME,
-                        // GeneralName.RFC822_NAME,
-                        GeneralName.DNS_NAME,
-                        GeneralName.X400_ADDR,
-                        GeneralName.DIR_NAME,
-                        GeneralName.EDIP_NAME,
-                        GeneralName.UR_ID,
-                        GeneralName.IP_ADDR,
-                        GeneralName.REG_ID };
+        int[] types = { GeneralNameInterface.NAME_ANY,
+                // The test was disabled in M: bd7a7c87692d3b5be341fbc5022eaa07611ae751
+                // and was reintroduced after the test was enabled after some
+                // time it wasn't run: 5ef40918006efad4c7194b505c3ad176928711a3
+                // Disabling again for N as it's failing and wasn't being run for M anyway
+                // GeneralNameInterface.NAME_RFC822,
+                GeneralNameInterface.NAME_DNS,
+                GeneralNameInterface.NAME_X400,
+                GeneralNameInterface.NAME_DIRECTORY,
+                GeneralNameInterface.NAME_EDI,
+                GeneralNameInterface.NAME_URI,
+                GeneralNameInterface.NAME_IP,
+                GeneralNameInterface.NAME_OID };
         for (int i = 0; i < types.length; i++) {
             try {
                 new X509CertSelector().addSubjectAlternativeName(types[i],
@@ -171,15 +170,15 @@ public class X509CertSelectorTest extends TestCase {
      */
     public void test_addPathToNameLintLbyte_array() throws IOException {
         // Regression for HARMONY-2487
-        int[] types = { GeneralName.OTHER_NAME,
-                        GeneralName.RFC822_NAME,
-                        GeneralName.DNS_NAME,
-                        GeneralName.X400_ADDR,
-                        GeneralName.DIR_NAME,
-                        GeneralName.EDIP_NAME,
-                        GeneralName.UR_ID,
-                        GeneralName.IP_ADDR,
-                        GeneralName.REG_ID };
+        int[] types = { GeneralNameInterface.NAME_ANY,
+                        GeneralNameInterface.NAME_RFC822,
+                        GeneralNameInterface.NAME_DNS,
+                        GeneralNameInterface.NAME_X400,
+                        GeneralNameInterface.NAME_DIRECTORY,
+                        GeneralNameInterface.NAME_EDI,
+                        GeneralNameInterface.NAME_URI,
+                        GeneralNameInterface.NAME_IP,
+                        GeneralNameInterface.NAME_OID };
         for (int i = 0; i < types.length; i++) {
             try {
                 new X509CertSelector().addPathToName(types[i], (byte[]) null);
@@ -461,31 +460,38 @@ public class X509CertSelectorTest extends TestCase {
     public void test_getNameConstraints() throws IOException {
 
 // Used to generate following byte array
-//        GeneralName[] name_constraints = new GeneralName[] {
-//                new GeneralName(1, "822.Name"),
-//                new GeneralName(1, "rfc@822.Name"),
-//                new GeneralName(2, "Name.org"),
-//                new GeneralName(2, "dNS.Name.org"),
+//      org.bouncycastle.asn1.x509.GeneralName[] name_constraints =
+//          new org.bouncycastle.asn1.x509.GeneralName[] {
+//                new org.bouncycastle.asn1.x509.GeneralName(1, "822.Name"),
+//                new org.bouncycastle.asn1.x509.GeneralName(1, "rfc@822.Name"),
+//                new org.bouncycastle.asn1.x509.GeneralName(2, "Name.org"),
+//                new org.bouncycastle.asn1.x509.GeneralName(2, "dNS.Name.org"),
 //
-//                new GeneralName(6, "http://Resource.Id"),
-//                new GeneralName(6, "http://uniform.Resource.Id"),
-//                new GeneralName(7, "1.1.1.1"),
+//                new org.bouncycastle.asn1.x509.GeneralName(6, "Resource.Id"),
+//                new org.bouncycastle.asn1.x509.GeneralName(6,
+//                    "uniform.Resource.Id"),
+//                new org.bouncycastle.asn1.x509.GeneralName(7, "1.1.1.1"),
 //
-//                new GeneralName(new byte[] { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-//                        1, 1, 1, 1, 1 }), };
+//                new org.bouncycastle.asn1.x509.GeneralName(7,
+//                    new org.bouncycastle.asn1.DEROctetString(new byte[] {
+//                        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 })),
+//          };
 //
 //        constraintBytes = new byte[name_constraints.length][];
 //
 //        for (int i = 0; i < name_constraints.length; i++) {
-//            GeneralSubtree subtree = new GeneralSubtree(name_constraints[i]);
-//            GeneralSubtrees subtrees = new GeneralSubtrees();
-//            subtrees.addSubtree(subtree);
-//            NameConstraints constraints = new NameConstraints(subtrees,
-//                    subtrees);
+//          org.bouncycastle.asn1.x509.GeneralSubtree subtree =
+//              new org.bouncycastle.asn1.x509.GeneralSubtree(
+//                  name_constraints[i]);
+//          org.bouncycastle.asn1.x509.GeneralSubtree[] subtrees =
+//              new org.bouncycastle.asn1.x509.GeneralSubtree[1];
+//          subtrees[0] = subtree;
+//          org.bouncycastle.asn1.x509.NameConstraints constraints =
+//              new org.bouncycastle.asn1.x509.NameConstraints(
+//                  subtrees, subtrees);
 //            constraintBytes[i] = constraints.getEncoded();
 //        }
 //        System.out.println("XXX"+Arrays.deepToString(constraintBytes)+"XXX");
-
         X509CertSelector selector = new X509CertSelector();
 
         for (int i = 0; i < constraintBytes.length; i++) {
@@ -499,27 +505,32 @@ public class X509CertSelectorTest extends TestCase {
      * java.security.cert.X509CertSelector#getPathToNames()
      */
     public void test_getPathToNames() throws Exception {
-        GeneralName san0 = new GeneralName(new OtherName("1.2.3.4.5",
-                                                         new byte[] { 1, 2, 0, 1 }));
-        GeneralName san1 = new GeneralName(1, "rfc@822.Name");
-        GeneralName san2 = new GeneralName(2, "dNSName");
-        GeneralName san3 = new GeneralName(new ORAddress());
-        GeneralName san4 = new GeneralName(new Name("O=Organization"));
-        GeneralName san6 = new GeneralName(6, "http://uniform.Resource.Id");
-        GeneralName san7 = new GeneralName(7, "1.1.1.1");
-        GeneralName san8 = new GeneralName(8, "1.2.3.4444.55555");
+        GeneralName san0 = new GeneralName(new OtherName(new ObjectIdentifier("1.2.3.4.5"),
+                new byte[] { 1, 2, 0, 1 }));
+        GeneralName san1 = new GeneralName(new RFC822Name("rfc@822.Name"));
+        GeneralName san2 = new GeneralName(new DNSName("dNSName"));
+
+        // http://b/27197633 (Missing replacement for ORAddress)
+        // GeneralName san3 = new GeneralName(new X400Address((byte[])null));
+        GeneralName san4 = new GeneralName(new X500Name("O=Organization"));
+        GeneralName san6 = new GeneralName(new URIName("http://uniform.Resource.Id"));
+        GeneralName san7 = new GeneralName(new IPAddressName("1.1.1.1"));
+        GeneralName san8 = new GeneralName(new OIDName("1.2.3.4444.55555"));
+
 
         GeneralNames sans1 = new GeneralNames();
-        sans1.addName(san0);
-        sans1.addName(san1);
-        sans1.addName(san2);
-        sans1.addName(san3);
-        sans1.addName(san4);
-        sans1.addName(san6);
-        sans1.addName(san7);
-        sans1.addName(san8);
+        sans1.add(san0);
+        sans1.add(san1);
+        sans1.add(san2);
+
+        // http://b/27197633 (Missing replacement for ORAddress)
+        // sans1.add(san3);
+        sans1.add(san4);
+        sans1.add(san6);
+        sans1.add(san7);
+        sans1.add(san8);
         GeneralNames sans2 = new GeneralNames();
-        sans2.addName(san0);
+        sans2.add(san0);
 
         TestCert cert1 = new TestCert(sans1);
         TestCert cert2 = new TestCert(sans2);
@@ -531,7 +542,7 @@ public class X509CertSelectorTest extends TestCase {
                    + "subjectAlternativeNames criteria.",
                    selector.match(cert1) && selector.match(cert2));
 
-        Collection<List<?>> sans = sans1.getPairsList();
+        Collection<List<?>> sans = getGeneralNamePairList(sans1);
 
         selector.setPathToNames(sans);
         selector.getPathToNames();
@@ -625,12 +636,12 @@ public class X509CertSelectorTest extends TestCase {
      * java.security.cert.X509CertSelector#getSubjectAlternativeNames()
      */
     public void test_getSubjectAlternativeNames() throws Exception {
-        GeneralName san1 = new GeneralName(1, "rfc@822.Name");
-        GeneralName san2 = new GeneralName(2, "dNSName");
+        GeneralName san1 = new GeneralName(new RFC822Name("rfc@822.Name"));
+        GeneralName san2 = new GeneralName(new DNSName("dNSName"));
 
         GeneralNames sans = new GeneralNames();
-        sans.addName(san1);
-        sans.addName(san2);
+        sans.add(san1);
+        sans.add(san2);
 
         TestCert cert_1 = new TestCert(sans);
         X509CertSelector selector = new X509CertSelector();
@@ -638,7 +649,7 @@ public class X509CertSelectorTest extends TestCase {
         assertNull("Selector should return null",
                    selector.getSubjectAlternativeNames());
 
-        selector.setSubjectAlternativeNames(sans.getPairsList());
+        selector.setSubjectAlternativeNames(getGeneralNamePairList(sans));
         assertTrue("The certificate should match the selection criteria.",
                    selector.match(cert_1));
         selector.getSubjectAlternativeNames().clear();
@@ -1085,26 +1096,39 @@ public class X509CertSelectorTest extends TestCase {
      *        bytes)
      */
     public void test_setNameConstraintsLB$() throws IOException {
-//        GeneralName[] name_constraints = new GeneralName[] {
-//                new GeneralName(1, "822.Name"),
-//                new GeneralName(1, "rfc@822.Name"),
-//                new GeneralName(2, "Name.org"),
-//                new GeneralName(2, "dNS.Name.org"),
+   // Used to generate following byte array
+//    org.bouncycastle.asn1.x509.GeneralName[] name_constraints =
+//        new org.bouncycastle.asn1.x509.GeneralName[] {
+//              new org.bouncycastle.asn1.x509.GeneralName(1, "822.Name"),
+//              new org.bouncycastle.asn1.x509.GeneralName(1, "rfc@822.Name"),
+//              new org.bouncycastle.asn1.x509.GeneralName(2, "Name.org"),
+//              new org.bouncycastle.asn1.x509.GeneralName(2, "dNS.Name.org"),
 //
-//                new GeneralName(6, "http://Resource.Id"),
-//                new GeneralName(6, "http://uniform.Resource.Id"),
-//                new GeneralName(7, "1.1.1.1"),
+//              new org.bouncycastle.asn1.x509.GeneralName(6, "Resource.Id"),
+//              new org.bouncycastle.asn1.x509.GeneralName(6,
+//                  "uniform.Resource.Id"),
+//              new org.bouncycastle.asn1.x509.GeneralName(7, "1.1.1.1"),
 //
-//                new GeneralName(new byte[] { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-//                        1, 1, 1, 1, 1 }), };
+//              new org.bouncycastle.asn1.x509.GeneralName(7,
+//                  new org.bouncycastle.asn1.DEROctetString(new byte[] {
+//                      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 })),
+//        };
 //
-//        for (int i = 0; i < name_constraints.length; i++) {
-//            GeneralSubtree subtree = new GeneralSubtree(name_constraints[i]);
-//            GeneralSubtrees subtrees = new GeneralSubtrees();
-//            subtrees.addSubtree(subtree);
-//            NameConstraints constraints = new NameConstraints(subtrees,
-//                    subtrees);
-//        }
+//      constraintBytes = new byte[name_constraints.length][];
+//
+//      for (int i = 0; i < name_constraints.length; i++) {
+//        org.bouncycastle.asn1.x509.GeneralSubtree subtree =
+//            new org.bouncycastle.asn1.x509.GeneralSubtree(
+//                name_constraints[i]);
+//        org.bouncycastle.asn1.x509.GeneralSubtree[] subtrees =
+//            new org.bouncycastle.asn1.x509.GeneralSubtree[1];
+//        subtrees[0] = subtree;
+//        org.bouncycastle.asn1.x509.NameConstraints constraints =
+//            new org.bouncycastle.asn1.x509.NameConstraints(
+//                subtrees, subtrees);
+//          constraintBytes[i] = constraints.getEncoded();
+//      }
+//      System.out.println("XXX"+Arrays.deepToString(constraintBytes)+"XXX");
         X509CertSelector selector = new X509CertSelector();
 
         for (int i = 0; i < constraintBytes.length; i++) {
@@ -1117,27 +1141,31 @@ public class X509CertSelectorTest extends TestCase {
      * java.security.cert.X509CertSelector#setPathToNames(Collection<List<?>>)
      */
     public void test_setPathToNamesLjava_util_Collection() throws Exception {
-        GeneralName san0 = new GeneralName(new OtherName("1.2.3.4.5",
+        GeneralName san0 = new GeneralName(new OtherName(new ObjectIdentifier("1.2.3.4.5"),
                                                          new byte[] { 1, 2, 0, 1 }));
-        GeneralName san1 = new GeneralName(1, "rfc@822.Name");
-        GeneralName san2 = new GeneralName(2, "dNSName");
-        GeneralName san3 = new GeneralName(new ORAddress());
-        GeneralName san4 = new GeneralName(new Name("O=Organization"));
-        GeneralName san6 = new GeneralName(6, "http://uniform.Resource.Id");
-        GeneralName san7 = new GeneralName(7, "1.1.1.1");
-        GeneralName san8 = new GeneralName(8, "1.2.3.4444.55555");
+        GeneralName san1 = new GeneralName(new RFC822Name("rfc@822.Name"));
+        GeneralName san2 = new GeneralName(new DNSName("dNSName"));
+
+        // http://b/27197633 (Missing replacement for ORAddress)
+        // GeneralName san3 = new GeneralName(new X400Address(new byte[8]));
+        GeneralName san4 = new GeneralName(new X500Name("O=Organization"));
+        GeneralName san6 = new GeneralName(new URIName("http://uniform.Resource.Id"));
+        GeneralName san7 = new GeneralName(new IPAddressName("1.1.1.1"));
+        GeneralName san8 = new GeneralName(new OIDName("1.2.3.4444.55555"));
 
         GeneralNames sans1 = new GeneralNames();
-        sans1.addName(san0);
-        sans1.addName(san1);
-        sans1.addName(san2);
-        sans1.addName(san3);
-        sans1.addName(san4);
-        sans1.addName(san6);
-        sans1.addName(san7);
-        sans1.addName(san8);
+        sans1.add(san0);
+        sans1.add(san1);
+        sans1.add(san2);
+
+        // http://b/27197633 (Missing replacement for ORAddress)
+        // sans1.add(san3);
+        sans1.add(san4);
+        sans1.add(san6);
+        sans1.add(san7);
+        sans1.add(san8);
         GeneralNames sans2 = new GeneralNames();
-        sans2.addName(san0);
+        sans2.add(san0);
 
         TestCert cert1 = new TestCert(sans1);
         TestCert cert2 = new TestCert(sans2);
@@ -1149,7 +1177,7 @@ public class X509CertSelectorTest extends TestCase {
                    + "subjectAlternativeNames criteria.",
                    selector.match(cert1) && selector.match(cert2));
 
-        Collection<List<?>> sans = sans1.getPairsList();
+        Collection<List<?>> sans = getGeneralNamePairList(sans1);
 
         selector.setPathToNames(sans);
         selector.getPathToNames();
@@ -1343,27 +1371,31 @@ public class X509CertSelectorTest extends TestCase {
      */
     public void test_setSubjectAlternativeNamesLjava_util_Collection() throws Exception {
 
-        GeneralName san0 = new GeneralName(new OtherName("1.2.3.4.5",
+        GeneralName san0 = new GeneralName(new OtherName(new ObjectIdentifier("1.2.3.4.5"),
                                                          new byte[] { 1, 2, 0, 1 }));
-        GeneralName san1 = new GeneralName(1, "rfc@822.Name");
-        GeneralName san2 = new GeneralName(2, "dNSName");
-        GeneralName san3 = new GeneralName(new ORAddress());
-        GeneralName san4 = new GeneralName(new Name("O=Organization"));
-        GeneralName san6 = new GeneralName(6, "http://uniform.Resource.Id");
-        GeneralName san7 = new GeneralName(7, "1.1.1.1");
-        GeneralName san8 = new GeneralName(8, "1.2.3.4444.55555");
+        GeneralName san1 = new GeneralName(new RFC822Name("rfc@822.Name"));
+        GeneralName san2 = new GeneralName(new DNSName("dNSName"));
+
+        // http://b/27197633 (Missing replacement for ORAddress)
+        // GeneralName san3 = new GeneralName(new X400Address((byte[])null));
+        GeneralName san4 = new GeneralName(new X500Name("O=Organization"));
+        GeneralName san6 = new GeneralName(new URIName("http://uniform.Resource.Id"));
+        GeneralName san7 = new GeneralName(new IPAddressName("1.1.1.1"));
+        GeneralName san8 = new GeneralName(new OIDName("1.2.3.4444.55555"));
 
         GeneralNames sans1 = new GeneralNames();
-        sans1.addName(san0);
-        sans1.addName(san1);
-        sans1.addName(san2);
-        sans1.addName(san3);
-        sans1.addName(san4);
-        sans1.addName(san6);
-        sans1.addName(san7);
-        sans1.addName(san8);
+        sans1.add(san0);
+        sans1.add(san1);
+        sans1.add(san2);
+
+        // http://b/27197633 (Missing replacement for ORAddress)
+        // sans1.add(san3);
+        sans1.add(san4);
+        sans1.add(san6);
+        sans1.add(san7);
+        sans1.add(san8);
         GeneralNames sans2 = new GeneralNames();
-        sans2.addName(san0);
+        sans2.add(san0);
 
         TestCert cert1 = new TestCert(sans1);
         TestCert cert2 = new TestCert(sans2);
@@ -1375,7 +1407,8 @@ public class X509CertSelectorTest extends TestCase {
                    + "subjectAlternativeNames criteria.",
                    selector.match(cert1) && selector.match(cert2));
 
-        Collection<List<?>> sans = sans1.getPairsList();
+        Collection<List<?>> sans;
+        sans = getGeneralNamePairList(sans1);
 
         selector.setSubjectAlternativeNames(sans);
 
@@ -1498,7 +1531,7 @@ public class X509CertSelectorTest extends TestCase {
             assertEquals(validOIDs[i], selector.getSubjectPublicKeyAlgID());
         }
 
-        String[] invalidOIDs = { "0.20", "1.25", "2.39", "3.10" };
+        String[] invalidOIDs = { "3.20", "1.40", "3.10" };
         for (int i = 0; i < invalidOIDs.length; i++) {
             try {
                 selector.setSubjectPublicKeyAlgID(invalidOIDs[i]);
@@ -1586,18 +1619,12 @@ public class X509CertSelectorTest extends TestCase {
 
         protected Collection<List<?>> collection = null;
 
-        protected NameConstraints nameConstraints = null;
-
         /* Stuff methods */
         public TestCert() {
         }
 
         public TestCert(GeneralNames sans) {
             setSubjectAlternativeNames(sans);
-        }
-
-        public TestCert(NameConstraints nameConstraints) {
-            this.nameConstraints = nameConstraints;
         }
 
         public TestCert(Collection<List<?>> collection) {
@@ -1846,71 +1873,64 @@ public class X509CertSelectorTest extends TestCase {
             return null;
         }
 
-        public byte[] getExtensionValue(String oid) {
-
-            if (("2.5.29.14".equals(oid)) || ("2.5.29.35".equals(oid))) {
-                // Extension value is represented as an OctetString
-                return ASN1OctetString.getInstance().encode(keyIdentifier);
+        public byte[] getExtensionValue (String oid) {
+           if (("2.5.29.14".equals(oid)) || ("2.5.29.35".equals(oid))) {
+                try {
+                    DerOutputStream out = new DerOutputStream();
+                    out.putOctetString(keyIdentifier);
+                    return out.toByteArray();
+                } catch (IOException e) {
+                    throw new IllegalStateException("Unexpected IOException" , e);
+                }
             }
             if ("2.5.29.16".equals(oid)) {
-                PrivateKeyUsagePeriod pkup = new PrivateKeyUsagePeriod(
-                        notBefore, notAfter);
-                byte[] encoded = pkup.getEncoded();
-                return ASN1OctetString.getInstance().encode(encoded);
-            }
-            if (("2.5.29.37".equals(oid)) && (extKeyUsage != null)) {
-                ASN1Oid[] oa = new ASN1Oid[extKeyUsage.size()];
-                String[] val = new String[extKeyUsage.size()];
-                Iterator it = extKeyUsage.iterator();
-                int id = 0;
-                while (it.hasNext()) {
-                    oa[id] = ASN1Oid.getInstanceForString();
-                    val[id++] = (String) it.next();
+                try {
+                    DerOutputStream outputStream = new DerOutputStream();
+                    outputStream.putOctetString(new PrivateKeyUsageExtension(notBefore, notAfter).getExtensionValue());
+                    return outputStream.toByteArray();
+                } catch (IOException e) {
+                    throw new IllegalStateException("Unexpected IOException", e);
                 }
-                return ASN1OctetString.getInstance().encode(
-                        new ASN1Sequence(oa).encode(val));
-            }
-            if ("2.5.29.19".equals(oid)) {
-                return ASN1OctetString.getInstance().encode(
-                        new ASN1Sequence(new ASN1Type[] {
-                                ASN1Boolean.getInstance(),
-                                ASN1Integer.getInstance() })
-                                .encode(new Object[] {
-                                        new Boolean(pathLen != 1),
-                                        BigInteger.valueOf(pathLen).toByteArray() }));
             }
             if ("2.5.29.17".equals(oid) && (sans != null)) {
-                if (sans.getNames() == null) {
+                if (sans.names() == null) {
                     return null;
                 }
-                return ASN1OctetString.getInstance().encode(
-                        GeneralNames.ASN1.encode(sans));
+                try {
+                    DerOutputStream outputStream = new DerOutputStream();
+                    outputStream.putOctetString(new SubjectAlternativeNameExtension(sans).getExtensionValue());
+                    return outputStream.toByteArray();
+                } catch (IOException e) {
+                    throw new IllegalStateException("Unexpected IOException", e);
+                }
             }
             if ("2.5.29.32".equals(oid) && (policies != null)
                     && (policies.length > 0)) {
-                // Certificate Policies Extension (as specified in rfc 3280)
-                CertificatePolicies certificatePolicies = new CertificatePolicies();
-                for (int i = 0; i < policies.length; i++) {
-                    PolicyInformation policyInformation = new PolicyInformation(
-                            policies[i]);
-                    certificatePolicies.addPolicyInformation(policyInformation);
+                try {
+                    List<PolicyInformation> policyInformations = new ArrayList();
+
+                    for (String p : policies) {
+                        policyInformations.add(new PolicyInformation(new CertificatePolicyId(new ObjectIdentifier(p)), Collections.EMPTY_SET));
+                    }
+                    DerOutputStream outputStream = new DerOutputStream();
+                    outputStream.putOctetString(new CertificatePoliciesExtension(policyInformations).getExtensionValue());
+                    return outputStream.toByteArray();
+                } catch (IOException e) {
+                    throw new IllegalStateException("Unexpected IOException", e);
                 }
-                return ASN1OctetString.getInstance().encode(
-                        certificatePolicies.getEncoded());
-            }
-            if ("2.5.29.30".equals(oid) && (nameConstraints != null)) { //
-                // Name
-                // Constraints
-                // Extension
-                // (as
-                // specified
-                // in
-                // rfc
-                // 3280)
-                return ASN1OctetString.getInstance().encode(
-                        nameConstraints.getEncoded());
             }
 
+            if ("2.5.29.30".equals(oid)) {
+                throw new IllegalStateException("2.5.29.30");
+            }
+
+            if ("2.5.29.19".equals(oid)) {
+                throw new IllegalStateException("2.5.29.30");
+            }
+
+            if (("2.5.29.37".equals(oid)) && (extKeyUsage != null)) {
+                throw new IllegalStateException("2.5.29.37");
+            }
             return null;
         }
 
@@ -2057,24 +2077,32 @@ public class X509CertSelectorTest extends TestCase {
             throws Exception {
 
 
-        GeneralName san0 = new GeneralName(new OtherName("1.2.3.4.5",
+        GeneralName san0 = new GeneralName(new OtherName(new ObjectIdentifier("1.2.3.4.5"),
                 new byte[] {1, 2, 0, 1}));
-        GeneralName san1 = new GeneralName(1, "rfc@822.Name");
-        GeneralName san2 = new GeneralName(2, "dNSName");
+        GeneralName san1 = new GeneralName(new RFC822Name("rfc@822.Name"));
+        GeneralName san2 = new GeneralName(new DNSName("dNSName"));
 
         GeneralNames sans1 = new GeneralNames();
-        sans1.addName(san0);
-        sans1.addName(san1);
-        sans1.addName(san2);
+        sans1.add(san0);
+        sans1.add(san1);
+        sans1.add(san2);
 
         X509CertSelector selector = new X509CertSelector();
 
-        selector.addSubjectAlternativeName(0, san0.getEncodedName());
-        selector.addSubjectAlternativeName(1, san1.getEncodedName());
-        selector.addSubjectAlternativeName(2, san2.getEncodedName());
+        DerOutputStream out0 = new DerOutputStream();
+        san0.getName().encode(out0);
+        selector.addSubjectAlternativeName(0, out0.toByteArray());
+
+        DerOutputStream out1 = new DerOutputStream();
+        san1.getName().encode(out1);
+        selector.addSubjectAlternativeName(1, out1.toByteArray());
+
+        DerOutputStream out2 = new DerOutputStream();
+        san2.getName().encode(out2);
+        selector.addSubjectAlternativeName(2, out2.toByteArray());
 
         GeneralNames sans2 = new GeneralNames();
-        sans2.addName(san0);
+        sans2.add(san0);
 
         TestCert cert1 = new TestCert(sans1);
         TestCert cert2 = new TestCert(sans2);
@@ -2084,25 +2112,25 @@ public class X509CertSelectorTest extends TestCase {
 
         selector.setSubjectAlternativeNames(null);
 
-        GeneralName name = new GeneralName(new Name("O=Android"));
-        try {
-            selector.addSubjectAlternativeName(0, name.getEncodedName());
+        GeneralName name = new GeneralName(new X500Name("O=Android"));
+        try (DerOutputStream outputStream = new DerOutputStream()){
+            name.encode(outputStream);
+            selector.addSubjectAlternativeName(0, outputStream.toByteArray());
         } catch (IOException e) {
             // ok
         }
-
     }
 
     /**
      * java.security.cert.X509CertSelector#addSubjectAlternativeName(int, String)
      */
     public void test_addSubjectAlternativeNameLintLjava_lang_String2() throws Exception{
-        GeneralName san6 = new GeneralName(6, "http://uniform.Resource.Id");
-        GeneralName san2 = new GeneralName(2, "dNSName");
+        GeneralName san6 = new GeneralName(new URIName("http://uniform.Resource.Id"));
+        GeneralName san2 = new GeneralName(new DNSName("dNSName"));
 
         GeneralNames sans1 = new GeneralNames();
-        sans1.addName(san6);
-        sans1.addName(san2);
+        sans1.add(san6);
+        sans1.add(san2);
 
         X509CertSelector selector = new X509CertSelector();
 
@@ -2110,7 +2138,7 @@ public class X509CertSelectorTest extends TestCase {
         selector.addSubjectAlternativeName(2, "dNSName");
 
         GeneralNames sans2 = new GeneralNames();
-        sans2.addName(san2);
+        sans2.add(san2);
 
         TestCert cert1 = new TestCert(sans1);
         TestCert cert2 = new TestCert(sans2);
@@ -2120,12 +2148,69 @@ public class X509CertSelectorTest extends TestCase {
 
         selector.setSubjectAlternativeNames(null);
 
-        GeneralName name = new GeneralName(new Name("O=Android"));
+        GeneralName name = new GeneralName(new X500Name("O=Android"));
         try {
             selector.addSubjectAlternativeName(0, (name.toString()));
         } catch (IOException e) {
             // ok
         }
+    }
 
+    Collection<List<?>> getGeneralNamePairList(GeneralNames generalNames)
+            throws IOException {
+        Collection<List<?>> sans = new ArrayList<>();
+        for (GeneralName gn : generalNames.names()) {
+            ArrayList<Object> gnList = new ArrayList<>();
+            gnList.add(gn.getType());
+            switch (gn.getType()) {
+                case GeneralNameInterface.NAME_ANY:
+                    try (DerOutputStream outputStream = new DerOutputStream()) {
+                        gn.getName().encode(outputStream);
+                        gnList.add(outputStream.toByteArray());
+                    }
+                    break;
+
+                case GeneralNameInterface.NAME_RFC822:
+                    gnList.add(((RFC822Name) gn.getName()).getName());
+                    break;
+
+                case GeneralNameInterface.NAME_DNS:
+                    gnList.add(((DNSName) gn.getName()).getName());
+                    break;
+
+                case GeneralNameInterface.NAME_X400:
+                    try (DerOutputStream outputStream = new DerOutputStream()) {
+                        gn.getName().encode(outputStream);
+                        gnList.add(outputStream.toByteArray());
+                    }
+                    break;
+
+                case GeneralNameInterface.NAME_URI:
+                    gnList.add(((URIName) gn.getName()).getName());
+                    break;
+
+                case GeneralNameInterface.NAME_IP:
+                    gnList.add(((IPAddressName) gn.getName()).getName());
+                    break;
+
+                case GeneralNameInterface.NAME_OID:
+                    gnList.add(((OIDName) gn.getName()).getOID().toString());
+                    break;
+
+                case GeneralNameInterface.NAME_DIRECTORY:
+                    gnList.add(((X500Name) gn.getName()).getName());
+                    break;
+
+                case GeneralNameInterface.NAME_EDI:
+                    gnList.add(((EDIPartyName) gn.getName()).getPartyName());
+                    break;
+
+                default:
+                    throw new IOException("Unrecognized GeneralName tag, ("
+                            + gn.getType() + ")");
+            }
+            sans.add(gnList);
+        }
+        return sans;
     }
 }

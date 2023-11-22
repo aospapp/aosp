@@ -16,7 +16,7 @@
 
 package android.provider.cts;
 
-import com.android.cts.provider.R;
+import android.provider.cts.R;
 
 import android.content.ContentResolver;
 import android.content.ContentValues;

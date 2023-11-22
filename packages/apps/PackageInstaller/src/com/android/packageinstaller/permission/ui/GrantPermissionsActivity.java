@@ -25,12 +25,14 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.PermissionInfo;
+import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.drawable.Icon;
 import android.hardware.camera2.utils.ArrayUtils;
+import android.os.Build;
 import android.os.Bundle;
-import android.text.SpannableString;
-import android.text.style.ForegroundColorSpan;
+import android.text.Html;
+import android.text.Spanned;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
@@ -38,12 +40,13 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 
+import com.android.packageinstaller.DeviceUtils;
 import com.android.packageinstaller.R;
 import com.android.packageinstaller.permission.model.AppPermissionGroup;
 import com.android.packageinstaller.permission.model.AppPermissions;
 import com.android.packageinstaller.permission.model.Permission;
+import com.android.packageinstaller.permission.ui.handheld.GrantPermissionsViewHandlerImpl;
 import com.android.packageinstaller.permission.utils.SafetyNetLogger;
-import com.android.packageinstaller.permission.utils.Utils;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -71,10 +74,14 @@ public class GrantPermissionsActivity extends OverlayTouchActivity
 
         setTitle(R.string.permission_request_title);
 
-        if (Utils.isTelevision(this)) {
-            mViewHandler = new GrantPermissionsTvViewHandler(this).setResultListener(this);
+        if (DeviceUtils.isTelevision(this)) {
+            mViewHandler = new com.android.packageinstaller.permission.ui.television
+                    .GrantPermissionsViewHandlerImpl(this).setResultListener(this);
+        } else if (DeviceUtils.isWear(this)) {
+            mViewHandler = new GrantPermissionsWatchViewHandler(this).setResultListener(this);
         } else {
-            mViewHandler = new GrantPermissionsDefaultViewHandler(this).setResultListener(this);
+            mViewHandler = new com.android.packageinstaller.permission.ui.handheld
+                    .GrantPermissionsViewHandlerImpl(this).setResultListener(this);
         }
 
         mRequestedPermissions = getIntent().getStringArrayExtra(
@@ -93,18 +100,28 @@ public class GrantPermissionsActivity extends OverlayTouchActivity
 
         PackageInfo callingPackageInfo = getCallingPackageInfo();
 
+        if (callingPackageInfo == null || callingPackageInfo.requestedPermissions == null
+                || callingPackageInfo.requestedPermissions.length <= 0) {
+            setResultAndFinish();
+            return;
+        }
+
+        // Don't allow legacy apps to request runtime permissions.
+        if (callingPackageInfo.applicationInfo.targetSdkVersion < Build.VERSION_CODES.M) {
+            // Returning empty arrays means a cancellation.
+            mRequestedPermissions = new String[0];
+            mGrantResults = new int[0];
+            setResultAndFinish();
+            return;
+        }
+
         DevicePolicyManager devicePolicyManager = getSystemService(DevicePolicyManager.class);
         final int permissionPolicy = devicePolicyManager.getPermissionPolicy(null);
 
         // If calling package is null we default to deny all.
         updateDefaultResults(callingPackageInfo, permissionPolicy);
 
-        if (callingPackageInfo == null) {
-            setResultAndFinish();
-            return;
-        }
-
-        mAppPermissions = new AppPermissions(this, callingPackageInfo, mRequestedPermissions, false,
+        mAppPermissions = new AppPermissions(this, callingPackageInfo, null, false,
                 new Runnable() {
                     @Override
                     public void run() {
@@ -112,7 +129,17 @@ public class GrantPermissionsActivity extends OverlayTouchActivity
                     }
                 });
 
-        for (AppPermissionGroup group : mAppPermissions.getPermissionGroups()) {
+        for (String requestedPermission : mRequestedPermissions) {
+            AppPermissionGroup group = null;
+            for (AppPermissionGroup nextGroup : mAppPermissions.getPermissionGroups()) {
+                if (nextGroup.hasPermission(requestedPermission)) {
+                    group = nextGroup;
+                    break;
+                }
+            }
+            if (group == null) {
+                continue;
+            }
             // We allow the user to choose only non-fixed permissions. A permission
             // is fixed either by device policy or the user denying with prejudice.
             if (!group.isUserFixed() && !group.isPolicyFixed()) {
@@ -132,7 +159,13 @@ public class GrantPermissionsActivity extends OverlayTouchActivity
                     } break;
 
                     default: {
-                        mRequestGrantPermissionGroups.put(group.getName(), new GroupState(group));
+                        if (!group.areRuntimePermissionsGranted()) {
+                            mRequestGrantPermissionGroups.put(group.getName(),
+                                    new GroupState(group));
+                        } else {
+                            group.grantRuntimePermissions(false);
+                            updateGrantResults(group);
+                        }
                     } break;
                 }
             } else {
@@ -150,6 +183,21 @@ public class GrantPermissionsActivity extends OverlayTouchActivity
 
         if (!showNextPermissionGroupGrantRequest()) {
             setResultAndFinish();
+        }
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        // We need to relayout the window as dialog width may be
+        // different in landscape vs portrait which affect the min
+        // window height needed to show all content. We have to
+        // re-add the window to force it to be resized if needed.
+        View decor = getWindow().getDecorView();
+        getWindowManager().removeViewImmediate(decor);
+        getWindowManager().addView(decor, decor.getLayoutParams());
+        if (mViewHandler instanceof GrantPermissionsViewHandlerImpl) {
+            ((GrantPermissionsViewHandlerImpl) mViewHandler).onConfigurationChanged();
         }
     }
 
@@ -182,17 +230,10 @@ public class GrantPermissionsActivity extends OverlayTouchActivity
         for (GroupState groupState : mRequestGrantPermissionGroups.values()) {
             if (groupState.mState == GroupState.STATE_UNKNOWN) {
                 CharSequence appLabel = mAppPermissions.getAppLabel();
-                SpannableString message = new SpannableString(getString(
-                        R.string.permission_warning_template, appLabel,
-                        groupState.mGroup.getDescription()));
+                Spanned message = Html.fromHtml(getString(R.string.permission_warning_template,
+                        appLabel, groupState.mGroup.getDescription()), 0);
                 // Set the permission message as the title so it can be announced.
                 setTitle(message);
-                // Color the app name.
-                int appLabelStart = message.toString().indexOf(appLabel.toString(), 0);
-                int appLabelLength = appLabel.length();
-                int color = getColor(R.color.grant_permissions_app_color);
-                message.setSpan(new ForegroundColorSpan(color), appLabelStart,
-                        appLabelStart + appLabelLength, 0);
 
                 // Set the new grant view
                 // TODO: Use a real message for the action. We need group action APIs
@@ -220,11 +261,6 @@ public class GrantPermissionsActivity extends OverlayTouchActivity
 
     @Override
     public void onPermissionGrantResult(String name, boolean granted, boolean doNotAskAgain) {
-        if (isObscuredTouch()) {
-            showOverlayDialog();
-            finish();
-            return;
-        }
         GroupState groupState = mRequestGrantPermissionGroups.get(name);
         if (groupState.mGroup != null) {
             if (granted) {

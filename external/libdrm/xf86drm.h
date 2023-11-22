@@ -39,7 +39,7 @@
 #include <stdint.h>
 #include <drm.h>
 
-#if defined(__cplusplus) || defined(c_plusplus)
+#if defined(__cplusplus)
 extern "C" {
 #endif
 
@@ -76,10 +76,18 @@ extern "C" {
 	(S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH)
 #define DRM_DEV_MODE	 (S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP)
 
+#ifdef __OpenBSD__
+#define DRM_DIR_NAME  "/dev"
+#define DRM_DEV_NAME  "%s/drm%d"
+#define DRM_CONTROL_DEV_NAME  "%s/drmC%d"
+#define DRM_RENDER_DEV_NAME  "%s/drmR%d"
+#else
 #define DRM_DIR_NAME  "/dev/dri"
 #define DRM_DEV_NAME  "%s/card%d"
 #define DRM_CONTROL_DEV_NAME  "%s/controlD%d"
+#define DRM_RENDER_DEV_NAME  "%s/renderD%d"
 #define DRM_PROC_NAME "/proc/dri/" /* For backward Linux compatibility */
+#endif
 
 #define DRM_ERR_NO_DEVICE  (-1001)
 #define DRM_ERR_NO_ACCESS  (-1002)
@@ -551,7 +559,17 @@ do {	register unsigned int __old __asm("o0");		\
 /* General user-level programmer's API: unprivileged */
 extern int           drmAvailable(void);
 extern int           drmOpen(const char *name, const char *busid);
-extern int drmOpenControl(int minor);
+
+#define DRM_NODE_PRIMARY 0
+#define DRM_NODE_CONTROL 1
+#define DRM_NODE_RENDER  2
+#define DRM_NODE_MAX     3
+
+extern int           drmOpenWithType(const char *name, const char *busid,
+                                     int type);
+
+extern int           drmOpenControl(int minor);
+extern int           drmOpenRender(int minor);
 extern int           drmClose(int fd);
 extern drmVersionPtr drmGetVersion(int fd);
 extern drmVersionPtr drmGetLibVersion(int fd);
@@ -703,6 +721,7 @@ extern int  drmSLLookupNeighbors(void *l, unsigned long key,
 				 unsigned long *next_key, void **next_value);
 
 extern int drmOpenOnce(void *unused, const char *BusID, int *newlyopened);
+extern int drmOpenOnceWithType(const char *BusID, int *newlyopened, int type);
 extern void drmCloseOnce(int fd);
 extern void drmMsg(const char *format, ...) DRM_PRINTFLIKE(1, 2);
 
@@ -734,11 +753,50 @@ typedef struct _drmEventContext {
 extern int drmHandleEvent(int fd, drmEventContextPtr evctx);
 
 extern char *drmGetDeviceNameFromFd(int fd);
+extern int drmGetNodeTypeFromFd(int fd);
 
 extern int drmPrimeHandleToFD(int fd, uint32_t handle, uint32_t flags, int *prime_fd);
 extern int drmPrimeFDToHandle(int fd, int prime_fd, uint32_t *handle);
 
-#if defined(__cplusplus) || defined(c_plusplus)
+extern char *drmGetPrimaryDeviceNameFromFd(int fd);
+extern char *drmGetRenderDeviceNameFromFd(int fd);
+
+#define DRM_BUS_PCI   0
+
+typedef struct _drmPciBusInfo {
+    uint16_t domain;
+    uint8_t bus;
+    uint8_t dev;
+    uint8_t func;
+} drmPciBusInfo, *drmPciBusInfoPtr;
+
+typedef struct _drmPciDeviceInfo {
+    uint16_t vendor_id;
+    uint16_t device_id;
+    uint16_t subvendor_id;
+    uint16_t subdevice_id;
+    uint8_t revision_id;
+} drmPciDeviceInfo, *drmPciDeviceInfoPtr;
+
+typedef struct _drmDevice {
+    char **nodes; /* DRM_NODE_MAX sized array */
+    int available_nodes; /* DRM_NODE_* bitmask */
+    int bustype;
+    union {
+        drmPciBusInfoPtr pci;
+    } businfo;
+    union {
+        drmPciDeviceInfoPtr pci;
+    } deviceinfo;
+} drmDevice, *drmDevicePtr;
+
+extern int drmGetDevice(int fd, drmDevicePtr *device);
+extern void drmFreeDevice(drmDevicePtr *device);
+
+extern int drmGetDevices(drmDevicePtr devices[], int max_devices);
+extern void drmFreeDevices(drmDevicePtr devices[], int count);
+
+#if defined(__cplusplus)
 }
 #endif
 

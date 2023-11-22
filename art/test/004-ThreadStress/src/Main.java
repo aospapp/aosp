@@ -32,6 +32,7 @@ import java.util.Set;
 //
 // ThreadStress command line parameters:
 //    -n X ............ number of threads
+//    -d X ............ number of daemon threads
 //    -o X ............ number of overall operations
 //    -t X ............ number of operations per thread
 //    --dumpmap ....... print the frequency map
@@ -56,12 +57,14 @@ public class Main implements Runnable {
     }
 
     private final static class OOM extends Operation {
+        private final static int ALLOC_SIZE = 1024;
+
         @Override
         public boolean perform() {
             try {
                 List<byte[]> l = new ArrayList<byte[]>();
                 while (true) {
-                    l.add(new byte[1024]);
+                    l.add(new byte[ALLOC_SIZE]);
                 }
             } catch (OutOfMemoryError e) {
             }
@@ -114,12 +117,33 @@ public class Main implements Runnable {
     }
 
     private final static class Alloc extends Operation {
+        private final static int ALLOC_SIZE = 1024;  // Needs to be small enough to not be in LOS.
+        private final static int ALLOC_COUNT = 1024;
+
         @Override
         public boolean perform() {
             try {
                 List<byte[]> l = new ArrayList<byte[]>();
-                for (int i = 0; i < 1024; i++) {
-                    l.add(new byte[1024]);
+                for (int i = 0; i < ALLOC_COUNT; i++) {
+                    l.add(new byte[ALLOC_SIZE]);
+                }
+            } catch (OutOfMemoryError e) {
+            }
+            return true;
+        }
+    }
+
+    private final static class LargeAlloc extends Operation {
+        private final static int PAGE_SIZE = 4096;
+        private final static int PAGE_SIZE_MODIFIER = 10;  // Needs to be large enough for LOS.
+        private final static int ALLOC_COUNT = 100;
+
+        @Override
+        public boolean perform() {
+            try {
+                List<byte[]> l = new ArrayList<byte[]>();
+                for (int i = 0; i < ALLOC_COUNT; i++) {
+                    l.add(new byte[PAGE_SIZE_MODIFIER * PAGE_SIZE]);
                 }
             } catch (OutOfMemoryError e) {
             }
@@ -143,10 +167,12 @@ public class Main implements Runnable {
     }
 
     private final static class Sleep extends Operation {
+        private final static int SLEEP_TIME = 100;
+
         @Override
         public boolean perform() {
             try {
-                Thread.sleep(100);
+                Thread.sleep(SLEEP_TIME);
             } catch (InterruptedException ignored) {
             }
             return true;
@@ -154,6 +180,8 @@ public class Main implements Runnable {
     }
 
     private final static class TimedWait extends Operation {
+        private final static int SLEEP_TIME = 100;
+
         private final Object lock;
 
         public TimedWait(Object lock) {
@@ -164,7 +192,7 @@ public class Main implements Runnable {
         public boolean perform() {
             synchronized (lock) {
                 try {
-                    lock.wait(100, 0);
+                    lock.wait(SLEEP_TIME, 0);
                 } catch (InterruptedException ignored) {
                 }
             }
@@ -214,7 +242,8 @@ public class Main implements Runnable {
         Map<Operation, Double> frequencyMap = new HashMap<Operation, Double>();
         frequencyMap.put(new OOM(), 0.005);             //  1/200
         frequencyMap.put(new SigQuit(), 0.095);         // 19/200
-        frequencyMap.put(new Alloc(), 0.3);             // 60/200
+        frequencyMap.put(new Alloc(), 0.25);            // 50/200
+        frequencyMap.put(new LargeAlloc(), 0.05);       // 10/200
         frequencyMap.put(new StackTrace(), 0.1);        // 20/200
         frequencyMap.put(new Exit(), 0.25);             // 50/200
         frequencyMap.put(new Sleep(), 0.125);           // 25/200
@@ -260,6 +289,8 @@ public class Main implements Runnable {
             op = new SigQuit();
         } else if (split[0].equals("-alloc")) {
             op = new Alloc();
+        } else if (split[0].equals("-largealloc")) {
+            op = new LargeAlloc();
         } else if (split[0].equals("-stacktrace")) {
             op = new StackTrace();
         } else if (split[0].equals("-exit")) {
@@ -301,6 +332,7 @@ public class Main implements Runnable {
 
     public static void parseAndRun(String[] args) throws Exception {
         int numberOfThreads = -1;
+        int numberOfDaemons = -1;
         int totalOperations = -1;
         int operationsPerThread = -1;
         Object lock = new Object();
@@ -308,10 +340,14 @@ public class Main implements Runnable {
         boolean dumpMap = false;
 
         if (args != null) {
-            for (int i = 0; i < args.length; i++) {
+            // args[0] is libarttest
+            for (int i = 1; i < args.length; i++) {
                 if (args[i].equals("-n")) {
                     i++;
                     numberOfThreads = Integer.parseInt(args[i]);
+                } else if (args[i].equals("-d")) {
+                    i++;
+                    numberOfDaemons = Integer.parseInt(args[i]);
                 } else if (args[i].equals("-o")) {
                     i++;
                     totalOperations = Integer.parseInt(args[i]);
@@ -338,6 +374,10 @@ public class Main implements Runnable {
             numberOfThreads = 5;
         }
 
+        if (numberOfDaemons == -1) {
+            numberOfDaemons = 3;
+        }
+
         if (totalOperations == -1) {
             totalOperations = 1000;
         }
@@ -355,14 +395,16 @@ public class Main implements Runnable {
             System.out.println(frequencyMap);
         }
 
-        runTest(numberOfThreads, operationsPerThread, lock, frequencyMap);
+        runTest(numberOfThreads, numberOfDaemons, operationsPerThread, lock, frequencyMap);
     }
 
-    public static void runTest(final int numberOfThreads, final int operationsPerThread,
-                               final Object lock, Map<Operation, Double> frequencyMap)
-                                   throws Exception {
-        // Each thread is going to do operationsPerThread
-        // operations. The distribution of operations is determined by
+    public static void runTest(final int numberOfThreads, final int numberOfDaemons,
+                               final int operationsPerThread, final Object lock,
+                               Map<Operation, Double> frequencyMap) throws Exception {
+        // Each normal thread is going to do operationsPerThread
+        // operations. Each daemon thread will loop over all
+        // the operations and will not stop.
+        // The distribution of operations is determined by
         // the Operation.frequency values. We fill out an Operation[]
         // for each thread with the operations it is to perform. The
         // Operation[] is shuffled so that there is more random
@@ -371,7 +413,9 @@ public class Main implements Runnable {
         // Fill in the Operation[] array for each thread by laying
         // down references to operation according to their desired
         // frequency.
-        final Main[] threadStresses = new Main[numberOfThreads];
+        // The first numberOfThreads elements are normal threads, the last
+        // numberOfDaemons elements are daemon threads.
+        final Main[] threadStresses = new Main[numberOfThreads + numberOfDaemons];
         for (int t = 0; t < threadStresses.length; t++) {
             Operation[] operations = new Operation[operationsPerThread];
             int o = 0;
@@ -388,9 +432,10 @@ public class Main implements Runnable {
                     }
                 }
             }
-            // Randomize the oepration order
+            // Randomize the operation order
             Collections.shuffle(Arrays.asList(operations));
-            threadStresses[t] = new Main(lock, t, operations);
+            threadStresses[t] = t < numberOfThreads ? new Main(lock, t, operations) :
+                                                      new Daemon(lock, t, operations);
         }
 
         // Enable to dump operation counts per thread to make sure its
@@ -428,17 +473,30 @@ public class Main implements Runnable {
                     int id = threadStress.id;
                     System.out.println("Starting worker for " + id);
                     while (threadStress.nextOperation < operationsPerThread) {
-                        Thread thread = new Thread(ts, "Worker thread " + id);
-                        thread.start();
                         try {
-                            thread.join();
-                        } catch (InterruptedException e) {
+                            Thread thread = new Thread(ts, "Worker thread " + id);
+                            thread.start();
+                            try {
+                                thread.join();
+                            } catch (InterruptedException e) {
+                            }
+
+                            System.out.println("Thread exited for " + id + " with "
+                                               + (operationsPerThread - threadStress.nextOperation)
+                                               + " operations remaining.");
+                        } catch (OutOfMemoryError e) {
+                            // Ignore OOME since we need to print "Finishing worker" for the test
+                            // to pass.
                         }
-                        System.out.println("Thread exited for " + id + " with "
-                                           + (operationsPerThread - threadStress.nextOperation)
-                                           + " operations remaining.");
                     }
-                    System.out.println("Finishing worker");
+                    // Keep trying to print "Finishing worker" until it succeeds.
+                    while (true) {
+                        try {
+                            System.out.println("Finishing worker");
+                            break;
+                        } catch (OutOfMemoryError e) {
+                        }
+                    }
                 }
             };
         }
@@ -459,6 +517,14 @@ public class Main implements Runnable {
             notifier.start();
         }
 
+        // Create and start the daemon threads.
+        for (int r = 0; r < numberOfDaemons; r++) {
+            Main daemon = threadStresses[numberOfThreads + r];
+            Thread t = new Thread(daemon, "Daemon thread " + daemon.id);
+            t.setDaemon(true);
+            t.start();
+        }
+
         for (int r = 0; r < runners.length; r++) {
             runners[r].start();
         }
@@ -467,9 +533,9 @@ public class Main implements Runnable {
         }
     }
 
-    private final Operation[] operations;
+    protected final Operation[] operations;
     private final Object lock;
-    private final int id;
+    protected final int id;
 
     private int nextOperation;
 
@@ -499,6 +565,38 @@ public class Main implements Runnable {
         } finally {
             if (DEBUG) {
                 System.out.println("Finishing ThreadStress for " + id);
+            }
+        }
+    }
+
+    private static class Daemon extends Main {
+        private Daemon(Object lock, int id, Operation[] operations) {
+            super(lock, id, operations);
+        }
+
+        public void run() {
+            try {
+                if (DEBUG) {
+                    System.out.println("Starting ThreadStress Daemon " + id);
+                }
+                int i = 0;
+                while (true) {
+                    Operation operation = operations[i];
+                    if (DEBUG) {
+                        System.out.println("ThreadStress Daemon " + id
+                                           + " operation " + i
+                                           + " is " + operation);
+                    }
+                    operation.perform();
+                    i = (i + 1) % operations.length;
+                }
+            } catch (OutOfMemoryError e) {
+                // Catch OutOfMemoryErrors since these can cause the test to fail it they print
+                // the stack trace after "Finishing worker".
+            } finally {
+                if (DEBUG) {
+                    System.out.println("Finishing ThreadStress Daemon for " + id);
+                }
             }
         }
     }

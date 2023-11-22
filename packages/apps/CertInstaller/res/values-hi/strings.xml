@@ -34,7 +34,6 @@
     <string name="password_empty_error" msgid="591713406761723025">"पासवर्ड लिखें."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"नाम लिखें."</string>
     <string name="name_char_error" msgid="3176618568784938968">"वह नाम लिखें जिसमें केवल अक्षर और संख्‍याएं हों."</string>
-    <string name="storage_error" msgid="8306802455802770779">"प्रमाणपत्र सहेजा नहीं जा सका. पुन: प्रयास करने के लिए ठीक स्‍पर्श करें."</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"प्रमाणपत्र सहेजा नहीं जा सका. प्रमाणिकता मेमोरी सक्षम नहीं है या ठीक से प्रारंभ नहीं हुआ है."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"प्रमाणपत्र इंस्‍टॉल नहीं हुआ."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"इंस्‍टॉल करने के लिए कोई प्रमाणपत्र नहीं है."</string>

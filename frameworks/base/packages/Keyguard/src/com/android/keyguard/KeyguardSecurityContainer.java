@@ -54,7 +54,12 @@ public class KeyguardSecurityContainer extends FrameLayout implements KeyguardSe
         public boolean dismiss(boolean authenticated);
         public void userActivity();
         public void onSecurityModeChanged(SecurityMode securityMode, boolean needsInput);
-        public void finish();
+
+        /**
+         * @param strongAuth wheher the user has authenticated with strong authentication like
+         *                   pattern, password or PIN but not by trust agents or fingerprint
+         */
+        public void finish(boolean strongAuth);
         public void reset();
     }
 
@@ -200,7 +205,8 @@ public class KeyguardSecurityContainer extends FrameLayout implements KeyguardSe
 
         if (messageId != 0) {
             final String message = mContext.getString(messageId,
-                    KeyguardUpdateMonitor.getInstance(mContext).getFailedUnlockAttempts(),
+                    KeyguardUpdateMonitor.getInstance(mContext).getFailedUnlockAttempts(
+                            KeyguardUpdateMonitor.getCurrentUser()),
                     timeoutInSeconds);
             showDialog(null, message);
         }
@@ -244,31 +250,29 @@ public class KeyguardSecurityContainer extends FrameLayout implements KeyguardSe
         showDialog(null, message);
     }
 
-    private void reportFailedUnlockAttempt(int timeoutMs) {
+    private void reportFailedUnlockAttempt(int userId, int timeoutMs) {
         final KeyguardUpdateMonitor monitor = KeyguardUpdateMonitor.getInstance(mContext);
-        final int failedAttempts = monitor.getFailedUnlockAttempts() + 1; // +1 for this time
+        final int failedAttempts = monitor.getFailedUnlockAttempts(userId) + 1; // +1 for this time
 
         if (DEBUG) Log.d(TAG, "reportFailedPatternAttempt: #" + failedAttempts);
 
-        SecurityMode mode = mSecurityModel.getSecurityMode();
-        final int currentUser = KeyguardUpdateMonitor.getCurrentUser();
         final DevicePolicyManager dpm = mLockPatternUtils.getDevicePolicyManager();
         final int failedAttemptsBeforeWipe =
-                dpm.getMaximumFailedPasswordsForWipe(null, currentUser);
+                dpm.getMaximumFailedPasswordsForWipe(null, userId);
 
         final int remainingBeforeWipe = failedAttemptsBeforeWipe > 0 ?
                 (failedAttemptsBeforeWipe - failedAttempts)
                 : Integer.MAX_VALUE; // because DPM returns 0 if no restriction
-        boolean showTimeout = false;
         if (remainingBeforeWipe < LockPatternUtils.FAILED_ATTEMPTS_BEFORE_WIPE_GRACE) {
             // The user has installed a DevicePolicyManager that requests a user/profile to be wiped
             // N attempts. Once we get below the grace period, we post this dialog every time as a
             // clear warning until the deletion fires.
             // Check which profile has the strictest policy for failed password attempts
-            final int expiringUser = dpm.getProfileWithMinimumFailedPasswordsForWipe(currentUser);
+            final int expiringUser = dpm.getProfileWithMinimumFailedPasswordsForWipe(userId);
             int userType = USER_TYPE_PRIMARY;
-            if (expiringUser == currentUser) {
-                if (expiringUser != UserHandle.USER_OWNER) {
+            if (expiringUser == userId) {
+                // TODO: http://b/23522538
+                if (expiringUser != UserHandle.USER_SYSTEM) {
                     userType = USER_TYPE_SECONDARY_USER;
                 }
             } else if (expiringUser != UserHandle.USER_NULL) {
@@ -282,8 +286,8 @@ public class KeyguardSecurityContainer extends FrameLayout implements KeyguardSe
                 showWipeDialog(failedAttempts, userType);
             }
         }
-        monitor.reportFailedUnlockAttempt();
-        mLockPatternUtils.reportFailedPasswordAttempt(KeyguardUpdateMonitor.getCurrentUser());
+        monitor.reportFailedStrongAuthUnlockAttempt(userId);
+        mLockPatternUtils.reportFailedPasswordAttempt(userId);
         if (timeoutMs > 0) {
             showTimeoutDialog(timeoutMs);
         }
@@ -308,6 +312,7 @@ public class KeyguardSecurityContainer extends FrameLayout implements KeyguardSe
     boolean showNextSecurityScreenOrFinish(boolean authenticated) {
         if (DEBUG) Log.d(TAG, "showNextSecurityScreenOrFinish(" + authenticated + ")");
         boolean finish = false;
+        boolean strongAuth = false;
         if (mUpdateMonitor.getUserCanSkipBouncer(
                 KeyguardUpdateMonitor.getCurrentUser())) {
             finish = true;
@@ -323,6 +328,7 @@ public class KeyguardSecurityContainer extends FrameLayout implements KeyguardSe
                 case Pattern:
                 case Password:
                 case PIN:
+                    strongAuth = true;
                     finish = true;
                     break;
 
@@ -346,7 +352,7 @@ public class KeyguardSecurityContainer extends FrameLayout implements KeyguardSe
             }
         }
         if (finish) {
-            mSecurityCallback.finish();
+            mSecurityCallback.finish(strongAuth);
         }
         return finish;
     }
@@ -416,14 +422,13 @@ public class KeyguardSecurityContainer extends FrameLayout implements KeyguardSe
             return mIsVerifyUnlockOnly;
         }
 
-        public void reportUnlockAttempt(boolean success, int timeoutMs) {
+        public void reportUnlockAttempt(int userId, boolean success, int timeoutMs) {
             KeyguardUpdateMonitor monitor = KeyguardUpdateMonitor.getInstance(mContext);
             if (success) {
                 monitor.clearFailedUnlockAttempts();
-                mLockPatternUtils.reportSuccessfulPasswordAttempt(
-                        KeyguardUpdateMonitor.getCurrentUser());
+                mLockPatternUtils.reportSuccessfulPasswordAttempt(userId);
             } else {
-                KeyguardSecurityContainer.this.reportFailedUnlockAttempt(timeoutMs);
+                KeyguardSecurityContainer.this.reportFailedUnlockAttempt(userId, timeoutMs);
             }
         }
 
@@ -439,7 +444,7 @@ public class KeyguardSecurityContainer extends FrameLayout implements KeyguardSe
         @Override
         public void userActivity() { }
         @Override
-        public void reportUnlockAttempt(boolean success, int timeoutMs) { }
+        public void reportUnlockAttempt(int userId, boolean success, int timeoutMs) { }
         @Override
         public boolean isVerifyUnlockOnly() { return false; }
         @Override
@@ -459,7 +464,7 @@ public class KeyguardSecurityContainer extends FrameLayout implements KeyguardSe
         return 0;
     }
 
-    private int getLayoutIdFor(SecurityMode securityMode) {
+    protected int getLayoutIdFor(SecurityMode securityMode) {
         switch (securityMode) {
             case Pattern: return R.layout.keyguard_pattern_view;
             case PIN: return R.layout.keyguard_pin_view;
@@ -514,7 +519,17 @@ public class KeyguardSecurityContainer extends FrameLayout implements KeyguardSe
     @Override
     public void showPromptReason(int reason) {
         if (mCurrentSecuritySelection != SecurityMode.None) {
+            if (reason != PROMPT_REASON_NONE) {
+                Log.i(TAG, "Strong auth required, reason: " + reason);
+            }
             getSecurityView(mCurrentSecuritySelection).showPromptReason(reason);
+        }
+    }
+
+
+    public void showMessage(String message, int color) {
+        if (mCurrentSecuritySelection != SecurityMode.None) {
+            getSecurityView(mCurrentSecuritySelection).showMessage(message, color);
         }
     }
 

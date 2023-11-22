@@ -8,7 +8,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2000-2013 Julian Seward 
+   Copyright (C) 2000-2015 Julian Seward 
       jseward@acm.org
 
    This program is free software; you can redistribute it and/or
@@ -1572,9 +1572,10 @@ Bool VG_(translate) ( ThreadId tid,
       Bool ok = VG_(get_fnname_w_offset)(addr, &fnname);
       if (!ok) fnname = "UNKNOWN_FUNCTION";
       VG_(printf)(
-         "==== SB %d (evchecks %lld) [tid %d] 0x%lx %s %s+0x%llx\n",
-         VG_(get_bbs_translated)(), bbs_done, (Int)tid, addr,
-         fnname, objname, (ULong)objoff
+         "==== SB %u (evchecks %llu) [tid %u] 0x%lx %s %s%c0x%lx\n",
+         VG_(get_bbs_translated)(), bbs_done, tid, addr,
+         fnname, objname, objoff >= 0 ? '+' : '-', 
+         (UWord)(objoff >= 0 ? objoff : -objoff)
       );
    }
 
@@ -1678,6 +1679,9 @@ Bool VG_(translate) ( ThreadId tid,
    vex_abiinfo.guest_ppc_zap_RZ_at_blr        = True;
    vex_abiinfo.guest_ppc_zap_RZ_at_bl         = const_True;
    vex_abiinfo.host_ppc_calls_use_fndescrs    = False;
+#  endif
+#  if defined(VGP_amd64_solaris)
+   vex_abiinfo.guest_amd64_assume_fs_is_const = True;
 #  endif
 
    /* Set up closure args. */

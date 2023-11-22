@@ -26,6 +26,7 @@ import android.graphics.Outline;
 import android.graphics.Rect;
 import android.graphics.drawable.Animatable;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.RippleDrawable;
 import android.util.AttributeSet;
 import android.util.MathUtils;
 import android.util.TypedValue;
@@ -38,15 +39,16 @@ import android.widget.RelativeLayout;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import com.android.keyguard.KeyguardStatusView;
 import com.android.systemui.BatteryMeterView;
 import com.android.systemui.FontSizeUtils;
 import com.android.systemui.R;
 import com.android.systemui.qs.QSPanel;
+import com.android.systemui.qs.QSPanel.Callback;
 import com.android.systemui.qs.QSTile;
+import com.android.systemui.qs.QSTile.DetailAdapter;
 import com.android.systemui.statusbar.policy.BatteryController;
-import com.android.systemui.statusbar.policy.NetworkControllerImpl.EmergencyListener;
+import com.android.systemui.statusbar.policy.NetworkController.EmergencyListener;
 import com.android.systemui.statusbar.policy.NextAlarmController;
 import com.android.systemui.statusbar.policy.UserInfoController;
 import com.android.systemui.tuner.TunerService;
@@ -56,7 +58,7 @@ import java.text.NumberFormat;
 /**
  * The view to manage the header area in the expanded status bar.
  */
-public class StatusBarHeaderView extends RelativeLayout implements View.OnClickListener,
+public class StatusBarHeaderView extends BaseStatusBarHeader implements View.OnClickListener,
         BatteryController.BatteryStateChangeCallback, NextAlarmController.NextAlarmChangeCallback,
         EmergencyListener {
 
@@ -127,6 +129,8 @@ public class StatusBarHeaderView extends RelativeLayout implements View.OnClickL
     private boolean mShowingDetail;
     private boolean mDetailTransitioning;
 
+    private boolean mAllowExpand = true;
+
     public StatusBarHeaderView(Context context, AttributeSet attrs) {
         super(context, attrs);
     }
@@ -184,6 +188,12 @@ public class StatusBarHeaderView extends RelativeLayout implements View.OnClickL
             }
         });
         requestCaptureValues();
+
+        // RenderThread is doing more harm than good when touching the header (to expand quick
+        // settings), so disable it for this view
+        ((RippleDrawable) getBackground()).setForceSoftware(true);
+        ((RippleDrawable) mSettingsButton.getBackground()).setForceSoftware(true);
+        ((RippleDrawable) mSystemIconsSuperContainer.getBackground()).setForceSoftware(true);
     }
 
     @Override
@@ -283,7 +293,7 @@ public class StatusBarHeaderView extends RelativeLayout implements View.OnClickL
     }
 
     public int getExpandedHeight() {
-        return mExpandedHeight;
+        return mAllowExpand ? mExpandedHeight : mCollapsedHeight;
     }
 
     public void setListening(boolean listening) {
@@ -295,6 +305,9 @@ public class StatusBarHeaderView extends RelativeLayout implements View.OnClickL
     }
 
     public void setExpanded(boolean expanded) {
+        if (!mAllowExpand) {
+            expanded = false;
+        }
         boolean changed = expanded != mExpanded;
         mExpanded = expanded;
         if (changed) {
@@ -407,7 +420,7 @@ public class StatusBarHeaderView extends RelativeLayout implements View.OnClickL
     }
 
     @Override
-    public void onPowerSaveChanged() {
+    public void onPowerSaveChanged(boolean isPowerSave) {
         // could not care less
     }
 
@@ -499,6 +512,10 @@ public class StatusBarHeaderView extends RelativeLayout implements View.OnClickL
     }
 
     @Override
+    public void setCallback(Callback qsPanelCallback) {
+    }
+
+    @Override
     public void onClick(View v) {
         if (v == mSettingsButton) {
             if (mSettingsButton.isTunerClick()) {
@@ -520,8 +537,8 @@ public class StatusBarHeaderView extends RelativeLayout implements View.OnClickL
             startBatteryActivity();
         } else if (v == mAlarmStatus && mNextAlarm != null) {
             PendingIntent showIntent = mNextAlarm.getShowIntent();
-            if (showIntent != null && showIntent.isActivity()) {
-                mActivityStarter.startActivity(showIntent.getIntent(), true /* dismissShade */);
+            if (showIntent != null) {
+                mActivityStarter.startPendingIntentDismissingKeyguard(showIntent);
             }
         }
     }
@@ -730,7 +747,7 @@ public class StatusBarHeaderView extends RelativeLayout implements View.OnClickL
         }
 
         @Override
-        public void onShowingDetail(final QSTile.DetailAdapter detail) {
+        public void onShowingDetail(final DetailAdapter detail, int x, int y) {
             mDetailTransitioning = true;
             post(new Runnable() {
                 @Override

@@ -19,6 +19,7 @@ import android.content.ComponentName;
 import android.cts.util.PollingCheck;
 import android.media.browse.MediaBrowser;
 import android.media.browse.MediaBrowser.MediaItem;
+import android.os.Bundle;
 import android.test.InstrumentationTestCase;
 
 import java.util.List;
@@ -30,7 +31,7 @@ public class MediaBrowserTest extends InstrumentationTestCase {
     // The maximum time to wait for an operation.
     private static final long TIME_OUT_MS = 3000L;
     private static final ComponentName TEST_BROWSER_SERVICE = new ComponentName(
-            "com.android.cts.media", "android.media.cts.StubMediaBrowserService");
+            "android.media.cts", "android.media.cts.StubMediaBrowserService");
     private static final ComponentName TEST_INVALID_BROWSER_SERVICE = new ComponentName(
             "invalid.package", "invalid.ServiceClassName");
     private final StubConnectionCallback mConnectionCallback = new StubConnectionCallback();
@@ -111,10 +112,84 @@ public class MediaBrowserTest extends InstrumentationTestCase {
         assertEquals(StubMediaBrowserService.MEDIA_ID_ROOT, mSubscriptionCallback.mLastParentId);
         assertEquals(StubMediaBrowserService.MEDIA_ID_CHILDREN.length,
                 mSubscriptionCallback.mLastChildMediaItems.size());
-        for (int i = 0; i < StubMediaBrowserService.MEDIA_ID_CHILDREN.length; i++) {
+        for (int i = 0; i < StubMediaBrowserService.MEDIA_ID_CHILDREN.length; ++i) {
             assertEquals(StubMediaBrowserService.MEDIA_ID_CHILDREN[i],
                     mSubscriptionCallback.mLastChildMediaItems.get(i).getMediaId());
         }
+    }
+
+    public void testSubscribeWithOptions() {
+        createMediaBrowser(TEST_BROWSER_SERVICE);
+        connectMediaBrowserService();
+        final int pageSize = 3;
+        final int lastPage = (StubMediaBrowserService.MEDIA_ID_CHILDREN.length - 1) / pageSize;
+        Bundle options = new Bundle();
+        options.putInt(MediaBrowser.EXTRA_PAGE_SIZE, pageSize);
+        for (int page = 0; page <= lastPage; ++page) {
+            resetCallbacks();
+            options.putInt(MediaBrowser.EXTRA_PAGE, page);
+            mMediaBrowser.subscribe(StubMediaBrowserService.MEDIA_ID_ROOT, options,
+                    mSubscriptionCallback);
+            new PollingCheck(TIME_OUT_MS) {
+                @Override
+                protected boolean check() {
+                    return mSubscriptionCallback.mChildrenLoadedWithOptionCount > 0;
+                }
+            }.run();
+            assertEquals(StubMediaBrowserService.MEDIA_ID_ROOT,
+                    mSubscriptionCallback.mLastParentId);
+            if (page != lastPage) {
+                assertEquals(pageSize, mSubscriptionCallback.mLastChildMediaItems.size());
+            } else {
+                assertEquals((StubMediaBrowserService.MEDIA_ID_CHILDREN.length - 1) % pageSize + 1,
+                        mSubscriptionCallback.mLastChildMediaItems.size());
+            }
+            // Check whether all the items in the current page are loaded.
+            for (int i = 0; i < mSubscriptionCallback.mLastChildMediaItems.size(); ++i) {
+                assertEquals(StubMediaBrowserService.MEDIA_ID_CHILDREN[page * pageSize + i],
+                        mSubscriptionCallback.mLastChildMediaItems.get(i).getMediaId());
+            }
+        }
+    }
+
+    public void testSubscribeInvalidItem() {
+        resetCallbacks();
+        createMediaBrowser(TEST_BROWSER_SERVICE);
+        connectMediaBrowserService();
+        mMediaBrowser.subscribe(StubMediaBrowserService.MEDIA_ID_INVALID, mSubscriptionCallback);
+        new PollingCheck(TIME_OUT_MS) {
+            @Override
+            protected boolean check() {
+                return mSubscriptionCallback.mLastErrorId != null;
+            }
+        }.run();
+
+        assertEquals(StubMediaBrowserService.MEDIA_ID_INVALID, mSubscriptionCallback.mLastErrorId);
+    }
+
+    public void testSubscribeInvalidItemWithOptions() {
+        resetCallbacks();
+        createMediaBrowser(TEST_BROWSER_SERVICE);
+        connectMediaBrowserService();
+
+        final int pageSize = 5;
+        final int page = 2;
+        Bundle options = new Bundle();
+        options.putInt(MediaBrowser.EXTRA_PAGE_SIZE, pageSize);
+        options.putInt(MediaBrowser.EXTRA_PAGE, page);
+        mMediaBrowser.subscribe(StubMediaBrowserService.MEDIA_ID_INVALID, options,
+                mSubscriptionCallback);
+        new PollingCheck(TIME_OUT_MS) {
+            @Override
+            protected boolean check() {
+                return mSubscriptionCallback.mLastErrorId != null;
+            }
+        }.run();
+
+        assertEquals(StubMediaBrowserService.MEDIA_ID_INVALID, mSubscriptionCallback.mLastErrorId);
+        assertEquals(page, mSubscriptionCallback.mLastOptions.getInt(MediaBrowser.EXTRA_PAGE));
+        assertEquals(pageSize,
+                mSubscriptionCallback.mLastOptions.getInt(MediaBrowser.EXTRA_PAGE_SIZE));
     }
 
     public void testGetItem() {
@@ -137,7 +212,7 @@ public class MediaBrowserTest extends InstrumentationTestCase {
         resetCallbacks();
         createMediaBrowser(TEST_BROWSER_SERVICE);
         connectMediaBrowserService();
-        mMediaBrowser.getItem("does-not-exist", mItemCallback);
+        mMediaBrowser.getItem(StubMediaBrowserService.MEDIA_ID_INVALID, mItemCallback);
         new PollingCheck(TIME_OUT_MS) {
             @Override
             protected boolean check() {
@@ -145,7 +220,7 @@ public class MediaBrowserTest extends InstrumentationTestCase {
             }
         }.run();
 
-        assertEquals("does-not-exist", mItemCallback.mLastErrorId);
+        assertEquals(StubMediaBrowserService.MEDIA_ID_INVALID, mItemCallback.mLastErrorId);
     }
 
     private void createMediaBrowser(final ComponentName component) {
@@ -203,14 +278,18 @@ public class MediaBrowserTest extends InstrumentationTestCase {
 
     private static class StubSubscriptionCallback extends MediaBrowser.SubscriptionCallback {
         private volatile int mChildrenLoadedCount;
+        private volatile int mChildrenLoadedWithOptionCount;
         private volatile String mLastErrorId;
         private volatile String mLastParentId;
+        private volatile Bundle mLastOptions;
         private volatile List<MediaBrowser.MediaItem> mLastChildMediaItems;
 
         public void reset() {
             mChildrenLoadedCount = 0;
+            mChildrenLoadedWithOptionCount = 0;
             mLastErrorId = null;
             mLastParentId = null;
+            mLastOptions = null;
             mLastChildMediaItems = null;
         }
 
@@ -222,10 +301,25 @@ public class MediaBrowserTest extends InstrumentationTestCase {
         }
 
         @Override
+        public void onChildrenLoaded(String parentId, List<MediaBrowser.MediaItem> children,
+                Bundle options) {
+            mChildrenLoadedWithOptionCount++;
+            mLastParentId = parentId;
+            mLastOptions = options;
+            mLastChildMediaItems = children;
+        }
+
+        @Override
         public void onError(String id) {
             mLastErrorId = id;
         }
-    }
+
+        @Override
+        public void onError(String id, Bundle options) {
+            mLastErrorId = id;
+            mLastOptions = options;
+        }
+}
 
     private static class StubItemCallback extends MediaBrowser.ItemCallback {
         private volatile MediaBrowser.MediaItem mLastMediaItem;

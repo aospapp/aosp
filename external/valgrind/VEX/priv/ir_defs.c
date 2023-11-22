@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2004-2013 OpenWorks LLP
+   Copyright (C) 2004-2015 OpenWorks LLP
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -63,7 +63,7 @@ void ppIRType ( IRType ty )
       case Ity_D128:    vex_printf( "D128"); break;
       case Ity_V128:    vex_printf( "V128"); break;
       case Ity_V256:    vex_printf( "V256"); break;
-      default: vex_printf("ty = 0x%x\n", (Int)ty);
+      default: vex_printf("ty = 0x%x\n", (UInt)ty);
                vpanic("ppIRType");
    }
 }
@@ -114,7 +114,7 @@ void ppIRTemp ( IRTemp tmp )
    if (tmp == IRTemp_INVALID)
       vex_printf("IRTemp_INVALID");
    else
-      vex_printf( "t%d", (Int)tmp);
+      vex_printf( "t%u", tmp);
 }
 
 void ppIROp ( IROp op )
@@ -396,6 +396,7 @@ void ppIROp ( IROp op )
       case Iop_F32toF64: vex_printf("F32toF64"); return;
       case Iop_F64toF32: vex_printf("F64toF32"); return;
 
+      case Iop_RoundF128toInt: vex_printf("RoundF128toInt"); return;
       case Iop_RoundF64toInt: vex_printf("RoundF64toInt"); return;
       case Iop_RoundF32toInt: vex_printf("RoundF32toInt"); return;
       case Iop_RoundF64toF32: vex_printf("RoundF64toF32"); return;
@@ -1470,13 +1471,14 @@ void ppIRStoreG ( const IRStoreG* sg )
 void ppIRLoadGOp ( IRLoadGOp cvt )
 {
    switch (cvt) {
-      case ILGop_INVALID: vex_printf("ILGop_INVALID"); break;      
-      case ILGop_Ident64: vex_printf("Ident64"); break;      
-      case ILGop_Ident32: vex_printf("Ident32"); break;      
-      case ILGop_16Uto32: vex_printf("16Uto32"); break;      
-      case ILGop_16Sto32: vex_printf("16Sto32"); break;      
-      case ILGop_8Uto32:  vex_printf("8Uto32"); break;      
-      case ILGop_8Sto32:  vex_printf("8Sto32"); break;      
+      case ILGop_INVALID:   vex_printf("ILGop_INVALID"); break;      
+      case ILGop_IdentV128: vex_printf("IdentV128"); break;      
+      case ILGop_Ident64:   vex_printf("Ident64"); break;      
+      case ILGop_Ident32:   vex_printf("Ident32"); break;      
+      case ILGop_16Uto32:   vex_printf("16Uto32"); break;      
+      case ILGop_16Sto32:   vex_printf("16Sto32"); break;      
+      case ILGop_8Uto32:    vex_printf("8Uto32"); break;      
+      case ILGop_8Sto32:    vex_printf("8Sto32"); break;      
       default: vpanic("ppIRLoadGOp");
    }
 }
@@ -1520,6 +1522,8 @@ void ppIRJumpKind ( IRJumpKind kind )
       case Ijk_Sys_int128:    vex_printf("Sys_int128"); break;
       case Ijk_Sys_int129:    vex_printf("Sys_int129"); break;
       case Ijk_Sys_int130:    vex_printf("Sys_int130"); break;
+      case Ijk_Sys_int145:    vex_printf("Sys_int145"); break;
+      case Ijk_Sys_int210:    vex_printf("Sys_int210"); break;
       case Ijk_Sys_sysenter:  vex_printf("Sys_sysenter"); break;
       default:                vpanic("ppIRJumpKind");
    }
@@ -2470,7 +2474,6 @@ IRSB* deepCopyIRSBExceptStmts ( const IRSB* bb )
 /*--- Primop types                                            ---*/
 /*---------------------------------------------------------------*/
 
-static
 void typeOfPrimop ( IROp op, 
                     /*OUTs*/
                     IRType* t_dst, 
@@ -3158,6 +3161,7 @@ void typeOfPrimop ( IROp op,
          UNARY(Ity_F128, Ity_F128);
 
       case Iop_SqrtF128:
+      case Iop_RoundF128toInt:
          BINARY(ity_RMode,Ity_F128, Ity_F128);
 
       case Iop_I32StoF128: UNARY(Ity_I32, Ity_F128);
@@ -3523,6 +3527,8 @@ void typeOfIRLoadGOp ( IRLoadGOp cvt,
                        /*OUT*/IRType* t_res, /*OUT*/IRType* t_arg )
 {
    switch (cvt) {
+      case ILGop_IdentV128:
+         *t_res = Ity_V128; *t_arg = Ity_V128; break;
       case ILGop_Ident64:
          *t_res = Ity_I64; *t_arg = Ity_I64; break;
       case ILGop_Ident32:

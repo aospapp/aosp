@@ -6,14 +6,12 @@ ip-tunnel - tunnel configuration
 .ad l
 .in +8
 .ti -8
-.B ip
-.RI "[ " OPTIONS " ]"
-.B tunnel
-.RI " { " COMMAND " | "
-.BR help " }"
+.B ip tunnel help
 .sp
 .ti -8
-.BR "ip tunnel" " { " add " | " change " | " del " | " show " | " prl " }"
+.BR "ip "
+.RI "[ " OPTIONS " ]"
+.BR "tunnel" " { " add " | " change " | " del " | " show " | " prl " }"
 .RI "[ " NAME " ]"
 .br
 .RB "[ " mode
@@ -29,7 +27,7 @@ ip-tunnel - tunnel configuration
 .br
 .RB "[ " encaplimit
 .IR ELIM " ]"
-.RB "[ " ttl
+.RB "[ " ttl "|" hoplimit
 .IR TTL " ]"
 .br
 .RB "[ " tos
@@ -47,19 +45,22 @@ ip-tunnel - tunnel configuration
 .RB "[ [" no "]" pmtudisc " ]"
 .RB "[ " dev
 .IR PHYS_DEV " ]"
-.RB "[ " "dscp inherit" " ]"
 
 .ti -8
 .IR MODE " := "
-.RB " { " ipip " | " gre " | " sit " | " isatap " | " ip6ip6 " | " ipip6 " | " any " }"
+.RB " { " ipip " | " gre " | " sit " | " isatap " | " vti " | " ip6ip6 " | " ipip6 " | " ip6gre " | " vti6 " | " any " }"
 
 .ti -8
 .IR ADDR " := { " IP_ADDRESS " |"
 .BR any " }"
 
 .ti -8
-.IR TOS " := { " NUMBER " |"
-.BR inherit " }"
+.IR TOS " := { " STRING " | " 00 ".." ff " |"
+.BR inherit " |"
+.BI "inherit/" STRING
+.RB "|"
+.BI "inherit/" 00 ".." ff
+.RB "}"
 
 .ti -8
 .IR ELIM " := {"
@@ -81,14 +82,20 @@ ip-tunnel - tunnel configuration
 .B tunnel
 objects are tunnels, encapsulating packets in IP packets and then
 sending them over the IP infrastructure.
-The encapulating (or outer) address family is specified by the
+The encapsulating (or outer) address family is specified by the
 .B -f
-option.  The default is IPv4.
+option. The default is IPv4.
 
-.SS ip tunnel add - add a new tunnel
-.SS ip tunnel change - change an existing tunnel
-.SS ip tunnel delete - destroy a tunnel
-
+.TP
+.B ip tunnel add
+add a new tunnel
+.TP
+.B ip tunnel change
+change an existing tunnel
+.TP
+.B ip tunnel delete
+destroy a tunnel
+.RS
 .TP
 .BI name " NAME " (default)
 select the tunnel device name.
@@ -98,10 +105,10 @@ select the tunnel device name.
 set the tunnel mode. Available modes depend on the encapsulating address family.
 .br
 Modes for IPv4 encapsulation available:
-.BR ipip ", " sit ", " isatap " and " gre "."
+.BR ipip ", " sit ", " isatap ", " vti ", and " gre "."
 .br
 Modes for IPv6 encapsulation available:
-.BR ip6ip6 ", " ipip6 " and " any "."
+.BR ip6ip6 ", " ipip6 ", " ip6gre ", " vti6 ", and " any "."
 
 .TP
 .BI remote " ADDRESS"
@@ -114,7 +121,9 @@ It must be an address on another interface of this host.
 
 .TP
 .BI ttl " N"
-set a fixed TTL
+.TP
+.BI hoplimit " N"
+set a fixed TTL (IPv4) or hoplimit (IPv6)
 .I N
 on tunneled packets.
 .I N
@@ -132,11 +141,21 @@ The default value for IPv6 tunnels is:
 .BI dsfield " T"
 .TP
 .BI tclass " T"
-set a fixed TOS (or traffic class in IPv6)
-.I T
-on tunneled packets.
-The default value is:
-.BR "inherit" .
+set the type of service (IPv4) or traffic class (IPv6) field on
+tunneled packets, which can be specified as either a two-digit
+hex value (e.g. c0) or a predefined string (e.g. internet).
+The value
+.B inherit
+causes the field to be copied from the original IP header. The
+values
+.BI "inherit/" STRING
+or
+.BI "inherit/" 00 ".." ff
+will set the field to
+.I STRING
+or
+.IR 00 ".." ff
+when tunneling non-IP packets. The default value is 00.
 
 .TP
 .BI dev " NAME"
@@ -149,8 +168,8 @@ changes.
 .TP
 .B nopmtudisc
 disable Path MTU Discovery on this tunnel.
-It is enabled by default.  Note that a fixed ttl is incompatible
-with this option: tunnelling with a fixed ttl always makes pmtu
+It is enabled by default. Note that a fixed ttl is incompatible
+with this option: tunneling with a fixed ttl always makes pmtu
 discovery.
 
 .TP
@@ -180,7 +199,7 @@ flag calculates checksums for outgoing packets.
 The
 .B icsum
 flag requires that all input packets have the correct
-checksum.  The
+checksum. The
 .B csum
 flag is equivalent to the combination
 .BR "icsum ocsum" .
@@ -199,25 +218,23 @@ The
 .B  seq
 flag is equivalent to the combination
 .BR "iseq oseq" .
-.B It isn't work. Don't use it.
-
-.TP
-.BR "dscp inherit"
-.RB ( " only IPv6 tunnels " )
-Inherit DS field between inner and outer header.
+.B It doesn't work. Don't use it.
 
 .TP
 .BI encaplim " ELIM"
 .RB ( " only IPv6 tunnels " )
-set a fixed encapsulation limit.  Default is 4.
+set a fixed encapsulation limit. Default is 4.
 
 .TP
 .BI flowlabel " FLOWLABEL"
 .RB ( " only IPv6 tunnels " )
 set a fixed flowlabel.
+.RE
 
-.SS ip tunnel prl - potential router list (ISATAP only)
-
+.TP
+.B ip tunnel prl
+potential router list (ISATAP only)
+.RS
 .TP
 .BI dev " NAME"
 mandatory device name.
@@ -230,8 +247,11 @@ mandatory device name.
 .BI prl-delete " ADDR"
 .RB "Add or delete " ADDR
 as a potential router or default router.
+.RE
 
-.SS ip tunnel show - list tunnels
+.TP
+.B ip tunnel show
+list tunnels
 This command has no arguments.
 
 .SH SEE ALSO

@@ -18,10 +18,13 @@ package libcore.java.net;
 
 import com.android.okhttp.AndroidShimResponseCache;
 
+import com.google.mockwebserver.Dispatcher;
 import com.google.mockwebserver.MockResponse;
 import com.google.mockwebserver.MockWebServer;
 import com.google.mockwebserver.RecordedRequest;
 import com.google.mockwebserver.SocketPolicy;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -32,16 +35,19 @@ import java.net.CacheRequest;
 import java.net.CacheResponse;
 import java.net.HttpRetryException;
 import java.net.HttpURLConnection;
+import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.PasswordAuthentication;
 import java.net.ProtocolException;
 import java.net.Proxy;
+import java.net.ProxySelector;
 import java.net.ResponseCache;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.UnknownHostException;
@@ -62,6 +68,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
+import javax.net.SocketFactory;
 import javax.net.ssl.HandshakeCompletedListener;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
@@ -77,13 +84,17 @@ import javax.net.ssl.X509TrustManager;
 import libcore.java.security.TestKeyStore;
 import libcore.java.util.AbstractResourceLeakageDetectorTestCase;
 import libcore.javax.net.ssl.TestSSLContext;
-import tests.net.StuckServer;
+import tests.net.DelegatingSocketFactory;
 
 import static com.google.mockwebserver.SocketPolicy.DISCONNECT_AT_END;
 import static com.google.mockwebserver.SocketPolicy.DISCONNECT_AT_START;
 import static com.google.mockwebserver.SocketPolicy.FAIL_HANDSHAKE;
 import static com.google.mockwebserver.SocketPolicy.SHUTDOWN_INPUT_AT_END;
 import static com.google.mockwebserver.SocketPolicy.SHUTDOWN_OUTPUT_AT_END;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyInt;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.spy;
 
 public final class URLConnectionTest extends AbstractResourceLeakageDetectorTestCase {
 
@@ -113,6 +124,86 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
             cache = null;
         }
         super.tearDown();
+    }
+
+    public void testRequestHeaderValidation() throws Exception {
+        // Android became more strict after M about which characters were allowed in request header
+        // names and values: previously almost anything was allowed if it didn't contain \0.
+
+        assertForbiddenRequestHeaderName(null);
+        assertForbiddenRequestHeaderName("");
+        assertForbiddenRequestHeaderName("\n");
+        assertForbiddenRequestHeaderName("a\nb");
+        assertForbiddenRequestHeaderName("\u0000");
+        assertForbiddenRequestHeaderName("\r");
+        assertForbiddenRequestHeaderName("\t");
+        assertForbiddenRequestHeaderName("\u001f");
+        assertForbiddenRequestHeaderName("\u007f");
+        assertForbiddenRequestHeaderName("\u0080");
+        assertForbiddenRequestHeaderName("\ud83c\udf69");
+
+        assertEquals(null, setAndReturnRequestHeaderValue(null));
+        assertEquals("", setAndReturnRequestHeaderValue(""));
+        assertForbiddenRequestHeaderValue("\u0000");
+
+        // Workaround for http://b/26422335 , http://b/26889631 , http://b/27606665 :
+        // allow (but strip) trailing \n, \r and \r\n
+        // assertForbiddenRequestHeaderValue("\r");
+        // End of workaround
+        assertForbiddenRequestHeaderValue("\t");
+        assertForbiddenRequestHeaderValue("\u001f");
+        assertForbiddenRequestHeaderValue("\u007f");
+
+        // For http://b/28867041 the allowed character range was changed.
+        // assertForbiddenRequestHeaderValue("\u0080");
+        // assertForbiddenRequestHeaderValue("\ud83c\udf69");
+        assertEquals("\u0080", setAndReturnRequestHeaderValue("\u0080"));
+        assertEquals("\ud83c\udf69", setAndReturnRequestHeaderValue("\ud83c\udf69"));
+
+        // Workaround for http://b/26422335 , http://b/26889631 , http://b/27606665 :
+        // allow (but strip) trailing \n, \r and \r\n
+        assertEquals("", setAndReturnRequestHeaderValue("\n"));
+        assertEquals("a", setAndReturnRequestHeaderValue("a\n"));
+        assertEquals("", setAndReturnRequestHeaderValue("\r"));
+        assertEquals("a", setAndReturnRequestHeaderValue("a\r"));
+        assertEquals("", setAndReturnRequestHeaderValue("\r\n"));
+        assertEquals("a", setAndReturnRequestHeaderValue("a\r\n"));
+        assertForbiddenRequestHeaderValue("a\nb");
+        assertForbiddenRequestHeaderValue("\nb");
+        assertForbiddenRequestHeaderValue("a\rb");
+        assertForbiddenRequestHeaderValue("\rb");
+        assertForbiddenRequestHeaderValue("a\r\nb");
+        assertForbiddenRequestHeaderValue("\r\nb");
+        // End of workaround
+    }
+
+    private static void assertForbiddenRequestHeaderName(String name) throws Exception {
+        URL url = new URL("http://www.google.com/");
+        HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+        try {
+            urlConnection.addRequestProperty(name, "value");
+            fail("Expected exception");
+        } catch (IllegalArgumentException expected) {
+        } catch (NullPointerException expectedIfNull) {
+            assertTrue(name == null);
+        }
+    }
+
+    private static void assertForbiddenRequestHeaderValue(String value) throws Exception {
+        URL url = new URL("http://www.google.com/");
+        HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+        try {
+            urlConnection.addRequestProperty("key", value);
+            fail("Expected exception");
+        } catch (IllegalArgumentException expected) {
+        }
+    }
+
+    private static String setAndReturnRequestHeaderValue(String value) throws Exception {
+        URL url = new URL("http://www.google.com/");
+        HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+        urlConnection.addRequestProperty("key", value);
+        return urlConnection.getRequestProperty("key");
     }
 
     public void testRequestHeaders() throws IOException, InterruptedException {
@@ -514,29 +605,59 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
     }
 
     public void testConnectViaProxyUsingProxyArg() throws Exception {
-        testConnectViaProxy(ProxyConfig.CREATE_ARG);
+        testConnectViaProxy(ProxyConfig.CREATE_ARG, "http://android.com/foo", "android.com");
     }
 
     public void testConnectViaProxyUsingProxySystemProperty() throws Exception {
-        testConnectViaProxy(ProxyConfig.PROXY_SYSTEM_PROPERTY);
+        testConnectViaProxy(
+                ProxyConfig.PROXY_SYSTEM_PROPERTY, "http://android.com/foo", "android.com");
     }
 
     public void testConnectViaProxyUsingHttpProxySystemProperty() throws Exception {
-        testConnectViaProxy(ProxyConfig.HTTP_PROXY_SYSTEM_PROPERTY);
+        testConnectViaProxy(
+                ProxyConfig.HTTP_PROXY_SYSTEM_PROPERTY, "http://android.com/foo", "android.com");
     }
 
-    private void testConnectViaProxy(ProxyConfig proxyConfig) throws Exception {
+    // Regression test for http://b/29983827 : ensure that a trailing "/" is not added to the
+    // HTTP request line when using a proxy.
+    public void testConnectViaProxy_emptyPath() throws Exception {
+        testConnectViaProxy(
+                ProxyConfig.HTTP_PROXY_SYSTEM_PROPERTY, "http://android.com", "android.com");
+    }
+
+    public void testConnectViaProxy_rootPath() throws Exception {
+        testConnectViaProxy(
+                ProxyConfig.HTTP_PROXY_SYSTEM_PROPERTY, "http://android.com/", "android.com");
+    }
+
+    public void testConnectViaProxy_pathWithoutTrailingSlash() throws Exception {
+        testConnectViaProxy(
+                ProxyConfig.HTTP_PROXY_SYSTEM_PROPERTY, "http://android.com/foo", "android.com");
+    }
+
+    public void testConnectViaProxy_pathWithTrailingSlash() throws Exception {
+        testConnectViaProxy(
+                ProxyConfig.HTTP_PROXY_SYSTEM_PROPERTY, "http://android.com/foo/", "android.com");
+    }
+
+    public void testConnectViaProxy_complexUrlWithNoPath() throws Exception {
+        testConnectViaProxy(ProxyConfig.HTTP_PROXY_SYSTEM_PROPERTY,
+                "http://android.com:8080?height=100&width=42", "android.com:8080");
+    }
+
+    private void testConnectViaProxy(ProxyConfig proxyConfig, String urlString, String expectedHost)
+            throws Exception {
         MockResponse mockResponse = new MockResponse().setBody("this response comes via a proxy");
         server.enqueue(mockResponse);
         server.play();
 
-        URL url = new URL("http://android.com/foo");
+        URL url = new URL(urlString);
         HttpURLConnection connection = proxyConfig.connect(server, url);
         assertContent("this response comes via a proxy", connection);
 
         RecordedRequest request = server.takeRequest();
-        assertEquals("GET http://android.com/foo HTTP/1.1", request.getRequestLine());
-        assertContains(request.getHeaders(), "Host: android.com");
+        assertEquals("GET " + urlString + " HTTP/1.1", request.getRequestLine());
+        assertContains(request.getHeaders(), "Host: " + expectedHost);
     }
 
     public void testContentDisagreesWithContentLengthHeader() throws IOException {
@@ -1648,6 +1769,115 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
         server2.shutdown();
     }
 
+    // http://b/27590872 - assert we do not throw a runtime exception if a server responds with
+    // a location that cannot be represented directly by URI.
+    public void testRedirectWithInvalidRedirectUrl() throws Exception {
+        // The first server hosts a redirect to a second. We need two so that the ProxySelector
+        // installed is used for the redirect. Otherwise the second request will be handled via the
+        // existing keep-alive connection.
+        server.play();
+
+        MockWebServer server2 = new MockWebServer();
+        server2.play();
+
+        String targetPath = "/target";
+        // The "%0" in the suffix is invalid without a second digit.
+        String invalidSuffix = "?foo=%0&bar=%00";
+
+        String redirectPath = server2.getUrl(targetPath).toString();
+        String invalidRedirectUri = redirectPath + invalidSuffix;
+
+        // Redirect to the invalid URI.
+        server.enqueue(new MockResponse()
+                .setResponseCode(HttpURLConnection.HTTP_MOVED_TEMP)
+                .addHeader("Location: " + invalidRedirectUri));
+
+        server2.enqueue(new MockResponse().setBody("Target"));
+
+        // Assert the target URI is actually invalid.
+        try {
+            new URI(invalidRedirectUri);
+            fail("Target URL is expected to be invalid");
+        } catch (URISyntaxException expected) {}
+
+        // The ProxySelector requires a URI object, which forces the HttpURLConnectionImpl to create
+        // a URI object containing a string based on the redirect address, regardless of what it is
+        // using internally to hold the target address.
+        ProxySelector originalSelector = ProxySelector.getDefault();
+        final List<URI> proxySelectorUris = new ArrayList<>();
+        ProxySelector.setDefault(new ProxySelector() {
+            @Override
+            public List<Proxy> select(URI uri) {
+                if (uri.getScheme().equals("http")) {
+                    // Ignore socks proxy lookups.
+                    proxySelectorUris.add(uri);
+                }
+                return Collections.singletonList(Proxy.NO_PROXY);
+            }
+
+            @Override
+            public void connectFailed(URI uri, SocketAddress sa, IOException ioe) {
+                // no-op
+            }
+        });
+
+        try {
+            HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
+            assertEquals("Target", readAscii(connection.getInputStream(), Integer.MAX_VALUE));
+
+            // Inspect the redirect request to see what request was actually made.
+            RecordedRequest actualRequest = server2.takeRequest();
+            assertEquals(targetPath + invalidSuffix, actualRequest.getPath());
+
+            // The first URI will be the initial request. We want to inspect the redirect.
+            URI uri = proxySelectorUris.get(1);
+            // The HttpURLConnectionImpl converts %0 -> %250. i.e. it escapes the %.
+            assertEquals(redirectPath + "?foo=%250&bar=%00", uri.toString());
+        } finally {
+            ProxySelector.setDefault(originalSelector);
+            server2.shutdown();
+        }
+    }
+
+    public void testInstanceFollowsRedirects() throws Exception {
+        testInstanceFollowsRedirects("http://www.google.com/");
+        testInstanceFollowsRedirects("https://www.google.com/");
+    }
+
+    private void testInstanceFollowsRedirects(String spec) throws Exception {
+        URL url = new URL(spec);
+        HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+        urlConnection.setInstanceFollowRedirects(true);
+        assertTrue(urlConnection.getInstanceFollowRedirects());
+        urlConnection.setInstanceFollowRedirects(false);
+        assertFalse(urlConnection.getInstanceFollowRedirects());
+    }
+
+    public void testFollowRedirects() throws Exception {
+        testFollowRedirects("http://www.google.com/");
+        testFollowRedirects("https://www.google.com/");
+    }
+
+    private void testFollowRedirects(String spec) throws Exception {
+        URL url = new URL(spec);
+        boolean originalValue = HttpURLConnection.getFollowRedirects();
+        try {
+            HttpURLConnection.setFollowRedirects(false);
+            assertFalse(HttpURLConnection.getFollowRedirects());
+
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            assertFalse(connection.getInstanceFollowRedirects());
+
+            HttpURLConnection.setFollowRedirects(true);
+            assertTrue(HttpURLConnection.getFollowRedirects());
+
+            HttpURLConnection connection2 = (HttpURLConnection) url.openConnection();
+            assertTrue(connection2.getInstanceFollowRedirects());
+        } finally {
+            HttpURLConnection.setFollowRedirects(originalValue);
+        }
+    }
+
     public void testResponse300MultipleChoiceWithPost() throws Exception {
         // Chrome doesn't follow the redirect, but Firefox and the RI both do
         testResponseRedirectedWithPost(HttpURLConnection.HTTP_MULT_CHOICE);
@@ -1733,8 +1963,8 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
 
             assertEquals(Arrays.asList("verify " + hostName), hostnameVerifier.calls);
             assertEquals(Arrays.asList("checkServerTrusted ["
-                    + "CN=" + hostName + " 1, "
-                    + "CN=Test Intermediate Certificate Authority 1, "
+                    + "CN=" + hostName + " 3, "
+                    + "CN=Test Intermediate Certificate Authority 2, "
                     + "CN=Test Root Certificate Authority 1"
                     + "] ECDHE_RSA"),
                     trustManager.calls);
@@ -1745,30 +1975,61 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
     }
 
     /**
-     * Test that the timeout period is honored. The timeout may be doubled!
-     * HttpURLConnection will wait the full timeout for each of the server's IP
-     * addresses. This is typically one IPv4 address and one IPv6 address.
+     * Test that the timeout period is honored. The connect timeout is applied to each socket
+     * connection attempt. If a hostname resolves to multiple IPs HttpURLConnection will wait the
+     * full timeout for each.
      */
     public void testConnectTimeouts() throws IOException {
-        StuckServer ss = new StuckServer(true);
-        int serverPort = ss.getLocalPort();
-        String hostName = ss.getLocalSocketAddress().getAddress().getHostAddress();
-        URLConnection urlConnection = new URL("http://" + hostName + ":" + serverPort + "/")
-                .openConnection();
+        // During CTS tests we are limited in what host names we can depend on and unfortunately
+        // DNS lookups are not pluggable through standard APIs. During manual testing you should be
+        // able to change this to any name that can be resolved to multiple IPs and it should still
+        // work.
+        String hostName = "localhost";
+        int expectedConnectionAttempts = InetAddress.getAllByName(hostName).length;
+        int perSocketTimeout = 1000;
+        final int[] socketCreationCount = new int[1];
+        final int[] socketConnectTimeouts = new int[expectedConnectionAttempts];
 
-        int timeout = 1000;
-        urlConnection.setConnectTimeout(timeout);
-        long start = System.currentTimeMillis();
+        // It is difficult to force socket timeouts reliably so we replace the default SocketFactory
+        // and have it create Sockets that always time out when connect(SocketAddress, int) is
+        // called.
+        SocketFactory originalDefault = SocketFactory.getDefault();
         try {
+            // Override the default SocketFactory so we can intercept socket creation.
+            SocketFactory.setDefault(new DelegatingSocketFactory(originalDefault) {
+                @Override
+                protected Socket configureSocket(Socket socket) throws IOException {
+                    final int attemptNumber = socketCreationCount[0]++;
+                    Answer socketConnectAnswer = new Answer() {
+                        @Override public Object answer(InvocationOnMock invocation)
+                                throws Throwable {
+                            int timeoutArg = (int) invocation.getArguments()[1];
+                            socketConnectTimeouts[attemptNumber] = timeoutArg;
+                            throw new SocketTimeoutException(
+                                "Simulated timeout after " + timeoutArg);
+                        }
+                    };
+
+                    Socket socketSpy = spy(socket);
+                    // Create a partial mock that wraps the actual socket and intercepts the
+                    // connect(SocketAddress, int) method.
+                    doAnswer(socketConnectAnswer)
+                        .when(socketSpy).connect(any(SocketAddress.class), anyInt());
+                    return socketSpy;
+                }
+            });
+
+            URLConnection urlConnection = new URL("http://" + hostName + "/").openConnection();
+            urlConnection.setConnectTimeout(perSocketTimeout);
             urlConnection.getInputStream();
             fail();
-        } catch (SocketTimeoutException expected) {
-            long elapsed = System.currentTimeMillis() - start;
-            int attempts = InetAddress.getAllByName("localhost").length; // one per IP address
-            assertTrue("timeout=" +timeout + ", elapsed=" + elapsed + ", attempts=" + attempts,
-                    Math.abs((attempts * timeout) - elapsed) < 500);
+        } catch (SocketTimeoutException e) {
+            assertEquals(expectedConnectionAttempts, socketCreationCount[0]);
+            for (int i = 0; i < expectedConnectionAttempts; i++) {
+                assertEquals(perSocketTimeout, socketConnectTimeouts[i]);
+            }
         } finally {
-            ss.close();
+            SocketFactory.setDefault(originalDefault);
         }
     }
 
@@ -1973,61 +2234,24 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
      * This test goes through the exhaustive set of interesting ASCII characters
      * because most of those characters are interesting in some way according to
      * RFC 2396 and RFC 2732. http://b/1158780
+     * After M, Android's HttpURLConnection started canonicalizing hostnames to lower case, IDN
+     * encoding and being more strict about invalid characters.
      */
-    public void testLenientUrlToUri() throws Exception {
+    public void testUrlCharacterMapping() throws Exception {
+        server.setDispatcher(new Dispatcher() {
+            @Override public MockResponse dispatch(RecordedRequest request)
+                throws InterruptedException {
+                return new MockResponse();
+            }
+        });
+        server.play();
+
         // alphanum
-        testUrlToUriMapping("abzABZ09", "abzABZ09", "abzABZ09", "abzABZ09", "abzABZ09");
+        testUrlToUriMapping("abzABZ09", "abzabz09", "abzABZ09", "abzABZ09", "abzABZ09");
+        testUrlToRequestMapping("abzABZ09", "abzABZ09", "abzABZ09");
 
         // control characters
-        testUrlToUriMapping("\u0001", "%01", "%01", "%01", "%01");
-        testUrlToUriMapping("\u001f", "%1F", "%1F", "%1F", "%1F");
 
-        // ascii characters
-        testUrlToUriMapping("%20", "%20", "%20", "%20", "%20");
-        testUrlToUriMapping("%20", "%20", "%20", "%20", "%20");
-        testUrlToUriMapping(" ", "%20", "%20", "%20", "%20");
-        testUrlToUriMapping("!", "!", "!", "!", "!");
-        testUrlToUriMapping("\"", "%22", "%22", "%22", "%22");
-        testUrlToUriMapping("#", null, null, null, "%23");
-        testUrlToUriMapping("$", "$", "$", "$", "$");
-        testUrlToUriMapping("&", "&", "&", "&", "&");
-        testUrlToUriMapping("'", "'", "'", "'", "'");
-        testUrlToUriMapping("(", "(", "(", "(", "(");
-        testUrlToUriMapping(")", ")", ")", ")", ")");
-        testUrlToUriMapping("*", "*", "*", "*", "*");
-        testUrlToUriMapping("+", "+", "+", "+", "+");
-        testUrlToUriMapping(",", ",", ",", ",", ",");
-        testUrlToUriMapping("-", "-", "-", "-", "-");
-        testUrlToUriMapping(".", ".", ".", ".", ".");
-        testUrlToUriMapping("/", null, "/", "/", "/");
-        testUrlToUriMapping(":", null, ":", ":", ":");
-        testUrlToUriMapping(";", ";", ";", ";", ";");
-        testUrlToUriMapping("<", "%3C", "%3C", "%3C", "%3C");
-        testUrlToUriMapping("=", "=", "=", "=", "=");
-        testUrlToUriMapping(">", "%3E", "%3E", "%3E", "%3E");
-        testUrlToUriMapping("?", null, null, "?", "?");
-        testUrlToUriMapping("@", "@", "@", "@", "@");
-        testUrlToUriMapping("[", null, "%5B", null, "%5B");
-        testUrlToUriMapping("\\", "%5C", "%5C", "%5C", "%5C");
-        testUrlToUriMapping("]", null, "%5D", null, "%5D");
-        testUrlToUriMapping("^", "%5E", "%5E", "%5E", "%5E");
-        testUrlToUriMapping("_", "_", "_", "_", "_");
-        testUrlToUriMapping("`", "%60", "%60", "%60", "%60");
-        testUrlToUriMapping("{", "%7B", "%7B", "%7B", "%7B");
-        testUrlToUriMapping("|", "%7C", "%7C", "%7C", "%7C");
-        testUrlToUriMapping("}", "%7D", "%7D", "%7D", "%7D");
-        testUrlToUriMapping("~", "~", "~", "~", "~");
-        testUrlToUriMapping("~", "~", "~", "~", "~");
-        testUrlToUriMapping("\u007f", "%7F", "%7F", "%7F", "%7F");
-
-        // beyond ascii
-        testUrlToUriMapping("\u0080", "%C2%80", "%C2%80", "%C2%80", "%C2%80");
-        testUrlToUriMapping("\u20ac", "\u20ac", "\u20ac", "\u20ac", "\u20ac");
-        testUrlToUriMapping("\ud842\udf9f",
-                "\ud842\udf9f", "\ud842\udf9f", "\ud842\udf9f", "\ud842\udf9f");
-    }
-
-    public void testLenientUrlToUriNul() throws Exception {
         // On JB-MR2 and below, we would allow a host containing \u0000
         // and then generate a request with a Host header that violated RFC2616.
         // We now reject such hosts.
@@ -2036,32 +2260,117 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
         // it, but attempting to do so introduces a new range of incompatible
         // behaviours.
         testUrlToUriMapping("\u0000", null, "%00", "%00", "%00"); // RI fails this
+        testUrlToRequestMapping("\u0000", "%00", "%00");
+
+        testUrlToUriMapping("\u0001", null, "%01", "%01", "%01");
+        testUrlToRequestMapping("\u0001", "%01", "%01");
+
+        testUrlToUriMapping("\u001f", null, "%1F", "%1F", "%1F");
+        testUrlToRequestMapping("\u001f", "%1F", "%1F");
+
+        // ascii characters
+        testUrlToUriMapping("%20", null, "%20", "%20", "%20");
+        testUrlToRequestMapping("%20", "%20", "%20");
+        testUrlToUriMapping(" ", null, "%20", "%20", "%20");
+        testUrlToRequestMapping(" ", "%20", "%20");
+        testUrlToUriMapping("!", "!", "!", "!", "!");
+        testUrlToRequestMapping("!", "!", "!");
+        testUrlToUriMapping("\"", null, "%22", "%22", "%22");
+        testUrlToRequestMapping("\"", "%22", "%22");
+        testUrlToUriMapping("#", null, null, null, "%23");
+        testUrlToRequestMapping("#", null, null);
+        testUrlToUriMapping("$", "$", "$", "$", "$");
+        testUrlToRequestMapping("$", "$", "$");
+        testUrlToUriMapping("&", "&", "&", "&", "&");
+        testUrlToRequestMapping("&", "&", "&");
+        testUrlToUriMapping("'", "'", "'", "%27", "'");
+        testUrlToRequestMapping("'", "'", "%27");
+        testUrlToUriMapping("(", "(", "(", "(", "(");
+        testUrlToRequestMapping("(", "(", "(");
+        testUrlToUriMapping(")", ")", ")", ")", ")");
+        testUrlToRequestMapping(")", ")", ")");
+        testUrlToUriMapping("*", "*", "*", "*", "*");
+        testUrlToRequestMapping("*", "*", "*");
+        testUrlToUriMapping("+", "+", "+", "+", "+");
+        testUrlToRequestMapping("+", "+", "+");
+        testUrlToUriMapping(",", ",", ",", ",", ",");
+        testUrlToRequestMapping(",", ",", ",");
+        testUrlToUriMapping("-", "-", "-", "-", "-");
+        testUrlToRequestMapping("-", "-", "-");
+        testUrlToUriMapping(".", null, ".", ".", ".");
+        testUrlToRequestMapping(".", ".", ".");
+        testUrlToUriMapping(".foo", ".foo", ".foo", ".foo", ".foo");
+        testUrlToRequestMapping(".foo", ".foo", ".foo");
+        testUrlToUriMapping("/", null, "/", "/", "/");
+        testUrlToRequestMapping("/", "/", "/");
+        testUrlToUriMapping(":", null, ":", ":", ":");
+        testUrlToRequestMapping(":", ":", ":");
+        testUrlToUriMapping(";", ";", ";", ";", ";");
+        testUrlToRequestMapping(";", ";", ";");
+        testUrlToUriMapping("<", null, "%3C", "%3C", "%3C");
+        testUrlToRequestMapping("<", "%3C", "%3C");
+        testUrlToUriMapping("=", "=", "=", "=", "=");
+        testUrlToRequestMapping("=", "=", "=");
+        testUrlToUriMapping(">", null, "%3E", "%3E", "%3E");
+        testUrlToRequestMapping(">", "%3E", "%3E");
+        testUrlToUriMapping("?", null, null, "?", "?");
+        testUrlToRequestMapping("?", null, "?");
+        testUrlToUriMapping("@", null, "@", "@", "@");
+        testUrlToRequestMapping("@", "@", "@");
+        testUrlToUriMapping("[", null, null, null, "%5B");
+        testUrlToRequestMapping("[", null, null);
+        testUrlToUriMapping("\\", null, null, null, "%5C");
+        testUrlToRequestMapping("\\", null, null);
+        testUrlToUriMapping("]", null, null, null, "%5D");
+        testUrlToRequestMapping("]", null, null);
+        testUrlToUriMapping("^", null, "%5E", null, "%5E");
+        testUrlToRequestMapping("^", "%5E", null);
+        testUrlToUriMapping("_", "_", "_", "_", "_");
+        testUrlToRequestMapping("_", "_", "_");
+        testUrlToUriMapping("`", null, "%60", null, "%60");
+        testUrlToRequestMapping("`", "%60", null);
+        testUrlToUriMapping("{", null, "%7B", null, "%7B");
+        testUrlToRequestMapping("{", "%7B", null);
+        testUrlToUriMapping("|", null, "%7C", null, "%7C");
+        testUrlToRequestMapping("|", "%7C", null);
+        testUrlToUriMapping("}", null, "%7D", null, "%7D");
+        testUrlToRequestMapping("}", "%7D", null);
+        testUrlToUriMapping("~", "~", "~", "~", "~");
+        testUrlToRequestMapping("~", "~", "~");
+        testUrlToUriMapping("\u007f", null, "%7F", "%7F", "%7F");
+        testUrlToRequestMapping("\u007f", "%7F", "%7F");
+
+        // beyond ASCII
+
+        // 0x80 is the code point for the Euro sign in CP1252 (but not 8859-15 or Unicode).
+        // Unicode code point 0x80 is a control character and maps to {0xC2, 0x80} in UTF-8.
+        // 0x80 is outside of the ASCII range and is not supported by IDN in hostnames.
+        testUrlToUriMapping("\u0080", null, "%C2%80", "%C2%80", "%C2%80");
+        testUrlToRequestMapping("\u0080", "%C2%80", "%C2%80");
+
+        // More complicated transformations for the authorities below.
+
+        // 0x20AC is the code point for the Euro sign in Unicode.
+        // Unicode code point 0x20AC maps to {0xE2, 0x82, 0xAC} in UTF-8
+        // 0x20AC is not supported by all registrars but there are some legacy domains that
+        // use it and Android currently supports IDN conversion for it.
+        testUrlToUriMapping("\u20ac", null /* skip */, "%E2%82%AC", "%E2%82%AC", "%E2%82%AC");
+        testUrlToUriMappingAuthority("http://host\u20ac.tld/", "http://xn--host-yv7a.tld/");
+        testUrlToRequestMapping("\u20ac",  "%E2%82%AC", "%E2%82%AC");
+
+        // UTF-16 {0xD842, 0xDF9F} -> Unicode 0x20B9F (a Kanji character)
+        // Unicode code point 0x20B9F maps to {0xF0, 0xA0, 0xAE, 0x9F} in UTF-8
+        // IDN can deal with this code point.
+        testUrlToUriMapping("\ud842\udf9f", null /* skip */, "%F0%A0%AE%9F", "%F0%A0%AE%9F",
+            "%F0%A0%AE%9F");
+        testUrlToUriMappingAuthority("http://host\uD842\uDF9F.tld/", "http://xn--host-ov06c.tld/");
+        testUrlToRequestMapping("\ud842\udf9f",  "%F0%A0%AE%9F", "%F0%A0%AE%9F");
     }
 
-    public void testHostWithNul() throws Exception {
-        URL url = new URL("http://host\u0000/");
-        try {
-            url.openStream();
-            fail();
-        } catch (IllegalArgumentException expected) {}
-    }
-
-    private void testUrlToUriMapping(String string, String asAuthority, String asFile,
-            String asQuery, String asFragment) throws Exception {
-        if (asAuthority != null) {
-            assertEquals("http://host" + asAuthority + ".tld/",
-                    backdoorUrlToUri(new URL("http://host" + string + ".tld/")).toString());
-        }
-        if (asFile != null) {
-            assertEquals("http://host.tld/file" + asFile + "/",
-                    backdoorUrlToUri(new URL("http://host.tld/file" + string + "/")).toString());
-        }
-        if (asQuery != null) {
-            assertEquals("http://host.tld/file?q" + asQuery + "=x",
-                    backdoorUrlToUri(new URL("http://host.tld/file?q" + string + "=x")).toString());
-        }
-        assertEquals("http://host.tld/file#" + asFragment + "-x",
-                backdoorUrlToUri(new URL("http://host.tld/file#" + asFragment + "-x")).toString());
+    private void testUrlToUriMappingAuthority(String urlString, String expectedUriString)
+        throws Exception {
+        URI authorityUri = backdoorUrlToUri(new URL(urlString));
+        assertEquals(expectedUriString, authorityUri.toString());
     }
 
     /**
@@ -2073,7 +2382,8 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
         final AtomicReference<URI> uriReference = new AtomicReference<URI>();
 
         ResponseCache.setDefault(new ResponseCache() {
-            @Override public CacheRequest put(URI uri, URLConnection connection) throws IOException {
+            @Override public CacheRequest put(URI uri, URLConnection connection)
+                    throws IOException {
                 return null;
             }
             @Override public CacheResponse get(URI uri, String requestMethod,
@@ -2090,6 +2400,67 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
         }
 
         return uriReference.get();
+    }
+
+    /*
+     * Test the request that would be made by making an actual request a MockWebServer and capturing
+     * the request made.
+     *
+     * Any "as" values that are null are not tested.
+     */
+    private void testUrlToRequestMapping(
+            String string, String asFile, String asQuery) throws Exception {
+        if (asFile != null) {
+            URL fileUrl = server.getUrl("/file" + string + "/#discarded");
+            HttpURLConnection urlConnection = (HttpURLConnection) fileUrl.openConnection();
+            // Bypass the cache.
+            urlConnection.setUseCaches(false);
+
+            assertEquals(200, urlConnection.getResponseCode());
+            assertEquals("/file" + asFile + "/", server.takeRequest().getPath());
+        }
+        if (asQuery != null) {
+            URL queryUrl = server.getUrl("/file?q" + string + "=x#discarded");
+            HttpURLConnection urlConnection = (HttpURLConnection) queryUrl.openConnection();
+            // Bypass the cache.
+            urlConnection.setUseCaches(false);
+
+            assertEquals(200, urlConnection.getResponseCode());
+            assertEquals("/file?q" + asQuery + "=x", server.takeRequest().getPath());
+        }
+    }
+
+    /*
+     * Test the request that would be made by looking at the URI presented to the cache. This
+     * includes the likely host name that would be used if a request were made. The cache throws an
+     * exception so no request is actually made.
+     *
+     * Any "as" values that are null are not tested.
+     */
+    private void testUrlToUriMapping(String string, String asAuthority, String asFile,
+            String asQuery, String asFragment) throws Exception {
+        if (asAuthority != null) {
+            URI authorityUri = backdoorUrlToUri(new URL("http://host" + string + ".tld/"));
+            assertEquals("http://host" + asAuthority + ".tld/", authorityUri.toString());
+        }
+        if (asFile != null) {
+            URI fileUri = backdoorUrlToUri(new URL("http://host.tld/file" + string + "/"));
+            assertEquals("http://host.tld/file" + asFile + "/", fileUri.toString());
+        }
+        if (asQuery != null) {
+            URI queryUri = backdoorUrlToUri(new URL("http://host.tld/file?q" + string + "=x"));
+            assertEquals("http://host.tld/file?q" + asQuery + "=x", queryUri.toString());
+        }
+        assertEquals("http://host.tld/file#" + asFragment + "-x",
+            backdoorUrlToUri(new URL("http://host.tld/file#" + asFragment + "-x")).toString());
+    }
+
+    public void testHostWithNul() throws Exception {
+        URL url = new URL("http://host\u0000/");
+        try {
+            url.openStream();
+            fail();
+        } catch (UnknownHostException expected) {}
     }
 
     /**
@@ -2331,8 +2702,12 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
         URLConnection urlConnection = new URL("http://and roid.com/")
                 .openConnection(server.toProxyAddress());
 
-        // This test is to check that a NullPointerException is not thrown.
-        urlConnection.getInputStream();
+        try {
+            // This test is to check that a NullPointerException is not thrown.
+            urlConnection.getInputStream();
+            fail(); // the RI makes a bogus proxy request for "GET http://and roid.com/ HTTP/1.1"
+        } catch (UnknownHostException expected) {
+        }
     }
 
     public void testSslFallback_allSupportedProtocols() throws Exception {
@@ -2491,6 +2866,45 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
         } finally {
             connection.disconnect();
         }
+    }
+
+    // http://b/26769689
+    public void testSSLSocketFactoryWithIpv6LiteralHostname() throws Exception {
+        TestSSLContext testSSLContext = TestSSLContext.create();
+        server.useHttps(testSSLContext.serverContext.getSocketFactory(), false);
+        server.enqueue(new MockResponse());
+        server.play();
+
+        final AtomicReference<String> hostNameUsed = new AtomicReference<>(null);
+
+        SSLSocketFactory factory = new DelegatingSSLSocketFactory(
+                testSSLContext.clientContext.getSocketFactory()) {
+            @Override
+            public SSLSocket createSocket(Socket s, String host, int port, boolean autoClose)
+                    throws IOException {
+                hostNameUsed.set(host);
+                return (SSLSocket) delegate.createSocket(s, host, port, autoClose);
+            }
+        };
+
+        HttpsURLConnection urlConnection = (HttpsURLConnection)
+                new URL("https://[" + Inet6Address.getLoopbackAddress().getHostAddress() + "]:"
+                        + server.getPort() + "/").openConnection();
+        urlConnection.setSSLSocketFactory(factory);
+        try {
+            urlConnection.connect();
+            fail();
+        } catch (IOException expected) {
+            // We expect the connection to fail with a cert validation exception because we're
+            // using a literal address.
+        } finally {
+            urlConnection.disconnect();
+        }
+
+        // Note that the square brackets around the literal address were crucial. Whatsapp
+        // wouldn't function properly without them.
+        assertEquals("[" + Inet6Address.getLoopbackAddress().getHostAddress() + "]",
+                hostNameUsed.get());
     }
 
     /**

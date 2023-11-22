@@ -69,5 +69,52 @@
     END \name
 .endm
 
+// Macros to poison (negate) the reference for heap poisoning.
+.macro POISON_HEAP_REF rRef
+#ifdef USE_HEAP_POISONING
+    subu \rRef, $zero, \rRef
+#endif  // USE_HEAP_POISONING
+.endm
+
+// Macros to unpoison (negate) the reference for heap poisoning.
+.macro UNPOISON_HEAP_REF rRef
+#ifdef USE_HEAP_POISONING
+    subu \rRef, $zero, \rRef
+#endif  // USE_HEAP_POISONING
+.endm
+
+// Based on contents of creg select the minimum integer
+// At the end of the macro the original value of creg is lost
+.macro MINint dreg,rreg,sreg,creg
+  .set push
+  .set noat
+  .ifc \dreg, \rreg
+  selnez \dreg, \rreg, \creg
+  seleqz \creg, \sreg, \creg
+  .else
+  seleqz \dreg, \sreg, \creg
+  selnez \creg, \rreg, \creg
+  .endif
+  or     \dreg, \dreg, \creg
+  .set pop
+.endm
+
+// Find minimum of two signed registers
+.macro MINs dreg,rreg,sreg
+  .set push
+  .set noat
+  slt    $at, \rreg, \sreg
+  MINint \dreg, \rreg, \sreg, $at
+  .set pop
+.endm
+
+// Find minimum of two unsigned registers
+.macro MINu dreg,rreg,sreg
+  .set push
+  .set noat
+  sltu   $at, \rreg, \sreg
+  MINint \dreg, \rreg, \sreg, $at
+  .set pop
+.endm
 
 #endif  // ART_RUNTIME_ARCH_MIPS64_ASM_SUPPORT_MIPS64_S_

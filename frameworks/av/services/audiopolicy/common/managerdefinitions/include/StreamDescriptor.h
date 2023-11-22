@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <Volume.h>
+#include "IVolumeCurvesCollection.h"
 #include <utils/KeyedVector.h>
 #include <utils/StrongPointer.h>
 #include <utils/SortedVector.h>
@@ -38,17 +38,22 @@ public:
     int getVolumeIndexMax() const { return mIndexMax; }
     void setVolumeIndexMin(int volIndexMin);
     void setVolumeIndexMax(int volIndexMax);
+    bool hasVolumeIndexForDevice(audio_devices_t device) const
+    {
+        device = Volume::getDeviceForVolume(device);
+        return mIndexCur.indexOfKey(device) >= 0;
+    }
 
     void dump(int fd) const;
 
-    void setVolumeCurvePoint(Volume::device_category deviceCategory, const VolumeCurvePoint *point);
-    const VolumeCurvePoint *getVolumeCurvePoint(Volume::device_category deviceCategory) const
+    void setVolumeCurvePoint(device_category deviceCategory, const VolumeCurvePoint *point);
+    const VolumeCurvePoint *getVolumeCurvePoint(device_category deviceCategory) const
     {
         return mVolumeCurve[deviceCategory];
     }
 
 private:
-    const VolumeCurvePoint *mVolumeCurve[Volume::DEVICE_CATEGORY_CNT];
+    const VolumeCurvePoint *mVolumeCurve[DEVICE_CATEGORY_CNT];
     KeyedVector<audio_devices_t, int> mIndexCur; /**< current volume index per device. */
     int mIndexMin; /**< min volume index. */
     int mIndexMax; /**< max volume index. */
@@ -58,28 +63,48 @@ private:
 /**
  * stream descriptors collection for volume control
  */
-class StreamDescriptorCollection : public DefaultKeyedVector<audio_stream_type_t, StreamDescriptor>
+class StreamDescriptorCollection : public DefaultKeyedVector<audio_stream_type_t, StreamDescriptor>,
+                                   public IVolumeCurvesCollection
 {
 public:
     StreamDescriptorCollection();
 
-    void clearCurrentVolumeIndex(audio_stream_type_t stream);
-    void addCurrentVolumeIndex(audio_stream_type_t stream, audio_devices_t device, int index);
+    virtual void clearCurrentVolumeIndex(audio_stream_type_t stream);
+    virtual void addCurrentVolumeIndex(audio_stream_type_t stream, audio_devices_t device,
+                                       int index);
+    virtual bool canBeMuted(audio_stream_type_t stream);
+    virtual int getVolumeIndexMin(audio_stream_type_t stream) const
+    {
+        return valueFor(stream).getVolumeIndexMin();
+    }
+    virtual int getVolumeIndex(audio_stream_type_t stream, audio_devices_t device)
+    {
+        return valueFor(stream).getVolumeIndex(device);
+    }
+    virtual int getVolumeIndexMax(audio_stream_type_t stream) const
+    {
+        return valueFor(stream).getVolumeIndexMax();
+    }
+    virtual float volIndexToDb(audio_stream_type_t stream, device_category device,
+                               int indexInUi) const;
+    virtual status_t initStreamVolume(audio_stream_type_t stream, int indexMin, int indexMax);
+    virtual void initializeVolumeCurves(bool isSpeakerDrcEnabled);
+    virtual void switchVolumeCurve(audio_stream_type_t streamSrc, audio_stream_type_t streamDst);
+    virtual bool hasVolumeIndexForDevice(audio_stream_type_t stream,
+                                         audio_devices_t device) const
+    {
+        return valueFor(stream).hasVolumeIndexForDevice(device);
+    }
 
-    bool canBeMuted(audio_stream_type_t stream);
+    virtual status_t dump(int fd) const;
 
-    status_t dump(int fd) const;
-
-    void setVolumeCurvePoint(audio_stream_type_t stream,
-                             Volume::device_category deviceCategory,
+private:
+    void setVolumeCurvePoint(audio_stream_type_t stream, device_category deviceCategory,
                              const VolumeCurvePoint *point);
-
     const VolumeCurvePoint *getVolumeCurvePoint(audio_stream_type_t stream,
-                                                Volume::device_category deviceCategory) const;
-
+                                                device_category deviceCategory) const;
     void setVolumeIndexMin(audio_stream_type_t stream,int volIndexMin);
     void setVolumeIndexMax(audio_stream_type_t stream,int volIndexMax);
-
 };
 
 }; // namespace android

@@ -27,7 +27,7 @@ LOCAL_MULTILIB := both
 LOCAL_JAVA_LIBRARIES := voip-common conscrypt org.apache.http.legacy
 
 LOCAL_JNI_SHARED_LIBRARIES := libcts_jni libnativedns_jni \
-                              libnativemultinetwork_jni
+                              libnativemultinetwork_jni libnativehelper_compat_libc++
 
 # include CtsTestServer as a temporary hack to free net.cts from cts.stub.
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
@@ -39,6 +39,9 @@ LOCAL_STATIC_JAVA_LIBRARIES := core-tests-support  ctsdeviceutil \
 
 # uncomment when b/13249961 is fixed
 #LOCAL_SDK_VERSION := current
+
+# Tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
 
 include $(BUILD_CTS_PACKAGE)
 

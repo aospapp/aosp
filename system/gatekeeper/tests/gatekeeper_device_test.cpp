@@ -13,9 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <endian.h>
 #include <gtest/gtest.h>
 #include <hardware/gatekeeper.h>
 #include <gatekeeper/gatekeeper.h> // For password_handle_t
+#include <unistd.h>
 
 using ::testing::Test;
 using ::gatekeeper::password_handle_t;
@@ -49,7 +51,7 @@ public:
     gatekeeper_device_t *device;
 };
 
-TEST_F(GateKeeperDeviceTest, EnrollAndVerify) {
+TEST_F(GateKeeperDeviceTest, EnrollAndVerifyStress) {
     uint32_t password_len = 50;
     uint8_t password_payload[password_len];
     uint8_t *password_handle;
@@ -58,14 +60,88 @@ TEST_F(GateKeeperDeviceTest, EnrollAndVerify) {
     uint32_t auth_token_len;
     int ret;
 
-    ret = device->enroll(device, 0, NULL, 0, NULL, 0,  password_payload, password_len,
+    ret = device->enroll(device, 400, NULL, 0, NULL, 0,  password_payload, password_len,
+            &password_handle, &password_handle_length);
+
+    ASSERT_EQ(0, ret);
+
+    for (int i = 0; i < 1000; i++) {
+        bool should_reenroll;
+        ret = device->verify(device, 400, 0, password_handle, password_handle_length,
+                password_payload, password_len, &auth_token, &auth_token_len, &should_reenroll);
+
+        ASSERT_EQ(0, ret);
+    }
+}
+
+TEST_F(GateKeeperDeviceTest, EnrollAndVerify) {
+    uint32_t password_len = 50;
+    uint8_t password_payload[password_len];
+    uint8_t *password_handle;
+    uint32_t password_handle_length;
+    uint8_t *auth_token;
+    uint32_t auth_token_len;
+    hw_auth_token_t *hat;
+    int ret;
+
+    ret = device->enroll(device, 400, NULL, 0, NULL, 0,  password_payload, password_len,
             &password_handle, &password_handle_length);
 
     ASSERT_EQ(0, ret);
 
     bool should_reenroll;
-    ret = device->verify(device, 0, 0, password_handle, password_handle_length,
+    ret = device->verify(device, 400, 0, password_handle, password_handle_length,
             password_payload, password_len, &auth_token, &auth_token_len, &should_reenroll);
+    ASSERT_EQ(0, should_reenroll);
+    ASSERT_EQ(0, ret);
+
+    hat = reinterpret_cast<hw_auth_token_t *>(auth_token);
+
+    ASSERT_EQ(HW_AUTH_TOKEN_VERSION, hat->version);
+    ASSERT_EQ(htonl(HW_AUTH_PASSWORD), hat->authenticator_type);
+}
+
+TEST_F(GateKeeperDeviceTest, EnrollAndVerifyTimeout) {
+    uint32_t password_len = 50;
+    uint8_t password_payload[password_len];
+    uint8_t *password_handle;
+    uint32_t password_handle_length;
+    uint8_t *auth_token = NULL;
+    uint32_t auth_token_len;
+    bool should_reenroll;
+    int ret;
+
+    ret = device->enroll(device, 400, NULL, 0, NULL, 0,  password_payload, password_len,
+             &password_handle, &password_handle_length);
+
+    ASSERT_EQ(0, ret);
+
+    int payload_val = password_payload[0];
+    password_payload[0] = 4;
+
+    int timeout = 0;
+    for (int i = 0; i < 20; i++) {
+        bool should_reenroll;
+        ret = device->verify(device, 400, 0, password_handle, password_handle_length,
+                password_payload, password_len, &auth_token, &auth_token_len,
+                &should_reenroll);
+        ASSERT_NE(0, ret);
+        ASSERT_EQ(NULL, auth_token);
+
+        if (ret > 0) {
+            timeout = ret;
+        }
+    }
+
+    ASSERT_NE(0, timeout);
+
+    sleep((timeout + 999)/ 1000);
+
+    password_payload[0] = payload_val;
+
+    ret = device->verify(device, 400, 0, password_handle, password_handle_length,
+            password_payload, password_len, &auth_token, &auth_token_len,
+            &should_reenroll);
 
     ASSERT_EQ(0, ret);
 }
@@ -79,7 +155,7 @@ TEST_F(GateKeeperDeviceTest, EnrollAndVerifyBadPassword) {
     uint32_t auth_token_len;
     int ret;
 
-    ret = device->enroll(device, 0, NULL, 0, NULL, 0,  password_payload, password_len,
+    ret = device->enroll(device, 400, NULL, 0, NULL, 0,  password_payload, password_len,
              &password_handle, &password_handle_length);
 
     ASSERT_EQ(0, ret);
@@ -87,12 +163,41 @@ TEST_F(GateKeeperDeviceTest, EnrollAndVerifyBadPassword) {
     password_payload[0] = 4;
 
     bool should_reenroll;
-    ret = device->verify(device, 0, 0, password_handle, password_handle_length,
+    ret = device->verify(device, 400, 0, password_handle, password_handle_length,
             password_payload, password_len, &auth_token, &auth_token_len,
             &should_reenroll);
 
     ASSERT_NE(0, ret);
     ASSERT_EQ(NULL, auth_token);
+}
+
+TEST_F(GateKeeperDeviceTest, MinFailedAttemptsBeforeLockout) {
+    uint32_t password_len = 50;
+    uint8_t password_payload[password_len];
+    uint8_t *password_handle;
+    uint32_t password_handle_length;
+    uint8_t *auth_token = NULL;
+    uint32_t auth_token_len;
+    int ret;
+
+    ret = device->enroll(device, 400, NULL, 0, NULL, 0,  password_payload, password_len,
+             &password_handle, &password_handle_length);
+
+    ASSERT_EQ(0, ret);
+
+    password_payload[0] = 4;
+
+    // User should have at least 4 attempts before being locked out
+    static const int MIN_FAILED_ATTEMPTS = 4;
+
+    bool should_reenroll;
+    for (int i = 0; i < MIN_FAILED_ATTEMPTS; i++) {
+        ret = device->verify(device, 400, 0, password_handle, password_handle_length,
+                password_payload, password_len, &auth_token, &auth_token_len,
+                &should_reenroll);
+        // shoudln't be a timeout
+        ASSERT_LT(ret, 0);
+    }
 }
 
 TEST_F(GateKeeperDeviceTest, UntrustedReEnroll) {
@@ -102,7 +207,7 @@ TEST_F(GateKeeperDeviceTest, UntrustedReEnroll) {
     uint32_t password_handle_length;
     int ret;
 
-    ret = device->enroll(device, 0, NULL, 0, NULL, 0, password_payload, password_len,
+    ret = device->enroll(device, 400, NULL, 0, NULL, 0, password_payload, password_len,
              &password_handle, &password_handle_length);
 
     ASSERT_EQ(0, ret);
@@ -110,7 +215,7 @@ TEST_F(GateKeeperDeviceTest, UntrustedReEnroll) {
     password_handle_t *handle = reinterpret_cast<password_handle_t *>(password_handle);
     secure_id_t sid = handle->user_id;
 
-    ret = device->enroll(device, 0, NULL, 0, NULL, 0, password_payload, password_len,
+    ret = device->enroll(device, 400, NULL, 0, NULL, 0, password_payload, password_len,
             &password_handle, &password_handle_length);
 
     ASSERT_EQ(0, ret);
@@ -126,7 +231,7 @@ TEST_F(GateKeeperDeviceTest, TrustedReEnroll) {
     uint32_t password_handle_length;
     int ret;
 
-    ret = device->enroll(device, 0, NULL, 0, NULL, 0, password_payload, password_len,
+    ret = device->enroll(device, 400, NULL, 0, NULL, 0, password_payload, password_len,
              &password_handle, &password_handle_length);
 
     ASSERT_EQ(0, ret);
@@ -134,7 +239,7 @@ TEST_F(GateKeeperDeviceTest, TrustedReEnroll) {
     password_handle_t *handle = reinterpret_cast<password_handle_t *>(password_handle);
     secure_id_t sid = handle->user_id;
 
-    ret = device->enroll(device, 0, password_handle, password_handle_length, password_payload,
+    ret = device->enroll(device, 400, password_handle, password_handle_length, password_payload,
             password_len, password_payload, password_len, &password_handle, &password_handle_length);
 
     ASSERT_EQ(0, ret);

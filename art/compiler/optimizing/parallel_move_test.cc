@@ -56,7 +56,7 @@ class TestParallelMoveResolverWithSwap : public ParallelMoveResolverWithSwap {
       : ParallelMoveResolverWithSwap(allocator) {}
 
   void EmitMove(size_t index) OVERRIDE {
-    MoveOperands* move = moves_.Get(index);
+    MoveOperands* move = moves_[index];
     if (!message_.str().empty()) {
       message_ << " ";
     }
@@ -68,7 +68,7 @@ class TestParallelMoveResolverWithSwap : public ParallelMoveResolverWithSwap {
   }
 
   void EmitSwap(size_t index) OVERRIDE {
-    MoveOperands* move = moves_.Get(index);
+    MoveOperands* move = moves_[index];
     if (!message_.str().empty()) {
       message_ << " ";
     }
@@ -127,7 +127,7 @@ class TestParallelMoveResolverNoSwap : public ParallelMoveResolverNoSwap {
   void FreeScratchLocation(Location loc ATTRIBUTE_UNUSED) OVERRIDE {}
 
   void EmitMove(size_t index) OVERRIDE {
-    MoveOperands* move = moves_.Get(index);
+    MoveOperands* move = moves_[index];
     if (!message_.str().empty()) {
       message_ << " ";
     }
@@ -604,6 +604,38 @@ TYPED_TEST(ParallelMoveTest, CyclesWith64BitsMoves) {
       ASSERT_STREQ("(2x32(sp) <-> 0,1) (2,3 <-> 2x32(sp))", resolver.GetMessage().c_str());
     } else {
       ASSERT_STREQ("(2x32(sp) -> T0,T1) (2,3 -> 2x32(sp)) (0,1 -> 2,3) (T0,T1 -> 0,1)",
+          resolver.GetMessage().c_str());
+    }
+  }
+}
+
+TYPED_TEST(ParallelMoveTest, CyclesWith64BitsMoves2) {
+  ArenaPool pool;
+  ArenaAllocator allocator(&pool);
+
+  {
+    TypeParam resolver(&allocator);
+    HParallelMove* moves = new (&allocator) HParallelMove(&allocator);
+    moves->AddMove(
+        Location::RegisterLocation(0),
+        Location::RegisterLocation(3),
+        Primitive::kPrimInt,
+        nullptr);
+    moves->AddMove(
+        Location::RegisterPairLocation(2, 3),
+        Location::RegisterPairLocation(0, 1),
+        Primitive::kPrimLong,
+        nullptr);
+    moves->AddMove(
+        Location::RegisterLocation(7),
+        Location::RegisterLocation(2),
+        Primitive::kPrimInt,
+        nullptr);
+    resolver.EmitNativeCode(moves);
+    if (TestFixture::has_swap) {
+      ASSERT_STREQ("(2,3 <-> 0,1) (2 -> 3) (7 -> 2)", resolver.GetMessage().c_str());
+    } else {
+      ASSERT_STREQ("(2,3 -> T0,T1) (0 -> 3) (T0,T1 -> 0,1) (7 -> 2)",
           resolver.GetMessage().c_str());
     }
   }

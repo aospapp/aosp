@@ -317,9 +317,9 @@ RETRY:
   }
   printf("%s: installing new crontab\n", toys.which->name);
   if (parse_crontab(tname)) {
-    snprintf(toybuf, sizeof(toybuf), "errors in crontab file, can't install.\n"
+    fprintf(stderr, "errors in crontab file, can't install.\n"
         "Do you want to retry the same edit? ");
-    if (!yesno(toybuf, 0)) {
+    if (!yesno(0)) {
       error_msg("edits left in '%s'", tname);
       return;
     }
@@ -346,20 +346,15 @@ void crontab_main(void)
 
   if (!toys.optc) {
     if (!FLAG_elr) {
-      if (toys.optflags & FLAG_u) {
-        toys.exithelp++;
-        error_exit("file name must be specified for replace");
-      }
+      if (toys.optflags & FLAG_u) 
+        help_exit("file name must be specified for replace");
       do_replace(pwd->pw_name);
     }
     else if (toys.optflags & FLAG_e) do_edit(pwd);
     else if (toys.optflags & FLAG_l) do_list(pwd->pw_name);
     else if (toys.optflags & FLAG_r) do_remove(pwd->pw_name);
   } else {
-    if (FLAG_elr) {
-      toys.exithelp++;
-      error_exit("no arguments permitted after this option");
-    }
+    if (FLAG_elr) help_exit("no arguments permitted after this option");
     do_replace(pwd->pw_name);
   }
   if (!(toys.optflags & FLAG_c)) free(TT.cdir);

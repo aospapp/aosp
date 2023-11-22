@@ -83,6 +83,17 @@ public class GLSurfaceViewCtsActivity extends Activity {
         mGlVersion = 0;
     }
 
+    private static boolean mFixedSizeSet = false;
+    private static int mFixedWidth, mFixedHeight;
+    public static void setFixedSize(int width, int height) {
+        mFixedSizeSet = true;
+        mFixedWidth = width;
+        mFixedHeight = height;
+    }
+    public static void resetFixedSize() {
+        mFixedSizeSet = false;
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -100,6 +111,9 @@ public class GLSurfaceViewCtsActivity extends Activity {
         // Only set this if explicitly asked for
         if (mRenderModeSet) {
             mView.setRenderMode(mRenderMode);
+        }
+        if (mFixedSizeSet) {
+            mView.getHolder().setFixedSize(mFixedWidth, mFixedHeight);
         }
         this.requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(mView);

@@ -21,6 +21,7 @@ import com.google.android.collect.Sets;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Intent;
+import android.content.pm.ProviderInfo;
 import android.database.Cursor;
 import android.media.tv.TvContract;
 import android.media.tv.TvContract.Channels;
@@ -68,7 +69,10 @@ public class EpgDataCleanupServiceTests extends ServiceTestCase<EpgDataCleanupSe
         mResolver.addProvider(TvContract.AUTHORITY, mProvider);
 
         setContext(new MockTvProviderContext(mResolver, getSystemContext()));
-        mProvider.attachInfoForTesting(getContext(), null);
+
+        final ProviderInfo info = new ProviderInfo();
+        info.authority = TvContract.AUTHORITY;
+        mProvider.attachInfoForTesting(getContext(), info);
 
         startService(new Intent(getContext(), EpgDataCleanupService.class));
     }

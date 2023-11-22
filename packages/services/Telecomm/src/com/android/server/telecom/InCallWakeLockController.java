@@ -18,30 +18,21 @@ package com.android.server.telecom;
 
 import com.android.internal.annotations.VisibleForTesting;
 
-import android.content.Context;
-import android.os.PowerManager;
-
 /**
  * Handles acquisition and release of wake locks relating to call state.
  */
 @VisibleForTesting
 public class InCallWakeLockController extends CallsManagerListenerBase {
 
-    private static final String TAG = "InCallWakeLockContoller";
-
-    private final Context mContext;
-    private final PowerManager.WakeLock mFullWakeLock;
+    private final TelecomWakeLock mTelecomWakeLock;
     private final CallsManager mCallsManager;
 
     @VisibleForTesting
-    public InCallWakeLockController(Context context, CallsManager callsManager) {
-        mContext = context;
+    public InCallWakeLockController(TelecomWakeLock telecomWakeLock, CallsManager callsManager) {
         mCallsManager = callsManager;
 
-        PowerManager powerManager = (PowerManager) mContext.getSystemService(Context.POWER_SERVICE);
-        mFullWakeLock = powerManager.newWakeLock(PowerManager.FULL_WAKE_LOCK, TAG);
-
-        callsManager.addListener(this);
+        mTelecomWakeLock = telecomWakeLock;
+        mTelecomWakeLock.setReferenceCounted(false);
     }
 
     @Override
@@ -63,10 +54,10 @@ public class InCallWakeLockController extends CallsManagerListenerBase {
         // We grab a full lock as long as there exists a ringing call.
         Call ringingCall = mCallsManager.getRingingCall();
         if (ringingCall != null) {
-            mFullWakeLock.acquire();
+            mTelecomWakeLock.acquire();
             Log.i(this, "Acquiring full wake lock");
-        } else if (mFullWakeLock.isHeld()) {
-            mFullWakeLock.release();
+        } else {
+            mTelecomWakeLock.release(0);
             Log.i(this, "Releasing full wake lock");
         }
     }

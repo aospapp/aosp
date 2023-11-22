@@ -48,14 +48,6 @@
  * trivial, inlined template functions which call non-templated functions which are compact but not
  * type-safe, allows the program to have both the type-safety of the templates and the compactness
  * of the non-templated functions, at the same time.
- *
- * For debugging purposes, one additional element of TypedTag and TypedEnumTag can be conditionally
- * compiled in.  If the "KEYMASTER_NAME_TAGS" macro symbol is defined, both classes will have a
- * name() method which returns a string equal to the tame of the tag (e.g. TAG_PURPOSE).  Activating
- * this option means the classes _do_ contain a data member, a pointer to the string, and also
- * causes static data space to be allocated for the strings.  So the run-time cost of these classes
- * is no longer zero.  Note that it can cause problems if KEYMASTER_NAME_TAGS is defined for some
- * compilation units and not others.
  */
 
 #include <hardware/hw_auth_token.h>
@@ -106,11 +98,7 @@ template <keymaster_tag_type_t tag_type, keymaster_tag_t tag> class TypedTag {
   public:
     typedef typename TagValueType<tag_type>::value_type value_type;
 
-#ifdef KEYMASTER_NAME_TAGS
-    inline TypedTag(const char* name) : name_(name) {
-#else
     inline TypedTag() {
-#endif
         // Ensure that it's impossible to create a TypedTag instance whose 'tag' doesn't have type
         // 'tag_type'.  Attempting to instantiate a tag with the wrong type will result in a compile
         // error (no match for template specialization StaticAssert<false>), with no run-time cost.
@@ -118,12 +106,7 @@ template <keymaster_tag_type_t tag_type, keymaster_tag_t tag> class TypedTag {
         StaticAssert<(tag_type != KM_ENUM) && (tag_type != KM_ENUM_REP)>::check();
     }
     inline operator keymaster_tag_t() { return tag; }
-#ifdef KEYMASTER_NAME_TAGS
-    const char* name() { return name_; }
-
-  private:
-    const char* name_;
-#endif
+    inline long masked_tag() { return static_cast<long>(keymaster_tag_mask_type(tag)); }
 };
 
 template <keymaster_tag_type_t tag_type, keymaster_tag_t tag, typename KeymasterEnum>
@@ -131,11 +114,7 @@ class TypedEnumTag {
   public:
     typedef KeymasterEnum value_type;
 
-#ifdef KEYMASTER_NAME_TAGS
-    inline TypedEnumTag(const char* name) : name_(name) {
-#else
     inline TypedEnumTag() {
-#endif
         // Ensure that it's impossible to create a TypedTag instance whose 'tag' doesn't have type
         // 'tag_type'.  Attempting to instantiate a tag with the wrong type will result in a compile
         // error (no match for template specialization StaticAssert<false>), with no run-time cost.
@@ -143,67 +122,68 @@ class TypedEnumTag {
         StaticAssert<(tag_type == KM_ENUM) || (tag_type == KM_ENUM_REP)>::check();
     }
     inline operator keymaster_tag_t() { return tag; }
-#ifdef KEYMASTER_NAME_TAGS
-    const char* name() { return name_; }
-
-  private:
-    const char* name_;
-#endif
+    inline long masked_tag() { return static_cast<long>(keymaster_tag_mask_type(tag)); }
 };
 
-// DEFINE_KEYMASTER_TAG is used to create TypedTag instances for each non-enum keymaster tag.
 #ifdef KEYMASTER_NAME_TAGS
-#define DEFINE_KEYMASTER_TAG(type, name) static TypedTag<type, KM_##name> name(#name)
-#else
-#define DEFINE_KEYMASTER_TAG(type, name) static TypedTag<type, KM_##name> name
+const char* StringifyTag(keymaster_tag_t tag);
 #endif
 
-DEFINE_KEYMASTER_TAG(KM_INVALID, TAG_INVALID);
-DEFINE_KEYMASTER_TAG(KM_UINT, TAG_KEY_SIZE);
-DEFINE_KEYMASTER_TAG(KM_UINT, TAG_MAC_LENGTH);
-DEFINE_KEYMASTER_TAG(KM_BOOL, TAG_CALLER_NONCE);
-DEFINE_KEYMASTER_TAG(KM_UINT, TAG_MIN_MAC_LENGTH);
-DEFINE_KEYMASTER_TAG(KM_ULONG, TAG_RSA_PUBLIC_EXPONENT);
-DEFINE_KEYMASTER_TAG(KM_DATE, TAG_ACTIVE_DATETIME);
-DEFINE_KEYMASTER_TAG(KM_DATE, TAG_ORIGINATION_EXPIRE_DATETIME);
-DEFINE_KEYMASTER_TAG(KM_DATE, TAG_USAGE_EXPIRE_DATETIME);
-DEFINE_KEYMASTER_TAG(KM_UINT, TAG_MIN_SECONDS_BETWEEN_OPS);
-DEFINE_KEYMASTER_TAG(KM_UINT, TAG_MAX_USES_PER_BOOT);
-DEFINE_KEYMASTER_TAG(KM_BOOL, TAG_ALL_USERS);
-DEFINE_KEYMASTER_TAG(KM_UINT, TAG_USER_ID);
-DEFINE_KEYMASTER_TAG(KM_ULONG_REP, TAG_USER_SECURE_ID);
-DEFINE_KEYMASTER_TAG(KM_BOOL, TAG_NO_AUTH_REQUIRED);
-DEFINE_KEYMASTER_TAG(KM_UINT, TAG_AUTH_TIMEOUT);
-DEFINE_KEYMASTER_TAG(KM_BOOL, TAG_ALL_APPLICATIONS);
-DEFINE_KEYMASTER_TAG(KM_BYTES, TAG_APPLICATION_ID);
-DEFINE_KEYMASTER_TAG(KM_BYTES, TAG_APPLICATION_DATA);
-DEFINE_KEYMASTER_TAG(KM_DATE, TAG_CREATION_DATETIME);
-DEFINE_KEYMASTER_TAG(KM_BOOL, TAG_ROLLBACK_RESISTANT);
-DEFINE_KEYMASTER_TAG(KM_BYTES, TAG_ROOT_OF_TRUST);
-DEFINE_KEYMASTER_TAG(KM_BYTES, TAG_ASSOCIATED_DATA);
-DEFINE_KEYMASTER_TAG(KM_BYTES, TAG_NONCE);
-DEFINE_KEYMASTER_TAG(KM_BYTES, TAG_AUTH_TOKEN);
-DEFINE_KEYMASTER_TAG(KM_BOOL, TAG_BOOTLOADER_ONLY);
+// DECLARE_KEYMASTER_TAG is used to declare TypedTag instances for each non-enum keymaster tag.
+#define DECLARE_KEYMASTER_TAG(type, name) extern TypedTag<type, KM_##name> name
 
-#ifdef KEYMASTER_NAME_TAGS
-#define DEFINE_KEYMASTER_ENUM_TAG(type, name, enumtype)                                            \
-    static TypedEnumTag<type, KM_##name, enumtype> name(#name)
-#else
-#define DEFINE_KEYMASTER_ENUM_TAG(type, name, enumtype)                                            \
-    static TypedEnumTag<type, KM_##name, enumtype> name
-#endif
+DECLARE_KEYMASTER_TAG(KM_INVALID, TAG_INVALID);
+DECLARE_KEYMASTER_TAG(KM_UINT, TAG_KEY_SIZE);
+DECLARE_KEYMASTER_TAG(KM_UINT, TAG_MAC_LENGTH);
+DECLARE_KEYMASTER_TAG(KM_BOOL, TAG_CALLER_NONCE);
+DECLARE_KEYMASTER_TAG(KM_UINT, TAG_MIN_MAC_LENGTH);
+DECLARE_KEYMASTER_TAG(KM_ULONG, TAG_RSA_PUBLIC_EXPONENT);
+DECLARE_KEYMASTER_TAG(KM_BOOL, TAG_ECIES_SINGLE_HASH_MODE);
+DECLARE_KEYMASTER_TAG(KM_BOOL, TAG_INCLUDE_UNIQUE_ID);
+DECLARE_KEYMASTER_TAG(KM_DATE, TAG_ACTIVE_DATETIME);
+DECLARE_KEYMASTER_TAG(KM_DATE, TAG_ORIGINATION_EXPIRE_DATETIME);
+DECLARE_KEYMASTER_TAG(KM_DATE, TAG_USAGE_EXPIRE_DATETIME);
+DECLARE_KEYMASTER_TAG(KM_UINT, TAG_MIN_SECONDS_BETWEEN_OPS);
+DECLARE_KEYMASTER_TAG(KM_UINT, TAG_MAX_USES_PER_BOOT);
+DECLARE_KEYMASTER_TAG(KM_BOOL, TAG_ALL_USERS);
+DECLARE_KEYMASTER_TAG(KM_UINT, TAG_USER_ID);
+DECLARE_KEYMASTER_TAG(KM_ULONG_REP, TAG_USER_SECURE_ID);
+DECLARE_KEYMASTER_TAG(KM_BOOL, TAG_NO_AUTH_REQUIRED);
+DECLARE_KEYMASTER_TAG(KM_UINT, TAG_AUTH_TIMEOUT);
+DECLARE_KEYMASTER_TAG(KM_BOOL, TAG_ALLOW_WHILE_ON_BODY);
+DECLARE_KEYMASTER_TAG(KM_BOOL, TAG_ALL_APPLICATIONS);
+DECLARE_KEYMASTER_TAG(KM_BYTES, TAG_APPLICATION_ID);
+DECLARE_KEYMASTER_TAG(KM_BYTES, TAG_APPLICATION_DATA);
+DECLARE_KEYMASTER_TAG(KM_DATE, TAG_CREATION_DATETIME);
+DECLARE_KEYMASTER_TAG(KM_BOOL, TAG_ROLLBACK_RESISTANT);
+DECLARE_KEYMASTER_TAG(KM_BYTES, TAG_ROOT_OF_TRUST);
+DECLARE_KEYMASTER_TAG(KM_BYTES, TAG_ASSOCIATED_DATA);
+DECLARE_KEYMASTER_TAG(KM_BYTES, TAG_NONCE);
+DECLARE_KEYMASTER_TAG(KM_BYTES, TAG_AUTH_TOKEN);
+DECLARE_KEYMASTER_TAG(KM_BOOL, TAG_BOOTLOADER_ONLY);
+DECLARE_KEYMASTER_TAG(KM_UINT, TAG_OS_VERSION);
+DECLARE_KEYMASTER_TAG(KM_UINT, TAG_OS_PATCHLEVEL);
+DECLARE_KEYMASTER_TAG(KM_BYTES, TAG_UNIQUE_ID);
+DECLARE_KEYMASTER_TAG(KM_BYTES, TAG_ATTESTATION_CHALLENGE);
+DECLARE_KEYMASTER_TAG(KM_BOOL, TAG_RESET_SINCE_ID_ROTATION);
 
-DEFINE_KEYMASTER_ENUM_TAG(KM_ENUM_REP, TAG_PURPOSE, keymaster_purpose_t);
-DEFINE_KEYMASTER_ENUM_TAG(KM_ENUM, TAG_ALGORITHM, keymaster_algorithm_t);
-DEFINE_KEYMASTER_ENUM_TAG(KM_ENUM_REP, TAG_BLOCK_MODE, keymaster_block_mode_t);
-DEFINE_KEYMASTER_ENUM_TAG(KM_ENUM_REP, TAG_DIGEST, keymaster_digest_t);
-DEFINE_KEYMASTER_ENUM_TAG(KM_ENUM, TAG_DIGEST_OLD, keymaster_digest_t);
-DEFINE_KEYMASTER_ENUM_TAG(KM_ENUM_REP, TAG_PADDING, keymaster_padding_t);
-DEFINE_KEYMASTER_ENUM_TAG(KM_ENUM, TAG_PADDING_OLD, keymaster_padding_t);
-DEFINE_KEYMASTER_ENUM_TAG(KM_ENUM, TAG_BLOB_USAGE_REQUIREMENTS,
-                          keymaster_key_blob_usage_requirements_t);
-DEFINE_KEYMASTER_ENUM_TAG(KM_ENUM, TAG_ORIGIN, keymaster_key_origin_t);
-DEFINE_KEYMASTER_ENUM_TAG(KM_ENUM, TAG_USER_AUTH_TYPE, hw_authenticator_type_t);
+// DECLARE_KEYMASTER_ENUM_TAG is used to declare TypedEnumTag instances for each enum keymaster tag.
+#define DECLARE_KEYMASTER_ENUM_TAG(type, name, enumtype)                                           \
+    extern TypedEnumTag<type, KM_##name, enumtype> name
+
+DECLARE_KEYMASTER_ENUM_TAG(KM_ENUM_REP, TAG_PURPOSE, keymaster_purpose_t);
+DECLARE_KEYMASTER_ENUM_TAG(KM_ENUM, TAG_ALGORITHM, keymaster_algorithm_t);
+DECLARE_KEYMASTER_ENUM_TAG(KM_ENUM_REP, TAG_BLOCK_MODE, keymaster_block_mode_t);
+DECLARE_KEYMASTER_ENUM_TAG(KM_ENUM_REP, TAG_DIGEST, keymaster_digest_t);
+DECLARE_KEYMASTER_ENUM_TAG(KM_ENUM, TAG_DIGEST_OLD, keymaster_digest_t);
+DECLARE_KEYMASTER_ENUM_TAG(KM_ENUM_REP, TAG_PADDING, keymaster_padding_t);
+DECLARE_KEYMASTER_ENUM_TAG(KM_ENUM, TAG_PADDING_OLD, keymaster_padding_t);
+DECLARE_KEYMASTER_ENUM_TAG(KM_ENUM, TAG_BLOB_USAGE_REQUIREMENTS,
+                           keymaster_key_blob_usage_requirements_t);
+DECLARE_KEYMASTER_ENUM_TAG(KM_ENUM, TAG_ORIGIN, keymaster_key_origin_t);
+DECLARE_KEYMASTER_ENUM_TAG(KM_ENUM, TAG_USER_AUTH_TYPE, hw_authenticator_type_t);
+DECLARE_KEYMASTER_ENUM_TAG(KM_ENUM_REP, TAG_KDF, keymaster_kdf_t);
+DECLARE_KEYMASTER_ENUM_TAG(KM_ENUM, TAG_EC_CURVE, keymaster_ec_curve_t);
 
 //
 // Overloaded function "Authorization" to create keymaster_key_param_t objects for all of tags.

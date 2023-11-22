@@ -18,10 +18,14 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := \
+    BitUtils.cpp \
     InputHub.cpp \
     InputDevice.cpp \
     InputDeviceManager.cpp \
-    InputHost.cpp
+    InputHost.cpp \
+    InputMapper.cpp \
+    MouseInputMapper.cpp \
+    SwitchInputMapper.cpp
 
 LOCAL_SHARED_LIBRARIES := \
     libhardware_legacy \

@@ -37,5 +37,12 @@
     <string name="dialer_default_class" translatable="false">com.android.dialer.DialtactsActivity</string>
 
     <!-- Flag indicating if the tty is enabled -->
-    <bool name="tty_enabled">false</bool>
+    <bool name="tty_enabled">true</bool>
+
+    <!-- Component name for the notification handler. The presence of this value will disable
+         MissedCallNotifierImpl's presentation of missed call/voice notifications [DO NOT TRANSLATE] -->
+    <string name="notification_component" translatable="false"></string>
+
+    <!-- Flag indicating whether audio should be routed to speaker when docked -->
+    <bool name="use_speaker_when_docked">true</bool>
 </resources>

@@ -2216,6 +2216,21 @@ void GLES2SharingRandomTest::init (void)
 	for (int operationNdx = 0; operationNdx < m_config.operationCount; operationNdx++)
 		addRandomOperation(resourceManager);
 
+	{
+		int threadNdx  = 0;
+
+		// Destroy images
+		// \note Android reference counts EGLDisplays so we can't trust the eglTerminate() to clean up resources
+		while (resourceManager.getImageCount() > 0)
+		{
+			const SharedPtr<GLES2ThreadTest::EGLImage> image = resourceManager.popImage(0);
+
+			m_threads[threadNdx]->addOperation(new GLES2ThreadTest::DestroyImage(image, m_config.useFenceSync, m_config.serverSync));
+
+			threadNdx = (threadNdx + 1) % m_config.threadCount;
+		}
+	}
+
 	// Release contexts
 	for (int threadNdx = 0; threadNdx < m_config.threadCount; threadNdx++)
 	{
@@ -2258,7 +2273,7 @@ void GLES2SharingRandomTest::deinit (void)
 
 void GLES2SharingRandomTest::addRandomOperation (GLES2ThreadTest::EGLResourceManager& resourceManager)
 {
-	int threadNdx	= m_random.getUint32() % m_threads.size();
+	int threadNdx	= m_random.getUint32() % (deUint32)m_threads.size();
 
 	std::vector<OperationId>	operations;
 	std::vector<float>			weights;

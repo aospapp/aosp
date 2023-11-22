@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -g -emit-llvm -triple x86_64-apple-darwin -o - %s | FileCheck %s
+// RUN: %clang_cc1 -debug-info-kind=limited -emit-llvm -triple x86_64-apple-darwin -o - %s | FileCheck %s
 // Check that we emit the correct method names for properties from a protocol.
 // rdar://problem/13798000
 @protocol NSObject
@@ -11,16 +11,16 @@
 
 @protocol HasASelection <NSObject>
 @property (nonatomic, retain) Selection* selection;
-// CHECK: !MDSubprogram(name: "-[MyClass selection]"
+// CHECK: !DISubprogram(name: "-[MyClass selection]"
 // CHECK-SAME:          line: [[@LINE-2]]
 // CHECK-SAME:          isLocal: true, isDefinition: true
-// CHECK: !MDSubprogram(name: "-[MyClass setSelection:]"
+// CHECK: !DISubprogram(name: "-[MyClass setSelection:]"
 // CHECK-SAME:          line: [[@LINE-5]]
 // CHECK-SAME:          isLocal: true, isDefinition: true
-// CHECK: !MDSubprogram(name: "-[OtherClass selection]"
+// CHECK: !DISubprogram(name: "-[OtherClass selection]"
 // CHECK-SAME:          line: [[@LINE-8]]
 // CHECK-SAME:          isLocal: true, isDefinition: true
-// CHECK: !MDSubprogram(name: "-[OtherClass setSelection:]"
+// CHECK: !DISubprogram(name: "-[OtherClass setSelection:]"
 // CHECK-SAME:          line: [[@LINE-11]]
 // CHECK-SAME:          isLocal: true, isDefinition: true
 

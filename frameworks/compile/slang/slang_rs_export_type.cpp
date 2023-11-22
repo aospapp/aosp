@@ -41,49 +41,61 @@ namespace slang {
 
 namespace {
 
-/* For the data types we support, their category, names, and size (in bits).
- *
- * IMPORTANT: The data types in this table should be at the same index
- * as specified by the corresponding DataType enum.
- */
+// For the data types we support:
+//  Category      - data type category
+//  SName         - "common name" in script (C99)
+//  RsType        - element name in RenderScript
+//  RsShortType   - short element name in RenderScript
+//  SizeInBits    - size in bits
+//  CName         - reflected C name
+//  JavaName      - reflected Java name
+//  JavaArrayElementName - reflected name in Java arrays
+//  CVecName      - prefix for C vector types
+//  JavaVecName   - prefix for Java vector type
+//  JavaPromotion - unsigned type undergoing Java promotion
+//
+// IMPORTANT: The data types in this table should be at the same index as
+// specified by the corresponding DataType enum.
+//
+// TODO: Pull this information out into a separate file.
 static RSReflectionType gReflectionTypes[] = {
-    {PrimitiveDataType, "FLOAT_16", "F16", 16, "half", "short", "Half", "Half", false},
-    {PrimitiveDataType, "FLOAT_32", "F32", 32, "float", "float", "Float", "Float", false},
-    {PrimitiveDataType, "FLOAT_64", "F64", 64, "double", "double", "Double", "Double",false},
-    {PrimitiveDataType, "SIGNED_8", "I8", 8, "int8_t", "byte", "Byte", "Byte", false},
-    {PrimitiveDataType, "SIGNED_16", "I16", 16, "int16_t", "short", "Short", "Short", false},
-    {PrimitiveDataType, "SIGNED_32", "I32", 32, "int32_t", "int", "Int", "Int", false},
-    {PrimitiveDataType, "SIGNED_64", "I64", 64, "int64_t", "long", "Long", "Long", false},
-    {PrimitiveDataType, "UNSIGNED_8", "U8", 8, "uint8_t", "short", "UByte", "Short", true},
-    {PrimitiveDataType, "UNSIGNED_16", "U16", 16, "uint16_t", "int", "UShort", "Int", true},
-    {PrimitiveDataType, "UNSIGNED_32", "U32", 32, "uint32_t", "long", "UInt", "Long", true},
-    {PrimitiveDataType, "UNSIGNED_64", "U64", 64, "uint64_t", "long", "ULong", "Long", false},
+#define _ nullptr
+  //      Category     SName              RsType       RsST           CName         JN      JAEN       CVN       JVN     JP
+{PrimitiveDataType,   "half",         "FLOAT_16",     "F16", 16,     "half",   "short",  "short",   "Half",  "Short", false},
+{PrimitiveDataType,  "float",         "FLOAT_32",     "F32", 32,    "float",   "float",  "float",  "Float",  "Float", false},
+{PrimitiveDataType, "double",         "FLOAT_64",     "F64", 64,   "double",  "double", "double", "Double", "Double", false},
+{PrimitiveDataType,   "char",         "SIGNED_8",      "I8",  8,   "int8_t",    "byte",   "byte",   "Byte",   "Byte", false},
+{PrimitiveDataType,  "short",        "SIGNED_16",     "I16", 16,  "int16_t",   "short",  "short",  "Short",  "Short", false},
+{PrimitiveDataType,    "int",        "SIGNED_32",     "I32", 32,  "int32_t",     "int",    "int",    "Int",    "Int", false},
+{PrimitiveDataType,   "long",        "SIGNED_64",     "I64", 64,  "int64_t",    "long",   "long",   "Long",   "Long", false},
+{PrimitiveDataType,  "uchar",       "UNSIGNED_8",      "U8",  8,  "uint8_t",   "short",   "byte",  "UByte",  "Short",  true},
+{PrimitiveDataType, "ushort",      "UNSIGNED_16",     "U16", 16, "uint16_t",     "int",  "short", "UShort",    "Int",  true},
+{PrimitiveDataType,   "uint",      "UNSIGNED_32",     "U32", 32, "uint32_t",    "long",    "int",   "UInt",   "Long",  true},
+{PrimitiveDataType,  "ulong",      "UNSIGNED_64",     "U64", 64, "uint64_t",    "long",   "long",  "ULong",   "Long", false},
+{PrimitiveDataType,   "bool",          "BOOLEAN", "BOOLEAN",  8,     "bool", "boolean",   "byte",        _,        _, false},
+{PrimitiveDataType,        _,   "UNSIGNED_5_6_5",         _, 16,          _,         _,        _,        _,        _, false},
+{PrimitiveDataType,        _, "UNSIGNED_5_5_5_1",         _, 16,          _,         _,        _,        _,        _, false},
+{PrimitiveDataType,        _, "UNSIGNED_4_4_4_4",         _, 16,          _,         _,        _,        _,        _, false},
 
-    {PrimitiveDataType, "BOOLEAN", "BOOLEAN", 8, "bool", "boolean", nullptr, nullptr, false},
+{MatrixDataType, "rs_matrix2x2", "MATRIX_2X2", _,  4*32, "rs_matrix2x2", "Matrix2f", _, _, _, false},
+{MatrixDataType, "rs_matrix3x3", "MATRIX_3X3", _,  9*32, "rs_matrix3x3", "Matrix3f", _, _, _, false},
+{MatrixDataType, "rs_matrix4x4", "MATRIX_4X4", _, 16*32, "rs_matrix4x4", "Matrix4f", _, _, _, false},
 
-    {PrimitiveDataType, "UNSIGNED_5_6_5", nullptr, 16, nullptr, nullptr, nullptr, nullptr, false},
-    {PrimitiveDataType, "UNSIGNED_5_5_5_1", nullptr, 16, nullptr, nullptr, nullptr, nullptr, false},
-    {PrimitiveDataType, "UNSIGNED_4_4_4_4", nullptr, 16, nullptr, nullptr, nullptr, nullptr, false},
-
-    {MatrixDataType, "MATRIX_2X2", nullptr, 4*32, "rsMatrix_2x2", "Matrix2f", nullptr, nullptr, false},
-    {MatrixDataType, "MATRIX_3X3", nullptr, 9*32, "rsMatrix_3x3", "Matrix3f", nullptr, nullptr, false},
-    {MatrixDataType, "MATRIX_4X4", nullptr, 16*32, "rsMatrix_4x4", "Matrix4f", nullptr, nullptr, false},
-
-    // RS object types are 32 bits in 32-bit RS, but 256 bits in 64-bit RS.
-    // This is handled specially by the GetSizeInBits() method.
-    {ObjectDataType, "RS_ELEMENT", "ELEMENT", 32, "Element", "Element", nullptr, nullptr, false},
-    {ObjectDataType, "RS_TYPE", "TYPE", 32, "Type", "Type", nullptr, nullptr, false},
-    {ObjectDataType, "RS_ALLOCATION", "ALLOCATION", 32, "Allocation", "Allocation", nullptr, nullptr, false},
-    {ObjectDataType, "RS_SAMPLER", "SAMPLER", 32, "Sampler", "Sampler", nullptr, nullptr, false},
-    {ObjectDataType, "RS_SCRIPT", "SCRIPT", 32, "Script", "Script", nullptr, nullptr, false},
-    {ObjectDataType, "RS_MESH", "MESH", 32, "Mesh", "Mesh", nullptr, nullptr, false},
-    {ObjectDataType, "RS_PATH", "PATH", 32, "Path", "Path", nullptr, nullptr, false},
-
-    {ObjectDataType, "RS_PROGRAM_FRAGMENT", "PROGRAM_FRAGMENT", 32, "ProgramFragment", "ProgramFragment", nullptr, nullptr, false},
-    {ObjectDataType, "RS_PROGRAM_VERTEX", "PROGRAM_VERTEX", 32, "ProgramVertex", "ProgramVertex", nullptr, nullptr, false},
-    {ObjectDataType, "RS_PROGRAM_RASTER", "PROGRAM_RASTER", 32, "ProgramRaster", "ProgramRaster", nullptr, nullptr, false},
-    {ObjectDataType, "RS_PROGRAM_STORE", "PROGRAM_STORE", 32, "ProgramStore", "ProgramStore", nullptr, nullptr, false},
-    {ObjectDataType, "RS_FONT", "FONT", 32, "Font", "Font", nullptr, nullptr, false}
+// RS object types are 32 bits in 32-bit RS, but 256 bits in 64-bit RS.
+// This is handled specially by the GetElementSizeInBits() method.
+{ObjectDataType, _,          "RS_ELEMENT",          "ELEMENT", 32,         "Element",         "Element", _, _, _, false},
+{ObjectDataType, _,             "RS_TYPE",             "TYPE", 32,            "Type",            "Type", _, _, _, false},
+{ObjectDataType, _,       "RS_ALLOCATION",       "ALLOCATION", 32,      "Allocation",      "Allocation", _, _, _, false},
+{ObjectDataType, _,          "RS_SAMPLER",          "SAMPLER", 32,         "Sampler",         "Sampler", _, _, _, false},
+{ObjectDataType, _,           "RS_SCRIPT",           "SCRIPT", 32,          "Script",          "Script", _, _, _, false},
+{ObjectDataType, _,             "RS_MESH",             "MESH", 32,            "Mesh",            "Mesh", _, _, _, false},
+{ObjectDataType, _,             "RS_PATH",             "PATH", 32,            "Path",            "Path", _, _, _, false},
+{ObjectDataType, _, "RS_PROGRAM_FRAGMENT", "PROGRAM_FRAGMENT", 32, "ProgramFragment", "ProgramFragment", _, _, _, false},
+{ObjectDataType, _,   "RS_PROGRAM_VERTEX",   "PROGRAM_VERTEX", 32,   "ProgramVertex",   "ProgramVertex", _, _, _, false},
+{ObjectDataType, _,   "RS_PROGRAM_RASTER",   "PROGRAM_RASTER", 32,   "ProgramRaster",   "ProgramRaster", _, _, _, false},
+{ObjectDataType, _,    "RS_PROGRAM_STORE",    "PROGRAM_STORE", 32,    "ProgramStore",    "ProgramStore", _, _, _, false},
+{ObjectDataType, _,             "RS_FONT",             "FONT", 32,            "Font",            "Font", _, _, _, false},
+#undef _
 };
 
 const int kMaxVectorSize = 4;
@@ -170,7 +182,8 @@ static const clang::Type *TypeExportableHelper(
     llvm::SmallPtrSet<const clang::Type*, 8>& SPS,
     slang::RSContext *Context,
     const clang::VarDecl *VD,
-    const clang::RecordDecl *TopLevelRecord);
+    const clang::RecordDecl *TopLevelRecord,
+    ExportKind EK);
 
 template <unsigned N>
 static void ReportTypeError(slang::RSContext *Context,
@@ -197,7 +210,8 @@ static const clang::Type *ConstantArrayTypeExportableHelper(
     llvm::SmallPtrSet<const clang::Type*, 8>& SPS,
     slang::RSContext *Context,
     const clang::VarDecl *VD,
-    const clang::RecordDecl *TopLevelRecord) {
+    const clang::RecordDecl *TopLevelRecord,
+    ExportKind EK) {
   // Check element type
   const clang::Type *ElementType = GetConstantArrayElementType(CAT);
   if (ElementType->isArrayType()) {
@@ -224,7 +238,7 @@ static const clang::Type *ConstantArrayTypeExportableHelper(
   }
 
   if (TypeExportableHelper(ElementType, SPS, Context, VD,
-                           TopLevelRecord) == nullptr) {
+                           TopLevelRecord, EK) == nullptr) {
     return nullptr;
   } else {
     return CAT;
@@ -245,7 +259,8 @@ static const clang::Type *TypeExportableHelper(
     llvm::SmallPtrSet<clang::Type const *, 8> &SPS,
     slang::RSContext *Context,
     clang::VarDecl const *VD,
-    clang::RecordDecl const *TopLevelRecord) {
+    clang::RecordDecl const *TopLevelRecord,
+    ExportKind EK) {
   // Normalize first
   if ((T = GetCanonicalType(T)) == nullptr)
     return nullptr;
@@ -310,7 +325,8 @@ static const clang::Type *TypeExportableHelper(
         const clang::Type *FT = RSExportType::GetTypeOfDecl(FD);
         FT = GetCanonicalType(FT);
 
-        if (!TypeExportableHelper(FT, SPS, Context, VD, TopLevelRecord)) {
+        if (!TypeExportableHelper(FT, SPS, Context, VD, TopLevelRecord,
+                                  EK)) {
           return nullptr;
         }
 
@@ -328,6 +344,10 @@ static const clang::Type *TypeExportableHelper(
 
       return T;
     }
+    case clang::Type::FunctionProto:
+      ReportTypeError(Context, VD, TopLevelRecord,
+                      "function types cannot be exported: '%0'");
+      return nullptr;
     case clang::Type::Pointer: {
       if (TopLevelRecord) {
         ReportTypeError(Context, VD, TopLevelRecord,
@@ -345,11 +365,20 @@ static const clang::Type *TypeExportableHelper(
             "multiple levels of pointers cannot be exported: '%0'");
         return nullptr;
       }
+
+      // Void pointers are forbidden for export, although we must accept
+      // void pointers that come in as arguments to a legacy kernel.
+      if (PointeeType->isVoidType() && EK != LegacyKernelArgument) {
+        ReportTypeError(Context, VD, TopLevelRecord,
+            "void pointers cannot be exported: '%0'");
+        return nullptr;
+      }
+
       // We don't support pointer with array-type pointee or unsupported pointee
       // type
       if (PointeeType->isArrayType() ||
           (TypeExportableHelper(PointeeType, SPS, Context, VD,
-                                TopLevelRecord) == nullptr))
+                                TopLevelRecord, EK) == nullptr))
         return nullptr;
       else
         return T;
@@ -366,7 +395,7 @@ static const clang::Type *TypeExportableHelper(
 
       if ((ElementType->getTypeClass() != clang::Type::Builtin) ||
           (TypeExportableHelper(ElementType, SPS, Context, VD,
-                                TopLevelRecord) == nullptr))
+                                TopLevelRecord, EK) == nullptr))
         return nullptr;
       else
         return T;
@@ -376,7 +405,7 @@ static const clang::Type *TypeExportableHelper(
               static_cast<const clang::ConstantArrayType*>(CTI);
 
       return ConstantArrayTypeExportableHelper(CAT, SPS, Context, VD,
-                                               TopLevelRecord);
+                                               TopLevelRecord, EK);
     }
     case clang::Type::Enum: {
       // FIXME: We currently convert enums to integers, rather than reflecting
@@ -400,15 +429,16 @@ static const clang::Type *TypeExportableHelper(
 // (mostly pointers within a struct).
 static const clang::Type *TypeExportable(const clang::Type *T,
                                          slang::RSContext *Context,
-                                         const clang::VarDecl *VD) {
+                                         const clang::VarDecl *VD,
+                                         ExportKind EK) {
   llvm::SmallPtrSet<const clang::Type*, 8> SPS =
       llvm::SmallPtrSet<const clang::Type*, 8>();
 
-  return TypeExportableHelper(T, SPS, Context, VD, nullptr);
+  return TypeExportableHelper(T, SPS, Context, VD, nullptr, EK);
 }
 
 static bool ValidateRSObjectInVarDecl(slang::RSContext *Context,
-                                      clang::VarDecl *VD, bool InCompositeType,
+                                      const clang::VarDecl *VD, bool InCompositeType,
                                       unsigned int TargetAPI) {
   if (TargetAPI < SLANG_JB_TARGET_API) {
     // Only if we are already in a composite type (like an array or structure).
@@ -452,7 +482,7 @@ static bool ValidateTypeHelper(
     slang::RSContext *Context,
     clang::ASTContext &C,
     const clang::Type *&T,
-    clang::NamedDecl *ND,
+    const clang::NamedDecl *ND,
     clang::SourceLocation Loc,
     llvm::SmallPtrSet<const clang::Type*, 8>& SPS,
     bool InCompositeType,
@@ -471,7 +501,7 @@ static bool ValidateTypeHelper(
   switch (T->getTypeClass()) {
     case clang::Type::Record: {
       if (RSExportPrimitiveType::IsRSObjectType(T)) {
-        clang::VarDecl *VD = (ND ? llvm::dyn_cast<clang::VarDecl>(ND) : nullptr);
+        const clang::VarDecl *VD = (ND ? llvm::dyn_cast<clang::VarDecl>(ND) : nullptr);
         if (VD && !ValidateRSObjectInVarDecl(Context, VD, InCompositeType,
                                              TargetAPI)) {
           return false;
@@ -648,8 +678,9 @@ std::string CreateDummyName(const char *type, const std::string &name) {
 bool RSExportType::NormalizeType(const clang::Type *&T,
                                  llvm::StringRef &TypeName,
                                  RSContext *Context,
-                                 const clang::VarDecl *VD) {
-  if ((T = TypeExportable(T, Context, VD)) == nullptr) {
+                                 const clang::VarDecl *VD,
+                                 ExportKind EK) {
+  if ((T = TypeExportable(T, Context, VD, EK)) == nullptr) {
     return false;
   }
   // Get type name
@@ -668,7 +699,7 @@ bool RSExportType::NormalizeType(const clang::Type *&T,
 }
 
 bool RSExportType::ValidateType(slang::RSContext *Context, clang::ASTContext &C,
-                                clang::QualType QT, clang::NamedDecl *ND,
+                                clang::QualType QT, const clang::NamedDecl *ND,
                                 clang::SourceLocation Loc,
                                 unsigned int TargetAPI, bool IsFilterscript,
                                 bool IsExtern) {
@@ -680,7 +711,7 @@ bool RSExportType::ValidateType(slang::RSContext *Context, clang::ASTContext &C,
   // type is able to be exported first.
   if (auto VD = llvm::dyn_cast_or_null<clang::VarDecl>(ND)) {
     if (VD->getFormalLinkage() == clang::ExternalLinkage) {
-      if (!TypeExportable(T, Context, VD)) {
+      if (!TypeExportable(T, Context, VD, NotLegacyKernelArgument)) {
         return false;
       }
     }
@@ -762,7 +793,8 @@ llvm::StringRef RSExportType::GetTypeName(const clang::Type* T) {
       const clang::PointerType *P = static_cast<const clang::PointerType*>(CTI);
       const clang::Type *PT = GetPointeeType(P);
       llvm::StringRef PointeeName;
-      if (NormalizeType(PT, PointeeName, nullptr, nullptr)) {
+      if (NormalizeType(PT, PointeeName, nullptr, nullptr,
+                        NotLegacyKernelArgument)) {
         char *Name = new char[ 1 /* * */ + PointeeName.size() + 1 ];
         Name[0] = '*';
         memcpy(Name + 1, PointeeName.data(), PointeeName.size());
@@ -792,7 +824,8 @@ llvm::StringRef RSExportType::GetTypeName(const clang::Type* T) {
 
 RSExportType *RSExportType::Create(RSContext *Context,
                                    const clang::Type *T,
-                                   const llvm::StringRef &TypeName) {
+                                   const llvm::StringRef &TypeName,
+                                   ExportKind EK) {
   // Lookup the context to see whether the type was processed before.
   // Newly created RSExportType will insert into context
   // in RSExportType::RSExportType()
@@ -881,10 +914,11 @@ RSExportType *RSExportType::Create(RSContext *Context,
   return ET;
 }
 
-RSExportType *RSExportType::Create(RSContext *Context, const clang::Type *T) {
+RSExportType *RSExportType::Create(RSContext *Context, const clang::Type *T,
+                                   ExportKind EK, const clang::VarDecl *VD) {
   llvm::StringRef TypeName;
-  if (NormalizeType(T, TypeName, Context, nullptr)) {
-    return Create(Context, T, TypeName);
+  if (NormalizeType(T, TypeName, Context, VD, EK)) {
+    return Create(Context, T, TypeName, EK);
   } else {
     return nullptr;
   }
@@ -892,7 +926,8 @@ RSExportType *RSExportType::Create(RSContext *Context, const clang::Type *T) {
 
 RSExportType *RSExportType::CreateFromDecl(RSContext *Context,
                                            const clang::VarDecl *VD) {
-  return RSExportType::Create(Context, GetTypeOfDecl(VD));
+  return RSExportType::Create(Context, GetTypeOfDecl(VD),
+                              NotLegacyKernelArgument, VD);
 }
 
 size_t RSExportType::getStoreSize() const {
@@ -1051,10 +1086,10 @@ bool RSExportPrimitiveType::IsStructureTypeWithRSObject(const clang::Type *T) {
   return RSObjectTypeSeen;
 }
 
-size_t RSExportPrimitiveType::GetSizeInBits(const RSExportPrimitiveType *EPT) {
+size_t RSExportPrimitiveType::GetElementSizeInBits(const RSExportPrimitiveType *EPT) {
   int type = EPT->getType();
   slangAssert((type > DataTypeUnknown && type < DataTypeMax) &&
-              "RSExportPrimitiveType::GetSizeInBits : unknown data type");
+              "RSExportPrimitiveType::GetElementSizeInBits : unknown data type");
   // All RS object types are 256 bits in 64-bit RS.
   if (EPT->isRSObjectType() && EPT->getRSContext()->is64Bit()) {
     return 256;
@@ -1112,8 +1147,9 @@ RSExportPrimitiveType
 RSExportPrimitiveType *RSExportPrimitiveType::Create(RSContext *Context,
                                                      const clang::Type *T) {
   llvm::StringRef TypeName;
-  if (RSExportType::NormalizeType(T, TypeName, Context, nullptr)
-      && IsPrimitiveType(T)) {
+  if (RSExportType::NormalizeType(T, TypeName, Context, nullptr,
+                                  NotLegacyKernelArgument) &&
+      IsPrimitiveType(T)) {
     return Create(Context, T, TypeName);
   } else {
     return nullptr;
@@ -1215,7 +1251,8 @@ RSExportPointerType
   const RSExportType *PointeeET;
 
   if (PointeeType->getTypeClass() != clang::Type::Pointer) {
-    PointeeET = RSExportType::Create(Context, PointeeType);
+    PointeeET = RSExportType::Create(Context, PointeeType,
+                                     NotLegacyKernelArgument);
   } else {
     // Double or higher dimension of pointer, export as int*
     PointeeET = RSExportPrimitiveType::Create(Context,
@@ -1403,7 +1440,8 @@ RSExportConstantArrayType
   slangAssert((Size > 0) && "Constant array should have size greater than 0");
 
   const clang::Type *ElementType = GetConstantArrayElementType(CAT);
-  RSExportType *ElementET = RSExportType::Create(Context, ElementType);
+  RSExportType *ElementET = RSExportType::Create(Context, ElementType,
+                                                 NotLegacyKernelArgument);
 
   if (ElementET == nullptr) {
     return nullptr;
@@ -1415,7 +1453,7 @@ RSExportConstantArrayType
 }
 
 llvm::Type *RSExportConstantArrayType::convertToLLVMType() const {
-  return llvm::ArrayType::get(mElementType->getLLVMType(), getSize());
+  return llvm::ArrayType::get(mElementType->getLLVMType(), getNumElement());
 }
 
 bool RSExportConstantArrayType::keep() {
@@ -1429,7 +1467,7 @@ bool RSExportConstantArrayType::equals(const RSExportable *E) const {
   CHECK_PARENT_EQUALITY(RSExportType, E);
   const RSExportConstantArrayType *RHS =
       static_cast<const RSExportConstantArrayType*>(E);
-  return ((getSize() == RHS->getSize()) &&
+  return ((getNumElement() == RHS->getNumElement()) &&
           (getElementType()->equals(RHS->getElementType())));
 }
 
@@ -1587,7 +1625,7 @@ void RSExportType::convertToRTD(RSReflectionTypeData *rtd) const {
             const RSExportConstantArrayType* CAT =
               static_cast<const RSExportConstantArrayType*>(this);
             CAT->getElementType()->convertToRTD(rtd);
-            rtd->arraySize = CAT->getSize();
+            rtd->arraySize = CAT->getNumElement();
             return;
         }
     case RSExportType::ExportClassRecord: {

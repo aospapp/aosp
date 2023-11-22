@@ -164,9 +164,9 @@ XAresult bufferQueueCallback(
     XAPlayItf playerPlay = (XAPlayItf) pCallbackContext;
     // enqueue the .ts data directly from mapped memory, so ignore the empty buffer pBufferData
     if (curPacket <= lastPacket) {
-        static const XAAndroidBufferItem discontinuity = {XA_ANDROID_ITEMKEY_DISCONTINUITY, 0};
-        static const XAAndroidBufferItem eos = {XA_ANDROID_ITEMKEY_EOS, 0};
-        static const XAAndroidBufferItem formatChange = {XA_ANDROID_ITEMKEY_FORMAT_CHANGE, 0};
+        static const XAAndroidBufferItem discontinuity = {XA_ANDROID_ITEMKEY_DISCONTINUITY, 0, {}};
+        static const XAAndroidBufferItem eos = {XA_ANDROID_ITEMKEY_EOS, 0, {}};
+        static const XAAndroidBufferItem formatChange = {XA_ANDROID_ITEMKEY_FORMAT_CHANGE, 0, {}};
         const XAAndroidBufferItem *items;
         XAuint32 itemSize;
         // compute number of packets to be enqueued in this buffer
@@ -619,7 +619,6 @@ int main(int argc, char **argv)
     // Now query for each the streams.  Note that stream indices go up to and including
     // mediaContainerInformation.numStreams, because stream 0 is the container itself,
     // while stream 1 to mediaContainerInformation.numStreams are the contained streams.
-    XAuint32 numStreams = mediaContainerInformation.numStreams;
     XAuint32 streamIndex;
     for (streamIndex = 0; streamIndex <= mediaContainerInformation.numStreams; ++streamIndex) {
         XAuint32 domain;

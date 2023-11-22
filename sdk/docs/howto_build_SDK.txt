@@ -15,7 +15,7 @@ limitations under the License.
 
 Subject: How to build an Android SDK & ADT Eclipse plugin.
 Date:    2009/03/27
-Updated: 2013/04/09
+Updated: 2015/09/09
 
 
 Table of content:
@@ -129,9 +129,9 @@ setup and build a regular Linux SDK. Once this working, please continue here.
 
 Under Ubuntu, you will need the following extra packages:
 
-$ sudo apt-get install mingw32 tofrodos
+$ sudo apt-get install tofrodos
 
-mingw32 is the cross-compiler, tofrodos adds a unix2dos command
+tofrodos adds a unix2dos command
 
 
 B- Building
@@ -148,89 +148,25 @@ The result is located at
    out/host/windows/sdk/android-sdk_eng.${USER}_windows/
 
 
-
-----------------------------
-4- Partial SDK Windows Tools
-----------------------------
-
-As explained above, you can only build a *full* SDK for Windows using Linux.
-However sometimes you need to develop one specific tools, e.g. adb.exe or
-aapt.exe, and it's just more convenient to do it on the same platform where
-you can actually test it. This is what this section explains.
-
-
-A- Cygwin pre-requisite & code checkout
----------------------------------------
-
-You must have Cygwin installed. You can use the latest Cygwin 1.7 or the
-the "legacy Cygwin 1.5" from:
-
-  http://cygwin.org/
-
-Now configure it:
-- When installing Cygwin, set Default Text File Type to Unix/binary, not DOS/text.
-  This is really important, otherwise you will get errors when trying to
-  checkout code using git.
-- Packages that you must install or not:
-  - Required packages: autoconf, bison, curl, flex, gcc, g++, git, gnupg, make,
-                       mingw-zlib, python, zip, unzip.
-  - Suggested extra packages: diffutils, emacs, openssh, rsync, vim, wget.
-  - Packages that must not be installed: readline.
-
-Once you installed Cygwin properly, checkout the code from git as you did
-for MacOS or Linux (see section 2 above.)
-
-
-
-C- Building the Windows Tools
------------------------------
-
-This is the easy part: run make on the tool you want.
-How do you know which tools you can build? Well obviously all the ones
-that come in an installed SDK/tools or SDK/platform-tools folder!
-
-Example, to build adb:
-
-  $ cd ~/my-android-git
-  $ . build/envsetup.sh
-  $ lunch sdk-eng
-  $ make adb
-
-The result will be somewhere in out/host/windows-x86/bin/. Just look at
-the output from make to get the exact path. Since you are building this
-under cygwin, you get an unstripped binary that you can happily feed to
-gdb to get debugger symbols:
-
-  $ gdb --args out/host/windows-x86/bin/adb.exe <adb arguments>
-
-
-And before you ask, msys is not supported, nor is MSVC or windbg.
-
-So you can build a lot of little parts of the SDK on Windows, one tool
-at a time, but not the full thing because basically building the whole
-platform is not supported. This means you cannot build "android.jar"
-nor "layoutlib.jar" under Windows. For this you want Linux.
-
-
-
-D- Building the Windows Tools on Linux
+C- Building just the tools
 --------------------------------------
 
-You can also build isolated windows tools directly on Linux.
-Again, it requires a checkout of the full android code and the usual
-setup like described above to build an SDK.
+You can also build isolated windows tools directly on Linux without building
+the full SDK.
 
-Then to build an isolated Windows binary, you'd do something like this:
+To build, perform the following steps:
 
   $ cd ~/my-android-git
   $ . build/envsetup.sh
   $ lunch sdk-eng
-  $ USE_MINGW=1 make adb
+  $ make winsdk-tools
 
-The special environment variable "USE_MINGW" must be set to 1. This is
-the clue to switch the make logic to cross-compiling to Windows under
-Linux.
+A specific tool can be built using:
 
+  $ make host_cross_adb
+
+Then the binaries are located at
+  out/host/windows-x86/bin/adb.exe
 
 
 -------------------------------------

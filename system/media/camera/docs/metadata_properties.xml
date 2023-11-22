@@ -1704,11 +1704,22 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
               while in HDR mode.
 
               Since substantial post-processing is generally needed to
-              produce an HDR image, only YUV and JPEG outputs are
-              supported for LIMITED/FULL device HDR captures, and only
-              JPEG outputs are supported for LEGACY HDR
-              captures. Using a RAW output for HDR capture is not
+              produce an HDR image, only YUV, PRIVATE, and JPEG
+              outputs are supported for LIMITED/FULL device HDR
+              captures, and only JPEG outputs are supported for LEGACY
+              HDR captures. Using a RAW output for HDR capture is not
               supported.
+
+              Some devices may also support always-on HDR, which
+              applies HDR processing at full frame rate.  For these
+              devices, intents other than STILL_CAPTURE will also
+              produce an HDR output with no frame rate impact compared
+              to normal operation, though the quality may be lower
+              than for STILL_CAPTURE intents.
+
+              If SCENE_MODE_HDR is used with unsupported output types
+              or capture intents, the images captured will be as if
+              the SCENE_MODE was not enabled at all.
               </notes>
             </value>
             <value optional="true" hidden="true">FACE_PRIORITY_LOW_LIGHT
@@ -1735,6 +1746,20 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
               Unlike the other scene modes, android.control.aeMode,
               android.control.awbMode, and android.control.afMode
               remain active when FACE_PRIORITY_LOW_LIGHT is set.
+              </notes>
+            </value>
+            <value optional="true" hidden="true" id="100">DEVICE_CUSTOM_START
+              <notes>
+                Scene mode values within the range of
+                `[DEVICE_CUSTOM_START, DEVICE_CUSTOM_END]` are reserved for device specific
+                customized scene modes.
+              </notes>
+            </value>
+            <value optional="true" hidden="true" id="127">DEVICE_CUSTOM_END
+              <notes>
+                Scene mode values within the range of
+                `[DEVICE_CUSTOM_START, DEVICE_CUSTOM_END]` are reserved for device specific
+                customized scene modes.
               </notes>
             </value>
           </enum>
@@ -1789,7 +1814,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           <description>Whether video stabilization is
           active.</description>
           <details>
-          Video stabilization automatically translates and scales images from
+          Video stabilization automatically warps images from
           the camera in order to stabilize motion between consecutive frames.
 
           If enabled, video stabilization can modify the
@@ -1801,6 +1826,16 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           the video stabilization modes in the first several capture results may
           still be "OFF", and it will become "ON" when the initialization is
           done.
+
+          In addition, not all recording sizes or frame rates may be supported for
+          stabilization by a device that reports stabilization support. It is guaranteed
+          that an output targeting a MediaRecorder or MediaCodec will be stabilized if
+          the recording resolution is less than or equal to 1920 x 1080 (width less than
+          or equal to 1920, height less than or equal to 1080), and the recording
+          frame rate is less than or equal to 30fps.  At other sizes, the CaptureResult
+          android.control.videoStabilizationMode field will return
+          OFF if the recording output is not stabilized, or if there are no output
+          Surface types that can be stabilized.
 
           If a camera device supports both this mode and OIS
           (android.lens.opticalStabilizationMode), turning both modes on may
@@ -1875,8 +1910,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           <details>
           For devices at the LEGACY level or above:
 
-          * This list will always include (30, 30).
-          * Also, for constant-framerate recording, for each normal
+          * For constant-framerate recording, for each normal
+          {@link android.media.CamcorderProfile CamcorderProfile}, that is, a
           {@link android.media.CamcorderProfile CamcorderProfile} that has
           {@link android.media.CamcorderProfile#quality quality} in
           the range [{@link android.media.CamcorderProfile#QUALITY_LOW QUALITY_LOW},
@@ -1884,8 +1919,12 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           supported by the device and has
           {@link android.media.CamcorderProfile#videoFrameRate videoFrameRate} `x`, this list will
           always include (`x`,`x`).
-          * For preview streaming use case, this list will always include (`min`, `max`) where
-          `min` &lt;= 15 and `max` &gt;= 30.
+
+          * Also, a camera device must either not support any
+          {@link android.media.CamcorderProfile CamcorderProfile},
+          or support at least one
+          normal {@link android.media.CamcorderProfile CamcorderProfile} that has
+          {@link android.media.CamcorderProfile#videoFrameRate videoFrameRate} `x` &gt;= 24.
 
           For devices at the LIMITED level or above:
 
@@ -2056,7 +2095,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           </details>
           <tag id="BC" />
         </entry>
-        <entry name="maxRegions" type="int32" visibility="hidden"
+        <entry name="maxRegions" type="int32" visibility="ndk_public"
                container="array" hwlevel="legacy">
           <array>
             <size>3</size>
@@ -2074,7 +2113,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           `(AE, AWB, AF)`.</range>
           <tag id="BC" />
         </entry>
-        <entry name="maxRegionsAe" type="int32" visibility="public"
+        <entry name="maxRegionsAe" type="int32" visibility="java_public"
                synthetic="true" hwlevel="legacy">
           <description>
           The maximum number of metering regions that can be used by the auto-exposure (AE)
@@ -2091,7 +2130,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           maxRegions to have this entry be automatically populated.
           </hal_details>
         </entry>
-        <entry name="maxRegionsAwb" type="int32" visibility="public"
+        <entry name="maxRegionsAwb" type="int32" visibility="java_public"
                synthetic="true" hwlevel="legacy">
           <description>
           The maximum number of metering regions that can be used by the auto-white balance (AWB)
@@ -2107,7 +2146,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           maxRegions to have this entry be automatically populated.
           </hal_details>
         </entry>
-        <entry name="maxRegionsAf" type="int32" visibility="public"
+        <entry name="maxRegionsAf" type="int32" visibility="java_public"
                synthetic="true" hwlevel="legacy">
           <description>
           The maximum number of metering regions that can be used by the auto-focus (AF) routine.
@@ -2689,7 +2728,70 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
               devices will always support OFF, AUTO modes.
           </details>
         </entry>
+        <entry name="postRawSensitivityBoostRange" type="int32" visibility="public"
+            type_notes="Range of supported post RAW sensitivitiy boosts"
+            container="array" typedef="rangeInt">
+          <array>
+            <size>2</size>
+          </array>
+          <description>Range of boosts for android.control.postRawSensitivityBoost supported
+            by this camera device.
+          </description>
+          <units>ISO arithmetic units, the same as android.sensor.sensitivity</units>
+          <details>
+            Devices support post RAW sensitivity boost  will advertise
+            android.control.postRawSensitivityBoost key for controling
+            post RAW sensitivity boost.
+
+            This key will be `null` for devices that do not support any RAW format
+            outputs. For devices that do support RAW format outputs, this key will always
+            present, and if a device does not support post RAW sensitivity boost, it will
+            list `(100, 100)` in this key.
+          </details>
+          <hal_details>
+             This key is added in HAL3.4. For HAL3.3 or earlier devices, camera framework will
+             generate this key as `(100, 100)` if device supports any of RAW output formats.
+             All HAL3.4 and above devices should list this key if device supports any of RAW
+             output formats.
+          </hal_details>
+        </entry>
       </static>
+      <controls>
+        <entry name="postRawSensitivityBoost" type="int32" visibility="public">
+          <description>The amount of additional sensitivity boost applied to output images
+             after RAW sensor data is captured.
+          </description>
+          <units>ISO arithmetic units, the same as android.sensor.sensitivity</units>
+          <range>android.control.postRawSensitivityBoostRange</range>
+          <details>
+          Some camera devices support additional digital sensitivity boosting in the
+          camera processing pipeline after sensor RAW image is captured.
+          Such a boost will be applied to YUV/JPEG format output images but will not
+          have effect on RAW output formats like RAW_SENSOR, RAW10, RAW12 or RAW_OPAQUE.
+
+          This key will be `null` for devices that do not support any RAW format
+          outputs. For devices that do support RAW format outputs, this key will always
+          present, and if a device does not support post RAW sensitivity boost, it will
+          list `100` in this key.
+
+          If the camera device cannot apply the exact boost requested, it will reduce the
+          boost to the nearest supported value.
+          The final boost value used will be available in the output capture result.
+
+          For devices that support post RAW sensitivity boost, the YUV/JPEG output images
+          of such device will have the total sensitivity of
+          `android.sensor.sensitivity * android.control.postRawSensitivityBoost / 100`
+          The sensitivity of RAW format images will always be `android.sensor.sensitivity`
+
+          This control is only effective if android.control.aeMode or android.control.mode is set to
+          OFF; otherwise the auto-exposure algorithm will override this value.
+          </details>
+        </entry>
+      </controls>
+      <dynamic>
+        <clone entry="android.control.postRawSensitivityBoost" kind="controls">
+        </clone>
+      </dynamic>
     </section>
     <section name="demosaic">
       <controls>
@@ -3049,7 +3151,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
     </section>
     <section name="jpeg">
       <controls>
-        <entry name="gpsLocation" type="byte" visibility="public" synthetic="true"
+        <entry name="gpsLocation" type="byte" visibility="java_public" synthetic="true"
         typedef="location" hwlevel="legacy">
           <description>
           A location object to use when generating image GPS metadata.
@@ -3060,7 +3162,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           viewed by anyone who receives the JPEG image.
           </details>
         </entry>
-        <entry name="gpsCoordinates" type="double" visibility="hidden"
+        <entry name="gpsCoordinates" type="double" visibility="ndk_public"
         type_notes="latitude, longitude, altitude. First two in degrees, the third in meters"
         container="array" hwlevel="legacy">
           <array>
@@ -3071,14 +3173,14 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           <range>(-180 - 180], [-90,90], [-inf, inf]</range>
           <tag id="BC" />
         </entry>
-        <entry name="gpsProcessingMethod" type="byte" visibility="hidden"
+        <entry name="gpsProcessingMethod" type="byte" visibility="ndk_public"
                typedef="string" hwlevel="legacy">
           <description>32 characters describing GPS algorithm to
           include in EXIF.</description>
           <units>UTF-8 null-terminated string</units>
           <tag id="BC" />
         </entry>
-        <entry name="gpsTimestamp" type="int64" visibility="hidden" hwlevel="legacy">
+        <entry name="gpsTimestamp" type="int64" visibility="ndk_public" hwlevel="legacy">
           <description>Time GPS fix was made to include in
           EXIF.</description>
           <units>UTC in seconds since January 1, 1970</units>
@@ -3486,7 +3588,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
             the MANUAL_SENSOR capability.</hal_details>
             <tag id="V1" />
           </entry>
-          <entry name="shadingMapSize" type="int32" visibility="hidden"
+          <entry name="shadingMapSize" type="int32" visibility="ndk_public"
                  type_notes="width and height (N, M) of lens shading map provided by the camera device."
                  container="array" typedef="size" hwlevel="full">
             <array>
@@ -4195,8 +4297,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
         </entry>
       </controls>
       <static>
-        <entry name="maxNumOutputStreams" type="int32" visibility="hidden"
-        container="array" hwlevel="legacy">
+        <entry name="maxNumOutputStreams" type="int32" visibility="ndk_public"
+               container="array" hwlevel="legacy">
           <array>
             <size>3</size>
           </array>
@@ -4238,7 +4340,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           </details>
           <tag id="BC" />
         </entry>
-        <entry name="maxNumOutputRaw" type="int32" visibility="public" synthetic="true" hwlevel="legacy">
+        <entry name="maxNumOutputRaw" type="int32" visibility="java_public" synthetic="true"
+               hwlevel="legacy">
           <description>The maximum numbers of different types of output streams
           that can be configured and used simultaneously by a camera device
           for any `RAW` formats.
@@ -4265,7 +4368,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           never support raw streams.
           </details>
         </entry>
-        <entry name="maxNumOutputProc" type="int32" visibility="public" synthetic="true" hwlevel="legacy">
+        <entry name="maxNumOutputProc" type="int32" visibility="java_public" synthetic="true"
+               hwlevel="legacy">
           <description>The maximum numbers of different types of output streams
           that can be configured and used simultaneously by a camera device
           for any processed (but not-stalling) formats.
@@ -4300,7 +4404,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           LEGACY devices will support at least 2 processing/non-stalling streams.
           </details>
         </entry>
-        <entry name="maxNumOutputProcStalling" type="int32" visibility="public" synthetic="true" hwlevel="legacy">
+        <entry name="maxNumOutputProcStalling" type="int32" visibility="java_public" synthetic="true"
+               hwlevel="legacy">
           <description>The maximum numbers of different types of output streams
           that can be configured and used simultaneously by a camera device
           for any processed (and stalling) formats.
@@ -4557,12 +4662,12 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
               * The maximum available resolution for RAW_SENSOR streams
                 will match either the value in
                 android.sensor.info.pixelArraySize or
-                android.sensor.info.activeArraySize.
+                android.sensor.info.preCorrectionActiveArraySize.
               * All DNG-related optional metadata entries are provided
                 by the camera device.
               </notes>
             </value>
-            <value optional="true">PRIVATE_REPROCESSING
+            <value optional="true" ndk_hidden="true">PRIVATE_REPROCESSING
               <notes>
               The camera device supports the Zero Shutter Lag reprocessing use case.
 
@@ -4657,7 +4762,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
               consistent image output.
               </notes>
             </value>
-            <value optional="true">YUV_REPROCESSING
+            <value optional="true" ndk_hidden="true">YUV_REPROCESSING
               <notes>
               The camera device supports the YUV_420_888 reprocessing use case, similar as
               PRIVATE_REPROCESSING, This capability requires the camera device to support the
@@ -4731,7 +4836,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
               rate, including depth stall time.
               </notes>
             </value>
-            <value optional="true">CONSTRAINED_HIGH_SPEED_VIDEO
+            <value optional="true" ndk_hidden="true">CONSTRAINED_HIGH_SPEED_VIDEO
               <notes>
               The device supports constrained high speed video recording (frame rate >=120fps)
               use case. The camera device will support high speed capture session created by
@@ -4879,8 +4984,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           DEPTH).
           </hal_details>
         </entry>
-        <entry name="availableRequestKeys" type="int32" visibility="hidden"
-          container="array" hwlevel="legacy">
+        <entry name="availableRequestKeys" type="int32" visibility="ndk_public"
+               container="array" hwlevel="legacy">
           <array>
             <size>n</size>
           </array>
@@ -4911,8 +5016,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           {@link android.hardware.camera2.CameraCharacteristics#getAvailableCaptureRequestKeys}.
           </hal_details>
         </entry>
-        <entry name="availableResultKeys" type="int32" visibility="hidden"
-          container="array" hwlevel="legacy">
+        <entry name="availableResultKeys" type="int32" visibility="ndk_public"
+               container="array" hwlevel="legacy">
           <array>
             <size>n</size>
           </array>
@@ -4954,8 +5059,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           android.hardware.camera2.CameraCharacteristics#getAvailableCaptureResultKeys}.
           </hal_details>
         </entry>
-        <entry name="availableCharacteristicsKeys" type="int32" visibility="hidden"
-          container="array" hwlevel="legacy">
+        <entry name="availableCharacteristicsKeys" type="int32" visibility="ndk_public"
+               container="array" hwlevel="legacy">
           <array>
             <size>n</size>
           </array>
@@ -5118,8 +5223,10 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
             </value>
             <value optional="true" id="0x24">RAW_OPAQUE
               <notes>
-              RAW_OPAQUE is a format for raw image buffers coming from an
-              image sensor.
+              RAW_OPAQUE (or
+              {@link android.graphics.ImageFormat#RAW_PRIVATE RAW_PRIVATE}
+              as referred in public API) is a format for raw image buffers
+              coming from an image sensor.
 
               The actual structure of buffers of this format is
               platform-specific, but must follow several constraints:
@@ -5414,9 +5521,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           </hal_details>
           <tag id="REPROC" />
         </entry>
-        <entry name="availableStreamConfigurations" type="int32" visibility="hidden"
-          enum="true" container="array"
-          typedef="streamConfiguration" hwlevel="legacy">
+        <entry name="availableStreamConfigurations" type="int32" visibility="ndk_public"
+               enum="true" container="array" typedef="streamConfiguration" hwlevel="legacy">
           <array>
             <size>n</size>
             <size>4</size>
@@ -5516,9 +5622,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           * available[Processed,Raw,Jpeg]Sizes
           </hal_details>
         </entry>
-        <entry name="availableMinFrameDurations" type="int64" visibility="hidden"
-               container="array"
-               typedef="streamConfigurationDuration" hwlevel="legacy">
+        <entry name="availableMinFrameDurations" type="int64" visibility="ndk_public"
+               container="array" typedef="streamConfigurationDuration" hwlevel="legacy">
           <array>
             <size>4</size>
             <size>n</size>
@@ -5547,7 +5652,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           </details>
           <tag id="V1" />
         </entry>
-        <entry name="availableStallDurations" type="int64" visibility="hidden"
+        <entry name="availableStallDurations" type="int64" visibility="ndk_public"
                container="array" typedef="streamConfigurationDuration" hwlevel="legacy">
           <array>
             <size>4</size>
@@ -5631,7 +5736,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           </hal_details>
           <tag id="V1" />
         </entry>
-        <entry name="streamConfigurationMap" type="int32" visibility="public"
+        <entry name="streamConfigurationMap" type="int32" visibility="java_public"
                synthetic="true" typedef="streamConfigurationMap"
                hwlevel="legacy">
           <description>The available stream configurations that this
@@ -5887,6 +5992,9 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           requested, it will reduce the gain to the nearest supported
           value. The final sensitivity used will be available in the
           output capture result.
+
+          This control is only effective if android.control.aeMode or android.control.mode is set to
+          OFF; otherwise the auto-exposure algorithm will override this value.
           </details>
           <hal_details>ISO 12232:2006 REI method is acceptable.</hal_details>
           <tag id="V1" />
@@ -6078,6 +6186,12 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
             (8-14 bits is expected), or by the point where the sensor response
             becomes too non-linear to be useful.  The default value for this is
             maximum representable value for a 16-bit raw sample (2^16 - 1).
+
+            The white level values of captured images may vary for different
+            capture settings (e.g., android.sensor.sensitivity). This key
+            represents a coarse approximation for such case. It is recommended
+            to use android.sensor.dynamicWhiteLevel for captures when supported
+            by the camera device, which provides more accurate white level values.
             </details>
             <hal_details>
             The full bit depth of the sensor must be available in the raw data,
@@ -6115,6 +6229,17 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
             This characteristic defines the source for the timestamps, and therefore whether they
             can be compared against other system time sources/timestamps.
             </details>
+            <hal_details>
+            For camera devices implement UNKNOWN, the camera framework expects that the timestamp
+            source to be SYSTEM_TIME_MONOTONIC. For camera devices implement REALTIME, the camera
+            framework expects that the timestamp source to be SYSTEM_TIME_BOOTTIME. See
+            system/core/include/utils/Timers.h for the definition of SYSTEM_TIME_MONOTONIC and
+            SYSTEM_TIME_BOOTTIME. Note that HAL must follow above expectation; otherwise video
+            recording might suffer unexpected behavior.
+
+            Also, camera devices implements REALTIME must pass the ITS sensor fusion test which
+            tests the alignment between camera timestamps and gyro sensor timestamps.
+            </hal_details>
           <tag id="V1" />
         </entry>
         <entry name="lensShadingApplied" type="byte" visibility="public" enum="true"
@@ -6511,6 +6636,16 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           layout key (see android.sensor.info.colorFilterArrangement), i.e. the
           nth value given corresponds to the black level offset for the nth
           color channel listed in the CFA.
+
+          The black level values of captured images may vary for different
+          capture settings (e.g., android.sensor.sensitivity). This key
+          represents a coarse approximation for such case. It is recommended to
+          use android.sensor.dynamicBlackLevel or use pixels from
+          android.sensor.opticalBlackRegions directly for captures when
+          supported by the camera device, which provides more accurate black
+          level values. For raw capture in particular, it is recommended to use
+          pixels from android.sensor.opticalBlackRegions to calculate black
+          level values for each frame.
           </details>
           <hal_details>
           The values are given in row-column scan order, with the first value
@@ -7001,6 +7136,145 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           <tag id="V1" />
         </entry>
       </dynamic>
+      <static>
+        <entry name="opticalBlackRegions" type="int32" visibility="public" optional="true"
+          container="array" typedef="rectangle">
+          <array>
+            <size>4</size>
+            <size>num_regions</size>
+          </array>
+          <description>List of disjoint rectangles indicating the sensor
+          optically shielded black pixel regions.
+          </description>
+          <details>
+            In most camera sensors, the active array is surrounded by some
+            optically shielded pixel areas. By blocking light, these pixels
+            provides a reliable black reference for black level compensation
+            in active array region.
+
+            This key provides a list of disjoint rectangles specifying the
+            regions of optically shielded (with metal shield) black pixel
+            regions if the camera device is capable of reading out these black
+            pixels in the output raw images. In comparison to the fixed black
+            level values reported by android.sensor.blackLevelPattern, this key
+            may provide a more accurate way for the application to calculate
+            black level of each captured raw images.
+
+            When this key is reported, the android.sensor.dynamicBlackLevel and
+            android.sensor.dynamicWhiteLevel will also be reported.
+          </details>
+          <hal_details>
+            This array contains (xmin, ymin, width, height). The (xmin, ymin)
+            must be &amp;gt;= (0,0) and &amp;lt;=
+            android.sensor.info.pixelArraySize. The (width, height) must be
+            &amp;lt;= android.sensor.info.pixelArraySize. Each region must be
+            outside the region reported by
+            android.sensor.info.preCorrectionActiveArraySize.
+
+            The HAL must report minimal number of disjoint regions for the
+            optically shielded back pixel regions. For example, if a region can
+            be covered by one rectangle, the HAL must not split this region into
+            multiple rectangles.
+          </hal_details>
+        </entry>
+      </static>
+      <dynamic>
+        <entry name="dynamicBlackLevel" type="float" visibility="public"
+        optional="true" type_notes="2x2 raw count block" container="array">
+          <array>
+            <size>4</size>
+          </array>
+          <description>
+          A per-frame dynamic black level offset for each of the color filter
+          arrangement (CFA) mosaic channels.
+          </description>
+          <range>&amp;gt;= 0 for each.</range>
+          <details>
+          Camera sensor black levels may vary dramatically for different
+          capture settings (e.g. android.sensor.sensitivity). The fixed black
+          level reported by android.sensor.blackLevelPattern may be too
+          inaccurate to represent the actual value on a per-frame basis. The
+          camera device internal pipeline relies on reliable black level values
+          to process the raw images appropriately. To get the best image
+          quality, the camera device may choose to estimate the per frame black
+          level values either based on optically shielded black regions
+          (android.sensor.opticalBlackRegions) or its internal model.
+
+          This key reports the camera device estimated per-frame zero light
+          value for each of the CFA mosaic channels in the camera sensor. The
+          android.sensor.blackLevelPattern may only represent a coarse
+          approximation of the actual black level values. This value is the
+          black level used in camera device internal image processing pipeline
+          and generally more accurate than the fixed black level values.
+          However, since they are estimated values by the camera device, they
+          may not be as accurate as the black level values calculated from the
+          optical black pixels reported by android.sensor.opticalBlackRegions.
+
+          The values are given in the same order as channels listed for the CFA
+          layout key (see android.sensor.info.colorFilterArrangement), i.e. the
+          nth value given corresponds to the black level offset for the nth
+          color channel listed in the CFA.
+
+          This key will be available if android.sensor.opticalBlackRegions is
+          available or the camera device advertises this key via
+          {@link android.hardware.camera2.CameraCharacteristics#getAvailableCaptureResultKeys}.
+          </details>
+          <hal_details>
+          The values are given in row-column scan order, with the first value
+          corresponding to the element of the CFA in row=0, column=0.
+          </hal_details>
+          <tag id="RAW" />
+        </entry>
+        <entry name="dynamicWhiteLevel" type="int32" visibility="public"
+        optional="true" >
+          <description>
+          Maximum raw value output by sensor for this frame.
+          </description>
+          <range> &amp;gt;= 0</range>
+          <details>
+          Since the android.sensor.blackLevelPattern may change for different
+          capture settings (e.g., android.sensor.sensitivity), the white
+          level will change accordingly. This key is similar to
+          android.sensor.info.whiteLevel, but specifies the camera device
+          estimated white level for each frame.
+
+          This key will be available if android.sensor.opticalBlackRegions is
+          available or the camera device advertises this key via
+          {@link android.hardware.camera2.CameraCharacteristics#getAvailableCaptureRequestKeys}.
+          </details>
+          <hal_details>
+          The full bit depth of the sensor must be available in the raw data,
+          so the value for linear sensors should not be significantly lower
+          than maximum raw value supported, i.e. 2^(sensor bits per pixel).
+          </hal_details>
+          <tag id="RAW" />
+        </entry>
+      </dynamic>
+      <static>
+        <entry name="opaqueRawSize" type="int32" visibility="system" container="array">
+          <array>
+            <size>n</size>
+            <size>3</size>
+          </array>
+          <description>Size in bytes for all the listed opaque RAW buffer sizes</description>
+          <range>Must be large enough to fit the opaque RAW of corresponding size produced by
+          the camera</range>
+          <details>
+          This configurations are listed as `(width, height, size_in_bytes)` tuples.
+          This is used for sizing the gralloc buffers for opaque RAW buffers.
+          All RAW_OPAQUE output stream configuration listed in
+          android.scaler.availableStreamConfigurations will have a corresponding tuple in
+          this key.
+          </details>
+          <hal_details>
+              This key is added in HAL3.4.
+              For HAL3.4 or above: devices advertising RAW_OPAQUE format output must list this key.
+              For HAL3.3 or earlier devices: if RAW_OPAQUE ouput is advertised, camera framework
+              will derive this key by assuming each pixel takes two bytes and no padding bytes
+              between rows.
+          </hal_details>
+        </entry>
+      </static>
     </section>
     <section name="shading">
       <controls>
@@ -7250,8 +7524,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
       <dynamic>
         <clone entry="android.statistics.faceDetectMode"
                kind="controls"></clone>
-        <entry name="faceIds" type="int32" visibility="hidden" container="array"
-               hwlevel="legacy">
+        <entry name="faceIds" type="int32" visibility="ndk_public"
+               container="array" hwlevel="legacy">
           <array>
             <size>n</size>
           </array>
@@ -7264,9 +7538,9 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           Only available if android.statistics.faceDetectMode == FULL</details>
           <tag id="BC" />
         </entry>
-        <entry name="faceLandmarks" type="int32" visibility="hidden"
-        type_notes="(leftEyeX, leftEyeY, rightEyeX, rightEyeY, mouthX, mouthY)"
-        container="array" hwlevel="legacy">
+        <entry name="faceLandmarks" type="int32" visibility="ndk_public"
+               type_notes="(leftEyeX, leftEyeY, rightEyeX, rightEyeY, mouthX, mouthY)"
+               container="array" hwlevel="legacy">
           <array>
             <size>n</size>
             <size>6</size>
@@ -7280,9 +7554,9 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
             Only available if android.statistics.faceDetectMode == FULL</details>
           <tag id="BC" />
         </entry>
-        <entry name="faceRectangles" type="int32" visibility="hidden"
-        type_notes="(xmin, ymin, xmax, ymax). (0,0) is top-left of active pixel area"
-        container="array" typedef="rectangle" hwlevel="legacy">
+        <entry name="faceRectangles" type="int32" visibility="ndk_public"
+               type_notes="(xmin, ymin, xmax, ymax). (0,0) is top-left of active pixel area"
+               container="array" typedef="rectangle" hwlevel="legacy">
           <array>
             <size>n</size>
             <size>4</size>
@@ -7296,8 +7570,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
             Only available if android.statistics.faceDetectMode != OFF</details>
           <tag id="BC" />
         </entry>
-        <entry name="faceScores" type="byte" visibility="hidden" container="array"
-               hwlevel="legacy">
+        <entry name="faceScores" type="byte" visibility="ndk_public"
+               container="array" hwlevel="legacy">
           <array>
             <size>n</size>
           </array>
@@ -7311,7 +7585,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           all times is illegal).</hal_details>
           <tag id="BC" />
         </entry>
-        <entry name="faces" type="int32" visibility="public" synthetic="true"
+        <entry name="faces" type="int32" visibility="java_public" synthetic="true"
                container="array" typedef="face" hwlevel="legacy">
           <array>
             <size>n</size>
@@ -7355,17 +7629,32 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
         </entry>
         <clone entry="android.statistics.sharpnessMapMode"
                kind="controls"></clone>
-        <entry name="lensShadingCorrectionMap" type="byte" visibility="public"
+        <entry name="lensShadingCorrectionMap" type="byte" visibility="java_public"
                typedef="lensShadingMap" hwlevel="full">
           <description>The shading map is a low-resolution floating-point map
           that lists the coefficients used to correct for vignetting, for each
           Bayer color channel.</description>
           <range>Each gain factor is &amp;gt;= 1</range>
-          <details>The least shaded section of the image should have a gain factor
-          of 1; all other sections should have gains above 1.
+          <details>
+          The map provided here is the same map that is used by the camera device to
+          correct both color shading and vignetting for output non-RAW images.
+
+          When there is no lens shading correction applied to RAW
+          output images (android.sensor.info.lensShadingApplied `==`
+          false), this map is the complete lens shading correction
+          map; when there is some lens shading correction applied to
+          the RAW output image (android.sensor.info.lensShadingApplied
+          `==` true), this map reports the remaining lens shading
+          correction map that needs to be applied to get shading
+          corrected images that match the camera device's output for
+          non-RAW formats.
+
+          For a complete shading correction map, the least shaded
+          section of the image will have a gain factor of 1; all
+          other sections will have gains above 1.
 
           When android.colorCorrection.mode = TRANSFORM_MATRIX, the map
-          must take into account the colorCorrection settings.
+          will take into account the colorCorrection settings.
 
           The shading map is for the entire active pixel array, and is not
           affected by the crop region specified in the request. Each shading map
@@ -7380,8 +7669,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           channel for the even rows of a Bayer pattern, and Godd is the odd rows.
           The shading map is stored in a fully interleaved format.
 
-          The shading map should have on the order of 30-40 rows and columns,
-          and must be smaller than 64x64.
+          The shading map will generally have on the order of 30-40 rows and columns,
+          and will be smaller than 64x64.
 
           As an example, given a very small map defined as:
 
@@ -7408,7 +7697,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           ![Image of a uniform white wall (inverse shading map)](android.statistics.lensShadingMap/inv_shading.png)
           </details>
         </entry>
-        <entry name="lensShadingMap" type="float" visibility="hidden"
+        <entry name="lensShadingMap" type="float" visibility="ndk_public"
                type_notes="2D array of float gain factors per channel to correct lens shading"
                container="array" hwlevel="full">
           <array>
@@ -7417,14 +7706,29 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
             <size>m</size>
           </array>
           <description>The shading map is a low-resolution floating-point map
-          that lists the coefficients used to correct for vignetting, for each
-          Bayer color channel of RAW image data.</description>
+          that lists the coefficients used to correct for vignetting and color shading,
+          for each Bayer color channel of RAW image data.</description>
           <range>Each gain factor is &amp;gt;= 1</range>
-          <details>The least shaded section of the image should have a gain factor
-          of 1; all other sections should have gains above 1.
+          <details>
+          The map provided here is the same map that is used by the camera device to
+          correct both color shading and vignetting for output non-RAW images.
+
+          When there is no lens shading correction applied to RAW
+          output images (android.sensor.info.lensShadingApplied `==`
+          false), this map is the complete lens shading correction
+          map; when there is some lens shading correction applied to
+          the RAW output image (android.sensor.info.lensShadingApplied
+          `==` true), this map reports the remaining lens shading
+          correction map that needs to be applied to get shading
+          corrected images that match the camera device's output for
+          non-RAW formats.
+
+          For a complete shading correction map, the least shaded
+          section of the image will have a gain factor of 1; all
+          other sections will have gains above 1.
 
           When android.colorCorrection.mode = TRANSFORM_MATRIX, the map
-          must take into account the colorCorrection settings.
+          will take into account the colorCorrection settings.
 
           The shading map is for the entire active pixel array, and is not
           affected by the crop region specified in the request. Each shading map
@@ -7440,8 +7744,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           The shading map is stored in a fully interleaved format, and its size
           is provided in the camera static metadata by android.lens.info.shadingMapSize.
 
-          The shading map should have on the order of 30-40 rows and columns,
-          and must be smaller than 64x64.
+          The shading map will generally have on the order of 30-40 rows and columns,
+          and will be smaller than 64x64.
 
           As an example, given a very small map defined as:
 
@@ -7645,7 +7949,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
     </section>
     <section name="tonemap">
       <controls>
-        <entry name="curveBlue" type="float" visibility="hidden"
+        <entry name="curveBlue" type="float" visibility="ndk_public"
         type_notes="1D array of float pairs (P_IN, P_OUT). The maximum number of pairs is specified by android.tonemap.maxCurvePoints."
         container="array" hwlevel="full">
           <array>
@@ -7657,7 +7961,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           CONTRAST_CURVE.</description>
           <details>See android.tonemap.curveRed for more details.</details>
         </entry>
-        <entry name="curveGreen" type="float" visibility="hidden"
+        <entry name="curveGreen" type="float" visibility="ndk_public"
         type_notes="1D array of float pairs (P_IN, P_OUT). The maximum number of pairs is specified by android.tonemap.maxCurvePoints."
         container="array" hwlevel="full">
           <array>
@@ -7669,7 +7973,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           CONTRAST_CURVE.</description>
           <details>See android.tonemap.curveRed for more details.</details>
         </entry>
-        <entry name="curveRed" type="float" visibility="hidden"
+        <entry name="curveRed" type="float" visibility="ndk_public"
         type_notes="1D array of float pairs (P_IN, P_OUT). The maximum number of pairs is specified by android.tonemap.maxCurvePoints."
         container="array" hwlevel="full">
           <array>
@@ -7744,7 +8048,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           control points used as are available.
         </hal_details>
         </entry>
-        <entry name="curve" type="float" visibility="public" synthetic="true"
+        <entry name="curve" type="float" visibility="java_public" synthetic="true"
                typedef="tonemapCurve"
                hwlevel="full">
           <description>Tonemapping / contrast / gamma curve to use when android.tonemap.mode
@@ -8053,19 +8357,96 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
             <value>
               LIMITED
               <notes>
-              This camera device has only limited capabilities.
+              This camera device does not have enough capabilities to qualify as a `FULL` device or
+              better.
+
+              Only the stream configurations listed in the `LEGACY` and `LIMITED` tables in the
+              {@link android.hardware.camera2.CameraDevice#createCaptureSession
+              createCaptureSession} documentation are guaranteed to be supported.
+
+              All `LIMITED` devices support the `BACKWARDS_COMPATIBLE` capability, indicating basic
+              support for color image capture. The only exception is that the device may
+              alternatively support only the `DEPTH_OUTPUT` capability, if it can only output depth
+              measurements and not color images.
+
+              `LIMITED` devices and above require the use of android.control.aePrecaptureTrigger
+              to lock exposure metering (and calculate flash power, for cameras with flash) before
+              capturing a high-quality still image.
+
+              A `LIMITED` device that only lists the `BACKWARDS_COMPATIBLE` capability is only
+              required to support full-automatic operation and post-processing (`OFF` is not
+              supported for android.control.aeMode, android.control.afMode, or
+              android.control.awbMode)
+
+              Additional capabilities may optionally be supported by a `LIMITED`-level device, and
+              can be checked for in android.request.availableCapabilities.
               </notes>
             </value>
             <value>
               FULL
               <notes>
               This camera device is capable of supporting advanced imaging applications.
+
+              The stream configurations listed in the `FULL`, `LEGACY` and `LIMITED` tables in the
+              {@link android.hardware.camera2.CameraDevice#createCaptureSession
+              createCaptureSession} documentation are guaranteed to be supported.
+
+              A `FULL` device will support below capabilities:
+
+              * `BURST_CAPTURE` capability (android.request.availableCapabilities contains
+                `BURST_CAPTURE`)
+              * Per frame control (android.sync.maxLatency `==` PER_FRAME_CONTROL)
+              * Manual sensor control (android.request.availableCapabilities contains `MANUAL_SENSOR`)
+              * Manual post-processing control (android.request.availableCapabilities contains
+                `MANUAL_POST_PROCESSING`)
+              * The required exposure time range defined in android.sensor.info.exposureTimeRange
+              * The required maxFrameDuration defined in android.sensor.info.maxFrameDuration
+
+              Note:
+              Pre-API level 23, FULL devices also supported arbitrary cropping region
+              (android.scaler.croppingType `== FREEFORM`); this requirement was relaxed in API level
+              23, and `FULL` devices may only support `CENTERED` cropping.
               </notes>
             </value>
             <value>
               LEGACY
               <notes>
               This camera device is running in backward compatibility mode.
+
+              Only the stream configurations listed in the `LEGACY` table in the {@link
+              android.hardware.camera2.CameraDevice#createCaptureSession createCaptureSession}
+              documentation are supported.
+
+              A `LEGACY` device does not support per-frame control, manual sensor control, manual
+              post-processing, arbitrary cropping regions, and has relaxed performance constraints.
+              No additional capabilities beyond `BACKWARD_COMPATIBLE` will ever be listed by a
+              `LEGACY` device in android.request.availableCapabilities.
+
+              In addition, the android.control.aePrecaptureTrigger is not functional on `LEGACY`
+              devices. Instead, every request that includes a JPEG-format output target is treated
+              as triggering a still capture, internally executing a precapture trigger.  This may
+              fire the flash for flash power metering during precapture, and then fire the flash
+              for the final capture, if a flash is available on the device and the AE mode is set to
+              enable the flash.
+              </notes>
+            </value>
+            <value>
+              3
+              <notes>
+              This camera device is capable of YUV reprocessing and RAW data capture, in addition to
+              FULL-level capabilities.
+
+              The stream configurations listed in the `LEVEL_3`, `RAW`, `FULL`, `LEGACY` and
+              `LIMITED` tables in the {@link
+              android.hardware.camera2.CameraDevice#createCaptureSession createCaptureSession}
+              documentation are guaranteed to be supported.
+
+              The following additional capabilities are guaranteed to be supported:
+
+              * `YUV_REPROCESSING` capability (android.request.availableCapabilities contains
+                `YUV_REPROCESSING`)
+              * `RAW` capability (android.request.availableCapabilities contains
+                `RAW`)
               </notes>
             </value>
           </enum>
@@ -8073,23 +8454,41 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           Generally classifies the overall set of the camera device functionality.
           </description>
           <details>
-          Camera devices will come in three flavors: LEGACY, LIMITED and FULL.
+          The supported hardware level is a high-level description of the camera device's
+          capabilities, summarizing several capabilities into one field.  Each level adds additional
+          features to the previous one, and is always a strict superset of the previous level.
+          The ordering is `LEGACY &lt; LIMITED &lt; FULL &lt; LEVEL_3`.
 
-          A FULL device will support below capabilities:
+          Starting from `LEVEL_3`, the level enumerations are guaranteed to be in increasing
+          numerical value as well. To check if a given device is at least at a given hardware level,
+          the following code snippet can be used:
 
-          * BURST_CAPTURE capability (android.request.availableCapabilities contains BURST_CAPTURE)
-          * Per frame control (android.sync.maxLatency `==` PER_FRAME_CONTROL)
-          * Manual sensor control (android.request.availableCapabilities contains MANUAL_SENSOR)
-          * Manual post-processing control (android.request.availableCapabilities contains
-            MANUAL_POST_PROCESSING)
-          * At least 3 processed (but not stalling) format output streams
-            (android.request.maxNumOutputProc `&gt;=` 3)
-          * The required stream configurations defined in android.scaler.availableStreamConfigurations
-          * The required exposure time range defined in android.sensor.info.exposureTimeRange
-          * The required maxFrameDuration defined in android.sensor.info.maxFrameDuration
+              // Returns true if the device supports the required hardware level, or better.
+              boolean isHardwareLevelSupported(CameraCharacteristics c, int requiredLevel) {
+                  int deviceLevel = c.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL);
+                  if (deviceLevel == CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY) {
+                      return requiredLevel == deviceLevel;
+                  }
+                  // deviceLevel is not LEGACY, can use numerical sort
+                  return requiredLevel &lt;= deviceLevel;
+              }
 
-          A LIMITED device may have some or none of the above characteristics.
-          To find out more refer to android.request.availableCapabilities.
+          At a high level, the levels are:
+
+          * `LEGACY` devices operate in a backwards-compatibility mode for older
+            Android devices, and have very limited capabilities.
+          * `LIMITED` devices represent the
+            baseline feature set, and may also include additional capabilities that are
+            subsets of `FULL`.
+          * `FULL` devices additionally support per-frame manual control of sensor, flash, lens and
+            post-processing settings, and image capture at a high rate.
+          * `LEVEL_3` devices additionally support YUV reprocessing and RAW image capture, along
+            with additional output stream configurations.
+
+          See the individual level enums for full descriptions of the supported capabilities.  The
+          android.request.availableCapabilities entry describes the device's capabilities at a
+          finer-grain level, if needed. In addition, many controls have their available settings or
+          ranges defined in individual {@link android.hardware.camera2.CameraCharacteristics} entries.
 
           Some features are not part of any particular hardware level or capability and must be
           queried separately. These include:
@@ -8101,31 +8500,21 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
             (android.lens.info.availableOpticalStabilization,
              android.control.availableVideoStabilizationModes)
 
-          A LEGACY device does not support per-frame control, manual sensor control, manual
-          post-processing, arbitrary cropping regions, and has relaxed performance constraints.
-
-          Each higher level supports everything the lower level supports
-          in this order: FULL `&gt;` LIMITED `&gt;` LEGACY.
-
-          Note:
-          Pre-API level 23, FULL devices also supported arbitrary cropping region
-          (android.scaler.croppingType `==` FREEFORM); this requirement was relaxed in API level 23,
-          and FULL devices may only support CENTERED cropping.
           </details>
           <hal_details>
-          The camera 3 HAL device can implement one of two possible
-          operational modes; limited and full. Full support is
-          expected from new higher-end devices. Limited mode has
-          hardware requirements roughly in line with those for a
-          camera HAL device v1 implementation, and is expected from
-          older or inexpensive devices. Full is a strict superset of
-          limited, and they share the same essential operational flow.
+          The camera 3 HAL device can implement one of three possible operational modes; LIMITED,
+          FULL, and LEVEL_3.
+
+          FULL support or better is expected from new higher-end devices. Limited
+          mode has hardware requirements roughly in line with those for a camera HAL device v1
+          implementation, and is expected from older or inexpensive devices. Each level is a strict
+          superset of the previous level, and they share the same essential operational flow.
 
           For full details refer to "S3. Operational Modes" in camera3.h
 
-          Camera HAL3+ must not implement LEGACY mode. It is there
-          for backwards compatibility in the `android.hardware.camera2`
-          user-facing API only.
+          Camera HAL3+ must not implement LEGACY mode. It is there for backwards compatibility in
+          the `android.hardware.camera2` user-facing API only on HALv1 devices, and is implemented
+          by the camera framework code.
           </hal_details>
         </entry>
       </static>
@@ -8203,8 +8592,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
     </section>
     <section name="sync">
       <dynamic>
-        <entry name="frameNumber" type="int64" visibility="hidden" enum="true"
-               hwlevel="legacy">
+        <entry name="frameNumber" type="int64" visibility="ndk_public"
+               enum="true" hwlevel="legacy">
           <enum>
             <value id="-1">CONVERGING
               <notes>
@@ -8383,7 +8772,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
 
           Use `frame_count` from camera3_request_t instead of
           android.request.frameCount or
-          `@link{android.hardware.camera2.CaptureResult#getFrameNumber}`.
+          `{@link android.hardware.camera2.CaptureResult#getFrameNumber}`.
 
           LIMITED devices are strongly encouraged to use a non-negative
           value. If UNKNOWN is used here then app developers do not have a way
@@ -8395,7 +8784,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
     </section>
     <section name="reprocess">
       <controls>
-        <entry name="effectiveExposureFactor" type="float" visibility="public" hwlevel="limited">
+        <entry name="effectiveExposureFactor" type="float" visibility="java_public" hwlevel="limited">
             <description>
             The amount of exposure time increase factor applied to the original output
             frame by the application processing before sending for reprocessing.
@@ -8446,7 +8835,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
       </clone>
       </dynamic>
       <static>
-        <entry name="maxCaptureStall" type="int32" visibility="public" hwlevel="limited">
+        <entry name="maxCaptureStall" type="int32" visibility="java_public" hwlevel="limited">
           <description>
           The maximal camera capture pipeline stall (in unit of frame count) introduced by a
           reprocess capture request.
@@ -8495,9 +8884,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           </details>
           <tag id="DEPTH" />
         </entry>
-        <entry name="availableDepthStreamConfigurations" type="int32" visibility="hidden"
-          enum="true" container="array"
-          typedef="streamConfiguration" hwlevel="limited">
+        <entry name="availableDepthStreamConfigurations" type="int32" visibility="ndk_public"
+               enum="true" container="array" typedef="streamConfiguration" hwlevel="limited">
           <array>
             <size>n</size>
             <size>4</size>
@@ -8527,9 +8915,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           </details>
           <tag id="DEPTH" />
         </entry>
-        <entry name="availableDepthMinFrameDurations" type="int64" visibility="hidden"
-               container="array"
-               typedef="streamConfigurationDuration" hwlevel="limited">
+        <entry name="availableDepthMinFrameDurations" type="int64" visibility="ndk_public"
+               container="array" typedef="streamConfigurationDuration" hwlevel="limited">
           <array>
             <size>4</size>
             <size>n</size>
@@ -8558,7 +8945,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           </details>
           <tag id="DEPTH" />
         </entry>
-        <entry name="availableDepthStallDurations" type="int64" visibility="hidden"
+        <entry name="availableDepthStallDurations" type="int64" visibility="ndk_public"
                container="array" typedef="streamConfigurationDuration" hwlevel="limited">
           <array>
             <size>4</size>

@@ -50,19 +50,23 @@
      <public type="attr" name="actionViewClass"/>
      <public type="attr" name="alertDialogStyle"/>
      <public type="attr" name="alertDialogTheme"/>
+     <public type="attr" name="alpha"/>
+     <public type="attr" name="arrowHeadLength"/>
+     <public type="attr" name="arrowShaftLength"/>
      <public type="attr" name="autoCompleteTextViewStyle"/>
      <public type="attr" name="background"/>
      <public type="attr" name="backgroundSplit"/>
      <public type="attr" name="backgroundStacked"/>
      <public type="attr" name="backgroundTint"/>
      <public type="attr" name="backgroundTintMode"/>
-     <public type="attr" name="barSize"/>
+     <public type="attr" name="barLength"/>
      <public type="attr" name="borderlessButtonStyle"/>
      <public type="attr" name="buttonBarButtonStyle"/>
      <public type="attr" name="buttonBarNegativeButtonStyle"/>
      <public type="attr" name="buttonBarNeutralButtonStyle"/>
      <public type="attr" name="buttonBarPositiveButtonStyle"/>
      <public type="attr" name="buttonBarStyle"/>
+     <public type="attr" name="buttonGravity" />
      <public type="attr" name="buttonStyle"/>
      <public type="attr" name="buttonStyleSmall"/>
      <public type="attr" name="buttonTint"/>
@@ -75,6 +79,7 @@
      <public type="attr" name="collapseIcon"/>
      <public type="attr" name="color"/>
      <public type="attr" name="colorAccent"/>
+     <public type="attr" name="colorBackgroundFloating"/>
      <public type="attr" name="colorButtonNormal"/>
      <public type="attr" name="colorControlActivated"/>
      <public type="attr" name="colorControlHighlight"/>
@@ -84,9 +89,11 @@
      <public type="attr" name="colorSwitchThumbNormal"/>
      <public type="attr" name="commitIcon"/>
      <public type="attr" name="contentInsetEnd"/>
+     <public type="attr" name="contentInsetEndWithActions"/>
      <public type="attr" name="contentInsetLeft"/>
      <public type="attr" name="contentInsetRight"/>
      <public type="attr" name="contentInsetStart"/>
+     <public type="attr" name="contentInsetStartWithNavigation"/>
      <public type="attr" name="customNavigationLayout"/>
      <public type="attr" name="dialogPreferredPadding"/>
      <public type="attr" name="dialogTheme"/>
@@ -97,7 +104,6 @@
      <public type="attr" name="dividerVertical"/>
      <public type="attr" name="drawableSize"/>
      <public type="attr" name="drawerArrowStyle"/>
-     <public type="attr" name="dropdownListPreferredItemHeight"/>
      <public type="attr" name="dropDownListViewStyle"/>
      <public type="attr" name="editTextBackground"/>
      <public type="attr" name="editTextColor"/>
@@ -111,6 +117,7 @@
      <public type="attr" name="homeLayout"/>
      <public type="attr" name="icon"/>
      <public type="attr" name="iconifiedByDefault"/>
+     <public type="attr" name="imageButtonStyle"/>
      <public type="attr" name="indeterminateProgressStyle"/>
      <public type="attr" name="isLightTheme"/>
      <public type="attr" name="itemPadding"/>
@@ -125,8 +132,8 @@
      <public type="attr" name="listPreferredItemPaddingRight"/>
      <public type="attr" name="logo"/>
      <public type="attr" name="logoDescription"/>
+     <public type="attr" name="maxButtonHeight" />
      <public type="attr" name="measureWithLargestChild"/>
-     <public type="attr" name="middleBarArrowSize"/>
      <public type="attr" name="navigationContentDescription"/>
      <public type="attr" name="navigationIcon"/>
      <public type="attr" name="navigationMode"/>
@@ -140,14 +147,16 @@
      <public type="attr" name="preserveIconSpacing"/>
      <public type="attr" name="progressBarPadding"/>
      <public type="attr" name="progressBarStyle"/>
-     <public type="attr" name="prompt"/>
      <public type="attr" name="queryBackground"/>
      <public type="attr" name="queryHint"/>
      <public type="attr" name="radioButtonStyle"/>
      <public type="attr" name="ratingBarStyle"/>
+     <public type="attr" name="ratingBarStyleIndicator"/>
+     <public type="attr" name="ratingBarStyleSmall"/>
      <public type="attr" name="searchHintIcon"/>
      <public type="attr" name="searchIcon"/>
      <public type="attr" name="searchViewStyle"/>
+     <public type="attr" name="seekBarStyle"/>
      <public type="attr" name="selectableItemBackground"/>
      <public type="attr" name="selectableItemBackgroundBorderless"/>
      <public type="attr" name="showAsAction"/>
@@ -155,9 +164,9 @@
      <public type="attr" name="showText"/>
      <public type="attr" name="spinBars"/>
      <public type="attr" name="spinnerDropDownItemStyle"/>
-     <public type="attr" name="spinnerMode"/>
      <public type="attr" name="spinnerStyle"/>
      <public type="attr" name="splitTrack"/>
+     <public type="attr" name="srcCompat"/>
      <public type="attr" name="submitBackground"/>
      <public type="attr" name="subtitle"/>
      <public type="attr" name="subtitleTextAppearance"/>
@@ -172,6 +181,7 @@
      <public type="attr" name="textAppearanceLargePopupMenu"/>
      <public type="attr" name="textAppearanceListItem"/>
      <public type="attr" name="textAppearanceListItemSmall"/>
+     <public type="attr" name="textAppearancePopupMenuHeader"/>
      <public type="attr" name="textAppearanceSearchResultSubtitle"/>
      <public type="attr" name="textAppearanceSearchResultTitle"/>
      <public type="attr" name="textAppearanceSmallPopupMenu"/>
@@ -179,9 +189,13 @@
      <public type="attr" name="theme"/>
      <public type="attr" name="thickness"/>
      <public type="attr" name="thumbTextPadding"/>
+     <public type="attr" name="tickMark"/>
+     <public type="attr" name="tickMarkTint"/>
+     <public type="attr" name="tickMarkTintMode"/>
      <public type="attr" name="title"/>
      <public type="attr" name="titleMarginBottom"/>
      <public type="attr" name="titleMarginEnd"/>
+     <public type="attr" name="titleMargin"/>
      <public type="attr" name="titleMargins"/>
      <public type="attr" name="titleMarginStart"/>
      <public type="attr" name="titleMarginTop"/>
@@ -190,7 +204,6 @@
      <public type="attr" name="titleTextStyle"/>
      <public type="attr" name="toolbarNavigationButtonStyle"/>
      <public type="attr" name="toolbarStyle"/>
-     <public type="attr" name="topBottomBarArrowSize"/>
      <public type="attr" name="track"/>
      <public type="attr" name="voiceIcon"/>
      <public type="attr" name="windowActionBar"/>

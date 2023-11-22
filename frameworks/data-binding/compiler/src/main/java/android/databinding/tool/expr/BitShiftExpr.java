@@ -18,6 +18,7 @@ package android.databinding.tool.expr;
 
 import android.databinding.tool.reflection.ModelAnalyzer;
 import android.databinding.tool.reflection.ModelClass;
+import android.databinding.tool.writer.KCode;
 
 import java.util.List;
 
@@ -53,5 +54,18 @@ public class BitShiftExpr extends Expr {
 
     public Expr getRight() {
         return getChildren().get(1);
+    }
+
+    @Override
+    protected KCode generateCode(boolean expand) {
+        return new KCode()
+                .app("", getLeft().toCode(expand))
+                .app(getOp())
+                .app("", getRight().toCode(expand));
+    }
+
+    @Override
+    public String getInvertibleError() {
+        return "Bit shift operators cannot be inverted in two-way binding";
     }
 }

@@ -56,8 +56,6 @@ static void TestAudioRecording(SLObjectItf sl)
     SLDataLocator_IODevice locator_mic;
     SLDeviceVolumeItf devicevolumeItf;
     SLDataSink audioSink;
-    SLDataLocator_URI uri;
-    SLDataFormat_MIME mime;
 
     int i;
     SLboolean required[MAX_NUMBER_INTERFACES];

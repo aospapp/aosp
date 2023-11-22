@@ -45,8 +45,7 @@ NuPlayerDriver::NuPlayerDriver(pid_t pid)
       mPlayerFlags(0),
       mAtEOS(false),
       mLooping(false),
-      mAutoLoop(false),
-      mStartupSeekTimeUs(-1) {
+      mAutoLoop(false) {
     ALOGV("NuPlayerDriver(%p)", this);
     mLooper->setName("NuPlayerDriver Looper");
 
@@ -244,7 +243,10 @@ status_t NuPlayerDriver::prepareAsync() {
 status_t NuPlayerDriver::start() {
     ALOGD("start(%p), state is %d, eos is %d", this, mState, mAtEOS);
     Mutex::Autolock autoLock(mLock);
+    return start_l();
+}
 
+status_t NuPlayerDriver::start_l() {
     switch (mState) {
         case STATE_UNPREPARED:
         {
@@ -261,25 +263,11 @@ status_t NuPlayerDriver::start() {
 
         case STATE_PAUSED:
         case STATE_STOPPED_AND_PREPARED:
-        {
-            if (mAtEOS && mStartupSeekTimeUs < 0) {
-                mStartupSeekTimeUs = 0;
-                mPositionUs = -1;
-            }
-
-            // fall through
-        }
-
         case STATE_PREPARED:
         {
-            mAtEOS = false;
             mPlayer->start();
 
-            if (mStartupSeekTimeUs >= 0) {
-                mPlayer->seekToAsync(mStartupSeekTimeUs);
-                mStartupSeekTimeUs = -1;
-            }
-            break;
+            // fall through
         }
 
         case STATE_RUNNING:
@@ -330,12 +318,13 @@ status_t NuPlayerDriver::stop() {
 }
 
 status_t NuPlayerDriver::pause() {
+    ALOGD("pause(%p)", this);
     // The NuPlayerRenderer may get flushed if pause for long enough, e.g. the pause timeout tear
     // down for audio offload mode. If that happens, the NuPlayerRenderer will no longer know the
     // current position. So similar to seekTo, update |mPositionUs| to the pause position by calling
     // getCurrentPosition here.
-    int msec;
-    getCurrentPosition(&msec);
+    int unused;
+    getCurrentPosition(&unused);
 
     Mutex::Autolock autoLock(mLock);
 
@@ -362,16 +351,20 @@ bool NuPlayerDriver::isPlaying() {
 }
 
 status_t NuPlayerDriver::setPlaybackSettings(const AudioPlaybackRate &rate) {
-    Mutex::Autolock autoLock(mLock);
     status_t err = mPlayer->setPlaybackSettings(rate);
     if (err == OK) {
+        // try to update position
+        int unused;
+        getCurrentPosition(&unused);
+        Mutex::Autolock autoLock(mLock);
         if (rate.mSpeed == 0.f && mState == STATE_RUNNING) {
             mState = STATE_PAUSED;
-            // try to update position
-            (void)mPlayer->getCurrentPosition(&mPositionUs);
             notifyListener_l(MEDIA_PAUSED);
-        } else if (rate.mSpeed != 0.f && mState == STATE_PAUSED) {
-            mState = STATE_RUNNING;
+        } else if (rate.mSpeed != 0.f
+                && (mState == STATE_PAUSED
+                    || mState == STATE_STOPPED_AND_PREPARED
+                    || mState == STATE_PREPARED)) {
+            err = start_l();
         }
     }
     return err;
@@ -390,7 +383,7 @@ status_t NuPlayerDriver::getSyncSettings(AVSyncSettings *sync, float *videoFps) 
 }
 
 status_t NuPlayerDriver::seekTo(int msec) {
-    ALOGD("seekTo(%p) %d ms", this, msec);
+    ALOGD("seekTo(%p) %d ms at state %d", this, msec, mState);
     Mutex::Autolock autoLock(mLock);
 
     int64_t seekTimeUs = msec * 1000ll;
@@ -399,8 +392,6 @@ status_t NuPlayerDriver::seekTo(int msec) {
         case STATE_PREPARED:
         case STATE_STOPPED_AND_PREPARED:
         case STATE_PAUSED:
-            mStartupSeekTimeUs = seekTimeUs;
-            // fall through.
         case STATE_RUNNING:
         {
             mAtEOS = false;
@@ -423,7 +414,7 @@ status_t NuPlayerDriver::getCurrentPosition(int *msec) {
     int64_t tempUs = 0;
     {
         Mutex::Autolock autoLock(mLock);
-        if (mSeekInProgress || mState == STATE_PAUSED) {
+        if (mSeekInProgress || (mState == STATE_PAUSED && !mAtEOS)) {
             tempUs = (mPositionUs <= 0) ? 0 : mPositionUs;
             *msec = (int)divRound(tempUs, (int64_t)(1000));
             return OK;
@@ -458,7 +449,7 @@ status_t NuPlayerDriver::getDuration(int *msec) {
 }
 
 status_t NuPlayerDriver::reset() {
-    ALOGD("reset(%p)", this);
+    ALOGD("reset(%p) at state %d", this, mState);
     Mutex::Autolock autoLock(mLock);
 
     switch (mState) {
@@ -501,7 +492,6 @@ status_t NuPlayerDriver::reset() {
 
     mDurationUs = -1;
     mPositionUs = -1;
-    mStartupSeekTimeUs = -1;
     mLooping = false;
 
     return OK;
@@ -725,7 +715,8 @@ void NuPlayerDriver::notifyListener(
 
 void NuPlayerDriver::notifyListener_l(
         int msg, int ext1, int ext2, const Parcel *in) {
-    ALOGD("notifyListener_l(%p), (%d, %d, %d)", this, msg, ext1, ext2);
+    ALOGD("notifyListener_l(%p), (%d, %d, %d), loop setting(%d, %d)",
+            this, msg, ext1, ext2, mAutoLoop, mLooping);
     switch (msg) {
         case MEDIA_PLAYBACK_COMPLETE:
         {
@@ -747,7 +738,8 @@ void NuPlayerDriver::notifyListener_l(
                         // the last little bit of audio. If we're looping, we need to restart it.
                         mAudioSink->start();
                     }
-                    break;
+                    // don't send completion event when looping
+                    return;
                 }
 
                 mPlayer->pause();

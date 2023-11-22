@@ -11,6 +11,7 @@
 #include "SkReadBuffer.h"
 #include "SkWriteBuffer.h"
 #include "SkPathMeasure.h"
+#include "SkStrokeRec.h"
 
 bool Sk1DPathEffect::filterPath(SkPath* dst, const SkPath& src,
                                 SkStrokeRec*, const SkRect*) const {
@@ -34,39 +35,33 @@ bool Sk1DPathEffect::filterPath(SkPath* dst, const SkPath& src,
 SkPath1DPathEffect::SkPath1DPathEffect(const SkPath& path, SkScalar advance,
     SkScalar phase, Style style) : fPath(path)
 {
-    if (advance <= 0 || path.isEmpty()) {
-        SkDEBUGF(("SkPath1DPathEffect can't use advance <= 0\n"));
-        fAdvance = 0;   // signals we can't draw anything
-        fInitialOffset = 0;
-        fStyle = kStyleCount;
+    SkASSERT(advance > 0 && !path.isEmpty());
+    // cleanup their phase parameter, inverting it so that it becomes an
+    // offset along the path (to match the interpretation in PostScript)
+    if (phase < 0) {
+        phase = -phase;
+        if (phase > advance) {
+            phase = SkScalarMod(phase, advance);
+        }
     } else {
-        // cleanup their phase parameter, inverting it so that it becomes an
-        // offset along the path (to match the interpretation in PostScript)
-        if (phase < 0) {
-            phase = -phase;
-            if (phase > advance) {
-                phase = SkScalarMod(phase, advance);
-            }
-        } else {
-            if (phase > advance) {
-                phase = SkScalarMod(phase, advance);
-            }
-            phase = advance - phase;
+        if (phase > advance) {
+            phase = SkScalarMod(phase, advance);
         }
-        // now catch the edge case where phase == advance (within epsilon)
-        if (phase >= advance) {
-            phase = 0;
-        }
-        SkASSERT(phase >= 0);
-
-        fAdvance = advance;
-        fInitialOffset = phase;
-
-        if ((unsigned)style >= kStyleCount) {
-            SkDEBUGF(("SkPath1DPathEffect style enum out of range %d\n", style));
-        }
-        fStyle = style;
+        phase = advance - phase;
     }
+    // now catch the edge case where phase == advance (within epsilon)
+    if (phase >= advance) {
+        phase = 0;
+    }
+    SkASSERT(phase >= 0);
+
+    fAdvance = advance;
+    fInitialOffset = phase;
+
+    if ((unsigned)style > kMorph_Style) {
+        SkDEBUGF(("SkPath1DPathEffect style enum out of range %d\n", style));
+    }
+    fStyle = style;
 }
 
 bool SkPath1DPathEffect::filterPath(SkPath* dst, const SkPath& src,
@@ -160,7 +155,7 @@ SkFlattenable* SkPath1DPathEffect::CreateProc(SkReadBuffer& buffer) {
         Style style = (Style)buffer.readUInt();
         return SkPath1DPathEffect::Create(path, advance, phase, style);
     }
-    return NULL;
+    return nullptr;
 }
 
 void SkPath1DPathEffect::flatten(SkWriteBuffer& buffer) const {
@@ -177,7 +172,7 @@ SkScalar SkPath1DPathEffect::next(SkPath* dst, SkScalar distance,
     switch (fStyle) {
         case kTranslate_Style: {
             SkPoint pos;
-            if (meas.getPosTan(distance, &pos, NULL)) {
+            if (meas.getPosTan(distance, &pos, nullptr)) {
                 dst->addPath(fPath, pos.fX, pos.fY);
             }
         } break;
@@ -206,3 +201,13 @@ void SkPath1DPathEffect::toString(SkString* str) const {
     str->appendf(")");
 }
 #endif
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+SkPathEffect* SkPath1DPathEffect::Create(const SkPath& path, SkScalar advance, SkScalar phase,
+                                         Style style) {
+    if (advance <= 0 || path.isEmpty()) {
+        return nullptr;
+    }
+    return new SkPath1DPathEffect(path, advance, phase, style);
+}

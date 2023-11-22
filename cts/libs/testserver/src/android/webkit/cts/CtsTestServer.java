@@ -54,34 +54,31 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
-import java.net.MalformedURLException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLEncoder;
-import java.net.URLConnection;
-import java.security.KeyManagementException;
 import java.security.KeyStore;
-import java.security.NoSuchAlgorithmException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Vector;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -115,7 +112,6 @@ public class CtsTestServer {
     private static final String COOKIE_PREFIX = "/cookie";
     private static final String LINKED_SCRIPT_PREFIX = "/linkedscriptprefix";
     private static final String AUTH_PREFIX = "/auth";
-    private static final String SHUTDOWN_PREFIX = "/shutdown";
     public static final String NOLENGTH_POSTFIX = "nolength";
     private static final int DELAY_MILLIS = 2000;
 
@@ -223,74 +219,13 @@ public class CtsTestServer {
      * Terminate the http server.
      */
     public void shutdown() {
+        mServerThread.shutDownOnClientThread();
+
         try {
-            // Avoid a deadlock between two threads where one is trying to call
-            // close() and the other one is calling accept() by sending a GET
-            // request for shutdown and having the server's one thread
-            // sequentially call accept() and close().
-            URL url = new URL(mServerUri + SHUTDOWN_PREFIX);
-            if (url.getProtocol().equalsIgnoreCase("http")) {
-                // Use Socket instead of HttpURLConnection when the server is in cleartext HTTP mode
-                // to avoid the request being blocked by NetworkSecurityPolicy.
-                Socket socket = null;
-                try {
-                    socket = new Socket(url.getHost(), url.getPort());
-                    socket.getOutputStream().write(
-                        ("GET " + SHUTDOWN_PREFIX + " HTTP/1.0\r\n\r\n").getBytes("US-ASCII"));
-                    socket.getOutputStream().flush();
-                } finally {
-                    if (socket != null) {
-                        try {
-                            socket.close();
-                        } catch (Exception ignored) {}
-                    }
-                }
-            } else {
-                URLConnection connection = openConnection(url);
-                connection.connect();
-
-                // Read the input from the stream to send the request.
-                InputStream is = connection.getInputStream();
-                is.close();
-            }
-
             // Block until the server thread is done shutting down.
             mServerThread.join();
-
-        } catch (MalformedURLException e) {
-            throw new IllegalStateException(e);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(e);
-        } catch (KeyManagementException e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
-    private URLConnection openConnection(URL url)
-            throws IOException, NoSuchAlgorithmException, KeyManagementException {
-        if (mSsl == SslMode.INSECURE) {
-            return url.openConnection();
-        } else {
-            // Install hostname verifiers and trust managers that don't do
-            // anything in order to get around the client not trusting
-            // the test server due to a lack of certificates.
-
-            HttpsURLConnection connection = (HttpsURLConnection) url.openConnection();
-            connection.setHostnameVerifier(new CtsHostnameVerifier());
-
-            SSLContext context = SSLContext.getInstance("TLS");
-            try {
-                context.init(ServerThread.getKeyManagers(), getTrustManagers(), null);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-            connection.setSSLSocketFactory(context.getSocketFactory());
-
-            return connection;
         }
     }
 
@@ -775,11 +710,6 @@ public class CtsTestServer {
             response.setEntity(createPage(agent, agent));
         } else if (path.equals(TEST_DOWNLOAD_PATH)) {
             response = createTestDownloadResponse(Uri.parse(uriString));
-        } else if (path.equals(SHUTDOWN_PREFIX)) {
-            response = createResponse(HttpStatus.SC_OK);
-            // We cannot close the socket here, because we need to respond.
-            // Status must be set to OK, or else the test will fail due to
-            // a RunTimeException.
         } else if (path.equals(APPCACHE_PATH)) {
             response = createResponse(HttpStatus.SC_OK);
             response.setEntity(createEntity("<!DOCTYPE HTML>" +
@@ -924,9 +854,12 @@ public class CtsTestServer {
         private CtsTestServer mServer;
         private ServerSocket mSocket;
         private SslMode mSsl;
-        private boolean mIsCancelled;
+        private boolean mWillShutDown = false;
         private SSLContext mSslContext;
         private ExecutorService mExecutorService = Executors.newFixedThreadPool(20);
+        private Object mLock = new Object();
+        // All the sockets bound to an open connection.
+        private Set<Socket> mSockets = new HashSet<Socket>();
 
         /**
          * Defines the keystore contents for the server, BKS version. Holds just a
@@ -1012,9 +945,13 @@ public class CtsTestServer {
         }
 
         public void run() {
-            while (!mIsCancelled) {
+            while (!mWillShutDown) {
                 try {
                     Socket socket = mSocket.accept();
+
+                    synchronized(mLock) {
+                        mSockets.add(socket);
+                    }
 
                     DefaultHttpServerConnection conn = mServer.createHttpServerConnection();
                     HttpParams params = new BasicHttpParams();
@@ -1025,15 +962,15 @@ public class CtsTestServer {
                     // parsing the response since conn.close() will crash
                     // for SSL requests due to UnsupportedOperationException.
                     HttpRequest request = conn.receiveRequestHeader();
-                    if (isShutdownRequest(request)) {
-                        mIsCancelled = true;
-                    }
                     if (request instanceof HttpEntityEnclosingRequest) {
                         conn.receiveRequestEntity( (HttpEntityEnclosingRequest) request);
                     }
 
-                    mExecutorService.execute(new HandleResponseTask(conn, request));
+                    mExecutorService.execute(new HandleResponseTask(conn, request, socket));
                 } catch (IOException e) {
+                    // normal during shutdown, ignore
+                    Log.w(TAG, e);
+                } catch (RejectedExecutionException e) {
                     // normal during shutdown, ignore
                     Log.w(TAG, e);
                 } catch (HttpException e) {
@@ -1044,23 +981,31 @@ public class CtsTestServer {
                     Log.w(TAG, e);
                 }
             }
+        }
+
+        /**
+         * Shutdown the socket and the executor service.
+         * Note this method is called on the client thread, instead of the server thread.
+         */
+        public void shutDownOnClientThread() {
             try {
+                mWillShutDown = true;
                 mExecutorService.shutdown();
                 mExecutorService.awaitTermination(1L, TimeUnit.MINUTES);
                 mSocket.close();
+                // To prevent the server thread from being blocked on read from socket,
+                // which is called when the server tries to receiveRequestHeader,
+                // close all the sockets here.
+                synchronized(mLock) {
+                    for (Socket socket : mSockets) {
+                        socket.close();
+                    }
+                }
             } catch (IOException ignored) {
                 // safe to ignore
             } catch (InterruptedException e) {
                 Log.e(TAG, "Shutting down threads", e);
             }
-        }
-
-        private static boolean isShutdownRequest(HttpRequest request) {
-            RequestLine requestLine = request.getRequestLine();
-            String uriString = requestLine.getUri();
-            URI uri = URI.create(uriString);
-            String path = uri.getPath();
-            return path.equals(SHUTDOWN_PREFIX);
         }
 
         private class HandleResponseTask implements Runnable {
@@ -1069,10 +1014,13 @@ public class CtsTestServer {
 
             private HttpRequest mRequest;
 
+            private Socket mSocket;
+
             public HandleResponseTask(DefaultHttpServerConnection connection,
-                    HttpRequest request) {
+                    HttpRequest request, Socket socket)  {
                 this.mConnection = connection;
                 this.mRequest = request;
+                this.mSocket = socket;
             }
 
             @Override
@@ -1082,6 +1030,10 @@ public class CtsTestServer {
                     mConnection.sendResponseHeader(response);
                     mConnection.sendResponseEntity(response);
                     mConnection.close();
+
+                    synchronized(mLock) {
+                        ServerThread.this.mSockets.remove(mSocket);
+                    }
                 } catch (Exception e) {
                     Log.e(TAG, "Error handling request:", e);
                 }

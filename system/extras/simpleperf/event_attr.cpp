@@ -21,7 +21,7 @@
 #include <string>
 #include <unordered_map>
 
-#include <base/logging.h>
+#include <android-base/logging.h>
 
 #include "event_type.h"
 #include "utils.h"
@@ -46,17 +46,20 @@ static std::string BitsToString(const std::string& name, uint64_t bits,
 
 static std::string SampleTypeToString(uint64_t sample_type) {
   static std::vector<std::pair<int, std::string>> sample_type_names = {
+      {PERF_SAMPLE_ADDR, "addr"},
+      {PERF_SAMPLE_BRANCH_STACK, "branch_stack"},
+      {PERF_SAMPLE_CALLCHAIN, "callchain"},
+      {PERF_SAMPLE_CPU, "cpu"},
+      {PERF_SAMPLE_ID, "id"},
       {PERF_SAMPLE_IP, "ip"},
+      {PERF_SAMPLE_PERIOD, "period"},
+      {PERF_SAMPLE_RAW, "raw"},
+      {PERF_SAMPLE_READ, "read"},
+      {PERF_SAMPLE_REGS_USER, "regs_user"},
+      {PERF_SAMPLE_STACK_USER, "stack_user"},
+      {PERF_SAMPLE_STREAM_ID, "stream_id"},
       {PERF_SAMPLE_TID, "tid"},
       {PERF_SAMPLE_TIME, "time"},
-      {PERF_SAMPLE_ADDR, "addr"},
-      {PERF_SAMPLE_READ, "read"},
-      {PERF_SAMPLE_CALLCHAIN, "callchain"},
-      {PERF_SAMPLE_ID, "id"},
-      {PERF_SAMPLE_CPU, "cpu"},
-      {PERF_SAMPLE_PERIOD, "period"},
-      {PERF_SAMPLE_STREAM_ID, "stream_id"},
-      {PERF_SAMPLE_RAW, "raw"},
   };
   return BitsToString("sample_type", sample_type, sample_type_names);
 }
@@ -79,23 +82,31 @@ perf_event_attr CreateDefaultPerfEventAttr(const EventType& event_type) {
   attr.config = event_type.config;
   attr.mmap = 1;
   attr.comm = 1;
-  attr.disabled = 1;
+  attr.disabled = 0;
   // Changing read_format affects the layout of the data read from perf_event_file, namely
   // PerfCounter in event_fd.h.
   attr.read_format =
       PERF_FORMAT_TOTAL_TIME_ENABLED | PERF_FORMAT_TOTAL_TIME_RUNNING | PERF_FORMAT_ID;
-  attr.sample_type |= PERF_SAMPLE_IP | PERF_SAMPLE_TID | PERF_SAMPLE_TIME | PERF_SAMPLE_PERIOD;
+  attr.sample_type |=
+      PERF_SAMPLE_IP | PERF_SAMPLE_TID | PERF_SAMPLE_TIME | PERF_SAMPLE_PERIOD | PERF_SAMPLE_CPU;
+
+  if (attr.type == PERF_TYPE_TRACEPOINT) {
+    attr.sample_freq = 0;
+    attr.sample_period = 1;
+    // Tracepoint information are stored in raw data in sample records.
+    attr.sample_type |= PERF_SAMPLE_RAW;
+  }
   return attr;
 }
 
 void DumpPerfEventAttr(const perf_event_attr& attr, size_t indent) {
   std::string event_name = "unknown";
-  const EventType* event_type = EventTypeFactory::FindEventTypeByConfig(attr.type, attr.config);
+  const EventType* event_type = FindEventTypeByConfig(attr.type, attr.config);
   if (event_type != nullptr) {
     event_name = event_type->name;
   }
 
-  PrintIndented(indent, "event_attr: for event %s\n", event_name.c_str());
+  PrintIndented(indent, "event_attr: for event type %s\n", event_name.c_str());
 
   PrintIndented(indent + 1, "type %u, size %u, config %llu\n", attr.type, attr.size, attr.config);
 
@@ -111,21 +122,26 @@ void DumpPerfEventAttr(const perf_event_attr& attr, size_t indent) {
   PrintIndented(indent + 1, "read_format (0x%llx) %s\n", attr.read_format,
                 ReadFormatToString(attr.read_format).c_str());
 
-  PrintIndented(indent + 1, "disabled %llu, inherit %llu, pinned %llu, exclusive %llu\n",
-                attr.disabled, attr.inherit, attr.pinned, attr.exclusive);
+  PrintIndented(indent + 1, "disabled %u, inherit %u, pinned %u, exclusive %u\n", attr.disabled,
+                attr.inherit, attr.pinned, attr.exclusive);
 
-  PrintIndented(indent + 1, "exclude_user %llu, exclude_kernel %llu, exclude_hv %llu\n",
+  PrintIndented(indent + 1, "exclude_user %u, exclude_kernel %u, exclude_hv %u\n",
                 attr.exclude_user, attr.exclude_kernel, attr.exclude_hv);
 
-  PrintIndented(indent + 1, "exclude_idle %llu, mmap %llu, comm %llu, freq %llu\n",
-                attr.exclude_idle, attr.mmap, attr.comm, attr.freq);
+  PrintIndented(indent + 1, "exclude_idle %u, mmap %u, comm %u, freq %u\n", attr.exclude_idle,
+                attr.mmap, attr.comm, attr.freq);
 
-  PrintIndented(indent + 1, "inherit_stat %llu, enable_on_exec %llu, task %llu\n",
-                attr.inherit_stat, attr.enable_on_exec, attr.task);
+  PrintIndented(indent + 1, "inherit_stat %u, enable_on_exec %u, task %u\n", attr.inherit_stat,
+                attr.enable_on_exec, attr.task);
 
-  PrintIndented(indent + 1, "watermark %llu, precise_ip %llu, mmap_data %llu\n", attr.watermark,
+  PrintIndented(indent + 1, "watermark %u, precise_ip %u, mmap_data %u\n", attr.watermark,
                 attr.precise_ip, attr.mmap_data);
 
-  PrintIndented(indent + 1, "sample_id_all %llu, exclude_host %llu, exclude_guest %llu\n",
+  PrintIndented(indent + 1, "sample_id_all %u, exclude_host %u, exclude_guest %u\n",
                 attr.sample_id_all, attr.exclude_host, attr.exclude_guest);
+  PrintIndented(indent + 1, "branch_sample_type 0x%" PRIx64 "\n", attr.branch_sample_type);
+  PrintIndented(indent + 1, "exclude_callchain_kernel %u, exclude_callchain_user %u\n",
+                attr.exclude_callchain_kernel, attr.exclude_callchain_user);
+  PrintIndented(indent + 1, "sample_regs_user 0x%" PRIx64 "\n", attr.sample_regs_user);
+  PrintIndented(indent + 1, "sample_stack_user 0x%" PRIx64 "\n", attr.sample_stack_user);
 }

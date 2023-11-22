@@ -16,6 +16,7 @@
 #include "SkRandom.h"
 #include "SkStrokeRec.h"
 
+class GrStrokeInfo;
 class SkMatrix;
 class SkPath;
 class SkRRect;
@@ -35,6 +36,7 @@ const SkRRect& TestRRectSimple(SkRandom*);
 const SkPath& TestPath(SkRandom*);
 const SkPath& TestPathConvex(SkRandom*);
 SkStrokeRec TestStrokeRec(SkRandom*);
+GrStrokeInfo TestStrokeInfo(SkRandom*);
 
 }
 
@@ -89,6 +91,7 @@ static inline uint8_t GrRandomCoverage(SkRandom* random) {
     switch (colorMode) {
         case kZero_CoverageMode:
             coverage = 0;
+            break;
         case kAllOnes_CoverageMode:
             coverage = 0xff;
             break;

@@ -150,12 +150,12 @@ public class VMDeathTest extends JDWPSyncTestCase {
         logWriter.println("==> test PASSED!");
     }
 
-    protected void beforeDebuggeeStart(JDWPUnitDebuggeeWrapper debuggeeWrapper) {
+    protected void beforeConnectionSetUp() {
         settings.setAttachConnectorKind();
         if (settings.getTransportAddress() == null) {
             settings.setTransportAddress(TestOptions.DEFAULT_ATTACHING_ADDRESS);
         }
         logWriter.println("ATTACH connector kind");
-        super.beforeDebuggeeStart(debuggeeWrapper);
+        super.beforeConnectionSetUp();
     }
 }

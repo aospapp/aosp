@@ -30,21 +30,8 @@
 
 #undef HAL_PIXEL_FORMAT_NV12
 
-typedef struct _IMG_gralloc_module_
-{
-	IMG_gralloc_module_public_t base;
-	void *(*GetDisplayDevice)(struct _IMG_gralloc_module_ *psGrallocModule);
-	int (*GetDisplayStatus)(struct _IMG_gralloc_module_ *psGrallocModule,
-							buffer_handle_t handle, uint32_t *pui32Status);
-	int (*GetBufferCPUAddresses)(gralloc_module_t const* module,
-								 buffer_handle_t buffer,
-								 void **ppvCpuVirtAddr, size_t *puSize);
-	int (*PutBufferCPUAddresses)(gralloc_module_t const* module,
-								 buffer_handle_t buffer);
-}
-IMG_gralloc_module_t;
-
 #define HAL_PIXEL_FORMAT_UYVY         0x107
+#define HAL_PIXEL_FORMAT_INTEL_YV12   0x108
 #define HAL_PIXEL_FORMAT_INTEL_ZSL    0x109
 #define HAL_PIXEL_FORMAT_NV12         0x3231564E
 #define HAL_PIXEL_FORMAT_NV21         0x3132564E
@@ -53,6 +40,10 @@ IMG_gralloc_module_t;
 #define HAL_PIXEL_FORMAT_NV12_VED     0x7FA00E00
 #define HAL_PIXEL_FORMAT_NV12_VEDT    0x7FA00F00
 
+#define GRALLOC_MODULE_GET_BUFFER_CPU_ADDRESSES_IMG 108
+#define GRALLOC_MODULE_PUT_BUFFER_CPU_ADDRESSES_IMG 109
+
+#define GRALLOC_MODULE_GET_DISPLAY_DEVICE_IMG 1000
 #define GRALLOC_MODULE_GET_DISPLAY_STATUS_IMG 1001
 
 #endif /* __HAL_PUBLIC_H */

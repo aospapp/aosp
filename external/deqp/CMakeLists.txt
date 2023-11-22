@@ -66,7 +66,7 @@ endif ()
 include_directories(${ZLIB_INCLUDE_PATH})
 
 # libpng
-find_path(PNG_INCLUDE_PATH	libpng.h)
+find_path(PNG_INCLUDE_PATH	png.h)
 find_library(PNG_LIBRARY	png)
 
 if (NOT PNG_INCLUDE_PATH OR NOT PNG_LIBRARY)
@@ -74,6 +74,12 @@ if (NOT PNG_INCLUDE_PATH OR NOT PNG_LIBRARY)
 	add_subdirectory(external/libpng)
 	# \note PNG_LIBRARY and PNG_INCLUDE_PATH are promoted from external/libpng/CMakeLists.txt
 endif ()
+
+# glslang
+add_subdirectory(external/glslang)
+
+# spirv-tools
+add_subdirectory(external/spirv-tools)
 
 include_directories(${PNG_INCLUDE_PATH})
 
@@ -186,6 +192,7 @@ include_directories(
 	framework/randomshaders
 	framework/egl
 	framework/egl/wrapper
+	external/vulkancts/framework/vulkan
 	)
 
 if (DE_OS_IS_ANDROID OR DE_OS_IS_IOS)
@@ -268,12 +275,14 @@ macro (add_data_file MODULE_NAME SRC_FILE DST_FILE)
 endmacro (add_data_file)
 
 add_subdirectory(framework)
+add_subdirectory(external/vulkancts/framework/vulkan)
 
 if (DE_COMPILER_IS_MSC)
 	add_compile_options(/bigobj) # Required by glsBuiltinPrecisionTests.cpp
 endif ()
 
 add_subdirectory(modules)
+add_subdirectory(external/vulkancts/modules/vulkan)
 
 # Single-binary targets
 if (DE_OS_IS_ANDROID)

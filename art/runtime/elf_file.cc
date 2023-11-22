@@ -32,84 +32,6 @@
 
 namespace art {
 
-// -------------------------------------------------------------------
-// Binary GDB JIT Interface as described in
-//   http://sourceware.org/gdb/onlinedocs/gdb/Declarations.html
-extern "C" {
-  typedef enum {
-    JIT_NOACTION = 0,
-    JIT_REGISTER_FN,
-    JIT_UNREGISTER_FN
-  } JITAction;
-
-  struct JITCodeEntry {
-    JITCodeEntry* next_;
-    JITCodeEntry* prev_;
-    const uint8_t *symfile_addr_;
-    uint64_t symfile_size_;
-  };
-
-  struct JITDescriptor {
-    uint32_t version_;
-    uint32_t action_flag_;
-    JITCodeEntry* relevant_entry_;
-    JITCodeEntry* first_entry_;
-  };
-
-  // GDB will place breakpoint into this function.
-  // To prevent GCC from inlining or removing it we place noinline attribute
-  // and inline assembler statement inside.
-  void __attribute__((noinline)) __jit_debug_register_code();
-  void __attribute__((noinline)) __jit_debug_register_code() {
-    __asm__("");
-  }
-
-  // GDB will inspect contents of this descriptor.
-  // Static initialization is necessary to prevent GDB from seeing
-  // uninitialized descriptor.
-  JITDescriptor __jit_debug_descriptor = { 1, JIT_NOACTION, nullptr, nullptr };
-}
-
-
-static JITCodeEntry* CreateCodeEntry(const uint8_t *symfile_addr,
-                                     uintptr_t symfile_size) {
-  JITCodeEntry* entry = new JITCodeEntry;
-  entry->symfile_addr_ = symfile_addr;
-  entry->symfile_size_ = symfile_size;
-  entry->prev_ = nullptr;
-
-  // TODO: Do we need a lock here?
-  entry->next_ = __jit_debug_descriptor.first_entry_;
-  if (entry->next_ != nullptr) {
-    entry->next_->prev_ = entry;
-  }
-  __jit_debug_descriptor.first_entry_ = entry;
-  __jit_debug_descriptor.relevant_entry_ = entry;
-
-  __jit_debug_descriptor.action_flag_ = JIT_REGISTER_FN;
-  __jit_debug_register_code();
-  return entry;
-}
-
-
-static void UnregisterCodeEntry(JITCodeEntry* entry) {
-  // TODO: Do we need a lock here?
-  if (entry->prev_ != nullptr) {
-    entry->prev_->next_ = entry->next_;
-  } else {
-    __jit_debug_descriptor.first_entry_ = entry->next_;
-  }
-
-  if (entry->next_ != nullptr) {
-    entry->next_->prev_ = entry->prev_;
-  }
-
-  __jit_debug_descriptor.relevant_entry_ = entry;
-  __jit_debug_descriptor.action_flag_ = JIT_UNREGISTER_FN;
-  __jit_debug_register_code();
-  delete entry;
-}
-
 template <typename ElfTypes>
 ElfFileImpl<ElfTypes>::ElfFileImpl(File* file, bool writable,
                                    bool program_header_only,
@@ -130,16 +52,17 @@ ElfFileImpl<ElfTypes>::ElfFileImpl(File* file, bool writable,
     hash_section_start_(nullptr),
     symtab_symbol_table_(nullptr),
     dynsym_symbol_table_(nullptr),
-    jit_elf_image_(nullptr),
-    jit_gdb_entry_(nullptr),
     requested_base_(requested_base) {
   CHECK(file != nullptr);
 }
 
 template <typename ElfTypes>
-ElfFileImpl<ElfTypes>* ElfFileImpl<ElfTypes>::Open(
-    File* file, bool writable, bool program_header_only,
-    std::string* error_msg, uint8_t* requested_base) {
+ElfFileImpl<ElfTypes>* ElfFileImpl<ElfTypes>::Open(File* file,
+                                                   bool writable,
+                                                   bool program_header_only,
+                                                   bool low_4gb,
+                                                   std::string* error_msg,
+                                                   uint8_t* requested_base) {
   std::unique_ptr<ElfFileImpl<ElfTypes>> elf_file(new ElfFileImpl<ElfTypes>
       (file, writable, program_header_only, requested_base));
   int prot;
@@ -151,26 +74,29 @@ ElfFileImpl<ElfTypes>* ElfFileImpl<ElfTypes>::Open(
     prot = PROT_READ;
     flags = MAP_PRIVATE;
   }
-  if (!elf_file->Setup(prot, flags, error_msg)) {
+  if (!elf_file->Setup(prot, flags, low_4gb, error_msg)) {
     return nullptr;
   }
   return elf_file.release();
 }
 
 template <typename ElfTypes>
-ElfFileImpl<ElfTypes>* ElfFileImpl<ElfTypes>::Open(
-    File* file, int prot, int flags, std::string* error_msg) {
+ElfFileImpl<ElfTypes>* ElfFileImpl<ElfTypes>::Open(File* file,
+                                                   int prot,
+                                                   int flags,
+                                                   bool low_4gb,
+                                                   std::string* error_msg) {
   std::unique_ptr<ElfFileImpl<ElfTypes>> elf_file(new ElfFileImpl<ElfTypes>
       (file, (prot & PROT_WRITE) == PROT_WRITE, /*program_header_only*/false,
       /*requested_base*/nullptr));
-  if (!elf_file->Setup(prot, flags, error_msg)) {
+  if (!elf_file->Setup(prot, flags, low_4gb, error_msg)) {
     return nullptr;
   }
   return elf_file.release();
 }
 
 template <typename ElfTypes>
-bool ElfFileImpl<ElfTypes>::Setup(int prot, int flags, std::string* error_msg) {
+bool ElfFileImpl<ElfTypes>::Setup(int prot, int flags, bool low_4gb, std::string* error_msg) {
   int64_t temp_file_length = file_->GetLength();
   if (temp_file_length < 0) {
     errno = -temp_file_length;
@@ -189,8 +115,14 @@ bool ElfFileImpl<ElfTypes>::Setup(int prot, int flags, std::string* error_msg) {
   if (program_header_only_) {
     // first just map ELF header to get program header size information
     size_t elf_header_size = sizeof(Elf_Ehdr);
-    if (!SetMap(MemMap::MapFile(elf_header_size, prot, flags, file_->Fd(), 0,
-                                file_->GetPath().c_str(), error_msg),
+    if (!SetMap(MemMap::MapFile(elf_header_size,
+                                prot,
+                                flags,
+                                file_->Fd(),
+                                0,
+                                low_4gb,
+                                file_->GetPath().c_str(),
+                                error_msg),
                 error_msg)) {
       return false;
     }
@@ -202,16 +134,28 @@ bool ElfFileImpl<ElfTypes>::Setup(int prot, int flags, std::string* error_msg) {
                                 sizeof(Elf_Ehdr), file_->GetPath().c_str());
       return false;
     }
-    if (!SetMap(MemMap::MapFile(program_header_size, prot, flags, file_->Fd(), 0,
-                                file_->GetPath().c_str(), error_msg),
+    if (!SetMap(MemMap::MapFile(program_header_size,
+                                prot,
+                                flags,
+                                file_->Fd(),
+                                0,
+                                low_4gb,
+                                file_->GetPath().c_str(),
+                                error_msg),
                 error_msg)) {
       *error_msg = StringPrintf("Failed to map ELF program headers: %s", error_msg->c_str());
       return false;
     }
   } else {
     // otherwise map entire file
-    if (!SetMap(MemMap::MapFile(file_->GetLength(), prot, flags, file_->Fd(), 0,
-                                file_->GetPath().c_str(), error_msg),
+    if (!SetMap(MemMap::MapFile(file_->GetLength(),
+                                prot,
+                                flags,
+                                file_->Fd(),
+                                0,
+                                low_4gb,
+                                file_->GetPath().c_str(),
+                                error_msg),
                 error_msg)) {
       *error_msg = StringPrintf("Failed to map ELF file: %s", error_msg->c_str());
       return false;
@@ -332,10 +276,6 @@ ElfFileImpl<ElfTypes>::~ElfFileImpl() {
   STLDeleteElements(&segments_);
   delete symtab_symbol_table_;
   delete dynsym_symbol_table_;
-  delete jit_elf_image_;
-  if (jit_gdb_entry_) {
-    UnregisterCodeEntry(jit_gdb_entry_);
-  }
 }
 
 template <typename ElfTypes>
@@ -1124,7 +1064,7 @@ bool ElfFileImpl<ElfTypes>::GetLoadedSize(size_t* size, std::string* error_msg) 
 }
 
 template <typename ElfTypes>
-bool ElfFileImpl<ElfTypes>::Load(bool executable, std::string* error_msg) {
+bool ElfFileImpl<ElfTypes>::Load(bool executable, bool low_4gb, std::string* error_msg) {
   CHECK(program_header_only_) << file_->GetPath();
 
   if (executable) {
@@ -1190,7 +1130,10 @@ bool ElfFileImpl<ElfTypes>::Load(bool executable, std::string* error_msg) {
       }
       std::unique_ptr<MemMap> reserve(MemMap::MapAnonymous(reservation_name.c_str(),
                                                            reserve_base_override,
-                                                           loaded_size, PROT_NONE, false, false,
+                                                           loaded_size,
+                                                           PROT_NONE,
+                                                           low_4gb,
+                                                           false,
                                                            error_msg));
       if (reserve.get() == nullptr) {
         *error_msg = StringPrintf("Failed to allocate %s: %s",
@@ -1258,9 +1201,12 @@ bool ElfFileImpl<ElfTypes>::Load(bool executable, std::string* error_msg) {
       std::unique_ptr<MemMap> segment(
           MemMap::MapFileAtAddress(p_vaddr,
                                    program_header->p_filesz,
-                                   prot, flags, file_->Fd(),
+                                   prot,
+                                   flags,
+                                   file_->Fd(),
                                    program_header->p_offset,
-                                   true,  // implies MAP_FIXED
+                                   /*low4_gb*/false,
+                                   /*reuse*/true,  // implies MAP_FIXED
                                    file_->GetPath().c_str(),
                                    error_msg));
       if (segment.get() == nullptr) {
@@ -1356,11 +1302,6 @@ bool ElfFileImpl<ElfTypes>::Load(bool executable, std::string* error_msg) {
     return false;
   }
 
-  // Use GDB JIT support to do stack backtrace, etc.
-  if (executable) {
-    GdbJITSupport();
-  }
-
   return true;
 }
 
@@ -1448,50 +1389,6 @@ void ElfFileImpl<ElfTypes>::ApplyOatPatches(
     DCHECK_LT(to_patch, to_patch_end) << "Patch past the end of section.";
     *reinterpret_cast<UnalignedAddress*>(to_patch) += delta;
   }
-}
-
-template <typename ElfTypes>
-void ElfFileImpl<ElfTypes>::GdbJITSupport() {
-  // We only get here if we only are mapping the program header.
-  DCHECK(program_header_only_);
-
-  // Well, we need the whole file to do this.
-  std::string error_msg;
-  // Make it MAP_PRIVATE so we can just give it to gdb if all the necessary
-  // sections are there.
-  std::unique_ptr<ElfFileImpl<ElfTypes>> all_ptr(
-      Open(const_cast<File*>(file_), PROT_READ | PROT_WRITE, MAP_PRIVATE, &error_msg));
-  if (all_ptr.get() == nullptr) {
-    return;
-  }
-  ElfFileImpl<ElfTypes>& all = *all_ptr;
-
-  // We need the eh_frame for gdb but debug info might be present without it.
-  const Elf_Shdr* eh_frame = all.FindSectionByName(".eh_frame");
-  if (eh_frame == nullptr) {
-    return;
-  }
-
-  // Do we have interesting sections?
-  // We need to add in a strtab and symtab to the image.
-  // all is MAP_PRIVATE so it can be written to freely.
-  // We also already have strtab and symtab so we are fine there.
-  Elf_Ehdr& elf_hdr = all.GetHeader();
-  elf_hdr.e_entry = 0;
-  elf_hdr.e_phoff = 0;
-  elf_hdr.e_phnum = 0;
-  elf_hdr.e_phentsize = 0;
-  elf_hdr.e_type = ET_EXEC;
-
-  // Since base_address_ is 0 if we are actually loaded at a known address (i.e. this is boot.oat)
-  // and the actual address stuff starts at in regular files this is good.
-  if (!all.FixupDebugSections(reinterpret_cast<intptr_t>(base_address_))) {
-    LOG(ERROR) << "Failed to load GDB data";
-    return;
-  }
-
-  jit_gdb_entry_ = CreateCodeEntry(all.Begin(), all.Size());
-  gdb_file_mapping_.reset(all_ptr.release());
 }
 
 template <typename ElfTypes>
@@ -1768,28 +1665,46 @@ ElfFile::~ElfFile() {
   CHECK_NE(elf32_.get() == nullptr, elf64_.get() == nullptr);
 }
 
-ElfFile* ElfFile::Open(File* file, bool writable, bool program_header_only, std::string* error_msg,
+ElfFile* ElfFile::Open(File* file,
+                       bool writable,
+                       bool program_header_only,
+                       bool low_4gb,
+                       std::string* error_msg,
                        uint8_t* requested_base) {
   if (file->GetLength() < EI_NIDENT) {
     *error_msg = StringPrintf("File %s is too short to be a valid ELF file",
                               file->GetPath().c_str());
     return nullptr;
   }
-  std::unique_ptr<MemMap> map(MemMap::MapFile(EI_NIDENT, PROT_READ, MAP_PRIVATE, file->Fd(), 0,
-                                              file->GetPath().c_str(), error_msg));
+  std::unique_ptr<MemMap> map(MemMap::MapFile(EI_NIDENT,
+                                              PROT_READ,
+                                              MAP_PRIVATE,
+                                              file->Fd(),
+                                              0,
+                                              low_4gb,
+                                              file->GetPath().c_str(),
+                                              error_msg));
   if (map == nullptr && map->Size() != EI_NIDENT) {
     return nullptr;
   }
   uint8_t* header = map->Begin();
   if (header[EI_CLASS] == ELFCLASS64) {
-    ElfFileImpl64* elf_file_impl = ElfFileImpl64::Open(file, writable, program_header_only,
-                                                       error_msg, requested_base);
+    ElfFileImpl64* elf_file_impl = ElfFileImpl64::Open(file,
+                                                       writable,
+                                                       program_header_only,
+                                                       low_4gb,
+                                                       error_msg,
+                                                       requested_base);
     if (elf_file_impl == nullptr)
       return nullptr;
     return new ElfFile(elf_file_impl);
   } else if (header[EI_CLASS] == ELFCLASS32) {
-    ElfFileImpl32* elf_file_impl = ElfFileImpl32::Open(file, writable, program_header_only,
-                                                       error_msg, requested_base);
+    ElfFileImpl32* elf_file_impl = ElfFileImpl32::Open(file,
+                                                       writable,
+                                                       program_header_only,
+                                                       low_4gb,
+                                                       error_msg,
+                                                       requested_base);
     if (elf_file_impl == nullptr) {
       return nullptr;
     }
@@ -1804,25 +1719,41 @@ ElfFile* ElfFile::Open(File* file, bool writable, bool program_header_only, std:
 }
 
 ElfFile* ElfFile::Open(File* file, int mmap_prot, int mmap_flags, std::string* error_msg) {
+  // low_4gb support not required for this path.
+  constexpr bool low_4gb = false;
   if (file->GetLength() < EI_NIDENT) {
     *error_msg = StringPrintf("File %s is too short to be a valid ELF file",
                               file->GetPath().c_str());
     return nullptr;
   }
-  std::unique_ptr<MemMap> map(MemMap::MapFile(EI_NIDENT, PROT_READ, MAP_PRIVATE, file->Fd(), 0,
-                                              file->GetPath().c_str(), error_msg));
+  std::unique_ptr<MemMap> map(MemMap::MapFile(EI_NIDENT,
+                                              PROT_READ,
+                                              MAP_PRIVATE,
+                                              file->Fd(),
+                                              0,
+                                              low_4gb,
+                                              file->GetPath().c_str(),
+                                              error_msg));
   if (map == nullptr && map->Size() != EI_NIDENT) {
     return nullptr;
   }
   uint8_t* header = map->Begin();
   if (header[EI_CLASS] == ELFCLASS64) {
-    ElfFileImpl64* elf_file_impl = ElfFileImpl64::Open(file, mmap_prot, mmap_flags, error_msg);
+    ElfFileImpl64* elf_file_impl = ElfFileImpl64::Open(file,
+                                                       mmap_prot,
+                                                       mmap_flags,
+                                                       low_4gb,
+                                                       error_msg);
     if (elf_file_impl == nullptr) {
       return nullptr;
     }
     return new ElfFile(elf_file_impl);
   } else if (header[EI_CLASS] == ELFCLASS32) {
-    ElfFileImpl32* elf_file_impl = ElfFileImpl32::Open(file, mmap_prot, mmap_flags, error_msg);
+    ElfFileImpl32* elf_file_impl = ElfFileImpl32::Open(file,
+                                                       mmap_prot,
+                                                       mmap_flags,
+                                                       low_4gb,
+                                                       error_msg);
     if (elf_file_impl == nullptr) {
       return nullptr;
     }
@@ -1844,8 +1775,8 @@ ElfFile* ElfFile::Open(File* file, int mmap_prot, int mmap_flags, std::string* e
     return elf32_->func(__VA_ARGS__); \
   }
 
-bool ElfFile::Load(bool executable, std::string* error_msg) {
-  DELEGATE_TO_IMPL(Load, executable, error_msg);
+bool ElfFile::Load(bool executable, bool low_4gb, std::string* error_msg) {
+  DELEGATE_TO_IMPL(Load, executable, low_4gb, error_msg);
 }
 
 const uint8_t* ElfFile::FindDynamicSymbolAddress(const std::string& symbol_name) const {
@@ -1868,7 +1799,8 @@ const File& ElfFile::GetFile() const {
   DELEGATE_TO_IMPL(GetFile);
 }
 
-bool ElfFile::GetSectionOffsetAndSize(const char* section_name, uint64_t* offset, uint64_t* size) {
+bool ElfFile::GetSectionOffsetAndSize(const char* section_name, uint64_t* offset,
+                                      uint64_t* size) const {
   if (elf32_.get() == nullptr) {
     CHECK(elf64_.get() != nullptr);
 
@@ -1898,6 +1830,14 @@ bool ElfFile::GetSectionOffsetAndSize(const char* section_name, uint64_t* offset
   }
 }
 
+bool ElfFile::HasSection(const std::string& name) const {
+  if (elf64_.get() != nullptr) {
+    return elf64_->FindSectionByName(name) != nullptr;
+  } else {
+    return elf32_->FindSectionByName(name) != nullptr;
+  }
+}
+
 uint64_t ElfFile::FindSymbolAddress(unsigned section_type,
                                     const std::string& symbol_name,
                                     bool build_map) {
@@ -1909,7 +1849,7 @@ bool ElfFile::GetLoadedSize(size_t* size, std::string* error_msg) const {
 }
 
 bool ElfFile::Strip(File* file, std::string* error_msg) {
-  std::unique_ptr<ElfFile> elf_file(ElfFile::Open(file, true, false, error_msg));
+  std::unique_ptr<ElfFile> elf_file(ElfFile::Open(file, true, false, /*low_4gb*/false, error_msg));
   if (elf_file.get() == nullptr) {
     return false;
   }

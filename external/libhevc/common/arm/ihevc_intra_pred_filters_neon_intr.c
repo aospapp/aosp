@@ -466,7 +466,7 @@ void ihevc_intra_pred_ref_filtering_neonintr(UWORD8 *pu1_src,
     WORD32 four_nt = 4 * nt;
 
     WORD32 src_4nt;
-
+    WORD32 src_0nt;
     /* Naming has been made as per the functionlity it has, For eg. pu1_src_tmp_1 is denoting pu1_src + 1   */
     /* src_val_1 to load value from pointer pu1_src_tmp_1, add_res has the result of adding 2 values        */
     UWORD8 *pu1_src_tmp_0 = pu1_src;
@@ -522,6 +522,7 @@ void ihevc_intra_pred_ref_filtering_neonintr(UWORD8 *pu1_src,
         }
 
         src_4nt = pu1_src[4 * nt];
+        src_0nt = pu1_src[0];
         /* Strong filtering of reference samples */
         if(1 == bi_linear_int_flag)
         {
@@ -616,7 +617,7 @@ void ihevc_intra_pred_ref_filtering_neonintr(UWORD8 *pu1_src,
             pu1_dst_tmp_0 += 8;
         }
         pu1_dst[4 * nt] = src_4nt;
-
+        pu1_dst[0] = src_0nt;
     }
 
 }

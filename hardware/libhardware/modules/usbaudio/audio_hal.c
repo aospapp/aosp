@@ -55,10 +55,8 @@ static const unsigned k_force_channels = 0;
 
 #define DEFAULT_INPUT_BUFFER_SIZE_MS 20
 
-// stereo channel count
-#define FCC_2 2
-// fixed channel count of 8 limitation (for data processing in AudioFlinger)
-#define FCC_8 8
+/* Lock play & record samples rates at or above this threshold */
+#define RATELOCK_THRESHOLD 96000
 
 struct audio_device {
     struct audio_hw_device hw_device;
@@ -70,6 +68,10 @@ struct audio_device {
 
     /* input */
     alsa_device_profile in_profile;
+
+    /* lock input & output sample rates */
+    /*FIXME - How do we address multiple output streams? */
+    uint32_t device_sample_rate;
 
     bool mic_muted;
 
@@ -449,8 +451,6 @@ static int out_get_presentation_position(const struct audio_stream_out *stream,
     const int ret = proxy_get_presentation_position(proxy, frames, timestamp);
 
     pthread_mutex_unlock(&out->lock);
-    ALOGV("out_get_presentation_position() status:%d  frames:%llu",
-            ret, (unsigned long long)*frames);
     return ret;
 }
 
@@ -524,8 +524,6 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
 
     profile_read_device_info(out->profile);
 
-    pthread_mutex_unlock(&adev->lock);
-
     int ret = 0;
 
     /* Rate */
@@ -537,6 +535,9 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         proxy_config.rate = config->sample_rate = profile_get_default_sample_rate(out->profile);
         ret = -EINVAL;
     }
+
+    out->dev->device_sample_rate = config->sample_rate;
+    pthread_mutex_unlock(&adev->lock);
 
     /* Format */
     if (config->format == AUDIO_FORMAT_DEFAULT) {
@@ -560,6 +561,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     } else if (config->channel_mask == AUDIO_CHANNEL_NONE) {
         proposed_channel_count =  profile_get_default_channel_count(out->profile);
     }
+
     if (proposed_channel_count != 0) {
         if (proposed_channel_count <= FCC_2) {
             // use channel position mask for mono and stereo
@@ -569,17 +571,17 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
             config->channel_mask =
                     audio_channel_mask_for_index_assignment_from_count(proposed_channel_count);
         }
-        out->hal_channel_count = proposed_channel_count;
     } else {
-        out->hal_channel_count = audio_channel_count_from_out_mask(config->channel_mask);
+        proposed_channel_count = audio_channel_count_from_out_mask(config->channel_mask);
     }
+    out->hal_channel_count = proposed_channel_count;
+
     /* we can expose any channel mask, and emulate internally based on channel count. */
     out->hal_channel_mask = config->channel_mask;
 
     /* no validity checks are needed as proxy_prepare() forces channel_count to be valid.
      * and we emulate any channel count discrepancies in out_write(). */
-    proxy_config.channels = proposed_channel_count;
-
+    proxy_config.channels = out->hal_channel_count;
     proxy_prepare(&out->proxy, out->profile, &proxy_config);
 
     /* TODO The retry mechanism isn't implemented in AudioPolicyManager/AudioFlinger. */
@@ -613,6 +615,10 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
 
     out->conversion_buffer = NULL;
     out->conversion_buffer_size = 0;
+
+    pthread_mutex_lock(&out->dev->lock);
+    out->dev->device_sample_rate = 0;
+    pthread_mutex_unlock(&out->dev->lock);
 
     free(stream);
 }
@@ -765,7 +771,7 @@ static int in_set_gain(struct audio_stream_in *stream, float gain)
 /* must be called with hw device and output stream mutexes locked */
 static int start_input_stream(struct stream_in *in)
 {
-    ALOGV("ustart_input_stream(card:%d device:%d)", in->profile->card, in->profile->device);
+    ALOGV("start_input_stream(card:%d device:%d)", in->profile->card, in->profile->device);
 
     return proxy_open(&in->proxy);
 }
@@ -861,7 +867,7 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
                                   const char *address /*__unused*/,
                                   audio_source_t source __unused)
 {
-    ALOGV("in adev_open_input_stream() rate:%" PRIu32 ", chanMask:0x%" PRIX32 ", fmt:%" PRIu8,
+    ALOGV("adev_open_input_stream() rate:%" PRIu32 ", chanMask:0x%" PRIX32 ", fmt:%" PRIu8,
           config->sample_rate, config->channel_mask, config->format);
 
     struct stream_in *in = (struct stream_in *)calloc(1, sizeof(struct stream_in));
@@ -903,17 +909,23 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     parse_card_device_params(address, &(in->profile->card), &(in->profile->device));
 
     profile_read_device_info(in->profile);
-    pthread_mutex_unlock(&in->dev->lock);
 
     /* Rate */
     if (config->sample_rate == 0) {
-        proxy_config.rate = config->sample_rate = profile_get_default_sample_rate(in->profile);
+        config->sample_rate = profile_get_default_sample_rate(in->profile);
+    }
+
+    if (in->dev->device_sample_rate != 0 &&                 /* we are playing, so lock the rate */
+        in->dev->device_sample_rate >= RATELOCK_THRESHOLD) {/* but only for high sample rates */
+        ret = config->sample_rate != in->dev->device_sample_rate ? -EINVAL : 0;
+        proxy_config.rate = config->sample_rate = in->dev->device_sample_rate;
     } else if (profile_is_sample_rate_valid(in->profile, config->sample_rate)) {
-        proxy_config.rate = config->sample_rate;
+        in->dev->device_sample_rate = proxy_config.rate = config->sample_rate;
     } else {
         proxy_config.rate = config->sample_rate = profile_get_default_sample_rate(in->profile);
         ret = -EINVAL;
     }
+    pthread_mutex_unlock(&in->dev->lock);
 
     /* Format */
     if (config->format == AUDIO_FORMAT_DEFAULT) {

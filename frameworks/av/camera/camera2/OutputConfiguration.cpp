@@ -16,26 +16,19 @@
 */
 
 #define LOG_TAG "OutputConfiguration"
+//#define LOG_NDEBUG 0
+
 #include <utils/Log.h>
 
 #include <camera/camera2/OutputConfiguration.h>
+#include <gui/Surface.h>
 #include <binder/Parcel.h>
 
 namespace android {
 
 
 const int OutputConfiguration::INVALID_ROTATION = -1;
-
-// Read empty strings without printing a false error message.
-String16 OutputConfiguration::readMaybeEmptyString16(const Parcel& parcel) {
-    size_t len;
-    const char16_t* str = parcel.readString16Inplace(&len);
-    if (str != NULL) {
-        return String16(str, len);
-    } else {
-        return String16();
-    }
-}
+const int OutputConfiguration::INVALID_SET_ID = -1;
 
 sp<IGraphicBufferProducer> OutputConfiguration::getGraphicBufferProducer() const {
     return mGbp;
@@ -45,40 +38,80 @@ int OutputConfiguration::getRotation() const {
     return mRotation;
 }
 
-OutputConfiguration::OutputConfiguration(const Parcel& parcel) {
-    status_t err;
+int OutputConfiguration::getSurfaceSetID() const {
+    return mSurfaceSetID;
+}
+
+OutputConfiguration::OutputConfiguration() :
+        mRotation(INVALID_ROTATION),
+        mSurfaceSetID(INVALID_SET_ID) {
+}
+
+OutputConfiguration::OutputConfiguration(const Parcel& parcel) :
+        mRotation(INVALID_ROTATION),
+        mSurfaceSetID(INVALID_SET_ID) {
+    readFromParcel(&parcel);
+}
+
+status_t OutputConfiguration::readFromParcel(const Parcel* parcel) {
+    status_t err = OK;
     int rotation = 0;
-    if ((err = parcel.readInt32(&rotation)) != OK) {
+
+    if (parcel == nullptr) return BAD_VALUE;
+
+    if ((err = parcel->readInt32(&rotation)) != OK) {
         ALOGE("%s: Failed to read rotation from parcel", __FUNCTION__);
-        mGbp = NULL;
-        mRotation = INVALID_ROTATION;
-        return;
+        return err;
     }
 
-    String16 name = readMaybeEmptyString16(parcel);
-    const sp<IGraphicBufferProducer>& gbp =
-            interface_cast<IGraphicBufferProducer>(parcel.readStrongBinder());
-    mGbp = gbp;
-    mRotation = rotation;
+    int setID = INVALID_SET_ID;
+    if ((err = parcel->readInt32(&setID)) != OK) {
+        ALOGE("%s: Failed to read surface set ID from parcel", __FUNCTION__);
+        return err;
+    }
 
-    ALOGV("%s: OutputConfiguration: bp = %p, name = %s", __FUNCTION__,
-          gbp.get(), String8(name).string());
+    view::Surface surfaceShim;
+    if ((err = surfaceShim.readFromParcel(parcel)) != OK) {
+        ALOGE("%s: Failed to read surface from parcel", __FUNCTION__);
+        return err;
+    }
+
+    mGbp = surfaceShim.graphicBufferProducer;
+    mRotation = rotation;
+    mSurfaceSetID = setID;
+
+    ALOGV("%s: OutputConfiguration: bp = %p, name = %s, rotation = %d, setId = %d", __FUNCTION__,
+            mGbp.get(), String8(surfaceShim.name).string(), mRotation, mSurfaceSetID);
+
+    return err;
 }
 
-OutputConfiguration::OutputConfiguration(sp<IGraphicBufferProducer>& gbp, int rotation) {
+OutputConfiguration::OutputConfiguration(sp<IGraphicBufferProducer>& gbp, int rotation,
+        int surfaceSetID) {
     mGbp = gbp;
     mRotation = rotation;
+    mSurfaceSetID = surfaceSetID;
 }
 
-status_t OutputConfiguration::writeToParcel(Parcel& parcel) const {
+status_t OutputConfiguration::writeToParcel(Parcel* parcel) const {
 
-    parcel.writeInt32(mRotation);
-    parcel.writeString16(String16("unknown_name")); // name of surface
-    sp<IBinder> b(IInterface::asBinder(mGbp));
-    parcel.writeStrongBinder(b);
+    if (parcel == nullptr) return BAD_VALUE;
+    status_t err = OK;
+
+    err = parcel->writeInt32(mRotation);
+    if (err != OK) return err;
+
+    err = parcel->writeInt32(mSurfaceSetID);
+    if (err != OK) return err;
+
+    view::Surface surfaceShim;
+    surfaceShim.name = String16("unknown_name"); // name of surface
+    surfaceShim.graphicBufferProducer = mGbp;
+
+    err = surfaceShim.writeToParcel(parcel);
+    if (err != OK) return err;
 
     return OK;
 }
 
 }; // namespace android
-

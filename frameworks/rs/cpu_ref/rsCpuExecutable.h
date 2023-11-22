@@ -62,12 +62,12 @@ private:
 
 class ScriptExecutable {
 public:
-    ScriptExecutable(Context* RSContext,
-                     void** fieldAddress, bool* fieldIsObject,
+    ScriptExecutable(void** fieldAddress, bool* fieldIsObject,
                      const char* const * fieldName, size_t varCount,
                      InvokeFunc_t* invokeFunctions, size_t funcCount,
                      ForEachFunc_t* forEachFunctions, uint32_t* forEachSignatures,
                      size_t forEachCount,
+                     ReduceDescription *reduceDescriptions, size_t reduceCount,
                      const char** pragmaKeys, const char** pragmaValues,
                      size_t pragmaCount,
                      const char **globalNames, const void **globalAddresses,
@@ -79,12 +79,12 @@ public:
         mInvokeFunctions(invokeFunctions), mFuncCount(funcCount),
         mForEachFunctions(forEachFunctions), mForEachSignatures(forEachSignatures),
         mForEachCount(forEachCount),
+        mReduceDescriptions(reduceDescriptions), mReduceCount(reduceCount),
         mPragmaKeys(pragmaKeys), mPragmaValues(pragmaValues),
         mPragmaCount(pragmaCount), mGlobalNames(globalNames),
         mGlobalAddresses(globalAddresses), mGlobalSizes(globalSizes),
         mGlobalProperties(globalProperties), mGlobalEntries(globalEntries),
-        mIsThreadable(isThreadable), mBuildChecksum(buildChecksum),
-        mRS(RSContext) {
+        mIsThreadable(isThreadable), mBuildChecksum(buildChecksum) {
     }
 
     ~ScriptExecutable() {
@@ -93,7 +93,7 @@ public:
                 if (mFieldAddress[i] != nullptr) {
                     rs_object_base *obj_addr =
                             reinterpret_cast<rs_object_base *>(mFieldAddress[i]);
-                    rsrClearObject(mRS, obj_addr);
+                    rsrClearObject(obj_addr);
                 }
             }
         }
@@ -104,6 +104,8 @@ public:
         }
         delete[] mPragmaValues;
         delete[] mPragmaKeys;
+
+        delete[] mReduceDescriptions;
 
         delete[] mForEachSignatures;
         delete[] mForEachFunctions;
@@ -123,12 +125,13 @@ public:
     // embedded in the shared object. A mismatch will cause a failure.
     // If succeeded, returns the new object. Otherwise, returns nullptr.
     static ScriptExecutable*
-            createFromSharedObject(Context* RSContext, void* sharedObj,
+            createFromSharedObject(void* sharedObj,
                                    uint32_t expectedChecksum = 0);
 
     size_t getExportedVariableCount() const { return mExportedVarCount; }
     size_t getExportedFunctionCount() const { return mFuncCount; }
     size_t getExportedForEachCount() const { return mForEachCount; }
+    size_t getExportedReduceCount() const { return mReduceCount; }
     size_t getPragmaCount() const { return mPragmaCount; }
 
     void* getFieldAddress(int slot) const { return mFieldAddress[slot]; }
@@ -140,6 +143,10 @@ public:
 
     ForEachFunc_t getForEachFunction(int slot) const { return mForEachFunctions[slot]; }
     uint32_t getForEachSignature(int slot) const { return mForEachSignatures[slot]; }
+
+    const ReduceDescription* getReduceDescription(int slot) const {
+        return &mReduceDescriptions[slot];
+    }
 
     const char ** getPragmaKeys() const { return mPragmaKeys; }
     const char ** getPragmaValues() const { return mPragmaValues; }
@@ -193,6 +200,9 @@ private:
     uint32_t* mForEachSignatures;
     size_t mForEachCount;
 
+    ReduceDescription* mReduceDescriptions;
+    size_t mReduceCount;
+
     const char ** mPragmaKeys;
     const char ** mPragmaValues;
     size_t mPragmaCount;
@@ -205,8 +215,6 @@ private:
 
     bool mIsThreadable;
     uint32_t mBuildChecksum;
-
-    Context* mRS;
 };
 
 }  // namespace renderscript

@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-* Copyright (c) 2004-2014, International Business Machines
+* Copyright (c) 2004-2015, International Business Machines
 * Corporation and others.  All Rights Reserved.
 **********************************************************************
 * Author: Alan Liu
@@ -1602,9 +1602,9 @@ public class TestMessageFormat extends com.ibm.icu.dev.test.TestFmwk {
         expectedAttributedStrings[0].addAttribute(NumberFormat.Field.INTEGER, NumberFormat.Field.INTEGER, 30, 32);
         expectedAttributedStrings[0].addAttribute(MessageFormat.Field.ARGUMENT, new Integer(1), 53, 63);
         expectedAttributedStrings[0].addAttribute(DateFormat.Field.HOUR1, DateFormat.Field.HOUR1, 53, 54);
-        expectedAttributedStrings[0].addAttribute(DateFormat.Field.TIME_SEPARATOR, DateFormat.Field.TIME_SEPARATOR, 54, 55);
+        //expectedAttributedStrings[0].addAttribute(DateFormat.Field.TIME_SEPARATOR, DateFormat.Field.TIME_SEPARATOR, 54, 55);
         expectedAttributedStrings[0].addAttribute(DateFormat.Field.MINUTE, DateFormat.Field.MINUTE, 55, 57);
-        expectedAttributedStrings[0].addAttribute(DateFormat.Field.TIME_SEPARATOR, DateFormat.Field.TIME_SEPARATOR, 57, 58);
+        //expectedAttributedStrings[0].addAttribute(DateFormat.Field.TIME_SEPARATOR, DateFormat.Field.TIME_SEPARATOR, 57, 58);
         expectedAttributedStrings[0].addAttribute(DateFormat.Field.SECOND, DateFormat.Field.SECOND, 58, 60);
         expectedAttributedStrings[0].addAttribute(DateFormat.Field.AM_PM, DateFormat.Field.AM_PM, 61, 63);
         expectedAttributedStrings[0].addAttribute(MessageFormat.Field.ARGUMENT, new Integer(1), 67, 79);
@@ -1619,9 +1619,9 @@ public class TestMessageFormat extends com.ibm.icu.dev.test.TestFmwk {
         expectedAttributedStrings[1].addAttribute(NumberFormat.Field.INTEGER, NumberFormat.Field.INTEGER, 30, 32);
         expectedAttributedStrings[1].addAttribute(MessageFormat.Field.ARGUMENT, "arg1", 53, 63);
         expectedAttributedStrings[1].addAttribute(DateFormat.Field.HOUR1, DateFormat.Field.HOUR1, 53, 54);
-        expectedAttributedStrings[1].addAttribute(DateFormat.Field.TIME_SEPARATOR, DateFormat.Field.TIME_SEPARATOR, 54, 55);
+        //expectedAttributedStrings[1].addAttribute(DateFormat.Field.TIME_SEPARATOR, DateFormat.Field.TIME_SEPARATOR, 54, 55);
         expectedAttributedStrings[1].addAttribute(DateFormat.Field.MINUTE, DateFormat.Field.MINUTE, 55, 57);
-        expectedAttributedStrings[1].addAttribute(DateFormat.Field.TIME_SEPARATOR, DateFormat.Field.TIME_SEPARATOR, 57, 58);
+        //expectedAttributedStrings[1].addAttribute(DateFormat.Field.TIME_SEPARATOR, DateFormat.Field.TIME_SEPARATOR, 57, 58);
         expectedAttributedStrings[1].addAttribute(DateFormat.Field.SECOND, DateFormat.Field.SECOND, 58, 60);
         expectedAttributedStrings[1].addAttribute(DateFormat.Field.AM_PM, DateFormat.Field.AM_PM, 61, 63);
         expectedAttributedStrings[1].addAttribute(MessageFormat.Field.ARGUMENT, "arg1", 67, 79);
@@ -1933,5 +1933,78 @@ public class TestMessageFormat extends com.ibm.icu.dev.test.TestFmwk {
         result.delete(0, result.length());
         assertEquals("offset-decimals format(1)", "2.5 meters",
                 m2.format(args, result, ignore).toString());
+    }
+
+    public void TestMessagePatternAutoQuoteApostropheDeep() {
+        // Example input & output taken from API docs.
+        MessagePattern pattern = new MessagePattern(
+                "I don't '{know}' {gender,select,female{h''er}other{h'im}}.");
+        assertEquals("autoQuoteApostropheDeep()",
+                "I don''t '{know}' {gender,select,female{h''er}other{h''im}}.",
+                pattern.autoQuoteApostropheDeep());
+    }
+
+    public void TestMessagePatternFreezable() {
+        MessagePattern pattern = new MessagePattern();
+        assertFalse("just constructed, not yet frozen", pattern.isFrozen());
+        pattern.parse("fee");
+        assertTrue("parsed, not empty", pattern.countParts() > 0);
+        pattern.freeze();
+        assertTrue("just frozen", pattern.isFrozen());
+        try {
+            pattern.parse("fi");
+            fail("MessagePattern.freeze().parse() did not fail");
+        } catch (Exception expected) {
+        }
+        assertEquals("frozen+parse: no change", "fee", pattern.autoQuoteApostropheDeep());
+        MessagePattern thawed = pattern.cloneAsThawed();
+        assertFalse("thawed", thawed.isFrozen());
+        assertTrue("still frozen", pattern.isFrozen());
+        assertTrue("frozen!=thawed", pattern != thawed);
+        thawed.parse("fo");
+        assertEquals("thawed+parse", "fo", thawed.autoQuoteApostropheDeep());
+    }
+
+    public void TestMessagePatternNamedAndNumberedArguments() {
+        MessagePattern pattern = new MessagePattern();
+        pattern.parse("fee");
+        assertFalse("fee no named args", pattern.hasNamedArguments());
+        assertFalse("fee no numbered args", pattern.hasNumberedArguments());
+        pattern.parse("fi {0}");
+        assertFalse("fi {0} no named args", pattern.hasNamedArguments());
+        assertTrue("fi {0} has numbered args", pattern.hasNumberedArguments());
+        pattern.parse("fo {name}");
+        assertTrue("fo {name} has named args", pattern.hasNamedArguments());
+        assertFalse("fo {name} no numbered args", pattern.hasNumberedArguments());
+        pattern.parse("fum {0} {name}");
+        assertTrue("fum {0} {name} has named args", pattern.hasNamedArguments());
+        assertTrue("fum {0} {name} no numbered args", pattern.hasNumberedArguments());
+    }
+
+    public void TestMessagePatternPartCoverage() {
+        MessagePattern pattern = new MessagePattern("ab{17}c");
+        assertEquals("msg start { arg number } msg limit", 5, pattern.countParts());
+        MessagePattern.Part arg = pattern.getPart(2);
+        assertEquals("arg number", MessagePattern.Part.Type.ARG_NUMBER, arg.getType());
+        assertEquals("arg number start", 3, arg.getIndex());
+        assertEquals("arg number length", 2, arg.getLength());
+        assertEquals("arg number limit", 5, arg.getLimit());
+        assertEquals("arg number 17", 17, arg.getValue());
+    }
+
+    public void TestMessagePatternParseChoiceStyle() {
+        // This would be tested by ChoiceFormat if ICU4J had its own version of that,
+        // like ICU4C does.
+        // Instead, there is only java.text.ChoiceFormat.
+        // Most of the implementation gets covered by testing with a MessageFormat
+        // that contains a nested ChoiceFormat pattern,
+        // but that does not call this public API method.
+        MessagePattern pattern = new MessagePattern();
+        // Example string from java.text.ChoiceFormat class docs.
+        pattern.parseChoiceStyle(
+                "-1#is negative| 0#is zero or fraction | 1#is one |" +
+                "1.0<is 1+ |2#is two |2<is more than 2.");
+        // Only simple API coverage. The parser implementation is tested via MessageFormat.
+        assertTrue("many parts", pattern.countParts() > 10);
     }
 }

@@ -19,8 +19,10 @@ package com.android.cts.splitapp;
 import static org.xmlpull.v1.XmlPullParser.END_DOCUMENT;
 import static org.xmlpull.v1.XmlPullParser.START_TAG;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -33,6 +35,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
+import android.os.ConditionVariable;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.os.StatFs;
@@ -303,6 +306,50 @@ public class SplitAppTest extends AndroidTestCase {
             fail("Whaaa, we somehow gained permission from feature?");
         } catch (SecurityException expected) {
         }
+    }
+
+    public void testBaseInstalled() throws Exception {
+        final ConditionVariable cv = new ConditionVariable();
+        final BroadcastReceiver r = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                assertEquals(1, intent.getIntExtra("CREATE_COUNT", -1));
+                assertEquals(0, intent.getIntExtra("NEW_INTENT_COUNT", -1));
+                cv.open();
+            }
+        };
+        final IntentFilter filter = new IntentFilter("com.android.cts.norestart.BROADCAST");
+        getContext().registerReceiver(r, filter);
+        final Intent i = new Intent("com.android.cts.norestart.START");
+        i.addCategory(Intent.CATEGORY_DEFAULT);
+        getContext().startActivity(i);
+        assertTrue(cv.block(2000L));
+        getContext().unregisterReceiver(r);
+    }
+
+    /**
+     * Tests a running activity remains active while a new feature split is installed.
+     * <p>
+     * Prior to running this test, the activity must be started. That is currently
+     * done in {@link #testBaseInstalled()}.
+     */
+    public void testFeatureInstalled() throws Exception {
+        final ConditionVariable cv = new ConditionVariable();
+        final BroadcastReceiver r = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                assertEquals(1, intent.getIntExtra("CREATE_COUNT", -1));
+                assertEquals(1, intent.getIntExtra("NEW_INTENT_COUNT", -1));
+                cv.open();
+            }
+        };
+        final IntentFilter filter = new IntentFilter("com.android.cts.norestart.BROADCAST");
+        getContext().registerReceiver(r, filter);
+        final Intent i = new Intent("com.android.cts.norestart.START");
+        i.addCategory(Intent.CATEGORY_DEFAULT);
+        getContext().startActivity(i);
+        assertTrue(cv.block(2000L));
+        getContext().unregisterReceiver(r);
     }
 
     public void testFeatureApi() throws Exception {

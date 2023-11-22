@@ -16,104 +16,214 @@
 package com.android.cts.deviceandprofileowner;
 
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.Bundle;
 import android.os.Parcelable;
+import android.os.UserManager;
+import android.test.MoreAsserts;
 
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Functionality tests for setApplicationRestrictions and getApplicationRestrictions
- * in DevicePolicyManager.
+ * Functionality tests for application restrictions APIs.
  *
- * First of all, these two APIs are executed locally to assert that what you set
- * can later be retrieved via the getter. It also fires up an external activity
- * (which runs in com.google.android.xts.gmscore, unlike the test code itself
- * which runs in the test target package com.google.android.gms due to
- * instrumentation) to observe an application's view of its restrictions.
- * The activity listens to ACTION_APPLICATION_RESTRICTIONS_CHANGED broadcast
- * which is fired by the system whenever its restriction is modified,
- * and relays the value back to this test for verification.
+ * <p>APIs are executed locally to assert that what you set can later be retrieved via the getter.
+ * It also fires up an external activity to observe an application's view of its restrictions.
+ *
+ * <p>Finally, it checks that the {@link Intent#ACTION_APPLICATION_RESTRICTIONS_CHANGED} broadcast
+ * is sent whenever app restrictions are modified for a given package.
  */
 public class ApplicationRestrictionsTest extends BaseDeviceAdminTest {
 
-    private static final String[] testStrings = new String[] {
+    private static final String APP_RESTRICTIONS_TARGET_PKG =
+            "com.android.cts.apprestrictions.targetapp";
+    private static final String APP_RESTRICTIONS_ACTIVITY_NAME =
+            APP_RESTRICTIONS_TARGET_PKG + ".ApplicationRestrictionsActivity";
+    private static final String ACTION_RESTRICTIONS_VALUE =
+            "com.android.cts.apprestrictions.targetapp.RESTRICTIONS_VALUE";
+
+    private static final String OTHER_PACKAGE = APP_RESTRICTIONS_TARGET_PKG + "dummy";
+
+    private static final String[] TEST_STRINGS = new String[] {
             "<bad/>",
             ">worse!\"£$%^&*()'<",
             "<JSON>\"{ \\\"One\\\": { \\\"OneOne\\\": \\\"11\\\", \\\""
                     + "OneTwo\\\": \\\"12\\\" }, \\\"Two\\\": \\\"2\\\" } <JSON/>\""
     };
 
-    private final Semaphore mOnRegisteredSemaphore = new Semaphore(0);
-    private final Semaphore mOnRestrictionSemaphore = new Semaphore(0);
+    private static final Bundle BUNDLE_0 = createBundle0();
+    private static final Bundle BUNDLE_1 = createBundle1();
+
+    private static final long RESTRICTIONS_TIMEOUT_SECONDS = 10;
+
+    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (ACTION_RESTRICTIONS_VALUE.equals(action)) {
+                mReceivedRestrictions = intent.getBundleExtra("value");
+                mOnRestrictionsReceivedFromAppSemaphore.release();
+            } else if (Intent.ACTION_APPLICATION_RESTRICTIONS_CHANGED.equals(action)) {
+                mOnAppRestrictionsChangedSemahore.release();
+            }
+        }
+    };
+
+    private final Semaphore mOnAppRestrictionsChangedSemahore = new Semaphore(0);
+    private final Semaphore mOnRestrictionsReceivedFromAppSemaphore = new Semaphore(0);
     private Bundle mReceivedRestrictions;
+    private UserManager mUserManager;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
+
+        mUserManager = (UserManager) mContext.getSystemService(Context.USER_SERVICE);
+
         IntentFilter filter = new IntentFilter();
-        filter.addAction(ApplicationRestrictionsActivity.REGISTERED_ACTION);
-        filter.addAction(ApplicationRestrictionsActivity.RESTRICTION_ACTION);
+        filter.addAction(ACTION_RESTRICTIONS_VALUE);
+        filter.addAction(Intent.ACTION_APPLICATION_RESTRICTIONS_CHANGED);
         mContext.registerReceiver(mReceiver, filter);
     }
 
     @Override
     protected void tearDown() throws Exception {
         mContext.unregisterReceiver(mReceiver);
+
+        mDevicePolicyManager.setApplicationRestrictions(
+                ADMIN_RECEIVER_COMPONENT, APP_RESTRICTIONS_TARGET_PKG, new Bundle());
+        mDevicePolicyManager.setApplicationRestrictions(
+                ADMIN_RECEIVER_COMPONENT, OTHER_PACKAGE, new Bundle());
+        mDevicePolicyManager.setApplicationRestrictions(
+                ADMIN_RECEIVER_COMPONENT, mContext.getPackageName(), new Bundle());
+
         super.tearDown();
     }
 
+    public void testNullComponentThrowsException() {
+        try {
+            mDevicePolicyManager.setApplicationRestrictions(
+                    null, APP_RESTRICTIONS_TARGET_PKG, null);
+            fail("Expected SecurityException not thrown");
+        } catch (SecurityException expected) {
+            MoreAsserts.assertContainsRegex(
+                    "cannot manage application restrictions", expected.getMessage());
+        }
+        try {
+            mDevicePolicyManager.getApplicationRestrictions(null, APP_RESTRICTIONS_TARGET_PKG);
+            fail("Expected SecurityException not thrown");
+        } catch (SecurityException expected) {
+            MoreAsserts.assertContainsRegex(
+                    "cannot manage application restrictions", expected.getMessage());
+        }
+    }
+
     public void testSetApplicationRestrictions() {
-        final String CTS_PACKAGE = PACKAGE_NAME;
-        final String OTHER_PACKAGE = CTS_PACKAGE + "dummy";
-
-        startAndWait();
-
-        Bundle bundle0 = createBundle0();
-        Bundle bundle1 = createBundle1();
-
         // Test setting restrictions
-        mDevicePolicyManager.setApplicationRestrictions(ADMIN_RECEIVER_COMPONENT, CTS_PACKAGE,
-                bundle0);
-        mDevicePolicyManager.setApplicationRestrictions(ADMIN_RECEIVER_COMPONENT, OTHER_PACKAGE,
-                bundle1);
+        mDevicePolicyManager.setApplicationRestrictions(
+                ADMIN_RECEIVER_COMPONENT, APP_RESTRICTIONS_TARGET_PKG, BUNDLE_0);
+        mDevicePolicyManager.setApplicationRestrictions(
+                ADMIN_RECEIVER_COMPONENT, OTHER_PACKAGE, BUNDLE_1);
 
         // Retrieve restrictions locally and make sure they are what we put in.
-        assertBundle0(mDevicePolicyManager.getApplicationRestrictions(ADMIN_RECEIVER_COMPONENT,
-                CTS_PACKAGE));
-        assertBundle1(mDevicePolicyManager.getApplicationRestrictions(ADMIN_RECEIVER_COMPONENT,
-                OTHER_PACKAGE));
+        assertBundle0(mDevicePolicyManager.getApplicationRestrictions(
+                ADMIN_RECEIVER_COMPONENT, APP_RESTRICTIONS_TARGET_PKG));
+        assertBundle1(mDevicePolicyManager.getApplicationRestrictions(
+                ADMIN_RECEIVER_COMPONENT, OTHER_PACKAGE));
 
-        // The test activity should have received a change_restriction broadcast
-        // and relay the value back to us.
-        assertBundle0(waitForChangedRestriction());
+        // Check that the target app can retrieve the same restrictions.
+        assertBundle0(waitForRestrictionsValueFromTestActivity());
 
         // Test overwriting
-        mDevicePolicyManager.setApplicationRestrictions(ADMIN_RECEIVER_COMPONENT, CTS_PACKAGE,
-                bundle1);
-        assertBundle1(mDevicePolicyManager.getApplicationRestrictions(ADMIN_RECEIVER_COMPONENT,
-                CTS_PACKAGE));
-        assertBundle1(waitForChangedRestriction());
+        mDevicePolicyManager.setApplicationRestrictions(
+                ADMIN_RECEIVER_COMPONENT, APP_RESTRICTIONS_TARGET_PKG, BUNDLE_1);
+        assertBundle1(mDevicePolicyManager.getApplicationRestrictions(
+                ADMIN_RECEIVER_COMPONENT, APP_RESTRICTIONS_TARGET_PKG));
+        assertBundle1(waitForRestrictionsValueFromTestActivity());
 
-        // Cleanup
-        mDevicePolicyManager.setApplicationRestrictions(ADMIN_RECEIVER_COMPONENT, CTS_PACKAGE,
-                new Bundle());
+        mDevicePolicyManager.setApplicationRestrictions(
+                ADMIN_RECEIVER_COMPONENT, APP_RESTRICTIONS_TARGET_PKG, new Bundle());
         assertTrue(mDevicePolicyManager.getApplicationRestrictions(
-                ADMIN_RECEIVER_COMPONENT, CTS_PACKAGE).isEmpty());
-        assertTrue(waitForChangedRestriction().isEmpty());
-        mDevicePolicyManager.setApplicationRestrictions(ADMIN_RECEIVER_COMPONENT, OTHER_PACKAGE,
-                new Bundle());
+                ADMIN_RECEIVER_COMPONENT, APP_RESTRICTIONS_TARGET_PKG).isEmpty());
+        assertTrue(waitForRestrictionsValueFromTestActivity().isEmpty());
+
+        mDevicePolicyManager.setApplicationRestrictions(
+                ADMIN_RECEIVER_COMPONENT, OTHER_PACKAGE, null);
         assertTrue(mDevicePolicyManager.getApplicationRestrictions(
                 ADMIN_RECEIVER_COMPONENT, OTHER_PACKAGE).isEmpty());
+    }
 
-        finish();
+    public void testCanRetrieveOwnRestrictionsViaUserManager() {
+        final String packageName = mContext.getPackageName();
+
+        mDevicePolicyManager.setApplicationRestrictions(
+                ADMIN_RECEIVER_COMPONENT, packageName, BUNDLE_0);
+        assertBundle0(mDevicePolicyManager.getApplicationRestrictions(
+                ADMIN_RECEIVER_COMPONENT, packageName));
+
+        // Check that we got the restrictions changed callback.
+        assertBundle0(waitForRestrictionsChangedBroadcast());
+
+        mDevicePolicyManager.setApplicationRestrictions(
+                ADMIN_RECEIVER_COMPONENT, packageName, BUNDLE_1);
+        assertBundle1(mDevicePolicyManager.getApplicationRestrictions(
+                ADMIN_RECEIVER_COMPONENT, packageName));
+        assertBundle1(waitForRestrictionsChangedBroadcast());
+    }
+
+    public void testCannotRetrieveOtherPackageRestrictionsViaUserManager() {
+        try {
+            mUserManager.getApplicationRestrictions(OTHER_PACKAGE);
+            fail("Expected SecurityException not thrown");
+        } catch (SecurityException expected) {
+        }
+    }
+
+    public void testSetApplicationRestrictionsManagingPackage() throws NameNotFoundException {
+        final String previousValue = mDevicePolicyManager.getApplicationRestrictionsManagingPackage(
+                ADMIN_RECEIVER_COMPONENT);
+        try {
+            mDevicePolicyManager.setApplicationRestrictionsManagingPackage(
+                    ADMIN_RECEIVER_COMPONENT, APP_RESTRICTIONS_TARGET_PKG);
+            assertEquals(APP_RESTRICTIONS_TARGET_PKG,
+                    mDevicePolicyManager.getApplicationRestrictionsManagingPackage(
+                            ADMIN_RECEIVER_COMPONENT));
+            mDevicePolicyManager.setApplicationRestrictionsManagingPackage(
+                    ADMIN_RECEIVER_COMPONENT, null);
+            assertNull(mDevicePolicyManager.getApplicationRestrictionsManagingPackage(
+                    ADMIN_RECEIVER_COMPONENT));
+        } finally {
+            mDevicePolicyManager.setApplicationRestrictionsManagingPackage(
+                    ADMIN_RECEIVER_COMPONENT, previousValue);
+            assertEquals(previousValue,
+                    mDevicePolicyManager.getApplicationRestrictionsManagingPackage(
+                            ADMIN_RECEIVER_COMPONENT));
+        }
+    }
+
+    public void testSetApplicationRestrictionsManagingPackageForNotInstalledPackage()
+            throws NameNotFoundException {
+        try {
+            mDevicePolicyManager.setApplicationRestrictionsManagingPackage(ADMIN_RECEIVER_COMPONENT,
+                    OTHER_PACKAGE);
+            fail("Not throwing exception for not installed package name");
+        } catch (NameNotFoundException expected) {
+            MoreAsserts.assertContainsRegex(OTHER_PACKAGE, expected.getMessage());
+        } finally {
+            mDevicePolicyManager.setApplicationRestrictionsManagingPackage(ADMIN_RECEIVER_COMPONENT,
+                    null);
+            assertNull(mDevicePolicyManager.getApplicationRestrictionsManagingPackage(
+                    ADMIN_RECEIVER_COMPONENT));
+        }
     }
 
     // Should be consistent with assertBundle0
-    private Bundle createBundle0() {
+    private static Bundle createBundle0() {
         Bundle result = new Bundle();
         // Tests for 6 allowed types: Integer, Boolean, String, String[], Bundle and Parcelable[]
         // Also test for string escaping handling
@@ -123,7 +233,7 @@ public class ApplicationRestrictionsTest extends BaseDeviceAdminTest {
         // If a null is stored, "" will be read back
         result.putString("empty", "");
         result.putString("string", "text");
-        result.putStringArray("string[]", testStrings);
+        result.putStringArray("string[]", TEST_STRINGS);
 
         // Adding a bundle, which contain 2 nested restrictions - bundle_string and bundle_int
         Bundle bundle = new Bundle();
@@ -153,9 +263,9 @@ public class ApplicationRestrictionsTest extends BaseDeviceAdminTest {
         assertEquals("text", bundle.getString("string"));
 
         String[] strings = bundle.getStringArray("string[]");
-        assertTrue(strings != null && strings.length == testStrings.length);
+        assertTrue(strings != null && strings.length == TEST_STRINGS.length);
         for (int i = 0; i < strings.length; i++) {
-            assertEquals(strings[i], testStrings[i]);
+            assertEquals(strings[i], TEST_STRINGS[i]);
         }
 
         Bundle childBundle = bundle.getBundle("bundle");
@@ -177,7 +287,7 @@ public class ApplicationRestrictionsTest extends BaseDeviceAdminTest {
     }
 
     // Should be consistent with assertBundle1
-    private Bundle createBundle1() {
+    private static Bundle createBundle1() {
         Bundle result = new Bundle();
         result.putInt("dummy", 1);
         return result;
@@ -189,53 +299,34 @@ public class ApplicationRestrictionsTest extends BaseDeviceAdminTest {
         assertEquals(1, bundle.getInt("dummy"));
     }
 
-    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            if (ApplicationRestrictionsActivity.REGISTERED_ACTION.equals(action)) {
-                mOnRegisteredSemaphore.release();
-            } else if (ApplicationRestrictionsActivity.RESTRICTION_ACTION.equals(action)) {
-                mReceivedRestrictions = intent.getBundleExtra("value");
-                mOnRestrictionSemaphore.release();
-            }
-        }
-    };
-
-    private void startTestActivity(String command) {
-        Intent intent = new Intent();
-        intent.setClassName(PACKAGE_NAME, ApplicationRestrictionsActivity.class.getName());
-        intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
-
-        if (command != null) {
-            intent.putExtra(command, true);
-        }
-        mContext.startActivity(intent);
+    private void startTestActivity() {
+        mContext.startActivity(new Intent()
+                .setComponent(new ComponentName(
+                        APP_RESTRICTIONS_TARGET_PKG, APP_RESTRICTIONS_ACTIVITY_NAME))
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_NEW_TASK));
     }
 
-    private void startAndWait() {
-        startTestActivity(null);
-        // Wait until the activity has registered its broadcast receiver and ready for incoming
-        // restriction changes.
-        try {
-            assertTrue(mOnRegisteredSemaphore.tryAcquire(5, TimeUnit.SECONDS));
-        } catch (InterruptedException e) {
-            fail("Start ApplicationRestrictionActivity interrupted");
-        }
-    }
+    private Bundle waitForRestrictionsValueFromTestActivity() {
+        startTestActivity();
 
-    private Bundle waitForChangedRestriction() {
         try {
-            assertTrue(mOnRestrictionSemaphore.tryAcquire(5, TimeUnit.SECONDS));
+            assertTrue(mOnRestrictionsReceivedFromAppSemaphore.tryAcquire(
+                    RESTRICTIONS_TIMEOUT_SECONDS, TimeUnit.SECONDS));
         } catch (InterruptedException e) {
-            fail("getRestrictionsAndWait() interrupted");
+            fail("waitForRestrictionsValueFromTestActivity() interrupted");
         }
 
         return mReceivedRestrictions;
     }
 
-    private void finish() {
-        startTestActivity(ApplicationRestrictionsActivity.FINISH);
-    }
+    private Bundle waitForRestrictionsChangedBroadcast() {
+        try {
+            assertTrue(mOnAppRestrictionsChangedSemahore.tryAcquire(
+                    RESTRICTIONS_TIMEOUT_SECONDS, TimeUnit.SECONDS));
+        } catch (InterruptedException e) {
+            fail("waitForRestrictionsChangedBroadcast() interrupted");
+        }
 
+        return mUserManager.getApplicationRestrictions(mContext.getPackageName());
+    }
 }

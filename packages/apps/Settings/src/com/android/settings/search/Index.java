@@ -31,6 +31,7 @@ import android.database.DatabaseUtils;
 import android.database.MergeCursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteException;
+import android.database.sqlite.SQLiteFullException;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.provider.SearchIndexableData;
@@ -41,7 +42,11 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.util.TypedValue;
 import android.util.Xml;
+
 import com.android.settings.R;
+import com.android.settings.search.IndexDatabaseHelper.IndexColumns;
+import com.android.settings.search.IndexDatabaseHelper.Tables;
+
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -60,31 +65,27 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
 import static android.provider.SearchIndexablesContract.COLUMN_INDEX_NON_INDEXABLE_KEYS_KEY_VALUE;
-import static android.provider.SearchIndexablesContract.COLUMN_INDEX_RAW_RANK;
-import static android.provider.SearchIndexablesContract.COLUMN_INDEX_RAW_TITLE;
-import static android.provider.SearchIndexablesContract.COLUMN_INDEX_RAW_SUMMARY_ON;
-import static android.provider.SearchIndexablesContract.COLUMN_INDEX_RAW_SUMMARY_OFF;
-import static android.provider.SearchIndexablesContract.COLUMN_INDEX_RAW_ENTRIES;
-import static android.provider.SearchIndexablesContract.COLUMN_INDEX_RAW_KEYWORDS;
-import static android.provider.SearchIndexablesContract.COLUMN_INDEX_RAW_SCREEN_TITLE;
 import static android.provider.SearchIndexablesContract.COLUMN_INDEX_RAW_CLASS_NAME;
+import static android.provider.SearchIndexablesContract.COLUMN_INDEX_RAW_ENTRIES;
 import static android.provider.SearchIndexablesContract.COLUMN_INDEX_RAW_ICON_RESID;
 import static android.provider.SearchIndexablesContract.COLUMN_INDEX_RAW_INTENT_ACTION;
-import static android.provider.SearchIndexablesContract.COLUMN_INDEX_RAW_INTENT_TARGET_PACKAGE;
 import static android.provider.SearchIndexablesContract.COLUMN_INDEX_RAW_INTENT_TARGET_CLASS;
+import static android.provider.SearchIndexablesContract.COLUMN_INDEX_RAW_INTENT_TARGET_PACKAGE;
 import static android.provider.SearchIndexablesContract.COLUMN_INDEX_RAW_KEY;
+import static android.provider.SearchIndexablesContract.COLUMN_INDEX_RAW_KEYWORDS;
+import static android.provider.SearchIndexablesContract.COLUMN_INDEX_RAW_RANK;
+import static android.provider.SearchIndexablesContract.COLUMN_INDEX_RAW_SCREEN_TITLE;
+import static android.provider.SearchIndexablesContract.COLUMN_INDEX_RAW_SUMMARY_OFF;
+import static android.provider.SearchIndexablesContract.COLUMN_INDEX_RAW_SUMMARY_ON;
+import static android.provider.SearchIndexablesContract.COLUMN_INDEX_RAW_TITLE;
 import static android.provider.SearchIndexablesContract.COLUMN_INDEX_RAW_USER_ID;
-
-import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_RANK;
-import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_RESID;
 import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_CLASS_NAME;
 import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_ICON_RESID;
 import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_INTENT_ACTION;
-import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_INTENT_TARGET_PACKAGE;
 import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_INTENT_TARGET_CLASS;
-
-import static com.android.settings.search.IndexDatabaseHelper.Tables;
-import static com.android.settings.search.IndexDatabaseHelper.IndexColumns;
+import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_INTENT_TARGET_PACKAGE;
+import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_RANK;
+import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_RESID;
 
 public class Index {
 
@@ -150,7 +151,9 @@ public class Index {
 
     private static final String EMPTY = "";
     private static final String NON_BREAKING_HYPHEN = "\u2011";
+    private static final String LIST_DELIMITERS = "[,]\\s*";
     private static final String HYPHEN = "-";
+    private static final String SPACE = " ";
 
     private static final String FIELD_NAME_SEARCH_INDEX_DATA_PROVIDER =
             "SEARCH_INDEX_DATA_PROVIDER";
@@ -175,6 +178,7 @@ public class Index {
         public Map<String, List<String>> nonIndexableKeys;
 
         public boolean forceUpdate = false;
+        public boolean fullIndex = true;
 
         public UpdateData() {
             dataToUpdate = new ArrayList<SearchIndexableData>();
@@ -187,6 +191,7 @@ public class Index {
             dataToDelete = new ArrayList<SearchIndexableData>(other.dataToDelete);
             nonIndexableKeys = new HashMap<String, List<String>>(other.nonIndexableKeys);
             forceUpdate = other.forceUpdate;
+            fullIndex = other.fullIndex;
         }
 
         public UpdateData copy() {
@@ -198,6 +203,7 @@ public class Index {
             dataToDelete.clear();
             nonIndexableKeys.clear();
             forceUpdate = false;
+            fullIndex = false;
         }
     }
 
@@ -211,9 +217,7 @@ public class Index {
      */
     public static Index getInstance(Context context) {
         if (sInstance == null) {
-            sInstance = new Index(context, BASE_AUTHORITY);
-        } else {
-            sInstance.setContext(context);
+            sInstance = new Index(context.getApplicationContext(), BASE_AUTHORITY);
         }
         return sInstance;
     }
@@ -299,24 +303,30 @@ public class Index {
     }
 
     public void update() {
-        final Intent intent = new Intent(SearchIndexablesContract.PROVIDER_INTERFACE);
-        List<ResolveInfo> list =
-                mContext.getPackageManager().queryIntentContentProviders(intent, 0);
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                final Intent intent = new Intent(SearchIndexablesContract.PROVIDER_INTERFACE);
+                List<ResolveInfo> list =
+                        mContext.getPackageManager().queryIntentContentProviders(intent, 0);
 
-        final int size = list.size();
-        for (int n = 0; n < size; n++) {
-            final ResolveInfo info = list.get(n);
-            if (!isWellKnownProvider(info)) {
-                continue;
+                final int size = list.size();
+                for (int n = 0; n < size; n++) {
+                    final ResolveInfo info = list.get(n);
+                    if (!isWellKnownProvider(info)) {
+                        continue;
+                    }
+                    final String authority = info.providerInfo.authority;
+                    final String packageName = info.providerInfo.packageName;
+
+                    addIndexablesFromRemoteProvider(packageName, authority);
+                    addNonIndexablesKeysFromRemoteProvider(packageName, authority);
+                }
+
+                mDataToProcess.fullIndex = true;
+                updateInternal();
             }
-            final String authority = info.providerInfo.authority;
-            final String packageName = info.providerInfo.packageName;
-
-            addIndexablesFromRemoteProvider(packageName, authority);
-            addNonIndexablesKeysFromRemoteProvider(packageName, authority);
-        }
-
-        updateInternal();
+        });
     }
 
     private boolean addIndexablesFromRemoteProvider(String packageName, String authority) {
@@ -470,7 +480,7 @@ public class Index {
      * @param includeInSearchResults true means that you want the bit "enabled" set so that the
      *                               data will be seen included into the search results
      */
-    public void updateFromClassNameResource(String className, boolean rebuild,
+    public void updateFromClassNameResource(String className, final boolean rebuild,
             boolean includeInSearchResults) {
         if (className == null) {
             throw new IllegalArgumentException("class name cannot be null!");
@@ -482,19 +492,29 @@ public class Index {
         }
         res.context = mContext;
         res.enabled = includeInSearchResults;
-        if (rebuild) {
-            deleteIndexableData(res);
-        }
-        addIndexableData(res);
-        mDataToProcess.forceUpdate = true;
-        updateInternal();
-        res.enabled = false;
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                if (rebuild) {
+                    deleteIndexableData(res);
+                }
+                addIndexableData(res);
+                mDataToProcess.forceUpdate = true;
+                updateInternal();
+                res.enabled = false;
+            }
+        });
     }
 
     public void updateFromSearchIndexableData(SearchIndexableData data) {
-        addIndexableData(data);
-        mDataToProcess.forceUpdate = true;
-        updateInternal();
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                addIndexableData(data);
+                mDataToProcess.forceUpdate = true;
+                updateInternal();
+            }
+        });
     }
 
     private SQLiteDatabase getReadableDatabase() {
@@ -1002,12 +1022,13 @@ public class Index {
         final String normalizedSummaryOn = normalizeString(updatedSummaryOn);
         final String normalizedSummaryOff = normalizeString(updatedSummaryOff);
 
+        final String spaceDelimitedKeywords = normalizeKeywords(keywords);
+
         updateOneRow(database, locale,
                 updatedTitle, normalizedTitle, updatedSummaryOn, normalizedSummaryOn,
-                updatedSummaryOff, normalizedSummaryOff, entries,
-                className, screenTitle, iconResId,
-                rank, keywords, intentAction, intentTargetPackage, intentTargetClass, enabled,
-                key, userId);
+                updatedSummaryOff, normalizedSummaryOff, entries, className, screenTitle, iconResId,
+                rank, spaceDelimitedKeywords, intentAction, intentTargetPackage, intentTargetClass,
+                enabled, key, userId);
     }
 
     private static String normalizeHyphen(String input) {
@@ -1021,11 +1042,14 @@ public class Index {
         return REMOVE_DIACRITICALS_PATTERN.matcher(normalized).replaceAll("").toLowerCase();
     }
 
-    private void updateOneRow(SQLiteDatabase database, String locale,
-            String updatedTitle, String normalizedTitle,
-            String updatedSummaryOn, String normalizedSummaryOn,
-            String updatedSummaryOff, String normalizedSummaryOff, String entries,
-            String className, String screenTitle, int iconResId, int rank, String keywords,
+    private static String normalizeKeywords(String input) {
+        return (input != null) ? input.replaceAll(LIST_DELIMITERS, SPACE) : EMPTY;
+    }
+
+    private void updateOneRow(SQLiteDatabase database, String locale, String updatedTitle,
+            String normalizedTitle, String updatedSummaryOn, String normalizedSummaryOn,
+            String updatedSummaryOff, String normalizedSummaryOff, String entries, String className,
+            String screenTitle, int iconResId, int rank, String spaceDelimitedKeywords,
             String intentAction, String intentTargetPackage, String intentTargetClass,
             boolean enabled, String key, int userId) {
 
@@ -1050,7 +1074,7 @@ public class Index {
         values.put(IndexColumns.DATA_SUMMARY_OFF, updatedSummaryOff);
         values.put(IndexColumns.DATA_SUMMARY_OFF_NORMALIZED, normalizedSummaryOff);
         values.put(IndexColumns.DATA_ENTRIES, entries);
-        values.put(IndexColumns.DATA_KEYWORDS, keywords);
+        values.put(IndexColumns.DATA_KEYWORDS, spaceDelimitedKeywords);
         values.put(IndexColumns.CLASS_NAME, className);
         values.put(IndexColumns.SCREEN_TITLE, screenTitle);
         values.put(IndexColumns.INTENT_ACTION, intentAction);
@@ -1171,31 +1195,39 @@ public class Index {
 
         @Override
         protected Void doInBackground(UpdateData... params) {
-            final List<SearchIndexableData> dataToUpdate = params[0].dataToUpdate;
-            final List<SearchIndexableData> dataToDelete = params[0].dataToDelete;
-            final Map<String, List<String>> nonIndexableKeys = params[0].nonIndexableKeys;
-
-            final boolean forceUpdate = params[0].forceUpdate;
-
-            final SQLiteDatabase database = getWritableDatabase();
-            if (database == null) {
-                Log.e(LOG_TAG, "Cannot update Index as I cannot get a writable database");
-                return null;
-            }
-            final String localeStr = Locale.getDefault().toString();
-
             try {
-                database.beginTransaction();
-                if (dataToDelete.size() > 0) {
-                    processDataToDelete(database, localeStr, dataToDelete);
+                final List<SearchIndexableData> dataToUpdate = params[0].dataToUpdate;
+                final List<SearchIndexableData> dataToDelete = params[0].dataToDelete;
+                final Map<String, List<String>> nonIndexableKeys = params[0].nonIndexableKeys;
+
+                final boolean forceUpdate = params[0].forceUpdate;
+                final boolean fullIndex = params[0].fullIndex;
+
+                final SQLiteDatabase database = getWritableDatabase();
+                if (database == null) {
+                    Log.e(LOG_TAG, "Cannot update Index as I cannot get a writable database");
+                    return null;
                 }
-                if (dataToUpdate.size() > 0) {
-                    processDataToUpdate(database, localeStr, dataToUpdate, nonIndexableKeys,
-                            forceUpdate);
+                final String localeStr = Locale.getDefault().toString();
+
+                try {
+                    database.beginTransaction();
+                    if (dataToDelete.size() > 0) {
+                        processDataToDelete(database, localeStr, dataToDelete);
+                    }
+                    if (dataToUpdate.size() > 0) {
+                        processDataToUpdate(database, localeStr, dataToUpdate, nonIndexableKeys,
+                                forceUpdate);
+                    }
+                    database.setTransactionSuccessful();
+                } finally {
+                    database.endTransaction();
                 }
-                database.setTransactionSuccessful();
-            } finally {
-                database.endTransaction();
+                if (fullIndex) {
+                    IndexDatabaseHelper.setLocaleIndexed(mContext, localeStr);
+                }
+            } catch (SQLiteFullException e) {
+                Log.e(LOG_TAG, "Unable to index search, out of space", e);
             }
 
             return null;
@@ -1205,7 +1237,7 @@ public class Index {
                 List<SearchIndexableData> dataToUpdate, Map<String, List<String>> nonIndexableKeys,
                 boolean forceUpdate) {
 
-            if (!forceUpdate && isLocaleAlreadyIndexed(database, localeStr)) {
+            if (!forceUpdate && IndexDatabaseHelper.isLocaleAlreadyIndexed(mContext, localeStr)) {
                 Log.d(LOG_TAG, "Locale '" + localeStr + "' is already indexed");
                 return true;
             }
@@ -1219,8 +1251,8 @@ public class Index {
                 try {
                     indexOneSearchIndexableData(database, localeStr, data, nonIndexableKeys);
                 } catch (Exception e) {
-                    Log.e(LOG_TAG,
-                            "Cannot index: " + data.className + " for locale: " + localeStr, e);
+                    Log.e(LOG_TAG, "Cannot index: " + (data != null ? data.className : data)
+                                    + " for locale: " + localeStr, e);
                 }
             }
 
@@ -1265,26 +1297,6 @@ public class Index {
             final String[] whereArgs = new String[] { value };
 
             return database.delete(Tables.TABLE_PREFS_INDEX, whereClause, whereArgs);
-        }
-
-        private boolean isLocaleAlreadyIndexed(SQLiteDatabase database, String locale) {
-            Cursor cursor = null;
-            boolean result = false;
-            final StringBuilder sb = new StringBuilder(IndexColumns.LOCALE);
-            sb.append(" = ");
-            DatabaseUtils.appendEscapedSQLString(sb, locale);
-            try {
-                // We care only for 1 row
-                cursor = database.query(Tables.TABLE_PREFS_INDEX, null,
-                        sb.toString(), null, null, null, null, "1");
-                final int count = cursor.getCount();
-                result = (count >= 1);
-            } finally {
-                if (cursor != null) {
-                    cursor.close();
-                }
-            }
-            return result;
         }
     }
 

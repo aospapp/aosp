@@ -16,6 +16,9 @@
 
 package com.google.common.collect.testing;
 
+import static com.google.common.collect.testing.testers.CollectionAddAllTester.getAddAllUnsupportedNonePresentMethod;
+import static com.google.common.collect.testing.testers.CollectionAddAllTester.getAddAllUnsupportedSomePresentMethod;
+import static com.google.common.collect.testing.testers.CollectionAddTester.getAddUnsupportedNotPresentMethod;
 import static com.google.common.collect.testing.testers.CollectionCreationTester.getCreateWithNullUnsupportedMethod;
 import static com.google.common.collect.testing.testers.MapCreationTester.getCreateWithNullKeyUnsupportedMethod;
 import static com.google.common.collect.testing.testers.MapEntrySetTester.getContainsEntryWithIncomparableKeyMethod;
@@ -24,7 +27,6 @@ import static com.google.common.collect.testing.testers.MapPutAllTester.getPutAl
 import static com.google.common.collect.testing.testers.MapPutTester.getPutNullKeyUnsupportedMethod;
 
 import junit.framework.Test;
-import junit.framework.TestSuite;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
@@ -33,9 +35,13 @@ import java.util.Map;
 
 /**
  * Tests the {@link Map} implementations of {@link java.util}, suppressing
- * tests that trip known OpenJDK 6 bugs.
+ * tests that trip known bugs in OpenJDK 6 or higher.
  *
  * @author Kevin Bourrillion
+ */
+/*
+ * TODO(cpovirk): consider renaming this class in light of our now running it
+ * under JDK7
  */
 public class OpenJdk6MapTests extends TestsForMapsInJavaUtil {
   public static Test suite() {
@@ -53,16 +59,28 @@ public class OpenJdk6MapTests extends TestsForMapsInJavaUtil {
   }
 
   @Override
+  protected Collection<Method> suppressForConcurrentHashMap() {
+    /*
+     * The entrySet() of ConcurrentHashMap, unlike that of other Map
+     * implementations, supports add() under JDK8. This seems problematic, but I
+     * didn't see that discussed in the review, which included many other
+     * changes: http://goo.gl/okTTdr
+     *
+     * TODO(cpovirk): decide what the best long-term action here is: force users
+     * to suppress (as we do now), stop testing entrySet().add() at all, make
+     * entrySet().add() tests tolerant of either behavior, introduce a map
+     * feature for entrySet() that supports add(), or something else
+     */
+    return Arrays.asList(
+        getAddUnsupportedNotPresentMethod(),
+        getAddAllUnsupportedNonePresentMethod(),
+        getAddAllUnsupportedSomePresentMethod());
+  }
+
+  @Override
   protected Collection<Method> suppressForConcurrentSkipListMap() {
     return Arrays.asList(
         getContainsEntryWithIncomparableKeyMethod(),
         getContainsEntryWithIncomparableValueMethod()); 
-  }
-
-  @Override public Test testsForEnumMap() {
-    // Do nothing.
-    // TODO: work around the reused-entry problem
-    // http://bugs.sun.com/view_bug.do?bug_id=6312706
-    return new TestSuite();
   }
 }

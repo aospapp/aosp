@@ -43,6 +43,12 @@ public final class Os {
   public static FileDescriptor accept(FileDescriptor fd, InetSocketAddress peerAddress) throws ErrnoException, SocketException { return Libcore.os.accept(fd, peerAddress); }
 
   /**
+   * TODO Change the public API by removing the overload above and unhiding this version.
+   * @hide
+   */
+  public static FileDescriptor accept(FileDescriptor fd, SocketAddress peerAddress) throws ErrnoException, SocketException { return Libcore.os.accept(fd, peerAddress); }
+
+  /**
    * See <a href="http://man7.org/linux/man-pages/man2/access.2.html">access(2)</a>.
    */
   public static boolean access(String path, int mode) throws ErrnoException { return Libcore.os.access(path, mode); }
@@ -538,6 +544,11 @@ public final class Os {
    * See <a href="http://man7.org/linux/man-pages/man2/uname.2.html">uname(2)</a>.
    */
   public static StructUtsname uname() { return Libcore.os.uname(); }
+
+  /**
+   * @hide See <a href="http://man7.org/linux/man-pages/man2/unlink.2.html">unlink(2)</a>.
+   */
+  public static void unlink(String pathname) throws ErrnoException { Libcore.os.unlink(pathname); }
 
   /**
    * See <a href="http://man7.org/linux/man-pages/man3/unsetenv.3.html">unsetenv(3)</a>.

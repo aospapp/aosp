@@ -32,7 +32,8 @@ const effect_uuid_t * const FX_IID_NS = &FX_IID_NS_;
 typedef enum
 {
     NS_PARAM_LEVEL,             // noise suppression level (t_ns_level)
-    NS_PARAM_PROPERTIES
+    NS_PARAM_PROPERTIES,
+    NS_PARAM_TYPE               // noise suppression type (t_ns_type)
 } t_ns_params;
 
 // noise suppression level
@@ -42,9 +43,16 @@ typedef enum {
     NS_LEVEL_HIGH
 } t_ns_level;
 
+// noise suppression type
+typedef enum {
+    NS_TYPE_SINGLE_CHANNEL,
+    NS_TYPE_MULTI_CHANNEL
+} t_ns_type;
+
 // s_ns_settings groups all current ns settings for backup and restore.
 typedef struct s_ns_settings {
     uint32_t  level;
+    uint32_t  type;
 } t_ns_settings;
 
 #if __cplusplus

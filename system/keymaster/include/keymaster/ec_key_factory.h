@@ -52,8 +52,12 @@ class EcKeyFactory : public AsymmetricKeyFactory {
 
     OperationFactory* GetOperationFactory(keymaster_purpose_t purpose) const override;
 
-    static EC_GROUP* choose_group(size_t key_size_bits);
-    static keymaster_error_t get_group_size(const EC_GROUP& group, size_t* key_size_bits);
+  protected:
+    static EC_GROUP* ChooseGroup(size_t key_size_bits);
+    static EC_GROUP* ChooseGroup(keymaster_ec_curve_t ec_curve);
+
+    static keymaster_error_t GetCurveAndSize(const AuthorizationSet& key_description,
+                                             keymaster_ec_curve_t* curve, uint32_t* key_size_bits);
 };
 
 }  // namespace keymaster

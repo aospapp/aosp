@@ -21,7 +21,7 @@
     <string name="title_existing_tag" msgid="5656560272594190244">"نشان"</string>
     <string name="tag_unknown" msgid="2897956823877728783">"نوع نشان ناشناس"</string>
     <string name="tag_empty" msgid="3726529819932095782">"نشان خالی"</string>
-    <string name="button_done" msgid="7048822758098308158">"انجام شد"</string>
+    <string name="button_done" msgid="7048822758098308158">"تمام"</string>
     <string name="action_text" msgid="577417996159152923">"ارسال متن به <xliff:g id="PHONE_NUMBER">%s</xliff:g>"</string>
     <string name="action_call" msgid="6226253647953184035">"تماس با <xliff:g id="PHONE_NUMBER">%s</xliff:g>"</string>
     <string name="empty_tag_prompt" msgid="4206394383309956030">"این نشان خالی است."</string>

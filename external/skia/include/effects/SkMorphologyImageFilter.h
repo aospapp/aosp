@@ -16,7 +16,8 @@
 class SK_API SkMorphologyImageFilter : public SkImageFilter {
 public:
     void computeFastBounds(const SkRect& src, SkRect* dst) const override;
-    bool onFilterBounds(const SkIRect& src, const SkMatrix& ctm, SkIRect* dst) const override;
+    void onFilterNodeBounds(const SkIRect& src, const SkMatrix& ctm,
+                            SkIRect* dst, MapDirection) const override;
 
     /**
      * All morphology procs have the same signature: src is the source buffer, dst the
@@ -51,58 +52,58 @@ private:
 
 class SK_API SkDilateImageFilter : public SkMorphologyImageFilter {
 public:
-    static SkDilateImageFilter* Create(int radiusX, int radiusY,
-                                       SkImageFilter* input = NULL,
-                                       const CropRect* cropRect = NULL) {
+    static SkImageFilter* Create(int radiusX, int radiusY, SkImageFilter* input = NULL,
+                                 const CropRect* cropRect = NULL) {
         if (radiusX < 0 || radiusY < 0) {
             return NULL;
         }
-        return SkNEW_ARGS(SkDilateImageFilter, (radiusX, radiusY, input, cropRect));
+        return new SkDilateImageFilter(radiusX, radiusY, input, cropRect);
     }
 
-    virtual bool onFilterImage(Proxy*, const SkBitmap& src, const Context&,
-                               SkBitmap* result, SkIPoint* offset) const override;
+    bool onFilterImageDeprecated(Proxy*, const SkBitmap& src, const Context&,
+                                 SkBitmap* result, SkIPoint* offset) const override;
+
 #if SK_SUPPORT_GPU
-    virtual bool filterImageGPU(Proxy* proxy, const SkBitmap& src, const Context&,
-                                SkBitmap* result, SkIPoint* offset) const override;
+    bool filterImageGPUDeprecated(Proxy* proxy, const SkBitmap& src, const Context&,
+                                  SkBitmap* result, SkIPoint* offset) const override;
 #endif
 
     SK_TO_STRING_OVERRIDE()
     SK_DECLARE_PUBLIC_FLATTENABLE_DESERIALIZATION_PROCS(SkDilateImageFilter)
 
-protected:
+private:
     SkDilateImageFilter(int radiusX, int radiusY, SkImageFilter* input, const CropRect* cropRect)
         : INHERITED(radiusX, radiusY, input, cropRect) {}
-private:
+
     typedef SkMorphologyImageFilter INHERITED;
 };
 
 class SK_API SkErodeImageFilter : public SkMorphologyImageFilter {
 public:
-    static SkErodeImageFilter* Create(int radiusX, int radiusY,
+    static SkImageFilter* Create(int radiusX, int radiusY,
                                       SkImageFilter* input = NULL,
                                       const CropRect* cropRect = NULL) {
         if (radiusX < 0 || radiusY < 0) {
             return NULL;
         }
-        return SkNEW_ARGS(SkErodeImageFilter, (radiusX, radiusY, input, cropRect));
+        return new SkErodeImageFilter(radiusX, radiusY, input, cropRect);
     }
 
-    virtual bool onFilterImage(Proxy*, const SkBitmap& src, const Context&,
-                               SkBitmap* result, SkIPoint* offset) const override;
+    bool onFilterImageDeprecated(Proxy*, const SkBitmap& src, const Context&,
+                                 SkBitmap* result, SkIPoint* offset) const override;
+
 #if SK_SUPPORT_GPU
-    virtual bool filterImageGPU(Proxy* proxy, const SkBitmap& src, const Context&,
-                                SkBitmap* result, SkIPoint* offset) const override;
+    bool filterImageGPUDeprecated(Proxy* proxy, const SkBitmap& src, const Context&,
+                                  SkBitmap* result, SkIPoint* offset) const override;
 #endif
 
     SK_TO_STRING_OVERRIDE()
     SK_DECLARE_PUBLIC_FLATTENABLE_DESERIALIZATION_PROCS(SkErodeImageFilter)
 
-protected:
+private:
     SkErodeImageFilter(int radiusX, int radiusY, SkImageFilter* input, const CropRect* cropRect)
         : INHERITED(radiusX, radiusY, input, cropRect) {}
 
-private:
     typedef SkMorphologyImageFilter INHERITED;
 };
 

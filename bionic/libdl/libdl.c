@@ -24,21 +24,50 @@
 // in the dynamic linker and hijacked at runtime.
 
 void* dlopen(const char* filename __unused, int flag __unused) { return 0; }
+
 const char* dlerror(void) { return 0; }
+
 void* dlsym(void* handle __unused, const char* symbol __unused) { return 0; }
+
+void* dlvsym(void* handle __unused, const char* symbol __unused, const char* version __unused) {
+  return 0;
+}
+
 int dladdr(const void* addr __unused, Dl_info* info __unused) { return 0; }
+
 int dlclose(void* handle __unused) { return 0; }
 
 #if defined(__arm__)
 _Unwind_Ptr dl_unwind_find_exidx(_Unwind_Ptr pc __unused, int* pcount __unused) { return 0; }
 #endif
 
-int dl_iterate_phdr(int (*cb)(struct dl_phdr_info* info, size_t size, void* data) __unused, void* data __unused) { return 0; }
+int dl_iterate_phdr(int (*cb)(struct dl_phdr_info* info, size_t size, void* data) __unused,
+                    void* data __unused) {
+  return 0;
+}
 
 void android_get_LD_LIBRARY_PATH(char* buffer __unused, size_t buffer_size __unused) { }
 void android_update_LD_LIBRARY_PATH(const char* ld_library_path __unused) { }
 
-void* android_dlopen_ext(const char* filename __unused, int flag __unused, const android_dlextinfo* extinfo __unused) { return 0; }
+void* android_dlopen_ext(const char* filename __unused, int flag __unused,
+                         const android_dlextinfo* extinfo __unused) {
+  return 0;
+}
 
 void android_set_application_target_sdk_version(uint32_t target __unused) { }
 uint32_t android_get_application_target_sdk_version() { return 0; }
+
+bool android_init_namespaces(const char* public_ns_sonames __unused,
+                             const char* anon_ns_library_path __unused) {
+  return false;
+}
+
+struct android_namespace_t* android_create_namespace(const char* name __unused,
+                                                     const char* ld_library_path __unused,
+                                                     const char* default_library_path __unused,
+                                                     uint64_t type __unused,
+                                                     const char* permitted_when_isolated_path __unused) {
+  return 0;
+}
+
+void android_dlwarning(void* obj, void (*f)(void*, const char*)) { f(obj, 0); }

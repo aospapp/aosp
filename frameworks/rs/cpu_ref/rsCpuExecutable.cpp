@@ -261,12 +261,17 @@ void* SharedLibraryUtils::loadSOHelper(const char *origName, const char *cacheDi
     return loaded;
 }
 
-#define MAXLINE 500
+// MAXLINESTR must be compatible with operator '#' in C macro.
+#define MAXLINESTR 499
+// MAXLINE must be (MAXLINESTR + 1), representing the size of a C string
+// containing MAXLINESTR non-null chars plus a null.
+#define MAXLINE (MAXLINESTR + 1)
 #define MAKE_STR_HELPER(S) #S
 #define MAKE_STR(S) MAKE_STR_HELPER(S)
 #define EXPORT_VAR_STR "exportVarCount: "
 #define EXPORT_FUNC_STR "exportFuncCount: "
 #define EXPORT_FOREACH_STR "exportForEachCount: "
+#define EXPORT_REDUCE_STR "exportReduceCount: "
 #define OBJECT_SLOT_STR "objectSlotCount: "
 #define PRAGMA_STR "pragmaCount: "
 #define THREADABLE_STR "isThreadable: "
@@ -298,12 +303,13 @@ static char* strgets(char *s, int size, const char **ppstr) {
 }
 
 ScriptExecutable* ScriptExecutable::createFromSharedObject(
-    Context* RSContext, void* sharedObj, uint32_t expectedChecksum) {
+    void* sharedObj, uint32_t expectedChecksum) {
     char line[MAXLINE];
 
     size_t varCount = 0;
     size_t funcCount = 0;
     size_t forEachCount = 0;
+    size_t reduceCount = 0;
     size_t objectSlotCount = 0;
     size_t pragmaCount = 0;
     bool isThreadable = true;
@@ -314,6 +320,7 @@ ScriptExecutable* ScriptExecutable::createFromSharedObject(
     InvokeFunc_t* invokeFunctions = nullptr;
     ForEachFunc_t* forEachFunctions = nullptr;
     uint32_t* forEachSignatures = nullptr;
+    ReduceDescription* reduceDescriptions = nullptr;
     const char ** pragmaKeys = nullptr;
     const char ** pragmaValues = nullptr;
     uint32_t checksum = 0;
@@ -424,14 +431,14 @@ ScriptExecutable* ScriptExecutable::createFromSharedObject(
         if (strgets(line, MAXLINE, &rsInfo) == nullptr) {
             goto error;
         }
-        if (sscanf(line, "%u - %" MAKE_STR(MAXLINE) "s",
+        if (sscanf(line, "%u - %" MAKE_STR(MAXLINESTR) "s",
                    &tmpSig, tmpName) != 2) {
           ALOGE("Invalid export forEach!: %s", line);
           goto error;
         }
 
         // Lookup the expanded ForEach kernel.
-        strncat(tmpName, ".expand", MAXLINE-1-strlen(tmpName));
+        strncat(tmpName, ".expand", MAXLINESTR-strlen(tmpName));
         forEachSignatures[i] = tmpSig;
         forEachFunctions[i] =
             (ForEachFunc_t) dlsym(sharedObj, tmpName);
@@ -439,9 +446,115 @@ ScriptExecutable* ScriptExecutable::createFromSharedObject(
             strcmp(tmpName, "root.expand")) {
             // Ignore missing root.expand functions.
             // root() is always specified at location 0.
-            ALOGE("Failed to find forEach function address for %s: %s",
+            ALOGE("Failed to find forEach function address for %s(): %s",
                   tmpName, dlerror());
             goto error;
+        }
+    }
+
+    // Read general reduce kernels
+    if (strgets(line, MAXLINE, &rsInfo) == nullptr) {
+        goto error;
+    }
+    if (sscanf(line, EXPORT_REDUCE_STR "%zu", &reduceCount) != 1) {
+        ALOGE("Invalid export reduce new count!: %s", line);
+        goto error;
+    }
+
+    reduceDescriptions = new ReduceDescription[reduceCount];
+    if (reduceDescriptions == nullptr) {
+        goto error;
+    }
+
+    for (size_t i = 0; i < reduceCount; ++i) {
+        static const char kNoName[] = ".";
+
+        unsigned int tmpSig = 0;
+        size_t tmpSize = 0;
+        char tmpNameReduce[MAXLINE];
+        char tmpNameInitializer[MAXLINE];
+        char tmpNameAccumulator[MAXLINE];
+        char tmpNameCombiner[MAXLINE];
+        char tmpNameOutConverter[MAXLINE];
+        char tmpNameHalter[MAXLINE];
+
+        if (strgets(line, MAXLINE, &rsInfo) == nullptr) {
+            goto error;
+        }
+#define DELIMNAME " - %" MAKE_STR(MAXLINESTR) "s"
+        if (sscanf(line, "%u - %zu" DELIMNAME DELIMNAME DELIMNAME DELIMNAME DELIMNAME DELIMNAME,
+                   &tmpSig, &tmpSize, tmpNameReduce, tmpNameInitializer, tmpNameAccumulator,
+                   tmpNameCombiner, tmpNameOutConverter, tmpNameHalter) != 8) {
+            ALOGE("Invalid export reduce new!: %s", line);
+            goto error;
+        }
+#undef DELIMNAME
+
+        // For now, we expect
+        // - Reduce and Accumulator names
+        // - optional Initializer, Combiner, and OutConverter name
+        // - no Halter name
+        if (!strcmp(tmpNameReduce, kNoName) ||
+            !strcmp(tmpNameAccumulator, kNoName)) {
+            ALOGE("Expected reduce and accumulator names!: %s", line);
+            goto error;
+        }
+        if (strcmp(tmpNameHalter, kNoName)) {
+            ALOGE("Did not expect halter name!: %s", line);
+            goto error;
+        }
+
+        // The current implementation does not use the signature
+        // or reduce name.
+
+        reduceDescriptions[i].accumSize = tmpSize;
+
+        // Process the (optional) initializer.
+        if (strcmp(tmpNameInitializer, kNoName)) {
+          // Lookup the original user-written initializer.
+          if (!(reduceDescriptions[i].initFunc =
+                (ReduceInitializerFunc_t) dlsym(sharedObj, tmpNameInitializer))) {
+            ALOGE("Failed to find initializer function address for %s(): %s",
+                  tmpNameInitializer, dlerror());
+            goto error;
+          }
+        } else {
+          reduceDescriptions[i].initFunc = nullptr;
+        }
+
+        // Lookup the expanded accumulator.
+        strncat(tmpNameAccumulator, ".expand", MAXLINESTR-strlen(tmpNameAccumulator));
+        if (!(reduceDescriptions[i].accumFunc =
+              (ReduceAccumulatorFunc_t) dlsym(sharedObj, tmpNameAccumulator))) {
+            ALOGE("Failed to find accumulator function address for %s(): %s",
+                  tmpNameAccumulator, dlerror());
+            goto error;
+        }
+
+        // Process the (optional) combiner.
+        if (strcmp(tmpNameCombiner, kNoName)) {
+          // Lookup the original user-written combiner.
+          if (!(reduceDescriptions[i].combFunc =
+                (ReduceCombinerFunc_t) dlsym(sharedObj, tmpNameCombiner))) {
+            ALOGE("Failed to find combiner function address for %s(): %s",
+                  tmpNameCombiner, dlerror());
+            goto error;
+          }
+        } else {
+          reduceDescriptions[i].combFunc = nullptr;
+        }
+
+        // Process the (optional) outconverter.
+        if (strcmp(tmpNameOutConverter, kNoName)) {
+          // Lookup the original user-written outconverter.
+          if (!(reduceDescriptions[i].outFunc =
+                (ReduceOutConverterFunc_t) dlsym(sharedObj, tmpNameOutConverter))) {
+            ALOGE("Failed to find outconverter function address for %s(): %s",
+                  tmpNameOutConverter, dlerror());
+            goto error;
+          }
+        } else {
+          reduceDescriptions[i].outFunc = nullptr;
         }
     }
 
@@ -504,7 +617,7 @@ ScriptExecutable* ScriptExecutable::createFromSharedObject(
 
         // pragmas can just have a key and no value.  Only check to make sure
         // that the key is not empty
-        if (sscanf(line, "%" MAKE_STR(MAXLINE) "s - %" MAKE_STR(MAXLINE) "s",
+        if (sscanf(line, "%" MAKE_STR(MAXLINESTR) "s - %" MAKE_STR(MAXLINESTR) "s",
                    key, value) == 0 ||
             strlen(key) == 0)
         {
@@ -528,7 +641,7 @@ ScriptExecutable* ScriptExecutable::createFromSharedObject(
     }
 
     char tmpFlag[4];
-    if (sscanf(line, THREADABLE_STR "%4s", tmpFlag) != 1) {
+    if (sscanf(line, THREADABLE_STR "%3s", tmpFlag) != 1) {
         ALOGE("Invalid threadable flag!: %s", line);
         goto error;
     }
@@ -569,14 +682,13 @@ ScriptExecutable* ScriptExecutable::createFromSharedObject(
             rsAssert(rsGlobalSizes);
             rsAssert(rsGlobalProperties);
         }
-    } else {
-        ALOGD("Missing .rs.global_entries from shared object");
     }
 
     return new ScriptExecutable(
-        RSContext, fieldAddress, fieldIsObject, fieldName, varCount,
+        fieldAddress, fieldIsObject, fieldName, varCount,
         invokeFunctions, funcCount,
         forEachFunctions, forEachSignatures, forEachCount,
+        reduceDescriptions, reduceCount,
         pragmaKeys, pragmaValues, pragmaCount,
         rsGlobalNames, rsGlobalAddresses, rsGlobalSizes, rsGlobalProperties,
         numEntries, isThreadable, checksum);

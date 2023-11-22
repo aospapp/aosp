@@ -16,6 +16,7 @@
 
 package com.android.cts.tradefed.testtype;
 
+import com.android.compatibility.common.util.AbiUtils;
 import com.android.cts.tradefed.build.CtsBuildHelper;
 import com.android.ddmlib.testrunner.ITestRunListener;
 import com.android.tradefed.build.IBuildInfo;
@@ -47,7 +48,7 @@ public class GeeTest implements IBuildReceiver, IDeviceTest, IRemoteTest {
     private static final String ANDROID_PATH_SEPARATOR = "/";
     private static final String GTEST_FLAG_FILTER = "--gtest_filter=";
 
-    private int mMaxTestTimeMs = 1 * 60 * 1000;
+    private int mMaxTestTimeMs = 1 * 90 * 1000;
 
     private CtsBuildHelper mCtsBuild;
     private ITestDevice mDevice;
@@ -149,7 +150,8 @@ public class GeeTest implements IBuildReceiver, IDeviceTest, IRemoteTest {
     }
 
     void runTest(ITestRunListener listener) throws DeviceNotAvailableException {
-        GeeTestResultParser resultParser = new GeeTestResultParser(mPackageName, listener);
+        String id = AbiUtils.createId(mAbi.getName(), mPackageName);
+        GeeTestResultParser resultParser = new GeeTestResultParser(id, listener);
         resultParser.setFakePackagePrefix(mPackageName + ".");
 
         String fullPath = NATIVE_TESTS_DIRECTORY + ANDROID_PATH_SEPARATOR + mExeName;

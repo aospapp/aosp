@@ -21,6 +21,7 @@ import junit.framework.TestCase;
 
 import android.app.ActivityManager;
 import android.content.Context;
+import android.os.SystemProperties;
 import android.util.Log;
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -32,6 +33,8 @@ public class EncryptionTest extends AndroidTestCase {
     static {
         System.loadLibrary("ctssecurity_jni");
     }
+
+    private static final int min_api_level = 23;
 
     private static final String TAG = "EncryptionTest";
 
@@ -73,11 +76,28 @@ public class EncryptionTest extends AndroidTestCase {
         return activityManager.isLowRamDevice();
     }
 
+    private boolean isRequired() {
+        int first_api_level =
+            SystemProperties.getInt("ro.product.first_api_level", 0);
+
+        // Optional before min_api_level or if the device has low RAM
+        if (first_api_level > 0 && first_api_level < min_api_level) {
+            return false;
+        } else {
+            return !hasLowRAM();
+        }
+    }
+
     public void testConfig() throws Exception {
+        if (!isRequired()) {
+            return;
+        }
+
         if (cpuHasAes()) {
             // If CPU has AES CE, it must be enabled in kernel
-            assertTrue(crypto + " is missing xts-aes-ce",
-                hasKernelCrypto("xts-aes-ce"));
+            assertTrue(crypto + " is missing xts-aes-ce or xts-aes-aesni",
+                hasKernelCrypto("xts-aes-ce") ||
+                hasKernelCrypto("xts-aes-aesni"));
         } else if (cpuHasNeon()) {
             // Otherwise, if CPU has NEON, it must be enabled
             assertTrue(crypto + " is missing xts-aes-neon (or xts-aes-neonbs)",
@@ -92,13 +112,7 @@ public class EncryptionTest extends AndroidTestCase {
     }
 
     public void testEncryption() throws Exception {
-        if (deviceIsEncrypted()) {
-            return;
-        }
-
-        // Optional for low RAM devices
-        if (hasLowRAM()) {
-            Log.i(TAG, "hasLowRAM: true");
+        if (!isRequired() || deviceIsEncrypted()) {
             return;
         }
 

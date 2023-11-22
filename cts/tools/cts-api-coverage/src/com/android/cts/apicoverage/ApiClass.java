@@ -197,6 +197,13 @@ class ApiClass implements Comparable<ApiClass>, HasCoverage {
     }
 
     /**
+     * @return true iff the parameter is a var arg parameter.
+     */
+    private static boolean isVarArg(String parameter) {
+        return parameter.endsWith("...");
+    }
+
+    /**
      * Compare class types.
      * @param apiType The type as reported by the api
      * @param testType The type as found used in a test
@@ -206,7 +213,9 @@ class ApiClass implements Comparable<ApiClass>, HasCoverage {
     private static boolean compareType(String apiType, String testType) {
         return apiType.equals(testType) ||
                 isGenericType(apiType) && !testType.equals(VOID) ||
-                isGenericArrayType(apiType) && isArrayType(testType) ;
+                isGenericArrayType(apiType) && isArrayType(testType) ||
+                isVarArg(apiType) && isArrayType(testType) &&
+                        apiType.startsWith(testType.substring(0, testType.indexOf("[")));
     }
 
     /**

@@ -36,8 +36,10 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.TextView.OnEditorActionListener;
 
 import com.android.tv.settings.R;
 import com.android.tv.settings.dialog.old.Action;
@@ -292,8 +294,12 @@ public class BluetoothPairingDialog extends DialogActivity {
                 break;
 
             case BluetoothDevice.PAIRING_VARIANT_PASSKEY:
-                int passkey = Integer.parseInt(value);
-                mDevice.setPasskey(passkey);
+                try {
+                    int passkey = Integer.parseInt(value);
+                    mDevice.setPasskey(passkey);
+                } catch (NumberFormatException e) {
+                    Log.d(TAG, "pass key " + value + " is not an integer");
+                }
                 break;
 
             case BluetoothDevice.PAIRING_VARIANT_PASSKEY_CONFIRMATION:
@@ -347,6 +353,19 @@ public class BluetoothPairingDialog extends DialogActivity {
 
             final TextView titleText = (TextView) v.findViewById(R.id.title_text);
             final EditText textInput = (EditText) v.findViewById(R.id.text_input);
+
+            textInput.setOnEditorActionListener(new OnEditorActionListener() {
+                @Override
+                public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                    String value = textInput.getText().toString();
+                    if (actionId == EditorInfo.IME_ACTION_NEXT ||
+                        (actionId == EditorInfo.IME_NULL &&
+                         event.getAction() == KeyEvent.ACTION_DOWN)) {
+                        ((BluetoothPairingDialog)getActivity()).onPair(value);
+                    }
+                    return true;
+                }
+            });
 
             final String instructions;
             final int maxLength;

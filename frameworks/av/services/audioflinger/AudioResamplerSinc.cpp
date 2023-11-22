@@ -43,10 +43,14 @@
 #endif
 
 #if defined(__aarch64__) || defined(__ARM_NEON__)
-#include <arm_neon.h>
-#define USE_NEON
+#ifndef USE_NEON
+#define USE_NEON (true)
+#endif
 #else
-#undef USE_NEON
+#define USE_NEON (false)
+#endif
+#if USE_NEON
+#include <arm_neon.h>
 #endif
 
 #define UNUSED(x) ((void)(x))
@@ -137,6 +141,8 @@ void AudioResamplerSinc::init_routine()
 
 // ----------------------------------------------------------------------------
 
+#if !USE_NEON
+
 static inline
 int32_t mulRL(int left, int32_t in, uint32_t vRL)
 {
@@ -197,6 +203,8 @@ int32_t mulAddRL(int left, uint32_t inRL, int32_t v, int32_t a)
     return a + int32_t((int64_t(v) * s) >> 16);
 #endif
 }
+
+#endif // !USE_NEON
 
 // ----------------------------------------------------------------------------
 
@@ -301,8 +309,7 @@ size_t AudioResamplerSinc::resample(int32_t* out, size_t outFrameCount,
         // buffer is empty, fetch a new one
         while (mBuffer.frameCount == 0) {
             mBuffer.frameCount = inFrameCount;
-            provider->getNextBuffer(&mBuffer,
-                                    calculateOutputPTS(outputIndex / 2));
+            provider->getNextBuffer(&mBuffer);
             if (mBuffer.raw == NULL) {
                 goto resample_exit;
             }
@@ -418,7 +425,7 @@ void AudioResamplerSinc::filterCoefficient(int32_t* out, uint32_t phase,
 
     size_t count = offset;
 
-#ifndef USE_NEON
+#if !USE_NEON
     int32_t l = 0;
     int32_t r = 0;
     for (size_t i=0 ; i<count ; i++) {

@@ -85,7 +85,7 @@ class ReflectionTest : public CommonCompilerTest {
                                     mirror::Object** receiver,
                                     bool is_static, const char* method_name,
                                     const char* method_signature)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     const char* class_name = is_static ? "StaticLeafMethods" : "NonStaticLeafMethods";
     jobject jclass_loader(LoadDex(class_name));
     Thread* self = Thread::Current();
@@ -157,7 +157,8 @@ class ReflectionTest : public CommonCompilerTest {
     result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(SCHAR_MAX, result.GetB());
 
-    args[0].b = (SCHAR_MIN << 24) >> 24;
+    static_assert(SCHAR_MIN == -128, "SCHAR_MIN unexpected");
+    args[0].b = SCHAR_MIN;
     result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(SCHAR_MIN, result.GetB());
   }
@@ -505,6 +506,7 @@ class ReflectionTest : public CommonCompilerTest {
 };
 
 TEST_F(ReflectionTest, StaticMainMethod) {
+  TEST_DISABLED_FOR_READ_BARRIER_WITH_OPTIMIZING_FOR_UNSUPPORTED_INSTRUCTION_SETS();
   ScopedObjectAccess soa(Thread::Current());
   jobject jclass_loader = LoadDex("Main");
   StackHandleScope<1> hs(soa.Self());

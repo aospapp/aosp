@@ -18,7 +18,7 @@
 
 #include <stddef.h>
 
-#ifdef HAVE_WINSOCK
+#if defined(_WIN32)
 # undef  nhtol
 # undef  htonl
 # undef  nhtos
@@ -222,11 +222,16 @@ int strncmp16(const char16_t *s1, const char16_t *s2, size_t n)
   char16_t ch;
   int d = 0;
 
-  while ( n-- ) {
-    d = (int)(ch = *s1++) - (int)*s2++;
-    if ( d || !ch )
-      break;
+  if (n == 0) {
+    return 0;
   }
+
+  do {
+    d = (int)(ch = *s1++) - (int)*s2++;
+    if ( d || !ch ) {
+      break;
+    }
+  } while (--n);
 
   return d;
 }
@@ -283,6 +288,25 @@ size_t strnlen16(const char16_t *s, size_t maxlen)
   }
   return ss-s;
 }
+
+char16_t* strstr16(const char16_t* src, const char16_t* target)
+{
+    const char16_t needle = *target++;
+    const size_t target_len = strlen16(target);
+    if (needle != '\0') {
+      do {
+        do {
+          if (*src == '\0') {
+            return nullptr;
+          }
+        } while (*src++ != needle);
+      } while (strncmp16(src, target, target_len) != 0);
+      src--;
+    }
+
+    return (char16_t*)src;
+}
+
 
 int strzcmp16(const char16_t *s1, size_t n1, const char16_t *s2, size_t n2)
 {

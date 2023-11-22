@@ -67,7 +67,7 @@ RSExportVar::RSExportVar(RSContext *Context,
         }
         const RSExportConstantArrayType *ECAT =
             static_cast<const RSExportConstantArrayType*>(ET);
-        mArraySize = ECAT->getSize();
+        mArraySize = ECAT->getNumElement();
         mNumInits = IList->getNumInits();
         for (unsigned int i = 0; i < mNumInits; i++) {
           clang::Expr::EvalResult tempInit;

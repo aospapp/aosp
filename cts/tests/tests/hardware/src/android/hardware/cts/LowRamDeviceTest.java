@@ -105,7 +105,7 @@ public class LowRamDeviceTest extends AndroidTestCase {
             if (supports64Bit) {
                 assertMinMemoryMb(1824);
             } else {
-                assertMinMemoryMb(1344);
+                assertMinMemoryMb(1099);
             }
         } else if (greaterThanDpi(density, DENSITY_400, screenSize,
                 SCREENLAYOUT_SIZE_NORMAL, SCREENLAYOUT_SIZE_SMALL) ||

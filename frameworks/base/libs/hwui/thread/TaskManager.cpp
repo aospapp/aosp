@@ -33,11 +33,13 @@ TaskManager::TaskManager() {
     // Get the number of available CPUs. This value does not change over time.
     int cpuCount = sysconf(_SC_NPROCESSORS_CONF);
 
-    int workerCount = MathUtils::max(1, cpuCount / 2);
+    // Really no point in making more than 2 of these worker threads, but
+    // we do want to limit ourselves to 1 worker thread on dual-core devices.
+    int workerCount = cpuCount > 2 ? 2 : 1;
     for (int i = 0; i < workerCount; i++) {
         String8 name;
         name.appendFormat("hwuiTask%d", i + 1);
-        mThreads.add(new WorkerThread(name));
+        mThreads.push_back(new WorkerThread(name));
     }
 }
 
@@ -87,36 +89,34 @@ status_t TaskManager::WorkerThread::readyToRun() {
 
 bool TaskManager::WorkerThread::threadLoop() {
     mSignal.wait();
-    Vector<TaskWrapper> tasks;
+    std::vector<TaskWrapper> tasks;
     {
         Mutex::Autolock l(mLock);
-        tasks = mTasks;
-        mTasks.clear();
+        tasks.swap(mTasks);
     }
 
     for (size_t i = 0; i < tasks.size(); i++) {
-        const TaskWrapper& task = tasks.itemAt(i);
+        const TaskWrapper& task = tasks[i];
         task.mProcessor->process(task.mTask);
     }
 
     return true;
 }
 
-bool TaskManager::WorkerThread::addTask(TaskWrapper task) {
+bool TaskManager::WorkerThread::addTask(const TaskWrapper& task) {
     if (!isRunning()) {
         run(mName.string(), PRIORITY_DEFAULT);
     } else if (exitPending()) {
         return false;
     }
 
-    ssize_t index;
     {
         Mutex::Autolock l(mLock);
-        index = mTasks.add(task);
+        mTasks.push_back(task);
     }
     mSignal.signal();
 
-    return index >= 0;
+    return true;
 }
 
 size_t TaskManager::WorkerThread::getTaskCount() const {

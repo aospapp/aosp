@@ -21,7 +21,6 @@ import static com.google.common.base.Charsets.UTF_8;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.io.UnsupportedEncodingException;
 
 /**
  * A char source for testing that has configurable options.
@@ -33,11 +32,7 @@ public class TestCharSource extends CharSource implements TestStreamSupplier {
   private final TestByteSource byteSource;
 
   public TestCharSource(String content, TestOption... options) {
-    try {
-      this.byteSource = new TestByteSource(content.getBytes(UTF_8.name()), options);
-    } catch (UnsupportedEncodingException e) {
-      throw new AssertionError(e);
-    }
+    this.byteSource = new TestByteSource(content.getBytes(UTF_8), options);
   }
 
   @Override

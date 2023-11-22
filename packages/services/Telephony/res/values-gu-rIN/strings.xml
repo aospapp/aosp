@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="phoneAppLabel" product="tablet" msgid="1107073389495104784">"સેલ્યુલર ડેટા"</string>
-    <string name="phoneAppLabel" product="default" msgid="906161039445636857">"ફોન"</string>
+    <string name="phoneAppLabel" product="default" msgid="6790717591729922998">"ફોન સેવાઓ"</string>
     <string name="emergencyDialerIconLabel" msgid="7812140032168171053">"કટોકટીનું ડાયલર"</string>
     <string name="phoneIconLabel" msgid="2331230813161304895">"ફોન"</string>
     <string name="fdnListLabel" msgid="8630418672279521003">"FDN સૂચિ"</string>
@@ -31,7 +31,7 @@
     <string name="cancel" msgid="5044513931633602634">"રદ કરો"</string>
     <string name="enter_input" msgid="1810529547726803893">"USSD સંદેશ <xliff:g id="MIN_LEN">%d</xliff:g> અને <xliff:g id="MAX_LEN">%d</xliff:g> વર્ણ વચ્ચેનો હોવો આવશ્યક છે. કૃપા કરીને ફરી પ્રયાસ કરો."</string>
     <string name="manageConferenceLabel" msgid="4691922394301969053">"કોન્ફરન્સ કૉલ સંચાલિત કરો"</string>
-    <string name="ok" msgid="3811371167865772377">"ઑકે"</string>
+    <string name="ok" msgid="3811371167865772377">"ઓકે"</string>
     <string name="audio_mode_speaker" msgid="27649582100085266">"સ્પીકર્સ"</string>
     <string name="audio_mode_earpiece" msgid="4156527186373869107">"હેન્ડસેટ ઇઅરપીસ"</string>
     <string name="audio_mode_wired_headset" msgid="1465350758489175975">"વાયર્ડ હેડસેટ"</string>
@@ -63,6 +63,7 @@
     <string name="phone_accounts_make_calls_with" msgid="1969188078933152231">"આના વડે કૉલ કરો"</string>
     <string name="phone_accounts_make_sip_calls_with" msgid="4677789312053828493">"આના વડે SIP કૉલ્સ કરો"</string>
     <string name="phone_accounts_ask_every_time" msgid="4346499067149985702">"પહેલાં પૂછો"</string>
+    <string name="phone_accounts_default_account_label" msgid="4183772241814460014">"કોઇ નેટવર્ક ઉપલબ્ધ નથી"</string>
     <string name="phone_accounts_settings_header" msgid="4141710640883261094">"સેટિંગ્સ"</string>
     <string name="phone_accounts_choose_accounts" msgid="5232948804226424002">"એકાઉન્ટ્સ પસંદ કરો"</string>
     <string name="phone_accounts_selection_header" msgid="1365215726106915865">"ફોન એકાઉન્ટ્સ"</string>
@@ -117,17 +118,20 @@
     <string name="sum_cfnrc_disabled" msgid="7222141261321276464">"અક્ષમ કરેલું"</string>
     <string name="disable_cfnrc_forbidden" msgid="5646361343094064333">"જ્યારે તમારો ફોન પહોંચયોગ્ય ન હોય ત્યારે તમારા કેરિઅર કૉલ ફોરવર્ડિંગને અક્ષમ કરવાને સમર્થન આપતા નથી."</string>
     <string name="updating_title" msgid="6146755386174019046">"કૉલ સેટિંગ્સ"</string>
-    <string name="call_settings_primary_user_only" msgid="5679923943740900965">"કૉલ સેટિંગ્સને ફક્ત પ્રાથમિક વપરાશકર્તા દ્વારા જ બદલી શકાય છે."</string>
-    <string name="call_settings_with_label" msgid="89359812614544532">"કૉલ સેટિંગ્સ (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
+    <string name="call_settings_admin_user_only" msgid="4526094783818216374">"કૉલ સેટિંગ્સને ફક્ત એડમિન વપરાશકર્તા દ્વારા જ બદલી શકાય છે."</string>
+    <string name="call_settings_with_label" msgid="3401177261468593519">"સેટિંગ્સ (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="7970259216988931777">"કૉલ સેટિંગ્સની ભૂલ"</string>
     <string name="reading_settings" msgid="1920291699287055284">"સેટિંગ્સ વાંચી રહ્યાં છે…"</string>
     <string name="updating_settings" msgid="8171225533884883252">"સેટિંગ્સ અપડેટ કરી રહ્યાં છે..."</string>
     <string name="reverting_settings" msgid="4752151682666912828">"સેટિંગ્સ પાછી ફરાવી રહ્યાં છે…"</string>
     <string name="response_error" msgid="6674110501330139405">"નેટવર્ક તરફથી અનપેક્ષિત પ્રતિસાદ."</string>
     <string name="exception_error" msgid="7027667130619518211">"નેટવર્ક અથવા SIM કાર્ડ ભૂલ."</string>
+    <string name="stk_cc_ss_to_dial_error" msgid="2816779198916570502">"SS વિનંતીને DIAL વિનંતી પર સંશોધિત કરી."</string>
+    <string name="stk_cc_ss_to_ussd_error" msgid="7490626178582654236">"SS વિનંતીને USSD વિનંતી પર સંશોધિત કરી."</string>
+    <string name="stk_cc_ss_to_ss_error" msgid="5057846756489053759">"SS વિનંતીને નવી SS વિનંતી પર સંશોધિત કરી."</string>
     <string name="fdn_check_failure" msgid="18200614306525434">"તમારી ફોન એપ્લિકેશનની ફિક્સ્ડ ડાયલિંગ નંબર્સ સેટિંગ ચાલુ છે. પરિણામ રૂપે, કેટલીક કૉલ સંબંધિત સુવિધાઓ કાર્ય કરતી નથી."</string>
     <string name="radio_off_error" msgid="2304459933248513376">"આ સેટિંગ્સ જોતા પહેલાં રેડિઓ ચાલુ કરો."</string>
-    <string name="close_dialog" msgid="2365884406356986917">"ઑકે"</string>
+    <string name="close_dialog" msgid="2365884406356986917">"ઓકે"</string>
     <string name="enable" msgid="7248657275000173526">"ચાલુ કરો"</string>
     <string name="disable" msgid="4678348128118573672">"બંધ કરો"</string>
     <string name="change_num" msgid="239476305819844391">"અપડેટ"</string>
@@ -177,6 +181,7 @@
     <string name="preferred_network_mode_lte_wcdma_summary" msgid="9180775701594742750">"પસંદગીનો નેટવર્ક મોડ: LTE / WCDMA"</string>
     <string name="preferred_network_mode_lte_gsm_umts_summary" msgid="633315028976225026">"પસંદગીનો નેટવર્ક મોડ: LTE / GSM / UMTS"</string>
     <string name="preferred_network_mode_lte_cdma_summary" msgid="3722647806454528426">"પસંદગીનો નેટવર્ક મોડ: LTE / CDMA"</string>
+    <string name="preferred_network_mode_tdscdma_summary" msgid="8021016193718678775">"પસંદગીનો નેટવર્ક મોડ: TDSCDMA"</string>
   <string-array name="preferred_network_mode_choices">
     <item msgid="7886739962255042385">"LTE / WCDMA"</item>
     <item msgid="577652050447385699">"LTE"</item>
@@ -196,6 +201,7 @@
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"વૉઇસ અને અન્ય સંચારોને બહેતર બનાવવા માટે LTE સેવાઓનો ઉપયોગ કરો (ભલામણ કરેલ)"</string>
     <string name="data_enabled" msgid="5972538663568715366">"ડેટા સક્ષમ કરેલ છે"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"ડેટા વપરાશની મંજૂરી આપો"</string>
+    <string name="dialog_alert_title" msgid="6751344986194435476">"ધ્યાન આપો"</string>
     <string name="roaming" msgid="8871412572928323707">"ડેટા રોમિંગ"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"જ્યારે રોમિંગ હોય ત્યારે ડેટા સેવાઓથી કનેક્ટ કરો"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"જ્યારે રોમિંગ હોય ત્યારે ડેટા સેવાઓથી કનેક્ટ કરો"</string>
@@ -299,9 +305,9 @@
     <string name="enable_disable_technology_news" msgid="3517184627114999149">"ટેક્નોલોજી સમાચાર"</string>
     <string name="technology_news_enable" msgid="7995209394210455181">"તકનીકી સમાચાર સક્ષમ કરેલ છે"</string>
     <string name="technology_news_disable" msgid="5483490380561851946">"તકનીકી સમાચાર અક્ષમ કરેલ છે"</string>
-    <string name="enable_disable_multi_category" msgid="626771003122899280">"બહુ-કેટેગરી"</string>
-    <string name="multi_category_enable" msgid="1179299804641721768">"બહુ-કેટેગરી સક્ષમ કરેલ છે"</string>
-    <string name="multi_category_disable" msgid="880104702904139505">"બહુ-કેટેગરી અક્ષમ કરેલ છે"</string>
+    <string name="enable_disable_multi_category" msgid="626771003122899280">"બહુ-કૅટેગરી"</string>
+    <string name="multi_category_enable" msgid="1179299804641721768">"બહુ-કૅટેગરી સક્ષમ કરેલ છે"</string>
+    <string name="multi_category_disable" msgid="880104702904139505">"બહુ-કૅટેગરી અક્ષમ કરેલ છે"</string>
     <string name="network_lte" msgid="7702681952521375754">"LTE (ભલામણ કરેલ)"</string>
     <string name="network_4G" msgid="2723512640529983138">"4G (ભલામણ કરેલ)"</string>
     <string name="network_global" msgid="1323190488685355309">"વૈશ્વિક"</string>
@@ -424,11 +430,12 @@
     <string name="notification_network_selection_text" msgid="2607085729661923269">"પસંદ કરેલ નેટવર્ક (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) અનુપલબ્ધ"</string>
     <string name="incall_error_power_off" msgid="2947938060513306698">"કૉલ કરવા માટે એરપ્લેન મોડ બંધ કરો."</string>
     <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"કૉલ કરવા માટે એરપ્લેન મોડ બંધ કરો અથવા વાયરલેસ નેટવર્કથી કનેક્ટ કરો."</string>
+    <string name="incall_error_ecm_emergency_only" msgid="738708660612388692">"બિન-કટોકટીનો કૉલ કરવા માટે કટોકટી કૉલબૅક મોડમાંથી બહાર નીકળો."</string>
     <string name="incall_error_emergency_only" msgid="4678640422710818317">"નેટવર્ક પર નોંધણી કરાયેલ નથી."</string>
     <string name="incall_error_out_of_service" msgid="4100065333878929223">"સેલ્યુલર નેટવર્ક ઉપલબ્ધ નથી."</string>
     <string name="incall_error_out_of_service_wfc" msgid="323851839058697057">"સેલ્યુલર નેટવર્ક ઉપલબ્ધ નથી. કૉલ કરવા માટે વાયરલેસ નેટવર્કથી કનેક્ટ કરો."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"કૉલ કરવા માટે, માન્ય નંબર દાખલ કરો."</string>
-    <string name="incall_error_call_failed" msgid="6302746943230078197">"કૉલ કરી શકાતો નથી."</string>
+    <string name="incall_error_call_failed" msgid="5891978320269774095">"કૉલ નિષ્ફળ થયો."</string>
     <string name="incall_status_dialed_mmi" msgid="3672498861336189563">"MMI અનુક્રમ પ્રારંભ કરી રહ્યાં છે…"</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"સેવા સમર્થિત નથી"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"કૉલ્સ સ્વિચ કરી શકાતા નથી."</string>
@@ -437,10 +444,12 @@
     <string name="incall_error_supp_service_conference" msgid="2505727299596357312">"કોન્ફરન્સ કૉલ કરવામાં અસમર્થ."</string>
     <string name="incall_error_supp_service_reject" msgid="8998568661508655638">"કૉલ નકારી શકાતો નથી."</string>
     <string name="incall_error_supp_service_hangup" msgid="7434513517153834426">"કૉલ(લ્સ) રિલીઝ કરી શકતા નથી."</string>
+    <string name="incall_error_supp_service_hold" msgid="7967020511232222078">"કૉલ્સને હોલ્ડ કરી શકતાં નથી."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="1782466780452640089">"કૉલ કરવા માટે વાયરલેસ નેટવર્કથી કનેક્ટ કરો."</string>
     <string name="emergency_enable_radio_dialog_title" msgid="4627849966634578257">"કટોકટીનો કૉલ"</string>
     <string name="emergency_enable_radio_dialog_message" msgid="207613549344420291">"રેડિઓ ચાલુ કરી રહ્યાં છે…"</string>
     <string name="emergency_enable_radio_dialog_retry" msgid="5960061579996526883">"કોઈ સેવા નથી. ફરી પ્રયાસ કરી રહ્યાં છે…"</string>
+    <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"કટોકટીના કૉલ દરમિયાન એરપ્લેન મોડમાં દાખલ થઈ શકતાં નથી."</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"કૉલ કરી શકાતો નથી. <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> એ કટોકટીનો નંબર નથી."</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"કૉલ કરી શકાતો નથી. કટોકટીનો નંબર ડાયલ કરો!"</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"ડાયલ કરવા માટે કીબોર્ડનો ઉપયોગ કરો"</string>
@@ -459,8 +468,10 @@
     <string name="importAllSimEntries" msgid="1503181169636198673">"બધુ આયાત કરો"</string>
     <string name="importingSimContacts" msgid="7374056215462575769">"SIM સંપર્કો આયાત કરી રહ્યાં છે"</string>
     <string name="importToFDNfromContacts" msgid="2130620207013368580">"સંપર્કોમાંથી આયાત કરો"</string>
-    <string name="hac_mode_title" msgid="8740268574688743289">"સાંભળવામાં સહાયો"</string>
-    <string name="hac_mode_summary" msgid="6833851160514929341">"સાંભળવું અને સુસંગતતા ચાલુ કરો"</string>
+    <string name="singleContactImportedMsg" msgid="6868483416182599206">"સંપર્ક આયાત કર્યો"</string>
+    <string name="failedToImportSingleContactMsg" msgid="415399285420353917">"સંપર્ક આયાત કરવામાં નિષ્ફળ થયાં"</string>
+    <string name="hac_mode_title" msgid="8740268574688743289">"સાંભળવામાં સહાયતા"</string>
+    <string name="hac_mode_summary" msgid="6833851160514929341">"સાંભળવામાં સહાયતા સુસંગતતા ચાલુ કરો"</string>
   <string-array name="tty_mode_entries">
     <item msgid="512950011423868021">"TTY બંધ"</item>
     <item msgid="3971695875449640648">"TTY સંપૂર્ણ"</item>
@@ -542,7 +553,8 @@
     <string name="accessibility_settings_activity_title" msgid="8562004288733103868">"ઍક્સેસિબિલિટી"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="8772915926382037499">"આવનાર Wi-Fi કૉલ"</string>
     <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"Wi-Fi કૉલ"</string>
-    <string name="emergency_action_launch_hint" msgid="5841511849007540970">"ખોલવા માટે ફરી ટચ કરો"</string>
+    <string name="emergency_action_launch_hint" msgid="4906759256275562674">"ખોલવા માટે ફરીથી ટૅપ કરો"</string>
     <string name="message_decode_error" msgid="3456481534066924855">"સંદેશ ડીકોડિંગ કરતી વખતે ભૂલ આવી હતી."</string>
     <string name="callFailed_cdma_activation" msgid="2307989779233262164">"એક SIM કાર્ડ એ તમારી સેવા સક્રિય કરી છે અને તમારા ફોનની રોમિંગ ક્ષમતાઓને અપડેટ કરી છે."</string>
+    <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"અહીં ઘણા બધા સક્રિય કૉલ્સ છે. કૃપા કરીને એક નવો કૉલ કરવા પહેલાં અસ્તિત્વમાંના કૉલ્સને સમાપ્ત કરો અથવા મર્જ કરો."</string>
 </resources>

@@ -19,14 +19,18 @@
 
 #include <sys/types.h>
 
+#include <set>
+#include <string>
+
 #include "utility.h"
 
 class Backtrace;
+class BacktraceMap;
 
 // Dumps a backtrace using a format similar to what Dalvik uses so that the result
 // can be intermixed in a bug report.
-void dump_backtrace(int fd, int amfd, pid_t pid, pid_t tid, bool* detach_failed,
-                    int* total_sleep_time_usec);
+void dump_backtrace(int fd, BacktraceMap* map, pid_t pid, pid_t tid,
+                    const std::set<pid_t>& siblings, std::string* amfd_data);
 
 /* Dumps the backtrace in the backtrace data structure to the log. */
 void dump_backtrace_to_log(Backtrace* backtrace, log_t* log, const char* prefix);

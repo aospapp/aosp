@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,5 +33,21 @@ float3 __attribute__((kernel)) testErfcFloat3Float3(float3 inV) {
 }
 
 float4 __attribute__((kernel)) testErfcFloat4Float4(float4 inV) {
+    return erfc(inV);
+}
+
+half __attribute__((kernel)) testErfcHalfHalf(half inV) {
+    return erfc(inV);
+}
+
+half2 __attribute__((kernel)) testErfcHalf2Half2(half2 inV) {
+    return erfc(inV);
+}
+
+half3 __attribute__((kernel)) testErfcHalf3Half3(half3 inV) {
+    return erfc(inV);
+}
+
+half4 __attribute__((kernel)) testErfcHalf4Half4(half4 inV) {
     return erfc(inV);
 }

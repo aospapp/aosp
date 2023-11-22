@@ -24,6 +24,7 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.PermissionInfo;
 import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
+import android.os.Process;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.util.ArrayMap;
@@ -31,10 +32,10 @@ import android.util.ArraySet;
 import android.util.Log;
 import android.util.SparseArray;
 
+import com.android.packageinstaller.R;
 import com.android.packageinstaller.permission.utils.Utils;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -119,7 +120,7 @@ public class PermissionApps {
         return count;
     }
 
-    public Collection<PermissionApp> getApps() {
+    public List<PermissionApp> getApps() {
         return mPermApps;
     }
 
@@ -148,9 +149,10 @@ public class PermissionApps {
 
         ArrayList<PermissionApp> permApps = new ArrayList<>();
 
-        for (UserHandle user : UserManager.get(mContext).getUserProfiles()) {
+        UserManager userManager = mContext.getSystemService(UserManager.class);
+        for (UserHandle user : userManager.getUserProfiles()) {
             List<PackageInfo> apps = mCache != null ? mCache.getPackages(user.getIdentifier())
-                    : mPm.getInstalledPackages(PackageManager.GET_PERMISSIONS,
+                    : mPm.getInstalledPackagesAsUser(PackageManager.GET_PERMISSIONS,
                             user.getIdentifier());
 
             final int N = apps.size();
@@ -181,17 +183,31 @@ public class PermissionApps {
                             || (requestedPermissionInfo.flags
                                 & PermissionInfo.FLAG_INSTALLED) == 0
                             || (requestedPermissionInfo.flags
-                                & PermissionInfo.FLAG_HIDDEN) != 0) {
+                                & PermissionInfo.FLAG_REMOVED) != 0) {
                         continue;
                     }
 
                     AppPermissionGroup group = AppPermissionGroup.create(mContext,
                             app, groupInfo, groupPermInfos, user);
 
+                    if (group == null) {
+                        continue;
+                    }
+
                     String label = mSkipUi ? app.packageName
                             : app.applicationInfo.loadLabel(mPm).toString();
-                    PermissionApp permApp = new PermissionApp(app.packageName,
-                            group, label, getBadgedIcon(app.applicationInfo),
+
+                    Drawable icon = null;
+                    if (!mSkipUi) {
+                        UserHandle userHandle = new UserHandle(
+                                UserHandle.getUserId(group.getApp().applicationInfo.uid));
+
+                        icon = mPm.getUserBadgedIcon(
+                                mPm.loadUnbadgedItemIcon(app.applicationInfo, app.applicationInfo),
+                                userHandle);
+                    }
+
+                    PermissionApp permApp = new PermissionApp(app.packageName, group, label, icon,
                             app.applicationInfo);
 
                     permApps.add(permApp);
@@ -245,15 +261,6 @@ public class PermissionApps {
         return null;
     }
 
-    private Drawable getBadgedIcon(ApplicationInfo appInfo) {
-        if (mSkipUi) {
-            return null;
-        }
-        Drawable unbadged = appInfo.loadUnbadgedIcon(mPm);
-        return mPm.getUserBadgedIcon(unbadged,
-                new UserHandle(UserHandle.getUserId(appInfo.uid)));
-    }
-
     private void loadGroupInfo() {
         PackageItemInfo info;
         try {
@@ -275,7 +282,7 @@ public class PermissionApps {
         if (info.icon != 0) {
             mIcon = info.loadUnbadgedIcon(mPm);
         } else {
-            mIcon = mContext.getDrawable(com.android.internal.R.drawable.ic_perm_device_info);
+            mIcon = mContext.getDrawable(R.drawable.ic_perm_device_info);
         }
         mIcon = Utils.applyTint(mContext, mIcon, android.R.attr.colorControlNormal);
     }
@@ -316,6 +323,10 @@ public class PermissionApps {
             return mAppPermissionGroup.areRuntimePermissionsGranted();
         }
 
+        public boolean isReviewRequired() {
+            return mAppPermissionGroup.isReviewRequired();
+        }
+
         public void grantRuntimePermissions() {
             mAppPermissionGroup.grantRuntimePermissions(false);
         }
@@ -340,8 +351,8 @@ public class PermissionApps {
             return mAppPermissionGroup.hasRuntimePermission();
         }
 
-        public boolean hasAppOpPermissions() {
-            return mAppPermissionGroup.hasAppOpPermission();
+        public int getUserId() {
+            return mAppPermissionGroup.getUserId();
         }
 
         public String getPackageName() {
@@ -400,7 +411,7 @@ public class PermissionApps {
         public synchronized List<PackageInfo> getPackages(int userId) {
             List<PackageInfo> ret = mPackageInfoCache.get(userId);
             if (ret == null) {
-                ret = mPm.getInstalledPackages(PackageManager.GET_PERMISSIONS, userId);
+                ret = mPm.getInstalledPackagesAsUser(PackageManager.GET_PERMISSIONS, userId);
                 mPackageInfoCache.put(userId, ret);
             }
             return ret;

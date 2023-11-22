@@ -23,7 +23,10 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 # Don't delete META-INF from the core-tests jar
 LOCAL_DONT_DELETE_JAR_META_INF := true
 
-LOCAL_JNI_SHARED_LIBRARIES := libjavacoretests
+# TODO: Clean up this mess. (b/26483949). libnativehelper_compat_libc++ pulls in its own
+# static copy of libc++ and the libc++ we're bundling here is the platform libc++. This is
+# bround to break but is being submitted as a workaround for failing CTS tests.
+LOCAL_JNI_SHARED_LIBRARIES := libjavacoretests libsqlite_jni libnativehelper_compat_libc++ libc++
 
 # Include both the 32 and 64 bit versions of libjavacoretests,
 # where applicable.

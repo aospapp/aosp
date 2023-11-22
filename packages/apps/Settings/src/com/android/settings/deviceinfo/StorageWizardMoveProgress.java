@@ -16,10 +16,6 @@
 
 package com.android.settings.deviceinfo;
 
-import static android.content.Intent.EXTRA_TITLE;
-import static android.content.pm.PackageManager.EXTRA_MOVE_ID;
-import static com.android.settings.deviceinfo.StorageSettings.TAG;
-
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.MoveCallback;
 import android.os.Bundle;
@@ -29,6 +25,10 @@ import android.view.View;
 import android.widget.Toast;
 
 import com.android.settings.R;
+
+import static android.content.Intent.EXTRA_TITLE;
+import static android.content.pm.PackageManager.EXTRA_MOVE_ID;
+import static com.android.settings.deviceinfo.StorageSettings.TAG;
 
 public class StorageWizardMoveProgress extends StorageWizardBase {
     private int mMoveId;
@@ -46,7 +46,7 @@ public class StorageWizardMoveProgress extends StorageWizardBase {
         final String appName = getIntent().getStringExtra(EXTRA_TITLE);
         final String volumeName = mStorage.getBestVolumeDescription(mVolume);
 
-        setIllustrationInternal(true);
+        setIllustrationType(ILLUSTRATION_INTERNAL);
         setHeaderText(R.string.storage_wizard_move_progress_title, appName);
         setBodyText(R.string.storage_wizard_move_progress_body, volumeName, appName);
 
@@ -86,6 +86,8 @@ public class StorageWizardMoveProgress extends StorageWizardBase {
         switch (returnCode) {
             case PackageManager.MOVE_FAILED_INSUFFICIENT_STORAGE:
                 return getString(R.string.insufficient_storage);
+            case PackageManager.MOVE_FAILED_DEVICE_ADMIN:
+                return getString(R.string.move_error_device_admin);
             case PackageManager.MOVE_FAILED_DOESNT_EXIST:
                 return getString(R.string.does_not_exist);
             case PackageManager.MOVE_FAILED_FORWARD_LOCKED:

@@ -42,7 +42,6 @@
 *******************************************************************************/
 static void bta_hf_client_port_cback(UINT32 code, UINT16 port_handle)
 {
-    BT_HDR      *p_buf;
     UNUSED(code);
 
     /* ignore port events for port handles other than connected handle */
@@ -53,11 +52,10 @@ static void bta_hf_client_port_cback(UINT32 code, UINT16 port_handle)
         return;
     }
 
-    if ((p_buf = (BT_HDR *) GKI_getbuf(sizeof(BT_HDR))) != NULL)
-    {
-        p_buf->event = BTA_HF_CLIENT_RFC_DATA_EVT;
-        bta_sys_sendmsg(p_buf);
-    }
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
+    p_buf->event = BTA_HF_CLIENT_RFC_DATA_EVT;
+
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -72,7 +70,6 @@ static void bta_hf_client_port_cback(UINT32 code, UINT16 port_handle)
 *******************************************************************************/
 static void bta_hf_client_mgmt_cback(UINT32 code, UINT16 port_handle)
 {
-    tBTA_HF_CLIENT_RFC     *p_buf;
     UINT16                  event;
 
     APPL_TRACE_DEBUG("bta_hf_client_mgmt_cback : code = %d, port_handle = %d, conn_handle = %d, serv_handle = %d",
@@ -108,12 +105,12 @@ static void bta_hf_client_mgmt_cback(UINT32 code, UINT16 port_handle)
         event = BTA_HF_CLIENT_RFC_SRV_CLOSE_EVT;
     }
 
-    if ((p_buf = (tBTA_HF_CLIENT_RFC *) GKI_getbuf(sizeof(tBTA_HF_CLIENT_RFC))) != NULL)
-    {
-        p_buf->hdr.event = event;
-        p_buf->port_handle = port_handle;
-        bta_sys_sendmsg(p_buf);
-    }
+    tBTA_HF_CLIENT_RFC *p_buf =
+        (tBTA_HF_CLIENT_RFC *)osi_malloc(sizeof(tBTA_HF_CLIENT_RFC));
+    p_buf->hdr.event = event;
+    p_buf->port_handle = port_handle;
+
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -238,23 +235,18 @@ void bta_hf_client_rfc_do_open(tBTA_HF_CLIENT_DATA *p_data)
 *******************************************************************************/
 void bta_hf_client_rfc_do_close(tBTA_HF_CLIENT_DATA *p_data)
 {
-    tBTA_HF_CLIENT_RFC     *p_buf;
     UNUSED(p_data);
 
-    if (bta_hf_client_cb.scb.conn_handle)
-    {
+    if (bta_hf_client_cb.scb.conn_handle) {
         RFCOMM_RemoveConnection(bta_hf_client_cb.scb.conn_handle);
-    }
-    else
-    {
+    } else {
         /* Close API was called while HF Client is in Opening state.        */
         /* Need to trigger the state machine to send callback to the app    */
         /* and move back to INIT state.                                     */
-        if ((p_buf = (tBTA_HF_CLIENT_RFC *) GKI_getbuf(sizeof(tBTA_HF_CLIENT_RFC))) != NULL)
-        {
-            p_buf->hdr.event = BTA_HF_CLIENT_RFC_CLOSE_EVT;
-            bta_sys_sendmsg(p_buf);
-        }
+        tBTA_HF_CLIENT_RFC *p_buf =
+            (tBTA_HF_CLIENT_RFC *)osi_malloc(sizeof(tBTA_HF_CLIENT_RFC));
+        p_buf->hdr.event = BTA_HF_CLIENT_RFC_CLOSE_EVT;
+        bta_sys_sendmsg(p_buf);
 
         /* Cancel SDP if it had been started. */
         if(bta_hf_client_cb.scb.p_disc_db)

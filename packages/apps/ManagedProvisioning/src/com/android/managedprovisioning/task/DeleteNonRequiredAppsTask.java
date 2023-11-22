@@ -16,6 +16,7 @@
 
 package com.android.managedprovisioning.task;
 
+import android.app.AppGlobals;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -29,16 +30,19 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
+import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.util.Xml;
 import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.FastXmlSerializer;
+import com.android.internal.view.IInputMethodManager;
 import com.android.managedprovisioning.ProvisionLogger;
 import com.android.managedprovisioning.R;
-import com.android.managedprovisioning.Utils;
+import com.android.managedprovisioning.common.Utils;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -75,7 +79,8 @@ public class DeleteNonRequiredAppsTask {
     private final Callback mCallback;
     private final Context mContext;
     private final String mMdmPackageName;
-    private final IPackageManager mIpm;
+    private final IPackageManager mIPackageManager;
+    private final IInputMethodManager mIInputMethodManager;
     private final PackageManager mPm;
     private final List<String> mRequiredAppsList;
     private final List<String> mDisallowedAppsList;
@@ -92,12 +97,24 @@ public class DeleteNonRequiredAppsTask {
 
     public static final int DEVICE_OWNER = 0;
     public static final int PROFILE_OWNER = 1;
+    public static final int MANAGED_USER = 2;
+
+    private final Utils mUtils = new Utils();
 
     /**
-     * Provisioning type should be either {@link #DEVICE_OWNER} or {@link #PROFILE_OWNER}.
+     * Provisioning type should be either {@link #DEVICE_OWNER}, {@link #PROFILE_OWNER} or
+     * {@link #MANAGED_USER}.
      **/
     public DeleteNonRequiredAppsTask(Context context, String mdmPackageName, int provisioningType,
             boolean newProfile, int userId, boolean leaveAllSystemAppsEnabled, Callback callback) {
+        this(context, AppGlobals.getPackageManager(), getIInputMethodManager(), mdmPackageName,
+                provisioningType, newProfile, userId, leaveAllSystemAppsEnabled, callback);
+    }
+
+    @VisibleForTesting
+    DeleteNonRequiredAppsTask(Context context, IPackageManager iPm, IInputMethodManager iimm,
+            String mdmPackageName, int provisioningType, boolean newProfile, int userId,
+            boolean leaveAllSystemAppsEnabled, Callback callback) {
 
         mCallback = callback;
         mContext = context;
@@ -106,8 +123,9 @@ public class DeleteNonRequiredAppsTask {
         mUserId = userId;
         mNewProfile = newProfile;
         mLeaveAllSystemAppsEnabled = leaveAllSystemAppsEnabled;
-        mIpm = IPackageManager.Stub.asInterface(ServiceManager.getService("package"));
         mPm = context.getPackageManager();
+        mIPackageManager = iPm;
+        mIInputMethodManager = iimm;
 
         int requiredAppsListArray;
         int vendorRequiredAppsListArray;
@@ -123,6 +141,11 @@ public class DeleteNonRequiredAppsTask {
             disallowedAppsListArray = R.array.disallowed_apps_managed_profile;
             vendorRequiredAppsListArray = R.array.vendor_required_apps_managed_profile;
             vendorDisallowedAppsListArray = R.array.vendor_disallowed_apps_managed_profile;
+        } else if (mProvisioningType == MANAGED_USER) {
+            requiredAppsListArray = R.array.required_apps_managed_user;
+            disallowedAppsListArray = R.array.disallowed_apps_managed_user;
+            vendorRequiredAppsListArray = R.array.vendor_required_apps_managed_user;
+            vendorDisallowedAppsListArray = R.array.vendor_disallowed_apps_managed_user;
         } else {
             throw new IllegalArgumentException("Provisioning type " + mProvisioningType +
                     " not supported.");
@@ -145,58 +168,62 @@ public class DeleteNonRequiredAppsTask {
         }
         ProvisionLogger.logd("Deleting non required apps.");
 
-        File systemAppsFile = getSystemAppsFile(mContext, mUserId);
-        systemAppsFile.getParentFile().mkdirs(); // Creating the folder if it does not exist
-
-        Set<String> currentApps = Utils.getCurrentSystemApps(mUserId);
-        Set<String> previousApps;
-        if (mNewProfile) {
-            // Provisioning case.
-            previousApps = new HashSet<String>();
-        } else {
-            // OTA case.
-            if (!systemAppsFile.exists()) {
-                ProvisionLogger.loge("Could not find the system apps file " +
-                        systemAppsFile.getAbsolutePath());
-                mCallback.onError();
-                return;
-            }
-            previousApps = readSystemApps(systemAppsFile);
-        }
-
-        writeSystemApps(currentApps, systemAppsFile);
-        Set<String> newApps = currentApps;
-        newApps.removeAll(previousApps);
-
-        // Newly installed system apps are uninstalled when they are not required and are either
-        // disallowed or have a launcher icon.
-        Set<String> packagesToDelete = newApps;
-        packagesToDelete.removeAll(getRequiredApps());
-        Set<String> packagesToRetain = getCurrentAppsWithLauncher();
-        // Don't delete the system input method packages in case of Device owner provisioning.
-        if (mProvisioningType == DEVICE_OWNER) {
-            packagesToRetain.removeAll(getSystemInputMethods());
-        }
-        packagesToRetain.addAll(getDisallowedApps());
-        packagesToDelete.retainAll(packagesToRetain);
+        Set<String> packagesToDelete = getPackagesToDelete();
+        removeNonInstalledPackages(packagesToDelete);
 
         if (packagesToDelete.isEmpty()) {
             mCallback.onSuccess();
             return;
         }
-        removeNonInstalledPackages(packagesToDelete);
 
         PackageDeleteObserver packageDeleteObserver =
                 new PackageDeleteObserver(packagesToDelete.size());
         for (String packageName : packagesToDelete) {
-            try {
-                mIpm.deletePackageAsUser(packageName, packageDeleteObserver, mUserId,
-                        PackageManager.DELETE_SYSTEM_APP);
-            } catch (RemoteException neverThrown) {
-                // Never thrown, as we are making local calls.
-                ProvisionLogger.loge("This should not happen.", neverThrown);
-            }
+            ProvisionLogger.logd("Deleting package [" + packageName + "] as user " + mUserId);
+            mPm.deletePackageAsUser(packageName, packageDeleteObserver,
+                    PackageManager.DELETE_SYSTEM_APP, mUserId);
         }
+    }
+
+    private Set<String> getPackagesToDelete() {
+        Set<String> packagesToDelete = getCurrentAppsWithLauncher();
+        // Newly installed system apps are uninstalled when they are not required and are either
+        // disallowed or have a launcher icon.
+        packagesToDelete.removeAll(getRequiredApps());
+        // Don't delete the system input method packages in case of Device owner provisioning.
+        if (mProvisioningType == DEVICE_OWNER || mProvisioningType == MANAGED_USER) {
+            packagesToDelete.removeAll(getSystemInputMethods());
+        }
+        packagesToDelete.addAll(getDisallowedApps());
+
+        // Only consider new system apps.
+        packagesToDelete.retainAll(getNewSystemApps());
+        return packagesToDelete;
+    }
+
+    private Set<String> getNewSystemApps() {
+        File systemAppsFile = getSystemAppsFile(mContext, mUserId);
+        systemAppsFile.getParentFile().mkdirs(); // Creating the folder if it does not exist
+
+        Set<String> currentSystemApps = mUtils.getCurrentSystemApps(mIPackageManager, mUserId);
+        final Set<String> previousSystemApps;
+        if (mNewProfile) {
+            // Provisioning case.
+            previousSystemApps = Collections.<String>emptySet();
+        } else  if (!systemAppsFile.exists()) {
+            // OTA case.
+            ProvisionLogger.loge("Could not find the system apps file " +
+                    systemAppsFile.getAbsolutePath());
+            mCallback.onError();
+            return Collections.<String>emptySet();
+        } else {
+            previousSystemApps = readSystemApps(systemAppsFile);
+        }
+
+        writeSystemApps(currentSystemApps, systemAppsFile);
+        Set<String> newApps = currentSystemApps;
+        newApps.removeAll(previousSystemApps);
+        return newApps;
     }
 
     /**
@@ -206,13 +233,13 @@ public class DeleteNonRequiredAppsTask {
         Set<String> toBeRemoved = new HashSet<String>();
         for (String packageName : packages) {
             try {
-                PackageInfo info = mIpm.getPackageInfo(packageName, 0 /* default flags */, mUserId);
+                PackageInfo info = mPm.getPackageInfoAsUser(packageName, 0 /* default flags */,
+                        mUserId);
                 if (info == null) {
                     toBeRemoved.add(packageName);
                 }
-            } catch (RemoteException neverThrown) {
-                // Never thrown, as we are making local calls.
-                ProvisionLogger.loge("This should not happen.", neverThrown);
+            } catch (PackageManager.NameNotFoundException e) {
+                toBeRemoved.add(packageName);
             }
         }
         packages.removeAll(toBeRemoved);
@@ -235,7 +262,10 @@ public class DeleteNonRequiredAppsTask {
         Intent launcherIntent = new Intent(Intent.ACTION_MAIN);
         launcherIntent.addCategory(Intent.CATEGORY_LAUNCHER);
         List<ResolveInfo> resolveInfos = mPm.queryIntentActivitiesAsUser(launcherIntent,
-                PackageManager.GET_UNINSTALLED_PACKAGES | PackageManager.GET_DISABLED_COMPONENTS,
+                PackageManager.MATCH_UNINSTALLED_PACKAGES
+                | PackageManager.MATCH_DISABLED_COMPONENTS
+                | PackageManager.MATCH_DIRECT_BOOT_AWARE
+                | PackageManager.MATCH_DIRECT_BOOT_UNAWARE,
                 mUserId);
         Set<String> apps = new HashSet<String>();
         for (ResolveInfo resolveInfo : resolveInfos) {
@@ -245,9 +275,15 @@ public class DeleteNonRequiredAppsTask {
     }
 
     private Set<String> getSystemInputMethods() {
-        final InputMethodManager inputMethodManager =
-                (InputMethodManager) mContext.getSystemService(Context.INPUT_METHOD_SERVICE);
-        List<InputMethodInfo> inputMethods = inputMethodManager.getInputMethodList();
+        // InputMethodManager is final so it cannot be mocked.
+        // So, we're using IInputMethodManager directly because it can be mocked.
+        List<InputMethodInfo> inputMethods = null;
+        try {
+            inputMethods = mIInputMethodManager.getInputMethodList();
+        } catch (RemoteException e) {
+            ProvisionLogger.loge("Could not communicate with IInputMethodManager", e);
+            return Collections.<String>emptySet();
+        }
         Set<String> systemInputMethods = new HashSet<String>();
         for (InputMethodInfo inputMethodInfo : inputMethods) {
             ApplicationInfo applicationInfo = inputMethodInfo.getServiceInfo().applicationInfo;
@@ -353,6 +389,11 @@ public class DeleteNonRequiredAppsTask {
                 mCallback.onSuccess();
             }
         }
+    }
+
+    private static IInputMethodManager getIInputMethodManager() {
+        IBinder b = ServiceManager.getService(Context.INPUT_METHOD_SERVICE);
+        return IInputMethodManager.Stub.asInterface(b);
     }
 
     public abstract static class Callback {

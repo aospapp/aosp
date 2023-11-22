@@ -14,14 +14,37 @@
 package android.support.v17.leanback.transition;
 
 import android.R;
+import android.app.Fragment;
 import android.content.Context;
 import android.transition.ChangeTransform;
+import android.transition.Transition;
+import android.transition.TransitionManager;
+import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.animation.AnimationUtils;
 
 final class TransitionHelperApi21 {
 
     TransitionHelperApi21() {
+    }
+
+    public static void setEnterTransition(android.app.Fragment fragment, Object transition) {
+        fragment.setEnterTransition((Transition)transition);
+    }
+
+    public static void setExitTransition(android.app.Fragment fragment, Object transition) {
+       fragment.setExitTransition((Transition)transition);
+    }
+
+    public static void setSharedElementEnterTransition(android.app.Fragment fragment,
+            Object transition) {
+        fragment.setSharedElementEnterTransition((Transition)transition);
+     }
+
+    public static void addSharedElement(android.app.FragmentTransaction ft,
+            View view, String transitionName) {
+        ft.addSharedElement(view, transitionName);
     }
 
     public static Object getSharedElementEnterTransition(Window window) {
@@ -62,5 +85,28 @@ final class TransitionHelperApi21 {
 
     public static Object createDefaultInterpolator(Context context) {
         return AnimationUtils.loadInterpolator(context, R.interpolator.fast_out_linear_in);
+    }
+
+    public static Object createChangeTransform() {
+        return new ChangeTransform();
+    }
+
+    public static Object createFadeAndShortSlide(int edge) {
+        return new FadeAndShortSlide(edge);
+    }
+
+    public static Object createFadeAndShortSlide(int edge, float distance) {
+        FadeAndShortSlide slide = new FadeAndShortSlide(edge);
+        slide.setDistance(distance);
+        return slide;
+    }
+
+    public static void beginDelayedTransition(ViewGroup sceneRoot, Object transitionObject) {
+        Transition transition = (Transition) transitionObject;
+        TransitionManager.beginDelayedTransition(sceneRoot, transition);
+    }
+
+    public static void setTransitionGroup(ViewGroup viewGroup, boolean transitionGroup) {
+        viewGroup.setTransitionGroup(transitionGroup);
     }
 }

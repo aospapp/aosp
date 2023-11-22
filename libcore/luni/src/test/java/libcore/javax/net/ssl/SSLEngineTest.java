@@ -19,6 +19,11 @@ package libcore.javax.net.ssl;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import javax.net.ssl.KeyManager;
@@ -661,6 +666,20 @@ public class SSLEngineTest extends TestCase {
         }
     }
 
+    public void test_SSLEngine_endpointVerification_Success() throws Exception {
+        TestSSLContext c = TestSSLContext.create();
+        TestSSLEnginePair p = TestSSLEnginePair.create(c, new TestSSLEnginePair.Hooks() {
+            @Override
+            void beforeBeginHandshake(SSLEngine client, SSLEngine server) {
+                SSLParameters p = client.getSSLParameters();
+                p.setEndpointIdentificationAlgorithm("HTTPS");
+                client.setSSLParameters(p);
+            }
+        });
+        assertConnected(p);
+        c.close();
+    }
+
     public void test_SSLEngine_getEnableSessionCreation() throws Exception {
         TestSSLContext c = TestSSLContext.create();
         SSLEngine e = c.clientContext.createSSLEngine();
@@ -789,5 +808,43 @@ public class SSLEngineTest extends TestCase {
         assertNotNull(test.client);
         assertConnected(test);
         test.close();
+    }
+
+    private final int NUM_STRESS_ITERATIONS = 1000;
+
+    public void test_SSLEngine_Multiple_Thread_Success() throws Exception {
+        try (final TestSSLEnginePair pair = TestSSLEnginePair.create()) {
+            assertConnected(pair);
+
+            final CountDownLatch startUpSync = new CountDownLatch(2);
+            ExecutorService executor = Executors.newFixedThreadPool(2);
+            Future<Void> client = executor.submit(new Callable<Void>() {
+                public Void call() throws Exception {
+                    startUpSync.countDown();
+
+                    for (int i = 0; i < NUM_STRESS_ITERATIONS; i++) {
+                        assertSendsCorrectly("This is the client. Hello!".getBytes(),
+                                pair.client, pair.server, false);
+                    }
+
+                    return null;
+                }
+            });
+            Future<Void> server = executor.submit(new Callable<Void>() {
+                public Void call() throws Exception {
+                    startUpSync.countDown();
+
+                    for (int i = 0; i < NUM_STRESS_ITERATIONS; i++) {
+                        assertSendsCorrectly("This is the server. Hi!".getBytes(),
+                                pair.server, pair.client, false);
+                    }
+
+                    return null;
+                }
+            });
+            executor.shutdown();
+            client.get();
+            server.get();
+        }
     }
 }

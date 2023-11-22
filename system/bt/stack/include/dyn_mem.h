@@ -22,10 +22,6 @@
 ** Define memory usage for each CORE component (if not defined in bdroid_buildcfg.h)
 **  The default for each component is to use static memory allocations.
 */
-#ifndef BTU_DYNAMIC_MEMORY
-#define BTU_DYNAMIC_MEMORY  FALSE
-#endif
-
 #ifndef BTM_DYNAMIC_MEMORY
 #define BTM_DYNAMIC_MEMORY  FALSE
 #endif

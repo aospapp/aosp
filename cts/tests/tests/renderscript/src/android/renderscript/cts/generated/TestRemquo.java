@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ package android.renderscript.cts;
 import android.renderscript.Allocation;
 import android.renderscript.RSRuntimeException;
 import android.renderscript.Element;
+import android.renderscript.cts.Target;
 
 import java.util.Arrays;
 
@@ -93,7 +94,7 @@ public class TestRemquo extends RSBaseCompute {
                 args.outQuotient = arrayOutQuotient[i * 1 + j];
                 args.out = arrayOut[i * 1 + j];
                 // Ask the CoreMathVerifier to validate.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 String errorMessage = CoreMathVerifier.verifyRemquo(args, target);
                 boolean valid = errorMessage == null;
                 if (!valid) {
@@ -176,7 +177,7 @@ public class TestRemquo extends RSBaseCompute {
                 args.outQuotient = arrayOutQuotient[i * 2 + j];
                 args.out = arrayOut[i * 2 + j];
                 // Ask the CoreMathVerifier to validate.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 String errorMessage = CoreMathVerifier.verifyRemquo(args, target);
                 boolean valid = errorMessage == null;
                 if (!valid) {
@@ -259,7 +260,7 @@ public class TestRemquo extends RSBaseCompute {
                 args.outQuotient = arrayOutQuotient[i * 4 + j];
                 args.out = arrayOut[i * 4 + j];
                 // Ask the CoreMathVerifier to validate.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 String errorMessage = CoreMathVerifier.verifyRemquo(args, target);
                 boolean valid = errorMessage == null;
                 if (!valid) {
@@ -342,7 +343,7 @@ public class TestRemquo extends RSBaseCompute {
                 args.outQuotient = arrayOutQuotient[i * 4 + j];
                 args.out = arrayOut[i * 4 + j];
                 // Ask the CoreMathVerifier to validate.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 String errorMessage = CoreMathVerifier.verifyRemquo(args, target);
                 boolean valid = errorMessage == null;
                 if (!valid) {

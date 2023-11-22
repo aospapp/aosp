@@ -16,7 +16,7 @@
 
 package android.view.cts;
 
-import com.android.cts.view.R;
+import android.view.cts.R;
 
 import android.app.Instrumentation;
 import android.test.ActivityInstrumentationTestCase2;

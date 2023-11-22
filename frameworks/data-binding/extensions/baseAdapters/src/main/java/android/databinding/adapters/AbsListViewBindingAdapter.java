@@ -29,17 +29,8 @@ import android.widget.AbsListView.OnScrollListener;
 })
 public class AbsListViewBindingAdapter {
 
-    @BindingAdapter("android:onScroll")
-    public static void setOnScroll(AbsListView view, OnScroll listener) {
-        setOnScroll(view, listener, null);
-    }
-
-    @BindingAdapter("android:onScrollStateChanged")
-    public static void setOnScroll(AbsListView view, OnScrollStateChanged listener) {
-        setOnScroll(view, null, listener);
-    }
-
-    @BindingAdapter({"android:onScroll", "android:onScrollStateChanged"})
+    @BindingAdapter(value = {"android:onScroll", "android:onScrollStateChanged"},
+            requireAll = false)
     public static void setOnScroll(AbsListView view, final OnScroll scrollListener,
             final OnScrollStateChanged scrollStateListener) {
         view.setOnScrollListener(new OnScrollListener() {

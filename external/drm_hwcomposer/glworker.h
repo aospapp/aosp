@@ -17,9 +17,6 @@
 #ifndef ANDROID_GL_WORKER_H_
 #define ANDROID_GL_WORKER_H_
 
-#include <pthread.h>
-
-#include <memory>
 #include <vector>
 
 #define EGL_EGLEXT_PROTOTYPES
@@ -30,107 +27,56 @@
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 
-struct hwc_layer_1;
+#include <ui/GraphicBuffer.h>
+
+#include "autogl.h"
 
 namespace android {
 
-#define AUTO_GL_TYPE(name, type, zero, deleter) \
-  struct name##Deleter {                        \
-    typedef type pointer;                       \
-                                                \
-    void operator()(pointer p) const {          \
-      if (p != zero) {                          \
-        deleter;                                \
-      }                                         \
-    }                                           \
-  };                                            \
-  typedef std::unique_ptr<type, name##Deleter> name;
+struct DrmHwcLayer;
+struct DrmCompositionRegion;
 
-AUTO_GL_TYPE(AutoGLFramebuffer, GLuint, 0, glDeleteFramebuffers(1, &p))
-AUTO_GL_TYPE(AutoGLBuffer, GLuint, 0, glDeleteBuffers(1, &p))
-AUTO_GL_TYPE(AutoGLTexture, GLuint, 0, glDeleteTextures(1, &p))
-AUTO_GL_TYPE(AutoGLShader, GLint, 0, glDeleteShader(p))
-AUTO_GL_TYPE(AutoGLProgram, GLint, 0, glDeleteProgram(p))
-
-struct EGLImageDeleter {
-  typedef EGLImageKHR pointer;
-
-  EGLDisplay egl_display_;
-
-  EGLImageDeleter(EGLDisplay egl_display) : egl_display_(egl_display) {
-  }
-
-  void operator()(EGLImageKHR p) const {
-    if (p != EGL_NO_IMAGE_KHR) {
-      eglDestroyImageKHR(egl_display_, p);
-    }
-  }
-};
-typedef std::unique_ptr<EGLImageKHR, EGLImageDeleter> AutoEGLImageKHR;
-
-struct AutoEGLImageAndGLTexture {
-  AutoEGLImageKHR image;
-  AutoGLTexture texture;
-
-  AutoEGLImageAndGLTexture(EGLDisplay egl_display)
-      : image(EGL_NO_IMAGE_KHR, EGLImageDeleter(egl_display)) {
-  }
-};
-
-class GLWorker {
+class GLWorkerCompositor {
  public:
-  struct Work {
-    hwc_layer_1 *layers;
-    size_t num_layers;
-    int timeline_fd;
-    sp<GraphicBuffer> framebuffer;
-
-    Work() = default;
-    Work(const Work &rhs) = delete;
-  };
-
-  class Compositor {
-   public:
-    Compositor();
-    ~Compositor();
-
-    int Init();
-
-    int Composite(hwc_layer_1 *layers, size_t num_layers,
-                  sp<GraphicBuffer> framebuffer);
-
-   private:
-    EGLDisplay egl_display_;
-    EGLContext egl_ctx_;
-
-    std::vector<AutoGLProgram> blend_programs_;
-    AutoGLBuffer vertex_buffer_;
-  };
-
-  GLWorker();
-  ~GLWorker();
+  GLWorkerCompositor();
+  ~GLWorkerCompositor();
 
   int Init();
-
-  int DoWork(Work *work);
+  int Composite(DrmHwcLayer *layers, DrmCompositionRegion *regions,
+                size_t num_regions, const sp<GraphicBuffer> &framebuffer);
+  void Finish();
 
  private:
-  bool initialized_;
-  pthread_t thread_;
-  pthread_mutex_t lock_;
-  pthread_cond_t work_ready_cond_;
-  pthread_cond_t work_done_cond_;
-  Work *worker_work_;
-  bool work_ready_;
-  bool worker_exit_;
-  int worker_ret_;
+  struct CachedFramebuffer {
+    // If the strong_framebuffer is non-NULL, we are holding a strong reference
+    // until we are sure rendering is done. The weak reference will be equal in
+    // that case.
+    sp<GraphicBuffer> strong_framebuffer;
+    wp<GraphicBuffer> weak_framebuffer;
+    AutoEGLDisplayImage egl_fb_image;
+    AutoGLTexture gl_fb_tex;
+    AutoGLFramebuffer gl_fb;
 
-  void WorkerRoutine();
-  int DoComposition(Compositor &compositor, Work *work);
+    CachedFramebuffer(const sp<GraphicBuffer> &gb, AutoEGLDisplayImage &&image,
+                      AutoGLTexture &&tex, AutoGLFramebuffer &&fb);
 
-  int SignalWorker(Work *work, bool worker_exit);
+    bool Promote();
+  };
 
-  static void *StartRoutine(void *arg);
+  CachedFramebuffer *FindCachedFramebuffer(
+      const sp<GraphicBuffer> &framebuffer);
+  CachedFramebuffer *PrepareAndCacheFramebuffer(
+      const sp<GraphicBuffer> &framebuffer);
+
+  GLint PrepareAndCacheProgram(unsigned texture_count);
+
+  EGLDisplay egl_display_;
+  EGLContext egl_ctx_;
+
+  std::vector<AutoGLProgram> blend_programs_;
+  AutoGLBuffer vertex_buffer_;
+
+  std::vector<CachedFramebuffer> cached_framebuffers_;
 };
 }
 

@@ -16,9 +16,6 @@
 
 package com.android.settings.inputmethod;
 
-import com.android.internal.inputmethod.InputMethodUtils;
-import com.android.internal.inputmethod.InputMethodUtils.InputMethodSettings;
-
 import android.app.ActivityManagerNative;
 import android.content.Context;
 import android.os.RemoteException;
@@ -27,6 +24,9 @@ import android.util.Slog;
 import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.InputMethodSubtype;
+
+import com.android.internal.inputmethod.InputMethodUtils;
+import com.android.internal.inputmethod.InputMethodUtils.InputMethodSettings;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -73,7 +73,7 @@ class InputMethodSettingValuesWrapper {
     // Ensure singleton
     private InputMethodSettingValuesWrapper(Context context) {
         mSettings = new InputMethodSettings(context.getResources(), context.getContentResolver(),
-                mMethodMap, mMethodList, getDefaultCurrentUserId());
+                mMethodMap, mMethodList, getDefaultCurrentUserId(), false /* copyOnWrite */);
         mImm = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
         refreshAllInputMethodAndSubtypes();
     }

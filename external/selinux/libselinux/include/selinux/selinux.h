@@ -543,6 +543,7 @@ extern const char *selinux_virtual_image_context_path(void);
 extern const char *selinux_lxc_contexts_path(void);
 extern const char *selinux_x_context_path(void);
 extern const char *selinux_sepgsql_context_path(void);
+extern const char *selinux_openssh_contexts_path(void);
 extern const char *selinux_systemd_contexts_path(void);
 extern const char *selinux_contexts_path(void);
 extern const char *selinux_securetty_types_path(void);
@@ -600,10 +601,12 @@ void fini_selinuxmnt(void);
  * program, falling back to a new context with the specified type. */
 extern int setexecfilecon(const char *filename, const char *fallback_type);
 
+#ifndef DISABLE_RPM
 /* Execute a helper for rpm in an appropriate security context. */
 extern int rpm_execcon(unsigned int verified,
 		       const char *filename,
 		       char *const argv[], char *const envp[]);
+#endif
 
 /* Returns whether a file context is customizable, and should not 
    be relabeled . */

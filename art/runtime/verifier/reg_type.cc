@@ -16,6 +16,7 @@
 
 #include "reg_type-inl.h"
 
+#include "base/arena_bit_vector.h"
 #include "base/bit_vector-inl.h"
 #include "base/casts.h"
 #include "class_linker-inl.h"
@@ -46,20 +47,17 @@ const DoubleLoType* DoubleLoType::instance_ = nullptr;
 const DoubleHiType* DoubleHiType::instance_ = nullptr;
 const IntegerType* IntegerType::instance_ = nullptr;
 
-PrimitiveType::PrimitiveType(mirror::Class* klass, const std::string& descriptor, uint16_t cache_id)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
+PrimitiveType::PrimitiveType(mirror::Class* klass, const StringPiece& descriptor, uint16_t cache_id)
     : RegType(klass, descriptor, cache_id) {
   CHECK(klass != nullptr);
   CHECK(!descriptor.empty());
 }
 
-Cat1Type::Cat1Type(mirror::Class* klass, const std::string& descriptor, uint16_t cache_id)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
+Cat1Type::Cat1Type(mirror::Class* klass, const StringPiece& descriptor, uint16_t cache_id)
     : PrimitiveType(klass, descriptor, cache_id) {
 }
 
-Cat2Type::Cat2Type(mirror::Class* klass, const std::string& descriptor, uint16_t cache_id)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
+Cat2Type::Cat2Type(mirror::Class* klass, const StringPiece& descriptor, uint16_t cache_id)
     : PrimitiveType(klass, descriptor, cache_id) {
 }
 
@@ -121,11 +119,11 @@ std::string DoubleHiType::Dump() const {
 }
 
 std::string IntegerType::Dump() const {
-    return "Integer";
+  return "Integer";
 }
 
 const DoubleHiType* DoubleHiType::CreateInstance(mirror::Class* klass,
-                                                 const std::string& descriptor,
+                                                 const StringPiece& descriptor,
                                                  uint16_t cache_id) {
   CHECK(instance_ == nullptr);
   instance_ = new DoubleHiType(klass, descriptor, cache_id);
@@ -140,7 +138,7 @@ void DoubleHiType::Destroy() {
 }
 
 const DoubleLoType* DoubleLoType::CreateInstance(mirror::Class* klass,
-                                                 const std::string& descriptor,
+                                                 const StringPiece& descriptor,
                                                  uint16_t cache_id) {
   CHECK(instance_ == nullptr);
   instance_ = new DoubleLoType(klass, descriptor, cache_id);
@@ -154,14 +152,14 @@ void DoubleLoType::Destroy() {
   }
 }
 
-const LongLoType* LongLoType::CreateInstance(mirror::Class* klass, const std::string& descriptor,
+const LongLoType* LongLoType::CreateInstance(mirror::Class* klass, const StringPiece& descriptor,
                                              uint16_t cache_id) {
   CHECK(instance_ == nullptr);
   instance_ = new LongLoType(klass, descriptor, cache_id);
   return instance_;
 }
 
-const LongHiType* LongHiType::CreateInstance(mirror::Class* klass, const std::string& descriptor,
+const LongHiType* LongHiType::CreateInstance(mirror::Class* klass, const StringPiece& descriptor,
                                              uint16_t cache_id) {
   CHECK(instance_ == nullptr);
   instance_ = new LongHiType(klass, descriptor, cache_id);
@@ -182,7 +180,7 @@ void LongLoType::Destroy() {
   }
 }
 
-const FloatType* FloatType::CreateInstance(mirror::Class* klass, const std::string& descriptor,
+const FloatType* FloatType::CreateInstance(mirror::Class* klass, const StringPiece& descriptor,
                                            uint16_t cache_id) {
   CHECK(instance_ == nullptr);
   instance_ = new FloatType(klass, descriptor, cache_id);
@@ -196,7 +194,7 @@ void FloatType::Destroy() {
   }
 }
 
-const CharType* CharType::CreateInstance(mirror::Class* klass, const std::string& descriptor,
+const CharType* CharType::CreateInstance(mirror::Class* klass, const StringPiece& descriptor,
                                          uint16_t cache_id) {
   CHECK(instance_ == nullptr);
   instance_ = new CharType(klass, descriptor, cache_id);
@@ -210,7 +208,7 @@ void CharType::Destroy() {
   }
 }
 
-const ShortType* ShortType::CreateInstance(mirror::Class* klass, const std::string& descriptor,
+const ShortType* ShortType::CreateInstance(mirror::Class* klass, const StringPiece& descriptor,
                                            uint16_t cache_id) {
   CHECK(instance_ == nullptr);
   instance_ = new ShortType(klass, descriptor, cache_id);
@@ -224,7 +222,7 @@ void ShortType::Destroy() {
   }
 }
 
-const ByteType* ByteType::CreateInstance(mirror::Class* klass, const std::string& descriptor,
+const ByteType* ByteType::CreateInstance(mirror::Class* klass, const StringPiece& descriptor,
                                          uint16_t cache_id) {
   CHECK(instance_ == nullptr);
   instance_ = new ByteType(klass, descriptor, cache_id);
@@ -238,7 +236,7 @@ void ByteType::Destroy() {
   }
 }
 
-const IntegerType* IntegerType::CreateInstance(mirror::Class* klass, const std::string& descriptor,
+const IntegerType* IntegerType::CreateInstance(mirror::Class* klass, const StringPiece& descriptor,
                                                uint16_t cache_id) {
   CHECK(instance_ == nullptr);
   instance_ = new IntegerType(klass, descriptor, cache_id);
@@ -253,7 +251,7 @@ void IntegerType::Destroy() {
 }
 
 const ConflictType* ConflictType::CreateInstance(mirror::Class* klass,
-                                                 const std::string& descriptor,
+                                                 const StringPiece& descriptor,
                                                  uint16_t cache_id) {
   CHECK(instance_ == nullptr);
   instance_ = new ConflictType(klass, descriptor, cache_id);
@@ -267,7 +265,7 @@ void ConflictType::Destroy() {
   }
 }
 
-const BooleanType* BooleanType::CreateInstance(mirror::Class* klass, const std::string& descriptor,
+const BooleanType* BooleanType::CreateInstance(mirror::Class* klass, const StringPiece& descriptor,
                                          uint16_t cache_id) {
   CHECK(BooleanType::instance_ == nullptr);
   instance_ = new BooleanType(klass, descriptor, cache_id);
@@ -281,12 +279,12 @@ void BooleanType::Destroy() {
   }
 }
 
-std::string UndefinedType::Dump() const SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+std::string UndefinedType::Dump() const SHARED_REQUIRES(Locks::mutator_lock_) {
   return "Undefined";
 }
 
 const UndefinedType* UndefinedType::CreateInstance(mirror::Class* klass,
-                                                   const std::string& descriptor,
+                                                   const StringPiece& descriptor,
                                                    uint16_t cache_id) {
   CHECK(instance_ == nullptr);
   instance_ = new UndefinedType(klass, descriptor, cache_id);
@@ -300,10 +298,12 @@ void UndefinedType::Destroy() {
   }
 }
 
-PreciseReferenceType::PreciseReferenceType(mirror::Class* klass, const std::string& descriptor,
+PreciseReferenceType::PreciseReferenceType(mirror::Class* klass, const StringPiece& descriptor,
                                            uint16_t cache_id)
     : RegType(klass, descriptor, cache_id) {
-  DCHECK(klass->IsInstantiable());
+  // Note: no check for IsInstantiable() here. We may produce this in case an InstantiationError
+  //       would be thrown at runtime, but we need to continue verification and *not* create a
+  //       hard failure or abort.
 }
 
 std::string UnresolvedMergedType::Dump() const {
@@ -333,14 +333,14 @@ std::string UnresolvedSuperClass::Dump() const {
 
 std::string UnresolvedReferenceType::Dump() const {
   std::stringstream result;
-  result << "Unresolved Reference" << ": " << PrettyDescriptor(GetDescriptor().c_str());
+  result << "Unresolved Reference" << ": " << PrettyDescriptor(GetDescriptor().as_string().c_str());
   return result.str();
 }
 
 std::string UnresolvedUninitializedRefType::Dump() const {
   std::stringstream result;
   result << "Unresolved And Uninitialized Reference" << ": "
-      << PrettyDescriptor(GetDescriptor().c_str())
+      << PrettyDescriptor(GetDescriptor().as_string().c_str())
       << " Allocation PC: " << GetAllocationPc();
   return result.str();
 }
@@ -348,7 +348,7 @@ std::string UnresolvedUninitializedRefType::Dump() const {
 std::string UnresolvedUninitializedThisRefType::Dump() const {
   std::stringstream result;
   result << "Unresolved And Uninitialized This Reference"
-      << PrettyDescriptor(GetDescriptor().c_str());
+      << PrettyDescriptor(GetDescriptor().as_string().c_str());
   return result.str();
 }
 
@@ -517,9 +517,21 @@ const RegType& RegType::GetSuperClass(RegTypeCache* cache) const {
   }
 }
 
-bool RegType::IsObjectArrayTypes() const SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-  if (IsUnresolvedTypes() && !IsUnresolvedMergedReference() && !IsUnresolvedSuperClass()) {
-    // Primitive arrays will always resolve
+bool RegType::IsJavaLangObject() const SHARED_REQUIRES(Locks::mutator_lock_) {
+  return IsReference() && GetClass()->IsObjectClass();
+}
+
+bool RegType::IsObjectArrayTypes() const SHARED_REQUIRES(Locks::mutator_lock_) {
+  if (IsUnresolvedTypes()) {
+    DCHECK(!IsUnresolvedMergedReference());
+
+    if (IsUnresolvedSuperClass()) {
+      // Cannot be an array, as the superclass of arrays is java.lang.Object (which cannot be
+      // unresolved).
+      return false;
+    }
+
+    // Primitive arrays will always resolve.
     DCHECK(descriptor_[1] == 'L' || descriptor_[1] == '[');
     return descriptor_[0] == '[';
   } else if (HasClass()) {
@@ -530,12 +542,15 @@ bool RegType::IsObjectArrayTypes() const SHARED_LOCKS_REQUIRED(Locks::mutator_lo
   }
 }
 
-bool RegType::IsJavaLangObject() const SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-  return IsReference() && GetClass()->IsObjectClass();
-}
+bool RegType::IsArrayTypes() const SHARED_REQUIRES(Locks::mutator_lock_) {
+  if (IsUnresolvedTypes()) {
+    DCHECK(!IsUnresolvedMergedReference());
 
-bool RegType::IsArrayTypes() const SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-  if (IsUnresolvedTypes() && !IsUnresolvedMergedReference() && !IsUnresolvedSuperClass()) {
+    if (IsUnresolvedSuperClass()) {
+      // Cannot be an array, as the superclass of arrays is java.lang.Object (which cannot be
+      // unresolved).
+      return false;
+    }
     return descriptor_[0] == '[';
   } else if (HasClass()) {
     return GetClass()->IsArrayClass();
@@ -562,24 +577,20 @@ static const RegType& SelectNonConstant(const RegType& a, const RegType& b) {
 
 const RegType& RegType::Merge(const RegType& incoming_type, RegTypeCache* reg_types) const {
   DCHECK(!Equals(incoming_type));  // Trivial equality handled by caller
-  // Perform pointer equality tests for conflict to avoid virtual method dispatch.
+  // Perform pointer equality tests for undefined and conflict to avoid virtual method dispatch.
+  const UndefinedType& undefined = reg_types->Undefined();
   const ConflictType& conflict = reg_types->Conflict();
-  if (IsUndefined() || incoming_type.IsUndefined()) {
+  DCHECK_EQ(this == &undefined, IsUndefined());
+  DCHECK_EQ(&incoming_type == &undefined, incoming_type.IsUndefined());
+  DCHECK_EQ(this == &conflict, IsConflict());
+  DCHECK_EQ(&incoming_type == &conflict, incoming_type.IsConflict());
+  if (this == &undefined || &incoming_type == &undefined) {
     // There is a difference between undefined and conflict. Conflicts may be copied around, but
     // not used. Undefined registers must not be copied. So any merge with undefined should return
     // undefined.
-    if (IsUndefined()) {
-      return *this;
-    }
-    return incoming_type;
-  } else if (this == &conflict) {
-    DCHECK(IsConflict());
-    return *this;  // Conflict MERGE * => Conflict
-  } else if (&incoming_type == &conflict) {
-    DCHECK(incoming_type.IsConflict());
-    return incoming_type;  // * MERGE Conflict => Conflict
-  } else if (IsUndefined() || incoming_type.IsUndefined()) {
-    return conflict;  // Unknown MERGE * => Conflict
+    return undefined;
+  } else if (this == &conflict || &incoming_type == &conflict) {
+    return conflict;  // (Conflict MERGE *) or (* MERGE Conflict) => Conflict
   } else if (IsConstant() && incoming_type.IsConstant()) {
     const ConstantType& type1 = *down_cast<const ConstantType*>(this);
     const ConstantType& type2 = *down_cast<const ConstantType*>(&incoming_type);
@@ -671,7 +682,12 @@ const RegType& RegType::Merge(const RegType& incoming_type, RegTypeCache* reg_ty
     // float/long/double MERGE float/long/double_constant => float/long/double
     return SelectNonConstant(*this, incoming_type);
   } else if (IsReferenceTypes() && incoming_type.IsReferenceTypes()) {
-    if (IsZero() || incoming_type.IsZero()) {
+    if (IsUninitializedTypes() || incoming_type.IsUninitializedTypes()) {
+      // Something that is uninitialized hasn't had its constructor called. Unitialized types are
+      // special. They may only ever be merged with themselves (must be taken care of by the
+      // caller of Merge(), see the DCHECK on entry). So mark any other merge as conflicting here.
+      return conflict;
+    } else if (IsZero() || incoming_type.IsZero()) {
       return SelectNonConstant(*this, incoming_type);  // 0 MERGE ref => ref
     } else if (IsJavaLangObject() || incoming_type.IsJavaLangObject()) {
       return reg_types->JavaLangObject(false);  // Object MERGE ref => Object
@@ -681,11 +697,6 @@ const RegType& RegType::Merge(const RegType& incoming_type, RegTypeCache* reg_ty
       // type that reflects our lack of knowledge and that allows the rest of the unresolved
       // mechanics to continue.
       return reg_types->FromUnresolvedMerge(*this, incoming_type);
-    } else if (IsUninitializedTypes() || incoming_type.IsUninitializedTypes()) {
-      // Something that is uninitialized hasn't had its constructor called. Mark any merge
-      // of this type with something that is initialized as conflicting. The cases of a merge
-      // with itself, 0 or Object are handled above.
-      return conflict;
     } else {  // Two reference types, compute Join
       mirror::Class* c1 = GetClass();
       mirror::Class* c2 = incoming_type.GetClass();
@@ -797,11 +808,50 @@ UnresolvedMergedType::UnresolvedMergedType(const RegType& resolved,
   }
 }
 void UnresolvedMergedType::CheckInvariants() const {
+  CHECK(reg_type_cache_ != nullptr);
+
   // Unresolved merged types: merged types should be defined.
   CHECK(descriptor_.empty()) << *this;
   CHECK(klass_.IsNull()) << *this;
+
+  CHECK(!resolved_part_.IsConflict());
   CHECK(resolved_part_.IsReferenceTypes());
   CHECK(!resolved_part_.IsUnresolvedTypes());
+
+  CHECK(resolved_part_.IsZero() ||
+        !(resolved_part_.IsArrayTypes() && !resolved_part_.IsObjectArrayTypes()));
+
+  CHECK_GT(unresolved_types_.NumSetBits(), 0U);
+  bool unresolved_is_array =
+      reg_type_cache_->GetFromId(unresolved_types_.GetHighestBitSet()).IsArrayTypes();
+  for (uint32_t idx : unresolved_types_.Indexes()) {
+    const RegType& t = reg_type_cache_->GetFromId(idx);
+    CHECK_EQ(unresolved_is_array, t.IsArrayTypes());
+  }
+
+  if (!resolved_part_.IsZero()) {
+    CHECK_EQ(resolved_part_.IsArrayTypes(), unresolved_is_array);
+  }
+}
+
+bool UnresolvedMergedType::IsArrayTypes() const {
+  // For a merge to be an array, both the resolved and the unresolved part need to be object
+  // arrays.
+  // (Note: we encode a missing resolved part [which doesn't need to be an array] as zero.)
+
+  if (!resolved_part_.IsZero() && !resolved_part_.IsArrayTypes()) {
+    return false;
+  }
+
+  // It is enough to check just one of the merged types. Otherwise the merge should have been
+  // collapsed (checked in CheckInvariants on construction).
+  uint32_t idx = unresolved_types_.GetHighestBitSet();
+  const RegType& unresolved = reg_type_cache_->GetFromId(idx);
+  return unresolved.IsArrayTypes();
+}
+bool UnresolvedMergedType::IsObjectArrayTypes() const {
+  // Same as IsArrayTypes, as primitive arrays are always resolved.
+  return IsArrayTypes();
 }
 
 void UnresolvedReferenceType::CheckInvariants() const {
@@ -825,6 +875,14 @@ bool RegType::CanAssignArray(const RegType& src, RegTypeCache& reg_types,
                              Handle<mirror::ClassLoader> class_loader, bool* soft_error) const {
   if (!IsArrayTypes() || !src.IsArrayTypes()) {
     *soft_error = false;
+    return false;
+  }
+
+  if (IsUnresolvedMergedReference() || src.IsUnresolvedMergedReference()) {
+    // An unresolved array type means that it's an array of some reference type. Reference arrays
+    // can never be assigned to primitive-type arrays, and vice versa. So it is a soft error if
+    // both arrays are reference arrays, otherwise a hard error.
+    *soft_error = IsObjectArrayTypes() && src.IsObjectArrayTypes();
     return false;
   }
 

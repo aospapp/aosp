@@ -44,10 +44,11 @@ import com.android.internal.net.VpnProfile;
 interface IConnectivityManager
 {
     Network getActiveNetwork();
+    Network getActiveNetworkForUid(int uid, boolean ignoreBlocked);
     NetworkInfo getActiveNetworkInfo();
-    NetworkInfo getActiveNetworkInfoForUid(int uid);
+    NetworkInfo getActiveNetworkInfoForUid(int uid, boolean ignoreBlocked);
     NetworkInfo getNetworkInfo(int networkType);
-    NetworkInfo getNetworkInfoForNetwork(in Network network);
+    NetworkInfo getNetworkInfoForUid(in Network network, int uid, boolean ignoreBlocked);
     NetworkInfo[] getAllNetworkInfo();
     Network getNetworkForType(int networkType);
     Network[] getAllNetworks();
@@ -75,6 +76,10 @@ interface IConnectivityManager
     int getLastTetherError(String iface);
 
     boolean isTetheringSupported();
+
+    void startTethering(int type, in ResultReceiver receiver, boolean showProvisioningUi);
+
+    void stopTethering(int type);
 
     String[] getTetherableIfaces();
 
@@ -117,6 +122,8 @@ interface IConnectivityManager
     VpnInfo[] getAllVpnInfo();
 
     boolean updateLockdownVpn();
+    boolean setAlwaysOnVpnPackage(int userId, String packageName, boolean lockdown);
+    String getAlwaysOnVpnPackage(int userId);
 
     int checkMobileProvisioning(int suggestedTimeOutMs);
 
@@ -160,4 +167,11 @@ interface IConnectivityManager
     boolean setUnderlyingNetworksForVpn(in Network[] networks);
 
     void factoryReset();
+
+    void startNattKeepalive(in Network network, int intervalSeconds, in Messenger messenger,
+            in IBinder binder, String srcAddr, int srcPort, String dstAddr);
+
+    void stopKeepalive(in Network network, int slot);
+
+    String getCaptivePortalServerUrl();
 }

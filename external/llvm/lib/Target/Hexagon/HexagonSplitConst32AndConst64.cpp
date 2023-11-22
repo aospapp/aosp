@@ -45,6 +45,11 @@ using namespace llvm;
 
 #define DEBUG_TYPE "xfer"
 
+namespace llvm {
+  FunctionPass *createHexagonSplitConst32AndConst64();
+  void initializeHexagonSplitConst32AndConst64Pass(PassRegistry&);
+}
+
 namespace {
 
 class HexagonSplitConst32AndConst64 : public MachineFunctionPass {
@@ -76,26 +81,15 @@ bool HexagonSplitConst32AndConst64::runOnMachineFunction(MachineFunction &Fn) {
   // Loop over all of the basic blocks
   for (MachineFunction::iterator MBBb = Fn.begin(), MBBe = Fn.end();
        MBBb != MBBe; ++MBBb) {
-    MachineBasicBlock* MBB = MBBb;
+    MachineBasicBlock *MBB = &*MBBb;
     // Traverse the basic block
     MachineBasicBlock::iterator MII = MBB->begin();
     MachineBasicBlock::iterator MIE = MBB->end ();
     while (MII != MIE) {
       MachineInstr *MI = MII;
       int Opc = MI->getOpcode();
-      if (Opc == Hexagon::CONST32_set_jt) {
-        int DestReg = MI->getOperand(0).getReg();
-        MachineOperand &Symbol = MI->getOperand (1);
-        BuildMI (*MBB, MII, MI->getDebugLoc(),
-                 TII->get(Hexagon::A2_tfrsi), DestReg).addOperand(Symbol);
-
-        // MBB->erase returns the iterator to the next instruction, which is the
-        // one we want to process next
-        MII = MBB->erase (MI);
-        continue;
-      }
-      else if (Opc == Hexagon::CONST32_Int_Real &&
-               MI->getOperand(1).isBlockAddress()) {
+      if (Opc == Hexagon::CONST32_Int_Real &&
+          MI->getOperand(1).isBlockAddress()) {
         int DestReg = MI->getOperand(0).getReg();
         MachineOperand &Symbol = MI->getOperand (1);
 

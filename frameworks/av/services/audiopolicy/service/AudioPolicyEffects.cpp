@@ -79,7 +79,7 @@ AudioPolicyEffects::~AudioPolicyEffects()
 
 status_t AudioPolicyEffects::addInputEffects(audio_io_handle_t input,
                              audio_source_t inputSource,
-                             int audioSession)
+                             audio_session_t audioSession)
 {
     status_t status = NO_ERROR;
 
@@ -152,7 +152,7 @@ status_t AudioPolicyEffects::releaseInputEffects(audio_io_handle_t input)
     return status;
 }
 
-status_t AudioPolicyEffects::queryDefaultInputEffects(int audioSession,
+status_t AudioPolicyEffects::queryDefaultInputEffects(audio_session_t audioSession,
                                                       effect_descriptor_t *descriptors,
                                                       uint32_t *count)
 {
@@ -185,7 +185,7 @@ status_t AudioPolicyEffects::queryDefaultInputEffects(int audioSession,
 }
 
 
-status_t AudioPolicyEffects::queryDefaultOutputSessionEffects(int audioSession,
+status_t AudioPolicyEffects::queryDefaultOutputSessionEffects(audio_session_t audioSession,
                          effect_descriptor_t *descriptors,
                          uint32_t *count)
 {
@@ -220,7 +220,7 @@ status_t AudioPolicyEffects::queryDefaultOutputSessionEffects(int audioSession,
 
 status_t AudioPolicyEffects::addOutputSessionEffects(audio_io_handle_t output,
                          audio_stream_type_t stream,
-                         int audioSession)
+                         audio_session_t audioSession)
 {
     status_t status = NO_ERROR;
 
@@ -275,7 +275,7 @@ status_t AudioPolicyEffects::addOutputSessionEffects(audio_io_handle_t output,
 
 status_t AudioPolicyEffects::releaseOutputSessionEffects(audio_io_handle_t output,
                          audio_stream_type_t stream,
-                         int audioSession)
+                         audio_session_t audioSession)
 {
     status_t status = NO_ERROR;
     (void) output; // argument not used for now
@@ -323,7 +323,8 @@ void AudioPolicyEffects::EffectVector::setProcessorEnabled(bool enabled)
     VOICE_CALL_SRC_TAG,
     CAMCORDER_SRC_TAG,
     VOICE_REC_SRC_TAG,
-    VOICE_COMM_SRC_TAG
+    VOICE_COMM_SRC_TAG,
+    UNPROCESSED_SRC_TAG
 };
 
 // returns the audio_source_t enum corresponding to the input source name or
@@ -372,7 +373,7 @@ audio_stream_type_t AudioPolicyEffects::streamNameToEnum(const char *name)
 // Audio Effect Config parser
 // ----------------------------------------------------------------------------
 
-size_t AudioPolicyEffects::growParamSize(char *param,
+size_t AudioPolicyEffects::growParamSize(char **param,
                                          size_t size,
                                          size_t *curSize,
                                          size_t *totSize)
@@ -384,55 +385,82 @@ size_t AudioPolicyEffects::growParamSize(char *param,
         while (pos + size > *totSize) {
             *totSize += ((*totSize + 7) / 8) * 4;
         }
-        param = (char *)realloc(param, *totSize);
+        *param = (char *)realloc(*param, *totSize);
+        if (*param == NULL) {
+            ALOGE("%s realloc error for size %zu", __func__, *totSize);
+            return 0;
+        }
     }
     *curSize = pos + size;
     return pos;
 }
 
+
 size_t AudioPolicyEffects::readParamValue(cnode *node,
-                                          char *param,
+                                          char **param,
                                           size_t *curSize,
                                           size_t *totSize)
 {
+    size_t len = 0;
+    size_t pos;
+
     if (strncmp(node->name, SHORT_TAG, sizeof(SHORT_TAG) + 1) == 0) {
-        size_t pos = growParamSize(param, sizeof(short), curSize, totSize);
-        *(short *)((char *)param + pos) = (short)atoi(node->value);
-        ALOGV("readParamValue() reading short %d", *(short *)((char *)param + pos));
-        return sizeof(short);
-    } else if (strncmp(node->name, INT_TAG, sizeof(INT_TAG) + 1) == 0) {
-        size_t pos = growParamSize(param, sizeof(int), curSize, totSize);
-        *(int *)((char *)param + pos) = atoi(node->value);
-        ALOGV("readParamValue() reading int %d", *(int *)((char *)param + pos));
-        return sizeof(int);
-    } else if (strncmp(node->name, FLOAT_TAG, sizeof(FLOAT_TAG) + 1) == 0) {
-        size_t pos = growParamSize(param, sizeof(float), curSize, totSize);
-        *(float *)((char *)param + pos) = (float)atof(node->value);
-        ALOGV("readParamValue() reading float %f",*(float *)((char *)param + pos));
-        return sizeof(float);
-    } else if (strncmp(node->name, BOOL_TAG, sizeof(BOOL_TAG) + 1) == 0) {
-        size_t pos = growParamSize(param, sizeof(bool), curSize, totSize);
-        if (strncmp(node->value, "false", strlen("false") + 1) == 0) {
-            *(bool *)((char *)param + pos) = false;
-        } else {
-            *(bool *)((char *)param + pos) = true;
+        pos = growParamSize(param, sizeof(short), curSize, totSize);
+        if (pos == 0) {
+            goto exit;
         }
-        ALOGV("readParamValue() reading bool %s",*(bool *)((char *)param + pos) ? "true" : "false");
-        return sizeof(bool);
+        *(short *)(*param + pos) = (short)atoi(node->value);
+        ALOGV("readParamValue() reading short %d", *(short *)(*param + pos));
+        len = sizeof(short);
+    } else if (strncmp(node->name, INT_TAG, sizeof(INT_TAG) + 1) == 0) {
+        pos = growParamSize(param, sizeof(int), curSize, totSize);
+        if (pos == 0) {
+            goto exit;
+        }
+        *(int *)(*param + pos) = atoi(node->value);
+        ALOGV("readParamValue() reading int %d", *(int *)(*param + pos));
+        len = sizeof(int);
+    } else if (strncmp(node->name, FLOAT_TAG, sizeof(FLOAT_TAG) + 1) == 0) {
+        pos = growParamSize(param, sizeof(float), curSize, totSize);
+        if (pos == 0) {
+            goto exit;
+        }
+        *(float *)(*param + pos) = (float)atof(node->value);
+        ALOGV("readParamValue() reading float %f",*(float *)(*param + pos));
+        len = sizeof(float);
+    } else if (strncmp(node->name, BOOL_TAG, sizeof(BOOL_TAG) + 1) == 0) {
+        pos = growParamSize(param, sizeof(bool), curSize, totSize);
+        if (pos == 0) {
+            goto exit;
+        }
+        if (strncmp(node->value, "true", strlen("true") + 1) == 0) {
+            *(bool *)(*param + pos) = true;
+        } else {
+            *(bool *)(*param + pos) = false;
+        }
+        ALOGV("readParamValue() reading bool %s",
+              *(bool *)(*param + pos) ? "true" : "false");
+        len = sizeof(bool);
     } else if (strncmp(node->name, STRING_TAG, sizeof(STRING_TAG) + 1) == 0) {
-        size_t len = strnlen(node->value, EFFECT_STRING_LEN_MAX);
+        len = strnlen(node->value, EFFECT_STRING_LEN_MAX);
         if (*curSize + len + 1 > *totSize) {
             *totSize = *curSize + len + 1;
-            param = (char *)realloc(param, *totSize);
+            *param = (char *)realloc(*param, *totSize);
+            if (*param == NULL) {
+                len = 0;
+                ALOGE("%s realloc error for string len %zu", __func__, *totSize);
+                goto exit;
+            }
         }
-        strncpy(param + *curSize, node->value, len);
+        strncpy(*param + *curSize, node->value, len);
         *curSize += len;
-        param[*curSize] = '\0';
-        ALOGV("readParamValue() reading string %s", param + *curSize - len);
-        return len;
+        (*param)[*curSize] = '\0';
+        ALOGV("readParamValue() reading string %s", *param + *curSize - len);
+    } else {
+        ALOGW("readParamValue() unknown param type %s", node->name);
     }
-    ALOGW("readParamValue() unknown param type %s", node->name);
-    return 0;
+exit:
+    return len;
 }
 
 effect_param_t *AudioPolicyEffects::loadEffectParameter(cnode *root)
@@ -443,6 +471,12 @@ effect_param_t *AudioPolicyEffects::loadEffectParameter(cnode *root)
     size_t totSize = sizeof(effect_param_t) + 2 * sizeof(int);
     effect_param_t *fx_param = (effect_param_t *)malloc(totSize);
 
+    if (fx_param == NULL) {
+        ALOGE("%s malloc error for effect structure of size %zu",
+              __func__, totSize);
+        return NULL;
+    }
+
     param = config_find(root, PARAM_TAG);
     value = config_find(root, VALUE_TAG);
     if (param == NULL && value == NULL) {
@@ -451,8 +485,10 @@ effect_param_t *AudioPolicyEffects::loadEffectParameter(cnode *root)
         if (param != NULL) {
             // Note: that a pair of random strings is read as 0 0
             int *ptr = (int *)fx_param->data;
+#if LOG_NDEBUG == 0
             int *ptr2 = (int *)((char *)param + sizeof(effect_param_t));
-            ALOGW("loadEffectParameter() ptr %p ptr2 %p", ptr, ptr2);
+            ALOGV("loadEffectParameter() ptr %p ptr2 %p", ptr, ptr2);
+#endif
             *ptr++ = atoi(param->name);
             *ptr = atoi(param->value);
             fx_param->psize = sizeof(int);
@@ -461,7 +497,8 @@ effect_param_t *AudioPolicyEffects::loadEffectParameter(cnode *root)
         }
     }
     if (param == NULL || value == NULL) {
-        ALOGW("loadEffectParameter() invalid parameter description %s", root->name);
+        ALOGW("loadEffectParameter() invalid parameter description %s",
+              root->name);
         goto error;
     }
 
@@ -469,7 +506,8 @@ effect_param_t *AudioPolicyEffects::loadEffectParameter(cnode *root)
     param = param->first_child;
     while (param) {
         ALOGV("loadEffectParameter() reading param of type %s", param->name);
-        size_t size = readParamValue(param, (char *)fx_param, &curSize, &totSize);
+        size_t size =
+                readParamValue(param, (char **)&fx_param, &curSize, &totSize);
         if (size == 0) {
             goto error;
         }
@@ -484,7 +522,8 @@ effect_param_t *AudioPolicyEffects::loadEffectParameter(cnode *root)
     value = value->first_child;
     while (value) {
         ALOGV("loadEffectParameter() reading value of type %s", value->name);
-        size_t size = readParamValue(value, (char *)fx_param, &curSize, &totSize);
+        size_t size =
+                readParamValue(value, (char **)&fx_param, &curSize, &totSize);
         if (size == 0) {
             goto error;
         }
@@ -495,7 +534,7 @@ effect_param_t *AudioPolicyEffects::loadEffectParameter(cnode *root)
     return fx_param;
 
 error:
-    delete fx_param;
+    free(fx_param);
     return NULL;
 }
 
@@ -505,11 +544,9 @@ void AudioPolicyEffects::loadEffectParameters(cnode *root, Vector <effect_param_
     while (node) {
         ALOGV("loadEffectParameters() loading param %s", node->name);
         effect_param_t *param = loadEffectParameter(node);
-        if (param == NULL) {
-            node = node->next;
-            continue;
+        if (param != NULL) {
+            params.add(param);
         }
-        params.add(param);
         node = node->next;
     }
 }
@@ -527,6 +564,7 @@ AudioPolicyEffects::EffectDescVector *AudioPolicyEffects::loadEffectConfig(
     EffectDescVector *desc = new EffectDescVector();
     while (node) {
         size_t i;
+
         for (i = 0; i < effects.size(); i++) {
             if (strncmp(effects[i]->mName, node->name, EFFECT_STRING_LEN_MAX) == 0) {
                 ALOGV("loadEffectConfig() found effect %s in list", node->name);

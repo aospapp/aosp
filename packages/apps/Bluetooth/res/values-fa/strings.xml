@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"‏دسترسی به Download Manager."</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"‏به برنامه برای دسترسی به مدیر BluetoothShare و استفاده از آن برای انتقال فایل‌ها اجازه می‌دهد."</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"دسترسی دستگاه موجود در لیست سفید بلوتوث."</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"به برنامه اجازه می‌دهد تا موقتاً یک دستگاه بلوتوث را در لیست سفید وارد کند، و به آن دستگاه اجازه می‌دهد بدون تأیید کاربر به این دستگاه فایل ارسال کند."</string>
+    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"دسترسی دستگاه موجود در فهرست سفید بلوتوث."</string>
+    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"به برنامه اجازه می‌دهد تا موقتاً یک دستگاه بلوتوث را در فهرست سفید وارد کند، و به آن دستگاه اجازه می‌دهد بدون تأیید کاربر به این دستگاه فایل ارسال کند."</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"بلوتوث"</string>
     <string name="unknown_device" msgid="9221903979877041009">"دستگاه ناشناس"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"ناشناس"</string>
@@ -36,9 +36,8 @@
     <string name="incoming_file_confirm_ok" msgid="281462442932231475">"پذیرفتن"</string>
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"تأیید"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"هنگام پذیرش یک فایل ورودی از \"<xliff:g id="SENDER">%1$s</xliff:g>\" وقفه زمانی پیش آمد"</string>
-    <string name="incoming_file_confirm_Notification_title" msgid="2958227698135117210">"اشتراک بلوتوث: فایل ورودی"</string>
-    <string name="incoming_file_confirm_Notification_caption" msgid="6671081128475981157">"آیا می‌خواهید این فایل را دریافت کنید؟"</string>
-    <string name="incoming_file_toast_msg" msgid="1733710749992901811">"فایل ورودی از یک دستگاه دیگر. لطفاً تأیید کنید که می‌خواهید این فایل را دریافت کنید."</string>
+    <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"فایل ورودی"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> آماده ارسال <xliff:g id="FILE">%2$s</xliff:g> است"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"اشتراک بلوتوث: در حال دریافت <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received" msgid="3324588019186687985">"اشتراک بلوتوث: <xliff:g id="FILE">%1$s</xliff:g> دریافت شد"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"اشتراک بلوتوث: فایل <xliff:g id="FILE">%1$s</xliff:g>دریافت نشد"</string>
@@ -107,7 +106,7 @@
     <string name="inbound_history_title" msgid="6940914942271327563">"انتقال های ورودی"</string>
     <string name="outbound_history_title" msgid="4279418703178140526">"انتقال های خروجی"</string>
     <string name="no_transfers" msgid="3482965619151865672">"سابقه انتقال خالی است."</string>
-    <string name="transfer_clear_dlg_msg" msgid="1712376797268438075">"همهٔ موارد از لیست پاک می‌شوند."</string>
+    <string name="transfer_clear_dlg_msg" msgid="1712376797268438075">"همهٔ موارد از فهرست پاک می‌شوند."</string>
     <string name="outbound_noti_title" msgid="8051906709452260849">"اشتراک بلوتوث: فایل‌های ارسال شده"</string>
     <string name="inbound_noti_title" msgid="4143352641953027595">"اشتراک بلوتوث: فایل‌های دریافت شده"</string>
     <plurals name="noti_caption_unsuccessful" formatted="false" msgid="2020750076679526122">
@@ -118,15 +117,17 @@
       <item quantity="one">‏<xliff:g id="SUCCESSFUL_NUMBER_1">%1$d</xliff:g> مورد موفق، %2$s</item>
       <item quantity="other">‏<xliff:g id="SUCCESSFUL_NUMBER_1">%1$d</xliff:g> مورد موفق، %2$s</item>
     </plurals>
-    <string name="transfer_menu_clear_all" msgid="790017462957873132">"پاک کردن لیست"</string>
+    <string name="transfer_menu_clear_all" msgid="790017462957873132">"پاک کردن فهرست"</string>
     <string name="transfer_menu_open" msgid="3368984869083107200">"باز کردن"</string>
-    <string name="transfer_menu_clear" msgid="5854038118831427492">"پاک کردن از لیست"</string>
+    <string name="transfer_menu_clear" msgid="5854038118831427492">"پاک کردن از فهرست"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"پاک کردن"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"ذخیره‌"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"لغو"</string>
-    <string name="bluetooth_map_settings_intro" msgid="6793938602201480648">"حساب‌هایی را انتخاب کنید که می‌خواهید از طریق بلوتوث به اشتراک بگذارید. هنگام اتصال، همچنان باید با هر گونه دسترسی به حساب‌ها موافقت کنید."</string>
+    <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"حساب‌هایی را انتخاب کنید که می‌خواهید از طریق بلوتوث به اشتراک بگذارید. هنگام اتصال، همچنان باید با هر گونه دسترسی به حساب‌ها موافقت کنید."</string>
     <string name="bluetooth_map_settings_count" msgid="4557473074937024833">"شیارهای باقی‌مانده:"</string>
     <string name="bluetooth_map_settings_app_icon" msgid="7105805610929114707">"نماد برنامه"</string>
     <string name="bluetooth_map_settings_title" msgid="7420332483392851321">"تنظیمات اشتراک‌گذاری پیام بلوتوث"</string>
     <string name="bluetooth_map_settings_no_account_slots_left" msgid="1796029082612965251">"انتخاب حساب امکان‌پذیر نیست. ۰ شیار باقی مانده است"</string>
+    <string name="bluetooth_connected" msgid="6718623220072656906">"بلوتوث صوتی متصل شد"</string>
+    <string name="bluetooth_disconnected" msgid="3318303728981478873">"ارتباط بلوتوث صوتی قطع شد"</string>
 </resources>

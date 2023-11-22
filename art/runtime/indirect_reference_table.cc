@@ -16,6 +16,7 @@
 
 #include "indirect_reference_table-inl.h"
 
+#include "base/systrace.h"
 #include "jni_internal.h"
 #include "nth_caller_visitor.h"
 #include "reference_table.h"
@@ -35,10 +36,10 @@ template<typename T>
 class MutatorLockedDumpable {
  public:
   explicit MutatorLockedDumpable(T& value)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) : value_(value) {
+      SHARED_REQUIRES(Locks::mutator_lock_) : value_(value) {
   }
 
-  void Dump(std::ostream& os) const SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+  void Dump(std::ostream& os) const SHARED_REQUIRES(Locks::mutator_lock_) {
     value_.Dump(os);
   }
 
@@ -50,7 +51,7 @@ class MutatorLockedDumpable {
 
 template<typename T>
 std::ostream& operator<<(std::ostream& os, const MutatorLockedDumpable<T>& rhs)
-// TODO: should be SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) however annotalysis
+// TODO: should be SHARED_REQUIRES(Locks::mutator_lock_) however annotalysis
 //       currently fails for this.
     NO_THREAD_SAFETY_ANALYSIS {
   rhs.Dump(os);
@@ -261,6 +262,7 @@ bool IndirectReferenceTable::Remove(uint32_t cookie, IndirectRef iref) {
 }
 
 void IndirectReferenceTable::Trim() {
+  ScopedTrace trace(__PRETTY_FUNCTION__);
   const size_t top_index = Capacity();
   auto* release_start = AlignUp(reinterpret_cast<uint8_t*>(&table_[top_index]), kPageSize);
   uint8_t* release_end = table_mem_map_->End();

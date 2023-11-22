@@ -17,8 +17,10 @@
 
 package com.squareup.okhttp;
 
+import com.squareup.okhttp.internal.URLFilter;
 import libcore.net.NetworkSecurityPolicy;
 import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.net.Proxy;
 import java.net.ResponseCache;
 import java.net.URL;
@@ -26,11 +28,14 @@ import java.net.URLConnection;
 import java.net.URLStreamHandler;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class HttpHandler extends URLStreamHandler {
 
     private final static List<ConnectionSpec> CLEARTEXT_ONLY =
         Collections.singletonList(ConnectionSpec.CLEARTEXT);
+
+    private static final CleartextURLFilter CLEARTEXT_FILTER = new CleartextURLFilter();
 
     private final ConfigAwareConnectionPool configAwareConnectionPool =
             ConfigAwareConnectionPool.getInstance();
@@ -67,17 +72,20 @@ public class HttpHandler extends URLStreamHandler {
     public static OkUrlFactory createHttpOkUrlFactory(Proxy proxy) {
         OkHttpClient client = new OkHttpClient();
 
+        // Explicitly set the timeouts to infinity.
+        client.setConnectTimeout(0, TimeUnit.MILLISECONDS);
+        client.setReadTimeout(0, TimeUnit.MILLISECONDS);
+        client.setWriteTimeout(0, TimeUnit.MILLISECONDS);
+
+        // Set the default (same protocol) redirect behavior. The default can be overridden for
+        // each instance using HttpURLConnection.setInstanceFollowRedirects().
+        client.setFollowRedirects(HttpURLConnection.getFollowRedirects());
+
         // Do not permit http -> https and https -> http redirects.
         client.setFollowSslRedirects(false);
 
-        if (NetworkSecurityPolicy.isCleartextTrafficPermitted()) {
-          // Permit cleartext traffic only (this is a handler for HTTP, not for HTTPS).
-          client.setConnectionSpecs(CLEARTEXT_ONLY);
-        } else {
-          // Cleartext HTTP denied by policy. Make okhttp deny cleartext HTTP attempts using the
-          // only mechanism it currently provides -- pretend there are no suitable routes.
-          client.setConnectionSpecs(Collections.<ConnectionSpec>emptyList());
-        }
+        // Permit cleartext traffic only (this is a handler for HTTP, not for HTTPS).
+        client.setConnectionSpecs(CLEARTEXT_ONLY);
 
         // When we do not set the Proxy explicitly OkHttp picks up a ProxySelector using
         // ProxySelector.getDefault().
@@ -87,6 +95,11 @@ public class HttpHandler extends URLStreamHandler {
 
         // OkHttp requires that we explicitly set the response cache.
         OkUrlFactory okUrlFactory = new OkUrlFactory(client);
+
+        // Use the installed NetworkSecurityPolicy to determine which requests are permitted over
+        // http.
+        okUrlFactory.setUrlFilter(CLEARTEXT_FILTER);
+
         ResponseCache responseCache = ResponseCache.getDefault();
         if (responseCache != null) {
             AndroidInternal.setResponseCache(okUrlFactory, responseCache);
@@ -94,4 +107,13 @@ public class HttpHandler extends URLStreamHandler {
         return okUrlFactory;
     }
 
+    private static final class CleartextURLFilter implements URLFilter {
+        @Override
+        public void checkURLPermitted(URL url) throws IOException {
+            String host = url.getHost();
+            if (!NetworkSecurityPolicy.getInstance().isCleartextTrafficPermitted(host)) {
+                throw new IOException("Cleartext HTTP traffic to " + host + " not permitted");
+            }
+        }
+    }
 }

@@ -100,7 +100,6 @@ def MakePktInfo(version, addr, ifindex):
 
 
 class MultiNetworkBaseTest(net_test.NetworkTest):
-
   """Base class for all multinetwork tests.
 
   This class does not contain any test code, but contains code to set up and
@@ -129,6 +128,7 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
   PRIORITY_UID = 100
   PRIORITY_OIF = 200
   PRIORITY_FWMARK = 300
+  PRIORITY_IIF = 400
   PRIORITY_DEFAULT = 999
   PRIORITY_UNREACHABLE = 1000
 
@@ -188,7 +188,12 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
   @classmethod
   def MyAddress(cls, version, netid):
     return {4: cls._MyIPv4Address(netid),
+            5: "::ffff:" + cls._MyIPv4Address(netid),
             6: cls._MyIPv6Address(netid)}[version]
+
+  @classmethod
+  def MyLinkLocalAddress(cls, netid):
+    return net_test.GetLinkAddress(cls.GetInterfaceName(netid), True)
 
   @staticmethod
   def IPv6Prefix(netid):
@@ -216,12 +221,14 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
     net_test.SetInterfaceHWAddr(iface, cls.MyMacAddress(netid))
     # Disable DAD so we don't have to wait for it.
     cls.SetSysctl("/proc/sys/net/ipv6/conf/%s/accept_dad" % iface, 0)
+    # Set accept_ra to 2, because that's what we use.
+    cls.SetSysctl("/proc/sys/net/ipv6/conf/%s/accept_ra" % iface, 2)
     net_test.SetInterfaceUp(iface)
     net_test.SetNonBlocking(f)
     return f
 
   @classmethod
-  def SendRA(cls, netid, retranstimer=None):
+  def SendRA(cls, netid, retranstimer=None, reachabletime=0):
     validity = 300                 # seconds
     macaddr = cls.RouterMacAddress(netid)
     lladdr = cls._RouterAddress(netid, 6)
@@ -238,7 +245,8 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
 
     ra = (scapy.Ether(src=macaddr, dst="33:33:00:00:00:01") /
           scapy.IPv6(src=lladdr, hlim=255) /
-          scapy.ICMPv6ND_RA(retranstimer=retranstimer,
+          scapy.ICMPv6ND_RA(reachabletime=reachabletime,
+                            retranstimer=retranstimer,
                             routerlifetime=routerlifetime) /
           scapy.ICMPv6NDOptSrcLLAddr(lladdr=macaddr) /
           scapy.ICMPv6NDOptPrefixInfo(prefix=cls.IPv6Prefix(netid),
@@ -319,6 +327,13 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
     if sysctl not in cls.saved_sysctls:
       cls.saved_sysctls[sysctl] = cls.GetSysctl(sysctl)
     open(sysctl, "w").write(str(value) + "\n")
+
+  @classmethod
+  def SetIPv6SysctlOnAllIfaces(cls, sysctl, value):
+    for netid in cls.tuns:
+      iface = cls.GetInterfaceName(netid)
+      name = "/proc/sys/net/ipv6/conf/%s/%s" % (iface, sysctl)
+      cls.SetSysctl(name, value)
 
   @classmethod
   def _RestoreSysctls(cls):
@@ -414,7 +429,9 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
       s.setsockopt(net_test.SOL_IPV6, IPV6_UNICAST_IF, ifindex)
 
   def GetRemoteAddress(self, version):
-    return {4: self.IPV4_ADDR, 6: self.IPV6_ADDR}[version]
+    return {4: self.IPV4_ADDR,
+            5: "::ffff:" + self.IPV4_ADDR,
+            6: self.IPV6_ADDR}[version]
 
   def SelectInterface(self, s, netid, mode):
     if mode == "uid":
@@ -430,13 +447,12 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
       raise ValueError("Unknown interface selection mode %s" % mode)
 
   def BuildSocket(self, version, constructor, netid, routing_mode):
-    uid = self.UidForNetid(netid) if routing_mode == "uid" else None
-    with net_test.RunAsUid(uid):
-      family = self.GetProtocolFamily(version)
-      s = constructor(family)
+    s = constructor(self.GetProtocolFamily(version))
 
     if routing_mode not in [None, "uid"]:
       self.SelectInterface(s, netid, routing_mode)
+    elif routing_mode == "uid":
+      os.fchown(s.fileno(), self.UidForNetid(netid), -1)
 
     return s
 
@@ -504,6 +520,12 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
       actualip.flags &= 5
       actualip.chksum = None  # Change the header, recalculate the checksum.
 
+    # Blank out the flow label, since new kernels randomize it by default.
+    actualipv6 = actual.getlayer("IPv6")
+    expectedipv6 = expected.getlayer("IPv6")
+    if actualipv6 and expectedipv6:
+      actualipv6.fl = expectedipv6.fl
+
     # Blank out UDP fields that we can't predict (e.g., the source port for
     # kernel-originated packets).
     actualudp = actual.getlayer("UDP")
@@ -516,7 +538,6 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
     # Since the TCP code below messes with options, recalculate the length.
     if actualip:
       actualip.len = None
-    actualipv6 = actual.getlayer("IPv6")
     if actualipv6:
       actualipv6.plen = None
 

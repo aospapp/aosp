@@ -21,7 +21,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "osi.h"
+#include "osi/include/osi.h"
 
 // This module implements the Reactor pattern.
 // See http://en.wikipedia.org/wiki/Reactor_pattern for details.

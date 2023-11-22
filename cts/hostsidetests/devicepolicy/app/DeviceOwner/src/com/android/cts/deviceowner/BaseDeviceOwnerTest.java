@@ -32,7 +32,7 @@ import android.test.AndroidTestCase;
  * assume these are done. The admin component can be accessed through
  * {@link #getWho()}.
  */
-public class BaseDeviceOwnerTest extends AndroidTestCase {
+public abstract class BaseDeviceOwnerTest extends AndroidTestCase {
 
     public static class BasicAdminReceiver extends DeviceAdminReceiver {
         @Override

@@ -42,6 +42,7 @@ OperationFactory* AesKeyFactory::GetOperationFactory(keymaster_purpose_t purpose
 }
 
 keymaster_error_t AesKeyFactory::LoadKey(const KeymasterKeyBlob& key_material,
+                                         const AuthorizationSet& /* additional_params */,
                                          const AuthorizationSet& hw_enforced,
                                          const AuthorizationSet& sw_enforced,
                                          UniquePtr<Key>* key) const {

@@ -25,7 +25,8 @@ import com.google.common.base.Throwables;
 import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.Method;
-import java.util.LinkedList;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.logging.Level;
 
 import javax.annotation.Nullable;
@@ -106,7 +107,7 @@ public final class Closer implements Closeable {
   @VisibleForTesting final Suppressor suppressor;
 
   // only need space for 2 elements in most cases, so try to use the smallest array possible
-  private final LinkedList<Closeable> stack = new LinkedList<Closeable>();
+  private final Deque<Closeable> stack = new ArrayDeque<Closeable>(4);
   private Throwable thrown;
 
   @VisibleForTesting Closer(Suppressor suppressor) {

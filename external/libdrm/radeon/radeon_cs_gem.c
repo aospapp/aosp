@@ -44,13 +44,16 @@
 #include "radeon_cs_gem.h"
 #include "radeon_bo_gem.h"
 #include "drm.h"
-#include "libdrm.h"
+#include "libdrm_macros.h"
 #include "xf86drm.h"
 #include "xf86atomic.h"
 #include "radeon_drm.h"
-#include "bof.h"
 
+/* Add LIBDRM_RADEON_BOF_FILES to libdrm_radeon_la_SOURCES when building with BOF_DUMP */
 #define CS_BOF_DUMP 0
+#if CS_BOF_DUMP
+#include "bof.h"
+#endif
 
 struct radeon_cs_manager_gem {
     struct radeon_cs_manager    base;
@@ -511,16 +514,16 @@ static void cs_gem_print(struct radeon_cs_int *cs, FILE *file)
     }
 }
 
-static struct radeon_cs_funcs radeon_cs_gem_funcs = {
-    cs_gem_create,
-    cs_gem_write_reloc,
-    cs_gem_begin,
-    cs_gem_end,
-    cs_gem_emit,
-    cs_gem_destroy,
-    cs_gem_erase,
-    cs_gem_need_flush,
-    cs_gem_print,
+static const struct radeon_cs_funcs radeon_cs_gem_funcs = {
+    .cs_create = cs_gem_create,
+    .cs_write_reloc = cs_gem_write_reloc,
+    .cs_begin = cs_gem_begin,
+    .cs_end = cs_gem_end,
+    .cs_emit = cs_gem_emit,
+    .cs_destroy = cs_gem_destroy,
+    .cs_erase = cs_gem_erase,
+    .cs_need_flush = cs_gem_need_flush,
+    .cs_print = cs_gem_print,
 };
 
 static int radeon_get_device_id(int fd, uint32_t *device_id)
@@ -536,7 +539,7 @@ static int radeon_get_device_id(int fd, uint32_t *device_id)
     return r;
 }
 
-drm_public struct radeon_cs_manager *radeon_cs_manager_gem_ctor(int fd)
+struct radeon_cs_manager *radeon_cs_manager_gem_ctor(int fd)
 {
     struct radeon_cs_manager_gem *csm;
 
@@ -550,7 +553,7 @@ drm_public struct radeon_cs_manager *radeon_cs_manager_gem_ctor(int fd)
     return &csm->base;
 }
 
-drm_public void radeon_cs_manager_gem_dtor(struct radeon_cs_manager *csm)
+void radeon_cs_manager_gem_dtor(struct radeon_cs_manager *csm)
 {
     free(csm);
 }

@@ -68,9 +68,8 @@ public class CrossProfileWidgetTest extends BaseManagedProfileTest {
         List<String> providers = mDevicePolicyManager.getCrossProfileWidgetProviders(
                 ADMIN_RECEIVER_COMPONENT);
         assertTrue(providers.isEmpty());
-        // check that widget can still be found inside the profile
-        // This does not currently work correctly: http://b/issues/21180997
-        // assertTrue(containsWidgetProviderPkg(mAppWidgetManager.getInstalledProviders()));
+        // Check that widget can still be found inside the profile
+        assertTrue(containsWidgetProviderPkg(mAppWidgetManager.getInstalledProviders()));
     }
 
     private boolean containsWidgetProviderPkg(List<AppWidgetProviderInfo> widgets) {

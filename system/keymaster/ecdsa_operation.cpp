@@ -91,16 +91,17 @@ keymaster_error_t EcdsaOperation::InitDigest() {
     }
 }
 
+inline size_t min(size_t a, size_t b) {
+    return (a < b) ? a : b;
+}
+
 keymaster_error_t EcdsaOperation::StoreData(const Buffer& input, size_t* input_consumed) {
     if (!data_.reserve((EVP_PKEY_bits(ecdsa_key_) + 7) / 8))
         return KM_ERROR_MEMORY_ALLOCATION_FAILED;
 
-    // If the write fails, it's because input length exceeds key size.
-    if (!data_.write(input.peek_read(), input.available_read())) {
-        LOG_E("Input too long: cannot sign %u bytes of data with %u-bit ECDSA key",
-              input.available_read() + data_.available_read(), EVP_PKEY_bits(ecdsa_key_));
-        return KM_ERROR_INVALID_INPUT_LENGTH;
-    }
+    if (!data_.write(input.peek_read(), min(data_.available_write(), input.available_read())))
+        return KM_ERROR_UNKNOWN_ERROR;
+
     *input_consumed = input.available_read();
     return KM_ERROR_OK;
 }
@@ -134,16 +135,20 @@ keymaster_error_t EcdsaSignOperation::Update(const AuthorizationSet& /* addition
     return KM_ERROR_OK;
 }
 
-keymaster_error_t EcdsaSignOperation::Finish(const AuthorizationSet& /* additional_params */,
-                                             const Buffer& /* signature */,
+keymaster_error_t EcdsaSignOperation::Finish(const AuthorizationSet& additional_params,
+                                             const Buffer& input, const Buffer& /* signature */,
                                              AuthorizationSet* /* output_params */,
                                              Buffer* output) {
     if (!output)
         return KM_ERROR_OUTPUT_PARAMETER_NULL;
 
+    keymaster_error_t error = UpdateForFinish(additional_params, input);
+    if (error != KM_ERROR_OK)
+        return error;
+
     size_t siglen;
     if (digest_ == KM_DIGEST_NONE) {
-        UniquePtr<EC_KEY, EC_Delete> ecdsa(EVP_PKEY_get1_EC_KEY(ecdsa_key_));
+        UniquePtr<EC_KEY, EC_KEY_Delete> ecdsa(EVP_PKEY_get1_EC_KEY(ecdsa_key_));
         if (!ecdsa.get())
             return TranslateLastOpenSslError();
 
@@ -195,12 +200,16 @@ keymaster_error_t EcdsaVerifyOperation::Update(const AuthorizationSet& /* additi
     return KM_ERROR_OK;
 }
 
-keymaster_error_t EcdsaVerifyOperation::Finish(const AuthorizationSet& /* additional_params */,
-                                               const Buffer& signature,
+keymaster_error_t EcdsaVerifyOperation::Finish(const AuthorizationSet& additional_params,
+                                               const Buffer& input, const Buffer& signature,
                                                AuthorizationSet* /* output_params */,
                                                Buffer* /* output */) {
+    keymaster_error_t error = UpdateForFinish(additional_params, input);
+    if (error != KM_ERROR_OK)
+        return error;
+
     if (digest_ == KM_DIGEST_NONE) {
-        UniquePtr<EC_KEY, EC_Delete> ecdsa(EVP_PKEY_get1_EC_KEY(ecdsa_key_));
+        UniquePtr<EC_KEY, EC_KEY_Delete> ecdsa(EVP_PKEY_get1_EC_KEY(ecdsa_key_));
         if (!ecdsa.get())
             return TranslateLastOpenSslError();
 

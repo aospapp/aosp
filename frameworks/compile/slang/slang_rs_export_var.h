@@ -41,7 +41,7 @@ class RSExportVar : public RSExportable {
 
   clang::Expr::EvalResult mInit;
 
-  size_t mArraySize;
+  size_t mArraySize; // number of elements
   size_t mNumInits;
   llvm::SmallVector<clang::Expr::EvalResult, 0> mInitArray;
 

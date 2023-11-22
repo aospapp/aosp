@@ -46,6 +46,10 @@ endif
 
 LOCAL_CFLAGS += -Werror
 
+# TODO: Fix this:
+LOCAL_CFLAGS += -Wno-error=unused-variable \
+                -Wno-error=unused-but-set-variable
+
 include $(BUILD_SHARED_LIBRARY)
 
 endif

@@ -1,12 +1,9 @@
 package tests.security.cert;
 
-import dalvik.annotation.AndroidOnly;
-
 import junit.framework.TestCase;
 
-import org.apache.harmony.security.asn1.ASN1Integer;
-import org.apache.harmony.security.asn1.ASN1OctetString;
 import org.apache.harmony.security.tests.support.cert.TestUtils;
+
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -32,6 +29,9 @@ import java.util.Date;
 import java.util.Set;
 
 import javax.security.auth.x500.X500Principal;
+
+import sun.security.util.DerOutputStream;
+import sun.security.x509.CRLNumberExtension;
 
 public class X509CRLSelector2Test extends TestCase {
 
@@ -237,8 +237,6 @@ public class X509CRLSelector2Test extends TestCase {
      * criteria, if specified minCRL value matches the selector, and if CRL with
      * inappropriate crlNumber value does not match the selector.
      */
-    @AndroidOnly("Uses specific class: " +
-            "org.apache.harmony.security.asn1.ASN1OctetString.")
     public void testSetMinCRLNumberLjava_math_BigInteger() {
         X509CRLSelector selector = new X509CRLSelector();
         BigInteger minCRL = new BigInteger("10000");
@@ -261,8 +259,6 @@ public class X509CRLSelector2Test extends TestCase {
      * criteria, if specified maxCRL value matches the selector, and if CRL with
      * inappropriate crlNumber value does not match the selector.
      */
-    @AndroidOnly("Uses specific class: " +
-            "org.apache.harmony.security.asn1.ASN1OctetString.")
     public void testSetMaxCRLNumberLjava_math_BigInteger() {
         X509CRLSelector selector = new X509CRLSelector();
         BigInteger maxCRL = new BigInteger("10000");
@@ -459,9 +455,6 @@ public class X509CRLSelector2Test extends TestCase {
      * crl which matche to the initial selector should match to the clone and
      * the change of clone should not cause the change of initial selector.
      */
-    @AndroidOnly("Uses specific classes: " +
-            "org.apache.harmony.security.asn1.ASN1OctetString, " +
-            "org.apache.harmony.security.asn1.ASN1Integer.")
     public void testClone() {
         X509CRLSelector selector = new X509CRLSelector();
         X500Principal iss1 = new X500Principal("O=First Org.");
@@ -565,9 +558,13 @@ public class X509CRLSelector2Test extends TestCase {
 
         public byte[] getExtensionValue(String oid) {
             if ("2.5.29.20".equals(oid) && (crlNumber != null)) {
-                return ASN1OctetString.getInstance().encode(
-                        ASN1Integer.getInstance().encode(
-                                crlNumber.toByteArray()));
+                DerOutputStream out = new DerOutputStream();
+                try {
+                    out.putOctetString((new CRLNumberExtension(crlNumber)).getExtensionValue());
+                } catch (IOException e) {
+                    throw new IllegalStateException("Unexpected IOException" , e);
+                }
+                return out.toByteArray();
             }
             return null;
         }

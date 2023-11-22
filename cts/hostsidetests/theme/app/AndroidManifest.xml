@@ -25,14 +25,7 @@
 
     <application>
         <uses-library android:name="android.test.runner" />
-        <activity android:name=".ThemeDeviceActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-        <activity android:name=".DisplayInfoActivity"
-                  android:label="@string/display_info">
+        <activity android:name=".ThemeDeviceActivity" android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

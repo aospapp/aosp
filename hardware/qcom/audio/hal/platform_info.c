@@ -25,14 +25,13 @@
 #include "platform_api.h"
 #include <platform.h>
 
-#define PLATFORM_INFO_XML_PATH      "/system/etc/audio_platform_info.xml"
-
 typedef enum {
     ROOT,
     ACDB,
     PCM_ID,
     BACKEND_NAME,
     CONFIG_PARAMS,
+    OPERATOR_SPECIFIC,
 } section_t;
 
 typedef void (* section_process_fn)(const XML_Char **attr);
@@ -42,6 +41,7 @@ static void process_pcm_id(const XML_Char **attr);
 static void process_backend_name(const XML_Char **attr);
 static void process_config_params(const XML_Char **attr);
 static void process_root(const XML_Char **attr);
+static void process_operator_specific(const XML_Char **attr);
 
 static section_process_fn section_table[] = {
     [ROOT] = process_root,
@@ -49,6 +49,7 @@ static section_process_fn section_table[] = {
     [PCM_ID] = process_pcm_id,
     [BACKEND_NAME] = process_backend_name,
     [CONFIG_PARAMS] = process_config_params,
+    [OPERATOR_SPECIFIC] = process_operator_specific,
 };
 
 static section_t section;
@@ -79,9 +80,17 @@ static struct platform_info my_data;
  * </pcm_ids>
  * <config_params>
  *      <param key="snd_card_name" value="msm8994-tomtom-mtp-snd-card"/>
+ *      <param key="operator_info" value="tmus;aa;bb;cc"/>
+ *      <param key="operator_info" value="sprint;xx;yy;zz"/>
  *      ...
  *      ...
  * </config_params>
+ *
+ * <operator_specific>
+ *      <device name="???" operator="???" mixer_path="???" acdb_id="???"/>
+ *      ...
+ *      ...
+ * </operator_specific>
  *
  * </audio_platform_info>
  */
@@ -214,6 +223,44 @@ done:
     return;
 }
 
+
+static void process_operator_specific(const XML_Char **attr)
+{
+    snd_device_t snd_device = SND_DEVICE_NONE;
+
+    if (strcmp(attr[0], "name") != 0) {
+        ALOGE("%s: 'name' not found", __func__);
+        goto done;
+    }
+
+    snd_device = platform_get_snd_device_index((char *)attr[1]);
+    if (snd_device < 0) {
+        ALOGE("%s: Device %s in %s not found, no ACDB ID set!",
+              __func__, (char *)attr[3], PLATFORM_INFO_XML_PATH);
+        goto done;
+    }
+
+    if (strcmp(attr[2], "operator") != 0) {
+        ALOGE("%s: 'operator' not found", __func__);
+        goto done;
+    }
+
+    if (strcmp(attr[4], "mixer_path") != 0) {
+        ALOGE("%s: 'mixer_path' not found", __func__);
+        goto done;
+    }
+
+    if (strcmp(attr[6], "acdb_id") != 0) {
+        ALOGE("%s: 'acdb_id' not found", __func__);
+        goto done;
+    }
+
+    platform_add_operator_specific_device(snd_device, (char *)attr[3], (char *)attr[5], atoi((char *)attr[7]));
+
+done:
+    return;
+}
+
 /* platform specific configuration key-value pairs */
 static void process_config_params(const XML_Char **attr)
 {
@@ -228,6 +275,7 @@ static void process_config_params(const XML_Char **attr)
     }
 
     str_parms_add_str(my_data.kvpairs, (char*)attr[1], (char*)attr[3]);
+    platform_set_parameters(my_data.platform, my_data.kvpairs);
 done:
     return;
 }
@@ -247,8 +295,10 @@ static void start_tag(void *userdata __unused, const XML_Char *tag_name,
         section = BACKEND_NAME;
     } else if (strcmp(tag_name, "config_params") == 0) {
         section = CONFIG_PARAMS;
+    } else if (strcmp(tag_name, "operator_specific") == 0) {
+        section = OPERATOR_SPECIFIC;
     } else if (strcmp(tag_name, "device") == 0) {
-        if ((section != ACDB) && (section != BACKEND_NAME)) {
+        if ((section != ACDB) && (section != BACKEND_NAME) && (section != OPERATOR_SPECIFIC)) {
             ALOGE("device tag only supported for acdb/backend names");
             return;
         }
@@ -287,11 +337,12 @@ static void end_tag(void *userdata __unused, const XML_Char *tag_name)
         section = ROOT;
     } else if (strcmp(tag_name, "config_params") == 0) {
         section = ROOT;
-        platform_set_parameters(my_data.platform, my_data.kvpairs);
+    } else if (strcmp(tag_name, "operator_specific") == 0) {
+        section = ROOT;
     }
 }
 
-int platform_info_init(void *platform)
+int platform_info_init(const char *filename, void *platform)
 {
     XML_Parser      parser;
     FILE            *file;
@@ -299,13 +350,22 @@ int platform_info_init(void *platform)
     int             bytes_read;
     void            *buf;
     static const uint32_t kBufSize = 1024;
-
+    char   platform_info_file_name[MIXER_PATH_MAX_LENGTH]= {0};
     section = ROOT;
 
-    file = fopen(PLATFORM_INFO_XML_PATH, "r");
+    if (filename == NULL) {
+        strlcpy(platform_info_file_name, PLATFORM_INFO_XML_PATH, MIXER_PATH_MAX_LENGTH);
+    } else {
+        strlcpy(platform_info_file_name, filename, MIXER_PATH_MAX_LENGTH);
+    }
+
+    ALOGV("%s: platform info file name is %s", __func__, platform_info_file_name);
+
+    file = fopen(platform_info_file_name, "r");
+
     if (!file) {
         ALOGD("%s: Failed to open %s, using defaults.",
-            __func__, PLATFORM_INFO_XML_PATH);
+            __func__, platform_info_file_name);
         ret = -ENODEV;
         goto done;
     }
@@ -340,7 +400,7 @@ int platform_info_init(void *platform)
         if (XML_ParseBuffer(parser, bytes_read,
                             bytes_read == 0) == XML_STATUS_ERROR) {
             ALOGE("%s: XML_ParseBuffer failed, for %s",
-                __func__, PLATFORM_INFO_XML_PATH);
+                __func__, platform_info_file_name);
             ret = -EINVAL;
             goto err_free_parser;
         }

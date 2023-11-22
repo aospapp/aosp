@@ -16,13 +16,13 @@
 #include "SkTDArray.h"
 #include "SkTouchGesture.h"
 #include "SkWindow.h"
+#include "timer/Timer.h"
 
 class GrContext;
 class GrRenderTarget;
 
 class SkCanvas;
 class SkData;
-class SkDeferredCanvas;
 class SkDocument;
 class SkEvent;
 class SkTypeface;
@@ -33,14 +33,15 @@ class SampleWindow : public SkOSWindow {
 public:
     enum DeviceType {
         kRaster_DeviceType,
-        kPicture_DeviceType,
 #if SK_SUPPORT_GPU
         kGPU_DeviceType,
 #if SK_ANGLE
         kANGLE_DeviceType,
 #endif // SK_ANGLE
+#if SK_COMMAND_BUFFER
+        kCommandBufferES2_DeviceType,
+#endif // SK_COMMAND_BUFFER
 #endif // SK_SUPPORT_GPU
-        kDeferred_DeviceType,
         kDeviceTypeCnt
     };
 
@@ -51,6 +52,9 @@ public:
     #if SK_ANGLE
             case kANGLE_DeviceType:
     #endif // SK_ANGLE
+    #if SK_COMMAND_BUFFER
+            case kCommandBufferES2_DeviceType:
+    #endif // SK_COMMAND_BUFFER
                 return true;
             default:
                 return false;
@@ -68,7 +72,7 @@ public:
      */
     class DeviceManager : public SkRefCnt {
     public:
-        SK_DECLARE_INST_COUNT(DeviceManager)
+        
 
         virtual void setUpBackend(SampleWindow* win, int msaaSampleCount) = 0;
 
@@ -88,10 +92,10 @@ public:
         // at least once before first draw (after init)
         virtual void windowSizeChanged(SampleWindow* win) = 0;
 
-        // return the GrContext backing gpu devices (NULL if not built with GPU support)
+        // return the GrContext backing gpu devices (nullptr if not built with GPU support)
         virtual GrContext* getGrContext() = 0;
 
-        // return the GrRenderTarget backing gpu devices (NULL if not built with GPU support)
+        // return the GrRenderTarget backing gpu devices (nullptr if not built with GPU support)
         virtual GrRenderTarget* getGrRenderTarget() = 0;
     private:
         typedef SkRefCnt INHERITED;
@@ -101,11 +105,11 @@ public:
     virtual ~SampleWindow();
 
     SkSurface* createSurface() override {
-        SkSurface* surface = NULL;
+        SkSurface* surface = nullptr;
         if (fDevManager) {
             surface = fDevManager->createSurface(fDeviceType, this);
         }
-        if (NULL == surface) {
+        if (nullptr == surface) {
             surface = this->INHERITED::createSurface();
         }
         return surface;
@@ -114,6 +118,7 @@ public:
     void draw(SkCanvas*) override;
 
     void setDeviceType(DeviceType type);
+    void setDeviceColorType(SkColorType, SkColorProfileType);
     void toggleRendering();
     void toggleSlideshow();
     void toggleFPS();
@@ -145,7 +150,6 @@ protected:
     SkCanvas* beforeChildren(SkCanvas*) override;
     void afterChildren(SkCanvas*) override;
     void beforeChild(SkView* child, SkCanvas* canvas) override;
-    void afterChild(SkView* child, SkCanvas* canvas) override;
 
     bool onEvent(const SkEvent& evt) override;
     bool onQuery(SkEvent* evt) override;
@@ -162,8 +166,7 @@ private:
     int fCurrIndex;
 
     SkPictureRecorder fRecorder;
-    SkAutoTDelete<SkSurface> fDeferredSurface;
-    SkAutoTDelete<SkDeferredCanvas> fDeferredCanvas;
+    SkAutoTDelete<SkCanvas> fFlagsFilterCanvas;
     SkPath fClipPath;
 
     SkTouchGesture fGesture;
@@ -174,24 +177,20 @@ private:
     DeviceManager* fDevManager;
 
     bool fSaveToPdf;
+    bool fSaveToSKP;
     SkAutoTUnref<SkDocument> fPDFDocument;
 
     bool fUseClip;
+    bool fUsePicture;
     bool fAnimating;
     bool fRotate;
     bool fPerspAnim;
     bool fRequestGrabImage;
     bool fMeasureFPS;
-    SkMSec fMeasureFPS_Time;
-    SkMSec fMeasureFPS_StartTime;
+    WallTimer fTimer;
+    double fMeasureFPS_Time;
     bool fMagnify;
     int fTilingMode;
-
-
-    SkOSMenu::TriState fPipeState;  // Mixed uses a tiled pipe
-                                    // On uses a normal pipe
-                                    // Off uses no pipe
-    int  fUsePipeMenuItemID;
 
     // The following are for the 'fatbits' drawing
     // Latest position of the mouse.
@@ -218,9 +217,6 @@ private:
     //Stores slide specific settings
     SkOSMenu* fSlideMenu; // We pass ownership to SkWindow, when we call addMenu
 
-    int fTransitionNext;
-    int fTransitionPrev;
-
     void loadView(SkView*);
     void updateTitle();
     bool getRawTitle(SkString*);
@@ -232,7 +228,6 @@ private:
     void showZoomer(SkCanvas* canvas);
     void updateMatrix();
     void postAnimatingEvent();
-    void installDrawFilter(SkCanvas*);
     int findByTitle(const char*);
     void listTitles();
     SkSize tileSize() const;

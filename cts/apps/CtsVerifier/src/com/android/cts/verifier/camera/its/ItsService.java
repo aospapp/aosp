@@ -39,12 +39,14 @@ import android.hardware.SensorManager;
 import android.media.Image;
 import android.media.ImageReader;
 import android.media.ImageWriter;
+import android.media.Image.Plane;
 import android.net.Uri;
 import android.os.ConditionVariable;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Message;
+import android.os.SystemClock;
 import android.os.Vibrator;
 import android.util.Log;
 import android.util.Rational;
@@ -55,6 +57,8 @@ import com.android.ex.camera2.blocking.BlockingCameraManager;
 import com.android.ex.camera2.blocking.BlockingCameraManager.BlockingOpenException;
 import com.android.ex.camera2.blocking.BlockingStateCallback;
 import com.android.ex.camera2.blocking.BlockingSessionCallback;
+
+import com.android.cts.verifier.camera.its.StatsImage;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -70,6 +74,8 @@ import java.math.BigInteger;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
 import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.util.ArrayList;
@@ -80,6 +86,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -87,20 +94,24 @@ public class ItsService extends Service implements SensorEventListener {
     public static final String TAG = ItsService.class.getSimpleName();
 
     // Timeouts, in seconds.
-    public static final int TIMEOUT_CALLBACK = 3;
-    public static final int TIMEOUT_3A = 10;
+    private static final int TIMEOUT_CALLBACK = 10;
+    private static final int TIMEOUT_3A = 10;
+
+    // Time given for background requests to warm up pipeline
+    private static final long PIPELINE_WARMUP_TIME_MS = 2000;
 
     // State transition timeouts, in ms.
     private static final long TIMEOUT_IDLE_MS = 2000;
     private static final long TIMEOUT_STATE_MS = 500;
+    private static final long TIMEOUT_SESSION_CLOSE = 3000;
 
     // Timeout to wait for a capture result after the capture buffer has arrived, in ms.
     private static final long TIMEOUT_CAP_RES = 2000;
 
     private static final int MAX_CONCURRENT_READER_BUFFERS = 10;
 
-    // Supports at most RAW+YUV+JPEG, one surface each.
-    private static final int MAX_NUM_OUTPUT_SURFACES = 3;
+    // Supports at most RAW+YUV+JPEG, one surface each, plus optional background stream
+    private static final int MAX_NUM_OUTPUT_SURFACES = 4;
 
     public static final int SERVERPORT = 6000;
 
@@ -138,6 +149,8 @@ public class ItsService extends Service implements SensorEventListener {
 
     private volatile ServerSocket mSocket = null;
     private volatile SocketRunnable mSocketRunnableObj = null;
+    private Semaphore mSocketQueueQuota = null;
+    private LinkedList<Integer> mInflightImageSizes = new LinkedList<>();
     private volatile BlockingQueue<ByteBuffer> mSocketWriteQueue =
             new LinkedBlockingDeque<ByteBuffer>();
     private final Object mSocketWriteEnqueueLock = new Object();
@@ -154,6 +167,9 @@ public class ItsService extends Service implements SensorEventListener {
     private AtomicInteger mCountYuv = new AtomicInteger();
     private AtomicInteger mCountCapRes = new AtomicInteger();
     private boolean mCaptureRawIsDng;
+    private boolean mCaptureRawIsStats;
+    private int mCaptureStatsGridWidth;
+    private int mCaptureStatsGridHeight;
     private CaptureResult mCaptureResults[] = null;
 
     private volatile ConditionVariable mInterlock3A = new ConditionVariable(true);
@@ -303,6 +319,10 @@ public class ItsService extends Service implements SensorEventListener {
                     mCameraListener, mCameraHandler);
             mCameraCharacteristics = mCameraManager.getCameraCharacteristics(
                     devices[cameraId]);
+            Size maxYuvSize = ItsUtils.getYuvOutputSizes(mCameraCharacteristics)[0];
+            // 2 bytes per pixel for RGBA Bitmap and at least 3 Bitmaps per CDD
+            int quota = maxYuvSize.getWidth() * maxYuvSize.getHeight() * 2 * 3;
+            mSocketQueueQuota = new Semaphore(quota, true);
         } catch (CameraAccessException e) {
             throw new ItsException("Failed to open camera", e);
         } catch (BlockingOpenException e) {
@@ -404,7 +424,7 @@ public class ItsService extends Service implements SensorEventListener {
                             continue;
                         }
                         if (b.hasArray()) {
-                            mOpenSocket.getOutputStream().write(b.array());
+                            mOpenSocket.getOutputStream().write(b.array(), 0, b.capacity());
                         } else {
                             byte[] barray = new byte[b.capacity()];
                             b.get(barray);
@@ -412,6 +432,13 @@ public class ItsService extends Service implements SensorEventListener {
                         }
                         mOpenSocket.getOutputStream().flush();
                         Logt.i(TAG, String.format("Wrote to socket: %d bytes", b.capacity()));
+                        Integer imgBufSize = mInflightImageSizes.peek();
+                        if (imgBufSize != null && imgBufSize == b.capacity()) {
+                            mInflightImageSizes.removeFirst();
+                            if (mSocketQueueQuota != null) {
+                                mSocketQueueQuota.release(imgBufSize);
+                            }
+                        }
                     }
                 } catch (IOException e) {
                     Logt.e(TAG, "Error writing to socket", e);
@@ -460,6 +487,7 @@ public class ItsService extends Service implements SensorEventListener {
                         break;
                     }
                     mSocketWriteQueue.clear();
+                    mInflightImageSizes.clear();
                     mSocketWriteRunnable.setOpenSocket(mOpenSocket);
                     Logt.i(TAG, "Socket connected");
                 } catch (IOException e) {
@@ -495,6 +523,7 @@ public class ItsService extends Service implements SensorEventListener {
                 try {
                     synchronized(mSocketWriteDrainLock) {
                         mSocketWriteQueue.clear();
+                        mInflightImageSizes.clear();
                         mOpenSocket.close();
                         mOpenSocket = null;
                         mSocketWriteRunnable.setOpenSocket(null);
@@ -535,6 +564,7 @@ public class ItsService extends Service implements SensorEventListener {
             // Each command is a serialized JSON object.
             try {
                 JSONObject cmdObj = new JSONObject(cmd);
+                Logt.i(TAG, "Start processing command" + cmdObj.getString("cmdName"));
                 if ("open".equals(cmdObj.getString("cmdName"))) {
                     int cameraId = cmdObj.getInt("cameraId");
                     openCameraDevice(cameraId);
@@ -559,6 +589,7 @@ public class ItsService extends Service implements SensorEventListener {
                 } else {
                     throw new ItsException("Unknown command: " + cmd);
                 }
+                Logt.i(TAG, "Finish processing command" + cmdObj.getString("cmdName"));
             } catch (org.json.JSONException e) {
                 Logt.e(TAG, "Invalid command: ", e);
             }
@@ -585,6 +616,7 @@ public class ItsService extends Service implements SensorEventListener {
                         mSocketWriteQueue.put(bstr);
                     }
                     if (bbuf != null) {
+                        mInflightImageSizes.add(bbuf.capacity());
                         mSocketWriteQueue.put(bbuf);
                     }
                 }
@@ -612,6 +644,7 @@ public class ItsService extends Service implements SensorEventListener {
 
         public void sendResponse(LinkedList<MySensorEvent> events)
                 throws ItsException {
+            Logt.i(TAG, "Sending " + events.size() + " sensor events");
             try {
                 JSONArray accels = new JSONArray();
                 JSONArray mags = new JSONArray();
@@ -638,6 +671,7 @@ public class ItsService extends Service implements SensorEventListener {
             } catch (org.json.JSONException e) {
                 throw new ItsException("JSON error: ", e);
             }
+            Logt.i(TAG, "Sent sensor events");
         }
 
         public void sendResponse(CameraCharacteristics props)
@@ -665,7 +699,16 @@ public class ItsService extends Service implements SensorEventListener {
                     jsonSurface.put("height", readers[i].getHeight());
                     int format = readers[i].getImageFormat();
                     if (format == ImageFormat.RAW_SENSOR) {
-                        jsonSurface.put("format", "raw");
+                        if (mCaptureRawIsStats) {
+                            jsonSurface.put("format", "rawStats");
+                            jsonSurface.put("width", readers[i].getWidth()/mCaptureStatsGridWidth);
+                            jsonSurface.put("height",
+                                    readers[i].getHeight()/mCaptureStatsGridHeight);
+                        } else if (mCaptureRawIsDng) {
+                            jsonSurface.put("format", "dng");
+                        } else {
+                            jsonSurface.put("format", "raw");
+                        }
                     } else if (format == ImageFormat.RAW10) {
                         jsonSurface.put("format", "raw10");
                     } else if (format == ImageFormat.RAW12) {
@@ -714,7 +757,7 @@ public class ItsService extends Service implements SensorEventListener {
     }
 
     private ImageReader.OnImageAvailableListener
-            createAvailableListenerDropper(final CaptureCallback listener) {
+            createAvailableListenerDropper() {
         return new ImageReader.OnImageAvailableListener() {
             @Override
             public void onImageAvailable(ImageReader reader) {
@@ -838,7 +881,7 @@ public class ItsService extends Service implements SensorEventListener {
 
             // Add a listener that just recycles buffers; they aren't saved anywhere.
             ImageReader.OnImageAvailableListener readerListener =
-                    createAvailableListenerDropper(mCaptureCallback);
+                    createAvailableListenerDropper();
             mOutputImageReaders[0].setOnImageAvailableListener(readerListener, mSaveHandlers[0]);
 
             // Get the user-specified regions for AE, AWB, AF.
@@ -1029,7 +1072,7 @@ public class ItsService extends Service implements SensorEventListener {
      * size and format.
      */
     private void prepareImageReadersWithOutputSpecs(JSONArray jsonOutputSpecs, Size inputSize,
-            int inputFormat, int maxInputBuffers) throws ItsException {
+            int inputFormat, int maxInputBuffers, boolean backgroundRequest) throws ItsException {
         Size outputSizes[];
         int outputFormats[];
         int numSurfaces = 0;
@@ -1037,6 +1080,9 @@ public class ItsService extends Service implements SensorEventListener {
         if (jsonOutputSpecs != null) {
             try {
                 numSurfaces = jsonOutputSpecs.length();
+                if (backgroundRequest) {
+                    numSurfaces += 1;
+                }
                 if (numSurfaces > MAX_NUM_OUTPUT_SURFACES) {
                     throw new ItsException("Too many output surfaces");
                 }
@@ -1044,6 +1090,12 @@ public class ItsService extends Service implements SensorEventListener {
                 outputSizes = new Size[numSurfaces];
                 outputFormats = new int[numSurfaces];
                 for (int i = 0; i < numSurfaces; i++) {
+                    // Append optional background stream at the end
+                    if (backgroundRequest && i == numSurfaces - 1) {
+                        outputFormats[i] = ImageFormat.YUV_420_888;
+                        outputSizes[i] = new Size(640, 480);
+                        continue;
+                    }
                     // Get the specified surface.
                     JSONObject surfaceObj = jsonOutputSpecs.getJSONObject(i);
                     String sformat = surfaceObj.optString("format");
@@ -1068,6 +1120,12 @@ public class ItsService extends Service implements SensorEventListener {
                         outputFormats[i] = ImageFormat.RAW_SENSOR;
                         sizes = ItsUtils.getRaw16OutputSizes(mCameraCharacteristics);
                         mCaptureRawIsDng = true;
+                    } else if ("rawStats".equals(sformat)) {
+                        outputFormats[i] = ImageFormat.RAW_SENSOR;
+                        sizes = ItsUtils.getRaw16OutputSizes(mCameraCharacteristics);
+                        mCaptureRawIsStats = true;
+                        mCaptureStatsGridWidth = surfaceObj.optInt("gridWidth");
+                        mCaptureStatsGridHeight = surfaceObj.optInt("gridHeight");
                     } else {
                         throw new ItsException("Unsupported format: " + sformat);
                     }
@@ -1086,6 +1144,14 @@ public class ItsService extends Service implements SensorEventListener {
                     if (height <= 0) {
                         height = ItsUtils.getMaxSize(sizes).getHeight();
                     }
+                    if (mCaptureStatsGridWidth <= 0) {
+                        mCaptureStatsGridWidth = width;
+                    }
+                    if (mCaptureStatsGridHeight <= 0) {
+                        mCaptureStatsGridHeight = height;
+                    }
+
+                    // TODO: Crop to the active array in the stats image analysis.
 
                     outputSizes[i] = new Size(width, height);
                 }
@@ -1096,24 +1162,58 @@ public class ItsService extends Service implements SensorEventListener {
             // No surface(s) specified at all.
             // Default: a single output surface which is full-res YUV.
             Size sizes[] = ItsUtils.getYuvOutputSizes(mCameraCharacteristics);
-            numSurfaces = 1;
+            numSurfaces = backgroundRequest ? 2 : 1;
 
-            outputSizes = new Size[1];
-            outputFormats = new int[1];
+            outputSizes = new Size[numSurfaces];
+            outputFormats = new int[numSurfaces];
             outputSizes[0] = sizes[0];
             outputFormats[0] = ImageFormat.YUV_420_888;
+            if (backgroundRequest) {
+                outputSizes[1] = new Size(640, 480);
+                outputFormats[1] = ImageFormat.YUV_420_888;
+            }
         }
 
         prepareImageReaders(outputSizes, outputFormats, inputSize, inputFormat, maxInputBuffers);
+    }
+
+    /**
+     * Wait until mCountCallbacksRemaining is 0 or a specified amount of time has elapsed between
+     * each callback.
+     */
+    private void waitForCallbacks(long timeoutMs) throws ItsException {
+        synchronized(mCountCallbacksRemaining) {
+            int currentCount = mCountCallbacksRemaining.get();
+            while (currentCount > 0) {
+                try {
+                    mCountCallbacksRemaining.wait(timeoutMs);
+                } catch (InterruptedException e) {
+                    throw new ItsException("Waiting for callbacks was interrupted.", e);
+                }
+
+                int newCount = mCountCallbacksRemaining.get();
+                if (newCount == currentCount) {
+                    throw new ItsException("No callback received within timeout");
+                }
+                currentCount = newCount;
+            }
+        }
     }
 
     private void doCapture(JSONObject params) throws ItsException {
         try {
             // Parse the JSON to get the list of capture requests.
             List<CaptureRequest.Builder> requests = ItsSerializer.deserializeRequestList(
-                    mCamera, params);
+                    mCamera, params, "captureRequests");
+
+            // optional background preview requests
+            List<CaptureRequest.Builder> backgroundRequests = ItsSerializer.deserializeRequestList(
+                    mCamera, params, "repeatRequests");
+            boolean backgroundRequest = backgroundRequests.size() > 0;
 
             int numSurfaces = 0;
+            int numCaptureSurfaces = 0;
+            BlockingSessionCallback sessionListener = new BlockingSessionCallback();
             try {
                 mCountRawOrDng.set(0);
                 mCountJpg.set(0);
@@ -1122,25 +1222,30 @@ public class ItsService extends Service implements SensorEventListener {
                 mCountRaw12.set(0);
                 mCountCapRes.set(0);
                 mCaptureRawIsDng = false;
+                mCaptureRawIsStats = false;
                 mCaptureResults = new CaptureResult[requests.size()];
 
                 JSONArray jsonOutputSpecs = ItsUtils.getOutputSpecs(params);
 
                 prepareImageReadersWithOutputSpecs(jsonOutputSpecs, /*inputSize*/null,
-                        /*inputFormat*/0, /*maxInputBuffers*/0);
+                        /*inputFormat*/0, /*maxInputBuffers*/0, backgroundRequest);
                 numSurfaces = mOutputImageReaders.length;
+                numCaptureSurfaces = numSurfaces - (backgroundRequest ? 1 : 0);
 
                 List<Surface> outputSurfaces = new ArrayList<Surface>(numSurfaces);
                 for (int i = 0; i < numSurfaces; i++) {
                     outputSurfaces.add(mOutputImageReaders[i].getSurface());
                 }
-                BlockingSessionCallback sessionListener = new BlockingSessionCallback();
                 mCamera.createCaptureSession(outputSurfaces, sessionListener, mCameraHandler);
                 mSession = sessionListener.waitAndGetSession(TIMEOUT_IDLE_MS);
 
                 for (int i = 0; i < numSurfaces; i++) {
-                    ImageReader.OnImageAvailableListener readerListener =
-                            createAvailableListener(mCaptureCallback);
+                    ImageReader.OnImageAvailableListener readerListener;
+                    if (backgroundRequest && i == numSurfaces - 1) {
+                        readerListener = createAvailableListenerDropper();
+                    } else {
+                        readerListener = createAvailableListener(mCaptureCallback);
+                    }
                     mOutputImageReaders[i].setOnImageAvailableListener(readerListener,
                             mSaveHandlers[i]);
                 }
@@ -1149,10 +1254,24 @@ public class ItsService extends Service implements SensorEventListener {
                 // sequence of capture requests. There is one callback per image surface, and one
                 // callback for the CaptureResult, for each capture.
                 int numCaptures = requests.size();
-                mCountCallbacksRemaining.set(numCaptures * (numSurfaces + 1));
+                mCountCallbacksRemaining.set(numCaptures * (numCaptureSurfaces + 1));
 
             } catch (CameraAccessException e) {
                 throw new ItsException("Error configuring outputs", e);
+            }
+
+            // Start background requests and let it warm up pipeline
+            if (backgroundRequest) {
+                List<CaptureRequest> bgRequestList =
+                        new ArrayList<CaptureRequest>(backgroundRequests.size());
+                for (int i = 0; i < backgroundRequests.size(); i++) {
+                    CaptureRequest.Builder req = backgroundRequests.get(i);
+                    req.addTarget(mOutputImageReaders[numCaptureSurfaces].getSurface());
+                    bgRequestList.add(req.build());
+                }
+                mSession.setRepeatingBurst(bgRequestList, null, null);
+                // warm up the pipeline
+                Thread.sleep(PIPELINE_WARMUP_TIME_MS);
             }
 
             // Initiate the captures.
@@ -1168,7 +1287,7 @@ public class ItsService extends Service implements SensorEventListener {
                     maxExpTimeNs = expTimeNs;
                 }
 
-                for (int j = 0; j < numSurfaces; j++) {
+                for (int j = 0; j < numCaptureSurfaces; j++) {
                     req.addTarget(mOutputImageReaders[j].getSurface());
                 }
                 mSession.capture(req.build(), mCaptureResultListener, mResultHandler);
@@ -1180,22 +1299,17 @@ public class ItsService extends Service implements SensorEventListener {
             }
             // Make sure all callbacks have been hit (wait until captures are done).
             // If no timeouts are received after a timeout, then fail.
-            int currentCount = mCountCallbacksRemaining.get();
-            while (currentCount > 0) {
-                try {
-                    Thread.sleep(timeout);
-                } catch (InterruptedException e) {
-                    throw new ItsException("Timeout failure", e);
-                }
-                int newCount = mCountCallbacksRemaining.get();
-                if (newCount == currentCount) {
-                    throw new ItsException(
-                            "No callback received within timeout");
-                }
-                currentCount = newCount;
-            }
+            waitForCallbacks(timeout);
+
+            // Close session and wait until session is fully closed
+            mSession.close();
+            sessionListener.getStateWaiter().waitForState(
+                    BlockingSessionCallback.SESSION_CLOSED, TIMEOUT_SESSION_CLOSE);
+
         } catch (android.hardware.camera2.CameraAccessException e) {
             throw new ItsException("Access error: ", e);
+        } catch (InterruptedException e) {
+            throw new ItsException("Unexpected InterruptedException: ", e);
         }
     }
 
@@ -1235,18 +1349,19 @@ public class ItsService extends Service implements SensorEventListener {
         mCountRaw12.set(0);
         mCountCapRes.set(0);
         mCaptureRawIsDng = false;
+        mCaptureRawIsStats = false;
 
         try {
             // Parse the JSON to get the list of capture requests.
             List<CaptureRequest.Builder> inputRequests =
-                    ItsSerializer.deserializeRequestList(mCamera, params);
+                    ItsSerializer.deserializeRequestList(mCamera, params, "captureRequests");
 
             // Prepare the image readers for reprocess input and reprocess outputs.
             int inputFormat = getReprocessInputFormat(params);
             Size inputSize = ItsUtils.getMaxOutputSize(mCameraCharacteristics, inputFormat);
             JSONArray jsonOutputSpecs = ItsUtils.getOutputSpecs(params);
             prepareImageReadersWithOutputSpecs(jsonOutputSpecs, inputSize, inputFormat,
-                    inputRequests.size());
+                    inputRequests.size(), /*backgroundRequest*/false);
 
             // Prepare a reprocessable session.
             int numOutputSurfaces = mOutputImageReaders.length;
@@ -1323,6 +1438,12 @@ public class ItsService extends Service implements SensorEventListener {
                         mSaveHandlers[i]);
             }
 
+            // Plan for how many callbacks need to be received throughout the duration of this
+            // sequence of capture requests. There is one callback per image surface, and one
+            // callback for the CaptureResult, for each capture.
+            int numCaptures = reprocessOutputRequests.size();
+            mCountCallbacksRemaining.set(numCaptures * (numOutputSurfaces + 1));
+
             // Initiate the captures.
             for (int i = 0; i < reprocessOutputRequests.size(); i++) {
                 CaptureRequest.Builder req = reprocessOutputRequests.get(i);
@@ -1338,28 +1459,9 @@ public class ItsService extends Service implements SensorEventListener {
                 mSession.capture(req.build(), mCaptureResultListener, mResultHandler);
             }
 
-            // Plan for how many callbacks need to be received throughout the duration of this
-            // sequence of capture requests. There is one callback per image surface, and one
-            // callback for the CaptureResult, for each capture.
-            int numCaptures = reprocessOutputRequests.size();
-            mCountCallbacksRemaining.set(numCaptures * (numOutputSurfaces + 1));
-
             // Make sure all callbacks have been hit (wait until captures are done).
             // If no timeouts are received after a timeout, then fail.
-            int currentCount = mCountCallbacksRemaining.get();
-            while (currentCount > 0) {
-                try {
-                    Thread.sleep(TIMEOUT_CALLBACK*1000);
-                } catch (InterruptedException e) {
-                    throw new ItsException("Timeout failure", e);
-                }
-                int newCount = mCountCallbacksRemaining.get();
-                if (newCount == currentCount) {
-                    throw new ItsException(
-                            "No callback received within timeout");
-                }
-                currentCount = newCount;
-            }
+            waitForCallbacks(TIMEOUT_CALLBACK * 1000);
         } catch (android.hardware.camera2.CameraAccessException e) {
             throw new ItsException("Access error: ", e);
         } finally {
@@ -1400,25 +1502,25 @@ public class ItsService extends Service implements SensorEventListener {
                 int format = capture.getFormat();
                 if (format == ImageFormat.JPEG) {
                     Logt.i(TAG, "Received JPEG capture");
-                    byte[] img = ItsUtils.getDataFromImage(capture);
+                    byte[] img = ItsUtils.getDataFromImage(capture, mSocketQueueQuota);
                     ByteBuffer buf = ByteBuffer.wrap(img);
                     int count = mCountJpg.getAndIncrement();
                     mSocketRunnableObj.sendResponseCaptureBuffer("jpegImage", buf);
                 } else if (format == ImageFormat.YUV_420_888) {
                     Logt.i(TAG, "Received YUV capture");
-                    byte[] img = ItsUtils.getDataFromImage(capture);
+                    byte[] img = ItsUtils.getDataFromImage(capture, mSocketQueueQuota);
                     ByteBuffer buf = ByteBuffer.wrap(img);
                     int count = mCountYuv.getAndIncrement();
                     mSocketRunnableObj.sendResponseCaptureBuffer("yuvImage", buf);
                 } else if (format == ImageFormat.RAW10) {
                     Logt.i(TAG, "Received RAW10 capture");
-                    byte[] img = ItsUtils.getDataFromImage(capture);
+                    byte[] img = ItsUtils.getDataFromImage(capture, mSocketQueueQuota);
                     ByteBuffer buf = ByteBuffer.wrap(img);
                     int count = mCountRaw10.getAndIncrement();
                     mSocketRunnableObj.sendResponseCaptureBuffer("raw10Image", buf);
                 } else if (format == ImageFormat.RAW12) {
                     Logt.i(TAG, "Received RAW12 capture");
-                    byte[] img = ItsUtils.getDataFromImage(capture);
+                    byte[] img = ItsUtils.getDataFromImage(capture, mSocketQueueQuota);
                     ByteBuffer buf = ByteBuffer.wrap(img);
                     int count = mCountRaw12.getAndIncrement();
                     mSocketRunnableObj.sendResponseCaptureBuffer("raw12Image", buf);
@@ -1426,9 +1528,33 @@ public class ItsService extends Service implements SensorEventListener {
                     Logt.i(TAG, "Received RAW16 capture");
                     int count = mCountRawOrDng.getAndIncrement();
                     if (! mCaptureRawIsDng) {
-                        byte[] img = ItsUtils.getDataFromImage(capture);
-                        ByteBuffer buf = ByteBuffer.wrap(img);
-                        mSocketRunnableObj.sendResponseCaptureBuffer("rawImage", buf);
+                        byte[] img = ItsUtils.getDataFromImage(capture, mSocketQueueQuota);
+                        if (! mCaptureRawIsStats) {
+                            ByteBuffer buf = ByteBuffer.wrap(img);
+                            mSocketRunnableObj.sendResponseCaptureBuffer("rawImage", buf);
+                        } else {
+                            // Compute the requested stats on the raw frame, and return the results
+                            // in a new "stats image".
+                            long startTimeMs = SystemClock.elapsedRealtime();
+                            int w = capture.getWidth();
+                            int h = capture.getHeight();
+                            int gw = mCaptureStatsGridWidth;
+                            int gh = mCaptureStatsGridHeight;
+                            float[] stats = StatsImage.computeStatsImage(img, w, h, gw, gh);
+                            long endTimeMs = SystemClock.elapsedRealtime();
+                            Log.e(TAG, "Raw stats computation takes " + (endTimeMs - startTimeMs) + " ms");
+                            int statsImgSize = stats.length * 4;
+                            if (mSocketQueueQuota != null) {
+                                mSocketQueueQuota.release(img.length);
+                                mSocketQueueQuota.acquire(statsImgSize);
+                            }
+                            ByteBuffer bBuf = ByteBuffer.allocateDirect(statsImgSize);
+                            bBuf.order(ByteOrder.nativeOrder());
+                            FloatBuffer fBuf = bBuf.asFloatBuffer();
+                            fBuf.put(stats);
+                            fBuf.position(0);
+                            mSocketRunnableObj.sendResponseCaptureBuffer("rawStatsImage", bBuf);
+                        }
                     } else {
                         // Wait until the corresponding capture result is ready, up to a timeout.
                         long t0 = android.os.SystemClock.elapsedRealtime();
@@ -1441,6 +1567,15 @@ public class ItsService extends Service implements SensorEventListener {
                                 ByteArrayOutputStream dngStream = new ByteArrayOutputStream();
                                 dngCreator.writeImage(dngStream, capture);
                                 byte[] dngArray = dngStream.toByteArray();
+                                if (mSocketQueueQuota != null) {
+                                    // Ideally we should acquire before allocating memory, but
+                                    // here the DNG size is unknown before toByteArray call, so
+                                    // we have to register the size afterward. This should still
+                                    // works most of the time since all DNG images are handled by
+                                    // the same handler thread, so we are at most one buffer over
+                                    // the quota.
+                                    mSocketQueueQuota.acquire(dngArray.length);
+                                }
                                 ByteBuffer dngBuf = ByteBuffer.wrap(dngArray);
                                 mSocketRunnableObj.sendResponseCaptureBuffer("dngImage", dngBuf);
                                 break;
@@ -1452,7 +1587,11 @@ public class ItsService extends Service implements SensorEventListener {
                 } else {
                     throw new ItsException("Unsupported image format: " + format);
                 }
-                mCountCallbacksRemaining.decrementAndGet();
+
+                synchronized(mCountCallbacksRemaining) {
+                    mCountCallbacksRemaining.decrementAndGet();
+                    mCountCallbacksRemaining.notify();
+                }
             } catch (IOException e) {
                 Logt.e(TAG, "Script error: ", e);
             } catch (InterruptedException e) {
@@ -1623,7 +1762,10 @@ public class ItsService extends Service implements SensorEventListener {
                     mCaptureResults[count] = result;
                     mSocketRunnableObj.sendResponseCaptureResult(mCameraCharacteristics,
                             request, result, mOutputImageReaders);
-                    mCountCallbacksRemaining.decrementAndGet();
+                    synchronized(mCountCallbacksRemaining) {
+                        mCountCallbacksRemaining.decrementAndGet();
+                        mCountCallbacksRemaining.notify();
+                    }
                 }
             } catch (ItsException e) {
                 Logt.e(TAG, "Script error: ", e);

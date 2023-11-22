@@ -21,9 +21,14 @@
 #include <utility>  // for pair
 
 #include <sysutils/SocketClient.h>
+#include <utils/RWLock.h>
+
+#include "NetdConstants.h"
 
 class BandwidthController {
 public:
+    android::RWLock lock;
+
     class TetherStats {
     public:
         TetherStats(void)
@@ -55,6 +60,7 @@ public:
 
     int enableBandwidthControl(bool force);
     int disableBandwidthControl(void);
+    int enableDataSaver(bool enable);
 
     int setInterfaceSharedQuota(const char *iface, int64_t bytes);
     int getInterfaceSharedQuota(int64_t *bytes);
@@ -64,8 +70,6 @@ public:
     int getInterfaceQuota(const char *iface, int64_t *bytes);
     int removeInterfaceQuota(const char *iface);
 
-    int enableHappyBox(void);
-    int disableHappyBox(void);
     int addNaughtyApps(int numUids, char *appUids[]);
     int removeNaughtyApps(int numUids, char *appUids[]);
     int addNiceApps(int numUids, char *appUids[]);
@@ -122,7 +126,6 @@ protected:
 
     int manipulateSpecialApps(int numUids, char *appStrUids[],
                                const char *chain,
-                               std::list<int /*appUid*/> &specialAppUids,
                                IptJumpOp jumpHandling, SpecialAppOp appOp);
     int manipulateNaughtyApps(int numUids, char *appStrUids[], SpecialAppOp appOp);
     int manipulateNiceApps(int numUids, char *appStrUids[], SpecialAppOp appOp);
@@ -198,21 +201,12 @@ protected:
     int globalAlertTetherCount;
 
     std::list<QuotaInfo> quotaIfaces;
-    std::list<int /*appUid*/> naughtyAppUids;
-    std::list<int /*appUid*/> niceAppUids;
 
-private:
-    static const char *IPT_FLUSH_COMMANDS[];
-    static const char *IPT_CLEANUP_COMMANDS[];
-    static const char *IPT_SETUP_COMMANDS[];
-    static const char *IPT_BASIC_ACCOUNTING_COMMANDS[];
-
-    /* Alphabetical */
-    static const char ALERT_GLOBAL_NAME[];
-    static const int  MAX_CMD_ARGS;
-    static const int  MAX_CMD_LEN;
-    static const int  MAX_IFACENAME_LEN;
-    static const int  MAX_IPT_OUTPUT_LINE_LEN;
+    // For testing.
+    friend class BandwidthControllerTest;
+    static int (*execFunction)(int, char **, int *, bool, bool);
+    static FILE *(*popenFunction)(const char *, const char *);
+    static int (*iptablesRestoreFunction)(IptablesTarget, const std::string&);
 };
 
 #endif

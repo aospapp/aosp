@@ -31,8 +31,10 @@ import android.net.NetworkCapabilities;
 import android.net.NetworkFactory;
 import android.net.NetworkInfo;
 import android.net.NetworkInfo.DetailedState;
-import android.net.NetworkUtils;
 import android.net.StaticIpConfiguration;
+import android.net.ip.IpManager;
+import android.net.ip.IpManager.ProvisioningConfiguration;
+import android.net.ip.IpManager.WaitForProvisioningCallback;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.INetworkManagementService;
@@ -100,6 +102,8 @@ class EthernetNetworkFactory {
     private static boolean mLinkUp;
     private NetworkInfo mNetworkInfo;
     private LinkProperties mLinkProperties;
+    private IpManager mIpManager;
+    private Thread mIpProvisioningThread;
 
     EthernetNetworkFactory(RemoteCallbackList<IEthernetServiceListener> listeners) {
         mNetworkInfo = new NetworkInfo(ConnectivityManager.TYPE_ETHERNET, 0, NETWORK_TYPE, "");
@@ -120,6 +124,21 @@ class EthernetNetworkFactory {
         }
     }
 
+    private void stopIpManagerLocked() {
+        if (mIpManager != null) {
+            mIpManager.shutdown();
+            mIpManager = null;
+        }
+    }
+
+    private void stopIpProvisioningThreadLocked() {
+        stopIpManagerLocked();
+
+        if (mIpProvisioningThread != null) {
+            mIpProvisioningThread.interrupt();
+            mIpProvisioningThread = null;
+        }
+    }
 
     /**
      * Updates interface state variables.
@@ -137,6 +156,7 @@ class EthernetNetworkFactory {
             if (!up) {
                 // Tell the agent we're disconnected. It will call disconnect().
                 mNetworkInfo.setDetailedState(DetailedState.DISCONNECTED, null, mHwAddr);
+                stopIpProvisioningThreadLocked();
             }
             updateAgent();
             // set our score lower than any network could go
@@ -166,7 +186,6 @@ class EthernetNetworkFactory {
     private void setInterfaceUp(String iface) {
         // Bring up the interface so we get link status indications.
         try {
-            NetworkUtils.stopDhcp(iface);
             mNMService.setInterfaceUp(iface);
             String hwAddr = null;
             InterfaceConfiguration config = mNMService.getInterfaceConfig(iface);
@@ -209,7 +228,7 @@ class EthernetNetworkFactory {
         Log.d(TAG, "Stopped tracking interface " + iface);
         // TODO: Unify this codepath with stop().
         synchronized (this) {
-            NetworkUtils.stopDhcp(mIface);
+            stopIpProvisioningThreadLocked();
             setInterfaceInfoLocked("", null);
             mNetworkInfo.setExtraInfo(null);
             mLinkUp = false;
@@ -259,10 +278,19 @@ class EthernetNetworkFactory {
 
     /* Called by the NetworkFactory on the handler thread. */
     public void onRequestNetwork() {
-        // TODO: Handle DHCP renew.
-        Thread dhcpThread = new Thread(new Runnable() {
+        synchronized(EthernetNetworkFactory.this) {
+            if (mIpProvisioningThread != null) {
+                return;
+            }
+        }
+
+        final Thread ipProvisioningThread = new Thread(new Runnable() {
             public void run() {
-                if (DBG) Log.i(TAG, "dhcpThread(" + mIface + "): mNetworkInfo=" + mNetworkInfo);
+                if (DBG) {
+                    Log.d(TAG, String.format("starting ipProvisioningThread(%s): mNetworkInfo=%s",
+                            mIface, mNetworkInfo));
+                }
+
                 LinkProperties linkProperties;
 
                 IpConfiguration config = mEthernetManager.getConfiguration();
@@ -275,39 +303,58 @@ class EthernetNetworkFactory {
                     linkProperties = config.getStaticIpConfiguration().toLinkProperties(mIface);
                 } else {
                     mNetworkInfo.setDetailedState(DetailedState.OBTAINING_IPADDR, null, mHwAddr);
+                    WaitForProvisioningCallback ipmCallback = new WaitForProvisioningCallback() {
+                        @Override
+                        public void onLinkPropertiesChange(LinkProperties newLp) {
+                            synchronized(EthernetNetworkFactory.this) {
+                                if (mNetworkAgent != null && mNetworkInfo.isConnected()) {
+                                    mLinkProperties = newLp;
+                                    mNetworkAgent.sendLinkProperties(newLp);
+                                }
+                            }
+                        }
+                    };
 
-                    DhcpResults dhcpResults = new DhcpResults();
-                    // TODO: Handle DHCP renewals better.
-                    // In general runDhcp handles DHCP renewals for us, because
-                    // the dhcp client stays running, but if the renewal fails,
-                    // we will lose our IP address and connectivity without
-                    // noticing.
-                    if (!NetworkUtils.runDhcp(mIface, dhcpResults)) {
-                        Log.e(TAG, "DHCP request error:" + NetworkUtils.getDhcpError());
+                    synchronized(EthernetNetworkFactory.this) {
+                        stopIpManagerLocked();
+                        mIpManager = new IpManager(mContext, mIface, ipmCallback);
+
+                        if (config.getProxySettings() == ProxySettings.STATIC ||
+                                config.getProxySettings() == ProxySettings.PAC) {
+                            mIpManager.setHttpProxy(config.getHttpProxy());
+                        }
+
+                        final String tcpBufferSizes = mContext.getResources().getString(
+                                com.android.internal.R.string.config_ethernet_tcp_buffers);
+                        if (!TextUtils.isEmpty(tcpBufferSizes)) {
+                            mIpManager.setTcpBufferSizes(tcpBufferSizes);
+                        }
+
+                        final ProvisioningConfiguration provisioningConfiguration =
+                                mIpManager.buildProvisioningConfiguration()
+                                        .withProvisioningTimeoutMs(0)
+                                        .build();
+                        mIpManager.startProvisioning(provisioningConfiguration);
+                    }
+
+                    linkProperties = ipmCallback.waitForProvisioning();
+                    if (linkProperties == null) {
+                        Log.e(TAG, "IP provisioning error");
                         // set our score lower than any network could go
                         // so we get dropped.
                         mFactory.setScoreFilter(-1);
-                        // If DHCP timed out (as opposed to failing), the DHCP client will still be
-                        // running, because in M we changed its timeout to infinite. Stop it now.
-                        NetworkUtils.stopDhcp(mIface);
+                        synchronized(EthernetNetworkFactory.this) {
+                            stopIpManagerLocked();
+                        }
                         return;
                     }
-                    linkProperties = dhcpResults.toLinkProperties(mIface);
-                }
-                if (config.getProxySettings() == ProxySettings.STATIC ||
-                        config.getProxySettings() == ProxySettings.PAC) {
-                    linkProperties.setHttpProxy(config.getHttpProxy());
-                }
-
-                String tcpBufferSizes = mContext.getResources().getString(
-                        com.android.internal.R.string.config_ethernet_tcp_buffers);
-                if (TextUtils.isEmpty(tcpBufferSizes) == false) {
-                    linkProperties.setTcpBufferSizes(tcpBufferSizes);
                 }
 
                 synchronized(EthernetNetworkFactory.this) {
                     if (mNetworkAgent != null) {
                         Log.e(TAG, "Already have a NetworkAgent - aborting new request");
+                        stopIpManagerLocked();
+                        mIpProvisioningThread = null;
                         return;
                     }
                     mLinkProperties = linkProperties;
@@ -321,7 +368,7 @@ class EthernetNetworkFactory {
                         public void unwanted() {
                             synchronized(EthernetNetworkFactory.this) {
                                 if (this == mNetworkAgent) {
-                                    NetworkUtils.stopDhcp(mIface);
+                                    stopIpManagerLocked();
 
                                     mLinkProperties.clear();
                                     mNetworkInfo.setDetailedState(DetailedState.DISCONNECTED, null,
@@ -340,10 +387,23 @@ class EthernetNetworkFactory {
                             }
                         };
                     };
+
+                    mIpProvisioningThread = null;
+                }
+
+                if (DBG) {
+                    Log.d(TAG, String.format("exiting ipProvisioningThread(%s): mNetworkInfo=%s",
+                            mIface, mNetworkInfo));
                 }
             }
         });
-        dhcpThread.start();
+
+        synchronized(EthernetNetworkFactory.this) {
+            if (mIpProvisioningThread == null) {
+                mIpProvisioningThread = ipProvisioningThread;
+                mIpProvisioningThread.start();
+            }
+        }
     }
 
     /**
@@ -396,13 +456,13 @@ class EthernetNetworkFactory {
                     }
                 }
             }
-        } catch (RemoteException e) {
+        } catch (RemoteException|IllegalStateException e) {
             Log.e(TAG, "Could not get list of interfaces " + e);
         }
     }
 
     public synchronized void stop() {
-        NetworkUtils.stopDhcp(mIface);
+        stopIpProvisioningThreadLocked();
         // ConnectivityService will only forget our NetworkAgent if we send it a NetworkInfo object
         // with a state of DISCONNECTED or SUSPENDED. So we can't simply clear our NetworkInfo here:
         // that sets the state to IDLE, and ConnectivityService will still think we're connected.
@@ -471,5 +531,11 @@ class EthernetNetworkFactory {
         pw.println("NetworkInfo: " + mNetworkInfo);
         pw.println("LinkProperties: " + mLinkProperties);
         pw.println("NetworkAgent: " + mNetworkAgent);
+        if (mIpManager != null) {
+            pw.println("IpManager:");
+            pw.increaseIndent();
+            mIpManager.dump(fd, pw, args);
+            pw.decreaseIndent();
+        }
     }
 }

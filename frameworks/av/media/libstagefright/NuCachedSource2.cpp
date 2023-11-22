@@ -225,8 +225,7 @@ NuCachedSource2::NuCachedSource2(
     // IMediaHTTPConnection::readAt and therefore call back into JAVA.
     mLooper->start(false /* runOnCallingThread */, true /* canCallJava */);
 
-    Mutex::Autolock autoLock(mLock);
-    (new AMessage(kWhatFetchMore, mReflector))->post();
+    mName = String8::format("NuCachedSource2(%s)", mSource->toString().string());
 }
 
 NuCachedSource2::~NuCachedSource2() {
@@ -235,6 +234,18 @@ NuCachedSource2::~NuCachedSource2() {
 
     delete mCache;
     mCache = NULL;
+}
+
+// static
+sp<NuCachedSource2> NuCachedSource2::Create(
+        const sp<DataSource> &source,
+        const char *cacheConfig,
+        bool disconnectAtHighwatermark) {
+    sp<NuCachedSource2> instance = new NuCachedSource2(
+            source, cacheConfig, disconnectAtHighwatermark);
+    Mutex::Autolock autoLock(instance->mLock);
+    (new AMessage(kWhatFetchMore, instance->mReflector))->post();
+    return instance;
 }
 
 status_t NuCachedSource2::getEstimatedBandwidthKbps(int32_t *kbps) {

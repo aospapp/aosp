@@ -132,7 +132,7 @@ public class SpoofCheckerTest extends TestFmwk {
 
             String stubConfusables =
                 "# Stub confusables data\n" +
-                "05AD ; 0596 ;  SL  # ( ֭ → ֖ ) HEBREW ACCENT DEHI → HEBREW ACCENT TIPEHA   #\n";
+                "05AD ; 0596 ;  MA  # ( ֭ → ֖ ) HEBREW ACCENT DEHI → HEBREW ACCENT TIPEHA   #\n";
 
             // Verify that re-using a builder doesn't alter SpoofCheckers that were
             //  previously created by that builder. (The builder could modify data
@@ -622,6 +622,17 @@ public class SpoofCheckerTest extends TestFmwk {
 //        getIdentifierProfile()
 //        setIdentifierProfile(UnicodeSet)
     }
+    
+    public void TestBug11635() {
+        // The bug was an error in iterating through supplementary characters in IdentifierInfo.
+        //  The three supplemental chars in the string are "123" from the mathematical bold digit range.
+        //  Common script, Nd general category, and no other restrictions on allowed characters
+        //  leaves "ABC123" as SINGLE_SCRIPT_RESTRICTIVE.  
+        String identifier = Utility.unescape("ABC\\U0001D7CF\\U0001D7D0\\U0001D7D1");
+        IdentifierInfo idInfo = new IdentifierInfo();
+        idInfo.setIdentifier(identifier);
+        assertEquals("", RestrictionLevel.SINGLE_SCRIPT_RESTRICTIVE, idInfo.getRestrictionLevel());
+    }
 
     public void TestComparator() {
         Random random = new Random(0);
@@ -784,4 +795,14 @@ public class SpoofCheckerTest extends TestFmwk {
             errln(e.toString());
         }
     }
+
+    public void TestCheckResultToString11447() {
+        CheckResult checkResult = new CheckResult();
+        SpoofChecker sc = new SpoofChecker.Builder()
+                .setChecks(-1)
+                .build();
+        sc.failsChecks("1१", checkResult);
+        assertTrue("CheckResult: ", checkResult.toString().contains("MIXED_NUMBERS"));
+    }
+
 }

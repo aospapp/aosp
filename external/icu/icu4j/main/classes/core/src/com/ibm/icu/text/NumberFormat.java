@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (C) 1996-2015, International Business Machines Corporation and    *
+ * Copyright (C) 1996-2016, International Business Machines Corporation and    *
  * others. All Rights Reserved.                                                *
  *******************************************************************************
  */
@@ -57,7 +57,7 @@ import com.ibm.icu.util.UResourceBundle;
  * <blockquote>
  * <pre>
  * NumberFormat nf = NumberFormat.getInstance();
- * for (int i = 0; i < a.length; ++i) {
+ * for (int i = 0; i &lt; a.length; ++i) {
  *     output.println(nf.format(myNumber[i]) + "; ");
  * }
  * </pre>
@@ -116,8 +116,8 @@ import com.ibm.icu.util.UResourceBundle;
  * the detailed description for each these control methods,
  * <p>
  * setParseIntegerOnly : only affects parsing, e.g.
- * if true,  "3456.78" -> 3456 (and leaves the parse position just after '6')
- * if false, "3456.78" -> 3456.78 (and leaves the parse position just after '8')
+ * if true,  "3456.78" -&gt; 3456 (and leaves the parse position just after '6')
+ * if false, "3456.78" -&gt; 3456.78 (and leaves the parse position just after '8')
  * This is independent of formatting.  If you want to not show a decimal point
  * where there might be no digits after the decimal point, use
  * setDecimalSeparatorAlwaysShown on DecimalFormat.
@@ -148,12 +148,11 @@ import com.ibm.icu.util.UResourceBundle;
  *      numbers: "(12)" for -12.
  * </ol>
  *
- * <h4>Synchronization</h4>
+ * <h3>Synchronization</h3>
  * <p>
  * Number formats are generally not synchronized. It is recommended to create
  * separate format instances for each thread. If multiple threads access a format
  * concurrently, it must be synchronized externally.
- * <p>
  *
  * <h4>DecimalFormat</h4>
  * <p>DecimalFormat is the concrete implementation of NumberFormat, and the
@@ -175,8 +174,10 @@ public abstract class NumberFormat extends UFormat {
      */
     public static final int NUMBERSTYLE = 0;
     /**
-     * {@icu} Constant to specify currency style of format which uses currency symbol
-     * to represent currency, for example: "$3.00".
+     * {@icu} Constant to specify general currency style of format. Defaults to
+     * STANDARDCURRENCYSTYLE, using currency symbol, for example "$3.00", with
+     * non-accounting style for negative values (e.g. minus sign).
+     * The specific style may be specified using the -cf- locale key.
      * @stable ICU 4.2
      */
     public static final int CURRENCYSTYLE = 1;
@@ -212,17 +213,25 @@ public abstract class NumberFormat extends UFormat {
      * {@icu} Constant to specify currency style of format which uses currency symbol
      * to represent currency for accounting, for example: "($3.00), instead of
      * "-$3.00" ({@link #CURRENCYSTYLE}).
+     * Overrides any style specified using -cf- key in locale.
      * @stable ICU 53
      */
     public static final int ACCOUNTINGCURRENCYSTYLE = 7;
     /**
      * {@icu} Constant to specify currency cash style of format which uses currency
      * ISO code to represent currency, for example: "NT$3" instead of "NT$3.23".
-     * @draft ICU 54
-     * @provisional This API might change or be removed in a future release. 
+     * @stable ICU 54
      */
     public static final int CASHCURRENCYSTYLE = 8;
     /**
+     * {@icu} Constant to specify currency style of format which uses currency symbol
+     * to represent currency, for example "$3.00", using non-accounting style for
+     * negative values (e.g. minus sign).
+     * Overrides any style specified using -cf- key in locale.
+     * @draft ICU 56
+     * @provisional This API might change or be removed in a future release. 
+     */
+    public static final int STANDARDCURRENCYSTYLE = 9;
 
     /**
      * Field constant used to construct a FieldPosition object. Signifies that
@@ -445,7 +454,7 @@ public abstract class NumberFormat extends UFormat {
      *
      * @param text the text to parse
      * @param pos input-output position; on input, the position within
-     * text to match; must have 0 <= pos.getIndex() < text.length();
+     * text to match; must have 0 &lt;= pos.getIndex() &lt; text.length();
      * on output, the position after the last matched character. If
      * the parse fails, the position in unchanged upon output.
      * @return a CurrencyAmount, or null upon failure
@@ -1112,7 +1121,7 @@ public abstract class NumberFormat extends UFormat {
 
     /**
      * Sets the maximum number of digits allowed in the integer portion of a
-     * number. This must be >= minimumIntegerDigits.  If the
+     * number. This must be &gt;= minimumIntegerDigits.  If the
      * new value for maximumIntegerDigits is less than the current value
      * of minimumIntegerDigits, then minimumIntegerDigits will also be set to
      * the new value.
@@ -1144,7 +1153,7 @@ public abstract class NumberFormat extends UFormat {
 
     /**
      * Sets the minimum number of digits allowed in the integer portion of a
-     * number.  This must be <= maximumIntegerDigits.  If the
+     * number.  This must be &lt;= maximumIntegerDigits.  If the
      * new value for minimumIntegerDigits is more than the current value
      * of maximumIntegerDigits, then maximumIntegerDigits will also be set to
      * the new value.
@@ -1176,7 +1185,7 @@ public abstract class NumberFormat extends UFormat {
 
     /**
      * Sets the maximum number of digits allowed in the fraction portion of a
-     * number. This must be >= minimumFractionDigits.  If the
+     * number. This must be &gt;= minimumFractionDigits.  If the
      * new value for maximumFractionDigits is less than the current value
      * of minimumFractionDigits, then minimumFractionDigits will also be set to
      * the new value.
@@ -1208,7 +1217,7 @@ public abstract class NumberFormat extends UFormat {
 
     /**
      * Sets the minimum number of digits allowed in the fraction portion of a
-     * number.  This must be <= maximumFractionDigits.  If the
+     * number.  This must be &lt;= maximumFractionDigits.  If the
      * new value for minimumFractionDigits exceeds the current value
      * of maximumFractionDigits, then maximumFractionDigits will also be set to
      * the new value.
@@ -1304,13 +1313,14 @@ public abstract class NumberFormat extends UFormat {
      *                                   NUMBERSTYLE, CURRENCYSTYLE,
      *                                   PERCENTSTYLE, SCIENTIFICSTYLE,
      *                                   INTEGERSTYLE, ISOCURRENCYSTYLE,
-     *                                   PLURALCURRENCYSTYLE and ACCOUNTSTYLE.
+     *                                   PLURALCURRENCYSTYLE, ACCOUNTINGCURRENCYSTYLE.
+     *                                   CASHCURRENCYSTYLE, STANDARDCURRENCYSTYLE.
      * @stable ICU 4.2
      */
     public static NumberFormat getInstance(ULocale desiredLocale, int choice) {
-        if (choice < NUMBERSTYLE || choice > CASHCURRENCYSTYLE) {
+        if (choice < NUMBERSTYLE || choice > STANDARDCURRENCYSTYLE) {
             throw new IllegalArgumentException(
-                "choice should be from NUMBERSTYLE to PLURALCURRENCYSTYLE");
+                "choice should be from NUMBERSTYLE to STANDARDCURRENCYSTYLE");
         }
 //          if (shim == null) {
 //              return createInstance(desiredLocale, choice);
@@ -1338,7 +1348,7 @@ public abstract class NumberFormat extends UFormat {
         // For currency plural format, the pattern is get from
         // the locale (from CurrencyUnitPatterns) without override.
         if (choice == CURRENCYSTYLE || choice == ISOCURRENCYSTYLE || choice == ACCOUNTINGCURRENCYSTYLE
-                || choice == CASHCURRENCYSTYLE) {
+                || choice == CASHCURRENCYSTYLE || choice == STANDARDCURRENCYSTYLE) {
             String temp = symbols.getCurrencyPattern();
             if(temp!=null){
                 pattern = temp;
@@ -1488,9 +1498,13 @@ public abstract class NumberFormat extends UFormat {
             patternKey = "decimalFormat";
             break;
         case CURRENCYSTYLE:
+            String cfKeyValue = forLocale.getKeywordValue("cf");
+            patternKey = (cfKeyValue != null && cfKeyValue.equals("account"))? "accountingFormat": "currencyFormat";
+            break;
         case CASHCURRENCYSTYLE:
         case ISOCURRENCYSTYLE:
         case PLURALCURRENCYSTYLE:
+        case STANDARDCURRENCYSTYLE:
             patternKey = "currencyFormat";
             break;
         case PERCENTSTYLE:
@@ -1767,8 +1781,8 @@ public abstract class NumberFormat extends UFormat {
     private static final long serialVersionUID = -2308460125733713944L;
 
     /**
-     * Empty constructor.  Public for compatibility with JDK which lets the
-     * compiler generate a default public constructor even though this is
+     * Empty constructor.  Public for API compatibility with historic versions of
+     * {@link java.text.NumberFormat} which had public constructor even though this is
      * an abstract class.
      * @stable ICU 2.6
      */

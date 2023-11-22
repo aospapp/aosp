@@ -10,7 +10,7 @@ class Configuration(LibcxxConfiguration):
         super(Configuration, self).__init__(lit_config, config)
         self.libcxxabi_src_root = None
         self.libcxxabi_obj_root = None
-        self.libcxxabi_lib_root = None
+        self.abi_library_path = None
         self.libcxx_src_root = None
 
     def configure_src_root(self):
@@ -23,12 +23,11 @@ class Configuration(LibcxxConfiguration):
 
     def configure_obj_root(self):
         self.libcxxabi_obj_root = self.get_lit_conf('libcxxabi_obj_root')
-        self.libcxxabi_lib_root = self.get_lit_conf('libcxxabi_lib_root',
-                                                     self.libcxxabi_obj_root)
         super(Configuration, self).configure_obj_root()
 
     def configure_compile_flags(self):
         self.cxx.compile_flags += ['-DLIBCXXABI_NO_TIMER']
+        self.cxx.compile_flags += ['-funwind-tables']
         super(Configuration, self).configure_compile_flags()
 
     def configure_compile_flags_header_includes(self):
@@ -60,12 +59,6 @@ class Configuration(LibcxxConfiguration):
     def configure_compile_flags_no_monotonic_clock(self):
         pass
 
-    def configure_link_flags_abi_library_path(self):
-        # Configure ABI library paths.
-        if self.libcxxabi_lib_root:
-            self.cxx.link_flags += ['-L' + self.libcxxabi_lib_root,
-                                    '-Wl,-rpath,' + self.libcxxabi_lib_root]
-
     # TODO(ericwf): Remove this. This is a hack for OS X.
     # libc++ *should* export all of the symbols found in libc++abi on OS X.
     # For this reason LibcxxConfiguration will not link libc++abi in OS X.
@@ -75,6 +68,3 @@ class Configuration(LibcxxConfiguration):
     def configure_link_flags_abi_library(self):
         self.cxx.link_flags += ['-lc++abi']
 
-    def configure_env(self):
-        if sys.platform == 'darwin' and self.libcxxabi_lib_root:
-            self.env['DYLD_LIBRARY_PATH'] = self.libcxxabi_lib_root

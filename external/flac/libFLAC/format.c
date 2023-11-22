@@ -39,6 +39,7 @@
 #include <string.h> /* for memset() */
 #include "FLAC/assert.h"
 #include "FLAC/format.h"
+#include "share/alloc.h"
 #include "share/compat.h"
 #include "private/format.h"
 #include "private/macros.h"
@@ -273,6 +274,9 @@ FLAC_API unsigned FLAC__format_seektable_sort(FLAC__StreamMetadata_SeekTable *se
 	FLAC__bool first;
 
 	FLAC__ASSERT(0 != seek_table);
+
+	if (seek_table->num_points == 0)
+		return 0;
 
 	/* sort the seekpoints */
 	qsort(seek_table->points, seek_table->num_points, sizeof(FLAC__StreamMetadata_SeekPoint), (int (*)(const void *, const void *))seekpoint_compare_);
@@ -573,9 +577,9 @@ FLAC__bool FLAC__format_entropy_coding_method_partitioned_rice_contents_ensure_s
 	FLAC__ASSERT(object->capacity_by_order > 0 || (0 == object->parameters && 0 == object->raw_bits));
 
 	if(object->capacity_by_order < max_partition_order) {
-		if(0 == (object->parameters = realloc(object->parameters, sizeof(unsigned)*(1 << max_partition_order))))
+		if(0 == (object->parameters = safe_realloc_(object->parameters, sizeof(unsigned)*(1 << max_partition_order))))
 			return false;
-		if(0 == (object->raw_bits = realloc(object->raw_bits, sizeof(unsigned)*(1 << max_partition_order))))
+		if(0 == (object->raw_bits = safe_realloc_(object->raw_bits, sizeof(unsigned)*(1 << max_partition_order))))
 			return false;
 		memset(object->raw_bits, 0, sizeof(unsigned)*(1 << max_partition_order));
 		object->capacity_by_order = max_partition_order;

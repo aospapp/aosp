@@ -428,10 +428,10 @@ rr::GenericVec4 mapToFormatColorRepresentable (const tcu::TextureFormat& texForm
 													 tcu::floatToU8(sRGB[1]),
 													 tcu::floatToU8(sRGB[2]),
 													 tcu::floatToU8(sRGB[3]));
-		const tcu::Vec4		linearized	= tcu::sRGBToLinear(tcu::Vec4(sRGB8[0] / 255.0f,
-																	  sRGB8[1] / 255.0f,
-																	  sRGB8[2] / 255.0f,
-																	  sRGB8[3] / 255.0f));
+		const tcu::Vec4		linearized	= tcu::sRGBToLinear(tcu::Vec4((float)sRGB8[0] / 255.0f,
+																	  (float)sRGB8[1] / 255.0f,
+																	  (float)sRGB8[2] / 255.0f,
+																	  (float)sRGB8[3] / 255.0f));
 
 		return rr::GenericVec4(tcu::select(linearized, tcu::Vec4(0.0f), channelMask));
 	}
@@ -649,11 +649,13 @@ TextureBorderClampTest::~TextureBorderClampTest (void)
 void TextureBorderClampTest::init (void)
 {
 	// requirements
+	const bool supportsES32 = glu::contextSupports(m_context.getRenderContext().getType(), glu::ApiType::es(3, 2));
 
-	if (!m_context.getContextInfo().isExtensionSupported("GL_EXT_texture_border_clamp"))
+	if (!supportsES32 && !m_context.getContextInfo().isExtensionSupported("GL_EXT_texture_border_clamp"))
 		throw tcu::NotSupportedError("Test requires GL_EXT_texture_border_clamp extension");
 
 	if (glu::isCompressedFormat(m_texFormat)													&&
+		!supportsES32																			&&
 		tcu::isAstcFormat(glu::mapGLCompressedTexFormat(m_texFormat))							&&
 		!m_context.getContextInfo().isExtensionSupported("GL_KHR_texture_compression_astc_ldr"))
 	{
@@ -674,14 +676,16 @@ void TextureBorderClampTest::init (void)
 	m_texture = genDummyTexture<glu::Texture2D>(m_context.getRenderContext(), m_context.getContextInfo(), m_texFormat, tcu::IVec2(m_texWidth, m_texHeight));
 
 	m_testCtx.getLog()	<< tcu::TestLog::Message
-						<< "Created texture with format " << ((glu::isCompressedFormat(m_texFormat)) ? (glu::getCompressedTexFormatName(m_texFormat)) : (glu::getPixelFormatName(m_texFormat)))
+						<< "Created texture with format " << glu::getTextureFormatName(m_texFormat)
 						<< ", size (" << m_texture->getRefTexture().getWidth() << ", " << m_texture->getRefTexture().getHeight() << ")\n"
 						<< "Setting sampling state using " << ((m_stateType == STATE_TEXTURE_PARAM) ? ("texture state") : ("sampler state"))
 						<< tcu::TestLog::EndMessage;
 
 	if (m_samplingFunction == SAMPLE_FILTER)
 	{
-		m_renderer = de::MovePtr<gls::TextureTestUtil::TextureRenderer>(new gls::TextureTestUtil::TextureRenderer(m_context.getRenderContext(), m_testCtx.getLog(), glu::GLSL_VERSION_310_ES, glu::PRECISION_HIGHP));
+		const glu::GLSLVersion glslVersion = glu::getContextTypeGLSLVersion(m_context.getRenderContext().getType());
+
+		m_renderer = de::MovePtr<gls::TextureTestUtil::TextureRenderer>(new gls::TextureTestUtil::TextureRenderer(m_context.getRenderContext(), m_testCtx.getLog(), glslVersion, glu::PRECISION_HIGHP));
 	}
 	else
 	{
@@ -1117,7 +1121,7 @@ bool TextureBorderClampTest::verifyTextureGatherResult (const tcu::ConstPixelBuf
 	tcu::Surface								errorMask			(renderedFrame.getWidth(), renderedFrame.getHeight());
 	int											numFailedPixels		= 0;
 
-	tcu::clear(errorMask.getAccess(), tcu::RGBA::green.toVec());
+	tcu::clear(errorMask.getAccess(), tcu::RGBA::green().toVec());
 
 	for (int py = 0; py < reference.getHeight(); ++py)
 	for (int px = 0; px < reference.getWidth(); ++px)
@@ -1137,7 +1141,7 @@ bool TextureBorderClampTest::verifyTextureGatherResult (const tcu::ConstPixelBuf
 		{
 			if (!tcu::isGatherOffsetsResultValid(effectiveView, samplerParams.sampler, lookupPrecision, texCoord, 0, glu::getDefaultGatherOffsets(), resultValue))
 			{
-				errorMask.setPixel(px, py, tcu::RGBA::red);
+				errorMask.setPixel(px, py, tcu::RGBA::red());
 				++numFailedPixels;
 			}
 		}
@@ -1182,7 +1186,7 @@ bool TextureBorderClampTest::verifyTextureGatherCmpResult (const tcu::ConstPixel
 	int											numFailedPixels		= 0;
 	bool										lowQuality			= false;
 
-	tcu::clear(errorMask.getAccess(), tcu::RGBA::green.toVec());
+	tcu::clear(errorMask.getAccess(), tcu::RGBA::green().toVec());
 
 	for (int py = 0; py < reference.getHeight(); ++py)
 	for (int px = 0; px < reference.getWidth(); ++px)
@@ -1204,7 +1208,7 @@ bool TextureBorderClampTest::verifyTextureGatherCmpResult (const tcu::ConstPixel
 				// fall back to low quality verification
 				if (!tcu::isGatherOffsetsCompareResultValid(effectiveView, samplerParams.sampler, lowQualityTexComparePrecision, texCoord, glu::getDefaultGatherOffsets(), refZ, resultValue))
 				{
-					errorMask.setPixel(px, py, tcu::RGBA::red);
+					errorMask.setPixel(px, py, tcu::RGBA::red());
 					++numFailedPixels;
 				}
 			}
@@ -1281,15 +1285,16 @@ gls::TextureTestUtil::ReferenceParams TextureBorderClampTest::genSamplerParams (
 
 glu::ShaderProgram* TextureBorderClampTest::genGatherProgram (void) const
 {
-	const char* const	vtxSource =	"#version 310 es\n"
-									"in highp vec4 a_position;\n"
-									"in highp vec2 a_texcoord;\n"
-									"out highp vec2 v_texcoord;\n"
-									"void main()\n"
-									"{\n"
-									"	gl_Position = a_position;\n"
-									"	v_texcoord = a_texcoord;\n"
-									"}\n";
+	const std::string	glslVersionDecl	= glu::getGLSLVersionDeclaration(glu::getContextTypeGLSLVersion(m_context.getRenderContext().getType()));
+	const std::string	vtxSource 		= glslVersionDecl + "\n"
+										"in highp vec4 a_position;\n"
+										"in highp vec2 a_texcoord;\n"
+										"out highp vec2 v_texcoord;\n"
+										"void main()\n"
+										"{\n"
+										"	gl_Position = a_position;\n"
+										"	v_texcoord = a_texcoord;\n"
+										"}\n";
 	const char* 		samplerType;
 	const char* 		lookup;
 	std::ostringstream	fragSource;
@@ -1327,7 +1332,7 @@ glu::ShaderProgram* TextureBorderClampTest::genGatherProgram (void) const
 		}
 	}
 
-	fragSource	<<	"#version 310 es\n"
+	fragSource	<<	glslVersionDecl + "\n"
 					"uniform highp " << samplerType << " u_sampler;\n"
 					"uniform highp vec4 u_colorScale;\n"
 					"uniform highp vec4 u_colorBias;\n"
@@ -2062,10 +2067,14 @@ TextureBorderClampPerAxisCase3D::TextureBorderClampPerAxisCase3D (Context&		cont
 
 void TextureBorderClampPerAxisCase3D::init (void)
 {
-	if (!m_context.getContextInfo().isExtensionSupported("GL_EXT_texture_border_clamp"))
+	const bool				supportsES32	= glu::contextSupports(m_context.getRenderContext().getType(), glu::ApiType::es(3, 2));
+	const glu::GLSLVersion	glslVersion		= glu::getContextTypeGLSLVersion(m_context.getRenderContext().getType());
+
+	if (!supportsES32 && !m_context.getContextInfo().isExtensionSupported("GL_EXT_texture_border_clamp"))
 		throw tcu::NotSupportedError("Test requires GL_EXT_texture_border_clamp extension");
 
 	if (glu::isCompressedFormat(m_texFormat)													&&
+		!supportsES32																			&&
 		tcu::isAstcFormat(glu::mapGLCompressedTexFormat(m_texFormat))							&&
 		!m_context.getContextInfo().isExtensionSupported("GL_KHR_texture_compression_astc_ldr"))
 	{
@@ -2081,11 +2090,11 @@ void TextureBorderClampPerAxisCase3D::init (void)
 
 	// resources
 	m_texture = genDummyTexture<glu::Texture3D>(m_context.getRenderContext(), m_context.getContextInfo(), m_texFormat, m_size);
-	m_renderer = de::MovePtr<gls::TextureTestUtil::TextureRenderer>(new gls::TextureTestUtil::TextureRenderer(m_context.getRenderContext(), m_testCtx.getLog(), glu::GLSL_VERSION_310_ES, glu::PRECISION_HIGHP));
+	m_renderer = de::MovePtr<gls::TextureTestUtil::TextureRenderer>(new gls::TextureTestUtil::TextureRenderer(m_context.getRenderContext(), m_testCtx.getLog(), glslVersion, glu::PRECISION_HIGHP));
 
 	// texture info
 	m_testCtx.getLog()	<< tcu::TestLog::Message
-						<< "Created 3D texture with format " << ((glu::isCompressedFormat(m_texFormat)) ? (glu::getCompressedTexFormatName(m_texFormat)) : (glu::getPixelFormatName(m_texFormat)))
+						<< "Created 3D texture with format " << glu::getTextureFormatName(m_texFormat)
 						<< ", size (" << m_texture->getRefTexture().getWidth() << ", " << m_texture->getRefTexture().getHeight() << ", " << m_texture->getRefTexture().getDepth() << ")\n"
 						<< tcu::TestLog::EndMessage;
 

@@ -3,13 +3,14 @@
     <!-- Don't allow volume change on the device. -->
     <bool name="config_useFixedVolume">true</bool>
 
-    <!-- Control the behavior when the user double-taps the home button.
+    <!-- Control the behavior when the user long presses the home button.
             0 - Nothing
             1 - Recent apps view in SystemUI
+            2 - Launch assist intent
          This needs to match the constants in
          policy/src/com/android/internal/policy/impl/PhoneWindowManager.java
     -->
-    <integer name="config_doubleTapOnHomeBehavior">1</integer>
+    <integer name="config_longPressOnHomeBehavior">1</integer>
 
     <!-- Supports MS PlayReady in Chromium WebView -->
     <string-array name="config_keySystemUuidMapping" translatable="false">
@@ -58,4 +59,7 @@
 
     <!-- Flag indicating if device supports EAP SIM, AKA, AKA' -->
     <bool name="config_eap_sim_based_auth_supported">false</bool>
+
+    <!-- Package of the unbundled tv remote service which can connect to tv remote provider -->
+    <string translatable="false" name="config_tvRemoteServicePackage">com.google.android.tv.remote.service</string>
 </resources>

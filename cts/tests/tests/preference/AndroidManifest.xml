@@ -16,7 +16,7 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.preference">
+    package="android.preference.cts">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <application>
@@ -28,8 +28,8 @@
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.preference"
-                     android:label="CTS tests of android.os">
+                     android:targetPackage="android.preference.cts"
+                     android:label="CTS tests of android.preference">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />
     </instrumentation>

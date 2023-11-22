@@ -37,6 +37,11 @@ typedef enum {
     LOGGER_GET_RING_DATA,
     LOGGER_GET_FEATURE,
     LOGGER_RESET_LOGGING,
+    LOGGER_TRIGGER_DRIVER_MEM_DUMP,
+    LOGGER_GET_DRIVER_MEM_DUMP,
+    LOGGER_START_PKT_FATE_MONITORING,
+    LOGGER_GET_TX_PKT_FATES,
+    LOGGER_GET_RX_PKT_FATES,
 } DEBUG_SUB_COMMAND;
 
 typedef enum {
@@ -54,6 +59,10 @@ typedef enum {
     LOGGER_ATTRIBUTE_RING_DATA,
     LOGGER_ATTRIBUTE_RING_STATUS,
     LOGGER_ATTRIBUTE_RING_NUM,
+    LOGGER_ATTRIBUTE_DRIVER_DUMP_LEN,
+    LOGGER_ATTRIBUTE_DRIVER_DUMP_DATA,
+    LOGGER_ATTRIBUTE_PKT_FATE_NUM,
+    LOGGER_ATTRIBUTE_PKT_FATE_DATA,
 } LOGGER_ATTRIBUTE;
 
 typedef enum {
@@ -72,6 +81,12 @@ typedef enum {
     GET_FEATURE,
     START_RING_LOG,
 } GetCmdType;
+
+typedef enum {
+    PACKET_MONITOR_START,
+    TX_PACKET_FATE,
+    RX_PACKET_FATE,
+} PktFateReqType;
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -372,7 +387,10 @@ wifi_error wifi_get_firmware_version(wifi_interface_handle iface, char *buffer,
 {
     if (buffer && (buffer_size > 0)) {
         DebugCommand *cmd = new DebugCommand(iface, buffer, &buffer_size, GET_FW_VER);
-        return (wifi_error)cmd->start();
+        NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+        wifi_error result = (wifi_error)cmd->start();
+        cmd->releaseRef();
+        return result;
     } else {
         ALOGE("FW version buffer NULL");
         return  WIFI_ERROR_INVALID_ARGS;
@@ -384,7 +402,10 @@ wifi_error wifi_get_driver_version(wifi_interface_handle iface, char *buffer, in
 {
     if (buffer && (buffer_size > 0)) {
         DebugCommand *cmd = new DebugCommand(iface, buffer, &buffer_size, GET_DRV_VER);
-        return (wifi_error)cmd->start();
+        NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+        wifi_error result = (wifi_error)cmd->start();
+        cmd->releaseRef();
+        return result;
     } else {
         ALOGE("Driver version buffer NULL");
         return  WIFI_ERROR_INVALID_ARGS;
@@ -395,7 +416,10 @@ wifi_error wifi_get_driver_version(wifi_interface_handle iface, char *buffer, in
 wifi_error wifi_get_ring_data(wifi_interface_handle iface, char *ring_name)
 {
     DebugCommand *cmd = new DebugCommand(iface, ring_name, GET_RING_DATA);
-    return (wifi_error)cmd->start();
+    NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+    wifi_error result = (wifi_error)cmd->start();
+    cmd->releaseRef();
+    return result;
 }
 
 /* API to get the status of all ring buffers supported by driver */
@@ -404,7 +428,10 @@ wifi_error wifi_get_ring_buffers_status(wifi_interface_handle iface,
 {
     if (status && num_rings) {
         DebugCommand *cmd = new DebugCommand(iface, num_rings, status, GET_RING_STATUS);
-        return (wifi_error)cmd->start();
+        NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+        wifi_error result = (wifi_error)cmd->start();
+        cmd->releaseRef();
+        return result;
     } else {
         ALOGE("Ring status buffer NULL");
         return  WIFI_ERROR_INVALID_ARGS;
@@ -417,7 +444,10 @@ wifi_error wifi_get_logger_supported_feature_set(wifi_interface_handle iface,
 {
     if (support) {
         DebugCommand *cmd = new DebugCommand(iface, support, GET_FEATURE);
-        return (wifi_error)cmd->start();
+        NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+        wifi_error result = (wifi_error)cmd->start();
+        cmd->releaseRef();
+        return result;
     } else {
         ALOGE("Get support buffer NULL");
         return  WIFI_ERROR_INVALID_ARGS;
@@ -428,9 +458,12 @@ wifi_error wifi_start_logging(wifi_interface_handle iface, u32 verbose_level,
         u32 flags, u32 max_interval_sec, u32 min_data_size, char *ring_name)
 {
     if (ring_name) {
-        DebugCommand *cmd = new DebugCommand(iface, verbose_level, flags,
-                max_interval_sec, min_data_size, ring_name, START_RING_LOG);
-        return (wifi_error)cmd->start();
+        DebugCommand *cmd = new DebugCommand(iface, verbose_level, flags, max_interval_sec,
+                    min_data_size, ring_name, START_RING_LOG);
+        NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+        wifi_error result = (wifi_error)cmd->start();
+        cmd->releaseRef();
+        return result;
     } else {
         ALOGE("Ring name NULL");
         return  WIFI_ERROR_INVALID_ARGS;
@@ -529,16 +562,19 @@ wifi_error wifi_set_log_handler(wifi_request_id id, wifi_interface_handle iface,
     ALOGV("Loghandler start, handle = %p", handle);
 
     SetLogHandler *cmd = new SetLogHandler(iface, id, handler);
-    if (cmd) {
-        wifi_register_cmd(handle, id, cmd);
-        wifi_error result = (wifi_error)cmd->start();
-        if (result != WIFI_SUCCESS)
-            wifi_unregister_cmd(handle, id);
+    NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+    wifi_error result = wifi_register_cmd(handle, id, cmd);
+    if (result != WIFI_SUCCESS) {
+        cmd->releaseRef();
         return result;
-    } else {
-        ALOGD("Out of memory");
-        return WIFI_ERROR_OUT_OF_MEMORY;
     }
+    result = (wifi_error)cmd->start();
+    if (result != WIFI_SUCCESS) {
+        wifi_unregister_cmd(handle, id);
+        cmd->releaseRef();
+        return result;
+    }
+    return result;
 }
 
 wifi_error wifi_reset_log_handler(wifi_request_id id, wifi_interface_handle iface)
@@ -551,6 +587,7 @@ wifi_error wifi_reset_log_handler(wifi_request_id id, wifi_interface_handle ifac
         memset(&handler, 0, sizeof(handler));
 
         SetLogHandler *cmd = new SetLogHandler(iface, id, handler);
+        NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
         cmd->cancel();
         cmd->releaseRef();
         return WIFI_SUCCESS;
@@ -708,17 +745,19 @@ wifi_error wifi_set_alert_handler(wifi_request_id id, wifi_interface_handle ifac
     ALOGV("Alerthandler start, handle = %p", handle);
 
     SetAlertHandler *cmd = new SetAlertHandler(iface, id, handler);
-
-    if (cmd) {
-        wifi_register_cmd(handle, id, cmd);
-        wifi_error result = (wifi_error)cmd->start();
-        if (result != WIFI_SUCCESS)
-            wifi_unregister_cmd(handle, id);
+    NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+    wifi_error result = wifi_register_cmd(handle, id, cmd);
+    if (result != WIFI_SUCCESS) {
+        cmd->releaseRef();
         return result;
-    } else {
-        ALOGE("Out of memory");
-        return WIFI_ERROR_OUT_OF_MEMORY;
     }
+    result = (wifi_error)cmd->start();
+    if (result != WIFI_SUCCESS) {
+        wifi_unregister_cmd(handle, id);
+        cmd->releaseRef();
+        return result;
+    }
+    return result;
 }
 
 wifi_error wifi_reset_alert_handler(wifi_request_id id, wifi_interface_handle iface)
@@ -731,6 +770,7 @@ wifi_error wifi_reset_alert_handler(wifi_request_id id, wifi_interface_handle if
         memset(&handler, 0, sizeof(handler));
 
         SetAlertHandler *cmd = new SetAlertHandler(iface, id, handler);
+        NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
         cmd->cancel();
         cmd->releaseRef();
         return WIFI_SUCCESS;
@@ -850,6 +890,203 @@ wifi_error wifi_get_firmware_memory_dump( wifi_interface_handle iface,
         wifi_firmware_memory_dump_handler handler)
 {
     MemoryDumpCommand *cmd = new MemoryDumpCommand(iface, handler);
-    return (wifi_error)cmd->start();
+    NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+    wifi_error result = (wifi_error)cmd->start();
+    cmd->releaseRef();
+    return result;
 }
 
+class PacketFateCommand: public WifiCommand
+{
+    void *mReportBufs;
+    size_t mNoReqFates;
+    size_t *mNoProvidedFates;
+    PktFateReqType mReqType;
+
+public:
+    PacketFateCommand(wifi_interface_handle handle)
+        : WifiCommand("PacketFateCommand", handle, 0), mReqType(PACKET_MONITOR_START)
+    { }
+
+    PacketFateCommand(wifi_interface_handle handle, wifi_tx_report *tx_report_bufs,
+            size_t n_requested_fates, size_t *n_provided_fates)
+        : WifiCommand("PacketFateCommand", handle, 0), mReportBufs(tx_report_bufs),
+                  mNoReqFates(n_requested_fates), mNoProvidedFates(n_provided_fates),
+                  mReqType(TX_PACKET_FATE)
+    { }
+
+    PacketFateCommand(wifi_interface_handle handle, wifi_rx_report *rx_report_bufs,
+            size_t n_requested_fates, size_t *n_provided_fates)
+        : WifiCommand("PacketFateCommand", handle, 0), mReportBufs(rx_report_bufs),
+                  mNoReqFates(n_requested_fates), mNoProvidedFates(n_provided_fates),
+                  mReqType(RX_PACKET_FATE)
+    { }
+
+    int createRequest(WifiRequest& request) {
+        if (mReqType == TX_PACKET_FATE) {
+            ALOGD("%s Get Tx packet fate request\n", __FUNCTION__);
+            return createTxPktFateRequest(request);
+        } else if (mReqType == RX_PACKET_FATE) {
+            ALOGD("%s Get Rx packet fate request\n", __FUNCTION__);
+            return createRxPktFateRequest(request);
+        } else if (mReqType == PACKET_MONITOR_START) {
+            ALOGD("%s Monitor packet fate request\n", __FUNCTION__);
+            return createMonitorPktFateRequest(request);
+        } else {
+            ALOGE("%s Unknown packet fate request\n", __FUNCTION__);
+            return WIFI_ERROR_NOT_SUPPORTED;
+        }
+        return WIFI_SUCCESS;
+    }
+
+    int createMonitorPktFateRequest(WifiRequest& request) {
+        int result = request.create(GOOGLE_OUI, LOGGER_START_PKT_FATE_MONITORING);
+        if (result < 0) {
+            return result;
+        }
+
+        nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
+        request.attr_end(data);
+        return result;
+    }
+
+    int createTxPktFateRequest(WifiRequest& request) {
+        int result = request.create(GOOGLE_OUI, LOGGER_GET_TX_PKT_FATES);
+        if (result < 0) {
+            return result;
+        }
+
+        memset(mReportBufs, 0, (mNoReqFates * sizeof(wifi_tx_report)));
+        nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
+        result = request.put_u32(LOGGER_ATTRIBUTE_PKT_FATE_NUM, mNoReqFates);
+        if (result < 0) {
+            return result;
+        }
+        result = request.put_u64(LOGGER_ATTRIBUTE_PKT_FATE_DATA, (uint64_t)mReportBufs);
+        if (result < 0) {
+            return result;
+        }
+        request.attr_end(data);
+        return result;
+    }
+
+    int createRxPktFateRequest(WifiRequest& request) {
+        int result = request.create(GOOGLE_OUI, LOGGER_GET_RX_PKT_FATES);
+        if (result < 0) {
+            return result;
+        }
+
+        memset(mReportBufs, 0, (mNoReqFates * sizeof(wifi_rx_report)));
+        nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
+        result = request.put_u32(LOGGER_ATTRIBUTE_PKT_FATE_NUM, mNoReqFates);
+        if (result < 0) {
+            return result;
+        }
+        result = request.put_u64(LOGGER_ATTRIBUTE_PKT_FATE_DATA, (uint64_t)mReportBufs);
+        if (result < 0) {
+            return result;
+        }
+        request.attr_end(data);
+        return result;
+    }
+
+    int start() {
+        ALOGD("Start get packet fate command\n");
+        WifiRequest request(familyId(), ifaceId());
+
+        int result = createRequest(request);
+        if (result < 0) {
+            ALOGE("Failed to create get pkt fate request; result = %d\n", result);
+            return result;
+        }
+
+        result = requestResponse(request);
+        if (result != WIFI_SUCCESS) {
+            ALOGE("Failed to register get pkt fate response; result = %d\n", result);
+        }
+        return result;
+    }
+
+    int handleResponse(WifiEvent& reply) {
+        ALOGD("In GetPktFateCommand::handleResponse\n");
+
+        if (reply.get_cmd() != NL80211_CMD_VENDOR) {
+            ALOGI("Ignoring reply with cmd = %d", reply.get_cmd());
+            return NL_SKIP;
+        }
+
+        int id = reply.get_vendor_id();
+        int subcmd = reply.get_vendor_subcmd();
+        nlattr *vendor_data = reply.get_attribute(NL80211_ATTR_VENDOR_DATA);
+        int len = reply.get_vendor_data_len();
+
+        ALOGI("Id = %0x, subcmd = %d, len = %d", id, subcmd, len);
+
+        if (mReqType == TX_PACKET_FATE) {
+            ALOGI("Response recieved for get TX pkt fate command\n");
+        } else if (mReqType == RX_PACKET_FATE) {
+            ALOGI("Response recieved for get RX pkt fate command\n");
+        } else if (mReqType == PACKET_MONITOR_START) {
+            ALOGI("Response recieved for monitor pkt fate command\n");
+            return NL_OK;
+        } else {
+            ALOGE("Response recieved for unknown pkt fate command\n");
+            return NL_SKIP;
+        }
+
+        if (vendor_data == NULL || len == 0) {
+            ALOGE("no vendor data in GetPktFateCommand response; ignoring it\n");
+            return NL_SKIP;
+        }
+
+        for (nl_iterator it(vendor_data); it.has_next(); it.next()) {
+            if (it.get_type() == LOGGER_ATTRIBUTE_PKT_FATE_NUM) {
+                *mNoProvidedFates = it.get_u32();
+                ALOGI("No: of pkt fates provided is %d\n", *mNoProvidedFates);
+            } else {
+                ALOGE("Ignoring invalid attribute type = %d, size = %d\n",
+                        it.get_type(), it.get_len());
+            }
+        }
+
+        return NL_OK;
+    }
+
+    int handleEvent(WifiEvent& event) {
+        /* NO events to handle here! */
+        return NL_SKIP;
+    }
+};
+
+wifi_error wifi_start_pkt_fate_monitoring(wifi_interface_handle handle)
+{
+    PacketFateCommand *cmd = new PacketFateCommand(handle);
+    NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+    wifi_error result = (wifi_error)cmd->start();
+    cmd->releaseRef();
+    return result;
+}
+
+wifi_error wifi_get_tx_pkt_fates(wifi_interface_handle handle,
+        wifi_tx_report *tx_report_bufs, size_t n_requested_fates,
+        size_t *n_provided_fates)
+{
+    PacketFateCommand *cmd = new PacketFateCommand(handle, tx_report_bufs,
+                n_requested_fates, n_provided_fates);
+    NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+    wifi_error result = (wifi_error)cmd->start();
+    cmd->releaseRef();
+    return result;
+}
+
+wifi_error wifi_get_rx_pkt_fates(wifi_interface_handle handle,
+        wifi_rx_report *rx_report_bufs, size_t n_requested_fates,
+        size_t *n_provided_fates)
+{
+    PacketFateCommand *cmd = new PacketFateCommand(handle, rx_report_bufs,
+                n_requested_fates, n_provided_fates);
+    NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+    wifi_error result = (wifi_error)cmd->start();
+    cmd->releaseRef();
+    return result;
+}

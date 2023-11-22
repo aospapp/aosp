@@ -22,15 +22,14 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.hash.AbstractStreamingHashFunction.AbstractStreamingHasher;
 import com.google.common.hash.HashTestUtils.RandomHasherAction;
-import com.google.common.jdk5backport.Arrays;
 
 import junit.framework.TestCase;
 
 import java.io.ByteArrayOutputStream;
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.Charset;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
@@ -86,17 +85,17 @@ public class AbstractStreamingHasherTest extends TestCase {
     sink.assertBytes(new byte[] { 1, 2, 0, 0  }); // padded with zeros
   }
 
-  public void testString() throws UnsupportedEncodingException {
+  public void testString() {
     Random random = new Random();
     for (int i = 0; i < 100; i++) {
       byte[] bytes = new byte[64];
       random.nextBytes(bytes);
-      String s = new String(bytes, UTF_16LE.name()); // so all random strings are valid
+      String s = new String(bytes, UTF_16LE); // so all random strings are valid
       assertEquals(
-          new Sink(4).putString(s).hash(),
-          new Sink(4).putBytes(s.getBytes(UTF_16LE.name())).hash());
+          new Sink(4).putUnencodedChars(s).hash(),
+          new Sink(4).putBytes(s.getBytes(UTF_16LE)).hash());
       assertEquals(
-          new Sink(4).putString(s).hash(),
+          new Sink(4).putUnencodedChars(s).hash(),
           new Sink(4).putString(s, UTF_16LE).hash());
     }
   }
@@ -261,11 +260,6 @@ public class AbstractStreamingHasherTest extends TestCase {
 
     @Override
     public int bits() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public HashCode hashString(CharSequence input) {
       throw new UnsupportedOperationException();
     }
 

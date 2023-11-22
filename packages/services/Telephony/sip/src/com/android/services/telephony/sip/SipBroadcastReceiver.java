@@ -21,9 +21,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.sip.SipManager;
 import android.os.Bundle;
+import android.os.UserHandle;
+import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.util.Log;
+
+import com.android.phone.PhoneGlobals;
+import com.android.server.sip.SipService;
 
 /**
  * Broadcast receiver that handles SIP-related intents.
@@ -36,13 +41,20 @@ public class SipBroadcastReceiver extends BroadcastReceiver {
     public void onReceive(Context context, final Intent intent) {
         String action = intent.getAction();
 
+        if (!isRunningInSystemUser()) {
+            if (VERBOSE) log("SipBroadcastReceiver only run in system user, ignore " + action);
+            return;
+        }
+
         if (!SipUtil.isVoipSupported(context)) {
             if (VERBOSE) log("SIP VOIP not supported: " + action);
             return;
         }
 
         SipAccountRegistry sipAccountRegistry = SipAccountRegistry.getInstance();
-        if (action.equals(SipManager.ACTION_SIP_INCOMING_CALL)) {
+        if (action.equals(Intent.ACTION_BOOT_COMPLETED)) {
+            SipUtil.startSipService();
+        } else if (action.equals(SipManager.ACTION_SIP_INCOMING_CALL)) {
             takeCall(context, intent);
         } else if (action.equals(SipManager.ACTION_SIP_SERVICE_UP) ||
                 action.equals(SipManager.ACTION_SIP_CALL_OPTION_CHANGED)) {
@@ -58,12 +70,28 @@ public class SipBroadcastReceiver extends BroadcastReceiver {
 
     private void takeCall(Context context, Intent intent) {
         if (VERBOSE) log("takeCall, intent: " + intent);
-        PhoneAccountHandle accountHandle = intent.getParcelableExtra(SipUtil.EXTRA_PHONE_ACCOUNT);
+        PhoneAccountHandle accountHandle = null;
+        try {
+            accountHandle = intent.getParcelableExtra(SipUtil.EXTRA_PHONE_ACCOUNT);
+        } catch (ClassCastException e) {
+            log("takeCall, Bad account handle detected. Bailing!");
+            return;
+        }
         if (accountHandle != null) {
             Bundle extras = new Bundle();
             extras.putParcelable(SipUtil.EXTRA_INCOMING_CALL_INTENT, intent);
-            TelecomManager.from(context).addNewIncomingCall(accountHandle, extras);
+            TelecomManager tm = TelecomManager.from(context);
+            PhoneAccount phoneAccount = tm.getPhoneAccount(accountHandle);
+            if(phoneAccount != null && phoneAccount.isEnabled()) {
+                tm.addNewIncomingCall(accountHandle, extras);
+            } else {
+                log("takeCall, PhoneAccount is disabled. Not accepting incoming call...");
+            }
         }
+    }
+
+    private boolean isRunningInSystemUser() {
+        return UserHandle.myUserId() == UserHandle.USER_SYSTEM;
     }
 
     private static void log(String msg) {

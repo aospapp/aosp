@@ -324,11 +324,20 @@ extern unw_word_t _U_dyn_info_list_addr (void);
 
 /* This is needed/used by ELF targets only.  */
 
+/* This structure should contain memory that will not change during local
+ * unwinds. For example, if a new member is added, then the function
+ * move_cached_elf_data must be updated to make sure that the data is
+ * properly copied. Any pointers in this structures must persist until
+ * the map is destroyed in map_destroy_list and moved in the previously
+ * mentioned move_cached_elf_data.
+ */
 struct elf_image
   {
     bool valid;			/* true if the image is a valid elf image */
     bool load_attempted;	/* true if we've already attempted to load the elf */
     bool mapped;		/* true if the elf image was mmap'd in */
+    void* mini_debug_info_data;  /* decompressed .gnu_debugdata section */
+    size_t mini_debug_info_size;
     union
       {
         struct
@@ -341,7 +350,8 @@ struct elf_image
           {
             unw_addr_space_t as;	/* address space containing the access_mem function */
             void *as_arg;		/* arg used with access_mem */
-            struct map_info *map;	/* map data associated with the elf data */
+            uintptr_t start;		/* The map start address. */
+            uintptr_t end;		/* The map end address. */
           }
         memory;
       }

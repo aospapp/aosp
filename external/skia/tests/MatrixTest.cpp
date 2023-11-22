@@ -142,7 +142,7 @@ static void test_flatten(skiatest::Reporter* reporter, const SkMatrix& m) {
     // add 100 in case we have a bug, I don't want to kill my stack in the test
     static const size_t kBufferSize = SkMatrix::kMaxFlattenSize + 100;
     char buffer[kBufferSize];
-    size_t size1 = m.writeToMemory(NULL);
+    size_t size1 = m.writeToMemory(nullptr);
     size_t size2 = m.writeToMemory(buffer);
     REPORTER_ASSERT(reporter, size1 == size2);
     REPORTER_ASSERT(reporter, size1 <= SkMatrix::kMaxFlattenSize);
@@ -205,11 +205,18 @@ static void test_matrix_min_max_scale(skiatest::Reporter* reporter) {
     perspX.setPerspX(SK_Scalar1 / 1000);
     REPORTER_ASSERT(reporter, -SK_Scalar1 == perspX.getMinScale());
     REPORTER_ASSERT(reporter, -SK_Scalar1 == perspX.getMaxScale());
-    // Verify that getMinMaxScales() doesn't update the scales array on failure.
-    scales[0] = -5;
-    scales[1] = -5;
     success = perspX.getMinMaxScales(scales);
-    REPORTER_ASSERT(reporter, !success && -5 * SK_Scalar1 == scales[0] && -5 * SK_Scalar1  == scales[1]);
+    REPORTER_ASSERT(reporter, !success);
+
+    // skbug.com/4718
+    SkMatrix big;
+    big.setAll(2.39394089e+36f, 8.85347779e+36f, 9.26526204e+36f,
+               3.9159619e+36f, 1.44823453e+37f, 1.51559342e+37f,
+               0.f, 0.f, 1.f);
+    REPORTER_ASSERT(reporter, -SK_Scalar1 == perspX.getMinScale());
+    REPORTER_ASSERT(reporter, -SK_Scalar1 == perspX.getMaxScale());
+    success = big.getMinMaxScales(scales);
+    REPORTER_ASSERT(reporter, !success);
 
     SkMatrix perspY;
     perspY.reset();
@@ -497,7 +504,7 @@ static void test_matrix_decomposition(skiatest::Reporter* reporter) {
     REPORTER_ASSERT(reporter, SkDecomposeUpper2x2(mat, &rotation1, &scale, &rotation2));
     REPORTER_ASSERT(reporter, check_matrix_recomposition(mat, rotation1, scale, rotation2));
     // make sure it doesn't crash if we pass in NULLs
-    REPORTER_ASSERT(reporter, SkDecomposeUpper2x2(mat, NULL, NULL, NULL));
+    REPORTER_ASSERT(reporter, SkDecomposeUpper2x2(mat, nullptr, nullptr, nullptr));
 
     // rotation only
     mat.setRotate(kRotation0);
@@ -664,8 +671,14 @@ static void test_matrix_homogeneous(skiatest::Reporter* reporter) {
     const float kRotation1 = -50.f;
     const float kScale0 = 5000.f;
 
+#if defined(GOOGLE3)
+    // Stack frame size is limited in GOOGLE3.
+    const int kTripleCount = 100;
+    const int kMatrixCount = 100;
+#else
     const int kTripleCount = 1000;
     const int kMatrixCount = 1000;
+#endif
     SkRandom rand;
 
     SkScalar randTriples[3*kTripleCount];
@@ -711,7 +724,7 @@ static void test_matrix_homogeneous(skiatest::Reporter* reporter) {
 
     // doesn't crash with null dst, src, count == 0
     {
-    mats[0].mapHomogeneousPoints(NULL, NULL, 0);
+    mats[0].mapHomogeneousPoints(nullptr, nullptr, 0);
     }
 
     // uniform scale of point
@@ -822,7 +835,7 @@ DEF_TEST(Matrix, reporter) {
 
     mat.setScale(SkIntToScalar(3), SkIntToScalar(5), SkIntToScalar(20), 0);
     mat.postRotate(SkIntToScalar(25));
-    REPORTER_ASSERT(reporter, mat.invert(NULL));
+    REPORTER_ASSERT(reporter, mat.invert(nullptr));
     REPORTER_ASSERT(reporter, mat.invert(&inverse));
     iden1.setConcat(mat, inverse);
     REPORTER_ASSERT(reporter, is_identity(iden1));
@@ -832,10 +845,17 @@ DEF_TEST(Matrix, reporter) {
     test_flatten(reporter, iden2);
 
     mat.setScale(0, SK_Scalar1);
-    REPORTER_ASSERT(reporter, !mat.invert(NULL));
+    REPORTER_ASSERT(reporter, !mat.invert(nullptr));
     REPORTER_ASSERT(reporter, !mat.invert(&inverse));
     mat.setScale(SK_Scalar1, 0);
-    REPORTER_ASSERT(reporter, !mat.invert(NULL));
+    REPORTER_ASSERT(reporter, !mat.invert(nullptr));
+    REPORTER_ASSERT(reporter, !mat.invert(&inverse));
+
+    // Inverting this matrix results in a non-finite matrix
+    mat.setAll(0.0f, 1.0f, 2.0f,
+               0.0f, 1.0f, -3.40277175e+38f,
+               1.00003040f, 1.0f, 0.0f);
+    REPORTER_ASSERT(reporter, !mat.invert(nullptr));
     REPORTER_ASSERT(reporter, !mat.invert(&inverse));
 
     // rectStaysRect test

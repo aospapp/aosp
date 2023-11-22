@@ -24,6 +24,8 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#ifdef VIXL_INCLUDE_SIMULATOR
+
 #ifndef VIXL_A64_DEBUGGER_A64_H_
 #define VIXL_A64_DEBUGGER_A64_H_
 
@@ -68,8 +70,8 @@ class Debugger : public Simulator {
 
   // Numbers of instructions to execute before the debugger shell is given
   // back control.
-  int steps() const { return steps_; }
-  void set_steps(int value) {
+  int64_t steps() const { return steps_; }
+  void set_steps(int64_t value) {
     VIXL_ASSERT(value > 1);
     steps_ = value;
   }
@@ -100,7 +102,7 @@ class Debugger : public Simulator {
 
   int debug_parameters_;
   bool pending_request_;
-  int steps_;
+  int64_t steps_;
   DebugCommand* last_command_;
   PrintDisassembler* disasm_;
   Decoder* printer_;
@@ -112,3 +114,5 @@ class Debugger : public Simulator {
 }  // namespace vixl
 
 #endif  // VIXL_A64_DEBUGGER_A64_H_
+
+#endif  // VIXL_INCLUDE_SIMULATOR

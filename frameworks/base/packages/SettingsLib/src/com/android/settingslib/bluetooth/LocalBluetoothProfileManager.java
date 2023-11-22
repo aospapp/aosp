@@ -17,17 +17,21 @@
 package com.android.settingslib.bluetooth;
 
 import android.bluetooth.BluetoothA2dp;
+import android.bluetooth.BluetoothA2dpSink;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
+import android.bluetooth.BluetoothHeadsetClient;
 import android.bluetooth.BluetoothMap;
 import android.bluetooth.BluetoothInputDevice;
 import android.bluetooth.BluetoothPan;
+import android.bluetooth.BluetoothPbapClient;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothUuid;
 import android.content.Context;
 import android.content.Intent;
 import android.os.ParcelUuid;
 import android.util.Log;
+import com.android.settingslib.R;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -73,12 +77,16 @@ public final class LocalBluetoothProfileManager {
     private final BluetoothEventManager mEventManager;
 
     private A2dpProfile mA2dpProfile;
+    private A2dpSinkProfile mA2dpSinkProfile;
     private HeadsetProfile mHeadsetProfile;
+    private HfpClientProfile mHfpClientProfile;
     private MapProfile mMapProfile;
     private final HidProfile mHidProfile;
     private OppProfile mOppProfile;
     private final PanProfile mPanProfile;
+    private PbapClientProfile mPbapClientProfile;
     private final PbapServerProfile mPbapProfile;
+    private final boolean mUsePbapPce;
 
     /**
      * Mapping from profile name, e.g. "HEADSET" to profile object.
@@ -95,6 +103,7 @@ public final class LocalBluetoothProfileManager {
         mLocalAdapter = adapter;
         mDeviceManager = deviceManager;
         mEventManager = eventManager;
+        mUsePbapPce = mContext.getResources().getBoolean(R.bool.enable_pbap_pce_profile);
         // pass this reference to adapter and event manager (circular dependency)
         mLocalAdapter.setProfileManager(this);
         mEventManager.setProfileManager(this);
@@ -136,16 +145,28 @@ public final class LocalBluetoothProfileManager {
      * @param uuids
      */
     void updateLocalProfiles(ParcelUuid[] uuids) {
-        // A2DP
+        // A2DP SRC
         if (BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.AudioSource)) {
             if (mA2dpProfile == null) {
-                if(DEBUG) Log.d(TAG, "Adding local A2DP profile");
+                if(DEBUG) Log.d(TAG, "Adding local A2DP SRC profile");
                 mA2dpProfile = new A2dpProfile(mContext, mLocalAdapter, mDeviceManager, this);
                 addProfile(mA2dpProfile, A2dpProfile.NAME,
                         BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
             }
         } else if (mA2dpProfile != null) {
             Log.w(TAG, "Warning: A2DP profile was previously added but the UUID is now missing.");
+        }
+
+        // A2DP SINK
+        if (BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.AudioSink)) {
+            if (mA2dpSinkProfile == null) {
+                if(DEBUG) Log.d(TAG, "Adding local A2DP Sink profile");
+                mA2dpSinkProfile = new A2dpSinkProfile(mContext, mLocalAdapter, mDeviceManager, this);
+                addProfile(mA2dpSinkProfile, A2dpSinkProfile.NAME,
+                        BluetoothA2dpSink.ACTION_CONNECTION_STATE_CHANGED);
+            }
+        } else if (mA2dpSinkProfile != null) {
+            Log.w(TAG, "Warning: A2DP Sink profile was previously added but the UUID is now missing.");
         }
 
         // Headset / Handsfree
@@ -162,6 +183,22 @@ public final class LocalBluetoothProfileManager {
             Log.w(TAG, "Warning: HEADSET profile was previously added but the UUID is now missing.");
         }
 
+        // Headset HF
+        if (BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.Handsfree)) {
+            if (mHfpClientProfile == null) {
+                if(DEBUG) Log.d(TAG, "Adding local HfpClient profile");
+                mHfpClientProfile =
+                    new HfpClientProfile(mContext, mLocalAdapter, mDeviceManager, this);
+                addProfile(mHfpClientProfile, HfpClientProfile.NAME,
+                        BluetoothHeadsetClient.ACTION_CONNECTION_STATE_CHANGED);
+            }
+        } else if (mHfpClientProfile != null) {
+            Log.w(TAG,
+                "Warning: Hfp Client profile was previously added but the UUID is now missing.");
+        } else {
+            Log.d(TAG, "Handsfree Uuid not found.");
+        }
+
         // OPP
         if (BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.ObexObjectPush)) {
             if (mOppProfile == null) {
@@ -173,9 +210,24 @@ public final class LocalBluetoothProfileManager {
         } else if (mOppProfile != null) {
             Log.w(TAG, "Warning: OPP profile was previously added but the UUID is now missing.");
         }
+
+        //PBAP Client
+        if (mUsePbapPce) {
+            if (mPbapClientProfile == null) {
+                if(DEBUG) Log.d(TAG, "Adding local PBAP Client profile");
+                mPbapClientProfile = new PbapClientProfile(mContext, mLocalAdapter, mDeviceManager,
+                        this);
+                addProfile(mPbapClientProfile, PbapClientProfile.NAME,
+                        BluetoothPbapClient.ACTION_CONNECTION_STATE_CHANGED);
+            }
+        } else if (mPbapClientProfile != null) {
+            Log.w(TAG,
+                "Warning: PBAP Client profile was previously added but the UUID is now missing.");
+        }
+
         mEventManager.registerProfileIntentReceiver();
 
-        // There is no local SDP record for HID and Settings app doesn't control PBAP
+        // There is no local SDP record for HID and Settings app doesn't control PBAP Server.
     }
 
     private final Collection<ServiceListener> mServiceListeners =
@@ -288,6 +340,10 @@ public final class LocalBluetoothProfileManager {
         if (profile != null) {
             return profile.isProfileReady();
         }
+        profile = mA2dpSinkProfile;
+        if (profile != null) {
+            return profile.isProfileReady();
+        }
         return false;
     }
 
@@ -295,8 +351,28 @@ public final class LocalBluetoothProfileManager {
         return mA2dpProfile;
     }
 
+    public A2dpSinkProfile getA2dpSinkProfile() {
+        if ((mA2dpSinkProfile != null) && (mA2dpSinkProfile.isProfileReady())) {
+            return mA2dpSinkProfile;
+        } else {
+            return null;
+        }
+    }
+
     public HeadsetProfile getHeadsetProfile() {
         return mHeadsetProfile;
+    }
+
+    public HfpClientProfile getHfpClientProfile() {
+        if ((mHfpClientProfile != null) && (mHfpClientProfile.isProfileReady())) {
+            return mHfpClientProfile;
+        } else {
+          return null;
+        }
+    }
+
+    public PbapClientProfile getPbapClientProfile() {
+        return mPbapClientProfile;
     }
 
     public PbapServerProfile getPbapProfile(){
@@ -323,6 +399,9 @@ public final class LocalBluetoothProfileManager {
         // Copy previous profile list into removedProfiles
         removedProfiles.clear();
         removedProfiles.addAll(profiles);
+        if (DEBUG) {
+            Log.d(TAG,"Current Profiles" + profiles.toString());
+        }
         profiles.clear();
 
         if (uuids == null) {
@@ -339,10 +418,23 @@ public final class LocalBluetoothProfileManager {
             }
         }
 
+        if ((mHfpClientProfile != null) &&
+                BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.Handsfree_AG) &&
+                BluetoothUuid.isUuidPresent(localUuids, BluetoothUuid.Handsfree)) {
+            profiles.add(mHfpClientProfile);
+            removedProfiles.remove(mHfpClientProfile);
+        }
+
         if (BluetoothUuid.containsAnyUuid(uuids, A2dpProfile.SINK_UUIDS) &&
             mA2dpProfile != null) {
             profiles.add(mA2dpProfile);
             removedProfiles.remove(mA2dpProfile);
+        }
+
+        if (BluetoothUuid.containsAnyUuid(uuids, A2dpSinkProfile.SRC_UUIDS) &&
+                mA2dpSinkProfile != null) {
+                profiles.add(mA2dpSinkProfile);
+                removedProfiles.remove(mA2dpSinkProfile);
         }
 
         if (BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.ObexObjectPush) &&
@@ -372,6 +464,16 @@ public final class LocalBluetoothProfileManager {
             removedProfiles.remove(mMapProfile);
             mMapProfile.setPreferred(device, true);
         }
-    }
 
+        if (mUsePbapPce) {
+            profiles.add(mPbapClientProfile);
+            removedProfiles.remove(mPbapClientProfile);
+            profiles.remove(mPbapProfile);
+            removedProfiles.add(mPbapProfile);
+        }
+
+        if (DEBUG) {
+            Log.d(TAG,"New Profiles" + profiles.toString());
+        }
+    }
 }

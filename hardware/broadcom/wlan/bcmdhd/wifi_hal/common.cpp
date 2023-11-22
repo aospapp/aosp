@@ -164,6 +164,9 @@ wifi_error wifi_register_cmd(wifi_handle handle, int id, WifiCommand *cmd)
         ALOGV("Successfully added command %d: %p at %d", id, cmd, info->num_cmd);
         info->num_cmd++;
         result = WIFI_SUCCESS;
+    } else {
+        ALOGE("Failed to add command %d: %p at %d, reached max limit %d",
+                id, cmd, info->num_cmd, info->alloc_cmd);
     }
 
     return result;
@@ -185,6 +188,10 @@ WifiCommand *wifi_unregister_cmd(wifi_handle handle, int id)
             ALOGV("Successfully removed command %d: %p from %d", id, cmd, i);
             break;
         }
+    }
+
+    if (!cmd) {
+        ALOGI("Failed to remove command %d: %p", id, cmd);
     }
 
     return cmd;

@@ -53,15 +53,6 @@ public class FieldModificationTest extends JDWPEventTestCase {
 
         logWriter.println("==> testFieldModification001 started");
 
-        //check capability, relevant for this test
-        logWriter.println("=> Check capability: canWatchFieldModification");
-        debuggeeWrapper.vmMirror.capabilities();
-        boolean isCapability = debuggeeWrapper.vmMirror.targetVMCapabilities.canWatchFieldModification;
-        if (!isCapability) {
-            logWriter.println("##WARNING: this VM doesn't possess capability: canWatchFieldModification");
-            return;
-        }
-
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
         String classSignature = "Lorg/apache/harmony/jpda/tests/jdwp/MultiSession/FieldDebuggee;";
@@ -136,12 +127,12 @@ public class FieldModificationTest extends JDWPEventTestCase {
         logWriter.println("==> testFieldModification001 PASSED!");
     }
 
-    protected void beforeDebuggeeStart(JDWPUnitDebuggeeWrapper debuggeeWrapper) {
+    protected void beforeConnectionSetUp() {
         settings.setAttachConnectorKind();
         if (settings.getTransportAddress() == null) {
             settings.setTransportAddress(TestOptions.DEFAULT_ATTACHING_ADDRESS);
         }
         logWriter.println("ATTACH connector kind");
-        super.beforeDebuggeeStart(debuggeeWrapper);
+        super.beforeConnectionSetUp();
     }
 }

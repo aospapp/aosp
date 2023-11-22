@@ -113,6 +113,7 @@ public class WindowManager_LayoutParamsTest extends AndroidTestCase {
 
         params = new WindowManager.LayoutParams();
         params.setTitle(PARAMS_TITLE);
+        params.accessibilityTitle = PARAMS_TITLE;
         params.alpha = ALPHA - 0.5f;
         params.windowAnimations = WINDOW_ANIMATIONS;
         params.dimAmount = DIM_AMOUNT - 1.0f;
@@ -120,7 +121,8 @@ public class WindowManager_LayoutParamsTest extends AndroidTestCase {
         assertEquals(WindowManager.LayoutParams.TITLE_CHANGED
                 | WindowManager.LayoutParams.ALPHA_CHANGED
                 | WindowManager.LayoutParams.ANIMATION_CHANGED
-                | WindowManager.LayoutParams.DIM_AMOUNT_CHANGED,
+                | WindowManager.LayoutParams.DIM_AMOUNT_CHANGED
+                | WindowManager.LayoutParams.ACCESSIBILITY_TITLE_CHANGED,
                 mLayoutParams.copyFrom(params));
         assertEquals(params.getTitle(), mLayoutParams.getTitle());
         assertEquals(params.alpha, mLayoutParams.alpha);

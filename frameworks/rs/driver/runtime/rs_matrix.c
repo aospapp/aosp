@@ -317,3 +317,80 @@ rsMatrixMultiply(rs_matrix2x2 *lhs, const rs_matrix2x2 *rhs) {
     rsMatrixLoadMultiply(lhs, lhs, rhs);
 }
 
+extern void __attribute__((overloadable))
+    rsExtractFrustumPlanes(const rs_matrix4x4* viewProj, float4* left, float4* right, float4* top,
+                           float4* bottom, float4* near, float4* far) {
+    // x y z w = a b c d in the plane equation
+    left->x = viewProj->m[3] + viewProj->m[0];
+    left->y = viewProj->m[7] + viewProj->m[4];
+    left->z = viewProj->m[11] + viewProj->m[8];
+    left->w = viewProj->m[15] + viewProj->m[12];
+
+    right->x = viewProj->m[3] - viewProj->m[0];
+    right->y = viewProj->m[7] - viewProj->m[4];
+    right->z = viewProj->m[11] - viewProj->m[8];
+    right->w = viewProj->m[15] - viewProj->m[12];
+
+    top->x = viewProj->m[3] - viewProj->m[1];
+    top->y = viewProj->m[7] - viewProj->m[5];
+    top->z = viewProj->m[11] - viewProj->m[9];
+    top->w = viewProj->m[15] - viewProj->m[13];
+
+    bottom->x = viewProj->m[3] + viewProj->m[1];
+    bottom->y = viewProj->m[7] + viewProj->m[5];
+    bottom->z = viewProj->m[11] + viewProj->m[9];
+    bottom->w = viewProj->m[15] + viewProj->m[13];
+
+    near->x = viewProj->m[3] + viewProj->m[2];
+    near->y = viewProj->m[7] + viewProj->m[6];
+    near->z = viewProj->m[11] + viewProj->m[10];
+    near->w = viewProj->m[15] + viewProj->m[14];
+
+    far->x = viewProj->m[3] - viewProj->m[2];
+    far->y = viewProj->m[7] - viewProj->m[6];
+    far->z = viewProj->m[11] - viewProj->m[10];
+    far->w = viewProj->m[15] - viewProj->m[14];
+
+    float len = length(left->xyz);
+    *left /= len;
+    len = length(right->xyz);
+    *right /= len;
+    len = length(top->xyz);
+    *top /= len;
+    len = length(bottom->xyz);
+    *bottom /= len;
+    len = length(near->xyz);
+    *near /= len;
+    len = length(far->xyz);
+    *far /= len;
+}
+
+extern bool __attribute__((overloadable))
+    rsIsSphereInFrustum(float4* sphere, float4* left, float4* right, float4* top, float4* bottom,
+                        float4* near, float4* far) {
+    float distToCenter = dot(left->xyz, sphere->xyz) + left->w;
+    if (distToCenter < -sphere->w) {
+        return false;
+    }
+    distToCenter = dot(right->xyz, sphere->xyz) + right->w;
+    if (distToCenter < -sphere->w) {
+        return false;
+    }
+    distToCenter = dot(top->xyz, sphere->xyz) + top->w;
+    if (distToCenter < -sphere->w) {
+        return false;
+    }
+    distToCenter = dot(bottom->xyz, sphere->xyz) + bottom->w;
+    if (distToCenter < -sphere->w) {
+        return false;
+    }
+    distToCenter = dot(near->xyz, sphere->xyz) + near->w;
+    if (distToCenter < -sphere->w) {
+        return false;
+    }
+    distToCenter = dot(far->xyz, sphere->xyz) + far->w;
+    if (distToCenter < -sphere->w) {
+        return false;
+    }
+    return true;
+}

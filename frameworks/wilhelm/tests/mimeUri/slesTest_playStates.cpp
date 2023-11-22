@@ -28,7 +28,6 @@
 #define TEST_MUTE 0
 #define TEST_SOLO 1
 
-static int testMode;
 //-----------------------------------------------------------------
 /* Exits the application if an error is encountered */
 #define ExitOnError(x) ExitOnErrorFunc(x,__LINE__)
@@ -190,8 +189,6 @@ void TestPlayUri( SLObjectItf sl, const char* path)
     fprintf(stdout, "----- Stopping\n");
     result = (*playItf)->SetPlayState(playItf, SL_PLAYSTATE_STOPPED);
     ExitOnError(result);
-
-destroyKillKill:
 
     /* Destroy the players */
     (*player)->Destroy(player);

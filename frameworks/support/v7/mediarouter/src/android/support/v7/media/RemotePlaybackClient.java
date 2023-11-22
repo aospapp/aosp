@@ -24,6 +24,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 
+import java.util.Iterator;
+
 /**
  * A helper class for playing media on remote routes using the remote playback protocol
  * defined by {@link MediaControlIntent}.
@@ -38,16 +40,19 @@ public class RemotePlaybackClient {
 
     private final Context mContext;
     private final MediaRouter.RouteInfo mRoute;
-    private final StatusReceiver mStatusReceiver;
+    private final ActionReceiver mActionReceiver;
     private final PendingIntent mItemStatusPendingIntent;
     private final PendingIntent mSessionStatusPendingIntent;
+    private final PendingIntent mMessagePendingIntent;
 
     private boolean mRouteSupportsRemotePlayback;
     private boolean mRouteSupportsQueuing;
     private boolean mRouteSupportsSessionManagement;
+    private boolean mRouteSupportsMessaging;
 
     private String mSessionId;
     private StatusCallback mStatusCallback;
+    private OnMessageReceivedListener mOnMessageReceivedListener;
 
     /**
      * Creates a remote playback client for a route.
@@ -65,22 +70,27 @@ public class RemotePlaybackClient {
         mContext = context;
         mRoute = route;
 
-        IntentFilter statusFilter = new IntentFilter();
-        statusFilter.addAction(StatusReceiver.ACTION_ITEM_STATUS_CHANGED);
-        statusFilter.addAction(StatusReceiver.ACTION_SESSION_STATUS_CHANGED);
-        mStatusReceiver = new StatusReceiver();
-        context.registerReceiver(mStatusReceiver, statusFilter);
+        IntentFilter actionFilter = new IntentFilter();
+        actionFilter.addAction(ActionReceiver.ACTION_ITEM_STATUS_CHANGED);
+        actionFilter.addAction(ActionReceiver.ACTION_SESSION_STATUS_CHANGED);
+        actionFilter.addAction(ActionReceiver.ACTION_MESSAGE_RECEIVED);
+        mActionReceiver = new ActionReceiver();
+        context.registerReceiver(mActionReceiver, actionFilter);
 
-        Intent itemStatusIntent = new Intent(StatusReceiver.ACTION_ITEM_STATUS_CHANGED);
+        Intent itemStatusIntent = new Intent(ActionReceiver.ACTION_ITEM_STATUS_CHANGED);
         itemStatusIntent.setPackage(context.getPackageName());
         mItemStatusPendingIntent = PendingIntent.getBroadcast(
                 context, 0, itemStatusIntent, 0);
 
-        Intent sessionStatusIntent = new Intent(StatusReceiver.ACTION_SESSION_STATUS_CHANGED);
+        Intent sessionStatusIntent = new Intent(ActionReceiver.ACTION_SESSION_STATUS_CHANGED);
         sessionStatusIntent.setPackage(context.getPackageName());
         mSessionStatusPendingIntent = PendingIntent.getBroadcast(
                 context, 0, sessionStatusIntent, 0);
 
+        Intent messageIntent = new Intent(ActionReceiver.ACTION_MESSAGE_RECEIVED);
+        messageIntent.setPackage(context.getPackageName());
+        mMessagePendingIntent = PendingIntent.getBroadcast(
+                context, 0, messageIntent, 0);
         detectFeatures();
     }
 
@@ -88,7 +98,7 @@ public class RemotePlaybackClient {
      * Releases resources owned by the client.
      */
     public void release() {
-        mContext.unregisterReceiver(mStatusReceiver);
+        mContext.unregisterReceiver(mActionReceiver);
     }
 
     /**
@@ -156,6 +166,25 @@ public class RemotePlaybackClient {
     }
 
     /**
+     * Returns true if the route supports messages.
+     * <p>
+     * This method returns true if the route supports all of the basic remote playback
+     * actions and all of the following actions:
+     * {@link MediaControlIntent#ACTION_START_SESSION start session},
+     * {@link MediaControlIntent#ACTION_SEND_MESSAGE send message},
+     * {@link MediaControlIntent#ACTION_END_SESSION end session}.
+     * </p>
+     *
+     * @return True if session management is supported.
+     * Implies {@link #isRemotePlaybackSupported} is also true.
+     *
+     * @see #isRemotePlaybackSupported
+     */
+    public boolean isMessagingSupported() {
+        return mRouteSupportsMessaging;
+    }
+
+    /**
      * Gets the current session id if there is one.
      *
      * @return The current session id, or null if none.
@@ -212,6 +241,19 @@ public class RemotePlaybackClient {
      */
     public void setStatusCallback(StatusCallback callback) {
         mStatusCallback = callback;
+    }
+
+    /**
+     * Sets a callback that should receive messages when a message is sent from
+     * media sessions created by this instance of the remote playback client changes.
+     * <p>
+     * The callback should be set before the session is created.
+     * </p>
+     *
+     * @param listener The callback to set.  May be null to remove the previous callback.
+     */
+    public void setOnMessageReceivedListener(OnMessageReceivedListener listener) {
+        mOnMessageReceivedListener = listener;
     }
 
     /**
@@ -516,7 +558,36 @@ public class RemotePlaybackClient {
         Intent intent = new Intent(MediaControlIntent.ACTION_START_SESSION);
         intent.putExtra(MediaControlIntent.EXTRA_SESSION_STATUS_UPDATE_RECEIVER,
                 mSessionStatusPendingIntent);
+        if (mRouteSupportsMessaging) {
+            intent.putExtra(MediaControlIntent.EXTRA_MESSAGE_RECEIVER, mMessagePendingIntent);
+        }
         performSessionAction(intent, null, extras, callback);
+    }
+
+    /**
+     * Sends a message.
+     * <p>
+     * The request is issued in the current session.
+     * </p><p>
+     * Please refer to {@link MediaControlIntent#ACTION_SEND_MESSAGE} for
+     * more information about the semantics of this request.
+     * </p>
+     *
+     * @param message A bundle message denoting {@link MediaControlIntent#EXTRA_MESSAGE}.
+     * @param callback A callback to invoke when the request has been processed, or null if none.
+     *
+     * @throws IllegalStateException if there is no current session.
+     * @throws UnsupportedOperationException if the route does not support messages.
+     *
+     * @see MediaControlIntent#ACTION_SEND_MESSAGE
+     * @see #isMessagingSupported
+     */
+    public void sendMessage(Bundle message, SessionActionCallback callback) {
+        throwIfNoCurrentSession();
+        throwIfMessageNotSupported();
+
+        Intent intent = new Intent(MediaControlIntent.ACTION_SEND_MESSAGE);
+        performSessionAction(intent, mSessionId, message, callback);
     }
 
     /**
@@ -722,10 +793,20 @@ public class RemotePlaybackClient {
                 && routeSupportsAction(MediaControlIntent.ACTION_START_SESSION)
                 && routeSupportsAction(MediaControlIntent.ACTION_GET_SESSION_STATUS)
                 && routeSupportsAction(MediaControlIntent.ACTION_END_SESSION);
+        mRouteSupportsMessaging = doesRouteSupportMessaging();
     }
 
     private boolean routeSupportsAction(String action) {
         return mRoute.supportsControlAction(MediaControlIntent.CATEGORY_REMOTE_PLAYBACK, action);
+    }
+
+    private boolean doesRouteSupportMessaging() {
+        for (IntentFilter filter : mRoute.getControlFilters()) {
+            if (filter.hasAction(MediaControlIntent.ACTION_SEND_MESSAGE)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void throwIfRemotePlaybackNotSupported() {
@@ -744,6 +825,12 @@ public class RemotePlaybackClient {
         if (!mRouteSupportsSessionManagement) {
             throw new UnsupportedOperationException("The route does not support "
                     + "session management.");
+        }
+    }
+
+    private void throwIfMessageNotSupported() {
+        if (!mRouteSupportsMessaging) {
+            throw new UnsupportedOperationException("The route does not support message.");
         }
     }
 
@@ -780,11 +867,13 @@ public class RemotePlaybackClient {
         return "null";
     }
 
-    private final class StatusReceiver extends BroadcastReceiver {
+    private final class ActionReceiver extends BroadcastReceiver {
         public static final String ACTION_ITEM_STATUS_CHANGED =
                 "android.support.v7.media.actions.ACTION_ITEM_STATUS_CHANGED";
         public static final String ACTION_SESSION_STATUS_CHANGED =
                 "android.support.v7.media.actions.ACTION_SESSION_STATUS_CHANGED";
+        public static final String ACTION_MESSAGE_RECEIVED =
+                "android.support.v7.media.actions.ACTION_MESSAGE_RECEIVED";
 
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -838,6 +927,15 @@ public class RemotePlaybackClient {
                 if (mStatusCallback != null) {
                     mStatusCallback.onSessionStatusChanged(intent.getExtras(),
                             sessionId, sessionStatus);
+                }
+            } else if (action.equals(ACTION_MESSAGE_RECEIVED)) {
+                if (DEBUG) {
+                    Log.d(TAG, "Received message callback: sessionId=" + sessionId);
+                }
+
+                if (mOnMessageReceivedListener != null) {
+                    mOnMessageReceivedListener.onMessageReceived(sessionId,
+                            intent.getBundleExtra(MediaControlIntent.EXTRA_MESSAGE));
                 }
             }
         }
@@ -928,5 +1026,18 @@ public class RemotePlaybackClient {
          */
         public void onResult(Bundle data, String sessionId, MediaSessionStatus sessionStatus) {
         }
+    }
+
+    /**
+     * A callback that will receive messages from media sessions.
+     */
+    public interface OnMessageReceivedListener {
+        /**
+         * Called when a message received.
+         *
+         * @param sessionId The session id.
+         * @param message A bundle message denoting {@link MediaControlIntent#EXTRA_MESSAGE}.
+         */
+        void onMessageReceived(String sessionId, Bundle message);
     }
 }

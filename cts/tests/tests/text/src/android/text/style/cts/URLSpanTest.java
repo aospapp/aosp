@@ -16,7 +16,7 @@
 
 package android.text.style.cts;
 
-import com.android.cts.text.R;
+import android.text.cts.R;
 
 
 import android.app.Activity;
@@ -33,7 +33,7 @@ public class URLSpanTest extends ActivityInstrumentationTestCase2<URLSpanCtsActi
     private Activity mActivity;
 
     public URLSpanTest() {
-        super("com.android.cts.text", URLSpanCtsActivity.class);
+        super("android.text.cts", URLSpanCtsActivity.class);
     }
 
     @Override

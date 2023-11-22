@@ -89,7 +89,7 @@ page.title=Codelines, Branches, and Releases
   </li>
   <li>
 	<p>
-	  An <em>upstream</em> project is an open-source project from which the Android stack is
+	  An <em>upstream</em> project is an open source project from which the Android stack is
 	  pulling code. These include obvious projects such as the Linux kernel and WebKit.
 	  Over time we are migrating some of the semi-autonomous Android projects (such as ART,
 	  the Android SDK tools, Bionic, and so on) to work as "upstream" projects. Generally,
@@ -173,7 +173,7 @@ page.title=Codelines, Branches, and Releases
   As a result, Google frequently has possession of confidential information from third parties.
   And we must refrain from revealing sensitive features until we've secured the appropriate
   protections. In addition, there are real risks to the platform arising from having too many
-  platform versions extant at once. For these reasons, we have structured the open-source
+  platform versions extant at once. For these reasons, we have structured the open source
   project -- including third-party contributions -- to focus on the currently-public stable
   version of Android. "Deep development" on the next version of the platform will happen in
   private until it's ready to become an official release.

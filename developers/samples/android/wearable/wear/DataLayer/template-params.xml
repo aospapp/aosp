@@ -20,7 +20,8 @@
     <package>com.example.android.wearable.datalayer</package>
 
     <minSdk>18</minSdk>
-    <targetSdkVersion>22</targetSdkVersion>
+    <targetSdkVersion>23</targetSdkVersion>
+    <targetSdkVersionWear>22</targetSdkVersionWear>
 
     <wearable>
         <has_handheld_app>true</has_handheld_app>
@@ -50,9 +51,9 @@
             <img>screenshots/wearable_background_image.png</img>
         </screenshots>
         <api_refs>
-            <ext>com.google.android.gms.wearable.DataApi</ext>
-            <ext>com.google.android.gms.wearable.DataEvent</ext>
-            <ext>com.google.android.gms.wearable.WearableListenerService</ext>
+            <ext>gms:com.google.android.gms.wearable.DataApi</ext>
+            <ext>gms:com.google.android.gms.wearable.DataEvent</ext>
+            <ext>gms:com.google.android.gms.wearable.WearableListenerService</ext>
         </api_refs>
         <description>
 <![CDATA[

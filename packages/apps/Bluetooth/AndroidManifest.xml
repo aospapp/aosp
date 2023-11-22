@@ -25,12 +25,14 @@
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.BLUETOOTH_PRIVILEGED" />
     <uses-permission android:name="android.permission.BLUETOOTH_MAP" />
+    <uses-permission android:name="android.permission.DUMP" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
-    <!-- WRITE_CONTACTS is used for test cases only -->
     <uses-permission android:name="android.permission.WRITE_CONTACTS" />
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <uses-permission android:name="android.permission.WRITE_CALL_LOG" />
     <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <uses-permission android:name="android.permission.NFC_HANDOVER_STATUS" />
@@ -43,11 +45,13 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CONNECTIVITY_INTERNAL" />
+    <uses-permission android:name="android.permission.TETHER_PRIVILEGED" />
     <uses-permission android:name="android.permission.MODIFY_PHONE_STATE" />
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" />
     <uses-permission android:name="android.permission.BLUETOOTH_STACK" />
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS"/>
     <uses-permission android:name="android.permission.MANAGE_USERS"/>
+    <uses-permission android:name="android.permission.GET_ACCOUNTS"/>
     <uses-permission android:name="com.google.android.gallery3d.permission.GALLERY_PROVIDER"/>
     <uses-permission android:name="com.android.gallery3d.permission.GALLERY_PROVIDER"/>
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
@@ -61,6 +65,8 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.DEVICE_POWER" />
     <uses-permission android:name="android.permission.REAL_GET_TASKS" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_ROUTING" />
+    <uses-permission android:name="android.permission.UPDATE_DEVICE_STATS" />
 
     <!-- For PBAP Owner Vcard Info -->
     <uses-permission android:name="android.permission.READ_PROFILE"/>
@@ -70,7 +76,9 @@
         android:persistent="false"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:usesCleartextTraffic="false">
+        android:usesCleartextTraffic="false"
+        android:directBootAware="true"
+        android:defaultToDeviceProtectedStorage="true">
         <uses-library android:name="javax.obex" />
         <provider android:name=".opp.BluetoothOppProvider"
             android:authorities="com.android.bluetooth.opp"
@@ -79,6 +87,14 @@
             <path-permission
                     android:pathPrefix="/btopp"
                     android:permission="android.permission.ACCESS_BLUETOOTH_SHARE" />
+        </provider>
+        <provider android:name="android.support.v4.content.FileProvider"
+            android:authorities="com.google.android.bluetooth.fileprovider"
+            android:grantUriPermissions="true"
+            android:exported="false">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
         </provider>
         <service
             android:process="@string/process"
@@ -283,10 +299,19 @@
         </service>
         <service
             android:process="@string/process"
-            android:name = ".a2dp.A2dpSinkService"
+            android:name = ".a2dpsink.A2dpSinkService"
             android:enabled="@bool/profile_supported_a2dp_sink">
             <intent-filter>
                 <action android:name="android.bluetooth.IBluetoothA2dpSink" />
+            </intent-filter>
+        </service>
+        <service
+            android:process="@string/process"
+            android:name=".a2dpsink.mbs.A2dpMediaBrowserService"
+            android:exported="true"
+            android:enabled="@bool/profile_supported_a2dp_sink">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
         <service
@@ -321,13 +346,44 @@
                 <action android:name="android.bluetooth.IBluetoothPan" />
             </intent-filter>
         </service>
-    <service
+        <service
             android:process="@string/process"
             android:name = ".hfpclient.HeadsetClientService"
             android:enabled="@bool/profile_supported_hfpclient">
             <intent-filter>
                 <action android:name="android.bluetooth.IBluetoothHeadsetClient" />
             </intent-filter>
+        </service>
+        <service
+            android:process="@string/process"
+            android:name=".hfpclient.connserv.HfpClientConnectionService"
+            android:permission="android.permission.BIND_CONNECTION_SERVICE"
+            android:enabled="@bool/hfp_client_connection_service_enabled">
+            <intent-filter>
+                <!-- Mechanism for Telecom stack to connect -->
+                <action android:name="android.telecom.ConnectionService" />
+            </intent-filter>
+        </service>
+        <service
+            android:process="@string/process"
+            android:name = ".pbapclient.PbapClientService"
+            android:enabled="@bool/profile_supported_pbapclient">
+            <intent-filter>
+                <action android:name="android.bluetooth.IBluetoothPbapClient" />
+            </intent-filter>
+        </service>
+        <!-- Authenticator for PBAP account. -->
+        <service
+            android:process="@string/process"
+            android:name=".AuthenticationService"
+            android:exported="true"
+            android:enabled="@bool/profile_supported_pbapclient">
+            <intent-filter>
+                <action android:name="android.accounts.AccountAuthenticator" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accounts.AccountAuthenticator"
+                android:resource="@xml/authenticator" />
         </service>
     </application>
 </manifest>

@@ -1,7 +1,7 @@
 // RUN: %clang_cc1 -std=c++98 %s -verify -fexceptions -fcxx-exceptions -pedantic-errors -Wno-bind-to-temporary-copy
-// RUN: %clang_cc1 -std=c++11 %s -verify -fexceptions -fcxx-exceptions -pedantic-errors
-// RUN: %clang_cc1 -std=c++14 %s -verify -fexceptions -fcxx-exceptions -pedantic-errors
-// RUN: %clang_cc1 -std=c++1z %s -verify -fexceptions -fcxx-exceptions -pedantic-errors
+// RUN: %clang_cc1 -std=c++11 %s -verify -fexceptions -fcxx-exceptions -pedantic-errors -triple %itanium_abi_triple
+// RUN: %clang_cc1 -std=c++14 %s -verify -fexceptions -fcxx-exceptions -pedantic-errors -triple %itanium_abi_triple
+// RUN: %clang_cc1 -std=c++1z %s -verify -fexceptions -fcxx-exceptions -pedantic-errors -triple %itanium_abi_triple
 
 namespace dr1 { // dr1: no
   namespace X { extern "C" void dr1_f(int a = 1); }
@@ -864,7 +864,7 @@ namespace dr77 { // dr77: yes
 namespace dr78 { // dr78: sup ????
   // Under DR78, this is valid, because 'k' has static storage duration, so is
   // zero-initialized.
-  const int k; // expected-error {{default initialization of an object of const}} expected-note{{add an explicit initializer to initialize 'k'}}
+  const int k; // expected-error {{default initialization of an object of const}}
 }
 
 // dr79: na
@@ -994,7 +994,7 @@ namespace dr91 { // dr91: yes
   int k = f(U());
 }
 
-namespace dr92 { // dr92: yes
+namespace dr92 { // FIXME: Issue is still open.
   void f() throw(int, float);
   void (*p)() throw(int) = &f; // expected-error {{target exception specification is not superset of source}}
   void (*q)() throw(int);

@@ -50,7 +50,7 @@
 /** SENSOR IDS AND NAMES
  **/
 
-#define MAX_NUM_SENSORS 5
+#define MAX_NUM_SENSORS 8
 
 #define SUPPORTED_SENSORS  ((1<<MAX_NUM_SENSORS)-1)
 
@@ -60,12 +60,18 @@
 #define  ID_ORIENTATION    (ID_BASE+2)
 #define  ID_TEMPERATURE    (ID_BASE+3)
 #define  ID_PROXIMITY      (ID_BASE+4)
+#define  ID_LIGHT          (ID_BASE+5)
+#define  ID_PRESSURE       (ID_BASE+6)
+#define  ID_HUMIDITY       (ID_BASE+7)
 
 #define  SENSORS_ACCELERATION    (1 << ID_ACCELERATION)
 #define  SENSORS_MAGNETIC_FIELD  (1 << ID_MAGNETIC_FIELD)
 #define  SENSORS_ORIENTATION     (1 << ID_ORIENTATION)
 #define  SENSORS_TEMPERATURE     (1 << ID_TEMPERATURE)
 #define  SENSORS_PROXIMITY       (1 << ID_PROXIMITY)
+#define  SENSORS_LIGHT           (1 << ID_LIGHT)
+#define  SENSORS_PRESSURE        (1 << ID_PRESSURE)
+#define  SENSORS_HUMIDITY        (1 << ID_HUMIDITY)
 
 #define  ID_CHECK(x)  ((unsigned)((x) - ID_BASE) < MAX_NUM_SENSORS)
 
@@ -75,6 +81,9 @@
     SENSOR_(ORIENTATION,"orientation") \
     SENSOR_(TEMPERATURE,"temperature") \
     SENSOR_(PROXIMITY,"proximity") \
+    SENSOR_(LIGHT, "light") \
+    SENSOR_(PRESSURE, "pressure") \
+    SENSOR_(HUMIDITY, "humidity")
 
 static const struct {
     const char*  name;
@@ -302,7 +311,7 @@ static int sensor_device_poll_event_locked(SensorDevice* dev)
             events[ID_ORIENTATION].orientation.roll    = params[2];
             events[ID_ORIENTATION].orientation.status  =
                     SENSOR_STATUS_ACCURACY_HIGH;
-            events[ID_ACCELERATION].type = SENSOR_TYPE_ORIENTATION;
+            events[ID_ORIENTATION].type = SENSOR_TYPE_ORIENTATION;
             continue;
         }
 
@@ -316,7 +325,7 @@ static int sensor_device_poll_event_locked(SensorDevice* dev)
             events[ID_MAGNETIC_FIELD].magnetic.z = params[2];
             events[ID_MAGNETIC_FIELD].magnetic.status =
                     SENSOR_STATUS_ACCURACY_HIGH;
-            events[ID_ACCELERATION].type = SENSOR_TYPE_MAGNETIC_FIELD;
+            events[ID_MAGNETIC_FIELD].type = SENSOR_TYPE_MAGNETIC_FIELD;
             continue;
         }
 
@@ -324,15 +333,38 @@ static int sensor_device_poll_event_locked(SensorDevice* dev)
         if (sscanf(buff, "temperature:%g", params+0) == 1) {
             new_sensors |= SENSORS_TEMPERATURE;
             events[ID_TEMPERATURE].temperature = params[0];
-            events[ID_ACCELERATION].type = SENSOR_TYPE_TEMPERATURE;
+            events[ID_TEMPERATURE].type = SENSOR_TYPE_TEMPERATURE;
             continue;
         }
-
+ 
         /* "proximity:<value>" */
         if (sscanf(buff, "proximity:%g", params+0) == 1) {
             new_sensors |= SENSORS_PROXIMITY;
             events[ID_PROXIMITY].distance = params[0];
-            events[ID_ACCELERATION].type = SENSOR_TYPE_PROXIMITY;
+            events[ID_PROXIMITY].type = SENSOR_TYPE_PROXIMITY;
+            continue;
+        }
+        /* "light:<lux>" */
+        if (sscanf(buff, "light:%g", params+0) == 1) {
+            new_sensors |= SENSORS_LIGHT;
+            events[ID_LIGHT].light = params[0];
+            events[ID_LIGHT].type = SENSOR_TYPE_LIGHT;
+            continue;
+        }
+
+        /* "pressure:<hpa>" */
+        if (sscanf(buff, "pressure:%g", params+0) == 1) {
+            new_sensors |= SENSORS_PRESSURE;
+            events[ID_PRESSURE].pressure = params[0];
+            events[ID_PRESSURE].type = SENSOR_TYPE_PRESSURE;
+            continue;
+        }
+
+        /* "humidity:<percent>" */
+        if (sscanf(buff, "humidity:%g", params+0) == 1) {
+            new_sensors |= SENSORS_HUMIDITY;
+            events[ID_HUMIDITY].relative_humidity = params[0];
+            events[ID_HUMIDITY].type = SENSOR_TYPE_RELATIVE_HUMIDITY;
             continue;
         }
 
@@ -526,7 +558,8 @@ static int sensor_device_set_delay(struct sensors_poll_device_t *dev0,
  * according to which hardware sensors are reported as
  * available from the emulator (see get_sensors_list below)
  *
- * note: numerical values for maxRange/resolution/power were
+ * note: numerical values for maxRange/resolution/power for
+ *       all sensors but light, pressure and humidity were
  *       taken from the reference AK8976A implementation
  */
 static const struct sensor_t sSensorListInit[] = {
@@ -584,6 +617,39 @@ static const struct sensor_t sSensorListInit[] = {
           .power      = 20.0f,
           .reserved   = {}
         },
+
+        { .name       = "Goldfish Light sensor",
+          .vendor     = "The Android Open Source Project",
+          .version    = 1,
+          .handle     = ID_LIGHT,
+          .type       = SENSOR_TYPE_LIGHT,
+          .maxRange   = 40000.0f,
+          .resolution = 1.0f,
+          .power      = 20.0f,
+          .reserved   = {}
+        },
+
+        { .name       = "Goldfish Pressure sensor",
+          .vendor     = "The Android Open Source Project",
+          .version    = 1,
+          .handle     = ID_PRESSURE,
+          .type       = SENSOR_TYPE_PRESSURE,
+          .maxRange   = 800.0f,
+          .resolution = 1.0f,
+          .power      = 20.0f,
+          .reserved   = {}
+        },
+
+        { .name       = "Goldfish Humidity sensor",
+          .vendor     = "The Android Open Source Project",
+          .version    = 1,
+          .handle     = ID_HUMIDITY,
+          .type       = SENSOR_TYPE_RELATIVE_HUMIDITY,
+          .maxRange   = 100.0f,
+          .resolution = 1.0f,
+          .power      = 20.0f,
+          .reserved   = {}
+        }
 };
 
 static struct sensor_t  sSensorList[MAX_NUM_SENSORS];

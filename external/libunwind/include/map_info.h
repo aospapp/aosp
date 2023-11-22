@@ -54,9 +54,9 @@ extern struct map_info *local_map_list;
 
 void map_local_init (void);
 
-int map_local_is_readable (unw_word_t);
+int map_local_is_readable (unw_word_t, size_t);
 
-int map_local_is_writable (unw_word_t);
+int map_local_is_writable (unw_word_t, size_t);
 
 char *map_local_get_image_name (unw_word_t);
 

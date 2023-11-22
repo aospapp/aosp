@@ -66,6 +66,9 @@ public class SmsMessageTest extends AndroidTestCase{
         "Long dkkshsh jdjsusj kbsksbdf jfkhcu hhdiwoqiwyrygrvn?*?*!\";:'/,."
         + "__?9#9292736&4;\"$+$+((]\\[\\℅©℅™^®°¥°¥=¢£}}£∆~¶~÷|√×."
         + " 😯😆😉😇😂😀👕🎓😀👙🐕🐀🐶🐰🐩⛪⛲ ";
+    private static final String LONG_TEXT_WITH_FLAGS =
+        "🇦🇫🇦🇽🇦🇱🇩🇿🇦🇸🇦🇩🇦🇴🇦🇮🇦🇶🇦🇬🇦🇷🇦🇲🇦🇼🇦🇨"
+        + "🇦🇺🇦🇹🇦🇿🇧🇸🇧🇭🇧🇩🇧🇧🇧🇾🇧🇪🇧🇿🇧🇯🇧🇲🇧🇹🇧🇴🇧🇦";
 
     @Override
     protected void setUp() throws Exception {
@@ -301,12 +304,28 @@ public class SmsMessageTest extends AndroidTestCase{
         int[] result = SmsMessage.calculateLength(LONG_TEXT_WITH_32BIT_CHARS, false);
         assertEquals(3, result[0]);
         assertEquals(LONG_TEXT_WITH_32BIT_CHARS.length(), result[1]);
+        // 3 parts, each with (SmsMessage.MAX_USER_DATA_BYTES_WITH_HEADER / 2) 16-bit
+        // characters. We need to subtract one because a 32-bit character crosses the
+        // boundary of 2 parts.
+        int preMaxChars = 3 * SmsMessage.MAX_USER_DATA_BYTES_WITH_HEADER / 2 - 1;
+        // If EMS is not supported, break down EMS into single segment SMS
+        // and add page info "x/y".
+        // In the case of UCS2 encoding type, we need 8 bytes for this
+        // but we only have 6 bytes from UDH, so truncate the limit for
+        // each segment by 2 bytes (1 char). This log sms has three segments,
+        // so truncate the limit by 3 char in total
+        int maxChars = SmsMessage.hasEmsSupport() ? preMaxChars : preMaxChars - 3;
         assertRemaining(LONG_TEXT_WITH_32BIT_CHARS.length(), result[2],
-                // 3 parts, each with (SmsMessage.MAX_USER_DATA_BYTES_WITH_HEADER / 2) 16-bit
-                // characters. We need to subtract one because a 32-bit character crosses the
-                // boundary of 2 parts.
-                3 * SmsMessage.MAX_USER_DATA_BYTES_WITH_HEADER / 2 - 1);
+                maxChars);
         assertEquals(SmsMessage.ENCODING_16BIT, result[3]);
+    }
+
+    public void testCalculateLengthFlags() throws Exception {
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            return;
+        }
+        int[] result = SmsMessage.calculateLength(LONG_TEXT_WITH_FLAGS, false);
+        assertEquals(2, result[0]);
     }
 
     private final static char[] HEX_DIGITS = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',

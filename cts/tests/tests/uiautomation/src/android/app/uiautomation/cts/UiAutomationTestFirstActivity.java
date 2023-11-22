@@ -16,7 +16,7 @@
 
 package android.app.uiautomation.cts;
 
-import android.app.cts.uiautomation.R;
+import android.app.uiautomation.cts.R;
 
 import android.app.Activity;
 import android.os.Bundle;

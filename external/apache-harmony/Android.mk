@@ -39,7 +39,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(harmony_test_src_files)
 LOCAL_JAVA_RESOURCE_DIRS := $(harmony_test_resource_dirs)
 LOCAL_NO_STANDARD_LIBRARIES := true
-LOCAL_JAVA_LIBRARIES := core-libart core-junit
+LOCAL_JAVA_LIBRARIES := core-oj core-libart core-junit
 LOCAL_JAVACFLAGS := $(harmony_test_javac_flags)
 LOCAL_MODULE := apache-harmony-tests
 LOCAL_JARJAR_RULES := $(LOCAL_PATH)/jarjar-rules.txt
@@ -51,7 +51,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(harmony_test_src_files)
 LOCAL_JAVA_RESOURCE_DIRS := $(harmony_test_resource_dirs)
 LOCAL_NO_STANDARD_LIBRARIES := true
-LOCAL_JAVA_LIBRARIES := core-libart-hostdex core-junit-hostdex
+LOCAL_JAVA_LIBRARIES := core-oj-hostdex core-libart-hostdex core-junit-hostdex
 LOCAL_JAVACFLAGS := $(harmony_test_javac_flags)
 LOCAL_MODULE := apache-harmony-tests-hostdex
 LOCAL_JARJAR_RULES := $(LOCAL_PATH)/jarjar-rules.txt

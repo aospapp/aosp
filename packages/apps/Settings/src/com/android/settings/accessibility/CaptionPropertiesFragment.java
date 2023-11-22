@@ -21,12 +21,12 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.os.Bundle;
-import android.preference.ListPreference;
-import android.preference.Preference;
-import android.preference.PreferenceCategory;
 import android.preference.PreferenceFrameLayout;
-import android.preference.Preference.OnPreferenceChangeListener;
 import android.provider.Settings;
+import android.support.v7.preference.ListPreference;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.Preference.OnPreferenceChangeListener;
+import android.support.v7.preference.PreferenceCategory;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnLayoutChangeListener;
@@ -35,7 +35,7 @@ import android.view.ViewGroup.LayoutParams;
 import android.view.accessibility.CaptioningManager;
 import android.view.accessibility.CaptioningManager.CaptionStyle;
 
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.internal.widget.SubtitleView;
 import com.android.settings.R;
 import com.android.settings.SettingsActivity;
@@ -44,6 +44,7 @@ import com.android.settings.accessibility.ListDialogPreference.OnValueChangedLis
 import com.android.settings.widget.SwitchBar;
 import com.android.settings.widget.ToggleSwitch;
 import com.android.settings.widget.ToggleSwitch.OnBeforeCheckedChangeListener;
+import com.android.settingslib.accessibility.AccessibilityUtils;
 
 import java.util.Locale;
 
@@ -97,7 +98,7 @@ public class CaptionPropertiesFragment extends SettingsPreferenceFragment
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.ACCESSIBILITY_CAPTION_PROPERTIES;
+        return MetricsEvent.ACCESSIBILITY_CAPTION_PROPERTIES;
     }
 
     @Override

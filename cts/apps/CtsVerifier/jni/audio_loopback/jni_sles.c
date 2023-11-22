@@ -22,11 +22,12 @@
 
 /////
 JNIEXPORT jlong JNICALL Java_com_android_cts_verifier_audio_NativeAudioThread_slesInit
-  (JNIEnv *env __unused, jobject obj __unused, jint samplingRate, jint frameCount, jint micSource) {
+  (JNIEnv *env __unused, jobject obj __unused, jint samplingRate, jint frameCount,
+   jint micSource, jint numFramesToIgnore) {
 
     sles_data * pSles = NULL;
 
-    if (slesInit(&pSles, samplingRate, frameCount, micSource) != SLES_FAIL) {
+    if (slesInit(&pSles, samplingRate, frameCount, micSource, numFramesToIgnore) != SLES_FAIL) {
 
         return (long)pSles;
     }

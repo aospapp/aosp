@@ -233,6 +233,17 @@ public class FeatureSummaryActivity extends PassFailButtons.ListActivity {
     public static final Feature[] ALL_MNC_FEATURES = {
             new Feature(PackageManager.FEATURE_MIDI, false),
             new Feature(PackageManager.FEATURE_AUDIO_PRO, false),
+            new Feature(PackageManager.FEATURE_AUTOMOTIVE, false),
+            new Feature(PackageManager.FEATURE_HIFI_SENSORS, false),
+            new Feature(PackageManager.FEATURE_FINGERPRINT, false),
+    };
+
+    public static final Feature[] ALL_NYC_FEATURES = {
+            new Feature(PackageManager.FEATURE_VR_MODE, false),
+            new Feature(PackageManager.FEATURE_VR_MODE_HIGH_PERFORMANCE, false),
+            new Feature(PackageManager.FEATURE_VULKAN_HARDWARE_VERSION, false),
+            new Feature(PackageManager.FEATURE_VULKAN_HARDWARE_LEVEL, false),
+            new Feature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION_NFCF, false),
     };
 
     @Override
@@ -266,6 +277,9 @@ public class FeatureSummaryActivity extends PassFailButtons.ListActivity {
 
         // add features from latest to last so that the latest requirements are put in the set first
         int apiVersion = Build.VERSION.SDK_INT;
+        if (apiVersion >= Build.VERSION_CODES.N) {
+            Collections.addAll(features, ALL_NYC_FEATURES);
+        }
         if (apiVersion >= Build.VERSION_CODES.M) {
             Collections.addAll(features, ALL_MNC_FEATURES);
         }

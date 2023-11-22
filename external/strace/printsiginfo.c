@@ -1,5 +1,51 @@
+/*
+ * Copyright (c) 1991, 1992 Paul Kranenburg <pk@cs.few.eur.nl>
+ * Copyright (c) 1993 Branko Lankester <branko@hacktic.nl>
+ * Copyright (c) 1993-1996 Rick Sladkey <jrs@world.std.com>
+ * Copyright (c) 1996-1999 Wichert Akkerman <wichert@cistron.nl>
+ * Copyright (c) 2001 John Hughes <john@Calva.COM>
+ * Copyright (c) 2013 Denys Vlasenko <vda.linux@googlemail.com>
+ * Copyright (c) 2011-2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2015 Elvira Khabirova <lineprinter0@gmail.com>
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. The name of the author may not be used to endorse or promote products
+ *    derived from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #include "defs.h"
 
+#include DEF_MPERS_TYPE(siginfo_t)
+
+#include <signal.h>
+#include <linux/audit.h>
+
+#include MPERS_DEFS
+
+#ifndef IN_MPERS
+#include "printsiginfo.h"
+#endif
+
+#include "xlat/audit_arch.h"
 #include "xlat/sigbus_codes.h"
 #include "xlat/sigchld_codes.h"
 #include "xlat/sigfpe_codes.h"
@@ -22,9 +68,9 @@
 static void
 printsigsource(const siginfo_t *sip)
 {
-	tprintf(", si_pid=%lu, si_uid=%lu",
-		(unsigned long) sip->si_pid,
-		(unsigned long) sip->si_uid);
+	tprintf(", si_pid=%u, si_uid=%u",
+		(unsigned int) sip->si_pid,
+		(unsigned int) sip->si_uid);
 }
 
 static void
@@ -33,7 +79,7 @@ printsigval(const siginfo_t *sip, bool verbose)
 	if (!verbose)
 		tprints(", ...");
 	else
-		tprintf(", si_value={int=%u, ptr=%#lx}",
+		tprintf(", si_value={int=%d, ptr=%#lx}",
 			sip->si_int,
 			(unsigned long) sip->si_ptr);
 }
@@ -150,9 +196,10 @@ print_si_info(const siginfo_t *sip, bool verbose)
 			break;
 #ifdef HAVE_SIGINFO_T_SI_SYSCALL
 		case SIGSYS:
-			tprintf(", si_call_addr=%#lx, si_syscall=%d, si_arch=%u",
+			tprintf(", si_call_addr=%#lx, si_syscall=__NR_%s, si_arch=",
 				(unsigned long) sip->si_call_addr,
-				sip->si_syscall, sip->si_arch);
+				syscall_name(sip->si_syscall));
+			printxval(audit_arch, sip->si_arch, "AUDIT_ARCH_???");
 			break;
 #endif
 		default:
@@ -164,6 +211,9 @@ print_si_info(const siginfo_t *sip, bool verbose)
 	}
 }
 
+#ifdef IN_MPERS
+static
+#endif
 void
 printsiginfo(const siginfo_t *sip, bool verbose)
 {
@@ -185,17 +235,10 @@ printsiginfo(const siginfo_t *sip, bool verbose)
 	tprints("}");
 }
 
-void
-printsiginfo_at(struct tcb *tcp, long addr)
+MPERS_PRINTER_DECL(void, printsiginfo_at)(struct tcb *tcp, long addr)
 {
 	siginfo_t si;
-	if (!addr) {
-		tprints("NULL");
-		return;
-	}
-	if (syserror(tcp) || umove(tcp, addr, &si) < 0) {
-		tprintf("%#lx", addr);
-		return;
-	}
-	printsiginfo(&si, verbose(tcp));
+
+	if (!umove_or_printaddr(tcp, addr, &si))
+		printsiginfo(&si, verbose(tcp));
 }

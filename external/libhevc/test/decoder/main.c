@@ -56,9 +56,7 @@
 #include "ihevcd_cxa.h"
 #include "ithread.h"
 
-
-//#define MD5_DISABLE
-#ifdef X86_MSVC
+#ifdef WINDOWS_TIMER
 #include <windows.h>
 #else
 #include <sys/time.h>
@@ -68,12 +66,14 @@
 #define NUM_DISPLAY_BUFFERS 4
 #define DEFAULT_FPS         30
 
-
 #define ENABLE_DEGRADE 0
 #define MAX_DISP_BUFFERS    64
 #define EXTRA_DISP_BUFFERS  0
 #define STRLENGTH 1000
 
+#define ADAPTIVE_TEST
+#define ADAPTIVE_MAX_WD 8192
+#define ADAPTIVE_MAX_HT 4096
 //#define TEST_FLUSH
 #define FLUSH_FRM_CNT 100
 
@@ -240,9 +240,9 @@ typedef struct
     void (*set_disp_buffers)(void *, WORD32, UWORD8 **, UWORD8 **, UWORD8 **);
     void (*disp_deinit)(void *);
     void (*disp_usleep)(UWORD32);
-    IV_COLOR_FORMAT_T(*get_color_fmt)(void);
-    UWORD32(*get_stride)(void);
-}vid_dec_ctx_t;
+    IV_COLOR_FORMAT_T (*get_color_fmt)(void);
+    UWORD32 (*get_stride)(void);
+} vid_dec_ctx_t;
 
 
 
@@ -266,9 +266,6 @@ typedef enum
     FULLSCREEN,
     FPS,
     TRACE,
-    MAX_WD,
-    MAX_HT,
-    MAX_LEVEL,
     CONFIG,
 
     DEGRADE_TYPE,
@@ -332,12 +329,6 @@ static const argument_t argument_mapping[] =
         "FPS to be used for display \n" },
     { "-i",  "--trace",                   TRACE,
         "Trace file\n" },
-    { "--", "--max_wd",      MAX_WD,
-        "Maximum width (Default: 2560) \n" },
-    { "--", "--max_ht",      MAX_HT,
-        "Maximum height (Default: 1600)\n" },
-    { "--", "--max_level",      MAX_LEVEL,
-        "Maximum Decoder Level (Default: 50)\n" },
     { "--",  "--arch", ARCH,
         "Set Architecture. Supported values  ARM_NONEON, ARM_A9Q, ARM_A7, ARM_A5, ARM_NEONINTR, X86_GENERIC, X86_SSSE3, X86_SSE4 \n" },
     { "--",  "--soc", SOC,
@@ -345,11 +336,6 @@ static const argument_t argument_mapping[] =
 };
 
 #define PEAK_WINDOW_SIZE            8
-#define MAX_FRAME_WIDTH             2560
-#define MAX_FRAME_HEIGHT            1600
-#define MAX_LEVEL_SUPPORTED         50
-#define MAX_REF_FRAMES              16
-#define MAX_REORDER_FRAMES          16
 #define DEFAULT_SHARE_DISPLAY_BUF   0
 #define STRIDE                      0
 #define DEFAULT_NUM_CORES           1
@@ -422,39 +408,45 @@ int raise(int a)
 /*                                                                           */
 /*****************************************************************************/
 
-void* ihevca_aligned_malloc(WORD32 alignment, WORD32 size)
+void *ihevca_aligned_malloc(void *pv_ctxt, WORD32 alignment, WORD32 i4_size)
 {
-    return (void *)_aligned_malloc(size, alignment);
+    (void)pv_ctxt;
+    return (void *)_aligned_malloc(i4_size, alignment);
 }
 
-void ihevca_aligned_free(void *pv_buf)
+void ihevca_aligned_free(void *pv_ctxt, void *pv_buf)
 {
+    (void)pv_ctxt;
     _aligned_free(pv_buf);
     return;
 }
 #endif
 
 #if IOS
-void* ihevca_aligned_malloc(WORD32 alignment, WORD32 size)
+void *ihevca_aligned_malloc(void *pv_ctxt, WORD32 alignment, WORD32 i4_size)
 {
-    return malloc(size);
+    (void)pv_ctxt;
+    return malloc(i4_size);
 }
 
-void ihevca_aligned_free(void *pv_buf)
+void ihevca_aligned_free(void *pv_ctxt, void *pv_buf)
 {
+    (void)pv_ctxt;
     free(pv_buf);
     return;
 }
 #endif
 
 #if (!defined(IOS)) && (!defined(_WIN32))
-void* ihevca_aligned_malloc(WORD32 alignment, WORD32 size)
+void *ihevca_aligned_malloc(void *pv_ctxt, WORD32 alignment, WORD32 i4_size)
 {
-    return memalign(alignment, size);
+   (void)pv_ctxt;
+    return memalign(alignment, i4_size);
 }
 
-void ihevca_aligned_free(void *pv_buf)
+void ihevca_aligned_free(void *pv_ctxt, void *pv_buf)
 {
+    (void)pv_ctxt;
     free(pv_buf);
     return;
 }
@@ -934,10 +926,10 @@ void dump_output(vid_dec_ctx_t *ps_app_ctx,
     {
 #if DUMP_SINGLE_BUF
         {
-            UWORD8 *buf = s_dump_disp_frm_buf.pv_y_buf - 24 - (s_dump_disp_frm_buf.u4_y_strd * 40);
+            UWORD8 *buf = s_dump_disp_frm_buf.pv_y_buf - 80 - (s_dump_disp_frm_buf.u4_y_strd * 80);
 
-            UWORD32 size = s_dump_disp_frm_buf.u4_y_strd * ((s_dump_disp_frm_buf.u4_y_ht + 80) + (s_dump_disp_frm_buf.u4_u_ht + 40));
-            fwrite(buf, 1, size, ps_op_file);
+            UWORD32 size = s_dump_disp_frm_buf.u4_y_strd * ((s_dump_disp_frm_buf.u4_y_ht + 160) + (s_dump_disp_frm_buf.u4_u_ht + 80));
+            fwrite(buf, 1, size ,ps_op_file);
 
         }
 #else
@@ -1003,7 +995,7 @@ void dump_output(vid_dec_ctx_t *ps_app_ctx,
             UWORD8 *buf = s_dump_disp_frm_buf.pv_y_buf - 24 - (s_dump_disp_frm_buf.u4_y_strd * 40);
 
             UWORD32 size = s_dump_disp_frm_buf.u4_y_strd * ((s_dump_disp_frm_buf.u4_y_ht + 80) + (s_dump_disp_frm_buf.u4_u_ht + 40));
-            fwrite(buf, 1, size, ps_op_file);
+            fwrite(buf, 1, size ,ps_op_file);
         }
 #else
         {
@@ -1242,15 +1234,6 @@ void parse_argument(vid_dec_ctx_t *ps_app_ctx, CHAR *argument, CHAR *value)
             if(ps_app_ctx->fps <= 0)
                 ps_app_ctx->fps = DEFAULT_FPS;
             break;
-        case MAX_WD:
-            sscanf(value, "%d", &ps_app_ctx->max_wd);
-            break;
-        case MAX_HT:
-            sscanf(value, "%d", &ps_app_ctx->max_ht);
-            break;
-        case MAX_LEVEL:
-            sscanf(value, "%d", &ps_app_ctx->max_level);
-            break;
         case ARCH:
             if((strcmp(value, "ARM_NONEON")) == 0)
                 ps_app_ctx->e_arch = ARCH_ARM_NONEON;
@@ -1274,6 +1257,8 @@ void parse_argument(vid_dec_ctx_t *ps_app_ctx, CHAR *argument, CHAR *value)
                 ps_app_ctx->e_arch = ARCH_MIPS_GENERIC;
             else if((strcmp(value, "MIPS_32")) == 0)
                 ps_app_ctx->e_arch = ARCH_MIPS_32;
+            else if((strcmp(value, "ARMV8_GENERIC")) == 0)
+                ps_app_ctx->e_arch = ARCH_ARMV8_GENERIC;
             else
             {
                 printf("\nInvalid Arch. Setting it to ARM_A9Q\n");
@@ -1527,14 +1512,11 @@ WORD32 display_thread(void *pv_ctx)
     TIMER   s_first_frame_time;
     UWORD32 first_frame_displayed;
 
-#ifdef X86_MINGW
-    UWORD32 frequency = 0;
-#endif
-#ifdef X86_MSVC
+#ifdef WINDOWS_TIMER
     TIMER frequency;
 #endif
 
-#ifdef X86_MSVC
+#ifdef WINDOWS_TIMER
     QueryPerformanceFrequency(&frequency);
 #endif
     first_frame_displayed = 0;
@@ -1745,17 +1727,15 @@ int main(WORD32 argc, CHAR *argv[])
     WORD32 ret;
     CHAR ac_error_str[STRLENGTH];
     vid_dec_ctx_t s_app_ctx;
-    UWORD8 *pu1_bs_buf;
+    UWORD8 *pu1_bs_buf = NULL;
 
     ivd_out_bufdesc_t *ps_out_buf;
     UWORD32 u4_num_bytes_dec = 0;
     UWORD32 file_pos = 0;
-    IV_API_CALL_STATUS_T e_dec_status;
+
     UWORD32 u4_ip_frm_ts = 0, u4_op_frm_ts = 0;
 
     WORD32 u4_bytes_remaining = 0;
-    void *pv_mem_rec_location;
-    UWORD32 u4_num_mem_recs;
     UWORD32 i;
     UWORD32 u4_ip_buf_len;
     UWORD32 frm_cnt = 0;
@@ -1773,14 +1753,15 @@ int main(WORD32 argc, CHAR *argv[])
 #endif
 #endif
 
-#ifdef X86_MINGW
-    UWORD32 frequency = 0;
-#endif
-#ifdef X86_MSVC
+#ifdef WINDOWS_TIMER
     TIMER frequency;
 #endif
     WORD32 width = 0, height = 0;
     iv_obj_t *codec_obj;
+#if defined(GPU_BUILD) && !defined(X86)
+//    int ioctl_init();
+//    ioctl_init();
+#endif
 
 #ifdef X86_MINGW
     //For getting printfs without any delay
@@ -1844,9 +1825,6 @@ int main(WORD32 argc, CHAR *argv[])
     s_app_ctx.u4_num_cores = DEFAULT_NUM_CORES;
     s_app_ctx.i4_degrade_type = 0;
     s_app_ctx.i4_degrade_pics = 0;
-    s_app_ctx.max_wd = 0;
-    s_app_ctx.max_ht = 0;
-    s_app_ctx.max_level = 0;
     s_app_ctx.e_arch = ARCH_ARM_A9Q;
     s_app_ctx.e_soc = SOC_GENERIC;
 
@@ -2064,217 +2042,37 @@ int main(WORD32 argc, CHAR *argv[])
 
         ps_out_buf = (ivd_out_bufdesc_t *)malloc(sizeof(ivd_out_bufdesc_t));
 
-        {
-            iv_num_mem_rec_ip_t s_no_of_mem_rec_query_ip;
-            iv_num_mem_rec_op_t s_no_of_mem_rec_query_op;
-
-            s_no_of_mem_rec_query_ip.u4_size = sizeof(s_no_of_mem_rec_query_ip);
-            s_no_of_mem_rec_query_op.u4_size = sizeof(s_no_of_mem_rec_query_op);
-            s_no_of_mem_rec_query_ip.e_cmd = IV_CMD_GET_NUM_MEM_REC;
-
-            /*****************************************************************************/
-            /*   API Call: Get Number of Mem Records                                     */
-            /*****************************************************************************/
-            e_dec_status = ivd_cxa_api_function(
-                            NULL, (void *)&s_no_of_mem_rec_query_ip,
-                            (void *)&s_no_of_mem_rec_query_op);
-            if(IV_SUCCESS != e_dec_status)
-            {
-                sprintf(ac_error_str, "Error in get mem records");
-                codec_exit(ac_error_str);
-            }
-
-            u4_num_mem_recs = s_no_of_mem_rec_query_op.u4_num_mem_rec;
-        }
-
-        pv_mem_rec_location = malloc(u4_num_mem_recs * sizeof(iv_mem_rec_t));
-        if(pv_mem_rec_location == NULL)
-        {
-            sprintf(ac_error_str, "Allocation failure for mem_rec_location");
-            codec_exit(ac_error_str);
-
-        }
-
-        {
-            ihevcd_cxa_fill_mem_rec_ip_t s_fill_mem_rec_ip;
-            ihevcd_cxa_fill_mem_rec_op_t s_fill_mem_rec_op;
-            iv_mem_rec_t *ps_mem_rec;
-            UWORD32 total_size;
-
-            s_fill_mem_rec_ip.s_ivd_fill_mem_rec_ip_t.e_cmd =
-                            IV_CMD_FILL_NUM_MEM_REC;
-            s_fill_mem_rec_ip.s_ivd_fill_mem_rec_ip_t.pv_mem_rec_location =
-                            (iv_mem_rec_t *)pv_mem_rec_location;
-            s_fill_mem_rec_ip.s_ivd_fill_mem_rec_ip_t.u4_max_frm_wd =
-                            (s_app_ctx.max_wd == 0) ? MAX_FRAME_WIDTH : s_app_ctx.max_wd;
-            s_fill_mem_rec_ip.s_ivd_fill_mem_rec_ip_t.u4_max_frm_ht =
-                            (s_app_ctx.max_ht == 0) ? MAX_FRAME_HEIGHT : s_app_ctx.max_ht;
-            s_fill_mem_rec_ip.i4_level = (s_app_ctx.max_level == 0) ? MAX_LEVEL_SUPPORTED : s_app_ctx.max_level;
-            s_fill_mem_rec_ip.u4_num_ref_frames = MAX_REF_FRAMES;
-            s_fill_mem_rec_ip.u4_num_reorder_frames = MAX_REORDER_FRAMES;
-            s_fill_mem_rec_ip.u4_share_disp_buf = s_app_ctx.share_disp_buf;
-            s_fill_mem_rec_ip.e_output_format =
-                            (IV_COLOR_FORMAT_T)s_app_ctx.e_output_chroma_format;
-            s_fill_mem_rec_ip.u4_num_extra_disp_buf = EXTRA_DISP_BUFFERS;
-
-            s_fill_mem_rec_ip.s_ivd_fill_mem_rec_ip_t.u4_size =
-                            sizeof(ihevcd_cxa_fill_mem_rec_ip_t);
-            s_fill_mem_rec_op.s_ivd_fill_mem_rec_op_t.u4_size =
-                            sizeof(ihevcd_cxa_fill_mem_rec_op_t);
-
-            ps_mem_rec = (iv_mem_rec_t *)pv_mem_rec_location;
-            for(i = 0; i < u4_num_mem_recs; i++)
-                ps_mem_rec[i].u4_size = sizeof(iv_mem_rec_t);
-
-            /*****************************************************************************/
-            /*   API Call: Fill Mem Records                                     */
-            /*****************************************************************************/
-
-            e_dec_status = ivd_cxa_api_function(NULL,
-                                                (void *)&s_fill_mem_rec_ip,
-                                                (void *)&s_fill_mem_rec_op);
-
-            u4_num_mem_recs =
-                            s_fill_mem_rec_op.s_ivd_fill_mem_rec_op_t.u4_num_mem_rec_filled;
-
-            if(IV_SUCCESS != e_dec_status)
-            {
-                sprintf(ac_error_str, "Error in fill mem records: %x", s_fill_mem_rec_op.s_ivd_fill_mem_rec_op_t.u4_error_code);
-                codec_exit(ac_error_str);
-            }
-
-            ps_mem_rec = (iv_mem_rec_t *)pv_mem_rec_location;
-            total_size = 0;
-            for(i = 0; i < u4_num_mem_recs; i++)
-            {
-                ps_mem_rec->pv_base = ihevca_aligned_malloc(ps_mem_rec->u4_mem_alignment,
-                                                            ps_mem_rec->u4_mem_size);
-                if(ps_mem_rec->pv_base == NULL)
-                {
-                    sprintf(ac_error_str,
-                            "\nAllocation failure for mem record id %d size %d\n",
-                            i, ps_mem_rec->u4_mem_size);
-                    codec_exit(ac_error_str);
-
-                }
-                total_size += ps_mem_rec->u4_mem_size;
-
-                ps_mem_rec++;
-            }
-            //printf("\nTotal memory for codec %d\n", total_size);
-        }
         /*****************************************************************************/
         /*   API Call: Initialize the Decoder                                        */
         /*****************************************************************************/
         {
-            ihevcd_cxa_init_ip_t s_init_ip;
-            ihevcd_cxa_init_op_t s_init_op;
+            ihevcd_cxa_create_ip_t s_create_ip;
+            ihevcd_cxa_create_op_t s_create_op;
             void *fxns = &ivd_cxa_api_function;
-            iv_mem_rec_t *mem_tab;
 
-            mem_tab = (iv_mem_rec_t *)pv_mem_rec_location;
-            s_init_ip.s_ivd_init_ip_t.e_cmd = (IVD_API_COMMAND_TYPE_T)IV_CMD_INIT;
-            s_init_ip.s_ivd_init_ip_t.pv_mem_rec_location = mem_tab;
-            s_init_ip.s_ivd_init_ip_t.u4_frm_max_wd = (s_app_ctx.max_wd == 0) ? MAX_FRAME_WIDTH : s_app_ctx.max_wd;
-            s_init_ip.s_ivd_init_ip_t.u4_frm_max_ht = (s_app_ctx.max_ht == 0) ? MAX_FRAME_HEIGHT : s_app_ctx.max_ht;
-            s_init_ip.i4_level = (s_app_ctx.max_level == 0) ? MAX_LEVEL_SUPPORTED : s_app_ctx.max_level;
-            s_init_ip.u4_num_ref_frames = MAX_REF_FRAMES;
-            s_init_ip.u4_num_reorder_frames = MAX_REORDER_FRAMES;
-            s_init_ip.u4_share_disp_buf = s_app_ctx.share_disp_buf;
-            s_init_ip.u4_num_extra_disp_buf = EXTRA_DISP_BUFFERS;
-            s_init_ip.s_ivd_init_ip_t.u4_num_mem_rec = u4_num_mem_recs;
-            s_init_ip.s_ivd_init_ip_t.e_output_format =
-                            (IV_COLOR_FORMAT_T)s_app_ctx.e_output_chroma_format;
-            s_init_ip.s_ivd_init_ip_t.u4_size = sizeof(ihevcd_cxa_init_ip_t);
-            s_init_op.s_ivd_init_op_t.u4_size = sizeof(ihevcd_cxa_init_op_t);
+            s_create_ip.s_ivd_create_ip_t.e_cmd = IVD_CMD_CREATE;
+            s_create_ip.s_ivd_create_ip_t.u4_share_disp_buf = s_app_ctx.share_disp_buf;
+            s_create_ip.s_ivd_create_ip_t.e_output_format = (IV_COLOR_FORMAT_T)s_app_ctx.e_output_chroma_format;
+            s_create_ip.s_ivd_create_ip_t.pf_aligned_alloc = ihevca_aligned_malloc;
+            s_create_ip.s_ivd_create_ip_t.pf_aligned_free = ihevca_aligned_free;
+            s_create_ip.s_ivd_create_ip_t.pv_mem_ctxt = NULL;
+            s_create_ip.s_ivd_create_ip_t.u4_size = sizeof(ihevcd_cxa_create_ip_t);
+            s_create_op.s_ivd_create_op_t.u4_size = sizeof(ihevcd_cxa_create_op_t);
 
-            codec_obj = (iv_obj_t *)mem_tab[0].pv_base;
-            codec_obj->pv_fxns = fxns;
-            codec_obj->u4_size = sizeof(iv_obj_t);
 
-            s_app_ctx.cocodec_obj = codec_obj;
 
-            ret = ivd_cxa_api_function((iv_obj_t *)codec_obj, (void *)&s_init_ip,
-                                       (void *)&s_init_op);
+            ret = ivd_cxa_api_function(NULL, (void *)&s_create_ip,
+                                       (void *)&s_create_op);
             if(ret != IV_SUCCESS)
             {
-                sprintf(ac_error_str, "Error in Init %8x\n",
-                        s_init_op.s_ivd_init_op_t.u4_error_code);
+                sprintf(ac_error_str, "Error in Create %8x\n",
+                        s_create_op.s_ivd_create_op_t.u4_error_code);
                 codec_exit(ac_error_str);
             }
-
-            /*****************************************************************************/
-            /*  Input and output buffer allocation                                       */
-            /*****************************************************************************/
-            {
-
-                ivd_ctl_getbufinfo_ip_t s_ctl_ip;
-                ivd_ctl_getbufinfo_op_t s_ctl_op;
-
-                s_ctl_ip.e_cmd = IVD_CMD_VIDEO_CTL;
-                s_ctl_ip.e_sub_cmd = IVD_CMD_CTL_GETBUFINFO;
-                s_ctl_ip.u4_size = sizeof(ivd_ctl_getbufinfo_ip_t);
-                s_ctl_op.u4_size = sizeof(ivd_ctl_getbufinfo_op_t);
-                ret = ivd_cxa_api_function((iv_obj_t *)codec_obj, (void *)&s_ctl_ip,
-                                           (void *)&s_ctl_op);
-                if(ret != IV_SUCCESS)
-                {
-                    sprintf(ac_error_str, "Error in Get Buf Info %x", s_ctl_op.u4_error_code);
-                    codec_exit(ac_error_str);
-                }
-
-                /* Allocate input buffer */
-                u4_ip_buf_len = s_ctl_op.u4_min_in_buf_size[0];
-                pu1_bs_buf = (UWORD8 *)malloc(u4_ip_buf_len);
-
-                if(pu1_bs_buf == NULL)
-                {
-                    sprintf(ac_error_str,
-                            "\nAllocation failure for input buffer of size %d",
-                            u4_ip_buf_len);
-                    codec_exit(ac_error_str);
-                }
-                s_app_ctx.num_disp_buf = s_ctl_op.u4_num_disp_bufs;
-                /* Allocate output buffer only if display buffers are not shared */
-                /* Or if shared and output is 420P */
-                if((0 == s_app_ctx.share_disp_buf) || (IV_YUV_420P == s_app_ctx.e_output_chroma_format))
-                {
-                    UWORD32 outlen;
-                    ps_out_buf->u4_min_out_buf_size[0] =
-                                    s_ctl_op.u4_min_out_buf_size[0];
-                    ps_out_buf->u4_min_out_buf_size[1] =
-                                    s_ctl_op.u4_min_out_buf_size[1];
-                    ps_out_buf->u4_min_out_buf_size[2] =
-                                    s_ctl_op.u4_min_out_buf_size[2];
-
-                    outlen = s_ctl_op.u4_min_out_buf_size[0];
-                    if(s_ctl_op.u4_min_num_out_bufs > 1)
-                        outlen += s_ctl_op.u4_min_out_buf_size[1];
-
-                    if(s_ctl_op.u4_min_num_out_bufs > 2)
-                        outlen += s_ctl_op.u4_min_out_buf_size[2];
-
-                    ps_out_buf->pu1_bufs[0] = (UWORD8 *)malloc(outlen);
-                    if(ps_out_buf->pu1_bufs[0] == NULL)
-                    {
-                        sprintf(ac_error_str,
-                                "\nAllocation failure for output buffer of size %d",
-                                outlen);
-                        codec_exit(ac_error_str);
-                    }
-
-                    if(s_ctl_op.u4_min_num_out_bufs > 1)
-                        ps_out_buf->pu1_bufs[1] = ps_out_buf->pu1_bufs[0]
-                                        + (s_ctl_op.u4_min_out_buf_size[0]);
-
-                    if(s_ctl_op.u4_min_num_out_bufs > 2)
-                        ps_out_buf->pu1_bufs[2] = ps_out_buf->pu1_bufs[1]
-                                        + (s_ctl_op.u4_min_out_buf_size[1]);
-
-                    ps_out_buf->u4_num_bufs = s_ctl_op.u4_min_num_out_bufs;
-                }
-
-            }
+            codec_obj = (iv_obj_t*)s_create_op.s_ivd_create_op_t.pv_handle;
+            codec_obj->pv_fxns = fxns;
+            codec_obj->u4_size = sizeof(iv_obj_t);
+            s_app_ctx.cocodec_obj = codec_obj;
         }
 
     }
@@ -2328,36 +2126,56 @@ int main(WORD32 argc, CHAR *argv[])
 
     }
 
+    flush_output(codec_obj, &s_app_ctx, ps_out_buf,
+                 pu1_bs_buf, &u4_op_frm_ts,
+                 ps_op_file, ps_op_chksum_file,
+                 u4_ip_frm_ts, u4_bytes_remaining);
 
     /*****************************************************************************/
     /*   Decode header to get width and height and buffer sizes                  */
     /*****************************************************************************/
     {
-
-        ivd_ctl_set_config_ip_t s_ctl_ip;
-        ivd_ctl_set_config_op_t s_ctl_op;
-
         ivd_video_decode_ip_t s_video_decode_ip;
         ivd_video_decode_op_t s_video_decode_op;
 
-        s_ctl_ip.u4_disp_wd = STRIDE;
-        if(1 == s_app_ctx.display)
-            s_ctl_ip.u4_disp_wd = s_app_ctx.get_stride();
 
-        s_ctl_ip.e_frm_skip_mode = IVD_SKIP_NONE;
-        s_ctl_ip.e_frm_out_mode = IVD_DISPLAY_FRAME_OUT;
-        s_ctl_ip.e_vid_dec_mode = IVD_DECODE_HEADER;
-        s_ctl_ip.e_cmd = IVD_CMD_VIDEO_CTL;
-        s_ctl_ip.e_sub_cmd = IVD_CMD_CTL_SETPARAMS;
-        s_ctl_ip.u4_size = sizeof(ivd_ctl_set_config_ip_t);
-        s_ctl_op.u4_size = sizeof(ivd_ctl_set_config_op_t);
 
-        ret = ivd_cxa_api_function((iv_obj_t *)codec_obj, (void *)&s_ctl_ip,
-                                   (void *)&s_ctl_op);
-        if(ret != IV_SUCCESS)
+        {
+            ivd_ctl_set_config_ip_t s_ctl_ip;
+            ivd_ctl_set_config_op_t s_ctl_op;
+
+
+            s_ctl_ip.u4_disp_wd = STRIDE;
+            if(1 == s_app_ctx.display)
+                s_ctl_ip.u4_disp_wd = s_app_ctx.get_stride();
+
+            s_ctl_ip.e_frm_skip_mode = IVD_SKIP_NONE;
+            s_ctl_ip.e_frm_out_mode = IVD_DISPLAY_FRAME_OUT;
+            s_ctl_ip.e_vid_dec_mode = IVD_DECODE_HEADER;
+            s_ctl_ip.e_cmd = IVD_CMD_VIDEO_CTL;
+            s_ctl_ip.e_sub_cmd = IVD_CMD_CTL_SETPARAMS;
+            s_ctl_ip.u4_size = sizeof(ivd_ctl_set_config_ip_t);
+            s_ctl_op.u4_size = sizeof(ivd_ctl_set_config_op_t);
+
+            ret = ivd_cxa_api_function((iv_obj_t*)codec_obj, (void *)&s_ctl_ip,
+                                       (void *)&s_ctl_op);
+            if(ret != IV_SUCCESS)
+            {
+                sprintf(ac_error_str,
+                        "\nError in setting the codec in header decode mode");
+                codec_exit(ac_error_str);
+            }
+        }
+
+        /* Allocate input buffer for header */
+        u4_ip_buf_len = 256 * 1024;
+        pu1_bs_buf = (UWORD8 *)malloc(u4_ip_buf_len);
+
+        if(pu1_bs_buf == NULL)
         {
             sprintf(ac_error_str,
-                    "\nError in setting the codec in header decode mode");
+                    "\nAllocation failure for input buffer of i4_size %d",
+                    u4_ip_buf_len);
             codec_exit(ac_error_str);
         }
 
@@ -2408,7 +2226,7 @@ int main(WORD32 argc, CHAR *argv[])
 
             u4_num_bytes_dec = s_video_decode_op.u4_num_bytes_consumed;
 #ifndef PROFILE_ENABLE
-            printf("%d\n", s_video_decode_op.u4_num_bytes_consumed);
+            printf("%d\n",s_video_decode_op.u4_num_bytes_consumed);
 #endif
             file_pos += u4_num_bytes_dec;
             total_bytes_comsumed += u4_num_bytes_dec;
@@ -2418,10 +2236,177 @@ int main(WORD32 argc, CHAR *argv[])
         s_app_ctx.u4_pic_wd = s_video_decode_op.u4_pic_wd;
         s_app_ctx.u4_pic_ht = s_video_decode_op.u4_pic_ht;
 
+        free(pu1_bs_buf);
+
 #if IOS_DISPLAY
         s_app_ctx.i4_screen_wd = screen_wd;
         s_app_ctx.i4_screen_ht = screen_ht;
 #endif
+        {
+
+            ivd_ctl_getbufinfo_ip_t s_ctl_ip;
+            ivd_ctl_getbufinfo_op_t s_ctl_op;
+            WORD32 outlen = 0;
+
+            s_ctl_ip.e_cmd = IVD_CMD_VIDEO_CTL;
+            s_ctl_ip.e_sub_cmd = IVD_CMD_CTL_GETBUFINFO;
+            s_ctl_ip.u4_size = sizeof(ivd_ctl_getbufinfo_ip_t);
+            s_ctl_op.u4_size = sizeof(ivd_ctl_getbufinfo_op_t);
+            ret = ivd_cxa_api_function((iv_obj_t*)codec_obj, (void *)&s_ctl_ip,
+                                       (void *)&s_ctl_op);
+            if(ret != IV_SUCCESS)
+            {
+                sprintf(ac_error_str, "Error in Get Buf Info %x", s_ctl_op.u4_error_code);
+                codec_exit(ac_error_str);
+            }
+
+            /* Allocate bitstream buffer */
+            u4_ip_buf_len = s_ctl_op.u4_min_in_buf_size[0];
+#ifdef ADAPTIVE_TEST
+            u4_ip_buf_len = ADAPTIVE_MAX_WD * ADAPTIVE_MAX_HT * 3 >> 1;
+#endif
+            pu1_bs_buf = (UWORD8 *)malloc(u4_ip_buf_len);
+
+            if(pu1_bs_buf == NULL)
+            {
+                sprintf(ac_error_str,
+                        "\nAllocation failure for input buffer of i4_size %d",
+                        u4_ip_buf_len);
+                codec_exit(ac_error_str);
+            }
+
+#ifdef ADAPTIVE_TEST
+            switch(s_app_ctx.e_output_chroma_format)
+            {
+                case IV_YUV_420P:
+                {
+                    s_ctl_op.u4_min_out_buf_size[0] = ADAPTIVE_MAX_WD * ADAPTIVE_MAX_HT;
+                    s_ctl_op.u4_min_out_buf_size[1] = ADAPTIVE_MAX_WD * ADAPTIVE_MAX_HT >> 2;
+                    s_ctl_op.u4_min_out_buf_size[2] = ADAPTIVE_MAX_WD * ADAPTIVE_MAX_HT >> 2;
+                    break;
+                }
+                case IV_YUV_420SP_UV:
+                case IV_YUV_420SP_VU:
+                {
+                    s_ctl_op.u4_min_out_buf_size[0] = ADAPTIVE_MAX_WD * ADAPTIVE_MAX_HT;
+                    s_ctl_op.u4_min_out_buf_size[1] = ADAPTIVE_MAX_WD * ADAPTIVE_MAX_HT >> 1;
+                    s_ctl_op.u4_min_out_buf_size[2] = 0;
+                    break;
+                }
+                case IV_YUV_422ILE:
+                {
+                    s_ctl_op.u4_min_out_buf_size[0] = ADAPTIVE_MAX_WD * ADAPTIVE_MAX_HT * 2;
+                    s_ctl_op.u4_min_out_buf_size[1] = 0;
+                    s_ctl_op.u4_min_out_buf_size[2] = 0;
+                    break;
+                }
+                case IV_RGBA_8888:
+                {
+                    s_ctl_op.u4_min_out_buf_size[0] = ADAPTIVE_MAX_WD * ADAPTIVE_MAX_HT * 4;
+                    s_ctl_op.u4_min_out_buf_size[1] = 0;
+                    s_ctl_op.u4_min_out_buf_size[2] = 0;
+                    break;
+                }
+                case IV_RGB_565:
+                {
+                    s_ctl_op.u4_min_out_buf_size[0] = ADAPTIVE_MAX_WD * ADAPTIVE_MAX_HT * 2;
+                    s_ctl_op.u4_min_out_buf_size[1] = 0;
+                    s_ctl_op.u4_min_out_buf_size[2] = 0;
+                    break;
+                }
+                default:
+                    break;
+
+            }
+#endif
+            /* Allocate output buffer only if display buffers are not shared */
+            /* Or if shared and output is 420P */
+            if((0 == s_app_ctx.share_disp_buf) || (IV_YUV_420P == s_app_ctx.e_output_chroma_format))
+            {
+                ps_out_buf->u4_min_out_buf_size[0] =
+                                s_ctl_op.u4_min_out_buf_size[0];
+                ps_out_buf->u4_min_out_buf_size[1] =
+                                s_ctl_op.u4_min_out_buf_size[1];
+                ps_out_buf->u4_min_out_buf_size[2] =
+                                s_ctl_op.u4_min_out_buf_size[2];
+
+                outlen = s_ctl_op.u4_min_out_buf_size[0];
+                if(s_ctl_op.u4_min_num_out_bufs > 1)
+                    outlen += s_ctl_op.u4_min_out_buf_size[1];
+
+                if(s_ctl_op.u4_min_num_out_bufs > 2)
+                    outlen += s_ctl_op.u4_min_out_buf_size[2];
+
+                ps_out_buf->pu1_bufs[0] = (UWORD8 *)malloc(outlen);
+                if(ps_out_buf->pu1_bufs[0] == NULL)
+                {
+                    sprintf(ac_error_str, "\nAllocation failure for output buffer of i4_size %d",
+                            outlen);
+                    codec_exit(ac_error_str);
+                }
+
+                if(s_ctl_op.u4_min_num_out_bufs > 1)
+                    ps_out_buf->pu1_bufs[1] = ps_out_buf->pu1_bufs[0]
+                                    + (s_ctl_op.u4_min_out_buf_size[0]);
+
+                if(s_ctl_op.u4_min_num_out_bufs > 2)
+                    ps_out_buf->pu1_bufs[2] = ps_out_buf->pu1_bufs[1]
+                                    + (s_ctl_op.u4_min_out_buf_size[1]);
+
+                ps_out_buf->u4_num_bufs = s_ctl_op.u4_min_num_out_bufs;
+            }
+
+#ifdef APP_EXTRA_BUFS
+            s_app_ctx.disp_delay = EXTRA_DISP_BUFFERS;
+            s_ctl_op.u4_num_disp_bufs += EXTRA_DISP_BUFFERS;
+#endif
+
+            /*****************************************************************************/
+            /*   API Call: Allocate display buffers for display buffer shared case       */
+            /*****************************************************************************/
+
+            for(i = 0; i < s_ctl_op.u4_num_disp_bufs; i++)
+            {
+
+                s_app_ctx.s_disp_buffers[i].u4_min_out_buf_size[0] =
+                                s_ctl_op.u4_min_out_buf_size[0];
+                s_app_ctx.s_disp_buffers[i].u4_min_out_buf_size[1] =
+                                s_ctl_op.u4_min_out_buf_size[1];
+                s_app_ctx.s_disp_buffers[i].u4_min_out_buf_size[2] =
+                                s_ctl_op.u4_min_out_buf_size[2];
+
+                outlen = s_ctl_op.u4_min_out_buf_size[0];
+                if(s_ctl_op.u4_min_num_out_bufs > 1)
+                    outlen += s_ctl_op.u4_min_out_buf_size[1];
+
+                if(s_ctl_op.u4_min_num_out_bufs > 2)
+                    outlen += s_ctl_op.u4_min_out_buf_size[2];
+
+                s_app_ctx.s_disp_buffers[i].pu1_bufs[0] = (UWORD8 *)malloc(outlen);
+
+                if(s_app_ctx.s_disp_buffers[i].pu1_bufs[0] == NULL)
+                {
+                    sprintf(ac_error_str,
+                            "\nAllocation failure for output buffer of i4_size %d",
+                            outlen);
+                    codec_exit(ac_error_str);
+                }
+
+                if(s_ctl_op.u4_min_num_out_bufs > 1)
+                    s_app_ctx.s_disp_buffers[i].pu1_bufs[1] =
+                                    s_app_ctx.s_disp_buffers[i].pu1_bufs[0]
+                                                    + (s_ctl_op.u4_min_out_buf_size[0]);
+
+                if(s_ctl_op.u4_min_num_out_bufs > 2)
+                    s_app_ctx.s_disp_buffers[i].pu1_bufs[2] =
+                                    s_app_ctx.s_disp_buffers[i].pu1_bufs[1]
+                                                    + (s_ctl_op.u4_min_out_buf_size[1]);
+
+                s_app_ctx.s_disp_buffers[i].u4_num_bufs =
+                                s_ctl_op.u4_min_num_out_bufs;
+            }
+            s_app_ctx.num_disp_buf = s_ctl_op.u4_num_disp_bufs;
+        }
 
         /* Create display thread and wait for the display buffers to be initialized */
         if(1 == s_app_ctx.display)
@@ -2430,7 +2415,7 @@ int main(WORD32 argc, CHAR *argv[])
             {
                 s_app_ctx.display_init_done = 0;
                 ithread_create(s_app_ctx.display_thread_handle, NULL,
-                               (void *)&display_thread, (void *)&s_app_ctx);
+                                                    (void *) &display_thread, (void *) &s_app_ctx);
                 s_app_ctx.display_thread_created = 1;
 
                 while(1)
@@ -2441,84 +2426,9 @@ int main(WORD32 argc, CHAR *argv[])
                     ithread_msleep(1);
                 }
             }
-
             s_app_ctx.u4_strd = s_app_ctx.get_stride();
         }
-    }
 
-    /*************************************************************************/
-    /* Get actual number of output buffers requried, which is dependent      */
-    /* on stream properties such as width, height and level etc              */
-    /* This is needed mainly for shared display mode                         */
-    /*************************************************************************/
-    //if(1 == s_app_ctx.share_disp_buf)
-    {
-        ivd_ctl_getbufinfo_ip_t s_ctl_ip;
-        ivd_ctl_getbufinfo_op_t s_ctl_op;
-        WORD32 outlen = 0;
-
-        s_ctl_ip.e_cmd = IVD_CMD_VIDEO_CTL;
-        s_ctl_ip.e_sub_cmd = IVD_CMD_CTL_GETBUFINFO;
-        s_ctl_ip.u4_size = sizeof(ivd_ctl_getbufinfo_ip_t);
-        s_ctl_op.u4_size = sizeof(ivd_ctl_getbufinfo_op_t);
-        ret = ivd_cxa_api_function((iv_obj_t *)codec_obj, (void *)&s_ctl_ip,
-                                   (void *)&s_ctl_op);
-        if(ret != IV_SUCCESS)
-        {
-            sprintf(ac_error_str, "Error in Get Buf Info %x", s_ctl_op.u4_error_code);
-            codec_exit(ac_error_str);
-        }
-
-#ifdef APP_EXTRA_BUFS
-        s_app_ctx.disp_delay = EXTRA_DISP_BUFFERS;
-        s_ctl_op.u4_num_disp_bufs += EXTRA_DISP_BUFFERS;
-#endif
-
-        /*****************************************************************************/
-        /*   API Call: Allocate display buffers for display buffer shared case       */
-        /*****************************************************************************/
-
-        for(i = 0; i < s_ctl_op.u4_num_disp_bufs; i++)
-        {
-
-            s_app_ctx.s_disp_buffers[i].u4_min_out_buf_size[0] =
-                            s_ctl_op.u4_min_out_buf_size[0];
-            s_app_ctx.s_disp_buffers[i].u4_min_out_buf_size[1] =
-                            s_ctl_op.u4_min_out_buf_size[1];
-            s_app_ctx.s_disp_buffers[i].u4_min_out_buf_size[2] =
-                            s_ctl_op.u4_min_out_buf_size[2];
-
-            outlen = s_ctl_op.u4_min_out_buf_size[0];
-            if(s_ctl_op.u4_min_num_out_bufs > 1)
-                outlen += s_ctl_op.u4_min_out_buf_size[1];
-
-            if(s_ctl_op.u4_min_num_out_bufs > 2)
-                outlen += s_ctl_op.u4_min_out_buf_size[2];
-
-            s_app_ctx.s_disp_buffers[i].pu1_bufs[0] = (UWORD8 *)malloc(outlen);
-
-            if(s_app_ctx.s_disp_buffers[i].pu1_bufs[0] == NULL)
-            {
-                sprintf(ac_error_str,
-                        "\nAllocation failure for output buffer of size %d",
-                        outlen);
-                codec_exit(ac_error_str);
-            }
-
-            if(s_ctl_op.u4_min_num_out_bufs > 1)
-                s_app_ctx.s_disp_buffers[i].pu1_bufs[1] =
-                                s_app_ctx.s_disp_buffers[i].pu1_bufs[0]
-                                                + (s_ctl_op.u4_min_out_buf_size[0]);
-
-            if(s_ctl_op.u4_min_num_out_bufs > 2)
-                s_app_ctx.s_disp_buffers[i].pu1_bufs[2] =
-                                s_app_ctx.s_disp_buffers[i].pu1_bufs[1]
-                                                + (s_ctl_op.u4_min_out_buf_size[1]);
-
-            s_app_ctx.s_disp_buffers[i].u4_num_bufs =
-                            s_ctl_op.u4_min_num_out_bufs;
-        }
-        s_app_ctx.num_disp_buf = s_ctl_op.u4_num_disp_bufs;
 
         /*****************************************************************************/
         /*   API Call: Send the allocated display buffers to codec                   */
@@ -2535,7 +2445,7 @@ int main(WORD32 argc, CHAR *argv[])
 
             memcpy(&(s_set_display_frame_ip.s_disp_buffer),
                    &(s_app_ctx.s_disp_buffers),
-                   s_ctl_op.u4_num_disp_bufs * sizeof(ivd_out_bufdesc_t));
+                   s_app_ctx.num_disp_buf * sizeof(ivd_out_bufdesc_t));
 
             ret = ivd_cxa_api_function((iv_obj_t *)codec_obj,
                                        (void *)&s_set_display_frame_ip,
@@ -2648,7 +2558,7 @@ int main(WORD32 argc, CHAR *argv[])
     /* If required disable deblocking and sao at given level                 */
     /*************************************************************************/
     set_degrade(codec_obj, s_app_ctx.i4_degrade_type, s_app_ctx.i4_degrade_pics);
-#ifdef X86_MSVC
+#ifdef WINDOWS_TIMER
     QueryPerformanceFrequency(&frequency);
 #endif
 #ifndef PRINT_PICSIZE
@@ -3051,39 +2961,21 @@ int main(WORD32 argc, CHAR *argv[])
     }
 
     {
-        iv_retrieve_mem_rec_ip_t s_retrieve_dec_ip;
-        iv_retrieve_mem_rec_op_t s_retrieve_dec_op;
-        s_retrieve_dec_ip.pv_mem_rec_location = (iv_mem_rec_t *)pv_mem_rec_location;
+        ivd_delete_ip_t s_delete_dec_ip;
+        ivd_delete_op_t s_delete_dec_op;
 
-        s_retrieve_dec_ip.e_cmd = IV_CMD_RETRIEVE_MEMREC;
-        s_retrieve_dec_ip.u4_size = sizeof(iv_retrieve_mem_rec_ip_t);
-        s_retrieve_dec_op.u4_size = sizeof(iv_retrieve_mem_rec_op_t);
+        s_delete_dec_ip.e_cmd = IVD_CMD_DELETE;
+        s_delete_dec_ip.u4_size = sizeof(ivd_delete_ip_t);
+        s_delete_dec_op.u4_size = sizeof(ivd_delete_op_t);
 
-        ret = ivd_cxa_api_function((iv_obj_t *)codec_obj, (void *)&s_retrieve_dec_ip,
-                                   (void *)&s_retrieve_dec_op);
+        ret = ivd_cxa_api_function((iv_obj_t *)codec_obj, (void *)&s_delete_dec_ip,
+                                   (void *)&s_delete_dec_op);
 
         if(IV_SUCCESS != ret)
         {
-            sprintf(ac_error_str, "Error in Retrieve Memrec");
+            sprintf(ac_error_str, "Error in Codec delete");
             codec_exit(ac_error_str);
         }
-
-        {
-            iv_mem_rec_t *ps_mem_rec;
-            UWORD16 u2_i;
-
-            u4_num_mem_recs = s_retrieve_dec_op.u4_num_mem_rec_filled;
-
-            ps_mem_rec = s_retrieve_dec_ip.pv_mem_rec_location;
-
-            for(u2_i = 0; u2_i < u4_num_mem_recs; u2_i++)
-            {
-                ihevca_aligned_free(ps_mem_rec->pv_base);
-                ps_mem_rec++;
-            }
-            free(s_retrieve_dec_ip.pv_mem_rec_location);
-        }
-
     }
     /***********************************************************************/
     /*              Close all the files and free all the memory            */
@@ -3114,6 +3006,9 @@ int main(WORD32 argc, CHAR *argv[])
 
     free(ps_out_buf);
     free(pu1_bs_buf);
+
+    if(s_app_ctx.display_thread_handle)
+        free(s_app_ctx.display_thread_handle);
 
     return (0);
 }

@@ -16,7 +16,7 @@
 
 package android.view.cts;
 
-import com.android.cts.view.R;
+import android.view.cts.R;
 
 
 import android.app.Activity;
@@ -78,7 +78,7 @@ public class View_UsingViewsTest extends ActivityInstrumentationTestCase2<UsingV
     private TextView mWarningTextView;
 
     public View_UsingViewsTest() {
-        super("com.android.cts.view", UsingViewsCtsActivity.class);
+        super("android.view.cts", UsingViewsCtsActivity.class);
     }
 
     @Override

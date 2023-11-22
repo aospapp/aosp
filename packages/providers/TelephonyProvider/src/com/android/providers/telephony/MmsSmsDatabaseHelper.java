@@ -24,6 +24,7 @@ import android.content.IntentFilter;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.os.storage.StorageManager;
 import android.provider.BaseColumns;
 import android.provider.Telephony;
 import android.provider.Telephony.Mms;
@@ -48,6 +49,23 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 
+/**
+ * A {@link SQLiteOpenHelper} that handles DB management of SMS and MMS tables.
+ *
+ * From N, SMS and MMS tables are split into two groups with different levels of encryption.
+ *   - the raw table, which lives inside DE(Device Encrypted) storage.
+ *   - all other tables, which lives under CE(Credential Encrypted) storage.
+ *
+ * All tables are created by this class in the same database that can live either in DE or CE
+ * storage. But not all tables in the same database should be used. Only DE tables should be used
+ * in the database created in DE and only CE tables should be used in the database created in CE.
+ * The only exception is a non-FBE device migrating from M to N, in which case the DE and CE tables
+ * will actually live inside the same storage/database.
+ *
+ * This class provides methods to create instances that manage databases in different storage.
+ * It's the responsibility of the clients of this class to make sure the right instance is
+ * used to access tables that are supposed to live inside the intended storage.
+ */
 public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
     private static final String TAG = "MmsSmsDatabaseHelper";
 
@@ -211,12 +229,13 @@ public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
                         "     AND part.mid = pdu._id);" +
                         " END";
 
-    private static MmsSmsDatabaseHelper sInstance = null;
+    private static MmsSmsDatabaseHelper sDeInstance = null;
+    private static MmsSmsDatabaseHelper sCeInstance = null;
     private static boolean sTriedAutoIncrement = false;
     private static boolean sFakeLowStorageTest = false;     // for testing only
 
     static final String DATABASE_NAME = "mmssms.db";
-    static final int DATABASE_VERSION = 61;
+    static final int DATABASE_VERSION = 64;
     private final Context mContext;
     private LowStorageMonitor mLowStorageMonitor;
 
@@ -228,14 +247,29 @@ public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
     }
 
     /**
-     * Return a singleton helper for the combined MMS and SMS
-     * database.
+     * Returns a singleton helper for the combined MMS and SMS database in device encrypted storage.
      */
-    /* package */ static synchronized MmsSmsDatabaseHelper getInstance(Context context) {
-        if (sInstance == null) {
-            sInstance = new MmsSmsDatabaseHelper(context);
+    /* package */ static synchronized MmsSmsDatabaseHelper getInstanceForDe(Context context) {
+        if (sDeInstance == null) {
+            sDeInstance = new MmsSmsDatabaseHelper(ProviderUtil.getDeviceEncryptedContext(context));
         }
-        return sInstance;
+        return sDeInstance;
+    }
+
+    /**
+     * Returns a singleton helper for the combined MMS and SMS database in credential encrypted
+     * storage. If FBE is not available, use the device encrypted storage instead.
+     */
+    /* package */ static synchronized MmsSmsDatabaseHelper getInstanceForCe(Context context) {
+        if (sCeInstance == null) {
+            if (StorageManager.isFileEncryptedNativeOrEmulated()) {
+                sCeInstance = new MmsSmsDatabaseHelper(
+                    ProviderUtil.getCredentialEncryptedContext(context));
+            } else {
+                sCeInstance = getInstanceForDe(context);
+            }
+        }
+        return sCeInstance;
     }
 
     /**
@@ -267,15 +301,15 @@ public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
                     // Now build a selection string of all the unique recipient ids
                     StringBuilder sb = new StringBuilder();
                     Iterator<Integer> iter = recipientIds.iterator();
+                    sb.append("_id NOT IN (");
                     while (iter.hasNext()) {
-                        sb.append("_id != " + iter.next());
+                        sb.append(iter.next());
                         if (iter.hasNext()) {
-                            sb.append(" AND ");
+                            sb.append(",");
                         }
                     }
-                    if (sb.length() > 0) {
-                        int rows = db.delete("canonical_addresses", sb.toString(), null);
-                    }
+                    sb.append(")");
+                    int rows = db.delete("canonical_addresses", sb.toString(), null);
                 }
             } finally {
                 c.close();
@@ -867,7 +901,9 @@ public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
                    "destination_port INTEGER," +
                    "address TEXT," +
                    "sub_id INTEGER DEFAULT " + SubscriptionManager.INVALID_SUBSCRIPTION_ID + ", " +
-                   "pdu TEXT);"); // the raw PDU for this part
+                   "pdu TEXT," + // the raw PDU for this part
+                   "deleted INTEGER DEFAULT 0," + // bool to indicate if row is deleted
+                   "message_body TEXT);"); // message body
 
         db.execSQL("CREATE TABLE attachments (" +
                    "sms_id INTEGER," +
@@ -1363,6 +1399,55 @@ public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
             } finally {
                 db.endTransaction();
             }
+            // fall through
+        case 61:
+            if (currentVersion <= 61) {
+                return;
+            }
+
+            db.beginTransaction();
+            try {
+                upgradeDatabaseToVersion62(db);
+                db.setTransactionSuccessful();
+            } catch (Throwable ex) {
+                Log.e(TAG, ex.getMessage(), ex);
+                break;
+            } finally {
+                db.endTransaction();
+            }
+            // fall through
+        case 62:
+            if (currentVersion <= 62) {
+                return;
+            }
+
+            db.beginTransaction();
+            try {
+                upgradeDatabaseToVersion63(db);
+                db.setTransactionSuccessful();
+            } catch (Throwable ex) {
+                Log.e(TAG, ex.getMessage(), ex);
+                break;
+            } finally {
+                db.endTransaction();
+            }
+            // fall through
+        case 63:
+            if (currentVersion <= 63) {
+                return;
+            }
+
+            db.beginTransaction();
+            try {
+                upgradeDatabaseToVersion64(db);
+                db.setTransactionSuccessful();
+            } catch (Throwable ex) {
+                Log.e(TAG, ex.getMessage(), ex);
+                break;
+            } finally {
+                db.endTransaction();
+            }
+
             return;
         }
 
@@ -1605,6 +1690,44 @@ public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
                    " AND " +
                    "(" + Mms.MESSAGE_TYPE + "!=" + PduHeaders.MESSAGE_TYPE_NOTIFICATION_IND + ");");
 
+    }
+
+    private void upgradeDatabaseToVersion62(SQLiteDatabase db) {
+        // When a non-FBE device is upgraded to N, all MMS attachment files are moved from
+        // /data/data to /data/user_de. We need to update the paths stored in the parts table to
+        // reflect this change.
+        String newPartsDirPath;
+        try {
+            newPartsDirPath = mContext.getDir(MmsProvider.PARTS_DIR_NAME, 0).getCanonicalPath();
+        }
+        catch (IOException e){
+            Log.e(TAG, "openFile: check file path failed " + e, e);
+            return;
+        }
+
+        // The old path of the part files will be something like this:
+        //   /data/data/0/com.android.providers.telephony/app_parts
+        // The new path of the part files will be something like this:
+        //   /data/user_de/0/com.android.providers.telephony/app_parts
+        int partsDirIndex = newPartsDirPath.lastIndexOf(
+            File.separator, newPartsDirPath.lastIndexOf(MmsProvider.PARTS_DIR_NAME));
+        String partsDirName = newPartsDirPath.substring(partsDirIndex) + File.separator;
+        // The query to update the part path will be:
+        //   UPDATE part SET _data = '/data/user_de/0/com.android.providers.telephony' ||
+        //                           SUBSTR(_data, INSTR(_data, '/app_parts/'))
+        //   WHERE INSTR(_data, '/app_parts/') > 0
+        db.execSQL("UPDATE " + MmsProvider.TABLE_PART +
+            " SET " + Part._DATA + " = '" + newPartsDirPath.substring(0, partsDirIndex) + "' ||" +
+            " SUBSTR(" + Part._DATA + ", INSTR(" + Part._DATA + ", '" + partsDirName + "'))" +
+            " WHERE INSTR(" + Part._DATA + ", '" + partsDirName + "') > 0");
+    }
+
+    private void upgradeDatabaseToVersion63(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE " + SmsProvider.TABLE_RAW +" ADD COLUMN deleted INTEGER DEFAULT 0");
+    }
+
+    private void upgradeDatabaseToVersion64(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE " + SmsProvider.TABLE_RAW +" ADD COLUMN message_body TEXT");
     }
 
     @Override

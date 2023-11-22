@@ -356,8 +356,12 @@ void NegativeBufferApiTests::init (void)
 			m_log << TestLog::Section("", "GL_INVALID_VALUE is generated if target is GL_UNIFORM_BUFFER and offset is not a multiple of GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT.");
 			int alignment;
 			glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &alignment);
-			glBindBufferRange(GL_UNIFORM_BUFFER, 0, bufU, alignment+1, 4);
-			expectError(GL_INVALID_VALUE);
+
+			if (alignment > 1)
+			{
+				glBindBufferRange(GL_UNIFORM_BUFFER, 0, bufU, alignment+1, 4);
+				expectError(GL_INVALID_VALUE);
+			}
 			m_log << TestLog::EndSection;
 
 			glDeleteBuffers(1, &bufU);
@@ -1158,9 +1162,11 @@ void NegativeBufferApiTests::init (void)
 			glBindTexture			(GL_TEXTURE_2D, texture[0]);
 			glTexImage2D			(GL_TEXTURE_2D, 0, GL_RGBA32UI, 32, 32, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT, NULL);
 			glFramebufferTexture2D	(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture[0], 0);
-			glTexImage2D			(GL_TEXTURE_2D, 0, GL_RGBA8, 32, 32, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+			glBindTexture			(GL_TEXTURE_2D, texture[1]);
+			glTexImage2D			(GL_TEXTURE_2D, 0, GL_RGBA32UI, 32, 32, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT, NULL);
 			glFramebufferTexture2D	(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture[1], 0);
-			m_log << TestLog::Message << "// Read buffer: GL_RGBA32I, draw buffer: GL_RGBA8" << TestLog::EndMessage;
+			m_log << TestLog::Message << "// Read buffer: GL_RGBA32UI, draw buffer: GL_RGBA32UI" << TestLog::EndMessage;
 			glBlitFramebuffer		(0, 0, 16, 16, 0, 0, 16, 16, GL_COLOR_BUFFER_BIT, GL_LINEAR);
 			expectError				(GL_INVALID_OPERATION);
 			m_log << TestLog::EndSection;

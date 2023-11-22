@@ -51,6 +51,10 @@
 #include <limits.h>
 #include <ctype.h>
 
+#ifndef FNM_EXTMATCH /* glibc extension */
+    #define FNM_EXTMATCH 0
+#endif
+
 #ifndef linux
 #define __BYTE_ORDER BYTE_ORDER
 #define __BIG_ENDIAN BIG_ENDIAN
@@ -80,10 +84,15 @@
 /* ANDROID CHANGES START*/
 #ifdef ANDROID
 #include "android.h"
+#include "private/android_filesystem_config.h"
+#include "private/canned_fs_config.h"
 int android_config = FALSE;
 char *context_file = NULL;
 char *mount_point = NULL;
 char *target_out_path = NULL;
+fs_config_func_t fs_config_func = NULL;
+int align_4k_blocks = TRUE;
+FILE *block_map_file = NULL;
 #endif
 /* ANDROID CHANGES END */
 
@@ -838,17 +847,37 @@ char *subpathname(struct dir_ent *dir_ent)
 }
 
 
-inline unsigned int get_inode_no(struct inode_info *inode)
+static inline unsigned int get_inode_no(struct inode_info *inode)
 {
 	return inode->inode_number;
 }
 
 
-inline unsigned int get_parent_no(struct dir_info *dir)
+static inline unsigned int get_parent_no(struct dir_info *dir)
 {
 	return dir->depth ? get_inode_no(dir->dir_ent->inode) : inode_no;
 }
 
+
+/* ANDROID CHANGES START*/
+#ifdef ANDROID
+static inline void write_block_map_entry(char *sub_path, unsigned long long start_block, unsigned long long total_size,
+		char * mount_point, FILE *block_map_file) {
+	if (block_map_file) {
+		unsigned long long round_start = (start_block + (1 << 12) - 1) >> 12;
+		unsigned long long round_end = ((start_block + total_size) >> 12) - 1;
+		if (round_start && total_size && round_start <= round_end) {
+			fprintf(block_map_file, "/%s", mount_point);
+			if (sub_path[0] != '/') fprintf(block_map_file, "/");
+			if (round_start == round_end)
+				fprintf(block_map_file, "%s %lld\n", sub_path, round_start);
+			else
+				fprintf(block_map_file, "%s %lld-%lld\n", sub_path, round_start, round_end);
+		}
+	}
+}
+#endif
+/* ANDROID CHANGES END */
 	
 int create_inode(squashfs_inode *i_no, struct dir_info *dir_info,
 	struct dir_ent *dir_ent, int type, long long byte_size,
@@ -910,6 +939,12 @@ int create_inode(squashfs_inode *i_no, struct dir_info *dir_info,
 		int i;
 		struct squashfs_reg_inode_header *reg = &inode_header.reg;
 		size_t off = offsetof(struct squashfs_reg_inode_header, block_list);
+/* ANDROID CHANGES START*/
+#ifdef ANDROID
+		unsigned long long total_size = 0;
+		char *sub_path;
+#endif
+/* ANDROID CHANGES END */
 
 		inode = get_inode(sizeof(*reg) + offset * sizeof(unsigned int));
 		reg->file_size = byte_size;
@@ -922,10 +957,26 @@ int create_inode(squashfs_inode *i_no, struct dir_info *dir_info,
 			"%d, fragment %d, offset %d, size %d\n", byte_size,
 			start_block, offset, fragment->index, fragment->offset,
 			fragment->size);
-		for(i = 0; i < offset; i++)
+		for(i = 0; i < offset; i++) {
 			TRACE("Block %d, size %d\n", i, block_list[i]);
+			total_size += SQUASHFS_COMPRESSED_SIZE_BLOCK(block_list[i]);
+		}
+/* ANDROID CHANGES START*/
+#ifdef ANDROID
+		sub_path = subpathname(dir_ent);
+		if (block_map_file && fragment->index == -1) {
+			write_block_map_entry(sub_path, start_block, total_size, mount_point, block_map_file);
+		}
+#endif
+/* ANDROID CHANGES END */
 	}
 	else if(type == SQUASHFS_LREG_TYPE) {
+/* ANDROID CHANGES START*/
+#ifdef ANDROID
+		unsigned long long total_size = 0;
+		char *sub_path;
+#endif
+/* ANDROID CHANGES END */
 		int i;
 		struct squashfs_lreg_inode_header *reg = &inode_header.lreg;
 		size_t off = offsetof(struct squashfs_lreg_inode_header, block_list);
@@ -946,8 +997,18 @@ int create_inode(squashfs_inode *i_no, struct dir_info *dir_info,
 			"blocks %d, fragment %d, offset %d, size %d, nlink %d"
 			"\n", byte_size, start_block, offset, fragment->index,
 			fragment->offset, fragment->size, nlink);
-		for(i = 0; i < offset; i++)
+		for(i = 0; i < offset; i++) {
 			TRACE("Block %d, size %d\n", i, block_list[i]);
+			total_size += SQUASHFS_COMPRESSED_SIZE_BLOCK(block_list[i]);
+		}
+/* ANDROID CHANGES START*/
+#ifdef ANDROID
+		sub_path = subpathname(dir_ent);
+		if (block_map_file && fragment->index == -1) {
+			write_block_map_entry(sub_path, start_block, total_size, mount_point, block_map_file);
+		}
+#endif
+/* ANDROID CHANGES END */
 	}
 	else if(type == SQUASHFS_LDIR_TYPE) {
 		int i;
@@ -2037,7 +2098,7 @@ struct file_info *duplicate(long long file_size, long long bytes,
 }
 
 
-inline int is_fragment(struct inode_info *inode)
+static inline int is_fragment(struct inode_info *inode)
 {
 	off_t file_size = inode->buf.st_size;
 
@@ -2756,6 +2817,13 @@ int write_file_blocks(squashfs_inode *inode, struct dir_ent *dir_ent,
 	lock_fragments();
 
 	file_bytes = 0;
+/* ANDROID CHANGES START*/
+#ifdef ANDROID
+	if (align_4k_blocks && bytes % 4096) {
+		bytes += 4096 - (bytes % 4096);
+	}
+#endif
+/* ANDROID CHANGES END */
 	start = bytes;
 	for(block = 0; block < blocks;) {
 		if(read_buffer->fragment) {
@@ -3000,19 +3068,19 @@ struct inode_info *lookup_inode3(struct stat *buf, int pseudo, int id,
 }
 
 
-struct inode_info *lookup_inode2(struct stat *buf, int pseudo, int id)
+static inline struct inode_info *lookup_inode2(struct stat *buf, int pseudo, int id)
 {
 	return lookup_inode3(buf, pseudo, id, NULL, 0);
 }
 
 
-inline struct inode_info *lookup_inode(struct stat *buf)
+static inline struct inode_info *lookup_inode(struct stat *buf)
 {
 	return lookup_inode2(buf, 0, 0);
 }
 
 
-inline void alloc_inode_no(struct inode_info *inode, unsigned int use_this)
+static inline void alloc_inode_no(struct inode_info *inode, unsigned int use_this)
 {
 	if (inode->inode_number == 0) {
 		inode->inode_number = use_this ? : inode_no ++;
@@ -3023,7 +3091,7 @@ inline void alloc_inode_no(struct inode_info *inode, unsigned int use_this)
 }
 
 
-inline struct dir_ent *create_dir_entry(char *name, char *source_name,
+static inline struct dir_ent *create_dir_entry(char *name, char *source_name,
 	char *nonstandard_pathname, struct dir_info *dir)
 {
 	struct dir_ent *dir_ent = malloc(sizeof(struct dir_ent));
@@ -3036,12 +3104,17 @@ inline struct dir_ent *create_dir_entry(char *name, char *source_name,
 	dir_ent->our_dir = dir;
 	dir_ent->inode = NULL;
 	dir_ent->next = NULL;
+/* ANDROID CHANGES START*/
+#ifdef ANDROID
+	dir_ent->capabilities = 0;
+#endif
+/* ANDROID CHANGES END */
 
 	return dir_ent;
 }
 
 
-inline void add_dir_entry(struct dir_ent *dir_ent, struct dir_info *sub_dir,
+static inline void add_dir_entry(struct dir_ent *dir_ent, struct dir_info *sub_dir,
 	struct inode_info *inode_info)
 {
 	struct dir_info *dir = dir_ent->our_dir;
@@ -3054,11 +3127,16 @@ inline void add_dir_entry(struct dir_ent *dir_ent, struct dir_info *sub_dir,
 	if (android_config) {
 		if (mount_point) {
 			char *mounted_path;
+			char *rel_path;
+
 			alloc_mounted_path(mount_point, subpathname(dir_ent), &mounted_path);
-			android_fs_config(mounted_path, &inode_info->buf, target_out_path);
+			rel_path = mounted_path;
+			while (rel_path && *rel_path == '/')
+				rel_path++;
+			android_fs_config(fs_config_func, rel_path, &inode_info->buf, target_out_path, &dir_ent->capabilities);
 			free(mounted_path);
 		} else {
-			android_fs_config(pathname(dir_ent), &inode_info->buf, target_out_path);
+			android_fs_config(fs_config_func, pathname(dir_ent), &inode_info->buf, target_out_path, &dir_ent->capabilities);
 		}
 	}
 #endif
@@ -3072,18 +3150,7 @@ inline void add_dir_entry(struct dir_ent *dir_ent, struct dir_info *sub_dir,
 	dir->count++;
 }
 
-/* ANDROID CHANGES START*/
-#ifdef ANDROID
-/* Weird linker bug that complains those inline functions are undefined. */
-extern inline void add_dir_entry(struct dir_ent *dir_ent, struct dir_info *sub_dir,
-	struct inode_info *inode_info);
-extern inline void add_dir_entry2(char *name, char *source_name,
-	char *nonstandard_pathname, struct dir_info *sub_dir,
-	struct inode_info *inode_info, struct dir_info *dir);
-#endif
-/* ANDROID CHANGES END */
-
-inline void add_dir_entry2(char *name, char *source_name,
+static inline void add_dir_entry2(char *name, char *source_name,
 	char *nonstandard_pathname, struct dir_info *sub_dir,
 	struct inode_info *inode_info, struct dir_info *dir)
 {
@@ -3095,7 +3162,7 @@ inline void add_dir_entry2(char *name, char *source_name,
 }
 
 
-inline void free_dir_entry(struct dir_ent *dir_ent)
+static inline void free_dir_entry(struct dir_ent *dir_ent)
 {
 	if(dir_ent->name)
 		free(dir_ent->name);
@@ -3116,7 +3183,7 @@ inline void free_dir_entry(struct dir_ent *dir_ent)
 }
 
 
-inline void add_excluded(struct dir_info *dir)
+static inline void add_excluded(struct dir_info *dir)
 {
 	dir->excluded ++;
 }
@@ -3127,6 +3194,11 @@ void dir_scan(squashfs_inode *inode, char *pathname,
 {
 	struct stat buf;
 	struct dir_ent *dir_ent;
+/* ANDROID CHANGES START*/
+#ifdef ANDROID
+	uint64_t caps = 0;
+#endif
+/* ANDROID CHANGES END */
 	
 	root_dir = dir_scan1(pathname, "", paths, _readdir, 1);
 	if(root_dir == NULL)
@@ -3157,15 +3229,22 @@ void dir_scan(squashfs_inode *inode, char *pathname,
 				pathname, strerror(errno));
 /* ANDROID CHANGES START*/
 #ifdef ANDROID
-		if (android_config)
+		if (android_config) {
 			if (mount_point)
-				android_fs_config(mount_point, &buf, target_out_path);
+				android_fs_config(fs_config_func, mount_point, &buf, target_out_path, &caps);
 			else
-				android_fs_config(pathname, &buf, target_out_path);
+				android_fs_config(fs_config_func, pathname, &buf, target_out_path, &caps);
+		}
 #endif
 /* ANDROID CHANGES END */
 		dir_ent->inode = lookup_inode(&buf);
 	}
+
+/* ANDROID CHANGES START*/
+#ifdef ANDROID
+	dir_ent->capabilities = caps;
+#endif
+/* ANDROID CHANGES END */
 
 	dir_ent->dir = root_dir;
 	root_dir->dir_ent = dir_ent;
@@ -4236,6 +4315,7 @@ void initialise_threads(int readq, int fragq, int bwriteq, int fwriteq,
 	sigemptyset(&sigmask);
 	sigaddset(&sigmask, SIGQUIT);
 	sigaddset(&sigmask, SIGHUP);
+	sigaddset(&sigmask, SIGALRM);
 	if(pthread_sigmask(SIG_BLOCK, &sigmask, NULL) == -1)
 		BAD_ERROR("Failed to set signal mask in intialise_threads\n");
 
@@ -5019,19 +5099,46 @@ int parse_num(char *arg, int *res)
 
 int get_physical_memory()
 {
-	/*
-	 * Long longs are used here because with PAE, a 32-bit
-	 * machine can have more than 4GB of physical memory
-	 *
-	 * sysconf(_SC_PHYS_PAGES) relies on /proc being mounted.
-	 * If it isn't fail.
-	 */
+	int phys_mem;
+#ifndef linux
+	#ifdef HW_MEMSIZE
+		#define SYSCTL_PHYSMEM HW_MEMSIZE
+	#elif defined(HW_PHYSMEM64)
+		#define SYSCTL_PHYSMEM HW_PHYSMEM64
+	#else
+		#define SYSCTL_PHYSMEM HW_PHYSMEM
+	#endif
+
+	int mib[2];
+	uint64_t sysctl_physmem = 0;
+	size_t sysctl_len = sizeof(sysctl_physmem);
+
+	mib[0] = CTL_HW;
+	mib[1] = SYSCTL_PHYSMEM;
+
+	if(sysctl(mib, 2, &sysctl_physmem, &sysctl_len, NULL, 0) == 0) {
+		/* some systems use 32-bit values, work with what we're given */
+		if (sysctl_len == 4)
+			sysctl_physmem = *(uint32_t*)&sysctl_physmem;
+		phys_mem = sysctl_physmem >> 20;
+	} else {
+		ERROR_START("Failed to get amount of available "
+			"memory.");
+		ERROR_EXIT("  Defaulting to least viable amount\n");
+		phys_mem = SQUASHFS_LOWMEM;
+	}
+  #undef SYSCTL_PHYSMEM
+#else
+	/* Long longs are used here because with PAE, a 32-bit
+	  machine can have more than 4GB of physical memory */
+
 	long long num_pages = sysconf(_SC_PHYS_PAGES);
 	long long page_size = sysconf(_SC_PAGESIZE);
-	int phys_mem = num_pages * page_size >> 20;
-
+	phys_mem = num_pages * page_size >> 20;
 	if(num_pages == -1 || page_size == -1)
 		return 0;
+
+#endif
 
 	if(phys_mem < SQUASHFS_LOWMEM)
 		BAD_ERROR("Mksquashfs requires more physical memory than is "
@@ -5167,6 +5274,11 @@ int main(int argc, char *argv[])
 	int progress = TRUE;
 	int force_progress = FALSE;
 	struct file_buffer **fragment = NULL;
+/* ANDROID CHANGES START*/
+#ifdef ANDROID
+	const char *fs_config_file = NULL;
+#endif
+/* ANDROID CHANGES END */
 
 	if(argc > 1 && strcmp(argv[1], "-version") == 0) {
 		VERSION();
@@ -5576,6 +5688,14 @@ print_compressor_options:
 			}
 			context_file = argv[i];
 		}
+		else if(strcmp(argv[i], "-fs-config-file") == 0) {
+			if(++i == argc) {
+				ERROR("%s: -fs-config-file: missing file name\n",
+					argv[0]);
+				exit(1);
+			}
+			fs_config_file = argv[i];
+		}
 #endif
 /* ANDROID CHANGES END */
 		else if(strcmp(argv[i], "-nopad") == 0)
@@ -5611,6 +5731,26 @@ print_compressor_options:
 				exit(1);
 			}
 			target_out_path = argv[i];
+		}
+		else if(strcmp(argv[i], "-disable-4k-align") == 0)
+			align_4k_blocks = FALSE;
+		else if(strcmp(argv[i], "-block-map") == 0) {
+			if(++i == argc) {
+				ERROR("%s: -block-map: missing path name\n",
+					argv[0]);
+				exit(1);
+			}
+			block_map_file = fopen(argv[i], "w");
+			if (block_map_file == NULL) {
+				ERROR("%s: -block-map: failed to open %s\n",
+					argv[0], argv[i]);
+				exit(1);
+			}
+			if (!align_4k_blocks) {
+				ERROR("WARNING: Using block maps with unaligned 4k blocks "
+					  "is not ideal as block map offsets are multiples of 4k, "
+					  "consider not passing -disable-4k-align\n");
+			}
 		}
 #endif
 /* ANDROID CHANGES END */
@@ -5653,6 +5793,8 @@ printOptions:
 			ERROR("-context-file <file>\tApply selinux security "
 				"xattrs from context-file instead\n\t\t\t"
 				"of reading xattrs from file system\n");
+			ERROR("-fs-config-file <file>\tAndroid specific "
+				"filesystem config file\n");
 #endif
 /* ANDROID CHANGES END */
 			ERROR("-noI\t\t\tdo not compress inode table\n");
@@ -5683,7 +5825,9 @@ printOptions:
 				"android-fs-config or context-file\n\t\t\tare "
 				"enabled and source directory is not mount point\n");
 			ERROR("-product-out <path>\tPRODUCT_OUT directory to "
-                                "read device specific FS rules files from\n");
+				"read device specific FS rules files from\n");
+			ERROR("-disable-4k-align \tDon't 4k align data blocks. Default is false\n");
+			ERROR("-block-map <path>\tGenerate a block map for non-fragment files\n");
 #endif
 /* ANDROID CHANGES END */
 			ERROR("\nFilesystem filter options:\n");
@@ -5754,6 +5898,20 @@ printOptions:
 			exit(1);
 		}
 	}
+
+/* ANDROID CHANGES START*/
+#ifdef ANDROID
+	if (fs_config_file) {
+		if (load_canned_fs_config(fs_config_file) < 0) {
+			fprintf(stderr, "failed to load %s\n", fs_config_file);
+			exit(1);
+		}
+		fs_config_func = canned_fs_config;
+	} else if (mount_point) {
+		fs_config_func = fs_config;
+	}
+#endif
+/* ANDROID CHANGES END */
 
 	/*
 	 * Some compressors may need the options to be checked for validity
@@ -6112,6 +6270,13 @@ printOptions:
 
 	set_progressbar_state(FALSE);
 	write_filesystem_tables(&sBlk, nopad);
+
+/* ANDROID CHANGES START*/
+#ifdef ANDROID
+	if (block_map_file)
+		fclose(block_map_file);
+#endif
+/* ANDROID CHANGES END */
 
 	return 0;
 }

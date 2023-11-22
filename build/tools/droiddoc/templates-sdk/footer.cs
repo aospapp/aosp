@@ -7,7 +7,7 @@
       </div>
       <div class="col-1of2 dac-footer-reachout">
         <div class="dac-footer-contact">
-          <a class="dac-footer-contact-link" href="http://android-developers.blogspot.com/">Blog</a>
+          <a class="dac-footer-contact-link" href="//android-developers.blogspot.com/">Blog</a>
           <a class="dac-footer-contact-link" href="/support.html">Support</a>
         </div>
         <div class="dac-footer-social">
@@ -44,10 +44,12 @@
         <select name="language" onchange="changeLangPref(this.value, true)">
           <option value="en" selected="selected">English</option>
           <option value="es">Español</option>
+          <option value="in">Bahasa Indonesia</option>
           <option value="ja">日本語</option>
           <option value="ko">한국어</option>
           <option value="pt-br">Português Brasileiro</option>
           <option value="ru">Русский</option>
+          <option value="vi">tiếng Việt</option>
           <option value="zh-cn">中文（简体)</option>
           <option value="zh-tw">中文（繁體)</option>
         </select>

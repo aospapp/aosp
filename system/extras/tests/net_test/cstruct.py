@@ -47,10 +47,17 @@ NLMsgHdr(length=44, type=33, flags=2, seq=0, pid=510)
 """
 
 import ctypes
+import string
 import struct
 
 
-def Struct(name, fmt, fields):
+def CalcNumElements(fmt):
+  size = struct.calcsize(fmt)
+  elements = struct.unpack(fmt, "\x00" * size)
+  return len(elements)
+
+
+def Struct(name, fmt, fieldnames, substructs={}):
   """Function that returns struct classes."""
 
   class Meta(type):
@@ -67,13 +74,32 @@ def Struct(name, fmt, fields):
 
     __metaclass__ = Meta
 
+    # Name of the struct.
     _name = name
-    _format = fmt
-    _fields = fields
+    # List of field names.
+    _fieldnames = fieldnames
+    # Dict mapping field indices to nested struct classes.
+    _nested = {}
+
+    if isinstance(_fieldnames, str):
+      _fieldnames = _fieldnames.split(" ")
+
+    # Parse fmt into _format, converting any S format characters to "XXs",
+    # where XX is the length of the struct type's packed representation.
+    _format = ""
+    laststructindex = 0
+    for i in xrange(len(fmt)):
+      if fmt[i] == "S":
+        # Nested struct. Record the index in our struct it should go into.
+        index = CalcNumElements(fmt[:i])
+        _nested[index] = substructs[laststructindex]
+        laststructindex += 1
+        _format += "%ds" % len(_nested[index])
+      else:
+         # Standard struct format character.
+        _format += fmt[i]
 
     _length = struct.calcsize(_format)
-    if isinstance(_fields, str):
-      _fields = _fields.split(" ")
 
     def _SetValues(self, values):
       super(CStruct, self).__setattr__("_values", list(values))
@@ -81,6 +107,9 @@ def Struct(name, fmt, fields):
     def _Parse(self, data):
       data = data[:self._length]
       values = list(struct.unpack(self._format, data))
+      for index, value in enumerate(values):
+        if isinstance(value, str) and index in self._nested:
+          values[index] = self._nested[index](value)
       self._SetValues(values)
 
     def __init__(self, values):
@@ -92,14 +121,14 @@ def Struct(name, fmt, fields):
         self._Parse(values)
       else:
         # Initializing from a tuple.
-        if len(values) != len(self._fields):
-          raise TypeError("%s has exactly %d fields (%d given)" %
-                          (self._name, len(self._fields), len(values)))
+        if len(values) != len(self._fieldnames):
+          raise TypeError("%s has exactly %d fieldnames (%d given)" %
+                          (self._name, len(self._fieldnames), len(values)))
         self._SetValues(values)
 
     def _FieldIndex(self, attr):
       try:
-        return self._fields.index(attr)
+        return self._fieldnames.index(attr)
       except ValueError:
         raise AttributeError("'%s' has no attribute '%s'" %
                              (self._name, attr))
@@ -114,12 +143,38 @@ def Struct(name, fmt, fields):
     def __len__(cls):
       return cls._length
 
+    def __ne__(self, other):
+      return not self.__eq__(other)
+
+    def __eq__(self, other):
+      return (isinstance(other, self.__class__) and
+              self._name == other._name and
+              self._fieldnames == other._fieldnames and
+              self._values == other._values)
+
+    @staticmethod
+    def _MaybePackStruct(value):
+      if hasattr(value, "__metaclass__"):# and value.__metaclass__ == Meta:
+        return value.Pack()
+      else:
+        return value
+
     def Pack(self):
-      return struct.pack(self._format, *self._values)
+      values = [self._MaybePackStruct(v) for v in self._values]
+      return struct.pack(self._format, *values)
 
     def __str__(self):
-      return "%s(%s)" % (self._name, ", ".join(
-          "%s=%s" % (i, v) for i, v in zip(self._fields, self._values)))
+      def FieldDesc(index, name, value):
+        if isinstance(value, str) and any(
+            c not in string.printable for c in value):
+          value = value.encode("hex")
+        return "%s=%s" % (name, value)
+
+      descriptions = [
+          FieldDesc(i, n, v) for i, (n, v) in
+          enumerate(zip(self._fieldnames, self._values))]
+
+      return "%s(%s)" % (self._name, ", ".join(descriptions))
 
     def __repr__(self):
       return str(self)

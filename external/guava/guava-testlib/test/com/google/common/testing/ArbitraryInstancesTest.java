@@ -40,7 +40,6 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.ImmutableTable;
-import com.google.common.collect.Iterators;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.MapConstraint;
 import com.google.common.collect.MapDifference;
@@ -54,6 +53,10 @@ import com.google.common.collect.SortedMapDifference;
 import com.google.common.collect.SortedMultiset;
 import com.google.common.collect.SortedSetMultimap;
 import com.google.common.collect.Table;
+import com.google.common.io.ByteSink;
+import com.google.common.io.ByteSource;
+import com.google.common.io.CharSink;
+import com.google.common.io.CharSource;
 import com.google.common.primitives.UnsignedInteger;
 import com.google.common.primitives.UnsignedLong;
 import com.google.common.util.concurrent.AtomicDouble;
@@ -91,6 +94,7 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Currency;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -98,15 +102,20 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Locale;
 import java.util.Map;
+import java.util.NavigableMap;
+import java.util.NavigableSet;
 import java.util.PriorityQueue;
+import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.DelayQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.PriorityBlockingQueue;
@@ -159,7 +168,7 @@ public class ArbitraryInstancesTest extends TestCase {
   }
 
   public void testGet_collections() {
-    assertEquals(Iterators.emptyIterator(), ArbitraryInstances.get(Iterator.class));
+    assertEquals(ImmutableSet.of().iterator(), ArbitraryInstances.get(Iterator.class));
     assertFalse(ArbitraryInstances.get(PeekingIterator.class).hasNext());
     assertFalse(ArbitraryInstances.get(ListIterator.class).hasNext());
     assertEquals(ImmutableSet.of(), ArbitraryInstances.get(Iterable.class));
@@ -195,13 +204,17 @@ public class ArbitraryInstancesTest extends TestCase {
     assertTrue(ArbitraryInstances.get(MapDifference.class).areEqual());
     assertTrue(ArbitraryInstances.get(SortedMapDifference.class).areEqual());
     assertEquals(Range.all(), ArbitraryInstances.get(Range.class));
+    assertTrue(ArbitraryInstances.get(NavigableSet.class).isEmpty());
+    assertTrue(ArbitraryInstances.get(NavigableMap.class).isEmpty());
     assertTrue(ArbitraryInstances.get(LinkedList.class).isEmpty());
+    assertTrue(ArbitraryInstances.get(Deque.class).isEmpty());
+    assertTrue(ArbitraryInstances.get(Queue.class).isEmpty());
     assertTrue(ArbitraryInstances.get(PriorityQueue.class).isEmpty());
     assertTrue(ArbitraryInstances.get(BitSet.class).isEmpty());
     assertTrue(ArbitraryInstances.get(TreeSet.class).isEmpty());
     assertTrue(ArbitraryInstances.get(TreeMap.class).isEmpty());
     assertFreshInstanceReturned(
-        LinkedList.class, PriorityQueue.class, BitSet.class,
+        LinkedList.class, Deque.class, Queue.class, PriorityQueue.class, BitSet.class, 
         TreeSet.class, TreeMap.class);
   }
 
@@ -221,17 +234,19 @@ public class ArbitraryInstancesTest extends TestCase {
   }
 
   public void testGet_concurrent() {
+    assertTrue(ArbitraryInstances.get(BlockingDeque.class).isEmpty());
     assertTrue(ArbitraryInstances.get(BlockingQueue.class).isEmpty());
     assertTrue(ArbitraryInstances.get(DelayQueue.class).isEmpty());
     assertTrue(ArbitraryInstances.get(SynchronousQueue.class).isEmpty());
     assertTrue(ArbitraryInstances.get(PriorityBlockingQueue.class).isEmpty());
     assertTrue(ArbitraryInstances.get(ConcurrentMap.class).isEmpty());
+    assertTrue(ArbitraryInstances.get(ConcurrentNavigableMap.class).isEmpty());
     ArbitraryInstances.get(Executor.class).execute(ArbitraryInstances.get(Runnable.class));
     assertNotNull(ArbitraryInstances.get(ThreadFactory.class));
     assertFreshInstanceReturned(
-        BlockingQueue.class, PriorityBlockingQueue.class,
+        BlockingQueue.class, BlockingDeque.class, PriorityBlockingQueue.class,
         DelayQueue.class, SynchronousQueue.class,
-        ConcurrentMap.class,
+        ConcurrentMap.class, ConcurrentNavigableMap.class,
         AtomicReference.class, AtomicBoolean.class,
         AtomicInteger.class, AtomicLong.class, AtomicDouble.class);
   }
@@ -317,6 +332,10 @@ public class ArbitraryInstancesTest extends TestCase {
         ByteArrayOutputStream.class, OutputStream.class,
         Writer.class, StringWriter.class,
         PrintStream.class, PrintWriter.class);
+    assertEquals(ByteSource.empty(), ArbitraryInstances.get(ByteSource.class));
+    assertEquals(CharSource.empty(), ArbitraryInstances.get(CharSource.class));
+    assertNotNull(ArbitraryInstances.get(ByteSink.class));
+    assertNotNull(ArbitraryInstances.get(CharSink.class));
   }
 
   public void testGet_reflect() {
@@ -401,11 +420,11 @@ public class ArbitraryInstancesTest extends TestCase {
   static class NonPublicClass {
     public NonPublicClass() {}
   }
-
+  
   private static class WithPrivateConstructor {
     public static final WithPrivateConstructor INSTANCE = new WithPrivateConstructor();
   }
-
+  
   public static class NoDefaultConstructor {
     public NoDefaultConstructor(@SuppressWarnings("unused") int i) {}
   }

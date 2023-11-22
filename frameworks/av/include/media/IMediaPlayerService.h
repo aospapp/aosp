@@ -31,8 +31,6 @@
 
 namespace android {
 
-struct ICrypto;
-struct IDrm;
 struct IHDCP;
 struct IMediaCodecList;
 struct IMediaHTTPService;
@@ -49,12 +47,9 @@ public:
 
     virtual sp<IMediaRecorder> createMediaRecorder(const String16 &opPackageName) = 0;
     virtual sp<IMediaMetadataRetriever> createMetadataRetriever() = 0;
-    virtual sp<IMediaPlayer> create(const sp<IMediaPlayerClient>& client, int audioSessionId = 0)
-            = 0;
-
+    virtual sp<IMediaPlayer> create(const sp<IMediaPlayerClient>& client,
+            audio_session_t audioSessionId = AUDIO_SESSION_ALLOCATE) = 0;
     virtual sp<IOMX>            getOMX() = 0;
-    virtual sp<ICrypto>         makeCrypto() = 0;
-    virtual sp<IDrm>            makeDrm() = 0;
     virtual sp<IHDCP>           makeHDCP(bool createEncryptionModule) = 0;
     virtual sp<IMediaCodecList> getCodecList() const = 0;
 

@@ -20,7 +20,7 @@
 #include <selinux/android.h>
 #include <selinux/label.h>
 #include <selinux/avc.h>
-#include <mincrypt/sha.h>
+#include <openssl/sha.h>
 #include <private/android_filesystem_config.h>
 #include <log/log.h>
 #include "policy.h"
@@ -29,6 +29,13 @@
 #include "label_internal.h"
 #include <fnmatch.h>
 #include <limits.h>
+#include <sys/vfs.h>
+#include <linux/magic.h>
+#include <libgen.h>
+#include <packagelistparser/packagelistparser.h>
+
+#define _REALLY_INCLUDE_SYS__SYSTEM_PROPERTIES_H_
+#include <sys/_system_properties.h>
 
 /*
  * XXX Where should this configuration file be located?
@@ -42,8 +49,8 @@ static char const * const seapp_contexts_file[] = {
 	NULL };
 
 static const struct selinux_opt seopts[] = {
-	{ SELABEL_OPT_PATH, "/file_contexts" },
-	{ SELABEL_OPT_PATH, "/data/security/current/file_contexts" },
+	{ SELABEL_OPT_PATH, "/file_contexts.bin" },
+	{ SELABEL_OPT_PATH, "/data/security/current/file_contexts.bin" },
 	{ 0, NULL } };
 
 static const char *const sepolicy_file[] = {
@@ -164,12 +171,16 @@ static void free_prefix_str(struct prefix_str *p)
 struct seapp_context {
 	/* input selectors */
 	bool isSystemServer;
+	bool isAutoPlayAppSet;
+	bool isAutoPlayApp;
 	bool isOwnerSet;
 	bool isOwner;
 	struct prefix_str user;
 	char *seinfo;
 	struct prefix_str name;
 	struct prefix_str path;
+	bool isPrivAppSet;
+	bool isPrivApp;
 	/* outputs */
 	char *domain;
 	char *type;
@@ -203,6 +214,12 @@ static int seapp_context_cmp(const void *A, const void *B)
 	/* Give precedence to isSystemServer=true. */
 	if (s1->isSystemServer != s2->isSystemServer)
 		return (s1->isSystemServer ? -1 : 1);
+
+	/* Give precedence to a specified isAutoPlayApp= over an
+	 * unspecified isAutoPlayApp=. */
+	if (s1->isAutoPlayAppSet != s2->isAutoPlayAppSet)
+		return (s1->isAutoPlayAppSet ? -1 : 1);
+
 
 	/* Give precedence to a specified isOwner= over an unspecified isOwner=. */
 	if (s1->isOwnerSet != s2->isOwnerSet)
@@ -261,6 +278,10 @@ static int seapp_context_cmp(const void *A, const void *B)
 		if (s1->path.is_prefix && s1->path.len != s2->path.len)
 			return (s1->path.len > s2->path.len) ? -1 : 1;
 	}
+
+	/* Give precedence to a specified isPrivApp= over an unspecified isPrivApp=. */
+	if (s1->isPrivAppSet != s2->isPrivAppSet)
+		return (s1->isPrivAppSet ? -1 : 1);
 
 	/*
 	 * Check for a duplicated entry on the input selectors.
@@ -383,6 +404,16 @@ int selinux_android_seapp_context_reload(void)
 					free_seapp_context(cur);
 					goto err;
 				}
+			} else if (!strcasecmp(name, "isAutoPlayApp")) {
+				cur->isAutoPlayAppSet = true;
+				if (!strcasecmp(value, "true"))
+					cur->isAutoPlayApp = true;
+				else if (!strcasecmp(value, "false"))
+					cur->isAutoPlayApp = false;
+				else {
+					free_seapp_context(cur);
+					goto err;
+				}
 			} else if (!strcasecmp(name, "isOwner")) {
 				cur->isOwnerSet = true;
 				if (!strcasecmp(value, "true"))
@@ -415,6 +446,10 @@ int selinux_android_seapp_context_reload(void)
 				if (!cur->seinfo) {
 					free_seapp_context(cur);
 					goto oom;
+				}
+				if (strstr(value, ":")) {
+					free_seapp_context(cur);
+					goto err;
 				}
 			} else if (!strcasecmp(name, "name")) {
 				if (cur->name.str) {
@@ -502,6 +537,16 @@ int selinux_android_seapp_context_reload(void)
 				cur->path.len = strlen(cur->path.str);
 				if (cur->path.str[cur->path.len-1] == '*')
 					cur->path.is_prefix = 1;
+			} else if (!strcasecmp(name, "isPrivApp")) {
+				cur->isPrivAppSet = true;
+				if (!strcasecmp(value, "true"))
+					cur->isPrivApp = true;
+				else if (!strcasecmp(value, "false"))
+					cur->isPrivApp = false;
+				else {
+					free_seapp_context(cur);
+					goto err;
+				}
 			} else {
 				free_seapp_context(cur);
 				goto err;
@@ -536,14 +581,17 @@ int selinux_android_seapp_context_reload(void)
 		int i;
 		for (i = 0; i < nspec; i++) {
 			cur = seapp_contexts[i];
-			selinux_log(SELINUX_INFO, "%s:  isSystemServer=%s isOwner=%s user=%s seinfo=%s name=%s path=%s -> domain=%s type=%s level=%s levelFrom=%s",
-                        __FUNCTION__,
-                        cur->isSystemServer ? "true" : "false",
-                        cur->isOwnerSet ? (cur->isOwner ? "true" : "false") : "null",
-                        cur->user.str,
-                        cur->seinfo, cur->name.str, cur->path.str, cur->domain,
-                        cur->type, cur->level,
-                        levelFromName[cur->levelFrom]);
+			selinux_log(SELINUX_INFO, "%s:  isSystemServer=%s  isAutoPlayApp=%s isOwner=%s user=%s seinfo=%s "
+					"name=%s path=%s isPrivApp=%s -> domain=%s type=%s level=%s levelFrom=%s",
+				__FUNCTION__,
+				cur->isSystemServer ? "true" : "false",
+				cur->isAutoPlayAppSet ? (cur->isAutoPlayApp ? "true" : "false") : "null",
+				cur->isOwnerSet ? (cur->isOwner ? "true" : "false") : "null",
+				cur->user.str,
+				cur->seinfo, cur->name.str, cur->path.str,
+				cur->isPrivAppSet ? (cur->isPrivApp ? "true" : "false") : "null",
+				cur->domain, cur->type, cur->level,
+				levelFromName[cur->levelFrom]);
 		}
 	}
 #endif
@@ -587,6 +635,28 @@ enum seapp_kind {
 	SEAPP_DOMAIN
 };
 
+#define PRIVILEGED_APP_STR ":privapp"
+#define AUTOPLAY_APP_STR ":autoplayapp"
+
+static int seinfo_parse(char *dest, const char *src, size_t size)
+{
+	size_t len;
+	char *p;
+
+	if ((p = strchr(src, ':')) != NULL)
+		len = p - src;
+	else
+		len = strlen(src);
+
+	if (len > size - 1)
+		return -1;
+
+	strncpy(dest, src, len);
+	dest[len] = '\0';
+
+	return 0;
+}
+
 static int seapp_context_lookup(enum seapp_kind kind,
 				uid_t uid,
 				bool isSystemServer,
@@ -602,8 +672,19 @@ static int seapp_context_lookup(enum seapp_kind kind,
 	size_t n;
 	uid_t userid;
 	uid_t appid;
+	bool isPrivApp = false;
+	bool isAutoPlayApp = false;
+	char parsedseinfo[BUFSIZ];
 
 	__selinux_once(once, seapp_context_init);
+
+	if (seinfo) {
+		if (seinfo_parse(parsedseinfo, seinfo, BUFSIZ))
+			goto err;
+		isPrivApp = strstr(seinfo, PRIVILEGED_APP_STR) ? true : false;
+		isAutoPlayApp = strstr(seinfo, AUTOPLAY_APP_STR) ? true : false;
+		seinfo = parsedseinfo;
+	}
 
 	userid = uid / AID_USER;
 	isOwner = (userid == 0);
@@ -632,6 +713,9 @@ static int seapp_context_lookup(enum seapp_kind kind,
 		cur = seapp_contexts[i];
 
 		if (cur->isSystemServer != isSystemServer)
+			continue;
+
+		if (cur->isAutoPlayAppSet && cur->isAutoPlayApp != isAutoPlayApp)
 			continue;
 
 		if (cur->isOwnerSet && cur->isOwner != isOwner)
@@ -664,6 +748,9 @@ static int seapp_context_lookup(enum seapp_kind kind,
 					continue;
 			}
 		}
+
+		if (cur->isPrivAppSet && cur->isPrivApp != isPrivApp)
+			continue;
 
 		if (cur->path.str) {
 			if (!path)
@@ -802,6 +889,19 @@ oom:
 	goto out;
 }
 
+int selinux_android_setcon(const char *con)
+{
+	int ret = setcon(con);
+	if (ret)
+		return ret;
+	/*
+	  System properties must be reinitialized after setcon() otherwise the
+	  previous property files will be leaked since mmap()'ed regions are not
+	  closed as a result of setcon().
+	*/
+	return __system_properties_init();
+}
+
 int selinux_android_setcontext(uid_t uid,
 			       bool isSystemServer,
 			       const char *seinfo,
@@ -838,7 +938,7 @@ int selinux_android_setcontext(uid_t uid,
 		goto err;
 
 	if (strcmp(ctx_str, orig_ctx_str)) {
-		rc = setcon(ctx_str);
+		rc = selinux_android_setcon(ctx_str);
 		if (rc < 0)
 			goto err;
 	}
@@ -868,7 +968,7 @@ oom:
 }
 
 static struct selabel_handle *fc_sehandle = NULL;
-#define FC_DIGEST_SIZE SHA_DIGEST_SIZE
+#define FC_DIGEST_SIZE SHA_DIGEST_LENGTH
 static uint8_t fc_digest[FC_DIGEST_SIZE];
 
 static bool compute_contexts_hash(const struct selinux_opt opts[], uint8_t c_digest[])
@@ -896,7 +996,7 @@ static bool compute_contexts_hash(const struct selinux_opt opts[], uint8_t c_dig
         close(fd);
         return false;
     }
-    SHA_hash(map, sb.st_size, c_digest);
+    SHA1(map, sb.st_size, c_digest);
     munmap(map, sb.st_size);
     close(fd);
 
@@ -913,17 +1013,8 @@ static void file_context_init(void)
 
 static pthread_once_t fc_once = PTHREAD_ONCE_INIT;
 
-struct pkgInfo {
-    char *name;
-    uid_t uid;
-    bool debuggable;
-    char *dataDir;
-    char *seinfo;
-    struct pkgInfo *next;
-};
-
 #define PKGTAB_SIZE 256
-static struct pkgInfo *pkgTab[PKGTAB_SIZE];
+static struct pkg_info *pkgTab[PKGTAB_SIZE];
 
 static unsigned int pkghash(const char *pkgname)
 {
@@ -934,82 +1025,41 @@ static unsigned int pkghash(const char *pkgname)
     return h & (PKGTAB_SIZE - 1);
 }
 
-/* The file containing the list of installed packages on the system */
-#define PACKAGES_LIST_FILE  "/data/system/packages.list"
+static bool pkg_parse_callback(pkg_info *info, void *userdata) {
+
+    (void) userdata;
+
+    unsigned int hash = pkghash(info->name);
+    if (pkgTab[hash])
+        info->private_data = pkgTab[hash];
+    pkgTab[hash] = info;
+    return true;
+}
 
 static void package_info_init(void)
 {
-    char *buf = NULL;
-    size_t buflen = 0;
-    ssize_t bytesread;
-    FILE *fp;
-    char *cur, *next;
-    struct pkgInfo *pkgInfo = NULL;
-    unsigned int hash;
-    unsigned long lineno = 1;
 
-    fp = fopen(PACKAGES_LIST_FILE, "r");
-    if (!fp) {
-        selinux_log(SELINUX_ERROR, "SELinux:  Could not open %s:  %s.\n",
-                    PACKAGES_LIST_FILE, strerror(errno));
+    bool rc = packagelist_parse(pkg_parse_callback, NULL);
+    if (!rc) {
+        selinux_log(SELINUX_ERROR, "SELinux: Could NOT parse package list\n");
         return;
-    }
-    while ((bytesread = getline(&buf, &buflen, fp)) > 0) {
-        pkgInfo = calloc(1, sizeof(*pkgInfo));
-        if (!pkgInfo)
-            goto err;
-        next = buf;
-        cur = strsep(&next, " \t\n");
-        if (!cur)
-            goto err;
-        pkgInfo->name = strdup(cur);
-        if (!pkgInfo->name)
-            goto err;
-        cur = strsep(&next, " \t\n");
-        if (!cur)
-            goto err;
-        pkgInfo->uid = atoi(cur);
-        if (!pkgInfo->uid)
-            goto err;
-        cur = strsep(&next, " \t\n");
-        if (!cur)
-            goto err;
-        pkgInfo->debuggable = atoi(cur);
-        cur = strsep(&next, " \t\n");
-        if (!cur)
-            goto err;
-        pkgInfo->dataDir = strdup(cur);
-        if (!pkgInfo->dataDir)
-            goto err;
-        cur = strsep(&next, " \t\n");
-        if (!cur)
-            goto err;
-        pkgInfo->seinfo = strdup(cur);
-        if (!pkgInfo->seinfo)
-            goto err;
-
-        hash = pkghash(pkgInfo->name);
-        if (pkgTab[hash])
-            pkgInfo->next = pkgTab[hash];
-        pkgTab[hash] = pkgInfo;
-
-        lineno++;
     }
 
 #if DEBUG
     {
-        unsigned int buckets, entries, chainlen, longestchain;
+        unsigned int hash, buckets, entries, chainlen, longestchain;
+        struct pkg_info *info = NULL;
 
         buckets = entries = longestchain = 0;
         for (hash = 0; hash < PKGTAB_SIZE; hash++) {
             if (pkgTab[hash]) {
                 buckets++;
                 chainlen = 0;
-                for (pkgInfo = pkgTab[hash]; pkgInfo; pkgInfo = pkgInfo->next) {
+                for (info = pkgTab[hash]; info; info = (pkg_info *)info->private_data) {
                     chainlen++;
                     selinux_log(SELINUX_INFO, "%s:  name=%s uid=%u debuggable=%s dataDir=%s seinfo=%s\n",
                                 __FUNCTION__,
-                                pkgInfo->name, pkgInfo->uid, pkgInfo->debuggable ? "true" : "false", pkgInfo->dataDir, pkgInfo->seinfo);
+                                info->name, info->uid, info->debuggable ? "true" : "false", info->data_dir, info->seinfo);
                 }
                 entries += chainlen;
                 if (longestchain < chainlen)
@@ -1020,36 +1070,21 @@ static void package_info_init(void)
     }
 #endif
 
-out:
-    free(buf);
-    fclose(fp);
-    return;
-
-err:
-    selinux_log(SELINUX_ERROR, "SELinux:  Error reading %s on line %lu.\n",
-                PACKAGES_LIST_FILE, lineno);
-    if (pkgInfo) {
-        free(pkgInfo->name);
-        free(pkgInfo->dataDir);
-        free(pkgInfo->seinfo);
-        free(pkgInfo);
-    }
-    goto out;
 }
 
 static pthread_once_t pkg_once = PTHREAD_ONCE_INIT;
 
-struct pkgInfo *package_info_lookup(const char *name)
+struct pkg_info *package_info_lookup(const char *name)
 {
-    struct pkgInfo *pkgInfo;
+    struct pkg_info *info;
     unsigned int hash;
 
     __selinux_once(pkg_once, package_info_init);
 
     hash = pkghash(name);
-    for (pkgInfo = pkgTab[hash]; pkgInfo; pkgInfo = pkgInfo->next) {
-        if (!strcmp(name, pkgInfo->name))
-            return pkgInfo;
+    for (info = pkgTab[hash]; info; info = (pkg_info *)info->private_data) {
+        if (!strcmp(name, info->name))
+            return info;
     }
     return NULL;
 }
@@ -1057,9 +1092,12 @@ struct pkgInfo *package_info_lookup(const char *name)
 /* The path prefixes of package data directories. */
 #define DATA_DATA_PATH "/data/data"
 #define DATA_USER_PATH "/data/user"
+#define DATA_USER_DE_PATH "/data/user_de"
 #define EXPAND_USER_PATH "/mnt/expand/\?\?\?\?\?\?\?\?-\?\?\?\?-\?\?\?\?-\?\?\?\?-\?\?\?\?\?\?\?\?\?\?\?\?/user"
+#define EXPAND_USER_DE_PATH "/mnt/expand/\?\?\?\?\?\?\?\?-\?\?\?\?-\?\?\?\?-\?\?\?\?-\?\?\?\?\?\?\?\?\?\?\?\?/user_de"
 #define DATA_DATA_PREFIX DATA_DATA_PATH "/"
 #define DATA_USER_PREFIX DATA_USER_PATH "/"
+#define DATA_USER_DE_PREFIX DATA_USER_DE_PATH "/"
 
 static int pkgdir_selabel_lookup(const char *pathname,
                                  const char *seinfo,
@@ -1067,7 +1105,7 @@ static int pkgdir_selabel_lookup(const char *pathname,
                                  char **secontextp)
 {
     char *pkgname = NULL, *end = NULL;
-    struct pkgInfo *pkgInfo = NULL;
+    struct pkg_info *info = NULL;
     char *secontext = *secontextp;
     context_t ctx = NULL;
     int rc = 0;
@@ -1083,8 +1121,24 @@ static int pkgdir_selabel_lookup(const char *pathname,
             pathname++;
         else
             return 0;
+    } else if (!strncmp(pathname, DATA_USER_DE_PREFIX, sizeof(DATA_USER_DE_PREFIX)-1)) {
+        pathname += sizeof(DATA_USER_DE_PREFIX) - 1;
+        while (isdigit(*pathname))
+            pathname++;
+        if (*pathname == '/')
+            pathname++;
+        else
+            return 0;
     } else if (!fnmatch(EXPAND_USER_PATH, pathname, FNM_LEADING_DIR|FNM_PATHNAME)) {
         pathname += sizeof(EXPAND_USER_PATH);
+        while (isdigit(*pathname))
+            pathname++;
+        if (*pathname == '/')
+            pathname++;
+        else
+            return 0;
+    } else if (!fnmatch(EXPAND_USER_DE_PATH, pathname, FNM_LEADING_DIR|FNM_PATHNAME)) {
+        pathname += sizeof(EXPAND_USER_DE_PATH);
         while (isdigit(*pathname))
             pathname++;
         if (*pathname == '/')
@@ -1109,8 +1163,8 @@ static int pkgdir_selabel_lookup(const char *pathname,
     *end = '\0';
 
     if (!seinfo) {
-        pkgInfo = package_info_lookup(pkgname);
-        if (!pkgInfo) {
+        info = package_info_lookup(pkgname);
+        if (!info) {
             selinux_log(SELINUX_WARNING, "SELinux:  Could not look up information for package %s, cannot restorecon %s.\n",
                         pkgname, pathname);
             free(pkgname);
@@ -1122,8 +1176,8 @@ static int pkgdir_selabel_lookup(const char *pathname,
     if (!ctx)
         goto err;
 
-    rc = seapp_context_lookup(SEAPP_TYPE, pkgInfo ? pkgInfo->uid : uid, 0,
-                              pkgInfo ? pkgInfo->seinfo : seinfo, pkgInfo ? pkgInfo->name : pkgname, pathname, ctx);
+    rc = seapp_context_lookup(SEAPP_TYPE, info ? info->uid : uid, 0,
+                              info ? info->seinfo : seinfo, info ? info->name : pkgname, pathname, ctx);
     if (rc < 0)
         goto err;
 
@@ -1151,7 +1205,7 @@ out:
     return rc;
 err:
     selinux_log(SELINUX_ERROR, "%s:  Error looking up context for path %s, pkgname %s, seinfo %s, uid %u: %s\n",
-                __FUNCTION__, pathname, pkgname, pkgInfo->seinfo, pkgInfo->uid, strerror(errno));
+                __FUNCTION__, pathname, pkgname, info->seinfo, info->uid, strerror(errno));
     rc = -1;
     goto out;
 }
@@ -1180,7 +1234,9 @@ static int restorecon_sb(const char *pathname, const struct stat *sb,
      */
     if (!strncmp(pathname, DATA_DATA_PREFIX, sizeof(DATA_DATA_PREFIX)-1) ||
         !strncmp(pathname, DATA_USER_PREFIX, sizeof(DATA_USER_PREFIX)-1) ||
-        !fnmatch(EXPAND_USER_PATH, pathname, FNM_LEADING_DIR|FNM_PATHNAME)) {
+        !strncmp(pathname, DATA_USER_DE_PREFIX, sizeof(DATA_USER_DE_PREFIX)-1) ||
+        !fnmatch(EXPAND_USER_PATH, pathname, FNM_LEADING_DIR|FNM_PATHNAME) ||
+        !fnmatch(EXPAND_USER_DE_PATH, pathname, FNM_LEADING_DIR|FNM_PATHNAME)) {
         if (pkgdir_selabel_lookup(pathname, seinfo, uid, &secontext) < 0)
             goto err;
     }
@@ -1226,9 +1282,10 @@ static int selinux_android_restorecon_common(const char* pathname_orig,
     bool issys;
     bool setrestoreconlast = true;
     struct stat sb;
+    struct statfs sfsb;
     FTS *fts;
     FTSENT *ftsent;
-    char *pathname;
+    char *pathname = NULL, *pathdnamer = NULL, *pathdname, *pathbname;
     char * paths[2] = { NULL , NULL };
     int ftsflags = FTS_NOCHDIR | FTS_XDEV | FTS_PHYSICAL;
     int error, sverrno;
@@ -1243,16 +1300,28 @@ static int selinux_android_restorecon_common(const char* pathname_orig,
     if (!fc_sehandle)
         return 0;
 
-    // convert passed-in pathname to canonical pathname
-    pathname = realpath(pathname_orig, NULL);
-    if (!pathname) {
-        sverrno = errno;
-        selinux_log(SELINUX_ERROR, "SELinux: Could not get canonical path %s restorecon: %s.\n",
-                pathname_orig, strerror(errno));
-        errno = sverrno;
-        error = -1;
-        goto cleanup;
+    /*
+     * Convert passed-in pathname to canonical pathname by resolving realpath of
+     * containing dir, then appending last component name.
+     */
+    pathbname = basename(pathname_orig);
+    if (!strcmp(pathbname, "/") || !strcmp(pathbname, ".") || !strcmp(pathbname, "..")) {
+        pathname = realpath(pathname_orig, NULL);
+        if (!pathname)
+            goto realpatherr;
+    } else {
+        pathdname = dirname(pathname_orig);
+        pathdnamer = realpath(pathdname, NULL);
+        if (!pathdnamer)
+            goto realpatherr;
+        if (!strcmp(pathdnamer, "/"))
+            error = asprintf(&pathname, "/%s", pathbname);
+        else
+            error = asprintf(&pathname, "%s/%s", pathdnamer, pathbname);
+        if (error < 0)
+            goto oom;
     }
+
     paths[0] = pathname;
     issys = (!strcmp(pathname, SYS_PATH)
             || !strncmp(pathname, SYS_PREFIX, sizeof(SYS_PREFIX)-1)) ? true : false;
@@ -1275,12 +1344,20 @@ static int selinux_android_restorecon_common(const char* pathname_orig,
      */
     if (!strncmp(pathname, DATA_DATA_PREFIX, sizeof(DATA_DATA_PREFIX)-1) ||
         !strncmp(pathname, DATA_USER_PREFIX, sizeof(DATA_USER_PREFIX)-1) ||
-        !fnmatch(EXPAND_USER_PATH, pathname, FNM_LEADING_DIR|FNM_PATHNAME))
+        !strncmp(pathname, DATA_USER_DE_PREFIX, sizeof(DATA_USER_DE_PREFIX)-1) ||
+        !fnmatch(EXPAND_USER_PATH, pathname, FNM_LEADING_DIR|FNM_PATHNAME) ||
+        !fnmatch(EXPAND_USER_DE_PATH, pathname, FNM_LEADING_DIR|FNM_PATHNAME))
         setrestoreconlast = false;
 
     /* Also ignore on /sys since it is regenerated on each boot regardless. */
     if (issys)
         setrestoreconlast = false;
+
+    /* Ignore files on in-memory filesystems */
+    if (statfs(pathname, &sfsb) == 0) {
+        if (sfsb.f_type == RAMFS_MAGIC || sfsb.f_type == TMPFS_MAGIC)
+            setrestoreconlast = false;
+    }
 
     if (setrestoreconlast) {
         size = getxattr(pathname, RESTORECON_LAST, xattr_value, sizeof fc_digest);
@@ -1334,7 +1411,9 @@ static int selinux_android_restorecon_common(const char* pathname_orig,
             if (!datadata &&
                 (!strcmp(ftsent->fts_path, DATA_DATA_PATH) ||
                  !strncmp(ftsent->fts_path, DATA_USER_PREFIX, sizeof(DATA_USER_PREFIX)-1) ||
-                 !fnmatch(EXPAND_USER_PATH, ftsent->fts_path, FNM_LEADING_DIR|FNM_PATHNAME))) {
+                 !strncmp(ftsent->fts_path, DATA_USER_DE_PREFIX, sizeof(DATA_USER_DE_PREFIX)-1) ||
+                 !fnmatch(EXPAND_USER_PATH, ftsent->fts_path, FNM_LEADING_DIR|FNM_PATHNAME) ||
+                 !fnmatch(EXPAND_USER_DE_PATH, ftsent->fts_path, FNM_LEADING_DIR|FNM_PATHNAME))) {
                 // Don't label anything below this directory.
                 fts_set(fts, ftsent, FTS_SKIP);
                 // but fall through and make sure we label the directory itself
@@ -1355,8 +1434,22 @@ out:
     (void) fts_close(fts);
     errno = sverrno;
 cleanup:
+    free(pathdnamer);
     free(pathname);
     return error;
+oom:
+    sverrno = errno;
+    selinux_log(SELINUX_ERROR, "%s:  Out of memory\n", __FUNCTION__);
+    errno = sverrno;
+    error = -1;
+    goto cleanup;
+realpatherr:
+    sverrno = errno;
+    selinux_log(SELINUX_ERROR, "SELinux: Could not get canonical path for %s restorecon: %s.\n",
+            pathname_orig, strerror(errno));
+    errno = sverrno;
+    error = -1;
+    goto cleanup;
 }
 
 int selinux_android_restorecon(const char *file, unsigned int flags)
@@ -1374,10 +1467,17 @@ int selinux_android_restorecon_pkgdir(const char *pkgdir,
 
 struct selabel_handle* selinux_android_file_context_handle(void)
 {
+    char *path = NULL;
     struct selabel_handle *sehandle;
+    struct selinux_opt fc_opts[] = {
+        { SELABEL_OPT_PATH, path },
+        { SELABEL_OPT_BASEONLY, (char *)1 }
+    };
 
     set_policy_index();
-    sehandle = selabel_open(SELABEL_CTX_FILE, &seopts[policy_index], 1);
+    fc_opts[0].value = seopts[policy_index].value;
+
+    sehandle = selabel_open(SELABEL_CTX_FILE, fc_opts, 2);
 
     if (!sehandle) {
         selinux_log(SELINUX_ERROR, "%s: Error getting file context handle (%s)\n",
@@ -1389,7 +1489,7 @@ struct selabel_handle* selinux_android_file_context_handle(void)
         return NULL;
     }
     selinux_log(SELINUX_INFO, "SELinux: Loaded file_contexts contexts from %s.\n",
-            seopts[policy_index].value);
+            fc_opts[0].value);
 
     return sehandle;
 }

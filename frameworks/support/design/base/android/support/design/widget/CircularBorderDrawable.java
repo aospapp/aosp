@@ -16,6 +16,7 @@
 
 package android.support.design.widget;
 
+import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.ColorFilter;
 import android.graphics.LinearGradient;
@@ -50,9 +51,12 @@ class CircularBorderDrawable extends Drawable {
     private int mBottomOuterStrokeColor;
     private int mBottomInnerStrokeColor;
 
-    private int mTintColor;
+    private ColorStateList mBorderTint;
+    private int mCurrentBorderTintColor;
 
     private boolean mInvalidateShader = true;
+
+    private float mRotation;
 
     public CircularBorderDrawable() {
         mPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -98,8 +102,11 @@ class CircularBorderDrawable extends Drawable {
         rectF.right -= halfBorderWidth;
         rectF.bottom -= halfBorderWidth;
 
+        canvas.save();
+        canvas.rotate(mRotation, rectF.centerX(), rectF.centerY());
         // Draw the oval
         canvas.drawOval(rectF, mPaint);
+        canvas.restore();
     }
 
     @Override
@@ -115,8 +122,11 @@ class CircularBorderDrawable extends Drawable {
         invalidateSelf();
     }
 
-    void setTintColor(int tintColor) {
-        mTintColor = tintColor;
+    void setBorderTint(ColorStateList tint) {
+        if (tint != null) {
+            mCurrentBorderTintColor = tint.getColorForState(getState(), mCurrentBorderTintColor);
+        }
+        mBorderTint = tint;
         mInvalidateShader = true;
         invalidateSelf();
     }
@@ -132,9 +142,36 @@ class CircularBorderDrawable extends Drawable {
         return mBorderWidth > 0 ? PixelFormat.TRANSLUCENT : PixelFormat.TRANSPARENT;
     }
 
+    final void setRotation(float rotation) {
+        if (rotation != mRotation) {
+            mRotation = rotation;
+            invalidateSelf();
+        }
+    }
+
     @Override
     protected void onBoundsChange(Rect bounds) {
         mInvalidateShader = true;
+    }
+
+    @Override
+    public boolean isStateful() {
+        return (mBorderTint != null && mBorderTint.isStateful()) || super.isStateful();
+    }
+
+    @Override
+    protected boolean onStateChange(int[] state) {
+        if (mBorderTint != null) {
+            final int newColor = mBorderTint.getColorForState(state, mCurrentBorderTintColor);
+            if (newColor != mCurrentBorderTintColor) {
+                mInvalidateShader = true;
+                mCurrentBorderTintColor = newColor;
+            }
+        }
+        if (mInvalidateShader) {
+            invalidateSelf();
+        }
+        return mInvalidateShader;
     }
 
     /**
@@ -148,14 +185,14 @@ class CircularBorderDrawable extends Drawable {
         final float borderRatio = mBorderWidth / rect.height();
 
         final int[] colors = new int[6];
-        colors[0] = ColorUtils.compositeColors(mTopOuterStrokeColor, mTintColor);
-        colors[1] = ColorUtils.compositeColors(mTopInnerStrokeColor, mTintColor);
+        colors[0] = ColorUtils.compositeColors(mTopOuterStrokeColor, mCurrentBorderTintColor);
+        colors[1] = ColorUtils.compositeColors(mTopInnerStrokeColor, mCurrentBorderTintColor);
         colors[2] = ColorUtils.compositeColors(
-                ColorUtils.setAlphaComponent(mTopInnerStrokeColor, 0), mTintColor);
+                ColorUtils.setAlphaComponent(mTopInnerStrokeColor, 0), mCurrentBorderTintColor);
         colors[3] = ColorUtils.compositeColors(
-                ColorUtils.setAlphaComponent(mBottomInnerStrokeColor, 0), mTintColor);
-        colors[4] = ColorUtils.compositeColors(mBottomInnerStrokeColor, mTintColor);
-        colors[5] = ColorUtils.compositeColors(mBottomOuterStrokeColor, mTintColor);
+                ColorUtils.setAlphaComponent(mBottomInnerStrokeColor, 0), mCurrentBorderTintColor);
+        colors[4] = ColorUtils.compositeColors(mBottomInnerStrokeColor, mCurrentBorderTintColor);
+        colors[5] = ColorUtils.compositeColors(mBottomOuterStrokeColor, mCurrentBorderTintColor);
 
         final float[] positions = new float[6];
         positions[0] = 0f;

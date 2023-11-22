@@ -16,12 +16,12 @@
 
 #define __STDC_LIMIT_MACROS
 
-#include <utils/SharedBuffer.h>
-
 #include <gtest/gtest.h>
 
 #include <memory>
 #include <stdint.h>
+
+#include "SharedBuffer.h"
 
 TEST(SharedBufferTest, TestAlloc) {
   EXPECT_DEATH(android::SharedBuffer::alloc(SIZE_MAX), "");
@@ -31,10 +31,10 @@ TEST(SharedBufferTest, TestAlloc) {
   // Check that null is returned, as we are asking for the whole address space.
   android::SharedBuffer* buf =
       android::SharedBuffer::alloc(SIZE_MAX - sizeof(android::SharedBuffer) - 1);
-  ASSERT_TRUE(NULL == buf);
+  ASSERT_EQ(nullptr, buf);
 
   buf = android::SharedBuffer::alloc(0);
-  ASSERT_FALSE(NULL == buf);
+  ASSERT_NE(nullptr, buf);
   ASSERT_EQ(0U, buf->size());
   buf->release();
 }
@@ -49,7 +49,7 @@ TEST(SharedBufferTest, TestEditResize) {
   // Make sure we don't die here.
   // Check that null is returned, as we are asking for the whole address space.
   buf = buf->editResize(SIZE_MAX - sizeof(android::SharedBuffer) - 1);
-  ASSERT_TRUE(NULL == buf);
+  ASSERT_EQ(nullptr, buf);
 
   buf = android::SharedBuffer::alloc(10);
   buf = buf->editResize(0);

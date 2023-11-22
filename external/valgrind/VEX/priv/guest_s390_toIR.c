@@ -8,7 +8,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright IBM Corp. 2010-2013
+   Copyright IBM Corp. 2010-2015
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License as
@@ -12384,6 +12384,45 @@ s390_irgen_LXEB(UChar r1, IRTemp op2addr)
 }
 
 static const HChar *
+s390_irgen_FIEBRA(UChar m3, UChar m4 __attribute__((unused)),
+                  UChar r1, UChar r2)
+{
+   IRTemp result = newTemp(Ity_F32);
+
+   assign(result, binop(Iop_RoundF32toInt, mkexpr(encode_bfp_rounding_mode(m3)),
+                        get_fpr_w0(r2)));
+   put_fpr_w0(r1, mkexpr(result));
+
+   return "fiebra";
+}
+
+static const HChar *
+s390_irgen_FIDBRA(UChar m3, UChar m4 __attribute__((unused)),
+                  UChar r1, UChar r2)
+{
+   IRTemp result = newTemp(Ity_F64);
+
+   assign(result, binop(Iop_RoundF64toInt, mkexpr(encode_bfp_rounding_mode(m3)),
+                        get_fpr_dw0(r2)));
+   put_fpr_dw0(r1, mkexpr(result));
+
+   return "fidbra";
+}
+
+static const HChar *
+s390_irgen_FIXBRA(UChar m3, UChar m4 __attribute__((unused)),
+                  UChar r1, UChar r2)
+{
+   IRTemp result = newTemp(Ity_F128);
+
+   assign(result, binop(Iop_RoundF128toInt, mkexpr(encode_bfp_rounding_mode(m3)),
+                        get_fpr_pair(r2)));
+   put_fpr_pair(r1, mkexpr(result));
+
+   return "fixbra";
+}
+
+static const HChar *
 s390_irgen_LNEBR(UChar r1, UChar r2)
 {
    IRTemp result = newTemp(Ity_F32);
@@ -14505,7 +14544,9 @@ s390_decode_4byte_and_irgen(const UChar *bytes)
    case 0xb346: s390_format_RRF_UUFF(s390_irgen_LEXBR, ovl.fmt.RRF2.m3,
                                      ovl.fmt.RRF2.m4, ovl.fmt.RRF2.r1,
                                      ovl.fmt.RRF2.r2);  goto ok;
-   case 0xb347: /* FIXBR */ goto unimplemented;
+   case 0xb347: s390_format_RRF_UUFF(s390_irgen_FIXBRA, ovl.fmt.RRF2.m3,
+                                     ovl.fmt.RRF2.m4, ovl.fmt.RRF2.r1,
+                                     ovl.fmt.RRF2.r2);  goto ok;
    case 0xb348: /* KXBR */ goto unimplemented;
    case 0xb349: s390_format_RRE_FF(s390_irgen_CXBR, ovl.fmt.RRE.r1,
                                    ovl.fmt.RRE.r2);  goto ok;
@@ -14520,11 +14561,15 @@ s390_decode_4byte_and_irgen(const UChar *bytes)
    case 0xb350: /* TBEDR */ goto unimplemented;
    case 0xb351: /* TBDR */ goto unimplemented;
    case 0xb353: /* DIEBR */ goto unimplemented;
-   case 0xb357: /* FIEBR */ goto unimplemented;
+   case 0xb357: s390_format_RRF_UUFF(s390_irgen_FIEBRA, ovl.fmt.RRF2.m3,
+                                     ovl.fmt.RRF2.m4, ovl.fmt.RRF2.r1,
+                                     ovl.fmt.RRF2.r2);  goto ok;
    case 0xb358: /* THDER */ goto unimplemented;
    case 0xb359: /* THDR */ goto unimplemented;
    case 0xb35b: /* DIDBR */ goto unimplemented;
-   case 0xb35f: /* FIDBR */ goto unimplemented;
+   case 0xb35f: s390_format_RRF_UUFF(s390_irgen_FIDBRA, ovl.fmt.RRF2.m3,
+                                     ovl.fmt.RRF2.m4, ovl.fmt.RRF2.r1,
+                                     ovl.fmt.RRF2.r2);  goto ok;
    case 0xb360: /* LPXR */ goto unimplemented;
    case 0xb361: /* LNXR */ goto unimplemented;
    case 0xb362: /* LTXR */ goto unimplemented;

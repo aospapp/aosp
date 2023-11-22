@@ -74,11 +74,15 @@ public class UninstallerActivity extends Activity {
 
             final boolean isUpdate =
                     ((dialogInfo.appInfo.flags & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0);
+            UserManager userManager = UserManager.get(getActivity());
             if (isUpdate) {
-                messageBuilder.append(getString(R.string.uninstall_update_text));
+                if (isSingleUser(userManager)) {
+                    messageBuilder.append(getString(R.string.uninstall_update_text));
+                } else {
+                    messageBuilder.append(getString(R.string.uninstall_update_text_multiuser));
+                }
             } else {
-                UserManager userManager = UserManager.get(getActivity());
-                if (dialogInfo.allUsers && userManager.getUserCount() >= 2) {
+                if (dialogInfo.allUsers && !isSingleUser(userManager)) {
                     messageBuilder.append(getString(R.string.uninstall_application_text_all_users));
                 } else if (!dialogInfo.user.equals(android.os.Process.myUserHandle())) {
                     UserInfo userInfo = userManager.getUserInfo(dialogInfo.user.getIdentifier());
@@ -109,7 +113,19 @@ public class UninstallerActivity extends Activity {
         @Override
         public void onDismiss(DialogInterface dialog) {
             super.onDismiss(dialog);
-            getActivity().finish();
+            if (isAdded()) {
+                getActivity().finish();
+            }
+        }
+
+        /**
+         * Returns whether there is only one user on this device, not including
+         * the system-only user.
+         */
+        private boolean isSingleUser(UserManager userManager) {
+            final int userCount = userManager.getUserCount();
+            return userCount == 1
+                    || (UserManager.isSplitSystemUser() && userCount == 2);
         }
     }
 
@@ -127,9 +143,11 @@ public class UninstallerActivity extends Activity {
         @Override
         public void onDismiss(DialogInterface dialog) {
             super.onDismiss(dialog);
-            ((UninstallerActivity) getActivity()).dispatchAborted();
-            getActivity().setResult(Activity.RESULT_FIRST_USER);
-            getActivity().finish();
+            if (isAdded()) {
+                ((UninstallerActivity) getActivity()).dispatchAborted();
+                getActivity().setResult(Activity.RESULT_FIRST_USER);
+                getActivity().finish();
+            }
         }
     }
 

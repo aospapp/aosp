@@ -23,41 +23,57 @@ import junit.framework.TestCase;
 public class Resources_NotFoundExceptionTest extends TestCase {
 
     public void testNotFoundException() {
-        NotFoundException ne = null;
-        boolean isThrowed = false;
-        boolean isFinnalyRun = false;
+        NotFoundException ne;
+        boolean wasThrown;
+
+        wasThrown = false;
+        ne = new NotFoundException();
+
         try {
-            ne = new NotFoundException();
             throw ne;
         } catch (NotFoundException e) {
             // expected
             assertSame(ne, e);
-            isThrowed = true;
+            wasThrown = true;
         } finally {
-            if (!isThrowed) {
+            if (!wasThrown) {
                 fail("should throw out NotFoundException");
             }
-            isFinnalyRun = true;
         }
-        assertTrue(isFinnalyRun);
 
-        isThrowed = false;
-        isFinnalyRun = false;
         final String MESSAGE = "test";
+        wasThrown = false;
+        ne = new NotFoundException(MESSAGE);
+
         try {
-            ne = new NotFoundException(MESSAGE);
             throw ne;
         } catch (NotFoundException e) {
             // expected
             assertSame(ne, e);
             assertEquals(MESSAGE, e.getMessage());
-            isThrowed = true;
+            wasThrown = true;
         } finally {
-            if (!isThrowed) {
+            if (!wasThrown) {
                 fail("should throw out NotFoundException");
             }
-            isFinnalyRun = true;
         }
-        assertTrue(isFinnalyRun);
+
+        final Exception CAUSE = new NullPointerException();
+        wasThrown = false;
+        ne = new NotFoundException(MESSAGE, CAUSE);
+
+        try {
+            throw ne;
+        } catch (NotFoundException e) {
+            // expected
+            assertSame(ne, e);
+            assertEquals(MESSAGE, e.getMessage());
+            assertEquals(CAUSE, e.getCause());
+            wasThrown = true;
+        } finally {
+            if (!wasThrown) {
+                fail("should throw out NotFoundException");
+            }
+        }
     }
 }

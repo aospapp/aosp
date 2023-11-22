@@ -11,7 +11,7 @@
 static const int kBitmapSize = 24;
 
 static bool read_test_case(const char* filename, SkString* testdata) {
-  SkFILE* file = sk_fopen(filename, kRead_SkFILE_Flag);
+  FILE* file = sk_fopen(filename, kRead_SkFILE_Flag);
   if (!file) {
     SkDebugf("couldn't open file %s\n", filename);
     return false;
@@ -34,7 +34,7 @@ static void run_test_case(const SkString& testdata, const SkBitmap& bitmap,
         testdata.c_str(), testdata.size(), SkImageFilter::GetFlattenableType());
 
   // Adding some info, but the test passed if we got here without any trouble
-  if (flattenable != NULL) {
+  if (flattenable != nullptr) {
     SkDebugf("Valid stream detected.\n");
     // Let's see if using the filters can cause any trouble...
     SkPaint paint;

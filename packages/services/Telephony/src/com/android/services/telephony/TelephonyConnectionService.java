@@ -16,40 +16,44 @@
 
 package com.android.services.telephony;
 
+import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.res.Configuration;
-import android.content.res.Resources;
 import android.net.Uri;
+import android.os.Bundle;
+import android.telecom.Conference;
 import android.telecom.Connection;
 import android.telecom.ConnectionRequest;
 import android.telecom.ConnectionService;
+import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
+import android.telecom.TelecomManager;
+import android.telecom.VideoProfile;
 import android.telephony.CarrierConfigManager;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.ServiceState;
-import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 
 import com.android.internal.telephony.Call;
 import com.android.internal.telephony.CallStateException;
+import com.android.internal.telephony.IccCard;
+import com.android.internal.telephony.IccCardConstants;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.PhoneFactory;
-import com.android.internal.telephony.PhoneProxy;
 import com.android.internal.telephony.SubscriptionController;
-import com.android.internal.telephony.cdma.CDMAPhone;
+import com.android.internal.telephony.imsphone.ImsExternalCallTracker;
+import com.android.internal.telephony.imsphone.ImsPhone;
 import com.android.phone.MMIDialogActivity;
 import com.android.phone.PhoneUtils;
 import com.android.phone.R;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
@@ -176,6 +180,38 @@ public class TelephonyConnectionService extends ConnectionService {
         // Get the right phone object from the account data passed in.
         final Phone phone = getPhoneForAccount(request.getAccountHandle(), isEmergencyNumber);
         if (phone == null) {
+            final Context context = getApplicationContext();
+            if (context.getResources().getBoolean(R.bool.config_checkSimStateBeforeOutgoingCall)) {
+                // Check SIM card state before the outgoing call.
+                // Start the SIM unlock activity if PIN_REQUIRED.
+                final Phone defaultPhone = PhoneFactory.getDefaultPhone();
+                final IccCard icc = defaultPhone.getIccCard();
+                IccCardConstants.State simState = IccCardConstants.State.UNKNOWN;
+                if (icc != null) {
+                    simState = icc.getState();
+                }
+                if (simState == IccCardConstants.State.PIN_REQUIRED) {
+                    final String simUnlockUiPackage = context.getResources().getString(
+                            R.string.config_simUnlockUiPackage);
+                    final String simUnlockUiClass = context.getResources().getString(
+                            R.string.config_simUnlockUiClass);
+                    if (simUnlockUiPackage != null && simUnlockUiClass != null) {
+                        Intent simUnlockIntent = new Intent().setComponent(new ComponentName(
+                                simUnlockUiPackage, simUnlockUiClass));
+                        simUnlockIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        try {
+                            context.startActivity(simUnlockIntent);
+                        } catch (ActivityNotFoundException exception) {
+                            Log.e(this, exception, "Unable to find SIM unlock UI activity.");
+                        }
+                    }
+                    return Connection.createFailedConnection(
+                            DisconnectCauseUtil.toTelecomDisconnectCause(
+                                    android.telephony.DisconnectCause.OUT_OF_SERVICE,
+                                    "SIM_STATE_PIN_REQUIRED"));
+                }
+            }
+
             Log.d(this, "onCreateOutgoingConnection, phone is null");
             return Connection.createFailedConnection(
                     DisconnectCauseUtil.toTelecomDisconnectCause(
@@ -192,6 +228,26 @@ public class TelephonyConnectionService extends ConnectionService {
         }
         boolean useEmergencyCallHelper = false;
 
+        // If we're dialing a non-emergency number and the phone is in ECM mode, reject the call if
+        // carrier configuration specifies that we cannot make non-emergency calls in ECM mode.
+        if (!isEmergencyNumber && phone.isInEcm()) {
+            boolean allowNonEmergencyCalls = true;
+            CarrierConfigManager cfgManager = (CarrierConfigManager)
+                    phone.getContext().getSystemService(Context.CARRIER_CONFIG_SERVICE);
+            if (cfgManager != null) {
+                allowNonEmergencyCalls = cfgManager.getConfigForSubId(phone.getSubId())
+                        .getBoolean(CarrierConfigManager.KEY_ALLOW_NON_EMERGENCY_CALLS_IN_ECM_BOOL);
+            }
+
+            if (!allowNonEmergencyCalls) {
+                return Connection.createFailedConnection(
+                        DisconnectCauseUtil.toTelecomDisconnectCause(
+                                android.telephony.DisconnectCause.CDMA_NOT_EMERGENCY,
+                                "Cannot make non-emergency call in ECM mode."
+                        ));
+            }
+        }
+
         if (isEmergencyNumber) {
             if (!phone.isRadioOn()) {
                 useEmergencyCallHelper = true;
@@ -202,10 +258,15 @@ public class TelephonyConnectionService extends ConnectionService {
                 case ServiceState.STATE_EMERGENCY_ONLY:
                     break;
                 case ServiceState.STATE_OUT_OF_SERVICE:
-                    return Connection.createFailedConnection(
-                            DisconnectCauseUtil.toTelecomDisconnectCause(
-                                    android.telephony.DisconnectCause.OUT_OF_SERVICE,
-                                    "ServiceState.STATE_OUT_OF_SERVICE"));
+                    if (phone.isUtEnabled() && number.endsWith("#")) {
+                        Log.d(this, "onCreateOutgoingConnection dial for UT");
+                        break;
+                    } else {
+                        return Connection.createFailedConnection(
+                                DisconnectCauseUtil.toTelecomDisconnectCause(
+                                        android.telephony.DisconnectCause.OUT_OF_SERVICE,
+                                        "ServiceState.STATE_OUT_OF_SERVICE"));
+                    }
                 case ServiceState.STATE_POWER_OFF:
                     return Connection.createFailedConnection(
                             DisconnectCauseUtil.toTelecomDisconnectCause(
@@ -220,8 +281,22 @@ public class TelephonyConnectionService extends ConnectionService {
             }
         }
 
+        final Context context = getApplicationContext();
+        if (VideoProfile.isVideo(request.getVideoState()) && isTtyModeEnabled(context) &&
+                !isEmergencyNumber) {
+            return Connection.createFailedConnection(DisconnectCauseUtil.toTelecomDisconnectCause(
+                    android.telephony.DisconnectCause.VIDEO_CALL_NOT_ALLOWED_WHILE_TTY_ENABLED));
+        }
+
+        // Check for additional limits on CDMA phones.
+        final Connection failedConnection = checkAdditionalOutgoingCallLimits(phone);
+        if (failedConnection != null) {
+            return failedConnection;
+        }
+
         final TelephonyConnection connection =
-                createConnectionFor(phone, null, true /* isOutgoing */, request.getAccountHandle());
+                createConnectionFor(phone, null, true /* isOutgoing */, request.getAccountHandle(),
+                        request.getTelecomCallId(), request.getAddress());
         if (connection == null) {
             return Connection.createFailedConnection(
                     DisconnectCauseUtil.toTelecomDisconnectCause(
@@ -268,8 +343,17 @@ public class TelephonyConnectionService extends ConnectionService {
             PhoneAccountHandle connectionManagerPhoneAccount,
             ConnectionRequest request) {
         Log.i(this, "onCreateIncomingConnection, request: " + request);
-
-        Phone phone = getPhoneForAccount(request.getAccountHandle(), false);
+        // If there is an incoming emergency CDMA Call (while the phone is in ECBM w/ No SIM),
+        // make sure the PhoneAccount lookup retrieves the default Emergency Phone.
+        PhoneAccountHandle accountHandle = request.getAccountHandle();
+        boolean isEmergency = false;
+        if (accountHandle != null && PhoneUtils.EMERGENCY_ACCOUNT_HANDLE_ID.equals(
+                accountHandle.getId())) {
+            Log.i(this, "Emergency PhoneAccountHandle is being used for incoming call... " +
+                    "Treat as an Emergency Call.");
+            isEmergency = true;
+        }
+        Phone phone = getPhoneForAccount(accountHandle, isEmergency);
         if (phone == null) {
             return Connection.createFailedConnection(
                     DisconnectCauseUtil.toTelecomDisconnectCause(
@@ -296,7 +380,8 @@ public class TelephonyConnectionService extends ConnectionService {
 
         Connection connection =
                 createConnectionFor(phone, originalConnection, false /* isOutgoing */,
-                        request.getAccountHandle());
+                        request.getAccountHandle(), request.getTelecomCallId(),
+                        request.getAddress());
         if (connection == null) {
             return Connection.createCanceledConnection();
         } else {
@@ -305,36 +390,85 @@ public class TelephonyConnectionService extends ConnectionService {
     }
 
     @Override
+    public void triggerConferenceRecalculate() {
+        if (mTelephonyConferenceController.shouldRecalculate()) {
+            mTelephonyConferenceController.recalculate();
+        }
+    }
+
+    @Override
     public Connection onCreateUnknownConnection(PhoneAccountHandle connectionManagerPhoneAccount,
             ConnectionRequest request) {
         Log.i(this, "onCreateUnknownConnection, request: " + request);
-
-        Phone phone = getPhoneForAccount(request.getAccountHandle(), false);
+        // Use the registered emergency Phone if the PhoneAccountHandle is set to Telephony's
+        // Emergency PhoneAccount
+        PhoneAccountHandle accountHandle = request.getAccountHandle();
+        boolean isEmergency = false;
+        if (accountHandle != null && PhoneUtils.EMERGENCY_ACCOUNT_HANDLE_ID.equals(
+                accountHandle.getId())) {
+            Log.i(this, "Emergency PhoneAccountHandle is being used for unknown call... " +
+                    "Treat as an Emergency Call.");
+            isEmergency = true;
+        }
+        Phone phone = getPhoneForAccount(accountHandle, isEmergency);
         if (phone == null) {
             return Connection.createFailedConnection(
                     DisconnectCauseUtil.toTelecomDisconnectCause(
                             android.telephony.DisconnectCause.ERROR_UNSPECIFIED,
                             "Phone is null"));
         }
+        Bundle extras = request.getExtras();
 
         final List<com.android.internal.telephony.Connection> allConnections = new ArrayList<>();
-        final Call ringingCall = phone.getRingingCall();
-        if (ringingCall.hasConnections()) {
-            allConnections.addAll(ringingCall.getConnections());
+
+        // Handle the case where an unknown connection has an IMS external call ID specified; we can
+        // skip the rest of the guesswork and just grad that unknown call now.
+        if (phone.getImsPhone() != null && extras != null &&
+                extras.containsKey(ImsExternalCallTracker.EXTRA_IMS_EXTERNAL_CALL_ID)) {
+
+            ImsPhone imsPhone = (ImsPhone) phone.getImsPhone();
+            ImsExternalCallTracker externalCallTracker = imsPhone.getExternalCallTracker();
+            int externalCallId = extras.getInt(ImsExternalCallTracker.EXTRA_IMS_EXTERNAL_CALL_ID,
+                    -1);
+
+            if (externalCallTracker != null) {
+                com.android.internal.telephony.Connection connection =
+                        externalCallTracker.getConnectionById(externalCallId);
+
+                if (connection != null) {
+                    allConnections.add(connection);
+                }
+            }
         }
-        final Call foregroundCall = phone.getForegroundCall();
-        if (foregroundCall.hasConnections()) {
-            allConnections.addAll(foregroundCall.getConnections());
-        }
-        final Call backgroundCall = phone.getBackgroundCall();
-        if (backgroundCall.hasConnections()) {
-            allConnections.addAll(phone.getBackgroundCall().getConnections());
+
+        if (allConnections.isEmpty()) {
+            final Call ringingCall = phone.getRingingCall();
+            if (ringingCall.hasConnections()) {
+                allConnections.addAll(ringingCall.getConnections());
+            }
+            final Call foregroundCall = phone.getForegroundCall();
+            if ((foregroundCall.getState() != Call.State.DISCONNECTED)
+                    && (foregroundCall.hasConnections())) {
+                allConnections.addAll(foregroundCall.getConnections());
+            }
+            if (phone.getImsPhone() != null) {
+                final Call imsFgCall = phone.getImsPhone().getForegroundCall();
+                if ((imsFgCall.getState() != Call.State.DISCONNECTED) && imsFgCall
+                        .hasConnections()) {
+                    allConnections.addAll(imsFgCall.getConnections());
+                }
+            }
+            final Call backgroundCall = phone.getBackgroundCall();
+            if (backgroundCall.hasConnections()) {
+                allConnections.addAll(phone.getBackgroundCall().getConnections());
+            }
         }
 
         com.android.internal.telephony.Connection unknownConnection = null;
         for (com.android.internal.telephony.Connection telephonyConnection : allConnections) {
             if (!isOriginalConnectionKnown(telephonyConnection)) {
                 unknownConnection = telephonyConnection;
+                Log.d(this, "onCreateUnknownConnection: conn = " + unknownConnection);
                 break;
             }
         }
@@ -347,7 +481,8 @@ public class TelephonyConnectionService extends ConnectionService {
         TelephonyConnection connection =
                 createConnectionFor(phone, unknownConnection,
                         !unknownConnection.isIncoming() /* isOutgoing */,
-                        request.getAccountHandle());
+                        request.getAccountHandle(), request.getTelecomCallId(),
+                        request.getAddress());
 
         if (connection == null) {
             return Connection.createCanceledConnection();
@@ -409,21 +544,28 @@ public class TelephonyConnectionService extends ConnectionService {
             Phone phone,
             com.android.internal.telephony.Connection originalConnection,
             boolean isOutgoing,
-            PhoneAccountHandle phoneAccountHandle) {
+            PhoneAccountHandle phoneAccountHandle,
+            String telecomCallId,
+            Uri address) {
         TelephonyConnection returnConnection = null;
         int phoneType = phone.getPhoneType();
         if (phoneType == TelephonyManager.PHONE_TYPE_GSM) {
-            returnConnection = new GsmConnection(originalConnection);
+            returnConnection = new GsmConnection(originalConnection, telecomCallId);
         } else if (phoneType == TelephonyManager.PHONE_TYPE_CDMA) {
-            boolean allowMute = allowMute(phone);
-            returnConnection = new CdmaConnection(
-                    originalConnection, mEmergencyTonePlayer, allowMute, isOutgoing);
+            boolean allowsMute = allowsMute(phone);
+            returnConnection = new CdmaConnection(originalConnection, mEmergencyTonePlayer,
+                    allowsMute, isOutgoing, telecomCallId);
         }
         if (returnConnection != null) {
             // Listen to Telephony specific callbacks from the connection
             returnConnection.addTelephonyConnectionListener(mTelephonyConnectionListener);
             returnConnection.setVideoPauseSupported(
                     TelecomAccountRegistry.getInstance(this).isVideoPauseSupported(
+                            phoneAccountHandle));
+            boolean isEmergencyCall = (address != null && PhoneNumberUtils.isEmergencyNumber(
+                    address.getSchemeSpecificPart()));
+            returnConnection.setConferenceSupported(!isEmergencyCall
+                    && TelecomAccountRegistry.getInstance(this).isMergeCallSupported(
                             phoneAccountHandle));
         }
         return returnConnection;
@@ -443,54 +585,81 @@ public class TelephonyConnectionService extends ConnectionService {
     }
 
     private Phone getPhoneForAccount(PhoneAccountHandle accountHandle, boolean isEmergency) {
-        if (isEmergency) {
-            return PhoneFactory.getDefaultPhone();
-        }
-
+        Phone chosenPhone = null;
         int subId = PhoneUtils.getSubIdForPhoneAccountHandle(accountHandle);
         if (subId != SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
             int phoneId = SubscriptionController.getInstance().getPhoneId(subId);
-            return PhoneFactory.getPhone(phoneId);
+            chosenPhone = PhoneFactory.getPhone(phoneId);
         }
-
-        return null;
+        // If this is an emergency call and the phone we originally planned to make this call
+        // with is not in service or was invalid, try to find one that is in service, using the
+        // default as a last chance backup.
+        if (isEmergency && (chosenPhone == null || ServiceState.STATE_IN_SERVICE != chosenPhone
+                .getServiceState().getState())) {
+            Log.d(this, "getPhoneForAccount: phone for phone acct handle %s is out of service "
+                    + "or invalid for emergency call.", accountHandle);
+            chosenPhone = getFirstPhoneForEmergencyCall();
+            Log.d(this, "getPhoneForAccount: using subId: " +
+                    (chosenPhone == null ? "null" : chosenPhone.getSubId()));
+        }
+        return chosenPhone;
     }
 
+    /**
+     * Retrieves the most sensible Phone to use for an emergency call using the following Priority
+     *  list (for multi-SIM devices):
+     *  1) The User's SIM preference for Voice calling
+     *  2) The First Phone that is currently IN_SERVICE or is available for emergency calling
+     *  3) The First Phone that has a SIM card in it (Starting from Slot 0...N)
+     *  4) The Default Phone (Currently set as Slot 0)
+     */
     private Phone getFirstPhoneForEmergencyCall() {
-        Phone selectPhone = null;
-        for (int i = 0; i < TelephonyManager.getDefault().getSimCount(); i++) {
-            int[] subIds = SubscriptionController.getInstance().getSubIdUsingSlotId(i);
-            if (subIds.length == 0)
-                continue;
+        Phone firstPhoneWithSim = null;
 
-            int phoneId = SubscriptionController.getInstance().getPhoneId(subIds[0]);
-            Phone phone = PhoneFactory.getPhone(phoneId);
-            if (phone == null)
-                continue;
-
-            if (ServiceState.STATE_IN_SERVICE == phone.getServiceState().getState()) {
-                // the slot is radio on & state is in service
-                Log.d(this, "pickBestPhoneForEmergencyCall, radio on & in service, slotId:" + i);
-                return phone;
-            } else if (ServiceState.STATE_POWER_OFF != phone.getServiceState().getState()) {
-                // the slot is radio on & with SIM card inserted.
-                if (TelephonyManager.getDefault().hasIccCard(i)) {
-                    Log.d(this, "pickBestPhoneForEmergencyCall," +
-                            "radio on and SIM card inserted, slotId:" + i);
-                    selectPhone = phone;
-                } else if (selectPhone == null) {
-                    Log.d(this, "pickBestPhoneForEmergencyCall, radio on, slotId:" + i);
-                    selectPhone = phone;
-                }
+        // 1)
+        int phoneId = SubscriptionManager.getDefaultVoicePhoneId();
+        if (phoneId != SubscriptionManager.INVALID_PHONE_INDEX) {
+            Phone defaultPhone = PhoneFactory.getPhone(phoneId);
+            if (defaultPhone != null && isAvailableForEmergencyCalls(defaultPhone)) {
+                return defaultPhone;
             }
         }
 
-        if (selectPhone == null) {
-            Log.d(this, "pickBestPhoneForEmergencyCall, return default phone");
-            selectPhone = PhoneFactory.getDefaultPhone();
+        for (int i = 0; i < TelephonyManager.getDefault().getPhoneCount(); i++) {
+            Phone phone = PhoneFactory.getPhone(i);
+            if (phone == null)
+                continue;
+            // 2)
+            if (isAvailableForEmergencyCalls(phone)) {
+                // the slot has the radio on & state is in service.
+                Log.d(this, "getFirstPhoneForEmergencyCall, radio on & in service, Phone Id:" + i);
+                return phone;
+            }
+            // 3)
+            if (firstPhoneWithSim == null && TelephonyManager.getDefault().hasIccCard(i)) {
+                // The slot has a SIM card inserted, but is not in service, so keep track of this
+                // Phone. Do not return because we want to make sure that none of the other Phones
+                // are in service (because that is always faster).
+                Log.d(this, "getFirstPhoneForEmergencyCall, SIM card inserted, Phone Id:" + i);
+                firstPhoneWithSim = phone;
+            }
         }
+        // 4)
+        if (firstPhoneWithSim == null) {
+            // No SIMs inserted, get the default.
+            Log.d(this, "getFirstPhoneForEmergencyCall, return default phone");
+            return PhoneFactory.getDefaultPhone();
+        } else {
+            return firstPhoneWithSim;
+        }
+    }
 
-        return selectPhone;
+    /**
+     * Returns true if the state of the Phone is IN_SERVICE or available for emergency calling only.
+     */
+    private boolean isAvailableForEmergencyCalls(Phone phone) {
+        return ServiceState.STATE_IN_SERVICE == phone.getServiceState().getState() ||
+                phone.getServiceState().isEmergencyOnly();
     }
 
     /**
@@ -499,16 +668,12 @@ public class TelephonyConnectionService extends ConnectionService {
      * @param phone The current phone.
      * @return {@code True} if the connection should allow mute.
      */
-    private boolean allowMute(Phone phone) {
+    private boolean allowsMute(Phone phone) {
         // For CDMA phones, check if we are in Emergency Callback Mode (ECM).  Mute is disallowed
         // in ECM mode.
         if (phone.getPhoneType() == TelephonyManager.PHONE_TYPE_CDMA) {
-            PhoneProxy phoneProxy = (PhoneProxy)phone;
-            CDMAPhone cdmaPhone = (CDMAPhone)phoneProxy.getActivePhone();
-            if (cdmaPhone != null) {
-                if (cdmaPhone.isInEcm()) {
-                    return false;
-                }
+            if (phone.isInEcm()) {
+                return false;
             }
         }
 
@@ -551,5 +716,44 @@ public class TelephonyConnectionService extends ConnectionService {
             Log.d(this, "Removing connection from IMS conference controller: " + connection);
             mImsConferenceController.remove(connection);
         }
+    }
+
+    /**
+     * Create a new CDMA connection. CDMA connections have additional limitations when creating
+     * additional calls which are handled in this method.  Specifically, CDMA has a "FLASH" command
+     * that can be used for three purposes: merging a call, swapping unmerged calls, and adding
+     * a new outgoing call. The function of the flash command depends on the context of the current
+     * set of calls. This method will prevent an outgoing call from being made if it is not within
+     * the right circumstances to support adding a call.
+     */
+    private Connection checkAdditionalOutgoingCallLimits(Phone phone) {
+        if (phone.getPhoneType() == TelephonyManager.PHONE_TYPE_CDMA) {
+            // Check to see if any CDMA conference calls exist, and if they do, check them for
+            // limitations.
+            for (Conference conference : getAllConferences()) {
+                if (conference instanceof CdmaConference) {
+                    CdmaConference cdmaConf = (CdmaConference) conference;
+
+                    // If the CDMA conference has not been merged, add-call will not work, so fail
+                    // this request to add a call.
+                    if (cdmaConf.can(Connection.CAPABILITY_MERGE_CONFERENCE)) {
+                        return Connection.createFailedConnection(new DisconnectCause(
+                                    DisconnectCause.RESTRICTED,
+                                    null,
+                                    getResources().getString(R.string.callFailed_cdma_call_limit),
+                                    "merge-capable call exists, prevent flash command."));
+                    }
+                }
+            }
+        }
+
+        return null; // null means nothing went wrong, and call should continue.
+    }
+
+    private boolean isTtyModeEnabled(Context context) {
+        return (android.provider.Settings.Secure.getInt(
+                context.getContentResolver(),
+                android.provider.Settings.Secure.PREFERRED_TTY_MODE,
+                TelecomManager.TTY_MODE_OFF) != TelecomManager.TTY_MODE_OFF);
     }
 }

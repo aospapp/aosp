@@ -38,6 +38,7 @@ include:
  #include "rs_value_types.rsh"
  #include "rs_object_types.rsh"
 
+ #include "rs_allocation_create.rsh"
  #include "rs_allocation_data.rsh"
  #include "rs_atomic.rsh"
  #include "rs_convert.rsh"

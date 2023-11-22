@@ -27,6 +27,9 @@ import dot.junit.opcodes.invoke_interface_range.d.T_invoke_interface_range_16;
 import dot.junit.opcodes.invoke_interface_range.d.T_invoke_interface_range_18;
 import dot.junit.opcodes.invoke_interface_range.d.T_invoke_interface_range_20;
 import dot.junit.opcodes.invoke_interface_range.d.T_invoke_interface_range_21;
+import dot.junit.opcodes.invoke_interface_range.d.T_invoke_interface_range_23;
+import dot.junit.opcodes.invoke_interface_range.d.T_invoke_interface_range_24;
+import dot.junit.opcodes.invoke_interface_range.d.T_invoke_interface_range_25;
 import dot.junit.opcodes.invoke_interface_range.d.T_invoke_interface_range_3;
 import dot.junit.opcodes.invoke_interface_range.d.T_invoke_interface_range_4;
 import dot.junit.opcodes.invoke_interface_range.d.T_invoke_interface_range_5;
@@ -57,7 +60,12 @@ public class Test_invoke_interface_range extends DxTestCase {
         assertEquals(1, t.run(impl));
     }
 
-
+    /**
+     * @title invoke default interface method
+     */
+    public void testN3() {
+        loadAndRun("dot.junit.opcodes.invoke_interface_range.d.T_invoke_interface_range_25", null);
+    }
 
     /**
      * @title objref is null
@@ -98,6 +106,23 @@ public class Test_invoke_interface_range extends DxTestCase {
         loadAndRun("dot.junit.opcodes.invoke_interface_range.d.T_invoke_interface_range_13",
                    AbstractMethodError.class);
     }
+
+    /**
+     * @title Attempt to invoke conflict method
+     */
+    public void testE7() {
+        loadAndRun("dot.junit.opcodes.invoke_interface_range.d.T_invoke_interface_range_23",
+                   IncompatibleClassChangeError.class);
+    }
+
+    /**
+     * @title Attempt to invoke abstract method
+     */
+    public void testE8() {
+        loadAndRun("dot.junit.opcodes.invoke_interface_range.d.T_invoke_interface_range_24",
+                   AbstractMethodError.class);
+    }
+
 
     /**
      * @constraint A17

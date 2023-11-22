@@ -94,6 +94,12 @@ public abstract class ModelAnalyzer {
             curr = curr.getSuperclass();
         }
         if (curr == null) {
+            if (modelClass1.isObject() && modelClass2.isInterface()) {
+                return modelClass1;
+            } else if (modelClass2.isObject() && modelClass1.isInterface()) {
+                return modelClass2;
+            }
+
             ModelClass primitive1 = modelClass1.unbox();
             ModelClass primitive2 = modelClass2.unbox();
             if (!modelClass1.equals(primitive1) || !modelClass2.equals(primitive2)) {

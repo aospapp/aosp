@@ -47,13 +47,13 @@ public class DexClassLoader extends BaseDexClassLoader {
      *     defaults to {@code ":"} on Android
      * @param optimizedDirectory directory where optimized dex files
      *     should be written; must not be {@code null}
-     * @param libraryPath the list of directories containing native
+     * @param librarySearchPath the list of directories containing native
      *     libraries, delimited by {@code File.pathSeparator}; may be
      *     {@code null}
      * @param parent the parent class loader
      */
     public DexClassLoader(String dexPath, String optimizedDirectory,
-            String libraryPath, ClassLoader parent) {
-        super(dexPath, new File(optimizedDirectory), libraryPath, parent);
+            String librarySearchPath, ClassLoader parent) {
+        super(dexPath, new File(optimizedDirectory), librarySearchPath, parent);
     }
 }

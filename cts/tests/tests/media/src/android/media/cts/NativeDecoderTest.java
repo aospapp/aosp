@@ -16,7 +16,7 @@
 
 package android.media.cts;
 
-import com.android.cts.media.R;
+import android.media.cts.R;
 
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
@@ -91,8 +91,8 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
         testExtractor(R.raw.sinesweepwav);
 
         testExtractor(R.raw.video_1280x720_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz);
-        testExtractor(R.raw.video_1280x720_webm_vp8_333kbps_25fps_vorbis_stereo_128kbps_44100hz);
-        testExtractor(R.raw.video_1280x720_webm_vp9_309kbps_25fps_vorbis_stereo_128kbps_48000hz);
+        testExtractor(R.raw.bbb_s3_1280x720_webm_vp8_8mbps_60fps_opus_6ch_384kbps_48000hz);
+        testExtractor(R.raw.bbb_s4_1280x720_webm_vp9_0p31_4mbps_30fps_opus_stereo_128kbps_48000hz);
         testExtractor(R.raw.video_176x144_3gp_h263_300kbps_12fps_aac_mono_24kbps_11025hz);
         testExtractor(R.raw.video_480x360_mp4_mpeg4_860kbps_25fps_aac_stereo_128kbps_44100hz);
 
@@ -193,8 +193,8 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
             testDecoder(R.raw.sinesweepwav) +
 
             testDecoder(R.raw.video_1280x720_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz) +
-            testDecoder(R.raw.video_1280x720_webm_vp8_333kbps_25fps_vorbis_stereo_128kbps_44100hz) +
-            testDecoder(R.raw.video_1280x720_webm_vp9_309kbps_25fps_vorbis_stereo_128kbps_48000hz) +
+            testDecoder(R.raw.bbb_s1_640x360_webm_vp8_2mbps_30fps_vorbis_5ch_320kbps_48000hz) +
+            testDecoder(R.raw.bbb_s1_640x360_webm_vp9_0p21_1600kbps_30fps_vorbis_stereo_128kbps_48000hz) +
             testDecoder(R.raw.video_176x144_3gp_h263_300kbps_12fps_aac_mono_24kbps_11025hz) +
             testDecoder(R.raw.video_480x360_mp4_mpeg4_860kbps_25fps_aac_stereo_128kbps_44100hz);
         if (testsRun == 0) {
@@ -391,9 +391,9 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
             testVideoPlayback(
                     R.raw.video_1280x720_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz) +
             testVideoPlayback(
-                    R.raw.video_1280x720_webm_vp8_333kbps_25fps_vorbis_stereo_128kbps_44100hz) +
+                    R.raw.bbb_s1_640x360_webm_vp8_2mbps_30fps_vorbis_5ch_320kbps_48000hz) +
             testVideoPlayback(
-                    R.raw.video_1280x720_webm_vp9_309kbps_25fps_vorbis_stereo_128kbps_48000hz) +
+                    R.raw.bbb_s1_640x360_webm_vp9_0p21_1600kbps_30fps_vorbis_stereo_128kbps_48000hz) +
             testVideoPlayback(
                     R.raw.video_176x144_3gp_h263_300kbps_12fps_aac_mono_24kbps_11025hz) +
             testVideoPlayback(
@@ -419,8 +419,50 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
     private static native boolean testPlaybackNative(Surface surface,
             int fd, long startOffset, long length);
 
-    public void testMuxer() throws Exception {
+    public void testMuxerAvc() throws Exception {
+        // IMPORTANT: this file must not have B-frames
         testMuxer(R.raw.video_1280x720_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz, false);
+    }
+
+    public void testMuxerH263() throws Exception {
+        // IMPORTANT: this file must not have B-frames
+        testMuxer(R.raw.video_176x144_3gp_h263_300kbps_25fps_aac_stereo_128kbps_11025hz, false);
+    }
+
+    public void testMuxerHevc() throws Exception {
+        // IMPORTANT: this file must not have B-frames
+        testMuxer(R.raw.video_640x360_mp4_hevc_450kbps_no_b, false);
+    }
+
+    public void testMuxerVp8() throws Exception {
+        testMuxer(R.raw.bbb_s1_640x360_webm_vp8_2mbps_30fps_vorbis_5ch_320kbps_48000hz, true);
+    }
+
+    public void testMuxerVp9() throws Exception {
+        testMuxer(
+                R.raw.video_1280x720_webm_vp9_csd_309kbps_25fps_vorbis_stereo_128kbps_48000hz,
+                true);
+    }
+
+    public void testMuxerVp9NoCsd() throws Exception {
+        testMuxer(
+                R.raw.bbb_s1_640x360_webm_vp9_0p21_1600kbps_30fps_vorbis_stereo_128kbps_48000hz,
+                true);
+    }
+
+    public void testMuxerVp9Hdr() throws Exception {
+        testMuxer(R.raw.video_256x144_webm_vp9_hdr_83kbps_24fps, true);
+    }
+
+    // We do not support MPEG-2 muxing as of yet
+    public void SKIP_testMuxerMpeg2() throws Exception {
+        // IMPORTANT: this file must not have B-frames
+        testMuxer(R.raw.video_176x144_mp4_mpeg2_105kbps_25fps_aac_stereo_128kbps_44100hz, false);
+    }
+
+    public void testMuxerMpeg4() throws Exception {
+        // IMPORTANT: this file must not have B-frames
+        testMuxer(R.raw.video_176x144_mp4_mpeg4_300kbps_25fps_aac_stereo_128kbps_44100hz, false);
     }
 
     private void testMuxer(int res, boolean webm) throws Exception {
@@ -450,12 +492,15 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
         remux.setDataSource(out.getFileDescriptor());
 
         assertEquals("mismatched numer of tracks", org.getTrackCount(), remux.getTrackCount());
-        for (int i = 0; i < 2; i++) {
+        // allow duration mismatch for webm files as ffmpeg does not consider the duration of the
+        // last frame while libwebm (and our framework) does.
+        final long maxDurationDiffUs = webm ? 50000 : 0; // 50ms for webm
+        for (int i = 0; i < org.getTrackCount(); i++) {
             MediaFormat format1 = org.getTrackFormat(i);
             MediaFormat format2 = remux.getTrackFormat(i);
             Log.i("@@@", "org: " + format1);
             Log.i("@@@", "remux: " + format2);
-            assertTrue("different formats", compareFormats(format1, format2));
+            assertTrue("different formats", compareFormats(format1, format2, maxDurationDiffUs));
         }
 
         org.release();
@@ -463,13 +508,71 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
 
         MediaPlayer player1 = MediaPlayer.create(mContext, res);
         MediaPlayer player2 = MediaPlayer.create(mContext, Uri.parse("file://" + tmpFile));
-        assertEquals("duration is different", player1.getDuration(), player2.getDuration());
+        assertEquals("duration is different",
+                     player1.getDuration(), player2.getDuration(), maxDurationDiffUs * 0.001);
         player1.release();
         player2.release();
         new File(tmpFile).delete();
     }
 
-    boolean compareFormats(MediaFormat f1, MediaFormat f2) {
+    private String hexString(ByteBuffer buf) {
+        if (buf == null) {
+            return "(null)";
+        }
+        final char digits[] =
+            { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+
+        StringBuilder hex = new StringBuilder();
+        for (int i = buf.position(); i < buf.limit(); ++i) {
+            byte c = buf.get(i);
+            hex.append(digits[(c >> 4) & 0xf]);
+            hex.append(digits[c & 0xf]);
+        }
+        return hex.toString();
+    }
+
+    /** returns: null if key is in neither formats, true if they match and false otherwise */
+    private Boolean compareByteBufferInFormats(MediaFormat f1, MediaFormat f2, String key) {
+        ByteBuffer bufF1 = f1.containsKey(key) ? f1.getByteBuffer(key) : null;
+        ByteBuffer bufF2 = f2.containsKey(key) ? f2.getByteBuffer(key) : null;
+        if (bufF1 == null && bufF2 == null) {
+            return null;
+        }
+        if (bufF1 == null || !bufF1.equals(bufF2)) {
+            Log.i("@@@", "org " + key + ": " + hexString(bufF1));
+            Log.i("@@@", "rmx " + key + ": " + hexString(bufF2));
+            return false;
+        }
+        return true;
+    }
+
+    private boolean compareFormats(MediaFormat f1, MediaFormat f2, long maxDurationDiffUs) {
+        final String KEY_DURATION = MediaFormat.KEY_DURATION;
+
+        // allow some difference in durations
+        if (maxDurationDiffUs > 0
+                && f1.containsKey(KEY_DURATION) && f2.containsKey(KEY_DURATION)
+                && Math.abs(f1.getLong(KEY_DURATION)
+                        - f2.getLong(KEY_DURATION)) <= maxDurationDiffUs) {
+            f2.setLong(KEY_DURATION, f1.getLong(KEY_DURATION));
+        }
+
+        // verify hdr-static-info
+        if (Boolean.FALSE.equals(compareByteBufferInFormats(f1, f2, "hdr-static-info"))) {
+            return false;
+        }
+
+        // verify CSDs
+        for (int i = 0;; ++i) {
+            String key = "csd-" + i;
+            Boolean match = compareByteBufferInFormats(f1, f2, key);
+            if (match == null) {
+                break;
+            } else if (match == false) {
+                return false;
+            }
+        }
+
         // there's no good way to compare two MediaFormats, so compare their string
         // representation
         return f1.toString().equals(f2.toString());

@@ -23,7 +23,7 @@
 namespace android {
 
 // use this type to return error codes
-#ifdef HAVE_MS_C_RUNTIME
+#ifdef _WIN32
 typedef int         status_t;
 #else
 typedef int32_t     status_t;
@@ -58,8 +58,7 @@ enum {
     ALREADY_EXISTS      = -EEXIST,
     DEAD_OBJECT         = -EPIPE,
     FAILED_TRANSACTION  = (UNKNOWN_ERROR + 2),
-    JPARKS_BROKE_IT     = -EPIPE,
-#if !defined(HAVE_MS_C_RUNTIME)
+#if !defined(_WIN32)
     BAD_INDEX           = -EOVERFLOW,
     NOT_ENOUGH_DATA     = -ENODATA,
     WOULD_BLOCK         = -EWOULDBLOCK, 
@@ -73,6 +72,7 @@ enum {
     UNKNOWN_TRANSACTION = (UNKNOWN_ERROR + 6),
 #endif    
     FDS_NOT_ALLOWED     = (UNKNOWN_ERROR + 7),
+    UNEXPECTED_NULL     = (UNKNOWN_ERROR + 8),
 };
 
 // Restore define; enumeration is in "android" namespace, so the value defined

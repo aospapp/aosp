@@ -2,9 +2,9 @@
 .SH NAME
 NetEm \- Network Emulator
 .SH SYNOPSIS
-.B "tc qdisc ... dev" 
+.B "tc qdisc ... dev"
 .IR DEVICE " ] "
-.BR "add netem" 
+.BR "add netem"
 .I OPTIONS
 
 .IR OPTIONS " := [ " LIMIT " ] [ " DELAY " ] [ " LOSS \
@@ -15,23 +15,23 @@ NetEm \- Network Emulator
 .I packets
 
 .IR DELAY " := "
-.BI delay 
+.BI delay
 .IR TIME " [ " JITTER " [ " CORRELATION " ]]]"
 .br
-       [ 
+       [
 .BR distribution " { "uniform " | " normal " | " pareto " |  " paretonormal " } ]"
 
 .IR LOSS " := "
 .BR loss " { "
-.BI random 
+.BI random
 .IR PERCENT " [ " CORRELATION " ]  |"
 .br
 .RB "               " state
 .IR p13 " [ " p31 " [ " p32 " [ " p23 " [ " p14 "]]]] |"
 .br
 .RB "               " gemodel
-.IR p " [ " r " [ " 1-h " [ " 1-k " ]]]"
-.BR " }"
+.IR p " [ " r " [ " 1-h " [ " 1-k " ]]] } "
+.RB  " [ " ecn " ] "
 
 .IR CORRUPT " := "
 .B corrupt
@@ -44,13 +44,13 @@ NetEm \- Network Emulator
 .IR REORDERING " := "
 .B reorder
 .IR PERCENT " [ " CORRELATION " ] [ "
-.B gap 
+.B gap
 .IR DISTANCE " ]"
 
 .IR RATE " := "
 .B rate
 .IR RATE " [ " PACKETOVERHEAD " [ " CELLSIZE " [ " CELLOVERHEAD " ]]]]"
-	
+
 
 .SH DESCRIPTION
 NetEm is an enhancement of the Linux traffic control facilities
@@ -102,6 +102,10 @@ model. As known, p and r are the transition probabilities between the bad and
 the good states, 1-h is the loss probability in the bad state and 1-k is the
 loss probability in the good state.
 
+.SS ecn
+can be used optionally to mark packets instead of dropping them. A loss model
+has to be used for this to be enabled.
+
 .SS corrupt
 allows the emulation of random noise introducing an error in a random position
 for a chosen percent of packets. It is also possible to add a correlation
@@ -135,11 +139,11 @@ in this second example 25% of packets are sent immediately (with correlation of
 50%) while the others are delayed by 10 ms.
 
 .SS rate
-delay packets based on packet size and is a replacement for 
+delay packets based on packet size and is a replacement for
 .IR TBF .
 Rate can be
-specified in common units (e.g. 100kbit). Optional 
-.I PACKETOVERHEAD 
+specified in common units (e.g. 100kbit). Optional
+.I PACKETOVERHEAD
 (in bytes) specify an per packet overhead and can be negative. A positive value can be
 used to simulate additional link layer headers. A negative value can be used to
 artificial strip the Ethernet header (e.g. -14) and/or simulate a link layer
@@ -147,8 +151,8 @@ header compression scheme. The third parameter - an unsigned value - specify
 the cellsize. Cellsize can be used to simulate link layer schemes. ATM for
 example has an payload cellsize of 48 bytes and 5 byte per cell header. If a
 packet is 50 byte then ATM must use two cells: 2 * 48 bytes payload including 2
-* 5 byte header, thus consume 106 byte on the wire.  The last optional value
-.I CELLOVERHEAD 
+* 5 byte header, thus consume 106 byte on the wire. The last optional value
+.I CELLOVERHEAD
 can be used to specify per cell overhead - for our ATM example 5.
 .I CELLOVERHEAD
 can be negative, but use negative values with caution.

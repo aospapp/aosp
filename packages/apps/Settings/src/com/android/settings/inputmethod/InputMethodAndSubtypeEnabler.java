@@ -21,17 +21,17 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.os.Bundle;
-import android.preference.Preference;
-import android.preference.Preference.OnPreferenceChangeListener;
-import android.preference.PreferenceCategory;
-import android.preference.PreferenceScreen;
-import android.preference.TwoStatePreference;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.Preference.OnPreferenceChangeListener;
+import android.support.v7.preference.PreferenceCategory;
+import android.support.v7.preference.PreferenceScreen;
+import android.support.v7.preference.TwoStatePreference;
 import android.text.TextUtils;
 import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.InputMethodSubtype;
 
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.R;
 import com.android.settings.SettingsPreferenceFragment;
 
@@ -55,7 +55,7 @@ public class InputMethodAndSubtypeEnabler extends SettingsPreferenceFragment
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.INPUTMETHOD_SUBTYPE_ENABLER;
+        return MetricsEvent.INPUTMETHOD_SUBTYPE_ENABLER;
     }
 
     @Override
@@ -121,8 +121,6 @@ public class InputMethodAndSubtypeEnabler extends SettingsPreferenceFragment
     @Override
     public void onPause() {
         super.onPause();
-        // Clear all subtypes of all IMEs to make sure
-        updateImplicitlyEnabledSubtypes(null /* targetImiId */, false /* check */);
         InputMethodAndSubtypeUtil.saveInputMethodSubtypeList(this, getContentResolver(),
                 mInputMethodInfoList, mHaveHardKeyboard);
     }
@@ -159,13 +157,14 @@ public class InputMethodAndSubtypeEnabler extends SettingsPreferenceFragment
 
     private void addInputMethodSubtypePreferences(final InputMethodInfo imi,
             final PreferenceScreen root) {
-        final Context context = getActivity();
+        final Context context = getPrefContext();
         final int subtypeCount = imi.getSubtypeCount();
         if (subtypeCount <= 1) {
             return;
         }
         final String imiId = imi.getId();
-        final PreferenceCategory keyboardSettingsCategory = new PreferenceCategory(context);
+        final PreferenceCategory keyboardSettingsCategory =
+                new PreferenceCategory(getPrefContext());
         root.addPreference(keyboardSettingsCategory);
         final PackageManager pm = getPackageManager();
         final CharSequence label = imi.loadLabel(pm);
@@ -173,12 +172,14 @@ public class InputMethodAndSubtypeEnabler extends SettingsPreferenceFragment
         keyboardSettingsCategory.setTitle(label);
         keyboardSettingsCategory.setKey(imiId);
         // TODO: Use toggle Preference if images are ready.
-        final TwoStatePreference autoSelectionPref = new SwitchWithNoTextPreference(context);
+        final TwoStatePreference autoSelectionPref =
+                new SwitchWithNoTextPreference(getPrefContext());
         mAutoSelectionPrefsMap.put(imiId, autoSelectionPref);
         keyboardSettingsCategory.addPreference(autoSelectionPref);
         autoSelectionPref.setOnPreferenceChangeListener(this);
 
-        final PreferenceCategory activeInputMethodsCategory = new PreferenceCategory(context);
+        final PreferenceCategory activeInputMethodsCategory =
+                new PreferenceCategory(getPrefContext());
         activeInputMethodsCategory.setTitle(R.string.active_input_method_subtypes);
         root.addPreference(activeInputMethodsCategory);
 
@@ -188,8 +189,8 @@ public class InputMethodAndSubtypeEnabler extends SettingsPreferenceFragment
             final InputMethodSubtype subtype = imi.getSubtypeAt(index);
             if (subtype.overridesImplicitlyEnabledSubtype()) {
                 if (autoSubtypeLabel == null) {
-                    autoSubtypeLabel = subtype.getDisplayName(
-                            context, imi.getPackageName(), imi.getServiceInfo().applicationInfo);
+                    autoSubtypeLabel = InputMethodAndSubtypeUtil.getSubtypeLocaleNameAsSentence(
+                            subtype, context, imi);
                 }
             } else {
                 final Preference subtypePref = new InputMethodSubtypePreference(

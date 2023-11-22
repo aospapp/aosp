@@ -1,6 +1,8 @@
 package com.android.contacts.widget;
 
 import com.android.contacts.R;
+import com.android.contacts.common.compat.CompatUtils;
+import com.android.contacts.compat.EdgeEffectCompat;
 import com.android.contacts.quickcontact.ExpandingEntryCardView;
 import com.android.contacts.test.NeededForReflection;
 import com.android.contacts.util.SchedulingUtils;
@@ -20,6 +22,8 @@ import android.graphics.ColorMatrixColorFilter;
 import android.graphics.drawable.GradientDrawable;
 import android.hardware.display.DisplayManager;
 import android.os.Trace;
+import android.support.v4.view.ViewCompat;
+import android.support.v4.view.animation.PathInterpolatorCompat;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.view.Display;
@@ -31,7 +35,6 @@ import android.view.ViewGroup;
 import android.view.ViewConfiguration;
 import android.view.animation.AnimationUtils;
 import android.view.animation.Interpolator;
-import android.view.animation.PathInterpolator;
 import android.widget.EdgeEffect;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -108,6 +111,8 @@ public class MultiShrinkScroller extends FrameLayout {
     private View mTransparentView;
     private MultiShrinkScrollerListener mListener;
     private TextView mLargeTextView;
+    private TextView mPhoneticNameView;
+    private View mTitleAndPhoneticNameView;
     private View mPhotoTouchInterceptOverlay;
     /** Contains desired size & vertical offset of the title, once the header is fully compressed */
     private TextView mInvisiblePlaceholderTextView;
@@ -175,8 +180,8 @@ public class MultiShrinkScroller extends FrameLayout {
             0, 0, 0, 1, 0
     };
 
-    private final PathInterpolator mTextSizePathInterpolator
-            = new PathInterpolator(0.16f, 0.4f, 0.2f, 1);
+    private final Interpolator mTextSizePathInterpolator =
+            PathInterpolatorCompat.create(0.16f, 0.4f, 0.2f, 1);
 
     private final int[] mGradientColors = new int[] {0,0x88000000};
     private GradientDrawable mTitleGradientDrawable = new GradientDrawable(
@@ -289,6 +294,8 @@ public class MultiShrinkScroller extends FrameLayout {
         mPhotoViewContainer = findViewById(R.id.toolbar_parent);
         mTransparentView = findViewById(R.id.transparent_view);
         mLargeTextView = (TextView) findViewById(R.id.large_title);
+        mPhoneticNameView = (TextView) findViewById(R.id.phonetic_name);
+        mTitleAndPhoneticNameView = findViewById(R.id.title_and_phonetic_name);
         mInvisiblePlaceholderTextView = (TextView) findViewById(R.id.placeholder_textview);
         mStartColumn = findViewById(R.id.empty_start_column);
         // Touching the empty space should close the card
@@ -339,7 +346,7 @@ public class MultiShrinkScroller extends FrameLayout {
                 mMaximumPortraitHeaderHeight = mIsTwoPanel ? getHeight()
                         : mPhotoViewContainer.getWidth();
                 setHeaderHeight(getMaximumScrollableHeaderHeight());
-                mMaximumHeaderTextSize = mLargeTextView.getHeight();
+                mMaximumHeaderTextSize = mTitleAndPhoneticNameView.getHeight();
                 if (mIsTwoPanel) {
                     mMaximumHeaderHeight = getHeight();
                     mMinimumHeaderHeight = mMaximumHeaderHeight;
@@ -354,15 +361,18 @@ public class MultiShrinkScroller extends FrameLayout {
 
                     // Permanently set title width and margin.
                     final FrameLayout.LayoutParams largeTextLayoutParams
-                            = (FrameLayout.LayoutParams) mLargeTextView.getLayoutParams();
+                            = (FrameLayout.LayoutParams) mTitleAndPhoneticNameView
+                            .getLayoutParams();
                     largeTextLayoutParams.width = photoLayoutParams.width -
                             largeTextLayoutParams.leftMargin - largeTextLayoutParams.rightMargin;
                     largeTextLayoutParams.gravity = Gravity.BOTTOM | Gravity.START;
-                    mLargeTextView.setLayoutParams(largeTextLayoutParams);
+                    mTitleAndPhoneticNameView.setLayoutParams(largeTextLayoutParams);
                 } else {
                     // Set the width of mLargeTextView as if it was nested inside
                     // mPhotoViewContainer.
                     mLargeTextView.setWidth(mPhotoViewContainer.getWidth()
+                            - 2 * mMaximumTitleMargin);
+                    mPhoneticNameView.setWidth(mPhotoViewContainer.getWidth()
                             - 2 * mMaximumTitleMargin);
                 }
 
@@ -382,15 +392,44 @@ public class MultiShrinkScroller extends FrameLayout {
                 = (FrameLayout.LayoutParams) mTitleGradientView.getLayoutParams();
         final float TITLE_GRADIENT_SIZE_COEFFICIENT = 1.25f;
         final FrameLayout.LayoutParams largeTextLayoutParms
-                = (FrameLayout.LayoutParams) mLargeTextView.getLayoutParams();
-        titleGradientLayoutParams.height = (int) ((mLargeTextView.getHeight()
+                = (FrameLayout.LayoutParams) mTitleAndPhoneticNameView.getLayoutParams();
+        titleGradientLayoutParams.height = (int) ((mTitleAndPhoneticNameView.getHeight()
                 + largeTextLayoutParms.bottomMargin) * TITLE_GRADIENT_SIZE_COEFFICIENT);
         mTitleGradientView.setLayoutParams(titleGradientLayoutParams);
     }
 
-    public void setTitle(String title) {
+    public void setTitle(String title, boolean isPhoneNumber) {
         mLargeTextView.setText(title);
+        // We have a phone number as "mLargeTextView" so make it always LTR.
+        if (isPhoneNumber) {
+            mLargeTextView.setTextDirection(View.TEXT_DIRECTION_LTR);
+        }
         mPhotoTouchInterceptOverlay.setContentDescription(title);
+    }
+
+    public void setPhoneticName(String phoneticName) {
+        // Set phonetic name only when it was gone before or got changed.
+        if (mPhoneticNameView.getVisibility() == View.VISIBLE
+                && phoneticName.equals(mPhoneticNameView.getText())) {
+            return;
+        }
+        mPhoneticNameView.setText(phoneticName);
+        // Every time the phonetic name is changed, set mPhoneticNameView as visible,
+        // in case it just changed from Visibility=GONE.
+        mPhoneticNameView.setVisibility(View.VISIBLE);
+        // TODO try not using initialize() to refresh phonetic name view: b/27410518
+        initialize(mListener, mIsOpenContactSquare);
+    }
+
+    public void setPhoneticNameGone() {
+        // Remove phonetic name only when it was visible before.
+        if (mPhoneticNameView.getVisibility() == View.GONE) {
+            return;
+        }
+        mPhoneticNameView.setVisibility(View.GONE);
+        // Initialize to make Visibility work.
+        // TODO try not using initialize() to refresh phonetic name view: b/27410518
+        initialize(mListener, mIsOpenContactSquare);
     }
 
     @Override
@@ -474,7 +513,8 @@ public class MultiShrinkScroller extends FrameLayout {
                     if (delta > distanceFromMaxScrolling) {
                         // The ScrollView is being pulled upwards while there is no more
                         // content offscreen, and the view port is already fully expanded.
-                        mEdgeGlowBottom.onPull(delta / getHeight(), 1 - event.getX() / getWidth());
+                        EdgeEffectCompat.onPull(mEdgeGlowBottom, delta / getHeight(),
+                                1 - event.getX() / getWidth());
                     }
 
                     if (!mEdgeGlowBottom.isFinished()) {
@@ -501,10 +541,12 @@ public class MultiShrinkScroller extends FrameLayout {
     public void setHeaderTintColor(int color) {
         mHeaderTintColor = color;
         updatePhotoTintAndDropShadow();
-        // We want to use the same amount of alpha on the new tint color as the previous tint color.
-        final int edgeEffectAlpha = Color.alpha(mEdgeGlowBottom.getColor());
-        mEdgeGlowBottom.setColor((color & 0xffffff) | Color.argb(edgeEffectAlpha, 0, 0, 0));
-        mEdgeGlowTop.setColor(mEdgeGlowBottom.getColor());
+        if (CompatUtils.isLollipopCompatible()) {
+            // Use the same amount of alpha on the new tint color as the previous tint color.
+            final int edgeEffectAlpha = Color.alpha(mEdgeGlowBottom.getColor());
+            mEdgeGlowBottom.setColor((color & 0xffffff) | Color.argb(edgeEffectAlpha, 0, 0, 0));
+            mEdgeGlowTop.setColor(mEdgeGlowBottom.getColor());
+        }
     }
 
     /**
@@ -993,19 +1035,19 @@ public class MultiShrinkScroller extends FrameLayout {
 
         // The pivot point for scaling should be middle of the starting side.
         if (getLayoutDirection() == View.LAYOUT_DIRECTION_RTL) {
-            mLargeTextView.setPivotX(mLargeTextView.getWidth());
+            mTitleAndPhoneticNameView.setPivotX(mTitleAndPhoneticNameView.getWidth());
         } else {
-            mLargeTextView.setPivotX(0);
+            mTitleAndPhoneticNameView.setPivotX(0);
         }
-        mLargeTextView.setPivotY(mLargeTextView.getHeight() / 2);
+        mTitleAndPhoneticNameView.setPivotY(mTitleAndPhoneticNameView.getHeight() / 2);
 
         final int toolbarHeight = mToolbar.getLayoutParams().height;
         mPhotoTouchInterceptOverlay.setClickable(toolbarHeight != mMaximumHeaderHeight);
 
         if (toolbarHeight >= mMaximumHeaderHeight) {
             // Everything is full size when the header is fully expanded.
-            mLargeTextView.setScaleX(1);
-            mLargeTextView.setScaleY(1);
+            mTitleAndPhoneticNameView.setScaleX(1);
+            mTitleAndPhoneticNameView.setScaleY(1);
             setInterpolatedTitleMargins(1);
             return;
         }
@@ -1022,13 +1064,13 @@ public class MultiShrinkScroller extends FrameLayout {
         bezierOutput = (float) Math.min(bezierOutput, 1.0f);
         scale = (float) Math.min(scale, 1.0f);
 
-        mLargeTextView.setScaleX(scale);
-        mLargeTextView.setScaleY(scale);
+        mTitleAndPhoneticNameView.setScaleX(scale);
+        mTitleAndPhoneticNameView.setScaleY(scale);
         setInterpolatedTitleMargins(bezierOutput);
     }
 
     /**
-     * Calculate the padding around mLargeTextView so that it will look appropriate once it
+     * Calculate the padding around mTitleAndPhoneticNameView so that it will look appropriate once it
      * finishes moving into its target location/size.
      */
     private void calculateCollapsedLargeTitlePadding() {
@@ -1040,9 +1082,10 @@ public class MultiShrinkScroller extends FrameLayout {
         final int desiredTopToCenter = invisiblePlaceHolderLocation[1]
                 + mInvisiblePlaceholderTextView.getHeight() / 2
                 - largeTextViewRectLocation[1];
-        // Padding needed on the mLargeTextView so that it has the same amount of
+        // Padding needed on the mTitleAndPhoneticNameView so that it has the same amount of
         // padding as the target rectangle.
-        mCollapsedTitleBottomMargin = desiredTopToCenter - mLargeTextView.getHeight() / 2;
+        mCollapsedTitleBottomMargin =
+                desiredTopToCenter - mTitleAndPhoneticNameView.getHeight() / 2;
     }
 
     /**
@@ -1051,7 +1094,7 @@ public class MultiShrinkScroller extends FrameLayout {
      */
     private void setInterpolatedTitleMargins(float x) {
         final FrameLayout.LayoutParams titleLayoutParams
-                = (FrameLayout.LayoutParams) mLargeTextView.getLayoutParams();
+                = (FrameLayout.LayoutParams) mTitleAndPhoneticNameView.getLayoutParams();
         final LinearLayout.LayoutParams toolbarLayoutParams
                 = (LinearLayout.LayoutParams) mToolbar.getLayoutParams();
 
@@ -1064,14 +1107,14 @@ public class MultiShrinkScroller extends FrameLayout {
         final int pretendBottomMargin =  (int) (mCollapsedTitleBottomMargin * (1 - x)
                 + mMaximumTitleMargin * x) ;
         // Calculate how offset the title should be from the top of the screen. Instead of
-        // calling mLargeTextView.getHeight() use the mMaximumHeaderTextSize for this calculation.
-        // The getHeight() value acts unexpectedly when mLargeTextView is partially clipped by
-        // its parent.
+        // calling mTitleAndPhoneticNameView.getHeight() use the mMaximumHeaderTextSize for this
+        // calculation. The getHeight() value acts unexpectedly when mTitleAndPhoneticNameView is
+        // partially clipped by its parent.
         titleLayoutParams.topMargin = getTransparentViewHeight()
                 + toolbarLayoutParams.height - pretendBottomMargin
                 - mMaximumHeaderTextSize;
         titleLayoutParams.bottomMargin = 0;
-        mLargeTextView.setLayoutParams(titleLayoutParams);
+        mTitleAndPhoneticNameView.setLayoutParams(titleLayoutParams);
     }
 
     private void updatePhotoTintAndDropShadow() {
@@ -1091,9 +1134,9 @@ public class MultiShrinkScroller extends FrameLayout {
         final int toolbarHeight = getToolbarHeight();
 
         if (toolbarHeight <= mMinimumHeaderHeight && !mIsTwoPanel) {
-            mPhotoViewContainer.setElevation(mToolbarElevation);
+            ViewCompat.setElevation(mPhotoViewContainer, mToolbarElevation);
         } else {
-            mPhotoViewContainer.setElevation(0);
+            ViewCompat.setElevation(mPhotoViewContainer, 0);
         }
 
         // Reuse an existing mColorFilter (to avoid GC pauses) to change the photo's tint.

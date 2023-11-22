@@ -28,7 +28,7 @@ import android.os.Build;
  * be used by views that wish to use the standard Android visual effects at the edges       
  * of scrolling containers.
  */
-public class EdgeEffectCompat {
+public final class EdgeEffectCompat {
     private Object mEdgeEffect;
 
     private static final EdgeEffectImpl IMPL;
@@ -191,6 +191,7 @@ public class EdgeEffectCompat {
      * @return true if the host view should call invalidate, false if it should not.
      * @deprecated use {@link #onPull(float, float)}
      */
+    @Deprecated
     public boolean onPull(float deltaDistance) {
         return IMPL.onPull(mEdgeEffect, deltaDistance);
     }

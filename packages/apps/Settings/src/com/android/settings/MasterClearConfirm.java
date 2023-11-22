@@ -18,20 +18,24 @@ package com.android.settings;
 
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.os.AsyncTask;
-import android.service.persistentdata.PersistentDataBlockManager;
-
-import com.android.internal.logging.MetricsLogger;
-
-import android.content.Intent;
 import android.os.Bundle;
+import android.os.UserHandle;
 import android.os.UserManager;
+import android.provider.Settings;
+import android.service.persistentdata.PersistentDataBlockManager;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
+
+import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.settingslib.RestrictedLockUtils;
+
+import static com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
 
 /**
  * Confirm and execute a reset of the device to a clean "just out of the box"
@@ -43,7 +47,7 @@ import android.widget.TextView;
  *
  * This is the confirmation screen.
  */
-public class MasterClearConfirm extends InstrumentedFragment {
+public class MasterClearConfirm extends OptionsMenuFragment {
 
     private View mContentView;
     private boolean mEraseSdCard;
@@ -63,8 +67,11 @@ public class MasterClearConfirm extends InstrumentedFragment {
             final PersistentDataBlockManager pdbManager = (PersistentDataBlockManager)
                     getActivity().getSystemService(Context.PERSISTENT_DATA_BLOCK_SERVICE);
 
-            if (pdbManager != null && !pdbManager.getOemUnlockEnabled()) {
-                // if OEM unlock is enabled, this will be wiped during FR process.
+            if (pdbManager != null && !pdbManager.getOemUnlockEnabled() &&
+                    Utils.isDeviceProvisioned(getActivity())) {
+                // if OEM unlock is enabled, this will be wiped during FR process. If disabled, it
+                // will be wiped here, unless the device is still being provisioned, in which case
+                // the persistent data block will be preserved.
                 new AsyncTask<Void, Void, Void>() {
                     int mOldOrientation;
                     ProgressDialog mProgressDialog;
@@ -78,8 +85,10 @@ public class MasterClearConfirm extends InstrumentedFragment {
                     @Override
                     protected void onPostExecute(Void aVoid) {
                         mProgressDialog.hide();
-                        getActivity().setRequestedOrientation(mOldOrientation);
-                        doMasterClear();
+                        if (getActivity() != null) {
+                            getActivity().setRequestedOrientation(mOldOrientation);
+                            doMasterClear();
+                        }
                     }
 
                     @Override
@@ -130,9 +139,16 @@ public class MasterClearConfirm extends InstrumentedFragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
-        if (UserManager.get(getActivity()).hasUserRestriction(
-                UserManager.DISALLOW_FACTORY_RESET)) {
+        final EnforcedAdmin admin = RestrictedLockUtils.checkIfRestrictionEnforced(
+                getActivity(), UserManager.DISALLOW_FACTORY_RESET, UserHandle.myUserId());
+        if (RestrictedLockUtils.hasBaseUserRestriction(getActivity(),
+                UserManager.DISALLOW_FACTORY_RESET, UserHandle.myUserId())) {
             return inflater.inflate(R.layout.master_clear_disallowed_screen, null);
+        } else if (admin != null) {
+            View view = inflater.inflate(R.layout.admin_support_details_empty_view, null);
+            ShowAdminSupportDetailsDialog.setAdminSupportDetails(getActivity(), view, admin, false);
+            view.setVisibility(View.VISIBLE);
+            return view;
         }
         mContentView = inflater.inflate(R.layout.master_clear_confirm, null);
         establishFinalConfirmationState();
@@ -162,6 +178,6 @@ public class MasterClearConfirm extends InstrumentedFragment {
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.MASTER_CLEAR_CONFIRM;
+        return MetricsEvent.MASTER_CLEAR_CONFIRM;
     }
 }

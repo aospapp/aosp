@@ -20,6 +20,7 @@
 
 #include "include/WAVExtractor.h"
 
+#include <audio_utils/primitives.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/DataSource.h>
 #include <media/stagefright/MediaBufferGroup.h>
@@ -36,6 +37,7 @@ namespace android {
 
 enum {
     WAVE_FORMAT_PCM        = 0x0001,
+    WAVE_FORMAT_IEEE_FLOAT = 0x0003,
     WAVE_FORMAT_ALAW       = 0x0006,
     WAVE_FORMAT_MULAW      = 0x0007,
     WAVE_FORMAT_MSGSM      = 0x0031,
@@ -116,7 +118,7 @@ size_t WAVExtractor::countTracks() {
     return mInitCheck == OK ? 1 : 0;
 }
 
-sp<MediaSource> WAVExtractor::getTrack(size_t index) {
+sp<IMediaSource> WAVExtractor::getTrack(size_t index) {
     if (mInitCheck != OK || index > 0) {
         return NULL;
     }
@@ -177,6 +179,7 @@ status_t WAVExtractor::init() {
 
             mWaveFormat = U16_LE_AT(formatSpec);
             if (mWaveFormat != WAVE_FORMAT_PCM
+                    && mWaveFormat != WAVE_FORMAT_IEEE_FLOAT
                     && mWaveFormat != WAVE_FORMAT_ALAW
                     && mWaveFormat != WAVE_FORMAT_MULAW
                     && mWaveFormat != WAVE_FORMAT_MSGSM
@@ -193,14 +196,16 @@ status_t WAVExtractor::init() {
             }
 
             mNumChannels = U16_LE_AT(&formatSpec[2]);
+
+            if (mNumChannels < 1 || mNumChannels > 8) {
+                ALOGE("Unsupported number of channels (%d)", mNumChannels);
+                return ERROR_UNSUPPORTED;
+            }
+
             if (mWaveFormat != WAVE_FORMAT_EXTENSIBLE) {
                 if (mNumChannels != 1 && mNumChannels != 2) {
                     ALOGW("More than 2 channels (%d) in non-WAVE_EXT, unknown channel mask",
                             mNumChannels);
-                }
-            } else {
-                if (mNumChannels < 1 && mNumChannels > 8) {
-                    return ERROR_UNSUPPORTED;
                 }
             }
 
@@ -211,24 +216,6 @@ status_t WAVExtractor::init() {
             }
 
             mBitsPerSample = U16_LE_AT(&formatSpec[14]);
-
-            if (mWaveFormat == WAVE_FORMAT_PCM
-                    || mWaveFormat == WAVE_FORMAT_EXTENSIBLE) {
-                if (mBitsPerSample != 8 && mBitsPerSample != 16
-                    && mBitsPerSample != 24) {
-                    return ERROR_UNSUPPORTED;
-                }
-            } else if (mWaveFormat == WAVE_FORMAT_MSGSM) {
-                if (mBitsPerSample != 0) {
-                    return ERROR_UNSUPPORTED;
-                }
-            } else {
-                CHECK(mWaveFormat == WAVE_FORMAT_MULAW
-                        || mWaveFormat == WAVE_FORMAT_ALAW);
-                if (mBitsPerSample != 8) {
-                    return ERROR_UNSUPPORTED;
-                }
-            }
 
             if (mWaveFormat == WAVE_FORMAT_EXTENSIBLE) {
                 uint16_t validBitsPerSample = U16_LE_AT(&formatSpec[18]);
@@ -261,15 +248,32 @@ status_t WAVExtractor::init() {
                 // In a WAVE_EXT header, the first two bytes of the GUID stored at byte 24 contain
                 // the sample format, using the same definitions as a regular WAV header
                 mWaveFormat = U16_LE_AT(&formatSpec[24]);
-                if (mWaveFormat != WAVE_FORMAT_PCM
-                        && mWaveFormat != WAVE_FORMAT_ALAW
-                        && mWaveFormat != WAVE_FORMAT_MULAW) {
-                    return ERROR_UNSUPPORTED;
-                }
                 if (memcmp(&formatSpec[26], WAVEEXT_SUBFORMAT, 14)) {
                     ALOGE("unsupported GUID");
                     return ERROR_UNSUPPORTED;
                 }
+            }
+
+            if (mWaveFormat == WAVE_FORMAT_PCM) {
+                if (mBitsPerSample != 8 && mBitsPerSample != 16
+                    && mBitsPerSample != 24 && mBitsPerSample != 32) {
+                    return ERROR_UNSUPPORTED;
+                }
+            } else if (mWaveFormat == WAVE_FORMAT_IEEE_FLOAT) {
+                if (mBitsPerSample != 32) {  // TODO we don't support double
+                    return ERROR_UNSUPPORTED;
+                }
+            }
+            else if (mWaveFormat == WAVE_FORMAT_MSGSM) {
+                if (mBitsPerSample != 0) {
+                    return ERROR_UNSUPPORTED;
+                }
+            } else if (mWaveFormat == WAVE_FORMAT_MULAW || mWaveFormat == WAVE_FORMAT_ALAW) {
+                if (mBitsPerSample != 8) {
+                    return ERROR_UNSUPPORTED;
+                }
+            } else {
+                return ERROR_UNSUPPORTED;
             }
 
             mValidFormat = true;
@@ -282,6 +286,7 @@ status_t WAVExtractor::init() {
 
                 switch (mWaveFormat) {
                     case WAVE_FORMAT_PCM:
+                    case WAVE_FORMAT_IEEE_FLOAT:
                         mTrackMeta->setCString(
                                 kKeyMIMEType, MEDIA_MIMETYPE_AUDIO_RAW);
                         break;
@@ -303,6 +308,7 @@ status_t WAVExtractor::init() {
                 mTrackMeta->setInt32(kKeyChannelCount, mNumChannels);
                 mTrackMeta->setInt32(kKeyChannelMask, mChannelMask);
                 mTrackMeta->setInt32(kKeySampleRate, mSampleRate);
+                mTrackMeta->setInt32(kKeyPcmEncoding, kAudioEncodingPcm16bit);
 
                 int64_t durationUs = 0;
                 if (mWaveFormat == WAVE_FORMAT_MSGSM) {
@@ -311,9 +317,17 @@ status_t WAVExtractor::init() {
                         1000000LL * (mDataSize / 65 * 320) / 8000;
                 } else {
                     size_t bytesPerSample = mBitsPerSample >> 3;
+
+                    if (!bytesPerSample || !mNumChannels)
+                        return ERROR_MALFORMED;
+
+                    size_t num_samples = mDataSize / (mNumChannels * bytesPerSample);
+
+                    if (!mSampleRate)
+                        return ERROR_MALFORMED;
+
                     durationUs =
-                        1000000LL * (mDataSize / (mNumChannels * bytesPerSample))
-                            / mSampleRate;
+                        1000000LL * num_samples / mSampleRate;
                 }
 
                 mTrackMeta->setInt64(kKeyDuration, durationUs);
@@ -465,46 +479,39 @@ status_t WAVSource::read(
 
     buffer->set_range(0, n);
 
-    if (mWaveFormat == WAVE_FORMAT_PCM || mWaveFormat == WAVE_FORMAT_EXTENSIBLE) {
+    // TODO: add capability to return data as float PCM instead of 16 bit PCM.
+    if (mWaveFormat == WAVE_FORMAT_PCM) {
         if (mBitsPerSample == 8) {
             // Convert 8-bit unsigned samples to 16-bit signed.
 
+            // Create new buffer with 2 byte wide samples
             MediaBuffer *tmp;
             CHECK_EQ(mGroup->acquire_buffer(&tmp), (status_t)OK);
-
-            // The new buffer holds the sample number of samples, but each
-            // one is 2 bytes wide.
             tmp->set_range(0, 2 * n);
 
-            int16_t *dst = (int16_t *)tmp->data();
-            const uint8_t *src = (const uint8_t *)buffer->data();
-            ssize_t numBytes = n;
-
-            while (numBytes-- > 0) {
-                *dst++ = ((int16_t)(*src) - 128) * 256;
-                ++src;
-            }
-
+            memcpy_to_i16_from_u8((int16_t *)tmp->data(), (const uint8_t *)buffer->data(), n);
             buffer->release();
             buffer = tmp;
         } else if (mBitsPerSample == 24) {
-            // Convert 24-bit signed samples to 16-bit signed.
+            // Convert 24-bit signed samples to 16-bit signed in place
+            const size_t numSamples = n / 3;
 
-            const uint8_t *src =
-                (const uint8_t *)buffer->data() + buffer->range_offset();
-            int16_t *dst = (int16_t *)src;
+            memcpy_to_i16_from_p24((int16_t *)buffer->data(), (const uint8_t *)buffer->data(), numSamples);
+            buffer->set_range(0, 2 * numSamples);
+        }  else if (mBitsPerSample == 32) {
+            // Convert 32-bit signed samples to 16-bit signed in place
+            const size_t numSamples = n / 4;
 
-            size_t numSamples = buffer->range_length() / 3;
-            for (size_t i = 0; i < numSamples; ++i) {
-                int32_t x = (int32_t)(src[0] | src[1] << 8 | src[2] << 16);
-                x = (x << 8) >> 8;  // sign extension
+            memcpy_to_i16_from_i32((int16_t *)buffer->data(), (const int32_t *)buffer->data(), numSamples);
+            buffer->set_range(0, 2 * numSamples);
+        }
+    } else if (mWaveFormat == WAVE_FORMAT_IEEE_FLOAT) {
+        if (mBitsPerSample == 32) {
+            // Convert 32-bit float samples to 16-bit signed in place
+            const size_t numSamples = n / 4;
 
-                x = x >> 8;
-                *dst++ = (int16_t)x;
-                src += 3;
-            }
-
-            buffer->set_range(buffer->range_offset(), 2 * numSamples);
+            memcpy_to_i16_from_float((int16_t *)buffer->data(), (const float *)buffer->data(), numSamples);
+            buffer->set_range(0, 2 * numSamples);
         }
     }
 

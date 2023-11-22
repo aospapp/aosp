@@ -12,11 +12,16 @@ void SkIntersections::cleanUpParallelLines(bool parallel) {
         removeOne(1);
     }
     if (fUsed == 2 && !parallel) {
-        bool startMatch = fT[0][0] == 0 || fT[1][0] == 0 || fT[1][0] == 1;
-        bool endMatch = fT[0][1] == 1 || fT[1][1] == 0 || fT[1][1] == 1;
+        bool startMatch = fT[0][0] == 0 || zero_or_one(fT[1][0]);
+        bool endMatch = fT[0][1] == 1 || zero_or_one(fT[1][1]);
         if ((!startMatch && !endMatch) || approximately_equal(fT[0][0], fT[0][1])) {
             SkASSERT(startMatch || endMatch);
-            removeOne(endMatch);
+            if (startMatch && endMatch && (fT[0][0] != 0 || !zero_or_one(fT[1][0]))
+                    && fT[0][1] == 1 && zero_or_one(fT[1][1])) {
+                removeOne(0);
+            } else {
+                removeOne(endMatch);
+            }
         }
     }
     if (fUsed == 2) {
@@ -103,7 +108,7 @@ int SkIntersections::intersect(const SkDLine& a, const SkDLine& b) {
     double ayBxLen = ayLen * bxLen;
     // detect parallel lines the same way here and in SkOpAngle operator <
     // so that non-parallel means they are also sortable
-    bool unparallel = fAllowNear ? NotAlmostEqualUlps(axByLen, ayBxLen)
+    bool unparallel = fAllowNear ? NotAlmostEqualUlps_Pin(axByLen, ayBxLen)
             : NotAlmostDequalUlps(axByLen, ayBxLen);
     if (unparallel && fUsed == 0) {
         double ab0y = a[0].fY - b[0].fY;
@@ -230,12 +235,12 @@ int SkIntersections::horizontal(const SkDLine& line, double left, double right,
         }
     }
     if (fAllowNear || result == 2) {
-        if ((t = line.nearPoint(leftPt, NULL)) >= 0) {
+        if ((t = line.nearPoint(leftPt, nullptr)) >= 0) {
             insert(t, (double) flipped, leftPt);
         }
         if (left != right) {
             const SkDPoint rightPt = { right, y };
-            if ((t = line.nearPoint(rightPt, NULL)) >= 0) {
+            if ((t = line.nearPoint(rightPt, nullptr)) >= 0) {
                 insert(t, (double) !flipped, rightPt);
             }
             for (int index = 0; index < 2; ++index) {
@@ -306,12 +311,12 @@ int SkIntersections::vertical(const SkDLine& line, double top, double bottom,
         }
     }
     if (fAllowNear || result == 2) {
-        if ((t = line.nearPoint(topPt, NULL)) >= 0) {
+        if ((t = line.nearPoint(topPt, nullptr)) >= 0) {
             insert(t, (double) flipped, topPt);
         }
         if (top != bottom) {
             SkDPoint bottomPt = { x, bottom };
-            if ((t = line.nearPoint(bottomPt, NULL)) >= 0) {
+            if ((t = line.nearPoint(bottomPt, nullptr)) >= 0) {
                 insert(t, (double) !flipped, bottomPt);
             }
             for (int index = 0; index < 2; ++index) {

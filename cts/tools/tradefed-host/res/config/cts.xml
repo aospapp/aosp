@@ -20,9 +20,9 @@
     <build_provider class="com.android.cts.tradefed.build.CtsBuildProvider" />
     <device_recovery class="com.android.tradefed.device.WaitDeviceRecovery" />
     <test class="com.android.cts.tradefed.testtype.CtsTest" />
-    <logger class="com.android.tradefed.log.FileLogger" />
+    <logger class="com.android.tradefed.log.FileLogger">
+        <option name="log-level-display" value="WARN" />
+    </logger>
     <result_reporter class="com.android.cts.tradefed.result.CtsXmlResultReporter" />
-    <result_reporter class="com.android.cts.tradefed.result.CtsTestLogReporter" />
-    <result_reporter class="com.android.cts.tradefed.result.IssueReporter" />
-
+    <template-include name="reporters" default="basic-reporters" />
 </configuration>

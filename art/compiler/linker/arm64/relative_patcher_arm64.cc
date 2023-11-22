@@ -20,12 +20,24 @@
 #include "art_method.h"
 #include "compiled_method.h"
 #include "driver/compiler_driver.h"
-#include "utils/arm64/assembler_arm64.h"
+#include "linker/output_stream.h"
 #include "oat.h"
-#include "output_stream.h"
+#include "oat_quick_method_header.h"
+#include "utils/arm64/assembler_arm64.h"
 
 namespace art {
 namespace linker {
+
+namespace {
+
+inline bool IsAdrpPatch(const LinkerPatch& patch) {
+  LinkerPatch::Type type = patch.GetType();
+  return
+      (type == LinkerPatch::Type::kStringRelative || type == LinkerPatch::Type::kDexCacheArray) &&
+      patch.LiteralOffset() == patch.PcInsnOffset();
+}
+
+}  // anonymous namespace
 
 Arm64RelativePatcher::Arm64RelativePatcher(RelativePatcherTargetProvider* provider,
                                            const Arm64InstructionSetFeatures* features)
@@ -60,8 +72,7 @@ uint32_t Arm64RelativePatcher::ReserveSpace(uint32_t offset,
   size_t num_adrp = 0u;
   DCHECK(compiled_method != nullptr);
   for (const LinkerPatch& patch : compiled_method->GetPatches()) {
-    if (patch.Type() == kLinkerPatchDexCacheArray &&
-        patch.LiteralOffset() == patch.PcInsnOffset()) {  // ADRP patch
+    if (IsAdrpPatch(patch)) {
       ++num_adrp;
     }
   }
@@ -73,12 +84,11 @@ uint32_t Arm64RelativePatcher::ReserveSpace(uint32_t offset,
   // Now that we have the actual offset where the code will be placed, locate the ADRP insns
   // that actually require the thunk.
   uint32_t quick_code_offset = compiled_method->AlignCode(offset) + sizeof(OatQuickMethodHeader);
-  ArrayRef<const uint8_t> code(*compiled_method->GetQuickCode());
+  ArrayRef<const uint8_t> code = compiled_method->GetQuickCode();
   uint32_t thunk_offset = compiled_method->AlignCode(quick_code_offset + code.size());
   DCHECK(compiled_method != nullptr);
   for (const LinkerPatch& patch : compiled_method->GetPatches()) {
-    if (patch.Type() == kLinkerPatchDexCacheArray &&
-        patch.LiteralOffset() == patch.PcInsnOffset()) {  // ADRP patch
+    if (IsAdrpPatch(patch)) {
       uint32_t patch_offset = quick_code_offset + patch.LiteralOffset();
       if (NeedsErratum843419Thunk(code, patch.LiteralOffset(), patch_offset)) {
         adrp_thunk_locations_.emplace_back(patch_offset, thunk_offset);
@@ -108,7 +118,7 @@ uint32_t Arm64RelativePatcher::WriteThunks(OutputStream* out, uint32_t offset) {
     if (!current_method_thunks_.empty()) {
       uint32_t aligned_offset = CompiledMethod::AlignCode(offset, kArm64);
       if (kIsDebugBuild) {
-        CHECK(IsAligned<kAdrpThunkSize>(current_method_thunks_.size()));
+        CHECK_ALIGNED(current_method_thunks_.size(), kAdrpThunkSize);
         size_t num_thunks = current_method_thunks_.size() / kAdrpThunkSize;
         CHECK_LE(num_thunks, processed_adrp_thunks_);
         for (size_t i = 0u; i != num_thunks; ++i) {
@@ -130,8 +140,10 @@ uint32_t Arm64RelativePatcher::WriteThunks(OutputStream* out, uint32_t offset) {
   return ArmBaseRelativePatcher::WriteThunks(out, offset);
 }
 
-void Arm64RelativePatcher::PatchCall(std::vector<uint8_t>* code, uint32_t literal_offset,
-                                     uint32_t patch_offset, uint32_t target_offset) {
+void Arm64RelativePatcher::PatchCall(std::vector<uint8_t>* code,
+                                     uint32_t literal_offset,
+                                     uint32_t patch_offset, uint32_t
+                                     target_offset) {
   DCHECK_LE(literal_offset + 4u, code->size());
   DCHECK_EQ(literal_offset & 3u, 0u);
   DCHECK_EQ(patch_offset & 3u, 0u);
@@ -148,10 +160,10 @@ void Arm64RelativePatcher::PatchCall(std::vector<uint8_t>* code, uint32_t litera
   SetInsn(code, literal_offset, insn);
 }
 
-void Arm64RelativePatcher::PatchDexCacheReference(std::vector<uint8_t>* code,
-                                                  const LinkerPatch& patch,
-                                                  uint32_t patch_offset,
-                                                  uint32_t target_offset) {
+void Arm64RelativePatcher::PatchPcRelativeReference(std::vector<uint8_t>* code,
+                                                    const LinkerPatch& patch,
+                                                    uint32_t patch_offset,
+                                                    uint32_t target_offset) {
   DCHECK_EQ(patch_offset & 3u, 0u);
   DCHECK_EQ(target_offset & 3u, 0u);
   uint32_t literal_offset = patch.LiteralOffset();
@@ -196,14 +208,21 @@ void Arm64RelativePatcher::PatchDexCacheReference(std::vector<uint8_t>* code,
     // Write the new ADRP (or B to the erratum 843419 thunk).
     SetInsn(code, literal_offset, insn);
   } else {
-    // LDR 32-bit or 64-bit with imm12 == 0 (unset).
-    DCHECK_EQ(insn & 0xbffffc00, 0xb9400000) << insn;
+    if ((insn & 0xfffffc00) == 0x91000000) {
+      // ADD immediate, 64-bit with imm12 == 0 (unset).
+      DCHECK(patch.GetType() == LinkerPatch::Type::kStringRelative) << patch.GetType();
+      shift = 0u;  // No shift for ADD.
+    } else {
+      // LDR 32-bit or 64-bit with imm12 == 0 (unset).
+      DCHECK(patch.GetType() == LinkerPatch::Type::kDexCacheArray) << patch.GetType();
+      DCHECK_EQ(insn & 0xbffffc00, 0xb9400000) << std::hex << insn;
+    }
     if (kIsDebugBuild) {
       uint32_t adrp = GetInsn(code, pc_insn_offset);
       if ((adrp & 0x9f000000u) != 0x90000000u) {
         CHECK(fix_cortex_a53_843419_);
         CHECK_EQ(adrp & 0xfc000000u, 0x14000000u);  // B <thunk>
-        CHECK(IsAligned<kAdrpThunkSize>(current_method_thunks_.size()));
+        CHECK_ALIGNED(current_method_thunks_.size(), kAdrpThunkSize);
         size_t num_thunks = current_method_thunks_.size() / kAdrpThunkSize;
         CHECK_LE(num_thunks, processed_adrp_thunks_);
         uint32_t b_offset = patch_offset - literal_offset + pc_insn_offset;
@@ -228,12 +247,14 @@ void Arm64RelativePatcher::PatchDexCacheReference(std::vector<uint8_t>* code,
 std::vector<uint8_t> Arm64RelativePatcher::CompileThunkCode() {
   // The thunk just uses the entry point in the ArtMethod. This works even for calls
   // to the generic JNI and interpreter trampolines.
-  arm64::Arm64Assembler assembler;
+  ArenaPool pool;
+  ArenaAllocator arena(&pool);
+  arm64::Arm64Assembler assembler(&arena);
   Offset offset(ArtMethod::EntryPointFromQuickCompiledCodeOffset(
       kArm64PointerSize).Int32Value());
   assembler.JumpTo(ManagedRegister(arm64::X0), offset, ManagedRegister(arm64::IP0));
   // Ensure we emit the literal pool.
-  assembler.EmitSlowPaths();
+  assembler.FinalizeCode();
   std::vector<uint8_t> thunk_code(assembler.CodeSize());
   MemoryRegion code(thunk_code.data(), thunk_code.size());
   assembler.FinalizeInstructions(code);
@@ -260,7 +281,7 @@ bool Arm64RelativePatcher::NeedsErratum843419Thunk(ArrayRef<const uint8_t> code,
   DCHECK_EQ(patch_offset & 0x3u, 0u);
   if ((patch_offset & 0xff8) == 0xff8) {  // ...ff8 or ...ffc
     uint32_t adrp = GetInsn(code, literal_offset);
-    DCHECK_EQ(adrp & 0xff000000, 0x90000000);
+    DCHECK_EQ(adrp & 0x9f000000, 0x90000000);
     uint32_t next_offset = patch_offset + 4u;
     uint32_t next_insn = GetInsn(code, literal_offset + 4u);
 
@@ -271,6 +292,15 @@ bool Arm64RelativePatcher::NeedsErratum843419Thunk(ArrayRef<const uint8_t> code,
     // LDR <Wt>, [<Xn>, #pimm], where <Xn> == ADRP destination reg.
     if ((next_insn & 0xffc00000) == 0xb9400000 &&
         (((next_insn >> 5) ^ adrp) & 0x1f) == 0) {
+      return false;
+    }
+
+    // And since LinkerPatch::Type::kStringRelative is using the result of the ADRP
+    // for an ADD immediate, check for that as well. We generalize a bit to include
+    // ADD/ADDS/SUB/SUBS immediate that either uses the ADRP destination or stores
+    // the result to a different register.
+    if ((next_insn & 0x1f000000) == 0x11000000 &&
+        ((((next_insn >> 5) ^ adrp) & 0x1f) == 0 || ((next_insn ^ adrp) & 0x1f) != 0)) {
       return false;
     }
 

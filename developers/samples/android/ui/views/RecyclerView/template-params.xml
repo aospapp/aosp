@@ -22,7 +22,7 @@
     <group>UI</group>
     <package>com.example.android.recyclerview</package>
 
-    <dependency>com.android.support:recyclerview-v7:21.0.2</dependency>
+    <dependency>com.android.support:recyclerview-v7:24.0.0</dependency>
 
     <!-- change minSdk if needed-->
     <minSdk>7</minSdk>

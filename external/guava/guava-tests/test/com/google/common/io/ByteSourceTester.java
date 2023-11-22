@@ -32,7 +32,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.Random;
@@ -56,12 +55,8 @@ public class ByteSourceTester extends SourceSinkTester<ByteSource, byte[], ByteS
       if (testAsCharSource) {
         suite.addTest(suiteForString(factory, entry.getValue(), name, entry.getKey()));
       } else {
-        try {
-          suite.addTest(suiteForBytes(factory, entry.getValue().getBytes(Charsets.UTF_8.name()),
-              name, entry.getKey(), true));
-        } catch (UnsupportedEncodingException e) {
-          throw new AssertionError(e);
-        }
+        suite.addTest(suiteForBytes(
+            factory, entry.getValue().getBytes(Charsets.UTF_8), name, entry.getKey(), true));
       }
     }
     return suite;
@@ -69,12 +64,7 @@ public class ByteSourceTester extends SourceSinkTester<ByteSource, byte[], ByteS
 
   private static TestSuite suiteForString(ByteSourceFactory factory, String string,
       String name, String desc) {
-    TestSuite suite;
-    try {
-      suite = suiteForBytes(factory, string.getBytes(Charsets.UTF_8.name()), name, desc, true);
-    } catch (UnsupportedEncodingException e) {
-      throw new AssertionError(e);
-    }
+    TestSuite suite = suiteForBytes(factory, string.getBytes(Charsets.UTF_8), name, desc, true);
     CharSourceFactory charSourceFactory = SourceSinkFactories.asCharSourceFactory(factory);
     suite.addTest(CharSourceTester.suiteForString(charSourceFactory, string,
         name + ".asCharSource[Charset]", desc));

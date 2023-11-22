@@ -34,7 +34,6 @@
     <string name="password_empty_error" msgid="591713406761723025">"I-type ang password."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"Mag-type ng pangalan."</string>
     <string name="name_char_error" msgid="3176618568784938968">"Mag-type ng pangalan na naglalaman lamang ng mga titik at numero."</string>
-    <string name="storage_error" msgid="8306802455802770779">"Hindi mai-save ang certificate. Pindutin ang OK upang subukang muli."</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"Hindi mai-save ang certificate. Hindi pinagana o maayos na nasimulan ang storage ng kredensyal."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"Hindi naka-install ang certificate."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"Walang ii-install na certificate."</string>
@@ -50,7 +49,7 @@
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"Ang may-ari lang ng device na ito ang maaaring mag-install ng mga certificate."</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"Paggamit ng kredensyal:"</string>
   <string-array name="credential_usage">
-    <item msgid="375085478373011304">"VPN at apps"</item>
+    <item msgid="375085478373011304">"VPN at mga app"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
     <string name="wifi_title" msgid="8475811746333426489">"Profile ng Wi-Fi"</string>

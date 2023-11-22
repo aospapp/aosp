@@ -32,6 +32,8 @@
 #include "nfc_hal_api.h"
 #include "gki.h"
 
+#include "vendor_cfg.h"
+
 /* NFC application return status codes */
 #define NFC_STATUS_OK                   NCI_STATUS_OK                   /* Command succeeded    */
 #define NFC_STATUS_REJECTED             NCI_STATUS_REJECTED             /* Command is rejected. */
@@ -85,6 +87,7 @@ typedef UINT8 tNFC_STATUS;
 #define NFC_PMID_PB_BAILOUT         NCI_PARAM_ID_PB_BAILOUT
 #define NFC_PMID_PB_ATTRIB_PARAM1   NCI_PARAM_ID_PB_ATTRIB_PARAM1
 #define NFC_PMID_PF_BIT_RATE        NCI_PARAM_ID_PF_BIT_RATE
+#define NFC_PMID_PF_RC              NCI_PARAM_ID_PF_RC
 #define NFC_PMID_PB_H_INFO          NCI_PARAM_ID_PB_H_INFO
 #define NFC_PMID_BITR_NFC_DEP       NCI_PARAM_ID_BITR_NFC_DEP
 #define NFC_PMID_ATR_REQ_GEN_BYTES  NCI_PARAM_ID_ATR_REQ_GEN_BYTES
@@ -200,7 +203,7 @@ typedef UINT16 tNFC_CONN_EVT;
 
 #define NFC_NFCC_INFO_LEN       4
 #ifndef NFC_NFCC_MAX_NUM_VS_INTERFACE
-#define NFC_NFCC_MAX_NUM_VS_INTERFACE   4
+#define NFC_NFCC_MAX_NUM_VS_INTERFACE   5
 #endif
 typedef struct
 {
@@ -342,6 +345,7 @@ typedef UINT8 tNFC_RF_TECH;
 #define NFC_PROTOCOL_T3T        NCI_PROTOCOL_T3T      /* Type3Tag    - NFC-F            */
 #define NFC_PROTOCOL_ISO_DEP    NCI_PROTOCOL_ISO_DEP  /* Type 4A,4B  - NFC-A or NFC-B   */
 #define NFC_PROTOCOL_NFC_DEP    NCI_PROTOCOL_NFC_DEP  /* NFCDEP/LLCP - NFC-A or NFC-F       */
+#define NFC_PROTOCOL_MIFARE     NCI_PROTOCOL_MIFARE
 #define NFC_PROTOCOL_B_PRIME    NCI_PROTOCOL_B_PRIME
 #define NFC_PROTOCOL_15693      NCI_PROTOCOL_15693
 #define NFC_PROTOCOL_KOVIO      NCI_PROTOCOL_KOVIO
@@ -391,6 +395,7 @@ typedef UINT8 tNFC_BIT_RATE;
 #define NFC_INTERFACE_LLCP_LOW      NCI_INTERFACE_LLCP_LOW
 #define NFC_INTERFACE_LLCP_HIGH     NCI_INTERFACE_LLCP_HIGH
 #define NFC_INTERFACE_VS_T2T_CE     NCI_INTERFACE_VS_T2T_CE
+#define NFC_INTERFACE_MIFARE        NCI_INTERFACE_VS_MIFARE
 typedef tNCI_INTF_TYPE tNFC_INTF_TYPE;
 
 /**********************************************
@@ -588,11 +593,11 @@ typedef struct
 /* the data type associated with NFC_RESULT_DEVT */
 typedef struct
 {
-    tNFC_STATUS             status;         /* The event status - place holder. */
-    UINT8                   rf_disc_id;     /* RF Discovery ID                  */
-    UINT8                   protocol;       /* supported protocol               */
-    tNFC_RF_TECH_PARAMS     rf_tech_param;  /* RF technology parameters         */
-    BOOLEAN                 more;           /* 0: last notification             */
+    tNFC_STATUS             status;         /* The event status - place holder.  */
+    UINT8                   rf_disc_id;     /* RF Discovery ID                   */
+    UINT8                   protocol;       /* supported protocol                */
+    tNFC_RF_TECH_PARAMS     rf_tech_param;  /* RF technology parameters          */
+    UINT8                   more;           /* 0: last, 1: last (limit), 2: more */
 } tNFC_RESULT_DEVT;
 
 /* the data type associated with NFC_SELECT_DEVT */

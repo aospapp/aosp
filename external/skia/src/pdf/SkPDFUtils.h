@@ -46,7 +46,11 @@ public:
                             SkScalar dstX, SkScalar dstY, SkWStream* content);
     static void AppendRectangle(const SkRect& rect, SkWStream* content);
     static void EmitPath(const SkPath& path, SkPaint::Style paintStyle,
-                         SkWStream* content);
+                         bool doConsumeDegerates, SkWStream* content);
+    static void EmitPath(const SkPath& path, SkPaint::Style paintStyle,
+                         SkWStream* content) {
+        SkPDFUtils::EmitPath(path, paintStyle, true, content);
+    }
     static void ClosePath(SkWStream* content);
     static void PaintPath(SkPaint::Style style, SkPath::FillType fill,
                           SkWStream* content);
@@ -54,6 +58,14 @@ public:
     static void DrawFormXObject(int objectIndex, SkWStream* content);
     static void ApplyGraphicState(int objectIndex, SkWStream* content);
     static void ApplyPattern(int objectIndex, SkWStream* content);
+
+    // 3 = '-', '.', and '\0' characters.
+    // 9 = number of significant digits
+    // abs(FLT_MIN_10_EXP) = number of zeros in FLT_MIN
+    static const size_t kMaximumFloatDecimalLength = 3 + 9 - FLT_MIN_10_EXP;
+    // FloatToDecimal is exposed for unit tests.
+    static size_t FloatToDecimal(float value,
+                                 char output[kMaximumFloatDecimalLength]);
     static void AppendScalar(SkScalar value, SkWStream* stream);
     static SkString FormatString(const char* input, size_t len);
 };

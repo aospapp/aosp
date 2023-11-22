@@ -21,6 +21,7 @@ description:
 end:
 
 function: rsQuaternionAdd
+version: 9 23
 ret: void
 arg: rs_quaternion* q, "Destination quaternion to add to."
 arg: const rs_quaternion* rhs, "Quaternion to add."
@@ -28,14 +29,15 @@ summary: Add two quaternions
 description:
  Adds two quaternions, i.e. <code>*q += *rhs;</code>
 inline:
- q->w *= rhs->w;
- q->x *= rhs->x;
- q->y *= rhs->y;
- q->z *= rhs->z;
+ q->w += rhs->w;
+ q->x += rhs->x;
+ q->y += rhs->y;
+ q->z += rhs->z;
 test: none
 end:
 
 function: rsQuaternionConjugate
+version: 9 23
 ret: void
 arg: rs_quaternion* q, "Quaternion to modify."
 summary: Conjugate a quaternion
@@ -49,6 +51,7 @@ test: none
 end:
 
 function: rsQuaternionDot
+version: 9 23
 ret: float
 arg: const rs_quaternion* q0, "First quaternion."
 arg: const rs_quaternion* q1, "Second quaternion."
@@ -61,6 +64,7 @@ test: none
 end:
 
 function: rsQuaternionGetMatrixUnit
+version: 9 23
 ret: void
 arg: rs_matrix4x4* m, "Resulting matrix."
 arg: const rs_quaternion* q, "Normalized quaternion."
@@ -93,6 +97,7 @@ test: none
 end:
 
 function: rsQuaternionLoadRotateUnit
+version: 9 23
 ret: void
 arg: rs_quaternion* q, "Destination quaternion."
 arg: float rot, "Angle to rotate by, in radians."
@@ -115,6 +120,7 @@ test: none
 end:
 
 function: rsQuaternionSet
+version: 9 23
 ret: void
 arg: rs_quaternion* q, "Destination quaternion."
 arg: float w, "W component."
@@ -133,6 +139,7 @@ test: none
 end:
 
 function: rsQuaternionSet
+version: 9 23
 ret: void
 arg: rs_quaternion* q
 arg: const rs_quaternion* rhs, "Source quaternion."
@@ -148,6 +155,7 @@ end:
 # for the compilation to work.
 
 function: rsQuaternionLoadRotate
+version: 9 23
 ret: void
 arg: rs_quaternion* q, "Destination quaternion."
 arg: float rot, "Angle to rotate by."
@@ -171,6 +179,7 @@ test: none
 end:
 
 function: rsQuaternionNormalize
+version: 9 23
 ret: void
 arg: rs_quaternion* q, "Quaternion to normalize."
 summary:  Normalize a quaternion
@@ -189,6 +198,7 @@ test: none
 end:
 
 function: rsQuaternionMultiply
+version: 9 23
 ret: void
 arg: rs_quaternion* q, "Destination quaternion."
 arg: float scalar, "Scalar to multiply the quaternion by."
@@ -205,6 +215,7 @@ test: none
 end:
 
 function: rsQuaternionMultiply
+version: 9 23
 ret: void
 arg: rs_quaternion* q
 arg: const rs_quaternion* rhs, "Quaternion to multiply the destination quaternion by."
@@ -221,6 +232,7 @@ test: none
 end:
 
 function: rsQuaternionSlerp
+version: 9 23
 ret: void
 arg: rs_quaternion* q, "Result quaternion from the interpolation."
 arg: const rs_quaternion* q0, "First input quaternion."
@@ -268,5 +280,114 @@ inline:
 
  rsQuaternionSet(q, tempq0.w*scale + tempq1.w*invScale, tempq0.x*scale + tempq1.x*invScale,
                      tempq0.y*scale + tempq1.y*invScale, tempq0.z*scale + tempq1.z*invScale);
+test: none
+end:
+
+# New versions. Same signatures but don't contain a body.
+function: rsQuaternionAdd
+version: 24
+ret: void
+arg: rs_quaternion* q
+arg: const rs_quaternion* rhs
+test: none
+end:
+
+function: rsQuaternionConjugate
+version: 24
+ret: void
+arg: rs_quaternion* q
+test: none
+end:
+
+function: rsQuaternionDot
+version: 24
+ret: float
+arg: const rs_quaternion* q0
+arg: const rs_quaternion* q1
+test: none
+end:
+
+function: rsQuaternionGetMatrixUnit
+version: 24
+ret: void
+arg: rs_matrix4x4* m
+arg: const rs_quaternion* q
+test: none
+end:
+
+function: rsQuaternionLoadRotateUnit
+version: 24
+ret: void
+arg: rs_quaternion* q
+arg: float rot
+arg: float x
+arg: float y
+arg: float z
+test: none
+end:
+
+function: rsQuaternionSet
+version: 24
+ret: void
+arg: rs_quaternion* q
+arg: float w
+arg: float x
+arg: float y
+arg: float z
+test: none
+end:
+
+function: rsQuaternionSet
+version: 24
+ret: void
+arg: rs_quaternion* q
+arg: const rs_quaternion* rhs
+test: none
+end:
+
+# NOTE: The following inline definitions depend on each other.  The order must be preserved
+# for the compilation to work.
+
+function: rsQuaternionLoadRotate
+version: 24
+ret: void
+arg: rs_quaternion* q
+arg: float rot
+arg: float x
+arg: float y
+arg: float z
+test: none
+end:
+
+function: rsQuaternionNormalize
+version: 24
+ret: void
+arg: rs_quaternion* q
+test: none
+end:
+
+function: rsQuaternionMultiply
+version: 24
+ret: void
+arg: rs_quaternion* q
+arg: float scalar
+test: none
+end:
+
+function: rsQuaternionMultiply
+version: 24
+ret: void
+arg: rs_quaternion* q
+arg: const rs_quaternion* rhs
+test: none
+end:
+
+function: rsQuaternionSlerp
+version: 24
+ret: void
+arg: rs_quaternion* q
+arg: const rs_quaternion* q0
+arg: const rs_quaternion* q1
+arg: float t
 test: none
 end:

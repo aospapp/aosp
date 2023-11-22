@@ -13,6 +13,7 @@
 #include "GrProgramElement.h"
 #include "GrTextureAccess.h"
 #include "SkMath.h"
+#include "SkString.h"
 
 class GrContext;
 class GrCoordTransform;
@@ -52,18 +53,22 @@ private:
     immutable: after being constructed, their fields may not change.
 
     Dynamically allocated GrProcessors are managed by a per-thread memory pool. The ref count of an
-    processor must reach 0 before the thread terminates and the pool is destroyed. To create a
-    static processor use the helper macro GR_CREATE_STATIC_PROCESSOR declared below.
+    processor must reach 0 before the thread terminates and the pool is destroyed.
  */
 class GrProcessor : public GrProgramElement {
 public:
-    SK_DECLARE_INST_COUNT(GrProcessor)
-
     virtual ~GrProcessor();
 
     /** Human-meaningful string to identify this prcoessor; may be embedded
         in generated shader code. */
     virtual const char* name() const = 0;
+
+    // Human-readable dump of all information 
+    virtual SkString dumpInfo() const {
+        SkString str;
+        str.appendf("Missing data");
+        return str;
+    }
 
     int numTextures() const { return fTextureAccesses.count(); }
 
@@ -103,7 +108,7 @@ protected:
      * GrTextureAccess is typically a member field of the GrProcessor subclass. This must only be
      * called from the constructor because GrProcessors are immutable.
      */
-    void addTextureAccess(const GrTextureAccess* textureAccess);
+    virtual void addTextureAccess(const GrTextureAccess* textureAccess);
 
     bool hasSameTextureAccesses(const GrProcessor&) const;
 
@@ -120,6 +125,7 @@ protected:
     }
 
     uint32_t fClassID;
+    SkSTArray<4, const GrTextureAccess*, true>   fTextureAccesses;
 
 private:
     static uint32_t GenClassID() {
@@ -139,19 +145,9 @@ private:
     };
     static int32_t gCurrProcessorClassID;
 
-    SkSTArray<4, const GrTextureAccess*, true>   fTextureAccesses;
     bool                                         fWillReadFragmentPosition;
 
     typedef GrProgramElement INHERITED;
 };
-
-/**
- * This creates a processor outside of the memory pool. The processor's destructor will be called
- * at global destruction time. NAME will be the name of the created instance.
- */
-#define GR_CREATE_STATIC_PROCESSOR(NAME, PROC_CLASS, ARGS)                                 \
-static SkAlignedSStorage<sizeof(PROC_CLASS)> g_##NAME##_Storage;                           \
-static PROC_CLASS* NAME SkNEW_PLACEMENT_ARGS(g_##NAME##_Storage.get(), PROC_CLASS, ARGS);  \
-static SkAutoTDestroy<GrProcessor> NAME##_ad(NAME);
 
 #endif

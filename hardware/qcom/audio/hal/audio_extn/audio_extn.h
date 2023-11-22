@@ -19,11 +19,21 @@
 
 #include <cutils/str_parms.h>
 
+#define HW_INFO_ARRAY_MAX_SIZE 32
+
+struct snd_card_split {
+    char device[HW_INFO_ARRAY_MAX_SIZE];
+    char snd_card[HW_INFO_ARRAY_MAX_SIZE];
+    char form_factor[HW_INFO_ARRAY_MAX_SIZE];
+};
+
 void *audio_extn_extspk_init(struct audio_device *adev);
 void audio_extn_extspk_deinit(void *extn);
 void audio_extn_extspk_update(void* extn);
 void audio_extn_extspk_set_mode(void* extn, audio_mode_t mode);
 void audio_extn_extspk_set_voice_vol(void* extn, float vol);
+struct snd_card_split *audio_extn_get_snd_card_split();
+void audio_extn_set_snd_card_split(const char* in_snd_card_name);
 
 #ifndef SPKR_PROT_ENABLED
 #define audio_extn_spkr_prot_init(adev)       (0)
@@ -101,4 +111,25 @@ void audio_extn_dsm_feedback_enable(struct audio_device *adev,
 void audio_extn_hwdep_cal_send(int snd_card, void *acdb_handle);
 #endif
 
+#ifndef KPI_OPTIMIZE_ENABLED
+#define audio_extn_perf_lock_init() (0)
+#define audio_extn_perf_lock_acquire() (0)
+#define audio_extn_perf_lock_release() (0)
+#else
+int audio_extn_perf_lock_init(void);
+void audio_extn_perf_lock_acquire(void);
+void audio_extn_perf_lock_release(void);
+#endif /* KPI_OPTIMIZE_ENABLED */
+
+#ifndef HW_VARIANTS_ENABLED
+#define hw_info_init(snd_card_name)                  (0)
+#define hw_info_deinit(hw_info)                      (0)
+#define hw_info_append_hw_type(hw_info,\
+        snd_device, device_name)                     (0)
+#else
+void *hw_info_init(const char *snd_card_name);
+void hw_info_deinit(void *hw_info);
+void hw_info_append_hw_type(void *hw_info, snd_device_t snd_device,
+                             char *device_name);
+#endif /* HW_VARIANTS_ENABLED */
 #endif /* AUDIO_EXTN_H */

@@ -55,8 +55,12 @@ void TngPrimaryPlane::setFramebufferTarget(buffer_handle_t handle)
     mContext.ctx.prim_ctx.update_mask = SPRITE_UPDATE_ALL;
     mContext.ctx.prim_ctx.index = mIndex;
     mContext.ctx.prim_ctx.pipe = mDevice;
-    mContext.ctx.prim_ctx.linoff = 0;
     mContext.ctx.prim_ctx.stride = align_to((4 * align_to(mPosition.w, 32)), 64);
+#ifdef ENABLE_ROTATION_180
+    mContext.ctx.prim_ctx.linoff = (mPosition.h - 1) * mContext.ctx.prim_ctx.stride + (mPosition.w  - 1)* 4;
+#else
+    mContext.ctx.prim_ctx.linoff = 0;
+#endif
     mContext.ctx.prim_ctx.pos = 0;
     mContext.ctx.prim_ctx.size =
         ((mPosition.h - 1) & 0xfff) << 16 | ((mPosition.w - 1) & 0xfff);
@@ -64,8 +68,11 @@ void TngPrimaryPlane::setFramebufferTarget(buffer_handle_t handle)
     mContext.ctx.prim_ctx.contalpa = 0;
 
     mContext.ctx.prim_ctx.cntr = PixelFormat::PLANE_PIXEL_FORMAT_BGRA8888;
+#ifdef ENABLE_ROTATION_180
+    mContext.ctx.prim_ctx.cntr |= 0x80008000;
+#else
     mContext.ctx.prim_ctx.cntr |= 0x80000000;
-
+#endif
     mCurrentDataBuffer = handle;
 }
 
@@ -160,6 +167,7 @@ void TngPrimaryPlane::setZOrderConfig(ZOrderConfig& zorderConfig,
 
 bool TngPrimaryPlane::assignToDevice(int disp)
 {
+    DisplayPlane::assignToDevice(disp);
     return true;
 }
 

@@ -33,12 +33,12 @@ import android.view.DisplayListCanvas;
 import android.view.RenderNodeAnimator;
 import android.view.View;
 import android.view.ViewAnimationUtils;
-import android.view.animation.AnimationUtils;
 import android.view.animation.Interpolator;
 import android.widget.ImageView;
+
+import com.android.systemui.Interpolators;
 import com.android.systemui.R;
 import com.android.systemui.statusbar.phone.KeyguardAffordanceHelper;
-import com.android.systemui.statusbar.phone.PhoneStatusBar;
 
 /**
  * An ImageView which does not have overlapping renderings commands and therefore does not need a
@@ -54,8 +54,6 @@ public class KeyguardAffordanceView extends ImageView {
 
     private final int mMinBackgroundRadius;
     private final Paint mCirclePaint;
-    private final Interpolator mAppearInterpolator;
-    private final Interpolator mDisappearInterpolator;
     private final int mInverseColor;
     private final int mNormalColor;
     private final ArgbEvaluator mColorInterpolator;
@@ -79,6 +77,7 @@ public class KeyguardAffordanceView extends ImageView {
     private float mRestingAlpha = KeyguardAffordanceHelper.SWIPE_RESTING_ALPHA_AMOUNT;
     private boolean mSupportHardware;
     private boolean mFinishing;
+    private boolean mLaunchingAffordance;
 
     private CanvasProperty<Float> mHwCircleRadius;
     private CanvasProperty<Float> mHwCenterX;
@@ -134,10 +133,6 @@ public class KeyguardAffordanceView extends ImageView {
         mInverseColor = 0xff000000;
         mMinBackgroundRadius = mContext.getResources().getDimensionPixelSize(
                 R.dimen.keyguard_affordance_min_background_radius);
-        mAppearInterpolator = AnimationUtils.loadInterpolator(mContext,
-                android.R.interpolator.linear_out_slow_in);
-        mDisappearInterpolator = AnimationUtils.loadInterpolator(mContext,
-                android.R.interpolator.fast_out_linear_in);
         mColorInterpolator = new ArgbEvaluator();
         mFlingAnimationUtils = new FlingAnimationUtils(mContext, 0.3f);
     }
@@ -152,7 +147,7 @@ public class KeyguardAffordanceView extends ImageView {
 
     @Override
     protected void onDraw(Canvas canvas) {
-        mSupportHardware = canvas.isHardwareAccelerated();
+        mSupportHardware = false;//canvas.isHardwareAccelerated();
         drawBackgroundCircle(canvas);
         canvas.save();
         canvas.scale(mImageScale, mImageScale, getWidth() / 2, getHeight() / 2);
@@ -161,9 +156,11 @@ public class KeyguardAffordanceView extends ImageView {
     }
 
     public void setPreviewView(View v) {
+        View oldPreviewView = mPreviewView;
         mPreviewView = v;
         if (mPreviewView != null) {
-            mPreviewView.setVisibility(INVISIBLE);
+            mPreviewView.setVisibility(mLaunchingAffordance
+                    ? oldPreviewView.getVisibility() : INVISIBLE);
         }
     }
 
@@ -176,7 +173,7 @@ public class KeyguardAffordanceView extends ImageView {
     }
 
     private void drawBackgroundCircle(Canvas canvas) {
-        if (mCircleRadius > 0) {
+        if (mCircleRadius > 0 || mFinishing) {
             if (mFinishing && mSupportHardware) {
                 DisplayListCanvas displayListCanvas = (DisplayListCanvas) canvas;
                 displayListCanvas.drawCircle(mHwCenterX, mHwCenterY, mHwCircleRadius,
@@ -207,11 +204,12 @@ public class KeyguardAffordanceView extends ImageView {
         cancelAnimator(mPreviewClipper);
         mFinishing = true;
         mCircleStartRadius = mCircleRadius;
-        float maxCircleSize = getMaxCircleSize();
+        final float maxCircleSize = getMaxCircleSize();
         Animator animatorToRadius;
         if (mSupportHardware) {
             initHwProperties();
             animatorToRadius = getRtAnimatorToRadius(maxCircleSize);
+            startRtAlphaFadeIn();
         } else {
             animatorToRadius = getAnimatorToRadius(maxCircleSize);
         }
@@ -222,6 +220,8 @@ public class KeyguardAffordanceView extends ImageView {
             public void onAnimationEnd(Animator animation) {
                 mAnimationEndRunnable.run();
                 mFinishing = false;
+                mCircleRadius = maxCircleSize;
+                invalidate();
             }
         });
         animatorToRadius.start();
@@ -241,11 +241,41 @@ public class KeyguardAffordanceView extends ImageView {
         }
     }
 
+    /**
+     * Fades in the Circle on the RenderThread. It's used when finishing the circle when it had
+     * alpha 0 in the beginning.
+     */
+    private void startRtAlphaFadeIn() {
+        if (mCircleRadius == 0 && mPreviewView == null) {
+            Paint modifiedPaint = new Paint(mCirclePaint);
+            modifiedPaint.setColor(mCircleColor);
+            modifiedPaint.setAlpha(0);
+            mHwCirclePaint = CanvasProperty.createPaint(modifiedPaint);
+            RenderNodeAnimator animator = new RenderNodeAnimator(mHwCirclePaint,
+                    RenderNodeAnimator.PAINT_ALPHA, 255);
+            animator.setTarget(this);
+            animator.setInterpolator(Interpolators.ALPHA_IN);
+            animator.setDuration(250);
+            animator.start();
+        }
+    }
+
+    public void instantFinishAnimation() {
+        cancelAnimator(mPreviewClipper);
+        if (mPreviewView != null) {
+            mPreviewView.setClipBounds(null);
+            mPreviewView.setVisibility(View.VISIBLE);
+        }
+        mCircleRadius = getMaxCircleSize();
+        setImageAlpha(0, false);
+        invalidate();
+    }
+
     private void startRtCircleFadeOut(long duration) {
         RenderNodeAnimator animator = new RenderNodeAnimator(mHwCirclePaint,
                 RenderNodeAnimator.PAINT_ALPHA, 0);
         animator.setDuration(duration);
-        animator.setInterpolator(PhoneStatusBar.ALPHA_OUT);
+        animator.setInterpolator(Interpolators.ALPHA_OUT);
         animator.setTarget(this);
         animator.start();
     }
@@ -315,8 +345,8 @@ public class KeyguardAffordanceView extends ImageView {
             cancelAnimator(mPreviewClipper);
             ValueAnimator animator = getAnimatorToRadius(circleRadius);
             Interpolator interpolator = circleRadius == 0.0f
-                    ? mDisappearInterpolator
-                    : mAppearInterpolator;
+                    ? Interpolators.FAST_OUT_LINEAR_IN
+                    : Interpolators.LINEAR_OUT_SLOW_IN;
             animator.setInterpolator(interpolator);
             long duration = 250;
             if (!slowAnimation) {
@@ -401,8 +431,8 @@ public class KeyguardAffordanceView extends ImageView {
             animator.addListener(mScaleEndListener);
             if (interpolator == null) {
                 interpolator = imageScale == 0.0f
-                        ? mDisappearInterpolator
-                        : mAppearInterpolator;
+                        ? Interpolators.FAST_OUT_LINEAR_IN
+                        : Interpolators.LINEAR_OUT_SLOW_IN;
             }
             animator.setInterpolator(interpolator);
             if (duration == -1) {
@@ -443,6 +473,7 @@ public class KeyguardAffordanceView extends ImageView {
     public void setImageAlpha(float alpha, boolean animate, long duration,
             Interpolator interpolator, Runnable runnable) {
         cancelAnimator(mAlphaAnimator);
+        alpha = mLaunchingAffordance ? 0 : alpha;
         int endAlpha = (int) (alpha * 255);
         final Drawable background = getBackground();
         if (!animate) {
@@ -463,8 +494,8 @@ public class KeyguardAffordanceView extends ImageView {
             animator.addListener(mAlphaEndListener);
             if (interpolator == null) {
                 interpolator = alpha == 0.0f
-                        ? mDisappearInterpolator
-                        : mAppearInterpolator;
+                        ? Interpolators.FAST_OUT_LINEAR_IN
+                        : Interpolators.LINEAR_OUT_SLOW_IN;
             }
             animator.setInterpolator(interpolator);
             if (duration == -1) {
@@ -508,5 +539,9 @@ public class KeyguardAffordanceView extends ImageView {
         } else {
             return false;
         }
+    }
+
+    public void setLaunchingAffordance(boolean launchingAffordance) {
+        mLaunchingAffordance = launchingAffordance;
     }
 }

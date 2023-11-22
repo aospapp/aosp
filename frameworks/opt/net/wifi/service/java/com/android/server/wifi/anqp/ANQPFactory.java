@@ -1,10 +1,13 @@
 package com.android.server.wifi.anqp;
 
+import com.android.server.wifi.hotspot2.NetworkDetail;
+
 import java.net.ProtocolException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.ListIterator;
@@ -15,28 +18,61 @@ import java.util.Set;
  */
 public class ANQPFactory {
 
-    private static final Constants.ANQPElementType[] BaseANQPSet = new Constants.ANQPElementType[]{
+    private static final List<Constants.ANQPElementType> BaseANQPSet1 = Arrays.asList(
             Constants.ANQPElementType.ANQPVenueName,
             Constants.ANQPElementType.ANQPNwkAuthType,
             Constants.ANQPElementType.ANQPRoamingConsortium,
             Constants.ANQPElementType.ANQPIPAddrAvailability,
             Constants.ANQPElementType.ANQPNAIRealm,
             Constants.ANQPElementType.ANQP3GPPNetwork,
-            Constants.ANQPElementType.ANQPDomName
-    };
+            Constants.ANQPElementType.ANQPDomName);
 
-    private static final Constants.ANQPElementType[] HS20ANQPSet = new Constants.ANQPElementType[]{
+    private static final List<Constants.ANQPElementType> BaseANQPSet2 = Arrays.asList(
+            Constants.ANQPElementType.ANQPVenueName,
+            Constants.ANQPElementType.ANQPNwkAuthType,
+            Constants.ANQPElementType.ANQPIPAddrAvailability,
+            Constants.ANQPElementType.ANQPNAIRealm,
+            Constants.ANQPElementType.ANQP3GPPNetwork,
+            Constants.ANQPElementType.ANQPDomName);
+
+    private static final List<Constants.ANQPElementType> HS20ANQPSet = Arrays.asList(
             Constants.ANQPElementType.HSFriendlyName,
             Constants.ANQPElementType.HSWANMetrics,
-            Constants.ANQPElementType.HSConnCapability
-    };
+            Constants.ANQPElementType.HSConnCapability);
 
-    public static Constants.ANQPElementType[] getBaseANQPSet() {
-        return BaseANQPSet;
+    private static final List<Constants.ANQPElementType> HS20ANQPSetwOSU = Arrays.asList(
+            Constants.ANQPElementType.HSFriendlyName,
+            Constants.ANQPElementType.HSWANMetrics,
+            Constants.ANQPElementType.HSConnCapability,
+            Constants.ANQPElementType.HSOSUProviders);
+
+    public static List<Constants.ANQPElementType> getBaseANQPSet(boolean includeRC) {
+        return includeRC ? BaseANQPSet1 : BaseANQPSet2;
     }
 
-    public static Constants.ANQPElementType[] getHS20ANQPSet() {
-        return HS20ANQPSet;
+    public static List<Constants.ANQPElementType> getHS20ANQPSet(boolean includeOSU) {
+        return includeOSU ? HS20ANQPSetwOSU : HS20ANQPSet;
+    }
+
+    public static List<Constants.ANQPElementType> buildQueryList(NetworkDetail networkDetail,
+                                               boolean matchSet, boolean osu) {
+        List<Constants.ANQPElementType> querySet = new ArrayList<>();
+
+        if (matchSet) {
+            querySet.addAll(getBaseANQPSet(networkDetail.getAnqpOICount() > 0));
+        }
+
+        if (networkDetail.getHSRelease() != null) {
+            boolean includeOSU = osu && networkDetail.getHSRelease() == NetworkDetail.HSRelease.R2;
+            if (matchSet) {
+                querySet.addAll(getHS20ANQPSet(includeOSU));
+            }
+            else if (includeOSU) {
+                querySet.add(Constants.ANQPElementType.HSOSUProviders);
+            }
+        }
+
+        return querySet;
     }
 
     public static ByteBuffer buildQueryRequest(Set<Constants.ANQPElementType> elements,
@@ -230,7 +266,7 @@ public class ANQPFactory {
             case HSOperatingclass:
                 return new GenericBlobElement(infoID, payload);
             case HSOSUProviders:
-                return new HSOsuProvidersElement(infoID, payload);
+                return new RawByteElement(infoID, payload);
             case HSIconFile:
                 return new HSIconFileElement(infoID, payload);
             default:

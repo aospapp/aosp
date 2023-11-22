@@ -16,19 +16,19 @@
   bug: 17536113
 },
 {
+  description: "the ConnectivityConstraintTest are not yet stable",
+  names: [
+    "android.jobscheduler.cts.ConnectivityConstraintTest"
+  ],
+  bug: 18117279
+},
+{
   description: "tests a fragile by nature as they rely on hardcoded behavior",
   names: [
     "android.accessibilityservice.cts.AccessibilityTextTraversalTest#testActionNextAndPreviousAtGranularityPageOverText",
     "android.accessibilityservice.cts.AccessibilityTextTraversalTest#testActionNextAndPreviousAtGranularityPageOverTextExtend"
   ],
   bug: 17595050
-},
-{
-  description: "test fails on devices with no telephony",
-  names: [
-    "android.calllog.cts.CallLogBackupTest#testSingleCallBackup"
-  ],
-  bug: 23776099
 },
 {
   description: "test fails on some devices",
@@ -158,32 +158,11 @@
   bug: 17508787
 },
 {
-  description: "This test should be outside of official CTS suite until it is verified for all Nexus devices",
-  names: [
-    "com.android.cts.devicepolicy.MixedDeviceOwnerTest#testPackageInstallUserRestrictions",
-    "com.android.cts.devicepolicy.MixedProfileOwnerTest#testPackageInstallUserRestrictions"
-  ],
-  bug: 18928535
-},
-{
   description: "Test is not yet properly implemented",
   names: [
     "android.voicesettings.cts.ZenModeTest#testAll"
   ],
   bug: 23238984
-},
-{
-  description: "These tests fail on some devices.",
-  names: [
-    "android.uirendering.cts.testclasses.ExactCanvasTests#testBlueRect",
-    "android.uirendering.cts.testclasses.ExactCanvasTests#testBluePaddedSquare",
-    "android.uirendering.cts.testclasses.ViewClippingTests#testSimplePaddingClip",
-    "android.uirendering.cts.testclasses.ViewClippingTests#testSimpleClipBoundsClip",
-    "android.uirendering.cts.testclasses.ViewClippingTests#testSimpleOutlineClip",
-    "android.uirendering.cts.testclasses.ViewClippingTests#testSimpleBoundsClip",
-    "android.uirendering.cts.testclasses.InfrastructureTests#testViewInitializer"
-  ],
-  bug: 17511118
 },
 {
   description: "This test failed on devices that use effect off loading. In addition it uses hidden apis",
@@ -209,20 +188,6 @@
   bug: 18030049
 },
 {
-  description: "The new recording test is not yet passing on all devices",
-  names: [
-    "android.hardware.camera2.cts.RecordingTest#testRecordingFramerateLowToHigh"
-  ],
-  bug: 18705837
-},
-{
-  description: "The new image reader test is not yet passing on all devices",
-  names: [
-    "android.hardware.camera2.cts.ImageReaderTest#testAllOutputYUVResolutions"
-  ],
-  bug: 18689511
-},
-{
   description: "The new prepare performance test is not yet passing on all devices",
   names: [
     "android.hardware.camera2.cts.SurfaceViewPreviewTest#testPreparePerformance"
@@ -230,36 +195,18 @@
   bug: 17989532
 },
 {
-  description: "The new AE/AF trigger tests are not yet passing on all devices",
-  names: [
-    "android.hardware.camera2.cts.RobustnessTest#testBasicTriggerSequence",
-    "android.hardware.camera2.cts.RobustnessTest#testSimultaneousTriggers",
-    "android.hardware.camera2.cts.RobustnessTest#testAfThenAeTrigger",
-    "android.hardware.camera2.cts.RobustnessTest#testAeThenAfTrigger"
-  ],
-  bug: 22180706
-},
-{
-  description: "The new create session test is not yet passing on all devices",
-  names: [
-    "android.hardware.camera2.cts.CameraDeviceTest#testCreateSessions"
-  ],
-  bug: 22092756
-},
-{
-  description: "The new long processing test is not yet passing on all devices",
-  names: [
-    "android.hardware.camera2.cts.ImageReaderTest#testLongProcessingRepeatingRaw",
-    "android.hardware.camera2.cts.ImageReaderTest#testLongProcessingRepeatingFlexibleYuv"
-  ],
-  bug: 22861512
-},
-{
   description: "The timing measurements for preview callbacks are not reliable",
   names: [
     "android.hardware.cts.CameraTest#testPreviewFpsRange"
   ],
   bug: 23008511
+},
+{
+  description: "Light status bar CTS coming in late",
+  names: [
+    "android.systemui.cts.LightStatusBarTests#testLightStatusBarIcons"
+  ],
+  bug: 23427621
 },
 {
   description: "known failures",
@@ -299,10 +246,86 @@
 {
   description: "New assist tests that do not yet have a track record.",
   names: [
-    "android.assist.cts.ScreenshotTest",
+    "android.assist.cts.AssistantContentViewTest",
     "android.assist.cts.ExtraAssistDataTest",
-    "android.assist.cts.AssistantContentViewTest"
+    "android.assist.cts.FocusChangeTest",
+    "android.assist.cts.LargeViewHierarchyTest",
+    "android.assist.cts.ScreenshotTest",
+    "android.assist.cts.TextViewTest",
+    "android.assist.cts.WebViewTest"
   ],
   bug: 21668302
+},
+{
+  description: "ConnectivityConstraintTest job scheduler not working.",
+  names: [
+     "android.jobscheduler.cts.ConnectivityConstraintTest#testConnectivityConstraintExecutes_withWifi",
+     "android.jobscheduler.cts.ConnectivityConstraintTest#testUnmeteredConstraintExecutes_withWifi",
+     "android.jobscheduler.cts.ConnectivityConstraintTest#testConnectivityConstraintExecutes_withMobile"
+  ],
+  bug: 21262226
+},
+{
+   description: "ConnectivityConstraintTest times out.",
+   names: [
+     "android.jobscheduler.cts.TimingConstraintsTest#testJobParameters_unexpiredDeadline"
+   ],
+   bug: 23144425
+},
+{
+   description: "Telephony returning wrong value.",
+   names: [
+     "android.telephony.cts.CellInfoTest#testCellInfo"
+   ],
+   bug: 23979591
+},
+{
+   description: "Video encoding tests are timing out.",
+   names: [
+     "android.media.cts.VideoEncoderTest#testGoogH264FlexArbitraryW",
+     "android.media.cts.VideoEncoderTest#testGoogH264SurfArbitraryW"
+   ],
+   bug: 23827982
+},
+{
+  description: "protected broadcast not working",
+  names: [
+   "android.permission2.cts.ProtectedBroadcastsTest#testSendProtectedBroadcasts"
+  ],
+  bug: 23192492
+},
+{
+  description: "restricted network is not working",
+  names: [
+    "android.net.cts.ConnectivityManagerTest#testRestrictedNetworks"
+  ],
+  bug: 25651805
+},
+{
+  description: "unit testing for MediaPreparer lives within mediastress module",
+  names: [
+    "android.mediastress.cts.preconditions.MediaPreparerTest"
+  ],
+  bug: 25850508
+},
+{
+  description: "Tests for the signature tests should not be in CTS",
+  names: [
+    "android.signature.cts.tests"
+  ],
+  bug: 26150806
+},
+{
+  description: "android.security.cts is using a Non-NDK library, libmedia_jni.so",
+  names: [
+      "android.security.cts.MediaCryptoTest#testMediaCryptoClearKey",
+      "android.security.cts.MediaCryptoTest#testMediaCryptoWidevine"
+  ],
+  bug: 27218502
+},
+{
+  description: "Still investigating this, root cause unknown yet",
+  bug: 27578806,
+  names: ["com.android.cts.cpptools.RunAsHostTest#testRunAs"]
 }
 ]

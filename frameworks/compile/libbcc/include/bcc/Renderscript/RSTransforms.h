@@ -24,8 +24,10 @@ namespace llvm {
 
 namespace bcc {
 
+extern const char BCC_INDEX_VAR_NAME[];
+
 llvm::ModulePass *
-createRSForEachExpandPass(bool pEnableStepOpt);
+createRSKernelExpandPass(bool pEnableStepOpt);
 
 llvm::FunctionPass *
 createRSInvariantPass();
@@ -42,6 +44,10 @@ llvm::ModulePass * createRSScreenFunctionsPass();
 llvm::ModulePass * createRSIsThreadablePass();
 
 llvm::ModulePass * createRSX86_64CallConvPass();
+
+llvm::ModulePass * createRSAddDebugInfoPass();
+
+llvm::FunctionPass *createRSX86TranslateGEPPass();
 
 } // end namespace bcc
 

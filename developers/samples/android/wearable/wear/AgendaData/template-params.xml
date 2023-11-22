@@ -23,7 +23,10 @@
     <package>com.example.android.wearable.agendadata</package>
 
     <minSdk>18</minSdk>
-    <targetSdkVersion>22</targetSdkVersion>
+    <targetSdkVersion>23</targetSdkVersion>
+    <targetSdkVersionWear>23</targetSdkVersionWear>
+
+    <dependency>com.android.support:design:24.0.0</dependency>
 
     <wearable>
         <has_handheld_app>true</has_handheld_app>
@@ -33,10 +36,10 @@
         <intro>
             <![CDATA[
             Syncs calendar events to your wearable at the press of a button, using the Wearable
-            DataApi to transmit data such as event time, description, and background image. The DataItems can be
-            deleted individually via an action on the event notifications, or all at once via a button on the
-            companion. When deleted using the notification action, a ConfirmationActivity is used to indicate
-            success or failure.
+            DataApi to transmit data such as event time, description, and background image. The
+            DataItems can be deleted individually via an action on the event notifications, or all
+            at once via a button on the companion. When deleted using the notification action, a
+            ConfirmationActivity is used to indicate success or failure.
             ]]>
         </intro>
     </strings>
@@ -57,8 +60,8 @@
         </screenshots>
         <api_refs>
             <android>android.app.IntentService</android>
-            <ext>com.google.android.gms.wearable.DataApi</ext>
-            <ext>com.google.android.gms.wearable.Node</ext>
+            <ext>gms:com.google.android.gms.wearable.DataApi</ext>
+            <ext>gms:com.google.android.gms.wearable.Node</ext>
         </api_refs>
         <description>
 <![CDATA[

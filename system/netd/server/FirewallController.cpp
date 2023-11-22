@@ -22,11 +22,17 @@
 #define LOG_TAG "FirewallController"
 #define LOG_NDEBUG 0
 
+#include <android-base/stringprintf.h>
 #include <cutils/log.h>
-#include <private/android_filesystem_config.h>
 
 #include "NetdConstants.h"
 #include "FirewallController.h"
+
+using android::base::StringAppendF;
+
+auto FirewallController::execIptables = ::execIptables;
+auto FirewallController::execIptablesSilently = ::execIptables;
+auto FirewallController::execIptablesRestore = ::execIptablesRestore;
 
 const char* FirewallController::TABLE = "filter";
 
@@ -36,6 +42,7 @@ const char* FirewallController::LOCAL_FORWARD = "fw_FORWARD";
 
 const char* FirewallController::LOCAL_DOZABLE = "fw_dozable";
 const char* FirewallController::LOCAL_STANDBY = "fw_standby";
+const char* FirewallController::LOCAL_POWERSAVE = "fw_powersave";
 
 // ICMPv6 types that are required for any form of IPv6 connectivity to work. Note that because the
 // fw_dozable chain is called from both INPUT and OUTPUT, this includes both packets that we need
@@ -62,6 +69,9 @@ int FirewallController::setupIptablesHooks(void) {
 
     firewallType = getFirewallType(STANDBY);
     res |= createChain(LOCAL_STANDBY, LOCAL_INPUT, firewallType);
+
+    firewallType = getFirewallType(POWERSAVE);
+    res |= createChain(LOCAL_POWERSAVE, LOCAL_INPUT, firewallType);
 
     return res;
 }
@@ -107,6 +117,9 @@ int FirewallController::enableChildChains(ChildChain chain, bool enable) {
             break;
         case STANDBY:
             name = LOCAL_STANDBY;
+            break;
+        case POWERSAVE:
+            name = LOCAL_POWERSAVE;
             break;
         default:
             return res;
@@ -214,6 +227,8 @@ FirewallType FirewallController::getFirewallType(ChildChain chain) {
             return WHITELIST;
         case STANDBY:
             return BLACKLIST;
+        case POWERSAVE:
+            return WHITELIST;
         case NONE:
             return mFirewallType;
         default:
@@ -230,10 +245,12 @@ int FirewallController::setUidRule(ChildChain chain, int uid, FirewallRule rule)
     FirewallType firewallType = getFirewallType(chain);
     if (firewallType == WHITELIST) {
         target = "RETURN";
+        // When adding, insert RETURN rules at the front, before the catch-all DROP at the end.
         op = (rule == ALLOW)? "-I" : "-D";
     } else { // BLACKLIST mode
         target = "DROP";
-        op = (rule == DENY)? "-I" : "-D";
+        // When adding, append DROP rules at the end, after the RETURN rule that matches TCP RSTs.
+        op = (rule == DENY)? "-A" : "-D";
     }
 
     int res = 0;
@@ -244,6 +261,10 @@ int FirewallController::setUidRule(ChildChain chain, int uid, FirewallRule rule)
             break;
         case STANDBY:
             res |= execIptables(V4V6, op, LOCAL_STANDBY, "-m", "owner", "--uid-owner",
+                    uidStr, "-j", target, NULL);
+            break;
+        case POWERSAVE:
+            res |= execIptables(V4V6, op, LOCAL_POWERSAVE, "-m", "owner", "--uid-owner",
                     uidStr, "-j", target, NULL);
             break;
         case NONE:
@@ -269,27 +290,54 @@ int FirewallController::detachChain(const char* childChain, const char* parentCh
 
 int FirewallController::createChain(const char* childChain,
         const char* parentChain, FirewallType type) {
-    // Order is important, otherwise later steps may fail.
     execIptablesSilently(V4V6, "-t", TABLE, "-D", parentChain, "-j", childChain, NULL);
-    execIptablesSilently(V4V6, "-t", TABLE, "-F", childChain, NULL);
-    execIptablesSilently(V4V6, "-t", TABLE, "-X", childChain, NULL);
-    int res = 0;
-    res |= execIptables(V4V6, "-t", TABLE, "-N", childChain, NULL);
-    if (type == WHITELIST) {
+    std::vector<int32_t> uids;
+    return replaceUidChain(childChain, type == WHITELIST, uids);
+}
+
+std::string FirewallController::makeUidRules(IptablesTarget target, const char *name,
+        bool isWhitelist, const std::vector<int32_t>& uids) {
+    std::string commands;
+    StringAppendF(&commands, "*filter\n:%s -\n", name);
+
+    // Allow TCP RSTs so we can cleanly close TCP connections of apps that no longer have network
+    // access. Both incoming and outgoing RSTs are allowed.
+    StringAppendF(&commands, "-A %s -p tcp --tcp-flags RST RST -j RETURN\n", name);
+
+    if (isWhitelist) {
         // Allow ICMPv6 packets necessary to make IPv6 connectivity work. http://b/23158230 .
-        for (size_t i = 0; i < ARRAY_SIZE(ICMPV6_TYPES); i++) {
-            res |= execIptables(V6, "-A", childChain, "-p", "icmpv6", "--icmpv6-type",
-                    ICMPV6_TYPES[i], "-j", "RETURN", NULL);
+        if (target == V6) {
+            for (size_t i = 0; i < ARRAY_SIZE(ICMPV6_TYPES); i++) {
+                StringAppendF(&commands, "-A %s -p icmpv6 --icmpv6-type %s -j RETURN\n",
+                       name, ICMPV6_TYPES[i]);
+            }
         }
 
-        // create default white list for system uid range
-        char uidStr[16];
-        sprintf(uidStr, "0-%d", AID_APP - 1);
-        res |= execIptables(V4V6, "-A", childChain, "-m", "owner", "--uid-owner",
-                uidStr, "-j", "RETURN", NULL);
-
-        // create default rule to drop all traffic
-        res |= execIptables(V4V6, "-A", childChain, "-j", "DROP", NULL);
+        // Always whitelist system UIDs.
+        StringAppendF(&commands,
+                "-A %s -m owner --uid-owner %d-%d -j RETURN\n", name, 0, MAX_SYSTEM_UID);
     }
-    return res;
+
+    // Whitelist or blacklist the specified UIDs.
+    const char *action = isWhitelist ? "RETURN" : "DROP";
+    for (auto uid : uids) {
+        StringAppendF(&commands, "-A %s -m owner --uid-owner %d -j %s\n", name, uid, action);
+    }
+
+    // If it's a whitelist chain, add a default DROP at the end. This is not necessary for a
+    // blacklist chain, because all user-defined chains implicitly RETURN at the end.
+    if (isWhitelist) {
+        StringAppendF(&commands, "-A %s -j DROP\n", name);
+    }
+
+    StringAppendF(&commands, "COMMIT\n\x04");  // EOT.
+
+    return commands;
+}
+
+int FirewallController::replaceUidChain(
+        const char *name, bool isWhitelist, const std::vector<int32_t>& uids) {
+   std::string commands4 = makeUidRules(V4, name, isWhitelist, uids);
+   std::string commands6 = makeUidRules(V6, name, isWhitelist, uids);
+   return execIptablesRestore(V4, commands4.c_str()) | execIptablesRestore(V6, commands6.c_str());
 }

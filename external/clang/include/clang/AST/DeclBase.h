@@ -70,8 +70,15 @@ namespace clang {
 /// Decl - This represents one declaration (or definition), e.g. a variable,
 /// typedef, function, struct, etc.
 ///
+/// Note: There are objects tacked on before the *beginning* of Decl
+/// (and its subclasses) in its Decl::operator new(). Proper alignment
+/// of all subclasses (not requiring more than DeclObjAlignment) is
+/// asserted in DeclBase.cpp.
 class Decl {
 public:
+  /// \brief Alignment guaranteed when allocating Decl and any subtypes.
+  enum { DeclObjAlignment = llvm::AlignOf<uint64_t>::Alignment };
+
   /// \brief Lists the kind of concrete classes of Decl.
   enum Kind {
 #define DECL(DERIVED, BASE) DERIVED,
@@ -178,7 +185,12 @@ public:
     OBJC_TQ_Out = 0x4,
     OBJC_TQ_Bycopy = 0x8,
     OBJC_TQ_Byref = 0x10,
-    OBJC_TQ_Oneway = 0x20
+    OBJC_TQ_Oneway = 0x20,
+
+    /// The nullability qualifier is set when the nullability of the
+    /// result or parameter was expressed via a context-sensitive
+    /// keyword.
+    OBJC_TQ_CSNullability = 0x40
   };
 
 protected:
@@ -317,7 +329,7 @@ protected:
     : NextInContextAndBits(), DeclCtx(DC),
       Loc(L), DeclKind(DK), InvalidDecl(0),
       HasAttrs(false), Implicit(false), Used(false), Referenced(false),
-      Access(AS_none), FromASTFile(0), Hidden(0),
+      Access(AS_none), FromASTFile(0), Hidden(DC && cast<Decl>(DC)->Hidden),
       IdentifierNamespace(getIdentifierNamespaceForKind(DK)),
       CacheValidAndLinkage(0)
   {
@@ -463,8 +475,7 @@ public:
 
   template <typename T>
   llvm::iterator_range<specific_attr_iterator<T>> specific_attrs() const {
-    return llvm::iterator_range<specific_attr_iterator<T>>(
-        specific_attr_begin<T>(), specific_attr_end<T>());
+    return llvm::make_range(specific_attr_begin<T>(), specific_attr_end<T>());
   }
 
   template <typename T>
@@ -637,13 +648,30 @@ public:
 
 private:
   Module *getOwningModuleSlow() const;
+protected:
+  bool hasLocalOwningModuleStorage() const;
 
 public:
-  Module *getOwningModule() const {
+  /// \brief Get the imported owning module, if this decl is from an imported
+  /// (non-local) module.
+  Module *getImportedOwningModule() const {
     if (!isFromASTFile())
       return nullptr;
 
     return getOwningModuleSlow();
+  }
+
+  /// \brief Get the local owning module, if known. Returns nullptr if owner is
+  /// not yet known or declaration is not from a module.
+  Module *getLocalOwningModule() const {
+    if (isFromASTFile() || !Hidden)
+      return nullptr;
+    return reinterpret_cast<Module *const *>(this)[-1];
+  }
+  void setLocalOwningModule(Module *M) {
+    assert(!isFromASTFile() && Hidden && hasLocalOwningModuleStorage() &&
+           "should not have a cached owning module");
+    reinterpret_cast<Module **>(this)[-1] = M;
   }
 
   unsigned getIdentifierNamespace() const {
@@ -698,6 +726,15 @@ public:
   bool isDefinedOutsideFunctionOrMethod() const {
     return getParentFunctionOrMethod() == nullptr;
   }
+
+  /// \brief Returns true if this declaration lexically is inside a function.
+  /// It recognizes non-defining declarations as well as members of local
+  /// classes:
+  /// \code
+  ///     void foo() { void bar(); }
+  ///     void foo2() { class ABC { void bar(); }; }
+  /// \endcode
+  bool isLexicallyWithinFunctionOrMethod() const;
 
   /// \brief If this decl is defined inside a function/method/block it returns
   /// the corresponding DeclContext, otherwise it returns null.
@@ -1104,6 +1141,11 @@ class DeclContext {
   /// that are missing from the lookup table.
   mutable bool HasLazyExternalLexicalLookups : 1;
 
+  /// \brief If \c true, lookups should only return identifier from
+  /// DeclContext scope (for example TranslationUnit). Used in
+  /// LookupQualifiedName()
+  mutable bool UseQualifiedLookup : 1;
+
   /// \brief Pointer to the data structure used to lookup declarations
   /// within this context (or a DependentStoredDeclsMap if this is a
   /// dependent context). We maintain the invariant that, if the map
@@ -1138,6 +1180,7 @@ protected:
         ExternalVisibleStorage(false),
         NeedToReconcileExternalVisibleStorage(false),
         HasLazyLocalLexicalLookups(false), HasLazyExternalLexicalLookups(false),
+        UseQualifiedLookup(false),
         LookupPtr(nullptr), FirstDecl(nullptr), LastDecl(nullptr) {}
 
 public:
@@ -1716,6 +1759,16 @@ public:
   bool isDeclInLexicalTraversal(const Decl *D) const {
     return D && (D->NextInContextAndBits.getPointer() || D == FirstDecl || 
                  D == LastDecl);
+  }
+
+  bool setUseQualifiedLookup(bool use = true) {
+    bool old_value = UseQualifiedLookup;
+    UseQualifiedLookup = use;
+    return old_value;
+  }
+
+  bool shouldUseQualifiedLookup() const {
+    return UseQualifiedLookup;
   }
 
   static bool classof(const Decl *D);

@@ -53,11 +53,6 @@
 /* The size in bytes of a media packet header. */
 #define AVDT_MEDIA_HDR_SIZE         12
 
-/* AVDTP 7.5.3 Adaptation Layer Fragmentation
- * original length of the un-fragmented transport packet should be specified by
- * two bytes length field of Adaptation Layer Header  */
-#define AVDT_MAX_MEDIA_SIZE         (0xFFFF - AVDT_MEDIA_HDR_SIZE)
-
 /* The handle is used when reporting MULTI_AV specific events */
 #define AVDT_MULTI_AV_HANDLE        0xFF
 
@@ -898,30 +893,6 @@ extern UINT16 AVDT_GetL2CapChannel(UINT8 handle);
 **
 *******************************************************************************/
 extern UINT16 AVDT_GetSignalChannel(UINT8 handle, BD_ADDR bd_addr);
-
-/*******************************************************************************
-**
-** Function         AVDT_WriteDataReq
-**
-** Description      Send a media packet to the peer device.  The stream must
-**                  be started before this function is called.  Also, this
-**                  function can only be called if the stream is a SRC.
-**
-**                  When AVDTP has sent the media packet and is ready for the
-**                  next packet, an AVDT_WRITE_CFM_EVT is sent to the
-**                  application via the control callback.  The application must
-**                  wait for the AVDT_WRITE_CFM_EVT before it makes the next
-**                  call to AVDT_WriteDataReq().  If the applications calls
-**                  AVDT_WriteDataReq() before it receives the event the packet
-**                  will not be sent.  The application may make its first call
-**                  to AVDT_WriteDataReq() after it receives an
-**                  AVDT_START_CFM_EVT or AVDT_START_IND_EVT.
-**
-** Returns          AVDT_SUCCESS if successful, otherwise error.
-**
-*******************************************************************************/
-extern UINT16 AVDT_WriteDataReq(UINT8 handle, UINT8 *p_data, UINT32 data_len,
-                                UINT32 time_stamp, UINT8 m_pt, UINT8 marker);
 
 /*******************************************************************************
 **

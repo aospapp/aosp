@@ -16,23 +16,44 @@
 
 package android.voicesettings.cts;
 
+import static android.provider.Settings.ACTION_VOICE_CONTROL_AIRPLANE_MODE;
+
+import android.cts.util.BroadcastTestBase;
+import android.cts.util.BroadcastUtils;
 import android.provider.Settings;
 import android.provider.Settings.Global;
 import android.util.Log;
 
-import common.src.android.voicesettings.common.Utils;
-
-public class AirplaneModeTest extends VoiceSettingsTestBase {
+public class AirplaneModeTest extends BroadcastTestBase {
     static final String TAG = "AirplaneModeTest";
+    private static final String VOICE_SETTINGS_PACKAGE = "android.voicesettings.service";
+    private static final String VOICE_INTERACTION_CLASS =
+        "android.voicesettings.service.VoiceInteractionMain";
+    protected static final String FEATURE_VOICE_RECOGNIZERS = "android.software.voice_recognizers";
 
     private static final int AIRPLANE_MODE_IS_OFF = 0;
     private static final int AIRPLANE_MODE_IS_ON = 1;
+
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp();
+        mContext = getInstrumentation().getTargetContext();
+        mHasFeature = mContext.getPackageManager().hasSystemFeature(FEATURE_VOICE_RECOGNIZERS);
+    }
 
     public AirplaneModeTest() {
         super();
     }
 
     public void testAll() throws Exception {
+        if (!mHasFeature) {
+            Log.i(TAG, "The device doesn't support feature: " + FEATURE_VOICE_RECOGNIZERS);
+            return;
+        }
+        if (!isIntentSupported(ACTION_VOICE_CONTROL_AIRPLANE_MODE)) {
+            Log.e(TAG, "Voice intent for Airplane Mode NOT supported. existing the test");
+            return;
+        }
         int mode;
         try {
             mode = getMode();
@@ -47,25 +68,25 @@ public class AirplaneModeTest extends VoiceSettingsTestBase {
             // mode is currently OFF.
             // run a test to turn it on.
             // After successful run of the test, run a test to turn it back off.
-            if (!runTest(Utils.TestcaseType.AIRPLANE_MODE_ON, AIRPLANE_MODE_IS_ON)) {
+            if (!runTest(BroadcastUtils.TestcaseType.AIRPLANE_MODE_ON, AIRPLANE_MODE_IS_ON)) {
                 // the test failed. don't test the next one.
                 return;
             }
-            runTest(Utils.TestcaseType.AIRPLANE_MODE_OFF, AIRPLANE_MODE_IS_OFF);
+            runTest(BroadcastUtils.TestcaseType.AIRPLANE_MODE_OFF, AIRPLANE_MODE_IS_OFF);
         } else {
             // mode is currently ON.
             // run a test to turn it off.
             // After successful run of the test, run a test to turn it back on.
-            if (!runTest(Utils.TestcaseType.AIRPLANE_MODE_OFF, AIRPLANE_MODE_IS_OFF)) {
+            if (!runTest(BroadcastUtils.TestcaseType.AIRPLANE_MODE_OFF, AIRPLANE_MODE_IS_OFF)) {
                 // the test failed. don't test the next one.
                 return;
             }
-            runTest(Utils.TestcaseType.AIRPLANE_MODE_ON, AIRPLANE_MODE_IS_ON);
+            runTest(BroadcastUtils.TestcaseType.AIRPLANE_MODE_ON, AIRPLANE_MODE_IS_ON);
         }
     }
 
-    private boolean runTest(Utils.TestcaseType test, int expectedMode) throws Exception {
-        if (!startTestAndWaitForBroadcast(test)) {
+    private boolean runTest(BroadcastUtils.TestcaseType test, int expectedMode) throws Exception {
+        if (!startTestAndWaitForBroadcast(test, VOICE_SETTINGS_PACKAGE, VOICE_INTERACTION_CLASS)) {
             return false;
         }
 

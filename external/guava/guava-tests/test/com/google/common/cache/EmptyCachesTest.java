@@ -17,6 +17,7 @@ package com.google.common.cache;
 import static com.google.common.cache.CacheTesting.checkEmpty;
 import static com.google.common.cache.TestingCacheLoaders.identityLoader;
 import static java.util.Arrays.asList;
+import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.base.Function;
@@ -368,14 +369,14 @@ public class EmptyCachesTest extends TestCase {
         .withExpireAfterWrites(ImmutableSet.of(
             DurationSpec.of(0, SECONDS),
             DurationSpec.of(1, SECONDS),
-            DurationSpec.of(24 * 60 * 60 * 1, SECONDS)))
+            DurationSpec.of(1, DAYS)))
         .withExpireAfterAccesses(ImmutableSet.of(
             DurationSpec.of(0, SECONDS),
             DurationSpec.of(1, SECONDS),
-            DurationSpec.of(24 * 60 * 60 * 1, SECONDS)))
+            DurationSpec.of(1, DAYS)))
         .withRefreshes(ImmutableSet.of(
             DurationSpec.of(1, SECONDS),
-            DurationSpec.of(24 * 60 * 60 * 1, SECONDS)));
+            DurationSpec.of(1, DAYS)));
   }
 
   private void warmUp(LoadingCache<Object, Object> cache, int minimum, int maximum) {

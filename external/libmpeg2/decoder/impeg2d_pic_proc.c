@@ -70,14 +70,14 @@ void impeg2d_format_convert(dec_state_t *ps_dec,
     {
         ps_dec->pf_copy_yuv420p_buf(pu1_src_y, pu1_src_u, pu1_src_v, pu1_dst_y,
                                     pu1_dst_u, pu1_dst_v,
-                                    ps_dec->u2_frame_width,
+                                    ps_dec->u2_horizontal_size,
                                     u4_num_rows,
-                                    ps_dec->u4_frm_buf_stride,
-                                    (ps_dec->u4_frm_buf_stride >> 1),
-                                    (ps_dec->u4_frm_buf_stride >> 1),
                                     ps_dec->u2_frame_width,
                                     (ps_dec->u2_frame_width >> 1),
-                                    (ps_dec->u2_frame_width >> 1));
+                                    (ps_dec->u2_frame_width >> 1),
+                                    ps_dec->u4_frm_buf_stride,
+                                    (ps_dec->u4_frm_buf_stride >> 1),
+                                    (ps_dec->u4_frm_buf_stride >> 1));
     }
     else if (IV_YUV_422ILE == ps_dec->i4_chromaFormat)
     {
@@ -117,7 +117,11 @@ void impeg2d_format_convert(dec_state_t *ps_dec,
         dest_inc_Y =    ps_dec->u4_frm_buf_stride;
         dest_inc_UV =   ((ps_dec->u4_frm_buf_stride + 1) >> 1) << 1;
         convert_uv_only = 0;
+
         if(1 == ps_dec->u4_share_disp_buf)
+            convert_uv_only = 1;
+
+        if(pu1_src_y == pu1_dst_y)
             convert_uv_only = 1;
 
         if(ps_dec->i4_chromaFormat == IV_YUV_420SP_UV)
@@ -219,7 +223,8 @@ void impeg2d_get_bottom_field_buf(yuv_buf_t *ps_src_buf,yuv_buf_t *ps_dst_buf,
 UWORD16 impeg2d_get_mb_addr_incr(stream_t *ps_stream)
 {
     UWORD16 u2_mb_addr_incr = 0;
-    while (impeg2d_bit_stream_nxt(ps_stream,MB_ESCAPE_CODE_LEN) == MB_ESCAPE_CODE)
+    while (impeg2d_bit_stream_nxt(ps_stream,MB_ESCAPE_CODE_LEN) == MB_ESCAPE_CODE &&
+            ps_stream->u4_offset < ps_stream->u4_max_offset)
     {
         impeg2d_bit_stream_flush(ps_stream,MB_ESCAPE_CODE_LEN);
         u2_mb_addr_incr += 33;
@@ -365,6 +370,8 @@ IMPEG2D_ERROR_CODES_T impeg2d_pre_pic_dec_proc(dec_state_t *ps_dec)
 
             impeg2_buf_mgr_set_status((buf_mgr_t *)ps_dec->pv_pic_buf_mg, ps_dec->i4_cur_buf_id, BUF_MGR_DISP);
             impeg2_buf_mgr_set_status((buf_mgr_t *)ps_dec->pv_pic_buf_mg, ps_dec->i4_cur_buf_id, BUF_MGR_REF);
+            if(ps_dec->u4_deinterlace)
+                impeg2_buf_mgr_set_status((buf_mgr_t *)ps_dec->pv_pic_buf_mg, ps_dec->i4_cur_buf_id, MPEG2_BUF_MGR_DEINT);
 
             ps_pic_buf->u4_ts = ps_dec->u4_inp_ts;
             ps_pic_buf->e_pic_type = ps_dec->e_pic_type;
@@ -406,6 +413,8 @@ IMPEG2D_ERROR_CODES_T impeg2d_pre_pic_dec_proc(dec_state_t *ps_dec)
         }
         impeg2_buf_mgr_set_status((buf_mgr_t *)ps_dec->pv_pic_buf_mg, ps_dec->i4_cur_buf_id, BUF_MGR_DISP);
         impeg2_buf_mgr_set_status((buf_mgr_t *)ps_dec->pv_pic_buf_mg, ps_dec->i4_cur_buf_id, BUF_MGR_REF);
+        if(ps_dec->u4_deinterlace)
+            impeg2_buf_mgr_set_status((buf_mgr_t *)ps_dec->pv_pic_buf_mg, ps_dec->i4_cur_buf_id, MPEG2_BUF_MGR_DEINT);
 
         ps_pic_buf->u4_ts = ps_dec->u4_inp_ts;
         ps_pic_buf->e_pic_type = ps_dec->e_pic_type;

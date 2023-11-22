@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ package android.renderscript.cts;
 import android.renderscript.Allocation;
 import android.renderscript.RSRuntimeException;
 import android.renderscript.Element;
+import android.renderscript.cts.Target;
 
 import java.util.Arrays;
 
@@ -82,7 +83,7 @@ public class TestPown extends RSBaseCompute {
                 args.inBase = arrayInBase[i];
                 args.inExponent = arrayInExponent[i];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computePown(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -161,7 +162,7 @@ public class TestPown extends RSBaseCompute {
                 args.inBase = arrayInBase[i * 2 + j];
                 args.inExponent = arrayInExponent[i * 2 + j];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computePown(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -240,7 +241,7 @@ public class TestPown extends RSBaseCompute {
                 args.inBase = arrayInBase[i * 4 + j];
                 args.inExponent = arrayInExponent[i * 4 + j];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computePown(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -319,7 +320,7 @@ public class TestPown extends RSBaseCompute {
                 args.inBase = arrayInBase[i * 4 + j];
                 args.inExponent = arrayInExponent[i * 4 + j];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computePown(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -358,10 +359,353 @@ public class TestPown extends RSBaseCompute {
                 (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
     }
 
+    public class ArgumentsHalfIntHalf {
+        public short inBase;
+        public double inBaseDouble;
+        public int inExponent;
+        public Target.Floaty out;
+    }
+
+    private void checkPownHalfIntHalf() {
+        Allocation inBase = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x858a42bbl, false);
+        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 1, 0x30c3d6f1l, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
+            script.set_gAllocInExponent(inExponent);
+            script.forEach_testPownHalfIntHalf(inBase, out);
+            verifyResultsPownHalfIntHalf(inBase, inExponent, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testPownHalfIntHalf: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
+            scriptRelaxed.set_gAllocInExponent(inExponent);
+            scriptRelaxed.forEach_testPownHalfIntHalf(inBase, out);
+            verifyResultsPownHalfIntHalf(inBase, inExponent, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testPownHalfIntHalf: " + e.toString());
+        }
+    }
+
+    private void verifyResultsPownHalfIntHalf(Allocation inBase, Allocation inExponent, Allocation out, boolean relaxed) {
+        short[] arrayInBase = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayInBase, (short) 42);
+        inBase.copyTo(arrayInBase);
+        int[] arrayInExponent = new int[INPUTSIZE * 1];
+        Arrays.fill(arrayInExponent, (int) 42);
+        inExponent.copyTo(arrayInExponent);
+        short[] arrayOut = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 1 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfIntHalf args = new ArgumentsHalfIntHalf();
+                args.inBase = arrayInBase[i];
+                args.inBaseDouble = Float16Utils.convertFloat16ToDouble(args.inBase);
+                args.inExponent = arrayInExponent[i];
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computePown(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 1 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inBase: ");
+                        appendVariableToMessage(message, args.inBase);
+                        message.append("\n");
+                        message.append("Input inExponent: ");
+                        appendVariableToMessage(message, args.inExponent);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 1 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 1 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 1 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkPownHalfIntHalf" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkPownHalf2Int2Half2() {
+        Allocation inBase = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x29ccb2d5l, false);
+        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 2, 0x6e5f9cebl, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
+            script.set_gAllocInExponent(inExponent);
+            script.forEach_testPownHalf2Int2Half2(inBase, out);
+            verifyResultsPownHalf2Int2Half2(inBase, inExponent, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testPownHalf2Int2Half2: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
+            scriptRelaxed.set_gAllocInExponent(inExponent);
+            scriptRelaxed.forEach_testPownHalf2Int2Half2(inBase, out);
+            verifyResultsPownHalf2Int2Half2(inBase, inExponent, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testPownHalf2Int2Half2: " + e.toString());
+        }
+    }
+
+    private void verifyResultsPownHalf2Int2Half2(Allocation inBase, Allocation inExponent, Allocation out, boolean relaxed) {
+        short[] arrayInBase = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayInBase, (short) 42);
+        inBase.copyTo(arrayInBase);
+        int[] arrayInExponent = new int[INPUTSIZE * 2];
+        Arrays.fill(arrayInExponent, (int) 42);
+        inExponent.copyTo(arrayInExponent);
+        short[] arrayOut = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 2 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfIntHalf args = new ArgumentsHalfIntHalf();
+                args.inBase = arrayInBase[i * 2 + j];
+                args.inBaseDouble = Float16Utils.convertFloat16ToDouble(args.inBase);
+                args.inExponent = arrayInExponent[i * 2 + j];
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computePown(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inBase: ");
+                        appendVariableToMessage(message, args.inBase);
+                        message.append("\n");
+                        message.append("Input inExponent: ");
+                        appendVariableToMessage(message, args.inExponent);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 2 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkPownHalf2Int2Half2" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkPownHalf3Int3Half3() {
+        Allocation inBase = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x2f8523b4l, false);
+        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 3, 0x92b63d1al, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            script.set_gAllocInExponent(inExponent);
+            script.forEach_testPownHalf3Int3Half3(inBase, out);
+            verifyResultsPownHalf3Int3Half3(inBase, inExponent, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testPownHalf3Int3Half3: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            scriptRelaxed.set_gAllocInExponent(inExponent);
+            scriptRelaxed.forEach_testPownHalf3Int3Half3(inBase, out);
+            verifyResultsPownHalf3Int3Half3(inBase, inExponent, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testPownHalf3Int3Half3: " + e.toString());
+        }
+    }
+
+    private void verifyResultsPownHalf3Int3Half3(Allocation inBase, Allocation inExponent, Allocation out, boolean relaxed) {
+        short[] arrayInBase = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInBase, (short) 42);
+        inBase.copyTo(arrayInBase);
+        int[] arrayInExponent = new int[INPUTSIZE * 4];
+        Arrays.fill(arrayInExponent, (int) 42);
+        inExponent.copyTo(arrayInExponent);
+        short[] arrayOut = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 3 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfIntHalf args = new ArgumentsHalfIntHalf();
+                args.inBase = arrayInBase[i * 4 + j];
+                args.inBaseDouble = Float16Utils.convertFloat16ToDouble(args.inBase);
+                args.inExponent = arrayInExponent[i * 4 + j];
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computePown(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inBase: ");
+                        appendVariableToMessage(message, args.inBase);
+                        message.append("\n");
+                        message.append("Input inExponent: ");
+                        appendVariableToMessage(message, args.inExponent);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 4 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkPownHalf3Int3Half3" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkPownHalf4Int4Half4() {
+        Allocation inBase = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x353d9493l, false);
+        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 4, 0xb70cdd49l, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            script.set_gAllocInExponent(inExponent);
+            script.forEach_testPownHalf4Int4Half4(inBase, out);
+            verifyResultsPownHalf4Int4Half4(inBase, inExponent, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testPownHalf4Int4Half4: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            scriptRelaxed.set_gAllocInExponent(inExponent);
+            scriptRelaxed.forEach_testPownHalf4Int4Half4(inBase, out);
+            verifyResultsPownHalf4Int4Half4(inBase, inExponent, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testPownHalf4Int4Half4: " + e.toString());
+        }
+    }
+
+    private void verifyResultsPownHalf4Int4Half4(Allocation inBase, Allocation inExponent, Allocation out, boolean relaxed) {
+        short[] arrayInBase = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInBase, (short) 42);
+        inBase.copyTo(arrayInBase);
+        int[] arrayInExponent = new int[INPUTSIZE * 4];
+        Arrays.fill(arrayInExponent, (int) 42);
+        inExponent.copyTo(arrayInExponent);
+        short[] arrayOut = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 4 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfIntHalf args = new ArgumentsHalfIntHalf();
+                args.inBase = arrayInBase[i * 4 + j];
+                args.inBaseDouble = Float16Utils.convertFloat16ToDouble(args.inBase);
+                args.inExponent = arrayInExponent[i * 4 + j];
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computePown(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inBase: ");
+                        appendVariableToMessage(message, args.inBase);
+                        message.append("\n");
+                        message.append("Input inExponent: ");
+                        appendVariableToMessage(message, args.inExponent);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 4 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkPownHalf4Int4Half4" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
     public void testPown() {
         checkPownFloatIntFloat();
         checkPownFloat2Int2Float2();
         checkPownFloat3Int3Float3();
         checkPownFloat4Int4Float4();
+        checkPownHalfIntHalf();
+        checkPownHalf2Int2Half2();
+        checkPownHalf3Int3Half3();
+        checkPownHalf4Int4Half4();
     }
 }

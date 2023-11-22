@@ -79,6 +79,13 @@ void *list_back(const list_t *list) {
   return list->tail->data;
 }
 
+list_node_t *list_back_node(const list_t *list) {
+  assert(list != NULL);
+  assert(!list_is_empty(list));
+
+  return list->tail;
+}
+
 bool list_insert_after(list_t *list, list_node_t *prev_node, void *data) {
   assert(list != NULL);
   assert(prev_node != NULL);
@@ -168,15 +175,17 @@ void list_clear(list_t *list) {
   list->length = 0;
 }
 
-void list_foreach(const list_t *list, list_iter_cb callback) {
+list_node_t *list_foreach(const list_t *list, list_iter_cb callback, void *context) {
   assert(list != NULL);
   assert(callback != NULL);
 
   for (list_node_t *node = list->head; node; ) {
     list_node_t *next = node->next;
-    callback(node->data);
+    if (!callback(node->data, context))
+      return node;
     node = next;
   }
+  return NULL;
 }
 
 list_node_t *list_begin(const list_t *list) {

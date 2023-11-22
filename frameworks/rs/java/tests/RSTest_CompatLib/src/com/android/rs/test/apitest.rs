@@ -116,6 +116,8 @@ rs_matrix2x2 m2x2;
 rs_matrix3x3 m3x3;
 rs_matrix4x4 m4x4;
 
+int RS_KERNEL dummyKernel(int v) { return v; }
+
 // This function just checks that all of the called functions are
 // able to be linked. It is not intended to be executed!
 void check_api_presence() {
@@ -1119,7 +1121,7 @@ void check_api_presence() {
     rsSendToClientBlocking(0);
     rsSendToClientBlocking(0, NULL, 0);
 
-    rsForEach(scriptNonNull, allocNonNull, allocNonNull);
+    rsForEach(dummyKernel, allocNonNull, allocNonNull);
 
     // rs_debug.rsh
     rsDebug("", f);

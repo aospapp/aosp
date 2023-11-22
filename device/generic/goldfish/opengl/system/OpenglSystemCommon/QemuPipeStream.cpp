@@ -88,8 +88,14 @@ int QemuPipeStream::writeFully(const void *buf, size_t len)
     //DBG(">> QemuPipeStream::writeFully %d\n", len);
     if (!valid()) return -1;
     if (!buf) {
-        if (len>0) ERR("QemuPipeStream::writeFully failed, buf=NULL, len %d", len);
-        return 0;
+       if (len>0) {
+            // If len is non-zero, buf must not be NULL. Otherwise the pipe would be
+            // in a corrupted state, which is lethal for the emulator.
+           ERR("QemuPipeStream::writeFully failed, buf=NULL, len %d,"
+                   " lethal error, exiting", len);
+           abort();
+       }
+       return 0;
     }
 
     size_t res = len;
@@ -110,8 +116,9 @@ int QemuPipeStream::writeFully(const void *buf, size_t len)
             continue;
         }
         retval =  stat;
-        ERR("QemuPipeStream::writeFully failed: %s\n", strerror(errno));
-        break;
+        ERR("QemuPipeStream::writeFully failed: %s, lethal error, exiting.\n",
+                strerror(errno));
+        abort();
     }
     //DBG("<< QemuPipeStream::writeFully %d\n", len );
     return retval;
@@ -123,7 +130,11 @@ const unsigned char *QemuPipeStream::readFully(void *buf, size_t len)
     if (!valid()) return NULL;
     if (!buf) {
         if (len > 0) {
-            ERR("QemuPipeStream::readFully failed, buf=NULL, len %zu", len);
+            // If len is non-zero, buf must not be NULL. Otherwise the pipe would be
+            // in a corrupted state, which is lethal for the emulator.
+            ERR("QemuPipeStream::readFully failed, buf=NULL, len %zu, lethal"
+                    " error, exiting.", len);
+            abort();
         }
         return NULL;  // do not allow NULL buf in that implementation
     }
@@ -138,8 +149,9 @@ const unsigned char *QemuPipeStream::readFully(void *buf, size_t len)
                 continue;
             } else {
                 ERR("QemuPipeStream::readFully failed (buf %p, len %zu"
-                    ", res %zu): %s\n", buf, len, res, strerror(errno));
-                return NULL;
+                    ", res %zu): %s, lethal error, exiting.", buf, len, res,
+                    strerror(errno));
+                abort();
             }
         } else {
             res -= stat;

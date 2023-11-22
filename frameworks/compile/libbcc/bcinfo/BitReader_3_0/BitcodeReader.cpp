@@ -224,8 +224,7 @@ namespace {
       IRBuilder<> Builder(Context);
       Builder.SetInsertPoint(UnwindDest, UnwindDest->getFirstInsertionPt());
 
-      Value *PersFn = Sel->getArgOperand(1);
-      LandingPadInst *LPI = Builder.CreateLandingPad(LPadSlotTy, PersFn, 0);
+      LandingPadInst *LPI = Builder.CreateLandingPad(LPadSlotTy, 0);
       Value *LPExn = Builder.CreateExtractValue(LPI, 0);
       Value *LPSel = Builder.CreateExtractValue(LPI, 1);
       Builder.CreateStore(LPExn, ExnSlot);
@@ -250,7 +249,7 @@ namespace {
       std::pair<Value*,Value*> ExnSelSlots = FnToLPadSlotMap[Parent->getParent()];
 
       IRBuilder<> Builder(Context);
-      Builder.SetInsertPoint(Parent, Exn);
+      Builder.SetInsertPoint(Parent, Exn->getIterator());
       LoadInst *LPExn = Builder.CreateLoad(ExnSelSlots.first, "exn.load");
       LoadInst *LPSel = Builder.CreateLoad(ExnSelSlots.second, "sel.load");
 
@@ -275,7 +274,7 @@ namespace {
       BasicBlock *BB = Resume->getParent();
 
       IRBuilder<> Builder(Context);
-      Builder.SetInsertPoint(BB, Resume);
+      Builder.SetInsertPoint(BB, Resume->getIterator());
 
       Value *LPadVal =
         Builder.CreateInsertValue(UndefValue::get(LPadSlotTy),
@@ -285,7 +284,7 @@ namespace {
       Builder.CreateResume(LPadVal);
 
       // Remove all instructions after the 'resume.'
-      BasicBlock::iterator I = Resume;
+      BasicBlock::iterator I = Resume->getIterator();
       while (I != BB->end()) {
         Instruction *Inst = &*I++;
         Inst->eraseFromParent();
@@ -432,7 +431,7 @@ class BitcodeReader : public GVMaterializer {
   std::unique_ptr<MemoryBuffer> Buffer;
   std::unique_ptr<BitstreamReader> StreamFile;
   BitstreamCursor Stream;
-  DataStreamer *LazyStreamer;
+  std::unique_ptr<DataStreamer> LazyStreamer;
   uint64_t NextUnreadBit;
   bool SeenValueSymbolTable;
 
@@ -498,11 +497,11 @@ public:
 
   void releaseBuffer();
 
-  bool isDematerializable(const GlobalValue *GV) const override;
+  bool isDematerializable(const GlobalValue *GV) const;
   std::error_code materialize(GlobalValue *GV) override;
-  std::error_code MaterializeModule(Module *M) override;
+  std::error_code materializeModule() override;
   std::vector<StructType *> getIdentifiedStructTypes() const override;
-  void Dematerialize(GlobalValue *GV) override;
+  void dematerialize(GlobalValue *GV);
 
   /// @brief Main interface to parsing a bitcode buffer.
   /// @returns true if an error occurred.
@@ -2286,15 +2285,15 @@ std::error_code BitcodeReader::GlobalCleanup() {
   for (Module::iterator FI = TheModule->begin(), FE = TheModule->end();
        FI != FE; ++FI) {
     Function *NewFn;
-    if (UpgradeIntrinsicFunction(FI, NewFn))
-      UpgradedIntrinsics.push_back(std::make_pair(FI, NewFn));
+    if (UpgradeIntrinsicFunction(&*FI, NewFn))
+      UpgradedIntrinsics.push_back(std::make_pair(&*FI, NewFn));
   }
 
   // Look for global variables which need to be renamed.
   for (Module::global_iterator
          GI = TheModule->global_begin(), GE = TheModule->global_end();
-       GI != GE;) {
-    GlobalVariable *GV = GI++;
+       GI != GE; GI++) {
+    GlobalVariable *GV = &*GI;
     UpgradeGlobalVariable(GV);
   }
 
@@ -2559,7 +2558,7 @@ std::error_code BitcodeReader::ParseModule(bool Resume) {
     }
     // ALIAS: [alias type, aliasee val#, linkage]
     // ALIAS: [alias type, aliasee val#, linkage, visibility]
-    case bitc::MODULE_CODE_ALIAS: {
+    case bitc::MODULE_CODE_ALIAS_OLD: {
       if (Record.size() < 3)
         return Error("Invalid record");
       Type *Ty = getTypeByID(Record[0]);
@@ -2801,7 +2800,7 @@ std::error_code BitcodeReader::ParseFunctionBody(Function *F) {
 
   // Add all the function arguments to the value table.
   for(Function::arg_iterator I = F->arg_begin(), E = F->arg_end(); I != E; ++I)
-    ValueList.push_back(I);
+    ValueList.push_back(&*I);
 
   unsigned NextValueNo = ValueList.size();
   BasicBlock *CurBB = nullptr;
@@ -3296,12 +3295,8 @@ std::error_code BitcodeReader::ParseFunctionBody(Function *F) {
       // Replace 'unwind' with 'landingpad' and 'resume'.
       Type *ExnTy = StructType::get(Type::getInt8PtrTy(Context),
                                     Type::getInt32Ty(Context), nullptr);
-      Constant *PersFn =
-        F->getParent()->
-        getOrInsertFunction("__gcc_personality_v0",
-                          FunctionType::get(Type::getInt32Ty(Context), true));
 
-      LandingPadInst *LP = LandingPadInst::Create(ExnTy, PersFn, 1);
+      LandingPadInst *LP = LandingPadInst::Create(ExnTy, 1);
       LP->setCleanup(true);
 
       CurBB->getInstList().push_back(LP);
@@ -3334,7 +3329,7 @@ std::error_code BitcodeReader::ParseFunctionBody(Function *F) {
       break;
     }
 
-    case bitc::FUNC_CODE_INST_LANDINGPAD: {
+    case bitc::FUNC_CODE_INST_LANDINGPAD_OLD: {
       // LANDINGPAD: [ty, val, val, num, (id0,val0 ...)?]
       unsigned Idx = 0;
       if (Record.size() < 4)
@@ -3348,7 +3343,7 @@ std::error_code BitcodeReader::ParseFunctionBody(Function *F) {
 
       bool IsCleanup = !!Record[Idx++];
       unsigned NumClauses = Record[Idx++];
-      LandingPadInst *LP = LandingPadInst::Create(Ty, PersFn, NumClauses);
+      LandingPadInst *LP = LandingPadInst::Create(Ty, NumClauses);
       LP->setCleanup(IsCleanup);
       for (unsigned J = 0; J != NumClauses; ++J) {
         LandingPadInst::ClauseType CT =
@@ -3420,7 +3415,7 @@ std::error_code BitcodeReader::ParseFunctionBody(Function *F) {
       InstructionList.push_back(I);
       break;
     }
-    case bitc::FUNC_CODE_INST_STORE: { // STORE2:[ptrty, ptr, val, align, vol]
+    case bitc::FUNC_CODE_INST_STORE_OLD: { // STORE2:[ptrty, ptr, val, align, vol]
       unsigned OpNum = 0;
       Value *Val, *Ptr;
       if (getValueTypePair(Record, OpNum, NextValueNo, Ptr) ||
@@ -3684,7 +3679,7 @@ bool BitcodeReader::isDematerializable(const GlobalValue *GV) const {
   return DeferredFunctionInfo.count(const_cast<Function*>(F));
 }
 
-void BitcodeReader::Dematerialize(GlobalValue *GV) {
+void BitcodeReader::dematerialize(GlobalValue *GV) {
   Function *F = dyn_cast<Function>(GV);
   // If this function isn't dematerializable, this is a noop.
   if (!F || !isDematerializable(F))
@@ -3697,14 +3692,12 @@ void BitcodeReader::Dematerialize(GlobalValue *GV) {
   F->setIsMaterializable(true);
 }
 
-std::error_code BitcodeReader::MaterializeModule(Module *M) {
-  assert(M == TheModule &&
-         "Can only Materialize the Module this BitcodeReader is attached to.");
+std::error_code BitcodeReader::materializeModule() {
   // Iterate over the module, deserializing any functions that are still on
   // disk.
   for (Module::iterator F = TheModule->begin(), E = TheModule->end();
        F != E; ++F) {
-    if (std::error_code EC = materialize(F))
+    if (std::error_code EC = materialize(&*F))
       return EC;
   }
   // At this point, if there are any function bodies, the current bit is
@@ -3733,7 +3726,7 @@ std::error_code BitcodeReader::MaterializeModule(Module *M) {
   std::vector<std::pair<Function*, Function*> >().swap(UpgradedIntrinsics);
 
   // Upgrade to new EH scheme. N.B. This will go away in 3.1.
-  UpgradeExceptionHandling(M);
+  UpgradeExceptionHandling(TheModule);
 
   // Check debug info intrinsics.
   CheckDebugInfoIntrinsics(TheModule);
@@ -3773,7 +3766,8 @@ std::error_code BitcodeReader::InitStreamFromBuffer() {
 std::error_code BitcodeReader::InitLazyStream() {
   // Check and strip off the bitcode wrapper; BitstreamReader expects never to
   // see it.
-  auto OwnedBytes = llvm::make_unique<StreamingMemoryObject>(LazyStreamer);
+  auto OwnedBytes = llvm::make_unique<StreamingMemoryObject>(
+      std::move(LazyStreamer));
   StreamingMemoryObject &Bytes = *OwnedBytes;
   StreamFile = llvm::make_unique<BitstreamReader>(std::move(OwnedBytes));
   Stream.init(&*StreamFile);
@@ -3867,7 +3861,7 @@ llvm_3_0::parseBitcodeFile(MemoryBufferRef Buffer, LLVMContext &Context,
     return ModuleOrErr;
   Module *M = ModuleOrErr.get();
   // Read in the entire module, and destroy the BitcodeReader.
-  if (std::error_code EC = M->materializeAllPermanently()) {
+  if (std::error_code EC = M->materializeAll()) {
     delete M;
     return EC;
   }

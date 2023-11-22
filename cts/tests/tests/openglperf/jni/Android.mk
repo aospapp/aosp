@@ -24,7 +24,7 @@ LOCAL_SRC_FILES := OpenGlPerfNativeJni.cpp
 
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE) $(call include-path-for, system-core) frameworks/native/opengl/include
 
-LOCAL_SHARED_LIBRARIES := libnativehelper libcutils liblog libGLES_trace libEGL
+LOCAL_SHARED_LIBRARIES := libnativehelper_compat_libc++ liblog libEGL
 
 LOCAL_SDK_VERSION := 14
 

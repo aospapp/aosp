@@ -16,7 +16,7 @@
 
 package android.view.animation.cts;
 
-import com.android.cts.view.R;
+import android.view.cts.R;
 
 import android.app.Activity;
 import android.database.DataSetObserver;

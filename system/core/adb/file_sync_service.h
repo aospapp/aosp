@@ -18,15 +18,12 @@
 #define _FILE_SYNC_SERVICE_H_
 
 #include <string>
-
-#define htoll(x) (x)
-#define ltohl(x) (x)
+#include <vector>
 
 #define MKID(a,b,c,d) ((a) | ((b) << 8) | ((c) << 16) | ((d) << 24))
 
 #define ID_STAT MKID('S','T','A','T')
 #define ID_LIST MKID('L','I','S','T')
-#define ID_ULNK MKID('U','L','N','K')
 #define ID_SEND MKID('S','E','N','D')
 #define ID_RECV MKID('R','E','C','V')
 #define ID_DENT MKID('D','E','N','T')
@@ -36,41 +33,43 @@
 #define ID_FAIL MKID('F','A','I','L')
 #define ID_QUIT MKID('Q','U','I','T')
 
+struct SyncRequest {
+    uint32_t id;  // ID_STAT, et cetera.
+    uint32_t path_length;  // <= 1024
+    // Followed by 'path_length' bytes of path (not NUL-terminated).
+} __attribute__((packed)) ;
+
 union syncmsg {
-    unsigned id;
-    struct {
-        unsigned id;
-        unsigned namelen;
-    } req;
-    struct {
-        unsigned id;
-        unsigned mode;
-        unsigned size;
-        unsigned time;
+    struct __attribute__((packed)) {
+        uint32_t id;
+        uint32_t mode;
+        uint32_t size;
+        uint32_t time;
     } stat;
-    struct {
-        unsigned id;
-        unsigned mode;
-        unsigned size;
-        unsigned time;
-        unsigned namelen;
+    struct __attribute__((packed)) {
+        uint32_t id;
+        uint32_t mode;
+        uint32_t size;
+        uint32_t time;
+        uint32_t namelen;
     } dent;
-    struct {
-        unsigned id;
-        unsigned size;
+    struct __attribute__((packed)) {
+        uint32_t id;
+        uint32_t size;
     } data;
-    struct {
-        unsigned id;
-        unsigned msglen;
+    struct __attribute__((packed)) {
+        uint32_t id;
+        uint32_t msglen;
     } status;
-} ;
+};
 
+void file_sync_service(int fd, void* cookie);
+bool do_sync_ls(const char* path);
+bool do_sync_push(const std::vector<const char*>& srcs, const char* dst);
+bool do_sync_pull(const std::vector<const char*>& srcs, const char* dst,
+                  bool copy_attrs, const char* name=nullptr);
 
-void file_sync_service(int fd, void *cookie);
-int do_sync_ls(const char *path);
-int do_sync_push(const char *lpath, const char *rpath, int show_progress);
-int do_sync_sync(const std::string& lpath, const std::string& rpath, bool list_only);
-int do_sync_pull(const char *rpath, const char *lpath, int show_progress, int pullTime);
+bool do_sync_sync(const std::string& lpath, const std::string& rpath, bool list_only);
 
 #define SYNC_DATA_MAX (64*1024)
 

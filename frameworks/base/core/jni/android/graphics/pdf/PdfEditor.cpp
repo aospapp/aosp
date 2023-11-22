@@ -51,22 +51,22 @@ static struct {
     jfieldID bottom;
 } gRectClassInfo;
 
-static Mutex sLock;
-
-static int sUnmatchedInitRequestCount = 0;
+// Also used in PdfRenderer.cpp
+Mutex sPdfiumLock;
+int sUnmatchedPdfiumInitRequestCount = 0;
 
 static void initializeLibraryIfNeeded() {
-    Mutex::Autolock _l(sLock);
-    if (sUnmatchedInitRequestCount == 0) {
+    Mutex::Autolock _l(sPdfiumLock);
+    if (sUnmatchedPdfiumInitRequestCount == 0) {
         FPDF_InitLibrary();
     }
-    sUnmatchedInitRequestCount++;
+    sUnmatchedPdfiumInitRequestCount++;
 }
 
 static void destroyLibraryIfNeeded() {
-    Mutex::Autolock _l(sLock);
-    sUnmatchedInitRequestCount--;
-    if (sUnmatchedInitRequestCount == 0) {
+    Mutex::Autolock _l(sPdfiumLock);
+    sUnmatchedPdfiumInitRequestCount--;
+    if (sUnmatchedPdfiumInitRequestCount == 0) {
        FPDF_DestroyLibrary();
     }
 }
@@ -196,7 +196,7 @@ static void nativeSetTransformAndClip(JNIEnv* env, jclass thiz, jlong documentPt
         return;
     }
 
-    CFX_AffineMatrix matrix;
+    CFX_Matrix matrix;
 
     SkMatrix* skTransform = reinterpret_cast<SkMatrix*>(transformPtr);
 
@@ -343,7 +343,7 @@ static void nativeSetPageCropBox(JNIEnv* env, jclass thiz, jlong documentPtr, ji
     nativeSetPageBox(env, thiz, documentPtr, pageIndex, PAGE_BOX_CROP, mediaBox);
 }
 
-static JNINativeMethod gPdfEditor_Methods[] = {
+static const JNINativeMethod gPdfEditor_Methods[] = {
     {"nativeOpen", "(IJ)J", (void*) nativeOpen},
     {"nativeClose", "(J)V", (void*) nativeClose},
     {"nativeGetPageCount", "(J)I", (void*) nativeGetPageCount},

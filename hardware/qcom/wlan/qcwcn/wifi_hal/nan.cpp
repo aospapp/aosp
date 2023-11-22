@@ -16,9 +16,8 @@
 
 #include "sync.h"
 
-#include "nan.h"
-#include "nan_i.h"
 #include "wifi_hal.h"
+#include "nan_i.h"
 #include "common.h"
 #include "cpp_bindings.h"
 #include <utils/Log.h>
@@ -38,20 +37,25 @@
 NanCommand* NanCommand::mNanCommandInstance  = NULL;
 
 //Implementation of the functions exposed in nan.h
-wifi_error nan_register_handler(wifi_handle handle,
-                                NanCallbackHandler handlers,
-                                void* userdata)
+wifi_error nan_register_handler(wifi_interface_handle iface,
+                                NanCallbackHandler handlers)
 {
     // Obtain the singleton instance
     int ret = 0;
-    NanCommand *nCommand;
+    NanCommand *nanCommand = NULL;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
+    wifi_handle wifiHandle = getWifiHandle(iface);
 
-    nCommand = NanCommand::instance(handle);
-    if (nCommand == NULL) {
+    nanCommand = NanCommand::instance(wifiHandle);
+    if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __func__);
         return WIFI_ERROR_UNKNOWN;
     }
-    ret = nCommand->setCallbackHandler(handlers, userdata);
+
+    ret = nanCommand->setCallbackHandler(handlers);
+    return (wifi_error)ret;
+
+cleanup:
     return (wifi_error)ret;
 }
 
@@ -63,282 +67,421 @@ wifi_error nan_get_version(wifi_handle handle,
 }
 
 /*  Function to send enable request to the wifi driver.*/
-wifi_error nan_enable_request(wifi_request_id id,
-                              wifi_handle handle,
+wifi_error nan_enable_request(transaction_id id,
+                              wifi_interface_handle iface,
                               NanEnableRequest* msg)
 {
     int ret = 0;
-    NanCommand *nCommand;
+    NanCommand *nanCommand = NULL;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
+    wifi_handle wifiHandle = getWifiHandle(iface);
 
-    nCommand = NanCommand::instance(handle);
-    if (nCommand == NULL) {
+    nanCommand = new NanCommand(wifiHandle,
+                                0,
+                                OUI_QCA,
+                                QCA_NL80211_VENDOR_SUBCMD_NAN);
+    if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __func__);
         return WIFI_ERROR_UNKNOWN;
     }
 
-    ret = nCommand->putNanEnable(msg);
+    ret = nanCommand->create();
+    if (ret < 0)
+        goto cleanup;
+
+    /* Set the interface Id of the message. */
+    ret = nanCommand->set_iface_id(ifaceInfo->name);
+    if (ret < 0)
+        goto cleanup;
+
+    ret = nanCommand->putNanEnable(id, msg);
     if (ret != 0) {
         ALOGE("%s: putNanEnable Error:%d",__func__, ret);
         goto cleanup;
     }
-    nCommand->setId(id);
-    ret = nCommand->requestEvent();
+    ret = nanCommand->requestEvent();
     if (ret != 0) {
         ALOGE("%s: requestEvent Error:%d",__func__, ret);
     }
 cleanup:
+    delete nanCommand;
     return (wifi_error)ret;
 }
 
 /*  Function to send disable request to the wifi driver.*/
-wifi_error nan_disable_request(wifi_request_id id,
-                               wifi_handle handle,
-                               NanDisableRequest* msg)
+wifi_error nan_disable_request(transaction_id id,
+                               wifi_interface_handle iface)
 {
     int ret = 0;
-    NanCommand *nCommand;
+    NanCommand *nanCommand = NULL;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
+    wifi_handle wifiHandle = getWifiHandle(iface);
 
-    nCommand = NanCommand::instance(handle);
-    if (nCommand == NULL) {
+    nanCommand = new NanCommand(wifiHandle,
+                                0,
+                                OUI_QCA,
+                                QCA_NL80211_VENDOR_SUBCMD_NAN);
+    if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __func__);
         return WIFI_ERROR_UNKNOWN;
     }
 
-    ret = nCommand->putNanDisable(msg);
+    ret = nanCommand->create();
+    if (ret < 0)
+        goto cleanup;
+
+    /* Set the interface Id of the message. */
+    ret = nanCommand->set_iface_id(ifaceInfo->name);
+    if (ret < 0)
+        goto cleanup;
+
+    ret = nanCommand->putNanDisable(id);
     if (ret != 0) {
         ALOGE("%s: putNanDisable Error:%d",__func__, ret);
         goto cleanup;
     }
-    nCommand->setId(id);
-    ret = nCommand->requestEvent();
+    ret = nanCommand->requestEvent();
     if (ret != 0) {
         ALOGE("%s: requestEvent Error:%d",__func__, ret);
     }
 cleanup:
+    delete nanCommand;
     return (wifi_error)ret;
 }
 
 /*  Function to send publish request to the wifi driver.*/
-wifi_error nan_publish_request(wifi_request_id id,
-                               wifi_handle handle,
+wifi_error nan_publish_request(transaction_id id,
+                               wifi_interface_handle iface,
                                NanPublishRequest* msg)
 {
     int ret = 0;
-    NanCommand *nCommand;
+    NanCommand *nanCommand = NULL;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
+    wifi_handle wifiHandle = getWifiHandle(iface);
 
-    nCommand = NanCommand::instance(handle);
-    if (nCommand == NULL) {
+    nanCommand = new NanCommand(wifiHandle,
+                                0,
+                                OUI_QCA,
+                                QCA_NL80211_VENDOR_SUBCMD_NAN);
+    if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __func__);
         return WIFI_ERROR_UNKNOWN;
     }
 
-    ret = nCommand->putNanPublish(msg);
+    ret = nanCommand->create();
+    if (ret < 0)
+        goto cleanup;
+
+    /* Set the interface Id of the message. */
+    ret = nanCommand->set_iface_id(ifaceInfo->name);
+    if (ret < 0)
+        goto cleanup;
+
+    ret = nanCommand->putNanPublish(id, msg);
     if (ret != 0) {
         ALOGE("%s: putNanPublish Error:%d",__func__, ret);
         goto cleanup;
     }
-    nCommand->setId(id);
-    ret = nCommand->requestEvent();
+    ret = nanCommand->requestEvent();
     if (ret != 0) {
         ALOGE("%s: requestEvent Error:%d",__func__, ret);
     }
 cleanup:
+    delete nanCommand;
     return (wifi_error)ret;
 }
 
 /*  Function to send publish cancel to the wifi driver.*/
-wifi_error nan_publish_cancel_request(wifi_request_id id,
-                                      wifi_handle handle,
+wifi_error nan_publish_cancel_request(transaction_id id,
+                                      wifi_interface_handle iface,
                                       NanPublishCancelRequest* msg)
 {
     int ret = 0;
-    NanCommand *nCommand;
+    NanCommand *nanCommand = NULL;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
+    wifi_handle wifiHandle = getWifiHandle(iface);
 
-    nCommand = NanCommand::instance(handle);
-    if (nCommand == NULL) {
+    nanCommand = new NanCommand(wifiHandle,
+                                0,
+                                OUI_QCA,
+                                QCA_NL80211_VENDOR_SUBCMD_NAN);
+    if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __func__);
         return WIFI_ERROR_UNKNOWN;
     }
 
-    ret = nCommand->putNanPublishCancel(msg);
+    ret = nanCommand->create();
+    if (ret < 0)
+        goto cleanup;
+
+    /* Set the interface Id of the message. */
+    ret = nanCommand->set_iface_id(ifaceInfo->name);
+    if (ret < 0)
+        goto cleanup;
+
+    ret = nanCommand->putNanPublishCancel(id, msg);
     if (ret != 0) {
         ALOGE("%s: putNanPublishCancel Error:%d",__func__, ret);
         goto cleanup;
     }
-    nCommand->setId(id);
-    ret = nCommand->requestEvent();
+    ret = nanCommand->requestEvent();
     if (ret != 0) {
         ALOGE("%s: requestEvent Error:%d",__func__, ret);
     }
 cleanup:
+    delete nanCommand;
     return (wifi_error)ret;
 }
 
 /*  Function to send Subscribe request to the wifi driver.*/
-wifi_error nan_subscribe_request(wifi_request_id id,
-                                 wifi_handle handle,
+wifi_error nan_subscribe_request(transaction_id id,
+                                 wifi_interface_handle iface,
                                  NanSubscribeRequest* msg)
 {
     int ret = 0;
-    NanCommand *nCommand;
+    NanCommand *nanCommand = NULL;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
+    wifi_handle wifiHandle = getWifiHandle(iface);
 
-    nCommand = NanCommand::instance(handle);
-    if (nCommand == NULL) {
+    nanCommand = new NanCommand(wifiHandle,
+                                0,
+                                OUI_QCA,
+                                QCA_NL80211_VENDOR_SUBCMD_NAN);
+    if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __func__);
         return WIFI_ERROR_UNKNOWN;
     }
 
-    ret = nCommand->putNanSubscribe(msg);
+    ret = nanCommand->create();
+    if (ret < 0)
+        goto cleanup;
+
+    /* Set the interface Id of the message. */
+    ret = nanCommand->set_iface_id(ifaceInfo->name);
+    if (ret < 0)
+        goto cleanup;
+
+    ret = nanCommand->putNanSubscribe(id, msg);
     if (ret != 0) {
         ALOGE("%s: putNanSubscribe Error:%d",__func__, ret);
         goto cleanup;
     }
-    nCommand->setId(id);
-    ret = nCommand->requestEvent();
+    ret = nanCommand->requestEvent();
     if (ret != 0) {
         ALOGE("%s: requestEvent Error:%d",__func__, ret);
     }
 cleanup:
+    delete nanCommand;
     return (wifi_error)ret;
 }
 
 /*  Function to cancel subscribe to the wifi driver.*/
-wifi_error nan_subscribe_cancel_request(wifi_request_id id,
-                                        wifi_handle handle,
+wifi_error nan_subscribe_cancel_request(transaction_id id,
+                                        wifi_interface_handle iface,
                                         NanSubscribeCancelRequest* msg)
 {
     int ret = 0;
-    NanCommand *nCommand;
+    NanCommand *nanCommand = NULL;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
+    wifi_handle wifiHandle = getWifiHandle(iface);
 
-    nCommand = NanCommand::instance(handle);
-    if (nCommand == NULL) {
+    nanCommand = new NanCommand(wifiHandle,
+                                0,
+                                OUI_QCA,
+                                QCA_NL80211_VENDOR_SUBCMD_NAN);
+    if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __func__);
         return WIFI_ERROR_UNKNOWN;
     }
 
-    ret = nCommand->putNanSubscribeCancel(msg);
+    ret = nanCommand->create();
+    if (ret < 0)
+        goto cleanup;
+
+    /* Set the interface Id of the message. */
+    ret = nanCommand->set_iface_id(ifaceInfo->name);
+    if (ret < 0)
+        goto cleanup;
+
+    ret = nanCommand->putNanSubscribeCancel(id, msg);
     if (ret != 0) {
         ALOGE("%s: putNanSubscribeCancel Error:%d",__func__, ret);
         goto cleanup;
     }
-    nCommand->setId(id);
-    ret = nCommand->requestEvent();
+    ret = nanCommand->requestEvent();
     if (ret != 0) {
         ALOGE("%s: requestEvent Error:%d",__func__, ret);
     }
 cleanup:
+    delete nanCommand;
     return (wifi_error)ret;
 }
 
 /*  Function to send NAN follow up request to the wifi driver.*/
-wifi_error nan_transmit_followup_request(wifi_request_id id,
-                                         wifi_handle handle,
+wifi_error nan_transmit_followup_request(transaction_id id,
+                                         wifi_interface_handle iface,
                                          NanTransmitFollowupRequest* msg)
 {
     int ret = 0;
-    NanCommand *nCommand;
+    NanCommand *nanCommand = NULL;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
+    wifi_handle wifiHandle = getWifiHandle(iface);
 
-    nCommand = NanCommand::instance(handle);
-    if (nCommand == NULL) {
+    nanCommand = new NanCommand(wifiHandle,
+                                0,
+                                OUI_QCA,
+                                QCA_NL80211_VENDOR_SUBCMD_NAN);
+    if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __func__);
         return WIFI_ERROR_UNKNOWN;
     }
 
-    ret = nCommand->putNanTransmitFollowup(msg);
+    ret = nanCommand->create();
+    if (ret < 0)
+        goto cleanup;
+
+    /* Set the interface Id of the message. */
+    ret = nanCommand->set_iface_id(ifaceInfo->name);
+    if (ret < 0)
+        goto cleanup;
+
+    ret = nanCommand->putNanTransmitFollowup(id, msg);
     if (ret != 0) {
         ALOGE("%s: putNanTransmitFollowup Error:%d",__func__, ret);
         goto cleanup;
     }
-    nCommand->setId(id);
-    ret = nCommand->requestEvent();
+    ret = nanCommand->requestEvent();
     if (ret != 0) {
         ALOGE("%s: requestEvent Error:%d",__func__, ret);
     }
 cleanup:
+    delete nanCommand;
     return (wifi_error)ret;
 }
 
 /*  Function to send NAN statistics request to the wifi driver.*/
-wifi_error nan_stats_request(wifi_request_id id,
-                             wifi_handle handle,
+wifi_error nan_stats_request(transaction_id id,
+                             wifi_interface_handle iface,
                              NanStatsRequest* msg)
 {
     int ret = 0;
-    NanCommand *nCommand;
+    NanCommand *nanCommand = NULL;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
+    wifi_handle wifiHandle = getWifiHandle(iface);
 
-    nCommand = NanCommand::instance(handle);
-    if (nCommand == NULL) {
+    nanCommand = new NanCommand(wifiHandle,
+                                0,
+                                OUI_QCA,
+                                QCA_NL80211_VENDOR_SUBCMD_NAN);
+    if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __func__);
         return WIFI_ERROR_UNKNOWN;
     }
 
-    ret = nCommand->putNanStats(msg);
+    ret = nanCommand->create();
+    if (ret < 0)
+        goto cleanup;
+
+    /* Set the interface Id of the message. */
+    ret = nanCommand->set_iface_id(ifaceInfo->name);
+    if (ret < 0)
+        goto cleanup;
+
+    ret = nanCommand->putNanStats(id, msg);
     if (ret != 0) {
         ALOGE("%s: putNanStats Error:%d",__func__, ret);
         goto cleanup;
     }
-    nCommand->setId(id);
-    ret = nCommand->requestEvent();
+    ret = nanCommand->requestEvent();
     if (ret != 0) {
         ALOGE("%s: requestEvent Error:%d",__func__, ret);
     }
 cleanup:
+    delete nanCommand;
     return (wifi_error)ret;
 }
 
 /*  Function to send NAN configuration request to the wifi driver.*/
-wifi_error nan_config_request(wifi_request_id id,
-                              wifi_handle handle,
+wifi_error nan_config_request(transaction_id id,
+                              wifi_interface_handle iface,
                               NanConfigRequest* msg)
 {
     int ret = 0;
-    NanCommand *nCommand;
+    NanCommand *nanCommand = NULL;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
+    wifi_handle wifiHandle = getWifiHandle(iface);
 
-    nCommand = NanCommand::instance(handle);
-    if (nCommand == NULL) {
+    nanCommand = new NanCommand(wifiHandle,
+                                0,
+                                OUI_QCA,
+                                QCA_NL80211_VENDOR_SUBCMD_NAN);
+    if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __func__);
         return WIFI_ERROR_UNKNOWN;
     }
 
-    ret = nCommand->putNanConfig(msg);
+    ret = nanCommand->create();
+    if (ret < 0)
+        goto cleanup;
+
+    /* Set the interface Id of the message. */
+    ret = nanCommand->set_iface_id(ifaceInfo->name);
+    if (ret < 0)
+        goto cleanup;
+
+    ret = nanCommand->putNanConfig(id, msg);
     if (ret != 0) {
         ALOGE("%s: putNanConfig Error:%d",__func__, ret);
         goto cleanup;
     }
-    nCommand->setId(id);
-    ret = nCommand->requestEvent();
+    ret = nanCommand->requestEvent();
     if (ret != 0) {
         ALOGE("%s: requestEvent Error:%d",__func__, ret);
     }
 cleanup:
+    delete nanCommand;
     return (wifi_error)ret;
 }
 
 /*  Function to send NAN request to the wifi driver.*/
-wifi_error nan_tca_request(wifi_request_id id,
-                           wifi_handle handle,
+wifi_error nan_tca_request(transaction_id id,
+                           wifi_interface_handle iface,
                            NanTCARequest* msg)
 {
     int ret = 0;
-    NanCommand *nCommand;
+    NanCommand *nanCommand = NULL;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
+    wifi_handle wifiHandle = getWifiHandle(iface);
 
-    nCommand = NanCommand::instance(handle);
-    if (nCommand == NULL) {
+    nanCommand = new NanCommand(wifiHandle,
+                                0,
+                                OUI_QCA,
+                                QCA_NL80211_VENDOR_SUBCMD_NAN);
+    if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __func__);
         return WIFI_ERROR_UNKNOWN;
     }
 
-    ret = nCommand->putNanTCA(msg);
+    ret = nanCommand->create();
+    if (ret < 0)
+        goto cleanup;
+
+    /* Set the interface Id of the message. */
+    ret = nanCommand->set_iface_id(ifaceInfo->name);
+    if (ret < 0)
+        goto cleanup;
+
+    ret = nanCommand->putNanTCA(id, msg);
     if (ret != 0) {
         ALOGE("%s: putNanTCA Error:%d",__func__, ret);
         goto cleanup;
     }
-    nCommand->setId(id);
-    ret = nCommand->requestEvent();
+    ret = nanCommand->requestEvent();
     if (ret != 0) {
         ALOGE("%s: requestEvent Error:%d",__func__, ret);
     }
 cleanup:
+    delete nanCommand;
     return (wifi_error)ret;
 }
 
@@ -346,57 +489,111 @@ cleanup:
     This instructs the Discovery Engine to begin publishing the
     received payload in any Beacon or Service Discovery Frame
     transmitted*/
-wifi_error nan_beacon_sdf_payload_request(wifi_request_id id,
-                                         wifi_handle handle,
+wifi_error nan_beacon_sdf_payload_request(transaction_id id,
+                                         wifi_interface_handle iface,
                                          NanBeaconSdfPayloadRequest* msg)
 {
     int ret = WIFI_ERROR_NOT_SUPPORTED;
-#ifdef NAN_2_0
-    NanCommand *nCommand;
+    NanCommand *nanCommand = NULL;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
+    wifi_handle wifiHandle = getWifiHandle(iface);
 
-    nCommand = NanCommand::instance(handle);
-    if (nCommand == NULL) {
+    nanCommand = new NanCommand(wifiHandle,
+                                0,
+                                OUI_QCA,
+                                QCA_NL80211_VENDOR_SUBCMD_NAN);
+    if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __func__);
         return WIFI_ERROR_UNKNOWN;
     }
 
-    ret = nCommand->putNanBeaconSdfPayload(msg);
+    ret = nanCommand->create();
+    if (ret < 0)
+        goto cleanup;
+
+    /* Set the interface Id of the message. */
+    ret = nanCommand->set_iface_id(ifaceInfo->name);
+    if (ret < 0)
+        goto cleanup;
+
+    ret = nanCommand->putNanBeaconSdfPayload(id, msg);
     if (ret != 0) {
         ALOGE("%s: putNanBeaconSdfPayload Error:%d",__func__, ret);
         goto cleanup;
     }
-    nCommand->setId(id);
-    ret = nCommand->requestEvent();
+    ret = nanCommand->requestEvent();
     if (ret != 0) {
         ALOGE("%s: requestEvent Error:%d",__func__, ret);
     }
-#endif /* NAN_2_0 */
+
 cleanup:
+    delete nanCommand;
     return (wifi_error)ret;
 }
 
-wifi_error nan_get_sta_parameter(wifi_request_id id,
-                                 wifi_handle handle,
+wifi_error nan_get_sta_parameter(transaction_id id,
+                                 wifi_interface_handle iface,
                                  NanStaParameter* msg)
 {
     int ret = WIFI_ERROR_NOT_SUPPORTED;
-#ifdef NAN_2_0
-    NanCommand *nCommand;
+    NanCommand *nanCommand = NULL;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
+    wifi_handle wifiHandle = getWifiHandle(iface);
 
-    nCommand = NanCommand::instance(handle);
-    if (nCommand == NULL) {
+    nanCommand = NanCommand::instance(wifiHandle);
+    if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __func__);
         return WIFI_ERROR_UNKNOWN;
     }
 
-    nCommand->setId(id);
-    ret = nCommand->getNanStaParameter(msg);
+    ret = nanCommand->getNanStaParameter(iface, msg);
     if (ret != 0) {
         ALOGE("%s: getNanStaParameter Error:%d",__func__, ret);
         goto cleanup;
     }
-#endif /* NAN_2_0 */
+
 cleanup:
+    return (wifi_error)ret;
+}
+
+/*  Function to get NAN capabilities */
+wifi_error nan_get_capabilities(transaction_id id,
+                                wifi_interface_handle iface)
+{
+    int ret = 0;
+    NanCommand *nanCommand = NULL;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
+    wifi_handle wifiHandle = getWifiHandle(iface);
+
+    nanCommand = new NanCommand(wifiHandle,
+                                0,
+                                OUI_QCA,
+                                QCA_NL80211_VENDOR_SUBCMD_NAN);
+    if (nanCommand == NULL) {
+        ALOGE("%s: Error NanCommand NULL", __func__);
+        return WIFI_ERROR_UNKNOWN;
+    }
+
+    ret = nanCommand->create();
+    if (ret < 0)
+        goto cleanup;
+
+    /* Set the interface Id of the message. */
+    ret = nanCommand->set_iface_id(ifaceInfo->name);
+    if (ret < 0)
+        goto cleanup;
+
+    ret = nanCommand->putNanCapabilities(id);
+    if (ret != 0) {
+        ALOGE("%s: putNanCapabilities Error:%d",__func__, ret);
+        goto cleanup;
+    }
+    ret = nanCommand->requestEvent();
+    if (ret != 0) {
+        ALOGE("%s: requestEvent Error:%d",__func__, ret);
+    }
+cleanup:
+    delete nanCommand;
     return (wifi_error)ret;
 }
 
@@ -406,12 +603,10 @@ cleanup:
 NanCommand::NanCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd)
         : WifiVendorCommand(handle, id, vendor_id, subcmd)
 {
-    ALOGV("NanCommand %p constructed", this);
     memset(&mHandler, 0,sizeof(mHandler));
     mNanVendorEvent = NULL;
     mNanDataLen = 0;
     mStaParam = NULL;
-    mUserData = NULL;
 }
 
 NanCommand* NanCommand::instance(wifi_handle handle)
@@ -440,29 +635,30 @@ NanCommand* NanCommand::instance(wifi_handle handle)
     return mNanCommandInstance;
 }
 
+void NanCommand::cleanup()
+{
+    //free the VendorData
+    if (mVendorData) {
+        free(mVendorData);
+    }
+    mVendorData = NULL;
+    //cleanup the mMsg
+    mMsg.destroy();
+}
+
 NanCommand::~NanCommand()
 {
     ALOGV("NanCommand %p destroyed", this);
-    unregisterVendorHandler(mVendor_id, mSubcmd);
 }
 
-// This function implements creation of Vendor command
-// For NAN just call base Vendor command create
-int NanCommand::create() {
-    return (WifiVendorCommand::create());
-}
-
-int NanCommand::handleResponse(WifiEvent reply){
-    ALOGI("skipping a response");
+int NanCommand::handleResponse(WifiEvent &reply){
     return NL_SKIP;
 }
 
-int NanCommand::setCallbackHandler(NanCallbackHandler nHandler,
-                                   void *pUserData)
+int NanCommand::setCallbackHandler(NanCallbackHandler nHandler)
 {
     int res = 0;
     mHandler = nHandler;
-    mUserData = pUserData;
     res = registerVendorHandler(mVendor_id, mSubcmd);
     if (res != 0) {
         //error case should not happen print log
@@ -472,13 +668,37 @@ int NanCommand::setCallbackHandler(NanCallbackHandler nHandler,
     return res;
 }
 
+/* This function implements creation of Vendor command */
+int NanCommand::create() {
+    int ret = mMsg.create(NL80211_CMD_VENDOR, 0, 0);
+    if (ret < 0) {
+        goto out;
+    }
+
+    /* Insert the oui in the msg */
+    ret = mMsg.put_u32(NL80211_ATTR_VENDOR_ID, mVendor_id);
+    if (ret < 0)
+        goto out;
+    /* Insert the subcmd in the msg */
+    ret = mMsg.put_u32(NL80211_ATTR_VENDOR_SUBCMD, mSubcmd);
+    if (ret < 0)
+        goto out;
+out:
+    if (ret < 0) {
+        mMsg.destroy();
+    }
+    return ret;
+}
+
 // This function will be the main handler for incoming event
 // QCA_NL80211_VENDOR_SUBCMD_NAN
 //Call the appropriate callback handler after parsing the vendor data.
 int NanCommand::handleEvent(WifiEvent &event)
 {
-    ALOGI("Got a NAN message from Driver");
     WifiVendorCommand::handleEvent(event);
+    ALOGV("%s: Subcmd=%u Vendor data len received:%d",
+          __FUNCTION__, mSubcmd, mDataLen);
+    hexdump(mVendorData, mDataLen);
 
     if (mSubcmd == QCA_NL80211_VENDOR_SUBCMD_NAN){
         // Parse the vendordata and get the NAN attribute
@@ -553,7 +773,6 @@ u16 NANTLV_WriteTlv(pNanTlv pInTlv, u8 *pOutTlv)
 u16 NANTLV_ReadTlv(u8 *pInTlv, pNanTlv pOutTlv)
 {
     u16 readLen = 0;
-    u16 tmp = 0;
 
     if (!pInTlv)
     {
@@ -589,14 +808,7 @@ u16 NANTLV_ReadTlv(u8 *pInTlv, pNanTlv pOutTlv)
         pOutTlv->value = NULL;
     }
 
-    ALOGV("READ TLV value %u, readLen %u", pOutTlv->value, readLen);
-
-    /* Map the right TLV value based on NAN version in Firmware
-       which the framework can understand*/
-    tmp = pOutTlv->type;
-    pOutTlv->type = getNanTlvtypeFromFWTlvtype(pOutTlv->type);
-    ALOGI("%s: FWTlvtype:%d NanTlvtype:%d", __func__,
-          tmp, pOutTlv->type);
+    ALOGV("READ TLV  readLen %u", readLen);
     return readLen;
 }
 
@@ -604,13 +816,6 @@ u8* addTlv(u16 type, u16 length, const u8* value, u8* pOutTlv)
 {
    NanTlv nanTlv;
    u16 len;
-   u16 tmp =0;
-
-   /* Set the right TLV based on NAN version in Firmware */
-   tmp = type;
-   type = getFWTlvtypeFromNanTlvtype(type);
-   ALOGI("%s: NanTlvtype:%d FWTlvtype:%d", __func__,
-         tmp, type);
 
    nanTlv.type = type;
    nanTlv.length = length;
@@ -618,266 +823,4 @@ u8* addTlv(u16 type, u16 length, const u8* value, u8* pOutTlv)
 
    len = NANTLV_WriteTlv(&nanTlv, pOutTlv);
    return (pOutTlv + len);
-}
-
-void NanCommand::setId(int nId)
-{
-    mId = nId;
-}
-
-u16 getNanTlvtypeFromFWTlvtype(u16 fwTlvtype)
-{
-#ifndef NAN_2_0
-    /* In case of Pronto no mapping required */
-    return fwTlvtype;
-#else /* NAN_2_0 */
-    if (fwTlvtype <= NAN_TLV_TYPE_FW_SERVICE_SPECIFIC_INFO) {
-        /* return the TLV value as is */
-        return fwTlvtype;
-    }
-    if (fwTlvtype >= NAN_TLV_TYPE_FW_TCA_LAST) {
-        return fwTlvtype;
-    }
-    /* Other FW TLV values and Config types map it
-       appropriately
-    */
-    switch (fwTlvtype) {
-    case NAN_TLV_TYPE_FW_EXT_SERVICE_SPECIFIC_INFO:
-        return NAN_TLV_TYPE_EXT_SERVICE_SPECIFIC_INFO;
-    case NAN_TLV_TYPE_FW_VENDOR_SPECIFIC_ATTRIBUTE_TRANSMIT:
-        return NAN_TLV_TYPE_VENDOR_SPECIFIC_ATTRIBUTE_TRANSMIT;
-    case NAN_TLV_TYPE_FW_VENDOR_SPECIFIC_ATTRIBUTE_RECEIVE:
-        return NAN_TLV_TYPE_VENDOR_SPECIFIC_ATTRIBUTE_RECEIVE;
-    case NAN_TLV_TYPE_FW_POST_NAN_CONNECTIVITY_CAPABILITIES_RECEIVE:
-        return NAN_TLV_TYPE_POST_NAN_CONNECTIVITY_CAPABILITIES_RECEIVE;
-    case NAN_TLV_TYPE_FW_POST_NAN_DISCOVERY_ATTRIBUTE_RECEIVE:
-        return NAN_TLV_TYPE_POST_NAN_DISCOVERY_ATTRIBUTE_RECEIVE;
-    case NAN_TLV_TYPE_FW_BEACON_SDF_PAYLOAD_RECEIVE:
-        return NAN_TLV_TYPE_BEACON_SDF_PAYLOAD_RECEIVE;
-
-    case NAN_TLV_TYPE_FW_24G_SUPPORT:
-        return NAN_TLV_TYPE_2DOT4G_SUPPORT;
-    case NAN_TLV_TYPE_FW_24G_BEACON:
-            return NAN_TLV_TYPE_2DOT4G_BEACONS;
-    case NAN_TLV_TYPE_FW_24G_SDF:
-        return NAN_TLV_TYPE_2DOT4G_SDF;
-    case NAN_TLV_TYPE_FW_24G_RSSI_CLOSE:
-        return NAN_TLV_TYPE_RSSI_CLOSE;
-    case NAN_TLV_TYPE_FW_24G_RSSI_MIDDLE:
-        return NAN_TLV_TYPE_RSSI_MEDIUM;
-    case NAN_TLV_TYPE_FW_24G_RSSI_CLOSE_PROXIMITY:
-        return NAN_TLV_TYPE_RSSI_CLOSE_PROXIMITY;
-    case NAN_TLV_TYPE_FW_5G_SUPPORT:
-        return NAN_TLV_TYPE_5G_SUPPORT;
-    case NAN_TLV_TYPE_FW_5G_BEACON:
-        return NAN_TLV_TYPE_5G_BEACON;
-    case NAN_TLV_TYPE_FW_5G_SDF:
-            return NAN_TLV_TYPE_5G_SDF;
-    case NAN_TLV_TYPE_FW_5G_RSSI_CLOSE:
-            return NAN_TLV_TYPE_5G_RSSI_CLOSE;
-    case NAN_TLV_TYPE_FW_5G_RSSI_MIDDLE:
-        return NAN_TLV_TYPE_5G_RSSI_MEDIUM;
-    case NAN_TLV_TYPE_FW_5G_RSSI_CLOSE_PROXIMITY:
-        return NAN_TLV_TYPE_5G_RSSI_CLOSE_PROXIMITY;
-    case NAN_TLV_TYPE_FW_SID_BEACON:
-        return NAN_TLV_TYPE_SID_BEACON;
-    case NAN_TLV_TYPE_FW_HOP_COUNT_LIMIT:
-        return NAN_TLV_TYPE_HOP_COUNT_LIMIT;
-    case NAN_TLV_TYPE_FW_MASTER_PREFERENCE:
-        return NAN_TLV_TYPE_MASTER_PREFERENCE;
-    case NAN_TLV_TYPE_FW_CLUSTER_ID_LOW:
-        return NAN_TLV_TYPE_CLUSTER_ID_LOW;
-    case NAN_TLV_TYPE_FW_CLUSTER_ID_HIGH:
-        return NAN_TLV_TYPE_CLUSTER_ID_HIGH;
-    case NAN_TLV_TYPE_FW_RSSI_AVERAGING_WINDOW_SIZE:
-            return NAN_TLV_TYPE_RSSI_AVERAGING_WINDOW_SIZE;
-    case NAN_TLV_TYPE_FW_CLUSTER_OUI_NETWORK_ID:
-        return NAN_TLV_TYPE_CLUSTER_OUI_NETWORK_ID;
-    case NAN_TLV_TYPE_FW_SOURCE_MAC_ADDRESS:
-            return NAN_TLV_TYPE_SOURCE_MAC_ADDRESS;
-    case NAN_TLV_TYPE_FW_CLUSTER_ATTRIBUTE_IN_SDF:
-        return NAN_TLV_TYPE_CLUSTER_ATTRIBUTE_IN_SDF;
-    case NAN_TLV_TYPE_FW_SOCIAL_CHANNEL_SCAN_PARAMS:
-        return NAN_TLV_TYPE_SOCIAL_CHANNEL_SCAN_PARAMETERS;
-    case NAN_TLV_TYPE_FW_DEBUGGING_FLAGS:
-        return NAN_TLV_TYPE_DEBUGGING_FLAGS;
-    case NAN_TLV_TYPE_FW_POST_NAN_CONNECTIVITY_CAPABILITIES_TRANSMIT:
-        return NAN_TLV_TYPE_POST_NAN_CONNECTIVITY_CAPABILITIES_TRANSMIT;
-    case NAN_TLV_TYPE_FW_POST_NAN_DISCOVERY_ATTRIBUTE_TRANSMIT:
-        return NAN_TLV_TYPE_POST_NAN_DISCOVERY_ATTRIBUTE_TRANSMIT;
-    case NAN_TLV_TYPE_FW_FURTHER_AVAILABILITY_MAP:
-        return NAN_TLV_TYPE_FURTHER_AVAILABILITY_MAP;
-    case NAN_TLV_TYPE_FW_HOP_COUNT_FORCE:
-        return NAN_TLV_TYPE_HOP_COUNT_FORCE;
-    case NAN_TLV_TYPE_FW_RANDOM_FACTOR_FORCE:
-        return NAN_TLV_TYPE_RANDOM_FACTOR_FORCE;
-
-    /* Attrib types */
-    /* Unmapped attrib types */
-    case NAN_TLV_TYPE_FW_AVAILABILITY_INTERVALS_MAP:
-        break;
-    case NAN_TLV_TYPE_FW_WLAN_MESH_ID:
-        return NAN_TLV_TYPE_WLAN_MESH_ID;
-    case NAN_TLV_TYPE_FW_MAC_ADDRESS:
-        return NAN_TLV_TYPE_MAC_ADDRESS;
-    case NAN_TLV_TYPE_FW_RECEIVED_RSSI_VALUE:
-        return NAN_TLV_TYPE_RECEIVED_RSSI_VALUE;
-    case NAN_TLV_TYPE_FW_CLUSTER_ATTRIBUTE:
-        return NAN_TLV_TYPE_CLUSTER_ATTIBUTE;
-    case NAN_TLV_TYPE_FW_WLAN_INFRASTRUCTURE_SSID:
-        return NAN_TLV_TYPE_WLAN_INFRASTRUCTURE_SSID;
-
-    /* Events Type */
-    case NAN_TLV_TYPE_FW_EVENT_SELF_STATION_MAC_ADDRESS:
-        return NAN_EVENT_ID_STA_MAC_ADDR;
-    case NAN_TLV_TYPE_FW_EVENT_STARTED_CLUSTER:
-        return NAN_EVENT_ID_STARTED_CLUSTER;
-    case NAN_TLV_TYPE_FW_EVENT_JOINED_CLUSTER:
-        return NAN_EVENT_ID_JOINED_CLUSTER;
-    /* unmapped Event Type */
-    case NAN_TLV_TYPE_FW_EVENT_CLUSTER_SCAN_RESULTS:
-        break;
-
-    case NAN_TLV_TYPE_FW_TCA_CLUSTER_SIZE_REQ:
-    case NAN_TLV_TYPE_FW_TCA_CLUSTER_SIZE_RSP:
-        return NAN_TCA_ID_CLUSTER_SIZE;
-
-    default:
-        break;
-    }
-    ALOGE("%s: Unhandled FW TLV value:%d", __func__, fwTlvtype);
-    return 0xFFFF;
-#endif /*NAN_2_0*/
-}
-
-u16 getFWTlvtypeFromNanTlvtype(u16 nanTlvtype)
-{
-#ifndef NAN_2_0
-    /* In case of Pronto no mapping required */
-    return nanTlvtype;
-#else /* NAN_2_0 */
-    if (nanTlvtype <= NAN_TLV_TYPE_SERVICE_SPECIFIC_INFO) {
-        /* return the TLV value as is */
-        return nanTlvtype;
-    }
-    if (nanTlvtype >= NAN_TLV_TYPE_STATS_FIRST &&
-        nanTlvtype <= NAN_TLV_TYPE_STATS_LAST) {
-        return nanTlvtype;
-    }
-    /* Other NAN TLV values and Config types map it
-       appropriately
-    */
-    switch (nanTlvtype) {
-    case NAN_TLV_TYPE_EXT_SERVICE_SPECIFIC_INFO:
-        return NAN_TLV_TYPE_FW_EXT_SERVICE_SPECIFIC_INFO;
-    case NAN_TLV_TYPE_SDF_LAST:
-        return NAN_TLV_TYPE_FW_SDF_LAST;
-
-    /* Configuration types */
-    case NAN_TLV_TYPE_5G_SUPPORT:
-        return NAN_TLV_TYPE_FW_5G_SUPPORT;
-    case NAN_TLV_TYPE_SID_BEACON:
-        return NAN_TLV_TYPE_FW_SID_BEACON;
-    case NAN_TLV_TYPE_5G_SYNC_DISC:
-        break;
-    case NAN_TLV_TYPE_RSSI_CLOSE:
-        return NAN_TLV_TYPE_FW_24G_RSSI_CLOSE;
-    case NAN_TLV_TYPE_RSSI_MEDIUM:
-        return NAN_TLV_TYPE_FW_24G_RSSI_MIDDLE;
-    case NAN_TLV_TYPE_HOP_COUNT_LIMIT:
-        return NAN_TLV_TYPE_FW_HOP_COUNT_LIMIT;
-    /* unmapped */
-    case NAN_TLV_TYPE_RANDOM_UPDATE_TIME:
-        break;
-    case NAN_TLV_TYPE_MASTER_PREFERENCE:
-        return NAN_TLV_TYPE_FW_MASTER_PREFERENCE;
-    /* unmapped */
-    case NAN_TLV_TYPE_EARLY_WAKEUP:
-        break;
-    case NAN_TLV_TYPE_PERIODIC_SCAN_INTERVAL:
-        break;
-    case NAN_TLV_TYPE_CLUSTER_ID_LOW:
-        return NAN_TLV_TYPE_FW_CLUSTER_ID_LOW;
-    case NAN_TLV_TYPE_CLUSTER_ID_HIGH:
-        return NAN_TLV_TYPE_FW_CLUSTER_ID_HIGH;
-    case NAN_TLV_TYPE_RSSI_CLOSE_PROXIMITY:
-        return NAN_TLV_TYPE_FW_24G_RSSI_CLOSE_PROXIMITY;
-    case NAN_TLV_TYPE_CONFIG_LAST:
-        return NAN_TLV_TYPE_FW_CONFIG_LAST;
-    case NAN_TLV_TYPE_FURTHER_AVAILABILITY:
-        break;
-
-    /* All Stats type are unmapped as of now */
-
-    /* Attributes types */
-    case NAN_TLV_TYPE_WLAN_MESH_ID:
-        return NAN_TLV_TYPE_FW_WLAN_MESH_ID;
-    case NAN_TLV_TYPE_MAC_ADDRESS:
-        return NAN_TLV_TYPE_FW_MAC_ADDRESS;
-    case NAN_TLV_TYPE_RECEIVED_RSSI_VALUE:
-        return NAN_TLV_TYPE_FW_RECEIVED_RSSI_VALUE;
-    case NAN_TLV_TYPE_TCA_CLUSTER_SIZE_REQ:
-        return NAN_TLV_TYPE_FW_TCA_CLUSTER_SIZE_REQ;
-    case NAN_TLV_TYPE_ATTRS_LAST:
-        return NAN_TLV_TYPE_FW_ATTRS_LAST;
-
-    case NAN_TLV_TYPE_VENDOR_SPECIFIC_ATTRIBUTE_TRANSMIT:
-        return NAN_TLV_TYPE_FW_VENDOR_SPECIFIC_ATTRIBUTE_TRANSMIT;
-    case NAN_TLV_TYPE_VENDOR_SPECIFIC_ATTRIBUTE_RECEIVE:
-        return NAN_TLV_TYPE_FW_VENDOR_SPECIFIC_ATTRIBUTE_RECEIVE;
-    case NAN_TLV_TYPE_POST_NAN_CONNECTIVITY_CAPABILITIES_TRANSMIT:
-        return NAN_TLV_TYPE_FW_POST_NAN_CONNECTIVITY_CAPABILITIES_TRANSMIT;
-    case NAN_TLV_TYPE_POST_NAN_CONNECTIVITY_CAPABILITIES_RECEIVE:
-        return NAN_TLV_TYPE_FW_POST_NAN_CONNECTIVITY_CAPABILITIES_RECEIVE;
-    case NAN_TLV_TYPE_POST_NAN_DISCOVERY_ATTRIBUTE_TRANSMIT:
-        return NAN_TLV_TYPE_FW_POST_NAN_DISCOVERY_ATTRIBUTE_TRANSMIT;
-    case NAN_TLV_TYPE_POST_NAN_DISCOVERY_ATTRIBUTE_RECEIVE:
-        return NAN_TLV_TYPE_FW_POST_NAN_DISCOVERY_ATTRIBUTE_RECEIVE;
-    case NAN_TLV_TYPE_FURTHER_AVAILABILITY_MAP:
-        return NAN_TLV_TYPE_FW_FURTHER_AVAILABILITY_MAP;
-    case NAN_TLV_TYPE_BEACON_SDF_PAYLOAD_RECEIVE:
-        return NAN_TLV_TYPE_FW_BEACON_SDF_PAYLOAD_RECEIVE;
-
-    case NAN_TLV_TYPE_2DOT4G_SUPPORT:
-        return NAN_TLV_TYPE_FW_24G_SUPPORT;
-    case NAN_TLV_TYPE_2DOT4G_BEACONS:
-        return NAN_TLV_TYPE_FW_24G_BEACON;
-    case NAN_TLV_TYPE_2DOT4G_SDF:
-        return NAN_TLV_TYPE_FW_24G_SDF;
-    case NAN_TLV_TYPE_5G_BEACON:
-        return NAN_TLV_TYPE_FW_5G_BEACON;
-    case NAN_TLV_TYPE_5G_SDF:
-        return NAN_TLV_TYPE_FW_5G_SDF;
-    case NAN_TLV_TYPE_5G_RSSI_CLOSE:
-        return NAN_TLV_TYPE_FW_5G_RSSI_CLOSE;
-    case NAN_TLV_TYPE_5G_RSSI_MEDIUM:
-        return NAN_TLV_TYPE_FW_5G_RSSI_MIDDLE;
-    case NAN_TLV_TYPE_5G_RSSI_CLOSE_PROXIMITY:
-        return NAN_TLV_TYPE_FW_5G_RSSI_CLOSE_PROXIMITY;
-    case NAN_TLV_TYPE_RSSI_AVERAGING_WINDOW_SIZE:
-        return NAN_TLV_TYPE_FW_RSSI_AVERAGING_WINDOW_SIZE;
-    case NAN_TLV_TYPE_CLUSTER_OUI_NETWORK_ID:
-        return NAN_TLV_TYPE_FW_CLUSTER_OUI_NETWORK_ID;
-    case NAN_TLV_TYPE_SOURCE_MAC_ADDRESS:
-        return NAN_TLV_TYPE_FW_SOURCE_MAC_ADDRESS;
-    case NAN_TLV_TYPE_CLUSTER_ATTRIBUTE_IN_SDF:
-        return NAN_TLV_TYPE_FW_CLUSTER_ATTRIBUTE_IN_SDF;
-    case NAN_TLV_TYPE_SOCIAL_CHANNEL_SCAN_PARAMETERS:
-        return NAN_TLV_TYPE_FW_SOCIAL_CHANNEL_SCAN_PARAMS;
-    case NAN_TLV_TYPE_DEBUGGING_FLAGS:
-        return NAN_TLV_TYPE_FW_DEBUGGING_FLAGS;
-    case NAN_TLV_TYPE_WLAN_INFRASTRUCTURE_SSID:
-        return NAN_TLV_TYPE_FW_WLAN_INFRASTRUCTURE_SSID;
-    case NAN_TLV_TYPE_RANDOM_FACTOR_FORCE:
-        return NAN_TLV_TYPE_FW_RANDOM_FACTOR_FORCE;
-    case NAN_TLV_TYPE_HOP_COUNT_FORCE:
-        return NAN_TLV_TYPE_FW_HOP_COUNT_FORCE;
-
-
-    default:
-        break;
-    }
-    ALOGE("%s: Unhandled NAN TLV value:%d", __func__, nanTlvtype);
-    return 0xFFFF;
-#endif /* NAN_2_0 */
 }

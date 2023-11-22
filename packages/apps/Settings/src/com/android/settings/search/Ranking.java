@@ -17,35 +17,37 @@
 package com.android.settings.search;
 
 import com.android.settings.ChooseLockGeneric;
-import com.android.settings.DataUsageSummary;
 import com.android.settings.DateTimeSettings;
 import com.android.settings.DevelopmentSettings;
 import com.android.settings.DeviceInfoSettings;
 import com.android.settings.DisplaySettings;
-import com.android.settings.HomeSettings;
 import com.android.settings.LegalSettings;
 import com.android.settings.PrivacySettings;
 import com.android.settings.ScreenPinningSettings;
 import com.android.settings.SecuritySettings;
 import com.android.settings.WallpaperTypeSettings;
-import com.android.settings.WifiCallingSettings;
 import com.android.settings.WirelessSettings;
 import com.android.settings.accessibility.AccessibilitySettings;
+import com.android.settings.accounts.AccountSettings;
 import com.android.settings.applications.AdvancedAppSettings;
-import com.android.settings.applications.ManageDefaultApps;
+import com.android.settings.applications.SpecialAccessSettings;
 import com.android.settings.bluetooth.BluetoothSettings;
+import com.android.settings.datausage.DataUsageMeteredSettings;
+import com.android.settings.datausage.DataUsageSummary;
 import com.android.settings.deviceinfo.StorageSettings;
+import com.android.settings.display.ScreenZoomSettings;
 import com.android.settings.fuelgauge.BatterySaverSettings;
 import com.android.settings.fuelgauge.PowerUsageSummary;
 import com.android.settings.inputmethod.InputMethodAndLanguageSettings;
 import com.android.settings.location.LocationSettings;
 import com.android.settings.location.ScanningSettings;
-import com.android.settings.net.DataUsageMeteredSettings;
-import com.android.settings.notification.NotificationSettings;
+import com.android.settings.notification.ConfigureNotificationSettings;
 import com.android.settings.notification.OtherSoundSettings;
+import com.android.settings.notification.SoundSettings;
 import com.android.settings.notification.ZenModeAutomationSettings;
 import com.android.settings.notification.ZenModePrioritySettings;
 import com.android.settings.notification.ZenModeSettings;
+import com.android.settings.notification.ZenModeVisualInterruptionSettings;
 import com.android.settings.print.PrintSettingsFragment;
 import com.android.settings.sim.SimSettings;
 import com.android.settings.users.UserSettings;
@@ -65,23 +67,24 @@ public final class Ranking {
     public static final int RANK_SIM = 3;
     public static final int RANK_DATA_USAGE = 4;
     public static final int RANK_WIRELESS = 5;
-    public static final int RANK_HOME = 6;
-    public static final int RANK_DISPLAY = 7;
-    public static final int RANK_WALLPAPER = 8;
-    public static final int RANK_NOTIFICATIONS = 9;
+    public static final int RANK_DISPLAY = 6;
+    public static final int RANK_WALLPAPER = 7;
+    public static final int RANK_NOTIFICATIONS = 8;
+    public static final int RANK_SOUND = 9;
     public static final int RANK_APPS = 10;
     public static final int RANK_STORAGE = 11;
     public static final int RANK_POWER_USAGE = 12;
     public static final int RANK_USERS = 13;
     public static final int RANK_LOCATION = 14;
     public static final int RANK_SECURITY = 15;
-    public static final int RANK_IME = 16;
-    public static final int RANK_PRIVACY = 17;
-    public static final int RANK_DATE_TIME = 18;
-    public static final int RANK_ACCESSIBILITY = 19;
-    public static final int RANK_PRINTING = 20;
-    public static final int RANK_DEVELOPEMENT = 21;
-    public static final int RANK_DEVICE_INFO = 22;
+    public static final int RANK_ACCOUNT = 16;
+    public static final int RANK_IME = 17;
+    public static final int RANK_PRIVACY = 18;
+    public static final int RANK_DATE_TIME = 19;
+    public static final int RANK_ACCESSIBILITY = 20;
+    public static final int RANK_PRINTING = 21;
+    public static final int RANK_DEVELOPEMENT = 22;
+    public static final int RANK_DEVICE_INFO = 23;
 
     public static final int RANK_UNDEFINED = -1;
     public static final int RANK_OTHERS = 1024;
@@ -110,23 +113,24 @@ public final class Ranking {
 
         // Other wireless settinfs
         sRankMap.put(WirelessSettings.class.getName(), RANK_WIRELESS);
-        sRankMap.put(WifiCallingSettings.class.getName(), RANK_WIRELESS);
-
-        // Home
-        sRankMap.put(HomeSettings.class.getName(), RANK_HOME);
 
         // Display
         sRankMap.put(DisplaySettings.class.getName(), RANK_DISPLAY);
+        sRankMap.put(ScreenZoomSettings.class.getName(), RANK_WIFI);
 
         // Wallpapers
         sRankMap.put(WallpaperTypeSettings.class.getName(), RANK_WALLPAPER);
 
+        // Sound
+        sRankMap.put(SoundSettings.class.getName(), RANK_SOUND);
+
         // Notifications
-        sRankMap.put(NotificationSettings.class.getName(), RANK_NOTIFICATIONS);
+        sRankMap.put(ConfigureNotificationSettings.class.getName(), RANK_NOTIFICATIONS);
         sRankMap.put(OtherSoundSettings.class.getName(), RANK_NOTIFICATIONS);
         sRankMap.put(ZenModeSettings.class.getName(), RANK_NOTIFICATIONS);
         sRankMap.put(ZenModePrioritySettings.class.getName(), RANK_NOTIFICATIONS);
         sRankMap.put(ZenModeAutomationSettings.class.getName(), RANK_NOTIFICATIONS);
+        sRankMap.put(ZenModeVisualInterruptionSettings.class.getName(), RANK_NOTIFICATIONS);
 
         // Storage
         sRankMap.put(StorageSettings.class.getName(), RANK_STORAGE);
@@ -137,7 +141,7 @@ public final class Ranking {
 
         // Advanced app settings
         sRankMap.put(AdvancedAppSettings.class.getName(), RANK_APPS);
-        sRankMap.put(ManageDefaultApps.class.getName(), RANK_APPS);
+        sRankMap.put(SpecialAccessSettings.class.getName(), RANK_APPS);
 
         // Users
         sRankMap.put(UserSettings.class.getName(), RANK_USERS);
@@ -150,6 +154,9 @@ public final class Ranking {
         sRankMap.put(SecuritySettings.class.getName(), RANK_SECURITY);
         sRankMap.put(ChooseLockGeneric.ChooseLockGenericFragment.class.getName(), RANK_SECURITY);
         sRankMap.put(ScreenPinningSettings.class.getName(), RANK_SECURITY);
+
+        // Accounts
+        sRankMap.put(AccountSettings.class.getName(), RANK_ACCOUNT);
 
         // IMEs
         sRankMap.put(InputMethodAndLanguageSettings.class.getName(), RANK_IME);

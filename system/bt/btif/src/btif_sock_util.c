@@ -16,66 +16,53 @@
  *
  ******************************************************************************/
 
+#define LOG_TAG "bt_btif_sock"
 
-/************************************************************************************
- *
- *  Filename:      btif_hf.c
- *
- *  Description:   Handsfree Profile Bluetooth Interface
- *
- *
- ***********************************************************************************/
+#include "btif_sock_util.h"
+
+#include <arpa/inet.h>
+#include <errno.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/un.h>
+#include <unistd.h>
+
 #include <hardware/bluetooth.h>
 #include <hardware/bt_sock.h>
-#include <errno.h>
-#include <sys/ioctl.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <unistd.h>
-#include <sys/ioctl.h>
-
-#include <cutils/sockets.h>
-#include <netinet/tcp.h>
-
-
-#define LOG_TAG "bt_btif_sock"
-#include "btif_common.h"
-#include "btif_util.h"
-
-#include "bta_api.h"
-#include "btif_sock_thread.h"
-#include "btif_sock_sdp.h"
 
 #include "bt_target.h"
-#include "gki.h"
-#include "hcimsgs.h"
-#include "sdp_api.h"
-#include "btu.h"
-#include "btm_api.h"
-#include "btm_int.h"
+#include "bta_api.h"
 #include "bta_jv_api.h"
 #include "bta_jv_co.h"
-#include "port_api.h"
+#include "btif_common.h"
+#include "btif_sock_sdp.h"
+#include "btif_sock_thread.h"
+#include "btif_util.h"
+#include "btm_api.h"
+#include "btm_int.h"
+#include "btu.h"
+#include "bt_common.h"
+#include "hcimsgs.h"
 #include "osi/include/log.h"
+#include "port_api.h"
+#include "sdp_api.h"
 
 #define asrt(s) if(!(s)) BTIF_TRACE_ERROR("## %s assert %s failed at line:%d ##",__FUNCTION__, #s, __LINE__)
-
 
 int sock_send_all(int sock_fd, const uint8_t* buf, int len)
 {
     int s = len;
-    int ret;
+
     while(s)
     {
-        do ret = send(sock_fd, buf, s, 0);
-        while(ret < 0 && errno == EINTR);
+        ssize_t ret;
+        OSI_NO_INTR(ret = send(sock_fd, buf, s, 0));
         if(ret <= 0)
         {
             BTIF_TRACE_ERROR("sock fd:%d send errno:%d, ret:%d", sock_fd, errno, ret);
@@ -89,11 +76,11 @@ int sock_send_all(int sock_fd, const uint8_t* buf, int len)
 int sock_recv_all(int sock_fd, uint8_t* buf, int len)
 {
     int r = len;
-    int ret = -1;
+
     while(r)
     {
-        do ret = recv(sock_fd, buf, r, MSG_WAITALL);
-        while(ret < 0 && errno == EINTR);
+        ssize_t ret;
+        OSI_NO_INTR(ret = recv(sock_fd, buf, r, MSG_WAITALL));
         if(ret <= 0)
         {
             BTIF_TRACE_ERROR("sock fd:%d recv errno:%d, ret:%d", sock_fd, errno, ret);
@@ -107,7 +94,6 @@ int sock_recv_all(int sock_fd, uint8_t* buf, int len)
 
 int sock_send_fd(int sock_fd, const uint8_t* buf, int len, int send_fd)
 {
-    ssize_t ret;
     struct msghdr msg;
     unsigned char *buffer = (unsigned char *)buf;
     memset(&msg, 0, sizeof(msg));
@@ -139,10 +125,8 @@ int sock_send_fd(int sock_fd, const uint8_t* buf, int len, int send_fd)
         msg.msg_iov = &iv;
         msg.msg_iovlen = 1;
 
-        do {
-            ret = sendmsg(sock_fd, &msg, MSG_NOSIGNAL);
-        } while (ret < 0 && errno == EINTR);
-
+        ssize_t ret;
+        OSI_NO_INTR(ret = sendmsg(sock_fd, &msg, MSG_NOSIGNAL));
         if (ret < 0) {
             BTIF_TRACE_ERROR("fd:%d, send_fd:%d, sendmsg ret:%d, errno:%d, %s",
                               sock_fd, send_fd, (int)ret, errno, strerror(errno));
@@ -163,8 +147,6 @@ int sock_send_fd(int sock_fd, const uint8_t* buf, int len, int send_fd)
     return ret_len;
 }
 
-
-#define PRINT(s) __android_log_write(ANDROID_LOG_DEBUG, NULL, s)
 static const char* hex_table = "0123456789abcdef";
 static inline void byte2hex(const char* data, char** str)
 {
@@ -189,7 +171,7 @@ void dump_bin(const char* title, const char* data, int size)
     char *line;
     int i, j, addr;
     const int width = 16;
-    LOG_DEBUG("%s, size:%d, dump started {", title, size);
+    LOG_DEBUG(LOG_TAG, "%s, size:%d, dump started {", title, size);
     if(size <= 0)
         return;
     //write offset
@@ -206,7 +188,7 @@ void dump_bin(const char* title, const char* data, int size)
         *line++ = ' ';
     }
     *line = 0;
-    PRINT(line_buff);
+    LOG_DEBUG(LOG_TAG, "%s", line_buff);
 
     for(i = 0; i < size / width; i++)
     {
@@ -227,7 +209,7 @@ void dump_bin(const char* title, const char* data, int size)
         //wirte the end of line
         *line = 0;
         //output the line
-        PRINT(line_buff);
+        LOG_DEBUG(LOG_TAG, "%s", line_buff);
     }
     //last line of left over if any
     int leftover = size % width;
@@ -255,8 +237,8 @@ void dump_bin(const char* title, const char* data, int size)
         //write the end of line
         *line = 0;
         //output the line
-        PRINT(line_buff);
+        LOG_DEBUG(LOG_TAG, "%s", line_buff);
     }
-    LOG_DEBUG("%s, size:%d, dump ended }", title, size);
+    LOG_DEBUG(LOG_TAG, "%s, size:%d, dump ended }", title, size);
 }
 

@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2012, The Linux Foundation. All rights reserved.
+Copyright (c) 2012, 2016, The Linux Foundation. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -27,15 +27,12 @@ OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+// System dependencies
 #include <pthread.h>
-#include "mm_camera_dbg.h"
-#include <errno.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <poll.h>
+
+// Camera dependencies
 #include "mm_qcamera_unit_test.h"
+#include "mm_camera_dbg.h"
 
 #define MM_QCAMERA_APP_UTEST_MAX_MAIN_LOOP 4
 #define MM_QCAM_APP_TEST_NUM 128
@@ -86,74 +83,74 @@ int mm_app_dtc_0(mm_camera_app_t *cam_apps)
         int back_camera = 0;
 
         printf("\n Verifying Preview on back Camera and RDI on Front camera 0...\n");
-        CDBG_ERROR("DUAL open back camera \n");
+        LOGE("DUAL open back camera \n");
         if(mm_app_open(back_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() back camera err=%d\n",__func__, rc);
+                LOGE("mm_app_open() back camera err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
         if(system_dimension_set(back_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                LOGE("system_dimension_set() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
-        CDBG_ERROR("DUAL open front camera \n");
+        LOGE("DUAL open front camera \n");
         if(mm_app_open(front_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() front camera err=%d\n",__func__, rc);
+                LOGE("mm_app_open() front camera err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
         if(system_dimension_set(front_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                LOGE("system_dimension_set() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
-        CDBG_ERROR("DUAL start camera Rdi for front \n");
+        LOGE("DUAL start camera Rdi for front \n");
         if( MM_CAMERA_OK != (rc = startRdi(front_camera))) {
-               CDBG_ERROR("%s: back camera startPreview() err=%d\n", __func__, rc);
+               LOGE(" back camera startPreview() err=%d\n",  rc);
                 goto end;
         }
         mm_camera_app_wait();
         sleep(1);
 
-        CDBG_ERROR("DUAL start camera Preview for back \n");
+        LOGE("DUAL start camera Preview for back \n");
         if( MM_CAMERA_OK != (rc = startPreview(back_camera))) {
-                CDBG_ERROR("%s: startPreview() backcamera err=%d\n", __func__, rc);
+                LOGE(" startPreview() backcamera err=%d\n",  rc);
                 goto end;
         }
         mm_camera_app_wait();
         sleep(1);
 
-        CDBG_ERROR("DUAL stop camera Rdi for front \n");
+        LOGE("DUAL stop camera Rdi for front \n");
         if( MM_CAMERA_OK != (rc = stopRdi(front_camera))) {
-                CDBG_ERROR("%s: startPreview() backcamera err=%d\n", __func__, rc);
+                LOGE(" startPreview() backcamera err=%d\n",  rc);
                 goto end;
         }
         usleep(10*1000);
 
-        CDBG_ERROR("DUAL close front camera\n");
+        LOGE("DUAL close front camera\n");
         if( mm_app_close(front_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_close() err=%d\n",__func__, rc);
+                LOGE("mm_app_close() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
         sleep(1);
-        CDBG_ERROR("DUAL stop camera Preview for back \n");
+        LOGE("DUAL stop camera Preview for back \n");
         if( MM_CAMERA_OK != (rc = stopPreview(back_camera))) {
-                CDBG("%s: startPreview() err=%d\n", __func__, rc);
+                LOGD(" startPreview() err=%d\n",  rc);
                 goto end;
         }
         usleep(10*1000);
-        CDBG_ERROR("DUAL close back camera \n");
+        LOGE("DUAL close back camera \n");
         if( mm_app_close(back_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_close() err=%d\n",__func__, rc);
+                LOGE("mm_app_close() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
-        CDBG_ERROR("DUAL end \n");
+        LOGE("DUAL end \n");
 
 end:
         if(rc == 0) {
@@ -161,7 +158,7 @@ end:
         }else{
                 printf("\nFailed\n");
         }
-        CDBG("%s:END, rc = %d\n", __func__, rc);
+        LOGD("END, rc = %d\n",  rc);
         return rc;
 }
 
@@ -176,70 +173,70 @@ int mm_app_dtc_1(mm_camera_app_t *cam_apps)
         int back_camera = 0;
 
         printf("\n Verifying Preview on back Camera and RDI on Front camera 1...\n");
-        CDBG_ERROR("DUAL open back camera \n");
+        LOGE("DUAL open back camera \n");
         if(mm_app_open(back_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() back camera err=%d\n",__func__, rc);
+                LOGE("mm_app_open() back camera err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
         if(system_dimension_set(back_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                LOGE("system_dimension_set() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
-        CDBG_ERROR("DUAL open front camera \n");
+        LOGE("DUAL open front camera \n");
         if(mm_app_open(front_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() front camera err=%d\n",__func__, rc);
+                LOGE("mm_app_open() front camera err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
         if(system_dimension_set(front_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                LOGE("system_dimension_set() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
-        CDBG_ERROR("DUAL start camera Rdi for front \n");
+        LOGE("DUAL start camera Rdi for front \n");
         if( MM_CAMERA_OK != (rc = startRdi(front_camera))) {
-               CDBG_ERROR("%s: back camera startPreview() err=%d\n", __func__, rc);
+               LOGE(" back camera startPreview() err=%d\n",  rc);
                 goto end;
         }
         mm_camera_app_wait();
         sleep(1);
 
-        CDBG_ERROR("DUAL start camera Preview for back \n");
+        LOGE("DUAL start camera Preview for back \n");
 
         if( MM_CAMERA_OK != (rc = startPreview(back_camera))) {
-                CDBG_ERROR("%s: startPreview() backcamera err=%d\n", __func__, rc);
+                LOGE(" startPreview() backcamera err=%d\n",  rc);
                 goto end;
         }
         mm_camera_app_wait();
         sleep(1);
-        CDBG_ERROR("DUAL end \n");
+        LOGE("DUAL end \n");
 
-        CDBG_ERROR("DUAL stop camera Preview for front \n");
+        LOGE("DUAL stop camera Preview for front \n");
         if( MM_CAMERA_OK != (rc = stopRdi(front_camera))) {
-                CDBG_ERROR("%s: startPreview() backcamera err=%d\n", __func__, rc);
+                LOGE(" startPreview() backcamera err=%d\n",  rc);
                 goto end;
         }
         usleep(10*1000);
-        CDBG_ERROR("DUAL stop camera Preview for back \n");
+        LOGE("DUAL stop camera Preview for back \n");
         if( MM_CAMERA_OK != (rc = stopPreview(back_camera))) {
-                CDBG("%s: startPreview() err=%d\n", __func__, rc);
+                LOGD(" startPreview() err=%d\n",  rc);
                 goto end;
         }
         usleep(10*1000);
-        CDBG_ERROR("DUAL close front camera\n");
+        LOGE("DUAL close front camera\n");
         if( mm_app_close(front_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_close() err=%d\n",__func__, rc);
+                LOGE("mm_app_close() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
-        CDBG_ERROR("DUAL close back camera \n");
+        LOGE("DUAL close back camera \n");
         if( mm_app_close(back_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_close() err=%d\n",__func__, rc);
+                LOGE("mm_app_close() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
@@ -250,7 +247,7 @@ end:
         }else{
                 printf("\nFailed\n");
         }
-        CDBG("%s:END, rc = %d\n", __func__, rc);
+        LOGD("END, rc = %d\n",  rc);
         return rc;
 }
 
@@ -265,70 +262,70 @@ int mm_app_dtc_2(mm_camera_app_t *cam_apps)
         int back_camera = 0;
 
         printf("\n Verifying Preview on back Camera and RDI on Front camera 2...\n");
-        CDBG_ERROR("DUAL open back camera \n");
+        LOGE("DUAL open back camera \n");
         if(mm_app_open(back_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() back camera err=%d\n",__func__, rc);
+                LOGE("mm_app_open() back camera err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
         if(system_dimension_set(back_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                LOGE("system_dimension_set() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
-        CDBG_ERROR("DUAL open front camera \n");
+        LOGE("DUAL open front camera \n");
         if(mm_app_open(front_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() front camera err=%d\n",__func__, rc);
+                LOGE("mm_app_open() front camera err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
         if(system_dimension_set(front_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                LOGE("system_dimension_set() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
-        CDBG_ERROR("DUAL start camera Rdi for front \n");
+        LOGE("DUAL start camera Rdi for front \n");
         if( MM_CAMERA_OK != (rc = startRdi(front_camera))) {
-               CDBG_ERROR("%s: back camera startPreview() err=%d\n", __func__, rc);
+               LOGE(" back camera startPreview() err=%d\n",  rc);
                 goto end;
         }
         mm_camera_app_wait();
         sleep(1);
 
-        CDBG_ERROR("DUAL start camera Preview for back \n");
+        LOGE("DUAL start camera Preview for back \n");
 
         if( MM_CAMERA_OK != (rc = startPreview(back_camera))) {
-                CDBG_ERROR("%s: startPreview() backcamera err=%d\n", __func__, rc);
+                LOGE(" startPreview() backcamera err=%d\n",  rc);
                 goto end;
         }
         mm_camera_app_wait();
         sleep(1);
-        CDBG_ERROR("DUAL end \n");
+        LOGE("DUAL end \n");
 
-        CDBG_ERROR("DUAL stop camera Preview for front \n");
+        LOGE("DUAL stop camera Preview for front \n");
         if( MM_CAMERA_OK != (rc = stopRdi(front_camera))) {
-                CDBG_ERROR("%s: startPreview() backcamera err=%d\n", __func__, rc);
+                LOGE(" startPreview() backcamera err=%d\n",  rc);
                 goto end;
         }
         usleep(10*1000);
-        CDBG_ERROR("DUAL stop camera Preview for back \n");
+        LOGE("DUAL stop camera Preview for back \n");
         if( MM_CAMERA_OK != (rc = stopPreview(back_camera))) {
-                CDBG("%s: startPreview() err=%d\n", __func__, rc);
+                LOGD(" startPreview() err=%d\n",  rc);
                 goto end;
         }
         usleep(10*1000);
-        CDBG_ERROR("DUAL close back camera \n");
+        LOGE("DUAL close back camera \n");
         if( mm_app_close(back_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_close() err=%d\n",__func__, rc);
+                LOGE("mm_app_close() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
-        CDBG_ERROR("DUAL close front camera\n");
+        LOGE("DUAL close front camera\n");
         if( mm_app_close(front_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_close() err=%d\n",__func__, rc);
+                LOGE("mm_app_close() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
@@ -339,7 +336,7 @@ end:
         }else{
                 printf("\nFailed\n");
         }
-        CDBG("%s:END, rc = %d\n", __func__, rc);
+        LOGD("END, rc = %d\n",  rc);
         return rc;
 }
 
@@ -355,85 +352,85 @@ int mm_app_dtc_3(mm_camera_app_t *cam_apps)
         int back_camera = 0;
 
         printf("\n Verifying Preview and snapshot on back Camera and RDI on Front camera 3...\n");
-        CDBG_ERROR("DUAL open front camera \n");
+        LOGE("DUAL open front camera \n");
         if(mm_app_open(front_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() front camera err=%d\n",__func__, rc);
+                LOGE("mm_app_open() front camera err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
         if(system_dimension_set(front_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                LOGE("system_dimension_set() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
-        CDBG_ERROR("DUAL start camera Preview for front \n");
+        LOGE("DUAL start camera Preview for front \n");
 
         if( MM_CAMERA_OK != (rc = startRdi(front_camera))) {
-                CDBG_ERROR("%s: startPreview() frontcamera err=%d\n", __func__, rc);
+                LOGE(" startPreview() frontcamera err=%d\n",  rc);
                 goto end;
         }
         mm_camera_app_wait();
         usleep(10*1000);
 
         for (k = 0; k < MM_QCAMERA_APP_INTERATION ; k++) {
-          CDBG_ERROR("DUAL open back camera %d \n",k);
+          LOGE("DUAL open back camera %d \n",k);
           if(mm_app_open(back_camera) != MM_CAMERA_OK) {
-                  CDBG_ERROR("%s:mm_app_open() back camera err=%d\n",__func__, rc);
+                  LOGE("mm_app_open() back camera err=%d\n", rc);
                   rc = -1;
                   goto end;
           }
 
           if(system_dimension_set(back_camera) != MM_CAMERA_OK){
-                  CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                  LOGE("system_dimension_set() err=%d\n", rc);
                   rc = -1;
                   goto end;
           }
 
-          CDBG_ERROR("DUAL start camera Preview for back \n");
+          LOGE("DUAL start camera Preview for back \n");
           if( MM_CAMERA_OK != (rc = startPreview(back_camera))) {
-                 CDBG_ERROR("%s: back camera startPreview() err=%d\n", __func__, rc);
+                 LOGE(" back camera startPreview() err=%d\n",  rc);
                   goto end;
           }
 
           for (j = 0; j < MM_QCAMERA_APP_INTERATION; j++) {
-              CDBG_ERROR("DUAL take picture for back \n");
+              LOGE("DUAL take picture for back \n");
               if ( MM_CAMERA_OK != (rc = takePicture_yuv(back_camera))) {
-                  CDBG_ERROR("%s: TakePicture() err=%d\n", __func__, rc);
+                  LOGE(" TakePicture() err=%d\n",  rc);
                   break;
               }
               mm_camera_app_wait();
 
           }
           usleep(10*1000);
-          CDBG_ERROR("DUAL stop camera Preview for back \n");
+          LOGE("DUAL stop camera Preview for back \n");
           if( MM_CAMERA_OK != (rc = stopPreview(back_camera))) {
-                  CDBG_ERROR("%s: stopPreview() backcamera err=%d\n", __func__, rc);
+                  LOGE(" stopPreview() backcamera err=%d\n",  rc);
                   goto end;
           }
           usleep(10*1000);
 
-          CDBG_ERROR("DUAL close back camera\n");
+          LOGE("DUAL close back camera\n");
           if( mm_app_close(back_camera) != MM_CAMERA_OK) {
-                  CDBG_ERROR("%s:mm_app_close() err=%d\n",__func__, rc);
+                  LOGE("mm_app_close() err=%d\n", rc);
                   rc = -1;
                   goto end;
           }
           usleep(20*1000);
         }
-        CDBG_ERROR("DUAL stop camera Preview for Rdi \n");
+        LOGE("DUAL stop camera Preview for Rdi \n");
         if( MM_CAMERA_OK != (rc = stopRdi(front_camera))) {
-                CDBG("%s: stopRdi() err=%d\n", __func__, rc);
+                LOGD(" stopRdi() err=%d\n",  rc);
                 goto end;
         }
         usleep(10*1000);
-        CDBG_ERROR("DUAL close front camera \n");
+        LOGE("DUAL close front camera \n");
         if( mm_app_close(front_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_close() err=%d\n",__func__, rc);
+                LOGE("mm_app_close() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
-        CDBG_ERROR("DUAL end \n");
+        LOGE("DUAL end \n");
 
 end:
         if(rc == 0) {
@@ -441,7 +438,7 @@ end:
         }else{
                 printf("\nFailed\n");
         }
-        CDBG("%s:END, rc = %d\n", __func__, rc);
+        LOGD("END, rc = %d\n",  rc);
         return rc;
 }
 
@@ -457,93 +454,93 @@ int mm_app_dtc_4(mm_camera_app_t *cam_apps)
         int back_camera = 0;
 
         printf("\n Verifying Preview on back Camera and RDI on Front camera 4...\n");
-        CDBG_ERROR("DUAL open front camera \n");
+        LOGE("DUAL open front camera \n");
         if(mm_app_open(front_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() front camera err=%d\n",__func__, rc);
+                LOGE("mm_app_open() front camera err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
         if(system_dimension_set(front_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                LOGE("system_dimension_set() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
-        CDBG_ERROR("DUAL start camera Preview for front \n");
+        LOGE("DUAL start camera Preview for front \n");
 
         if( MM_CAMERA_OK != (rc = startRdi(front_camera))) {
-                CDBG_ERROR("%s: startPreview() frontcamera err=%d\n", __func__, rc);
+                LOGE(" startPreview() frontcamera err=%d\n",  rc);
                 goto end;
         }
         mm_camera_app_wait();
         usleep(20*1000);
 
         for (k = 0; k < MM_QCAMERA_APP_INTERATION ; k++){
-          CDBG_ERROR("DUAL open back camera %d \n",k);
+          LOGE("DUAL open back camera %d \n",k);
           if(mm_app_open(back_camera) != MM_CAMERA_OK) {
-                 CDBG_ERROR("%s:mm_app_open() back camera err=%d\n",__func__, rc);
+                 LOGE("mm_app_open() back camera err=%d\n", rc);
                  rc = -1;
                  goto end;
           }
 
           if(system_dimension_set(back_camera) != MM_CAMERA_OK){
-                 CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                 LOGE("system_dimension_set() err=%d\n", rc);
                  rc = -1;
                  goto end;
           }
 
-          CDBG_ERROR("DUAL start camera Preview for back \n");
+          LOGE("DUAL start camera Preview for back \n");
           if( MM_CAMERA_OK != (rc = startPreview(back_camera))) {
-                CDBG_ERROR("%s: back camera startPreview() err=%d\n", __func__, rc);
+                LOGE(" back camera startPreview() err=%d\n",  rc);
                  goto end;
           }
           usleep(30*1000);
 
           for (j = 0; j < MM_QCAMERA_APP_INTERATION; j++) {
-             CDBG_ERROR("DUAL start camera record for back \n");
+             LOGE("DUAL start camera record for back \n");
              if ( MM_CAMERA_OK != (rc = startRecording(back_camera))) {
-                 CDBG_ERROR("%s: StartVideorecording() err=%d\n", __func__, rc);
+                 LOGE(" StartVideorecording() err=%d\n",  rc);
                  break;
              }
 
              mm_camera_app_wait();
              usleep(15*1000);
-             CDBG_ERROR("DUAL stop camera record for back \n");
+             LOGE("DUAL stop camera record for back \n");
              if ( MM_CAMERA_OK != (rc = stopRecording(back_camera))) {
-                 CDBG_ERROR("%s: Stopvideorecording() err=%d\n", __func__, rc);
+                 LOGE(" Stopvideorecording() err=%d\n",  rc);
                  break;
              }
           }
           usleep(10*1000);
 
-          CDBG_ERROR("DUAL stop camera Preview for back \n");
+          LOGE("DUAL stop camera Preview for back \n");
           if( MM_CAMERA_OK != (rc = stopPreview(back_camera))) {
-                 CDBG_ERROR("%s: stopPreview() backcamera err=%d\n", __func__, rc);
+                 LOGE(" stopPreview() backcamera err=%d\n",  rc);
                  goto end;
           }
           usleep(10*1000);
 
-          CDBG_ERROR("DUAL close back camera\n");
+          LOGE("DUAL close back camera\n");
           if( mm_app_close(back_camera) != MM_CAMERA_OK) {
-                 CDBG_ERROR("%s:mm_app_close() err=%d\n",__func__, rc);
+                 LOGE("mm_app_close() err=%d\n", rc);
                  rc = -1;
                  goto end;
           }
           usleep(20*1000);
         }
-        CDBG_ERROR("DUAL stop camera Preview for Rdi \n");
+        LOGE("DUAL stop camera Preview for Rdi \n");
         if( MM_CAMERA_OK != (rc = stopRdi(front_camera))) {
-                CDBG("%s: stopRdi() err=%d\n", __func__, rc);
+                LOGD(" stopRdi() err=%d\n",  rc);
                 goto end;
         }
         usleep(10*1000);
-        CDBG_ERROR("DUAL close front camera \n");
+        LOGE("DUAL close front camera \n");
         if( mm_app_close(front_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_close() err=%d\n",__func__, rc);
+                LOGE("mm_app_close() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
-        CDBG_ERROR("DUAL end \n");
+        LOGE("DUAL end \n");
 
 end:
         if(rc == 0) {
@@ -551,7 +548,7 @@ end:
         }else{
                 printf("\nFailed\n");
         }
-        CDBG("%s:END, rc = %d\n", __func__, rc);
+        LOGD("END, rc = %d\n",  rc);
         return rc;
 }
 
@@ -566,77 +563,77 @@ int mm_app_dtc_5(mm_camera_app_t *cam_apps)
         int back_camera = 0;
 
         printf("\n Verifying Preview on back Camera and RDI on Front camera 5...\n");
-        CDBG_ERROR("DUAL open front camera \n");
+        LOGE("DUAL open front camera \n");
         if(mm_app_open(front_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() front camera err=%d\n",__func__, rc);
+                LOGE("mm_app_open() front camera err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
         if(system_dimension_set(front_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                LOGE("system_dimension_set() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
-        CDBG_ERROR("DUAL start camera Preview for front \n");
+        LOGE("DUAL start camera Preview for front \n");
 
         if( MM_CAMERA_OK != (rc = startRdi(front_camera))) {
-                CDBG_ERROR("%s: startPreview() frontcamera err=%d\n", __func__, rc);
+                LOGE(" startPreview() frontcamera err=%d\n",  rc);
                 goto end;
         }
         mm_camera_app_wait();
         sleep(1);
 
         for (k = 0; k < 4 ; k++) {
-          CDBG_ERROR("DUAL open back camera %d \n",k);
+          LOGE("DUAL open back camera %d \n",k);
           if(mm_app_open(back_camera) != MM_CAMERA_OK) {
-                  CDBG_ERROR("%s:mm_app_open() back camera err=%d\n",__func__, rc);
+                  LOGE("mm_app_open() back camera err=%d\n", rc);
                   rc = -1;
                   goto end;
           }
 
           if(system_dimension_set(back_camera) != MM_CAMERA_OK){
-                  CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                  LOGE("system_dimension_set() err=%d\n", rc);
                   rc = -1;
                   goto end;
           }
 
-          CDBG_ERROR("DUAL start camera Preview for back \n");
+          LOGE("DUAL start camera Preview for back \n");
           if( MM_CAMERA_OK != (rc = startPreview(back_camera))) {
-                 CDBG_ERROR("%s: back camera startPreview() err=%d\n", __func__, rc);
+                 LOGE(" back camera startPreview() err=%d\n",  rc);
                   goto end;
           }
           mm_camera_app_wait();
           sleep(1);
 
-          CDBG_ERROR("DUAL stop camera Preview for back \n");
+          LOGE("DUAL stop camera Preview for back \n");
           if( MM_CAMERA_OK != (rc = stopPreview(back_camera))) {
-                  CDBG_ERROR("%s: stopPreview() backcamera err=%d\n", __func__, rc);
+                  LOGE(" stopPreview() backcamera err=%d\n",  rc);
                   goto end;
           }
           usleep(10*1000);
 
-          CDBG_ERROR("DUAL close back camera\n");
+          LOGE("DUAL close back camera\n");
           if( mm_app_close(back_camera) != MM_CAMERA_OK) {
-                  CDBG_ERROR("%s:mm_app_close() err=%d\n",__func__, rc);
+                  LOGE("mm_app_close() err=%d\n", rc);
                   rc = -1;
                   goto end;
           }
           sleep(1);
         }
-        CDBG_ERROR("DUAL stop camera Preview for Rdi \n");
+        LOGE("DUAL stop camera Preview for Rdi \n");
         if( MM_CAMERA_OK != (rc = stopRdi(front_camera))) {
-                CDBG("%s: stopRdi() err=%d\n", __func__, rc);
+                LOGD(" stopRdi() err=%d\n",  rc);
                 goto end;
         }
         usleep(10*1000);
-        CDBG_ERROR("DUAL close front camera \n");
+        LOGE("DUAL close front camera \n");
         if( mm_app_close(front_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_close() err=%d\n",__func__, rc);
+                LOGE("mm_app_close() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
-        CDBG_ERROR("DUAL end \n");
+        LOGE("DUAL end \n");
 
 end:
         if(rc == 0) {
@@ -644,7 +641,7 @@ end:
         }else{
                 printf("\nFailed\n");
         }
-        CDBG("%s:END, rc = %d\n", __func__, rc);
+        LOGD("END, rc = %d\n",  rc);
         return rc;
 }
 
@@ -659,77 +656,77 @@ int mm_app_dtc_6(mm_camera_app_t *cam_apps)
         int back_camera = 0;
 
         printf("\n Verifying Preview on back Camera and RDI on Front camera 6...\n");
-        CDBG_ERROR("DUAL open back camera \n");
+        LOGE("DUAL open back camera \n");
         if(mm_app_open(back_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() back camera err=%d\n",__func__, rc);
+                LOGE("mm_app_open() back camera err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
         if(system_dimension_set(back_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                LOGE("system_dimension_set() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
-        CDBG_ERROR("DUAL start camera Preview for back \n");
+        LOGE("DUAL start camera Preview for back \n");
 
         if( MM_CAMERA_OK != (rc = startPreview(back_camera))) {
-                CDBG_ERROR("%s: startPreview() backcamera err=%d\n", __func__, rc);
+                LOGE(" startPreview() backcamera err=%d\n",  rc);
                 goto end;
         }
         mm_camera_app_wait();
         sleep(1);
 
         for (k = 0; k < 4 ; k++) {
-        CDBG_ERROR("DUAL open front camera %d \n",k);
+        LOGE("DUAL open front camera %d \n",k);
         if(mm_app_open(front_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() front camera err=%d\n",__func__, rc);
+                LOGE("mm_app_open() front camera err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
         if(system_dimension_set(front_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                LOGE("system_dimension_set() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
-        CDBG_ERROR("DUAL start camera Rdi for front \n");
+        LOGE("DUAL start camera Rdi for front \n");
         if( MM_CAMERA_OK != (rc = startRdi(front_camera))) {
-               CDBG_ERROR("%s: back camera startPreview() err=%d\n", __func__, rc);
+               LOGE(" back camera startPreview() err=%d\n",  rc);
                 goto end;
         }
         mm_camera_app_wait();
         sleep(1);
 
-        CDBG_ERROR("DUAL stop camera Preview for front \n");
+        LOGE("DUAL stop camera Preview for front \n");
         if( MM_CAMERA_OK != (rc = stopRdi(front_camera))) {
-                CDBG_ERROR("%s: startPreview() backcamera err=%d\n", __func__, rc);
+                LOGE(" startPreview() backcamera err=%d\n",  rc);
                 goto end;
         }
         usleep(10*1000);
 
-        CDBG_ERROR("DUAL close front camera\n");
+        LOGE("DUAL close front camera\n");
         if( mm_app_close(front_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_close() err=%d\n",__func__, rc);
+                LOGE("mm_app_close() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
         sleep(1);
         }
-        CDBG_ERROR("DUAL stop camera Preview for back \n");
+        LOGE("DUAL stop camera Preview for back \n");
         if( MM_CAMERA_OK != (rc = stopPreview(back_camera))) {
-                CDBG("%s: startPreview() err=%d\n", __func__, rc);
+                LOGD(" startPreview() err=%d\n",  rc);
                 goto end;
         }
         usleep(10*1000);
-        CDBG_ERROR("DUAL close back camera \n");
+        LOGE("DUAL close back camera \n");
         if( mm_app_close(back_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_close() err=%d\n",__func__, rc);
+                LOGE("mm_app_close() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
-        CDBG_ERROR("DUAL end \n");
+        LOGE("DUAL end \n");
 
 end:
         if(rc == 0) {
@@ -737,7 +734,7 @@ end:
         }else{
                 printf("\nFailed\n");
         }
-        CDBG("%s:END, rc = %d\n", __func__, rc);
+        LOGD("END, rc = %d\n",  rc);
         return rc;
 }
 
@@ -750,53 +747,53 @@ static void *front_thread(void *data)
         struct test_case_params params
           = *((struct test_case_params *)data);
         for (i = 0; i < params.launch; i++) {
-          CDBG_ERROR("DUAL open front camera %d\n",i);
+          LOGE("DUAL open front camera %d\n",i);
           if(mm_app_open(front_camera) != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_open() front camera err=%d\n",__func__, rc);
+            LOGE("mm_app_open() front camera err=%d\n", rc);
             rc = -1;
             goto end;
           }
 
           if(system_dimension_set(front_camera) != MM_CAMERA_OK){
-            CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+            LOGE("system_dimension_set() err=%d\n", rc);
             rc = -1;
             goto end;
           }
 
           for (j = 0; j < params.preview; j++) {
-            CDBG_ERROR("DUAL start camera Rdi for front %d ,%d \n",i,j);
+            LOGE("DUAL start camera Rdi for front %d ,%d \n",i,j);
             if( MM_CAMERA_OK != (rc = startRdi(front_camera))) {
-              CDBG_ERROR("%s: back camera startPreview() err=%d\n", __func__, rc);
+              LOGE(" back camera startPreview() err=%d\n",  rc);
               goto end;
             }
             mm_camera_app_wait();
             usleep(20*1000);
             for (k = 0; k < params.snapshot; k++) {
-              CDBG_ERROR("DUAL take picture for front %d,%d,%d \n",i,j,k);
+              LOGE("DUAL take picture for front %d,%d,%d \n",i,j,k);
               if ( MM_CAMERA_OK != (rc = takePicture_rdi(front_camera))) {
-                CDBG_ERROR("%s: TakePicture() err=%d\n", __func__, rc);
+                LOGE(" TakePicture() err=%d\n",  rc);
                 goto end;
               }
               mm_camera_app_wait();
               usleep(30*1000);
             }
-            CDBG_ERROR("DUAL stop camera Rdi for front %d,%d\n",i,j);
+            LOGE("DUAL stop camera Rdi for front %d,%d\n",i,j);
             if( MM_CAMERA_OK != (rc = stopRdi(front_camera))) {
-              CDBG_ERROR("%s: startPreview() backcamera err=%d\n", __func__, rc);
+              LOGE(" startPreview() backcamera err=%d\n",  rc);
               goto end;
             }
             usleep(10*1000);
           }
 
-          CDBG_ERROR("DUAL close front camera %d\n",i);
+          LOGE("DUAL close front camera %d\n",i);
           if( mm_app_close(front_camera) != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_close() err=%d\n",__func__, rc);
+            LOGE("mm_app_close() err=%d\n", rc);
             rc = -1;
             goto end;
           }
         }
 end:
-        CDBG_ERROR("DUAL front thread close %d",rc);
+        LOGE("DUAL front thread close %d",rc);
         return NULL;
 }
 
@@ -808,30 +805,30 @@ static void *back_thread(void *data)
         struct test_case_params params
           = *((struct test_case_params *)data);
         for (i = 0; i < params.launch; i++) {
-          CDBG_ERROR("DUAL open back camera %d\n",i);
+          LOGE("DUAL open back camera %d\n",i);
           if(mm_app_open(back_camera) != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_open() back camera err=%d\n",__func__, rc);
+            LOGE("mm_app_open() back camera err=%d\n", rc);
             rc = -1;
             goto end;
           }
           if(system_dimension_set(back_camera) != MM_CAMERA_OK){
-            CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+            LOGE("system_dimension_set() err=%d\n", rc);
             rc = -1;
             goto end;
           }
 
           for (j = 0; j < params.preview; j++) {
-            CDBG_ERROR("DUAL start camera Preview for back %d, %d\n",i,j);
+            LOGE("DUAL start camera Preview for back %d, %d\n",i,j);
             if( MM_CAMERA_OK != (rc = startPreview(back_camera))) {
-              CDBG_ERROR("%s: startPreview() backcamera err=%d\n", __func__, rc);
+              LOGE(" startPreview() backcamera err=%d\n",  rc);
               goto end;
             }
             mm_camera_app_wait();
             usleep(20*1000);
             for (k = 0; k < params.snapshot; k++) {
-              CDBG_ERROR("DUAL take picture for back %d, %d, %d\n",i,j,k);
+              LOGE("DUAL take picture for back %d, %d, %d\n",i,j,k);
               if ( MM_CAMERA_OK != (rc = takePicture_yuv(back_camera))) {
-                CDBG_ERROR("%s: TakePicture() err=%d\n", __func__, rc);
+                LOGE(" TakePicture() err=%d\n",  rc);
                 goto end;
               }
               mm_camera_app_wait();
@@ -839,38 +836,38 @@ static void *back_thread(void *data)
             }
 
             for (m = 0; m < params.recording; m++) {
-              CDBG_ERROR("DUAL start record for back %d, %d, %d\n",i,j,m);
+              LOGE("DUAL start record for back %d, %d, %d\n",i,j,m);
               if ( MM_CAMERA_OK != (rc = startRecording(back_camera))) {
-                CDBG_ERROR("%s: StartVideorecording() err=%d\n", __func__, rc);
+                LOGE(" StartVideorecording() err=%d\n",  rc);
                 break;
               }
 
               mm_camera_app_wait();
               usleep(10*1000);
-              CDBG_ERROR("DUAL stop camera record for back \n");
+              LOGE("DUAL stop camera record for back \n");
               if ( MM_CAMERA_OK != (rc = stopRecording(back_camera))) {
-                CDBG_ERROR("%s: Stopvideorecording() err=%d\n", __func__, rc);
+                LOGE(" Stopvideorecording() err=%d\n",  rc);
                 break;
               }
               usleep(10*1000);
             }
-            CDBG_ERROR("DUAL stop camera Preview for back %d, %d\n",i,j);
+            LOGE("DUAL stop camera Preview for back %d, %d\n",i,j);
             if( MM_CAMERA_OK != (rc = stopPreview(back_camera))) {
-              CDBG("%s: startPreview() err=%d\n", __func__, rc);
+              LOGD(" startPreview() err=%d\n",  rc);
               goto end;
             }
             usleep(10*1000);
           }
 
-          CDBG_ERROR("DUAL close back camera %d\n",i);
+          LOGE("DUAL close back camera %d\n",i);
           if( mm_app_close(back_camera) != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_close() err=%d\n",__func__, rc);
+            LOGE("mm_app_close() err=%d\n", rc);
             rc = -1;
             goto end;
           }
         }
 end:
-        CDBG_ERROR("DUAL back thread close %d",rc);
+        LOGE("DUAL back thread close %d",rc);
         return NULL;
 }
 
@@ -886,16 +883,16 @@ int mm_app_dtc_7(mm_camera_app_t *cam_apps)
         params.preview = 5;
         printf("\n Verifying Preview on back Camera and RDI on Front camera 7...\n");
 
-        CDBG_ERROR("start back DUAL ");
+        LOGE("start back DUAL ");
         rc = pthread_create(&back_thread_id, NULL, back_thread, &params);
-        CDBG_ERROR("start front DUAL ");
+        LOGE("start front DUAL ");
         rc = pthread_create(&front_thread_id, NULL, front_thread, &params);
         sleep(1);
-        CDBG_ERROR("stop back DUAL ");
+        LOGE("stop back DUAL ");
         rc = pthread_join(back_thread_id, NULL);
-        CDBG_ERROR("stop front DUAL ");
+        LOGE("stop front DUAL ");
         rc = pthread_join(front_thread_id, NULL);
-        CDBG_ERROR("DUAL end \n");
+        LOGE("DUAL end \n");
 
 end:
         if(rc == 0) {
@@ -903,7 +900,7 @@ end:
         }else{
           printf("\nFailed\n");
         }
-        CDBG("%s:END, rc = %d\n", __func__, rc);
+        LOGD("END, rc = %d\n",  rc);
         return rc;
 }
 
@@ -924,23 +921,23 @@ int mm_app_dtc_8(mm_camera_app_t *cam_apps)
         fparams.preview = 5;
         printf("\n Verifying Preview on back Camera and RDI on Front camera 8...\n");
 
-        CDBG_ERROR("start back DUAL ");
+        LOGE("start back DUAL ");
         rc = pthread_create(&back_thread_id, NULL, back_thread, &bparams);
-        CDBG_ERROR("start front DUAL ");
+        LOGE("start front DUAL ");
         rc = pthread_create(&front_thread_id, NULL, front_thread, &fparams);
         sleep(1);
-        CDBG_ERROR("stop back DUAL ");
+        LOGE("stop back DUAL ");
         rc = pthread_join(back_thread_id, NULL);
-        CDBG_ERROR("stop front DUAL ");
+        LOGE("stop front DUAL ");
         rc = pthread_join(front_thread_id, NULL);
-        CDBG_ERROR("DUAL end \n");
+        LOGE("DUAL end \n");
 
 end:
         if(rc == 0)
           printf("\nPassed\n");
         else
           printf("\nFailed\n");
-        CDBG("%s:END, rc = %d\n", __func__, rc);
+        LOGD("END, rc = %d\n",  rc);
         return rc;
 }
 
@@ -962,16 +959,16 @@ int mm_app_dtc_9(mm_camera_app_t *cam_apps)
         fparams.snapshot = 5;
         printf("\n Verifying Preview on back Camera and RDI on Front camera 9...\n");
 
-        CDBG_ERROR("start back DUAL ");
+        LOGE("start back DUAL ");
         rc = pthread_create(&back_thread_id, NULL, back_thread, &bparams);
-        CDBG_ERROR("start front DUAL ");
+        LOGE("start front DUAL ");
         rc = pthread_create(&front_thread_id, NULL, front_thread, &fparams);
         sleep(1);
-        CDBG_ERROR("stop back DUAL ");
+        LOGE("stop back DUAL ");
         rc = pthread_join(back_thread_id, NULL);
-        CDBG_ERROR("stop front DUAL ");
+        LOGE("stop front DUAL ");
         rc = pthread_join(front_thread_id, NULL);
-        CDBG_ERROR("DUAL end \n");
+        LOGE("DUAL end \n");
 
 end:
         if(rc == 0) {
@@ -979,7 +976,7 @@ end:
         }else{
           printf("\nFailed\n");
         }
-        CDBG("%s:END, rc = %d\n", __func__, rc);
+        LOGD("END, rc = %d\n",  rc);
         return rc;
 }
 
@@ -1000,23 +997,23 @@ int mm_app_dtc_10(mm_camera_app_t *cam_apps)
         fparams.preview = 5;
         printf("\n Verifying Preview on back Camera and RDI on Front camera 10...\n");
 
-        CDBG_ERROR("start back DUAL ");
+        LOGE("start back DUAL ");
         rc = pthread_create(&back_thread_id, NULL, back_thread, &bparams);
-        CDBG_ERROR("start front DUAL ");
+        LOGE("start front DUAL ");
         rc = pthread_create(&front_thread_id, NULL, front_thread, &fparams);
         sleep(1);
-        CDBG_ERROR("stop back DUAL ");
+        LOGE("stop back DUAL ");
         rc = pthread_join(back_thread_id, NULL);
-        CDBG_ERROR("stop front DUAL ");
+        LOGE("stop front DUAL ");
         rc = pthread_join(front_thread_id, NULL);
-        CDBG_ERROR("DUAL end \n");
+        LOGE("DUAL end \n");
 end:
         if(rc == 0) {
           printf("\nPassed\n");
         }else{
           printf("\nFailed\n");
         }
-        CDBG("%s:END, rc = %d\n", __func__, rc);
+        LOGD("END, rc = %d\n",  rc);
         return rc;
 }
 
@@ -1038,16 +1035,16 @@ int mm_app_dtc_11(mm_camera_app_t *cam_apps)
         fparams.snapshot = 5;
         printf("\n Verifying Preview on back Camera and RDI on Front camera 11...\n");
 
-        CDBG_ERROR("start back DUAL ");
+        LOGE("start back DUAL ");
         rc = pthread_create(&back_thread_id, NULL, back_thread, &bparams);
-        CDBG_ERROR("start front DUAL ");
+        LOGE("start front DUAL ");
         rc = pthread_create(&front_thread_id, NULL, front_thread, &fparams);
         sleep(1);
-        CDBG_ERROR("stop back DUAL ");
+        LOGE("stop back DUAL ");
         rc = pthread_join(back_thread_id, NULL);
-        CDBG_ERROR("stop front DUAL ");
+        LOGE("stop front DUAL ");
         rc = pthread_join(front_thread_id, NULL);
-        CDBG_ERROR("DUAL end \n");
+        LOGE("DUAL end \n");
 
 end:
         if(rc == 0) {
@@ -1055,7 +1052,7 @@ end:
         }else{
                 printf("\nFailed\n");
         }
-        CDBG("%s:END, rc = %d\n", __func__, rc);
+        LOGD("END, rc = %d\n",  rc);
         return rc;
 }
 
@@ -1073,16 +1070,16 @@ int mm_app_dtc_12(mm_camera_app_t *cam_apps)
         fparams.launch = 15;
         printf("\n Verifying Preview on back Camera and RDI on Front camera 12...\n");
 
-        CDBG_ERROR("start back DUAL ");
+        LOGE("start back DUAL ");
         rc = pthread_create(&back_thread_id, NULL, back_thread, &bparams);
-        CDBG_ERROR("start front DUAL ");
+        LOGE("start front DUAL ");
         rc = pthread_create(&front_thread_id, NULL, front_thread, &fparams);
         sleep(1);
-        CDBG_ERROR("stop back DUAL ");
+        LOGE("stop back DUAL ");
         rc = pthread_join(back_thread_id, NULL);
-        CDBG_ERROR("stop front DUAL ");
+        LOGE("stop front DUAL ");
         rc = pthread_join(front_thread_id, NULL);
-        CDBG_ERROR("DUAL end \n");
+        LOGE("DUAL end \n");
 
 end:
         if(rc == 0) {
@@ -1090,7 +1087,7 @@ end:
         }else{
                 printf("\nFailed\n");
         }
-        CDBG("%s:END, rc = %d\n", __func__, rc);
+        LOGD("END, rc = %d\n",  rc);
         return rc;
 }
 
@@ -1111,92 +1108,92 @@ int mm_app_dtc_13(mm_camera_app_t *cam_apps)
         int back_camera = 0;
 
         printf("\n 13. Verifying Preview + Recording on back Camera and Preview(through RDI) on Front camera\n");
-        CDBG_ERROR("DUAL open front camera \n");
+        LOGE("DUAL open front camera \n");
         if(mm_app_open(front_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() front camera err=%d\n",__func__, rc);
+                LOGE("mm_app_open() front camera err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
         if(system_dimension_set(front_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                LOGE("system_dimension_set() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
-        CDBG_ERROR("DUAL start camera Preview for front \n");
+        LOGE("DUAL start camera Preview for front \n");
         if( MM_CAMERA_OK != (rc = startPreview(front_camera))) {
-               CDBG_ERROR("%s: front camera startPreview() err=%d\n", __func__, rc);
+               LOGE(" front camera startPreview() err=%d\n",  rc);
                goto end;
         }
         mm_camera_app_wait();
         usleep(20*1000);
 
         for (k = 0; k < MM_QCAMERA_APP_INTERATION ; k++){
-          CDBG_ERROR("DUAL open back camera %d \n",k);
+          LOGE("DUAL open back camera %d \n",k);
           if(mm_app_open(back_camera) != MM_CAMERA_OK) {
-                 CDBG_ERROR("%s:mm_app_open() back camera err=%d\n",__func__, rc);
+                 LOGE("mm_app_open() back camera err=%d\n", rc);
                  rc = -1;
                  goto end;
           }
 
           if(system_dimension_set(back_camera) != MM_CAMERA_OK){
-                 CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                 LOGE("system_dimension_set() err=%d\n", rc);
                  rc = -1;
                  goto end;
           }
 
-          CDBG_ERROR("DUAL start camera Preview for back \n");
+          LOGE("DUAL start camera Preview for back \n");
           if( MM_CAMERA_OK != (rc = startPreview(back_camera))) {
-                CDBG_ERROR("%s: back camera startPreview() err=%d\n", __func__, rc);
+                LOGE(" back camera startPreview() err=%d\n",  rc);
                  goto end;
           }
           usleep(30*1000);
 
           for (j = 0; j < MM_QCAMERA_APP_INTERATION; j++) {
-             CDBG_ERROR("DUAL start camera record for back Iteration %d \n", j);
+             LOGE("DUAL start camera record for back Iteration %d \n", j);
              if ( MM_CAMERA_OK != (rc = startRecording(back_camera))) {
-                 CDBG_ERROR("%s: StartVideorecording() err=%d\n", __func__, rc);
+                 LOGE(" StartVideorecording() err=%d\n",  rc);
                  break;
              }
 
              mm_camera_app_wait();
              usleep(10*1000*1000);
-             CDBG_ERROR("DUAL stop camera record for back Iteration %d\n", j);
+             LOGE("DUAL stop camera record for back Iteration %d\n", j);
              if ( MM_CAMERA_OK != (rc = stopRecording(back_camera))) {
-                 CDBG_ERROR("%s: Stopvideorecording() err=%d\n", __func__, rc);
+                 LOGE(" Stopvideorecording() err=%d\n",  rc);
                  break;
              }
           }
           usleep(10*1000);
 
-          CDBG_ERROR("DUAL stop camera Preview for back \n");
+          LOGE("DUAL stop camera Preview for back \n");
           if( MM_CAMERA_OK != (rc = stopPreview(back_camera))) {
-                 CDBG_ERROR("%s: stopPreview() backcamera err=%d\n", __func__, rc);
+                 LOGE(" stopPreview() backcamera err=%d\n",  rc);
                  goto end;
           }
           usleep(10*1000);
 
-          CDBG_ERROR("DUAL close back camera\n");
+          LOGE("DUAL close back camera\n");
           if( mm_app_close(back_camera) != MM_CAMERA_OK) {
-                 CDBG_ERROR("%s:mm_app_close() err=%d\n",__func__, rc);
+                 LOGE("mm_app_close() err=%d\n", rc);
                  rc = -1;
                  goto end;
           }
           usleep(20*1000);
         }
-        CDBG_ERROR("DUAL stop camera Preview for Rdi \n");
+        LOGE("DUAL stop camera Preview for Rdi \n");
         if( MM_CAMERA_OK != (rc = stopPreview(front_camera))) {
-                CDBG_ERROR("%s: stopPreview() frontcamera err=%d\n", __func__, rc);
+                LOGE(" stopPreview() frontcamera err=%d\n",  rc);
                 goto end;
         }
         usleep(10*1000);
-        CDBG_ERROR("DUAL close front camera \n");
+        LOGE("DUAL close front camera \n");
         if( mm_app_close(front_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_close() err=%d\n",__func__, rc);
+                LOGE("mm_app_close() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
-        CDBG_ERROR("DUAL end \n");
+        LOGE("DUAL end \n");
 
 end:
         if(rc == 0) {
@@ -1204,7 +1201,7 @@ end:
         }else{
                 printf("\nFailed\n");
         }
-        CDBG("%s:END, rc = %d\n", __func__, rc);
+        LOGD("END, rc = %d\n",  rc);
         return rc;
 }
 
@@ -1218,48 +1215,48 @@ int mm_app_dtc_1243(mm_camera_app_t *cam_apps)
         int back_camera = 0;
 
         printf("\n Verifying Preview on back Camera and RDI on Front camera...\n");
-        CDBG_ERROR("DUAL open back camera \n");
+        LOGE("DUAL open back camera \n");
         if(mm_app_open(back_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() back camera err=%d\n",__func__, rc);
+                LOGE("mm_app_open() back camera err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
         if(system_dimension_set(back_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                LOGE("system_dimension_set() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
-        CDBG_ERROR("DUAL open front camera \n");
+        LOGE("DUAL open front camera \n");
         if(mm_app_open(front_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() front camera err=%d\n",__func__, rc);
+                LOGE("mm_app_open() front camera err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
         if(system_dimension_set(front_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                LOGE("system_dimension_set() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
-        CDBG_ERROR("DUAL start camera Rdi for front \n");
+        LOGE("DUAL start camera Rdi for front \n");
         if( MM_CAMERA_OK != (rc = startRdi(front_camera))) {
-               CDBG_ERROR("%s: back camera startPreview() err=%d\n", __func__, rc);
+               LOGE(" back camera startPreview() err=%d\n",  rc);
                 goto end;
         }
         mm_camera_app_wait();
         sleep(1);
 
-        CDBG_ERROR("DUAL start camera Preview for back \n");
+        LOGE("DUAL start camera Preview for back \n");
 
         if( MM_CAMERA_OK != (rc = startPreview(back_camera))) {
-                CDBG_ERROR("%s: startPreview() backcamera err=%d\n", __func__, rc);
+                LOGE(" startPreview() backcamera err=%d\n",  rc);
                 goto end;
         }
         mm_camera_app_wait();
         sleep(1);
-        CDBG_ERROR("DUAL end \n");
+        LOGE("DUAL end \n");
 
 end:
         if(rc == 0) {
@@ -1267,7 +1264,7 @@ end:
         }else{
                 printf("\nFailed\n");
         }
-        CDBG("%s:END, rc = %d\n", __func__, rc);
+        LOGD("END, rc = %d\n",  rc);
         return rc;
 }
 
@@ -1280,48 +1277,48 @@ int mm_app_dtc_2134(mm_camera_app_t *cam_apps)
         int back_camera = 0;
 
         printf("\n Verifying Preview on back Camera and RDI on Front camera...\n");
-        CDBG_ERROR("DUAL open front camera \n");
+        LOGE("DUAL open front camera \n");
         if(mm_app_open(front_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() back camera err=%d\n",__func__, rc);
+                LOGE("mm_app_open() back camera err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
         if(system_dimension_set(front_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                LOGE("system_dimension_set() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
-        CDBG_ERROR("DUAL open back camera \n");
+        LOGE("DUAL open back camera \n");
         if(mm_app_open(back_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() front camera err=%d\n",__func__, rc);
+                LOGE("mm_app_open() front camera err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
         if(system_dimension_set(back_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                LOGE("system_dimension_set() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
-        CDBG_ERROR("DUAL start camera Preview for front \n");
+        LOGE("DUAL start camera Preview for front \n");
         if( MM_CAMERA_OK != (rc = startPreview(back_camera))) {
-               CDBG_ERROR("%s: back camera startPreview() err=%d\n", __func__, rc);
+               LOGE(" back camera startPreview() err=%d\n",  rc);
                 goto end;
         }
         mm_camera_app_wait();
         sleep(1);
 
-        CDBG_ERROR("DUAL start camera Rdi for back \n");
+        LOGE("DUAL start camera Rdi for back \n");
 
         if( MM_CAMERA_OK != (rc = startRdi(front_camera))) {
-                CDBG_ERROR("%s: startPreview() backcamera err=%d\n", __func__, rc);
+                LOGE(" startPreview() backcamera err=%d\n",  rc);
                 goto end;
         }
         mm_camera_app_wait();
         sleep(1);
-        CDBG_ERROR("DUAL end \n");
+        LOGE("DUAL end \n");
 
 end:
         if(rc == 0) {
@@ -1329,7 +1326,7 @@ end:
         }else{
                 printf("\nFailed\n");
         }
-        CDBG("%s:END, rc = %d\n", __func__, rc);
+        LOGD("END, rc = %d\n",  rc);
         return rc;
 }
 int mm_app_dtc_2143(mm_camera_app_t *cam_apps)
@@ -1341,48 +1338,48 @@ int mm_app_dtc_2143(mm_camera_app_t *cam_apps)
         int back_camera = 0;
 
         printf("\n Verifying Preview on back Camera and RDI on Front camera...\n");
-        CDBG_ERROR("DUAL open front camera \n");
+        LOGE("DUAL open front camera \n");
         if(mm_app_open(front_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() back camera err=%d\n",__func__, rc);
+                LOGE("mm_app_open() back camera err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
         if(system_dimension_set(front_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                LOGE("system_dimension_set() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
-        CDBG_ERROR("DUAL open back camera \n");
+        LOGE("DUAL open back camera \n");
         if(mm_app_open(back_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() front camera err=%d\n",__func__, rc);
+                LOGE("mm_app_open() front camera err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
         if(system_dimension_set(back_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                LOGE("system_dimension_set() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
-        CDBG_ERROR("DUAL start camera rdi for front \n");
+        LOGE("DUAL start camera rdi for front \n");
         if( MM_CAMERA_OK != (rc = startRdi(front_camera))) {
-               CDBG_ERROR("%s: back camera startPreview() err=%d\n", __func__, rc);
+               LOGE(" back camera startPreview() err=%d\n",  rc);
                 goto end;
         }
         mm_camera_app_wait();
         sleep(1);
 
-        CDBG_ERROR("DUAL start camera preview for back \n");
+        LOGE("DUAL start camera preview for back \n");
 
         if( MM_CAMERA_OK != (rc = startPreview(back_camera))) {
-                CDBG_ERROR("%s: startPreview() backcamera err=%d\n", __func__, rc);
+                LOGE(" startPreview() backcamera err=%d\n",  rc);
                 goto end;
         }
         mm_camera_app_wait();
         sleep(1);
-        CDBG_ERROR("DUAL end \n");
+        LOGE("DUAL end \n");
 
 end:
         if(rc == 0) {
@@ -1390,7 +1387,7 @@ end:
         }else{
                 printf("\nFailed\n");
         }
-        CDBG("%s:END, rc = %d\n", __func__, rc);
+        LOGD("END, rc = %d\n",  rc);
         return rc;
 }
 
@@ -1403,48 +1400,48 @@ int mm_app_dtc_2413(mm_camera_app_t *cam_apps)
         int back_camera = 0;
 
         printf("\n Verifying Preview on back Camera and RDI on Front camera...\n");
-        CDBG_ERROR("DUAL open front camera \n");
+        LOGE("DUAL open front camera \n");
         if(mm_app_open(front_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() back camera err=%d\n",__func__, rc);
+                LOGE("mm_app_open() back camera err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
         if(system_dimension_set(front_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                LOGE("system_dimension_set() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
-        CDBG_ERROR("DUAL start camera rdi for front \n");
+        LOGE("DUAL start camera rdi for front \n");
         if( MM_CAMERA_OK != (rc = startRdi(front_camera))) {
-               CDBG_ERROR("%s: back camera startPreview() err=%d\n", __func__, rc);
+               LOGE(" back camera startPreview() err=%d\n",  rc);
                 goto end;
         }
         mm_camera_app_wait();
         sleep(1);
 
-        CDBG_ERROR("DUAL open back camera \n");
+        LOGE("DUAL open back camera \n");
         if(mm_app_open(back_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() front camera err=%d\n",__func__, rc);
+                LOGE("mm_app_open() front camera err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
         if(system_dimension_set(back_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                LOGE("system_dimension_set() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
-        CDBG_ERROR("DUAL start camera preview for back \n");
+        LOGE("DUAL start camera preview for back \n");
 
         if( MM_CAMERA_OK != (rc = startPreview(back_camera))) {
-                CDBG_ERROR("%s: startPreview() backcamera err=%d\n", __func__, rc);
+                LOGE(" startPreview() backcamera err=%d\n",  rc);
                 goto end;
         }
         mm_camera_app_wait();
         sleep(1);
-        CDBG_ERROR("DUAL end \n");
+        LOGE("DUAL end \n");
 
 end:
         if(rc == 0) {
@@ -1452,7 +1449,7 @@ end:
         }else{
                 printf("\nFailed\n");
         }
-        CDBG("%s:END, rc = %d\n", __func__, rc);
+        LOGD("END, rc = %d\n",  rc);
         return rc;
 }
 
@@ -1465,47 +1462,47 @@ int mm_app_dtc_1234(mm_camera_app_t *cam_apps)
         int back_camera = 0;
 
         printf("\n Verifying Preview on back Camera and RDI on Front camera...\n");
-        CDBG_ERROR("DUAL open back camera \n");
+        LOGE("DUAL open back camera \n");
         if(mm_app_open(back_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() back camera err=%d\n",__func__, rc);
+                LOGE("mm_app_open() back camera err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
         if(system_dimension_set(back_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                LOGE("system_dimension_set() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
-        CDBG_ERROR("DUAL open front camera \n");
+        LOGE("DUAL open front camera \n");
         if(mm_app_open(front_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() front camera err=%d\n",__func__, rc);
+                LOGE("mm_app_open() front camera err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
         if(system_dimension_set(front_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                LOGE("system_dimension_set() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
-        CDBG_ERROR("DUAL start camera preview for back \n");
+        LOGE("DUAL start camera preview for back \n");
         if( MM_CAMERA_OK != (rc = startPreview(back_camera))) {
-               CDBG_ERROR("%s: back camera startPreview() err=%d\n", __func__, rc);
+               LOGE(" back camera startPreview() err=%d\n",  rc);
                 goto end;
         }
         mm_camera_app_wait();
         sleep(1);
 
-        CDBG_ERROR("DUAL start camera rdi for front \n");
+        LOGE("DUAL start camera rdi for front \n");
 
         if( MM_CAMERA_OK != (rc = startRdi(front_camera))) {
-                CDBG_ERROR("%s: startPreview() backcamera err=%d\n", __func__, rc);
+                LOGE(" startPreview() backcamera err=%d\n",  rc);
                 goto end;
         }
         mm_camera_app_wait();
         sleep(1);
-        CDBG_ERROR("DUAL end \n");
+        LOGE("DUAL end \n");
 
 end:
         if(rc == 0) {
@@ -1513,7 +1510,7 @@ end:
         }else{
                 printf("\nFailed\n");
         }
-        CDBG("%s:END, rc = %d\n", __func__, rc);
+        LOGD("END, rc = %d\n",  rc);
         return rc;
 }
 
@@ -1526,45 +1523,45 @@ int mm_app_dtc_1324(mm_camera_app_t *cam_apps)
         int back_camera = 0;
 
         printf("\n Verifying Preview on back Camera and RDI on Front camera...\n");
-        CDBG_ERROR("DUAL start back camera \n");
+        LOGE("DUAL start back camera \n");
         if(mm_app_open(back_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() back camera err=%d\n",__func__, rc);
+                LOGE("mm_app_open() back camera err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
         if(system_dimension_set(back_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                LOGE("system_dimension_set() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
-        CDBG_ERROR("DUAL start camera preview for back \n");
+        LOGE("DUAL start camera preview for back \n");
         if( MM_CAMERA_OK != (rc = startPreview(back_camera))) {
-                CDBG_ERROR("%s: back camera startPreview() err=%d\n", __func__, rc);
+                LOGE(" back camera startPreview() err=%d\n",  rc);
                 goto end;
         }
         //mm_camera_app_wait();
         sleep(1);
-        CDBG_ERROR("DUAL start front camera \n");
+        LOGE("DUAL start front camera \n");
         if(mm_app_open(front_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() front camera err=%d\n",__func__, rc);
+                LOGE("mm_app_open() front camera err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
 
        if(system_dimension_set(front_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+                LOGE("system_dimension_set() err=%d\n", rc);
                 rc = -1;
                 goto end;
         }
-        CDBG_ERROR("DUAL start rdi preview \n");
+        LOGE("DUAL start rdi preview \n");
 
         if( MM_CAMERA_OK != (rc = startRdi(front_camera))) {
-                CDBG_ERROR("%s: startPreview() backcamera err=%d\n", __func__, rc);
+                LOGE(" startPreview() backcamera err=%d\n",  rc);
                 goto end;
         }
         mm_camera_app_wait();
         sleep(1);
-        CDBG_ERROR("DUAL end \n");
+        LOGE("DUAL end \n");
 
 end:
         if(rc == 0) {
@@ -1572,7 +1569,7 @@ end:
         }else{
           printf("\nFailed\n");
         }
-        CDBG("%s:END, rc = %d\n", __func__, rc);
+        LOGD("END, rc = %d\n",  rc);
         return rc;
 }
 
@@ -1588,51 +1585,51 @@ int mm_app_dtc_s_0(mm_camera_app_t *cam_apps)
     printf("\n Verifying Preview on back Camera and RDI on Front camera...\n");
 
     if(mm_app_open(back_camera) != MM_CAMERA_OK) {
-        CDBG_ERROR("%s:mm_app_open() back camera err=%d\n",__func__, rc);
+        LOGE("mm_app_open() back camera err=%d\n", rc);
         rc = -1;
         goto end;
     }
     if(system_dimension_set(back_camera) != MM_CAMERA_OK){
-    CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+    LOGE("system_dimension_set() err=%d\n", rc);
         rc = -1;
         goto end;
     }
 
     if( MM_CAMERA_OK != (rc = startPreview(back_camera))) {
-        CDBG_ERROR("%s: back camera startPreview() err=%d\n", __func__, rc);
+        LOGE(" back camera startPreview() err=%d\n",  rc);
         goto end;
     }
 
     mm_camera_app_wait();
     if(mm_app_open(front_camera) != MM_CAMERA_OK) {
-        CDBG_ERROR("%s:mm_app_open() front camera err=%d\n",__func__, rc);
+        LOGE("mm_app_open() front camera err=%d\n", rc);
         rc = -1;
         goto end;
     }
     if(system_dimension_set(front_camera) != MM_CAMERA_OK){
-        CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+        LOGE("system_dimension_set() err=%d\n", rc);
         rc = -1;
         goto end;
     }
 
     if( MM_CAMERA_OK != (rc = startRdi(front_camera))) {
-        CDBG_ERROR("%s: startPreview() backcamera err=%d\n", __func__, rc);
+        LOGE(" startPreview() backcamera err=%d\n",  rc);
         goto end;
     }
     mm_camera_app_wait();
 
     if( MM_CAMERA_OK != (rc = stopRdi(front_camera))) {
-        CDBG_ERROR("%s: startPreview() backcamera err=%d\n", __func__, rc);
+        LOGE(" startPreview() backcamera err=%d\n",  rc);
         goto end;
     }
 
     if( MM_CAMERA_OK != (rc = stopPreview(my_cam_app.cam_open))) {
-        CDBG("%s: startPreview() err=%d\n", __func__, rc);
+        LOGD(" startPreview() err=%d\n",  rc);
         goto end;
     }
 
     if( mm_app_close(my_cam_app.cam_open) != MM_CAMERA_OK) {
-        CDBG_ERROR("%s:mm_app_close() err=%d\n",__func__, rc);
+        LOGE("mm_app_close() err=%d\n", rc);
         rc = -1;
         goto end;
     }
@@ -1642,7 +1639,7 @@ end:
     }else{
         printf("\nFailed\n");
     }
-    CDBG("%s:END, rc = %d\n", __func__, rc);
+    LOGD("END, rc = %d\n",  rc);
     return rc;
 }
 
@@ -1655,43 +1652,43 @@ int mm_app_dtc_s_1(mm_camera_app_t *cam_apps)
     printf("\n Verifying Snapshot on front and back camera...\n");
     for(i = 0; i < cam_apps->num_cameras; i++) {
         if( mm_app_open(i) != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_open() err=%d\n",__func__, rc);
+            LOGE("mm_app_open() err=%d\n", rc);
             rc = -1;
             goto end;
         }
         if(system_dimension_set(my_cam_app.cam_open) != MM_CAMERA_OK){
-            CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+            LOGE("system_dimension_set() err=%d\n", rc);
             rc = -1;
             goto end;
         }
 
         if( MM_CAMERA_OK != (rc = startPreview(my_cam_app.cam_open))) {
-                CDBG_ERROR("%s: startPreview() err=%d\n", __func__, rc);
+                LOGE(" startPreview() err=%d\n",  rc);
                 break;
         }
         for(j = 0; j < MM_QCAMERA_APP_INTERATION; j++) {
             if( MM_CAMERA_OK != (rc = takePicture_yuv(my_cam_app.cam_open))) {
-                CDBG_ERROR("%s: TakePicture() err=%d\n", __func__, rc);
+                LOGE(" TakePicture() err=%d\n",  rc);
                 break;
             }
             /*if(mm_camera_app_timedwait() == ETIMEDOUT) {
-                CDBG_ERROR("%s: Snapshot/Preview Callback not received in time or qbuf Faile\n", __func__);
+                LOGE(" Snapshot/Preview Callback not received in time or qbuf Faile\n");
                 break;
             }*/
             mm_camera_app_wait();
             result++;
         }
         if( MM_CAMERA_OK != (rc = stopPreview(my_cam_app.cam_open))) {
-            CDBG("%s: startPreview() err=%d\n", __func__, rc);
+            LOGD(" startPreview() err=%d\n",  rc);
             break;
         }
         if( mm_app_close(my_cam_app.cam_open) != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_close() err=%d\n",__func__, rc);
+            LOGE("mm_app_close() err=%d\n", rc);
             rc = -1;
             goto end;
         }
         if(result != MM_QCAMERA_APP_INTERATION) {
-            printf("%s: Snapshot Start/Stop Fails for Camera %d in %d iteration", __func__, i,j);
+            printf(" Snapshot Start/Stop Fails for Camera %d in %d iteration",  i,j);
             rc = -1;
             break;
         }
@@ -1704,7 +1701,7 @@ end:
     }else{
         printf("\t***Failed***\n");
     }
-    CDBG("%s:END, rc = %d\n", __func__, rc);
+    LOGD("END, rc = %d\n",  rc);
     return rc;
 }
 
@@ -1717,48 +1714,48 @@ int mm_app_dtc_s_2(mm_camera_app_t *cam_apps)
     printf("\n Verifying Video on front and back camera...\n");
     for(i = 0; i < cam_apps->num_cameras; i++) {
         if( mm_app_open(i) != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_open() err=%d\n",__func__, rc);
+            LOGE("mm_app_open() err=%d\n", rc);
             rc = -1;
             goto end;
         }
         if(system_dimension_set(my_cam_app.cam_open) != MM_CAMERA_OK){
-            CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+            LOGE("system_dimension_set() err=%d\n", rc);
             rc = -1;
             goto end;
         }
 
         if( MM_CAMERA_OK != (rc = startPreview(my_cam_app.cam_open))) {
-            CDBG_ERROR("%s: startPreview() err=%d\n", __func__, rc);
+            LOGE(" startPreview() err=%d\n",  rc);
             break;
         }
         for(j = 0; j < MM_QCAMERA_APP_INTERATION; j++) {
             if( MM_CAMERA_OK != (rc = startRecording(my_cam_app.cam_open))) {
-                CDBG_ERROR("%s: StartVideorecording() err=%d\n", __func__, rc);
+                LOGE(" StartVideorecording() err=%d\n",  rc);
                 break;
             }
 
             /*if(mm_camera_app_timedwait() == ETIMEDOUT) {
-            CDBG_ERROR("%s: Video Callback not received in time\n", __func__);
+            LOGE(" Video Callback not received in time\n");
             break;
             }*/
             mm_camera_app_wait();
             if( MM_CAMERA_OK != (rc = stopRecording(my_cam_app.cam_open))) {
-                CDBG_ERROR("%s: Stopvideorecording() err=%d\n", __func__, rc);
+                LOGE(" Stopvideorecording() err=%d\n",  rc);
                 break;
             }
             result++;
         }
         if( MM_CAMERA_OK != (rc = stopPreview(my_cam_app.cam_open))) {
-            CDBG("%s: startPreview() err=%d\n", __func__, rc);
+            LOGD(" startPreview() err=%d\n",  rc);
             break;
         }
         if( mm_app_close(my_cam_app.cam_open) != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_close() err=%d\n",__func__, rc);
+            LOGE("mm_app_close() err=%d\n", rc);
             rc = -1;
             goto end;
         }
         if(result != MM_QCAMERA_APP_INTERATION) {
-            printf("%s: Video Start/Stop Fails for Camera %d in %d iteration", __func__, i,j);
+            printf(" Video Start/Stop Fails for Camera %d in %d iteration",  i,j);
             rc = -1;
             break;
         }
@@ -1771,7 +1768,7 @@ end:
     }else{
         printf("\nFailed\n");
     }
-    CDBG("%s:END, rc = %d\n", __func__, rc);
+    LOGD("END, rc = %d\n",  rc);
     return rc;
 }
 
@@ -1783,45 +1780,45 @@ int mm_app_dtc_s_3(mm_camera_app_t *cam_apps)
 
     printf("\n Verifying RDI Stream on front and back camera...\n");
     if(cam_apps->num_cameras == 0) {
-        CDBG_ERROR("%s:Query Failed: Num of cameras = %d\n",__func__, cam_apps->num_cameras);
+        LOGE("Query Failed: Num of cameras = %d\n", cam_apps->num_cameras);
         rc = -1;
         goto end;
     }
     for(i = 0; i < cam_apps->num_cameras; i++) {
         if( mm_app_open(i) != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_open() err=%d\n",__func__, rc);
+            LOGE("mm_app_open() err=%d\n", rc);
             rc = -1;
             goto end;
         }
         if(system_dimension_set(my_cam_app.cam_open) != MM_CAMERA_OK){
-            CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+            LOGE("system_dimension_set() err=%d\n", rc);
             rc = -1;
             goto end;
         }
         for(j = 0; j < MM_QCAMERA_APP_INTERATION; j++) {
             if( MM_CAMERA_OK != (rc = startRdi(my_cam_app.cam_open))) {
-                CDBG_ERROR("%s: StartVideorecording() err=%d\n", __func__, rc);
+                LOGE(" StartVideorecording() err=%d\n",  rc);
                 break;
             }
 
             /*if(mm_camera_app_timedwait() == ETIMEDOUT) {
-            CDBG_ERROR("%s: Video Callback not received in time\n", __func__);
+            LOGE(" Video Callback not received in time\n");
             break;
             }*/
             mm_camera_app_wait();
             if( MM_CAMERA_OK != (rc = stopRdi(my_cam_app.cam_open))) {
-                CDBG_ERROR("%s: Stopvideorecording() err=%d\n", __func__, rc);
+                LOGE(" Stopvideorecording() err=%d\n",  rc);
                 break;
             }
             result++;
         }
         if( mm_app_close(my_cam_app.cam_open) != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_close() err=%d\n",__func__, rc);
+            LOGE("mm_app_close() err=%d\n", rc);
             rc = -1;
             goto end;
         }
         if(result != MM_QCAMERA_APP_INTERATION) {
-            printf("%s: Video Start/Stop Fails for Camera %d in %d iteration", __func__, i,j);
+            printf(" Video Start/Stop Fails for Camera %d in %d iteration",  i,j);
             rc = -1;
             break;
         }
@@ -1834,7 +1831,7 @@ end:
     }else{
         printf("\nFailed\n");
     }
-    CDBG("%s:END, rc = %d\n", __func__, rc);
+    LOGD("END, rc = %d\n",  rc);
     return rc;
 }
 
@@ -1850,30 +1847,30 @@ int mm_app_dtc_s_5(mm_camera_app_t *cam_apps)
     printf("\n Verifying Preview on back Camera and RDI on Front camera...\n");
 
     if(mm_app_open(back_camera) != MM_CAMERA_OK) {
-        CDBG_ERROR("%s:mm_app_open() back camera err=%d\n",__func__, rc);
+        LOGE("mm_app_open() back camera err=%d\n", rc);
         rc = -1;
         goto end;
     }
     if(system_dimension_set(back_camera) != MM_CAMERA_OK){
-    CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
+    LOGE("system_dimension_set() err=%d\n", rc);
         rc = -1;
         goto end;
     }
 
     if( MM_CAMERA_OK != (rc = startStats(back_camera))) {
-        CDBG_ERROR("%s: back camera startPreview() err=%d\n", __func__, rc);
+        LOGE(" back camera startPreview() err=%d\n",  rc);
         goto end;
     }
 
     mm_camera_app_wait();
 
     if( MM_CAMERA_OK != (rc = stopStats(my_cam_app.cam_open))) {
-        CDBG("%s: startPreview() err=%d\n", __func__, rc);
+        LOGD(" startPreview() err=%d\n",  rc);
         goto end;
     }
 
     if( mm_app_close(my_cam_app.cam_open) != MM_CAMERA_OK) {
-        CDBG_ERROR("%s:mm_app_close() err=%d\n",__func__, rc);
+        LOGE("mm_app_close() err=%d\n", rc);
         rc = -1;
         goto end;
     }
@@ -1883,7 +1880,7 @@ end:
     }else{
         printf("\nFailed\n");
     }
-    CDBG("%s:END, rc = %d\n", __func__, rc);
+    LOGD("END, rc = %d\n",  rc);
     return rc;
 }
 
@@ -1916,12 +1913,12 @@ int mm_app_dual_test_entry(mm_camera_app_t *cam_app)
     int cam_id = 0;
 
     tc = mm_app_gen_dual_test_cases();
-    CDBG("Running %d test cases\n",tc);
+    LOGD("Running %d test cases\n",tc);
     for(i = 0; i < tc; i++) {
         mm_app_tc[i].r = mm_app_tc[i].f(cam_app);
         if(mm_app_tc[i].r != MM_CAMERA_OK) {
-            printf("%s: test case %d error = %d, abort unit testing engine!!!!\n",
-                    __func__, i, mm_app_tc[i].r);
+            printf(" test case %d error = %d, abort unit testing engine!!!!\n",
+                     i, mm_app_tc[i].r);
             rc = mm_app_tc[i].r;
             goto end;
         }

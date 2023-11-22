@@ -63,6 +63,11 @@ final public class MediaCodecList {
     }
 
     /* package private */ static final Map<String, Object> getGlobalSettings() {
+        synchronized (sInitLock) {
+            if (sGlobalSettings == null) {
+                sGlobalSettings = native_getGlobalSettings();
+            }
+        }
         return sGlobalSettings;
     }
 
@@ -74,7 +79,6 @@ final public class MediaCodecList {
     private static final void initCodecList() {
         synchronized (sInitLock) {
             if (sRegularCodecInfos == null) {
-                sGlobalSettings = native_getGlobalSettings();
                 int count = native_getCodecCount();
                 ArrayList<MediaCodecInfo> regulars = new ArrayList<MediaCodecInfo>();
                 ArrayList<MediaCodecInfo> all = new ArrayList<MediaCodecInfo>();
@@ -197,6 +201,9 @@ final public class MediaCodecList {
      * <code class=prettyprint>format.setString(MediaFormat.KEY_FRAME_RATE, null)</code>
      * to clear any existing frame rate setting in the format.
      *
+     * @see MediaCodecList.CodecCapabilities.isFormatSupported for format keys
+     * considered per android versions when evaluating suitable codecs.
+     *
      * @param format A decoder media format with optional feature directives.
      * @throws IllegalArgumentException if format is not a valid media format.
      * @throws NullPointerException if format is null.
@@ -217,6 +224,9 @@ final public class MediaCodecList {
      * frame rate}. Use
      * <code class=prettyprint>format.setString(MediaFormat.KEY_FRAME_RATE, null)</code>
      * to clear any existing frame rate setting in the format.
+     *
+     * @see MediaCodecList.CodecCapabilities.isFormatSupported for format keys
+     * considered per android versions when evaluating suitable codecs.
      *
      * @param format An encoder media format with optional feature directives.
      * @throws IllegalArgumentException if format is not a valid media format.

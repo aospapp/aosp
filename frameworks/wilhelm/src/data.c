@@ -19,8 +19,10 @@
 #include "sles_allinclusive.h"
 #ifdef ANDROID  // FIXME This file should be portable
 #include "android/channels.h"
+#include "data.h"
 #endif
 
+#include <cutils/bitops.h>
 
 /** \brief Check a data locator and make local deep copy */
 
@@ -337,7 +339,7 @@ static void freeDataLocator(DataLocator *pDataLocator)
 /** \brief Check a data format and make local deep copy */
 
 static SLresult checkDataFormat(const char *name, void *pFormat, DataFormat *pDataFormat,
-        SLuint32 allowedDataFormatMask)
+        SLuint32 allowedDataFormatMask, SLboolean isOutputFormat)
 {
     assert(NULL != name && NULL != pDataFormat);
     SLresult result = SL_RESULT_SUCCESS;
@@ -367,25 +369,10 @@ static SLresult checkDataFormat(const char *name, void *pFormat, DataFormat *pDa
         case SL_DATAFORMAT_PCM:
             pDataFormat->mPCM = *(SLDataFormat_PCM *)pFormat;
             do {
-
-                // check the channel count
-                // FIXME FCC_8 Android and 8-channel positional assumptions here
-                switch (pDataFormat->mPCM.numChannels) {
-                case 1:     // mono
-                case 2:     // stereo
-                case 3:     // stereo + front center
-                case 4:     // QUAD
-                case 5:     // QUAD + front center
-                case 6:     // 5.1
-                case 7:     // 5.1 + back center
-                case 8:     // 7.1
-                    break;
-                case 0:     // unknown
+                if (pDataFormat->mPCM.numChannels == 0) {
                     result = SL_RESULT_PARAMETER_INVALID;
-                    break;
-                default:    // multi-channel
+                } else if (pDataFormat->mPCM.numChannels > SL_ANDROID_SPEAKER_COUNT_MAX) {
                     result = SL_RESULT_CONTENT_UNSUPPORTED;
-                    break;
                 }
                 if (SL_RESULT_SUCCESS != result) {
                     SL_LOGE("%s: numChannels=%u", name, (unsigned) pDataFormat->mPCM.numChannels);
@@ -448,77 +435,45 @@ static SLresult checkDataFormat(const char *name, void *pFormat, DataFormat *pDa
                 }
 
                 // check the channel mask
-                // FIXME FCC_8 Android and 8-channel positional assumptions here
-                switch (pDataFormat->mPCM.channelMask) {
-                case SL_SPEAKER_FRONT_LEFT | SL_SPEAKER_FRONT_RIGHT:
-                    if (2 != pDataFormat->mPCM.numChannels) {
-                        result = SL_RESULT_PARAMETER_INVALID;
-                    }
-                    break;
-                case SL_SPEAKER_FRONT_LEFT:
-                case SL_SPEAKER_FRONT_RIGHT:
-                case SL_SPEAKER_FRONT_CENTER:
-                    if (1 != pDataFormat->mPCM.numChannels) {
-                        result = SL_RESULT_PARAMETER_INVALID;
-                    }
-                    break;
-#ifdef ANDROID
-                case SL_SPEAKER_FRONT_LEFT | SL_SPEAKER_FRONT_RIGHT | SL_SPEAKER_FRONT_CENTER:
-                    if (3 != pDataFormat->mPCM.numChannels) {
-                        result = SL_RESULT_PARAMETER_INVALID;
-                    }
-                    break;
-                case SL_ANDROID_SPEAKER_QUAD:
-                    if (4 != pDataFormat->mPCM.numChannels) {
-                        result = SL_RESULT_PARAMETER_INVALID;
-                    }
-                    break;
-                case SL_ANDROID_SPEAKER_QUAD | SL_SPEAKER_FRONT_CENTER:
-                    if (5 != pDataFormat->mPCM.numChannels) {
-                        result = SL_RESULT_PARAMETER_INVALID;
-                    }
-                    break;
-                case SL_ANDROID_SPEAKER_5DOT1:
-                    if (6 != pDataFormat->mPCM.numChannels) {
-                        result = SL_RESULT_PARAMETER_INVALID;
-                    }
-                    break;
-                case SL_ANDROID_SPEAKER_5DOT1 | SL_SPEAKER_BACK_CENTER:
-                    if (7 != pDataFormat->mPCM.numChannels) {
-                        result = SL_RESULT_PARAMETER_INVALID;
-                    }
-                    break;
-                case SL_ANDROID_SPEAKER_7DOT1:
-                    if (8 != pDataFormat->mPCM.numChannels) {
-                        result = SL_RESULT_PARAMETER_INVALID;
-                    }
-                    break;
-#endif
-                case 0: {
-                    // According to OpenSL ES 1.0.1 section 9.1.7 SLDataFormat_PCM, "a default
-                    // setting of zero indicates stereo format (i.e. the setting is equivalent to
-                    // SL_SPEAKER_FRONT_LEFT | SL_SPEAKER_FRONT_RIGHT)."
-                    //
-                    // ANDROID SPECIFIC BEHAVIOR.
-                    // We fill in the appropriate mask to the number indicated by numChannels.
-                    // The default of front left rather than center for mono may be non-intuitive,
-                    // but the left channel is the first channel for stereo or multichannel content.
-                    SLuint32 mask = channelCountToMask(pDataFormat->mPCM.numChannels);
-                    if (mask == UNKNOWN_CHANNELMASK) {
+                SL_LOGV("%s: Requested channel mask of 0x%x for %d channel audio",
+                    name,
+                    pDataFormat->mPCM.channelMask,
+                    pDataFormat->mPCM.numChannels);
+
+                if (pDataFormat->mPCM.channelMask == 0) {
+                    // We can derive the channel mask from the channel count,
+                    // but issue a warning--the automatic mask generation
+                    // makes a lot of assumptions that may or may not be what
+                    // the app was expecting.
+                    SLuint32 mask = isOutputFormat
+                            ? sles_channel_out_mask_from_count(pDataFormat->mPCM.numChannels)
+                            : sles_channel_in_mask_from_count(pDataFormat->mPCM.numChannels);
+                    if (mask == SL_ANDROID_UNKNOWN_CHANNELMASK) {
+                        SL_LOGE("No channel mask specified and no default mapping for"
+                                "requested speaker count of %u", pDataFormat->mPCM.numChannels);
                         result = SL_RESULT_PARAMETER_INVALID;
                     } else {
                         pDataFormat->mPCM.channelMask = mask;
+                        SL_LOGW("No channel mask specified; Using mask %#x based on requested"
+                                        "speaker count of %u",
+                                pDataFormat->mPCM.channelMask,
+                                pDataFormat->mPCM.numChannels);
                     }
-                } break;
-                default:
+                }
+
+                SLuint32 mask = pDataFormat->mPCM.channelMask;
+                SLuint32 count = sles_channel_count_from_mask(mask);
+                if (count != pDataFormat->mPCM.numChannels) {
+                    SL_LOGE("%s: requested %d channels but mask (0x%x) has %d channel bits set",
+                        name,
+                        pDataFormat->mPCM.numChannels,
+                        mask,
+                        count);
                     result = SL_RESULT_PARAMETER_INVALID;
                     break;
                 }
-                if (SL_RESULT_SUCCESS != result) {
-                    SL_LOGE("%s: channelMask=0x%x numChannels=%u", name,
-                        pDataFormat->mPCM.channelMask, pDataFormat->mPCM.numChannels);
-                    break;
-                }
+
+                SL_LOGV("%s: final channel mask is 0x%x", name, pDataFormat->mPCM.channelMask);
 
                 // check the endianness / byte order
                 switch (pDataFormat->mPCM.endianness) {
@@ -864,8 +819,11 @@ SLresult checkDataSource(const char *name, const SLDataSource *pDataSrc,
         break;
     }
 
-    result = checkDataFormat(name, myDataSrc.pFormat, &pDataLocatorFormat->mFormat,
-            allowedDataFormatMask);
+    result = checkDataFormat(name,
+                             myDataSrc.pFormat,
+                             &pDataLocatorFormat->mFormat,
+                             allowedDataFormatMask,
+                             SL_BOOLEAN_TRUE /*isOutputFormat*/);
     if (SL_RESULT_SUCCESS != result) {
         freeDataLocator(&pDataLocatorFormat->mLocator);
         return result;
@@ -939,8 +897,12 @@ SLresult checkDataSink(const char *name, const SLDataSink *pDataSink,
         break;
     }
 
-    result = checkDataFormat(name, myDataSink.pFormat, &pDataLocatorFormat->mFormat,
-            allowedDataFormatMask);
+    result = checkDataFormat(name,
+            myDataSink.pFormat,
+            &pDataLocatorFormat->mFormat,
+            allowedDataFormatMask,
+            SL_BOOLEAN_FALSE /*isOutputFormat*/);
+
     if (SL_RESULT_SUCCESS != result) {
         freeDataLocator(&pDataLocatorFormat->mLocator);
         return result;

@@ -3,14 +3,10 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES:=                 \
         TextDescriptions.cpp      \
-        TimedTextDriver.cpp       \
-        TimedText3GPPSource.cpp \
-        TimedTextSource.cpp       \
-        TimedTextSRTSource.cpp    \
-        TimedTextPlayer.cpp
 
 LOCAL_CFLAGS += -Wno-multichar -Werror -Wall
 LOCAL_CLANG := true
+LOCAL_SANITIZE := signed-integer-overflow
 
 LOCAL_C_INCLUDES:= \
         $(TOP)/frameworks/av/include/media/stagefright/timedtext \

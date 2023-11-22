@@ -112,12 +112,6 @@ public class FieldWithLocationTest extends EventLocationEventTestCase {
                 DEBUGGEE_SIGNATURE, returnedExceptionSignature);
     }
 
-    private boolean supportFieldCapability(boolean modification) {
-        VmMirror mirror = debuggeeWrapper.vmMirror;
-        return modification ? mirror.canWatchFieldModification() :
-            mirror.canWatchFieldAccess();
-    }
-
     private static String getFieldCapabilityName(boolean modification) {
         return modification ? "canWatchFieldModification" :
             "canWatchFieldAccess";
@@ -133,11 +127,6 @@ public class FieldWithLocationTest extends EventLocationEventTestCase {
         final String capabilityname = getFieldCapabilityName(modification);
 
         logWriter.println("Check capability " + capabilityname);
-        if (supportFieldCapability(modification)) {
-            runEventWithLocationTest(eventKind);
-        } else {
-            logWriter.println("##WARNING: this VM doesn't possess capability " +
-                    capabilityname);
-        }
+        runEventWithLocationTest(eventKind);
     }
 }

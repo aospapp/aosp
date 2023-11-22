@@ -74,7 +74,8 @@ SoftMPEG2::SoftMPEG2(
       mIvColorFormat(IV_YUV_420P),
       mNewWidth(mWidth),
       mNewHeight(mHeight),
-      mChangingResolution(false) {
+      mChangingResolution(false),
+      mStride(mWidth) {
     initPorts(kNumBuffers, INPUT_BUF_SIZE, kNumBuffers, CODEC_MIME_TYPE);
 
     // If input dump is enabled, then open create an empty file
@@ -202,6 +203,8 @@ status_t SoftMPEG2::resetDecoder() {
     /* Set number of cores/threads to be used by the codec */
     setNumCores();
 
+    mStride = 0;
+
     return OK;
 }
 
@@ -307,7 +310,7 @@ status_t SoftMPEG2::initDecoder() {
 
         s_fill_mem_ip.u4_share_disp_buf = u4_share_disp_buf;
         s_fill_mem_ip.e_output_format = mIvColorFormat;
-
+        s_fill_mem_ip.u4_deinterlace = 1;
         s_fill_mem_ip.s_ivd_fill_mem_rec_ip_t.e_cmd = IV_CMD_FILL_NUM_MEM_REC;
         s_fill_mem_ip.s_ivd_fill_mem_rec_ip_t.pv_mem_rec_location = mMemRecords;
         s_fill_mem_ip.s_ivd_fill_mem_rec_ip_t.u4_max_frm_wd = displayStride;
@@ -361,6 +364,7 @@ status_t SoftMPEG2::initDecoder() {
         s_init_ip.s_ivd_init_ip_t.u4_frm_max_ht = displayHeight;
 
         s_init_ip.u4_share_disp_buf = u4_share_disp_buf;
+        s_init_ip.u4_deinterlace = 1;
 
         s_init_op.s_ivd_init_op_t.u4_size = sizeof(s_init_op);
 
@@ -383,7 +387,8 @@ status_t SoftMPEG2::initDecoder() {
     resetPlugin();
 
     /* Set the run time (dynamic) parameters */
-    setParams(displayStride);
+    mStride = outputBufferWidth();
+    setParams(mStride);
 
     /* Set number of cores/threads to be used by the codec */
     setNumCores();
@@ -465,7 +470,7 @@ OMX_ERRORTYPE SoftMPEG2::internalSetParameter(OMX_INDEXTYPE index, const OMX_PTR
     return ret;
 }
 
-void SoftMPEG2::setDecodeArgs(
+bool SoftMPEG2::setDecodeArgs(
         ivd_video_decode_ip_t *ps_dec_ip,
         ivd_video_decode_op_t *ps_dec_op,
         OMX_BUFFERHEADERTYPE *inHeader,
@@ -473,7 +478,6 @@ void SoftMPEG2::setDecodeArgs(
         size_t timeStampIx) {
     size_t sizeY = outputBufferWidth() * outputBufferHeight();
     size_t sizeUV;
-    uint8_t *pBuf;
 
     ps_dec_ip->u4_size = sizeof(ivd_video_decode_ip_t);
     ps_dec_op->u4_size = sizeof(ivd_video_decode_op_t);
@@ -493,22 +497,28 @@ void SoftMPEG2::setDecodeArgs(
         ps_dec_ip->u4_num_Bytes = 0;
     }
 
-    if (outHeader) {
-        pBuf = outHeader->pBuffer;
-    } else {
-        pBuf = mFlushOutBuffer;
-    }
-
     sizeUV = sizeY / 4;
     ps_dec_ip->s_out_buffer.u4_min_out_buf_size[0] = sizeY;
     ps_dec_ip->s_out_buffer.u4_min_out_buf_size[1] = sizeUV;
     ps_dec_ip->s_out_buffer.u4_min_out_buf_size[2] = sizeUV;
 
+    uint8_t *pBuf;
+    if (outHeader) {
+        if (outHeader->nAllocLen < sizeY + (sizeUV * 2)) {
+            android_errorWriteLog(0x534e4554, "27833616");
+            return false;
+        }
+        pBuf = outHeader->pBuffer;
+    } else {
+        // mFlushOutBuffer always has the right size.
+        pBuf = mFlushOutBuffer;
+    }
+
     ps_dec_ip->s_out_buffer.pu1_bufs[0] = pBuf;
     ps_dec_ip->s_out_buffer.pu1_bufs[1] = pBuf + sizeY;
     ps_dec_ip->s_out_buffer.pu1_bufs[2] = pBuf + sizeY + sizeUV;
     ps_dec_ip->s_out_buffer.u4_num_bufs = 3;
-    return;
+    return true;
 }
 void SoftMPEG2::onPortFlushCompleted(OMX_U32 portIndex) {
     /* Once the output buffers are flushed, ignore any buffers that are held in decoder */
@@ -542,14 +552,10 @@ void SoftMPEG2::onQueueFilled(OMX_U32 portIndex) {
     List<BufferInfo *> &inQueue = getPortQueue(kInputPortIndex);
     List<BufferInfo *> &outQueue = getPortQueue(kOutputPortIndex);
 
-    /* If input EOS is seen and decoder is not in flush mode,
-     * set the decoder in flush mode.
-     * There can be a case where EOS is sent along with last picture data
-     * In that case, only after decoding that input data, decoder has to be
-     * put in flush. This case is handled here  */
-
-    if (mReceivedEOS && !mIsInFlush) {
-        setFlushMode();
+    if (outputBufferWidth() != mStride) {
+        /* Set the run-time (dynamic) parameters */
+        mStride = outputBufferWidth();
+        setParams(mStride);
     }
 
     while (!outQueue.empty()) {
@@ -621,7 +627,11 @@ void SoftMPEG2::onQueueFilled(OMX_U32 portIndex) {
             WORD32 timeDelay, timeTaken;
             size_t sizeY, sizeUV;
 
-            setDecodeArgs(&s_dec_ip, &s_dec_op, inHeader, outHeader, timeStampIx);
+            if (!setDecodeArgs(&s_dec_ip, &s_dec_op, inHeader, outHeader, timeStampIx)) {
+                ALOGE("Decoder arg setup failed");
+                notify(OMX_EventError, OMX_ErrorUndefined, 0, NULL);
+                return;
+            }
             // If input dump is enabled, then write to file
             DUMP_TO_FILE(mInFile, s_dec_ip.pv_stream_buffer, s_dec_ip.u4_num_Bytes);
 
@@ -664,9 +674,9 @@ void SoftMPEG2::onQueueFilled(OMX_U32 portIndex) {
 
                 CHECK_EQ(reInitDecoder(), (status_t)OK);
 
-                setDecodeArgs(&s_dec_ip, &s_dec_op, inHeader, outHeader, timeStampIx);
-
-                ivdec_api_function(mCodecCtx, (void *)&s_dec_ip, (void *)&s_dec_op);
+                if (setDecodeArgs(&s_dec_ip, &s_dec_op, inHeader, outHeader, timeStampIx)) {
+                    ivdec_api_function(mCodecCtx, (void *)&s_dec_ip, (void *)&s_dec_op);
+                }
                 return;
             }
 
@@ -676,6 +686,8 @@ void SoftMPEG2::onQueueFilled(OMX_U32 portIndex) {
                 mChangingResolution = false;
                 resetDecoder();
                 resetPlugin();
+                mStride = outputBufferWidth();
+                setParams(mStride);
                 continue;
             }
 
@@ -729,7 +741,7 @@ void SoftMPEG2::onQueueFilled(OMX_U32 portIndex) {
                     notifyFillBufferDone(outHeader);
                     outHeader = NULL;
                 }
-            } else {
+            } else if (mIsInFlush) {
                 /* If in flush mode and no output is returned by the codec,
                  * then come out of flush mode */
                 mIsInFlush = false;
@@ -748,6 +760,16 @@ void SoftMPEG2::onQueueFilled(OMX_U32 portIndex) {
                     resetPlugin();
                 }
             }
+        }
+
+        /* If input EOS is seen and decoder is not in flush mode,
+         * set the decoder in flush mode.
+         * There can be a case where EOS is sent along with last picture data
+         * In that case, only after decoding that input data, decoder has to be
+         * put in flush. This case is handled here  */
+
+        if (mReceivedEOS && !mIsInFlush) {
+            setFlushMode();
         }
 
         // TODO: Handle more than one picture data

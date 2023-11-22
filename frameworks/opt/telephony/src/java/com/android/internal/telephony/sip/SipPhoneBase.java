@@ -22,10 +22,8 @@ import android.os.AsyncResult;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
-import android.os.Registrant;
 import android.os.RegistrantList;
 import android.os.SystemProperties;
-import android.telephony.CellInfo;
 import android.telephony.CellLocation;
 import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
@@ -34,16 +32,14 @@ import android.telephony.Rlog;
 import com.android.internal.telephony.Call;
 import com.android.internal.telephony.CallStateException;
 import com.android.internal.telephony.Connection;
+import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.dataconnection.DataConnection;
 import com.android.internal.telephony.IccCard;
 import com.android.internal.telephony.IccPhoneBookInterfaceManager;
-import com.android.internal.telephony.IccSmsInterfaceManager;
 import com.android.internal.telephony.MmiCode;
 import com.android.internal.telephony.OperatorInfo;
-import com.android.internal.telephony.PhoneBase;
 import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.PhoneNotifier;
-import com.android.internal.telephony.PhoneSubInfo;
 import com.android.internal.telephony.TelephonyProperties;
 import com.android.internal.telephony.UUSInfo;
 import com.android.internal.telephony.uicc.IccFileHandler;
@@ -51,7 +47,7 @@ import com.android.internal.telephony.uicc.IccFileHandler;
 import java.util.ArrayList;
 import java.util.List;
 
-abstract class SipPhoneBase extends PhoneBase {
+abstract class SipPhoneBase extends Phone {
     private static final String LOG_TAG = "SipPhoneBase";
 
     private RegistrantList mRingbackRegistrants = new RegistrantList();
@@ -92,12 +88,14 @@ abstract class SipPhoneBase extends PhoneBase {
         mRingbackRegistrants.remove(h);
     }
 
-    protected void startRingbackTone() {
+    @Override
+    public void startRingbackTone() {
         AsyncResult result = new AsyncResult(null, Boolean.TRUE, null);
         mRingbackRegistrants.notifyRegistrants(result);
     }
 
-    protected void stopRingbackTone() {
+    @Override
+    public void stopRingbackTone() {
         AsyncResult result = new AsyncResult(null, Boolean.FALSE, null);
         mRingbackRegistrants.notifyRegistrants(result);
     }
@@ -107,7 +105,7 @@ abstract class SipPhoneBase extends PhoneBase {
         // FIXME: we may need to provide this when data connectivity is lost
         // or when server is down
         ServiceState s = new ServiceState();
-        s.setState(ServiceState.STATE_IN_SERVICE);
+        s.setVoiceRegState(ServiceState.STATE_IN_SERVICE);
         return s;
     }
 
@@ -393,8 +391,7 @@ abstract class SipPhoneBase extends PhoneBase {
     }
 
     @Override
-    public void selectNetworkManually(
-            OperatorInfo network,
+    public void selectNetworkManually(OperatorInfo network, boolean persistSelection,
             Message response) {
     }
 
@@ -457,16 +454,7 @@ abstract class SipPhoneBase extends PhoneBase {
         return false;
     }
 
-    boolean updateCurrentCarrierInProvider() {
-        return false;
-    }
-
     public void saveClirSetting(int commandInterfaceCLIRMode) {
-    }
-
-    @Override
-    public PhoneSubInfo getPhoneSubInfo(){
-        return null;
     }
 
     @Override
@@ -538,5 +526,13 @@ abstract class SipPhoneBase extends PhoneBase {
 
     @Override
     protected void onUpdateIccAvailability() {
+    }
+
+    @Override
+    public void sendEmergencyCallStateChange(boolean callActive) {
+    }
+
+    @Override
+    public void setBroadcastEmergencyCallStateChanges(boolean broadcast) {
     }
 }

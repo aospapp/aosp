@@ -81,7 +81,7 @@ int g() {
 };
 
 // PR14773
-// CHECK: [[ARRVAL:%[0-9a-zA-Z]*]] = load i32, i32* getelementptr inbounds ([0 x i32], [0 x i32]* @_ZZ14staticarrayrefvE5array, i32 0, i64 0), align 4
+// CHECK: [[ARRVAL:%[0-9a-zA-Z]*]] = load i32, i32* getelementptr inbounds ([0 x i32], [0 x i32]* @_ZZ14staticarrayrefvE5array, i64 0, i64 0), align 4
 // CHECK-NEXT: store i32 [[ARRVAL]]
 void staticarrayref(){
   static int array[] = {};
@@ -128,3 +128,12 @@ void nestedCapture () {
     };
   };
 }
+
+// Ensure we don't assert here.
+struct CaptureArrayAndThis {
+  CaptureArrayAndThis() {
+    char array[] = "floop";
+    [array, this] {};
+  }
+} capture_array_and_this;
+

@@ -39,7 +39,7 @@ import android.view.ViewGroup;
 import android.view.animation.AccelerateInterpolator;
 import java.util.ArrayList;
 
-import com.android.cts.animation.R;
+import android.animation.cts.R;
 
 public class AnimationActivity extends Activity {
     private static final String BALL_HEIGHT = "ballwidth";

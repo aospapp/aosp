@@ -12,6 +12,8 @@
 /* IEEE 802.11i */
 #define PMKID_LEN 16
 #define PMK_LEN 32
+#define PMK_LEN_SUITE_B_192 48
+#define PMK_LEN_MAX 48
 #define WPA_REPLAY_COUNTER_LEN 8
 #define WPA_NONCE_LEN 32
 #define WPA_KEY_RSC_LEN 8
@@ -407,7 +409,7 @@ u32 wpa_akm_to_suite(int akm);
 int wpa_compare_rsn_ie(int ft_initial_assoc,
 		       const u8 *ie1, size_t ie1len,
 		       const u8 *ie2, size_t ie2len);
-int wpa_insert_pmkid(u8 *ies, size_t ies_len, const u8 *pmkid);
+int wpa_insert_pmkid(u8 *ies, size_t *ies_len, const u8 *pmkid);
 
 struct wpa_ft_ies {
 	const u8 *mdie;
@@ -435,6 +437,7 @@ int wpa_ft_parse_ies(const u8 *ies, size_t ies_len, struct wpa_ft_ies *parse);
 int wpa_cipher_key_len(int cipher);
 int wpa_cipher_rsc_len(int cipher);
 int wpa_cipher_to_alg(int cipher);
+int wpa_cipher_valid_group(int cipher);
 int wpa_cipher_valid_pairwise(int cipher);
 int wpa_cipher_valid_mgmt_group(int cipher);
 u32 wpa_cipher_to_suite(int proto, int cipher);

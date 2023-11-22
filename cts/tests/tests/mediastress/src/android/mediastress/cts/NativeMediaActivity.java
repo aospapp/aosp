@@ -20,12 +20,12 @@ package android.mediastress.cts;
 import android.app.Activity;
 import android.content.res.Configuration;
 import android.graphics.SurfaceTexture;
-import android.media.CamcorderProfile;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Surface;
 import android.view.WindowManager;
 
+import java.io.File;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -33,7 +33,7 @@ import java.util.concurrent.TimeUnit;
 import junit.framework.Assert;
 
 public class NativeMediaActivity extends Activity implements OnSurfaceChangedListener {
-    public static final String EXTRA_VIDEO_QUALITY = "videoQuality";
+    public static final String EXTRA_VIDEO_HEIGHT = "videoHeight";
     // should be long enough. time-out can be treated as error
     public static final long NATIVE_MEDIA_LIFECYCLE_TIMEOUT_MS = 10000;
     static final String TAG = "NativeMedia";
@@ -50,8 +50,7 @@ public class NativeMediaActivity extends Activity implements OnSurfaceChangedLis
 
     private SurfaceTextureGLSurfaceView mGLView;
     private volatile boolean mNativeCreated = false;
-    /** 0 for default (480x360), other value can be CamcorderProfile.QUALITY_480P / 720P / 1080P */
-    private int mVideoQuality = 0;
+    private int mVideoHeight = 360;
     // native media status queued whenever there is a change in life.
     private final BlockingQueue<Boolean> mNativeWaitQ = new LinkedBlockingQueue<Boolean>();
 
@@ -60,7 +59,7 @@ public class NativeMediaActivity extends Activity implements OnSurfaceChangedLis
         super.onCreate(icicle);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON |
                 WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
-        mVideoQuality = getIntent().getIntExtra(EXTRA_VIDEO_QUALITY, mVideoQuality);
+        mVideoHeight = getIntent().getIntExtra(EXTRA_VIDEO_HEIGHT, mVideoHeight);
         mGLView = new SurfaceTextureGLSurfaceView(this, this);
         setContentView(mGLView);
     }
@@ -84,7 +83,9 @@ public class NativeMediaActivity extends Activity implements OnSurfaceChangedLis
                 Assert.assertTrue(createEngine());
                 Assert.assertTrue(setSurfaceForNative());
                 String fileName = getMediaString();
-                Log.i(TAG, "start playing " + fileName);
+                File f = new File(fileName);
+                Log.i(TAG, "start playing " + fileName + ", exists: " + f.exists());
+                Assert.assertTrue("file '" + fileName + "' does not exist", f.exists());
                 Assert.assertTrue(createMediaPlayer("file://" + fileName));
                 mNativeCreated = true;
                 mNativeWaitQ.add(mNativeCreated);
@@ -156,14 +157,14 @@ public class NativeMediaActivity extends Activity implements OnSurfaceChangedLis
 
     private String getMediaString() {
         int mediaIndex = 0; // default: 480x360
-        switch(mVideoQuality) {
-        case CamcorderProfile.QUALITY_1080P:
+        switch(mVideoHeight) {
+        case 1080:
             mediaIndex = 3;
             break;
-        case CamcorderProfile.QUALITY_720P:
+        case 720:
             mediaIndex = 2;
             break;
-        case CamcorderProfile.QUALITY_480P:
+        case 480:
             mediaIndex = 1;
             break;
         }

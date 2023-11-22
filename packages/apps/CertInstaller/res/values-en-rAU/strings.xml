@@ -34,9 +34,8 @@
     <string name="password_empty_error" msgid="591713406761723025">"Type the password."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"Type a name."</string>
     <string name="name_char_error" msgid="3176618568784938968">"Type a name that contains only letters and numbers."</string>
-    <string name="storage_error" msgid="8306802455802770779">"Couldn\'t save the certificate. Touch OK to retry."</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"Couldn\'t save the certificate. The credential storage isn\'t enabled or properly initialised."</string>
-    <string name="cert_not_saved" msgid="4037698479662830270">"The certificate is not installed."</string>
+    <string name="cert_not_saved" msgid="4037698479662830270">"Failed to install certificate."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"No certificate to install."</string>
     <string name="invalid_cert" msgid="7704228670980743590">"The certificate is invalid."</string>
     <string name="cert_is_added" msgid="6996557598167000500">"<xliff:g id="CREDENTIAL">%s</xliff:g> is installed."</string>
@@ -68,7 +67,7 @@
     <string name="wifi_trust_config_text" msgid="5916047381475747783">"Trust certificate:\n%s\n"</string>
     <string name="install_done_title" msgid="4822989918460334497">"Credentials installed"</string>
     <string name="install_done" msgid="1522718684172097080">"<xliff:g id="NAME">%1$s</xliff:g> credentials have been added to Wi-Fi saved networks."</string>
-    <string name="done_label" msgid="5597425930652904250">"FINISHED"</string>
+    <string name="done_label" msgid="5597425930652904250">"DONE"</string>
     <string name="wifi_installer_detail" msgid="63879632832701669">"Install Wi-Fi credentials to connect to networks available via <xliff:g id="NAME">%1$s</xliff:g>."</string>
     <string name="wifi_installer_download_error" msgid="5429453090956277692">"Downloaded file has problems and can\'t be installed. Make sure that you have downloaded the file from the correct source."</string>
     <string name="wifi_installer_fail" msgid="894483173306576331">"Can\'t install Wi-Fi credentials. Try downloading the file again."</string>

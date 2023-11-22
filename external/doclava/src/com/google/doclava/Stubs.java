@@ -17,10 +17,16 @@
 package com.google.doclava;
 
 import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -29,6 +35,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Scanner;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -329,10 +336,11 @@ public class Stubs {
         // this is not a desired practice but it's happened, so we deal
         // with it by finding the first super class which passes checklevel for purposes of
         // generating the doc & stub information, and proceeding normally.
+        ClassInfo publicSuper = cl.superclass();
         cl.init(cl.asTypeInfo(), cl.realInterfaces(), cl.realInterfaceTypes(), cl.innerClasses(),
             cl.allConstructors(), cl.allSelfMethods(), cl.annotationElements(), cl.allSelfFields(),
             cl.enumConstants(), cl.containingPackage(), cl.containingClass(),
-            supr.superclass(), supr.superclassType(), cl.annotations());
+            publicSuper, publicSuper.asTypeInfo(), cl.annotations());
         Errors.error(Errors.HIDDEN_SUPERCLASS, cl.position(), "Public class " + cl.qualifiedName()
             + " stripped of unavailable superclass " + supr.qualifiedName());
       } else {
@@ -445,10 +453,61 @@ public class Stubs {
 
   static void writeClassFile(PrintStream stream, HashSet<ClassInfo> notStrippable, ClassInfo cl) {
     PackageInfo pkg = cl.containingPackage();
+    if (cl.containingClass() == null) {
+        stream.print(parseLicenseHeader(cl.position()));
+    }
     if (pkg != null) {
       stream.println("package " + pkg.name() + ";");
     }
     writeClass(stream, notStrippable, cl);
+  }
+
+  private static String parseLicenseHeader(/* @Nonnull */ SourcePositionInfo positionInfo) {
+    if (positionInfo == null) {
+      throw new NullPointerException("positionInfo == null");
+    }
+
+    try {
+      final File sourceFile = new File(positionInfo.file);
+      if (!sourceFile.exists()) {
+        throw new IllegalArgumentException("Unable to find " + sourceFile +
+                ". This is usually because doclava has been asked to generate stubs for a file " +
+                "that isn't present in the list of input source files but exists in the input " +
+                "classpath.");
+      }
+      return parseLicenseHeader(new FileInputStream(sourceFile));
+    } catch (IOException ioe) {
+      throw new RuntimeException("Unable to parse license header for: " + positionInfo.file, ioe);
+    }
+  }
+
+  /* @VisibleForTesting */
+  static String parseLicenseHeader(InputStream input) throws IOException {
+    StringBuilder builder = new StringBuilder(8192);
+    try (Scanner scanner  = new Scanner(
+          new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8)))) {
+      String line;
+      while (scanner.hasNextLine()) {
+        line = scanner.nextLine().trim();
+        // Use an extremely simple strategy for parsing license headers : assume that
+        // all file content before the first "package " or "import " directive is a license
+        // header. In some cases this might contain more than just the license header, but we
+        // don't care.
+        if (line.startsWith("package ") || line.startsWith("import ")) {
+          break;
+        }
+        builder.append(line);
+        builder.append("\n");
+      }
+
+      // We've reached the end of the file without reaching any package or import
+      // directives.
+      if (!scanner.hasNextLine()) {
+        throw new IOException("Unable to parse license header");
+      }
+    }
+
+    return builder.toString();
   }
 
   static void writeClass(PrintStream stream, HashSet<ClassInfo> notStrippable, ClassInfo cl) {
@@ -632,6 +691,9 @@ public class Stubs {
 
     writeAnnotations(stream, method.annotations(), method.isDeprecated());
 
+    if (method.isDefault()) {
+      stream.print("default ");
+    }
     stream.print(method.scope() + " ");
     if (method.isStatic()) {
       stream.print("static ");
@@ -667,7 +729,9 @@ public class Stubs {
     int count = 1;
     int size = method.parameters().size();
     for (ParameterInfo param : method.parameters()) {
-      stream.print(comma + fullParameterTypeName(method, param.type(), count == size) + " "
+      stream.print(comma);
+      writeAnnotations(stream, param.annotations(), false);
+      stream.print(fullParameterTypeName(method, param.type(), count == size) + " "
           + param.name());
       comma = ", ";
       count++;
@@ -682,7 +746,7 @@ public class Stubs {
         comma = ", ";
       }
     }
-    if (method.isAbstract() || method.isNative() || method.containingClass().isInterface()) {
+    if (method.isAbstract() || method.isNative() || (method.containingClass().isInterface() && (!method.isDefault() && !method.isStatic()))) {
       stream.println(";");
     } else {
       stream.print(" { ");
@@ -735,7 +799,14 @@ public class Stubs {
     }
 
     // Find any relevant ancestor declaration and inspect it
-    MethodInfo om = mi.findSuperclassImplementation(notStrippable);
+    MethodInfo om = mi;
+    do {
+      MethodInfo superMethod = om.findSuperclassImplementation(notStrippable);
+      if (om.equals(superMethod)) {
+        break;
+      }
+      om = superMethod;
+    } while (om != null && (om.isHiddenOrRemoved() || om.containingClass().isHiddenOrRemoved()));
     if (om != null) {
       // Visibility mismatch is an API change, so check for it
       if (mi.mIsPrivate == om.mIsPrivate && mi.mIsPublic == om.mIsPublic
@@ -743,15 +814,11 @@ public class Stubs {
         // Look only for overrides of an ancestor class implementation,
         // not of e.g. an abstract or interface method declaration
         if (!om.isAbstract()) {
-          // If the parent is hidden or removed, we can't rely on it to provide
-          // the API
-          if (!om.isHiddenOrRemoved()) {
-            // If the only "override" turns out to be in our own class
-            // (which sometimes happens in concrete subclasses of
-            // abstract base classes), it's not really an override
-            if (!mi.mContainingClass.equals(om.mContainingClass)) {
-              return true;
-            }
+          // If the only "override" turns out to be in our own class
+          // (which sometimes happens in concrete subclasses of
+          // abstract base classes), it's not really an override
+          if (!mi.mContainingClass.equals(om.mContainingClass)) {
+                return true;
           }
         }
       }
@@ -1347,6 +1414,9 @@ public class Stubs {
   static void writeMethodApi(PrintStream apiWriter, MethodInfo mi) {
     apiWriter.print("    method ");
     apiWriter.print(mi.scope());
+    if (mi.isDefault()) {
+      apiWriter.print(" default");
+    }
     if (mi.isStatic()) {
       apiWriter.print(" static");
     }
@@ -1537,9 +1607,7 @@ public class Stubs {
 
   static void writeConstructorKeepList(PrintStream keepListWriter, MethodInfo mi) {
     keepListWriter.print("    ");
-    String name = mi.name();
-    name = name.replace(".", "$");
-    keepListWriter.print(name);
+    keepListWriter.print("<init>");
 
     writeParametersKeepList(keepListWriter, mi, mi.parameters());
     keepListWriter.print(";\n");

@@ -126,7 +126,7 @@ ENTRY(rsdIntrinsic3DLUT_K)
 
             subs        x2, x2, #8
             bge         2f
-            cmp         x2, #-8
+            cmn         x2, #8    // same as cmp x2, #-8
             ble         9f
             b           4f
 
@@ -208,7 +208,7 @@ ENTRY(rsdIntrinsic3DLUT_K)
 
             bge         1b
 
-            cmp         x2, #-8
+            cmn         x2, #8    // same as cmp x2, #-8
             blt         1f
 
             st4         {v20.8b,v21.8b,v22.8b,v23.8b}, [x0], #32

@@ -1,9 +1,8 @@
 apply plugin: 'com.android.application'
-apply plugin: 'com.android.databinding'
 
 android {
     compileSdkVersion 21
-    buildToolsVersion "22"
+    buildToolsVersion dataBindingConfig.buildToolsVersion
 
     defaultConfig {
         applicationId "com.android.databinding.testapp"
@@ -11,6 +10,9 @@ android {
         targetSdkVersion 21
         versionCode 1
         versionName "1.0"
+    }
+    dataBinding {
+        enabled = true
     }
     buildTypes {
         release {
@@ -29,6 +31,9 @@ android {
     productFlavors {
         api7 {
             minSdkVersion 7
+        }
+        api14 {
+            minSdkVersion 14
         }
     }
 }

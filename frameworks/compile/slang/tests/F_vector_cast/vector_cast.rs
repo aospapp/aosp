@@ -21,7 +21,7 @@ void c2uc() {
     u = (uchar4) c;
 }
 
-uchar4 bar(uchar4 u) {
+static uchar4 bar(uchar4 u) {
     return u;
 }
 

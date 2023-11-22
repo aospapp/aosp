@@ -93,8 +93,6 @@ import android.util.Log;
 import libcore.io.IoUtils;
 import libcore.util.EmptyArray;
 
-import com.android.internal.util.Preconditions;
-
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
@@ -289,12 +287,18 @@ public class MediaProvider extends ContentProvider {
                             String where = FileColumns.STORAGE_ID + "=?";
                             String[] whereArgs = new String[] { Integer.toString(storage.getStorageId()) };
                             database.mNumUpdates++;
-                            db.update("files", values, where, whereArgs);
-                            // now delete the records
-                            database.mNumDeletes++;
-                            int numpurged = db.delete("files", where, whereArgs);
-                            logToDb(db, "removed " + numpurged +
-                                    " rows for ejected filesystem " + storage.getPath());
+                            db.beginTransaction();
+                            try {
+                                db.update("files", values, where, whereArgs);
+                                // now delete the records
+                                database.mNumDeletes++;
+                                int numpurged = db.delete("files", where, whereArgs);
+                                logToDb(db, "removed " + numpurged +
+                                        " rows for ejected filesystem " + storage.getPath());
+                                db.setTransactionSuccessful();
+                            } finally {
+                                db.endTransaction();
+                            }
                             // notify on media Uris as well as the files Uri
                             context.getContentResolver().notifyChange(
                                     Audio.Media.getContentUri(EXTERNAL_VOLUME), null);
@@ -2919,7 +2923,19 @@ public class MediaProvider extends ContentProvider {
         // do not signal notification for MTP objects.
         // we will signal instead after file transfer is successful.
         if (newUri != null && match != MTP_OBJECTS) {
-            getContext().getContentResolver().notifyChange(uri, null);
+            // Report a general change to the media provider.
+            // We only report this to observers that are not looking at
+            // this specific URI and its descendants, because they will
+            // still see the following more-specific URI and thus get
+            // redundant info (and not be able to know if there was just
+            // the specific URI change or also some general change in the
+            // parent URI).
+            getContext().getContentResolver().notifyChange(uri, null, match != MEDIA_SCANNER
+                    ? ContentResolver.NOTIFY_SKIP_NOTIFY_FOR_DESCENDANTS : 0);
+            // Also report the specific URIs that changed.
+            if (match != MEDIA_SCANNER) {
+                getContext().getContentResolver().notifyChange(newUri, null, 0);
+            }
         }
         return newUri;
     }
@@ -3046,7 +3062,8 @@ public class MediaProvider extends ContentProvider {
 
         switch (mediaType) {
             case FileColumns.MEDIA_TYPE_IMAGE: {
-                values = ensureFile(helper.mInternal, initialValues, ".jpg", "Pictures");
+                values = ensureFile(helper.mInternal, initialValues, ".jpg",
+                        Environment.DIRECTORY_PICTURES);
 
                 values.put(MediaStore.MediaColumns.DATE_ADDED, System.currentTimeMillis() / 1000);
                 String data = values.getAsString(MediaColumns.DATA);
@@ -3821,7 +3838,10 @@ public class MediaProvider extends ContentProvider {
 //            return Environment.getDataDirectory()
 //                + "/" + directoryName + "/" + name + preferredExtension;
         } else {
-            return mExternalStoragePaths[0] + "/" + directoryName + "/" + name + preferredExtension;
+            String dirPath = mExternalStoragePaths[0] + "/" + directoryName;
+            File dirFile = new File(dirPath);
+            dirFile.mkdirs();
+            return dirPath + "/" + name + preferredExtension;
         }
     }
 
@@ -4445,8 +4465,8 @@ public class MediaProvider extends ContentProvider {
                         if (initialValues.containsKey(key)) {
                             int newpos = initialValues.getAsInteger(key);
                             List <String> segments = uri.getPathSegments();
-                            long playlist = Long.valueOf(segments.get(3));
-                            int oldpos = Integer.valueOf(segments.get(5));
+                            long playlist = Long.parseLong(segments.get(3));
+                            int oldpos = Integer.parseInt(segments.get(5));
                             return movePlaylistEntry(helper, db, playlist, oldpos, newpos);
                         }
                         throw new IllegalArgumentException("Need to specify " + key +
@@ -4865,8 +4885,9 @@ public class MediaProvider extends ContentProvider {
             ParcelFileDescriptor pfd = ParcelFileDescriptor.open(f,
                     ParcelFileDescriptor.MODE_READ_ONLY);
 
-            MediaScanner scanner = new MediaScanner(context);
-            compressed = scanner.extractAlbumArt(pfd.getFileDescriptor());
+            try (MediaScanner scanner = new MediaScanner(context, "internal")) {
+                compressed = scanner.extractAlbumArt(pfd.getFileDescriptor());
+            }
             pfd.close();
 
             // If no embedded art exists, look for a suitable image file in the

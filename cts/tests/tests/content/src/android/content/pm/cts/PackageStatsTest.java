@@ -22,7 +22,7 @@ import android.os.Parcel;
 import android.test.AndroidTestCase;
 
 public class PackageStatsTest extends AndroidTestCase {
-    private static final String PACKAGE_NAME = "com.android.cts.content";
+    private static final String PACKAGE_NAME = "android.content.cts";
 
     public void testPackageStats() {
         // Set mock data to make sure the functionality of constructor

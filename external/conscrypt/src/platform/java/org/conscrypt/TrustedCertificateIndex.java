@@ -19,9 +19,12 @@ package org.conscrypt;
 import java.security.PublicKey;
 import java.security.cert.TrustAnchor;
 import java.security.cert.X509Certificate;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -68,6 +71,15 @@ public final class TrustedCertificateIndex {
             if (anchors == null) {
                 anchors = new ArrayList<TrustAnchor>(1);
                 subjectToTrustAnchors.put(subject, anchors);
+            } else {
+                // Avoid indexing the same certificate multiple times
+                if (cert != null) {
+                    for (TrustAnchor entry : anchors) {
+                        if (cert.equals(entry.getTrustedCert())) {
+                            return;
+                        }
+                    }
+                }
             }
             anchors.add(anchor);
         }
@@ -137,6 +149,19 @@ public final class TrustedCertificateIndex {
                 }
                 if (caPublicKey.equals(certPublicKey)) {
                     return anchor;
+                } else {
+                    // PublicKey.equals is not required to compare keys across providers. Fall back
+                    // to checking using the encoded form.
+                    if ("X.509".equals(caPublicKey.getFormat())
+                            && "X.509".equals(certPublicKey.getFormat())) {
+                        byte[] caPublicKeyEncoded = caPublicKey.getEncoded();
+                        byte[] certPublicKeyEncoded = certPublicKey.getEncoded();
+                        if (certPublicKeyEncoded != null
+                                && caPublicKeyEncoded != null
+                                && Arrays.equals(caPublicKeyEncoded, certPublicKeyEncoded)) {
+                            return anchor;
+                        }
+                    }
                 }
             } catch (Exception e) {
                 // can happen with unsupported public key types
@@ -144,4 +169,35 @@ public final class TrustedCertificateIndex {
         }
         return null;
     }
+
+    public Set<TrustAnchor> findAllByIssuerAndSignature(X509Certificate cert) {
+        X500Principal issuer = cert.getIssuerX500Principal();
+        synchronized (subjectToTrustAnchors) {
+            List<TrustAnchor> anchors = subjectToTrustAnchors.get(issuer);
+            if (anchors == null) {
+                return Collections.<TrustAnchor>emptySet();
+            }
+
+            Set<TrustAnchor> result = new HashSet<TrustAnchor>();
+            for (TrustAnchor anchor : anchors) {
+                try {
+                    PublicKey publicKey;
+                    X509Certificate caCert = anchor.getTrustedCert();
+                    if (caCert != null) {
+                        publicKey = caCert.getPublicKey();
+                    } else {
+                        publicKey = anchor.getCAPublicKey();
+                    }
+                    if (publicKey == null) {
+                        continue;
+                    }
+                    cert.verify(publicKey);
+                    result.add(anchor);
+                } catch (Exception ignored) {
+                }
+            }
+            return result;
+        }
+    }
+
 }

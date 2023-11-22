@@ -16,7 +16,8 @@ ${sample.metadata.intro?trim?replace('\\n\\n', '\n')?replace('\\"', '"')?replace
 Pre-requisites
 --------------
 
-- Android SDK v${compile_sdk?replace('"', '', 'r')}
+<#-- Use the compile_sdk variable as the required SDK. For Preview SDKs, skip the 'v' and 'android-' prefixes in the output. -->
+- Android SDK ${compile_sdk?is_number?string('v','')}${compile_sdk?replace('"', '', 'r')?replace('android-','Preview ')}
 - Android Build Tools v${build_tools_version?replace('"', '', 'r')}
 - Android Support Repository
 <#if sample.metadata.screenshots?has_content>
@@ -48,7 +49,7 @@ submitting a pull request through GitHub. Please see CONTRIBUTING.md for more de
 License
 -------
 
-Copyright 2014 The Android Open Source Project, Inc.
+Copyright 2016 The Android Open Source Project, Inc.
 
 Licensed to the Apache Software Foundation (ASF) under one or more contributor
 license agreements.  See the NOTICE file distributed with this work for

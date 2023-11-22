@@ -17,12 +17,14 @@
 package android.support.design.widget;
 
 import android.support.annotation.IntDef;
+import android.support.annotation.NonNull;
 import android.support.v4.view.MotionEventCompat;
 import android.support.v4.view.ViewCompat;
 import android.support.v4.widget.ViewDragHelper;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -198,13 +200,39 @@ public class SwipeDismissBehavior<V extends View> extends CoordinatorLayout.Beha
         return false;
     }
 
+    /**
+     * Called when the user's input indicates that they want to swipe the given view.
+     *
+     * @param view View the user is attempting to swipe
+     * @return true if the view can be dismissed via swiping, false otherwise
+     */
+    public boolean canSwipeDismissView(@NonNull View view) {
+        return true;
+    }
+
     private final ViewDragHelper.Callback mDragCallback = new ViewDragHelper.Callback() {
+        private static final int INVALID_POINTER_ID = -1;
+
         private int mOriginalCapturedViewLeft;
+        private int mActivePointerId = INVALID_POINTER_ID;
 
         @Override
         public boolean tryCaptureView(View child, int pointerId) {
-            mOriginalCapturedViewLeft = child.getLeft();
-            return true;
+            // Only capture if we don't already have an active pointer id
+            return mActivePointerId == INVALID_POINTER_ID && canSwipeDismissView(child);
+        }
+
+        @Override
+        public void onViewCaptured(View capturedChild, int activePointerId) {
+            mActivePointerId = activePointerId;
+            mOriginalCapturedViewLeft = capturedChild.getLeft();
+
+            // The view has been captured, and thus a drag is about to start so stop any parents
+            // intercepting
+            final ViewParent parent = capturedChild.getParent();
+            if (parent != null) {
+                parent.requestDisallowInterceptTouchEvent(true);
+            }
         }
 
         @Override
@@ -216,6 +244,9 @@ public class SwipeDismissBehavior<V extends View> extends CoordinatorLayout.Beha
 
         @Override
         public void onViewReleased(View child, float xvel, float yvel) {
+            // Reset the active pointer ID
+            mActivePointerId = INVALID_POINTER_ID;
+
             final int childWidth = child.getWidth();
             int targetLeft;
             boolean dismiss = false;

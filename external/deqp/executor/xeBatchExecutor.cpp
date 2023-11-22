@@ -224,6 +224,12 @@ void BatchExecutor::run (void)
 	m_commLink->setCallbacks(DE_NULL, DE_NULL, DE_NULL, DE_NULL);
 }
 
+void BatchExecutor::cancel (void)
+{
+	m_state = STATE_FINISHED;
+	m_dispatcher.cancel();
+}
+
 void BatchExecutor::onStateChanged (CommLinkState state, const char* message)
 {
 	switch (state)
@@ -278,7 +284,7 @@ void BatchExecutor::onStateChanged (CommLinkState state, const char* message)
 	}
 }
 
-void BatchExecutor::onTestLogData (const deUint8* bytes, int numBytes)
+void BatchExecutor::onTestLogData (const deUint8* bytes, size_t numBytes)
 {
 	try
 	{
@@ -291,7 +297,7 @@ void BatchExecutor::onTestLogData (const deUint8* bytes, int numBytes)
 	}
 }
 
-void BatchExecutor::onInfoLogData (const deUint8* bytes, int numBytes)
+void BatchExecutor::onInfoLogData (const deUint8* bytes, size_t numBytes)
 {
 	if (numBytes > 0 && m_infoLog)
 		m_infoLog->append(bytes, numBytes);
@@ -353,7 +359,7 @@ void BatchExecutor::enqueueStateChanged (void* userPtr, CommLinkState state, con
 	writer.enqueue();
 }
 
-void BatchExecutor::enqueueTestLogData (void* userPtr, const deUint8* bytes, int numBytes)
+void BatchExecutor::enqueueTestLogData (void* userPtr, const deUint8* bytes, size_t numBytes)
 {
 	BatchExecutor*	executor	= static_cast<BatchExecutor*>(userPtr);
 	CallWriter		writer		(&executor->m_dispatcher, BatchExecutor::dispatchTestLogData);
@@ -365,7 +371,7 @@ void BatchExecutor::enqueueTestLogData (void* userPtr, const deUint8* bytes, int
 	writer.enqueue();
 }
 
-void BatchExecutor::enqueueInfoLogData (void* userPtr, const deUint8* bytes, int numBytes)
+void BatchExecutor::enqueueInfoLogData (void* userPtr, const deUint8* bytes, size_t numBytes)
 {
 	BatchExecutor*	executor	= static_cast<BatchExecutor*>(userPtr);
 	CallWriter		writer		(&executor->m_dispatcher, BatchExecutor::dispatchInfoLogData);
@@ -377,7 +383,7 @@ void BatchExecutor::enqueueInfoLogData (void* userPtr, const deUint8* bytes, int
 	writer.enqueue();
 }
 
-void BatchExecutor::dispatchStateChanged (CallReader data)
+void BatchExecutor::dispatchStateChanged (CallReader& data)
 {
 	BatchExecutor*	executor	= DE_NULL;
 	CommLinkState	state		= COMMLINKSTATE_LAST;
@@ -390,10 +396,10 @@ void BatchExecutor::dispatchStateChanged (CallReader data)
 	executor->onStateChanged(state, message.c_str());
 }
 
-void BatchExecutor::dispatchTestLogData (CallReader data)
+void BatchExecutor::dispatchTestLogData (CallReader& data)
 {
 	BatchExecutor*	executor	= DE_NULL;
-	int				numBytes;
+	size_t			numBytes;
 
 	data >> executor
 		 >> numBytes;
@@ -401,10 +407,10 @@ void BatchExecutor::dispatchTestLogData (CallReader data)
 	executor->onTestLogData(data.getDataBlock(numBytes), numBytes);
 }
 
-void BatchExecutor::dispatchInfoLogData (CallReader data)
+void BatchExecutor::dispatchInfoLogData (CallReader& data)
 {
 	BatchExecutor*	executor	= DE_NULL;
-	int				numBytes;
+	size_t			numBytes;
 
 	data >> executor
 		 >> numBytes;

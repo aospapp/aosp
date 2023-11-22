@@ -16,9 +16,8 @@
 
 package com.android.settings.notification;
 
-import static com.android.settings.notification.ZenModeScheduleDaysSelection.DAYS;
-
 import android.app.AlertDialog;
+import android.app.AutomaticZenRule;
 import android.app.Dialog;
 import android.app.DialogFragment;
 import android.app.FragmentManager;
@@ -27,28 +26,31 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnDismissListener;
 import android.os.Bundle;
-import android.preference.Preference;
-import android.preference.Preference.OnPreferenceClickListener;
-import android.preference.PreferenceScreen;
 import android.provider.Settings;
 import android.service.notification.ZenModeConfig;
 import android.service.notification.ZenModeConfig.ScheduleInfo;
-import android.service.notification.ZenModeConfig.ZenRule;
+import android.support.v14.preference.SwitchPreference;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.Preference.OnPreferenceClickListener;
+import android.support.v7.preference.PreferenceScreen;
 import android.text.format.DateFormat;
 import android.util.Log;
 import android.widget.TimePicker;
 
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.R;
 
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Calendar;
 
+import static com.android.settings.notification.ZenModeScheduleDaysSelection.DAYS;
+
 public class ZenModeScheduleRuleSettings extends ZenModeRuleSettingsBase {
     private static final String KEY_DAYS = "days";
     private static final String KEY_START_TIME = "start_time";
     private static final String KEY_END_TIME = "end_time";
+    private static final String KEY_EXIT_AT_ALARM = "exit_at_alarm";
 
     public static final String ACTION = Settings.ACTION_ZEN_MODE_SCHEDULE_RULE_SETTINGS;
 
@@ -58,12 +60,13 @@ public class ZenModeScheduleRuleSettings extends ZenModeRuleSettingsBase {
     private Preference mDays;
     private TimePickerPreference mStart;
     private TimePickerPreference mEnd;
+    private SwitchPreference mExitAtAlarm;
 
     private ScheduleInfo mSchedule;
 
     @Override
-    protected boolean setRule(ZenRule rule) {
-        mSchedule = rule != null ? ZenModeConfig.tryParseScheduleConditionId(rule.conditionId)
+    protected boolean setRule(AutomaticZenRule rule) {
+        mSchedule = rule != null ? ZenModeConfig.tryParseScheduleConditionId(rule.getConditionId())
                 : null;
         return mSchedule != null;
     }
@@ -94,7 +97,7 @@ public class ZenModeScheduleRuleSettings extends ZenModeRuleSettingsBase {
 
         final FragmentManager mgr = getFragmentManager();
 
-        mStart = new TimePickerPreference(mContext, mgr);
+        mStart = new TimePickerPreference(getPrefContext(), mgr);
         mStart.setKey(KEY_START_TIME);
         mStart.setTitle(R.string.zen_mode_start_time);
         mStart.setCallback(new TimePickerPreference.Callback() {
@@ -116,7 +119,7 @@ public class ZenModeScheduleRuleSettings extends ZenModeRuleSettingsBase {
         root.addPreference(mStart);
         mStart.setDependency(mDays.getKey());
 
-        mEnd = new TimePickerPreference(mContext, mgr);
+        mEnd = new TimePickerPreference(getPrefContext(), mgr);
         mEnd.setKey(KEY_END_TIME);
         mEnd.setTitle(R.string.zen_mode_end_time);
         mEnd.setCallback(new TimePickerPreference.Callback() {
@@ -137,6 +140,16 @@ public class ZenModeScheduleRuleSettings extends ZenModeRuleSettingsBase {
         });
         root.addPreference(mEnd);
         mEnd.setDependency(mDays.getKey());
+
+        mExitAtAlarm = (SwitchPreference) root.findPreference(KEY_EXIT_AT_ALARM);
+        mExitAtAlarm.setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
+            @Override
+            public boolean onPreferenceChange(Preference preference, Object o) {
+                mSchedule.exitAtAlarm = (Boolean) o;
+                updateRule(ZenModeConfig.toScheduleConditionId(mSchedule));
+                return true;
+            }
+        });
     }
 
     private void updateDays() {
@@ -181,12 +194,13 @@ public class ZenModeScheduleRuleSettings extends ZenModeRuleSettingsBase {
         updateDays();
         mStart.setTime(mSchedule.startHour, mSchedule.startMinute);
         mEnd.setTime(mSchedule.endHour, mSchedule.endMinute);
+        mExitAtAlarm.setChecked(mSchedule.exitAtAlarm);
         updateEndSummary();
     }
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.NOTIFICATION_ZEN_MODE_SCHEDULE_RULE;
+        return MetricsEvent.NOTIFICATION_ZEN_MODE_SCHEDULE_RULE;
     }
 
     private void showDaysDialog() {

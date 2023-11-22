@@ -15,7 +15,7 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.telecom">
+    package="android.telecom.cts">
     <uses-sdk android:minSdkVersion="21" />
     <uses-permission android:name="android.permission.CALL_PHONE" />>
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
@@ -45,7 +45,22 @@
             <intent-filter>
                 <action android:name="android.telecom.InCallService"/>
             </intent-filter>
+            <meta-data android:name="android.telecom.IN_CALL_SERVICE_UI" android:value="true" />
         </service>
+
+        <service android:name="android.telecom.cts.MockCallScreeningService"
+            android:permission="android.permission.BIND_SCREENING_SERVICE"
+            android:enabled="false" >
+            <intent-filter>
+                <action android:name="android.telecom.CallScreeningService"/>
+            </intent-filter>
+        </service>
+
+        <receiver android:name="android.telecom.cts.MockMissedCallNotificationReceiver">
+            <intent-filter>
+                <action android:name="android.telecom.action.SHOW_MISSED_CALLS_NOTIFICATION" />
+            </intent-filter>
+        </receiver>
 
         <activity android:name="android.telecom.cts.MockDialerActivity">
             <intent-filter>
@@ -81,7 +96,7 @@
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.telecom"
+                     android:targetPackage="android.telecom.cts"
                      android:label="CTS tests for android.telecom package">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

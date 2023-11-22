@@ -28,7 +28,7 @@
         android:id="@android:id/icon"
         android:layout_width="24dp"
         android:layout_height="24dp"
-        android:layout_marginEnd="12dp" />
+        android:layout_marginEnd="20dp" />
 
     <LinearLayout
         android:layout_width="0dp"
@@ -60,6 +60,7 @@
         android:clickable="true"
         android:focusable="true"
         android:scaleType="center"
+        android:contentDescription="@*android:string/media_route_controller_disconnect"
         android:src="@drawable/ic_qs_cancel" />
 
 </LinearLayout>

@@ -22,6 +22,9 @@
  * If they ever were to allow it, then netd/ would need some tweaking.
  */
 
+#include <string>
+#include <vector>
+
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -41,6 +44,8 @@
 #include <linux/rtnetlink.h>
 #include <linux/pkt_sched.h>
 
+#include "android-base/stringprintf.h"
+#include "android-base/strings.h"
 #define LOG_TAG "BandwidthController"
 #include <cutils/log.h>
 #include <cutils/properties.h>
@@ -53,16 +58,23 @@
 
 /* Alphabetical */
 #define ALERT_IPT_TEMPLATE "%s %s -m quota2 ! --quota %" PRId64" --name %s"
-const char BandwidthController::ALERT_GLOBAL_NAME[] = "globalAlert";
 const char* BandwidthController::LOCAL_INPUT = "bw_INPUT";
 const char* BandwidthController::LOCAL_FORWARD = "bw_FORWARD";
 const char* BandwidthController::LOCAL_OUTPUT = "bw_OUTPUT";
 const char* BandwidthController::LOCAL_RAW_PREROUTING = "bw_raw_PREROUTING";
 const char* BandwidthController::LOCAL_MANGLE_POSTROUTING = "bw_mangle_POSTROUTING";
-const int  BandwidthController::MAX_CMD_ARGS = 32;
-const int  BandwidthController::MAX_CMD_LEN = 1024;
-const int  BandwidthController::MAX_IFACENAME_LEN = 64;
-const int  BandwidthController::MAX_IPT_OUTPUT_LINE_LEN = 256;
+
+auto BandwidthController::execFunction = android_fork_execvp;
+auto BandwidthController::popenFunction = popen;
+auto BandwidthController::iptablesRestoreFunction = execIptablesRestore;
+
+namespace {
+
+const char ALERT_GLOBAL_NAME[] = "globalAlert";
+const int  MAX_CMD_ARGS = 32;
+const int  MAX_CMD_LEN = 1024;
+const int  MAX_IFACENAME_LEN = 64;
+const int  MAX_IPT_OUTPUT_LINE_LEN = 256;
 
 /**
  * Some comments about the rules:
@@ -70,7 +82,6 @@ const int  BandwidthController::MAX_IPT_OUTPUT_LINE_LEN = 256;
  *    - when an interface is marked as costly it should be INSERTED into the INPUT/OUTPUT chains.
  *      E.g. "-I bw_INPUT -i rmnet0 --jump costly"
  *    - quota'd rules in the costly chain should be before bw_penalty_box lookups.
- *    - bw_happy_box rejects everything by default.
  *    - the qtaguid counting is done at the end of the bw_INPUT/bw_OUTPUT user chains.
  *
  * * global quota vs per interface quota
@@ -82,8 +93,8 @@ const int  BandwidthController::MAX_IPT_OUTPUT_LINE_LEN = 256;
  *      iptables -I bw_costly_shared -m quota \! --quota 500000 \
  *          --jump REJECT --reject-with icmp-net-prohibited
  *      iptables -A bw_costly_shared --jump bw_penalty_box
- *      If the happy box is enabled,
- *        iptables -A bw_penalty_box --jump bw_happy_box
+ *      iptables -A bw_penalty_box --jump bw_happy_box
+ *      iptables -A bw_happy_box --jump bw_data_saver
  *
  *    . adding a new iface to this, E.g.:
  *      iptables -I bw_INPUT -i iface1 --jump bw_costly_shared
@@ -98,58 +109,85 @@ const int  BandwidthController::MAX_IPT_OUTPUT_LINE_LEN = 256;
  *          --jump REJECT --reject-with icmp-port-unreachable
  *      iptables -A bw_costly_iface0 --jump bw_penalty_box
  *
+ * * Penalty box, happy box and data saver.
+ *   - bw_penalty box is a blacklist of apps that are rejected.
+ *   - bw_happy_box is a whitelist of apps. It always includes all system apps
+ *   - bw_data_saver implements data usage restrictions.
+ *   - Via the UI the user can add and remove apps from the whitelist and
+ *     blacklist, and turn on/off data saver.
+ *   - The blacklist takes precedence over the whitelist and the whitelist
+ *     takes precedence over data saver.
+ *
  * * bw_penalty_box handling:
  *  - only one bw_penalty_box for all interfaces
- *   E.g  Adding an app, it has to preserve the appened bw_happy_box, so "-I":
+ *   E.g  Adding an app:
  *    iptables -I bw_penalty_box -m owner --uid-owner app_3 \
  *        --jump REJECT --reject-with icmp-port-unreachable
  *
  * * bw_happy_box handling:
- *  - The bw_happy_box goes at the end of the penalty box.
+ *  - The bw_happy_box comes after the penalty box.
  *   E.g  Adding a happy app,
  *    iptables -I bw_happy_box -m owner --uid-owner app_3 \
  *        --jump RETURN
+ *
+ * * bw_data_saver handling:
+ *  - The bw_data_saver comes after the happy box.
+ *    Enable data saver:
+ *      iptables -R 1 bw_data_saver --jump REJECT --reject-with icmp-port-unreachable
+ *    Disable data saver:
+ *      iptables -R 1 bw_data_saver --jump RETURN
  */
-const char *BandwidthController::IPT_FLUSH_COMMANDS[] = {
+
+const std::string COMMIT_AND_CLOSE = "COMMIT\n\x04";
+const std::string DATA_SAVER_ENABLE_COMMAND = "-R bw_data_saver 1";
+const std::string HAPPY_BOX_WHITELIST_COMMAND = android::base::StringPrintf(
+    "-I bw_happy_box -m owner --uid-owner %d-%d --jump RETURN", 0, MAX_SYSTEM_UID);
+
+static const std::vector<std::string> IPT_FLUSH_COMMANDS = {
     /*
      * Cleanup rules.
      * Should normally include bw_costly_<iface>, but we rely on the way they are setup
      * to allow coexistance.
      */
-    "-F bw_INPUT",
-    "-F bw_OUTPUT",
-    "-F bw_FORWARD",
-    "-F bw_happy_box",
-    "-F bw_penalty_box",
-    "-F bw_costly_shared",
-
-    "-t raw -F bw_raw_PREROUTING",
-    "-t mangle -F bw_mangle_POSTROUTING",
+    "*filter",
+    ":bw_INPUT -",
+    ":bw_OUTPUT -",
+    ":bw_FORWARD -",
+    ":bw_happy_box -",
+    ":bw_penalty_box -",
+    ":bw_data_saver -",
+    ":bw_costly_shared -",
+    "COMMIT",
+    "*raw",
+    ":bw_raw_PREROUTING -",
+    "COMMIT",
+    "*mangle",
+    ":bw_mangle_POSTROUTING -",
+    COMMIT_AND_CLOSE
 };
 
-/* The cleanup commands assume flushing has been done. */
-const char *BandwidthController::IPT_CLEANUP_COMMANDS[] = {
-    "-X bw_happy_box",
-    "-X bw_penalty_box",
-    "-X bw_costly_shared",
-};
-
-const char *BandwidthController::IPT_SETUP_COMMANDS[] = {
-    "-N bw_happy_box",
-    "-N bw_penalty_box",
-    "-N bw_costly_shared",
-};
-
-const char *BandwidthController::IPT_BASIC_ACCOUNTING_COMMANDS[] = {
+static const std::vector<std::string> IPT_BASIC_ACCOUNTING_COMMANDS = {
+    "*filter",
     "-A bw_INPUT -m owner --socket-exists", /* This is a tracking rule. */
-
     "-A bw_OUTPUT -m owner --socket-exists", /* This is a tracking rule. */
-
     "-A bw_costly_shared --jump bw_penalty_box",
+    "-A bw_penalty_box --jump bw_happy_box",
+    "-A bw_happy_box --jump bw_data_saver",
+    "-A bw_data_saver -j RETURN",
+    HAPPY_BOX_WHITELIST_COMMAND,
+    "COMMIT",
 
-    "-t raw -A bw_raw_PREROUTING -m owner --socket-exists", /* This is a tracking rule. */
-    "-t mangle -A bw_mangle_POSTROUTING -m owner --socket-exists", /* This is a tracking rule. */
+    "*raw",
+    "-A bw_raw_PREROUTING -m owner --socket-exists", /* This is a tracking rule. */
+    "COMMIT",
+
+    "*mangle",
+    "-A bw_mangle_POSTROUTING -m owner --socket-exists", /* This is a tracking rule. */
+    COMMIT_AND_CLOSE
 };
+
+
+}  // namespace
 
 BandwidthController::BandwidthController(void) {
 }
@@ -217,7 +255,7 @@ int BandwidthController::runIptablesCmd(const char *cmd, IptJumpOp jumpHandling,
     }
 
     argv[argc] = NULL;
-    res = android_fork_execvp(argc, (char **)argv, &status, false,
+    res = execFunction(argc, (char **)argv, &status, false,
             failureHandling == IptFailShow);
     res = res || !WIFEXITED(status) || WEXITSTATUS(status);
     if (res && failureHandling == IptFailShow) {
@@ -231,28 +269,17 @@ void BandwidthController::flushCleanTables(bool doClean) {
     /* Flush and remove the bw_costly_<iface> tables */
     flushExistingCostlyTables(doClean);
 
-    /* Some of the initialCommands are allowed to fail */
-    runCommands(sizeof(IPT_FLUSH_COMMANDS) / sizeof(char*),
-            IPT_FLUSH_COMMANDS, RunCmdFailureOk);
-
-    if (doClean) {
-        runCommands(sizeof(IPT_CLEANUP_COMMANDS) / sizeof(char*),
-                IPT_CLEANUP_COMMANDS, RunCmdFailureOk);
-    }
+    std::string commands = android::base::Join(IPT_FLUSH_COMMANDS, '\n');
+    iptablesRestoreFunction(V4V6, commands);
 }
 
 int BandwidthController::setupIptablesHooks(void) {
-
     /* flush+clean is allowed to fail */
     flushCleanTables(true);
-    runCommands(sizeof(IPT_SETUP_COMMANDS) / sizeof(char*),
-            IPT_SETUP_COMMANDS, RunCmdFailureBad);
-
     return 0;
 }
 
 int BandwidthController::enableBandwidthControl(bool force) {
-    int res;
     char value[PROPERTY_VALUE_MAX];
 
     if (!force) {
@@ -264,24 +291,24 @@ int BandwidthController::enableBandwidthControl(bool force) {
     /* Let's pretend we started from scratch ... */
     sharedQuotaIfaces.clear();
     quotaIfaces.clear();
-    naughtyAppUids.clear();
-    niceAppUids.clear();
     globalAlertBytes = 0;
     globalAlertTetherCount = 0;
     sharedQuotaBytes = sharedAlertBytes = 0;
 
     flushCleanTables(false);
-    res = runCommands(sizeof(IPT_BASIC_ACCOUNTING_COMMANDS) / sizeof(char*),
-            IPT_BASIC_ACCOUNTING_COMMANDS, RunCmdFailureBad);
-
-    return res;
-
+    std::string commands = android::base::Join(IPT_BASIC_ACCOUNTING_COMMANDS, '\n');
+    return iptablesRestoreFunction(V4V6, commands);
 }
 
 int BandwidthController::disableBandwidthControl(void) {
 
     flushCleanTables(false);
     return 0;
+}
+
+int BandwidthController::enableDataSaver(bool enable) {
+    return runIpxtablesCmd(DATA_SAVER_ENABLE_COMMAND.c_str(),
+                           enable ? IptJumpReject : IptJumpReturn, IptFailShow);
 }
 
 int BandwidthController::runCommands(int numCommands, const char *commands[],
@@ -328,53 +355,6 @@ std::string BandwidthController::makeIptablesSpecialAppCmd(IptOp op, int uid, co
     return res;
 }
 
-int BandwidthController::enableHappyBox(void) {
-    char cmd[MAX_CMD_LEN];
-    int res = 0;
-
-    /*
-     * We tentatively delete before adding, which helps recovering
-     * from bad states (e.g. netd died).
-     */
-
-    /* Should not exist, but ignore result if already there. */
-    snprintf(cmd, sizeof(cmd), "-N bw_happy_box");
-    runIpxtablesCmd(cmd, IptJumpNoAdd);
-
-    /* Should be empty, but clear in case something was wrong. */
-    niceAppUids.clear();
-    snprintf(cmd, sizeof(cmd), "-F bw_happy_box");
-    res |= runIpxtablesCmd(cmd, IptJumpNoAdd);
-
-    snprintf(cmd, sizeof(cmd), "-D bw_penalty_box -j bw_happy_box");
-    runIpxtablesCmd(cmd, IptJumpNoAdd);
-    snprintf(cmd, sizeof(cmd), "-A bw_penalty_box -j bw_happy_box");
-    res |= runIpxtablesCmd(cmd, IptJumpNoAdd);
-
-    /* Reject. Defaulting to prot-unreachable */
-    snprintf(cmd, sizeof(cmd), "-D bw_happy_box -j REJECT");
-    runIpxtablesCmd(cmd, IptJumpNoAdd);
-    snprintf(cmd, sizeof(cmd), "-A bw_happy_box -j REJECT");
-    res |= runIpxtablesCmd(cmd, IptJumpNoAdd);
-
-    return res;
-}
-
-int BandwidthController::disableHappyBox(void) {
-    char cmd[MAX_CMD_LEN];
-
-    /* Best effort */
-    snprintf(cmd, sizeof(cmd), "-D bw_penalty_box -j bw_happy_box");
-    runIpxtablesCmd(cmd, IptJumpNoAdd);
-    niceAppUids.clear();
-    snprintf(cmd, sizeof(cmd), "-F bw_happy_box");
-    runIpxtablesCmd(cmd, IptJumpNoAdd);
-    snprintf(cmd, sizeof(cmd), "-X bw_happy_box");
-    runIpxtablesCmd(cmd, IptJumpNoAdd);
-
-    return 0;
-}
-
 int BandwidthController::addNaughtyApps(int numUids, char *appUids[]) {
     return manipulateNaughtyApps(numUids, appUids, SpecialAppOpAdd);
 }
@@ -392,17 +372,16 @@ int BandwidthController::removeNiceApps(int numUids, char *appUids[]) {
 }
 
 int BandwidthController::manipulateNaughtyApps(int numUids, char *appStrUids[], SpecialAppOp appOp) {
-    return manipulateSpecialApps(numUids, appStrUids, "bw_penalty_box", naughtyAppUids, IptJumpReject, appOp);
+    return manipulateSpecialApps(numUids, appStrUids, "bw_penalty_box", IptJumpReject, appOp);
 }
 
 int BandwidthController::manipulateNiceApps(int numUids, char *appStrUids[], SpecialAppOp appOp) {
-    return manipulateSpecialApps(numUids, appStrUids, "bw_happy_box", niceAppUids, IptJumpReturn, appOp);
+    return manipulateSpecialApps(numUids, appStrUids, "bw_happy_box", IptJumpReturn, appOp);
 }
 
 
 int BandwidthController::manipulateSpecialApps(int numUids, char *appStrUids[],
                                                const char *chain,
-                                               std::list<int /*appUid*/> &specialAppUids,
                                                IptJumpOp jumpHandling, SpecialAppOp appOp) {
 
     int uidNum;
@@ -410,7 +389,6 @@ int BandwidthController::manipulateSpecialApps(int numUids, char *appStrUids[],
     IptOp op;
     int appUids[numUids];
     std::string iptCmd;
-    std::list<int /*uid*/>::iterator it;
 
     switch (appOp) {
     case SpecialAppOpAdd:
@@ -437,25 +415,6 @@ int BandwidthController::manipulateSpecialApps(int numUids, char *appStrUids[],
 
     for (uidNum = 0; uidNum < numUids; uidNum++) {
         int uid = appUids[uidNum];
-        for (it = specialAppUids.begin(); it != specialAppUids.end(); it++) {
-            if (*it == uid)
-                break;
-        }
-        bool found = (it != specialAppUids.end());
-
-        if (appOp == SpecialAppOpRemove) {
-            if (!found) {
-                ALOGE("No such appUid %d to remove", uid);
-                return -1;
-            }
-            specialAppUids.erase(it);
-        } else {
-            if (found) {
-                ALOGE("appUid %d exists already", uid);
-                return -1;
-            }
-            specialAppUids.push_front(uid);
-        }
 
         iptCmd = makeIptablesSpecialAppCmd(op, uid, chain);
         if (runIpxtablesCmd(iptCmd.c_str(), jumpHandling)) {
@@ -555,6 +514,12 @@ int BandwidthController::prepCostlyIface(const char *ifn, QuotaType quotaType) {
 
     snprintf(cmd, sizeof(cmd), "-I bw_OUTPUT %d -o %s --jump %s", ruleInsertPos, ifn, costCString);
     res |= runIpxtablesCmd(cmd, IptJumpNoAdd);
+
+    snprintf(cmd, sizeof(cmd), "-D bw_FORWARD -o %s --jump %s", ifn, costCString);
+    runIpxtablesCmd(cmd, IptJumpNoAdd, IptFailHide);
+    snprintf(cmd, sizeof(cmd), "-A bw_FORWARD -o %s --jump %s", ifn, costCString);
+    res |= runIpxtablesCmd(cmd, IptJumpNoAdd);
+
     return res;
 }
 
@@ -580,8 +545,10 @@ int BandwidthController::cleanupCostlyIface(const char *ifn, QuotaType quotaType
 
     snprintf(cmd, sizeof(cmd), "-D bw_INPUT -i %s --jump %s", ifn, costCString);
     res |= runIpxtablesCmd(cmd, IptJumpNoAdd);
-    snprintf(cmd, sizeof(cmd), "-D bw_OUTPUT -o %s --jump %s", ifn, costCString);
-    res |= runIpxtablesCmd(cmd, IptJumpNoAdd);
+    for (const auto tableName : {LOCAL_OUTPUT, LOCAL_FORWARD}) {
+        snprintf(cmd, sizeof(cmd), "-D %s -o %s --jump %s", tableName, ifn, costCString);
+        res |= runIpxtablesCmd(cmd, IptJumpNoAdd);
+    }
 
     /* The "-N bw_costly_shared" is created upfront, no need to handle it here. */
     if (quotaType == QuotaUnique) {
@@ -803,7 +770,6 @@ int BandwidthController::removeInterfaceQuota(const char *iface) {
     char ifn[MAX_IFACENAME_LEN];
     int res = 0;
     std::string ifaceName;
-    const char *costName;
     std::list<QuotaInfo>::iterator it;
 
     if (!isIfaceName(iface))
@@ -813,7 +779,6 @@ int BandwidthController::removeInterfaceQuota(const char *iface) {
         return -1;
     }
     ifaceName = ifn;
-    costName = iface;
 
     for (it = quotaIfaces.begin(); it != quotaIfaces.end(); it++) {
         if (it->ifaceName == ifaceName)
@@ -1251,7 +1216,7 @@ int BandwidthController::getTetherStats(SocketClient *cli, TetherStats &stats, s
     fullCmd = IPTABLES_PATH;
     fullCmd += " -nvx -w -L ";
     fullCmd += NatController::LOCAL_TETHER_COUNTERS_CHAIN;
-    iptOutput = popen(fullCmd.c_str(), "r");
+    iptOutput = popenFunction(fullCmd.c_str(), "r");
     if (!iptOutput) {
             ALOGE("Failed to run %s err=%s", fullCmd.c_str(), strerror(errno));
             extraProcessingInfo += "Failed to run iptables.";
@@ -1271,7 +1236,7 @@ void BandwidthController::flushExistingCostlyTables(bool doClean) {
     /* Only lookup ip4 table names as ip6 will have the same tables ... */
     fullCmd = IPTABLES_PATH;
     fullCmd += " -w -S";
-    iptOutput = popen(fullCmd.c_str(), "r");
+    iptOutput = popenFunction(fullCmd.c_str(), "r");
     if (!iptOutput) {
             ALOGE("Failed to run %s err=%s", fullCmd.c_str(), strerror(errno));
         return;

@@ -27,6 +27,7 @@
 #include <atomic>
 
 #include "ScopedSignalHandler.h"
+#include "utils.h"
 
 #include "private/bionic_constants.h"
 
@@ -58,19 +59,13 @@ TEST(time, gmtime_no_stack_overflow_14313703) {
   // Is it safe to call tzload on a thread with a small stack?
   // http://b/14313703
   // https://code.google.com/p/android/issues/detail?id=61130
-  pthread_attr_t attributes;
-  ASSERT_EQ(0, pthread_attr_init(&attributes));
-#if defined(__BIONIC__)
-  ASSERT_EQ(0, pthread_attr_setstacksize(&attributes, PTHREAD_STACK_MIN));
-#else
-  // PTHREAD_STACK_MIN not currently in the host GCC sysroot.
-  ASSERT_EQ(0, pthread_attr_setstacksize(&attributes, 4 * getpagesize()));
-#endif
+  pthread_attr_t a;
+  ASSERT_EQ(0, pthread_attr_init(&a));
+  ASSERT_EQ(0, pthread_attr_setstacksize(&a, PTHREAD_STACK_MIN));
 
   pthread_t t;
-  ASSERT_EQ(0, pthread_create(&t, &attributes, gmtime_no_stack_overflow_14313703_fn, NULL));
-  void* result;
-  ASSERT_EQ(0, pthread_join(t, &result));
+  ASSERT_EQ(0, pthread_create(&t, &a, gmtime_no_stack_overflow_14313703_fn, NULL));
+  ASSERT_EQ(0, pthread_join(t, nullptr));
 }
 
 TEST(time, mktime_empty_TZ) {
@@ -143,6 +138,44 @@ TEST(time, strftime) {
   EXPECT_STREQ("Sun Mar 10 00:00:00 2100", buf);
 }
 
+TEST(time, strftime_null_tm_zone) {
+  // Netflix on Nexus Player wouldn't start (http://b/25170306).
+  struct tm t;
+  memset(&t, 0, sizeof(tm));
+
+  char buf[64];
+
+  setenv("TZ", "America/Los_Angeles", 1);
+  tzset();
+
+  t.tm_isdst = 0; // "0 if Daylight Savings Time is not in effect".
+  EXPECT_EQ(5U, strftime(buf, sizeof(buf), "<%Z>", &t));
+  EXPECT_STREQ("<PST>", buf);
+
+#if defined(__BIONIC__) // glibc 2.19 only copes with tm_isdst being 0 and 1.
+  t.tm_isdst = 2; // "positive if Daylight Savings Time is in effect"
+  EXPECT_EQ(5U, strftime(buf, sizeof(buf), "<%Z>", &t));
+  EXPECT_STREQ("<PDT>", buf);
+
+  t.tm_isdst = -123; // "and negative if the information is not available".
+  EXPECT_EQ(2U, strftime(buf, sizeof(buf), "<%Z>", &t));
+  EXPECT_STREQ("<>", buf);
+#endif
+
+  setenv("TZ", "UTC", 1);
+  tzset();
+
+  t.tm_isdst = 0;
+  EXPECT_EQ(5U, strftime(buf, sizeof(buf), "<%Z>", &t));
+  EXPECT_STREQ("<UTC>", buf);
+
+#if defined(__BIONIC__) // glibc 2.19 thinks UTC DST is "UTC".
+  t.tm_isdst = 1; // UTC has no DST.
+  EXPECT_EQ(2U, strftime(buf, sizeof(buf), "<%Z>", &t));
+  EXPECT_STREQ("<>", buf);
+#endif
+}
+
 TEST(time, strptime) {
   setenv("TZ", "UTC", 1);
 
@@ -180,7 +213,7 @@ TEST(time, timer_create) {
   timer_t timer_id;
   ASSERT_EQ(0, timer_create(CLOCK_MONOTONIC, &se, &timer_id));
 
-  int pid = fork();
+  pid_t pid = fork();
   ASSERT_NE(-1, pid) << strerror(errno);
 
   if (pid == 0) {
@@ -190,10 +223,7 @@ TEST(time, timer_create) {
     _exit(0);
   }
 
-  int status;
-  ASSERT_EQ(pid, waitpid(pid, &status, 0));
-  ASSERT_TRUE(WIFEXITED(status));
-  ASSERT_EQ(0, WEXITSTATUS(status));
+  AssertChildExited(pid, 0);
 
   ASSERT_EQ(0, timer_delete(timer_id));
 }
@@ -223,7 +253,7 @@ TEST(time, timer_create_SIGEV_SIGNAL) {
   ts.it_value.tv_nsec = 1;
   ts.it_interval.tv_sec = 0;
   ts.it_interval.tv_nsec = 0;
-  ASSERT_EQ(0, timer_settime(timer_id, TIMER_ABSTIME, &ts, NULL));
+  ASSERT_EQ(0, timer_settime(timer_id, 0, &ts, NULL));
 
   usleep(500000);
   ASSERT_EQ(1, timer_create_SIGEV_SIGNAL_signal_handler_invocation_count);

@@ -28,8 +28,8 @@
     <string name="download_success" msgid="7006048006543495236">"Fertig"</string>
     <string name="download_error" msgid="8081329546008568251">"Fehler"</string>
     <string name="dialog_title_not_available" msgid="5746317632356158515">"Downloadfehler"</string>
-    <string name="dialog_failed_body" msgid="587545111677064427">"Möchten Sie später einen erneuten Downloadversuch für die Datei starten oder die Datei aus der Warteschlange löschen?"</string>
-    <string name="dialog_title_queued_body" msgid="6760681913815015219">"Warten auf Download"</string>
+    <string name="dialog_failed_body" msgid="587545111677064427">"Möchtest du später einen erneuten Downloadversuch mit der Datei starten oder die Datei aus der Warteschlange löschen?"</string>
+    <string name="dialog_title_queued_body" msgid="6760681913815015219">"Download wird vorbereitet"</string>
     <string name="dialog_queued_body" msgid="708552801635572720">"Die Datei ist noch nicht verfügbar, da auf den Download der Datei gewartet wird."</string>
     <string name="dialog_file_missing_body" msgid="3223012612774276284">"Heruntergeladene Datei kann nicht gefunden werden."</string>
     <string name="dialog_insufficient_space_on_external" msgid="8692452156251449195">"Der Download kann nicht abgeschlossen werden, da der Speicherplatz des externen Speichers nicht ausreicht."</string>
@@ -43,6 +43,7 @@
     <string name="keep_queued_download" msgid="5144882786014818569">"Beibehalten"</string>
     <string name="cancel_running_download" msgid="5232704030969221112">"Abbrechen"</string>
     <string name="retry_download" msgid="7617100787922717912">"Wiederholen"</string>
+    <string name="start_now_download" msgid="1564642872809509681">"Jetzt starten"</string>
     <string name="deselect_all" msgid="6348198946254776764">"Auswahl für alle aufheben"</string>
     <string name="select_all" msgid="634074918366265804">"Alle auswählen"</string>
     <string name="selected_count" msgid="2101564570019753277">"<xliff:g id="NUMBER">%1$d</xliff:g> von <xliff:g id="TOTAL">%2$d</xliff:g> ausgewählt"</string>

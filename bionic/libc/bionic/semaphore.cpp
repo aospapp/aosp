@@ -41,6 +41,7 @@
 
 #include "private/bionic_constants.h"
 #include "private/bionic_futex.h"
+#include "private/bionic_sdk_version.h"
 #include "private/bionic_time_conversions.h"
 
 // In this implementation, a semaphore contains a
@@ -80,7 +81,7 @@ static inline int SEMCOUNT_TO_VALUE(unsigned int sval) {
 #define SEMCOUNT_ONE              SEMCOUNT_FROM_VALUE(1)
 
 // The value -1 as a sem->count bit-pattern.
-#define SEMCOUNT_MINUS_ONE        SEMCOUNT_FROM_VALUE(-1)
+#define SEMCOUNT_MINUS_ONE        SEMCOUNT_FROM_VALUE(~0U)
 
 #define SEMCOUNT_DECREMENT(sval)    (((sval) - (1U << SEMCOUNT_VALUE_SHIFT)) & SEMCOUNT_VALUE_MASK)
 #define SEMCOUNT_INCREMENT(sval)    (((sval) + (1U << SEMCOUNT_VALUE_SHIFT)) & SEMCOUNT_VALUE_MASK)
@@ -220,7 +221,13 @@ int sem_wait(sem_t* sem) {
       return 0;
     }
 
-    __futex_wait_ex(sem_count_ptr, shared, shared | SEMCOUNT_MINUS_ONE, NULL);
+    int result = __futex_wait_ex(sem_count_ptr, shared, shared | SEMCOUNT_MINUS_ONE, false, nullptr);
+    if (bionic_get_application_target_sdk_version() > 23) {
+      if (result ==-EINTR) {
+        errno = EINTR;
+        return -1;
+      }
+    }
   }
 }
 
@@ -235,36 +242,29 @@ int sem_timedwait(sem_t* sem, const timespec* abs_timeout) {
   }
 
   // Check it as per POSIX.
-  if (abs_timeout == NULL || abs_timeout->tv_sec < 0 || abs_timeout->tv_nsec < 0 || abs_timeout->tv_nsec >= NS_PER_S) {
-    errno = EINVAL;
+  int result = check_timespec(abs_timeout, false);
+  if (result != 0) {
+    errno = result;
     return -1;
   }
 
   unsigned int shared = SEM_GET_SHARED(sem_count_ptr);
 
   while (true) {
-    // POSIX mandates CLOCK_REALTIME here.
-    timespec ts;
-    if (!timespec_from_absolute_timespec(ts, *abs_timeout, CLOCK_REALTIME)) {
-      errno = ETIMEDOUT;
-      return -1;
-    }
-
     // Try to grab the semaphore. If the value was 0, this will also change it to -1.
     if (__sem_dec(sem_count_ptr) > 0) {
-      break;
+      return 0;
     }
 
     // Contention detected. Wait for a wakeup event.
-    int ret = __futex_wait_ex(sem_count_ptr, shared, shared | SEMCOUNT_MINUS_ONE, &ts);
+    int result = __futex_wait_ex(sem_count_ptr, shared, shared | SEMCOUNT_MINUS_ONE, true, abs_timeout);
 
     // Return in case of timeout or interrupt.
-    if (ret == -ETIMEDOUT || ret == -EINTR) {
-      errno = -ret;
+    if (result == -ETIMEDOUT || result == -EINTR) {
+      errno = -result;
       return -1;
     }
   }
-  return 0;
 }
 
 int sem_post(sem_t* sem) {

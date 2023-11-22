@@ -63,7 +63,7 @@ bool BacktraceMap::ParseLine(const char* line, backtrace_map_t* map) {
 // 6f000000-6f01e000 rwxp 00000000 00:0c 16389419   /system/lib/libcomposer.so\n
 // 012345678901234567890123456789012345678901234567890123456789
 // 0         1         2         3         4         5
-  if (sscanf(line, "%lx-%lx %4s %*x %*x:%*x %*d%n",
+  if (sscanf(line, "%lx-%lx %4s %*x %*x:%*x %*d %n",
              &start, &end, permissions, &name_pos) != 3) {
 #endif
     return false;
@@ -82,9 +82,6 @@ bool BacktraceMap::ParseLine(const char* line, backtrace_map_t* map) {
     map->flags |= PROT_EXEC;
   }
 
-  while (isspace(line[name_pos])) {
-    name_pos += 1;
-  }
   map->name = line+name_pos;
   if (!map->name.empty() && map->name[map->name.length()-1] == '\n') {
     map->name.erase(map->name.length()-1);
@@ -135,7 +132,7 @@ bool BacktraceMap::Build() {
 #if defined(__APPLE__)
 // Corkscrew and libunwind don't compile on the mac, so create a generic
 // map object.
-BacktraceMap* BacktraceMap::Create(pid_t pid, bool uncached) {
+BacktraceMap* BacktraceMap::Create(pid_t pid, bool /*uncached*/) {
   BacktraceMap* map = new BacktraceMap(pid);
   if (!map->Build()) {
     delete map;
@@ -144,3 +141,13 @@ BacktraceMap* BacktraceMap::Create(pid_t pid, bool uncached) {
   return map;
 }
 #endif
+
+BacktraceMap* BacktraceMap::Create(pid_t pid, const std::vector<backtrace_map_t>& maps) {
+    BacktraceMap* backtrace_map = new BacktraceMap(pid);
+    backtrace_map->maps_.insert(backtrace_map->maps_.begin(), maps.begin(), maps.end());
+    std::sort(backtrace_map->maps_.begin(), backtrace_map->maps_.end(),
+            [](const backtrace_map_t& map1, const backtrace_map_t& map2) {
+              return map1.start < map2.start;
+            });
+    return backtrace_map;
+}

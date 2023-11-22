@@ -19,18 +19,28 @@ package com.android.cts.verifier.managedprovisioning;
 import android.app.Activity;
 import android.app.admin.DevicePolicyManager;
 import android.app.Dialog;
+import android.app.KeyguardManager;
+import android.app.Notification;
+import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.os.UserManager;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.support.v4.content.FileProvider;
+import android.support.v4.util.Pair;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -39,6 +49,7 @@ import static android.provider.Settings.Secure.INSTALL_NON_MARKET_APPS;
 import java.io.File;
 import java.util.ArrayList;
 
+import com.android.cts.verifier.location.LocationListenerActivity;
 import com.android.cts.verifier.R;
 import com.android.cts.verifier.managedprovisioning.ByodPresentMediaDialog.DialogCallback;
 
@@ -51,7 +62,8 @@ import com.android.cts.verifier.managedprovisioning.ByodPresentMediaDialog.Dialo
  *
  * Note: We have to use a dummy activity because cross-profile intents only work for activities.
  */
-public class ByodHelperActivity extends Activity implements DialogCallback {
+public class ByodHelperActivity extends LocationListenerActivity
+        implements DialogCallback {
     static final String TAG = "ByodHelperActivity";
 
     // Primary -> managed intent: query if the profile owner has been set up.
@@ -59,14 +71,16 @@ public class ByodHelperActivity extends Activity implements DialogCallback {
     // Managed -> primary intent: update profile owner test status in primary's CtsVerifer
     public static final String ACTION_PROFILE_OWNER_STATUS = "com.android.cts.verifier.managedprovisioning.BYOD_STATUS";
     // Primary -> managed intent: request to delete the current profile
-    public static final String ACTION_REMOVE_PROFILE_OWNER = "com.android.cts.verifier.managedprovisioning.BYOD_REMOVE";
+    public static final String ACTION_REMOVE_MANAGED_PROFILE = "com.android.cts.verifier.managedprovisioning.BYOD_REMOVE";
     // Managed -> managed intent: provisioning completed successfully
     public static final String ACTION_PROFILE_PROVISIONED = "com.android.cts.verifier.managedprovisioning.BYOD_PROVISIONED";
-    // Primage -> managed intent: request to capture and check an image
+    // Primary -> managed intent: request to capture and check an image
     public static final String ACTION_CAPTURE_AND_CHECK_IMAGE = "com.android.cts.verifier.managedprovisioning.BYOD_CAPTURE_AND_CHECK_IMAGE";
-    // Primage -> managed intent: request to capture and check a video
-    public static final String ACTION_CAPTURE_AND_CHECK_VIDEO = "com.android.cts.verifier.managedprovisioning.BYOD_CAPTURE_AND_CHECK_VIDEO";
-    // Primage -> managed intent: request to capture and check an audio recording
+    // Primary -> managed intent: request to capture and check a video with custom output path
+    public static final String ACTION_CAPTURE_AND_CHECK_VIDEO_WITH_EXTRA_OUTPUT = "com.android.cts.verifier.managedprovisioning.BYOD_CAPTURE_AND_CHECK_VIDEO_WITH_EXTRA_OUTPUT";
+    // Primary -> managed intent: request to capture and check a video without custom output path
+    public static final String ACTION_CAPTURE_AND_CHECK_VIDEO_WITHOUT_EXTRA_OUTPUT = "com.android.cts.verifier.managedprovisioning.BYOD_CAPTURE_AND_CHECK_VIDEO_WITHOUT_EXTRA_OUTPUT";
+    // Primary -> managed intent: request to capture and check an audio recording
     public static final String ACTION_CAPTURE_AND_CHECK_AUDIO = "com.android.cts.verifier.managedprovisioning.BYOD_CAPTURE_AND_CHECK_AUDIO";
     public static final String ACTION_KEYGUARD_DISABLED_FEATURES =
             "com.android.cts.verifier.managedprovisioning.BYOD_KEYGUARD_DISABLED_FEATURES";
@@ -97,14 +111,53 @@ public class ByodHelperActivity extends Activity implements DialogCallback {
     public static final String ACTION_TEST_APP_LINKING_DIALOG =
             "com.android.cts.verifier.managedprovisioning.action.TEST_APP_LINKING_DIALOG";
 
+    // Primary -> managed intent: request to goto the location settings page and listen to updates.
+    public static final String ACTION_BYOD_SET_LOCATION_AND_CHECK_UPDATES =
+            "com.android.cts.verifier.managedprovisioning.BYOD_SET_LOCATION_AND_CHECK";
+    public static final String ACTION_NOTIFICATION =
+            "com.android.cts.verifier.managedprovisioning.NOTIFICATION";
+    public static final String ACTION_NOTIFICATION_ON_LOCKSCREEN =
+            "com.android.cts.verifier.managedprovisioning.LOCKSCREEN_NOTIFICATION";
+    public static final String ACTION_CLEAR_NOTIFICATION =
+            "com.android.cts.verifier.managedprovisioning.CLEAR_NOTIFICATION";
+
+    // Primary -> managed intent: set a user restriction
+    public static final String ACTION_SET_USER_RESTRICTION =
+            "com.android.cts.verifier.managedprovisioning.BYOD_SET_USER_RESTRICTION";
+
+    // Primary -> managed intent: reset a user restriction
+    public static final String ACTION_CLEAR_USER_RESTRICTION =
+            "com.android.cts.verifier.managedprovisioning.BYOD_CLEAR_USER_RESTRICTION";
+
+    // Primary -> managed intent: Start the selection of a work challenge
+    public static final String ACTION_TEST_SELECT_WORK_CHALLENGE =
+            "com.android.cts.verifier.managedprovisioning.TEST_SELECT_WORK_CHALLENGE";
+
+    // Primary -> managed intent: Start the selection of a parent profile password.
+    public static final String ACTION_TEST_PARENT_PROFILE_PASSWORD =
+            "com.android.cts.verifier.managedprovisioning.TEST_PARENT_PROFILE_PASSWORD";
+
+    // Primary -> managed intent: Start the confirm credentials screen for the managed profile
+    public static final String ACTION_LAUNCH_CONFIRM_WORK_CREDENTIALS =
+            "com.android.cts.verifier.managedprovisioning.LAUNCH_CONFIRM_WORK_CREDENTIALS";
+
+    public static final String ACTION_SET_ORGANIZATION_INFO =
+            "com.android.cts.verifier.managedprovisioning.TEST_ORGANIZATION_INFO";
+
     public static final int RESULT_FAILED = RESULT_FIRST_USER;
 
-    private static final int REQUEST_INSTALL_PACKAGE = 1;
-    private static final int REQUEST_IMAGE_CAPTURE = 2;
-    private static final int REQUEST_VIDEO_CAPTURE = 3;
-    private static final int REQUEST_AUDIO_CAPTURE = 4;
+    private static final int REQUEST_INSTALL_PACKAGE = 2;
+    private static final int REQUEST_IMAGE_CAPTURE = 3;
+    private static final int REQUEST_VIDEO_CAPTURE_WITH_EXTRA_OUTPUT = 4;
+    private static final int REQUEST_VIDEO_CAPTURE_WITHOUT_EXTRA_OUTPUT = 5;
+    private static final int REQUEST_AUDIO_CAPTURE = 6;
+    private static final int REQUEST_LOCATION_UPDATE = 7;
 
     private static final String ORIGINAL_SETTINGS_NAME = "original settings";
+
+    private static final int NOTIFICATION_ID = 7;
+
+    private NotificationManager mNotificationManager;
     private Bundle mOriginalSettings;
 
     private ComponentName mAdminReceiverComponent;
@@ -112,8 +165,20 @@ public class ByodHelperActivity extends Activity implements DialogCallback {
 
     private Uri mImageUri;
     private Uri mVideoUri;
+    private File mImageFile;
 
     private ArrayList<File> mTempFiles = new ArrayList<File>();
+
+    private void showNotification(int visibility) {
+        final Notification notification = new Notification.Builder(this)
+                .setSmallIcon(R.drawable.icon)
+                .setContentTitle(getString(R.string.provisioning_byod_notification_title))
+                .setVisibility(visibility)
+                .setAutoCancel(true)
+                .build();
+        mNotificationManager.notify(NOTIFICATION_ID, notification);
+    }
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -128,6 +193,7 @@ public class ByodHelperActivity extends Activity implements DialogCallback {
         mAdminReceiverComponent = new ComponentName(this, DeviceAdminTestReceiver.class.getName());
         mDevicePolicyManager = (DevicePolicyManager) getSystemService(
                 Context.DEVICE_POLICY_SERVICE);
+        mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         Intent intent = getIntent();
         String action = intent.getAction();
         Log.d(TAG, "ByodHelperActivity.onCreate: " + action);
@@ -144,8 +210,10 @@ public class ByodHelperActivity extends Activity implements DialogCallback {
             response.putExtra(EXTRA_PROVISIONED, isProfileOwner());
             setResult(RESULT_OK, response);
             // Request to delete work profile.
-        } else if (action.equals(ACTION_REMOVE_PROFILE_OWNER)) {
+        } else if (action.equals(ACTION_REMOVE_MANAGED_PROFILE)) {
             if (isProfileOwner()) {
+                Log.d(TAG, "Clearing cross profile intents");
+                mDevicePolicyManager.clearCrossProfileIntentFilters(mAdminReceiverComponent);
                 mDevicePolicyManager.wipeData(0);
                 showToast(R.string.provisioning_byod_profile_deleted);
             }
@@ -176,7 +244,9 @@ public class ByodHelperActivity extends Activity implements DialogCallback {
             // We need the camera permission to send the image capture intent.
             grantCameraPermissionToSelf();
             Intent captureImageIntent = getCaptureImageIntent();
-            mImageUri = getTempUri("image.jpg");
+            Pair<File, Uri> pair = getTempUri("image.jpg");
+            mImageFile = pair.first;
+            mImageUri = pair.second;
             captureImageIntent.putExtra(MediaStore.EXTRA_OUTPUT, mImageUri);
             if (captureImageIntent.resolveActivity(getPackageManager()) != null) {
                 startActivityForResult(captureImageIntent, REQUEST_IMAGE_CAPTURE);
@@ -186,14 +256,21 @@ public class ByodHelperActivity extends Activity implements DialogCallback {
                 finish();
             }
             return;
-        } else if (action.equals(ACTION_CAPTURE_AND_CHECK_VIDEO)) {
+        } else if (action.equals(ACTION_CAPTURE_AND_CHECK_VIDEO_WITH_EXTRA_OUTPUT) ||
+                action.equals(ACTION_CAPTURE_AND_CHECK_VIDEO_WITHOUT_EXTRA_OUTPUT)) {
             // We need the camera permission to send the video capture intent.
             grantCameraPermissionToSelf();
             Intent captureVideoIntent = getCaptureVideoIntent();
-            mVideoUri = getTempUri("video.mp4");
-            captureVideoIntent.putExtra(MediaStore.EXTRA_OUTPUT, mVideoUri);
+            int videoCaptureRequestId;
+            if (action.equals(ACTION_CAPTURE_AND_CHECK_VIDEO_WITH_EXTRA_OUTPUT)) {
+                mVideoUri = getTempUri("video.mp4").second;
+                captureVideoIntent.putExtra(MediaStore.EXTRA_OUTPUT, mVideoUri);
+                videoCaptureRequestId = REQUEST_VIDEO_CAPTURE_WITH_EXTRA_OUTPUT;
+            } else {
+                videoCaptureRequestId = REQUEST_VIDEO_CAPTURE_WITHOUT_EXTRA_OUTPUT;
+            }
             if (captureVideoIntent.resolveActivity(getPackageManager()) != null) {
-                startActivityForResult(captureVideoIntent, REQUEST_VIDEO_CAPTURE);
+                startActivityForResult(captureVideoIntent, videoCaptureRequestId);
             } else {
                 Log.e(TAG, "Capture video intent could not be resolved in managed profile.");
                 showToast(R.string.provisioning_byod_capture_media_error);
@@ -213,8 +290,7 @@ public class ByodHelperActivity extends Activity implements DialogCallback {
         } else if (ACTION_KEYGUARD_DISABLED_FEATURES.equals(action)) {
             final int value = intent.getIntExtra(EXTRA_PARAMETER_1,
                     DevicePolicyManager.KEYGUARD_DISABLE_FEATURES_NONE);
-            ComponentName admin = DeviceAdminTestReceiver.getReceiverComponentName();
-            mDevicePolicyManager.setKeyguardDisabledFeatures(admin, value);
+            mDevicePolicyManager.setKeyguardDisabledFeatures(mAdminReceiverComponent, value);
         } else if (ACTION_LOCKNOW.equals(action)) {
             mDevicePolicyManager.lockNow();
             setResult(RESULT_OK);
@@ -234,6 +310,50 @@ public class ByodHelperActivity extends Activity implements DialogCallback {
             Intent toSend = new Intent(Intent.ACTION_VIEW);
             toSend.setData(Uri.parse("http://com.android.cts.verifier"));
             sendIntentInsideChooser(toSend);
+        } else if (action.equals(ACTION_SET_USER_RESTRICTION)) {
+            final String restriction = intent.getStringExtra(EXTRA_PARAMETER_1);
+            if (restriction != null) {
+                mDevicePolicyManager.addUserRestriction(
+                        DeviceAdminTestReceiver.getReceiverComponentName(), restriction);
+            }
+        } else if (action.equals(ACTION_CLEAR_USER_RESTRICTION)) {
+            final String restriction = intent.getStringExtra(EXTRA_PARAMETER_1);
+            if (restriction != null) {
+                mDevicePolicyManager.clearUserRestriction(
+                        DeviceAdminTestReceiver.getReceiverComponentName(), restriction);
+            }
+        } else if (action.equals(ACTION_BYOD_SET_LOCATION_AND_CHECK_UPDATES)) {
+            handleLocationAction();
+            return;
+        } else if (action.equals(ACTION_NOTIFICATION)) {
+            showNotification(Notification.VISIBILITY_PUBLIC);
+        } else if (ACTION_NOTIFICATION_ON_LOCKSCREEN.equals(action)) {
+            mDevicePolicyManager.lockNow();
+            showNotification(Notification.VISIBILITY_PRIVATE);
+        } else if (ACTION_CLEAR_NOTIFICATION.equals(action)) {
+            mNotificationManager.cancel(NOTIFICATION_ID);
+        } else if (ACTION_TEST_SELECT_WORK_CHALLENGE.equals(action)) {
+            mDevicePolicyManager.setOrganizationColor(mAdminReceiverComponent, Color.BLUE);
+            mDevicePolicyManager.setOrganizationName(mAdminReceiverComponent, getResources()
+                    .getString(R.string.provisioning_byod_confirm_work_credentials_header));
+            startActivity(new Intent(DevicePolicyManager.ACTION_SET_NEW_PASSWORD));
+        } else if (ACTION_LAUNCH_CONFIRM_WORK_CREDENTIALS.equals(action)) {
+            KeyguardManager keyguardManager =
+                    (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
+            Intent launchIntent = keyguardManager.createConfirmDeviceCredentialIntent(null, null);
+            startActivity(launchIntent);
+        } else if (ACTION_SET_ORGANIZATION_INFO.equals(action)) {
+            if(intent.hasExtra(OrganizationInfoTestActivity.EXTRA_ORGANIZATION_NAME)) {
+                final String organizationName = intent
+                        .getStringExtra(OrganizationInfoTestActivity.EXTRA_ORGANIZATION_NAME);
+                mDevicePolicyManager.setOrganizationName(mAdminReceiverComponent, organizationName);
+            }
+            final int organizationColor = intent.getIntExtra(
+                    OrganizationInfoTestActivity.EXTRA_ORGANIZATION_COLOR,
+                    mDevicePolicyManager.getOrganizationColor(mAdminReceiverComponent));
+            mDevicePolicyManager.setOrganizationColor(mAdminReceiverComponent, organizationColor);
+        } else if (ACTION_TEST_PARENT_PROFILE_PASSWORD.equals(action)) {
+            startActivity(new Intent(DevicePolicyManager.ACTION_SET_NEW_PARENT_PROFILE_PASSWORD));
         }
         // This activity has no UI and is only used to respond to CtsVerifier in the primary side.
         finish();
@@ -261,7 +381,7 @@ public class ByodHelperActivity extends Activity implements DialogCallback {
             }
             case REQUEST_IMAGE_CAPTURE: {
                 if (resultCode == RESULT_OK) {
-                    ByodPresentMediaDialog.newImageInstance(mImageUri)
+                    ByodPresentMediaDialog.newImageInstance(mImageFile)
                             .show(getFragmentManager(), "ViewImageDialogFragment");
                 } else {
                     // Failed capturing image.
@@ -269,9 +389,19 @@ public class ByodHelperActivity extends Activity implements DialogCallback {
                 }
                 break;
             }
-            case REQUEST_VIDEO_CAPTURE: {
+            case REQUEST_VIDEO_CAPTURE_WITH_EXTRA_OUTPUT: {
                 if (resultCode == RESULT_OK) {
                     ByodPresentMediaDialog.newVideoInstance(mVideoUri)
+                            .show(getFragmentManager(), "PlayVideoDialogFragment");
+                } else {
+                    // Failed capturing video.
+                    finish();
+                }
+                break;
+            }
+            case REQUEST_VIDEO_CAPTURE_WITHOUT_EXTRA_OUTPUT: {
+                if (resultCode == RESULT_OK) {
+                    ByodPresentMediaDialog.newVideoInstance(data.getData())
                             .show(getFragmentManager(), "PlayVideoDialogFragment");
                 } else {
                     // Failed capturing video.
@@ -290,7 +420,7 @@ public class ByodHelperActivity extends Activity implements DialogCallback {
                 break;
             }
             default: {
-                Log.wtf(TAG, "Unknown requestCode " + requestCode + "; data = " + data);
+                super.onActivityResult(requestCode, resultCode, data);
                 break;
             }
         }
@@ -318,13 +448,13 @@ public class ByodHelperActivity extends Activity implements DialogCallback {
         return new Intent(ACTION_LOCKNOW);
     }
 
-    private Uri getTempUri(String fileName) {
+    private Pair<File, Uri> getTempUri(String fileName) {
         final File file = new File(getFilesDir() + File.separator + "images"
                 + File.separator + fileName);
         file.getParentFile().mkdirs(); //if the folder doesn't exists it is created
         mTempFiles.add(file);
-        return FileProvider.getUriForFile(this,
-                    "com.android.cts.verifier.managedprovisioning.fileprovider", file);
+        return new Pair<>(file, FileProvider.getUriForFile(this,
+                    "com.android.cts.verifier.managedprovisioning.fileprovider", file));
     }
 
     private void cleanUpTempUris() {
@@ -358,11 +488,6 @@ public class ByodHelperActivity extends Activity implements DialogCallback {
         startActivity(intent);
     }
 
-    private void showToast(int messageId) {
-        String message = getString(messageId);
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
-    }
-
     private void grantCameraPermissionToSelf() {
         mDevicePolicyManager.setPermissionGrantState(mAdminReceiverComponent, getPackageName(),
                 android.Manifest.permission.CAMERA,
@@ -377,7 +502,27 @@ public class ByodHelperActivity extends Activity implements DialogCallback {
     }
 
     @Override
+    protected void handleLocationAction() {
+        // Grant the locaiton permission to the provile owner on cts-verifier.
+        // The permission state does not have to be reverted at the end since the profile onwer
+        // is going to be deleted when BYOD tests ends.
+        grantLocationPermissionToSelf();
+        super.handleLocationAction();
+    }
+
+    private void grantLocationPermissionToSelf() {
+        mDevicePolicyManager.setPermissionGrantState(mAdminReceiverComponent, getPackageName(),
+                android.Manifest.permission.ACCESS_FINE_LOCATION,
+                DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED);
+    }
+
+    @Override
     public void onDialogClose() {
         finish();
+    }
+
+    @Override
+    protected String getLogTag() {
+        return TAG;
     }
 }

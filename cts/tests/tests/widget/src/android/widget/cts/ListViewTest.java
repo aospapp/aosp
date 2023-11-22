@@ -16,7 +16,9 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
+import android.widget.BaseAdapter;
+import android.widget.LinearLayout;
+import android.widget.cts.R;
 
 import org.xmlpull.v1.XmlPullParser;
 
@@ -38,18 +40,20 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.LayoutAnimationController;
-import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.cts.util.ViewTestUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 import junit.framework.Assert;
+
+import static org.mockito.Mockito.*;
 
 public class ListViewTest extends ActivityInstrumentationTestCase2<ListViewCtsActivity> {
     private final String[] mCountryList = new String[] {
@@ -69,7 +73,7 @@ public class ListViewTest extends ActivityInstrumentationTestCase2<ListViewCtsAc
     private ArrayAdapter<String> mAdapter_empty;
 
     public ListViewTest() {
-        super("com.android.cts.widget", ListViewCtsActivity.class);
+        super("android.widget.cts", ListViewCtsActivity.class);
     }
 
     protected void setUp() throws Exception {
@@ -128,21 +132,13 @@ public class ListViewTest extends ActivityInstrumentationTestCase2<ListViewCtsAc
     }
 
     private void setAdapter(final ArrayAdapter<String> adapter) {
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.setAdapter(adapter);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () -> mListView.setAdapter(adapter));
     }
 
     public void testAccessDividerHeight() {
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.setAdapter(mAdapter_countries);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () -> mListView.setAdapter(mAdapter_countries));
 
         Drawable d = mListView.getDivider();
         final Rect r = d.getBounds();
@@ -153,21 +149,15 @@ public class ListViewTest extends ActivityInstrumentationTestCase2<ListViewCtsAc
             }
         }.run();
 
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.setDividerHeight(20);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () -> mListView.setDividerHeight(20));
+
         assertEquals(20, mListView.getDividerHeight());
         assertEquals(20, r.bottom - r.top);
 
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.setDividerHeight(10);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () -> mListView.setDividerHeight(10));
+
         assertEquals(10, mListView.getDividerHeight());
         assertEquals(10, r.bottom - r.top);
     }
@@ -183,22 +173,14 @@ public class ListViewTest extends ActivityInstrumentationTestCase2<ListViewCtsAc
     }
 
     public void testAccessAdapter() {
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.setAdapter(mAdapter_countries);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () -> mListView.setAdapter(mAdapter_countries));
 
         assertSame(mAdapter_countries, mListView.getAdapter());
         assertEquals(mCountryList.length, mListView.getCount());
 
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.setAdapter(mAdapter_names);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () -> mListView.setAdapter(mAdapter_names));
 
         assertSame(mAdapter_names, mListView.getAdapter());
         assertEquals(mNameList.length, mListView.getCount());
@@ -283,52 +265,26 @@ public class ListViewTest extends ActivityInstrumentationTestCase2<ListViewCtsAc
         final TextView footerView2 = new TextView(mActivity);
         footerView2.setText("footerview2");
 
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.setFooterDividersEnabled(true);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        mInstrumentation.runOnMainSync(() -> mListView.setFooterDividersEnabled(true));
         assertEquals(0, mListView.getFooterViewsCount());
 
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.addFooterView(footerView1, null, true);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        mInstrumentation.runOnMainSync(() -> mListView.addFooterView(footerView1, null, true));
         assertEquals(1, mListView.getFooterViewsCount());
 
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.addFooterView(footerView2);
-            }
-        });
+        mInstrumentation.runOnMainSync(() -> mListView.addFooterView(footerView2));
 
         mInstrumentation.waitForIdleSync();
         assertEquals(2, mListView.getFooterViewsCount());
 
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.setAdapter(mAdapter_countries);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () -> mListView.setAdapter(mAdapter_countries));
 
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.removeFooterView(footerView1);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () -> mListView.removeFooterView(footerView1));
         assertEquals(1, mListView.getFooterViewsCount());
 
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.removeFooterView(footerView2);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () -> mListView.removeFooterView(footerView2));
         assertEquals(0, mListView.getFooterViewsCount());
     }
 
@@ -336,28 +292,13 @@ public class ListViewTest extends ActivityInstrumentationTestCase2<ListViewCtsAc
         final TextView headerView1 = (TextView) mActivity.findViewById(R.id.headerview1);
         final TextView headerView2 = (TextView) mActivity.findViewById(R.id.headerview2);
 
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.setHeaderDividersEnabled(true);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        mInstrumentation.runOnMainSync(() -> mListView.setHeaderDividersEnabled(true));
         assertEquals(0, mListView.getHeaderViewsCount());
 
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.addHeaderView(headerView2, null, true);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        mInstrumentation.runOnMainSync(() -> mListView.addHeaderView(headerView2, null, true));
         assertEquals(1, mListView.getHeaderViewsCount());
 
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.addHeaderView(headerView1);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        mInstrumentation.runOnMainSync(() -> mListView.addHeaderView(headerView1));
         assertEquals(2, mListView.getHeaderViewsCount());
     }
 
@@ -389,32 +330,18 @@ public class ListViewTest extends ActivityInstrumentationTestCase2<ListViewCtsAc
                 return super.getCount() + 1;
             }
         };
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mListView.setAdapter(adapter);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () -> mListView.setAdapter(adapter));
 
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                adapter.notifyDataSetChanged();
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () -> adapter.notifyDataSetChanged());
 
         assertEquals(0, mismatch.size());
     }
 
     public void testAccessDivider() {
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.setAdapter(mAdapter_countries);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () -> mListView.setAdapter(mAdapter_countries));
 
         Drawable defaultDrawable = mListView.getDivider();
         final Rect r = defaultDrawable.getBounds();
@@ -427,57 +354,33 @@ public class ListViewTest extends ActivityInstrumentationTestCase2<ListViewCtsAc
 
         final Drawable d = mActivity.getResources().getDrawable(R.drawable.scenery);
 
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.setDivider(d);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () -> mListView.setDivider(d));
         assertSame(d, mListView.getDivider());
         assertEquals(d.getBounds().height(), mListView.getDividerHeight());
 
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.setDividerHeight(10);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () -> mListView.setDividerHeight(10));
         assertEquals(10, mListView.getDividerHeight());
         assertEquals(10, d.getBounds().height());
     }
 
     public void testSetSelection() {
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.setAdapter(mAdapter_countries);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () -> mListView.setAdapter(mAdapter_countries));
 
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.setSelection(1);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () -> mListView.setSelection(1));
         String item = (String) mListView.getSelectedItem();
         assertEquals(mCountryList[1], item);
 
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.setSelectionFromTop(5, 0);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () -> mListView.setSelectionFromTop(5, 0));
         item = (String) mListView.getSelectedItem();
         assertEquals(mCountryList[5], item);
 
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.setSelectionAfterHeaderView();
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () -> mListView.setSelectionAfterHeaderView());
         item = (String) mListView.getSelectedItem();
         assertEquals(mCountryList[0], item);
     }
@@ -487,20 +390,12 @@ public class ListViewTest extends ActivityInstrumentationTestCase2<ListViewCtsAc
     }
 
     public void testPerformItemClick() {
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.setAdapter(mAdapter_countries);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () -> mListView.setAdapter(mAdapter_countries));
 
         mListView.setChoiceMode(ListView.CHOICE_MODE_SINGLE);
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.setSelection(2);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () -> mListView.setSelection(2));
 
         final TextView child = (TextView) mAdapter_countries.getView(2, null, mListView);
         assertNotNull(child);
@@ -508,30 +403,19 @@ public class ListViewTest extends ActivityInstrumentationTestCase2<ListViewCtsAc
         final long itemID = mAdapter_countries.getItemId(2);
         assertEquals(2, itemID);
 
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.performItemClick(child, 2, itemID);
-            }
-        });
+        mInstrumentation.runOnMainSync(() -> mListView.performItemClick(child, 2, itemID));
         mInstrumentation.waitForIdleSync();
 
-        MockOnItemClickListener onClickListener = new MockOnItemClickListener();
+        OnItemClickListener onClickListener = mock(OnItemClickListener.class);
         mListView.setOnItemClickListener(onClickListener);
+        verify(onClickListener, never()).onItemClick(any(AdapterView.class), any(View.class),
+                anyInt(), anyLong());
 
-        assertNull(onClickListener.getView());
-        assertEquals(0, onClickListener.getPosition());
-        assertEquals(0, onClickListener.getID());
-
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.performItemClick(child, 2, itemID);
-            }
-        });
+        mInstrumentation.runOnMainSync(() -> mListView.performItemClick(child, 2, itemID));
         mInstrumentation.waitForIdleSync();
 
-        assertSame(child, onClickListener.getView());
-        assertEquals(2, onClickListener.getPosition());
-        assertEquals(2, onClickListener.getID());
+        verify(onClickListener, times(1)).onItemClick(mListView, child, 2, 2L);
+        verifyNoMoreInteractions(onClickListener);
     }
 
     public void testSaveAndRestoreInstanceState() {
@@ -539,52 +423,39 @@ public class ListViewTest extends ActivityInstrumentationTestCase2<ListViewCtsAc
     }
 
     public void testDispatchKeyEvent() {
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.setAdapter(mAdapter_countries);
-                mListView.requestFocus();
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () -> {
+                    mListView.setAdapter(mAdapter_countries);
+                    mListView.requestFocus();
+                });
         assertTrue(mListView.hasFocus());
 
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.setSelection(1);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () -> mListView.setSelection(1));
         String item = (String) mListView.getSelectedItem();
         assertEquals(mCountryList[1], item);
 
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_A);
-                mListView.dispatchKeyEvent(keyEvent);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () ->  {
+                    KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_A);
+                    mListView.dispatchKeyEvent(keyEvent);
+                });
 
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_DOWN);
-                mListView.dispatchKeyEvent(keyEvent);
-                mListView.dispatchKeyEvent(keyEvent);
-                mListView.dispatchKeyEvent(keyEvent);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () -> {
+                    KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN,
+                            KeyEvent.KEYCODE_DPAD_DOWN);
+                    mListView.dispatchKeyEvent(keyEvent);
+                    mListView.dispatchKeyEvent(keyEvent);
+                    mListView.dispatchKeyEvent(keyEvent);
+                });
         item = (String)mListView.getSelectedItem();
         assertEquals(mCountryList[4], item);
     }
 
     public void testRequestChildRectangleOnScreen() {
-        mInstrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                mListView.setAdapter(mAdapter_countries);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () -> mListView.setAdapter(mAdapter_countries));
 
         TextView child = (TextView) mAdapter_countries.getView(0, null, mListView);
         assertNotNull(child);
@@ -695,35 +566,11 @@ public class ListViewTest extends ActivityInstrumentationTestCase2<ListViewCtsAc
         }
     }
 
-    private static class MockOnItemClickListener implements OnItemClickListener {
-        private View mView;
-        private int mPosition;
-        private long mID;
-
-        public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-            mView = view;
-            mPosition = position;
-            mID = id;
-        }
-
-        public View getView() {
-            return mView;
-        }
-
-        public int getPosition() {
-            return mPosition;
-        }
-
-        public long getID() {
-            return mID;
-        }
-    }
-
     /**
      * The following functions are merged from frameworktest.
      */
     @MediumTest
-    public void testRequestLayout() throws Exception {
+    public void testRequestLayoutCallsMeasure() throws Exception {
         ListView listView = new ListView(mActivity);
         List<String> items = new ArrayList<>();
         items.add("hello");
@@ -770,6 +617,156 @@ public class ListViewTest extends ActivityInstrumentationTestCase2<ListViewCtsAc
         listView.layout(0, 0, 100, 100);
     }
 
+    @MediumTest
+    public void testFullDetachHeaderViewOnScroll() {
+        final AttachDetachAwareView header = new AttachDetachAwareView(mActivity);
+        ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mListView, () -> {
+            mListView.setAdapter(new DummyAdapter(1000));
+            mListView.addHeaderView(header);
+        });
+        assertEquals("test sanity", 1, header.mOnAttachCount);
+        assertEquals("test sanity", 0, header.mOnDetachCount);
+        ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mListView, () -> {
+            mListView.scrollListBy(mListView.getHeight() * 3);
+        });
+        assertNull("test sanity, header should be removed", header.getParent());
+        assertEquals("header view should be detached", 1, header.mOnDetachCount);
+        assertFalse(header.isTemporarilyDetached());
+    }
+
+    @MediumTest
+    public void testFullDetachHeaderViewOnRelayout() {
+        final AttachDetachAwareView header = new AttachDetachAwareView(mActivity);
+        ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mListView, () -> {
+            mListView.setAdapter(new DummyAdapter(1000));
+            mListView.addHeaderView(header);
+        });
+        assertEquals("test sanity", 1, header.mOnAttachCount);
+        assertEquals("test sanity", 0, header.mOnDetachCount);
+        ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mListView, () -> {
+            mListView.setSelection(800);
+        });
+        assertNull("test sanity, header should be removed", header.getParent());
+        assertEquals("header view should be detached", 1, header.mOnDetachCount);
+        assertFalse(header.isTemporarilyDetached());
+    }
+
+    @MediumTest
+    public void testFullDetachHeaderViewOnScrollForFocus() {
+        final AttachDetachAwareView header = new AttachDetachAwareView(mActivity);
+        ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mListView, () -> {
+            mListView.setAdapter(new DummyAdapter(1000));
+            mListView.addHeaderView(header);
+        });
+        assertEquals("test sanity", 1, header.mOnAttachCount);
+        assertEquals("test sanity", 0, header.mOnDetachCount);
+        while(header.getParent() != null) {
+            assertEquals("header view should NOT be detached", 0, header.mOnDetachCount);
+            sendKeys(KeyEvent.KEYCODE_DPAD_DOWN);
+            ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mListView, null);
+        }
+        assertEquals("header view should be detached", 1, header.mOnDetachCount);
+        assertFalse(header.isTemporarilyDetached());
+    }
+
+    @MediumTest
+    public void testFullyDetachUnusedViewOnScroll() {
+        final AttachDetachAwareView theView = new AttachDetachAwareView(mActivity);
+        ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mListView, () -> {
+            mListView.setAdapter(new DummyAdapter(1000, theView));
+        });
+        assertEquals("test sanity", 1, theView.mOnAttachCount);
+        assertEquals("test sanity", 0, theView.mOnDetachCount);
+        ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mListView, () -> {
+            mListView.scrollListBy(mListView.getHeight() * 2);
+        });
+        assertNull("test sanity, unused view should be removed", theView.getParent());
+        assertEquals("unused view should be detached", 1, theView.mOnDetachCount);
+        assertFalse(theView.isTemporarilyDetached());
+        ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mListView, () -> {
+            mListView.scrollListBy(-mListView.getHeight() * 2);
+            // listview limits scroll to 1 page which is why we call it twice here.
+            mListView.scrollListBy(-mListView.getHeight() * 2);
+        });
+        assertNotNull("test sanity, view should be re-added", theView.getParent());
+        assertEquals("view should receive another attach call", 2, theView.mOnAttachCount);
+        assertEquals("view should not receive a detach call", 1, theView.mOnDetachCount);
+        assertFalse(theView.isTemporarilyDetached());
+    }
+
+    @MediumTest
+    public void testFullyDetachUnusedViewOnReLayout() {
+        final AttachDetachAwareView theView = new AttachDetachAwareView(mActivity);
+        ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mListView, () -> {
+            mListView.setAdapter(new DummyAdapter(1000, theView));
+        });
+        assertEquals("test sanity", 1, theView.mOnAttachCount);
+        assertEquals("test sanity", 0, theView.mOnDetachCount);
+        ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mListView, () -> {
+            mListView.setSelection(800);
+        });
+        assertNull("test sanity, unused view should be removed", theView.getParent());
+        assertEquals("unused view should be detached", 1, theView.mOnDetachCount);
+        assertFalse(theView.isTemporarilyDetached());
+        ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mListView, () -> {
+            mListView.setSelection(0);
+        });
+        assertNotNull("test sanity, view should be re-added", theView.getParent());
+        assertEquals("view should receive another attach call", 2, theView.mOnAttachCount);
+        assertEquals("view should not receive a detach call", 1, theView.mOnDetachCount);
+        assertFalse(theView.isTemporarilyDetached());
+    }
+
+    @MediumTest
+    public void testFullyDetachUnusedViewOnScrollForFocus() {
+        final AttachDetachAwareView theView = new AttachDetachAwareView(mActivity);
+        ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mListView, () -> {
+            mListView.setAdapter(new DummyAdapter(1000, theView));
+        });
+        assertEquals("test sanity", 1, theView.mOnAttachCount);
+        assertEquals("test sanity", 0, theView.mOnDetachCount);
+        while(theView.getParent() != null) {
+            assertEquals("the view should NOT be detached", 0, theView.mOnDetachCount);
+            sendKeys(KeyEvent.KEYCODE_DPAD_DOWN);
+            ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mListView, null);
+        }
+        assertEquals("the view should be detached", 1, theView.mOnDetachCount);
+        assertFalse(theView.isTemporarilyDetached());
+        while(theView.getParent() == null) {
+            sendKeys(KeyEvent.KEYCODE_DPAD_UP);
+            ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mListView, null);
+        }
+        assertEquals("the view should be re-attached", 2, theView.mOnAttachCount);
+        assertEquals("the view should not recieve another detach", 1, theView.mOnDetachCount);
+        assertFalse(theView.isTemporarilyDetached());
+    }
+
+    @MediumTest
+    public void testSetPadding() {
+        View view = new View(mActivity);
+        view.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+        view.setMinimumHeight(30);
+        final DummyAdapter adapter = new DummyAdapter(2, view);
+        ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mListView, () -> {
+            mListView.setLayoutParams(new LinearLayout.LayoutParams(200, 100));
+            mListView.setAdapter(adapter);
+        });
+        assertEquals("test sanity", 200, mListView.getWidth());
+        assertEquals(200, view.getWidth());
+        ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mListView, () -> {
+            mListView.setPadding(10, 0, 5, 0);
+            assertTrue(view.isLayoutRequested());
+        });
+        assertEquals(185, view.getWidth());
+        assertFalse(view.isLayoutRequested());
+        ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mListView, () -> {
+            mListView.setPadding(10, 0, 5, 0);
+            assertFalse(view.isLayoutRequested());
+        });
+
+    }
+
     private class MockView extends View {
 
         public boolean onMeasureCalled = false;
@@ -797,33 +794,133 @@ public class ListViewTest extends ActivityInstrumentationTestCase2<ListViewCtsAc
         }
     }
 
+    @MediumTest
+    public void testRequestLayoutWithTemporaryDetach() throws Exception {
+        ListView listView = new ListView(mActivity);
+        List<String> items = new ArrayList<>();
+        items.add("0");
+        items.add("1");
+        items.add("2");
+        final TemporarilyDetachableMockViewAdapter<String> adapter =
+                new TemporarilyDetachableMockViewAdapter<>(
+                        mActivity, android.R.layout.simple_list_item_1, items);
+        mInstrumentation.runOnMainSync(() -> {
+            listView.setAdapter(adapter);
+            mActivity.setContentView(listView);
+        });
+        mInstrumentation.waitForIdleSync();
+
+        assertEquals(items.size(), listView.getCount());
+        final TemporarilyDetachableMockView childView0 =
+                (TemporarilyDetachableMockView) listView.getChildAt(0);
+        final TemporarilyDetachableMockView childView1 =
+                (TemporarilyDetachableMockView) listView.getChildAt(1);
+        final TemporarilyDetachableMockView childView2 =
+                (TemporarilyDetachableMockView) listView.getChildAt(2);
+        assertNotNull(childView0);
+        assertNotNull(childView1);
+        assertNotNull(childView2);
+
+        // Make sure that the childView1 has focus.
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, childView1, childView1::requestFocus);
+        assertTrue(childView1.isFocused());
+
+        // Make sure that ListView#requestLayout() is optimized when nothing is changed.
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, listView, listView::requestLayout);
+        assertEquals(childView0, listView.getChildAt(0));
+        assertEquals(childView1, listView.getChildAt(1));
+        assertEquals(childView2, listView.getChildAt(2));
+    }
+
+    private class TemporarilyDetachableMockView extends View {
+
+        private boolean mIsDispatchingStartTemporaryDetach = false;
+        private boolean mIsDispatchingFinishTemporaryDetach = false;
+
+        public TemporarilyDetachableMockView(Context context) {
+            super(context);
+        }
+
+        @Override
+        public void dispatchStartTemporaryDetach() {
+            mIsDispatchingStartTemporaryDetach = true;
+            super.dispatchStartTemporaryDetach();
+            mIsDispatchingStartTemporaryDetach = false;
+        }
+
+        @Override
+        public void dispatchFinishTemporaryDetach() {
+            mIsDispatchingFinishTemporaryDetach = true;
+            super.dispatchFinishTemporaryDetach();
+            mIsDispatchingFinishTemporaryDetach = false;
+        }
+
+        @Override
+        public void onStartTemporaryDetach() {
+            super.onStartTemporaryDetach();
+            if (!mIsDispatchingStartTemporaryDetach) {
+                throw new IllegalStateException("#onStartTemporaryDetach() must be indirectly"
+                        + " called via #dispatchStartTemporaryDetach()");
+            }
+        }
+
+        @Override
+        public void onFinishTemporaryDetach() {
+            super.onFinishTemporaryDetach();
+            if (!mIsDispatchingFinishTemporaryDetach) {
+                throw new IllegalStateException("#onStartTemporaryDetach() must be indirectly"
+                        + " called via #dispatchFinishTemporaryDetach()");
+            }
+        }
+    }
+
+    private class TemporarilyDetachableMockViewAdapter<T> extends ArrayAdapter<T> {
+        ArrayList<TemporarilyDetachableMockView> views = new ArrayList<>();
+
+        public TemporarilyDetachableMockViewAdapter(Context context, int textViewResourceId,
+                List<T> objects) {
+            super(context, textViewResourceId, objects);
+            for (int i = 0; i < objects.size(); i++) {
+                views.add(new TemporarilyDetachableMockView(context));
+                views.get(i).setFocusable(true);
+            }
+        }
+
+        @Override
+        public int getCount() {
+            return views.size();
+        }
+
+        @Override
+        public long getItemId(int position) {
+            return position;
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            return views.get(position);
+        }
+    }
+
     public void testTransientStateUnstableIds() throws Exception {
         final ListView listView = mListView;
         final ArrayList<String> items = new ArrayList<String>(Arrays.asList(mCountryList));
         final ArrayAdapter<String> adapter = new ArrayAdapter<String>(mActivity,
                 android.R.layout.simple_list_item_1, items);
 
-        mInstrumentation.runOnMainSync(new Runnable() {
-            @Override
-            public void run() {
-                listView.setAdapter(adapter);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, listView,
+                () -> listView.setAdapter(adapter));
 
         final View oldItem = listView.getChildAt(2);
         final CharSequence oldText = ((TextView) oldItem.findViewById(android.R.id.text1))
                 .getText();
         oldItem.setHasTransientState(true);
 
-        mInstrumentation.runOnMainSync(new Runnable() {
-            @Override
-            public void run() {
-                adapter.remove(adapter.getItem(0));
-                adapter.notifyDataSetChanged();
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, listView,
+                () -> {
+                    adapter.remove(adapter.getItem(0));
+                    adapter.notifyDataSetChanged();
+                });
 
         final View newItem = listView.getChildAt(2);
         final CharSequence newText = ((TextView) newItem.findViewById(android.R.id.text1))
@@ -838,13 +935,8 @@ public class ListViewTest extends ActivityInstrumentationTestCase2<ListViewCtsAc
         final StableArrayAdapter<String> adapter = new StableArrayAdapter<String>(mActivity,
                 android.R.layout.simple_list_item_1, items);
 
-        mInstrumentation.runOnMainSync(new Runnable() {
-            @Override
-            public void run() {
-                listView.setAdapter(adapter);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mListView,
+                () -> listView.setAdapter(adapter));
 
         final Object tag = new Object();
         final View oldItem = listView.getChildAt(2);
@@ -853,14 +945,11 @@ public class ListViewTest extends ActivityInstrumentationTestCase2<ListViewCtsAc
         oldItem.setHasTransientState(true);
         oldItem.setTag(tag);
 
-        mInstrumentation.runOnMainSync(new Runnable() {
-            @Override
-            public void run() {
-                adapter.remove(adapter.getItem(0));
-                adapter.notifyDataSetChanged();
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, listView,
+                () -> {
+                    adapter.remove(adapter.getItem(0));
+                    adapter.notifyDataSetChanged();
+                });
 
         final View newItem = listView.getChildAt(1);
         final CharSequence newText = ((TextView) newItem.findViewById(android.R.id.text1))

@@ -38,7 +38,6 @@ static SLresult IAndroidEffectSend_EnableEffectSend(SLAndroidEffectSendItf self,
             SL_LOGE("invalid interface: not attached to an AudioPlayer");
             result = SL_RESULT_PARAMETER_INVALID;
         } else {
-            COutputMix *outputMix = CAudioPlayer_GetOutputMix(ap);
             // the initial send level set here is the total energy on the aux bus,
             //  so it must take into account the player volume level
             result = android_fxSend_attachToAux(ap, effectImplementationId, enable,

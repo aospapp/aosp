@@ -60,16 +60,15 @@ class PACKED(4) HandleScope {
   }
 
   ALWAYS_INLINE mirror::Object* GetReference(size_t i) const
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
-  ALWAYS_INLINE Handle<mirror::Object> GetHandle(size_t i)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  ALWAYS_INLINE Handle<mirror::Object> GetHandle(size_t i);
 
   ALWAYS_INLINE MutableHandle<mirror::Object> GetMutableHandle(size_t i)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   ALWAYS_INLINE void SetReference(size_t i, mirror::Object* object)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   ALWAYS_INLINE bool Contains(StackReference<mirror::Object>* handle_scope_entry) const;
 
@@ -106,7 +105,7 @@ class PACKED(4) HandleScope {
   }
 
   // Semi-hidden constructor. Construction expected by generated code and StackHandleScope.
-  explicit HandleScope(HandleScope* link, uint32_t num_references) :
+  HandleScope(HandleScope* link, uint32_t num_references) :
       link_(link), number_of_references_(num_references) {
   }
 
@@ -150,14 +149,14 @@ class PACKED(4) StackHandleScope FINAL : public HandleScope {
   ALWAYS_INLINE ~StackHandleScope();
 
   template<class T>
-  ALWAYS_INLINE MutableHandle<T> NewHandle(T* object) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  ALWAYS_INLINE MutableHandle<T> NewHandle(T* object) SHARED_REQUIRES(Locks::mutator_lock_);
 
   template<class T>
   ALWAYS_INLINE HandleWrapper<T> NewHandleWrapper(T** object)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   ALWAYS_INLINE void SetReference(size_t i, mirror::Object* object)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   Thread* Self() const {
     return self_;
@@ -165,7 +164,7 @@ class PACKED(4) StackHandleScope FINAL : public HandleScope {
 
  private:
   template<class T>
-  ALWAYS_INLINE MutableHandle<T> GetHandle(size_t i) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+  ALWAYS_INLINE MutableHandle<T> GetHandle(size_t i) SHARED_REQUIRES(Locks::mutator_lock_) {
     DCHECK_LT(i, kNumReferences);
     return MutableHandle<T>(&GetReferences()[i]);
   }
@@ -209,7 +208,7 @@ class StackHandleScopeCollection {
   }
 
   template<class T>
-  MutableHandle<T> NewHandle(T* object) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+  MutableHandle<T> NewHandle(T* object) SHARED_REQUIRES(Locks::mutator_lock_) {
     if (scopes_.empty() || current_scope_num_refs_ >= kNumReferencesPerScope) {
       StackHandleScope<kNumReferencesPerScope>* scope =
           new StackHandleScope<kNumReferencesPerScope>(self_);

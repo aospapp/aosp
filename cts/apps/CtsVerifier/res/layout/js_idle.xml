@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<android.support.wearable.view.BoxInsetLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.android.cts.verifier.BoxInsetLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
-    <ScrollView app:layout_box="all"
+    <ScrollView app:ctsv_layout_box="all"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
         <LinearLayout
@@ -15,13 +15,6 @@
                 android:layout_height="wrap_content"
                 android:text="@string/js_test_description"
                 android:layout_margin="@dimen/js_padding"/>
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/js_idle_description_1"
-                android:layout_margin="@dimen/js_padding"
-                android:textStyle="bold"/>
-
             <Button
                 android:id="@+id/js_idle_start_test_button"
                 android:layout_width="wrap_content"
@@ -30,6 +23,14 @@
                 android:text="@string/js_start_test_text"
                 android:onClick="startTest"
                 android:enabled="false"/>
+            <TextView
+                android:id="@+id/js_idle_continue_instruction_view"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/js_idle_continue_instruction"
+                android:layout_margin="@dimen/js_padding"
+                android:textStyle="bold"
+                android:visibility="gone"/>
 
             <LinearLayout
                 android:layout_width="wrap_content"
@@ -68,4 +69,4 @@
             <include layout="@layout/pass_fail_buttons" />
         </LinearLayout>
     </ScrollView>
-</android.support.wearable.view.BoxInsetLayout>
+</com.android.cts.verifier.BoxInsetLayout>

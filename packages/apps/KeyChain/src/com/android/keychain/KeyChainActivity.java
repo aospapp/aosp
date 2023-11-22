@@ -181,8 +181,7 @@ public class KeyChainActivity extends Activity {
         Uri uri = getIntent().getParcelableExtra(KeyChain.EXTRA_URI);
         String alias = getIntent().getStringExtra(KeyChain.EXTRA_ALIAS);
         try {
-            int uid = ActivityManagerNative.getDefault().getLaunchedFromUid(getActivityToken());
-            devicePolicyManager.choosePrivateKeyAlias(uid, uri, alias, callback);
+            devicePolicyManager.choosePrivateKeyAlias(mSenderUid, uri, alias, callback);
         } catch (RemoteException e) {
             Log.e(TAG, "Unable to request alias from DevicePolicyManager", e);
             // Proceed without a suggested alias.
@@ -214,6 +213,7 @@ public class KeyChainActivity extends Activity {
         final ListView lv = (ListView) View.inflate(this, R.layout.cert_chooser, null);
         lv.addHeaderView(contextView, null, false);
         lv.addFooterView(footer, null, false);
+        lv.setChoiceMode(ListView.CHOICE_MODE_SINGLE);
         lv.setAdapter(adapter);
         builder.setView(lv);
 
@@ -221,6 +221,7 @@ public class KeyChainActivity extends Activity {
 
                 public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                     lv.setItemChecked(position, true);
+                    adapter.notifyDataSetChanged();
                 }
         });
 

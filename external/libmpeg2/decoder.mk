@@ -40,6 +40,15 @@ libmpeg2d_srcs_c    += decoder/impeg2d_pic_proc.c
 libmpeg2d_srcs_c    += decoder/impeg2d_pnb_pic.c
 libmpeg2d_srcs_c    += decoder/impeg2d_vld.c
 libmpeg2d_srcs_c    += decoder/impeg2d_vld_tables.c
+libmpeg2d_srcs_c    += decoder/impeg2d_deinterlace.c
+
+libmpeg2d_srcs_c    += common/icv_sad.c
+libmpeg2d_srcs_c    += common/icv_variance.c
+libmpeg2d_srcs_c    += common/ideint.c
+libmpeg2d_srcs_c    += common/ideint_cac.c
+libmpeg2d_srcs_c    += common/ideint_debug.c
+libmpeg2d_srcs_c    += common/ideint_function_selector_generic.c
+libmpeg2d_srcs_c    += common/ideint_utils.c
 
 LOCAL_SRC_FILES := $(libmpeg2d_srcs_c) $(libmpeg2d_srcs_asm)
 

@@ -1,5 +1,4 @@
-; RUN: llc < %s -march=bpf -show-mc-encoding | FileCheck %s
-; test little endian only for now
+; RUN: llc < %s -march=bpfel -show-mc-encoding | FileCheck %s
 
 %struct.bpf_map_def = type { i32, i32, i32, i32 }
 %struct.sk_buff = type opaque
@@ -312,7 +311,7 @@ flow_dissector.exit.thread:                       ; preds = %86, %12, %196, %199
 ; CHECK-LABEL: bpf_prog2:
 ; CHECK: ldabs_h r0, r6.data + 12 # encoding: [0x28,0x00,0x00,0x00,0x0c,0x00,0x00,0x00]
 ; CHECK: ldabs_h r0, r6.data + 16 # encoding: [0x28,0x00,0x00,0x00,0x10,0x00,0x00,0x00]
-; CHECK-NOT: implicit
+; CHECK: implicit-def: %R1
 ; CHECK: ld_64   r1
 ; CHECK-NOT: ori
 ; CHECK: call 1 # encoding: [0x85,0x00,0x00,0x00,0x01,0x00,0x00,0x00]

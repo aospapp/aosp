@@ -18,7 +18,7 @@
 
 #define MATROSKA_EXTRACTOR_H_
 
-#include "mkvparser.hpp"
+#include "mkvparser/mkvparser.h"
 
 #include <media/stagefright/MediaExtractor.h>
 #include <utils/Vector.h>
@@ -29,6 +29,7 @@ namespace android {
 struct AMessage;
 class String8;
 
+class MetaData;
 struct DataSourceReader;
 struct MatroskaSource;
 
@@ -37,7 +38,7 @@ struct MatroskaExtractor : public MediaExtractor {
 
     virtual size_t countTracks();
 
-    virtual sp<MediaSource> getTrack(size_t index);
+    virtual sp<IMediaSource> getTrack(size_t index);
 
     virtual sp<MetaData> getTrackMetaData(
             size_t index, uint32_t flags);
@@ -45,6 +46,8 @@ struct MatroskaExtractor : public MediaExtractor {
     virtual sp<MetaData> getMetaData();
 
     virtual uint32_t flags() const;
+
+    virtual const char * name() { return "MatroskaExtractor"; }
 
 protected:
     virtual ~MatroskaExtractor();
@@ -55,6 +58,7 @@ private:
 
     struct TrackInfo {
         unsigned long mTrackNum;
+        bool mEncrypted;
         sp<MetaData> mMeta;
         const MatroskaExtractor *mExtractor;
         Vector<const mkvparser::CuePoint*> mCuePoints;
@@ -74,9 +78,10 @@ private:
     bool mIsWebm;
     int64_t mSeekPreRollNs;
 
+    status_t synthesizeAVCC(TrackInfo *trackInfo, size_t index);
     void addTracks();
     void findThumbnails();
-
+    void getColorInformation(const mkvparser::VideoTrack *vtrack, sp<MetaData> &meta);
     bool isLiveStreaming() const;
 
     MatroskaExtractor(const MatroskaExtractor &);

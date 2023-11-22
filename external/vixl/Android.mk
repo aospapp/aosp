@@ -1,5 +1,9 @@
-#
-# Copyright (C) 2014 The Android Open Source Project
+# NOTE: `Android.mk` is automatically generated via the
+# `third_party/android/generate_android_mk.py` script. Changes should be applied
+# to `third_party/android/Android.mk.template`, and the script run to regenerate
+# `Android.mk`.
+
+# Copyright (C) 2015 The Android Open Source Project
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -26,7 +30,7 @@
 # SUCH DAMAGE.
 #
 #
-# Copyright (c) 2014 ARM Ltd
+# Copyright (c) 2015 ARM Ltd
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -54,7 +58,8 @@
 
 LOCAL_PATH:= $(call my-dir)
 
-vixl_include_files := $(LOCAL_PATH)/src/ \
+vixl_root := $(LOCAL_PATH)/
+vixl_include_files := $(vixl_root)/src/
 
 vixl_src_files := \
   src/vixl/a64/assembler-a64.cc \
@@ -67,27 +72,29 @@ vixl_src_files := \
   src/vixl/a64/logic-a64.cc \
   src/vixl/a64/macro-assembler-a64.cc \
   src/vixl/a64/simulator-a64.cc \
-  src/vixl/code-buffer.cc  \
+  src/vixl/code-buffer.cc \
   src/vixl/compiler-intrinsics.cc \
   src/vixl/utils.cc
 
 vixl_test_files := \
-  test/test-runner.cc \
   test/test-assembler-a64.cc \
   test/test-disasm-a64.cc \
   test/test-fuzz-a64.cc \
   test/test-invalset.cc \
+  test/test-runner.cc \
   test/test-simulator-a64.cc \
-  test/test-utils-a64.cc \
+  test/test-utils-a64.cc
 
 vixl_cpp_flags := \
-  -DUSE_SIMULATOR \
+  -DVIXL_INCLUDE_SIMULATOR \
+  -DVIXL_GENERATE_SIMULATOR_INSTRUCTIONS_VALUE=0 \
   -Wall \
   -Wextra \
   -Werror \
   -fdiagnostics-show-option \
   -Wredundant-decls \
   -Wunreachable-code \
+  -Wmissing-noreturn \
   -pedantic \
   -std=c++11 \
 
@@ -118,12 +125,12 @@ LOCAL_CLANG := true
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_CPPFLAGS := $(vixl_cpp_flags_release)
 LOCAL_CLANG_CFLAGS := -Wimplicit-fallthrough
-LOCAL_CPPFLAGS_arm64 := -UUSE_SIMULATOR
 LOCAL_C_INCLUDES := $(vixl_include_files)
 LOCAL_SRC_FILES :=  $(vixl_src_files)
 LOCAL_SHARED_LIBRARIES := liblog
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := libvixl
+LOCAL_SANITIZE_RECOVER := shift-exponent
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 include $(BUILD_SHARED_LIBRARY)
 
@@ -132,12 +139,12 @@ LOCAL_CLANG := true
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_CPPFLAGS := $(vixl_cpp_flags_debug)
 LOCAL_CLANG_CFLAGS := -Wimplicit-fallthrough
-LOCAL_CPPFLAGS_arm64 := -UUSE_SIMULATOR
 LOCAL_C_INCLUDES := $(vixl_include_files)
 LOCAL_SRC_FILES :=  $(vixl_src_files)
 LOCAL_SHARED_LIBRARIES := liblog
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := libvixld
+LOCAL_SANITIZE_RECOVER := shift-exponent
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 include $(BUILD_SHARED_LIBRARY)
 
@@ -153,6 +160,7 @@ LOCAL_SRC_FILES :=  $(vixl_src_files)
 LOCAL_SHARED_LIBRARIES := liblog
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := libvixl
+LOCAL_SANITIZE_RECOVER := shift-exponent
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_MULTILIB := both
 include $(BUILD_HOST_SHARED_LIBRARY)
@@ -168,9 +176,43 @@ LOCAL_SRC_FILES :=  $(vixl_src_files)
 LOCAL_SHARED_LIBRARIES := liblog
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := libvixld
+LOCAL_SANITIZE_RECOVER := shift-exponent
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_MULTILIB := both
 include $(BUILD_HOST_SHARED_LIBRARY)
+
+# Static libraries for host
+include $(CLEAR_VARS)
+LOCAL_CLANG := true
+LOCAL_CPP_EXTENSION := .cc
+LOCAL_CPPFLAGS := $(vixl_cpp_flags_release)
+LOCAL_CLANG_CFLAGS := -Wimplicit-fallthrough
+LOCAL_NATIVE_COVERAGE := $(VIXL_COVERAGE)
+LOCAL_C_INCLUDES := $(vixl_include_files)
+LOCAL_SRC_FILES :=  $(vixl_src_files)
+LOCAL_STATIC_LIBRARIES := liblog
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE := libvixl
+LOCAL_SANITIZE_RECOVER := shift-exponent
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
+LOCAL_MULTILIB := both
+include $(BUILD_HOST_STATIC_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_CLANG := true
+LOCAL_CPP_EXTENSION := .cc
+LOCAL_CPPFLAGS := $(vixl_cpp_flags_debug)
+LOCAL_CLANG_CFLAGS := -Wimplicit-fallthrough
+LOCAL_NATIVE_COVERAGE := $(VIXL_COVERAGE)
+LOCAL_C_INCLUDES := $(vixl_include_files)
+LOCAL_SRC_FILES :=  $(vixl_src_files)
+LOCAL_STATIC_LIBRARIES := liblog
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE := libvixld
+LOCAL_SANITIZE_RECOVER := shift-exponent
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
+LOCAL_MULTILIB := both
+include $(BUILD_HOST_STATIC_LIBRARY)
 
 
 ######### VIXL HOST TESTS #########
@@ -190,10 +232,13 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_HOST_ARCH := x86_64
 LOCAL_FORCE_STATIC_EXECUTABLE := true
 LOCAL_MODULE := vixl-test-runner
+LOCAL_SANITIZE_RECOVER := shift-exponent
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 include $(BUILD_HOST_EXECUTABLE)
 
 .PHONY: run-vixl-tests
 run-vixl-tests: vixl-test-runner
+	$(vixl_root)/third_party/android/check_top_level_android_mk.sh
 	$(HOST_OUT)/bin/vixl-test-runner --run_all
+	$(HOST_OUT)/bin/vixl-test-runner --run_all --debugger
 	@echo vixl tests PASSED

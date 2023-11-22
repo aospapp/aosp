@@ -33,6 +33,14 @@
         <item name="android:windowContentOverlay">@null</item>
     </style>
 
+    <style name="Theme.Telecom.BlockedNumbers" parent="@android:style/Theme.Material.Light">
+        <item name="android:actionBarStyle">@style/TelecomDialerSettingsActionBarStyle</item>
+        <item name="android:colorPrimaryDark">@color/dialer_settings_color_dark</item>
+        <item name="android:homeAsUpIndicator">@drawable/ic_back_arrow</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:colorAccent">@color/theme_color</item>
+    </style>
+
     <style name="TelecomDialerSettingsActionBarStyle" parent="android:Widget.Material.ActionBar">
         <item name="android:background">@color/dialer_settings_actionbar_background_color</item>
         <item name="android:titleTextStyle">@style/TelecomDialerSettingsActionBarTitleText</item>
@@ -49,5 +57,26 @@
     <style name="TelecomDialerSettingsActionOverflowButtonStyle"
             parent="@android:style/Widget.Material.Light.ActionButton.Overflow">
         <item name="android:src">@drawable/ic_more_vert_24dp</item>
+    </style>
+
+    <style name="BlockedNumbersButton">
+        <item name="android:textColor">@color/theme_color</item>
+        <item name="android:textSize">@dimen/blocked_numbers_font_size</item>
+        <item name="android:textAllCaps">true</item>
+    </style>
+
+    <style name="BlockedNumbersText">
+        <item name="android:textSize">@dimen/blocked_numbers_font_size</item>
+        <item name="android:lineSpacingExtra">@dimen/blocked_numbers_line_spacing</item>
+    </style>
+
+    <style name="BlockedNumbersTitleText"  parent="BlockedNumbersText">
+        <item name="android:textColor">@color/blocked_numbers_title_text_color</item>
+    </style>
+
+    <style name="BlockedNumbersSecondaryText">
+        <item name="android:textColor">@color/blocked_numbers_secondary_text_color</item>
+        <item name="android:textSize">@dimen/blocked_numbers_secondary_font_size</item>
+        <item name="android:lineSpacingExtra">@dimen/blocked_numbers_secondary_line_spacing</item>
     </style>
 </resources>

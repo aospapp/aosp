@@ -37,13 +37,21 @@ public enum ResultUnit {
     /** tell how many times it did happen. */
     COUNT,
     /** unit for benchmarking with generic score. */
-    SCORE;
+    SCORE,
+    /** radian */
+    RADIAN;
 
     /**
-     * Return string used in the XML report
+     * @return a string to be used in the report.
      */
-    public String getXmlString() {
+    public String toReportString() {
         return name().toLowerCase();
     }
-}
 
+    /**
+     * Returns a {@link ResultUnit} given a string from the report.
+     */
+    public static ResultUnit parseReportString(String value) {
+        return ResultUnit.valueOf(value.toUpperCase());
+    }
+}

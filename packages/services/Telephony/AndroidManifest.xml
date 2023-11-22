@@ -22,11 +22,16 @@
         android:sharedUserLabel="@string/phoneAppLabel"
 >
 
+    <uses-sdk
+        android:minSdkVersion="23"
+        android:targetSdkVersion="23" />
+
     <original-package android:name="com.android.phone" />
 
     <protected-broadcast android:name="android.intent.action.SERVICE_STATE" />
     <protected-broadcast android:name="android.intent.action.RADIO_TECHNOLOGY" />
     <protected-broadcast android:name="android.intent.action.EMERGENCY_CALLBACK_MODE_CHANGED" />
+    <protected-broadcast android:name="android.intent.action.EMERGENCY_CALL_STATE_CHANGED" />
     <protected-broadcast android:name="android.intent.action.SIG_STR" />
     <protected-broadcast android:name="android.intent.action.ANY_DATA_STATE" />
     <protected-broadcast android:name="android.intent.action.DATA_CONNECTION_FAILED" />
@@ -50,7 +55,9 @@
     <protected-broadcast android:name= "android.intent.action.stk.session_end" />
     <protected-broadcast android:name= "android.intent.action.stk.icc_status_change" />
     <protected-broadcast android:name= "android.intent.action.stk.alpha_notify" />
-
+    <protected-broadcast android:name= "android.intent.action.REDIRECTION_DETECTED" />
+    <protected-broadcast android:name= "android.intent.action.REQUEST_NETWORK_FAILED" />
+    <protected-broadcast android:name= "com.android.intent.isim_refresh" />
 
     <uses-permission android:name="android.permission.BROADCAST_STICKY" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
@@ -125,7 +132,10 @@
     <uses-permission android:name="android.permission.LOCAL_MAC_ADDRESS" />
     <uses-permission android:name="android.permission.CHANGE_COMPONENT_ENABLED_STATE" />
     <uses-permission android:name="android.permission.CHANGE_DEVICE_IDLE_TEMP_WHITELIST" />
-
+    <!-- Needed to block messages. -->
+    <uses-permission android:name="android.permission.READ_BLOCKED_NUMBERS" />
+    <!-- Needed for emergency contact notification. -->
+    <uses-permission android:name="android.permission.WRITE_BLOCKED_NUMBERS" />
 
     <!-- This tells the activity manager to not delay any of our activity
          start requests, even if they happen immediately after the user
@@ -133,18 +143,21 @@
     <uses-permission android:name="android.permission.STOP_APP_SWITCHES" />
 
     <application android:name="PhoneApp"
-                 android:persistent="true"
-                 android:label="@string/phoneAppLabel"
-                 android:icon="@mipmap/ic_launcher_phone"
-                 android:allowBackup="false"
-                 android:supportsRtl="true"
-                 android:usesCleartextTraffic="true">
-            <provider android:name="IccProvider"
-                      android:authorities="icc"
-                      android:multiprocess="true"
-                      android:exported="true"
-                      android:readPermission="android.permission.READ_CONTACTS"
-                      android:writePermission="android.permission.WRITE_CONTACTS" />
+            android:persistent="true"
+            android:label="@string/phoneAppLabel"
+            android:icon="@mipmap/ic_launcher_phone"
+            android:allowBackup="false"
+            android:supportsRtl="true"
+            android:usesCleartextTraffic="true"
+            android:defaultToDeviceProtectedStorage="true"
+            android:directBootAware="true">
+
+        <provider android:name="IccProvider"
+                android:authorities="icc"
+                android:multiprocess="true"
+                android:exported="true"
+                android:readPermission="android.permission.READ_CONTACTS"
+                android:writePermission="android.permission.WRITE_CONTACTS" />
 
         <!-- Dialer UI that only allows emergency calls -->
         <activity android:name="EmergencyDialer"
@@ -443,8 +456,9 @@
                 android:label="@string/delete_fdn_contact">
         </activity>
 
-        <activity android:name="DataRoamingReenable" android:label="@string/android:dialog_alert_title"
-            android:theme="@android:style/Theme.Holo.Dialog">
+        <activity android:name="DataRoamingReenable"
+                android:label="@string/dialog_alert_title"
+                android:theme="@android:style/Theme.Holo.Dialog">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
             </intent-filter>
@@ -473,8 +487,9 @@
         </activity>
 
         <!-- Broadcast Receiver that will process BOOT Complete and launch OTA -->
+        <!-- TODO http://b/23526250 Handle OTASP under system user -->
         <receiver android:name="OtaStartupReceiver" android:exported="false"
-                androidprv:primaryUserOnly="true">
+                androidprv:systemUserOnly="true">
             <intent-filter android:priority="100">
                  <action android:name="android.intent.action.BOOT_COMPLETED"/>
             </intent-filter>
@@ -496,7 +511,12 @@
         </service>
 
         <!-- service to dump telephony information -->
-        <service android:name="TelephonyDebugService" />
+        <service android:name="com.android.phone.TelephonyDebugService"
+                 android:permission="android.permission.DUMP">
+            <intent-filter>
+                <action android:name="com.android.phone.TelephonyDebugService" />
+            </intent-filter>
+        </service>
 
         <activity android:name="EmergencyCallbackModeExitDialog"
             android:excludeFromRecents="true"
@@ -525,8 +545,10 @@
                 <action android:name="android.telecom.ConnectionService" />
             </intent-filter>
         </service>
+
         <receiver android:name="com.android.services.telephony.sip.SipBroadcastReceiver">
             <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.net.sip.SIP_SERVICE_UP" />
                 <action android:name="com.android.phone.SIP_INCOMING_CALL" />
                 <action android:name="com.android.phone.SIP_REMOVE_PHONE" />
@@ -607,15 +629,6 @@
             </intent-filter>
         </activity>
 
-        <!-- BroadcastReceiver for receiving Intents from Notification mechanism. -->
-        <receiver android:name="PhoneGlobals$NotificationBroadcastReceiver" android:exported="false">
-            <intent-filter>
-                <action android:name="com.android.phone.ACTION_HANG_UP_ONGOING_CALL" />
-                <action android:name="com.android.phone.ACTION_CALL_BACK_FROM_NOTIFICATION" />
-                <action android:name="com.android.phone.ACTION_SEND_SMS_FROM_NOTIFICATION" />
-            </intent-filter>
-        </receiver>
-
         <!-- service to dump telephony information -->
         <service android:name="HfaService" android:exported="false"/>
 
@@ -647,16 +660,26 @@
                 <data android:scheme="sms" />
             </intent-filter>
         </receiver>
-       <receiver android:name="com.android.phone.vvm.omtp.SimChangeReceiver"
+        <receiver
+            android:name="com.android.phone.vvm.omtp.SimChangeReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.telephony.action.CARRIER_CONFIG_CHANGED" />
                 <action android:name="android.intent.action.SIM_STATE_CHANGED" />
             </intent-filter>
-       </receiver>
+        </receiver>
+        <receiver
+            android:name="com.android.phone.vvm.omtp.OmtpBootCompletedReceiver"
+            android:exported="true"
+            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+            </intent-filter>
+        </receiver>
        <receiver
            android:name="com.android.phone.vvm.omtp.fetch.FetchVoicemailReceiver"
-           android:exported="true">
+           android:exported="true"
+           android:permission="com.android.voicemail.permission.READ_VOICEMAIL">
            <intent-filter>
               <action android:name="android.intent.action.FETCH_VOICEMAIL" />
                <data
@@ -665,6 +688,14 @@
                    android:mimeType="vnd.android.cursor.item/voicemail" />
           </intent-filter>
        </receiver>
+        <receiver
+            android:name="com.android.phone.vvm.omtp.sync.OmtpVvmSyncReceiver"
+            android:exported="true"
+            android:permission="com.android.voicemail.permission.READ_VOICEMAIL">
+            <intent-filter>
+                <action android:name="android.provider.action.SYNC_VOICEMAIL"/>
+            </intent-filter>
+        </receiver>
        <receiver
            android:name="com.android.phone.vvm.omtp.sync.VoicemailProviderChangeReceiver"
            android:exported="true">

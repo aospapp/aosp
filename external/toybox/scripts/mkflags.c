@@ -6,10 +6,12 @@
 // This is intentionally crappy code because we control the inputs. It leaks
 // memory like a sieve and segfaults if malloc returns null, but does the job.
 
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <ctype.h>
 
 struct flag {
   struct flag *next;
@@ -114,8 +116,9 @@ int main(int argc, char *argv[])
   // See "intentionally crappy", above.
   if (!(out = outbuf)) return 1;
 
-  printf("#ifdef FORCE_FLAGS\n#define FORCED_FLAG 1\n"
-         "#else\n#define FORCED_FLAG 0\n#endif\n\n");
+  printf("#undef FORCED_FLAG\n#undef FORCED_FLAGLL\n"
+    "#ifdef FORCE_FLAGS\n#define FORCED_FLAG 1\n#define FORCED_FLAGLL 1LL\n"
+    "#else\n#define FORCED_FLAG 0\n#define FORCED_FLAGLL 0\n#endif\n\n");
 
   for (;;) {
     struct flag *flist, *aflist, *offlist;
@@ -132,7 +135,7 @@ int main(int argc, char *argv[])
 
     if (!*command) break;
     if (bit != 3) {
-      fprintf(stderr, "\nError in %s (duplicate command?)\n", command);
+      fprintf(stderr, "\nError in %s (see generated/flags.raw)\n", command);
       exit(1);
     }
 
@@ -171,27 +174,33 @@ int main(int argc, char *argv[])
     out += strlen(out);
 
     while (aflist) {
+      char *llstr = bit>31 ? "LL" : "";
+
+      // Output flag macro for bare longopts
       if (aflist->lopt) {
         if (flist && flist->lopt &&
             !strcmp(flist->lopt->command, aflist->lopt->command))
         {
-          sprintf(out, "#define FLAG_%s (1<<%d)\n", flist->lopt->command, bit);
+          sprintf(out, "#define FLAG_%s (1%s<<%d)\n", flist->lopt->command,
+            llstr, bit);
           flist->lopt = flist->lopt->next;
-        } else sprintf(out, "#define FLAG_%s (FORCED_FLAG<<%d)\n",
-                       aflist->lopt->command, bit);
+        } else sprintf(out, "#define FLAG_%s (FORCED_FLAG%s<<%d)\n",
+                       aflist->lopt->command, llstr, bit);
         aflist->lopt = aflist->lopt->next;
         if (!aflist->command) {
           aflist = aflist->next;
           bit++;
           if (flist) flist = flist->next;
         }
+      // Output normal flag macro
       } else if (aflist->command) {
         if (flist && (!flist->command || *aflist->command == *flist->command)) {
           if (aflist->command)
-            sprintf(out, "#define FLAG_%c (1<<%d)\n", *aflist->command, bit);
+            sprintf(out, "#define FLAG_%c (1%s<<%d)\n", *aflist->command,
+              llstr, bit);
           flist = flist->next;
-        } else sprintf(out, "#define FLAG_%c (FORCED_FLAG<<%d)\n",
-                       *aflist->command, bit);
+        } else sprintf(out, "#define FLAG_%c (FORCED_FLAG%s<<%d)\n",
+                       *aflist->command, llstr, bit);
         bit++;
         aflist = aflist->next;
       }

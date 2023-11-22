@@ -1,5 +1,5 @@
 struct arm_pt_regs {
-        int uregs[18];
+        uint32_t uregs[18];
 };
 #define ARM_cpsr       uregs[16]
 #define ARM_pc         uregs[15]
@@ -35,3 +35,4 @@ static struct iovec aarch64_io = {
 
 #define ARCH_REGS_FOR_GETREGSET arm_regs_union
 #define ARCH_IOVEC_FOR_GETREGSET aarch64_io
+#define ARCH_PC_REG ((aarch64_io.iov_len == sizeof(arm_regs)) ? arm_regs.ARM_pc : aarch64_regs.pc)

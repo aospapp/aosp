@@ -24,10 +24,13 @@ import android.util.Log;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import org.junit.Assert;
 
 /**
  * Wrapper for {@link TextToSpeech} with some handy test functionality.
@@ -35,7 +38,7 @@ import java.util.concurrent.locks.ReentrantLock;
 public class TextToSpeechWrapper {
     private static final String LOG_TAG = "TextToSpeechServiceTest";
 
-    public static final String MOCK_TTS_ENGINE = "com.android.cts.speech";
+    public static final String MOCK_TTS_ENGINE = "android.speech.tts.cts";
 
     private final Context mContext;
     private TextToSpeech mTts;
@@ -84,6 +87,16 @@ public class TextToSpeechWrapper {
 
     public void shutdown() {
         mTts.shutdown();
+    }
+
+    /**
+     * Sanity checks that the utteranceIds and only the utteranceIds completed and produced the
+     * correct callbacks.
+     * Can only be used when the test knows exactly which utterances should have been finished when
+     * this call is made. Else use waitForStop(String) or waitForComplete(String).
+     */
+    public void verify(String... utteranceIds) {
+        mUtteranceListener.verify(utteranceIds);
     }
 
     public static TextToSpeechWrapper createTextToSpeechWrapper(Context context)
@@ -147,15 +160,21 @@ public class TextToSpeechWrapper {
     private static class UtteranceWaitListener extends UtteranceProgressListener {
         private final Lock mLock = new ReentrantLock();
         private final Condition mDone  = mLock.newCondition();
-        private final HashSet<String> mStartedUtterances = new HashSet<String>();
-        private final HashSet<String> mStoppedUtterances = new HashSet<String>();
-        private final HashMap<String, Integer> mErredUtterances = new HashMap<String, Integer>();
-        private final HashSet<String> mCompletedUtterances = new HashSet<String>();
+        private final Set<String> mStartedUtterances = new HashSet<>();
+        // Contains the list of utterances that are stopped. Entry is removed after waitForStop().
+        private final Set<String> mStoppedUtterances = new HashSet<>();
+        private final Map<String, Integer> mErredUtterances = new HashMap<>();
+        // Contains the list of utterances that are completed. Entry is removed after
+        // waitForComplete().
+        private final Set<String> mCompletedUtterances = new HashSet<>();
+        private final Set<String> mBeginSynthesisUtterances = new HashSet<>();
+        private final Map<String, Integer> mChunksReceived = new HashMap<>();
 
         @Override
         public void onDone(String utteranceId) {
             mLock.lock();
             try {
+                Assert.assertTrue(mStartedUtterances.contains(utteranceId));
                 mCompletedUtterances.add(utteranceId);
                 mDone.signal();
             } finally {
@@ -189,6 +208,9 @@ public class TextToSpeechWrapper {
         public void onStart(String utteranceId) {
             mLock.lock();
             try {
+                // TODO: Due to a bug in the framework onStart() is called twice for
+                //       synthesizeToFile requests. Once that is fixed we should assert here that we
+                //       expect only one onStart() per utteranceId.
                 mStartedUtterances.add(utteranceId);
             } finally {
                 mLock.unlock();
@@ -201,6 +223,40 @@ public class TextToSpeechWrapper {
             try {
                 mStoppedUtterances.add(utteranceId);
                 mDone.signal();
+            } finally {
+                mLock.unlock();
+            }
+        }
+
+        @Override
+        public void onBeginSynthesis(String utteranceId, int sampleRateInHz, int audioFormat, int channelCount) {
+            Assert.assertNotNull(utteranceId);
+            Assert.assertTrue(sampleRateInHz > 0);
+            Assert.assertTrue(audioFormat == android.media.AudioFormat.ENCODING_PCM_8BIT
+                              || audioFormat == android.media.AudioFormat.ENCODING_PCM_16BIT
+                              || audioFormat == android.media.AudioFormat.ENCODING_PCM_FLOAT);
+            Assert.assertTrue(channelCount >= 1);
+            Assert.assertTrue(channelCount <= 2);
+            mLock.lock();
+            try {
+                mBeginSynthesisUtterances.add(utteranceId);
+            } finally {
+                mLock.unlock();
+            }
+        }
+
+        @Override
+        public void onAudioAvailable(String utteranceId, byte[] audio) {
+            Assert.assertNotNull(utteranceId);
+            Assert.assertTrue(audio.length > 0);
+            mLock.lock();
+            try {
+                Assert.assertTrue(mBeginSynthesisUtterances.contains(utteranceId));
+                if (mChunksReceived.get(utteranceId) != null) {
+                    mChunksReceived.put(utteranceId, mChunksReceived.get(utteranceId) + 1);
+                } else {
+                    mChunksReceived.put(utteranceId, 1);
+                }
             } finally {
                 mLock.unlock();
             }
@@ -237,6 +293,16 @@ public class TextToSpeechWrapper {
                 return true;
             } finally {
                 mLock.unlock();
+            }
+        }
+
+        public void verify(String... utteranceIds) {
+            Assert.assertTrue(utteranceIds.length == mStartedUtterances.size());
+            for (String id : utteranceIds) {
+                Assert.assertTrue(mStartedUtterances.contains(id));
+                Assert.assertTrue(mBeginSynthesisUtterances.contains(id));
+                Assert.assertTrue(mChunksReceived.containsKey(id));
+                Assert.assertTrue(mChunksReceived.get(id) > 0);
             }
         }
     }

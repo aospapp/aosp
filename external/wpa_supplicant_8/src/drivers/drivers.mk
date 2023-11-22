@@ -26,6 +26,9 @@ DRV_OBJS += src/drivers/driver_nl80211_event.c
 DRV_OBJS += src/drivers/driver_nl80211_monitor.c
 DRV_OBJS += src/drivers/driver_nl80211_scan.c
 DRV_OBJS += src/utils/radiotap.c
+ifdef CONFIG_DRIVER_NL80211_QCA
+DRV_CFLAGS += -DCONFIG_DRIVER_NL80211_QCA
+endif
 NEED_SME=y
 NEED_AP_MLME=y
 NEED_NETLINK=y
@@ -48,7 +51,9 @@ else
   endif
 
   ifdef CONFIG_LIBNL20
-    DRV_LIBS += -lnl-genl
+    ifndef CONFIG_LIBNL_TINY
+      DRV_LIBS += -lnl-genl
+    endif
     DRV_CFLAGS += -DCONFIG_LIBNL20
   endif
 endif

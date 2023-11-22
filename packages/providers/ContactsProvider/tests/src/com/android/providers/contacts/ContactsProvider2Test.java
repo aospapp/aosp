@@ -33,8 +33,6 @@ import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.provider.CallLog.Calls;
-import android.provider.CallLog;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.AggregationExceptions;
 import android.provider.ContactsContract.CommonDataKinds.Callable;
@@ -56,6 +54,8 @@ import android.provider.ContactsContract.DisplayNameSources;
 import android.provider.ContactsContract.DisplayPhoto;
 import android.provider.ContactsContract.FullNameStyle;
 import android.provider.ContactsContract.Groups;
+import android.provider.ContactsContract.MetadataSync;
+import android.provider.ContactsContract.MetadataSyncState;
 import android.provider.ContactsContract.PhoneLookup;
 import android.provider.ContactsContract.PhoneticNameStyle;
 import android.provider.ContactsContract.PinnedPositions;
@@ -72,9 +72,9 @@ import android.provider.OpenableColumns;
 import android.test.MoreAsserts;
 import android.test.suitebuilder.annotation.LargeTest;
 import android.text.TextUtils;
+import android.util.ArraySet;
 
 import com.android.internal.util.ArrayUtils;
-import com.android.providers.contacts.CallLogProviderTest.TestCallLogProvider;
 import com.android.providers.contacts.ContactsActor.AlteringUserContext;
 import com.android.providers.contacts.ContactsActor.MockUserManager;
 import com.android.providers.contacts.ContactsDatabaseHelper.AggregationExceptionColumns;
@@ -84,6 +84,11 @@ import com.android.providers.contacts.ContactsDatabaseHelper.DbProperties;
 import com.android.providers.contacts.ContactsDatabaseHelper.PresenceColumns;
 import com.android.providers.contacts.ContactsDatabaseHelper.RawContactsColumns;
 import com.android.providers.contacts.ContactsDatabaseHelper.Tables;
+import com.android.providers.contacts.MetadataEntryParser.AggregationData;
+import com.android.providers.contacts.MetadataEntryParser.FieldData;
+import com.android.providers.contacts.MetadataEntryParser.MetadataEntry;
+import com.android.providers.contacts.MetadataEntryParser.RawContactInfo;
+import com.android.providers.contacts.MetadataEntryParser.UsageStats;
 import com.android.providers.contacts.testutil.CommonDatabaseUtils;
 import com.android.providers.contacts.testutil.ContactUtil;
 import com.android.providers.contacts.testutil.DataUtil;
@@ -93,6 +98,7 @@ import com.android.providers.contacts.testutil.RawContactUtil;
 import com.android.providers.contacts.testutil.TestUtil;
 import com.android.providers.contacts.tests.R;
 import com.android.providers.contacts.util.NullContentProvider;
+import com.android.providers.contacts.util.UserUtils;
 
 import com.google.android.collect.Lists;
 import com.google.android.collect.Sets;
@@ -121,6 +127,53 @@ import java.util.Set;
 public class ContactsProvider2Test extends BaseContactsProvider2Test {
 
     private static final String TAG = ContactsProvider2Test.class.getSimpleName();
+
+    public void testConvertEnterpriseUriWithEnterpriseDirectoryToLocalUri() {
+        String phoneNumber = "886";
+        String directory = String.valueOf(Directory.ENTERPRISE_DEFAULT);
+        boolean isSip = true;
+        Uri enterpriseUri = Phone.ENTERPRISE_CONTENT_URI.buildUpon().appendPath(phoneNumber)
+                .appendQueryParameter(ContactsContract.DIRECTORY_PARAM_KEY, directory)
+                .appendQueryParameter(PhoneLookup.QUERY_PARAMETER_SIP_ADDRESS,
+                        String.valueOf(isSip)).build();
+        Uri localUri = ContactsProvider2.convertToLocalUri(enterpriseUri, Phone.CONTENT_URI);
+        Uri expectedUri = Phone.CONTENT_URI.buildUpon().appendPath(phoneNumber)
+                .appendQueryParameter(ContactsContract.DIRECTORY_PARAM_KEY,
+                        String.valueOf(Directory.DEFAULT))
+                .appendQueryParameter(PhoneLookup.QUERY_PARAMETER_SIP_ADDRESS,
+                        String.valueOf(isSip)).build();
+        assertUriEquals(expectedUri, localUri);
+    }
+
+    public void testConvertEnterpriseUriWithPersonalDirectoryToLocalUri() {
+        String phoneNumber = "886";
+        String directory = String.valueOf(Directory.DEFAULT);
+        boolean isSip = true;
+        Uri enterpriseUri = Phone.ENTERPRISE_CONTENT_URI.buildUpon().appendPath(phoneNumber)
+                .appendQueryParameter(ContactsContract.DIRECTORY_PARAM_KEY, directory)
+                .appendQueryParameter(PhoneLookup.QUERY_PARAMETER_SIP_ADDRESS,
+                        String.valueOf(isSip)).build();
+        Uri localUri = ContactsProvider2.convertToLocalUri(enterpriseUri, Phone.CONTENT_URI);
+        Uri expectedUri = Phone.CONTENT_URI.buildUpon().appendPath(phoneNumber)
+                .appendQueryParameter(ContactsContract.DIRECTORY_PARAM_KEY,
+                        String.valueOf(Directory.DEFAULT))
+                .appendQueryParameter(PhoneLookup.QUERY_PARAMETER_SIP_ADDRESS,
+                        String.valueOf(isSip)).build();
+        assertUriEquals(expectedUri, localUri);
+    }
+
+    public void testConvertEnterpriseUriWithoutDirectoryToLocalUri() {
+        String phoneNumber = "886";
+        boolean isSip = true;
+        Uri enterpriseUri = Phone.ENTERPRISE_CONTENT_URI.buildUpon().appendPath(phoneNumber)
+                .appendQueryParameter(PhoneLookup.QUERY_PARAMETER_SIP_ADDRESS,
+                        String.valueOf(isSip)).build();
+        Uri localUri = ContactsProvider2.convertToLocalUri(enterpriseUri, Phone.CONTENT_URI);
+        Uri expectedUri = Phone.CONTENT_URI.buildUpon().appendPath(phoneNumber)
+                .appendQueryParameter(PhoneLookup.QUERY_PARAMETER_SIP_ADDRESS,
+                        String.valueOf(isSip)).build();
+        assertUriEquals(expectedUri, localUri);
+    }
 
     public void testContactsProjection() {
         assertProjection(Contacts.CONTENT_URI, new String[]{
@@ -312,6 +365,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
                 RawContacts.VERSION,
                 RawContacts.RAW_CONTACT_IS_USER_PROFILE,
                 RawContacts.DIRTY,
+                RawContacts.METADATA_DIRTY,
                 RawContacts.DELETED,
                 RawContacts.DISPLAY_NAME_PRIMARY,
                 RawContacts.DISPLAY_NAME_ALTERNATIVE,
@@ -430,6 +484,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         assertProjection(Phone.CONTENT_FILTER_URI.buildUpon().appendPath("123").build(),
             new String[]{
                 Data._ID,
+                Data.HASH_ID,
                 Data.DATA_VERSION,
                 Data.IS_PRIMARY,
                 Data.IS_SUPER_PRIMARY,
@@ -653,6 +708,8 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         assertProjection(PhoneLookup.CONTENT_FILTER_URI.buildUpon().appendPath("123").build(),
             new String[]{
                 PhoneLookup._ID,
+                PhoneLookup.CONTACT_ID,
+                PhoneLookup.DATA_ID,
                 PhoneLookup.LOOKUP_KEY,
                 PhoneLookup.DISPLAY_NAME,
                 PhoneLookup.LAST_TIME_CONTACTED,
@@ -679,6 +736,68 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
                         .buildUpon().appendPath("123").build(),
                 new String[]{
                         PhoneLookup._ID,
+                        PhoneLookup.CONTACT_ID,
+                        PhoneLookup.DATA_ID,
+                        PhoneLookup.LOOKUP_KEY,
+                        PhoneLookup.DISPLAY_NAME,
+                        PhoneLookup.LAST_TIME_CONTACTED,
+                        PhoneLookup.TIMES_CONTACTED,
+                        PhoneLookup.STARRED,
+                        PhoneLookup.IN_DEFAULT_DIRECTORY,
+                        PhoneLookup.IN_VISIBLE_GROUP,
+                        PhoneLookup.PHOTO_FILE_ID,
+                        PhoneLookup.PHOTO_ID,
+                        PhoneLookup.PHOTO_URI,
+                        PhoneLookup.PHOTO_THUMBNAIL_URI,
+                        PhoneLookup.CUSTOM_RINGTONE,
+                        PhoneLookup.HAS_PHONE_NUMBER,
+                        PhoneLookup.SEND_TO_VOICEMAIL,
+                        PhoneLookup.NUMBER,
+                        PhoneLookup.TYPE,
+                        PhoneLookup.LABEL,
+                        PhoneLookup.NORMALIZED_NUMBER,
+                });
+    }
+
+    public void testSipPhoneLookupProjection() {
+        assertContainProjection(PhoneLookup.CONTENT_FILTER_URI.buildUpon().appendPath("123")
+                        .appendQueryParameter(PhoneLookup.QUERY_PARAMETER_SIP_ADDRESS, "1")
+                        .build(),
+                new String[] {
+                        PhoneLookup._ID,
+                        PhoneLookup.CONTACT_ID,
+                        PhoneLookup.DATA_ID,
+                        PhoneLookup.LOOKUP_KEY,
+                        PhoneLookup.DISPLAY_NAME,
+                        PhoneLookup.LAST_TIME_CONTACTED,
+                        PhoneLookup.TIMES_CONTACTED,
+                        PhoneLookup.STARRED,
+                        PhoneLookup.IN_DEFAULT_DIRECTORY,
+                        PhoneLookup.IN_VISIBLE_GROUP,
+                        PhoneLookup.PHOTO_FILE_ID,
+                        PhoneLookup.PHOTO_ID,
+                        PhoneLookup.PHOTO_URI,
+                        PhoneLookup.PHOTO_THUMBNAIL_URI,
+                        PhoneLookup.CUSTOM_RINGTONE,
+                        PhoneLookup.HAS_PHONE_NUMBER,
+                        PhoneLookup.SEND_TO_VOICEMAIL,
+                        PhoneLookup.NUMBER,
+                        PhoneLookup.TYPE,
+                        PhoneLookup.LABEL,
+                        PhoneLookup.NORMALIZED_NUMBER,
+                });
+    }
+
+    public void testSipPhoneLookupEnterpriseProjection() {
+        assertContainProjection(PhoneLookup.ENTERPRISE_CONTENT_FILTER_URI
+                        .buildUpon()
+                        .appendPath("123")
+                        .appendQueryParameter(PhoneLookup.QUERY_PARAMETER_SIP_ADDRESS, "1")
+                        .build(),
+                new String[] {
+                        PhoneLookup._ID,
+                        PhoneLookup.CONTACT_ID,
+                        PhoneLookup.DATA_ID,
                         PhoneLookup.LOOKUP_KEY,
                         PhoneLookup.DISPLAY_NAME,
                         PhoneLookup.LAST_TIME_CONTACTED,
@@ -1017,6 +1136,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         values.put(RawContacts.CONTACT_ID, contactId);
         assertStoredValues(dataUri, values);
 
+        values.remove(Photo.PHOTO);// Remove byte[] value.
         assertSelection(Data.CONTENT_URI, values, Data._ID, dataId);
 
         // Access the same data through the directory under RawContacts
@@ -1030,6 +1150,87 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         Uri contactDataUri = Uri.withAppendedPath(contactUri, Contacts.Data.CONTENT_DIRECTORY);
         assertSelection(contactDataUri, values, Data._ID, dataId);
         assertNetworkNotified(true);
+    }
+
+    public void testDataInsertAndUpdateHashId() {
+        long rawContactId = RawContactUtil.createRawContactWithName(mResolver, "John", "Doe");
+
+        // Insert a data with non-photo mimetype.
+        ContentValues values = new ContentValues();
+        putDataValues(values, rawContactId);
+        Uri dataUri = mResolver.insert(Data.CONTENT_URI, values);
+
+        final ContactsProvider2 cp = (ContactsProvider2) getProvider();
+        final ContactsDatabaseHelper helper = cp.getDatabaseHelper(mContext);
+        String data1 = values.getAsString(Data.DATA1);
+        String data2 = values.getAsString(Data.DATA2);
+        String combineString = data1+data2;
+        String hashId = helper.generateHashIdForData(combineString.getBytes());
+        assertStoredValue(dataUri, Data.HASH_ID, hashId);
+
+        // Update the data with primary, and check if hash_id is not changed.
+        values.remove(Data.DATA1);
+        values.remove(Data.DATA2);
+        values.remove(Data.DATA15);
+        values.put(Data.IS_PRIMARY, "1");
+        mResolver.update(dataUri, values, null, null);
+        assertStoredValue(dataUri, Data.IS_PRIMARY, "1");
+        assertStoredValue(dataUri, Data.HASH_ID, hashId);
+
+        // Update the data with new data1.
+        values = new ContentValues();
+        putDataValues(values, rawContactId);
+        String newData1 = "Newone";
+        values.put(Data.DATA1, newData1);
+        mResolver.update(dataUri, values, null, null);
+        combineString = newData1+data2;
+        String newHashId = helper.generateHashIdForData(combineString.getBytes());
+        assertStoredValue(dataUri, Data.HASH_ID, newHashId);
+
+        // Update the data with a new Data2.
+        values.remove(Data.DATA1);
+        values.put(Data.DATA2, "Newtwo");
+        combineString = "NewoneNewtwo";
+        String testHashId = helper.generateHashIdForData(combineString.getBytes());
+        mResolver.update(dataUri, values, null, null);
+        assertStoredValue(dataUri, Data.HASH_ID, testHashId);
+
+        // Update the data with a new data1 + data2.
+        values.put(Data.DATA1, "one");
+        combineString = "oneNewtwo";
+        testHashId = helper.generateHashIdForData(combineString.getBytes());
+        mResolver.update(dataUri, values, null, null);
+        assertStoredValue(dataUri, Data.HASH_ID, testHashId);
+
+        // Update the data with null data1 and null data2.
+        values.putNull(Data.DATA1);
+        values.putNull(Data.DATA2);
+        mResolver.update(dataUri, values, null, null);
+        assertStoredValue(dataUri, Data.HASH_ID, null);
+    }
+
+    public void testDataInsertAndUpdateHashId_Photo() {
+        long rawContactId = RawContactUtil.createRawContactWithName(mResolver, "John", "Doe");
+
+        // Insert a data with photo mimetype.
+        ContentValues values = new ContentValues();
+        values.put(Data.RAW_CONTACT_ID, rawContactId);
+        values.put(Data.MIMETYPE, Photo.CONTENT_ITEM_TYPE);
+        values.put(Data.DATA1, "testData1");
+        values.put(Data.DATA2, "testData2");
+        Uri dataUri = mResolver.insert(Data.CONTENT_URI, values);
+
+        // Check for photo data's hashId is correct or not.
+        final ContactsProvider2 cp = (ContactsProvider2) getProvider();
+        final ContactsDatabaseHelper helper = cp.getDatabaseHelper(mContext);
+        String hashId = helper.getPhotoHashId();
+        assertStoredValue(dataUri, Data.HASH_ID, hashId);
+
+        // Update the data with new DATA1, and check if hash_id is not changed.
+        values.put(Data.DATA1, "newData1");
+        mResolver.update(dataUri, values, null, null);
+        assertStoredValue(dataUri, Data.DATA1, "newData1");
+        assertStoredValue(dataUri, Data.HASH_ID, hashId);
     }
 
     public void testDataInsertPhoneNumberTooLongIsTrimmed() {
@@ -1403,7 +1604,8 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         long rawContactId = ContentUris.parseId(rawContactUri);
 
         DataUtil.insertStructuredName(mResolver, rawContactId, "Hot", "Tamale");
-        insertPhoneNumber(rawContactId, "18004664411");
+        long dataId =
+                Long.parseLong(insertPhoneNumber(rawContactId, "18004664411").getLastPathSegment());
 
         // We'll create two lookup records, 18004664411 and +18004664411, and the below lookup
         // will match both.
@@ -1412,6 +1614,8 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
 
         values.clear();
         values.put(PhoneLookup._ID, queryContactId(rawContactId));
+        values.put(PhoneLookup.CONTACT_ID, queryContactId(rawContactId));
+        values.put(PhoneLookup.DATA_ID, dataId);
         values.put(PhoneLookup.DISPLAY_NAME, "Hot Tamale");
         values.put(PhoneLookup.NUMBER, "18004664411");
         values.put(PhoneLookup.TYPE, Phone.TYPE_HOME);
@@ -1427,6 +1631,35 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
 
         // A wrong area code 799 vs 800 should not be matched
         lookupUri2 = Uri.withAppendedPath(PhoneLookup.CONTENT_FILTER_URI, "7994664411");
+        assertEquals(0, getCount(lookupUri2, null, null));
+    }
+
+    public void testSipPhoneLookup() {
+        ContentValues values = new ContentValues();
+
+        Uri rawContactUri = mResolver.insert(RawContacts.CONTENT_URI, values);
+        long rawContactId = ContentUris.parseId(rawContactUri);
+
+        DataUtil.insertStructuredName(mResolver, rawContactId, "Hot", "Tamale");
+        long dataId =
+                Long.parseLong(insertSipAddress(rawContactId, "abc@sip").getLastPathSegment());
+
+        Uri lookupUri1 = Uri.withAppendedPath(PhoneLookup.CONTENT_FILTER_URI, "abc@sip")
+                            .buildUpon()
+                            .appendQueryParameter(PhoneLookup.QUERY_PARAMETER_SIP_ADDRESS, "1")
+                            .build();
+
+        values.clear();
+        values.put(PhoneLookup._ID, dataId);
+        values.put(PhoneLookup.CONTACT_ID, queryContactId(rawContactId));
+        values.put(PhoneLookup.DATA_ID, dataId);
+        values.put(PhoneLookup.DISPLAY_NAME, "Hot Tamale");
+        values.put(PhoneLookup.NUMBER, "abc@sip");
+        values.putNull(PhoneLookup.LABEL);
+        assertStoredValues(lookupUri1, null, null, new ContentValues[] {values});
+
+        // A wrong sip address should not be matched
+        Uri lookupUri2 = Uri.withAppendedPath(PhoneLookup.CONTENT_FILTER_URI, "wrong@sip");
         assertEquals(0, getCount(lookupUri2, null, null));
     }
 
@@ -1831,7 +2064,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
     }
 
     /**
-     * Similar to {@link setUpCorpProvider}, but the corp CP2 set up with this will always return
+     * Similar to {@link #setUpCorpProvider}, but the corp CP2 set up with this will always return
      * null from query().
      */
     private void setUpNullCorpProvider() throws Exception {
@@ -2112,181 +2345,44 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         c.close();
     }
 
-    public void testUpgradeToVersion910_CallsDeletedForCorpProfileOnly() throws Exception {
-        CallLogProvider provider =
-                (CallLogProvider) addProvider(TestCallLogProvider.class, CallLog.AUTHORITY);
-        final ContactsDatabaseHelper helper = provider.getDatabaseHelper(mContext);
-        final SQLiteDatabase db = helper.getWritableDatabase();
-
-        final ContentValues values = new ContentValues();
-        values.put(Calls.NUMBER, "123456789");
-        values.put(Calls.DATE, System.currentTimeMillis());
-        values.put(Calls.TYPE, Calls.OUTGOING_TYPE);
-        values.put(Calls.DURATION, 10000);
-
-        mResolver.insert(Calls.CONTENT_URI, values);
-        assertEquals(1, getCount(Calls.CONTENT_URI));
-
-        helper.upgradeToVersion910(db);
-        assertEquals(1, getCount(Calls.CONTENT_URI));
-
-        mActor.mockUserManager.myUser = MockUserManager.CORP_USER.id;
-        mActor.mockUserManager.setUsers(MockUserManager.CORP_USER);
-
-        helper.upgradeToVersion910(db);
-
-        // Switch back to the primary user to ensure that the calls table was really cleared, and
-        // we are not getting an empty cursor just because of the call log read/write restriction
-        // on managed profiles.
-        mActor.mockUserManager.myUser = MockUserManager.PRIMARY_USER.id;
-        mActor.mockUserManager.setUsers(MockUserManager.PRIMARY_USER);
-        assertEquals(0, getCount(Calls.CONTENT_URI));
-    }
-
-    public void testRewriteCorpLookup() {
-        // 19 columns
+    public void testRewriteCorpDirectories() {
+        // 6 columns
         final MatrixCursor c = new MatrixCursor(new String[] {
-                PhoneLookup._ID,
-                PhoneLookup.LOOKUP_KEY,
-                PhoneLookup.DISPLAY_NAME,
-                PhoneLookup.LAST_TIME_CONTACTED,
-                PhoneLookup.TIMES_CONTACTED,
-                PhoneLookup.STARRED,
-                PhoneLookup.IN_DEFAULT_DIRECTORY,
-                PhoneLookup.IN_VISIBLE_GROUP,
-                PhoneLookup.PHOTO_FILE_ID,
-                PhoneLookup.PHOTO_ID,
-                PhoneLookup.PHOTO_URI,
-                PhoneLookup.PHOTO_THUMBNAIL_URI,
-                PhoneLookup.CUSTOM_RINGTONE,
-                PhoneLookup.HAS_PHONE_NUMBER,
-                PhoneLookup.SEND_TO_VOICEMAIL,
-                PhoneLookup.NUMBER,
-                PhoneLookup.TYPE,
-                PhoneLookup.LABEL,
-                PhoneLookup.NORMALIZED_NUMBER
+                Directory._ID,
+                Directory.PACKAGE_NAME,
+                Directory.TYPE_RESOURCE_ID,
+                Directory.DISPLAY_NAME,
+                Directory.ACCOUNT_TYPE,
+                Directory.ACCOUNT_NAME,
         });
 
         // First, convert and make sure it returns an empty cursor.
-        Cursor rewritten = ContactsProvider2.rewriteCorpLookup(c.getColumnNames(), c,
-                PhoneLookup._ID);
+        Cursor rewritten = ContactsProvider2.rewriteCorpDirectories(c);
+
         assertEquals(0, rewritten.getCount());
-        assertEquals(19, rewritten.getColumnCount());
+        assertEquals(6, rewritten.getColumnCount());
 
         c.addRow(new Object[] {
-                1L, // PhoneLookup._ID,
-                null, // PhoneLookup.LOOKUP_KEY,
-                null, // PhoneLookup.DISPLAY_NAME,
-                null, // PhoneLookup.LAST_TIME_CONTACTED,
-                null, // PhoneLookup.TIMES_CONTACTED,
-                null, // PhoneLookup.STARRED,
-                null, // PhoneLookup.IN_DEFAULT_DIRECTORY,
-                null, // PhoneLookup.IN_VISIBLE_GROUP,
-                null, // PhoneLookup.PHOTO_FILE_ID,
-                null, // PhoneLookup.PHOTO_ID,
-                null, // PhoneLookup.PHOTO_URI,
-                null, // PhoneLookup.PHOTO_THUMBNAIL_URI,
-                null, // PhoneLookup.CUSTOM_RINGTONE,
-                null, // PhoneLookup.HAS_PHONE_NUMBER,
-                null, // PhoneLookup.SEND_TO_VOICEMAIL,
-                null, // PhoneLookup.NUMBER,
-                null, // PhoneLookup.TYPE,
-                null, // PhoneLookup.LABEL,
-                null, // PhoneLookup.NORMALIZED_NUMBER
+                5L, // Directory._ID
+                "name", // Directory.PACKAGE_NAME
+                123, // Directory.TYPE_RESOURCE_ID
+                "display", // Directory.DISPLAY_NAME
+                "atype", // Directory.ACCOUNT_TYPE
+                "aname", // Directory.ACCOUNT_NAME
         });
 
-        c.addRow(new Object[] {
-                10L, // PhoneLookup._ID,
-                "key", // PhoneLookup.LOOKUP_KEY,
-                "name", // PhoneLookup.DISPLAY_NAME,
-                123, // PhoneLookup.LAST_TIME_CONTACTED,
-                456, // PhoneLookup.TIMES_CONTACTED,
-                1, // PhoneLookup.STARRED,
-                1, // PhoneLookup.IN_DEFAULT_DIRECTORY,
-                1, // PhoneLookup.IN_VISIBLE_GROUP,
-                1001, // PhoneLookup.PHOTO_FILE_ID,
-                1002, // PhoneLookup.PHOTO_ID,
-                "content://a/a", // PhoneLookup.PHOTO_URI,
-                "content://a/b", // PhoneLookup.PHOTO_THUMBNAIL_URI,
-                "content://a/c", // PhoneLookup.CUSTOM_RINGTONE,
-                1, // PhoneLookup.HAS_PHONE_NUMBER,
-                1, // PhoneLookup.SEND_TO_VOICEMAIL,
-                "1234", // PhoneLookup.NUMBER,
-                1, // PhoneLookup.TYPE,
-                "label", // PhoneLookup.LABEL,
-                "+1234", // PhoneLookup.NORMALIZED_NUMBER
-        });
-        rewritten = ContactsProvider2.rewriteCorpLookup(c.getColumnNames(), c,
-                PhoneLookup._ID);
-        assertEquals(2, rewritten.getCount());
-        assertEquals(19, rewritten.getColumnCount());
+        rewritten = ContactsProvider2.rewriteCorpDirectories(c);
+        assertEquals(1, rewritten.getCount());
+        assertEquals(6, rewritten.getColumnCount());
 
         rewritten.moveToPosition(0);
         int column = 0;
-        assertEquals(1000000001L, rewritten.getLong(column++)); // We offset ID for corp contacts.
-        assertEquals(null, rewritten.getString(column++));
-        assertEquals(null, rewritten.getString(column++));
-        assertEquals(null, rewritten.getString(column++));
-        assertEquals(null, rewritten.getString(column++));
-        assertEquals(null, rewritten.getString(column++));
-        assertEquals(null, rewritten.getString(column++));
-        assertEquals(null, rewritten.getString(column++));
-        assertEquals(null, rewritten.getString(column++));
-        assertEquals(null, rewritten.getString(column++));
-        assertEquals(null, rewritten.getString(column++));
-        assertEquals(null, rewritten.getString(column++));
-        assertEquals(null, rewritten.getString(column++));
-        assertEquals(null, rewritten.getString(column++));
-        assertEquals(null, rewritten.getString(column++));
-        assertEquals(null, rewritten.getString(column++));
-        assertEquals(null, rewritten.getString(column++));
-        assertEquals(null, rewritten.getString(column++));
-        assertEquals(null, rewritten.getString(column++));
-
-
-        rewritten.moveToNext();
-        column = 0;
-        assertEquals(1000000010L, rewritten.getLong(column++)); // With offset.
-        assertEquals("c-key", rewritten.getString(column++));
+        assertEquals(1000000005L, rewritten.getLong(column++));
         assertEquals("name", rewritten.getString(column++));
         assertEquals(123, rewritten.getInt(column++));
-        assertEquals(456, rewritten.getInt(column++));
-        assertEquals(1, rewritten.getInt(column++));
-        assertEquals(1, rewritten.getInt(column++));
-        assertEquals(1, rewritten.getInt(column++));
-        assertEquals(null, rewritten.getString(column++)); // photo file id
-        assertEquals(null, rewritten.getString(column++)); // photo id
-        assertEquals("content://com.android.contacts/contacts_corp/10/display_photo",
-                rewritten.getString(column++));
-        assertEquals("content://com.android.contacts/contacts_corp/10/photo",
-                rewritten.getString(column++));
-        assertEquals(null, rewritten.getString(column++)); // ringtone
-        assertEquals(1, rewritten.getInt(column++));
-        assertEquals(1, rewritten.getInt(column++));
-        assertEquals("1234", rewritten.getString(column++));
-        assertEquals(1, rewritten.getInt(column++));
-        assertEquals("label", rewritten.getString(column++));
-        assertEquals("+1234", rewritten.getString(column++));
-
-        // Use a narower projection.
-        rewritten = ContactsProvider2.rewriteCorpLookup(
-                new String[] {PhoneLookup.PHOTO_URI, PhoneLookup.PHOTO_THUMBNAIL_URI}, c,
-                        PhoneLookup._ID);
-        assertEquals(2, rewritten.getCount());
-        assertEquals(2, rewritten.getColumnCount());
-
-        rewritten.moveToPosition(0);
-        column = 0;
-        assertEquals(null, rewritten.getString(column++));
-        assertEquals(null, rewritten.getString(column++));
-
-
-        rewritten.moveToNext();
-        column = 0;
-        assertEquals("content://com.android.contacts/contacts_corp/10/display_photo",
-                rewritten.getString(column++));
-        assertEquals("content://com.android.contacts/contacts_corp/10/photo",
-                rewritten.getString(column++));
+        assertEquals("display", rewritten.getString(column++));
+        assertEquals("atype", rewritten.getString(column++));
+        assertEquals("aname", rewritten.getString(column++));
     }
 
     public void testPhoneUpdate() {
@@ -2668,6 +2764,82 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         assertStoredValuesOrderly(filterUri3, new ContentValues[] { v3, v1, v2 });
     }
 
+    public void testAddQueryParametersFromUri() {
+        final ContactsProvider2 provider = (ContactsProvider2) getProvider();
+        final Uri originalUri = Phone.CONTENT_FILTER_URI.buildUpon()
+                .appendQueryParameter("a", "a")
+                .appendQueryParameter("b", "b")
+                .appendQueryParameter("c", "c").build();
+        final Uri.Builder targetBuilder = Phone.CONTENT_FILTER_URI.buildUpon();
+        provider.addQueryParametersFromUri(targetBuilder, originalUri,
+                new ArraySet<String>(Arrays.asList(new String[] {
+                        "b"
+                })));
+        final Uri targetUri = targetBuilder.build();
+        assertEquals(1, targetUri.getQueryParameters("a").size());
+        assertEquals(0, targetUri.getQueryParameters("b").size());
+        assertEquals(1, targetUri.getQueryParameters("c").size());
+    }
+
+    private Uri buildContactsFilterUriWithDirectory(String directory) {
+        return Contacts.CONTENT_FILTER_URI.buildUpon()
+                .appendQueryParameter(ContactsContract.DIRECTORY_PARAM_KEY, directory).build();
+    }
+
+    public void testTestInvalidDirectory() throws Exception {
+        final ContactsProvider2 provider = (ContactsProvider2) getProvider();
+        assertTrue(provider.isDirectoryParamValid(Contacts.CONTENT_FILTER_URI));
+        assertFalse(provider.isDirectoryParamValid(buildContactsFilterUriWithDirectory("")));
+        assertTrue(provider.isDirectoryParamValid(buildContactsFilterUriWithDirectory("0")));
+        assertTrue(provider.isDirectoryParamValid(buildContactsFilterUriWithDirectory("123")));
+        assertFalse(provider.isDirectoryParamValid(buildContactsFilterUriWithDirectory("abc")));
+    }
+
+    public void testQueryCorpContactsProvider() throws Exception {
+        final ContactsProvider2 provider = (ContactsProvider2) getProvider();
+        final MockUserManager um = mActor.mockUserManager;
+        final Uri enterpriseUri =
+                Uri.withAppendedPath(PhoneLookup.ENTERPRISE_CONTENT_FILTER_URI, "408-222-2222");
+        final Uri invalidAuthorityUri = android.provider.Settings.Secure.CONTENT_URI;
+
+        // No corp user.  Primary only.
+        assertEquals(-1, UserUtils.getCorpUserId(mActor.getProviderContext()));
+        assertEquals(0, provider.queryCorpContactsProvider(enterpriseUri, null, null, null,
+                null, null).getCount());
+
+        final SynchronousContactsProvider2 corpCp2 = setUpCorpProvider();
+        // Insert a contact to the corp CP2
+        long rawContactId = ContentUris.parseId(
+                corpCp2.insert(RawContacts.CONTENT_URI, new ContentValues()));
+        // Insert a name
+        ContentValues cv = cv(
+                Data.RAW_CONTACT_ID, rawContactId,
+                Data.MIMETYPE, StructuredName.CONTENT_ITEM_TYPE,
+                StructuredName.DISPLAY_NAME, "Contact2 Corp",
+                StructuredName.GIVEN_NAME, "Contact2",
+                StructuredName.FAMILY_NAME, "Corp");
+        corpCp2.insert(ContactsContract.Data.CONTENT_URI, cv);
+        // Insert a number
+        cv = cv(
+                Data.RAW_CONTACT_ID, rawContactId,
+                Data.MIMETYPE, Phone.CONTENT_ITEM_TYPE,
+                Phone.NUMBER, "408-222-2222",
+                Phone.TYPE, Phone.TYPE_HOME);
+        corpCp2.insert(ContactsContract.Data.CONTENT_URI, cv);
+        // Primary + corp
+        um.setUsers(MockUserManager.PRIMARY_USER, MockUserManager.CORP_USER);
+        // It returns 2 identical rows, probably because of the join in phone_lookup.
+        assertEquals(2, provider.queryCorpContactsProvider(enterpriseUri, null, null, null,
+                null, null).getCount());
+        try {
+            provider.queryCorpContactsProvider(invalidAuthorityUri, null, null,
+                    null, null, null);
+            fail(invalidAuthorityUri.toString() + " should throw IllegalArgumentException");
+        } catch (IllegalArgumentException e) {
+            // Expected
+        }
+    }
+
     /**
      * Tests {@link DataUsageFeedback} correctly bucketize contacts using each
      * {@link DataUsageStatColumns#LAST_TIME_USED}
@@ -2731,6 +2903,333 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
 
         // address2 is preferred to address1 as address2 is used 4 times in total
         assertStoredValuesOrderly(filterUri1, new ContentValues[] { v2, v1, v4, v3 });
+    }
+
+    public void testUpdateFromMetadataEntry() {
+        String accountType1 = "accountType1";
+        String accountName1 = "accountName1";
+        String dataSet1 = "plus";
+        Account account1 = new Account(accountName1, accountType1);
+        long rawContactId = RawContactUtil.createRawContactWithName(mResolver, account1);
+        Uri rawContactUri = ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId);
+        // Add backup_id for the raw contact.
+        String backupId = "backupId100001";
+        ContentValues values = new ContentValues();
+        values.put(RawContacts.BACKUP_ID, backupId);
+        assertEquals(1, mResolver.update(rawContactUri, values, null, null));
+
+        String emailAddress = "address@email.com";
+        Uri dataUri = insertEmail(rawContactId, emailAddress);
+        String hashId = getStoredValue(dataUri, Data.HASH_ID);
+
+        // Another data that should not be updated.
+        String phoneNumber = "111-111-1111";
+        Uri dataUri2 = insertPhoneNumber(rawContactId, phoneNumber);
+
+        // Aggregation should be deleted from local since it doesn't exist in server.
+        long toBeDeletedAggRawContactId = RawContactUtil.createRawContactWithName(
+                mResolver, account1);
+        setAggregationException(AggregationExceptions.TYPE_KEEP_SEPARATE,
+                rawContactId, toBeDeletedAggRawContactId);
+
+        // Check if AggregationException table has one value.
+        assertStoredValue(AggregationExceptions.CONTENT_URI, AggregationExceptions.RAW_CONTACT_ID1,
+                rawContactId);
+        assertStoredValue(AggregationExceptions.CONTENT_URI, AggregationExceptions.RAW_CONTACT_ID2,
+                toBeDeletedAggRawContactId);
+        assertStoredValue(AggregationExceptions.CONTENT_URI, AggregationExceptions.TYPE,
+                AggregationExceptions.TYPE_KEEP_SEPARATE);
+
+        String accountType2 = "accountType2";
+        String accountName2 = "accountName2";
+        Account account2 = new Account(accountName2, accountType2);
+        long rawContactId2 = RawContactUtil.createRawContactWithName(mResolver, account2);
+        Uri rawContactUri2 = ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId2);
+        String backupId2 = "backupId100003";
+        ContentValues values2 = new ContentValues();
+        values2.put(RawContacts.BACKUP_ID, backupId2);
+        assertEquals(1, mResolver.update(rawContactUri2, values2, null, null));
+
+        String usageTypeString = "CALL";
+        int lastTimeUsed = 1111111;
+        int timesUsed = 5;
+        String aggregationTypeString = "TOGETHER";
+        int aggregationType = AggregationExceptions.TYPE_KEEP_TOGETHER;
+
+        RawContactInfo rawContactInfo = new RawContactInfo(
+                backupId, accountType1, accountName1, null);
+        UsageStats usageStats = new UsageStats(usageTypeString, lastTimeUsed, timesUsed);
+        ArrayList<UsageStats> usageStatsList = new ArrayList<>();
+        usageStatsList.add(usageStats);
+        FieldData fieldData = new FieldData(hashId, true, true, usageStatsList);
+        ArrayList<FieldData> fieldDataList = new ArrayList<>();
+        fieldDataList.add(fieldData);
+        ArrayList<AggregationData> aggregationDataList = new ArrayList<>();
+        MetadataEntry metadataEntry = new MetadataEntry(rawContactInfo,
+                1, 1, 1, fieldDataList, aggregationDataList);
+
+        ContactsProvider2 provider = (ContactsProvider2) getProvider();
+        final ContactsDatabaseHelper helper =
+                ((ContactsDatabaseHelper) provider.getDatabaseHelper());
+        SQLiteDatabase db = helper.getWritableDatabase();
+
+        // Before updating tables from MetadataEntry.
+        assertStoredValue(rawContactUri, RawContacts.ACCOUNT_TYPE, accountType1);
+        assertStoredValue(rawContactUri, RawContacts.ACCOUNT_NAME, accountName1);
+        assertStoredValue(rawContactUri, RawContacts.SEND_TO_VOICEMAIL, "0");
+        assertStoredValue(rawContactUri, RawContacts.STARRED, "0");
+        assertStoredValue(rawContactUri, RawContacts.PINNED, "0");
+        assertStoredValue(dataUri, Data.IS_PRIMARY, 0);
+        assertStoredValue(dataUri, Data.IS_SUPER_PRIMARY, 0);
+
+        // Update tables without aggregation first, since aggregator will affect pinned value.
+        provider.updateFromMetaDataEntry(db, metadataEntry);
+
+        // After updating tables from MetadataEntry.
+        assertStoredValue(rawContactUri, RawContacts.ACCOUNT_TYPE, accountType1);
+        assertStoredValue(rawContactUri, RawContacts.ACCOUNT_NAME, accountName1);
+        assertStoredValue(rawContactUri, RawContacts.SEND_TO_VOICEMAIL, "1");
+        assertStoredValue(rawContactUri, RawContacts.STARRED, "1");
+        assertStoredValue(rawContactUri, RawContacts.PINNED, "1");
+        assertStoredValue(dataUri, Data.IS_PRIMARY, 1);
+        assertStoredValue(dataUri, Data.IS_SUPER_PRIMARY, 1);
+        assertStoredValue(dataUri2, Data.IS_PRIMARY, 0);
+        assertStoredValue(dataUri2, Data.IS_SUPER_PRIMARY, 0);
+        final Uri dataUriWithUsageType = Data.CONTENT_URI.buildUpon().appendQueryParameter(
+                DataUsageFeedback.USAGE_TYPE, usageTypeString).build();
+        assertDataUsageCursorContains(dataUriWithUsageType, emailAddress, timesUsed, lastTimeUsed);
+
+        // Update AggregationException table.
+        RawContactInfo aggregationContact = new RawContactInfo(
+                backupId2, accountType2, accountName2, null);
+        AggregationData aggregationData = new AggregationData(
+                rawContactInfo, aggregationContact, aggregationTypeString);
+        aggregationDataList.add(aggregationData);
+        metadataEntry = new MetadataEntry(rawContactInfo,
+                1, 1, 1, fieldDataList, aggregationDataList);
+        provider.updateFromMetaDataEntry(db, metadataEntry);
+
+        // Check if AggregationException table is updated.
+        assertStoredValue(AggregationExceptions.CONTENT_URI, AggregationExceptions.RAW_CONTACT_ID1,
+                rawContactId);
+        assertStoredValue(AggregationExceptions.CONTENT_URI, AggregationExceptions.RAW_CONTACT_ID2,
+                rawContactId2);
+        assertStoredValue(AggregationExceptions.CONTENT_URI, AggregationExceptions.TYPE,
+                aggregationType);
+
+        // After aggregation, check if rawContacts.starred/send_to_voicemail
+        // were copied to contacts table.
+        final long contactId = queryContactId(rawContactId);
+        Uri contactUri = ContentUris.withAppendedId(Contacts.CONTENT_URI, contactId);
+        // The merged contact should be starred if any of the rawcontact is starred.
+        assertStoredValue(contactUri, Contacts.STARRED, 1);
+        // The merged contact should be send_to_voicemail
+        // if all of the rawcontact is send_to_voicemail.
+        assertStoredValue(contactUri, Contacts.SEND_TO_VOICEMAIL, 0);
+    }
+
+    public void testUpdateMetadataOnRawContactInsert() throws Exception {
+        ContactMetadataProvider contactMetadataProvider = addProvider(
+                ContactMetadataProviderTestable.class, MetadataSync.METADATA_AUTHORITY);
+        // Reset the dbHelper to be the one ContactsProvider2 is using. Before this, two providers
+        // are using different dbHelpers.
+        contactMetadataProvider.setDatabaseHelper(((SynchronousContactsProvider2)
+                mActor.provider).getDatabaseHelper(getContext()));
+        // Create an account first.
+        String backupId = "backupId001";
+        String accountType = "accountType";
+        String accountName = "accountName";
+        Account account = new Account(accountName, accountType);
+        createAccount(accountName, accountType, null);
+
+        // Insert a metadata to MetadataSync table.
+        String data = "{\n" +
+                "  \"unique_contact_id\": {\n" +
+                "    \"account_type\": \"CUSTOM_ACCOUNT\",\n" +
+                "    \"custom_account_type\": " + accountType + ",\n" +
+                "    \"account_name\": " + accountName + ",\n" +
+                "    \"contact_id\": " + backupId + ",\n" +
+                "    \"data_set\": \"FOCUS\"\n" +
+                "  },\n" +
+                "  \"contact_prefs\": {\n" +
+                "    \"send_to_voicemail\": true,\n" +
+                "    \"starred\": true,\n" +
+                "    \"pinned\": 1\n" +
+                "  }\n" +
+                "  }";
+
+        ContentValues insertedValues = new ContentValues();
+        insertedValues.put(MetadataSync.RAW_CONTACT_BACKUP_ID, backupId);
+        insertedValues.put(MetadataSync.ACCOUNT_TYPE, accountType);
+        insertedValues.put(MetadataSync.ACCOUNT_NAME, accountName);
+        insertedValues.put(MetadataSync.DATA, data);
+        mResolver.insert(MetadataSync.CONTENT_URI, insertedValues);
+
+        // Enable metadataSync flag.
+        final ContactsProvider2 cp = (ContactsProvider2) getProvider();
+        cp.setMetadataSyncForTest(true);
+        // Insert a raw contact.
+        long rawContactId = RawContactUtil.createRawContactWithBackupId(mResolver, backupId,
+                account);
+        Uri rawContactUri = ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId);
+        // Check if the raw contact is updated.
+        assertStoredValue(rawContactUri, RawContacts._ID, rawContactId);
+        assertStoredValue(rawContactUri, RawContacts.ACCOUNT_TYPE, accountType);
+        assertStoredValue(rawContactUri, RawContacts.ACCOUNT_NAME, accountName);
+        assertStoredValue(rawContactUri, RawContacts.BACKUP_ID, backupId);
+        assertStoredValue(rawContactUri, RawContacts.SEND_TO_VOICEMAIL, "1");
+        assertStoredValue(rawContactUri, RawContacts.STARRED, "1");
+        assertStoredValue(rawContactUri, RawContacts.PINNED, "1");
+        // Notify metadata network on raw contact insertion
+        assertMetadataNetworkNotified(true);
+    }
+
+    public void testUpdateMetadataOnRawContactBackupIdChange() throws Exception {
+        ContactMetadataProvider contactMetadataProvider = addProvider(
+                ContactMetadataProviderTestable.class, MetadataSync.METADATA_AUTHORITY);
+        // Reset the dbHelper to be the one ContactsProvider2 is using. Before this, two providers
+        // are using different dbHelpers.
+        contactMetadataProvider.setDatabaseHelper(((SynchronousContactsProvider2)
+                mActor.provider).getDatabaseHelper(getContext()));
+        // Create an account first.
+        String backupId = "backupId001";
+        String accountType = "accountType";
+        String accountName = "accountName";
+        Account account = new Account(accountName, accountType);
+        createAccount(accountName, accountType, null);
+
+        // Insert a metadata to MetadataSync table.
+        String data = "{\n" +
+                "  \"unique_contact_id\": {\n" +
+                "    \"account_type\": \"CUSTOM_ACCOUNT\",\n" +
+                "    \"custom_account_type\": " + accountType + ",\n" +
+                "    \"account_name\": " + accountName + ",\n" +
+                "    \"contact_id\": " + backupId + ",\n" +
+                "    \"data_set\": \"FOCUS\"\n" +
+                "  },\n" +
+                "  \"contact_prefs\": {\n" +
+                "    \"send_to_voicemail\": true,\n" +
+                "    \"starred\": true,\n" +
+                "    \"pinned\": 1\n" +
+                "  }\n" +
+                "  }";
+
+        ContentValues insertedValues = new ContentValues();
+        insertedValues.put(MetadataSync.RAW_CONTACT_BACKUP_ID, backupId);
+        insertedValues.put(MetadataSync.ACCOUNT_TYPE, accountType);
+        insertedValues.put(MetadataSync.ACCOUNT_NAME, accountName);
+        insertedValues.put(MetadataSync.DATA, data);
+        mResolver.insert(MetadataSync.CONTENT_URI, insertedValues);
+
+        // Enable metadataSync flag.
+        final ContactsProvider2 cp = (ContactsProvider2) getProvider();
+        cp.setMetadataSyncForTest(true);
+        // Insert a raw contact without backup_id.
+        long rawContactId = RawContactUtil.createRawContact(mResolver, account);
+        Uri rawContactUri = ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId);
+        // Check if the raw contact is not updated because of no backup_id.
+        assertStoredValue(rawContactUri, RawContacts._ID, rawContactId);
+        assertStoredValue(rawContactUri, RawContacts.ACCOUNT_TYPE, accountType);
+        assertStoredValue(rawContactUri, RawContacts.ACCOUNT_NAME, accountName);
+        assertStoredValue(rawContactUri, RawContacts.SEND_TO_VOICEMAIL, "0");
+        assertStoredValue(rawContactUri, RawContacts.STARRED, "0");
+        assertStoredValue(rawContactUri, RawContacts.PINNED, "0");
+
+        // Update the raw contact with backup_id.
+        ContentValues updatedValues = new ContentValues();
+        updatedValues.put(RawContacts.BACKUP_ID, backupId);
+        mResolver.update(RawContacts.CONTENT_URI, updatedValues, null, null);
+        // Check if the raw contact is updated because of backup_id change.
+        assertStoredValue(rawContactUri, RawContacts._ID, rawContactId);
+        assertStoredValue(rawContactUri, RawContacts.ACCOUNT_TYPE, accountType);
+        assertStoredValue(rawContactUri, RawContacts.ACCOUNT_NAME, accountName);
+        assertStoredValue(rawContactUri, RawContacts.SEND_TO_VOICEMAIL, "1");
+        assertStoredValue(rawContactUri, RawContacts.STARRED, "1");
+        assertStoredValue(rawContactUri, RawContacts.PINNED, "1");
+        // Notify metadata network because of the changed raw contact.
+        assertMetadataNetworkNotified(true);
+    }
+
+    public void testDeleteMetadataOnRawContactDelete() throws Exception {
+        ContactMetadataProvider contactMetadataProvider = addProvider(
+                ContactMetadataProviderTestable.class, MetadataSync.METADATA_AUTHORITY);
+        // Reset the dbHelper to be the one ContactsProvider2 is using. Before this, two providers
+        // are using different dbHelpers.
+        contactMetadataProvider.setDatabaseHelper(((SynchronousContactsProvider2)
+                mActor.provider).getDatabaseHelper(getContext()));
+        // Enable metadataSync flag.
+        final ContactsProvider2 cp = (ContactsProvider2) getProvider();
+        cp.setMetadataSyncForTest(true);
+        // Create an account first.
+        String backupId = "backupId001";
+        String accountType = "accountType";
+        String accountName = "accountName";
+        Account account = new Account(accountName, accountType);
+        createAccount(accountName, accountType, null);
+
+        // Insert a raw contact.
+        long rawContactId = RawContactUtil.createRawContactWithBackupId(mResolver, backupId,
+                account);
+        Uri rawContactUri = ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId);
+
+        // Insert a metadata to MetadataSync table.
+        String data = "{\n" +
+                "  \"unique_contact_id\": {\n" +
+                "    \"account_type\": \"CUSTOM_ACCOUNT\",\n" +
+                "    \"custom_account_type\": " + accountType + ",\n" +
+                "    \"account_name\": " + accountName + ",\n" +
+                "    \"contact_id\": " + backupId + ",\n" +
+                "    \"data_set\": \"FOCUS\"\n" +
+                "  },\n" +
+                "  \"contact_prefs\": {\n" +
+                "    \"send_to_voicemail\": true,\n" +
+                "    \"starred\": true,\n" +
+                "    \"pinned\": 1\n" +
+                "  }\n" +
+                "  }";
+
+        ContentValues insertedValues = new ContentValues();
+        insertedValues.put(MetadataSync.RAW_CONTACT_BACKUP_ID, backupId);
+        insertedValues.put(MetadataSync.ACCOUNT_TYPE, accountType);
+        insertedValues.put(MetadataSync.ACCOUNT_NAME, accountName);
+        insertedValues.put(MetadataSync.DATA, data);
+        Uri metadataUri = mResolver.insert(MetadataSync.CONTENT_URI, insertedValues);
+
+        // Delete raw contact.
+        mResolver.delete(rawContactUri, null, null);
+        // Check if the metadata is deleted.
+        assertStoredValue(metadataUri, MetadataSync.DELETED, "1");
+        // check raw contact metadata_dirty column is not changed on raw contact deletion
+        assertMetadataDirty(rawContactUri, false);
+        // Notify metadata network on raw contact deletion
+        assertMetadataNetworkNotified(true);
+
+        // Add another rawcontact and metadata, and don't delete them.
+        // Insert a raw contact.
+        String backupId2 = "newBackupId";
+        long rawContactId2 = RawContactUtil.createRawContactWithBackupId(mResolver, backupId2,
+                account);
+        Uri rawContactUri2 = ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId);
+
+        // Insert a metadata to MetadataSync table.
+        ContentValues insertedValues2 = new ContentValues();
+        insertedValues2.put(MetadataSync.RAW_CONTACT_BACKUP_ID, backupId2);
+        insertedValues2.put(MetadataSync.ACCOUNT_TYPE, accountType);
+        insertedValues2.put(MetadataSync.ACCOUNT_NAME, accountName);
+        insertedValues2.put(MetadataSync.DATA, data);
+        Uri metadataUri2 = mResolver.insert(MetadataSync.CONTENT_URI, insertedValues2);
+
+        // Update raw contact but not delete.
+        ContentValues values = new ContentValues();
+        values.put(RawContacts.STARRED, "1");
+        mResolver.update(rawContactUri2, values, null, null);
+
+        // Check if the metadata is not marked as deleted.
+        assertStoredValue(metadataUri2, MetadataSync.DELETED, "0");
+        // check raw contact metadata_dirty column is changed on raw contact update
+        assertMetadataDirty(rawContactUri2, true);
+        // Notify metadata network on raw contact update
+        assertMetadataNetworkNotified(true);
     }
 
     public void testPostalsQuery() {
@@ -4135,7 +4634,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
     }
 
     public void testContactWithoutPhoneticName() {
-        ContactLocaleUtils.setLocale(Locale.ENGLISH);
+        ContactLocaleUtils.setLocaleForTest(Locale.ENGLISH);
         final long rawContactId = RawContactUtil.createRawContact(mResolver, null);
 
         ContentValues values = new ContentValues();
@@ -4183,7 +4682,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         if (!hasChineseCollator()) {
             return;
         }
-        ContactLocaleUtils.setLocale(Locale.SIMPLIFIED_CHINESE);
+        ContactLocaleUtils.setLocaleForTest(Locale.SIMPLIFIED_CHINESE);
 
         long rawContactId = RawContactUtil.createRawContact(mResolver, null);
 
@@ -4230,7 +4729,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         if (!hasJapaneseCollator()) {
             return;
         }
-        ContactLocaleUtils.setLocale(Locale.US);
+        ContactLocaleUtils.setLocaleForTest(Locale.US);
         long rawContactId = RawContactUtil.createRawContact(mResolver, null);
 
         ContentValues values = new ContentValues();
@@ -4250,7 +4749,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         if (!hasJapaneseCollator()) {
             return;
         }
-        ContactLocaleUtils.setLocale(Locale.JAPAN);
+        ContactLocaleUtils.setLocaleForTest(Locale.JAPAN);
         long rawContactId = RawContactUtil.createRawContact(mResolver, null);
 
         ContentValues values = new ContentValues();
@@ -4384,7 +4883,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         if (!hasJapaneseCollator()) {
             return;
         }
-        ContactLocaleUtils.setLocale(Locale.JAPAN);
+        ContactLocaleUtils.setLocaleForTest(Locale.JAPAN);
         long rawContactId = RawContactUtil.createRawContact(mResolver);
         long contactId = queryContactId(rawContactId);
         ContentValues values = new ContentValues();
@@ -4412,7 +4911,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         if (!hasChineseCollator()) {
             return;
         }
-        ContactLocaleUtils.setLocale(Locale.SIMPLIFIED_CHINESE);
+        ContactLocaleUtils.setLocaleForTest(Locale.SIMPLIFIED_CHINESE);
 
         long rawContactId = RawContactUtil.createRawContact(mResolver);
         long contactId = queryContactId(rawContactId);
@@ -4731,11 +5230,13 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
 
         updateSendToVoicemailAndRingtone(contactId, true, "foo");
         assertSendToVoicemailAndRingtone(contactId, true, "foo");
-        assertNetworkNotified(false);
+        assertNetworkNotified(true);
+        assertDirty(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId), true);
 
         updateSendToVoicemailAndRingtoneWithSelection(contactId, false, "bar");
         assertSendToVoicemailAndRingtone(contactId, false, "bar");
-        assertNetworkNotified(false);
+        assertNetworkNotified(true);
+        assertDirty(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId), true);
     }
 
     public void testSendToVoicemailAndRingtoneAfterAggregation() {
@@ -4791,6 +5292,19 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
 
         assertSendToVoicemailAndRingtone(queryContactId(rawContactId1), true, "foo");
         assertSendToVoicemailAndRingtone(queryContactId(rawContactId2), false, "bar");
+    }
+
+    public void testMarkDirtyAfterAggregation() {
+        long rawContactId1 = RawContactUtil.createRawContactWithName(mResolver, "i", "j");
+        long rawContactId2 = RawContactUtil.createRawContactWithName(mResolver, "k", "l");
+
+        // Aggregate them
+        setAggregationException(AggregationExceptions.TYPE_KEEP_TOGETHER,
+                rawContactId1, rawContactId2);
+
+        assertDirty(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId1), true);
+        assertDirty(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId2), true);
+        assertNetworkNotified(true);
     }
 
     public void testStatusUpdateInsert() {
@@ -5624,166 +6138,6 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
                 expectedValues);
     }
 
-    public void testStreamItemReadRequiresReadSocialStreamPermission() {
-        long rawContactId = RawContactUtil.createRawContact(mResolver);
-        long contactId = queryContactId(rawContactId);
-        String lookupKey = queryLookupKey(contactId);
-        long streamItemId = ContentUris.parseId(
-                insertStreamItem(rawContactId, buildGenericStreamItemValues(), null));
-        mActor.removePermissions("android.permission.READ_SOCIAL_STREAM");
-
-        // Try selecting the stream item in various ways.
-        expectSecurityException(
-                "Querying stream items by contact ID requires social stream read permission",
-                Uri.withAppendedPath(
-                        ContentUris.withAppendedId(Contacts.CONTENT_URI, contactId),
-                        Contacts.StreamItems.CONTENT_DIRECTORY), null, null, null, null);
-
-        expectSecurityException(
-                "Querying stream items by lookup key requires social stream read permission",
-                Contacts.CONTENT_LOOKUP_URI.buildUpon().appendPath(lookupKey)
-                        .appendPath(Contacts.StreamItems.CONTENT_DIRECTORY).build(),
-                null, null, null, null);
-
-        expectSecurityException(
-                "Querying stream items by lookup key and ID requires social stream read permission",
-                Uri.withAppendedPath(Contacts.getLookupUri(contactId, lookupKey),
-                        Contacts.StreamItems.CONTENT_DIRECTORY),
-                null, null, null, null);
-
-        expectSecurityException(
-                "Querying stream items by raw contact ID requires social stream read permission",
-                Uri.withAppendedPath(
-                        ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId),
-                        RawContacts.StreamItems.CONTENT_DIRECTORY), null, null, null, null);
-
-        expectSecurityException(
-                "Querying stream items by raw contact ID and stream item ID requires social " +
-                        "stream read permission",
-                ContentUris.withAppendedId(
-                        Uri.withAppendedPath(
-                                ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId),
-                                RawContacts.StreamItems.CONTENT_DIRECTORY),
-                        streamItemId), null, null, null, null);
-
-        expectSecurityException(
-                "Querying all stream items requires social stream read permission",
-                StreamItems.CONTENT_URI, null, null, null, null);
-
-        expectSecurityException(
-                "Querying stream item by ID requires social stream read permission",
-                ContentUris.withAppendedId(StreamItems.CONTENT_URI, streamItemId),
-                null, null, null, null);
-    }
-
-    public void testStreamItemPhotoReadRequiresReadSocialStreamPermission() {
-        long rawContactId = RawContactUtil.createRawContact(mResolver);
-        long streamItemId = ContentUris.parseId(
-                insertStreamItem(rawContactId, buildGenericStreamItemValues(), null));
-        long streamItemPhotoId = ContentUris.parseId(
-                insertStreamItemPhoto(streamItemId, buildGenericStreamItemPhotoValues(0), null));
-        mActor.removePermissions("android.permission.READ_SOCIAL_STREAM");
-
-        // Try selecting the stream item photo in various ways.
-        expectSecurityException(
-                "Querying all stream item photos requires social stream read permission",
-                StreamItems.CONTENT_URI.buildUpon()
-                        .appendPath(StreamItems.StreamItemPhotos.CONTENT_DIRECTORY).build(),
-                null, null, null, null);
-
-        expectSecurityException(
-                "Querying all stream item photos requires social stream read permission",
-                StreamItems.CONTENT_URI.buildUpon()
-                        .appendPath(String.valueOf(streamItemId))
-                        .appendPath(StreamItems.StreamItemPhotos.CONTENT_DIRECTORY)
-                        .appendPath(String.valueOf(streamItemPhotoId)).build(),
-                null, null, null, null);
-    }
-
-    public void testStreamItemModificationRequiresWriteSocialStreamPermission() {
-        long rawContactId = RawContactUtil.createRawContact(mResolver);
-        long streamItemId = ContentUris.parseId(
-                insertStreamItem(rawContactId, buildGenericStreamItemValues(), null));
-        mActor.removePermissions("android.permission.WRITE_SOCIAL_STREAM");
-
-        try {
-            insertStreamItem(rawContactId, buildGenericStreamItemValues(), null);
-            fail("Should not be able to insert to stream without write social stream permission");
-        } catch (SecurityException expected) {
-        }
-
-        try {
-            ContentValues values = new ContentValues();
-            values.put(StreamItems.TEXT, "Goodbye world");
-            mResolver.update(ContentUris.withAppendedId(StreamItems.CONTENT_URI, streamItemId),
-                    values, null, null);
-            fail("Should not be able to update stream without write social stream permission");
-        } catch (SecurityException expected) {
-        }
-
-        try {
-            mResolver.delete(ContentUris.withAppendedId(StreamItems.CONTENT_URI, streamItemId),
-                    null, null);
-            fail("Should not be able to delete from stream without write social stream permission");
-        } catch (SecurityException expected) {
-        }
-    }
-
-    public void testStreamItemPhotoModificationRequiresWriteSocialStreamPermission() {
-        long rawContactId = RawContactUtil.createRawContact(mResolver);
-        long streamItemId = ContentUris.parseId(
-                insertStreamItem(rawContactId, buildGenericStreamItemValues(), null));
-        long streamItemPhotoId = ContentUris.parseId(
-                insertStreamItemPhoto(streamItemId, buildGenericStreamItemPhotoValues(0), null));
-        mActor.removePermissions("android.permission.WRITE_SOCIAL_STREAM");
-
-        Uri photoUri = StreamItems.CONTENT_URI.buildUpon()
-                .appendPath(String.valueOf(streamItemId))
-                .appendPath(StreamItems.StreamItemPhotos.CONTENT_DIRECTORY)
-                .appendPath(String.valueOf(streamItemPhotoId)).build();
-
-        try {
-            insertStreamItemPhoto(streamItemId, buildGenericStreamItemPhotoValues(1), null);
-            fail("Should not be able to insert photos without write social stream permission");
-        } catch (SecurityException expected) {
-        }
-
-        try {
-            ContentValues values = new ContentValues();
-            values.put(StreamItemPhotos.PHOTO, loadPhotoFromResource(R.drawable.galaxy,
-                    PhotoSize.ORIGINAL));
-            mResolver.update(photoUri, values, null, null);
-            fail("Should not be able to update photos without write social stream permission");
-        } catch (SecurityException expected) {
-        }
-
-        try {
-            mResolver.delete(photoUri, null, null);
-            fail("Should not be able to delete photos without write social stream permission");
-        } catch (SecurityException expected) {
-        }
-    }
-
-    public void testStatusUpdateDoesNotRequireReadOrWriteSocialStreamPermission() {
-        int protocol1 = Im.PROTOCOL_GOOGLE_TALK;
-        String handle1 = "test@gmail.com";
-        long rawContactId = RawContactUtil.createRawContact(mResolver);
-        insertImHandle(rawContactId, protocol1, null, handle1);
-        mActor.removePermissions("android.permission.READ_SOCIAL_STREAM");
-        mActor.removePermissions("android.permission.WRITE_SOCIAL_STREAM");
-
-        insertStatusUpdate(protocol1, null, handle1, StatusUpdates.AVAILABLE, "Green",
-                StatusUpdates.CAPABILITY_HAS_CAMERA);
-
-        mActor.addPermissions("android.permission.READ_SOCIAL_STREAM");
-
-        ContentValues expectedValues = new ContentValues();
-        expectedValues.put(StreamItems.TEXT, "Green");
-        assertStoredValues(Uri.withAppendedPath(
-                        ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId),
-                        RawContacts.StreamItems.CONTENT_DIRECTORY), expectedValues);
-    }
-
     private ContentValues buildGenericStreamItemValues() {
         ContentValues values = new ContentValues();
         values.put(StreamItems.TEXT, "Hello world");
@@ -6073,7 +6427,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
                 + " AND " + Data.MIMETYPE + "='testmimetype'", null);
         assertEquals(1, count);
         assertEquals(0, getCount(Data.CONTENT_URI, Data.RAW_CONTACT_ID + "=" + rawContactId
-                        + " AND " + Data.MIMETYPE + "='testmimetype'", null));
+                + " AND " + Data.MIMETYPE + "='testmimetype'", null));
         assertNetworkNotified(true);
     }
 
@@ -6412,6 +6766,98 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         assertStoredValue(safeStreamItemPhotoUri, StreamItemPhotos._ID, safeStreamItemPhotoId);
     }
 
+    public void testMetadataSyncCleanedUpOnAccountRemoval() throws Exception {
+        Account doomedAccount = new Account("doom", "doom");
+        createAccount(doomedAccount.name, doomedAccount.type, null);
+        Account safeAccount = new Account("safe", "safe");
+        createAccount(safeAccount.name, safeAccount.type, null);
+        ContactsProvider2 cp = (ContactsProvider2) getProvider();
+        mActor.setAccounts(new Account[]{doomedAccount, safeAccount});
+        cp.onAccountsUpdated(new Account[]{doomedAccount, safeAccount});
+
+        ContactMetadataProvider contactMetadataProvider = addProvider(
+                ContactMetadataProviderTestable.class, MetadataSync.METADATA_AUTHORITY);
+        // Reset the dbHelper to be the one ContactsProvider2 is using. Before this, two providers
+        // are using different dbHelpers.
+        contactMetadataProvider.setDatabaseHelper(((SynchronousContactsProvider2)
+                mActor.provider).getDatabaseHelper(getContext()));
+
+        // Create a doomed metadata.
+        String backupId = "backupIdForDoomed";
+        ContentValues metadataValues = new ContentValues();
+        metadataValues.put(MetadataSync.RAW_CONTACT_BACKUP_ID, backupId);
+        metadataValues.put(MetadataSync.ACCOUNT_TYPE, doomedAccount.type);
+        metadataValues.put(MetadataSync.ACCOUNT_NAME, doomedAccount.name);
+        metadataValues.put(MetadataSync.DATA,
+                getDefaultMetadataJSONString(doomedAccount.type, doomedAccount.name, backupId));
+        Uri doomedMetadataUri = mResolver.insert(MetadataSync.CONTENT_URI, metadataValues);
+        // Create a doomed metadata sync state.
+        ContentValues syncStateValues = new ContentValues();
+        syncStateValues.put(MetadataSyncState.ACCOUNT_TYPE, doomedAccount.type);
+        syncStateValues.put(MetadataSyncState.ACCOUNT_NAME, doomedAccount.name);
+        syncStateValues.put(MetadataSyncState.STATE, "syncState");
+        mResolver.insert(MetadataSyncState.CONTENT_URI, syncStateValues);
+
+        // Create a safe metadata.
+        String backupId2 = "backupIdForSafe";
+        ContentValues insertedValues2 = new ContentValues();
+        insertedValues2.put(MetadataSync.RAW_CONTACT_BACKUP_ID, backupId2);
+        insertedValues2.put(MetadataSync.ACCOUNT_TYPE, safeAccount.type);
+        insertedValues2.put(MetadataSync.ACCOUNT_NAME, safeAccount.name);
+        insertedValues2.put(MetadataSync.DATA,
+                getDefaultMetadataJSONString(safeAccount.type, safeAccount.name, backupId2));
+        Uri safeMetadataUri = mResolver.insert(MetadataSync.CONTENT_URI, insertedValues2);
+        // Create a safe metadata sync state.
+        ContentValues syncStateValues2 = new ContentValues();
+        syncStateValues2.put(MetadataSyncState.ACCOUNT_TYPE, safeAccount.type);
+        syncStateValues2.put(MetadataSyncState.ACCOUNT_NAME, safeAccount.name);
+        syncStateValues2.put(MetadataSyncState.STATE, "syncState2");
+        mResolver.insert(MetadataSyncState.CONTENT_URI, syncStateValues2);
+
+        // Remove the doomed account.
+        mActor.setAccounts(new Account[]{safeAccount});
+        cp.onAccountsUpdated(new Account[]{safeAccount});
+
+        // Check that the doomed stuff has all been nuked.
+        ContentValues[] noValues = new ContentValues[0];
+        assertStoredValues(doomedMetadataUri, noValues);
+        String selection = MetadataSyncState.ACCOUNT_NAME + "=?1 AND "
+                + MetadataSyncState.ACCOUNT_TYPE + "=?2";
+        String[] args = new String[]{doomedAccount.name, doomedAccount.type};
+        final String[] projection = new String[]{MetadataSyncState.STATE};
+        Cursor c = mResolver.query(MetadataSyncState.CONTENT_URI, projection, selection, args,
+                null);
+        assertEquals(0, c.getCount());
+
+        // Check that the safe stuff lives on.
+        assertStoredValue(safeMetadataUri, MetadataSync.RAW_CONTACT_BACKUP_ID, backupId2);
+        args = new String[]{safeAccount.name, safeAccount.type};
+        c = mResolver.query(MetadataSyncState.CONTENT_URI, projection, selection, args,
+                null);
+        assertEquals(1, c.getCount());
+        c.moveToNext();
+        assertEquals("syncState2", c.getString(0));
+        c.close();
+    }
+
+    private String getDefaultMetadataJSONString(
+            String accountType, String accountName, String backupId) {
+        return "{\n" +
+                "  \"unique_contact_id\": {\n" +
+                "    \"account_type\": \"CUSTOM_ACCOUNT\",\n" +
+                "    \"custom_account_type\": " + accountType + ",\n" +
+                "    \"account_name\": " + accountName + ",\n" +
+                "    \"contact_id\": " + backupId + ",\n" +
+                "    \"data_set\": \"FOCUS\"\n" +
+                "  },\n" +
+                "  \"contact_prefs\": {\n" +
+                "    \"send_to_voicemail\": true,\n" +
+                "    \"starred\": true,\n" +
+                "    \"pinned\": 1\n" +
+                "  }\n" +
+                "  }";
+    }
+
     public void testContactDeletion() {
         long rawContactId1 = RawContactUtil.createRawContactWithName(mResolver, "John", "Doe",
                 TestUtil.ACCOUNT_1);
@@ -6444,6 +6890,21 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         assertNetworkNotified(false);
     }
 
+    public void testDirtyWhenRawContactInsert() {
+        long rawContactId = RawContactUtil.createRawContact(mResolver, mAccount);
+        Uri rawContactUri = ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId);
+        assertDirty(rawContactUri, false);
+        assertNetworkNotified(true);
+
+        ContentValues values = new ContentValues();
+        values.put(ContactsContract.RawContacts.STARRED, 1);
+        values.put(ContactsContract.RawContacts.ACCOUNT_NAME, mAccount.name);
+        values.put(ContactsContract.RawContacts.ACCOUNT_TYPE, mAccount.type);
+        Uri rawContactId2Uri = mResolver.insert(RawContacts.CONTENT_URI, values);
+        assertDirty(rawContactId2Uri, true);
+        assertNetworkNotified(true);
+    }
+
     public void testRawContactDirtyAndVersion() {
         final long rawContactId = RawContactUtil.createRawContact(mResolver, mAccount);
         Uri uri = ContentUris.withAppendedId(ContactsContract.RawContacts.CONTENT_URI, rawContactId);
@@ -6459,8 +6920,9 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         assertEquals(1, mResolver.update(uri, values, null, null));
         assertEquals(version, getVersion(uri));
 
-        assertDirty(uri, false);
-        assertNetworkNotified(false);
+        // Mark dirty when send_to_voicemail/starred was set.
+        assertDirty(uri, true);
+        assertNetworkNotified(true);
 
         Uri emailUri = insertEmail(rawContactId, "goo@woo.com");
         assertDirty(uri, true);
@@ -6514,6 +6976,167 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         assertNetworkNotified(true);
         version++;
         assertEquals(version, getVersion(uri));
+    }
+
+    public void testNotifyMetadataChangeForRawContactInsertBySyncAdapter() {
+        // Enable metadataSync flag.
+        final ContactsProvider2 cp = (ContactsProvider2) getProvider();
+        cp.setMetadataSyncForTest(true);
+
+        Uri uri = RawContacts.CONTENT_URI.buildUpon()
+                .appendQueryParameter(RawContacts.ACCOUNT_NAME, mAccount.name)
+                .appendQueryParameter(RawContacts.ACCOUNT_TYPE, mAccount.type)
+                .appendQueryParameter(ContactsContract.CALLER_IS_SYNCADAPTER, true + "")
+                .build();
+
+        long rawContactId = ContentUris.parseId(mResolver.insert(uri, new ContentValues()));
+        Uri rawContactUri = ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId);
+        assertMetadataDirty(rawContactUri, false);
+        // If the raw contact is inserted by sync adapter, it will notify metadata change no matter
+        // if there is any metadata change.
+        assertMetadataNetworkNotified(true);
+    }
+
+    public void testMarkAsMetadataDirtyForRawContactMetadataChange() {
+        // Enable metadataSync flag.
+        final ContactsProvider2 cp = (ContactsProvider2) getProvider();
+        cp.setMetadataSyncForTest(true);
+
+        long rawContactId = RawContactUtil.createRawContact(mResolver, mAccount);
+        long contactId = queryContactId(rawContactId);
+        Uri contactUri = ContentUris.withAppendedId(Contacts.CONTENT_URI, contactId);
+
+        ContentValues values = new ContentValues();
+        values.put(Contacts.STARRED, 1);
+        mResolver.update(contactUri, values, null, null);
+        assertStoredValue(contactUri, Contacts.STARRED, 1);
+
+        Uri rawContactUri = ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId);
+        assertMetadataDirty(rawContactUri, true);
+        assertMetadataNetworkNotified(true);
+
+        clearMetadataDirty(rawContactUri);
+        values = new ContentValues();
+        values.put(Contacts.PINNED, 1);
+        mResolver.update(contactUri, values, null, null);
+        assertStoredValue(contactUri, Contacts.PINNED, 1);
+
+        assertMetadataDirty(rawContactUri, true);
+        assertMetadataNetworkNotified(true);
+
+        clearMetadataDirty(rawContactUri);
+        values = new ContentValues();
+        values.put(Contacts.SEND_TO_VOICEMAIL, 1);
+        mResolver.update(contactUri, values, null, null);
+        assertStoredValue(contactUri, Contacts.SEND_TO_VOICEMAIL, 1);
+
+        assertMetadataDirty(rawContactUri, true);
+        assertMetadataNetworkNotified(true);
+    }
+
+    public void testMarkAsMetadataDirtyForRawContactBackupIdChange() {
+        // Enable metadataSync flag.
+        final ContactsProvider2 cp = (ContactsProvider2) getProvider();
+        cp.setMetadataSyncForTest(true);
+
+        long rawContactId = RawContactUtil.createRawContact(mResolver, mAccount);
+        Uri rawContactUri = ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId);
+
+        // Make a metadata change to set metadata_dirty.
+        ContentValues values = new ContentValues();
+        values.put(RawContacts.SEND_TO_VOICEMAIL, "1");
+        mResolver.update(rawContactUri, values, null, null);
+        assertMetadataDirty(rawContactUri, true);
+
+        // Update the backup_id and check metadata network should be notified.
+        values = new ContentValues();
+        values.put(RawContacts.BACKUP_ID, "newBackupId");
+        mResolver.update(rawContactUri, values, null, null);
+        assertStoredValue(rawContactUri, RawContacts.BACKUP_ID, "newBackupId");
+        assertMetadataDirty(rawContactUri, true);
+        assertMetadataNetworkNotified(true);
+    }
+
+    public void testMarkAsMetadataDirtyForAggregationExceptionChange() {
+        // Enable metadataSync flag.
+        final ContactsProvider2 cp = (ContactsProvider2) getProvider();
+        cp.setMetadataSyncForTest(true);
+
+        long rawContactId1 = RawContactUtil.createRawContact(mResolver, new Account("a", "a"));
+        long rawContactId2 = RawContactUtil.createRawContact(mResolver, new Account("b", "b"));
+
+        setAggregationException(AggregationExceptions.TYPE_KEEP_TOGETHER,
+                rawContactId1, rawContactId2);
+
+        assertMetadataDirty(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId1),
+                true);
+        assertMetadataDirty(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId2),
+                true);
+        assertMetadataNetworkNotified(true);
+    }
+
+    public void testMarkAsMetadataDirtyForUsageStatsChange() {
+        // Enable metadataSync flag.
+        final ContactsProvider2 cp = (ContactsProvider2) getProvider();
+        cp.setMetadataSyncForTest(true);
+
+        final long rid1 = RawContactUtil.createRawContactWithName(mResolver, "contact", "a");
+        final long did1a = ContentUris.parseId(insertEmail(rid1, "email_1_a@email.com"));
+        updateDataUsageFeedback(DataUsageFeedback.USAGE_TYPE_LONG_TEXT, did1a);
+
+        assertMetadataDirty(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rid1),
+                true);
+        assertMetadataNetworkNotified(true);
+    }
+
+    public void testMarkAsMetadataDirtyForDataPrimarySettingInsert() {
+        // Enable metadataSync flag.
+        final ContactsProvider2 cp = (ContactsProvider2) getProvider();
+        cp.setMetadataSyncForTest(true);
+
+        long rawContactId1 = RawContactUtil.createRawContact(mResolver, new Account("a", "a"));
+        Uri mailUri11 = insertEmail(rawContactId1, "test1@domain1.com", true, true);
+
+        assertStoredValue(mailUri11, Data.IS_PRIMARY, 1);
+        assertStoredValue(mailUri11, Data.IS_SUPER_PRIMARY, 1);
+        assertMetadataDirty(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId1),
+                true);
+        assertMetadataNetworkNotified(true);
+    }
+
+    public void testMarkAsMetadataDirtyForDataPrimarySettingUpdate() {
+        // Enable metadataSync flag.
+        final ContactsProvider2 cp = (ContactsProvider2) getProvider();
+        cp.setMetadataSyncForTest(true);
+
+        long rawContactId = RawContactUtil.createRawContact(mResolver, new Account("a", "a"));
+        Uri mailUri1 = insertEmail(rawContactId, "test1@domain1.com");
+
+        assertStoredValue(mailUri1, Data.IS_PRIMARY, 0);
+        assertStoredValue(mailUri1, Data.IS_SUPER_PRIMARY, 0);
+
+        ContentValues values = new ContentValues();
+        values.put(Data.IS_SUPER_PRIMARY, 1);
+        mResolver.update(mailUri1, values, null, null);
+
+        assertMetadataDirty(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId),
+                true);
+        assertMetadataNetworkNotified(true);
+    }
+
+    public void testMarkAsMetadataDirtyForDataDelete() {
+        // Enable metadataSync flag.
+        final ContactsProvider2 cp = (ContactsProvider2) getProvider();
+        cp.setMetadataSyncForTest(true);
+
+        long rawContactId = RawContactUtil.createRawContact(mResolver, new Account("a", "a"));
+        Uri mailUri1 = insertEmail(rawContactId, "test1@domain1.com", true, true);
+
+        mResolver.delete(mailUri1, null, null);
+
+        assertMetadataDirty(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId),
+                true);
+        assertMetadataNetworkNotified(true);
     }
 
     public void testDeleteContactWithoutName() {
@@ -7352,21 +7975,23 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         RawContactUtil.createRawContactWithName(mResolver, "Boo", null);
         RawContactUtil.createRawContactWithName(mResolver, "Mary", null);
         RawContactUtil.createRawContactWithName(mResolver, "Roz", null);
+        // Contacts with null display names get sorted to the end (using the number bucket)
+        RawContactUtil.createRawContactWithName(mResolver, null, null);
 
         Cursor cursor = mResolver.query(uri,
                 new String[]{Contacts.DISPLAY_NAME},
                 null, null, Contacts.SORT_KEY_PRIMARY);
 
-        assertFirstLetterValues(cursor, "", "B", "J", "M", "R", "T");
-        assertFirstLetterCounts(cursor,    1,   1,   1,   2,   2,   1);
+        assertFirstLetterValues(cursor, "B", "J", "M", "R", "T", "#");
+        assertFirstLetterCounts(cursor,  1,   1,   2,   2,   1,   2);
         cursor.close();
 
         cursor = mResolver.query(uri,
                 new String[]{Contacts.DISPLAY_NAME},
                 null, null, Contacts.SORT_KEY_ALTERNATIVE + " COLLATE LOCALIZED DESC");
 
-        assertFirstLetterValues(cursor, "W", "S", "R", "M", "B", "");
-        assertFirstLetterCounts(cursor,   1,   2,   1,   1,   2,    1);
+        assertFirstLetterValues(cursor, "#", "W", "S", "R", "M", "B");
+        assertFirstLetterCounts(cursor,  2,   1,   2,   1,   1,   2);
         cursor.close();
     }
 
@@ -8054,6 +8679,15 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         }
     }
 
+    public void testMarkDirtyWhenDataUsageUpdate() {
+        final long rid1 = RawContactUtil.createRawContactWithName(mResolver, "contact", "a");
+        final long did1a = ContentUris.parseId(insertEmail(rid1, "email_1_a@email.com"));
+        updateDataUsageFeedback(DataUsageFeedback.USAGE_TYPE_LONG_TEXT, did1a);
+
+        assertDirty(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rid1), true);
+        assertNetworkNotified(true);
+    }
+
     public void testDataUsageFeedbackAndDelete() {
 
         sMockClock.install();
@@ -8258,6 +8892,17 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
 
         // Clean up
         RawContactUtil.delete(mResolver, ids.mRawContactId, true);
+    }
+
+    public void testContactUpdate_dirtyForMetadataChange() {
+        DatabaseAsserts.ContactIdPair ids = DatabaseAsserts.assertAndCreateContact(mResolver);
+
+        ContentValues values = new ContentValues();
+        values.put(Contacts.PINNED, 1);
+
+        ContactUtil.update(mResolver, ids.mContactId, values);
+        assertDirty(ContentUris.withAppendedId(RawContacts.CONTENT_URI, ids.mRawContactId), true);
+        assertNetworkNotified(true);
     }
 
     public void testContactUpdate_updatesContactUpdatedTimestamp() {
@@ -8828,13 +9473,13 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
                 cv(Contacts._ID, i1.mContactId, Contacts.PINNED, PinnedPositions.UNPINNED)
         );
 
-        ContactsContract.PinnedPositions.pin(mResolver,  i1.mContactId, 5);
+        ContactsContract.PinnedPositions.pin(mResolver, i1.mContactId, 5);
 
         assertStoredValuesWithProjection(Contacts.CONTENT_URI,
                 cv(Contacts._ID, i1.mContactId, Contacts.PINNED, 5)
         );
 
-        ContactsContract.PinnedPositions.pin(mResolver,  i1.mContactId, PinnedPositions.UNPINNED);
+        ContactsContract.PinnedPositions.pin(mResolver, i1.mContactId, PinnedPositions.UNPINNED);
 
         assertStoredValuesWithProjection(Contacts.CONTENT_URI,
                 cv(Contacts._ID, i1.mContactId, Contacts.PINNED, PinnedPositions.UNPINNED)
@@ -8951,9 +9596,9 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
 
     private Cursor queryGroupMemberships(Account account) {
         Cursor c = mResolver.query(TestUtil.maybeAddAccountQueryParameters(Data.CONTENT_URI,
-                account),
-                new String[]{GroupMembership.GROUP_ROW_ID, GroupMembership.RAW_CONTACT_ID},
-                Data.MIMETYPE + "=?", new String[]{GroupMembership.CONTENT_ITEM_TYPE},
+                        account),
+                new String[] {GroupMembership.GROUP_ROW_ID, GroupMembership.RAW_CONTACT_ID},
+                Data.MIMETYPE + "=?", new String[] {GroupMembership.CONTENT_ITEM_TYPE},
                 GroupMembership.GROUP_SOURCE_ID);
         return c;
     }
@@ -9103,7 +9748,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         values.put(Data.DATA12, "twelve");
         values.put(Data.DATA13, "thirteen");
         values.put(Data.DATA14, "fourteen");
-        values.put(Data.DATA15, "fifteen");
+        values.put(Data.DATA15, "fifteen".getBytes());
         values.put(Data.CARRIER_PRESENCE, Data.CARRIER_PRESENCE_VT_CAPABLE);
         values.put(Data.SYNC1, "sync1");
         values.put(Data.SYNC2, "sync2");
@@ -9172,5 +9817,25 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
             }
         }
         return false;
+    }
+
+
+    /**
+     * Asserts the equality of two Uri objects, ignoring the order of the query parameters.
+     */
+    public static void assertUriEquals(Uri expected, Uri actual) {
+        assertEquals(expected.getScheme(), actual.getScheme());
+        assertEquals(expected.getAuthority(), actual.getAuthority());
+        assertEquals(expected.getPath(), actual.getPath());
+        assertEquals(expected.getFragment(), actual.getFragment());
+        Set<String> expectedParameterNames = expected.getQueryParameterNames();
+        Set<String> actualParameterNames = actual.getQueryParameterNames();
+        assertEquals(expectedParameterNames.size(), actualParameterNames.size());
+        assertTrue(expectedParameterNames.containsAll(actualParameterNames));
+        for (String parameterName : expectedParameterNames) {
+            assertEquals(expected.getQueryParameter(parameterName),
+                    actual.getQueryParameter(parameterName));
+        }
+
     }
 }

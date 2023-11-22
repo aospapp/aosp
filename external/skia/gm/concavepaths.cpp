@@ -7,6 +7,7 @@
 
 #include "gm.h"
 #include "SkCanvas.h"
+#include "SkPath.h"
 
 #define WIDTH 400
 #define HEIGHT 600
@@ -387,5 +388,4 @@ private:
     typedef skiagm::GM INHERITED;
 };
 
-static skiagm::GM* F0(void*) { return new ConcavePathsGM; }
-static skiagm::GMRegistry R0(F0);
+DEF_GM( return new ConcavePathsGM; )

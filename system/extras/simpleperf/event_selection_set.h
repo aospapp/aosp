@@ -17,17 +17,27 @@
 #ifndef SIMPLE_PERF_EVENT_SELECTION_SET_H_
 #define SIMPLE_PERF_EVENT_SELECTION_SET_H_
 
-#include <poll.h>
 #include <functional>
 #include <map>
 #include <vector>
 
-#include <base/macros.h>
+#include <android-base/macros.h>
 
 #include "event_fd.h"
+#include "event_type.h"
 #include "perf_event.h"
 
-struct EventType;
+struct CountersInfo {
+  const EventTypeAndModifier* event_type;
+  struct CounterInfo {
+    pid_t tid;
+    int cpu;
+    PerfCounter counter;
+  };
+  std::vector<CounterInfo> counters;
+};
+
+struct pollfd;
 
 // EventSelectionSet helps to monitor events.
 // Firstly, the user creates an EventSelectionSet, and adds the specific event types to monitor.
@@ -47,36 +57,46 @@ class EventSelectionSet {
     return selections_.empty();
   }
 
-  void AddEventType(const EventType& event_type);
+  bool AddEventType(const EventTypeAndModifier& event_type_modifier);
 
-  void EnableOnExec();
+  void SetEnableOnExec(bool enable);
+  bool GetEnableOnExec();
   void SampleIdAll();
   void SetSampleFreq(uint64_t sample_freq);
   void SetSamplePeriod(uint64_t sample_period);
+  bool SetBranchSampling(uint64_t branch_sample_type);
+  void EnableFpCallChainSampling();
+  bool EnableDwarfCallChainSampling(uint32_t dump_stack_size);
+  void SetInherit(bool enable);
 
-  bool OpenEventFilesForAllCpus();
-  bool OpenEventFilesForProcess(pid_t pid);
-  bool EnableEvents();
-  bool ReadCounters(std::map<const EventType*, std::vector<PerfCounter>>* counters_map);
+  bool OpenEventFilesForCpus(const std::vector<int>& cpus);
+  bool OpenEventFilesForThreadsOnCpus(const std::vector<pid_t>& threads, std::vector<int> cpus);
+  bool ReadCounters(std::vector<CountersInfo>* counters);
   void PreparePollForEventFiles(std::vector<pollfd>* pollfds);
   bool MmapEventFiles(size_t mmap_pages);
   bool ReadMmapEventData(std::function<bool(const char*, size_t)> callback);
 
-  std::string FindEventFileNameById(uint64_t id);
-  const perf_event_attr& FindEventAttrByType(const EventType& event_type);
-  const std::vector<std::unique_ptr<EventFd>>& FindEventFdsByType(const EventType& event_type);
+  const perf_event_attr* FindEventAttrByType(const EventTypeAndModifier& event_type_modifier);
+  const std::vector<std::unique_ptr<EventFd>>* FindEventFdsByType(
+      const EventTypeAndModifier& event_type_modifier);
 
  private:
+  void UnionSampleType();
+  bool OpenEventFiles(const std::vector<pid_t>& threads, const std::vector<int>& cpus);
+
   struct EventSelection {
-    const EventType* event_type;
+    EventTypeAndModifier event_type_modifier;
     perf_event_attr event_attr;
     std::vector<std::unique_ptr<EventFd>> event_fds;
   };
-  EventSelection* FindSelectionByType(const EventType& event_type);
+  EventSelection* FindSelectionByType(const EventTypeAndModifier& event_type_modifier);
 
   std::vector<EventSelection> selections_;
 
   DISALLOW_COPY_AND_ASSIGN(EventSelectionSet);
 };
+
+bool IsBranchSamplingSupported();
+bool IsDwarfCallChainSamplingSupported();
 
 #endif  // SIMPLE_PERF_EVENT_SELECTION_SET_H_

@@ -13,18 +13,26 @@
 #include "SkTDArray.h"
 #include "SkTInternalLList.h"
 
-class BatchPlot;
-class GrBatchTarget;
+#include "batches/GrDrawBatch.h"
+
 class GrRectanizer;
 
-typedef SkTInternalLList<BatchPlot> GrBatchPlotList;
+struct GrBatchAtlasConfig {
+    int numPlotsX() const { return fWidth / fPlotWidth; }
+    int numPlotsY() const { return fHeight / fPlotWidth; }
+    int fWidth;
+    int fHeight;
+    int fLog2Width;
+    int fLog2Height;
+    int fPlotWidth;
+    int fPlotHeight;
+};
 
 class GrBatchAtlas {
 public:
-    typedef uint64_t BatchToken;
     // An AtlasID is an opaque handle which callers can use to determine if the atlas contains
     // a specific piece of data
-    typedef uint32_t AtlasID;
+    typedef uint64_t AtlasID;
     static const uint32_t kInvalidAtlasID = 0;
     static const uint64_t kInvalidAtlasGeneration = 0;
 
@@ -38,22 +46,34 @@ public:
 
     // Adds a width x height subimage to the atlas. Upon success it returns
     // the containing GrPlot and absolute location in the backing texture.
-    // NULL is returned if the subimage cannot fit in the atlas.
+    // nullptr is returned if the subimage cannot fit in the atlas.
     // If provided, the image data will be written to the CPU-side backing bitmap.
     // NOTE: If the client intends to refer to the atlas, they should immediately call 'setUseToken'
     // with the currentToken from the batch target, otherwise the next call to addToAtlas might
     // cause an eviction
-    bool addToAtlas(AtlasID*, GrBatchTarget*, int width, int height, const void* image,
+    bool addToAtlas(AtlasID*, GrDrawBatch::Target*, int width, int height, const void* image,
                     SkIPoint16* loc);
 
     GrTexture* getTexture() const { return fTexture; }
 
     uint64_t atlasGeneration() const { return fAtlasGeneration; }
-    bool hasID(AtlasID id);
+
+    inline bool hasID(AtlasID id) {
+        uint32_t index = GetIndexFromID(id);
+        SkASSERT(index < fNumPlots);
+        return fPlotArray[index]->genID() == GetGenerationFromID(id);
+    }
 
     // To ensure the atlas does not evict a given entry, the client must set the last use token
-    void setLastUseToken(AtlasID id, BatchToken batchToken);
-    void registerEvictionCallback(EvictionFunc func, void* userData) {
+    inline void setLastUseToken(AtlasID id, GrBatchToken batchToken) {
+        SkASSERT(this->hasID(id));
+        uint32_t index = GetIndexFromID(id);
+        SkASSERT(index < fNumPlots);
+        this->makeMRU(fPlotArray[index]);
+        fPlotArray[index]->setLastUseToken(batchToken);
+    }
+
+    inline void registerEvictionCallback(EvictionFunc func, void* userData) {
         EvictionData* data = fEvictionCallbacks.append();
         data->fFunc = func;
         data->fData = userData;
@@ -67,6 +87,11 @@ public:
     class BulkUseTokenUpdater {
     public:
         BulkUseTokenUpdater() : fPlotAlreadyUpdated(0) {}
+        BulkUseTokenUpdater(const BulkUseTokenUpdater& that)
+            : fPlotsToUpdate(that.fPlotsToUpdate)
+            , fPlotAlreadyUpdated(that.fPlotAlreadyUpdated) {
+        }
+
         void add(AtlasID id) {
             int index = GrBatchAtlas::GetIndexFromID(id);
             if (!this->find(index)) {
@@ -99,7 +124,14 @@ public:
         friend class GrBatchAtlas;
     };
 
-    void setLastUseTokenBulk(const BulkUseTokenUpdater& reffer, BatchToken);
+    void setLastUseTokenBulk(const BulkUseTokenUpdater& updater, GrBatchToken batchToken) {
+        int count = updater.fPlotsToUpdate.count();
+        for (int i = 0; i < count; i++) {
+            BatchPlot* plot = fPlotArray[updater.fPlotsToUpdate[i]];
+            this->makeMRU(plot);
+            plot->setLastUseToken(batchToken);
+        }
+    }
 
     static const int kGlyphMaxDim = 256;
     static bool GlyphTooLargeForAtlas(int width, int height) {
@@ -107,26 +139,118 @@ public:
     }
 
 private:
-    static int GetIndexFromID(AtlasID id) {
+    // The backing GrTexture for a GrBatchAtlas is broken into a spatial grid of BatchPlots.
+    // The BatchPlots keep track of subimage placement via their GrRectanizer. A BatchPlot
+    // manages the lifetime of its data using two tokens, a last use token and a last upload token.
+    // Once a BatchPlot is "full" (i.e. there is no room for the new subimage according to the
+    // GrRectanizer), it can no longer be used unless the last use of the GrPlot has already been
+    // flushed through to the gpu.
+    class BatchPlot : public SkRefCnt {
+        SK_DECLARE_INTERNAL_LLIST_INTERFACE(BatchPlot);
+
+    public:
+        // index() is a unique id for the plot relative to the owning GrAtlas.  genID() is a
+        // monotonically incremented number which is bumped every time this plot is
+        // evicted from the cache (i.e., there is continuity in genID() across atlas spills).
+        uint32_t index() const { return fIndex; }
+        uint64_t genID() const { return fGenID; }
+        GrBatchAtlas::AtlasID id() const {
+            SkASSERT(GrBatchAtlas::kInvalidAtlasID != fID);
+            return fID;
+        }
+        SkDEBUGCODE(size_t bpp() const { return fBytesPerPixel; })
+
+        bool addSubImage(int width, int height, const void* image, SkIPoint16* loc);
+
+        // To manage the lifetime of a plot, we use two tokens.  We use the last upload token to
+        // know when we can 'piggy back' uploads, ie if the last upload hasn't been flushed to gpu,
+        // we don't need to issue a new upload even if we update the cpu backing store.  We use
+        // lastUse to determine when we can evict a plot from the cache, ie if the last use has
+        // already flushed through the gpu then we can reuse the plot.
+        GrBatchToken lastUploadToken() const { return fLastUpload; }
+        GrBatchToken lastUseToken() const { return fLastUse; }
+        void setLastUploadToken(GrBatchToken batchToken) {
+            SkASSERT(batchToken >= fLastUpload);
+            fLastUpload = batchToken;
+        }
+        void setLastUseToken(GrBatchToken batchToken) {
+            SkASSERT(batchToken >= fLastUse);
+            fLastUse = batchToken;
+        }
+
+        void uploadToTexture(GrBatchUploader::TextureUploader* uploader, GrTexture* texture);
+        void resetRects();
+
+    private:
+        BatchPlot(int index, uint64_t genID, int offX, int offY, int width, int height,
+                  GrPixelConfig config);
+
+        ~BatchPlot() override;
+
+        // Create a clone of this plot. The cloned plot will take the place of the
+        // current plot in the atlas.
+        BatchPlot* clone() const {
+            return new BatchPlot(fIndex, fGenID+1, fX, fY, fWidth, fHeight, fConfig);
+        }
+
+        static GrBatchAtlas::AtlasID CreateId(uint32_t index, uint64_t generation) {
+            SkASSERT(index < (1 << 16));
+            SkASSERT(generation < ((uint64_t)1 << 48));
+            return generation << 16 | index;
+        }
+
+        GrBatchToken          fLastUpload;
+        GrBatchToken          fLastUse;
+
+        const uint32_t        fIndex;
+        uint64_t              fGenID;
+        GrBatchAtlas::AtlasID fID;
+        unsigned char*        fData;
+        const int             fWidth;
+        const int             fHeight;
+        const int             fX;
+        const int             fY;
+        GrRectanizer*         fRects;
+        const SkIPoint16      fOffset;        // the offset of the plot in the backing texture
+        const GrPixelConfig   fConfig;
+        const size_t          fBytesPerPixel;
+        SkIRect               fDirtyRect;
+        SkDEBUGCODE(bool      fDirty;)
+
+        friend class GrBatchAtlas;
+
+        typedef SkRefCnt INHERITED;
+    };
+
+    typedef SkTInternalLList<BatchPlot> GrBatchPlotList;
+
+    static uint32_t GetIndexFromID(AtlasID id) {
         return id & 0xffff;
     }
 
-    static int GetGenerationFromID(AtlasID id) {
-        return (id >> 16) & 0xffff;
+    // top 48 bits are reserved for the generation ID
+    static uint64_t GetGenerationFromID(AtlasID id) {
+        return (id >> 16) & 0xffffffffffff;
     }
 
-    inline void updatePlot(GrBatchTarget*, AtlasID*, BatchPlot*);
+    inline void updatePlot(GrDrawBatch::Target*, AtlasID*, BatchPlot*);
 
-    inline void makeMRU(BatchPlot* plot);
+    inline void makeMRU(BatchPlot* plot) {
+        if (fPlotList.head() == plot) {
+            return;
+        }
+
+        fPlotList.remove(plot);
+        fPlotList.addToHead(plot);
+    }
 
     inline void processEviction(AtlasID);
 
+    friend class GrPlotUploader; // to access GrBatchPlot
+
     GrTexture* fTexture;
-    int fNumPlotsX;
-    int fNumPlotsY;
-    int fPlotWidth;
-    int fPlotHeight;
-    size_t fBPP;
+    SkDEBUGCODE(uint32_t fNumPlots;)
+
     uint64_t fAtlasGeneration;
 
     struct EvictionData {

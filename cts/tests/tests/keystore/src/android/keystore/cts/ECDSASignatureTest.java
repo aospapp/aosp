@@ -20,7 +20,7 @@ import android.content.Context;
 import android.security.keystore.KeyProtection;
 import android.test.AndroidTestCase;
 
-import com.android.cts.keystore.R;
+import android.keystore.cts.R;
 
 import java.security.KeyPair;
 import java.security.Security;

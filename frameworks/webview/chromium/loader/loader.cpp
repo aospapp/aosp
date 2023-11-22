@@ -31,6 +31,7 @@
 
 #include <jni.h>
 #include <android/dlext.h>
+#include <nativeloader/native_loader.h>
 #include <utils/Log.h>
 
 #define NELEM(x) ((int) (sizeof(x) / sizeof((x)[0])))
@@ -45,6 +46,7 @@ jint LIBLOAD_SUCCESS;
 jint LIBLOAD_FAILED_TO_OPEN_RELRO_FILE;
 jint LIBLOAD_FAILED_TO_LOAD_LIBRARY;
 jint LIBLOAD_FAILED_JNI_CALL;
+jint LIBLOAD_FAILED_TO_FIND_NAMESPACE;
 
 jboolean DoReserveAddressSpace(jlong size) {
   size_t vsize = static_cast<size_t>(size);
@@ -103,17 +105,26 @@ jboolean DoCreateRelroFile(const char* lib, const char* relro) {
   return JNI_TRUE;
 }
 
-jint DoLoadWithRelroFile(const char* lib, const char* relro) {
+jint DoLoadWithRelroFile(JNIEnv* env, const char* lib, const char* relro,
+                         jobject clazzLoader) {
   int relro_fd = TEMP_FAILURE_RETRY(open(relro, O_RDONLY));
   if (relro_fd == -1) {
     ALOGE("Failed to open relro file %s: %s", relro, strerror(errno));
     return LIBLOAD_FAILED_TO_OPEN_RELRO_FILE;
   }
+  android_namespace_t* ns =
+      android::FindNamespaceByClassLoader(env, clazzLoader);
+  if (ns == NULL) {
+    ALOGE("Failed to find classloader namespace");
+    return LIBLOAD_FAILED_TO_FIND_NAMESPACE;
+  }
   android_dlextinfo extinfo;
-  extinfo.flags = ANDROID_DLEXT_RESERVED_ADDRESS | ANDROID_DLEXT_USE_RELRO;
+  extinfo.flags = ANDROID_DLEXT_RESERVED_ADDRESS | ANDROID_DLEXT_USE_RELRO |
+                  ANDROID_DLEXT_USE_NAMESPACE;
   extinfo.reserved_addr = gReservedAddress;
   extinfo.reserved_size = gReservedSize;
   extinfo.relro_fd = relro_fd;
+  extinfo.library_namespace = ns;
   void* handle = android_dlopen_ext(lib, RTLD_NOW, &extinfo);
   close(relro_fd);
   if (handle == NULL) {
@@ -157,7 +168,7 @@ jboolean CreateRelroFile(JNIEnv* env, jclass, jstring lib32, jstring lib64,
 }
 
 jint LoadWithRelroFile(JNIEnv* env, jclass, jstring lib32, jstring lib64,
-                           jstring relro32, jstring relro64) {
+                       jstring relro32, jstring relro64, jobject clazzLoader) {
 #ifdef __LP64__
   jstring lib = lib64;
   jstring relro = relro64;
@@ -172,7 +183,7 @@ jint LoadWithRelroFile(JNIEnv* env, jclass, jstring lib32, jstring lib64,
   if (lib_utf8 != NULL) {
     const char* relro_utf8 = env->GetStringUTFChars(relro, NULL);
     if (relro_utf8 != NULL) {
-      ret = DoLoadWithRelroFile(lib_utf8, relro_utf8);
+      ret = DoLoadWithRelroFile(env, lib_utf8, relro_utf8, clazzLoader);
       env->ReleaseStringUTFChars(relro, relro_utf8);
     }
     env->ReleaseStringUTFChars(lib, lib_utf8);
@@ -188,7 +199,7 @@ const JNINativeMethod kJniMethods[] = {
       "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Z",
       reinterpret_cast<void*>(CreateRelroFile) },
   { "nativeLoadWithRelroFile",
-      "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I",
+      "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/ClassLoader;)I",
       reinterpret_cast<void*>(LoadWithRelroFile) },
 };
 
@@ -216,6 +227,10 @@ void RegisterWebViewFactory(JNIEnv* env) {
     LIBLOAD_FAILED_JNI_CALL = env->GetStaticIntField(
         clazz,
         env->GetStaticFieldID(clazz, "LIBLOAD_FAILED_JNI_CALL", "I"));
+
+    LIBLOAD_FAILED_TO_FIND_NAMESPACE = env->GetStaticIntField(
+        clazz,
+        env->GetStaticFieldID(clazz, "LIBLOAD_FAILED_TO_FIND_NAMESPACE", "I"));
   }
 }
 

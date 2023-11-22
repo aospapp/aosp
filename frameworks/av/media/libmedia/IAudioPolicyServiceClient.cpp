@@ -30,9 +30,25 @@ namespace android {
 enum {
     PORT_LIST_UPDATE = IBinder::FIRST_CALL_TRANSACTION,
     PATCH_LIST_UPDATE,
-    MIX_STATE_UPDATE
+    MIX_STATE_UPDATE,
+    RECORDING_CONFIGURATION_UPDATE
 };
 
+// ----------------------------------------------------------------------
+inline void readAudioConfigBaseFromParcel(const Parcel& data, audio_config_base_t *config) {
+    config->sample_rate = data.readUint32();
+    config->channel_mask = (audio_channel_mask_t) data.readInt32();
+    config->format = (audio_format_t) data.readInt32();
+}
+
+inline void writeAudioConfigBaseToParcel(Parcel& data, const audio_config_base_t *config)
+{
+    data.writeUint32(config->sample_rate);
+    data.writeInt32((int32_t) config->channel_mask);
+    data.writeInt32((int32_t) config->format);
+}
+
+// ----------------------------------------------------------------------
 class BpAudioPolicyServiceClient : public BpInterface<IAudioPolicyServiceClient>
 {
 public:
@@ -63,6 +79,20 @@ public:
         data.writeInt32(state);
         remote()->transact(MIX_STATE_UPDATE, data, &reply, IBinder::FLAG_ONEWAY);
     }
+
+    void onRecordingConfigurationUpdate(int event, audio_session_t session,
+            audio_source_t source, const audio_config_base_t *clientConfig,
+            const audio_config_base_t *deviceConfig, audio_patch_handle_t patchHandle) {
+        Parcel data, reply;
+        data.writeInterfaceToken(IAudioPolicyServiceClient::getInterfaceDescriptor());
+        data.writeInt32(event);
+        data.writeInt32(session);
+        data.writeInt32(source);
+        writeAudioConfigBaseToParcel(data, clientConfig);
+        writeAudioConfigBaseToParcel(data, deviceConfig);
+        data.writeInt32(patchHandle);
+        remote()->transact(RECORDING_CONFIGURATION_UPDATE, data, &reply, IBinder::FLAG_ONEWAY);
+    }
 };
 
 IMPLEMENT_META_INTERFACE(AudioPolicyServiceClient, "android.media.IAudioPolicyServiceClient");
@@ -89,7 +119,21 @@ status_t BnAudioPolicyServiceClient::onTransact(
             int32_t state = data.readInt32();
             onDynamicPolicyMixStateUpdate(regId, state);
             return NO_ERROR;
-    }
+        } break;
+    case RECORDING_CONFIGURATION_UPDATE: {
+            CHECK_INTERFACE(IAudioPolicyServiceClient, data, reply);
+            int event = (int) data.readInt32();
+            audio_session_t session = (audio_session_t) data.readInt32();
+            audio_source_t source = (audio_source_t) data.readInt32();
+            audio_config_base_t clientConfig;
+            audio_config_base_t deviceConfig;
+            readAudioConfigBaseFromParcel(data, &clientConfig);
+            readAudioConfigBaseFromParcel(data, &deviceConfig);
+            audio_patch_handle_t patchHandle = (audio_patch_handle_t) data.readInt32();
+            onRecordingConfigurationUpdate(event, session, source, &clientConfig, &deviceConfig,
+                    patchHandle);
+            return NO_ERROR;
+        } break;
     default:
         return BBinder::onTransact(code, data, reply, flags);
     }

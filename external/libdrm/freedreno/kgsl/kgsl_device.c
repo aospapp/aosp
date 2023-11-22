@@ -42,14 +42,14 @@ static void kgsl_device_destroy(struct fd_device *dev)
 	free(kgsl_dev);
 }
 
-static struct fd_device_funcs funcs = {
+static const struct fd_device_funcs funcs = {
 		.bo_new_handle = kgsl_bo_new_handle,
 		.bo_from_handle = kgsl_bo_from_handle,
 		.pipe_new = kgsl_pipe_new,
 		.destroy = kgsl_device_destroy,
 };
 
-struct fd_device * kgsl_device_new(int fd)
+drm_private struct fd_device * kgsl_device_new(int fd)
 {
 	struct kgsl_device *kgsl_dev;
 	struct fd_device *dev;

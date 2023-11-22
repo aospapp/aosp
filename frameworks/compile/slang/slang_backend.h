@@ -24,8 +24,9 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "slang.h"
-#include "slang_pragma_recorder.h"
+#include "slang_pragma_list.h"
 #include "slang_rs_check_ast.h"
+#include "slang_rs_foreach_lowering.h"
 #include "slang_rs_object_ref_count.h"
 #include "slang_version.h"
 
@@ -44,6 +45,8 @@ namespace clang {
   class DeclGroupRef;
   class DiagnosticsEngine;
   class FunctionDecl;
+  class HeaderSearchOptions;
+  class PreprocessorOptions;
   class TagDecl;
   class TargetOptions;
   class VarDecl;
@@ -81,11 +84,11 @@ class Backend : public clang::ASTConsumer {
   void CreateModulePasses();
   bool CreateCodeGenPasses();
 
-  void WrapBitcode(llvm::raw_string_ostream &Bitcode);
-
   RSContext *mContext;
 
   clang::SourceManager &mSourceMgr;
+
+  bool mASTPrint;
 
   bool mAllowRSPrefix;
 
@@ -95,6 +98,7 @@ class Backend : public clang::ASTConsumer {
   llvm::NamedMDNode *mExportFuncMetadata;
   llvm::NamedMDNode *mExportForEachNameMetadata;
   llvm::NamedMDNode *mExportForEachSignatureMetadata;
+  llvm::NamedMDNode *mExportReduceMetadata;
   llvm::NamedMDNode *mExportTypeMetadata;
   llvm::NamedMDNode *mRSObjectSlotsMetadata;
 
@@ -102,12 +106,22 @@ class Backend : public clang::ASTConsumer {
 
   RSCheckAST mASTChecker;
 
+  RSForEachLowering mForEachHandler;
+
   void AnnotateFunction(clang::FunctionDecl *FD);
 
   void dumpExportVarInfo(llvm::Module *M);
   void dumpExportFunctionInfo(llvm::Module *M);
   void dumpExportForEachInfo(llvm::Module *M);
+  void dumpExportReduceInfo(llvm::Module *M);
   void dumpExportTypeInfo(llvm::Module *M);
+
+  // Translates any rsForEach() or rsForEachWithOptions() calls inside the body
+  // of FD to lower-level runtime calls to rsForEachInternal(), if FD is not a
+  // kernel function itself, as indicated by isKernel being false. If isKernel
+  // is true, reports an error on any calls to rsForEach() or
+  // rsForEachWithOptions().
+  void LowerRSForEachCall(clang::FunctionDecl* FD, bool isKernel);
 
  protected:
   llvm::LLVMContext &mLLVMContext;
@@ -136,6 +150,9 @@ class Backend : public clang::ASTConsumer {
  public:
   Backend(RSContext *Context,
             clang::DiagnosticsEngine *DiagEngine,
+            const RSCCOptions &Opts,
+            const clang::HeaderSearchOptions &HeaderSearchOpts,
+            const clang::PreprocessorOptions &PreprocessorOpts,
             const clang::CodeGenOptions &CodeGenOpts,
             const clang::TargetOptions &TargetOpts,
             PragmaList *Pragmas,

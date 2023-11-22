@@ -34,7 +34,6 @@
     <string name="password_empty_error" msgid="591713406761723025">"הקלד את הסיסמה."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"הקלד שם."</string>
     <string name="name_char_error" msgid="3176618568784938968">"הקלד שם שמכיל רק אותיות ומספרים."</string>
-    <string name="storage_error" msgid="8306802455802770779">"לא ניתן לשמור את האישור. גע ב\'אישור\' כדי לנסות שוב."</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"לא ניתן לשמור את האישור. אחסון האישורים לא מאופשר או שלא אותחל כראוי."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"האישור לא מותקן."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"אין אישור להתקנה."</string>

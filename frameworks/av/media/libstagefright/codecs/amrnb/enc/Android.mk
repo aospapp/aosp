@@ -70,6 +70,9 @@ LOCAL_CFLAGS := \
         -D"OSCL_UNUSED_ARG(x)=(void)(x)"
 
 LOCAL_CFLAGS += -Werror
+LOCAL_CLANG := true
+#addressing b/25409744
+#LOCAL_SANITIZE := signed-integer-overflow
 
 LOCAL_MODULE := libstagefright_amrnbenc
 
@@ -91,6 +94,9 @@ LOCAL_C_INCLUDES := \
         $(LOCAL_PATH)/../common
 
 LOCAL_CFLAGS += -Werror
+LOCAL_CLANG := true
+#addressing b/25409744
+#LOCAL_SANITIZE := signed-integer-overflow
 
 LOCAL_STATIC_LIBRARIES := \
         libstagefright_amrnbenc
@@ -103,3 +109,29 @@ LOCAL_MODULE := libstagefright_soft_amrnbenc
 LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_SHARED_LIBRARY)
+
+################################################################################
+
+include $(CLEAR_VARS)
+LOCAL_SRC_FILES := \
+    test/amrnb_enc_test.cpp
+
+LOCAL_C_INCLUDES := \
+    $(LOCAL_PATH)/src \
+    $(LOCAL_PATH)/../common/include
+
+
+LOCAL_STATIC_LIBRARIES := \
+    libstagefright_amrnbenc
+
+LOCAL_SHARED_LIBRARIES := \
+    libstagefright_amrnb_common
+
+LOCAL_CLANG := true
+#addressing b/25409744
+#LOCAL_SANITIZE := signed-integer-overflow
+
+LOCAL_MODULE := libstagefright_amrnbenc_test
+LOCAL_MODULE_TAGS := tests
+
+include $(BUILD_EXECUTABLE)

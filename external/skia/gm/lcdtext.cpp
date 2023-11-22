@@ -27,7 +27,9 @@ public:
 protected:
     
     SkString onShortName() {
-        return SkString("lcdtext");
+        SkString name("lcdtext");
+        name.append(sk_tool_utils::major_platform_os_name());
+        return name;
     }
     
     SkISize onISize() { return SkISize::Make(640, 480); }
@@ -51,7 +53,6 @@ protected:
         paint.setColor(SK_ColorBLACK);
         paint.setDither(true);
         paint.setAntiAlias(true);
-        sk_tool_utils::set_portable_typeface(&paint);
         paint.setSubpixelText(subpixelTextEnabled);
         paint.setLCDRenderText(lcdRenderTextEnabled);
         paint.setTextSize(textHeight);
@@ -125,6 +126,33 @@ protected:
 private:
     typedef skiagm::GM INHERITED;
 };
-
 DEF_GM( return new LcdTextGM; )
 DEF_GM( return new LcdTextSizeGM; )
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+DEF_SIMPLE_GM(savelayer_lcdtext, canvas, 620, 260) {
+    SkPaint paint;
+    paint.setAntiAlias(true);
+    paint.setLCDRenderText(true);
+    paint.setTextSize(20);
+
+    canvas->drawText("Hamburgefons", 12, 30, 30, paint);
+
+    const bool gPreserveLCDText[] = { false, true };
+
+    canvas->translate(0, 20);
+    for (auto preserve : gPreserveLCDText) {
+        preserve ? canvas->saveLayerPreserveLCDTextRequests(nullptr, nullptr)
+                 : canvas->saveLayer(nullptr, nullptr);
+        canvas->drawText("Hamburgefons", 12, 30, 60, paint);
+
+        SkPaint p;
+        p.setColor(0xFFCCCCCC);
+        canvas->drawRect(SkRect::MakeLTRB(25, 70, 200, 100), p);
+        canvas->drawText("Hamburgefons", 12, 30, 90, paint);
+
+        canvas->restore();
+        canvas->translate(0, 80);
+    }
+}

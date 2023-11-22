@@ -15,8 +15,8 @@
  */
 package android.uirendering.cts.bitmapcomparers;
 
-import com.android.cts.uirendering.R;
-import com.android.cts.uirendering.ScriptC_ExactComparer;
+import android.uirendering.cts.R;
+import android.uirendering.cts.ScriptC_ExactComparer;
 
 import android.content.res.Resources;
 import android.renderscript.Allocation;

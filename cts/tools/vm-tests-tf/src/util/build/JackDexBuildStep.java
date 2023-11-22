@@ -16,11 +16,8 @@
 
 package util.build;
 
-import com.android.jack.Jack;
-import com.android.jack.Main;
-import com.android.jack.Options;
-
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,7 +38,7 @@ public class JackDexBuildStep extends BuildStep {
             String outputFilePath = outputFile.fileName.getAbsolutePath();
             if (outputFilePath.endsWith(".dex")) {
               throw new AssertionError(
-                  "DexBuildStep does not support dex output outside of an archive");
+                  "JackDexBuildStep does not support dex output outside of an archive");
             }
 
             File outDir = outputFile.fileName.getParentFile();
@@ -51,17 +48,39 @@ public class JackDexBuildStep extends BuildStep {
                 return false;
             }
 
-            List<String> commandLine = new ArrayList<String>(4);
-            commandLine.add("--verbose");
-            commandLine.add("error");
-            commandLine.add("--output-dex-zip");
-            commandLine.add(outputFilePath);
-            commandLine.add("--import");
-            commandLine.add(inputFile.fileName.getAbsolutePath());
+            File tmpOutDir = new File(outDir, outputFile.fileName.getName() + ".dexTmp");
+            if (!tmpOutDir.exists() && !tmpOutDir.mkdirs()) {
+                System.err.println("failed to create temp dir: "
+                        + tmpOutDir.getAbsolutePath());
+                return false;
+            }
+            File tmpDex = new File(tmpOutDir, "classes.dex");
 
             try {
-               Options options = Main.parseCommandLine(commandLine);
-               Jack.checkAndRun(options);
+                List<String> commandLine = new ArrayList<String>(4);
+                commandLine.add("--verbose");
+                commandLine.add("error");
+                commandLine.add("--output-dex");
+                commandLine.add(tmpOutDir.getAbsolutePath());
+                commandLine.add("--import");
+                commandLine.add(inputFile.fileName.getAbsolutePath());
+
+                ExecuteFile exec = new ExecuteFile(JackBuildDalvikSuite.JACK,
+                    commandLine.toArray(new String[commandLine.size()]));
+                exec.setErr(System.err);
+                exec.setOut(System.out);
+                if (!exec.run()) {
+                  return false;
+                }
+
+                JarBuildStep jarStep = new JarBuildStep(
+                    new BuildFile(tmpDex),
+                    "classes.dex",
+                    outputFile,
+                    /* deleteInputFileAfterBuild = */ true);
+                if (!jarStep.build()) {
+                  throw new IOException("Failed to make jar: " + outputFile.getPath());
+                }
                 if (deleteInputFileAfterBuild) {
                     inputFile.fileName.delete();
                 }
@@ -71,6 +90,9 @@ public class JackDexBuildStep extends BuildStep {
                         + inputFile.fileName.getAbsolutePath() + " to "
                         + outputFile.fileName.getAbsolutePath());
                 ex.printStackTrace();
+            } finally {
+              tmpDex.delete();
+              tmpOutDir.delete();
             }
         }
         return false;

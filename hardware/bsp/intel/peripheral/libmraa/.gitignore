@@ -1,0 +1,22 @@
+build/
+
+# Object files
+*.o
+*.lib
+*.so
+*.lo
+*.la
+*.pyc
+
+# Temp files
+*.swp
+*.swo
+*~
+
+# npmpub files
+src/mraajsJAVASCRIPT_wrap.cxx
+src/version.c
+package.json
+binding.gyp
+READMEFIRST
+npm-debug.log

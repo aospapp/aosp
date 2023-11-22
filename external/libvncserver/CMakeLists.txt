@@ -11,17 +11,20 @@ include(CheckCSourceRuns)
 
 set(PACKAGE_NAME           "LibVNCServer")
 set(FULL_PACKAGE_NAME      "LibVNCServer")
-set(PACKAGE_VERSION        "0.9.9")
+set(PACKAGE_VERSION        "0.9.10")
+set(VERSION_MAJOR          "0")
+set(VERSION_MINOR          "9")
+set(VERSION_PATCHLEVEL     "10")
 set(PROJECT_BUGREPORT_PATH "http://sourceforge.net/projects/libvncserver")
 set(CMAKE_C_FLAGS "-O2 -W -Wall -g")
-set(LIBVNCSERVER_DIR ${CMAKE_SOURCE_DIR}/libvncserver)
-set(COMMON_DIR ${CMAKE_SOURCE_DIR}/common)
-set(LIBVNCCLIENT_DIR ${CMAKE_SOURCE_DIR}/libvncclient)
-set(LIBVNCSRVTEST_DIR ${CMAKE_SOURCE_DIR}/examples)
-set(LIBVNCCLITEST_DIR ${CMAKE_SOURCE_DIR}/client_examples)
+set(LIBVNCSERVER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libvncserver)
+set(COMMON_DIR ${CMAKE_CURRENT_SOURCE_DIR}/common)
+set(LIBVNCCLIENT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libvncclient)
+set(LIBVNCSRVTEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/examples)
+set(LIBVNCCLITEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/client_examples)
 
 
-include_directories(${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/libvncserver ${CMAKE_SOURCE_DIR}/common)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/libvncserver ${CMAKE_CURRENT_SOURCE_DIR}/common)
 
 find_package(ZLIB)
 find_package(JPEG)
@@ -67,14 +70,25 @@ if(NOT FOUND_LIBJPEG_TURBO)
   message(WARNING "*** The libjpeg library you are building against is not libjpeg-turbo.  Performance will be reduced.  You can obtain libjpeg-turbo from:  https://sourceforge.net/projects/libjpeg-turbo/files/ ***")
 endif()
 
-set(CMAKE_REQUIRED_LIBRARIES resolv)
-check_function_exists(__b64_ntop HAVE_B64)
+# On systems such as GNU/Linux with glibc, __b64_ntop is defined in a
+# separate library, libresolv. On some others, such as FreeBSD, it is
+# part of libc itself. We first check if __b64_ntop is found without
+# additional libraries, and then try looking for it with libresolv if
+# the first test fails.
+check_function_exists(__b64_ntop HAVE_B64_IN_LIBC)
+if(NOT HAVE_B64_IN_LIBC)
+    set(CMAKE_REQUIRED_LIBRARIES resolv)
+    check_function_exists(__b64_ntop HAVE_B64_IN_LIBRESOLV)
+    set(CMAKE_REQUIRED_LIBRARIES)
+
+    if(HAVE_B64_IN_LIBRESOLV)
+        set(RESOLV_LIB "resolv")
+    endif(HAVE_B64_IN_LIBRESOLV)
+endif(NOT HAVE_B64_IN_LIBC)
 
 if(Threads_FOUND)
   option(TIGHTVNC_FILETRANSFER "Enable filetransfer" ON)
 endif(Threads_FOUND)
-if (HAVE_B64)
-endif(HAVE_B64)
 if(ZLIB_FOUND)
   set(LIBVNCSERVER_HAVE_LIBZ 1)
 endif(ZLIB_FOUND)
@@ -89,26 +103,29 @@ option(LIBVNCSERVER_ALLOW24BPP "Allow 24 bpp" ON)
 if(GNUTLS_FOUND)
   set(LIBVNCSERVER_WITH_CLIENT_TLS 1)
   option(LIBVNCSERVER_WITH_WEBSOCKETS "Build with websockets support (gnutls)" ON)
-  set(WEBSOCKET_LIBRARIES -lresolv ${GNUTLS_LIBRARIES})
+  set(WEBSOCKET_LIBRARIES ${RESOLV_LIB} ${GNUTLS_LIBRARIES})
   set(WSSRCS ${LIBVNCSERVER_DIR}/rfbssl_gnutls ${LIBVNCSERVER_DIR}/rfbcrypto_gnutls)
 elseif(OPENSSL_FOUND)
   option(LIBVNCSERVER_WITH_WEBSOCKETS "Build with websockets support (openssl)" ON)
-  set(WEBSOCKET_LIBRARIES -lresolv ${OPENSSL_LIBRARIES})
+  set(WEBSOCKET_LIBRARIES ${RESOLV_LIB} ${OPENSSL_LIBRARIES})
   set(WSSRCS ${LIBVNCSERVER_DIR}/rfbssl_openssl ${LIBVNCSERVER_DIR}/rfbcrypto_openssl)
 else()
   option(LIBVNCSERVER_WITH_WEBSOCKETS "Build with websockets support (no ssl)" ON)
-  set(WEBSOCKET_LIBRARIES -lresolv)
+  set(WEBSOCKET_LIBRARIES ${RESOLV_LIB})
   set(WSSRCS ${LIBVNCSERVER_DIR}/rfbssl_none.c ${LIBVNCSERVER_DIR}/rfbcrypto_included.c ${COMMON_DIR}/md5.c ${COMMON_DIR}/sha1.c)
 endif()
 
 if(LIBGCRYPT_LIBRARIES)
   message(STATUS "Found libgcrypt: ${LIBGCRYPT_LIBRARIES}")
   set(LIBVNCSERVER_WITH_CLIENT_GCRYPT 1)
+  set(ADDITIONAL_LIBS ${ADDITIONAL_LIBS} ${LIBGCRYPT_LIBRARIES})
 endif(LIBGCRYPT_LIBRARIES)
 
 
+check_include_file("endian.h"      LIBVNCSERVER_HAVE_ENDIAN_H)
 check_include_file("fcntl.h"       LIBVNCSERVER_HAVE_FCNTL_H)
 check_include_file("netinet/in.h"  LIBVNCSERVER_HAVE_NETINET_IN_H)
+check_include_file("sys/endian.h"  LIBVNCSERVER_HAVE_SYS_ENDIAN_H)
 check_include_file("sys/socket.h"  LIBVNCSERVER_HAVE_SYS_SOCKET_H)
 check_include_file("sys/stat.h"    LIBVNCSERVER_HAVE_SYS_STAT_H)
 check_include_file("sys/time.h"    LIBVNCSERVER_HAVE_SYS_TIME_H)
@@ -150,8 +167,8 @@ TEST_BIG_ENDIAN(LIBVNCSERVER_WORDS_BIGENDIAN)
 # LIBVNCSERVER_ENOENT_WORKAROUND
 # inline
 
-configure_file(${CMAKE_SOURCE_DIR}/rfb/rfbconfig.h.cmake ${CMAKE_BINARY_DIR}/rfb/rfbconfig.h)
-configure_file(${CMAKE_SOURCE_DIR}/rfb/rfbint.h.cmake ${CMAKE_BINARY_DIR}/rfb/rfbint.h)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/rfb/rfbconfig.h.cmake ${CMAKE_BINARY_DIR}/rfb/rfbconfig.h)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/rfb/rfbint.h.cmake ${CMAKE_BINARY_DIR}/rfb/rfbint.h)
 
 set(LIBVNCSERVER_SOURCES
     ${LIBVNCSERVER_DIR}/main.c
@@ -256,13 +273,14 @@ endif(LIBVNCSERVER_WITH_WEBSOCKETS)
 add_library(vncclient SHARED ${LIBVNCCLIENT_SOURCES})
 add_library(vncserver SHARED ${LIBVNCSERVER_SOURCES})
 if(WIN32)
-  set(ADDITIONAL_LIBS ws2_32)
+  set(ADDITIONAL_LIBS ${ADDITIONAL_LIBS} ws2_32)
 endif(WIN32)
 
 target_link_libraries(vncclient
                       ${ADDITIONAL_LIBS}
                       ${ZLIB_LIBRARIES}
                       ${JPEG_LIBRARIES}
+                      ${GNUTLS_LIBRARIES}
 )
 target_link_libraries(vncserver
                       ${ADDITIONAL_LIBS}
@@ -336,16 +354,16 @@ if(HAVE_FFMPEG)
 endif(HAVE_FFMPEG)
 
 
-file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/examples)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/examples)
 foreach(test ${LIBVNCSERVER_TESTS})
   add_executable(examples/${test} ${LIBVNCSRVTEST_DIR}/${test}.c)
   target_link_libraries(examples/${test} vncserver ${CMAKE_THREAD_LIBS_INIT})
 endforeach(test ${LIBVNCSERVER_TESTS})
 
-file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/client_examples)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/client_examples)
 foreach(test ${LIBVNCCLIENT_TESTS})
   add_executable(client_examples/${test} ${LIBVNCCLITEST_DIR}/${test}.c ${LIBVNCCLITEST_DIR}/${${test}_EXTRA_SOURCES} )
-  target_link_libraries(client_examples/${test} vncclient ${CMAKE_THREAD_LIBS_INIT} ${GNUTLS_LIBRARIES} ${X11_LIBRARIES} ${SDL_LIBRARY} ${FFMPEG_LIBRARIES})
+  target_link_libraries(client_examples/${test} vncclient ${CMAKE_THREAD_LIBS_INIT} ${X11_LIBRARIES} ${SDL_LIBRARY} ${FFMPEG_LIBRARIES})
 endforeach(test ${LIBVNCCLIENT_TESTS})
 
 install_targets(/lib vncserver)

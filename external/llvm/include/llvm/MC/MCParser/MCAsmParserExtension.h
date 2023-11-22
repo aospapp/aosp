@@ -48,7 +48,7 @@ public:
   /// parsing routines.
   virtual void Initialize(MCAsmParser &Parser);
 
-  /// @name MCAsmParser Proxy Interfaces
+  /// \name MCAsmParser Proxy Interfaces
   /// @{
 
   MCContext &getContext() { return getParser().getContext(); }
@@ -70,6 +70,9 @@ public:
   }
   bool Error(SMLoc L, const Twine &Msg) {
     return getParser().Error(L, Msg);
+  }
+  void Note(SMLoc L, const Twine &Msg) {
+    getParser().Note(L, Msg);
   }
   bool TokError(const Twine &Msg) {
     return getParser().TokError(Msg);

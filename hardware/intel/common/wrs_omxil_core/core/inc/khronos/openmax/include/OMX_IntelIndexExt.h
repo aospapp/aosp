@@ -74,6 +74,7 @@ typedef enum OMX_INTELINDEXEXTTYPE {
 #ifdef TARGET_HAS_ISV
     OMX_IndexExtVppBufferNum,                       /**<reference: vpp buffer number*/
 #endif
+    OMX_IndexExtAllocateNativeHandle,               /**<reference: AllocateNativeHandle */
     OMX_IntelIndexExtMax = 0x7FFFFFFF
 } OMX_INTELINDEXEXTTYPE;
 

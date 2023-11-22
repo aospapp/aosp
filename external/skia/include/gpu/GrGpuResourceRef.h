@@ -36,8 +36,6 @@
  */
 class GrGpuResourceRef : SkNoncopyable {
 public:
-    SK_DECLARE_INST_COUNT(GrGpuResourceRef);
-
     ~GrGpuResourceRef();
 
     GrGpuResource* getResource() const { return fResource; }
@@ -184,7 +182,11 @@ public:
         this->release();
     }
 
-    operator bool() const { return SkToBool(fResource); }
+    explicit operator bool() const { return SkToBool(fResource); }
+
+    bool operator==(const GrPendingIOResource& other) const {
+        return fResource == other.fResource;
+    }
 
     T* get() const { return fResource; }
 

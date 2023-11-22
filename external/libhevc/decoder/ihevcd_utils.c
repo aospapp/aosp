@@ -163,59 +163,6 @@ WORD32 ihevcd_get_lvl_idx(WORD32 level)
 *******************************************************************************
 *
 * @brief
-*  Used to get DPB size for a given level, and number of luma samples
-*
-* @par Description:
-*  For given width, height and level number of max_dpb_size is computed as per
-*  Annex A.4.1
-*
-* @param[in] level
-*  Level of the stream
-*
-* @param[in] pic_size
-*  Width * Height
-*
-* @returns  Number of buffers in DPB
-*
-* @remarks
-*
-*
-*******************************************************************************
-*/
-WORD32 ihevcd_get_dpb_size(WORD32 level, WORD32 pic_size)
-{
-
-    WORD32 max_luma_samples;
-
-    WORD32 max_dpb_size;
-    WORD32 lvl_idx = ihevcd_get_lvl_idx(level);
-    max_luma_samples = gai4_ihevc_max_luma_pic_size[lvl_idx];
-
-
-
-    if(pic_size <= (max_luma_samples >> 2))
-    {
-        max_dpb_size = MIN(4 * MAX_DPB_PIC_BUF, 16);
-    }
-    else if(pic_size <= (max_luma_samples >> 1))
-    {
-        max_dpb_size = MIN(2 * MAX_DPB_PIC_BUF, 16);
-    }
-    else if(pic_size <= ((3 * max_luma_samples) >> 2))
-    {
-        max_dpb_size = MIN((4 * MAX_DPB_PIC_BUF) / 3, 16);
-    }
-    else
-    {
-        max_dpb_size = MAX_DPB_PIC_BUF;
-    }
-
-    return max_dpb_size;
-}
-/**
-*******************************************************************************
-*
-* @brief
 *  Used to get reference picture buffer size for a given level and
 *  and padding used
 *
@@ -242,85 +189,37 @@ WORD32 ihevcd_get_dpb_size(WORD32 level, WORD32 pic_size)
 *
 *******************************************************************************
 */
-WORD32 ihevcd_get_total_pic_buf_size(WORD32 pic_size,
-                                     WORD32 level,
-                                     WORD32 horz_pad,
-                                     WORD32 vert_pad,
-                                     WORD32 init_num_bufs,
-                                     WORD32 init_extra_bufs,
-                                     WORD32 chroma_only)
+WORD32 ihevcd_get_total_pic_buf_size(codec_t *ps_codec,
+                                     WORD32 wd,
+                                     WORD32 ht)
 {
     WORD32 size;
     WORD32 num_luma_samples;
-    WORD32 lvl_idx;
-    WORD32 max_wd, min_ht;
     WORD32 max_dpb_size;
     WORD32 num_samples;
-    WORD32 max_num_bufs;
-    WORD32 pad = MAX(horz_pad, vert_pad);
 
+
+    sps_t *ps_sps = (ps_codec->s_parse.ps_sps_base + ps_codec->i4_sps_id);
 
     /* Get maximum number of buffers for the current picture size */
-    max_dpb_size = ihevcd_get_dpb_size(level, pic_size);
+    max_dpb_size = ps_sps->ai1_sps_max_dec_pic_buffering[ps_sps->i1_sps_max_sub_layers - 1];
 
+    if(ps_codec->e_frm_out_mode != IVD_DECODE_FRAME_OUT)
+        max_dpb_size += ps_sps->ai1_sps_max_num_reorder_pics[ps_sps->i1_sps_max_sub_layers - 1];
 
-    max_num_bufs = (2 * max_dpb_size + 1);
-    /* If num_ref_frames and num_reorder_frmaes is specified
-     * Use minimum value
-     */
-    max_num_bufs = MIN(max_num_bufs, init_num_bufs);
-
-    /*
-     * Add extra buffers if required
-     */
-    max_num_bufs += init_extra_bufs;
-    max_num_bufs = MIN(max_num_bufs, BUF_MGR_MAX_CNT);
-
-    /* Get level index */
-    lvl_idx = ihevcd_get_lvl_idx(level);
-
-
-    /* Maximum width of luma samples in a picture at given level */
-    max_wd = ALIGN64(gai4_ihevc_max_wd_ht[lvl_idx]);
-
-    /* Minimum height of luma samples in a picture at given level */
-    min_ht = ALIGN64(gai4_ihevc_min_wd_ht[lvl_idx]);
-
-    /* Use max_wd and min_ht to get maximum number of luma samples for given level */
-    /* Because max_wd and min_ht are aligned to 64, product will be higher than the
-     * value given by the spec for a given level
-     */
-    num_luma_samples = max_wd * min_ht;
-
+    max_dpb_size++;
     /* Allocation is required for
      * (Wd + horz_pad) * (Ht + vert_pad) * (2 * max_dpb_size + 1)
-     *
-     * Above expanded as
-     * ((Wd * Ht) + (horz_pad * vert_pad) + Wd * vert_pad + Ht * horz_pad) * (2 * max_dpb_size + 1)
-     * (Wd * Ht) * (2 * max_dpb_size + 1) + ((horz_pad * vert_pad) + Wd * vert_pad + Ht * horz_pad) * (2 * max_dpb_size + 1)
-     * Now  max_dpb_size increases with smaller Wd and Ht, but Wd * ht * max_dpb_size will still be lesser or equal to max_wd * max_ht * dpb_size
-     *
-     * In the above equation (Wd * Ht) * (2 * max_dpb_size + 1) is accounted by using num_samples * (2 * max_dpb_size + 1) below
-     *
-     * For the padded area use MAX(horz_pad, vert_pad) as pad
-     * ((pad * pad) + pad * (Wd + Ht)) * (2 * max_dpb_size + 1) has to accounted from the above for padding
-     *
-     * Since Width and Height can change worst Wd + Ht is when One of the dimensions is max and other is min
-     * So use max_wd and min_ht
      */
 
     /* Account for padding area */
-
-    num_luma_samples += (pad * pad) + pad * (max_wd + min_ht);
+    num_luma_samples = (wd + PAD_WD) * (ht + PAD_HT);
 
     /* Account for chroma */
-    if(0 == chroma_only)
-        num_samples = num_luma_samples * 3 / 2;
-    else
-        num_samples = num_luma_samples / 2;
+    num_samples = num_luma_samples * 3 / 2;
 
     /* Number of bytes in reference pictures */
-    size = num_samples * max_num_bufs;
+    size = num_samples * max_dpb_size;
 
 
     return size;
@@ -371,6 +270,9 @@ WORD32 ihevcd_get_pic_mv_bank_size(WORD32 num_luma_samples)
 
     /* Size for storing pu_t for each PU */
     mv_bank_size += num_pu * sizeof(pu_t);
+
+    /* Size for storing slice_idx for each CTB */
+    mv_bank_size += ALIGN4(num_ctb * sizeof(UWORD16));
 
     size =  mv_bank_size;
     return size;
@@ -558,42 +460,28 @@ IHEVCD_ERROR_T ihevcd_pic_buf_mgr_add_bufs(codec_t *ps_codec)
     pic_buf_t *ps_pic_buf;
     WORD32 pic_buf_size_allocated;
 
-    WORD32 max_num_bufs;
-    WORD32 pic_size;
-    WORD32 level;
 
 
-    /* Initialize MV Bank buffer manager */
+
+    /* Initialize Pic buffer manager */
     ps_sps = ps_codec->s_parse.ps_sps;
 
-    pic_size = ps_sps->i2_pic_width_in_luma_samples *
-                    ps_sps->i2_pic_height_in_luma_samples;
+    /* Compute the number of Pic buffers needed */
+    max_dpb_size = ps_sps->ai1_sps_max_dec_pic_buffering[ps_sps->i1_sps_max_sub_layers - 1];
 
+    if(ps_codec->e_frm_out_mode != IVD_DECODE_FRAME_OUT)
+        max_dpb_size += ps_sps->ai1_sps_max_num_reorder_pics[ps_sps->i1_sps_max_sub_layers - 1];
 
-    /* Compute the number of MB Bank buffers needed */
-    level = ps_codec->i4_init_level;
-    max_dpb_size = ihevcd_get_dpb_size(level, pic_size);
-    /* Allocate twice dpb size to handle worst case reorder without returning more
-     * than one output per call
-     */
-    max_dpb_size *= 2;
     /* Allocate one extra picture to handle current frame
      * In case of asynchronous parsing and processing, number of buffers should increase here
      * based on when parsing and processing threads are synchronized
      */
     max_dpb_size++;
 
-    /* If num_ref_frames and num_reorder_frmaes is specified
-     * Use minimum value
-     */
-    max_num_bufs = MIN(max_dpb_size, (ps_codec->i4_init_num_ref + ps_codec->i4_init_num_reorder + 1));
 
-
-    pu1_buf = (UWORD8 *)ps_codec->ps_pic_buf;
+    pu1_buf = (UWORD8 *)ps_codec->pu1_ref_pic_buf_base;
 
     ps_pic_buf = (pic_buf_t *)ps_codec->ps_pic_buf;
-
-    pu1_buf += BUF_MGR_MAX_CNT  * sizeof(pic_buf_t);
 
     /* In case of non-shared mode, add picture buffers to buffer manager
      * In case of shared mode buffers are added in the run-time
@@ -603,8 +491,7 @@ IHEVCD_ERROR_T ihevcd_pic_buf_mgr_add_bufs(codec_t *ps_codec)
         WORD32 buf_ret;
         WORD32 luma_samples;
         WORD32 chroma_samples;
-        pic_buf_size_allocated = ps_codec->i4_total_pic_buf_size -
-                        BUF_MGR_MAX_CNT * sizeof(pic_buf_t);
+        pic_buf_size_allocated = ps_codec->i4_total_pic_buf_size;
 
         luma_samples = (ps_codec->i4_strd) *
                         (ps_sps->i2_pic_height_in_luma_samples + PAD_HT);
@@ -615,18 +502,14 @@ IHEVCD_ERROR_T ihevcd_pic_buf_mgr_add_bufs(codec_t *ps_codec)
         /* If the number of buffers that can be added is less than max_num_bufs
          * return with an error.
          */
-        for(i = 0; i < (2 * MAX_DPB_SIZE) + 1; i++)
+        for(i = 0; i < max_dpb_size; i++)
         {
             pic_buf_size_allocated -= (luma_samples + chroma_samples);
 
             if(pic_buf_size_allocated < 0)
             {
-                if(i < max_num_bufs)
-                {
-                    ps_codec->s_parse.i4_error_code = IHEVCD_INSUFFICIENT_MEM_PICBUF;
-                    return IHEVCD_INSUFFICIENT_MEM_PICBUF;
-                }
-                break;
+                ps_codec->s_parse.i4_error_code = IHEVCD_INSUFFICIENT_MEM_PICBUF;
+                return IHEVCD_INSUFFICIENT_MEM_PICBUF;
             }
 
             ps_pic_buf->pu1_luma = pu1_buf + ps_codec->i4_strd * PAD_TOP + PAD_LEFT;
@@ -637,12 +520,33 @@ IHEVCD_ERROR_T ihevcd_pic_buf_mgr_add_bufs(codec_t *ps_codec)
 
             buf_ret = ihevc_buf_mgr_add((buf_mgr_t *)ps_codec->pv_pic_buf_mgr, ps_pic_buf, i);
 
+
             if(0 != buf_ret)
             {
                 ps_codec->s_parse.i4_error_code = IHEVCD_BUF_MGR_ERROR;
                 return IHEVCD_BUF_MGR_ERROR;
             }
             ps_pic_buf++;
+        }
+    }
+    else
+    {
+        /* In case of shared mode, buffers are added without adjusting for padding.
+           Update luma and chroma pointers here to account for padding as per stride.
+           In some cases stride might not be available when set_display_frame is called.
+           Hence updated luma and chroma pointers here */
+
+        for(i = 0; i < BUF_MGR_MAX_CNT; i++)
+        {
+            ps_pic_buf = ihevc_buf_mgr_get_buf((buf_mgr_t *)ps_codec->pv_pic_buf_mgr, i);
+            if((NULL == ps_pic_buf) ||
+               (NULL == ps_pic_buf->pu1_luma) ||
+               (NULL == ps_pic_buf->pu1_chroma))
+            {
+                break;
+            }
+            ps_pic_buf->pu1_luma += ps_codec->i4_strd * PAD_TOP + PAD_LEFT;
+            ps_pic_buf->pu1_chroma += ps_codec->i4_strd * (PAD_TOP / 2) + PAD_LEFT;
         }
     }
 
@@ -675,7 +579,7 @@ IHEVCD_ERROR_T ihevcd_mv_buf_mgr_add_bufs(codec_t *ps_codec)
     WORD32 max_dpb_size;
     WORD32 mv_bank_size_allocated;
     WORD32 pic_mv_bank_size;
-    WORD32 level;
+
     sps_t *ps_sps;
     UWORD8 *pu1_buf;
     mv_buf_t *ps_mv_buf;
@@ -685,11 +589,8 @@ IHEVCD_ERROR_T ihevcd_mv_buf_mgr_add_bufs(codec_t *ps_codec)
     ps_sps = ps_codec->s_parse.ps_sps;
 
 
-    /* Compute the number of MB Bank buffers needed */
-    level = ps_codec->i4_init_level;
-    max_dpb_size = ihevcd_get_dpb_size(level,
-                                       ps_sps->i2_pic_width_in_luma_samples *
-                                       ps_sps->i2_pic_height_in_luma_samples);
+    /* Compute the number of MV Bank buffers needed */
+    max_dpb_size = ps_sps->ai1_sps_max_dec_pic_buffering[ps_sps->i1_sps_max_sub_layers - 1];
 
     /* Allocate one extra MV Bank to handle current frame
      * In case of asynchronous parsing and processing, number of buffers should increase here
@@ -700,13 +601,13 @@ IHEVCD_ERROR_T ihevcd_mv_buf_mgr_add_bufs(codec_t *ps_codec)
     pu1_buf = (UWORD8 *)ps_codec->pv_mv_bank_buf_base;
 
     ps_mv_buf = (mv_buf_t *)pu1_buf;
-    pu1_buf += (MAX_DPB_SIZE + 1) * sizeof(mv_buf_t);
+    pu1_buf += max_dpb_size * sizeof(mv_buf_t);
     ps_codec->ps_mv_buf = ps_mv_buf;
-    mv_bank_size_allocated = ps_codec->i4_total_mv_bank_size - (MAX_DPB_SIZE + 1) * sizeof(mv_buf_t);
+    mv_bank_size_allocated = ps_codec->i4_total_mv_bank_size - max_dpb_size  * sizeof(mv_buf_t);
 
     /* Compute MV bank size per picture */
-    pic_mv_bank_size = ihevcd_get_pic_mv_bank_size(ps_sps->i2_pic_width_in_luma_samples *
-                                                   ps_sps->i2_pic_height_in_luma_samples);
+    pic_mv_bank_size = ihevcd_get_pic_mv_bank_size(ALIGN64(ps_sps->i2_pic_width_in_luma_samples) *
+                                                   ALIGN64(ps_sps->i2_pic_height_in_luma_samples));
 
     for(i = 0; i < max_dpb_size; i++)
     {
@@ -737,9 +638,10 @@ IHEVCD_ERROR_T ihevcd_mv_buf_mgr_add_bufs(codec_t *ps_codec)
         pu1_buf += num_pu;
 
         ps_mv_buf->pu1_pic_slice_map = (UWORD16 *)pu1_buf;
-        pu1_buf += num_ctb * sizeof(UWORD16);
+        pu1_buf += ALIGN4(num_ctb * sizeof(UWORD16));
 
         ps_mv_buf->ps_pic_pu = (pu_t *)pu1_buf;
+        pu1_buf += num_pu * sizeof(pu_t);
 
         buf_ret = ihevc_buf_mgr_add((buf_mgr_t *)ps_codec->pv_mv_buf_mgr, ps_mv_buf, i);
 
@@ -748,7 +650,7 @@ IHEVCD_ERROR_T ihevcd_mv_buf_mgr_add_bufs(codec_t *ps_codec)
             ps_codec->s_parse.i4_error_code = IHEVCD_BUF_MGR_ERROR;
             return IHEVCD_BUF_MGR_ERROR;
         }
-        pu1_buf += pic_mv_bank_size;
+
         ps_mv_buf++;
 
     }
@@ -900,6 +802,35 @@ IHEVCD_ERROR_T ihevcd_parse_pic_init(codec_t *ps_codec)
         ps_pic_buf_ref = ihevc_dpb_mgr_get_ref_by_nearest_poc(ps_dpb_mgr, ps_slice_hdr->i4_abs_pic_order_cnt);
         if(NULL == ps_pic_buf_ref)
         {
+            WORD32 size;
+
+            WORD32 num_pu;
+            WORD32 num_ctb;
+            WORD32 pic_size;
+            /* In case current mv buffer itself is being used as reference mv buffer for colocated
+             * calculations, then memset all the buffers to zero.
+             */
+            pic_size = ALIGN64(ps_sps->i2_pic_width_in_luma_samples) *
+                            ALIGN64(ps_sps->i2_pic_height_in_luma_samples);
+
+            num_pu = pic_size / (MIN_PU_SIZE * MIN_PU_SIZE);
+            num_ctb = pic_size / (MIN_CTB_SIZE * MIN_CTB_SIZE);
+
+            memset(ps_mv_buf->ai4_l0_collocated_poc, 0, sizeof(ps_mv_buf->ai4_l0_collocated_poc));
+            memset(ps_mv_buf->ai1_l0_collocated_poc_lt, 0, sizeof(ps_mv_buf->ai1_l0_collocated_poc_lt));
+            memset(ps_mv_buf->ai4_l1_collocated_poc, 0, sizeof(ps_mv_buf->ai4_l1_collocated_poc));
+            memset(ps_mv_buf->ai1_l1_collocated_poc_lt, 0, sizeof(ps_mv_buf->ai1_l1_collocated_poc_lt));
+
+            size = (num_ctb + 1) * sizeof(WORD32);
+            memset(ps_mv_buf->pu4_pic_pu_idx, 0, size);
+
+            size = num_pu;
+            memset(ps_mv_buf->pu1_pic_pu_map, 0, size);
+            size = ALIGN4(num_ctb * sizeof(UWORD16));
+            memset(ps_mv_buf->pu1_pic_slice_map, 0, size);
+            size = num_pu * sizeof(pu_t);
+            memset(ps_mv_buf->ps_pic_pu, 0, size);
+
             ps_pic_buf_ref = ps_cur_pic;
             ps_mv_buf_ref = ps_mv_buf;
         }
@@ -963,8 +894,8 @@ IHEVCD_ERROR_T ihevcd_parse_pic_init(codec_t *ps_codec)
         WORD32 pic_size;
         WORD32 num_ctb;
 
-        pic_size = ps_sps->i2_pic_width_in_luma_samples *
-                        ps_sps->i2_pic_height_in_luma_samples;
+        pic_size = ALIGN64(ps_sps->i2_pic_width_in_luma_samples) *
+                        ALIGN64(ps_sps->i2_pic_height_in_luma_samples);
 
         ctb_luma_min_tu_cnt = pic_size / (MIN_TU_SIZE * MIN_TU_SIZE);
 
@@ -1181,7 +1112,7 @@ IHEVCD_ERROR_T ihevcd_parse_pic_init(codec_t *ps_codec)
     /* Get picture to be displayed if number of pictures decoded is more than max allowed reorder */
     /* Since the current will be decoded, check is fore >= instead of > */
     if(((WORD32)(ps_codec->u4_pic_cnt - ps_codec->u4_disp_cnt) >= ps_sps->ai1_sps_max_num_reorder_pics[ps_sps->i1_sps_max_sub_layers - 1]) ||
-       ((WORD32)(ps_codec->u4_pic_cnt - ps_codec->u4_disp_cnt) >= ps_codec->i4_init_num_reorder))
+       (ps_codec->e_frm_out_mode == IVD_DECODE_FRAME_OUT))
 
     {
         ps_codec->ps_disp_buf = (pic_buf_t *)ihevc_disp_mgr_get((disp_mgr_t *)ps_codec->pv_disp_buf_mgr, &ps_codec->i4_disp_buf_id);

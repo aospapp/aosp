@@ -24,7 +24,6 @@ import android.animation.ValueAnimator.AnimatorUpdateListener;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.res.ColorStateList;
-import android.content.res.Configuration;
 import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
 import android.graphics.PointF;
@@ -35,6 +34,7 @@ import android.util.AttributeSet;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
+import android.view.accessibility.AccessibilityEvent;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.LinearInterpolator;
 import android.widget.TextView;
@@ -93,7 +93,7 @@ public abstract class ButtonDropTarget extends TextView
         // drawableLeft and drawableStart.
         mDrawable = getResources().getDrawable(resId);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+        if (Utilities.ATLEAST_JB_MR1) {
             setCompoundDrawablesRelativeWithIntrinsicBounds(mDrawable, null, null, null);
         } else {
             setCompoundDrawablesWithIntrinsicBounds(mDrawable, null, null, null);
@@ -114,7 +114,7 @@ public abstract class ButtonDropTarget extends TextView
     @Override
     public final void onDragEnter(DragObject d) {
         d.dragView.setColor(mHoverColor);
-        if (Utilities.isLmpOrAbove()) {
+        if (Utilities.ATLEAST_LOLLIPOP) {
             animateTextColor(mHoverColor);
         } else {
             if (mCurrentFilter == null) {
@@ -124,6 +124,10 @@ public abstract class ButtonDropTarget extends TextView
             mDrawable.setColorFilter(new ColorMatrixColorFilter(mCurrentFilter));
             setTextColor(mHoverColor);
         }
+        if (d.stateAnnouncer != null) {
+            d.stateAnnouncer.cancel();
+        }
+        sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_SELECTED);
     }
 
     @Override
@@ -131,8 +135,8 @@ public abstract class ButtonDropTarget extends TextView
         // Do nothing
     }
 
-	protected void resetHoverColor() {
-        if (Utilities.isLmpOrAbove()) {
+    protected void resetHoverColor() {
+        if (Utilities.ATLEAST_LOLLIPOP) {
             animateTextColor(mOriginalTextColor.getDefaultColor());
         } else {
             mDrawable.setColorFilter(null);
@@ -302,14 +306,10 @@ public abstract class ButtonDropTarget extends TextView
         setOnClickListener(enable ? this : null);
     }
 
-    protected String getAccessibilityDropConfirmation() {
-        return null;
-    }
-
     @Override
     public void onClick(View v) {
         LauncherAppState.getInstance().getAccessibilityDelegate()
-            .handleAccessibleDrop(this, null, getAccessibilityDropConfirmation());
+            .handleAccessibleDrop(this, null, null);
     }
 
     public int getTextColor() {

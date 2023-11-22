@@ -261,7 +261,7 @@ android::status_t android_bb_getParam(android::sp<android::AudioEffect> pFx,
 }
 
 //-----------------------------------------------------------------------------
-void android_bb_init(int sessionId, IBassBoost* ibb) {
+void android_bb_init(audio_session_t sessionId, IBassBoost* ibb) {
     SL_LOGV("session %d", sessionId);
 
     if (!android_fx_initEffectObj(sessionId, ibb->mBassBoostEffect,
@@ -281,7 +281,7 @@ void android_bb_init(int sessionId, IBassBoost* ibb) {
 
 
 //-----------------------------------------------------------------------------
-void android_eq_init(int sessionId, IEqualizer* ieq) {
+void android_eq_init(audio_session_t sessionId, IEqualizer* ieq) {
     SL_LOGV("android_eq_init on session %d", sessionId);
 
     if (!android_fx_initEffectObj(sessionId, ieq->mEqEffect, &ieq->mEqDescriptor.type)) {
@@ -330,7 +330,7 @@ void android_eq_init(int sessionId, IEqualizer* ieq) {
 
 
 //-----------------------------------------------------------------------------
-void android_virt_init(int sessionId, IVirtualizer* ivi) {
+void android_virt_init(audio_session_t sessionId, IVirtualizer* ivi) {
     SL_LOGV("android_virt_init on session %d", sessionId);
 
     if (!android_fx_initEffectObj(sessionId, ivi->mVirtualizerEffect,
@@ -625,7 +625,7 @@ SLresult android_fx_statusToResult(android::status_t status) {
 
 
 //-----------------------------------------------------------------------------
-bool android_fx_initEffectObj(int sessionId, android::sp<android::AudioEffect>& effect,
+bool android_fx_initEffectObj(audio_session_t sessionId, android::sp<android::AudioEffect>& effect,
         const effect_uuid_t *type) {
     //SL_LOGV("android_fx_initEffectObj on session %d", sessionId);
 
@@ -757,7 +757,9 @@ SLresult android_genericFx_queryEffect(SLuint32 index, effect_descriptor_t* pDes
 
 
 //-----------------------------------------------------------------------------
-SLresult android_genericFx_createEffect(IAndroidEffect* iae, SLInterfaceID pUuid, int sessionId) {
+SLresult android_genericFx_createEffect(IAndroidEffect* iae, SLInterfaceID pUuid,
+        audio_session_t sessionId)
+{
 
     SLresult result = SL_RESULT_SUCCESS;
 

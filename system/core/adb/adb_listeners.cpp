@@ -19,35 +19,32 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <base/stringprintf.h>
+#include <android-base/stringprintf.h>
+#include <cutils/sockets.h>
 
 #include "sysdeps.h"
 #include "transport.h"
 
 int gListenAll = 0; /* Not static because it is used in commandline.c. */
 
-alistener listener_list = {
+static alistener listener_list = {
     .next = &listener_list,
     .prev = &listener_list,
 };
 
-void ss_listener_event_func(int _fd, unsigned ev, void *_l)
-{
-    asocket *s;
+static void ss_listener_event_func(int _fd, unsigned ev, void *_l) {
+    if (ev & FDE_READ) {
+        sockaddr_storage ss;
+        sockaddr* addrp = reinterpret_cast<sockaddr*>(&ss);
+        socklen_t alen = sizeof(ss);
+        int fd = adb_socket_accept(_fd, addrp, &alen);
+        if (fd < 0) return;
 
-    if(ev & FDE_READ) {
-        struct sockaddr addr;
-        socklen_t alen;
-        int fd;
+        int rcv_buf_size = CHUNK_SIZE;
+        adb_setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcv_buf_size, sizeof(rcv_buf_size));
 
-        alen = sizeof(addr);
-        fd = adb_socket_accept(_fd, &addr, &alen);
-        if(fd < 0) return;
-
-        adb_socket_setbufsize(fd, CHUNK_SIZE);
-
-        s = create_local_socket(fd);
-        if(s) {
+        asocket* s = create_local_socket(fd);
+        if (s) {
             connect_to_smartsocket(s);
             return;
         }
@@ -56,18 +53,19 @@ void ss_listener_event_func(int _fd, unsigned ev, void *_l)
     }
 }
 
-void listener_event_func(int _fd, unsigned ev, void* _l)
+static void listener_event_func(int _fd, unsigned ev, void* _l)
 {
     alistener* listener = reinterpret_cast<alistener*>(_l);
     asocket *s;
 
     if (ev & FDE_READ) {
-        struct sockaddr addr;
+        sockaddr_storage ss;
+        sockaddr* addrp = reinterpret_cast<sockaddr*>(&ss);
         socklen_t alen;
         int fd;
 
-        alen = sizeof(addr);
-        fd = adb_socket_accept(_fd, &addr, &alen);
+        alen = sizeof(ss);
+        fd = adb_socket_accept(_fd, addrp, &alen);
         if (fd < 0) {
             return;
         }
@@ -83,7 +81,7 @@ void listener_event_func(int _fd, unsigned ev, void* _l)
     }
 }
 
-static void  free_listener(alistener*  l)
+static void free_listener(alistener*  l)
 {
     if (l->next) {
         l->next->prev = l->prev;
@@ -101,47 +99,41 @@ static void  free_listener(alistener*  l)
         free((char*)l->connect_to);
 
     if (l->transport) {
-        remove_transport_disconnect(l->transport, &l->disconnect);
+        l->transport->RemoveDisconnect(&l->disconnect);
     }
     free(l);
 }
 
-void listener_disconnect(void* listener, atransport*  t)
-{
-    free_listener(reinterpret_cast<alistener*>(listener));
+static void listener_disconnect(void* arg, atransport*) {
+    alistener* listener = reinterpret_cast<alistener*>(arg);
+    listener->transport = nullptr;
+    free_listener(listener);
 }
 
-int local_name_to_fd(const char *name)
-{
-    int port;
-
-    if(!strncmp("tcp:", name, 4)){
-        int  ret;
-        port = atoi(name + 4);
-
+static int local_name_to_fd(const char* name, std::string* error) {
+    if (!strncmp("tcp:", name, 4)) {
+        int port = atoi(name + 4);
         if (gListenAll > 0) {
-            ret = socket_inaddr_any_server(port, SOCK_STREAM);
+            return network_inaddr_any_server(port, SOCK_STREAM, error);
         } else {
-            ret = socket_loopback_server(port, SOCK_STREAM);
+            return network_loopback_server(port, SOCK_STREAM, error);
         }
-
-        return ret;
     }
-#ifndef HAVE_WIN32_IPC  /* no Unix-domain sockets on Win32 */
-    // It's non-sensical to support the "reserved" space on the adb host side
-    if(!strncmp(name, "local:", 6)) {
-        return socket_local_server(name + 6,
-                ANDROID_SOCKET_NAMESPACE_ABSTRACT, SOCK_STREAM);
-    } else if(!strncmp(name, "localabstract:", 14)) {
-        return socket_local_server(name + 14,
-                ANDROID_SOCKET_NAMESPACE_ABSTRACT, SOCK_STREAM);
-    } else if(!strncmp(name, "localfilesystem:", 16)) {
-        return socket_local_server(name + 16,
-                ANDROID_SOCKET_NAMESPACE_FILESYSTEM, SOCK_STREAM);
+#if !defined(_WIN32)  // No Unix-domain sockets on Windows.
+    // It's nonsensical to support the "reserved" space on the adb host side
+    if (!strncmp(name, "local:", 6)) {
+        return network_local_server(name + 6,
+                ANDROID_SOCKET_NAMESPACE_ABSTRACT, SOCK_STREAM, error);
+    } else if (!strncmp(name, "localabstract:", 14)) {
+        return network_local_server(name + 14,
+                ANDROID_SOCKET_NAMESPACE_ABSTRACT, SOCK_STREAM, error);
+    } else if (!strncmp(name, "localfilesystem:", 16)) {
+        return network_local_server(name + 16,
+                ANDROID_SOCKET_NAMESPACE_FILESYSTEM, SOCK_STREAM, error);
     }
 
 #endif
-    printf("unknown local portname '%s'\n", name);
+    *error = android::base::StringPrintf("unknown local portname '%s'", name);
     return -1;
 }
 
@@ -154,19 +146,20 @@ std::string format_listeners() {
             continue;
         }
         //  <device-serial> " " <local-name> " " <remote-name> "\n"
+        // Entries from "adb reverse" have no serial.
         android::base::StringAppendF(&result, "%s %s %s\n",
-                                     l->transport->serial, l->local_name, l->connect_to);
+                                     l->transport->serial ? l->transport->serial : "(reverse)",
+                                     l->local_name, l->connect_to);
     }
     return result;
 }
 
-install_status_t remove_listener(const char *local_name, atransport* transport)
-{
+InstallStatus remove_listener(const char *local_name, atransport* transport) {
     alistener *l;
 
     for (l = listener_list.next; l != &listener_list; l = l->next) {
         if (!strcmp(local_name, l->local_name)) {
-            listener_disconnect(l, l->transport);
+            free_listener(l);
             return INSTALL_STATUS_OK;
         }
     }
@@ -181,14 +174,15 @@ void remove_all_listeners(void)
         // Never remove smart sockets.
         if (l->connect_to[0] == '*')
             continue;
-        listener_disconnect(l, l->transport);
+        free_listener(l);
     }
 }
 
-install_status_t install_listener(const std::string& local_name,
+InstallStatus install_listener(const std::string& local_name,
                                   const char *connect_to,
                                   atransport* transport,
-                                  int no_rebind)
+                                  int no_rebind,
+                                  std::string* error)
 {
     for (alistener* l = listener_list.next; l != &listener_list; l = l->next) {
         if (local_name == l->local_name) {
@@ -196,25 +190,28 @@ install_status_t install_listener(const std::string& local_name,
 
             /* can't repurpose a smartsocket */
             if(l->connect_to[0] == '*') {
+                *error = "cannot repurpose smartsocket";
                 return INSTALL_STATUS_INTERNAL_ERROR;
             }
 
             /* can't repurpose a listener if 'no_rebind' is true */
             if (no_rebind) {
+                *error = "cannot rebind";
                 return INSTALL_STATUS_CANNOT_REBIND;
             }
 
             cto = strdup(connect_to);
             if(cto == 0) {
+                *error = "cannot duplicate string";
                 return INSTALL_STATUS_INTERNAL_ERROR;
             }
 
             free((void*) l->connect_to);
             l->connect_to = cto;
             if (l->transport != transport) {
-                remove_transport_disconnect(l->transport, &l->disconnect);
+                l->transport->RemoveDisconnect(&l->disconnect);
                 l->transport = transport;
-                add_transport_disconnect(l->transport, &l->disconnect);
+                l->transport->AddDisconnect(&l->disconnect);
             }
             return INSTALL_STATUS_OK;
         }
@@ -236,9 +233,8 @@ install_status_t install_listener(const std::string& local_name,
         goto nomem;
     }
 
-    listener->fd = local_name_to_fd(listener->local_name);
+    listener->fd = local_name_to_fd(listener->local_name, error);
     if (listener->fd < 0) {
-        printf("cannot bind '%s': %s\n", listener->local_name, strerror(errno));
         free(listener->local_name);
         free(listener->connect_to);
         free(listener);
@@ -264,7 +260,7 @@ install_status_t install_listener(const std::string& local_name,
     if (transport) {
         listener->disconnect.opaque = listener;
         listener->disconnect.func   = listener_disconnect;
-        add_transport_disconnect(transport, &listener->disconnect);
+        transport->AddDisconnect(&listener->disconnect);
     }
     return INSTALL_STATUS_OK;
 

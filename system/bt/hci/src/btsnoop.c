@@ -22,6 +22,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <netinet/in.h>
 #include <stdbool.h>
@@ -32,9 +33,9 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include "bt_types.h"
 #include "hci/include/btsnoop.h"
 #include "hci/include/btsnoop_mem.h"
-#include "bt_types.h"
 #include "hci_layer.h"
 #include "osi/include/log.h"
 #include "stack_config.h"
@@ -80,7 +81,7 @@ static future_t *shut_down(void) {
   return NULL;
 }
 
-const module_t btsnoop_module = {
+EXPORT_SYMBOL const module_t btsnoop_module = {
   .name = BTSNOOP_MODULE,
   .init = NULL,
   .start_up = start_up,
@@ -164,14 +165,15 @@ static void update_logging() {
     // Save the old log if configured to do so
     if (stack_config->get_btsnoop_should_save_last()) {
       char last_log_path[PATH_MAX];
-      snprintf(last_log_path, PATH_MAX, "%s.%llu", log_path, btsnoop_timestamp());
+      snprintf(last_log_path, PATH_MAX, "%s.%" PRIu64, log_path,
+               btsnoop_timestamp());
       if (!rename(log_path, last_log_path) && errno != ENOENT)
-        LOG_ERROR("%s unable to rename '%s' to '%s': %s", __func__, log_path, last_log_path, strerror(errno));
+        LOG_ERROR(LOG_TAG, "%s unable to rename '%s' to '%s': %s", __func__, log_path, last_log_path, strerror(errno));
     }
 
     logfile_fd = open(log_path, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
     if (logfile_fd == INVALID_FD) {
-      LOG_ERROR("%s unable to open '%s': %s", __func__, log_path, strerror(errno));
+      LOG_ERROR(LOG_TAG, "%s unable to open '%s': %s", __func__, log_path, strerror(errno));
       is_logging = false;
       return;
     }

@@ -27,15 +27,6 @@
 
 namespace android {
 
-// must be kept in sync with IPowerManager.aidl
-enum {
-    ACQUIRE_WAKE_LOCK = IBinder::FIRST_CALL_TRANSACTION,
-    ACQUIRE_WAKE_LOCK_UID = IBinder::FIRST_CALL_TRANSACTION + 1,
-    RELEASE_WAKE_LOCK = IBinder::FIRST_CALL_TRANSACTION + 2,
-    UPDATE_WAKE_LOCK_UIDS = IBinder::FIRST_CALL_TRANSACTION + 3,
-    POWER_HINT = IBinder::FIRST_CALL_TRANSACTION + 4,
-};
-
 class BpPowerManager : public BpInterface<IPowerManager>
 {
 public:
@@ -103,6 +94,44 @@ public:
         data.writeInt32(param);
         // This FLAG_ONEWAY is in the .aidl, so there is no way to disable it
         return remote()->transact(POWER_HINT, data, &reply, IBinder::FLAG_ONEWAY);
+    }
+
+    virtual status_t goToSleep(int64_t event_time_ms, int reason, int flags)
+    {
+        Parcel data, reply;
+        data.writeInterfaceToken(IPowerManager::getInterfaceDescriptor());
+        data.writeInt64(event_time_ms);
+        data.writeInt32(reason);
+        data.writeInt32(flags);
+        return remote()->transact(GO_TO_SLEEP, data, &reply, 0);
+    }
+
+    virtual status_t reboot(bool confirm, const String16& reason, bool wait)
+    {
+        Parcel data, reply;
+        data.writeInterfaceToken(IPowerManager::getInterfaceDescriptor());
+        data.writeInt32(confirm);
+        data.writeString16(reason);
+        data.writeInt32(wait);
+        return remote()->transact(REBOOT, data, &reply, 0);
+    }
+
+    virtual status_t shutdown(bool confirm, const String16& reason, bool wait)
+    {
+        Parcel data, reply;
+        data.writeInterfaceToken(IPowerManager::getInterfaceDescriptor());
+        data.writeInt32(confirm);
+        data.writeString16(reason);
+        data.writeInt32(wait);
+        return remote()->transact(SHUTDOWN, data, &reply, 0);
+    }
+
+    virtual status_t crash(const String16& message)
+    {
+        Parcel data, reply;
+        data.writeInterfaceToken(IPowerManager::getInterfaceDescriptor());
+        data.writeString16(message);
+        return remote()->transact(CRASH, data, &reply, 0);
     }
 };
 

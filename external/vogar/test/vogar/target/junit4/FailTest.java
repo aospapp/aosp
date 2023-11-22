@@ -32,7 +32,7 @@ public class FailTest {
 
     @Test
     public void throwException() {
-        throw new RuntimeException("exceptrion");
+        throw new RuntimeException("exception");
     }
 
     @Test(expected = AwesomeException.class)

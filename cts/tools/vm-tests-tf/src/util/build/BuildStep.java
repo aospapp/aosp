@@ -37,6 +37,10 @@ abstract class BuildStep implements Comparable<BuildStep> {
             this.folder = new File(folder);
             this.fileName = new File(this.folder, fileName);
         }
+        BuildFile(File file) {
+          this.folder = file.getParentFile();
+          this.fileName = file;
+      }
 
         String getPath() {
             return fileName.getAbsolutePath();
@@ -70,7 +74,8 @@ abstract class BuildStep implements Comparable<BuildStep> {
         this.outputFile = outputFile;
     }
 
-    BuildStep() {
+    BuildStep(File output) {
+        this.outputFile = new BuildFile(output);
     }
 
     private Set<BuildStep> children;
@@ -117,8 +122,7 @@ abstract class BuildStep implements Comparable<BuildStep> {
     }
 
     public int compareTo(BuildStep o) {
-        return (inputFile == o.inputFile ? 0 : (inputFile != null
-                ? (o.inputFile != null ? inputFile.getPath().compareTo(
-                        o.inputFile.getPath()) : 1) : -1));
+        return (outputFile == o.outputFile ? 0 : outputFile.getPath().compareTo(
+                        o.outputFile.getPath()));
     }
 }

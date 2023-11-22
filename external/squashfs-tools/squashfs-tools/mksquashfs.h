@@ -24,6 +24,12 @@
  * mksquashfs.h
  *
  */
+/* ANDROID CHANGES START*/
+#ifdef ANDROID
+#include <stdint.h>
+#endif
+/* ANDROID CHANGES END */
+#include <pthread.h>
 
 struct dir_info {
 	char			*pathname;
@@ -46,6 +52,11 @@ struct dir_ent {
 	struct dir_info		*dir;
 	struct dir_info		*our_dir;
 	struct dir_ent		*next;
+/* ANDROID CHANGES START*/
+#ifdef ANDROID
+	uint64_t capabilities;
+#endif
+/* ANDROID CHANGES END */
 };
 
 struct inode_info {

@@ -9,7 +9,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2012-2013  Florian Krohm   (britzel@acm.org)
+   Copyright (C) 2012-2015  Florian Krohm   (britzel@acm.org)
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License as
@@ -213,7 +213,8 @@ vex_inject_ir(IRSB *irsb, IREndness endian)
       if (iricb.shift_amount_is_immediate) {
          // This implies that the IROp is a shift op
          vassert(iricb.t_opnd2 == Ity_I8);
-         opnd2 = mkU8(*((Char *)iricb.opnd2));
+         /* Interpret the memory as an ULong. */
+         opnd2 = mkU8(*((ULong *)iricb.opnd2));
       } else {
          opnd2 = load(endian, iricb.t_opnd2, iricb.opnd2);
       }

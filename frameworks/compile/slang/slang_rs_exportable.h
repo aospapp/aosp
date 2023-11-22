@@ -27,7 +27,8 @@ class RSExportable {
     EX_FUNC,
     EX_TYPE,
     EX_VAR,
-    EX_FOREACH
+    EX_FOREACH,
+    EX_REDUCE
   };
 
  private:
@@ -46,7 +47,7 @@ class RSExportable {
   inline Kind getKind() const { return mK; }
 
   // When keep() is invoked, mKeep will set to true and the associated RSContext
-  // won't free this RSExportable object in its destructor. The deallcation
+  // won't free this RSExportable object in its destructor. The deallocation
   // responsibility is then transferred to the object who invoked this function.
   // Return false if the exportable is kept or failed to keep.
   virtual bool keep();

@@ -31,7 +31,7 @@
 
 #include "bta_hl_api.h"
 #include "bta_hl_int.h"
-#include "gki.h"
+#include "bt_common.h"
 #include "utl.h"
 #include "l2c_api.h"
 #include "mca_defs.h"
@@ -697,9 +697,9 @@ static void bta_hl_api_register(tBTA_HL_CB *p_cb, tBTA_HL_DATA *p_data)
                 p_acb->p_cback = p_data->api_reg.p_cback;
                 p_acb->sec_mask = p_data->api_reg.sec_mask;
                 p_acb->dev_type = p_data->api_reg.dev_type;
-                BCM_STRNCPY_S(p_acb->srv_name, sizeof(p_acb->srv_name), p_data->api_reg.srv_name, BTA_SERVICE_NAME_LEN);
-                BCM_STRNCPY_S(p_acb->srv_desp, sizeof(p_acb->srv_desp), p_data->api_reg.srv_desp, BTA_SERVICE_DESP_LEN);
-                BCM_STRNCPY_S(p_acb->provider_name, sizeof(p_acb->provider_name), p_data->api_reg.provider_name, BTA_PROVIDER_NAME_LEN);
+                strlcpy(p_acb->srv_name, p_data->api_reg.srv_name, BTA_SERVICE_NAME_LEN);
+                strlcpy(p_acb->srv_desp, p_data->api_reg.srv_desp, BTA_SERVICE_DESP_LEN);
+                strlcpy(p_acb->provider_name, p_data->api_reg.provider_name, BTA_PROVIDER_NAME_LEN);
                 bta_hl_cb.p_alloc_psm = L2CA_AllocatePSM;
                 p_acb->ctrl_psm = bta_hl_cb.p_alloc_psm();
                 p_acb->data_psm = bta_hl_cb.p_alloc_psm();
@@ -1344,7 +1344,8 @@ static void bta_hl_api_dch_echo_test(tBTA_HL_CB *p_cb, tBTA_HL_DATA *p_data)
                     if ((p_data->api_dch_echo_test.local_cfg == BTA_HL_DCH_CFG_RELIABLE) ||
                         (p_data->api_dch_echo_test.local_cfg == BTA_HL_DCH_CFG_STREAMING))
                     {
-                        if ((p_dcb->p_echo_tx_pkt = bta_hl_get_buf(p_data->api_dch_echo_test.pkt_size)) != NULL )
+                        BOOLEAN fcs_use = (BOOLEAN) (p_dcb->chnl_cfg.fcs & BTA_HL_MCA_FCS_USE_MASK);
+                        if ((p_dcb->p_echo_tx_pkt = bta_hl_get_buf(p_data->api_dch_echo_test.pkt_size, fcs_use)) != NULL )
                         {
                             if (bta_hl_set_ctrl_psm_for_dch(app_idx, mcl_idx, mdl_idx, p_data->api_dch_open.ctrl_psm))
                             {
@@ -1568,20 +1569,11 @@ static void bta_hl_sdp_query_results(tBTA_HL_CB *p_cb, tBTA_HL_DATA *p_data)
 
     event = p_data->hdr.event;
 
-    if ( event == BTA_HL_SDP_QUERY_OK_EVT)
-    {
-        if ((p_sdp = (tBTA_HL_SDP *)GKI_getbuf((UINT16)(sizeof(tBTA_HL_SDP)))) != NULL)
-        {
-            memcpy(p_sdp, &p_mcb->sdp, sizeof(tBTA_HL_SDP));
-            release_sdp_buf = TRUE;
-        }
-        else
-        {
-            status = BTA_HL_STATUS_SDP_NO_RESOURCE;
-        }
-    }
-    else
-    {
+    if (event == BTA_HL_SDP_QUERY_OK_EVT) {
+        p_sdp = (tBTA_HL_SDP *)osi_malloc(sizeof(tBTA_HL_SDP));
+        memcpy(p_sdp, &p_mcb->sdp, sizeof(tBTA_HL_SDP));
+        release_sdp_buf = TRUE;
+    } else {
         status = BTA_HL_STATUS_SDP_FAIL;
     }
 
@@ -1598,24 +1590,16 @@ static void bta_hl_sdp_query_results(tBTA_HL_CB *p_cb, tBTA_HL_DATA *p_data)
     p_acb->p_cback(BTA_HL_SDP_QUERY_CFM_EVT,(tBTA_HL *) &evt_data );
 
     if (release_sdp_buf)
-    {
-        utl_freebuf((void **) &p_sdp);
-    }
+        osi_free_and_reset((void **)&p_sdp);
 
-    if (p_data->cch_sdp.release_mcl_cb)
-    {
-        memset(p_mcb, 0 ,sizeof(tBTA_HL_MCL_CB));
-    }
-    else
-    {
+    if (p_data->cch_sdp.release_mcl_cb) {
+        memset(p_mcb, 0, sizeof(tBTA_HL_MCL_CB));
+    } else {
         if (p_mcb->close_pending)
-        {
-            bta_hl_check_cch_close(app_idx,mcl_idx,p_data, TRUE);
-        }
+            bta_hl_check_cch_close(app_idx, mcl_idx, p_data, TRUE);
 
-        if (!p_mcb->ctrl_psm)
-        {
-            /* this is a control channel acceptor do not store the sdp records*/
+        if (!p_mcb->ctrl_psm) {
+            /* Control channel acceptor: do not store the SDP records */
             memset(&p_mcb->sdp, 0, sizeof(tBTA_HL_SDP));
         }
     }

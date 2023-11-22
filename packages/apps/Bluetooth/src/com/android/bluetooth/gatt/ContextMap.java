@@ -15,6 +15,8 @@
  */
 package com.android.bluetooth.gatt;
 
+import android.content.Context;
+import android.os.Binder;
 import android.os.IBinder;
 import android.os.IBinder.DeathRecipient;
 import android.os.IInterface;
@@ -30,6 +32,7 @@ import java.util.UUID;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.android.bluetooth.btservice.BluetoothProto;
 /**
  * Helper class that keeps track of registered GATT applications.
  * This class manages application callbacks and keeps track of GATT connections.
@@ -45,11 +48,13 @@ import java.util.Map;
         int connId;
         String address;
         int appId;
+        long startTime;
 
         Connection(int connId, String address,int appId) {
             this.connId = connId;
             this.address = address;
             this.appId = appId;
+            this.startTime = System.currentTimeMillis();
         }
     }
 
@@ -62,6 +67,12 @@ import java.util.Map;
 
         /** The id of the application */
         int id;
+
+        /** The package name of the application */
+        String name;
+
+        /** Statistics for this app */
+        AppScanStats appScanStats;
 
         /** Application callbacks */
         T callback;
@@ -78,9 +89,11 @@ import java.util.Map;
         /**
          * Creates a new app context.
          */
-        App(UUID uuid, T callback) {
+        App(UUID uuid, T callback, String name, AppScanStats appScanStats) {
             this.uuid = uuid;
             this.callback = callback;
+            this.name = name;
+            this.appScanStats = appScanStats;
         }
 
         /**
@@ -123,15 +136,30 @@ import java.util.Map;
     /** Our internal application list */
     List<App> mApps = new ArrayList<App>();
 
+    /** Internal map to keep track of logging information by app name */
+    HashMap<String, AppScanStats> mAppScanStats = new HashMap<String, AppScanStats>();
+
     /** Internal list of connected devices **/
     Set<Connection> mConnections = new HashSet<Connection>();
 
     /**
      * Add an entry to the application context list.
      */
-    void add(UUID uuid, T callback) {
+    void add(UUID uuid, T callback, GattService service) {
+        String appName = service.getPackageManager().getNameForUid(
+                             Binder.getCallingUid());
+        if (appName == null) {
+            // Assign an app name if one isn't found
+            appName = "Unknown App (UID: " + Binder.getCallingUid() + ")";
+        }
         synchronized (mApps) {
-            mApps.add(new App(uuid, callback));
+            AppScanStats appScanStats = mAppScanStats.get(appName);
+            if (appScanStats == null) {
+                appScanStats = new AppScanStats(appName, this, service);
+                mAppScanStats.put(appName, appScanStats);
+            }
+            mApps.add(new App(uuid, callback, appName, appScanStats));
+            appScanStats.isRegistered = true;
         }
     }
 
@@ -141,10 +169,11 @@ import java.util.Map;
     void remove(UUID uuid) {
         synchronized (mApps) {
             Iterator<App> i = mApps.iterator();
-            while(i.hasNext()) {
+            while (i.hasNext()) {
                 App entry = i.next();
                 if (entry.uuid.equals(uuid)) {
                     entry.unlinkToDeath();
+                    entry.appScanStats.isRegistered = false;
                     i.remove();
                     break;
                 }
@@ -158,10 +187,11 @@ import java.util.Map;
     void remove(int id) {
         synchronized (mApps) {
             Iterator<App> i = mApps.iterator();
-            while(i.hasNext()) {
+            while (i.hasNext()) {
                 App entry = i.next();
                 if (entry.id == id) {
                     entry.unlinkToDeath();
+                    entry.appScanStats.isRegistered = false;
                     i.remove();
                     break;
                 }
@@ -187,7 +217,7 @@ import java.util.Map;
     void removeConnection(int id, int connId) {
         synchronized (mConnections) {
             Iterator<Connection> i = mConnections.iterator();
-            while(i.hasNext()) {
+            while (i.hasNext()) {
                 Connection connection = i.next();
                 if (connection.connId == connId) {
                     i.remove();
@@ -202,7 +232,7 @@ import java.util.Map;
      */
     App getById(int id) {
         Iterator<App> i = mApps.iterator();
-        while(i.hasNext()) {
+        while (i.hasNext()) {
             App entry = i.next();
             if (entry.id == id) return entry;
         }
@@ -215,7 +245,7 @@ import java.util.Map;
      */
     App getByUuid(UUID uuid) {
         Iterator<App> i = mApps.iterator();
-        while(i.hasNext()) {
+        while (i.hasNext()) {
             App entry = i.next();
             if (entry.uuid.equals(uuid)) return entry;
         }
@@ -224,12 +254,43 @@ import java.util.Map;
     }
 
     /**
+     * Get an application context by the calling Apps name.
+     */
+    App getByName(String name) {
+        Iterator<App> i = mApps.iterator();
+        while (i.hasNext()) {
+            App entry = i.next();
+            if (entry.name.equals(name)) return entry;
+        }
+        Log.e(TAG, "Context not found for name " + name);
+        return null;
+    }
+
+    /**
+     * Get Logging info by ID
+     */
+    AppScanStats getAppScanStatsById(int id) {
+        App temp = getById(id);
+        if (temp != null) {
+            return temp.appScanStats;
+        }
+        return null;
+    }
+
+    /**
+     * Get Logging info by application name
+     */
+    AppScanStats getAppScanStatsByName(String name) {
+        return mAppScanStats.get(name);
+    }
+
+    /**
      * Get the device addresses for all connected devices
      */
     Set<String> getConnectedDevices() {
         Set<String> addresses = new HashSet<String>();
         Iterator<Connection> i = mConnections.iterator();
-        while(i.hasNext()) {
+        while (i.hasNext()) {
             Connection connection = i.next();
             addresses.add(connection.address);
         }
@@ -241,7 +302,7 @@ import java.util.Map;
      */
     App getByConnId(int connId) {
         Iterator<Connection> ii = mConnections.iterator();
-        while(ii.hasNext()) {
+        while (ii.hasNext()) {
             Connection connection = ii.next();
             if (connection.connId == connId){
                 return getById(connection.appId);
@@ -258,7 +319,7 @@ import java.util.Map;
         if (entry == null) return null;
 
         Iterator<Connection> i = mConnections.iterator();
-        while(i.hasNext()) {
+        while (i.hasNext()) {
             Connection connection = i.next();
             if (connection.address.equals(address) && connection.appId == id)
                 return connection.connId;
@@ -271,7 +332,7 @@ import java.util.Map;
      */
     String addressByConnId(int connId) {
         Iterator<Connection> i = mConnections.iterator();
-        while(i.hasNext()) {
+        while (i.hasNext()) {
             Connection connection = i.next();
             if (connection.connId == connId) return connection.address;
         }
@@ -281,7 +342,7 @@ import java.util.Map;
     List<Connection> getConnectionByApp(int appId) {
         List<Connection> currentConnections = new ArrayList<Connection>();
         Iterator<Connection> i = mConnections.iterator();
-        while(i.hasNext()) {
+        while (i.hasNext()) {
             Connection connection = i.next();
             if (connection.appId == appId)
                 currentConnections.add(connection);
@@ -295,9 +356,10 @@ import java.util.Map;
     void clear() {
         synchronized (mApps) {
             Iterator<App> i = mApps.iterator();
-            while(i.hasNext()) {
+            while (i.hasNext()) {
                 App entry = i.next();
                 entry.unlinkToDeath();
+                entry.appScanStats.isRegistered = false;
                 i.remove();
             }
         }
@@ -322,22 +384,15 @@ import java.util.Map;
      * Logs debug information.
      */
     void dump(StringBuilder sb) {
-        sb.append("  Entries: " + mApps.size() + "\n");
+        sb.append("  Entries: " + mAppScanStats.size() + "\n\n");
 
-        Iterator<App> i = mApps.iterator();
-        while(i.hasNext()) {
-            App entry = i.next();
-            List<Connection> connections = getConnectionByApp(entry.id);
+        Iterator<Map.Entry<String, AppScanStats>> it = mAppScanStats.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<String, AppScanStats> entry = it.next();
 
-            sb.append("\n  Application Id: " + entry.id + "\n");
-            sb.append("  UUID: " + entry.uuid + "\n");
-            sb.append("  Connections: " + connections.size() + "\n");
-
-            Iterator<Connection> ii = connections.iterator();
-            while(ii.hasNext()) {
-                Connection connection = ii.next();
-                sb.append("    " + connection.connId + ": " + connection.address + "\n");
-            }
+            String name = entry.getKey();
+            AppScanStats appScanStats = entry.getValue();
+            appScanStats.dumpToString(sb);
         }
     }
 }

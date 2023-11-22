@@ -24,6 +24,19 @@ public class NodeAttribute {
     }
 
     @Override
+    public boolean equals(Object thatObject) {
+        if (this == thatObject) {
+            return true;
+        }
+        if (thatObject == null || getClass() != thatObject.getClass()) {
+            return false;
+        }
+
+        NodeAttribute that = (NodeAttribute) thatObject;
+        return mName.equals(that.mName) && mType.equals(that.mType) && mValue.equals(that.mValue);
+    }
+
+    @Override
     public String toString() {
         return String.format("%s (%s) = '%s'", mName, mType, mValue);
     }

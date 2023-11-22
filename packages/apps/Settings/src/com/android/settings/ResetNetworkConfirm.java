@@ -16,29 +16,29 @@
 
 package com.android.settings;
 
-import android.app.Fragment;
-import android.content.Context;
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothManager;
+import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkPolicyManager;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
+import android.os.UserHandle;
 import android.os.UserManager;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.Spinner;
 import android.widget.Toast;
 
-import com.android.internal.logging.MetricsLogger;
+import com.android.ims.ImsManager;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.internal.telephony.PhoneConstants;
+import com.android.settingslib.RestrictedLockUtils;
 
-import java.util.ArrayList;
-import java.util.List;
+import static com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
 
 /**
  * Confirm and execute a reset of the network settings to a clean "just out of the box"
@@ -50,7 +50,7 @@ import java.util.List;
  *
  * This is the confirmation screen.
  */
-public class ResetNetworkConfirm extends InstrumentedFragment {
+public class ResetNetworkConfirm extends OptionsMenuFragment {
 
     private View mContentView;
     private int mSubId = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
@@ -97,8 +97,13 @@ public class ResetNetworkConfirm extends InstrumentedFragment {
             BluetoothManager btManager = (BluetoothManager)
                     context.getSystemService(Context.BLUETOOTH_SERVICE);
             if (btManager != null) {
-                btManager.getAdapter().factoryReset();
+                BluetoothAdapter btAdapter = btManager.getAdapter();
+                if (btAdapter != null) {
+                    btAdapter.factoryReset();
+                }
             }
+
+            ImsManager.factoryReset(context);
 
             Toast.makeText(context, R.string.reset_network_complete_toast, Toast.LENGTH_SHORT)
                     .show();
@@ -116,9 +121,16 @@ public class ResetNetworkConfirm extends InstrumentedFragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
-        if (UserManager.get(getActivity()).hasUserRestriction(
-                UserManager.DISALLOW_NETWORK_RESET)) {
+        final EnforcedAdmin admin = RestrictedLockUtils.checkIfRestrictionEnforced(
+                getActivity(), UserManager.DISALLOW_NETWORK_RESET, UserHandle.myUserId());
+        if (RestrictedLockUtils.hasBaseUserRestriction(getActivity(),
+                UserManager.DISALLOW_NETWORK_RESET, UserHandle.myUserId())) {
             return inflater.inflate(R.layout.network_reset_disallowed_screen, null);
+        } else if (admin != null) {
+            View view = inflater.inflate(R.layout.admin_support_details_empty_view, null);
+            ShowAdminSupportDetailsDialog.setAdminSupportDetails(getActivity(), view, admin, false);
+            view.setVisibility(View.VISIBLE);
+            return view;
         }
         mContentView = inflater.inflate(R.layout.reset_network_confirm, null);
         establishFinalConfirmationState();
@@ -138,6 +150,6 @@ public class ResetNetworkConfirm extends InstrumentedFragment {
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.RESET_NETWORK_CONFIRM;
+        return MetricsEvent.RESET_NETWORK_CONFIRM;
     }
 }

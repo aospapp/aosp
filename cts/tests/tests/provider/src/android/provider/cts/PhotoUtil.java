@@ -16,7 +16,7 @@
 
 package android.provider.cts;
 
-import com.android.cts.provider.R;
+import android.provider.cts.R;
 
 import android.content.Context;
 import android.cts.util.FileUtils;

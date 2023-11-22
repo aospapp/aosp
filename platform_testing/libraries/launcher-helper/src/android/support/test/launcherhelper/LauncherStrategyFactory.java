@@ -41,11 +41,13 @@ public class LauncherStrategyFactory {
         mKnownLauncherStrategies = new HashSet<>();
         registerLauncherStrategy(AospLauncherStrategy.class);
         registerLauncherStrategy(GoogleExperienceLauncherStrategy.class);
+        registerLauncherStrategy(Launcher3Strategy.class);
+        registerLauncherStrategy(LeanbackLauncherStrategy.class);
     }
 
     /**
      * Retrieves an instance of the {@link LauncherStrategyFactory}
-     * @param context
+     * @param uiDevice
      * @return
      */
     public static LauncherStrategyFactory getInstance(UiDevice uiDevice) {
@@ -79,12 +81,25 @@ public class LauncherStrategyFactory {
      * Retrieves a {@link ILauncherStrategy} that supports the current default launcher
      * <p>
      * {@link ILauncherStrategy} maybe registered via
-     * {@link LauncherStrategyRegistry#registerLauncherStrategy(String, Class)} by identifying the
+     * {@link LauncherStrategyFactory#registerLauncherStrategy(Class)} by identifying the
      * launcher package name supported
      * @return
      */
     public ILauncherStrategy getLauncherStrategy() {
         String launcherPkg = mUiDevice.getLauncherPackageName();
         return mInstanceMap.get(launcherPkg);
+    }
+
+    /**
+     * Retrieves a {@link ILeanbackLauncherStrategy} that supports the current default leanback
+     * launcher
+     * @return
+     */
+    public ILeanbackLauncherStrategy getLeanbackLauncherStrategy() {
+        ILauncherStrategy launcherStrategy = getLauncherStrategy();
+        if (launcherStrategy instanceof ILeanbackLauncherStrategy) {
+            return (ILeanbackLauncherStrategy)launcherStrategy;
+        }
+        throw new RuntimeException("This LauncherStrategy is not for leanback launcher.");
     }
 }

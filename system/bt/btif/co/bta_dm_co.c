@@ -23,9 +23,7 @@
 #include "bta_dm_co.h"
 #include "bta_dm_ci.h"
 #include "bt_utils.h"
-#if (BTM_OOB_INCLUDED == TRUE)
 #include "btif_dm.h"
-#endif
 #if (defined BLE_INCLUDED && BLE_INCLUDED == TRUE)
 #include "bte_appl.h"
 
@@ -83,9 +81,7 @@ void bta_dm_co_io_req(BD_ADDR bd_addr, tBTA_IO_CAP *p_io_cap, tBTA_OOB_DATA *p_o
                       tBTA_AUTH_REQ *p_auth_req, BOOLEAN is_orig)
 {
     UNUSED(bd_addr);
-#if (BTM_OOB_INCLUDED == TRUE)
     btif_dm_set_oob_for_io_req(p_oob_data);
-#endif
     btif_dm_proc_io_req(bd_addr, p_io_cap, p_oob_data, p_auth_req, is_orig);
     BTIF_TRACE_DEBUG("bta_dm_co_io_req *p_oob_data = %d", *p_oob_data);
     BTIF_TRACE_DEBUG("bta_dm_co_io_req *p_io_cap = %d", *p_io_cap);
@@ -133,7 +129,6 @@ void  bta_dm_co_lk_upgrade(BD_ADDR bd_addr, BOOLEAN *p_upgrade )
     UNUSED(p_upgrade);
 }
 
-#if (BTM_OOB_INCLUDED == TRUE)
 /*******************************************************************************
 **
 ** Function         bta_dm_co_loc_oob
@@ -182,8 +177,6 @@ void bta_dm_co_rmt_oob(BD_ADDR bd_addr)
     BTIF_TRACE_DEBUG("bta_dm_co_rmt_oob: result=%d",result);
     bta_dm_ci_rmt_oob(result, bd_addr, p_c, p_r);
 }
-
-#endif /* BTM_OOB_INCLUDED */
 
 
 // REMOVE FOR BLUEDROID ?
@@ -267,8 +260,6 @@ void bta_dm_sco_co_open(UINT16 handle, UINT8 pkt_size, UINT16 event)
     if (btui_cb.sco_hci)
     {
         BTIF_TRACE_DEBUG("bta_dm_sco_co_open handle:%d pkt_size:%d", handle, pkt_size);
-        /* use dedicated SCO buffer pool for SCO TX data */
-        cfg.pool_id = HCI_SCO_POOL_ID;
         cfg.p_cback = btui_sco_codec_callback;
         cfg.pkt_size = pkt_size;
         cfg.cb_event = event;
@@ -312,9 +303,9 @@ void bta_dm_sco_co_close(void)
 void bta_dm_sco_co_in_data(BT_HDR  *p_buf)
 {
     if (btui_cfg.sco_use_mic)
-        btui_sco_codec_inqdata (p_buf);
+        btui_sco_codec_inqdata(p_buf);
     else
-        GKI_freebuf(p_buf);
+        osi_free(p_buf);
 }
 
 /*******************************************************************************
@@ -411,17 +402,23 @@ void bta_dm_co_ble_io_req(BD_ADDR bd_addr,  tBTA_IO_CAP *p_io_cap,
                           tBTA_LE_KEY_TYPE  *p_resp_key )
 {
     UNUSED(bd_addr);
-    /* if OOB is not supported, this call-out function does not need to do anything
-     * otherwise, look for the OOB data associated with the address and set *p_oob_data accordingly
-     * If the answer can not be obtained right away,
-     * set *p_oob_data to BTA_OOB_UNKNOWN and call bta_dm_ci_io_req() when the answer is available */
-
-    *p_oob_data = FALSE;
+    /* Retrieve the properties from file system if possible */
+    tBTE_APPL_CFG nv_config;
+    if(btif_dm_get_smp_config(&nv_config))
+        bte_appl_cfg = nv_config;
 
     /* *p_auth_req by default is FALSE for devices with NoInputNoOutput; TRUE for other devices. */
 
     if (bte_appl_cfg.ble_auth_req)
         *p_auth_req = bte_appl_cfg.ble_auth_req | (bte_appl_cfg.ble_auth_req & 0x04) | ((*p_auth_req) & 0x04);
+
+    /* if OOB is not supported, this call-out function does not need to do anything
+     * otherwise, look for the OOB data associated with the address and set *p_oob_data accordingly.
+     * If the answer can not be obtained right away,
+     * set *p_oob_data to BTA_OOB_UNKNOWN and call bta_dm_ci_io_req() when the answer is available.
+     */
+
+    btif_dm_set_oob_for_le_io_req(bd_addr, p_oob_data, p_auth_req);
 
     if (bte_appl_cfg.ble_io_cap <=4)
         *p_io_cap = bte_appl_cfg.ble_io_cap;

@@ -55,22 +55,28 @@ public class AlarmClockTestBase extends ActivityInstrumentationTestCase2<TestSta
 
     @Override
     protected void tearDown() throws Exception {
-        mContext.unregisterReceiver(mActivityDoneReceiver);
+        if (mActivityDoneReceiver != null) {
+            try {
+                mContext.unregisterReceiver(mActivityDoneReceiver);
+            } catch (IllegalArgumentException e) {
+                // This exception is thrown if mActivityDoneReceiver in
+                // the above call to unregisterReceiver is never registered.
+                // If so, no harm done by ignoring this exception.
+            }
+            mActivityDoneReceiver = null;
+        }
         super.tearDown();
     }
 
     private void registerBroadcastReceiver(TestcaseType testCaseType) throws Exception {
         mTestCaseType = testCaseType;
         mLatch = new CountDownLatch(1);
-        if (mActivityDoneReceiver != null) {
-            mContext.unregisterReceiver(mActivityDoneReceiver);
-        }
         mActivityDoneReceiver = new ActivityDoneReceiver();
         mContext.registerReceiver(mActivityDoneReceiver,
                 new IntentFilter(Utils.BROADCAST_INTENT + testCaseType.toString()));
     }
 
-    private boolean isIntentAupported(TestcaseType testCaseType) {
+    private boolean isIntentSupported(TestcaseType testCaseType) {
         Intent intent;
         switch (testCaseType) {
           case DISMISS_ALARM:
@@ -102,7 +108,7 @@ public class AlarmClockTestBase extends ActivityInstrumentationTestCase2<TestSta
     protected String runTest(TestcaseType testCaseType) throws Exception {
         Log.i(TAG, "Begin Testing: " + testCaseType);
         // Make sure the corresponding intent is supported by the platform, before testing.
-        if (!isIntentAupported(testCaseType)) return Utils.COMPLETION_RESULT;
+        if (!isIntentSupported(testCaseType)) return Utils.COMPLETION_RESULT;
 
         if (!startTestActivity(testCaseType)) {
             fail("test activity start failed for testcase = " + testCaseType);

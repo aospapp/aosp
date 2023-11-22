@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1218,4 +1218,256 @@ ulong3 __attribute__((kernel)) testConvertUlong3Uint3Ulong3(uint3 inV) {
 
 ulong4 __attribute__((kernel)) testConvertUlong4Uint4Ulong4(uint4 inV) {
     return convert_ulong4(inV);
+}
+
+half2 __attribute__((kernel)) testConvertHalf2Half2Half2(half2 inV) {
+    return convert_half2(inV);
+}
+
+half3 __attribute__((kernel)) testConvertHalf3Half3Half3(half3 inV) {
+    return convert_half3(inV);
+}
+
+half4 __attribute__((kernel)) testConvertHalf4Half4Half4(half4 inV) {
+    return convert_half4(inV);
+}
+
+float2 __attribute__((kernel)) testConvertFloat2Half2Float2(half2 inV) {
+    return convert_float2(inV);
+}
+
+float3 __attribute__((kernel)) testConvertFloat3Half3Float3(half3 inV) {
+    return convert_float3(inV);
+}
+
+float4 __attribute__((kernel)) testConvertFloat4Half4Float4(half4 inV) {
+    return convert_float4(inV);
+}
+
+double2 __attribute__((kernel)) testConvertDouble2Half2Double2(half2 inV) {
+    return convert_double2(inV);
+}
+
+double3 __attribute__((kernel)) testConvertDouble3Half3Double3(half3 inV) {
+    return convert_double3(inV);
+}
+
+double4 __attribute__((kernel)) testConvertDouble4Half4Double4(half4 inV) {
+    return convert_double4(inV);
+}
+
+char2 __attribute__((kernel)) testConvertChar2Half2Char2(half2 inV) {
+    return convert_char2(inV);
+}
+
+char3 __attribute__((kernel)) testConvertChar3Half3Char3(half3 inV) {
+    return convert_char3(inV);
+}
+
+char4 __attribute__((kernel)) testConvertChar4Half4Char4(half4 inV) {
+    return convert_char4(inV);
+}
+
+uchar2 __attribute__((kernel)) testConvertUchar2Half2Uchar2(half2 inV) {
+    return convert_uchar2(inV);
+}
+
+uchar3 __attribute__((kernel)) testConvertUchar3Half3Uchar3(half3 inV) {
+    return convert_uchar3(inV);
+}
+
+uchar4 __attribute__((kernel)) testConvertUchar4Half4Uchar4(half4 inV) {
+    return convert_uchar4(inV);
+}
+
+short2 __attribute__((kernel)) testConvertShort2Half2Short2(half2 inV) {
+    return convert_short2(inV);
+}
+
+short3 __attribute__((kernel)) testConvertShort3Half3Short3(half3 inV) {
+    return convert_short3(inV);
+}
+
+short4 __attribute__((kernel)) testConvertShort4Half4Short4(half4 inV) {
+    return convert_short4(inV);
+}
+
+ushort2 __attribute__((kernel)) testConvertUshort2Half2Ushort2(half2 inV) {
+    return convert_ushort2(inV);
+}
+
+ushort3 __attribute__((kernel)) testConvertUshort3Half3Ushort3(half3 inV) {
+    return convert_ushort3(inV);
+}
+
+ushort4 __attribute__((kernel)) testConvertUshort4Half4Ushort4(half4 inV) {
+    return convert_ushort4(inV);
+}
+
+int2 __attribute__((kernel)) testConvertInt2Half2Int2(half2 inV) {
+    return convert_int2(inV);
+}
+
+int3 __attribute__((kernel)) testConvertInt3Half3Int3(half3 inV) {
+    return convert_int3(inV);
+}
+
+int4 __attribute__((kernel)) testConvertInt4Half4Int4(half4 inV) {
+    return convert_int4(inV);
+}
+
+uint2 __attribute__((kernel)) testConvertUint2Half2Uint2(half2 inV) {
+    return convert_uint2(inV);
+}
+
+uint3 __attribute__((kernel)) testConvertUint3Half3Uint3(half3 inV) {
+    return convert_uint3(inV);
+}
+
+uint4 __attribute__((kernel)) testConvertUint4Half4Uint4(half4 inV) {
+    return convert_uint4(inV);
+}
+
+long2 __attribute__((kernel)) testConvertLong2Half2Long2(half2 inV) {
+    return convert_long2(inV);
+}
+
+long3 __attribute__((kernel)) testConvertLong3Half3Long3(half3 inV) {
+    return convert_long3(inV);
+}
+
+long4 __attribute__((kernel)) testConvertLong4Half4Long4(half4 inV) {
+    return convert_long4(inV);
+}
+
+ulong2 __attribute__((kernel)) testConvertUlong2Half2Ulong2(half2 inV) {
+    return convert_ulong2(inV);
+}
+
+ulong3 __attribute__((kernel)) testConvertUlong3Half3Ulong3(half3 inV) {
+    return convert_ulong3(inV);
+}
+
+ulong4 __attribute__((kernel)) testConvertUlong4Half4Ulong4(half4 inV) {
+    return convert_ulong4(inV);
+}
+
+half2 __attribute__((kernel)) testConvertHalf2Float2Half2(float2 inV) {
+    return convert_half2(inV);
+}
+
+half3 __attribute__((kernel)) testConvertHalf3Float3Half3(float3 inV) {
+    return convert_half3(inV);
+}
+
+half4 __attribute__((kernel)) testConvertHalf4Float4Half4(float4 inV) {
+    return convert_half4(inV);
+}
+
+half2 __attribute__((kernel)) testConvertHalf2Double2Half2(double2 inV) {
+    return convert_half2(inV);
+}
+
+half3 __attribute__((kernel)) testConvertHalf3Double3Half3(double3 inV) {
+    return convert_half3(inV);
+}
+
+half4 __attribute__((kernel)) testConvertHalf4Double4Half4(double4 inV) {
+    return convert_half4(inV);
+}
+
+half2 __attribute__((kernel)) testConvertHalf2Char2Half2(char2 inV) {
+    return convert_half2(inV);
+}
+
+half3 __attribute__((kernel)) testConvertHalf3Char3Half3(char3 inV) {
+    return convert_half3(inV);
+}
+
+half4 __attribute__((kernel)) testConvertHalf4Char4Half4(char4 inV) {
+    return convert_half4(inV);
+}
+
+half2 __attribute__((kernel)) testConvertHalf2Uchar2Half2(uchar2 inV) {
+    return convert_half2(inV);
+}
+
+half3 __attribute__((kernel)) testConvertHalf3Uchar3Half3(uchar3 inV) {
+    return convert_half3(inV);
+}
+
+half4 __attribute__((kernel)) testConvertHalf4Uchar4Half4(uchar4 inV) {
+    return convert_half4(inV);
+}
+
+half2 __attribute__((kernel)) testConvertHalf2Short2Half2(short2 inV) {
+    return convert_half2(inV);
+}
+
+half3 __attribute__((kernel)) testConvertHalf3Short3Half3(short3 inV) {
+    return convert_half3(inV);
+}
+
+half4 __attribute__((kernel)) testConvertHalf4Short4Half4(short4 inV) {
+    return convert_half4(inV);
+}
+
+half2 __attribute__((kernel)) testConvertHalf2Ushort2Half2(ushort2 inV) {
+    return convert_half2(inV);
+}
+
+half3 __attribute__((kernel)) testConvertHalf3Ushort3Half3(ushort3 inV) {
+    return convert_half3(inV);
+}
+
+half4 __attribute__((kernel)) testConvertHalf4Ushort4Half4(ushort4 inV) {
+    return convert_half4(inV);
+}
+
+half2 __attribute__((kernel)) testConvertHalf2Int2Half2(int2 inV) {
+    return convert_half2(inV);
+}
+
+half3 __attribute__((kernel)) testConvertHalf3Int3Half3(int3 inV) {
+    return convert_half3(inV);
+}
+
+half4 __attribute__((kernel)) testConvertHalf4Int4Half4(int4 inV) {
+    return convert_half4(inV);
+}
+
+half2 __attribute__((kernel)) testConvertHalf2Uint2Half2(uint2 inV) {
+    return convert_half2(inV);
+}
+
+half3 __attribute__((kernel)) testConvertHalf3Uint3Half3(uint3 inV) {
+    return convert_half3(inV);
+}
+
+half4 __attribute__((kernel)) testConvertHalf4Uint4Half4(uint4 inV) {
+    return convert_half4(inV);
+}
+
+half2 __attribute__((kernel)) testConvertHalf2Long2Half2(long2 inV) {
+    return convert_half2(inV);
+}
+
+half3 __attribute__((kernel)) testConvertHalf3Long3Half3(long3 inV) {
+    return convert_half3(inV);
+}
+
+half4 __attribute__((kernel)) testConvertHalf4Long4Half4(long4 inV) {
+    return convert_half4(inV);
+}
+
+half2 __attribute__((kernel)) testConvertHalf2Ulong2Half2(ulong2 inV) {
+    return convert_half2(inV);
+}
+
+half3 __attribute__((kernel)) testConvertHalf3Ulong3Half3(ulong3 inV) {
+    return convert_half3(inV);
+}
+
+half4 __attribute__((kernel)) testConvertHalf4Ulong4Half4(ulong4 inV) {
+    return convert_half4(inV);
 }

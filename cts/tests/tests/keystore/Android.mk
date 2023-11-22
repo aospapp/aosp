@@ -18,13 +18,34 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner core-tests-support
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
+
+# Tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
+
+LOCAL_JAVA_LIBRARIES := bouncycastle
+
+LOCAL_STATIC_JAVA_LIBRARIES := \
+        core-tests-support \
+        ctsdeviceutil \
+        ctstestrunner \
+        guava
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
+LOCAL_JACK_FLAGS := --multi-dex native
+
 LOCAL_PACKAGE_NAME := CtsKeystoreTestCases
 
-LOCAL_SDK_VERSION := current
+# Can't use public/test API only because some tests use hidden API
+# (e.g. device-provided Bouncy Castle).
+#
+# The comment below is not particularly accurate, but it's copied from other
+# tests that do the same thing, so anyone grepping for it will find it here.
+#
+# Uncomment when b/13282254 is fixed.
+# LOCAL_SDK_VERSION := current
+LOCAL_JAVA_LIBRARIES += android.test.runner
 
 include $(BUILD_CTS_PACKAGE)
 

@@ -19,10 +19,12 @@
 
 #include <unordered_set>
 
+#include "atomic.h"
 #include "base/allocator.h"
 #include "base/hash_set.h"
 #include "base/mutex.h"
 #include "gc_root.h"
+#include "gc/weak_root_state.h"
 #include "object_callbacks.h"
 
 namespace art {
@@ -54,68 +56,114 @@ class InternTable {
  public:
   InternTable();
 
-  // Interns a potentially new string in the 'strong' table. (See above.)
+  // Interns a potentially new string in the 'strong' table. May cause thread suspension.
   mirror::String* InternStrong(int32_t utf16_length, const char* utf8_data)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(!Roles::uninterruptible_);
 
-  // Interns a potentially new string in the 'strong' table. (See above.)
-  mirror::String* InternStrong(const char* utf8_data)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  // Only used by image writer. Special version that may not cause thread suspension since the GC
+  // cannot be running while we are doing image writing. Maybe be called while while holding a
+  // lock since there will not be thread suspension.
+  mirror::String* InternStrongImageString(mirror::String* s)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
-  // Interns a potentially new string in the 'strong' table. (See above.)
-  mirror::String* InternStrong(mirror::String* s) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  // Interns a potentially new string in the 'strong' table. May cause thread suspension.
+  mirror::String* InternStrong(const char* utf8_data) SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES(!Roles::uninterruptible_);
 
-  // Interns a potentially new string in the 'weak' table. (See above.)
-  mirror::String* InternWeak(mirror::String* s) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  // Interns a potentially new string in the 'strong' table. May cause thread suspension.
+  mirror::String* InternStrong(mirror::String* s) SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES(!Roles::uninterruptible_);
 
-  void SweepInternTableWeaks(IsMarkedCallback* callback, void* arg)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  // Interns a potentially new string in the 'weak' table. May cause thread suspension.
+  mirror::String* InternWeak(mirror::String* s) SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES(!Roles::uninterruptible_);
 
-  bool ContainsWeak(mirror::String* s) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  void SweepInternTableWeaks(IsMarkedVisitor* visitor) SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES(!Locks::intern_table_lock_);
+
+  bool ContainsWeak(mirror::String* s) SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES(!Locks::intern_table_lock_);
+
+  // Lookup a strong intern, returns null if not found.
+  mirror::String* LookupStrong(Thread* self, mirror::String* s)
+      REQUIRES(!Locks::intern_table_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
+  mirror::String* LookupStrong(Thread* self, uint32_t utf16_length, const char* utf8_data)
+      REQUIRES(!Locks::intern_table_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
+
+  // Lookup a weak intern, returns null if not found.
+  mirror::String* LookupWeak(Thread* self, mirror::String* s)
+      REQUIRES(!Locks::intern_table_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   // Total number of interned strings.
-  size_t Size() const LOCKS_EXCLUDED(Locks::intern_table_lock_);
+  size_t Size() const REQUIRES(!Locks::intern_table_lock_);
+
   // Total number of weakly live interned strings.
-  size_t StrongSize() const LOCKS_EXCLUDED(Locks::intern_table_lock_);
+  size_t StrongSize() const REQUIRES(!Locks::intern_table_lock_);
+
   // Total number of strongly live interned strings.
-  size_t WeakSize() const LOCKS_EXCLUDED(Locks::intern_table_lock_);
+  size_t WeakSize() const REQUIRES(!Locks::intern_table_lock_);
 
   void VisitRoots(RootVisitor* visitor, VisitRootFlags flags)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(!Locks::intern_table_lock_);
 
-  void DumpForSigQuit(std::ostream& os) const;
+  void DumpForSigQuit(std::ostream& os) const REQUIRES(!Locks::intern_table_lock_);
 
-  void DisallowNewInterns() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
-  void AllowNewInterns() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
-  void EnsureNewInternsDisallowed() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  void BroadcastForNewInterns() SHARED_REQUIRES(Locks::mutator_lock_);
 
-  // Adds all of the resolved image strings from the image space into the intern table. The
-  // advantage of doing this is preventing expensive DexFile::FindStringId calls.
-  void AddImageStringsToTable(gc::space::ImageSpace* image_space)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) LOCKS_EXCLUDED(Locks::intern_table_lock_);
-  // Copy the post zygote tables to pre zygote to save memory by preventing dirty pages.
-  void SwapPostZygoteWithPreZygote()
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) LOCKS_EXCLUDED(Locks::intern_table_lock_);
+  // Adds all of the resolved image strings from the image spaces into the intern table. The
+  // advantage of doing this is preventing expensive DexFile::FindStringId calls. Sets
+  // images_added_to_intern_table_ to true.
+  void AddImagesStringsToTable(const std::vector<gc::space::ImageSpace*>& image_spaces)
+      SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(!Locks::intern_table_lock_);
 
-  // Add an intern table which was serialized to the image.
-  void AddImageInternTable(gc::space::ImageSpace* image_space)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) LOCKS_EXCLUDED(Locks::intern_table_lock_);
+  // Add a new intern table for inserting to, previous intern tables are still there but no
+  // longer inserted into and ideally unmodified. This is done to prevent dirty pages.
+  void AddNewTable()
+      SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(!Locks::intern_table_lock_);
 
   // Read the intern table from memory. The elements aren't copied, the intern hash set data will
   // point to somewhere within ptr. Only reads the strong interns.
-  size_t ReadFromMemory(const uint8_t* ptr) LOCKS_EXCLUDED(Locks::intern_table_lock_)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  size_t AddTableFromMemory(const uint8_t* ptr) REQUIRES(!Locks::intern_table_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   // Write the post zygote intern table to a pointer. Only writes the strong interns since it is
   // expected that there is no weak interns since this is called from the image writer.
-  size_t WriteToMemory(uint8_t* ptr) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      LOCKS_EXCLUDED(Locks::intern_table_lock_);
+  size_t WriteToMemory(uint8_t* ptr) SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES(!Locks::intern_table_lock_);
+
+  // Change the weak root state. May broadcast to waiters.
+  void ChangeWeakRootState(gc::WeakRootState new_state)
+      REQUIRES(!Locks::intern_table_lock_);
 
  private:
+  // Modified UTF-8-encoded string treated as UTF16.
+  class Utf8String {
+   public:
+    Utf8String(uint32_t utf16_length, const char* utf8_data, int32_t hash)
+        : hash_(hash), utf16_length_(utf16_length), utf8_data_(utf8_data) { }
+
+    int32_t GetHash() const { return hash_; }
+    uint32_t GetUtf16Length() const { return utf16_length_; }
+    const char* GetUtf8Data() const { return utf8_data_; }
+
+   private:
+    int32_t hash_;
+    uint32_t utf16_length_;
+    const char* utf8_data_;
+  };
+
   class StringHashEquals {
    public:
     std::size_t operator()(const GcRoot<mirror::String>& root) const NO_THREAD_SAFETY_ANALYSIS;
     bool operator()(const GcRoot<mirror::String>& a, const GcRoot<mirror::String>& b) const
+        NO_THREAD_SAFETY_ANALYSIS;
+
+    // Utf8String can be used for lookup.
+    std::size_t operator()(const Utf8String& key) const { return key.GetHash(); }
+    bool operator()(const GcRoot<mirror::String>& a, const Utf8String& b) const
         NO_THREAD_SAFETY_ANALYSIS;
   };
   class GcRootEmptyFn {
@@ -132,98 +180,89 @@ class InternTable {
   // weak interns and strong interns.
   class Table {
    public:
-    mirror::String* Find(mirror::String* s) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-        EXCLUSIVE_LOCKS_REQUIRED(Locks::intern_table_lock_);
-    void Insert(mirror::String* s) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-        EXCLUSIVE_LOCKS_REQUIRED(Locks::intern_table_lock_);
+    Table();
+    mirror::String* Find(mirror::String* s) SHARED_REQUIRES(Locks::mutator_lock_)
+        REQUIRES(Locks::intern_table_lock_);
+    mirror::String* Find(const Utf8String& string) SHARED_REQUIRES(Locks::mutator_lock_)
+        REQUIRES(Locks::intern_table_lock_);
+    void Insert(mirror::String* s) SHARED_REQUIRES(Locks::mutator_lock_)
+        REQUIRES(Locks::intern_table_lock_);
     void Remove(mirror::String* s)
-        SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-        EXCLUSIVE_LOCKS_REQUIRED(Locks::intern_table_lock_);
+        SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(Locks::intern_table_lock_);
     void VisitRoots(RootVisitor* visitor)
-        SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-        EXCLUSIVE_LOCKS_REQUIRED(Locks::intern_table_lock_);
-    void SweepWeaks(IsMarkedCallback* callback, void* arg)
-        SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-        EXCLUSIVE_LOCKS_REQUIRED(Locks::intern_table_lock_);
-    void SwapPostZygoteWithPreZygote() EXCLUSIVE_LOCKS_REQUIRED(Locks::intern_table_lock_);
-    size_t Size() const EXCLUSIVE_LOCKS_REQUIRED(Locks::intern_table_lock_);
-    // Read pre zygote table is called from ReadFromMemory which happens during runtime creation
-    // when we load the image intern table. Returns how many bytes were read.
-    size_t ReadIntoPreZygoteTable(const uint8_t* ptr)
-        EXCLUSIVE_LOCKS_REQUIRED(Locks::intern_table_lock_)
-        SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
-    // The image writer calls WritePostZygoteTable through WriteToMemory, it writes the interns in
-    // the post zygote table. Returns how many bytes were written.
-    size_t WriteFromPostZygoteTable(uint8_t* ptr)
-        EXCLUSIVE_LOCKS_REQUIRED(Locks::intern_table_lock_)
-        SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+        SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(Locks::intern_table_lock_);
+    void SweepWeaks(IsMarkedVisitor* visitor)
+        SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(Locks::intern_table_lock_);
+    // Add a new intern table that will only be inserted into from now on.
+    void AddNewTable() REQUIRES(Locks::intern_table_lock_);
+    size_t Size() const REQUIRES(Locks::intern_table_lock_);
+    // Read and add an intern table from ptr.
+    // Tables read are inserted at the front of the table array. Only checks for conflicts in
+    // debug builds. Returns how many bytes were read.
+    size_t AddTableFromMemory(const uint8_t* ptr)
+        REQUIRES(Locks::intern_table_lock_) SHARED_REQUIRES(Locks::mutator_lock_);
+    // Write the intern tables to ptr, if there are multiple tables they are combined into a single
+    // one. Returns how many bytes were written.
+    size_t WriteToMemory(uint8_t* ptr)
+        REQUIRES(Locks::intern_table_lock_) SHARED_REQUIRES(Locks::mutator_lock_);
 
    private:
     typedef HashSet<GcRoot<mirror::String>, GcRootEmptyFn, StringHashEquals, StringHashEquals,
         TrackingAllocator<GcRoot<mirror::String>, kAllocatorTagInternTable>> UnorderedSet;
 
-    void SweepWeaks(UnorderedSet* set, IsMarkedCallback* callback, void* arg)
-        SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-        EXCLUSIVE_LOCKS_REQUIRED(Locks::intern_table_lock_);
+    void SweepWeaks(UnorderedSet* set, IsMarkedVisitor* visitor)
+        SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(Locks::intern_table_lock_);
 
-    // We call SwapPostZygoteWithPreZygote when we create the zygote to reduce private dirty pages
-    // caused by modifying the zygote intern table hash table. The pre zygote table are the
-    // interned strings which were interned before we created the zygote space. Post zygote is self
-    // explanatory.
-    UnorderedSet pre_zygote_table_;
-    UnorderedSet post_zygote_table_;
+    // We call AddNewTable when we create the zygote to reduce private dirty pages caused by
+    // modifying the zygote intern table. The back of table is modified when strings are interned.
+    std::vector<UnorderedSet> tables_;
   };
 
-  // Insert if non null, otherwise return null.
-  mirror::String* Insert(mirror::String* s, bool is_strong)
-      LOCKS_EXCLUDED(Locks::intern_table_lock_)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  // Insert if non null, otherwise return null. Must be called holding the mutator lock.
+  // If holding_locks is true, then we may also hold other locks. If holding_locks is true, then we
+  // require GC is not running since it is not safe to wait while holding locks.
+  mirror::String* Insert(mirror::String* s, bool is_strong, bool holding_locks)
+      REQUIRES(!Locks::intern_table_lock_) SHARED_REQUIRES(Locks::mutator_lock_);
 
-  mirror::String* LookupStrong(mirror::String* s)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::intern_table_lock_);
-  mirror::String* LookupWeak(mirror::String* s)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::intern_table_lock_);
+  mirror::String* LookupStrongLocked(mirror::String* s)
+      SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(Locks::intern_table_lock_);
+  mirror::String* LookupWeakLocked(mirror::String* s)
+      SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(Locks::intern_table_lock_);
   mirror::String* InsertStrong(mirror::String* s)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::intern_table_lock_);
+      SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(Locks::intern_table_lock_);
   mirror::String* InsertWeak(mirror::String* s)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::intern_table_lock_);
+      SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(Locks::intern_table_lock_);
   void RemoveStrong(mirror::String* s)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::intern_table_lock_);
+      SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(Locks::intern_table_lock_);
   void RemoveWeak(mirror::String* s)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::intern_table_lock_);
+      SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(Locks::intern_table_lock_);
 
   // Transaction rollback access.
   mirror::String* LookupStringFromImage(mirror::String* s)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::intern_table_lock_);
+      SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(Locks::intern_table_lock_);
   mirror::String* InsertStrongFromTransaction(mirror::String* s)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::intern_table_lock_);
+      SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(Locks::intern_table_lock_);
   mirror::String* InsertWeakFromTransaction(mirror::String* s)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::intern_table_lock_);
+      SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(Locks::intern_table_lock_);
   void RemoveStrongFromTransaction(mirror::String* s)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::intern_table_lock_);
+      SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(Locks::intern_table_lock_);
   void RemoveWeakFromTransaction(mirror::String* s)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::intern_table_lock_);
-  friend class Transaction;
+      SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(Locks::intern_table_lock_);
 
-  size_t ReadFromMemoryLocked(const uint8_t* ptr)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::intern_table_lock_)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  size_t AddTableFromMemoryLocked(const uint8_t* ptr)
+      REQUIRES(Locks::intern_table_lock_) SHARED_REQUIRES(Locks::mutator_lock_);
 
-  bool image_added_to_intern_table_ GUARDED_BY(Locks::intern_table_lock_);
+  // Change the weak root state. May broadcast to waiters.
+  void ChangeWeakRootStateLocked(gc::WeakRootState new_state)
+      REQUIRES(Locks::intern_table_lock_);
+
+  // Wait until we can read weak roots.
+  void WaitUntilAccessible(Thread* self)
+      REQUIRES(Locks::intern_table_lock_) SHARED_REQUIRES(Locks::mutator_lock_);
+
+  bool images_added_to_intern_table_ GUARDED_BY(Locks::intern_table_lock_);
   bool log_new_roots_ GUARDED_BY(Locks::intern_table_lock_);
-  bool allow_new_interns_ GUARDED_BY(Locks::intern_table_lock_);
-  ConditionVariable new_intern_condition_ GUARDED_BY(Locks::intern_table_lock_);
+  ConditionVariable weak_intern_condition_ GUARDED_BY(Locks::intern_table_lock_);
   // Since this contains (strong) roots, they need a read barrier to
   // enable concurrent intern table (strong) root scan. Do not
   // directly access the strings in it. Use functions that contain
@@ -235,6 +274,11 @@ class InternTable {
   // not directly access the strings in it. Use functions that contain
   // read barriers.
   Table weak_interns_ GUARDED_BY(Locks::intern_table_lock_);
+  // Weak root state, used for concurrent system weak processing and more.
+  gc::WeakRootState weak_root_state_ GUARDED_BY(Locks::intern_table_lock_);
+
+  friend class Transaction;
+  DISALLOW_COPY_AND_ASSIGN(InternTable);
 };
 
 }  // namespace art

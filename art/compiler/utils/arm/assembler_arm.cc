@@ -16,6 +16,8 @@
 
 #include "assembler_arm.h"
 
+#include <algorithm>
+
 #include "base/bit_utils.h"
 #include "base/logging.h"
 #include "entrypoints/quick/quick_entrypoints.h"
@@ -137,10 +139,14 @@ uint32_t ShifterOperand::encodingThumb() const {
         if (rs_ == kNoRegister) {
           // Immediate shift.
           if (shift_ == RRX) {
+            DCHECK_EQ(immed_, 0u);
             // RRX is encoded as an ROR with imm 0.
             return ROR << 4 | static_cast<uint32_t>(rm_);
           } else {
-            uint32_t imm3 = immed_ >> 2;
+            DCHECK((1 <= immed_ && immed_ <= 31) ||
+                   (immed_ == 0u && shift_ == LSL) ||
+                   (immed_ == 32u && (shift_ == ASR || shift_ == LSR)));
+            uint32_t imm3 = (immed_ >> 2) & 7 /* 0b111*/;
             uint32_t imm2 = immed_ & 3U /* 0b11 */;
 
             return imm3 << 12 | imm2 << 6 | shift_ << 4 |
@@ -252,11 +258,11 @@ uint32_t Address::encodingThumbLdrdStrd() const {
   if (offset_ < 0) {
     int32_t off = -offset_;
     CHECK_LT(off, 1024);
-    CHECK_EQ((off & 3 /* 0b11 */), 0);    // Must be multiple of 4.
+    CHECK_ALIGNED(off, 4);
     encoding = (am ^ (1 << kUShift)) | off >> 2;  // Flip U to adjust sign.
   } else {
     CHECK_LT(offset_, 1024);
-    CHECK_EQ((offset_ & 3 /* 0b11 */), 0);    // Must be multiple of 4.
+    CHECK_ALIGNED(offset_, 4);
     encoding =  am | offset_ >> 2;
   }
   encoding |= static_cast<uint32_t>(rn_) << 16;
@@ -336,9 +342,9 @@ bool Address::CanHoldLoadOffsetThumb(LoadOperandType type, int offset) {
       return IsAbsoluteUint<12>(offset);
     case kLoadSWord:
     case kLoadDWord:
-      return IsAbsoluteUint<10>(offset);  // VFP addressing mode.
+      return IsAbsoluteUint<10>(offset) && (offset & 3) == 0;  // VFP addressing mode.
     case kLoadWordPair:
-      return IsAbsoluteUint<10>(offset);
+      return IsAbsoluteUint<10>(offset) && (offset & 3) == 0;
     default:
       LOG(FATAL) << "UNREACHABLE";
       UNREACHABLE();
@@ -354,9 +360,9 @@ bool Address::CanHoldStoreOffsetThumb(StoreOperandType type, int offset) {
       return IsAbsoluteUint<12>(offset);
     case kStoreSWord:
     case kStoreDWord:
-      return IsAbsoluteUint<10>(offset);  // VFP addressing mode.
+      return IsAbsoluteUint<10>(offset) && (offset & 3) == 0;  // VFP addressing mode.
     case kStoreWordPair:
-      return IsAbsoluteUint<10>(offset);
+      return IsAbsoluteUint<10>(offset) && (offset & 3) == 0;
     default:
       LOG(FATAL) << "UNREACHABLE";
       UNREACHABLE();
@@ -529,13 +535,13 @@ void ArmAssembler::CopyRef(FrameOffset dest, FrameOffset src,
 }
 
 void ArmAssembler::LoadRef(ManagedRegister mdest, ManagedRegister base, MemberOffset offs,
-                           bool poison_reference) {
+                           bool unpoison_reference) {
   ArmManagedRegister dst = mdest.AsArm();
   CHECK(dst.IsCoreRegister() && dst.IsCoreRegister()) << dst;
   LoadFromOffset(kLoadWord, dst.AsCoreRegister(),
                  base.AsArm().AsCoreRegister(), offs.Int32Value());
-  if (kPoisonHeapReferences && poison_reference) {
-    rsb(dst.AsCoreRegister(), dst.AsCoreRegister(), ShifterOperand(0));
+  if (unpoison_reference) {
+    MaybeUnpoisonHeapReference(dst.AsCoreRegister());
   }
 }
 
@@ -839,7 +845,7 @@ void ArmAssembler::GetCurrentThread(FrameOffset offset,
 
 void ArmAssembler::ExceptionPoll(ManagedRegister mscratch, size_t stack_adjust) {
   ArmManagedRegister scratch = mscratch.AsArm();
-  ArmExceptionSlowPath* slow = new ArmExceptionSlowPath(scratch, stack_adjust);
+  ArmExceptionSlowPath* slow = new (GetArena()) ArmExceptionSlowPath(scratch, stack_adjust);
   buffer_.EnqueueSlowPath(slow);
   LoadFromOffset(kLoadWord, scratch.AsCoreRegister(),
                  TR, Thread::ExceptionOffset<4>().Int32Value());
@@ -860,8 +866,6 @@ void ArmExceptionSlowPath::Emit(Assembler* sasm) {
   // Set up call to Thread::Current()->pDeliverException.
   __ LoadFromOffset(kLoadWord, R12, TR, QUICK_ENTRYPOINT_OFFSET(4, pDeliverException).Int32Value());
   __ blx(R12);
-  // Call never returns.
-  __ bkpt(0);
 #undef __
 }
 
@@ -918,6 +922,25 @@ uint32_t ArmAssembler::ModifiedImmediate(uint32_t value) {
   uint32_t imm3 = (v >> 1) & 7U /* 0b111 */;
   uint32_t a = v & 1;
   return value | i << 26 | imm3 << 12 | a << 7;
+}
+
+void ArmAssembler::FinalizeTrackedLabels() {
+  if (!tracked_labels_.empty()) {
+    // This array should be sorted, as assembly is generated in linearized order. It isn't
+    // technically required, but GetAdjustedPosition() used in AdjustLabelPosition() can take
+    // advantage of it. So ensure that it's actually the case.
+    DCHECK(std::is_sorted(
+        tracked_labels_.begin(),
+        tracked_labels_.end(),
+        [](const Label* lhs, const Label* rhs) { return lhs->Position() < rhs->Position(); }));
+
+    Label* last_label = nullptr;  // Track duplicates, we must not adjust twice.
+    for (Label* label : tracked_labels_) {
+      DCHECK_NE(label, last_label);
+      AdjustLabelPosition(label);
+      last_label = label;
+    }
+  }
 }
 
 }  // namespace arm

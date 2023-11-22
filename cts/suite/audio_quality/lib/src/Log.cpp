@@ -23,7 +23,7 @@ Log* Log::mInstance = NULL;
 
 #define ASSERT_PLAIN(cond) if(!(cond)) { fprintf(stderr, \
         "assertion failed %s %d", __FILE__, __LINE__); \
-    *(char*)0 = 0; /* this will crash */};
+    abort(); };
 
 Log* Log::Instance(const char* dirName)
 {

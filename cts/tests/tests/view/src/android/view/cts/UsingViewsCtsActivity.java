@@ -18,7 +18,7 @@ package android.view.cts;
 
 import android.app.Activity;
 import android.os.Bundle;
-import com.android.cts.view.R;
+import android.view.cts.R;
 
 /**
  * A simple activity to test "Using Views"

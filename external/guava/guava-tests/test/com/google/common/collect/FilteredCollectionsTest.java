@@ -16,7 +16,7 @@
 
 package com.google.common.collect;
 
-import static org.truth0.Truth.ASSERT;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -27,6 +27,7 @@ import junit.framework.TestCase;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.NavigableSet;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.SortedSet;
@@ -100,7 +101,7 @@ public class FilteredCollectionsTest extends TestCase {
         target.add(4);
         C addThenFilter = filter(createUnfiltered(target), EVEN);
 
-        ASSERT.that(filterThenAdd).has().exactlyAs(addThenFilter);
+        assertThat(filterThenAdd).has().exactlyAs(addThenFilter);
       }
     }
 
@@ -156,7 +157,7 @@ public class FilteredCollectionsTest extends TestCase {
         } catch (IllegalArgumentException expected) {
         }
 
-        ASSERT.that(filteredToModify).has().exactlyAs(filtered);
+        assertThat(filteredToModify).has().exactlyAs(filtered);
       }
     }
 
@@ -190,7 +191,7 @@ public class FilteredCollectionsTest extends TestCase {
             Predicates.not(Predicates.and(EVEN, PRIME_DIGIT)));
 
         filtered2.clear();
-        ASSERT.that(unfiltered).has().exactlyAs(inverseFiltered);
+        assertThat(unfiltered).has().exactlyAs(inverseFiltered);
       }
     }
   }
@@ -277,6 +278,94 @@ public class FilteredCollectionsTest extends TestCase {
     }
   }
 
+  public static abstract class AbstractFilteredNavigableSetTest
+      extends AbstractFilteredSortedSetTest<NavigableSet<Integer>> {
+
+    public void testNavigableHeadSet() {
+      for (List<Integer> contents : SAMPLE_INPUTS) {
+        for (int i = 0; i < 10; i++) {
+          for (boolean inclusive : ImmutableList.of(true, false)) {
+            assertEquals(
+                filter(createUnfiltered(contents).headSet(i, inclusive), EVEN),
+                filter(createUnfiltered(contents), EVEN).headSet(i, inclusive));
+          }
+        }
+      }
+    }
+
+    public void testNavigableTailSet() {
+      for (List<Integer> contents : SAMPLE_INPUTS) {
+        for (int i = 0; i < 10; i++) {
+          for (boolean inclusive : ImmutableList.of(true, false)) {
+            assertEquals(
+                filter(createUnfiltered(contents).tailSet(i, inclusive), EVEN),
+                filter(createUnfiltered(contents), EVEN).tailSet(i, inclusive));
+          }
+        }
+      }
+    }
+
+    public void testNavigableSubSet() {
+      for (List<Integer> contents : SAMPLE_INPUTS) {
+        for (int i = 0; i < 10; i++) {
+          for (int j = i + 1; j < 10; j++) {
+            for (boolean fromInclusive : ImmutableList.of(true, false)) {
+              for (boolean toInclusive : ImmutableList.of(true, false)) {
+                NavigableSet<Integer> filterSubset = filter(
+                    createUnfiltered(contents).subSet(i, fromInclusive, j, toInclusive), EVEN);
+                NavigableSet<Integer> subsetFilter = filter(createUnfiltered(contents), EVEN)
+                    .subSet(i, fromInclusive, j, toInclusive);
+                assertEquals(filterSubset, subsetFilter);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    public void testDescendingSet() {
+      for (List<Integer> contents : SAMPLE_INPUTS) {
+        NavigableSet<Integer> filtered = filter(createUnfiltered(contents), EVEN);
+        NavigableSet<Integer> unfiltered = createUnfiltered(filtered);
+
+        assertThat(filtered.descendingSet()).has().exactlyAs(unfiltered.descendingSet()).inOrder();
+      }
+    }
+
+    public void testPollFirst() {
+      for (List<Integer> contents : SAMPLE_INPUTS) {
+        NavigableSet<Integer> filtered = filter(createUnfiltered(contents), EVEN);
+        NavigableSet<Integer> unfiltered = createUnfiltered(filtered);
+
+        assertEquals(unfiltered.pollFirst(), filtered.pollFirst());
+        assertEquals(unfiltered, filtered);
+      }
+    }
+
+    public void testPollLast() {
+      for (List<Integer> contents : SAMPLE_INPUTS) {
+        NavigableSet<Integer> filtered = filter(createUnfiltered(contents), EVEN);
+        NavigableSet<Integer> unfiltered = createUnfiltered(filtered);
+
+        assertEquals(unfiltered.pollLast(), filtered.pollLast());
+        assertEquals(unfiltered, filtered);
+      }
+    }
+
+    public void testNavigation() {
+      for (List<Integer> contents : SAMPLE_INPUTS) {
+        NavigableSet<Integer> filtered = filter(createUnfiltered(contents), EVEN);
+        NavigableSet<Integer> unfiltered = createUnfiltered(filtered);
+        for (int i = 0; i < 10; i++) {
+          assertEquals(unfiltered.lower(i), filtered.lower(i));
+          assertEquals(unfiltered.floor(i), filtered.floor(i));
+          assertEquals(unfiltered.ceiling(i), filtered.ceiling(i));
+          assertEquals(unfiltered.higher(i), filtered.higher(i));
+        }
+      }
+    }
+  }
+
   // implementation tests
 
   public static final class IterablesFilterArrayListTest
@@ -334,6 +423,19 @@ public class FilteredCollectionsTest extends TestCase {
 
     @Override
     SortedSet<Integer> filter(SortedSet<Integer> elements, Predicate<? super Integer> predicate) {
+      return Sets.filter(elements, predicate);
+    }
+  }
+
+  public static final class SetsFilterNavigableSetTest extends AbstractFilteredNavigableSetTest {
+    @Override
+    NavigableSet<Integer> createUnfiltered(Iterable<Integer> contents) {
+      return Sets.newTreeSet(contents);
+    }
+
+    @Override
+    NavigableSet<Integer> filter(
+        NavigableSet<Integer> elements, Predicate<? super Integer> predicate) {
       return Sets.filter(elements, predicate);
     }
   }

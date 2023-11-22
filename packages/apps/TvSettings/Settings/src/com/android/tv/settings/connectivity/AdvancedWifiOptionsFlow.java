@@ -334,7 +334,7 @@ public class AdvancedWifiOptionsFlow {
     }
 
     private FormPage createFormPage(int resultStringResourceId) {
-        return createFormPage(mContext.getString(resultStringResourceId).toUpperCase());
+        return createFormPage(mContext.getString(resultStringResourceId));
     }
 
     private FormPage createFormPage(String resultString) {

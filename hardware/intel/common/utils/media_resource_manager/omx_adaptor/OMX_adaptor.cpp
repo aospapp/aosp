@@ -223,11 +223,11 @@ OMX_ERRORTYPE MRM_OMX_Adaptor::MRM_OMX_UseBuffer(
 
 OMX_ERRORTYPE MRM_OMX_Adaptor::MRM_OMX_RemoveComponent(
                                    OMX_HANDLETYPE pComponentHandle) {
-    ALOGV("MRM_OMX_RemoveComponent");
+    ALOGV("MRM_OMX_RemoveComponent 0x%x", pComponentHandle);
     OMX_ERRORTYPE err = OMX_ErrorNone;
 
     if (mComponentInfoMap.indexOfKey(pComponentHandle) < 0) {
-        ALOGE("component 0x%x was not added by setParameter before! something is wrong?");
+        ALOGE("component 0x%x was not added by setParameter before! something is wrong?",pComponentHandle);
         return OMX_ErrorNone; // TODO: change to specific error.
     }
 
@@ -263,7 +263,7 @@ void MRM_OMX_Adaptor::ParseCodecInfoFromComponentName(
     }
     codecInfo->isEncoder = isEncoder;
 
-    CodecType codecType;
+    CodecType codecType = CODEC_TYPE_MAX;
     if (strstri(componentName, "AVC") != NULL) {
         codecType = CODEC_TYPE_AVC;
     } else if (strstri(componentName, "VP8") != NULL) {

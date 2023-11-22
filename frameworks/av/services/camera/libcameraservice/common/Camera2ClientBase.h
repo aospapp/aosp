@@ -38,8 +38,8 @@ public:
     /**
      * Base binder interface (see ICamera/ICameraDeviceUser for details)
      */
-    virtual status_t      connect(const sp<TCamCallbacks>& callbacks);
-    virtual void          disconnect();
+    virtual status_t       connect(const sp<TCamCallbacks>& callbacks);
+    virtual binder::Status disconnect();
 
     /**
      * Interface used by CameraService
@@ -57,13 +57,13 @@ public:
     virtual ~Camera2ClientBase();
 
     virtual status_t      initialize(CameraModule *module);
-    virtual status_t      dump(int fd, const Vector<String16>& args);
+    virtual status_t      dumpClient(int fd, const Vector<String16>& args);
 
     /**
      * CameraDeviceBase::NotificationListener implementation
      */
 
-    virtual void          notifyError(ICameraDeviceCallbacks::CameraErrorCode errorCode,
+    virtual void          notifyError(int32_t errorCode,
                                       const CaptureResultExtras& resultExtras);
     virtual void          notifyIdle();
     virtual void          notifyShutter(const CaptureResultExtras& resultExtras,
@@ -73,6 +73,7 @@ public:
     virtual void          notifyAutoWhitebalance(uint8_t newState,
                                                  int triggerId);
     virtual void          notifyPrepared(int streamId);
+    virtual void          notifyRepeatingRequestError(long lastFrameNumber);
 
     int                   getCameraId() const;
     const sp<CameraDeviceBase>&
@@ -125,7 +126,7 @@ protected:
     // that mBinderSerializationLock is locked when they're called
     mutable Mutex         mBinderSerializationLock;
 
-    /** CameraDeviceBase instance wrapping HAL2+ entry */
+    /** CameraDeviceBase instance wrapping HAL3+ entry */
 
     const int mDeviceVersion;
     sp<CameraDeviceBase>  mDevice;
@@ -136,6 +137,8 @@ protected:
     status_t              checkPid(const char *checkLocation) const;
 
     virtual void          detachDevice();
+
+    bool                  mDeviceActive;
 };
 
 }; // namespace android

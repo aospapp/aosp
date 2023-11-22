@@ -25,6 +25,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.AsyncTask;
 
+import com.android.managedprovisioning.common.Utils;
+
 /**
  * Class that acts as the final receiver of the intent ACTION_PROFILE_PROVISIONING_COMPLETE
  * which is broadcasted using
@@ -35,6 +37,8 @@ public class MdmReceivedSuccessReceiver extends BroadcastReceiver {
 
     private final Account mMigratedAccount;
     private final String mMdmPackageName;
+
+    private final Utils mUtils = new Utils();
 
     public MdmReceivedSuccessReceiver(Account migratedAccount, String mdmPackageName) {
         mMigratedAccount = migratedAccount;
@@ -66,7 +70,7 @@ public class MdmReceivedSuccessReceiver extends BroadcastReceiver {
         new AsyncTask<Void, Void, Void>() {
             @Override
             protected Void doInBackground(Void... params) {
-                Utils.removeAccount(context, mMigratedAccount);
+                mUtils.removeAccount(context, mMigratedAccount);
                 context.sendBroadcast(primaryProfileSuccessIntent);
                 return null;
             }

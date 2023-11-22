@@ -25,8 +25,8 @@ LOCAL_SRC_FILES := NativeDnsJni.c
 
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 
-LOCAL_SHARED_LIBRARIES := libnativehelper liblog
-
+LOCAL_SHARED_LIBRARIES := libnativehelper_compat_libc++ liblog
+LOCAL_CXX_STL := libc++_static
 include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
@@ -35,5 +35,6 @@ LOCAL_MODULE := libnativemultinetwork_jni
 LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := NativeMultinetworkJni.c
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
-LOCAL_SHARED_LIBRARIES := libandroid libnativehelper liblog
+LOCAL_SHARED_LIBRARIES := libandroid libnativehelper_compat_libc++ liblog
+LOCAL_CXX_STL := libc++_static
 include $(BUILD_SHARED_LIBRARY)

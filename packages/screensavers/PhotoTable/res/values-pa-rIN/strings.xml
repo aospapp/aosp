@@ -22,9 +22,9 @@
     <string name="posts_album_name" msgid="5628151551239729515">"ਪੋਸਟਾਂ ਵਿੱਚੋਂ ਫੋਟੋਆਂ"</string>
     <string name="unknown_album_name" msgid="2135521368192091267">"ਬਿਨਾਂ ਨਾਮ ਦਿੱਤੀ ਐਲਬਮ"</string>
     <string name="stock_photo_album_name" msgid="3150527596227525460">"ਸਟੌਕ ਫੋਟੋਆਂ"</string>
-    <string name="local_source_name" msgid="6487253091085518505">"ਡਿਵਾਈਸ ਤੇ ਫੋਟੋਆਂ"</string>
+    <string name="local_source_name" msgid="6487253091085518505">"ਡੀਵਾਈਸ ਤੇ ਫੋਟੋਆਂ"</string>
     <string name="need_to_configure" msgid="1269102638159389032">"ਕੋਈ ਫੋਟੋਆਂ ਨਹੀਂ ਚੁਣੀਆਂ।"</string>
     <string name="photodream_select_all" msgid="6364858563337927827">"ਸਾਰਿਆਂ ਨੂੰ ਚੁਣੋ"</string>
     <string name="photodream_select_none" msgid="8816452124894525861">"ਸਾਰਿਆਂ ਦੀ ਚੋਣ ਹਟਾਓ"</string>
-    <string name="no_photos" msgid="4262083523147564199">"ਡਿਵਾਈਸ ਤੇ ਕੋਈ ਫੋਟੋਆਂ ਨਹੀਂ।"</string>
+    <string name="no_photos" msgid="4262083523147564199">"ਡੀਵਾਈਸ ਤੇ ਕੋਈ ਫੋਟੋਆਂ ਨਹੀਂ।"</string>
 </resources>

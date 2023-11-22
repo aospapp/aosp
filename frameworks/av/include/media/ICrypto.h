@@ -46,11 +46,18 @@ struct ICrypto : public IInterface {
 
     virtual status_t setMediaDrmSession(const Vector<uint8_t> &sessionId) = 0;
 
+    enum DestinationType {
+        kDestinationTypeVmPointer,    // non-secure
+        kDestinationTypeOpaqueHandle, // secure
+        kDestinationTypeNativeHandle  // secure
+    };
+
     virtual ssize_t decrypt(
-            bool secure,
+            DestinationType dstType,
             const uint8_t key[16],
             const uint8_t iv[16],
             CryptoPlugin::Mode mode,
+            const CryptoPlugin::Pattern &pattern,
             const sp<IMemory> &sharedBuffer, size_t offset,
             const CryptoPlugin::SubSample *subSamples, size_t numSubSamples,
             void *dstPtr,

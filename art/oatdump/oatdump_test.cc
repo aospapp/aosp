@@ -69,6 +69,7 @@ class OatDumpTest : public CommonRuntimeTest {
       exec_argv.push_back("--output=" + core_oat_location_ + ".symbolize");
     } else if (mode == kModeArt) {
       exec_argv.push_back("--image=" + core_art_location_);
+      exec_argv.push_back("--instruction-set=" + std::string(GetInstructionSetString(kRuntimeISA)));
       exec_argv.push_back("--output=/dev/null");
     } else {
       CHECK_EQ(static_cast<size_t>(mode), static_cast<size_t>(kModeOat));
@@ -84,6 +85,8 @@ class OatDumpTest : public CommonRuntimeTest {
   std::string core_oat_location_;
 };
 
+// Disable tests on arm and mips as they are taking too long to run. b/27824283.
+#if !defined(__arm__) && !defined(__mips__)
 TEST_F(OatDumpTest, TestImage) {
   std::string error_msg;
   ASSERT_TRUE(Exec(kModeArt, {}, &error_msg)) << error_msg;
@@ -92,16 +95,6 @@ TEST_F(OatDumpTest, TestImage) {
 TEST_F(OatDumpTest, TestOatImage) {
   std::string error_msg;
   ASSERT_TRUE(Exec(kModeOat, {}, &error_msg)) << error_msg;
-}
-
-TEST_F(OatDumpTest, TestDumpRawMappingTable) {
-  std::string error_msg;
-  ASSERT_TRUE(Exec(kModeArt, {"--dump:raw_mapping_table"}, &error_msg)) << error_msg;
-}
-
-TEST_F(OatDumpTest, TestDumpRawGcMap) {
-  std::string error_msg;
-  ASSERT_TRUE(Exec(kModeArt, {"--dump:raw_gc_map"}, &error_msg)) << error_msg;
 }
 
 TEST_F(OatDumpTest, TestNoDumpVmap) {
@@ -128,5 +121,5 @@ TEST_F(OatDumpTest, TestSymbolize) {
   std::string error_msg;
   ASSERT_TRUE(Exec(kModeSymbolize, {}, &error_msg)) << error_msg;
 }
-
+#endif
 }  // namespace art

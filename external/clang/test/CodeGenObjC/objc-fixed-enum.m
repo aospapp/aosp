@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -g -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -debug-info-kind=limited -emit-llvm -o - %s | FileCheck %s
 // The DWARF standard says the underlying data type of an enum may be
 // stored in an DW_AT_type entry in the enum DIE. This is useful to have
 // so the debugger knows about the signedness of the underlying type.
@@ -46,35 +46,35 @@ int main() {
   // -treated as C++11 strongly typed enums.
   return e0 != e1 && e1 == e2 && e2 == e3;
 }
-// CHECK: ![[ENUMERATOR0:[0-9]+]] = !MDCompositeType(tag: DW_TAG_enumeration_type
+// CHECK: ![[ENUMERATOR0:[0-9]+]] = !DICompositeType(tag: DW_TAG_enumeration_type
 // CHECK-SAME:                                       line: 10,
-// CHECK: ![[ENUMERATOR1:[0-9]+]] = !MDCompositeType(tag: DW_TAG_enumeration_type, name: "Enum1"
+// CHECK: ![[ENUMERATOR1:[0-9]+]] = !DICompositeType(tag: DW_TAG_enumeration_type, name: "Enum1"
 // CHECK-SAME:                                       line: 16
 // CHECK-SAME:                                       baseType: ![[ENUMERATOR3:[0-9]+]]
-// CHECK: ![[ENUMERATOR3]] = !MDDerivedType(tag: DW_TAG_typedef, name: "NSInteger"
+// CHECK: ![[ENUMERATOR3]] = !DIDerivedType(tag: DW_TAG_typedef, name: "NSInteger"
 // CHECK-SAME:                              line: 6
 // CHECK-SAME:                              baseType: ![[LONGINT:[0-9]+]]
-// CHECK: ![[LONGINT]] = !MDBasicType(name: "long int"
-// CHECK: ![[ENUMERATOR2:[0-9]+]] = !MDCompositeType(tag: DW_TAG_enumeration_type,
+// CHECK: ![[LONGINT]] = !DIBasicType(name: "long int"
+// CHECK: ![[ENUMERATOR2:[0-9]+]] = !DICompositeType(tag: DW_TAG_enumeration_type,
 // CHECK-SAME:                                       line: 22
 // CHECK-SAME:                                       baseType: ![[ENUMERATOR3]]
 
-// CHECK: ![[ENUM0]] = !MDLocalVariable(tag: DW_TAG_auto_variable, name: "e0"
+// CHECK: ![[ENUM0]] = !DILocalVariable(name: "e0"
 // CHECK-SAME:                          type: ![[TYPE0:[0-9]+]]
-// CHECK: ![[TYPE0]] = !MDDerivedType(tag: DW_TAG_typedef, name: "Enum0",
+// CHECK: ![[TYPE0]] = !DIDerivedType(tag: DW_TAG_typedef, name: "Enum0",
 // CHECK-SAME:                        baseType: ![[ENUMERATOR0]]
 
-// CHECK: ![[ENUM1]] = !MDLocalVariable(tag: DW_TAG_auto_variable, name: "e1"
+// CHECK: ![[ENUM1]] = !DILocalVariable(name: "e1"
 // CHECK-SAME:                          type: ![[TYPE1:[0-9]+]]
-// CHECK: ![[TYPE1]] = !MDDerivedType(tag: DW_TAG_typedef, name: "Enum1"
+// CHECK: ![[TYPE1]] = !DIDerivedType(tag: DW_TAG_typedef, name: "Enum1"
 // CHECK-SAME:                        baseType: ![[ENUMERATOR1]]
 
-// CHECK: ![[ENUM2]] = !MDLocalVariable(tag: DW_TAG_auto_variable, name: "e2"
+// CHECK: ![[ENUM2]] = !DILocalVariable(name: "e2"
 // CHECK-SAME:                          type: ![[TYPE2:[0-9]+]]
-// CHECK: ![[TYPE2]] = !MDDerivedType(tag: DW_TAG_typedef, name: "Enum2"
+// CHECK: ![[TYPE2]] = !DIDerivedType(tag: DW_TAG_typedef, name: "Enum2"
 // CHECK-SAME:                        baseType: ![[ENUMERATOR2]]
 
-// CHECK: ![[ENUM3]] = !MDLocalVariable(tag: DW_TAG_auto_variable, name: "e3"
+// CHECK: ![[ENUM3]] = !DILocalVariable(name: "e3"
 // CHECK-SAME:                          type: ![[TYPE3:[0-9]+]]
-// CHECK: ![[TYPE3]] = !MDDerivedType(tag: DW_TAG_typedef, name: "Enum3"
+// CHECK: ![[TYPE3]] = !DIDerivedType(tag: DW_TAG_typedef, name: "Enum3"
 // CHECK-SAME:                        baseType: ![[ENUMERATOR3]]

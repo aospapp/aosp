@@ -68,6 +68,7 @@
 #include "impeg2d_structs.h"
 #include "impeg2d_mc.h"
 #include "impeg2d_pic_proc.h"
+#include "impeg2d_deinterlace.h"
 
 #define NUM_FRAMES_LIMIT_ENABLED 0
 
@@ -89,6 +90,17 @@
 #define CODEC_RELEASE_VER       "01.00"
 #define CODEC_VENDOR            "ITTIAM"
 
+#ifdef __ANDROID__
+#define VERSION(version_string, codec_name, codec_release_type, codec_release_ver, codec_vendor)    \
+    strcpy(version_string,"@(#)Id:");                                                               \
+    strcat(version_string,codec_name);                                                              \
+    strcat(version_string,"_");                                                                     \
+    strcat(version_string,codec_release_type);                                                      \
+    strcat(version_string," Ver:");                                                                 \
+    strcat(version_string,codec_release_ver);                                                       \
+    strcat(version_string," Released by ");                                                         \
+    strcat(version_string,codec_vendor);
+#else
 #define VERSION(version_string, codec_name, codec_release_type, codec_release_ver, codec_vendor)    \
     strcpy(version_string,"@(#)Id:");                                                               \
     strcat(version_string,codec_name);                                                              \
@@ -102,6 +114,7 @@
     strcat(version_string,__DATE__);                                                                \
     strcat(version_string," @ ");                                                                       \
     strcat(version_string,__TIME__);
+#endif
 
 
 #define MIN_OUT_BUFS_420    3
@@ -363,7 +376,8 @@ void impeg2d_fill_mem_rec(impeg2d_fill_mem_rec_ip_t *ps_ip,
     WORD32 i4_num_threads;
     WORD32 i4_share_disp_buf, i4_chroma_format;
     WORD32 i4_chroma_size;
-
+    UWORD32 u4_deinterlace;
+    UNUSED(u4_deinterlace);
     max_frm_width = ALIGN16(ps_ip->s_ivd_fill_mem_rec_ip_t.u4_max_frm_wd);
     max_frm_height = ALIGN16(ps_ip->s_ivd_fill_mem_rec_ip_t.u4_max_frm_ht);
 
@@ -392,12 +406,27 @@ void impeg2d_fill_mem_rec(impeg2d_fill_mem_rec_ip_t *ps_ip,
         i4_chroma_format = -1;
     }
 
+    if(ps_ip->s_ivd_fill_mem_rec_ip_t.u4_size > offsetof(impeg2d_fill_mem_rec_ip_t, u4_deinterlace))
+    {
+        u4_deinterlace = ps_ip->u4_deinterlace;
+    }
+    else
+    {
+        u4_deinterlace = 0;
+    }
+
 
     if( (i4_chroma_format != IV_YUV_420P) &&
         (i4_chroma_format != IV_YUV_420SP_UV) &&
         (i4_chroma_format != IV_YUV_420SP_VU))
     {
         i4_share_disp_buf = 0;
+    }
+
+    /* Disable deinterlacer in shared mode */
+    if(i4_share_disp_buf)
+    {
+        u4_deinterlace = 0;
     }
 
     /*************************************************************************/
@@ -556,6 +585,23 @@ void impeg2d_fill_mem_rec(impeg2d_fill_mem_rec_ip_t *ps_ip,
         u1_no_rec++;
 
     }
+
+    ps_mem_rec->u4_mem_alignment = 128;
+    ps_mem_rec->e_mem_type       = IV_EXTERNAL_CACHEABLE_PERSISTENT_MEM;
+    ps_mem_rec->u4_mem_size      = impeg2d_deint_ctxt_size();
+    ps_mem_rec++;
+    u1_no_rec++;
+
+    ps_mem_rec->u4_mem_alignment = 128;
+    ps_mem_rec->e_mem_type       = IV_EXTERNAL_CACHEABLE_PERSISTENT_MEM;
+
+    if(IV_YUV_420P != i4_chroma_format)
+        ps_mem_rec->u4_mem_size  = max_frm_size;
+    else
+        ps_mem_rec->u4_mem_size  = 64;
+
+    ps_mem_rec++;
+    u1_no_rec++;
 
     ps_mem_rec->u4_mem_alignment = 128;
     ps_mem_rec->e_mem_type       = IV_EXTERNAL_CACHEABLE_PERSISTENT_MEM;
@@ -910,9 +956,15 @@ IV_API_CALL_STATUS_T impeg2d_api_reset(iv_obj_t *ps_dechdl,
 
         }
 
+        if((ps_dec_state->u4_deinterlace) && (NULL != ps_dec_state->ps_deint_pic))
+        {
+            impeg2_buf_mgr_release(ps_dec_state->pv_pic_buf_mg,
+                                   ps_dec_state->ps_deint_pic->i4_buf_id,
+                                   MPEG2_BUF_MGR_DEINT);
+        }
+
         for(i4_num_threads = 0; i4_num_threads < MAX_THREADS; i4_num_threads++)
         {
-
             ps_dec_state = ps_dec_state_multi_core->ps_dec_state[i4_num_threads];
 
 
@@ -924,6 +976,7 @@ IV_API_CALL_STATUS_T impeg2d_api_reset(iv_obj_t *ps_dechdl,
             ps_dec_state->u2_is_mpeg2       = 0;
             ps_dec_state->aps_ref_pics[0] = NULL;
             ps_dec_state->aps_ref_pics[1] = NULL;
+            ps_dec_state->ps_deint_pic = NULL;
         }
     }
     else
@@ -991,15 +1044,6 @@ IV_API_CALL_STATUS_T impeg2d_api_set_params(iv_obj_t *ps_dechdl,void *pv_api_ip,
             return(IV_FAIL);
         }
 
-    }
-    else
-    {
-        if(((WORD32)ps_ctl_dec_ip->s_ivd_ctl_set_config_ip_t.u4_disp_wd < 0) ||
-            ((ps_ctl_dec_ip->s_ivd_ctl_set_config_ip_t.u4_disp_wd != 0) && (ps_ctl_dec_ip->s_ivd_ctl_set_config_ip_t.u4_disp_wd < ps_dec_state->u2_horizontal_size)))
-        {
-            ps_ctl_dec_op->s_ivd_ctl_set_config_op_t.u4_error_code = IV_FAIL;
-            return(IV_FAIL);
-        }
     }
 
 
@@ -1457,6 +1501,7 @@ IV_API_CALL_STATUS_T impeg2d_api_init(iv_obj_t *ps_dechdl,
     impeg2d_init_op_t *ps_dec_init_op;
     WORD32 i4_num_threads;
     UWORD32 u4_share_disp_buf, u4_chroma_format;
+    UWORD32 u4_deinterlace;
 
     ps_dec_init_ip = (impeg2d_init_ip_t *)ps_ip;
     ps_dec_init_op = (impeg2d_init_op_t *)ps_op;
@@ -1479,6 +1524,15 @@ IV_API_CALL_STATUS_T impeg2d_api_init(iv_obj_t *ps_dechdl,
 
     u4_chroma_format = ps_dec_init_ip->s_ivd_init_ip_t.e_output_format;
 
+    if(ps_dec_init_ip->s_ivd_init_ip_t.u4_size > offsetof(impeg2d_init_ip_t, u4_deinterlace))
+    {
+        u4_deinterlace = ps_dec_init_ip->u4_deinterlace;
+    }
+    else
+    {
+        u4_deinterlace = 0;
+    }
+
     if( (u4_chroma_format != IV_YUV_420P) &&
         (u4_chroma_format != IV_YUV_420SP_UV) &&
         (u4_chroma_format != IV_YUV_420SP_VU))
@@ -1486,9 +1540,11 @@ IV_API_CALL_STATUS_T impeg2d_api_init(iv_obj_t *ps_dechdl,
         u4_share_disp_buf = 0;
     }
 
-
-
-
+    /* Disable deinterlacer in shared mode */
+    if(u4_share_disp_buf)
+    {
+        u4_deinterlace = 0;
+    }
 
     ps_mem_rec = ps_dec_init_ip->s_ivd_init_ip_t.pv_mem_rec_location;
     ps_mem_rec ++;
@@ -1681,6 +1737,8 @@ IV_API_CALL_STATUS_T impeg2d_api_init(iv_obj_t *ps_dechdl,
             ps_dec_state->u2_frame_height = u4_max_frm_height;
             ps_dec_state->u2_vertical_size = u4_max_frm_height;
             ps_dec_state->u4_share_disp_buf = u4_share_disp_buf;
+            ps_dec_state->u4_deinterlace = u4_deinterlace;
+            ps_dec_state->ps_deint_pic = NULL;
         }
     }
 
@@ -1783,8 +1841,15 @@ IV_API_CALL_STATUS_T impeg2d_api_init(iv_obj_t *ps_dechdl,
     ps_dec_state->pv_jobq = impeg2_jobq_init(ps_dec_state->pv_jobq_buf, ps_dec_state->i4_jobq_buf_size);
 
 
+    ps_dec_state->pv_deinterlacer_ctxt = ps_mem_rec->pv_base;
+    ps_mem_rec++;
+
+    ps_dec_state->pu1_deint_fmt_buf = ps_mem_rec->pv_base;
+    ps_mem_rec++;
+
+
     /*************************************************************************/
-    /*        MemTab[12] is used for storing TabRecords      */
+    /*        Last MemTab is used for storing TabRecords                     */
     /*************************************************************************/
     ps_dec_state->pv_memTab     = (void *)ps_mem_rec->pv_base;
     memcpy(ps_mem_rec->pv_base,ps_dec_init_ip->s_ivd_init_ip_t.pv_mem_rec_location, ps_mem_rec->u4_mem_size);
@@ -1799,6 +1864,7 @@ IV_API_CALL_STATUS_T impeg2d_api_init(iv_obj_t *ps_dechdl,
     ps_dec_state->aps_ref_pics[1] = NULL;
 
     ps_dec_init_op->s_ivd_init_op_t.u4_error_code = IV_SUCCESS;
+
     impeg2d_init_arch(ps_dec_state);
 
     impeg2d_init_function_ptr(ps_dec_state);
@@ -3051,9 +3117,38 @@ IV_API_CALL_STATUS_T impeg2d_api_entity(iv_obj_t *ps_dechdl,
 
                 if(fmt_conv == 1)
                 {
-                    impeg2d_format_convert(ps_dec_state, ps_disp_pic,
-                                         &(ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf),
-                                         0, ps_dec_state->u2_vertical_size);
+                    iv_yuv_buf_t *ps_dst;
+
+
+                    ps_dst = &(ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf);
+                    if(ps_dec_state->u4_deinterlace && (0 == ps_dec_state->u2_progressive_frame))
+                    {
+                        impeg2d_deinterlace(ps_dec_state,
+                                            ps_disp_pic,
+                                            ps_dst,
+                                            0,
+                                            ps_dec_state->u2_vertical_size);
+
+                    }
+                    else
+                    {
+                        impeg2d_format_convert(ps_dec_state,
+                                               ps_disp_pic,
+                                               ps_dst,
+                                               0,
+                                               ps_dec_state->u2_vertical_size);
+                    }
+                }
+
+                if(ps_dec_state->u4_deinterlace)
+                {
+                    if(ps_dec_state->ps_deint_pic)
+                    {
+                        impeg2_buf_mgr_release(ps_dec_state->pv_pic_buf_mg,
+                                               ps_dec_state->ps_deint_pic->i4_buf_id,
+                                               MPEG2_BUF_MGR_DEINT);
+                    }
+                    ps_dec_state->ps_deint_pic = ps_disp_pic;
                 }
                 if(0 == ps_dec_state->u4_share_disp_buf)
                     impeg2_buf_mgr_release(ps_dec_state->pv_pic_buf_mg, ps_disp_pic->i4_buf_id, BUF_MGR_DISP);
@@ -3156,7 +3251,7 @@ IV_API_CALL_STATUS_T impeg2d_api_entity(iv_obj_t *ps_dechdl,
 
             if (0 == ps_dec_state->u4_frm_buf_stride)
             {
-                ps_dec_state->u4_frm_buf_stride = ALIGN16(ps_dec_state->u2_horizontal_size);
+                ps_dec_state->u4_frm_buf_stride = (ps_dec_state->u2_horizontal_size);
             }
 
             ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_y_wd = ps_dec_state->u2_horizontal_size;
@@ -3256,6 +3351,17 @@ IV_API_CALL_STATUS_T impeg2d_api_entity(iv_obj_t *ps_dechdl,
             {
                 impeg2_buf_mgr_release(ps_dec_state->pv_pic_buf_mg, ps_dec_state->ps_disp_pic->i4_buf_id, BUF_MGR_DISP);
             }
+        }
+
+        if(ps_dec_state->u4_deinterlace)
+        {
+            if(ps_dec_state->ps_deint_pic)
+            {
+                impeg2_buf_mgr_release(ps_dec_state->pv_pic_buf_mg,
+                                       ps_dec_state->ps_deint_pic->i4_buf_id,
+                                       MPEG2_BUF_MGR_DEINT);
+            }
+            ps_dec_state->ps_deint_pic = ps_dec_state->ps_disp_pic;
         }
 
         if(1 == ps_dec_op->s_ivd_video_decode_op_t.u4_output_present)

@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <netdb.h>
 #include <string.h>
 
 #include <sys/socket.h>
@@ -41,6 +42,7 @@ namespace {
 static const char BP_TOOLS_MODE[] = "bp-tools";
 static const char IPV4_FORWARDING_PROC_FILE[] = "/proc/sys/net/ipv4/ip_forward";
 static const char IPV6_FORWARDING_PROC_FILE[] = "/proc/sys/net/ipv6/conf/all/forwarding";
+static const char SEPARATOR[] = "|";
 
 bool writeToFile(const char* filename, const char* value) {
     int fd = open(filename, O_WRONLY);
@@ -121,7 +123,7 @@ size_t TetherController::forwardingRequestCount() {
 
 #define TETHER_START_CONST_ARG        8
 
-int TetherController::startTethering(int num_addrs, struct in_addr* addrs) {
+int TetherController::startTethering(int num_addrs, char **dhcp_ranges) {
     if (mDaemonPid != 0) {
         ALOGE("Tethering already started");
         errno = EBUSY;
@@ -173,12 +175,9 @@ int TetherController::startTethering(int num_addrs, struct in_addr* addrs) {
         args[7] = (char *)"";
 
         int nextArg = TETHER_START_CONST_ARG;
-        for (int addrIndex=0; addrIndex < num_addrs;) {
-            char *start = strdup(inet_ntoa(addrs[addrIndex++]));
-            char *end = strdup(inet_ntoa(addrs[addrIndex++]));
-            asprintf(&(args[nextArg++]),"--dhcp-range=%s,%s,1h", start, end);
-            free(start);
-            free(end);
+        for (int addrIndex = 0; addrIndex < num_addrs; addrIndex += 2) {
+            asprintf(&(args[nextArg++]),"--dhcp-range=%s,%s,1h",
+                     dhcp_ranges[addrIndex], dhcp_ranges[addrIndex+1]);
         }
 
         if (execv(args[0], args)) {
@@ -231,18 +230,20 @@ int TetherController::setDnsForwarders(unsigned netId, char **servers, int numSe
     fwmark.protectedFromVpn = true;
     fwmark.permission = PERMISSION_SYSTEM;
 
-    snprintf(daemonCmd, sizeof(daemonCmd), "update_dns:0x%x", fwmark.intValue);
+    snprintf(daemonCmd, sizeof(daemonCmd), "update_dns%s0x%x", SEPARATOR, fwmark.intValue);
     int cmdLen = strlen(daemonCmd);
 
     mDnsForwarders->clear();
     for (i = 0; i < numServers; i++) {
         ALOGD("setDnsForwarders(0x%x %d = '%s')", fwmark.intValue, i, servers[i]);
 
-        struct in_addr a;
-
-        if (!inet_aton(servers[i], &a)) {
+        addrinfo *res, hints = { .ai_flags = AI_NUMERICHOST };
+        int ret = getaddrinfo(servers[i], NULL, &hints, &res);
+        freeaddrinfo(res);
+        if (ret) {
             ALOGE("Failed to parse DNS server '%s'", servers[i]);
             mDnsForwarders->clear();
+            errno = EINVAL;
             return -1;
         }
 
@@ -252,9 +253,9 @@ int TetherController::setDnsForwarders(unsigned netId, char **servers, int numSe
             break;
         }
 
-        strcat(daemonCmd, ":");
+        strcat(daemonCmd, SEPARATOR);
         strcat(daemonCmd, servers[i]);
-        mDnsForwarders->push_back(a);
+        mDnsForwarders->push_back(servers[i]);
     }
 
     mDnsNetId = netId;
@@ -263,6 +264,7 @@ int TetherController::setDnsForwarders(unsigned netId, char **servers, int numSe
         if (write(mDaemonFd, daemonCmd, strlen(daemonCmd) +1) < 0) {
             ALOGE("Failed to send update command to dnsmasq (%s)", strerror(errno));
             mDnsForwarders->clear();
+            errno = EREMOTEIO;
             return -1;
         }
     }
@@ -292,7 +294,7 @@ int TetherController::applyDnsInterfaces() {
             break;
         }
 
-        strcat(daemonCmd, ":");
+        strcat(daemonCmd, SEPARATOR);
         strcat(daemonCmd, *it);
         haveInterfaces = true;
     }

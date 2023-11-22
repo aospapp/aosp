@@ -40,6 +40,7 @@ clang_sema_SRC_FILES := \
   SemaCodeComplete.cpp \
   SemaConsumer.cpp \
   Sema.cpp \
+  SemaCoroutine.cpp \
   SemaCUDA.cpp \
   SemaCXXScopeSpec.cpp \
   SemaDeclAttr.cpp \

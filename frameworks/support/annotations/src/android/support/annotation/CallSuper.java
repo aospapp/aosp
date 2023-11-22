@@ -15,6 +15,7 @@
  */
 package android.support.annotation;
 
+import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
@@ -25,11 +26,12 @@ import static java.lang.annotation.RetentionPolicy.CLASS;
  * Denotes that any overriding methods should invoke this method as well.
  * <p>
  * Example:
- * <pre>{@code
+ * <pre><code>
  *  &#64;CallSuper
  *  public abstract void onFocusLost();
- * }</pre>
+ * </code></pre>
  */
+@Documented
 @Retention(CLASS)
 @Target({METHOD})
 public @interface CallSuper {

@@ -38,7 +38,7 @@ public class HttpAuthHandlerTest extends ActivityInstrumentationTestCase2<WebVie
     private WebViewOnUiThread mOnUiThread;
 
     public HttpAuthHandlerTest() {
-        super("com.android.cts.webkit", WebViewCtsActivity.class);
+        super("android.webkit.cts", WebViewCtsActivity.class);
     }
 
     @Override

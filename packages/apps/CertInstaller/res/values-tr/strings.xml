@@ -34,7 +34,6 @@
     <string name="password_empty_error" msgid="591713406761723025">"Şifreyi yazın."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"Bir ad yazın."</string>
     <string name="name_char_error" msgid="3176618568784938968">"Yalnızca harflerden ve rakamlardan oluşan bir ad yazın."</string>
-    <string name="storage_error" msgid="8306802455802770779">"Sertifika kaydedilemedi. Tekrar denemek için Tamam\'a dokunun."</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"Sertifika kaydedilemedi. Kimlik bilgileri deposu etkinleştirilmemiş veya düzgün bir şekilde başlatılmamış."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"Sertifika yüklenmedi."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"Yüklenecek sertifika yok."</string>

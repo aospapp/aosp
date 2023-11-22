@@ -17,6 +17,7 @@
 #ifndef ANDROID_AUDIO_FAST_MIXER_H
 #define ANDROID_AUDIO_FAST_MIXER_H
 
+#include <atomic>
 #include "FastThread.h"
 #include "StateQueue.h"
 #include "FastMixerState.h"
@@ -36,6 +37,10 @@ public:
 
             FastMixerStateQueue* sq();
 
+    virtual void setMasterMono(bool mono) { mMasterMono.store(mono); /* memory_order_seq_cst */ }
+    virtual void setBoottimeOffset(int64_t boottimeOffset) {
+        mBoottimeOffset.store(boottimeOffset); /* memory_order_seq_cst */
+    }
 private:
             FastMixerStateQueue mSQ;
 
@@ -52,7 +57,6 @@ private:
     static const FastMixerState sInitial;
 
     FastMixerState  mPreIdle;   // copy of state before we went into idle
-    long            mSlopNs;    // accumulated time we've woken up too early (> 0) or too late (< 0)
     int             mFastTrackNames[FastMixerState::kMaxFastTracks];
                                 // handles used by mixer to identify tracks
     int             mGenerations[FastMixerState::kMaxFastTracks];
@@ -76,12 +80,15 @@ private:
     unsigned        mSampleRate;
     int             mFastTracksGen;
     FastMixerDumpState mDummyFastMixerDumpState;
-    uint32_t        mTotalNativeFramesWritten;  // copied to dumpState->mFramesWritten
+    int64_t         mTotalNativeFramesWritten;  // copied to dumpState->mFramesWritten
 
     // next 2 fields are valid only when timestampStatus == NO_ERROR
-    AudioTimestamp  mTimestamp;
-    uint32_t        mNativeFramesWrittenButNotPresented;
+    ExtendedTimestamp mTimestamp;
+    int64_t         mNativeFramesWrittenButNotPresented;
 
+    // accessed without lock between multiple threads.
+    std::atomic_bool mMasterMono;
+    std::atomic_int_fast64_t mBoottimeOffset;
 };  // class FastMixer
 
 }   // namespace android

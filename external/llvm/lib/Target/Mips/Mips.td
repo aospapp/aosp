@@ -28,12 +28,15 @@ class PredicateControl {
   list<Predicate> FGRPredicates = [];
   // Predicates for the instruction group membership such as ISA's and ASE's
   list<Predicate> InsnPredicates = [];
+  // Predicate for marking the instruction as usable in hard-float mode only.
+  list<Predicate> HardFloatPredicate = [];
   // Predicates for anything else
   list<Predicate> AdditionalPredicates = [];
   list<Predicate> Predicates = !listconcat(EncodingPredicates,
                                            GPRPredicates,
                                            FGRPredicates,
                                            InsnPredicates,
+                                           HardFloatPredicate,
                                            AdditionalPredicates);
 }
 
@@ -69,6 +72,8 @@ def FeatureNaN2008     : SubtargetFeature<"nan2008", "IsNaN2008bit", "true",
                                 "IEEE 754-2008 NaN encoding">;
 def FeatureSingleFloat : SubtargetFeature<"single-float", "IsSingleFloat",
                                 "true", "Only supports single precision float">;
+def FeatureSoftFloat   : SubtargetFeature<"soft-float", "IsSoftFloat", "true",
+                                "Does not support floating point instructions">;
 def FeatureNoOddSPReg  : SubtargetFeature<"nooddspreg", "UseOddSPReg", "false",
                               "Disable odd numbered single-precision "
                               "registers">;
@@ -149,8 +154,13 @@ def FeatureMips16  : SubtargetFeature<"mips16", "InMips16Mode", "true",
 def FeatureDSP : SubtargetFeature<"dsp", "HasDSP", "true", "Mips DSP ASE">;
 def FeatureDSPR2 : SubtargetFeature<"dspr2", "HasDSPR2", "true",
                                     "Mips DSP-R2 ASE", [FeatureDSP]>;
+def FeatureDSPR3
+    : SubtargetFeature<"dspr3", "HasDSPR3", "true", "Mips DSP-R3 ASE",
+                       [ FeatureDSP, FeatureDSPR2 ]>;
 
 def FeatureMSA : SubtargetFeature<"msa", "HasMSA", "true", "Mips MSA ASE">;
+
+def FeatureEVA : SubtargetFeature<"eva", "HasEVA", "true", "Mips EVA ASE">;
 
 def FeatureMicroMips  : SubtargetFeature<"micromips", "InMicroMipsMode", "true",
                                          "microMips mode">;
@@ -159,9 +169,18 @@ def FeatureCnMips     : SubtargetFeature<"cnmips", "HasCnMips",
                                 "true", "Octeon cnMIPS Support",
                                 [FeatureMips64r2]>;
 
+def FeatureUseTCCInDIV : SubtargetFeature<
+                               "use-tcc-in-div",
+                               "UseTCCInDIV", "false",
+                               "Force the assembler to use trapping">;
+
 //===----------------------------------------------------------------------===//
 // Mips processors supported.
 //===----------------------------------------------------------------------===//
+
+def ImplP5600 : SubtargetFeature<"p5600", "ProcImpl",
+                                 "MipsSubtarget::CPU::P5600",
+                                 "The P5600 Processor", [FeatureMips32r5]>;
 
 class Proc<string Name, list<SubtargetFeature> Features>
  : Processor<Name, MipsGenericItineraries, Features>;
@@ -182,8 +201,8 @@ def : Proc<"mips64r2", [FeatureMips64r2]>;
 def : Proc<"mips64r3", [FeatureMips64r3]>;
 def : Proc<"mips64r5", [FeatureMips64r5]>;
 def : Proc<"mips64r6", [FeatureMips64r6]>;
-def : Proc<"mips16", [FeatureMips16]>;
 def : Proc<"octeon", [FeatureMips64r2, FeatureCnMips]>;
+def : ProcessorModel<"p5600", MipsP5600Model, [ImplP5600]>;
 
 def MipsAsmParser : AsmParser {
   let ShouldEmitMatchRegisterName = 0;

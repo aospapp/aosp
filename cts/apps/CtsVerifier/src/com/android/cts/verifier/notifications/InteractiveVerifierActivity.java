@@ -323,8 +323,10 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
             if (id == R.string.nls_start_settings) {
                 launchSettings();
             } else if (id == R.string.attention_ready) {
-                mCurrentTest.status = READY;
-                next();
+                if (mCurrentTest != null) {
+                    mCurrentTest.status = READY;
+                    next();
+                }
             }
         }
     }

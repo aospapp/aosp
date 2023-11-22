@@ -16,15 +16,27 @@
 
 package android.support.v4.graphics.drawable;
 
+import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.graphics.Outline;
+import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.DrawableContainer;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.InsetDrawable;
+import android.os.Build;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 
 class DrawableWrapperLollipop extends DrawableWrapperKitKat {
 
     DrawableWrapperLollipop(Drawable drawable) {
         super(drawable);
+    }
+
+    DrawableWrapperLollipop(DrawableWrapperState state, Resources resources) {
+        super(state, resources);
     }
 
     @Override
@@ -43,17 +55,73 @@ class DrawableWrapperLollipop extends DrawableWrapperKitKat {
     }
 
     @Override
-    public void applyTheme(Resources.Theme t) {
-        mDrawable.applyTheme(t);
-    }
-
-    @Override
-    public boolean canApplyTheme() {
-        return mDrawable.canApplyTheme();
-    }
-
-    @Override
     public Rect getDirtyBounds() {
         return mDrawable.getDirtyBounds();
+    }
+
+    @Override
+    public void setTintList(ColorStateList tint) {
+        if (isCompatTintEnabled()) {
+            super.setTintList(tint);
+        } else {
+            mDrawable.setTintList(tint);
+        }
+    }
+
+    @Override
+    public void setTint(int tintColor) {
+        if (isCompatTintEnabled()) {
+            super.setTint(tintColor);
+        } else {
+            mDrawable.setTint(tintColor);
+        }
+    }
+
+    @Override
+    public void setTintMode(PorterDuff.Mode tintMode) {
+        if (isCompatTintEnabled()) {
+            super.setTintMode(tintMode);
+        } else {
+            mDrawable.setTintMode(tintMode);
+        }
+    }
+
+    @Override
+    public boolean setState(int[] stateSet) {
+        if (super.setState(stateSet)) {
+            // Manually invalidate because the framework doesn't currently force an invalidation
+            // on a state change
+            invalidateSelf();
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    protected boolean isCompatTintEnabled() {
+        if (Build.VERSION.SDK_INT == 21) {
+            final Drawable drawable = mDrawable;
+            return drawable instanceof GradientDrawable || drawable instanceof DrawableContainer
+                    || drawable instanceof InsetDrawable;
+        }
+        return false;
+    }
+
+    @NonNull
+    @Override
+    DrawableWrapperState mutateConstantState() {
+        return new DrawableWrapperStateLollipop(mState, null);
+    }
+
+    private static class DrawableWrapperStateLollipop extends DrawableWrapperState {
+        DrawableWrapperStateLollipop(@Nullable DrawableWrapperState orig,
+                @Nullable Resources res) {
+            super(orig, res);
+        }
+
+        @Override
+        public Drawable newDrawable(@Nullable Resources res) {
+            return new DrawableWrapperLollipop(this, res);
+        }
     }
 }

@@ -30,21 +30,21 @@ can find information on common features useful to people and organizations who
 are looking to modify, contribute to, or port the Android software. This is
 "under the hood" information intended for engineers.</p>
 
-<h2 id="accessory-protocol-information">Accessories</h2>
-<p>Android devices can connect to hardware accessories, such as audio docks,
-keyboards and custom hardware, through USB or Bluetooth. This section
-describes the Android Open Accessory protocol (AOAP) for accessory hardware
-builders.</p>
-<p><a href="{@docRoot}accessories/index.html">&raquo; Accessory Protocol
-Information</a></p>
-
-<h2 id="art-technical-information">ART</h2>
+<h2 id="art-technical-information">ART and Dalvik</h2>
 <p>The Android runtime (ART) is the heart of Android. It's a fast, ahead-of-time
 compiled runtime with modern garbage collection designed to scale.
 Android applications are compiled to Dalvik bytecode and run with ART. This
 section includes detailed information such as the Dalvik Executable format
 specification, and design information on the runtime itself.</p>
 <p><a href="{@docRoot}devices/tech/dalvik/index.html">&raquo; ART and Dalvik
+Information</a></p>
+
+<h2 id="config">Configuration</h2>
+<p>Getting the most out of Android requires tuning of the <a
+href="{@docRoot}devices/tech/config/kernel.html">kernel</a>, <a
+href="{@docRoot}devices/tech/config/renderer.html">OpenGLRenderer</a>, and
+more. See the subpages of this section for details.
+<p><a href="{@docRoot}devices/tech/config/index.html">&raquo; Configuration
 Information</a></p>
 
 <h2 id="data-usage-technical-information">Data Usage</h2>
@@ -55,31 +55,24 @@ should be aware of when porting Android to specific devices.</p>
 <p><a href="{@docRoot}devices/tech/datausage/index.html">&raquo; Data Usage
 Information</a></p>
 
-<h2 id="debugging">Debugging and Tuning</h2>
+<h2 id="debugging">Debugging</h2>
 <p>Android is a large and complex system. This section includes tips and tricks
 for debugging at the platform level.</p>
 <p><a href="{@docRoot}devices/tech/debug/index.html">&raquo; Debugging
 Information</a></p>
+
+<h2 id="admin-information">Device Administration</h2>
+<p>Since Android 5.0, the platform supports use cases in a corporate
+environment under the auspices of each company’s information technology (IT)
+department.</p>
+<p><a href="{@docRoot}devices/tech/admin/index.html">&raquo; Device
+administration information</a></p>
 
 <h2 id="HAL-technical-information">HAL File Reference</h2>
 <p>Android's Hardware Abstraction Layer (HAL) provides the interface between
 software APIs and hardware drivers. This section contains the commented code
 files of the HAL.</p>
 <p><a href="{@docRoot}devices/halref/files.html">&raquo; HAL Reference</a></p>
-
-<h2 id="kernel-technical-information">Kernel</h2>
-<p>The kernel configuration settings in this section are meant to be used as
-a base for an Android kernel configuration. All devices should have the
-options in android-base configuration enabled.</p>
-<p><a href="{@docRoot}devices/tech/kernel.html">&raquo; Kernel Information</a>
-</p>
-
-<h2 id="lowram-technical-information">Low RAM</h2>
-<p>Android supports devices with limited memory through various optimizations
-such as improved memory management, reduced system memory, and several
-build-time and kernel configuration settings.</p>
-<p><a href="{@docRoot}devices/tech/low-ram.html">&raquo; Low RAM Information</a>
-</p>
 
 <h2 id="ota-technical-information">OTA Updates</h2>
 <p>Android devices in the field can receive and install over-the-air (OTA)
@@ -93,14 +86,8 @@ developers building OTA updates for new and released Android devices.</p>
 <p>Battery usage statistics are tracked by the framework. This involves
 keeping track of time spent by different device components in different states.
 </p>
-<p><a href="{@docRoot}devices/tech/power.html">&raquo; Power Information</a>
+<p><a href="{@docRoot}devices/tech/power/index.html">&raquo; Power Information</a>
 </p>
-
-<h2 id="security-technical-information">Security</h2>
-<p>Android security comes with a variety of measures, including an application
-sandbox, SELinux, dm-verity, encryption, and more.</p>
-<p><a href="{@docRoot}devices/tech/security/index.html">&raquo; Security
-Information</a></p>
 
 <h2 id="tradefed-test-infrastructure">Trade Federation Testing Infrastructure
 </h2>

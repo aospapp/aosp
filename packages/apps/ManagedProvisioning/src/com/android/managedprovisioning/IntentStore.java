@@ -19,287 +19,242 @@ import android.accounts.Account;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
-import android.os.Bundle;
 import android.os.PersistableBundle;
 import android.util.Xml;
 
+import com.android.internal.util.FastXmlSerializer;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Set;
+
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
-import org.xmlpull.v1.XmlPullParserFactory;
 import org.xmlpull.v1.XmlSerializer;
 
-import java.io.IOException;
-import java.io.StringReader;
-import java.io.StringWriter;
-
 /**
- * Helper class to load/save resume information from Intents into a SharedPreferences.
+ * This class is used to store an intent to an xml file, and then restore it.
+ * Can only store:
+ * - the action
+ * - the component name
+ * - extras of type string, Integer, Long, Boolean, ComponentName, PersistableBundle, Account
  */
 public class IntentStore {
-    private SharedPreferences mPrefs;
-    private String mPrefsName; // Name of the file where mPrefs is stored.
-    private Context mContext;
-    private ComponentName mIntentTarget;
 
-    // Key arrays should never be null.
-    private String[] mStringKeys = new String[0];
-    private String[] mLongKeys = new String[0];
-    private String[] mIntKeys = new String[0];
-    private String[] mBooleanKeys = new String[0];
-    private String[] mPersistableBundleKeys = new String[0];
-    private String[] mAccountKeys = new String[0];
-    private String[] mComponentNameKeys = new String[0];
+    private static final String TAG_INTENT_STORE = "intent-store";
 
-    private static final String TAG_PERSISTABLEBUNDLE = "persistable_bundle";
+    private static final String TAG_ACTION = "action";
+    private static final String TAG_COMPONENT_NAME = "component-name";
+
+    private static final String TAG_EXTRAS = "extras";
+    private static final String TAG_STRING = "string";
+    private static final String TAG_INTEGER = "integer";
+    private static final String TAG_LONG = "long";
+    private static final String TAG_BOOLEAN = "boolean";
     private static final String TAG_ACCOUNT = "account";
-    private static final String ATTRIBUTE_ACCOUNT_NAME = "name";
-    private static final String ATTRIBUTE_ACCOUNT_TYPE = "type";
+    private static final String TAG_PERSISTABLE_BUNDLE = "persistable-bundle";
 
-    private static final String IS_SET = "isSet";
+    private static final String ATTR_VALUE = "value";
+    private static final String ATTR_NAME = "name";
+    private static final String ATTR_ACCOUNT_NAME = "account-name";
+    private static final String ATTR_ACCOUNT_TYPE = "account-type";
 
-    public IntentStore(Context context, ComponentName intentTarget, String preferencesName) {
+    private final Context mContext;
+    private final String mName;
+
+    private static final Object STATIC_LOCK = new Object();
+
+    public IntentStore(Context context, String name) {
+        mName = name;
         mContext = context;
-        mPrefsName = preferencesName;
-        mPrefs = context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE);
-        mIntentTarget = intentTarget;
     }
 
-    public IntentStore setStringKeys(String[] keys) {
-        mStringKeys = (keys == null) ? new String[0] : keys;
-        return this;
-    }
-
-    public IntentStore setLongKeys(String[] keys) {
-        mLongKeys = (keys == null) ? new String[0] : keys;
-        return this;
-    }
-
-    public IntentStore setIntKeys(String[] keys) {
-        mIntKeys = (keys == null) ? new String[0] : keys;
-        return this;
-    }
-
-    public IntentStore setBooleanKeys(String[] keys) {
-        mBooleanKeys = (keys == null) ? new String[0] : keys;
-        return this;
-    }
-
-    public IntentStore setAccountKeys(String[] keys) {
-        mAccountKeys = (keys == null) ? new String[0] : keys;
-        return this;
-    }
-
-    public IntentStore setPersistableBundleKeys(String[] keys) {
-        mPersistableBundleKeys = (keys == null) ? new String[0] : keys;
-        return this;
-    }
-
-    public IntentStore setComponentNameKeys(String[] keys) {
-        mComponentNameKeys = (keys == null) ? new String[0] : keys;
-        return this;
-    }
-
-    public void clear() {
-        mPrefs.edit().clear().commit();
-    }
-
-    public void save(Bundle data){
-        SharedPreferences.Editor editor = mPrefs.edit();
-
-        editor.clear();
-        for (String key : mStringKeys) {
-            editor.putString(key, data.getString(key));
-        }
-        for (String key : mLongKeys) {
-            editor.putLong(key, data.getLong(key));
-        }
-        for (String key : mIntKeys) {
-            editor.putInt(key, data.getInt(key));
-        }
-        for (String key : mBooleanKeys) {
-            editor.putBoolean(key, data.getBoolean(key));
-        }
-        for (String key : mAccountKeys) {
-            Account account = (Account) data.getParcelable(key);
-            String accountString = accountToString(account);
-            if (accountString != null) {
-                editor.putString(key, accountString);
+    public boolean save(Intent intent) {
+        synchronized(STATIC_LOCK) {
+            File file = getFile();
+            if (file.exists()) {
+                ProvisionLogger.loge("Cannot save to the intent store because it already contains"
+                        + " an intent");
+                return false;
+            }
+            try (FileOutputStream stream = new FileOutputStream(file)){
+                XmlSerializer serializer = new FastXmlSerializer();
+                serializer.setOutput(stream, StandardCharsets.UTF_8.name());
+                serializer.startDocument(null, true);
+                serializer.startTag(null, TAG_INTENT_STORE);
+                writeIntent(intent, serializer);
+                serializer.endTag(null, TAG_INTENT_STORE);
+                serializer.endDocument();
+                return true;
+            } catch (IOException | XmlPullParserException e) {
+                ProvisionLogger.loge("Caught exception while trying to save an intent to the"
+                        + " intentStore", e);
+                file.delete();
+                return false;
             }
         }
-        for (String key : mPersistableBundleKeys) {
+    }
 
-            // Cast should be guaranteed to succeed by check in the provisioning activities.
-            String bundleString = persistableBundleToString((PersistableBundle) data
-                    .getParcelable(key));
-            if (bundleString != null) {
-                editor.putString(key, bundleString);
+    private void writeIntent(Intent intent, XmlSerializer serializer)
+            throws IOException, XmlPullParserException {
+        if (intent.getAction() != null) {
+            writeTag(serializer, TAG_ACTION, intent.getAction());
+        }
+        if (intent.getComponent() != null) {
+            writeTag(serializer, TAG_COMPONENT_NAME,
+                    intent.getComponent().flattenToString());
+        }
+        if (intent.getExtras() != null) {
+            writeExtras(intent, serializer);
+        }
+    }
+
+    private void writeExtras(Intent intent, XmlSerializer serializer)
+            throws IOException, XmlPullParserException {
+        serializer.startTag(null, TAG_EXTRAS);
+        for (String key : intent.getExtras().keySet()) {
+            Object o = intent.getExtra(key);
+            if (o instanceof String) {
+                writeTag(serializer, TAG_STRING, key, (String) o);
+            } else if (o instanceof Integer) {
+                writeTag(serializer, TAG_INTEGER, key, o.toString());
+            } else if (o instanceof Long) {
+                writeTag(serializer, TAG_LONG, key, o.toString());
+            } else if (o instanceof Boolean) {
+                writeTag(serializer, TAG_BOOLEAN, key, o.toString());
+            } else if (o instanceof ComponentName) {
+                writeTag(serializer, TAG_COMPONENT_NAME, key,
+                        ((ComponentName) o).flattenToString());
+            } else if (o instanceof Account) {
+                Account account = (Account) o;
+                serializer.startTag(null, TAG_ACCOUNT);
+                serializer.attribute(null, ATTR_NAME, key);
+                serializer.attribute(null, ATTR_ACCOUNT_NAME, account.name);
+                serializer.attribute(null, ATTR_ACCOUNT_TYPE, account.type);
+                serializer.endTag(null, TAG_ACCOUNT);
+            } else if (o instanceof PersistableBundle) {
+                serializer.startTag(null, TAG_PERSISTABLE_BUNDLE);
+                serializer.attribute(null, ATTR_NAME, key);
+                ((PersistableBundle) o).saveToXml(serializer);
+                serializer.endTag(null, TAG_PERSISTABLE_BUNDLE);
+            } else if (o != null) {
+                ProvisionLogger.loge("extra for key " + key + " cannot be save in the intent"
+                        + " store: " + o, new RuntimeException());
             }
         }
-        for (String key : mComponentNameKeys) {
-            ComponentName cn = (ComponentName) data.getParcelable(key);
-            if (cn != null) {
-                editor.putString(key, cn.flattenToString());
-            }
-        }
-        editor.putBoolean(IS_SET, true);
-        editor.commit();
+        serializer.endTag(null, TAG_EXTRAS);
     }
 
     public Intent load() {
-        if (!mPrefs.getBoolean(IS_SET, false)) {
+        File file = getFile();
+        if (!file.exists()) {
             return null;
         }
-
-        Intent result = new Intent();
-        result.setComponent(mIntentTarget);
-
-        for (String key : mStringKeys) {
-            String value = mPrefs.getString(key, null);
-            if (value != null) {
-                result.putExtra(key, value);
+        synchronized(STATIC_LOCK) {
+            try (FileInputStream stream = new FileInputStream(file)) {
+                XmlPullParser parser = Xml.newPullParser();
+                parser.setInput(stream, null);
+                Intent result = parseIntent(parser);
+                return result;
+            } catch (IOException | XmlPullParserException e) {
+                ProvisionLogger.loge("Caught exception while trying to load an intent from the"
+                        + " IntentStore", e);
+                return null;
             }
         }
-        for (String key : mLongKeys) {
-            if (mPrefs.contains(key)) {
-                result.putExtra(key, mPrefs.getLong(key, 0));
-            }
-        }
-        for (String key : mIntKeys) {
-            if (mPrefs.contains(key)) {
-                result.putExtra(key, mPrefs.getInt(key, 0));
-            }
-        }
-        for (String key : mBooleanKeys) {
-            if (mPrefs.contains(key)) {
-                result.putExtra(key, mPrefs.getBoolean(key, false));
-            }
-        }
-        for (String key : mAccountKeys) {
-            if (mPrefs.contains(key)) {
-                Account account = stringToAccount(mPrefs.getString(key, null));
-                if (account != null) {
-                    result.putExtra(key, account);
-                }
-            }
-        }
-        for (String key : mPersistableBundleKeys) {
-            if (mPrefs.contains(key)) {
-                PersistableBundle bundle = stringToPersistableBundle(mPrefs.getString(key, null));
-                if (bundle != null) {
-                    result.putExtra(key, bundle);
-                }
-            }
-        }
-        for (String key : mComponentNameKeys) {
-            if (mPrefs.contains(key)) {
-                String st = mPrefs.getString(key, null);
-                if (st != null) {
-                    result.putExtra(key, ComponentName.unflattenFromString(st));
-                }
-            }
-        }
-
-        return result;
     }
 
-    private String accountToString(Account account) {
-        if (account == null) {
-            return null;
-        }
-        StringWriter writer = new StringWriter();
-        XmlSerializer serializer = Xml.newSerializer();
-        try {
-            serializer.setOutput(writer);
-            serializer.startDocument(null, true);
-            serializer.startTag(null, TAG_ACCOUNT);
-            serializer.attribute(null /* namespace */, ATTRIBUTE_ACCOUNT_NAME, account.name);
-            serializer.attribute(null /* namespace */, ATTRIBUTE_ACCOUNT_TYPE, account.type);
-            serializer.endTag(null, TAG_ACCOUNT);
-            serializer.endDocument();
-        } catch (IOException e) {
-            ProvisionLogger.loge("Account could not be stored as string.", e);
-            return null;
-        }
-
-        return writer.toString();
-    }
-
-    private Account stringToAccount(String string) {
-        if (string == null) {
-            return null;
-        }
-        XmlPullParserFactory factory;
-        XmlPullParser parser;
-        try {
-            factory = XmlPullParserFactory.newInstance();
-
-            parser = factory.newPullParser();
-            parser.setInput(new StringReader(string));
-
-            if ((parser.next() == XmlPullParser.START_TAG)
-                    && TAG_ACCOUNT.equals(parser.getName())) {
-                String name = parser.getAttributeValue(null /* namespace */,
-                        ATTRIBUTE_ACCOUNT_NAME);
-                String type = parser.getAttributeValue(null /* namespace */,
-                        ATTRIBUTE_ACCOUNT_TYPE);
-                if (name != null && type != null) {
-                    return new Account(name, type);
-                }
+    private Intent parseIntent(XmlPullParser parser) throws XmlPullParserException, IOException {
+        Intent intent = new Intent();
+        int outerDepth = parser.getDepth();
+        int type;
+        while ((type = parser.next()) != XmlPullParser.END_DOCUMENT
+               && (type != XmlPullParser.END_TAG || parser.getDepth() > outerDepth)) {
+            if (type == XmlPullParser.END_TAG || type == XmlPullParser.TEXT) {
+                continue;
             }
-        } catch (IOException|XmlPullParserException e) {
-            ProvisionLogger.loge(e);
-            // Fall through.
-        }
-        ProvisionLogger.loge("Account could not be restored from string " + string);
-        return null;
-    }
-
-    private String persistableBundleToString(PersistableBundle bundle) {
-        if (bundle == null) {
-            return null;
-        }
-
-        StringWriter writer = new StringWriter();
-        XmlSerializer serializer = Xml.newSerializer();
-        try {
-            serializer.setOutput(writer);
-            serializer.startDocument(null, true);
-            serializer.startTag(null, TAG_PERSISTABLEBUNDLE);
-            bundle.saveToXml(serializer);
-            serializer.endTag(null, TAG_PERSISTABLEBUNDLE);
-            serializer.endDocument();
-        } catch (IOException|XmlPullParserException e) {
-            ProvisionLogger.loge("Persistable bundle could not be stored as string.", e);
-            return null;
-        }
-
-        return writer.toString();
-    }
-
-    private PersistableBundle stringToPersistableBundle(String string) {
-        if (string == null) {
-            return null;
-        }
-
-        XmlPullParserFactory factory;
-        XmlPullParser parser;
-        try {
-            factory = XmlPullParserFactory.newInstance();
-
-            parser = factory.newPullParser();
-            parser.setInput(new StringReader(string));
-
-            if (parser.next() == XmlPullParser.START_TAG) {
-                if (TAG_PERSISTABLEBUNDLE.equals(parser.getName())) {
-                    return PersistableBundle.restoreFromXml(parser);
-                }
+            String tag = parser.getName();
+            if (tag.equals(TAG_ACTION)) {
+                intent.setAction(parser.getAttributeValue(null, ATTR_VALUE));
+            } else if (tag.equals(TAG_COMPONENT_NAME)) {
+                intent.setComponent(ComponentName.unflattenFromString(
+                        parser.getAttributeValue(null, ATTR_VALUE)));
+            } else if (tag.equals(TAG_EXTRAS)) {
+                parseExtras(intent, parser);
             }
-        } catch (IOException|XmlPullParserException e) {
-            ProvisionLogger.loge(e);
-            // Fall through.
         }
-        ProvisionLogger.loge("Persistable bundle could not be restored from string " + string);
-        return null;
+        return intent;
+    }
+
+    private void parseExtras(Intent intent, XmlPullParser parser) throws XmlPullParserException,
+            IOException {
+        int outerDepth = parser.getDepth();
+        int type;
+        while ((type = parser.next()) != XmlPullParser.END_DOCUMENT
+               && (type != XmlPullParser.END_TAG || parser.getDepth() > outerDepth)) {
+            if (type == XmlPullParser.END_TAG || type == XmlPullParser.TEXT) {
+                continue;
+            }
+            String tag = parser.getName();
+            switch (tag) {
+                case TAG_STRING:
+                    intent.putExtra(parser.getAttributeValue(null, ATTR_NAME),
+                            parser.getAttributeValue(null, ATTR_VALUE));
+                    break;
+                case TAG_INTEGER:
+                    intent.putExtra(parser.getAttributeValue(null, ATTR_NAME),
+                            Integer.parseInt(parser.getAttributeValue(null, ATTR_VALUE)));
+                    break;
+                case TAG_LONG:
+                    intent.putExtra(parser.getAttributeValue(null, ATTR_NAME),
+                            Long.parseLong(parser.getAttributeValue(null, ATTR_VALUE)));
+                    break;
+                case TAG_BOOLEAN:
+                    intent.putExtra(parser.getAttributeValue(null, ATTR_NAME),
+                            Boolean.parseBoolean(
+                            parser.getAttributeValue(null, ATTR_VALUE)));
+                    break;
+                case TAG_COMPONENT_NAME:
+                    intent.putExtra(parser.getAttributeValue(null, ATTR_NAME),
+                            ComponentName.unflattenFromString(
+                            parser.getAttributeValue(null, ATTR_VALUE)));
+                    break;
+                case TAG_ACCOUNT:
+                    Account a = new Account(
+                            parser.getAttributeValue(null, ATTR_ACCOUNT_NAME),
+                            parser.getAttributeValue(null, ATTR_ACCOUNT_TYPE));
+                    intent.putExtra(parser.getAttributeValue(null, ATTR_NAME), a);
+                    break;
+                case TAG_PERSISTABLE_BUNDLE:
+                    intent.putExtra(parser.getAttributeValue(null, ATTR_NAME),
+                            PersistableBundle.restoreFromXml(parser));
+                    break;
+            }
+        }
+    }
+
+    public void clear() {
+        getFile().delete();
+    }
+
+    private void writeTag(XmlSerializer serializer, String tag, String value) throws IOException {
+        serializer.startTag(null, tag);
+        serializer.attribute(null, ATTR_VALUE, value);
+        serializer.endTag(null, tag);
+    }
+
+    private void writeTag(XmlSerializer serializer, String tag, String name, String value)
+            throws IOException {
+        serializer.startTag(null, tag);
+        serializer.attribute(null, ATTR_NAME, name);
+        serializer.attribute(null, ATTR_VALUE, value);
+        serializer.endTag(null, tag);
+    }
+
+    private File getFile() {
+        return new File(mContext.getFilesDir(), "intent_store_" + mName + ".xml");
     }
 }

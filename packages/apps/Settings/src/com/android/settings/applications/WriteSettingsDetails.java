@@ -18,26 +18,23 @@ package com.android.settings.applications;
 import android.app.AlertDialog;
 import android.app.AppOpsManager;
 import android.content.ActivityNotFoundException;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.UserHandle;
-import android.preference.Preference;
-import android.preference.Preference.OnPreferenceChangeListener;
-import android.preference.Preference.OnPreferenceClickListener;
-import android.preference.SwitchPreference;
 import android.provider.Settings;
+import android.support.v14.preference.SwitchPreference;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.Preference.OnPreferenceChangeListener;
+import android.support.v7.preference.Preference.OnPreferenceClickListener;
 import android.util.Log;
 
-import com.android.internal.logging.MetricsLogger;
-import com.android.settings.InstrumentedFragment;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.R;
 import com.android.settings.applications.AppStateAppOpsBridge.PermissionState;
 import com.android.settings.applications.AppStateWriteSettingsBridge.WriteSettingsState;
-import com.android.settingslib.applications.ApplicationsState;
 import com.android.settingslib.applications.ApplicationsState.AppEntry;
 
 import java.util.List;
@@ -157,17 +154,21 @@ public class WriteSettingsDetails extends AppInfoWithHeader implements OnPrefere
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.SYSTEM_ALERT_WINDOW_APPS;
+        return MetricsEvent.SYSTEM_ALERT_WINDOW_APPS;
     }
 
     public static CharSequence getSummary(Context context, AppEntry entry) {
-        if (entry.extraInfo != null) {
-            return getSummary(context, new WriteSettingsState((PermissionState)entry
-                    .extraInfo));
+        WriteSettingsState state;
+        if (entry.extraInfo instanceof WriteSettingsState) {
+            state = (WriteSettingsState) entry.extraInfo;
+        } else if (entry.extraInfo instanceof PermissionState) {
+            state = new WriteSettingsState((PermissionState) entry.extraInfo);
+        } else {
+            state = new AppStateWriteSettingsBridge(context, null, null).getWriteSettingsInfo(
+                    entry.info.packageName, entry.info.uid);
         }
 
-        // fallback if entry.extrainfo is null - although this should not happen
-        return getSummary(context, entry.info.packageName);
+        return getSummary(context, state);
     }
 
     public static CharSequence getSummary(Context context, WriteSettingsState writeSettingsState) {

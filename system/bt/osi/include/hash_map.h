@@ -19,6 +19,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 struct hash_map_t;
@@ -38,7 +39,7 @@ typedef bool (*hash_map_iter_cb)(hash_map_entry_t *hash_entry, void *context);
 
 typedef bool (*key_equality_fn)(const void *x, const void *y);
 
-typedef void (*key_free_fn)(void *data);
+typedef void (*key_free_fn)(void *key);
 typedef void (*data_free_fn)(void *data);
 
 // Returns a new, empty hash_map. Returns NULL if not enough memory could be allocated

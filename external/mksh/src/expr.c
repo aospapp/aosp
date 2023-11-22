@@ -2,8 +2,8 @@
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
- *		 2011, 2012, 2013, 2014
- *	Thorsten Glaser <tg@mirbsd.org>
+ *		 2011, 2012, 2013, 2014, 2016
+ *	mirabilos <m@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
  * are retained or reproduced in an accompanying document, permission
@@ -23,7 +23,7 @@
 
 #include "sh.h"
 
-__RCSID("$MirOS: src/bin/mksh/expr.c,v 1.76.2.1 2015/01/25 15:44:05 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/expr.c,v 1.81 2016/01/14 21:17:50 tg Exp $");
 
 /* the order of these enums is constrained by the order of opinfo[] */
 enum token {
@@ -659,7 +659,8 @@ exprtoken(Expr_state *es)
 		es->tok = VAR;
 	} else if (c == '1' && cp[1] == '#') {
 		cp += 2;
-		cp += utf_ptradj(cp);
+		if (*cp)
+			cp += utf_ptradj(cp);
 		strndupx(tvar, es->tokp, cp - es->tokp, ATEMP);
 		goto process_tvar;
 #ifndef MKSH_SMALL
@@ -916,6 +917,7 @@ ksh_access(const char *fn, int mode)
 	return (rv);
 }
 
+#ifndef MIRBSD_BOOTFLOPPY
 /* From: X11/xc/programs/xterm/wcwidth.c,v 1.8 2014/06/24 19:53:53 tg Exp $ */
 
 struct mb_ucsrange {
@@ -1195,3 +1197,4 @@ utf_wcwidth(unsigned int wc)
 		return (2);
 	return (1);
 }
+#endif

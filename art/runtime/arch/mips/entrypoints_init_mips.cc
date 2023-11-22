@@ -15,7 +15,6 @@
  */
 
 #include "atomic.h"
-#include "entrypoints/interpreter/interpreter_entrypoints.h"
 #include "entrypoints/jni/jni_entrypoints.h"
 #include "entrypoints/quick/quick_alloc_entrypoints.h"
 #include "entrypoints/quick/quick_default_externs.h"
@@ -59,11 +58,9 @@ extern "C" double fmod(double a, double b);     // REM_DOUBLE[_2ADDR]
 extern "C" int64_t __divdi3(int64_t, int64_t);
 extern "C" int64_t __moddi3(int64_t, int64_t);
 
-void InitEntryPoints(InterpreterEntryPoints* ipoints, JniEntryPoints* jpoints,
-                     QuickEntryPoints* qpoints) {
-  // Interpreter
-  ipoints->pInterpreterToInterpreterBridge = artInterpreterToInterpreterBridge;
-  ipoints->pInterpreterToCompiledCodeBridge = artInterpreterToCompiledCodeBridge;
+void InitEntryPoints(JniEntryPoints* jpoints, QuickEntryPoints* qpoints) {
+  // Note: MIPS has asserts checking for the type of entrypoint. Don't move it
+  //       to InitDefaultEntryPoints().
 
   // JNI
   jpoints->pDlsymLookup = art_jni_dlsym_lookup_stub;
@@ -173,9 +170,14 @@ void InitEntryPoints(InterpreterEntryPoints* ipoints, JniEntryPoints* jpoints,
                 "Non-direct C stub marked direct.");
 
   // Locks
-  qpoints->pLockObject = art_quick_lock_object;
+  if (UNLIKELY(VLOG_IS_ON(systrace_lock_logging))) {
+    qpoints->pLockObject = art_quick_lock_object_no_inline;
+    qpoints->pUnlockObject = art_quick_unlock_object_no_inline;
+  } else {
+    qpoints->pLockObject = art_quick_lock_object;
+    qpoints->pUnlockObject = art_quick_unlock_object;
+  }
   static_assert(!IsDirectEntrypoint(kQuickLockObject), "Non-direct C stub marked direct.");
-  qpoints->pUnlockObject = art_quick_unlock_object;
   static_assert(!IsDirectEntrypoint(kQuickUnlockObject), "Non-direct C stub marked direct.");
 
   // Math
@@ -267,8 +269,8 @@ void InitEntryPoints(InterpreterEntryPoints* ipoints, JniEntryPoints* jpoints,
   qpoints->pThrowStackOverflow = art_quick_throw_stack_overflow;
   static_assert(!IsDirectEntrypoint(kQuickThrowStackOverflow), "Non-direct C stub marked direct.");
 
-  // Deoptimize
-  qpoints->pDeoptimize = art_quick_deoptimize;
+  // Deoptimization from compiled code.
+  qpoints->pDeoptimize = art_quick_deoptimize_from_compiled_code;
   static_assert(!IsDirectEntrypoint(kQuickDeoptimize), "Non-direct C stub marked direct.");
 
   // Atomic 64-bit load/store
@@ -277,8 +279,16 @@ void InitEntryPoints(InterpreterEntryPoints* ipoints, JniEntryPoints* jpoints,
   qpoints->pA64Store = QuasiAtomic::Write64;
   static_assert(IsDirectEntrypoint(kQuickA64Store), "Non-direct C stub marked direct.");
 
+  // Read barrier.
   qpoints->pReadBarrierJni = ReadBarrierJni;
   static_assert(!IsDirectEntrypoint(kQuickReadBarrierJni), "Non-direct C stub marked direct.");
+  qpoints->pReadBarrierMark = artReadBarrierMark;
+  static_assert(IsDirectEntrypoint(kQuickReadBarrierMark), "Direct C stub not marked direct.");
+  qpoints->pReadBarrierSlow = artReadBarrierSlow;
+  static_assert(IsDirectEntrypoint(kQuickReadBarrierSlow), "Direct C stub not marked direct.");
+  qpoints->pReadBarrierForRootSlow = artReadBarrierForRootSlow;
+  static_assert(IsDirectEntrypoint(kQuickReadBarrierForRootSlow),
+                "Direct C stub not marked direct.");
 };
 
 }  // namespace art

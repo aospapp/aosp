@@ -33,11 +33,15 @@
         <intent android:action="dummy" />
     </PreferenceScreen>
 
+    <PreferenceScreen
+        android:key="data_management"
+        android:persistent="false">
+    </PreferenceScreen>
+
     <SwitchPreference
         android:key="auto_restore"
         android:title="@string/auto_restore_title"
-        android:summary="@string/auto_restore_summary"
-        android:persistent="false" />
+        android:summary="@string/auto_restore_summary" />
 
     <Preference
         android:key="backup_inactive"
@@ -47,17 +51,21 @@
         android:selectable="false" />
 
     <!-- Network reset -->
-    <PreferenceScreen
+    <com.android.settingslib.RestrictedPreference
         android:key="network_reset"
         android:title="@string/reset_network_title"
         settings:keywords="@string/keywords_network_reset"
+        settings:userRestriction="no_network_reset"
+        settings:useAdminDisabledSummary="true"
         android:fragment="com.android.settings.ResetNetwork" />
 
     <!-- Factory reset -->
-    <PreferenceScreen
+    <com.android.settingslib.RestrictedPreference
         android:key="factory_reset"
         android:title="@string/master_clear_title"
         settings:keywords="@string/keywords_factory_data_reset"
+        settings:userRestriction="no_factory_reset"
+        settings:useAdminDisabledSummary="true"
         android:fragment="com.android.settings.MasterClear" />
 
 </PreferenceScreen>

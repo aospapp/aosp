@@ -28,6 +28,7 @@ clang_serialization_SRC_FILES :=\
   GeneratePCH.cpp \
   GlobalModuleIndex.cpp \
   Module.cpp \
+  ModuleFileExtension.cpp \
   ModuleManager.cpp
 
 # For the host

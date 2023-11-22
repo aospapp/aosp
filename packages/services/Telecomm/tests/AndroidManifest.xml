@@ -19,6 +19,10 @@
           package="com.android.server.telecom.tests"
           android:debuggable="true">
 
+    <uses-sdk
+        android:minSdkVersion="23"
+        android:targetSdkVersion="23" />
+
     <!-- TODO: Needed because we call BluetoothAdapter.getDefaultAdapter() statically, and
          BluetoothAdapter is a final class. -->
     <uses-permission android:name="android.permission.BLUETOOTH" />
@@ -26,6 +30,9 @@
     <!-- TODO: Needed because we call ActivityManager.getCurrentUser() statically. -->
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
     <uses-permission android:name="android.permission.MANAGE_USERS" />
+
+    <!-- Used to access TelephonyManager APIs -->
+    <uses-permission android:name="android.permission.MODIFY_PHONE_STATE" />
 
     <application android:label="@string/app_name"
                  android:debuggable="true">
@@ -40,8 +47,8 @@
         adb shell am instrument -w com.android.server.telecom.tests/android.test.InstrumentationTestRunner
 
         To run a single test case:
-        adb shell am instrument -w com.android.server.telecom.tests/android.test.InstrumentationTestRunner
-                                -e com.android.server.telecom.tests.unit.FooUnitTest
+        adb shell am instrument -w -e class com.android.server.telecom.tests.unit.FooUnitTest \
+                               com.android.server.telecom.tests/android.test.InstrumentationTestRunner
     -->
     <instrumentation android:name="android.test.InstrumentationTestRunner"
             android:targetPackage="com.android.server.telecom.tests"

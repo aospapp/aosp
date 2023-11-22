@@ -57,7 +57,7 @@ If your production device does not have an LED, you can install the
   <li>Use a General Purpose Input/Output (GPIO) pin for the same purpose.</li>
   <li>Use JTAG or another debugging port.</li>
   <li>Use the screen backlight. This might be risky as the
-  backlight may have a non-neglible latency, and can contribute to
+  backlight may have a non-negligible latency, and can contribute to
   an inaccurate latency reading.
   </li>
 </ul>
@@ -66,13 +66,11 @@ If your production device does not have an LED, you can install the
 
 <ol>
   <li>Run an app that periodically pulses the LED at
-  the same time it outputs audio. 
-
-  <p class="note"><b>Note:</b> To get useful results, it is crucial to use the correct
+  the same time it outputs audio.
+  <p class="note"><strong>Note:</strong> To get useful results, it is crucial to use the correct
   APIs in the test app so that you're exercising the fast audio output path.
   See <a href="latency_design.html">Design For Reduced Latency</a> for
-  background.
-  </p>
+  background.</p>
   </li>
   <li>Place a light sensor next to the LED.</li>
   <li>Connect the probes of a dual-channel oscilloscope to both the wired headphone
@@ -120,6 +118,11 @@ If your production device does not have an LED, you can install the
   precise output latency or input latency values in isolation, but might be useful
   for establishing rough estimates.</p>
 
+  <p>
+  Output latency to on-device speaker can be significantly larger than
+  output latency to headset connector.  This is due to speaker correction and protection.
+  </p>
+
 <p>
 We have published an example implementation at
 <a href="https://android.googlesource.com/platform/frameworks/wilhelm/+/master/tests/examples/slesTestFeedback.cpp">slesTestFeedback.cpp</a>.
@@ -145,6 +148,10 @@ located in the <code>audio_utils</code> library.
 <img src="images/round_trip.png" alt="round-trip measurement" id="figure1" />
 <p class="img-caption">
   <strong>Figure 1.</strong> Round-trip measurement
+</p>
+
+<p>You may need to remove the USB cable to reduce noise,
+and adjust the volume level to get a stable oscillation.
 </p>
 
 <h2 id="measuringInput">Measuring Input Latency</h2>

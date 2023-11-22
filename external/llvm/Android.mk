@@ -1,13 +1,23 @@
 LOCAL_PATH := $(call my-dir)
 LLVM_ROOT_PATH := $(LOCAL_PATH)
-LLVM_ENABLE_ASSERTION := false
+
+FORCE_BUILD_LLVM_DISABLE_NDEBUG ?= false
+# Legality check: FORCE_BUILD_LLVM_DISABLE_NDEBUG should consist of one word -- either "true" or "false".
+ifneq "$(words $(FORCE_BUILD_LLVM_DISABLE_NDEBUG))$(words $(filter-out true false,$(FORCE_BUILD_LLVM_DISABLE_NDEBUG)))" "10"
+  $(error FORCE_BUILD_LLVM_DISABLE_NDEBUG may only be true, false, or unset)
+endif
+
+FORCE_BUILD_LLVM_DEBUG ?= false
+# Legality check: FORCE_BUILD_LLVM_DEBUG should consist of one word -- either "true" or "false".
+ifneq "$(words $(FORCE_BUILD_LLVM_DEBUG))$(words $(filter-out true false,$(FORCE_BUILD_LLVM_DEBUG)))" "10"
+  $(error FORCE_BUILD_LLVM_DEBUG may only be true, false, or unset)
+endif
 
 include $(CLEAR_VARS)
 
 # LLVM Libraries
 subdirs := \
   lib/Analysis \
-  lib/Analysis/IPA \
   lib/AsmParser \
   lib/Bitcode/Reader \
   lib/Bitcode/Writer \
@@ -16,13 +26,17 @@ subdirs := \
   lib/ExecutionEngine/MCJIT \
   lib/ExecutionEngine/Orc \
   lib/ExecutionEngine/Interpreter \
+  lib/Fuzzer \
   lib/CodeGen \
   lib/CodeGen/AsmPrinter \
+  lib/CodeGen/MIRParser \
   lib/CodeGen/SelectionDAG \
   lib/DebugInfo/DWARF \
   lib/DebugInfo/PDB \
+  lib/DebugInfo/Symbolize \
   lib/IR \
   lib/IRReader \
+  lib/LibDriver \
   lib/Linker \
   lib/LTO \
   lib/MC \
@@ -100,6 +114,7 @@ subdirs += \
   tools/llvm-dis \
   tools/llvm-diff \
   tools/llvm-dwarfdump \
+  tools/llvm-dwp \
   tools/llvm-extract \
   tools/llvm-link \
   tools/llvm-lto \
@@ -112,10 +127,13 @@ subdirs += \
   tools/llvm-readobj \
   tools/llvm-rtdyld \
   tools/llvm-size \
+  tools/llvm-split \
   tools/llvm-symbolizer \
-  tools/macho-dump \
+  tools/lto \
+  tools/gold \
   tools/obj2yaml \
   tools/opt \
+  tools/sancov \
   tools/verify-uselistorder \
   tools/yaml2obj \
 
@@ -125,6 +143,7 @@ subdirs += \
   utils/FileCheck \
   utils/not \
   utils/TableGen \
+  utils/yaml-bench \
 
 include $(LOCAL_PATH)/llvm.mk
 include $(LOCAL_PATH)/shared_llvm.mk

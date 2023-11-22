@@ -26,6 +26,11 @@ import java.util.Random;
  * This class supplies some utils for renderscript tests
  */
 public class RSUtils {
+    public static final short FLOAT16_POSITIVE_INFINITY = (short) 0x7c00;
+    public static final short FLOAT16_NEGATIVE_INFINITY = (short) 0xfc00;
+    public static final short FLOAT16_MIN_NORMAL        = (short) 0x0400;  // 0.00006103516
+    public static final short FLOAT16_MAX_VALUE         = (short) 0x7bff;  // 65504
+
     private static final double[] sInterestingDoubles = {
         0.0,
         1.0,
@@ -39,6 +44,23 @@ public class RSUtils {
         -Math.PI,
         -Math.PI / 2.0,
         -Math.PI * 2.0,
+    };
+
+    // Constants E, PI etc. are set to their nearest representations in Float16.
+    private static final short[] sInterestingFloat16s = {
+        (short) 0x0, // zero
+        (short) 0x3c00, // one
+        (short) 0x4170, // E, 2.71875000000
+        (short) 0x4248, // PI, 3.14062500000
+        (short) 0x3e48, // PI / 2, 1.57031250000
+        (short) 0x4648, // PI * 2, 6.28125000000
+
+        (short) 0x8000, // negative zero
+        (short) 0xbc00, // negative one
+        (short) 0xc170, // -E, -2.71875000000
+        (short) 0xc248, // -PI, -3.14062500000
+        (short) 0xbe48, // -PI / 2, -1.57031250000
+        (short) 0xc648, // -PI * 2, -6.28125000000
     };
 
     /**
@@ -140,6 +162,89 @@ public class RSUtils {
             array[r.nextInt(array.length)] = -Float.MIN_VALUE;
             array[r.nextInt(array.length)] = -Float.MIN_NORMAL;
             array[r.nextInt(array.length)] = -Float.MAX_VALUE;
+        }
+    }
+
+    public static void genRandomFloat16s(long seed, double minDoubleValue, double maxDoubleValue,
+            short array[], boolean includeExtremes) {
+
+        // Ensure that requests for random Float16s span a reasnoable range.
+        if (maxDoubleValue - minDoubleValue <= 1.) {
+            throw new RSRuntimeException("Unexpected: Range is too small");
+        }
+
+        boolean includeNegatives = false;
+
+        // Identify a range of 'short' values from the input range of 'double' If either
+        // minValueInHalf or maxValueInHalf is +/- infinity, use MAX_VALUE with appropriate sign
+        // instead.  The extreme values will get included if includeExtremes flag is set.
+        double minValueInHalf = Float16Utils.roundToFloat16(minDoubleValue)[1];
+        double maxValueInHalf = Float16Utils.roundToFloat16(maxDoubleValue)[0];
+
+        if (Double.isInfinite(minValueInHalf)) {
+            minValueInHalf = Math.copySign(Float16Utils.MAX_VALUE, minValueInHalf);
+        }
+        if (Double.isInfinite(maxValueInHalf)) {
+            maxValueInHalf = Math.copySign(Float16Utils.MAX_VALUE, maxValueInHalf);
+        }
+
+        short min = Float16Utils.convertDoubleToFloat16(minValueInHalf);
+        short max = Float16Utils.convertDoubleToFloat16(maxValueInHalf);
+
+        // If range spans across zero, set the range to be entirely positive and set
+        // includeNegatives to true.  In this scenario, the upper bound is set to the larger of
+        // maxValue and abs(minValue).  The lower bound is FLOAT16_MIN_NORMAL.
+        if (minDoubleValue < 0. && maxDoubleValue > 0.) {
+            includeNegatives = true;
+            min = FLOAT16_MIN_NORMAL;
+
+            // If abs(minDoubleValue) is greater than maxDoubleValue, pick abs(minValue) as the
+            // upper bound.
+            // TODO Update this function to generate random float16s exactly between minDoubleValue
+            // and maxDoubleValue.
+            if (Math.abs(minDoubleValue) > maxDoubleValue) {
+                max = (short) (0x7fff & min);
+            }
+        } else if (maxDoubleValue < 0.) {
+            throw new RSRuntimeException("Unexpected: Range is entirely negative: " +
+                Double.toString(minDoubleValue) + " to " + Double.toString(maxDoubleValue));
+        }
+
+        // If min is 0 or subnormal, set it to FLOAT16_MIN_NORMAL
+        if (Float16Utils.isFloat16Zero(min) || Float16Utils.isFloat16SubNormal(min)) {
+            min = FLOAT16_MIN_NORMAL;
+        }
+
+        Random r = new Random(seed);
+        short range = (short) (max - min + 1);
+        for (int i = 0; i < array.length; i ++) {
+            array[i] = (short) (min + r.nextInt(range));
+        }
+        array[r.nextInt(array.length)] = min;
+        array[r.nextInt(array.length)] = max;
+
+        // Negate approximately half of the elements.
+        if (includeNegatives) {
+            for (int i = 0; i < array.length; i ++) {
+                if (r.nextBoolean()) {
+                    array[i] = (short) (0x8000 | array[i]);
+                }
+            }
+        }
+
+        for (short s : sInterestingFloat16s) {
+            if (!includeNegatives && s < 0)
+                continue;
+            array[r.nextInt(array.length)] = s;
+        }
+        if (includeExtremes) {
+            array[r.nextInt(array.length)] = (short) 0x7c01; // NaN
+            array[r.nextInt(array.length)] = FLOAT16_POSITIVE_INFINITY;
+            array[r.nextInt(array.length)] = FLOAT16_NEGATIVE_INFINITY;
+            array[r.nextInt(array.length)] = FLOAT16_MIN_NORMAL;
+            array[r.nextInt(array.length)] = FLOAT16_MAX_VALUE;
+            array[r.nextInt(array.length)] = (short) 0x8400; // -MIN_NORMAL, -0.00006103516
+            array[r.nextInt(array.length)] = (short) 0xfbff; // -MAX_VALUE, -65504
         }
     }
 

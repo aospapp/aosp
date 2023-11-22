@@ -36,7 +36,12 @@ PipeReader::PipeReader(Pipe& pipe) :
 
 PipeReader::~PipeReader()
 {
-    int32_t readers = android_atomic_dec(&mPipe.mReaders);
+#if !LOG_NDEBUG
+    int32_t readers =
+#else
+    (void)
+#endif
+            android_atomic_dec(&mPipe.mReaders);
     ALOG_ASSERT(readers > 0);
 }
 
@@ -59,7 +64,7 @@ ssize_t PipeReader::availableToRead()
     return avail;
 }
 
-ssize_t PipeReader::read(void *buffer, size_t count, int64_t readPTS __unused)
+ssize_t PipeReader::read(void *buffer, size_t count)
 {
     ssize_t avail = availableToRead();
     if (CC_UNLIKELY(avail <= 0)) {

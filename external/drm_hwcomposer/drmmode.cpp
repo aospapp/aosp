@@ -42,36 +42,13 @@ DrmMode::DrmMode(drmModeModeInfoPtr m)
       name_(m->name) {
 }
 
-DrmMode::DrmMode()
-    : id_(0),
-      clock_(0),
-      h_display_(0),
-      h_sync_start_(0),
-      h_sync_end_(0),
-      h_total_(0),
-      h_skew_(0),
-      v_display_(0),
-      v_sync_start_(0),
-      v_sync_end_(0),
-      v_total_(0),
-      v_scan_(0),
-      v_refresh_(0),
-      flags_(0),
-      type_(0),
-      name_("") {
-}
-
-DrmMode::~DrmMode() {
-}
-
 bool DrmMode::operator==(const drmModeModeInfo &m) const {
   return clock_ == m.clock && h_display_ == m.hdisplay &&
          h_sync_start_ == m.hsync_start && h_sync_end_ == m.hsync_end &&
          h_total_ == m.htotal && h_skew_ == m.hskew &&
          v_display_ == m.vdisplay && v_sync_start_ == m.vsync_start &&
          v_sync_end_ == m.vsync_end && v_total_ == m.vtotal &&
-         v_scan_ == m.vscan && v_refresh_ == m.vrefresh && flags_ == m.flags &&
-         type_ == m.type;
+         v_scan_ == m.vscan && flags_ == m.flags && type_ == m.type;
 }
 
 void DrmMode::ToDrmModeModeInfo(drm_mode_modeinfo *m) const {
@@ -144,8 +121,9 @@ uint32_t DrmMode::v_scan() const {
   return v_scan_;
 }
 
-uint32_t DrmMode::v_refresh() const {
-  return v_refresh_;
+float DrmMode::v_refresh() const {
+  return v_refresh_ ? v_refresh_ * 1.0f :
+                      clock_ / (float)(v_total_ * h_total_) * 1000.0f;
 }
 
 uint32_t DrmMode::flags() const {

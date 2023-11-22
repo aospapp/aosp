@@ -16,6 +16,7 @@
  */
 package org.apache.harmony.tests.java.util;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -24,9 +25,14 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.Spliterator;
 import java.util.Vector;
 
+import libcore.java.util.SpliteratorTester;
 import tests.support.Support_ListTest;
+import libcore.java.util.ForEachRemainingTester;
+
+import static libcore.java.util.RemoveIfTester.*;
 
 public class ArrayListTest extends junit.framework.TestCase {
 
@@ -1015,6 +1021,164 @@ public class ArrayListTest extends junit.framework.TestCase {
         }
     }
 
+    // http://b/25867131 et al.
+    public void testIteratorAddAfterCompleteIteration() {
+        ArrayList<String> strings = new ArrayList<>();
+        strings.add("string1");
+        Iterator<String> it = strings.iterator();
+        assertTrue(it.hasNext());
+        assertEquals("string1", it.next());
+        assertFalse(it.hasNext());
+        strings.add("string2");
+        // The value of hasNext() must not flap between true and false. If we returned "true"
+        // here, we'd fail with a CME on the next call to next() anyway.
+        assertFalse(it.hasNext());
+    }
+
+    public void testHasNextAfterRemoval() {
+        ArrayList<String> strings = new ArrayList<>();
+        strings.add("string1");
+        Iterator<String> it = strings.iterator();
+        it.next();
+        it.remove();
+        assertFalse(it.hasNext());
+
+        strings = new ArrayList<>();
+        strings.add("string1");
+        strings.add("string2");
+        it = strings.iterator();
+        it.next();
+        it.remove();
+        assertTrue(it.hasNext());
+        assertEquals("string2", it.next());
+    }
+
+    // http://b/27430229
+    public void testRemoveAllDuringIteration() {
+        ArrayList<String> list = new ArrayList<>();
+        list.add("food");
+        Iterator<String> iterator = list.iterator();
+        iterator.next();
+        list.clear();
+        assertFalse(iterator.hasNext());
+    }
+
+    public void test_forEach() throws Exception {
+        ArrayList<Integer> list = new ArrayList<>();
+        list.add(0);
+        list.add(1);
+        list.add(2);
+
+        ArrayList<Integer> output = new ArrayList<>();
+        list.forEach(k -> output.add(k));
+
+        assertEquals(list, output);
+    }
+
+    public void test_forEach_NPE() throws Exception {
+        ArrayList<Integer> list = new ArrayList<>();
+        try {
+            list.forEach(null);
+            fail();
+        } catch(NullPointerException expected) {}
+    }
+
+    public void test_forEach_CME() throws Exception {
+        ArrayList<Integer> list = new ArrayList<>();
+        list.add(1);
+        list.add(2);
+        ArrayList<Integer> processed = new ArrayList<>();
+        try {
+            list.forEach(t -> { processed.add(t); list.add(t); });
+            fail();
+        } catch(ConcurrentModificationException expected) {}
+        assertEquals(1, processed.size());
+    }
+
+    public void test_forEach_CME_onLastElement() throws Exception {
+        ArrayList<Integer> list = new ArrayList<>();
+        list.add(1);
+        list.add(2);
+        list.add(3);
+        try {
+            list.forEach(t -> {
+                if (t == 3) list.add(t);
+            });
+            fail();
+        } catch(ConcurrentModificationException expected) {}
+    }
+
+    public void test_forEachRemaining_iterator() throws Exception {
+        ForEachRemainingTester.runTests(ArrayList.class, new String[] { "foo", "bar", "baz"});
+        ForEachRemainingTester.runTests(ArrayList.class, new String[] { "foo" });
+    }
+
+    public void test_spliterator() throws Exception {
+        ArrayList<Integer> testElements = new ArrayList<>(
+                Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16));
+        ArrayList<Integer> list = new ArrayList<>();
+        list.addAll(testElements);
+
+        SpliteratorTester.runBasicIterationTests(list.spliterator(), testElements);
+        SpliteratorTester.runBasicSplitTests(list, testElements);
+        SpliteratorTester.testSpliteratorNPE(list.spliterator());
+
+        assertTrue(list.spliterator().hasCharacteristics(
+                Spliterator.ORDERED | Spliterator.SIZED | Spliterator.SUBSIZED));
+
+        SpliteratorTester.runOrderedTests(list);
+        SpliteratorTester.runSizedTests(list, 16 /* expected size */);
+        SpliteratorTester.runSubSizedTests(list, 16 /* expected size */);
+    }
+
+    public void test_spliterator_CME() throws Exception {
+        ArrayList<Integer> list = new ArrayList<>();
+        list.add(52);
+
+        Spliterator<Integer> sp = list.spliterator();
+        try {
+            sp.tryAdvance(value -> list.add(value));
+            fail();
+        } catch (ConcurrentModificationException expected) {
+        }
+
+        ArrayList<Integer> list2 = new ArrayList<>();
+        list2.add(52);
+        try {
+            sp.forEachRemaining(value -> list2.add(value));
+            fail();
+        } catch (ConcurrentModificationException expected) {
+        }
+    }
+
+    public void test_removeIf() {
+        runBasicRemoveIfTests(ArrayList<Integer>::new);
+        runBasicRemoveIfTestsUnordered(ArrayList<Integer>::new);
+        runRemoveIfOnEmpty(ArrayList<Integer>::new);
+        testRemoveIfNPE(ArrayList<Integer>::new);
+        testRemoveIfCME(ArrayList<Integer>::new);
+    }
+
+    public void test_sublist_spliterator() {
+        ArrayList<Integer> testElements = new ArrayList<>(
+                Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16));
+        List<Integer> list = new ArrayList<>();
+        list.addAll(testElements);
+
+        testElements = new ArrayList<Integer>(list.subList(8, 16));
+        list = list.subList(8, 16);
+
+        SpliteratorTester.runBasicIterationTests(list.spliterator(), testElements);
+        SpliteratorTester.runBasicSplitTests(list, testElements);
+        SpliteratorTester.testSpliteratorNPE(list.spliterator());
+
+        assertTrue(list.spliterator().hasCharacteristics(
+                Spliterator.ORDERED | Spliterator.SIZED | Spliterator.SUBSIZED));
+
+        SpliteratorTester.runOrderedTests(list);
+        SpliteratorTester.runSizedTests(list, 8 /* expected size */);
+        SpliteratorTester.runSubSizedTests(list, 8 /* expected size */);
+    }
 
     /**
      * Sets up the fixture, for example, open a network connection. This method

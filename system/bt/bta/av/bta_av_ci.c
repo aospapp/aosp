@@ -44,14 +44,12 @@
 *******************************************************************************/
 void bta_av_ci_src_data_ready(tBTA_AV_CHNL chnl)
 {
-    BT_HDR  *p_buf;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
 
-    if ((p_buf = (BT_HDR *) GKI_getbuf(sizeof(BT_HDR))) != NULL)
-    {
-        p_buf->layer_specific   = chnl;
-        p_buf->event = BTA_AV_CI_SRC_DATA_READY_EVT;
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->layer_specific   = chnl;
+    p_buf->event = BTA_AV_CI_SRC_DATA_READY_EVT;
+
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -70,30 +68,24 @@ void bta_av_ci_src_data_ready(tBTA_AV_CHNL chnl)
 void bta_av_ci_setconfig(tBTA_AV_HNDL hndl, UINT8 err_code, UINT8 category,
                          UINT8 num_seid, UINT8 *p_seid, BOOLEAN recfg_needed, UINT8 avdt_handle)
 {
-    tBTA_AV_CI_SETCONFIG  *p_buf;
+    tBTA_AV_CI_SETCONFIG *p_buf =
+        (tBTA_AV_CI_SETCONFIG *)osi_malloc(sizeof(tBTA_AV_CI_SETCONFIG));
 
-    if ((p_buf = (tBTA_AV_CI_SETCONFIG *) GKI_getbuf(sizeof(tBTA_AV_CI_SETCONFIG))) != NULL)
-    {
-        p_buf->hdr.layer_specific   = hndl;
-        p_buf->hdr.event = (err_code == AVDT_SUCCESS) ?
-                           BTA_AV_CI_SETCONFIG_OK_EVT : BTA_AV_CI_SETCONFIG_FAIL_EVT;
-        p_buf->err_code = err_code;
-        p_buf->category = category;
-        p_buf->recfg_needed = recfg_needed;
-        p_buf->num_seid = num_seid;
-        p_buf->avdt_handle= avdt_handle;
-        if(p_seid && num_seid)
-        {
-            p_buf->p_seid   = (UINT8 *)(p_buf + 1);
-            memcpy(p_buf->p_seid, p_seid, num_seid);
-        }
-        else
-        {
-            p_buf->p_seid   = NULL;
-            p_buf->num_seid = 0;
-        }
-
-        bta_sys_sendmsg(p_buf);
+    p_buf->hdr.layer_specific   = hndl;
+    p_buf->hdr.event = (err_code == AVDT_SUCCESS) ?
+        BTA_AV_CI_SETCONFIG_OK_EVT : BTA_AV_CI_SETCONFIG_FAIL_EVT;
+    p_buf->err_code = err_code;
+    p_buf->category = category;
+    p_buf->recfg_needed = recfg_needed;
+    p_buf->num_seid = num_seid;
+    p_buf->avdt_handle= avdt_handle;
+    if (p_seid && num_seid) {
+        p_buf->p_seid   = (UINT8 *)(p_buf + 1);
+        memcpy(p_buf->p_seid, p_seid, num_seid);
+    } else {
+        p_buf->p_seid   = NULL;
+        p_buf->num_seid = 0;
     }
-}
 
+    bta_sys_sendmsg(p_buf);
+}

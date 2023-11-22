@@ -77,7 +77,7 @@ public class EventLogTest extends TestCase {
         assertEquals(7, events.size());
 
         // subtract: log header, type byte, final newline
-        final int max = 4096 - 20 - 4 - 1;
+        final int max = 4096 - 20 - 4 - 1 - 8;
 
         // subtract: string header (type + length)
         String val0 = (String) events.get(0).getData();

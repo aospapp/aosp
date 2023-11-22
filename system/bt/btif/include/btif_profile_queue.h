@@ -27,6 +27,8 @@
 #ifndef BTIF_PROFILE_QUEUE_H
 #define BTIF_PROFILE_QUEUE_H
 
+#include <hardware/bluetooth.h>
+
 typedef bt_status_t (*btif_connect_cb_t) (bt_bdaddr_t *bda, uint16_t uuid);
 
 bt_status_t btif_queue_connect(uint16_t uuid, const bt_bdaddr_t *bda, btif_connect_cb_t connect_cb);

@@ -219,7 +219,7 @@ extern void *_VDBG_malloc(void *ptr,long bytes,char *file,long line){
   return _insert(ptr,bytes,file,line);
 }
 
-extern void _VDBG_free(void *ptr,char *file,long line){
+extern void _VDBG_free(void *ptr){
   if(ptr){
     ptr=(void *)(((char *)ptr)-HEAD_ALIGN);
     _ripremove(ptr);

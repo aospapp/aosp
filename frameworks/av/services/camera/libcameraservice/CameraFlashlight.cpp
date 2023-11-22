@@ -27,7 +27,7 @@
 #include "gui/IGraphicBufferConsumer.h"
 #include "gui/BufferQueue.h"
 #include "camera/camera2/CaptureRequest.h"
-#include "CameraDeviceFactory.h"
+#include "device3/Camera3Device.h"
 
 
 namespace android {
@@ -78,7 +78,7 @@ status_t CameraFlashlight::createFlashlightControl(const String8& cameraId) {
             deviceVersion = info.device_version;
         }
 
-        if (deviceVersion >= CAMERA_DEVICE_API_VERSION_2_0) {
+        if (deviceVersion >= CAMERA_DEVICE_API_VERSION_3_0) {
             CameraDeviceClientFlashControl *flashControl =
                     new CameraDeviceClientFlashControl(*mCameraModule,
                                                        *mCallbacks);
@@ -99,7 +99,8 @@ status_t CameraFlashlight::createFlashlightControl(const String8& cameraId) {
 
 status_t CameraFlashlight::setTorchMode(const String8& cameraId, bool enabled) {
     if (!mFlashlightMapInitialized) {
-        ALOGE("%s: findFlashUnits() must be called before this method.");
+        ALOGE("%s: findFlashUnits() must be called before this method.",
+               __FUNCTION__);
         return NO_INIT;
     }
 
@@ -192,15 +193,14 @@ status_t CameraFlashlight::findFlashUnits() {
 }
 
 bool CameraFlashlight::hasFlashUnit(const String8& cameraId) {
-    status_t res;
-
     Mutex::Autolock l(mLock);
     return hasFlashUnitLocked(cameraId);
 }
 
 bool CameraFlashlight::hasFlashUnitLocked(const String8& cameraId) {
     if (!mFlashlightMapInitialized) {
-        ALOGE("%s: findFlashUnits() must be called before this method.");
+        ALOGE("%s: findFlashUnits() must be called before this method.",
+               __FUNCTION__);
         return false;
     }
 
@@ -219,7 +219,8 @@ status_t CameraFlashlight::prepareDeviceOpen(const String8& cameraId) {
 
     Mutex::Autolock l(mLock);
     if (!mFlashlightMapInitialized) {
-        ALOGE("%s: findFlashUnits() must be called before this method.");
+        ALOGE("%s: findFlashUnits() must be called before this method.",
+               __FUNCTION__);
         return NO_INIT;
     }
 
@@ -256,7 +257,8 @@ status_t CameraFlashlight::deviceClosed(const String8& cameraId) {
 
     Mutex::Autolock l(mLock);
     if (!mFlashlightMapInitialized) {
-        ALOGE("%s: findFlashUnits() must be called before this method.");
+        ALOGE("%s: findFlashUnits() must be called before this method.",
+               __FUNCTION__);
         return NO_INIT;
     }
 
@@ -298,7 +300,8 @@ FlashControlBase::~FlashControlBase() {
 /////////////////////////////////////////////////////////////////////
 ModuleFlashControl::ModuleFlashControl(CameraModule& cameraModule,
         const camera_module_callbacks_t& callbacks) :
-    mCameraModule(&cameraModule) {
+        mCameraModule(&cameraModule) {
+    (void) callbacks;
 }
 
 ModuleFlashControl::~ModuleFlashControl() {
@@ -474,7 +477,7 @@ status_t CameraDeviceClientFlashControl::connectCameraDevice(
     }
 
     sp<CameraDeviceBase> device =
-            CameraDeviceFactory::createDevice(atoi(cameraId.string()));
+            new Camera3Device(atoi(cameraId.string()));
     if (device == NULL) {
         return NO_MEMORY;
     }
@@ -676,7 +679,8 @@ status_t CameraHardwareInterfaceFlashControl::setTorchMode(
     status_t res;
     if (enabled) {
         bool hasFlash = false;
-        res = hasFlashUnitLocked(cameraId, &hasFlash);
+        // Check if it has a flash unit and leave camera device open.
+        res = hasFlashUnitLocked(cameraId, &hasFlash, /*keepDeviceOpen*/true);
         // invalid camera?
         if (res) {
             // hasFlashUnitLocked() returns BAD_INDEX if mDevice is connected to
@@ -685,6 +689,8 @@ status_t CameraHardwareInterfaceFlashControl::setTorchMode(
         }
         // no flash unit?
         if (!hasFlash) {
+            // Disconnect camera device if it has no flash.
+            disconnectCameraDevice();
             return -ENOSYS;
         }
     } else if (mDevice == NULL || cameraId != mCameraId) {
@@ -713,21 +719,28 @@ status_t CameraHardwareInterfaceFlashControl::setTorchMode(
 status_t CameraHardwareInterfaceFlashControl::hasFlashUnit(
         const String8& cameraId, bool *hasFlash) {
     Mutex::Autolock l(mLock);
-    return hasFlashUnitLocked(cameraId, hasFlash);
+    // Close device after checking if it has a flash unit.
+    return hasFlashUnitLocked(cameraId, hasFlash, /*keepDeviceOpen*/false);
 }
 
 status_t CameraHardwareInterfaceFlashControl::hasFlashUnitLocked(
-        const String8& cameraId, bool *hasFlash) {
+        const String8& cameraId, bool *hasFlash, bool keepDeviceOpen) {
+    bool closeCameraDevice = false;
+
     if (!hasFlash) {
         return BAD_VALUE;
     }
 
     status_t res;
     if (mDevice == NULL) {
+        // Connect to camera device to query if it has a flash unit.
         res = connectCameraDevice(cameraId);
         if (res) {
             return res;
         }
+        // Close camera device only when it is just opened and the caller doesn't want to keep
+        // the camera device open.
+        closeCameraDevice = !keepDeviceOpen;
     }
 
     if (cameraId != mCameraId) {
@@ -740,6 +753,15 @@ status_t CameraHardwareInterfaceFlashControl::hasFlashUnitLocked(
         *hasFlash = true;
     } else {
         *hasFlash = false;
+    }
+
+    if (closeCameraDevice) {
+        res = disconnectCameraDevice();
+        if (res != OK) {
+            ALOGE("%s: Failed to disconnect camera device. %s (%d)", __FUNCTION__,
+                    strerror(-res), res);
+            return res;
+        }
     }
 
     return OK;
@@ -866,9 +888,13 @@ status_t CameraHardwareInterfaceFlashControl::disconnectCameraDevice() {
         return OK;
     }
 
-    mParameters.set(CameraParameters::KEY_FLASH_MODE,
-            CameraParameters::FLASH_MODE_OFF);
-    mDevice->setParameters(mParameters);
+    if (mParameters.get(CameraParameters::KEY_FLASH_MODE)) {
+        // There is a flash, turn if off.
+        // (If there isn't one, leave the parameter null)
+        mParameters.set(CameraParameters::KEY_FLASH_MODE,
+                CameraParameters::FLASH_MODE_OFF);
+        mDevice->setParameters(mParameters);
+    }
     mDevice->stopPreview();
     status_t res = native_window_api_disconnect(mSurface.get(),
             NATIVE_WINDOW_API_CAMERA);
@@ -878,6 +904,7 @@ status_t CameraHardwareInterfaceFlashControl::disconnectCameraDevice() {
     }
     mDevice->setPreviewWindow(NULL);
     mDevice->release();
+    mDevice = NULL;
 
     return OK;
 }

@@ -24,6 +24,12 @@ public class VectorAverage {
     private double[] mData;
     private int mValueCount = 0;
 
+    public static final int CAPTURE_TYPE_AVERAGE = 0;
+    public static final int CAPTURE_TYPE_MAX     = 1;
+    public static final int CAPTURE_TYPE_MIN     = 2;
+
+    private int mCaptureType = CAPTURE_TYPE_AVERAGE;
+
     public void setData(double[] data, boolean replace) {
         int size = data.length;
         if (mData == null || mData.length != size) {
@@ -34,10 +40,34 @@ public class VectorAverage {
             System.arraycopy(data, 0, mData, 0, size);
             mValueCount = 1;
         } else {
-            for (int i = 0; i < size; i++) {
-                mData[i] += data[i];
+            switch(mCaptureType) {
+                default:
+                case CAPTURE_TYPE_AVERAGE: {
+                    for (int i = 0; i < size; i++) {
+                        mData[i] += data[i];
+                    }
+                    mValueCount++;
+                }
+                break;
+                case CAPTURE_TYPE_MAX: {
+                    for (int i = 0; i < size; i++) {
+                        if (data[i] > mData[i]) {
+                            mData[i] = data[i];
+                        }
+                    }
+                    mValueCount = 1;
+                }
+                break;
+                case CAPTURE_TYPE_MIN: {
+                    for (int i = 0; i < size; i++) {
+                        if (data[i] < mData[i]) {
+                            mData[i] = data[i];
+                        }
+                    }
+                    mValueCount = 1;
+                }
+                break;
             }
-            mValueCount++;
         }
     }
 
@@ -75,6 +105,22 @@ public class VectorAverage {
 
     public void reset() {
         mValueCount = 0;
+    }
+
+    public void setCaptureType(int type) {
+        switch(type) {
+            case CAPTURE_TYPE_AVERAGE:
+            case CAPTURE_TYPE_MAX:
+            case CAPTURE_TYPE_MIN:
+                mCaptureType = type;
+                break;
+            default:
+                mCaptureType = CAPTURE_TYPE_AVERAGE;
+        }
+    }
+
+    public int getCaptureType() {
+        return mCaptureType;
     }
 
     private final String SERIALIZED_VERSION = "VECTOR_AVERAGE_VERSION";

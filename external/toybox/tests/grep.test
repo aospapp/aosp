@@ -42,8 +42,8 @@ testing "grep -o" "grep -o is input" "is\nis\nis\nis\n" \
 testing "grep -s" "grep -hs hello asdf input 2>&1" "hello\n" "hello\n" ""
 testing "grep -v" "grep -v abc input" "1234123asdfas123123\n1ABa\n" \
   "1234123asdfas123123\n1ABabc\nabc\n1ABa\nabcde" ""
-testing "grep -w" "grep -w abc input" "abc\n" \
-  "1234123asdfas123123\n1ABabc\nabc\n1ABa\nabcde" ""
+testing "grep -w" "grep -w abc input" "abc\n123 abc\nabc 123\n123 abc 456\n" \
+  "1234123asdfas123123\n1ABabc\nabc\n1ABa\nabcde\n123 abc\nabc 123\n123 abc 456\n" ""
 testing "grep -x" "grep -x abc input" "abc\n" \
   "aabcc\nabc\n" ""
 
@@ -60,6 +60,7 @@ def' input" "aabcc\nddeff\n" \
 
 testing "grep -lH" "grep -lH abc input" "input\n" "abc\n" ""
 testing "grep -cn" "grep -cn abc input" "1\n" "abc\n" ""
+testing "grep -cH" "grep -cH abc input" "input:1\n" "abc\n" ""
 testing "grep -qs" "grep -qs abc none input && echo yes" "yes\n" "abc\n" ""
 testing "grep -hl" "grep -hl abc input" "input\n" "abc\n" ""
 testing "grep -b stdin" "grep -b one" "0:one\n4:one\n8:one\n" "" "one\none\none\n"
@@ -84,15 +85,27 @@ testing "grep -r dir" "grep -r one sub | sort" "sub/one:one\nsub/two:one\n" \
   "" ""
 rm -rf sub
 
-# Not sure if -Fx '' should do? Posix is unclear, '' match every line but does
-# it match every _byte_ in that line?
-testing "grep -Fx ''" "grep -Fx '' input" "one one one\n" "one one one\n" ""
+# -x exact match trumps -F's "empty string matches whole line" behavior
+testing "grep -Fx ''" "grep -Fx '' input" "" "one one one\n" ""
 testing "grep -F ''" "grep -F '' input" "one one one\n" "one one one\n" ""
 testing "grep -F -e blah -e ''" "grep -F -e blah -e '' input" "one one one\n" \
   "one one one\n" ""
 testing "grep -e blah -e ''" "grep -e blah -e '' input" "one one one\n" \
   "one one one\n" ""
 testing "grep -w ''" "grep -w '' input" "" "one one one\n" ""
+testing "grep -w '' 2" "grep -w '' input" "one  two\n" "one  two\n" ""
+testing "grep -w \\1" "grep -wo '\\(x\\)\\1'" "xx\n" "" "xx"
 testing "grep -o ''" "grep -o '' input" "" "one one one\n" ""
 testing "grep backref" 'grep -e "a\(b\)" -e "b\(c\)\1"' "bcc\nab\n" \
   "" "bcc\nbcb\nab\n"
+
+testing "grep -A" "grep -A 2 yes" "yes\nno\nno\n--\nyes\nno\nno\nyes\nno\n" \
+  "" "yes\nno\nno\nno\nyes\nno\nno\nyes\nno"
+testing "grep -B" "grep -B 1 yes" "no\nyes\n--\nno\nyes\nno\nyes\n" \
+  "" "no\nno\nno\nyes\nno\nno\nyes\nno\nyes"
+testing "grep -C" "grep -C 1 yes" \
+  "yes\nno\n--\nno\nyes\nno\nno\nyes\nno\nyes\nno\n" \
+  "" "yes\nno\nno\nno\nyes\nno\nno\nyes\nno\nyes\nno\nno"
+testing "grep -HnC" "grep -HnC1 two" \
+  "(standard input)-1-one\n(standard input):2:two\n(standard input)-3-three\n" \
+  "" "one\ntwo\nthree"

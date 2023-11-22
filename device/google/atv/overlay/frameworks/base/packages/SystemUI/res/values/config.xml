@@ -22,4 +22,10 @@
     <!-- Disable KeyguardSerivce -->
     <bool name="config_enableKeyguardService">false</bool>
 
+    <!-- Package names to be blacklisted in Recents -->
+    <string-array name="recents_tv_blacklist_array">
+        <item>com.google.android.tv.remote.service</item>
+        <item>com.google.android.apps.mediashell</item>
+    </string-array>
+
 </resources>

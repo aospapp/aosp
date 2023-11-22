@@ -94,6 +94,10 @@ typedef struct phNxpNciRfSetting{
     uint8_t  p_rx_data[20];
 }phNxpNciRfSetting_t;
 
+typedef struct phNxpNciMwEepromArea {
+    bool_t  isGetEepromArea;
+    uint8_t p_rx_data[32];
+} phNxpNciMwEepromArea_t;
 
 typedef enum {
     NFC_FORUM_PROFILE,
@@ -125,5 +129,7 @@ typedef struct phNxpNciProfile_Control
 void phNxpNciHal_request_control (void);
 void phNxpNciHal_release_control (void);
 int phNxpNciHal_write_unlocked (uint16_t data_len, const uint8_t *p_data);
+NFCSTATUS phNxpNciHal_core_reset_recovery ();
+void phNxpNciHal_discovery_cmd_ext (uint8_t *p_cmd_data, uint16_t cmd_len);
 
 #endif /* _PHNXPNCIHAL_H_ */

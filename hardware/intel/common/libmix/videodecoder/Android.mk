@@ -82,4 +82,7 @@ LOCAL_SRC_FILES += VideoDecoderVP8.cpp
 LOCAL_CFLAGS += -DUSE_HW_VP8
 endif
 
+# TODO: Fix this.
+LOCAL_CFLAGS += -Wno-error=unused-variable
+
 include $(BUILD_SHARED_LIBRARY)

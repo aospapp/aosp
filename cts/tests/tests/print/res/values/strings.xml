@@ -22,4 +22,7 @@
     <string name="resolution_300x300">300x300</string>
     <string name="resolution_600x600">600x600</string>
 
+    <string name="testStr1">testStr1</string>
+    <string name="testStr2">testStr2</string>
+
 </resources>

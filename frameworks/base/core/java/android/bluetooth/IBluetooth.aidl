@@ -20,8 +20,10 @@ import android.bluetooth.IBluetoothCallback;
 import android.bluetooth.IBluetoothStateChangeCallback;
 import android.bluetooth.BluetoothActivityEnergyInfo;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.OobData;
 import android.os.ParcelUuid;
 import android.os.ParcelFileDescriptor;
+import android.os.ResultReceiver;
 
 /**
  * System private API for talking with the Bluetooth service.
@@ -56,6 +58,7 @@ interface IBluetooth
 
     BluetoothDevice[] getBondedDevices();
     boolean createBond(in BluetoothDevice device, in int transport);
+    boolean createBondOutOfBand(in BluetoothDevice device, in int transport, in OobData oobData);
     boolean cancelBondProcess(in BluetoothDevice device);
     boolean removeBond(in BluetoothDevice device);
     int getBondState(in BluetoothDevice device);
@@ -99,11 +102,17 @@ interface IBluetooth
     boolean isOffloadedFilteringSupported();
     boolean isOffloadedScanBatchingSupported();
     boolean isActivityAndEnergyReportingSupported();
-    void getActivityEnergyInfoFromController();
     BluetoothActivityEnergyInfo reportActivityInfo();
 
-    // For dumpsys support
-    void dump(in ParcelFileDescriptor fd);
+    /**
+     * Requests the controller activity info asynchronously.
+     * The implementor is expected to reply with the
+     * {@link android.bluetooth.BluetoothActivityEnergyInfo} object placed into the Bundle with the
+     * key {@link android.os.BatteryStats#RESULT_RECEIVER_CONTROLLER_KEY}.
+     * The result code is ignored.
+     */
+    oneway void requestActivityInfo(in ResultReceiver result);
+
     void onLeServiceUp();
     void onBrEdrDown();
 }

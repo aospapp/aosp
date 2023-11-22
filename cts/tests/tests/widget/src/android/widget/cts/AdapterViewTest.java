@@ -39,7 +39,7 @@ import android.widget.AdapterView.OnItemLongClickListener;
 import android.widget.AdapterView.OnItemSelectedListener;
 import android.provider.Settings;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 
 public class AdapterViewTest extends ActivityInstrumentationTestCase2<AdapterViewCtsActivity> {
@@ -55,7 +55,7 @@ public class AdapterViewTest extends ActivityInstrumentationTestCase2<AdapterVie
     private AdapterView<ListAdapter> mAdapterView;
 
     public AdapterViewTest() {
-        super("com.android.cts.widget", AdapterViewCtsActivity.class);
+        super("android.widget.cts", AdapterViewCtsActivity.class);
     }
 
     @Override

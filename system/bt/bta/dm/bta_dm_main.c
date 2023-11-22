@@ -70,11 +70,10 @@ const tBTA_DM_ACTION bta_dm_action[] =
 
     bta_dm_set_encryption,    /* BTA_DM_API_SET_ENCRYPTION_EVT */
 
-#if (BTM_OOB_INCLUDED == TRUE)
+    /* out of band pairing events */
     bta_dm_loc_oob,           /* 20 BTA_DM_API_LOC_OOB_EVT */
     bta_dm_ci_io_req_act,     /* 21 BTA_DM_CI_IO_REQ_EVT */
     bta_dm_ci_rmt_oob_act,    /* 22 BTA_DM_CI_RMT_OOB_EVT */
-#endif /* BTM_OOB_INCLUDED */
 
 
 #if BLE_INCLUDED == TRUE

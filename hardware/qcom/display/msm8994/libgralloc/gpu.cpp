@@ -66,8 +66,7 @@ int gpu_context_t::gralloc_alloc_buffer(unsigned int size, int usage,
 
     /* force 1MB alignment selectively for secure buffers, MDP5 onwards */
 #ifdef MDSS_TARGET
-    if ((usage & GRALLOC_USAGE_PROTECTED) &&
-        (usage & GRALLOC_USAGE_PRIVATE_MM_HEAP)) {
+    if (usage & GRALLOC_USAGE_PROTECTED) {
         data.align = ALIGN((int) data.align, SZ_1M);
         size = ALIGN(size, data.align);
     }
@@ -192,11 +191,8 @@ void gpu_context_t::getGrallocInformationFromFormat(int inputFormat,
 {
     *bufferType = BUFFER_TYPE_VIDEO;
 
-    if (inputFormat <= HAL_PIXEL_FORMAT_BGRA_8888) {
+    if (isUncompressedRgbFormat(inputFormat) == TRUE) {
         // RGB formats
-        *bufferType = BUFFER_TYPE_UI;
-    } else if ((inputFormat == HAL_PIXEL_FORMAT_R_8) ||
-               (inputFormat == HAL_PIXEL_FORMAT_RG_88)) {
         *bufferType = BUFFER_TYPE_UI;
     }
 }
@@ -295,11 +291,19 @@ int gpu_context_t::alloc_impl(int w, int h, int format, int usage,
             grallocFormat = HAL_PIXEL_FORMAT_NV21_ZSL; //NV21 ZSL
         else if(usage & GRALLOC_USAGE_HW_CAMERA_READ)
             grallocFormat = HAL_PIXEL_FORMAT_YCrCb_420_SP; //NV21
-        else if(usage & GRALLOC_USAGE_HW_CAMERA_WRITE)
-            grallocFormat = HAL_PIXEL_FORMAT_YCrCb_420_SP; //NV21
-        else if(usage & GRALLOC_USAGE_HW_COMPOSER)
+        else if(usage & GRALLOC_USAGE_HW_CAMERA_WRITE) {
+           if (format == HAL_PIXEL_FORMAT_YCbCr_420_888) {
+               grallocFormat = HAL_PIXEL_FORMAT_NV21_ZSL; //NV21
+           } else {
+               grallocFormat = HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS; //NV12 preview
+           }
+        } else if(usage & GRALLOC_USAGE_HW_COMPOSER)
             //XXX: If we still haven't set a format, default to RGBA8888
             grallocFormat = HAL_PIXEL_FORMAT_RGBA_8888;
+        else if(format == HAL_PIXEL_FORMAT_YCbCr_420_888)
+            //If no other usage flags are detected, default the
+            //flexible YUV format to NV21_ZSL
+            grallocFormat = HAL_PIXEL_FORMAT_NV21_ZSL;
     }
 
     getGrallocInformationFromFormat(grallocFormat, &bufferType);

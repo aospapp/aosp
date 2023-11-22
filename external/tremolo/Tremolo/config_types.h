@@ -42,5 +42,6 @@ typedef int ogg_int32_t;
 typedef unsigned int ogg_uint32_t;
 typedef short ogg_int16_t;
 typedef unsigned short ogg_uint16_t;
+typedef unsigned char ogg_uint8_t;
 
 #endif

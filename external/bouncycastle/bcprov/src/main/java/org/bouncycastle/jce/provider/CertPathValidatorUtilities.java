@@ -35,6 +35,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
 import javax.security.auth.x500.X500Principal;
 
 import org.bouncycastle.asn1.ASN1Encodable;
@@ -720,14 +721,7 @@ class CertPathValidatorUtilities
 
                         for (int j = 0; j < genNames.length; j++)
                         {
-                            // BEGIN android-removed
-                            // PKIXCRLStore store = namedCRLStoreMap.get(genNames[i]);
-                            // END android-removed
-                            // BEGIN android-added
-                            // Seems like a bug, unless there should be a guarantee that j < i,
-                            // However, it's breaking the tests.
                             PKIXCRLStore store = namedCRLStoreMap.get(genNames[j]);
-                            // END android-added
                             if (store != null)
                             {
                                 stores.add(store);
@@ -900,24 +894,15 @@ class CertPathValidatorUtilities
             {
                 return;
             }
-            // BEGIN android-removed
-            // X500Name certIssuer = X500Name.getInstance(crl_entry.getCertificateIssuer().getEncoded());
-            // END android-removed
-            // BEGIN android-added
-            // The original code throws null pointer exception for OpenSSLX509CRL,
-            // which uses the implementation for getCertificateIssuer() in X509CRL, method
-            // whose reference implementation has the following JavaDoc: "If the certificate
-            // issuer is also the CRL issuer, this method returns null."
-            X500Name certIssuer = null;
-            X500Principal certificateIssuerPrincipal = crl_entry.getCertificateIssuer();
-            if (certificateIssuerPrincipal != null) {
-                certIssuer = X500Name.getInstance(certificateIssuerPrincipal.getEncoded());
-            }
-            // END android-added
-
-            if (certIssuer == null)
+            X500Principal certificateIssuer = crl_entry.getCertificateIssuer();
+            X500Name certIssuer;
+            if (certificateIssuer == null)
             {
                 certIssuer = PrincipalUtils.getIssuerPrincipal(crl);
+            }
+            else
+            {
+                certIssuer = X500Name.getInstance(certificateIssuer.getEncoded());
             }
 
             if (! PrincipalUtils.getEncodedIssuerPrincipal(cert).equals(certIssuer))

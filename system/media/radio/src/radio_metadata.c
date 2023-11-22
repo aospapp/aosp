@@ -39,6 +39,7 @@ const radio_metadata_type_t metadata_key_type_table[] =
     RADIO_METADATA_TYPE_TEXT,
     RADIO_METADATA_TYPE_RAW,
     RADIO_METADATA_TYPE_RAW,
+    RADIO_METADATA_TYPE_CLOCK,
 };
 
 /**
@@ -232,6 +233,19 @@ int radio_metadata_add_raw(radio_metadata_t **metadata,
     return add_metadata((radio_metadata_buffer_t **)metadata, key, type, value, size);
 }
 
+int radio_metadata_add_clock(radio_metadata_t **metadata,
+                             const radio_metadata_key_t key,
+                             const radio_metadata_clock_t *clock) {
+    radio_metadata_type_t type = radio_metadata_type_of_key(key);
+    if (metadata == NULL || *metadata == NULL || type != RADIO_METADATA_TYPE_CLOCK ||
+        clock == NULL || clock->timezone_offset_in_minutes < (-12 * 60) ||
+        clock->timezone_offset_in_minutes > (14 * 60)) {
+        return -EINVAL;
+    }
+    return add_metadata(
+        (radio_metadata_buffer_t **)metadata, key, type, clock, sizeof(radio_metadata_clock_t));
+}
+
 int radio_metadata_add_metadata(radio_metadata_t **dst_metadata,
                            radio_metadata_t *src_metadata)
 {
@@ -348,8 +362,6 @@ int radio_metadata_get_at_index(const radio_metadata_t *metadata,
                                 void **value,
                                 unsigned int *size)
 {
-    unsigned int index_offset;
-    unsigned int data_offset;
     radio_metadata_entry_t *entry;
     radio_metadata_buffer_t *metadata_buf =
             (radio_metadata_buffer_t *)metadata;

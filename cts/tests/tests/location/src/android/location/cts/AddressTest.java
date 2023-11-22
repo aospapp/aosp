@@ -270,6 +270,39 @@ public class AddressTest extends TestCase {
         assertNull(address.getLocality());
     }
 
+    public void testAccessPremises() {
+        Address address = new Address(Locale.PRC);
+
+        String premises = "Appartment";
+        address.setPremises(premises);
+        assertEquals(premises, address.getPremises());
+
+        address.setPremises(null);
+        assertNull(address.getPremises());
+    }
+
+    public void testAccessSubLocality() {
+        Address address = new Address(Locale.PRC);
+
+        String subLocality = "Sarchnar";
+        address.setSubLocality(subLocality);
+        assertEquals(subLocality, address.getSubLocality());
+
+        address.setSubLocality(null);
+        assertNull(address.getSubLocality());
+    }
+
+    public void testAccessSubThoroughfare() {
+        Address address = new Address(Locale.PRC);
+
+        String subThoroughfare = "1600";
+        address.setSubThoroughfare(subThoroughfare);
+        assertEquals(subThoroughfare, address.getSubThoroughfare());
+
+        address.setSubThoroughfare(null);
+        assertNull(address.getSubThoroughfare());
+    }
+
     public void testWriteToParcel() {
         Locale locale = Locale.KOREA;
         Address address = new Address(locale);

@@ -19,6 +19,7 @@ vmcore_SRC_FILES := \
   DIBuilder.cpp \
   Dominators.cpp \
   Function.cpp \
+  FunctionInfo.cpp \
   GCOV.cpp \
   GVMaterializer.cpp \
   Globals.cpp \
@@ -36,6 +37,7 @@ vmcore_SRC_FILES := \
   Metadata.cpp \
   MetadataTracking.cpp \
   Module.cpp \
+  Operator.cpp \
   Pass.cpp \
   PassManager.cpp \
   PassRegistry.cpp \
@@ -59,9 +61,10 @@ LOCAL_SRC_FILES := $(vmcore_SRC_FILES)
 
 LOCAL_MODULE:= libLLVMCore
 
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_HOST_OS := darwin linux windows
 
 include $(LLVM_HOST_BUILD_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
 include $(LLVM_GEN_INTRINSICS_MK)
 include $(BUILD_HOST_STATIC_LIBRARY)
 
@@ -76,9 +79,8 @@ LOCAL_SRC_FILES := $(vmcore_SRC_FILES)
 
 LOCAL_MODULE:= libLLVMCore
 
-LOCAL_MODULE_TAGS := optional
-
 include $(LLVM_DEVICE_BUILD_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
 include $(LLVM_GEN_INTRINSICS_MK)
 include $(BUILD_STATIC_LIBRARY)
 endif

@@ -39,8 +39,6 @@ import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
 import android.test.InstrumentationTestCase;
 
-import com.android.cts.telecom.R;
-
 import java.util.Arrays;
 import java.util.List;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
  * The rsForEach() function can be used to invoke the root kernel of a script.
  *
  * The other functions are used to get the characteristics of the invocation of
- * an executing kernel, like dimensions and current indexes.  These functions take
+ * an executing kernel, like dimensions and current indices.  These functions take
  * a rs_kernel_context as argument.
  */
 
@@ -51,13 +51,10 @@ typedef enum rs_for_each_strategy {
  * rs_kernel_context: Handle to a kernel invocation context
  *
  * The kernel context contains common characteristics of the allocations being iterated
- * over, like dimensions, and rarely used indexes, like the Array0 index or the current
- * level of detail.
+ * over, like dimensions.  It also contains rarely used indices of the currently processed
+ * cell, like the Array0 index or the current level of detail.
  *
- * A kernel may be executed in parallel over multiple threads.  Each thread will have its
- * own context.
- *
- * You can access the context by adding a special parameter named "context" and of type
+ * You can access the kernel context by adding a special parameter named "context" of type
  * rs_kernel_context to your kernel function.  See rsGetDimX() and rsGetArray0() for examples.
  */
 #if (defined(RS_VERSION) && (RS_VERSION >= 23))
@@ -94,26 +91,44 @@ typedef struct rs_script_call {
 } rs_script_call_t;
 
 /*
- * rsForEach: Invoke the root kernel of a script
+ * rs_kernel: Handle to a kernel function
  *
- * Invoke the kernel named "root" of the specified script.  Like other kernels, this root()
- * function will be invoked repeatedly over the cells of the specificed allocation, filling
- * the output allocation with the results.
+ *  An opaque type for a function that is defined with the kernel attribute.  A value
+ *  of this type can be used in a rsForEach call to launch a kernel.
+ */
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+typedef void* rs_kernel;
+#endif
+
+/*
+ * rsForEach: Launches a kernel
  *
- * When rsForEach is called, the root script is launched immediately.  rsForEach returns
- * only when the script has completed and the output allocation is ready to use.
+ * Runs the kernel over zero or more input allocations. They are passed after the
+ * rs_kernel argument. If the specified kernel returns a value, an output allocation
+ * must be specified as the last argument. All input allocations,
+ * and the output allocation if it exists, must have the same dimensions.
  *
- * The rs_script argument is typically initialized using a global variable set from Java.
+ * This is a synchronous function. A call to this function only returns after all
+ * the work has completed for all cells of the input allocations. If the kernel
+ * function returns any value, the call waits until all results have been written
+ * to the output allocation.
  *
- * The kernel can be invoked with just an input allocation or just an output allocation.
- * This can be done by defining an rs_allocation variable and not initializing it.  E.g.
- * rs_script gCustomScript;
- * void specializedProcessing(rs_allocation in) {
- *   rs_allocation ignoredOut;
- *   rsForEach(gCustomScript, in, ignoredOut);
+ * Up to API level 23, the kernel is implicitly specified as the kernel named
+ * "root" in the specified script, and only a single input allocation can be used.
+ * Starting in API level 24, an arbitrary kernel function can be used,
+ * as specified by the kernel argument. The script argument is removed.
+ * The kernel must be defined in the current script. In addition, more than one
+ * input can be used.
+ *
+ * E.g.
+ * float __attribute__((kernel)) square(float a) {
+ *   return a * a;
  * }
  *
- * If both input and output allocations are specified, they must have the same dimensions.
+ * void compute(rs_allocation ain, rs_allocation aout) {
+ *   rsForEach(square, ain, aout);
+ * }
+ *
  *
  * Parameters:
  *   script: Script to call.
@@ -122,6 +137,8 @@ typedef struct rs_script_call {
  *   usrData: User defined data to pass to the script.  May be NULL.
  *   sc: Extra control information used to select a sub-region of the allocation to be processed or suggest a walking strategy.  May be NULL.
  *   usrDataLen: Size of the userData structure.  This will be used to perform a shallow copy of the data if necessary.
+ *   kernel: Function designator to a function that is defined with the kernel attribute.
+ *   ...: Input and output allocations
  */
 #if !defined(RS_VERSION) || (RS_VERSION <= 13)
 extern void __attribute__((overloadable))
@@ -146,27 +163,61 @@ extern void __attribute__((overloadable))
               size_t usrDataLen);
 #endif
 
-#if (defined(RS_VERSION) && (RS_VERSION >= 14))
+#if (defined(RS_VERSION) && (RS_VERSION >= 14) && (RS_VERSION <= 23))
 extern void __attribute__((overloadable))
     rsForEach(rs_script script, rs_allocation input, rs_allocation output);
 #endif
 
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern void
+    rsForEach(rs_kernel kernel, ...);
+#endif
+
 /*
- * rsGetArray0: Index in the Array0 dimension for the specified context
+ * rsForEachWithOptions: Launches a kernel with options
+ *
+ * Launches kernel in a way similar to rsForEach. However, instead of processing
+ * all cells in the input, this function only processes cells in the subspace of
+ * the index space specified in options. With the index space explicitly specified
+ * by options, no input or output allocation is required for a kernel launch using
+ * this API. If allocations are passed in, they must match the number of arguments
+ * and return value expected by the kernel function. The output allocation is
+ * present if and only if the kernel has a non-void return value.
+ *
+ * E.g.,
+ *    rs_script_call_t opts = {0};
+ *    opts.xStart = 0;
+ *    opts.xEnd = dimX;
+ *    opts.yStart = 0;
+ *    opts.yEnd = dimY / 2;
+ *    rsForEachWithOptions(foo, &opts, out, out);
+ *
+ *
+ * Parameters:
+ *   kernel: Function designator to a function that is defined with the kernel attribute.
+ *   options: Launch options
+ *   ...: Input and output allocations
+ */
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern void
+    rsForEachWithOptions(rs_kernel kernel, rs_script_call_t* options, ...);
+#endif
+
+/*
+ * rsGetArray0: Index in the Array0 dimension for the specified kernel context
  *
  * Returns the index in the Array0 dimension of the cell being processed, as specified
- * by the supplied context.
+ * by the supplied kernel context.
  *
- * This context is created when a kernel is launched and updated at each iteration.
- * It contains common characteristics of the allocations being iterated over and rarely
- * used indexes, like the Array0 index.
+ * The kernel context contains common characteristics of the allocations being iterated
+ * over and rarely used indices, like the Array0 index.
  *
- * You can access the context by adding a special parameter named "context" and of
+ * You can access the kernel context by adding a special parameter named "context" of
  * type rs_kernel_context to your kernel function.  E.g.
  * short RS_KERNEL myKernel(short value, uint32_t x, rs_kernel_context context) {
- *   // The current index in the common x, y, z, w dimensions are accessed by
- *   // adding these variables as arguments.  For the more rarely used indexes
- *   // to the other dimensions, extract them from the context:
+ *   // The current index in the common x, y, z dimensions are accessed by
+ *   // adding these variables as arguments.  For the more rarely used indices
+ *   // to the other dimensions, extract them from the kernel context:
  *   uint32_t index_a0 = rsGetArray0(context);
  *   //...
  * }
@@ -179,10 +230,10 @@ extern uint32_t __attribute__((overloadable))
 #endif
 
 /*
- * rsGetArray1: Index in the Array1 dimension for the specified context
+ * rsGetArray1: Index in the Array1 dimension for the specified kernel context
  *
  * Returns the index in the Array1 dimension of the cell being processed, as specified
- * by the supplied context.  See rsGetArray0() for an explanation of the context.
+ * by the supplied kernel context.  See rsGetArray0() for an explanation of the context.
  *
  * Returns 0 if the Array1 dimension is not present.
  */
@@ -192,10 +243,10 @@ extern uint32_t __attribute__((overloadable))
 #endif
 
 /*
- * rsGetArray2: Index in the Array2 dimension for the specified context
+ * rsGetArray2: Index in the Array2 dimension for the specified kernel context
  *
  * Returns the index in the Array2 dimension of the cell being processed,
- * as specified by the supplied context.  See rsGetArray0() for an explanation
+ * as specified by the supplied kernel context.  See rsGetArray0() for an explanation
  * of the context.
  *
  * Returns 0 if the Array2 dimension is not present.
@@ -206,10 +257,10 @@ extern uint32_t __attribute__((overloadable))
 #endif
 
 /*
- * rsGetArray3: Index in the Array3 dimension for the specified context
+ * rsGetArray3: Index in the Array3 dimension for the specified kernel context
  *
  * Returns the index in the Array3 dimension of the cell being processed, as specified
- * by the supplied context.  See rsGetArray0() for an explanation of the context.
+ * by the supplied kernel context.  See rsGetArray0() for an explanation of the context.
  *
  * Returns 0 if the Array3 dimension is not present.
  */
@@ -219,9 +270,9 @@ extern uint32_t __attribute__((overloadable))
 #endif
 
 /*
- * rsGetDimArray0: Size of the Array0 dimension for the specified context
+ * rsGetDimArray0: Size of the Array0 dimension for the specified kernel context
  *
- * Returns the size of the Array0 dimension for the specified context.
+ * Returns the size of the Array0 dimension for the specified kernel context.
  * See rsGetDimX() for an explanation of the context.
  *
  * Returns 0 if the Array0 dimension is not present.
@@ -232,9 +283,9 @@ extern uint32_t __attribute__((overloadable))
 #endif
 
 /*
- * rsGetDimArray1: Size of the Array1 dimension for the specified context
+ * rsGetDimArray1: Size of the Array1 dimension for the specified kernel context
  *
- * Returns the size of the Array1 dimension for the specified context.
+ * Returns the size of the Array1 dimension for the specified kernel context.
  * See rsGetDimX() for an explanation of the context.
  *
  * Returns 0 if the Array1 dimension is not present.
@@ -245,9 +296,9 @@ extern uint32_t __attribute__((overloadable))
 #endif
 
 /*
- * rsGetDimArray2: Size of the Array2 dimension for the specified context
+ * rsGetDimArray2: Size of the Array2 dimension for the specified kernel context
  *
- * Returns the size of the Array2 dimension for the specified context.
+ * Returns the size of the Array2 dimension for the specified kernel context.
  * See rsGetDimX() for an explanation of the context.
  *
  * Returns 0 if the Array2 dimension is not present.
@@ -258,9 +309,9 @@ extern uint32_t __attribute__((overloadable))
 #endif
 
 /*
- * rsGetDimArray3: Size of the Array3 dimension for the specified context
+ * rsGetDimArray3: Size of the Array3 dimension for the specified kernel context
  *
- * Returns the size of the Array3 dimension for the specified context.
+ * Returns the size of the Array3 dimension for the specified kernel context.
  * See rsGetDimX() for an explanation of the context.
  *
  * Returns 0 if the Array3 dimension is not present.
@@ -271,10 +322,10 @@ extern uint32_t __attribute__((overloadable))
 #endif
 
 /*
- * rsGetDimHasFaces: Presence of more than one face for the specified context
+ * rsGetDimHasFaces: Presence of more than one face for the specified kernel context
  *
- * If the context refers to a cubemap, this function returns true if there's more than
- * one face present.  In all other cases, it returns false.  See rsGetDimX() for an
+ * If the kernel is iterating over a cubemap, this function returns true if there's more
+ * than one face present.  In all other cases, it returns false.  See rsGetDimX() for an
  * explanation of the context.
  *
  * rsAllocationGetDimFaces() is similar but returns 0 or 1 instead of a bool.
@@ -287,9 +338,9 @@ extern bool __attribute__((overloadable))
 #endif
 
 /*
- * rsGetDimLod: Number of levels of detail for the specified context
+ * rsGetDimLod: Number of levels of detail for the specified kernel context
  *
- * Returns the number of levels of detail for the specified context.  This is useful
+ * Returns the number of levels of detail for the specified kernel context.  This is useful
  * for mipmaps.  See rsGetDimX() for an explanation of the context.
  *
  * Returns 0 if Level of Detail is not used.
@@ -303,15 +354,14 @@ extern uint32_t __attribute__((overloadable))
 #endif
 
 /*
- * rsGetDimX: Size of the X dimension for the specified context
+ * rsGetDimX: Size of the X dimension for the specified kernel context
  *
- * Returns the size of the X dimension for the specified context.
+ * Returns the size of the X dimension for the specified kernel context.
  *
- * This context is created when a kernel is launched.  It contains common
- * characteristics of the allocations being iterated over by the kernel in
- * a very efficient structure.  It also contains rarely used indexes.
+ * The kernel context contains common characteristics of the allocations being iterated
+ * over and rarely used indices, like the Array0 index.
  *
- * You can access it by adding a special parameter named "context" and of
+ * You can access it by adding a special parameter named "context" of
  * type rs_kernel_context to your kernel function.  E.g.
  * int4 RS_KERNEL myKernel(int4 value, rs_kernel_context context) {
  *   uint32_t size = rsGetDimX(context); //...
@@ -324,9 +374,9 @@ extern uint32_t __attribute__((overloadable))
 #endif
 
 /*
- * rsGetDimY: Size of the Y dimension for the specified context
+ * rsGetDimY: Size of the Y dimension for the specified kernel context
  *
- * Returns the size of the X dimension for the specified context.
+ * Returns the size of the X dimension for the specified kernel context.
  * See rsGetDimX() for an explanation of the context.
  *
  * Returns 0 if the Y dimension is not present.
@@ -339,9 +389,9 @@ extern uint32_t __attribute__((overloadable))
 #endif
 
 /*
- * rsGetDimZ: Size of the Z dimension for the specified context
+ * rsGetDimZ: Size of the Z dimension for the specified kernel context
  *
- * Returns the size of the Z dimension for the specified context.
+ * Returns the size of the Z dimension for the specified kernel context.
  * See rsGetDimX() for an explanation of the context.
  *
  * Returns 0 if the Z dimension is not present.
@@ -354,10 +404,10 @@ extern uint32_t __attribute__((overloadable))
 #endif
 
 /*
- * rsGetFace: Coordinate of the Face for the specified context
+ * rsGetFace: Coordinate of the Face for the specified kernel context
  *
  * Returns the face on which the cell being processed is found, as specified by the
- * supplied context.  See rsGetArray0() for an explanation of the context.
+ * supplied kernel context.  See rsGetArray0() for an explanation of the context.
  *
  * Returns RS_ALLOCATION_CUBEMAP_FACE_POSITIVE_X if the face dimension is not
  * present.
@@ -368,10 +418,10 @@ extern rs_allocation_cubemap_face __attribute__((overloadable))
 #endif
 
 /*
- * rsGetLod: Index in the Levels of Detail dimension for the specified context
+ * rsGetLod: Index in the Levels of Detail dimension for the specified kernel context
  *
  * Returns the index in the Levels of Detail dimension of the cell being processed,
- * as specified by the supplied context.  See rsGetArray0() for an explanation of
+ * as specified by the supplied kernel context.  See rsGetArray0() for an explanation of
  * the context.
  *
  * Returns 0 if the Levels of Detail dimension is not present.

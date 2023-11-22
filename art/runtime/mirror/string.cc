@@ -55,6 +55,7 @@ int32_t String::FastIndexOf(int32_t ch, int32_t start) {
 void String::SetClass(Class* java_lang_String) {
   CHECK(java_lang_String_.IsNull());
   CHECK(java_lang_String != nullptr);
+  CHECK(java_lang_String->IsStringClass());
   java_lang_String_ = GcRoot<Class>(java_lang_String);
 }
 
@@ -108,12 +109,17 @@ String* String::AllocFromUtf16(Thread* self, int32_t utf16_length, const uint16_
 
 String* String::AllocFromModifiedUtf8(Thread* self, const char* utf) {
   DCHECK(utf != nullptr);
-  size_t char_count = CountModifiedUtf8Chars(utf);
-  return AllocFromModifiedUtf8(self, char_count, utf);
+  size_t byte_count = strlen(utf);
+  size_t char_count = CountModifiedUtf8Chars(utf, byte_count);
+  return AllocFromModifiedUtf8(self, char_count, utf, byte_count);
+}
+
+String* String::AllocFromModifiedUtf8(Thread* self, int32_t utf16_length, const char* utf8_data_in) {
+  return AllocFromModifiedUtf8(self, utf16_length, utf8_data_in, strlen(utf8_data_in));
 }
 
 String* String::AllocFromModifiedUtf8(Thread* self, int32_t utf16_length,
-                                      const char* utf8_data_in) {
+                                      const char* utf8_data_in, int32_t utf8_length) {
   gc::AllocatorType allocator_type = Runtime::Current()->GetHeap()->GetCurrentAllocator();
   SetStringCountVisitor visitor(utf16_length);
   String* string = Alloc<true>(self, utf16_length, allocator_type, visitor);
@@ -121,7 +127,7 @@ String* String::AllocFromModifiedUtf8(Thread* self, int32_t utf16_length,
     return nullptr;
   }
   uint16_t* utf16_data_out = string->GetValue();
-  ConvertModifiedUtf8ToUtf16(utf16_data_out, utf8_data_in);
+  ConvertModifiedUtf8ToUtf16(utf16_data_out, utf16_length, utf8_data_in, utf8_length);
   return string;
 }
 
@@ -216,7 +222,7 @@ std::string String::ToModifiedUtf8() {
   const uint16_t* chars = GetValue();
   size_t byte_count = GetUtfLength();
   std::string result(byte_count, static_cast<char>(0));
-  ConvertUtf16ToModifiedUtf8(&result[0], chars, GetLength());
+  ConvertUtf16ToModifiedUtf8(&result[0], byte_count, chars, GetLength());
   return result;
 }
 
@@ -253,7 +259,11 @@ CharArray* String::ToCharArray(Thread* self) {
   StackHandleScope<1> hs(self);
   Handle<String> string(hs.NewHandle(this));
   CharArray* result = CharArray::Alloc(self, GetLength());
-  memcpy(result->GetData(), string->GetValue(), string->GetLength() * sizeof(uint16_t));
+  if (result != nullptr) {
+    memcpy(result->GetData(), string->GetValue(), string->GetLength() * sizeof(uint16_t));
+  } else {
+    self->AssertPendingOOMException();
+  }
   return result;
 }
 

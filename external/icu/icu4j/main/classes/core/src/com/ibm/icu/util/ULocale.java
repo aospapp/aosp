@@ -85,20 +85,7 @@ import com.ibm.icu.text.LocaleDisplayNames.DialectHandling;
  * All ULocale constructors automatically normalize the locale id.  To handle
  * POSIX ids, <code>canonicalize</code> can be called to convert the id
  * to canonical form, or the <code>canonicalInstance</code> factory method
- * can be called.</p>
- *
- * <p>This class provides selectors {@link #VALID_LOCALE} and {@link
- * #ACTUAL_LOCALE} intended for use in methods named
- * <tt>getLocale()</tt>.  These methods exist in several ICU classes,
- * including {@link com.ibm.icu.util.Calendar}, {@link
- * com.ibm.icu.util.Currency}, {@link com.ibm.icu.text.UFormat},
- * {@link com.ibm.icu.text.BreakIterator},
- * <a href="../text/Collator.html" title="class in com.ibm.icu.text"><code>Collator</code></a>,
- * {@link com.ibm.icu.text.DateFormatSymbols}, and {@link
- * com.ibm.icu.text.DecimalFormatSymbols} and their subclasses, if
- * any.  Once an object of one of these classes has been created,
- * <tt>getLocale()</tt> may be called on it to determine the valid and
- * actual locale arrived at during the object's construction.
+ * can be called.
  *
  * <p>Note: The <i>actual</i> locale is returned correctly, but the <i>valid</i>
  * locale is not, in most cases.
@@ -423,7 +410,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
 
     /**
      * Construct a ULocale object from a {@link java.util.Locale}.
-     * @param loc a JDK locale
+     * @param loc a {@link java.util.Locale}
      */
     private ULocale(Locale loc) {
         this.localeID = getName(forLocale(loc).toString());
@@ -433,7 +420,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
     /**
      * {@icu} Returns a ULocale object for a {@link java.util.Locale}.
      * The ULocale is canonicalized.
-     * @param loc a JDK locale
+     * @param loc a {@link java.util.Locale}
      * @stable ICU 3.2
      */
     public static ULocale forLocale(Locale loc) {
@@ -542,7 +529,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
 
     /**
      * {@icu} Converts this ULocale object to a {@link java.util.Locale}.
-     * @return a JDK locale that either exactly represents this object
+     * @return a {@link java.util.Locale} that either exactly represents this object
      * or is the closest approximation.
      * @stable ICU 2.8
      */
@@ -613,15 +600,16 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
      * The default ULocale is synchronized to the default Java Locale. This method checks
      * the current default Java Locale and returns an equivalent ULocale.
      * <p>
-     * <b>Note:</b> Before Java 7, the JDK Locale was not able to represent a locale's script.
-     * Therefore, the script field in the default ULocale is always empty unless
+     * <b>Note:</b> Before Java 7, the {@link java.util.Locale} was not able to represent a
+     * locale's script. Therefore, the script field in the default ULocale is always empty unless
      * a ULocale with non-empty script is explicitly set by {@link #setDefault(ULocale)}
      * on Java 6 or older systems.
      * <p>
      * <b>Note for ICU 49 or later:</b> Some JRE implementations allow users to override the default
-     * JDK Locale using system properties - <code>user.language</code>, <code>user.country</code>
-     * and <code>user.variant</code>. In addition to these system properties, some Java 7
-     * implementations support <code>user.script</code> for overriding the default Locale's script.
+     * {@link java.util.Locale} using system properties - <code>user.language</code>,
+     * <code>user.country</code> and <code>user.variant</code>. In addition to these system
+     * properties, some Java 7 implementations support <code>user.script</code> for overriding the
+     * default Locale's script.
      * ICU 49 and later versions use the <code>user.script</code> system property on Java 6
      * or older systems supporting other <code>user.*</code> system properties to initialize
      * the default ULocale. The <code>user.script</code> override for default ULocale is not
@@ -803,7 +791,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
 
     /**
      * Compares two ULocale for ordering.
-     * <p><b>Note:</b> The order might change in future.</p>
+     * <p><b>Note:</b> The order might change in future.
      * 
      * @param other the ULocale to be compared.
      * @return a negative integer, zero, or a positive integer as this ULocale is less than, equal to, or greater
@@ -1374,8 +1362,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
      * <p>Returns true for "ar" and "en-Hebr", false for "zh" and "fa-Cyrl".
      *
      * @return true if the locale's script is written right-to-left
-     * @draft ICU 54
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 54
      */
     public boolean isRightToLeft() {
         String script = getScript();
@@ -3286,7 +3273,8 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
      * to {@link ULocale.Builder#setLanguageTag} which throws an exception
      * in this case.
      *
-     * <p>The following <b>conversions</b> are performed:<ul>
+     * <p>The following <b>conversions</b> are performed:
+     * <ul>
      *
      * <li>The language code "und" is mapped to language "".
      *
@@ -3318,6 +3306,8 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
      * <li>Case is normalized. Language is normalized to lower case,
      * script to title case, country to upper case, variant to upper case,
      * and extensions to lower case.
+     *
+     * </ul>
      *
      * <p>This implements the 'Language-Tag' production of BCP47, and
      * so supports grandfathered (regular and irregular) as well as
@@ -3408,8 +3398,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
      *                      or null if the specified locale keyword cannot be mapped
      *                      to a well-formed BCP 47 Unicode locale extension key. 
      * @see #toLegacyKey(String)
-     * @draft ICU 54
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 54
      */
     public static String toUnicodeLocaleKey(String keyword) {
         String bcpKey = KeyTypeData.toBcpKey(keyword);
@@ -3445,8 +3434,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
      *                      or null if the locale keyword value cannot be mapped to
      *                      a well-formed BCP 47 Unicode locale extension type.
      * @see #toLegacyType(String, String)
-     * @draft ICU 54
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 54
      */
     public static String toUnicodeLocaleType(String keyword, String value) {
         String bcpType = KeyTypeData.toBcpType(keyword, value, null, null);
@@ -3467,8 +3455,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
      * @return              the well-formed legacy key, or null if the specified
      *                      keyword cannot be mapped to a well-formed legacy key.
      * @see #toUnicodeLocaleKey(String)
-     * @draft ICU 54
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 54
      */
     public static String toLegacyKey(String keyword) {
         String legacyKey = KeyTypeData.toLegacyKey(keyword);
@@ -3512,8 +3499,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
      *                      keyword value cannot be mapped to a well-formed legacy
      *                      type.
      * @see #toUnicodeLocaleType(String, String)
-     * @draft ICU 54
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 54
      */
     public static String toLegacyType(String keyword, String value) {
         String legacyType = KeyTypeData.toLegacyType(keyword, value, null, null);

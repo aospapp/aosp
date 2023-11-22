@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <!-- Copyright (C) 2015 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,7 +13,14 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<configuration description="Test module config for Account apis">
-    <include name="common-config" />
-    <option name="cts-apk-installer:test-file-name" value="CtsUnaffiliatedAccountAuthenticators.apk" />
+<configuration description="Config for CTS Accounts test cases">
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.ApkInstaller">
+        <option name="cleanup-apks" value="true" />
+        <option name="test-file-name" value="CtsUnaffiliatedAccountAuthenticators.apk" />
+        <option name="test-file-name" value="CtsAccountManagerTestCases.apk" />
+    </target_preparer>
+    <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
+        <option name="package" value="android.accounts.cts" />
+        <option name="runtime-hint" value="1m25s" />
+    </test>
 </configuration>

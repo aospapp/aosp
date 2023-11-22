@@ -16,7 +16,7 @@
 
 package android.graphics.drawable.cts;
 
-import com.android.cts.graphics.R;
+import android.graphics.cts.R;
 
 import android.app.Activity;
 import android.app.Instrumentation;
@@ -50,7 +50,7 @@ public class IconTest extends ActivityInstrumentationTestCase2<ImageViewCtsActiv
     MockRunner mRunner;
 
     public IconTest() {
-        super("com.android.cts.graphics", ImageViewCtsActivity.class);
+        super("android.graphics.cts", ImageViewCtsActivity.class);
     }
 
     @Override

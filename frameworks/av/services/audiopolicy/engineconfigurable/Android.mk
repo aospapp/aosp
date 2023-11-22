@@ -35,13 +35,15 @@ LOCAL_C_INCLUDES := \
     $(call include-path-for, audio-utils) \
     $(TOPDIR)frameworks/av/services/audiopolicy/common/include
 
+LOCAL_MULTILIB := $(AUDIOSERVER_MULTILIB)
 
 LOCAL_MODULE := libaudiopolicyengineconfigurable
 LOCAL_MODULE_TAGS := optional
 LOCAL_STATIC_LIBRARIES := \
     libmedia_helper \
     libaudiopolicypfwwrapper \
-    libaudiopolicycomponents
+    libaudiopolicycomponents \
+    libxml2
 
 LOCAL_SHARED_LIBRARIES := \
     libcutils \

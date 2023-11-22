@@ -17,6 +17,7 @@
 package libcore.javax.crypto;
 
 import com.android.org.bouncycastle.asn1.x509.KeyUsage;
+
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.math.BigInteger;
@@ -979,6 +980,76 @@ public final class CipherTest extends TestCase {
         }
     }
 
+    public void testCipher_getInstance_CorrectPriority_AlgorithmOnlyFirst() throws Exception {
+        Provider mockProviderOnlyAlgorithm = new MockProvider("MockProviderOnlyAlgorithm") {
+            public void setup() {
+                put("Cipher.FOO", MockCipherSpi.AllKeyTypes.class.getName());
+            }
+        };
+        Provider mockProviderFullTransformSpecified = new MockProvider("MockProviderFull") {
+            public void setup() {
+                put("Cipher.FOO/FOO/FOO", MockCipherSpi.AllKeyTypes.class.getName());
+            }
+        };
+
+        Security.addProvider(mockProviderOnlyAlgorithm);
+        Security.addProvider(mockProviderFullTransformSpecified);
+        try {
+            Cipher c = Cipher.getInstance("FOO/FOO/FOO");
+            assertEquals(mockProviderOnlyAlgorithm, c.getProvider());
+        } finally {
+            Security.removeProvider(mockProviderOnlyAlgorithm.getName());
+            Security.removeProvider(mockProviderFullTransformSpecified.getName());
+        }
+    }
+
+    public void testCipher_getInstance_CorrectPriority_FullTransformFirst() throws Exception {
+        Provider mockProviderOnlyAlgorithm = new MockProvider("MockProviderOnlyAlgorithm") {
+            public void setup() {
+                put("Cipher.FOO", MockCipherSpi.AllKeyTypes.class.getName());
+            }
+        };
+        Provider mockProviderFullTransformSpecified = new MockProvider("MockProviderFull") {
+            public void setup() {
+                put("Cipher.FOO/FOO/FOO", MockCipherSpi.AllKeyTypes.class.getName());
+            }
+        };
+
+        Security.addProvider(mockProviderFullTransformSpecified);
+        Security.addProvider(mockProviderOnlyAlgorithm);
+        try {
+            Cipher c = Cipher.getInstance("FOO/FOO/FOO");
+            assertEquals(mockProviderFullTransformSpecified, c.getProvider());
+        } finally {
+            Security.removeProvider(mockProviderOnlyAlgorithm.getName());
+            Security.removeProvider(mockProviderFullTransformSpecified.getName());
+        }
+    }
+
+    public void testCipher_getInstance_CorrectPriority_AliasedAlgorithmFirst() throws Exception {
+        Provider mockProviderAliasedAlgorithm = new MockProvider("MockProviderAliasedAlgorithm") {
+            public void setup() {
+                put("Cipher.BAR", MockCipherSpi.AllKeyTypes.class.getName());
+                put("Alg.Alias.Cipher.FOO", "BAR");
+            }
+        };
+        Provider mockProviderAlgorithmOnly = new MockProvider("MockProviderAlgorithmOnly") {
+            public void setup() {
+                put("Cipher.FOO", MockCipherSpi.AllKeyTypes.class.getName());
+            }
+        };
+
+        Security.addProvider(mockProviderAliasedAlgorithm);
+        Security.addProvider(mockProviderAlgorithmOnly);
+        try {
+            Cipher c = Cipher.getInstance("FOO/FOO/FOO");
+            assertEquals(mockProviderAliasedAlgorithm, c.getProvider());
+        } finally {
+            Security.removeProvider(mockProviderAliasedAlgorithm.getName());
+            Security.removeProvider(mockProviderAlgorithmOnly.getName());
+        }
+    }
+
     public void testCipher_getInstance_WrongType_Failure() throws Exception {
         Provider mockProviderInvalid = new MockProvider("MockProviderInvalid") {
             public void setup() {
@@ -1268,6 +1339,57 @@ public final class CipherTest extends TestCase {
                     c.doFinal(new byte[1]).length);
         }
 
+        if (isPBE(algorithm)) {
+            if (algorithm.endsWith("RC4")) {
+                assertNull(cipherID + " getIV()", c.getIV());
+            } else {
+                assertNotNull(cipherID + " getIV()", c.getIV());
+            }
+        } else if (encryptSpec instanceof IvParameterSpec) {
+            assertEquals(cipherID + " getIV()",
+                    Arrays.toString(((IvParameterSpec) encryptSpec).getIV()),
+                    Arrays.toString(c.getIV()));
+        } else if (encryptSpec instanceof GCMParameterSpec) {
+            assertNotNull(c.getIV());
+            assertEquals(cipherID + " getIV()",
+                    Arrays.toString(((GCMParameterSpec) encryptSpec).getIV()),
+                    Arrays.toString(c.getIV()));
+        } else {
+            try {
+                assertNull(cipherID + " getIV()", c.getIV());
+            } catch (NullPointerException e) {
+                // Bouncycastle apparently has a bug here with AESWRAP, et al.
+                if (!("BC".equals(providerName) && isOnlyWrappingAlgorithm(algorithm))) {
+                    throw e;
+                }
+            }
+        }
+
+        AlgorithmParameters encParams = c.getParameters();
+        if (encryptSpec == null) {
+            assertNull(cipherID + " getParameters()", encParams);
+        } else if (encryptSpec instanceof GCMParameterSpec) {
+            GCMParameterSpec gcmDecryptSpec = (GCMParameterSpec) encParams
+                    .getParameterSpec(GCMParameterSpec.class);
+            assertEquals(cipherID + " getIV()",
+                    Arrays.toString(((GCMParameterSpec) encryptSpec).getIV()),
+                    Arrays.toString(gcmDecryptSpec.getIV()));
+            assertEquals(cipherID + " getTLen()", ((GCMParameterSpec) encryptSpec).getTLen(),
+                    gcmDecryptSpec.getTLen());
+        } else if (encryptSpec instanceof IvParameterSpec) {
+            IvParameterSpec ivDecryptSpec = (IvParameterSpec) encParams
+                    .getParameterSpec(IvParameterSpec.class);
+            assertEquals(cipherID + " getIV()",
+                    Arrays.toString(((IvParameterSpec) encryptSpec).getIV()),
+                    Arrays.toString(ivDecryptSpec.getIV()));
+        } else if (encryptSpec instanceof PBEParameterSpec) {
+            // Bouncycastle seems to be undecided about whether it returns this
+            // or not
+            if (!"BC".equals(providerName)) {
+                assertNotNull(cipherID + " getParameters()", encParams);
+            }
+        }
+
         final AlgorithmParameterSpec decryptSpec = getDecryptAlgorithmParameterSpec(encryptSpec, c);
         int decryptMode = getDecryptMode(algorithm);
 
@@ -1305,18 +1427,27 @@ public final class CipherTest extends TestCase {
             }
         }
 
-        AlgorithmParameters params = c.getParameters();
+        AlgorithmParameters decParams = c.getParameters();
         if (decryptSpec == null) {
-            assertNull(cipherID + " getParameters()", params);
+            assertNull(cipherID + " getParameters()", decParams);
+        } else if (decryptSpec instanceof GCMParameterSpec) {
+            GCMParameterSpec gcmDecryptSpec = (GCMParameterSpec) decParams
+                    .getParameterSpec(GCMParameterSpec.class);
+            assertEquals(cipherID + " getIV()",
+                    Arrays.toString(((GCMParameterSpec) decryptSpec).getIV()),
+                    Arrays.toString(gcmDecryptSpec.getIV()));
+            assertEquals(cipherID + " getTLen()", ((GCMParameterSpec) decryptSpec).getTLen(),
+                    gcmDecryptSpec.getTLen());
         } else if (decryptSpec instanceof IvParameterSpec) {
-            IvParameterSpec ivDecryptSpec = (IvParameterSpec) params.getParameterSpec(IvParameterSpec.class);
+            IvParameterSpec ivDecryptSpec = (IvParameterSpec) decParams
+                    .getParameterSpec(IvParameterSpec.class);
             assertEquals(cipherID + " getIV()",
                     Arrays.toString(((IvParameterSpec) decryptSpec).getIV()),
                     Arrays.toString(ivDecryptSpec.getIV()));
         } else if (decryptSpec instanceof PBEParameterSpec) {
-            // Bouncycastle seems to be schizophrenic about whther it returns this or not
+            // Bouncycastle seems to be undecided about whether it returns this or not
             if (!"BC".equals(providerName)) {
-                assertNotNull(cipherID + " getParameters()", params);
+                assertNotNull(cipherID + " getParameters()", decParams);
             }
         }
 
@@ -2587,10 +2718,6 @@ public final class CipherTest extends TestCase {
             (byte) 0x19, (byte) 0x35,
     };
 
-    private static final byte[][] AES_KEYS = new byte[][] {
-            AES_128_KEY, AES_192_KEY, AES_256_KEY,
-    };
-
     private static final String[] AES_MODES = new String[] {
             "AES/ECB",
             "AES/CBC",
@@ -2706,7 +2833,42 @@ public final class CipherTest extends TestCase {
     /*
      * Test key generation:
      * openssl rand -hex 16
-     * echo 'ceaa31952dfd3d0f5af4b2042ba06094' | sed 's/\(..\)/(byte) 0x\1, /g'
+     * echo '787bdeecf05556eac5d3d865e435f6d9' | sed 's/\(..\)/(byte) 0x\1, /g'
+     */
+    private static final byte[] AES_192_CTR_NoPadding_TestVector_1_IV = new byte[] {
+            (byte) 0x78, (byte) 0x7b, (byte) 0xde, (byte) 0xec, (byte) 0xf0, (byte) 0x55,
+            (byte) 0x56, (byte) 0xea, (byte) 0xc5, (byte) 0xd3, (byte) 0xd8, (byte) 0x65,
+            (byte) 0xe4, (byte) 0x35, (byte) 0xf6, (byte) 0xd9,
+
+    };
+
+    /*
+     * Test vector generation:
+     * echo -n 'AES-192 is a silly option' | recode ../x1 | sed 's/0x/(byte) 0x/g'
+     */
+    private static final byte[] AES_192_CTR_NoPadding_TestVector_1_Plaintext = new byte[] {
+            (byte) 0x41, (byte) 0x45, (byte) 0x53, (byte) 0x2D, (byte) 0x31, (byte) 0x39,
+            (byte) 0x32, (byte) 0x20, (byte) 0x69, (byte) 0x73, (byte) 0x20, (byte) 0x61,
+            (byte) 0x20, (byte) 0x73, (byte) 0x69, (byte) 0x6C, (byte) 0x6C, (byte) 0x79,
+            (byte) 0x20, (byte) 0x6F, (byte) 0x70, (byte) 0x74, (byte) 0x69, (byte) 0x6F,
+            (byte) 0x6E
+    };
+
+    /*
+     * Test vector generation:
+     * echo -n 'AES-192 is a silly option' | openssl enc -aes-192-ctr -K 5a7a3d7e40b64ed996f7afa15f97fd595e27db6af428e342 -iv 787bdeecf05556eac5d3d865e435f6d9 | recode ../x1 | sed 's/0x/(byte) 0x/g'
+     */
+    private static final byte[] AES_192_CTR_NoPadding_TestVector_1_Ciphertext = new byte[] {
+            (byte) 0xE9, (byte) 0xC6, (byte) 0xA0, (byte) 0x40, (byte) 0xC2, (byte) 0x6A,
+            (byte) 0xB5, (byte) 0x20, (byte) 0xFE, (byte) 0x9E, (byte) 0x65, (byte) 0xB7,
+            (byte) 0x7C, (byte) 0x5E, (byte) 0xFE, (byte) 0x1F, (byte) 0xF1, (byte) 0x6F,
+            (byte) 0x20, (byte) 0xAC, (byte) 0x37, (byte) 0xE9, (byte) 0x75, (byte) 0xE3,
+            (byte) 0x52
+    };
+
+    /*
+     * Test key generation: openssl rand -hex 16 echo
+     * 'ceaa31952dfd3d0f5af4b2042ba06094' | sed 's/\(..\)/(byte) 0x\1, /g'
      */
     private static final byte[] AES_256_CBC_PKCS5Padding_TestVector_1_IV = new byte[] {
             (byte) 0xce, (byte) 0xaa, (byte) 0x31, (byte) 0x95, (byte) 0x2d, (byte) 0xfd,
@@ -2815,6 +2977,12 @@ public final class CipherTest extends TestCase {
                 AES_128_GCM_TestVector_1_Plaintext,
                 AES_128_GCM_TestVector_1_Encrypted));
         if (IS_UNLIMITED) {
+            CIPHER_TEST_PARAMS.add(new CipherTestParam("AES/CTR/NoPadding", AES_192_KEY,
+                    AES_192_CTR_NoPadding_TestVector_1_IV,
+                    null,
+                    AES_192_CTR_NoPadding_TestVector_1_Plaintext,
+                    AES_192_CTR_NoPadding_TestVector_1_Plaintext,
+                    AES_192_CTR_NoPadding_TestVector_1_Ciphertext));
             CIPHER_TEST_PARAMS.add(new CipherTestParam("AES/CBC/PKCS5Padding", AES_256_KEY,
                     AES_256_CBC_PKCS5Padding_TestVector_1_IV,
                     null,
@@ -2905,7 +3073,8 @@ public final class CipherTest extends TestCase {
         // empty decrypt
         {
             if (!isAEAD(p.transformation)
-                    && (StandardNames.IS_RI || provider.equals("AndroidOpenSSL"))) {
+                    && (StandardNames.IS_RI || provider.equals("AndroidOpenSSL") ||
+                            (provider.equals("BC") && p.transformation.contains("/CTR/")))) {
                 assertEquals(Arrays.toString(new byte[0]),
                              Arrays.toString(c.doFinal()));
 
@@ -2915,7 +3084,7 @@ public final class CipherTest extends TestCase {
             } else if (provider.equals("BC") || isAEAD(p.transformation)) {
                 try {
                     c.doFinal();
-                    fail();
+                    fail(p.transformation + " " + provider);
                 } catch (IllegalBlockSizeException maybe) {
                     if (isAEAD(p.transformation)) {
                         throw maybe;
@@ -2928,7 +3097,7 @@ public final class CipherTest extends TestCase {
                 try {
                     c.update(new byte[0]);
                     c.doFinal();
-                    fail();
+                    fail(p.transformation + " " + provider);
                 } catch (IllegalBlockSizeException maybe) {
                     if (isAEAD(p.transformation)) {
                         throw maybe;
@@ -2963,7 +3132,9 @@ public final class CipherTest extends TestCase {
             if (p.aad != null) {
                 final byte[] largerThanAad = new byte[p.aad.length + 100];
                 System.arraycopy(p.aad, 0, largerThanAad, 50, p.aad.length);
-                c.updateAAD(largerThanAad, 50, p.aad.length);
+                assertTrue(p.aad.length > 1);
+                c.updateAAD(largerThanAad, 50, 1);
+                c.updateAAD(largerThanAad, 51, p.aad.length - 1);
             }
 
             final byte[] actualPlaintext = new byte[c.getOutputSize(p.ciphertext.length)];
@@ -3201,6 +3372,28 @@ public final class CipherTest extends TestCase {
             } catch (IllegalBlockSizeException expected) {
             }
         }
+    }
+
+    public void test_DefaultGCMTagSizeAlgorithmParameterSpec() throws Exception {
+        final String AES = "AES";
+        final String AES_GCM = "AES/GCM/NoPadding";
+        byte[] input = new byte[16];
+        byte[] key = new byte[16];
+        Cipher cipher = Cipher.getInstance(AES_GCM, "BC");
+        AlgorithmParameters param = AlgorithmParameters.getInstance("GCM");
+        param.init(new byte[] {
+            (byte) 48,    // DER encoding : tag_Sequence
+            (byte) 14,    // DER encoding : total length
+            (byte) 4,     // DER encoding : tag_OctetString
+            (byte) 12,    // DER encoding : counter length
+            // Note that IV's size 12 bytes is recommended, but authentication tag size should be 16
+            // bytes.
+            (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0,
+            (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0 });
+        cipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(key, AES), param);
+        byte[] ciphertext = cipher.update(input);
+        byte[] tag = cipher.doFinal();
+        assertEquals(16, tag.length);
     }
 
     public void testAES_ECB_PKCS5Padding_ShortBuffer_Failure() throws Exception {
@@ -3514,5 +3707,249 @@ public final class CipherTest extends TestCase {
         Cipher cipher = Cipher.getInstance("RSA/NONE/OAEPPadding");
         cipher.init(Cipher.ENCRYPT_MODE, keyGen.generateKeyPair().getPublic());
         cipher.doFinal(new byte[] {1,2,3,4});
+    }
+
+    /*
+     * Check that two AAD updates are equivalent to one.
+     * http://b/27371173
+     */
+    public void test_AESGCMNoPadding_UpdateAADTwice_Success() throws Exception {
+        SecretKeySpec key = new SecretKeySpec(new byte[16], "AES");
+        GCMParameterSpec spec = new GCMParameterSpec(128, new byte[12]);
+        Cipher c1 = Cipher.getInstance("AES/GCM/NoPadding");
+        Cipher c2 = Cipher.getInstance("AES/GCM/NoPadding");
+
+        c1.init(Cipher.ENCRYPT_MODE, key, spec);
+        c1.updateAAD(new byte[] {
+                0x01, 0x02, 0x03, 0x04, 0x05,
+        });
+        c1.updateAAD(new byte[] {
+                0x06, 0x07, 0x08, 0x09, 0x10,
+        });
+
+        c2.init(Cipher.ENCRYPT_MODE, key, spec);
+        c2.updateAAD(new byte[] {
+                0x01, 0x02, 0x03, 0x04, 0x05,
+                0x06, 0x07, 0x08, 0x09, 0x10,
+        });
+
+        assertEquals(Arrays.toString(c1.doFinal()), Arrays.toString(c2.doFinal()));
+    }
+
+    /*
+     * Check that GCM encryption with old and new instances update correctly.
+     * http://b/26694388
+     */
+    public void test_AESGCMNoPadding_Reuse_Success() throws Exception {
+        SecretKeySpec key = new SecretKeySpec(new byte[16], "AES");
+        GCMParameterSpec spec = new GCMParameterSpec(128, new byte[12]);
+        Cipher c1 = Cipher.getInstance("AES/GCM/NoPadding");
+        Cipher c2 = Cipher.getInstance("AES/GCM/NoPadding");
+
+        // Pollute the c1 cipher with AAD
+        c1.init(Cipher.ENCRYPT_MODE, key, spec);
+        c1.updateAAD(new byte[] {
+                0x01, 0x02, 0x03, 0x04, 0x05,
+        });
+
+        // Now init each again and make sure the outputs are the same
+        c1.init(Cipher.ENCRYPT_MODE, key, spec);
+        c2.init(Cipher.ENCRYPT_MODE, key, spec);
+
+        byte[] aad = new byte[] {
+                0x10, 0x20, 0x30, 0x40, 0x50, 0x60,
+        };
+        c1.updateAAD(aad);
+        c2.updateAAD(aad);
+
+        assertEquals(Arrays.toString(c1.doFinal()), Arrays.toString(c2.doFinal()));
+
+        // .doFinal should also reset the state, so check that as well.
+        byte[] aad2 = new byte[] {
+                0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11,
+        };
+
+        Cipher c3 = Cipher.getInstance("AES/GCM/NoPadding");
+        c3.init(Cipher.ENCRYPT_MODE, key, spec);
+
+        c1.updateAAD(aad2);
+        c3.updateAAD(aad2);
+        assertEquals(Arrays.toString(c1.doFinal()), Arrays.toString(c3.doFinal()));
+    }
+
+    /**
+     * http://b/27224566
+     * http://b/27994930
+     * Check that a PBKDF2WITHHMACSHA1 secret key factory works well with a
+     * PBEWITHSHAAND128BITAES-CBC-BC cipher. The former is PKCS5 and the latter is PKCS12, and so
+     * mixing them is not recommended. However, until 1.52 BouncyCastle was accepting this mixture,
+     * assuming the IV was a 0 vector. Some apps still use this functionality. This
+     * compatibility is likely to be removed in later versions of Android.
+     * TODO(27995180): consider whether we keep this compatibility. Consider whether we only allow
+     * if an IV is passed in the parameters.
+     */
+    public void test_PBKDF2WITHHMACSHA1_SKFactory_and_PBEAESCBC_Cipher_noIV() throws Exception {
+        byte[] plaintext = new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+                17, 18, 19 };
+        byte[] ciphertext = new byte[] {  92, -65, -128, 16, -102, -115, -44, 52, 16, 124, -34,
+                -45, 58, -70, -17, 127, 119, -67, 87, 91, 63, -13, -40, 9, 97, -17, -71, 97, 10,
+                -61, -19, -73 };
+        SecretKeyFactory skf =
+                SecretKeyFactory.getInstance("PBKDF2WITHHMACSHA1");
+        PBEKeySpec pbeks = new PBEKeySpec("password".toCharArray(),
+                "salt".getBytes(),
+                100, 128);
+        SecretKey secretKey = skf.generateSecret(pbeks);
+
+        Cipher cipher =
+                Cipher.getInstance("PBEWITHSHAAND128BITAES-CBC-BC");
+        PBEParameterSpec paramSpec = new PBEParameterSpec("salt".getBytes(), 100);
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey, paramSpec);
+        assertEquals(Arrays.toString(ciphertext), Arrays.toString(cipher.doFinal(plaintext)));
+
+        secretKey = skf.generateSecret(pbeks);
+        cipher.init(Cipher.DECRYPT_MODE, secretKey, paramSpec);
+        assertEquals(Arrays.toString(plaintext), Arrays.toString(cipher.doFinal(ciphertext)));
+    }
+
+    /**
+     * http://b/27224566
+     * http://b/27994930
+     * Check that a PBKDF2WITHHMACSHA1 secret key factory works well with a
+     * PBEWITHSHAAND128BITAES-CBC-BC cipher. The former is PKCS5 and the latter is PKCS12, and so
+     * mixing them is not recommended. However, until 1.52 BouncyCastle was accepting this mixture,
+     * assuming the IV was a 0 vector. Some apps still use this functionality. This
+     * compatibility is likely to be removed in later versions of Android.
+     * TODO(27995180): consider whether we keep this compatibility. Consider whether we only allow
+     * if an IV is passed in the parameters.
+     */
+    public void test_PBKDF2WITHHMACSHA1_SKFactory_and_PBEAESCBC_Cipher_withIV() throws Exception {
+        byte[] plaintext = new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,  12, 13, 14, 15, 16,
+                17, 18, 19 };
+        byte[] ciphertext = { 68, -87, 71, -6, 32, -77, 124, 3, 35, -26, 96, -16, 100, -17, 52, -32,
+                110, 26, -117, 112, -25, -113, -58, -30, 19, -46, -21, 59, -126, -8, -70, -89 };
+        byte[] iv = new byte[] { 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 };
+        SecretKeyFactory skf =
+                SecretKeyFactory.getInstance("PBKDF2WITHHMACSHA1");
+        PBEKeySpec pbeks = new PBEKeySpec("password".toCharArray(),
+                "salt".getBytes(),
+                100, 128);
+        SecretKey secretKey = skf.generateSecret(pbeks);
+        Cipher cipher =
+                Cipher.getInstance("PBEWITHSHAAND128BITAES-CBC-BC");
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey, new IvParameterSpec(iv));
+        assertEquals(Arrays.toString(ciphertext), Arrays.toString(cipher.doFinal(plaintext)));
+
+        secretKey = skf.generateSecret(pbeks);
+        cipher.init(Cipher.DECRYPT_MODE, secretKey, new IvParameterSpec(iv));
+        assertEquals(Arrays.toString(plaintext), Arrays.toString(cipher.doFinal(ciphertext)));
+    }
+
+    /**
+     * http://b/29038928
+     * If in a second call to init the current spi doesn't support the new specified key, look for
+     * another suitable spi.
+     */
+    public void test_init_onKeyTypeChange_reInitCipher() throws Exception {
+        Provider mockProvider = new MockProvider("MockProvider") {
+            public void setup() {
+                put("Cipher.FOO", MockCipherSpi.SpecificKeyTypes.class.getName());
+            }
+        };
+        Provider mockProvider2 = new MockProvider("MockProvider2") {
+            public void setup() {
+                put("Cipher.FOO", MockCipherSpi.SpecificKeyTypes2.class.getName());
+            }
+        };
+        try {
+            Security.addProvider(mockProvider);
+            Security.addProvider(mockProvider2);
+            Cipher cipher = Cipher.getInstance("FOO");
+            cipher.init(Cipher.ENCRYPT_MODE, new MockKey());
+            assertEquals("MockProvider", cipher.getProvider().getName());
+            // Using a different key...
+            cipher.init(Cipher.ENCRYPT_MODE, new MockKey2());
+            // ...results in a different provider.
+            assertEquals("MockProvider2", cipher.getProvider().getName());
+        } finally {
+            Security.removeProvider(mockProvider.getName());
+            Security.removeProvider(mockProvider2.getName());
+        }
+    }
+
+    /**
+     * http://b/29038928
+     * If in a second call to init the current spi doesn't support the new specified
+     * {@link AlgorithmParameterSpec}, look for another suitable spi.
+     */
+    public void test_init_onAlgorithmParameterTypeChange_reInitCipher() throws Exception {
+        Provider mockProvider = new MockProvider("MockProvider") {
+            public void setup() {
+                put("Cipher.FOO",
+                        MockCipherSpi.SpecificAlgorithmParameterSpecTypes.class.getName());
+            }
+        };
+        Provider mockProvider2 = new MockProvider("MockProvider2") {
+            public void setup() {
+                put("Cipher.FOO",
+                        MockCipherSpi.SpecificAlgorithmParameterSpecTypes2.class.getName());
+            }
+        };
+        try {
+            Security.addProvider(mockProvider);
+            Security.addProvider(mockProvider2);
+            Cipher cipher = Cipher.getInstance("FOO");
+            cipher.init(Cipher.ENCRYPT_MODE,
+                    new MockKey(),
+                    new MockCipherSpi.MockAlgorithmParameterSpec());
+            assertEquals("MockProvider", cipher.getProvider().getName());
+            // Using a different AlgorithmParameterSpec...
+            cipher.init(Cipher.ENCRYPT_MODE,
+                    new MockKey(),
+                    new MockCipherSpi.MockAlgorithmParameterSpec2());
+            // ...results in a different provider.
+            assertEquals("MockProvider2", cipher.getProvider().getName());
+        } finally {
+            Security.removeProvider(mockProvider.getName());
+            Security.removeProvider(mockProvider2.getName());
+        }
+    }
+
+    /**
+     * http://b/29038928
+     * If in a second call to init the current spi doesn't support the new specified
+     * {@link AlgorithmParameters}, look for another suitable spi.
+     */
+    public void test_init_onAlgorithmParametersChange_reInitCipher() throws Exception {
+        Provider mockProvider = new MockProvider("MockProvider") {
+            public void setup() {
+                put("Cipher.FOO",
+                        MockCipherSpi.SpecificAlgorithmParameterAesAlgorithm.class.getName());
+            }
+        };
+        Provider mockProvider2 = new MockProvider("MockProvider2") {
+            public void setup() {
+                put("Cipher.FOO",
+                        MockCipherSpi.SpecificAlgorithmParametersDesAlgorithm.class.getName());
+            }
+        };
+        try {
+            Security.addProvider(mockProvider);
+            Security.addProvider(mockProvider2);
+            Cipher cipher = Cipher.getInstance("FOO");
+            cipher.init(Cipher.ENCRYPT_MODE,
+                    new MockKey(),
+                    AlgorithmParameters.getInstance("AES"));
+            assertEquals("MockProvider", cipher.getProvider().getName());
+            // Using a different AlgorithmParameters...
+            cipher.init(Cipher.ENCRYPT_MODE,
+                    new MockKey(),
+                    AlgorithmParameters.getInstance("DES"));
+            // ...results in a different provider.
+            assertEquals("MockProvider2", cipher.getProvider().getName());
+        } finally {
+            Security.removeProvider(mockProvider.getName());
+            Security.removeProvider(mockProvider2.getName());
+        }
     }
 }

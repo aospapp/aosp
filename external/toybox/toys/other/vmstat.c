@@ -1,6 +1,9 @@
 /* vmstat.c - Report virtual memory statistics.
  *
  * Copyright 2012 Elie De Brauwer <eliedebrauwer@gmail.com>
+ *
+ * TODO: I have no idea how "system" category is calculated.
+ * whatever we're doing isn't matching what other implementations are doing.
 
 USE_VMSTAT(NEWTOY(vmstat, ">2n", TOYFLAG_BIN))
 
@@ -30,13 +33,15 @@ struct vmstat_proc {
   uint64_t user, nice, sys, idle, wait, irq, sirq, intr, ctxt, running, blocked;
   // From /proc/meminfo (units are kb)
   uint64_t memfree, buffers, cached, swapfree, swaptotal;
+  // From /proc/vmstat (units are kb)
+  uint64_t io_in, io_out;
   // From /proc/vmstat (units are pages)
-  uint64_t io_in, io_out, swap_in, swap_out;
+  uint64_t swap_in, swap_out;
 };
 
 // All the elements of vmstat_proc are the same size, so we can populate it as
 // a big array, then read the elements back out by name
-void get_vmstat_proc(struct vmstat_proc *vmstat_proc)
+static void get_vmstat_proc(struct vmstat_proc *vmstat_proc)
 {
   char *vmstuff[] = { "/proc/stat", "cpu ", 0, 0, 0, 0, 0, 0,
     "intr ", "ctxt ", "procs_running ", "procs_blocked ", "/proc/meminfo",
@@ -57,10 +62,7 @@ void get_vmstat_proc(struct vmstat_proc *vmstat_proc)
       xreadfile(name = vmstuff[i], toybuf, sizeof(toybuf));
 
       continue;
-    } else {
-      if (!(p = strstr(toybuf, vmstuff[i]))) goto error;
-      p += strlen(vmstuff[i]);
-    }
+    } else if (!(p = strafter(toybuf, vmstuff[i]))) goto error;
     if (1 != sscanf(p, "%"PRIu64"%n", new++, &j)) goto error;
     p += j;
   }
@@ -93,14 +95,15 @@ void vmstat_main(void)
 
     // Print headers
     if (rows>3 && !(loop % (rows-3))) {
+      char *header = headers;
+
       if (isatty(1)) terminal_size(0, &rows);
       else rows = 0;
 
       printf("procs -----------memory---------- ---swap-- -----io---- -system-- ----cpu----\n");
-
       for (i=0; i<sizeof(lengths); i++) {
-        printf(" %*s"+!i, lengths[i], headers);
-        headers += strlen(headers)+1;
+        printf(" %*s"+!i, lengths[i], header);
+        header += strlen(header)+1;
       }
       xputc('\n');
     }
@@ -117,7 +120,7 @@ void vmstat_main(void)
     if (!loop) {
       char *s = toybuf;
 
-      xreadfile("/proc/uptime", toybuf, sizeof(toybuf)-1);
+      xreadfile("/proc/uptime", toybuf, sizeof(toybuf));
       while (*(s++) > ' ');
       sscanf(s, "%"PRIu64, &units);
     } else units = loop_delay;
@@ -138,7 +141,8 @@ void vmstat_main(void)
       // Adjust rate and units
       if (i>5) out -= oldptr[order[i]];
       if (order[i]<7) out = ((out*100) + (total_hz/2)) / total_hz;
-      else if (order[i]>15) out = ((out * page_kb)+(units-1))/units;
+      else if (order[i]>17) out = ((out * page_kb)+(units-1))/units;
+      else if (order[i]>15) out = ((out)+(units-1))/units;
       else if (order[i]<9) out = (out+(units-1)) / units;
 
       // If a field was too big to fit in its slot, try to compensate later

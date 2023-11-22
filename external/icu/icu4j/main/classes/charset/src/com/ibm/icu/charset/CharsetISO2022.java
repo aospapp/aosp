@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (C) 2008-2014, International Business Machines Corporation and
+ * Copyright (C) 2008-2015, International Business Machines Corporation and
  * others. All Rights Reserved.
  *******************************************************************************
  */
@@ -1536,8 +1536,8 @@ class CharsetISO2022 extends CharsetICU {
         ASCII,
         JISX201,
         ISO8859_1,
-        ISO8859_7,
         JISX208,
+        ISO8859_7,
         JISX212,
         GB2312,
         KSC5601,
@@ -1825,7 +1825,7 @@ class CharsetISO2022 extends CharsetICU {
                             choices[choiceCount++] = cs;
                             csm &= ~CSM(cs);
                         }
-                        
+
                         /* try all the other charsets */
                         for (int i = 0; i < jpCharsetPref.length; i++) {
                             cs = jpCharsetPref[i];

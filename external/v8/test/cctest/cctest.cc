@@ -29,17 +29,17 @@
 #include "test/cctest/cctest.h"
 
 #include "include/libplatform/libplatform.h"
-#include "src/debug.h"
+#include "src/debug/debug.h"
 #include "test/cctest/print-extension.h"
 #include "test/cctest/profiler-extension.h"
 #include "test/cctest/trace-extension.h"
 
-#if (defined(_WIN32) || defined(_WIN64))
+#if V8_OS_WIN
 #include <windows.h>  // NOLINT
-#if defined(_MSC_VER)
+#if V8_CC_MSVC
 #include <crtdbg.h>
-#endif  // defined(_MSC_VER)
-#endif  // defined(_WIN32) || defined(_WIN64)
+#endif
+#endif
 
 enum InitializationState {kUnset, kUnintialized, kInitialized};
 static InitializationState initialization_state_  = kUnset;
@@ -47,7 +47,8 @@ static bool disable_automatic_dispose_ = false;
 
 CcTest* CcTest::last_ = NULL;
 bool CcTest::initialize_called_ = false;
-bool CcTest::isolate_used_ = false;
+v8::base::Atomic32 CcTest::isolate_used_ = 0;
+v8::ArrayBuffer::Allocator* CcTest::allocator_ = NULL;
 v8::Isolate* CcTest::isolate_ = NULL;
 
 
@@ -84,12 +85,20 @@ void CcTest::Run() {
     CHECK(initialization_state_ != kUnintialized);
     initialization_state_ = kInitialized;
     if (isolate_ == NULL) {
-      isolate_ = v8::Isolate::New();
+      v8::Isolate::CreateParams create_params;
+      create_params.array_buffer_allocator = allocator_;
+      isolate_ = v8::Isolate::New(create_params);
     }
     isolate_->Enter();
   }
   callback_();
   if (initialize_) {
+    if (v8::Locker::IsActive()) {
+      v8::Locker locker(isolate_);
+      EmptyMessageQueues(isolate_);
+    } else {
+      EmptyMessageQueues(isolate_);
+    }
     isolate_->Exit();
   }
 }
@@ -129,7 +138,10 @@ static void PrintTestList(CcTest* current) {
 
 
 class CcTestArrayBufferAllocator : public v8::ArrayBuffer::Allocator {
-  virtual void* Allocate(size_t length) { return malloc(length); }
+  virtual void* Allocate(size_t length) {
+    void* data = AllocateUninitialized(length);
+    return data == NULL ? data : memset(data, 0, length);
+  }
   virtual void* AllocateUninitialized(size_t length) { return malloc(length); }
   virtual void Free(void* data, size_t length) { free(data); }
   // TODO(dslomov): Remove when v8:2823 is fixed.
@@ -145,12 +157,12 @@ static void SuggestTestHarness(int tests) {
 
 
 int main(int argc, char* argv[]) {
-#if (defined(_WIN32) || defined(_WIN64))
+#if V8_OS_WIN
   UINT new_flags =
       SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX;
   UINT existing_flags = SetErrorMode(new_flags);
   SetErrorMode(existing_flags | new_flags);
-#if defined(_MSC_VER)
+#if V8_CC_MSVC
   _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG | _CRTDBG_MODE_FILE);
   _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDERR);
   _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_DEBUG | _CRTDBG_MODE_FILE);
@@ -158,17 +170,32 @@ int main(int argc, char* argv[]) {
   _CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_DEBUG | _CRTDBG_MODE_FILE);
   _CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDERR);
   _set_error_mode(_OUT_TO_STDERR);
-#endif  // _MSC_VER
-#endif  // defined(_WIN32) || defined(_WIN64)
+#endif  // V8_CC_MSVC
+#endif  // V8_OS_WIN
+
+  // hack to print cctest specific flags
+  for (int i = 1; i < argc; i++) {
+    char* arg = argv[i];
+    if ((strcmp(arg, "--help") == 0) || (strcmp(arg, "-h") == 0)) {
+      printf("Usage: %s [--list] [[V8_FLAGS] CCTEST]\n", argv[0]);
+      printf("\n");
+      printf("Options:\n");
+      printf("  --list:   list all cctests\n");
+      printf("  CCTEST:   cctest identfier returned by --list\n");
+      printf("  D8_FLAGS: see d8 output below\n");
+      printf("\n\n");
+    }
+  }
 
   v8::V8::InitializeICU();
   v8::Platform* platform = v8::platform::CreateDefaultPlatform();
   v8::V8::InitializePlatform(platform);
   v8::internal::FlagList::SetFlagsFromCommandLine(&argc, argv, true);
   v8::V8::Initialize();
+  v8::V8::InitializeExternalStartupData(argv[0]);
 
   CcTestArrayBufferAllocator array_buffer_allocator;
-  v8::V8::SetArrayBufferAllocator(&array_buffer_allocator);
+  CcTest::set_array_buffer_allocator(&array_buffer_allocator);
 
   i::PrintExtension print_extension;
   v8::RegisterExtension(&print_extension);

@@ -37,7 +37,7 @@
 #include <unistd.h>
 
 #if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB) && \
-        defined(HAVE_ANDROID_OS)
+        defined(__ANDROID__)
 #include <cutils/properties.h>
 #endif
 
@@ -70,6 +70,7 @@ static bool LoadHalTable(Context *rsc, HalQueryHal fn, bool loadGraphics) {
     ret &= fn(RS_HAL_SCRIPT_INVOKE_FUNCTION, (void **)&rsc->mHal.funcs.script.invokeFunction);
     ret &= fn(RS_HAL_SCRIPT_INVOKE_ROOT, (void **)&rsc->mHal.funcs.script.invokeRoot);
     ret &= fn(RS_HAL_SCRIPT_INVOKE_FOR_EACH, (void **)&rsc->mHal.funcs.script.invokeForEach);
+    ret &= fn(RS_HAL_SCRIPT_INVOKE_REDUCE, (void **)&rsc->mHal.funcs.script.invokeReduce);
     ret &= fn(RS_HAL_SCRIPT_INVOKE_INIT, (void **)&rsc->mHal.funcs.script.invokeInit);
     ret &= fn(RS_HAL_SCRIPT_INVOKE_FREE_CHILDREN, (void **)&rsc->mHal.funcs.script.invokeFreeChildren);
     ret &= fn(RS_HAL_SCRIPT_SET_GLOBAL_VAR, (void **)&rsc->mHal.funcs.script.setGlobalVar);
@@ -109,6 +110,9 @@ static bool LoadHalTable(Context *rsc, HalQueryHal fn, bool loadGraphics) {
     ret &= fn(RS_HAL_ALLOCATION_UPDATE_CACHED_OBJECT, (void **)&rsc->mHal.funcs.allocation.updateCachedObject);
     ret &= fn(RS_HAL_ALLOCATION_ADAPTER_OFFSET, (void **)&rsc->mHal.funcs.allocation.adapterOffset);
     ret &= fn(RS_HAL_ALLOCATION_GET_POINTER, (void **)&rsc->mHal.funcs.allocation.getPointer);
+#ifdef RS_COMPATIBILITY_LIB
+    ret &= fn(RS_HAL_ALLOCATION_INIT_STRIDED, (void **)&rsc->mHal.funcs.allocation.initStrided);
+#endif
 
     ret &= fn(RS_HAL_SAMPLER_INIT, (void **)&rsc->mHal.funcs.sampler.init);
     ret &= fn(RS_HAL_SAMPLER_DESTROY, (void **)&rsc->mHal.funcs.sampler.destroy);
@@ -196,6 +200,12 @@ bool Context::loadRuntime(const char* filename) {
         goto error;
     }
 
+    if (version_major != RS_HAL_VERSION) {
+        ALOGE("Mismatched RS HAL versions: %s is version %u but version %u is expected",
+              filename, version_major, RS_HAL_VERSION);
+        goto error;
+    }
+
     if (!LoadHalTable(this, fnQueryHal, mIsGraphicsContext)) {
         ALOGE("Error loading RS HAL table, %s", filename);
         goto error;
@@ -262,6 +272,3 @@ bool Context::loadDriver(bool forceDefault) {
 
     return true;
 }
-
-
-

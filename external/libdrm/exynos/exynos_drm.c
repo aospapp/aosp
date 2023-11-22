@@ -32,15 +32,18 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include <sys/mman.h>
 #include <linux/stddef.h>
 
 #include <xf86drm.h>
 
-#include "libdrm.h"
+#include "libdrm_macros.h"
 #include "exynos_drm.h"
 #include "exynos_drmif.h"
+
+#define U642VOID(x) ((void *)(unsigned long)(x))
 
 /*
  * Create exynos drm device object.
@@ -49,7 +52,7 @@
  *
  * if true, return the device object else NULL.
  */
-drm_public struct exynos_device * exynos_device_create(int fd)
+struct exynos_device * exynos_device_create(int fd)
 {
 	struct exynos_device *dev;
 
@@ -70,7 +73,7 @@ drm_public struct exynos_device * exynos_device_create(int fd)
  *
  * @dev: exynos drm device object.
  */
-drm_public void exynos_device_destroy(struct exynos_device *dev)
+void exynos_device_destroy(struct exynos_device *dev)
 {
 	free(dev);
 }
@@ -88,7 +91,7 @@ drm_public void exynos_device_destroy(struct exynos_device *dev)
  *
  * if true, return a exynos buffer object else NULL.
  */
-drm_public struct exynos_bo * exynos_bo_create(struct exynos_device *dev,
+struct exynos_bo * exynos_bo_create(struct exynos_device *dev,
 					       size_t size, uint32_t flags)
 {
 	struct exynos_bo *bo;
@@ -142,7 +145,7 @@ fail:
  *
  * if true, return 0 else negative.
  */
-drm_public int exynos_bo_get_info(struct exynos_device *dev, uint32_t handle,
+int exynos_bo_get_info(struct exynos_device *dev, uint32_t handle,
 				  size_t *size, uint32_t *flags)
 {
 	int ret;
@@ -168,7 +171,7 @@ drm_public int exynos_bo_get_info(struct exynos_device *dev, uint32_t handle,
  *
  * @bo: a exynos buffer object to be destroyed.
  */
-drm_public void exynos_bo_destroy(struct exynos_bo *bo)
+void exynos_bo_destroy(struct exynos_bo *bo)
 {
 	if (!bo)
 		return;
@@ -200,7 +203,7 @@ drm_public void exynos_bo_destroy(struct exynos_bo *bo)
  * if true, return a exynos buffer object else NULL.
  *
  */
-drm_public struct exynos_bo *
+struct exynos_bo *
 exynos_bo_from_name(struct exynos_device *dev, uint32_t name)
 {
 	struct exynos_bo *bo;
@@ -243,7 +246,7 @@ err_free_bo:
  *
  * if true, return 0 else negative.
  */
-drm_public int exynos_bo_get_name(struct exynos_bo *bo, uint32_t *name)
+int exynos_bo_get_name(struct exynos_bo *bo, uint32_t *name)
 {
 	if (!bo->name) {
 		struct drm_gem_flink req = {
@@ -266,7 +269,7 @@ drm_public int exynos_bo_get_name(struct exynos_bo *bo, uint32_t *name)
 	return 0;
 }
 
-drm_public uint32_t exynos_bo_handle(struct exynos_bo *bo)
+uint32_t exynos_bo_handle(struct exynos_bo *bo)
 {
 	return bo->handle;
 }
@@ -279,24 +282,29 @@ drm_public uint32_t exynos_bo_handle(struct exynos_bo *bo)
  *
  * if true, user pointer mmaped else NULL.
  */
-drm_public void *exynos_bo_map(struct exynos_bo *bo)
+void *exynos_bo_map(struct exynos_bo *bo)
 {
 	if (!bo->vaddr) {
 		struct exynos_device *dev = bo->dev;
-		struct drm_exynos_gem_mmap req = {
-			.handle = bo->handle,
-			.size	= bo->size,
-		};
+		struct drm_mode_map_dumb arg;
+		void *map = NULL;
 		int ret;
 
-		ret = drmIoctl(dev->fd, DRM_IOCTL_EXYNOS_GEM_MMAP, &req);
+		memset(&arg, 0, sizeof(arg));
+		arg.handle = bo->handle;
+
+		ret = drmIoctl(dev->fd, DRM_IOCTL_MODE_MAP_DUMB, &arg);
 		if (ret) {
-			fprintf(stderr, "failed to mmap[%s].\n",
+			fprintf(stderr, "failed to map dumb buffer[%s].\n",
 				strerror(errno));
 			return NULL;
 		}
 
-		bo->vaddr = (void *)(uintptr_t)req.mapped;
+		map = drm_mmap(0, bo->size, PROT_READ | PROT_WRITE, MAP_SHARED,
+				dev->fd, arg.offset);
+
+		if (map != MAP_FAILED)
+			bo->vaddr = map;
 	}
 
 	return bo->vaddr;
@@ -311,7 +319,7 @@ drm_public void *exynos_bo_map(struct exynos_bo *bo)
  *
  * @return: 0 on success, -1 on error, and errno will be set
  */
-drm_public int
+int
 exynos_prime_handle_to_fd(struct exynos_device *dev, uint32_t handle, int *fd)
 {
 	return drmPrimeHandleToFD(dev->fd, handle, 0, fd);
@@ -326,7 +334,7 @@ exynos_prime_handle_to_fd(struct exynos_device *dev, uint32_t handle, int *fd)
  *
  * @return: 0 on success, -1 on error, and errno will be set
  */
-drm_public int
+int
 exynos_prime_fd_to_handle(struct exynos_device *dev, int fd, uint32_t *handle)
 {
 	return drmPrimeFDToHandle(dev->fd, fd, handle);
@@ -349,7 +357,7 @@ exynos_prime_fd_to_handle(struct exynos_device *dev, int fd, uint32_t *handle)
  *
  * if true, return 0 else negative.
  */
-drm_public int
+int
 exynos_vidi_connection(struct exynos_device *dev, uint32_t connect,
 		       uint32_t ext, void *edid)
 {
@@ -365,6 +373,79 @@ exynos_vidi_connection(struct exynos_device *dev, uint32_t connect,
 		fprintf(stderr, "failed to request vidi connection[%s].\n",
 				strerror(errno));
 		return ret;
+	}
+
+	return 0;
+}
+
+static void
+exynos_handle_vendor(int fd, struct drm_event *e, void *ctx)
+{
+	struct drm_exynos_g2d_event *g2d;
+	struct exynos_event_context *ectx = ctx;
+
+	switch (e->type) {
+		case DRM_EXYNOS_G2D_EVENT:
+			if (ectx->version < 1 || ectx->g2d_event_handler == NULL)
+				break;
+			g2d = (struct drm_exynos_g2d_event *)e;
+			ectx->g2d_event_handler(fd, g2d->cmdlist_no, g2d->tv_sec,
+						g2d->tv_usec, U642VOID(g2d->user_data));
+			break;
+
+		default:
+			break;
+	}
+}
+
+int
+exynos_handle_event(struct exynos_device *dev, struct exynos_event_context *ctx)
+{
+	char buffer[1024];
+	int len, i;
+	struct drm_event *e;
+	struct drm_event_vblank *vblank;
+	drmEventContextPtr evctx = &ctx->base;
+
+	/* The DRM read semantics guarantees that we always get only
+	 * complete events. */
+	len = read(dev->fd, buffer, sizeof buffer);
+	if (len == 0)
+		return 0;
+	if (len < (int)sizeof *e)
+		return -1;
+
+	i = 0;
+	while (i < len) {
+		e = (struct drm_event *) &buffer[i];
+		switch (e->type) {
+		case DRM_EVENT_VBLANK:
+			if (evctx->version < 1 ||
+			    evctx->vblank_handler == NULL)
+				break;
+			vblank = (struct drm_event_vblank *) e;
+			evctx->vblank_handler(dev->fd,
+					      vblank->sequence,
+					      vblank->tv_sec,
+					      vblank->tv_usec,
+					      U642VOID (vblank->user_data));
+			break;
+		case DRM_EVENT_FLIP_COMPLETE:
+			if (evctx->version < 2 ||
+			    evctx->page_flip_handler == NULL)
+				break;
+			vblank = (struct drm_event_vblank *) e;
+			evctx->page_flip_handler(dev->fd,
+						 vblank->sequence,
+						 vblank->tv_sec,
+						 vblank->tv_usec,
+						 U642VOID (vblank->user_data));
+			break;
+		default:
+			exynos_handle_vendor(dev->fd, e, evctx);
+			break;
+		}
+		i += e->length;
 	}
 
 	return 0;

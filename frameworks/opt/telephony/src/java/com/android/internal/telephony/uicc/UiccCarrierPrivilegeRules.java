@@ -28,6 +28,7 @@ import android.os.Handler;
 import android.os.Message;
 import android.telephony.Rlog;
 import android.telephony.TelephonyManager;
+import android.text.TextUtils;
 
 import com.android.internal.telephony.CommandException;
 import com.android.internal.telephony.CommandsInterface;
@@ -56,14 +57,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * The rules are read when the class is created, hence it should only be created
  * after the UICC can be read. And it should be deleted when a UICC is changed.
  *
- * The spec for the rules:
- *     GP Secure Element Access Control:
- *     http://www.globalplatform.org/specifications/review/GPD_SE_Access_Control_v1.0.20.pdf
- *     Extension spec:
- *     https://code.google.com/p/seek-for-android/
- *
- *
- * TODO: Notifications.
+ * Document: https://source.android.com/devices/tech/config/uicc.html
  *
  * {@hide}
  */
@@ -113,6 +107,7 @@ public class UiccCarrierPrivilegeRules extends Handler {
     private static final int EVENT_OPEN_LOGICAL_CHANNEL_DONE = 1;
     private static final int EVENT_TRANSMIT_LOGICAL_CHANNEL_DONE = 2;
     private static final int EVENT_CLOSE_LOGICAL_CHANNEL_DONE = 3;
+    private static final int EVENT_PKCS15_READ_DONE = 4;
 
     // State of the object.
     private static final int STATE_LOADING  = 0;
@@ -137,7 +132,7 @@ public class UiccCarrierPrivilegeRules extends Handler {
 
         boolean matches(byte[] certHash, String packageName) {
           return certHash != null && Arrays.equals(this.certificateHash, certHash) &&
-                (this.packageName == null || this.packageName.equals(packageName));
+                (TextUtils.isEmpty(this.packageName) || this.packageName.equals(packageName));
         }
 
         @Override
@@ -148,7 +143,7 @@ public class UiccCarrierPrivilegeRules extends Handler {
     }
 
     // Used for parsing the data from the UICC.
-    private static class TLV {
+    public static class TLV {
         private static final int SINGLE_BYTE_MAX_LENGTH = 0x80;
         private String tag;
         // Length encoding is in GPC_Specification_2.2.1: 11.1.5 APDU Message and Data Length.
@@ -162,6 +157,11 @@ public class UiccCarrierPrivilegeRules extends Handler {
 
         public TLV(String tag) {
             this.tag = tag;
+        }
+
+        public String getValue() {
+            if (value == null) return "";
+            return value;
         }
 
         public String parseLength(String data) {
@@ -209,6 +209,7 @@ public class UiccCarrierPrivilegeRules extends Handler {
     }
 
     private UiccCard mUiccCard;  // Parent
+    private UiccPkcs15 mUiccPkcs15; // ARF fallback
     private AtomicInteger mState;
     private List<AccessRule> mAccessRules;
     private String mRules;
@@ -236,6 +237,7 @@ public class UiccCarrierPrivilegeRules extends Handler {
         mStatusMessage = "Not loaded.";
         mLoadedCallback = loadedCallback;
         mRules = "";
+        mAccessRules = new ArrayList<AccessRule>();
 
         openChannel();
     }
@@ -248,6 +250,30 @@ public class UiccCarrierPrivilegeRules extends Handler {
     }
 
     /**
+     * Returns true if the carrier privilege rules have finished loading and some rules were
+     * specified.
+     */
+    public boolean hasCarrierPrivilegeRules() {
+        return mState.get() != STATE_LOADING && mAccessRules != null && mAccessRules.size() > 0;
+    }
+
+    /**
+     * Returns package names for privilege rules.
+     * Return empty list if no rules defined or package name is empty string.
+     */
+    public List<String> getPackageNames() {
+        List<String> pkgNames = new ArrayList<String>();
+        if (mAccessRules != null) {
+            for (AccessRule ar : mAccessRules) {
+                if(!TextUtils.isEmpty(ar.packageName)) {
+                    pkgNames.add(ar.packageName);
+                }
+            }
+        }
+        return pkgNames;
+    }
+
+    /**
      * Returns the status of the carrier privileges for the input certificate and package name.
      *
      * @param signature The signature of the certificate.
@@ -255,13 +281,10 @@ public class UiccCarrierPrivilegeRules extends Handler {
      * @return Access status.
      */
     public int getCarrierPrivilegeStatus(Signature signature, String packageName) {
-        log("hasCarrierPrivileges: " + signature + " : " + packageName);
         int state = mState.get();
         if (state == STATE_LOADING) {
-            log("Rules not loaded.");
             return TelephonyManager.CARRIER_PRIVILEGE_STATUS_RULES_NOT_LOADED;
         } else if (state == STATE_ERROR) {
-            log("Error loading rules.");
             return TelephonyManager.CARRIER_PRIVILEGE_STATUS_ERROR_LOADING_RULES;
         }
 
@@ -286,20 +309,42 @@ public class UiccCarrierPrivilegeRules extends Handler {
      */
     public int getCarrierPrivilegeStatus(PackageManager packageManager, String packageName) {
         try {
+            // Short-circuit if there are no rules to check against, so we don't need to fetch
+            // the package info with signatures.
+            if (!hasCarrierPrivilegeRules()) {
+                int state = mState.get();
+                if (state == STATE_LOADING) {
+                    return TelephonyManager.CARRIER_PRIVILEGE_STATUS_RULES_NOT_LOADED;
+                } else if (state == STATE_ERROR) {
+                    return TelephonyManager.CARRIER_PRIVILEGE_STATUS_ERROR_LOADING_RULES;
+                }
+                return TelephonyManager.CARRIER_PRIVILEGE_STATUS_NO_ACCESS;
+            }
             // Include DISABLED_UNTIL_USED components. This facilitates cases where a carrier app
             // is disabled by default, and some other component wants to enable it when it has
             // gained carrier privileges (as an indication that a matching SIM has been inserted).
             PackageInfo pInfo = packageManager.getPackageInfo(packageName,
                 PackageManager.GET_SIGNATURES | PackageManager.GET_DISABLED_UNTIL_USED_COMPONENTS);
-            Signature[] signatures = pInfo.signatures;
-            for (Signature sig : signatures) {
-                int accessStatus = getCarrierPrivilegeStatus(sig, pInfo.packageName);
-                if (accessStatus != TelephonyManager.CARRIER_PRIVILEGE_STATUS_NO_ACCESS) {
-                    return accessStatus;
-                }
-            }
+            return getCarrierPrivilegeStatus(pInfo);
         } catch (PackageManager.NameNotFoundException ex) {
             Rlog.e(LOG_TAG, "NameNotFoundException", ex);
+        }
+        return TelephonyManager.CARRIER_PRIVILEGE_STATUS_NO_ACCESS;
+    }
+
+    /**
+     * Returns the status of the carrier privileges for the input package info.
+     *
+     * @param packageInfo PackageInfo for the package, containing the package signatures.
+     * @return Access status.
+     */
+    public int getCarrierPrivilegeStatus(PackageInfo packageInfo) {
+        Signature[] signatures = packageInfo.signatures;
+        for (Signature sig : signatures) {
+            int accessStatus = getCarrierPrivilegeStatus(sig, packageInfo.packageName);
+            if (accessStatus != TelephonyManager.CARRIER_PRIVILEGE_STATUS_NO_ACCESS) {
+                return accessStatus;
+            }
         }
         return TelephonyManager.CARRIER_PRIVILEGE_STATUS_NO_ACCESS;
     }
@@ -393,7 +438,11 @@ public class UiccCarrierPrivilegeRules extends Handler {
                       removeCallbacks(mRetryRunnable);
                       postDelayed(mRetryRunnable, RETRY_INTERVAL_MS);
                   } else {
-                      updateState(STATE_ERROR, "Error opening channel: " + ar.exception);
+                      // if rules cannot be read from ARA applet,
+                      // fallback to PKCS15-based ARF.
+                      log("No ARA, try ARF next.");
+                      mUiccPkcs15 = new UiccPkcs15(mUiccCard,
+                              obtainMessage(EVENT_PKCS15_READ_DONE));
                   }
               }
               break;
@@ -436,6 +485,20 @@ public class UiccCarrierPrivilegeRules extends Handler {
 
           case EVENT_CLOSE_LOGICAL_CHANNEL_DONE:
               log("EVENT_CLOSE_LOGICAL_CHANNEL_DONE");
+              break;
+
+          case EVENT_PKCS15_READ_DONE:
+              log("EVENT_PKCS15_READ_DONE");
+              if (mUiccPkcs15 == null || mUiccPkcs15.getRules() == null) {
+                  updateState(STATE_ERROR, "No ARA or ARF.");
+              } else {
+                  for (String cert : mUiccPkcs15.getRules()) {
+                      AccessRule accessRule = new AccessRule(
+                              IccUtils.hexStringToBytes(cert), "", 0x00);
+                      mAccessRules.add(accessRule);
+                  }
+                  updateState(STATE_LOADED, "Success!");
+              }
               break;
 
           default:
@@ -590,6 +653,12 @@ public class UiccCarrierPrivilegeRules extends Handler {
             }
         } else {
             pw.println(" mAccessRules: null");
+        }
+        if (mUiccPkcs15 != null) {
+            pw.println(" mUiccPkcs15: " + mUiccPkcs15);
+            mUiccPkcs15.dump(fd, pw, args);
+        } else {
+            pw.println(" mUiccPkcs15: null");
         }
         pw.flush();
     }

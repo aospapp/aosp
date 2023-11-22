@@ -26,7 +26,7 @@
 #include <string.h>
 
 #include "bt_target.h"
-#include "gki.h"
+#include "bt_common.h"
 #include "mca_api.h"
 #include "mca_defs.h"
 #include "mca_int.h"
@@ -490,7 +490,7 @@ void mca_tc_data_ind(tMCA_TC_TBL *p_tbl, BT_HDR *p_buf)
             mca_ccb_event(p_ccb, event, (tMCA_CCB_EVT *) p_buf);
         } /* got a valid ccb */
         else
-            GKI_freebuf(p_buf);
+            osi_free(p_buf);
     }
     /* else send event to dcb */
     else
@@ -501,7 +501,7 @@ void mca_tc_data_ind(tMCA_TC_TBL *p_tbl, BT_HDR *p_buf)
             mca_dcb_event(p_dcb, MCA_DCB_TC_DATA_EVT, (tMCA_DCB_EVT *) p_buf);
         }
         else
-            GKI_freebuf(p_buf);
+            osi_free(p_buf);
     }
 }
 
@@ -628,22 +628,4 @@ BOOLEAN mca_is_valid_dep_id(tMCA_RCB *p_rcb, tMCA_DEP dep)
         valid = TRUE;
     }
     return valid;
-}
-
-/*******************************************************************************
-**
-** Function         mca_free_buf
-**
-** Description      free memory for specified GKI packet
-**
-** Returns          void
-**
-*******************************************************************************/
-void mca_free_buf (void **p_buf)
-{
-    if (p_buf && *p_buf)
-    {
-        GKI_freebuf(*p_buf);
-        *p_buf = NULL;
-    }
 }

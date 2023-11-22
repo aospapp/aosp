@@ -1,3 +1,34 @@
+/*
+ * Copyright (c) 1991, 1992 Paul Kranenburg <pk@cs.few.eur.nl>
+ * Copyright (c) 1993 Branko Lankester <branko@hacktic.nl>
+ * Copyright (c) 1993-1996 Rick Sladkey <jrs@world.std.com>
+ * Copyright (c) 1996-1999 Wichert Akkerman <wichert@cistron.nl>
+ * Copyright (c) 2003-2015 Dmitry V. Levin <ldv@altlinux.org>
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. The name of the author may not be used to endorse or promote products
+ *    derived from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #ifdef STRACE_UID_SIZE
 # if STRACE_UID_SIZE != 16
 #  error invalid STRACE_UID_SIZE
@@ -39,26 +70,22 @@
 
 SYS_FUNC(getuid)
 {
-	if (exiting(tcp))
-		tcp->u_rval = (uid_t) tcp->u_rval;
-	return RVAL_UDECIMAL;
+	return RVAL_UDECIMAL | RVAL_DECODED;
 }
 
 SYS_FUNC(setfsuid)
 {
 	if (entering(tcp))
 		tprintf("%u", (uid_t) tcp->u_arg[0]);
-	else
-		tcp->u_rval = (uid_t) tcp->u_rval;
-	return RVAL_UDECIMAL;
+
+	return RVAL_UDECIMAL | RVAL_DECODED;
 }
 
 SYS_FUNC(setuid)
 {
-	if (entering(tcp)) {
-		tprintf("%u", (uid_t) tcp->u_arg[0]);
-	}
-	return 0;
+	printuid("", tcp->u_arg[0]);
+
+	return RVAL_DECODED;
 }
 
 static void
@@ -66,64 +93,56 @@ get_print_uid(struct tcb *tcp, const char *prefix, const long addr)
 {
 	uid_t uid;
 
-	if (umove(tcp, addr, &uid) < 0)
-		tprintf("%s%#lx", prefix, addr);
-	else
-		tprintf("%s[%u]", prefix, uid);
+	tprints(prefix);
+	if (!umove_or_printaddr(tcp, addr, &uid))
+		tprintf("[%u]", uid);
 }
 
 SYS_FUNC(getresuid)
 {
-	if (exiting(tcp)) {
-		if (syserror(tcp)) {
-			tprintf("%#lx, %#lx, %#lx", tcp->u_arg[0],
-				tcp->u_arg[1], tcp->u_arg[2]);
-		} else {
-			get_print_uid(tcp, "", tcp->u_arg[0]);
-			get_print_uid(tcp, ", ", tcp->u_arg[1]);
-			get_print_uid(tcp, ", ", tcp->u_arg[2]);
-		}
-	}
+	if (entering(tcp))
+		return 0;
+
+	get_print_uid(tcp, "", tcp->u_arg[0]);
+	get_print_uid(tcp, ", ", tcp->u_arg[1]);
+	get_print_uid(tcp, ", ", tcp->u_arg[2]);
+
 	return 0;
 }
 
 SYS_FUNC(setreuid)
 {
-	if (entering(tcp)) {
-		printuid("", tcp->u_arg[0]);
-		printuid(", ", tcp->u_arg[1]);
-	}
-	return 0;
+	printuid("", tcp->u_arg[0]);
+	printuid(", ", tcp->u_arg[1]);
+
+	return RVAL_DECODED;
 }
 
 SYS_FUNC(setresuid)
 {
-	if (entering(tcp)) {
-		printuid("", tcp->u_arg[0]);
-		printuid(", ", tcp->u_arg[1]);
-		printuid(", ", tcp->u_arg[2]);
-	}
-	return 0;
+	printuid("", tcp->u_arg[0]);
+	printuid(", ", tcp->u_arg[1]);
+	printuid(", ", tcp->u_arg[2]);
+
+	return RVAL_DECODED;
 }
 
 SYS_FUNC(chown)
 {
-	if (entering(tcp)) {
-		printpath(tcp, tcp->u_arg[0]);
-		printuid(", ", tcp->u_arg[1]);
-		printuid(", ", tcp->u_arg[2]);
-	}
-	return 0;
+	printpath(tcp, tcp->u_arg[0]);
+	printuid(", ", tcp->u_arg[1]);
+	printuid(", ", tcp->u_arg[2]);
+
+	return RVAL_DECODED;
 }
 
 SYS_FUNC(fchown)
 {
-	if (entering(tcp)) {
-		printfd(tcp, tcp->u_arg[0]);
-		printuid(", ", tcp->u_arg[1]);
-		printuid(", ", tcp->u_arg[2]);
-	}
-	return 0;
+	printfd(tcp, tcp->u_arg[0]);
+	printuid(", ", tcp->u_arg[1]);
+	printuid(", ", tcp->u_arg[2]);
+
+	return RVAL_DECODED;
 }
 
 void
@@ -137,84 +156,79 @@ printuid(const char *text, const unsigned int uid)
 
 SYS_FUNC(setgroups)
 {
-	if (entering(tcp)) {
-		unsigned long len, size, start, cur, end, abbrev_end;
-		uid_t gid;
-		int failed = 0;
+	unsigned long cur, abbrev_end;
+	uid_t gid;
+	int failed = 0;
+	const unsigned long len = tcp->u_arg[0];
+	const unsigned long start = tcp->u_arg[1];
+	const unsigned long size = len * sizeof(gid);
+	const unsigned long end = start + size;
 
-		len = tcp->u_arg[0];
-		tprintf("%lu, ", len);
-		if (len == 0) {
-			tprints("[]");
-			return 0;
-		}
-		start = tcp->u_arg[1];
-		if (start == 0) {
-			tprints("NULL");
-			return 0;
-		}
-		size = len * sizeof(gid);
-		end = start + size;
-		if (!verbose(tcp) || size / sizeof(gid) != len || end < start) {
-			tprintf("%#lx", start);
-			return 0;
-		}
-		if (abbrev(tcp)) {
-			abbrev_end = start + max_strlen * sizeof(gid);
-			if (abbrev_end < start)
-				abbrev_end = end;
-		} else {
-			abbrev_end = end;
-		}
-		tprints("[");
-		for (cur = start; cur < end; cur += sizeof(gid)) {
-			if (cur > start)
-				tprints(", ");
-			if (cur >= abbrev_end) {
-				tprints("...");
-				break;
-			}
-			if (umoven(tcp, cur, sizeof(gid), &gid) < 0) {
-				tprints("?");
-				failed = 1;
-				break;
-			}
-			tprintf("%u", (unsigned int) gid);
-		}
-		tprints("]");
-		if (failed)
-			tprintf(" %#lx", tcp->u_arg[1]);
+	tprintf("%lu, ", len);
+	if (len == 0) {
+		tprints("[]");
+		return RVAL_DECODED;
 	}
-	return 0;
+	if (!start || !verbose(tcp) ||
+	    size / sizeof(gid) != len || end < start) {
+		printaddr(start);
+		return RVAL_DECODED;
+	}
+	if (abbrev(tcp)) {
+		abbrev_end = start + max_strlen * sizeof(gid);
+		if (abbrev_end < start)
+			abbrev_end = end;
+	} else {
+		abbrev_end = end;
+	}
+	tprints("[");
+	for (cur = start; cur < end; cur += sizeof(gid)) {
+		if (cur > start)
+			tprints(", ");
+		if (cur >= abbrev_end) {
+			tprints("...");
+			break;
+		}
+		if (umoven(tcp, cur, sizeof(gid), &gid) < 0) {
+			tprints("?");
+			failed = 1;
+			break;
+		}
+		tprintf("%u", (unsigned int) gid);
+	}
+	tprints("]");
+	if (failed) {
+		tprints(" ");
+		printaddr(start);
+	}
+
+	return RVAL_DECODED;
 }
 
 SYS_FUNC(getgroups)
 {
-	unsigned long len;
-
 	if (entering(tcp)) {
-		len = tcp->u_arg[0];
-		tprintf("%lu, ", len);
+		tprintf("%lu, ", tcp->u_arg[0]);
 	} else {
-		unsigned long size, start, cur, end, abbrev_end;
+		unsigned long cur, abbrev_end;
 		uid_t gid;
 		int failed = 0;
+		const unsigned long len = tcp->u_rval;
+		const unsigned long size = len * sizeof(gid);
+		const unsigned long start = tcp->u_arg[1];
+		const unsigned long end = start + size;
 
-		start = tcp->u_arg[1];
-		if (start == 0) {
-			tprints("NULL");
+		if (!start) {
+			printaddr(start);
 			return 0;
 		}
-		len = tcp->u_rval;
 		if (len == 0) {
 			tprints("[]");
 			return 0;
 		}
-		size = len * sizeof(gid);
-		end = start + size;
-		if (!verbose(tcp) || tcp->u_arg[0] == 0 ||
+		if (!verbose(tcp) || syserror(tcp) ||
 		    size / sizeof(gid) != len || end < start) {
-			tprintf("%#lx", start);
+			printaddr(start);
 			return 0;
 		}
 		if (abbrev(tcp)) {
@@ -240,8 +254,10 @@ SYS_FUNC(getgroups)
 			tprintf("%u", (unsigned int) gid);
 		}
 		tprints("]");
-		if (failed)
-			tprintf(" %#lx", tcp->u_arg[1]);
+		if (failed) {
+			tprints(" ");
+			printaddr(start);
+		}
 	}
 	return 0;
 }

@@ -18,16 +18,29 @@ package android.print.cts;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.WindowManager;
 
 public class PrintDocumentActivity extends Activity {
+    private static final String LOG_TAG = "PrintDocumentActivity";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        Log.d(LOG_TAG, "onCreate() " + this);
+
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
                 | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
                 | WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD);
+
+        BasePrintTest.onActivityCreateCalled(this);
+    }
+
+    @Override
+    protected void onDestroy() {
+        Log.d(LOG_TAG, "onDestroy() " + this);
+        BasePrintTest.onActivityDestroyCalled();
+        super.onDestroy();
     }
 }

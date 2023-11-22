@@ -33,7 +33,7 @@ Buffer::Buffer(size_t capacity, size_t size, bool stereo)
     ASSERT(((long)mData & 0x3) == 0);
     // filling with zero just to make valgrind happy.
     // Otherwise, valgrind will complain about uninitialized data for all captured data
-    memset(mData, capacity, 0);
+    memset(mData, 0, capacity);
 };
 
 Buffer::~Buffer()

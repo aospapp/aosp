@@ -13,21 +13,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-ext.rootFolder = new File(project.projectDir, "..")
+ext.dataBindingRootFolder = new File(project.projectDir, "..")
 buildscript {
-    ext.rootFolder = new File(project.projectDir, "..")
+    ext.dataBindingRootFolder = new File(project.projectDir, "..")
     apply from: "${project.projectDir}/../propLoader.gradle"
+    apply from: "${project.projectDir}/../supportBundle.gradle"
     ext.addRepos(repositories)
-    dependencies {
-        classpath "com.android.databinding:dataBinder:${config.version}"
-    }
 }
+
+def bundleSupportLibTask = tasks['bundleSupportLib']
 
 subprojects {
     apply plugin: 'maven'
-    group = config.group
-    version = config.version
+    group = dataBindingConfig.group
+    version = dataBindingConfig.extensionsVersion
+    uploadArchives {
+        repositories {
+            mavenDeployer {
+                repository(url: "file://${dataBindingConfig.internalPrebuiltsRepoDir}")
+            }
+        }
+    }
+    bundleSupportLibTask.dependsOn tasks['uploadArchives']
+
+    def configureOut = tasks.create(name: 'configureOut') << {
+        println("configuring out...")
+        def deployer = tasks['uploadArchives'].repositories.mavenDeployer.repository
+        println "changing ${deployer.url} to ${rootProject.ext.supportRepoOut}"
+        deployer.url = "file://${rootProject.ext.supportRepoOut}"
+    }
+    bundleSupportLibTask.dependsOn configureOut
+    tasks['uploadArchives'].mustRunAfter configureOut
+    tasks['uploadArchives'].mustRunAfter unzipRepo
 }
+
 
 task preparePrebuilds() {
 }

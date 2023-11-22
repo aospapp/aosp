@@ -45,7 +45,7 @@
 
 #ifdef _VDBG_GRAPHFILE
 extern void *_VDBG_malloc(void *ptr,long bytes,char *file,long line);
-extern void _VDBG_free(void *ptr,char *file,long line);
+extern void _VDBG_free(void *ptr);
 
 #undef _ogg_malloc
 #undef _ogg_calloc
@@ -55,7 +55,7 @@ extern void _VDBG_free(void *ptr,char *file,long line);
 #define _ogg_malloc(x) _VDBG_malloc(NULL,(x),__FILE__,__LINE__)
 #define _ogg_calloc(x,y) _VDBG_malloc(NULL,(x)*(y),__FILE__,__LINE__)
 #define _ogg_realloc(x,y) _VDBG_malloc((x),(y),__FILE__,__LINE__)
-#define _ogg_free(x) _VDBG_free((x),__FILE__,__LINE__)
+#define _ogg_free(x) _VDBG_free((x))
 #endif
 
 #include "asm_arm.h"

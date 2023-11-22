@@ -28,6 +28,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -79,7 +80,7 @@ import libcore.io.IoUtils;
  * gid and that it is world readable but only writable by the system
  * user.
  */
-public final class TrustedCertificateStore {
+public class TrustedCertificateStore {
 
     private static final String PREFIX_SYSTEM = "system:";
     private static final String PREFIX_USER = "user:";
@@ -389,6 +390,49 @@ public final class TrustedCertificateStore {
         return null;
     }
 
+    public Set<X509Certificate> findAllIssuers(final X509Certificate c) {
+        Set<X509Certificate> issuers = null;
+        CertSelector selector = new CertSelector() {
+            @Override
+            public boolean match(X509Certificate ca) {
+                try {
+                    c.verify(ca.getPublicKey());
+                    return true;
+                } catch (Exception e) {
+                    return false;
+                }
+            }
+        };
+        X500Principal issuer = c.getIssuerX500Principal();
+        Set<X509Certificate> userAddedCerts = findCert(addedDir, issuer, selector, Set.class);
+        if (userAddedCerts != null) {
+            issuers = userAddedCerts;
+        }
+        selector = new CertSelector() {
+            @Override
+            public boolean match(X509Certificate ca) {
+                try {
+                    if (isDeletedSystemCertificate(ca)) {
+                        return false;
+                    }
+                    c.verify(ca.getPublicKey());
+                    return true;
+                } catch (Exception e) {
+                    return false;
+                }
+            }
+        };
+        Set<X509Certificate> systemCerts = findCert(systemDir, issuer, selector, Set.class);
+        if (systemCerts != null) {
+            if (issuers != null) {
+                issuers.addAll(systemCerts);
+            } else {
+                issuers = systemCerts;
+            }
+        }
+        return (issuers != null) ? issuers : Collections.<X509Certificate>emptySet();
+    }
+
     private static boolean isSelfIssuedCertificate(OpenSSLX509Certificate cert) {
         final long ctx = cert.getContext();
         return NativeCrypto.X509_check_issued(ctx, ctx) == 0;
@@ -454,6 +498,7 @@ public final class TrustedCertificateStore {
     private <T> T findCert(
             File dir, X500Principal subject, CertSelector selector, Class<T> desiredReturnType) {
 
+        Set<X509Certificate> certs = null;
         String hash = hash(subject);
         for (int index = 0; true; index++) {
             File file = file(dir, hash, index);
@@ -468,6 +513,9 @@ public final class TrustedCertificateStore {
                     // location is
                     return (T) file;
                 }
+                if (desiredReturnType == Set.class) {
+                    return (T) certs;
+                }
                 return null;
             }
             if (isTombstone(file)) {
@@ -481,21 +529,25 @@ public final class TrustedCertificateStore {
             if (selector.match(cert)) {
                 if (desiredReturnType == X509Certificate.class) {
                     return (T) cert;
-                }
-                if (desiredReturnType == Boolean.class) {
+                } else if (desiredReturnType == Boolean.class) {
                     return (T) Boolean.TRUE;
-                }
-                if (desiredReturnType == File.class) {
+                } else if (desiredReturnType == File.class) {
                     return (T) file;
+                } else if (desiredReturnType == Set.class) {
+                    if (certs == null) {
+                        certs = new HashSet<X509Certificate>();
+                    }
+                    certs.add((X509Certificate) cert);
+                } else {
+                    throw new AssertionError();
                 }
-                throw new AssertionError();
             }
         }
     }
 
     private String hash(X500Principal name) {
         int hash = NativeCrypto.X509_NAME_hash_old(name);
-        return IntegralToString.intToHexString(hash, false, 8);
+        return Hex.intToHexString(hash, 8);
     }
 
     private File file(File dir, String hash, int index) {

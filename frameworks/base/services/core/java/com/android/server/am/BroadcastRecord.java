@@ -32,6 +32,7 @@ import android.util.PrintWriterPrinter;
 import android.util.TimeUtils;
 
 import java.io.PrintWriter;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -56,6 +57,7 @@ final class BroadcastRecord extends Binder {
     final int appOp;        // an app op that is associated with this broadcast
     final BroadcastOptions options; // BroadcastOptions supplied by caller
     final List receivers;   // contains BroadcastFilter and ResolveInfo
+    final int[] delivery;   // delivery state of each receiver
     IIntentReceiver resultTo; // who receives final result if non-null
     long enqueueClockTime;  // the clock time the broadcast was enqueued
     long dispatchTime;      // when dispatch started on this set of receivers
@@ -70,6 +72,8 @@ final class BroadcastRecord extends Binder {
     IBinder receiver;       // who is currently running, null if none.
     int state;
     int anrCount;           // has this broadcast record hit any ANRs?
+    int manifestCount;      // number of manifest receivers dispatched.
+    int manifestSkipCount;  // number of manifest receivers skipped.
     BroadcastQueue queue;   // the outbound queue handling this broadcast
 
     static final int IDLE = 0;
@@ -77,6 +81,11 @@ final class BroadcastRecord extends Binder {
     static final int CALL_IN_RECEIVE = 2;
     static final int CALL_DONE_RECEIVE = 3;
     static final int WAITING_SERVICES = 4;
+
+    static final int DELIVERY_PENDING = 0;
+    static final int DELIVERY_DELIVERED = 1;
+    static final int DELIVERY_SKIPPED = 2;
+    static final int DELIVERY_TIMEOUT = 3;
 
     // The following are set when we are calling a receiver (one that
     // was found in our list of registered receivers).
@@ -88,7 +97,7 @@ final class BroadcastRecord extends Binder {
     ComponentName curComponent; // the receiver class that is currently running.
     ActivityInfo curReceiver;   // info about the receiver that is currently running.
 
-    void dump(PrintWriter pw, String prefix) {
+    void dump(PrintWriter pw, String prefix, SimpleDateFormat sdf) {
         final long now = SystemClock.uptimeMillis();
 
         pw.print(prefix); pw.print(this); pw.print(" to user "); pw.println(userId);
@@ -114,13 +123,19 @@ final class BroadcastRecord extends Binder {
             pw.print(prefix); pw.print("options="); pw.println(options.toBundle());
         }
         pw.print(prefix); pw.print("enqueueClockTime=");
-                pw.print(new Date(enqueueClockTime));
+                pw.print(sdf.format(new Date(enqueueClockTime)));
                 pw.print(" dispatchClockTime=");
-                pw.println(new Date(dispatchClockTime));
+                pw.println(sdf.format(new Date(dispatchClockTime)));
         pw.print(prefix); pw.print("dispatchTime=");
                 TimeUtils.formatDuration(dispatchTime, now, pw);
+                pw.print(" (");
+                TimeUtils.formatDuration(dispatchClockTime-enqueueClockTime, pw);
+                pw.print(" since enq)");
         if (finishTime != 0) {
             pw.print(" finishTime="); TimeUtils.formatDuration(finishTime, now, pw);
+            pw.print(" (");
+            TimeUtils.formatDuration(finishTime-dispatchTime, pw);
+            pw.print(" since disp)");
         } else {
             pw.print(" receiverTime="); TimeUtils.formatDuration(receiverTime, now, pw);
         }
@@ -176,12 +191,24 @@ final class BroadcastRecord extends Binder {
         PrintWriterPrinter printer = new PrintWriterPrinter(pw);
         for (int i = 0; i < N; i++) {
             Object o = receivers.get(i);
-            pw.print(prefix); pw.print("Receiver #"); pw.print(i);
-                    pw.print(": "); pw.println(o);
-            if (o instanceof BroadcastFilter)
-                ((BroadcastFilter)o).dumpBrief(pw, p2);
-            else if (o instanceof ResolveInfo)
-                ((ResolveInfo)o).dump(printer, p2);
+            pw.print(prefix);
+            switch (delivery[i]) {
+                case DELIVERY_PENDING:   pw.print("Pending"); break;
+                case DELIVERY_DELIVERED: pw.print("Deliver"); break;
+                case DELIVERY_SKIPPED:   pw.print("Skipped"); break;
+                case DELIVERY_TIMEOUT:   pw.print("Timeout"); break;
+                default:                 pw.print("???????"); break;
+            }
+            pw.print(" #"); pw.print(i); pw.print(": ");
+            if (o instanceof BroadcastFilter) {
+                pw.println(o);
+                ((BroadcastFilter) o).dumpBrief(pw, p2);
+            } else if (o instanceof ResolveInfo) {
+                pw.println("(manifest)");
+                ((ResolveInfo) o).dump(printer, p2, 0);
+            } else {
+                pw.println(o);
+            }
         }
     }
 
@@ -204,6 +231,7 @@ final class BroadcastRecord extends Binder {
         appOp = _appOp;
         options = _options;
         receivers = _receivers;
+        delivery = new int[_receivers != null ? _receivers.size() : 0];
         resultTo = _resultTo;
         resultCode = _resultCode;
         resultData = _resultData;

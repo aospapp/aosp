@@ -31,7 +31,8 @@ class DrmResources;
 class DrmPlane {
  public:
   DrmPlane(DrmResources *drm, drmModePlanePtr p);
-  ~DrmPlane();
+  DrmPlane(const DrmPlane &) = delete;
+  DrmPlane &operator=(const DrmPlane &) = delete;
 
   int Init();
 
@@ -51,10 +52,10 @@ class DrmPlane {
   const DrmProperty &src_y_property() const;
   const DrmProperty &src_w_property() const;
   const DrmProperty &src_h_property() const;
+  const DrmProperty &rotation_property() const;
+  const DrmProperty &alpha_property() const;
 
  private:
-  DrmPlane(const DrmPlane &);
-
   DrmResources *drm_;
   uint32_t id_;
 
@@ -72,6 +73,8 @@ class DrmPlane {
   DrmProperty src_y_property_;
   DrmProperty src_w_property_;
   DrmProperty src_h_property_;
+  DrmProperty rotation_property_;
+  DrmProperty alpha_property_;
 };
 }
 

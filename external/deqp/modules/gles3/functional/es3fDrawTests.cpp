@@ -688,8 +688,8 @@ void InstancedGridRenderTest::renderTo (sglr::Context& ctx, sglr::ShaderProgram&
 	deInt32 offsetLocation	= ctx.getAttribLocation(programID, "a_offset");
 	deInt32 colorLocation	= ctx.getAttribLocation(programID, "a_color");
 
-	float cellW	= 2.0f / m_gridSide;
-	float cellH	= 2.0f / m_gridSide;
+	float cellW	= 2.0f / (float)m_gridSide;
+	float cellH	= 2.0f / (float)m_gridSide;
 	const tcu::Vec4 vertexPositions[] =
 	{
 		tcu::Vec4(0,		0,		0, 1),
@@ -710,7 +710,7 @@ void InstancedGridRenderTest::renderTo (sglr::Context& ctx, sglr::ShaderProgram&
 	std::vector<tcu::Vec4> offsets;
 	for (int x = 0; x < m_gridSide; ++x)
 	for (int y = 0; y < m_gridSide; ++y)
-		offsets.push_back(tcu::Vec4(x * cellW - 1.0f, y * cellW - 1.0f, 0, 0));
+		offsets.push_back(tcu::Vec4((float)x * cellW - 1.0f, (float)y * cellW - 1.0f, 0, 0));
 
 	std::vector<tcu::Vec4> colors;
 	for (int x = 0; x < m_gridSide; ++x)
@@ -780,22 +780,30 @@ bool InstancedGridRenderTest::verifyImage (const tcu::Surface& image)
 	tcu::Surface error			(image.getWidth(), image.getHeight());
 	bool isOk					= true;
 
-	for (int y = 1; y < image.getHeight()-1; y++)
-	for (int x = 1; x < image.getWidth()-1; x++)
+	for (int y = 0; y < image.getHeight(); y++)
+	for (int x = 0; x < image.getWidth(); x++)
 	{
-		const tcu::RGBA pixel = image.getPixel(x, y);
-		bool pixelOk = true;
+		if (x == 0 || y == 0 || y + 1 == image.getHeight() || x + 1 == image.getWidth())
+		{
+			// Background color might bleed in at the borders with msaa
+			error.setPixel(x, y, tcu::RGBA(0, 255, 0, 255));
+		}
+		else
+		{
+			const tcu::RGBA pixel = image.getPixel(x, y);
+			bool pixelOk = true;
 
-		// Any pixel with !(G ~= 255) is faulty (not a linear combinations of green and yellow)
-		if (de::abs(pixel.getGreen() - 255) > colorThreshold)
-			pixelOk = false;
+			// Any pixel with !(G ~= 255) is faulty (not a linear combinations of green and yellow)
+			if (de::abs(pixel.getGreen() - 255) > colorThreshold)
+				pixelOk = false;
 
-		// Any pixel with !(B ~= 0) is faulty (not a linear combinations of green and yellow)
-		if (de::abs(pixel.getBlue() - 0) > colorThreshold)
-			pixelOk = false;
+			// Any pixel with !(B ~= 0) is faulty (not a linear combinations of green and yellow)
+			if (de::abs(pixel.getBlue() - 0) > colorThreshold)
+				pixelOk = false;
 
-		error.setPixel(x, y, (pixelOk) ? (tcu::RGBA(0, 255, 0, 255)) : (tcu::RGBA(255, 0, 0, 255)));
-		isOk = isOk && pixelOk;
+			error.setPixel(x, y, (pixelOk) ? (tcu::RGBA(0, 255, 0, 255)) : (tcu::RGBA(255, 0, 0, 255)));
+			isOk = isOk && pixelOk;
+		}
 	}
 
 	if (!isOk)

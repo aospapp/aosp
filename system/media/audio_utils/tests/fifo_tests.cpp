@@ -159,6 +159,7 @@ usage:
     sf_count_t actualWritten = sf_writef_short(sfout, outputBuffer, framesRead);
     delete[] inputBuffer;
     delete[] outputBuffer;
+    delete[] fifoBuffer;
     if (actualWritten != (sf_count_t) framesRead) {
         fprintf(stderr, "%s: unexpected error\n", outputFile);
         sf_close(sfout);

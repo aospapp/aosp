@@ -948,8 +948,9 @@ status_t WifiDisplaySource::PlaybackSession::addSource(
 
     if (isVideo) {
         format->setString("mime", MEDIA_MIMETYPE_VIDEO_AVC);
-        format->setInt32("store-metadata-in-buffers", true);
-        format->setInt32("store-metadata-in-buffers-output", (mHDCP != NULL)
+        format->setInt32(
+                "android._input-metadata-buffer-type", kMetadataBufferTypeANWBuffer);
+        format->setInt32("android._store-metadata-in-buffers-output", (mHDCP != NULL)
                 && (mHDCP->getCaps() & HDCPModule::HDCP_CAPS_ENCRYPT_NATIVE));
         format->setInt32(
                 "color-format", OMX_COLOR_FormatAndroidOpaque);
@@ -957,10 +958,12 @@ status_t WifiDisplaySource::PlaybackSession::addSource(
         format->setInt32("level-idc", levelIdc);
         format->setInt32("constraint-set", constraintSet);
     } else {
-        format->setString(
-                "mime",
-                usePCMAudio
-                    ? MEDIA_MIMETYPE_AUDIO_RAW : MEDIA_MIMETYPE_AUDIO_AAC);
+        if (usePCMAudio) {
+            format->setInt32("pcm-encoding", kAudioEncodingPcm16bit);
+            format->setString("mime", MEDIA_MIMETYPE_AUDIO_RAW);
+        } else {
+            format->setString("mime", MEDIA_MIMETYPE_AUDIO_AAC);
+        }
     }
 
     notify = new AMessage(kWhatConverterNotify, this);

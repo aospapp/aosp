@@ -400,4 +400,39 @@ public class MediaCodecListTest extends AndroidTestCase {
 
         return list;
     }
+
+    public void testFindDecoderWithAacProfile() throws Exception {
+        Log.d(TAG, "testFindDecoderWithAacProfile");
+        MediaFormat format = MediaFormat.createAudioFormat(
+                MediaFormat.MIMETYPE_AUDIO_AAC, 8000, 1);
+        List<Integer> profiles = new ArrayList<>();
+        profiles.add(MediaCodecInfo.CodecProfileLevel.AACObjectLC);
+        profiles.add(MediaCodecInfo.CodecProfileLevel.AACObjectHE);
+        profiles.add(MediaCodecInfo.CodecProfileLevel.AACObjectHE_PS);
+        // The API is added at 5.0, so the profile below must be supported.
+        profiles.add(MediaCodecInfo.CodecProfileLevel.AACObjectELD);
+        for (int profile : profiles) {
+            format.setInteger(MediaFormat.KEY_AAC_PROFILE, profile);
+            String codecName = mRegularCodecs.findDecoderForFormat(format);
+            assertNotNull("Profile " + profile + " must be supported.", codecName);
+        }
+    }
+
+    public void testFindEncoderWithAacProfile() throws Exception {
+        Log.d(TAG, "testFindEncoderWithAacProfile");
+        MediaFormat format = MediaFormat.createAudioFormat(
+                MediaFormat.MIMETYPE_AUDIO_AAC, 8000, 1);
+        List<Integer> profiles = new ArrayList<>();
+        if (hasMicrophone() && !isWatch()) {
+            profiles.add(MediaCodecInfo.CodecProfileLevel.AACObjectLC);
+            // The API is added at 5.0, so the profiles below must be supported.
+            profiles.add(MediaCodecInfo.CodecProfileLevel.AACObjectHE);
+            profiles.add(MediaCodecInfo.CodecProfileLevel.AACObjectELD);
+        }
+        for (int profile : profiles) {
+            format.setInteger(MediaFormat.KEY_AAC_PROFILE, profile);
+            String codecName = mRegularCodecs.findEncoderForFormat(format);
+            assertNotNull("Profile " + profile + " must be supported.", codecName);
+        }
+    }
 }

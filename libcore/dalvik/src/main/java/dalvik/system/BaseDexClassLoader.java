@@ -37,15 +37,15 @@ public class BaseDexClassLoader extends ClassLoader {
      * defaults to {@code ":"} on Android
      * @param optimizedDirectory directory where optimized dex files
      * should be written; may be {@code null}
-     * @param libraryPath the list of directories containing native
+     * @param librarySearchPath the list of directories containing native
      * libraries, delimited by {@code File.pathSeparator}; may be
      * {@code null}
      * @param parent the parent class loader
      */
     public BaseDexClassLoader(String dexPath, File optimizedDirectory,
-            String libraryPath, ClassLoader parent) {
+            String librarySearchPath, ClassLoader parent) {
         super(parent);
-        this.pathList = new DexPathList(this, dexPath, libraryPath, optimizedDirectory);
+        this.pathList = new DexPathList(this, dexPath, librarySearchPath, optimizedDirectory);
     }
 
     @Override
@@ -60,6 +60,13 @@ public class BaseDexClassLoader extends ClassLoader {
             throw cnfe;
         }
         return c;
+    }
+
+    /**
+     * @hide
+     */
+    public void addDexPath(String dexPath) {
+        pathList.addDexPath(dexPath, null /*optimizedDirectory*/);
     }
 
     @Override

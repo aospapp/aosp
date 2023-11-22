@@ -25,18 +25,18 @@
 #include <sys/ptrace.h>
 #include <sys/wait.h>
 
+#include <string>
+
+#include <android-base/stringprintf.h>
 #include <backtrace/Backtrace.h>
-#include <base/file.h>
-#include <base/stringprintf.h>
 #include <log/log.h>
 
-const int SLEEP_TIME_USEC = 50000;         // 0.05 seconds
-const int MAX_TOTAL_SLEEP_USEC = 10000000; // 10 seconds
+constexpr int SLEEP_TIME_USEC = 50000;          // 0.05 seconds
+constexpr int MAX_TOTAL_SLEEP_USEC = 10000000;  // 10 seconds
 
 // Whitelist output desired in the logcat output.
 bool is_allowed_in_logcat(enum logtype ltype) {
-  if ((ltype == ERROR)
-   || (ltype == HEADER)
+  if ((ltype == HEADER)
    || (ltype == REGISTERS)
    || (ltype == BACKTRACE)) {
     return true;
@@ -50,7 +50,6 @@ void _LOG(log_t* log, enum logtype ltype, const char* fmt, ...) {
                       && log->crashed_tid != -1
                       && log->current_tid != -1
                       && (log->crashed_tid == log->current_tid);
-  bool write_to_activitymanager = (log->amfd != -1);
 
   char buf[512];
   va_list ap;
@@ -69,24 +68,19 @@ void _LOG(log_t* log, enum logtype ltype, const char* fmt, ...) {
 
   if (write_to_logcat) {
     __android_log_buf_write(LOG_ID_CRASH, ANDROID_LOG_FATAL, LOG_TAG, buf);
-    if (write_to_activitymanager) {
-      if (!android::base::WriteFully(log->amfd, buf, len)) {
-        // timeout or other failure on write; stop informing the activity manager
-        ALOGE("AM write failed: %s", strerror(errno));
-        log->amfd = -1;
-      }
+    if (log->amfd_data != nullptr) {
+      *log->amfd_data += buf;
     }
   }
 }
 
-int wait_for_sigstop(pid_t tid, int* total_sleep_time_usec, bool* detach_failed) {
-  bool allow_dead_tid = false;
-  for (;;) {
+int wait_for_signal(pid_t tid, int* total_sleep_time_usec) {
+  while (true) {
     int status;
     pid_t n = TEMP_FAILURE_RETRY(waitpid(tid, &status, __WALL | WNOHANG));
     if (n == -1) {
       ALOGE("waitpid failed: tid %d, %s", tid, strerror(errno));
-      break;
+      return -1;
     } else if (n == tid) {
       if (WIFSTOPPED(status)) {
         return WSTOPSIG(status);
@@ -94,29 +88,18 @@ int wait_for_sigstop(pid_t tid, int* total_sleep_time_usec, bool* detach_failed)
         ALOGE("unexpected waitpid response: n=%d, status=%08x\n", n, status);
         // This is the only circumstance under which we can allow a detach
         // to fail with ESRCH, which indicates the tid has exited.
-        allow_dead_tid = true;
-        break;
+        return -1;
       }
     }
 
     if (*total_sleep_time_usec > MAX_TOTAL_SLEEP_USEC) {
       ALOGE("timed out waiting for stop signal: tid=%d", tid);
-      break;
+      return -1;
     }
 
     usleep(SLEEP_TIME_USEC);
     *total_sleep_time_usec += SLEEP_TIME_USEC;
   }
-
-  if (ptrace(PTRACE_DETACH, tid, 0, 0) != 0) {
-    if (allow_dead_tid && errno == ESRCH) {
-      ALOGE("tid exited before attach completed: tid %d", tid);
-    } else {
-      *detach_failed = true;
-      ALOGE("detach failed: tid %d, %s", tid, strerror(errno));
-    }
-  }
-  return -1;
 }
 
 #define MEMORY_BYTES_TO_DUMP 256
@@ -157,13 +140,28 @@ void dump_memory(log_t* log, Backtrace* backtrace, uintptr_t addr, const char* f
     bytes &= ~(sizeof(uintptr_t) - 1);
   }
 
-  if (bytes < MEMORY_BYTES_TO_DUMP && bytes > 0) {
-    // Try to do one more read. This could happen if a read crosses a map, but
-    // the maps do not have any break between them. Only requires one extra
-    // read because a map has to contain at least one page, and the total
-    // number of bytes to dump is smaller than a page.
-    size_t bytes2 = backtrace->Read(addr + bytes, reinterpret_cast<uint8_t*>(data) + bytes,
-                                    sizeof(data) - bytes);
+  uintptr_t start = 0;
+  bool skip_2nd_read = false;
+  if (bytes == 0) {
+    // In this case, we might want to try another read at the beginning of
+    // the next page only if it's within the amount of memory we would have
+    // read.
+    size_t page_size = sysconf(_SC_PAGE_SIZE);
+    start = ((addr + (page_size - 1)) & ~(page_size - 1)) - addr;
+    if (start == 0 || start >= MEMORY_BYTES_TO_DUMP) {
+      skip_2nd_read = true;
+    }
+  }
+
+  if (bytes < MEMORY_BYTES_TO_DUMP && !skip_2nd_read) {
+    // Try to do one more read. This could happen if a read crosses a map,
+    // but the maps do not have any break between them. Or it could happen
+    // if reading from an unreadable map, but the read would cross back
+    // into a readable map. Only requires one extra read because a map has
+    // to contain at least one page, and the total number of bytes to dump
+    // is smaller than a page.
+    size_t bytes2 = backtrace->Read(addr + start + bytes, reinterpret_cast<uint8_t*>(data) + bytes,
+                                    sizeof(data) - bytes - start);
     bytes += bytes2;
     if (bytes2 > 0 && bytes % sizeof(uintptr_t) != 0) {
       // This should never happen, but we'll try and continue any way.
@@ -179,15 +177,16 @@ void dump_memory(log_t* log, Backtrace* backtrace, uintptr_t addr, const char* f
   // On 32-bit machines, there are still 16 bytes per line but addresses and
   // words are of course presented differently.
   uintptr_t* data_ptr = data;
+  size_t current = 0;
+  size_t total_bytes = start + bytes;
   for (size_t line = 0; line < MEMORY_BYTES_TO_DUMP / MEMORY_BYTES_PER_LINE; line++) {
     std::string logline;
     android::base::StringAppendF(&logline, "    %" PRIPTR, addr);
 
     addr += MEMORY_BYTES_PER_LINE;
     std::string ascii;
-    for (size_t i = 0; i < MEMORY_BYTES_PER_LINE / sizeof(uintptr_t); i++, data_ptr++) {
-      if (bytes >= sizeof(uintptr_t)) {
-        bytes -= sizeof(uintptr_t);
+    for (size_t i = 0; i < MEMORY_BYTES_PER_LINE / sizeof(uintptr_t); i++) {
+      if (current >= start && current + sizeof(uintptr_t) <= total_bytes) {
         android::base::StringAppendF(&logline, " %" PRIPTR, *data_ptr);
 
         // Fill out the ascii string from the data.
@@ -199,10 +198,12 @@ void dump_memory(log_t* log, Backtrace* backtrace, uintptr_t addr, const char* f
             ascii += '.';
           }
         }
+        data_ptr++;
       } else {
         logline += ' ' + std::string(sizeof(uintptr_t) * 2, '-');
         ascii += std::string(sizeof(uintptr_t), '.');
       }
+      current += sizeof(uintptr_t);
     }
     _LOG(log, logtype::MEMORY, "%s  %s\n", logline.c_str(), ascii.c_str());
   }

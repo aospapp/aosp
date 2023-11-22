@@ -13,7 +13,7 @@
      limitations under the License.
 -->
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:in="http://schemas.android.com/apk/res/com.android.cts.preference2" >
+    xmlns:in="http://schemas.android.com/apk/res/android.preference2.cts" >
 
     <PreferenceCategory android:title="@string/inline_preferences" >
         <android.preference2.cts.CustomCheckBoxPreference

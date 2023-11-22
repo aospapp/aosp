@@ -60,7 +60,7 @@
 *
 *  Values Returned : None
 *******************************************************************************/
-void impeg2d_dec_p_mb_params(dec_state_t *ps_dec)
+WORD32  impeg2d_dec_p_mb_params(dec_state_t *ps_dec)
 {
     stream_t *ps_stream = &ps_dec->s_bit_stream;
     UWORD16 u2_mb_addr_incr;
@@ -180,6 +180,8 @@ void impeg2d_dec_p_mb_params(dec_state_t *ps_dec)
         ps_dec->e_mb_pred         = (e_pred_direction_t)refPic;
         ps_dec_mb_params = &ps_dec->ps_func_forw_or_back[index];
         ps_dec->s_mb_type = ps_dec_mb_params->s_mb_type;
+        if(NULL == ps_dec_mb_params->pf_func_mb_params)
+            return -1;
         ps_dec_mb_params->pf_func_mb_params(ps_dec);
 
     }
@@ -223,6 +225,7 @@ void impeg2d_dec_p_mb_params(dec_state_t *ps_dec)
             ps_dec->u2_cbp  = 0;
         }
     }
+    return 0;
 }
 
 
@@ -237,7 +240,7 @@ void impeg2d_dec_p_mb_params(dec_state_t *ps_dec)
 *
 *  Values Returned : None
 *******************************************************************************/
-void impeg2d_dec_pnb_mb_params(dec_state_t *ps_dec)
+WORD32 impeg2d_dec_pnb_mb_params(dec_state_t *ps_dec)
 {
     stream_t *ps_stream = &ps_dec->s_bit_stream;
     UWORD16 u2_mb_addr_incr;
@@ -373,6 +376,8 @@ void impeg2d_dec_pnb_mb_params(dec_state_t *ps_dec)
         ps_dec->e_mb_pred         = BIDIRECT;
         ps_dec_mb_params = &ps_dec->ps_func_bi_direct[u2_index];
         ps_dec->s_mb_type = ps_dec_mb_params->s_mb_type;
+        if(NULL == ps_dec_mb_params->pf_func_mb_params)
+            return -1;
         ps_dec_mb_params->pf_func_mb_params(ps_dec);
     }
     else if(u2_mb_type & MB_FORW_OR_BACK)
@@ -384,6 +389,8 @@ void impeg2d_dec_pnb_mb_params(dec_state_t *ps_dec)
         ps_dec->e_mb_pred         = (e_pred_direction_t)u2_refPic;
         ps_dec_mb_params = &ps_dec->ps_func_forw_or_back[u2_index];
         ps_dec->s_mb_type = ps_dec_mb_params->s_mb_type;
+        if(NULL == ps_dec_mb_params->pf_func_mb_params)
+            return -1;
         ps_dec_mb_params->pf_func_mb_params(ps_dec);
 
     }
@@ -427,6 +434,7 @@ void impeg2d_dec_pnb_mb_params(dec_state_t *ps_dec)
             ps_dec->u2_cbp  = 0;
         }
     }
+    return 0;
 }
 
 /*******************************************************************************
@@ -469,7 +477,7 @@ IMPEG2D_ERROR_CODES_T impeg2d_dec_p_b_slice(dec_state_t *ps_dec)
     do
     {
         UWORD32 u4_x_offset, u4_y_offset;
-
+        WORD32 ret;
 
 
         UWORD32 u4_x_dst_offset = 0;
@@ -482,10 +490,12 @@ IMPEG2D_ERROR_CODES_T impeg2d_dec_p_b_slice(dec_state_t *ps_dec)
 
 
         if(ps_dec->e_pic_type == B_PIC)
-            impeg2d_dec_pnb_mb_params(ps_dec);
+            ret = impeg2d_dec_pnb_mb_params(ps_dec);
         else
-            impeg2d_dec_p_mb_params(ps_dec);
+            ret = impeg2d_dec_p_mb_params(ps_dec);
 
+        if(ret)
+            return IMPEG2D_MB_TEX_DECODE_ERR;
         IMPEG2D_TRACE_MB_START(ps_dec->u2_mb_x, ps_dec->u2_mb_y);
 
         u4_x_dst_offset = u4_frm_offset + (ps_dec->u2_mb_x << 4);

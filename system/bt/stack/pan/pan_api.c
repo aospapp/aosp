@@ -24,7 +24,7 @@
  *****************************************************************************/
 
 #include <string.h>
-#include "gki.h"
+#include "bt_common.h"
 #include "bt_types.h"
 #include "bnep_api.h"
 #include "pan_api.h"
@@ -179,9 +179,7 @@ tPAN_RESULT PAN_SetRole (UINT8 role,
             SDP_DeleteRecord (pan_cb.pan_nap_sdp_handle);
 
         pan_cb.pan_nap_sdp_handle = pan_register_with_sdp (UUID_SERVCLASS_NAP, p_sec[2], p_nap_name, p_desc);
-// btla-specific ++
         bta_sys_add_uuid(UUID_SERVCLASS_NAP);
-// btla-specific --
     }
     /* If the NAP role is already active and now being cleared delete the record */
     else if (pan_cb.role & PAN_ROLE_NAP_SERVER)
@@ -190,9 +188,7 @@ tPAN_RESULT PAN_SetRole (UINT8 role,
         {
             SDP_DeleteRecord (pan_cb.pan_nap_sdp_handle);
             pan_cb.pan_nap_sdp_handle = 0;
-// btla-specific ++
             bta_sys_remove_uuid(UUID_SERVCLASS_NAP);
-// btla-specific --
         }
     }
 #endif
@@ -211,9 +207,7 @@ tPAN_RESULT PAN_SetRole (UINT8 role,
             SDP_DeleteRecord (pan_cb.pan_gn_sdp_handle);
 
         pan_cb.pan_gn_sdp_handle = pan_register_with_sdp (UUID_SERVCLASS_GN, p_sec[1], p_gn_name, p_desc);
-// btla-specific ++
         bta_sys_add_uuid(UUID_SERVCLASS_GN);
-// btla-specific --
     }
     /* If the GN role is already active and now being cleared delete the record */
     else if (pan_cb.role & PAN_ROLE_GN_SERVER)
@@ -222,9 +216,7 @@ tPAN_RESULT PAN_SetRole (UINT8 role,
         {
             SDP_DeleteRecord (pan_cb.pan_gn_sdp_handle);
             pan_cb.pan_gn_sdp_handle = 0;
-// btla-specific ++
             bta_sys_remove_uuid(UUID_SERVCLASS_GN);
-// btla-specific --
         }
     }
 #endif
@@ -242,9 +234,7 @@ tPAN_RESULT PAN_SetRole (UINT8 role,
             SDP_DeleteRecord (pan_cb.pan_user_sdp_handle);
 
         pan_cb.pan_user_sdp_handle = pan_register_with_sdp (UUID_SERVCLASS_PANU, p_sec[0], p_user_name, p_desc);
-// btla-specific ++
         bta_sys_add_uuid(UUID_SERVCLASS_PANU);
-// btla-specific --
     }
     /* If the PANU role is already active and now being cleared delete the record */
     else if (pan_cb.role & PAN_ROLE_CLIENT)
@@ -253,9 +243,7 @@ tPAN_RESULT PAN_SetRole (UINT8 role,
         {
             SDP_DeleteRecord (pan_cb.pan_user_sdp_handle);
             pan_cb.pan_user_sdp_handle = 0;
-// btla-specific ++
             bta_sys_remove_uuid(UUID_SERVCLASS_PANU);
-// btla-specific --
         }
     }
 #endif
@@ -503,8 +491,6 @@ tPAN_RESULT PAN_Disconnect (UINT16 handle)
 *******************************************************************************/
 tPAN_RESULT PAN_Write(UINT16 handle, BD_ADDR dst, BD_ADDR src, UINT16 protocol, UINT8 *p_data, UINT16 len, BOOLEAN ext)
 {
-    BT_HDR *buffer;
-
     if (pan_cb.role == PAN_ROLE_INACTIVE || !pan_cb.num_conns) {
         PAN_TRACE_ERROR("%s PAN is not active, data write failed.", __func__);
         return PAN_FAILURE;
@@ -523,12 +509,7 @@ tPAN_RESULT PAN_Write(UINT16 handle, BD_ADDR dst, BD_ADDR src, UINT16 protocol, 
         return PAN_SUCCESS;
     }
 
-    buffer = (BT_HDR *)GKI_getpoolbuf(PAN_POOL_ID);
-    if (!buffer) {
-        PAN_TRACE_ERROR("%s unable to acquire buffer from pool.", __func__);
-        return PAN_NO_RESOURCES;
-    }
-
+    BT_HDR *buffer = (BT_HDR *)osi_malloc(PAN_BUF_SIZE);
     buffer->len = len;
     buffer->offset = PAN_MINIMUM_OFFSET;
     memcpy((UINT8 *)buffer + sizeof(BT_HDR) + buffer->offset, p_data, buffer->len);
@@ -569,7 +550,7 @@ tPAN_RESULT PAN_WriteBuf (UINT16 handle, BD_ADDR dst, BD_ADDR src, UINT16 protoc
     if (pan_cb.role == PAN_ROLE_INACTIVE || (!(pan_cb.num_conns)))
     {
         PAN_TRACE_ERROR ("PAN is not active Data write failed");
-        GKI_freebuf (p_buf);
+        osi_free(p_buf);
         return PAN_FAILURE;
     }
 
@@ -581,7 +562,7 @@ tPAN_RESULT PAN_WriteBuf (UINT16 handle, BD_ADDR dst, BD_ADDR src, UINT16 protoc
             if (pan_cb.pcb[i].con_state == PAN_STATE_CONNECTED)
                 BNEP_Write(pan_cb.pcb[i].handle, dst, data, p_buf->len, protocol, src, ext);
         }
-        GKI_freebuf(p_buf);
+        osi_free(p_buf);
         return PAN_SUCCESS;
     }
 
@@ -599,7 +580,7 @@ tPAN_RESULT PAN_WriteBuf (UINT16 handle, BD_ADDR dst, BD_ADDR src, UINT16 protoc
         if (i == MAX_PAN_CONNS)
         {
             PAN_TRACE_ERROR ("PAN Don't have any user connections");
-            GKI_freebuf (p_buf);
+            osi_free(p_buf);
             return PAN_FAILURE;
         }
 
@@ -624,14 +605,14 @@ tPAN_RESULT PAN_WriteBuf (UINT16 handle, BD_ADDR dst, BD_ADDR src, UINT16 protoc
     if (!pcb)
     {
         PAN_TRACE_ERROR ("PAN Buf write for wrong handle");
-        GKI_freebuf (p_buf);
+        osi_free(p_buf);
         return PAN_FAILURE;
     }
 
     if (pcb->con_state != PAN_STATE_CONNECTED)
     {
         PAN_TRACE_ERROR ("PAN Buf write when conn is not active");
-        GKI_freebuf (p_buf);
+        osi_free(p_buf);
         return PAN_FAILURE;
     }
 

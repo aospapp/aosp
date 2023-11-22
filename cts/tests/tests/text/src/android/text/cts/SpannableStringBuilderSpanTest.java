@@ -19,10 +19,15 @@ package android.text.cts;
 import java.util.ArrayList;
 
 import android.test.AndroidTestCase;
+import android.test.suitebuilder.annotation.SmallTest;
+import android.text.Html;
 import android.text.SpanWatcher;
 import android.text.Spannable;
+import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
+import android.text.style.ParagraphStyle;
+import android.text.style.QuoteSpan;
 
 /**
  * Test {@link SpannableStringBuilder}.
@@ -492,4 +497,88 @@ public class SpannableStringBuilderSpanTest extends AndroidTestCase {
     }
 
     // TODO Thoroughly test the SPAN_PARAGRAPH span flag.
+
+
+    @SmallTest
+    public void
+    testReplace_discardsParagraphSpanInSourceIfThereIsNoNewLineBefore()
+            throws Exception {
+        SpannableStringBuilder spannable = new SpannableStringBuilder("1 selection_to_replace");
+        Spanned newText = Html.fromHtml("<blockquote>new text</blockquote>");
+        assertEquals(1, newText.getSpans(0, newText.length(), ParagraphStyle.class).length);
+
+        spannable.replace(2, spannable.length(), newText);
+
+        ParagraphStyle[] paragraphSpans = spannable.getSpans(0, spannable.length(),
+                ParagraphStyle.class);
+        assertEquals(0, paragraphSpans.length);
+    }
+
+    @SmallTest
+    public void testReplace_retainsParagraphSpanInSourceIfThereIsNewLineBefore()
+            throws Exception {
+        SpannableStringBuilder spannable = new SpannableStringBuilder("1\nselection_to_replace");
+        Spanned newText = Html.fromHtml("<blockquote>new text</blockquote>");
+        assertTrue(newText.getSpans(0, newText.length(), ParagraphStyle.class).length > 0);
+
+        spannable.replace(2, spannable.length(), newText);
+
+        ParagraphStyle[] paragraphSpans = spannable.getSpans(0, spannable.length(),
+                ParagraphStyle.class);
+        assertEquals(1, paragraphSpans.length);
+    }
+
+    @SmallTest
+    public void testReplace_retainsParagraphSpanInSourceIfStartIsZero()
+            throws Exception {
+        // copy the paragraph span even if there is no previous character - start is equal to 0
+
+        SpannableStringBuilder spannable = new SpannableStringBuilder("selection_to_replace");
+        Spanned newText = Html.fromHtml("<blockquote>new text</blockquote>");
+        assertTrue(newText.getSpans(0, newText.length(), ParagraphStyle.class).length > 0);
+
+        spannable.replace(0, spannable.length(), newText);
+
+        ParagraphStyle[] paragraphSpans = spannable.getSpans(0, spannable.length(),
+                ParagraphStyle.class);
+        assertEquals(1, paragraphSpans.length);
+    }
+
+    @SmallTest
+    public void testReplace_retainsParagraphSpanInSourceIfEndIsEqualToLengthOfString()
+            throws Exception {
+        // copy the paragraph span even if the final char is not next line, and if the end is
+        // equal to the string length
+
+        SpannableStringBuilder spannable = new SpannableStringBuilder("selection_to_replace\n");
+        // create a spannable that does not have \n at the end. Html.fromHtml adds \n to the end of
+        // the text
+        Spannable newText = new SpannableString("a");
+        newText.setSpan(new QuoteSpan(), 0, 1, Spannable.SPAN_PARAGRAPH);
+        assertTrue(newText.getSpans(0, newText.length(), ParagraphStyle.class).length > 0);
+
+        spannable.replace(spannable.length(), spannable.length(), newText);
+
+        ParagraphStyle[] paragraphSpans = spannable.getSpans(0, spannable.length(),
+                ParagraphStyle.class);
+        assertEquals(1, paragraphSpans.length);
+    }
+
+    @SmallTest
+    public void testReplace_discardsParagraphSpanInSourceIfThereIsNoNewLineAfter()
+            throws Exception {
+        SpannableStringBuilder spannable = new SpannableStringBuilder("r remaining\n");
+        // create a spannable that does not have \n at the end. Html.fromHtml adds \n to the end of
+        // the text
+        Spannable newText = new SpannableString("a");
+        newText.setSpan(new QuoteSpan(), 0, 1, Spannable.SPAN_PARAGRAPH);
+        assertTrue(newText.getSpans(0, newText.length(), ParagraphStyle.class).length > 0);
+
+        spannable.replace(0, 1, newText);
+
+        ParagraphStyle[] paragraphSpans = spannable.getSpans(0, spannable.length(),
+                ParagraphStyle.class);
+        assertEquals(0, paragraphSpans.length);
+    }
+
 }

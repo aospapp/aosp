@@ -29,7 +29,7 @@
 #include "bta_pan_ci.h"
 #include "bta_pan_co.h"
 #include "pan_api.h"
-#include "gki.h"
+#include "bt_common.h"
 #include <hardware/bluetooth.h>
 #include <hardware/bt_pan.h>
 #include "btif_pan_internal.h"
@@ -201,7 +201,7 @@ void bta_pan_co_tx_path(UINT16 handle, UINT8 app_id)
             }
             btpan_tap_send(btpan_cb.tap_fd, src, dst, protocol,
                 (char*)(p_buf + 1) + p_buf->offset, p_buf->len, ext, forward);
-            GKI_freebuf(p_buf);
+            osi_free(p_buf);
         }
 
     } while (p_buf != NULL);
@@ -264,7 +264,7 @@ void bta_pan_co_tx_write(UINT16 handle, UINT8 app_id, BD_ADDR src, BD_ADDR dst,
 ** Description      This function is called by PAN to send data to the phone
 **                  when the TX path is configured to use a push interface with
 **                  zero copy.  The phone must free the buffer using function
-**                  GKI_freebuf() when it is through processing the buffer.
+**                  osi_free() when it is through processing the buffer.
 **
 **
 ** Returns          TRUE if flow enabled

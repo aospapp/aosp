@@ -21,6 +21,7 @@ import android.animation.ObjectAnimator;
 import android.animation.PropertyValuesHolder;
 import android.animation.ValueAnimator;
 import android.test.ActivityInstrumentationTestCase2;
+import android.util.Property;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.Interpolator;
 
@@ -244,6 +245,106 @@ public class ObjectAnimatorTest extends
         Thread.sleep(100);
         assertTrue(objAnimator.isStarted());
         Thread.sleep(100);
+    }
+
+    public void testSetStartEndValues() throws Throwable {
+        final float startValue = 100, endValue = 500;
+        final AnimTarget target = new AnimTarget();
+        final ObjectAnimator anim1 = ObjectAnimator.ofFloat(target, "testValue", 0);
+        target.setTestValue(startValue);
+        anim1.setupStartValues();
+        target.setTestValue(endValue);
+        anim1.setupEndValues();
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                anim1.start();
+                assertEquals(startValue, (Float) anim1.getAnimatedValue());
+                anim1.setCurrentFraction(1);
+                assertEquals(endValue, (Float) anim1.getAnimatedValue());
+                anim1.cancel();
+            }
+        });
+
+        final Property property = AnimTarget.TEST_VALUE;
+        final ObjectAnimator anim2 = ObjectAnimator.ofFloat(target, AnimTarget.TEST_VALUE, 0);
+        target.setTestValue(startValue);
+        final float startValueExpected = (Float) property.get(target);
+        anim2.setupStartValues();
+        target.setTestValue(endValue);
+        final float endValueExpected = (Float) property.get(target);
+        anim2.setupEndValues();
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                anim2.start();
+                assertEquals(startValueExpected, (Float) anim2.getAnimatedValue());
+                anim2.setCurrentFraction(1);
+                assertEquals(endValueExpected, (Float) anim2.getAnimatedValue());
+                anim2.cancel();
+            }
+        });
+
+        // This is a test that ensures that the values set on a Property-based animator
+        // are determined by the property, not by the setter/getter of the target object
+        final Property doubler = AnimTarget.TEST_DOUBLING_VALUE;
+        final ObjectAnimator anim3 = ObjectAnimator.ofFloat(target,
+                doubler, 0);
+        target.setTestValue(startValue);
+        final float startValueExpected3 = (Float) doubler.get(target);
+        anim3.setupStartValues();
+        target.setTestValue(endValue);
+        final float endValueExpected3 = (Float) doubler.get(target);
+        anim3.setupEndValues();
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                anim3.start();
+                assertEquals(startValueExpected3, (Float) anim3.getAnimatedValue());
+                anim3.setCurrentFraction(1);
+                assertEquals(endValueExpected3, (Float) anim3.getAnimatedValue());
+                anim3.cancel();
+            }
+        });
+    }
+
+    static class AnimTarget {
+        private float mTestValue = 0;
+
+        public void setTestValue(float value) {
+            mTestValue = value;
+        }
+
+        public float getTestValue() {
+            return mTestValue;
+        }
+
+        public static final Property<AnimTarget, Float> TEST_VALUE =
+                new Property<AnimTarget, Float>(Float.class, "testValue") {
+                    @Override
+                    public void set(AnimTarget object, Float value) {
+                        object.setTestValue(value);
+                    }
+
+                    @Override
+                    public Float get(AnimTarget object) {
+                        return object.getTestValue();
+                    }
+                };
+        public static final Property<AnimTarget, Float> TEST_DOUBLING_VALUE =
+                new Property<AnimTarget, Float>(Float.class, "testValue") {
+                    @Override
+                    public void set(AnimTarget object, Float value) {
+                        object.setTestValue(value);
+                    }
+
+                    @Override
+                    public Float get(AnimTarget object) {
+                        // purposely different from getTestValue, to verify that properties
+                        // are independent of setters/getters
+                        return object.getTestValue() * 2;
+                    }
+                };
     }
 
     private void startAnimation(final ObjectAnimator mObjectAnimator) throws Throwable {

@@ -24,12 +24,12 @@
 #include <ucontext.h>
 #include <unistd.h>
 
+#include <stdlib.h>
+
 #include <string>
 
 #include <backtrace/Backtrace.h>
 #include <backtrace/BacktraceMap.h>
-
-#include <cutils/threads.h>
 
 #include "BacktraceCurrent.h"
 #include "BacktraceLog.h"
@@ -67,9 +67,11 @@ size_t BacktraceCurrent::Read(uintptr_t addr, uint8_t* buffer, size_t bytes) {
 bool BacktraceCurrent::Unwind(size_t num_ignore_frames, ucontext_t* ucontext) {
   if (GetMap() == nullptr) {
     // Without a map object, we can't do anything.
+    error_ = BACKTRACE_UNWIND_ERROR_MAP_MISSING;
     return false;
   }
 
+  error_ = BACKTRACE_UNWIND_NO_ERROR;
   if (ucontext) {
     return UnwindFromContext(num_ignore_frames, ucontext);
   }
@@ -92,6 +94,10 @@ bool BacktraceCurrent::DiscardFrame(const backtrace_frame_data_t& frame) {
 }
 
 static pthread_mutex_t g_sigaction_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+static void SignalLogOnly(int, siginfo_t*, void*) {
+  BACK_LOGE("pid %d, tid %d: Received a spurious signal %d\n", getpid(), gettid(), THREAD_SIGNAL);
+}
 
 static void SignalHandler(int, siginfo_t*, void* sigcontext) {
   ThreadEntry* entry = ThreadEntry::Get(getpid(), gettid(), false);
@@ -136,11 +142,19 @@ bool BacktraceCurrent::UnwindThread(size_t num_ignore_frames) {
     BACK_LOGE("sigaction failed: %s", strerror(errno));
     ThreadEntry::Remove(entry);
     pthread_mutex_unlock(&g_sigaction_mutex);
+    error_ = BACKTRACE_UNWIND_ERROR_INTERNAL;
     return false;
   }
 
   if (tgkill(Pid(), Tid(), THREAD_SIGNAL) != 0) {
-    BACK_LOGE("tgkill %d failed: %s", Tid(), strerror(errno));
+    // Do not emit an error message, this might be expected. Set the
+    // error and let the caller decide.
+    if (errno == ESRCH) {
+      error_ = BACKTRACE_UNWIND_ERROR_THREAD_DOESNT_EXIST;
+    } else {
+      error_ = BACKTRACE_UNWIND_ERROR_INTERNAL;
+    }
+
     sigaction(THREAD_SIGNAL, &oldact, nullptr);
     ThreadEntry::Remove(entry);
     pthread_mutex_unlock(&g_sigaction_mutex);
@@ -151,9 +165,21 @@ bool BacktraceCurrent::UnwindThread(size_t num_ignore_frames) {
   // that we are waiting for the first Wake() call made by the thread.
   bool wait_completed = entry->Wait(1);
 
+  if (!wait_completed && oldact.sa_sigaction == nullptr) {
+    // If the wait failed, it could be that the signal could not be delivered
+    // within the timeout. Add a signal handler that's simply going to log
+    // something so that we don't crash if the signal eventually gets
+    // delivered. Only do this if there isn't already an action set up.
+    memset(&act, 0, sizeof(act));
+    act.sa_sigaction = SignalLogOnly;
+    act.sa_flags = SA_RESTART | SA_SIGINFO | SA_ONSTACK;
+    sigemptyset(&act.sa_mask);
+    sigaction(THREAD_SIGNAL, &act, nullptr);
+  } else {
+    sigaction(THREAD_SIGNAL, &oldact, nullptr);
+  }
   // After the thread has received the signal, allow other unwinders to
   // continue.
-  sigaction(THREAD_SIGNAL, &oldact, nullptr);
   pthread_mutex_unlock(&g_sigaction_mutex);
 
   bool unwind_done = false;
@@ -169,7 +195,13 @@ bool BacktraceCurrent::UnwindThread(size_t num_ignore_frames) {
       BACK_LOGW("Timed out waiting for signal handler to indicate it finished.");
     }
   } else {
-    BACK_LOGE("Timed out waiting for signal handler to get ucontext data.");
+    // Check to see if the thread has disappeared.
+    if (tgkill(Pid(), Tid(), 0) == -1 && errno == ESRCH) {
+      error_ = BACKTRACE_UNWIND_ERROR_THREAD_DOESNT_EXIST;
+    } else {
+      error_ = BACKTRACE_UNWIND_ERROR_THREAD_TIMEOUT;
+      BACK_LOGE("Timed out waiting for signal handler to get ucontext data.");
+    }
   }
 
   ThreadEntry::Remove(entry);

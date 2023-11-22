@@ -68,20 +68,6 @@
 //#define SK_DEBUG_GLYPH_CACHE
 //#define SK_DEBUG_PATH
 
-/*  To assist debugging, Skia provides an instance counting utility in
-    include/core/SkInstCount.h. This flag turns on and off that utility to
-    allow instance count tracking in either debug or release builds. By
-    default it is enabled in debug but disabled in release.
- */
-//#define SK_ENABLE_INST_COUNT 1
-
-/*  If, in debugging mode, Skia needs to stop (presumably to invoke a debugger)
-    it will call SK_CRASH(). If this is not defined it, it is defined in
-    SkPostConfig.h to write to an illegal address
- */
-//#define SK_CRASH() *(int *)(uintptr_t)0 = 0
-
-
 /*  preconfig will have attempted to determine the endianness of the system,
     but you can change these mutually exclusive flags here.
  */
@@ -170,6 +156,14 @@
  */
 //#define SK_PDF_USE_PATHOPS_CLIPPING
 
+/* Skia makes use of histogram logging macros to trace the frequency of
+ * events. By default, Skia provides no-op versions of these macros.
+ * Skia consumers can provide their own definitions of these macros to
+ * integrate with their histogram collection backend.
+ */
+//#define SK_HISTOGRAM_BOOLEAN(name, value)
+//#define SK_HISTOGRAM_ENUMERATION(name, value, boundary_value)
+
 #endif
 
 // Android defines:
@@ -190,12 +184,16 @@
 #define DCT_IFAST_SUPPORTED
 #define GR_GL_CUSTOM_SETUP_HEADER "gl/GrGLConfig_chrome.h"
 #define GR_GL_USE_NEW_SHADER_SOURCE_SIGNATURE 1
-#define IGNORE_ROT_AA_RECT_OPT
 #define SKIA_DLL
 #define SK_ALLOW_STATIC_GLOBAL_INITIALIZERS 0
 #define SK_BUILD_FOR_ANDROID
 #define SK_BUILD_FOR_ANDROID_FRAMEWORK
 #define SK_CAN_USE_DLOPEN 0
+#define SK_CODEC_DECODES_GIF
+#define SK_CODEC_DECODES_JPEG
+#define SK_CODEC_DECODES_PNG
+#define SK_CODEC_DECODES_RAW
+#define SK_CODEC_DECODES_WEBP
 #define SK_DEFAULT_FONT_CACHE_LIMIT   (768 * 1024)
 #define SK_DEFAULT_GLOBAL_DISCARDABLE_MEMORY_POOL_SIZE (512 * 1024)
 #define SK_EGL 1
@@ -208,15 +206,16 @@
 #define SK_IGNORE_LINEONLY_AA_CONVEX_PATH_OPTS
 #define SK_INTERNAL
 #define SK_PRINT_CODEC_MESSAGES
-#define SK_SCALAR_TO_FLOAT_EXCLUDED
 #define SK_SFNTLY_SUBSETTER "sample/chromium/font_subsetter.h"
 #define SK_SUPPORT_GPU 1
 #define SK_SUPPORT_LEGACY_CLIPTOLAYERFLAG
-#define SK_SUPPORT_LEGACY_GETDEVICE
-#define SK_SUPPORT_LEGACY_PUBLIC_IMAGEINFO_FIELDS
-#define SK_SUPPORT_LEGACY_SCALAR_DIV
-#define SK_SUPPORT_OPENCL 0
-#define SK_SUPPORT_PDF
+#define SK_SUPPORT_LEGACY_DRAWFILTER
+#define SK_SUPPORT_LEGACY_GRADIENT_DITHERING
+#define SK_SUPPORT_LEGACY_UNBALANCED_PIXELREF_LOCKCOUNT
+#define SK_SUPPORT_PDF 1
 #define SK_USE_FREETYPE_EMBOLDEN
+#define TURBO_HAS_565
+#define TURBO_HAS_CROP
+#define TURBO_HAS_SKIP
 
 #endif // SkUserConfig_Android_DEFINED

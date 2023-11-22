@@ -14,6 +14,7 @@
 
 import its.caps
 import its.device
+import its.image
 import its.objects
 import matplotlib
 import numpy

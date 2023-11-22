@@ -28,6 +28,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -334,7 +335,7 @@ int mixer_ctl_get_value(struct mixer_ctl *ctl, unsigned int id)
 int mixer_ctl_get_array(struct mixer_ctl *ctl, void *array, size_t count)
 {
     struct snd_ctl_elem_value ev;
-    int ret;
+    int ret = 0;
     size_t size;
     void *source;
 
@@ -344,21 +345,45 @@ int mixer_ctl_get_array(struct mixer_ctl *ctl, void *array, size_t count)
     memset(&ev, 0, sizeof(ev));
     ev.id.numid = ctl->info->id.numid;
 
-    ret = ioctl(ctl->mixer->fd, SNDRV_CTL_IOCTL_ELEM_READ, &ev);
-    if (ret < 0)
-        return ret;
-
     switch (ctl->info->type) {
     case SNDRV_CTL_ELEM_TYPE_BOOLEAN:
     case SNDRV_CTL_ELEM_TYPE_INTEGER:
+        ret = ioctl(ctl->mixer->fd, SNDRV_CTL_IOCTL_ELEM_READ, &ev);
+        if (ret < 0)
+            return ret;
         size = sizeof(ev.value.integer.value[0]);
         source = ev.value.integer.value;
         break;
 
     case SNDRV_CTL_ELEM_TYPE_BYTES:
-        size = sizeof(ev.value.bytes.data[0]);
-        source = ev.value.bytes.data;
-        break;
+        /* check if this is new bytes TLV */
+        if (ctl->info->access & SNDRV_CTL_ELEM_ACCESS_TLV_READWRITE) {
+            struct snd_ctl_tlv *tlv;
+            int ret;
+
+            if (count > SIZE_MAX - sizeof(*tlv))
+                return -EINVAL;
+            tlv = calloc(1, sizeof(*tlv) + count);
+            if (!tlv)
+                return -ENOMEM;
+            tlv->numid = ctl->info->id.numid;
+            tlv->length = count;
+            ret = ioctl(ctl->mixer->fd, SNDRV_CTL_IOCTL_TLV_READ, tlv);
+
+            source = tlv->tlv;
+            memcpy(array, source, count);
+
+            free(tlv);
+
+            return ret;
+        } else {
+            ret = ioctl(ctl->mixer->fd, SNDRV_CTL_IOCTL_ELEM_READ, &ev);
+            if (ret < 0)
+                return ret;
+            size = sizeof(ev.value.bytes.data[0]);
+            source = ev.value.bytes.data;
+            break;
+        }
 
     case SNDRV_CTL_ELEM_TYPE_IEC958:
         size = sizeof(ev.value.iec958);
@@ -401,6 +426,10 @@ int mixer_ctl_set_value(struct mixer_ctl *ctl, unsigned int id, int value)
         ev.value.enumerated.item[id] = value;
         break;
 
+    case SNDRV_CTL_ELEM_TYPE_BYTES:
+        ev.value.bytes.data[id] = value;
+        break;
+
     default:
         return -EINVAL;
     }
@@ -428,8 +457,27 @@ int mixer_ctl_set_array(struct mixer_ctl *ctl, const void *array, size_t count)
         break;
 
     case SNDRV_CTL_ELEM_TYPE_BYTES:
-        size = sizeof(ev.value.bytes.data[0]);
-        dest = ev.value.bytes.data;
+        /* check if this is new bytes TLV */
+        if (ctl->info->access & SNDRV_CTL_ELEM_ACCESS_TLV_READWRITE) {
+            struct snd_ctl_tlv *tlv;
+            int ret = 0;
+            if (count > SIZE_MAX - sizeof(*tlv))
+                return -EINVAL;
+            tlv = calloc(1, sizeof(*tlv) + count);
+            if (!tlv)
+                return -ENOMEM;
+            tlv->numid = ctl->info->id.numid;
+            tlv->length = count;
+            memcpy(tlv->tlv, array, count);
+
+            ret = ioctl(ctl->mixer->fd, SNDRV_CTL_IOCTL_TLV_WRITE, tlv);
+            free(tlv);
+
+            return ret;
+        } else {
+            size = sizeof(ev.value.bytes.data[0]);
+            dest = ev.value.bytes.data;
+        }
         break;
 
     case SNDRV_CTL_ELEM_TYPE_IEC958:

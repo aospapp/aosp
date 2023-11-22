@@ -16,6 +16,9 @@
 
 package com.android.cts.verifier.managedprovisioning;
 
+import android.app.Activity;
+import android.app.admin.DevicePolicyManager;
+import android.content.ComponentName;
 import android.content.Intent;
 import android.database.DataSetObserver;
 import android.os.Bundle;
@@ -33,20 +36,7 @@ import com.android.cts.verifier.TestListAdapter.TestListItem;
  */
 public class DeviceOwnerNegativeTestActivity extends PassFailButtons.TestListActivity {
 
-    private static final String ACTION_PROVISION_MANAGED_DEVICE
-        = "com.android.managedprovisioning.ACTION_PROVISION_MANAGED_DEVICE";
-    private static final Intent PROVISION_DEVICE_INTENT =
-            new Intent(ACTION_PROVISION_MANAGED_DEVICE);
-
     private static final String DEVICE_OWNER_NEGATIVE_TEST = "DEVICE_OWNER_PROVISIONING_NEGATIVE";
-    private static final TestInfo DEVICE_OWNER_NEGATIVE_TEST_INFO = new TestInfo(
-                    DEVICE_OWNER_NEGATIVE_TEST,
-                    R.string.device_owner_negative_test,
-                    R.string.device_owner_negative_test_info,
-                    new ButtonInfo(
-                            R.string.start_device_owner_provisioning_button,
-                            PROVISION_DEVICE_INTENT));
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -55,22 +45,29 @@ public class DeviceOwnerNegativeTestActivity extends PassFailButtons.TestListAct
                 R.string.device_owner_provisioning_tests_info, 0);
         setPassFailButtonClickListeners();
 
+        TestInfo deviceOwnerNegativeTestInfo = new TestInfo(
+                DEVICE_OWNER_NEGATIVE_TEST,
+                R.string.device_owner_negative_test,
+                R.string.device_owner_negative_test_info,
+                new ButtonInfo(
+                        R.string.start_device_owner_provisioning_button,
+                        new Intent(this, TrampolineActivity.class)));
+
         final ArrayTestListAdapter adapter = new ArrayTestListAdapter(this);
         adapter.add(TestListItem.newCategory(this, R.string.device_owner_provisioning_category));
 
         Intent startTestIntent = new Intent(this, IntentDrivenTestActivity.class)
                     .putExtra(IntentDrivenTestActivity.EXTRA_ID,
-                            DEVICE_OWNER_NEGATIVE_TEST_INFO.getTestId())
+                            deviceOwnerNegativeTestInfo.getTestId())
                     .putExtra(IntentDrivenTestActivity.EXTRA_TITLE,
-                            DEVICE_OWNER_NEGATIVE_TEST_INFO.getTitle())
+                            deviceOwnerNegativeTestInfo.getTitle())
                     .putExtra(IntentDrivenTestActivity.EXTRA_INFO,
-                            DEVICE_OWNER_NEGATIVE_TEST_INFO.getInfoText())
+                            deviceOwnerNegativeTestInfo.getInfoText())
                     .putExtra(IntentDrivenTestActivity.EXTRA_BUTTONS,
-                            DEVICE_OWNER_NEGATIVE_TEST_INFO.getButtons());
+                            deviceOwnerNegativeTestInfo.getButtons());
 
-
-        adapter.add(TestListItem.newTest(this, DEVICE_OWNER_NEGATIVE_TEST_INFO.getTitle(),
-                DEVICE_OWNER_NEGATIVE_TEST_INFO.getTestId(), startTestIntent, null));
+        adapter.add(TestListItem.newTest(this, deviceOwnerNegativeTestInfo.getTitle(),
+                deviceOwnerNegativeTestInfo.getTestId(), startTestIntent, null));
 
         adapter.registerDataSetObserver(new DataSetObserver() {
             @Override
@@ -83,10 +80,27 @@ public class DeviceOwnerNegativeTestActivity extends PassFailButtons.TestListAct
     }
 
     /**
-     * Enable Pass Button when the all tests passed.
+     * This is needed because IntentDrivenTestActivity fires the intent by startActivity when
+     * a button is clicked, but ACTION_PROVISION_MANAGED_DEVICE requires to be fired by
+     * startActivityForResult.
      */
-    private void updatePassButton() {
-        getPassButton().setEnabled(mAdapter.allTestsPassed());
+    public static class TrampolineActivity extends Activity {
+        @Override
+        protected void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            Intent provisionDeviceIntent = new Intent(
+                    DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE);
+            provisionDeviceIntent.putExtra(
+                    DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME,
+                    new ComponentName(this, DeviceAdminTestReceiver.class.getName()));
+            startActivityForResult(provisionDeviceIntent, 0);
+        }
+
+        @Override
+        protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+            super.onActivityResult(requestCode, resultCode, data);
+            finish();
+        }
     }
 }
 

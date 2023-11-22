@@ -53,7 +53,7 @@ TEST(linker_memory, test_alloc_0) {
   LinkerMemoryAllocator allocator;
   void* ptr = allocator.alloc(0);
   ASSERT_TRUE(ptr != nullptr);
-  free(ptr);
+  allocator.free(ptr);
 }
 
 TEST(linker_memory, test_free_nullptr) {
@@ -96,6 +96,7 @@ TEST(linker_memory, test_realloc) {
 
   ASSERT_TRUE(reallocated_ptr != nullptr);
   ASSERT_TRUE(reallocated_ptr != array);
+  ASSERT_EQ(0U, reinterpret_cast<uintptr_t>(reallocated_ptr) % 16);
 
   ASSERT_TRUE(memcmp(reallocated_ptr, model, array_size * 2) == 0);
 
@@ -107,10 +108,11 @@ TEST(linker_memory, test_realloc) {
 
   ASSERT_TRUE(reallocated_ptr != nullptr);
   ASSERT_TRUE(reallocated_ptr != array);
+  ASSERT_EQ(0U, reinterpret_cast<uintptr_t>(reallocated_ptr) % 16);
 
   ASSERT_TRUE(memcmp(reallocated_ptr, model, 4000) == 0);
 
-  ASSERT_EQ(nullptr, realloc(reallocated_ptr, 0));
+  ASSERT_EQ(nullptr, allocator.realloc(reallocated_ptr, 0));
 }
 
 TEST(linker_memory, test_small_smoke) {
@@ -125,7 +127,10 @@ TEST(linker_memory, test_small_smoke) {
       reinterpret_cast<test_struct_small*>(allocator.alloc(sizeof(test_struct_small)));
 
   ASSERT_TRUE(ptr1 != nullptr);
+  ASSERT_EQ(0U, reinterpret_cast<uintptr_t>(ptr1) % 16);
   ASSERT_TRUE(ptr2 != nullptr);
+  ASSERT_EQ(0U, reinterpret_cast<uintptr_t>(ptr2) % 16);
+
   ASSERT_EQ(reinterpret_cast<uintptr_t>(ptr1)+16, reinterpret_cast<uintptr_t>(ptr2));
   ASSERT_TRUE(memcmp(ptr1, zeros, 16) == 0);
 
@@ -143,7 +148,9 @@ TEST(linker_memory, test_huge_smoke) {
       reinterpret_cast<test_struct_huge*>(allocator.alloc(sizeof(test_struct_huge)));
 
   ASSERT_TRUE(ptr1 != nullptr);
+  ASSERT_EQ(0U, reinterpret_cast<uintptr_t>(ptr1) % 16);
   ASSERT_TRUE(ptr2 != nullptr);
+  ASSERT_EQ(0U, reinterpret_cast<uintptr_t>(ptr2) % 16);
 
   ASSERT_TRUE(
       reinterpret_cast<uintptr_t>(ptr1)/kPageSize != reinterpret_cast<uintptr_t>(ptr2)/kPageSize);
@@ -160,7 +167,9 @@ TEST(linker_memory, test_large) {
       reinterpret_cast<test_struct_large*>(allocator.alloc(1024));
 
   ASSERT_TRUE(ptr1 != nullptr);
+  ASSERT_EQ(0U, reinterpret_cast<uintptr_t>(ptr1) % 16);
   ASSERT_TRUE(ptr2 != nullptr);
+  ASSERT_EQ(0U, reinterpret_cast<uintptr_t>(ptr2) % 16);
 
   ASSERT_EQ(reinterpret_cast<uintptr_t>(ptr1) + 1024, reinterpret_cast<uintptr_t>(ptr2));
 
@@ -179,6 +188,7 @@ TEST(linker_memory, test_large) {
       reinterpret_cast<test_struct_large*>(allocator.alloc(sizeof(test_struct_large)));
 
   ASSERT_TRUE(ptr_to_free != nullptr);
+  ASSERT_EQ(0U, reinterpret_cast<uintptr_t>(ptr_to_free) % 16);
 
   allocator.free(ptr1);
 

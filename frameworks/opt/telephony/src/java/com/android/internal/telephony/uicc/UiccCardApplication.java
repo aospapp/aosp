@@ -55,9 +55,9 @@ public class UiccCardApplication {
     /**
      * These values are for authContext (parameter P2) per 3GPP TS 31.102 (Section 7.1.2)
      */
-    public static final int AUTH_CONTEXT_EAP_SIM = 128;
-    public static final int AUTH_CONTEXT_EAP_AKA = 129;
-    public static final int AUTH_CONTEXT_UNDEFINED = -1;
+    public static final int AUTH_CONTEXT_EAP_SIM = PhoneConstants.AUTH_CONTEXT_EAP_SIM;
+    public static final int AUTH_CONTEXT_EAP_AKA = PhoneConstants.AUTH_CONTEXT_EAP_AKA;
+    public static final int AUTH_CONTEXT_UNDEFINED = PhoneConstants.AUTH_CONTEXT_UNDEFINED;
 
     private final Object  mLock = new Object();
     private UiccCard      mUiccCard; //parent
@@ -87,7 +87,7 @@ public class UiccCardApplication {
     private RegistrantList mPinLockedRegistrants = new RegistrantList();
     private RegistrantList mNetworkLockedRegistrants = new RegistrantList();
 
-    UiccCardApplication(UiccCard uiccCard,
+    public UiccCardApplication(UiccCard uiccCard,
                         IccCardApplicationStatus as,
                         Context c,
                         CommandsInterface ci) {
@@ -115,7 +115,7 @@ public class UiccCardApplication {
         mCi.registerForNotAvailable(mHandler, EVENT_RADIO_UNAVAILABLE, null);
     }
 
-    void update (IccCardApplicationStatus as, Context c, CommandsInterface ci) {
+    public void update (IccCardApplicationStatus as, Context c, CommandsInterface ci) {
         synchronized (mLock) {
             if (mDestroyed) {
                 loge("Application updated after destroyed! Fix me!");
@@ -207,7 +207,7 @@ public class UiccCardApplication {
     }
 
     /** Assumes mLock is held. */
-    void queryFdn() {
+    public void queryFdn() {
         //This shouldn't change run-time. So needs to be called only once.
         int serviceClassX;
 

@@ -16,10 +16,12 @@
 
 package com.android.providers.telephony;
 
+import android.annotation.NonNull;
 import android.app.AppOpsManager;
 import android.content.ContentProvider;
 import android.content.ContentResolver;
 import android.content.ContentValues;
+import android.content.Context;
 import android.content.UriMatcher;
 import android.database.Cursor;
 import android.database.DatabaseUtils;
@@ -59,6 +61,9 @@ public class SmsProvider extends ContentProvider {
             new String[] { Contacts.Phones.PERSON_ID };
     private static final int PERSON_ID_COLUMN = 0;
 
+    /** Delete any raw messages or message segments marked deleted that are older than an hour. */
+    static final long RAW_MESSAGE_EXPIRE_AGE_MS = (long) (60 * 60 * 1000);
+
     /**
      * These are the columns that are available when reading SMS
      * messages from the ICC.  Columns whose names begin with "is_"
@@ -85,7 +90,9 @@ public class SmsProvider extends ContentProvider {
     @Override
     public boolean onCreate() {
         setAppOps(AppOpsManager.OP_READ_SMS, AppOpsManager.OP_WRITE_SMS);
-        mOpenHelper = MmsSmsDatabaseHelper.getInstance(getContext());
+        mDeOpenHelper = MmsSmsDatabaseHelper.getInstanceForDe(getContext());
+        mCeOpenHelper = MmsSmsDatabaseHelper.getInstanceForCe(getContext());
+        TelephonyBackupAgent.DeferredSmsMmsRestoreService.startIfFilesExist(getContext());
         return true;
     }
 
@@ -113,6 +120,7 @@ public class SmsProvider extends ContentProvider {
 
         // Generate the body of the query.
         int match = sURLMatcher.match(url);
+        SQLiteDatabase db = getDBOpenHelper(match).getReadableDatabase();
         switch (match) {
             case SMS_ALL:
                 constructQueryForBox(qb, Sms.MESSAGE_TYPE_ALL, smsTable);
@@ -201,6 +209,8 @@ public class SmsProvider extends ContentProvider {
                 break;
 
             case SMS_RAW_MESSAGE:
+                // before querying purge old entries with deleted = 1
+                purgeDeletedMessagesInRawTable(db);
                 qb.setTables("raw");
                 break;
 
@@ -251,7 +261,6 @@ public class SmsProvider extends ContentProvider {
             orderBy = Sms.DEFAULT_SORT_ORDER;
         }
 
-        SQLiteDatabase db = mOpenHelper.getReadableDatabase();
         Cursor ret = qb.query(db, projectionIn, selection, selectionArgs,
                               null, null, orderBy);
 
@@ -259,6 +268,22 @@ public class SmsProvider extends ContentProvider {
         ret.setNotificationUri(getContext().getContentResolver(),
                 NOTIFICATION_URI);
         return ret;
+    }
+
+    private void purgeDeletedMessagesInRawTable(SQLiteDatabase db) {
+        long oldTimestamp = System.currentTimeMillis() - RAW_MESSAGE_EXPIRE_AGE_MS;
+        int num = db.delete(TABLE_RAW, "deleted = 1 AND date < " + oldTimestamp, null);
+        if (Log.isLoggable(TAG, Log.VERBOSE)) {
+            Log.d(TAG, "purgeDeletedMessagesInRawTable: num rows older than " + oldTimestamp +
+                    " purged: " + num);
+        }
+    }
+
+    private SQLiteOpenHelper getDBOpenHelper(int match) {
+        if (match == SMS_RAW_MESSAGE) {
+            return mDeOpenHelper;
+        }
+        return mCeOpenHelper;
     }
 
     private Object[] convertIccToSms(SmsMessage message, int id) {
@@ -384,12 +409,44 @@ public class SmsProvider extends ContentProvider {
     }
 
     @Override
+    public int bulkInsert(@NonNull Uri url, @NonNull ContentValues[] values) {
+        final int callerUid = Binder.getCallingUid();
+        final String callerPkg = getCallingPackage();
+        long token = Binder.clearCallingIdentity();
+        try {
+            int messagesInserted = 0;
+            for (ContentValues initialValues : values) {
+                Uri insertUri = insertInner(url, initialValues, callerUid, callerPkg);
+                if (insertUri != null) {
+                    messagesInserted++;
+                }
+            }
+
+            // The raw table is used by the telephony layer for storing an sms before
+            // sending out a notification that an sms has arrived. We don't want to notify
+            // the default sms app of changes to this table.
+            final boolean notifyIfNotDefault = sURLMatcher.match(url) != SMS_RAW_MESSAGE;
+            notifyChange(notifyIfNotDefault, url, callerPkg);
+            return messagesInserted;
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
+    }
+
+    @Override
     public Uri insert(Uri url, ContentValues initialValues) {
         final int callerUid = Binder.getCallingUid();
         final String callerPkg = getCallingPackage();
         long token = Binder.clearCallingIdentity();
         try {
-            return insertInner(url, initialValues, callerUid, callerPkg);
+            Uri insertUri = insertInner(url, initialValues, callerUid, callerPkg);
+
+            // The raw table is used by the telephony layer for storing an sms before
+            // sending out a notification that an sms has arrived. We don't want to notify
+            // the default sms app of changes to this table.
+            final boolean notifyIfNotDefault = sURLMatcher.match(url) != SMS_RAW_MESSAGE;
+            notifyChange(notifyIfNotDefault, insertUri, callerPkg);
+            return insertUri;
         } finally {
             Binder.restoreCallingIdentity(token);
         }
@@ -402,6 +459,7 @@ public class SmsProvider extends ContentProvider {
 
         int match = sURLMatcher.match(url);
         String table = TABLE_SMS;
+        boolean notifyIfNotDefault = true;
 
         switch (match) {
             case SMS_ALL:
@@ -440,6 +498,10 @@ public class SmsProvider extends ContentProvider {
 
             case SMS_RAW_MESSAGE:
                 table = "raw";
+                // The raw table is used by the telephony layer for storing an sms before
+                // sending out a notification that an sms has arrived. We don't want to notify
+                // the default sms app of changes to this table.
+                notifyIfNotDefault = false;
                 break;
 
             case SMS_STATUS_PENDING:
@@ -459,7 +521,7 @@ public class SmsProvider extends ContentProvider {
                 return null;
         }
 
-        SQLiteDatabase db = mOpenHelper.getWritableDatabase();
+        SQLiteDatabase db = getDBOpenHelper(match).getWritableDatabase();
 
         if (table.equals(TABLE_SMS)) {
             boolean addDate = false;
@@ -575,10 +637,9 @@ public class SmsProvider extends ContentProvider {
             if (Log.isLoggable(TAG, Log.VERBOSE)) {
                 Log.d(TAG, "insert " + uri + " succeeded");
             }
-            notifyChange(uri);
             return uri;
         } else {
-            Log.e(TAG,"insert: failed!");
+            Log.e(TAG, "insert: failed!");
         }
 
         return null;
@@ -588,7 +649,8 @@ public class SmsProvider extends ContentProvider {
     public int delete(Uri url, String where, String[] whereArgs) {
         int count;
         int match = sURLMatcher.match(url);
-        SQLiteDatabase db = mOpenHelper.getWritableDatabase();
+        SQLiteDatabase db = getDBOpenHelper(match).getWritableDatabase();
+        boolean notifyIfNotDefault = true;
         switch (match) {
             case SMS_ALL:
                 count = db.delete(TABLE_SMS, where, whereArgs);
@@ -626,7 +688,21 @@ public class SmsProvider extends ContentProvider {
                 break;
 
             case SMS_RAW_MESSAGE:
-                count = db.delete("raw", where, whereArgs);
+                ContentValues cv = new ContentValues();
+                cv.put("deleted", 1);
+                count = db.update(TABLE_RAW, cv, where, whereArgs);
+                if (Log.isLoggable(TAG, Log.VERBOSE)) {
+                    Log.d(TAG, "delete: num rows marked deleted in raw table: " + count);
+                }
+                notifyIfNotDefault = false;
+                break;
+
+            case SMS_RAW_MESSAGE_PERMANENT_DELETE:
+                count = db.delete(TABLE_RAW, where, whereArgs);
+                if (Log.isLoggable(TAG, Log.VERBOSE)) {
+                    Log.d(TAG, "delete: num rows permanently deleted in raw table: " + count);
+                }
+                notifyIfNotDefault = false;
                 break;
 
             case SMS_STATUS_PENDING:
@@ -643,7 +719,7 @@ public class SmsProvider extends ContentProvider {
         }
 
         if (count > 0) {
-            notifyChange(url);
+            notifyChange(notifyIfNotDefault, url, getCallingPackage());
         }
         return count;
     }
@@ -678,11 +754,14 @@ public class SmsProvider extends ContentProvider {
         int count = 0;
         String table = TABLE_SMS;
         String extraWhere = null;
-        SQLiteDatabase db = mOpenHelper.getWritableDatabase();
+        boolean notifyIfNotDefault = true;
+        int match = sURLMatcher.match(url);
+        SQLiteDatabase db = getDBOpenHelper(match).getWritableDatabase();
 
-        switch (sURLMatcher.match(url)) {
+        switch (match) {
             case SMS_RAW_MESSAGE:
                 table = TABLE_RAW;
+                notifyIfNotDefault = false;
                 break;
 
             case SMS_STATUS_PENDING:
@@ -747,20 +826,27 @@ public class SmsProvider extends ContentProvider {
             if (Log.isLoggable(TAG, Log.VERBOSE)) {
                 Log.d(TAG, "update " + url + " succeeded");
             }
-            notifyChange(url);
+            notifyChange(notifyIfNotDefault, url, callerPkg);
         }
         return count;
     }
 
-    private void notifyChange(Uri uri) {
-        ContentResolver cr = getContext().getContentResolver();
+    private void notifyChange(boolean notifyIfNotDefault, Uri uri, final String callingPackage) {
+        final Context context = getContext();
+        ContentResolver cr = context.getContentResolver();
         cr.notifyChange(uri, null, true, UserHandle.USER_ALL);
         cr.notifyChange(MmsSms.CONTENT_URI, null, true, UserHandle.USER_ALL);
         cr.notifyChange(Uri.parse("content://mms-sms/conversations/"), null, true,
                 UserHandle.USER_ALL);
+        if (notifyIfNotDefault) {
+            ProviderUtil.notifyIfNotDefaultSmsApp(uri, callingPackage, context);
+        }
     }
 
-    private SQLiteOpenHelper mOpenHelper;
+    // Db open helper for tables stored in CE(Credential Encrypted) storage.
+    private SQLiteOpenHelper mCeOpenHelper;
+    // Db open helper for tables stored in DE(Device Encrypted) storage.
+    private SQLiteOpenHelper mDeOpenHelper;
 
     private final static String TAG = "SmsProvider";
     private final static String VND_ANDROID_SMS = "vnd.android.cursor.item/sms";
@@ -796,6 +882,7 @@ public class SmsProvider extends ContentProvider {
     private static final int SMS_FAILED_ID = 25;
     private static final int SMS_QUEUED = 26;
     private static final int SMS_UNDELIVERED = 27;
+    private static final int SMS_RAW_MESSAGE_PERMANENT_DELETE = 28;
 
     private static final UriMatcher sURLMatcher =
             new UriMatcher(UriMatcher.NO_MATCH);
@@ -818,6 +905,7 @@ public class SmsProvider extends ContentProvider {
         sURLMatcher.addURI("sms", "conversations", SMS_CONVERSATIONS);
         sURLMatcher.addURI("sms", "conversations/*", SMS_CONVERSATIONS_ID);
         sURLMatcher.addURI("sms", "raw", SMS_RAW_MESSAGE);
+        sURLMatcher.addURI("sms", "raw/permanentDelete", SMS_RAW_MESSAGE_PERMANENT_DELETE);
         sURLMatcher.addURI("sms", "attachments", SMS_ATTACHMENT);
         sURLMatcher.addURI("sms", "attachments/#", SMS_ATTACHMENT_ID);
         sURLMatcher.addURI("sms", "threadID", SMS_NEW_THREAD_ID);

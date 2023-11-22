@@ -179,7 +179,7 @@ who plays them, see <a href="{@docRoot}source/roles.html">Project Roles</a>.</p>
 <p>To publish your comments so that others using Gerrit will be able to see them, click the Publish Comments button. Your comments will be emailed to all relevant parties for this change, including the change owner, the patch set uploader (if different from the owner), and all current reviewers.</p>
 <p><a name="upstream-projects"></a></p>
 <h1 id="upstream-projects">Upstream Projects</h1>
-<p>Android makes use of a number of other open-source projects, such as the Linux kernel and WebKit, as described in
+<p>Android makes use of a number of other open source projects, such as the Linux kernel and WebKit, as described in
 <a href="{@docRoot}source/code-lines.html">Codelines, Branches, and Releases</a>. For most projects under <code>external/</code>, changes should be made upstream and then the Android maintainers informed of the new upstream release containing these changes. It may also be useful to upload patches that move us to track a new upstream release, though these can be difficult changes to make if the project is widely used within Android like most of the larger ones mentioned below, where we tend to upgrade with every release.</p>
 <p>One interesting special case is bionic. Much of the code there is from BSD, so unless the change is to code that's new to bionic, we'd much rather see an upstream fix and then pull a whole new file from the appropriate BSD. (Sadly we have quite a mix of different BSDs at the moment, but we hope to address that in future, and get into a position where we track upstream much more closely.)</p>
 <h2 id="icu4c">ICU4C</h2>

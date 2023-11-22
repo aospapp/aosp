@@ -112,7 +112,7 @@ static void test_charsToGlyphs(skiatest::Reporter* reporter, SkTypeface* face) {
 }
 
 static void test_fontstream(skiatest::Reporter* reporter, SkStream* stream, int ttcIndex) {
-    int n = SkFontStream::GetTableTags(stream, ttcIndex, NULL);
+    int n = SkFontStream::GetTableTags(stream, ttcIndex, nullptr);
     SkAutoTArray<SkFontTableTag> array(n);
 
     int n2 = SkFontStream::GetTableTags(stream, ttcIndex, array.get());
@@ -151,6 +151,22 @@ static void test_fontstream(skiatest::Reporter* reporter) {
     for (int i = 0; i < count; ++i) {
         test_fontstream(reporter, stream, i);
     }
+}
+
+static void test_symbolfont(skiatest::Reporter* reporter) {
+    SkAutoTUnref<SkTypeface> typeface(GetResourceAsTypeface("/fonts/SpiderSymbol.ttf"));
+    if (!typeface) {
+        SkDebugf("Skipping FontHostTest::test_symbolfont\n");
+        return;
+    }
+
+    SkUnichar c = 0xf021;
+    uint16_t g;
+    SkPaint paint;
+    paint.setTypeface(typeface);
+    paint.setTextEncoding(SkPaint::kUTF32_TextEncoding);
+    paint.textToGlyphs(&c, 4, &g);
+    REPORTER_ASSERT(reporter, g == 3);
 }
 
 static void test_tables(skiatest::Reporter* reporter, SkTypeface* face) {
@@ -198,7 +214,7 @@ static void test_tables(skiatest::Reporter* reporter, SkTypeface* face) {
 
 static void test_tables(skiatest::Reporter* reporter) {
     static const char* const gNames[] = {
-        NULL,   // default font
+        nullptr,   // default font
         "Helvetica", "Arial",
         "Times", "Times New Roman",
         "Courier", "Courier New",
@@ -226,7 +242,7 @@ static void test_tables(skiatest::Reporter* reporter) {
  */
 static void test_advances(skiatest::Reporter* reporter) {
     static const char* const faces[] = {
-        NULL,   // default font
+        nullptr,   // default font
         "Arial", "Times", "Times New Roman", "Helvetica", "Courier",
         "Courier New", "Verdana", "monospace",
     };
@@ -295,6 +311,7 @@ DEF_TEST(FontHost, reporter) {
     test_tables(reporter);
     test_fontstream(reporter);
     test_advances(reporter);
+    test_symbolfont(reporter);
 }
 
 // need tests for SkStrSearch

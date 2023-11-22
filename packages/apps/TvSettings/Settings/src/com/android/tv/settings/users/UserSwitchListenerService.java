@@ -32,6 +32,8 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.util.Log;
 
+import com.android.tv.settings.system.SecurityFragment;
+
 public class UserSwitchListenerService extends Service {
 
     private static final boolean DEBUG = false;
@@ -47,9 +49,9 @@ public class UserSwitchListenerService extends Service {
         @Override
         public void onReceive(final Context context, Intent intent) {
 
-            boolean isOwner = UserHandle.myUserId() == UserHandle.USER_OWNER;
+            boolean isSystemUser = UserManager.get(context).isSystemUser();
 
-            if (isOwner) {
+            if (isSystemUser) {
                 context.startService(new Intent(context, UserSwitchListenerService.class));
                 int bootUserId = getBootUser(context);
                 if (DEBUG) {
@@ -59,16 +61,16 @@ public class UserSwitchListenerService extends Service {
                             + bootUserId);
                 }
                 if (UserHandle.myUserId() != bootUserId) {
-                    RestrictedProfileDialogFragment.switchUserNow(bootUserId);
+                    switchUserNow(bootUserId);
                 }
             }
 
-            updateLaunchPoint(context, null != RestrictedProfileDialogFragment.findRestrictedUser(
+            updateLaunchPoint(context, null != SecurityFragment.findRestrictedUser(
                     (UserManager) context.getSystemService(Context.USER_SERVICE)));
         }
     }
 
-    static void updateLaunchPoint(Context context, boolean enableLaunchPoint) {
+    public static void updateLaunchPoint(Context context, boolean enableLaunchPoint) {
         if (DEBUG) {
             Log.d(TAG, "updating launch point: " + enableLaunchPoint);
         }
@@ -92,7 +94,15 @@ public class UserSwitchListenerService extends Service {
     static int getBootUser(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(SHARED_PREFERENCES_NAME,
                 Context.MODE_PRIVATE);
-        return prefs.getInt(ON_BOOT_USER_ID_PREFERENCE, UserHandle.USER_OWNER);
+        return prefs.getInt(ON_BOOT_USER_ID_PREFERENCE, UserHandle.USER_SYSTEM);
+    }
+
+    private static void switchUserNow(int userId) {
+        try {
+            ActivityManagerNative.getDefault().switchUser(userId);
+        } catch (RemoteException re) {
+            Log.e(TAG, "Caught exception while switching user! ", re);
+        }
     }
 
     @Override

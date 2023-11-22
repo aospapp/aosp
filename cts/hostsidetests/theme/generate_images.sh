@@ -37,7 +37,7 @@ function retry {
   done
 }
 
-themeApkPath="$ANDROID_HOST_OUT/cts/android-cts/repository/testcases/CtsThemeDeviceApp.apk"
+themeApkPath="$ANDROID_HOST_OUT/cts/android-cts/testcases/CtsThemeDeviceApp.apk"
 outDir="$ANDROID_BUILD_TOP/cts/hostsidetests/theme/assets"
 exe="$ANDROID_BUILD_TOP/cts/hostsidetests/theme/run_theme_capture_device.py"
 

@@ -28,8 +28,6 @@
 
 #include <EGL/egl.h>
 
-#include "../glestrace.h"
-
 #include "egldefs.h"
 #include "Loader.h"
 
@@ -70,7 +68,9 @@ ANDROID_SINGLETON_STATIC_INSTANCE( Loader )
  *  -1   -> not running inside the emulator
  *   0   -> running inside the emulator, but GPU emulation not supported
  *   1   -> running inside the emulator, GPU emulation is supported
- *          through the "emulation" config.
+ *          through the "emulation" host-side OpenGL ES implementation.
+ *   2   -> running inside the emulator, GPU emulation is supported
+ *          through a guest-side vendor driver's OpenGL ES implementation.
  */
 static int
 checkGlesEmulationStatus(void)
@@ -92,7 +92,7 @@ checkGlesEmulationStatus(void)
         return -1;
 
     /* We are in the emulator, get GPU status value */
-    property_get("ro.kernel.qemu.gles",prop,"0");
+    property_get("qemu.gles",prop,"0");
     return atoi(prop);
 }
 
@@ -158,7 +158,6 @@ Loader::Loader()
 }
 
 Loader::~Loader() {
-    GLTrace_stop();
 }
 
 static void* load_wrapper(const char* path) {
@@ -167,10 +166,52 @@ static void* load_wrapper(const char* path) {
     return so;
 }
 
+#ifndef EGL_WRAPPER_DIR
+#if defined(__LP64__)
+#define EGL_WRAPPER_DIR "/system/lib64"
+#else
+#define EGL_WRAPPER_DIR "/system/lib"
+#endif
+#endif
+
+static void setEmulatorGlesValue(void) {
+    char prop[PROPERTY_VALUE_MAX];
+    property_get("ro.kernel.qemu", prop, "0");
+    if (atoi(prop) != 1) return;
+
+    property_get("ro.kernel.qemu.gles",prop,"0");
+    if (atoi(prop) == 1) {
+        ALOGD("Emulator has host GPU support, qemu.gles is set to 1.");
+        property_set("qemu.gles", "1");
+        return;
+    }
+
+    // for now, checking the following
+    // directory is good enough for emulator system images
+    const char* vendor_lib_path =
+#if defined(__LP64__)
+        "/vendor/lib64/egl";
+#else
+        "/vendor/lib/egl";
+#endif
+
+    const bool has_vendor_lib = (access(vendor_lib_path, R_OK) == 0);
+    if (has_vendor_lib) {
+        ALOGD("Emulator has vendor provided software renderer, qemu.gles is set to 2.");
+        property_set("qemu.gles", "2");
+    } else {
+        ALOGD("Emulator without GPU support detected. "
+              "Fallback to legacy software renderer, qemu.gles is set to 0.");
+        property_set("qemu.gles", "0");
+    }
+}
+
 void* Loader::open(egl_connection_t* cnx)
 {
     void* dso;
     driver_t* hnd = 0;
+
+    setEmulatorGlesValue();
 
     dso = load_driver("GLES", cnx, EGL | GLESv1_CM | GLESv2);
     if (dso) {
@@ -187,15 +228,10 @@ void* Loader::open(egl_connection_t* cnx)
 
     LOG_ALWAYS_FATAL_IF(!hnd, "couldn't find an OpenGL ES implementation");
 
-#if defined(__LP64__)
-    cnx->libEgl   = load_wrapper("/system/lib64/libEGL.so");
-    cnx->libGles2 = load_wrapper("/system/lib64/libGLESv2.so");
-    cnx->libGles1 = load_wrapper("/system/lib64/libGLESv1_CM.so");
-#else
-    cnx->libEgl   = load_wrapper("/system/lib/libEGL.so");
-    cnx->libGles2 = load_wrapper("/system/lib/libGLESv2.so");
-    cnx->libGles1 = load_wrapper("/system/lib/libGLESv1_CM.so");
-#endif
+    cnx->libEgl   = load_wrapper(EGL_WRAPPER_DIR "/libEGL.so");
+    cnx->libGles2 = load_wrapper(EGL_WRAPPER_DIR "/libGLESv2.so");
+    cnx->libGles1 = load_wrapper(EGL_WRAPPER_DIR "/libGLESv1_CM.so");
+
     LOG_ALWAYS_FATAL_IF(!cnx->libEgl,
             "couldn't load system EGL wrapper libraries");
 
@@ -275,6 +311,28 @@ void *Loader::load_driver(const char* kind,
     public:
         static String8 find(const char* kind) {
             String8 result;
+            int emulationStatus = checkGlesEmulationStatus();
+            switch (emulationStatus) {
+                case 0:
+#if defined(__LP64__)
+                    result.setTo("/system/lib64/egl/libGLES_android.so");
+#else
+                    result.setTo("/system/lib/egl/libGLES_android.so");
+#endif
+                    return result;
+                case 1:
+                    // Use host-side OpenGL through the "emulation" library
+#if defined(__LP64__)
+                    result.appendFormat("/system/lib64/egl/lib%s_emulation.so", kind);
+#else
+                    result.appendFormat("/system/lib/egl/lib%s_emulation.so", kind);
+#endif
+                    return result;
+                default:
+                    // Not in emulator, or use other guest-side implementation
+                    break;
+            }
+
             String8 pattern;
             pattern.appendFormat("lib%s", kind);
             const char* const searchPaths[] = {
@@ -319,20 +377,6 @@ void *Loader::load_driver(const char* kind,
     private:
         static bool find(String8& result,
                 const String8& pattern, const char* const search, bool exact) {
-
-            // in the emulator case, we just return the hardcoded name
-            // of the software renderer.
-            if (checkGlesEmulationStatus() == 0) {
-                ALOGD("Emulator without GPU support detected. "
-                      "Fallback to software renderer.");
-#if defined(__LP64__)
-                result.setTo("/system/lib64/egl/libGLES_android.so");
-#else
-                result.setTo("/system/lib/egl/libGLES_android.so");
-#endif
-                return true;
-            }
-
             if (exact) {
                 String8 absolutePath;
                 absolutePath.appendFormat("%s/%s.so", search, pattern.string());

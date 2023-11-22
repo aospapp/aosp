@@ -39,7 +39,7 @@ public class TimePickerTest extends ActivityInstrumentationTestCase2<CtsActivity
     private Instrumentation mInstrumentation;
 
     public TimePickerTest() {
-        super("com.android.cts.widget", CtsActivity.class);
+        super("android.widget.cts", CtsActivity.class);
     }
 
     @Override
@@ -52,7 +52,7 @@ public class TimePickerTest extends ActivityInstrumentationTestCase2<CtsActivity
 
     public void testConstructors() {
         AttributeSet attrs =
-            mContext.getResources().getLayout(com.android.cts.widget.R.layout.timepicker);
+            mContext.getResources().getLayout(android.widget.cts.R.layout.timepicker);
         assertNotNull(attrs);
 
         new TimePicker(mContext);

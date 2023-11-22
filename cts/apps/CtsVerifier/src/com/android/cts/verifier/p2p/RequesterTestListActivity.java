@@ -103,11 +103,4 @@ public abstract class RequesterTestListActivity extends
         adapter.add(TestListItem.newTest(testcase.getTestName(), testcase.getTestId(),
                 intent, null));
     }
-
-    /**
-     * Enable Pass Button when the all tests passed.
-     */
-    private void updatePassButton() {
-        getPassButton().setEnabled(mAdapter.allTestsPassed());
-    }
 }

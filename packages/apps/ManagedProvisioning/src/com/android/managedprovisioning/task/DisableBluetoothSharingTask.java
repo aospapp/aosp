@@ -19,7 +19,7 @@ package com.android.managedprovisioning.task;
 import android.content.ComponentName;
 
 import com.android.managedprovisioning.ProvisionLogger;
-import com.android.managedprovisioning.Utils;
+import com.android.managedprovisioning.common.Utils;
 
 /**
  * Disables Bluetooth sharing by disabling the BluetoothOppLauncherActivity.
@@ -27,13 +27,15 @@ import com.android.managedprovisioning.Utils;
 public class DisableBluetoothSharingTask {
     private final int mUserId;
 
+    private final Utils mUtils = new Utils();
+
     public DisableBluetoothSharingTask(int userId) {
         mUserId = userId;
     }
 
     public void run() {
         ProvisionLogger.logd("Disabling Bluetooth sharing.");
-        Utils.disableComponent(new ComponentName("com.android.bluetooth",
+        mUtils.disableComponent(new ComponentName("com.android.bluetooth",
                         "com.android.bluetooth.opp.BluetoothOppLauncherActivity"), mUserId);
     }
 }

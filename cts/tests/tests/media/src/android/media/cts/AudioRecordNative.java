@@ -40,8 +40,13 @@ public class AudioRecordNative {
     }
 
     public boolean open(int numChannels, int sampleRate, boolean useFloat, int numBuffers) {
-        if (nativeOpen(mNativeRecordInJavaObj, numChannels, sampleRate, useFloat, numBuffers)
-                == STATUS_OK) {
+        return open(numChannels, 0, sampleRate, useFloat,numBuffers);
+    }
+
+    public boolean open(int numChannels, int channelMask, int sampleRate,
+            boolean useFloat, int numBuffers) {
+        if (nativeOpen(mNativeRecordInJavaObj, numChannels, channelMask,
+                sampleRate, useFloat, numBuffers) == STATUS_OK) {
             mChannelCount = numChannels;
             return true;
         }
@@ -104,7 +109,12 @@ public class AudioRecordNative {
 
     public static boolean test(int numChannels, int sampleRate, boolean useFloat,
             int msecPerBuffer, int numBuffers) {
-        return nativeTest(numChannels, sampleRate, useFloat, msecPerBuffer, numBuffers)
+        return test(numChannels, 0, sampleRate, useFloat, msecPerBuffer, numBuffers);
+    }
+
+    public static boolean test(int numChannels, int channelMask, int sampleRate, boolean useFloat,
+            int msecPerBuffer, int numBuffers) {
+        return nativeTest(numChannels, channelMask, sampleRate, useFloat, msecPerBuffer, numBuffers)
                 == STATUS_OK;
     }
 
@@ -132,7 +142,8 @@ public class AudioRecordNative {
     private static native long nativeCreateRecord();
     private static native void nativeDestroyRecord(long record);
     private static native int nativeOpen(
-            long record, int numChannels, int sampleRate, boolean useFloat, int numBuffers);
+            long record, int numChannels, int channelMask,
+            int sampleRate, boolean useFloat, int numBuffers);
     private static native void nativeClose(long record);
     private static native int nativeStart(long record);
     private static native int nativeStop(long record);
@@ -149,5 +160,6 @@ public class AudioRecordNative {
 
     // native interface for all-in-one testing, no record handle required.
     private static native int nativeTest(
-            int numChannels, int sampleRate, boolean useFloat, int msecPerBuffer, int numBuffers);
+            int numChannels, int channelMask, int sampleRate,
+            boolean useFloat, int msecPerBuffer, int numBuffers);
 }

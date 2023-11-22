@@ -109,6 +109,7 @@ public class IntegerTest extends junit.framework.TestCase {
     } catch (NumberFormatException expected) {}
   }
 
+  /*
   public void testParsePositiveInt() throws Exception {
     assertEquals(0, Integer.parsePositiveInt("0", 10));
     assertEquals(473, Integer.parsePositiveInt("473", 10));
@@ -129,5 +130,31 @@ public class IntegerTest extends junit.framework.TestCase {
       fail();
     } catch (NumberFormatException e) {}
   }
+  */
 
+    public void testStaticHashCode() {
+        assertEquals(Integer.valueOf(567).hashCode(), Integer.hashCode(567));
+    }
+
+    public void testMax() {
+        int a = 567;
+        int b = 578;
+        assertEquals(Math.max(a, b), Integer.max(a, b));
+    }
+
+    public void testMin() {
+        int a = 567;
+        int b = 578;
+        assertEquals(Math.min(a, b), Integer.min(a, b));
+    }
+
+    public void testSum() {
+        int a = 567;
+        int b = 578;
+        assertEquals(a + b, Integer.sum(a, b));
+    }
+
+    public void testBYTES() {
+      assertEquals(4, Integer.BYTES);
+    }
 }

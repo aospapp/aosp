@@ -20,7 +20,6 @@ import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.accounts.AuthenticatorDescription;
 import android.app.Activity;
-import android.app.Fragment;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -29,7 +28,6 @@ import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.Environment;
-import android.os.Process;
 import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.os.UserManager;
@@ -41,9 +39,13 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import com.android.internal.logging.MetricsLogger;
+
+import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.settingslib.RestrictedLockUtils;
 
 import java.util.List;
+
+import static com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
 
 /**
  * Confirm and execute a reset of the device to a clean "just out of the box"
@@ -55,7 +57,7 @@ import java.util.List;
  *
  * This is the initial screen.
  */
-public class MasterClear extends InstrumentedFragment {
+public class MasterClear extends OptionsMenuFragment {
     private static final String TAG = "MasterClear";
 
     private static final int KEYGUARD_REQUEST = 55;
@@ -175,6 +177,9 @@ public class MasterClear extends InstrumentedFragment {
     }
 
     private void getContentDescription(View v, StringBuffer description) {
+       if (v.getVisibility() != View.VISIBLE) {
+           return;
+       }
        if (v instanceof ViewGroup) {
            ViewGroup vGroup = (ViewGroup) v;
            for (int i = 0; i < vGroup.getChildCount(); i++) {
@@ -281,10 +286,17 @@ public class MasterClear extends InstrumentedFragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
-        if (!Process.myUserHandle().isOwner()
-                || UserManager.get(getActivity()).hasUserRestriction(
-                UserManager.DISALLOW_FACTORY_RESET)) {
+        final EnforcedAdmin admin = RestrictedLockUtils.checkIfRestrictionEnforced(
+                getActivity(), UserManager.DISALLOW_FACTORY_RESET, UserHandle.myUserId());
+        final UserManager um = UserManager.get(getActivity());
+        if (!um.isAdminUser() || RestrictedLockUtils.hasBaseUserRestriction(getActivity(),
+                UserManager.DISALLOW_FACTORY_RESET, UserHandle.myUserId())) {
             return inflater.inflate(R.layout.master_clear_disallowed_screen, null);
+        } else if (admin != null) {
+            View view = inflater.inflate(R.layout.admin_support_details_empty_view, null);
+            ShowAdminSupportDetailsDialog.setAdminSupportDetails(getActivity(), view, admin, false);
+            view.setVisibility(View.VISIBLE);
+            return view;
         }
 
         mContentView = inflater.inflate(R.layout.master_clear, null);
@@ -295,6 +307,6 @@ public class MasterClear extends InstrumentedFragment {
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.MASTER_CLEAR;
+        return MetricsEvent.MASTER_CLEAR;
     }
 }

@@ -29,12 +29,12 @@
 
 #include "src/v8.h"
 
-#include "src/debug.h"
+#include "src/debug/debug.h"
 #include "src/disasm.h"
 #include "src/disassembler.h"
 #include "src/ic/ic.h"
 #include "src/macro-assembler.h"
-#include "src/serialize.h"
+#include "src/x87/frames-x87.h"
 #include "test/cctest/cctest.h"
 
 using namespace v8::internal;
@@ -201,6 +201,12 @@ TEST(DisasmIa320) {
   __ rcl(edx, 7);
   __ rcr(edx, 1);
   __ rcr(edx, 7);
+  __ ror(edx, 1);
+  __ ror(edx, 6);
+  __ ror_cl(edx);
+  __ ror(Operand(ebx, ecx, times_4, 10000), 1);
+  __ ror(Operand(ebx, ecx, times_4, 10000), 6);
+  __ ror_cl(Operand(ebx, ecx, times_4, 10000));
   __ sar(edx, 1);
   __ sar(edx, 6);
   __ sar_cl(edx);
@@ -282,7 +288,7 @@ TEST(DisasmIa320) {
   __ bind(&L2);
   __ call(Operand(ebx, ecx, times_4, 10000));
   __ nop();
-  Handle<Code> ic(LoadIC::initialize_stub(isolate, NOT_CONTEXTUAL));
+  Handle<Code> ic(LoadIC::initialize_stub(isolate, NOT_INSIDE_TYPEOF));
   __ call(ic, RelocInfo::CODE_TARGET);
   __ nop();
   __ call(FUNCTION_ADDR(DummyStaticFunction), RelocInfo::RUNTIME_ENTRY);

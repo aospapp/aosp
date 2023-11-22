@@ -20,6 +20,8 @@ import android.view.View;
 /**
  * Called after a view is created to set various properties on the view
  */
-public abstract class ViewInitializer {
-    public abstract void initializeView(View view);
+public interface ViewInitializer {
+    void initializeView(View view);
+
+    default void teardownView() {};
 }

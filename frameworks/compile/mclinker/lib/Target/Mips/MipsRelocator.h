@@ -11,6 +11,7 @@
 
 #include "mcld/LD/Relocator.h"
 #include "mcld/Support/GCFactory.h"
+#include "mcld/Target/KeyEntryMap.h"
 #include "MipsLDBackend.h"
 
 #include <llvm/ADT/DenseMapInfo.h>
@@ -30,6 +31,9 @@ class MipsRelocator : public Relocator {
     ReserveGot = 2,  // reserve a GOT entry
     ReservePLT = 4   // reserve a PLT entry
   };
+
+  typedef KeyEntryMap<ResolveInfo, PLTEntryBase> SymPLTMap;
+  typedef KeyEntryMap<ResolveInfo, Fragment> SymGOTPLTMap;
 
  public:
   MipsRelocator(MipsGNULDBackend& pParent, const LinkerConfig& pConfig);
@@ -89,6 +93,14 @@ class MipsRelocator : public Relocator {
   /// getGPAddress - return address of _gp symbol.
   Address getGPAddress();
 
+  /// getTPOffset - return TP_OFFSET against the SHF_TLS
+  /// section in the processing input.
+  Address getTPOffset();
+
+  /// getDTPOffset - return DTP_OFFSET against the SHF_TLS
+  /// section in the processing input.
+  Address getDTPOffset();
+
   /// getGP0 - the gp value used to create the relocatable objects
   /// in the processing input.
   Address getGP0();
@@ -102,15 +114,18 @@ class MipsRelocator : public Relocator {
   /// for this relocation.
   Fragment& getGlobalGOTEntry(MipsRelocationInfo& pReloc);
 
+  /// getTLSGOTEntry - initialize and return a TLS GOT entry
+  /// for this relocation.
+  Fragment& getTLSGOTEntry(MipsRelocationInfo& pReloc);
+
   /// getGOTOffset - return offset of corresponded GOT entry.
   Address getGOTOffset(MipsRelocationInfo& pReloc);
 
+  /// getTLSGOTOffset - return offset of corresponded TLS GOT entry.
+  Address getTLSGOTOffset(MipsRelocationInfo& pReloc);
+
   /// createDynRel - initialize dynamic relocation for the relocation.
   void createDynRel(MipsRelocationInfo& pReloc);
-
-  /// getPLTOffset - initialize PLT-related entries for the symbol
-  /// @return - return address of PLT entry
-  uint64_t getPLTAddress(ResolveInfo& rsym);
 
   /// calcAHL - calculate combined addend used
   /// by R_MIPS_HI16 and R_MIPS_GOT16 relocations.
@@ -121,24 +136,34 @@ class MipsRelocator : public Relocator {
 
   const char* getName(Relocation::Type pType) const;
 
-  Size getSize(Relocation::Type pType) const;
+  const SymPLTMap& getSymPLTMap() const { return m_SymPLTMap; }
+  SymPLTMap& getSymPLTMap() { return m_SymPLTMap; }
+
+  const SymGOTPLTMap& getSymGOTPLTMap() const { return m_SymGOTPLTMap; }
+  SymGOTPLTMap& getSymGOTPLTMap() { return m_SymGOTPLTMap; }
 
  protected:
   /// setupRelDynEntry - create dynamic relocation entry.
-  virtual void setupRelDynEntry(FragmentRef& pFragRef, ResolveInfo* pSym) = 0;
+  virtual void setupRel32DynEntry(FragmentRef& pFragRef, ResolveInfo* pSym) = 0;
+  /// setupTLSDynEntry - create DTPMOD / DTPREL relocation entries
+  virtual void setupTLSDynEntry(Fragment& pFrag, ResolveInfo* pSym,
+                                Relocation::Type pType) = 0;
 
   /// isLocalReloc - handle relocation as a local symbol
   bool isLocalReloc(ResolveInfo& pSym) const;
 
+  /// setupRelDynEntry - create dynamic relocation entry with specified type.
+  void setupRelDynEntry(FragmentRef& pFragRef, ResolveInfo* pSym,
+                        Relocation::Type pType);
+
  private:
-  typedef std::pair<Fragment*, Fragment*> PLTDescriptor;
-  typedef llvm::DenseMap<const ResolveInfo*, PLTDescriptor> SymPLTMap;
   typedef llvm::DenseSet<Relocation*> RelocationSet;
   typedef llvm::DenseMap<const ResolveInfo*, RelocationSet> SymRelocSetMap;
 
  private:
   MipsGNULDBackend& m_Target;
   SymPLTMap m_SymPLTMap;
+  SymGOTPLTMap m_SymGOTPLTMap;
   Input* m_pApplyingInput;
   SymRelocSetMap m_PostponedRelocs;
   MipsRelocationInfo* m_CurrentLo16Reloc;
@@ -178,7 +203,10 @@ class Mips32Relocator : public MipsRelocator {
 
  private:
   // MipsRelocator
-  void setupRelDynEntry(FragmentRef& pFragRef, ResolveInfo* pSym);
+  void setupRel32DynEntry(FragmentRef& pFragRef, ResolveInfo* pSym);
+  void setupTLSDynEntry(Fragment& pFrag, ResolveInfo* pSym,
+                        Relocation::Type pType);
+  Size getSize(Relocation::Type pType) const;
 };
 
 /** \class Mips64Relocator
@@ -190,7 +218,10 @@ class Mips64Relocator : public MipsRelocator {
 
  private:
   // MipsRelocator
-  void setupRelDynEntry(FragmentRef& pFragRef, ResolveInfo* pSym);
+  void setupRel32DynEntry(FragmentRef& pFragRef, ResolveInfo* pSym);
+  void setupTLSDynEntry(Fragment& pFrag, ResolveInfo* pSym,
+                        Relocation::Type pType);
+  Size getSize(Relocation::Type pType) const;
 };
 
 }  // namespace mcld

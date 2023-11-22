@@ -41,6 +41,7 @@ import android.media.tv.TvContract.BaseTvColumns;
 import android.media.tv.TvContract.Channels;
 import android.media.tv.TvContract.Programs;
 import android.media.tv.TvContract.Programs.Genres;
+import android.media.tv.TvContract.RecordedPrograms;
 import android.media.tv.TvContract.WatchedPrograms;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -80,11 +81,12 @@ public class TvProvider extends ContentProvider {
     private static final String OP_UPDATE = "update";
     private static final String OP_DELETE = "delete";
 
-    private static final int DATABASE_VERSION = 26;
+    static final int DATABASE_VERSION = 31;
     private static final String DATABASE_NAME = "tv.db";
     private static final String CHANNELS_TABLE = "channels";
     private static final String PROGRAMS_TABLE = "programs";
     private static final String WATCHED_PROGRAMS_TABLE = "watched_programs";
+    private static final String RECORDED_PROGRAMS_TABLE = "recorded_programs";
     private static final String DELETED_CHANNELS_TABLE = "deleted_channels";  // Deprecated
     private static final String PROGRAMS_TABLE_PACKAGE_NAME_INDEX = "programs_package_name_index";
     private static final String PROGRAMS_TABLE_CHANNEL_ID_INDEX = "programs_channel_id_index";
@@ -110,6 +112,8 @@ public class TvProvider extends ContentProvider {
     private static final int MATCH_PROGRAM_ID = 6;
     private static final int MATCH_WATCHED_PROGRAM = 7;
     private static final int MATCH_WATCHED_PROGRAM_ID = 8;
+    private static final int MATCH_RECORDED_PROGRAM = 9;
+    private static final int MATCH_RECORDED_PROGRAM_ID = 10;
 
     private static final String CHANNELS_COLUMN_LOGO = "logo";
     private static final int MAX_LOGO_IMAGE_SIZE = 256;
@@ -123,6 +127,7 @@ public class TvProvider extends ContentProvider {
     private static final Map<String, String> sChannelProjectionMap;
     private static final Map<String, String> sProgramProjectionMap;
     private static final Map<String, String> sWatchedProgramProjectionMap;
+    private static final Map<String, String> sRecordedProgramProjectionMap;
 
     static {
         sUriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
@@ -134,6 +139,8 @@ public class TvProvider extends ContentProvider {
         sUriMatcher.addURI(TvContract.AUTHORITY, "program/#", MATCH_PROGRAM_ID);
         sUriMatcher.addURI(TvContract.AUTHORITY, "watched_program", MATCH_WATCHED_PROGRAM);
         sUriMatcher.addURI(TvContract.AUTHORITY, "watched_program/#", MATCH_WATCHED_PROGRAM_ID);
+        sUriMatcher.addURI(TvContract.AUTHORITY, "recorded_program", MATCH_RECORDED_PROGRAM);
+        sUriMatcher.addURI(TvContract.AUTHORITY, "recorded_program/#", MATCH_RECORDED_PROGRAM_ID);
 
         sChannelProjectionMap = new HashMap<>();
         sChannelProjectionMap.put(Channels._ID, CHANNELS_TABLE + "." + Channels._ID);
@@ -195,8 +202,17 @@ public class TvProvider extends ContentProvider {
         sProgramProjectionMap.put(Programs.COLUMN_PACKAGE_NAME, Programs.COLUMN_PACKAGE_NAME);
         sProgramProjectionMap.put(Programs.COLUMN_CHANNEL_ID, Programs.COLUMN_CHANNEL_ID);
         sProgramProjectionMap.put(Programs.COLUMN_TITLE, Programs.COLUMN_TITLE);
-        sProgramProjectionMap.put(Programs.COLUMN_SEASON_NUMBER, Programs.COLUMN_SEASON_NUMBER);
-        sProgramProjectionMap.put(Programs.COLUMN_EPISODE_NUMBER, Programs.COLUMN_EPISODE_NUMBER);
+        // COLUMN_SEASON_NUMBER is deprecated. Return COLUMN_SEASON_DISPLAY_NUMBER instead.
+        sProgramProjectionMap.put(Programs.COLUMN_SEASON_NUMBER,
+                Programs.COLUMN_SEASON_DISPLAY_NUMBER + " AS " + Programs.COLUMN_SEASON_NUMBER);
+        sProgramProjectionMap.put(Programs.COLUMN_SEASON_DISPLAY_NUMBER,
+                Programs.COLUMN_SEASON_DISPLAY_NUMBER);
+        sProgramProjectionMap.put(Programs.COLUMN_SEASON_TITLE, Programs.COLUMN_SEASON_TITLE);
+        // COLUMN_EPISODE_NUMBER is deprecated. Return COLUMN_EPISODE_DISPLAY_NUMBER instead.
+        sProgramProjectionMap.put(Programs.COLUMN_EPISODE_NUMBER,
+                Programs.COLUMN_EPISODE_DISPLAY_NUMBER + " AS " + Programs.COLUMN_EPISODE_NUMBER);
+        sProgramProjectionMap.put(Programs.COLUMN_EPISODE_DISPLAY_NUMBER,
+                Programs.COLUMN_EPISODE_DISPLAY_NUMBER);
         sProgramProjectionMap.put(Programs.COLUMN_EPISODE_TITLE, Programs.COLUMN_EPISODE_TITLE);
         sProgramProjectionMap.put(Programs.COLUMN_START_TIME_UTC_MILLIS,
                 Programs.COLUMN_START_TIME_UTC_MILLIS);
@@ -215,6 +231,8 @@ public class TvProvider extends ContentProvider {
         sProgramProjectionMap.put(Programs.COLUMN_POSTER_ART_URI, Programs.COLUMN_POSTER_ART_URI);
         sProgramProjectionMap.put(Programs.COLUMN_THUMBNAIL_URI, Programs.COLUMN_THUMBNAIL_URI);
         sProgramProjectionMap.put(Programs.COLUMN_SEARCHABLE, Programs.COLUMN_SEARCHABLE);
+        sProgramProjectionMap.put(Programs.COLUMN_RECORDING_PROHIBITED,
+                Programs.COLUMN_RECORDING_PROHIBITED);
         sProgramProjectionMap.put(Programs.COLUMN_INTERNAL_PROVIDER_DATA,
                 Programs.COLUMN_INTERNAL_PROVIDER_DATA);
         sProgramProjectionMap.put(Programs.COLUMN_INTERNAL_PROVIDER_FLAG1,
@@ -249,6 +267,71 @@ public class TvProvider extends ContentProvider {
                 WatchedPrograms.COLUMN_INTERNAL_SESSION_TOKEN);
         sWatchedProgramProjectionMap.put(WATCHED_PROGRAMS_COLUMN_CONSOLIDATED,
                 WATCHED_PROGRAMS_COLUMN_CONSOLIDATED);
+
+        sRecordedProgramProjectionMap = new HashMap<>();
+        sRecordedProgramProjectionMap.put(RecordedPrograms._ID, RecordedPrograms._ID);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_PACKAGE_NAME,
+                RecordedPrograms.COLUMN_PACKAGE_NAME);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_INPUT_ID,
+                RecordedPrograms.COLUMN_INPUT_ID);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_CHANNEL_ID,
+                RecordedPrograms.COLUMN_CHANNEL_ID);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_TITLE,
+                RecordedPrograms.COLUMN_TITLE);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_SEASON_DISPLAY_NUMBER,
+                RecordedPrograms.COLUMN_SEASON_DISPLAY_NUMBER);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_SEASON_TITLE,
+                RecordedPrograms.COLUMN_SEASON_TITLE);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_EPISODE_DISPLAY_NUMBER,
+                RecordedPrograms.COLUMN_EPISODE_DISPLAY_NUMBER);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_EPISODE_TITLE,
+                RecordedPrograms.COLUMN_EPISODE_TITLE);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_START_TIME_UTC_MILLIS,
+                RecordedPrograms.COLUMN_START_TIME_UTC_MILLIS);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_END_TIME_UTC_MILLIS,
+                RecordedPrograms.COLUMN_END_TIME_UTC_MILLIS);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_BROADCAST_GENRE,
+                RecordedPrograms.COLUMN_BROADCAST_GENRE);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_CANONICAL_GENRE,
+                RecordedPrograms.COLUMN_CANONICAL_GENRE);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_SHORT_DESCRIPTION,
+                RecordedPrograms.COLUMN_SHORT_DESCRIPTION);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_LONG_DESCRIPTION,
+                RecordedPrograms.COLUMN_LONG_DESCRIPTION);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_VIDEO_WIDTH,
+                RecordedPrograms.COLUMN_VIDEO_WIDTH);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_VIDEO_HEIGHT,
+                RecordedPrograms.COLUMN_VIDEO_HEIGHT);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_AUDIO_LANGUAGE,
+                RecordedPrograms.COLUMN_AUDIO_LANGUAGE);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_CONTENT_RATING,
+                RecordedPrograms.COLUMN_CONTENT_RATING);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_POSTER_ART_URI,
+                RecordedPrograms.COLUMN_POSTER_ART_URI);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_THUMBNAIL_URI,
+                RecordedPrograms.COLUMN_THUMBNAIL_URI);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_SEARCHABLE,
+                RecordedPrograms.COLUMN_SEARCHABLE);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_RECORDING_DATA_URI,
+                RecordedPrograms.COLUMN_RECORDING_DATA_URI);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_RECORDING_DATA_BYTES,
+                RecordedPrograms.COLUMN_RECORDING_DATA_BYTES);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_RECORDING_DURATION_MILLIS,
+                RecordedPrograms.COLUMN_RECORDING_DURATION_MILLIS);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_RECORDING_EXPIRE_TIME_UTC_MILLIS,
+                RecordedPrograms.COLUMN_RECORDING_EXPIRE_TIME_UTC_MILLIS);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_INTERNAL_PROVIDER_DATA,
+                RecordedPrograms.COLUMN_INTERNAL_PROVIDER_DATA);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG1,
+                RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG1);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG2,
+                RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG2);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG3,
+                RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG3);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG4,
+                RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG4);
+        sRecordedProgramProjectionMap.put(RecordedPrograms.COLUMN_VERSION_NUMBER,
+                RecordedPrograms.COLUMN_VERSION_NUMBER);
     }
 
     // Mapping from broadcast genre to canonical genre.
@@ -262,8 +345,55 @@ public class TvProvider extends ContentProvider {
     private static final String PERMISSION_ACCESS_WATCHED_PROGRAMS =
             "com.android.providers.tv.permission.ACCESS_WATCHED_PROGRAMS";
 
-    private static class DatabaseHelper extends SQLiteOpenHelper {
-        DatabaseHelper(Context context) {
+    private static final String CREATE_RECORDED_PROGRAMS_TABLE_SQL =
+            "CREATE TABLE " + RECORDED_PROGRAMS_TABLE + " ("
+            + RecordedPrograms._ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+            + RecordedPrograms.COLUMN_PACKAGE_NAME + " TEXT NOT NULL,"
+            + RecordedPrograms.COLUMN_INPUT_ID + " TEXT NOT NULL,"
+            + RecordedPrograms.COLUMN_CHANNEL_ID + " INTEGER,"
+            + RecordedPrograms.COLUMN_TITLE + " TEXT,"
+            + RecordedPrograms.COLUMN_SEASON_DISPLAY_NUMBER + " TEXT,"
+            + RecordedPrograms.COLUMN_SEASON_TITLE + " TEXT,"
+            + RecordedPrograms.COLUMN_EPISODE_DISPLAY_NUMBER + " TEXT,"
+            + RecordedPrograms.COLUMN_EPISODE_TITLE + " TEXT,"
+            + RecordedPrograms.COLUMN_START_TIME_UTC_MILLIS + " INTEGER,"
+            + RecordedPrograms.COLUMN_END_TIME_UTC_MILLIS + " INTEGER,"
+            + RecordedPrograms.COLUMN_BROADCAST_GENRE + " TEXT,"
+            + RecordedPrograms.COLUMN_CANONICAL_GENRE + " TEXT,"
+            + RecordedPrograms.COLUMN_SHORT_DESCRIPTION + " TEXT,"
+            + RecordedPrograms.COLUMN_LONG_DESCRIPTION + " TEXT,"
+            + RecordedPrograms.COLUMN_VIDEO_WIDTH + " INTEGER,"
+            + RecordedPrograms.COLUMN_VIDEO_HEIGHT + " INTEGER,"
+            + RecordedPrograms.COLUMN_AUDIO_LANGUAGE + " TEXT,"
+            + RecordedPrograms.COLUMN_CONTENT_RATING + " TEXT,"
+            + RecordedPrograms.COLUMN_POSTER_ART_URI + " TEXT,"
+            + RecordedPrograms.COLUMN_THUMBNAIL_URI + " TEXT,"
+            + RecordedPrograms.COLUMN_SEARCHABLE + " INTEGER NOT NULL DEFAULT 1,"
+            + RecordedPrograms.COLUMN_RECORDING_DATA_URI + " TEXT,"
+            + RecordedPrograms.COLUMN_RECORDING_DATA_BYTES + " INTEGER,"
+            + RecordedPrograms.COLUMN_RECORDING_DURATION_MILLIS + " INTEGER,"
+            + RecordedPrograms.COLUMN_RECORDING_EXPIRE_TIME_UTC_MILLIS + " INTEGER,"
+            + RecordedPrograms.COLUMN_INTERNAL_PROVIDER_DATA + " BLOB,"
+            + RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG1 + " INTEGER,"
+            + RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG2 + " INTEGER,"
+            + RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG3 + " INTEGER,"
+            + RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG4 + " INTEGER,"
+            + RecordedPrograms.COLUMN_VERSION_NUMBER + " INTEGER,"
+            + "FOREIGN KEY(" + RecordedPrograms.COLUMN_CHANNEL_ID + ") "
+                    + "REFERENCES " + CHANNELS_TABLE + "(" + Channels._ID + ") "
+                    + "ON UPDATE CASCADE ON DELETE SET NULL);";
+
+    static class DatabaseHelper extends SQLiteOpenHelper {
+        private static DatabaseHelper sSingleton = null;
+
+        public static synchronized DatabaseHelper getInstance(Context context) {
+            if (sSingleton == null) {
+                sSingleton = new DatabaseHelper(context);
+            }
+            return sSingleton;
+        }
+
+        private DatabaseHelper(Context context) {
             super(context, DATABASE_NAME, null, DATABASE_VERSION);
         }
 
@@ -316,8 +446,9 @@ public class TvProvider extends ContentProvider {
                     + Programs.COLUMN_PACKAGE_NAME + " TEXT NOT NULL,"
                     + Programs.COLUMN_CHANNEL_ID + " INTEGER,"
                     + Programs.COLUMN_TITLE + " TEXT,"
-                    + Programs.COLUMN_SEASON_NUMBER + " INTEGER,"
-                    + Programs.COLUMN_EPISODE_NUMBER + " INTEGER,"
+                    + Programs.COLUMN_SEASON_DISPLAY_NUMBER + " TEXT,"
+                    + Programs.COLUMN_SEASON_TITLE + " TEXT,"
+                    + Programs.COLUMN_EPISODE_DISPLAY_NUMBER + " TEXT,"
                     + Programs.COLUMN_EPISODE_TITLE + " TEXT,"
                     + Programs.COLUMN_START_TIME_UTC_MILLIS + " INTEGER,"
                     + Programs.COLUMN_END_TIME_UTC_MILLIS + " INTEGER,"
@@ -332,6 +463,7 @@ public class TvProvider extends ContentProvider {
                     + Programs.COLUMN_POSTER_ART_URI + " TEXT,"
                     + Programs.COLUMN_THUMBNAIL_URI + " TEXT,"
                     + Programs.COLUMN_SEARCHABLE + " INTEGER NOT NULL DEFAULT 1,"
+                    + Programs.COLUMN_RECORDING_PROHIBITED + " INTEGER NOT NULL DEFAULT 0,"
                     + Programs.COLUMN_INTERNAL_PROVIDER_DATA + " BLOB,"
                     + Programs.COLUMN_INTERNAL_PROVIDER_FLAG1 + " INTEGER,"
                     + Programs.COLUMN_INTERNAL_PROVIDER_FLAG2 + " INTEGER,"
@@ -376,6 +508,7 @@ public class TvProvider extends ContentProvider {
                     + ");");
             db.execSQL("CREATE INDEX " + WATCHED_PROGRAMS_TABLE_CHANNEL_ID_INDEX + " ON "
                     + WATCHED_PROGRAMS_TABLE + "(" + WatchedPrograms.COLUMN_CHANNEL_ID + ");");
+            db.execSQL(CREATE_RECORDED_PROGRAMS_TABLE_SQL);
         }
 
         @Override
@@ -428,7 +561,35 @@ public class TvProvider extends ContentProvider {
                         + Channels.COLUMN_APP_LINK_INTENT_URI + " TEXT;");
                 db.execSQL("ALTER TABLE " + PROGRAMS_TABLE + " ADD "
                         + Programs.COLUMN_SEARCHABLE + " INTEGER NOT NULL DEFAULT 1;");
+                oldVersion++;
             }
+            if (oldVersion <= 28) {
+                db.execSQL("ALTER TABLE " + PROGRAMS_TABLE + " ADD "
+                        + Programs.COLUMN_SEASON_TITLE + " TEXT;");
+                migrateIntegerColumnToTextColumn(db, PROGRAMS_TABLE, Programs.COLUMN_SEASON_NUMBER,
+                        Programs.COLUMN_SEASON_DISPLAY_NUMBER);
+                migrateIntegerColumnToTextColumn(db, PROGRAMS_TABLE, Programs.COLUMN_EPISODE_NUMBER,
+                        Programs.COLUMN_EPISODE_DISPLAY_NUMBER);
+                oldVersion = 29;
+            }
+            if (oldVersion == 29) {
+                db.execSQL("DROP TABLE IF EXISTS " + RECORDED_PROGRAMS_TABLE);
+                db.execSQL(CREATE_RECORDED_PROGRAMS_TABLE_SQL);
+                oldVersion = 30;
+            }
+            if (oldVersion == 30) {
+                db.execSQL("ALTER TABLE " + PROGRAMS_TABLE + " ADD "
+                        + Programs.COLUMN_RECORDING_PROHIBITED + " INTEGER NOT NULL DEFAULT 0;");
+                oldVersion = 31;
+            }
+            Log.i(TAG, "Upgrading from version " + oldVersion + " to " + newVersion + " is done.");
+        }
+
+        private static void migrateIntegerColumnToTextColumn(SQLiteDatabase db, String table,
+                String integerColumn, String textColumn) {
+            db.execSQL("ALTER TABLE " + table + " ADD " + textColumn + " TEXT;");
+            db.execSQL("UPDATE " + table + " SET " + textColumn + " = CAST(" + integerColumn
+                    + " AS TEXT);");
         }
     }
 
@@ -441,10 +602,18 @@ public class TvProvider extends ContentProvider {
         if (DEBUG) {
             Log.d(TAG, "Creating TvProvider");
         }
-        mOpenHelper = new DatabaseHelper(getContext());
-        deleteUnconsolidatedWatchedProgramsRows();
+        mOpenHelper = DatabaseHelper.getInstance(getContext());
         scheduleEpgDataCleanup();
         buildGenreMap();
+
+        // DB operation, which may trigger upgrade, should not happen in onCreate.
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(Void... params) {
+                deleteUnconsolidatedWatchedProgramsRows();
+                return null;
+            }
+        }.execute();
         return true;
     }
 
@@ -508,6 +677,10 @@ public class TvProvider extends ContentProvider {
                 return WatchedPrograms.CONTENT_TYPE;
             case MATCH_WATCHED_PROGRAM_ID:
                 return WatchedPrograms.CONTENT_ITEM_TYPE;
+            case MATCH_RECORDED_PROGRAM:
+                return RecordedPrograms.CONTENT_TYPE;
+            case MATCH_RECORDED_PROGRAM_ID:
+                return RecordedPrograms.CONTENT_ITEM_TYPE;
             default:
                 throw new IllegalArgumentException("Unknown URI " + uri);
         }
@@ -532,6 +705,9 @@ public class TvProvider extends ContentProvider {
             case WATCHED_PROGRAMS_TABLE:
                 projectionMap = sWatchedProgramProjectionMap;
                 orderBy = DEFAULT_WATCHED_PROGRAMS_SORT_ORDER;
+                break;
+            case RECORDED_PROGRAMS_TABLE:
+                projectionMap = sRecordedProgramProjectionMap;
                 break;
             default:
                 projectionMap = sChannelProjectionMap;
@@ -566,11 +742,14 @@ public class TvProvider extends ContentProvider {
                 return insertProgram(uri, values);
             case MATCH_WATCHED_PROGRAM:
                 return insertWatchedProgram(uri, values);
+            case MATCH_RECORDED_PROGRAM:
+                return insertRecordedProgram(uri, values);
             case MATCH_CHANNEL_ID:
             case MATCH_CHANNEL_ID_LOGO:
             case MATCH_PASSTHROUGH_ID:
             case MATCH_PROGRAM_ID:
             case MATCH_WATCHED_PROGRAM_ID:
+            case MATCH_RECORDED_PROGRAM_ID:
                 throw new UnsupportedOperationException("Cannot insert into that URI: " + uri);
             default:
                 throw new IllegalArgumentException("Unknown URI " + uri);
@@ -597,6 +776,7 @@ public class TvProvider extends ContentProvider {
         values.put(Programs.COLUMN_PACKAGE_NAME, getCallingPackage_());
 
         checkAndConvertGenre(values);
+        checkAndConvertDeprecatedColumns(values);
 
         SQLiteDatabase db = mOpenHelper.getWritableDatabase();
         long rowId = db.insert(PROGRAMS_TABLE, null, values);
@@ -642,6 +822,23 @@ public class TvProvider extends ContentProvider {
                 + " COLUMN_WATCH_END_TIME_UTC_MILLIS should be specified");
     }
 
+    private Uri insertRecordedProgram(Uri uri, ContentValues values) {
+        // Mark the owner package of this program.
+        values.put(Programs.COLUMN_PACKAGE_NAME, getCallingPackage_());
+
+        checkAndConvertGenre(values);
+
+        SQLiteDatabase db = mOpenHelper.getWritableDatabase();
+        long rowId = db.insert(RECORDED_PROGRAMS_TABLE, null, values);
+        if (rowId > 0) {
+            Uri recordedProgramUri = TvContract.buildRecordedProgramUri(rowId);
+            notifyChange(recordedProgramUri);
+            return recordedProgramUri;
+        }
+
+        throw new SQLException("Failed to insert row into " + uri);
+    }
+
     @Override
     public int delete(Uri uri, String selection, String[] selectionArgs) {
         SqlParams params = createSqlParams(OP_DELETE, uri, selection, selectionArgs);
@@ -657,10 +854,12 @@ public class TvProvider extends ContentProvider {
             case MATCH_CHANNEL:
             case MATCH_PROGRAM:
             case MATCH_WATCHED_PROGRAM:
+            case MATCH_RECORDED_PROGRAM:
             case MATCH_CHANNEL_ID:
             case MATCH_PASSTHROUGH_ID:
             case MATCH_PROGRAM_ID:
             case MATCH_WATCHED_PROGRAM_ID:
+            case MATCH_RECORDED_PROGRAM_ID:
                 count = db.delete(params.getTables(), params.getSelection(),
                         params.getSelectionArgs());
                 break;
@@ -682,6 +881,9 @@ public class TvProvider extends ContentProvider {
                 throw new SecurityException("Not allowed to modify Channels.COLUMN_LOCKED");
             }
         } else if (params.getTables().equals(PROGRAMS_TABLE)) {
+            checkAndConvertGenre(values);
+            checkAndConvertDeprecatedColumns(values);
+        } else if (params.getTables().equals(RECORDED_PROGRAMS_TABLE)) {
             checkAndConvertGenre(values);
         }
         SQLiteDatabase db = mOpenHelper.getWritableDatabase();
@@ -707,12 +909,13 @@ public class TvProvider extends ContentProvider {
             }
             // Limit the operation only to the data that the calling package owns except for when
             // the caller tries to read TV listings and has the appropriate permission.
+            String prefix = match == MATCH_CHANNEL ? CHANNELS_TABLE + "." : "";
             if (operation.equals(OP_QUERY) && callerHasReadTvListingsPermission()) {
-                params.setWhere(BaseTvColumns.COLUMN_PACKAGE_NAME + "=? OR "
+                params.setWhere(prefix + BaseTvColumns.COLUMN_PACKAGE_NAME + "=? OR "
                         + Channels.COLUMN_SEARCHABLE + "=?", getCallingPackage_(), "1");
-
             } else {
-                params.setWhere(BaseTvColumns.COLUMN_PACKAGE_NAME + "=?", getCallingPackage_());
+                params.setWhere(prefix + BaseTvColumns.COLUMN_PACKAGE_NAME + "=?",
+                        getCallingPackage_());
             }
         }
 
@@ -785,6 +988,17 @@ public class TvProvider extends ContentProvider {
                 params.appendWhere(WatchedPrograms._ID + "=?", uri.getLastPathSegment());
                 params.appendWhere(WATCHED_PROGRAMS_COLUMN_CONSOLIDATED + "=?", "1");
                 break;
+            case MATCH_RECORDED_PROGRAM_ID:
+                params.appendWhere(RecordedPrograms._ID + "=?", uri.getLastPathSegment());
+                // fall-through
+            case MATCH_RECORDED_PROGRAM:
+                params.setTables(RECORDED_PROGRAMS_TABLE);
+                paramChannelId = uri.getQueryParameter(TvContract.PARAM_CHANNEL);
+                if (paramChannelId != null) {
+                    String channelId = String.valueOf(Long.parseLong(paramChannelId));
+                    params.appendWhere(Programs.COLUMN_CHANNEL_ID + "=?", channelId);
+                }
+                break;
             case MATCH_CHANNEL_ID_LOGO:
                 if (operation.equals(OP_DELETE)) {
                     params.setTables(CHANNELS_TABLE);
@@ -838,6 +1052,23 @@ public class TvProvider extends ContentProvider {
                             Genres.encode(genreSet.toArray(new String[genreSet.size()])));
                 }
             }
+        }
+    }
+
+    private void checkAndConvertDeprecatedColumns(ContentValues values) {
+        if (values.containsKey(Programs.COLUMN_SEASON_NUMBER)) {
+            if (!values.containsKey(Programs.COLUMN_SEASON_DISPLAY_NUMBER)) {
+                values.put(Programs.COLUMN_SEASON_DISPLAY_NUMBER, values.getAsInteger(
+                        Programs.COLUMN_SEASON_NUMBER));
+            }
+            values.remove(Programs.COLUMN_SEASON_NUMBER);
+        }
+        if (values.containsKey(Programs.COLUMN_EPISODE_NUMBER)) {
+            if (!values.containsKey(Programs.COLUMN_EPISODE_DISPLAY_NUMBER)) {
+                values.put(Programs.COLUMN_EPISODE_DISPLAY_NUMBER, values.getAsInteger(
+                        Programs.COLUMN_EPISODE_NUMBER));
+            }
+            values.remove(Programs.COLUMN_EPISODE_NUMBER);
         }
     }
 

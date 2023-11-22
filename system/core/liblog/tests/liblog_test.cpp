@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2014 The Android Open Source Project
+ * Copyright (C) 2013-2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,11 @@
 
 #include <fcntl.h>
 #include <inttypes.h>
+#include <semaphore.h>
 #include <signal.h>
+#include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include <cutils/properties.h>
 #include <gtest/gtest.h>
@@ -24,6 +28,8 @@
 #include <log/logger.h>
 #include <log/log_read.h>
 #include <log/logprint.h>
+#include <private/android_filesystem_config.h>
+#include <private/android_logger.h>
 
 // enhanced version of LOG_FAILURE_RETRY to add support for EAGAIN and
 // non-syscall libs. Since we are only using this in the emergency of
@@ -163,10 +169,317 @@ TEST(liblog, __android_log_btwrite__android_logger_list_read) {
     android_logger_list_close(logger_list);
 }
 
-static unsigned signaled;
-log_time signal_time;
+static inline int32_t get4LE(const char* src)
+{
+    return src[0] | (src[1] << 8) | (src[2] << 16) | (src[3] << 24);
+}
 
-static void caught_blocking(int /*signum*/)
+TEST(liblog, __android_log_bswrite) {
+    struct logger_list *logger_list;
+
+    pid_t pid = getpid();
+
+    ASSERT_TRUE(NULL != (logger_list = android_logger_list_open(
+        LOG_ID_EVENTS, ANDROID_LOG_RDONLY | ANDROID_LOG_NONBLOCK, 1000, pid)));
+
+    static const char buffer[] = "Hello World";
+    log_time ts(android_log_clockid());
+
+    ASSERT_LT(0, __android_log_bswrite(0, buffer));
+    usleep(1000000);
+
+    int count = 0;
+
+    for (;;) {
+        log_msg log_msg;
+        if (android_logger_list_read(logger_list, &log_msg) <= 0) {
+            break;
+        }
+
+        ASSERT_EQ(log_msg.entry.pid, pid);
+
+        if ((log_msg.entry.sec < (ts.tv_sec - 1))
+         || ((ts.tv_sec + 1) < log_msg.entry.sec)
+         || (log_msg.entry.len != (4 + 1 + 4 + sizeof(buffer) - 1))
+         || (log_msg.id() != LOG_ID_EVENTS)) {
+            continue;
+        }
+
+        char *eventData = log_msg.msg();
+
+        if (eventData[4] != EVENT_TYPE_STRING) {
+            continue;
+        }
+
+        int len = get4LE(eventData + 4 + 1);
+        if (len == (sizeof(buffer) - 1)) {
+            ++count;
+
+            AndroidLogFormat *logformat = android_log_format_new();
+            EXPECT_TRUE(NULL != logformat);
+            AndroidLogEntry entry;
+            char msgBuf[1024];
+            EXPECT_EQ(0, android_log_processBinaryLogBuffer(&log_msg.entry_v1,
+                                                            &entry,
+                                                            NULL,
+                                                            msgBuf,
+                                                            sizeof(msgBuf)));
+            fflush(stderr);
+            EXPECT_EQ(31, android_log_printLogLine(logformat, fileno(stderr), &entry));
+            android_log_format_free(logformat);
+        }
+    }
+
+    EXPECT_EQ(1, count);
+
+    android_logger_list_close(logger_list);
+}
+
+TEST(liblog, __android_log_bswrite__empty_string) {
+    struct logger_list *logger_list;
+
+    pid_t pid = getpid();
+
+    ASSERT_TRUE(NULL != (logger_list = android_logger_list_open(
+        LOG_ID_EVENTS, ANDROID_LOG_RDONLY | ANDROID_LOG_NONBLOCK, 1000, pid)));
+
+    static const char buffer[] = "";
+    log_time ts(android_log_clockid());
+
+    ASSERT_LT(0, __android_log_bswrite(0, buffer));
+    usleep(1000000);
+
+    int count = 0;
+
+    for (;;) {
+        log_msg log_msg;
+        if (android_logger_list_read(logger_list, &log_msg) <= 0) {
+            break;
+        }
+
+        ASSERT_EQ(log_msg.entry.pid, pid);
+
+        if ((log_msg.entry.sec < (ts.tv_sec - 1))
+         || ((ts.tv_sec + 1) < log_msg.entry.sec)
+         || (log_msg.entry.len != (4 + 1 + 4))
+         || (log_msg.id() != LOG_ID_EVENTS)) {
+            continue;
+        }
+
+        char *eventData = log_msg.msg();
+
+        if (eventData[4] != EVENT_TYPE_STRING) {
+            continue;
+        }
+
+        int len = get4LE(eventData + 4 + 1);
+        if (len == 0) {
+            ++count;
+
+            AndroidLogFormat *logformat = android_log_format_new();
+            EXPECT_TRUE(NULL != logformat);
+            AndroidLogEntry entry;
+            char msgBuf[1024];
+            EXPECT_EQ(0, android_log_processBinaryLogBuffer(&log_msg.entry_v1,
+                                                            &entry,
+                                                            NULL,
+                                                            msgBuf,
+                                                            sizeof(msgBuf)));
+            fflush(stderr);
+            EXPECT_EQ(20, android_log_printLogLine(logformat, fileno(stderr), &entry));
+            android_log_format_free(logformat);
+        }
+    }
+
+    EXPECT_EQ(1, count);
+
+    android_logger_list_close(logger_list);
+}
+
+TEST(liblog, __security) {
+    static const char persist_key[] = "persist.logd.security";
+    static const char readonly_key[] = "ro.device_owner";
+    static const char nothing_val[] = "_NOTHING_TO_SEE_HERE_";
+    char persist[PROP_VALUE_MAX];
+    char readonly[PROP_VALUE_MAX];
+
+    property_get(persist_key, persist, "");
+    property_get(readonly_key, readonly, nothing_val);
+
+    if (!strcmp(readonly, nothing_val)) {
+        EXPECT_FALSE(__android_log_security());
+        fprintf(stderr, "Warning, setting ro.device_owner to a domain\n");
+        property_set(readonly_key, "com.google.android.SecOps.DeviceOwner");
+    } else if (!strcasecmp(readonly, "false") || !readonly[0]) {
+        EXPECT_FALSE(__android_log_security());
+        return;
+    }
+
+    if (!strcasecmp(persist, "true")) {
+        EXPECT_TRUE(__android_log_security());
+    } else {
+        EXPECT_FALSE(__android_log_security());
+    }
+    property_set(persist_key, "TRUE");
+    EXPECT_TRUE(__android_log_security());
+    property_set(persist_key, "FALSE");
+    EXPECT_FALSE(__android_log_security());
+    property_set(persist_key, "true");
+    EXPECT_TRUE(__android_log_security());
+    property_set(persist_key, "false");
+    EXPECT_FALSE(__android_log_security());
+    property_set(persist_key, "");
+    EXPECT_FALSE(__android_log_security());
+    property_set(persist_key, persist);
+}
+
+TEST(liblog, __security_buffer) {
+    struct logger_list *logger_list;
+    android_event_long_t buffer;
+
+    static const char persist_key[] = "persist.logd.security";
+    char persist[PROP_VALUE_MAX];
+    bool set_persist = false;
+    bool allow_security = false;
+
+    if (__android_log_security()) {
+        allow_security = true;
+    } else {
+        property_get(persist_key, persist, "");
+        if (strcasecmp(persist, "true")) {
+            property_set(persist_key, "TRUE");
+            if (__android_log_security()) {
+                allow_security = true;
+                set_persist = true;
+            } else {
+                property_set(persist_key, persist);
+            }
+        }
+    }
+
+    if (!allow_security) {
+        fprintf(stderr, "WARNING: "
+                "security buffer disabled, bypassing end-to-end test\n");
+
+        log_time ts(CLOCK_MONOTONIC);
+
+        buffer.type = EVENT_TYPE_LONG;
+        buffer.data = *(static_cast<uint64_t *>((void *)&ts));
+
+        // expect failure!
+        ASSERT_GE(0, __android_log_security_bwrite(0, &buffer, sizeof(buffer)));
+
+        return;
+    }
+
+    /* Matches clientHasLogCredentials() in logd */
+    uid_t uid = getuid();
+    gid_t gid = getgid();
+    bool clientHasLogCredentials = true;
+    if ((uid != AID_SYSTEM) && (uid != AID_ROOT) && (uid != AID_LOG)
+     && (gid != AID_SYSTEM) && (gid != AID_ROOT) && (gid != AID_LOG)) {
+        uid_t euid = geteuid();
+        if ((euid != AID_SYSTEM) && (euid != AID_ROOT) && (euid != AID_LOG)) {
+            gid_t egid = getegid();
+            if ((egid != AID_SYSTEM) && (egid != AID_ROOT) && (egid != AID_LOG)) {
+                int num_groups = getgroups(0, NULL);
+                if (num_groups > 0) {
+                    gid_t groups[num_groups];
+                    num_groups = getgroups(num_groups, groups);
+                    while (num_groups > 0) {
+                        if (groups[num_groups - 1] == AID_LOG) {
+                            break;
+                        }
+                        --num_groups;
+                    }
+                }
+                if (num_groups <= 0) {
+                    clientHasLogCredentials = false;
+                }
+            }
+        }
+    }
+    if (!clientHasLogCredentials) {
+        fprintf(stderr, "WARNING: "
+                "not in system context, bypassing end-to-end test\n");
+
+        log_time ts(CLOCK_MONOTONIC);
+
+        buffer.type = EVENT_TYPE_LONG;
+        buffer.data = *(static_cast<uint64_t *>((void *)&ts));
+
+        // expect failure!
+        ASSERT_GE(0, __android_log_security_bwrite(0, &buffer, sizeof(buffer)));
+
+        return;
+    }
+
+    pid_t pid = getpid();
+
+    ASSERT_TRUE(NULL != (logger_list = android_logger_list_open(
+        LOG_ID_SECURITY, ANDROID_LOG_RDONLY | ANDROID_LOG_NONBLOCK,
+        1000, pid)));
+
+    log_time ts(CLOCK_MONOTONIC);
+
+    buffer.type = EVENT_TYPE_LONG;
+    buffer.data = *(static_cast<uint64_t *>((void *)&ts));
+
+    ASSERT_LT(0, __android_log_security_bwrite(0, &buffer, sizeof(buffer)));
+    usleep(1000000);
+
+    int count = 0;
+
+    for (;;) {
+        log_msg log_msg;
+        if (android_logger_list_read(logger_list, &log_msg) <= 0) {
+            break;
+        }
+
+        ASSERT_EQ(log_msg.entry.pid, pid);
+
+        if ((log_msg.entry.len != (4 + 1 + 8))
+         || (log_msg.id() != LOG_ID_SECURITY)) {
+            continue;
+        }
+
+        char *eventData = log_msg.msg();
+
+        if (eventData[4] != EVENT_TYPE_LONG) {
+            continue;
+        }
+
+        log_time tx(eventData + 4 + 1);
+        if (ts == tx) {
+            ++count;
+        }
+    }
+
+    if (set_persist) {
+        property_set(persist_key, persist);
+    }
+
+    android_logger_list_close(logger_list);
+
+    bool clientHasSecurityCredentials = (uid == AID_SYSTEM) || (gid == AID_SYSTEM);
+    if (!clientHasSecurityCredentials) {
+        fprintf(stderr, "WARNING: "
+                "not system, content submitted but can not check end-to-end\n");
+    }
+    EXPECT_EQ(clientHasSecurityCredentials ? 1 : 0, count);
+
+}
+
+static unsigned signaled;
+static log_time signal_time;
+
+/*
+ *  Strictly, we are not allowed to log messages in a signal context, but we
+ * do make an effort to keep the failure surface minimized, and this in-effect
+ * should catch any regressions in that effort. The odds of a logged message
+ * in a signal handler causing a lockup problem should be _very_ small.
+ */
+static void caught_blocking_signal(int /*signum*/)
 {
     unsigned long long v = 0xDEADBEEFA55A0000ULL;
 
@@ -216,7 +529,7 @@ static void get_ticks(unsigned long long *uticks, unsigned long long *sticks)
     }
 }
 
-TEST(liblog, android_logger_list_read__cpu) {
+TEST(liblog, android_logger_list_read__cpu_signal) {
     struct logger_list *logger_list;
     unsigned long long v = 0xDEADBEEFA55A0000ULL;
 
@@ -239,7 +552,7 @@ TEST(liblog, android_logger_list_read__cpu) {
 
     memset(&signal_time, 0, sizeof(signal_time));
 
-    signal(SIGALRM, caught_blocking);
+    signal(SIGALRM, caught_blocking_signal);
     alarm(alarm_time);
 
     signaled = 0;
@@ -284,7 +597,158 @@ TEST(liblog, android_logger_list_read__cpu) {
     alarm(0);
     signal(SIGALRM, SIG_DFL);
 
-    EXPECT_LT(1, count);
+    EXPECT_LE(1, count);
+
+    EXPECT_EQ(1, signals);
+
+    android_logger_list_close(logger_list);
+
+    unsigned long long uticks_end;
+    unsigned long long sticks_end;
+    get_ticks(&uticks_end, &sticks_end);
+
+    // Less than 1% in either user or system time, or both
+    const unsigned long long one_percent_ticks = alarm_time;
+    unsigned long long user_ticks = uticks_end - uticks_start;
+    unsigned long long system_ticks = sticks_end - sticks_start;
+    EXPECT_GT(one_percent_ticks, user_ticks);
+    EXPECT_GT(one_percent_ticks, system_ticks);
+    EXPECT_GT(one_percent_ticks, user_ticks + system_ticks);
+}
+
+/*
+ *  Strictly, we are not allowed to log messages in a signal context, the
+ * correct way to handle this is to ensure the messages are constructed in
+ * a thread; the signal handler should only unblock the thread.
+ */
+static sem_t thread_trigger;
+
+static void caught_blocking_thread(int /*signum*/)
+{
+    sem_post(&thread_trigger);
+}
+
+static void *running_thread(void *) {
+    unsigned long long v = 0xDEADBEAFA55A0000ULL;
+
+    v += getpid() & 0xFFFF;
+
+    struct timespec timeout;
+    clock_gettime(CLOCK_REALTIME, &timeout);
+    timeout.tv_sec += 55;
+    sem_timedwait(&thread_trigger, &timeout);
+
+    ++signaled;
+    if ((signal_time.tv_sec == 0) && (signal_time.tv_nsec == 0)) {
+        signal_time = log_time(CLOCK_MONOTONIC);
+        signal_time.tv_sec += 2;
+    }
+
+    LOG_FAILURE_RETRY(__android_log_btwrite(0, EVENT_TYPE_LONG, &v, sizeof(v)));
+
+    return NULL;
+}
+
+int start_thread()
+{
+    sem_init(&thread_trigger, 0, 0);
+
+    pthread_attr_t attr;
+    if (pthread_attr_init(&attr)) {
+        return -1;
+    }
+
+    struct sched_param param;
+
+    memset(&param, 0, sizeof(param));
+    pthread_attr_setschedparam(&attr, &param);
+    pthread_attr_setschedpolicy(&attr, SCHED_BATCH);
+
+    if (pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED)) {
+        pthread_attr_destroy(&attr);
+        return -1;
+    }
+
+    pthread_t thread;
+    if (pthread_create(&thread, &attr, running_thread, NULL)) {
+        pthread_attr_destroy(&attr);
+        return -1;
+    }
+
+    pthread_attr_destroy(&attr);
+    return 0;
+}
+
+TEST(liblog, android_logger_list_read__cpu_thread) {
+    struct logger_list *logger_list;
+    unsigned long long v = 0xDEADBEAFA55A0000ULL;
+
+    pid_t pid = getpid();
+
+    v += pid & 0xFFFF;
+
+    ASSERT_TRUE(NULL != (logger_list = android_logger_list_open(
+        LOG_ID_EVENTS, ANDROID_LOG_RDONLY, 1000, pid)));
+
+    int count = 0;
+
+    int signals = 0;
+
+    unsigned long long uticks_start;
+    unsigned long long sticks_start;
+    get_ticks(&uticks_start, &sticks_start);
+
+    const unsigned alarm_time = 10;
+
+    memset(&signal_time, 0, sizeof(signal_time));
+
+    signaled = 0;
+    EXPECT_EQ(0, start_thread());
+
+    signal(SIGALRM, caught_blocking_thread);
+    alarm(alarm_time);
+
+    do {
+        log_msg log_msg;
+        if (LOG_FAILURE_RETRY(android_logger_list_read(logger_list, &log_msg)) <= 0) {
+            break;
+        }
+
+        alarm(alarm_time);
+
+        ++count;
+
+        ASSERT_EQ(log_msg.entry.pid, pid);
+
+        if ((log_msg.entry.len != (4 + 1 + 8))
+         || (log_msg.id() != LOG_ID_EVENTS)) {
+            continue;
+        }
+
+        char *eventData = log_msg.msg();
+
+        if (eventData[4] != EVENT_TYPE_LONG) {
+            continue;
+        }
+
+        unsigned long long l = eventData[4 + 1 + 0] & 0xFF;
+        l |= (unsigned long long) (eventData[4 + 1 + 1] & 0xFF) << 8;
+        l |= (unsigned long long) (eventData[4 + 1 + 2] & 0xFF) << 16;
+        l |= (unsigned long long) (eventData[4 + 1 + 3] & 0xFF) << 24;
+        l |= (unsigned long long) (eventData[4 + 1 + 4] & 0xFF) << 32;
+        l |= (unsigned long long) (eventData[4 + 1 + 5] & 0xFF) << 40;
+        l |= (unsigned long long) (eventData[4 + 1 + 6] & 0xFF) << 48;
+        l |= (unsigned long long) (eventData[4 + 1 + 7] & 0xFF) << 56;
+
+        if (l == v) {
+            ++signals;
+            break;
+        }
+    } while (!signaled || (log_time(CLOCK_MONOTONIC) < signal_time));
+    alarm(0);
+    signal(SIGALRM, SIG_DFL);
+
+    EXPECT_LE(1, count);
 
     EXPECT_EQ(1, signals);
 
@@ -304,8 +768,9 @@ TEST(liblog, android_logger_list_read__cpu) {
 }
 
 static const char max_payload_tag[] = "TEST_max_payload_XXXX";
-static const char max_payload_buf[LOGGER_ENTRY_MAX_PAYLOAD
-    - sizeof(max_payload_tag) - 1] = "LEONATO\n\
+#define SIZEOF_MAX_PAYLOAD_BUF (LOGGER_ENTRY_MAX_PAYLOAD - \
+                                sizeof(max_payload_tag) - 1)
+static const char max_payload_buf[] = "LEONATO\n\
 I learn in this letter that Don Peter of Arragon\n\
 comes this night to Messina\n\
 MESSENGER\n\
@@ -431,7 +896,10 @@ Good Signior Leonato, you are come to meet your\n\
 trouble: the fashion of the world is to avoid\n\
 cost, and you encounter it\n\
 LEONATO\n\
-Never came trouble to my house in the likeness";
+Never came trouble to my house in the likeness of your grace,\n\
+for trouble being gone, comfort should remain, but\n\
+when you depart from me, sorrow abides and happiness\n\
+takes his leave.";
 
 TEST(liblog, max_payload) {
     pid_t pid = getpid();
@@ -490,7 +958,63 @@ TEST(liblog, max_payload) {
 
     EXPECT_EQ(true, matches);
 
-    EXPECT_LE(sizeof(max_payload_buf), static_cast<size_t>(max_len));
+    EXPECT_LE(SIZEOF_MAX_PAYLOAD_BUF, static_cast<size_t>(max_len));
+}
+
+TEST(liblog, __android_log_buf_print__maxtag) {
+    struct logger_list *logger_list;
+
+    pid_t pid = getpid();
+
+    ASSERT_TRUE(NULL != (logger_list = android_logger_list_open(
+        LOG_ID_MAIN, ANDROID_LOG_RDONLY | ANDROID_LOG_NONBLOCK, 1000, pid)));
+
+    log_time ts(android_log_clockid());
+
+    EXPECT_LT(0, __android_log_buf_print(LOG_ID_MAIN, ANDROID_LOG_INFO,
+                                         max_payload_buf, max_payload_buf));
+    usleep(1000000);
+
+    int count = 0;
+
+    for (;;) {
+        log_msg log_msg;
+        if (android_logger_list_read(logger_list, &log_msg) <= 0) {
+            break;
+        }
+
+        ASSERT_EQ(log_msg.entry.pid, pid);
+
+        if ((log_msg.entry.sec < (ts.tv_sec - 1))
+         || ((ts.tv_sec + 1) < log_msg.entry.sec)
+         || ((size_t)log_msg.entry.len < LOGGER_ENTRY_MAX_PAYLOAD)
+         || (log_msg.id() != LOG_ID_MAIN)) {
+            continue;
+        }
+
+        ++count;
+
+        AndroidLogFormat *logformat = android_log_format_new();
+        EXPECT_TRUE(NULL != logformat);
+        AndroidLogEntry entry;
+        int processLogBuffer = android_log_processLogBuffer(&log_msg.entry_v1,
+                                                            &entry);
+        EXPECT_EQ(0, processLogBuffer);
+        if (processLogBuffer == 0) {
+            fflush(stderr);
+            int printLogLine =
+                    android_log_printLogLine(logformat, fileno(stderr), &entry);
+            // Legacy tag truncation
+            EXPECT_LE(128, printLogLine);
+            // Measured maximum if we try to print part of the tag as message
+            EXPECT_GT(LOGGER_ENTRY_MAX_PAYLOAD * 13 / 8, printLogLine);
+        }
+        android_log_format_free(logformat);
+    }
+
+    EXPECT_EQ(1, count);
+
+    android_logger_list_close(logger_list);
 }
 
 TEST(liblog, too_big_payload) {
@@ -610,11 +1134,21 @@ TEST(liblog, android_logger_get_) {
         struct logger * logger;
         EXPECT_TRUE(NULL != (logger = android_logger_open(logger_list, id)));
         EXPECT_EQ(id, android_logger_get_id(logger));
-        /* crash buffer is allowed to be empty, that is actually healthy! */
-        if (android_logger_get_log_size(logger) || strcmp("crash", name)) {
-            EXPECT_LT(0, android_logger_get_log_size(logger));
+        ssize_t get_log_size = android_logger_get_log_size(logger);
+        /* security buffer is allowed to be denied */
+        if (strcmp("security", name)) {
+            EXPECT_LT(0, get_log_size);
+            /* crash buffer is allowed to be empty, that is actually healthy! */
+            EXPECT_LE((strcmp("crash", name)) != 0,
+                      android_logger_get_log_readable_size(logger));
+        } else {
+            EXPECT_NE(0, get_log_size);
+            if (get_log_size < 0) {
+                EXPECT_GT(0, android_logger_get_log_readable_size(logger));
+            } else {
+                EXPECT_LE(0, android_logger_get_log_readable_size(logger));
+            }
         }
-        EXPECT_LT(0, android_logger_get_log_readable_size(logger));
         EXPECT_LT(0, android_logger_get_log_version(logger));
     }
 
@@ -735,13 +1269,27 @@ TEST(liblog, is_loggable) {
                 continue;
             }
             fprintf(stderr, "i=%zu j=%zu\r", i, j);
+            bool android_log_is_loggable = __android_log_is_loggable(
+                levels[i].level, tag, levels[j].level);
             if ((levels[i].level < levels[j].level)
                     || (levels[j].level == -1)) {
-                EXPECT_FALSE(__android_log_is_loggable(levels[i].level, tag,
-                                                       levels[j].level));
+                if (android_log_is_loggable) {
+                    fprintf(stderr, "\n");
+                }
+                EXPECT_FALSE(android_log_is_loggable);
+                for(size_t k = 10; k; --k) {
+                    EXPECT_FALSE(__android_log_is_loggable(
+                        levels[i].level, tag, levels[j].level));
+                }
             } else {
-                EXPECT_TRUE(__android_log_is_loggable(levels[i].level, tag,
-                                                      levels[j].level));
+                if (!android_log_is_loggable) {
+                    fprintf(stderr, "\n");
+                }
+                EXPECT_TRUE(android_log_is_loggable);
+                for(size_t k = 10; k; --k) {
+                    EXPECT_TRUE(__android_log_is_loggable(
+                        levels[i].level, tag, levels[j].level));
+                }
             }
         }
     }
@@ -760,30 +1308,58 @@ TEST(liblog, is_loggable) {
             fprintf(stderr, "i=%zu j=%zu property_set(\"%s\",\"%s\")\r",
                     i, j, key, buf);
             property_set(key, buf);
+            bool android_log_is_loggable = __android_log_is_loggable(
+                levels[i].level, tag, ANDROID_LOG_DEBUG);
             if ((levels[i].level < levels[j].level)
                     || (levels[j].level == -1)
                     || ((levels[i].level < ANDROID_LOG_DEBUG)
                         && (levels[j].level == -2))) {
-                EXPECT_FALSE(__android_log_is_loggable(levels[i].level, tag,
-                                                       ANDROID_LOG_DEBUG));
+                if (android_log_is_loggable) {
+                    fprintf(stderr, "\n");
+                }
+                EXPECT_FALSE(android_log_is_loggable);
+                for(size_t k = 10; k; --k) {
+                    EXPECT_FALSE(__android_log_is_loggable(
+                        levels[i].level, tag, ANDROID_LOG_DEBUG));
+                }
             } else {
-                EXPECT_TRUE(__android_log_is_loggable(levels[i].level, tag,
-                                                      ANDROID_LOG_DEBUG));
+                if (!android_log_is_loggable) {
+                    fprintf(stderr, "\n");
+                }
+                EXPECT_TRUE(android_log_is_loggable);
+                for(size_t k = 10; k; --k) {
+                    EXPECT_TRUE(__android_log_is_loggable(
+                        levels[i].level, tag, ANDROID_LOG_DEBUG));
+                }
             }
             property_set(key, "");
 
             fprintf(stderr, "i=%zu j=%zu property_set(\"%s\",\"%s\")\r",
                     i, j, key + base_offset, buf);
             property_set(key + base_offset, buf);
+            android_log_is_loggable = __android_log_is_loggable(
+                levels[i].level, tag, ANDROID_LOG_DEBUG);
             if ((levels[i].level < levels[j].level)
                     || (levels[j].level == -1)
                     || ((levels[i].level < ANDROID_LOG_DEBUG)
                         && (levels[j].level == -2))) {
-                EXPECT_FALSE(__android_log_is_loggable(levels[i].level, tag,
-                                                       ANDROID_LOG_DEBUG));
+                if (android_log_is_loggable) {
+                    fprintf(stderr, "\n");
+                }
+                EXPECT_FALSE(android_log_is_loggable);
+                for(size_t k = 10; k; --k) {
+                    EXPECT_FALSE(__android_log_is_loggable(
+                        levels[i].level, tag, ANDROID_LOG_DEBUG));
+                }
             } else {
-                EXPECT_TRUE(__android_log_is_loggable(levels[i].level, tag,
-                                                      ANDROID_LOG_DEBUG));
+                if (!android_log_is_loggable) {
+                    fprintf(stderr, "\n");
+                }
+                EXPECT_TRUE(android_log_is_loggable);
+                for(size_t k = 10; k; --k) {
+                    EXPECT_TRUE(__android_log_is_loggable(
+                        levels[i].level, tag, ANDROID_LOG_DEBUG));
+                }
             }
             property_set(key + base_offset, "");
 
@@ -792,30 +1368,58 @@ TEST(liblog, is_loggable) {
             fprintf(stderr, "i=%zu j=%zu property_set(\"%s\",\"%s\")\r",
                     i, j, key, buf);
             property_set(key, buf);
+            android_log_is_loggable = __android_log_is_loggable(
+                levels[i].level, tag, ANDROID_LOG_DEBUG);
             if ((levels[i].level < levels[j].level)
                     || (levels[j].level == -1)
                     || ((levels[i].level < ANDROID_LOG_DEBUG)
                         && (levels[j].level == -2))) {
-                EXPECT_FALSE(__android_log_is_loggable(levels[i].level, tag,
-                                                       ANDROID_LOG_DEBUG));
+                if (android_log_is_loggable) {
+                    fprintf(stderr, "\n");
+                }
+                EXPECT_FALSE(android_log_is_loggable);
+                for(size_t k = 10; k; --k) {
+                    EXPECT_FALSE(__android_log_is_loggable(
+                        levels[i].level, tag, ANDROID_LOG_DEBUG));
+                }
             } else {
-                EXPECT_TRUE(__android_log_is_loggable(levels[i].level, tag,
-                                                      ANDROID_LOG_DEBUG));
+                if (!android_log_is_loggable) {
+                    fprintf(stderr, "\n");
+                }
+                EXPECT_TRUE(android_log_is_loggable);
+                for(size_t k = 10; k; --k) {
+                    EXPECT_TRUE(__android_log_is_loggable(
+                        levels[i].level, tag, ANDROID_LOG_DEBUG));
+                }
             }
             property_set(key, "");
 
             fprintf(stderr, "i=%zu j=%zu property_set(\"%s\",\"%s\")\r",
                     i, j, key + base_offset, buf);
             property_set(key + base_offset, buf);
+            android_log_is_loggable = __android_log_is_loggable(
+                levels[i].level, tag, ANDROID_LOG_DEBUG);
             if ((levels[i].level < levels[j].level)
                     || (levels[j].level == -1)
                     || ((levels[i].level < ANDROID_LOG_DEBUG)
                         && (levels[j].level == -2))) {
-                EXPECT_FALSE(__android_log_is_loggable(levels[i].level, tag,
-                                                       ANDROID_LOG_DEBUG));
+                if (android_log_is_loggable) {
+                    fprintf(stderr, "\n");
+                }
+                EXPECT_FALSE(android_log_is_loggable);
+                for(size_t k = 10; k; --k) {
+                    EXPECT_FALSE(__android_log_is_loggable(
+                        levels[i].level, tag, ANDROID_LOG_DEBUG));
+                }
             } else {
-                EXPECT_TRUE(__android_log_is_loggable(levels[i].level, tag,
-                                                      ANDROID_LOG_DEBUG));
+                if (!android_log_is_loggable) {
+                    fprintf(stderr, "\n");
+                }
+                EXPECT_TRUE(android_log_is_loggable);
+                for(size_t k = 10; k; --k) {
+                    EXPECT_TRUE(__android_log_is_loggable(
+                        levels[i].level, tag, ANDROID_LOG_DEBUG));
+                }
             }
             property_set(key + base_offset, "");
         }
@@ -838,30 +1442,58 @@ TEST(liblog, is_loggable) {
             fprintf(stderr, "i=%zu j=%zu property_set(\"%s\",\"%s\")\r",
                     i, j, key, buf);
             property_set(key, buf);
+            bool android_log_is_loggable = __android_log_is_loggable(
+                levels[i].level, tag, ANDROID_LOG_DEBUG);
             if ((levels[i].level < levels[j].level)
                     || (levels[j].level == -1)
                     || ((levels[i].level < ANDROID_LOG_INFO) // Yes INFO
                         && (levels[j].level == -2))) {
-                EXPECT_FALSE(__android_log_is_loggable(levels[i].level, tag,
-                                                       ANDROID_LOG_DEBUG));
+                if (android_log_is_loggable) {
+                    fprintf(stderr, "\n");
+                }
+                EXPECT_FALSE(android_log_is_loggable);
+                for(size_t k = 10; k; --k) {
+                    EXPECT_FALSE(__android_log_is_loggable(
+                        levels[i].level, tag, ANDROID_LOG_DEBUG));
+                }
             } else {
-                EXPECT_TRUE(__android_log_is_loggable(levels[i].level, tag,
-                                                      ANDROID_LOG_DEBUG));
+                if (!android_log_is_loggable) {
+                    fprintf(stderr, "\n");
+                }
+                EXPECT_TRUE(android_log_is_loggable);
+                for(size_t k = 10; k; --k) {
+                    EXPECT_TRUE(__android_log_is_loggable(
+                        levels[i].level, tag, ANDROID_LOG_DEBUG));
+                }
             }
             property_set(key, "");
 
             fprintf(stderr, "i=%zu j=%zu property_set(\"%s\",\"%s\")\r",
                     i, j, key + base_offset, buf);
             property_set(key + base_offset, buf);
+            android_log_is_loggable = __android_log_is_loggable(
+                levels[i].level, tag, ANDROID_LOG_DEBUG);
             if ((levels[i].level < levels[j].level)
                     || (levels[j].level == -1)
                     || ((levels[i].level < ANDROID_LOG_INFO) // Yes INFO
                         && (levels[j].level == -2))) {
-                EXPECT_FALSE(__android_log_is_loggable(levels[i].level, tag,
-                                                       ANDROID_LOG_DEBUG));
+                if (android_log_is_loggable) {
+                    fprintf(stderr, "\n");
+                }
+                EXPECT_FALSE(android_log_is_loggable);
+                for(size_t k = 10; k; --k) {
+                    EXPECT_FALSE(__android_log_is_loggable(
+                        levels[i].level, tag, ANDROID_LOG_DEBUG));
+                }
             } else {
-                EXPECT_TRUE(__android_log_is_loggable(levels[i].level, tag,
-                                                      ANDROID_LOG_DEBUG));
+                if (!android_log_is_loggable) {
+                    fprintf(stderr, "\n");
+                }
+                EXPECT_TRUE(android_log_is_loggable);
+                for(size_t k = 10; k; --k) {
+                    EXPECT_TRUE(__android_log_is_loggable(
+                        levels[i].level, tag, ANDROID_LOG_DEBUG));
+                }
             }
             property_set(key + base_offset, "");
         }
@@ -875,4 +1507,1005 @@ TEST(liblog, is_loggable) {
     key[sizeof(log_namespace) - 2] = '\0';
     property_set(key, hold[2]);
     property_set(key + base_offset, hold[3]);
+}
+
+TEST(liblog, android_errorWriteWithInfoLog__android_logger_list_read__typical) {
+    const int TAG = 123456781;
+    const char SUBTAG[] = "test-subtag";
+    const int UID = -1;
+    const int DATA_LEN = 200;
+    struct logger_list *logger_list;
+
+    pid_t pid = getpid();
+
+    ASSERT_TRUE(NULL != (logger_list = android_logger_list_open(
+        LOG_ID_EVENTS, ANDROID_LOG_RDONLY | ANDROID_LOG_NONBLOCK, 1000, pid)));
+
+    ASSERT_LT(0, android_errorWriteWithInfoLog(
+            TAG, SUBTAG, UID, max_payload_buf, DATA_LEN));
+
+    sleep(2);
+
+    int count = 0;
+
+    for (;;) {
+        log_msg log_msg;
+        if (android_logger_list_read(logger_list, &log_msg) <= 0) {
+            break;
+        }
+
+        char *eventData = log_msg.msg();
+
+        // Tag
+        int tag = get4LE(eventData);
+        eventData += 4;
+
+        if (tag != TAG) {
+            continue;
+        }
+
+        // List type
+        ASSERT_EQ(EVENT_TYPE_LIST, eventData[0]);
+        eventData++;
+
+        // Number of elements in list
+        ASSERT_EQ(3, eventData[0]);
+        eventData++;
+
+        // Element #1: string type for subtag
+        ASSERT_EQ(EVENT_TYPE_STRING, eventData[0]);
+        eventData++;
+
+        ASSERT_EQ((int) strlen(SUBTAG), get4LE(eventData));
+        eventData +=4;
+
+        if (memcmp(SUBTAG, eventData, strlen(SUBTAG))) {
+            continue;
+        }
+        eventData += strlen(SUBTAG);
+
+        // Element #2: int type for uid
+        ASSERT_EQ(EVENT_TYPE_INT, eventData[0]);
+        eventData++;
+
+        ASSERT_EQ(UID, get4LE(eventData));
+        eventData += 4;
+
+        // Element #3: string type for data
+        ASSERT_EQ(EVENT_TYPE_STRING, eventData[0]);
+        eventData++;
+
+        ASSERT_EQ(DATA_LEN, get4LE(eventData));
+        eventData += 4;
+
+        if (memcmp(max_payload_buf, eventData, DATA_LEN)) {
+            continue;
+        }
+
+        ++count;
+    }
+
+    EXPECT_EQ(1, count);
+
+    android_logger_list_close(logger_list);
+}
+
+TEST(liblog, android_errorWriteWithInfoLog__android_logger_list_read__data_too_large) {
+    const int TAG = 123456782;
+    const char SUBTAG[] = "test-subtag";
+    const int UID = -1;
+    const int DATA_LEN = sizeof(max_payload_buf);
+    struct logger_list *logger_list;
+
+    pid_t pid = getpid();
+
+    ASSERT_TRUE(NULL != (logger_list = android_logger_list_open(
+        LOG_ID_EVENTS, ANDROID_LOG_RDONLY | ANDROID_LOG_NONBLOCK, 1000, pid)));
+
+    ASSERT_LT(0, android_errorWriteWithInfoLog(
+            TAG, SUBTAG, UID, max_payload_buf, DATA_LEN));
+
+    sleep(2);
+
+    int count = 0;
+
+    for (;;) {
+        log_msg log_msg;
+        if (android_logger_list_read(logger_list, &log_msg) <= 0) {
+            break;
+        }
+
+        char *eventData = log_msg.msg();
+        char *original = eventData;
+
+        // Tag
+        int tag = get4LE(eventData);
+        eventData += 4;
+
+        if (tag != TAG) {
+            continue;
+        }
+
+        // List type
+        ASSERT_EQ(EVENT_TYPE_LIST, eventData[0]);
+        eventData++;
+
+        // Number of elements in list
+        ASSERT_EQ(3, eventData[0]);
+        eventData++;
+
+        // Element #1: string type for subtag
+        ASSERT_EQ(EVENT_TYPE_STRING, eventData[0]);
+        eventData++;
+
+        ASSERT_EQ((int) strlen(SUBTAG), get4LE(eventData));
+        eventData +=4;
+
+        if (memcmp(SUBTAG, eventData, strlen(SUBTAG))) {
+            continue;
+        }
+        eventData += strlen(SUBTAG);
+
+        // Element #2: int type for uid
+        ASSERT_EQ(EVENT_TYPE_INT, eventData[0]);
+        eventData++;
+
+        ASSERT_EQ(UID, get4LE(eventData));
+        eventData += 4;
+
+        // Element #3: string type for data
+        ASSERT_EQ(EVENT_TYPE_STRING, eventData[0]);
+        eventData++;
+
+        size_t dataLen = get4LE(eventData);
+        eventData += 4;
+
+        if (memcmp(max_payload_buf, eventData, dataLen)) {
+            continue;
+        }
+        eventData += dataLen;
+
+        // 4 bytes for the tag, and max_payload_buf should be truncated.
+        ASSERT_LE(4 + 512, eventData - original);      // worst expectations
+        ASSERT_GT(4 + DATA_LEN, eventData - original); // must be truncated
+
+        ++count;
+    }
+
+    EXPECT_EQ(1, count);
+
+    android_logger_list_close(logger_list);
+}
+
+TEST(liblog, android_errorWriteWithInfoLog__android_logger_list_read__null_data) {
+    const int TAG = 123456783;
+    const char SUBTAG[] = "test-subtag";
+    const int UID = -1;
+    const int DATA_LEN = 200;
+    struct logger_list *logger_list;
+
+    pid_t pid = getpid();
+
+    ASSERT_TRUE(NULL != (logger_list = android_logger_list_open(
+        LOG_ID_EVENTS, ANDROID_LOG_RDONLY | ANDROID_LOG_NONBLOCK, 1000, pid)));
+
+    ASSERT_GT(0, android_errorWriteWithInfoLog(
+            TAG, SUBTAG, UID, NULL, DATA_LEN));
+
+    sleep(2);
+
+    int count = 0;
+
+    for (;;) {
+        log_msg log_msg;
+        if (android_logger_list_read(logger_list, &log_msg) <= 0) {
+            break;
+        }
+
+        char *eventData = log_msg.msg();
+
+        // Tag
+        int tag = get4LE(eventData);
+        eventData += 4;
+
+        if (tag == TAG) {
+            // This tag should not have been written because the data was null
+            count++;
+            break;
+        }
+    }
+
+    EXPECT_EQ(0, count);
+
+    android_logger_list_close(logger_list);
+}
+
+TEST(liblog, android_errorWriteWithInfoLog__android_logger_list_read__subtag_too_long) {
+    const int TAG = 123456784;
+    const char SUBTAG[] = "abcdefghijklmnopqrstuvwxyz now i know my abc";
+    const int UID = -1;
+    const int DATA_LEN = 200;
+    struct logger_list *logger_list;
+
+    pid_t pid = getpid();
+
+    ASSERT_TRUE(NULL != (logger_list = android_logger_list_open(
+        LOG_ID_EVENTS, ANDROID_LOG_RDONLY | ANDROID_LOG_NONBLOCK, 1000, pid)));
+
+    ASSERT_LT(0, android_errorWriteWithInfoLog(
+            TAG, SUBTAG, UID, max_payload_buf, DATA_LEN));
+
+    sleep(2);
+
+    int count = 0;
+
+    for (;;) {
+        log_msg log_msg;
+        if (android_logger_list_read(logger_list, &log_msg) <= 0) {
+            break;
+        }
+
+        char *eventData = log_msg.msg();
+
+        // Tag
+        int tag = get4LE(eventData);
+        eventData += 4;
+
+        if (tag != TAG) {
+            continue;
+        }
+
+        // List type
+        ASSERT_EQ(EVENT_TYPE_LIST, eventData[0]);
+        eventData++;
+
+        // Number of elements in list
+        ASSERT_EQ(3, eventData[0]);
+        eventData++;
+
+        // Element #1: string type for subtag
+        ASSERT_EQ(EVENT_TYPE_STRING, eventData[0]);
+        eventData++;
+
+        // The subtag is longer than 32 and should be truncated to that.
+        ASSERT_EQ(32, get4LE(eventData));
+        eventData +=4;
+
+        if (memcmp(SUBTAG, eventData, 32)) {
+            continue;
+        }
+        eventData += 32;
+
+        // Element #2: int type for uid
+        ASSERT_EQ(EVENT_TYPE_INT, eventData[0]);
+        eventData++;
+
+        ASSERT_EQ(UID, get4LE(eventData));
+        eventData += 4;
+
+        // Element #3: string type for data
+        ASSERT_EQ(EVENT_TYPE_STRING, eventData[0]);
+        eventData++;
+
+        ASSERT_EQ(DATA_LEN, get4LE(eventData));
+        eventData += 4;
+
+        if (memcmp(max_payload_buf, eventData, DATA_LEN)) {
+            continue;
+        }
+
+        ++count;
+    }
+
+    EXPECT_EQ(1, count);
+
+    android_logger_list_close(logger_list);
+}
+
+TEST(liblog, android_errorWriteLog__android_logger_list_read__success) {
+    const int TAG = 123456785;
+    const char SUBTAG[] = "test-subtag";
+    struct logger_list *logger_list;
+
+    pid_t pid = getpid();
+
+    ASSERT_TRUE(NULL != (logger_list = android_logger_list_open(
+        LOG_ID_EVENTS, ANDROID_LOG_RDONLY | ANDROID_LOG_NONBLOCK, 1000, pid)));
+
+    ASSERT_LT(0, android_errorWriteLog(TAG, SUBTAG));
+
+    sleep(2);
+
+    int count = 0;
+
+    for (;;) {
+        log_msg log_msg;
+        if (android_logger_list_read(logger_list, &log_msg) <= 0) {
+            break;
+        }
+
+        char *eventData = log_msg.msg();
+
+        // Tag
+        int tag = get4LE(eventData);
+        eventData += 4;
+
+        if (tag != TAG) {
+            continue;
+        }
+
+        // List type
+        ASSERT_EQ(EVENT_TYPE_LIST, eventData[0]);
+        eventData++;
+
+        // Number of elements in list
+        ASSERT_EQ(3, eventData[0]);
+        eventData++;
+
+        // Element #1: string type for subtag
+        ASSERT_EQ(EVENT_TYPE_STRING, eventData[0]);
+        eventData++;
+
+        ASSERT_EQ((int) strlen(SUBTAG), get4LE(eventData));
+        eventData +=4;
+
+        if (memcmp(SUBTAG, eventData, strlen(SUBTAG))) {
+            continue;
+        }
+        ++count;
+    }
+
+    EXPECT_EQ(1, count);
+
+    android_logger_list_close(logger_list);
+}
+
+TEST(liblog, android_errorWriteLog__android_logger_list_read__null_subtag) {
+    const int TAG = 123456786;
+    struct logger_list *logger_list;
+
+    pid_t pid = getpid();
+
+    ASSERT_TRUE(NULL != (logger_list = android_logger_list_open(
+        LOG_ID_EVENTS, ANDROID_LOG_RDONLY | ANDROID_LOG_NONBLOCK, 1000, pid)));
+
+    ASSERT_GT(0, android_errorWriteLog(TAG, NULL));
+
+    sleep(2);
+
+    int count = 0;
+
+    for (;;) {
+        log_msg log_msg;
+        if (android_logger_list_read(logger_list, &log_msg) <= 0) {
+            break;
+        }
+
+        char *eventData = log_msg.msg();
+
+        // Tag
+        int tag = get4LE(eventData);
+        eventData += 4;
+
+        if (tag == TAG) {
+            // This tag should not have been written because the data was null
+            count++;
+            break;
+        }
+    }
+
+    EXPECT_EQ(0, count);
+
+    android_logger_list_close(logger_list);
+}
+
+static int is_real_element(int type) {
+    return ((type == EVENT_TYPE_INT) ||
+            (type == EVENT_TYPE_LONG) ||
+            (type == EVENT_TYPE_STRING) ||
+            (type == EVENT_TYPE_FLOAT));
+}
+
+int android_log_buffer_to_string(const char *msg, size_t len,
+                                 char *strOut, size_t strOutLen) {
+    android_log_context context = create_android_log_parser(msg, len);
+    android_log_list_element elem;
+    bool overflow = false;
+    /* Reserve 1 byte for null terminator. */
+    size_t origStrOutLen = strOutLen--;
+
+    if (!context) {
+        return -EBADF;
+    }
+
+    memset(&elem, 0, sizeof(elem));
+
+    size_t outCount;
+
+    do {
+        elem = android_log_read_next(context);
+        switch ((int)elem.type) {
+        case EVENT_TYPE_LIST:
+            if (strOutLen == 0) {
+                overflow = true;
+            } else {
+                *strOut++ = '[';
+                strOutLen--;
+            }
+            break;
+
+        case EVENT_TYPE_LIST_STOP:
+            if (strOutLen == 0) {
+                overflow = true;
+            } else {
+                *strOut++ = ']';
+                strOutLen--;
+            }
+            break;
+
+        case EVENT_TYPE_INT:
+            /*
+             * snprintf also requires room for the null terminator, which
+             * we don't care about  but we have allocated enough room for
+             * that
+             */
+            outCount = snprintf(strOut, strOutLen + 1,
+                                "%" PRId32, elem.data.int32);
+            if (outCount <= strOutLen) {
+                strOut += outCount;
+                strOutLen -= outCount;
+            } else {
+                overflow = true;
+            }
+            break;
+
+        case EVENT_TYPE_LONG:
+            /*
+             * snprintf also requires room for the null terminator, which
+             * we don't care about but we have allocated enough room for
+             * that
+             */
+            outCount = snprintf(strOut, strOutLen + 1,
+                                "%" PRId64, elem.data.int64);
+            if (outCount <= strOutLen) {
+                strOut += outCount;
+                strOutLen -= outCount;
+            } else {
+                overflow = true;
+            }
+            break;
+
+        case EVENT_TYPE_FLOAT:
+            /*
+             * snprintf also requires room for the null terminator, which
+             * we don't care about but we have allocated enough room for
+             * that
+             */
+            outCount = snprintf(strOut, strOutLen + 1, "%f", elem.data.float32);
+            if (outCount <= strOutLen) {
+                strOut += outCount;
+                strOutLen -= outCount;
+            } else {
+                overflow = true;
+            }
+            break;
+
+        default:
+            elem.complete = true;
+            break;
+
+        case EVENT_TYPE_UNKNOWN:
+#if 0 // Ideal purity in the test, we want to complain about UNKNOWN showing up
+            if (elem.complete) {
+                break;
+            }
+#endif
+            elem.data.string = const_cast<char *>("<unknown>");
+            elem.len = strlen(elem.data.string);
+            /* FALLTHRU */
+        case EVENT_TYPE_STRING:
+            if (elem.len <= strOutLen) {
+                memcpy(strOut, elem.data.string, elem.len);
+                strOut += elem.len;
+                strOutLen -= elem.len;
+            } else if (strOutLen > 0) {
+                /* copy what we can */
+                memcpy(strOut, elem.data.string, strOutLen);
+                strOut += strOutLen;
+                strOutLen = 0;
+                overflow = true;
+            }
+            break;
+        }
+
+        if (elem.complete) {
+            break;
+        }
+        /* Determine whether to put a comma or not. */
+        if (!overflow && (is_real_element(elem.type) ||
+                (elem.type == EVENT_TYPE_LIST_STOP))) {
+            android_log_list_element next = android_log_peek_next(context);
+            if (!next.complete && (is_real_element(next.type) ||
+                    (next.type == EVENT_TYPE_LIST))) {
+                if (strOutLen == 0) {
+                    overflow = true;
+                } else {
+                    *strOut++ = ',';
+                    strOutLen--;
+                }
+            }
+        }
+    } while ((elem.type != EVENT_TYPE_UNKNOWN) && !overflow && !elem.complete);
+
+    android_log_destroy(&context);
+
+    if (overflow) {
+        if (strOutLen < origStrOutLen) {
+            /* leave an indicator */
+            *(strOut-1) = '!';
+        } else {
+            /* nothing was written at all */
+            *strOut++ = '!';
+        }
+    }
+    *strOut++ = '\0';
+
+    if ((elem.type == EVENT_TYPE_UNKNOWN) && !elem.complete) {
+        fprintf(stderr, "Binary log entry conversion failed\n");
+        return -EINVAL;
+    }
+
+    return 0;
+}
+
+static const char *event_test_int32(uint32_t tag, size_t &expected_len) {
+    android_log_context ctx;
+
+    EXPECT_TRUE(NULL != (ctx = create_android_logger(tag)));
+    if (!ctx) {
+        return NULL;
+    }
+    EXPECT_LE(0, android_log_write_int32(ctx, 0x40302010));
+    EXPECT_LE(0, android_log_write_list(ctx, LOG_ID_EVENTS));
+    EXPECT_LE(0, android_log_destroy(&ctx));
+    EXPECT_TRUE(NULL == ctx);
+
+    expected_len = sizeof(uint32_t) +
+                   sizeof(uint8_t) + sizeof(uint32_t);
+
+    return "1076895760";
+}
+
+static const char *event_test_int64(uint32_t tag, size_t &expected_len) {
+    android_log_context ctx;
+
+    EXPECT_TRUE(NULL != (ctx = create_android_logger(tag)));
+    if (!ctx) {
+        return NULL;
+    }
+    EXPECT_LE(0, android_log_write_int64(ctx, 0x8070605040302010));
+    EXPECT_LE(0, android_log_write_list(ctx, LOG_ID_EVENTS));
+    EXPECT_LE(0, android_log_destroy(&ctx));
+    EXPECT_TRUE(NULL == ctx);
+
+    expected_len = sizeof(uint32_t) +
+                   sizeof(uint8_t) + sizeof(uint64_t);
+
+    return "-9191740941672636400";
+}
+
+static const char *event_test_list_int64(uint32_t tag, size_t &expected_len) {
+    android_log_context ctx;
+
+    EXPECT_TRUE(NULL != (ctx = create_android_logger(tag)));
+    if (!ctx) {
+        return NULL;
+    }
+    EXPECT_LE(0, android_log_write_list_begin(ctx));
+    EXPECT_LE(0, android_log_write_int64(ctx, 0x8070605040302010));
+    EXPECT_LE(0, android_log_write_list_end(ctx));
+    EXPECT_LE(0, android_log_write_list(ctx, LOG_ID_EVENTS));
+    EXPECT_LE(0, android_log_destroy(&ctx));
+    EXPECT_TRUE(NULL == ctx);
+
+    expected_len = sizeof(uint32_t) +
+                   sizeof(uint8_t) + sizeof(uint8_t) +
+                       sizeof(uint8_t) + sizeof(uint64_t);
+
+    return "[-9191740941672636400]";
+}
+
+static const char *event_test_simple_automagic_list(uint32_t tag, size_t &expected_len) {
+    android_log_context ctx;
+
+    EXPECT_TRUE(NULL != (ctx = create_android_logger(tag)));
+    if (!ctx) {
+        return NULL;
+    }
+    // The convenience API where we allow a simple list to be
+    // created without explicit begin or end calls.
+    EXPECT_LE(0, android_log_write_int32(ctx, 0x40302010));
+    EXPECT_LE(0, android_log_write_int64(ctx, 0x8070605040302010));
+    EXPECT_LE(0, android_log_write_list(ctx, LOG_ID_EVENTS));
+    EXPECT_LE(0, android_log_destroy(&ctx));
+    EXPECT_TRUE(NULL == ctx);
+
+    expected_len = sizeof(uint32_t) +
+                   sizeof(uint8_t) + sizeof(uint8_t) +
+                       sizeof(uint8_t) + sizeof(uint32_t) +
+                       sizeof(uint8_t) + sizeof(uint64_t);
+
+    return "[1076895760,-9191740941672636400]";
+}
+
+static const char *event_test_list_empty(uint32_t tag, size_t &expected_len) {
+    android_log_context ctx;
+
+    EXPECT_TRUE(NULL != (ctx = create_android_logger(tag)));
+    if (!ctx) {
+        return NULL;
+    }
+    EXPECT_LE(0, android_log_write_list_begin(ctx));
+    EXPECT_LE(0, android_log_write_list_end(ctx));
+    EXPECT_LE(0, android_log_write_list(ctx, LOG_ID_EVENTS));
+    EXPECT_LE(0, android_log_destroy(&ctx));
+    EXPECT_TRUE(NULL == ctx);
+
+    expected_len = sizeof(uint32_t) +
+                   sizeof(uint8_t) + sizeof(uint8_t);
+
+    return "[]";
+}
+
+static const char *event_test_complex_nested_list(uint32_t tag, size_t &expected_len) {
+    android_log_context ctx;
+
+    EXPECT_TRUE(NULL != (ctx = create_android_logger(tag)));
+    if (!ctx) {
+        return NULL;
+    }
+
+    EXPECT_LE(0, android_log_write_list_begin(ctx)); // [
+    EXPECT_LE(0, android_log_write_int32(ctx, 0x01020304));
+    EXPECT_LE(0, android_log_write_int64(ctx, 0x0102030405060708));
+    EXPECT_LE(0, android_log_write_string8(ctx, "Hello World"));
+    EXPECT_LE(0, android_log_write_list_begin(ctx)); // [
+    EXPECT_LE(0, android_log_write_int32(ctx, 1));
+    EXPECT_LE(0, android_log_write_int32(ctx, 2));
+    EXPECT_LE(0, android_log_write_int32(ctx, 3));
+    EXPECT_LE(0, android_log_write_int32(ctx, 4));
+    EXPECT_LE(0, android_log_write_list_end(ctx));   // ]
+    EXPECT_LE(0, android_log_write_float32(ctx, 1.0102030405060708));
+    EXPECT_LE(0, android_log_write_list_end(ctx));   // ]
+
+    //
+    // This one checks for the automagic list creation because a list
+    // begin and end was missing for it! This is actually an <oops> corner
+    // case, and not the behavior we morally support. The automagic API is to
+    // allow for a simple case of a series of objects in a single list. e.g.
+    //   int32,int32,int32,string -> [int32,int32,int32,string]
+    //
+    EXPECT_LE(0, android_log_write_string8(ctx, "dlroW olleH"));
+
+    EXPECT_LE(0, android_log_write_list(ctx, LOG_ID_EVENTS));
+    EXPECT_LE(0, android_log_destroy(&ctx));
+    EXPECT_TRUE(NULL == ctx);
+
+    expected_len = sizeof(uint32_t) +
+                   sizeof(uint8_t) + sizeof(uint8_t) +
+                       sizeof(uint8_t) + sizeof(uint8_t) +
+                           sizeof(uint8_t) + sizeof(uint32_t) +
+                           sizeof(uint8_t) + sizeof(uint64_t) +
+                           sizeof(uint8_t) + sizeof(uint32_t) +
+                                             sizeof("Hello World") - 1 +
+                           sizeof(uint8_t) + sizeof(uint8_t) +
+                               4 * (sizeof(uint8_t) + sizeof(uint32_t)) +
+                           sizeof(uint8_t) + sizeof(uint32_t) +
+                       sizeof(uint8_t) + sizeof(uint32_t) +
+                                         sizeof("dlroW olleH") - 1;
+
+    return "[[16909060,72623859790382856,Hello World,[1,2,3,4],1.010203],dlroW olleH]";
+}
+
+static const char *event_test_7_level_prefix(uint32_t tag, size_t &expected_len) {
+    android_log_context ctx;
+
+    EXPECT_TRUE(NULL != (ctx = create_android_logger(tag)));
+    if (!ctx) {
+        return NULL;
+    }
+    EXPECT_LE(0, android_log_write_list_begin(ctx));
+    EXPECT_LE(0, android_log_write_list_begin(ctx));
+    EXPECT_LE(0, android_log_write_list_begin(ctx));
+    EXPECT_LE(0, android_log_write_list_begin(ctx));
+    EXPECT_LE(0, android_log_write_list_begin(ctx));
+    EXPECT_LE(0, android_log_write_list_begin(ctx));
+    EXPECT_LE(0, android_log_write_list_begin(ctx));
+    EXPECT_LE(0, android_log_write_int32(ctx, 1));
+    EXPECT_LE(0, android_log_write_list_end(ctx));
+    EXPECT_LE(0, android_log_write_int32(ctx, 2));
+    EXPECT_LE(0, android_log_write_list_end(ctx));
+    EXPECT_LE(0, android_log_write_int32(ctx, 3));
+    EXPECT_LE(0, android_log_write_list_end(ctx));
+    EXPECT_LE(0, android_log_write_int32(ctx, 4));
+    EXPECT_LE(0, android_log_write_list_end(ctx));
+    EXPECT_LE(0, android_log_write_int32(ctx, 5));
+    EXPECT_LE(0, android_log_write_list_end(ctx));
+    EXPECT_LE(0, android_log_write_int32(ctx, 6));
+    EXPECT_LE(0, android_log_write_list_end(ctx));
+    EXPECT_LE(0, android_log_write_int32(ctx, 7));
+    EXPECT_LE(0, android_log_write_list_end(ctx));
+    EXPECT_LE(0, android_log_write_list(ctx, LOG_ID_EVENTS));
+    EXPECT_LE(0, android_log_destroy(&ctx));
+    EXPECT_TRUE(NULL == ctx);
+
+    expected_len = sizeof(uint32_t) + 7 *
+      (sizeof(uint8_t) + sizeof(uint8_t) + sizeof(uint8_t) + sizeof(uint32_t));
+
+    return "[[[[[[[1],2],3],4],5],6],7]";
+}
+
+static const char *event_test_7_level_suffix(uint32_t tag, size_t &expected_len) {
+    android_log_context ctx;
+
+    EXPECT_TRUE(NULL != (ctx = create_android_logger(tag)));
+    if (!ctx) {
+        return NULL;
+    }
+    EXPECT_LE(0, android_log_write_list_begin(ctx));
+    EXPECT_LE(0, android_log_write_int32(ctx, 1));
+    EXPECT_LE(0, android_log_write_list_begin(ctx));
+    EXPECT_LE(0, android_log_write_int32(ctx, 2));
+    EXPECT_LE(0, android_log_write_list_begin(ctx));
+    EXPECT_LE(0, android_log_write_int32(ctx, 3));
+    EXPECT_LE(0, android_log_write_list_begin(ctx));
+    EXPECT_LE(0, android_log_write_int32(ctx, 4));
+    EXPECT_LE(0, android_log_write_list_begin(ctx));
+    EXPECT_LE(0, android_log_write_int32(ctx, 5));
+    EXPECT_LE(0, android_log_write_list_begin(ctx));
+    EXPECT_LE(0, android_log_write_int32(ctx, 6));
+    EXPECT_LE(0, android_log_write_list_end(ctx));
+    EXPECT_LE(0, android_log_write_list_end(ctx));
+    EXPECT_LE(0, android_log_write_list_end(ctx));
+    EXPECT_LE(0, android_log_write_list_end(ctx));
+    EXPECT_LE(0, android_log_write_list_end(ctx));
+    EXPECT_LE(0, android_log_write_list_end(ctx));
+    EXPECT_LE(0, android_log_write_list(ctx, LOG_ID_EVENTS));
+    EXPECT_LE(0, android_log_destroy(&ctx));
+    EXPECT_TRUE(NULL == ctx);
+
+    expected_len = sizeof(uint32_t) + 6 *
+      (sizeof(uint8_t) + sizeof(uint8_t) + sizeof(uint8_t) + sizeof(uint32_t));
+
+    return "[1,[2,[3,[4,[5,[6]]]]]]";
+}
+
+static const char *event_test_android_log_error_write(uint32_t tag, size_t &expected_len) {
+    EXPECT_LE(0, __android_log_error_write(tag, "Hello World", 42, "dlroW olleH", 11));
+
+    expected_len = sizeof(uint32_t) +
+      sizeof(uint8_t) + sizeof(uint8_t) +
+          sizeof(uint8_t) + sizeof(uint32_t) + sizeof("Hello World") - 1 +
+          sizeof(uint8_t) + sizeof(uint32_t) +
+          sizeof(uint8_t) + sizeof(uint32_t) + sizeof("dlroW olleH") - 1;
+
+    return "[Hello World,42,dlroW olleH]";
+}
+
+static const char *event_test_android_log_error_write_null(uint32_t tag, size_t &expected_len) {
+    EXPECT_LE(0, __android_log_error_write(tag, "Hello World", 42, NULL, 0));
+
+    expected_len = sizeof(uint32_t) +
+      sizeof(uint8_t) + sizeof(uint8_t) +
+          sizeof(uint8_t) + sizeof(uint32_t) + sizeof("Hello World") - 1 +
+          sizeof(uint8_t) + sizeof(uint32_t) +
+          sizeof(uint8_t) + sizeof(uint32_t) + sizeof("") - 1;
+
+    return "[Hello World,42,]";
+}
+
+// make sure all user buffers are flushed
+static void print_barrier() {
+    std::cout.flush();
+    fflush(stdout);
+    std::cerr.flush();
+    fflush(stderr); // everything else is paranoia ...
+}
+
+static void create_android_logger(const char *(*fn)(uint32_t tag, size_t &expected_len)) {
+    struct logger_list *logger_list;
+
+    pid_t pid = getpid();
+
+    ASSERT_TRUE(NULL != (logger_list = android_logger_list_open(
+        LOG_ID_EVENTS, ANDROID_LOG_RDONLY | ANDROID_LOG_NONBLOCK, 1000, pid)));
+
+    log_time ts(android_log_clockid());
+
+    size_t expected_len;
+    const char *expected_string = (*fn)(1005, expected_len);
+
+    if (!expected_string) {
+        android_logger_list_close(logger_list);
+        return;
+    }
+
+    usleep(1000000);
+
+    int count = 0;
+
+    for (;;) {
+        log_msg log_msg;
+        if (android_logger_list_read(logger_list, &log_msg) <= 0) {
+            break;
+        }
+
+        ASSERT_EQ(log_msg.entry.pid, pid);
+
+        if ((log_msg.entry.sec < (ts.tv_sec - 1))
+         || ((ts.tv_sec + 1) < log_msg.entry.sec)
+         || ((size_t)log_msg.entry.len != expected_len)
+         || (log_msg.id() != LOG_ID_EVENTS)) {
+            continue;
+        }
+
+        char *eventData = log_msg.msg();
+
+        ++count;
+
+        AndroidLogFormat *logformat = android_log_format_new();
+        EXPECT_TRUE(NULL != logformat);
+        AndroidLogEntry entry;
+        char msgBuf[1024];
+        int processBinaryLogBuffer = android_log_processBinaryLogBuffer(
+            &log_msg.entry_v1, &entry, NULL, msgBuf, sizeof(msgBuf));
+        EXPECT_EQ(0, processBinaryLogBuffer);
+        if (processBinaryLogBuffer == 0) {
+            print_barrier();
+            int printLogLine = android_log_printLogLine(
+                logformat, fileno(stderr), &entry);
+            print_barrier();
+            EXPECT_EQ(20 + (int)strlen(expected_string), printLogLine);
+        }
+        android_log_format_free(logformat);
+
+        // test buffer reading API
+        snprintf(msgBuf, sizeof(msgBuf), "I/[%d]", get4LE(eventData));
+        print_barrier();
+        fprintf(stderr, "%-10s(%5u): ", msgBuf, pid);
+        memset(msgBuf, 0, sizeof(msgBuf));
+        int buffer_to_string = android_log_buffer_to_string(
+            eventData + sizeof(uint32_t),
+            log_msg.entry.len - sizeof(uint32_t),
+            msgBuf, sizeof(msgBuf));
+        fprintf(stderr, "%s\n", msgBuf);
+        print_barrier();
+        EXPECT_EQ(0, buffer_to_string);
+        EXPECT_EQ(strlen(expected_string), strlen(msgBuf));
+        EXPECT_EQ(0, strcmp(expected_string, msgBuf));
+    }
+
+    EXPECT_EQ(1, count);
+
+    android_logger_list_close(logger_list);
+}
+
+TEST(liblog, create_android_logger_int32) {
+    create_android_logger(event_test_int32);
+}
+
+TEST(liblog, create_android_logger_int64) {
+    create_android_logger(event_test_int64);
+}
+
+TEST(liblog, create_android_logger_list_int64) {
+    create_android_logger(event_test_list_int64);
+}
+
+TEST(liblog, create_android_logger_simple_automagic_list) {
+    create_android_logger(event_test_simple_automagic_list);
+}
+
+TEST(liblog, create_android_logger_list_empty) {
+    create_android_logger(event_test_list_empty);
+}
+
+TEST(liblog, create_android_logger_complex_nested_list) {
+    create_android_logger(event_test_complex_nested_list);
+}
+
+TEST(liblog, create_android_logger_7_level_prefix) {
+    create_android_logger(event_test_7_level_prefix);
+}
+
+TEST(liblog, create_android_logger_7_level_suffix) {
+    create_android_logger(event_test_7_level_suffix);
+}
+
+TEST(liblog, create_android_logger_android_log_error_write) {
+    create_android_logger(event_test_android_log_error_write);
+}
+
+TEST(liblog, create_android_logger_android_log_error_write_null) {
+    create_android_logger(event_test_android_log_error_write_null);
+}
+
+TEST(liblog, create_android_logger_overflow) {
+    android_log_context ctx;
+
+    EXPECT_TRUE(NULL != (ctx = create_android_logger(1005)));
+    if (ctx) {
+        for (size_t i = 0; i < ANDROID_MAX_LIST_NEST_DEPTH; ++i) {
+            EXPECT_LE(0, android_log_write_list_begin(ctx));
+        }
+        EXPECT_GT(0, android_log_write_list_begin(ctx));
+        /* One more for good measure, must be permanently unhappy */
+        EXPECT_GT(0, android_log_write_list_begin(ctx));
+        EXPECT_LE(0, android_log_destroy(&ctx));
+        EXPECT_TRUE(NULL == ctx);
+    }
+
+    ASSERT_TRUE(NULL != (ctx = create_android_logger(1005)));
+    for (size_t i = 0; i < ANDROID_MAX_LIST_NEST_DEPTH; ++i) {
+        EXPECT_LE(0, android_log_write_list_begin(ctx));
+        EXPECT_LE(0, android_log_write_int32(ctx, i));
+    }
+    EXPECT_GT(0, android_log_write_list_begin(ctx));
+    /* One more for good measure, must be permanently unhappy */
+    EXPECT_GT(0, android_log_write_list_begin(ctx));
+    EXPECT_LE(0, android_log_destroy(&ctx));
+    ASSERT_TRUE(NULL == ctx);
+}
+
+static const char __pmsg_file[] =
+        "/data/william-shakespeare/MuchAdoAboutNothing.txt";
+
+TEST(liblog, __android_log_pmsg_file_write) {
+    EXPECT_LT(0, __android_log_pmsg_file_write(
+            LOG_ID_CRASH, ANDROID_LOG_VERBOSE,
+            __pmsg_file, max_payload_buf, sizeof(max_payload_buf)));
+    fprintf(stderr, "Reboot, ensure file %s matches\n"
+                    "with liblog.__android_log_msg_file_read test\n",
+                    __pmsg_file);
+}
+
+ssize_t __pmsg_fn(log_id_t logId, char prio, const char *filename,
+                  const char *buf, size_t len, void *arg) {
+    EXPECT_TRUE(NULL == arg);
+    EXPECT_EQ(LOG_ID_CRASH, logId);
+    EXPECT_EQ(ANDROID_LOG_VERBOSE, prio);
+    EXPECT_FALSE(NULL == strstr(__pmsg_file, filename));
+    EXPECT_EQ(len, sizeof(max_payload_buf));
+    EXPECT_EQ(0, strcmp(max_payload_buf, buf));
+
+    ++signaled;
+    if ((len != sizeof(max_payload_buf)) ||
+            strcmp(max_payload_buf, buf)) {
+        fprintf(stderr, "comparison fails on content \"%s\"\n", buf);
+    }
+    return !arg ||
+           (LOG_ID_CRASH != logId) ||
+           (ANDROID_LOG_VERBOSE != prio) ||
+           !strstr(__pmsg_file, filename) ||
+           (len != sizeof(max_payload_buf)) ||
+           !!strcmp(max_payload_buf, buf) ? -ENOEXEC : 1;
+}
+
+TEST(liblog, __android_log_pmsg_file_read) {
+    signaled = 0;
+
+    ssize_t ret = __android_log_pmsg_file_read(
+            LOG_ID_CRASH, ANDROID_LOG_VERBOSE,
+            __pmsg_file, __pmsg_fn, NULL);
+
+    if (ret == -ENOENT) {
+        fprintf(stderr,
+            "No pre-boot results of liblog.__android_log_mesg_file_write to "
+            "compare with,\n"
+            "false positive test result.\n");
+        return;
+    }
+
+    EXPECT_LT(0, ret);
+    EXPECT_EQ(1U, signaled);
 }

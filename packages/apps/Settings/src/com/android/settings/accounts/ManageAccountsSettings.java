@@ -34,9 +34,9 @@ import android.content.pm.ResolveInfo;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.UserHandle;
-import android.preference.Preference;
-import android.preference.Preference.OnPreferenceClickListener;
-import android.preference.PreferenceScreen;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.Preference.OnPreferenceClickListener;
+import android.support.v7.preference.PreferenceScreen;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -44,15 +44,15 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ListView;
 import android.widget.TextView;
 
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.AccountPreference;
 import com.android.settings.R;
 import com.android.settings.SettingsActivity;
 import com.android.settings.Utils;
 import com.android.settings.location.LocationSettings;
+import com.android.settingslib.accounts.AuthenticatorHelper;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -89,7 +89,7 @@ public class ManageAccountsSettings extends AccountPreferenceBase
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.ACCOUNTS_MANAGE_ACCOUNTS;
+        return MetricsEvent.ACCOUNTS_MANAGE_ACCOUNTS;
     }
 
     @Override
@@ -117,8 +117,10 @@ public class ManageAccountsSettings extends AccountPreferenceBase
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
         final View view = inflater.inflate(R.layout.manage_accounts_screen, container, false);
-        final ListView list = (ListView) view.findViewById(android.R.id.list);
-        Utils.prepareCustomPreferencesList(container, view, list, false);
+        final ViewGroup prefs_container = (ViewGroup) view.findViewById(R.id.prefs_container);
+        Utils.prepareCustomPreferencesList(container, view, prefs_container, false);
+        View prefs = super.onCreateView(inflater, prefs_container, savedInstanceState);
+        prefs_container.addView(prefs);
         return view;
     }
 
@@ -155,7 +157,7 @@ public class ManageAccountsSettings extends AccountPreferenceBase
     }
 
     @Override
-    public boolean onPreferenceTreeClick(PreferenceScreen preferences, Preference preference) {
+    public boolean onPreferenceTreeClick(Preference preference) {
         if (preference instanceof AccountPreference) {
             startAccountSettings((AccountPreference) preference);
         } else {
@@ -385,7 +387,7 @@ public class ManageAccountsSettings extends AccountPreferenceBase
             if (showAccount) {
                 final Drawable icon = getDrawableForType(account.type);
                 final AccountPreference preference =
-                        new AccountPreference(getActivity(), account, icon, auths, false);
+                        new AccountPreference(getPrefContext(), account, icon, auths, false);
                 getPreferenceScreen().addPreference(preference);
                 if (mFirstAccount == null) {
                     mFirstAccount = account;

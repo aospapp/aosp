@@ -60,16 +60,6 @@ public class OwnedMonitorsTest extends JDWPSyncTestCase {
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        // checking capability relevant for this test
-        logWriter.println("==> Check capability: canGetOwnedMonitorInfo");
-        debuggeeWrapper.vmMirror.capabilities();
-        boolean isCapability = debuggeeWrapper.vmMirror.targetVMCapabilities.canGetOwnedMonitorInfo;
-        if (!isCapability) {
-            logWriter.println("##WARNING: this VM dosn't possess capability: canGetOwnedMonitorInfo");
-            synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
-            return;
-        }
-
         // getting ID of the tested thread
         logWriter.println("==> testedThreadName = " + OwnedMonitorsDebuggee.TESTED_THREAD);
         logWriter.println("==> Get testedThreadID...");

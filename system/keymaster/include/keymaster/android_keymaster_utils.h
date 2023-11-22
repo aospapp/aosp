@@ -36,7 +36,7 @@ inline int64_t java_time(time_t time) {
     // The exact meaning of a time_t value is implementation-dependent.  If this code is ported to a
     // platform that doesn't define it as "seconds since Jan 1, 1970 UTC", this function will have
     // to be revised.
-    return time * 1000;
+    return static_cast<int64_t>(time) * 1000;
 }
 
 /*
@@ -50,14 +50,14 @@ inline int64_t java_time(time_t time) {
 /**
  * Return the size in bytes of the array \p a.
  */
-template <typename T, size_t N> inline size_t array_size(const T(&a)[N]) {
+template <typename T, size_t N> inline size_t array_size(const T (&a)[N]) {
     return sizeof(a);
 }
 
 /**
  * Return the number of elements in array \p a.
  */
-template <typename T, size_t N> inline size_t array_length(const T(&)[N]) {
+template <typename T, size_t N> inline size_t array_length(const T (&)[N]) {
     return N;
 }
 
@@ -78,7 +78,7 @@ template <typename T> inline T* dup_array(const T* a, size_t n) {
  * responsibility.  Note that the dup is necessarily returned as a pointer, so size is lost.  Call
  * array_length() on the original array to discover the size.
  */
-template <typename T, size_t N> inline T* dup_array(const T(&a)[N]) {
+template <typename T, size_t N> inline T* dup_array(const T (&a)[N]) {
     return dup_array(a, N);
 }
 
@@ -91,7 +91,7 @@ uint8_t* dup_buffer(const void* buf, size_t size);
 /**
  * Copy the contents of array \p arr to \p dest.
  */
-template <typename T, size_t N> inline void copy_array(const T(&arr)[N], T* dest) {
+template <typename T, size_t N> inline void copy_array(const T (&arr)[N], T* dest) {
     for (size_t i = 0; i < N; ++i)
         dest[i] = arr[i];
 }
@@ -101,7 +101,7 @@ template <typename T, size_t N> inline void copy_array(const T(&arr)[N], T* dest
  * early-exit, meaning that it should not be used in contexts where timing analysis attacks could be
  * a concern.
  */
-template <typename T, size_t N> inline bool array_contains(const T(&a)[N], T val) {
+template <typename T, size_t N> inline bool array_contains(const T (&a)[N], T val) {
     for (size_t i = 0; i < N; ++i) {
         if (a[i] == val) {
             return true;
@@ -144,10 +144,9 @@ class Eraser {
     template <typename T> explicit Eraser(T* t);
 
     template <typename T>
-    explicit Eraser(T& t)
-        : buf_(reinterpret_cast<uint8_t*>(&t)), size_(sizeof(t)) {}
+    explicit Eraser(T& t) : buf_(reinterpret_cast<uint8_t*>(&t)), size_(sizeof(t)) {}
 
-    template <size_t N> explicit Eraser(uint8_t(&arr)[N]) : buf_(arr), size_(N) {}
+    template <size_t N> explicit Eraser(uint8_t (&arr)[N]) : buf_(arr), size_(N) {}
 
     Eraser(void* buf, size_t size) : buf_(static_cast<uint8_t*>(buf)), size_(size) {}
     ~Eraser() { memset_s(buf_, 0, size_); }
@@ -176,6 +175,9 @@ template <typename T> class ArrayWrapper {
     T* begin_;
     T* end_;
 };
+template <typename T> ArrayWrapper<T> array_range(T* begin, size_t length) {
+    return ArrayWrapper<T>(begin, length);
+}
 
 /**
  * Convert any unsigned integer from network to host order.  We implement this here rather than
@@ -300,6 +302,31 @@ struct KeymasterKeyBlob : public keymaster_key_blob_t {
         return true;
     }
 };
+
+struct Characteristics_Delete {
+    void operator()(keymaster_key_characteristics_t* p) {
+        keymaster_free_characteristics(p);
+        free(p);
+    }
+};
+
+struct Malloc_Delete {
+    void operator()(void* p) { free(p); }
+};
+
+struct CertificateChainDelete {
+    void operator()(keymaster_cert_chain_t* p) {
+        if (!p)
+            return;
+        for (size_t i = 0; i < p->entry_count; ++i)
+            delete[] p->entries[i].data;
+        delete[] p->entries;
+        delete p;
+    }
+};
+
+keymaster_error_t EcKeySizeToCurve(uint32_t key_size_bits, keymaster_ec_curve_t* curve);
+keymaster_error_t EcCurveToKeySize(keymaster_ec_curve_t curve, uint32_t* key_size_bits);
 
 }  // namespace keymaster
 

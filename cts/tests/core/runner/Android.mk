@@ -23,10 +23,45 @@ include $(CLEAR_VARS)
 # include this package in the tests target for continuous testing
 LOCAL_MODULE_TAGS := tests
 
-LOCAL_SRC_FILES := $(call all-java-files-under,src)
-
 LOCAL_PACKAGE_NAME := android.core.tests.runner
 
-LOCAL_STATIC_JAVA_LIBRARIES := core-tests android-support-test
+LOCAL_STATIC_JAVA_LIBRARIES := cts-test-runner
+
+LOCAL_JAVA_LANGUAGE_VERSION := 1.8
 
 include $(BUILD_CTSCORE_PACKAGE)
+
+#==========================================================
+# Build the core runner.
+#==========================================================
+
+# Build library
+include $(CLEAR_VARS)
+
+LOCAL_MODULE_TAGS := optional
+LOCAL_SRC_FILES := $(call all-java-files-under,src)
+LOCAL_MODULE := cts-core-test-runner
+LOCAL_STATIC_JAVA_LIBRARIES := \
+    compatibility-device-util \
+    android-support-test \
+    android.test.runner \
+    vogarexpect \
+    testng
+
+LOCAL_JAVA_LANGUAGE_VERSION := 1.8
+
+include $(BUILD_JAVA_LIBRARY)
+
+#==========================================================
+# Build the run listener
+#==========================================================
+
+# Build library
+include $(CLEAR_VARS)
+
+LOCAL_MODULE_TAGS := optional
+LOCAL_SRC_FILES := $(call all-java-files-under,src/com/android/cts/runner)
+LOCAL_MODULE := cts-test-runner
+LOCAL_STATIC_JAVA_LIBRARIES := android-support-test
+
+include $(BUILD_JAVA_LIBRARY)

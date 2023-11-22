@@ -67,7 +67,7 @@ ifeq ($(vg_local_no_crt),true)
 endif
 
 LOCAL_CXX_STL := none
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 
 include $(BUILD_HOST_$(vg_local_target))
 

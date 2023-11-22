@@ -30,7 +30,7 @@
 namespace art {
 
 inline mirror::Class* ClassLinker::FindSystemClass(Thread* self, const char* descriptor) {
-  return FindClass(self, descriptor, NullHandle<mirror::ClassLoader>());
+  return FindClass(self, descriptor, ScopedNullHandle<mirror::ClassLoader>());
 }
 
 inline mirror::Class* ClassLinker::FindArrayClass(Thread* self, mirror::Class** element_class) {
@@ -41,7 +41,6 @@ inline mirror::Class* ClassLinker::FindArrayClass(Thread* self, mirror::Class** 
       return array_class;
     }
   }
-  DCHECK(!(*element_class)->IsPrimitiveVoid());
   std::string descriptor = "[";
   std::string temp;
   descriptor += (*element_class)->GetDescriptor(&temp);
@@ -49,17 +48,23 @@ inline mirror::Class* ClassLinker::FindArrayClass(Thread* self, mirror::Class** 
   Handle<mirror::ClassLoader> class_loader(hs.NewHandle((*element_class)->GetClassLoader()));
   HandleWrapper<mirror::Class> h_element_class(hs.NewHandleWrapper(element_class));
   mirror::Class* array_class = FindClass(self, descriptor.c_str(), class_loader);
-  // Benign races in storing array class and incrementing index.
-  size_t victim_index = find_array_class_cache_next_victim_;
-  find_array_class_cache_[victim_index] = GcRoot<mirror::Class>(array_class);
-  find_array_class_cache_next_victim_ = (victim_index + 1) % kFindArrayCacheSize;
+  if (array_class != nullptr) {
+    // Benign races in storing array class and incrementing index.
+    size_t victim_index = find_array_class_cache_next_victim_;
+    find_array_class_cache_[victim_index] = GcRoot<mirror::Class>(array_class);
+    find_array_class_cache_next_victim_ = (victim_index + 1) % kFindArrayCacheSize;
+  } else {
+    // We should have a NoClassDefFoundError.
+    self->AssertPendingException();
+  }
   return array_class;
 }
 
-inline mirror::String* ClassLinker::ResolveString(uint32_t string_idx,
-                                                  ArtMethod* referrer) {
+inline mirror::String* ClassLinker::ResolveString(uint32_t string_idx, ArtMethod* referrer) {
   mirror::Class* declaring_class = referrer->GetDeclaringClass();
-  mirror::String* resolved_string = declaring_class->GetDexCacheStrings()->Get(string_idx);
+  // MethodVerifier refuses methods with string_idx out of bounds.
+  DCHECK_LT(string_idx, declaring_class->GetDexCache()->NumStrings());
+  mirror::String* resolved_string = declaring_class->GetDexCacheStrings()[string_idx].Read();
   if (UNLIKELY(resolved_string == nullptr)) {
     StackHandleScope<1> hs(Thread::Current());
     Handle<mirror::DexCache> dex_cache(hs.NewHandle(declaring_class->GetDexCache()));
@@ -72,9 +77,8 @@ inline mirror::String* ClassLinker::ResolveString(uint32_t string_idx,
   return resolved_string;
 }
 
-inline mirror::Class* ClassLinker::ResolveType(uint16_t type_idx,
-                                               ArtMethod* referrer) {
-  mirror::Class* resolved_type = referrer->GetDexCacheResolvedType(type_idx);
+inline mirror::Class* ClassLinker::ResolveType(uint16_t type_idx, ArtMethod* referrer) {
+  mirror::Class* resolved_type = referrer->GetDexCacheResolvedType(type_idx, image_pointer_size_);
   if (UNLIKELY(resolved_type == nullptr)) {
     mirror::Class* declaring_class = referrer->GetDeclaringClass();
     StackHandleScope<2> hs(Thread::Current());
@@ -105,16 +109,39 @@ inline mirror::Class* ClassLinker::ResolveType(uint16_t type_idx, ArtField* refe
 }
 
 inline ArtMethod* ClassLinker::GetResolvedMethod(uint32_t method_idx, ArtMethod* referrer) {
-  ArtMethod* resolved_method = referrer->GetDexCacheResolvedMethod(
-      method_idx, image_pointer_size_);
+  ArtMethod* resolved_method = referrer->GetDexCacheResolvedMethod(method_idx, image_pointer_size_);
   if (resolved_method == nullptr || resolved_method->IsRuntimeMethod()) {
     return nullptr;
   }
   return resolved_method;
 }
 
-inline ArtMethod* ClassLinker::ResolveMethod(Thread* self, uint32_t method_idx,
-                                             ArtMethod* referrer, InvokeType type) {
+inline mirror::Class* ClassLinker::ResolveReferencedClassOfMethod(
+    uint32_t method_idx,
+    Handle<mirror::DexCache> dex_cache,
+    Handle<mirror::ClassLoader> class_loader) {
+  // NB: We cannot simply use `GetResolvedMethod(method_idx, ...)->GetDeclaringClass()`. This is
+  // because if we did so than an invoke-super could be incorrectly dispatched in cases where
+  // GetMethodId(method_idx).class_idx_ refers to a non-interface, non-direct-superclass
+  // (super*-class?) of the referrer and the direct superclass of the referrer contains a concrete
+  // implementation of the method. If this class's implementation of the method is copied from an
+  // interface (either miranda, default or conflict) we would incorrectly assume that is what we
+  // want to invoke on, instead of the 'concrete' implementation that the direct superclass
+  // contains.
+  const DexFile* dex_file = dex_cache->GetDexFile();
+  const DexFile::MethodId& method = dex_file->GetMethodId(method_idx);
+  mirror::Class* resolved_type = dex_cache->GetResolvedType(method.class_idx_);
+  if (UNLIKELY(resolved_type == nullptr)) {
+    resolved_type = ResolveType(*dex_file, method.class_idx_, dex_cache, class_loader);
+  }
+  return resolved_type;
+}
+
+template <ClassLinker::ResolveMode kResolveMode>
+inline ArtMethod* ClassLinker::ResolveMethod(Thread* self,
+                                             uint32_t method_idx,
+                                             ArtMethod* referrer,
+                                             InvokeType type) {
   ArtMethod* resolved_method = GetResolvedMethod(method_idx, referrer);
   if (UNLIKELY(resolved_method == nullptr)) {
     mirror::Class* declaring_class = referrer->GetDeclaringClass();
@@ -122,8 +149,12 @@ inline ArtMethod* ClassLinker::ResolveMethod(Thread* self, uint32_t method_idx,
     Handle<mirror::DexCache> h_dex_cache(hs.NewHandle(declaring_class->GetDexCache()));
     Handle<mirror::ClassLoader> h_class_loader(hs.NewHandle(declaring_class->GetClassLoader()));
     const DexFile* dex_file = h_dex_cache->GetDexFile();
-    resolved_method = ResolveMethod(*dex_file, method_idx, h_dex_cache, h_class_loader, referrer,
-                                    type);
+    resolved_method = ResolveMethod<kResolveMode>(*dex_file,
+                                                  method_idx,
+                                                  h_dex_cache,
+                                                  h_class_loader,
+                                                  referrer,
+                                                  type);
   }
   // Note: We cannot check here to see whether we added the method to the cache. It
   //       might be an erroneous class, which results in it being hidden from us.
@@ -156,7 +187,8 @@ inline ArtField* ClassLinker::ResolveField(uint32_t field_idx, ArtMethod* referr
 }
 
 inline mirror::Object* ClassLinker::AllocObject(Thread* self) {
-  return GetClassRoot(kJavaLangObject)->Alloc<true, false>(self,
+  return GetClassRoot(kJavaLangObject)->Alloc<true, false>(
+      self,
       Runtime::Current()->GetHeap()->GetCurrentAllocator());
 }
 
@@ -172,29 +204,25 @@ inline mirror::ObjectArray<mirror::Class>* ClassLinker::AllocClassArray(Thread* 
 
 inline mirror::ObjectArray<mirror::String>* ClassLinker::AllocStringArray(Thread* self,
                                                                           size_t length) {
-  return mirror::ObjectArray<mirror::String>::Alloc(self, GetClassRoot(kJavaLangStringArrayClass),
+  return mirror::ObjectArray<mirror::String>::Alloc(self,
+                                                    GetClassRoot(kJavaLangStringArrayClass),
                                                     length);
 }
 
 inline mirror::IfTable* ClassLinker::AllocIfTable(Thread* self, size_t ifcount) {
   return down_cast<mirror::IfTable*>(
-      mirror::IfTable::Alloc(self, GetClassRoot(kObjectArrayClass),
+      mirror::IfTable::Alloc(self,
+                             GetClassRoot(kObjectArrayClass),
                              ifcount * mirror::IfTable::kMax));
 }
 
 inline mirror::Class* ClassLinker::GetClassRoot(ClassRoot class_root)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   DCHECK(!class_roots_.IsNull());
   mirror::ObjectArray<mirror::Class>* class_roots = class_roots_.Read();
   mirror::Class* klass = class_roots->Get(class_root);
   DCHECK(klass != nullptr);
   return klass;
-}
-
-inline mirror::DexCache* ClassLinker::GetDexCache(size_t idx) {
-  dex_lock_.AssertSharedHeld(Thread::Current());
-  DCHECK(idx < dex_caches_.size());
-  return dex_caches_[idx].Read();
 }
 
 }  // namespace art

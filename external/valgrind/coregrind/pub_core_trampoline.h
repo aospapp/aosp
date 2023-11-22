@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2000-2013 Julian Seward
+   Copyright (C) 2000-2015 Julian Seward
       jseward@acm.org
 
    This program is free software; you can redistribute it and/or
@@ -159,6 +159,20 @@ extern UInt  VG_(mips32_linux_REDIR_FOR_strlen)( void* );
 #if defined(VGP_mips64_linux)
 extern Addr  VG_(mips64_linux_SUBST_FOR_rt_sigreturn);
 extern UInt  VG_(mips64_linux_REDIR_FOR_strlen)( void* );
+#endif
+
+#if defined(VGP_x86_solaris)
+extern SizeT VG_(x86_solaris_REDIR_FOR_strcmp)(const HChar *, const HChar *);
+extern SizeT VG_(x86_solaris_REDIR_FOR_strlen)(const HChar *);
+#endif
+
+#if defined(VGP_amd64_solaris)
+extern HChar *VG_(amd64_solaris_REDIR_FOR_strcpy)(HChar *, const HChar *);
+extern HChar *VG_(amd64_solaris_REDIR_FOR_strncpy)(HChar *, const HChar *,
+                                                  SizeT);
+extern Int VG_(amd64_solaris_REDIR_FOR_strcmp)(const HChar *, const HChar *);
+extern HChar *VG_(amd64_solaris_REDIR_FOR_strcat)(HChar *, const HChar *);
+extern SizeT VG_(amd64_solaris_REDIR_FOR_strlen)(const HChar *);
 #endif
 
 #endif   // __PUB_CORE_TRAMPOLINE_H

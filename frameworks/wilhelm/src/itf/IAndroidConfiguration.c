@@ -16,8 +16,12 @@
 
 /* AndroidConfiguration implementation */
 
-#include "sles_allinclusive.h"
+#include <android/log.h>
 
+#include "sles_allinclusive.h"
+#include <SLES/OpenSLES_Android.h>
+
+#include <android_runtime/AndroidRuntime.h>
 
 static SLresult IAndroidConfiguration_SetConfiguration(SLAndroidConfigurationItf self,
         const SLchar *configKey,
@@ -95,10 +99,287 @@ static SLresult IAndroidConfiguration_GetConfiguration(SLAndroidConfigurationItf
     SL_LEAVE_INTERFACE
 }
 
+/*
+ * Native Routing API
+ */
+static SLresult ValidatePlayerConfig(IAndroidConfiguration* iConfig) {
+    SLresult result;
+
+    if (iConfig->mRoutingProxy != NULL) {
+        result = SL_RESULT_PRECONDITIONS_VIOLATED;
+        SL_LOGE("Error creating player routing object - Routing Proxy Already Acquired.");
+    }
+    else {
+        IObject* configObj = iConfig->mThis;                // get corresponding object
+        CAudioPlayer* player = (CAudioPlayer*)configObj;    // get the native player
+
+        switch (player->mAndroidObjType) {
+            case AUDIOPLAYER_FROM_PCM_BUFFERQUEUE:
+                //TODO remove these commented out lines when our comfort level is good
+//                if (player->mObject.mState != SL_OBJECT_STATE_REALIZED) {
+//                    // Make sure the player has been realized.
+//                    result = SL_RESULT_PRECONDITIONS_VIOLATED;
+//                    SL_LOGE("Error creating routing object - Player not realized.");
+//                } else {
+//                    android::AudioTrack* pAudioTrack = player->mAudioTrack.get();
+//                    if (pAudioTrack == NULL) {
+//                        result = SL_RESULT_INTERNAL_ERROR;
+//                        SL_LOGE("Error creating routing object - Couldn't get AudioTrack.");
+//                    } else {
+                        result = SL_RESULT_SUCCESS;
+//                    }
+//                }
+                break;
+
+            default:
+                result =  SL_RESULT_PARAMETER_INVALID;
+                SL_LOGE("Error creating routing object - Player is not a buffer-queue player.");
+                break;
+        }
+    }
+
+    return result;
+}
+
+static SLresult AllocPlayerRoutingProxy(IAndroidConfiguration* iConfig, jobject* proxyObj) {
+    SLresult result;
+
+    IObject* configObj = iConfig->mThis;                // get corresponding object
+    android::AudioTrack* pAudioTrack = ((CAudioPlayer*)configObj)->mAudioTrack.get();
+
+    JNIEnv* j_env = android::AndroidRuntime::getJNIEnv();
+
+    // Get the constructor for (Java) AudioTrackRoutingProxy
+    jclass clsAudioTrackRoutingProxy =
+            j_env->FindClass("android/media/AudioTrackRoutingProxy");
+    jmethodID midAudioTrackRoutingProxy_ctor =
+        j_env->GetMethodID(clsAudioTrackRoutingProxy, "<init>", "(J)V");
+
+    j_env->ExceptionClear();
+
+    jobject localObjRef =
+        j_env->NewObject(clsAudioTrackRoutingProxy,
+                         midAudioTrackRoutingProxy_ctor,
+                         (jlong)pAudioTrack /*audioTrackObjInLong*/);
+
+    *proxyObj = j_env->NewGlobalRef(localObjRef);
+
+    if (j_env->ExceptionCheck()) {
+        SL_LOGE("Java exception creating player routing object.");
+        result = SL_RESULT_INTERNAL_ERROR;
+    } else {
+        // stash it in the Interface object
+        iConfig->mRoutingProxy = *proxyObj;
+        result = SL_RESULT_SUCCESS;
+    }
+
+    return result;
+}
+
+static SLresult ValidateRecorderConfig(IAndroidConfiguration* iConfig) {
+    SLresult result;
+
+    if (iConfig->mRoutingProxy != NULL) {
+        result = SL_RESULT_PRECONDITIONS_VIOLATED;
+        SL_LOGE("Error creating record routing object - Routing Proxy Already Acquired.");
+    } else {
+        IObject* configObj = iConfig->mThis;                  // get corresponding object
+        CAudioRecorder* recorder = (CAudioRecorder*)configObj;  // get the native recorder
+        switch (recorder->mAndroidObjType) {
+            case AUDIORECORDER_FROM_MIC_TO_PCM_BUFFERQUEUE:
+                //TODO remove these commented out lines when our comfort level is good
+//                if (recorder->mObject.mState != SL_OBJECT_STATE_REALIZED) {
+//                    // Make sure the recorder has been realized.
+//                    result = SL_RESULT_PRECONDITIONS_VIOLATED;
+//                    SL_LOGE("Error creating routing object - Recorder not realized.");
+//                } else {
+//                    android::AudioRecord* pAudioRecord = recorder->mAudioRecord.get();
+//                    if (pAudioRecord == NULL) {
+//                        result = SL_RESULT_INTERNAL_ERROR;
+//                        SL_LOGE("Error creating routing object - Couldn't get AudioRecord.");
+//                    } else if (iConfig->mRoutingProxy != NULL) {
+//                        result = SL_RESULT_PRECONDITIONS_VIOLATED;
+//                        SL_LOGE("Error creating routing object - Routing Proxy Already Acquired.");
+//                    } else {
+                        result = SL_RESULT_SUCCESS;
+//                    }
+//                }
+                break;
+
+            default:
+                result =  SL_RESULT_PARAMETER_INVALID;
+                SL_LOGE("Error creating routing object - Recorder is not a buffer-queue recorder.");
+                break;
+        }
+    }
+
+    return result;
+}
+
+static SLresult AllocRecorderRoutingProxy(IAndroidConfiguration* iConfig, jobject* proxyObj) {
+    SLresult result;
+
+    IObject* configObj = iConfig->mThis;                  // get corresponding object
+    android::AudioRecord* pAudioRecord = ((CAudioRecorder*)configObj)->mAudioRecord.get();
+
+    JNIEnv* j_env = android::AndroidRuntime::getJNIEnv();
+
+    // Get the constructor for (Java) AudioRecordRoutingProxy
+    jclass clsAudioRecordRoutingProxy =
+            j_env->FindClass("android/media/AudioRecordRoutingProxy");
+    jmethodID midAudioRecordRoutingProxy_ctor =
+        j_env->GetMethodID(clsAudioRecordRoutingProxy, "<init>", "(J)V");
+
+    j_env->ExceptionClear();
+    jobject localObjRef =
+        j_env->NewObject(clsAudioRecordRoutingProxy,
+                         midAudioRecordRoutingProxy_ctor,
+                         (jlong)pAudioRecord /*audioRecordObjInLong*/);
+
+    *proxyObj = j_env->NewGlobalRef(localObjRef);
+    if (j_env->ExceptionCheck()) {
+        SL_LOGE("Java exception creating recorder routing object.");
+        result = SL_RESULT_INTERNAL_ERROR;
+    } else {
+        // stash it in the Interface object
+        iConfig->mRoutingProxy = *proxyObj;
+        result = SL_RESULT_SUCCESS;
+    }
+
+    return result;
+}
+
+/*
+ * Acquires a Java proxy object, such as AudioRouting object which can be used to control
+ * aspects of the associated native player or recorder.
+ * Parameters:
+ *   self   An SLAndroidConfigurationItf obtained from either an OpenSL ES AudioPlayer
+ *          or AudioRecorder.
+ *   j_env  The Java Environment pointer (passed in to the calling JNI function).
+ *   proxyType Specifies the type of proxy desired. Currently only SL_ANDROID_JAVA_PROXY_ROUTING
+ *          is supported.
+ *   proxyObj
+ *          Points to the jobject to receive the acquired Java proxy object (as a GlobalRef).
+ * Returns SL_RESULT_SUCCESS is the proxy object is acquired, SL_RESULT_PARAMETER_INVALID if
+ *   there is a problem with the arguments causing the function to fail,
+ *   <working on this>
+ *   SL_RESULT_PRECONDITIONS_VIOLATED it the AudioPlayer or AudioRecorder object associated
+ *   with the ConfigurationItf has not been realized.
+ */
+static SLresult IAndroidConfiguration_AcquireJavaProxy(SLAndroidConfigurationItf self,
+                                                       SLuint32 proxyType,
+                                                       jobject* proxyObj)
+{
+    SL_ENTER_INTERFACE
+
+    if (self == NULL || proxyObj == NULL || proxyType != SL_ANDROID_JAVA_PROXY_ROUTING) {
+        result =  SL_RESULT_PARAMETER_INVALID;
+    } else {
+        IAndroidConfiguration* iConfig = (IAndroidConfiguration*)self;
+
+        int objID = IObjectToObjectID(InterfaceToIObject(iConfig));
+        switch (objID) {
+        case SL_OBJECTID_AUDIOPLAYER:
+            result = ValidatePlayerConfig(iConfig);
+            if (result == SL_RESULT_SUCCESS) {
+                result = AllocPlayerRoutingProxy(iConfig, proxyObj);
+            }
+            break;
+
+        case SL_OBJECTID_AUDIORECORDER:
+            result = ValidateRecorderConfig(iConfig);
+            if (result == SL_RESULT_SUCCESS) {
+                result = AllocRecorderRoutingProxy(iConfig, proxyObj);
+            }
+            break;
+
+        default:
+            result = SL_RESULT_PARAMETER_INVALID;
+            break;
+        }
+    }
+
+    SL_LEAVE_INTERFACE
+}
+
+/*
+ * Release a Java proxy object, such as AudioRouting object, (and any resources it is holding).
+ * Parameters:
+ *   self   An SLAndroidConfigurationItf obtained from either an OpenSL ES AudioPlayer
+ *          or AudioRecorder.
+ *   j_env  The Java Environment pointer (passed in to the calling JNI function).
+ *   proxyType Specifies the type of proxy object. Currently only SL_ANDROID_JAVA_PROXY_ROUTING
+ *          is supported.
+ * Returns SL_RESULT_SUCCESS is the proxy object is release, SL_RESULT_PARAMETER_INVALID if
+ *   there is a problem with the arguments causing the function to fail,
+ */
+static SLresult IAndroidConfiguration_ReleaseJavaProxy(SLAndroidConfigurationItf self,
+                                                       SLuint32 proxyType) {
+    SL_ENTER_INTERFACE
+
+    IAndroidConfiguration* iConfig = (IAndroidConfiguration*)self;
+
+    if (self == NULL ||
+            proxyType != SL_ANDROID_JAVA_PROXY_ROUTING ||
+            iConfig->mRoutingProxy == NULL) {
+        result =  SL_RESULT_PARAMETER_INVALID;
+    } else {
+        int objID = IObjectToObjectID(InterfaceToIObject(iConfig));
+        switch (objID) {
+        case SL_OBJECTID_AUDIOPLAYER:
+            {
+                JNIEnv* j_env = android::AndroidRuntime::getJNIEnv();
+
+                // Get the release method for (Java) AudioTrackRoutingProxy
+                jclass clsAudioTrackRoutingProxy =
+                        j_env->FindClass("android/media/AudioTrackRoutingProxy");
+                jmethodID midAudioTrackRoutingProxy_release =
+                    j_env->GetMethodID(clsAudioTrackRoutingProxy, "native_release", "()V");
+
+                j_env->ExceptionClear();
+                j_env->CallVoidMethod(iConfig->mRoutingProxy, midAudioTrackRoutingProxy_release);
+                if (j_env->ExceptionCheck()) {
+                    SL_LOGE("Java exception releasing recorder routing object.");
+                    result = SL_RESULT_INTERNAL_ERROR;
+                }
+                j_env->DeleteGlobalRef(iConfig->mRoutingProxy);
+                iConfig->mRoutingProxy = NULL;
+            }
+            break;
+
+        case SL_OBJECTID_AUDIORECORDER:
+            {
+                JNIEnv* j_env = android::AndroidRuntime::getJNIEnv();
+
+                // Get the release method for (Java) AudioTrackRoutingProxy
+                jclass clsAudioRecordRoutingProxy =
+                        j_env->FindClass("android/media/AudioRecordRoutingProxy");
+                jmethodID midAudioRecordRoutingProxy_release =
+                    j_env->GetMethodID(clsAudioRecordRoutingProxy, "native_release", "()V");
+
+                j_env->ExceptionClear();
+                j_env->CallVoidMethod(iConfig->mRoutingProxy, midAudioRecordRoutingProxy_release);
+                if (j_env->ExceptionCheck()) {
+                    SL_LOGE("Java exception releasing recorder routing object.");
+                    result = SL_RESULT_INTERNAL_ERROR;
+                }
+                j_env->DeleteGlobalRef(iConfig->mRoutingProxy);
+                iConfig->mRoutingProxy = NULL;
+            }
+            break;
+        }
+
+        result = SL_RESULT_SUCCESS;
+    }
+
+    SL_LEAVE_INTERFACE
+}
 
 static const struct SLAndroidConfigurationItf_ IAndroidConfiguration_Itf = {
     IAndroidConfiguration_SetConfiguration,
-    IAndroidConfiguration_GetConfiguration
+    IAndroidConfiguration_GetConfiguration,
+    IAndroidConfiguration_AcquireJavaProxy,
+    IAndroidConfiguration_ReleaseJavaProxy
 };
 
 void IAndroidConfiguration_init(void *self)
@@ -106,3 +387,12 @@ void IAndroidConfiguration_init(void *self)
     IAndroidConfiguration *thiz = (IAndroidConfiguration *) self;
     thiz->mItf = &IAndroidConfiguration_Itf;
 }
+
+void IAndroidConfiguration_deinit(void *self)
+{
+    IAndroidConfiguration *thiz = (IAndroidConfiguration *) self;
+    if (thiz->mRoutingProxy != NULL) {
+        thiz->mItf->ReleaseJavaProxy(&thiz->mItf, SL_ANDROID_JAVA_PROXY_ROUTING);
+    }
+}
+

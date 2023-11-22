@@ -34,6 +34,11 @@ LIBVA_DRIVERS_PATH = /system/lib
 
 include $(CLEAR_VARS)
 
+LOCAL_MODULE := libva
+LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+
+generated_sources_dir := $(call local-generated-sources-dir)
+
 LOCAL_SRC_FILES := \
 	va.c \
 	va_trace.c \
@@ -47,7 +52,7 @@ LOCAL_CFLAGS := \
 	-DLOG_TAG=\"libva\" \
 	-DANDROID_ALOG
 
-LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/..
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/.. $(generated_sources_dir)
 
 LOCAL_C_INCLUDES := \
 	$(TARGET_OUT_HEADERS)/libva \
@@ -56,7 +61,6 @@ LOCAL_C_INCLUDES := \
 
 LOCAL_COPY_HEADERS := \
 	va.h \
-	va_version.h \
 	va_dec_hevc.h \
 	va_dec_jpeg.h \
 	va_dec_vp8.h \
@@ -73,20 +77,23 @@ LOCAL_COPY_HEADERS := \
 
 LOCAL_COPY_HEADERS_TO := libva/va
 LOCAL_CFLAGS += -Werror
-LOCAL_MODULE_TAGS := optional
-LOCAL_MODULE := libva
 
 LOCAL_SHARED_LIBRARIES := libdl libdrm libcutils liblog
 
-include $(BUILD_SHARED_LIBRARY)
-
-GEN := $(LOCAL_PATH)/va_version.h
+GEN := $(generated_sources_dir)/va/va_version.h
 $(GEN): SCRIPT := $(LOCAL_PATH)/../build/gen_version.sh
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
-$(GEN): PRIVATE_CUSTOM_TOOL = sh $(SCRIPT) $(PRIVATE_PATH)/.. $(PRIVATE_PATH)/va_version.h.in > $@
-$(GEN): $(LOCAL_PATH)/%.h : $(LOCAL_PATH)/%.h.in $(SCRIPT) $(LOCAL_PATH)/../configure.ac
+$(GEN): PRIVATE_CUSTOM_TOOL = /bin/bash $(SCRIPT) $(PRIVATE_PATH)/.. $(PRIVATE_PATH)/va_version.h.in > $@
+$(GEN): $(LOCAL_PATH)/va_version.h.in $(LOCAL_PATH)/../build/gen_version.sh $(LOCAL_PATH)/../configure.ac
 	$(transform-generated-source)
-LOCAL_GENERATED_SOURCES += $(GEN) 
+LOCAL_GENERATED_SOURCES := $(GEN)
+
+include $(BUILD_SHARED_LIBRARY)
+
+my_header := $(TARGET_OUT_HEADERS)/libva/va/va_version.h
+ALL_COPIED_HEADERS.$(my_header).MAKEFILE += $(my_header)
+ALL_COPIED_HEADERS.$(my_header).SRC += $(GEN)
+ALL_COPIED_HEADERS += $(my_header)
 
 # For libva-android
 # =====================================================

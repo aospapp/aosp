@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="phoneAppLabel" product="tablet" msgid="1107073389495104784">"Үүрэн мэдээлэл"</string>
-    <string name="phoneAppLabel" product="default" msgid="906161039445636857">"Утас"</string>
+    <string name="phoneAppLabel" product="default" msgid="6790717591729922998">"Гар утасны Үйлчилгээ"</string>
     <string name="emergencyDialerIconLabel" msgid="7812140032168171053">"Ослын дуудлага хийгч"</string>
     <string name="phoneIconLabel" msgid="2331230813161304895">"Утас"</string>
     <string name="fdnListLabel" msgid="8630418672279521003">"FDN жагсаалт"</string>
@@ -31,7 +31,7 @@
     <string name="cancel" msgid="5044513931633602634">"Цуцлах"</string>
     <string name="enter_input" msgid="1810529547726803893">"USSD зурвасын үсгийн тоо <xliff:g id="MIN_LEN">%d</xliff:g> болон <xliff:g id="MAX_LEN">%d</xliff:g> хооронд байх шаардлагатай. Дахин оролдоно уу."</string>
     <string name="manageConferenceLabel" msgid="4691922394301969053">"Утсан хурлыг удирдах"</string>
-    <string name="ok" msgid="3811371167865772377">"Тийм"</string>
+    <string name="ok" msgid="3811371167865772377">"OK"</string>
     <string name="audio_mode_speaker" msgid="27649582100085266">"Чанга яригч"</string>
     <string name="audio_mode_earpiece" msgid="4156527186373869107">"Утасны чихэвч"</string>
     <string name="audio_mode_wired_headset" msgid="1465350758489175975">"Утастай чихэвч"</string>
@@ -59,14 +59,15 @@
     <string name="labelCdmaMore_with_label" msgid="6333588719319970399">"CDMA дуудлагын тохиргоо (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="apn_settings" msgid="9043423184895642077">"Хандалтын Цэгийн Нэрс"</string>
     <string name="settings_label" msgid="3876743539816984008">"Сүлжээний тохиргоо"</string>
-    <string name="phone_accounts" msgid="6376603393888116364">"Дуудах акаунт"</string>
+    <string name="phone_accounts" msgid="6376603393888116364">"Дуудах бүртгэл"</string>
     <string name="phone_accounts_make_calls_with" msgid="1969188078933152231">"Дараахаар дуудлага хийх"</string>
     <string name="phone_accounts_make_sip_calls_with" msgid="4677789312053828493">"Дараахаар SIP дуудлага хийх"</string>
     <string name="phone_accounts_ask_every_time" msgid="4346499067149985702">"Эхлэж хандах"</string>
+    <string name="phone_accounts_default_account_label" msgid="4183772241814460014">"Сүлжээ байхгүй байна"</string>
     <string name="phone_accounts_settings_header" msgid="4141710640883261094">"Тохиргоонууд"</string>
-    <string name="phone_accounts_choose_accounts" msgid="5232948804226424002">"Акаунт сонгох"</string>
-    <string name="phone_accounts_selection_header" msgid="1365215726106915865">"Гар утасны акаунт"</string>
-    <string name="phone_accounts_add_sip_account" msgid="2023821743341923271">"SIP акаунт нэмэх"</string>
+    <string name="phone_accounts_choose_accounts" msgid="5232948804226424002">"Бүртгэл сонгох"</string>
+    <string name="phone_accounts_selection_header" msgid="1365215726106915865">"Гар утасны бүртгэл"</string>
+    <string name="phone_accounts_add_sip_account" msgid="2023821743341923271">"SIP бүртгэл нэмэх"</string>
     <string name="phone_accounts_configure_account_settings" msgid="1361715069911607109">"Акаунтын тохиргоог хийх"</string>
     <string name="phone_accounts_all_calling_accounts" msgid="207619531589278471">"Дуудлагын эрхтэй бүх бүртгэл"</string>
     <string name="phone_accounts_all_calling_accounts_summary" msgid="8594186415822657011">"Дуудлага хийх боломжтой бүртгэлээ сонгоно уу"</string>
@@ -117,17 +118,20 @@
     <string name="sum_cfnrc_disabled" msgid="7222141261321276464">"Идэвхгүйжүүлсэн"</string>
     <string name="disable_cfnrc_forbidden" msgid="5646361343094064333">"Таны үүрэн холбоо үзүүлэгчээс утас завгүй байхад дуудлагыг дамжуулахыг зогсоох үйлчилгээг дэмждэггүй."</string>
     <string name="updating_title" msgid="6146755386174019046">"Дуудлагын тохиргоо"</string>
-    <string name="call_settings_primary_user_only" msgid="5679923943740900965">"Дуудлагын тохиргоог зөвхөн үндсэн хэрэглэгч өөрчлөх боломжтой."</string>
-    <string name="call_settings_with_label" msgid="89359812614544532">"Дуудлагын тохиргоо (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
+    <string name="call_settings_admin_user_only" msgid="4526094783818216374">"Дуудлагын тохиргоог зөвхөн админ хэрэглэгч солих боломжтой."</string>
+    <string name="call_settings_with_label" msgid="3401177261468593519">"Тохиргоо (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="7970259216988931777">"Дуудлагын тохиргооны алдаа"</string>
     <string name="reading_settings" msgid="1920291699287055284">"Тохиргоог уншиж байна…"</string>
     <string name="updating_settings" msgid="8171225533884883252">"Тохиргоог шинэчилж байна…"</string>
     <string name="reverting_settings" msgid="4752151682666912828">"Тохиргоог буцааж байна…"</string>
     <string name="response_error" msgid="6674110501330139405">"Сүлжээний гэнэтийн хариу."</string>
     <string name="exception_error" msgid="7027667130619518211">"Сүлжээ буюу SIM картны алдаа."</string>
+    <string name="stk_cc_ss_to_dial_error" msgid="2816779198916570502">"SS хүсэлтийг DIAL хүсэлт болгон өөрчилсөн."</string>
+    <string name="stk_cc_ss_to_ussd_error" msgid="7490626178582654236">"SS хүсэлтийг USSD хүсэлт болгон өөрчилсөн."</string>
+    <string name="stk_cc_ss_to_ss_error" msgid="5057846756489053759">"SS хүсэлтийг шинэ SS хүсэлт болгон өөрчилсөн."</string>
     <string name="fdn_check_failure" msgid="18200614306525434">"Таны Phone апп-н FDN тохиргоо асаалттай байна. Тус шалтгаанаар дуудлагатай холбоотой зарим функц ажиллахгүй."</string>
     <string name="radio_off_error" msgid="2304459933248513376">"Эдгээр тохиргоог харахын өмнө радиог асаана уу."</string>
-    <string name="close_dialog" msgid="2365884406356986917">"Тийм"</string>
+    <string name="close_dialog" msgid="2365884406356986917">"OK"</string>
     <string name="enable" msgid="7248657275000173526">"Асаах"</string>
     <string name="disable" msgid="4678348128118573672">"Унтраах"</string>
     <string name="change_num" msgid="239476305819844391">"Шинэчлэх"</string>
@@ -177,6 +181,7 @@
     <string name="preferred_network_mode_lte_wcdma_summary" msgid="9180775701594742750">"Давуу сүлжээний төлөв: LTE / WCDMA"</string>
     <string name="preferred_network_mode_lte_gsm_umts_summary" msgid="633315028976225026">"Хамгийн тохиромжтой горимууд: LTE / GSM / UMTS"</string>
     <string name="preferred_network_mode_lte_cdma_summary" msgid="3722647806454528426">"Давуу сүлжээний төлөв: LTE / CDMA"</string>
+    <string name="preferred_network_mode_tdscdma_summary" msgid="8021016193718678775">"Давуу сүлжээний төлөв: TDSCDMA"</string>
   <string-array name="preferred_network_mode_choices">
     <item msgid="7886739962255042385">"LTE / WCDMA"</item>
     <item msgid="577652050447385699">"LTE"</item>
@@ -196,6 +201,7 @@
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"LTE-г ашиглан дуут болон бусад төрлийн харилцаа холбооны хэрэгслийг сайжруул (зөвлөхүйц)"</string>
     <string name="data_enabled" msgid="5972538663568715366">"Өгөгдөл идэвхжсэн"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"Дата ашиглалтыг зөвшөөрөх"</string>
+    <string name="dialog_alert_title" msgid="6751344986194435476">"Анхааруулга"</string>
     <string name="roaming" msgid="8871412572928323707">"Дата роуминг"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"Роумингтэй үед дата үйлчилгээнд холбогдох"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"Роумингтэй үед дата үйлчилгээнд холбогдох"</string>
@@ -424,11 +430,12 @@
     <string name="notification_network_selection_text" msgid="2607085729661923269">"Сонгосон сүлжээ (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) ашиглах боломжгүй"</string>
     <string name="incall_error_power_off" msgid="2947938060513306698">"Дуудлага хийхийн тулд онгоцны горимыг унтраа."</string>
     <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"Дуудлага хийхийн тулд онгоцны горимыг унтраа эсвэл утасгүй интернетэд холбогдоно уу."</string>
+    <string name="incall_error_ecm_emergency_only" msgid="738708660612388692">"Яаралтай түргэн тусламжийн бус дуудлага хийхийн тулд яаралтай түргэн тусламжийн callback горимоос гарна уу."</string>
     <string name="incall_error_emergency_only" msgid="4678640422710818317">"Сүлжээнд бүртгэгдээгүй."</string>
     <string name="incall_error_out_of_service" msgid="4100065333878929223">"Үүрэн сүлжээ байхгүй."</string>
     <string name="incall_error_out_of_service_wfc" msgid="323851839058697057">"Үүрэн сүлжээнд холбогдох боломжгүй байна. Дуудлага хийхийн тулд утасгүй интернетэд холбогдоно уу."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"Дуудлага хийхийн тулд хүчин төгөлдөр дугаар оруулна уу."</string>
-    <string name="incall_error_call_failed" msgid="6302746943230078197">"Дуудлага хийх боломжгүй байна."</string>
+    <string name="incall_error_call_failed" msgid="5891978320269774095">"Дуудлага амжилтгүй болсон."</string>
     <string name="incall_status_dialed_mmi" msgid="3672498861336189563">"MMI дарааллыг эхлүүлж байна…"</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"Үйлчилгээг дэмждэггүй байна"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"Дуудлагыг солих боломжгүй байна."</string>
@@ -437,10 +444,12 @@
     <string name="incall_error_supp_service_conference" msgid="2505727299596357312">"Утсан хурал хийх боломжгүй."</string>
     <string name="incall_error_supp_service_reject" msgid="8998568661508655638">"Дуудлага татгалзах боломжгүй байна."</string>
     <string name="incall_error_supp_service_hangup" msgid="7434513517153834426">"Дуудлага чөлөөлөх боломжгүй байна."</string>
+    <string name="incall_error_supp_service_hold" msgid="7967020511232222078">"Дуудлагыг хадгалах боломжгүй байна."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="1782466780452640089">"Дуудлага хийхийн тулд утасгүй интернетэд холбогдоно уу."</string>
     <string name="emergency_enable_radio_dialog_title" msgid="4627849966634578257">"Ослын дуудлага"</string>
     <string name="emergency_enable_radio_dialog_message" msgid="207613549344420291">"Радиог асааж байна…"</string>
     <string name="emergency_enable_radio_dialog_retry" msgid="5960061579996526883">"Ажиллагаагүй байна. Дахин оролдоно уу..."</string>
+    <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"Яаралтай дуудлагын дундуур нислэгийн горимд шилжих боломжгүй."</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"Дуудлага хийх боломжгүй. <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> нь түргэн тусламжийн дугаар биш байна."</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"Дуудлага хийх боломжгүй. Түргэн тусламжийн дугаар луу залга."</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"Залгахдаа гар ашиглах"</string>
@@ -459,10 +468,12 @@
     <string name="importAllSimEntries" msgid="1503181169636198673">"Бүгдийг оруулах"</string>
     <string name="importingSimContacts" msgid="7374056215462575769">"SIM харилцагчдыг оруулж байна"</string>
     <string name="importToFDNfromContacts" msgid="2130620207013368580">"Харилцагчдаас оруулах"</string>
+    <string name="singleContactImportedMsg" msgid="6868483416182599206">"Импортолсон харилцагчийн жагсаалт"</string>
+    <string name="failedToImportSingleContactMsg" msgid="415399285420353917">"Харилцагчийн жагсаалтыг импортолж чадсангүй"</string>
     <string name="hac_mode_title" msgid="8740268574688743289">"Сонсголын төхөөрөмж"</string>
     <string name="hac_mode_summary" msgid="6833851160514929341">"Сонсголын төхөөрөмж тааруулагчийг асаана уу"</string>
   <string-array name="tty_mode_entries">
-    <item msgid="512950011423868021">"TTY Үгүй"</item>
+    <item msgid="512950011423868021">"TTY Унтраасан"</item>
     <item msgid="3971695875449640648">"TTY Дүүрэн"</item>
     <item msgid="1937509904407445684">"TTY HCO"</item>
     <item msgid="5644925873488772224">"TTY VCO"</item>
@@ -542,7 +553,8 @@
     <string name="accessibility_settings_activity_title" msgid="8562004288733103868">"Хандалт"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="8772915926382037499">"Орж ирсэн Wi-Fi дуудлага"</string>
     <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"Wi-Fi дуудлага"</string>
-    <string name="emergency_action_launch_hint" msgid="5841511849007540970">"Нээхийн тулд дахин хүрнэ үү"</string>
+    <string name="emergency_action_launch_hint" msgid="4906759256275562674">"Нээхийн тулд дахин дарна уу"</string>
     <string name="message_decode_error" msgid="3456481534066924855">"Зурвасын кодыг тайлах явцад алдаа гарсан."</string>
     <string name="callFailed_cdma_activation" msgid="2307989779233262164">"SIM карт таны үйлчилгээг идэвхжүүлж, утасны роаминг багтаамжийг шинэчиллээ."</string>
+    <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"Хэт олон идэвхтэй дуудлага байна. Шинэ дуудлага хийхийн өмнө одоогийн дуудлагуудыг таслах буюу нэгтгэнэ үү."</string>
 </resources>

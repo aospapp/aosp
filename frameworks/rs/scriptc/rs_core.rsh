@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,6 +44,7 @@
 #include "rs_value_types.rsh"
 #include "rs_object_types.rsh"
 
+#include "rs_allocation_create.rsh"
 #include "rs_allocation_data.rsh"
 #include "rs_atomic.rsh"
 #include "rs_convert.rsh"

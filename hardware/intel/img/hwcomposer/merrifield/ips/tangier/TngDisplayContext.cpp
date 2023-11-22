@@ -43,17 +43,17 @@ bool TngDisplayContext::initialize()
     CTRACE();
 
     // open frame buffer device
-    hw_module_t const* module;
-    int err = hw_get_module(GRALLOC_HARDWARE_MODULE_ID, &module);
+    gralloc_module_t const* module;
+    int err = hw_get_module(GRALLOC_HARDWARE_MODULE_ID, (hw_module_t const**)&module);
     if (err) {
         ETRACE("failed to load gralloc module, error = %d", err);
         return false;
     }
 
     // init IMG display device
-    mIMGDisplayDevice = (((IMG_gralloc_module_public_t *)module)->getDisplayDevice((IMG_gralloc_module_public_t *)module));
-    if (!mIMGDisplayDevice) {
-        ETRACE("failed to get display device");
+    err = module->perform(module, GRALLOC_MODULE_GET_DISPLAY_DEVICE_IMG, (void **)&mIMGDisplayDevice);
+    if (err) {
+        ETRACE("failed to get display device, error = %d", err);
         return false;
     }
 
@@ -219,19 +219,15 @@ bool TngDisplayContext::commitEnd(size_t numDisplays, hwc_display_contents_1_t *
                  displays[i]->hwLayers[j].releaseFenceFd);
         }
 
-#ifdef INTEL_WIDI_MERRIFIELD
         // retireFence is used for SurfaceFlinger to do DispSync;
         // dup releaseFenceFd for physical displays and ignore virtual
         // display; we don't distinguish between release and retire, and all
         // physical displays are using a single releaseFence; for virtual
         // display, fencing is handled by the VirtualDisplay class
         if (i < IDisplayDevice::DEVICE_VIRTUAL) {
-#endif
             displays[i]->retireFenceFd =
                 (releaseFenceFd != -1) ? dup(releaseFenceFd) : -1;
-#ifdef INTEL_WIDI_MERRIFIELD
         }
-#endif
     }
 
     // close original release fence fd

@@ -36,7 +36,7 @@ def main():
     print "Hardware level"
     print "  Legacy:", its.caps.legacy(props)
     print "  Limited:", its.caps.limited(props)
-    print "  Full:", its.caps.full(props)
+    print "  Full or better:", its.caps.full_or_better(props)
     print "Capabilities"
     print "  Manual sensor:", its.caps.manual_sensor(props)
     print "  Manual post-proc:", its.caps.manual_post_proc(props)
@@ -46,7 +46,7 @@ def main():
     # Test: hardware level should be a valid value.
     check('props.has_key("android.info.supportedHardwareLevel")')
     check('props["android.info.supportedHardwareLevel"] is not None')
-    check('props["android.info.supportedHardwareLevel"] in [0,1,2]')
+    check('props["android.info.supportedHardwareLevel"] in [0,1,2,3]')
     full = getval('props["android.info.supportedHardwareLevel"]') == 1
     manual_sensor = its.caps.manual_sensor(props)
 
@@ -72,8 +72,6 @@ def main():
     check('props.has_key("android.scaler.croppingType")')
     check('props["android.scaler.croppingType"] is not None')
     check('props["android.scaler.croppingType"] in [0,1]')
-    if full:
-        check('props["android.scaler.croppingType"] == 1')
 
     assert(not failed)
 

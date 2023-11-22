@@ -15,8 +15,10 @@
  */
 package android.support.v7.widget;
 
+import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
@@ -27,6 +29,7 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
+import android.support.annotation.Nullable;
 import android.support.v7.cardview.R;
 
 /**
@@ -72,6 +75,8 @@ class RoundRectDrawableWithShadow extends Drawable {
     // actual value set by developer
     float mRawShadowSize;
 
+    private ColorStateList mBackground;
+
     private boolean mDirty = true;
 
     private final int mShadowStartColor;
@@ -85,13 +90,13 @@ class RoundRectDrawableWithShadow extends Drawable {
      */
     private boolean mPrintedShadowClipWarning = false;
 
-    RoundRectDrawableWithShadow(Resources resources, int backgroundColor, float radius,
+    RoundRectDrawableWithShadow(Resources resources, ColorStateList backgroundColor, float radius,
             float shadowSize, float maxShadowSize) {
         mShadowStartColor = resources.getColor(R.color.cardview_shadow_start_color);
         mShadowEndColor = resources.getColor(R.color.cardview_shadow_end_color);
         mInsetShadow = resources.getDimensionPixelSize(R.dimen.cardview_compat_inset_shadow);
         mPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG);
-        mPaint.setColor(backgroundColor);
+        setBackground(backgroundColor);
         mCornerShadowPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG);
         mCornerShadowPaint.setStyle(Paint.Style.FILL);
         mCornerRadius = (int) (radius + .5f);
@@ -99,6 +104,11 @@ class RoundRectDrawableWithShadow extends Drawable {
         mEdgeShadowPaint = new Paint(mCornerShadowPaint);
         mEdgeShadowPaint.setAntiAlias(false);
         setShadowSize(shadowSize, maxShadowSize);
+    }
+
+    private void setBackground(ColorStateList color) {
+        mBackground = (color == null) ?  ColorStateList.valueOf(Color.TRANSPARENT) : color;
+        mPaint.setColor(mBackground.getColorForState(getState(), mBackground.getDefaultColor()));
     }
 
     /**
@@ -131,8 +141,13 @@ class RoundRectDrawableWithShadow extends Drawable {
     }
 
     void setShadowSize(float shadowSize, float maxShadowSize) {
-        if (shadowSize < 0 || maxShadowSize < 0) {
-            throw new IllegalArgumentException("invalid shadow size");
+        if (shadowSize < 0f) {
+            throw new IllegalArgumentException("Invalid shadow size " + shadowSize +
+                    ". Must be >= 0");
+        }
+        if (maxShadowSize < 0f) {
+            throw new IllegalArgumentException("Invalid max shadow size " + maxShadowSize +
+                    ". Must be >= 0");
         }
         shadowSize = toEven(shadowSize);
         maxShadowSize = toEven(maxShadowSize);
@@ -182,10 +197,25 @@ class RoundRectDrawableWithShadow extends Drawable {
     }
 
     @Override
+    protected boolean onStateChange(int[] stateSet) {
+        final int newColor = mBackground.getColorForState(stateSet, mBackground.getDefaultColor());
+        if (mPaint.getColor() == newColor) {
+            return false;
+        }
+        mPaint.setColor(newColor);
+        mDirty = true;
+        invalidateSelf();
+        return true;
+    }
+
+    @Override
+    public boolean isStateful() {
+        return (mBackground != null && mBackground.isStateful()) || super.isStateful();
+    }
+
+    @Override
     public void setColorFilter(ColorFilter cf) {
         mPaint.setColorFilter(cf);
-        mCornerShadowPaint.setColorFilter(cf);
-        mEdgeShadowPaint.setColorFilter(cf);
     }
 
     @Override
@@ -194,6 +224,10 @@ class RoundRectDrawableWithShadow extends Drawable {
     }
 
     void setCornerRadius(float radius) {
+        if (radius < 0f) {
+            throw new IllegalArgumentException("Invalid radius " + radius +
+                ". Must be >= 0");
+        }
         radius = (int) (radius + .5f);
         if (mCornerRadius == radius) {
             return;
@@ -343,9 +377,13 @@ class RoundRectDrawableWithShadow extends Drawable {
         return content + (mRawMaxShadowSize * SHADOW_MULTIPLIER + mInsetShadow) * 2;
     }
 
-    public void setColor(int color) {
-        mPaint.setColor(color);
+    void setColor(@Nullable ColorStateList color) {
+        setBackground(color);
         invalidateSelf();
+    }
+
+    ColorStateList getColor() {
+        return mBackground;
     }
 
     static interface RoundRectHelper {

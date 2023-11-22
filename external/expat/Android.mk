@@ -18,48 +18,37 @@ common_CFLAGS := \
 common_C_INCLUDES += \
 	$(LOCAL_PATH)/lib
 
-common_COPY_HEADERS_TO := libexpat
-common_COPY_HEADERS := \
-	lib/expat.h \
-	lib/expat_external.h
-
 # For the host
 # =====================================================
 
+# Host static library
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := $(common_SRC_FILES)
 LOCAL_CFLAGS += $(common_CFLAGS)
 LOCAL_C_INCLUDES += $(common_C_INCLUDES)
 
-ifeq ($(HOST_OS),darwin)
-	LOCAL_CFLAGS += -fno-common
-endif
+LOCAL_CFLAGS_darwin += -fno-common
 
 LOCAL_MODULE:= libexpat
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_HOST_OS := darwin linux windows
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/lib
 
 LOCAL_MULTILIB := both
 
 include $(BUILD_HOST_STATIC_LIBRARY)
 
-
+# Host shared library
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := $(common_SRC_FILES)
 LOCAL_CFLAGS += $(common_CFLAGS)
 LOCAL_C_INCLUDES += $(common_C_INCLUDES)
 
-ifeq ($(HOST_OS),darwin)
-	LOCAL_CFLAGS += -fno-common
-endif
+LOCAL_CFLAGS_darwin += -fno-common
 
 LOCAL_MODULE:= libexpat-host
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
-LOCAL_MODULE_TAGS := optional
-LOCAL_COPY_HEADERS_TO := $(common_COPY_HEADERS_TO)
-LOCAL_COPY_HEADERS := $(common_COPY_HEADERS)
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/lib
 LOCAL_MULTILIB := both
 
 include $(BUILD_HOST_SHARED_LIBRARY)
@@ -84,6 +73,7 @@ LOCAL_C_INCLUDES += $(common_C_INCLUDES)
 LOCAL_MODULE:= libexpat_static
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_MODULE_TAGS := optional
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/lib
 
 include $(BUILD_STATIC_LIBRARY)
 
@@ -104,7 +94,6 @@ LOCAL_C_INCLUDES += $(common_C_INCLUDES)
 LOCAL_MODULE:= libexpat
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_MODULE_TAGS := optional
-LOCAL_COPY_HEADERS_TO := $(common_COPY_HEADERS_TO)
-LOCAL_COPY_HEADERS := $(common_COPY_HEADERS)
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/lib
 
 include $(BUILD_SHARED_LIBRARY)

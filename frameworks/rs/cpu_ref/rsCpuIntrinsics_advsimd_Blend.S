@@ -579,6 +579,9 @@
     BLEND_LIST(BLEND_X)
 #undef BLEND_X
 
+#define BLEND_X(d, n) .set tablesize, d+1 ;
+    BLEND_LIST(BLEND_X)
+#undef BLEND_X
 
 /*  int rsdIntrinsicBlend_K(
  *          uchar4 *out,        // x0
@@ -589,7 +592,7 @@
  */
 ENTRY(rsdIntrinsicBlend_K)
     adr     x5, 2f
-    cmp     w2, #(3f - 2f) >> 1
+    cmp     w2, tablesize >> 1
     bhs     1f
     ldrsh   x6, [x5, w2, uxtw #1]
     add     x0, x0, w3, uxtw #2

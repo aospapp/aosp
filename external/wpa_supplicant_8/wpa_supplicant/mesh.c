@@ -47,8 +47,8 @@ void wpa_supplicant_mesh_iface_deinit(struct wpa_supplicant *wpa_s,
 
 	if (ifmsh->mconf) {
 		mesh_mpm_deinit(wpa_s, ifmsh);
-		if (ifmsh->mconf->ies) {
-			ifmsh->mconf->ies = NULL;
+		if (ifmsh->mconf->rsn_ie) {
+			ifmsh->mconf->rsn_ie = NULL;
 			/* We cannot free this struct
 			 * because wpa_authenticator on
 			 * hostapd side is also using it
@@ -171,6 +171,8 @@ static int wpa_supplicant_mesh_init(struct wpa_supplicant *wpa_s,
 	ifmsh->conf = conf;
 
 	ifmsh->bss[0]->max_plinks = wpa_s->conf->max_peer_links;
+	ifmsh->bss[0]->dot11RSNASAERetransPeriod =
+		wpa_s->conf->dot11RSNASAERetransPeriod;
 	os_strlcpy(bss->conf->iface, wpa_s->ifname, sizeof(bss->conf->iface));
 
 	mconf = mesh_config_create(ssid);
@@ -190,6 +192,29 @@ static int wpa_supplicant_mesh_init(struct wpa_supplicant *wpa_s,
 		wpa_printf(MSG_ERROR, "Unsupported mesh mode frequency: %d MHz",
 			   ssid->frequency);
 		goto out_free;
+	}
+	if (ssid->ht40)
+		conf->secondary_channel = ssid->ht40;
+	if (conf->hw_mode == HOSTAPD_MODE_IEEE80211A && ssid->vht) {
+		conf->vht_oper_chwidth = ssid->max_oper_chwidth;
+		switch (conf->vht_oper_chwidth) {
+		case VHT_CHANWIDTH_80MHZ:
+		case VHT_CHANWIDTH_80P80MHZ:
+			ieee80211_freq_to_chan(
+				ssid->frequency,
+				&conf->vht_oper_centr_freq_seg0_idx);
+			conf->vht_oper_centr_freq_seg0_idx += ssid->ht40 * 2;
+			break;
+		case VHT_CHANWIDTH_160MHZ:
+			ieee80211_freq_to_chan(
+				ssid->frequency,
+				&conf->vht_oper_centr_freq_seg0_idx);
+			conf->vht_oper_centr_freq_seg0_idx += ssid->ht40 * 2;
+			conf->vht_oper_centr_freq_seg0_idx += 40 / 5;
+			break;
+		}
+		ieee80211_freq_to_chan(ssid->vht_center_freq2,
+				       &conf->vht_oper_centr_freq_seg1_idx);
 	}
 
 	if (ssid->mesh_basic_rates == NULL) {
@@ -316,11 +341,44 @@ int wpa_supplicant_join_mesh(struct wpa_supplicant *wpa_s,
 
 	wpa_supplicant_mesh_deinit(wpa_s);
 
+	if (ssid->key_mgmt & WPA_KEY_MGMT_SAE) {
+		wpa_s->pairwise_cipher = WPA_CIPHER_CCMP;
+		wpa_s->group_cipher = WPA_CIPHER_CCMP;
+		wpa_s->mgmt_group_cipher = 0;
+	} else {
+		wpa_s->pairwise_cipher = WPA_CIPHER_NONE;
+		wpa_s->group_cipher = WPA_CIPHER_NONE;
+		wpa_s->mgmt_group_cipher = 0;
+	}
+
 	os_memset(&params, 0, sizeof(params));
 	params.meshid = ssid->ssid;
 	params.meshid_len = ssid->ssid_len;
 	ibss_mesh_setup_freq(wpa_s, ssid, &params.freq);
 	wpa_s->mesh_ht_enabled = !!params.freq.ht_enabled;
+	wpa_s->mesh_vht_enabled = !!params.freq.vht_enabled;
+	if (params.freq.ht_enabled && params.freq.sec_channel_offset)
+		ssid->ht40 = params.freq.sec_channel_offset;
+	if (wpa_s->mesh_vht_enabled) {
+		ssid->vht = 1;
+		switch (params.freq.bandwidth) {
+		case 80:
+			if (params.freq.center_freq2) {
+				ssid->max_oper_chwidth = VHT_CHANWIDTH_80P80MHZ;
+				ssid->vht_center_freq2 =
+					params.freq.center_freq2;
+			} else {
+				ssid->max_oper_chwidth = VHT_CHANWIDTH_80MHZ;
+			}
+			break;
+		case 160:
+			ssid->max_oper_chwidth = VHT_CHANWIDTH_160MHZ;
+			break;
+		default:
+			ssid->max_oper_chwidth = VHT_CHANWIDTH_USE_HT;
+			break;
+		}
+	}
 	if (ssid->beacon_int > 0)
 		params.beacon_int = ssid->beacon_int;
 	else if (wpa_s->conf->beacon_int > 0)
@@ -350,8 +408,8 @@ int wpa_supplicant_join_mesh(struct wpa_supplicant *wpa_s,
 	}
 
 	if (wpa_s->ifmsh) {
-		params.ies = wpa_s->ifmsh->mconf->ies;
-		params.ie_len = wpa_s->ifmsh->mconf->ie_len;
+		params.ies = wpa_s->ifmsh->mconf->rsn_ie;
+		params.ie_len = wpa_s->ifmsh->mconf->rsn_ie_len;
 		params.basic_rates = wpa_s->ifmsh->basic_rates;
 	}
 
@@ -538,4 +596,17 @@ int wpas_mesh_add_interface(struct wpa_supplicant *wpa_s, char *ifname,
 	}
 	mesh_wpa_s->mesh_if_created = 1;
 	return 0;
+}
+
+
+int wpas_mesh_peer_remove(struct wpa_supplicant *wpa_s, const u8 *addr)
+{
+	return mesh_mpm_close_peer(wpa_s, addr);
+}
+
+
+int wpas_mesh_peer_add(struct wpa_supplicant *wpa_s, const u8 *addr,
+		       int duration)
+{
+	return mesh_mpm_connect_peer(wpa_s, addr, duration);
 }

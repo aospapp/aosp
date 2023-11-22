@@ -28,8 +28,7 @@
 
 #include "memtest.h"
 
-nsecs_t system_time()
-{
+nsecs_t system_time() {
     struct timespec t;
     t.tv_sec = t.tv_nsec = 0;
     clock_gettime(CLOCK_MONOTONIC, &t);
@@ -56,7 +55,6 @@ static void usage(char* p) {
            "  malloc [fill]\n"
            "  madvise\n"
            "  resampler\n"
-           "  crash\n"
            "  stack (stack smasher)\n"
            "  crawl\n"
            , p);
@@ -69,7 +67,6 @@ int per_core_bandwidth(int argc, char** argv);
 int multithread_bandwidth(int argc, char** argv);
 int malloc_test(int argc, char** argv);
 int madvise_test(int argc, char** argv);
-int crash_test(int argc, char** argv);
 int stack_smasher_test(int argc, char** argv);
 int crawl_test(int argc, char** argv);
 int fp_test(int argc, char** argv);
@@ -82,7 +79,6 @@ typedef struct {
 function_t function_table[] = {
     { "malloc", malloc_test },
     { "madvise", madvise_test },
-    { "crash", crash_test },
     { "stack", stack_smasher_test },
     { "crawl", crawl_test },
     { "fp", fp_test },
@@ -93,8 +89,7 @@ function_t function_table[] = {
     { "multithread_bandwidth", multithread_bandwidth },
 };
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
     if (argc == 1) {
         usage(argv[0]);
         return 0;
@@ -112,8 +107,7 @@ int main(int argc, char** argv)
     return err;
 }
 
-int malloc_test(int argc, char** argv)
-{
+int malloc_test(int argc, char** argv) {
     bool fill = (argc>=2 && !strcmp(argv[1], "fill"));
     size_t total = 0;
     size_t size = 0x40000000;
@@ -138,8 +132,7 @@ int malloc_test(int argc, char** argv)
     return 0;
 }
 
-int madvise_test(int argc, char** argv)
-{
+int madvise_test(int, char**) {
     for (int i=0 ; i<2 ; i++) {
         size_t size = i==0 ? 4096 : 48*1024*1024; // 48 MB
         printf("Allocating %zd MB... ", size/(1024*1024)); fflush(stdout);
@@ -182,22 +175,7 @@ int madvise_test(int argc, char** argv)
     return 0;
 }
 
-int crash_test(int argc, char** argv)
-{
-    printf("about to crash...\n");
-    asm volatile(
-        "mov r0,  #0 \n"
-        "mov r1,  #1 \n"
-        "mov r2,  #2 \n"
-        "mov r3,  #3 \n"
-        "ldr r12, [r0] \n"
-    );
-
-    return 0;
-}
-
-int stack_smasher_test(int argc, char** argv)
-{
+int stack_smasher_test(int, char**) {
     int dummy = 0;
     printf("corrupting our stack...\n");
     *(volatile long long*)&dummy = 0;
@@ -212,25 +190,23 @@ extern "C" void arm_function_3(int*p);
 extern "C" void arm_function_2(int*p);
 extern "C" void arm_function_1(int*p);
 
-void arm_function_3(int*p) {
+void arm_function_3(int*) {
     int a = 0;
     thumb_function_2(&a);
 }
 
-void arm_function_2(int*p) {
+void arm_function_2(int*) {
     int a = 0;
     thumb_function_1(&a);
 }
 
-void arm_function_1(int*p) {
+void arm_function_1(int*) {
     int a = 0;
     arm_function_2(&a);
 }
 
-int crawl_test(int argc, char** argv)
-{
+int crawl_test(int, char**) {
     int a = 0;
     arm_function_1(&a);
     return 0;
 }
-

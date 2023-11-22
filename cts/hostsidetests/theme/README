@@ -42,10 +42,14 @@ generate a new set of reference images, do the following:
      reference images are saved in assets/<api>/<dpi>.zip and will overwrite
      any existing sets. Image generation may be started using:
 
-     .cts/hostsidetests/theme/generate_images.sh
+     ./cts/hostsidetests/theme/generate_images.sh
 
 A complete collection of reference images for a given API revision must include
 a set for each possible DPI bucket (tvdpi, xxhdpi, etc.) that may be tested.
+
+For a list of devices and their DPI buckets, see Device Metrics:
+
+    https://design.google.com/devices/
 
 
 II. Building theme tests
@@ -68,6 +72,8 @@ III. Running theme tests
 
 2. Run the theme tests using cts-tradefed:
 
-   cts-tradefed run cts -c android.theme.cts.ThemeHostTest
+   cts-tradefed run singleCommand cts --skip-device-info --skip-preconditions \
+       --skip-connectivity-check --module CtsThemeHostTestCases \
+       --test android.theme.cts.ThemeHostTest
 
 3. Wait for the tests to complete. This should take less than five minutes.

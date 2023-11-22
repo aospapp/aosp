@@ -31,7 +31,7 @@ public class Bitmap_ConfigTest extends TestCase {
     public void testValues(){
         Config[] config = Config.values();
 
-        assertEquals(4, config.length);
+        assertTrue(config.length >= 4);
         assertEquals(Config.ALPHA_8, config[0]);
         assertEquals(Config.RGB_565, config[1]);
         assertEquals(Config.ARGB_4444, config[2]);

@@ -21,7 +21,14 @@
 #include <list>
 #include <stdarg.h>
 
+#include <chrono>
+
+#include <private/android_filesystem_config.h>
+
+#include "utils/RWLock.h"
+
 const int PROTECT_MARK = 0x1;
+const int MAX_SYSTEM_UID = AID_APP - 1;
 
 extern const char * const IPTABLES_PATH;
 extern const char * const IP6TABLES_PATH;
@@ -35,6 +42,7 @@ enum IptablesTarget { V4, V6, V4V6 };
 
 int execIptables(IptablesTarget target, ...);
 int execIptablesSilently(IptablesTarget target, ...);
+int execIptablesRestore(IptablesTarget target, const std::string& commands);
 bool isIfaceName(const char *name);
 int parsePrefix(const char *prefix, uint8_t *family, void *address, int size, uint8_t *prefixlen);
 
@@ -42,6 +50,7 @@ int parsePrefix(const char *prefix, uint8_t *family, void *address, int size, ui
 
 #define __INT_STRLEN(i) sizeof(#i)
 #define _INT_STRLEN(i) __INT_STRLEN(i)
+#define INT32_STRLEN _INT_STRLEN(INT32_MIN)
 #define UINT32_STRLEN _INT_STRLEN(UINT32_MAX)
 #define UINT32_HEX_STRLEN sizeof("0x12345678")
 
@@ -49,4 +58,33 @@ int parsePrefix(const char *prefix, uint8_t *family, void *address, int size, ui
 
 const uid_t INVALID_UID = static_cast<uid_t>(-1);
 
-#endif
+class Stopwatch {
+public:
+    Stopwatch() : mStart(std::chrono::steady_clock::now()) {}
+    virtual ~Stopwatch() {};
+
+    float timeTaken() const {
+        using ms = std::chrono::duration<float, std::ratio<1, 1000>>;
+        return (std::chrono::duration_cast<ms>(
+                std::chrono::steady_clock::now() - mStart)).count();
+    }
+
+private:
+    std::chrono::time_point<std::chrono::steady_clock> mStart;
+};
+
+namespace android {
+namespace net {
+
+/**
+ * This lock exists to make NetdNativeService RPCs (which come in on multiple Binder threads)
+ * coexist with the commands in CommandListener.cpp. These are presumed not thread-safe because
+ * CommandListener has only one user (NetworkManagementService), which is connected through a
+ * FrameworkListener that passes in commands one at a time.
+ */
+extern android::RWLock gBigNetdLock;
+
+}  // namespace net
+}  // namespace android
+
+#endif  // _NETD_CONSTANTS_H

@@ -16,23 +16,26 @@
 
 package com.android.settings;
 
+import static android.app.Activity.RESULT_OK;
+import static android.content.Context.TELEPHONY_SERVICE;
+
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.app.DialogFragment;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.res.Resources;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
-import android.preference.EditTextPreference;
-import android.preference.ListPreference;
-import android.preference.MultiSelectListPreference;
-import android.preference.Preference;
-import android.preference.PreferenceActivity;
-import android.preference.SwitchPreference;
 import android.provider.Telephony;
+import android.support.v14.preference.MultiSelectListPreference;
+import android.support.v14.preference.SwitchPreference;
+import android.support.v7.preference.EditTextPreference;
+import android.support.v7.preference.ListPreference;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.Preference.OnPreferenceChangeListener;
 import android.telephony.ServiceState;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
@@ -40,15 +43,18 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
+import android.view.MenuInflater;
 import android.view.MenuItem;
-import com.android.internal.logging.MetricsLogger;
+import android.view.View;
+import android.view.View.OnKeyListener;
+
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 
 import java.util.HashSet;
 import java.util.Set;
 
-public class ApnEditor extends InstrumentedPreferenceActivity
-        implements SharedPreferences.OnSharedPreferenceChangeListener,
-                    Preference.OnPreferenceChangeListener {
+public class ApnEditor extends SettingsPreferenceFragment
+        implements OnPreferenceChangeListener, OnKeyListener {
 
     private final static String TAG = ApnEditor.class.getSimpleName();
 
@@ -63,7 +69,6 @@ public class ApnEditor extends InstrumentedPreferenceActivity
     private static final int MENU_DELETE = Menu.FIRST;
     private static final int MENU_SAVE = Menu.FIRST + 1;
     private static final int MENU_CANCEL = Menu.FIRST + 2;
-    private static final int ERROR_DIALOG_ID = 0;
 
     private static String sNotSet;
     private EditTextPreference mName;
@@ -155,7 +160,7 @@ public class ApnEditor extends InstrumentedPreferenceActivity
 
 
     @Override
-    protected void onCreate(Bundle icicle) {
+    public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
 
         addPreferencesFromResource(R.xml.apn_editor);
@@ -203,10 +208,22 @@ public class ApnEditor extends InstrumentedPreferenceActivity
         mFirstTime = icicle == null;
 
         if (action.equals(Intent.ACTION_EDIT)) {
-            mUri = intent.getData();
+            Uri uri = intent.getData();
+            if (!uri.isPathPrefixMatch(Telephony.Carriers.CONTENT_URI)) {
+                Log.e(TAG, "Edit request not for carrier table. Uri: " + uri);
+                finish();
+                return;
+            }
+            mUri = uri;
         } else if (action.equals(Intent.ACTION_INSERT)) {
             if (mFirstTime || icicle.getInt(SAVED_POS) == 0) {
-                mUri = getContentResolver().insert(intent.getData(), new ContentValues());
+                Uri uri = intent.getData();
+                if (!uri.isPathPrefixMatch(Telephony.Carriers.CONTENT_URI)) {
+                    Log.e(TAG, "Insert request not for carrier table. Uri: " + uri);
+                    finish();
+                    return;
+                }
+                mUri = getContentResolver().insert(uri, new ContentValues());
             } else {
                 mUri = ContentUris.withAppendedId(Telephony.Carriers.CONTENT_URI,
                         icicle.getInt(SAVED_POS));
@@ -233,30 +250,30 @@ public class ApnEditor extends InstrumentedPreferenceActivity
             return;
         }
 
-        mCursor = managedQuery(mUri, sProjection, null, null);
+        mCursor = getActivity().managedQuery(mUri, sProjection, null, null);
         mCursor.moveToFirst();
 
         mTelephonyManager = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
+
+        for (int i = 0; i < getPreferenceScreen().getPreferenceCount(); i++) {
+            getPreferenceScreen().getPreference(i).setOnPreferenceChangeListener(this);
+        }
 
         fillUi();
     }
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.APN_EDITOR;
+        return MetricsEvent.APN_EDITOR;
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        getPreferenceScreen().getSharedPreferences()
-                .registerOnSharedPreferenceChangeListener(this);
     }
 
     @Override
     public void onPause() {
-        getPreferenceScreen().getSharedPreferences()
-                .unregisterOnSharedPreferenceChangeListener(this);
         super.onPause();
     }
 
@@ -444,11 +461,7 @@ public class ApnEditor extends InstrumentedPreferenceActivity
             return null;
         } else {
             String[] values = mRes.getStringArray(R.array.mvno_type_entries);
-            if (values[mvnoIndex].equals("None")) {
-                mMvnoMatchData.setEnabled(false);
-            } else {
-                mMvnoMatchData.setEnabled(true);
-            }
+            mMvnoMatchData.setEnabled(mvnoIndex != 0);
             if (newValue != null && newValue.equals(oldValue) == false) {
                 if (values[mvnoIndex].equals("SPN")) {
                     mMvnoMatchData.setText(mTelephonyManager.getSimOperatorName());
@@ -475,7 +488,7 @@ public class ApnEditor extends InstrumentedPreferenceActivity
                 int index = Integer.parseInt((String) newValue);
                 mAuthType.setValueIndex(index);
 
-                String []values = mRes.getStringArray(R.array.apn_auth_entries);
+                String[] values = mRes.getStringArray(R.array.apn_auth_entries);
                 mAuthType.setSummary(values[index]);
             } catch (NumberFormatException e) {
                 return false;
@@ -509,13 +522,20 @@ public class ApnEditor extends InstrumentedPreferenceActivity
             mMvnoType.setValue((String) newValue);
             mMvnoType.setSummary(mvno);
         }
+        if (preference.equals(mPassword)) {
+            preference.setSummary(starify(newValue != null ? String.valueOf(newValue) : ""));
+        } else if (preference.equals(mCarrierEnabled) || preference.equals(mBearerMulti)) {
+            // do nothing
+        } else {
+            preference.setSummary(checkNull(newValue != null ? String.valueOf(newValue) : null));
+        }
 
         return true;
     }
 
     @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        super.onCreateOptionsMenu(menu);
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        super.onCreateOptionsMenu(menu, inflater);
         // If it's a new APN, then cancel will delete the new entry in onPause
         if (!mNewApn) {
             menu.add(0, MENU_DELETE, 0, R.string.menu_delete)
@@ -525,7 +545,6 @@ public class ApnEditor extends InstrumentedPreferenceActivity
             .setIcon(android.R.drawable.ic_menu_save);
         menu.add(0, MENU_CANCEL, 0, R.string.menu_cancel)
             .setIcon(android.R.drawable.ic_menu_close_clear_cancel);
-        return true;
     }
 
     @Override
@@ -550,7 +569,13 @@ public class ApnEditor extends InstrumentedPreferenceActivity
     }
 
     @Override
-    public boolean onKeyDown(int keyCode, KeyEvent event) {
+    public void onViewCreated(View view, Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        view.setOnKeyListener(this);
+    }
+
+    public boolean onKey(View v, int keyCode, KeyEvent event) {
+        if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
         switch (keyCode) {
             case KeyEvent.KEYCODE_BACK: {
                 if (validateAndSave(false)) {
@@ -559,11 +584,11 @@ public class ApnEditor extends InstrumentedPreferenceActivity
                 return true;
             }
         }
-        return super.onKeyDown(keyCode, event);
+        return false;
     }
 
     @Override
-    protected void onSaveInstanceState(Bundle icicle) {
+    public void onSaveInstanceState(Bundle icicle) {
         super.onSaveInstanceState(icicle);
         if (validateAndSave(true)) {
             icicle.putInt(SAVED_POS, mCursor.getInt(ID_INDEX));
@@ -583,7 +608,7 @@ public class ApnEditor extends InstrumentedPreferenceActivity
         String mnc = checkNotSet(mMnc.getText());
 
         if (getErrorMsg() != null && !force) {
-            showDialog(ERROR_DIALOG_ID);
+            ErrorDialog.showError(this);
             return false;
         }
 
@@ -691,35 +716,6 @@ public class ApnEditor extends InstrumentedPreferenceActivity
         return errorMsg;
     }
 
-    @Override
-    protected Dialog onCreateDialog(int id) {
-
-        if (id == ERROR_DIALOG_ID) {
-            String msg = getErrorMsg();
-
-            return new AlertDialog.Builder(this)
-                    .setTitle(R.string.error_title)
-                    .setPositiveButton(android.R.string.ok, null)
-                    .setMessage(msg)
-                    .create();
-        }
-
-        return super.onCreateDialog(id);
-    }
-
-    @Override
-    protected void onPrepareDialog(int id, Dialog dialog) {
-        super.onPrepareDialog(id, dialog);
-
-        if (id == ERROR_DIALOG_ID) {
-            String msg = getErrorMsg();
-
-            if (msg != null) {
-                ((AlertDialog)dialog).setMessage(msg);
-            }
-        }
-    }
-
     private void deleteApn() {
         getContentResolver().delete(mUri, null, null);
         finish();
@@ -753,16 +749,24 @@ public class ApnEditor extends InstrumentedPreferenceActivity
         }
     }
 
-    public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
-        Preference pref = findPreference(key);
-        if (pref != null) {
-            if (pref.equals(mPassword)){
-                pref.setSummary(starify(sharedPreferences.getString(key, "")));
-            } else if (pref.equals(mCarrierEnabled) || pref.equals(mBearerMulti)) {
-                // do nothing
-            } else {
-                pref.setSummary(checkNull(sharedPreferences.getString(key, "")));
-            }
+    public static class ErrorDialog extends DialogFragment {
+
+        public static void showError(ApnEditor editor) {
+            ErrorDialog dialog = new ErrorDialog();
+            dialog.setTargetFragment(editor, 0);
+            dialog.show(editor.getFragmentManager(), "error");
+        }
+
+        @Override
+        public Dialog onCreateDialog(Bundle savedInstanceState) {
+            String msg = ((ApnEditor) getTargetFragment()).getErrorMsg();
+
+            return new AlertDialog.Builder(getContext())
+                    .setTitle(R.string.error_title)
+                    .setPositiveButton(android.R.string.ok, null)
+                    .setMessage(msg)
+                    .create();
         }
     }
+
 }

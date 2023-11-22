@@ -19,10 +19,15 @@ package org.apache.harmony.tests.java.nio.channels;
 
 import java.io.IOException;
 import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
 import java.net.SocketAddress;
+import java.net.SocketOption;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
+import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.spi.SelectorProvider;
+import java.util.Set;
 
 class MockDatagramChannel extends DatagramChannel {
 
@@ -90,4 +95,34 @@ class MockDatagramChannel extends DatagramChannel {
         // empty
     }
 
+    @Override
+    public SocketAddress getRemoteAddress() throws IOException {
+        return null;
+    }
+
+    @Override
+    public <T> DatagramChannel setOption(SocketOption<T> name, T value)
+        throws IOException {
+        return null;
+    }
+
+    @Override
+    public <T> T getOption(SocketOption<T> name) throws IOException {
+        return null;
+    }
+
+    @Override
+    public Set<SocketOption<?>> supportedOptions() {
+        return null;
+    }
+
+    @Override
+    public DatagramChannel bind(SocketAddress local) throws IOException {
+        return null;
+    }
+
+    @Override
+    public SocketAddress getLocalAddress() throws IOException {
+        return null;
+    }
 }

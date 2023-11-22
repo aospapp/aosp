@@ -16,7 +16,7 @@
 
 package android.view.cts;
 
-import com.android.cts.view.R;
+import android.view.cts.R;
 
 
 import android.app.Activity;
@@ -29,7 +29,7 @@ import android.widget.TextView;
 
 public class View_IdsTest extends ActivityInstrumentationTestCase2<UsingViewsCtsActivity> {
     public View_IdsTest() {
-        super("com.android.cts.view", UsingViewsCtsActivity.class);
+        super("android.view.cts", UsingViewsCtsActivity.class);
     }
 
     @UiThreadTest

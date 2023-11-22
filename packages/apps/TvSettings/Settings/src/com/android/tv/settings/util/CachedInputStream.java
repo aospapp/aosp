@@ -16,6 +16,8 @@
 
 package com.android.tv.settings.util;
 
+import android.support.annotation.NonNull;
+
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -130,7 +132,7 @@ public class CachedInputStream extends FilterInputStream {
     }
 
     @Override
-    public int read(byte[] buffer, int offset, int count) throws IOException {
+    public int read(@NonNull byte[] buffer, int offset, int count) throws IOException {
         if (in == null) {
             throw streamClosed();
         }

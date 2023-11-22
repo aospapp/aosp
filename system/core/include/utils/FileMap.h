@@ -26,7 +26,7 @@
 
 #if defined(__MINGW32__)
 // Ensure that we always pull in winsock2.h before windows.h
-#ifdef HAVE_WINSOCK
+#if defined(_WIN32)
 #include <winsock2.h>
 #endif
 #include <windows.h>
@@ -51,6 +51,9 @@ namespace android {
 class FileMap {
 public:
     FileMap(void);
+
+    FileMap(FileMap&& f);
+    FileMap& operator=(FileMap&& f);
 
     /*
      * Create a new mapping on an open file.

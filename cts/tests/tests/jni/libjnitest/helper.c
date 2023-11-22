@@ -16,9 +16,10 @@
 
 #include "helper.h"
 
-#include <cutils/log.h>
+#include <android/log.h>
 
 #include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #define LOG_TAG "cts"
@@ -29,7 +30,7 @@ char *failure(const char *format, ...) {
     char *result;
 
     va_start(args, format);
-    LOG_PRI_VA(ANDROID_LOG_ERROR, LOG_TAG, format, args);
+    __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, format, args);
     va_end(args);
 
     va_start(args, format);
@@ -58,7 +59,7 @@ char *runJniTests(JNIEnv *env, ...) {
 
         JniTestFunction *function = va_arg(args, JniTestFunction *);
 
-        ALOGI("running %s", name);
+        __android_log_print(ANDROID_LOG_INFO, LOG_TAG, "running %s", name);
 
         char *oneResult = function(env);
         if (oneResult != NULL) {

@@ -16,10 +16,13 @@
 
 package com.android.certinstaller;
 
+import android.app.admin.DevicePolicyManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.RemoteException;
+import android.os.UserHandle;
 import android.security.Credentials;
 import android.security.KeyChain;
 import android.security.IKeyChainService;
@@ -30,6 +33,8 @@ import com.android.org.bouncycastle.asn1.ASN1InputStream;
 import com.android.org.bouncycastle.asn1.ASN1Sequence;
 import com.android.org.bouncycastle.asn1.DEROctetString;
 import com.android.org.bouncycastle.asn1.x509.BasicConstraints;
+import com.android.org.conscrypt.TrustedCertificateStore;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.KeyFactory;
@@ -100,6 +105,7 @@ class CredentialHelper {
         try {
             outStates.putSerializable(DATA_KEY, mBundle);
             outStates.putString(KeyChain.EXTRA_NAME, mName);
+            outStates.putInt(Credentials.EXTRA_INSTALL_AS_UID, mUid);
             if (mUserKey != null) {
                 outStates.putByteArray(Credentials.USER_PRIVATE_KEY,
                         mUserKey.getEncoded());
@@ -120,6 +126,7 @@ class CredentialHelper {
     void onRestoreStates(Bundle savedStates) {
         mBundle = (HashMap) savedStates.getSerializable(DATA_KEY);
         mName = savedStates.getString(KeyChain.EXTRA_NAME);
+        mUid = savedStates.getInt(Credentials.EXTRA_INSTALL_AS_UID, -1);
         byte[] bytes = savedStates.getByteArray(Credentials.USER_PRIVATE_KEY);
         if (bytes != null) {
             setPrivateKey(bytes);
@@ -256,11 +263,20 @@ class CredentialHelper {
         return mUid != -1;
     }
 
-    Intent createSystemInstallIntent() {
+    int getInstallAsUid() {
+        return mUid;
+    }
+
+    Intent createSystemInstallIntent(final Context context) {
         Intent intent = new Intent("com.android.credentials.INSTALL");
         // To prevent the private key from being sniffed, we explicitly spell
         // out the intent receiver class.
-        intent.setClassName("com.android.settings", "com.android.settings.CredentialStorage");
+        if (!isWear(context)) {
+            intent.setClassName(Util.SETTINGS_PACKAGE, "com.android.settings.CredentialStorage");
+        } else {
+            intent.setClassName("com.google.android.apps.wearable.settings",
+                    "com.google.android.clockwork.settings.CredentialStorage");
+        }
         intent.putExtra(Credentials.EXTRA_INSTALL_AS_UID, mUid);
         try {
             if (mUserKey != null) {
@@ -291,7 +307,9 @@ class CredentialHelper {
         }
     }
 
-    boolean installCaCertsToKeyChain(IKeyChainService keyChainService) {
+    boolean installVpnAndAppsTrustAnchors(Context context, IKeyChainService keyChainService) {
+        final TrustedCertificateStore trustedCertificateStore = new TrustedCertificateStore();
+        final DevicePolicyManager dpm = context.getSystemService(DevicePolicyManager.class);
         for (X509Certificate caCert : mCaCerts) {
             byte[] bytes = null;
             try {
@@ -306,27 +324,44 @@ class CredentialHelper {
                     Log.w(TAG, "installCaCertsToKeyChain(): " + e);
                     return false;
                 }
+
+                String alias = trustedCertificateStore.getCertificateAlias(caCert);
+                if (alias == null) {
+                    Log.e(TAG, "alias is null");
+                    return false;
+                }
+
+                // Since the cert is installed by real user, the cert is approved by the user
+                dpm.approveCaCert(alias, UserHandle.myUserId(), true);
             }
         }
         return true;
     }
 
+    boolean hasPassword() {
+        if (!hasPkcs12KeyStore()) {
+            return false;
+        }
+        try {
+            return loadPkcs12Internal(new PasswordProtection(new char[] {})) == null;
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
     boolean extractPkcs12(String password) {
         try {
-            return extractPkcs12Internal(password);
+            return extractPkcs12Internal(new PasswordProtection(password.toCharArray()));
         } catch (Exception e) {
             Log.w(TAG, "extractPkcs12(): " + e, e);
             return false;
         }
     }
 
-    private boolean extractPkcs12Internal(String password)
+    private boolean extractPkcs12Internal(PasswordProtection password)
             throws Exception {
         // TODO: add test about this
-        java.security.KeyStore keystore = java.security.KeyStore.getInstance("PKCS12");
-        PasswordProtection passwordProtection = new PasswordProtection(password.toCharArray());
-        keystore.load(new ByteArrayInputStream(getData(KeyChain.EXTRA_PKCS12)),
-                      passwordProtection.getPassword());
+        java.security.KeyStore keystore = loadPkcs12Internal(password);
 
         Enumeration<String> aliases = keystore.aliases();
         if (!aliases.hasMoreElements()) {
@@ -335,17 +370,32 @@ class CredentialHelper {
 
         while (aliases.hasMoreElements()) {
             String alias = aliases.nextElement();
-            KeyStore.Entry entry = keystore.getEntry(alias, passwordProtection);
-            Log.d(TAG, "extracted alias = " + alias + ", entry=" + entry.getClass());
+            if (keystore.isKeyEntry(alias)) {
+                KeyStore.Entry entry = keystore.getEntry(alias, password);
+                Log.d(TAG, "extracted alias = " + alias + ", entry=" + entry.getClass());
 
-            if (entry instanceof PrivateKeyEntry) {
-                if (TextUtils.isEmpty(mName)) {
-                    mName = alias;
+                if (entry instanceof PrivateKeyEntry) {
+                    if (TextUtils.isEmpty(mName)) {
+                        mName = alias;
+                    }
+                    return installFrom((PrivateKeyEntry) entry);
                 }
-                return installFrom((PrivateKeyEntry) entry);
+            } else {
+                // KeyStore.getEntry with non-null ProtectionParameter can only be invoked on
+                // PrivateKeyEntry or SecretKeyEntry.
+                // See https://docs.oracle.com/javase/8/docs/api/java/security/KeyStore.html
+                Log.d(TAG, "Skip non-key entry, alias = " + alias);
             }
         }
         return true;
+    }
+
+    private java.security.KeyStore loadPkcs12Internal(PasswordProtection password)
+            throws Exception {
+        java.security.KeyStore keystore = java.security.KeyStore.getInstance("PKCS12");
+        keystore.load(new ByteArrayInputStream(getData(KeyChain.EXTRA_PKCS12)),
+                      password.getPassword());
+        return keystore;
     }
 
     private synchronized boolean installFrom(PrivateKeyEntry entry) {
@@ -364,5 +414,31 @@ class CredentialHelper {
         Log.d(TAG, "# ca certs extracted = " + mCaCerts.size());
 
         return true;
+    }
+
+    private static boolean isWear(final Context context) {
+        return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
+    }
+
+    /**
+     * Returns whether this credential contains CA certificates to be used as trust anchors
+     * for VPN and apps.
+     */
+    public boolean includesVpnAndAppsTrustAnchors() {
+        if (!hasCaCerts()) {
+            return false;
+        }
+        if (getInstallAsUid() != android.security.KeyStore.UID_SELF) {
+            // VPN and Apps trust anchors can only be installed under UID_SELF
+            return false;
+        }
+
+        if (mUserKey != null) {
+            // We are installing a key pair for client authentication, its CA
+            // should have nothing to do with VPN and apps trust anchors.
+            return false;
+        } else {
+            return true;
+        }
     }
 }

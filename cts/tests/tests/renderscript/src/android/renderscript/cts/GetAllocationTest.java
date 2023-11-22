@@ -37,7 +37,6 @@ public class GetAllocationTest extends RSBaseCompute {
         Allocation mOut = Allocation.createTyped(mRS, mTemp.getType());
 
         ms.bind_pointer(mTemp);
-        ms.set_script(ms);
         ms.set_alloc_out(mOut);
         ms.invoke_start();
 

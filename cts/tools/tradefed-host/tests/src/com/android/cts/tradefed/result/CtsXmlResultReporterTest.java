@@ -17,11 +17,10 @@ package com.android.cts.tradefed.result;
 
 import static com.android.cts.tradefed.result.CtsXmlResultReporter.CTS_RESULT_FILE_VERSION;
 
+import com.android.compatibility.common.util.AbiUtils;
 import com.android.cts.tradefed.UnitTests;
-import com.android.cts.util.AbiUtils;
 import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.build.IFolderBuildInfo;
-import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.LogFile;
 import com.android.tradefed.result.TestSummary;
@@ -36,8 +35,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -48,8 +47,9 @@ import java.util.Map;
  */
 public class CtsXmlResultReporterTest extends TestCase {
 
+    private static final String TEST_SUMMARY_URL = "http://www.google.com?q=android";
     private static final List<TestSummary> SUMMARY_LIST =
-            new ArrayList<>(Arrays.asList(new TestSummary("TEST_SUMMARY_URL")));
+            new ArrayList<>(Arrays.asList(new TestSummary(TEST_SUMMARY_URL)));
     private CtsXmlResultReporter mResultReporter;
     private ByteArrayOutputStream mOutputStream;
     private File mBuildDir;
@@ -116,7 +116,7 @@ public class CtsXmlResultReporterTest extends TestCase {
             "<?xml-stylesheet type=\"text/xsl\" href=\"cts_result.xsl\"?>";
         final String expectedTestOutput = String.format(
             "<TestResult testPlan=\"NA\" starttime=\"ignore\" endtime=\"ignore\" " +
-                    "version=\"%s\" suite=\"%s\"> ", CTS_RESULT_FILE_VERSION, "CTS" );
+                    "version=\"%s\" suite=\"%s\"> ", CTS_RESULT_FILE_VERSION, "CTS");
         final String expectedSummaryOutput =
             "<Summary failed=\"0\" notExecuted=\"0\" timeout=\"0\" pass=\"0\" />";
         final String expectedEndTag = "</TestResult>";
@@ -128,7 +128,7 @@ public class CtsXmlResultReporterTest extends TestCase {
         assertTrue(String.format("test output did not contain expected test result [%s]. Got %s",
                 expectedTestOutput, actualOutput), actualOutput.contains(expectedTestOutput));
         assertTrue(String.format("test output did not contain expected test summary [%s]. Got %s",
-                expectedTestOutput, actualOutput), actualOutput.contains(expectedSummaryOutput));
+                expectedSummaryOutput, actualOutput), actualOutput.contains(expectedSummaryOutput));
         assertTrue(String.format("test output did not contain expected TestResult end tag. Got %s",
                 actualOutput), actualOutput.endsWith(expectedEndTag));
         EasyMock.verify(mMockBuild);
@@ -146,10 +146,15 @@ public class CtsXmlResultReporterTest extends TestCase {
         mResultReporter.testStarted(testId);
         mResultReporter.testEnded(testId, emptyMap);
         mResultReporter.testRunEnded(3000, emptyMap);
-        mResultReporter.invocationEnded(1);
         mResultReporter.putSummary(SUMMARY_LIST);
+        mResultReporter.invocationEnded(1);
         String output =  getOutput();
         // TODO: consider doing xml based compare
+        final String expectedTestOutput = String.format(
+            "<TestResult testPlan=\"NA\" starttime=\"ignore\" endtime=\"ignore\" " +
+                    "version=\"%s\" suite=\"%s\" referenceUrl=\"%s\"> ",
+                            CTS_RESULT_FILE_VERSION, "CTS", TEST_SUMMARY_URL);
+        assertTrue("Found output: " + output, output.contains(expectedTestOutput));
         assertTrue(output.contains(
               "<Summary failed=\"0\" notExecuted=\"0\" timeout=\"0\" pass=\"1\" />"));
         assertTrue(output.contains("<TestPackage name=\"\" appPackageName=\"run\" abi=\"" +

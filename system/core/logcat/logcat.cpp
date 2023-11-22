@@ -6,6 +6,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <math.h>
 #include <sched.h>
 #include <signal.h>
@@ -24,8 +25,8 @@
 #include <memory>
 #include <string>
 
-#include <base/file.h>
-#include <base/strings.h>
+#include <android-base/file.h>
+#include <android-base/strings.h>
 #include <cutils/sched_policy.h>
 #include <cutils/sockets.h>
 #include <log/event_tag_map.h>
@@ -35,6 +36,8 @@
 #include <log/logger.h>
 #include <log/logprint.h>
 #include <utils/threads.h>
+
+#include <pcrecpp.h>
 
 #define DEFAULT_MAX_ROTATED_LOGS 4
 
@@ -66,16 +69,22 @@ namespace android {
 
 /* Global Variables */
 
-static const char * g_outputFileName = NULL;
+static const char * g_outputFileName;
 // 0 means "no log rotation"
-static size_t g_logRotateSizeKBytes = 0;
+static size_t g_logRotateSizeKBytes;
 // 0 means "unbounded"
 static size_t g_maxRotatedLogs = DEFAULT_MAX_ROTATED_LOGS;
 static int g_outFD = -1;
-static size_t g_outByteCount = 0;
-static int g_printBinary = 0;
-static int g_devCount = 0;                              // >1 means multiple
+static size_t g_outByteCount;
+static int g_printBinary;
+static int g_devCount;                              // >1 means multiple
+static pcrecpp::RE* g_regex;
+// 0 means "infinite"
+static size_t g_maxCount;
+static size_t g_printCount;
+static bool g_printItAnyways;
 
+// if showHelp is set, newline required in fmt statement to transition to usage
 __noreturn static void logcat_panic(bool showHelp, const char *fmt, ...) __printflike(2,3);
 
 static int openLogFile (const char *pathname)
@@ -142,6 +151,17 @@ void printBinary(struct log_msg *buf)
     TEMP_FAILURE_RETRY(write(g_outFD, buf, size));
 }
 
+static bool regexOk(const AndroidLogEntry& entry)
+{
+    if (!g_regex) {
+        return true;
+    }
+
+    std::string messageString(entry.message, entry.messageLen);
+
+    return g_regex->PartialMatch(messageString);
+}
+
 static void processBuffer(log_device_t* dev, struct log_msg *buf)
 {
     int bytesWritten = 0;
@@ -171,10 +191,15 @@ static void processBuffer(log_device_t* dev, struct log_msg *buf)
     }
 
     if (android_log_shouldPrintLine(g_logformat, entry.tag, entry.priority)) {
-        bytesWritten = android_log_printLogLine(g_logformat, g_outFD, &entry);
+        bool match = regexOk(entry);
 
-        if (bytesWritten < 0) {
-            logcat_panic(false, "output error");
+        g_printCount += match;
+        if (match || g_printItAnyways) {
+            bytesWritten = android_log_printLogLine(g_logformat, g_outFD, &entry);
+
+            if (bytesWritten < 0) {
+                logcat_panic(false, "output error");
+            }
         }
     }
 
@@ -256,36 +281,61 @@ static void show_help(const char *cmd)
                     "  -s              Set default filter to silent.\n"
                     "                  Like specifying filterspec '*:S'\n"
                     "  -f <filename>   Log to file. Default is stdout\n"
+                    "  --file=<filename>\n"
                     "  -r <kbytes>     Rotate log every kbytes. Requires -f\n"
+                    "  --rotate-kbytes=<kbytes>\n"
                     "  -n <count>      Sets max number of rotated logs to <count>, default 4\n"
-                    "  -v <format>     Sets the log print format, where <format> is:\n\n"
-                    "                      brief color long printable process raw tag thread\n"
-                    "                      threadtime time usec\n\n"
+                    "  --rotate-count=<count>\n"
+                    "  -v <format>     Sets the log print format, where <format> is:\n"
+                    "  --format=<format>\n"
+                    "                      brief color epoch long monotonic printable process raw\n"
+                    "                      tag thread threadtime time uid usec UTC year zone\n\n"
                     "  -D              print dividers between each log buffer\n"
+                    "  --dividers\n"
                     "  -c              clear (flush) the entire log and exit\n"
+                    "  --clear\n"
                     "  -d              dump the log and then exit (don't block)\n"
+                    "  -e <expr>       only print lines where the log message matches <expr>\n"
+                    "  --regex <expr>  where <expr> is a regular expression\n"
+                    "  -m <count>      quit after printing <count> lines. This is meant to be\n"
+                    "  --max-count=<count> paired with --regex, but will work on its own.\n"
+                    "  --print         paired with --regex and --max-count to let content bypass\n"
+                    "                  regex filter but still stop at number of matches.\n"
                     "  -t <count>      print only the most recent <count> lines (implies -d)\n"
                     "  -t '<time>'     print most recent lines since specified time (implies -d)\n"
                     "  -T <count>      print only the most recent <count> lines (does not imply -d)\n"
                     "  -T '<time>'     print most recent lines since specified time (not imply -d)\n"
-                    "                  count is pure numerical, time is 'MM-DD hh:mm:ss.mmm'\n"
+                    "                  count is pure numerical, time is 'MM-DD hh:mm:ss.mmm...'\n"
+                    "                  'YYYY-MM-DD hh:mm:ss.mmm...' or 'sssss.mmm...' format\n"
                     "  -g              get the size of the log's ring buffer and exit\n"
-                    "  -L              dump logs from prior to last reboot\n"
-                    "  -b <buffer>     Request alternate ring buffer, 'main', 'system', 'radio',\n"
-                    "                  'events', 'crash' or 'all'. Multiple -b parameters are\n"
-                    "                  allowed and results are interleaved. The default is\n"
-                    "                  -b main -b system -b crash.\n"
-                    "  -B              output the log in binary.\n"
-                    "  -S              output statistics.\n"
+                    "  --buffer-size\n"
                     "  -G <size>       set size of log ring buffer, may suffix with K or M.\n"
+                    "  --buffer-size=<size>\n"
+                    "  -L              dump logs from prior to last reboot\n"
+                    "  --last\n"
+                    // Leave security (Device Owner only installations) and
+                    // kernel (userdebug and eng) buffers undocumented.
+                    "  -b <buffer>     Request alternate ring buffer, 'main', 'system', 'radio',\n"
+                    "  --buffer=<buffer> 'events', 'crash', 'default' or 'all'. Multiple -b\n"
+                    "                  parameters are allowed and results are interleaved. The\n"
+                    "                  default is -b main -b system -b crash.\n"
+                    "  -B              output the log in binary.\n"
+                    "  --binary\n"
+                    "  -S              output statistics.\n"
+                    "  --statistics\n"
                     "  -p              print prune white and ~black list. Service is specified as\n"
-                    "                  UID, UID/PID or /PID. Weighed for quicker pruning if prefix\n"
+                    "  --prune         UID, UID/PID or /PID. Weighed for quicker pruning if prefix\n"
                     "                  with ~, otherwise weighed for longevity if unadorned. All\n"
                     "                  other pruning activity is oldest first. Special case ~!\n"
                     "                  represents an automatic quicker pruning for the noisiest\n"
                     "                  UID as determined by the current statistics.\n"
                     "  -P '<list> ...' set prune white and ~black list, using same format as\n"
-                    "                  printed above. Must be quoted.\n");
+                    "  --prune='<list> ...'  printed above. Must be quoted.\n"
+                    "  --pid=<pid>     Only prints logs from the given pid.\n"
+                    // Check ANDROID_LOG_WRAP_DEFAULT_TIMEOUT value
+                    "  --wrap          Sleep for 2 hours or when buffer about to wrap whichever\n"
+                    "                  comes first. Improves efficiency of polling by providing\n"
+                    "                  an about-to-wrap wakeup.\n");
 
     fprintf(stderr,"\nfilterspecs are a series of \n"
                    "  <tag>[:priority]\n\n"
@@ -347,15 +397,19 @@ static const char *multiplier_of_size(unsigned long value)
 static bool getSizeTArg(char *ptr, size_t *val, size_t min = 0,
                         size_t max = SIZE_MAX)
 {
-    char *endp;
-    errno = 0;
-    size_t ret = (size_t) strtoll(ptr, &endp, 0);
-
-    if (endp[0] != '\0' || errno != 0 ) {
+    if (!ptr) {
         return false;
     }
 
-    if (ret >  max || ret <  min) {
+    char *endp;
+    errno = 0;
+    size_t ret = (size_t)strtoll(ptr, &endp, 0);
+
+    if (endp[0] || errno) {
+        return false;
+    }
+
+    if ((ret > max) || (ret < min)) {
         return false;
     }
 
@@ -377,7 +431,18 @@ static void logcat_panic(bool showHelp, const char *fmt, ...)
     exit(EXIT_FAILURE);
 }
 
-static const char g_defaultTimeFormat[] = "%m-%d %H:%M:%S.%q";
+static char *parseTime(log_time &t, const char *cp) {
+
+    char *ep = t.strptime(cp, "%m-%d %H:%M:%S.%q");
+    if (ep) {
+        return ep;
+    }
+    ep = t.strptime(cp, "%Y-%m-%d %H:%M:%S.%q");
+    if (ep) {
+        return ep;
+    }
+    return t.strptime(cp, "%s.%q");
+}
 
 // Find last logged line in gestalt of all matching existing output files
 static log_time lastLogTime(char *outputFileName) {
@@ -385,8 +450,6 @@ static log_time lastLogTime(char *outputFileName) {
     if (!outputFileName) {
         return retval;
     }
-
-    log_time now(CLOCK_REALTIME);
 
     std::string directory;
     char *file = strrchr(outputFileName, '/');
@@ -399,13 +462,28 @@ static log_time lastLogTime(char *outputFileName) {
         *file = '/';
         ++file;
     }
+
+    std::unique_ptr<DIR, int(*)(DIR*)>
+            dir(opendir(directory.c_str()), closedir);
+    if (!dir.get()) {
+        return retval;
+    }
+
+    clockid_t clock_type = android_log_clockid();
+    log_time now(clock_type);
+    bool monotonic = clock_type == CLOCK_MONOTONIC;
+
     size_t len = strlen(file);
     log_time modulo(0, NS_PER_SEC);
-    std::unique_ptr<DIR, int(*)(DIR*)>dir(opendir(directory.c_str()), closedir);
     struct dirent *dp;
+
     while ((dp = readdir(dir.get())) != NULL) {
         if ((dp->d_type != DT_REG)
-                || strncmp(dp->d_name, file, len)
+                // If we are using realtime, check all files that match the
+                // basename for latest time. If we are using monotonic time
+                // then only check the main file because time cycles on
+                // every reboot.
+                || strncmp(dp->d_name, file, len + monotonic)
                 || (dp->d_name[len]
                     && ((dp->d_name[len] != '.')
                         || !isdigit(dp->d_name[len+1])))) {
@@ -423,7 +501,7 @@ static log_time lastLogTime(char *outputFileName) {
         bool found = false;
         for (const auto& line : android::base::Split(file, "\n")) {
             log_time t(log_time::EPOCH);
-            char *ep = t.strptime(line.c_str(), g_defaultTimeFormat);
+            char *ep = parseTime(t, line.c_str());
             if (!ep || (*ep != ' ')) {
                 continue;
             }
@@ -479,6 +557,8 @@ int main(int argc, char **argv)
     struct logger_list *logger_list;
     size_t tail_lines = 0;
     log_time tail_time(log_time::EPOCH);
+    size_t pid = 0;
+    bool got_t = false;
 
     signal(SIGPIPE, exit);
 
@@ -492,13 +572,81 @@ int main(int argc, char **argv)
     for (;;) {
         int ret;
 
-        ret = getopt(argc, argv, ":cdDLt:T:gG:sQf:r:n:v:b:BSpP:");
+        int option_index = 0;
+        // list of long-argument only strings for later comparison
+        static const char pid_str[] = "pid";
+        static const char wrap_str[] = "wrap";
+        static const char print_str[] = "print";
+        static const struct option long_options[] = {
+          { "binary",        no_argument,       NULL,   'B' },
+          { "buffer",        required_argument, NULL,   'b' },
+          { "buffer-size",   optional_argument, NULL,   'g' },
+          { "clear",         no_argument,       NULL,   'c' },
+          { "dividers",      no_argument,       NULL,   'D' },
+          { "file",          required_argument, NULL,   'f' },
+          { "format",        required_argument, NULL,   'v' },
+          // hidden and undocumented reserved alias for --regex
+          { "grep",          required_argument, NULL,   'e' },
+          // hidden and undocumented reserved alias for --max-count
+          { "head",          required_argument, NULL,   'm' },
+          { "last",          no_argument,       NULL,   'L' },
+          { "max-count",     required_argument, NULL,   'm' },
+          { pid_str,         required_argument, NULL,   0 },
+          { print_str,       no_argument,       NULL,   0 },
+          { "prune",         optional_argument, NULL,   'p' },
+          { "regex",         required_argument, NULL,   'e' },
+          { "rotate-count",  required_argument, NULL,   'n' },
+          { "rotate-kbytes", required_argument, NULL,   'r' },
+          { "statistics",    no_argument,       NULL,   'S' },
+          // hidden and undocumented reserved alias for -t
+          { "tail",          required_argument, NULL,   't' },
+          // support, but ignore and do not document, the optional argument
+          { wrap_str,        optional_argument, NULL,   0 },
+          { NULL,            0,                 NULL,   0 }
+        };
+
+        ret = getopt_long(argc, argv, ":cdDLt:T:gG:sQf:r:n:v:b:BSpP:m:e:",
+                          long_options, &option_index);
 
         if (ret < 0) {
             break;
         }
 
-        switch(ret) {
+        switch (ret) {
+            case 0:
+                // One of the long options
+                if (long_options[option_index].name == pid_str) {
+                    // ToDo: determine runtime PID_MAX?
+                    if (!getSizeTArg(optarg, &pid, 1)) {
+                        logcat_panic(true, "%s %s out of range\n",
+                                     long_options[option_index].name, optarg);
+                    }
+                    break;
+                }
+                if (long_options[option_index].name == wrap_str) {
+                    mode |= ANDROID_LOG_WRAP |
+                            ANDROID_LOG_RDONLY |
+                            ANDROID_LOG_NONBLOCK;
+                    // ToDo: implement API that supports setting a wrap timeout
+                    size_t dummy = ANDROID_LOG_WRAP_DEFAULT_TIMEOUT;
+                    if (optarg && !getSizeTArg(optarg, &dummy, 1)) {
+                        logcat_panic(true, "%s %s out of range\n",
+                                     long_options[option_index].name, optarg);
+                    }
+                    if (dummy != ANDROID_LOG_WRAP_DEFAULT_TIMEOUT) {
+                        fprintf(stderr,
+                                "WARNING: %s %u seconds, ignoring %zu\n",
+                                long_options[option_index].name,
+                                ANDROID_LOG_WRAP_DEFAULT_TIMEOUT, dummy);
+                    }
+                    break;
+                }
+                if (long_options[option_index].name == print_str) {
+                    g_printItAnyways = true;
+                    break;
+                }
+            break;
+
             case 's':
                 // default to all silent
                 android_log_addFilterRule(g_logformat, "*:s");
@@ -518,15 +666,15 @@ int main(int argc, char **argv)
             break;
 
             case 't':
+                got_t = true;
                 mode |= ANDROID_LOG_RDONLY | ANDROID_LOG_NONBLOCK;
                 /* FALLTHRU */
             case 'T':
                 if (strspn(optarg, "0123456789") != strlen(optarg)) {
-                    char *cp = tail_time.strptime(optarg, g_defaultTimeFormat);
+                    char *cp = parseTime(tail_time, optarg);
                     if (!cp) {
-                        logcat_panic(false,
-                                    "-%c \"%s\" not in \"%s\" time format\n",
-                                    ret, optarg, g_defaultTimeFormat);
+                        logcat_panic(false, "-%c \"%s\" not in time format\n",
+                                     ret, optarg);
                     }
                     if (*cp) {
                         char c = *cp;
@@ -550,9 +698,25 @@ int main(int argc, char **argv)
                 printDividers = true;
             break;
 
-            case 'g':
-                getLogSize = 1;
+            case 'e':
+                g_regex = new pcrecpp::RE(optarg);
             break;
+
+            case 'm': {
+                char *end = NULL;
+                if (!getSizeTArg(optarg, &g_maxCount)) {
+                    logcat_panic(false, "-%c \"%s\" isn't an "
+                                 "integer greater than zero\n", ret, optarg);
+                }
+            }
+            break;
+
+            case 'g':
+                if (!optarg) {
+                    getLogSize = 1;
+                    break;
+                }
+                // FALLTHRU
 
             case 'G': {
                 char *cp;
@@ -590,24 +754,31 @@ int main(int argc, char **argv)
             break;
 
             case 'p':
-                getPruneList = 1;
-            break;
+                if (!optarg) {
+                    getPruneList = 1;
+                    break;
+                }
+                // FALLTHRU
 
             case 'P':
                 setPruneList = optarg;
             break;
 
             case 'b': {
-                if (strcmp(optarg, "all") == 0) {
-                    while (devices) {
-                        dev = devices;
-                        devices = dev->next;
-                        delete dev;
-                    }
+                if (strcmp(optarg, "default") == 0) {
+                    for (int i = LOG_ID_MIN; i < LOG_ID_MAX; ++i) {
+                        switch (i) {
+                        case LOG_ID_SECURITY:
+                        case LOG_ID_EVENTS:
+                            continue;
+                        case LOG_ID_MAIN:
+                        case LOG_ID_SYSTEM:
+                        case LOG_ID_CRASH:
+                            break;
+                        default:
+                            continue;
+                        }
 
-                    devices = dev = NULL;
-                    g_devCount = 0;
-                    for(int i = LOG_ID_MIN; i < LOG_ID_MAX; ++i) {
                         const char *name = android_log_id_to_name((log_id_t)i);
                         log_id_t log_id = android_name_to_log_id(name);
 
@@ -615,7 +786,58 @@ int main(int argc, char **argv)
                             continue;
                         }
 
-                        bool binary = strcmp(name, "events") == 0;
+                        bool found = false;
+                        for (dev = devices; dev; dev = dev->next) {
+                            if (!strcmp(optarg, dev->device)) {
+                                found = true;
+                                break;
+                            }
+                            if (!dev->next) {
+                                break;
+                            }
+                        }
+                        if (found) {
+                            break;
+                        }
+
+                        log_device_t* d = new log_device_t(name, false);
+
+                        if (dev) {
+                            dev->next = d;
+                            dev = d;
+                        } else {
+                            devices = dev = d;
+                        }
+                        g_devCount++;
+                    }
+                    break;
+                }
+
+                if (strcmp(optarg, "all") == 0) {
+                    for (int i = LOG_ID_MIN; i < LOG_ID_MAX; ++i) {
+                        const char *name = android_log_id_to_name((log_id_t)i);
+                        log_id_t log_id = android_name_to_log_id(name);
+
+                        if (log_id != (log_id_t)i) {
+                            continue;
+                        }
+
+                        bool found = false;
+                        for (dev = devices; dev; dev = dev->next) {
+                            if (!strcmp(optarg, dev->device)) {
+                                found = true;
+                                break;
+                            }
+                            if (!dev->next) {
+                                break;
+                            }
+                        }
+                        if (found) {
+                            break;
+                        }
+
+                        bool binary = !strcmp(name, "events") ||
+                                      !strcmp(name, "security");
                         log_device_t* d = new log_device_t(name, binary);
 
                         if (dev) {
@@ -629,14 +851,21 @@ int main(int argc, char **argv)
                     break;
                 }
 
-                bool binary = strcmp(optarg, "events") == 0;
+                bool binary = !(strcmp(optarg, "events") &&
+                                strcmp(optarg, "security"));
 
                 if (devices) {
                     dev = devices;
                     while (dev->next) {
+                        if (!strcmp(optarg, dev->device)) {
+                            dev = NULL;
+                            break;
+                        }
                         dev = dev->next;
                     }
-                    dev->next = new log_device_t(optarg, binary);
+                    if (dev) {
+                        dev->next = new log_device_t(optarg, binary);
+                    }
                 } else {
                     devices = new log_device_t(optarg, binary);
                 }
@@ -649,7 +878,7 @@ int main(int argc, char **argv)
             break;
 
             case 'f':
-                if ((tail_time == log_time::EPOCH) && (tail_lines != 0)) {
+                if ((tail_time == log_time::EPOCH) && (tail_lines == 0)) {
                     tail_time = lastLogTime(optarg);
                 }
                 // redirect output to a file
@@ -758,6 +987,19 @@ int main(int argc, char **argv)
         }
     }
 
+    if (g_maxCount && got_t) {
+        logcat_panic(true, "Cannot use -m (--max-count) and -t together\n");
+    }
+    if (g_printItAnyways && (!g_regex || !g_maxCount)) {
+        // One day it would be nice if --print -v color and --regex <expr>
+        // could play with each other and show regex highlighted content.
+        fprintf(stderr, "WARNING: "
+                            "--print ignored, to be used in combination with\n"
+                        "         "
+                            "--regex <expr> and --max-count <N>\n");
+        g_printItAnyways = false;
+    }
+
     if (!devices) {
         dev = devices = new log_device_t("main", false);
         g_devCount = 1;
@@ -821,52 +1063,69 @@ int main(int argc, char **argv)
 
     dev = devices;
     if (tail_time != log_time::EPOCH) {
-        logger_list = android_logger_list_alloc_time(mode, tail_time, 0);
+        logger_list = android_logger_list_alloc_time(mode, tail_time, pid);
     } else {
-        logger_list = android_logger_list_alloc(mode, tail_lines, 0);
+        logger_list = android_logger_list_alloc(mode, tail_lines, pid);
     }
+    const char *openDeviceFail = NULL;
+    const char *clearFail = NULL;
+    const char *setSizeFail = NULL;
+    const char *getSizeFail = NULL;
+    // We have three orthogonal actions below to clear, set log size and
+    // get log size. All sharing the same iteration loop.
     while (dev) {
         dev->logger_list = logger_list;
         dev->logger = android_logger_open(logger_list,
                                           android_name_to_log_id(dev->device));
         if (!dev->logger) {
-            logcat_panic(false, "Unable to open log device '%s'\n",
-                         dev->device);
+            openDeviceFail = openDeviceFail ?: dev->device;
+            dev = dev->next;
+            continue;
         }
 
         if (clearLog) {
-            int ret;
-            ret = android_logger_clear(dev->logger);
-            if (ret) {
-                logcat_panic(false, "failed to clear the log");
+            if (android_logger_clear(dev->logger)) {
+                clearFail = clearFail ?: dev->device;
             }
         }
 
-        if (setLogSize && android_logger_set_log_size(dev->logger, setLogSize)) {
-            logcat_panic(false, "failed to set the log size");
+        if (setLogSize) {
+            if (android_logger_set_log_size(dev->logger, setLogSize)) {
+                setSizeFail = setSizeFail ?: dev->device;
+            }
         }
 
         if (getLogSize) {
-            long size, readable;
+            long size = android_logger_get_log_size(dev->logger);
+            long readable = android_logger_get_log_readable_size(dev->logger);
 
-            size = android_logger_get_log_size(dev->logger);
-            if (size < 0) {
-                logcat_panic(false, "failed to get the log size");
+            if ((size < 0) || (readable < 0)) {
+                getSizeFail = getSizeFail ?: dev->device;
+            } else {
+                printf("%s: ring buffer is %ld%sb (%ld%sb consumed), "
+                       "max entry is %db, max payload is %db\n", dev->device,
+                       value_of_size(size), multiplier_of_size(size),
+                       value_of_size(readable), multiplier_of_size(readable),
+                       (int) LOGGER_ENTRY_MAX_LEN,
+                       (int) LOGGER_ENTRY_MAX_PAYLOAD);
             }
-
-            readable = android_logger_get_log_readable_size(dev->logger);
-            if (readable < 0) {
-                logcat_panic(false, "failed to get the readable log size");
-            }
-
-            printf("%s: ring buffer is %ld%sb (%ld%sb consumed), "
-                   "max entry is %db, max payload is %db\n", dev->device,
-                   value_of_size(size), multiplier_of_size(size),
-                   value_of_size(readable), multiplier_of_size(readable),
-                   (int) LOGGER_ENTRY_MAX_LEN, (int) LOGGER_ENTRY_MAX_PAYLOAD);
         }
 
         dev = dev->next;
+    }
+    // report any errors in the above loop and exit
+    if (openDeviceFail) {
+        logcat_panic(false, "Unable to open log device '%s'\n", openDeviceFail);
+    }
+    if (clearFail) {
+        logcat_panic(false, "failed to clear the '%s' log\n", clearFail);
+    }
+    if (setSizeFail) {
+        logcat_panic(false, "failed to set the '%s' log size\n", setSizeFail);
+    }
+    if (getSizeFail) {
+        logcat_panic(false, "failed to get the readable '%s' log size",
+                     getSizeFail);
     }
 
     if (setPruneList) {
@@ -889,7 +1148,7 @@ int main(int argc, char **argv)
         size_t len = 8192;
         char *buf;
 
-        for(int retry = 32;
+        for (int retry = 32;
                 (retry >= 0) && ((buf = new char [len]));
                 delete [] buf, buf = NULL, --retry) {
             if (getPruneList) {
@@ -956,7 +1215,8 @@ int main(int argc, char **argv)
 
     dev = NULL;
     log_device_t unexpected("unexpected", false);
-    while (1) {
+
+    while (!g_maxCount || (g_printCount < g_maxCount)) {
         struct log_msg log_msg;
         log_device_t* d;
         int ret = android_logger_list_read(logger_list, &log_msg);
@@ -979,7 +1239,7 @@ int main(int argc, char **argv)
             logcat_panic(false, "logcat read failure");
         }
 
-        for(d = devices; d; d = d->next) {
+        for (d = devices; d; d = d->next) {
             if (android_name_to_log_id(d->device) == log_msg.id()) {
                 break;
             }

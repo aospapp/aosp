@@ -20,12 +20,12 @@
 
 #include <stdbool.h>
 
-#include "allocator.h"
+#include "osi/include/allocator.h"
+#include "osi/include/data_dispatcher.h"
+#include "osi/include/fixed_queue.h"
+#include "osi/include/future.h"
+#include "osi/include/osi.h"
 #include "bt_types.h"
-#include "data_dispatcher.h"
-#include "fixed_queue.h"
-#include "future.h"
-#include "osi.h"
 
 static const char HCI_MODULE[] = "hci_module";
 
@@ -110,3 +110,5 @@ const hci_t *hci_layer_get_test_interface(
     const packet_fragmenter_t *packet_fragmenter_interface,
     const vendor_t *vendor_interface,
     const low_power_manager_t *low_power_manager_interface);
+
+void hci_layer_cleanup_interface();

@@ -25,7 +25,7 @@
 
 #include <string.h>
 #include <stdio.h>
-#include "gki.h"
+#include "bt_common.h"
 #include "bnep_api.h"
 #include "pan_api.h"
 #include "pan_int.h"
@@ -81,12 +81,10 @@ UINT32 pan_register_with_sdp (UINT16 uuid, UINT8 sec_mask, char *p_name, char *p
     SDP_AddAttribute (sdp_handle, ATTR_ID_PROTOCOL_DESC_LIST, DATA_ELE_SEQ_DESC_TYPE,
                       proto_len, (UINT8 *)(pan_proto_elem_data+2));
 
-// btla-specific ++
 #if 0
     availability = 0xFF;
     SDP_AddAttribute (sdp_handle, ATTR_ID_SERVICE_AVAILABILITY, UINT_DESC_TYPE, 1, &availability);
 #endif
-// btla-specific --
 
     /* Language base */
     SDP_AddLanguageBaseAttrIDList (sdp_handle, LANG_ID_CODE_ENGLISH, LANG_ID_CHAR_ENCODE_UTF8, LANGUAGE_BASE_ID);

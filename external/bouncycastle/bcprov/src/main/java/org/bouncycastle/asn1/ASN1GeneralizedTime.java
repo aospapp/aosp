@@ -3,6 +3,7 @@ package org.bouncycastle.asn1;
 import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 import java.util.SimpleTimeZone;
@@ -109,7 +110,10 @@ public class ASN1GeneralizedTime
     public ASN1GeneralizedTime(
         Date time)
     {
-        SimpleDateFormat dateF = new SimpleDateFormat("yyyyMMddHHmmss'Z'");
+        // BEGIN android-changed
+        // Was: SimpleDateFormat dateF = new SimpleDateFormat("yyyyMMddHHmmss'Z'");
+        SimpleDateFormat dateF = new SimpleDateFormat("yyyyMMddHHmmss'Z'", Locale.US);
+        // END android-changed
 
         dateF.setTimeZone(new SimpleTimeZone(0, "Z"));
 
@@ -127,7 +131,11 @@ public class ASN1GeneralizedTime
         Date time,
         Locale locale)
     {
-        SimpleDateFormat dateF = new SimpleDateFormat("yyyyMMddHHmmss'Z'", locale);
+        // BEGIN android-changed
+        // Was: SimpleDateFormat dateF = new SimpleDateFormat("yyyyMMddHHmmss'Z'", locale);
+        SimpleDateFormat dateF = new SimpleDateFormat("yyyyMMddHHmmss'Z'", Locale.US);
+        dateF.setCalendar(Calendar.getInstance(Locale.US));
+        // END android-changed
 
         dateF.setTimeZone(new SimpleTimeZone(0, "Z"));
 
@@ -162,6 +170,7 @@ public class ASN1GeneralizedTime
      * To read in the time and get a date which is compatible with our local
      * time zone.
      * </p>
+     * @return a String representation of the time.
      */
     public String getTime()
     {
@@ -251,11 +260,17 @@ public class ASN1GeneralizedTime
         {
             if (hasFractionalSeconds())
             {
-                dateF = new SimpleDateFormat("yyyyMMddHHmmss.SSS'Z'");
+                // BEGIN android-changed
+                // Was: dateF = new SimpleDateFormat("yyyyMMddHHmmss.SSS'Z'");
+                dateF = new SimpleDateFormat("yyyyMMddHHmmss.SSS'Z'", Locale.US);
+                // END android-changed
             }
             else
             {
-                dateF = new SimpleDateFormat("yyyyMMddHHmmss'Z'");
+                // BEGIN android-changed
+                // Was: dateF = new SimpleDateFormat("yyyyMMddHHmmss'Z'");
+                dateF = new SimpleDateFormat("yyyyMMddHHmmss'Z'", Locale.US);
+                // END android-changed
             }
 
             dateF.setTimeZone(new SimpleTimeZone(0, "Z"));
@@ -265,11 +280,17 @@ public class ASN1GeneralizedTime
             d = this.getTime();
             if (hasFractionalSeconds())
             {
-                dateF = new SimpleDateFormat("yyyyMMddHHmmss.SSSz");
+                // BEGIN android-changed
+                // Was: dateF = new SimpleDateFormat("yyyyMMddHHmmss.SSSz");
+                dateF = new SimpleDateFormat("yyyyMMddHHmmss.SSSz", Locale.US);
+                // END android-changed
             }
             else
             {
-                dateF = new SimpleDateFormat("yyyyMMddHHmmssz");
+                // BEGIN android-changed
+                // Was: dateF = new SimpleDateFormat("yyyyMMddHHmmssz");
+                dateF = new SimpleDateFormat("yyyyMMddHHmmssz", Locale.US);
+                // END android-changed
             }
 
             dateF.setTimeZone(new SimpleTimeZone(0, "Z"));
@@ -278,11 +299,17 @@ public class ASN1GeneralizedTime
         {
             if (hasFractionalSeconds())
             {
-                dateF = new SimpleDateFormat("yyyyMMddHHmmss.SSS");
+                // BEGIN android-changed
+                // dateF = new SimpleDateFormat("yyyyMMddHHmmss.SSS");
+                dateF = new SimpleDateFormat("yyyyMMddHHmmss.SSS", Locale.US);
+                // END android-changed
             }
             else
             {
-                dateF = new SimpleDateFormat("yyyyMMddHHmmss");
+                // BEGIN android-changed
+                // Was: dateF = new SimpleDateFormat("yyyyMMddHHmmss");
+                dateF = new SimpleDateFormat("yyyyMMddHHmmss", Locale.US);
+                // END android-changed
             }
 
             dateF.setTimeZone(new SimpleTimeZone(0, TimeZone.getDefault().getID()));

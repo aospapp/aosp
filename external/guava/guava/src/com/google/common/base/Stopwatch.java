@@ -18,8 +18,11 @@ package com.google.common.base;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -120,11 +123,10 @@ public final class Stopwatch {
    * Creates (but does not start) a new stopwatch using {@link System#nanoTime}
    * as its time source.
    *
-   * @deprecated Use {@link Stopwatch#createUnstarted()} instead. This
-   *     constructor is scheduled to be removed in Guava release 17.0.
+   * @deprecated Use {@link Stopwatch#createUnstarted()} instead.
    */
   @Deprecated
-  public Stopwatch() {
+  Stopwatch() {
     this(Ticker.systemTicker());
   }
 
@@ -132,11 +134,10 @@ public final class Stopwatch {
    * Creates (but does not start) a new stopwatch, using the specified time
    * source.
    *
-   * @deprecated Use {@link Stopwatch#createUnstarted(Ticker)} instead. This
-   *     constructor is scheduled to be removed in Guava release 17.0.
+   * @deprecated Use {@link Stopwatch#createUnstarted(Ticker)} instead.
    */
   @Deprecated
-  public Stopwatch(Ticker ticker) {
+  Stopwatch(Ticker ticker) {
     this.ticker = checkNotNull(ticker, "ticker");
   }
 
@@ -222,6 +223,15 @@ public final class Stopwatch {
   }
 
   private static TimeUnit chooseUnit(long nanos) {
+    if (DAYS.convert(nanos, NANOSECONDS) > 0) {
+      return DAYS;
+    }
+    if (HOURS.convert(nanos, NANOSECONDS) > 0) {
+      return HOURS;
+    }
+    if (MINUTES.convert(nanos, NANOSECONDS) > 0) {
+      return MINUTES;
+    }
     if (SECONDS.convert(nanos, NANOSECONDS) > 0) {
       return SECONDS;
     }
@@ -244,6 +254,12 @@ public final class Stopwatch {
         return "ms";
       case SECONDS:
         return "s";
+      case MINUTES:
+        return "min";
+      case HOURS:
+        return "h";
+      case DAYS:
+        return "d";
       default:
         throw new AssertionError();
     }

@@ -283,6 +283,13 @@ public class DecimalFormatTest extends junit.framework.TestCase {
         assertEquals(expected, numberFormat.format(2.01));
     }
 
+    // http://b/27855939
+    public void testBug27855939() {
+        DecimalFormat df = new DecimalFormat("00");
+        assertEquals("01", df.format(BigDecimal.ONE));
+        assertEquals("00", df.format(BigDecimal.ZERO));
+    }
+
     // Confirm the currency symbol used by a format is determined by the locale of the format
     // not the current default Locale.
     public void testSetCurrency_symbolOrigin() {
@@ -311,6 +318,16 @@ public class DecimalFormatTest extends junit.framework.TestCase {
         } finally {
             Locale.setDefault(originalLocale);
         }
+    }
+
+    // Test that overriding the currency symbol survives a roundrip through the
+    // DecimalFormat constructor.
+    // http://b/28732330
+    public void testSetCurrencySymbol() {
+        DecimalFormatSymbols decimalFormatSymbols = new DecimalFormatSymbols(Locale.US);
+        decimalFormatSymbols.setCurrencySymbol("¥");
+        DecimalFormat decimalFormat = new DecimalFormat("¤#,##0.00", decimalFormatSymbols);
+        assertEquals("¥", decimalFormat.getDecimalFormatSymbols().getCurrencySymbol());
     }
 
     private String formatArbitraryCurrencyAmountInLocale(Currency currency, Locale locale) {

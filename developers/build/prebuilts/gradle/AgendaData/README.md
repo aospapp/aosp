@@ -22,8 +22,8 @@ success or failure. The sample shows implementations for both the success as wel
 Pre-requisites
 --------------
 
-- Android SDK v23
-- Android Build Tools v23.0.0
+- Android SDK 23
+- Android Build Tools v23.0.3
 - Android Support Repository
 
 Screenshots
@@ -52,7 +52,7 @@ submitting a pull request through GitHub. Please see CONTRIBUTING.md for more de
 License
 -------
 
-Copyright 2014 The Android Open Source Project, Inc.
+Copyright 2016 The Android Open Source Project, Inc.
 
 Licensed to the Apache Software Foundation (ASF) under one or more contributor
 license agreements.  See the NOTICE file distributed with this work for

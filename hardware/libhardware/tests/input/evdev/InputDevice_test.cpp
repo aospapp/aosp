@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "InputHub_test"
-//#define LOG_NDEBUG 0
+#include "InputDevice.h"
+
+#include <memory>
 
 #include <linux/input.h>
 
@@ -23,8 +24,9 @@
 
 #include <utils/Timers.h>
 
-#include "InputDevice.h"
 #include "InputHub.h"
+#include "InputMocks.h"
+#include "MockInputHost.h"
 
 // # of milliseconds to allow for timing measurements
 #define TIMING_TOLERANCE_MS 25
@@ -32,45 +34,41 @@
 #define MSC_ANDROID_TIME_SEC  0x6
 #define MSC_ANDROID_TIME_USEC 0x7
 
+using ::testing::_;
+using ::testing::NiceMock;
+using ::testing::Return;
+using ::testing::ReturnNull;
+
 namespace android {
 namespace tests {
 
-class MockInputDeviceNode : public InputDeviceNode {
-    virtual const std::string& getPath() const override { return mPath; }
+class EvdevDeviceTest : public ::testing::Test {
+protected:
+    virtual void SetUp() {
+        // Creating device identifiers and definitions should always happen.
+        EXPECT_CALL(mHost, createDeviceIdentifier(_, _, _, _, _))
+            .WillOnce(ReturnNull());
+        EXPECT_CALL(mHost, createDeviceDefinition())
+            .WillOnce(Return(&mDeviceDef));
+        // InputMappers may cause any of these to be called, but we are not
+        // testing these here.
+        ON_CALL(mHost, createInputReportDefinition())
+            .WillByDefault(Return(&mReportDef));
+        ON_CALL(mHost, createOutputReportDefinition())
+            .WillByDefault(Return(&mReportDef));
+        ON_CALL(mHost, registerDevice(_, _))
+            .WillByDefault(ReturnNull());
+    }
 
-    virtual const std::string& getName() const override { return mName; }
-    virtual const std::string& getLocation() const override { return mLocation; }
-    virtual const std::string& getUniqueId() const override { return mUniqueId; }
-
-    virtual uint16_t getBusType() const override { return 0; }
-    virtual uint16_t getVendorId() const override { return 0; }
-    virtual uint16_t getProductId() const override { return 0; }
-    virtual uint16_t getVersion() const override { return 0; }
-
-    virtual bool hasKey(int32_t key) const { return false; }
-    virtual bool hasRelativeAxis(int axis) const { return false; }
-    virtual bool hasInputProperty(int property) const { return false; }
-
-    virtual int32_t getKeyState(int32_t key) const { return 0; }
-    virtual int32_t getSwitchState(int32_t sw) const { return 0; }
-    virtual const AbsoluteAxisInfo* getAbsoluteAxisInfo(int32_t axis) const { return nullptr; }
-    virtual status_t getAbsoluteAxisValue(int32_t axis, int32_t* outValue) const { return 0; }
-
-    virtual void vibrate(nsecs_t duration) {}
-    virtual void cancelVibrate(int32_t deviceId) {}
-
-    virtual void disableDriverKeyRepeat() {}
-
-private:
-    std::string mPath = "/test";
-    std::string mName = "Test Device";
-    std::string mLocation = "test/0";
-    std::string mUniqueId = "test-id";
+    MockInputHost mHost;
+    // Ignore uninteresting calls on the report definitions by using NiceMocks.
+    NiceMock<MockInputReportDefinition> mReportDef;
+    NiceMock<MockInputDeviceDefinition> mDeviceDef;
 };
 
-TEST(EvdevDeviceTest, testOverrideTime) {
+TEST_F(EvdevDeviceTest, testOverrideTime) {
     auto node = std::make_shared<MockInputDeviceNode>();
-    auto device = std::make_unique<EvdevDevice>(node);
+    auto device = std::make_unique<EvdevDevice>(&mHost, node);
     ASSERT_TRUE(device != nullptr);
 
     // Send two timestamp override events before an input event.
@@ -97,9 +95,9 @@ TEST(EvdevDeviceTest, testOverrideTime) {
     EXPECT_EQ(when, keyUp.when);
 }
 
-TEST(EvdevDeviceTest, testWrongClockCorrection) {
+TEST_F(EvdevDeviceTest, testWrongClockCorrection) {
     auto node = std::make_shared<MockInputDeviceNode>();
-    auto device = std::make_unique<EvdevDevice>(node);
+    auto device = std::make_unique<EvdevDevice>(&mHost, node);
     ASSERT_TRUE(device != nullptr);
 
     auto now = systemTime(SYSTEM_TIME_MONOTONIC);
@@ -113,9 +111,9 @@ TEST(EvdevDeviceTest, testWrongClockCorrection) {
     EXPECT_NEAR(now, event.when, ms2ns(TIMING_TOLERANCE_MS));
 }
 
-TEST(EvdevDeviceTest, testClockCorrectionOk) {
+TEST_F(EvdevDeviceTest, testClockCorrectionOk) {
     auto node = std::make_shared<MockInputDeviceNode>();
-    auto device = std::make_unique<EvdevDevice>(node);
+    auto device = std::make_unique<EvdevDevice>(&mHost, node);
     ASSERT_TRUE(device != nullptr);
 
     auto now = systemTime(SYSTEM_TIME_MONOTONIC);
@@ -128,6 +126,74 @@ TEST(EvdevDeviceTest, testClockCorrectionOk) {
     device->processInput(event, now - s2ns(11));
 
     EXPECT_NEAR(now, event.when, ms2ns(TIMING_TOLERANCE_MS));
+}
+
+TEST_F(EvdevDeviceTest, testN7v2Touchscreen) {
+    auto node = std::shared_ptr<MockInputDeviceNode>(MockNexus7v2::getElanTouchscreen());
+    auto device = std::make_unique<EvdevDevice>(&mHost, node);
+    EXPECT_EQ(INPUT_DEVICE_CLASS_TOUCH|INPUT_DEVICE_CLASS_TOUCH_MT,
+            device->getInputClasses());
+}
+
+TEST_F(EvdevDeviceTest, testN7v2ButtonJack) {
+    auto node = std::shared_ptr<MockInputDeviceNode>(MockNexus7v2::getButtonJack());
+    auto device = std::make_unique<EvdevDevice>(&mHost, node);
+    EXPECT_EQ(INPUT_DEVICE_CLASS_KEYBOARD, device->getInputClasses());
+}
+
+TEST_F(EvdevDeviceTest, testN7v2HeadsetJack) {
+    // Eventually these mock device tests will all expect these calls. For now
+    // only the SwitchInputMapper has been implemented.
+    // TODO: move this expectation out to a common function
+    EXPECT_CALL(mHost, createInputReportDefinition());
+    EXPECT_CALL(mHost, createOutputReportDefinition());
+    EXPECT_CALL(mHost, freeReportDefinition(_));
+    EXPECT_CALL(mHost, registerDevice(_, _));
+
+    auto node = std::shared_ptr<MockInputDeviceNode>(MockNexus7v2::getHeadsetJack());
+    auto device = std::make_unique<EvdevDevice>(&mHost, node);
+    EXPECT_EQ(INPUT_DEVICE_CLASS_SWITCH, device->getInputClasses());
+}
+
+TEST_F(EvdevDeviceTest, testN7v2H2wButton) {
+    auto node = std::shared_ptr<MockInputDeviceNode>(MockNexus7v2::getH2wButton());
+    auto device = std::make_unique<EvdevDevice>(&mHost, node);
+    EXPECT_EQ(INPUT_DEVICE_CLASS_KEYBOARD, device->getInputClasses());
+}
+
+TEST_F(EvdevDeviceTest, testN7v2GpioKeys) {
+    auto node = std::shared_ptr<MockInputDeviceNode>(MockNexus7v2::getGpioKeys());
+    auto device = std::make_unique<EvdevDevice>(&mHost, node);
+    EXPECT_EQ(INPUT_DEVICE_CLASS_KEYBOARD, device->getInputClasses());
+}
+
+TEST_F(EvdevDeviceTest, testNexusPlayerGpioKeys) {
+    auto node = std::shared_ptr<MockInputDeviceNode>(MockNexusPlayer::getGpioKeys());
+    auto device = std::make_unique<EvdevDevice>(&mHost, node);
+    EXPECT_EQ(INPUT_DEVICE_CLASS_KEYBOARD, device->getInputClasses());
+}
+
+TEST_F(EvdevDeviceTest, testNexusPlayerMidPowerBtn) {
+    auto node = std::shared_ptr<MockInputDeviceNode>(MockNexusPlayer::getMidPowerBtn());
+    auto device = std::make_unique<EvdevDevice>(&mHost, node);
+    EXPECT_EQ(INPUT_DEVICE_CLASS_KEYBOARD, device->getInputClasses());
+}
+
+TEST_F(EvdevDeviceTest, testNexusRemote) {
+    auto node = std::shared_ptr<MockInputDeviceNode>(MockNexusPlayer::getNexusRemote());
+    auto device = std::make_unique<EvdevDevice>(&mHost, node);
+    EXPECT_EQ(INPUT_DEVICE_CLASS_KEYBOARD, device->getInputClasses());
+}
+
+TEST_F(EvdevDeviceTest, testAsusGamepad) {
+    auto node = std::shared_ptr<MockInputDeviceNode>(MockNexusPlayer::getAsusGamepad());
+    auto device = std::make_unique<EvdevDevice>(&mHost, node);
+    EXPECT_EQ(INPUT_DEVICE_CLASS_JOYSTICK|INPUT_DEVICE_CLASS_KEYBOARD, device->getInputClasses());
+}
+
+TEST_F(EvdevDeviceTest, testMocks) {
+    auto node = std::make_shared<MockInputDeviceNode>();
+    auto device = std::make_unique<EvdevDevice>(&mHost, node);
 }
 
 }  // namespace tests

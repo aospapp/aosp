@@ -114,7 +114,7 @@ public class RadioGroup_LayoutParamsTest extends AndroidTestCase {
         }
 
         mLayoutParams = new LayoutParams(getContext(),
-                getAttributeSet(com.android.cts.widget.R.layout.radiogroup_1));
+                getAttributeSet(android.widget.cts.R.layout.radiogroup_1));
         assertNotNull(mLayoutParams);
         assertEquals(0.5, mLayoutParams.weight, 0);
         assertEquals(Gravity.BOTTOM, mLayoutParams.gravity);
@@ -131,7 +131,7 @@ public class RadioGroup_LayoutParamsTest extends AndroidTestCase {
 
         try {
             new RadioGroup.LayoutParams(null,
-                    getAttributeSet(com.android.cts.widget.R.layout.radiogroup_1));
+                    getAttributeSet(android.widget.cts.R.layout.radiogroup_1));
             fail("The constructor should throw NullPointerException when param Context is null.");
         } catch (NullPointerException e) {
         }
@@ -143,7 +143,7 @@ public class RadioGroup_LayoutParamsTest extends AndroidTestCase {
         assertEquals(LayoutParams.WRAP_CONTENT, layoutParams.width);
         assertEquals(LayoutParams.WRAP_CONTENT, layoutParams.height);
 
-        AttributeSet attrs = getAttributeSet(com.android.cts.widget.R.layout.radiogroup_1);
+        AttributeSet attrs = getAttributeSet(android.widget.cts.R.layout.radiogroup_1);
         TypedArray a = mContext.obtainStyledAttributes(attrs, R.styleable.ViewGroup_MarginLayout);
         layoutParams.setBaseAttributes(a,
                 R.styleable.ViewGroup_MarginLayout_layout_width,

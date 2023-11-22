@@ -12,8 +12,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * along with this program; if not, see <http://www.gnu.org/licenses>.
  */
 /*
  * based on ipneigh.c
@@ -27,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+#include <sys/socket.h>
 #include <time.h>
 
 #include "utils.h"
@@ -63,9 +63,9 @@ static void usage(void)
 static int ipntable_modify(int cmd, int flags, int argc, char **argv)
 {
 	struct {
-		struct nlmsghdr 	n;
+		struct nlmsghdr	n;
 		struct ndtmsg		ndtm;
-		char   			buf[1024];
+		char  			buf[1024];
 	} req;
 	char *namep = NULL;
 	char *threshsp = NULL;
@@ -304,7 +304,7 @@ static int ipntable_modify(int cmd, int flags, int argc, char **argv)
 	if (!namep)
 		missarg("NAME");
 	if (!threshsp && !gc_intp && !parms_change) {
-		fprintf(stderr, "Not enough information: changable attributes required.\n");
+		fprintf(stderr, "Not enough information: changeable attributes required.\n");
 		exit(-1);
 	}
 
@@ -313,7 +313,7 @@ static int ipntable_modify(int cmd, int flags, int argc, char **argv)
 			  RTA_PAYLOAD(parms_rta));
 	}
 
-	if (rtnl_talk(&rth, &req.n, 0, 0, NULL) < 0)
+	if (rtnl_talk(&rth, &req.n, NULL, 0) < 0)
 		exit(2);
 
 	return 0;
@@ -349,7 +349,7 @@ static const char *ntable_strtime_delta(__u32 msec)
 	return str;
 }
 
-int print_ntable(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+static int print_ntable(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 {
 	FILE *fp = (FILE*)arg;
 	struct ndtmsg *ndtm = NLMSG_DATA(n);
@@ -430,7 +430,7 @@ int print_ntable(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		fprintf(fp, "thresh3 %u ", thresh3);
 	}
 	if (tb[NDTA_GC_INTERVAL]) {
-		__u64 gc_int = rta_getattr_u64(tb[NDTA_GC_INTERVAL]);
+		unsigned long long gc_int = rta_getattr_u64(tb[NDTA_GC_INTERVAL]);
 		fprintf(fp, "gc_int %llu ", gc_int);
 	}
 
@@ -483,15 +483,15 @@ int print_ntable(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 			fprintf(fp, "refcnt %u ", refcnt);
 		}
 		if (tpb[NDTPA_REACHABLE_TIME]) {
-			__u64 reachable = rta_getattr_u64(tpb[NDTPA_REACHABLE_TIME]);
+			unsigned long long reachable = rta_getattr_u64(tpb[NDTPA_REACHABLE_TIME]);
 			fprintf(fp, "reachable %llu ", reachable);
 		}
 		if (tpb[NDTPA_BASE_REACHABLE_TIME]) {
-			__u64 breachable = rta_getattr_u64(tpb[NDTPA_BASE_REACHABLE_TIME]);
+			unsigned long long breachable = rta_getattr_u64(tpb[NDTPA_BASE_REACHABLE_TIME]);
 			fprintf(fp, "base_reachable %llu ", breachable);
 		}
 		if (tpb[NDTPA_RETRANS_TIME]) {
-			__u64 retrans = rta_getattr_u64(tpb[NDTPA_RETRANS_TIME]);
+			unsigned long long retrans = rta_getattr_u64(tpb[NDTPA_RETRANS_TIME]);
 			fprintf(fp, "retrans %llu ", retrans);
 		}
 
@@ -500,11 +500,11 @@ int print_ntable(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		fprintf(fp, "    ");
 
 		if (tpb[NDTPA_GC_STALETIME]) {
-			__u64 gc_stale = rta_getattr_u64(tpb[NDTPA_GC_STALETIME]);
+			unsigned long long gc_stale = rta_getattr_u64(tpb[NDTPA_GC_STALETIME]);
 			fprintf(fp, "gc_stale %llu ", gc_stale);
 		}
 		if (tpb[NDTPA_DELAY_PROBE_TIME]) {
-			__u64 delay_probe = rta_getattr_u64(tpb[NDTPA_DELAY_PROBE_TIME]);
+			unsigned long long delay_probe = rta_getattr_u64(tpb[NDTPA_DELAY_PROBE_TIME]);
 			fprintf(fp, "delay_probe %llu ", delay_probe);
 		}
 		if (tpb[NDTPA_QUEUE_LEN]) {
@@ -534,11 +534,11 @@ int print_ntable(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		fprintf(fp, "    ");
 
 		if (tpb[NDTPA_ANYCAST_DELAY]) {
-			__u64 anycast_delay = rta_getattr_u64(tpb[NDTPA_ANYCAST_DELAY]);
+			unsigned long long anycast_delay = rta_getattr_u64(tpb[NDTPA_ANYCAST_DELAY]);
 			fprintf(fp, "anycast_delay %llu ", anycast_delay);
 		}
 		if (tpb[NDTPA_PROXY_DELAY]) {
-			__u64 proxy_delay = rta_getattr_u64(tpb[NDTPA_PROXY_DELAY]);
+			unsigned long long proxy_delay = rta_getattr_u64(tpb[NDTPA_PROXY_DELAY]);
 			fprintf(fp, "proxy_delay %llu ", proxy_delay);
 		}
 		if (tpb[NDTPA_PROXY_QLEN]) {
@@ -546,7 +546,7 @@ int print_ntable(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 			fprintf(fp, "proxy_queue %u ", pqueue);
 		}
 		if (tpb[NDTPA_LOCKTIME]) {
-			__u64 locktime = rta_getattr_u64(tpb[NDTPA_LOCKTIME]);
+			unsigned long long locktime = rta_getattr_u64(tpb[NDTPA_LOCKTIME]);
 			fprintf(fp, "locktime %llu ", locktime);
 		}
 
@@ -559,28 +559,38 @@ int print_ntable(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		fprintf(fp, "    ");
 		fprintf(fp, "stats ");
 
-		fprintf(fp, "allocs %llu ", ndts->ndts_allocs);
-		fprintf(fp, "destroys %llu ", ndts->ndts_destroys);
-		fprintf(fp, "hash_grows %llu ", ndts->ndts_hash_grows);
+		fprintf(fp, "allocs %llu ",
+			(unsigned long long) ndts->ndts_allocs);
+		fprintf(fp, "destroys %llu ",
+			(unsigned long long) ndts->ndts_destroys);
+		fprintf(fp, "hash_grows %llu ",
+			(unsigned long long) ndts->ndts_hash_grows);
 
 		fprintf(fp, "%s", _SL_);
 		fprintf(fp, "        ");
 
-		fprintf(fp, "res_failed %llu ", ndts->ndts_res_failed);
-		fprintf(fp, "lookups %llu ", ndts->ndts_lookups);
-		fprintf(fp, "hits %llu ", ndts->ndts_hits);
+		fprintf(fp, "res_failed %llu ",
+			(unsigned long long) ndts->ndts_res_failed);
+		fprintf(fp, "lookups %llu ",
+			(unsigned long long) ndts->ndts_lookups);
+		fprintf(fp, "hits %llu ",
+			(unsigned long long) ndts->ndts_hits);
 
 		fprintf(fp, "%s", _SL_);
 		fprintf(fp, "        ");
 
-		fprintf(fp, "rcv_probes_mcast %llu ", ndts->ndts_rcv_probes_mcast);
-		fprintf(fp, "rcv_probes_ucast %llu ", ndts->ndts_rcv_probes_ucast);
+		fprintf(fp, "rcv_probes_mcast %llu ",
+			(unsigned long long) ndts->ndts_rcv_probes_mcast);
+		fprintf(fp, "rcv_probes_ucast %llu ",
+			(unsigned long long) ndts->ndts_rcv_probes_ucast);
 
 		fprintf(fp, "%s", _SL_);
 		fprintf(fp, "        ");
 
-		fprintf(fp, "periodic_gc_runs %llu ", ndts->ndts_periodic_gc_runs);
-		fprintf(fp, "forced_gc_runs %llu ", ndts->ndts_forced_gc_runs);
+		fprintf(fp, "periodic_gc_runs %llu ",
+			(unsigned long long) ndts->ndts_periodic_gc_runs);
+		fprintf(fp, "forced_gc_runs %llu ",
+			(unsigned long long) ndts->ndts_forced_gc_runs);
 
 		fprintf(fp, "%s", _SL_);
 	}
@@ -591,7 +601,7 @@ int print_ntable(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	return 0;
 }
 
-void ipntable_reset_filter(void)
+static void ipntable_reset_filter(void)
 {
 	memset(&filter, 0, sizeof(filter));
 }

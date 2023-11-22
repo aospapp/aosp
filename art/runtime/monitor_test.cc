@@ -60,7 +60,7 @@ static const size_t kMaxHandles = 1000000;  // Use arbitrary large amount for no
 static void FillHeap(Thread* self, ClassLinker* class_linker,
                      std::unique_ptr<StackHandleScope<kMaxHandles>>* hsp,
                      std::vector<MutableHandle<mirror::Object>>* handles)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   Runtime::Current()->GetHeap()->SetIdealFootprint(1 * GB);
 
   hsp->reset(new StackHandleScope<kMaxHandles>(self));
@@ -106,8 +106,7 @@ static void FillHeap(Thread* self, ClassLinker* class_linker,
 
 class CreateTask : public Task {
  public:
-  explicit CreateTask(MonitorTest* monitor_test, uint64_t initial_sleep, int64_t millis,
-                      bool expected) :
+  CreateTask(MonitorTest* monitor_test, uint64_t initial_sleep, int64_t millis, bool expected) :
       monitor_test_(monitor_test), initial_sleep_(initial_sleep), millis_(millis),
       expected_(expected) {}
 
@@ -291,15 +290,13 @@ class WatchdogTask : public Task {
 static void CommonWaitSetup(MonitorTest* test, ClassLinker* class_linker, uint64_t create_sleep,
                             int64_t c_millis, bool c_expected, bool interrupt, uint64_t use_sleep,
                             int64_t u_millis, bool u_expected, const char* pool_name) {
+  Thread* const self = Thread::Current();
+  ScopedObjectAccess soa(self);
   // First create the object we lock. String is easiest.
-  StackHandleScope<3> hs(Thread::Current());
-  {
-    ScopedObjectAccess soa(Thread::Current());
-    test->object_ = hs.NewHandle(mirror::String::AllocFromModifiedUtf8(Thread::Current(),
-                                                                       "hello, world!"));
-    test->watchdog_object_ = hs.NewHandle(mirror::String::AllocFromModifiedUtf8(Thread::Current(),
-                                                                                "hello, world!"));
-  }
+  StackHandleScope<3> hs(soa.Self());
+  test->object_ = hs.NewHandle(mirror::String::AllocFromModifiedUtf8(self, "hello, world!"));
+  test->watchdog_object_ = hs.NewHandle(mirror::String::AllocFromModifiedUtf8(self,
+                                                                              "hello, world!"));
 
   // Create the barrier used to synchronize.
   test->barrier_ = std::unique_ptr<Barrier>(new Barrier(2));
@@ -309,23 +306,17 @@ static void CommonWaitSetup(MonitorTest* test, ClassLinker* class_linker, uint64
   // Fill the heap.
   std::unique_ptr<StackHandleScope<kMaxHandles>> hsp;
   std::vector<MutableHandle<mirror::Object>> handles;
-  {
-    Thread* self = Thread::Current();
-    ScopedObjectAccess soa(self);
 
-    // Our job: Fill the heap, then try Wait.
-    FillHeap(self, class_linker, &hsp, &handles);
+  // Our job: Fill the heap, then try Wait.
+  FillHeap(soa.Self(), class_linker, &hsp, &handles);
 
-    // Now release everything.
-    auto it = handles.begin();
-    auto end = handles.end();
+  // Now release everything.
+  for (MutableHandle<mirror::Object>& h : handles) {
+    h.Assign(nullptr);
+  }
 
-    for ( ; it != end; ++it) {
-      it->Assign(nullptr);
-    }
-  }  // Need to drop the mutator lock to allow barriers.
-
-  Thread* self = Thread::Current();
+  // Need to drop the mutator lock to allow barriers.
+  ScopedThreadSuspension sts(soa.Self(), kNative);
   ThreadPool thread_pool(pool_name, 3);
   thread_pool.AddTask(self, new CreateTask(test, create_sleep, c_millis, c_expected));
   if (interrupt) {
@@ -337,13 +328,12 @@ static void CommonWaitSetup(MonitorTest* test, ClassLinker* class_linker, uint64
   thread_pool.StartWorkers(self);
 
   // Wait on completion barrier.
-  test->complete_barrier_->Wait(Thread::Current());
+  test->complete_barrier_->Wait(self);
   test->completed_ = true;
 
   // Wake the watchdog.
   {
-    ScopedObjectAccess soa(Thread::Current());
-
+    ScopedObjectAccess soa2(self);
     test->watchdog_object_.Get()->MonitorEnter(self);     // Lock the object.
     test->watchdog_object_.Get()->NotifyAll(self);        // Wake up waiting parties.
     test->watchdog_object_.Get()->MonitorExit(self);      // Release the lock.

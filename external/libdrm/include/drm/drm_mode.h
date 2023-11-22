@@ -92,6 +92,14 @@
 #define DRM_MODE_DIRTY_ON       1
 #define DRM_MODE_DIRTY_ANNOTATE 2
 
+/* rotation property bits */
+#define DRM_ROTATE_0	0
+#define DRM_ROTATE_90	1
+#define DRM_ROTATE_180	2
+#define DRM_ROTATE_270	3
+#define DRM_REFLECT_X	4
+#define DRM_REFLECT_Y	5
+
 struct drm_mode_modeinfo {
 	__u32 clock;
 	__u16 hdisplay, hsync_start, hsync_end, htotal, hskew;
@@ -329,7 +337,8 @@ struct drm_mode_fb_cmd {
 	__u32 handle;
 };
 
-#define DRM_MODE_FB_INTERLACED (1<<0) /* for interlaced framebuffers */
+#define DRM_MODE_FB_INTERLACED	(1<<0) /* for interlaced framebuffers */
+#define DRM_MODE_FB_MODIFIERS	(1<<1) /* enables ->modifer[] */
 
 struct drm_mode_fb_cmd2 {
 	__u32 fb_id;
@@ -350,10 +359,18 @@ struct drm_mode_fb_cmd2 {
 	 * So it would consist of Y as offset[0] and UV as
 	 * offset[1].  Note that offset[0] will generally
 	 * be 0.
+	 *
+	 * To accommodate tiled, compressed, etc formats, a per-plane
+	 * modifier can be specified.  The default value of zero
+	 * indicates "native" format as specified by the fourcc.
+	 * Vendor specific modifier token.  This allows, for example,
+	 * different tiling/swizzling pattern on different planes.
+	 * See discussion above of DRM_FORMAT_MOD_xxx.
 	 */
 	__u32 handles[4];
 	__u32 pitches[4]; /* pitch for each plane */
 	__u32 offsets[4]; /* offset of each plane */
+	__u64 modifier[4]; /* ie, tiling, compressed (per plane) */
 };
 
 #define DRM_MODE_FB_DIRTY_ANNOTATE_COPY 0x01
@@ -515,9 +532,9 @@ struct drm_mode_destroy_dumb {
 };
 
 /* page-flip flags are valid, plus: */
-#define DRM_MODE_ATOMIC_TEST_ONLY 0x0100
-#define DRM_MODE_ATOMIC_NONBLOCK  0x0200
-#define DRM_MODE_ATOMIC_ALLOW_MODESET 0x0400
+#define DRM_MODE_ATOMIC_TEST_ONLY	0x0100
+#define DRM_MODE_ATOMIC_NONBLOCK	0x0200
+#define DRM_MODE_ATOMIC_ALLOW_MODESET	0x0400
 
 #define DRM_MODE_ATOMIC_FLAGS (\
 		DRM_MODE_PAGE_FLIP_EVENT |\
@@ -556,5 +573,6 @@ struct drm_mode_create_blob {
 struct drm_mode_destroy_blob {
 	__u32 blob_id;
 };
+
 
 #endif

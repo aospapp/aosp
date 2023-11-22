@@ -14,6 +14,8 @@
      limitations under the License.
 -->
 <resources xmlns:android="http://schemas.android.com/apk/res/android">
+    <attr name="wifi_signal_color" format="reference" />
+    <attr name="wps_color" format="reference" />
 
     <style name="SettingsStyle.TextAppearanceMedium" parent="@android:style/TextAppearance.Holo.Medium">
         <item name="android:textSize">14sp</item>
@@ -26,10 +28,10 @@
     </style>
 
     <style name="SettingsWindowAnimationStyle" parent="@android:style/Animation.Activity">
-        <item name="android:fragmentOpenEnterAnimation">@anim/settings_fragment_fade_in</item>
-        <item name="android:fragmentOpenExitAnimation">@anim/settings_fragment_fade_out</item>
-        <item name="android:fragmentCloseEnterAnimation">@anim/settings_fragment_fade_in</item>
-        <item name="android:fragmentCloseExitAnimation">@anim/settings_fragment_fade_out</item>
+        <item name="android:fragmentOpenEnterAnimation">@anim/setup_fragment_open_in</item>
+        <item name="android:fragmentOpenExitAnimation">@anim/setup_fragment_open_out</item>
+        <item name="android:fragmentCloseEnterAnimation">@anim/setup_fragment_close_in</item>
+        <item name="android:fragmentCloseExitAnimation">@anim/setup_fragment_close_out</item>
     </style>
 
     <!-- Default Settings theme -->
@@ -38,6 +40,23 @@
         <item name="android:colorBackgroundCacheHint">@null</item>
         <item name="android:windowShowWallpaper">true</item>
         <item name="android:windowAnimationStyle">@style/SettingsWindowAnimationStyle</item>
+        <item name="preferenceTheme">@style/PreferenceThemeOverlay.v14.Leanback</item>
+        <item name="wifi_signal">@drawable/wifi_signal</item>
+        <item name="wifi_signal_color">?android:attr/colorAccent</item>
+        <item name="wps_color">@color/normal</item>
+    </style>
+
+    <style name="Theme.Setup" parent="@style/Theme.Settings">
+        <item name="wifi_signal_color">@color/list_item_icon</item>
+        <item name="wps_color">@color/list_item_icon</item>
+    </style>
+
+    <style name="Theme.Settings.Transparent">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowAnimationStyle">@style/SettingsWindowAnimationStyle</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:backgroundDimAmount">0.8</item>
     </style>
 
     <!-- FormWizard version of Theme.Settings -->
@@ -53,34 +72,8 @@
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowShowWallpaper">true</item>
-    </style>
-
-    <style name="SetupFragmentFrame">
-        <item name="android:layout_width">match_parent</item>
-        <item name="android:layout_height">match_parent</item>
-        <item name="android:orientation">horizontal</item>
-    </style>
-
-    <style name="SetupFragmentFrame.Clickable">
-        <item name="android:clickable">true</item>
-        <item name="android:focusable">true</item>
-    </style>
-
-    <style name="SetupPane">
-        <item name="android:layout_width">match_parent</item>
-        <item name="android:layout_height">match_parent</item>
-        <item name="android:paddingStart">@dimen/remote_settings_pane_padding</item>
-        <item name="android:paddingEnd">@dimen/remote_settings_pane_padding</item>
-        <item name="android:gravity">center</item>
-        <item name="android:orientation">vertical</item>
-    </style>
-
-    <style name="SetupPane.Left">
-        <item name="android:layout_weight">1</item>
-    </style>
-
-    <style name="SetupPane.Right">
-        <item name="android:layout_weight">1</item>
+        <item name="android:windowAnimationStyle">@style/SettingsWindowAnimationStyle</item>
+        <item name="wps_color">@color/list_item_icon</item>
     </style>
 
     <style name="Theme.Settings.BluetoothPairing" parent="@style/SettingsStyle.TextAppearanceMedium">
@@ -90,196 +83,12 @@
     <style name="HintText">
         <item name="android:fontFamily">sans-serif-thin</item>
         <item name="android:textColor">@color/add_accessory_hint_text_color</item>
-        <item name="android:textSize">16dp</item>
-    </style>
-
-    <style name="SetupText">
-        <item name="android:layout_width">match_parent</item>
-        <item name="android:layout_height">wrap_content</item>
-        <item name="android:paddingTop">@dimen/text_padding_vertical</item>
-        <item name="android:paddingBottom">@dimen/text_padding_vertical</item>
-        <item name="android:textColor">@color/normal</item>
-    </style>
-
-    <style name="SetupText.LeftPane">
-        <item name="android:gravity">end</item>
-    </style>
-
-    <style name="SetupText.LeftPane.Header">
-        <item name="android:textSize">@dimen/text_size_heading</item>
-    </style>
-
-    <style name="SetupText.LeftPane.Description">
-        <item name="android:textSize">@dimen/text_size_description</item>
-    </style>
-
-    <style name="SetupText.LeftPane.Hint">
-        <item name="android:textSize">@dimen/text_size_hint</item>
-    </style>
-
-    <style name="SetupText.LeftPane.Hint.Quiet">
-        <item name="android:textColor">@color/quiet</item>
-    </style>
-
-    <style name="SetupText.LeftPane.List">
-        <item name="android:textSize">@dimen/text_size_scroll_list_focused</item>
-        <item name="android:textAllCaps">true</item>
-    </style>
-
-    <style name="SetupText.LeftPane.List.Quiet">
-        <item name="android:textColor">@color/quiet</item>
-    </style>
-
-    <style name="SetupText.RightPane">
-        <item name="android:gravity">start</item>
-    </style>
-
-    <style name="SetupText.RightPane.List">
-        <item name="android:textSize">@dimen/text_size_scroll_list_focused</item>
-        <item name="android:textAllCaps">true</item>
-    </style>
-
-    <style name="SetupText.RightPane.List.Quiet">
-        <item name="android:textColor">@color/quiet</item>
-    </style>
-
-    <style name="SetupText.RightPane.List.Choice">
-        <item name="android:textSize">@dimen/text_size_scroll_list_unfocused</item>
-        <item name="android:textColor">@color/text_focused_bright</item>
-    </style>
-
-    <style name="TextPair">
-        <item name="android:layout_width">match_parent</item>
-        <item name="android:layout_height">wrap_content</item>
-        <item name="android:layout_gravity">center</item>
-        <item name="android:orientation">horizontal</item>
-        <item name="android:gravity">center</item>
-    </style>
-
-    <style name="SetupText.Center">
-        <item name="android:layout_width">wrap_content</item>
-        <item name="android:layout_height">wrap_content</item>
-        <item name="android:layout_gravity">center</item>
-        <item name="android:gravity">center</item>
-    </style>
-
-    <style name="SetupText.Center.Header">
-        <item name="android:textSize">@dimen/text_size_heading2</item>
-    </style>
-
-    <style name="SetupText.Center.Header.Quiet">
-        <item name="android:textColor">@color/quiet</item>
-    </style>
-
-    <style name="SetupText.Center.Hint">
-        <item name="android:textSize">@dimen/text_size_hint</item>
-        <item name="android:textColor">@color/quiet</item>
-    </style>
-
-    <style name="SetupText.Input">
-        <item name="android:textSize">@dimen/text_size_scroll_list_focused</item>
-        <item name="android:focusable">true</item>
-        <item name="android:imeOptions">flagNoExtractUi</item>
-        <item name="android:inputType">text</item>
-    </style>
-
-    <style name="SetupList">
-        <item name="android:layout_width">match_parent</item>
-        <item name="android:layout_height">match_parent</item>
-        <item name="android:focusable">true</item>
-        <item name="android:gravity">center_vertical</item>
-    </style>
-
-    <style name="SettingsText">
-        <item name="android:layout_width">wrap_content</item>
-        <item name="android:layout_height">wrap_content</item>
-        <item name="android:textColor">@color/normal</item>
-    </style>
-
-    <style name="SettingsText.Big">
-        <item name="android:textSize">@dimen/text_size_scroll_list_focused</item>
-    </style>
-
-    <style name="SettingsText.Header">
-        <item name="android:paddingBottom">@dimen/progress_bar_vertical_padding</item>
-        <item name="android:paddingStart">@dimen/progress_bar_horizontal_padding</item>
-        <item name="android:paddingEnd">@dimen/progress_bar_horizontal_padding</item>
-        <item name="android:paddingTop">@dimen/progress_bar_vertical_padding</item>
-        <item name="android:layout_gravity">start|top</item>
-    </style>
-
-    <style name="SettingsText.List">
-        <item name="android:textSize">@dimen/text_size_scroll_list_unfocused</item>
-        <item name="android:paddingTop">@dimen/settings_list_text_padding_vertical</item>
-        <item name="android:paddingBottom">@dimen/settings_list_text_padding_vertical</item>
-    </style>
-
-    <style name="SettingsText.List.AppIconLabel">
-        <item name="android:layout_width">@dimen/app_icon_size</item>
-    </style>
-
-    <style name="SettingsText.List.AppIconInnerLabel">
-        <item name="android:layout_width">@dimen/app_icon_size_minus_margin</item>
-    </style>
-
-    <style name="SettingsText.List.AppIconInnerLabel.Bottom">
-        <item name="android:layout_marginBottom">@dimen/app_icon_list_margin_bottom</item>
-    </style>
-
-    <style name="SettingsText.List.CenterLeft">
-        <item name="android:layout_centerVertical">true</item>
-        <item name="android:layout_alignParentStart">true</item>
-    </style>
-
-    <style name="SettingsList">
-        <item name="android:paddingTop">@dimen/settings_list_padding_vertical</item>
-        <item name="android:layout_width">wrap_content</item>
-        <item name="android:layout_height">wrap_content</item>
-        <item name="android:focusable">true</item>
-    </style>
-
-    <style name="SettingsImage">
-        <item name="android:layout_width">match_parent</item>
-        <item name="android:layout_height">match_parent</item>
-    </style>
-
-    <style name="SettingsImage.AppIcon">
-        <item name="android:background">@drawable/legacy_app_item_background</item>
-        <item name="android:layout_width">@dimen/app_icon_size</item>
-        <item name="android:layout_height">@dimen/app_icon_size</item>
-        <item name="android:layout_centerVertical">true</item>
-        <item name="android:layout_marginEnd">@dimen/app_icon_margin_end</item>
-        <item name="android:layout_marginStart">@dimen/app_icon_margin_start</item>
-    </style>
-
-    <style name="SettingsImage.AppIcon.List">
-        <item name="android:layout_centerVertical">false</item>
-    </style>
-
-    <style name="SettingsImage.AppIcon.Right">
-        <item name="android:layout_alignParentEnd">true</item>
-    </style>
-
-    <style name="SettingsImage.AppIcon.Left">
-        <item name="android:layout_alignParentStart">true</item>
+        <item name="android:textSize">16sp</item>
     </style>
 
     <style name="ContentFragment">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">match_parent</item>
-    </style>
-
-    <style name="SetupListHeader" parent="@android:attr/textAppearanceListItem">
-        <item name="android:textSize">@dimen/text_size_scroll_list_header_focused</item>
-        <item name="android:textStyle">bold</item>
-        <item name="android:textColor">@color/quiet</item>
-        <item name="android:textAllCaps">true</item>
-    </style>
-
-    <style name="SetupListDivider">
-        <item name="android:layout_width">match_parent</item>
-        <item name="android:layout_height">1dp</item>
-        <item name="android:background">@color/quiet</item>
     </style>
 
     <style name="pin_dialog_animation" parent="@android:style/Animation.Activity">
@@ -340,22 +149,6 @@
         <item name="android:visibility">gone</item>
     </style>
 
-    <style name="Canvas.Text.Dialog.List.Badge">
-        <item name="android:fontFamily">sans-serif</item>
-        <item name="android:alpha">@dimen/list_item_unselected_text_alpha</item>
-        <item name="android:textSize">@dimen/list_item_description_font_size</item>
-        <item name="android:textColor">@color/list_item_unselected_text_color</item>
-        <item name="android:visibility">gone</item>
-    </style>
-
-    <style name="Canvas.Text.Dialog.List.Timestamp">
-        <item name="android:fontFamily">sans-serif</item>
-        <item name="android:alpha">@dimen/list_item_unselected_text_alpha</item>
-        <item name="android:textSize">@dimen/list_item_timestamp_font_size</item>
-        <item name="android:textColor">@color/list_item_unselected_text_color</item>
-        <item name="android:visibility">gone</item>
-    </style>
-
     <style name="Canvas.Image" />
 
     <style name="Canvas.Image.Dialog" />
@@ -373,6 +166,54 @@
     <style name="Canvas.Image.Dialog.List.Icon">
         <item name="android:scaleType">center</item>
         <item name="android:visibility">gone</item>
+    </style>
+
+    <style name="SyncSwitchPreference" parent="LeanbackPreference">
+        <item name="android:widgetLayout">@layout/preference_widget_sync_toggle</item>
+    </style>
+
+    <style name="Setup" />
+
+    <style name="Setup.Description" />
+
+    <style name="Setup.Action" />
+
+    <style name="Setup.Description.Title">
+        <item name="android:fontFamily">sans-serif-light</item>
+        <item name="android:textColor">?android:attr/textColorPrimary</item>
+        <item name="android:textSize">36sp</item>
+    </style>
+
+    <style name="Setup.Description.Description">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textSize">@dimen/setup_description_text_size</item>
+        <item name="android:textColor">?android:attr/textColorPrimary</item>
+    </style>
+
+    <style name="Setup.Action.ListItem">
+        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:textColor">@color/list_item</item>
+        <item name="android:textSize">@dimen/setup_list_item_text_size</item>
+    </style>
+
+    <style name="Setup.Action.TextInput">
+        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:textColor">@color/list_item</item>
+        <item name="android:textSize">@dimen/setup_list_item_text_size</item>
+    </style>
+
+    <style name="Setup.Action.TextInput">
+        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:background">@drawable/setup_text_input_underline</item>
+        <item name="android:textCursorDrawable">@drawable/setup_text_input_cursor</item>
+        <item name="android:textColor">@color/setup_list_item_focused</item>
+        <item name="android:textSize">@dimen/setup_list_item_text_size</item>
+    </style>
+
+    <style name="Setup.ProgressTitle">
+        <item name="android:fontFamily">sans-serif-light</item>
+        <item name="android:textColor">@color/activity_progress_text</item>
+        <item name="android:textSize">@dimen/activity_progress_title_text_size</item>
     </style>
 
 </resources>

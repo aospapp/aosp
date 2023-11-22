@@ -1,4 +1,4 @@
-; RUN: llc -march=hexagon -mcpu=hexagonv5  -O3 < %s | FileCheck %s
+; RUN: llc -march=hexagon -mcpu=hexagonv5  -O3 -disable-hsdr < %s | FileCheck %s
 
 ; Check that we combine TFRs and TFRIs into COMBINEs.
 
@@ -27,7 +27,7 @@ entry:
 
 ; Function Attrs: nounwind
 define i64 @test4() #0 {
-; CHECK: combine(#0, ##100)
+; CHECK: combine(#0, #100)
 entry:
   store i16 100, i16* @b, align 2
   store i16 0, i16* @a, align 2

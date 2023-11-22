@@ -29,5 +29,6 @@
     <string name="set_live_wallpaper" msgid="2381437614949033266">"ფონის დაყენება"</string>
     <string name="wallpaper_title_and_author" msgid="8891734217843935304">"<xliff:g id="TITLE">%1$s</xliff:g> ავტორი: <xliff:g id="AUTHOR">%2$s</xliff:g>"</string>
     <string name="live_wallpaper_loading" msgid="2488371303130330734">"იტვირთება ცოცხალი ფონი…"</string>
-    <string name="wallpaper_cancel" msgid="7340240618834119228">"გაუქმება"</string>
+    <string name="which_wallpaper_option_home_screen" msgid="6592329803583957023">"მთავარი ეკრანი"</string>
+    <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="6170359719231147447">"მთავარი ეკრანი და ჩაკეტილი ეკრანი"</string>
 </resources>

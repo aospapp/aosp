@@ -1,5 +1,7 @@
 package com.android.server.wifi.hotspot2;
 
+import com.android.server.wifi.anqp.Constants;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -15,6 +17,9 @@ public abstract class Utils {
 
     public static final long UNSET_TIME = -1;
 
+    private static final int EUI48Length = 6;
+    private static final int EUI64Length = 8;
+    private static final long EUI48Mask = 0xffffffffffffL;
     private static final String[] PLMNText = {"org", "3gppnetwork", "mcc*", "mnc*", "wlan" };
 
     public static String hs2LogTag(Class c) {
@@ -53,6 +58,22 @@ public abstract class Utils {
             throw new IllegalArgumentException("Bad MAC address: '" + s + "'");
         }
         return mac;
+    }
+
+    public static String macToString(long mac) {
+        int len = (mac & ~EUI48Mask) != 0 ? EUI64Length : EUI48Length;
+        StringBuilder sb = new StringBuilder();
+        boolean first = true;
+        for (int n = (len - 1)*Byte.SIZE; n >= 0; n -= Byte.SIZE) {
+            if (first) {
+                first = false;
+            }
+            else {
+                sb.append(':');
+            }
+            sb.append(String.format("%02x", (mac >>> n) & Constants.BYTE_MASK));
+        }
+        return sb.toString();
     }
 
     public static String getMccMnc(List<String> domain) {
@@ -257,7 +278,7 @@ public abstract class Utils {
         if (s == null) {
             return null;
         }
-        else if (s.startsWith("\"") && s.endsWith("\"")) {
+        else if (s.length() > 1 && s.startsWith("\"") && s.endsWith("\"")) {
             return s.substring(1, s.length()-1);
         }
         else {

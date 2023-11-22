@@ -36,7 +36,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import com.android.cts.view.R;
+import android.view.cts.R;
 
 public class AnimatorInflaterTest
         extends ActivityInstrumentationTestCase2<AnimationTestCtsActivity> {
@@ -45,7 +45,7 @@ public class AnimatorInflaterTest
     Set<Integer> identityHashes = new HashSet<Integer>();
 
     public AnimatorInflaterTest() {
-        super("com.android.cts.view", AnimationTestCtsActivity.class);
+        super("android.view.cts", AnimationTestCtsActivity.class);
     }
 
     private void assertUnique(Object object) {

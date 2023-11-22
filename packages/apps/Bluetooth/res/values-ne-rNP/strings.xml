@@ -36,9 +36,8 @@
     <string name="incoming_file_confirm_ok" msgid="281462442932231475">"स्वीकार्नुहोस्"</string>
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"ठीक छ"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" बाट आगमन फाइल स्वीकार्दा समय सकिएको थियो"</string>
-    <string name="incoming_file_confirm_Notification_title" msgid="2958227698135117210">"ब्लुटुथ साझेदारी: आगमन फाइल"</string>
-    <string name="incoming_file_confirm_Notification_caption" msgid="6671081128475981157">"के तपाईँ यो फाइल प्राप्त गर्न चाहनु हुन्छ?"</string>
-    <string name="incoming_file_toast_msg" msgid="1733710749992901811">"अर्को उपकरणबाट आगमन फाइल। यो फाइल तपाईँ प्राप्त गर्न चाहनु हुन्छ भन्ने कुरा निश्चित गर्नुहोस्।"</string>
+    <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"आगमन फाइल"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> ले <xliff:g id="FILE">%2$s</xliff:g> पठाउन तयार छ"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"ब्लुटुथ साझेदारी:<xliff:g id="FILE">%1$s</xliff:g> प्राप्त गर्दै"</string>
     <string name="notification_received" msgid="3324588019186687985">"ब्लुटुथ साझेदारी: <xliff:g id="FILE">%1$s</xliff:g> प्राप्त भयो"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"ब्लुटुथ साझेदारी: फाइल: <xliff:g id="FILE">%1$s</xliff:g> प्राप्त भएन"</string>
@@ -124,9 +123,11 @@
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"हटाउनुहोस्"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"सुरक्षित गर्नुहोस्"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"रद्द गर्नुहोस्"</string>
-    <string name="bluetooth_map_settings_intro" msgid="6793938602201480648">"तपाईंले ब्लुटुथ मार्फत साझेदारी गर्न चाहेको खाता चयन गर्नुहोस्। तपाईंले अझै पनि खातामा जडान गर्दा कुनै पनि पहुँच स्वीकार गर्नुपर्छ।"</string>
+    <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"तपाईंले ब्लुटुथ मार्फत साझेदारी गर्न चाहेका खाताहरू चयन गर्नुहोस्। तपाईंले अझै पनि खाताहरूमा जडान गर्दा कुनै पनि पहुँच स्वीकार गर्नुपर्छ।"</string>
     <string name="bluetooth_map_settings_count" msgid="4557473074937024833">"स्लटहरू बाँकी:"</string>
     <string name="bluetooth_map_settings_app_icon" msgid="7105805610929114707">"अनुप्रयोग आइकन"</string>
     <string name="bluetooth_map_settings_title" msgid="7420332483392851321">"ब्लुटुथ सन्देश साझेदारी सेटिङहरू"</string>
     <string name="bluetooth_map_settings_no_account_slots_left" msgid="1796029082612965251">"खाता चयन गर्न सक्दैन। ० स्लटहरू बाँकी"</string>
+    <string name="bluetooth_connected" msgid="6718623220072656906">"ब्लुटुथ सम्बन्धी अडियो यन्त्रलाई जडान गरियो"</string>
+    <string name="bluetooth_disconnected" msgid="3318303728981478873">"ब्लुटुथ सम्बन्धी अडियो यन्त्रलाई विच्छेद गरियो"</string>
 </resources>

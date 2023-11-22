@@ -16,46 +16,44 @@
 
 package android.support.v7.graphics;
 
+import static android.support.v7.graphics.TestUtils.assertCloseColors;
+import static android.support.v7.graphics.TestUtils.loadSampleBitmap;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
 import android.graphics.Color;
-import android.test.InstrumentationTestCase;
+import android.support.test.runner.AndroidJUnit4;
+import android.test.suitebuilder.annotation.SmallTest;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
 
-/**
- * @hide
- */
-public class BucketTests extends InstrumentationTestCase {
+@RunWith(AndroidJUnit4.class)
+public class BucketTests {
 
-    private Bitmap mSource;
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
-        mSource = BitmapFactory.decodeResource(getInstrumentation().getContext().getResources(),
-                android.R.drawable.sym_def_app_icon);
-    }
-
+    @Test
+    @SmallTest
     public void testSourceBitmapNotRecycled() {
-        Palette.from(mSource).generate();
-        assertFalse(mSource.isRecycled());
+        final Bitmap sample = loadSampleBitmap();
+
+        Palette.from(sample).generate();
+        assertFalse(sample.isRecycled());
     }
 
+    @Test(expected = UnsupportedOperationException.class)
+    @SmallTest
     public void testSwatchesUnmodifiable() {
-        Palette p = Palette.from(mSource).generate();
-        boolean thrown = false;
-
-        try {
-            p.getSwatches().remove(0);
-        } catch (UnsupportedOperationException e) {
-            thrown = true;
-        }
-
-        assertTrue(thrown);
+        Palette p = Palette.from(loadSampleBitmap()).generate();
+        p.getSwatches().remove(0);
     }
 
+    @Test
+    @SmallTest
     public void testSwatchesBuilder() {
         ArrayList<Palette.Swatch> swatches = new ArrayList<>();
         swatches.add(new Palette.Swatch(Color.BLACK, 40));
@@ -66,4 +64,86 @@ public class BucketTests extends InstrumentationTestCase {
 
         assertEquals(swatches, p.getSwatches());
     }
+
+    @Test
+    @SmallTest
+    public void testRegionWhole() {
+        final Bitmap sample = loadSampleBitmap();
+
+        Palette.Builder b = new Palette.Builder(sample);
+        b.setRegion(0, 0, sample.getWidth(), sample.getHeight());
+        b.generate();
+    }
+
+    @Test
+    @SmallTest
+    public void testRegionUpperLeft() {
+        final Bitmap sample = loadSampleBitmap();
+
+        Palette.Builder b = new Palette.Builder(sample);
+        b.setRegion(0, 0, sample.getWidth() / 2, sample.getHeight() / 2);
+        b.generate();
+    }
+
+    @Test
+    @SmallTest
+    public void testRegionBottomRight() {
+        final Bitmap sample = loadSampleBitmap();
+
+        Palette.Builder b = new Palette.Builder(sample);
+        b.setRegion(sample.getWidth() / 2, sample.getHeight() / 2,
+                sample.getWidth(), sample.getHeight());
+        b.generate();
+    }
+
+    @Test
+    @SmallTest
+    public void testOnePixelTallBitmap() {
+        final Bitmap bitmap = Bitmap.createBitmap(1000, 1, Bitmap.Config.ARGB_8888);
+
+        Palette.Builder b = new Palette.Builder(bitmap);
+        b.generate();
+    }
+
+    @Test
+    @SmallTest
+    public void testOnePixelWideBitmap() {
+        final Bitmap bitmap = Bitmap.createBitmap(1, 1000, Bitmap.Config.ARGB_8888);
+
+        Palette.Builder b = new Palette.Builder(bitmap);
+        b.generate();
+    }
+
+    @Test
+    @SmallTest
+    public void testBlueBitmapReturnsBlueSwatch() {
+        final Bitmap bitmap = Bitmap.createBitmap(300, 300, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        canvas.drawColor(Color.BLUE);
+
+        final Palette palette = Palette.from(bitmap).generate();
+
+        assertEquals(1, palette.getSwatches().size());
+
+        final Palette.Swatch swatch = palette.getSwatches().get(0);
+        assertCloseColors(Color.BLUE, swatch.getRgb());
+    }
+
+    @Test
+    @SmallTest
+    public void testBlueBitmapWithRegionReturnsBlueSwatch() {
+        final Bitmap bitmap = Bitmap.createBitmap(300, 300, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        canvas.drawColor(Color.BLUE);
+
+        final Palette palette = Palette.from(bitmap)
+                .setRegion(0, bitmap.getHeight() / 2, bitmap.getWidth(), bitmap.getHeight())
+                .generate();
+
+        assertEquals(1, palette.getSwatches().size());
+
+        final Palette.Swatch swatch = palette.getSwatches().get(0);
+        assertCloseColors(Color.BLUE, swatch.getRgb());
+    }
+
 }

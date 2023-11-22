@@ -44,13 +44,11 @@ DEF_TEST(Time_GetDateTime, r) {
 
     // The westernmost timezone is -12:00.
     // The easternmost timezone is +14:00.
-    REPORTER_ASSERT(r, abs(SkToInt(dateTime.fTimeZoneMinutes)) <= 14 * 60);
+    REPORTER_ASSERT(r, SkTAbs(SkToInt(dateTime.fTimeZoneMinutes)) <= 14 * 60);
 
     SkString timeStamp;
     dateTime.toISO8601(&timeStamp);
     REPORTER_ASSERT(r, timeStamp.size() > 0);
-    if (r->verbose()) {  // `dm --veryVerbose`
-        SkDebugf("\nCurrent Time (ISO-8601 format): \"%s\"\n",
-                 timeStamp.c_str());
-    }
+    INFOF(r, "\nCurrent Time (ISO-8601 format): \"%s\"\n",
+          timeStamp.c_str());
 }

@@ -23,7 +23,7 @@ public class HSOsuProvidersElement extends ANQPElement {
         mSSID = Constants.getPrefixedString(payload, 1, StandardCharsets.UTF_8);
         int providerCount = payload.get() & Constants.BYTE_MASK;
 
-        mProviders = new ArrayList<OSUProvider>(providerCount);
+        mProviders = new ArrayList<>(providerCount);
 
         while (providerCount > 0) {
             mProviders.add(new OSUProvider(payload));
@@ -42,8 +42,8 @@ public class HSOsuProvidersElement extends ANQPElement {
     @Override
     public String toString() {
         return "HSOsuProviders{" +
-                "mSSID='" + mSSID + '\'' +
-                ", mProviders=" + mProviders +
+                "SSID='" + mSSID + '\'' +
+                ", providers=" + mProviders +
                 '}';
     }
 }

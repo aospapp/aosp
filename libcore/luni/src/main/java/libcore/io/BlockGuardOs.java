@@ -28,6 +28,7 @@ import java.io.FileDescriptor;
 import java.io.InterruptedIOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
 import static android.system.OsConstants.*;
@@ -58,7 +59,7 @@ public class BlockGuardOs extends ForwardingOs {
         }
     }
 
-    @Override public FileDescriptor accept(FileDescriptor fd, InetSocketAddress peerAddress) throws ErrnoException, SocketException {
+    @Override public FileDescriptor accept(FileDescriptor fd, SocketAddress peerAddress) throws ErrnoException, SocketException {
         BlockGuard.getThreadPolicy().onNetwork();
         return tagSocket(os.accept(fd, peerAddress));
     }
@@ -233,6 +234,11 @@ public class BlockGuardOs extends ForwardingOs {
     @Override public String readlink(String path) throws ErrnoException {
       BlockGuard.getThreadPolicy().onReadFromDisk();
       return os.readlink(path);
+    }
+
+    @Override public String realpath(String path) throws ErrnoException {
+      BlockGuard.getThreadPolicy().onReadFromDisk();
+      return os.realpath(path);
     }
 
     @Override public int readv(FileDescriptor fd, Object[] buffers, int[] offsets, int[] byteCounts) throws ErrnoException, InterruptedIOException {

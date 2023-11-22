@@ -66,6 +66,10 @@ public class NonEAPInnerAuth implements AuthParam {
         return sOmaMap.get(mType);
     }
 
+    public static String mapInnerType(NonEAPType type) {
+        return sOmaMap.get(type);
+    }
+
     @Override
     public int hashCode() {
         return mType.hashCode();

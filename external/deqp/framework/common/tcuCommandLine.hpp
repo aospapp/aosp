@@ -42,6 +42,7 @@ enum RunMode
 	RUNMODE_EXECUTE = 0,			//! Test program executes the tests.
 	RUNMODE_DUMP_XML_CASELIST,		//! Test program dumps the list of contained test cases in XML format.
 	RUNMODE_DUMP_TEXT_CASELIST,		//! Test program dumps the list of contained test cases in plain-text format.
+	RUNMODE_DUMP_STDOUT_CASELIST,	//! Test program dumps the list of contained test cases in plain-text format into stdout.
 
 	RUNMODE_LAST
 };
@@ -114,6 +115,9 @@ public:
 	//! Get run mode (--deqp-runmode)
 	RunMode							getRunMode					(void) const;
 
+	//! Get caselist dump target file pattern (--deqp-caselist-export-file)
+	const char*						getCaseListExportFile		(void) const;
+
 	//! Get default window visibility (--deqp-visibility)
 	WindowVisibility				getVisibility				(void) const;
 
@@ -171,6 +175,12 @@ public:
 
 	//! Get EGL native pixmap factory (--deqp-egl-pixmap-type)
 	const char*						getEGLPixmapType			(void) const;
+
+	//! Get Vulkan device ID (--deqp-vk-device-id)
+	int								getVKDeviceId				(void) const;
+
+	//! Enable development-time test case validation checks
+	bool							isValidationEnabled			(void) const;
 
 	//! Should we run tests that exhaust memory (--deqp-test-oom)
 	bool							isOutOfMemoryTestEnabled(void) const;

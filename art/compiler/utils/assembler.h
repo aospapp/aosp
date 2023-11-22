@@ -20,117 +20,25 @@
 #include <vector>
 
 #include "arch/instruction_set.h"
+#include "arch/instruction_set_features.h"
+#include "arm/constants_arm.h"
+#include "base/arena_allocator.h"
+#include "base/arena_object.h"
 #include "base/logging.h"
 #include "base/macros.h"
-#include "arm/constants_arm.h"
+#include "debug/dwarf/debug_frame_opcode_writer.h"
+#include "label.h"
 #include "managed_register.h"
 #include "memory_region.h"
 #include "mips/constants_mips.h"
 #include "offsets.h"
 #include "x86/constants_x86.h"
 #include "x86_64/constants_x86_64.h"
-#include "dwarf/debug_frame_opcode_writer.h"
 
 namespace art {
 
 class Assembler;
 class AssemblerBuffer;
-class AssemblerFixup;
-
-namespace arm {
-  class ArmAssembler;
-  class Arm32Assembler;
-  class Thumb2Assembler;
-}
-namespace arm64 {
-  class Arm64Assembler;
-}
-namespace mips {
-  class MipsAssembler;
-}
-namespace mips64 {
-  class Mips64Assembler;
-}
-namespace x86 {
-  class X86Assembler;
-}
-namespace x86_64 {
-  class X86_64Assembler;
-}
-
-class ExternalLabel {
- public:
-  ExternalLabel(const char* name_in, uintptr_t address_in)
-      : name_(name_in), address_(address_in) {
-    DCHECK(name_in != nullptr);
-  }
-
-  const char* name() const { return name_; }
-  uintptr_t address() const {
-    return address_;
-  }
-
- private:
-  const char* name_;
-  const uintptr_t address_;
-};
-
-class Label {
- public:
-  Label() : position_(0) {}
-
-  ~Label() {
-    // Assert if label is being destroyed with unresolved branches pending.
-    CHECK(!IsLinked());
-  }
-
-  // Returns the position for bound and linked labels. Cannot be used
-  // for unused labels.
-  int Position() const {
-    CHECK(!IsUnused());
-    return IsBound() ? -position_ - sizeof(void*) : position_ - sizeof(void*);
-  }
-
-  int LinkPosition() const {
-    CHECK(IsLinked());
-    return position_ - sizeof(void*);
-  }
-
-  bool IsBound() const { return position_ < 0; }
-  bool IsUnused() const { return position_ == 0; }
-  bool IsLinked() const { return position_ > 0; }
-
- private:
-  int position_;
-
-  void Reinitialize() {
-    position_ = 0;
-  }
-
-  void BindTo(int position) {
-    CHECK(!IsBound());
-    position_ = -position - sizeof(void*);
-    CHECK(IsBound());
-  }
-
-  void LinkTo(int position) {
-    CHECK(!IsBound());
-    position_ = position + sizeof(void*);
-    CHECK(IsLinked());
-  }
-
-  friend class arm::ArmAssembler;
-  friend class arm::Arm32Assembler;
-  friend class arm::Thumb2Assembler;
-  friend class arm64::Arm64Assembler;
-  friend class mips::MipsAssembler;
-  friend class mips64::Mips64Assembler;
-  friend class x86::X86Assembler;
-  friend class x86_64::X86_64Assembler;
-
-  DISALLOW_COPY_AND_ASSIGN(Label);
-};
-
 
 // Assembler fixups are positions in generated code that require processing
 // after the code has been copied to executable memory. This includes building
@@ -154,7 +62,7 @@ class AssemblerFixup {
 };
 
 // Parent of all queued slow paths, emitted during finalization
-class SlowPath {
+class SlowPath : public DeletableArenaObject<kArenaAllocAssembler> {
  public:
   SlowPath() : next_(nullptr) {}
   virtual ~SlowPath() {}
@@ -179,8 +87,12 @@ class SlowPath {
 
 class AssemblerBuffer {
  public:
-  AssemblerBuffer();
+  explicit AssemblerBuffer(ArenaAllocator* arena);
   ~AssemblerBuffer();
+
+  ArenaAllocator* GetArena() {
+    return arena_;
+  }
 
   // Basic support for emitting, loading, and storing.
   template<typename T> void Emit(T value) {
@@ -199,13 +111,18 @@ class AssemblerBuffer {
     *reinterpret_cast<T*>(contents_ + position) = value;
   }
 
-  void Move(size_t newposition, size_t oldposition) {
-    CHECK(HasEnsuredCapacity());
-    // Move the contents of the buffer from oldposition to
-    // newposition by nbytes.
-    size_t nbytes = Size() - oldposition;
-    memmove(contents_ + newposition, contents_ + oldposition, nbytes);
-    cursor_ += newposition - oldposition;
+  void Resize(size_t new_size) {
+    if (new_size > Capacity()) {
+      ExtendCapacity(new_size);
+    }
+    cursor_ = contents_ + new_size;
+  }
+
+  void Move(size_t newposition, size_t oldposition, size_t size) {
+    // Move a chunk of the buffer from oldposition to newposition.
+    DCHECK_LE(oldposition + size, Size());
+    DCHECK_LE(newposition + size, Size());
+    memmove(contents_ + newposition, contents_ + oldposition, size);
   }
 
   // Emit a fixup at the current location.
@@ -261,8 +178,8 @@ class AssemblerBuffer {
   class EnsureCapacity {
    public:
     explicit EnsureCapacity(AssemblerBuffer* buffer) {
-      if (buffer->cursor() >= buffer->limit()) {
-        buffer->ExtendCapacity();
+      if (buffer->cursor() > buffer->limit()) {
+        buffer->ExtendCapacity(buffer->Size() + kMinimumGap);
       }
       // In debug mode, we save the assembler buffer along with the gap
       // size before we start emitting to the buffer. This allows us to
@@ -302,7 +219,9 @@ class AssemblerBuffer {
   class EnsureCapacity {
    public:
     explicit EnsureCapacity(AssemblerBuffer* buffer) {
-      if (buffer->cursor() >= buffer->limit()) buffer->ExtendCapacity();
+      if (buffer->cursor() > buffer->limit()) {
+        buffer->ExtendCapacity(buffer->Size() + kMinimumGap);
+      }
     }
   };
 
@@ -316,12 +235,22 @@ class AssemblerBuffer {
   // Returns the position in the instruction stream.
   int GetPosition() { return  cursor_ - contents_; }
 
+  size_t Capacity() const {
+    CHECK_GE(limit_, contents_);
+    return (limit_ - contents_) + kMinimumGap;
+  }
+
+  // Unconditionally increase the capacity.
+  // The provided `min_capacity` must be higher than current `Capacity()`.
+  void ExtendCapacity(size_t min_capacity);
+
  private:
   // The limit is set to kMinimumGap bytes before the end of the data area.
   // This leaves enough space for the longest possible instruction and allows
   // for a single, fast space check per instruction.
   static const int kMinimumGap = 32;
 
+  ArenaAllocator* arena_;
   uint8_t* contents_;
   uint8_t* cursor_;
   uint8_t* limit_;
@@ -335,10 +264,6 @@ class AssemblerBuffer {
 
   uint8_t* cursor() const { return cursor_; }
   uint8_t* limit() const { return limit_; }
-  size_t Capacity() const {
-    CHECK_GE(limit_, contents_);
-    return (limit_ - contents_) + kMinimumGap;
-  }
 
   // Process the fixup chain starting at the given fixup. The offset is
   // non-zero for fixups in the body if the preamble is non-empty.
@@ -350,8 +275,6 @@ class AssemblerBuffer {
     return data + capacity - kMinimumGap;
   }
 
-  void ExtendCapacity();
-
   friend class AssemblerFixup;
 };
 
@@ -360,27 +283,86 @@ class AssemblerBuffer {
 class DebugFrameOpCodeWriterForAssembler FINAL
     : public dwarf::DebugFrameOpCodeWriter<> {
  public:
+  struct DelayedAdvancePC {
+    uint32_t stream_pos;
+    uint32_t pc;
+  };
+
   // This method is called the by the opcode writers.
   virtual void ImplicitlyAdvancePC() FINAL;
 
   explicit DebugFrameOpCodeWriterForAssembler(Assembler* buffer)
-      : dwarf::DebugFrameOpCodeWriter<>(),
-        assembler_(buffer) {
+      : dwarf::DebugFrameOpCodeWriter<>(false /* enabled */),
+        assembler_(buffer),
+        delay_emitting_advance_pc_(false),
+        delayed_advance_pcs_() {
+  }
+
+  ~DebugFrameOpCodeWriterForAssembler() {
+    DCHECK(delayed_advance_pcs_.empty());
+  }
+
+  // Tell the writer to delay emitting advance PC info.
+  // The assembler must explicitly process all the delayed advances.
+  void DelayEmittingAdvancePCs() {
+    delay_emitting_advance_pc_ = true;
+  }
+
+  // Override the last delayed PC. The new PC can be out of order.
+  void OverrideDelayedPC(size_t pc) {
+    DCHECK(delay_emitting_advance_pc_);
+    DCHECK(!delayed_advance_pcs_.empty());
+    delayed_advance_pcs_.back().pc = pc;
+  }
+
+  // Return the number of delayed advance PC entries.
+  size_t NumberOfDelayedAdvancePCs() const {
+    return delayed_advance_pcs_.size();
+  }
+
+  // Release the CFI stream and advance PC infos so that the assembler can patch it.
+  std::pair<std::vector<uint8_t>, std::vector<DelayedAdvancePC>>
+  ReleaseStreamAndPrepareForDelayedAdvancePC() {
+    DCHECK(delay_emitting_advance_pc_);
+    delay_emitting_advance_pc_ = false;
+    std::pair<std::vector<uint8_t>, std::vector<DelayedAdvancePC>> result;
+    result.first.swap(opcodes_);
+    result.second.swap(delayed_advance_pcs_);
+    return result;
+  }
+
+  // Reserve space for the CFI stream.
+  void ReserveCFIStream(size_t capacity) {
+    opcodes_.reserve(capacity);
+  }
+
+  // Append raw data to the CFI stream.
+  void AppendRawData(const std::vector<uint8_t>& raw_data, size_t first, size_t last) {
+    DCHECK_LE(0u, first);
+    DCHECK_LE(first, last);
+    DCHECK_LE(last, raw_data.size());
+    opcodes_.insert(opcodes_.end(), raw_data.begin() + first, raw_data.begin() + last);
   }
 
  private:
   Assembler* assembler_;
+  bool delay_emitting_advance_pc_;
+  std::vector<DelayedAdvancePC> delayed_advance_pcs_;
 };
 
-class Assembler {
+class Assembler : public DeletableArenaObject<kArenaAllocAssembler> {
  public:
-  static Assembler* Create(InstructionSet instruction_set);
+  static std::unique_ptr<Assembler> Create(
+      ArenaAllocator* arena,
+      InstructionSet instruction_set,
+      const InstructionSetFeatures* instruction_set_features = nullptr);
 
-  // Emit slow paths queued during assembly
-  virtual void EmitSlowPaths() { buffer_.EmitSlowPaths(this); }
+  // Finalize the code; emit slow paths, fixup branches, add literal pool, etc.
+  virtual void FinalizeCode() { buffer_.EmitSlowPaths(this); }
 
   // Size of generated code
   virtual size_t CodeSize() const { return buffer_.Size(); }
+  virtual const uint8_t* CodeBufferBaseAddress() const { return buffer_.contents(); }
 
   // Copy instructions out of assembly buffer into the given region of memory
   virtual void FinalizeInstructions(const MemoryRegion& region) {
@@ -388,7 +370,7 @@ class Assembler {
   }
 
   // TODO: Implement with disassembler.
-  virtual void Comment(const char* format, ...) { UNUSED(format); }
+  virtual void Comment(const char* format ATTRIBUTE_UNUSED, ...) {}
 
   // Emit code that will create an activation on the stack
   virtual void BuildFrame(size_t frame_size, ManagedRegister method_reg,
@@ -435,9 +417,9 @@ class Assembler {
   virtual void LoadFromThread64(ManagedRegister dest, ThreadOffset<8> src, size_t size);
 
   virtual void LoadRef(ManagedRegister dest, FrameOffset src) = 0;
-  // If poison_reference is true and kPoisonReference is true, then we negate the read reference.
+  // If unpoison_reference is true and kPoisonReference is true, then we negate the read reference.
   virtual void LoadRef(ManagedRegister dest, ManagedRegister base, MemberOffset offs,
-                       bool poison_reference) = 0;
+                       bool unpoison_reference) = 0;
 
   virtual void LoadRawPtr(ManagedRegister dest, ManagedRegister base, Offset offs) = 0;
 
@@ -524,6 +506,9 @@ class Assembler {
   // and branch to a ExceptionSlowPath if it is.
   virtual void ExceptionPoll(ManagedRegister scratch, size_t stack_adjust) = 0;
 
+  virtual void Bind(Label* label) = 0;
+  virtual void Jump(Label* label) = 0;
+
   virtual ~Assembler() {}
 
   /**
@@ -533,7 +518,11 @@ class Assembler {
   DebugFrameOpCodeWriterForAssembler& cfi() { return cfi_; }
 
  protected:
-  Assembler() : buffer_(), cfi_(this) {}
+  explicit Assembler(ArenaAllocator* arena) : buffer_(arena), cfi_(this) {}
+
+  ArenaAllocator* GetArena() {
+    return buffer_.GetArena();
+  }
 
   AssemblerBuffer buffer_;
 

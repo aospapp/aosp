@@ -22,9 +22,10 @@
 
 #include "jni.h"
 #include "GraphicsJNI.h"
-#include "Paint.h"
 #include "SkLayerRasterizer.h"
 #include "core_jni_helpers.h"
+
+#include <hwui/Paint.h>
 
 // Rasterizer.java holds a pointer (jlong) to this guy
 class NativeRasterizer {
@@ -61,7 +62,7 @@ public:
     }
 };
 
-static JNINativeMethod gRasterizerMethods[] = {
+static const JNINativeMethod gRasterizerMethods[] = {
     {"finalizer", "(J)V", (void*) SkRasterizerGlue::finalizer}
 };
 
@@ -85,7 +86,7 @@ public:
     }
 };
 
-static JNINativeMethod gLayerRasterizerMethods[] = {
+static const JNINativeMethod gLayerRasterizerMethods[] = {
     { "nativeConstructor",  "()J",      (void*)SkLayerRasterizerGlue::create    },
     { "nativeAddLayer",     "(JJFF)V",  (void*)SkLayerRasterizerGlue::addLayer  }
 };

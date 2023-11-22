@@ -16,7 +16,7 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.hardware">
+    package="android.hardware.cts">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.CAMERA" />
@@ -72,6 +72,9 @@
             android:process=":camera2ActivityProcess">
         </activity>
 
+        <activity android:name="android.hardware.input.cts.InputCtsActivity"
+            android:label="InputCtsActivity" />
+
         <activity android:name="android.hardware.cts.FingerprintTestActivity"
             android:label="FingerprintTestActivity">
         </activity>
@@ -79,8 +82,8 @@
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.hardware"
-                     android:label="CTS tests of android.hardware">
+                     android:targetPackage="android.hardware.cts"
+                     android:label="CTS hardware tests">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />
     </instrumentation>

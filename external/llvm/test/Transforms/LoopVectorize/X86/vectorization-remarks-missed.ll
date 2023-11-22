@@ -25,7 +25,7 @@
 ; File, line, and column should match those specified in the metadata
 ; CHECK: remark: source.cpp:4:5: loop not vectorized: could not determine number of loop iterations
 ; CHECK: remark: source.cpp:4:5: loop not vectorized: use -Rpass-analysis=loop-vectorize for more info
-; CHECK: remark: source.cpp:13:5: loop not vectorized: vector width and interleave count are explicitly set to 1
+; CHECK: remark: source.cpp:13:5: loop not vectorized: vectorization and interleaving are explicitly disabled, or vectorize width and interleave count are both set to 1
 ; CHECK: remark: source.cpp:19:5: loop not vectorized: cannot identify array bounds
 ; CHECK: remark: source.cpp:19:5: loop not vectorized: use -Rpass-analysis=loop-vectorize for more info
 ; CHECK: warning: source.cpp:19:5: loop not vectorized: failed explicitly specified loop vectorization
@@ -45,7 +45,7 @@
 target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"
 
 ; Function Attrs: nounwind optsize ssp uwtable
-define void @_Z4testPii(i32* nocapture %A, i32 %Length) #0 {
+define void @_Z4testPii(i32* nocapture %A, i32 %Length) #0 !dbg !4 {
 entry:
   %cmp10 = icmp sgt i32 %Length, 0, !dbg !12
   br i1 %cmp10, label %for.body, label %for.end, !dbg !12, !llvm.loop !14
@@ -67,7 +67,7 @@ for.end:                                          ; preds = %for.body, %entry
 }
 
 ; Function Attrs: nounwind optsize ssp uwtable
-define void @_Z13test_disabledPii(i32* nocapture %A, i32 %Length) #0 {
+define void @_Z13test_disabledPii(i32* nocapture %A, i32 %Length) #0 !dbg !7 {
 entry:
   %cmp4 = icmp sgt i32 %Length, 0, !dbg !25
   br i1 %cmp4, label %for.body, label %for.end, !dbg !25, !llvm.loop !27
@@ -87,7 +87,7 @@ for.end:                                          ; preds = %for.body, %entry
 }
 
 ; Function Attrs: nounwind optsize ssp uwtable
-define void @_Z17test_array_boundsPiS_i(i32* nocapture %A, i32* nocapture readonly %B, i32 %Length) #0 {
+define void @_Z17test_array_boundsPiS_i(i32* nocapture %A, i32* nocapture readonly %B, i32 %Length) #0 !dbg !8 {
 entry:
   %cmp9 = icmp sgt i32 %Length, 0, !dbg !32
   br i1 %cmp9, label %for.body.preheader, label %for.end, !dbg !32, !llvm.loop !34
@@ -122,40 +122,40 @@ attributes #0 = { nounwind }
 !llvm.module.flags = !{!9, !10}
 !llvm.ident = !{!11}
 
-!0 = !MDCompileUnit(language: DW_LANG_C_plus_plus, producer: "clang version 3.5.0", isOptimized: true, runtimeVersion: 6, emissionKind: 2, file: !1, enums: !2, retainedTypes: !2, subprograms: !3, globals: !2, imports: !2)
-!1 = !MDFile(filename: "source.cpp", directory: ".")
+!0 = distinct !DICompileUnit(language: DW_LANG_C_plus_plus, producer: "clang version 3.5.0", isOptimized: true, runtimeVersion: 6, emissionKind: 2, file: !1, enums: !2, retainedTypes: !2, subprograms: !3, globals: !2, imports: !2)
+!1 = !DIFile(filename: "source.cpp", directory: ".")
 !2 = !{}
 !3 = !{!4, !7, !8}
-!4 = !MDSubprogram(name: "test", line: 1, isLocal: false, isDefinition: true, virtualIndex: 6, flags: DIFlagPrototyped, isOptimized: true, scopeLine: 1, file: !1, scope: !5, type: !6, function: void (i32*, i32)* @_Z4testPii, variables: !2)
-!5 = !MDFile(filename: "source.cpp", directory: ".")
-!6 = !MDSubroutineType(types: !2)
-!7 = !MDSubprogram(name: "test_disabled", line: 10, isLocal: false, isDefinition: true, virtualIndex: 6, flags: DIFlagPrototyped, isOptimized: true, scopeLine: 10, file: !1, scope: !5, type: !6, function: void (i32*, i32)* @_Z13test_disabledPii, variables: !2)
-!8 = !MDSubprogram(name: "test_array_bounds", line: 16, isLocal: false, isDefinition: true, virtualIndex: 6, flags: DIFlagPrototyped, isOptimized: true, scopeLine: 16, file: !1, scope: !5, type: !6, function: void (i32*, i32*, i32)* @_Z17test_array_boundsPiS_i, variables: !2)
+!4 = distinct !DISubprogram(name: "test", line: 1, isLocal: false, isDefinition: true, virtualIndex: 6, flags: DIFlagPrototyped, isOptimized: true, scopeLine: 1, file: !1, scope: !5, type: !6, variables: !2)
+!5 = !DIFile(filename: "source.cpp", directory: ".")
+!6 = !DISubroutineType(types: !2)
+!7 = distinct !DISubprogram(name: "test_disabled", line: 10, isLocal: false, isDefinition: true, virtualIndex: 6, flags: DIFlagPrototyped, isOptimized: true, scopeLine: 10, file: !1, scope: !5, type: !6, variables: !2)
+!8 = distinct !DISubprogram(name: "test_array_bounds", line: 16, isLocal: false, isDefinition: true, virtualIndex: 6, flags: DIFlagPrototyped, isOptimized: true, scopeLine: 16, file: !1, scope: !5, type: !6, variables: !2)
 !9 = !{i32 2, !"Dwarf Version", i32 2}
 !10 = !{i32 2, !"Debug Info Version", i32 3}
 !11 = !{!"clang version 3.5.0"}
-!12 = !MDLocation(line: 3, column: 8, scope: !13)
-!13 = distinct !MDLexicalBlock(line: 3, column: 3, file: !1, scope: !4)
+!12 = !DILocation(line: 3, column: 8, scope: !13)
+!13 = distinct !DILexicalBlock(line: 3, column: 3, file: !1, scope: !4)
 !14 = !{!14, !15, !15}
 !15 = !{!"llvm.loop.vectorize.enable", i1 true}
-!16 = !MDLocation(line: 4, column: 5, scope: !17)
-!17 = distinct !MDLexicalBlock(line: 3, column: 36, file: !1, scope: !13)
+!16 = !DILocation(line: 4, column: 5, scope: !17)
+!17 = distinct !DILexicalBlock(line: 3, column: 36, file: !1, scope: !13)
 !18 = !{!19, !19, i64 0}
 !19 = !{!"int", !20, i64 0}
 !20 = !{!"omnipotent char", !21, i64 0}
 !21 = !{!"Simple C/C++ TBAA"}
-!22 = !MDLocation(line: 5, column: 9, scope: !23)
-!23 = distinct !MDLexicalBlock(line: 5, column: 9, file: !1, scope: !17)
-!24 = !MDLocation(line: 8, column: 1, scope: !4)
-!25 = !MDLocation(line: 12, column: 8, scope: !26)
-!26 = distinct !MDLexicalBlock(line: 12, column: 3, file: !1, scope: !7)
+!22 = !DILocation(line: 5, column: 9, scope: !23)
+!23 = distinct !DILexicalBlock(line: 5, column: 9, file: !1, scope: !17)
+!24 = !DILocation(line: 8, column: 1, scope: !4)
+!25 = !DILocation(line: 12, column: 8, scope: !26)
+!26 = distinct !DILexicalBlock(line: 12, column: 3, file: !1, scope: !7)
 !27 = !{!27, !28, !29}
 !28 = !{!"llvm.loop.interleave.count", i32 1}
 !29 = !{!"llvm.loop.vectorize.width", i32 1}
-!30 = !MDLocation(line: 13, column: 5, scope: !26)
-!31 = !MDLocation(line: 14, column: 1, scope: !7)
-!32 = !MDLocation(line: 18, column: 8, scope: !33)
-!33 = distinct !MDLexicalBlock(line: 18, column: 3, file: !1, scope: !8)
+!30 = !DILocation(line: 13, column: 5, scope: !26)
+!31 = !DILocation(line: 14, column: 1, scope: !7)
+!32 = !DILocation(line: 18, column: 8, scope: !33)
+!33 = distinct !DILexicalBlock(line: 18, column: 3, file: !1, scope: !8)
 !34 = !{!34, !15}
-!35 = !MDLocation(line: 19, column: 5, scope: !33)
-!36 = !MDLocation(line: 20, column: 1, scope: !8)
+!35 = !DILocation(line: 19, column: 5, scope: !33)
+!36 = !DILocation(line: 20, column: 1, scope: !8)

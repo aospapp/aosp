@@ -38,8 +38,13 @@ def main():
         e, s = its.target.get_target_exposure_combos(cam)["midExposureTime"]
         req = its.objects.manual_capture_request(s, e, True, props)
 
+        max_raw10_size = \
+                its.objects.get_available_output_sizes("raw10", props)[0]
+        w,h = its.objects.get_available_output_sizes(
+                "yuv", props, (1920, 1080), max_raw10_size)[0]
         cap_raw, cap_yuv = cam.do_capture(req,
-                [{"format":"raw10"}, {"format":"yuv"}])
+                [{"format":"raw10"},
+                 {"format":"yuv", "width":w, "height":h}])
 
         img = its.image.convert_capture_to_rgb_image(cap_yuv)
         its.image.write_image(img, "%s_yuv.jpg" % (NAME), True)

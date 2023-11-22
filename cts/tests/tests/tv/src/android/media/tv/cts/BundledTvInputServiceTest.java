@@ -27,7 +27,7 @@ import android.media.tv.TvView;
 import android.test.ActivityInstrumentationTestCase2;
 import android.util.ArrayMap;
 
-import com.android.cts.tv.R;
+import android.tv.cts.R;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -157,9 +157,12 @@ public class BundledTvInputServiceTest
         if (!Utils.hasTvInputFramework(getActivity())) {
             return;
         }
-        final int STRESS_FACTOR = 100;
+        // On average, the device is expected to have ~ 5 pass-through inputs (HDMI1-4 and
+        // Component) and tuning should be completed within 3 seconds, which gives 15 seconds
+        // for an input. Set 5 minutes of timeout for this test case and try 20 iterations.
+        final int ITERATIONS = 20;
         Random random = new Random();
-        for (int i = 0; i < mPassthroughInputList.size() * STRESS_FACTOR; ++i) {
+        for (int i = 0; i < mPassthroughInputList.size() * ITERATIONS; ++i) {
             final TvInputInfo info =
                     mPassthroughInputList.get(random.nextInt(mPassthroughInputList.size()));
             runTestOnUiThread(new Runnable() {
@@ -170,17 +173,15 @@ public class BundledTvInputServiceTest
                 }
             });
             mInstrumentation.waitForIdleSync();
-            if (random.nextBoolean()) {
-                new PollingCheck(TIME_OUT) {
-                    @Override
-                    protected boolean check() {
-                        Integer reason = mCallback.getVideoUnavailableReason(info.getId());
-                        return reason != null
-                                && reason != TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING
-                                && reason != TvInputManager.VIDEO_UNAVAILABLE_REASON_BUFFERING;
-                    }
-                }.run();
-            }
+            new PollingCheck(TIME_OUT) {
+                @Override
+                protected boolean check() {
+                    Integer reason = mCallback.getVideoUnavailableReason(info.getId());
+                    return reason != null
+                            && reason != TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING
+                            && reason != TvInputManager.VIDEO_UNAVAILABLE_REASON_BUFFERING;
+                }
+            }.run();
         }
     }
 }

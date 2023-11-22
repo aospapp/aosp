@@ -16,8 +16,8 @@
 
 package com.google.common.primitives;
 
+import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Float.NaN;
-import static org.truth0.Truth.ASSERT;
 
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.GwtIncompatible;
@@ -50,11 +50,10 @@ public class FloatsTest extends TestCase {
 
   private static final float LEAST = Float.NEGATIVE_INFINITY;
   private static final float GREATEST = Float.POSITIVE_INFINITY;
-  private static final float MIN_NORMAL = 1.17549435E-38f; // Doubles.MIN_NORMAL from 1.6
 
   private static final float[] NUMBERS = new float[] {
       LEAST, -Float.MAX_VALUE, -1f, -0f, 0f, 1f, Float.MAX_VALUE, GREATEST,
-      MIN_NORMAL, -MIN_NORMAL,  Float.MIN_VALUE, -Float.MIN_VALUE,
+      Float.MIN_NORMAL, -Float.MIN_NORMAL,  Float.MIN_VALUE, -Float.MIN_VALUE,
       Integer.MIN_VALUE, Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE
   };
 
@@ -361,7 +360,7 @@ public class FloatsTest extends TestCase {
     list.set(0, (float) 2);
     assertTrue(Arrays.equals(new float[] {(float) 2, (float) 1}, array));
     array[1] = (float) 3;
-    ASSERT.that(list).has().exactly((float) 2, (float) 3).inOrder();
+    assertThat(list).has().exactly((float) 2, (float) 3).inOrder();
   }
 
   public void testAsList_toArray_roundTrip() {

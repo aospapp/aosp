@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,5 +43,29 @@ float3 __attribute__((kernel)) testMadFloat3Float3Float3Float3(float3 inMultipli
 float4 __attribute__((kernel)) testMadFloat4Float4Float4Float4(float4 inMultiplicand1, unsigned int x) {
     float4 inMultiplicand2 = rsGetElementAt_float4(gAllocInMultiplicand2, x);
     float4 inOffset = rsGetElementAt_float4(gAllocInOffset, x);
+    return mad(inMultiplicand1, inMultiplicand2, inOffset);
+}
+
+half __attribute__((kernel)) testMadHalfHalfHalfHalf(half inMultiplicand1, unsigned int x) {
+    half inMultiplicand2 = rsGetElementAt_half(gAllocInMultiplicand2, x);
+    half inOffset = rsGetElementAt_half(gAllocInOffset, x);
+    return mad(inMultiplicand1, inMultiplicand2, inOffset);
+}
+
+half2 __attribute__((kernel)) testMadHalf2Half2Half2Half2(half2 inMultiplicand1, unsigned int x) {
+    half2 inMultiplicand2 = rsGetElementAt_half2(gAllocInMultiplicand2, x);
+    half2 inOffset = rsGetElementAt_half2(gAllocInOffset, x);
+    return mad(inMultiplicand1, inMultiplicand2, inOffset);
+}
+
+half3 __attribute__((kernel)) testMadHalf3Half3Half3Half3(half3 inMultiplicand1, unsigned int x) {
+    half3 inMultiplicand2 = rsGetElementAt_half3(gAllocInMultiplicand2, x);
+    half3 inOffset = rsGetElementAt_half3(gAllocInOffset, x);
+    return mad(inMultiplicand1, inMultiplicand2, inOffset);
+}
+
+half4 __attribute__((kernel)) testMadHalf4Half4Half4Half4(half4 inMultiplicand1, unsigned int x) {
+    half4 inMultiplicand2 = rsGetElementAt_half4(gAllocInMultiplicand2, x);
+    half4 inOffset = rsGetElementAt_half4(gAllocInOffset, x);
     return mad(inMultiplicand1, inMultiplicand2, inOffset);
 }

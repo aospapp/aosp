@@ -33,4 +33,6 @@
 
 #define RS_EXPORT_FOREACH_MN "#rs_export_foreach"
 
+#define RS_EXPORT_REDUCE_MN "#rs_export_reduce"
+
 #endif  // _FRAMEWORKS_COMPILE_SLANG_SLANG_RS_METADATA_H_  NOLINT

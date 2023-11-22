@@ -21,7 +21,7 @@
     <string name="pkcs12_password_dialog_title" msgid="5997624645207427161">"Chopoa cheti"</string>
     <string name="extracting_pkcs12" msgid="1881267738821799771">"Inadondoa..."</string>
     <string name="pkcs12_file_password_dialog_title" msgid="8102721384767269510">"Chopoa kutoka kwa %s"</string>
-    <string name="name_credential_dialog_title" msgid="277729846491554437">"Jina kwenye cheti"</string>
+    <string name="name_credential_dialog_title" msgid="277729846491554437">"Jina lililo kwenye cheti"</string>
     <string name="credential_name" msgid="1974979771369744378">"Jina la cheti:"</string>
     <string name="credential_password" msgid="3520176519550993326">"Chapisha nenosiri ili kudondoa vyeti."</string>
     <string name="credential_info" msgid="2436768402308470397">"Furushi lina:"</string>
@@ -34,7 +34,6 @@
     <string name="password_empty_error" msgid="591713406761723025">"Chapa nenosiri."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"Chapa jina."</string>
     <string name="name_char_error" msgid="3176618568784938968">"Chapisha jina ambalo lina herufi na nambari tu."</string>
-    <string name="storage_error" msgid="8306802455802770779">"Haikuweza kuhifadhi cheti. Gusa SAWA ili kujaribu tena."</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"Haikuweza kuhifadhi cheti. Hifadhi ya hati haijawezeshwa au haijaanzilishwa vizuri."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"Cheti hakijasakinishwa."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"Hakuna cheti cha kusakinisha."</string>

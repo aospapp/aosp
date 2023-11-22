@@ -28,4 +28,7 @@ LOCAL_JAVA_LIBRARIES := android.test.runner cts-junit
 
 LOCAL_SDK_VERSION := current
 
+# tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
+
 include $(BUILD_CTS_PACKAGE)

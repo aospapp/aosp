@@ -20,16 +20,16 @@
     <string name="sms_cb_settings" msgid="971917159442705371">"Mga setting ng Cell Broadcast"</string>
     <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"Hindi available ang mga setting ng Cell Broadcast para sa user na ito"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"OK"</string>
-    <string name="no_cell_broadcasts" msgid="5409324337492758562">"Walang mga aktibong alerto sa iyong lugar. Mababago mo ang mga setting ng Alerto gamit ang pagpipilian ng menu ng Mga Setting."</string>
+    <string name="no_cell_broadcasts" msgid="5409324337492758562">"Walang mga aktibong alerto sa lugar mo. Mababago mo ang mga setting ng Alerto gamit ang menu option ng Mga Setting."</string>
     <string name="menu_preferences" msgid="3596514894131599202">"Mga Setting"</string>
-    <string name="menu_delete_all" msgid="3940997343921149800">"Tanggalin ang mga broadcast"</string>
+    <string name="menu_delete_all" msgid="3940997343921149800">"I-delete ang mga broadcast"</string>
     <string name="message_options" msgid="3178489901903589574">"Mga pagpipilian sa mensahe"</string>
     <string name="menu_view_details" msgid="1040989019045280975">"Tingnan ang mga detalye"</string>
-    <string name="menu_delete" msgid="128380070910799366">"Tanggalin ang broadcast"</string>
+    <string name="menu_delete" msgid="128380070910799366">"I-delete ang broadcast"</string>
     <string name="view_details_title" msgid="1780427629491781473">"Mga detalye ng alerto"</string>
-    <string name="confirm_delete_broadcast" msgid="2540199303730232322">"Tanggalin ang broadcast na ito?"</string>
-    <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"Tanggalin ang lahat ng natanggap na broadcast na mensahe?"</string>
-    <string name="button_delete" msgid="4672451757925194350">"Tanggalin"</string>
+    <string name="confirm_delete_broadcast" msgid="2540199303730232322">"I-delete ang broadcast na ito?"</string>
+    <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"I-delete ang lahat ng natanggap na broadcast na mensahe?"</string>
+    <string name="button_delete" msgid="4672451757925194350">"I-delete"</string>
     <string name="button_cancel" msgid="7479958360523246140">"Kanselahin"</string>
     <string name="etws_earthquake_warning" msgid="6428741104423152511">"Babala sa lindol"</string>
     <string name="etws_tsunami_warning" msgid="6173964105145900312">"Babala sa tsunami"</string>

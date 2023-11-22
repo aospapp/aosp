@@ -70,7 +70,7 @@ public class DownloadRequest extends MmsRequest {
     @Override
     protected byte[] doHttp(Context context, MmsNetworkManager netMgr, ApnSettings apn)
             throws MmsHttpException {
-        final String requestId = this.toString();
+        final String requestId = getRequestId();
         final MmsHttpClient mmsHttpClient = netMgr.getOrCreateHttpClient();
         if (mmsHttpClient == null) {
             LogUtil.e(requestId, "MMS network is not ready!");
@@ -100,7 +100,7 @@ public class DownloadRequest extends MmsRequest {
 
     @Override
     protected Uri persistIfRequired(Context context, int result, byte[] response) {
-        final String requestId = this.toString();
+        final String requestId = getRequestId();
         // Let any mms apps running as secondary user know that a new mms has been downloaded.
         notifyOfDownload(context);
 
@@ -213,7 +213,7 @@ public class DownloadRequest extends MmsRequest {
         // by user policy.
         for (int i = users.length - 1; i >= 0; i--) {
             UserHandle targetUser = new UserHandle(users[i]);
-            if (users[i] != UserHandle.USER_OWNER) {
+            if (users[i] != UserHandle.USER_SYSTEM) {
                 // Is the user not allowed to use SMS?
                 if (userManager.hasUserRestriction(UserManager.DISALLOW_SMS, targetUser)) {
                     continue;

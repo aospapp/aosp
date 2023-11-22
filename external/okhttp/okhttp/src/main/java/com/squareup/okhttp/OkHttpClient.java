@@ -27,9 +27,11 @@ import com.squareup.okhttp.internal.http.Transport;
 import com.squareup.okhttp.internal.tls.OkHostnameVerifier;
 import java.io.IOException;
 import java.net.CookieHandler;
+import java.net.MalformedURLException;
 import java.net.Proxy;
 import java.net.ProxySelector;
 import java.net.URLConnection;
+import java.net.UnknownHostException;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.List;
@@ -157,6 +159,11 @@ public class OkHttpClient implements Cloneable {
       public void apply(ConnectionSpec tlsConfiguration, SSLSocket sslSocket, boolean isFallback) {
         tlsConfiguration.apply(sslSocket, isFallback);
       }
+
+      @Override public HttpUrl getHttpUrlChecked(String url)
+          throws MalformedURLException, UnknownHostException {
+        return HttpUrl.getChecked(url);
+      }
     };
   }
 
@@ -187,9 +194,9 @@ public class OkHttpClient implements Cloneable {
   private boolean followSslRedirects = true;
   private boolean followRedirects = true;
   private boolean retryOnConnectionFailure = true;
-  private int connectTimeout;
-  private int readTimeout;
-  private int writeTimeout;
+  private int connectTimeout = 10_000;
+  private int readTimeout = 10_000;
+  private int writeTimeout = 10_000;
 
   public OkHttpClient() {
     routeDatabase = new RouteDatabase();
@@ -351,7 +358,10 @@ public class OkHttpClient implements Cloneable {
   }
 
   /**
-   * Sets the socket factory used to create connections.
+   * Sets the socket factory used to create connections. OkHttp only uses
+   * the parameterless {@link SocketFactory#createSocket() createSocket()}
+   * method to create unconnected sockets. Overriding this method,
+   * e. g., allows the socket to be bound to a specific local address.
    *
    * <p>If unset, the {@link SocketFactory#getDefault() system-wide default}
    * socket factory will be used.

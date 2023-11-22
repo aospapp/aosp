@@ -21,15 +21,23 @@ LOCAL_MODULE_TAGS := optional
 # and when built explicitly put it in the data partition
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
-LOCAL_PROGUARD_ENABLED := disabled
-
 LOCAL_JAVA_LIBRARIES := android.test.runner telephony-common voip-common org.apache.http.legacy
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctsdeviceutil ctstestrunner ctstestserver
+LOCAL_STATIC_JAVA_LIBRARIES := ctsdeviceutil ctstestrunner ctstestserver mockito-target
 
-LOCAL_SRC_FILES := $(call all-java-files-under, src) \
-              src/android/app/cts/ISecondary.aidl
+LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_PACKAGE_NAME := CtsAppTestStubs
+# Tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
 
-include $(BUILD_CTS_SUPPORT_PACKAGE)
+LOCAL_PACKAGE_NAME := CtsAppTestCases
+
+LOCAL_INSTRUMENTATION_FOR := CtsAppTestStubs
+
+LOCAL_CTS_MODULE_CONFIG := $(LOCAL_PATH)/Old$(CTS_MODULE_TEST_CONFIG)
+
+LOCAL_SDK_VERSION := test_current
+
+include $(BUILD_CTS_PACKAGE)
+
+include $(call all-makefiles-under,$(LOCAL_PATH))

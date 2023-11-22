@@ -22,9 +22,7 @@
 // Define special registers.
 
 // Register holding Thread::Current().
-#define xSELF x18
-// x18 is not preserved by aapcs64, save it on xETR(External Thread reg) for restore and later use.
-#define xETR x21
+#define xSELF x19
 // Frame Pointer
 #define xFP   x29
 // Link Register
@@ -55,6 +53,20 @@
     ENTRY \name
     brk 0
     END \name
+.endm
+
+// Macros to poison (negate) the reference for heap poisoning.
+.macro POISON_HEAP_REF rRef
+#ifdef USE_HEAP_POISONING
+    neg \rRef, \rRef
+#endif  // USE_HEAP_POISONING
+.endm
+
+// Macros to unpoison (negate) the reference for heap poisoning.
+.macro UNPOISON_HEAP_REF rRef
+#ifdef USE_HEAP_POISONING
+    neg \rRef, \rRef
+#endif  // USE_HEAP_POISONING
 .endm
 
 #endif  // ART_RUNTIME_ARCH_ARM64_ASM_SUPPORT_ARM64_S_

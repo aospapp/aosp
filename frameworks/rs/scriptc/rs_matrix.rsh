@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,7 +64,8 @@
  *   near: Near plane.
  *   far: Far plane.
  */
-static inline void __attribute__((always_inline, overloadable))
+#if !defined(RS_VERSION) || (RS_VERSION <= 23)
+static inline void __attribute__((overloadable))
     rsExtractFrustumPlanes(const rs_matrix4x4* viewProj, float4* left, float4* right, float4* top,
                            float4* bottom, float4* near, float4* far) {
     // x y z w = a b c d in the plane equation
@@ -111,6 +112,13 @@ static inline void __attribute__((always_inline, overloadable))
     len = length(far->xyz);
     *far /= len;
 }
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern void __attribute__((overloadable))
+    rsExtractFrustumPlanes(const rs_matrix4x4* viewProj, float4* left, float4* righ, float4* top,
+                           float4* bottom, float4* near, float4* far);
+#endif
 
 /*
  * rsIsSphereInFrustum: Checks if a sphere is within the frustum planes
@@ -126,6 +134,7 @@ static inline void __attribute__((always_inline, overloadable))
  *   near: Near plane.
  *   far: Far plane.
  */
+#if !defined(RS_VERSION) || (RS_VERSION <= 23)
 static inline bool __attribute__((always_inline, overloadable))
     rsIsSphereInFrustum(float4* sphere, float4* left, float4* right, float4* top, float4* bottom,
                         float4* near, float4* far) {
@@ -155,6 +164,13 @@ static inline bool __attribute__((always_inline, overloadable))
     }
     return true;
 }
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern bool __attribute__((overloadable))
+    rsIsSphereInFrustum(float4* sphere, float4* left, float4* right, float4* top, float4* bottom,
+                        float4* near, float4* far);
+#endif
 
 /*
  * rsMatrixGet: Get one element

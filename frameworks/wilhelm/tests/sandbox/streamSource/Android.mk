@@ -15,6 +15,7 @@ LOCAL_SRC_FILES:= \
 LOCAL_SHARED_LIBRARIES := \
 	libOpenSLES
 
+LOCAL_CFLAGS := -Werror -Wall
 ifeq ($(TARGET_OS),linux)
 	LOCAL_CFLAGS += -DXP_UNIX
 endif

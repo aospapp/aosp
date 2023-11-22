@@ -42,11 +42,6 @@
 #define WIFI_HAL_CMD_SOCK_PORT       644
 #define WIFI_HAL_EVENT_SOCK_PORT     645
 
-#define FEATURE_SET                  0
-#define FEATURE_SET_MATRIX           1
-#define ATTR_NODFS_VALUE             3
-#define ATTR_COUNTRY_CODE            4
-
 static void internal_event_handler(wifi_handle handle, int events);
 static int internal_no_seq_check(nl_msg *msg, void *arg);
 static int internal_valid_message_handler(nl_msg *msg, void *arg);
@@ -56,17 +51,38 @@ static wifi_error wifi_init_interfaces(wifi_handle handle);
 static wifi_error wifi_start_rssi_monitoring(wifi_request_id id, wifi_interface_handle
                         iface, s8 max_rssi, s8 min_rssi, wifi_rssi_event_handler eh);
 static wifi_error wifi_stop_rssi_monitoring(wifi_request_id id, wifi_interface_handle iface);
+static wifi_error wifi_set_packet_filter(wifi_interface_handle handle,
+                            const u8 *program, u32 len);
+static wifi_error wifi_get_packet_filter_capabilities(wifi_interface_handle handle,
+                u32 *version, u32 *max_len);
+static wifi_error wifi_configure_nd_offload(wifi_interface_handle iface, u8 enable);
 
 typedef enum wifi_attr {
     ANDR_WIFI_ATTRIBUTE_NUM_FEATURE_SET,
     ANDR_WIFI_ATTRIBUTE_FEATURE_SET,
-    ANDR_WIFI_ATTRIBUTE_PNO_RANDOM_MAC_OUI
+    ANDR_WIFI_ATTRIBUTE_PNO_RANDOM_MAC_OUI,
+    ANDR_WIFI_ATTRIBUTE_NODFS_SET,
+    ANDR_WIFI_ATTRIBUTE_COUNTRY,
+    ANDR_WIFI_ATTRIBUTE_ND_OFFLOAD_VALUE
+    // Add more attribute here
 } wifi_attr_t;
 
 enum wifi_rssi_monitor_attr {
     RSSI_MONITOR_ATTRIBUTE_MAX_RSSI,
     RSSI_MONITOR_ATTRIBUTE_MIN_RSSI,
     RSSI_MONITOR_ATTRIBUTE_START,
+};
+
+enum wifi_apf_attr {
+    APF_ATTRIBUTE_VERSION,
+    APF_ATTRIBUTE_MAX_LEN,
+    APF_ATTRIBUTE_PROGRAM,
+    APF_ATTRIBUTE_PROGRAM_LEN
+};
+
+enum apf_request_type {
+    GET_APF_CAPABILITIES,
+    SET_APF_PROGRAM
 };
 
 /* Initialize/Cleanup */
@@ -137,9 +153,13 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn)
     fn->wifi_rtt_range_request = wifi_rtt_range_request;
     fn->wifi_rtt_range_cancel = wifi_rtt_range_cancel;
     fn->wifi_get_rtt_capabilities = wifi_get_rtt_capabilities;
+    fn->wifi_rtt_get_responder_info = wifi_rtt_get_responder_info;
+    fn->wifi_enable_responder = wifi_enable_responder;
+    fn->wifi_disable_responder = wifi_disable_responder;
     fn->wifi_set_nodfs_flag = wifi_set_nodfs_flag;
     fn->wifi_start_logging = wifi_start_logging;
     fn->wifi_set_epno_list = wifi_set_epno_list;
+    fn->wifi_reset_epno_list = wifi_reset_epno_list;
     fn->wifi_set_country_code = wifi_set_country_code;
     fn->wifi_get_firmware_memory_dump = wifi_get_firmware_memory_dump;
     fn->wifi_set_log_handler = wifi_set_log_handler;
@@ -151,15 +171,17 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn)
     fn->wifi_get_logger_supported_feature_set = wifi_get_logger_supported_feature_set;
     fn->wifi_get_ring_data = wifi_get_ring_data;
     fn->wifi_get_driver_version = wifi_get_driver_version;
-    fn->wifi_set_ssid_white_list = wifi_set_ssid_white_list;
-    fn->wifi_set_gscan_roam_params = wifi_set_gscan_roam_params;
-    fn->wifi_set_bssid_preference = wifi_set_bssid_preference;
     fn->wifi_set_bssid_blacklist = wifi_set_bssid_blacklist;
-    fn->wifi_enable_lazy_roam = wifi_enable_lazy_roam;
     fn->wifi_start_rssi_monitoring = wifi_start_rssi_monitoring;
     fn->wifi_stop_rssi_monitoring = wifi_stop_rssi_monitoring;
+    fn->wifi_configure_nd_offload = wifi_configure_nd_offload;
     fn->wifi_start_sending_offloaded_packet = wifi_start_sending_offloaded_packet;
     fn->wifi_stop_sending_offloaded_packet = wifi_stop_sending_offloaded_packet;
+    fn->wifi_start_pkt_fate_monitoring = wifi_start_pkt_fate_monitoring;
+    fn->wifi_get_tx_pkt_fates = wifi_get_tx_pkt_fates;
+    fn->wifi_get_rx_pkt_fates = wifi_get_rx_pkt_fates;
+    fn->wifi_get_packet_filter_capabilities = wifi_get_packet_filter_capabilities;
+    fn->wifi_set_packet_filter = wifi_set_packet_filter;
     return WIFI_SUCCESS;
 }
 
@@ -179,12 +201,14 @@ wifi_error wifi_initialize(wifi_handle *handle)
     ALOGI("Creating socket");
     if (socketpair(AF_UNIX, SOCK_STREAM, 0, info->cleanup_socks) == -1) {
         ALOGE("Could not create cleanup sockets");
+        free(info);
         return WIFI_ERROR_UNKNOWN;
     }
 
     struct nl_sock *cmd_sock = wifi_create_nl_socket(WIFI_HAL_CMD_SOCK_PORT);
     if (cmd_sock == NULL) {
         ALOGE("Could not create handle");
+        free(info);
         return WIFI_ERROR_UNKNOWN;
     }
 
@@ -192,12 +216,16 @@ wifi_error wifi_initialize(wifi_handle *handle)
     if (event_sock == NULL) {
         ALOGE("Could not create handle");
         nl_socket_free(cmd_sock);
+        free(info);
         return WIFI_ERROR_UNKNOWN;
     }
 
     struct nl_cb *cb = nl_socket_get_cb(event_sock);
     if (cb == NULL) {
         ALOGE("Could not create handle");
+        nl_socket_free(cmd_sock);
+        nl_socket_free(event_sock);
+        free(info);
         return WIFI_ERROR_UNKNOWN;
     }
 
@@ -288,9 +316,28 @@ static void internal_cleaned_up_handler(wifi_handle handle)
 void wifi_cleanup(wifi_handle handle, wifi_cleaned_up_handler handler)
 {
     hal_info *info = getHalInfo(handle);
-    info->cleaned_up_handler = handler;
-    info->clean_up = true;
+    char buf[64];
 
+    info->cleaned_up_handler = handler;
+    if (write(info->cleanup_socks[0], "Exit", 4) < 1) {
+        // As a fallback set the cleanup flag to TRUE
+        ALOGE("could not write to the cleanup socket");
+    } else {
+        // Listen to the response
+        // Hopefully we dont get errors or get hung up
+        // Not much can be done in that case, but assume that
+        // it has rx'ed the Exit message to exit the thread.
+        // As a fallback set the cleanup flag to TRUE
+        memset(buf, 0, sizeof(buf));
+        int result = read(info->cleanup_socks[0], buf, sizeof(buf));
+        ALOGE("%s: Read after POLL returned %d, error no = %d", __FUNCTION__, result, errno);
+        if (strncmp(buf, "Done", 4) == 0) {
+            ALOGE("Event processing terminated");
+        } else {
+            ALOGD("Rx'ed %s", buf);
+        }
+    }
+    info->clean_up = true;
     pthread_mutex_lock(&info->cb_lock);
 
     int bad_commands = 0;
@@ -298,7 +345,7 @@ void wifi_cleanup(wifi_handle handle, wifi_cleaned_up_handler handler)
     for (int i = 0; i < info->num_event_cb; i++) {
         cb_info *cbi = &(info->event_cb[i]);
         WifiCommand *cmd = (WifiCommand *)cbi->cb_arg;
-        ALOGE("Command left in event_cb %p:%s", cmd, cmd->getType());
+        ALOGI("Command left in event_cb %p:%s", cmd, (cmd ? cmd->getType(): ""));
     }
 
     while (info->num_cmd > bad_commands) {
@@ -306,16 +353,16 @@ void wifi_cleanup(wifi_handle handle, wifi_cleaned_up_handler handler)
         cmd_info *cmdi = &(info->cmd[bad_commands]);
         WifiCommand *cmd = cmdi->cmd;
         if (cmd != NULL) {
-            ALOGD("Cancelling command %p:%s", cmd, cmd->getType());
+            ALOGI("Cancelling command %p:%s", cmd, cmd->getType());
             pthread_mutex_unlock(&info->cb_lock);
             cmd->cancel();
             pthread_mutex_lock(&info->cb_lock);
-            /* release reference added when command is saved */
-            cmd->releaseRef();
             if (num_cmd == info->num_cmd) {
-                ALOGE("Cancelling command %p:%s did not work", cmd, cmd->getType());
+                ALOGI("Cancelling command %p:%s did not work", cmd, (cmd ? cmd->getType(): ""));
                 bad_commands++;
             }
+            /* release reference added when command is saved */
+            cmd->releaseRef();
         }
     }
 
@@ -324,14 +371,8 @@ void wifi_cleanup(wifi_handle handle, wifi_cleaned_up_handler handler)
         WifiCommand *cmd = (WifiCommand *)cbi->cb_arg;
         ALOGE("Leaked command %p", cmd);
     }
-
     pthread_mutex_unlock(&info->cb_lock);
-
-    if (write(info->cleanup_socks[0], "T", 1) < 1) {
-        ALOGE("could not write to cleanup socket");
-    } else {
-        ALOGI("Wifi cleanup completed");
-    }
+    internal_cleaned_up_handler(handle);
 }
 
 static int internal_pollin_handler(wifi_handle handle)
@@ -384,16 +425,23 @@ void wifi_event_loop(wifi_handle handle)
             // ALOGI("Found some events!!!");
             internal_pollin_handler(handle);
         } else if (pfd[1].revents & POLLIN) {
-            ALOGI("Got a signal to exit!!!");
+            memset(buf, 0, sizeof(buf));
             int result2 = read(pfd[1].fd, buf, sizeof(buf));
-            ALOGE("Read after POLL returned %d, error no = %d", result2, errno);
+            ALOGE("%s: Read after POLL returned %d, error no = %d", __FUNCTION__, result2, errno);
+            if (strncmp(buf, "Exit", 4) == 0) {
+                ALOGD("Got a signal to exit!!!");
+                if (write(pfd[1].fd, "Done", 4) < 1) {
+                    ALOGE("could not write to the cleanup socket");
+                }
+                break;
+            } else {
+                ALOGD("Rx'ed %s on the cleanup socket\n", buf);
+            }
         } else {
             ALOGE("Unknown event - %0x, %0x", pfd[0].revents, pfd[1].revents);
         }
     } while (!info->clean_up);
-
-    ALOGI("Cleaning up");
-    internal_cleaned_up_handler(handle);
+    ALOGI("Exit %s", __FUNCTION__);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -454,10 +502,9 @@ static int internal_valid_message_handler(nl_msg *msg, void *arg)
             if (cmd != NULL) {
                 cmd->addRef();
             }
-
             pthread_mutex_unlock(&info->cb_lock);
-
-            (*cb_func)(msg, cb_arg);
+            if (cb_func)
+                (*cb_func)(msg, cb_arg);
             if (cmd != NULL) {
                 cmd->releaseRef();
             }
@@ -620,7 +667,7 @@ public:
         }
 
         nlattr *data = mMsg.attr_start(NL80211_ATTR_VENDOR_DATA);
-        ret = mMsg.put_u32(ATTR_NODFS_VALUE, mNoDfs);
+        ret = mMsg.put_u32(ANDR_WIFI_ATTRIBUTE_NODFS_SET, mNoDfs);
         if (ret < 0) {
              return ret;
         }
@@ -648,7 +695,7 @@ public:
         }
 
         nlattr *data = mMsg.attr_start(NL80211_ATTR_VENDOR_DATA);
-        ret = mMsg.put_string(ATTR_COUNTRY_CODE, mCountryCode);
+        ret = mMsg.put_string(ANDR_WIFI_ATTRIBUTE_COUNTRY, mCountryCode);
         if (ret < 0) {
             return ret;
         }
@@ -775,6 +822,173 @@ public:
 
 };
 
+class AndroidPktFilterCommand : public WifiCommand {
+    private:
+        const u8* mProgram;
+        u32 mProgramLen;
+        u32* mVersion;
+        u32* mMaxLen;
+        int mReqType;
+    public:
+        AndroidPktFilterCommand(wifi_interface_handle handle,
+                u32* version, u32* max_len)
+            : WifiCommand("AndroidPktFilterCommand", handle, 0),
+                    mVersion(version), mMaxLen(max_len),
+                    mReqType(GET_APF_CAPABILITIES)
+        {
+        }
+
+        AndroidPktFilterCommand(wifi_interface_handle handle,
+                const u8* program, u32 len)
+            : WifiCommand("AndroidPktFilterCommand", handle, 0),
+                    mProgram(program), mProgramLen(len),
+                    mReqType(SET_APF_PROGRAM)
+        {
+        }
+
+    int createRequest(WifiRequest& request) {
+        if (mReqType == SET_APF_PROGRAM) {
+            ALOGI("\n%s: APF set program request\n", __FUNCTION__);
+            return createSetPktFilterRequest(request);
+        } else if (mReqType == GET_APF_CAPABILITIES) {
+            ALOGI("\n%s: APF get capabilities request\n", __FUNCTION__);
+            return createGetPktFilterCapabilitesRequest(request);
+        } else {
+            ALOGE("\n%s Unknown APF request\n", __FUNCTION__);
+            return WIFI_ERROR_NOT_SUPPORTED;
+        }
+        return WIFI_SUCCESS;
+    }
+
+    int createSetPktFilterRequest(WifiRequest& request) {
+        u8 *program = new u8[mProgramLen];
+        NULL_CHECK_RETURN(program, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+        int result = request.create(GOOGLE_OUI, APF_SUBCMD_SET_FILTER);
+        if (result < 0) {
+            return result;
+        }
+
+        nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
+        result = request.put_u32(APF_ATTRIBUTE_PROGRAM_LEN, mProgramLen);
+        if (result < 0) {
+            return result;
+        }
+        memcpy(program, mProgram, mProgramLen);
+        result = request.put(APF_ATTRIBUTE_PROGRAM, program, mProgramLen);
+        if (result < 0) {
+            return result;
+        }
+        request.attr_end(data);
+        delete[] program;
+        return result;
+    }
+
+    int createGetPktFilterCapabilitesRequest(WifiRequest& request) {
+        int result = request.create(GOOGLE_OUI, APF_SUBCMD_GET_CAPABILITIES);
+        if (result < 0) {
+            return result;
+        }
+
+        nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
+        request.attr_end(data);
+        return result;
+    }
+
+    int start() {
+        WifiRequest request(familyId(), ifaceId());
+        int result = createRequest(request);
+        if (result < 0) {
+            return result;
+        }
+        result = requestResponse(request);
+        if (result < 0) {
+            ALOGI("Request Response failed for APF, result = %d", result);
+            return result;
+        }
+        ALOGI("Done!");
+        return result;
+    }
+
+    int cancel() {
+        return WIFI_SUCCESS;
+    }
+
+    int handleResponse(WifiEvent& reply) {
+        ALOGD("In SetAPFCommand::handleResponse");
+
+        if (reply.get_cmd() != NL80211_CMD_VENDOR) {
+            ALOGD("Ignoring reply with cmd = %d", reply.get_cmd());
+            return NL_SKIP;
+        }
+
+        int id = reply.get_vendor_id();
+        int subcmd = reply.get_vendor_subcmd();
+
+        nlattr *vendor_data = reply.get_attribute(NL80211_ATTR_VENDOR_DATA);
+        int len = reply.get_vendor_data_len();
+
+        ALOGD("Id = %0x, subcmd = %d, len = %d", id, subcmd, len);
+        if (vendor_data == NULL || len == 0) {
+            ALOGE("no vendor data in SetAPFCommand response; ignoring it");
+            return NL_SKIP;
+        }
+        if( mReqType == SET_APF_PROGRAM) {
+            ALOGD("Response recieved for set packet filter command\n");
+        } else if (mReqType == GET_APF_CAPABILITIES) {
+            *mVersion = 0;
+            *mMaxLen = 0;
+            ALOGD("Response recieved for get packet filter capabilities command\n");
+            for (nl_iterator it(vendor_data); it.has_next(); it.next()) {
+                if (it.get_type() == APF_ATTRIBUTE_VERSION) {
+                    *mVersion = it.get_u32();
+                    ALOGI("APF version is %d\n", *mVersion);
+                } else if (it.get_type() == APF_ATTRIBUTE_MAX_LEN) {
+                    *mMaxLen = it.get_u32();
+                    ALOGI("APF max len is %d\n", *mMaxLen);
+                } else {
+                    ALOGE("Ignoring invalid attribute type = %d, size = %d",
+                            it.get_type(), it.get_len());
+                }
+            }
+        }
+        return NL_OK;
+    }
+
+    int handleEvent(WifiEvent& event) {
+        /* No Event to recieve for APF commands */
+        return NL_SKIP;
+    }
+};
+
+class SetNdoffloadCommand : public WifiCommand {
+
+private:
+    u8 mEnable;
+public:
+    SetNdoffloadCommand(wifi_interface_handle handle, u8 enable)
+        : WifiCommand("SetNdoffloadCommand", handle, 0) {
+        mEnable = enable;
+    }
+    virtual int create() {
+        int ret;
+
+        ret = mMsg.create(GOOGLE_OUI, WIFI_SUBCMD_CONFIG_ND_OFFLOAD);
+        if (ret < 0) {
+            ALOGE("Can't create message to send to driver - %d", ret);
+            return ret;
+        }
+
+        nlattr *data = mMsg.attr_start(NL80211_ATTR_VENDOR_DATA);
+        ret = mMsg.put_u8(ANDR_WIFI_ATTRIBUTE_ND_OFFLOAD_VALUE, mEnable);
+        if (ret < 0) {
+             return ret;
+        }
+
+        mMsg.attr_end(data);
+        return WIFI_SUCCESS;
+    }
+};
+
 class GetFeatureSetCommand : public WifiCommand {
 
 private:
@@ -798,9 +1012,9 @@ public:
     virtual int create() {
         int ret;
 
-        if(feature_type == FEATURE_SET) {
+        if(feature_type == ANDR_WIFI_ATTRIBUTE_NUM_FEATURE_SET) {
             ret = mMsg.create(GOOGLE_OUI, WIFI_SUBCMD_GET_FEATURE_SET);
-        } else if (feature_type == FEATURE_SET_MATRIX) {
+        } else if (feature_type == ANDR_WIFI_ATTRIBUTE_FEATURE_SET) {
             ret = mMsg.create(GOOGLE_OUI, WIFI_SUBCMD_GET_FEATURE_SET_MATRIX);
         } else {
             ALOGE("Unknown feature type %d", feature_type);
@@ -835,7 +1049,7 @@ protected:
             ALOGE("no vendor data in GetFeatureSetCommand response; ignoring it");
             return NL_SKIP;
         }
-        if(feature_type == FEATURE_SET) {
+        if(feature_type == ANDR_WIFI_ATTRIBUTE_NUM_FEATURE_SET) {
             void *data = reply.get_vendor_data();
             if(!fset) {
                 ALOGE("Buffers pointers not set");
@@ -972,14 +1186,15 @@ wifi_error wifi_get_iface_name(wifi_interface_handle handle, char *name, size_t 
 
 wifi_error wifi_get_supported_feature_set(wifi_interface_handle handle, feature_set *set)
 {
-    GetFeatureSetCommand command(handle, FEATURE_SET, set, NULL, NULL, 1);
+    GetFeatureSetCommand command(handle, ANDR_WIFI_ATTRIBUTE_NUM_FEATURE_SET, set, NULL, NULL, 1);
     return (wifi_error) command.requestResponse();
 }
 
 wifi_error wifi_get_concurrency_matrix(wifi_interface_handle handle, int set_size_max,
        feature_set set[], int *set_size)
 {
-    GetFeatureSetCommand command(handle, FEATURE_SET_MATRIX, NULL, set, set_size, set_size_max);
+    GetFeatureSetCommand command(handle, ANDR_WIFI_ATTRIBUTE_FEATURE_SET, NULL,
+            set, set_size, set_size_max);
     return (wifi_error) command.requestResponse();
 }
 
@@ -1008,10 +1223,20 @@ static wifi_error wifi_start_rssi_monitoring(wifi_request_id id, wifi_interface_
     ALOGD("Start RSSI monitor %d", id);
     wifi_handle handle = getWifiHandle(iface);
     SetRSSIMonitorCommand *cmd = new SetRSSIMonitorCommand(id, iface, max_rssi, min_rssi, eh);
-    wifi_register_cmd(handle, id, cmd);
-    return (wifi_error)cmd->start();
+    NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+    wifi_error result = wifi_register_cmd(handle, id, cmd);
+    if (result != WIFI_SUCCESS) {
+        cmd->releaseRef();
+        return result;
+    }
+    result = (wifi_error)cmd->start();
+    if (result != WIFI_SUCCESS) {
+        wifi_unregister_cmd(handle, id);
+        cmd->releaseRef();
+        return result;
+    }
+    return result;
 }
-
 
 static wifi_error wifi_stop_rssi_monitoring(wifi_request_id id, wifi_interface_handle iface)
 {
@@ -1024,11 +1249,43 @@ static wifi_error wifi_stop_rssi_monitoring(wifi_request_id id, wifi_interface_h
         memset(&handler, 0, sizeof(handler));
         SetRSSIMonitorCommand *cmd = new SetRSSIMonitorCommand(id, iface,
                                                     max_rssi, min_rssi, handler);
+        NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
         cmd->cancel();
         cmd->releaseRef();
         return WIFI_SUCCESS;
     }
     return wifi_cancel_cmd(id, iface);
+}
+
+static wifi_error wifi_get_packet_filter_capabilities(wifi_interface_handle handle,
+        u32 *version, u32 *max_len)
+{
+    ALOGD("Getting APF capabilities, halHandle = %p\n", handle);
+    AndroidPktFilterCommand *cmd = new AndroidPktFilterCommand(handle, version, max_len);
+    NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+    wifi_error result = (wifi_error)cmd->start();
+    if (result == WIFI_SUCCESS) {
+        ALOGD("Getting APF capability, version = %d, max_len = %d\n", *version, *max_len);
+    }
+    cmd->releaseRef();
+    return result;
+}
+
+static wifi_error wifi_set_packet_filter(wifi_interface_handle handle,
+        const u8 *program, u32 len)
+{
+    ALOGD("Setting APF program, halHandle = %p\n", handle);
+    AndroidPktFilterCommand *cmd = new AndroidPktFilterCommand(handle, program, len);
+    NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+    wifi_error result = (wifi_error)cmd->start();
+    cmd->releaseRef();
+    return result;
+}
+
+static wifi_error wifi_configure_nd_offload(wifi_interface_handle handle, u8 enable)
+{
+    SetNdoffloadCommand command(handle, enable);
+    return (wifi_error) command.requestResponse();
 }
 
 /////////////////////////////////////////////////////////////////////////////

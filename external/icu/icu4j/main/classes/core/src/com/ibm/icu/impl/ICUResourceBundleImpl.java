@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (C) 2004-2014, International Business Machines Corporation and
+ * Copyright (C) 2004-2015, International Business Machines Corporation and
  * others. All Rights Reserved.
  *******************************************************************************
  */
@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.Set;
 import java.util.TreeSet;
 
+import com.ibm.icu.impl.ICUResourceBundleReader.ReaderValue;
 import com.ibm.icu.util.UResourceBundle;
 import com.ibm.icu.util.UResourceTypeMismatchException;
 
@@ -100,7 +101,8 @@ class ICUResourceBundleImpl extends ICUResourceBundle {
             this.resource = resource;
             String s = wholeBundle.reader.getString(resource);
             // Allow the reader cache's SoftReference to do its job.
-            if (s.length() < ICUResourceBundleReader.LARGE_SIZE / 2) {
+            if (s.length() < ICUResourceBundleReader.LARGE_SIZE / 2 ||
+                    CacheValue.futureInstancesWillBeStrong()) {
                 value = s;
             }
         }
@@ -158,7 +160,7 @@ class ICUResourceBundleImpl extends ICUResourceBundle {
             super(wholeBundle);
         }
     }
-    private static class ResourceArray extends ResourceContainer {
+    static class ResourceArray extends ResourceContainer {
         public int getType() {
             return ARRAY;
         }
@@ -188,6 +190,16 @@ class ICUResourceBundleImpl extends ICUResourceBundle {
         protected UResourceBundle handleGet(int index, HashMap<String, String> aliasesVisited,
                                             UResourceBundle requested) {
             return createBundleObject(index, Integer.toString(index), aliasesVisited, requested);
+        }
+        /**
+         * @param key will be set during enumeration; input contents is ignored
+         * @param readerValue will be set during enumeration; input contents is ignored
+         * @param sink receives all array item values
+         */
+        void getAllItems(UResource.Key key, ReaderValue readerValue, UResource.ArraySink sink) {
+            ICUResourceBundleReader reader = wholeBundle.reader;
+            readerValue.reader = reader;
+            ((ICUResourceBundleReader.Array)value).getAllItems(reader, key, readerValue, sink);
         }
         ResourceArray(ICUResourceBundleImpl container, String key, int resource) {
             super(container, key);
@@ -275,6 +287,16 @@ class ICUResourceBundleImpl extends ICUResourceBundle {
                 return null;
             }
             return reader.getString(value.getContainerResource(reader, index));
+        }
+        /**
+         * @param key will be set during enumeration; input contents is ignored
+         * @param readerValue will be set during enumeration; input contents is ignored
+         * @param sink receives all table item key-value pairs
+         */
+        void getAllItems(UResource.Key key, ReaderValue readerValue, UResource.TableSink sink) {
+            ICUResourceBundleReader reader = wholeBundle.reader;
+            readerValue.reader = reader;
+            ((ICUResourceBundleReader.Table)value).getAllItems(reader, key, readerValue, sink);
         }
         ResourceTable(ICUResourceBundleImpl container, String key, int resource) {
             super(container, key);

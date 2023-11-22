@@ -43,8 +43,10 @@
 #define WLAN_NL_MSG_CNSS_HOST_EVENT_LOG    17
 #define ANI_NL_MSG_LOG_HOST_EVENT_LOG_TYPE 0x5050
 #define ANI_NL_MSG_LOG_HOST_PRINT_TYPE 89
+#define ANI_NL_MSG_LOG_FW_MSG_TYPE 92
 
 #define WLAN_PKT_LOG_STATS            0x18E0
+#define FEATURE_NOT_SUPPORTED         0xFF
 
 /*
  *  - verbose_level 0 corresponds to no collection

@@ -65,12 +65,13 @@ public class MmsProvider extends ContentProvider {
     static final String VIEW_PDU_RESTRICTED = "pdu_restricted";
 
     // The name of parts directory. The full dir is "app_parts".
-    private static final String PARTS_DIR_NAME = "parts";
+    static final String PARTS_DIR_NAME = "parts";
 
     @Override
     public boolean onCreate() {
         setAppOps(AppOpsManager.OP_READ_SMS, AppOpsManager.OP_WRITE_SMS);
-        mOpenHelper = MmsSmsDatabaseHelper.getInstance(getContext());
+        mOpenHelper = MmsSmsDatabaseHelper.getInstanceForCe(getContext());
+        TelephonyBackupAgent.DeferredSmsMmsRestoreService.startIfFilesExist(getContext());
         return true;
     }
 
@@ -547,7 +548,7 @@ public class MmsProvider extends ContentProvider {
         }
 
         if (notify) {
-            notifyChange();
+            notifyChange(res);
         }
         return res;
     }
@@ -643,7 +644,7 @@ public class MmsProvider extends ContentProvider {
         }
 
         if ((deletedRows > 0) && notify) {
-            notifyChange();
+            notifyChange(uri);
         }
         return deletedRows;
     }
@@ -816,7 +817,7 @@ public class MmsProvider extends ContentProvider {
         SQLiteDatabase db = mOpenHelper.getWritableDatabase();
         int count = db.update(table, finalValues, finalSelection, selectionArgs);
         if (notify && (count > 0)) {
-            notifyChange();
+            notifyChange(uri);
         }
         return count;
     }
@@ -922,9 +923,11 @@ public class MmsProvider extends ContentProvider {
         values.remove(Mms._ID);
     }
 
-    private void notifyChange() {
-        getContext().getContentResolver().notifyChange(
+    private void notifyChange(final Uri uri) {
+        final Context context = getContext();
+        context.getContentResolver().notifyChange(
                 MmsSms.CONTENT_URI, null, true, UserHandle.USER_ALL);
+        ProviderUtil.notifyIfNotDefaultSmsApp(uri, getCallingPackage(), context);
     }
 
     private final static String TAG = "MmsProvider";

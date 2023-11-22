@@ -22,10 +22,10 @@
     <string name="tag_unknown" msgid="2897956823877728783">"Tip de etichetă necunoscut"</string>
     <string name="tag_empty" msgid="3726529819932095782">"Etichetă goală"</string>
     <string name="button_done" msgid="7048822758098308158">"Terminat"</string>
-    <string name="action_text" msgid="577417996159152923">"Trimiteţi mesaj la <xliff:g id="PHONE_NUMBER">%s</xliff:g>"</string>
-    <string name="action_call" msgid="6226253647953184035">"Apelaţi <xliff:g id="PHONE_NUMBER">%s</xliff:g>"</string>
+    <string name="action_text" msgid="577417996159152923">"Trimiteți mesaj la <xliff:g id="PHONE_NUMBER">%s</xliff:g>"</string>
+    <string name="action_call" msgid="6226253647953184035">"Apelați <xliff:g id="PHONE_NUMBER">%s</xliff:g>"</string>
     <string name="empty_tag_prompt" msgid="4206394383309956030">"Această etichetă este goală."</string>
-    <string name="import_vcard" msgid="5104299047930666528">"Importaţi ^1"</string>
+    <string name="import_vcard" msgid="5104299047930666528">"Importați ^1"</string>
     <string name="mime_display_name" msgid="5926357152623764485">"Date de la eticheta NFC"</string>
-    <string name="vcard_title" msgid="7122634780732426007">"Informaţii de contact pentru ^1"</string>
+    <string name="vcard_title" msgid="7122634780732426007">"Informații de contact pentru ^1"</string>
 </resources>

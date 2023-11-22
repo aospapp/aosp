@@ -30,7 +30,9 @@ import android.util.Log;
 import android.view.WindowManager.LayoutParams;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Generates images by iterating through all themes and launching instances of
@@ -42,9 +44,13 @@ public class GenerateImagesActivity extends Activity {
     private static final String OUT_DIR = "cts-theme-assets";
     private static final int REQUEST_CODE = 1;
 
+    public static final String EXTRA_REASON = "reason";
+
     private final CountDownLatch mLatch = new CountDownLatch(1);
 
     private File mOutputDir;
+    private File mOutputZip;
+
     private int mCurrentTheme;
     private String mFinishReason;
     private boolean mFinishSuccess;
@@ -84,14 +90,6 @@ public class GenerateImagesActivity extends Activity {
                 finish("Device is locked", false);
             }
         }.start();
-    }
-
-    private void finish(String reason, boolean success) {
-        mFinishSuccess = success;
-        mFinishReason = reason;
-
-        Log.i(TAG, (success ? "OKAY" : "FAIL") + ":" + reason);
-        finish();
     }
 
     public boolean isFinishSuccess() {
@@ -144,10 +142,6 @@ public class GenerateImagesActivity extends Activity {
         public abstract void onFailure();
     }
 
-    public File getOutputDir() {
-        return mOutputDir;
-    }
-
     /**
      * Starts the activity to generate the next image.
      */
@@ -172,8 +166,8 @@ public class GenerateImagesActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (resultCode != RESULT_OK) {
-            Log.i(TAG, "FAIL:Failed to generate images for theme " + mCurrentTheme);
-            finish();
+            finish("Failed to generate images for theme " + mCurrentTheme + " ("
+                    + data.getStringExtra(EXTRA_REASON) + ")", false);
             return;
         }
 
@@ -185,16 +179,47 @@ public class GenerateImagesActivity extends Activity {
 
         // If we ran out of themes, we're done.
         if (!success) {
+            compressOutput();
+
             finish("Image generation complete!", true);
         }
     }
 
+    private void compressOutput() {
+        mOutputZip = new File(mOutputDir.getParentFile(), mOutputDir.getName() + ".zip");
+
+        if (mOutputZip.exists()) {
+            // Remove any old test results.
+            mOutputZip.delete();
+        }
+
+        try {
+            ThemeTestUtils.compressDirectory(mOutputDir, mOutputZip);
+            ThemeTestUtils.deleteDirectory(mOutputDir);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void finish(String reason, boolean success) {
+        mFinishSuccess = success;
+        mFinishReason = reason;
+
+        finish();
+    }
+
+    @Override
     public void finish() {
         mLatch.countDown();
+
         super.finish();
     }
 
-    public void waitForCompletion() throws InterruptedException {
-        mLatch.await();
+    public File getOutputZip() {
+        return mOutputZip;
+    }
+
+    public boolean waitForCompletion(long timeoutMillis) throws InterruptedException {
+        return mLatch.await(timeoutMillis, TimeUnit.MILLISECONDS);
     }
 }

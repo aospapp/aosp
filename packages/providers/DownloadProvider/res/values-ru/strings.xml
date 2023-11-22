@@ -28,7 +28,7 @@
     <string name="permdesc_seeAllExternal" msgid="1672759909065511233">"Приложение получит доступ ко всем загрузкам на SD-карте независимо от того, через какое ПО они были загружены."</string>
     <string name="permlab_downloadCacheNonPurgeable" msgid="3069534308882047412">"Резервировать место в кеше загрузки"</string>
     <string name="permdesc_downloadCacheNonPurgeable" msgid="2408760720334570420">"Приложение сможет загружать файлы в кеш загрузки (который не может быть автоматически очищен), если менеджеру загрузки потребуется больше места."</string>
-    <string name="permlab_downloadWithoutNotification" msgid="8837971946078327262">"Загрузка файлов без оповещения"</string>
+    <string name="permlab_downloadWithoutNotification" msgid="8837971946078327262">"Скачивание файлов без уведомления"</string>
     <string name="permdesc_downloadWithoutNotification" msgid="8483135034298639727">"Приложение сможет загружать файлы через диспетчер загрузок без уведомления пользователя."</string>
     <string name="permlab_accessAllDownloads" msgid="2436240495424393717">"Доступ ко всем загрузкам"</string>
     <string name="permdesc_accessAllDownloads" msgid="1871832254578267128">"Приложение сможет открывать и изменять загрузки независимо от того, через какое ПО они были загружены."</string>
@@ -44,14 +44,18 @@
     <string name="button_queue_for_wifi" msgid="422576726189179221">"Добавить в очередь"</string>
     <string name="button_cancel_download" msgid="2430166148737975604">"Отмена"</string>
     <string name="button_start_now" msgid="792123674007840864">"Запустить"</string>
-  <plurals name="notif_summary_active">
-    <item quantity="one" msgid="8475775855911967027">"Загрузка 1 файла…"</item>
-    <item quantity="other" msgid="9087228371320573153">"Загрузка <xliff:g id="NUMBER">%d</xliff:g> файлов…"</item>
-  </plurals>
-  <plurals name="notif_summary_waiting">
-    <item quantity="one" msgid="5537481763963544278">"Ожидается загрузка 1 файла"</item>
-    <item quantity="other" msgid="549229034166062887">"Ожидается загрузка <xliff:g id="NUMBER">%d</xliff:g> файлов"</item>
-  </plurals>
+    <plurals name="notif_summary_active" formatted="false" msgid="7290448463204837173">
+      <item quantity="one">Скачивается <xliff:g id="NUMBER">%d</xliff:g> файл</item>
+      <item quantity="few">Скачивается <xliff:g id="NUMBER">%d</xliff:g> файла</item>
+      <item quantity="many">Скачивается <xliff:g id="NUMBER">%d</xliff:g> файлов</item>
+      <item quantity="other">Скачивается <xliff:g id="NUMBER">%d</xliff:g> файла</item>
+    </plurals>
+    <plurals name="notif_summary_waiting" formatted="false" msgid="2814217662029273005">
+      <item quantity="one">Ожидается скачивание <xliff:g id="NUMBER">%d</xliff:g> файла…</item>
+      <item quantity="few">Ожидается скачивание <xliff:g id="NUMBER">%d</xliff:g> файлов…</item>
+      <item quantity="many">Ожидается скачивание <xliff:g id="NUMBER">%d</xliff:g> файлов…</item>
+      <item quantity="other">Ожидается скачивание <xliff:g id="NUMBER">%d</xliff:g> файла…</item>
+    </plurals>
     <string name="download_remaining" msgid="3139295890887972718">"Осталось: <xliff:g id="DURATION">%s</xliff:g>"</string>
     <string name="download_no_application_title" msgid="7935659741162801699">"Не удается открыть файл"</string>
     <string name="root_downloads" msgid="4098414876292351487">"Загрузки"</string>

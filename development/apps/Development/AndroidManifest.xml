@@ -20,6 +20,7 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.DEVICE_POWER" />
     <uses-permission android:name="android.permission.DUMP" />
@@ -66,6 +67,8 @@
         </activity>
         <activity android:name="PackageSummary" android:label="Package Summary">
         </activity>
+        <activity android:name="ShowActivity" android:label="Activity Detail">
+        </activity>
         <activity android:name="AppPicker"
                 android:theme="@android:style/Theme.Dialog">
         </activity>
@@ -86,8 +89,7 @@
             </intent-filter>
         </activity>
 
-        <activity android:name="SyncAdapterDriver" android:label="Sync Tester"
-                  android:theme="@android:style/Theme.Light">
+        <activity android:name="SyncAdapterDriver" android:label="Sync Tester">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.TEST" />

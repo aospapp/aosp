@@ -15,7 +15,6 @@
  */
 
 #include "bootchart.h"
-#include "keywords.h"
 #include "log.h"
 #include "property_service.h"
 
@@ -32,8 +31,9 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
-#include <base/file.h>
+#include <android-base/file.h>
 
 #define LOG_ROOT        "/data/bootchart"
 #define LOG_STAT        LOG_ROOT"/proc_stat.log"
@@ -77,8 +77,8 @@ static void log_header() {
         return;
     }
 
-    char fingerprint[PROP_VALUE_MAX];
-    if (property_get("ro.build.fingerprint", fingerprint) == -1) {
+    std::string fingerprint = property_get("ro.build.fingerprint");
+    if (fingerprint.empty()) {
         return;
     }
 
@@ -89,10 +89,10 @@ static void log_header() {
     if (out == NULL) {
         return;
     }
-    fprintf(out, "version = Android init 0.8 " __TIME__  "\n");
+    fprintf(out, "version = Android init 0.8\n");
     fprintf(out, "title = Boot chart for Android (%s)\n", date);
     fprintf(out, "system.uname = %s %s %s %s\n", uts.sysname, uts.release, uts.version, uts.machine);
-    fprintf(out, "system.release = %s\n", fingerprint);
+    fprintf(out, "system.release = %s\n", fingerprint.c_str());
     // TODO: use /proc/cpuinfo "model name" line for x86, "Processor" line for arm.
     fprintf(out, "system.cpu = %s\n", uts.machine);
     fprintf(out, "system.kernel.options = %s\n", kernel_cmdline.c_str());
@@ -164,10 +164,11 @@ static int bootchart_init() {
         // timeout. this is useful when using -wipe-data since the /data
         // partition is fresh.
         std::string cmdline;
+        const char* s;
         android::base::ReadFileToString("/proc/cmdline", &cmdline);
 #define KERNEL_OPTION  "androidboot.bootchart="
-        if (strstr(cmdline.c_str(), KERNEL_OPTION) != NULL) {
-            timeout = atoi(cmdline.c_str() + sizeof(KERNEL_OPTION) - 1);
+        if ((s = strstr(cmdline.c_str(), KERNEL_OPTION)) != NULL) {
+            timeout = atoi(s + sizeof(KERNEL_OPTION) - 1);
         }
     }
     if (timeout == 0)
@@ -202,7 +203,7 @@ static int bootchart_init() {
     return count;
 }
 
-int do_bootchart_init(int nargs, char** args) {
+int do_bootchart_init(const std::vector<std::string>& args) {
     g_remaining_samples = bootchart_init();
     if (g_remaining_samples < 0) {
         ERROR("Bootcharting init failure: %s\n", strerror(errno));

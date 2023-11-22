@@ -42,12 +42,15 @@ extern rs_element __attribute__((overloadable))
     }
     Type_t *type = (Type_t *)alloc->mHal.state.type;
     rs_element returnElem = {type->mHal.state.element};
-    return returnElem;
+    rs_element rs_retval = {0};
+    rsSetObject(&rs_retval, returnElem);
+    return rs_retval;
 }
 
 // TODO: this needs to be optimized, obviously
-static void memcpy(void* dst, void* src, size_t size) {
-    char* dst_c = (char*) dst, *src_c = (char*) src;
+static void memcpy(void* dst, const void* src, size_t size) {
+    char* dst_c = (char*) dst;
+    const char* src_c = (const char*) src;
     for (; size > 0; size--) {
         *dst_c++ = *src_c++;
     }
@@ -132,12 +135,77 @@ rsOffsetNs(rs_allocation a, uint32_t x, uint32_t y, uint32_t z) {
     return dp;
 }
 
-#define SET_ELEMENT_AT_TYPE(T, typename)                                    \
-                                                                        \
+// The functions rsSetElementAtImpl_T and rsGetElementAtImpl_T are implemented in bitcode
+// in ll32/allocation.ll and ll64/allocation.ll. To be able to provide debug info for
+// these functions define them here instead, if we are linking with the debug library.
+#ifdef RS_G_RUNTIME
+
+#define SET_ELEMENT_AT_IMPL_TYPE_SIZE(typename, size)                               \
+     void rsSetElementAtImpl_##typename                                             \
+            (rs_allocation a, typename val, uint32_t x, uint32_t y, uint32_t z) {   \
+        typename* val_ptr = (typename*)rsOffset(a, size, x, y, z);                  \
+        *val_ptr = val;                                                             \
+    }
+
+#define GET_ELEMENT_AT_IMPL_TYPE_SIZE(typename, size)                               \
+     typename rsGetElementAtImpl_##typename                                         \
+            (rs_allocation a, uint32_t x, uint32_t y, uint32_t z) {                 \
+        typename *val_ptr = (typename*)rsOffset(a, size, x, y, z);                  \
+        return *val_ptr;                                                            \
+    }
+
+#define SET_ELEMENT_AT_IMPL_TYPE(typename)          \
+    SET_ELEMENT_AT_IMPL_TYPE_SIZE(typename, sizeof(typename))        \
+    SET_ELEMENT_AT_IMPL_TYPE_SIZE(typename##2, sizeof(typename)*2)   \
+    SET_ELEMENT_AT_IMPL_TYPE_SIZE(typename##3, sizeof(typename)*4)   \
+    SET_ELEMENT_AT_IMPL_TYPE_SIZE(typename##4, sizeof(typename)*4)
+
+#define GET_ELEMENT_AT_IMPL_TYPE(typename)          \
+    GET_ELEMENT_AT_IMPL_TYPE_SIZE(typename, sizeof(typename))        \
+    GET_ELEMENT_AT_IMPL_TYPE_SIZE(typename##2, sizeof(typename)*2)   \
+    GET_ELEMENT_AT_IMPL_TYPE_SIZE(typename##3, sizeof(typename)*4)   \
+    GET_ELEMENT_AT_IMPL_TYPE_SIZE(typename##4, sizeof(typename)*4)
+
+#define ELEMENT_AT_IMPL_TYPE(typename)  \
+    SET_ELEMENT_AT_IMPL_TYPE(typename)  \
+    GET_ELEMENT_AT_IMPL_TYPE(typename)
+
+ELEMENT_AT_IMPL_TYPE(char)
+ELEMENT_AT_IMPL_TYPE(uchar)
+ELEMENT_AT_IMPL_TYPE(short)
+ELEMENT_AT_IMPL_TYPE(ushort)
+ELEMENT_AT_IMPL_TYPE(int)
+ELEMENT_AT_IMPL_TYPE(uint)
+ELEMENT_AT_IMPL_TYPE(long)
+ELEMENT_AT_IMPL_TYPE(ulong)
+ELEMENT_AT_IMPL_TYPE(half)
+ELEMENT_AT_IMPL_TYPE(float)
+ELEMENT_AT_IMPL_TYPE(double)
+
+#undef ELEMENT_AT_IMPL_TYPE
+#undef GET_ELEMENT_AT_IMPL_TYPE
+#undef SET_ELEMENT_AT_IMPL_TYPE
+#undef GET_ELEMENT_AT_IMPL_TYPE_SIZE
+#undef SET_ELEMENT_AT_IMPL_TYPE_SIZE
+
+#define SET_ELEMENT_AT_TYPE_IMPL(T, typename) /* nothing */
+#define GET_ELEMENT_AT_TYPE_IMPL(T, typename) /* nothing */
+
+#else
+
+#define SET_ELEMENT_AT_TYPE_IMPL(T, typename)                                    \
     void                                                                \
     rsSetElementAtImpl_##typename(rs_allocation a, typename val, uint32_t x,   \
-                                  uint32_t y, uint32_t z);              \
-                                                                        \
+                                  uint32_t y, uint32_t z);
+
+#define GET_ELEMENT_AT_TYPE_IMPL(T, typename)                                \
+    typename                                                            \
+    rsGetElementAtImpl_##typename(rs_allocation a, uint32_t x, uint32_t y, \
+                                  uint32_t z);
+
+#endif //RS_G_RUNTIME
+
+#define SET_ELEMENT_AT_TYPE_DEF(T, typename)                                    \
     extern void __attribute__((overloadable))                           \
     rsSetElementAt_##typename(rs_allocation a, T val, uint32_t x) {     \
         rsSetElementAtImpl_##typename(a, (typename)val, x, 0, 0);              \
@@ -153,15 +221,9 @@ rsOffsetNs(rs_allocation a, uint32_t x, uint32_t y, uint32_t z) {
     rsSetElementAt_##typename(rs_allocation a, T val, uint32_t x, uint32_t y, \
                               uint32_t z) {                             \
         rsSetElementAtImpl_##typename(a, (typename)val, x, y, z);              \
-    }                                                                   \
+    }
 
-
-
-#define GET_ELEMENT_AT_TYPE(T, typename)                                \
-    typename                                                            \
-    rsGetElementAtImpl_##typename(rs_allocation a, uint32_t x, uint32_t y, \
-                                  uint32_t z);                          \
-                                                                        \
+#define GET_ELEMENT_AT_TYPE_DEF(T, typename)                                \
     extern typename __attribute__((overloadable))                       \
     rsGetElementAt_##typename(rs_allocation a, uint32_t x) {            \
         return (typename)rsGetElementAtImpl_##typename(a, x, 0, 0);     \
@@ -178,8 +240,10 @@ rsOffsetNs(rs_allocation a, uint32_t x, uint32_t y, uint32_t z) {
         return (typename)rsGetElementAtImpl_##typename(a, x, y, z);     \
     }
 
-#define SET_ELEMENT_AT(T) SET_ELEMENT_AT_TYPE(T, T)
-#define GET_ELEMENT_AT(T) GET_ELEMENT_AT_TYPE(T, T)
+#define SET_ELEMENT_AT(T) SET_ELEMENT_AT_TYPE_IMPL(T, T) \
+    SET_ELEMENT_AT_TYPE_DEF(T, T)
+#define GET_ELEMENT_AT(T) GET_ELEMENT_AT_TYPE_IMPL(T, T) \
+    GET_ELEMENT_AT_TYPE_DEF(T, T)
 
 #define ELEMENT_AT(T)                           \
     SET_ELEMENT_AT(T)                           \
@@ -291,13 +355,15 @@ typedef unsigned long long ull3 __attribute__((ext_vector_type(3)));
 typedef unsigned long long ull4 __attribute__((ext_vector_type(4)));
 
 #ifndef RS_DEBUG_RUNTIME
-SET_ELEMENT_AT_TYPE(ull, ulong)
-SET_ELEMENT_AT_TYPE(ull2, ulong2)
-SET_ELEMENT_AT_TYPE(ull3, ulong3)
-SET_ELEMENT_AT_TYPE(ull4, ulong4)
+SET_ELEMENT_AT_TYPE_IMPL(ull, ulong)
+SET_ELEMENT_AT_TYPE_IMPL(ull2, ulong2)
+SET_ELEMENT_AT_TYPE_IMPL(ull3, ulong3)
+SET_ELEMENT_AT_TYPE_IMPL(ull4, ulong4)
 
-#undef SET_ELEMENT_AT_TYPE
-#undef GET_ELEMENT_AT_TYPE
+#undef SET_ELEMENT_AT_TYPE_DEF
+#undef GET_ELEMENT_AT_TYPE_DEF
+#undef SET_ELEMENT_AT_TYPE_IMPL
+#undef GET_ELEMENT_AT_TYPE_IMPL
 #undef ELEMENT_AT_TYPE
 #endif
 
@@ -337,11 +403,34 @@ extern uchar __attribute__((overloadable))
     return pin[((x >> shift) * cstep) + ((y >> shift) * stride)];
 }
 
+// The functions rsAllocationVLoadXImpl_T and rsAllocationVStoreXImpl_T are implemented in
+// bitcode in ll32/allocation.ll and ll64/allocation.ll. To be able to provide debug info
+// for these functions define them here instead, if we are linking with the debug library.
+#ifdef RS_G_RUNTIME
 
-#define VOP(T)                                                          \
+#define VOP_IMPL(T)                                                             \
+    void __rsAllocationVStoreXImpl_##T                                          \
+            (rs_allocation a, const T val, uint32_t x, uint32_t y, uint32_t z) {\
+        T *val_ptr = (T*)rsOffsetNs(a, x, y, z);                                \
+        memcpy(val_ptr, &val, sizeof(T));                                       \
+    }                                                                           \
+    T __rsAllocationVLoadXImpl_##T                                              \
+            (rs_allocation a, uint32_t x, uint32_t y, uint32_t z) {             \
+        T result = {};                                                          \
+        T* val_ptr = (T*)rsOffsetNs(a, x, y, z);                                \
+        memcpy(&result, val_ptr, sizeof(T));                                    \
+        return result;                                                          \
+    }
+
+#else
+
+#define VOP_IMPL(T)                                                          \
     extern void __rsAllocationVStoreXImpl_##T(rs_allocation a, const T val, uint32_t x, uint32_t y, uint32_t z); \
-    extern T __rsAllocationVLoadXImpl_##T(rs_allocation a, uint32_t x, uint32_t y, uint32_t z); \
-                                                                        \
+    extern T __rsAllocationVLoadXImpl_##T(rs_allocation a, uint32_t x, uint32_t y, uint32_t z);
+
+#endif // RS_G_RUNTIME
+
+#define VOP_DEF(T)                                                      \
     extern void __attribute__((overloadable))                           \
     rsAllocationVStoreX_##T(rs_allocation a, T val, uint32_t x) {       \
         __rsAllocationVStoreXImpl_##T(a, val, x, 0, 0);                 \
@@ -366,6 +455,9 @@ extern uchar __attribute__((overloadable))
     rsAllocationVLoadX_##T(rs_allocation a, uint32_t x, uint32_t y, uint32_t z) { \
         return __rsAllocationVLoadXImpl_##T(a, x, y, z);                \
     }
+
+#define VOP(T) VOP_IMPL(T) \
+    VOP_DEF(T)
 
 VOP(char2)
 VOP(char3)
@@ -398,4 +490,167 @@ VOP(double2)
 VOP(double3)
 VOP(double4)
 
+#undef VOP_IMPL
+#undef VOP_DEF
 #undef VOP
+
+static const rs_element kInvalidElement = {0};
+
+extern rs_element __attribute__((overloadable)) rsCreateElement(
+        int32_t dt, int32_t dk, bool isNormalized, uint32_t vecSize);
+
+extern rs_type __attribute__((overloadable)) rsCreateType(
+    rs_element element, uint32_t dimX, uint32_t dimY, uint32_t dimZ,
+    bool mipmaps, bool faces, rs_yuv_format yuv_format);
+
+extern rs_allocation __attribute__((overloadable)) rsCreateAllocation(
+        rs_type type, rs_allocation_mipmap_control mipmaps, uint32_t usages,
+        void *ptr);
+
+rs_element __attribute__((overloadable)) rsCreateElement(
+        rs_data_type data_type) {
+
+    switch (data_type) {
+        case RS_TYPE_BOOLEAN:
+        case RS_TYPE_FLOAT_16:
+        case RS_TYPE_FLOAT_32:
+        case RS_TYPE_FLOAT_64:
+        case RS_TYPE_SIGNED_8:
+        case RS_TYPE_SIGNED_16:
+        case RS_TYPE_SIGNED_32:
+        case RS_TYPE_SIGNED_64:
+        case RS_TYPE_UNSIGNED_8:
+        case RS_TYPE_UNSIGNED_16:
+        case RS_TYPE_UNSIGNED_32:
+        case RS_TYPE_UNSIGNED_64:
+        case RS_TYPE_MATRIX_4X4:
+        case RS_TYPE_MATRIX_3X3:
+        case RS_TYPE_MATRIX_2X2:
+        case RS_TYPE_ELEMENT:
+        case RS_TYPE_TYPE:
+        case RS_TYPE_ALLOCATION:
+        case RS_TYPE_SCRIPT:
+            return rsCreateElement(data_type, RS_KIND_USER, false, 1);
+        default:
+            rsDebug("Invalid data_type", data_type);
+            return kInvalidElement;
+    }
+}
+
+rs_element __attribute__((overloadable)) rsCreateVectorElement(
+        rs_data_type data_type, uint32_t vector_width) {
+    if (vector_width < 2 || vector_width > 4) {
+        rsDebug("Invalid vector_width", vector_width);
+        return kInvalidElement;
+    }
+    switch (data_type) {
+        case RS_TYPE_BOOLEAN:
+        case RS_TYPE_FLOAT_16:
+        case RS_TYPE_FLOAT_32:
+        case RS_TYPE_FLOAT_64:
+        case RS_TYPE_SIGNED_8:
+        case RS_TYPE_SIGNED_16:
+        case RS_TYPE_SIGNED_32:
+        case RS_TYPE_SIGNED_64:
+        case RS_TYPE_UNSIGNED_8:
+        case RS_TYPE_UNSIGNED_16:
+        case RS_TYPE_UNSIGNED_32:
+        case RS_TYPE_UNSIGNED_64:
+            return rsCreateElement(data_type, RS_KIND_USER, false,
+                                   vector_width);
+        default:
+            rsDebug("Invalid data_type for vector element", data_type);
+            return kInvalidElement;
+    }
+}
+
+rs_element __attribute__((overloadable)) rsCreatePixelElement(
+        rs_data_type data_type, rs_data_kind data_kind) {
+    if (data_type != RS_TYPE_UNSIGNED_8 &&
+        data_type != RS_TYPE_UNSIGNED_16 &&
+        data_type != RS_TYPE_UNSIGNED_5_6_5 &&
+        data_type != RS_TYPE_UNSIGNED_4_4_4_4 &&
+        data_type != RS_TYPE_UNSIGNED_5_5_5_1) {
+
+        rsDebug("Invalid data_type for pixel element", data_type);
+        return kInvalidElement;
+    }
+    if (data_kind != RS_KIND_PIXEL_L &&
+        data_kind != RS_KIND_PIXEL_A &&
+        data_kind != RS_KIND_PIXEL_LA &&
+        data_kind != RS_KIND_PIXEL_RGB &&
+        data_kind != RS_KIND_PIXEL_RGBA &&
+        data_kind != RS_KIND_PIXEL_DEPTH &&
+        data_kind != RS_KIND_PIXEL_YUV) {
+
+        rsDebug("Invalid data_kind for pixel element", data_type);
+        return kInvalidElement;
+    }
+    if (data_type == RS_TYPE_UNSIGNED_5_6_5 && data_kind != RS_KIND_PIXEL_RGB) {
+        rsDebug("Bad data_type and data_kind combo", data_type, data_kind);
+        return kInvalidElement;
+    }
+    if (data_type == RS_TYPE_UNSIGNED_5_5_5_1 &&
+        data_kind != RS_KIND_PIXEL_RGBA) {
+
+        rsDebug("Bad data_type and data_kind combo", data_type, data_kind);
+        return kInvalidElement;
+    }
+    if (data_type == RS_TYPE_UNSIGNED_4_4_4_4 &&
+        data_kind != RS_KIND_PIXEL_RGBA) {
+
+        rsDebug("Bad data_type and data_kind combo", data_type, data_kind);
+        return kInvalidElement;
+    }
+    if (data_type == RS_TYPE_UNSIGNED_16 && data_kind != RS_KIND_PIXEL_DEPTH) {
+        rsDebug("Bad data_type and data_kind combo", data_type, data_kind);
+        return kInvalidElement;
+    }
+
+    int vector_width = 1;
+    switch (data_kind) {
+        case RS_KIND_PIXEL_LA:
+            vector_width = 2;
+            break;
+        case RS_KIND_PIXEL_RGB:
+            vector_width = 3;
+            break;
+        case RS_KIND_PIXEL_RGBA:
+            vector_width = 4;
+            break;
+        case RS_KIND_PIXEL_DEPTH:
+            vector_width = 2;
+            break;
+        default:
+            break;
+    }
+
+    return rsCreateElement(data_type, data_kind, true, vector_width);
+}
+
+rs_type __attribute__((overloadable)) rsCreateType(rs_element element,
+                                                   uint32_t dimX, uint32_t dimY,
+                                                   uint32_t dimZ) {
+    return rsCreateType(element, dimX, dimY, dimZ, false, false, RS_YUV_NONE);
+}
+
+rs_type __attribute__((overloadable)) rsCreateType(rs_element element,
+                                                   uint32_t dimX,
+                                                   uint32_t dimY) {
+    return rsCreateType(element, dimX, dimY, 0, false, false, RS_YUV_NONE);
+}
+
+rs_type __attribute__((overloadable)) rsCreateType(rs_element element,
+                                                   uint32_t dimX) {
+    return rsCreateType(element, dimX, 0, 0, false, false, RS_YUV_NONE);
+}
+
+rs_allocation __attribute__((overloadable)) rsCreateAllocation(rs_type type,
+                                                               uint32_t usage) {
+    return rsCreateAllocation(type, RS_ALLOCATION_MIPMAP_NONE, usage, NULL);
+}
+
+rs_allocation __attribute__((overloadable)) rsCreateAllocation(rs_type type) {
+    return rsCreateAllocation(type, RS_ALLOCATION_MIPMAP_NONE,
+                              RS_ALLOCATION_USAGE_SCRIPT, NULL);
+}

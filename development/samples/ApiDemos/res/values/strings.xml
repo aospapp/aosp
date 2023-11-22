@@ -309,7 +309,9 @@
     <string name="foreground_service_controller">This demonstrates how you can
             implement services that run in the foreground when needed.</string>
     <string name="start_service_foreground">Start Service Foreground</string>
+    <string name="start_service_foreground_wakelock">Start Service Foreground w/Wakelock</string>
     <string name="start_service_background">Start Service Background</string>
+    <string name="start_service_background_wakelock">Start Service Background w/Wakelock</string>
 
     <string name="activity_isolated_service_controller">App/Service/Isolated Service Controller</string>
     <string name="isolated_service_controller">This demonstrates the use of android:isolatedProcess
@@ -466,6 +468,8 @@
     <string name="share_image">Share Image</string>
 
     <string name="activity_changed_contact">Content/Provider/Changed Contacts</string>
+
+    <string name="activity_media_content_observer">Content/Provider/Media Content Observer</string>
 
     <string name="activity_install_apk">Content/Packages/Install Apk</string>
 
@@ -743,6 +747,9 @@
         for you to directly control what the DeviceAdmin does with the
         system.</string>
 
+    <string name="sample_device_admin2">Dummy Device Admin</string>
+    <string name="sample_device_admin_description2">Dummy device admin</string>
+
     <!-- Strings used in preference headers and preference definitions -->
     <string name="header_general">General</string>
     <string name="header_quality">Password quality</string>
@@ -758,6 +765,8 @@
     <string name="disable_keyguard_notifications">Disable keyguard notifications</string>
     <string name="disable_keyguard_unredacted_notifications">Disable keyguard unredacted notifications</string>
     <string name="disable_keyguard_trust_agents">Disable keyguard Trust Agents</string>
+    <string name="disable_keyguard_fingerprint">Disable keyguard Fingerprint</string>
+    <string name="disable_keyguard_remote_input">Disable keyguard Remote Input</string>
     <string name="keyguard_widgets_disabled">Keyguard widgets disabled</string>
     <string name="keyguard_widgets_enabled">Keyguard widgets enabled</string>
     <string name="keyguard_secure_camera_disabled">Keyguard secure camera disabled</string>
@@ -768,6 +777,10 @@
     <string name="keyguard_unredacted_notifications_enabled">Keyguard unredacted notifications enabled</string>
     <string name="keyguard_trust_agents_disabled">Keyguard Trust Agents disabled</string>
     <string name="keyguard_trust_agents_enabled">Keyguard Trust Agents enabled</string>
+    <string name="keyguard_fingerprint_disabled">Keyguard Fingerprint disabled</string>
+    <string name="keyguard_fingerprint_enabled">Keyguard Fingerprint enabled</string>
+    <string name="keyguard_remote_input_disabled">Keyguard Remote Input disabled</string>
+    <string name="keyguard_remote_input_enabled">Keyguard Remote Input enabled</string>
     <string name="camera_disabled">Device cameras disabled</string>
     <string name="camera_enabled">Device cameras enabled</string>
     <string name="password_controls_category">Password controls</string>
@@ -1080,6 +1093,34 @@
     <string name="hover_intercept_message_initial">Try hovering over the button.</string>
     <string name="hover_intercept_message_intercepted">Intercepted hover event instead of sending it to the button.  Om nom nom!</string>
     <string name="hover_button">Hover Here</string>
+    <string name="pointer_type_description">The following demo is meaningful only with mouse. This does not have any effects on the touch screens.</string>
+    <string name="pointer_type_arrow">arrow</string>
+    <string name="pointer_type_context_menu">context menu</string>
+    <string name="pointer_type_hand">hand</string>
+    <string name="pointer_type_help">help</string>
+    <string name="pointer_type_wait">wait</string>
+    <string name="pointer_type_cell">cell</string>
+    <string name="pointer_type_crosshair">crosshair</string>
+    <string name="pointer_type_text">text (I-beam)</string>
+    <string name="pointer_type_vertical_text">vertical text</string>
+    <string name="pointer_type_alias">alias</string>
+    <string name="pointer_type_copy">copy</string>
+    <string name="pointer_type_no_drop">no drop</string>
+    <string name="pointer_type_all_scroll">all scroll</string>
+    <string name="pointer_type_horizontal_double_arrow">horizontal double arrow</string>
+    <string name="pointer_type_vertical_double_arrow">vertical double arrow</string>
+    <string name="pointer_type_top_right_diagonal_double_arrow">top right diagonal double arrow</string>
+    <string name="pointer_type_top_left_diagonal_double_arrow">top left diagonal double arrow</string>
+    <string name="pointer_type_zoom_in">zoom in</string>
+    <string name="pointer_type_zoom_out">zoom out</string>
+    <string name="pointer_type_grab">grab</string>
+    <string name="pointer_type_grabbing">grabbing</string>
+    <string name="pointer_type_none">none (invisible)</string>
+    <string name="pointer_type_custom_resource">Custom (defined in resource file)</string>
+    <string name="pointer_type_custom_resource_code">Custom (resource loaded in code)</string>
+    <string name="pointer_type_custom_static">Custom (static bitmap created in code)</string>
+    <string name="pointer_type_custom_system">Custom (system icon picked in code)</string>
+    <string name="pointer_type_custom_live">Custom (dynamic image created in code)</string>
 
     <!-- ============================== -->
     <!--  GoogleLogin examples strings  -->
@@ -1150,6 +1191,21 @@
     <string name="controls_1_radiobutton_1">RadioButton 1</string>
     <string name="controls_1_radiobutton_2">RadioButton 2</string>
     <string name="controls_1_star">Star</string>
+    <string name="controls_header_buttons">Buttons</string>
+    <string name="controls_button">Button</string>
+    <string name="controls_button_borderless">Button.Borderless</string>
+    <string name="controls_button_colored">Button.Colored</string>
+    <string name="controls_button_borderless_colored">Button.Borderless.Colored</string>
+    <string name="controls_header_compound_buttons">Compound buttons</string>
+    <string name="controls_header_spinners">Spinners</string>
+    <string name="controls_spinner">Spinner</string>
+    <string name="controls_spinner_underlined">Spinner.Underlined</string>
+    <string name="controls_switch">Switch</string>
+    <string name="controls_header_seek_bars">Seek bars</string>
+    <string name="controls_seek_bar">SeekBar</string>
+    <string name="controls_seek_bar_discrete">SeekBar.Discrete</string>
+    <string name="controls_header_text_fields">Text fields</string>
+    <string name="controls_header_text_appearances">Text appearances</string>
     <string name="focus_1_message">Service not running</string>
     <string name="focus_1_placeholder">placeholder</string>
     <string name="focus_2_left">left</string>
@@ -1526,6 +1582,9 @@
     </string>
     <string name="accessibility_custom_on">On</string>
     <string name="accessibility_custom_off">Off</string>
+
+    <string name="magnification_service_label">Magnification</string>
+    <string name="magnification_service_description">Allows the volume keys to control display magnification</string>
 
     <string name="task_name">Task</string>
     <string name="task_complete_template">Task %1$s %2$s</string>

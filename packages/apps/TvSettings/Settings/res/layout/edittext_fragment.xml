@@ -31,7 +31,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_below="@+id/description"
-        android:layout_marginRight="20dip"
+        android:layout_marginEnd="20dip"
         android:imeOptions="flagNoExtractUi"
         android:textSize="30sp" />
 

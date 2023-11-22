@@ -95,8 +95,7 @@ namespace android {
 #define DEFAULT_SOC                 SOC_GENERIC
 #define DEFAULT_INTRA4x4            0
 #define STRLENGTH                   500
-
-
+#define DEFAULT_CONSTRAINED_INTRA   0
 
 #define MIN(a, b) ((a) < (b))? (a) : (b)
 #define MAX(a, b) ((a) > (b))? (a) : (b)
@@ -142,6 +141,12 @@ private:
         kNumBuffers = 2,
     };
 
+    enum {
+        kUpdateBitrate            = 1 << 0,
+        kRequestKeyFrame          = 1 << 1,
+        kUpdateAIRMode            = 1 << 2,
+    };
+
     // OMX input buffer's timestamp and flags
     typedef struct {
         int64_t mTimeUs;
@@ -153,11 +158,7 @@ private:
     struct timeval mTimeStart;   // Time at the start of decode()
     struct timeval mTimeEnd;     // Time at the end of decode()
 
-
-    // If a request for a change it bitrate has been received.
-    bool mBitrateUpdated;
-
-    bool mKeyFrameRequested;
+    int mUpdateFlag;
 
 #ifdef FILE_DUMP_ENABLE
     char mInFile[200];
@@ -180,6 +181,7 @@ private:
     bool     mReconEnable;
     bool     mPSNREnable;
     bool     mEntropyMode;
+    bool     mConstrainedIntraFlag;
     IVE_SPEED_CONFIG     mEncSpeed;
 
     uint8_t *mConversionBuffers[MAX_CONVERSION_BUFFERS];
@@ -216,6 +218,9 @@ private:
         const OMX_VIDEO_PARAM_BITRATETYPE *bitrate);
 
     OMX_ERRORTYPE setConfig(
+        OMX_INDEXTYPE index, const OMX_PTR _params);
+
+    OMX_ERRORTYPE getConfig(
         OMX_INDEXTYPE index, const OMX_PTR _params);
 
     // Handles port definition changes.

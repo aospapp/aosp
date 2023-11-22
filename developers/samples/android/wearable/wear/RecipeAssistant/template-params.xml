@@ -23,7 +23,7 @@
     <package>com.example.android.wearable.recipeassistant</package>
 
     <minSdk>18</minSdk>
-    <targetSdkVersion>22</targetSdkVersion>
+    <targetSdkVersion>23</targetSdkVersion>
 
     <strings>
         <intro>
@@ -41,5 +41,10 @@
     <template src="base"/>
     <common src="logger"/>
     <common src="activities"/>
+
+    <metadata>
+        <status>DEPRECATED</status>
+        <categories>Wearable</categories>
+    </metadata>
 
 </sample>

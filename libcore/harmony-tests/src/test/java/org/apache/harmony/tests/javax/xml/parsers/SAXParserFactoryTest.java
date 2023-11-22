@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package tests.api.javax.xml.parsers;
+package org.apache.harmony.tests.javax.xml.parsers;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -35,7 +35,6 @@ import org.xml.sax.SAXNotRecognizedException;
 import org.xml.sax.SAXNotSupportedException;
 import org.xml.sax.helpers.DefaultHandler;
 
-import dalvik.annotation.AndroidOnly;
 import dalvik.annotation.KnownFailure;
 
 public class SAXParserFactoryTest extends TestCase {
@@ -65,7 +64,7 @@ public class SAXParserFactoryTest extends TestCase {
         super.tearDown();
     }
 
-    @AndroidOnly("Android SAX implementation is non-validating")
+    // AndroidOnly("Android SAX implementation is non-validating")
     public void test_Constructor() {
         MySAXParserFactory mpf = new MySAXParserFactory();
         assertTrue(mpf instanceof SAXParserFactory);

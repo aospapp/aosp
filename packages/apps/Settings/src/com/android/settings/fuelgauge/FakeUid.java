@@ -16,9 +16,9 @@
 
 package com.android.settings.fuelgauge;
 
+import android.os.BatteryStats;
 import android.os.BatteryStats.Timer;
 import android.os.BatteryStats.Uid;
-import android.os.Process;
 import android.util.ArrayMap;
 import android.util.SparseArray;
 
@@ -71,11 +71,6 @@ public class FakeUid extends Uid {
     @Override
     public ArrayMap<String, ? extends Pkg> getPackageStats() {
         return null;
-    }
-
-    @Override
-    public long getWifiControllerActivity(int type, int which) {
-        return 0;
     }
 
     @Override
@@ -192,6 +187,11 @@ public class FakeUid extends Uid {
     }
 
     @Override
+    public Timer getProcessStateTimer(int state) {
+        return null;
+    }
+
+    @Override
     public Timer getVibratorOnTimer() {
         return null;
     }
@@ -246,12 +246,32 @@ public class FakeUid extends Uid {
     }
 
     @Override
-    public long getTimeAtCpuSpeed(int step, int which) {
+    public long getTimeAtCpuSpeed(int cluster, int step, int which) {
         return 0;
     }
 
     @Override
     public long getCpuPowerMaUs(int which) {
         return 0;
+    }
+
+    @Override
+    public BatteryStats.ControllerActivityCounter getWifiControllerActivity() {
+        return null;
+    }
+
+    @Override
+    public BatteryStats.ControllerActivityCounter getBluetoothControllerActivity() {
+        return null;
+    }
+
+    @Override
+    public BatteryStats.ControllerActivityCounter getModemControllerActivity() {
+        return null;
+    }
+
+    @Override
+    public Timer getBluetoothScanTimer() {
+        return null;
     }
 }

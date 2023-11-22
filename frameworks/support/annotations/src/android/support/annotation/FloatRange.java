@@ -18,6 +18,7 @@ package android.support.annotation;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
+import static java.lang.annotation.ElementType.ANNOTATION_TYPE;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.LOCAL_VARIABLE;
 import static java.lang.annotation.ElementType.METHOD;
@@ -28,15 +29,15 @@ import static java.lang.annotation.RetentionPolicy.CLASS;
  * Denotes that the annotated element should be a float or double in the given range
  * <p>
  * Example:
- * <pre>{@code
+ * <pre><code>
  *  &#64;FloatRange(from=0.0,to=1.0)
  *  public float getAlpha() {
  *      ...
  *  }
- * }</pre>
+ * </code></pre>
  */
 @Retention(CLASS)
-@Target({METHOD,PARAMETER,FIELD,LOCAL_VARIABLE})
+@Target({METHOD,PARAMETER,FIELD,LOCAL_VARIABLE,ANNOTATION_TYPE})
 public @interface FloatRange {
     /** Smallest value. Whether it is inclusive or not is determined
      * by {@link #fromInclusive} */

@@ -15,28 +15,30 @@
  */
 package com.android.settings.applications;
 
-import android.app.Activity;
 import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
-import android.content.pm.ApplicationInfo;
-import android.os.Bundle;
 import android.os.AsyncTask;
-import android.preference.Preference;
-import android.provider.Settings;
-
-import com.android.internal.logging.MetricsLogger;
+import android.os.Bundle;
+import android.provider.SearchIndexableResource;
+import android.support.v7.preference.Preference;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.R;
 import com.android.settings.SettingsPreferenceFragment;
+import com.android.settings.Utils;
 import com.android.settings.applications.PermissionsSummaryHelper.PermissionsResultCallback;
-import com.android.settings.fuelgauge.PowerWhitelistBackend;
+import com.android.settings.search.BaseSearchIndexProvider;
+import com.android.settings.search.Indexable;
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.settingslib.applications.ApplicationsState.AppEntry;
 import com.android.settingslib.applications.ApplicationsState.Session;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public class AdvancedAppSettings extends SettingsPreferenceFragment implements
-        ApplicationsState.Callbacks {
+        ApplicationsState.Callbacks, Indexable {
 
     static final String TAG = "AdvancedAppSettings";
 
@@ -76,7 +78,7 @@ public class AdvancedAppSettings extends SettingsPreferenceFragment implements
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.APPLICATIONS_ADVANCED;
+        return MetricsEvent.APPLICATIONS_ADVANCED;
     }
 
     @Override
@@ -121,63 +123,36 @@ public class AdvancedAppSettings extends SettingsPreferenceFragment implements
 
     private final PermissionsResultCallback mPermissionCallback = new PermissionsResultCallback() {
         @Override
-        public void onPermissionSummaryResult(int[] counts, CharSequence[] groupLabels) {
+        public void onAppWithPermissionsCountsResult(int standardGrantedPermissionAppCount,
+                int standardUsedPermissionAppCount) {
             if (getActivity() == null) {
                 return;
             }
             mPermissionReceiver = null;
-            if (counts != null) {
+            if (standardUsedPermissionAppCount != 0) {
                 mAppPermsPreference.setSummary(getContext().getString(
-                        R.string.app_permissions_summary, counts[0], counts[1]));
+                        R.string.app_permissions_summary,
+                        standardGrantedPermissionAppCount,
+                        standardUsedPermissionAppCount));
             } else {
                 mAppPermsPreference.setSummary(null);
             }
         }
     };
 
-    private class CountAppsWithOverlayPermission extends
-            AsyncTask<AppStateOverlayBridge, Void, Integer> {
-        int numOfPackagesRequestedPermission = 0;
+    public static final Indexable.SearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new BaseSearchIndexProvider() {
+                @Override
+                public List<SearchIndexableResource> getXmlResourcesToIndex(
+                        Context context, boolean enabled) {
+                    SearchIndexableResource sir = new SearchIndexableResource(context);
+                    sir.xmlResId = R.xml.advanced_apps;
+                    return Arrays.asList(sir);
+                }
 
-        @Override
-        protected Integer doInBackground(AppStateOverlayBridge... params) {
-            AppStateOverlayBridge overlayBridge = params[0];
-            numOfPackagesRequestedPermission = overlayBridge
-                    .getNumberOfPackagesWithPermission();
-            return overlayBridge.getNumberOfPackagesCanDrawOverlay();
-        }
-
-        @Override
-        protected void onPostExecute(Integer result) {
-            // checks if fragment is still there before updating the preference object
-            if (isAdded()) {
-                mSystemAlertWindowPreference.setSummary(getContext().getString(
-                        R.string.system_alert_window_summary, result,
-                        numOfPackagesRequestedPermission));
-            }
-        }
-    }
-
-    private class CountAppsWithWriteSettingsPermission extends
-        AsyncTask<AppStateWriteSettingsBridge, Void, Integer> {
-        int numOfPackagesRequestedPermission = 0;
-
-        @Override
-        protected Integer doInBackground(AppStateWriteSettingsBridge... params) {
-            AppStateWriteSettingsBridge writeSettingsBridge = params[0];
-            numOfPackagesRequestedPermission = writeSettingsBridge
-                .getNumberOfPackagesWithPermission();
-            return writeSettingsBridge.getNumberOfPackagesCanWriteSettings();
-        }
-
-        @Override
-        protected void onPostExecute(Integer result) {
-            // checks if fragment is still there before updating the preference object
-            if (isAdded()) {
-                mWriteSettingsPreference.setSummary(getContext().getString(
-                        R.string.write_settings_summary, result,
-                        numOfPackagesRequestedPermission));
-            }
-        }
-    }
+                @Override
+                public List<String> getNonIndexableKeys(Context context) {
+                    return Utils.getNonIndexable(R.xml.advanced_apps, context);
+                }
+            };
 }

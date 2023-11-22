@@ -59,6 +59,7 @@ LOCAL_STATIC_LIBRARIES := $(libbcinfo_STATIC_LIBRARIES)
 LOCAL_SHARED_LIBRARIES := libLLVM libcutils liblog
 
 include $(LLVM_ROOT_PATH)/llvm-device-build.mk
+include $(LLVM_GEN_ATTRIBUTES_MK)
 include $(BUILD_SHARED_LIBRARY)
 endif
 
@@ -69,7 +70,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := libbcinfo
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_HOST_OS := darwin linux windows
 LOCAL_IS_HOST_MODULE := true
 
 LOCAL_SRC_FILES := $(libbcinfo_SRC_FILES)
@@ -80,13 +81,20 @@ LOCAL_C_INCLUDES := $(libbcinfo_C_INCLUDES)
 
 LOCAL_STATIC_LIBRARIES += $(libbcinfo_STATIC_LIBRARIES)
 LOCAL_STATIC_LIBRARIES += libcutils liblog
-LOCAL_SHARED_LIBRARIES += libLLVM
 
-ifndef USE_MINGW
-LOCAL_LDLIBS := -ldl -lpthread
+LOCAL_LDLIBS_darwin := -ldl -lpthread
+LOCAL_LDLIBS_linux := -ldl -lpthread
+
+include $(LOCAL_PATH)/../llvm-loadable-libbcc.mk
+
+ifneq ($(CAN_BUILD_HOST_LLVM_LOADABLE_MODULE),true)
+LOCAL_SHARED_LIBRARIES_linux += libLLVM
 endif
+LOCAL_SHARED_LIBRARIES_darwin += libLLVM
+LOCAL_SHARED_LIBRARIES_windows += libLLVM
 
 include $(LLVM_ROOT_PATH)/llvm-host-build.mk
+include $(LLVM_GEN_ATTRIBUTES_MK)
 include $(BUILD_HOST_SHARED_LIBRARY)
 
 endif # don't build for unbundled branches

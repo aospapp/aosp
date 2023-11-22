@@ -34,7 +34,7 @@ import android.test.AndroidTestCase;
 import android.util.AttributeSet;
 import android.util.Xml;
 
-import com.android.cts.graphics.R;
+import android.graphics.cts.R;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -319,7 +319,7 @@ public class ShapeDrawableTest extends AndroidTestCase {
         final ShapeDrawable d = new ShapeDrawable(new RectShape());
         d.setTint(Color.BLACK);
         d.setTintMode(Mode.SRC_OVER);
-        assertEquals("Shape is tinted", Color.BLACK, DrawableTestingUtils.getPixel(d, 0, 0));
+        assertEquals("Shape is tinted", Color.BLACK, DrawableTestUtils.getPixel(d, 0, 0));
     }
 
     public void testSetDither() {

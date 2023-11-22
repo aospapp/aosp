@@ -51,15 +51,6 @@ public class FieldModification002Test extends JDWPEventTestCase {
 
         logWriter.println("FieldModification002Test started");
 
-        //check capability, relevant for this test
-        logWriter.println("=> Check capability: canWatchFieldModification");
-        debuggeeWrapper.vmMirror.capabilities();
-        boolean isCapability = debuggeeWrapper.vmMirror.targetVMCapabilities.canWatchFieldModification;
-        if (!isCapability) {
-            logWriter.println("##WARNING: this VM doesn't possess capability: canWatchFieldModification");
-            return;
-        }
-
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
         String classSignature = "L" + getDebuggeeClassName().replace('.', '/') + ";";
 

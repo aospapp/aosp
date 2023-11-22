@@ -118,10 +118,9 @@ parse_cie (unw_addr_space_t as, unw_accessors_t *a, unw_word_t addr,
   if ((ret = dwarf_readu8 (as, a, &addr, &version, arg)) < 0)
     return ret;
 
-  if (version != 1 && version != DWARF_CIE_VERSION)
+  if (version != 1 && version != 3 && version != 4)
     {
-      Debug (1, "Got CIE version %u, expected version 1 or "
-	     STR (DWARF_CIE_VERSION) "\n", version);
+      Debug (1, "Got CIE version %u, expected version 1, 3 or 4\n", version);
       return -UNW_EBADVERSION;
     }
 
@@ -139,6 +138,23 @@ parse_cie (unw_addr_space_t as, unw_accessors_t *a, unw_word_t addr,
 	augstr[i++] = ch;
     }
 
+  if (version == 4) {
+    uint8_t address_size;
+    if ((ret = dwarf_readu8(as, a, &addr, &address_size, arg)) < 0) {
+      return ret;
+    }
+    if (address_size != sizeof(unw_word_t)) {
+      return -UNW_EBADVERSION;
+    }
+    uint8_t segment_size;
+    if ((ret = dwarf_readu8(as, a, &addr, &segment_size, arg)) < 0) {
+      return ret;
+    }
+    // We don't support non-zero segment size.
+    if (segment_size != 0) {
+      return -UNW_EBADVERSION;
+    }
+  }
   if ((ret = dwarf_read_uleb128 (as, a, &addr, &dci->code_align, arg)) < 0
       || (ret = dwarf_read_sleb128 (as, a, &addr, &dci->data_align, arg)) < 0)
     return ret;

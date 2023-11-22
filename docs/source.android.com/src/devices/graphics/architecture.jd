@@ -55,7 +55,7 @@ versions will likely be different as well.  Version-specific features are called
 out in a few places.</p>
 
 <p>At various points I will refer to source code from the AOSP sources or from
-Grafika.  Grafika is a Google open-source project for testing; it can be found at
+Grafika.  Grafika is a Google open source project for testing; it can be found at
 <a
 href="https://github.com/google/grafika">https://github.com/google/grafika</a>.
 It's more "quick hack" than solid example code, but it will suffice.</p>
@@ -158,10 +158,12 @@ SurfaceFlinger for a drawing surface.  SurfaceFlinger creates a "layer" - the
 primary component of which is a BufferQueue - for which SurfaceFlinger acts as
 the consumer.  A Binder object for the producer side is passed through the
 WindowManager to the app, which can then start sending frames directly to
-SurfaceFlinger.  (Note: The WindowManager uses the term "window" instead of
+SurfaceFlinger.</p>
+
+<p class="note"><strong>Note:</strong> The WindowManager uses the term "window" instead of
 "layer" for this and uses "layer" to mean something else.  We're going to use the
 SurfaceFlinger terminology.  It can be argued that SurfaceFlinger should really
-be called LayerFlinger.)</p>
+be called LayerFlinger.</p>
 
 <p>For most apps, there will be three layers on screen at any time: the "status
 bar" at the top of the screen, the "navigation bar" at the bottom or side, and
@@ -272,10 +274,11 @@ shown above are using overlays, FB_TARGET isn’t being used for this frame. The
 layer's name is indicative of its original role: On a device with
 <code>/dev/graphics/fb0</code> and no overlays, all composition would be done
 with GLES, and the output would be written to the framebuffer.  On recent devices there
-generally is no simple framebuffer, so the FB_TARGET layer is a scratch buffer.
-(Note: This is why screen grabbers written for old versions of Android no
-longer work: They're trying to read from The Framebuffer, but there is no such
-thing.)</p>
+generally is no simple framebuffer, so the FB_TARGET layer is a scratch buffer.</p>
+
+<p class="note"><strong>Note:</strong> This is why screen grabbers written for old versions of Android no
+longer work: They're trying to read from the Framebuffer, but there is no such
+thing.</p>
 
 <p>The overlay planes have another important role: they're the only way to display
 DRM content.  DRM-protected buffers cannot be accessed by SurfaceFlinger or the

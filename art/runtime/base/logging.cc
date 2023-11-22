@@ -26,7 +26,7 @@
 #include "utils.h"
 
 // Headers for LogMessage::LogLine.
-#ifdef HAVE_ANDROID_OS
+#ifdef __ANDROID__
 #include "cutils/log.h"
 #else
 #include <sys/types.h>
@@ -47,7 +47,7 @@ static std::unique_ptr<std::string> gProgramInvocationShortName;
 // Print INTERNAL_FATAL messages directly instead of at destruction time. This only works on the
 // host right now: for the device, a stream buf collating output into lines and calling LogLine or
 // lower-level logging is necessary.
-#ifdef HAVE_ANDROID_OS
+#ifdef __ANDROID__
 static constexpr bool kPrintInternalFatalDirectly = false;
 #else
 static constexpr bool kPrintInternalFatalDirectly = !kIsTargetBuild;
@@ -185,14 +185,15 @@ class LogMessageData {
 LogMessage::LogMessage(const char* file, unsigned int line, LogSeverity severity, int error)
   : data_(new LogMessageData(file, line, severity, error)) {
   if (PrintDirectly(severity)) {
-    static const char* log_characters = "VDIWEFF";
-    CHECK_EQ(strlen(log_characters), INTERNAL_FATAL + 1U);
-    stream() << ProgramInvocationShortName() << " " << log_characters[static_cast<size_t>(severity)]
+    static constexpr char kLogCharacters[] = { 'N', 'V', 'D', 'I', 'W', 'E', 'F', 'F' };
+    static_assert(arraysize(kLogCharacters) == static_cast<size_t>(INTERNAL_FATAL) + 1,
+                  "Wrong character array size");
+    stream() << ProgramInvocationShortName() << " " << kLogCharacters[static_cast<size_t>(severity)]
              << " " << getpid() << " " << ::art::GetTid() << " " << file << ":" <<  line << "]";
   }
 }
 LogMessage::~LogMessage() {
-  if (!PrintDirectly(data_->GetSeverity())) {
+  if (!PrintDirectly(data_->GetSeverity()) && data_->GetSeverity() != LogSeverity::NONE) {
     if (data_->GetSeverity() < gMinimumLogSeverity) {
       return;  // No need to format something we're not going to output.
     }
@@ -234,8 +235,9 @@ std::ostream& LogMessage::stream() {
   return data_->GetBuffer();
 }
 
-#ifdef HAVE_ANDROID_OS
+#ifdef __ANDROID__
 static const android_LogPriority kLogSeverityToAndroidLogPriority[] = {
+  ANDROID_LOG_VERBOSE,  // NONE, use verbose as stand-in, will never be printed.
   ANDROID_LOG_VERBOSE, ANDROID_LOG_DEBUG, ANDROID_LOG_INFO, ANDROID_LOG_WARN,
   ANDROID_LOG_ERROR, ANDROID_LOG_FATAL, ANDROID_LOG_FATAL
 };
@@ -245,16 +247,20 @@ static_assert(arraysize(kLogSeverityToAndroidLogPriority) == INTERNAL_FATAL + 1,
 
 void LogMessage::LogLine(const char* file, unsigned int line, LogSeverity log_severity,
                          const char* message) {
-#ifdef HAVE_ANDROID_OS
+  if (log_severity == LogSeverity::NONE) {
+    return;
+  }
+
+#ifdef __ANDROID__
   const char* tag = ProgramInvocationShortName();
-  int priority = kLogSeverityToAndroidLogPriority[log_severity];
+  int priority = kLogSeverityToAndroidLogPriority[static_cast<size_t>(log_severity)];
   if (priority == ANDROID_LOG_FATAL) {
     LOG_PRI(priority, tag, "%s:%u] %s", file, line, message);
   } else {
     LOG_PRI(priority, tag, "%s", message);
   }
 #else
-  static const char* log_characters = "VDIWEFF";
+  static const char* log_characters = "NVDIWEFF";
   CHECK_EQ(strlen(log_characters), INTERNAL_FATAL + 1U);
   char severity = log_characters[log_severity];
   fprintf(stderr, "%s %c %5d %5d %s:%u] %s\n",
@@ -264,10 +270,14 @@ void LogMessage::LogLine(const char* file, unsigned int line, LogSeverity log_se
 
 void LogMessage::LogLineLowStack(const char* file, unsigned int line, LogSeverity log_severity,
                                  const char* message) {
-#ifdef HAVE_ANDROID_OS
+  if (log_severity == LogSeverity::NONE) {
+    return;
+  }
+
+#ifdef __ANDROID__
   // Use android_writeLog() to avoid stack-based buffers used by android_printLog().
   const char* tag = ProgramInvocationShortName();
-  int priority = kLogSeverityToAndroidLogPriority[log_severity];
+  int priority = kLogSeverityToAndroidLogPriority[static_cast<size_t>(log_severity)];
   char* buf = nullptr;
   size_t buf_size = 0u;
   if (priority == ANDROID_LOG_FATAL) {
@@ -285,21 +295,22 @@ void LogMessage::LogLineLowStack(const char* file, unsigned int line, LogSeverit
     android_writeLog(priority, tag, message);
   }
 #else
-  static const char* log_characters = "VDIWEFF";
-  CHECK_EQ(strlen(log_characters), INTERNAL_FATAL + 1U);
+  static constexpr char kLogCharacters[] = { 'N', 'V', 'D', 'I', 'W', 'E', 'F', 'F' };
+  static_assert(arraysize(kLogCharacters) == static_cast<size_t>(INTERNAL_FATAL) + 1,
+                "Wrong character array size");
 
   const char* program_name = ProgramInvocationShortName();
-  write(STDERR_FILENO, program_name, strlen(program_name));
-  write(STDERR_FILENO, " ", 1);
-  write(STDERR_FILENO, &log_characters[log_severity], 1);
-  write(STDERR_FILENO, " ", 1);
+  TEMP_FAILURE_RETRY(write(STDERR_FILENO, program_name, strlen(program_name)));
+  TEMP_FAILURE_RETRY(write(STDERR_FILENO, " ", 1));
+  TEMP_FAILURE_RETRY(write(STDERR_FILENO, &kLogCharacters[static_cast<size_t>(log_severity)], 1));
+  TEMP_FAILURE_RETRY(write(STDERR_FILENO, " ", 1));
   // TODO: pid and tid.
-  write(STDERR_FILENO, file, strlen(file));
+  TEMP_FAILURE_RETRY(write(STDERR_FILENO, file, strlen(file)));
   // TODO: line.
   UNUSED(line);
-  write(STDERR_FILENO, "] ", 2);
-  write(STDERR_FILENO, message, strlen(message));
-  write(STDERR_FILENO, "\n", 1);
+  TEMP_FAILURE_RETRY(write(STDERR_FILENO, "] ", 2));
+  TEMP_FAILURE_RETRY(write(STDERR_FILENO, message, strlen(message)));
+  TEMP_FAILURE_RETRY(write(STDERR_FILENO, "\n", 1));
 #endif
 }
 

@@ -521,8 +521,6 @@ void Java_com_example_nativemedia_NativeMedia_setSurface(JNIEnv *env, jclass cla
 // rewind the streaming media player
 void Java_com_example_nativemedia_NativeMedia_rewindStreamingMediaPlayer(JNIEnv *env, jclass clazz)
 {
-    XAresult res;
-
     // make sure the streaming media player was created
     if (NULL != playerBQItf && NULL != file) {
         // first wait for buffers currently in queue to be drained

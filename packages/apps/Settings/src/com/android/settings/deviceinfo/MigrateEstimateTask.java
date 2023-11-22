@@ -16,8 +16,6 @@
 
 package com.android.settings.deviceinfo;
 
-import static com.android.settings.deviceinfo.StorageSettings.TAG;
-
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -38,6 +36,8 @@ import com.android.internal.app.IMediaContainerService;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import static com.android.settings.deviceinfo.StorageSettings.TAG;
+
 public abstract class MigrateEstimateTask extends AsyncTask<Void, Void, Long> implements
         ServiceConnection {
     private static final String EXTRA_SIZE_BYTES = "size_bytes";
@@ -57,7 +57,6 @@ public abstract class MigrateEstimateTask extends AsyncTask<Void, Void, Long> im
     private IMediaContainerService mService;
 
     private long mSizeBytes = -1;
-    private long mTimeMillis = -1;
 
     public MigrateEstimateTask(Context context) {
         mContext = context;
@@ -90,7 +89,7 @@ public abstract class MigrateEstimateTask extends AsyncTask<Void, Void, Long> im
         Log.d(TAG, "Estimating for current path " + path);
 
         final Intent intent = new Intent().setComponent(DEFAULT_CONTAINER_COMPONENT);
-        mContext.bindServiceAsUser(intent, this, Context.BIND_AUTO_CREATE, UserHandle.OWNER);
+        mContext.bindServiceAsUser(intent, this, Context.BIND_AUTO_CREATE, UserHandle.SYSTEM);
 
         try {
             if (mConnected.await(15, TimeUnit.SECONDS)) {
@@ -108,11 +107,11 @@ public abstract class MigrateEstimateTask extends AsyncTask<Void, Void, Long> im
     @Override
     protected void onPostExecute(Long result) {
         mSizeBytes = result;
-        mTimeMillis = (mSizeBytes * DateUtils.SECOND_IN_MILLIS) / SPEED_ESTIMATE_BPS;
-        mTimeMillis = Math.max(mTimeMillis, DateUtils.SECOND_IN_MILLIS);
+        long timeMillis = (mSizeBytes * DateUtils.SECOND_IN_MILLIS) / SPEED_ESTIMATE_BPS;
+        timeMillis = Math.max(timeMillis, DateUtils.SECOND_IN_MILLIS);
 
         final String size = Formatter.formatFileSize(mContext, mSizeBytes);
-        final String time = DateUtils.formatDuration(mTimeMillis).toString();
+        final String time = DateUtils.formatDuration(timeMillis).toString();
         onPostExecute(size, time);
     }
 

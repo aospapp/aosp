@@ -20,6 +20,7 @@ import android.animation.Animator;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
+import android.util.DisplayMetrics;
 import android.view.DisplayListCanvas;
 import android.view.RenderNodeAnimator;
 
@@ -50,11 +51,18 @@ abstract class RippleComponent {
     protected float mTargetRadius;
 
     /** Screen density used to adjust pixel-based constants. */
-    protected float mDensity;
+    protected float mDensityScale;
 
-    public RippleComponent(RippleDrawable owner, Rect bounds) {
+    /**
+     * If set, force all ripple animations to not run on RenderThread, even if it would be
+     * available.
+     */
+    private final boolean mForceSoftware;
+
+    public RippleComponent(RippleDrawable owner, Rect bounds, boolean forceSoftware) {
         mOwner = owner;
         mBounds = bounds;
+        mForceSoftware = forceSoftware;
     }
 
     public void onBoundsChange() {
@@ -64,7 +72,7 @@ abstract class RippleComponent {
         }
     }
 
-    public final void setup(float maxRadius, float density) {
+    public final void setup(float maxRadius, int densityDpi) {
         if (maxRadius >= 0) {
             mHasMaxRadius = true;
             mTargetRadius = maxRadius;
@@ -72,7 +80,7 @@ abstract class RippleComponent {
             mTargetRadius = getTargetRadius(mBounds);
         }
 
-        mDensity = density;
+        mDensityScale = densityDpi * DisplayMetrics.DENSITY_DEFAULT_SCALE;
 
         onTargetRadiusChanged(mTargetRadius);
     }
@@ -143,7 +151,7 @@ abstract class RippleComponent {
      * @return {@code true} if something was drawn, {@code false} otherwise
      */
     public boolean draw(Canvas c, Paint p) {
-        final boolean hasDisplayListCanvas = c.isHardwareAccelerated()
+        final boolean hasDisplayListCanvas = !mForceSoftware && c.isHardwareAccelerated()
                 && c instanceof DisplayListCanvas;
         if (mHasDisplayListCanvas != hasDisplayListCanvas) {
             mHasDisplayListCanvas = hasDisplayListCanvas;

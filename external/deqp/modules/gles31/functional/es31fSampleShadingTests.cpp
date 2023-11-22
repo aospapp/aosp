@@ -69,8 +69,8 @@ SampleShadingStateCase::SampleShadingStateCase (Context& ctx, const char* name, 
 
 void SampleShadingStateCase::init (void)
 {
-	if (!m_context.getContextInfo().isExtensionSupported("GL_OES_sample_shading"))
-		throw tcu::NotSupportedError("Test requires GL_OES_sample_shading extension");
+	if (!contextSupports(m_context.getRenderContext().getType(), glu::ApiType::es(3, 2)) && !m_context.getContextInfo().isExtensionSupported("GL_OES_sample_shading"))
+		throw tcu::NotSupportedError("Test requires GL_OES_sample_shading extension or a context version 3.2 or higher.");
 }
 
 SampleShadingStateCase::IterateResult SampleShadingStateCase::iterate (void)
@@ -120,8 +120,8 @@ MinSampleShadingValueCase::MinSampleShadingValueCase (Context& ctx, const char* 
 
 void MinSampleShadingValueCase::init (void)
 {
-	if (!m_context.getContextInfo().isExtensionSupported("GL_OES_sample_shading"))
-		throw tcu::NotSupportedError("Test requires GL_OES_sample_shading extension");
+	if (!contextSupports(m_context.getRenderContext().getType(), glu::ApiType::es(3, 2)) && !m_context.getContextInfo().isExtensionSupported("GL_OES_sample_shading"))
+		throw tcu::NotSupportedError("Test requires GL_OES_sample_shading extension or a context version 3.2 or higher.");
 }
 
 MinSampleShadingValueCase::IterateResult MinSampleShadingValueCase::iterate (void)
@@ -187,8 +187,8 @@ MinSampleShadingValueClampingCase::MinSampleShadingValueClampingCase (Context& c
 
 void MinSampleShadingValueClampingCase::init (void)
 {
-	if (!m_context.getContextInfo().isExtensionSupported("GL_OES_sample_shading"))
-		throw tcu::NotSupportedError("Test requires GL_OES_sample_shading extension");
+	if (!contextSupports(m_context.getRenderContext().getType(), glu::ApiType::es(3, 2)) && !m_context.getContextInfo().isExtensionSupported("GL_OES_sample_shading"))
+		throw tcu::NotSupportedError("Test requires GL_OES_sample_shading extension or a context version 3.2 or higher.");
 }
 
 MinSampleShadingValueClampingCase::IterateResult MinSampleShadingValueClampingCase::iterate (void)
@@ -275,8 +275,8 @@ void SampleShadingRenderingCase::init (void)
 {
 	// requirements
 
-	if (!m_context.getContextInfo().isExtensionSupported("GL_OES_sample_shading"))
-		throw tcu::NotSupportedError("Test requires GL_OES_sample_shading extension");
+	if (!contextSupports(m_context.getRenderContext().getType(), glu::ApiType::es(3, 2)) && !m_context.getContextInfo().isExtensionSupported("GL_OES_sample_shading"))
+		throw tcu::NotSupportedError("Test requires GL_OES_sample_shading extension or a context version 3.2 or higher.");
 	if (m_renderTarget == TARGET_DEFAULT && m_context.getRenderTarget().getNumSamples() <= 1)
 		throw tcu::NotSupportedError("Multisampled default framebuffer required");
 
@@ -312,7 +312,7 @@ void SampleShadingRenderingCase::setShadingValue (int sampleCount)
 		// Minimum number of samples is max(ceil(<mss> * <samples>),1). Decrease mss with epsilon to prevent
 		// ceiling to a too large sample count.
 		const float epsilon	= 0.25f / (float)m_numTargetSamples;
-		const float ratio	= (sampleCount / (float)m_numTargetSamples) - epsilon;
+		const float ratio	= ((float)sampleCount / (float)m_numTargetSamples) - epsilon;
 
 		gl.enable(GL_SAMPLE_SHADING);
 		gl.minSampleShading(ratio);
@@ -321,12 +321,12 @@ void SampleShadingRenderingCase::setShadingValue (int sampleCount)
 		m_testCtx.getLog()
 			<< tcu::TestLog::Message
 			<< "Setting MIN_SAMPLE_SHADING_VALUE = " << ratio << "\n"
-			<< "Requested sample count: shadingValue * numSamples = " << ratio << " * " << m_numTargetSamples << " = " << (ratio * m_numTargetSamples) << "\n"
-			<< "Minimum sample count: ceil(shadingValue * numSamples) = ceil(" << (ratio * m_numTargetSamples) << ") = " << sampleCount
+			<< "Requested sample count: shadingValue * numSamples = " << ratio << " * " << m_numTargetSamples << " = " << (ratio * (float)m_numTargetSamples) << "\n"
+			<< "Minimum sample count: ceil(shadingValue * numSamples) = ceil(" << (ratio * (float)m_numTargetSamples) << ") = " << sampleCount
 			<< tcu::TestLog::EndMessage;
 
 		// can't fail with reasonable values of numSamples
-		DE_ASSERT(deFloatCeil(ratio * m_numTargetSamples) == float(sampleCount));
+		DE_ASSERT(deFloatCeil(ratio * (float)m_numTargetSamples) == float(sampleCount));
 	}
 }
 
@@ -405,10 +405,12 @@ bool SampleShadingRenderingCase::verifyImage (const tcu::Surface& resultImage)
 std::string SampleShadingRenderingCase::genFragmentSource (int numSamples) const
 {
 	DE_UNREF(numSamples);
+	const glu::GLSLVersion	version	= contextSupports(m_context.getRenderContext().getType(), glu::ApiType::es(3, 2))
+									? glu::GLSL_VERSION_320_ES
+									: glu::GLSL_VERSION_310_ES;
+	std::ostringstream		buf;
 
-	std::ostringstream buf;
-
-	buf <<	"#version 310 es\n"
+	buf <<	glu::getGLSLVersionDeclaration(version) << "\n"
 			"in highp vec4 v_position;\n"
 			"layout(location = 0) out mediump vec4 fragColor;\n"
 			"void main (void)\n"

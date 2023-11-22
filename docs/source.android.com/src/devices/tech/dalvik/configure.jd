@@ -72,7 +72,7 @@ This file is mapped into memory upon zygote startup. While this consumes
 additional storage (typically 10MB), it speeds zygote startup and creates
 opportunities for the system to swap out some preloaded classes under memory
 pressure. This also contributes to improved <a
-href="http://source.android.com/devices/low-ram.html">low-RAM</a> performance
+href="http://source.android.com/devices/tech/config/low-ram.html">low-RAM</a> performance
 for ART, since in Dalvik much of this class information would have
 been stored in dirty pages in the linear alloc space.
   <li> Dex file compilation uses a tool called dex2oat and takes more time than
@@ -184,6 +184,15 @@ maximally used to improve first boot time.</p>
 
 <pre><code>PRODUCT_DEX_PREOPT_DEFAULT_FLAGS := --compiler-filter=interpret-only
 $(call add-product-dex-preopt-module-config,services,--compiler-filter=space)</code></pre>
+
+<p>These flags can also be used to selectively disable pre-optimization of a
+particular module or package by specifying <code>$(call
+add-product-dex-preopt-module-config,&lt;modules&gt;,disable)</code> in a
+product's device.mk file.</p>
+
+<p>Example usage (in product’s device.mk):</p>
+
+<pre><code>$(call add-product-dex-preopt-module-config,Calculator,disable)</code></pre>
 
 <h2 id=preloaded_classes_list>Preloaded Classes List</h2>
 

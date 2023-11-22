@@ -173,6 +173,13 @@ public class DefaultCMSSignatureAlgorithmNameGenerator
 
     public String getSignatureName(AlgorithmIdentifier digestAlg, AlgorithmIdentifier encryptionAlg)
     {
+        String digestName = getDigestAlgName(encryptionAlg.getAlgorithm());
+
+        if (!digestName.equals(encryptionAlg.getAlgorithm().getId()))
+        {
+            return digestName + "with" + getEncryptionAlgName(encryptionAlg.getAlgorithm());
+        }
+
         return getDigestAlgName(digestAlg.getAlgorithm()) + "with" + getEncryptionAlgName(encryptionAlg.getAlgorithm());
     }
 }

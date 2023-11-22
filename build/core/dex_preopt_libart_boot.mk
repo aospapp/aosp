@@ -28,11 +28,8 @@ $(my_2nd_arch_prefix)LIBART_BOOT_IMAGE_FILENAME := /$(DEXPREOPT_BOOT_JAR_DIR)/$(
 $(my_2nd_arch_prefix)LIBART_TARGET_BOOT_OAT_UNSTRIPPED := $(TARGET_OUT_UNSTRIPPED)$(patsubst %.art,%.oat,$($(my_2nd_arch_prefix)LIBART_BOOT_IMAGE_FILENAME))
 
 $(my_2nd_arch_prefix)DEFAULT_DEX_PREOPT_INSTALLED_IMAGE := $(PRODUCT_OUT)$($(my_2nd_arch_prefix)LIBART_BOOT_IMAGE_FILENAME)
-
-# Compile boot.oat as position-independent code if WITH_DEXPREOPT_PIC=true
-ifeq (true,$(WITH_DEXPREOPT_PIC))
-  PRODUCT_DEX_PREOPT_BOOT_FLAGS += --compile-pic
-endif
+$(my_2nd_arch_prefix)LIBART_TARGET_BOOT_ART_EXTRA_INSTALLED_FILES := $(addprefix $(dir $($(my_2nd_arch_prefix)DEFAULT_DEX_PREOPT_INSTALLED_IMAGE)),\
+    $(LIBART_TARGET_BOOT_ART_EXTRA_FILES))
 
 # If we have a compiled-classes file, create a parameter.
 COMPILED_CLASSES_FLAGS :=
@@ -40,18 +37,30 @@ ifneq ($(COMPILED_CLASSES),)
   COMPILED_CLASSES_FLAGS := --compiled-classes=$(COMPILED_CLASSES)
 endif
 
-# The rule to install boot.art and boot.oat
-$($(my_2nd_arch_prefix)DEFAULT_DEX_PREOPT_INSTALLED_IMAGE) : $($(my_2nd_arch_prefix)DEFAULT_DEX_PREOPT_BUILT_IMAGE_FILENAME) | $(ACP)
-	$(call copy-file-to-target)
-	$(hide) $(ACP) -fp $(patsubst %.art,%.oat,$<) $(patsubst %.art,%.oat,$@)
+# The rule to install boot.art
+# Depends on installed boot.oat, boot-*.art, boot-*.oat
+$($(my_2nd_arch_prefix)DEFAULT_DEX_PREOPT_INSTALLED_IMAGE) : $($(my_2nd_arch_prefix)DEFAULT_DEX_PREOPT_BUILT_IMAGE_FILENAME) | $(ACP) $($(my_2nd_arch_prefix)LIBART_TARGET_BOOT_ART_EXTRA_INSTALLED_FILES)
+	@echo "Install: $@"
+	$(copy-file-to-target)
+
+# The rule to install boot.oat, boot-*.art, boot-*.oat
+# Depends on built-but-not-installed boot.art
+$($(my_2nd_arch_prefix)LIBART_TARGET_BOOT_ART_EXTRA_INSTALLED_FILES) : $($(my_2nd_arch_prefix)DEFAULT_DEX_PREOPT_BUILT_IMAGE_FILENAME)  | $(ACP)
+	@echo "Install: $@"
+	@mkdir -p $(dir $@)
+	$(hide) $(ACP) -fp $(dir $<)$(notdir $@) $@
 
 $($(my_2nd_arch_prefix)DEFAULT_DEX_PREOPT_BUILT_IMAGE_FILENAME): PRIVATE_2ND_ARCH_VAR_PREFIX := $(my_2nd_arch_prefix)
 # Use dex2oat debug version for better error reporting
 $($(my_2nd_arch_prefix)DEFAULT_DEX_PREOPT_BUILT_IMAGE_FILENAME) : $(LIBART_TARGET_BOOT_DEX_FILES) $(DEX2OAT_DEPENDENCY)
-	@echo "target dex2oat: $@ ($?)"
+	@echo "target dex2oat: $@"
 	@mkdir -p $(dir $@)
 	@mkdir -p $(dir $($(PRIVATE_2ND_ARCH_VAR_PREFIX)LIBART_TARGET_BOOT_OAT_UNSTRIPPED))
-	$(hide) $(DEX2OAT) --runtime-arg -Xms$(DEX2OAT_IMAGE_XMS) --runtime-arg -Xmx$(DEX2OAT_IMAGE_XMX) \
+	@rm -f $(dir $@)/*.art $(dir $@)/*.oat
+	@rm -f $(dir $($(PRIVATE_2ND_ARCH_VAR_PREFIX)LIBART_TARGET_BOOT_OAT_UNSTRIPPED))/*.art
+	@rm -f $(dir $($(PRIVATE_2ND_ARCH_VAR_PREFIX)LIBART_TARGET_BOOT_OAT_UNSTRIPPED))/*.oat
+	$(hide) ANDROID_LOG_TAGS="*:e" $(DEX2OAT) --runtime-arg -Xms$(DEX2OAT_IMAGE_XMS) \
+		--runtime-arg -Xmx$(DEX2OAT_IMAGE_XMX) \
 		--image-classes=$(PRELOADED_CLASSES) \
 		$(addprefix --dex-file=,$(LIBART_TARGET_BOOT_DEX_FILES)) \
 		$(addprefix --dex-location=,$(LIBART_TARGET_BOOT_DEX_LOCATIONS)) \
@@ -63,4 +72,5 @@ $($(my_2nd_arch_prefix)DEFAULT_DEX_PREOPT_BUILT_IMAGE_FILENAME) : $(LIBART_TARGE
 		--instruction-set-variant=$($(PRIVATE_2ND_ARCH_VAR_PREFIX)DEX2OAT_TARGET_CPU_VARIANT) \
 		--instruction-set-features=$($(PRIVATE_2ND_ARCH_VAR_PREFIX)DEX2OAT_TARGET_INSTRUCTION_SET_FEATURES) \
 		--android-root=$(PRODUCT_OUT)/system --include-patch-information --runtime-arg -Xnorelocate --no-generate-debug-info \
-		$(PRODUCT_DEX_PREOPT_BOOT_FLAGS) $(COMPILED_CLASSES_FLAGS)
+		--multi-image --no-inline-from=core-oj.jar \
+		$(PRODUCT_DEX_PREOPT_BOOT_FLAGS) $(GLOBAL_DEXPREOPT_FLAGS) $(COMPILED_CLASSES_FLAGS) $(ART_BOOT_IMAGE_EXTRA_ARGS)

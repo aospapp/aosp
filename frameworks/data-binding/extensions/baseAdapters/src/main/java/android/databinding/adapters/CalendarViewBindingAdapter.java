@@ -15,12 +15,41 @@
  */
 package android.databinding.adapters;
 
-import android.databinding.BindingMethod;
-import android.databinding.BindingMethods;
+import android.databinding.BindingAdapter;
+import android.databinding.InverseBindingListener;
+import android.databinding.InverseBindingMethod;
+import android.databinding.InverseBindingMethods;
 import android.widget.CalendarView;
+import android.widget.CalendarView.OnDateChangeListener;
 
-@BindingMethods({
-        @BindingMethod(type = CalendarView.class, attribute = "android:onSelectedDayChange", method = "setOnDateChangeListener"),
+@InverseBindingMethods({
+        @InverseBindingMethod(type = CalendarView.class, attribute = "android:date"),
 })
 public class CalendarViewBindingAdapter {
+    @BindingAdapter("android:date")
+    public static void setDate(CalendarView view, long date) {
+        if (view.getDate() != date) {
+            view.setDate(date);
+        }
+    }
+
+    @BindingAdapter(value = {"android:onSelectedDayChange", "android:dateAttrChanged"},
+            requireAll = false)
+    public static void setListeners(CalendarView view, final OnDateChangeListener onDayChange,
+            final InverseBindingListener attrChange) {
+        if (attrChange == null) {
+            view.setOnDateChangeListener(onDayChange);
+        } else {
+            view.setOnDateChangeListener(new OnDateChangeListener() {
+                @Override
+                public void onSelectedDayChange(CalendarView view, int year, int month,
+                        int dayOfMonth) {
+                    if (onDayChange != null) {
+                        onDayChange.onSelectedDayChange(view, year, month, dayOfMonth);
+                    }
+                    attrChange.onChange();
+                }
+            });
+        }
+    }
 }

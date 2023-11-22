@@ -21,27 +21,25 @@ class SK_API SkXfermodeImageFilter : public SkImageFilter {
       */
 
 public:
-    virtual ~SkXfermodeImageFilter();
-
-    static SkXfermodeImageFilter* Create(SkXfermode* mode, SkImageFilter* background,
-                                         SkImageFilter* foreground = NULL,
-                                         const CropRect* cropRect = NULL) {
+    static SkImageFilter* Create(SkXfermode* mode, SkImageFilter* background,
+                                 SkImageFilter* foreground = NULL,
+                                 const CropRect* cropRect = NULL) {
         SkImageFilter* inputs[2] = { background, foreground };
-        return SkNEW_ARGS(SkXfermodeImageFilter, (mode, inputs, cropRect));
+        return new SkXfermodeImageFilter(mode, inputs, cropRect);
     }
 
     SK_TO_STRING_OVERRIDE()
     SK_DECLARE_PUBLIC_FLATTENABLE_DESERIALIZATION_PROCS(SkXfermodeImageFilter)
 
-    virtual bool onFilterImage(Proxy* proxy,
-                               const SkBitmap& src,
-                               const Context& ctx,
-                               SkBitmap* dst,
-                               SkIPoint* offset) const override;
+    bool onFilterImageDeprecated(Proxy* proxy,
+                                 const SkBitmap& src,
+                                 const Context& ctx,
+                                 SkBitmap* dst,
+                                 SkIPoint* offset) const override;
 #if SK_SUPPORT_GPU
     bool canFilterImageGPU() const override;
-    virtual bool filterImageGPU(Proxy* proxy, const SkBitmap& src, const Context& ctx,
-                                SkBitmap* result, SkIPoint* offset) const override;
+    bool filterImageGPUDeprecated(Proxy* proxy, const SkBitmap& src, const Context& ctx,
+                                  SkBitmap* result, SkIPoint* offset) const override;
 #endif
 
 protected:
@@ -50,7 +48,7 @@ protected:
     void flatten(SkWriteBuffer&) const override;
 
 private:
-    SkXfermode* fMode;
+    SkAutoTUnref<SkXfermode> fMode;
     typedef SkImageFilter INHERITED;
 };
 

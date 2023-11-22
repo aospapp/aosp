@@ -16,7 +16,7 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 import org.xmlpull.v1.XmlPullParser;
 
@@ -42,7 +42,7 @@ public class TableRow_LayoutParamsTest
     Context mTargetContext;
 
     public TableRow_LayoutParamsTest() {
-        super("com.android.cts.widget", TableCtsActivity.class);
+        super("android.widget.cts", TableCtsActivity.class);
     }
 
     @Override

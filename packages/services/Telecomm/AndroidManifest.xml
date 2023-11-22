@@ -20,6 +20,8 @@
         coreApp="true"
         android:sharedUserId="android.uid.system">
 
+    <protected-broadcast android:name="android.intent.action.SHOW_MISSED_CALLS_NOTIFICATION" />
+
     <!-- Prevents the activity manager from delaying any activity-start
          requests by this package, including requests immediately after
          the user presses "home". -->
@@ -39,6 +41,8 @@
     <uses-permission android:name="android.permission.STOP_APP_SWITCHES" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WRITE_CALL_LOG" />
+    <uses-permission android:name="android.permission.READ_BLOCKED_NUMBERS" />
+    <uses-permission android:name="android.permission.WRITE_BLOCKED_NUMBERS" />
 
     <permission
             android:name="android.permission.BROADCAST_CALLLOG_INFO"
@@ -60,16 +64,14 @@
             android:label="Process phone account registration"
             android:protectionLevel="signature|system"/>
 
-    <!-- Declare which SDK level this application was built against. This is needed so that IDEs
-         can check for incompatible APIs. -->
-    <uses-sdk android:minSdkVersion="19" />
-
     <application android:label="@string/telecommAppLabel"
             android:icon="@mipmap/ic_launcher_phone"
             android:allowBackup="false"
             android:supportsRtl="true"
             android:process="system"
-            android:usesCleartextTraffic="false">
+            android:usesCleartextTraffic="false"
+            android:defaultToDeviceProtectedStorage="true"
+            android:directBootAware="true">
 
         <!-- CALL vs CALL_PRIVILEGED vs CALL_EMERGENCY
              We have three different intents through which a call can be initiated each with its
@@ -83,6 +85,18 @@
              3) CALL_EMERGENCY - Expected from the emergency dialer app and requires CALL_PRIVILEGED
              permission. Through this intent, an app can call *only* emergency numbers. -->
 
+        <!-- Activity that displays UI for managing blocked numbers. -->
+        <activity android:name=".settings.BlockedNumbersActivity"
+                  android:label="@string/blocked_numbers"
+                  android:configChanges="orientation|screenSize|keyboardHidden"
+                  android:theme="@style/Theme.Telecom.BlockedNumbers"
+                  android:process=":ui"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="android.telecom.action.MANAGE_BLOCKED_NUMBERS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
         <!-- Activity that starts the outgoing call process by listening to CALL intent which
              contain contact information in the intent's data. CallActivity handles any data
              URL with the schemes "tel", "sip", and "voicemail". It also handles URLs linked to

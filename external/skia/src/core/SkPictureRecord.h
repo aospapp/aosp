@@ -12,7 +12,9 @@
 #include "SkFlattenable.h"
 #include "SkPicture.h"
 #include "SkPictureData.h"
-#include "SkTemplates.h"
+#include "SkTArray.h"
+#include "SkTDArray.h"
+#include "SkTHash.h"
 #include "SkWriter32.h"
 
 // These macros help with packing and unpacking a single byte value and
@@ -29,16 +31,16 @@ public:
     SkPictureRecord(const SkISize& dimensions, uint32_t recordFlags);
     virtual ~SkPictureRecord();
 
-    void beginCommentGroup(const char* description) override;
-    void addComment(const char* kywd, const char* value) override;
-    void endCommentGroup() override;
-
     const SkTDArray<const SkPicture* >& getPictureRefs() const {
         return fPictureRefs;
     }
 
     const SkTDArray<const SkTextBlob* >& getTextBlobRefs() const {
         return fTextBlobRefs;
+    }
+
+    const SkTDArray<const SkImage* >& getImageRefs() const {
+        return fImageRefs;
     }
 
     SkData* opData(bool deepCopy) const {
@@ -122,6 +124,7 @@ private:
     }
 
     void addBitmap(const SkBitmap& bitmap);
+    void addImage(const SkImage*);
     void addMatrix(const SkMatrix& matrix);
     void addPaint(const SkPaint& paint) { this->addPaintPtr(&paint); }
     void addPaintPtr(const SkPaint* paint);
@@ -147,12 +150,10 @@ protected:
     }
 
     SkSurface* onNewSurface(const SkImageInfo&, const SkSurfaceProps&) override;
-    const void* onPeekPixels(SkImageInfo*, size_t*) override {
-        return NULL;
-    }
+    bool onPeekPixels(SkPixmap*) override { return false; }
 
     void willSave() override;
-    SaveLayerStrategy willSaveLayer(const SkRect*, const SkPaint*, SaveFlags) override;
+    SaveLayerStrategy getSaveLayerStrategy(const SaveLayerRec&) override;
     void willRestore() override;
 
     void didConcat(const SkMatrix&) override;
@@ -160,20 +161,20 @@ protected:
 
     void onDrawDRRect(const SkRRect&, const SkRRect&, const SkPaint&) override;
 
-    virtual void onDrawText(const void* text, size_t byteLength, SkScalar x, SkScalar y,
-                            const SkPaint&) override;
-    virtual void onDrawPosText(const void* text, size_t byteLength, const SkPoint pos[],
-                               const SkPaint&) override;
-    virtual void onDrawPosTextH(const void* text, size_t byteLength, const SkScalar xpos[],
-                                SkScalar constY, const SkPaint&) override;
-    virtual void onDrawTextOnPath(const void* text, size_t byteLength, const SkPath& path,
+    void onDrawText(const void* text, size_t, SkScalar x, SkScalar y, const SkPaint&) override;
+    void onDrawPosText(const void* text, size_t, const SkPoint pos[], const SkPaint&) override;
+    void onDrawPosTextH(const void* text, size_t, const SkScalar xpos[], SkScalar constY,
+                        const SkPaint&) override;
+    void onDrawTextOnPath(const void* text, size_t byteLength, const SkPath& path,
                                   const SkMatrix* matrix, const SkPaint&) override;
-    virtual void onDrawTextBlob(const SkTextBlob* blob, SkScalar x, SkScalar y,
+    void onDrawTextBlob(const SkTextBlob* blob, SkScalar x, SkScalar y,
                                 const SkPaint& paint) override;
 
-    virtual void onDrawPatch(const SkPoint cubics[12], const SkColor colors[4],
+    void onDrawPatch(const SkPoint cubics[12], const SkColor colors[4],
                              const SkPoint texCoords[4], SkXfermode* xmode,
                              const SkPaint& paint) override;
+    void onDrawAtlas(const SkImage*, const SkRSXform[], const SkRect[], const SkColor[], int,
+                     SkXfermode::Mode, const SkRect*, const SkPaint*) override;
 
     void onDrawPaint(const SkPaint&) override;
     void onDrawPoints(PointMode, size_t count, const SkPoint pts[], const SkPaint&) override;
@@ -183,13 +184,14 @@ protected:
     void onDrawPath(const SkPath&, const SkPaint&) override;
     void onDrawBitmap(const SkBitmap&, SkScalar left, SkScalar top, const SkPaint*) override;
     void onDrawBitmapRect(const SkBitmap&, const SkRect* src, const SkRect& dst, const SkPaint*,
-                          DrawBitmapRectFlags flags) override;
+                          SrcRectConstraint) override;
     void onDrawImage(const SkImage*, SkScalar left, SkScalar top, const SkPaint*) override;
     void onDrawImageRect(const SkImage*, const SkRect* src, const SkRect& dst,
+                         const SkPaint*, SrcRectConstraint) override;
+    void onDrawImageNine(const SkImage*, const SkIRect& center, const SkRect& dst,
                          const SkPaint*) override;
     void onDrawBitmapNine(const SkBitmap&, const SkIRect& center, const SkRect& dst,
                           const SkPaint*) override;
-    void onDrawSprite(const SkBitmap&, int left, int top, const SkPaint*) override;
     void onDrawVertices(VertexMode vmode, int vertexCount,
                         const SkPoint vertices[], const SkPoint texs[],
                         const SkColor colors[], SkXfermode* xmode,
@@ -216,7 +218,7 @@ protected:
     size_t recordClipPath(int pathID, SkRegion::Op op, bool doAA);
     size_t recordClipRegion(const SkRegion& region, SkRegion::Op op);
     void recordSave();
-    void recordSaveLayer(const SkRect* bounds, const SkPaint* paint, SaveFlags flags);
+    void recordSaveLayer(const SaveLayerRec&);
     void recordRestore(bool fillInSkips = true);
 
 private:
@@ -224,11 +226,16 @@ private:
 
     SkTArray<SkBitmap> fBitmaps;
     SkTArray<SkPaint>  fPaints;
-    SkTArray<SkPath>   fPaths;
+
+    struct PathHash {
+        uint32_t operator()(const SkPath& p) { return p.getGenerationID(); }
+    };
+    SkTHashMap<SkPath, int, PathHash> fPaths;
 
     SkWriter32 fWriter;
 
     // we ref each item in these arrays
+    SkTDArray<const SkImage*>    fImageRefs;
     SkTDArray<const SkPicture*>  fPictureRefs;
     SkTDArray<const SkTextBlob*> fTextBlobRefs;
 

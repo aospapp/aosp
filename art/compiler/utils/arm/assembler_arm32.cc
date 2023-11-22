@@ -48,135 +48,118 @@ bool Arm32Assembler::ShifterOperandCanHoldArm32(uint32_t immediate, ShifterOpera
   return false;
 }
 
+bool Arm32Assembler::ShifterOperandCanAlwaysHold(uint32_t immediate) {
+  ShifterOperand shifter_op;
+  return ShifterOperandCanHoldArm32(immediate, &shifter_op);
+}
+
 bool Arm32Assembler::ShifterOperandCanHold(Register rd ATTRIBUTE_UNUSED,
                                            Register rn ATTRIBUTE_UNUSED,
                                            Opcode opcode ATTRIBUTE_UNUSED,
                                            uint32_t immediate,
+                                           SetCc set_cc ATTRIBUTE_UNUSED,
                                            ShifterOperand* shifter_op) {
   return ShifterOperandCanHoldArm32(immediate, shifter_op);
 }
 
 void Arm32Assembler::and_(Register rd, Register rn, const ShifterOperand& so,
-                        Condition cond) {
-  EmitType01(cond, so.type(), AND, 0, rn, rd, so);
+                          Condition cond, SetCc set_cc) {
+  EmitType01(cond, so.type(), AND, set_cc, rn, rd, so);
 }
 
 
 void Arm32Assembler::eor(Register rd, Register rn, const ShifterOperand& so,
-                       Condition cond) {
-  EmitType01(cond, so.type(), EOR, 0, rn, rd, so);
+                         Condition cond, SetCc set_cc) {
+  EmitType01(cond, so.type(), EOR, set_cc, rn, rd, so);
 }
 
 
 void Arm32Assembler::sub(Register rd, Register rn, const ShifterOperand& so,
-                       Condition cond) {
-  EmitType01(cond, so.type(), SUB, 0, rn, rd, so);
+                         Condition cond, SetCc set_cc) {
+  EmitType01(cond, so.type(), SUB, set_cc, rn, rd, so);
 }
 
 void Arm32Assembler::rsb(Register rd, Register rn, const ShifterOperand& so,
-                       Condition cond) {
-  EmitType01(cond, so.type(), RSB, 0, rn, rd, so);
+                         Condition cond, SetCc set_cc) {
+  EmitType01(cond, so.type(), RSB, set_cc, rn, rd, so);
 }
-
-void Arm32Assembler::rsbs(Register rd, Register rn, const ShifterOperand& so,
-                        Condition cond) {
-  EmitType01(cond, so.type(), RSB, 1, rn, rd, so);
-}
-
 
 void Arm32Assembler::add(Register rd, Register rn, const ShifterOperand& so,
-                       Condition cond) {
-  EmitType01(cond, so.type(), ADD, 0, rn, rd, so);
-}
-
-
-void Arm32Assembler::adds(Register rd, Register rn, const ShifterOperand& so,
-                        Condition cond) {
-  EmitType01(cond, so.type(), ADD, 1, rn, rd, so);
-}
-
-
-void Arm32Assembler::subs(Register rd, Register rn, const ShifterOperand& so,
-                        Condition cond) {
-  EmitType01(cond, so.type(), SUB, 1, rn, rd, so);
+                         Condition cond, SetCc set_cc) {
+  EmitType01(cond, so.type(), ADD, set_cc, rn, rd, so);
 }
 
 
 void Arm32Assembler::adc(Register rd, Register rn, const ShifterOperand& so,
-                       Condition cond) {
-  EmitType01(cond, so.type(), ADC, 0, rn, rd, so);
+                         Condition cond, SetCc set_cc) {
+  EmitType01(cond, so.type(), ADC, set_cc, rn, rd, so);
 }
 
 
 void Arm32Assembler::sbc(Register rd, Register rn, const ShifterOperand& so,
-                       Condition cond) {
-  EmitType01(cond, so.type(), SBC, 0, rn, rd, so);
+                         Condition cond, SetCc set_cc) {
+  EmitType01(cond, so.type(), SBC, set_cc, rn, rd, so);
 }
 
 
 void Arm32Assembler::rsc(Register rd, Register rn, const ShifterOperand& so,
-                       Condition cond) {
-  EmitType01(cond, so.type(), RSC, 0, rn, rd, so);
+                         Condition cond, SetCc set_cc) {
+  EmitType01(cond, so.type(), RSC, set_cc, rn, rd, so);
 }
 
 
 void Arm32Assembler::tst(Register rn, const ShifterOperand& so, Condition cond) {
   CHECK_NE(rn, PC);  // Reserve tst pc instruction for exception handler marker.
-  EmitType01(cond, so.type(), TST, 1, rn, R0, so);
+  EmitType01(cond, so.type(), TST, kCcSet, rn, R0, so);
 }
 
 
 void Arm32Assembler::teq(Register rn, const ShifterOperand& so, Condition cond) {
   CHECK_NE(rn, PC);  // Reserve teq pc instruction for exception handler marker.
-  EmitType01(cond, so.type(), TEQ, 1, rn, R0, so);
+  EmitType01(cond, so.type(), TEQ, kCcSet, rn, R0, so);
 }
 
 
 void Arm32Assembler::cmp(Register rn, const ShifterOperand& so, Condition cond) {
-  EmitType01(cond, so.type(), CMP, 1, rn, R0, so);
+  EmitType01(cond, so.type(), CMP, kCcSet, rn, R0, so);
 }
 
 
 void Arm32Assembler::cmn(Register rn, const ShifterOperand& so, Condition cond) {
-  EmitType01(cond, so.type(), CMN, 1, rn, R0, so);
+  EmitType01(cond, so.type(), CMN, kCcSet, rn, R0, so);
 }
 
 
-void Arm32Assembler::orr(Register rd, Register rn,
-                    const ShifterOperand& so, Condition cond) {
-  EmitType01(cond, so.type(), ORR, 0, rn, rd, so);
+void Arm32Assembler::orr(Register rd, Register rn, const ShifterOperand& so,
+                         Condition cond, SetCc set_cc) {
+  EmitType01(cond, so.type(), ORR, set_cc, rn, rd, so);
 }
 
 
-void Arm32Assembler::orrs(Register rd, Register rn,
-                        const ShifterOperand& so, Condition cond) {
-  EmitType01(cond, so.type(), ORR, 1, rn, rd, so);
+void Arm32Assembler::orn(Register rd ATTRIBUTE_UNUSED,
+                         Register rn ATTRIBUTE_UNUSED,
+                         const ShifterOperand& so ATTRIBUTE_UNUSED,
+                         Condition cond ATTRIBUTE_UNUSED,
+                         SetCc set_cc ATTRIBUTE_UNUSED) {
+  LOG(FATAL) << "orn is not supported on ARM32";
 }
 
 
-void Arm32Assembler::mov(Register rd, const ShifterOperand& so, Condition cond) {
-  EmitType01(cond, so.type(), MOV, 0, R0, rd, so);
-}
-
-
-void Arm32Assembler::movs(Register rd, const ShifterOperand& so, Condition cond) {
-  EmitType01(cond, so.type(), MOV, 1, R0, rd, so);
+void Arm32Assembler::mov(Register rd, const ShifterOperand& so,
+                         Condition cond, SetCc set_cc) {
+  EmitType01(cond, so.type(), MOV, set_cc, R0, rd, so);
 }
 
 
 void Arm32Assembler::bic(Register rd, Register rn, const ShifterOperand& so,
-                       Condition cond) {
-  EmitType01(cond, so.type(), BIC, 0, rn, rd, so);
+                         Condition cond, SetCc set_cc) {
+  EmitType01(cond, so.type(), BIC, set_cc, rn, rd, so);
 }
 
 
-void Arm32Assembler::mvn(Register rd, const ShifterOperand& so, Condition cond) {
-  EmitType01(cond, so.type(), MVN, 0, R0, rd, so);
-}
-
-
-void Arm32Assembler::mvns(Register rd, const ShifterOperand& so, Condition cond) {
-  EmitType01(cond, so.type(), MVN, 1, R0, rd, so);
+void Arm32Assembler::mvn(Register rd, const ShifterOperand& so,
+                         Condition cond, SetCc set_cc) {
+  EmitType01(cond, so.type(), MVN, set_cc, R0, rd, so);
 }
 
 
@@ -197,6 +180,13 @@ void Arm32Assembler::mls(Register rd, Register rn, Register rm, Register ra,
                          Condition cond) {
   // Assembler registers rd, rn, rm, ra are encoded as rn, rm, rs, rd.
   EmitMulOp(cond, B22 | B21, ra, rd, rn, rm);
+}
+
+
+void Arm32Assembler::smull(Register rd_lo, Register rd_hi, Register rn,
+                           Register rm, Condition cond) {
+  // Assembler registers rd_lo, rd_hi, rn, rm are encoded as rd, rn, rm, rs.
+  EmitMulOp(cond, B23 | B22, rd_lo, rd_hi, rn, rm);
 }
 
 
@@ -566,7 +556,7 @@ void Arm32Assembler::bl(Label* label, Condition cond) {
 
 
 void Arm32Assembler::MarkExceptionHandler(Label* label) {
-  EmitType01(AL, 1, TST, 1, PC, R0, ShifterOperand(0));
+  EmitType01(AL, 1, TST, kCcSet, PC, R0, ShifterOperand(0));
   Label l;
   b(&l);
   EmitBranch(AL, label, false);
@@ -583,7 +573,7 @@ void Arm32Assembler::Emit(int32_t value) {
 void Arm32Assembler::EmitType01(Condition cond,
                                 int type,
                                 Opcode opcode,
-                                int set_cc,
+                                SetCc set_cc,
                                 Register rn,
                                 Register rd,
                                 const ShifterOperand& so) {
@@ -592,7 +582,7 @@ void Arm32Assembler::EmitType01(Condition cond,
   int32_t encoding = static_cast<int32_t>(cond) << kConditionShift |
                      type << kTypeShift |
                      static_cast<int32_t>(opcode) << kOpcodeShift |
-                     set_cc << kSShift |
+                     (set_cc == kCcSet ? 1 : 0) << kSShift |
                      static_cast<int32_t>(rn) << kRnShift |
                      static_cast<int32_t>(rd) << kRdShift |
                      so.encodingArm();
@@ -757,6 +747,64 @@ void Arm32Assembler::movt(Register rd, uint16_t imm16, Condition cond) {
                      B25 | B24 | B22 | ((imm16 >> 12) << 16) |
                      static_cast<int32_t>(rd) << kRdShift | (imm16 & 0xfff);
   Emit(encoding);
+}
+
+
+void Arm32Assembler::EmitMiscellaneous(Condition cond, uint8_t op1,
+                                       uint8_t op2, uint32_t a_part,
+                                       uint32_t rest) {
+  int32_t encoding = (static_cast<int32_t>(cond) << kConditionShift) |
+                      B26 | B25 | B23 |
+                      (op1 << 20) |
+                      (a_part << 16) |
+                      (op2 << 5) |
+                      B4 |
+                      rest;
+  Emit(encoding);
+}
+
+
+void Arm32Assembler::EmitReverseBytes(Register rd, Register rm, Condition cond,
+                                      uint8_t op1, uint8_t op2) {
+  CHECK_NE(rd, kNoRegister);
+  CHECK_NE(rm, kNoRegister);
+  CHECK_NE(cond, kNoCondition);
+  CHECK_NE(rd, PC);
+  CHECK_NE(rm, PC);
+
+  int32_t encoding = (static_cast<int32_t>(rd) << kRdShift) |
+                     (0b1111 << 8) |
+                     static_cast<int32_t>(rm);
+  EmitMiscellaneous(cond, op1, op2, 0b1111, encoding);
+}
+
+
+void Arm32Assembler::rbit(Register rd, Register rm, Condition cond) {
+  CHECK_NE(rd, kNoRegister);
+  CHECK_NE(rm, kNoRegister);
+  CHECK_NE(cond, kNoCondition);
+  CHECK_NE(rd, PC);
+  CHECK_NE(rm, PC);
+  int32_t encoding = (static_cast<int32_t>(cond) << kConditionShift) |
+                     B26 | B25 | B23 | B22 | B21 | B20 | (0xf << 16) |
+                     (static_cast<int32_t>(rd) << kRdShift) |
+                     (0xf << 8) | B5 | B4 | static_cast<int32_t>(rm);
+  Emit(encoding);
+}
+
+
+void Arm32Assembler::rev(Register rd, Register rm, Condition cond) {
+  EmitReverseBytes(rd, rm, cond, 0b011, 0b001);
+}
+
+
+void Arm32Assembler::rev16(Register rd, Register rm, Condition cond) {
+  EmitReverseBytes(rd, rm, cond, 0b011, 0b101);
+}
+
+
+void Arm32Assembler::revsh(Register rd, Register rm, Condition cond) {
+  EmitReverseBytes(rd, rm, cond, 0b111, 0b101);
 }
 
 
@@ -1151,96 +1199,60 @@ void Arm32Assembler::EmitVFPds(Condition cond, int32_t opcode,
 
 
 void Arm32Assembler::Lsl(Register rd, Register rm, uint32_t shift_imm,
-                         bool setcc, Condition cond) {
+                         Condition cond, SetCc set_cc) {
   CHECK_LE(shift_imm, 31u);
-  if (setcc) {
-    movs(rd, ShifterOperand(rm, LSL, shift_imm), cond);
-  } else {
-    mov(rd, ShifterOperand(rm, LSL, shift_imm), cond);
-  }
+  mov(rd, ShifterOperand(rm, LSL, shift_imm), cond, set_cc);
 }
 
 
 void Arm32Assembler::Lsr(Register rd, Register rm, uint32_t shift_imm,
-                         bool setcc, Condition cond) {
+                         Condition cond, SetCc set_cc) {
   CHECK(1u <= shift_imm && shift_imm <= 32u);
   if (shift_imm == 32) shift_imm = 0;  // Comply to UAL syntax.
-  if (setcc) {
-    movs(rd, ShifterOperand(rm, LSR, shift_imm), cond);
-  } else {
-    mov(rd, ShifterOperand(rm, LSR, shift_imm), cond);
-  }
+  mov(rd, ShifterOperand(rm, LSR, shift_imm), cond, set_cc);
 }
 
 
 void Arm32Assembler::Asr(Register rd, Register rm, uint32_t shift_imm,
-                         bool setcc, Condition cond) {
+                         Condition cond, SetCc set_cc) {
   CHECK(1u <= shift_imm && shift_imm <= 32u);
   if (shift_imm == 32) shift_imm = 0;  // Comply to UAL syntax.
-  if (setcc) {
-    movs(rd, ShifterOperand(rm, ASR, shift_imm), cond);
-  } else {
-    mov(rd, ShifterOperand(rm, ASR, shift_imm), cond);
-  }
+  mov(rd, ShifterOperand(rm, ASR, shift_imm), cond, set_cc);
 }
 
 
 void Arm32Assembler::Ror(Register rd, Register rm, uint32_t shift_imm,
-                         bool setcc, Condition cond) {
+                         Condition cond, SetCc set_cc) {
   CHECK(1u <= shift_imm && shift_imm <= 31u);
-  if (setcc) {
-    movs(rd, ShifterOperand(rm, ROR, shift_imm), cond);
-  } else {
-    mov(rd, ShifterOperand(rm, ROR, shift_imm), cond);
-  }
+  mov(rd, ShifterOperand(rm, ROR, shift_imm), cond, set_cc);
 }
 
-void Arm32Assembler::Rrx(Register rd, Register rm, bool setcc, Condition cond) {
-  if (setcc) {
-    movs(rd, ShifterOperand(rm, ROR, 0), cond);
-  } else {
-    mov(rd, ShifterOperand(rm, ROR, 0), cond);
-  }
+void Arm32Assembler::Rrx(Register rd, Register rm, Condition cond, SetCc set_cc) {
+  mov(rd, ShifterOperand(rm, ROR, 0), cond, set_cc);
 }
 
 
 void Arm32Assembler::Lsl(Register rd, Register rm, Register rn,
-                         bool setcc, Condition cond) {
-  if (setcc) {
-    movs(rd, ShifterOperand(rm, LSL, rn), cond);
-  } else {
-    mov(rd, ShifterOperand(rm, LSL, rn), cond);
-  }
+                         Condition cond, SetCc set_cc) {
+  mov(rd, ShifterOperand(rm, LSL, rn), cond, set_cc);
 }
 
 
 void Arm32Assembler::Lsr(Register rd, Register rm, Register rn,
-                         bool setcc, Condition cond) {
-  if (setcc) {
-    movs(rd, ShifterOperand(rm, LSR, rn), cond);
-  } else {
-    mov(rd, ShifterOperand(rm, LSR, rn), cond);
-  }
+                         Condition cond, SetCc set_cc) {
+  mov(rd, ShifterOperand(rm, LSR, rn), cond, set_cc);
 }
 
 
 void Arm32Assembler::Asr(Register rd, Register rm, Register rn,
-                         bool setcc, Condition cond) {
-  if (setcc) {
-    movs(rd, ShifterOperand(rm, ASR, rn), cond);
-  } else {
-    mov(rd, ShifterOperand(rm, ASR, rn), cond);
-  }
+                         Condition cond, SetCc set_cc) {
+  mov(rd, ShifterOperand(rm, ASR, rn), cond, set_cc);
 }
 
 
 void Arm32Assembler::Ror(Register rd, Register rm, Register rn,
-                         bool setcc, Condition cond) {
-  if (setcc) {
-    movs(rd, ShifterOperand(rm, ROR, rn), cond);
-  } else {
-    mov(rd, ShifterOperand(rm, ROR, rn), cond);
-  }
+                         Condition cond, SetCc set_cc) {
+  mov(rd, ShifterOperand(rm, ROR, rn), cond, set_cc);
 }
 
 void Arm32Assembler::vmstat(Condition cond) {  // VMRS APSR_nzcv, FPSCR
@@ -1347,16 +1359,47 @@ int Arm32Assembler::DecodeBranchOffset(int32_t inst) {
 }
 
 
-void Arm32Assembler::AddConstant(Register rd, int32_t value, Condition cond) {
-  AddConstant(rd, rd, value, cond);
+uint32_t Arm32Assembler::GetAdjustedPosition(uint32_t old_position ATTRIBUTE_UNUSED) {
+  LOG(FATAL) << "Unimplemented.";
+  UNREACHABLE();
+}
+
+Literal* Arm32Assembler::NewLiteral(size_t size ATTRIBUTE_UNUSED,
+                                    const uint8_t* data ATTRIBUTE_UNUSED)  {
+  LOG(FATAL) << "Unimplemented.";
+  UNREACHABLE();
+}
+
+void Arm32Assembler::LoadLiteral(Register rt ATTRIBUTE_UNUSED,
+                                 Literal* literal ATTRIBUTE_UNUSED)  {
+  LOG(FATAL) << "Unimplemented.";
+  UNREACHABLE();
+}
+
+void Arm32Assembler::LoadLiteral(Register rt ATTRIBUTE_UNUSED, Register rt2 ATTRIBUTE_UNUSED,
+                                 Literal* literal ATTRIBUTE_UNUSED)  {
+  LOG(FATAL) << "Unimplemented.";
+  UNREACHABLE();
+}
+
+void Arm32Assembler::LoadLiteral(SRegister sd ATTRIBUTE_UNUSED,
+                                 Literal* literal ATTRIBUTE_UNUSED)  {
+  LOG(FATAL) << "Unimplemented.";
+  UNREACHABLE();
+}
+
+void Arm32Assembler::LoadLiteral(DRegister dd ATTRIBUTE_UNUSED,
+                                 Literal* literal ATTRIBUTE_UNUSED) {
+  LOG(FATAL) << "Unimplemented.";
+  UNREACHABLE();
 }
 
 
 void Arm32Assembler::AddConstant(Register rd, Register rn, int32_t value,
-                                 Condition cond) {
-  if (value == 0) {
+                                 Condition cond, SetCc set_cc) {
+  if (value == 0 && set_cc != kCcSet) {
     if (rd != rn) {
-      mov(rd, ShifterOperand(rn), cond);
+      mov(rd, ShifterOperand(rn), cond, set_cc);
     }
     return;
   }
@@ -1365,52 +1408,41 @@ void Arm32Assembler::AddConstant(Register rd, Register rn, int32_t value,
   // the readability of generated code for some constants.
   ShifterOperand shifter_op;
   if (ShifterOperandCanHoldArm32(value, &shifter_op)) {
-    add(rd, rn, shifter_op, cond);
+    add(rd, rn, shifter_op, cond, set_cc);
   } else if (ShifterOperandCanHoldArm32(-value, &shifter_op)) {
-    sub(rd, rn, shifter_op, cond);
+    sub(rd, rn, shifter_op, cond, set_cc);
   } else {
     CHECK(rn != IP);
     if (ShifterOperandCanHoldArm32(~value, &shifter_op)) {
-      mvn(IP, shifter_op, cond);
-      add(rd, rn, ShifterOperand(IP), cond);
+      mvn(IP, shifter_op, cond, kCcKeep);
+      add(rd, rn, ShifterOperand(IP), cond, set_cc);
     } else if (ShifterOperandCanHoldArm32(~(-value), &shifter_op)) {
-      mvn(IP, shifter_op, cond);
-      sub(rd, rn, ShifterOperand(IP), cond);
+      mvn(IP, shifter_op, cond, kCcKeep);
+      sub(rd, rn, ShifterOperand(IP), cond, set_cc);
     } else {
       movw(IP, Low16Bits(value), cond);
       uint16_t value_high = High16Bits(value);
       if (value_high != 0) {
         movt(IP, value_high, cond);
       }
-      add(rd, rn, ShifterOperand(IP), cond);
+      add(rd, rn, ShifterOperand(IP), cond, set_cc);
     }
   }
 }
 
-
-void Arm32Assembler::AddConstantSetFlags(Register rd, Register rn, int32_t value,
-                                         Condition cond) {
+void Arm32Assembler::CmpConstant(Register rn, int32_t value, Condition cond) {
   ShifterOperand shifter_op;
   if (ShifterOperandCanHoldArm32(value, &shifter_op)) {
-    adds(rd, rn, shifter_op, cond);
-  } else if (ShifterOperandCanHoldArm32(-value, &shifter_op)) {
-    subs(rd, rn, shifter_op, cond);
+    cmp(rn, shifter_op, cond);
+  } else if (ShifterOperandCanHoldArm32(~value, &shifter_op)) {
+    cmn(rn, shifter_op, cond);
   } else {
-    CHECK(rn != IP);
-    if (ShifterOperandCanHoldArm32(~value, &shifter_op)) {
-      mvn(IP, shifter_op, cond);
-      adds(rd, rn, ShifterOperand(IP), cond);
-    } else if (ShifterOperandCanHoldArm32(~(-value), &shifter_op)) {
-      mvn(IP, shifter_op, cond);
-      subs(rd, rn, ShifterOperand(IP), cond);
-    } else {
-      movw(IP, Low16Bits(value), cond);
-      uint16_t value_high = High16Bits(value);
-      if (value_high != 0) {
-        movt(IP, value_high, cond);
-      }
-      adds(rd, rn, ShifterOperand(IP), cond);
+    movw(IP, Low16Bits(value), cond);
+    uint16_t value_high = High16Bits(value);
+    if (value_high != 0) {
+      movt(IP, value_high, cond);
     }
+    cmp(rn, ShifterOperand(IP), cond);
   }
 }
 
@@ -1612,6 +1644,23 @@ void Arm32Assembler::CompareAndBranchIfNonZero(Register r, Label* label) {
   b(label, NE);
 }
 
+JumpTable* Arm32Assembler::CreateJumpTable(std::vector<Label*>&& labels ATTRIBUTE_UNUSED,
+                                           Register base_reg ATTRIBUTE_UNUSED) {
+  LOG(FATAL) << "CreateJumpTable is not supported on ARM32";
+  UNREACHABLE();
+}
+
+void Arm32Assembler::EmitJumpTableDispatch(JumpTable* jump_table ATTRIBUTE_UNUSED,
+                                           Register displacement_reg ATTRIBUTE_UNUSED) {
+  LOG(FATAL) << "EmitJumpTableDispatch is not supported on ARM32";
+  UNREACHABLE();
+}
+
+void Arm32Assembler::FinalizeCode() {
+  ArmAssembler::FinalizeCode();
+  // Currently the arm32 assembler does not support fixups, and thus no tracking. We must not call
+  // FinalizeTrackedLabels(), which would lead to an abort.
+}
 
 }  // namespace arm
 }  // namespace art

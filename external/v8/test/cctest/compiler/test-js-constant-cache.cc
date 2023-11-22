@@ -2,26 +2,26 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "src/v8.h"
-
+#include "src/assembler.h"
 #include "src/compiler/js-graph.h"
-#include "src/compiler/node-properties-inl.h"
+#include "src/compiler/node-properties.h"
 #include "src/compiler/typer.h"
 #include "src/types.h"
 #include "test/cctest/cctest.h"
 #include "test/cctest/compiler/value-helper.h"
 
-using namespace v8::internal;
-using namespace v8::internal::compiler;
+namespace v8 {
+namespace internal {
+namespace compiler {
 
 class JSCacheTesterHelper {
  protected:
-  explicit JSCacheTesterHelper(Zone* zone)
+  JSCacheTesterHelper(Isolate* isolate, Zone* zone)
       : main_graph_(zone),
         main_common_(zone),
         main_javascript_(zone),
-        main_typer_(zone),
-        main_machine_() {}
+        main_typer_(isolate, &main_graph_),
+        main_machine_(zone) {}
   Graph main_graph_;
   CommonOperatorBuilder main_common_;
   JSOperatorBuilder main_javascript_;
@@ -30,20 +30,26 @@ class JSCacheTesterHelper {
 };
 
 
+// TODO(dcarney): JSConstantCacheTester inherits from JSGraph???
 class JSConstantCacheTester : public HandleAndZoneScope,
                               public JSCacheTesterHelper,
                               public JSGraph {
  public:
   JSConstantCacheTester()
-      : JSCacheTesterHelper(main_zone()),
-        JSGraph(&main_graph_, &main_common_, &main_javascript_, &main_typer_,
-                &main_machine_) {}
+      : JSCacheTesterHelper(main_isolate(), main_zone()),
+        JSGraph(main_isolate(), &main_graph_, &main_common_, &main_javascript_,
+                nullptr, &main_machine_) {
+    main_graph_.SetStart(main_graph_.NewNode(common()->Start(0)));
+    main_graph_.SetEnd(
+        main_graph_.NewNode(common()->End(1), main_graph_.start()));
+    main_typer_.Run();
+  }
 
-  Type* upper(Node* node) { return NodeProperties::GetBounds(node).upper; }
+  Type* TypeOf(Node* node) { return NodeProperties::GetType(node); }
 
-  Handle<Object> handle(Node* node) {
+  Handle<HeapObject> handle(Node* node) {
     CHECK_EQ(IrOpcode::kHeapConstant, node->opcode());
-    return OpParameter<Unique<Object> >(node).handle();
+    return OpParameter<Handle<HeapObject>>(node);
   }
 
   Factory* factory() { return main_isolate()->factory(); }
@@ -59,11 +65,11 @@ TEST(ZeroConstant1) {
   CHECK_EQ(zero, T.Constant(0));
   CHECK_NE(zero, T.Constant(-0.0));
   CHECK_NE(zero, T.Constant(1.0));
-  CHECK_NE(zero, T.Constant(v8::base::OS::nan_value()));
+  CHECK_NE(zero, T.Constant(std::numeric_limits<double>::quiet_NaN()));
   CHECK_NE(zero, T.Float64Constant(0));
   CHECK_NE(zero, T.Int32Constant(0));
 
-  Type* t = T.upper(zero);
+  Type* t = T.TypeOf(zero);
 
   CHECK(t->Is(Type::Number()));
   CHECK(t->Is(Type::Integral32()));
@@ -84,7 +90,7 @@ TEST(MinusZeroConstant) {
   CHECK_EQ(minus_zero, T.Constant(-0.0));
   CHECK_NE(zero, minus_zero);
 
-  Type* t = T.upper(minus_zero);
+  Type* t = T.TypeOf(minus_zero);
 
   CHECK(t->Is(Type::Number()));
   CHECK(t->Is(Type::MinusZero()));
@@ -97,10 +103,10 @@ TEST(MinusZeroConstant) {
   double zero_value = OpParameter<double>(zero);
   double minus_zero_value = OpParameter<double>(minus_zero);
 
-  CHECK_EQ(0.0, zero_value);
-  CHECK_NE(-0.0, zero_value);
-  CHECK_EQ(-0.0, minus_zero_value);
-  CHECK_NE(0.0, minus_zero_value);
+  CHECK(bit_cast<uint64_t>(0.0) == bit_cast<uint64_t>(zero_value));
+  CHECK(bit_cast<uint64_t>(-0.0) != bit_cast<uint64_t>(zero_value));
+  CHECK(bit_cast<uint64_t>(0.0) != bit_cast<uint64_t>(minus_zero_value));
+  CHECK(bit_cast<uint64_t>(-0.0) == bit_cast<uint64_t>(minus_zero_value));
 }
 
 
@@ -113,11 +119,11 @@ TEST(ZeroConstant2) {
   CHECK_EQ(zero, T.ZeroConstant());
   CHECK_NE(zero, T.Constant(-0.0));
   CHECK_NE(zero, T.Constant(1.0));
-  CHECK_NE(zero, T.Constant(v8::base::OS::nan_value()));
+  CHECK_NE(zero, T.Constant(std::numeric_limits<double>::quiet_NaN()));
   CHECK_NE(zero, T.Float64Constant(0));
   CHECK_NE(zero, T.Int32Constant(0));
 
-  Type* t = T.upper(zero);
+  Type* t = T.TypeOf(zero);
 
   CHECK(t->Is(Type::Number()));
   CHECK(t->Is(Type::Integral32()));
@@ -138,11 +144,11 @@ TEST(OneConstant1) {
   CHECK_EQ(one, T.Constant(1.0));
   CHECK_NE(one, T.Constant(1.01));
   CHECK_NE(one, T.Constant(-1.01));
-  CHECK_NE(one, T.Constant(v8::base::OS::nan_value()));
+  CHECK_NE(one, T.Constant(std::numeric_limits<double>::quiet_NaN()));
   CHECK_NE(one, T.Float64Constant(1.0));
   CHECK_NE(one, T.Int32Constant(1));
 
-  Type* t = T.upper(one);
+  Type* t = T.TypeOf(one);
 
   CHECK(t->Is(Type::Number()));
   CHECK(t->Is(Type::Integral32()));
@@ -163,11 +169,11 @@ TEST(OneConstant2) {
   CHECK_EQ(one, T.Constant(1.0));
   CHECK_NE(one, T.Constant(1.01));
   CHECK_NE(one, T.Constant(-1.01));
-  CHECK_NE(one, T.Constant(v8::base::OS::nan_value()));
+  CHECK_NE(one, T.Constant(std::numeric_limits<double>::quiet_NaN()));
   CHECK_NE(one, T.Float64Constant(1.0));
   CHECK_NE(one, T.Int32Constant(1));
 
-  Type* t = T.upper(one);
+  Type* t = T.TypeOf(one);
 
   CHECK(t->Is(Type::Number()));
   CHECK(t->Is(Type::Integral32()));
@@ -227,7 +233,7 @@ TEST(NumberTypes) {
   FOR_FLOAT64_INPUTS(i) {
     double value = *i;
     Node* node = T.Constant(value);
-    CHECK(T.upper(node)->Equals(Type::Of(value, T.main_zone())));
+    CHECK(T.TypeOf(node)->Is(Type::Of(value, T.main_zone())));
   }
 }
 
@@ -274,18 +280,199 @@ TEST(OddballValues) {
 TEST(OddballTypes) {
   JSConstantCacheTester T;
 
-  CHECK(T.upper(T.UndefinedConstant())->Is(Type::Undefined()));
+  CHECK(T.TypeOf(T.UndefinedConstant())->Is(Type::Undefined()));
   // TODO(dcarney): figure this out.
-  // CHECK(T.upper(T.TheHoleConstant())->Is(Type::Internal()));
-  CHECK(T.upper(T.TrueConstant())->Is(Type::Boolean()));
-  CHECK(T.upper(T.FalseConstant())->Is(Type::Boolean()));
-  CHECK(T.upper(T.NullConstant())->Is(Type::Null()));
-  CHECK(T.upper(T.ZeroConstant())->Is(Type::Number()));
-  CHECK(T.upper(T.OneConstant())->Is(Type::Number()));
-  CHECK(T.upper(T.NaNConstant())->Is(Type::NaN()));
+  // CHECK(T.TypeOf(T.TheHoleConstant())->Is(Type::Internal()));
+  CHECK(T.TypeOf(T.TrueConstant())->Is(Type::Boolean()));
+  CHECK(T.TypeOf(T.FalseConstant())->Is(Type::Boolean()));
+  CHECK(T.TypeOf(T.NullConstant())->Is(Type::Null()));
+  CHECK(T.TypeOf(T.ZeroConstant())->Is(Type::Number()));
+  CHECK(T.TypeOf(T.OneConstant())->Is(Type::Number()));
+  CHECK(T.TypeOf(T.NaNConstant())->Is(Type::NaN()));
 }
 
 
 TEST(ExternalReferences) {
   // TODO(titzer): test canonicalization of external references.
 }
+
+
+static bool Contains(NodeVector* nodes, Node* n) {
+  for (size_t i = 0; i < nodes->size(); i++) {
+    if (nodes->at(i) == n) return true;
+  }
+  return false;
+}
+
+
+static void CheckGetCachedNodesContains(JSConstantCacheTester* T, Node* n) {
+  NodeVector nodes(T->main_zone());
+  T->GetCachedNodes(&nodes);
+  CHECK(Contains(&nodes, n));
+}
+
+
+TEST(JSGraph_GetCachedNodes1) {
+  JSConstantCacheTester T;
+  CheckGetCachedNodesContains(&T, T.TrueConstant());
+  CheckGetCachedNodesContains(&T, T.UndefinedConstant());
+  CheckGetCachedNodesContains(&T, T.TheHoleConstant());
+  CheckGetCachedNodesContains(&T, T.TrueConstant());
+  CheckGetCachedNodesContains(&T, T.FalseConstant());
+  CheckGetCachedNodesContains(&T, T.NullConstant());
+  CheckGetCachedNodesContains(&T, T.ZeroConstant());
+  CheckGetCachedNodesContains(&T, T.OneConstant());
+  CheckGetCachedNodesContains(&T, T.NaNConstant());
+}
+
+
+TEST(JSGraph_GetCachedNodes_int32) {
+  JSConstantCacheTester T;
+
+  int32_t constants[] = {0,  1,  1,   1,   1,   2,   3,   4,  11, 12, 13,
+                         14, 55, -55, -44, -33, -22, -11, 16, 16, 17, 17,
+                         18, 18, 19,  19,  20,  20,  21,  21, 22, 23, 24,
+                         25, 15, 30,  31,  45,  46,  47,  48};
+
+  for (size_t i = 0; i < arraysize(constants); i++) {
+    size_t count_before = T.graph()->NodeCount();
+    NodeVector nodes_before(T.main_zone());
+    T.GetCachedNodes(&nodes_before);
+    Node* n = T.Int32Constant(constants[i]);
+    if (n->id() < count_before) {
+      // An old ID indicates a cached node. It should have been in the set.
+      CHECK(Contains(&nodes_before, n));
+    }
+    // Old or new, it should be in the cached set afterwards.
+    CheckGetCachedNodesContains(&T, n);
+  }
+}
+
+
+TEST(JSGraph_GetCachedNodes_float64) {
+  JSConstantCacheTester T;
+
+  double constants[] = {0,   11.1, 12.2,  13,    14,   55.5, -55.5, -44.4,
+                        -33, -22,  -11,   0,     11.1, 11.1, 12.3,  12.3,
+                        11,  11,   -33.3, -33.3, -22,  -11};
+
+  for (size_t i = 0; i < arraysize(constants); i++) {
+    size_t count_before = T.graph()->NodeCount();
+    NodeVector nodes_before(T.main_zone());
+    T.GetCachedNodes(&nodes_before);
+    Node* n = T.Float64Constant(constants[i]);
+    if (n->id() < count_before) {
+      // An old ID indicates a cached node. It should have been in the set.
+      CHECK(Contains(&nodes_before, n));
+    }
+    // Old or new, it should be in the cached set afterwards.
+    CheckGetCachedNodesContains(&T, n);
+  }
+}
+
+
+TEST(JSGraph_GetCachedNodes_int64) {
+  JSConstantCacheTester T;
+
+  int32_t constants[] = {0,   11,  12, 13, 14, 55, -55, -44, -33,
+                         -22, -11, 16, 16, 17, 17, 18,  18,  19,
+                         19,  20,  20, 21, 21, 22, 23,  24,  25};
+
+  for (size_t i = 0; i < arraysize(constants); i++) {
+    size_t count_before = T.graph()->NodeCount();
+    NodeVector nodes_before(T.main_zone());
+    T.GetCachedNodes(&nodes_before);
+    Node* n = T.Int64Constant(constants[i]);
+    if (n->id() < count_before) {
+      // An old ID indicates a cached node. It should have been in the set.
+      CHECK(Contains(&nodes_before, n));
+    }
+    // Old or new, it should be in the cached set afterwards.
+    CheckGetCachedNodesContains(&T, n);
+  }
+}
+
+
+TEST(JSGraph_GetCachedNodes_number) {
+  JSConstantCacheTester T;
+
+  double constants[] = {0,   11.1, 12.2,  13,    14,   55.5, -55.5, -44.4,
+                        -33, -22,  -11,   0,     11.1, 11.1, 12.3,  12.3,
+                        11,  11,   -33.3, -33.3, -22,  -11};
+
+  for (size_t i = 0; i < arraysize(constants); i++) {
+    size_t count_before = T.graph()->NodeCount();
+    NodeVector nodes_before(T.main_zone());
+    T.GetCachedNodes(&nodes_before);
+    Node* n = T.Constant(constants[i]);
+    if (n->id() < count_before) {
+      // An old ID indicates a cached node. It should have been in the set.
+      CHECK(Contains(&nodes_before, n));
+    }
+    // Old or new, it should be in the cached set afterwards.
+    CheckGetCachedNodesContains(&T, n);
+  }
+}
+
+
+TEST(JSGraph_GetCachedNodes_external) {
+  JSConstantCacheTester T;
+
+  ExternalReference constants[] = {ExternalReference::address_of_min_int(),
+                                   ExternalReference::address_of_min_int(),
+                                   ExternalReference::address_of_min_int(),
+                                   ExternalReference::address_of_one_half(),
+                                   ExternalReference::address_of_one_half(),
+                                   ExternalReference::address_of_min_int(),
+                                   ExternalReference::address_of_the_hole_nan(),
+                                   ExternalReference::address_of_one_half()};
+
+  for (size_t i = 0; i < arraysize(constants); i++) {
+    size_t count_before = T.graph()->NodeCount();
+    NodeVector nodes_before(T.main_zone());
+    T.GetCachedNodes(&nodes_before);
+    Node* n = T.ExternalConstant(constants[i]);
+    if (n->id() < count_before) {
+      // An old ID indicates a cached node. It should have been in the set.
+      CHECK(Contains(&nodes_before, n));
+    }
+    // Old or new, it should be in the cached set afterwards.
+    CheckGetCachedNodesContains(&T, n);
+  }
+}
+
+
+TEST(JSGraph_GetCachedNodes_together) {
+  JSConstantCacheTester T;
+
+  Node* constants[] = {
+      T.TrueConstant(),
+      T.UndefinedConstant(),
+      T.TheHoleConstant(),
+      T.TrueConstant(),
+      T.FalseConstant(),
+      T.NullConstant(),
+      T.ZeroConstant(),
+      T.OneConstant(),
+      T.NaNConstant(),
+      T.Int32Constant(0),
+      T.Int32Constant(1),
+      T.Int64Constant(-2),
+      T.Int64Constant(-4),
+      T.Float64Constant(0.9),
+      T.Float64Constant(V8_INFINITY),
+      T.Constant(0.99),
+      T.Constant(1.11),
+      T.ExternalConstant(ExternalReference::address_of_one_half())};
+
+  NodeVector nodes(T.main_zone());
+  T.GetCachedNodes(&nodes);
+
+  for (size_t i = 0; i < arraysize(constants); i++) {
+    CHECK(Contains(&nodes, constants[i]));
+  }
+}
+
+}  // namespace compiler
+}  // namespace internal
+}  // namespace v8

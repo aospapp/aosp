@@ -335,9 +335,9 @@ public class CalculatorResult extends AlignedTextView {
 
     /*
      * Return the most significant digit position in the given string or Evaluator.INVALID_MSD.
-     * Unlike Evaluator.getMsdPos, we treat a final 1 as significant.
+     * Unlike Evaluator.getMsdIndexOf, we treat a final 1 as significant.
      */
-    public static int getNaiveMsdIndex(String s) {
+    public static int getNaiveMsdIndexOf(String s) {
         int len = s.length();
         for (int i = 0; i < len; ++i) {
             char c = s.charAt(i);
@@ -349,14 +349,14 @@ public class CalculatorResult extends AlignedTextView {
     }
 
     // Format a result returned by Evaluator.getString() into a single line containing ellipses
-    // (if appropriate) and an exponent (if appropriate).  prec is the value that was passed to
-    // getString and thus identifies the significance of the rightmost digit.
+    // (if appropriate) and an exponent (if appropriate).  precOffset is the value that was passed
+    // to getString and thus identifies the significance of the rightmost digit.
     // A value of 1 means the rightmost digits corresponds to tenths.
     // maxDigs is the maximum number of characters in the result.
     // We set lastDisplayedOffset[0] to the offset of the last digit actually appearing in
     // the display.
     // If forcePrecision is true, we make sure that the last displayed digit corresponds to
-    // prec, and allow maxDigs to be exceeded in assing the exponent.
+    // precOffset, and allow maxDigs to be exceeded in assing the exponent.
     // We add two distinct kinds of exponents:
     // (1) If the final result contains the leading digit we use standard scientific notation.
     // (2) If not, we add an exponent corresponding to an interpretation of the final result as
@@ -369,9 +369,13 @@ public class CalculatorResult extends AlignedTextView {
     public String formatResult(String in, int precOffset, int maxDigs, boolean truncated,
             boolean negative, int lastDisplayedOffset[], boolean forcePrecision) {
         final int minusSpace = negative ? 1 : 0;
-        final int msdIndex = truncated ? -1 : getNaiveMsdIndex(in);  // INVALID_MSD is OK.
-        final int decIndex = in.indexOf('.');
+        final int msdIndex = truncated ? -1 : getNaiveMsdIndexOf(in);  // INVALID_MSD is OK.
         String result = in;
+        if (truncated || (negative && result.charAt(0) != '-')) {
+            result = KeyMaps.ELLIPSIS + result.substring(1, result.length());
+            // Ellipsis may be removed again in the type(1) scientific notation case.
+        }
+        final int decIndex = result.indexOf('.');
         lastDisplayedOffset[0] = precOffset;
         if ((decIndex == -1 || msdIndex != Evaluator.INVALID_MSD
                 && msdIndex - decIndex > MAX_LEADING_ZEROES + 1) &&  precOffset != -1) {
@@ -400,42 +404,38 @@ public class CalculatorResult extends AlignedTextView {
                 exponent = initExponent + resLen - msdIndex - 1;
                 hasPoint = true;
             }
-            if (exponent != 0 || truncated) {
-                // Actually add the exponent of either type:
-                if (!forcePrecision) {
-                    int dropDigits;  // Digits to drop to make room for exponent.
-                    if (hasPoint) {
-                        // Type (1) exponent.
-                        // Drop digits even if there is room. Otherwise the scrolling gets jumpy.
-                        dropDigits = expLen(exponent);
-                        if (dropDigits >= result.length() - 1) {
-                            // Jumpy is better than no mantissa.  Probably impossible anyway.
-                            dropDigits = Math.max(result.length() - 2, 0);
-                        }
-                    } else {
-                        // Type (2) exponent.
-                        // Exponent depends on the number of digits we drop, which depends on
-                        // exponent ...
-                        for (dropDigits = 2; expLen(initExponent + dropDigits) > dropDigits;
-                                ++dropDigits) {}
-                        exponent = initExponent + dropDigits;
-                        if (precOffset - dropDigits > mLsdOffset) {
-                            // This can happen if e.g. result = 10^40 + 10^10
-                            // It turns out we would otherwise display ...10e9 because it takes
-                            // the same amount of space as ...1e10 but shows one more digit.
-                            // But we don't want to display a trailing zero, even if it's free.
-                            ++dropDigits;
-                            ++exponent;
-                        }
+            // Exponent can't be zero.
+            // Actually add the exponent of either type:
+            if (!forcePrecision) {
+                int dropDigits;  // Digits to drop to make room for exponent.
+                if (hasPoint) {
+                    // Type (1) exponent.
+                    // Drop digits even if there is room. Otherwise the scrolling gets jumpy.
+                    dropDigits = expLen(exponent);
+                    if (dropDigits >= result.length() - 1) {
+                        // Jumpy is better than no mantissa.  Probably impossible anyway.
+                        dropDigits = Math.max(result.length() - 2, 0);
                     }
-                    result = result.substring(0, result.length() - dropDigits);
-                    lastDisplayedOffset[0] -= dropDigits;
+                } else {
+                    // Type (2) exponent.
+                    // Exponent depends on the number of digits we drop, which depends on
+                    // exponent ...
+                    for (dropDigits = 2; expLen(initExponent + dropDigits) > dropDigits;
+                            ++dropDigits) {}
+                    exponent = initExponent + dropDigits;
+                    if (precOffset - dropDigits > mLsdOffset) {
+                        // This can happen if e.g. result = 10^40 + 10^10
+                        // It turns out we would otherwise display ...10e9 because it takes
+                        // the same amount of space as ...1e10 but shows one more digit.
+                        // But we don't want to display a trailing zero, even if it's free.
+                        ++dropDigits;
+                        ++exponent;
+                    }
                 }
-                result = result + "E" + Integer.toString(exponent);
-            } // else don't add zero exponent
-        }
-        if (truncated || negative && result.charAt(0) != '-') {
-            result = KeyMaps.ELLIPSIS + result.substring(1, result.length());
+                result = result.substring(0, result.length() - dropDigits);
+                lastDisplayedOffset[0] -= dropDigits;
+            }
+            result = result + "E" + Integer.toString(exponent);
         }
         return result;
     }

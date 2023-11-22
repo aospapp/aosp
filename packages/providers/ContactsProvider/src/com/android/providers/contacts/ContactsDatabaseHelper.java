@@ -16,7 +16,10 @@
 
 package com.android.providers.contacts;
 
-import android.content.ComponentName;
+import com.android.providers.contacts.util.PropertyUtils;
+import com.google.android.collect.Sets;
+import com.google.common.annotations.VisibleForTesting;
+
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
@@ -43,7 +46,6 @@ import android.os.Bundle;
 import android.os.SystemClock;
 import android.os.UserManager;
 import android.provider.BaseColumns;
-import android.provider.CallLog.Calls;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.AggregationExceptions;
 import android.provider.ContactsContract.CommonDataKinds.Email;
@@ -63,6 +65,8 @@ import android.provider.ContactsContract.DisplayNameSources;
 import android.provider.ContactsContract.DisplayPhoto;
 import android.provider.ContactsContract.FullNameStyle;
 import android.provider.ContactsContract.Groups;
+import android.provider.ContactsContract.MetadataSync;
+import android.provider.ContactsContract.MetadataSyncState;
 import android.provider.ContactsContract.PhoneticNameStyle;
 import android.provider.ContactsContract.PhotoFiles;
 import android.provider.ContactsContract.PinnedPositions;
@@ -71,14 +75,13 @@ import android.provider.ContactsContract.Settings;
 import android.provider.ContactsContract.StatusUpdates;
 import android.provider.ContactsContract.StreamItemPhotos;
 import android.provider.ContactsContract.StreamItems;
-import android.provider.VoicemailContract;
-import android.provider.VoicemailContract.Voicemails;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.text.TextUtils;
 import android.text.util.Rfc822Token;
 import android.text.util.Rfc822Tokenizer;
+import android.util.Base64;
 import android.util.Log;
 
 import com.android.common.content.SyncStateContentProviderHelper;
@@ -87,11 +90,11 @@ import com.android.providers.contacts.database.ContactsTableUtil;
 import com.android.providers.contacts.database.DeletedContactsTableUtil;
 import com.android.providers.contacts.database.MoreDatabaseUtils;
 import com.android.providers.contacts.util.NeededForTesting;
-import com.google.android.collect.Sets;
-import com.google.common.annotations.VisibleForTesting;
 
 import libcore.icu.ICU;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -119,9 +122,10 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
      *   800-899 Kitkat
      *   900-999 Lollipop
      *   1000-1099 M
+     *   1100-1199 N
      * </pre>
      */
-    static final int DATABASE_VERSION = 1011;
+    static final int DATABASE_VERSION = 1111;
 
     public interface Tables {
         public static final String CONTACTS = "contacts";
@@ -141,15 +145,14 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         public static final String PRESENCE = "presence";
         public static final String AGGREGATED_PRESENCE = "agg_presence";
         public static final String NICKNAME_LOOKUP = "nickname_lookup";
-        public static final String CALLS = "calls";
         public static final String STATUS_UPDATES = "status_updates";
-        public static final String PROPERTIES = "properties";
         public static final String ACCOUNTS = "accounts";
         public static final String VISIBLE_CONTACTS = "visible_contacts";
         public static final String DIRECTORIES = "directories";
         public static final String DEFAULT_DIRECTORY = "default_directory";
         public static final String SEARCH_INDEX = "search_index";
-        public static final String VOICEMAIL_STATUS = "voicemail_status";
+        public static final String METADATA_SYNC = "metadata_sync";
+        public static final String METADATA_SYNC_STATE = "metadata_sync_state";
         public static final String PRE_AUTHORIZED_URIS = "pre_authorized_uris";
 
         // This list of tables contains auto-incremented sequences.
@@ -161,7 +164,6 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 PHOTO_FILES,
                 DATA,
                 GROUPS,
-                CALLS,
                 DIRECTORIES};
 
         /**
@@ -273,6 +275,15 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 + " JOIN " + Tables.ACCOUNTS + " ON ("
                 + AccountsColumns.CONCRETE_ID + "=" + RawContactsColumns.CONCRETE_ACCOUNT_ID
                 + ")";
+
+        public static final String RAW_CONTACTS_JOIN_METADATA_SYNC = Tables.RAW_CONTACTS
+                + " JOIN " + Tables.METADATA_SYNC + " ON ("
+                + RawContactsColumns.CONCRETE_BACKUP_ID + "="
+                + MetadataSyncColumns.CONCRETE_BACKUP_ID
+                + " AND "
+                + RawContactsColumns.CONCRETE_ACCOUNT_ID + "="
+                + MetadataSyncColumns.CONCRETE_ACCOUNT_ID
+                + ")";
     }
 
     public interface Joins {
@@ -304,6 +315,8 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         public static final String GROUPS = "view_groups";
         public static final String DATA_USAGE_STAT = "view_data_usage_stat";
         public static final String STREAM_ITEMS = "view_stream_items";
+        public static final String METADATA_SYNC = "view_metadata_sync";
+        public static final String METADATA_SYNC_STATE = "view_metadata_sync_state";
     }
 
     public interface Projections {
@@ -322,7 +335,6 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         String ICU_VERSION = "icu_version";
         String LOCALE = "locale";
         String DATABASE_TIME_CREATED = "database_time_created";
-        String CALL_LOG_LAST_SYNCED = "call_log_last_synced";
     }
 
     public interface Clauses {
@@ -441,6 +453,8 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         public static final String CONCRETE_PINNED =
                 Tables.RAW_CONTACTS + "." + RawContacts.PINNED;
 
+        public static final String CONCRETE_METADATA_DIRTY =
+                Tables.RAW_CONTACTS + "." + RawContacts.METADATA_DIRTY;
         public static final String DISPLAY_NAME = RawContacts.DISPLAY_NAME_PRIMARY;
         public static final String DISPLAY_NAME_SOURCE = RawContacts.DISPLAY_NAME_SOURCE;
         public static final String AGGREGATION_NEEDED = "aggregation_needed";
@@ -658,11 +672,6 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         String CONCRETE_FILESIZE = Tables.PHOTO_FILES + "." + PhotoFiles.FILESIZE;
     }
 
-    public interface PropertiesColumns {
-        String PROPERTY_KEY = "property_key";
-        String PROPERTY_VALUE = "property_value";
-    }
-
     public interface AccountsColumns extends BaseColumns {
         String CONCRETE_ID = Tables.ACCOUNTS + "." + BaseColumns._ID;
 
@@ -727,6 +736,22 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         public static final int USAGE_TYPE_INT_CALL = 0;
         public static final int USAGE_TYPE_INT_LONG_TEXT = 1;
         public static final int USAGE_TYPE_INT_SHORT_TEXT = 2;
+    }
+
+    public interface MetadataSyncColumns {
+        static final String CONCRETE_ID = Tables.METADATA_SYNC + "._id";
+        static final String ACCOUNT_ID = "account_id";
+        static final String CONCRETE_BACKUP_ID = Tables.METADATA_SYNC + "." +
+                MetadataSync.RAW_CONTACT_BACKUP_ID;
+        static final String CONCRETE_ACCOUNT_ID = Tables.METADATA_SYNC + "." + ACCOUNT_ID;
+        static final String CONCRETE_DELETED = Tables.METADATA_SYNC + "." +
+                MetadataSync.DELETED;
+    }
+
+    public interface MetadataSyncStateColumns {
+        static final String CONCRETE_ID = Tables.METADATA_SYNC_STATE + "._id";
+        static final String ACCOUNT_ID = "account_id";
+        static final String CONCRETE_ACCOUNT_ID = Tables.METADATA_SYNC_STATE + "." + ACCOUNT_ID;
     }
 
     private  interface EmailQuery {
@@ -984,8 +1009,19 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
     private SQLiteStatement mStatusUpdateDelete;
     private SQLiteStatement mResetNameVerifiedForOtherRawContacts;
     private SQLiteStatement mContactInDefaultDirectoryQuery;
+    private SQLiteStatement mMetadataSyncInsert;
+    private SQLiteStatement mMetadataSyncUpdate;
 
     private StringBuilder mSb = new StringBuilder();
+
+    private MessageDigest mMessageDigest;
+    {
+        try {
+            mMessageDigest = MessageDigest.getInstance("SHA-1");
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("No such algorithm.", e);
+        }
+    }
 
     private boolean mUseStrictPhoneNumberComparison;
 
@@ -1169,11 +1205,9 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
 
         // Create the properties table first so the create time is available as soon as possible.
         // The create time is needed by BOOT_COMPLETE to send broadcasts.
-        db.execSQL("CREATE TABLE " + Tables.PROPERTIES + " (" +
-                PropertiesColumns.PROPERTY_KEY + " TEXT PRIMARY KEY, " +
-                PropertiesColumns.PROPERTY_VALUE + " TEXT " +
-                ");");
-        setProperty(db, DbProperties.DATABASE_TIME_CREATED, String.valueOf(
+        PropertyUtils.createPropertiesTable(db);
+
+        PropertyUtils.setProperty(db, DbProperties.DATABASE_TIME_CREATED, String.valueOf(
                 System.currentTimeMillis()));
 
         db.execSQL("CREATE TABLE " + Tables.ACCOUNTS + " (" +
@@ -1217,6 +1251,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 RawContacts.VERSION + " INTEGER NOT NULL DEFAULT 1," +
                 RawContacts.DIRTY + " INTEGER NOT NULL DEFAULT 0," +
                 RawContacts.DELETED + " INTEGER NOT NULL DEFAULT 0," +
+                RawContacts.METADATA_DIRTY + " INTEGER NOT NULL DEFAULT 0," +
                 RawContacts.CONTACT_ID + " INTEGER REFERENCES contacts(_id)," +
                 RawContacts.AGGREGATION_MODE + " INTEGER NOT NULL DEFAULT " +
                         RawContacts.AGGREGATION_MODE_DEFAULT + "," +
@@ -1496,64 +1531,6 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 Contacts._ID + " INTEGER PRIMARY KEY" +
         ");");
 
-        // The table for recent calls is here so we can do table joins on people, phones, and
-        // calls all in one place.
-        // NOTE: When adding a new column to Tables.CALLS, make sure to also add it to
-        // CallLogProvider.CALL_LOG_SYNC_PROJECTION, if it is a column that should be copied to
-        // the call log of secondary users.
-        db.execSQL("CREATE TABLE " + Tables.CALLS + " (" +
-                Calls._ID + " INTEGER PRIMARY KEY AUTOINCREMENT," +
-                Calls.NUMBER + " TEXT," +
-                Calls.NUMBER_PRESENTATION + " INTEGER NOT NULL DEFAULT " +
-                        Calls.PRESENTATION_ALLOWED + "," +
-                Calls.DATE + " INTEGER," +
-                Calls.DURATION + " INTEGER," +
-                Calls.DATA_USAGE + " INTEGER," +
-                Calls.TYPE + " INTEGER," +
-                Calls.FEATURES + " INTEGER NOT NULL DEFAULT 0," +
-                Calls.PHONE_ACCOUNT_COMPONENT_NAME + " TEXT," +
-                Calls.PHONE_ACCOUNT_ID + " TEXT," +
-                Calls.PHONE_ACCOUNT_ADDRESS + " TEXT," +
-                Calls.PHONE_ACCOUNT_HIDDEN + " INTEGER NOT NULL DEFAULT 0," +
-                Calls.SUB_ID + " INTEGER DEFAULT -1," +
-                Calls.NEW + " INTEGER," +
-                Calls.CACHED_NAME + " TEXT," +
-                Calls.CACHED_NUMBER_TYPE + " INTEGER," +
-                Calls.CACHED_NUMBER_LABEL + " TEXT," +
-                Calls.COUNTRY_ISO + " TEXT," +
-                Calls.VOICEMAIL_URI + " TEXT," +
-                Calls.IS_READ + " INTEGER," +
-                Calls.GEOCODED_LOCATION + " TEXT," +
-                Calls.CACHED_LOOKUP_URI + " TEXT," +
-                Calls.CACHED_MATCHED_NUMBER + " TEXT," +
-                Calls.CACHED_NORMALIZED_NUMBER + " TEXT," +
-                Calls.CACHED_PHOTO_ID + " INTEGER NOT NULL DEFAULT 0," +
-                Calls.CACHED_PHOTO_URI + " TEXT," +
-                Calls.CACHED_FORMATTED_NUMBER + " TEXT," +
-                Voicemails._DATA + " TEXT," +
-                Voicemails.HAS_CONTENT + " INTEGER," +
-                Voicemails.MIME_TYPE + " TEXT," +
-                Voicemails.SOURCE_DATA + " TEXT," +
-                Voicemails.SOURCE_PACKAGE + " TEXT," +
-                Voicemails.TRANSCRIPTION + " TEXT," +
-                Voicemails.STATE + " INTEGER," +
-                Voicemails.DIRTY + " INTEGER NOT NULL DEFAULT 0," +
-                Voicemails.DELETED + " INTEGER NOT NULL DEFAULT 0" +
-        ");");
-
-        // Voicemail source status table.
-        db.execSQL("CREATE TABLE " + Tables.VOICEMAIL_STATUS + " (" +
-                VoicemailContract.Status._ID + " INTEGER PRIMARY KEY AUTOINCREMENT," +
-                VoicemailContract.Status.SOURCE_PACKAGE + " TEXT UNIQUE NOT NULL," +
-                VoicemailContract.Status.PHONE_ACCOUNT_COMPONENT_NAME + " TEXT," +
-                VoicemailContract.Status.PHONE_ACCOUNT_ID + " TEXT," +
-                VoicemailContract.Status.SETTINGS_URI + " TEXT," +
-                VoicemailContract.Status.VOICEMAIL_ACCESS_URI + " TEXT," +
-                VoicemailContract.Status.CONFIGURATION_STATE + " INTEGER," +
-                VoicemailContract.Status.DATA_CHANNEL_STATE + " INTEGER," +
-                VoicemailContract.Status.NOTIFICATION_CHANNEL_STATE + " INTEGER" +
-        ");");
-
         db.execSQL("CREATE TABLE " + Tables.STATUS_UPDATES + " (" +
                 StatusUpdatesColumns.DATA_ID + " INTEGER PRIMARY KEY REFERENCES data(_id)," +
                 StatusUpdates.STATUS + " TEXT," +
@@ -1571,7 +1548,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 DataUsageStatColumns.DATA_ID + " INTEGER NOT NULL, " +
                 DataUsageStatColumns.USAGE_TYPE_INT + " INTEGER NOT NULL DEFAULT 0, " +
                 DataUsageStatColumns.TIMES_USED + " INTEGER NOT NULL DEFAULT 0, " +
-                DataUsageStatColumns.LAST_TIME_USED + " INTERGER NOT NULL DEFAULT 0, " +
+                DataUsageStatColumns.LAST_TIME_USED + " INTEGER NOT NULL DEFAULT 0, " +
                 "FOREIGN KEY(" + DataUsageStatColumns.DATA_ID + ") REFERENCES "
                         + Tables.DATA + "(" + Data._ID + ")" +
         ");");
@@ -1581,10 +1558,33 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 DataUsageStatColumns.USAGE_TYPE_INT +
         ");");
 
+        db.execSQL("CREATE TABLE IF NOT EXISTS "
+                + Tables.METADATA_SYNC + " (" +
+                MetadataSync._ID + " INTEGER PRIMARY KEY AUTOINCREMENT," +
+                MetadataSync.RAW_CONTACT_BACKUP_ID + " TEXT NOT NULL," +
+                MetadataSyncColumns.ACCOUNT_ID + " INTEGER NOT NULL," +
+                MetadataSync.DATA + " TEXT," +
+                MetadataSync.DELETED + " INTEGER NOT NULL DEFAULT 0);");
+
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS metadata_sync_index ON " +
+                Tables.METADATA_SYNC + " (" +
+                MetadataSync.RAW_CONTACT_BACKUP_ID + ", " +
+                MetadataSyncColumns.ACCOUNT_ID +");");
+
         db.execSQL("CREATE TABLE " + Tables.PRE_AUTHORIZED_URIS + " ("+
                 PreAuthorizedUris._ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
                 PreAuthorizedUris.URI + " STRING NOT NULL, " +
                 PreAuthorizedUris.EXPIRATION + " INTEGER NOT NULL DEFAULT 0);");
+
+        db.execSQL("CREATE TABLE IF NOT EXISTS "
+                + Tables.METADATA_SYNC_STATE + " (" +
+                MetadataSyncState._ID + " INTEGER PRIMARY KEY AUTOINCREMENT," +
+                MetadataSyncStateColumns.ACCOUNT_ID + " INTEGER NOT NULL," +
+                MetadataSyncState.STATE + " BLOB);");
+
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS metadata_sync_state_index ON " +
+                Tables.METADATA_SYNC_STATE + " (" +
+                MetadataSyncColumns.ACCOUNT_ID +");");
 
         // When adding new tables, be sure to also add size-estimates in updateSqliteStats
         createContactsViews(db);
@@ -1642,7 +1642,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         ");");
 
         // Trigger a full scan of directories in the system
-        setProperty(db, DbProperties.DIRECTORY_SCAN_COMPLETE, "0");
+        PropertyUtils.setProperty(db, DbProperties.DIRECTORY_SCAN_COMPLETE, "0");
     }
 
     public void createSearchIndexTable(SQLiteDatabase db, boolean rebuildSqliteStats) {
@@ -1830,6 +1830,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("DROP VIEW IF EXISTS " + Views.ENTITIES + ";");
         db.execSQL("DROP VIEW IF EXISTS " + Views.DATA_USAGE_STAT + ";");
         db.execSQL("DROP VIEW IF EXISTS " + Views.STREAM_ITEMS + ";");
+        db.execSQL("DROP VIEW IF EXISTS " + Views.METADATA_SYNC + ";");
 
         String dataColumns =
                 Data.IS_PRIMARY + ", "
@@ -1982,6 +1983,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 + RawContacts.AGGREGATION_MODE + ", "
                 + RawContacts.RAW_CONTACT_IS_READ_ONLY + ", "
                 + RawContacts.DELETED + ", "
+                + RawContactsColumns.CONCRETE_METADATA_DIRTY + ", "
                 + RawContacts.DISPLAY_NAME_SOURCE  + ", "
                 + RawContacts.DISPLAY_NAME_PRIMARY  + ", "
                 + RawContacts.DISPLAY_NAME_ALTERNATIVE  + ", "
@@ -2035,6 +2037,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         String rawEntitiesSelect = "SELECT "
                 + RawContacts.CONTACT_ID + ", "
                 + RawContactsColumns.CONCRETE_DELETED + " AS " + RawContacts.DELETED + ","
+                + RawContactsColumns.CONCRETE_METADATA_DIRTY + ", "
                 + dataColumns + ", "
                 + syncColumns + ", "
                 + Data.SYNC1 + ", "
@@ -2068,6 +2071,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 + RawContactsColumns.CONCRETE_CONTACT_ID + " AS " + Contacts._ID + ", "
                 + RawContactsColumns.CONCRETE_CONTACT_ID + " AS " + RawContacts.CONTACT_ID + ", "
                 + RawContactsColumns.CONCRETE_DELETED + " AS " + RawContacts.DELETED + ","
+                + RawContactsColumns.CONCRETE_METADATA_DIRTY + ", "
                 + dataColumns + ", "
                 + syncColumns + ", "
                 + contactsColumns + ", "
@@ -2157,6 +2161,34 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 + RawContactsColumns.CONCRETE_CONTACT_ID + "=" + ContactsColumns.CONCRETE_ID + ")";
 
         db.execSQL("CREATE VIEW " + Views.STREAM_ITEMS + " AS " + streamItemSelect);
+
+        String metadataSyncSelect = "SELECT " +
+                MetadataSyncColumns.CONCRETE_ID + ", " +
+                MetadataSync.RAW_CONTACT_BACKUP_ID + ", " +
+                AccountsColumns.ACCOUNT_NAME + ", " +
+                AccountsColumns.ACCOUNT_TYPE + ", " +
+                AccountsColumns.DATA_SET + ", " +
+                MetadataSync.DATA + ", " +
+                MetadataSync.DELETED +
+                " FROM " + Tables.METADATA_SYNC
+                + " JOIN " + Tables.ACCOUNTS + " ON ("
+                +   MetadataSyncColumns.CONCRETE_ACCOUNT_ID + "=" + AccountsColumns.CONCRETE_ID
+                + ")";
+
+        db.execSQL("CREATE VIEW " + Views.METADATA_SYNC + " AS " + metadataSyncSelect);
+
+        String metadataSyncStateSelect = "SELECT " +
+                MetadataSyncStateColumns.CONCRETE_ID + ", " +
+                AccountsColumns.ACCOUNT_NAME + ", " +
+                AccountsColumns.ACCOUNT_TYPE + ", " +
+                AccountsColumns.DATA_SET + ", " +
+                MetadataSyncState.STATE +
+                " FROM " + Tables.METADATA_SYNC_STATE
+                + " JOIN " + Tables.ACCOUNTS + " ON ("
+                +   MetadataSyncStateColumns.CONCRETE_ACCOUNT_ID + "=" + AccountsColumns.CONCRETE_ID
+                + ")";
+
+        db.execSQL("CREATE VIEW " + Views.METADATA_SYNC_STATE + " AS " + metadataSyncStateSelect);
     }
 
     private static String buildDisplayPhotoUriAlias(String contactIdColumn, String alias) {
@@ -2261,7 +2293,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
             db.execSQL("DROP TABLE IF EXISTS " + Tables.NICKNAME_LOOKUP + ";");
             db.execSQL("DROP TABLE IF EXISTS " + Tables.GROUPS + ";");
             db.execSQL("DROP TABLE IF EXISTS activities;");
-            db.execSQL("DROP TABLE IF EXISTS " + Tables.CALLS + ";");
+            db.execSQL("DROP TABLE IF EXISTS calls;");
             db.execSQL("DROP TABLE IF EXISTS " + Tables.SETTINGS + ";");
             db.execSQL("DROP TABLE IF EXISTS " + Tables.STATUS_UPDATES + ";");
 
@@ -2773,7 +2805,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         }
 
         if (oldVersion < 801) {
-            setProperty(db, DbProperties.DATABASE_TIME_CREATED, String.valueOf(
+            PropertyUtils.setProperty(db, DbProperties.DATABASE_TIME_CREATED, String.valueOf(
                     System.currentTimeMillis()));
             oldVersion = 801;
         }
@@ -2895,20 +2927,73 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
             oldVersion = 1009;
         }
 
-        if (oldVersion < 1010) {
-            upgradeToVersion1010(db);
-            rebuildSqliteStats = true;
-            oldVersion = 1010;
+        if (oldVersion < 1100) {
+            upgradeToVersion1100(db);
+            upgradeViewsAndTriggers = true;
+            oldVersion = 1100;
         }
 
-        if (oldVersion < 1011) {
-            // There was a merge error, so do step1010 again, and also re-crete views.
-            // upgradeToVersion1010() is safe to re-run.
-            upgradeToVersion1010(db);
-            rebuildSqliteStats = true;
-            upgradeViewsAndTriggers = true;
-            oldVersion = 1011;
+        if (oldVersion < 1101) {
+            upgradeToVersion1101(db);
+            oldVersion = 1101;
         }
+
+        if (oldVersion < 1102) {
+            // Version 1009 was added *after* 1100/1101.  For master devices
+            // that have already been updated to 1101, we do it again.
+            upgradeToVersion1009(db);
+            oldVersion = 1102;
+        }
+
+        if (oldVersion < 1103) {
+            upgradeViewsAndTriggers = true;
+            oldVersion = 1103;
+        }
+
+        if (oldVersion < 1104) {
+            upgradeToVersion1104(db);
+            upgradeViewsAndTriggers = true;
+            oldVersion = 1104;
+        }
+
+        if (oldVersion < 1105) {
+            upgradeToVersion1105(db);
+            upgradeViewsAndTriggers = true;
+            oldVersion = 1105;
+        }
+
+        if (oldVersion < 1106) {
+            upgradeToVersion1106(db);
+            oldVersion = 1106;
+        }
+
+        if (oldVersion < 1107) {
+            upgradeToVersion1107(db);
+            oldVersion = 1107;
+        }
+
+        if (oldVersion < 1108) {
+            upgradeToVersion1108(db);
+            oldVersion = 1108;
+        }
+
+        if (isUpgradeRequired(oldVersion, newVersion, 1109)) {
+            upgradeToVersion1109(db);
+            oldVersion = 1109;
+        }
+
+        if (isUpgradeRequired(oldVersion, newVersion, 1110)) {
+            upgradeToVersion1110(db);
+            oldVersion = 1110;
+        }
+
+        if (isUpgradeRequired(oldVersion, newVersion, 1111)) {
+            upgradeToVersion1111(db);
+            oldVersion = 1111;
+        }
+
+        // We extracted "calls" and "voicemail_status" at this point, but we can't remove them here
+        // yet, until CallLogDatabaseHelper moves the data.
 
         if (upgradeViewsAndTriggers) {
             createContactsViews(db);
@@ -2944,7 +3029,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         if (rescanDirectories) {
             // Force the next ContactDirectoryManager.scanAllPackages() to rescan all packages.
             // (It's called from the BACKGROUND_TASK_UPDATE_ACCOUNTS background task.)
-            setProperty(db, DbProperties.DIRECTORY_SCAN_COMPLETE, "0");
+            PropertyUtils.setProperty(db, DbProperties.DIRECTORY_SCAN_COMPLETE, "0");
         }
 
         if (rebuildSqliteStats) {
@@ -2955,6 +3040,10 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
             throw new IllegalStateException(
                     "error upgrading the database to version " + newVersion);
         }
+    }
+
+    private static boolean isUpgradeRequired(int oldVersion, int newVersion, int version) {
+        return oldVersion < version && newVersion >= version;
     }
 
     private void upgradeToVersion202(SQLiteDatabase db) {
@@ -3434,7 +3523,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
 
     private void rebuildSearchIndex(SQLiteDatabase db, boolean rebuildSqliteStats) {
         createSearchIndexTable(db, rebuildSqliteStats);
-        setProperty(db, SearchIndexManager.PROPERTY_SEARCH_INDEX_VERSION, "0");
+        PropertyUtils.setProperty(db, SearchIndexManager.PROPERTY_SEARCH_INDEX_VERSION, "0");
     }
 
     /**
@@ -3458,7 +3547,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
     }
 
     private void upgradeLocaleData(SQLiteDatabase db, boolean rebuildSqliteStats) {
-        final LocaleSet locales = LocaleSet.getDefault();
+        final LocaleSet locales = LocaleSet.newDefault();
         Log.i(TAG, "Upgrading locale data for " + locales
                 + " (ICU v" + ICU.getIcuVersion() + ")");
         final long start = SystemClock.elapsedRealtime();
@@ -3480,8 +3569,8 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         FastScrollingIndexCache.getInstance(mContext).invalidate();
         // Update the ICU version used to generate the locale derived data
         // so we can tell when we need to rebuild with new ICU versions.
-        setProperty(db, DbProperties.ICU_VERSION, ICU.getIcuVersion());
-        setProperty(db, DbProperties.LOCALE, locales.toString());
+        PropertyUtils.setProperty(db, DbProperties.ICU_VERSION, ICU.getIcuVersion());
+        PropertyUtils.setProperty(db, DbProperties.LOCALE, locales.toString());
     }
 
     /**
@@ -3646,7 +3735,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
     private void upgradeToVersion401(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE " + Tables.VISIBLE_CONTACTS + " (" +
                 Contacts._ID + " INTEGER PRIMARY KEY" +
-        ");");
+                ");");
         db.execSQL("INSERT INTO " + Tables.VISIBLE_CONTACTS +
                 " SELECT " + Contacts._ID +
                 " FROM " + Tables.CONTACTS +
@@ -3801,8 +3890,8 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 " ADD " + Groups.GROUP_IS_READ_ONLY + " INTEGER NOT NULL DEFAULT 0");
         db.execSQL(
                 "UPDATE " + Tables.GROUPS +
-                "   SET " + Groups.GROUP_IS_READ_ONLY + "=1" +
-                " WHERE " + Groups.SYSTEM_ID + " NOT NULL");
+                        "   SET " + Groups.GROUP_IS_READ_ONLY + "=1" +
+                        " WHERE " + Groups.SYSTEM_ID + " NOT NULL");
     }
 
     private void upgradeToVersion416(SQLiteDatabase db) {
@@ -3848,7 +3937,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 "data_id INTEGER NOT NULL, " +
                 "usage_type INTEGER NOT NULL DEFAULT 0, " +
                 "times_used INTEGER NOT NULL DEFAULT 0, " +
-                "last_time_used INTERGER NOT NULL DEFAULT 0, " +
+                "last_time_used INTEGER NOT NULL DEFAULT 0, " +
                 "FOREIGN KEY(data_id) REFERENCES data(_id));");
         db.execSQL("CREATE UNIQUE INDEX data_usage_stat_index ON " +
                 "data_usage_stat (data_id, usage_type)");
@@ -4327,8 +4416,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
      * Delete any remaining rows in the calls table if the user is a profile of another user.
      * b/17096027
      */
-    @VisibleForTesting
-    public void upgradeToVersion910(SQLiteDatabase db) {
+    private void upgradeToVersion910(SQLiteDatabase db) {
         final UserManager userManager = (UserManager) mContext.getSystemService(
                 Context.USER_SERVICE);
         final UserInfo user = userManager.getUserInfo(userManager.getUserHandle());
@@ -4419,14 +4507,186 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
             // Log verbose because this should be the majority case.
             Log.v(TAG, "Version 1007: Columns already exist, skipping upgrade steps.");
         }
-    }
+  }
+
 
     public void upgradeToVersion1009(SQLiteDatabase db) {
-        db.execSQL("ALTER TABLE data ADD carrier_presence INTEGER NOT NULL DEFAULT 0");
+        try {
+            db.execSQL("ALTER TABLE data ADD carrier_presence INTEGER NOT NULL DEFAULT 0");
+        } catch (SQLiteException ignore) {
+        }
     }
 
-    public void upgradeToVersion1010(SQLiteDatabase db) {
-        db.execSQL("DROP TABLE IF EXISTS metadata_sync");
+    private void upgradeToVersion1100(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE raw_contacts ADD metadata_dirty INTEGER NOT NULL DEFAULT 0;");
+    }
+
+    // Data.hash_id column is used for metadata backup, and this upgrade is to generate
+    // hash_id column. Usually data1 and data2 are two main columns to store data info.
+    // But for photo, we don't use data1 and data2, instead, use data15 to store photo blob.
+    // So this upgrade generates hash_id from (data1 + data2) or (data15) using sha-1.
+    public void upgradeToVersion1101(SQLiteDatabase db) {
+        final SQLiteStatement update = db.compileStatement(
+                "UPDATE " + Tables.DATA +
+                " SET " + Data.HASH_ID + "=?" +
+                " WHERE " + Data._ID + "=?"
+        );
+        final Cursor c = db.query(Tables.DATA,
+                new String[] {Data._ID, Data.DATA1, Data.DATA2, Data.DATA15},
+                null, null, null, null, Data._ID);
+        try {
+            while (c.moveToNext()) {
+                final long dataId = c.getLong(0);
+                final String data1 = c.getString(1);
+                final String data2 = c.getString(2);
+                final byte[] data15 = c.getBlob(3);
+                final String hashId = legacyGenerateHashId(data1, data2, data15);
+                if (!TextUtils.isEmpty(hashId)) {
+                    update.bindString(1, hashId);
+                    update.bindLong(2, dataId);
+                    update.execute();
+                }
+            }
+        } finally {
+            c.close();
+        }
+    }
+
+    /**
+     * Add new metadata_sync table to cache the meta data on raw contacts level from server before
+     * they are merged into other CP2 tables. The data column is the blob column containing all
+     * the backed up metadata for this raw_contact. This table should only be used by metadata
+     * sync adapter.
+     */
+    public void upgradeToVersion1104(SQLiteDatabase db) {
+        db.execSQL("DROP TABLE IF EXISTS metadata_sync;");
+        db.execSQL("CREATE TABLE metadata_sync (" +
+                "_id INTEGER PRIMARY KEY AUTOINCREMENT, raw_contact_backup_id TEXT NOT NULL, " +
+                "account_id INTEGER NOT NULL, data TEXT, deleted INTEGER NOT NULL DEFAULT 0);");
+        db.execSQL("CREATE UNIQUE INDEX metadata_sync_index ON metadata_sync (" +
+                "raw_contact_backup_id, account_id);");
+    }
+
+    /**
+     * Add new metadata_sync_state table to store the metadata sync state for a set of accounts.
+     */
+    public void upgradeToVersion1105(SQLiteDatabase db) {
+        db.execSQL("DROP TABLE IF EXISTS metadata_sync_state;");
+        db.execSQL("CREATE TABLE metadata_sync_state (" +
+                "_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "account_id INTEGER NOT NULL, state BLOB);");
+        db.execSQL("CREATE UNIQUE INDEX metadata_sync_state_index ON metadata_sync_state (" +
+                "account_id);");
+    }
+
+    public void upgradeToVersion1106(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE calls ADD post_dial_digits TEXT NOT NULL DEFAULT ''");
+    }
+
+    public void upgradeToVersion1107(SQLiteDatabase db) {
+        try {
+            db.execSQL("ALTER TABLE calls ADD post_dial_digits TEXT NOT NULL DEFAULT ''");
+        } catch (SQLiteException ignore) {
+            // This is for devices which got initialized without a post_dial_digits
+            // column from version 1106. The exception indicates that the column is
+            // already present, so nothing needs to be done.
+        }
+    }
+
+    public void upgradeToVersion1108(SQLiteDatabase db) {
+        db.execSQL(
+                "ALTER TABLE calls ADD add_for_all_users INTEGER NOT NULL DEFAULT 1");
+    }
+
+    public void upgradeToVersion1109(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE voicemail_status ADD quota_occupied INTEGER DEFAULT -1;");
+        db.execSQL("ALTER TABLE voicemail_status ADD quota_total INTEGER DEFAULT -1;");
+        db.execSQL("ALTER TABLE calls ADD last_modified INTEGER DEFAULT 0;");
+    }
+
+    /**
+     * Update hash_id for photo data. Generates the same value for all photo mimetype data, since
+     * there's only one photo for each raw_contact.
+     */
+    public void upgradeToVersion1110(SQLiteDatabase db) {
+        final long mimeTypeId = lookupMimeTypeId(db,
+                ContactsContract.CommonDataKinds.Photo.CONTENT_ITEM_TYPE);
+        final ContentValues values = new ContentValues();
+        values.put(Data.HASH_ID, getPhotoHashId());
+        db.update(Tables.DATA, values, DataColumns.MIMETYPE_ID + " = " + mimeTypeId, null);
+    }
+
+    public String getPhotoHashId() {
+        return generateHashId(ContactsContract.CommonDataKinds.Photo.CONTENT_ITEM_TYPE, null);
+    }
+
+    @VisibleForTesting
+    public void upgradeToVersion1111(SQLiteDatabase db) {
+        // Re-order contacts with no display name to the phone number bucket and give
+        // them the phone number label. See b/21736630.
+        final ContactLocaleUtils localeUtils = ContactLocaleUtils.getInstance();
+        final int index = localeUtils.getNumberBucketIndex();
+        final String label = localeUtils.getBucketLabel(index);
+        // Note, sort_key = null is equivalent to display_name = null
+        db.execSQL("UPDATE raw_contacts SET phonebook_bucket = " + index +
+                ", phonebook_label='" + label + "' WHERE sort_key IS NULL AND phonebook_bucket=0;");
+        db.execSQL("UPDATE raw_contacts SET phonebook_bucket_alt = " + index +
+                ", phonebook_label_alt='" + label +
+                "' WHERE sort_key_alt IS NULL AND phonebook_bucket_alt=0;");
+
+        FastScrollingIndexCache.getInstance(mContext).invalidate();
+    }
+
+    /**
+     * This method is only used in upgradeToVersion1101 method, and should not be used in other
+     * places now. Because data15 is not used to generate hash_id for photo, and the new generating
+     * method for photos should be getPhotoHashId().
+     *
+     * Generate hash_id from data1, data2 and data15 columns.
+     * If one of data1 and data2 is not null, using data1 and data2 to get hash_id,
+     * otherwise, using data15 to generate.
+     */
+    public String legacyGenerateHashId(String data1, String data2, byte[] data15) {
+        final StringBuilder sb = new StringBuilder();
+        byte[] hashInput = null;
+        if (!TextUtils.isEmpty(data1) || !TextUtils.isEmpty(data2)) {
+            sb.append(data1);
+            sb.append(data2);
+            hashInput = sb.toString().getBytes();
+        } else if (data15 != null) {
+            hashInput = data15;
+        }
+        if (hashInput != null) {
+            final String hashId = generateHashIdForData(hashInput);
+            return hashId;
+        } else {
+            return null;
+        }
+    }
+
+    public String generateHashId(String data1, String data2) {
+        final StringBuilder sb = new StringBuilder();
+        byte[] hashInput = null;
+        if (!TextUtils.isEmpty(data1) || !TextUtils.isEmpty(data2)) {
+            sb.append(data1);
+            sb.append(data2);
+            hashInput = sb.toString().getBytes();
+        }
+        if (hashInput != null) {
+            final String hashId = generateHashIdForData(hashInput);
+            return hashId;
+        } else {
+            return null;
+        }
+    }
+
+    // Use SHA-1 hash method to generate hash string for the input.
+    @VisibleForTesting
+    String generateHashIdForData(byte[] input) {
+        synchronized (mMessageDigest) {
+            final byte[] hashResult = mMessageDigest.digest(input);
+            return Base64.encodeToString(hashResult, Base64.DEFAULT);
+        }
     }
 
     public String extractHandleFromEmailAddress(String email) {
@@ -4582,9 +4842,6 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
             updateIndexStats(db, Tables.NICKNAME_LOOKUP,
                     "nickname_lookup_index", "500 2 1");
 
-            updateIndexStats(db, Tables.CALLS,
-                    null, "250");
-
             updateIndexStats(db, Tables.STATUS_UPDATES,
                     null, "100");
 
@@ -4592,9 +4849,6 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                     null, "500");
             updateIndexStats(db, Tables.STREAM_ITEM_PHOTOS,
                     null, "50");
-
-            updateIndexStats(db, Tables.VOICEMAIL_STATUS,
-                    null, "5");
 
             updateIndexStats(db, Tables.ACCOUNTS,
                     null, "3");
@@ -4617,6 +4871,9 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
             updateIndexStats(db, Tables.DATA_USAGE_STAT,
                     "data_usage_stat_index", "20 2 1");
 
+            updateIndexStats(db, Tables.METADATA_SYNC,
+                    "metadata_sync_index", "10000 1 1");
+
             // Tiny tables
             updateIndexStats(db, Tables.AGGREGATION_EXCEPTIONS,
                     null, "10");
@@ -4636,6 +4893,9 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                     null, "1");
             updateIndexStats(db, "properties",
                     "sqlite_autoindex_properties_1", "4 1");
+
+            updateIndexStats(db, Tables.METADATA_SYNC_STATE,
+                    "metadata_sync_state_index", "2 1 1");
 
             // Search index
             updateIndexStats(db, "search_index_docsize",
@@ -4693,7 +4953,6 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("DELETE FROM " + Tables.GROUPS + ";");
         db.execSQL("DELETE FROM " + Tables.AGGREGATION_EXCEPTIONS + ";");
         db.execSQL("DELETE FROM " + Tables.SETTINGS + ";");
-        db.execSQL("DELETE FROM " + Tables.CALLS + ";");
         db.execSQL("DELETE FROM " + Tables.DIRECTORIES + ";");
         db.execSQL("DELETE FROM " + Tables.SEARCH_INDEX + ";");
         db.execSQL("DELETE FROM " + Tables.DELETED_CONTACTS + ";");
@@ -4952,14 +5211,14 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         }
         final SQLiteStatement select = getWritableDatabase().compileStatement(
                 "SELECT " + AccountsColumns._ID +
-                " FROM " + Tables.ACCOUNTS +
-                " WHERE " +
-                "((?1 IS NULL AND " + AccountsColumns.ACCOUNT_NAME + " IS NULL) OR " +
-                "(" + AccountsColumns.ACCOUNT_NAME + "=?1)) AND " +
-                "((?2 IS NULL AND " + AccountsColumns.ACCOUNT_TYPE + " IS NULL) OR " +
-                "(" + AccountsColumns.ACCOUNT_TYPE + "=?2)) AND " +
-                "((?3 IS NULL AND " + AccountsColumns.DATA_SET + " IS NULL) OR " +
-                "(" + AccountsColumns.DATA_SET + "=?3))");
+                        " FROM " + Tables.ACCOUNTS +
+                        " WHERE " +
+                        "((?1 IS NULL AND " + AccountsColumns.ACCOUNT_NAME + " IS NULL) OR " +
+                        "(" + AccountsColumns.ACCOUNT_NAME + "=?1)) AND " +
+                        "((?2 IS NULL AND " + AccountsColumns.ACCOUNT_TYPE + " IS NULL) OR " +
+                        "(" + AccountsColumns.ACCOUNT_TYPE + "=?2)) AND " +
+                        "((?3 IS NULL AND " + AccountsColumns.DATA_SET + " IS NULL) OR " +
+                        "(" + AccountsColumns.DATA_SET + "=?3))");
         try {
             DatabaseUtils.bindObjectToProgram(select, 1, accountWithDataSet.getAccountName());
             DatabaseUtils.bindObjectToProgram(select, 2, accountWithDataSet.getAccountType());
@@ -5376,41 +5635,21 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
     }
 
     /**
-     * Returns the value from the {@link Tables#PROPERTIES} table.
+     * Returns the value from the {@link PropertyUtils.Tables#PROPERTIES} table.
      */
     public String getProperty(String key, String defaultValue) {
-        return getProperty(getReadableDatabase(), key, defaultValue);
-    }
-
-    public String getProperty(SQLiteDatabase db, String key, String defaultValue) {
-        Cursor cursor = db.query(Tables.PROPERTIES,
-                new String[] {PropertiesColumns.PROPERTY_VALUE},
-                PropertiesColumns.PROPERTY_KEY + "=?",
-                new String[] {key}, null, null, null);
-        String value = null;
-        try {
-            if (cursor.moveToFirst()) {
-                value = cursor.getString(0);
-            }
-        } finally {
-            cursor.close();
-        }
-
-        return value != null ? value : defaultValue;
+        return PropertyUtils.getProperty(getReadableDatabase(), key, defaultValue);
     }
 
     /**
-     * Stores a key-value pair in the {@link Tables#PROPERTIES} table.
+     * Stores a key-value pair in the {@link PropertyUtils.Tables#PROPERTIES} table.
      */
     public void setProperty(String key, String value) {
-        setProperty(getWritableDatabase(), key, value);
+        PropertyUtils.setProperty(getWritableDatabase(), key, value);
     }
 
-    private void setProperty(SQLiteDatabase db, String key, String value) {
-        ContentValues values = new ContentValues();
-        values.put(PropertiesColumns.PROPERTY_KEY, key);
-        values.put(PropertiesColumns.PROPERTY_VALUE, value);
-        db.replace(Tables.PROPERTIES, null, values);
+    public void clearDirectoryScanComplete() {
+        setProperty(DbProperties.DIRECTORY_SCAN_COMPLETE, "0");
     }
 
     /**
@@ -5763,20 +6002,16 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
             sortKeyAlternative = sortNameAlternative;
         }
 
-        String phonebookLabelPrimary = "";
-        String phonebookLabelAlternative = "";
-        int phonebookBucketPrimary = 0;
-        int phonebookBucketAlternative = 0;
-        ContactLocaleUtils localeUtils = ContactLocaleUtils.getInstance();
+        final ContactLocaleUtils localeUtils = ContactLocaleUtils.getInstance();
+        int phonebookBucketPrimary = TextUtils.isEmpty(sortKeyPrimary)
+                ? localeUtils.getNumberBucketIndex()
+                : localeUtils.getBucketIndex(sortKeyPrimary);
+        String phonebookLabelPrimary = localeUtils.getBucketLabel(phonebookBucketPrimary);
 
-        if (sortKeyPrimary != null) {
-            phonebookBucketPrimary = localeUtils.getBucketIndex(sortKeyPrimary);
-            phonebookLabelPrimary = localeUtils.getBucketLabel(phonebookBucketPrimary);
-        }
-        if (sortKeyAlternative != null) {
-            phonebookBucketAlternative = localeUtils.getBucketIndex(sortKeyAlternative);
-            phonebookLabelAlternative = localeUtils.getBucketLabel(phonebookBucketAlternative);
-        }
+        int phonebookBucketAlternative = TextUtils.isEmpty(sortKeyAlternative)
+                ? localeUtils.getNumberBucketIndex()
+                : localeUtils.getBucketIndex(sortKeyAlternative);
+        String phonebookLabelAlternative = localeUtils.getBucketLabel(phonebookBucketAlternative);
 
         if (mRawContactDisplayNameUpdate == null) {
             mRawContactDisplayNameUpdate = db.compileStatement(
@@ -5986,5 +6221,23 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 " FROM " + Tables.SEARCH_INDEX +
                 " WHERE " + SearchIndexColumns.CONTACT_ID + "=CAST(? AS int)",
                 new String[] {String.valueOf(contactId)});
+    }
+
+    public long upsertMetadataSync(String backupId, Long accountId, String data, Integer deleted) {
+        if (mMetadataSyncInsert == null) {
+            mMetadataSyncInsert = getWritableDatabase().compileStatement(
+                    "INSERT OR REPLACE INTO " + Tables.METADATA_SYNC + "("
+                            + MetadataSync.RAW_CONTACT_BACKUP_ID + ", "
+                            + MetadataSyncColumns.ACCOUNT_ID + ", "
+                            + MetadataSync.DATA + ","
+                            + MetadataSync.DELETED + ")" +
+                            " VALUES (?,?,?,?)");
+        }
+        mMetadataSyncInsert.bindString(1, backupId);
+        mMetadataSyncInsert.bindLong(2, accountId);
+        data = (data == null) ? "" : data;
+        mMetadataSyncInsert.bindString(3, data);
+        mMetadataSyncInsert.bindLong(4, deleted);
+        return mMetadataSyncInsert.executeInsert();
     }
 }

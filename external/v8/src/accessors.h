@@ -5,11 +5,17 @@
 #ifndef V8_ACCESSORS_H_
 #define V8_ACCESSORS_H_
 
+#include "include/v8.h"
 #include "src/allocation.h"
 #include "src/globals.h"
+#include "src/handles.h"
+#include "src/property-details.h"
 
 namespace v8 {
 namespace internal {
+
+// Forward declarations.
+class ExecutableAccessorInfo;
 
 // The list of accessor descriptors. This is a second-order macro
 // taking a macro to be applied to all accessor descriptor names.
@@ -35,6 +41,7 @@ namespace internal {
   V(ScriptType)                   \
   V(ScriptSourceUrl)              \
   V(ScriptSourceMappingUrl)       \
+  V(ScriptIsEmbedderDebugScript)  \
   V(StringLength)
 
 // Accessors contains all predefined proxy accessors.
@@ -66,9 +73,8 @@ class Accessors : public AllStatic {
   };
 
   // Accessor functions called directly from the runtime system.
-  static Handle<Object> FunctionSetPrototype(Handle<JSFunction> object,
-                                             Handle<Object> value);
-  static Handle<Object> FunctionGetPrototype(Handle<JSFunction> object);
+  MUST_USE_RESULT static MaybeHandle<Object> FunctionSetPrototype(
+      Handle<JSFunction> object, Handle<Object> value);
   static Handle<Object> FunctionGetArguments(Handle<JSFunction> object);
 
   // Accessor infos.
@@ -77,10 +83,16 @@ class Accessors : public AllStatic {
 
   // Returns true for properties that are accessors to object fields.
   // If true, *object_offset contains offset of object field.
-  template <class T>
-  static bool IsJSObjectFieldAccessor(typename T::TypeHandle type,
-                                      Handle<Name> name,
+  static bool IsJSObjectFieldAccessor(Handle<Map> map, Handle<Name> name,
                                       int* object_offset);
+
+  // Returns true for properties that are accessors to ArrayBufferView and
+  // derived classes fields. If true, *object_offset contains offset of
+  // object field. The caller still has to check whether the underlying
+  // buffer was neutered.
+  static bool IsJSArrayBufferViewFieldAccessor(Handle<Map> map,
+                                               Handle<Name> name,
+                                               int* object_offset);
 
   static Handle<AccessorInfo> MakeAccessor(
       Isolate* isolate,
@@ -92,13 +104,9 @@ class Accessors : public AllStatic {
   static Handle<ExecutableAccessorInfo> CloneAccessor(
       Isolate* isolate,
       Handle<ExecutableAccessorInfo> accessor);
-
-
- private:
-  // Helper functions.
-  static Handle<Object> FlattenNumber(Isolate* isolate, Handle<Object> value);
 };
 
-} }  // namespace v8::internal
+}  // namespace internal
+}  // namespace v8
 
 #endif  // V8_ACCESSORS_H_

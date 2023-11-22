@@ -32,7 +32,7 @@
 #include "bta_ag_int.h"
 #include "bta_api.h"
 #include "bta_sys.h"
-#include "gki.h"
+#include "bt_common.h"
 #include "port_api.h"
 #include "utl.h"
 
@@ -41,8 +41,8 @@
 **  Constants
 *****************************************************************************/
 
-/* ring timeout */
-#define BTA_AG_RING_TOUT        5000
+/* Ring timeout */
+#define BTA_AG_RING_TIMEOUT_MS  (5 * 1000)      /* 5 seconds */
 
 #define BTA_AG_CMD_MAX_VAL      32767  /* Maximum value is signed 16-bit value */
 
@@ -347,7 +347,7 @@ static void bta_ag_send_result(tBTA_AG_SCB *p_scb, UINT8 code, char *p_arg,
     *p++ = '\n';
 
     /* copy result code string */
-    BCM_STRCPY_S(p, sizeof(buf), bta_ag_result_tbl[code].p_res);
+    strlcpy(p, bta_ag_result_tbl[code].p_res, sizeof(buf) - 2);
 #if defined(BTA_HSP_RESULT_REPLACE_COLON) && (BTA_HSP_RESULT_REPLACE_COLON == TRUE)
     if(p_scb->conn_service == BTA_AG_HSP)
     {
@@ -376,7 +376,7 @@ static void bta_ag_send_result(tBTA_AG_SCB *p_scb, UINT8 code, char *p_arg,
     }
     else if (bta_ag_result_tbl[code].fmt == BTA_AG_RES_FMT_STR)
     {
-        BCM_STRCPY_S(p, sizeof(buf), p_arg);
+        strcpy(p, p_arg);
         p += strlen(p_arg);
     }
 
@@ -427,7 +427,7 @@ static void bta_ag_send_multi_result(tBTA_AG_SCB *p_scb, tBTA_AG_MULTI_RESULT_CB
         *p++ = '\n';
 
         /* copy result code string */
-        BCM_STRCPY_S(p, sizeof(buf), bta_ag_result_tbl[m_res_cb->res_cb[res_idx].code].p_res);
+        strcpy(p, bta_ag_result_tbl[m_res_cb->res_cb[res_idx].code].p_res);
         p += strlen(bta_ag_result_tbl[m_res_cb->res_cb[res_idx].code].p_res);
 
         /* copy argument if any */
@@ -437,7 +437,7 @@ static void bta_ag_send_multi_result(tBTA_AG_SCB *p_scb, tBTA_AG_MULTI_RESULT_CB
         }
         else if (bta_ag_result_tbl[m_res_cb->res_cb[res_idx].code].fmt == BTA_AG_RES_FMT_STR)
         {
-            BCM_STRCPY_S(p, sizeof(buf), m_res_cb->res_cb[res_idx].p_arg);
+            strcpy(p, m_res_cb->res_cb[res_idx].p_arg);
             p += strlen(m_res_cb->res_cb[res_idx].p_arg);
         }
 
@@ -700,7 +700,7 @@ static tBTA_AG_PEER_CODEC bta_ag_parse_bac(tBTA_AG_SCB *p_scb, char *p_s)
             case UUID_CODEC_MSBC:   retval |= BTA_AG_CODEC_MSBC;     break;
             default:
                 APPL_TRACE_ERROR("Unknown Codec UUID(%d) received", uuid_codec);
-                return BTA_AG_CODEC_NONE;
+                break;
         }
 
         if (cont)
@@ -753,7 +753,7 @@ static void bta_ag_process_unat_res(char *unat_result)
         /* Add EOF */
         trim_data[j] = '\0';
         str_leng = str_leng - 4;
-        BCM_STRNCPY_S(unat_result, BTA_AG_AT_MAX_LEN+1, trim_data,str_leng+1);
+        strlcpy(unat_result, trim_data, str_leng+1);
         i=0;
         j=0;
 
@@ -850,8 +850,7 @@ void bta_ag_at_hsp_cback(tBTA_AG_SCB *p_scb, UINT16 cmd, UINT8 arg_type,
     val.hdr.handle = bta_ag_scb_to_idx(p_scb);
     val.hdr.app_id = p_scb->app_id;
     val.num = (UINT16) int_arg;
-    BCM_STRNCPY_S(val.str, sizeof(val.str), p_arg, BTA_AG_AT_MAX_LEN);
-    val.str[BTA_AG_AT_MAX_LEN] = 0;
+    strlcpy(val.str, p_arg, BTA_AG_AT_MAX_LEN);
 
     /* call callback with event */
     (*bta_ag_cb.p_cback)(bta_ag_hsp_cb_evt[cmd], (tBTA_AG *) &val);
@@ -892,8 +891,7 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB *p_scb, UINT16 cmd, UINT8 arg_type,
     val.hdr.app_id = p_scb->app_id;
     val.num = int_arg;
     bdcpy(val.bd_addr, p_scb->peer_addr);
-    BCM_STRNCPY_S(val.str, sizeof(val.str), p_arg, BTA_AG_AT_MAX_LEN);
-    val.str[BTA_AG_AT_MAX_LEN] = 0;
+    strlcpy(val.str, p_arg, BTA_AG_AT_MAX_LEN);
 
     event = bta_ag_hfp_cb_evt[cmd];
 
@@ -1242,16 +1240,14 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB *p_scb, UINT16 cmd, UINT8 arg_type,
             }
             else
             {
-                p_scb->peer_codecs = BTA_AG_CODEC_NONE;
+                p_scb->peer_codecs = BTA_AG_CODEC_CVSD;
                 APPL_TRACE_ERROR("Unexpected CMD:AT+BAC, Codec Negotiation is not supported");
             }
             break;
 
         case BTA_AG_HF_CMD_BCS:
             bta_ag_send_ok(p_scb);
-
-            /* stop cn timer */
-            bta_sys_stop_timer(&p_scb->cn_timer);
+            alarm_cancel(p_scb->codec_negotiation_timer);
 
             switch(int_arg)
             {
@@ -1322,8 +1318,7 @@ void bta_ag_at_err_cback(tBTA_AG_SCB *p_scb, BOOLEAN unknown, char *p_arg)
         val.hdr.handle = bta_ag_scb_to_idx(p_scb);
         val.hdr.app_id = p_scb->app_id;
         val.num = 0;
-        BCM_STRNCPY_S(val.str, sizeof(val.str), p_arg, BTA_AG_AT_MAX_LEN);
-        val.str[BTA_AG_AT_MAX_LEN] = 0;
+        strlcpy(val.str, p_arg, BTA_AG_AT_MAX_LEN);
         (*bta_ag_cb.p_cback)(BTA_AG_AT_UNAT_EVT, (tBTA_AG *) &val);
     }
     else
@@ -1383,7 +1378,7 @@ void bta_ag_hsp_result(tBTA_AG_SCB *p_scb, tBTA_AG_API_RESULT *p_result)
             /* if incoming call connected stop ring timer */
             if (p_result->result == BTA_AG_IN_CALL_CONN_RES)
             {
-                bta_sys_stop_timer(&p_scb->act_timer);
+                alarm_cancel(p_scb->ring_timer);
             }
 
             if (!(p_scb->features & BTA_AG_FEAT_NOSCO))
@@ -1402,8 +1397,7 @@ void bta_ag_hsp_result(tBTA_AG_SCB *p_scb, tBTA_AG_API_RESULT *p_result)
             break;
 
         case BTA_AG_END_CALL_RES:
-            /* stop ring timer */
-            bta_sys_stop_timer(&p_scb->act_timer);
+            alarm_cancel(p_scb->ring_timer);
 
             /* close sco */
             if ((bta_ag_sco_is_open(p_scb) || bta_ag_sco_is_opening(p_scb)) && !(p_scb->features & BTA_AG_FEAT_NOSCO))
@@ -1513,8 +1507,7 @@ void bta_ag_hfp_result(tBTA_AG_SCB *p_scb, tBTA_AG_API_RESULT *p_result)
             break;
 
         case BTA_AG_IN_CALL_CONN_RES:
-            /* stop ring timer */
-            bta_sys_stop_timer(&p_scb->act_timer);
+            alarm_cancel(p_scb->ring_timer);
 
             /* if sco not opened and we need to open it, send indicators first
             ** then  open sco.
@@ -1536,8 +1529,7 @@ void bta_ag_hfp_result(tBTA_AG_SCB *p_scb, tBTA_AG_API_RESULT *p_result)
             break;
 
         case BTA_AG_IN_CALL_HELD_RES:
-            /* stop ring timer */
-            bta_sys_stop_timer(&p_scb->act_timer);
+            alarm_cancel(p_scb->ring_timer);
 
             bta_ag_send_call_inds(p_scb, p_result->result);
 
@@ -1598,8 +1590,7 @@ void bta_ag_hfp_result(tBTA_AG_SCB *p_scb, tBTA_AG_API_RESULT *p_result)
             break;
 
         case BTA_AG_END_CALL_RES:
-            /* stop ring timer */
-            bta_sys_stop_timer(&p_scb->act_timer);
+            alarm_cancel(p_scb->ring_timer);
 
             /* if sco open, close sco then send indicator values */
             if ((bta_ag_sco_is_open(p_scb) || bta_ag_sco_is_opening(p_scb)) && !(p_scb->features & BTA_AG_FEAT_NOSCO))
@@ -1828,8 +1819,6 @@ void bta_ag_send_ring(tBTA_AG_SCB *p_scb, tBTA_AG_DATA *p_data)
     }
 #endif
 
-    /* restart ring timer */
-    bta_sys_start_timer(&p_scb->act_timer, BTA_AG_RING_TOUT_EVT, BTA_AG_RING_TOUT);
+    bta_sys_start_timer(p_scb->ring_timer, BTA_AG_RING_TIMEOUT_MS,
+                        BTA_AG_RING_TIMEOUT_EVT, bta_ag_scb_to_idx(p_scb));
 }
-
-

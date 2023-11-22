@@ -54,6 +54,7 @@ public class BracketTest extends BaseDataBinderTest<BracketTestBinding> {
                 mBinder.setSparseBooleanArray(mSparseBooleanArray);
                 mBinder.setSparseLongArray(mSparseLongArray);
                 mBinder.setLongSparseArray(mLongSparseArray);
+                mBinder.setIndexObj((Integer) 0);
 
                 mBinder.executePendingBindings();
             }
@@ -68,5 +69,37 @@ public class BracketTest extends BaseDataBinderTest<BracketTestBinding> {
         assertEquals("100", mBinder.sparseIntArrayText.getText().toString());
         assertEquals("true", mBinder.sparseBooleanArrayText.getText().toString());
         assertEquals("5", mBinder.sparseLongArrayText.getText().toString());
+    }
+
+    @UiThreadTest
+    public void testBracketOutOfBounds() {
+        mBinder.setIndex(1);
+        mBinder.executePendingBindings();
+        assertEquals("", mBinder.arrayText.getText().toString());
+        assertEquals("", mBinder.sparseArrayText.getText().toString());
+        assertEquals("", mBinder.longSparseArrayText.getText().toString());
+        assertEquals("0", mBinder.sparseIntArrayText.getText().toString());
+        assertEquals("false", mBinder.sparseBooleanArrayText.getText().toString());
+        assertEquals("0", mBinder.sparseLongArrayText.getText().toString());
+        mBinder.setIndex(-1);
+        mBinder.executePendingBindings();
+        assertEquals("", mBinder.arrayText.getText().toString());
+        assertEquals("", mBinder.sparseArrayText.getText().toString());
+        assertEquals("", mBinder.longSparseArrayText.getText().toString());
+        assertEquals("0", mBinder.sparseIntArrayText.getText().toString());
+        assertEquals("false", mBinder.sparseBooleanArrayText.getText().toString());
+        assertEquals("0", mBinder.sparseLongArrayText.getText().toString());
+    }
+
+    @UiThreadTest
+    public void testBracketObj() {
+        mBinder.executePendingBindings();
+        assertEquals("Hello World", mBinder.indexObj.getText().toString());
+        assertEquals("Hello", mBinder.sparseArrayTextObj.getText().toString());
+    }
+
+    @UiThreadTest
+    public void testBracketMap() throws Throwable {
+        assertEquals("", mBinder.bracketMap.getText().toString());
     }
 }

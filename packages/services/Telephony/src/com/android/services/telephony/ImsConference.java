@@ -19,6 +19,7 @@ package com.android.services.telephony;
 import android.content.Context;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
+import android.os.Bundle;
 import android.telecom.Conference;
 import android.telecom.ConferenceParticipant;
 import android.telecom.Connection.VideoProvider;
@@ -28,20 +29,22 @@ import android.telecom.Log;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.StatusHints;
 import android.telecom.VideoProfile;
+import android.telephony.PhoneNumberUtils;
 
 import com.android.internal.telephony.Call;
 import com.android.internal.telephony.CallStateException;
 import com.android.internal.telephony.Phone;
-import com.android.internal.telephony.imsphone.ImsPhoneConnection;
+import com.android.internal.telephony.PhoneConstants;
 import com.android.phone.PhoneUtils;
 import com.android.phone.R;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Objects;
 
 /**
  * Represents an IMS conference call.
@@ -169,16 +172,36 @@ public class ImsConference extends Conference {
 
         @Override
         public void onConnectionCapabilitiesChanged(Connection c, int connectionCapabilities) {
-            Log.d(this, "onCallCapabilitiesChanged: Connection: %s, callCapabilities: %s", c,
-                    connectionCapabilities);
+            Log.d(this, "onConnectionCapabilitiesChanged: Connection: %s," +
+                    " connectionCapabilities: %s", c, connectionCapabilities);
             int capabilites = ImsConference.this.getConnectionCapabilities();
-            setConnectionCapabilities(applyVideoCapabilities(capabilites, connectionCapabilities));
+            setConnectionCapabilities(applyHostCapabilities(capabilites, connectionCapabilities));
+        }
+
+        @Override
+        public void onConnectionPropertiesChanged(Connection c, int connectionProperties) {
+            Log.d(this, "onConnectionPropertiesChanged: Connection: %s," +
+                    " connectionProperties: %s", c, connectionProperties);
+            int properties = ImsConference.this.getConnectionProperties();
+            setConnectionProperties(applyHostProperties(properties, connectionProperties));
         }
 
         @Override
         public void onStatusHintsChanged(Connection c, StatusHints statusHints) {
             Log.v(this, "onStatusHintsChanged");
             updateStatusHints();
+        }
+
+        @Override
+        public void onExtrasChanged(Connection c, Bundle extras) {
+            Log.v(this, "onExtrasChanged: c=" + c + " Extras=" + extras);
+            putExtras(extras);
+        }
+
+        @Override
+        public void onExtrasRemoved(Connection c, List<String> keys) {
+            Log.v(this, "onExtrasRemoved: c=" + c + " key=" + keys);
+            removeExtras(keys);
         }
     };
 
@@ -193,13 +216,30 @@ public class ImsConference extends Conference {
     private TelephonyConnection mConferenceHost;
 
     /**
-     * The known conference participant connections.  The HashMap is keyed by endpoint Uri.
-     * A {@link ConcurrentHashMap} is used as there is a possibility for radio events impacting the
-     * available participants to occur at the same time as an access via the connection service.
+     * The PhoneAccountHandle of the conference host.
      */
-    private final ConcurrentHashMap<Uri, ConferenceParticipantConnection>
-            mConferenceParticipantConnections =
-                    new ConcurrentHashMap<Uri, ConferenceParticipantConnection>(8, 0.9f, 1);
+    private PhoneAccountHandle mConferenceHostPhoneAccountHandle;
+
+    /**
+     * The address of the conference host.
+     */
+    private Uri mConferenceHostAddress;
+
+    /**
+     * The known conference participant connections.  The HashMap is keyed by endpoint Uri.
+     * Access to the hashmap is protected by the {@link #mUpdateSyncRoot}.
+     */
+    private final HashMap<Uri, ConferenceParticipantConnection>
+            mConferenceParticipantConnections = new HashMap<Uri, ConferenceParticipantConnection>();
+
+    /**
+     * Sychronization root used to ensure that updates to the
+     * {@link #mConferenceParticipantConnections} happen atomically are are not interleaved across
+     * threads.  There are some instances where the network will send conference event package
+     * data closely spaced.  If that happens, it is possible that the interleaving of the update
+     * will cause duplicate participant info to be added.
+     */
+    private final Object mUpdateSyncRoot = new Object();
 
     public void updateConferenceParticipantsAfterCreation() {
         if (mConferenceHost != null) {
@@ -217,14 +257,12 @@ public class ImsConference extends Conference {
      * @param telephonyConnectionService The connection service responsible for adding new
      *                                   conferene participants.
      * @param conferenceHost The telephony connection hosting the conference.
+     * @param phoneAccountHandle The phone account handle associated with the conference.
      */
     public ImsConference(TelephonyConnectionService telephonyConnectionService,
-            TelephonyConnection conferenceHost) {
+            TelephonyConnection conferenceHost, PhoneAccountHandle phoneAccountHandle) {
 
-        super((conferenceHost != null && conferenceHost.getCall() != null &&
-                        conferenceHost.getCall().getPhone() != null) ?
-                PhoneUtils.makePstnPhoneAccountHandle(
-                        conferenceHost.getCall().getPhone()) : null);
+        super(phoneAccountHandle);
 
         // Specify the connection time of the conference to be the connection time of the original
         // connection.
@@ -238,37 +276,60 @@ public class ImsConference extends Conference {
 
         int capabilities = Connection.CAPABILITY_SUPPORT_HOLD | Connection.CAPABILITY_HOLD |
                 Connection.CAPABILITY_MUTE | Connection.CAPABILITY_CONFERENCE_HAS_NO_CHILDREN;
-
-        capabilities = applyVideoCapabilities(capabilities, mConferenceHost.getConnectionCapabilities());
+        capabilities = applyHostCapabilities(capabilities,
+                mConferenceHost.getConnectionCapabilities());
         setConnectionCapabilities(capabilities);
 
     }
 
-    private int applyVideoCapabilities(int conferenceCapabilities, int capabilities) {
-        if (can(capabilities, Connection.CAPABILITY_SUPPORTS_VT_LOCAL_BIDIRECTIONAL)) {
-            conferenceCapabilities = applyCapability(conferenceCapabilities,
-                    Connection.CAPABILITY_SUPPORTS_VT_LOCAL_BIDIRECTIONAL);
-        } else {
-            conferenceCapabilities = removeCapability(conferenceCapabilities,
-                    Connection.CAPABILITY_SUPPORTS_VT_LOCAL_BIDIRECTIONAL);
-        }
+    /**
+     * Transfers capabilities from the conference host to the conference itself.
+     *
+     * @param conferenceCapabilities The current conference capabilities.
+     * @param capabilities The new conference host capabilities.
+     * @return The merged capabilities to be applied to the conference.
+     */
+    private int applyHostCapabilities(int conferenceCapabilities, int capabilities) {
+        conferenceCapabilities = changeBitmask(conferenceCapabilities,
+                    Connection.CAPABILITY_SUPPORTS_VT_LOCAL_BIDIRECTIONAL,
+                    can(capabilities, Connection.CAPABILITY_SUPPORTS_VT_LOCAL_BIDIRECTIONAL));
 
-        if (can(capabilities, Connection.CAPABILITY_SUPPORTS_VT_REMOTE_BIDIRECTIONAL)) {
-            conferenceCapabilities = applyCapability(conferenceCapabilities,
-                    Connection.CAPABILITY_SUPPORTS_VT_REMOTE_BIDIRECTIONAL);
-        } else {
-            conferenceCapabilities = removeCapability(conferenceCapabilities,
-                    Connection.CAPABILITY_SUPPORTS_VT_REMOTE_BIDIRECTIONAL);
-        }
+        conferenceCapabilities = changeBitmask(conferenceCapabilities,
+                    Connection.CAPABILITY_SUPPORTS_VT_REMOTE_BIDIRECTIONAL,
+                    can(capabilities, Connection.CAPABILITY_SUPPORTS_VT_REMOTE_BIDIRECTIONAL));
 
-        if (can(capabilities, Connection.CAPABILITY_CAN_UPGRADE_TO_VIDEO)) {
-            conferenceCapabilities = applyCapability(conferenceCapabilities,
-                    Connection.CAPABILITY_CAN_UPGRADE_TO_VIDEO);
-        } else {
-            conferenceCapabilities = removeCapability(conferenceCapabilities,
-                    Connection.CAPABILITY_CAN_UPGRADE_TO_VIDEO);
-        }
+        conferenceCapabilities = changeBitmask(conferenceCapabilities,
+                    Connection.CAPABILITY_CANNOT_DOWNGRADE_VIDEO_TO_AUDIO,
+                    can(capabilities, Connection.CAPABILITY_CANNOT_DOWNGRADE_VIDEO_TO_AUDIO));
+
+        conferenceCapabilities = changeBitmask(conferenceCapabilities,
+                    Connection.CAPABILITY_CAN_UPGRADE_TO_VIDEO,
+                    can(capabilities, Connection.CAPABILITY_CAN_UPGRADE_TO_VIDEO));
+
         return conferenceCapabilities;
+    }
+
+    /**
+     * Transfers properties from the conference host to the conference itself.
+     *
+     * @param conferenceProperties The current conference properties.
+     * @param properties The new conference host properties.
+     * @return The merged properties to be applied to the conference.
+     */
+    private int applyHostProperties(int conferenceProperties, int properties) {
+        conferenceProperties = changeBitmask(conferenceProperties,
+                Connection.PROPERTY_HIGH_DEF_AUDIO,
+                can(properties, Connection.PROPERTY_HIGH_DEF_AUDIO));
+
+        conferenceProperties = changeBitmask(conferenceProperties,
+                Connection.PROPERTY_WIFI,
+                can(properties, Connection.PROPERTY_WIFI));
+
+        conferenceProperties = changeBitmask(conferenceProperties,
+                Connection.PROPERTY_IS_EXTERNAL_CALL,
+                can(properties, Connection.PROPERTY_IS_EXTERNAL_CALL));
+
+        return conferenceProperties;
     }
 
     /**
@@ -420,14 +481,20 @@ public class ImsConference extends Conference {
         // No-op
     }
 
-    private int applyCapability(int capabilities, int capability) {
-        int newCapabilities = capabilities | capability;
-        return newCapabilities;
-    }
-
-    private int removeCapability(int capabilities, int capability) {
-        int newCapabilities = capabilities & ~capability;
-        return newCapabilities;
+    /**
+     * Changes a bit-mask to add or remove a bit-field.
+     *
+     * @param bitmask The bit-mask.
+     * @param bitfield The bit-field to change.
+     * @param enabled Whether the bit-field should be set or removed.
+     * @return The bit-mask with the bit-field changed.
+     */
+    private int changeBitmask(int bitmask, int bitfield, boolean enabled) {
+        if (enabled) {
+            return bitmask | bitfield;
+        } else {
+            return bitmask & ~bitfield;
+        }
     }
 
     /**
@@ -442,12 +509,9 @@ public class ImsConference extends Conference {
         }
         com.android.internal.telephony.Connection originalConnection =
                 mConferenceHost.getOriginalConnection();
-        if (!(originalConnection instanceof ImsPhoneConnection)) {
-            return false;
-        }
 
-        ImsPhoneConnection imsPhoneConnection = (ImsPhoneConnection) originalConnection;
-        return imsPhoneConnection.isMultiparty() && imsPhoneConnection.isConferenceHost();
+        return originalConnection != null && originalConnection.isMultiparty() &&
+                originalConnection.isConferenceHost();
     }
 
     /**
@@ -490,9 +554,25 @@ public class ImsConference extends Conference {
         }
 
         mConferenceHost = conferenceHost;
+
+        // Attempt to get the conference host's address (e.g. the host's own phone number).
+        // We need to look at the default phone for the ImsPhone when creating the phone account
+        // for the
+        if (mConferenceHost.getPhone() != null &&
+                mConferenceHost.getPhone().getPhoneType() == PhoneConstants.PHONE_TYPE_IMS) {
+            // Look up the conference host's address; we need this later for filtering out the
+            // conference host in conference event package data.
+            Phone imsPhone = mConferenceHost.getPhone();
+            mConferenceHostPhoneAccountHandle =
+                    PhoneUtils.makePstnPhoneAccountHandle(imsPhone.getDefaultPhone());
+            mConferenceHostAddress = TelecomAccountRegistry.getInstance(mTelephonyConnectionService)
+                    .getAddress(mConferenceHostPhoneAccountHandle);
+        }
+
         mConferenceHost.addConnectionListener(mConferenceHostListener);
         mConferenceHost.addTelephonyConnectionListener(mTelephonyConnectionListener);
         setState(mConferenceHost.getState());
+
         updateStatusHints();
     }
 
@@ -508,59 +588,70 @@ public class ImsConference extends Conference {
         if (participants == null) {
             return;
         }
-        boolean newParticipantsAdded = false;
-        boolean oldParticipantsRemoved = false;
-        ArrayList<ConferenceParticipant> newParticipants = new ArrayList<>(participants.size());
-        HashSet<Uri> participantUserEntities = new HashSet<>(participants.size());
 
-        // Add any new participants and update existing.
-        for (ConferenceParticipant participant : participants) {
-            Uri userEntity = participant.getHandle();
+        // Perform the update in a synchronized manner.  It is possible for the IMS framework to
+        // trigger two onConferenceParticipantsChanged callbacks in quick succession.  If the first
+        // update adds new participants, and the second does something like update the status of one
+        // of the participants, we can get into a situation where the participant is added twice.
+        synchronized (mUpdateSyncRoot) {
+            boolean newParticipantsAdded = false;
+            boolean oldParticipantsRemoved = false;
+            ArrayList<ConferenceParticipant> newParticipants = new ArrayList<>(participants.size());
+            HashSet<Uri> participantUserEntities = new HashSet<>(participants.size());
 
-            participantUserEntities.add(userEntity);
-            if (!mConferenceParticipantConnections.containsKey(userEntity)) {
-                createConferenceParticipantConnection(parent, participant);
-                newParticipants.add(participant);
-                newParticipantsAdded = true;
-            } else {
-                ConferenceParticipantConnection connection =
-                        mConferenceParticipantConnections.get(userEntity);
-                connection.updateState(participant.getState());
+            // Add any new participants and update existing.
+            for (ConferenceParticipant participant : participants) {
+                Uri userEntity = participant.getHandle();
+
+                participantUserEntities.add(userEntity);
+                if (!mConferenceParticipantConnections.containsKey(userEntity)) {
+                    // Some carriers will also include the conference host in the CEP.  We will
+                    // filter that out here.
+                    if (!isParticipantHost(mConferenceHostAddress, userEntity)) {
+                        createConferenceParticipantConnection(parent, participant);
+                        newParticipants.add(participant);
+                        newParticipantsAdded = true;
+                    }
+                } else {
+                    ConferenceParticipantConnection connection =
+                            mConferenceParticipantConnections.get(userEntity);
+                    connection.updateState(participant.getState());
+                }
             }
-        }
 
-        // Set state of new participants.
-        if (newParticipantsAdded) {
-            // Set the state of the new participants at once and add to the conference
-            for (ConferenceParticipant newParticipant : newParticipants) {
-                ConferenceParticipantConnection connection =
-                        mConferenceParticipantConnections.get(newParticipant.getHandle());
-                connection.updateState(newParticipant.getState());
+            // Set state of new participants.
+            if (newParticipantsAdded) {
+                // Set the state of the new participants at once and add to the conference
+                for (ConferenceParticipant newParticipant : newParticipants) {
+                    ConferenceParticipantConnection connection =
+                            mConferenceParticipantConnections.get(newParticipant.getHandle());
+                    connection.updateState(newParticipant.getState());
+                }
             }
-        }
 
-        // Finally, remove any participants from the conference that no longer exist in the
-        // conference event package data.
-        Iterator<Map.Entry<Uri, ConferenceParticipantConnection>> entryIterator =
-                mConferenceParticipantConnections.entrySet().iterator();
-        while (entryIterator.hasNext()) {
-            Map.Entry<Uri, ConferenceParticipantConnection> entry = entryIterator.next();
+            // Finally, remove any participants from the conference that no longer exist in the
+            // conference event package data.
+            Iterator<Map.Entry<Uri, ConferenceParticipantConnection>> entryIterator =
+                    mConferenceParticipantConnections.entrySet().iterator();
+            while (entryIterator.hasNext()) {
+                Map.Entry<Uri, ConferenceParticipantConnection> entry = entryIterator.next();
 
-            if (!participantUserEntities.contains(entry.getKey())) {
-                ConferenceParticipantConnection participant = entry.getValue();
-                participant.setDisconnected(new DisconnectCause(DisconnectCause.CANCELED));
-                participant.removeConnectionListener(mParticipantListener);
-                mTelephonyConnectionService.removeConnection(participant);
-                removeConnection(participant);
-                entryIterator.remove();
-                oldParticipantsRemoved = true;
+                if (!participantUserEntities.contains(entry.getKey())) {
+                    ConferenceParticipantConnection participant = entry.getValue();
+                    participant.setDisconnected(new DisconnectCause(DisconnectCause.CANCELED));
+                    participant.removeConnectionListener(mParticipantListener);
+                    mTelephonyConnectionService.removeConnection(participant);
+                    removeConnection(participant);
+                    entryIterator.remove();
+                    oldParticipantsRemoved = true;
+                }
             }
-        }
 
-        // If new participants were added or old ones were removed, we need to ensure the state of
-        // the manage conference capability is updated.
-        if (newParticipantsAdded || oldParticipantsRemoved) {
-            updateManageConference();
+            // If new participants were added or old ones were removed, we need to ensure the state
+            // of the manage conference capability is updated.
+            if (newParticipantsAdded || oldParticipantsRemoved) {
+                updateManageConference();
+            }
         }
     }
 
@@ -582,15 +673,17 @@ public class ImsConference extends Conference {
         ConferenceParticipantConnection connection = new ConferenceParticipantConnection(
                 parent.getOriginalConnection(), participant);
         connection.addConnectionListener(mParticipantListener);
+        connection.setConnectTimeMillis(parent.getConnectTimeMillis());
 
         if (Log.VERBOSE) {
             Log.v(this, "createConferenceParticipantConnection: %s", connection);
         }
 
-        mConferenceParticipantConnections.put(participant.getHandle(), connection);
-        PhoneAccountHandle phoneAccountHandle =
-                PhoneUtils.makePstnPhoneAccountHandle(parent.getPhone());
-        mTelephonyConnectionService.addExistingConnection(phoneAccountHandle, connection);
+        synchronized(mUpdateSyncRoot) {
+            mConferenceParticipantConnections.put(participant.getHandle(), connection);
+        }
+        mTelephonyConnectionService.addExistingConnection(mConferenceHostPhoneAccountHandle,
+                connection);
         addConnection(connection);
     }
 
@@ -603,7 +696,10 @@ public class ImsConference extends Conference {
         Log.d(this, "removeConferenceParticipant: %s", participant);
 
         participant.removeConnectionListener(mParticipantListener);
-        mConferenceParticipantConnections.remove(participant.getUserEntity());
+        synchronized(mUpdateSyncRoot) {
+            mConferenceParticipantConnections.remove(participant.getUserEntity());
+        }
+        mTelephonyConnectionService.removeConnection(participant);
     }
 
     /**
@@ -612,17 +708,78 @@ public class ImsConference extends Conference {
     private void disconnectConferenceParticipants() {
         Log.v(this, "disconnectConferenceParticipants");
 
-        for (ConferenceParticipantConnection connection :
-                mConferenceParticipantConnections.values()) {
+        synchronized(mUpdateSyncRoot) {
+            for (ConferenceParticipantConnection connection :
+                    mConferenceParticipantConnections.values()) {
 
-            connection.removeConnectionListener(mParticipantListener);
-            // Mark disconnect cause as cancelled to ensure that the call is not logged in the
-            // call log.
-            connection.setDisconnected(new DisconnectCause(DisconnectCause.CANCELED));
-            mTelephonyConnectionService.removeConnection(connection);
-            connection.destroy();
+                connection.removeConnectionListener(mParticipantListener);
+                // Mark disconnect cause as cancelled to ensure that the call is not logged in the
+                // call log.
+                connection.setDisconnected(new DisconnectCause(DisconnectCause.CANCELED));
+                mTelephonyConnectionService.removeConnection(connection);
+                connection.destroy();
+            }
+            mConferenceParticipantConnections.clear();
         }
-        mConferenceParticipantConnections.clear();
+    }
+
+    /**
+     * Determines if the passed in participant handle is the same as the conference host's handle.
+     * Starts with a simple equality check.  However, the handles from a conference event package
+     * will be a SIP uri, so we need to pull that apart to look for the participant's phone number.
+     *
+     * @param hostHandle The handle of the connection hosting the conference.
+     * @param handle The handle of the conference participant.
+     * @return {@code true} if the host's handle matches the participant's handle, {@code false}
+     *      otherwise.
+     */
+    private boolean isParticipantHost(Uri hostHandle, Uri handle) {
+        // If host and participant handles are the same, bail early.
+        if (Objects.equals(hostHandle, handle)) {
+            Log.v(this, "isParticipantHost(Y) : uris equal");
+            return true;
+        }
+
+        // If there is no host handle or not participant handle, bail early.
+        if (hostHandle == null || handle == null) {
+            Log.v(this, "isParticipantHost(N) : host or participant uri null");
+            return false;
+        }
+
+        // Conference event package participants are identified using SIP URIs (see RFC3261).
+        // A valid SIP uri has the format: sip:user:password@host:port;uri-parameters?headers
+        // Per RFC3261, the "user" can be a telephone number.
+        // For example: sip:1650555121;phone-context=blah.com@host.com
+        // In this case, the phone number is in the user field of the URI, and the parameters can be
+        // ignored.
+        //
+        // A SIP URI can also specify a phone number in a format similar to:
+        // sip:+1-212-555-1212@something.com;user=phone
+        // In this case, the phone number is again in user field and the parameters can be ignored.
+        // We can get the user field in these instances by splitting the string on the @, ;, or :
+        // and looking at the first found item.
+
+        String number = handle.getSchemeSpecificPart();
+        String numberParts[] = number.split("[@;:]");
+
+        if (numberParts.length == 0) {
+            Log.v(this, "isParticipantHost(N) : no number in participant handle");
+            return false;
+        }
+        number = numberParts[0];
+
+        // The host number will be a tel: uri.  Per RFC3966, the part after tel: is the phone
+        // number.
+        String hostNumber = hostHandle.getSchemeSpecificPart();
+
+        // Use a loose comparison of the phone numbers.  This ensures that numbers that differ by
+        // special characters are counted as equal.
+        // E.g. +16505551212 would be the same as 16505551212
+        boolean isHost = PhoneNumberUtils.compare(hostNumber, number);
+
+        Log.v(this, "isParticipantHost(%s) : host: %s, participant %s", (isHost ? "Y" : "N"),
+                Log.pii(hostNumber), Log.pii(number));
+        return isHost;
     }
 
     /**
@@ -642,20 +799,39 @@ public class ImsConference extends Conference {
         com.android.internal.telephony.Connection originalConnection =
                 mConferenceHost.getOriginalConnection();
 
-        if (!(originalConnection instanceof ImsPhoneConnection)) {
+        if (originalConnection != null &&
+                originalConnection.getPhoneType() != PhoneConstants.PHONE_TYPE_IMS) {
             if (Log.VERBOSE) {
                 Log.v(this,
                         "Original connection for conference host is no longer an IMS connection; " +
                                 "new connection: %s", originalConnection);
             }
 
-            PhoneAccountHandle phoneAccountHandle =
-                    PhoneUtils.makePstnPhoneAccountHandle(mConferenceHost.getPhone());
-            mTelephonyConnectionService.addExistingConnection(phoneAccountHandle, mConferenceHost);
+            PhoneAccountHandle phoneAccountHandle = null;
+            if (mConferenceHost.getPhone() != null &&
+                    mConferenceHost.getPhone().getPhoneType() == PhoneConstants.PHONE_TYPE_IMS) {
+                Phone imsPhone = mConferenceHost.getPhone();
+                // The phone account handle for an ImsPhone is based on the default phone (ie the
+                // base GSM or CDMA phone, not on the ImsPhone itself).
+                phoneAccountHandle =
+                        PhoneUtils.makePstnPhoneAccountHandle(imsPhone.getDefaultPhone());
+            }
+
+            if (mConferenceHost.getPhone().getPhoneType() == PhoneConstants.PHONE_TYPE_GSM) {
+                GsmConnection c = new GsmConnection(originalConnection, getTelecomCallId());
+                // This is a newly created conference connection as a result of SRVCC
+                c.setConferenceSupported(true);
+                c.updateState();
+                // Copy the connect time from the conferenceHost
+                c.setConnectTimeMillis(mConferenceHost.getConnectTimeMillis());
+                mTelephonyConnectionService.addExistingConnection(phoneAccountHandle, c);
+                mTelephonyConnectionService.addConnectionToConferenceController(c);
+            } // CDMA case not applicable for SRVCC
             mConferenceHost.removeConnectionListener(mConferenceHostListener);
             mConferenceHost.removeTelephonyConnectionListener(mTelephonyConnectionListener);
             mConferenceHost = null;
             setDisconnected(new DisconnectCause(DisconnectCause.OTHER));
+            disconnectConferenceParticipants();
             destroy();
         }
 
@@ -688,6 +864,7 @@ public class ImsConference extends Conference {
                             mConferenceHost.getOriginalConnection().getDisconnectCause());
                 }
                 setDisconnected(disconnectCause);
+                disconnectConferenceParticipants();
                 destroy();
                 break;
             case Connection.STATE_ACTIVE:
@@ -730,6 +907,8 @@ public class ImsConference extends Conference {
         StringBuilder sb = new StringBuilder();
         sb.append("[ImsConference objId:");
         sb.append(System.identityHashCode(this));
+        sb.append(" telecomCallID:");
+        sb.append(getTelecomCallId());
         sb.append(" state:");
         sb.append(Connection.stateToString(getState()));
         sb.append(" hostConnection:");

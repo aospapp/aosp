@@ -19,7 +19,7 @@ package android.preference2.cts;
 import android.preference.CheckBoxPreference;
 import android.test.ActivityInstrumentationTestCase2;
 
-import com.android.cts.preference2.R;
+import android.preference2.cts.R;
 
 public class CheckBoxPreferenceTest
         extends ActivityInstrumentationTestCase2<PreferenceFromCodeActivity> {

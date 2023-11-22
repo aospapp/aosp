@@ -14,7 +14,7 @@
 * limitations under the License.
 */
 #ifndef GL2_ENCODER_UTILS_H
-#define GL2_ENCLODER_UTILS_H
+#define GL2_ENCODER_UTILS_H
 
 namespace glesv2_enc {
 

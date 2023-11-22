@@ -18,7 +18,7 @@
 
 #include "HostConnection.h"
 #include <pthread.h>
-#ifdef HAVE_ANDROID_OS
+#ifdef __ANDROID__
 #include <bionic_tls.h>
 #endif
 
@@ -36,7 +36,7 @@ struct EGLThreadInfo
 
 EGLThreadInfo *slow_getEGLThreadInfo();
 
-#ifdef HAVE_ANDROID_OS
+#ifdef __ANDROID__
     // We have a dedicated TLS slot in bionic
     inline EGLThreadInfo* getEGLThreadInfo() {
         EGLThreadInfo *tInfo =

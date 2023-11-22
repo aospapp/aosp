@@ -50,14 +50,9 @@
         android:minWidth="0dp"
         android:contentDescription="@string/notification_app_settings_button"
         android:scaleType="center"
-        android:src="@drawable/ic_info"
+        android:src="@drawable/ic_settings_24dp"
+        android:visibility="gone"
         style="?android:attr/borderlessButtonStyle" />
-
-    <View
-        android:id="@+id/row_divider"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="?android:attr/listDivider" />
 
 </RelativeLayout>
 

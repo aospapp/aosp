@@ -24,9 +24,12 @@
 #include <gui/Surface.h>
 #include <gui/SurfaceComposerClient.h>
 #include <private/gui/ComposerService.h>
+#include <private/gui/LayerState.h>
 
 #include <utils/String8.h>
 #include <ui/DisplayInfo.h>
+
+#include <math.h>
 
 namespace android {
 
@@ -38,8 +41,8 @@ static void fillSurfaceRGBA8(const sp<SurfaceControl>& sc,
     ASSERT_TRUE(s != NULL);
     ASSERT_EQ(NO_ERROR, s->lock(&outBuffer, NULL));
     uint8_t* img = reinterpret_cast<uint8_t*>(outBuffer.bits);
-    for (uint32_t y = 0; y < outBuffer.height; y++) {
-        for (uint32_t x = 0; x < outBuffer.width; x++) {
+    for (int y = 0; y < outBuffer.height; y++) {
+        for (int x = 0; x < outBuffer.width; x++) {
             uint8_t* pixel = img + (4 * (y*outBuffer.stride + x));
             pixel[0] = r;
             pixel[1] = g;
@@ -63,6 +66,8 @@ public:
         sp<ISurfaceComposer> sf(ComposerService::getComposerService());
         sp<IBinder> display(sf->getBuiltInDisplay(
                 ISurfaceComposer::eDisplayIdMain));
+        SurfaceComposerClient::openGlobalTransaction();
+        SurfaceComposerClient::closeGlobalTransaction(true);
         ASSERT_EQ(NO_ERROR, sf->captureScreen(display, producer, Rect(), 0, 0,
                 0, INT_MAX, false));
         *sc = new ScreenCapture(cpuConsumer);
@@ -76,7 +81,7 @@ public:
             String8 err(String8::format("pixel @ (%3d, %3d): "
                     "expected [%3d, %3d, %3d], got [%3d, %3d, %3d]",
                     x, y, r, g, b, pixel[0], pixel[1], pixel[2]));
-            EXPECT_EQ(String8(), err);
+            EXPECT_EQ(String8(), err) << err.string();
         }
     }
 
@@ -133,6 +138,8 @@ protected:
         fillSurfaceRGBA8(mSyncSurfaceControl, 31, 31, 31);
 
         SurfaceComposerClient::openGlobalTransaction();
+
+        mComposerClient->setDisplayLayerStack(display, 0);
 
         ASSERT_EQ(NO_ERROR, mBGSurfaceControl->setLayer(INT_MAX-2));
         ASSERT_EQ(NO_ERROR, mBGSurfaceControl->show());
@@ -246,6 +253,268 @@ TEST_F(LayerUpdateTest, LayerResizeWorks) {
         sc->checkPixel( 24,  24,  63,  63, 195);
         sc->checkPixel( 75,  75,  63, 195,  63);
         sc->checkPixel(145, 145,  63, 195,  63);
+    }
+}
+
+TEST_F(LayerUpdateTest, LayerCropWorks) {
+    sp<ScreenCapture> sc;
+    {
+        SCOPED_TRACE("before crop");
+        ScreenCapture::captureScreen(&sc);
+        sc->checkPixel( 24,  24,  63,  63, 195);
+        sc->checkPixel( 75,  75, 195,  63,  63);
+        sc->checkPixel(145, 145,  63,  63, 195);
+    }
+
+    SurfaceComposerClient::openGlobalTransaction();
+    Rect cropRect(16, 16, 32, 32);
+    ASSERT_EQ(NO_ERROR, mFGSurfaceControl->setCrop(cropRect));
+    SurfaceComposerClient::closeGlobalTransaction(true);
+    {
+        // This should crop the foreground surface.
+        SCOPED_TRACE("after crop");
+        ScreenCapture::captureScreen(&sc);
+        sc->checkPixel( 24,  24,  63,  63, 195);
+        sc->checkPixel( 75,  75,  63,  63, 195);
+        sc->checkPixel( 95,  80, 195,  63,  63);
+        sc->checkPixel( 80,  95, 195,  63,  63);
+        sc->checkPixel( 96,  96,  63,  63, 195);
+    }
+}
+
+TEST_F(LayerUpdateTest, LayerFinalCropWorks) {
+    sp<ScreenCapture> sc;
+    {
+        SCOPED_TRACE("before crop");
+        ScreenCapture::captureScreen(&sc);
+        sc->checkPixel( 24,  24,  63,  63, 195);
+        sc->checkPixel( 75,  75, 195,  63,  63);
+        sc->checkPixel(145, 145,  63,  63, 195);
+    }
+    SurfaceComposerClient::openGlobalTransaction();
+    Rect cropRect(16, 16, 32, 32);
+    ASSERT_EQ(NO_ERROR, mFGSurfaceControl->setFinalCrop(cropRect));
+    SurfaceComposerClient::closeGlobalTransaction(true);
+    {
+        // This should crop the foreground surface.
+        SCOPED_TRACE("after crop");
+        ScreenCapture::captureScreen(&sc);
+        sc->checkPixel( 24,  24,  63,  63, 195);
+        sc->checkPixel( 75,  75,  63,  63, 195);
+        sc->checkPixel( 95,  80,  63,  63, 195);
+        sc->checkPixel( 80,  95,  63,  63, 195);
+        sc->checkPixel( 96,  96,  63,  63, 195);
+    }
+}
+
+TEST_F(LayerUpdateTest, LayerSetLayerWorks) {
+    sp<ScreenCapture> sc;
+    {
+        SCOPED_TRACE("before setLayer");
+        ScreenCapture::captureScreen(&sc);
+        sc->checkPixel( 24,  24,  63,  63, 195);
+        sc->checkPixel( 75,  75, 195,  63,  63);
+        sc->checkPixel(145, 145,  63,  63, 195);
+    }
+
+    SurfaceComposerClient::openGlobalTransaction();
+    ASSERT_EQ(NO_ERROR, mFGSurfaceControl->setLayer(INT_MAX - 3));
+    SurfaceComposerClient::closeGlobalTransaction(true);
+    {
+        // This should hide the foreground surface beneath the background.
+        SCOPED_TRACE("after setLayer");
+        ScreenCapture::captureScreen(&sc);
+        sc->checkPixel( 24,  24,  63,  63, 195);
+        sc->checkPixel( 75,  75,  63,  63, 195);
+        sc->checkPixel(145, 145,  63,  63, 195);
+    }
+}
+
+TEST_F(LayerUpdateTest, LayerShowHideWorks) {
+    sp<ScreenCapture> sc;
+    {
+        SCOPED_TRACE("before hide");
+        ScreenCapture::captureScreen(&sc);
+        sc->checkPixel( 24,  24,  63,  63, 195);
+        sc->checkPixel( 75,  75, 195,  63,  63);
+        sc->checkPixel(145, 145,  63,  63, 195);
+    }
+
+    SurfaceComposerClient::openGlobalTransaction();
+    ASSERT_EQ(NO_ERROR, mFGSurfaceControl->hide());
+    SurfaceComposerClient::closeGlobalTransaction(true);
+    {
+        // This should hide the foreground surface.
+        SCOPED_TRACE("after hide, before show");
+        ScreenCapture::captureScreen(&sc);
+        sc->checkPixel( 24,  24,  63,  63, 195);
+        sc->checkPixel( 75,  75,  63,  63, 195);
+        sc->checkPixel(145, 145,  63,  63, 195);
+    }
+
+    SurfaceComposerClient::openGlobalTransaction();
+    ASSERT_EQ(NO_ERROR, mFGSurfaceControl->show());
+    SurfaceComposerClient::closeGlobalTransaction(true);
+    {
+        // This should show the foreground surface.
+        SCOPED_TRACE("after show");
+        ScreenCapture::captureScreen(&sc);
+        sc->checkPixel( 24,  24,  63,  63, 195);
+        sc->checkPixel( 75,  75, 195,  63,  63);
+        sc->checkPixel(145, 145,  63,  63, 195);
+    }
+}
+
+TEST_F(LayerUpdateTest, LayerSetAlphaWorks) {
+    sp<ScreenCapture> sc;
+    {
+        SCOPED_TRACE("before setAlpha");
+        ScreenCapture::captureScreen(&sc);
+        sc->checkPixel( 24,  24,  63,  63, 195);
+        sc->checkPixel( 75,  75, 195,  63,  63);
+        sc->checkPixel(145, 145,  63,  63, 195);
+    }
+
+    SurfaceComposerClient::openGlobalTransaction();
+    ASSERT_EQ(NO_ERROR, mFGSurfaceControl->setAlpha(0.75f));
+    SurfaceComposerClient::closeGlobalTransaction(true);
+    {
+        // This should set foreground to be 75% opaque.
+        SCOPED_TRACE("after setAlpha");
+        ScreenCapture::captureScreen(&sc);
+        sc->checkPixel( 24,  24,  63,  63, 195);
+        sc->checkPixel( 75,  75, 162,  63,  96);
+        sc->checkPixel(145, 145,  63,  63, 195);
+    }
+}
+
+TEST_F(LayerUpdateTest, LayerSetLayerStackWorks) {
+    sp<ScreenCapture> sc;
+    {
+        SCOPED_TRACE("before setLayerStack");
+        ScreenCapture::captureScreen(&sc);
+        sc->checkPixel( 24,  24,  63,  63, 195);
+        sc->checkPixel( 75,  75, 195,  63,  63);
+        sc->checkPixel(145, 145,  63,  63, 195);
+    }
+
+    SurfaceComposerClient::openGlobalTransaction();
+    ASSERT_EQ(NO_ERROR, mFGSurfaceControl->setLayerStack(1));
+    SurfaceComposerClient::closeGlobalTransaction(true);
+    {
+        // This should hide the foreground surface since it goes to a different
+        // layer stack.
+        SCOPED_TRACE("after setLayerStack");
+        ScreenCapture::captureScreen(&sc);
+        sc->checkPixel( 24,  24,  63,  63, 195);
+        sc->checkPixel( 75,  75,  63,  63, 195);
+        sc->checkPixel(145, 145,  63,  63, 195);
+    }
+}
+
+TEST_F(LayerUpdateTest, LayerSetFlagsWorks) {
+    sp<ScreenCapture> sc;
+    {
+        SCOPED_TRACE("before setFlags");
+        ScreenCapture::captureScreen(&sc);
+        sc->checkPixel( 24,  24,  63,  63, 195);
+        sc->checkPixel( 75,  75, 195,  63,  63);
+        sc->checkPixel(145, 145,  63,  63, 195);
+    }
+
+    SurfaceComposerClient::openGlobalTransaction();
+    ASSERT_EQ(NO_ERROR, mFGSurfaceControl->setFlags(
+            layer_state_t::eLayerHidden, layer_state_t::eLayerHidden));
+    SurfaceComposerClient::closeGlobalTransaction(true);
+    {
+        // This should hide the foreground surface
+        SCOPED_TRACE("after setFlags");
+        ScreenCapture::captureScreen(&sc);
+        sc->checkPixel( 24,  24,  63,  63, 195);
+        sc->checkPixel( 75,  75,  63,  63, 195);
+        sc->checkPixel(145, 145,  63,  63, 195);
+    }
+}
+
+TEST_F(LayerUpdateTest, LayerSetMatrixWorks) {
+    sp<ScreenCapture> sc;
+    {
+        SCOPED_TRACE("before setMatrix");
+        ScreenCapture::captureScreen(&sc);
+        sc->checkPixel( 24,  24,  63,  63, 195);
+        sc->checkPixel( 91,  96, 195,  63,  63);
+        sc->checkPixel( 96, 101, 195,  63,  63);
+        sc->checkPixel(145, 145,  63,  63, 195);
+    }
+
+    SurfaceComposerClient::openGlobalTransaction();
+    ASSERT_EQ(NO_ERROR, mFGSurfaceControl->setMatrix(M_SQRT1_2, M_SQRT1_2,
+            -M_SQRT1_2, M_SQRT1_2));
+    SurfaceComposerClient::closeGlobalTransaction(true);
+    {
+        SCOPED_TRACE("after setMatrix");
+        ScreenCapture::captureScreen(&sc);
+        sc->checkPixel( 24,  24,  63,  63, 195);
+        sc->checkPixel( 91,  96, 195,  63,  63);
+        sc->checkPixel( 96,  91,  63,  63, 195);
+        sc->checkPixel(145, 145,  63,  63, 195);
+    }
+}
+
+TEST_F(LayerUpdateTest, DeferredTransactionTest) {
+    sp<ScreenCapture> sc;
+    {
+        SCOPED_TRACE("before anything");
+        ScreenCapture::captureScreen(&sc);
+        sc->checkPixel( 32,  32,  63,  63, 195);
+        sc->checkPixel( 96,  96, 195,  63,  63);
+        sc->checkPixel(160, 160,  63,  63, 195);
+    }
+
+    // set up two deferred transactions on different frames
+    SurfaceComposerClient::openGlobalTransaction();
+    ASSERT_EQ(NO_ERROR, mFGSurfaceControl->setAlpha(0.75));
+    mFGSurfaceControl->deferTransactionUntil(mSyncSurfaceControl->getHandle(),
+            mSyncSurfaceControl->getSurface()->getNextFrameNumber());
+    SurfaceComposerClient::closeGlobalTransaction(true);
+
+    SurfaceComposerClient::openGlobalTransaction();
+    ASSERT_EQ(NO_ERROR, mFGSurfaceControl->setPosition(128,128));
+    mFGSurfaceControl->deferTransactionUntil(mSyncSurfaceControl->getHandle(),
+            mSyncSurfaceControl->getSurface()->getNextFrameNumber() + 1);
+    SurfaceComposerClient::closeGlobalTransaction(true);
+
+    {
+        SCOPED_TRACE("before any trigger");
+        ScreenCapture::captureScreen(&sc);
+        sc->checkPixel( 32,  32,  63,  63, 195);
+        sc->checkPixel( 96,  96, 195,  63,  63);
+        sc->checkPixel(160, 160,  63,  63, 195);
+    }
+
+    // should trigger the first deferred transaction, but not the second one
+    fillSurfaceRGBA8(mSyncSurfaceControl, 31, 31, 31);
+    {
+        SCOPED_TRACE("after first trigger");
+        ScreenCapture::captureScreen(&sc);
+        sc->checkPixel( 32,  32,  63,  63, 195);
+        sc->checkPixel( 96,  96, 162,  63,  96);
+        sc->checkPixel(160, 160,  63,  63, 195);
+    }
+
+    // should show up immediately since it's not deferred
+    SurfaceComposerClient::openGlobalTransaction();
+    ASSERT_EQ(NO_ERROR, mFGSurfaceControl->setAlpha(1.0));
+    SurfaceComposerClient::closeGlobalTransaction(true);
+
+    // trigger the second deferred transaction
+    fillSurfaceRGBA8(mSyncSurfaceControl, 31, 31, 31);
+    {
+        SCOPED_TRACE("after second trigger");
+        ScreenCapture::captureScreen(&sc);
+        sc->checkPixel( 32,  32,  63,  63, 195);
+        sc->checkPixel( 96,  96,  63,  63, 195);
+        sc->checkPixel(160, 160, 195,  63,  63);
     }
 }
 

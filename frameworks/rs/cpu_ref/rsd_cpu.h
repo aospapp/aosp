@@ -19,24 +19,7 @@
 
 #include "rsAllocation.h"
 
-namespace llvm {
-
-class Module;
-
-}  // end namespace llvm
-
-namespace bcc {
-
-class RSCompilerDriver;
-class RSScript;
-typedef llvm::Module* (*RSLinkRuntimeCallback)
-        (bcc::RSScript *, llvm::Module *, llvm::Module *);
-
-}  // end namespace bcc;
-
 typedef const char* (*RSSelectRTCallback) (const char*, size_t);
-
-typedef void (*RSSetupCompilerCallback) (bcc::RSCompilerDriver *);
 
 namespace android {
 namespace renderscript {
@@ -45,7 +28,6 @@ class ScriptC;
 class Script;
 class ScriptGroupBase;
 class ScriptKernelID;
-
 
 class RsdCpuReference {
 public:
@@ -75,6 +57,11 @@ public:
                                    const void * usr,
                                    uint32_t usrLen,
                                    const RsScriptCall *sc) = 0;
+
+        virtual void invokeReduce(uint32_t slot,
+                                  const Allocation ** ains, uint32_t inLen,
+                                  Allocation *aout,
+                                  const RsScriptCall *sc) = 0;
 
         virtual void invokeInit() = 0;
         virtual void invokeFreeChildren() = 0;
@@ -128,8 +115,7 @@ public:
 
     static RsdCpuReference * create(Context *c, uint32_t version_major,
                                     uint32_t version_minor, sym_lookup_t lfn, script_lookup_t slfn
-                                    , bcc::RSLinkRuntimeCallback pLinkRuntimeCallback = nullptr,
-                                    RSSelectRTCallback pSelectRTCallback = nullptr,
+                                    , RSSelectRTCallback pSelectRTCallback = nullptr,
                                     const char *pBccPluginName = nullptr
                                     );
     virtual ~RsdCpuReference();
@@ -140,13 +126,7 @@ public:
                                      uint32_t flags) = 0;
     virtual CpuScript * createIntrinsic(const Script *s, RsScriptIntrinsicID iid, Element *e) = 0;
     virtual void* createScriptGroup(const ScriptGroupBase *sg) = 0;
-    virtual bool getInForEach() = 0;
-
-#ifndef RS_COMPATIBILITY_LIB
-    virtual void setSetupCompilerCallback(
-            RSSetupCompilerCallback pSetupCompilerCallback) = 0;
-    virtual RSSetupCompilerCallback getSetupCompilerCallback() const = 0;
-#endif
+    virtual bool getInKernel() = 0;  // Is a parallel kernel execution underway?
 
     // Set to true if we should embed global variable information in the code.
     virtual void setEmbedGlobalInfo(bool v) = 0;

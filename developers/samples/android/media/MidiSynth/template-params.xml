@@ -20,14 +20,12 @@
     <package>com.example.android.midisynth</package>
 
     <minSdk>23</minSdk>
-    <targetSdkVersion>23</targetSdkVersion>
-    <compileSdkVersion>23</compileSdkVersion>
     <strings>
         <intro>
-            <![CDATA[
-This sample demonstrates how to use the MIDI API to receive and play MIDI signals coming from an
+<![CDATA[
+This sample demonstrates how to use the MIDI API to receive and play MIDI messages coming from an
 attached input device.
-            ]]>
+]]>
         </intro>
     </strings>
 
@@ -40,7 +38,7 @@ attached input device.
         <technologies>Android</technologies>
         <languages>Java</languages>
         <solutions>Mobile</solutions>
-        <level>INTERMEDIATE</level>
+        <level>EXPERT</level>
         <icon>screenshots/icon-web.png</icon>
         <screenshots>
             <img>screenshots/1-main.png</img>
@@ -50,25 +48,30 @@ attached input device.
             <android>android.media.midi.MidiReceiver</android>
         </api_refs>
         <description>
-            <![CDATA[
-Sample demonstrating how to use the MIDI API to receive and play MIDI signals coming from an
+<![CDATA[
+Sample demonstrating how to use the MIDI API to receive and play MIDI messages coming from an
 attached input device (MIDI keyboard).
-	    ]]>
+]]>
         </description>
 
         <!-- Multi-paragraph introduction to sample, from an educational point-of-view.
         Makrdown formatting allowed. This will be used to generate a mini-article for the
         sample on DAC. -->
         <intro>
-            <![CDATA[
-The Android MIDI API ([android.media.midi][1]) allows developers to connect a MIDI device to Android
-and process MIDI signals coming from it. This sample demonstrates some basic features of the MIDI
-API, such as enumeration of currently available devices (Information includes name, vendor,
-capabilities, etc), notification when MIDI devices are plugged in or unplugged, and receiving MIDI
-signals. This sample contains a simple implementation of oscillator and play sound for incoming MIDI
-signals.
+<![CDATA[
+The Android MIDI API ([android.media.midi][1]) allows developers to connect a MIDI device to
+an Android device and process MIDI messages coming from it.
+
+This sample demonstrates some basic features of the MIDI API, such as:
+
+- Enumeration of currently available devices (including name, vendor, capabilities, etc)
+- Notification when MIDI devices are plugged in or unplugged
+- Receiving and processing MIDI messages
+
+This sample contains a simple implementation of an oscillator and note playback.
+
 [1]: https://developer.android.com/reference/android/media/midi/package-summary.html
-	    ]]>
+]]>
         </intro>
     </metadata>
 </sample>

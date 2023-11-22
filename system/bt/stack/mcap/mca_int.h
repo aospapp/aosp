@@ -23,7 +23,8 @@
  ******************************************************************************/
 #ifndef MCA_INT_H
 #define MCA_INT_H
-#include "gki.h"
+#include "bt_common.h"
+#include "osi/include/alarm.h"
 #include "mca_api.h"
 
 /*****************************************************************************
@@ -204,7 +205,7 @@ typedef UINT8 tMCA_CCB_STAT;
  */
 typedef struct {
     tMCA_RCB        *p_rcb;             /* the associated registration control block */
-    TIMER_LIST_ENT  timer_entry;        /* CCB timer list entry */
+    alarm_t         *mca_ccb_timer;     /* MCA CCB timer entry */
     tMCA_CCB_MSG    *p_tx_req;          /* Current request being sent/awaiting response */
     tMCA_CCB_MSG    *p_rx_msg;          /* Current message received/being processed */
     BD_ADDR         peer_addr;          /* BD address of peer */
@@ -317,8 +318,7 @@ extern void mca_rcb_dealloc(tMCA_HANDLE handle);
 extern tMCA_HANDLE mca_rcb_to_handle(tMCA_RCB *p_rcb);
 extern tMCA_RCB *mca_rcb_by_handle(tMCA_HANDLE handle);
 extern BOOLEAN mca_is_valid_dep_id(tMCA_RCB *p_rcb, tMCA_DEP dep);
-extern void mca_free_buf(void **p_buf);
-extern void mca_process_timeout(TIMER_LIST_ENT *p_tle);
+extern void mca_ccb_timer_timeout(void *data);
 extern void mca_stop_timer(tMCA_CCB *p_ccb);
 
 /* l2c functions */

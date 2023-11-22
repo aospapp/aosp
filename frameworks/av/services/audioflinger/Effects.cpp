@@ -59,7 +59,7 @@ AudioFlinger::EffectModule::EffectModule(ThreadBase *thread,
                                         const wp<AudioFlinger::EffectChain>& chain,
                                         effect_descriptor_t *desc,
                                         int id,
-                                        int sessionId)
+                                        audio_session_t sessionId)
     : mPinned(sessionId > AUDIO_SESSION_OUTPUT_MIX),
       mThread(thread), mChain(chain), mId(id), mSessionId(sessionId),
       mDescriptor(*desc),
@@ -138,7 +138,7 @@ status_t AudioFlinger::EffectModule::addHandle(EffectHandle *handle)
     } else {
         status = ALREADY_EXISTS;
     }
-    ALOGV("addHandle() %p added handle %p in position %d", this, handle, i);
+    ALOGV("addHandle() %p added handle %p in position %zu", this, handle, i);
     mHandles.insertAt(handle, i);
     return status;
 }
@@ -156,7 +156,7 @@ size_t AudioFlinger::EffectModule::removeHandle(EffectHandle *handle)
     if (i == size) {
         return size;
     }
-    ALOGV("removeHandle() %p removed handle %p in position %d", this, handle, i);
+    ALOGV("removeHandle() %p removed handle %p in position %zu", this, handle, i);
 
     mHandles.removeAt(i);
     // if removed from first place, move effect control from this handle to next in line
@@ -380,7 +380,7 @@ status_t AudioFlinger::EffectModule::configure()
     mConfig.inputCfg.buffer.frameCount = thread->frameCount();
     mConfig.outputCfg.buffer.frameCount = mConfig.inputCfg.buffer.frameCount;
 
-    ALOGV("configure() %p thread %p buffer %p framecount %d",
+    ALOGV("configure() %p thread %p buffer %p framecount %zu",
             this, thread.get(), mConfig.inputCfg.buffer.raw, mConfig.inputCfg.buffer.frameCount);
 
     status_t cmdStatus;
@@ -558,6 +558,12 @@ status_t AudioFlinger::EffectModule::command(uint32_t cmdCode,
     if (mStatus != NO_ERROR) {
         return mStatus;
     }
+    if (cmdCode == EFFECT_CMD_GET_PARAM &&
+            (*replySize < sizeof(effect_param_t) ||
+                    ((effect_param_t *)pCmdData)->psize > *replySize - sizeof(effect_param_t))) {
+        android_errorWriteLog(0x534e4554, "29251553");
+        return -EINVAL;
+    }
     status_t status = (*mEffectInterface)->command(mEffectInterface,
                                                    cmdCode,
                                                    cmdSize,
@@ -677,7 +683,6 @@ status_t AudioFlinger::EffectModule::setVolume(uint32_t *left, uint32_t *right, 
     if (isProcessEnabled() &&
             ((mDescriptor.flags & EFFECT_FLAG_VOLUME_MASK) == EFFECT_FLAG_VOLUME_CTRL ||
             (mDescriptor.flags & EFFECT_FLAG_VOLUME_MASK) == EFFECT_FLAG_VOLUME_IND)) {
-        status_t cmdStatus;
         uint32_t volume[2];
         uint32_t *pVolume = NULL;
         uint32_t size = sizeof(volume);
@@ -934,7 +939,7 @@ String8 effectFlagsToString(uint32_t flags) {
 
     int len = s.length();
     if (s.length() > 2) {
-        char *str = s.lockBuffer(len);
+        (void) s.lockBuffer(len);
         s.unlockBuffer(len - 2);
     }
     return s;
@@ -1051,7 +1056,7 @@ AudioFlinger::EffectHandle::EffectHandle(const sp<EffectModule>& effect,
     mCblkMemory = client->heap()->allocate(EFFECT_PARAM_BUFFER_SIZE + bufOffset);
     if (mCblkMemory == 0 ||
             (mCblk = static_cast<effect_param_cblk_t *>(mCblkMemory->pointer())) == NULL) {
-        ALOGE("not enough memory for Effect size=%u", EFFECT_PARAM_BUFFER_SIZE +
+        ALOGE("not enough memory for Effect size=%zu", EFFECT_PARAM_BUFFER_SIZE +
                 sizeof(effect_param_cblk_t));
         mCblkMemory.clear();
         return;
@@ -1341,7 +1346,7 @@ void AudioFlinger::EffectHandle::dumpToBuffer(char* buffer, size_t size)
 #define LOG_TAG "AudioFlinger::EffectChain"
 
 AudioFlinger::EffectChain::EffectChain(ThreadBase *thread,
-                                        int sessionId)
+                                        audio_session_t sessionId)
     : mThread(thread), mSessionId(sessionId), mActiveTrackCnt(0), mTrackCnt(0), mTailBufferCount(0),
       mOwnInBuffer(false), mVolumeCtrlIdx(-1), mLeftVolume(UINT_MAX), mRightVolume(UINT_MAX),
       mNewLeftVolume(UINT_MAX), mNewRightVolume(UINT_MAX), mForceVolume(false)
@@ -1580,7 +1585,7 @@ status_t AudioFlinger::EffectChain::addEffect_l(const sp<EffectModule>& effect)
         }
         mEffects.insertAt(effect, idx_insert);
 
-        ALOGV("addEffect_l() effect %p, added in chain %p at rank %d", effect.get(), this,
+        ALOGV("addEffect_l() effect %p, added in chain %p at rank %zu", effect.get(), this,
                 idx_insert);
     }
     effect->configure();
@@ -1612,7 +1617,7 @@ size_t AudioFlinger::EffectChain::removeEffect_l(const sp<EffectModule>& effect)
                 }
             }
             mEffects.removeAt(i);
-            ALOGV("removeEffect_l() effect %p, removed from chain %p at rank %d", effect.get(),
+            ALOGV("removeEffect_l() effect %p, removed from chain %p at rank %zu", effect.get(),
                     this, i);
             break;
         }
@@ -1727,7 +1732,7 @@ void AudioFlinger::EffectChain::dump(int fd, const Vector<String16>& args)
     String8 result;
 
     size_t numEffects = mEffects.size();
-    snprintf(buffer, SIZE, "    %d effects for session %d\n", numEffects, mSessionId);
+    snprintf(buffer, SIZE, "    %zu effects for session %d\n", numEffects, mSessionId);
     result.append(buffer);
 
     if (numEffects) {

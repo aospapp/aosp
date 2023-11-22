@@ -16,6 +16,8 @@
 
 package vogar;
 
+import com.google.common.base.Charsets;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.security.MessageDigest;
@@ -71,6 +73,21 @@ public final class Md5Cache {
         return (digest == null) ? null : byteArrayToHexString(digest);
     }
 
+    /**
+     * Returns an ASCII hex representation of the MD5 of 'string'.
+     */
+    private static String md5(String string) {
+        byte[] digest;
+        try {
+            MessageDigest digester = MessageDigest.getInstance("MD5");
+            digester.update(string.getBytes(Charsets.UTF_8));
+            digest = digester.digest();
+        } catch (Exception cause) {
+            throw new RuntimeException("Unable to compute MD5 of \"" + string + "\"", cause);
+        }
+        return (digest == null) ? null : byteArrayToHexString(digest);
+    }
+
     private static String byteArrayToHexString(byte[] bytes) {
         StringBuilder result = new StringBuilder();
         for (byte b : bytes) {
@@ -88,8 +105,9 @@ public final class Md5Cache {
         // Do we have it in cache?
         String key = keyPrefix;
         for (File element : classpath.getElements()) {
-            // We only cache dexed .jar files, not directories.
-            if (!element.toString().endsWith(".jar")) {
+            // We only cache dexed .jar/.jack files, not directories.
+            String fileName = element.getName();
+            if (!fileName.endsWith(".jar") && !fileName.endsWith(".jack")) {
                 return null;
             }
             key += "-" + md5(element);
@@ -102,6 +120,18 @@ public final class Md5Cache {
      */
     public String makeKey(File file) {
         return keyPrefix + "-" + md5(file);
+    }
+
+    /**
+     * Returns a key corresponding to the MD5ed contents of the element.
+     */
+    public String makeKey(String... elements) {
+        StringBuilder sb = new StringBuilder();
+        for (String element : elements) {
+          sb.append(element);
+          sb.append('|');
+        }
+        return keyPrefix + "-" + md5(sb.toString());
     }
 
     /**

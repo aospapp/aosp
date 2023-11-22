@@ -834,6 +834,7 @@ public final class StreamConfigurationMap {
      * <ul>
      * <li>{@link ImageFormat#JPEG JPEG}
      * <li>{@link ImageFormat#RAW_SENSOR RAW16}
+     * <li>{@link ImageFormat#RAW_PRIVATE RAW_PRIVATE}
      * </ul>
      * </p>
      *
@@ -1195,7 +1196,7 @@ public final class StreamConfigurationMap {
      *
      * <p>In particular these formats are converted:
      * <ul>
-     * <li>ImageFormat.JPEG => HAL_DATASPACE_JFIF
+     * <li>ImageFormat.JPEG => HAL_DATASPACE_V0_JFIF
      * <li>ImageFormat.DEPTH_POINT_CLOUD => HAL_DATASPACE_DEPTH
      * <li>ImageFormat.DEPTH16 => HAL_DATASPACE_DEPTH
      * <li>others => HAL_DATASPACE_UNKNOWN
@@ -1222,7 +1223,7 @@ public final class StreamConfigurationMap {
     static int imageFormatToDataspace(int format) {
         switch (format) {
             case ImageFormat.JPEG:
-                return HAL_DATASPACE_JFIF;
+                return HAL_DATASPACE_V0_JFIF;
             case ImageFormat.DEPTH_POINT_CLOUD:
             case ImageFormat.DEPTH16:
                 return HAL_DATASPACE_DEPTH;
@@ -1268,6 +1269,11 @@ public final class StreamConfigurationMap {
 
     private Size[] getInternalFormatSizes(int format, int dataspace,
             boolean output, boolean highRes) {
+        // All depth formats are non-high-res.
+        if (dataspace == HAL_DATASPACE_DEPTH && highRes) {
+            return new Size[0];
+        }
+
         SparseIntArray formatsMap =
                 !output ? mInputFormats :
                 dataspace == HAL_DATASPACE_DEPTH ? mDepthOutputFormats :
@@ -1286,6 +1292,8 @@ public final class StreamConfigurationMap {
 
         StreamConfiguration[] configurations =
                 (dataspace == HAL_DATASPACE_DEPTH) ? mDepthConfigurations : mConfigurations;
+        StreamConfigurationDuration[] minFrameDurations =
+                (dataspace == HAL_DATASPACE_DEPTH) ? mDepthMinFrameDurations : mMinFrameDurations;
 
         for (StreamConfiguration config : configurations) {
             int fmt = config.getFormat();
@@ -1294,8 +1302,8 @@ public final class StreamConfigurationMap {
                     // Filter slow high-res output formats; include for
                     // highRes, remove for !highRes
                     long duration = 0;
-                    for (int i = 0; i < mMinFrameDurations.length; i++) {
-                        StreamConfigurationDuration d = mMinFrameDurations[i];
+                    for (int i = 0; i < minFrameDurations.length; i++) {
+                        StreamConfigurationDuration d = minFrameDurations[i];
                         if (d.getFormat() == fmt &&
                                 d.getWidth() == config.getSize().getWidth() &&
                                 d.getHeight() == config.getSize().getHeight()) {
@@ -1303,7 +1311,8 @@ public final class StreamConfigurationMap {
                             break;
                         }
                     }
-                    if (highRes != (duration > DURATION_20FPS_NS)) {
+                    if (dataspace != HAL_DATASPACE_DEPTH &&
+                            highRes != (duration > DURATION_20FPS_NS)) {
                         continue;
                     }
                 }
@@ -1328,9 +1337,7 @@ public final class StreamConfigurationMap {
         SparseIntArray map = getFormatsMap(output);
         for (int j = 0; j < map.size(); j++) {
             int format = map.keyAt(j);
-            if (format != HAL_PIXEL_FORMAT_RAW_OPAQUE) {
-                formats[i++] = imageFormatToPublic(format);
-            }
+            formats[i++] = imageFormatToPublic(format);
         }
         if (output) {
             for (int j = 0; j < mDepthOutputFormats.size(); j++) {
@@ -1392,9 +1399,6 @@ public final class StreamConfigurationMap {
     private int getPublicFormatCount(boolean output) {
         SparseIntArray formatsMap = getFormatsMap(output);
         int size = formatsMap.size();
-        if (formatsMap.indexOfKey(HAL_PIXEL_FORMAT_RAW_OPAQUE) >= 0) {
-            size -= 1;
-        }
         if (output) {
             size += mDepthOutputFormats.size();
         }
@@ -1603,6 +1607,8 @@ public final class StreamConfigurationMap {
                 return "Y16";
             case ImageFormat.RAW_SENSOR:
                 return "RAW_SENSOR";
+            case ImageFormat.RAW_PRIVATE:
+                return "RAW_PRIVATE";
             case ImageFormat.RAW10:
                 return "RAW10";
             case ImageFormat.DEPTH16:
@@ -1627,8 +1633,16 @@ public final class StreamConfigurationMap {
     private static final int HAL_PIXEL_FORMAT_Y16 = 0x20363159;
 
 
+    private static final int HAL_DATASPACE_STANDARD_SHIFT = 16;
+    private static final int HAL_DATASPACE_TRANSFER_SHIFT = 22;
+    private static final int HAL_DATASPACE_RANGE_SHIFT = 27;
+
     private static final int HAL_DATASPACE_UNKNOWN = 0x0;
-    private static final int HAL_DATASPACE_JFIF = 0x101;
+    private static final int HAL_DATASPACE_V0_JFIF =
+            (2 << HAL_DATASPACE_STANDARD_SHIFT) |
+            (3 << HAL_DATASPACE_TRANSFER_SHIFT) |
+            (1 << HAL_DATASPACE_RANGE_SHIFT);
+
     private static final int HAL_DATASPACE_DEPTH = 0x1000;
 
     private static final long DURATION_20FPS_NS = 50000000L;

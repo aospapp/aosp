@@ -17,6 +17,7 @@
 #ifndef ART_COMPILER_OPTIMIZING_SSA_PHI_ELIMINATION_H_
 #define ART_COMPILER_OPTIMIZING_SSA_PHI_ELIMINATION_H_
 
+#include "base/arena_containers.h"
 #include "nodes.h"
 #include "optimization.h"
 
@@ -29,8 +30,10 @@ namespace art {
 class SsaDeadPhiElimination : public HOptimization {
  public:
   explicit SsaDeadPhiElimination(HGraph* graph)
-      : HOptimization(graph, true, kSsaDeadPhiEliminationPassName),
-        worklist_(graph->GetArena(), kDefaultWorklistSize) {}
+      : HOptimization(graph, kSsaDeadPhiEliminationPassName),
+        worklist_(graph->GetArena()->Adapter(kArenaAllocSsaPhiElimination)) {
+    worklist_.reserve(kDefaultWorklistSize);
+  }
 
   void Run() OVERRIDE;
 
@@ -40,7 +43,7 @@ class SsaDeadPhiElimination : public HOptimization {
   static constexpr const char* kSsaDeadPhiEliminationPassName = "dead_phi_elimination";
 
  private:
-  GrowableArray<HPhi*> worklist_;
+  ArenaVector<HPhi*> worklist_;
 
   static constexpr size_t kDefaultWorklistSize = 8;
 
@@ -56,15 +59,17 @@ class SsaDeadPhiElimination : public HOptimization {
 class SsaRedundantPhiElimination : public HOptimization {
  public:
   explicit SsaRedundantPhiElimination(HGraph* graph)
-      : HOptimization(graph, true, kSsaRedundantPhiEliminationPassName),
-        worklist_(graph->GetArena(), kDefaultWorklistSize) {}
+      : HOptimization(graph, kSsaRedundantPhiEliminationPassName),
+        worklist_(graph->GetArena()->Adapter(kArenaAllocSsaPhiElimination)) {
+    worklist_.reserve(kDefaultWorklistSize);
+  }
 
   void Run() OVERRIDE;
 
   static constexpr const char* kSsaRedundantPhiEliminationPassName = "redundant_phi_elimination";
 
  private:
-  GrowableArray<HPhi*> worklist_;
+  ArenaVector<HPhi*> worklist_;
 
   static constexpr size_t kDefaultWorklistSize = 8;
 

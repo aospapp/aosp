@@ -64,6 +64,6 @@ private:
 #define ASSERT(cond) if(!(cond)) {  Log::Instance()->printf(Log::ELogE, \
         "assertion failed %s %d", __FILE__, __LINE__); \
     Log::Finalize(); \
-    *(char*)0 = 0; /* this will crash */};
+    abort(); };
 
 #endif // CTSAUDIO_LOG_H

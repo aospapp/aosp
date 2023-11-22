@@ -713,6 +713,10 @@ public class ChineseTest extends CalendarTest {
  
         // lunar to gregorian 
         chineseCalendar = new ChineseCalendar(77, 26, Calendar.JANUARY, 0, 6, 0, 0, 0); 
+        // coverage
+        assertEquals("equivalent ChineseCalendar() constructors", chineseCalendar,
+                new ChineseCalendar(77, 26, Calendar.JANUARY, 0, 6));
+
         gregorianCalendar = Calendar.getInstance(Locale.US); 
         gregorianCalendar.setTime(chineseCalendar.getTime()); 
  

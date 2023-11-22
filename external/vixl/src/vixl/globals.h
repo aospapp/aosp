@@ -40,13 +40,6 @@
 #define __STDC_FORMAT_MACROS
 #endif
 
-#ifdef __ANDROID__
-#ifndef LOG_TAG
-#define LOG_TAG   "VIXL"
-#endif
-#include <cutils/log.h>
-#endif
-
 #include <stdint.h>
 #include <inttypes.h>
 
@@ -67,22 +60,15 @@ typedef uint16_t float16;
 const int KBytes = 1024;
 const int MBytes = 1024 * KBytes;
 
-#ifdef __ANDROID__
-  #define VIXL_ABORT() ALOGE("in %s, line %i", __FILE__, __LINE__); abort()
-#else
-  #define VIXL_ABORT() printf("in %s, line %i", __FILE__, __LINE__); abort()
-#endif
-
+#define VIXL_ABORT() \
+    do { printf("in %s, line %i", __FILE__, __LINE__); abort(); } while (false)
 #ifdef VIXL_DEBUG
   #define VIXL_ASSERT(condition) assert(condition)
   #define VIXL_CHECK(condition) VIXL_ASSERT(condition)
-  #ifdef __ANDROID__
-    #define VIXL_UNIMPLEMENTED() ALOGD("UNIMPLEMENTED\t"); VIXL_ABORT()
-    #define VIXL_UNREACHABLE() ALOGD("UNREACHABLE\t"); VIXL_ABORT()
-  #else
-    #define VIXL_UNIMPLEMENTED() printf("UNIMPLEMENTED\t"); VIXL_ABORT()
-    #define VIXL_UNREACHABLE() printf("UNREACHABLE\t"); VIXL_ABORT()
-  #endif
+  #define VIXL_UNIMPLEMENTED() \
+    do { fprintf(stderr, "UNIMPLEMENTED\t"); VIXL_ABORT(); } while (false)
+  #define VIXL_UNREACHABLE() \
+    do { fprintf(stderr, "UNREACHABLE\t"); VIXL_ABORT(); } while (false)
 #else
   #define VIXL_ASSERT(condition) ((void) 0)
   #define VIXL_CHECK(condition) assert(condition)
@@ -96,18 +82,23 @@ const int MBytes = 1024 * KBytes;
 #define VIXL_STATIC_ASSERT_LINE(line, condition) \
   typedef char VIXL_CONCAT(STATIC_ASSERT_LINE_, line)[(condition) ? 1 : -1] \
   __attribute__((unused))
-#define VIXL_STATIC_ASSERT(condition) VIXL_STATIC_ASSERT_LINE(__LINE__, condition) //NOLINT
+#define VIXL_STATIC_ASSERT(condition) \
+    VIXL_STATIC_ASSERT_LINE(__LINE__, condition)
 
-template <typename T> inline void USE(T) {}
-template <typename T> inline void USE(T, T) {}
-template <typename T> inline void USE(T, T, T) {}
-template <typename T> inline void USE(T, T, T, T) {}
+template <typename T1>
+inline void USE(T1) {}
 
-#ifdef __ANDROID__
-  #define VIXL_ALIGNMENT_EXCEPTION() ALOGD("ALIGNMENT EXCEPTION\t"); VIXL_ABORT() //NOLINT
-#else
-  #define VIXL_ALIGNMENT_EXCEPTION() printf("ALIGNMENT EXCEPTION\t"); VIXL_ABORT() //NOLINT
-#endif
+template <typename T1, typename T2>
+inline void USE(T1, T2) {}
+
+template <typename T1, typename T2, typename T3>
+inline void USE(T1, T2, T3) {}
+
+template <typename T1, typename T2, typename T3, typename T4>
+inline void USE(T1, T2, T3, T4) {}
+
+#define VIXL_ALIGNMENT_EXCEPTION() \
+    do { fprintf(stderr, "ALIGNMENT EXCEPTION\t"); VIXL_ABORT(); } while (0)
 
 // The clang::fallthrough attribute is used along with the Wimplicit-fallthrough
 // argument to annotate intentional fall-through between switch labels.
@@ -123,6 +114,38 @@ template <typename T> inline void USE(T, T, T, T) {}
   #define VIXL_FALLTHROUGH() [[clang::fallthrough]] //NOLINT
 #else
   #define VIXL_FALLTHROUGH() do {} while (0)
+#endif
+
+#if __cplusplus >= 201103L
+  #define VIXL_NO_RETURN  [[noreturn]] //NOLINT
+#else
+  #define VIXL_NO_RETURN  __attribute__((noreturn))
+#endif
+
+// Some functions might only be marked as "noreturn" for the DEBUG build. This
+// macro should be used for such cases (for more details see what
+// VIXL_UNREACHABLE expands to).
+#ifdef VIXL_DEBUG
+  #define VIXL_DEBUG_NO_RETURN  VIXL_NO_RETURN
+#else
+  #define VIXL_DEBUG_NO_RETURN
+#endif
+
+#ifdef VIXL_INCLUDE_SIMULATOR
+#ifndef VIXL_GENERATE_SIMULATOR_INSTRUCTIONS_VALUE
+  #define VIXL_GENERATE_SIMULATOR_INSTRUCTIONS_VALUE  1
+#endif
+#else
+#ifndef VIXL_GENERATE_SIMULATOR_INSTRUCTIONS_VALUE
+  #define VIXL_GENERATE_SIMULATOR_INSTRUCTIONS_VALUE  0
+#endif
+#if VIXL_GENERATE_SIMULATOR_INSTRUCTIONS_VALUE
+  #warning "Generating Simulator instructions without Simulator support."
+#endif
+#endif
+
+#ifdef USE_SIMULATOR
+  #error "Please see the release notes for USE_SIMULATOR."
 #endif
 
 #endif  // VIXL_GLOBALS_H

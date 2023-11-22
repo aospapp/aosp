@@ -18,16 +18,13 @@ package com.android.providers.contacts;
 
 import com.android.internal.telephony.CallerInfo;
 import com.android.internal.telephony.PhoneConstants;
+import com.android.providers.contacts.CallLogDatabaseHelper.DbProperties;
 import com.android.providers.contacts.testutil.CommonDatabaseUtils;
 
 import android.content.ComponentName;
 import android.content.ContentProvider;
 import android.content.ContentUris;
 import android.content.ContentValues;
-import android.content.Context;
-import android.content.ContextWrapper;
-import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.net.Uri;
@@ -64,9 +61,9 @@ public class CallLogProviderTest extends BaseContactsProvider2Test {
             Voicemails.DIRTY,
             Voicemails.DELETED};
     /** Total number of columns exposed by call_log provider. */
-    private static final int NUM_CALLLOG_FIELDS = 26;
+    private static final int NUM_CALLLOG_FIELDS = 30;
 
-    private CallLogProvider mCallLogProvider;
+    private CallLogProviderTestable mCallLogProvider;
 
     @Override
     protected Class<? extends ContentProvider> getProviderClass() {
@@ -81,8 +78,7 @@ public class CallLogProviderTest extends BaseContactsProvider2Test {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mCallLogProvider = (CallLogProvider) addProvider(TestCallLogProvider.class,
-                CallLog.AUTHORITY);
+        mCallLogProvider = addProvider(CallLogProviderTestable.class, CallLog.AUTHORITY);
     }
 
     @Override
@@ -98,6 +94,7 @@ public class CallLogProviderTest extends BaseContactsProvider2Test {
         values.put(Calls.COUNTRY_ISO, "us");
         assertStoredValues(uri, values);
         assertSelection(uri, values, Calls._ID, ContentUris.parseId(uri));
+        assertLastModified(uri);
     }
 
     private void setUpWithVoicemailPermissions() {
@@ -124,6 +121,7 @@ public class CallLogProviderTest extends BaseContactsProvider2Test {
         Uri uri  = mResolver.insert(Calls.CONTENT_URI_WITH_VOICEMAIL, values);
         assertStoredValues(uri, values);
         assertSelection(uri, values, Calls._ID, ContentUris.parseId(uri));
+        assertLastModified(uri);
     }
 
     public void testUpdate() {
@@ -141,6 +139,7 @@ public class CallLogProviderTest extends BaseContactsProvider2Test {
         int count = mResolver.update(uri, values, null, null);
         assertEquals(1, count);
         assertStoredValues(uri, values);
+        assertLastModified(uri);
     }
 
     public void testDelete() {
@@ -189,6 +188,8 @@ public class CallLogProviderTest extends BaseContactsProvider2Test {
         Uri uri = Calls.addCall(ci, getMockContext(), "1-800-263-7643",
                 PhoneConstants.PRESENTATION_ALLOWED, Calls.OUTGOING_TYPE, 0, subscription, 2000,
                 40, null);
+        assertNotNull(uri);
+        assertEquals("0@" + CallLog.AUTHORITY, uri.getAuthority());
 
         ContentValues values = new ContentValues();
         values.put(Calls.TYPE, Calls.OUTGOING_TYPE);
@@ -400,27 +401,33 @@ public class CallLogProviderTest extends BaseContactsProvider2Test {
         mResolver.delete(Calls.CONTENT_URI_WITH_VOICEMAIL, null, null);
     }
 
-    public void testCopyEntriesFromCursor_ReturnsMostRecentEntryTimestamp() {
-        assertEquals(10, mCallLogProvider.copyEntriesFromCursor(getTestCallLogCursor()));
-    }
-
     public void testCopyEntriesFromCursor_AllEntriesSyncedWithoutDuplicatesPresent() {
         assertStoredValues(Calls.CONTENT_URI);
-        mCallLogProvider.copyEntriesFromCursor(getTestCallLogCursor());
+
+        assertEquals(10, mCallLogProvider.copyEntriesFromCursor(
+                getTestCallLogCursor(), 5, /* forShadow =*/ true));
+
         assertStoredValues(Calls.CONTENT_URI,
                 getTestCallLogValues(2),
                 getTestCallLogValues(1),
                 getTestCallLogValues(0));
+        assertEquals(10, mCallLogProvider.getLastSyncTime(/* forShadow =*/ true));
+        assertEquals(0, mCallLogProvider.getLastSyncTime(/* forShadow =*/ false));
     }
 
     public void testCopyEntriesFromCursor_DuplicatesIgnoredCorrectly() {
         mResolver.insert(Calls.CONTENT_URI, getTestCallLogValues(1));
         assertStoredValues(Calls.CONTENT_URI, getTestCallLogValues(1));
-        mCallLogProvider.copyEntriesFromCursor(getTestCallLogCursor());
+
+        assertEquals(10, mCallLogProvider.copyEntriesFromCursor(
+                getTestCallLogCursor(), 5, /* forShadow =*/ false));
+
         assertStoredValues(Calls.CONTENT_URI,
                 getTestCallLogValues(2),
                 getTestCallLogValues(1),
                 getTestCallLogValues(0));
+        assertEquals(0, mCallLogProvider.getLastSyncTime(/* forShadow =*/ true));
+        assertEquals(10, mCallLogProvider.getLastSyncTime(/* forShadow =*/ false));
     }
 
     private ContentValues getDefaultValues(int callType) {
@@ -450,49 +457,6 @@ public class CallLogProviderTest extends BaseContactsProvider2Test {
         return mResolver.insert(Calls.CONTENT_URI_WITH_VOICEMAIL, getDefaultVoicemailValues());
     }
 
-    public static class TestCallLogProvider extends CallLogProvider {
-        private static ContactsDatabaseHelper mDbHelper;
-
-        @Override
-        protected ContactsDatabaseHelper getDatabaseHelper(final Context context) {
-            if (mDbHelper == null) {
-                mDbHelper = ContactsDatabaseHelper.getNewInstanceForTest(context);
-            }
-            return mDbHelper;
-        }
-
-        @Override
-        protected CallLogInsertionHelper createCallLogInsertionHelper(Context context) {
-            return new CallLogInsertionHelper() {
-                @Override
-                public String getGeocodedLocationFor(String number, String countryIso) {
-                    return "usa";
-                }
-
-                @Override
-                public void addComputedValues(ContentValues values) {
-                    values.put(Calls.COUNTRY_ISO, "us");
-                    values.put(Calls.GEOCODED_LOCATION, "usa");
-                }
-            };
-        }
-
-        @Override
-        protected Context context() {
-            return new ContextWrapper(super.context()) {
-                @Override
-                public PackageManager getPackageManager() {
-                    return super.getPackageManager();
-                }
-
-                @Override
-                public void sendBroadcast(Intent intent, String receiverPermission) {
-                   // Do nothing for now.
-                }
-            };
-        }
-    }
-
     private Cursor getTestCallLogCursor() {
         final MatrixCursor cursor = new MatrixCursor(CallLogProvider.CALL_LOG_SYNC_PROJECTION);
         for (int i = 2; i >= 0; i--) {
@@ -507,6 +471,7 @@ public class CallLogProviderTest extends BaseContactsProvider2Test {
      */
     private ContentValues getTestCallLogValues(int i) {
         ContentValues values = new ContentValues();
+        values.put(Calls.ADD_FOR_ALL_USERS,1);
         switch (i) {
             case 0:
                 values.put(Calls.NUMBER, "123456");

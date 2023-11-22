@@ -19,60 +19,42 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := vogar.jar
+LOCAL_MODULE := vogar
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_CLASS := JAVA_LIBRARIES
-intermediates := $(call local-intermediates-dir,COMMON)
 LOCAL_SRC_FILES := $(call all-java-files-under, src/)
 LOCAL_JAVA_RESOURCE_DIRS := resources
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-  vogar-caliper \
-  vogar-gson-1.7.1 \
-  vogar-guava \
+  caliper-host \
+  caliper-gson-host \
+  guavalib \
+  mockito-host \
   vogar-jsr305 \
-  vogar-kxml-libcore-20110123 \
-  vogar-miniguice \
-  vogar-mockito-all-1.8.5 \
+  vogar-kxml-libcore-20110123
 
 # Vogar uses android.jar.
-LOCAL_SDK_VERSION := 9
+LOCAL_CLASSPATH := prebuilts/sdk/9/android.jar
+LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 
-# This is really a host java library which pretends to be a target
-# java library to pull in the Android SDK. We don't want to use jack
-# because jack doesn't produce jar files for STATIC_JAVA_LIBRARIES,
-# and produces its own intermediate representation instead.
-LOCAL_JACK_ENABLED := disabled
-include $(BUILD_STATIC_JAVA_LIBRARY)
+include $(BUILD_HOST_JAVA_LIBRARY)
 
 # Build dependencies.
 # ============================================================
 include $(CLEAR_VARS)
 
-LOCAL_PREBUILT_STATIC_JAVA_LIBRARIES := \
-    vogar-caliper:lib/caliper$(COMMON_JAVA_PACKAGE_SUFFIX) \
-    vogar-gson-1.7.1:lib/gson-1.7.1$(COMMON_JAVA_PACKAGE_SUFFIX) \
-    vogar-guava:lib/guava$(COMMON_JAVA_PACKAGE_SUFFIX) \
+LOCAL_PREBUILT_JAVA_LIBRARIES := \
     vogar-jsr305:lib/jsr305$(COMMON_JAVA_PACKAGE_SUFFIX) \
-    vogar-kxml-libcore-20110123:lib/kxml-libcore-20110123$(COMMON_JAVA_PACKAGE_SUFFIX) \
-    vogar-miniguice:lib/miniguice$(COMMON_JAVA_PACKAGE_SUFFIX) \
-    vogar-mockito-all-1.8.5:lib/mockito-all-1.8.5$(COMMON_JAVA_PACKAGE_SUFFIX) \
+    vogar-kxml-libcore-20110123:lib/kxml-libcore-20110123$(COMMON_JAVA_PACKAGE_SUFFIX)
 
-LOCAL_MODULE_TAGS := optional
-
-include $(BUILD_MULTI_PREBUILT)
+include $(BUILD_HOST_PREBUILT)
 
 # copy vogar script
 # ============================================================
 include $(CLEAR_VARS)
 LOCAL_IS_HOST_MODULE := true
 LOCAL_MODULE_CLASS := EXECUTABLES
-LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := vogar
+LOCAL_SRC_FILES := bin/vogar-android
+include $(BUILD_PREBUILT)
 
-include $(BUILD_SYSTEM)/base_rules.mk
-
-$(LOCAL_BUILT_MODULE): $(LOCAL_PATH)/bin/vogar-android vogar.jar | $(ACP)
-	@echo "Copy: $(PRIVATE_MODULE) ($@)"
-	$(copy-file-to-new-target)
-	$(hide) chmod 755 $@

@@ -50,6 +50,7 @@
 #include "Barrier.h"
 #include "DisplayDevice.h"
 #include "DispSync.h"
+#include "FenceTracker.h"
 #include "FrameTracker.h"
 #include "MessageQueue.h"
 
@@ -119,7 +120,11 @@ public:
 
     // enable/disable h/w composer event
     // TODO: this should be made accessible only to EventThread
+#ifdef USE_HWC2
+    void setVsyncEnabled(int disp, int enabled);
+#else
     void eventControl(int disp, int event, int enabled);
+#endif
 
     // called on the main thread by MessageQueue when an internal message
     // is received
@@ -162,7 +167,7 @@ private:
 
     struct DisplayDeviceState {
         DisplayDeviceState();
-        DisplayDeviceState(DisplayDevice::DisplayType type);
+        DisplayDeviceState(DisplayDevice::DisplayType type, bool isSecure);
         bool isValid() const { return type >= 0; }
         bool isMainDisplay() const { return type == DisplayDevice::DISPLAY_PRIMARY; }
         bool isVirtualDisplay() const { return type >= DisplayDevice::DISPLAY_VIRTUAL; }
@@ -217,6 +222,8 @@ private:
     virtual status_t setActiveConfig(const sp<IBinder>& display, int id);
     virtual status_t clearAnimationFrameStats();
     virtual status_t getAnimationFrameStats(FrameStats* outStats) const;
+    virtual status_t getHdrCapabilities(const sp<IBinder>& display,
+            HdrCapabilities* outCapabilities) const;
 
     /* ------------------------------------------------------------------------
      * DeathRecipient interface
@@ -329,7 +336,8 @@ private:
             const sp<IGraphicBufferProducer>& producer,
             Rect sourceCrop, uint32_t reqWidth, uint32_t reqHeight,
             uint32_t minLayerZ, uint32_t maxLayerZ,
-            bool useIdentityTransform, Transform::orientation_flags rotation);
+            bool useIdentityTransform, Transform::orientation_flags rotation,
+            bool isLocalScreenshot);
 
     /* ------------------------------------------------------------------------
      * EGL
@@ -360,8 +368,9 @@ private:
     // region of all screens presenting this layer stack.
     void invalidateLayerStack(uint32_t layerStack, const Region& dirty);
 
-    // allocate a h/w composer display id
+#ifndef USE_HWC2
     int32_t allocateHwcDisplayId(DisplayDevice::DisplayType type);
+#endif
 
     /* ------------------------------------------------------------------------
      * H/W composer
@@ -378,7 +387,7 @@ private:
             Region& dirtyRegion, Region& opaqueRegion);
 
     void preComposition();
-    void postComposition();
+    void postComposition(nsecs_t refreshStartTime);
     void rebuildLayerStacks();
     void setUpHWComposer();
     void doComposition();
@@ -400,8 +409,11 @@ private:
      * VSync
      */
      void enableHardwareVsync();
-     void disableHardwareVsync(bool makeUnavailable);
      void resyncToHardwareVsync(bool makeAvailable);
+     void disableHardwareVsync(bool makeUnavailable);
+public:
+     void resyncWithRateLimit();
+private:
 
     /* ------------------------------------------------------------------------
      * Debugging & dumpsys
@@ -445,6 +457,7 @@ private:
     RenderEngine* mRenderEngine;
     nsecs_t mBootTime;
     bool mGpuToCpuSupported;
+    bool mDropMissedFrames;
     sp<EventThread> mEventThread;
     sp<EventThread> mSFEventThread;
     sp<EventControlThread> mEventControlThread;
@@ -456,8 +469,15 @@ private:
     // don't need synchronization
     State mDrawingState;
     bool mVisibleRegionsDirty;
+#ifndef USE_HWC2
     bool mHwWorkListDirty;
+#else
+    bool mGeometryInvalid;
+#endif
     bool mAnimCompositionPending;
+#ifdef USE_HWC2
+    std::vector<sp<Layer>> mLayersWithQueuedFrames;
+#endif
 
     // this may only be written from the main thread with mStateLock held
     // it may be read from other threads with mStateLock held
@@ -474,6 +494,7 @@ private:
     nsecs_t mLastTransactionTime;
     bool mBootFinished;
     bool mForceFullDamage;
+    FenceTracker mFenceTracker;
 
     // these are thread safe
     mutable MessageQueue mEventQueue;
@@ -504,7 +525,7 @@ private:
     static const size_t NUM_BUCKETS = 8; // < 1-7, 7+
     nsecs_t mFrameBuckets[NUM_BUCKETS];
     nsecs_t mTotalTime;
-    nsecs_t mLastSwapTime;
+    std::atomic<nsecs_t> mLastSwapTime;
 };
 
 }; // namespace android

@@ -46,12 +46,10 @@ ifneq ($(filter $(radeon_drivers), $(DRM_GPU_DRIVERS)),)
 LOCAL_SRC_FILES += $(LIBKMS_RADEON_FILES)
 endif
 
+LOCAL_SRC_FILES := $(filter-out %.h,$(LOCAL_SRC_FILES))
+
 LOCAL_MODULE := libkms
+LOCAL_MODULE_TAGS := optional
 LOCAL_SHARED_LIBRARIES := libdrm
-
-LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/libdrm
-
-LOCAL_COPY_HEADERS_TO := libdrm
-LOCAL_COPY_HEADERS := $(LIBKMS_H_FILES)
 
 include $(BUILD_SHARED_LIBRARY)

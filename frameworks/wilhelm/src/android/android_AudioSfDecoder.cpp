@@ -23,6 +23,8 @@
 #include <binder/IServiceManager.h>
 #include <media/IMediaHTTPService.h>
 #include <media/stagefright/foundation/ADebug.h>
+#include <media/stagefright/MediaBuffer.h>
+#include <media/stagefright/SimpleDecodingSource.h>
 
 
 #define SIZE_CACHED_HIGH_BYTES 1000000
@@ -176,7 +178,7 @@ void AudioSfDecoder::onPrepare() {
     //      once the decoder has figured them out
     mPcmFormatValues[ANDROID_KEY_INDEX_PCMFORMAT_NUMCHANNELS] = UNKNOWN_NUMCHANNELS;
     mPcmFormatValues[ANDROID_KEY_INDEX_PCMFORMAT_SAMPLERATE] = UNKNOWN_SAMPLERATE;
-    mPcmFormatValues[ANDROID_KEY_INDEX_PCMFORMAT_CHANNELMASK] = UNKNOWN_CHANNELMASK;
+    mPcmFormatValues[ANDROID_KEY_INDEX_PCMFORMAT_CHANNELMASK] = SL_ANDROID_UNKNOWN_CHANNELMASK;
     }
 
     //---------------------------------
@@ -227,7 +229,7 @@ void AudioSfDecoder::onPrepare() {
 
     //---------------------------------
     // Instantiate and initialize the decoder attached to the data source
-    sp<MediaExtractor> extractor = MediaExtractor::Create(dataSource);
+    sp<IMediaExtractor> extractor = MediaExtractor::Create(dataSource);
     if (extractor == NULL) {
         SL_LOGE("AudioSfDecoder::onPrepare: Could not instantiate extractor.");
         notifyPrepared(ERROR_UNSUPPORTED);
@@ -260,7 +262,7 @@ void AudioSfDecoder::onPrepare() {
         return;
     }
 
-    sp<MediaSource> source = extractor->getTrack(audioTrackIndex);
+    sp<IMediaSource> source = extractor->getTrack(audioTrackIndex);
     sp<MetaData> meta = source->getFormat();
 
     // we can't trust the OMXCodec (if there is one) to issue a INFO_FORMAT_CHANGED so we want
@@ -297,13 +299,7 @@ void AudioSfDecoder::onPrepare() {
 
     // the audio content is not raw PCM, so we need a decoder
     if (!isRawAudio) {
-        OMXClient client;
-        CHECK_EQ(client.connect(), (status_t)OK);
-
-        source = OMXCodec::Create(
-                client.interface(), meta, false /* createEncoder */,
-                source);
-
+        source = SimpleDecodingSource::Create(source);
         if (source == NULL) {
             SL_LOGE("AudioSfDecoder::onPrepare: Could not instantiate decoder.");
             notifyPrepared(ERROR_UNSUPPORTED);
@@ -353,7 +349,7 @@ void AudioSfDecoder::onPrepare() {
         mPcmFormatValues[ANDROID_KEY_INDEX_PCMFORMAT_SAMPLERATE] = sr;
         mPcmFormatValues[ANDROID_KEY_INDEX_PCMFORMAT_NUMCHANNELS] = channelCount;
         mPcmFormatValues[ANDROID_KEY_INDEX_PCMFORMAT_CHANNELMASK] =
-                channelCountToMask(channelCount);
+                sles_channel_out_mask_from_count(channelCount);
     }
 
     // at this point we have enough information about the source to create the sink that
@@ -776,7 +772,7 @@ void AudioSfDecoder::hasNewDecodeParams() {
             mPcmFormatValues[ANDROID_KEY_INDEX_PCMFORMAT_NUMCHANNELS] = channelCount;
             mPcmFormatValues[ANDROID_KEY_INDEX_PCMFORMAT_SAMPLERATE] = sr;
             mPcmFormatValues[ANDROID_KEY_INDEX_PCMFORMAT_CHANNELMASK] =
-                    channelCountToMask(channelCount);
+                    sles_channel_out_mask_from_count(channelCount);
         }
         // there's no need to do a notify of PLAYEREVENT_CHANNEL_COUNT,
         // because the only listener is for volume updates, and decoders don't support that

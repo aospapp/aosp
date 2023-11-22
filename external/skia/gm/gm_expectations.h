@@ -11,7 +11,6 @@
 
 #include "gm.h"
 #include "SkBitmap.h"
-#include "SkBitmapHasher.h"
 #include "SkData.h"
 #include "SkJSONCPP.h"
 #include "SkOSFile.h"
@@ -147,10 +146,10 @@ namespace skiagm {
          * If this Expectation is based on a single SkBitmap, return a
          * pointer to that SkBitmap. Otherwise (if the Expectation is
          * empty, or if it was based on a list of checksums rather
-         * than a single bitmap), returns NULL.
+         * than a single bitmap), returns nullptr.
          */
         const SkBitmap *asBitmap() const {
-            return (kUnknown_SkColorType == fBitmap.colorType()) ? NULL : &fBitmap;
+            return (kUnknown_SkColorType == fBitmap.colorType()) ? nullptr : &fBitmap;
         }
 
         /**
@@ -171,8 +170,6 @@ namespace skiagm {
      */
     class ExpectationsSource : public SkRefCnt {
     public:
-        SK_DECLARE_INST_COUNT(ExpectationsSource)
-
         virtual Expectations get(const char *testName) const = 0;
 
     private:

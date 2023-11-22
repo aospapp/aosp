@@ -9,7 +9,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2008-2013 OpenWorks LLP
+   Copyright (C) 2008-2015 OpenWorks LLP
       info@open-works.co.uk
 
    This program is free software; you can redistribute it and/or
@@ -35,7 +35,7 @@
    without prior written permission.
 */
 
-#if defined(VGO_linux) || defined(VGO_darwin)
+#if defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_solaris)
 
 /* REFERENCE (without which this code will not make much sense):
 
@@ -671,7 +671,7 @@ static GExpr* make_general_GX ( const CUConst* cc,
    set_position_of_Cursor( &loc, debug_loc_offset );
 
    TRACE_D3("make_general_GX (.debug_loc_offset = %llu, ioff = %llu) {\n",
-            debug_loc_offset, (ULong)get_DiCursor_from_Cursor(&loc).ioff );
+            debug_loc_offset, get_DiCursor_from_Cursor(&loc).ioff );
 
    /* Who frees this xa?  It is freed before this fn exits. */
    xa = VG_(newXA)( ML_(dinfo_zalloc), "di.readdwarf3.mgGX.1", 
@@ -965,8 +965,8 @@ static void init_ht_abbvs (CUConst* cc,
       VG_(memcpy) (ht_ta, ta, SZ_G_ABBV(ta_nf_n));
       VG_(HT_add_node) ( cc->ht_abbvs, ht_ta );
       if (TD3) {
-         TRACE_D3("  Adding abbv_code %llu TAG  %s [%s] nf %d ",
-                  (ULong) ht_ta->abbv_code, ML_(pp_DW_TAG)(ht_ta->atag),
+         TRACE_D3("  Adding abbv_code %lu TAG  %s [%s] nf %u ",
+                  ht_ta->abbv_code, ML_(pp_DW_TAG)(ht_ta->atag),
                   ML_(pp_DW_children)(ht_ta->has_children),
                   ta_nf_n);
          TRACE_D3("  ");
@@ -1019,7 +1019,7 @@ void parse_CU_Header ( /*OUT*/CUConst* cc,
       = get_Initial_Length( &cc->is_dw64, c, 
            "parse_CU_Header: invalid initial-length field" );
 
-   TRACE_D3("   Length:        %lld\n", cc->unit_length );
+   TRACE_D3("   Length:        %llu\n", cc->unit_length );
 
    /* version */
    cc->version = get_UShort( c );
@@ -1031,7 +1031,7 @@ void parse_CU_Header ( /*OUT*/CUConst* cc,
    debug_abbrev_offset = get_Dwarfish_UWord( c, cc->is_dw64 );
    if (debug_abbrev_offset >= escn_debug_abbv.szB)
       cc->barf( "parse_CU_Header: invalid debug_abbrev_offset" );
-   TRACE_D3("   Abbrev Offset: %lld\n", debug_abbrev_offset );
+   TRACE_D3("   Abbrev Offset: %llu\n", debug_abbrev_offset );
 
    /* address size.  If this isn't equal to the host word size, just
       give up.  This makes it safe to assume elsewhere that
@@ -1167,12 +1167,12 @@ void get_Form_contents ( /*OUT*/FormContents* cts,
       case DW_FORM_sdata:
          cts->u.val = (ULong)(Long)get_SLEB128(c);
          cts->szB   = 8;
-         TRACE_D3("%lld", (Long)cts->u.val);
+         TRACE_D3("%llu", cts->u.val);
          break;
       case DW_FORM_udata:
          cts->u.val = (ULong)(Long)get_ULEB128(c);
          cts->szB   = 8;
-         TRACE_D3("%llu", (Long)cts->u.val);
+         TRACE_D3("%llu", cts->u.val);
          break;
       case DW_FORM_addr:
          /* note, this is a hack.  DW_FORM_addr is defined as getting
@@ -1444,7 +1444,7 @@ void get_Form_contents ( /*OUT*/FormContents* cts,
 
       default:
          VG_(printf)(
-            "get_Form_contents: unhandled %d (%s) at <%llx>\n",
+            "get_Form_contents: unhandled %u (%s) at <%llx>\n",
             form, ML_(pp_DW_FORM)(form), get_position_of_Cursor(c));
          c->barf("get_Form_contents: unhandled DW_FORM");
    }
@@ -1526,7 +1526,7 @@ UInt get_Form_szB (const CUConst* cc, DW_FORM form )
          return sizeof_Dwarfish_UWord(cc->is_dw64);
       default:
          VG_(printf)(
-            "get_Form_szB: unhandled %d (%s)\n",
+            "get_Form_szB: unhandled %u (%s)\n",
             form, ML_(pp_DW_FORM)(form));
          cc->barf("get_Form_contents: unhandled DW_FORM");
    }
@@ -1614,7 +1614,7 @@ typedef
          (DW_AT_subprogram), and for those, we also note the GExpr
          derived from its DW_AT_frame_base attribute, if any.
          Consequently it should be possible to find, for any
-         variable's DIE, the GExpr for the the containing function's
+         variable's DIE, the GExpr for the containing function's
          DW_AT_frame_base by scanning back through the stack to find
          the nearest entry associated with a function.  This somewhat
          elaborate scheme is provided so as to make it possible to
@@ -1923,7 +1923,7 @@ void read_filename_table( /*MOD*/XArray* /* of UInt* */ fndn_ix_Table,
       else
          dirname = NULL;
       fndn_ix = ML_(addFnDn)( cc->di, str, dirname);
-      TRACE_D3("  read_filename_table: %ld fndn_ix %d %s %s\n",
+      TRACE_D3("  read_filename_table: %ld fndn_ix %u %s %s\n",
                VG_(sizeXA)(fndn_ix_Table), fndn_ix, 
                dirname, str);
       VG_(addToXA)( fndn_ix_Table, &fndn_ix );
@@ -2318,7 +2318,7 @@ static void parse_var_DIE (
                 && ftabIx < VG_(sizeXA)( parser->fndn_ix_Table )) {
                fndn_ix = *(UInt*)VG_(indexXA)( parser->fndn_ix_Table, ftabIx );
             }
-            if (0) VG_(printf)("XXX filename fndn_ix = %d %s\n", fndn_ix,
+            if (0) VG_(printf)("XXX filename fndn_ix = %u %s\n", fndn_ix,
                                ML_(fndn_ix2filename) (cc->di, fndn_ix));
          }
       }
@@ -2758,7 +2758,7 @@ static Bool parse_inl_DIE (
                caller_fndn_ix = *(UInt*)
                           VG_(indexXA)( parser->fndn_ix_Table, ftabIx );
             }
-            if (0) VG_(printf)("XXX caller_fndn_ix = %d %s\n", caller_fndn_ix,
+            if (0) VG_(printf)("XXX caller_fndn_ix = %u %s\n", caller_fndn_ix,
                                ML_(fndn_ix2filename) (cc->di, caller_fndn_ix));
          }  
          if (attr == DW_AT_call_line && cts.szB > 0) {
@@ -3411,7 +3411,7 @@ static void parse_type_DIE ( /*MOD*/XArray* /* of TyEnt */ tyents,
       if (is_decl && (!is_spec)) {
          /* It's a DW_AT_declaration.  We require the name but
             nothing else. */
-         /* JRS 2012-06-28: following discussion w/ tromey, if the the
+         /* JRS 2012-06-28: following discussion w/ tromey, if the
             type doesn't have name, just make one up, and accept it.
             It might be referred to by other DIEs, so ignoring it
             doesn't seem like a safe option. */
@@ -4590,8 +4590,9 @@ void new_dwarf3_reader_wrk (
          cu_offset_now = (cu_start_offset + cc.unit_length
                           + (cc.is_dw64 ? 12 : 4));
 
+         clear_CUConst ( &cc);
+
          if (cu_offset_now >= escn_debug_types.szB) {
-            clear_CUConst ( &cc);
             break;
          }
 
@@ -4769,7 +4770,7 @@ void new_dwarf3_reader_wrk (
          /* .. vs how big we have found it to be */
          cu_amount_used = cu_offset_now - cc.cu_start_offset;
 
-         if (1) TRACE_D3("offset now %lld, d-i-size %lld\n",
+         if (1) TRACE_D3("offset now %llu, d-i-size %llu\n",
                          cu_offset_now, section_size);
          if (cu_offset_now > section_size)
             barf("toplevel DIEs beyond end of CU");
@@ -4962,7 +4963,7 @@ void new_dwarf3_reader_wrk (
             } else {
                VG_(printf)("  FrB=none\n");
             }
-            VG_(printf)("  declared at: %d %s:%d\n",
+            VG_(printf)("  declared at: %u %s:%d\n",
                         varp->fndn_ix,
                         ML_(fndn_ix2filename) (di, varp->fndn_ix),
                         varp->fLine );
@@ -5268,7 +5269,7 @@ ML_(new_dwarf3_reader) (
    TRACE_SYMTAB("\n");
 #endif
 
-#endif // defined(VGO_linux) || defined(VGO_darwin)
+#endif // defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_solaris)
 
 /*--------------------------------------------------------------------*/
 /*--- end                                                          ---*/

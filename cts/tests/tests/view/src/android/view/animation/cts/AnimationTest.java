@@ -16,7 +16,7 @@
 
 package android.view.animation.cts;
 
-import com.android.cts.view.R;
+import android.view.cts.R;
 
 
 import android.app.Activity;
@@ -35,6 +35,9 @@ import android.view.animation.Interpolator;
 import android.view.animation.Transformation;
 import android.view.animation.Animation.AnimationListener;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
 /**
  * Test {@link Animation}.
  */
@@ -51,7 +54,7 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
     private Object mLockObject = new Object();
 
     public AnimationTest() {
-        super("com.android.cts.view", AnimationTestCtsActivity.class);
+        super("android.view.cts", AnimationTestCtsActivity.class);
     }
 
     @Override
@@ -644,7 +647,82 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         assertEquals(myAnimation.getRepeatMode(), cloneAnimation.getRepeatMode());
     }
 
+    public void testCancelImmediately() throws Throwable {
+        MyAnimation anim = new MyAnimation();
+        final CountDownLatch latch1 = new CountDownLatch(1);
+        runCanceledAnimation(anim, latch1, false, false);
+        assertTrue(latch1.await(200, TimeUnit.MILLISECONDS));
+        assertFalse(anim.isStillAnimating());
+    }
+
+    public void testRepeatingCancelImmediately() throws Throwable {
+        MyAnimation anim = new MyAnimation();
+        final CountDownLatch latch2 = new CountDownLatch(1);
+        runCanceledAnimation(anim, latch2, true, false);
+        assertTrue(latch2.await(200, TimeUnit.MILLISECONDS));
+        assertFalse(anim.isStillAnimating());
+    }
+
+    public void testCancelDelayed() throws Throwable {
+        MyAnimation anim = new MyAnimation();
+        final CountDownLatch latch3 = new CountDownLatch(1);
+        runCanceledAnimation(anim, latch3, false, true);
+        assertTrue(latch3.await(250, TimeUnit.MILLISECONDS));
+        assertFalse(anim.isStillAnimating());
+    }
+
+    public void testRepeatingCancelDelayed() throws Throwable {
+        MyAnimation anim = new MyAnimation();
+        final CountDownLatch latch4 = new CountDownLatch(1);
+        runCanceledAnimation(anim, latch4, true, true);
+        assertTrue(latch4.await(250, TimeUnit.MILLISECONDS));
+        assertFalse(anim.isStillAnimating());
+    }
+
+    private void runCanceledAnimation(final MyAnimation anim, final CountDownLatch latch,
+            final boolean repeating, final boolean delayed) throws Throwable {
+        // The idea behind this test is that canceling an Animation should result in
+        // it ending, which means not having its getTransformation() method called
+        // anymore. The trick is that cancel() will still allow one more frame to run,
+        // so we have to insert some delay between when we cancel and when we can check
+        // whether it is still animating.
+        runTestOnUiThread(new Runnable() {
+            final View view = mActivity.findViewById(R.id.anim_window);
+            public void run() {
+                anim.setDuration(delayed ? 150 : 100);
+                if (repeating) {
+                    anim.setRepeatCount(Animation.INFINITE);
+                }
+                view.startAnimation(anim);
+                if (!delayed) {
+                    anim.cancel();
+                } else {
+                    view.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            anim.cancel();
+                        }
+                    }, 50);
+                }
+                view.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        anim.setStillAnimating(false);
+                        view.postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                latch.countDown();
+                            }
+                        }, 50);
+                    }
+                }, delayed ? 100 : 50);
+            }
+        });
+    }
+
     private class MyAnimation extends Animation {
+        boolean mStillAnimating = false;
+
         @Override
         protected void ensureInterpolator() {
             super.ensureInterpolator();
@@ -658,6 +736,20 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         @Override
         protected Animation clone() throws CloneNotSupportedException {
             return super.clone();
+        }
+
+        public void setStillAnimating(boolean value) {
+            mStillAnimating = value;
+        }
+
+        public boolean isStillAnimating() {
+            return mStillAnimating;
+        }
+
+        @Override
+        public boolean getTransformation(long currentTime, Transformation outTransformation) {
+            mStillAnimating = true;
+            return super.getTransformation(currentTime, outTransformation);
         }
     }
 

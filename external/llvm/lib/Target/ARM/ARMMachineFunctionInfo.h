@@ -1,4 +1,4 @@
-//===-- ARMMachineFuctionInfo.h - ARM machine function info -----*- C++ -*-===//
+//===-- ARMMachineFunctionInfo.h - ARM machine function info ----*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -52,7 +52,7 @@ class ARMFunctionInfo : public MachineFunctionInfo {
   unsigned ReturnRegsCount;
 
   /// HasStackFrame - True if this function has a stack frame. Set by
-  /// processFunctionBeforeCalleeSavedScan().
+  /// determineCalleeSaves().
   bool HasStackFrame;
 
   /// RestoreSPFromFP - True if epilogue should restore SP from FP. Set by
@@ -98,10 +98,6 @@ class ARMFunctionInfo : public MachineFunctionInfo {
   /// registers also aren't included in DPRCSSize above.
   unsigned NumAlignedDPRCS2Regs;
 
-  /// JumpTableUId - Unique id for jumptables.
-  ///
-  unsigned JumpTableUId;
-
   unsigned PICLabelUId;
 
   /// VarArgsFrameIndex - FrameIndex for start of varargs area.
@@ -113,11 +109,6 @@ class ARMFunctionInfo : public MachineFunctionInfo {
   /// CPEClones - Track constant pool entries clones created by Constant Island
   /// pass.
   DenseMap<unsigned, unsigned> CPEClones;
-
-  /// GlobalBaseReg - keeps track of the virtual register initialized for
-  /// use as the global base register. This is used for PIC in some PIC
-  /// relocation models.
-  unsigned GlobalBaseReg;
 
   /// ArgumentStackSize - amount of bytes on stack consumed by the arguments
   /// being passed on the stack
@@ -136,9 +127,8 @@ public:
     LRSpilledForFarJump(false),
     FramePtrSpillOffset(0), GPRCS1Offset(0), GPRCS2Offset(0), DPRCSOffset(0),
     GPRCS1Size(0), GPRCS2Size(0), DPRCSAlignGapSize(0), DPRCSSize(0),
-    NumAlignedDPRCS2Regs(0),
-    JumpTableUId(0), PICLabelUId(0),
-    VarArgsFrameIndex(0), HasITBlocks(false), GlobalBaseReg(0) {}
+    NumAlignedDPRCS2Regs(0), PICLabelUId(0),
+    VarArgsFrameIndex(0), HasITBlocks(false) {}
 
   explicit ARMFunctionInfo(MachineFunction &MF);
 
@@ -191,14 +181,6 @@ public:
   unsigned getArgumentStackSize() const { return ArgumentStackSize; }
   void setArgumentStackSize(unsigned size) { ArgumentStackSize = size; }
 
-  unsigned createJumpTableUId() {
-    return JumpTableUId++;
-  }
-
-  unsigned getNumJumpTables() const {
-    return JumpTableUId;
-  }
-
   void initPICLabelUId(unsigned UId) {
     PICLabelUId = UId;
   }
@@ -216,9 +198,6 @@ public:
 
   bool hasITBlocks() const { return HasITBlocks; }
   void setHasITBlocks(bool h) { HasITBlocks = h; }
-
-  unsigned getGlobalBaseReg() const { return GlobalBaseReg; }
-  void setGlobalBaseReg(unsigned Reg) { GlobalBaseReg = Reg; }
 
   void recordCPEClone(unsigned CPIdx, unsigned CPCloneIdx) {
     if (!CPEClones.insert(std::make_pair(CPCloneIdx, CPIdx)).second)

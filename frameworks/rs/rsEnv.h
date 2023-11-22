@@ -1,8 +1,6 @@
 #include <stdint.h>
 
 
-typedef void * RsAdapter1D;
-typedef void * RsAdapter2D;
 typedef void * RsAllocation;
 typedef void * RsContext;
 typedef void * RsDevice;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,5 +33,21 @@ float __attribute__((kernel)) testLengthFloat3Float(float3 inV) {
 }
 
 float __attribute__((kernel)) testLengthFloat4Float(float4 inV) {
+    return length(inV);
+}
+
+half __attribute__((kernel)) testLengthHalfHalf(half inV) {
+    return length(inV);
+}
+
+half __attribute__((kernel)) testLengthHalf2Half(half2 inV) {
+    return length(inV);
+}
+
+half __attribute__((kernel)) testLengthHalf3Half(half3 inV) {
+    return length(inV);
+}
+
+half __attribute__((kernel)) testLengthHalf4Half(half4 inV) {
     return length(inV);
 }

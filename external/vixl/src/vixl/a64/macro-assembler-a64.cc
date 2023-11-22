@@ -24,6 +24,8 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <ctype.h>
+
 #include "vixl/a64/macro-assembler-a64.h"
 
 namespace vixl {
@@ -52,13 +54,21 @@ LiteralPool::LiteralPool(MacroAssembler* masm)
 LiteralPool::~LiteralPool() {
   VIXL_ASSERT(IsEmpty());
   VIXL_ASSERT(!IsBlocked());
+  for (std::vector<RawLiteral*>::iterator it = deleted_on_destruction_.begin();
+       it != deleted_on_destruction_.end();
+       it++) {
+    delete *it;
+  }
 }
 
 
 void LiteralPool::Reset() {
   std::vector<RawLiteral*>::iterator it, end;
   for (it = entries_.begin(), end = entries_.end(); it != end; ++it) {
-    delete *it;
+    RawLiteral* literal = *it;
+    if (literal->deletion_policy_ == RawLiteral::kDeletedOnPlacementByPool) {
+      delete literal;
+    }
   }
   entries_.clear();
   size_ = 0;
@@ -94,36 +104,43 @@ void LiteralPool::Emit(EmitOption option) {
 
   // Marker indicating the size of the literal pool in 32-bit words.
   VIXL_ASSERT((pool_size % kWRegSizeInBytes) == 0);
-  masm_->ldr(xzr, pool_size / kWRegSizeInBytes);
+  masm_->ldr(xzr, static_cast<int>(pool_size / kWRegSizeInBytes));
 
   // Now populate the literal pool.
   std::vector<RawLiteral*>::iterator it, end;
   for (it = entries_.begin(), end = entries_.end(); it != end; ++it) {
     VIXL_ASSERT((*it)->IsUsed());
     masm_->place(*it);
-    delete *it;
   }
 
   if (option == kBranchRequired) masm_->bind(&end_of_pool);
 
-  entries_.clear();
   Reset();
 }
 
 
-RawLiteral* LiteralPool::AddEntry(RawLiteral* literal) {
-  if (IsEmpty()) {
-    first_use_ = masm_->CursorOffset();
+void LiteralPool::AddEntry(RawLiteral* literal) {
+  // A literal must be registered immediately before its first use. Here we
+  // cannot control that it is its first use, but we check no code has been
+  // emitted since its last use.
+  VIXL_ASSERT(masm_->CursorOffset() == literal->last_use());
+
+  UpdateFirstUse(masm_->CursorOffset());
+  VIXL_ASSERT(masm_->CursorOffset() >= first_use_);
+  entries_.push_back(literal);
+  size_ += literal->size();
+}
+
+
+void LiteralPool::UpdateFirstUse(ptrdiff_t use_position) {
+  first_use_ = std::min(first_use_, use_position);
+  if (first_use_ == -1) {
+    first_use_ = use_position;
     SetNextRecommendedCheckpoint(NextRecommendedCheckpoint());
     SetNextCheckpoint(first_use_ + Instruction::kLoadLiteralRange);
   } else {
-    VIXL_ASSERT(masm_->CursorOffset() > first_use_);
+    VIXL_ASSERT(use_position > first_use_);
   }
-
-  entries_.push_back(literal);
-  size_ += literal->size();
-
-  return literal;
 }
 
 
@@ -177,7 +194,7 @@ void VeneerPool::DeleteUnresolvedBranchInfoForLabel(Label* label) {
 }
 
 
-bool VeneerPool::ShouldEmitVeneer(int max_reachable_pc, size_t amount) {
+bool VeneerPool::ShouldEmitVeneer(int64_t max_reachable_pc, size_t amount) {
   ptrdiff_t offset =
       kPoolNonVeneerCodeSize + amount + MaxSize() + OtherPoolsMaxSize();
   return (masm_->CursorOffset() + offset) > max_reachable_pc;
@@ -245,26 +262,24 @@ void VeneerPool::Emit(EmitOption option, size_t amount) {
 }
 
 
-EmissionCheckScope::EmissionCheckScope(MacroAssembler* masm, size_t size) {
-  if (masm) {
-    masm->EnsureEmitFor(size);
+EmissionCheckScope::EmissionCheckScope(MacroAssembler* masm, size_t size)
+    : masm_(masm) {
+  masm_->EnsureEmitFor(size);
+  masm_->BlockPools();
 #ifdef VIXL_DEBUG
-    masm_ = masm;
-    masm->Bind(&start_);
-    size_ = size;
-    masm->AcquireBuffer();
+  masm_->Bind(&start_);
+  size_ = size;
+  masm_->AcquireBuffer();
 #endif
-  }
 }
 
 
 EmissionCheckScope::~EmissionCheckScope() {
 #ifdef VIXL_DEBUG
-  if (masm_) {
-    masm_->ReleaseBuffer();
-    VIXL_ASSERT(masm_->SizeOfCodeGeneratedSince(&start_) <= size_);
-  }
+  masm_->ReleaseBuffer();
+  VIXL_ASSERT(masm_->SizeOfCodeGeneratedSince(&start_) <= size_);
 #endif
+  masm_->ReleasePools();
 }
 
 
@@ -274,6 +289,7 @@ MacroAssembler::MacroAssembler(size_t capacity,
 #ifdef VIXL_DEBUG
       allow_macro_instructions_(true),
 #endif
+      allow_simulator_instructions_(VIXL_GENERATE_SIMULATOR_INSTRUCTIONS_VALUE),
       sp_(sp),
       tmp_list_(ip0, ip1),
       fptmp_list_(d31),
@@ -291,6 +307,7 @@ MacroAssembler::MacroAssembler(byte * buffer,
 #ifdef VIXL_DEBUG
       allow_macro_instructions_(true),
 #endif
+      allow_simulator_instructions_(VIXL_GENERATE_SIMULATOR_INSTRUCTIONS_VALUE),
       sp_(sp),
       tmp_list_(ip0, ip1),
       fptmp_list_(d31),
@@ -1231,8 +1248,10 @@ void MacroAssembler::Fmov(VRegister vd, double imm) {
       if (rawbits == 0) {
         fmov(vd, xzr);
       } else {
-        RawLiteral* literal = literal_pool_.Add(imm);
-        ldr(vd, literal);
+        ldr(vd,
+            new Literal<double>(imm,
+                                &literal_pool_,
+                                RawLiteral::kDeletedOnPlacementByPool));
       }
     } else {
       // TODO: consider NEON support for load literal.
@@ -1261,8 +1280,10 @@ void MacroAssembler::Fmov(VRegister vd, float imm) {
       if (rawbits == 0) {
         fmov(vd, wzr);
       } else {
-        RawLiteral* literal = literal_pool_.Add(imm);
-        ldr(vd, literal);
+        ldr(vd,
+            new Literal<float>(imm,
+                               &literal_pool_,
+                               RawLiteral::kDeletedOnPlacementByPool));
       }
     } else {
       // TODO: consider NEON support for load literal.
@@ -1829,8 +1850,7 @@ void MacroAssembler::PrepareForPush(int count, int size) {
 
 
 void MacroAssembler::PrepareForPop(int count, int size) {
-  USE(count);
-  USE(size);
+  USE(count, size);
   if (sp.Is(StackPointer())) {
     // If the current stack pointer is sp, then it must be aligned to 16 bytes
     // on entry and the total size of the specified registers must also be a
@@ -1908,7 +1928,7 @@ void MacroAssembler::PushCalleeSavedRegisters() {
   // This method must not be called unless the current stack pointer is sp.
   VIXL_ASSERT(sp.Is(StackPointer()));
 
-  MemOperand tos(sp, -2 * kXRegSizeInBytes, PreIndex);
+  MemOperand tos(sp, -2 * static_cast<int>(kXRegSizeInBytes), PreIndex);
 
   stp(x29, x30, tos);
   stp(x27, x28, tos);
@@ -2167,8 +2187,7 @@ void MacroAssembler::PrintfNoPreserve(const char * format,
   // Actually call printf. This part needs special handling for the simulator,
   // since the system printf function will use a different instruction set and
   // the procedure-call standard will not be compatible.
-#ifdef USE_SIMULATOR
-  {
+  if (allow_simulator_instructions_) {
     InstructionAccurateScope scope(this, kPrintfLength / kInstructionSize);
     hlt(kPrintfOpcode);
     dc32(arg_count);          // kPrintfArgCountOffset
@@ -2187,12 +2206,11 @@ void MacroAssembler::PrintfNoPreserve(const char * format,
       arg_pattern_list |= (arg_pattern << (kPrintfArgPatternBits * i));
     }
     dc32(arg_pattern_list);   // kPrintfArgPatternListOffset
+  } else {
+    Register tmp = temps.AcquireX();
+    Mov(tmp, reinterpret_cast<uintptr_t>(printf));
+    Blr(tmp);
   }
-#else
-  Register tmp = temps.AcquireX();
-  Mov(tmp, reinterpret_cast<uintptr_t>(printf));
-  Blr(tmp);
-#endif
 }
 
 
@@ -2267,52 +2285,51 @@ void MacroAssembler::Printf(const char * format,
 void MacroAssembler::Trace(TraceParameters parameters, TraceCommand command) {
   VIXL_ASSERT(allow_macro_instructions_);
 
-#ifdef USE_SIMULATOR
-  // The arguments to the trace pseudo instruction need to be contiguous in
-  // memory, so make sure we don't try to emit a literal pool.
-  InstructionAccurateScope scope(this, kTraceLength / kInstructionSize);
+  if (allow_simulator_instructions_) {
+    // The arguments to the trace pseudo instruction need to be contiguous in
+    // memory, so make sure we don't try to emit a literal pool.
+    InstructionAccurateScope scope(this, kTraceLength / kInstructionSize);
 
-  Label start;
-  bind(&start);
+    Label start;
+    bind(&start);
 
-  // Refer to simulator-a64.h for a description of the marker and its
-  // arguments.
-  hlt(kTraceOpcode);
+    // Refer to simulator-a64.h for a description of the marker and its
+    // arguments.
+    hlt(kTraceOpcode);
 
-  VIXL_ASSERT(SizeOfCodeGeneratedSince(&start) == kTraceParamsOffset);
-  dc32(parameters);
+    VIXL_ASSERT(SizeOfCodeGeneratedSince(&start) == kTraceParamsOffset);
+    dc32(parameters);
 
-  VIXL_ASSERT(SizeOfCodeGeneratedSince(&start) == kTraceCommandOffset);
-  dc32(command);
-#else
-  // Emit nothing on real hardware.
-  USE(parameters);
-  USE(command);
-#endif
+    VIXL_ASSERT(SizeOfCodeGeneratedSince(&start) == kTraceCommandOffset);
+    dc32(command);
+  } else {
+    // Emit nothing on real hardware.
+    USE(parameters, command);
+  }
 }
 
 
 void MacroAssembler::Log(TraceParameters parameters) {
   VIXL_ASSERT(allow_macro_instructions_);
 
-#ifdef USE_SIMULATOR
-  // The arguments to the log pseudo instruction need to be contiguous in
-  // memory, so make sure we don't try to emit a literal pool.
-  InstructionAccurateScope scope(this, kLogLength / kInstructionSize);
+  if (allow_simulator_instructions_) {
+    // The arguments to the log pseudo instruction need to be contiguous in
+    // memory, so make sure we don't try to emit a literal pool.
+    InstructionAccurateScope scope(this, kLogLength / kInstructionSize);
 
-  Label start;
-  bind(&start);
+    Label start;
+    bind(&start);
 
-  // Refer to simulator-a64.h for a description of the marker and its
-  // arguments.
-  hlt(kLogOpcode);
+    // Refer to simulator-a64.h for a description of the marker and its
+    // arguments.
+    hlt(kLogOpcode);
 
-  VIXL_ASSERT(SizeOfCodeGeneratedSince(&start) == kLogParamsOffset);
-  dc32(parameters);
-#else
-  // Emit nothing on real hardware.
-  USE(parameters);
-#endif
+    VIXL_ASSERT(SizeOfCodeGeneratedSince(&start) == kLogParamsOffset);
+    dc32(parameters);
+  } else {
+    // Emit nothing on real hardware.
+    USE(parameters);
+  }
 }
 
 

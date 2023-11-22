@@ -33,6 +33,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableSet;
 import java.util.Set;
 import java.util.SortedSet;
 
@@ -40,9 +41,21 @@ public class SafeTreeSetTest extends TestCase {
   public static Test suite() {
     TestSuite suite = new TestSuite();
     suite.addTestSuite(SafeTreeSetTest.class);
+    suite.addTest(
+        NavigableSetTestSuiteBuilder.using(new TestStringSetGenerator() {
+          @Override protected Set<String> create(String[] elements) {
+            return new SafeTreeSet<String>(Arrays.asList(elements));
+          }
+
+          @Override public List<String> order(List<String> insertionOrder) {
+            return Lists.newArrayList(Sets.newTreeSet(insertionOrder));
+          }
+        }).withFeatures(CollectionSize.ANY, CollectionFeature.KNOWN_ORDER,
+            CollectionFeature.GENERAL_PURPOSE).named(
+            "SafeTreeSet with natural comparator").createTestSuite());
     suite.addTest(SetTestSuiteBuilder.using(new TestStringSetGenerator() {
       @Override protected Set<String> create(String[] elements) {
-        SortedSet<String> set =
+        NavigableSet<String> set =
             new SafeTreeSet<String>(Ordering.natural().nullsFirst());
         Collections.addAll(set, elements);
         return set;

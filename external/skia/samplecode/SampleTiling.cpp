@@ -55,8 +55,8 @@ static const int gWidth = 32;
 static const int gHeight = 32;
 
 class TilingView : public SampleView {
-    SkAutoTUnref<SkPicture>        fTextPicture;
-    SkAutoTUnref<SkBlurDrawLooper> fLooper;
+    SkAutoTUnref<SkPicture>     fTextPicture;
+    SkAutoTUnref<SkDrawLooper>  fLooper;
 public:
     TilingView()
             : fLooper(SkBlurDrawLooper::Create(0x88000000,
@@ -97,9 +97,9 @@ protected:
         SkScalar x = SkIntToScalar(10);
 
         SkPictureRecorder recorder;
-        SkCanvas* textCanvas = NULL;
-        if (NULL == fTextPicture) {
-            textCanvas = recorder.beginRecording(1000, 1000, NULL, 0);
+        SkCanvas* textCanvas = nullptr;
+        if (nullptr == fTextPicture) {
+            textCanvas = recorder.beginRecording(1000, 1000, nullptr, 0);
         }
 
         if (textCanvas) {
@@ -153,7 +153,7 @@ protected:
         }
 
         if (textCanvas) {
-            SkASSERT(NULL == fTextPicture);
+            SkASSERT(nullptr == fTextPicture);
             fTextPicture.reset(recorder.endRecording());
         }
 

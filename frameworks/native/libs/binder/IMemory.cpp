@@ -26,6 +26,7 @@
 #include <sys/mman.h>
 
 #include <binder/IMemory.h>
+#include <cutils/log.h>
 #include <utils/KeyedVector.h>
 #include <utils/threads.h>
 #include <utils/Atomic.h>
@@ -187,15 +188,26 @@ sp<IMemoryHeap> BpMemory::getMemory(ssize_t* offset, size_t* size) const
             if (heap != 0) {
                 mHeap = interface_cast<IMemoryHeap>(heap);
                 if (mHeap != 0) {
-                    mOffset = o;
-                    mSize = s;
+                    size_t heapSize = mHeap->getSize();
+                    if (s <= heapSize
+                            && o >= 0
+                            && (static_cast<size_t>(o) <= heapSize - s)) {
+                        mOffset = o;
+                        mSize = s;
+                    } else {
+                        // Hm.
+                        android_errorWriteWithInfoLog(0x534e4554,
+                            "26877992", -1, NULL, 0);
+                        mOffset = 0;
+                        mSize = 0;
+                    }
                 }
             }
         }
     }
     if (offset) *offset = mOffset;
     if (size) *size = mSize;
-    return mHeap;
+    return (mSize > 0) ? mHeap : 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -300,17 +312,17 @@ void BpMemoryHeap::assertReallyMapped() const
                 IInterface::asBinder(this).get(),
                 parcel_fd, size, err, strerror(-err));
 
-        int fd = dup( parcel_fd );
-        ALOGE_IF(fd==-1, "cannot dup fd=%d, size=%zd, err=%d (%s)",
-                parcel_fd, size, err, strerror(errno));
-
-        int access = PROT_READ;
-        if (!(flags & READ_ONLY)) {
-            access |= PROT_WRITE;
-        }
-
         Mutex::Autolock _l(mLock);
         if (mHeapId == -1) {
+            int fd = dup( parcel_fd );
+            ALOGE_IF(fd==-1, "cannot dup fd=%d, size=%zd, err=%d (%s)",
+                    parcel_fd, size, err, strerror(errno));
+
+            int access = PROT_READ;
+            if (!(flags & READ_ONLY)) {
+                access |= PROT_WRITE;
+            }
+
             mRealHeap = true;
             mBase = mmap(0, size, access, MAP_SHARED, fd, offset);
             if (mBase == MAP_FAILED) {

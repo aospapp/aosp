@@ -24,12 +24,12 @@ import android.test.ActivityInstrumentationTestCase2;
 public class MediaPlayerSurfaceTest extends ActivityInstrumentationTestCase2<MediaPlayerSurfaceStubActivity> {
 
     public MediaPlayerSurfaceTest() {
-        super("com.android.cts.media", MediaPlayerSurfaceStubActivity.class);
+        super("android.media.cts", MediaPlayerSurfaceStubActivity.class);
     }
 
     public void testSetSurface() throws Exception {
         Bundle extras = new Bundle();
-        MediaPlayerSurfaceStubActivity activity = launchActivity("com.android.cts.media",
+        MediaPlayerSurfaceStubActivity activity = launchActivity("android.media.cts",
                 MediaPlayerSurfaceStubActivity.class, extras);
         activity.playVideo();
         activity.finish();

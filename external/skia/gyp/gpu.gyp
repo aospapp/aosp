@@ -94,6 +94,7 @@
       ],
       'include_dirs': [
         '../include/gpu',
+        '../include/private',
         '../src/core',
         '../src/gpu',
         '../src/image/',
@@ -102,36 +103,20 @@
         '<@(skgpu_sources)',
         '<@(skgpu_native_gl_sources)',
         '<@(skgpu_angle_gl_sources)',
+        '<@(skgpu_command_buffer_gl_sources)',
         '<@(skgpu_mesa_gl_sources)',
         '<@(skgpu_debug_gl_sources)',
         '<@(skgpu_null_gl_sources)',
+        '<@(skgpu_vk_sources)',
         'gpu.gypi', # Makes the gypi appear in IDEs (but does not modify the build).
       ],
       'conditions': [
         [ 'skia_gpu_extra_dependency_path', {
           'dependencies' : [
               '<(skia_gpu_extra_dependency_path):*',
-          ]
-        }],
-        [ 'skia_stroke_path_rendering', {
-          'sources': [
-            '../experimental/StrokePathRenderer/GrStrokePathRenderer.h',
-            '../experimental/StrokePathRenderer/GrStrokePathRenderer.cpp',
           ],
-          'defines': [
-            'GR_STROKE_PATH_RENDERING=1',
-          ],
-        }],
-        [ 'skia_android_path_rendering', {
-          'sources': [
-            '../experimental/AndroidPathRenderer/GrAndroidPathRenderer.cpp',
-            '../experimental/AndroidPathRenderer/GrAndroidPathRenderer.h',
-            '../experimental/AndroidPathRenderer/AndroidPathRenderer.cpp',
-            '../experimental/AndroidPathRenderer/AndroidPathRenderer.h',
-            '../experimental/AndroidPathRenderer/Vertex.h',
-          ],
-          'defines': [
-            'GR_ANDROID_PATH_RENDERING=1',
+          'export_dependent_settings': [
+            '<(skia_gpu_extra_dependency_path):*',
           ],
         }],
         [ 'skia_chrome_utils', {
@@ -228,6 +213,12 @@
             '<@(skgpu_angle_gl_sources)',
           ],
         }],
+        [ 'skia_command_buffer', {
+        }, { # not skia_command_buffer
+          'sources!': [
+            '<@(skgpu_command_buffer_gl_sources)',
+          ],
+        }],
         [ 'skia_os == "android"', {
           'sources!': [
             '../src/gpu/gl/GrGLDefaultInterface_none.cpp',
@@ -242,6 +233,78 @@
               '-lEGL',
             ],
           },
+        }],
+        [ 'skia_vulkan', {
+          'include_dirs': [
+            '../third_party/' # To include files under third_party/vulkan
+          ],
+          'direct_dependent_settings': {
+            'include_dirs': [
+              '../third_party/' # To include files under third_party/vulkan
+            ],
+          },
+          'conditions' : [
+            ['skia_os == "win"', {
+              'all_dependent_settings': {
+                'msvs_settings': {
+                  'VCLinkerTool': {
+                    'AdditionalDependencies': [
+                      'vulkan-1.lib',
+                      'shaderc_combined.lib'
+                    ],
+                  },
+                },
+              },
+              'link_settings': {
+                'configurations': {
+                  'Debug': {
+                    'msvs_settings': {
+                      'VCLinkerTool': {
+                      'AdditionalLibraryDirectories': [
+                          '../third_party/vulkan',
+                          '../third_party/shaderc/Debug',
+                        ],
+                      },
+                    },
+                  },
+                  'Release': {
+                    'msvs_settings': {
+                      'VCLinkerTool': {
+                        'AdditionalLibraryDirectories': [
+                          '../third_party/vulkan',
+                          '../third_party/shaderc/Release',
+                        ],
+                      },
+                    },
+                  },
+                  'Debug_x64': {
+                    'msvs_settings': {
+                      'VCLinkerTool': {
+                        'AdditionalLibraryDirectories': [
+                          '../third_party/vulkan',
+                          '../third_party/shaderc/Debug',
+                        ],
+                      },
+                    },
+                  },
+                  'Release_x64': {
+                      'msvs_settings': {
+                      'VCLinkerTool': {
+                        'AdditionalLibraryDirectories': [
+                          '../third_party/vulkan',
+                          '../third_party/shaderc/Release',
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+            }],
+          ],
+        }, {
+          'sources!': [
+            '<@(skgpu_vk_sources)',
+          ],
         }],
       ],
     },

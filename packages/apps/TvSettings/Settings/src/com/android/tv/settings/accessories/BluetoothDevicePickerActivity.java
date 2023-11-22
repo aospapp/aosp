@@ -26,7 +26,7 @@ import com.android.tv.settings.R;
 
 public class BluetoothDevicePickerActivity extends Activity {
 
-    public static final String TAG = "aah.BluetoothDevicePickerActivity";
+    public static final String TAG = "BtDevicePickerActivity";
     private static final boolean DEBUG = false;
 
     @Override

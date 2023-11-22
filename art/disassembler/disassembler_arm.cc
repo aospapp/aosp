@@ -22,6 +22,7 @@
 #include <sstream>
 
 #include "arch/arm/registers_arm.h"
+#include "base/bit_utils.h"
 #include "base/logging.h"
 #include "base/stringprintf.h"
 #include "thread.h"
@@ -201,14 +202,13 @@ std::ostream& operator<<(std::ostream& os, const RegisterList& rhs) {
 }
 
 struct FpRegister {
-  explicit FpRegister(uint32_t instr, uint16_t at_bit, uint16_t extra_at_bit) {
+  FpRegister(uint32_t instr, uint16_t at_bit, uint16_t extra_at_bit) {
     size = (instr >> 8) & 1;
     uint32_t Vn = (instr >> at_bit) & 0xF;
     uint32_t N = (instr >> extra_at_bit) & 1;
     r = (size != 0 ? ((N << 4) | Vn) : ((Vn << 1) | N));
   }
-  explicit FpRegister(uint32_t instr, uint16_t at_bit, uint16_t extra_at_bit,
-                      uint32_t forced_size) {
+  FpRegister(uint32_t instr, uint16_t at_bit, uint16_t extra_at_bit, uint32_t forced_size) {
     size = forced_size;
     uint32_t Vn = (instr >> at_bit) & 0xF;
     uint32_t N = (instr >> extra_at_bit) & 1;
@@ -418,7 +418,12 @@ std::ostream& operator<<(std::ostream& os, T2LitType type) {
   return os << static_cast<int>(type);
 }
 
-void DumpThumb2Literal(std::ostream& args, const uint8_t* instr_ptr, uint32_t U, uint32_t imm32,
+void DumpThumb2Literal(std::ostream& args,
+                       const uint8_t* instr_ptr,
+                       const uintptr_t lo_adr,
+                       const uintptr_t hi_adr,
+                       uint32_t U,
+                       uint32_t imm32,
                        T2LitType type) {
   // Literal offsets (imm32) are not required to be aligned so we may need unaligned access.
   typedef const int16_t unaligned_int16_t __attribute__ ((aligned (1)));
@@ -428,8 +433,16 @@ void DumpThumb2Literal(std::ostream& args, const uint8_t* instr_ptr, uint32_t U,
   typedef const int64_t unaligned_int64_t __attribute__ ((aligned (1)));
   typedef const uint64_t unaligned_uint64_t __attribute__ ((aligned (1)));
 
+  // Get address of literal. Bail if not within expected buffer range to
+  // avoid trying to fetch invalid literals (we can encounter this when
+  // interpreting raw data as instructions).
   uintptr_t pc = RoundDown(reinterpret_cast<intptr_t>(instr_ptr) + 4, 4);
   uintptr_t lit_adr = U ? pc + imm32 : pc - imm32;
+  if (lit_adr < lo_adr || lit_adr >= hi_adr) {
+    args << "  ; (?)";
+    return;
+  }
+
   args << "  ; ";
   switch (type) {
     case kT2LitUByte:
@@ -481,6 +494,10 @@ size_t DisassemblerArm::DumpThumb32(std::ostream& os, const uint8_t* instr_ptr) 
   if (op1 == 0) {
     return DumpThumb16(os, instr_ptr);
   }
+
+  // Set valid address range of backing buffer.
+  const uintptr_t lo_adr = reinterpret_cast<intptr_t>(GetDisassemblerOptions()->base_address_);
+  const uintptr_t hi_adr = reinterpret_cast<intptr_t>(GetDisassemblerOptions()->end_address_);
 
   uint32_t op2 = (instr >> 20) & 0x7F;
   std::ostringstream opcode;
@@ -776,7 +793,7 @@ size_t DisassemblerArm::DumpThumb32(std::ostream& os, const uint8_t* instr_ptr) 
               if (imm5 == 0) {
                 args << "rrx";
               } else {
-                args << "ror";
+                args << "ror #" << imm5;
               }
               break;
           }
@@ -824,7 +841,7 @@ size_t DisassemblerArm::DumpThumb32(std::ostream& os, const uint8_t* instr_ptr) 
                 args << d << ", [" << Rn << ", #" << ((U == 1) ? "" : "-")
                      << (imm8 << 2) << "]";
                 if (Rn.r == 15 && U == 1) {
-                  DumpThumb2Literal(args, instr_ptr, U, imm8 << 2, kT2LitHexLong);
+                  DumpThumb2Literal(args, instr_ptr, lo_adr, hi_adr, U, imm8 << 2, kT2LitHexLong);
                 }
               } else if (Rn.r == 13 && W == 1 && U == L) {  // VPUSH/VPOP
                 opcode << (L == 1 ? "vpop" : "vpush");
@@ -1152,8 +1169,10 @@ size_t DisassemblerArm::DumpThumb32(std::ostream& os, const uint8_t* instr_ptr) 
             args << Rd << ", #" << imm16;
             break;
           }
-          case 0x16: {
+          case 0x16: case 0x14: case 0x1C: {
             // BFI Rd, Rn, #lsb, #width - 111 10 0 11 011 0 nnnn 0 iii dddd ii 0 iiiii
+            // SBFX Rd, Rn, #lsb, #width - 111 10 0 11 010 0 nnnn 0 iii dddd ii 0 iiiii
+            // UBFX Rd, Rn, #lsb, #width - 111 10 0 11 110 0 nnnn 0 iii dddd ii 0 iiiii
             ArmRegister Rd(instr, 8);
             ArmRegister Rn(instr, 16);
             uint32_t msb = instr & 0x1F;
@@ -1161,12 +1180,21 @@ size_t DisassemblerArm::DumpThumb32(std::ostream& os, const uint8_t* instr_ptr) 
             uint32_t imm3 = (instr >> 12) & 0x7;
             uint32_t lsb = (imm3 << 2) | imm2;
             uint32_t width = msb - lsb + 1;
-            if (Rn.r != 0xF) {
-              opcode << "bfi";
-              args << Rd << ", " << Rn << ", #" << lsb << ", #" << width;
+            if (op3 == 0x16) {
+              if (Rn.r != 0xF) {
+                opcode << "bfi";
+                args << Rd << ", " << Rn << ", #" << lsb << ", #" << width;
+              } else {
+                opcode << "bfc";
+                args << Rd << ", #" << lsb << ", #" << width;
+              }
             } else {
-              opcode << "bfc";
-              args << Rd << ", #" << lsb << ", #" << width;
+              opcode << ((op3 & 0x8) != 0u ? "ubfx" : "sbfx");
+              args << Rd << ", " << Rn << ", #" << lsb << ", #" << width;
+              if (Rd.r == 13 || Rd.r == 15 || Rn.r == 13 || Rn.r == 15 ||
+                  (instr & 0x04000020) != 0u) {
+                args << " (UNPREDICTABLE)";
+              }
             }
             break;
           }
@@ -1251,10 +1279,10 @@ size_t DisassemblerArm::DumpThumb32(std::ostream& os, const uint8_t* instr_ptr) 
               imm32 = (S << 20) | (J2 << 19) | (J1 << 18) | (imm6 << 12) | (imm11 << 1);
               imm32 = (imm32 << 11) >> 11;  // sign extend 21 bit immediate.
             } else {
-              uint32_t I1 = ~(J1 ^ S);
-              uint32_t I2 = ~(J2 ^ S);
+              uint32_t I1 = (J1 ^ S) ^ 1;
+              uint32_t I2 = (J2 ^ S) ^ 1;
               imm32 = (S << 24) | (I1 << 23) | (I2 << 22) | (imm10 << 12) | (imm11 << 1);
-              imm32 = (imm32 << 8) >> 8;  // sign extend 24 bit immediate.
+              imm32 = (imm32 << 7) >> 7;  // sign extend 25 bit immediate.
             }
             opcode << ".w";
             DumpBranchTarget(args, instr_ptr + 4, imm32);
@@ -1399,7 +1427,7 @@ size_t DisassemblerArm::DumpThumb32(std::ostream& os, const uint8_t* instr_ptr) 
               };
               DCHECK_LT(op2 >> 1, arraysize(lit_type));
               DCHECK_NE(lit_type[op2 >> 1], kT2LitInvalid);
-              DumpThumb2Literal(args, instr_ptr, U, imm12, lit_type[op2 >> 1]);
+              DumpThumb2Literal(args, instr_ptr, lo_adr, hi_adr, U, imm12, lit_type[op2 >> 1]);
             }
           } else if ((instr & 0xFC0) == 0) {
             opcode << ldr_str << sign << type << ".w";
@@ -1453,6 +1481,20 @@ size_t DisassemblerArm::DumpThumb32(std::ostream& os, const uint8_t* instr_ptr) 
               args << " (UNPREDICTABLE)";
             }
           }  // else unknown instruction
+          break;
+        }
+        case 0x2B: {  // 0101011
+          //  CLZ - 111 11 0101011 mmmm 1111 dddd 1000 mmmm
+          if ((instr & 0xf0f0) == 0xf080) {
+            opcode << "clz";
+            ArmRegister Rm(instr, 0);
+            ArmRegister Rd(instr, 8);
+            args << Rd << ", " << Rm;
+            ArmRegister Rm2(instr, 16);
+            if (Rm.r != Rm2.r || Rm.r == 13 || Rm.r == 15 || Rd.r == 13 || Rd.r == 15) {
+              args << " (UNPREDICTABLE)";
+            }
+          }
           break;
         }
       default:      // more formats
@@ -1686,10 +1728,13 @@ size_t DisassemblerArm::DumpThumb16(std::ostream& os, const uint8_t* instr_ptr) 
           break;
       }
     } else if (opcode1 == 0x12 || opcode1 == 0x13) {  // 01001x
+      const uintptr_t lo_adr = reinterpret_cast<intptr_t>(GetDisassemblerOptions()->base_address_);
+      const uintptr_t hi_adr = reinterpret_cast<intptr_t>(GetDisassemblerOptions()->end_address_);
       ThumbRegister Rt(instr, 8);
       uint16_t imm8 = instr & 0xFF;
       opcode << "ldr";
       args << Rt << ", [pc, #" << (imm8 << 2) << "]";
+      DumpThumb2Literal(args, instr_ptr, lo_adr, hi_adr, /*U*/ 1u, imm8 << 2, kT2LitHexWord);
     } else if ((opcode1 >= 0x14 && opcode1 <= 0x17) ||  // 0101xx
                (opcode1 >= 0x18 && opcode1 <= 0x1f) ||  // 011xxx
                (opcode1 >= 0x20 && opcode1 <= 0x27)) {  // 100xxx

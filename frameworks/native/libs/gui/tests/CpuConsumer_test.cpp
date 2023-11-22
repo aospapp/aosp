@@ -444,19 +444,14 @@ void checkAnyBuffer(const CpuConsumer::LockedBuffer &buf, int format) {
     }
 }
 
-void fillYV12BufferRect(uint8_t* buf, int w, int h, int stride,
-        const android_native_rect_t& rect);
-
-void fillRGBA8Buffer(uint8_t* buf, int w, int h, int stride);
-
-void fillRGBA8BufferSolid(uint8_t* buf, int w, int h, int stride, uint8_t r,
-        uint8_t g, uint8_t b, uint8_t a);
-
 // Configures the ANativeWindow producer-side interface based on test parameters
 void configureANW(const sp<ANativeWindow>& anw,
         const CpuConsumerTestParams& params,
         int maxBufferSlack) {
     status_t err;
+    err = native_window_api_connect(anw.get(), NATIVE_WINDOW_API_CPU);
+    ASSERT_NO_ERROR(err, "connect error: ");
+
     err = native_window_set_buffers_dimensions(anw.get(),
             params.width, params.height);
     ASSERT_NO_ERROR(err, "set_buffers_dimensions error: ");

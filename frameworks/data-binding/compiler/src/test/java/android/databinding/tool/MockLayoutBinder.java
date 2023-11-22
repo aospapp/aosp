@@ -13,6 +13,8 @@
 
 package android.databinding.tool;
 
+import android.databinding.tool.expr.IdentifierExpr;
+import android.databinding.tool.store.Location;
 import android.databinding.tool.store.ResourceBundle;
 
 import java.io.File;
@@ -23,5 +25,9 @@ public class MockLayoutBinder extends LayoutBinder {
         super(new ResourceBundle.LayoutFileBundle(new File("./blah.xml"), "blah.xml", "layout",
                 "com.test.submodule",
                 false));
+    }
+
+    public IdentifierExpr addVariable(String name, String type, Location location) {
+        return super.addVariable(name, type, location, true);
     }
 }

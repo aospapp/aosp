@@ -30,4 +30,7 @@ LOCAL_PACKAGE_NAME := CtsSimplePreMApp
 
 LOCAL_SDK_VERSION := 21
 
+# tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
+
 include $(BUILD_CTS_PACKAGE)

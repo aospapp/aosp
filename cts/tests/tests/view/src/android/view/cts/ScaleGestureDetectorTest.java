@@ -32,7 +32,7 @@ public class ScaleGestureDetectorTest extends
     private Context mContext;
 
     public ScaleGestureDetectorTest() {
-        super("com.android.cts.view", ScaleGestureDetectorCtsActivity.class);
+        super("android.view.cts", ScaleGestureDetectorCtsActivity.class);
     }
 
     @Override

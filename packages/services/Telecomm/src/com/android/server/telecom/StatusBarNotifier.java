@@ -19,12 +19,15 @@ package com.android.server.telecom;
 import android.app.StatusBarManager;
 import android.content.Context;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 // TODO: Needed for move to system service: import com.android.internal.R;
 
 /**
  * Manages the special status bar notifications used by the phone app.
  */
-final class StatusBarNotifier extends CallsManagerListenerBase {
+@VisibleForTesting
+public class StatusBarNotifier extends CallsManagerListenerBase {
     private static final String SLOT_MUTE = "mute";
     private static final String SLOT_SPEAKERPHONE = "speakerphone";
 
@@ -50,7 +53,8 @@ final class StatusBarNotifier extends CallsManagerListenerBase {
         }
     }
 
-    void notifyMute(boolean isMuted) {
+    @VisibleForTesting
+    public void notifyMute(boolean isMuted) {
         // Never display anything if there are no calls.
         if (!mCallsManager.hasAnyCalls()) {
             isMuted = false;
@@ -74,7 +78,8 @@ final class StatusBarNotifier extends CallsManagerListenerBase {
         mIsShowingMute = isMuted;
     }
 
-    void notifySpeakerphone(boolean isSpeakerphone) {
+    @VisibleForTesting
+    public void notifySpeakerphone(boolean isSpeakerphone) {
         // Never display anything if there are no calls.
         if (!mCallsManager.hasAnyCalls()) {
             isSpeakerphone = false;

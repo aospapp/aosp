@@ -98,6 +98,10 @@ public class LifecycleTest extends AssistTestBase {
     }
 
     public void testLayerDoesNotTriggerLifecycleMethods() throws Exception {
+        if (mActivityManager.isLowRamDevice()) {
+            Log.d(TAG, "Not running assist tests on low-RAM device.");
+            return;
+        }
         mTestActivity.startTest(Utils.LIFECYCLE);
         waitForAssistantToBeReady(mReadyLatch);
         mTestActivity.start3pApp(Utils.LIFECYCLE);
@@ -112,7 +116,7 @@ public class LifecycleTest extends AssistTestBase {
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             if (action.equals(action_hasResumed) && mHasResumedLatch != null) {
-                    mHasResumedLatch.countDown();
+                mHasResumedLatch.countDown();
             } else if (action.equals(action_onPause) && mActivityLifecycleLatch != null) {
                 mActivityLifecycleLatch.countDown();
             } else if (action.equals(action_onStop) && mActivityLifecycleLatch != null) {

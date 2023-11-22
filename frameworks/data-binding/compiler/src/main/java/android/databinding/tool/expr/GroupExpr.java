@@ -18,6 +18,7 @@ package android.databinding.tool.expr;
 
 import android.databinding.tool.reflection.ModelAnalyzer;
 import android.databinding.tool.reflection.ModelClass;
+import android.databinding.tool.writer.KCode;
 
 import java.util.List;
 
@@ -36,7 +37,23 @@ public class GroupExpr extends Expr {
         return getWrapped().constructDependencies();
     }
 
+    @Override
+    protected KCode generateCode(boolean expand) {
+        return new KCode().app("(", getWrapped().toCode(expand)).app(")");
+    }
+
     public Expr getWrapped() {
         return getChildren().get(0);
+    }
+
+    @Override
+    public KCode toInverseCode(KCode value) {
+        // Nothing to do here. Other expressions should automatically take care of grouping.
+        return getWrapped().toInverseCode(value);
+    }
+
+    @Override
+    public String getInvertibleError() {
+        return getWrapped().getInvertibleError();
     }
 }

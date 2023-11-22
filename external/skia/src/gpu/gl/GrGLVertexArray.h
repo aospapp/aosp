@@ -10,40 +10,12 @@
 
 #include "GrTypesPriv.h"
 #include "gl/GrGLDefines.h"
-#include "gl/GrGLFunctions.h"
+#include "gl/GrGLTypes.h"
 #include "SkTArray.h"
 
 class GrGLVertexBuffer;
 class GrGLIndexBuffer;
 class GrGLGpu;
-
-struct GrGLAttribLayout {
-    GrGLint     fCount;
-    GrGLenum    fType;
-    GrGLboolean fNormalized;
-};
-
-static inline const GrGLAttribLayout& GrGLAttribTypeToLayout(GrVertexAttribType type) {
-    SkASSERT(type >= 0 && type < kGrVertexAttribTypeCount);
-    static const GrGLAttribLayout kLayouts[kGrVertexAttribTypeCount] = {
-        {1, GR_GL_FLOAT, false},         // kFloat_GrVertexAttribType
-        {2, GR_GL_FLOAT, false},         // kVec2f_GrVertexAttribType
-        {3, GR_GL_FLOAT, false},         // kVec3f_GrVertexAttribType
-        {4, GR_GL_FLOAT, false},         // kVec4f_GrVertexAttribType
-        {1, GR_GL_UNSIGNED_BYTE, true},  // kUByte_GrVertexAttribType
-        {4, GR_GL_UNSIGNED_BYTE, true},  // kVec4ub_GrVertexAttribType
-        {2, GR_GL_SHORT, false},         // kVec2s_GrVertexAttribType
-    };
-    GR_STATIC_ASSERT(0 == kFloat_GrVertexAttribType);
-    GR_STATIC_ASSERT(1 == kVec2f_GrVertexAttribType);
-    GR_STATIC_ASSERT(2 == kVec3f_GrVertexAttribType);
-    GR_STATIC_ASSERT(3 == kVec4f_GrVertexAttribType);
-    GR_STATIC_ASSERT(4 == kUByte_GrVertexAttribType);
-    GR_STATIC_ASSERT(5 == kVec4ub_GrVertexAttribType);
-    GR_STATIC_ASSERT(6 == kVec2s_GrVertexAttribType);
-    GR_STATIC_ASSERT(SK_ARRAY_COUNT(kLayouts) == kGrVertexAttribTypeCount);
-    return kLayouts[type];
-}
 
 /**
  * This sets and tracks the vertex attribute array state. It is used internally by GrGLVertexArray
@@ -67,12 +39,10 @@ public:
      * assumed that the GrGLAttribArrayState is tracking the state of the currently bound vertex
      * array object.
      */
-    void set(const GrGLGpu*,
-             int index,
-             GrGLVertexBuffer*,
-             GrGLint size,
-             GrGLenum type,
-             GrGLboolean normalized,
+    void set(GrGLGpu*,
+             int attribIndex,
+             GrGLuint vertexBufferID,
+             GrVertexAttribType type,
              GrGLsizei stride,
              GrGLvoid* offset);
 
@@ -114,15 +84,13 @@ private:
                 fAttribPointerIsValid = false;
             }
 
-            bool        fEnableIsValid;
-            bool        fAttribPointerIsValid;
-            bool        fEnabled;
-            GrGLuint    fVertexBufferID;
-            GrGLint     fSize;
-            GrGLenum    fType;
-            GrGLboolean fNormalized;
-            GrGLsizei   fStride;
-            GrGLvoid*   fOffset;
+            bool                  fEnableIsValid;
+            bool                  fAttribPointerIsValid;
+            bool                  fEnabled;
+            GrGLuint              fVertexBufferID;
+            GrVertexAttribType    fType;
+            GrGLsizei             fStride;
+            GrGLvoid*             fOffset;
     };
 
     SkSTArray<16, AttribArrayState, true> fAttribArrayStates;
@@ -137,7 +105,7 @@ public:
     GrGLVertexArray(GrGLint id, int attribCount);
 
     /**
-     * Binds this vertex array. If the ID has been deleted or abandoned then NULL is returned.
+     * Binds this vertex array. If the ID has been deleted or abandoned then nullptr is returned.
      * Otherwise, the GrGLAttribArrayState that is tracking this vertex array's attrib bindings is
      * returned.
      */
@@ -147,7 +115,7 @@ public:
      * This is a version of the above function that also binds an index buffer to the vertex
      * array object.
      */
-    GrGLAttribArrayState* bindWithIndexBuffer(GrGLGpu* gpu, const GrGLIndexBuffer*);
+    GrGLAttribArrayState* bindWithIndexBuffer(GrGLGpu* gpu, GrGLuint indexBufferID);
 
     void notifyIndexBufferDelete(GrGLuint bufferID);
 

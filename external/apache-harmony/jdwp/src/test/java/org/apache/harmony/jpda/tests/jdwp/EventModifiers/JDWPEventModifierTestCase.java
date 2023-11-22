@@ -252,38 +252,6 @@ abstract class JDWPEventModifierTestCase extends JDWPSyncTestCase {
     }
 
     /**
-     * Checks the VM supports the canWatchFieldAccess capability. If it does
-     * not, prints a warning in the console.
-     *
-     * @return true if the VM supports the canWatchFieldAccess capability, false
-     * otherwise.
-     */
-    protected boolean canWatchFieldAccessCapability() {
-        logWriter.println("Checking canWatchFieldAccess capability");
-        boolean result = debuggeeWrapper.vmMirror.canWatchFieldAccess();
-        if (!result) {
-            logCapabilityWarning("canWatchFieldAccess");
-        }
-        return result;
-    }
-
-    /**
-     * Checks the VM supports the canWatchFieldModification capability. If it
-     * does not, prints a warning in the console.
-     *
-     * @return true if the VM supports the canWatchFieldModification capability,
-     * false otherwise.
-     */
-    protected boolean canWatchFieldModificationCapability() {
-        logWriter.println("Checking canWatchFieldModification capability");
-        boolean result = debuggeeWrapper.vmMirror.canWatchFieldModification();
-        if (!result) {
-            logCapabilityWarning("canWatchFieldModification");
-        }
-        return result;
-    }
-
-    /**
      * Warns about an unsupported capability by printing a message in the
      * console.
      *

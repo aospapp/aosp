@@ -34,6 +34,7 @@ import android.provider.ContactsContract.Contacts;
 import android.provider.ContactsContract.Contacts.Entity;
 import android.text.TextUtils;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.android.contacts.ContactSaveService;
 import com.android.contacts.R;
@@ -114,7 +115,7 @@ public class ContactDeletionInteraction extends Fragment
     static ContactDeletionInteraction startWithTestLoaderManager(
             Activity activity, Uri contactUri, boolean finishActivityWhenDone,
             TestLoaderManagerBase testLoaderManager) {
-        if (contactUri == null) {
+        if (contactUri == null || activity.isDestroyed()) {
             return null;
         }
 
@@ -263,18 +264,22 @@ public class ContactDeletionInteraction extends Fragment
 
         int readOnlyCount = readOnlyRawContacts.size();
         int writableCount = writableRawContacts.size();
+        int positiveButtonId = android.R.string.ok;
         if (readOnlyCount > 0 && writableCount > 0) {
             mMessageId = R.string.readOnlyContactDeleteConfirmation;
         } else if (readOnlyCount > 0 && writableCount == 0) {
             mMessageId = R.string.readOnlyContactWarning;
+            positiveButtonId = R.string.readOnlyContactWarning_positive_button;
         } else if (readOnlyCount == 0 && writableCount > 1) {
             mMessageId = R.string.multipleContactDeleteConfirmation;
+            positiveButtonId = R.string.deleteConfirmation_positive_button;
         } else {
             mMessageId = R.string.deleteConfirmation;
+            positiveButtonId = R.string.deleteConfirmation_positive_button;
         }
 
         final Uri contactUri = Contacts.getLookupUri(contactId, lookupKey);
-        showDialog(mMessageId, contactUri);
+        showDialog(mMessageId, positiveButtonId, contactUri);
 
         // We don't want onLoadFinished() calls any more, which may come when the database is
         // updating.
@@ -285,12 +290,12 @@ public class ContactDeletionInteraction extends Fragment
     public void onLoaderReset(Loader<Cursor> loader) {
     }
 
-    private void showDialog(int messageId, final Uri contactUri) {
+    private void showDialog(int messageId, int positiveButtonId, final Uri contactUri) {
         mDialog = new AlertDialog.Builder(getActivity())
                 .setIconAttribute(android.R.attr.alertDialogIcon)
                 .setMessage(messageId)
                 .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(android.R.string.ok,
+                .setPositiveButton(positiveButtonId,
                     new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialog, int whichButton) {
@@ -333,6 +338,9 @@ public class ContactDeletionInteraction extends Fragment
         if (isAdded() && mFinishActivityWhenDone) {
             getActivity().setResult(RESULT_CODE_DELETED);
             getActivity().finish();
+            final String deleteToastMessage = getResources().getQuantityString(R.plurals
+                    .contacts_deleted_toast, /* quantity */ 1);
+            Toast.makeText(mContext, deleteToastMessage, Toast.LENGTH_LONG).show();
         }
     }
 }

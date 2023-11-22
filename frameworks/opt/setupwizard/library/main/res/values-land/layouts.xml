@@ -25,3 +25,4 @@
     <item name="suw_no_scroll_template_short" type="layout">@layout/suw_no_scroll_template_header_collapsed</item>
 
 </resources>
+

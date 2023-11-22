@@ -131,6 +131,41 @@ static void nfc_hal_main_open_transport (void)
 
 /*******************************************************************************
 **
+** Function         nfc_hal_main_close
+**
+** Description      Check and shutdown NFCC
+**
+** Returns          None
+**
+*******************************************************************************/
+void nfc_hal_main_close (void)
+{
+    tHAL_NFC_CBACK *p_stack_cback_temp;
+
+    if (  (nfc_hal_cb.dev_cb.initializing_state != NFC_HAL_INIT_STATE_W4_NFCC_TURN_OFF)
+        && (nfc_hal_cb.hal_flags & NFC_HAL_FLAGS_NEED_DISABLE_VSC) )
+    {
+        nfc_hal_cb.dev_cb.initializing_state = NFC_HAL_INIT_STATE_W4_NFCC_TURN_OFF;
+        nfc_hal_dm_set_power_level_zero ();
+    }
+    else
+    {
+        nfc_hal_main_handle_terminate ();
+
+        /* Close uart */
+        USERIAL_Close (USERIAL_NFC_PORT);
+
+        if (nfc_hal_cb.p_stack_cback)
+        {
+            p_stack_cback_temp          = nfc_hal_cb.p_stack_cback;
+            nfc_hal_cb.p_stack_cback    = NULL;
+            p_stack_cback_temp (HAL_NFC_CLOSE_CPLT_EVT, HAL_NFC_STATUS_OK);
+        }
+    }
+}
+
+/*******************************************************************************
+**
 ** Function         nfa_hal_pre_discover_done_cback
 **
 ** Description      Pre-discovery CFG is sent.
@@ -221,6 +256,20 @@ static void nfc_hal_main_userial_cback (tUSERIAL_PORT port, tUSERIAL_EVT evt, tU
     {
         HAL_TRACE_DEBUG1 ("nfc_hal_main_userial_cback: unhandled userial evt: %i", evt);
     }
+}
+
+/*******************************************************************************
+**
+** Function         nfc_hal_main_exit_op_done
+**
+** Description      handle completion of HAL exit operation
+**
+** Returns          nothing
+**
+*******************************************************************************/
+void nfc_hal_main_exit_op_done (tNFC_HAL_NCI_EVT event, UINT16 data_len, UINT8 *p_data)
+{
+    nfc_hal_main_close ();
 }
 
 /*******************************************************************************
@@ -602,16 +651,9 @@ UINT32 nfc_hal_main_task (UINT32 param)
         if (event & NFC_HAL_TASK_EVT_TERMINATE)
         {
             HAL_TRACE_DEBUG0 ("NFC_HAL_TASK got NFC_HAL_TASK_EVT_TERMINATE");
-            nfc_hal_main_handle_terminate ();
 
-            /* Close uart */
-            USERIAL_Close (USERIAL_NFC_PORT);
+            nfc_hal_main_close ();
 
-            if (nfc_hal_cb.p_stack_cback)
-            {
-                nfc_hal_cb.p_stack_cback (HAL_NFC_CLOSE_CPLT_EVT, HAL_NFC_STATUS_OK);
-                nfc_hal_cb.p_stack_cback = NULL;
-            }
             continue;
         }
 

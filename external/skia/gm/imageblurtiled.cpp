@@ -31,7 +31,8 @@ protected:
 
     virtual void onDraw(SkCanvas* canvas) {
         SkPaint paint;
-        paint.setImageFilter(SkBlurImageFilter::Create(fSigmaX, fSigmaY))->unref();
+        SkAutoTUnref<SkImageFilter> blur(SkBlurImageFilter::Create(fSigmaX, fSigmaY));
+        paint.setImageFilter(blur);
         const SkScalar tile_size = SkIntToScalar(128);
         SkRect bounds;
         if (!canvas->getClipBounds(&bounds)) {
@@ -41,7 +42,7 @@ protected:
             for (SkScalar x = bounds.left(); x < bounds.right(); x += tile_size) {
                 canvas->save();
                 canvas->clipRect(SkRect::MakeXYWH(x, y, tile_size, tile_size));
-                canvas->saveLayer(NULL, &paint);
+                canvas->saveLayer(nullptr, &paint);
                 const char* str[] = {
                     "The quick",
                     "brown fox",

@@ -24,7 +24,7 @@ import android.view.ViewGroup;
  * Helper for accessing API features in
  * {@link android.view.ViewGroup.MarginLayoutParams MarginLayoutParams} added after API 4.
  */
-public class MarginLayoutParamsCompat {
+public final class MarginLayoutParamsCompat {
     interface MarginLayoutParamsCompatImpl {
         int getMarginStart(ViewGroup.MarginLayoutParams lp);
         int getMarginEnd(ViewGroup.MarginLayoutParams lp);
@@ -202,13 +202,20 @@ public class MarginLayoutParamsCompat {
     }
 
     /**
-     * Retuns the layout direction. Can be either {@link ViewCompat#LAYOUT_DIRECTION_LTR} or
+     * Returns the layout direction. Can be either {@link ViewCompat#LAYOUT_DIRECTION_LTR} or
      * {@link ViewCompat#LAYOUT_DIRECTION_RTL}.
      *
      * @return the layout direction.
      */
     public static int getLayoutDirection(ViewGroup.MarginLayoutParams lp) {
-        return IMPL.getLayoutDirection(lp);
+        int result = IMPL.getLayoutDirection(lp);
+        if ((result != ViewCompat.LAYOUT_DIRECTION_LTR)
+                && (result != ViewCompat.LAYOUT_DIRECTION_RTL)) {
+            // This can happen on older platform releases where the default (unset) layout direction
+            // is -1
+            result = ViewCompat.LAYOUT_DIRECTION_LTR;
+        }
+        return result;
     }
 
     /**
@@ -230,4 +237,6 @@ public class MarginLayoutParamsCompat {
             int layoutDirection) {
         IMPL.resolveLayoutDirection(lp, layoutDirection);
     }
+
+    private MarginLayoutParamsCompat() {}
 }

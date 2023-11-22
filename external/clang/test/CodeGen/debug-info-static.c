@@ -1,6 +1,6 @@
-// RUN: %clang_cc1  -g -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1  -debug-info-kind=limited -emit-llvm -o - %s | FileCheck %s
 
-// CHECK: !MDGlobalVariable({{.*}}variable: i32* @f.xyzzy
+// CHECK: !DIGlobalVariable({{.*}}variable: i32* @f.xyzzy
 void f(void)
 {
    static int xyzzy;

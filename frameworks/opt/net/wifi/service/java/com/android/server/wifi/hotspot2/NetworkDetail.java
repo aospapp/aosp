@@ -1,46 +1,33 @@
 package com.android.server.wifi.hotspot2;
 
+import static com.android.server.wifi.anqp.Constants.BYTES_IN_EUI48;
+import static com.android.server.wifi.anqp.Constants.BYTE_MASK;
+
 import android.net.wifi.ScanResult;
 import android.util.Log;
 
 import com.android.server.wifi.anqp.ANQPElement;
 import com.android.server.wifi.anqp.Constants;
+import com.android.server.wifi.anqp.RawByteElement;
 import com.android.server.wifi.anqp.VenueNameElement;
+import com.android.server.wifi.util.InformationElementUtil;
 
-import java.net.ProtocolException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static com.android.server.wifi.anqp.Constants.BYTES_IN_EUI48;
-import static com.android.server.wifi.anqp.Constants.BYTE_MASK;
-import static com.android.server.wifi.anqp.Constants.getInteger;
-
 public class NetworkDetail {
 
-    private static final int EID_SSID = 0;
-    private static final int EID_BSSLoad = 11;
-    private static final int EID_HT_OPERATION = 61;
-    private static final int EID_VHT_OPERATION = 192;
-    private static final int EID_Interworking = 107;
-    private static final int EID_RoamingConsortium = 111;
-    private static final int EID_ExtendedCaps = 127;
-    private static final int EID_VSA = 221;
-
-    private static final int ANQP_DOMID_BIT = 0x04;
-    private static final int RTT_RESP_ENABLE_BIT = 70;
-
-    private static final long SSID_UTF8_BIT = 0x0001000000000000L;
     //turn off when SHIP
     private static final boolean DBG = true;
     private static final boolean VDBG = false;
-    
+
     private static final String TAG = "NetworkDetail:";
 
     public enum Ant {
@@ -90,7 +77,19 @@ public class NetworkDetail {
     private final int mPrimaryFreq;
     private final int mCenterfreq0;
     private final int mCenterfreq1;
-    private final boolean m80211McRTTResponder;
+
+    /*
+     * 802.11 Standard (calculated from Capabilities and Supported Rates)
+     * 0 -- Unknown
+     * 1 -- 802.11a
+     * 2 -- 802.11b
+     * 3 -- 802.11g
+     * 4 -- 802.11n
+     * 7 -- 802.11ac
+     */
+    private final int mWifiMode;
+    private final int mMaxRate;
+
     /*
      * From Interworking element:
      * mAnt non null indicates the presence of Interworking, i.e. 802.11u
@@ -117,197 +116,89 @@ public class NetworkDetail {
      */
     private final int mAnqpOICount;
     private final long[] mRoamingConsortiums;
+    private int mDtimInterval = -1;
 
-    private final Long mExtendedCapabilities;
+    private final InformationElementUtil.ExtendedCapabilities mExtendedCapabilities;
 
     private final Map<Constants.ANQPElementType, ANQPElement> mANQPElements;
 
-    public NetworkDetail(String bssid, String infoElements, List<String> anqpLines, int freq) {
-
+    public NetworkDetail(String bssid, ScanResult.InformationElement[] infoElements,
+            List<String> anqpLines, int freq) {
         if (infoElements == null) {
-            throw new IllegalArgumentException("Null information element string");
-        }
-        int separator = infoElements.indexOf('=');
-        if (separator<0) {
-            throw new IllegalArgumentException("No element separator");
+            throw new IllegalArgumentException("Null information elements");
         }
 
         mBSSID = Utils.parseMac(bssid);
 
-        ByteBuffer data = ByteBuffer.wrap(Utils.hexToBytes(infoElements.substring(separator + 1)))
-                .order(ByteOrder.LITTLE_ENDIAN);
-
         String ssid = null;
         byte[] ssidOctets = null;
-        int stationCount = 0;
-        int channelUtilization = 0;
-        int capacity = 0;
 
-        Ant ant = null;
-        boolean internet = false;
-        VenueNameElement.VenueGroup venueGroup = null;
-        VenueNameElement.VenueType venueType = null;
-        long hessid = 0L;
+        InformationElementUtil.BssLoad bssLoad = new InformationElementUtil.BssLoad();
 
-        int anqpOICount = 0;
-        long[] roamingConsortiums = null;
+        InformationElementUtil.Interworking interworking =
+                new InformationElementUtil.Interworking();
 
-        HSRelease hsRelease = null;
-        int anqpDomainID = 0;       // No domain ID treated the same as a 0; unique info per AP.
+        InformationElementUtil.RoamingConsortium roamingConsortium =
+                new InformationElementUtil.RoamingConsortium();
 
-        Long extendedCapabilities = null;
+        InformationElementUtil.Vsa vsa = new InformationElementUtil.Vsa();
 
-        int secondChanelOffset = 0;
-        int channelMode = 0;
-        int centerFreqIndex1 = 0;
-        int centerFreqIndex2 = 0;
-        boolean RTTResponder = false;
+        InformationElementUtil.HtOperation htOperation = new InformationElementUtil.HtOperation();
+        InformationElementUtil.VhtOperation vhtOperation =
+                new InformationElementUtil.VhtOperation();
+
+        InformationElementUtil.ExtendedCapabilities extendedCapabilities =
+                new InformationElementUtil.ExtendedCapabilities();
+
+        InformationElementUtil.TrafficIndicationMap trafficIndicationMap =
+                new InformationElementUtil.TrafficIndicationMap();
+
+        InformationElementUtil.SupportedRates supportedRates =
+                new InformationElementUtil.SupportedRates();
+        InformationElementUtil.SupportedRates extendedSupportedRates =
+                new InformationElementUtil.SupportedRates();
 
         RuntimeException exception = null;
 
+        ArrayList<Integer> iesFound = new ArrayList<Integer>();
         try {
-            while (data.remaining() > 1) {
-                int eid = data.get() & Constants.BYTE_MASK;
-                int elementLength = data.get() & Constants.BYTE_MASK;
-
-                if (elementLength > data.remaining()) {
-                    throw new IllegalArgumentException("Element length " + elementLength +
-                            " exceeds payload length " + data.remaining() +
-                            " @ " + data.position());
-                }
-                if (eid == 0 && elementLength == 0 && ssidOctets != null) {
-                    // Don't overwrite SSID (eid 0) with trailing zero garbage
-                    continue;
-                }
-
-                ByteBuffer element;
-
-                switch (eid) {
-                    case EID_SSID:
-                        ssidOctets = new byte[elementLength];
-                        data.get(ssidOctets);
+            for (ScanResult.InformationElement ie : infoElements) {
+                iesFound.add(ie.id);
+                switch (ie.id) {
+                    case ScanResult.InformationElement.EID_SSID:
+                        ssidOctets = ie.bytes;
                         break;
-                    case EID_BSSLoad:
-                        if (elementLength != 5) {
-                            throw new IllegalArgumentException("BSS Load element length is not 5: " +
-                                    elementLength);
-                        }
-                        stationCount = data.getShort() & Constants.SHORT_MASK;
-                        channelUtilization = data.get() & Constants.BYTE_MASK;
-                        capacity = data.getShort() & Constants.SHORT_MASK;
+                    case ScanResult.InformationElement.EID_BSS_LOAD:
+                        bssLoad.from(ie);
                         break;
-                    case EID_HT_OPERATION:
-                        element = getAndAdvancePayload(data, elementLength);
-                        int primary_channel = element.get();
-                        secondChanelOffset = element.get() & 0x3;
+                    case ScanResult.InformationElement.EID_HT_OPERATION:
+                        htOperation.from(ie);
                         break;
-                    case EID_VHT_OPERATION:
-                        element = getAndAdvancePayload(data, elementLength);
-                        channelMode = element.get() & Constants.BYTE_MASK;
-                        centerFreqIndex1 = element.get() & Constants.BYTE_MASK;
-                        centerFreqIndex2 = element.get() & Constants.BYTE_MASK;
+                    case ScanResult.InformationElement.EID_VHT_OPERATION:
+                        vhtOperation.from(ie);
                         break;
-                    case EID_Interworking:
-                        int anOptions = data.get() & Constants.BYTE_MASK;
-                        ant = Ant.values()[anOptions & 0x0f];
-                        internet = (anOptions & 0x10) != 0;
-                        // Len 1 none, 3 venue-info, 7 HESSID, 9 venue-info & HESSID
-                        if (elementLength == 3 || elementLength == 9) {
-                            try {
-                                ByteBuffer vinfo = data.duplicate();
-                                vinfo.limit(vinfo.position() + 2);
-                                VenueNameElement vne =
-                                        new VenueNameElement(Constants.ANQPElementType.ANQPVenueName,
-                                                vinfo);
-                                venueGroup = vne.getGroup();
-                                venueType = vne.getType();
-                                data.getShort();
-                            } catch (ProtocolException pe) {
-                                /*Cannot happen*/
-                            }
-                        } else if (elementLength != 1 && elementLength != 7) {
-                            throw new IllegalArgumentException("Bad Interworking element length: " +
-                                    elementLength);
-                        }
-                        if (elementLength == 7 || elementLength == 9) {
-                            hessid = getInteger(data, ByteOrder.BIG_ENDIAN, 6);
-                        }
+                    case ScanResult.InformationElement.EID_INTERWORKING:
+                        interworking.from(ie);
                         break;
-                    case EID_RoamingConsortium:
-                        anqpOICount = data.get() & Constants.BYTE_MASK;
-
-                        int oi12Length = data.get() & Constants.BYTE_MASK;
-                        int oi1Length = oi12Length & Constants.NIBBLE_MASK;
-                        int oi2Length = (oi12Length >>> 4) & Constants.NIBBLE_MASK;
-                        int oi3Length = elementLength - 2 - oi1Length - oi2Length;
-                        int oiCount = 0;
-                        if (oi1Length > 0) {
-                            oiCount++;
-                            if (oi2Length > 0) {
-                                oiCount++;
-                                if (oi3Length > 0) {
-                                    oiCount++;
-                                }
-                            }
-                        }
-                        roamingConsortiums = new long[oiCount];
-                        if (oi1Length > 0 && roamingConsortiums.length > 0) {
-                            roamingConsortiums[0] =
-                                    getInteger(data, ByteOrder.BIG_ENDIAN, oi1Length);
-                        }
-                        if (oi2Length > 0 && roamingConsortiums.length > 1) {
-                            roamingConsortiums[1] =
-                                    getInteger(data, ByteOrder.BIG_ENDIAN, oi2Length);
-                        }
-                        if (oi3Length > 0 && roamingConsortiums.length > 2) {
-                            roamingConsortiums[2] =
-                                    getInteger(data, ByteOrder.BIG_ENDIAN, oi3Length);
-                        }
+                    case ScanResult.InformationElement.EID_ROAMING_CONSORTIUM:
+                        roamingConsortium.from(ie);
                         break;
-                    case EID_VSA:
-                        element = getAndAdvancePayload(data, elementLength);
-                        if (elementLength >= 5 && element.getInt() == Constants.HS20_FRAME_PREFIX) {
-                            int hsConf = element.get() & Constants.BYTE_MASK;
-                            switch ((hsConf >> 4) & Constants.NIBBLE_MASK) {
-                                case 0:
-                                    hsRelease = HSRelease.R1;
-                                    break;
-                                case 1:
-                                    hsRelease = HSRelease.R2;
-                                    break;
-                                default:
-                                    hsRelease = HSRelease.Unknown;
-                                    break;
-                            }
-                            if ((hsConf & ANQP_DOMID_BIT) != 0) {
-                                if (elementLength < 7) {
-                                    throw new IllegalArgumentException(
-                                            "HS20 indication element too short: " + elementLength);
-                                }
-                                anqpDomainID = element.getShort() & Constants.SHORT_MASK;
-                            }
-                        }
+                    case ScanResult.InformationElement.EID_VSA:
+                        vsa.from(ie);
                         break;
-                    case EID_ExtendedCaps:
-                        element = data.duplicate();
-                        extendedCapabilities =
-                                Constants.getInteger(data, ByteOrder.LITTLE_ENDIAN, elementLength);
-
-                        int index = RTT_RESP_ENABLE_BIT / 8;
-                        byte offset = RTT_RESP_ENABLE_BIT % 8;
-
-                        if (elementLength < index + 1) {
-                            RTTResponder = false;
-                            element.position(element.position() + elementLength);
-                            break;
-                        }
-
-                        element.position(element.position() + index);
-
-                        RTTResponder = (element.get() & (0x1 << offset)) != 0;
+                    case ScanResult.InformationElement.EID_EXTENDED_CAPS:
+                        extendedCapabilities.from(ie);
+                        break;
+                    case ScanResult.InformationElement.EID_TIM:
+                        trafficIndicationMap.from(ie);
+                        break;
+                    case ScanResult.InformationElement.EID_SUPPORTED_RATES:
+                        supportedRates.from(ie);
+                        break;
+                    case ScanResult.InformationElement.EID_EXTENDED_SUPPORTED_RATES:
+                        extendedSupportedRates.from(ie);
                         break;
                     default:
-                        data.position(data.position() + elementLength);
                         break;
                 }
             }
@@ -319,11 +210,7 @@ public class NetworkDetail {
             }
             exception = e;
         }
-
         if (ssidOctets != null) {
-            boolean strictUTF8 = extendedCapabilities != null &&
-                    ( extendedCapabilities & SSID_UTF8_BIT ) != 0;
-
             /*
              * Strict use of the "UTF-8 SSID" bit by APs appears to be spotty at best even if the
              * encoding truly is in UTF-8. An unconditional attempt to decode the SSID as UTF-8 is
@@ -342,7 +229,7 @@ public class NetworkDetail {
             }
 
             if (ssid == null) {
-                if (strictUTF8 && exception != null) {
+                if (extendedCapabilities.isStrictUtf8() && exception != null) {
                     throw new IllegalArgumentException("Failed to decode SSID in dubious IE string");
                 }
                 else {
@@ -352,55 +239,73 @@ public class NetworkDetail {
         }
 
         mSSID = ssid;
-        mHESSID = hessid;
-        mStationCount = stationCount;
-        mChannelUtilization = channelUtilization;
-        mCapacity = capacity;
-        mAnt = ant;
-        mInternet = internet;
-        mVenueGroup = venueGroup;
-        mVenueType = venueType;
-        mHSRelease = hsRelease;
-        mAnqpDomainID = anqpDomainID;
-        mAnqpOICount = anqpOICount;
-        mRoamingConsortiums = roamingConsortiums;
+        mHESSID = interworking.hessid;
+        mStationCount = bssLoad.stationCount;
+        mChannelUtilization = bssLoad.channelUtilization;
+        mCapacity = bssLoad.capacity;
+        mAnt = interworking.ant;
+        mInternet = interworking.internet;
+        mVenueGroup = interworking.venueGroup;
+        mVenueType = interworking.venueType;
+        mHSRelease = vsa.hsRelease;
+        mAnqpDomainID = vsa.anqpDomainID;
+        mAnqpOICount = roamingConsortium.anqpOICount;
+        mRoamingConsortiums = roamingConsortium.roamingConsortiums;
         mExtendedCapabilities = extendedCapabilities;
         mANQPElements = SupplicantBridge.parseANQPLines(anqpLines);
         //set up channel info
         mPrimaryFreq = freq;
 
-        if (channelMode != 0) {
+        if (vhtOperation.isValid()) {
             // 80 or 160 MHz
-            mChannelWidth = channelMode + 1;
-            mCenterfreq0 = (centerFreqIndex1 - 36) * 5 + 5180;
-            if(channelMode > 1) { //160MHz
-                mCenterfreq1 = (centerFreqIndex2 - 36) * 5 + 5180;
-            } else {
-                mCenterfreq1 = 0;
-            }
+            mChannelWidth = vhtOperation.getChannelWidth();
+            mCenterfreq0 = vhtOperation.getCenterFreq0();
+            mCenterfreq1 = vhtOperation.getCenterFreq1();
         } else {
-            //20 or 40 MHz
-            if (secondChanelOffset != 0) {//40MHz
-                mChannelWidth = 1;
-                if (secondChanelOffset == 1) {
-                    mCenterfreq0 = mPrimaryFreq + 20;
-                } else if (secondChanelOffset == 3) {
-                    mCenterfreq0 = mPrimaryFreq - 20;
-                } else {
-                    mCenterfreq0 = 0;
-                    Log.e(TAG,"Error on secondChanelOffset");
-                }
-            } else {
-                mCenterfreq0 = 0;
-                mChannelWidth = 0;
-            }
-            mCenterfreq1 = 0;
+            mChannelWidth = htOperation.getChannelWidth();
+            mCenterfreq0 = htOperation.getCenterFreq0(mPrimaryFreq);
+            mCenterfreq1  = 0;
         }
-        m80211McRTTResponder = RTTResponder;
+
+        // If trafficIndicationMap is not valid, mDtimPeriod will be negative
+        mDtimInterval = trafficIndicationMap.mDtimPeriod;
+
+        int maxRateA = 0;
+        int maxRateB = 0;
+        // If we got some Extended supported rates, consider them, if not default to 0
+        if (extendedSupportedRates.isValid()) {
+            // rates are sorted from smallest to largest in InformationElement
+            maxRateB = extendedSupportedRates.mRates.get(extendedSupportedRates.mRates.size() - 1);
+        }
+        // Only process the determination logic if we got a 'SupportedRates'
+        if (supportedRates.isValid()) {
+            maxRateA = supportedRates.mRates.get(supportedRates.mRates.size() - 1);
+            mMaxRate = maxRateA > maxRateB ? maxRateA : maxRateB;
+            mWifiMode = InformationElementUtil.WifiMode.determineMode(mPrimaryFreq, mMaxRate,
+                    vhtOperation.isValid(),
+                    iesFound.contains(ScanResult.InformationElement.EID_HT_OPERATION),
+                    iesFound.contains(ScanResult.InformationElement.EID_ERP));
+        } else {
+            mWifiMode = 0;
+            mMaxRate = 0;
+            Log.w("WifiMode", mSSID + ", Invalid SupportedRates!!!");
+        }
         if (VDBG) {
-            Log.d(TAG, mSSID + "ChannelWidth is: " + mChannelWidth + " PrimaryFreq: " + mPrimaryFreq +
-                    " mCenterfreq0: " + mCenterfreq0 + " mCenterfreq1: " + mCenterfreq1 +
-                    (m80211McRTTResponder ? "Support RTT reponder" : "Do not support RTT responder"));
+            Log.d(TAG, mSSID + "ChannelWidth is: " + mChannelWidth + " PrimaryFreq: " + mPrimaryFreq
+                    + " mCenterfreq0: " + mCenterfreq0 + " mCenterfreq1: " + mCenterfreq1
+                    + (extendedCapabilities.is80211McRTTResponder ? "Support RTT reponder"
+                    : "Do not support RTT responder"));
+            Log.v("WifiMode", mSSID
+                    + ", WifiMode: " + InformationElementUtil.WifiMode.toString(mWifiMode)
+                    + ", Freq: " + mPrimaryFreq
+                    + ", mMaxRate: " + mMaxRate
+                    + ", VHT: " + String.valueOf(vhtOperation.isValid())
+                    + ", HT: " + String.valueOf(
+                    iesFound.contains(ScanResult.InformationElement.EID_HT_OPERATION))
+                    + ", ERP: " + String.valueOf(
+                    iesFound.contains(ScanResult.InformationElement.EID_ERP))
+                    + ", SupportedRates: " + supportedRates.toString()
+                    + " ExtendedSupportedRates: " + extendedSupportedRates.toString());
         }
     }
 
@@ -426,34 +331,26 @@ public class NetworkDetail {
         mAnqpDomainID = base.mAnqpDomainID;
         mAnqpOICount = base.mAnqpOICount;
         mRoamingConsortiums = base.mRoamingConsortiums;
-        mExtendedCapabilities = base.mExtendedCapabilities;
+        mExtendedCapabilities =
+                new InformationElementUtil.ExtendedCapabilities(base.mExtendedCapabilities);
         mANQPElements = anqpElements;
         mChannelWidth = base.mChannelWidth;
         mPrimaryFreq = base.mPrimaryFreq;
         mCenterfreq0 = base.mCenterfreq0;
         mCenterfreq1 = base.mCenterfreq1;
-        m80211McRTTResponder = base.m80211McRTTResponder;
+        mDtimInterval = base.mDtimInterval;
+        mWifiMode = base.mWifiMode;
+        mMaxRate = base.mMaxRate;
     }
 
     public NetworkDetail complete(Map<Constants.ANQPElementType, ANQPElement> anqpElements) {
         return new NetworkDetail(this, anqpElements);
     }
 
-    private static long parseMac(String s) {
-
-        long mac = 0;
-        int count = 0;
-        for (int n = 0; n < s.length(); n++) {
-            int nibble = Utils.fromHex(s.charAt(n), true);
-            if (nibble >= 0) {
-                mac = (mac << 4) | nibble;
-                count++;
-            }
-        }
-        if (count < 12 || (count&1) == 1) {
-            throw new IllegalArgumentException("Bad MAC address: '" + s + "'");
-        }
-        return mac;
+    public boolean queriable(List<Constants.ANQPElementType> queryElements) {
+        return mAnt != null &&
+                (Constants.hasBaseANQPElements(queryElements) ||
+                 Constants.hasR2Elements(queryElements) && mHSRelease == HSRelease.R2);
     }
 
     public boolean has80211uInfo() {
@@ -525,6 +422,14 @@ public class NetworkDetail {
         return mAnqpDomainID;
     }
 
+    public byte[] getOsuProviders() {
+        if (mANQPElements == null) {
+            return null;
+        }
+        ANQPElement osuProviders = mANQPElements.get(Constants.ANQPElementType.HSOSUProviders);
+        return osuProviders != null ? ((RawByteElement) osuProviders).getPayload() : null;
+    }
+
     public int getAnqpOICount() {
         return mAnqpOICount;
     }
@@ -534,7 +439,7 @@ public class NetworkDetail {
     }
 
     public Long getExtendedCapabilities() {
-        return mExtendedCapabilities;
+        return mExtendedCapabilities.extendedCapabilities;
     }
 
     public Map<Constants.ANQPElementType, ANQPElement> getANQPElements() {
@@ -553,12 +458,20 @@ public class NetworkDetail {
         return mCenterfreq1;
     }
 
+    public int getWifiMode() {
+        return mWifiMode;
+    }
+
+    public int getDtimInterval() {
+        return mDtimInterval;
+    }
+
     public boolean is80211McResponderSupport() {
-        return m80211McRTTResponder;
+        return mExtendedCapabilities.is80211McRTTResponder;
     }
 
     public boolean isSSID_UTF8() {
-        return mExtendedCapabilities != null && (mExtendedCapabilities & SSID_UTF8_BIT) != 0;
+        return mExtendedCapabilities.isStrictUtf8();
     }
 
     @Override
@@ -582,10 +495,10 @@ public class NetworkDetail {
 
     @Override
     public String toString() {
-        return String.format("NetworkInfo{mSSID='%s', mHESSID=%x, mBSSID=%x, mStationCount=%d, " +
-                "mChannelUtilization=%d, mCapacity=%d, mAnt=%s, mInternet=%s, " +
-                "mVenueGroup=%s, mVenueType=%s, mHSRelease=%s, mAnqpDomainID=%d, " +
-                "mAnqpOICount=%d, mRoamingConsortiums=%s}",
+        return String.format("NetworkInfo{SSID='%s', HESSID=%x, BSSID=%x, StationCount=%d, " +
+                "ChannelUtilization=%d, Capacity=%d, Ant=%s, Internet=%s, " +
+                "VenueGroup=%s, VenueType=%s, HSRelease=%s, AnqpDomainID=%d, " +
+                "AnqpOICount=%d, RoamingConsortiums=%s}",
                 mSSID, mHESSID, mBSSID, mStationCount,
                 mChannelUtilization, mCapacity, mAnt, mInternet,
                 mVenueGroup, mVenueType, mHSRelease, mAnqpDomainID,
@@ -616,20 +529,4 @@ public class NetworkDetail {
         return sb.toString();
     }
 
-    private static final String IE = "ie=" +
-            "000477696e67" +                // SSID wing
-            "0b052a00cf611e" +              // BSS Load 42:207:7777
-            "6b091e0a01610408621205" +      // internet:Experimental:Vehicular:Auto:hessid
-            "6f0a0e530111112222222229" +    // 14:111111:2222222229
-            "dd07506f9a10143a01";           // r2:314
-
-    private static final String IE2 = "ie=000f4578616d706c65204e6574776f726b010882848b960c1218240301012a010432043048606c30140100000fac040100000fac040100000fac0100007f04000000806b091e07010203040506076c027f006f1001531122331020304050010203040506dd05506f9a1000";
-
-    public static void main(String[] args) {
-        ScanResult scanResult = new ScanResult();
-        scanResult.SSID = "wing";
-        scanResult.BSSID = "610408";
-        NetworkDetail nwkDetail = new NetworkDetail(scanResult.BSSID, IE2, null, 0);
-        System.out.println(nwkDetail);
-    }
 }

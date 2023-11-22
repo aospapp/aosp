@@ -20,7 +20,7 @@ import java.lang.reflect.Proxy;
 
 public class Main {
     public static void main(String[] args) {
-        System.loadLibrary("arttest");
+        System.loadLibrary(args[0]);
         testFindClassOnAttachedNativeThread();
         testFindFieldOnAttachedNativeThread();
         testReflectFieldGetFromAttachedNativeThreadNative();
@@ -38,7 +38,15 @@ public class Main {
         testNewStringObject();
         testRemoveLocalObject();
         testProxyGetMethodID();
+        testJniCriticalSectionAndGc();
+        testCallDefaultMethods();
+        String lambda = "λ";
+        testInvokeLambdaMethod(() -> { System.out.println("hi-lambda: " + lambda); });
+        String def = "δ";
+        testInvokeLambdaDefaultMethod(() -> { System.out.println("hi-default " + def + lambda); });
     }
+
+    private static native void testCallDefaultMethods();
 
     private static native void testFindClassOnAttachedNativeThread();
 
@@ -120,7 +128,7 @@ public class Main {
     private static void testRemoveLocalObject() {
         removeLocalObject(new Object());
     }
-    
+
     private static native short shortMethod(short s1, short s2, short s3, short s4, short s5, short s6, short s7,
         short s8, short s9, short s10);
 
@@ -222,6 +230,48 @@ public class Main {
     }
 
     private static native long testGetMethodID(Class<?> c);
+
+    // Exercise GC and JNI critical sections in parallel.
+    private static void testJniCriticalSectionAndGc() {
+        Thread runGcThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                for (int i = 0; i < 10; ++i) {
+                    Runtime.getRuntime().gc();
+                }
+            }
+        });
+        Thread jniCriticalThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                final int arraySize = 32;
+                byte[] array0 = new byte[arraySize];
+                byte[] array1 = new byte[arraySize];
+                enterJniCriticalSection(arraySize, array0, array1);
+            }
+        });
+        jniCriticalThread.start();
+        runGcThread.start();
+        try {
+            jniCriticalThread.join();
+            runGcThread.join();
+        } catch (InterruptedException ignored) {}
+    }
+
+    private static native void enterJniCriticalSection(int arraySize, byte[] array0, byte[] array);
+
+    private static native void testInvokeLambdaMethod(LambdaInterface iface);
+
+    private static native void testInvokeLambdaDefaultMethod(LambdaInterface iface);
+}
+
+@FunctionalInterface
+interface LambdaInterface {
+  public void sayHi();
+  public default void sayHiTwice() {
+    sayHi();
+    sayHi();
+  }
 }
 
 class JniCallNonvirtualTest {

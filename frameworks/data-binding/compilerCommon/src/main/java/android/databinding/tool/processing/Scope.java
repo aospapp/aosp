@@ -34,7 +34,7 @@ import java.util.List;
 public class Scope {
 
     private static ThreadLocal<ScopeEntry> sScopeItems = new ThreadLocal<ScopeEntry>();
-    static List<ScopedException> sDeferredExceptions = new ArrayList<>();
+    static List<ScopedException> sDeferredExceptions = new ArrayList<ScopedException>();
 
     public static void enter(final Location location) {
         enter(new LocationScopeProvider() {
@@ -165,7 +165,7 @@ public class Scope {
             return Arrays.asList(locations.get(0).toAbsoluteLocation());
         }
         // We have more than 1 location. Depending on the scope, we may or may not want all of them
-        List<Location> chosen = new ArrayList<>();
+        List<Location> chosen = new ArrayList<Location>();
         for (Location location : locations) {
             Location absLocation = location.toAbsoluteLocation();
             if (validatedContained(entry.mParent, absLocation)) {

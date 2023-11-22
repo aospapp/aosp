@@ -17,9 +17,10 @@
 #define LOG_TAG "ProcessCallStack"
 // #define LOG_NDEBUG 0
 
-#include <string.h>
-#include <stdio.h>
 #include <dirent.h>
+#include <errno.h>
+#include <stdio.h>
+#include <string.h>
 
 #include <utils/Log.h>
 #include <utils/Errors.h>
@@ -135,8 +136,8 @@ void ProcessCallStack::update() {
 
     dp = opendir(PATH_SELF_TASK);
     if (dp == NULL) {
-        ALOGE("%s: Failed to update the process's call stacks (errno = %d, '%s')",
-              __FUNCTION__, errno, strerror(errno));
+        ALOGE("%s: Failed to update the process's call stacks: %s",
+              __FUNCTION__, strerror(errno));
         return;
     }
 
@@ -145,7 +146,6 @@ void ProcessCallStack::update() {
     clear();
 
     // Get current time.
-#ifndef USE_MINGW
     {
         time_t t = time(NULL);
         struct tm tm;
@@ -172,8 +172,8 @@ void ProcessCallStack::update() {
 
         ssize_t idx = mThreadMap.add(tid, ThreadInfo());
         if (idx < 0) { // returns negative error value on error
-            ALOGE("%s: Failed to add new ThreadInfo (errno = %zd, '%s')",
-                  __FUNCTION__, idx, strerror(-idx));
+            ALOGE("%s: Failed to add new ThreadInfo: %s",
+                  __FUNCTION__, strerror(-idx));
             continue;
         }
 
@@ -195,10 +195,9 @@ void ProcessCallStack::update() {
               __FUNCTION__, tid, threadInfo.callStack.size());
     }
     if (code != 0) { // returns positive error value on error
-        ALOGE("%s: Failed to readdir from %s (errno = %d, '%s')",
-              __FUNCTION__, PATH_SELF_TASK, -code, strerror(code));
+        ALOGE("%s: Failed to readdir from %s: %s",
+              __FUNCTION__, PATH_SELF_TASK, strerror(code));
     }
-#endif
 
     closedir(dp);
 }

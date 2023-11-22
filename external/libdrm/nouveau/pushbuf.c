@@ -234,6 +234,8 @@ pushbuf_krel(struct nouveau_pushbuf *push, struct nouveau_bo *bo,
 	bkref = cli_kref_get(push->client, bo);
 	krel  = &krec->reloc[krec->nr_reloc++];
 
+	assert(pkref);
+	assert(bkref);
 	krel->reloc_bo_index = pkref - krec->buffer;
 	krel->reloc_bo_offset = (push->cur - nvpb->ptr) * 4;
 	krel->bo_index = bkref - krec->buffer;
@@ -310,6 +312,7 @@ pushbuf_submit(struct nouveau_pushbuf *push, struct nouveau_object *chan)
 	struct nouveau_pushbuf_priv *nvpb = nouveau_pushbuf(push);
 	struct nouveau_pushbuf_krec *krec = nvpb->list;
 	struct nouveau_device *dev = push->client->device;
+	struct nouveau_drm *drm = nouveau_drm(&dev->object);
 	struct drm_nouveau_gem_pushbuf_bo_presumed *info;
 	struct drm_nouveau_gem_pushbuf_bo *kref;
 	struct drm_nouveau_gem_pushbuf req;
@@ -343,7 +346,7 @@ pushbuf_submit(struct nouveau_pushbuf *push, struct nouveau_object *chan)
 			pushbuf_dump(krec, krec_id++, fifo->channel);
 
 #ifndef SIMULATE
-		ret = drmCommandWriteRead(dev->fd, DRM_NOUVEAU_GEM_PUSHBUF,
+		ret = drmCommandWriteRead(drm->fd, DRM_NOUVEAU_GEM_PUSHBUF,
 					  &req, sizeof(req));
 		nvpb->suffix0 = req.suffix0;
 		nvpb->suffix1 = req.suffix1;
@@ -529,12 +532,12 @@ pushbuf_validate(struct nouveau_pushbuf *push, bool retry)
 	return ret;
 }
 
-drm_public int
+int
 nouveau_pushbuf_new(struct nouveau_client *client, struct nouveau_object *chan,
 		    int nr, uint32_t size, bool immediate,
 		    struct nouveau_pushbuf **ppush)
 {
-	struct nouveau_device *dev = client->device;
+	struct nouveau_drm *drm = nouveau_drm(&client->device->object);
 	struct nouveau_fifo *fifo = chan->data;
 	struct nouveau_pushbuf_priv *nvpb;
 	struct nouveau_pushbuf *push;
@@ -549,7 +552,7 @@ nouveau_pushbuf_new(struct nouveau_client *client, struct nouveau_object *chan,
 	 */
 	req.channel = fifo->channel;
 	req.nr_push = 0;
-	ret = drmCommandWriteRead(dev->fd, DRM_NOUVEAU_GEM_PUSHBUF,
+	ret = drmCommandWriteRead(drm->fd, DRM_NOUVEAU_GEM_PUSHBUF,
 				  &req, sizeof(req));
 	if (ret)
 		return ret;
@@ -600,7 +603,7 @@ nouveau_pushbuf_new(struct nouveau_client *client, struct nouveau_object *chan,
 	return 0;
 }
 
-drm_public void
+void
 nouveau_pushbuf_del(struct nouveau_pushbuf **ppush)
 {
 	struct nouveau_pushbuf_priv *nvpb = nouveau_pushbuf(*ppush);
@@ -626,7 +629,7 @@ nouveau_pushbuf_del(struct nouveau_pushbuf **ppush)
 	*ppush = NULL;
 }
 
-drm_public struct nouveau_bufctx *
+struct nouveau_bufctx *
 nouveau_pushbuf_bufctx(struct nouveau_pushbuf *push, struct nouveau_bufctx *ctx)
 {
 	struct nouveau_bufctx *prev = push->bufctx;
@@ -634,7 +637,7 @@ nouveau_pushbuf_bufctx(struct nouveau_pushbuf *push, struct nouveau_bufctx *ctx)
 	return prev;
 }
 
-drm_public int
+int
 nouveau_pushbuf_space(struct nouveau_pushbuf *push,
 		      uint32_t dwords, uint32_t relocs, uint32_t pushes)
 {
@@ -698,7 +701,7 @@ nouveau_pushbuf_space(struct nouveau_pushbuf *push,
 	return flushed ? pushbuf_validate(push, false) : 0;
 }
 
-drm_public void
+void
 nouveau_pushbuf_data(struct nouveau_pushbuf *push, struct nouveau_bo *bo,
 		     uint64_t offset, uint64_t length)
 {
@@ -721,6 +724,7 @@ nouveau_pushbuf_data(struct nouveau_pushbuf *push, struct nouveau_bo *bo,
 
 	if (bo) {
 		kref = cli_kref_get(push->client, bo);
+		assert(kref);
 		kpsh = &krec->push[krec->nr_push++];
 		kpsh->bo_index = kref - krec->buffer;
 		kpsh->offset   = offset;
@@ -728,14 +732,14 @@ nouveau_pushbuf_data(struct nouveau_pushbuf *push, struct nouveau_bo *bo,
 	}
 }
 
-drm_public int
+int
 nouveau_pushbuf_refn(struct nouveau_pushbuf *push,
 		     struct nouveau_pushbuf_refn *refs, int nr)
 {
 	return pushbuf_refn(push, true, refs, nr);
 }
 
-drm_public void
+void
 nouveau_pushbuf_reloc(struct nouveau_pushbuf *push, struct nouveau_bo *bo,
 		      uint32_t data, uint32_t flags, uint32_t vor, uint32_t tor)
 {
@@ -743,13 +747,13 @@ nouveau_pushbuf_reloc(struct nouveau_pushbuf *push, struct nouveau_bo *bo,
 	push->cur++;
 }
 
-drm_public int
+int
 nouveau_pushbuf_validate(struct nouveau_pushbuf *push)
 {
 	return pushbuf_validate(push, true);
 }
 
-drm_public uint32_t
+uint32_t
 nouveau_pushbuf_refd(struct nouveau_pushbuf *push, struct nouveau_bo *bo)
 {
 	struct drm_nouveau_gem_pushbuf_bo *kref;
@@ -757,6 +761,7 @@ nouveau_pushbuf_refd(struct nouveau_pushbuf *push, struct nouveau_bo *bo)
 
 	if (cli_push_get(push->client, bo) == push) {
 		kref = cli_kref_get(push->client, bo);
+		assert(kref);
 		if (kref->read_domains)
 			flags |= NOUVEAU_BO_RD;
 		if (kref->write_domains)
@@ -766,7 +771,7 @@ nouveau_pushbuf_refd(struct nouveau_pushbuf *push, struct nouveau_bo *bo)
 	return flags;
 }
 
-drm_public int
+int
 nouveau_pushbuf_kick(struct nouveau_pushbuf *push, struct nouveau_object *chan)
 {
 	if (!push->channel)

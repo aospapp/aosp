@@ -17,5 +17,6 @@
 <int name="maxImageWidth" value="2592" />
 <boolean name="enabledNotifyWapMMSC" value="true" />
 <boolean name="enableMultipartSMS" value="false" />
+<boolean name="show_apn_setting_cdma_bool" value="true" />
 </carrier_config>
 </carrier_config_list>

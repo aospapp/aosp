@@ -32,7 +32,8 @@ namespace android {
 // ---------------------------------------------------------------------------
 
 status_t SurfaceFlingerConsumer::updateTexImage(BufferRejecter* rejecter,
-        const DispSync& dispSync, uint64_t maxFrameNumber)
+        const DispSync& dispSync, bool* autoRefresh, bool* queuedBuffer,
+        uint64_t maxFrameNumber)
 {
     ATRACE_CALL();
     ALOGV("updateTexImage");
@@ -68,18 +69,29 @@ status_t SurfaceFlingerConsumer::updateTexImage(BufferRejecter* rejecter,
         return err;
     }
 
-
     // We call the rejecter here, in case the caller has a reason to
     // not accept this buffer.  This is used by SurfaceFlinger to
     // reject buffers which have the wrong size
-    int buf = item.mBuf;
-    if (rejecter && rejecter->reject(mSlots[buf].mGraphicBuffer, item)) {
-        releaseBufferLocked(buf, mSlots[buf].mGraphicBuffer, EGL_NO_SYNC_KHR);
+    int slot = item.mSlot;
+    if (rejecter && rejecter->reject(mSlots[slot].mGraphicBuffer, item)) {
+        releaseBufferLocked(slot, mSlots[slot].mGraphicBuffer, EGL_NO_SYNC_KHR);
         return BUFFER_REJECTED;
     }
 
+    if (autoRefresh) {
+        *autoRefresh = item.mAutoRefresh;
+    }
+
+    if (queuedBuffer) {
+        *queuedBuffer = item.mQueuedBuffer;
+    }
+
     // Release the previous buffer.
+#ifdef USE_HWC2
+    err = updateAndReleaseLocked(item, &mPendingRelease);
+#else
     err = updateAndReleaseLocked(item);
+#endif
     if (err != NO_ERROR) {
         return err;
     }
@@ -173,6 +185,50 @@ nsecs_t SurfaceFlingerConsumer::computeExpectedPresent(const DispSync& dispSync)
     }
 
     return nextRefresh + extraPadding;
+}
+
+#ifdef USE_HWC2
+void SurfaceFlingerConsumer::setReleaseFence(const sp<Fence>& fence)
+{
+    mPrevReleaseFence = fence;
+    if (!mPendingRelease.isPending) {
+        GLConsumer::setReleaseFence(fence);
+        return;
+    }
+    auto currentTexture = mPendingRelease.currentTexture;
+    if (fence->isValid() &&
+            currentTexture != BufferQueue::INVALID_BUFFER_SLOT) {
+        status_t result = addReleaseFence(currentTexture,
+                mPendingRelease.graphicBuffer, fence);
+        ALOGE_IF(result != NO_ERROR, "setReleaseFence: failed to add the"
+                " fence: %s (%d)", strerror(-result), result);
+    }
+}
+
+void SurfaceFlingerConsumer::releasePendingBuffer()
+{
+    if (!mPendingRelease.isPending) {
+        ALOGV("Pending buffer already released");
+        return;
+    }
+    ALOGV("Releasing pending buffer");
+    Mutex::Autolock lock(mMutex);
+    status_t result = releaseBufferLocked(mPendingRelease.currentTexture,
+            mPendingRelease.graphicBuffer, mPendingRelease.display,
+            mPendingRelease.fence);
+    ALOGE_IF(result != NO_ERROR, "releasePendingBuffer failed: %s (%d)",
+            strerror(-result), result);
+    mPendingRelease = PendingRelease();
+}
+#else
+void SurfaceFlingerConsumer::setReleaseFence(const sp<Fence>& fence) {
+    mPrevReleaseFence = fence;
+    GLConsumer::setReleaseFence(fence);
+}
+#endif
+
+sp<Fence> SurfaceFlingerConsumer::getPrevReleaseFence() const {
+    return mPrevReleaseFence;
 }
 
 void SurfaceFlingerConsumer::setContentsChangedListener(

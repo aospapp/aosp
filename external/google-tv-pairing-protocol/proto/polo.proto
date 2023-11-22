@@ -2,6 +2,7 @@
 
 package polo.wire.protobuf;
 
+option javanano_use_deprecated_package = true;
 option java_outer_classname = "PoloProto";
 option java_package = "com.google.polo.wire.protobuf";
 option optimize_for = LITE_RUNTIME;

@@ -355,6 +355,8 @@ struct unw_debug_frame_list
     /* The debug frame itself.  */
     char *debug_frame;
     size_t debug_frame_size;
+    /* Relocation amount since debug_frame was compressed. */
+    unw_word_t segbase_bias;
     /* Index (for binary search).  */
     struct table_entry *index;
     size_t index_size;

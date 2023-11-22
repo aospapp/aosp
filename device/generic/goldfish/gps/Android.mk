@@ -34,3 +34,14 @@ else
 LOCAL_MODULE := gps.goldfish
 endif
 include $(BUILD_SHARED_LIBRARY)
+
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE_RELATIVE_PATH := hw
+LOCAL_CFLAGS += -DQEMU_HARDWARE
+LOCAL_SHARED_LIBRARIES := liblog libcutils libhardware
+LOCAL_SRC_FILES := gps_qemu.c
+LOCAL_MODULE := gps.ranchu
+
+include $(BUILD_SHARED_LIBRARY)

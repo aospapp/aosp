@@ -50,25 +50,13 @@ bool HasF16C() {
 CompilerConfig::CompilerConfig(const std::string &pTriple)
   : mTriple(pTriple), mFullPrecision(true), mTarget(nullptr) {
   //===--------------------------------------------------------------------===//
-  // Default setting of register sheduler
-  //===--------------------------------------------------------------------===//
-  llvm::RegisterScheduler::setDefault(llvm::createDefaultScheduler);
-
-  //===--------------------------------------------------------------------===//
   // Default setting of target options
   //===--------------------------------------------------------------------===//
-  // Use hardfloat ABI by default.
-  //
-  // TODO(all): Need to detect the CPU capability and decide whether to use
-  // softfp. To use softfp, change the following 2 lines to
-  //
-  // options.FloatABIType = llvm::FloatABI::Soft;
-  // options.UseSoftFloat = true;
-  mTargetOpts.FloatABIType = llvm::FloatABI::Soft;
-  mTargetOpts.UseSoftFloat = false;
 
-  // Enable frame pointer elimination optimization by default.
-  mTargetOpts.NoFramePointerElim = false;
+  // Use soft-float ABI.  This only selects the ABI (and is applicable only to
+  // ARM targets).  Codegen still uses hardware FPU by default.  To use software
+  // floating point, add 'soft-float' feature to mFeatureString below.
+  mTargetOpts.FloatABIType = llvm::FloatABI::Soft;
 
   //===--------------------------------------------------------------------===//
   // Default setting for code model
@@ -117,12 +105,12 @@ bool CompilerConfig::initializeArch() {
   }
 
   // Configure each architecture for any necessary additional flags.
+  std::vector<std::string> attributes;
   switch (mArchType) {
 #if defined(PROVIDE_ARM_CODEGEN)
   case llvm::Triple::arm: {
     llvm::StringMap<bool> features;
     llvm::sys::getHostCPUFeatures(features);
-    std::vector<std::string> attributes;
 
 #if defined(__HOST__) || defined(ARCH_ARM_HAVE_VFP)
     attributes.push_back("+vfp3");
@@ -157,12 +145,21 @@ bool CompilerConfig::initializeArch() {
     if (features.count("fp16") && features["fp16"])
       attributes.push_back("+fp16");
 
-    setFeatureString(attributes);
+#if defined(PROVIDE_ARM64_CODEGEN)
+    // On AArch64, asimd in /proc/cpuinfo signals the presence of hardware
+    // half-precision conversion instructions.  getHostCPUFeatures translates
+    // this to "neon".  If PROVIDE_ARM64_CODEGEN is set, enable "+fp16" for ARM
+    // codegen if "neon" is present in features.
+    if (features.count("neon") && features["neon"])
+      attributes.push_back("+fp16");
+#endif // PROVIDE_ARM64_CODEGEN
 
 #if defined(TARGET_BUILD)
     if (!getProperty("debug.rs.arm-no-tune-for-cpu")) {
 #ifndef FORCE_CPU_VARIANT_32
+#ifdef DEFAULT_ARM_CODEGEN
       setCPU(llvm::sys::getHostCPUName());
+#endif
 #else
 #define XSTR(S) #S
 #define STR(S) XSTR(S)
@@ -182,7 +179,9 @@ bool CompilerConfig::initializeArch() {
 #if defined(TARGET_BUILD)
     if (!getProperty("debug.rs.arm-no-tune-for-cpu")) {
 #ifndef FORCE_CPU_VARIANT_64
+#ifdef DEFAULT_ARM64_CODEGEN
       setCPU(llvm::sys::getHostCPUName());
+#endif
 #else
 #define XSTR(S) #S
 #define STR(S) XSTR(S)
@@ -215,37 +214,55 @@ bool CompilerConfig::initializeArch() {
 
 #if defined (PROVIDE_X86_CODEGEN)
   case llvm::Triple::x86:
-    // Disable frame pointer elimination optimization on x86 family.
-    getTargetOptions().NoFramePointerElim = true;
     getTargetOptions().UseInitArray = true;
+#if defined (DEFAULT_X86_CODEGEN) && !defined (DEFAULT_X86_64_CODEGEN)
+    setCPU(llvm::sys::getHostCPUName());
+#else
+    // generic fallback for 32bit x86 targets
+    setCPU("atom");
+#endif // DEFAULT_X86_CODEGEN && !DEFAULT_X86_64_CODEGEN
 
 #ifndef __HOST__
     // If not running on the host, and f16c is available, set it in the feature
     // string
     if (HasF16C())
-      mFeatureString = "+f16c";
+      attributes.push_back("+f16c");
+#if defined(__SSE3__)
+    attributes.push_back("+sse3");
+    attributes.push_back("+ssse3");
+#endif
+#if defined(__SSE4_1__)
+    attributes.push_back("+sse4.1");
+#endif
+#if defined(__SSE4_2__)
+    attributes.push_back("+sse4.2");
+#endif
 #endif // __HOST__
-
     break;
 #endif  // PROVIDE_X86_CODEGEN
 
 #if defined (PROVIDE_X86_CODEGEN)
+// PROVIDE_X86_CODEGEN is defined for both x86 and x86_64
   case llvm::Triple::x86_64:
+#if defined(DEFAULT_X86_64_CODEGEN) && !defined(__HOST__)
+    setCPU(llvm::sys::getHostCPUName());
+#else
+    // generic fallback for 64bit x86 targets
+    setCPU("core2");
+#endif
     // x86_64 needs small CodeModel if use PIC_ reloc, or else dlopen failed with TEXTREL.
     if (getRelocationModel() == llvm::Reloc::PIC_) {
       setCodeModel(llvm::CodeModel::Small);
     } else {
       setCodeModel(llvm::CodeModel::Medium);
     }
-    // Disable frame pointer elimination optimization on x86 family.
-    getTargetOptions().NoFramePointerElim = true;
     getTargetOptions().UseInitArray = true;
 
 #ifndef __HOST__
     // If not running on the host, and f16c is available, set it in the feature
     // string
     if (HasF16C())
-      mFeatureString = "+f16c";
+      attributes.push_back("+f16c");
 #endif // __HOST__
 
     break;
@@ -256,6 +273,7 @@ bool CompilerConfig::initializeArch() {
     return false;
   }
 
+  setFeatureString(attributes);
   return true;
 }
 

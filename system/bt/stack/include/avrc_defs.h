@@ -24,6 +24,8 @@
 #ifndef _AVRC_DEFS_H
 #define _AVRC_DEFS_H
 
+#include "stack/include/bt_types.h"
+
 /*****************************************************************************
 **  constants
 *****************************************************************************/
@@ -247,7 +249,6 @@
 #define AVRC_STS_NO_AVAL_PLAYER 0x15    /* No available players ALL */
 #define AVRC_STS_ADDR_PLAYER_CHG 0x16   /* Addressed Player Changed - Register Notification */
 typedef UINT8 tAVRC_STS;
-
 
 /* Define the Capability IDs
 */
@@ -839,7 +840,7 @@ typedef union
 #define AVRC_IS_VALID_CAP_ID(a)           (((a == AVRC_CAP_COMPANY_ID) || (a == AVRC_CAP_EVENTS_SUPPORTED)) ? TRUE : FALSE)
 
 #define AVRC_IS_VALID_EVENT_ID(a)           (((a >= AVRC_EVT_PLAY_STATUS_CHANGE) && \
-                                              (a <= AVRC_EVT_APP_SETTING_CHANGE)) ? TRUE : FALSE)
+                                              (a <= AVRC_EVT_VOLUME_CHANGE)) ? TRUE : FALSE)
 
 #define AVRC_IS_VALID_ATTRIBUTE(a)          (((((a > 0) && a <= AVRC_PLAYER_SETTING_SCAN)) || \
 					      (a >= AVRC_PLAYER_SETTING_LOW_MENU_EXT)) ? TRUE : FALSE)
@@ -864,7 +865,6 @@ typedef union
 #define AVRC_MAX_CHARSET_SIZE       16
 #define AVRC_MAX_ELEM_ATTR_SIZE     8
 
-
 /*****************************************************************************
 **  Metadata transfer Building/Parsing definitions
 *****************************************************************************/
@@ -879,7 +879,6 @@ typedef struct {
     UINT16              str_len;
     UINT8               *p_str;
 } tAVRC_NAME;
-
 
 #ifndef AVRC_CAP_MAX_NUM_COMP_ID
 #define AVRC_CAP_MAX_NUM_COMP_ID    4
@@ -1375,7 +1374,6 @@ typedef struct
     UINT32              num_items;
 } tAVRC_SEARCH_RSP;
 
-
 typedef struct
 {
     UINT8       pdu;
@@ -1412,6 +1410,5 @@ typedef union
     tAVRC_RSP                       play_item;              /* PlayItem */
     tAVRC_RSP                       add_to_play;            /* AddToNowPlaying */
 } tAVRC_RESPONSE;
-
 
 #endif

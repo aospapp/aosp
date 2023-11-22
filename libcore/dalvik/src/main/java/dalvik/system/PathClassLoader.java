@@ -55,13 +55,12 @@ public class PathClassLoader extends BaseDexClassLoader {
      * @param dexPath the list of jar/apk files containing classes and
      * resources, delimited by {@code File.pathSeparator}, which
      * defaults to {@code ":"} on Android
-     * @param libraryPath the list of directories containing native
+     * @param librarySearchPath the list of directories containing native
      * libraries, delimited by {@code File.pathSeparator}; may be
      * {@code null}
      * @param parent the parent class loader
      */
-    public PathClassLoader(String dexPath, String libraryPath,
-            ClassLoader parent) {
-        super(dexPath, null, libraryPath, parent);
+    public PathClassLoader(String dexPath, String librarySearchPath, ClassLoader parent) {
+        super(dexPath, null, librarySearchPath, parent);
     }
 }

@@ -46,12 +46,18 @@ enum rb_bool {
     RB_FALSE = 1
 };
 
+typedef struct rb_entry_s {
+    u8 *data;
+    unsigned int last_wr_index;
+    u8 full;
+} rb_entry_t;
+
 typedef struct ring_buf_cb {
     unsigned int rd_buf_no; // Current buffer number to be read from
     unsigned int wr_buf_no; // Current buffer number to be written into
     unsigned int cur_rd_buf_idx; // Read index within the current read buffer
     unsigned int cur_wr_buf_idx; // Write index within the current write buffer
-    u8 **bufs; // Array of buffer pointers
+    rb_entry_t *bufs; // Array of buffer pointers
 
     unsigned int max_num_bufs; // Maximum number of buffers that should be used
     size_t each_buf_size; // Size of each buffer in bytes
@@ -102,13 +108,13 @@ void * ring_buffer_init(size_t size_of_buf, int num_bufs)
     }
     memset(rbc, 0, sizeof(struct ring_buf_cb));
 
-    rbc->bufs = (u8 **)malloc(num_bufs * sizeof(void *));
+    rbc->bufs = (rb_entry_t *)malloc(num_bufs * sizeof(rb_entry_t));
     if (rbc->bufs == NULL) {
         free(rbc);
         ALOGE("Failed to alloc rbc->bufs");
         return NULL;
     }
-    memset(rbc->bufs, 0, (num_bufs * sizeof(void *)));
+    memset(rbc->bufs, 0, (num_bufs * sizeof(rb_entry_t)));
 
     rbc->each_buf_size = size_of_buf;
     rbc->max_num_bufs = num_bufs;
@@ -134,13 +140,18 @@ void ring_buffer_deinit(void *ctx)
         // TODO handle the lock destroy failure
     }
     for (buf_no = 0; buf_no < rbc->max_num_bufs; buf_no++) {
-        free(rbc->bufs[buf_no]);
+        free(rbc->bufs[buf_no].data);
     }
     free(rbc->bufs);
     free(rbc);
 }
 
-enum rb_status rb_write (void *ctx, u8 *buf, size_t length, int overwrite)
+/*
+ * record_length : 0  - byte boundary
+ *               : >0 - Ensures to write record_length no.of bytes to the same buffer.
+ */
+enum rb_status rb_write (void *ctx, u8 *buf, size_t length, int overwrite,
+                         size_t record_length)
 {
     rbc_t *rbc = (rbc_t *)ctx;
     unsigned int bytes_written = 0; // bytes written into rb so far
@@ -148,12 +159,69 @@ enum rb_status rb_write (void *ctx, u8 *buf, size_t length, int overwrite)
                                      // write in current buffer
     unsigned int total_push_in_rd_ptr = 0; // Total amount of push in read pointer in this write
 
-    /* Check if this write fits into remaining ring buffer */
-    if ((overwrite == 0) &&
-        (length >
-         ((rbc->max_num_bufs * rbc->each_buf_size) - rbc->cur_valid_bytes))) {
+    if (record_length > rbc->each_buf_size) {
         return RB_FAILURE;
     }
+
+    if (overwrite == 0) {
+        /* Check if the complete RB is full. If the current wr_buf is also
+         * full, it indicates that the complete RB is full
+         */
+        if (rbc->bufs[rbc->wr_buf_no].full == 1)
+            return RB_FULL;
+        /* Check whether record fits in current buffer */
+        if (rbc->wr_buf_no == rbc->rd_buf_no) {
+            if ((rbc->cur_wr_buf_idx == rbc->cur_rd_buf_idx) &&
+                rbc->cur_valid_bytes) {
+                return RB_FULL;
+            } else if (rbc->cur_wr_buf_idx < rbc->cur_rd_buf_idx) {
+                if (record_length >
+                    (rbc->cur_rd_buf_idx - rbc->cur_wr_buf_idx)) {
+                    return RB_FULL;
+                }
+            } else {
+                if (record_length > (rbc->each_buf_size - rbc->cur_wr_buf_idx)) {
+                    /* Check if the next buffer is not full to write this record into
+                     * next buffer
+                     */
+                    unsigned int next_buf_no = rbc->wr_buf_no + 1;
+
+                    if (next_buf_no >= rbc->max_num_bufs) {
+                        next_buf_no = 0;
+                    }
+                    if (rbc->bufs[next_buf_no].full == 1) {
+                        return RB_FULL;
+                    }
+                }
+            }
+        } else if (record_length > (rbc->each_buf_size - rbc->cur_wr_buf_idx)) {
+            /* Check if the next buffer is not full to write this record into
+             * next buffer
+             */
+            unsigned int next_buf_no = rbc->wr_buf_no + 1;
+
+            if (next_buf_no >= rbc->max_num_bufs) {
+                next_buf_no = 0;
+            }
+            if (rbc->bufs[next_buf_no].full == 1) {
+                return RB_FULL;
+            }
+        }
+    }
+
+    /* Go to next buffer if the current buffer is not enough to write the
+     * complete record
+     */
+    if (record_length > (rbc->each_buf_size - rbc->cur_wr_buf_idx)) {
+        rbc->bufs[rbc->wr_buf_no].full = 1;
+        rbc->bufs[rbc->wr_buf_no].last_wr_index = rbc->cur_wr_buf_idx;
+        rbc->wr_buf_no++;
+        if (rbc->wr_buf_no == rbc->max_num_bufs) {
+            rbc->wr_buf_no = 0;
+        }
+        rbc->cur_wr_buf_idx = 0;
+    }
+
 
     /* In each iteration of below loop, the data that can be fit into
      * buffer @wr_buf_no will be copied from input buf */
@@ -161,11 +229,11 @@ enum rb_status rb_write (void *ctx, u8 *buf, size_t length, int overwrite)
         unsigned int cur_copy_len;
 
         /* Allocate a buffer if no buf available @ wr_buf_no */
-        if (rbc->bufs[rbc->wr_buf_no] == NULL) {
-            rbc->bufs[rbc->wr_buf_no] = (u8 *)malloc(rbc->each_buf_size);
-            if (rbc->bufs[rbc->wr_buf_no] == NULL) {
+        if (rbc->bufs[rbc->wr_buf_no].data == NULL) {
+            rbc->bufs[rbc->wr_buf_no].data = (u8 *)malloc(rbc->each_buf_size);
+            if (rbc->bufs[rbc->wr_buf_no].data == NULL) {
                 ALOGE("Failed to alloc write buffer");
-                return RB_FAILURE;
+                return RB_RETRY;
             }
         }
 
@@ -193,13 +261,18 @@ enum rb_status rb_write (void *ctx, u8 *buf, size_t length, int overwrite)
                     push_in_rd_ptr += cur_copy_len -
                                     (rbc->cur_rd_buf_idx - rbc->cur_wr_buf_idx);
                     rbc->cur_rd_buf_idx = rbc->cur_wr_buf_idx + cur_copy_len;
-                    if (rbc->cur_rd_buf_idx == rbc->each_buf_size) {
+                    if (rbc->cur_rd_buf_idx >=
+                        rbc->bufs[rbc->rd_buf_no].last_wr_index) {
                         rbc->cur_rd_buf_idx = 0;
                         rbc->rd_buf_no++;
                         if (rbc->rd_buf_no == rbc->max_num_bufs) {
                             rbc->rd_buf_no = 0;
-                            ALOGD("Pushing read to the start of ring buffer");
+                            ALOGV("Pushing read to the start of ring buffer");
                         }
+                        /* the previous buffer might have little more empty room
+                         * after overwriting the remaining bytes
+                         */
+                        rbc->bufs[rbc->wr_buf_no].full = 0;
                     }
                 }
             }
@@ -209,7 +282,7 @@ enum rb_status rb_write (void *ctx, u8 *buf, size_t length, int overwrite)
         /* don't use lock while doing memcpy, so that we don't block the read
          * context for too long. There is no harm while writing the memory if
          * locking is properly done while upgrading the pointers */
-        memcpy((rbc->bufs[rbc->wr_buf_no] + rbc->cur_wr_buf_idx),
+        memcpy((rbc->bufs[rbc->wr_buf_no].data + rbc->cur_wr_buf_idx),
                (buf + bytes_written),
                cur_copy_len);
 
@@ -218,9 +291,11 @@ enum rb_status rb_write (void *ctx, u8 *buf, size_t length, int overwrite)
         rbc->cur_wr_buf_idx += cur_copy_len;
         if (rbc->cur_wr_buf_idx == rbc->each_buf_size) {
             /* Increment the wr_buf_no as the current buffer is full */
+            rbc->bufs[rbc->wr_buf_no].full = 1;
+            rbc->bufs[rbc->wr_buf_no].last_wr_index = rbc->cur_wr_buf_idx;
             rbc->wr_buf_no++;
             if (rbc->wr_buf_no == rbc->max_num_bufs) {
-                ALOGD("Write rolling over to the start of ring buffer");
+                ALOGV("Write rolling over to the start of ring buffer");
                 rbc->wr_buf_no = 0;
             }
             /* Reset the write index to zero as this is a new buffer */
@@ -250,6 +325,7 @@ enum rb_status rb_write (void *ctx, u8 *buf, size_t length, int overwrite)
     /* check if valid bytes is going more than threshold */
     if ((rbc->threshold_reached == RB_FALSE) &&
         (rbc->cur_valid_bytes >= rbc->num_min_bytes) &&
+        ((length == record_length) || !record_length) &&
         rbc->threshold_cb) {
         /* Release the lock before calling threshold_cb as it might call rb_read
          * in this same context in order to avoid dead lock
@@ -273,7 +349,7 @@ size_t rb_read (void *ctx, u8 *buf, size_t max_length)
     while (bytes_read < max_length) {
         unsigned int cur_cpy_len;
 
-        if (rbc->bufs[rbc->rd_buf_no] == NULL) {
+        if (rbc->bufs[rbc->rd_buf_no].data == NULL) {
             break;
         }
 
@@ -313,7 +389,7 @@ size_t rb_read (void *ctx, u8 *buf, size_t max_length)
         }
 
         memcpy((buf + bytes_read),
-               (rbc->bufs[rbc->rd_buf_no] + rbc->cur_rd_buf_idx),
+               (rbc->bufs[rbc->rd_buf_no].data + rbc->cur_rd_buf_idx),
                cur_cpy_len);
 
         /* Update the read index */
@@ -321,12 +397,12 @@ size_t rb_read (void *ctx, u8 *buf, size_t max_length)
         if (rbc->cur_rd_buf_idx == rbc->each_buf_size) {
             /* Increment rd_buf_no as the current buffer is completely read */
             if (rbc->rd_buf_no != rbc->wr_buf_no) {
-                free(rbc->bufs[rbc->rd_buf_no]);
-                rbc->bufs[rbc->rd_buf_no] = NULL;
+                free(rbc->bufs[rbc->rd_buf_no].data);
+                rbc->bufs[rbc->rd_buf_no].data = NULL;
             }
             rbc->rd_buf_no++;
             if (rbc->rd_buf_no == rbc->max_num_bufs) {
-                ALOGD("Read rolling over to the start of ring buffer");
+                ALOGV("Read rolling over to the start of ring buffer");
                 rbc->rd_buf_no = 0;
             }
             /* Reset the read index as this is a new buffer */
@@ -365,12 +441,25 @@ u8 *rb_get_read_buf(void *ctx, size_t *length)
     u8 *buf;
 
     /* If no buffer is available for reading */
-    if (rbc->bufs[rbc->rd_buf_no] == NULL) {
+    if (rbc->bufs[rbc->rd_buf_no].data == NULL) {
         *length = 0;
         return NULL;
     }
 
     rb_lock(&rbc->rb_rw_lock);
+    if ((rbc->bufs[rbc->rd_buf_no].full == 1) &&
+        (rbc->cur_rd_buf_idx == rbc->bufs[rbc->rd_buf_no].last_wr_index)) {
+        if (rbc->wr_buf_no != rbc->rd_buf_no) {
+            free(rbc->bufs[rbc->rd_buf_no].data);
+            rbc->bufs[rbc->rd_buf_no].data = NULL;
+        }
+        rbc->bufs[rbc->rd_buf_no].full = 0;
+        rbc->rd_buf_no++;
+        if (rbc->rd_buf_no == rbc->max_num_bufs) {
+            rbc->rd_buf_no = 0;
+        }
+        rbc->cur_rd_buf_idx = 0;
+    }
 
     if (rbc->wr_buf_no == rbc->rd_buf_no) {
         /* If read and write are happening on the same buffer currently, use
@@ -386,27 +475,29 @@ u8 *rb_get_read_buf(void *ctx, size_t *length)
             cur_read_len = rbc->cur_wr_buf_idx - rbc->cur_rd_buf_idx;
         } else {
             /* write is rolled over and just behind the read */
-            cur_read_len = rbc->each_buf_size - rbc->cur_rd_buf_idx;
+            cur_read_len = rbc->bufs[rbc->rd_buf_no].last_wr_index - rbc->cur_rd_buf_idx;
         }
     } else {
         if (rbc->cur_rd_buf_idx == 0) {
             /* The complete buffer can be read out */
-            cur_read_len = rbc->each_buf_size;
+            cur_read_len = rbc->bufs[rbc->rd_buf_no].last_wr_index;
         } else {
             /* Read the remaining bytes in this buffer */
-            cur_read_len = rbc->each_buf_size - rbc->cur_rd_buf_idx;
+            cur_read_len = rbc->bufs[rbc->rd_buf_no].last_wr_index - rbc->cur_rd_buf_idx;
         }
     }
 
-    if (cur_read_len == rbc->each_buf_size) {
+    if ((rbc->bufs[rbc->rd_buf_no].full == 1) &&
+         (rbc->cur_rd_buf_idx == 0)) {
         /* Pluck out the complete buffer and send it out */
-        buf = rbc->bufs[rbc->rd_buf_no];
-        rbc->bufs[rbc->rd_buf_no] = NULL;
+        buf = rbc->bufs[rbc->rd_buf_no].data;
+        rbc->bufs[rbc->rd_buf_no].data = NULL;
 
         /* Move to the next buffer */
+        rbc->bufs[rbc->rd_buf_no].full = 0;
         rbc->rd_buf_no++;
         if (rbc->rd_buf_no == rbc->max_num_bufs) {
-            ALOGD("Read rolling over to the start of ring buffer");
+            ALOGV("Read rolling over to the start of ring buffer");
             rbc->rd_buf_no = 0;
         }
     } else {
@@ -414,14 +505,23 @@ u8 *rb_get_read_buf(void *ctx, size_t *length)
          * and copy the data into it.
          */
         buf = (u8 *)malloc(cur_read_len);
-        memcpy(buf, (rbc->bufs[rbc->rd_buf_no] + rbc->cur_rd_buf_idx), cur_read_len);
+        if (buf == NULL) {
+            ALOGE("Failed to alloc buffer for partial buf read");
+            *length = 0;
+            rb_unlock(&rbc->rb_rw_lock);
+            return NULL;
+        }
+        memcpy(buf,
+               (rbc->bufs[rbc->rd_buf_no].data + rbc->cur_rd_buf_idx),
+               cur_read_len);
 
         /* Update the read index */
-        if ((cur_read_len + rbc->cur_rd_buf_idx) == rbc->each_buf_size) {
+        if (rbc->bufs[rbc->rd_buf_no].full == 1) {
             if (rbc->wr_buf_no != rbc->rd_buf_no) {
-                free(rbc->bufs[rbc->rd_buf_no]);
-                rbc->bufs[rbc->rd_buf_no] = NULL;
+                free(rbc->bufs[rbc->rd_buf_no].data);
+                rbc->bufs[rbc->rd_buf_no].data = NULL;
             }
+            rbc->bufs[rbc->rd_buf_no].full = 0;
             rbc->rd_buf_no++;
             if (rbc->rd_buf_no == rbc->max_num_bufs) {
                 rbc->rd_buf_no = 0;

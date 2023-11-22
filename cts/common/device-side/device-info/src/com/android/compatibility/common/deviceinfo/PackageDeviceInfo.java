@@ -19,12 +19,13 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 
-import com.android.compatibility.common.deviceinfo.DeviceInfoActivity;
+import com.android.compatibility.common.deviceinfo.DeviceInfo;
+import com.android.compatibility.common.util.DeviceInfoStore;
 
 /**
  * PackageDeviceInfo collector.
  */
-public class PackageDeviceInfo extends DeviceInfoActivity {
+public class PackageDeviceInfo extends DeviceInfo {
 
     private static final String PACKAGE = "package";
     private static final String NAME = "name";
@@ -33,18 +34,20 @@ public class PackageDeviceInfo extends DeviceInfoActivity {
     private static final String PRIV_APP_DIR = "/system/priv-app";
 
     @Override
-    protected void collectDeviceInfo() {
-        PackageManager pm = this.getPackageManager();
-        startArray(PACKAGE);
+    protected void collectDeviceInfo(DeviceInfoStore store) throws Exception {
+        PackageManager pm = getContext().getPackageManager();
+        store.startArray(PACKAGE);
         for (PackageInfo pkg : pm.getInstalledPackages(0)) {
-            startGroup();
-            addResult(NAME, pkg.packageName);
-            addResult(VERSION_NAME, pkg.versionName);
+            store.startGroup();
+            store.addResult(NAME, pkg.packageName);
+            store.addResult(VERSION_NAME, pkg.versionName);
 
-            String dir = pkg.applicationInfo.sourceDir;
-            addResult(SYSTEM_PRIV, dir != null && dir.startsWith(PRIV_APP_DIR));
-            endGroup();
+            if (pkg.applicationInfo != null) {
+                String dir = pkg.applicationInfo.sourceDir;
+                store.addResult(SYSTEM_PRIV, dir != null && dir.startsWith(PRIV_APP_DIR));
+            }
+            store.endGroup();
         }
-        endArray(); // Package
+        store.endArray(); // Package
     }
 }

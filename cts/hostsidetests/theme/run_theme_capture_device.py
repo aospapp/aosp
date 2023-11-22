@@ -19,6 +19,7 @@ import os
 import sys
 import threading
 import time
+import traceback
 import Queue
 sys.path.append(sys.path[0])
 from android_device import *
@@ -29,9 +30,7 @@ CTS_THEME_dict = {
     213 : "tvdpi",
     240 : "hdpi",
     320 : "xhdpi",
-    400 : "400dpi",
     480 : "xxhdpi",
-    560 : "560dpi",
     640 : "xxxhdpi",
 }
 
@@ -60,6 +59,7 @@ def executeParallel(tasks, setup, q, numberThreads):
                             raise
                         except:
                             print "Failed to execute thread:", sys.exc_info()[0]
+                            traceback.print_exc()
                     q.task_done()
             except KeyboardInterrupt:
                 raise
@@ -97,17 +97,19 @@ def doCapturing(setup, deviceSerial):
     print "Found device: " + deviceSerial
     device = androidDevice(deviceSerial)
 
-    # outPath = outPath + "/%d/" % (device.getSdkLevel()) + deviceSerial
     outPath = outPath + "/%d" % (device.getSdkLevel())
     density = device.getDensity()
-    resName = CTS_THEME_dict[density]
+    if CTS_THEME_dict.has_key(density):
+        resName = CTS_THEME_dict[density]
+    else:
+        resName = str(density) + "dpi"
 
     device.uninstallApk("android.theme.app")
 
     (out, err, success) = device.installApk(themeApkPath)
     if not success:
         print "Failed to install APK on " + deviceSerial
-        printAdbResult(device, out, err)
+        printAdbResult(deviceSerial, out, err)
         return False
 
     print "Generating images on " + deviceSerial + "..."

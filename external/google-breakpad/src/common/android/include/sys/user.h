@@ -133,16 +133,6 @@ struct user_fpregs_struct {
 #undef mxcsr_mask
 #endif
 
-#ifdef __i386__
-#ifdef __cplusplus
-extern "C" {
-#endif  // __cplusplus
-typedef struct user_fxsr_struct user_fpxregs_struct;
-#ifdef __cplusplus
-}  // extern "C"
-#endif  // __cplusplus
-#endif  // __i386__
-
 #endif  // __mips__
 
 #endif  // GOOGLE_BREAKPAD_COMMON_ANDROID_INCLUDE_SYS_USER_H

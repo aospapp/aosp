@@ -1,3 +1,4 @@
+apply from:'buildSrc/studioCompat.gradle'
 include ':support-annotations'
 project(':support-annotations').projectDir = new File(rootDir, 'annotations')
 
@@ -48,3 +49,13 @@ project(':support-percent').projectDir = new File(rootDir, 'percent')
 
 include ':support-customtabs'
 project(':support-customtabs').projectDir = new File(rootDir, 'customtabs')
+
+include ':support-recommendation'
+project(':support-recommendation').projectDir = new File(rootDir, 'recommendation')
+
+include ':support-vector-drawable'
+project(':support-vector-drawable').projectDir = new File(rootDir, 'graphics/drawable/static')
+
+include ':support-animated-vector-drawable'
+project(':support-animated-vector-drawable').projectDir = new File(rootDir, 'graphics/drawable/animated')
+

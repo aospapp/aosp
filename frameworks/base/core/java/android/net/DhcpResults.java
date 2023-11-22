@@ -21,7 +21,6 @@ import android.os.Parcel;
 import android.text.TextUtils;
 import android.util.Log;
 
-import java.net.InetAddress;
 import java.net.Inet4Address;
 import java.util.Objects;
 
@@ -34,12 +33,15 @@ import java.util.Objects;
 public class DhcpResults extends StaticIpConfiguration {
     private static final String TAG = "DhcpResults";
 
-    public InetAddress serverAddress;
+    public Inet4Address serverAddress;
 
     /** Vendor specific information (from RFC 2132). */
     public String vendorInfo;
 
     public int leaseDuration;
+
+    /** Link MTU option. 0 means unset. */
+    public int mtu;
 
     public DhcpResults() {
         super();
@@ -58,19 +60,7 @@ public class DhcpResults extends StaticIpConfiguration {
             serverAddress = source.serverAddress;
             vendorInfo = source.vendorInfo;
             leaseDuration = source.leaseDuration;
-        }
-    }
-
-    /**
-     * Updates the DHCP fields that need to be retained from
-     * original DHCP request if the current renewal shows them
-     * being empty.
-     */
-    public void updateFromDhcpRequest(DhcpResults orig) {
-        if (orig == null) return;
-        if (gateway == null) gateway = orig.gateway;
-        if (dnsServers.size() == 0) {
-            dnsServers.addAll(orig.dnsServers);
+            mtu = source.mtu;
         }
     }
 
@@ -90,6 +80,7 @@ public class DhcpResults extends StaticIpConfiguration {
         super.clear();
         vendorInfo = null;
         leaseDuration = 0;
+        mtu = 0;
     }
 
     @Override
@@ -99,6 +90,7 @@ public class DhcpResults extends StaticIpConfiguration {
         str.append(" DHCP server ").append(serverAddress);
         str.append(" Vendor info ").append(vendorInfo);
         str.append(" lease ").append(leaseDuration).append(" seconds");
+        if (mtu != 0) str.append(" MTU ").append(mtu);
 
         return str.toString();
     }
@@ -114,7 +106,8 @@ public class DhcpResults extends StaticIpConfiguration {
         return super.equals((StaticIpConfiguration) obj) &&
                 Objects.equals(serverAddress, target.serverAddress) &&
                 Objects.equals(vendorInfo, target.vendorInfo) &&
-                leaseDuration == target.leaseDuration;
+                leaseDuration == target.leaseDuration &&
+                mtu == target.mtu;
     }
 
     /** Implement the Parcelable interface */
@@ -135,6 +128,7 @@ public class DhcpResults extends StaticIpConfiguration {
     public void writeToParcel(Parcel dest, int flags) {
         super.writeToParcel(dest, flags);
         dest.writeInt(leaseDuration);
+        dest.writeInt(mtu);
         NetworkUtils.parcelInetAddress(dest, serverAddress, flags);
         dest.writeString(vendorInfo);
     }
@@ -142,7 +136,8 @@ public class DhcpResults extends StaticIpConfiguration {
     private static void readFromParcel(DhcpResults dhcpResults, Parcel in) {
         StaticIpConfiguration.readFromParcel(dhcpResults, in);
         dhcpResults.leaseDuration = in.readInt();
-        dhcpResults.serverAddress = NetworkUtils.unparcelInetAddress(in);
+        dhcpResults.mtu = in.readInt();
+        dhcpResults.serverAddress = (Inet4Address) NetworkUtils.unparcelInetAddress(in);
         dhcpResults.vendorInfo = in.readString();
     }
 
@@ -183,8 +178,8 @@ public class DhcpResults extends StaticIpConfiguration {
 
     public boolean setServerAddress(String addrString) {
         try {
-            serverAddress = NetworkUtils.numericToInetAddress(addrString);
-        } catch (IllegalArgumentException e) {
+            serverAddress = (Inet4Address) NetworkUtils.numericToInetAddress(addrString);
+        } catch (IllegalArgumentException|ClassCastException e) {
             Log.e(TAG, "setServerAddress failed with addrString " + addrString);
             return true;
         }

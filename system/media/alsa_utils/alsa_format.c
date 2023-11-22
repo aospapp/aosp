@@ -92,7 +92,6 @@ enum pcm_format get_pcm_format_for_mask(struct pcm_mask* mask)
 
     int slot_index, bit_index, table_index;
     table_index = 0;
-    int num_written = 0;
     for (slot_index = 0; slot_index < num_slots && table_index < table_size; slot_index++) {
         unsigned bit_mask = 1;
         for (bit_index = 0; bit_index < bits_per_slot && table_index < table_size; bit_index++) {

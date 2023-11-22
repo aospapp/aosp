@@ -82,7 +82,7 @@ BasicBlock *BoundsChecking::getTrapBB() {
   Builder->SetInsertPoint(TrapBB);
 
   llvm::Value *F = Intrinsic::getDeclaration(Fn->getParent(), Intrinsic::trap);
-  CallInst *TrapCall = Builder->CreateCall(F);
+  CallInst *TrapCall = Builder->CreateCall(F, {});
   TrapCall->setDoesNotReturn();
   TrapCall->setDoesNotThrow();
   TrapCall->setDebugLoc(Inst->getDebugLoc());
@@ -106,7 +106,7 @@ void BoundsChecking::emitBranchToTrap(Value *Cmp) {
   }
   ++ChecksAdded;
 
-  Instruction *Inst = Builder->GetInsertPoint();
+  BasicBlock::iterator Inst = Builder->GetInsertPoint();
   BasicBlock *OldBB = Inst->getParent();
   BasicBlock *Cont = OldBB->splitBasicBlock(Inst);
   OldBB->getTerminator()->eraseFromParent();

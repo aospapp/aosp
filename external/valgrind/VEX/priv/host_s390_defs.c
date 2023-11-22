@@ -8,8 +8,8 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright IBM Corp. 2010-2013
-   Copyright (C) 2012-2013  Florian Krohm   (britzel@acm.org)
+   Copyright IBM Corp. 2010-2015
+   Copyright (C) 2012-2015  Florian Krohm   (britzel@acm.org)
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License as
@@ -108,8 +108,8 @@ s390_hreg_as_string(HReg reg)
    if (hregIsVirtual(reg)) {
       buf[0] = '\0';
       switch (hregClass(reg)) {
-      case HRcInt64: vex_sprintf(buf, "%%vR%d", r); break;
-      case HRcFlt64: vex_sprintf(buf, "%%vF%d", r); break;
+      case HRcInt64: vex_sprintf(buf, "%%vR%u", r); break;
+      case HRcFlt64: vex_sprintf(buf, "%%vF%u", r); break;
       default:       goto fail;
       }
       return buf;
@@ -3939,6 +3939,57 @@ s390_emit_LEXBRA(UChar *p, UChar m3, UChar m4, UChar r1, UChar r2)
 
 
 static UChar *
+s390_emit_FIEBRA(UChar *p, UChar m3, UChar m4, UChar r1, UChar r2)
+{
+   vassert(m3 == 0 || s390_host_has_fpext);
+
+   if (UNLIKELY(vex_traceflags & VEX_TRACE_ASM)) {
+      if (m4 == 0)
+         s390_disasm(ENC4(MNM, FPR, UINT, FPR), "fiebr", r1, m3, r2);
+      else
+         s390_disasm(ENC5(MNM, FPR, UINT, FPR, UINT),
+                     "fiebra", r1, m3, r2, m4);
+   }
+
+   return emit_RRF2(p, 0xb3570000, m3, m4, r1, r2);
+}
+
+
+static UChar *
+s390_emit_FIDBRA(UChar *p, UChar m3, UChar m4, UChar r1, UChar r2)
+{
+   vassert(m3 == 0 || s390_host_has_fpext);
+
+   if (UNLIKELY(vex_traceflags & VEX_TRACE_ASM)) {
+      if (m4 == 0)
+         s390_disasm(ENC4(MNM, FPR, UINT, FPR), "fidbr", r1, m3, r2);
+      else
+         s390_disasm(ENC5(MNM, FPR, UINT, FPR, UINT),
+                     "fidbra", r1, m3, r2, m4);
+   }
+
+   return emit_RRF2(p, 0xb35f0000, m3, m4, r1, r2);
+}
+
+
+static UChar *
+s390_emit_FIXBRA(UChar *p, UChar m3, UChar m4, UChar r1, UChar r2)
+{
+   vassert(m3 == 0 || s390_host_has_fpext);
+
+   if (UNLIKELY(vex_traceflags & VEX_TRACE_ASM)) {
+      if (m4 == 0)
+         s390_disasm(ENC4(MNM, FPR, UINT, FPR), "fixbr", r1, m3, r2);
+      else
+         s390_disasm(ENC5(MNM, FPR, UINT, FPR, UINT),
+                     "fixbra", r1, m3, r2, m4);
+   }
+
+   return emit_RRF2(p, 0xb3470000, m3, m4, r1, r2);
+}
+
+
+static UChar *
 s390_emit_MEEBR(UChar *p, UChar r1, UChar r2)
 {
    if (UNLIKELY(vex_traceflags & VEX_TRACE_ASM))
@@ -5714,7 +5765,7 @@ s390_insn_bfp128_compare(UChar size, HReg dst, HReg op1_hi, HReg op1_lo,
 }
 
 
-static s390_insn *
+s390_insn *
 s390_insn_bfp128_convert(UChar size, s390_bfp_conv_t tag, HReg dst_hi,
                          HReg dst_lo, HReg op_hi, HReg op_lo,
                          s390_bfp_round_t rounding_mode)
@@ -5722,9 +5773,10 @@ s390_insn_bfp128_convert(UChar size, s390_bfp_conv_t tag, HReg dst_hi,
    s390_insn *insn = LibVEX_Alloc_inline(sizeof(s390_insn));
 
    if (size == 16) {
-      /* From smaller size to 16 bytes */
+      /* From smaller or equal size to 16 bytes */
       vassert(is_valid_fp128_regpair(dst_hi, dst_lo));
-      vassert(hregIsInvalid(op_lo));
+      vassert(hregIsInvalid(op_lo)
+              || is_valid_fp128_regpair(op_hi, op_lo));
    } else {
       /* From 16 bytes to smaller size */
       vassert(is_valid_fp128_regpair(op_hi, op_lo));
@@ -6388,7 +6440,7 @@ s390_sprintf(HChar *buf, const HChar *fmt, ...)
          continue;
 
       case 'G':     /* %G = guest state @ offset */
-         p += vex_sprintf(p, "guest[%d]", va_arg(args, UInt));
+         p += vex_sprintf(p, "guest[%u]", va_arg(args, UInt));
          continue;
 
       case 'C':     /* %C = condition code */
@@ -6407,7 +6459,7 @@ s390_sprintf(HChar *buf, const HChar *fmt, ...)
 
          for (i = 0; i < num_args; ++i) {
             if (i != 0) p += vex_sprintf(p, ", ");
-            p += vex_sprintf(p, "r%d", s390_gprno_from_arg_index(i));
+            p += vex_sprintf(p, "r%u", s390_gprno_from_arg_index(i));
          }
          continue;
       }
@@ -6693,6 +6745,9 @@ s390_insn_as_string(const s390_insn *insn)
       case S390_BFP_F64_TO_F128:
       case S390_BFP_F128_TO_F32:
       case S390_BFP_F128_TO_F64: op = "v-f2f"; break;
+      case S390_BFP_F32_TO_F32I:
+      case S390_BFP_F64_TO_F64I:
+      case S390_BFP_F128_TO_F128I: op = "v-f2fi"; break;
       default: goto fail;
       }
       s390_sprintf(buf, "%M %R,%R", op, insn->variant.bfp_convert.dst_hi,
@@ -8963,6 +9018,11 @@ s390_insn_bfp_convert_emit(UChar *buf, const s390_insn *insn)
    case S390_BFP_F64_TO_F32:  return s390_emit_LEDBRA(buf, m3, m4, r1, r2);
    case S390_BFP_F128_TO_F32: return s390_emit_LEXBRA(buf, m3, m4, r1, r2);
    case S390_BFP_F128_TO_F64: return s390_emit_LDXBRA(buf, m3, m4, r1, r2);
+
+      /* Load FP integer */
+   case S390_BFP_F32_TO_F32I: return s390_emit_FIEBRA(buf, m3, m4, r1, r2);
+   case S390_BFP_F64_TO_F64I: return s390_emit_FIDBRA(buf, m3, m4, r1, r2);
+   case S390_BFP_F128_TO_F128I: return s390_emit_FIXBRA(buf, m3, m4, r1, r2);
 
    default: goto fail;
    }

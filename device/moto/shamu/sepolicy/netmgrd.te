@@ -1,5 +1,5 @@
 # Network utilities (radio process)
-type netmgrd, domain;
+type netmgrd, domain, domain_deprecated;
 type netmgrd_exec, exec_type, file_type;
 
 # Uses network sockets.
@@ -24,6 +24,8 @@ allow netmgrd proc_net:file rw_file_perms;
 allow netmgrd proc_net:dir r_dir_perms;
 
 # Runs /system/bin/toolbox
+allow netmgrd toolbox_exec:file rx_file_perms;
+# Run other system commands.
 allow netmgrd system_file:file rx_file_perms;
 
 #Allow operations on different types of sockets
@@ -42,8 +44,7 @@ unix_socket_connect(netmgrd, cnd, cnd)
 dontaudit netmgrd self:capability sys_module;
 
 # Set net_radio properties
-unix_socket_connect(netmgrd, property, init)
-allow netmgrd net_radio_prop:property_service set;
+set_prop(netmgrd, net_radio_prop)
 
 #Set netmgrd properties
 allow netmgrd qcom_netmgrd_prop:property_service set;

@@ -640,15 +640,18 @@ void cil_tree_print_node(struct cil_tree_node *node)
 		case CIL_USERROLE: {
 			struct cil_userrole *userrole = node->data;
 			cil_log(CIL_INFO, "USERROLE:");
+			struct cil_symtab_datum *datum = NULL;
 
 			if (userrole->user != NULL) {
-				cil_log(CIL_INFO, " %s", userrole->user->datum.name);
+				datum = userrole->user;
+				cil_log(CIL_INFO, " %s", datum->name);
 			} else if (userrole->user_str != NULL) {
 				cil_log(CIL_INFO, " %s", userrole->user_str);
 			}
 
 			if (userrole->role != NULL) {
-				cil_log(CIL_INFO, " %s", ((struct cil_symtab_datum *)userrole->role)->name);
+				datum = userrole->role;
+				cil_log(CIL_INFO, " %s", datum->name);
 			} else if (userrole->role_str != NULL) {
 				cil_log(CIL_INFO, " %s", userrole->role_str);
 			}
@@ -783,6 +786,21 @@ void cil_tree_print_node(struct cil_tree_node *node)
 		case CIL_ROLEATTRIBUTE: {
 			struct cil_roleattribute *attr = node->data;
 			cil_log(CIL_INFO, "ROLEATTRIBUTE: %s\n", attr->datum.name);
+			return;
+		}
+		case CIL_USERATTRIBUTESET: {
+			struct cil_userattributeset *attr = node->data;
+
+			cil_log(CIL_INFO, "(USERATTRIBUTESET %s ", attr->attr_str);
+
+			cil_tree_print_expr(attr->datum_expr, attr->str_expr);
+
+			cil_log(CIL_INFO, "\n");
+			return;
+		}
+		case CIL_USERATTRIBUTE: {
+			struct cil_userattribute *attr = node->data;
+			cil_log(CIL_INFO, "USERATTRIBUTE: %s\n", attr->datum.name);
 			return;
 		}
 		case CIL_ROLEBOUNDS: {
@@ -1073,7 +1091,7 @@ void cil_tree_print_node(struct cil_tree_node *node)
 				cil_log(CIL_INFO, " %s", rule->tgt_str);
 			}
 
-			cil_tree_print_classperms_list(rule->classperms);
+			cil_tree_print_classperms_list(rule->perms.classperms);
 
 			cil_log(CIL_INFO, "\n");
 
@@ -1284,9 +1302,7 @@ void cil_tree_print_node(struct cil_tree_node *node)
 			cil_log(CIL_INFO, "FILECON:");
 			cil_log(CIL_INFO, " %s %d", filecon->path_str, filecon->type);
 
-			if (filecon->context_str != NULL) {
-				cil_log(CIL_INFO, " %s", filecon->context_str);
-			} else if (filecon->context != NULL) {
+			if (filecon->context != NULL) {
 				cil_tree_print_context(filecon->context);
 			} else if (filecon->context_str != NULL) {
 				cil_log(CIL_INFO, " %s", filecon->context_str);

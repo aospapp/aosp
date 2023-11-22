@@ -104,20 +104,6 @@ extern UINT8 utl_itoa(UINT16 i, char *p_s);
 
 /*******************************************************************************
 **
-** Function         utl_freebuf
-**
-** Description      This function calls GKI_freebuf to free the buffer passed
-**                  in, if buffer pointer is not NULL, and also initializes
-**                  buffer pointer to NULL.
-**
-**
-** Returns          Nothing.
-**
-*******************************************************************************/
-extern void utl_freebuf(void **p);
-
-/*******************************************************************************
-**
 ** Function         utl_set_device_class
 **
 ** Description      This function updates the local Device Class.

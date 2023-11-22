@@ -16,10 +16,11 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="9166784827254469057">"ఫోన్ కాల్ నిర్వహణ"</string>
+    <string name="telecommAppLabel" product="default" msgid="382363169988504520">"కాల్ నిర్వహణ"</string>
     <string name="userCallActivityLabel" product="default" msgid="5415173590855187131">"ఫోన్"</string>
     <string name="unknown" msgid="6878797917991465859">"తెలియదు"</string>
     <string name="notification_missedCallTitle" msgid="7554385905572364535">"సమాధానం ఇవ్వని కాల్"</string>
+    <string name="notification_missedWorkCallTitle" msgid="6242489980390803090">"మిస్డ్ కార్యాలయ కాల్"</string>
     <string name="notification_missedCallsTitle" msgid="1361677948941502522">"సమాధానం ఇవ్వని కాల్‌లు"</string>
     <string name="notification_missedCallsMsg" msgid="4575787816055205600">"<xliff:g id="NUM_MISSED_CALLS">%s</xliff:g> సమాధానం ఇవ్వని కాల్‌లు"</string>
     <string name="notification_missedCallTicker" msgid="504686252427747209">"<xliff:g id="MISSED_CALL_FROM">%s</xliff:g> నుండి సమాధానం ఇవ్వని కాల్"</string>
@@ -37,15 +38,32 @@
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"శీఘ్ర ప్రతిస్పందన"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"<xliff:g id="PHONE_NUMBER">%s</xliff:g>కు సందేశం పంపబడింది."</string>
     <string name="enable_account_preference_title" msgid="2021848090086481720">"కాలింగ్ ఖాతాలు"</string>
-    <string name="outgoing_call_not_allowed_user_restriction" msgid="8504993498756056279">"పరికరం యజమాని అత్యవసర కాల్‌లను మాత్రమే అనుమతించారు."</string>
+    <string name="outgoing_call_not_allowed_user_restriction" msgid="6872406278300131364">"కేవలం అత్యవసర కాల్‌లు మాత్రమే అనుమతించబడతాయి."</string>
     <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"ఈ అనువర్తనం ఫోన్ అనుమతి లేకుండా అవుట్‌గోయింగ్ కాల్‌లను చేయలేదు."</string>
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"కాల్ చేయడానికి, చెల్లుబాటు అయ్యే నంబర్‌ను నమోదు చేయండి."</string>
     <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"ఈ సమయంలో కాల్‌ను జోడించడం సాధ్యపడదు."</string>
-    <string name="video_call_not_allowed_if_tty_enabled" msgid="7593649283571253283">"దయచేసి వీడియో కాల్‌లు చేయడానికి TTY మోడ్ నిలిపివేయండి."</string>
     <string name="no_vm_number" msgid="4164780423805688336">"వాయిస్ మెయిల్ నంబర్ లేదు"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"సిమ్ కార్డులో వాయిస్ మెయిల్ నంబర్ ఏదీ నిల్వ చేయబడలేదు."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"నంబర్‌ను జోడించు"</string>
     <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"డిఫాల్ట్ డయలర్ అనువర్తనాన్ని మార్చాలా?"</string>
     <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"మీ డిఫాల్ట్ డయలర్ అనువర్తనంగా <xliff:g id="CURRENT_APP">%2$s</xliff:g> బదులు <xliff:g id="NEW_APP">%1$s</xliff:g>ని ఉపయోగించాలా?"</string>
     <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"మీ డిఫాల్ట్ డయలర్ అనువర్తనంగా <xliff:g id="NEW_APP">%s</xliff:g>ని ఉపయోగించాలా?"</string>
+    <string name="blocked_numbers" msgid="2751843139572970579">"బ్లాక్ చేయబడిన నంబర్‌లు"</string>
+    <string name="blocked_numbers_msg" msgid="1045015186124965643">"మీరు బ్లాక్ చేయబడిన నంబర్‌ల నుండి కాల్‌లు లేదా వచన సందేశాలను స్వీకరించరు."</string>
+    <string name="block_number" msgid="1101252256321306179">"నంబర్‌ను జోడించు"</string>
+    <string name="unblock_dialog_body" msgid="1614238499771862793">"<xliff:g id="NUMBER_TO_BLOCK">%1$s</xliff:g>ని అన్‌బ్లాక్ చేయాలా?"</string>
+    <string name="unblock_button" msgid="3078048901972674170">"అన్‌బ్లాక్ చేయి"</string>
+    <string name="add_blocked_dialog_body" msgid="9030243212265516828">"దీని నుండి కాల్‌లు మరియు సందేశాలను బ్లాక్ చేయండి"</string>
+    <string name="add_blocked_number_hint" msgid="6847675097085433553">"ఫోన్ నంబర్"</string>
+    <string name="block_button" msgid="8822290682524373357">"బ్లాక్ చేయి"</string>
+    <string name="non_primary_user" msgid="5180129233352533459">"కేవలం పరికర యజమాని మాత్రమే బ్లాక్ చేసిన నంబర్‌లను వీక్షించగలరు మరియు నిర్వహించగలరు."</string>
+    <string name="delete_icon_description" msgid="8903995728252556724">"అన్‌బ్లాక్ చేస్తుంది"</string>
+    <string name="blocked_numbers_butter_bar_title" msgid="438170866438793182">"బ్లాకింగ్ తాత్కాలికంగా ఆఫ్ చేయబడింది"</string>
+    <string name="blocked_numbers_butter_bar_body" msgid="2223244484319442431">"మీరు అత్యవసర నంబర్‌కి డయల్ చేసాక లేదా వచన సందేశం పంపాక, అత్యవసర సేవలు తిరిగి మిమ్మల్ని సంప్రదించగలిగేలా చేయడానికి బ్లాకింగ్ ఆఫ్ చేయబడుతుంది."</string>
+    <string name="blocked_numbers_butter_bar_button" msgid="2197943354922010696">"ఇప్పుడే మళ్లీ ప్రారంభించు"</string>
+    <string name="blocked_numbers_number_blocked_message" msgid="7678509606805029540">"<xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g> బ్లాక్ చేయబడింది"</string>
+    <string name="blocked_numbers_number_unblocked_message" msgid="977894647366750418">"<xliff:g id="UNBLOCKED_NUMBER">%1$s</xliff:g> అన్‌బ్లాక్ చేయబడింది"</string>
+    <string name="blocked_numbers_block_emergency_number_message" msgid="917851876780698387">"అత్యవసర నంబర్‌ను బ్లాక్ చేయడం సాధ్యపడలేదు."</string>
+    <string name="blocked_numbers_number_already_blocked_message" msgid="4392247814500811798">"<xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g> ఇప్పటికే బ్లాక్ చేయబడింది."</string>
+    <string name="toast_personal_call_msg" msgid="5115361633476779723">"కాల్ చేయడానికి వ్యక్తిగత డయలర్‌ను ఉపయోగిస్తోంది"</string>
 </resources>

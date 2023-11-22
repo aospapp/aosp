@@ -30,6 +30,40 @@
         <item name="android:textColor">@android:color/white</item>
     </style>
 
+    <!-- GLIF Card layout (for tablets) -->
+
+    <style name="SuwGlifCardBackground">
+        <item name="android:background">?android:attr/colorPrimary</item>
+    </style>
+
+    <!-- Items styles -->
+
+    <style name="SuwItemContainer">
+        <item name="android:minHeight">?android:attr/listPreferredItemHeight</item>
+        <item name="android:paddingBottom">@dimen/suw_items_padding_vertical</item>
+        <item name="android:paddingEnd">?android:attr/listPreferredItemPaddingEnd</item>
+        <item name="android:paddingStart">?android:attr/listPreferredItemPaddingStart</item>
+        <item name="android:paddingTop">@dimen/suw_items_padding_vertical</item>
+    </style>
+
+    <style name="SuwItemTitle">
+        <item name="android:textAppearance">?android:attr/textAppearanceListItem</item>
+    </style>
+
+    <style name="SuwItemSummary">
+        <item name="android:textAppearance">?android:attr/textAppearanceListItemSmall</item>
+    </style>
+
+    <!-- Button styles -->
+
+    <style name="SuwButtonItem" />
+
+    <style name="SuwButtonItem.Colored">
+        <item name="android:buttonStyle">@android:style/Widget.Material.Button</item>
+        <item name="android:colorButtonNormal">?android:attr/colorAccent</item>
+        <item name="android:textColor">?android:attr/textColorPrimaryInverse</item>
+    </style>
+
     <!-- Navigation bar styles -->
 
     <style name="SuwNavBarButtonStyle" parent="@android:style/Widget.Material.Button.Borderless">
@@ -44,21 +78,13 @@
     </style>
 
     <style name="SuwNavBarThemeDark" parent="SuwNavBarTheme">
-        <item name="suwNavBarBackButton">@drawable/suw_navbar_ic_back</item>
         <item name="suwNavBarBackgroundColor">@color/suw_navbar_bg_dark</item>
         <item name="suwNavBarButtonBackground">@drawable/suw_navbar_btn_bg</item>
-        <item name="suwNavBarMoreButton">@drawable/suw_navbar_ic_more</item>
-        <item name="suwNavBarNextButton">@drawable/suw_navbar_ic_next</item>
-        <item name="suwNavBarTextColor">@color/suw_navbar_text_dark</item>
     </style>
 
     <style name="SuwNavBarThemeLight" parent="SuwNavBarTheme">
-        <item name="suwNavBarBackButton">@drawable/suw_navbar_ic_back</item>
         <item name="suwNavBarBackgroundColor">@color/suw_navbar_bg_light</item>
         <item name="suwNavBarButtonBackground">@drawable/suw_navbar_btn_bg</item>
-        <item name="suwNavBarMoreButton">@drawable/suw_navbar_ic_more</item>
-        <item name="suwNavBarNextButton">@drawable/suw_navbar_ic_next</item>
-        <item name="suwNavBarTextColor">@color/suw_navbar_text_light</item>
     </style>
 
 </resources>

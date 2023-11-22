@@ -174,13 +174,14 @@ LOCAL_STATIC_LIBRARIES := libF77blas
 include $(BUILD_SHARED_LIBRARY)
 
 
-# Build libblas using API 8 toolchain for RS Support lib.
+# Build libblas using API 9 toolchain for RS Support lib.
 include $(CLEAR_VARS)
 
 LOCAL_CLANG := true
 LOCAL_MODULE := libblasV8
-LOCAL_SDK_VERSION := 8
-LOCAL_NDK_STL_VARIANT := stlport_static
+LOCAL_SDK_VERSION := 9
+LOCAL_NDK_STL_VARIANT := c++_static
+LOCAL_LDFLAGS += -ldl -Wl,--exclude-libs,libc++_static.a
 
 LOCAL_SRC_FILES := $(cblas_SRC_FILES)
 

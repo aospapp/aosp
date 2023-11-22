@@ -39,9 +39,17 @@ public:
         return *this;
     }
 
-    bool operator== (const GrProgramDesc& other) const {
-        // The length is masked as a hint to the compiler that the address will be 4 byte aligned.
-        return 0 == memcmp(this->asKey(), other.asKey(), this->keyLength() & ~0x3);
+    bool operator== (const GrProgramDesc& that) const {
+        SkASSERT(SkIsAlign4(this->keyLength()));
+        int l = this->keyLength() >> 2;
+        const uint32_t* aKey = this->asKey();
+        const uint32_t* bKey = that.asKey();
+        for (int i = 0; i < l; ++i) {
+            if (aKey[i] != bKey[i]) {
+                return false;
+            }
+        }
+        return true;
     }
 
     bool operator!= (const GrProgramDesc& other) const {
@@ -49,18 +57,29 @@ public:
     }
 
     static bool Less(const GrProgramDesc& a, const GrProgramDesc& b) {
-        return memcmp(a.asKey(), b.asKey(), a.keyLength() & ~0x3) < 0;
+        SkASSERT(SkIsAlign4(a.keyLength()));
+        int l = a.keyLength() >> 2;
+        const uint32_t* aKey = a.asKey();
+        const uint32_t* bKey = b.asKey();
+        for (int i = 0; i < l; ++i) {
+            if (aKey[i] != bKey[i]) {
+                return aKey[i] < bKey[i] ? true : false;
+            }
+        }
+        return false;
     }
 
     struct KeyHeader {
-        uint8_t                     fFragPosKey;   // set by GrGLShaderBuilder if there are
-                                                   // effects that read the fragment position.
-                                                   // Otherwise, 0.
+        // Set by GrGLShaderBuilder if there are effects that read the fragment position. Otherwise,
+        // 0.
+        uint8_t                     fFragPosKey;
+        // Set to uniquely idenitify any swizzling of the shader's output color(s).
+        uint8_t                     fOutputSwizzle;
         uint8_t                     fSnapVerticesToPixelCenters;
         int8_t                      fColorEffectCnt;
         int8_t                      fCoverageEffectCnt;
+        uint8_t                     fIgnoresCoverage;
     };
-    GR_STATIC_ASSERT(sizeof(KeyHeader) == 4);
 
     int numColorEffects() const {
         return this->header().fColorEffectCnt;
@@ -90,8 +109,8 @@ protected:
         *(this->atOffset<uint32_t, GrProgramDesc::kLengthOffset>()) = SkToU32(keyLength);
 
         uint32_t* checksum = this->atOffset<uint32_t, GrProgramDesc::kChecksumOffset>();
-        *checksum = 0;
-        *checksum = SkChecksum::Compute(reinterpret_cast<uint32_t*>(fKey.begin()), keyLength);
+        *checksum = 0;  // We'll hash through these bytes, so make sure they're initialized.
+        *checksum = SkChecksum::Murmur3(fKey.begin(), keyLength);
     }
 
     // The key, stored in fKey, is composed of four parts:

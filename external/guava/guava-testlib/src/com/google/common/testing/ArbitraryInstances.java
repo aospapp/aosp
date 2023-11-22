@@ -60,6 +60,7 @@ import com.google.common.collect.PeekingIterator;
 import com.google.common.collect.Range;
 import com.google.common.collect.RowSortedTable;
 import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Sets;
 import com.google.common.collect.SortedMapDifference;
 import com.google.common.collect.SortedMultiset;
 import com.google.common.collect.SortedSetMultimap;
@@ -67,6 +68,11 @@ import com.google.common.collect.Table;
 import com.google.common.collect.Tables;
 import com.google.common.collect.TreeBasedTable;
 import com.google.common.collect.TreeMultimap;
+import com.google.common.io.ByteSink;
+import com.google.common.io.ByteSource;
+import com.google.common.io.ByteStreams;
+import com.google.common.io.CharSink;
+import com.google.common.io.CharSource;
 import com.google.common.primitives.Primitives;
 import com.google.common.primitives.UnsignedInteger;
 import com.google.common.primitives.UnsignedLong;
@@ -102,25 +108,33 @@ import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.nio.ShortBuffer;
 import java.nio.charset.Charset;
+import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Currency;
+import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Locale;
 import java.util.Map;
+import java.util.NavigableMap;
+import java.util.NavigableSet;
+import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.SortedSet;
+import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentNavigableMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -215,8 +229,12 @@ public final class ArbitraryInstances {
       .put(FloatBuffer.class, FloatBuffer.allocate(0))
       .put(DoubleBuffer.class, DoubleBuffer.allocate(0))
       .put(File.class, new File(""))
+      .put(ByteSource.class, ByteSource.empty())
+      .put(CharSource.class, CharSource.empty())
+      .put(ByteSink.class, NullByteSink.INSTANCE)
+      .put(CharSink.class, NullByteSink.INSTANCE.asCharSink(Charsets.UTF_8))
       // All collections are immutable empty. So safe for any type parameter.
-      .put(Iterator.class, Iterators.emptyIterator())
+      .put(Iterator.class, ImmutableSet.of().iterator())
       .put(PeekingIterator.class, Iterators.peekingIterator(Iterators.emptyIterator()))
       .put(ListIterator.class, ImmutableList.of().listIterator())
       .put(Iterable.class, ImmutableSet.of())
@@ -228,10 +246,12 @@ public final class ArbitraryInstances {
       .put(ImmutableSet.class, ImmutableSet.of())
       .put(SortedSet.class, ImmutableSortedSet.of())
       .put(ImmutableSortedSet.class, ImmutableSortedSet.of())
+      .put(NavigableSet.class, Sets.unmodifiableNavigableSet(Sets.newTreeSet()))
       .put(Map.class, ImmutableMap.of())
       .put(ImmutableMap.class, ImmutableMap.of())
       .put(SortedMap.class, ImmutableSortedMap.of())
       .put(ImmutableSortedMap.class, ImmutableSortedMap.of())
+      .put(NavigableMap.class, Maps.unmodifiableNavigableMap(Maps.newTreeMap()))
       .put(Multimap.class, ImmutableMultimap.of())
       .put(ImmutableMultimap.class, ImmutableMultimap.of())
       .put(ListMultimap.class, ImmutableListMultimap.of())
@@ -280,12 +300,16 @@ public final class ArbitraryInstances {
 
   static {
     setImplementation(Appendable.class, StringBuilder.class);
-    setImplementation(BlockingQueue.class, LinkedBlockingQueue.class);
+    setImplementation(BlockingQueue.class, LinkedBlockingDeque.class);
+    setImplementation(BlockingDeque.class, LinkedBlockingDeque.class);
     setImplementation(ConcurrentMap.class, ConcurrentHashMap.class);
+    setImplementation(ConcurrentNavigableMap.class, ConcurrentSkipListMap.class);
     setImplementation(CountDownLatch.class, Dummies.DummyCountDownLatch.class);
+    setImplementation(Deque.class, ArrayDeque.class);
     setImplementation(OutputStream.class, ByteArrayOutputStream.class);
     setImplementation(PrintStream.class, Dummies.InMemoryPrintStream.class);
     setImplementation(PrintWriter.class, Dummies.InMemoryPrintWriter.class);
+    setImplementation(Queue.class, ArrayDeque.class);
     setImplementation(Random.class, Dummies.DeterministicRandom.class);
     setImplementation(ScheduledThreadPoolExecutor.class,
         Dummies.DummyScheduledThreadPoolExecutor.class);
@@ -426,6 +450,14 @@ public final class ArbitraryInstances {
 
     public static final class DummyExecutor implements Executor, Serializable {
       @Override public void execute(Runnable command) {}
+    }
+  }
+
+  private static final class NullByteSink extends ByteSink implements Serializable {
+    private static final NullByteSink INSTANCE = new NullByteSink();
+
+    @Override public OutputStream openStream() {
+      return ByteStreams.nullOutputStream();
     }
   }
 

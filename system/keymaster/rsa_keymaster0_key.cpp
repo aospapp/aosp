@@ -18,9 +18,6 @@
 
 #include <memory>
 
-#define LOG_TAG "RsaKeymaster0Key"
-#include <cutils/log.h>
-
 #include <keymaster/android_keymaster_utils.h>
 #include <keymaster/logger.h>
 #include <keymaster/soft_keymaster_context.h>
@@ -34,7 +31,7 @@ namespace keymaster {
 
 RsaKeymaster0KeyFactory::RsaKeymaster0KeyFactory(const SoftKeymasterContext* context,
                                                  const Keymaster0Engine* engine)
-    : RsaKeyFactory(context), engine_(engine), soft_context_(context) {}
+    : RsaKeyFactory(context), engine_(engine) {}
 
 keymaster_error_t RsaKeymaster0KeyFactory::GenerateKey(const AuthorizationSet& key_description,
                                                        KeymasterKeyBlob* key_blob,
@@ -42,9 +39,6 @@ keymaster_error_t RsaKeymaster0KeyFactory::GenerateKey(const AuthorizationSet& k
                                                        AuthorizationSet* sw_enforced) const {
     if (!key_blob || !hw_enforced || !sw_enforced)
         return KM_ERROR_OUTPUT_PARAMETER_NULL;
-
-    if (!engine_)
-        return super::GenerateKey(key_description, key_blob, hw_enforced, sw_enforced);
 
     uint64_t public_exponent;
     if (!key_description.GetTagValue(TAG_RSA_PUBLIC_EXPONENT, &public_exponent)) {
@@ -80,10 +74,6 @@ keymaster_error_t RsaKeymaster0KeyFactory::ImportKey(
     if (!output_key_blob || !hw_enforced || !sw_enforced)
         return KM_ERROR_OUTPUT_PARAMETER_NULL;
 
-    if (!engine_)
-        return super::ImportKey(key_description, input_key_material_format, input_key_material,
-                                output_key_blob, hw_enforced, sw_enforced);
-
     AuthorizationSet authorizations;
     uint64_t public_exponent;
     uint32_t key_size;
@@ -109,6 +99,7 @@ keymaster_error_t RsaKeymaster0KeyFactory::ImportKey(
 }
 
 keymaster_error_t RsaKeymaster0KeyFactory::LoadKey(const KeymasterKeyBlob& key_material,
+                                                   const AuthorizationSet& additional_params,
                                                    const AuthorizationSet& hw_enforced,
                                                    const AuthorizationSet& sw_enforced,
                                                    UniquePtr<Key>* key) const {
@@ -116,7 +107,7 @@ keymaster_error_t RsaKeymaster0KeyFactory::LoadKey(const KeymasterKeyBlob& key_m
         return KM_ERROR_OUTPUT_PARAMETER_NULL;
 
     if (sw_enforced.GetTagCount(TAG_ALGORITHM) == 1)
-        return super::LoadKey(key_material, hw_enforced, sw_enforced, key);
+        return super::LoadKey(key_material, additional_params, hw_enforced, sw_enforced, key);
 
     unique_ptr<RSA, RSA_Delete> rsa(engine_->BlobToRsaKey(key_material));
     if (!rsa)
@@ -124,34 +115,13 @@ keymaster_error_t RsaKeymaster0KeyFactory::LoadKey(const KeymasterKeyBlob& key_m
 
     keymaster_error_t error;
     key->reset(new (std::nothrow)
-                   RsaKeymaster0Key(rsa.release(), hw_enforced, sw_enforced, engine_, &error));
+                   RsaKeymaster0Key(rsa.release(), hw_enforced, sw_enforced, &error));
     if (!key->get())
         error = KM_ERROR_MEMORY_ALLOCATION_FAILED;
 
     if (error != KM_ERROR_OK)
         return error;
 
-    return KM_ERROR_OK;
-}
-
-RsaKeymaster0Key::RsaKeymaster0Key(RSA* rsa_key, const AuthorizationSet& hw_enforced,
-                                   const AuthorizationSet& sw_enforced,
-                                   const Keymaster0Engine* engine, keymaster_error_t* error)
-    : RsaKey(rsa_key, hw_enforced, sw_enforced, error), engine_(engine) {}
-
-keymaster_error_t RsaKeymaster0Key::key_material(UniquePtr<uint8_t[]>* material,
-                                                 size_t* size) const {
-    if (!engine_)
-        return super::key_material(material, size);
-
-    const keymaster_key_blob_t* blob = engine_->RsaKeyToBlob(key());
-    if (!blob)
-        return KM_ERROR_UNKNOWN_ERROR;
-
-    *size = blob->key_material_size;
-    material->reset(dup_buffer(blob->key_material, *size));
-    if (!material->get())
-        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
     return KM_ERROR_OK;
 }
 

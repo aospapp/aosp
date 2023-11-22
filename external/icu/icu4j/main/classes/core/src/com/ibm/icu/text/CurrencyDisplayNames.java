@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (C) 2009-2014, International Business Machines Corporation and    *
+ * Copyright (C) 2009-2016, International Business Machines Corporation and    *
  * others. All Rights Reserved.                                                *
  *******************************************************************************
  */
@@ -46,8 +46,7 @@ public abstract class CurrencyDisplayNames {
      * 
      * @param locale the locale into which to localize the names
      * @return a CurrencyDisplayNames
-     * @draft ICU 54
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 54
      */
     public static CurrencyDisplayNames getInstance(Locale locale) {
         return getInstance(locale, true);
@@ -80,11 +79,10 @@ public abstract class CurrencyDisplayNames {
      * for the locale, but not data for the requested ISO code, null is returned
      * from those APIs instead of a substitute value.
      * 
-     * @param locale the JDK locale into which to localize the names
+     * @param locale the {@link java.util.Locale} into which to localize the names
      * @param noSubstitute if true, do not return substitute values.
      * @return a CurrencyDisplayNames
-     * @draft ICU 54
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 54
      */
     public static CurrencyDisplayNames getInstance(Locale locale, boolean noSubstitute) {
         return getInstance(ULocale.forLocale(locale), noSubstitute);

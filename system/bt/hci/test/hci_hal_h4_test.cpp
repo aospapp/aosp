@@ -26,9 +26,9 @@ extern "C" {
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "osi/include/osi.h"
+#include "osi/include/semaphore.h"
 #include "hci_hal.h"
-#include "osi.h"
-#include "semaphore.h"
 #include "test_stubs.h"
 #include "vendor.h"
 }
@@ -43,12 +43,18 @@ DECLARE_TEST_MODES(
   type_byte_only
 );
 
+// Use as packet type to test stream_corrupted_during_le_scan_workaround()
+static const uint8_t HCI_BLE_EVENT = 0x3e;
+
 static char sample_data1[100] = "A point is that which has no part.";
 static char sample_data2[100] = "A line is breadthless length.";
 static char sample_data3[100] = "The ends of a line are points.";
 static char acl_data[100] =     "A straight line is a line which lies evenly with the points on itself.";
 static char sco_data[100] =     "A surface is that which has length and breadth only.";
 static char event_data[100] =   "The edges of a surface are lines.";
+
+// Test data for stream_corrupted_during_le_scan_workaround()
+static char corrupted_data[] = { 0x5 /* length of remaining data */, 'H', 'e', 'l', 'l', 'o' };
 
 static const hci_hal_t *hal;
 static int dummy_serial_fd;
@@ -61,7 +67,7 @@ static void expect_packet_synchronous(serial_data_type_t type, char *packet_data
   int length = strlen(packet_data);
   for (int i = 0; i < length; i++) {
     uint8_t byte;
-    EXPECT_EQ((size_t)1, hal->read_data(type, &byte, 1, true));
+    EXPECT_EQ((size_t)1, hal->read_data(type, &byte, 1));
     EXPECT_EQ(packet_data[i], byte);
   }
 
@@ -110,7 +116,7 @@ STUB_FUNCTION(void, data_ready_callback, (serial_data_type_t type))
 
     uint8_t byte;
     size_t bytes_read;
-    while ((bytes_read = hal->read_data(type, &byte, 1, false)) != 0) {
+    while ((bytes_read = hal->read_data(type, &byte, 1)) != 0) {
       EXPECT_EQ(sample_data3[reentry_i], byte);
       semaphore_post(reentry_semaphore);
       reentry_i++;
@@ -221,6 +227,7 @@ TEST_F(HciHalH4Test, test_read_synchronous) {
   reset_for(read_synchronous);
 
   write_packet(sockfd[1], DATA_TYPE_ACL, acl_data);
+  write_packet(sockfd[1], HCI_BLE_EVENT, corrupted_data);
   write_packet(sockfd[1], DATA_TYPE_SCO, sco_data);
   write_packet(sockfd[1], DATA_TYPE_EVENT, event_data);
 

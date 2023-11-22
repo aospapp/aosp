@@ -4,36 +4,46 @@
  *
  * http://opengroup.org/onlinepubs/9699919799/utilities/env.html
 
-USE_ENV(NEWTOY(env, "^i", TOYFLAG_USR|TOYFLAG_BIN))
+USE_ENV(NEWTOY(env, "^iu*", TOYFLAG_USR|TOYFLAG_BIN))
 
 config ENV
   bool "env"
   default y
   help
-    usage: env [-i] [NAME=VALUE...] [command [option...]]
+    usage: env [-i] [-u NAME] [NAME=VALUE...] [command [option...]]
 
     Set the environment for command invocation.
 
     -i	Clear existing environment.
+    -u NAME	Remove NAME from the environment
 */
 
+#define FOR_env
 #include "toys.h"
+
+GLOBALS(
+  struct arg_list *u;
+);
 
 extern char **environ;
 
 void env_main(void)
 {
   char **ev;
-  char *del = "=";
 
-  if (toys.optflags) clearenv();
+  if (toys.optflags & FLAG_i) clearenv();
+  while (TT.u) {
+    unsetenv(TT.u->arg);
+    TT.u = TT.u->next;
+  }
 
-  for (ev = toys.optargs; *ev != NULL; ev++) {
-    char *env = strtok(*ev, del), *val = 0;
+  for (ev = toys.optargs; *ev; ev++) {
+    char *name = *ev, *val = strchr(name, '=');
 
-    if (env) val = strtok(0, del);
-    if (val) setenv(env, val, 1);
-    else xexec(ev);
+    if (val) {
+      *(val++) = 0;
+      setenv(name, val, 1);
+    } else xexec(ev);
   }
 
   if (environ) for (ev = environ; *ev; ev++) xputs(*ev);

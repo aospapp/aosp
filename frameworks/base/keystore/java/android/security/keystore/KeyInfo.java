@@ -38,32 +38,30 @@ import javax.crypto.SecretKey;
  * <p><h3>Example: Symmetric Key</h3>
  * The following example illustrates how to obtain a {@code KeyInfo} describing the provided Android
  * Keystore {@link SecretKey}.
- * <pre> {@code
+ * <pre>{@code
  * SecretKey key = ...; // Android Keystore key
  *
  * SecretKeyFactory factory = SecretKeyFactory.getInstance(key.getAlgorithm(), "AndroidKeyStore");
  * KeyInfo keyInfo;
- * try &#123;
+ * try {
  *     keyInfo = (KeyInfo) factory.getKeySpec(key, KeyInfo.class);
- * &#125; catch (InvalidKeySpecException e) &#123;
+ * } catch (InvalidKeySpecException e) {
  *     // Not an Android KeyStore key.
- * &#125;
- * }</pre>
+ * }}</pre>
  *
  * <p><h3>Example: Private Key</h3>
  * The following example illustrates how to obtain a {@code KeyInfo} describing the provided
  * Android KeyStore {@link PrivateKey}.
- * <pre> {@code
+ * <pre>{@code
  * PrivateKey key = ...; // Android KeyStore key
  *
  * KeyFactory factory = KeyFactory.getInstance(key.getAlgorithm(), "AndroidKeyStore");
  * KeyInfo keyInfo;
- * try &#123;
+ * try {
  *     keyInfo = factory.getKeySpec(key, KeyInfo.class);
- * &#125; catch (InvalidKeySpecException e) &#123;
+ * } catch (InvalidKeySpecException e) {
  *     // Not an Android KeyStore key.
- * &#125;
- * }</pre>
+ * }}</pre>
  */
 public class KeyInfo implements KeySpec {
     private final String mKeystoreAlias;
@@ -81,6 +79,8 @@ public class KeyInfo implements KeySpec {
     private final boolean mUserAuthenticationRequired;
     private final int mUserAuthenticationValidityDurationSeconds;
     private final boolean mUserAuthenticationRequirementEnforcedBySecureHardware;
+    private final boolean mUserAuthenticationValidWhileOnBody;
+    private final boolean mInvalidatedByBiometricEnrollment;
 
     /**
      * @hide
@@ -99,7 +99,9 @@ public class KeyInfo implements KeySpec {
             @KeyProperties.BlockModeEnum String[] blockModes,
             boolean userAuthenticationRequired,
             int userAuthenticationValidityDurationSeconds,
-            boolean userAuthenticationRequirementEnforcedBySecureHardware) {
+            boolean userAuthenticationRequirementEnforcedBySecureHardware,
+            boolean userAuthenticationValidWhileOnBody,
+            boolean invalidatedByBiometricEnrollment) {
         mKeystoreAlias = keystoreKeyAlias;
         mInsideSecureHardware = insideSecureHardware;
         mOrigin = origin;
@@ -118,6 +120,8 @@ public class KeyInfo implements KeySpec {
         mUserAuthenticationValidityDurationSeconds = userAuthenticationValidityDurationSeconds;
         mUserAuthenticationRequirementEnforcedBySecureHardware =
                 userAuthenticationRequirementEnforcedBySecureHardware;
+        mUserAuthenticationValidWhileOnBody = userAuthenticationValidWhileOnBody;
+        mInvalidatedByBiometricEnrollment = invalidatedByBiometricEnrollment;
     }
 
     /**
@@ -271,12 +275,30 @@ public class KeyInfo implements KeySpec {
 
     /**
      * Returns {@code true} if the requirement that this key can only be used if the user has been
-     * authenticated if enforced by secure hardware (e.g., Trusted Execution Environment (TEE) or
+     * authenticated is enforced by secure hardware (e.g., Trusted Execution Environment (TEE) or
      * Secure Element (SE)).
      *
      * @see #isUserAuthenticationRequired()
      */
     public boolean isUserAuthenticationRequirementEnforcedBySecureHardware() {
         return mUserAuthenticationRequirementEnforcedBySecureHardware;
+    }
+
+    /**
+     * Returns {@code true} if this key will become unusable when the device is removed from the
+     * user's body.  This is possible only for keys with a specified validity duration, and only on
+     * devices with an on-body sensor.  Always returns {@code false} on devices that lack an on-body
+     * sensor.
+     */
+    public boolean isUserAuthenticationValidWhileOnBody() {
+        return mUserAuthenticationValidWhileOnBody;
+    }
+
+    /**
+     * Returns {@code true} if the key will be invalidated by enrollment of a new fingerprint or
+     * removal of all fingerprints.
+     */
+    public boolean isInvalidatedByBiometricEnrollment() {
+        return mInvalidatedByBiometricEnrollment;
     }
 }

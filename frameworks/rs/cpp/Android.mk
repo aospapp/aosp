@@ -7,11 +7,15 @@ LOCAL_SRC_FILES:= \
 LOCAL_C_INCLUDES += \
 	frameworks/rs
 
-LOCAL_CFLAGS += -Wno-unused-parameter
+LOCAL_CFLAGS += -Wno-unused-parameter -std=c++11
 
 LOCAL_MODULE:= libRSDispatch
+LOCAL_SDK_VERSION := 9
 LOCAL_MODULE_TAGS := optional
 LOCAL_LDFLAGS += -ldl
+# Used in librsjni, which is built as NDK code => no ASan.
+LOCAL_SANITIZE := never
+LOCAL_NDK_STL_VARIANT := none
 
 include $(BUILD_STATIC_LIBRARY)
 
@@ -26,18 +30,17 @@ rs_cpp_SRC_FILES := \
 	Script.cpp \
 	ScriptC.cpp \
 	ScriptIntrinsics.cpp \
+	ScriptIntrinsicBLAS.cpp \
 	Sampler.cpp
 
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 include frameworks/compile/slang/rs_version.mk
 local_cflags_for_rs_cpp += $(RS_VERSION_DEFINE)
-local_cflags_for_rs_cpp += -Werror -Wall -Wno-unused-parameter -Wno-unused-variable -fno-exceptions -std=c++11
+local_cflags_for_rs_cpp += -Werror -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -fno-exceptions -std=c++11
 
 LOCAL_SRC_FILES := $(rs_cpp_SRC_FILES)
 
-ifneq ($(HOST_OS),windows)
 LOCAL_CLANG := true
-endif
 LOCAL_CFLAGS += $(local_cflags_for_rs_cpp)
 
 LOCAL_SHARED_LIBRARIES := \
@@ -64,13 +67,11 @@ include $(BUILD_SHARED_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 
-ifneq ($(HOST_OS),windows)
 LOCAL_CLANG := true
-endif
 LOCAL_CFLAGS += $(local_cflags_for_rs_cpp)
 
 ifeq ($(my_32_64_bit_suffix),32)
-LOCAL_SDK_VERSION := 8
+LOCAL_SDK_VERSION := 9
 else
 LOCAL_SDK_VERSION := 21
 endif
@@ -91,7 +92,7 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_C_INCLUDES += frameworks/rs
 LOCAL_C_INCLUDES += $(intermediates)
 
-LOCAL_LDFLAGS := -llog -lz -ldl
-LOCAL_NDK_STL_VARIANT := stlport_static
+LOCAL_LDFLAGS := -llog -lz -ldl -Wl,--exclude-libs,libc++_static.a
+LOCAL_NDK_STL_VARIANT := c++_static
 
 include $(BUILD_STATIC_LIBRARY)

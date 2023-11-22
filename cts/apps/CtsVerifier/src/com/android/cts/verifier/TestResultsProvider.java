@@ -39,13 +39,26 @@ public class TestResultsProvider extends ContentProvider {
 
     private static final String RESULTS_PATH = "results";
 
-    public static final String AUTHORITY = "com.android.cts.verifier.testresultsprovider";
-    public static final Uri CONTENT_URI = Uri.parse("content://" + AUTHORITY);
-    public static final Uri RESULTS_CONTENT_URI =
-            Uri.withAppendedPath(CONTENT_URI, RESULTS_PATH);
+    /**
+     * Get the URI from the result content.
+     * @param context
+     * @return Uri
+     */
+    public static Uri getResultContentUri(Context context) {
+        final String packageName = context.getPackageName();
+        final Uri contentUri = Uri.parse("content://" + packageName + ".testresultsprovider");
+        return Uri.withAppendedPath(contentUri, RESULTS_PATH);
+    }
 
-    public static Uri getTestNameUri(String testName) {
-        return Uri.withAppendedPath(RESULTS_CONTENT_URI, testName);
+    /**
+     * Get the URI from the test name.
+     * @param context
+     * @param testName
+     * @return Uri
+     */
+    public static Uri getTestNameUri(Context context) {
+        final String testName = context.getClass().getName();
+        return Uri.withAppendedPath(getResultContentUri(context), testName);
     }
 
     static final String _ID = "_id";
@@ -69,11 +82,6 @@ public class TestResultsProvider extends ContentProvider {
     private static final int RESULTS_ALL = 1;
     private static final int RESULTS_ID = 2;
     private static final int RESULTS_TEST_NAME = 3;
-    static {
-        URI_MATCHER.addURI(AUTHORITY, RESULTS_PATH, RESULTS_ALL);
-        URI_MATCHER.addURI(AUTHORITY, RESULTS_PATH + "/#", RESULTS_ID);
-        URI_MATCHER.addURI(AUTHORITY, RESULTS_PATH + "/*", RESULTS_TEST_NAME);
-    }
 
     private static final String TABLE_NAME = "results";
 
@@ -83,6 +91,12 @@ public class TestResultsProvider extends ContentProvider {
 
     @Override
     public boolean onCreate() {
+        final String authority = getContext().getPackageName() + ".testresultsprovider";
+
+        URI_MATCHER.addURI(authority, RESULTS_PATH, RESULTS_ALL);
+        URI_MATCHER.addURI(authority, RESULTS_PATH + "/#", RESULTS_ID);
+        URI_MATCHER.addURI(authority, RESULTS_PATH + "/*", RESULTS_TEST_NAME);
+
         mOpenHelper = new TestResultsOpenHelper(getContext());
         mBackupManager = new BackupManager(getContext());
         return false;
@@ -153,7 +167,7 @@ public class TestResultsProvider extends ContentProvider {
         long id = db.insert(TABLE_NAME, null, values);
         getContext().getContentResolver().notifyChange(uri, null);
         mBackupManager.dataChanged();
-        return Uri.withAppendedPath(RESULTS_CONTENT_URI, "" + id);
+        return Uri.withAppendedPath(getResultContentUri(getContext()), "" + id);
     }
 
     @Override
@@ -219,13 +233,14 @@ public class TestResultsProvider extends ContentProvider {
         values.put(TestResultsProvider.COLUMN_TEST_DETAILS, testDetails);
         values.put(TestResultsProvider.COLUMN_TEST_METRICS, serialize(reportLog));
 
+        final Uri uri = getResultContentUri(context);
         ContentResolver resolver = context.getContentResolver();
-        int numUpdated = resolver.update(TestResultsProvider.RESULTS_CONTENT_URI, values,
+        int numUpdated = resolver.update(uri, values,
                 TestResultsProvider.COLUMN_TEST_NAME + " = ?",
                 new String[] {testName});
 
         if (numUpdated == 0) {
-            resolver.insert(TestResultsProvider.RESULTS_CONTENT_URI, values);
+            resolver.insert(uri, values);
         }
     }
 

@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="2102435118079140813">"Proves de difusió de cel·la"</string>
+    <string name="app_label" msgid="2102435118079140813">"Proves de difusió mòbil"</string>
     <string name="button_etws_normal_type" msgid="3852703138521119537">"Envia la difusió normal d\'ETWS"</string>
     <string name="button_etws_cancel_type" msgid="7194264116649371175">"Envia la difusió de cancel·lació d\'ETWS"</string>
     <string name="button_etws_test_type" msgid="6353906188028139901">"Envia la difusió de prova d\'ETWS"</string>

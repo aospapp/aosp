@@ -17,9 +17,14 @@
 package org.apache.harmony.tests.java.net;
 
 import junit.framework.TestCase;
+
 import java.net.HttpCookie;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.TimeZone;
 
 public class HttpCookieTest extends TestCase {
     private Locale locale;
@@ -379,6 +384,48 @@ public class HttpCookieTest extends TestCase {
     }
 
     /**
+     * Regression test for http://b/25682357.
+     */
+    public void test_HasExpiredBug25682357() throws Exception {
+        HttpCookie cookie1 = HttpCookie.parse("Set-Cookie:name=value;max-age=2;").get(0);
+        HttpCookie cookie2 = HttpCookie.parse("Set-Cookie:name=value;max-age=100;").get(0);
+        assertFalse(cookie1.hasExpired());
+        assertFalse(cookie2.hasExpired());
+
+        // Sleep for long enough to force expiry of the first cookie.
+        Thread.sleep(3000);
+        assertTrue(cookie1.hasExpired());
+        assertFalse(cookie2.hasExpired());
+
+        assertEquals(2, cookie1.getMaxAge());
+        assertEquals(100, cookie2.getMaxAge());
+
+        // Changing the max age should not reset the expiry status.
+        cookie1.setMaxAge(2);
+        assertTrue(cookie1.hasExpired());
+    }
+
+    /**
+     * Regression test for http://b/25682357.
+     */
+    public void test_HasExpiredBug25682357_2() throws Exception {
+        // The following tests do not pass on the RI: it may not handle "expires" at all.
+        DateFormat dateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss 'GMT'", Locale.US);
+        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+        String pastExpiryDate = dateFormat.format(new Date(System.currentTimeMillis() - 100_000));
+        String pastExpiryCookieHeader =
+            "Set-Cookie:name=value;expires=" + pastExpiryDate + ";";
+        HttpCookie pastExpiryCookie = HttpCookie.parse(pastExpiryCookieHeader).get(0);
+        assertTrue(pastExpiryCookie.hasExpired());
+
+        String futureExpiryDate = dateFormat.format(new Date(System.currentTimeMillis() + 100_000));
+        String futureExpiryCookieHeader =
+            "Set-Cookie:name=value;expires=" + futureExpiryDate + ";";
+        HttpCookie futureExpiryCookie = HttpCookie.parse(futureExpiryCookieHeader).get(0);
+        assertFalse(futureExpiryCookie.hasExpired());
+    }
+
+    /**
      * java.net.HttpCookie#equals()
      * @since 1.6
      */
@@ -734,7 +781,12 @@ public class HttpCookieTest extends TestCase {
         list = HttpCookie
                 .parse("Set-Cookie:name=test;expires=Sun, 29-Feb-1999 19:14:07 GMT");
         cookie = list.get(0);
-        assertTrue(cookie.getMaxAge() < 0);
+        // A value of "0" means the cookie must be discarded immediately. 29-Feb-1999 is an
+        // invalid date and fails to parse, so it must be discarded immediately.
+        //
+        // Android versions earlier than N returned a negative value here, which means the cookie
+        // is valid for the current session.
+        assertEquals(0, cookie.getMaxAge());
         assertTrue(cookie.hasExpired());
 
         // Parse multiple cookies

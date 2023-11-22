@@ -5,6 +5,7 @@
  * found in the LICENSE file.
  */
 
+#include "SkData.h"
 #include "SkEndian.h"
 #include "SkColorPriv.h"
 #include "SkImageDecoder.h"
@@ -43,13 +44,12 @@ static inline int read_24bit(const uint8_t* buf) {
 }
 
 SkImageDecoder::Result SkASTCImageDecoder::onDecode(SkStream* stream, SkBitmap* bm, Mode mode) {
-    SkAutoMalloc autoMal;
-    const size_t length = SkCopyStreamToStorage(&autoMal, stream);
-    if (0 == length) {
+    SkAutoTUnref<SkData> data(SkCopyStreamToData(stream));
+    if (!data || !data->size()) {
         return kFailure;
     }
 
-    unsigned char* buf = (unsigned char*)autoMal.get();
+    unsigned char* buf = (unsigned char*) data->data();
 
     // Make sure that the magic header is there...
     SkASSERT(SkEndian_SwapLE32(*(reinterpret_cast<uint32_t*>(buf))) == kASTCMagicNumber);
@@ -135,7 +135,7 @@ SkImageDecoder::Result SkASTCImageDecoder::onDecode(SkStream* stream, SkBitmap* 
         return kSuccess;
     }
 
-    if (!this->allocPixelRef(bm, NULL)) {
+    if (!this->allocPixelRef(bm, nullptr)) {
         return kFailure;
     }
 
@@ -186,9 +186,9 @@ static bool is_astc(SkStreamRewindable* stream) {
 
 static SkImageDecoder* sk_libastc_dfactory(SkStreamRewindable* stream) {
     if (is_astc(stream)) {
-        return SkNEW(SkASTCImageDecoder);
+        return new SkASTCImageDecoder;
     }
-    return NULL;
+    return nullptr;
 }
 
 static SkImageDecoder_DecodeReg gReg(sk_libastc_dfactory);

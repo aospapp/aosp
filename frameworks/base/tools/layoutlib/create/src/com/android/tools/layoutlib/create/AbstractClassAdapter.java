@@ -21,7 +21,6 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.signature.SignatureReader;
 import org.objectweb.asm.signature.SignatureVisitor;
@@ -44,7 +43,7 @@ public abstract class AbstractClassAdapter extends ClassVisitor {
     abstract String renameInternalType(String name);
 
     public AbstractClassAdapter(ClassVisitor cv) {
-        super(Opcodes.ASM4, cv);
+        super(Main.ASM_VERSION, cv);
     }
 
     /**
@@ -177,17 +176,6 @@ public abstract class AbstractClassAdapter extends ClassVisitor {
             }
         }
 
-        /* Java 7 verifies the StackMapTable of a class if its version number is greater than 50.0.
-         * However, the check is disabled if the class version number is 50.0 or less. Generation
-         * of the StackMapTable requires a rewrite using the tree API of ASM. As a workaround,
-         * we rewrite the version number of the class to be 50.0
-         *
-         * http://bugs.java.com/bugdatabase/view_bug.do?bug_id=6693236
-         */
-        if (version > 50) {
-            version = 50;
-        }
-
         super.visit(version, access, name, signature, superName, interfaces);
     }
 
@@ -239,7 +227,7 @@ public abstract class AbstractClassAdapter extends ClassVisitor {
          * The names must be full qualified internal ASM names (e.g. com/blah/MyClass$InnerClass).
          */
         public RenameMethodAdapter(MethodVisitor mv) {
-            super(Opcodes.ASM4, mv);
+            super(Main.ASM_VERSION, mv);
         }
 
         @Override
@@ -276,7 +264,8 @@ public abstract class AbstractClassAdapter extends ClassVisitor {
         }
 
         @Override
-        public void visitMethodInsn(int opcode, String owner, String name, String desc) {
+        public void visitMethodInsn(int opcode, String owner, String name, String desc,
+                boolean itf) {
             // The owner sometimes turns out to be a type descriptor. We try to detect it and fix.
             if (owner.indexOf(';') > 0) {
                 owner = renameTypeDesc(owner);
@@ -285,7 +274,7 @@ public abstract class AbstractClassAdapter extends ClassVisitor {
             }
             desc = renameMethodDesc(desc);
 
-            super.visitMethodInsn(opcode, owner, name, desc);
+            super.visitMethodInsn(opcode, owner, name, desc, itf);
         }
 
         @Override
@@ -330,7 +319,7 @@ public abstract class AbstractClassAdapter extends ClassVisitor {
         private final SignatureVisitor mSv;
 
         public RenameSignatureAdapter(SignatureVisitor sv) {
-            super(Opcodes.ASM4);
+            super(Main.ASM_VERSION);
             mSv = sv;
         }
 

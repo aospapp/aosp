@@ -8,7 +8,7 @@
    This file is part of Helgrind, a Valgrind tool for detecting errors
    in threaded programs.
 
-   Copyright (C) 2007-2013 OpenWorks Ltd
+   Copyright (C) 2007-2015 OpenWorks Ltd
       info@open-works.co.uk
 
    This program is free software; you can redistribute it and/or
@@ -1212,7 +1212,7 @@ void HG_(pp_Error) ( const Error* err )
             if (xe->XE.Race.h1_ct_mbsegendEC) {
                VG_(pp_ExeContext)( xe->XE.Race.h1_ct_mbsegendEC );
             } else {
-               emit( "  <auxwhat>(the end of the the thread)</auxwhat>\n" );
+               emit( "  <auxwhat>(the end of the thread)</auxwhat>\n" );
             }
          }
 
@@ -1256,7 +1256,7 @@ void HG_(pp_Error) ( const Error* err )
             if (xe->XE.Race.h1_ct_mbsegendEC) {
                VG_(pp_ExeContext)( xe->XE.Race.h1_ct_mbsegendEC );
             } else {
-               emit( "   (the end of the the thread)\n" );
+               emit( "   (the end of the thread)\n" );
             }
          }
 
@@ -1296,7 +1296,7 @@ void HG_(print_access) (StackTrace ips, UInt n_ips,
    if (threadp->coretid == VG_INVALID_THREADID) 
       VG_(printf)(" tid (exited)\n");
    else
-      VG_(printf)(" tid %d\n", threadp->coretid);
+      VG_(printf)(" tid %u\n", threadp->coretid);
    {
       Lock** locksHeldW_P;
       locksHeldW_P = enumerate_WordSet_into_LockP_vector(

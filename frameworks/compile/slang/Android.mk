@@ -14,7 +14,18 @@
 # limitations under the License.
 #
 LOCAL_PATH := $(call my-dir)
-SLANG_ENABLE_ASSERTIONS := false
+
+FORCE_BUILD_LLVM_DISABLE_NDEBUG ?= false
+# Legality check: FORCE_BUILD_LLVM_DISABLE_NDEBUG should consist of one word -- either "true" or "false".
+ifneq "$(words $(FORCE_BUILD_LLVM_DISABLE_NDEBUG))$(words $(filter-out true false,$(FORCE_BUILD_LLVM_DISABLE_NDEBUG)))" "10"
+  $(error FORCE_BUILD_LLVM_DISABLE_NDEBUG may only be true, false, or unset)
+endif
+
+FORCE_BUILD_LLVM_DEBUG ?= false
+# Legality check: FORCE_BUILD_LLVM_DEBUG should consist of one word -- either "true" or "false".
+ifneq "$(words $(FORCE_BUILD_LLVM_DEBUG))$(words $(filter-out true false,$(FORCE_BUILD_LLVM_DEBUG)))" "10"
+  $(error FORCE_BUILD_LLVM_DEBUG may only be true, false, or unset)
+endif
 
 # The prebuilt tools should be used when we are doing app-only build.
 ifeq ($(TARGET_BUILD_APPS),)
@@ -22,7 +33,7 @@ ifeq ($(TARGET_BUILD_APPS),)
 
 local_cflags_for_slang := -Wall -Werror -std=c++11
 ifeq ($(TARGET_BUILD_VARIANT),eng)
-local_cflags_for_slang += -O0
+local_cflags_for_slang += -O0 -D__ENABLE_INTERNAL_OPTIONS
 else
 ifeq ($(TARGET_BUILD_VARIANT),userdebug)
 else
@@ -33,10 +44,6 @@ local_cflags_for_slang += -DTARGET_BUILD_VARIANT=$(TARGET_BUILD_VARIANT)
 
 include $(LOCAL_PATH)/rs_version.mk
 local_cflags_for_slang += $(RS_VERSION_DEFINE)
-
-ifeq ($(SLANG_ENABLE_ASSERTIONS),true)
-local_cflags_for_slang += -D_DEBUG -UNDEBUG
-endif
 
 static_libraries_needed_by_slang := \
 	libLLVMBitWriter_2_9 \
@@ -55,11 +62,11 @@ include $(CLANG_ROOT_PATH)/clang.mk
 
 LOCAL_MODULE := libslang
 LOCAL_MODULE_TAGS := optional
-ifneq ($(HOST_OS),windows)
-LOCAL_CLANG := true
-endif
 
 LOCAL_CFLAGS += $(local_cflags_for_slang)
+
+# Skip missing-field-initializer warnings for mingw.
+LOCAL_CFLAGS_windows += -Wno-error=missing-field-initializers
 
 TBLGEN_TABLES :=    \
 	AttrList.inc	\
@@ -74,24 +81,24 @@ TBLGEN_TABLES :=    \
 
 LOCAL_SRC_FILES :=	\
 	slang.cpp	\
+	slang_bitcode_gen.cpp	\
 	slang_backend.cpp	\
-	slang_pragma_recorder.cpp	\
 	slang_diagnostic_buffer.cpp
 
 LOCAL_C_INCLUDES += frameworks/compile/libbcc/include
 
 LOCAL_LDLIBS := -ldl -lpthread
-ifneq ($(HOST_OS),windows)
-LOCAL_CXX_STL := libc++
-endif
 
 include $(CLANG_HOST_BUILD_MK)
 include $(CLANG_TBLGEN_RULES_MK)
 include $(LLVM_GEN_INTRINSICS_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
 include $(BUILD_HOST_STATIC_LIBRARY)
 
 # ========================================================
 include $(CLEAR_VARS)
+
+LLVM_ROOT_PATH := external/llvm
 
 LOCAL_MODULE := llvm-rs-as
 LOCAL_MODULE_TAGS := optional
@@ -109,6 +116,8 @@ LOCAL_SHARED_LIBRARIES := \
 	libLLVM
 
 include $(CLANG_HOST_BUILD_MK)
+include $(LLVM_HOST_BUILD_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
 include $(BUILD_HOST_EXECUTABLE)
 
 # Executable llvm-rs-cc for host
@@ -118,14 +127,14 @@ include $(CLEAR_TBLGEN_VARS)
 
 LOCAL_IS_HOST_MODULE := true
 LOCAL_MODULE := llvm-rs-cc
-ifneq ($(HOST_OS),windows)
-LOCAL_CLANG := true
-endif
+
+LOCAL_CFLAGS += $(local_cflags_for_slang)
+
+# Skip missing-field-initializer warnings for mingw.
+LOCAL_CFLAGS += -Wno-error=missing-field-initializers
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_MODULE_CLASS := EXECUTABLES
-
-LOCAL_CFLAGS += $(local_cflags_for_slang)
 
 TBLGEN_TABLES :=    \
 	AttrList.inc    \
@@ -143,6 +152,7 @@ TBLGEN_TABLES :=    \
 LOCAL_SRC_FILES :=	\
 	llvm-rs-cc.cpp	\
 	rs_cc_options.cpp \
+	slang_rs_foreach_lowering.cpp \
 	slang_rs_ast_replace.cpp	\
 	slang_rs_check_ast.cpp	\
 	slang_rs_context.cpp	\
@@ -152,11 +162,14 @@ LOCAL_SRC_FILES :=	\
 	slang_rs_export_element.cpp	\
 	slang_rs_export_var.cpp	\
 	slang_rs_export_func.cpp	\
-	slang_rs_export_foreach.cpp \
+	slang_rs_export_foreach.cpp	\
+	slang_rs_export_reduce.cpp	\
 	slang_rs_object_ref_count.cpp	\
 	slang_rs_reflection.cpp \
 	slang_rs_reflection_cpp.cpp \
 	slang_rs_reflect_utils.cpp \
+	slang_rs_special_func.cpp	\
+	slang_rs_special_kernel_param.cpp \
 	strip_unknown_attributes.cpp
 
 LOCAL_C_INCLUDES += frameworks/compile/libbcc/include
@@ -169,11 +182,9 @@ LOCAL_SHARED_LIBRARIES := \
 	libclang \
 	libLLVM
 
-ifeq ($(HOST_OS),windows)
-  LOCAL_LDLIBS := -limagehlp -lpsapi
-else
-  LOCAL_LDLIBS := -ldl -lpthread
-endif
+LOCAL_LDLIBS_windows := -limagehlp -lpsapi
+LOCAL_LDLIBS_linux := -ldl -lpthread
+LOCAL_LDLIBS_darwin := -ldl -lpthread
 
 # For build RSCCOptions.inc from RSCCOptions.td
 intermediates := $(call local-generated-sources-dir)
@@ -184,6 +195,7 @@ $(intermediates)/RSCCOptions.inc: $(LOCAL_PATH)/RSCCOptions.td $(LLVM_ROOT_PATH)
 
 include $(CLANG_HOST_BUILD_MK)
 include $(CLANG_TBLGEN_RULES_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
 include $(BUILD_HOST_EXECUTABLE)
 
 endif  # TARGET_BUILD_APPS

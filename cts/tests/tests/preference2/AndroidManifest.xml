@@ -15,7 +15,7 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.preference2">
+    package="android.preference2.cts">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <application>
@@ -36,8 +36,8 @@
 
     <!-- This is a self-instrumenting test package. -->
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.preference2"
-                     android:label="CTS Test Cases for android.preference">
+                     android:targetPackage="android.preference2.cts"
+                     android:label="CTS Test Cases for android.preference2">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />
     </instrumentation>

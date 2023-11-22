@@ -47,15 +47,6 @@ public class BytecodesTest extends JDWPMethodTestCase {
     public void testBytecodesTest001() throws UnsupportedEncodingException {
         logWriter.println("testBytecodesTest001 started");
 
-        //check capability, relevant for this test
-        logWriter.println("=> Check capability: canGetBytecodes");
-        debuggeeWrapper.vmMirror.capabilities();
-        boolean isCapability = debuggeeWrapper.vmMirror.targetVMCapabilities.canGetBytecodes;
-        if (!isCapability) {
-            logWriter.println("##WARNING: this VM doesn't possess capability: canGetBytecodes");
-            return;
-        }
-
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
         long classID = getClassIDBySignature("L"+getDebuggeeClassName().replace('.', '/')+";");

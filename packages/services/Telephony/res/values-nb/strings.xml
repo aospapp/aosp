@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="phoneAppLabel" product="tablet" msgid="1107073389495104784">"Mobildata"</string>
-    <string name="phoneAppLabel" product="default" msgid="906161039445636857">"Telefon"</string>
+    <string name="phoneAppLabel" product="default" msgid="6790717591729922998">"Telefontjenester"</string>
     <string name="emergencyDialerIconLabel" msgid="7812140032168171053">"Nødnummer"</string>
     <string name="phoneIconLabel" msgid="2331230813161304895">"Telefon"</string>
     <string name="fdnListLabel" msgid="8630418672279521003">"Liste over faste numre"</string>
@@ -63,6 +63,7 @@
     <string name="phone_accounts_make_calls_with" msgid="1969188078933152231">"Ring med"</string>
     <string name="phone_accounts_make_sip_calls_with" msgid="4677789312053828493">"Foreta SIP-anrop med"</string>
     <string name="phone_accounts_ask_every_time" msgid="4346499067149985702">"Spør først"</string>
+    <string name="phone_accounts_default_account_label" msgid="4183772241814460014">"Ingen tilgjengelige nettverk"</string>
     <string name="phone_accounts_settings_header" msgid="4141710640883261094">"Innstillinger"</string>
     <string name="phone_accounts_choose_accounts" msgid="5232948804226424002">"Velg kontoer"</string>
     <string name="phone_accounts_selection_header" msgid="1365215726106915865">"Telefonkontoer"</string>
@@ -117,14 +118,17 @@
     <string name="sum_cfnrc_disabled" msgid="7222141261321276464">"Slått av"</string>
     <string name="disable_cfnrc_forbidden" msgid="5646361343094064333">"Operatøren støtter ikke deaktivering av viderekobling når telefonen er utenfor dekning."</string>
     <string name="updating_title" msgid="6146755386174019046">"Samtaleinnstillinger"</string>
-    <string name="call_settings_primary_user_only" msgid="5679923943740900965">"Anropsinnstillinger kan bare endres av hovedbrukeren."</string>
-    <string name="call_settings_with_label" msgid="89359812614544532">"Samtaleinnstillinger (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
+    <string name="call_settings_admin_user_only" msgid="4526094783818216374">"Anropsinnstillinger kan bare endres av administratoren."</string>
+    <string name="call_settings_with_label" msgid="3401177261468593519">"Innstillinger (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="7970259216988931777">"Feil ved samtaleinnstillinger"</string>
     <string name="reading_settings" msgid="1920291699287055284">"Leser innstillingene …"</string>
     <string name="updating_settings" msgid="8171225533884883252">"Oppdaterer innstillinger…"</string>
     <string name="reverting_settings" msgid="4752151682666912828">"Tilbakestiller innstillinger ..."</string>
     <string name="response_error" msgid="6674110501330139405">"Uventet svar fra nettverket."</string>
-    <string name="exception_error" msgid="7027667130619518211">"Nettverks- eller SIM-kort-feil."</string>
+    <string name="exception_error" msgid="7027667130619518211">"Nettverks- eller SIM-kortfeil."</string>
+    <string name="stk_cc_ss_to_dial_error" msgid="2816779198916570502">"SS-forespørselen er endret til en DIAL-forespørsel."</string>
+    <string name="stk_cc_ss_to_ussd_error" msgid="7490626178582654236">"SS-forespørselen er endret til en USSD-forespørsel."</string>
+    <string name="stk_cc_ss_to_ss_error" msgid="5057846756489053759">"SS-forespørselen er endret til en ny SS-forespørsel."</string>
     <string name="fdn_check_failure" msgid="18200614306525434">"Telefonappens innstilling for Faste numre er aktivert. Derfor fungerer ikke enkelte av ringefunksjonene."</string>
     <string name="radio_off_error" msgid="2304459933248513376">"Slå på radioen før du ser på disse innstillingene."</string>
     <string name="close_dialog" msgid="2365884406356986917">"OK"</string>
@@ -177,6 +181,7 @@
     <string name="preferred_network_mode_lte_wcdma_summary" msgid="9180775701594742750">"Foretrukket nettverksmodus: LTE/WCDMA"</string>
     <string name="preferred_network_mode_lte_gsm_umts_summary" msgid="633315028976225026">"Foretrukket nettverksmodus: LTE / GSM / UMTS"</string>
     <string name="preferred_network_mode_lte_cdma_summary" msgid="3722647806454528426">"Foretrukket nettverksmodus: LTE/CDMA"</string>
+    <string name="preferred_network_mode_tdscdma_summary" msgid="8021016193718678775">"Foretrukket nettverksmodus: TDSCDMA"</string>
   <string-array name="preferred_network_mode_choices">
     <item msgid="7886739962255042385">"LTE / WCDMA"</item>
     <item msgid="577652050447385699">"LTE"</item>
@@ -196,6 +201,7 @@
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"Bruk LTE-tjenester for å forbedre stemme- og andre typer kommunikasjon (anbefalt)"</string>
     <string name="data_enabled" msgid="5972538663568715366">"Data aktivert"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"Tillat databruk"</string>
+    <string name="dialog_alert_title" msgid="6751344986194435476">"Obs!"</string>
     <string name="roaming" msgid="8871412572928323707">"Dataroaming"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"Koble til datatjenester ved roaming"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"Koble til datatjenester ved roaming"</string>
@@ -345,7 +351,7 @@
     <string name="enable_fdn_ok" msgid="7215588870329688132">"Slå av faste numre"</string>
     <string name="disable_fdn_ok" msgid="5727046928930740173">"Slå på faste numre"</string>
     <string name="sum_fdn" msgid="1959399454900272878">"Vedlikehold liste over faste numre"</string>
-    <string name="sum_fdn_change_pin" msgid="6666549734792827932">"Endre PIN-kode for å styre faste numre"</string>
+    <string name="sum_fdn_change_pin" msgid="6666549734792827932">"Endre PIN-kode for tilgang til faste numre"</string>
     <string name="sum_fdn_manage_list" msgid="8431088265332628316">"Administrer liste over telefonnumre"</string>
     <string name="voice_privacy" msgid="3776841382844614716">"Personvern for Google Voice"</string>
     <string name="voice_privacy_summary" msgid="3159383389833516214">"Aktiver forbedret personvern"</string>
@@ -430,11 +436,12 @@
     <string name="notification_network_selection_text" msgid="2607085729661923269">"Valgt nettverk (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) er ikke tilgjengelig"</string>
     <string name="incall_error_power_off" msgid="2947938060513306698">"Slå av flymodus for å ringe."</string>
     <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"Slå av flymodus eller koble til et trådløst nettverk for å ringe."</string>
+    <string name="incall_error_ecm_emergency_only" msgid="738708660612388692">"Avslutt modusen for nødanrop for å gjøre et vanlig anrop."</string>
     <string name="incall_error_emergency_only" msgid="4678640422710818317">"Ikke registrert på nettverket."</string>
     <string name="incall_error_out_of_service" msgid="4100065333878929223">"Mobilnettverket er ikke tilgjengelig."</string>
     <string name="incall_error_out_of_service_wfc" msgid="323851839058697057">"Mobilnettverk er ikke tilgjengelig. Koble til et trådløst nettverk for å ringe."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"Skriv inn et gyldig nummer for å plassere en samtale."</string>
-    <string name="incall_error_call_failed" msgid="6302746943230078197">"Kan ikke ringe."</string>
+    <string name="incall_error_call_failed" msgid="5891978320269774095">"Anropet mislyktes."</string>
     <string name="incall_status_dialed_mmi" msgid="3672498861336189563">"Begynner MMI-sekvens…"</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"Tjenesten støttes ikke"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"Kan ikke bytte samtaler."</string>
@@ -443,10 +450,12 @@
     <string name="incall_error_supp_service_conference" msgid="2505727299596357312">"Kan ikke opprette telefonmøte."</string>
     <string name="incall_error_supp_service_reject" msgid="8998568661508655638">"Kan ikke avvise anropet."</string>
     <string name="incall_error_supp_service_hangup" msgid="7434513517153834426">"Kan ikke frigjøre samtale(r)."</string>
+    <string name="incall_error_supp_service_hold" msgid="7967020511232222078">"Kan ikke sette samtaler på vent."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="1782466780452640089">"Koble til et trådløst nettverk for å ringe."</string>
     <string name="emergency_enable_radio_dialog_title" msgid="4627849966634578257">"Nødanrop"</string>
     <string name="emergency_enable_radio_dialog_message" msgid="207613549344420291">"Slår på radio…"</string>
     <string name="emergency_enable_radio_dialog_retry" msgid="5960061579996526883">"Ingen tjeneste. Prøver på nytt …"</string>
+    <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"Du kan ikke slå på flymodus under nødsamtaler."</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"Kan ikke ringe. <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> er ikke et nødnummer."</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"Kan ikke ringe. Ring et nødnummer."</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"Bruk tastaturet for å ringe"</string>
@@ -465,8 +474,10 @@
     <string name="importAllSimEntries" msgid="1503181169636198673">"Importer alle"</string>
     <string name="importingSimContacts" msgid="7374056215462575769">"Importerer kontakter fra SIM-kortet"</string>
     <string name="importToFDNfromContacts" msgid="2130620207013368580">"Importer fra kontakter"</string>
+    <string name="singleContactImportedMsg" msgid="6868483416182599206">"Kontakten er importert"</string>
+    <string name="failedToImportSingleContactMsg" msgid="415399285420353917">"Kunne ikke importere kontakten"</string>
     <string name="hac_mode_title" msgid="8740268574688743289">"Høreapparater"</string>
-    <string name="hac_mode_summary" msgid="6833851160514929341">"Slå på kompatibilitet med høreapparat"</string>
+    <string name="hac_mode_summary" msgid="6833851160514929341">"Slå på kompatibilitet med høreapparater"</string>
   <string-array name="tty_mode_entries">
     <item msgid="512950011423868021">"TTY av"</item>
     <item msgid="3971695875449640648">"TTY full"</item>
@@ -548,7 +559,8 @@
     <string name="accessibility_settings_activity_title" msgid="8562004288733103868">"Tilgjengelighet"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="8772915926382037499">"Wi-Fi-oppringing inn"</string>
     <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"Oppringing via Wi-Fi"</string>
-    <string name="emergency_action_launch_hint" msgid="5841511849007540970">"Trykk på nytt for å åpne"</string>
+    <string name="emergency_action_launch_hint" msgid="4906759256275562674">"Trykk på nytt for å åpne"</string>
     <string name="message_decode_error" msgid="3456481534066924855">"Det oppsto en feil under dekoding av meldingen."</string>
     <string name="callFailed_cdma_activation" msgid="2307989779233262164">"Et SIM-kort har aktivert tjenesten din og oppdatert roamingfunksjonene for telefonen din."</string>
+    <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"Du har for mange aktive samtaler. Avslutt eller slå sammen eksisterende samtaler før du starter en ny samtale."</string>
 </resources>

@@ -222,6 +222,7 @@ TEST(RoundTrip, BeginOperationResponse) {
             break;
         case 1:
         case 2:
+        case 3:
             deserialized.reset(round_trip(ver, msg, 39));
             break;
         default:
@@ -237,6 +238,7 @@ TEST(RoundTrip, BeginOperationResponse) {
             break;
         case 1:
         case 2:
+        case 3:
             EXPECT_EQ(msg.output_params, deserialized->output_params);
             break;
         default:
@@ -269,6 +271,7 @@ TEST(RoundTrip, UpdateOperationRequest) {
             break;
         case 1:
         case 2:
+        case 3:
             deserialized.reset(round_trip(ver, msg, 27));
             break;
         default:
@@ -296,6 +299,7 @@ TEST(RoundTrip, UpdateOperationResponse) {
             deserialized.reset(round_trip(ver, msg, 15));
             break;
         case 2:
+        case 3:
             deserialized.reset(round_trip(ver, msg, 42));
             break;
         default:
@@ -313,6 +317,7 @@ TEST(RoundTrip, UpdateOperationResponse) {
             EXPECT_EQ(99U, deserialized->input_consumed);
             break;
         case 2:
+        case 3:
             EXPECT_EQ(99U, deserialized->input_consumed);
             EXPECT_EQ(1U, deserialized->output_params.size());
             break;
@@ -327,6 +332,7 @@ TEST(RoundTrip, FinishOperationRequest) {
         FinishOperationRequest msg(ver);
         msg.op_handle = 0xDEADBEEF;
         msg.signature.Reinitialize("bar", 3);
+        msg.input.Reinitialize("baz", 3);
 
         UniquePtr<FinishOperationRequest> deserialized;
         switch (ver) {
@@ -336,6 +342,9 @@ TEST(RoundTrip, FinishOperationRequest) {
         case 1:
         case 2:
             deserialized.reset(round_trip(ver, msg, 27));
+            break;
+        case 3:
+            deserialized.reset(round_trip(ver, msg, 34));
             break;
         default:
             FAIL();
@@ -359,6 +368,7 @@ TEST(Round_Trip, FinishOperationResponse) {
             deserialized.reset(round_trip(ver, msg, 11));
             break;
         case 2:
+        case 3:
             deserialized.reset(round_trip(ver, msg, 23));
             break;
         default:
@@ -532,6 +542,70 @@ TEST(RoundTrip, AbortOperationResponse) {
     }
 }
 
+TEST(RoundTrip, AttestKeyRequest) {
+    for (int ver = 0; ver <= MAX_MESSAGE_VERSION; ++ver) {
+        AttestKeyRequest msg(ver);
+        msg.SetKeyMaterial("foo", 3);
+        msg.attest_params.Reinitialize(params, array_length(params));
+
+        UniquePtr<AttestKeyRequest> deserialized(round_trip(ver, msg, 85));
+        EXPECT_EQ(3U, deserialized->key_blob.key_material_size);
+        EXPECT_EQ(0, memcmp("foo", deserialized->key_blob.key_material, 3));
+        EXPECT_EQ(msg.attest_params, deserialized->attest_params);
+    }
+}
+
+TEST(RoundTrip, AttestKeyResponse) {
+    for (int ver = 0; ver <= MAX_MESSAGE_VERSION; ++ver) {
+        AttestKeyResponse msg(ver);
+        msg.error = KM_ERROR_OK;
+        EXPECT_TRUE(msg.AllocateChain(3));
+        msg.certificate_chain.entries[0] = {dup_buffer("foo", 3), 3};
+        msg.certificate_chain.entries[1] = {dup_buffer("bar", 3), 3};
+        msg.certificate_chain.entries[2] = {dup_buffer("baz", 3), 3};
+
+        UniquePtr<AttestKeyResponse> deserialized(round_trip(ver, msg, 29));
+        keymaster_cert_chain_t* chain = &deserialized->certificate_chain;
+
+        EXPECT_NE(nullptr, chain->entries);
+        EXPECT_EQ(3U, chain->entry_count);
+        EXPECT_EQ(3U, chain->entries[0].data_length);
+        EXPECT_EQ(0, memcmp("foo", chain->entries[0].data, 3));
+        EXPECT_EQ(3U, chain->entries[1].data_length);
+        EXPECT_EQ(0, memcmp("bar", chain->entries[1].data, 3));
+        EXPECT_EQ(3U, chain->entries[2].data_length);
+        EXPECT_EQ(0, memcmp("baz", chain->entries[2].data, 3));
+    }
+}
+
+TEST(RoundTrip, UpgradeKeyRequest) {
+    for (int ver = 0; ver <= MAX_MESSAGE_VERSION; ++ver) {
+        UpgradeKeyRequest msg(ver);
+        msg.SetKeyMaterial("foo", 3);
+        msg.upgrade_params.Reinitialize(params, array_length(params));
+
+        UniquePtr<UpgradeKeyRequest> deserialized(round_trip(ver, msg, 85));
+        EXPECT_EQ(3U, deserialized->key_blob.key_material_size);
+        EXPECT_EQ(0, memcmp("foo", deserialized->key_blob.key_material, 3));
+        EXPECT_EQ(msg.upgrade_params, deserialized->upgrade_params);
+    }
+}
+
+TEST(RoundTrip, UpgradeKeyResponse) {
+    for (int ver = 0; ver <= MAX_MESSAGE_VERSION; ++ver) {
+        UpgradeKeyResponse req(ver);
+        req.error = KM_ERROR_OK;
+        req.upgraded_key.key_material = dup_array(TEST_DATA);
+        req.upgraded_key.key_material_size = array_length(TEST_DATA);
+
+        UniquePtr<UpgradeKeyResponse> deserialized(round_trip(ver, req, 19));
+        EXPECT_EQ(KM_ERROR_OK, deserialized->error);
+        EXPECT_EQ(req.upgraded_key.key_material_size, deserialized->upgraded_key.key_material_size);
+        EXPECT_EQ(0, memcmp(req.upgraded_key.key_material, deserialized->upgraded_key.key_material,
+                            req.upgraded_key.key_material_size));
+    }
+}
+
 uint8_t msgbuf[] = {
     220, 88,  183, 255, 71,  1,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
     0,   173, 0,   0,   0,   228, 174, 98,  187, 191, 135, 253, 200, 51,  230, 114, 247, 151, 109,
@@ -624,6 +698,10 @@ GARBAGE_TEST(SupportedByAlgorithmAndPurposeRequest)
 GARBAGE_TEST(SupportedByAlgorithmRequest)
 GARBAGE_TEST(UpdateOperationRequest);
 GARBAGE_TEST(UpdateOperationResponse);
+GARBAGE_TEST(AttestKeyRequest);
+GARBAGE_TEST(AttestKeyResponse);
+GARBAGE_TEST(UpgradeKeyRequest);
+GARBAGE_TEST(UpgradeKeyResponse);
 
 // The macro doesn't work on this one.
 TEST(GarbageTest, SupportedResponse) {

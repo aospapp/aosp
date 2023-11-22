@@ -35,8 +35,9 @@ class FdFile : public RandomAccessFile {
   FdFile();
   // Creates an FdFile using the given file descriptor. Takes ownership of the
   // file descriptor. (Use DisableAutoClose to retain ownership.)
-  explicit FdFile(int fd, bool checkUsage);
-  explicit FdFile(int fd, const std::string& path, bool checkUsage);
+  FdFile(int fd, bool checkUsage);
+  FdFile(int fd, const std::string& path, bool checkUsage);
+  FdFile(int fd, const std::string& path, bool checkUsage, bool read_only_mode);
 
   // Destroys an FdFile, closing the file descriptor if Close hasn't already
   // been called. (If you care about the return value of Close, call it
@@ -50,12 +51,12 @@ class FdFile : public RandomAccessFile {
   bool Open(const std::string& file_path, int flags, mode_t mode);
 
   // RandomAccessFile API.
-  virtual int Close() WARN_UNUSED;
-  virtual int64_t Read(char* buf, int64_t byte_count, int64_t offset) const WARN_UNUSED;
-  virtual int SetLength(int64_t new_length) WARN_UNUSED;
-  virtual int64_t GetLength() const;
-  virtual int64_t Write(const char* buf, int64_t byte_count, int64_t offset) WARN_UNUSED;
-  virtual int Flush() WARN_UNUSED;
+  int Close() OVERRIDE WARN_UNUSED;
+  int64_t Read(char* buf, int64_t byte_count, int64_t offset) const OVERRIDE WARN_UNUSED;
+  int SetLength(int64_t new_length) OVERRIDE WARN_UNUSED;
+  int64_t GetLength() const OVERRIDE;
+  int64_t Write(const char* buf, int64_t byte_count, int64_t offset) OVERRIDE WARN_UNUSED;
+  int Flush() OVERRIDE WARN_UNUSED;
 
   // Short for SetLength(0); Flush(); Close();
   void Erase();
@@ -68,6 +69,8 @@ class FdFile : public RandomAccessFile {
 
   // Bonus API.
   int Fd() const;
+  bool ReadOnlyMode() const;
+  bool CheckUsage() const;
   bool IsOpened() const;
   const std::string& GetPath() const {
     return file_path_;
@@ -76,6 +79,15 @@ class FdFile : public RandomAccessFile {
   bool ReadFully(void* buffer, size_t byte_count) WARN_UNUSED;
   bool PreadFully(void* buffer, size_t byte_count, size_t offset) WARN_UNUSED;
   bool WriteFully(const void* buffer, size_t byte_count) WARN_UNUSED;
+  bool PwriteFully(const void* buffer, size_t byte_count, size_t offset) WARN_UNUSED;
+
+  // Copy data from another file.
+  bool Copy(FdFile* input_file, int64_t offset, int64_t size);
+  // Clears the file content and resets the file offset to 0.
+  // Returns true upon success, false otherwise.
+  bool ClearContent();
+  // Resets the file offset to the beginning of the file.
+  bool ResetOffset();
 
   // This enum is public so that we can define the << operator over it.
   enum class GuardState {
@@ -108,9 +120,13 @@ class FdFile : public RandomAccessFile {
   GuardState guard_state_;
 
  private:
+  template <bool kUseOffset>
+  bool WriteFullyGeneric(const void* buffer, size_t byte_count, size_t offset);
+
   int fd_;
   std::string file_path_;
   bool auto_close_;
+  bool read_only_mode_;
 
   DISALLOW_COPY_AND_ASSIGN(FdFile);
 };

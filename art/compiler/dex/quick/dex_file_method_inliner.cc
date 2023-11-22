@@ -21,10 +21,8 @@
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/mutex-inl.h"
-#include "dex/compiler_ir.h"
+#include "driver/compiler_driver.h"
 #include "thread-inl.h"
-#include "dex/mir_graph.h"
-#include "dex/quick/mir_to_lir.h"
 #include "dex_instruction-inl.h"
 #include "driver/dex_compilation_unit.h"
 #include "verifier/method_verifier-inl.h"
@@ -36,8 +34,23 @@ namespace {  // anonymous namespace
 static constexpr bool kIntrinsicIsStatic[] = {
     true,   // kIntrinsicDoubleCvt
     true,   // kIntrinsicFloatCvt
+    true,   // kIntrinsicFloat2Int
+    true,   // kIntrinsicDouble2Long
+    true,   // kIntrinsicFloatIsInfinite
+    true,   // kIntrinsicDoubleIsInfinite
+    true,   // kIntrinsicFloatIsNaN
+    true,   // kIntrinsicDoubleIsNaN
     true,   // kIntrinsicReverseBits
     true,   // kIntrinsicReverseBytes
+    true,   // kIntrinsicBitCount
+    true,   // kIntrinsicCompare,
+    true,   // kIntrinsicHighestOneBit
+    true,   // kIntrinsicLowestOneBit
+    true,   // kIntrinsicNumberOfLeadingZeros
+    true,   // kIntrinsicNumberOfTrailingZeros
+    true,   // kIntrinsicRotateRight
+    true,   // kIntrinsicRotateLeft
+    true,   // kIntrinsicSignum
     true,   // kIntrinsicAbsInt
     true,   // kIntrinsicAbsLong
     true,   // kIntrinsicAbsFloat
@@ -46,6 +59,23 @@ static constexpr bool kIntrinsicIsStatic[] = {
     true,   // kIntrinsicMinMaxLong
     true,   // kIntrinsicMinMaxFloat
     true,   // kIntrinsicMinMaxDouble
+    true,   // kIntrinsicCos
+    true,   // kIntrinsicSin
+    true,   // kIntrinsicAcos
+    true,   // kIntrinsicAsin
+    true,   // kIntrinsicAtan
+    true,   // kIntrinsicAtan2
+    true,   // kIntrinsicCbrt
+    true,   // kIntrinsicCosh
+    true,   // kIntrinsicExp
+    true,   // kIntrinsicExpm1
+    true,   // kIntrinsicHypot
+    true,   // kIntrinsicLog
+    true,   // kIntrinsicLog10
+    true,   // kIntrinsicNextAfter
+    true,   // kIntrinsicSinh
+    true,   // kIntrinsicTan
+    true,   // kIntrinsicTanh
     true,   // kIntrinsicSqrt
     true,   // kIntrinsicCeil
     true,   // kIntrinsicFloor
@@ -55,6 +85,7 @@ static constexpr bool kIntrinsicIsStatic[] = {
     false,  // kIntrinsicReferenceGetReferent
     false,  // kIntrinsicCharAt
     false,  // kIntrinsicCompareTo
+    false,  // kIntrinsicEquals
     false,  // kIntrinsicGetCharsNoCheck
     false,  // kIntrinsicIsEmptyOrLength
     false,  // kIntrinsicIndexOf
@@ -67,22 +98,65 @@ static constexpr bool kIntrinsicIsStatic[] = {
     false,  // kIntrinsicCas
     false,  // kIntrinsicUnsafeGet
     false,  // kIntrinsicUnsafePut
+    false,  // kIntrinsicUnsafeGetAndAddInt,
+    false,  // kIntrinsicUnsafeGetAndAddLong,
+    false,  // kIntrinsicUnsafeGetAndSetInt,
+    false,  // kIntrinsicUnsafeGetAndSetLong,
+    false,  // kIntrinsicUnsafeGetAndSetObject,
+    false,  // kIntrinsicUnsafeLoadFence,
+    false,  // kIntrinsicUnsafeStoreFence,
+    false,  // kIntrinsicUnsafeFullFence,
     true,   // kIntrinsicSystemArrayCopyCharArray
+    true,   // kIntrinsicSystemArrayCopy
 };
 static_assert(arraysize(kIntrinsicIsStatic) == kInlineOpNop,
               "arraysize of kIntrinsicIsStatic unexpected");
 static_assert(kIntrinsicIsStatic[kIntrinsicDoubleCvt], "DoubleCvt must be static");
 static_assert(kIntrinsicIsStatic[kIntrinsicFloatCvt], "FloatCvt must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicFloat2Int], "Float2Int must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicDouble2Long], "Double2Long must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicFloatIsInfinite], "FloatIsInfinite must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicDoubleIsInfinite], "DoubleIsInfinite must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicFloatIsNaN], "FloatIsNaN must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicDoubleIsNaN], "DoubleIsNaN must be static");
 static_assert(kIntrinsicIsStatic[kIntrinsicReverseBits], "ReverseBits must be static");
 static_assert(kIntrinsicIsStatic[kIntrinsicReverseBytes], "ReverseBytes must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicBitCount], "BitCount must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicCompare], "Compare must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicHighestOneBit], "HighestOneBit must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicLowestOneBit], "LowestOneBit  must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicNumberOfLeadingZeros],
+              "NumberOfLeadingZeros must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicNumberOfTrailingZeros],
+              "NumberOfTrailingZeros must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicRotateRight], "RotateRight must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicRotateLeft], "RotateLeft must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicSignum], "Signum must be static");
 static_assert(kIntrinsicIsStatic[kIntrinsicAbsInt], "AbsInt must be static");
 static_assert(kIntrinsicIsStatic[kIntrinsicAbsLong], "AbsLong must be static");
 static_assert(kIntrinsicIsStatic[kIntrinsicAbsFloat], "AbsFloat must be static");
 static_assert(kIntrinsicIsStatic[kIntrinsicAbsDouble], "AbsDouble must be static");
 static_assert(kIntrinsicIsStatic[kIntrinsicMinMaxInt], "MinMaxInt must be static");
-static_assert(kIntrinsicIsStatic[kIntrinsicMinMaxLong], "MinMaxLong_must_be_static");
-static_assert(kIntrinsicIsStatic[kIntrinsicMinMaxFloat], "MinMaxFloat_must_be_static");
-static_assert(kIntrinsicIsStatic[kIntrinsicMinMaxDouble], "MinMaxDouble_must_be_static");
+static_assert(kIntrinsicIsStatic[kIntrinsicMinMaxLong], "MinMaxLong must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicMinMaxFloat], "MinMaxFloat must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicMinMaxDouble], "MinMaxDouble must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicCos], "Cos must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicSin], "Sin must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicAcos], "Acos must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicAsin], "Asin must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicAtan], "Atan must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicAtan2], "Atan2 must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicCbrt], "Cbrt must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicCosh], "Cosh must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicExp], "Exp must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicExpm1], "Expm1 must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicHypot], "Hypot must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicLog], "Log must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicLog10], "Log10 must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicNextAfter], "NextAfter must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicSinh], "Sinh must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicTan], "Tan must be static");
+static_assert(kIntrinsicIsStatic[kIntrinsicTanh], "Tanh must be static");
 static_assert(kIntrinsicIsStatic[kIntrinsicSqrt], "Sqrt must be static");
 static_assert(kIntrinsicIsStatic[kIntrinsicCeil], "Ceil must be static");
 static_assert(kIntrinsicIsStatic[kIntrinsicFloor], "Floor must be static");
@@ -92,6 +166,7 @@ static_assert(kIntrinsicIsStatic[kIntrinsicRoundDouble], "RoundDouble must be st
 static_assert(!kIntrinsicIsStatic[kIntrinsicReferenceGetReferent], "Get must not be static");
 static_assert(!kIntrinsicIsStatic[kIntrinsicCharAt], "CharAt must not be static");
 static_assert(!kIntrinsicIsStatic[kIntrinsicCompareTo], "CompareTo must not be static");
+static_assert(!kIntrinsicIsStatic[kIntrinsicEquals], "String equals must not be static");
 static_assert(!kIntrinsicIsStatic[kIntrinsicGetCharsNoCheck], "GetCharsNoCheck must not be static");
 static_assert(!kIntrinsicIsStatic[kIntrinsicIsEmptyOrLength], "IsEmptyOrLength must not be static");
 static_assert(!kIntrinsicIsStatic[kIntrinsicIndexOf], "IndexOf must not be static");
@@ -105,35 +180,20 @@ static_assert(kIntrinsicIsStatic[kIntrinsicCurrentThread], "CurrentThread must b
 static_assert(kIntrinsicIsStatic[kIntrinsicPeek], "Peek must be static");
 static_assert(kIntrinsicIsStatic[kIntrinsicPoke], "Poke must be static");
 static_assert(!kIntrinsicIsStatic[kIntrinsicCas], "Cas must not be static");
-static_assert(!kIntrinsicIsStatic[kIntrinsicUnsafeGet], "UnsafeGet_must_not_be_static");
+static_assert(!kIntrinsicIsStatic[kIntrinsicUnsafeGet], "UnsafeGet must not be static");
 static_assert(!kIntrinsicIsStatic[kIntrinsicUnsafePut], "UnsafePut must not be static");
+static_assert(!kIntrinsicIsStatic[kIntrinsicUnsafeGetAndAddInt], "UnsafeGetAndAddInt must not be static");
+static_assert(!kIntrinsicIsStatic[kIntrinsicUnsafeGetAndAddLong], "UnsafeGetAndAddLong must not be static");
+static_assert(!kIntrinsicIsStatic[kIntrinsicUnsafeGetAndSetInt], "UnsafeGetAndSetInt must not be static");
+static_assert(!kIntrinsicIsStatic[kIntrinsicUnsafeGetAndSetLong], "UnsafeGetAndSetLong must not be static");
+static_assert(!kIntrinsicIsStatic[kIntrinsicUnsafeGetAndSetObject], "UnsafeGetAndSetObject must not be static");
+static_assert(!kIntrinsicIsStatic[kIntrinsicUnsafeLoadFence], "UnsafeLoadFence must not be static");
+static_assert(!kIntrinsicIsStatic[kIntrinsicUnsafeStoreFence], "UnsafeStoreFence must not be static");
+static_assert(!kIntrinsicIsStatic[kIntrinsicUnsafeFullFence], "UnsafeFullFence must not be static");
 static_assert(kIntrinsicIsStatic[kIntrinsicSystemArrayCopyCharArray],
               "SystemArrayCopyCharArray must be static");
-
-MIR* AllocReplacementMIR(MIRGraph* mir_graph, MIR* invoke) {
-  MIR* insn = mir_graph->NewMIR();
-  insn->offset = invoke->offset;
-  insn->optimization_flags = MIR_CALLEE;
-  return insn;
-}
-
-uint32_t GetInvokeReg(MIR* invoke, uint32_t arg) {
-  DCHECK_LT(arg, invoke->dalvikInsn.vA);
-  DCHECK(!MIR::DecodedInstruction::IsPseudoMirOp(invoke->dalvikInsn.opcode));
-  if (IsInvokeInstructionRange(invoke->dalvikInsn.opcode)) {
-    return invoke->dalvikInsn.vC + arg;  // Range invoke.
-  } else {
-    DCHECK_EQ(Instruction::FormatOf(invoke->dalvikInsn.opcode), Instruction::k35c);
-    return invoke->dalvikInsn.arg[arg];  // Non-range invoke.
-  }
-}
-
-bool WideArgIsInConsecutiveDalvikRegs(MIR* invoke, uint32_t arg) {
-  DCHECK_LT(arg + 1, invoke->dalvikInsn.vA);
-  DCHECK(!MIR::DecodedInstruction::IsPseudoMirOp(invoke->dalvikInsn.opcode));
-  return IsInvokeInstructionRange(invoke->dalvikInsn.opcode) ||
-      invoke->dalvikInsn.arg[arg + 1u] == invoke->dalvikInsn.arg[arg] + 1u;
-}
+static_assert(kIntrinsicIsStatic[kIntrinsicSystemArrayCopy],
+              "SystemArrayCopy must be static");
 
 }  // anonymous namespace
 
@@ -181,6 +241,23 @@ const char* const DexFileMethodInliner::kNameCacheNames[] = {
     "abs",                   // kNameCacheAbs
     "max",                   // kNameCacheMax
     "min",                   // kNameCacheMin
+    "cos",                   // kNameCacheCos
+    "sin",                   // kNameCacheSin
+    "acos",                  // kNameCacheAcos
+    "asin",                  // kNameCacheAsin
+    "atan",                  // kNameCacheAtan
+    "atan2",                 // kNameCacheAtan2
+    "cbrt",                  // kNameCacheCbrt
+    "cosh",                  // kNameCacheCosh
+    "exp",                   // kNameCacheExp
+    "expm1",                 // kNameCacheExpm1
+    "hypot",                 // kNameCacheHypot
+    "log",                   // kNameCacheLog
+    "log10",                 // kNameCacheLog10
+    "nextAfter",             // kNameCacheNextAfter
+    "sinh",                  // kNameCacheSinh
+    "tan",                   // kNameCacheTan
+    "tanh",                  // kNameCacheTanh
     "sqrt",                  // kNameCacheSqrt
     "ceil",                  // kNameCacheCeil
     "floor",                 // kNameCacheFloor
@@ -189,8 +266,13 @@ const char* const DexFileMethodInliner::kNameCacheNames[] = {
     "getReferent",           // kNameCacheReferenceGet
     "charAt",                // kNameCacheCharAt
     "compareTo",             // kNameCacheCompareTo
+    "equals",                // kNameCacheEquals
     "getCharsNoCheck",       // kNameCacheGetCharsNoCheck
     "isEmpty",               // kNameCacheIsEmpty
+    "floatToIntBits",        // kNameCacheFloatToIntBits
+    "doubleToLongBits",      // kNameCacheDoubleToLongBits
+    "isInfinite",            // kNameCacheIsInfinite
+    "isNaN",                 // kNameCacheIsNaN
     "indexOf",               // kNameCacheIndexOf
     "length",                // kNameCacheLength
     "<init>",                // kNameCacheInit
@@ -224,7 +306,24 @@ const char* const DexFileMethodInliner::kNameCacheNames[] = {
     "putObject",             // kNameCachePutObject
     "putObjectVolatile",     // kNameCachePutObjectVolatile
     "putOrderedObject",      // kNameCachePutOrderedObject
+    "getAndAddInt",          // kNameCacheGetAndAddInt,
+    "getAndAddLong",         // kNameCacheGetAndAddLong,
+    "getAndSetInt",          // kNameCacheGetAndSetInt,
+    "getAndSetLong",         // kNameCacheGetAndSetLong,
+    "getAndSetObject",       // kNameCacheGetAndSetObject,
+    "loadFence",             // kNameCacheLoadFence,
+    "storeFence",            // kNameCacheStoreFence,
+    "fullFence",             // kNameCacheFullFence,
     "arraycopy",             // kNameCacheArrayCopy
+    "bitCount",              // kNameCacheBitCount
+    "compare",               // kNameCacheCompare
+    "highestOneBit",         // kNameCacheHighestOneBit
+    "lowestOneBit",          // kNameCacheLowestOneBit
+    "numberOfLeadingZeros",  // kNameCacheNumberOfLeadingZeros
+    "numberOfTrailingZeros",  // kNameCacheNumberOfTrailingZeros
+    "rotateRight",           // kNameCacheRotateRight
+    "rotateLeft",            // kNameCacheRotateLeft
+    "signum",                // kNameCacheSignum
 };
 
 const DexFileMethodInliner::ProtoDef DexFileMethodInliner::kProtoCacheDefs[] = {
@@ -244,10 +343,14 @@ const DexFileMethodInliner::ProtoDef DexFileMethodInliner::kProtoCacheDefs[] = {
     { kClassCacheFloat, 2, { kClassCacheFloat, kClassCacheFloat } },
     // kProtoCacheD_J
     { kClassCacheLong, 1, { kClassCacheDouble } },
+    // kProtoCacheD_Z
+    { kClassCacheBoolean, 1, { kClassCacheDouble } },
     // kProtoCacheJ_D
     { kClassCacheDouble, 1, { kClassCacheLong } },
     // kProtoCacheF_I
     { kClassCacheInt, 1, { kClassCacheFloat } },
+    // kProtoCacheF_Z
+    { kClassCacheBoolean, 1, { kClassCacheFloat } },
     // kProtoCacheI_F
     { kClassCacheFloat, 1, { kClassCacheInt } },
     // kProtoCacheII_I
@@ -276,10 +379,16 @@ const DexFileMethodInliner::ProtoDef DexFileMethodInliner::kProtoCacheDefs[] = {
     { kClassCacheVoid, 2, { kClassCacheLong, kClassCacheInt } },
     // kProtoCacheJJ_J
     { kClassCacheLong, 2, { kClassCacheLong, kClassCacheLong } },
+    // kProtoCacheJJ_I
+    { kClassCacheInt, 2, { kClassCacheLong, kClassCacheLong } },
     // kProtoCacheJJ_V
     { kClassCacheVoid, 2, { kClassCacheLong, kClassCacheLong } },
     // kProtoCacheJS_V
     { kClassCacheVoid, 2, { kClassCacheLong, kClassCacheShort } },
+    // kProtoCacheObject_Z
+    { kClassCacheBoolean, 1, { kClassCacheJavaLangObject } },
+    // kProtoCacheJI_J
+    { kClassCacheLong, 2, { kClassCacheLong, kClassCacheInt } },
     // kProtoCacheObjectJII_Z
     { kClassCacheBoolean, 4, { kClassCacheJavaLangObject, kClassCacheLong,
         kClassCacheInt, kClassCacheInt } },
@@ -291,10 +400,14 @@ const DexFileMethodInliner::ProtoDef DexFileMethodInliner::kProtoCacheDefs[] = {
         kClassCacheJavaLangObject, kClassCacheJavaLangObject } },
     // kProtoCacheObjectJ_I
     { kClassCacheInt, 2, { kClassCacheJavaLangObject, kClassCacheLong } },
+    // kProtoCacheObjectJI_I
+    { kClassCacheInt, 3, { kClassCacheJavaLangObject, kClassCacheLong, kClassCacheInt } },
     // kProtoCacheObjectJI_V
     { kClassCacheVoid, 3, { kClassCacheJavaLangObject, kClassCacheLong, kClassCacheInt } },
     // kProtoCacheObjectJ_J
     { kClassCacheLong, 2, { kClassCacheJavaLangObject, kClassCacheLong } },
+    // kProtoCacheObjectJJ_J
+    { kClassCacheLong, 3, { kClassCacheJavaLangObject, kClassCacheLong, kClassCacheLong } },
     // kProtoCacheObjectJJ_V
     { kClassCacheVoid, 3, { kClassCacheJavaLangObject, kClassCacheLong, kClassCacheLong } },
     // kProtoCacheObjectJ_Object
@@ -302,9 +415,15 @@ const DexFileMethodInliner::ProtoDef DexFileMethodInliner::kProtoCacheDefs[] = {
     // kProtoCacheObjectJObject_V
     { kClassCacheVoid, 3, { kClassCacheJavaLangObject, kClassCacheLong,
         kClassCacheJavaLangObject } },
+    // kProtoCacheObjectJObject_Object
+    { kClassCacheJavaLangObject, 3, { kClassCacheJavaLangObject, kClassCacheLong,
+        kClassCacheJavaLangObject } },
     // kProtoCacheCharArrayICharArrayII_V
     { kClassCacheVoid, 5, {kClassCacheJavaLangCharArray, kClassCacheInt,
         kClassCacheJavaLangCharArray, kClassCacheInt, kClassCacheInt} },
+    // kProtoCacheObjectIObjectII_V
+    { kClassCacheVoid, 5, {kClassCacheJavaLangObject, kClassCacheInt,
+        kClassCacheJavaLangObject, kClassCacheInt, kClassCacheInt} },
     // kProtoCacheIICharArrayI_V
     { kClassCacheVoid, 4, { kClassCacheInt, kClassCacheInt, kClassCacheJavaLangCharArray,
         kClassCacheInt } },
@@ -362,11 +481,34 @@ const DexFileMethodInliner::IntrinsicDef DexFileMethodInliner::kIntrinsicMethods
     INTRINSIC(JavaLangFloat, FloatToRawIntBits, F_I, kIntrinsicFloatCvt, 0),
     INTRINSIC(JavaLangFloat, IntBitsToFloat, I_F, kIntrinsicFloatCvt, kIntrinsicFlagToFloatingPoint),
 
+    INTRINSIC(JavaLangFloat, FloatToIntBits, F_I, kIntrinsicFloat2Int, 0),
+    INTRINSIC(JavaLangDouble, DoubleToLongBits, D_J, kIntrinsicDouble2Long, 0),
+
+    INTRINSIC(JavaLangFloat, IsInfinite, F_Z, kIntrinsicFloatIsInfinite, 0),
+    INTRINSIC(JavaLangDouble, IsInfinite, D_Z, kIntrinsicDoubleIsInfinite, 0),
+    INTRINSIC(JavaLangFloat, IsNaN, F_Z, kIntrinsicFloatIsNaN, 0),
+    INTRINSIC(JavaLangDouble, IsNaN, D_Z, kIntrinsicDoubleIsNaN, 0),
+
     INTRINSIC(JavaLangInteger, ReverseBytes, I_I, kIntrinsicReverseBytes, k32),
     INTRINSIC(JavaLangLong, ReverseBytes, J_J, kIntrinsicReverseBytes, k64),
     INTRINSIC(JavaLangShort, ReverseBytes, S_S, kIntrinsicReverseBytes, kSignedHalf),
     INTRINSIC(JavaLangInteger, Reverse, I_I, kIntrinsicReverseBits, k32),
     INTRINSIC(JavaLangLong, Reverse, J_J, kIntrinsicReverseBits, k64),
+
+    INTRINSIC(JavaLangInteger, BitCount, I_I, kIntrinsicBitCount, k32),
+    INTRINSIC(JavaLangLong, BitCount, J_I, kIntrinsicBitCount, k64),
+    INTRINSIC(JavaLangInteger, Compare, II_I, kIntrinsicCompare, k32),
+    INTRINSIC(JavaLangLong, Compare, JJ_I, kIntrinsicCompare, k64),
+    INTRINSIC(JavaLangInteger, HighestOneBit, I_I, kIntrinsicHighestOneBit, k32),
+    INTRINSIC(JavaLangLong, HighestOneBit, J_J, kIntrinsicHighestOneBit, k64),
+    INTRINSIC(JavaLangInteger, LowestOneBit, I_I, kIntrinsicLowestOneBit, k32),
+    INTRINSIC(JavaLangLong, LowestOneBit, J_J, kIntrinsicLowestOneBit, k64),
+    INTRINSIC(JavaLangInteger, NumberOfLeadingZeros, I_I, kIntrinsicNumberOfLeadingZeros, k32),
+    INTRINSIC(JavaLangLong, NumberOfLeadingZeros, J_I, kIntrinsicNumberOfLeadingZeros, k64),
+    INTRINSIC(JavaLangInteger, NumberOfTrailingZeros, I_I, kIntrinsicNumberOfTrailingZeros, k32),
+    INTRINSIC(JavaLangLong, NumberOfTrailingZeros, J_I, kIntrinsicNumberOfTrailingZeros, k64),
+    INTRINSIC(JavaLangInteger, Signum, I_I, kIntrinsicSignum, k32),
+    INTRINSIC(JavaLangLong, Signum, J_I, kIntrinsicSignum, k64),
 
     INTRINSIC(JavaLangMath,       Abs, I_I, kIntrinsicAbsInt, 0),
     INTRINSIC(JavaLangStrictMath, Abs, I_I, kIntrinsicAbsInt, 0),
@@ -393,6 +535,23 @@ const DexFileMethodInliner::IntrinsicDef DexFileMethodInliner::kIntrinsicMethods
     INTRINSIC(JavaLangMath,       Max, DD_D, kIntrinsicMinMaxDouble, kIntrinsicFlagMax),
     INTRINSIC(JavaLangStrictMath, Max, DD_D, kIntrinsicMinMaxDouble, kIntrinsicFlagMax),
 
+    INTRINSIC(JavaLangMath,       Cos, D_D, kIntrinsicCos, 0),
+    INTRINSIC(JavaLangMath,       Sin, D_D, kIntrinsicSin, 0),
+    INTRINSIC(JavaLangMath,       Acos, D_D, kIntrinsicAcos, 0),
+    INTRINSIC(JavaLangMath,       Asin, D_D, kIntrinsicAsin, 0),
+    INTRINSIC(JavaLangMath,       Atan, D_D, kIntrinsicAtan, 0),
+    INTRINSIC(JavaLangMath,       Atan2, DD_D, kIntrinsicAtan2, 0),
+    INTRINSIC(JavaLangMath,       Cbrt, D_D, kIntrinsicCbrt, 0),
+    INTRINSIC(JavaLangMath,       Cosh, D_D, kIntrinsicCosh, 0),
+    INTRINSIC(JavaLangMath,       Exp, D_D, kIntrinsicExp, 0),
+    INTRINSIC(JavaLangMath,       Expm1, D_D, kIntrinsicExpm1, 0),
+    INTRINSIC(JavaLangMath,       Hypot, DD_D, kIntrinsicHypot, 0),
+    INTRINSIC(JavaLangMath,       Log, D_D, kIntrinsicLog, 0),
+    INTRINSIC(JavaLangMath,       Log10, D_D, kIntrinsicLog10, 0),
+    INTRINSIC(JavaLangMath,       NextAfter, DD_D, kIntrinsicNextAfter, 0),
+    INTRINSIC(JavaLangMath,       Sinh, D_D, kIntrinsicSinh, 0),
+    INTRINSIC(JavaLangMath,       Tan, D_D, kIntrinsicTan, 0),
+    INTRINSIC(JavaLangMath,       Tanh, D_D, kIntrinsicTanh, 0),
     INTRINSIC(JavaLangMath,       Sqrt, D_D, kIntrinsicSqrt, 0),
     INTRINSIC(JavaLangStrictMath, Sqrt, D_D, kIntrinsicSqrt, 0),
 
@@ -411,11 +570,19 @@ const DexFileMethodInliner::IntrinsicDef DexFileMethodInliner::kIntrinsicMethods
 
     INTRINSIC(JavaLangString, CharAt, I_C, kIntrinsicCharAt, 0),
     INTRINSIC(JavaLangString, CompareTo, String_I, kIntrinsicCompareTo, 0),
+    INTRINSIC(JavaLangString, Equals, Object_Z, kIntrinsicEquals, 0),
     INTRINSIC(JavaLangString, GetCharsNoCheck, IICharArrayI_V, kIntrinsicGetCharsNoCheck, 0),
     INTRINSIC(JavaLangString, IsEmpty, _Z, kIntrinsicIsEmptyOrLength, kIntrinsicFlagIsEmpty),
     INTRINSIC(JavaLangString, IndexOf, II_I, kIntrinsicIndexOf, kIntrinsicFlagNone),
     INTRINSIC(JavaLangString, IndexOf, I_I, kIntrinsicIndexOf, kIntrinsicFlagBase0),
     INTRINSIC(JavaLangString, Length, _I, kIntrinsicIsEmptyOrLength, kIntrinsicFlagLength),
+
+    INTRINSIC(JavaLangStringFactory, NewStringFromBytes, ByteArrayIII_String,
+              kIntrinsicNewStringFromBytes, kIntrinsicFlagNone),
+    INTRINSIC(JavaLangStringFactory, NewStringFromChars, IICharArray_String,
+              kIntrinsicNewStringFromChars, kIntrinsicFlagNone),
+    INTRINSIC(JavaLangStringFactory, NewStringFromString, String_String,
+              kIntrinsicNewStringFromString, kIntrinsicFlagNone),
 
     INTRINSIC(JavaLangThread, CurrentThread, _Thread, kIntrinsicCurrentThread, 0),
 
@@ -452,8 +619,25 @@ const DexFileMethodInliner::IntrinsicDef DexFileMethodInliner::kIntrinsicMethods
     UNSAFE_GET_PUT(Object, Object, kIntrinsicFlagIsObject),
 #undef UNSAFE_GET_PUT
 
+    // 1.8
+    INTRINSIC(SunMiscUnsafe, GetAndAddInt, ObjectJI_I, kIntrinsicUnsafeGetAndAddInt, 0),
+    INTRINSIC(SunMiscUnsafe, GetAndAddLong, ObjectJJ_J, kIntrinsicUnsafeGetAndAddLong, 0),
+    INTRINSIC(SunMiscUnsafe, GetAndSetInt, ObjectJI_I, kIntrinsicUnsafeGetAndSetInt, 0),
+    INTRINSIC(SunMiscUnsafe, GetAndSetLong, ObjectJJ_J, kIntrinsicUnsafeGetAndSetLong, 0),
+    INTRINSIC(SunMiscUnsafe, GetAndSetObject, ObjectJObject_Object, kIntrinsicUnsafeGetAndSetObject, 0),
+    INTRINSIC(SunMiscUnsafe, LoadFence, _V, kIntrinsicUnsafeLoadFence, 0),
+    INTRINSIC(SunMiscUnsafe, StoreFence, _V, kIntrinsicUnsafeStoreFence, 0),
+    INTRINSIC(SunMiscUnsafe, FullFence, _V, kIntrinsicUnsafeFullFence, 0),
+
     INTRINSIC(JavaLangSystem, ArrayCopy, CharArrayICharArrayII_V , kIntrinsicSystemArrayCopyCharArray,
               0),
+    INTRINSIC(JavaLangSystem, ArrayCopy, ObjectIObjectII_V , kIntrinsicSystemArrayCopy,
+              0),
+
+    INTRINSIC(JavaLangInteger, RotateRight, II_I, kIntrinsicRotateRight, k32),
+    INTRINSIC(JavaLangLong, RotateRight, JI_J, kIntrinsicRotateRight, k64),
+    INTRINSIC(JavaLangInteger, RotateLeft, II_I, kIntrinsicRotateLeft, k32),
+    INTRINSIC(JavaLangLong, RotateLeft, JI_J, kIntrinsicRotateLeft, k64),
 
 #undef INTRINSIC
 
@@ -524,180 +708,10 @@ bool DexFileMethodInliner::IsIntrinsic(uint32_t method_index, InlineMethod* intr
   return res;
 }
 
-bool DexFileMethodInliner::GenIntrinsic(Mir2Lir* backend, CallInfo* info) {
-  InlineMethod intrinsic;
-  {
-    ReaderMutexLock mu(Thread::Current(), lock_);
-    auto it = inline_methods_.find(info->method_ref.dex_method_index);
-    if (it == inline_methods_.end() || (it->second.flags & kInlineIntrinsic) == 0) {
-      return false;
-    }
-    intrinsic = it->second;
-  }
-  if (kIntrinsicIsStatic[intrinsic.opcode] != (info->type == kStatic)) {
-    // Invoke type mismatch.
-    return false;
-  }
-  switch (intrinsic.opcode) {
-    case kIntrinsicDoubleCvt:
-      return backend->GenInlinedDoubleCvt(info);
-    case kIntrinsicFloatCvt:
-      return backend->GenInlinedFloatCvt(info);
-    case kIntrinsicReverseBytes:
-      return backend->GenInlinedReverseBytes(info, static_cast<OpSize>(intrinsic.d.data));
-    case kIntrinsicReverseBits:
-      return backend->GenInlinedReverseBits(info, static_cast<OpSize>(intrinsic.d.data));
-    case kIntrinsicAbsInt:
-      return backend->GenInlinedAbsInt(info);
-    case kIntrinsicAbsLong:
-      return backend->GenInlinedAbsLong(info);
-    case kIntrinsicAbsFloat:
-      return backend->GenInlinedAbsFloat(info);
-    case kIntrinsicAbsDouble:
-      return backend->GenInlinedAbsDouble(info);
-    case kIntrinsicMinMaxInt:
-      return backend->GenInlinedMinMax(info, intrinsic.d.data & kIntrinsicFlagMin, false /* is_long */);
-    case kIntrinsicMinMaxLong:
-      return backend->GenInlinedMinMax(info, intrinsic.d.data & kIntrinsicFlagMin, true /* is_long */);
-    case kIntrinsicMinMaxFloat:
-      return backend->GenInlinedMinMaxFP(info, intrinsic.d.data & kIntrinsicFlagMin, false /* is_double */);
-    case kIntrinsicMinMaxDouble:
-      return backend->GenInlinedMinMaxFP(info, intrinsic.d.data & kIntrinsicFlagMin, true /* is_double */);
-    case kIntrinsicSqrt:
-      return backend->GenInlinedSqrt(info);
-    case kIntrinsicCeil:
-      return backend->GenInlinedCeil(info);
-    case kIntrinsicFloor:
-      return backend->GenInlinedFloor(info);
-    case kIntrinsicRint:
-      return backend->GenInlinedRint(info);
-    case kIntrinsicRoundFloat:
-      return backend->GenInlinedRound(info, false /* is_double */);
-    case kIntrinsicRoundDouble:
-      return backend->GenInlinedRound(info, true /* is_double */);
-    case kIntrinsicReferenceGetReferent:
-      return backend->GenInlinedReferenceGetReferent(info);
-    case kIntrinsicCharAt:
-      return backend->GenInlinedCharAt(info);
-    case kIntrinsicCompareTo:
-      return backend->GenInlinedStringCompareTo(info);
-    case kIntrinsicGetCharsNoCheck:
-      return backend->GenInlinedStringGetCharsNoCheck(info);
-    case kIntrinsicIsEmptyOrLength:
-      return backend->GenInlinedStringIsEmptyOrLength(
-          info, intrinsic.d.data & kIntrinsicFlagIsEmpty);
-    case kIntrinsicIndexOf:
-      return backend->GenInlinedIndexOf(info, intrinsic.d.data & kIntrinsicFlagBase0);
-    case kIntrinsicNewStringFromBytes:
-      return backend->GenInlinedStringFactoryNewStringFromBytes(info);
-    case kIntrinsicNewStringFromChars:
-      return backend->GenInlinedStringFactoryNewStringFromChars(info);
-    case kIntrinsicNewStringFromString:
-      return backend->GenInlinedStringFactoryNewStringFromString(info);
-    case kIntrinsicCurrentThread:
-      return backend->GenInlinedCurrentThread(info);
-    case kIntrinsicPeek:
-      return backend->GenInlinedPeek(info, static_cast<OpSize>(intrinsic.d.data));
-    case kIntrinsicPoke:
-      return backend->GenInlinedPoke(info, static_cast<OpSize>(intrinsic.d.data));
-    case kIntrinsicCas:
-      return backend->GenInlinedCas(info, intrinsic.d.data & kIntrinsicFlagIsLong,
-                                    intrinsic.d.data & kIntrinsicFlagIsObject);
-    case kIntrinsicUnsafeGet:
-      return backend->GenInlinedUnsafeGet(info, intrinsic.d.data & kIntrinsicFlagIsLong,
-                                          intrinsic.d.data & kIntrinsicFlagIsObject,
-                                          intrinsic.d.data & kIntrinsicFlagIsVolatile);
-    case kIntrinsicUnsafePut:
-      return backend->GenInlinedUnsafePut(info, intrinsic.d.data & kIntrinsicFlagIsLong,
-                                          intrinsic.d.data & kIntrinsicFlagIsObject,
-                                          intrinsic.d.data & kIntrinsicFlagIsVolatile,
-                                          intrinsic.d.data & kIntrinsicFlagIsOrdered);
-    case kIntrinsicSystemArrayCopyCharArray:
-      return backend->GenInlinedArrayCopyCharArray(info);
-    default:
-      LOG(FATAL) << "Unexpected intrinsic opcode: " << intrinsic.opcode;
-      return false;  // avoid warning "control reaches end of non-void function"
-  }
-}
-
 bool DexFileMethodInliner::IsSpecial(uint32_t method_index) {
   ReaderMutexLock mu(Thread::Current(), lock_);
   auto it = inline_methods_.find(method_index);
   return it != inline_methods_.end() && (it->second.flags & kInlineSpecial) != 0;
-}
-
-bool DexFileMethodInliner::GenSpecial(Mir2Lir* backend, uint32_t method_idx) {
-  InlineMethod special;
-  {
-    ReaderMutexLock mu(Thread::Current(), lock_);
-    auto it = inline_methods_.find(method_idx);
-    if (it == inline_methods_.end() || (it->second.flags & kInlineSpecial) == 0) {
-      return false;
-    }
-    special = it->second;
-  }
-  return backend->SpecialMIR2LIR(special);
-}
-
-bool DexFileMethodInliner::GenInline(MIRGraph* mir_graph, BasicBlock* bb, MIR* invoke,
-                                     uint32_t method_idx) {
-  InlineMethod method;
-  {
-    ReaderMutexLock mu(Thread::Current(), lock_);
-    auto it = inline_methods_.find(method_idx);
-    if (it == inline_methods_.end() || (it->second.flags & kInlineSpecial) == 0) {
-      return false;
-    }
-    method = it->second;
-  }
-
-  MIR* move_result = nullptr;
-  bool result = true;
-  switch (method.opcode) {
-    case kInlineOpNop:
-      break;
-    case kInlineOpNonWideConst:
-      move_result = mir_graph->FindMoveResult(bb, invoke);
-      result = GenInlineConst(mir_graph, bb, invoke, move_result, method);
-      break;
-    case kInlineOpReturnArg:
-      move_result = mir_graph->FindMoveResult(bb, invoke);
-      result = GenInlineReturnArg(mir_graph, bb, invoke, move_result, method);
-      break;
-    case kInlineOpIGet:
-      move_result = mir_graph->FindMoveResult(bb, invoke);
-      result = GenInlineIGet(mir_graph, bb, invoke, move_result, method);
-      break;
-    case kInlineOpIPut:
-      move_result = mir_graph->FindMoveResult(bb, invoke);
-      result = GenInlineIPut(mir_graph, bb, invoke, move_result, method);
-      break;
-    case kInlineStringInit:
-      return false;
-    default:
-      LOG(FATAL) << "Unexpected inline op: " << method.opcode;
-      break;
-  }
-  if (result) {
-    // If the invoke has not been eliminated yet, check now whether we should do it.
-    // This is done so that dataflow analysis does not get tripped up seeing nop invoke.
-    if (static_cast<int>(invoke->dalvikInsn.opcode) != kMirOpNop) {
-      bool is_static = IsInstructionInvokeStatic(invoke->dalvikInsn.opcode);
-      if (is_static || (invoke->optimization_flags & MIR_IGNORE_NULL_CHECK) != 0) {
-        // No null object register involved here so we can eliminate the invoke.
-        invoke->dalvikInsn.opcode = static_cast<Instruction::Code>(kMirOpNop);
-      } else {
-        // Invoke was kept around because null check needed to be done.
-        invoke->dalvikInsn.opcode = static_cast<Instruction::Code>(kMirOpNullCheck);
-        // For invokes, the object register is in vC. For null check mir, it is in vA.
-        invoke->dalvikInsn.vA = invoke->dalvikInsn.vC;
-      }
-    }
-    if (move_result != nullptr) {
-      move_result->dalvikInsn.opcode = static_cast<Instruction::Code>(kMirOpNop);
-    }
-  }
-  return result;
 }
 
 uint32_t DexFileMethodInliner::FindClassIndex(const DexFile* dex_file, IndexCache* cache,
@@ -707,14 +721,7 @@ uint32_t DexFileMethodInliner::FindClassIndex(const DexFile* dex_file, IndexCach
     return *class_index;
   }
 
-  const DexFile::StringId* string_id = dex_file->FindStringId(kClassCacheNames[index]);
-  if (string_id == nullptr) {
-    *class_index = kIndexNotFound;
-    return *class_index;
-  }
-  uint32_t string_index = dex_file->GetIndexForStringId(*string_id);
-
-  const DexFile::TypeId* type_id = dex_file->FindTypeId(string_index);
+  const DexFile::TypeId* type_id = dex_file->FindTypeId(kClassCacheNames[index]);
   if (type_id == nullptr) {
     *class_index = kIndexNotFound;
     return *class_index;
@@ -834,191 +841,6 @@ bool DexFileMethodInliner::AddInlineMethod(int32_t method_idx, const InlineMetho
     }
     return false;
   }
-}
-
-bool DexFileMethodInliner::GenInlineConst(MIRGraph* mir_graph, BasicBlock* bb, MIR* invoke,
-                                          MIR* move_result, const InlineMethod& method) {
-  if (move_result == nullptr) {
-    // Result is unused.
-    return true;
-  }
-
-  // Check the opcode and for MOVE_RESULT_OBJECT check also that the constant is null.
-  DCHECK(move_result->dalvikInsn.opcode == Instruction::MOVE_RESULT ||
-         (move_result->dalvikInsn.opcode == Instruction::MOVE_RESULT_OBJECT &&
-             method.d.data == 0u));
-
-  // Insert the CONST instruction.
-  MIR* insn = AllocReplacementMIR(mir_graph, invoke);
-  insn->dalvikInsn.opcode = Instruction::CONST;
-  insn->dalvikInsn.vA = move_result->dalvikInsn.vA;
-  insn->dalvikInsn.vB = method.d.data;
-  insn->meta.method_lowering_info = invoke->meta.method_lowering_info;  // Preserve type info.
-  bb->InsertMIRAfter(move_result, insn);
-  return true;
-}
-
-bool DexFileMethodInliner::GenInlineReturnArg(MIRGraph* mir_graph, BasicBlock* bb, MIR* invoke,
-                                              MIR* move_result, const InlineMethod& method) {
-  if (move_result == nullptr) {
-    // Result is unused.
-    return true;
-  }
-
-  // Select opcode and argument.
-  const InlineReturnArgData& data = method.d.return_data;
-  Instruction::Code opcode = Instruction::MOVE_FROM16;
-  uint32_t arg = GetInvokeReg(invoke, data.arg);
-  if (move_result->dalvikInsn.opcode == Instruction::MOVE_RESULT_OBJECT) {
-    DCHECK_EQ(data.is_object, 1u);
-    DCHECK_EQ(data.is_wide, 0u);
-    opcode = Instruction::MOVE_OBJECT_FROM16;
-  } else if (move_result->dalvikInsn.opcode == Instruction::MOVE_RESULT_WIDE) {
-    DCHECK_EQ(data.is_wide, 1u);
-    DCHECK_EQ(data.is_object, 0u);
-    opcode = Instruction::MOVE_WIDE_FROM16;
-    if (!WideArgIsInConsecutiveDalvikRegs(invoke, data.arg)) {
-      // The two halfs of the source value are not in consecutive dalvik registers in INVOKE.
-      return false;
-    }
-  } else {
-    DCHECK(move_result->dalvikInsn.opcode == Instruction::MOVE_RESULT);
-    DCHECK_EQ(data.is_wide, 0u);
-    DCHECK_EQ(data.is_object, 0u);
-  }
-
-  // Insert the move instruction
-  MIR* insn = AllocReplacementMIR(mir_graph, invoke);
-  insn->dalvikInsn.opcode = opcode;
-  insn->dalvikInsn.vA = move_result->dalvikInsn.vA;
-  insn->dalvikInsn.vB = arg;
-  insn->meta.method_lowering_info = invoke->meta.method_lowering_info;  // Preserve type info.
-  bb->InsertMIRAfter(move_result, insn);
-  return true;
-}
-
-bool DexFileMethodInliner::GenInlineIGet(MIRGraph* mir_graph, BasicBlock* bb, MIR* invoke,
-                                         MIR* move_result, const InlineMethod& method) {
-  CompilationUnit* cu = mir_graph->GetCurrentDexCompilationUnit()->GetCompilationUnit();
-  if (cu->enable_debug & (1 << kDebugSlowFieldPath)) {
-    return false;
-  }
-
-  const InlineIGetIPutData& data = method.d.ifield_data;
-  Instruction::Code opcode = static_cast<Instruction::Code>(Instruction::IGET + data.op_variant);
-  DCHECK_EQ(InlineMethodAnalyser::IGetVariant(opcode), data.op_variant);
-  uint32_t object_reg = GetInvokeReg(invoke, data.object_arg);
-
-  if (move_result == nullptr) {
-    // Result is unused. If volatile, we still need to emit the IGET but we have no destination.
-    return !data.is_volatile;
-  }
-
-  DCHECK_EQ(data.method_is_static != 0u, IsInstructionInvokeStatic(invoke->dalvikInsn.opcode));
-  bool object_is_this = (data.method_is_static == 0u && data.object_arg == 0u);
-  if (!object_is_this) {
-    // TODO: Implement inlining of IGET on non-"this" registers (needs correct stack trace for NPE).
-    // Allow synthetic accessors. We don't care about losing their stack frame in NPE.
-    if (!InlineMethodAnalyser::IsSyntheticAccessor(
-        mir_graph->GetMethodLoweringInfo(invoke).GetTargetMethod())) {
-      return false;
-    }
-  }
-
-  if (object_is_this) {
-    // Mark invoke as NOP, null-check is done on IGET. No aborts after this.
-    invoke->dalvikInsn.opcode = static_cast<Instruction::Code>(kMirOpNop);
-  }
-
-  MIR* insn = AllocReplacementMIR(mir_graph, invoke);
-  insn->offset = invoke->offset;
-  insn->dalvikInsn.opcode = opcode;
-  insn->dalvikInsn.vA = move_result->dalvikInsn.vA;
-  insn->dalvikInsn.vB = object_reg;
-  mir_graph->ComputeInlineIFieldLoweringInfo(data.field_idx, invoke, insn);
-
-  DCHECK(mir_graph->GetIFieldLoweringInfo(insn).IsResolved());
-  DCHECK(mir_graph->GetIFieldLoweringInfo(insn).FastGet());
-  DCHECK_EQ(data.field_offset, mir_graph->GetIFieldLoweringInfo(insn).FieldOffset().Uint32Value());
-  DCHECK_EQ(data.is_volatile, mir_graph->GetIFieldLoweringInfo(insn).IsVolatile() ? 1u : 0u);
-
-  bb->InsertMIRAfter(move_result, insn);
-  return true;
-}
-
-bool DexFileMethodInliner::GenInlineIPut(MIRGraph* mir_graph, BasicBlock* bb, MIR* invoke,
-                                         MIR* move_result, const InlineMethod& method) {
-  CompilationUnit* cu = mir_graph->GetCurrentDexCompilationUnit()->GetCompilationUnit();
-  if (cu->enable_debug & (1 << kDebugSlowFieldPath)) {
-    return false;
-  }
-
-  const InlineIGetIPutData& data = method.d.ifield_data;
-  Instruction::Code opcode = static_cast<Instruction::Code>(Instruction::IPUT + data.op_variant);
-  DCHECK_EQ(InlineMethodAnalyser::IPutVariant(opcode), data.op_variant);
-  uint32_t object_reg = GetInvokeReg(invoke, data.object_arg);
-  uint32_t src_reg = GetInvokeReg(invoke, data.src_arg);
-  uint32_t return_reg =
-      data.return_arg_plus1 != 0u ? GetInvokeReg(invoke, data.return_arg_plus1 - 1u) : 0u;
-
-  if (opcode == Instruction::IPUT_WIDE && !WideArgIsInConsecutiveDalvikRegs(invoke, data.src_arg)) {
-    // The two halfs of the source value are not in consecutive dalvik registers in INVOKE.
-    return false;
-  }
-
-  DCHECK(move_result == nullptr || data.return_arg_plus1 != 0u);
-  if (move_result != nullptr && move_result->dalvikInsn.opcode == Instruction::MOVE_RESULT_WIDE &&
-      !WideArgIsInConsecutiveDalvikRegs(invoke, data.return_arg_plus1 - 1u)) {
-    // The two halfs of the return value are not in consecutive dalvik registers in INVOKE.
-    return false;
-  }
-
-  DCHECK_EQ(data.method_is_static != 0u, IsInstructionInvokeStatic(invoke->dalvikInsn.opcode));
-  bool object_is_this = (data.method_is_static == 0u && data.object_arg == 0u);
-  if (!object_is_this) {
-    // TODO: Implement inlining of IPUT on non-"this" registers (needs correct stack trace for NPE).
-    // Allow synthetic accessors. We don't care about losing their stack frame in NPE.
-    if (!InlineMethodAnalyser::IsSyntheticAccessor(
-        mir_graph->GetMethodLoweringInfo(invoke).GetTargetMethod())) {
-      return false;
-    }
-  }
-
-  if (object_is_this) {
-    // Mark invoke as NOP, null-check is done on IPUT. No aborts after this.
-    invoke->dalvikInsn.opcode = static_cast<Instruction::Code>(kMirOpNop);
-  }
-
-  MIR* insn = AllocReplacementMIR(mir_graph, invoke);
-  insn->dalvikInsn.opcode = opcode;
-  insn->dalvikInsn.vA = src_reg;
-  insn->dalvikInsn.vB = object_reg;
-  mir_graph->ComputeInlineIFieldLoweringInfo(data.field_idx, invoke, insn);
-
-  DCHECK(mir_graph->GetIFieldLoweringInfo(insn).IsResolved());
-  DCHECK(mir_graph->GetIFieldLoweringInfo(insn).FastPut());
-  DCHECK_EQ(data.field_offset, mir_graph->GetIFieldLoweringInfo(insn).FieldOffset().Uint32Value());
-  DCHECK_EQ(data.is_volatile, mir_graph->GetIFieldLoweringInfo(insn).IsVolatile() ? 1u : 0u);
-
-  bb->InsertMIRAfter(invoke, insn);
-
-  if (move_result != nullptr) {
-    MIR* move = AllocReplacementMIR(mir_graph, invoke);
-    move->offset = move_result->offset;
-    if (move_result->dalvikInsn.opcode == Instruction::MOVE_RESULT) {
-      move->dalvikInsn.opcode = Instruction::MOVE_FROM16;
-    } else if (move_result->dalvikInsn.opcode == Instruction::MOVE_RESULT_OBJECT) {
-      move->dalvikInsn.opcode = Instruction::MOVE_OBJECT_FROM16;
-    } else {
-      DCHECK_EQ(move_result->dalvikInsn.opcode, Instruction::MOVE_RESULT_WIDE);
-      move->dalvikInsn.opcode = Instruction::MOVE_WIDE_FROM16;
-    }
-    move->dalvikInsn.vA = move_result->dalvikInsn.vA;
-    move->dalvikInsn.vB = return_reg;
-    move->meta.method_lowering_info = invoke->meta.method_lowering_info;  // Preserve type info.
-    bb->InsertMIRAfter(insn, move);
-  }
-  return true;
 }
 
 uint32_t DexFileMethodInliner::GetOffsetForStringInit(uint32_t method_index, size_t pointer_size) {

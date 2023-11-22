@@ -22,7 +22,7 @@ import android.content.ComponentName;
 import android.os.Bundle;
 import android.util.Log;
 
-import common.src.android.voicesettings.common.Utils;
+import android.cts.util.BroadcastUtils;
 
 public class VoiceInteractionMain extends Activity {
     static final String TAG = "VoiceInteractionMain";
@@ -31,9 +31,9 @@ public class VoiceInteractionMain extends Activity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Intent intent = new Intent();
-        String testCaseType = getIntent().getStringExtra(Utils.TESTCASE_TYPE);
+        String testCaseType = getIntent().getStringExtra(BroadcastUtils.TESTCASE_TYPE);
         Log.i(TAG, "received_testcasetype = " + testCaseType);
-        intent.putExtra(Utils.TESTCASE_TYPE, testCaseType);
+        intent.putExtra(BroadcastUtils.TESTCASE_TYPE, testCaseType);
         intent.setComponent(new ComponentName(this, MainInteractionService.class));
         ComponentName serviceName = startService(intent);
         Log.i(TAG, "Started service: " + serviceName);

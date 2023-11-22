@@ -8,12 +8,14 @@
 #include "SkBitmap.h"
 #include "SkBlurImageFilter.h"
 #include "SkColorPriv.h"
+#include "SkDevice.h"
+#include "SkGpuBlurUtils.h"
+#include "SkOpts.h"
 #include "SkReadBuffer.h"
 #include "SkWriteBuffer.h"
-#include "SkGpuBlurUtils.h"
-#include "SkBlurImage_opts.h"
 #if SK_SUPPORT_GPU
 #include "GrContext.h"
+#include "SkGr.h"
 #endif
 
 // This rather arbitrary-looking value results in a maximum box blur kernel size
@@ -23,7 +25,7 @@
 // raster paths.
 #define MAX_SIGMA SkIntToScalar(532)
 
-static SkVector mapSigma(const SkSize& localSigma, const SkMatrix& ctm) {
+static SkVector map_sigma(const SkSize& localSigma, const SkMatrix& ctm) {
     SkVector sigma = SkVector::Make(localSigma.width(), localSigma.height());
     ctm.mapVectors(&sigma, 1);
     sigma.fX = SkMinScalar(SkScalarAbs(sigma.fX), MAX_SIGMA);
@@ -51,83 +53,6 @@ void SkBlurImageFilter::flatten(SkWriteBuffer& buffer) const {
     buffer.writeScalar(fSigma.fHeight);
 }
 
-enum BlurDirection {
-    kX, kY
-};
-
-/**
- *
- * In order to make memory accesses cache-friendly, we reorder the passes to
- * use contiguous memory reads wherever possible.
- *
- * For example, the 6 passes of the X-and-Y blur case are rewritten as
- * follows. Instead of 3 passes in X and 3 passes in Y, we perform
- * 2 passes in X, 1 pass in X transposed to Y on write, 2 passes in X,
- * then 1 pass in X transposed to Y on write.
- *
- * +----+       +----+       +----+        +---+       +---+       +---+        +----+
- * + AB + ----> | AB | ----> | AB | -----> | A | ----> | A | ----> | A | -----> | AB |
- * +----+ blurX +----+ blurX +----+ blurXY | B | blurX | B | blurX | B | blurXY +----+
- *                                         +---+       +---+       +---+
- *
- * In this way, two of the y-blurs become x-blurs applied to transposed
- * images, and all memory reads are contiguous.
- */
-
-template<BlurDirection srcDirection, BlurDirection dstDirection>
-static void boxBlur(const SkPMColor* src, int srcStride, SkPMColor* dst, int kernelSize,
-                    int leftOffset, int rightOffset, int width, int height)
-{
-    int rightBorder = SkMin32(rightOffset + 1, width);
-    int srcStrideX = srcDirection == kX ? 1 : srcStride;
-    int dstStrideX = dstDirection == kX ? 1 : height;
-    int srcStrideY = srcDirection == kX ? srcStride : 1;
-    int dstStrideY = dstDirection == kX ? width : 1;
-    uint32_t scale = (1 << 24) / kernelSize;
-    uint32_t half = 1 << 23;
-    for (int y = 0; y < height; ++y) {
-        int sumA = 0, sumR = 0, sumG = 0, sumB = 0;
-        const SkPMColor* p = src;
-        for (int i = 0; i < rightBorder; ++i) {
-            sumA += SkGetPackedA32(*p);
-            sumR += SkGetPackedR32(*p);
-            sumG += SkGetPackedG32(*p);
-            sumB += SkGetPackedB32(*p);
-            p += srcStrideX;
-        }
-
-        const SkPMColor* sptr = src;
-        SkColor* dptr = dst;
-        for (int x = 0; x < width; ++x) {
-            *dptr = SkPackARGB32((sumA * scale + half) >> 24,
-                                 (sumR * scale + half) >> 24,
-                                 (sumG * scale + half) >> 24,
-                                 (sumB * scale + half) >> 24);
-            if (x >= leftOffset) {
-                SkColor l = *(sptr - leftOffset * srcStrideX);
-                sumA -= SkGetPackedA32(l);
-                sumR -= SkGetPackedR32(l);
-                sumG -= SkGetPackedG32(l);
-                sumB -= SkGetPackedB32(l);
-            }
-            if (x + rightOffset + 1 < width) {
-                SkColor r = *(sptr + (rightOffset + 1) * srcStrideX);
-                sumA += SkGetPackedA32(r);
-                sumR += SkGetPackedR32(r);
-                sumG += SkGetPackedG32(r);
-                sumB += SkGetPackedB32(r);
-            }
-            sptr += srcStrideX;
-            if (srcDirection == kY) {
-                SK_PREFETCH(sptr + (rightOffset + 1) * srcStrideX);
-            }
-            dptr += dstStrideX;
-        }
-        src += srcStrideY;
-        dst += dstStrideY;
-    }
-}
-
 static void getBox3Params(SkScalar s, int *kernelSize, int* kernelSize3, int *lowOffset,
                           int *highOffset)
 {
@@ -144,12 +69,12 @@ static void getBox3Params(SkScalar s, int *kernelSize, int* kernelSize3, int *lo
     }
 }
 
-bool SkBlurImageFilter::onFilterImage(Proxy* proxy,
-                                      const SkBitmap& source, const Context& ctx,
-                                      SkBitmap* dst, SkIPoint* offset) const {
+bool SkBlurImageFilter::onFilterImageDeprecated(Proxy* proxy,
+                                                const SkBitmap& source, const Context& ctx,
+                                                SkBitmap* dst, SkIPoint* offset) const {
     SkBitmap src = source;
     SkIPoint srcOffset = SkIPoint::Make(0, 0);
-    if (getInput(0) && !getInput(0)->filterImage(proxy, source, ctx, &src, &srcOffset)) {
+    if (!this->filterInputDeprecated(0, proxy, source, ctx, &src, &srcOffset)) {
         return false;
     }
 
@@ -157,22 +82,17 @@ bool SkBlurImageFilter::onFilterImage(Proxy* proxy,
         return false;
     }
 
-    SkIRect srcBounds, dstBounds;
-    if (!this->applyCropRect(ctx, proxy, src, &srcOffset, &srcBounds, &src)) {
+    SkIRect srcBounds = src.bounds();
+    srcBounds.offset(srcOffset);
+    SkIRect dstBounds;
+    if (!this->applyCropRect(this->mapContext(ctx), srcBounds, &dstBounds)) {
+        return false;
+    }
+    if (!srcBounds.intersect(dstBounds)) {
         return false;
     }
 
-    SkAutoLockPixels alp(src);
-    if (!src.getPixels()) {
-        return false;
-    }
-
-    if (!dst->tryAllocPixels(src.info().makeWH(srcBounds.width(), srcBounds.height()))) {
-        return false;
-    }
-    dst->getBounds(&dstBounds);
-
-    SkVector sigma = mapSigma(fSigma, ctx.ctm());
+    SkVector sigma = map_sigma(fSigma, ctx.ctm());
 
     int kernelSizeX, kernelSizeX3, lowOffsetX, highOffsetX;
     int kernelSizeY, kernelSizeY3, lowOffsetY, highOffsetY;
@@ -184,55 +104,84 @@ bool SkBlurImageFilter::onFilterImage(Proxy* proxy,
     }
 
     if (kernelSizeX == 0 && kernelSizeY == 0) {
-        src.copyTo(dst, dst->colorType());
-        offset->fX = srcBounds.fLeft;
-        offset->fY = srcBounds.fTop;
+        src.extractSubset(dst, srcBounds);
+        offset->fX = srcBounds.x();
+        offset->fY = srcBounds.y();
         return true;
     }
 
-    SkBitmap temp;
-    if (!temp.tryAllocPixels(dst->info())) {
+    SkAutoLockPixels alp(src);
+    if (!src.getPixels()) {
         return false;
     }
 
-    offset->fX = srcBounds.fLeft;
-    offset->fY = srcBounds.fTop;
-    srcBounds.offset(-srcOffset);
-    const SkPMColor* s = src.getAddr32(srcBounds.left(), srcBounds.top());
+    SkAutoTUnref<SkBaseDevice> device(proxy->createDevice(dstBounds.width(), dstBounds.height()));
+    if (!device) {
+        return false;
+    }
+    *dst = device->accessBitmap(false);
+    SkAutoLockPixels alp_dst(*dst);
+
+    SkAutoTUnref<SkBaseDevice> tempDevice(proxy->createDevice(dst->width(), dst->height()));
+    if (!tempDevice) {
+        return false;
+    }
+    SkBitmap temp = tempDevice->accessBitmap(false);
+    SkAutoLockPixels alpTemp(temp);
+
+    offset->fX = dstBounds.fLeft;
+    offset->fY = dstBounds.fTop;
     SkPMColor* t = temp.getAddr32(0, 0);
     SkPMColor* d = dst->getAddr32(0, 0);
     int w = dstBounds.width(), h = dstBounds.height();
+    const SkPMColor* s = src.getAddr32(srcBounds.x() - srcOffset.x(), srcBounds.y() - srcOffset.y());
+    srcBounds.offset(-dstBounds.x(), -dstBounds.y());
+    dstBounds.offset(-dstBounds.x(), -dstBounds.y());
+    SkIRect srcBoundsT = SkIRect::MakeLTRB(srcBounds.top(), srcBounds.left(), srcBounds.bottom(), srcBounds.right());
+    SkIRect dstBoundsT = SkIRect::MakeWH(dstBounds.height(), dstBounds.width());
     int sw = src.rowBytesAsPixels();
-    SkBoxBlurProc boxBlurX, boxBlurXY, boxBlurYX;
-    if (!SkBoxBlurGetPlatformProcs(&boxBlurX, &boxBlurXY, &boxBlurYX)) {
-        boxBlurX = boxBlur<kX, kX>;
-        boxBlurXY = boxBlur<kX, kY>;
-        boxBlurYX = boxBlur<kY, kX>;
-    }
 
+    /**
+     *
+     * In order to make memory accesses cache-friendly, we reorder the passes to
+     * use contiguous memory reads wherever possible.
+     *
+     * For example, the 6 passes of the X-and-Y blur case are rewritten as
+     * follows. Instead of 3 passes in X and 3 passes in Y, we perform
+     * 2 passes in X, 1 pass in X transposed to Y on write, 2 passes in X,
+     * then 1 pass in X transposed to Y on write.
+     *
+     * +----+       +----+       +----+        +---+       +---+       +---+        +----+
+     * + AB + ----> | AB | ----> | AB | -----> | A | ----> | A | ----> | A | -----> | AB |
+     * +----+ blurX +----+ blurX +----+ blurXY | B | blurX | B | blurX | B | blurXY +----+
+     *                                         +---+       +---+       +---+
+     *
+     * In this way, two of the y-blurs become x-blurs applied to transposed
+     * images, and all memory reads are contiguous.
+     */
     if (kernelSizeX > 0 && kernelSizeY > 0) {
-        boxBlurX(s,  sw, t, kernelSizeX,  lowOffsetX,  highOffsetX, w, h);
-        boxBlurX(t,  w,  d, kernelSizeX,  highOffsetX, lowOffsetX,  w, h);
-        boxBlurXY(d, w,  t, kernelSizeX3, highOffsetX, highOffsetX, w, h);
-        boxBlurX(t,  h,  d, kernelSizeY,  lowOffsetY,  highOffsetY, h, w);
-        boxBlurX(d,  h,  t, kernelSizeY,  highOffsetY, lowOffsetY,  h, w);
-        boxBlurXY(t, h,  d, kernelSizeY3, highOffsetY, highOffsetY, h, w);
+        SkOpts::box_blur_xx(s, sw,  srcBounds,  t, kernelSizeX,  lowOffsetX,  highOffsetX, w, h);
+        SkOpts::box_blur_xx(t,  w,  dstBounds,  d, kernelSizeX,  highOffsetX, lowOffsetX,  w, h);
+        SkOpts::box_blur_xy(d,  w,  dstBounds,  t, kernelSizeX3, highOffsetX, highOffsetX, w, h);
+        SkOpts::box_blur_xx(t,  h,  dstBoundsT, d, kernelSizeY,  lowOffsetY,  highOffsetY, h, w);
+        SkOpts::box_blur_xx(d,  h,  dstBoundsT, t, kernelSizeY,  highOffsetY, lowOffsetY,  h, w);
+        SkOpts::box_blur_xy(t,  h,  dstBoundsT, d, kernelSizeY3, highOffsetY, highOffsetY, h, w);
     } else if (kernelSizeX > 0) {
-        boxBlurX(s,  sw, d, kernelSizeX,  lowOffsetX,  highOffsetX, w, h);
-        boxBlurX(d,  w,  t, kernelSizeX,  highOffsetX, lowOffsetX,  w, h);
-        boxBlurX(t,  w,  d, kernelSizeX3, highOffsetX, highOffsetX, w, h);
+        SkOpts::box_blur_xx(s, sw,  srcBounds,  d, kernelSizeX,  lowOffsetX,  highOffsetX, w, h);
+        SkOpts::box_blur_xx(d,  w,  dstBounds,  t, kernelSizeX,  highOffsetX, lowOffsetX,  w, h);
+        SkOpts::box_blur_xx(t,  w,  dstBounds,  d, kernelSizeX3, highOffsetX, highOffsetX, w, h);
     } else if (kernelSizeY > 0) {
-        boxBlurYX(s, sw, d, kernelSizeY,  lowOffsetY,  highOffsetY, h, w);
-        boxBlurX(d,  h,  t, kernelSizeY,  highOffsetY, lowOffsetY,  h, w);
-        boxBlurXY(t, h,  d, kernelSizeY3, highOffsetY, highOffsetY, h, w);
+        SkOpts::box_blur_yx(s, sw,  srcBoundsT, d, kernelSizeY,  lowOffsetY,  highOffsetY, h, w);
+        SkOpts::box_blur_xx(d,  h,  dstBoundsT, t, kernelSizeY,  highOffsetY, lowOffsetY,  h, w);
+        SkOpts::box_blur_xy(t,  h,  dstBoundsT, d, kernelSizeY3, highOffsetY, highOffsetY, h, w);
     }
     return true;
 }
 
 
 void SkBlurImageFilter::computeFastBounds(const SkRect& src, SkRect* dst) const {
-    if (getInput(0)) {
-        getInput(0)->computeFastBounds(src, dst);
+    if (this->getInput(0)) {
+        this->getInput(0)->computeFastBounds(src, dst);
     } else {
         *dst = src;
     }
@@ -241,47 +190,56 @@ void SkBlurImageFilter::computeFastBounds(const SkRect& src, SkRect* dst) const 
                 SkScalarMul(fSigma.height(), SkIntToScalar(3)));
 }
 
-bool SkBlurImageFilter::onFilterBounds(const SkIRect& src, const SkMatrix& ctm,
-                                       SkIRect* dst) const {
-    SkIRect bounds = src;
-    SkVector sigma = mapSigma(fSigma, ctm);
-    bounds.outset(SkScalarCeilToInt(SkScalarMul(sigma.x(), SkIntToScalar(3))),
-                  SkScalarCeilToInt(SkScalarMul(sigma.y(), SkIntToScalar(3))));
-    if (getInput(0) && !getInput(0)->filterBounds(bounds, ctm, &bounds)) {
-        return false;
-    }
-    *dst = bounds;
-    return true;
+void SkBlurImageFilter::onFilterNodeBounds(const SkIRect& src, const SkMatrix& ctm,
+                                           SkIRect* dst, MapDirection) const {
+    *dst = src;
+    SkVector sigma = map_sigma(fSigma, ctm);
+    dst->outset(SkScalarCeilToInt(SkScalarMul(sigma.x(), SkIntToScalar(3))),
+                SkScalarCeilToInt(SkScalarMul(sigma.y(), SkIntToScalar(3))));
 }
 
-bool SkBlurImageFilter::filterImageGPU(Proxy* proxy, const SkBitmap& src, const Context& ctx,
-                                       SkBitmap* result, SkIPoint* offset) const {
+bool SkBlurImageFilter::filterImageGPUDeprecated(Proxy* proxy, const SkBitmap& src,
+                                                 const Context& ctx,
+                                                 SkBitmap* result, SkIPoint* offset) const {
 #if SK_SUPPORT_GPU
     SkBitmap input = src;
     SkIPoint srcOffset = SkIPoint::Make(0, 0);
-    if (getInput(0) && !getInput(0)->getInputResultGPU(proxy, src, ctx, &input, &srcOffset)) {
+    if (!this->filterInputGPUDeprecated(0, proxy, src, ctx, &input, &srcOffset)) {
         return false;
     }
-    SkIRect rect;
-    if (!this->applyCropRect(ctx, proxy, input, &srcOffset, &rect, &input)) {
+    SkIRect srcBounds = input.bounds();
+    srcBounds.offset(srcOffset);
+    SkIRect dstBounds;
+    if (!this->applyCropRect(this->mapContext(ctx), srcBounds, &dstBounds)) {
         return false;
     }
-    GrTexture* source = input.getTexture();
-    SkVector sigma = mapSigma(fSigma, ctx.ctm());
-    offset->fX = rect.fLeft;
-    offset->fY = rect.fTop;
-    rect.offset(-srcOffset);
-    SkAutoTUnref<GrTexture> tex(SkGpuBlurUtils::GaussianBlur(source->getContext(),
-                                                             source,
+    if (!srcBounds.intersect(dstBounds)) {
+        return false;
+    }
+    SkVector sigma = map_sigma(fSigma, ctx.ctm());
+    if (sigma.x() == 0 && sigma.y() == 0) {
+        input.extractSubset(result, srcBounds);
+        offset->fX = srcBounds.x();
+        offset->fY = srcBounds.y();
+        return true;
+    }
+    offset->fX = dstBounds.fLeft;
+    offset->fY = dstBounds.fTop;
+    srcBounds.offset(-srcOffset);
+    dstBounds.offset(-srcOffset);
+    SkRect srcBoundsF(SkRect::Make(srcBounds));
+    GrTexture* inputTexture = input.getTexture();
+    SkAutoTUnref<GrTexture> tex(SkGpuBlurUtils::GaussianBlur(inputTexture->getContext(),
+                                                             inputTexture,
                                                              false,
-                                                             SkRect::Make(rect),
-                                                             true,
+                                                             SkRect::Make(dstBounds),
+                                                             &srcBoundsF,
                                                              sigma.x(),
                                                              sigma.y()));
     if (!tex) {
         return false;
     }
-    WrapTexture(tex, rect.width(), rect.height(), result);
+    GrWrapTextureInBitmap(tex, dstBounds.width(), dstBounds.height(), false, result);
     return true;
 #else
     SkDEBUGFAIL("Should not call in GPU-less build");

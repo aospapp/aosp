@@ -93,7 +93,8 @@ static int get_supported_format(struct sp_plane *plane, uint32_t *format)
 	for (i = 0; i < plane->plane->count_formats; i++) {
 		if (plane->plane->formats[i] == DRM_FORMAT_XRGB8888 ||
 		    plane->plane->formats[i] == DRM_FORMAT_ARGB8888 ||
-		    plane->plane->formats[i] == DRM_FORMAT_RGBA8888) {
+		    plane->plane->formats[i] == DRM_FORMAT_RGBA8888 ||
+		    plane->plane->formats[i] == DRM_FORMAT_NV12) {
 			*format = plane->plane->formats[i];
 			return 0;
 		}

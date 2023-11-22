@@ -112,7 +112,7 @@ public class PathMeasure {
      * Given a start and stop distance, return in dst the intervening
      * segment(s). If the segment is zero-length, return false, else return
      * true. startD and stopD are pinned to legal values (0..getLength()).
-     * If startD <= stopD then return false (and leave dst untouched).
+     * If startD >= stopD then return false (and leave dst untouched).
      * Begin the segment with a moveTo if startWithMoveTo is true.
      *
      * <p>On {@link android.os.Build.VERSION_CODES#KITKAT} and earlier
@@ -121,6 +121,19 @@ public class PathMeasure {
      * such as <code>dst.rLineTo(0, 0)</code>.</p>
      */
     public boolean getSegment(float startD, float stopD, Path dst, boolean startWithMoveTo) {
+        // Skia used to enforce this as part of it's API, but has since relaxed that restriction
+        // so to maintain consistency in our API we enforce the preconditions here.
+        float length = getLength();
+        if (startD < 0) {
+            startD = 0;
+        }
+        if (stopD > length) {
+            stopD = length;
+        }
+        if (startD >= stopD) {
+            return false;
+        }
+
         dst.isSimplePath = false;
         return native_getSegment(native_instance, startD, stopD, dst.ni(), startWithMoveTo);
     }
@@ -142,6 +155,7 @@ public class PathMeasure {
 
     protected void finalize() throws Throwable {
         native_destroy(native_instance);
+        native_instance = 0;  // Other finalizers can still call us.
     }
 
     private static native long native_create(long native_path, boolean forceClosed);
@@ -154,6 +168,6 @@ public class PathMeasure {
     private static native boolean native_nextContour(long native_instance);
     private static native void native_destroy(long native_instance);
 
-    /* package */private final long native_instance;
+    /* package */private long native_instance;
 }
 

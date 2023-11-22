@@ -22,6 +22,8 @@
 #include "WebmConstants.h"
 
 #include <media/stagefright/foundation/ADebug.h>
+#include <media/stagefright/foundation/ColorUtils.h>
+#include <media/stagefright/MetaData.h>
 #include <utils/Log.h>
 
 #include <string.h>
@@ -338,8 +340,10 @@ sp<WebmElement> WebmElement::AudioTrackEntry(
 }
 
 sp<WebmElement> WebmElement::VideoTrackEntry(
+        const char *codec,
         uint64_t width,
         uint64_t height,
+        const sp<MetaData> &meta,
         uint64_t uid,
         bool lacing,
         const char *lang) {
@@ -353,13 +357,115 @@ sp<WebmElement> WebmElement::VideoTrackEntry(
             uid,
             lacing,
             lang,
-            "V_VP8",
+            codec,
             kVideoType,
             trackEntryFields);
+
+    // CSD
+    uint32_t type;
+    const void *data;
+    size_t size;
+    if (meta->findData(kKeyVp9CodecPrivate, &type, &data, &size)) {
+        sp<ABuffer> buf = new ABuffer((void *)data, size); // note: buf does not own data
+        trackEntryFields.push_back(new WebmBinary(kMkvCodecPrivate, buf));
+    }
 
     List<sp<WebmElement> > videoInfo;
     videoInfo.push_back(new WebmUnsigned(kMkvPixelWidth, width));
     videoInfo.push_back(new WebmUnsigned(kMkvPixelHeight, height));
+
+    // Color aspects
+    {
+        List<sp<WebmElement> > colorInfo;
+
+        ColorAspects aspects;
+        aspects.mPrimaries = ColorAspects::PrimariesUnspecified;
+        aspects.mTransfer = ColorAspects::TransferUnspecified;
+        aspects.mMatrixCoeffs = ColorAspects::MatrixUnspecified;
+        aspects.mRange = ColorAspects::RangeUnspecified;
+        bool havePrimaries = meta->findInt32(kKeyColorPrimaries, (int32_t*)&aspects.mPrimaries);
+        bool haveTransfer = meta->findInt32(kKeyTransferFunction, (int32_t*)&aspects.mTransfer);
+        bool haveCoeffs = meta->findInt32(kKeyColorMatrix, (int32_t*)&aspects.mMatrixCoeffs);
+        bool haveRange = meta->findInt32(kKeyColorRange, (int32_t*)&aspects.mRange);
+
+        int32_t primaries, transfer, coeffs;
+        bool fullRange;
+        ColorUtils::convertCodecColorAspectsToIsoAspects(
+                aspects, &primaries, &transfer, &coeffs, &fullRange);
+        if (havePrimaries) {
+            colorInfo.push_back(new WebmUnsigned(kMkvPrimaries, primaries));
+        }
+        if (haveTransfer) {
+            colorInfo.push_back(new WebmUnsigned(kMkvTransferCharacteristics, transfer));
+        }
+        if (haveCoeffs) {
+            colorInfo.push_back(new WebmUnsigned(kMkvMatrixCoefficients, coeffs));
+        }
+        if (haveRange) {
+            colorInfo.push_back(new WebmUnsigned(kMkvRange, fullRange ? 2 : 1));
+        }
+
+        // Also add HDR static info, some of which goes to MasteringMetadata element
+
+        const HDRStaticInfo *info;
+        uint32_t type;
+        const void *data;
+        size_t size;
+        if (meta->findData(kKeyHdrStaticInfo, &type, &data, &size)
+                && type == 'hdrS' && size == sizeof(*info)) {
+            info = (const HDRStaticInfo*)data;
+            if (info->mID == HDRStaticInfo::kType1) {
+                List<sp<WebmElement> > masteringInfo;
+
+                // convert HDRStaticInfo values to matroska equivalent values for each non-0 group
+                if (info->sType1.mMaxFrameAverageLightLevel) {
+                    colorInfo.push_back(new WebmUnsigned(
+                            kMkvMaxFALL, info->sType1.mMaxFrameAverageLightLevel));
+                }
+                if (info->sType1.mMaxContentLightLevel) {
+                    colorInfo.push_back(new WebmUnsigned(
+                            kMkvMaxCLL, info->sType1.mMaxContentLightLevel));
+                }
+                if (info->sType1.mMinDisplayLuminance) {
+                    // HDRStaticInfo Type1 stores min luminance scaled 10000:1
+                    masteringInfo.push_back(new WebmFloat(
+                            kMkvLuminanceMin, info->sType1.mMinDisplayLuminance * 0.0001));
+                }
+                if (info->sType1.mMaxDisplayLuminance) {
+                    masteringInfo.push_back(new WebmFloat(
+                            kMkvLuminanceMax, (float)info->sType1.mMaxDisplayLuminance));
+                }
+                // HDRStaticInfo Type1 stores primaries scaled 50000:1
+                if (info->sType1.mW.x || info->sType1.mW.y) {
+                    masteringInfo.push_back(new WebmFloat(
+                            kMkvWhitePointChromaticityX, info->sType1.mW.x * 0.00002));
+                    masteringInfo.push_back(new WebmFloat(
+                            kMkvWhitePointChromaticityY, info->sType1.mW.y * 0.00002));
+                }
+                if (info->sType1.mR.x || info->sType1.mR.y || info->sType1.mG.x
+                        || info->sType1.mG.y || info->sType1.mB.x || info->sType1.mB.y) {
+                    masteringInfo.push_back(new WebmFloat(
+                            kMkvPrimaryRChromaticityX, info->sType1.mR.x * 0.00002));
+                    masteringInfo.push_back(new WebmFloat(
+                            kMkvPrimaryRChromaticityY, info->sType1.mR.y * 0.00002));
+                    masteringInfo.push_back(new WebmFloat(
+                            kMkvPrimaryGChromaticityX, info->sType1.mG.x * 0.00002));
+                    masteringInfo.push_back(new WebmFloat(
+                            kMkvPrimaryGChromaticityY, info->sType1.mG.y * 0.00002));
+                    masteringInfo.push_back(new WebmFloat(
+                            kMkvPrimaryBChromaticityX, info->sType1.mB.x * 0.00002));
+                    masteringInfo.push_back(new WebmFloat(
+                            kMkvPrimaryBChromaticityY, info->sType1.mB.y * 0.00002));
+                }
+                if (masteringInfo.size()) {
+                    colorInfo.push_back(new WebmMaster(kMkvMasteringMetadata, masteringInfo));
+                }
+            }
+        }
+        if (colorInfo.size()) {
+            videoInfo.push_back(new WebmMaster(kMkvColour, colorInfo));
+        }
+    }
 
     trackEntryFields.push_back(new WebmMaster(kMkvVideo, videoInfo));
     return new WebmMaster(kMkvTrackEntry, trackEntryFields);

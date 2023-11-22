@@ -23,11 +23,13 @@ typedef struct {
     uint8_t  type;      // nalu type + nal_ref_idc
     uint32_t offset;    // offset to the pointer of the encrypted data
     uint8_t* data;      // if the nalu is encrypted, this field is useless; if current NALU is SPS/PPS, data is the pointer to clear SPS/PPS data
+    uint32_t data_offset_from_frameinfo; // offset from frame_info to data. this will be used instead of data for inter-process 
     uint32_t length;    // nalu length
 } nalu_info_t;
 
 typedef struct {
     uint8_t* data;      // pointer to the encrypted data
+    uint32_t data_offset_from_frameinfo;  // offset from frame_info to data. this will be used instead of data for inter-process 
     uint32_t size;      // encrypted data size
     uint32_t num_nalus; // number of NALU
     nalu_info_t nalus[MAX_NUM_NALUS];

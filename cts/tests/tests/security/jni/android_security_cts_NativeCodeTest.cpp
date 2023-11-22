@@ -35,6 +35,8 @@
 #include <inttypes.h>
 #include <linux/sysctl.h>
 #include <arpa/inet.h>
+#include <linux/ipc.h>
+#include <pthread.h>
 
 /*
  * Returns true iff this device is vulnerable to CVE-2013-2094.
@@ -117,7 +119,7 @@ static jboolean android_security_cts_NativeCodeTest_doVrootTest(JNIEnv*, jobject
     args.oldlenp = (size_t *) 0xc0000000; // PAGE_OFFSET
 
     int result = syscall(__NR__sysctl, &args);
-    return ((result == -1) && (errno == EFAULT));
+    return ((result == -1) && (errno == EFAULT || errno == ENOSYS));
 #else
     return true;
 #endif
@@ -251,6 +253,143 @@ static jboolean android_security_cts_NativeCodeTest_doPingPongRootTest(JNIEnv*, 
     return true;
 }
 
+#define BUFS 256
+#define IOV_LEN 16
+#define OVERFLOW_BUF 7
+#define FIXED_ADDR 0x45678000
+#define TIMEOUT 60 /* seconds */
+
+static struct iovec *iovs = NULL;
+static int fd[2];
+static void *overflow_addr;
+
+void* func_map(void*)
+{
+    munmap(overflow_addr, PAGE_SIZE);
+    overflow_addr = mmap(overflow_addr, PAGE_SIZE, PROT_READ | PROT_WRITE,
+            MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    return NULL;
+}
+
+void* func_readv(void*)
+{
+    readv(fd[0], iovs, BUFS);
+    return NULL;
+}
+
+static jboolean android_security_cts_NativeCodeTest_doPipeReadVTest(JNIEnv*, jobject)
+{
+    bool ret = false;
+    unsigned int i;
+    void *bufs[BUFS];
+    struct timespec ts;
+    time_t time;
+    pthread_t thr_map, thr_readv;
+
+    if (pipe(fd) < 0) {
+        ALOGE("pipe failed:%s", strerror(errno));
+        goto __out;
+    }
+    fcntl(fd[0], F_SETFL, O_NONBLOCK);
+    fcntl(fd[1], F_SETFL, O_NONBLOCK);
+
+    iovs = (struct iovec*)malloc(BUFS * sizeof(struct iovec));
+    if (iovs == NULL) {
+        ALOGE("malloc failed:%s", strerror(errno));
+        goto __close_pipe;
+    }
+
+    /*
+     * set up to overflow iov[OVERFLOW_BUF] on non-atomic redo in kernel
+     * function pipe_iov_copy_to_user
+     */
+    iovs[OVERFLOW_BUF - 1].iov_len = IOV_LEN*10;
+    iovs[OVERFLOW_BUF].iov_base = bufs[OVERFLOW_BUF];
+    iovs[OVERFLOW_BUF].iov_len = IOV_LEN;
+
+    overflow_addr = mmap((void *) FIXED_ADDR, PAGE_SIZE, PROT_READ | PROT_WRITE,
+            MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+
+    bufs[OVERFLOW_BUF] = overflow_addr;
+    if (bufs[OVERFLOW_BUF] == MAP_FAILED) {
+        ALOGE("mmap fixed addr failed:%s", strerror(errno));
+        goto __close_pipe;
+    }
+
+    for (i = 0; i < BUFS; i++) {
+        if (i == OVERFLOW_BUF) {
+            continue;
+        }
+        bufs[i] = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+        if(bufs[i] == MAP_FAILED) {
+            ALOGE("mmap failed in %d times:%s", i, strerror(errno));
+            goto  __free_bufs;
+        }
+
+        iovs[i].iov_base = bufs[i];
+        iovs[i].iov_len = IOV_LEN;
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    time = ts.tv_sec;
+    while (1) {
+        write(fd[1], bufs[0], PAGE_SIZE);
+
+        pthread_create(&thr_map, NULL, func_map, NULL);
+        pthread_create(&thr_readv, NULL, func_readv, NULL);
+
+        pthread_join(thr_map, NULL);
+        pthread_join(thr_readv, NULL);
+
+        bufs[OVERFLOW_BUF] = overflow_addr;
+        if (bufs[OVERFLOW_BUF] == MAP_FAILED) {
+            ALOGE("mmap fixed addr failed:%s", strerror(errno));
+            goto __free_bufs;
+        }
+
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+        if ((ts.tv_sec - time) > TIMEOUT) {
+            ret = true;
+            break;
+        }
+    }
+
+__free_bufs:
+    for (i = 0; i < BUFS; i++) {
+        if (bufs[i]) {
+            munmap(bufs[i], PAGE_SIZE);
+        }
+    }
+
+__free_iovs:
+    free(iovs);
+
+__close_pipe:
+    close(fd[0]);
+    close(fd[1]);
+__out:
+    return ret;
+}
+
+#define SHMEMSIZE 0x1 /* request one page */
+static jboolean android_security_cts_NativeCodeTest_doSysVipcTest(JNIEnv*, jobject)
+{
+    key_t key = 0x1a25;
+
+#if defined(__i386__) || (_MIPS_SIM == _MIPS_SIM_ABI32)
+    /* system call does not exist for x86 or mips 32 */
+    return true;
+#else
+    /*
+     * Not supported in bionic. Must directly invoke syscall
+     * Only acceptable errno is ENOSYS: shmget syscall
+     * function not implemented
+     */
+    return ((syscall(SYS_shmget, key, SHMEMSIZE, IPC_CREAT | 0666) == -1)
+                && (errno == ENOSYS));
+#endif
+}
+
 static JNINativeMethod gMethods[] = {
     {  "doPerfEventTest", "()Z",
             (void *) android_security_cts_NativeCodeTest_doPerfEventTest },
@@ -266,6 +405,10 @@ static JNINativeMethod gMethods[] = {
             (void *) android_security_cts_NativeCodeTest_doNvmapIocFromIdTest },
     {  "doPingPongRootTest", "()Z",
             (void *) android_security_cts_NativeCodeTest_doPingPongRootTest },
+    {  "doPipeReadVTest", "()Z",
+            (void *) android_security_cts_NativeCodeTest_doPipeReadVTest },
+    {  "doSysVipcTest", "()Z",
+            (void *) android_security_cts_NativeCodeTest_doSysVipcTest },
 };
 
 int register_android_security_cts_NativeCodeTest(JNIEnv* env)
@@ -274,4 +417,3 @@ int register_android_security_cts_NativeCodeTest(JNIEnv* env)
     return env->RegisterNatives(clazz, gMethods,
             sizeof(gMethods) / sizeof(JNINativeMethod));
 }
-

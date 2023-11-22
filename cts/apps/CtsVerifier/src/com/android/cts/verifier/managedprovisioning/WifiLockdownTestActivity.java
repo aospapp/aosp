@@ -72,21 +72,21 @@ public class WifiLockdownTestActivity extends PassFailButtons.TestListActivity {
                 new Intent(Settings.ACTION_WIFI_SETTINGS));
         mSwitchLockdownOffButtonInfos = new ButtonInfo[] { new ButtonInfo(
                 R.string.switch_wifi_lockdown_off_button,
-                new Intent(this, DeviceOwnerPositiveTestActivity.CommandReceiver.class)
-                        .putExtra(DeviceOwnerPositiveTestActivity.EXTRA_COMMAND,
-                                DeviceOwnerPositiveTestActivity.COMMAND_SET_GLOBAL_SETTING)
-                        .putExtra(DeviceOwnerPositiveTestActivity.EXTRA_SETTING,
+                new Intent(this, CommandReceiverActivity.class)
+                        .putExtra(CommandReceiverActivity.EXTRA_COMMAND,
+                                CommandReceiverActivity.COMMAND_SET_GLOBAL_SETTING)
+                        .putExtra(CommandReceiverActivity.EXTRA_SETTING,
                                 Settings.Global.WIFI_DEVICE_OWNER_CONFIGS_LOCKDOWN)
-                        .putExtra(DeviceOwnerPositiveTestActivity.EXTRA_PARAMETER_1, "0"
+                        .putExtra(CommandReceiverActivity.EXTRA_VALUE, "0"
                 )), goToWifiSettings };
         mSwitchLockdownOnButtonInfos = new ButtonInfo[] { new ButtonInfo(
                 R.string.switch_wifi_lockdown_on_button,
-                new Intent(this, DeviceOwnerPositiveTestActivity.CommandReceiver.class)
-                        .putExtra(DeviceOwnerPositiveTestActivity.EXTRA_COMMAND,
-                                DeviceOwnerPositiveTestActivity.COMMAND_SET_GLOBAL_SETTING)
-                        .putExtra(DeviceOwnerPositiveTestActivity.EXTRA_SETTING,
+                new Intent(this, CommandReceiverActivity.class)
+                        .putExtra(CommandReceiverActivity.EXTRA_COMMAND,
+                                CommandReceiverActivity.COMMAND_SET_GLOBAL_SETTING)
+                        .putExtra(CommandReceiverActivity.EXTRA_SETTING,
                                 Settings.Global.WIFI_DEVICE_OWNER_CONFIGS_LOCKDOWN)
-                        .putExtra(DeviceOwnerPositiveTestActivity.EXTRA_PARAMETER_1, "1"
+                        .putExtra(CommandReceiverActivity.EXTRA_VALUE, "1"
                 )), goToWifiSettings };
 
         addTestsToAdapter(adapter);
@@ -111,8 +111,13 @@ public class WifiLockdownTestActivity extends PassFailButtons.TestListActivity {
                 if (checkedRadioId == -1) {
                     checkedRadioId = NONE;
                 }
-                int netId = mConfigCreator.addNetwork(ssidEditor.getText().toString(), false,
-                        convertKeyManagement(checkedRadioId), "defaultpassword");
+                int netId;
+                try {
+                    netId = mConfigCreator.addNetwork(ssidEditor.getText().toString(), false,
+                            convertKeyManagement(checkedRadioId), "defaultpassword");
+                } catch (InterruptedException e) {
+                    netId = -1;
+                }
                 if (netId == -1) {
                     new AlertDialog.Builder(
                             WifiLockdownTestActivity.this)
@@ -126,30 +131,23 @@ public class WifiLockdownTestActivity extends PassFailButtons.TestListActivity {
         });
     }
 
-    /**
-     * Enable Pass Button when all tests passed.
-     */
-    private void updatePassButton() {
-        getPassButton().setEnabled(mAdapter.allTestsPassed());
-    }
-
     private void addTestsToAdapter(final ArrayTestListAdapter adapter) {
-        adapter.add(DeviceOwnerPositiveTestActivity.createInteractiveTestItem(this,
+        adapter.add(Utils.createInteractiveTestItem(this,
                 CONFIG_MODIFIABLE_WHEN_UNLOCKED_TEST_ID,
                 R.string.device_owner_wifi_config_unlocked_modification_test,
                 R.string.device_owner_wifi_config_unlocked_modification_test_info,
                 mSwitchLockdownOffButtonInfos));
-        adapter.add(DeviceOwnerPositiveTestActivity.createInteractiveTestItem(this,
+        adapter.add(Utils.createInteractiveTestItem(this,
                 CONFIG_NOT_MODIFIABLE_WHEN_LOCKED_TEST_ID,
                 R.string.device_owner_wifi_config_locked_modification_test,
                 R.string.device_owner_wifi_config_locked_modification_test_info,
                 mSwitchLockdownOnButtonInfos));
-        adapter.add(DeviceOwnerPositiveTestActivity.createInteractiveTestItem(this,
+        adapter.add(Utils.createInteractiveTestItem(this,
                 CONFIG_CONNECTABLE_WHEN_LOCKED_TEST_ID,
                 R.string.device_owner_wifi_config_locked_connection_test,
                 R.string.device_owner_wifi_config_locked_connection_test_info,
                 mSwitchLockdownOnButtonInfos));
-        adapter.add(DeviceOwnerPositiveTestActivity.createInteractiveTestItem(this,
+        adapter.add(Utils.createInteractiveTestItem(this,
                 CONFIG_REMOVABLE_WHEN_UNLOCKED_TEST_ID,
                 R.string.device_owner_wifi_config_unlocked_removal_test,
                 R.string.device_owner_wifi_config_unlocked_removal_test_info,

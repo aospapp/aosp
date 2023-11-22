@@ -153,13 +153,6 @@ public class P2pTestListActivity extends PassFailButtons.TestListActivity {
     }
 
     /**
-     * Enable Pass Button when the all tests passed.
-     */
-    private void updatePassButton() {
-        getPassButton().setEnabled(mAdapter.allTestsPassed());
-    }
-
-    /**
      * Receive the WIFI_P2P_STATE_CHANGED_ACTION action.
      */
     class P2pBroadcastReceiver extends BroadcastReceiver {

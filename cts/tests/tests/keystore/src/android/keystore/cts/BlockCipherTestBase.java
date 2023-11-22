@@ -30,6 +30,7 @@ import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.security.Provider;
 import java.security.SecureRandom;
 import java.security.Security;
@@ -49,6 +50,8 @@ import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 abstract class BlockCipherTestBase extends AndroidTestCase {
+
+    private static final String EXPECTED_PROVIDER_NAME = TestUtils.EXPECTED_CRYPTO_OP_PROVIDER_NAME;
 
     private KeyStore mAndroidKeyStore;
     private int mNextKeyId;
@@ -121,7 +124,7 @@ abstract class BlockCipherTestBase extends AndroidTestCase {
 
     public void testGetProvider() throws Exception {
         createCipher();
-        Provider expectedProvider = Security.getProvider("AndroidKeyStoreBCWorkaround");
+        Provider expectedProvider = Security.getProvider(EXPECTED_PROVIDER_NAME);
         assertSame(expectedProvider, mCipher.getProvider());
     }
 
@@ -1247,8 +1250,8 @@ abstract class BlockCipherTestBase extends AndroidTestCase {
     }
 
     protected void createCipher() throws NoSuchAlgorithmException,
-            NoSuchPaddingException  {
-        mCipher = Cipher.getInstance(getTransformation());
+            NoSuchPaddingException, NoSuchProviderException  {
+        mCipher = Cipher.getInstance(getTransformation(), EXPECTED_PROVIDER_NAME);
     }
 
     private String getKeyAlgorithm() {

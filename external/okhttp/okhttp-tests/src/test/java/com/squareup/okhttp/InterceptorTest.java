@@ -16,10 +16,9 @@
 package com.squareup.okhttp;
 
 import com.squareup.okhttp.mockwebserver.MockResponse;
+import com.squareup.okhttp.mockwebserver.MockWebServer;
 import com.squareup.okhttp.mockwebserver.RecordedRequest;
-import com.squareup.okhttp.mockwebserver.rule.MockWebServerRule;
 import java.io.IOException;
-import java.net.URL;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -46,13 +45,13 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.fail;
 
 public final class InterceptorTest {
-  @Rule public MockWebServerRule server = new MockWebServerRule();
+  @Rule public MockWebServer server = new MockWebServer();
 
   private OkHttpClient client = new OkHttpClient();
   private RecordingCallback callback = new RecordingCallback();
 
   @Test public void applicationInterceptorsCanShortCircuitResponses() throws Exception {
-    server.get().shutdown(); // Accept no connections.
+    server.shutdown(); // Accept no connections.
 
     Request request = new Request.Builder()
         .url("https://localhost:1/")
@@ -93,7 +92,7 @@ public final class InterceptorTest {
     client.networkInterceptors().add(interceptor);
 
     Request request = new Request.Builder()
-        .url(server.getUrl("/"))
+        .url(server.url("/"))
         .build();
 
     try {
@@ -118,7 +117,7 @@ public final class InterceptorTest {
     client.networkInterceptors().add(interceptor);
 
     Request request = new Request.Builder()
-        .url(server.getUrl("/"))
+        .url(server.url("/"))
         .build();
 
     try {
@@ -136,17 +135,17 @@ public final class InterceptorTest {
     Interceptor interceptor = new Interceptor() {
       @Override public Response intercept(Chain chain) throws IOException {
         Address address = chain.connection().getRoute().getAddress();
-        String sameHost = address.getUriHost();
+        String sameHost = address.getRfc2732Host();
         int differentPort = address.getUriPort() + 1;
         return chain.proceed(chain.request().newBuilder()
-            .url(new URL("http://" + sameHost + ":" + differentPort + "/"))
+            .url(HttpUrl.parse("http://" + sameHost + ":" + differentPort + "/"))
             .build());
       }
     };
     client.networkInterceptors().add(interceptor);
 
     Request request = new Request.Builder()
-        .url(server.getUrl("/"))
+        .url(server.url("/"))
         .build();
 
     try {
@@ -170,7 +169,7 @@ public final class InterceptorTest {
     });
 
     Request request = new Request.Builder()
-        .url(server.getUrl("/"))
+        .url(server.url("/"))
         .build();
     client.newCall(request).execute();
   }
@@ -185,7 +184,7 @@ public final class InterceptorTest {
         // The network request has everything: User-Agent, Host, Accept-Encoding.
         Request networkRequest = chain.request();
         assertNotNull(networkRequest.header("User-Agent"));
-        assertEquals(server.get().getHostName() + ":" + server.get().getPort(),
+        assertEquals(server.getHostName() + ":" + server.getPort(),
             networkRequest.header("Host"));
         assertNotNull(networkRequest.header("Accept-Encoding"));
 
@@ -197,7 +196,7 @@ public final class InterceptorTest {
     });
 
     Request request = new Request.Builder()
-        .url(server.getUrl("/"))
+        .url(server.url("/"))
         .build();
 
     // No extra headers in the application's request.
@@ -233,7 +232,7 @@ public final class InterceptorTest {
     });
 
     Request request = new Request.Builder()
-        .url(server.getUrl("/"))
+        .url(server.url("/"))
         .addHeader("Original-Header", "foo")
         .method("PUT", RequestBody.create(MediaType.parse("text/plain"), "abc"))
         .build();
@@ -271,7 +270,7 @@ public final class InterceptorTest {
     });
 
     Request request = new Request.Builder()
-        .url(server.getUrl("/"))
+        .url(server.url("/"))
         .build();
 
     Response response = client.newCall(request).execute();
@@ -315,7 +314,7 @@ public final class InterceptorTest {
     });
 
     Request request = new Request.Builder()
-        .url(server.getUrl("/"))
+        .url(server.url("/"))
         .build();
 
     Response response = client.newCall(request).execute();
@@ -348,11 +347,11 @@ public final class InterceptorTest {
     });
 
     Request request = new Request.Builder()
-        .url(server.getUrl("/"))
+        .url(server.url("/"))
         .build();
     client.newCall(request).enqueue(callback);
 
-    callback.await(request.url())
+    callback.await(request.httpUrl())
         .assertCode(200)
         .assertHeader("OkHttp-Intercepted", "yep");
   }
@@ -369,7 +368,7 @@ public final class InterceptorTest {
     });
 
     Request request = new Request.Builder()
-        .url(server.getUrl("/"))
+        .url(server.url("/"))
         .build();
 
     Response response = client.newCall(request).execute();
@@ -385,7 +384,7 @@ public final class InterceptorTest {
       @Override public Response intercept(Chain chain) throws IOException {
         if (chain.request().url().getPath().equals("/b")) {
           Request requestA = new Request.Builder()
-              .url(server.getUrl("/a"))
+              .url(server.url("/a"))
               .build();
           Response responseA = client.newCall(requestA).execute();
           assertEquals("a", responseA.body().string());
@@ -396,7 +395,7 @@ public final class InterceptorTest {
     });
 
     Request requestB = new Request.Builder()
-        .url(server.getUrl("/b"))
+        .url(server.url("/b"))
         .build();
     Response responseB = client.newCall(requestB).execute();
     assertEquals("b", responseB.body().string());
@@ -411,13 +410,13 @@ public final class InterceptorTest {
       @Override public Response intercept(Chain chain) throws IOException {
         if (chain.request().url().getPath().equals("/b")) {
           Request requestA = new Request.Builder()
-              .url(server.getUrl("/a"))
+              .url(server.url("/a"))
               .build();
 
           try {
             RecordingCallback callbackA = new RecordingCallback();
             client.newCall(requestA).enqueue(callbackA);
-            callbackA.await(requestA.url()).assertBody("a");
+            callbackA.await(requestA.httpUrl()).assertBody("a");
           } catch (Exception e) {
             throw new RuntimeException(e);
           }
@@ -428,11 +427,11 @@ public final class InterceptorTest {
     });
 
     Request requestB = new Request.Builder()
-        .url(server.getUrl("/b"))
+        .url(server.url("/b"))
         .build();
     RecordingCallback callbackB = new RecordingCallback();
     client.newCall(requestB).enqueue(callbackB);
-    callbackB.await(requestB.url()).assertBody("b");
+    callbackB.await(requestB.httpUrl()).assertBody("b");
   }
 
   @Test public void applicationkInterceptorThrowsRuntimeExceptionSynchronous() throws Exception {
@@ -458,7 +457,7 @@ public final class InterceptorTest {
     });
 
     Request request = new Request.Builder()
-        .url(server.getUrl("/"))
+        .url(server.url("/"))
         .build();
 
     try {
@@ -491,7 +490,7 @@ public final class InterceptorTest {
     client.networkInterceptors().add(modifyHeaderInterceptor);
 
     Request request = new Request.Builder()
-        .url(server.getUrl("/"))
+        .url(server.url("/"))
         .header("User-Agent", "user request")
         .build();
 
@@ -519,7 +518,7 @@ public final class InterceptorTest {
     client.setDispatcher(new Dispatcher(executor));
 
     Request request = new Request.Builder()
-        .url(server.getUrl("/"))
+        .url(server.url("/"))
         .build();
     client.newCall(request).enqueue(callback);
 

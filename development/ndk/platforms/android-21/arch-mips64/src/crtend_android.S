@@ -25,25 +25,30 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-	
+
+#include "asm_multiarch.h"
+
 	.section .preinit_array, "aw"
-	.long 0
+	ASM_ALIGN_TO_PTR_SIZE
+	ASM_PTR_SIZE(0)
 
 	.section .init_array, "aw"
-	.long 0
+	ASM_ALIGN_TO_PTR_SIZE
+	ASM_PTR_SIZE(0)
 
 	.section .fini_array, "aw"
-	.long 0
+	ASM_ALIGN_TO_PTR_SIZE
+	ASM_PTR_SIZE(0)
 
 	.section .ctors, "aw"
 	.type __CTOR_END__, @object
 __CTOR_END__:
-	.long 0
+	ASM_PTR_SIZE(0)
 
 	.section .dtors, "aw"
 	.type __DTOR_END__, @object
 __DTOR_END__:
-	.long 0
+	ASM_PTR_SIZE(0)
 
 	.section	.eh_frame,"a",@progbits
 	.align 4

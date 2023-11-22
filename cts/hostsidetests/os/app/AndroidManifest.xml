@@ -16,7 +16,7 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.app.os.test">
+    package="android.os.app">
 
     <application>
         <activity android:name=".TestNonExported"

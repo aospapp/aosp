@@ -16,10 +16,9 @@
 
 package com.android.dialer.settings;
 
-import android.app.AppOpsManager;
 import android.content.Context;
-import android.content.Intent;
 import android.media.RingtoneManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -32,20 +31,12 @@ import android.preference.PreferenceScreen;
 import android.provider.Settings;
 import android.telephony.CarrierConfigManager;
 import android.telephony.TelephonyManager;
-import android.view.MenuItem;
 import android.widget.Toast;
 
-import com.android.contacts.common.util.PermissionsUtil;
+import com.android.contacts.common.compat.SdkVersionOverride;
 import com.android.dialer.R;
+import com.android.dialer.compat.SettingsCompat;
 import com.android.phone.common.util.SettingsUtil;
-
-import java.lang.Boolean;
-import java.lang.CharSequence;
-import java.lang.Object;
-import java.lang.Override;
-import java.lang.Runnable;
-import java.lang.String;
-import java.lang.Thread;
 
 public class SoundSettingsFragment extends PreferenceFragment
         implements Preference.OnPreferenceChangeListener {
@@ -88,6 +79,11 @@ public class SoundSettingsFragment extends PreferenceFragment
     };
 
     @Override
+    public Context getContext() {
+        return getActivity();
+    }
+
+    @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
@@ -115,7 +111,8 @@ public class SoundSettingsFragment extends PreferenceFragment
 
         TelephonyManager telephonyManager =
                 (TelephonyManager) getActivity().getSystemService(Context.TELEPHONY_SERVICE);
-        if (telephonyManager.canChangeDtmfToneLength()
+        if (SdkVersionOverride.getSdkVersion(Build.VERSION_CODES.M) >= Build.VERSION_CODES.M
+                && telephonyManager.canChangeDtmfToneLength()
                 && (telephonyManager.isWorldPhone() || !shouldHideCarrierSettings())) {
             mDtmfToneLength.setOnPreferenceChangeListener(this);
             mDtmfToneLength.setValueIndex(
@@ -132,7 +129,7 @@ public class SoundSettingsFragment extends PreferenceFragment
     public void onResume() {
         super.onResume();
 
-        if (!Settings.System.canWrite(getContext())) {
+        if (!SettingsCompat.System.canWrite(getContext())) {
             // If the user launches this setting fragment, then toggles the WRITE_SYSTEM_SETTINGS
             // AppOp, then close the fragment since there is nothing useful to do.
             getActivity().onBackPressed();
@@ -155,7 +152,7 @@ public class SoundSettingsFragment extends PreferenceFragment
      */
     @Override
     public boolean onPreferenceChange(Preference preference, Object objValue) {
-        if (!Settings.System.canWrite(getContext())) {
+        if (!SettingsCompat.System.canWrite(getContext())) {
             // A user shouldn't be able to get here, but this protects against monkey crashes.
             Toast.makeText(
                     getContext(),
@@ -181,7 +178,7 @@ public class SoundSettingsFragment extends PreferenceFragment
      */
     @Override
     public boolean onPreferenceTreeClick(PreferenceScreen preferenceScreen, Preference preference) {
-        if (!Settings.System.canWrite(getContext())) {
+        if (!SettingsCompat.System.canWrite(getContext())) {
             Toast.makeText(
                     getContext(),
                     getResources().getString(R.string.toast_cannot_write_system_settings),

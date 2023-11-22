@@ -19,10 +19,12 @@ include $(BUILD_DROIDDOC)
 
 # Sets up the Doxygen HAL reference docs and puts them in the right place
 # Need doxygen in your path (1.8.3 was used when this target was created)
+.PHONY: setup-hal-ref
 setup-hal-ref:
 	$(hide) doxygen docs/source.android.com/Doxyfile
 
 # Put HAL refs in PDK instead and strip nav to s.a.c.
+.PHONY: pdk-hal-ref
 pdk-hal-ref:
 	$(hide) doxygen vendor/pdk/data/google/Doxyfile
 
@@ -31,7 +33,7 @@ pdk-hal-ref:
 # Target assumes that you have a "tradefed" directory
 # that contains a sync'ed copy of the "tradefed" branch at the same level as the 
 # live docs branch.
-
+.PHONY: setup-tradefed-ref
 setup-tradefed-ref:
 	$(hide) rm -rf $(OUT_DOCS)/online-sac/reference
 	$(hide) cp -R $(OUT_DOCS)/tradefed/reference $(OUT_DOCS)/online-sac

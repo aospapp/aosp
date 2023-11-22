@@ -10,13 +10,6 @@
 
 #include "GrPrimitiveProcessor.h"
 
-struct PathBatchTracker {
-    GrGPInput fInputColorType;
-    GrGPInput fInputCoverageType;
-    GrColor fColor;
-    bool fUsesLocalCoords;
-};
-
 /*
  * The path equivalent of the GP.  For now this just manages color. In the long term we plan on
  * extending this class to handle all nvpr uniform / varying / program work.
@@ -24,16 +17,11 @@ struct PathBatchTracker {
 class GrPathProcessor : public GrPrimitiveProcessor {
 public:
     static GrPathProcessor* Create(GrColor color,
+                                   const GrXPOverridesForBatch& overrides,
                                    const SkMatrix& viewMatrix = SkMatrix::I(),
                                    const SkMatrix& localMatrix = SkMatrix::I()) {
-        return SkNEW_ARGS(GrPathProcessor, (color, viewMatrix, localMatrix));
+        return new GrPathProcessor(color, overrides, viewMatrix, localMatrix);
     }
-
-    void initBatchTracker(GrBatchTracker*, const GrPipelineInfo&) const override;
-
-    bool canMakeEqual(const GrBatchTracker& mine,
-                      const GrPrimitiveProcessor& that,
-                      const GrBatchTracker& theirs) const override;
 
     const char* name() const override { return "PathProcessor"; }
 
@@ -41,59 +29,29 @@ public:
     const SkMatrix& viewMatrix() const { return fViewMatrix; }
     const SkMatrix& localMatrix() const { return fLocalMatrix; }
 
-
-    void getInvariantOutputColor(GrInitInvariantOutput* out) const override;
-    void getInvariantOutputCoverage(GrInitInvariantOutput* out) const override;
-
     bool willUseGeoShader() const override { return false; }
 
-    virtual void getGLProcessorKey(const GrBatchTracker& bt,
-                                   const GrGLSLCaps& caps,
-                                   GrProcessorKeyBuilder* b) const override;
+    virtual void getGLSLProcessorKey(const GrGLSLCaps& caps,
+                                     GrProcessorKeyBuilder* b) const override;
 
-    virtual GrGLPrimitiveProcessor* createGLInstance(const GrBatchTracker& bt,
-                                                     const GrGLSLCaps& caps) const override;
+    virtual GrGLSLPrimitiveProcessor* createGLSLInstance(const GrGLSLCaps& caps) const override;
+
+    bool hasTransformedLocalCoords() const override { return false; }
+
+    const GrXPOverridesForBatch& overrides() const { return fOverrides; }
+
+    virtual bool isPathRendering() const override { return true; }
 
 private:
-    GrPathProcessor(GrColor color, const SkMatrix& viewMatrix, const SkMatrix& localMatrix);
-
-    /*
-     * CanCombineOutput will return true if two draws are 'batchable' from a color perspective.
-     * TODO is this really necessary?
-     */
-    static bool CanCombineOutput(GrGPInput left, GrColor lColor, GrGPInput right, GrColor rColor) {
-        if (left != right) {
-            return false;
-        }
-
-        if (kUniform_GrGPInput == left && lColor != rColor) {
-            return false;
-        }
-
-        return true;
-    }
-
-    static bool CanCombineLocalMatrices(const GrPrimitiveProcessor& l,
-                                        bool leftUsesLocalCoords,
-                                        const GrPrimitiveProcessor& r,
-                                        bool rightUsesLocalCoords) {
-        if (leftUsesLocalCoords != rightUsesLocalCoords) {
-            return false;
-        }
-
-        const GrPathProcessor& left = l.cast<GrPathProcessor>();
-        const GrPathProcessor& right = r.cast<GrPathProcessor>();
-        if (leftUsesLocalCoords && !left.localMatrix().cheapEqualTo(right.localMatrix())) {
-            return false;
-        }
-        return true;
-    }
+    GrPathProcessor(GrColor color, const GrXPOverridesForBatch& overrides,
+                    const SkMatrix& viewMatrix, const SkMatrix& localMatrix);
 
     bool hasExplicitLocalCoords() const override { return false; }
 
     GrColor fColor;
     const SkMatrix fViewMatrix;
     const SkMatrix fLocalMatrix;
+    GrXPOverridesForBatch fOverrides;
 
     typedef GrPrimitiveProcessor INHERITED;
 };

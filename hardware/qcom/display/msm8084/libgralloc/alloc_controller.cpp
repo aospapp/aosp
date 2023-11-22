@@ -78,6 +78,8 @@ static bool canFallback(int usage, bool triedSystem)
 
 static bool useUncached(int usage)
 {
+    if (usage & GRALLOC_USAGE_PROTECTED)
+        return true;
     if (usage & GRALLOC_USAGE_PRIVATE_UNCACHED)
         return true;
     if(((usage & GRALLOC_USAGE_SW_WRITE_MASK) == GRALLOC_USAGE_SW_WRITE_RARELY)
@@ -208,6 +210,7 @@ void AdrenoMemInfo::getAlignedWidthAndHeight(int width, int height, int format,
                 aligned_h = VENUS_Y_SCANLINES(COLOR_FMT_NV12, height);
                 break;
             case HAL_PIXEL_FORMAT_BLOB:
+            case HAL_PIXEL_FORMAT_RAW_OPAQUE:
                 break;
             case HAL_PIXEL_FORMAT_NV21_ZSL:
                 aligned_w = ALIGN(width, 64);
@@ -297,14 +300,8 @@ int IonController::allocate(alloc_data& data, int usage)
         ionFlags |= ION_HEAP(ION_IOMMU_HEAP_ID);
 
     if(usage & GRALLOC_USAGE_PROTECTED) {
-        if (usage & GRALLOC_USAGE_PRIVATE_MM_HEAP) {
-            ionFlags |= ION_HEAP(ION_CP_MM_HEAP_ID);
-            ionFlags |= ION_SECURE;
-        } else {
-            // for targets/OEMs which do not need HW level protection
-            // do not set ion secure flag & MM heap. Fallback to IOMMU heap.
-            ionFlags |= ION_HEAP(ION_IOMMU_HEAP_ID);
-        }
+        ionFlags |= ION_HEAP(ION_CP_MM_HEAP_ID);
+        ionFlags |= ION_SECURE;
     } else if(usage & GRALLOC_USAGE_PRIVATE_MM_HEAP) {
         //MM Heap is exclusively a secure heap.
         //If it is used for non secure cases, fallback to IOMMU heap
@@ -455,8 +452,9 @@ size_t getSize(int format, int width, int height, const int alignedw,
             size = VENUS_BUFFER_SIZE(COLOR_FMT_NV12, width, height);
             break;
         case HAL_PIXEL_FORMAT_BLOB:
+        case HAL_PIXEL_FORMAT_RAW_OPAQUE:
             if(height != 1) {
-                ALOGE("%s: Buffers with format HAL_PIXEL_FORMAT_BLOB \
+                ALOGE("%s: Buffers with RAW_OPAQUE/BLOB formats \
                       must have height==1 ", __FUNCTION__);
                 return 0;
             }
@@ -496,7 +494,7 @@ size_t getSize(int format, int width, int height, const int alignedw,
             size = alignedw * alignedh * ASTC_BLOCK_SIZE;
             break;
         default:
-            ALOGE("unrecognized pixel format: 0x%x", format);
+            ALOGE("%s: unrecognized pixel format: 0x%x", __FUNCTION__, format);
             return 0;
     }
     return size;

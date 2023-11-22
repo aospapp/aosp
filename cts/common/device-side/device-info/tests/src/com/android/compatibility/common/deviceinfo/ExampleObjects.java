@@ -16,12 +16,12 @@
 package com.android.compatibility.common.deviceinfo;
 
 /**
- * Example Objects for {@link DeviceInfoActivity} test package.
+ * Example Objects for {@link DeviceInfo} test package.
  */
 public final class ExampleObjects {
 
-    // Must match DeviceInfoActivity.MAX_STRING_VALUE_LENGTH and
-    // DeviceInfoActivity.MAX_ARRAY_LENGTH
+    // Must match DeviceInfo.MAX_STRING_VALUE_LENGTH and
+    // DeviceInfo.MAX_ARRAY_LENGTH
     private static final int MAX_LENGTH = 1000;
 
     private static final String TEST_DEVICE_INFO_JSON = "{\n" +

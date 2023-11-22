@@ -15,35 +15,50 @@
  */
 
 #include <string.h>
+
 #include <string>
 #include <vector>
 
-#include <base/logging.h>
+#include <android-base/logging.h>
 
 #include "command.h"
+#include "utils.h"
 
 int main(int argc, char** argv) {
   InitLogging(argv, android::base::StderrLogger);
   std::vector<std::string> args;
+  android::base::LogSeverity log_severity = android::base::WARNING;
 
-  if (argc == 1) {
-    args.push_back("help");
-  } else {
-    for (int i = 1; i < argc; ++i) {
-      if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
-        args.insert(args.begin(), "help");
+  for (int i = 1; i < argc; ++i) {
+    if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+      args.insert(args.begin(), "help");
+    } else if (strcmp(argv[i], "--log") == 0) {
+      if (i + 1 < argc) {
+        ++i;
+        if (!GetLogSeverity(argv[i], &log_severity)) {
+          LOG(ERROR) << "Unknown log severity: " << argv[i];
+          return 1;
+        }
       } else {
-        args.push_back(argv[i]);
+        LOG(ERROR) << "Missing argument for --log option.\n";
+        return 1;
       }
+    } else {
+      args.push_back(argv[i]);
     }
   }
+  android::base::ScopedLogSeverity severity(log_severity);
 
-  Command* command = Command::FindCommandByName(args[0]);
+  if (args.empty()) {
+    args.push_back("help");
+  }
+  std::unique_ptr<Command> command = CreateCommandInstance(args[0]);
   if (command == nullptr) {
     LOG(ERROR) << "malformed command line: unknown command " << args[0];
     return 1;
   }
   std::string command_name = args[0];
+  args.erase(args.begin());
 
   LOG(DEBUG) << "command '" << command_name << "' starts running";
   bool result = command->Run(args);

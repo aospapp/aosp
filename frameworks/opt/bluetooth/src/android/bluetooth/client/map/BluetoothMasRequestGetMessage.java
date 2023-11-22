@@ -25,6 +25,8 @@ import android.bluetooth.client.map.utils.ObexAppParameters;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 
 import javax.obex.ClientSession;
 import javax.obex.HeaderSet;
@@ -69,7 +71,17 @@ final class BluetoothMasRequestGetMessage extends BluetoothMasRequest {
             Log.e(TAG, "I/O exception while reading response", e);
         }
 
-        String bmsg = baos.toString();
+        // Convert the input stream using UTF-8 since the attributes in the payload are all encoded
+        // according to it. The actual message body may need to be transcoded depending on
+        // charset/encoding defined for body-content.
+        String bmsg;
+        try {
+            bmsg = baos.toString(StandardCharsets.UTF_8.name());
+        } catch (UnsupportedEncodingException ex) {
+            Log.e(TAG,
+                "Coudn't decode the bmessage with UTF-8. Something must be really messed up.");
+            return;
+        }
 
         mBmessage = BluetoothMapBmessageParser.createBmessage(bmsg);
 

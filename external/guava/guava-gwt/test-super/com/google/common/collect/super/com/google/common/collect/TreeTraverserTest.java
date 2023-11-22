@@ -14,7 +14,7 @@
 
 package com.google.common.collect;
 
-import static org.truth0.Truth.ASSERT;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.base.Optional;
@@ -126,22 +126,22 @@ public class TreeTraverserTest extends TestCase {
   }
 
   public void testPreOrder() {
-    ASSERT.that(iterationOrder(ADAPTER.preOrderTraversal(h))).is("hdabcegf");
-    ASSERT.that(binaryIterationOrder(BIN_ADAPTER.preOrderTraversal(bd))).is("dbacefg");
+    assertThat(iterationOrder(ADAPTER.preOrderTraversal(h))).isEqualTo("hdabcegf");
+    assertThat(binaryIterationOrder(BIN_ADAPTER.preOrderTraversal(bd))).isEqualTo("dbacefg");
   }
 
   public void testPostOrder() {
-    ASSERT.that(iterationOrder(ADAPTER.postOrderTraversal(h))).is("abcdefgh");
-    ASSERT.that(binaryIterationOrder(BIN_ADAPTER.postOrderTraversal(bd))).is("acbgfed");
+    assertThat(iterationOrder(ADAPTER.postOrderTraversal(h))).isEqualTo("abcdefgh");
+    assertThat(binaryIterationOrder(BIN_ADAPTER.postOrderTraversal(bd))).isEqualTo("acbgfed");
   }
 
   public void testBreadthOrder() {
-    ASSERT.that(iterationOrder(ADAPTER.breadthFirstTraversal(h))).is("hdegabcf");
-    ASSERT.that(binaryIterationOrder(BIN_ADAPTER.breadthFirstTraversal(bd))).is("dbeacfg");
+    assertThat(iterationOrder(ADAPTER.breadthFirstTraversal(h))).isEqualTo("hdegabcf");
+    assertThat(binaryIterationOrder(BIN_ADAPTER.breadthFirstTraversal(bd))).isEqualTo("dbeacfg");
   }
 
   public void testInOrder() {
-    ASSERT.that(binaryIterationOrder(BIN_ADAPTER.inOrderTraversal(bd))).is("abcdegf");
+    assertThat(binaryIterationOrder(BIN_ADAPTER.inOrderTraversal(bd))).isEqualTo("abcdegf");
   }
 }
 

@@ -1,5 +1,5 @@
 # Temperature sensor daemon (root process)
-type thermald, domain;
+type thermald, domain, domain_deprecated;
 type thermald_exec, exec_type, file_type;
 
 # Started by init
@@ -27,3 +27,5 @@ allow thermald sysfs_mpdecision:file rw_file_perms;
 
 # TODO specify specific labels for /sys/ files
 allow thermald sysfs:file write;
+allow thermald sysfs_usb:file write;
+allow thermald sysfs_batteryinfo:file r_file_perms;

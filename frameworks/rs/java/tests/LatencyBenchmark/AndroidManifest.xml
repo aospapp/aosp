@@ -18,7 +18,7 @@
     package="com.example.android.rs.latencybench">
 
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    <uses-sdk android:minSdkVersion="17" />
+    <uses-sdk android:minSdkVersion="23" />
     <application android:label="_RS_Latency_Bench">
         <activity android:name="LatencyBench">
             <intent-filter>

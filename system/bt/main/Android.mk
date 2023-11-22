@@ -1,14 +1,8 @@
 LOCAL_PATH:= $(call my-dir)
 
-#
-# Bluetooth HW module
-#
-
+# Bluetooth main HW module / shared library for target
+# ========================================================
 include $(CLEAR_VARS)
-
-# HAL layer
-LOCAL_SRC_FILES:= \
-	../btif/src/bluetooth.c
 
 # platform specific
 LOCAL_SRC_FILES+= \
@@ -17,55 +11,6 @@ LOCAL_SRC_FILES+= \
 	bte_logmsg.c \
 	bte_conf.c \
 	stack_config.c
-
-# BTIF
-LOCAL_SRC_FILES += \
-    ../btif/src/btif_av.c \
-    ../btif/src/btif_config.c \
-    ../btif/src/btif_config_transcode.cpp \
-    ../btif/src/btif_core.c \
-    ../btif/src/btif_debug.c \
-    ../btif/src/btif_debug_btsnoop.c \
-    ../btif/src/btif_debug_conn.c \
-    ../btif/src/btif_dm.c \
-    ../btif/src/btif_gatt.c \
-    ../btif/src/btif_gatt_client.c \
-    ../btif/src/btif_gatt_multi_adv_util.c \
-    ../btif/src/btif_gatt_server.c \
-    ../btif/src/btif_gatt_test.c \
-    ../btif/src/btif_gatt_util.c \
-    ../btif/src/btif_hf.c \
-    ../btif/src/btif_hf_client.c \
-    ../btif/src/btif_hh.c \
-    ../btif/src/btif_hl.c \
-    ../btif/src/btif_sdp.c \
-    ../btif/src/btif_media_task.c \
-    ../btif/src/btif_pan.c \
-    ../btif/src/btif_profile_queue.c \
-    ../btif/src/btif_rc.c \
-    ../btif/src/btif_sm.c \
-    ../btif/src/btif_sock.c \
-    ../btif/src/btif_sock_rfc.c \
-    ../btif/src/btif_sock_l2cap.c \
-    ../btif/src/btif_sock_sco.c \
-    ../btif/src/btif_sock_sdp.c \
-    ../btif/src/btif_sock_thread.c \
-    ../btif/src/btif_sdp_server.c \
-    ../btif/src/btif_sock_util.c \
-    ../btif/src/btif_storage.c \
-    ../btif/src/btif_util.c \
-    ../btif/src/stack_manager.c
-
-# callouts
-LOCAL_SRC_FILES+= \
-    ../btif/co/bta_ag_co.c \
-    ../btif/co/bta_dm_co.c \
-    ../btif/co/bta_av_co.c \
-    ../btif/co/bta_hh_co.c \
-    ../btif/co/bta_hl_co.c \
-    ../btif/co/bta_pan_co.c \
-    ../btif/co/bta_gattc_co.c \
-    ../btif/co/bta_gatts_co.c \
 
 # sbc encoder
 LOCAL_SRC_FILES+= \
@@ -87,9 +32,6 @@ LOCAL_C_INCLUDES+= . \
 	$(LOCAL_PATH)/../bta/sys \
 	$(LOCAL_PATH)/../bta/dm \
 	$(LOCAL_PATH)/../btcore/include \
-	$(LOCAL_PATH)/../osi/include \
-	$(LOCAL_PATH)/../gki/common \
-	$(LOCAL_PATH)/../gki/ulinux \
 	$(LOCAL_PATH)/../include \
 	$(LOCAL_PATH)/../stack/include \
 	$(LOCAL_PATH)/../stack/l2cap \
@@ -109,40 +51,32 @@ LOCAL_C_INCLUDES+= . \
 	$(LOCAL_PATH)/../embdrv/sbc/decoder/include \
 	$(LOCAL_PATH)/../audio_a2dp_hw \
 	$(LOCAL_PATH)/../utils/include \
-	$(bdroid_C_INCLUDES) \
+	$(bluetooth_C_INCLUDES) \
 	external/tinyxml2 \
 	external/zlib
-
-LOCAL_CFLAGS += -DBUILDCFG $(bdroid_CFLAGS) -Wno-error=maybe-uninitialized -Wno-error=uninitialized -Wno-error=unused-parameter
-LOCAL_CONLYFLAGS := -std=c99
-
-ifeq ($(TARGET_PRODUCT), full_crespo)
-     LOCAL_CFLAGS += -DTARGET_CRESPO
-endif
-ifeq ($(TARGET_PRODUCT), full_crespo4g)
-     LOCAL_CFLAGS += -DTARGET_CRESPO
-endif
-ifeq ($(TARGET_PRODUCT), full_maguro)
-     LOCAL_CFLAGS += -DTARGET_MAGURO
-endif
 
 LOCAL_SHARED_LIBRARIES := \
     libcutils \
     libdl \
     liblog \
+    libz \
     libpower \
-    libz
+    libprotobuf-cpp-full \
+    libmedia \
+    libutils \
+    libchrome
 
 LOCAL_STATIC_LIBRARIES := \
     libtinyxml2 \
     libbt-qcom_sbc_decoder
 
 LOCAL_WHOLE_STATIC_LIBRARIES := \
-    libbt-brcm_bta \
-    libbt-brcm_gki \
-    libbt-brcm_stack \
+    libbt-bta \
     libbtdevice \
+    libbtif \
     libbt-hci \
+    libbt-protos \
+    libbt-stack \
     libbt-utils \
     libbtcore \
     libosi
@@ -162,15 +96,13 @@ LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 LOCAL_LDLIBS := -Wl,-Bsymbolic,-Bsymbolic-functions
 
 LOCAL_REQUIRED_MODULES := \
-    auto_pair_devlist.conf \
     bt_did.conf \
     bt_stack.conf \
     libbt-hci \
     libbt-vendor
 
-LOCAL_MULTILIB := 32
-
-LOCAL_CLANG_CFLAGS := -Wno-error=gnu-variable-sized-type-not-at-end
-LOCAL_CLANG_CFLAGS += -Wno-typedef-redefinition
+LOCAL_CFLAGS += $(bluetooth_CFLAGS) -DBUILDCFG
+LOCAL_CONLYFLAGS += $(bluetooth_CONLYFLAGS)
+LOCAL_CPPFLAGS += $(bluetooth_CPPFLAGS)
 
 include $(BUILD_SHARED_LIBRARY)

@@ -17,25 +17,46 @@
 #ifndef _RECOVERY_VERIFIER_H
 #define _RECOVERY_VERIFIER_H
 
-#include "mincrypt/p256.h"
-#include "mincrypt/rsa.h"
+#include <memory>
+#include <vector>
 
-typedef struct {
-    p256_int x;
-    p256_int y;
-} ECPublicKey;
+#include <openssl/ec_key.h>
+#include <openssl/rsa.h>
+#include <openssl/sha.h>
 
-typedef struct {
+struct RSADeleter {
+  void operator()(RSA* rsa) {
+    RSA_free(rsa);
+  }
+};
+
+struct ECKEYDeleter {
+  void operator()(EC_KEY* ec_key) {
+    EC_KEY_free(ec_key);
+  }
+};
+
+struct Certificate {
     typedef enum {
-        RSA,
-        EC,
+        KEY_TYPE_RSA,
+        KEY_TYPE_EC,
     } KeyType;
 
-    int hash_len;  // SHA_DIGEST_SIZE (SHA-1) or SHA256_DIGEST_SIZE (SHA-256)
+    Certificate(int hash_len_,
+                KeyType key_type_,
+                std::unique_ptr<RSA, RSADeleter>&& rsa_,
+                std::unique_ptr<EC_KEY, ECKEYDeleter>&& ec_)
+        : hash_len(hash_len_),
+          key_type(key_type_),
+          rsa(std::move(rsa_)),
+          ec(std::move(ec_)) {}
+
+    // SHA_DIGEST_LENGTH (SHA-1) or SHA256_DIGEST_LENGTH (SHA-256)
+    int hash_len;
     KeyType key_type;
-    RSAPublicKey* rsa;
-    ECPublicKey* ec;
-} Certificate;
+    std::unique_ptr<RSA, RSADeleter> rsa;
+    std::unique_ptr<EC_KEY, ECKEYDeleter> ec;
+};
 
 /* addr and length define a an update package file that has been
  * loaded (or mmap'ed, or whatever) into memory.  Verify that the file
@@ -43,9 +64,9 @@ typedef struct {
  * one of the constants below.
  */
 int verify_file(unsigned char* addr, size_t length,
-                const Certificate *pKeys, unsigned int numKeys);
+                const std::vector<Certificate>& keys);
 
-Certificate* load_keys(const char* filename, int* numKeys);
+bool load_keys(const char* filename, std::vector<Certificate>& certs);
 
 #define VERIFY_SUCCESS        0
 #define VERIFY_FAILURE        1

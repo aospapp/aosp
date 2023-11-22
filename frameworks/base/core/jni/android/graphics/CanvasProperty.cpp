@@ -16,9 +16,9 @@
 
 #include "jni.h"
 #include "GraphicsJNI.h"
-#include "Paint.h"
 #include <core_jni_helpers.h>
 
+#include <hwui/Paint.h>
 #include <utils/RefBase.h>
 #include <CanvasProperty.h>
 
@@ -39,7 +39,7 @@ static jlong createPaint(JNIEnv* env, jobject clazz, jlong paintPtr) {
 // JNI Glue
 // ----------------------------------------------------------------------------
 
-static JNINativeMethod gMethods[] = {
+static const JNINativeMethod gMethods[] = {
     { "nCreateFloat", "(F)J", (void*) createFloat },
     { "nCreatePaint", "(J)J", (void*) createPaint },
 };

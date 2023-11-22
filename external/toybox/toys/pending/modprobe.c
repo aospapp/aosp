@@ -65,14 +65,12 @@ struct module_s {
 static char *path2mod(char *file, char *mod)
 {
   int i;
-  char *from, *lslash;
+  char *from;
 
   if (!file) return NULL;
   if (!mod) mod = xmalloc(MODNAME_LEN);
 	
-  lslash = strrchr(file, '/');
-  if (!lslash || (lslash == file && !lslash[1])) from = file;
-  else from = lslash + 1;
+  from = basename_r(file);
   
   for (i = 0; i < (MODNAME_LEN-1) && from[i] && from[i] != '.'; i++)
     mod[i] = (from[i] == '-') ? '_' : from[i];
@@ -277,7 +275,8 @@ static int config_action(struct dirtree *node)
       get_mod(tokens[1], 1)->flags |= MOD_BLACKLIST;
     else if (!strcmp(tokens[0], "install")) continue;
     else if (!strcmp(tokens[0], "remove")) continue;
-    else error_msg("Invalid option %s found in file %s", tokens[0], filename);
+    else if (toys.optflags & FLAG_q)
+      error_msg("Invalid option %s found in file %s", tokens[0], filename);
   }
   fclose(fc);
   free(filename);
@@ -381,7 +380,6 @@ static int ins_mod(char *modules, char *flags)
   }
   res = syscall(__NR_init_module, buf, len, toybuf);
   if (CFG_TOYBOX_FREE && buf != toybuf) free(buf);
-  if (res) perror_exit("failed to load %s ", toys.optargs[0]);
   return res;
 }
 
@@ -428,7 +426,7 @@ static int go_probe(struct module_s *m)
   int rc = 0, first = 1;
 
   if (!(m->flags & MOD_FNDDEPMOD)) {
-    if (!(toys.optflags & FLAG_s))
+    if (!(toys.optflags & FLAG_q))
       error_msg("module %s not found in modules.dep", m->name);
     return -ENOENT;
   }
@@ -497,8 +495,7 @@ void modprobe_main(void)
   if ((toys.optc < 1) && (((flags & FLAG_r) && (flags & FLAG_l))
         ||(!((flags & FLAG_r)||(flags & FLAG_l)))))
   {
-	  toys.exithelp++;
-	  error_exit("bad syntax");
+	  help_exit("bad syntax");
   }
   // Check for -r flag without arg if yes then do auto remove.
   if ((flags & FLAG_r) && !toys.optc) {

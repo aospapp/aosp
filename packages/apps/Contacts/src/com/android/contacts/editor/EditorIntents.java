@@ -21,7 +21,9 @@ import com.android.contacts.activities.ContactEditorBaseActivity;
 import com.android.contacts.common.model.RawContactDeltaList;
 import com.android.contacts.common.util.MaterialColorMapUtils.MaterialPalette;
 
+import android.app.Activity;
 import android.content.ContentValues;
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -44,12 +46,10 @@ public class EditorIntents {
      * existing contact.
      */
     public static Intent createCompactEditContactIntent(Uri contactLookupUri,
-            MaterialPalette materialPalette, Bundle updatedPhotos, long photoId, long nameId) {
+            MaterialPalette materialPalette, long photoId) {
         final Intent intent = new Intent(Intent.ACTION_EDIT, contactLookupUri);
         putMaterialPalette(intent, materialPalette);
-        putUpdatedPhotos(intent, updatedPhotos);
         putPhotoId(intent, photoId);
-        putNameId(intent, nameId);
         return intent;
     }
 
@@ -58,7 +58,8 @@ public class EditorIntents {
      */
     public static Intent createCompactInsertContactIntent() {
         return createCompactInsertContactIntent(/* rawContactDeltaList =*/ null,
-                /* displayName =*/ null, /* phoneticName =*/ null, /* updatedPhotos =*/ null);
+                /* displayName =*/ null, /* phoneticName =*/ null,
+                /* isNewLocalProfile =*/ false);
     }
 
     /**
@@ -66,12 +67,13 @@ public class EditorIntents {
      * the field values specified by rawContactDeltaList pre-populate in the form.
      */
     public static Intent createCompactInsertContactIntent(RawContactDeltaList rawContactDeltaList,
-            String displayName, String phoneticName, Bundle updatedPhotos) {
+            String displayName, String phoneticName, /* Bundle updatedPhotos, */
+            boolean isNewLocalProfile) {
         final Intent intent = new Intent(Intent.ACTION_INSERT, Contacts.CONTENT_URI);
+        intent.putExtra(ContactEditorFragment.INTENT_EXTRA_NEW_LOCAL_PROFILE, isNewLocalProfile);
         if (rawContactDeltaList != null || displayName != null || phoneticName != null) {
             putRawContactDeltaValues(intent, rawContactDeltaList, displayName, phoneticName);
         }
-        putUpdatedPhotos(intent, updatedPhotos);
         return intent;
     }
 
@@ -94,33 +96,48 @@ public class EditorIntents {
     }
 
     /**
-     * Returns an Intent to start the fully expanded {@link ContactEditorActivity} for a
-     * new contact.
+     * Returns an Intent to start the fully expanded {@link ContactEditorActivity} for an
+     * existing contact.
      */
     public static Intent createEditContactIntent(Uri contactLookupUri,
-            MaterialPalette materialPalette, long photoId, long nameId) {
+            MaterialPalette materialPalette, long photoId) {
         final Intent intent = new Intent(ContactEditorBaseActivity.ACTION_EDIT, contactLookupUri);
         addContactIntentFlags(intent);
         putMaterialPalette(intent, materialPalette);
         putPhotoId(intent, photoId);
-        putNameId(intent, nameId);
         return intent;
     }
 
     /**
-     * Returns an Intent to start the fully expanded {@link ContactEditorActivity} for an
-     * existing contact.
+     * Returns an Intent to start the fully expanded {@link ContactEditorActivity} for a
+     * new contact.
      */
     public static Intent createInsertContactIntent(RawContactDeltaList rawContactDeltaList,
-            String displayName, String phoneticName, Bundle updatedPhotos) {
+            String displayName, String phoneticName, boolean isNewLocalProfile) {
         final Intent intent = new Intent(ContactEditorBaseActivity.ACTION_INSERT,
                 Contacts.CONTENT_URI);
+        intent.putExtra(ContactEditorFragment.INTENT_EXTRA_NEW_LOCAL_PROFILE, isNewLocalProfile);
         addContactIntentFlags(intent);
         putRawContactDeltaValues(intent, rawContactDeltaList, displayName, phoneticName);
-        putUpdatedPhotos(intent, updatedPhotos);
         return intent;
     }
 
+    /**
+     * Returns an Intent to start the full editor for the given raw contact. The full editor will
+     * only display this one raw contact.
+     */
+    public static Intent createEditContactIntentForRawContact(Context context,
+            Uri rawContactUri, long rawContactId, boolean isReadOnly) {
+        final Intent intent = new Intent(context, ContactEditorActivity.class);
+        intent.setAction(ContactEditorBaseActivity.ACTION_EDIT);
+        intent.setData(rawContactUri);
+        intent.putExtra(ContactEditorFragment.INTENT_EXTRA_RAW_CONTACT_ID_TO_DISPLAY_ALONE,
+                rawContactId);
+        intent.putExtra(
+                ContactEditorBaseFragment.INTENT_EXTRA_RAW_CONTACT_DISPLAY_ALONE_IS_READ_ONLY,
+                isReadOnly);
+        return intent;
+    }
 
     private static void addContactIntentFlags(Intent intent) {
         intent.addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
@@ -136,21 +153,9 @@ public class EditorIntents {
         }
     }
 
-    private static void putUpdatedPhotos(Intent intent, Bundle updatedPhotos) {
-        if (updatedPhotos != null && !updatedPhotos.isEmpty()) {
-            intent.putExtra(ContactEditorBaseFragment.INTENT_EXTRA_UPDATED_PHOTOS, updatedPhotos);
-        }
-    }
-
     private static void putPhotoId(Intent intent, long photoId) {
         if (photoId >= 0) {
             intent.putExtra(ContactEditorBaseFragment.INTENT_EXTRA_PHOTO_ID, photoId);
-        }
-    }
-
-    private static void putNameId(Intent intent, long nameId) {
-        if (nameId >= 0) {
-            intent.putExtra(ContactEditorBaseFragment.INTENT_EXTRA_NAME_ID, nameId);
         }
     }
 

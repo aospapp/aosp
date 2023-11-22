@@ -9,9 +9,9 @@
  * Authors:  J Hadi Salim (hadi@cyberus.ca)
  *
  * TODO:
- * 	1) Big endian broken in some spots
- * 	2) A lot of this stuff was added on the fly; get a big double-double
- * 	and clean it up at some point.
+ *	1) Big endian broken in some spots
+ *	2) A lot of this stuff was added on the fly; get a big double-double
+ *	and clean it up at some point.
  *
  */
 
@@ -30,7 +30,7 @@
 #include "m_pedit.h"
 
 static struct m_pedit_util *pedit_list;
-int pedit_debug = 1;
+static int pedit_debug;
 
 static void
 explain(void)
@@ -73,8 +73,7 @@ pedit_parse_nopopt (int *argc_p, char ***argv_p,struct tc_pedit_sel *sel,struct 
 
 }
 
-struct m_pedit_util
-*get_pedit_kind(char *str)
+static struct m_pedit_util *get_pedit_kind(const char *str)
 {
 	static void *pBODY;
 	void *dlh;
@@ -161,16 +160,8 @@ pack_key32(__u32 retain,struct tc_pedit_sel *sel,struct tc_pedit_key *tkey)
 int
 pack_key16(__u32 retain,struct tc_pedit_sel *sel,struct tc_pedit_key *tkey)
 {
-	int ind = 0, stride = 0;
+	int ind, stride;
 	__u32 m[4] = {0xFFFF0000,0xFF0000FF,0x0000FFFF};
-
-	if (0 > tkey->off) {
-		ind = tkey->off + 1;
-		if (0 > ind)
-			ind = -1*ind;
-	} else {
-		ind = tkey->off;
-	}
 
 	if (tkey->val > 0xFFFF || tkey->mask > 0xFFFF) {
 		fprintf(stderr, "pack_key16 bad value\n");
@@ -179,18 +170,16 @@ pack_key16(__u32 retain,struct tc_pedit_sel *sel,struct tc_pedit_key *tkey)
 
 	ind = tkey->off & 3;
 
-	if (0 > ind || 2 < ind) {
+	if (ind == 3) {
 		fprintf(stderr, "pack_key16 bad index value %d\n",ind);
 		return -1;
 	}
 
 	stride = 8 * ind;
 	tkey->val = htons(tkey->val);
-	if (stride > 0) {
-		tkey->val <<= stride;
-		tkey->mask <<= stride;
-		retain <<= stride;
-	}
+	tkey->val <<= stride;
+	tkey->mask <<= stride;
+	retain <<= stride;
 	tkey->mask = retain|m[ind];
 
 	tkey->off &= ~3;
@@ -204,16 +193,8 @@ pack_key16(__u32 retain,struct tc_pedit_sel *sel,struct tc_pedit_key *tkey)
 int
 pack_key8(__u32 retain,struct tc_pedit_sel *sel,struct tc_pedit_key *tkey)
 {
-	int ind = 0, stride = 0;
+	int ind, stride;
 	__u32 m[4] = {0xFFFFFF00,0xFFFF00FF,0xFF00FFFF,0x00FFFFFF};
-
-	if (0 > tkey->off) {
-		ind = tkey->off + 1;
-		if (0 > ind)
-			ind = -1*ind;
-	} else {
-		ind = tkey->off;
-	}
 
 	if (tkey->val > 0xFF || tkey->mask > 0xFF) {
 		fprintf(stderr, "pack_key8 bad value (val %x mask %x\n", tkey->val, tkey->mask);
@@ -221,11 +202,13 @@ pack_key8(__u32 retain,struct tc_pedit_sel *sel,struct tc_pedit_key *tkey)
 	}
 
 	ind = tkey->off & 3;
+
 	stride = 8 * ind;
 	tkey->val <<= stride;
 	tkey->mask <<= stride;
 	retain <<= stride;
 	tkey->mask = retain|m[ind];
+
 	tkey->off &= ~3;
 
 	if (pedit_debug)
@@ -411,7 +394,7 @@ done:
 	return res;
 }
 
-int
+static int
 parse_munge(int *argc_p, char ***argv_p,struct tc_pedit_sel *sel)
 {
 	struct tc_pedit_key tkey;

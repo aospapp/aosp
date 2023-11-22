@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "Configuration.h"
 #ifdef ANDROID
 #include "android/CallbackProtector.h"
 #include "android/android_Effect.h"
@@ -71,7 +72,7 @@
     SLuint8 mMuteMask;      // Mask for which channels are muted: bit 0=left, 1=right
     SLuint8 mSoloMask;      // Mask for which channels are soloed: bit 0=left, 1=right
     SLuint8 mNumChannels;   // initially UNKNOWN_NUMCHANNELS, then const once it is known,
-                            // range 1 <= x <= 8 FIXME FCC_8
+                            // range 1 <= x <= FCC_8
     // End of former IMuteSolo fields
     SLuint32 mSampleRateMilliHz;// initially UNKNOWN_SAMPLERATE, then const once it is known
     // Formerly at IEffectSend
@@ -93,7 +94,7 @@
     /** identifies the initialization and preparation state */
     enum AndroidObjectState mAndroidObjState;
     /** identifies which group of effects ("session") this player belongs to */
-    int mSessionId;
+    audio_session_t mSessionId;
     /** identifies the Android stream type playback will occur on */
     audio_stream_type_t mStreamType;
     // FIXME consolidate the next several variables into one class to avoid placement new
@@ -146,7 +147,7 @@
     DataLocatorFormat mDataSink;
     // cached data for this instance
     SLuint8 mNumChannels;   // initially UNKNOWN_NUMCHANNELS, then const once it is known,
-                            // range 1 <= x <= 8 FIXME FCC_8
+                            // range 1 <= x <= FCC_8
     SLuint32 mSampleRateMilliHz;// initially UNKNOWN_SAMPLERATE, then const once it is known
     // implementation-specific data for this instance
 #ifdef ANDROID
@@ -343,7 +344,7 @@ typedef struct CMediaPlayer_struct {
     /** identifies the initialization and preparation state */
     enum AndroidObjectState mAndroidObjState;
     /** identifies which group of effects ("session") this player belongs to */
-    int mSessionId;
+    audio_session_t mSessionId;
     /** identifies the Android stream type playback will occur on */
     audio_stream_type_t mStreamType;
 #endif

@@ -32,7 +32,7 @@ public class PackageInfoTest extends AndroidTestCase {
     private PackageManager mPackageManager;
     private PackageInfo mPackageInfo;
     private PackageInfo mPackageInfoCmp;
-    private static final String PACKAGE_NAME = "com.android.cts.content";
+    private static final String PACKAGE_NAME = "android.content.cts";
 
     @Override
     protected void setUp() throws Exception {

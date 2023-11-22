@@ -18,18 +18,19 @@
 
 #define LOG_TAG "bt_hci_inject"
 
+#include "hci_inject.h"
+
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
 
-#include "osi/include/allocator.h"
 #include "bt_types.h"
 #include "buffer_allocator.h"
-#include "hci_inject.h"
 #include "hci_layer.h"
+#include "osi/include/allocator.h"
 #include "osi/include/list.h"
-#include "osi/include/osi.h"
 #include "osi/include/log.h"
+#include "osi/include/osi.h"
 #include "osi/include/socket.h"
 #include "osi/include/thread.h"
 
@@ -61,6 +62,10 @@ static void read_ready(socket_t *socket, void *context);
 static void client_free(void *ptr);
 
 bool hci_inject_open(const hci_t *hci_interface) {
+#if (!defined(BT_NET_DEBUG) || (BT_NET_DEBUG != TRUE))
+  return true;          // Disable using network sockets for security reasons
+#endif
+
   assert(listen_socket == NULL);
   assert(thread == NULL);
   assert(clients == NULL);
@@ -92,6 +97,10 @@ error:;
 }
 
 void hci_inject_close(void) {
+#if (!defined(BT_NET_DEBUG) || (BT_NET_DEBUG != TRUE))
+  return;               // Disable using network sockets for security reasons
+#endif
+
   socket_free(listen_socket);
   list_free(clients);
   thread_free(thread);
@@ -110,7 +119,7 @@ static int hci_packet_to_event(hci_packet_t packet) {
     case HCI_PACKET_SCO_DATA:
       return MSG_STACK_TO_HC_HCI_SCO;
     default:
-      LOG_ERROR("%s unsupported packet type: %d", __func__, packet);
+      LOG_ERROR(LOG_TAG, "%s unsupported packet type: %d", __func__, packet);
       return -1;
   }
 }
@@ -124,16 +133,11 @@ static void accept_ready(socket_t *socket, UNUSED_ATTR void *context) {
     return;
 
   client_t *client = (client_t *)osi_calloc(sizeof(client_t));
-  if (!client) {
-    LOG_ERROR("%s unable to allocate memory for client.", __func__);
-    socket_free(socket);
-    return;
-  }
 
   client->socket = socket;
 
   if (!list_append(clients, client)) {
-    LOG_ERROR("%s unable to add client to list.", __func__);
+    LOG_ERROR(LOG_TAG, "%s unable to add client to list.", __func__);
     client_free(client);
     return;
   }
@@ -176,7 +180,7 @@ static void read_ready(UNUSED_ATTR socket_t *socket, void *context) {
       memcpy(buf->data, buffer + 3, packet_len);
       hci->transmit_downward(buf->event, buf);
     } else {
-      LOG_ERROR("%s dropping injected packet of length %zu", __func__, packet_len);
+      LOG_ERROR(LOG_TAG, "%s dropping injected packet of length %zu", __func__, packet_len);
     }
 
     size_t remainder = client->buffer_size - frame_len;

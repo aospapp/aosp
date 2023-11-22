@@ -22,6 +22,8 @@ transforms_utils_SRC_FILES := \
   LoopSimplify.cpp \
   LoopUnroll.cpp \
   LoopUnrollRuntime.cpp \
+  LoopUtils.cpp \
+  LoopVersioning.cpp \
   LowerInvoke.cpp \
   LowerSwitch.cpp \
   Mem2Reg.cpp \
@@ -33,6 +35,7 @@ transforms_utils_SRC_FILES := \
   SimplifyIndVar.cpp \
   SimplifyInstructions.cpp \
   SimplifyLibCalls.cpp \
+  SplitModule.cpp \
   SymbolRewriter.cpp \
   UnifyFunctionExitNodes.cpp \
   Utils.cpp \
@@ -45,9 +48,10 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(transforms_utils_SRC_FILES)
 LOCAL_MODULE:= libLLVMTransformUtils
 
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_HOST_OS := darwin linux windows
 
 include $(LLVM_HOST_BUILD_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
 include $(LLVM_GEN_INTRINSICS_MK)
 include $(BUILD_HOST_STATIC_LIBRARY)
 
@@ -59,9 +63,8 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(transforms_utils_SRC_FILES)
 LOCAL_MODULE:= libLLVMTransformUtils
 
-LOCAL_MODULE_TAGS := optional
-
 include $(LLVM_DEVICE_BUILD_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
 include $(LLVM_GEN_INTRINSICS_MK)
 include $(BUILD_STATIC_LIBRARY)
 endif

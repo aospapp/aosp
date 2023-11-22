@@ -19,6 +19,12 @@
 #ifndef BTIF_HL_H
 #define BTIF_HL_H
 
+#include <hardware/bluetooth.h>
+
+#include "bta_hl_api.h"
+#include "bt_common.h"
+#include "osi/include/alarm.h"
+
 /*******************************************************************************
 **  Constants & Macros
 ********************************************************************************/
@@ -38,8 +44,6 @@
 
 #define BTIF_HL_CCH_NUM_FILTER_ELEMS            3
 #define BTIF_HL_APPLICATION_NAME_LEN          512
-
-
 
 /*******************************************************************************
 **  Type definitions and return values
@@ -211,8 +215,7 @@ typedef struct
     UINT8                   sdp_idx;
     tBTA_HL_SDP             sdp;
     btif_hl_cch_op_t        cch_oper;
-    BOOLEAN                 cch_timer_active;
-    TIMER_LIST_ENT          cch_timer;
+    alarm_t                 *cch_timer;
 } btif_hl_mcl_cb_t;
 
 typedef struct
@@ -277,7 +280,6 @@ typedef struct
     int                     fd;
 } btif_hl_send_chan_state_cb_t;
 
-
 typedef struct
 {
     UINT8 app_idx;
@@ -293,7 +295,6 @@ typedef union
     btif_hl_unreg_t         unreg;
     btif_hl_update_mdl_t    update_mdl;
 } btif_hl_evt_cb_t;
-
 
 /*******************************************************************************
 **  Functions
@@ -319,8 +320,6 @@ extern BOOLEAN btif_hl_find_mcl_idx_using_handle( tBTA_HL_MCL_HANDLE mcl_handle,
                                                   UINT8 *p_app_idx, UINT8 *p_mcl_idx);
 extern BOOLEAN  btif_hl_save_mdl_cfg(UINT8 app_id, UINT8 item_idx, tBTA_HL_MDL_CFG *p_mdl_cfg);
 extern BOOLEAN  btif_hl_delete_mdl_cfg(UINT8 app_id, UINT8 item_idx);
-extern void * btif_hl_get_buf(UINT16 size);
-extern void btif_hl_free_buf(void **p);
 extern BOOLEAN btif_hl_find_mdl_idx_using_handle(tBTA_HL_MDL_HANDLE mdl_handle,
                                                  UINT8 *p_app_idx,UINT8 *p_mcl_idx,
                                                  UINT8 *p_mdl_idx);

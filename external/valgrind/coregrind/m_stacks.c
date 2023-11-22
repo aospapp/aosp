@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2000-2013 Julian Seward 
+   Copyright (C) 2000-2015 Julian Seward 
       jseward@acm.org
 
    This program is free software; you can redistribute it and/or
@@ -103,7 +103,7 @@ static UWord next_id;  /* Next id we hand out to a newly registered stack */
  */
 static Stack *current_stack;
 
-/* Find 'st' in the stacks_list and move it one step closer the the
+/* Find 'st' in the stacks_list and move it one step closer to the
    front of the list, so as to make subsequent searches for it
    cheaper. */
 static void move_Stack_one_step_forward ( Stack* st )
@@ -411,8 +411,9 @@ static void complaints_stack_switch (Addr old_SP, Addr new_SP)
                 (void *) current_stack->end,                            \
                 current_stack->id);                                     \
          return;                                                        \
-      } else                                                            \
+      } else {                                                          \
          EDEBUG("new current_stack not found\n");                       \
+      }                                                                 \
    }
 
 #define IF_BIG_DELTA_complaints_AND_RETURN                              \

@@ -29,10 +29,12 @@ public class ManifestGeneratorTest extends TestCase {
 
     private static final String PACKAGE = "test.package";
     private static final String INSTRUMENT = "test.package.TestInstrument";
+    private static final String MIN_SDK = "8";
+    private static final String TARGET_SDK = "9";
     private static final String MANIFEST = "<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>\r\n"
         + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\" "
         + "package=\"test.package\">\r\n"
-        + "  <uses-sdk android:minSdkVersion=\"8\" />\r\n"
+        + "  <uses-sdk android:minSdkVersion=\"8\" android:targetSdkVersion=\"9\" />\r\n"
         + "%s"
         + "  <application>\r\n"
         + "%s"
@@ -66,7 +68,8 @@ public class ManifestGeneratorTest extends TestCase {
                 return this.string.toString();
             }
         };
-        ManifestGenerator.generate(output, PACKAGE, INSTRUMENT, permissions, activities);
+        ManifestGenerator.generate(output, PACKAGE, INSTRUMENT, MIN_SDK, TARGET_SDK,
+            permissions, activities);
         String permissionXml = String.format(PERMISSION, PERMISSION_A)
                 + String.format(PERMISSION, PERMISSION_B);
         String activityXml = String.format(ACTIVITY, ACTIVITY_A)

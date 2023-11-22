@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.android.cts.content;
+package android.content.cts;
 
 import android.app.Activity;
 import android.content.ClipData;
@@ -32,7 +32,7 @@ import java.util.List;
 
 public class ReadableFileReceiverActivity extends Activity {
     public static final String ACTION_CONFIRM_READ_SUCCESS
-        = "com.android.cts.content.action.CONFIRM_READ_SUCCESS";
+        = "android.content.cts.action.CONFIRM_READ_SUCCESS";
     private static final String TAG = ReadableUriExtraToClipDataTest.TAG;
 
     protected void onCreate(Bundle savedInstanceState) {

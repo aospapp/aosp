@@ -14,5 +14,5 @@
 
 # Google blob(s) necessary for Fugu hardware
 PRODUCT_COPY_FILES := \
-    vendor/google/fugu/proprietary/libiperf.so:system/lib/libiperf.so:google
+    vendor/google/fugu/proprietary/libbase.so:system/lib/arm/libbase.so:google \
 

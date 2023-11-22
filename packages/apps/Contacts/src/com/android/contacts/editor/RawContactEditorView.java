@@ -26,12 +26,13 @@ import android.provider.ContactsContract.CommonDataKinds.Photo;
 import android.provider.ContactsContract.CommonDataKinds.StructuredName;
 import android.provider.ContactsContract.Contacts;
 import android.provider.ContactsContract.Data;
-import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Pair;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.android.contacts.GroupMetaDataLoader;
@@ -78,6 +79,7 @@ public class RawContactEditorView extends BaseRawContactEditorView {
     private View mAccountHeader;
     private TextView mAccountHeaderTypeTextView;
     private TextView mAccountHeaderNameTextView;
+    private ImageView mAccountIconImageView;
 
     private long mRawContactId = -1;
     private boolean mAutoAddToDefaultGroup = true;
@@ -141,6 +143,17 @@ public class RawContactEditorView extends BaseRawContactEditorView {
         mAccountHeader = findViewById(R.id.account_header_container);
         mAccountHeaderTypeTextView = (TextView) findViewById(R.id.account_type);
         mAccountHeaderNameTextView = (TextView) findViewById(R.id.account_name);
+        mAccountIconImageView = (ImageView) findViewById(android.R.id.icon);
+
+        // The same header is used by both full editor and read-only editor view. The header is
+        // left-aligned with read-only editor view but is not aligned well with full editor. So we
+        // need to shift the text in the header a little bit for full editor.
+        LinearLayout accountInfoView = (LinearLayout) findViewById(R.id.account_info);
+        final int topBottomPaddingDp = (int) getResources().getDimension(R.dimen
+                .editor_account_header_expandable_top_bottom_padding);
+        final int leftPaddingDp = (int) getResources().getDimension(R.dimen
+                .editor_account_header_expandable_left_padding);
+        accountInfoView.setPadding(leftPaddingDp, topBottomPaddingDp, 0, topBottomPaddingDp);
 
         mAccountSelector = findViewById(R.id.account_selector_container);
         mAccountSelectorTypeTextView = (TextView) findViewById(R.id.account_type_selector);
@@ -190,20 +203,17 @@ public class RawContactEditorView extends BaseRawContactEditorView {
         mRawContactId = state.getRawContactId();
 
         // Fill in the account info
-        final Pair<String,String> accountInfo = EditorUiUtils.getAccountInfo(getContext(),
-                isProfile, state.getAccountName(), type);
-        if (accountInfo == null) {
+        final Pair<String,String> accountInfo = isProfile
+                ? EditorUiUtils.getLocalAccountInfo(getContext(), state.getAccountName(), type)
+                : EditorUiUtils.getAccountInfo(getContext(), state.getAccountName(), type);
+        if (accountInfo.first == null) {
             // Hide this view so the other text view will be centered vertically
             mAccountHeaderNameTextView.setVisibility(View.GONE);
         } else {
-            if (accountInfo.first == null) {
-                mAccountHeaderNameTextView.setVisibility(View.GONE);
-            } else {
-                mAccountHeaderNameTextView.setVisibility(View.VISIBLE);
-                mAccountHeaderNameTextView.setText(accountInfo.first);
-            }
-            mAccountHeaderTypeTextView.setText(accountInfo.second);
+            mAccountHeaderNameTextView.setVisibility(View.VISIBLE);
+            mAccountHeaderNameTextView.setText(accountInfo.first);
         }
+        mAccountHeaderTypeTextView.setText(accountInfo.second);
         updateAccountHeaderContentDescription();
 
         // The account selector and header are both used to display the same information.
@@ -215,6 +225,9 @@ public class RawContactEditorView extends BaseRawContactEditorView {
         // confusing. They should be mutually exclusive.
         mAccountHeader.setVisibility(mAccountSelector.getVisibility() == View.GONE
                 ? View.VISIBLE : View.GONE);
+
+        mAccountIconImageView.setImageDrawable(state.getRawContactAccountType(getContext())
+                .getDisplayIcon(getContext()));
 
         // Show photo editor when supported
         RawContactModifier.ensureKindExists(state, type, Photo.CONTENT_ITEM_TYPE);
@@ -287,7 +300,6 @@ public class RawContactEditorView extends BaseRawContactEditorView {
                 if (kind.fieldList == null) continue;
                 final KindSectionView section = (KindSectionView)mInflater.inflate(
                         R.layout.item_kind_section, mFields, false);
-                section.setShowOneEmptyEditor(true);
                 section.setEnabled(isEnabled());
                 section.setState(kind, state, /* readOnly =*/ false, vig);
                 mFields.addView(section);

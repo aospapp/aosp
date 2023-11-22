@@ -23,6 +23,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+#include "utils.h"
+
 TEST(sys_select, fd_set_smoke) {
   fd_set fds;
   FD_ZERO(&fds);
@@ -68,7 +70,8 @@ static void DelayedWriteCleanup(int pid, int fd) {
   char buf[sizeof(DELAY_MSG)];
   ASSERT_EQ(static_cast<ssize_t>(sizeof(DELAY_MSG)), read(fd, buf, sizeof(DELAY_MSG)));
   ASSERT_STREQ(DELAY_MSG, buf);
-  ASSERT_EQ(pid, waitpid(pid, NULL, 0));
+
+  AssertChildExited(pid, 0);
 }
 
 TEST(sys_select, select_smoke) {
@@ -89,7 +92,16 @@ TEST(sys_select, select_smoke) {
   ASSERT_EQ(-1, select(-1, &r, &w, &e, NULL));
   ASSERT_EQ(EINVAL, errno);
 
-  ASSERT_EQ(2, select(max, &r, &w, &e, NULL));
+  int num_fds = select(max, &r, &w, &e, NULL);
+  // If there is data to be read on STDIN, then the number of
+  // fds ready will be 3 instead of 2. Allow this case, but verify
+  // every fd that is set.
+  ASSERT_TRUE(num_fds == 2 || num_fds == 3) << "Num fds returned " << num_fds;
+  ASSERT_TRUE(FD_ISSET(STDOUT_FILENO, &w));
+  ASSERT_TRUE(FD_ISSET(STDERR_FILENO, &w));
+  if (num_fds == 3) {
+    ASSERT_TRUE(FD_ISSET(STDIN_FILENO, &r));
+  }
 
   // Invalid timeout.
   timeval tv;
@@ -135,7 +147,16 @@ TEST(sys_select, pselect_smoke) {
   ASSERT_EQ(-1, pselect(-1, &r, &w, &e, NULL, &ss));
   ASSERT_EQ(EINVAL, errno);
 
-  ASSERT_EQ(2, pselect(max, &r, &w, &e, NULL, &ss));
+  // If there is data to be read on STDIN, then the number of
+  // fds ready will be 3 instead of 2. Allow this case, but verify
+  // every fd that is set.
+  int num_fds = pselect(max, &r, &w, &e, NULL, &ss);
+  ASSERT_TRUE(num_fds == 2 || num_fds == 3) << "Num fds returned " << num_fds;
+  ASSERT_TRUE(FD_ISSET(STDOUT_FILENO, &w));
+  ASSERT_TRUE(FD_ISSET(STDERR_FILENO, &w));
+  if (num_fds == 3) {
+    ASSERT_TRUE(FD_ISSET(STDIN_FILENO, &r));
+  }
 
   // Invalid timeout.
   timespec tv;

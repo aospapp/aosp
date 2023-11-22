@@ -28,7 +28,7 @@
 
 #include <string.h>
 #include "utl.h"
-#include "gki.h"
+#include "bt_common.h"
 #include "bta_sys.h"
 #include "bta_gatts_int.h"
 

@@ -18,6 +18,7 @@ package android.databinding.tool.expr;
 
 import android.databinding.tool.reflection.ModelAnalyzer;
 import android.databinding.tool.reflection.ModelClass;
+import android.databinding.tool.writer.KCode;
 
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -46,20 +47,46 @@ public class TernaryExpr extends Expr {
     }
 
     @Override
+    public String getInvertibleError() {
+        if (getPred().isDynamic()) {
+            return "The condition of a ternary operator must be constant: " +
+                    getPred().toFullCode();
+        }
+        final String trueInvertible = getIfTrue().getInvertibleError();
+        if (trueInvertible != null) {
+            return trueInvertible;
+        } else {
+            return getIfFalse().getInvertibleError();
+        }
+    }
+
+    @Override
     protected ModelClass resolveType(ModelAnalyzer modelAnalyzer) {
+        final Expr ifTrue = getIfTrue();
+        final Expr ifFalse = getIfFalse();
+        if (isNullLiteral(ifTrue)) {
+            return ifFalse.getResolvedType();
+        } else if (isNullLiteral(ifFalse)) {
+            return ifTrue.getResolvedType();
+        }
         return modelAnalyzer.findCommonParentOf(getIfTrue().getResolvedType(),
                 getIfFalse().getResolvedType());
     }
 
+    private static boolean isNullLiteral(Expr expr) {
+        final ModelClass type = expr.getResolvedType();
+        return (type.isObject() && (expr instanceof SymbolExpr) &&
+                "null".equals(((SymbolExpr)expr).getText()));
+    }
+
     @Override
     protected List<Dependency> constructDependencies() {
-        List<Dependency> deps = new ArrayList<>();
+        List<Dependency> deps = new ArrayList<Dependency>();
         Expr predExpr = getPred();
-        if (predExpr.isDynamic()) {
-            final Dependency pred = new Dependency(this, predExpr);
-            pred.setMandatory(true);
-            deps.add(pred);
-        }
+        final Dependency pred = new Dependency(this, predExpr);
+        pred.setMandatory(true);
+        deps.add(pred);
+
         Expr ifTrueExpr = getIfTrue();
         if (ifTrueExpr.isDynamic()) {
             deps.add(new Dependency(this, ifTrueExpr, predExpr, true));
@@ -74,6 +101,26 @@ public class TernaryExpr extends Expr {
     @Override
     protected BitSet getPredicateInvalidFlags() {
         return getPred().getInvalidFlags();
+    }
+
+    @Override
+    protected KCode generateCode(boolean expand) {
+        return new KCode()
+                .app("", getPred().toCode(expand))
+                .app(" ? ", getIfTrue().toCode(expand))
+                .app(" : ", getIfFalse().toCode(expand));
+
+    }
+
+    @Override
+    public KCode toInverseCode(KCode variable) {
+        return new KCode()
+                .app("if (", getPred().toCode(true))
+                .app(") {")
+                .tab(getIfTrue().toInverseCode(variable))
+                .nl(new KCode("} else {"))
+                .tab(getIfFalse().toInverseCode(variable))
+                .nl(new KCode("}"));
     }
 
     @Override

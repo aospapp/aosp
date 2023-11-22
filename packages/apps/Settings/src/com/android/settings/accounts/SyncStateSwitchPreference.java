@@ -19,15 +19,15 @@ package com.android.settings.accounts;
 import android.accounts.Account;
 import android.app.ActivityManager;
 import android.content.Context;
-import android.preference.SwitchPreference;
+import android.support.v14.preference.SwitchPreference;
+import android.support.v7.preference.PreferenceViewHolder;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.TextView;
 
 import com.android.settings.R;
-import com.android.settings.widget.AnimatedImageView;
+import com.android.settingslib.widget.AnimatedImageView;
 
 public class SyncStateSwitchPreference extends SwitchPreference {
 
@@ -51,13 +51,18 @@ public class SyncStateSwitchPreference extends SwitchPreference {
 
     public SyncStateSwitchPreference(Context context, Account account, String authority) {
         super(context, null, 0, R.style.SyncSwitchPreference);
+        setup(account, authority);
+    }
+
+    public void setup(Account account, String authority) {
         mAccount = account;
         mAuthority = authority;
+        notifyChanged();
     }
 
     @Override
-    public void onBindView(View view) {
-        super.onBindView(view);
+    public void onBindViewHolder(PreferenceViewHolder view) {
+        super.onBindViewHolder(view);
         final AnimatedImageView syncActiveView = (AnimatedImageView) view.findViewById(
                 R.id.sync_active);
         final View syncFailedView = view.findViewById(R.id.sync_failed);
@@ -69,7 +74,7 @@ public class SyncStateSwitchPreference extends SwitchPreference {
         final boolean failedVisible = mFailed && !activeVisible;
         syncFailedView.setVisibility(failedVisible ? View.VISIBLE : View.GONE);
 
-        View switchView = view.findViewById(com.android.internal.R.id.switchWidget);
+        View switchView = view.findViewById(com.android.internal.R.id.switch_widget);
         if (mOneTimeSyncMode) {
             switchView.setVisibility(View.GONE);
 

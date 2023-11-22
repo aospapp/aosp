@@ -104,8 +104,10 @@ void FastCapture::onStateChange()
         } else {
             mFormat = mInputSource->format();
             mSampleRate = Format_sampleRate(mFormat);
+#if !LOG_NDEBUG
             unsigned channelCount = Format_channelCount(mFormat);
             ALOG_ASSERT(channelCount >= 1 && channelCount <= FCC_8);
+#endif
         }
         dumpState->mSampleRate = mSampleRate;
         eitherChanged = true;
@@ -131,7 +133,9 @@ void FastCapture::onStateChange()
             // FIXME new may block for unbounded time at internal mutex of the heap
             //       implementation; it would be better to have normal capture thread allocate for
             //       us to avoid blocking here and to prevent possible priority inversion
-            (void)posix_memalign(&mReadBuffer, 32, frameCount * Format_frameSize(mFormat));
+            size_t bufferSize = frameCount * Format_frameSize(mFormat);
+            (void)posix_memalign(&mReadBuffer, 32, bufferSize);
+            memset(mReadBuffer, 0, bufferSize); // if posix_memalign fails, will segv here.
             mPeriodNs = (frameCount * 1000000000LL) / mSampleRate;      // 1.00
             mUnderrunNs = (frameCount * 1750000000LL) / mSampleRate;    // 1.75
             mOverrunNs = (frameCount * 500000000LL) / mSampleRate;      // 0.50
@@ -164,8 +168,7 @@ void FastCapture::onWork()
         ALOG_ASSERT(mReadBuffer != NULL);
         dumpState->mReadSequence++;
         ATRACE_BEGIN("read");
-        ssize_t framesRead = mInputSource->read(mReadBuffer, frameCount,
-                AudioBufferProvider::kInvalidPTS);
+        ssize_t framesRead = mInputSource->read(mReadBuffer, frameCount);
         ATRACE_END();
         dumpState->mReadSequence++;
         if (framesRead >= 0) {
@@ -185,7 +188,6 @@ void FastCapture::onWork()
         ALOG_ASSERT(mPipeSink != NULL);
         ALOG_ASSERT(mReadBuffer != NULL);
         if (mReadBufferState < 0) {
-            unsigned channelCount = Format_channelCount(mFormat);
             memset(mReadBuffer, 0, frameCount * Format_frameSize(mFormat));
             mReadBufferState = frameCount;
         }

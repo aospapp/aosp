@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.rs.test_compatlegacy">
-  <uses-sdk android:minSdkVersion="8" />
-  <uses-sdk android:targetSdkVersion="8" />
+  <uses-sdk android:minSdkVersion="8"
+            android:targetSdkVersion="20" />
     <application
         android:label="_RS_Test_CompatLegacy"
         android:icon="@drawable/test_pattern">

@@ -329,6 +329,10 @@ public class FolderPagedView extends PagedView {
                 lp.cellY = info.cellY;
                 currentPage.addViewToCellLayout(
                         v, -1, mFolder.mLauncher.getViewIdForItem(info), lp, true);
+
+                if (rank < FolderIcon.NUM_ITEMS_IN_PREVIEW && v instanceof BubbleTextView) {
+                    ((BubbleTextView) v).verifyHighRes();
+                }
             }
 
             rank ++;
@@ -398,16 +402,28 @@ public class FolderPagedView extends PagedView {
         return !ALLOW_FOLDER_SCROLL && getItemCount() >= mMaxItemsPerPage;
     }
 
+    public View getFirstItem() {
+        if (getChildCount() < 1) {
+            return null;
+        }
+        ShortcutAndWidgetContainer currContainer = getCurrentCellLayout().getShortcutsAndWidgets();
+        if (mGridCountX > 0) {
+            return currContainer.getChildAt(0, 0);
+        } else {
+            return currContainer.getChildAt(0);
+        }
+    }
+
     public View getLastItem() {
         if (getChildCount() < 1) {
             return null;
         }
-        ShortcutAndWidgetContainer lastContainer = getCurrentCellLayout().getShortcutsAndWidgets();
-        int lastRank = lastContainer.getChildCount() - 1;
+        ShortcutAndWidgetContainer currContainer = getCurrentCellLayout().getShortcutsAndWidgets();
+        int lastRank = currContainer.getChildCount() - 1;
         if (mGridCountX > 0) {
-            return lastContainer.getChildAt(lastRank % mGridCountX, lastRank / mGridCountX);
+            return currContainer.getChildAt(lastRank % mGridCountX, lastRank / mGridCountX);
         } else {
-            return lastContainer.getChildAt(lastRank);
+            return currContainer.getChildAt(lastRank);
         }
     }
 

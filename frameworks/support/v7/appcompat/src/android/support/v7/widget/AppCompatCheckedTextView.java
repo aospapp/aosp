@@ -18,8 +18,6 @@ package android.support.v7.widget;
 
 import android.content.Context;
 import android.support.annotation.DrawableRes;
-import android.support.v7.internal.widget.TintManager;
-import android.support.v7.internal.widget.TintTypedArray;
 import android.util.AttributeSet;
 import android.widget.CheckedTextView;
 
@@ -35,7 +33,8 @@ public class AppCompatCheckedTextView extends CheckedTextView {
             android.R.attr.checkMark
     };
 
-    private TintManager mTintManager;
+    private AppCompatDrawableManager mDrawableManager;
+    private AppCompatTextHelper mTextHelper;
 
     public AppCompatCheckedTextView(Context context) {
         this(context, null);
@@ -46,25 +45,42 @@ public class AppCompatCheckedTextView extends CheckedTextView {
     }
 
     public AppCompatCheckedTextView(Context context, AttributeSet attrs, int defStyleAttr) {
-        super(context, attrs, defStyleAttr);
+        super(TintContextWrapper.wrap(context), attrs, defStyleAttr);
 
-        if (TintManager.SHOULD_BE_USED) {
-            TintTypedArray a = TintTypedArray.obtainStyledAttributes(getContext(), attrs,
-                    TINT_ATTRS, defStyleAttr, 0);
-            setCheckMarkDrawable(a.getDrawable(0));
-            a.recycle();
+        mTextHelper = AppCompatTextHelper.create(this);
+        mTextHelper.loadFromAttributes(attrs, defStyleAttr);
+        mTextHelper.applyCompoundDrawablesTints();
 
-            mTintManager = a.getTintManager();
-        }
+        mDrawableManager = AppCompatDrawableManager.get();
+
+        TintTypedArray a = TintTypedArray.obtainStyledAttributes(getContext(), attrs,
+                TINT_ATTRS, defStyleAttr, 0);
+        setCheckMarkDrawable(a.getDrawable(0));
+        a.recycle();
     }
 
     @Override
     public void setCheckMarkDrawable(@DrawableRes int resId) {
-        if (mTintManager != null) {
-            setCheckMarkDrawable(mTintManager.getDrawable(resId));
+        if (mDrawableManager != null) {
+            setCheckMarkDrawable(mDrawableManager.getDrawable(getContext(), resId));
         } else {
             super.setCheckMarkDrawable(resId);
         }
     }
 
+    @Override
+    public void setTextAppearance(Context context, int resId) {
+        super.setTextAppearance(context, resId);
+        if (mTextHelper != null) {
+            mTextHelper.onSetTextAppearance(context, resId);
+        }
+    }
+
+    @Override
+    protected void drawableStateChanged() {
+        super.drawableStateChanged();
+        if (mTextHelper != null) {
+            mTextHelper.applyCompoundDrawablesTints();
+        }
+    }
 }

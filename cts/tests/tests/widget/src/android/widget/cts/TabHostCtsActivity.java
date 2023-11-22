@@ -22,7 +22,7 @@ import android.view.View;
 import android.widget.TabHost;
 import android.widget.TextView;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 /**
  * A minimal application for TabHost test.

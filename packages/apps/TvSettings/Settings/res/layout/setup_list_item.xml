@@ -13,20 +13,56 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<android.support.v17.leanback.widget.NonOverlappingLinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="@dimen/list_item_height"
+    android:layout_height="wrap_content"
     android:gravity="start|center_vertical"
-    android:orientation="horizontal">
-    <FrameLayout
-        android:id="@+id/list_item_icon"
-        android:layout_width="@dimen/list_item_icon_size"
-        android:layout_height="@dimen/list_item_icon_size"
-        android:layout_marginEnd="@dimen/setup_list_item_icon_margin_end" />
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:id="@+id/list_item_text"
-        android:textAppearance="?android:attr/textAppearanceListItem" />
-</android.support.v17.leanback.widget.NonOverlappingLinearLayout>
+    android:paddingBottom="@dimen/setup_list_item_container_shadow_padding"
+    android:paddingEnd="@dimen/setup_list_item_container_shadow_padding"
+    android:clipToPadding="false"
+    android:clipChildren="false"
+    android:focusable="true"
+    android:clickable="true"
+    android:stateListAnimator="@anim/list_item_pressed">
+    <LinearLayout
+        android:id="@+id/list_item_text_container"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/setup_list_item_height"
+        android:paddingStart="@dimen/setup_list_item_padding"
+        android:paddingEnd="@dimen/setup_list_item_padding"
+        android:focusable="false"
+        android:orientation="horizontal"
+        android:duplicateParentState="true"
+        android:gravity="start|center_vertical"
+        android:elevation="@dimen/setup_elevation_higher">
+        <ImageView
+            android:id="@+id/list_item_icon"
+            android:layout_width="@dimen/list_item_icon_size"
+            android:layout_height="@dimen/list_item_icon_size"
+            android:layout_marginEnd="@dimen/setup_list_item_icon_margin_end"
+            android:focusable="false"
+            android:duplicateParentState="true" />
+        <TextView
+            android:id="@+id/list_item_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:focusable="false"
+            android:duplicateParentState="true"
+            android:background="@android:color/transparent"
+            android:textAppearance="@style/Setup.Action.ListItem" />
+    </LinearLayout>
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/setup_list_item_height"
+        android:layout_alignTop="@id/list_item_text_container"
+        android:layout_alignBottom="@id/list_item_text_container"
+        android:focusable="false"
+        android:duplicateParentState="true"
+        android:id="@+id/list_item_background"
+        android:background="@drawable/setup_list_item_background"
+        android:stateListAnimator="@anim/list_item_focus"
+        android:alpha="0"
+        android:elevation="@dimen/setup_elevation"
+        android:gravity="start|center_vertical"
+        android:orientation="horizontal" />
+</RelativeLayout>

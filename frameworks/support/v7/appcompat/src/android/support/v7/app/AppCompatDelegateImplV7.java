@@ -29,8 +29,12 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.support.annotation.IdRes;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v4.app.NavUtils;
+import android.support.v4.os.ParcelableCompat;
+import android.support.v4.os.ParcelableCompatCreatorCallbacks;
 import android.support.v4.view.LayoutInflaterCompat;
 import android.support.v4.view.LayoutInflaterFactory;
 import android.support.v4.view.OnApplyWindowInsetsListener;
@@ -42,24 +46,22 @@ import android.support.v4.view.WindowCompat;
 import android.support.v4.view.WindowInsetsCompat;
 import android.support.v4.widget.PopupWindowCompat;
 import android.support.v7.appcompat.R;
-import android.support.v7.internal.app.AppCompatViewInflater;
-import android.support.v7.internal.app.ToolbarActionBar;
-import android.support.v7.internal.app.WindowDecorActionBar;
-import android.support.v7.internal.view.ContextThemeWrapper;
-import android.support.v7.internal.view.StandaloneActionMode;
-import android.support.v7.internal.view.menu.ListMenuPresenter;
-import android.support.v7.internal.view.menu.MenuBuilder;
-import android.support.v7.internal.view.menu.MenuPresenter;
-import android.support.v7.internal.view.menu.MenuView;
-import android.support.v7.internal.widget.ActionBarContextView;
-import android.support.v7.internal.widget.ContentFrameLayout;
-import android.support.v7.internal.widget.DecorContentParent;
-import android.support.v7.internal.widget.FitWindowsViewGroup;
-import android.support.v7.internal.widget.TintManager;
-import android.support.v7.internal.widget.ViewStubCompat;
-import android.support.v7.internal.widget.ViewUtils;
 import android.support.v7.view.ActionMode;
+import android.support.v7.view.ContextThemeWrapper;
+import android.support.v7.view.StandaloneActionMode;
+import android.support.v7.view.menu.ListMenuPresenter;
+import android.support.v7.view.menu.MenuBuilder;
+import android.support.v7.view.menu.MenuPresenter;
+import android.support.v7.view.menu.MenuView;
+import android.support.v7.widget.ActionBarContextView;
+import android.support.v7.widget.AppCompatDrawableManager;
+import android.support.v7.widget.ContentFrameLayout;
+import android.support.v7.widget.DecorContentParent;
+import android.support.v7.widget.FitWindowsViewGroup;
 import android.support.v7.widget.Toolbar;
+import android.support.v7.widget.VectorEnabledTintResources;
+import android.support.v7.widget.ViewStubCompat;
+import android.support.v7.widget.ViewUtils;
 import android.text.TextUtils;
 import android.util.AndroidRuntimeException;
 import android.util.AttributeSet;
@@ -102,7 +104,6 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
 
     // true if we have installed a window sub-decor layout.
     private boolean mSubDecorInstalled;
-    private ViewGroup mWindowDecor;
     private ViewGroup mSubDecor;
 
     private TextView mTitleView;
@@ -115,6 +116,8 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
     private boolean mClosingActionMenu;
     private PanelFeatureState[] mPanels;
     private PanelFeatureState mPreparedPanel;
+
+    private boolean mLongPressBackDown;
 
     private boolean mInvalidatePanelMenuPosted;
     private int mInvalidatePanelMenuFeatures;
@@ -145,8 +148,6 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        mWindowDecor = (ViewGroup) mWindow.getDecorView();
-
         if (mOriginalWindowCallback instanceof Activity) {
             if (NavUtils.getParentActivityName((Activity) mOriginalWindowCallback) != null) {
                 // Peek at the Action Bar and update it if it already exists
@@ -198,14 +199,35 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
                     "by the window decor. Do not request Window.FEATURE_SUPPORT_ACTION_BAR and set " +
                     "windowActionBar to false in your theme to use a Toolbar instead.");
         }
-        // Clear out the MenuInflater to make sure that it is valid for the new Action Bar
+
+        // If we reach here then we're setting a new action bar
+        // First clear out the MenuInflater to make sure that it is valid for the new Action Bar
         mMenuInflater = null;
 
-        ToolbarActionBar tbab = new ToolbarActionBar(toolbar, ((Activity) mContext).getTitle(),
-                mAppCompatWindowCallback);
-        mActionBar = tbab;
-        mWindow.setCallback(tbab.getWrappedWindowCallback());
-        tbab.invalidateOptionsMenu();
+        // If we have an action bar currently, destroy it
+        if (ab != null) {
+            ab.onDestroy();
+        }
+
+        if (toolbar != null) {
+            final ToolbarActionBar tbab = new ToolbarActionBar(toolbar,
+                    ((Activity) mContext).getTitle(), mAppCompatWindowCallback);
+            mActionBar = tbab;
+            mWindow.setCallback(tbab.getWrappedWindowCallback());
+        } else {
+            mActionBar = null;
+            // Re-set the original window callback since we may have already set a Toolbar wrapper
+            mWindow.setCallback(mAppCompatWindowCallback);
+        }
+
+        invalidateOptionsMenu();
+    }
+
+    @Nullable
+    @Override
+    public View findViewById(@IdRes int id) {
+        ensureSubDecor();
+        return mWindow.findViewById(id);
     }
 
     @Override
@@ -220,6 +242,9 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
                 ab.onConfigurationChanged(newConfig);
             }
         }
+
+        // Re-apply Day/Night to the new configuration
+        applyDayNight();
     }
 
     @Override
@@ -273,6 +298,15 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
         mOriginalWindowCallback.onContentChanged();
     }
 
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+
+        if (mActionBar != null) {
+            mActionBar.onDestroy();
+        }
+    }
+
     private void ensureSubDecor() {
         if (!mSubDecorInstalled) {
             mSubDecor = createSubDecor();
@@ -302,28 +336,31 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
     }
 
     private ViewGroup createSubDecor() {
-        TypedArray a = mContext.obtainStyledAttributes(R.styleable.Theme);
+        TypedArray a = mContext.obtainStyledAttributes(R.styleable.AppCompatTheme);
 
-        if (!a.hasValue(R.styleable.Theme_windowActionBar)) {
+        if (!a.hasValue(R.styleable.AppCompatTheme_windowActionBar)) {
             a.recycle();
             throw new IllegalStateException(
                     "You need to use a Theme.AppCompat theme (or descendant) with this activity.");
         }
 
-        if (a.getBoolean(R.styleable.Theme_windowNoTitle, false)) {
+        if (a.getBoolean(R.styleable.AppCompatTheme_windowNoTitle, false)) {
             requestWindowFeature(Window.FEATURE_NO_TITLE);
-        } else if (a.getBoolean(R.styleable.Theme_windowActionBar, false)) {
+        } else if (a.getBoolean(R.styleable.AppCompatTheme_windowActionBar, false)) {
             // Don't allow an action bar if there is no title.
             requestWindowFeature(FEATURE_SUPPORT_ACTION_BAR);
         }
-        if (a.getBoolean(R.styleable.Theme_windowActionBarOverlay, false)) {
+        if (a.getBoolean(R.styleable.AppCompatTheme_windowActionBarOverlay, false)) {
             requestWindowFeature(FEATURE_SUPPORT_ACTION_BAR_OVERLAY);
         }
-        if (a.getBoolean(R.styleable.Theme_windowActionModeOverlay, false)) {
+        if (a.getBoolean(R.styleable.AppCompatTheme_windowActionModeOverlay, false)) {
             requestWindowFeature(FEATURE_ACTION_MODE_OVERLAY);
         }
-        mIsFloating = a.getBoolean(R.styleable.Theme_android_windowIsFloating, false);
+        mIsFloating = a.getBoolean(R.styleable.AppCompatTheme_android_windowIsFloating, false);
         a.recycle();
+
+        // Now let's make sure that the Window has installed its decor by retrieving it
+        mWindow.getDecorView();
 
         final LayoutInflater inflater = LayoutInflater.from(mContext);
         ViewGroup subDecor = null;
@@ -435,31 +472,43 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
         // Make the decor optionally fit system windows, like the window's decor
         ViewUtils.makeOptionalFitsSystemWindows(subDecor);
 
-        final ViewGroup decorContent = (ViewGroup) mWindow.findViewById(android.R.id.content);
-        final ContentFrameLayout abcContent = (ContentFrameLayout) subDecor.findViewById(
+        final ContentFrameLayout contentView = (ContentFrameLayout) subDecor.findViewById(
                 R.id.action_bar_activity_content);
 
-        // There might be Views already added to the Window's content view so we need to
-        // migrate them to our content view
-        while (decorContent.getChildCount() > 0) {
-            final View child = decorContent.getChildAt(0);
-            decorContent.removeViewAt(0);
-            abcContent.addView(child);
+        final ViewGroup windowContentView = (ViewGroup) mWindow.findViewById(android.R.id.content);
+        if (windowContentView != null) {
+            // There might be Views already added to the Window's content view so we need to
+            // migrate them to our content view
+            while (windowContentView.getChildCount() > 0) {
+                final View child = windowContentView.getChildAt(0);
+                windowContentView.removeViewAt(0);
+                contentView.addView(child);
+            }
+
+            // Change our content FrameLayout to use the android.R.id.content id.
+            // Useful for fragments.
+            windowContentView.setId(View.NO_ID);
+            contentView.setId(android.R.id.content);
+
+            // The decorContent may have a foreground drawable set (windowContentOverlay).
+            // Remove this as we handle it ourselves
+            if (windowContentView instanceof FrameLayout) {
+                ((FrameLayout) windowContentView).setForeground(null);
+            }
         }
 
         // Now set the Window's content view with the decor
         mWindow.setContentView(subDecor);
 
-        // Change our content FrameLayout to use the android.R.id.content id.
-        // Useful for fragments.
-        decorContent.setId(View.NO_ID);
-        abcContent.setId(android.R.id.content);
+        contentView.setAttachListener(new ContentFrameLayout.OnAttachListener() {
+            @Override
+            public void onAttachedFromWindow() {}
 
-        // The decorContent may have a foreground drawable set (windowContentOverlay).
-        // Remove this as we handle it ourselves
-        if (decorContent instanceof FrameLayout) {
-            ((FrameLayout) decorContent).setForeground(null);
-        }
+            @Override
+            public void onDetachedFromWindow() {
+                dismissPopups();
+            }
+        });
 
         return subDecor;
     }
@@ -473,25 +522,30 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
         // the decor view's size, meaning that any padding is inset for the min/max widths below.
         // We don't control measurement at that level, so we need to workaround it by making sure
         // that the decor view's padding is taken into account.
-        cfl.setDecorPadding(mWindowDecor.getPaddingLeft(),
-                mWindowDecor.getPaddingTop(), mWindowDecor.getPaddingRight(),
-                mWindowDecor.getPaddingBottom());
+        final View windowDecor = mWindow.getDecorView();
+        cfl.setDecorPadding(windowDecor.getPaddingLeft(),
+                windowDecor.getPaddingTop(), windowDecor.getPaddingRight(),
+                windowDecor.getPaddingBottom());
 
-        TypedArray a = mContext.obtainStyledAttributes(R.styleable.Theme);
-        a.getValue(R.styleable.Theme_windowMinWidthMajor, cfl.getMinWidthMajor());
-        a.getValue(R.styleable.Theme_windowMinWidthMinor, cfl.getMinWidthMinor());
+        TypedArray a = mContext.obtainStyledAttributes(R.styleable.AppCompatTheme);
+        a.getValue(R.styleable.AppCompatTheme_windowMinWidthMajor, cfl.getMinWidthMajor());
+        a.getValue(R.styleable.AppCompatTheme_windowMinWidthMinor, cfl.getMinWidthMinor());
 
-        if (a.hasValue(R.styleable.Theme_windowFixedWidthMajor)) {
-            a.getValue(R.styleable.Theme_windowFixedWidthMajor, cfl.getFixedWidthMajor());
+        if (a.hasValue(R.styleable.AppCompatTheme_windowFixedWidthMajor)) {
+            a.getValue(R.styleable.AppCompatTheme_windowFixedWidthMajor,
+                    cfl.getFixedWidthMajor());
         }
-        if (a.hasValue(R.styleable.Theme_windowFixedWidthMinor)) {
-            a.getValue(R.styleable.Theme_windowFixedWidthMinor, cfl.getFixedWidthMinor());
+        if (a.hasValue(R.styleable.AppCompatTheme_windowFixedWidthMinor)) {
+            a.getValue(R.styleable.AppCompatTheme_windowFixedWidthMinor,
+                    cfl.getFixedWidthMinor());
         }
-        if (a.hasValue(R.styleable.Theme_windowFixedHeightMajor)) {
-            a.getValue(R.styleable.Theme_windowFixedHeightMajor, cfl.getFixedHeightMajor());
+        if (a.hasValue(R.styleable.AppCompatTheme_windowFixedHeightMajor)) {
+            a.getValue(R.styleable.AppCompatTheme_windowFixedHeightMajor,
+                    cfl.getFixedHeightMajor());
         }
-        if (a.hasValue(R.styleable.Theme_windowFixedHeightMinor)) {
-            a.getValue(R.styleable.Theme_windowFixedHeightMinor, cfl.getFixedHeightMinor());
+        if (a.hasValue(R.styleable.AppCompatTheme_windowFixedHeightMinor)) {
+            a.getValue(R.styleable.AppCompatTheme_windowFixedHeightMinor,
+                    cfl.getFixedHeightMinor());
         }
         a.recycle();
 
@@ -618,7 +672,7 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
     }
 
     @Override
-    public ActionMode startSupportActionMode(ActionMode.Callback callback) {
+    public ActionMode startSupportActionMode(@NonNull final ActionMode.Callback callback) {
         if (callback == null) {
             throw new IllegalArgumentException("ActionMode callback can not be null.");
         }
@@ -654,17 +708,21 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
     }
 
     @Override
-    ActionMode startSupportActionModeFromWindow(ActionMode.Callback callback) {
+    ActionMode startSupportActionModeFromWindow(@NonNull ActionMode.Callback callback) {
         endOnGoingFadeAnimation();
         if (mActionMode != null) {
             mActionMode.finish();
         }
 
-        final ActionMode.Callback wrappedCallback = new ActionModeCallbackWrapperV7(callback);
+        if (!(callback instanceof ActionModeCallbackWrapperV7)) {
+            // If the callback hasn't been wrapped yet, wrap it
+            callback = new ActionModeCallbackWrapperV7(callback);
+        }
+
         ActionMode mode = null;
         if (mAppCompatCallback != null && !isDestroyed()) {
             try {
-                mode = mAppCompatCallback.onWindowStartingSupportActionMode(wrappedCallback);
+                mode = mAppCompatCallback.onWindowStartingSupportActionMode(callback);
             } catch (AbstractMethodError ame) {
                 // Older apps might not implement this callback method.
             }
@@ -712,21 +770,27 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
                                     mActionModeView,
                                     Gravity.TOP | Gravity.FILL_HORIZONTAL, 0, 0);
                             endOnGoingFadeAnimation();
-                            ViewCompat.setAlpha(mActionModeView, 0f);
-                            mFadeAnim = ViewCompat.animate(mActionModeView).alpha(1f);
-                            mFadeAnim.setListener(new ViewPropertyAnimatorListenerAdapter() {
-                                @Override
-                                public void onAnimationEnd(View view) {
-                                    ViewCompat.setAlpha(mActionModeView, 1f);
-                                    mFadeAnim.setListener(null);
-                                    mFadeAnim = null;
-                                }
 
-                                @Override
-                                public void onAnimationStart(View view) {
-                                    mActionModeView.setVisibility(View.VISIBLE);
-                                }
-                            });
+                            if (shouldAnimateActionModeView()) {
+                                ViewCompat.setAlpha(mActionModeView, 0f);
+                                mFadeAnim = ViewCompat.animate(mActionModeView).alpha(1f);
+                                mFadeAnim.setListener(new ViewPropertyAnimatorListenerAdapter() {
+                                    @Override
+                                    public void onAnimationStart(View view) {
+                                        mActionModeView.setVisibility(View.VISIBLE);
+                                    }
+
+                                    @Override
+                                    public void onAnimationEnd(View view) {
+                                        ViewCompat.setAlpha(mActionModeView, 1f);
+                                        mFadeAnim.setListener(null);
+                                        mFadeAnim = null;
+                                    }
+                                });
+                            } else {
+                                ViewCompat.setAlpha(mActionModeView, 1f);
+                                mActionModeView.setVisibility(View.VISIBLE);
+                            }
                         }
                     };
                 } else {
@@ -744,31 +808,43 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
                 endOnGoingFadeAnimation();
                 mActionModeView.killMode();
                 mode = new StandaloneActionMode(mActionModeView.getContext(), mActionModeView,
-                        wrappedCallback, mActionModePopup == null);
+                        callback, mActionModePopup == null);
                 if (callback.onCreateActionMode(mode, mode.getMenu())) {
                     mode.invalidate();
                     mActionModeView.initForMode(mode);
                     mActionMode = mode;
-                    ViewCompat.setAlpha(mActionModeView, 0f);
-                    mFadeAnim = ViewCompat.animate(mActionModeView).alpha(1f);
-                    mFadeAnim.setListener(new ViewPropertyAnimatorListenerAdapter() {
-                        @Override
-                        public void onAnimationEnd(View view) {
-                            ViewCompat.setAlpha(mActionModeView, 1f);
-                            mFadeAnim.setListener(null);
-                            mFadeAnim = null;
-                        }
 
-                        @Override
-                        public void onAnimationStart(View view) {
-                            mActionModeView.setVisibility(View.VISIBLE);
-                            mActionModeView.sendAccessibilityEvent(
-                                    AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
-                            if (mActionModeView.getParent() != null) {
-                                ViewCompat.requestApplyInsets((View) mActionModeView.getParent());
+                    if (shouldAnimateActionModeView()) {
+                        ViewCompat.setAlpha(mActionModeView, 0f);
+                        mFadeAnim = ViewCompat.animate(mActionModeView).alpha(1f);
+                        mFadeAnim.setListener(new ViewPropertyAnimatorListenerAdapter() {
+                            @Override
+                            public void onAnimationStart(View view) {
+                                mActionModeView.setVisibility(View.VISIBLE);
+                                mActionModeView.sendAccessibilityEvent(
+                                        AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
+                                if (mActionModeView.getParent() != null) {
+                                    ViewCompat.requestApplyInsets((View) mActionModeView.getParent());
+                                }
                             }
+
+                            @Override
+                            public void onAnimationEnd(View view) {
+                                ViewCompat.setAlpha(mActionModeView, 1f);
+                                mFadeAnim.setListener(null);
+                                mFadeAnim = null;
+                            }
+                        });
+                    } else {
+                        ViewCompat.setAlpha(mActionModeView, 1f);
+                        mActionModeView.setVisibility(View.VISIBLE);
+                        mActionModeView.sendAccessibilityEvent(
+                                AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
+                        if (mActionModeView.getParent() != null) {
+                            ViewCompat.requestApplyInsets((View) mActionModeView.getParent());
                         }
-                    });
+                    }
+
                     if (mActionModePopup != null) {
                         mWindow.getDecorView().post(mShowActionModePopup);
                     }
@@ -781,6 +857,12 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
             mAppCompatCallback.onSupportActionModeStarted(mActionMode);
         }
         return mActionMode;
+    }
+
+    final boolean shouldAnimateActionModeView() {
+        // We only to animate the action mode in if the sub decor has already been laid out.
+        // If it hasn't been laid out, it hasn't been drawn to screen yet.
+        return mSubDecorInstalled && mSubDecor != null && ViewCompat.isLaidOut(mSubDecor);
     }
 
     private void endOnGoingFadeAnimation() {
@@ -865,9 +947,17 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
                 onKeyUpPanel(Window.FEATURE_OPTIONS_PANEL, event);
                 return true;
             case KeyEvent.KEYCODE_BACK:
+                final boolean wasLongPressBackDown = mLongPressBackDown;
+                mLongPressBackDown = false;
+
                 PanelFeatureState st = getPanelState(Window.FEATURE_OPTIONS_PANEL, false);
                 if (st != null && st.isOpen) {
-                    closePanel(st, true);
+                    if (!wasLongPressBackDown) {
+                        // Certain devices allow opening the options menu via a long press of the
+                        // back button. We should only close the open options menu if it wasn't
+                        // opened via a long press gesture.
+                        closePanel(st, true);
+                    }
                     return true;
                 }
                 if (onBackPressed()) {
@@ -882,7 +972,14 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
         switch (keyCode) {
             case KeyEvent.KEYCODE_MENU:
                 onKeyDownPanel(Window.FEATURE_OPTIONS_PANEL, event);
-                // Break, and let this fall through to the original callback
+                // We need to return true here and not let it bubble up to the Window.
+                // For empty menus, PhoneWindow's KEYCODE_BACK handling will steals all events,
+                // not allowing the Activity to call onBackPressed().
+                return true;
+            case KeyEvent.KEYCODE_BACK:
+                // Certain devices allow opening the options menu via a long press of the back
+                // button. We keep a record of whether the last event is from a long press.
+                mLongPressBackDown = (event.getFlags() & KeyEvent.FLAG_LONG_PRESS) != 0;
                 break;
         }
 
@@ -905,13 +1002,13 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
             mAppCompatViewInflater = new AppCompatViewInflater();
         }
 
-        // We only want the View to inherit it's context if we're running pre-v21
-        final boolean inheritContext = isPre21 && mSubDecorInstalled
-                && shouldInheritContext((ViewParent) parent);
+        // We only want the View to inherit its context if we're running pre-v21
+        final boolean inheritContext = isPre21 && shouldInheritContext((ViewParent) parent);
 
         return mAppCompatViewInflater.createView(parent, name, context, attrs, inheritContext,
                 isPre21, /* Only read android:theme pre-L (L+ handles this anyway) */
-                true /* Read read app:theme as a fallback at all times for legacy reasons */
+                true, /* Read read app:theme as a fallback at all times for legacy reasons */
+                VectorEnabledTintResources.shouldBeUsed() /* Only tint wrap the context if enabled */
         );
     }
 
@@ -920,6 +1017,7 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
             // The initial parent is null so just return false
             return false;
         }
+        final View windowDecor = mWindow.getDecorView();
         while (true) {
             if (parent == null) {
                 // Bingo. We've hit a view which has a null parent before being terminated from
@@ -927,7 +1025,7 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
                 // call, therefore we should inherit. This works as the inflated layout is only
                 // added to the hierarchy at the end of the inflate() call.
                 return true;
-            } else if (parent == mWindowDecor || !(parent instanceof View)
+            } else if (parent == windowDecor || !(parent instanceof View)
                     || ViewCompat.isAttachedToWindow((View) parent)) {
                 // We have either hit the window's decor view, a parent which isn't a View
                 // (i.e. ViewRootImpl), or an attached view, so we know that the original parent
@@ -945,8 +1043,11 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
         if (layoutInflater.getFactory() == null) {
             LayoutInflaterCompat.setFactory(layoutInflater, this);
         } else {
-            Log.i(TAG, "The Activity's LayoutInflater already has a Factory installed"
-                    + " so we can not install AppCompat's");
+            if (!(LayoutInflaterCompat.getFactory(layoutInflater)
+                    instanceof AppCompatDelegateImplV7)) {
+                Log.i(TAG, "The Activity's LayoutInflater already has a Factory installed"
+                        + " so we can not install AppCompat's");
+            }
         }
     }
 
@@ -1097,7 +1198,7 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
                     // If we have a menu invalidation pending, do it now.
                     if (mInvalidatePanelMenuPosted &&
                             (mInvalidatePanelMenuFeatures & (1 << FEATURE_OPTIONS_PANEL)) != 0) {
-                        mWindowDecor.removeCallbacks(mInvalidatePanelMenuRunnable);
+                        mWindow.getDecorView().removeCallbacks(mInvalidatePanelMenuRunnable);
                         mInvalidatePanelMenuRunnable.run();
                     }
 
@@ -1451,7 +1552,7 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
         return null;
     }
 
-    private PanelFeatureState getPanelState(int featureId, boolean required) {
+    protected PanelFeatureState getPanelState(int featureId, boolean required) {
         PanelFeatureState[] ar;
         if ((ar = mPanels) == null || ar.length <= featureId) {
             PanelFeatureState[] nar = new PanelFeatureState[featureId + 1];
@@ -1496,8 +1597,8 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
     private void invalidatePanelMenu(int featureId) {
         mInvalidatePanelMenuFeatures |= 1 << featureId;
 
-        if (!mInvalidatePanelMenuPosted && mWindowDecor != null) {
-            ViewCompat.postOnAnimation(mWindowDecor, mInvalidatePanelMenuRunnable);
+        if (!mInvalidatePanelMenuPosted) {
+            ViewCompat.postOnAnimation(mWindow.getDecorView(), mInvalidatePanelMenuRunnable);
             mInvalidatePanelMenuPosted = true;
         }
     }
@@ -1630,6 +1731,31 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
         return mSubDecor;
     }
 
+    private void dismissPopups() {
+        if (mDecorContentParent != null) {
+            mDecorContentParent.dismissPopups();
+        }
+
+        if (mActionModePopup != null) {
+            mWindow.getDecorView().removeCallbacks(mShowActionModePopup);
+            if (mActionModePopup.isShowing()) {
+                try {
+                    mActionModePopup.dismiss();
+                } catch (IllegalArgumentException e) {
+                    // Pre-v18, there are times when the Window will remove the popup before us.
+                    // In these cases we need to swallow the resulting exception.
+                }
+            }
+            mActionModePopup = null;
+        }
+        endOnGoingFadeAnimation();
+
+        PanelFeatureState st = getPanelState(FEATURE_OPTIONS_PANEL, false);
+        if (st != null && st.menu != null) {
+            st.menu.close();
+        }
+    }
+
     /**
      * Clears out internal reference when the action mode is destroyed.
      */
@@ -1729,7 +1855,7 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
         }
     }
 
-    private static final class PanelFeatureState {
+    protected static final class PanelFeatureState {
 
         /** Feature ID for this panel. */
         int featureId;
@@ -1841,11 +1967,11 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
 
             listPresenterContext = context;
 
-            TypedArray a = context.obtainStyledAttributes(R.styleable.Theme);
+            TypedArray a = context.obtainStyledAttributes(R.styleable.AppCompatTheme);
             background = a.getResourceId(
-                    R.styleable.Theme_panelBackground, 0);
+                    R.styleable.AppCompatTheme_panelBackground, 0);
             windowAnimations = a.getResourceId(
-                    R.styleable.Theme_android_windowAnimationStyle, 0);
+                    R.styleable.AppCompatTheme_android_windowAnimationStyle, 0);
             a.recycle();
         }
 
@@ -1924,32 +2050,35 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
                 }
             }
 
-            private static SavedState readFromParcel(Parcel source) {
+            private static SavedState readFromParcel(Parcel source, ClassLoader loader) {
                 SavedState savedState = new SavedState();
                 savedState.featureId = source.readInt();
                 savedState.isOpen = source.readInt() == 1;
 
                 if (savedState.isOpen) {
-                    savedState.menuState = source.readBundle();
+                    savedState.menuState = source.readBundle(loader);
                 }
 
                 return savedState;
             }
 
             public static final Parcelable.Creator<SavedState> CREATOR
-                    = new Parcelable.Creator<SavedState>() {
-                public SavedState createFromParcel(Parcel in) {
-                    return readFromParcel(in);
-                }
+                    = ParcelableCompat.newCreator(
+                    new ParcelableCompatCreatorCallbacks<SavedState>() {
+                        @Override
+                        public SavedState createFromParcel(Parcel in, ClassLoader loader) {
+                            return readFromParcel(in, loader);
+                        }
 
-                public SavedState[] newArray(int size) {
-                    return new SavedState[size];
-                }
-            };
+                        @Override
+                        public SavedState[] newArray(int size) {
+                            return new SavedState[size];
+                        }
+                    });
         }
     }
 
-    private class ListMenuDecorView extends FrameLayout {
+    private class ListMenuDecorView extends ContentFrameLayout {
         public ListMenuDecorView(Context context) {
             super(context);
         }
@@ -1976,12 +2105,11 @@ class AppCompatDelegateImplV7 extends AppCompatDelegateImplBase
 
         @Override
         public void setBackgroundResource(int resid) {
-            setBackgroundDrawable(TintManager.getDrawable(getContext(), resid));
+            setBackgroundDrawable(AppCompatDrawableManager.get().getDrawable(getContext(), resid));
         }
 
         private boolean isOutOfBounds(int x, int y) {
             return x < -5 || y < -5 || x > (getWidth() + 5) || y > (getHeight() + 5);
         }
     }
-
 }

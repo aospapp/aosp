@@ -16,14 +16,17 @@
 
 package android.databinding.tool.expr;
 
-import org.antlr.v4.runtime.ParserRuleContext;
-
+import android.databinding.tool.BindingTarget;
+import android.databinding.tool.InverseBinding;
 import android.databinding.tool.reflection.ModelAnalyzer;
 import android.databinding.tool.reflection.ModelClass;
+import android.databinding.tool.reflection.ModelMethod;
 import android.databinding.tool.store.Location;
 import android.databinding.tool.util.L;
 import android.databinding.tool.util.Preconditions;
 import android.databinding.tool.writer.FlagSet;
+
+import org.antlr.v4.runtime.ParserRuleContext;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -52,6 +55,7 @@ public class ExprModel {
      * Any expression can be invalidated by invalidating this flag.
      */
     private BitSet mInvalidateAnyFlags;
+    private int mInvalidateAnyFlagIndex;
 
     /**
      * Used by code generation. Keeps the list of expressions that are waiting to be evaluated.
@@ -116,10 +120,6 @@ public class ExprModel {
         mCurrentParserContext = currentParserContext;
     }
 
-    public void unregister(Expr expr) {
-        mExprMap.remove(expr.getUniqueKey());
-    }
-
     public Map<String, Expr> getExprMap() {
         return mExprMap;
     }
@@ -158,6 +158,14 @@ public class ExprModel {
 
     public StaticIdentifierExpr staticIdentifier(String name) {
         return register(new StaticIdentifierExpr(name));
+    }
+
+    public BuiltInVariableExpr builtInVariable(String name, String type, String accessCode) {
+        return register(new BuiltInVariableExpr(name, type, accessCode));
+    }
+
+    public ViewFieldExpr viewFieldExpr(BindingTarget bindingTarget) {
+        return register(new ViewFieldExpr(bindingTarget));
     }
 
     /**
@@ -240,6 +248,9 @@ public class ExprModel {
         return register(new CastExpr(type, expr));
     }
 
+    public TwoWayListenerExpr twoWayListenerExpr(InverseBinding inverseBinding) {
+        return register(new TwoWayListenerExpr(inverseBinding));
+    }
     public List<Expr> getBindingExpressions() {
         return mBindingExpressions;
     }
@@ -275,31 +286,30 @@ public class ExprModel {
         return bindingExpr;
     }
 
+    public void removeExpr(Expr expr) {
+        Preconditions.check(!mSealed, "Can't modify the expression list after sealing the model.");
+        mBindingExpressions.remove(expr);
+        mExprMap.remove(expr.computeUniqueKey());
+    }
+
     public List<Expr> getObservables() {
         return mObservables;
     }
 
-    public void seal() {
-        seal(null);
-    }
     /**
      * Give id to each expression. Will be useful if we serialize.
      */
-    public void seal(ResolveListenersCallback resolveListeners) {
+    public void seal() {
         L.d("sealing model");
         List<Expr> notifiableExpressions = new ArrayList<Expr>();
         //ensure class analyzer. We need to know observables at this point
         final ModelAnalyzer modelAnalyzer = ModelAnalyzer.getInstance();
         updateExpressions(modelAnalyzer);
 
-        if (resolveListeners != null) {
-            resolveListeners.resolveListeners();
-        }
-
         int counter = 0;
         final Iterable<Expr> observables = filterObservables(modelAnalyzer);
-        List<String> flagMapping = new ArrayList<>();
-        mObservables = new ArrayList<>();
+        List<String> flagMapping = new ArrayList<String>();
+        mObservables = new ArrayList<Expr>();
         for (Expr expr : observables) {
             // observables gets initial ids
             flagMapping.add(expr.getUniqueKey());
@@ -341,6 +351,17 @@ public class ExprModel {
             }
         }
 
+        // now all 2-way bound view fields
+        for (Expr expr : mExprMap.values()) {
+            if (expr instanceof FieldAccessExpr) {
+                FieldAccessExpr fieldAccessExpr = (FieldAccessExpr) expr;
+                if (fieldAccessExpr.getChild() instanceof ViewFieldExpr) {
+                    flagMapping.add(fieldAccessExpr.getUniqueKey());
+                    fieldAccessExpr.setId(counter++);
+                }
+            }
+        }
+
         // non-dynamic binding expressions receive some ids so that they can be invalidated
         L.d("list of binding expressions");
         for (int i = 0; i < mBindingExpressions.size(); i++) {
@@ -357,7 +378,7 @@ public class ExprModel {
         for (Expr expr : mExprMap.values()) {
             expr.getDependencies();
         }
-        final int invalidateAnyFlagIndex = counter ++;
+        mInvalidateAnyFlagIndex = counter ++;
         flagMapping.add("INVALIDATE ANY");
         mInvalidateableFieldLimit = counter;
         mInvalidateableFlags = new BitSet();
@@ -394,7 +415,7 @@ public class ExprModel {
 
         mFlagBucketCount = 1 + (getTotalFlagCount() / FlagSet.sBucketSize);
         mInvalidateAnyFlags = new BitSet();
-        mInvalidateAnyFlags.set(invalidateAnyFlagIndex, true);
+        mInvalidateAnyFlags.set(mInvalidateAnyFlagIndex, true);
 
         for (Expr expr : mExprMap.values()) {
             expr.getShouldReadFlagsWithConditionals();
@@ -446,7 +467,7 @@ public class ExprModel {
     }
 
     private List<Expr> filterNonObservableIds(final ModelAnalyzer modelAnalyzer) {
-        List<Expr> result = new ArrayList<>();
+        List<Expr> result = new ArrayList<Expr>();
         for (Expr input : mExprMap.values()) {
             if (input instanceof IdentifierExpr
                     && !input.hasId()
@@ -459,7 +480,7 @@ public class ExprModel {
     }
 
     private Iterable<Expr> filterObservables(final ModelAnalyzer modelAnalyzer) {
-        List<Expr> result = new ArrayList<>();
+        List<Expr> result = new ArrayList<Expr>();
         for (Expr input : mExprMap.values()) {
             if (input.isObservable()) {
                 result.add(input);
@@ -470,9 +491,11 @@ public class ExprModel {
 
     public List<Expr> getPendingExpressions() {
         if (mPendingExpressions == null) {
-            mPendingExpressions = new ArrayList<>();
+            mPendingExpressions = new ArrayList<Expr>();
             for (Expr expr : mExprMap.values()) {
-                if (!expr.isRead() && expr.isDynamic()) {
+                // if an expression is NOT dynanic but has conditional dependants, still return it
+                // so that conditional flags can be set
+                if (!expr.isRead() && (expr.isDynamic() || expr.hasConditionalDependant())) {
                     mPendingExpressions.add(expr);
                 }
             }
@@ -482,7 +505,7 @@ public class ExprModel {
 
     public boolean markBitsRead() {
         // each has should read flags, we set them back on them
-        List<Expr> markedSomeFlagsRead = new ArrayList<>();
+        List<Expr> markedSomeFlagsRead = new ArrayList<Expr>();
         for (Expr expr : filterShouldRead(getPendingExpressions())) {
             expr.markFlagsAsRead(expr.getShouldReadFlags());
             markedSomeFlagsRead.add(expr);
@@ -492,7 +515,7 @@ public class ExprModel {
 
     private boolean pruneDone(List<Expr> markedSomeFlagsAsRead) {
         boolean marked = true;
-        List<Expr> markedAsReadList = new ArrayList<>();
+        List<Expr> markedAsReadList = new ArrayList<Expr>();
         while (marked) {
             marked = false;
             for (Expr expr : mExprMap.values()) {
@@ -516,14 +539,15 @@ public class ExprModel {
             }
         }
         for (Expr partialRead : markedSomeFlagsAsRead) {
-            boolean allPathsAreSatisfied = partialRead.getAllCalculationPaths()
-                    .areAllPathsSatisfied(partialRead.mReadSoFar);
-            if (!allPathsAreSatisfied) {
-                continue;
-            }
+            // even if all paths are not satisfied, we can elevate certain conditional dependencies
+            // if all of their paths are satisfied.
             for (Dependency dependency : partialRead.getDependants()) {
-                if (dependency.getDependant().considerElevatingConditionals(partialRead)) {
-                    elevated = true;
+                Expr dependant = dependency.getDependant();
+                if (dependant.isConditional() && dependant.getAllCalculationPaths()
+                        .areAllPathsSatisfied(partialRead.mReadSoFar)) {
+                    if (dependant.considerElevatingConditionals(partialRead)) {
+                        elevated = true;
+                    }
                 }
             }
         }
@@ -549,7 +573,7 @@ public class ExprModel {
     }
 
     public static List<Expr> filterShouldRead(Iterable<Expr> exprs) {
-        List<Expr> result = new ArrayList<>();
+        List<Expr> result = new ArrayList<Expr>();
         for (Expr expr : exprs) {
             if (!expr.getShouldReadFlags().isEmpty() &&
                     !hasConditionalOrNestedCannotReadDependency(expr)) {
@@ -594,6 +618,10 @@ public class ExprModel {
         return mInvalidateAnyFlags;
     }
 
+    public int getInvalidateAnyFlagIndex() {
+        return mInvalidateAnyFlagIndex;
+    }
+
     public Expr argListExpr(Iterable<Expr> expressions) {
         return register(new ArgListExpr(mArgListIdCounter ++, expressions));
     }
@@ -602,7 +630,8 @@ public class ExprModel {
         mCurrentLocationInFile = location;
     }
 
-    public interface ResolveListenersCallback {
-        void resolveListeners();
+    public Expr listenerExpr(Expr expression, String name, ModelClass listenerType,
+            ModelMethod listenerMethod) {
+        return register(new ListenerExpr(expression, name, listenerType, listenerMethod));
     }
 }

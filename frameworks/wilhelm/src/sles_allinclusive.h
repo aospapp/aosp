@@ -16,6 +16,7 @@
 
 /** \file sles_allinclusive.h Everything including the kitchen sink */
 
+#include "Configuration.h"
 #include <SLES/OpenSLES.h>
 #include <OMXAL/OpenMAXAL.h>
 #ifdef ANDROID

@@ -48,9 +48,6 @@ typedef bool BOOLEAN;
 #  define INLINE
 #endif
 
-#define BCM_STRCPY_S(x1,x2,x3)      strcpy((x1),(x3))
-#define BCM_STRNCPY_S(x1,x2,x3,x4)  strncpy((x1),(x3),(x4))
-
 /* READ WELL !!
 **
 ** This section defines global events. These are events that cross layers.
@@ -139,12 +136,10 @@ typedef bool BOOLEAN;
 
 #define BT_EVT_HCISU                0x5000
 
-// btla-specific ++
 #define BT_EVT_TO_HCISU_RECONFIG_EVT            (0x0001 | BT_EVT_HCISU)
 #define BT_EVT_TO_HCISU_UPDATE_BAUDRATE_EVT     (0x0002 | BT_EVT_HCISU)
 #define BT_EVT_TO_HCISU_LP_ENABLE_EVT           (0x0003 | BT_EVT_HCISU)
 #define BT_EVT_TO_HCISU_LP_DISABLE_EVT          (0x0004 | BT_EVT_HCISU)
-// btla-specific --
 #define BT_EVT_TO_HCISU_LP_APP_SLEEPING_EVT     (0x0005 | BT_EVT_HCISU)
 #define BT_EVT_TO_HCISU_LP_ALLOW_BT_SLEEP_EVT   (0x0006 | BT_EVT_HCISU)
 #define BT_EVT_TO_HCISU_LP_WAKEUP_HOST_EVT      (0x0007 | BT_EVT_HCISU)
@@ -224,7 +219,6 @@ typedef struct
 #define BT_PSM_UDI_CP                   0x001D /* Unrestricted Digital Information Profile C-Plane  */
 #define BT_PSM_ATT                      0x001F /* Attribute Protocol  */
 
-
 /* These macros extract the HCI opcodes from a buffer
 */
 #define HCI_GET_CMD_HDR_OPCODE(p)    (UINT16)((*((UINT8 *)((p) + 1) + p->offset) + \
@@ -238,6 +232,8 @@ typedef struct
 /********************************************************************************
 ** Macros to get and put bytes to and from a stream (Little Endian format).
 */
+#define UINT64_TO_BE_STREAM(p, u64) {*(p)++ = (UINT8)((u64) >> 56);  *(p)++ = (UINT8)((u64) >> 48); *(p)++ = (UINT8)((u64) >> 40); *(p)++ = (UINT8)((u64) >> 32); \
+                                     *(p)++ = (UINT8)((u64) >> 24);  *(p)++ = (UINT8)((u64) >> 16); *(p)++ = (UINT8)((u64) >> 8); *(p)++ = (UINT8)(u64); }
 #define UINT32_TO_STREAM(p, u32) {*(p)++ = (UINT8)(u32); *(p)++ = (UINT8)((u32) >> 8); *(p)++ = (UINT8)((u32) >> 16); *(p)++ = (UINT8)((u32) >> 24);}
 #define UINT24_TO_STREAM(p, u24) {*(p)++ = (UINT8)(u24); *(p)++ = (UINT8)((u24) >> 8); *(p)++ = (UINT8)((u24) >> 16);}
 #define UINT16_TO_STREAM(p, u16) {*(p)++ = (UINT8)(u16); *(p)++ = (UINT8)((u16) >> 8);}
@@ -286,11 +282,17 @@ typedef struct
 #define UINT16_TO_BE_STREAM(p, u16) {*(p)++ = (UINT8)((u16) >> 8); *(p)++ = (UINT8)(u16);}
 #define UINT8_TO_BE_STREAM(p, u8)   {*(p)++ = (UINT8)(u8);}
 #define ARRAY_TO_BE_STREAM(p, a, len) {register int ijk; for (ijk = 0; ijk < len; ijk++) *(p)++ = (UINT8) a[ijk];}
+#define ARRAY_TO_BE_STREAM_REVERSE(p, a, len) {register int ijk; for (ijk = 0; ijk < len; ijk++) *(p)++ = (UINT8) a[len - ijk - 1];}
 
 #define BE_STREAM_TO_UINT8(u8, p)   {u8 = (UINT8)(*(p)); (p) += 1;}
 #define BE_STREAM_TO_UINT16(u16, p) {u16 = (UINT16)(((UINT16)(*(p)) << 8) + (UINT16)(*((p) + 1))); (p) += 2;}
 #define BE_STREAM_TO_UINT24(u32, p) {u32 = (((UINT32)(*((p) + 2))) + ((UINT32)(*((p) + 1)) << 8) + ((UINT32)(*(p)) << 16)); (p) += 3;}
 #define BE_STREAM_TO_UINT32(u32, p) {u32 = ((UINT32)(*((p) + 3)) + ((UINT32)(*((p) + 2)) << 8) + ((UINT32)(*((p) + 1)) << 16) + ((UINT32)(*(p)) << 24)); (p) += 4;}
+#define BE_STREAM_TO_UINT64(u64, p) {u64 = ((UINT64)(*((p) + 7)) + ((UINT64)(*((p) + 6)) << 8) + \
+                                    ((UINT64)(*((p) + 5)) << 16) + ((UINT64)(*((p) + 4)) << 24) + \
+                                    ((UINT64)(*((p) + 3)) << 32) + ((UINT64)(*((p) + 2)) << 40) + \
+                                    ((UINT64)(*((p) + 1)) << 48) + ((UINT64)(*(p)) << 56)); \
+                                    (p) += 8;}
 #define BE_STREAM_TO_ARRAY(p, a, len) {register int ijk; for (ijk = 0; ijk < len; ijk++) ((UINT8 *) a)[ijk] = *p++;}
 
 
@@ -403,20 +405,7 @@ typedef UINT8 ACCESS_CODE[ACCESS_CODE_BYTE_LEN];
 
 #define SYNC_REPS 1             /* repeats of sync word transmitted to start of burst */
 
-/* Bluetooth CLK27 */
-#define BT_CLK27            (2 << 26)
-
-/* Bluetooth CLK12 is 1.28 sec */
-#define BT_CLK12_TO_MS(x)    ((x) * 1280)
-#define BT_MS_TO_CLK12(x)    ((x) / 1280)
-#define BT_CLK12_TO_SLOTS(x) ((x) << 11)
-
-/* Bluetooth CLK is 0.625 msec */
-#define BT_CLK_TO_MS(x)      (((x) * 5 + 3) / 8)
-#define BT_MS_TO_CLK(x)      (((x) * 8 + 2) / 5)
-
-#define BT_CLK_TO_MICROSECS(x)  (((x) * 5000 + 3) / 8)
-#define BT_MICROSECS_TO_CLK(x)  (((x) * 8 + 2499) / 5000)
+#define BT_1SEC_TIMEOUT_MS              (1 * 1000)      /* 1 second */
 
 /* Maximum UUID size - 16 bytes, and structure to hold any type of UUID. */
 #define MAX_UUID_SIZE              16
@@ -437,21 +426,25 @@ typedef struct
 
 } tBT_UUID;
 
-#define BT_EIR_FLAGS_TYPE                   0x01
-#define BT_EIR_MORE_16BITS_UUID_TYPE        0x02
-#define BT_EIR_COMPLETE_16BITS_UUID_TYPE    0x03
-#define BT_EIR_MORE_32BITS_UUID_TYPE        0x04
-#define BT_EIR_COMPLETE_32BITS_UUID_TYPE    0x05
-#define BT_EIR_MORE_128BITS_UUID_TYPE       0x06
-#define BT_EIR_COMPLETE_128BITS_UUID_TYPE   0x07
-#define BT_EIR_SHORTENED_LOCAL_NAME_TYPE    0x08
-#define BT_EIR_COMPLETE_LOCAL_NAME_TYPE     0x09
-#define BT_EIR_TX_POWER_LEVEL_TYPE          0x0A
-#define BT_EIR_OOB_BD_ADDR_TYPE             0x0C
-#define BT_EIR_OOB_COD_TYPE                 0x0D
-#define BT_EIR_OOB_SSP_HASH_C_TYPE          0x0E
-#define BT_EIR_OOB_SSP_RAND_R_TYPE          0x0F
-#define BT_EIR_MANUFACTURER_SPECIFIC_TYPE   0xFF
+#define BT_EIR_FLAGS_TYPE                       0x01
+#define BT_EIR_MORE_16BITS_UUID_TYPE            0x02
+#define BT_EIR_COMPLETE_16BITS_UUID_TYPE        0x03
+#define BT_EIR_MORE_32BITS_UUID_TYPE            0x04
+#define BT_EIR_COMPLETE_32BITS_UUID_TYPE        0x05
+#define BT_EIR_MORE_128BITS_UUID_TYPE           0x06
+#define BT_EIR_COMPLETE_128BITS_UUID_TYPE       0x07
+#define BT_EIR_SHORTENED_LOCAL_NAME_TYPE        0x08
+#define BT_EIR_COMPLETE_LOCAL_NAME_TYPE         0x09
+#define BT_EIR_TX_POWER_LEVEL_TYPE              0x0A
+#define BT_EIR_OOB_BD_ADDR_TYPE                 0x0C
+#define BT_EIR_OOB_COD_TYPE                     0x0D
+#define BT_EIR_OOB_SSP_HASH_C_TYPE              0x0E
+#define BT_EIR_OOB_SSP_RAND_R_TYPE              0x0F
+#define BT_EIR_SERVICE_DATA_TYPE                0x16
+#define BT_EIR_SERVICE_DATA_16BITS_UUID_TYPE    0x16
+#define BT_EIR_SERVICE_DATA_32BITS_UUID_TYPE    0x20
+#define BT_EIR_SERVICE_DATA_128BITS_UUID_TYPE   0x21
+#define BT_EIR_MANUFACTURER_SPECIFIC_TYPE       0xFF
 
 #define BT_OOB_COD_SIZE            3
 #define BT_OOB_HASH_C_SIZE         16
@@ -582,7 +575,7 @@ typedef UINT8 tBT_DEVICE_TYPE;
 #define TRACE_LAYER_FTP             0x00170000
 #define TRACE_LAYER_OPP             0x00180000
 #define TRACE_LAYER_BTU             0x00190000
-#define TRACE_LAYER_GKI             0x001a0000
+#define TRACE_LAYER_GKI             0x001a0000          /* OBSOLETED */
 #define TRACE_LAYER_BNEP            0x001b0000
 #define TRACE_LAYER_PAN             0x001c0000
 #define TRACE_LAYER_HFP             0x001d0000
@@ -617,7 +610,7 @@ typedef UINT8 tBT_DEVICE_TYPE;
 #define TRACE_ORG_HCI_TRANS         0x00000100
 #define TRACE_ORG_PROTO_DISP        0x00000200
 #define TRACE_ORG_RPC               0x00000300
-#define TRACE_ORG_GKI               0x00000400
+#define TRACE_ORG_GKI               0x00000400  /* OBSOLETED */
 #define TRACE_ORG_APPL              0x00000500
 #define TRACE_ORG_SCR_WRAPPER       0x00000600
 #define TRACE_ORG_SCR_ENGINE        0x00000700

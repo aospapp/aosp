@@ -91,8 +91,10 @@ SLuint32 channelCountToMask(unsigned channelCount) {
 
 static SLObjectItf createEngine() {
     static SLEngineOption EngineOption[] = {
+        {
             (SLuint32) SL_ENGINEOPTION_THREADSAFE,
             (SLuint32) SL_BOOLEAN_TRUE
+        },
     };
     // create engine in thread-safe mode
     SLObjectItf engine;

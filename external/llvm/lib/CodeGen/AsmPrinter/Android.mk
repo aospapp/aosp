@@ -7,6 +7,7 @@ codegen_asmprinter_SRC_FILES := \
   AsmPrinterDwarf.cpp \
   AsmPrinterInlineAsm.cpp \
   DbgValueHistoryCalculator.cpp \
+  DebugLocStream.cpp \
   DIE.cpp \
   DIEHash.cpp \
   DwarfAccelTable.cpp \
@@ -20,7 +21,7 @@ codegen_asmprinter_SRC_FILES := \
   EHStreamer.cpp \
   ErlangGCPrinter.cpp \
   OcamlGCPrinter.cpp \
-  Win64Exception.cpp \
+  WinException.cpp \
   WinCodeViewLineTables.cpp
 
 
@@ -32,9 +33,10 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(codegen_asmprinter_SRC_FILES)
 LOCAL_MODULE:= libLLVMAsmPrinter
 
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_HOST_OS := darwin linux windows
 
 include $(LLVM_HOST_BUILD_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
 include $(LLVM_GEN_INTRINSICS_MK)
 include $(BUILD_HOST_STATIC_LIBRARY)
 
@@ -46,9 +48,8 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(codegen_asmprinter_SRC_FILES)
 LOCAL_MODULE:= libLLVMAsmPrinter
 
-LOCAL_MODULE_TAGS := optional
-
 include $(LLVM_DEVICE_BUILD_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
 include $(LLVM_GEN_INTRINSICS_MK)
 include $(BUILD_STATIC_LIBRARY)
 endif

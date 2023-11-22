@@ -70,6 +70,7 @@ crypto_sources := \
   src/crypto/bn/add.c\
   src/crypto/bn/asm/x86_64-gcc.c\
   src/crypto/bn/bn.c\
+  src/crypto/bn/bn_asn1.c\
   src/crypto/bn/cmp.c\
   src/crypto/bn/convert.c\
   src/crypto/bn/ctx.c\
@@ -108,11 +109,12 @@ crypto_sources := \
   src/crypto/cpu-arm.c\
   src/crypto/cpu-intel.c\
   src/crypto/crypto.c\
+  src/crypto/curve25519/curve25519.c\
+  src/crypto/curve25519/x25519-x86_64.c\
   src/crypto/des/des.c\
   src/crypto/dh/check.c\
   src/crypto/dh/dh.c\
   src/crypto/dh/dh_asn1.c\
-  src/crypto/dh/dh_impl.c\
   src/crypto/dh/params.c\
   src/crypto/digest/digest.c\
   src/crypto/digest/digests.c\
@@ -120,13 +122,14 @@ crypto_sources := \
   src/crypto/directory_win.c\
   src/crypto/dsa/dsa.c\
   src/crypto/dsa/dsa_asn1.c\
-  src/crypto/dsa/dsa_impl.c\
   src/crypto/ec/ec.c\
   src/crypto/ec/ec_asn1.c\
   src/crypto/ec/ec_key.c\
   src/crypto/ec/ec_montgomery.c\
   src/crypto/ec/oct.c\
+  src/crypto/ec/p224-64.c\
   src/crypto/ec/p256-64.c\
+  src/crypto/ec/p256-x86_64.c\
   src/crypto/ec/simple.c\
   src/crypto/ec/util-64.c\
   src/crypto/ec/wnaf.c\
@@ -136,15 +139,13 @@ crypto_sources := \
   src/crypto/engine/engine.c\
   src/crypto/err/err.c\
   src/crypto/evp/algorithm.c\
-  src/crypto/evp/asn1.c\
   src/crypto/evp/digestsign.c\
   src/crypto/evp/evp.c\
+  src/crypto/evp/evp_asn1.c\
   src/crypto/evp/evp_ctx.c\
   src/crypto/evp/p_dsa_asn1.c\
   src/crypto/evp/p_ec.c\
   src/crypto/evp/p_ec_asn1.c\
-  src/crypto/evp/p_hmac.c\
-  src/crypto/evp/p_hmac_asn1.c\
   src/crypto/evp/p_rsa.c\
   src/crypto/evp/p_rsa_asn1.c\
   src/crypto/evp/pbkdf.c\
@@ -178,7 +179,6 @@ crypto_sources := \
   src/crypto/poly1305/poly1305.c\
   src/crypto/poly1305/poly1305_arm.c\
   src/crypto/poly1305/poly1305_vec.c\
-  src/crypto/rand/hwrand.c\
   src/crypto/rand/rand.c\
   src/crypto/rand/urandom.c\
   src/crypto/rand/windows.c\
@@ -209,6 +209,7 @@ crypto_sources := \
   src/crypto/x509/i2d_pr.c\
   src/crypto/x509/pkcs7.c\
   src/crypto/x509/t_crl.c\
+  src/crypto/x509/t_req.c\
   src/crypto/x509/t_x509.c\
   src/crypto/x509/t_x509a.c\
   src/crypto/x509/x509.c\
@@ -281,6 +282,7 @@ crypto_sources := \
   src/crypto/x509v3/v3_utl.c\
 
 ssl_sources := \
+  src/ssl/custom_extensions.c\
   src/ssl/d1_both.c\
   src/ssl/d1_clnt.c\
   src/ssl/d1_lib.c\
@@ -288,6 +290,7 @@ ssl_sources := \
   src/ssl/d1_pkt.c\
   src/ssl/d1_srtp.c\
   src/ssl/d1_srvr.c\
+  src/ssl/dtls_record.c\
   src/ssl/pqueue/pqueue.c\
   src/ssl/s3_both.c\
   src/ssl/s3_clnt.c\
@@ -297,24 +300,28 @@ ssl_sources := \
   src/ssl/s3_pkt.c\
   src/ssl/s3_srvr.c\
   src/ssl/ssl_aead_ctx.c\
-  src/ssl/ssl_algs.c\
   src/ssl/ssl_asn1.c\
+  src/ssl/ssl_buffer.c\
   src/ssl/ssl_cert.c\
   src/ssl/ssl_cipher.c\
+  src/ssl/ssl_ecdh.c\
+  src/ssl/ssl_file.c\
   src/ssl/ssl_lib.c\
   src/ssl/ssl_rsa.c\
-  src/ssl/ssl_sess.c\
+  src/ssl/ssl_session.c\
   src/ssl/ssl_stat.c\
-  src/ssl/ssl_txt.c\
   src/ssl/t1_enc.c\
   src/ssl/t1_lib.c\
-  src/ssl/t1_reneg.c\
+  src/ssl/tls_record.c\
 
 tool_sources := \
   src/tool/args.cc\
+  src/tool/ciphers.cc\
   src/tool/client.cc\
   src/tool/const.cc\
   src/tool/digest.cc\
+  src/tool/generate_ed25519.cc\
+  src/tool/genrsa.cc\
   src/tool/pkcs12.cc\
   src/tool/rand.cc\
   src/tool/server.cc\
@@ -323,24 +330,26 @@ tool_sources := \
   src/tool/transport_common.cc\
 
 linux_aarch64_sources := \
-  linux-aarch64/crypto/aes/aesv8-armx.S\
-  linux-aarch64/crypto/modes/ghashv8-armx.S\
+  linux-aarch64/crypto/aes/aesv8-armx64.S\
+  linux-aarch64/crypto/bn/armv8-mont.S\
+  linux-aarch64/crypto/modes/ghashv8-armx64.S\
   linux-aarch64/crypto/sha/sha1-armv8.S\
   linux-aarch64/crypto/sha/sha256-armv8.S\
   linux-aarch64/crypto/sha/sha512-armv8.S\
 
 linux_arm_sources := \
   linux-arm/crypto/aes/aes-armv4.S\
-  linux-arm/crypto/aes/aesv8-armx.S\
+  linux-arm/crypto/aes/aesv8-armx32.S\
   linux-arm/crypto/aes/bsaes-armv7.S\
   linux-arm/crypto/bn/armv4-mont.S\
   linux-arm/crypto/modes/ghash-armv4.S\
-  linux-arm/crypto/modes/ghashv8-armx.S\
+  linux-arm/crypto/modes/ghashv8-armx32.S\
   linux-arm/crypto/sha/sha1-armv4-large.S\
   linux-arm/crypto/sha/sha256-armv4.S\
   linux-arm/crypto/sha/sha512-armv4.S\
   src/crypto/chacha/chacha_vec_arm.S\
   src/crypto/cpu-arm-asm.S\
+  src/crypto/curve25519/asm/x25519-asm-arm.S\
   src/crypto/poly1305/poly1305_arm_asm.S\
 
 linux_x86_sources := \
@@ -350,7 +359,6 @@ linux_x86_sources := \
   linux-x86/crypto/bn/bn-586.S\
   linux-x86/crypto/bn/co-586.S\
   linux-x86/crypto/bn/x86-mont.S\
-  linux-x86/crypto/cpu-x86-asm.S\
   linux-x86/crypto/md5/md5-586.S\
   linux-x86/crypto/modes/ghash-x86.S\
   linux-x86/crypto/rc4/rc4-586.S\
@@ -367,12 +375,11 @@ linux_x86_64_sources := \
   linux-x86_64/crypto/bn/rsaz-x86_64.S\
   linux-x86_64/crypto/bn/x86_64-mont.S\
   linux-x86_64/crypto/bn/x86_64-mont5.S\
-  linux-x86_64/crypto/cpu-x86_64-asm.S\
+  linux-x86_64/crypto/ec/p256-x86_64-asm.S\
   linux-x86_64/crypto/md5/md5-x86_64.S\
   linux-x86_64/crypto/modes/aesni-gcm-x86_64.S\
   linux-x86_64/crypto/modes/ghash-x86_64.S\
   linux-x86_64/crypto/rand/rdrand-x86_64.S\
-  linux-x86_64/crypto/rc4/rc4-md5-x86_64.S\
   linux-x86_64/crypto/rc4/rc4-x86_64.S\
   linux-x86_64/crypto/sha/sha1-x86_64.S\
   linux-x86_64/crypto/sha/sha256-x86_64.S\
@@ -385,7 +392,6 @@ mac_x86_sources := \
   mac-x86/crypto/bn/bn-586.S\
   mac-x86/crypto/bn/co-586.S\
   mac-x86/crypto/bn/x86-mont.S\
-  mac-x86/crypto/cpu-x86-asm.S\
   mac-x86/crypto/md5/md5-586.S\
   mac-x86/crypto/modes/ghash-x86.S\
   mac-x86/crypto/rc4/rc4-586.S\
@@ -402,12 +408,11 @@ mac_x86_64_sources := \
   mac-x86_64/crypto/bn/rsaz-x86_64.S\
   mac-x86_64/crypto/bn/x86_64-mont.S\
   mac-x86_64/crypto/bn/x86_64-mont5.S\
-  mac-x86_64/crypto/cpu-x86_64-asm.S\
+  mac-x86_64/crypto/ec/p256-x86_64-asm.S\
   mac-x86_64/crypto/md5/md5-x86_64.S\
   mac-x86_64/crypto/modes/aesni-gcm-x86_64.S\
   mac-x86_64/crypto/modes/ghash-x86_64.S\
   mac-x86_64/crypto/rand/rdrand-x86_64.S\
-  mac-x86_64/crypto/rc4/rc4-md5-x86_64.S\
   mac-x86_64/crypto/rc4/rc4-x86_64.S\
   mac-x86_64/crypto/sha/sha1-x86_64.S\
   mac-x86_64/crypto/sha/sha256-x86_64.S\
@@ -420,7 +425,6 @@ win_x86_sources := \
   win-x86/crypto/bn/bn-586.asm\
   win-x86/crypto/bn/co-586.asm\
   win-x86/crypto/bn/x86-mont.asm\
-  win-x86/crypto/cpu-x86-asm.asm\
   win-x86/crypto/md5/md5-586.asm\
   win-x86/crypto/modes/ghash-x86.asm\
   win-x86/crypto/rc4/rc4-586.asm\
@@ -437,12 +441,11 @@ win_x86_64_sources := \
   win-x86_64/crypto/bn/rsaz-x86_64.asm\
   win-x86_64/crypto/bn/x86_64-mont.asm\
   win-x86_64/crypto/bn/x86_64-mont5.asm\
-  win-x86_64/crypto/cpu-x86_64-asm.asm\
+  win-x86_64/crypto/ec/p256-x86_64-asm.asm\
   win-x86_64/crypto/md5/md5-x86_64.asm\
   win-x86_64/crypto/modes/aesni-gcm-x86_64.asm\
   win-x86_64/crypto/modes/ghash-x86_64.asm\
   win-x86_64/crypto/rand/rdrand-x86_64.asm\
-  win-x86_64/crypto/rc4/rc4-md5-x86_64.asm\
   win-x86_64/crypto/rc4/rc4-x86_64.asm\
   win-x86_64/crypto/sha/sha1-x86_64.asm\
   win-x86_64/crypto/sha/sha256-x86_64.asm\

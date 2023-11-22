@@ -15,27 +15,47 @@ static pid_t gettid(void)
 }
 #endif
 
-static int getprocattrcon(char ** context,
-			  pid_t pid, const char *attr)
+static int openattr(pid_t pid, const char *attr, int flags)
 {
-	char *path, *buf;
-	size_t size;
 	int fd, rc;
-	ssize_t ret;
+	char *path;
 	pid_t tid;
-	int errno_hold;
 
-	if (pid > 0)
+	if (pid > 0) {
 		rc = asprintf(&path, "/proc/%d/attr/%s", pid, attr);
-	else {
+	} else if (pid == 0) {
+		rc = asprintf(&path, "/proc/thread-self/attr/%s", attr);
+		if (rc < 0)
+			return -1;
+		fd = open(path, flags | O_CLOEXEC);
+		if (fd >= 0 || errno != ENOENT)
+			goto out;
+		free(path);
 		tid = gettid();
 		rc = asprintf(&path, "/proc/self/task/%d/attr/%s", tid, attr);
+	} else {
+		errno = EINVAL;
+		return -1;
 	}
 	if (rc < 0)
 		return -1;
 
-	fd = open(path, O_RDONLY);
+	fd = open(path, flags | O_CLOEXEC);
+out:
 	free(path);
+	return fd;
+}
+
+static int getprocattrcon(char ** context,
+			  pid_t pid, const char *attr)
+{
+	char *buf;
+	size_t size;
+	int fd;
+	ssize_t ret;
+	int errno_hold;
+
+	fd = openattr(pid, attr, O_RDONLY);
 	if (fd < 0)
 		return -1;
 
@@ -76,23 +96,11 @@ static int getprocattrcon(char ** context,
 static int setprocattrcon(const char * context,
 			  pid_t pid, const char *attr)
 {
-	char *path;
-	int fd, rc;
-	pid_t tid;
+	int fd;
 	ssize_t ret;
 	int errno_hold;
 
-	if (pid > 0)
-		rc = asprintf(&path, "/proc/%d/attr/%s", pid, attr);
-	else {
-		tid = gettid();
-		rc = asprintf(&path, "/proc/self/task/%d/attr/%s", tid, attr);
-	}
-	if (rc < 0)
-		return -1;
-
-	fd = open(path, O_RDWR);
-	free(path);
+	fd = openattr(pid, attr, O_RDWR);
 	if (fd < 0)
 		return -1;
 	if (context)
@@ -131,7 +139,12 @@ static int setprocattrcon(const char * context,
 #define getpidattr_def(fn, attr) \
 	int get##fn(pid_t pid, char **c)	\
 	{ \
-		return getprocattrcon(c, pid, #attr); \
+		if (pid <= 0) { \
+			errno = EINVAL; \
+			return -1; \
+		} else { \
+			return getprocattrcon(c, pid, #attr); \
+		} \
 	}
 
 all_selfattr_def(con, current)

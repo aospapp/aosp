@@ -16,12 +16,11 @@
 
 package com.android.settings.widget;
 
-import static android.net.TrafficStats.MB_IN_BYTES;
-
 import android.content.Context;
 import android.content.res.Resources;
 import android.net.NetworkPolicy;
 import android.net.NetworkStatsHistory;
+import android.net.TrafficStats;
 import android.os.Handler;
 import android.os.Message;
 import android.text.Spannable;
@@ -32,7 +31,7 @@ import android.text.format.Formatter;
 import android.text.format.Formatter.BytesResult;
 import android.text.format.Time;
 import android.util.AttributeSet;
-import android.util.Log;
+import android.util.MathUtils;
 import android.view.MotionEvent;
 import android.view.View;
 
@@ -42,6 +41,8 @@ import com.android.settings.widget.ChartSweepView.OnSweepListener;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Objects;
+
+import static android.net.TrafficStats.MB_IN_BYTES;
 
 /**
  * Specific {@link ChartView} that displays {@link ChartNetworkSeriesView} along
@@ -535,6 +536,7 @@ public class ChartDataUsageView extends ChartView {
 
         @Override
         public long buildLabel(Resources res, SpannableStringBuilder builder, long value) {
+            value = MathUtils.constrain(value, 0, TrafficStats.TB_IN_BYTES);
             final BytesResult result = Formatter.formatBytes(res, value,
                     Formatter.FLAG_SHORTER | Formatter.FLAG_CALCULATE_ROUNDED);
             setText(builder, sSpanSize, result.value, "^1");

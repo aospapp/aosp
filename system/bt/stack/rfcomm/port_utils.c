@@ -23,15 +23,17 @@
  ******************************************************************************/
 #include <string.h>
 
+#include "osi/include/mutex.h"
+
 #include "bt_target.h"
-#include "gki.h"
-#include "rfcdefs.h"
+#include "bt_common.h"
+#include "btm_int.h"
+#include "btu.h"
+#include "l2cdefs.h"
 #include "port_api.h"
 #include "port_int.h"
 #include "rfc_int.h"
-#include "l2cdefs.h"
-#include "btm_int.h"
-#include "btu.h"
+#include "rfcdefs.h"
 
 static const tPORT_STATE default_port_pars =
 {
@@ -73,18 +75,20 @@ tPORT *port_allocate_port (UINT8 dlci, BD_ADDR bd_addr)
         p_port = &rfc_cb.port.port[yy];
         if (!p_port->in_use)
         {
-            memset (p_port, 0, sizeof (tPORT));
+            memset(p_port, 0, sizeof (tPORT));
 
             p_port->in_use = TRUE;
             p_port->inx    = yy + 1;
 
-            p_port->dlci   = dlci;
-            memcpy (p_port->bd_addr, bd_addr, BD_ADDR_LEN);
-
             /* During the open set default state for the port connection */
             port_set_defaults (p_port);
 
+            p_port->rfc.port_timer = alarm_new("rfcomm_port.port_timer");
             rfc_cb.rfc.last_port = yy;
+
+            p_port->dlci   = dlci;
+            memcpy (p_port->bd_addr, bd_addr, BD_ADDR_LEN);
+
             RFCOMM_TRACE_DEBUG("rfc_cb.port.port[%d]:%p allocated, last_port:%d", yy, p_port, rfc_cb.rfc.last_port);
             RFCOMM_TRACE_DEBUG("port_allocate_port:bd_addr:%02x:%02x:%02x:%02x:%02x:%02x",
                                 bd_addr[0], bd_addr[1], bd_addr[2], bd_addr[3], bd_addr[4], bd_addr[5]);
@@ -120,13 +124,14 @@ void port_set_defaults (tPORT *p_port)
 
     p_port->credit_tx      = 0;
     p_port->credit_rx      = 0;
-/*  p_port->credit_rx_max  = PORT_CREDIT_RX_MAX;            Determined later */
-/*  p_port->credit_rx_low  = PORT_CREDIT_RX_LOW;            Determined later */
 
     memset (&p_port->local_ctrl, 0, sizeof (p_port->local_ctrl));
     memset (&p_port->peer_ctrl, 0, sizeof (p_port->peer_ctrl));
     memset (&p_port->rx, 0, sizeof (p_port->rx));
     memset (&p_port->tx, 0, sizeof (p_port->tx));
+
+    p_port->tx.queue = fixed_queue_new(SIZE_MAX);
+    p_port->rx.queue = fixed_queue_new(SIZE_MAX);
 }
 
 /*******************************************************************************
@@ -194,60 +199,62 @@ void port_select_mtu (tPORT *p_port)
                           p_port->credit_rx_max, p_port->credit_rx_low, p_port->rx_buf_critical);
 }
 
-
 /*******************************************************************************
 **
 ** Function         port_release_port
 **
-** Description      Release port infor control block.
+** Description      Release port control block.
 **
 ** Returns          Pointer to the PORT or NULL if not found
 **
 *******************************************************************************/
-void port_release_port (tPORT *p_port)
+void port_release_port(tPORT *p_port)
 {
+    RFCOMM_TRACE_DEBUG("%s p_port: %p state: %d keep_handle: %d", __func__,
+        p_port, p_port->rfc.state, p_port->keep_port_handle);
+
+    mutex_global_lock();
     BT_HDR *p_buf;
-    UINT32 mask;
-    tPORT_CALLBACK *p_port_cb;
-    tPORT_STATE user_port_pars;
-
-    PORT_SCHEDULE_LOCK;
-    RFCOMM_TRACE_DEBUG("port_release_port, p_port:%p", p_port);
-    while ((p_buf = (BT_HDR *)GKI_dequeue (&p_port->rx.queue)) != NULL)
-        GKI_freebuf (p_buf);
-
+    while ((p_buf = (BT_HDR *)fixed_queue_try_dequeue(p_port->rx.queue)) != NULL)
+        osi_free(p_buf);
     p_port->rx.queue_size = 0;
 
-    while ((p_buf = (BT_HDR *)GKI_dequeue (&p_port->tx.queue)) != NULL)
-        GKI_freebuf (p_buf);
-
+    while ((p_buf = (BT_HDR *)fixed_queue_try_dequeue(p_port->tx.queue)) != NULL)
+        osi_free(p_buf);
     p_port->tx.queue_size = 0;
+    mutex_global_unlock();
 
-    PORT_SCHEDULE_UNLOCK;
+    alarm_cancel(p_port->rfc.port_timer);
 
     p_port->state = PORT_STATE_CLOSED;
 
     if (p_port->rfc.state == RFC_STATE_CLOSED)
     {
-        RFCOMM_TRACE_DEBUG ("rfc_port_closed DONE");
         if (p_port->rfc.p_mcb)
         {
             p_port->rfc.p_mcb->port_inx[p_port->dlci] = 0;
 
             /* If there are no more ports opened on this MCB release it */
-            rfc_check_mcb_active (p_port->rfc.p_mcb);
+            rfc_check_mcb_active(p_port->rfc.p_mcb);
         }
+
         rfc_port_timer_stop (p_port);
-        RFCOMM_TRACE_DEBUG ("port_release_port:p_port->keep_port_handle:%d", p_port->keep_port_handle);
-        if( p_port->keep_port_handle )
+        fixed_queue_free(p_port->tx.queue, NULL);
+        p_port->tx.queue = NULL;
+        fixed_queue_free(p_port->rx.queue, NULL);
+        p_port->rx.queue = NULL;
+
+        if (p_port->keep_port_handle)
         {
-            RFCOMM_TRACE_DEBUG ("port_release_port:Initialize handle:%d", p_port->inx);
+            RFCOMM_TRACE_DEBUG("%s Re-initialize handle: %d", __func__, p_port->inx);
+
             /* save event mask and callback */
-            mask = p_port->ev_mask;
-            p_port_cb = p_port->p_callback;
-            user_port_pars = p_port->user_port_pars;
+            UINT32 mask = p_port->ev_mask;
+            tPORT_CALLBACK *p_port_cb = p_port->p_callback;
+            tPORT_STATE user_port_pars = p_port->user_port_pars;
 
             port_set_defaults(p_port);
+
             /* restore */
             p_port->ev_mask         = mask;
             p_port->p_callback      = p_port_cb;
@@ -256,20 +263,18 @@ void port_release_port (tPORT *p_port)
 
             p_port->state           = PORT_STATE_OPENING;
             p_port->rfc.p_mcb       = NULL;
-            if(p_port->is_server)
+            if (p_port->is_server)
                 p_port->dlci       &= 0xfe;
 
             p_port->local_ctrl.modem_signal = p_port->default_signal_state;
             memcpy (p_port->bd_addr, BT_BD_ANY, BD_ADDR_LEN);
-        }
-        else
-        {
-            RFCOMM_TRACE_DEBUG ("port_release_port:Clean-up handle:%d", p_port->inx);
+        } else {
+            RFCOMM_TRACE_DEBUG("%s Clean-up handle: %d", __func__, p_port->inx);
+            alarm_free(p_port->rfc.port_timer);
             memset (p_port, 0, sizeof (tPORT));
         }
     }
 }
-
 
 /*******************************************************************************
 **
@@ -420,7 +425,7 @@ UINT32 port_flow_control_user (tPORT *p_port)
               || !p_port->rfc.p_mcb
               || !p_port->rfc.p_mcb->peer_ready
               || (p_port->tx.queue_size > PORT_TX_HIGH_WM)
-              || (GKI_queue_length(&p_port->tx.queue) > PORT_TX_BUF_HIGH_WM);
+              || (fixed_queue_length(p_port->tx.queue) > PORT_TX_BUF_HIGH_WM);
 
     if (p_port->tx.user_fc == fc)
         return (0);
@@ -536,7 +541,7 @@ void port_flow_control_peer(tPORT *p_port, BOOLEAN enable, UINT16 count)
                 p_port->rx.peer_fc = TRUE;
             }
             /* if queue count reached credit rx max, set peer fc */
-            else if (GKI_queue_length(&p_port->rx.queue) >= p_port->credit_rx_max)
+            else if (fixed_queue_length(p_port->rx.queue) >= p_port->credit_rx_max)
             {
                 p_port->rx.peer_fc = TRUE;
             }
@@ -552,7 +557,7 @@ void port_flow_control_peer(tPORT *p_port, BOOLEAN enable, UINT16 count)
             /* check if it can be resumed now */
             if (p_port->rx.peer_fc
              && (p_port->rx.queue_size < PORT_RX_LOW_WM)
-             && (GKI_queue_length(&p_port->rx.queue) < PORT_RX_BUF_LOW_WM))
+             && (fixed_queue_length(p_port->rx.queue) < PORT_RX_BUF_LOW_WM))
             {
                 p_port->rx.peer_fc = FALSE;
 
@@ -573,7 +578,7 @@ void port_flow_control_peer(tPORT *p_port, BOOLEAN enable, UINT16 count)
             /* Check the size of the rx queue.  If it exceeds certain */
             /* level and flow control has not been sent to the peer do it now */
             else if ( ((p_port->rx.queue_size > PORT_RX_HIGH_WM)
-                     || (GKI_queue_length(&p_port->rx.queue) > PORT_RX_BUF_HIGH_WM))
+                     || (fixed_queue_length(p_port->rx.queue) > PORT_RX_BUF_HIGH_WM))
                      && !p_port->rx.peer_fc)
             {
                 RFCOMM_TRACE_EVENT ("PORT_DataInd Data reached HW. Sending FC set.");

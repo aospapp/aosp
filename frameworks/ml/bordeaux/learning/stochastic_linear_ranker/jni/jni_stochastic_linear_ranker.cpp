@@ -49,7 +49,7 @@ void ConvertParameter2Object(JNIEnv* env, jobjectArray *keys, jobjectArray *valu
 }
 
 void DecomposeSparseWeightVector(JNIEnv* env, jobjectArray *keys, jfloatArray *values,
-    const int length, SparseWeightVector<string> *sample) {
+    SparseWeightVector<string> *sample) {
 
   SparseWeightVector<string>::Wmap w_ = sample->GetMap();
   int i=0;
@@ -68,7 +68,7 @@ void DecomposeSparseWeightVector(JNIEnv* env, jobjectArray *keys, jfloatArray *v
 
 jboolean Java_android_bordeaux_learning_StochasticLinearRanker_nativeSetWeightClassifier(
     JNIEnv* env,
-    jobject thiz,
+    jobject /* thiz */,
     jobjectArray key_array_model,
     jfloatArray value_array_model,
     jfloat normalizer_model,
@@ -94,7 +94,7 @@ jboolean Java_android_bordeaux_learning_StochasticLinearRanker_nativeSetWeightCl
 
 jboolean Java_android_bordeaux_learning_StochasticLinearRanker_nativeSetParameterClassifier(
     JNIEnv* env,
-    jobject thiz,
+    jobject /* thiz */,
     jstring key,
     jstring value,
     jlong paPtr) {
@@ -227,8 +227,8 @@ jboolean Java_android_bordeaux_learning_StochasticLinearRanker_nativeSetParamete
 }
 
 jint Java_android_bordeaux_learning_StochasticLinearRanker_nativeGetLengthClassifier(
-  JNIEnv* env,
-  jobject thiz,
+  JNIEnv* /* env */,
+  jobject /* thiz */,
   jlong paPtr) {
 
   StochasticLinearRanker<string>* classifier = (StochasticLinearRanker<string>*) paPtr;
@@ -248,7 +248,7 @@ std::string ConvertFloat2String(float v){
 
 void Java_android_bordeaux_learning_StochasticLinearRanker_nativeGetParameterClassifier(
     JNIEnv* env,
-    jobject thiz,
+    jobject /* thiz */,
     jobjectArray key_array_param,
     jobjectArray value_array_param,
     jlong paPtr){
@@ -367,7 +367,7 @@ void Java_android_bordeaux_learning_StochasticLinearRanker_nativeGetParameterCla
 
 void Java_android_bordeaux_learning_StochasticLinearRanker_nativeGetWeightClassifier(
   JNIEnv* env,
-  jobject thiz,
+  jobject /* thiz */,
   jobjectArray key_array_model,
   jfloatArray value_array_model,
   jfloat normalizer,
@@ -380,18 +380,20 @@ void Java_android_bordeaux_learning_StochasticLinearRanker_nativeGetWeightClassi
   int array_len = w_map.size();
 
   normalizer = M_weights.GetNormalizer();
-  DecomposeSparseWeightVector(env, &key_array_model, &value_array_model, array_len, &M_weights);
+  DecomposeSparseWeightVector(env, &key_array_model, &value_array_model, &M_weights);
 }
 
-jlong Java_android_bordeaux_learning_StochasticLinearRanker_initNativeClassifier(JNIEnv* env,
-                             jobject thiz) {
+jlong Java_android_bordeaux_learning_StochasticLinearRanker_initNativeClassifier(
+  JNIEnv* /* env */,
+  jobject /* thiz */) {
   StochasticLinearRanker<string>* classifier = new StochasticLinearRanker<string>();
   return ((jlong) classifier);
 }
 
-jboolean Java_android_bordeaux_learning_StochasticLinearRanker_deleteNativeClassifier(JNIEnv* env,
-                               jobject thiz,
-                               jlong paPtr) {
+jboolean Java_android_bordeaux_learning_StochasticLinearRanker_deleteNativeClassifier(
+  JNIEnv* /* env */,
+  jobject /* thiz */,
+  jlong paPtr) {
   StochasticLinearRanker<string>* classifier = (StochasticLinearRanker<string>*) paPtr;
   delete classifier;
   return JNI_TRUE;
@@ -399,7 +401,7 @@ jboolean Java_android_bordeaux_learning_StochasticLinearRanker_deleteNativeClass
 
 jboolean Java_android_bordeaux_learning_StochasticLinearRanker_nativeUpdateClassifier(
   JNIEnv* env,
-  jobject thiz,
+  jobject /* thiz */,
   jobjectArray key_array_positive,
   jfloatArray value_array_positive,
   jobjectArray key_array_negative,
@@ -438,7 +440,7 @@ jboolean Java_android_bordeaux_learning_StochasticLinearRanker_nativeUpdateClass
 
 jfloat Java_android_bordeaux_learning_StochasticLinearRanker_nativeScoreSample(
   JNIEnv* env,
-  jobject thiz,
+  jobject /* thiz */,
   jobjectArray key_array,
   jfloatArray value_array,
   jlong paPtr) {

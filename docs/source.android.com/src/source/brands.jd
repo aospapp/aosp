@@ -81,19 +81,21 @@ communication</strong>:</p>
     <blockquote><em>Android is a trademark of Google Inc.</em></blockquote></p>
 
     <p>Here are acceptable examples:</p>
-<img src="{@docRoot}images/JB-TM-example.png" alt="Jelly Bean trademark example" />
-<img src="{@docRoot}images/8100-TM-example.png" alt="8100 series trademark example" />
-<img src="{@docRoot}images/XBrand-TM-example.jpg" alt="XBrand trademark example" />
+<img src="images/JB-TM-example.png" alt="Jelly Bean trademark example" />
+<img src="images/8100-TM-example.png" alt="8100 series trademark example" />
+    <p>And one unacceptable example:</p>
+<img src="images/XBrand-TM-example.jpg" alt="XBrand trademark example" />
     </li>
     </ul>
 
   <div style="float:right;width:200px;margin-left:30px">
-    <img alt="" src="{@docRoot}images/Android_Robot_100.png"
+    <img alt="" src="images/Android_Robot_100.png"
       style="margin-left:50px">
     <p style="text-align:center">
        <a href="http://developer.android.com/images/brand/Android_Robot_100.png">100x118</a> |
        <a href="http://developer.android.com/images/brand/Android_Robot_200.png">200x237</a><br>
        <a href="http://developer.android.com/downloads/brand/Android_Robot_outlined.ai">Illustrator (.ai)</a></p>
+    <img alt="" src="images/No_PeaceBot_200.jpg">
   </div>
 
  <h3 id="robot-android">Android robot</h3>
@@ -104,9 +106,13 @@ href="http://developer.android.com/distribute/tools/promote/brand.html">App Deve
 Guidelines</a> and the <a href="http://creativecommons.org/licenses/by/3.0/">Creative Commons license</a>
 for additional details.</p>
 
+<p style="padding-top: 70px">The Android Peace Robot or any variation of the Android Peace Robot
+(with peace sign) may not be used in partner marketing.</p>
+
 <h3 id="logo-android" style="clear:right">Android logo</h3>
 
-<div style="float:right;width:210px;margin-left:30px;margin-top:-10px">
+<div style="float:right;width:250px;margin-left:30px;margin-top:-10px">
+  <img alt="No Logo" src="images/android_logo_new_crossed_out.png">
   <img alt="No Logo" src="http://developer.android.com/images/brand/android_logo_no.png">
 </div>
 
@@ -114,7 +120,7 @@ for additional details.</p>
 logo and custom typeface may not be used. Nor can these images be used with the
 Android robot.</p>
 
-<h2 id="brand-google_play">Google Play</h2>
+<h2 style="padding-top:50px" id="brand-google_play">Google Play</h2>
 
 <p>Use of the “Google Play” name and the Google Play Store icon on the
 packaging of the hardware, marketing materials of the hardware, or the hardware

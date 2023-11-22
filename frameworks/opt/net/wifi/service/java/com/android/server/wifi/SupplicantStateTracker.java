@@ -16,24 +16,24 @@
 
 package com.android.server.wifi;
 
-import android.os.BatteryStats;
-import android.os.RemoteException;
-import android.os.ServiceManager;
-import android.util.Slog;
-import com.android.internal.app.IBatteryStats;
-import com.android.internal.util.State;
-import com.android.internal.util.StateMachine;
-
 import android.content.Context;
 import android.content.Intent;
 import android.net.wifi.SupplicantState;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
+import android.os.BatteryStats;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Parcelable;
+import android.os.RemoteException;
+import android.os.ServiceManager;
 import android.os.UserHandle;
 import android.util.Log;
+import android.util.Slog;
+
+import com.android.internal.app.IBatteryStats;
+import com.android.internal.util.State;
+import com.android.internal.util.StateMachine;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -44,16 +44,12 @@ import java.io.PrintWriter;
  * - detect a failed WPA handshake that loops indefinitely
  * - authentication failure handling
  */
-class SupplicantStateTracker extends StateMachine {
+public class SupplicantStateTracker extends StateMachine {
 
     private static final String TAG = "SupplicantStateTracker";
     private static boolean DBG = false;
-
-    private final WifiStateMachine mWifiStateMachine;
-    private final WifiConfigStore mWifiConfigStore;
+    private final WifiConfigManager mWifiConfigManager;
     private final IBatteryStats mBatteryStats;
-    private int mAuthenticationFailuresCount = 0;
-    private int mAssociationRejectCount = 0;
     /* Indicates authentication failure in supplicant broadcast.
      * TODO: enhance auth failure reporting to include notification
      * for all type of failures: EAP, WPS & WPA networks */
@@ -91,12 +87,11 @@ class SupplicantStateTracker extends StateMachine {
         return getCurrentState().getName();
     }
 
-    public SupplicantStateTracker(Context c, WifiStateMachine wsm, WifiConfigStore wcs, Handler t) {
+    public SupplicantStateTracker(Context c, WifiConfigManager wcs, Handler t) {
         super(TAG, t.getLooper());
 
         mContext = c;
-        mWifiStateMachine = wsm;
-        mWifiConfigStore = wcs;
+        mWifiConfigManager = wcs;
         mBatteryStats = (IBatteryStats)ServiceManager.getService(BatteryStats.SERVICE_NAME);
         addState(mDefaultState);
             addState(mUninitializedState, mDefaultState);
@@ -123,11 +118,11 @@ class SupplicantStateTracker extends StateMachine {
 
         /* If other networks disabled during connection, enable them */
         if (mNetworksDisabledDuringConnect) {
-            mWifiConfigStore.enableAllNetworks();
+            mWifiConfigManager.enableAllNetworks();
             mNetworksDisabledDuringConnect = false;
         }
-        /* Disable failed network */
-        mWifiConfigStore.disableNetwork(netId, disableReason);
+        /* update network status */
+        mWifiConfigManager.updateNetworkSelectionStatus(netId, disableReason);
     }
 
     private void transitionOnSupplicantStateChange(StateChangeResult stateChangeResult) {
@@ -225,7 +220,6 @@ class SupplicantStateTracker extends StateMachine {
             if (DBG) Log.d(TAG, getName() + message.toString() + "\n");
             switch (message.what) {
                 case WifiMonitor.AUTHENTICATION_FAILURE_EVENT:
-                    mAuthenticationFailuresCount++;
                     mAuthFailureInSupplicantBroadcast = true;
                     break;
                 case WifiMonitor.SUPPLICANT_STATE_CHANGE_EVENT:
@@ -240,11 +234,8 @@ class SupplicantStateTracker extends StateMachine {
                     break;
                 case WifiManager.CONNECT_NETWORK:
                     mNetworksDisabledDuringConnect = true;
-                    mAssociationRejectCount = 0;
                     break;
                 case WifiMonitor.ASSOCIATION_REJECTION_EVENT:
-                    mAssociationRejectCount++;
-                    break;
                 default:
                     Log.e(TAG, "Ignoring " + message);
                     break;
@@ -279,26 +270,6 @@ class SupplicantStateTracker extends StateMachine {
         @Override
          public void enter() {
              if (DBG) Log.d(TAG, getName() + "\n");
-             /* If a disconnect event happens after authentication failure
-              * exceeds maximum retries, disable the network
-              */
-             Message message = getCurrentMessage();
-             StateChangeResult stateChangeResult = (StateChangeResult) message.obj;
-
-             if (mAuthenticationFailuresCount >= MAX_RETRIES_ON_AUTHENTICATION_FAILURE) {
-                 Log.d(TAG, "Failed to authenticate, disabling network " +
-                         stateChangeResult.networkId);
-                 handleNetworkConnectionFailure(stateChangeResult.networkId,
-                         WifiConfiguration.DISABLED_AUTH_FAILURE);
-                 mAuthenticationFailuresCount = 0;
-             }
-             else if (mAssociationRejectCount >= MAX_RETRIES_ON_ASSOCIATION_REJECT) {
-                 Log.d(TAG, "Association getting rejected, disabling network " +
-                         stateChangeResult.networkId);
-                 handleNetworkConnectionFailure(stateChangeResult.networkId,
-                         WifiConfiguration.DISABLED_ASSOCIATION_REJECT);
-                 mAssociationRejectCount = 0;
-            }
          }
     }
 
@@ -339,7 +310,8 @@ class SupplicantStateTracker extends StateMachine {
                             Log.d(TAG, "Supplicant loop detected, disabling network " +
                                     stateChangeResult.networkId);
                             handleNetworkConnectionFailure(stateChangeResult.networkId,
-                                    WifiConfiguration.DISABLED_AUTH_FAILURE);
+                                    WifiConfiguration.NetworkSelectionStatus
+                                            .DISABLED_AUTHENTICATION_FAILURE);
                         }
                         mLoopDetectIndex = state.ordinal();
                         sendSupplicantStateChangedBroadcast(state,
@@ -361,10 +333,8 @@ class SupplicantStateTracker extends StateMachine {
          public void enter() {
              if (DBG) Log.d(TAG, getName() + "\n");
              /* Reset authentication failure count */
-             mAuthenticationFailuresCount = 0;
-             mAssociationRejectCount = 0;
              if (mNetworksDisabledDuringConnect) {
-                 mWifiConfigStore.enableAllNetworks();
+                 mWifiConfigManager.enableAllNetworks();
                  mNetworksDisabledDuringConnect = false;
              }
         }
@@ -407,7 +377,6 @@ class SupplicantStateTracker extends StateMachine {
     @Override
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
         super.dump(fd, pw, args);
-        pw.println("mAuthenticationFailuresCount " + mAuthenticationFailuresCount);
         pw.println("mAuthFailureInSupplicantBroadcast " + mAuthFailureInSupplicantBroadcast);
         pw.println("mNetworksDisabledDuringConnect " + mNetworksDisabledDuringConnect);
         pw.println();

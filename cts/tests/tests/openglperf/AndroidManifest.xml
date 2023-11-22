@@ -14,7 +14,7 @@
      limitations under the License.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.openglperf"
+    package="android.openglperf.cts"
     android:versionCode="1"
     android:versionName="1.0" >
 
@@ -32,7 +32,7 @@
             android:value="com.android.cts.runner.CtsTestRunListener" />
     </instrumentation>
     <instrumentation
-        android:targetPackage="com.android.cts.openglperf"
+        android:targetPackage="android.openglperf.cts"
         android:name="android.support.test.runner.AndroidJUnitRunner">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

@@ -28,28 +28,12 @@ include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Makefile.sources
 
 LOCAL_MODULE := libdrm_intel
-LOCAL_MODULE_TAGS := optional
 
 LOCAL_SHARED_LIBRARIES := libdrm
 
-LOCAL_SRC_FILES := $(LIBDRM_INTEL_FILES)
-LOCAL_EXPORT_C_INCLUDE_DIRS += \
-	$(LOCAL_PATH)/intel
-
-LOCAL_C_INCLUDES := \
-	$(LIBDRM_TOP) \
-	$(LIBDRM_TOP)/intel \
-	$(LIBDRM_TOP)/include/drm \
-	external/libpciaccess/include
+LOCAL_SRC_FILES := $(filter-out %.h,$(LIBDRM_INTEL_FILES))
 
 LOCAL_CFLAGS := \
 	-DHAVE_LIBDRM_ATOMIC_PRIMITIVES=1
-
-LOCAL_COPY_HEADERS := $(LIBDRM_INTEL_H_FILES)
-LOCAL_COPY_HEADERS_TO := libdrm
-
-LOCAL_SHARED_LIBRARIES := \
-	libdrm \
-	libpciaccess
 
 include $(BUILD_SHARED_LIBRARY)

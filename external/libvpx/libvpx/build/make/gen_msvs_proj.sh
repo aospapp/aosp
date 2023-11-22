@@ -73,6 +73,10 @@ generate_filter() {
                 open_tag File RelativePath="$f"
 
                 if [ "$pat" == "asm" ] && $asm_use_custom_step; then
+                    # Avoid object file name collisions, i.e. vpx_config.c and
+                    # vpx_config.asm produce the same object file without
+                    # this additional suffix.
+                    objf=${objf%.obj}_asm.obj
                     for plat in "${platforms[@]}"; do
                         for cfg in Debug Release; do
                             open_tag FileConfiguration \
@@ -245,13 +249,13 @@ esac
 case "$target" in
     x86_64*)
         platforms[0]="x64"
-        asm_Debug_cmdline="yasm -Xvc -g cv8 -f \$(PlatformName) ${yasmincs} &quot;\$(InputPath)&quot;"
-        asm_Release_cmdline="yasm -Xvc -f \$(PlatformName) ${yasmincs} &quot;\$(InputPath)&quot;"
+        asm_Debug_cmdline="yasm -Xvc -g cv8 -f win64 ${yasmincs} &quot;\$(InputPath)&quot;"
+        asm_Release_cmdline="yasm -Xvc -f win64 ${yasmincs} &quot;\$(InputPath)&quot;"
     ;;
     x86*)
         platforms[0]="Win32"
-        asm_Debug_cmdline="yasm -Xvc -g cv8 -f \$(PlatformName) ${yasmincs} &quot;\$(InputPath)&quot;"
-        asm_Release_cmdline="yasm -Xvc -f \$(PlatformName) ${yasmincs} &quot;\$(InputPath)&quot;"
+        asm_Debug_cmdline="yasm -Xvc -g cv8 -f win32 ${yasmincs} &quot;\$(InputPath)&quot;"
+        asm_Release_cmdline="yasm -Xvc -f win32 ${yasmincs} &quot;\$(InputPath)&quot;"
     ;;
     *) die "Unsupported target $target!"
     ;;
@@ -295,22 +299,7 @@ generate_vcproj() {
         case "$target" in
             x86*)
                 case "$name" in
-                    obj_int_extract)
-                        tag Tool \
-                            Name="VCCLCompilerTool" \
-                            Optimization="0" \
-                            AdditionalIncludeDirectories="$incs" \
-                            PreprocessorDefinitions="WIN32;DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_CRT_SECURE_NO_DEPRECATE" \
-                            RuntimeLibrary="$debug_runtime" \
-                            WarningLevel="3" \
-                            DebugInformationFormat="1" \
-                            $warn_64bit \
-                    ;;
                     vpx)
-                        tag Tool \
-                            Name="VCPreBuildEventTool" \
-                            CommandLine="call obj_int_extract.bat &quot;$src_path_bare&quot; $plat_no_ws\\\$(ConfigurationName)" \
-
                         tag Tool \
                             Name="VCCLCompilerTool" \
                             Optimization="0" \
@@ -347,11 +336,6 @@ generate_vcproj() {
                 case "$target" in
                     x86*)
                         case "$name" in
-                            obj_int_extract)
-                                tag Tool \
-                                    Name="VCLinkerTool" \
-                                    GenerateDebugInformation="true" \
-                            ;;
                             *)
                                 tag Tool \
                                     Name="VCLinkerTool" \
@@ -400,24 +384,7 @@ generate_vcproj() {
         case "$target" in
             x86*)
                 case "$name" in
-                    obj_int_extract)
-                        tag Tool \
-                            Name="VCCLCompilerTool" \
-                            Optimization="2" \
-                            FavorSizeorSpeed="1" \
-                            AdditionalIncludeDirectories="$incs" \
-                            PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_CRT_SECURE_NO_DEPRECATE" \
-                            RuntimeLibrary="$release_runtime" \
-                            UsePrecompiledHeader="0" \
-                            WarningLevel="3" \
-                            DebugInformationFormat="0" \
-                            $warn_64bit \
-                    ;;
                     vpx)
-                        tag Tool \
-                            Name="VCPreBuildEventTool" \
-                            CommandLine="call obj_int_extract.bat &quot;$src_path_bare&quot; $plat_no_ws\\\$(ConfigurationName)" \
-
                         tag Tool \
                             Name="VCCLCompilerTool" \
                             Optimization="2" \
@@ -456,11 +423,6 @@ generate_vcproj() {
                 case "$target" in
                     x86*)
                         case "$name" in
-                            obj_int_extract)
-                                tag Tool \
-                                    Name="VCLinkerTool" \
-                                    GenerateDebugInformation="true" \
-                            ;;
                             *)
                                 tag Tool \
                                     Name="VCLinkerTool" \

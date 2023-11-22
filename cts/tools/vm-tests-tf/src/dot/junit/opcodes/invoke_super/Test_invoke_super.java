@@ -28,6 +28,9 @@ import dot.junit.opcodes.invoke_super.d.T_invoke_super_19;
 import dot.junit.opcodes.invoke_super.d.T_invoke_super_2;
 import dot.junit.opcodes.invoke_super.d.T_invoke_super_20;
 import dot.junit.opcodes.invoke_super.d.T_invoke_super_24;
+import dot.junit.opcodes.invoke_super.d.T_invoke_super_26;
+import dot.junit.opcodes.invoke_super.d.T_invoke_super_27;
+import dot.junit.opcodes.invoke_super.d.T_invoke_super_28;
 import dot.junit.opcodes.invoke_super.d.T_invoke_super_4;
 import dot.junit.opcodes.invoke_super.d.T_invoke_super_5;
 import dot.junit.opcodes.invoke_super.d.T_invoke_super_6;
@@ -79,6 +82,13 @@ public class Test_invoke_super extends DxTestCase {
     }
 
     /**
+     * @title invoke-super in conflict class
+     */
+    public void testN7() {
+        loadAndRun("dot.junit.opcodes.invoke_super.d.T_invoke_super_26", null);
+    }
+
+    /**
      * @title obj ref is null
      */
     public void testE1() {
@@ -101,6 +111,21 @@ public class Test_invoke_super extends DxTestCase {
     public void testE4() {
         //@uses dot.junit.opcodes.invoke_super.ATest
         loadAndRun("dot.junit.opcodes.invoke_super.d.T_invoke_super_6", AbstractMethodError.class);
+    }
+
+    /**
+     * @title Attempt to invoke abstract interface method
+     */
+    public void testE5() {
+        loadAndRun("dot.junit.opcodes.invoke_super.d.T_invoke_super_27", AbstractMethodError.class);
+    }
+
+    /**
+     * @title Attempt to invoke abstract interface method
+     */
+    public void testE6() {
+        loadAndRun("dot.junit.opcodes.invoke_super.d.T_invoke_super_28",
+                   IncompatibleClassChangeError.class);
     }
 
     /**
@@ -236,8 +261,8 @@ public class Test_invoke_super extends DxTestCase {
      * @title attempt to invoke interface method
      */
     public void testVFE18() {
-        loadAndRun("dot.junit.opcodes.invoke_super.d.T_invoke_super_24", 
-                   IncompatibleClassChangeError.class);
+        loadAndRun("dot.junit.opcodes.invoke_super.d.T_invoke_super_24",
+                   AbstractMethodError.class);
     }
 
     /**

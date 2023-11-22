@@ -17,6 +17,7 @@ LOCAL_SHARED_LIBRARIES := \
 
 LOCAL_CFLAGS += -UNDEBUG
 
+LOCAL_CFLAGS := -Werror -Wall
 ifeq ($(TARGET_OS),linux)
 	LOCAL_CFLAGS += -DXP_UNIX
 endif
@@ -40,6 +41,7 @@ LOCAL_SRC_FILES:= \
 LOCAL_SHARED_LIBRARIES := \
 	libOpenSLES
 
+LOCAL_CFLAGS := -Werror -Wall
 LOCAL_CFLAGS += -UNDEBUG
 
 ifeq ($(TARGET_OS),linux)
@@ -65,6 +67,7 @@ LOCAL_SRC_FILES:= \
 LOCAL_SHARED_LIBRARIES := \
 	libOpenSLES
 
+LOCAL_CFLAGS := -Werror -Wall
 LOCAL_CFLAGS += -UNDEBUG
 
 ifeq ($(TARGET_OS),linux)
@@ -90,6 +93,7 @@ LOCAL_SRC_FILES:= \
 LOCAL_SHARED_LIBRARIES := \
 	libOpenSLES
 
+LOCAL_CFLAGS := -Werror -Wall
 LOCAL_CFLAGS += -UNDEBUG
 
 ifeq ($(TARGET_OS),linux)
@@ -115,6 +119,7 @@ LOCAL_SRC_FILES:= \
 LOCAL_SHARED_LIBRARIES := \
 	libOpenSLES
 
+LOCAL_CFLAGS := -Werror -Wall
 LOCAL_CFLAGS += -UNDEBUG
 
 ifeq ($(TARGET_OS),linux)
@@ -140,6 +145,7 @@ LOCAL_SRC_FILES:= \
 LOCAL_SHARED_LIBRARIES := \
 	libOpenSLES
 
+LOCAL_CFLAGS := -Werror -Wall
 LOCAL_CFLAGS += -UNDEBUG
 
 ifeq ($(TARGET_OS),linux)
@@ -165,6 +171,7 @@ LOCAL_SRC_FILES:= \
 LOCAL_SHARED_LIBRARIES := \
 	libOpenSLES
 
+LOCAL_CFLAGS := -Werror -Wall
 LOCAL_CFLAGS += -UNDEBUG
 
 ifeq ($(TARGET_OS),linux)
@@ -190,6 +197,7 @@ LOCAL_SRC_FILES:= \
 LOCAL_SHARED_LIBRARIES := \
 	libOpenSLES
 
+LOCAL_CFLAGS := -Werror -Wall
 LOCAL_CFLAGS += -UNDEBUG
 
 ifeq ($(TARGET_OS),linux)

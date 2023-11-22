@@ -18,9 +18,11 @@
 
 PRODUCT_PACKAGES += \
     apache-xml \
+    ahat \
     bouncycastle \
     cacerts \
     conscrypt \
+    core-oj \
     core-junit \
     core-libart \
     dalvikvm \
@@ -33,17 +35,21 @@ PRODUCT_PACKAGES += \
     ext \
     hprof-conv \
     libart \
+    libart_fake \
     libcrypto \
     libexpat \
     libicui18n \
     libicuuc \
     libjavacore \
+    libopenjdk \
+    libopenjdkjvm \
     libnativehelper \
     libssl \
     libz \
     oatdump \
     okhttp \
-    patchoat
+    patchoat \
+    profman
 
 PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
     dalvik.vm.image-dex2oat-Xms=64m \
@@ -51,3 +57,6 @@ PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
     dalvik.vm.dex2oat-Xms=64m \
     dalvik.vm.dex2oat-Xmx=512m \
     ro.dalvik.vm.native.bridge=0 \
+    dalvik.vm.usejit=true \
+    dalvik.vm.usejitprofiles=true \
+    dalvik.vm.appimageformat=lz4

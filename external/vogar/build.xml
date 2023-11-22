@@ -14,7 +14,6 @@
     <property name="guava" value="lib/guava.jar"/>
     <property name="kxml2" value="lib/kxml-libcore-20110123.jar"/>
     <property name="android" value="${android.platform.dir}/android.jar"/>
-    <property name="mockito" value="lib/mockito-all-1.8.5.jar"/>
 
     <path id="dependencies">
         <pathelement location="${caliper}"/>

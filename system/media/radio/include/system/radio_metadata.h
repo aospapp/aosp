@@ -42,11 +42,11 @@ enum {
     RADIO_METADATA_KEY_GENRE        = 8,      /* Musical genre          - text  */
     RADIO_METADATA_KEY_ICON         = 9,      /* Station icon           - raw  */
     RADIO_METADATA_KEY_ART          = 10,     /* Album art              - raw  */
+    RADIO_METADATA_KEY_CLOCK        = 11,     /* Clock                  - radio_metadata_clock_t */
     RADIO_METADATA_KEY_MIN          = RADIO_METADATA_KEY_RDS_PI,
-    RADIO_METADATA_KEY_MAX          = RADIO_METADATA_KEY_ART,
+    RADIO_METADATA_KEY_MAX          = RADIO_METADATA_KEY_CLOCK,
 };
 typedef int radio_metadata_key_t;
-
 
 enum {
     RADIO_METADATA_TYPE_INVALID    = -1,
@@ -54,8 +54,14 @@ enum {
     RADIO_METADATA_TYPE_TEXT       = 1,      /* text in UTF-8 format, NUL terminated.
                                                 RADIO_METADATA_TEXT_LEN_MAX length including NUL. */
     RADIO_METADATA_TYPE_RAW        = 2,      /* raw binary data (icon or art) */
+    RADIO_METADATA_TYPE_CLOCK      = 3,      /* clock data, see radio_metadata_clock_t */
 };
 typedef int radio_metadata_type_t;
+
+typedef struct radio_metadata_clock {
+    uint64_t utc_seconds_since_epoch;            /* Seconds since epoch at GMT + 0. */
+    int32_t timezone_offset_in_minutes;       /* Minutes offset from the GMT. */
+} radio_metadata_clock_t;
 
 /*
  * Return the type of the meta data corresponding to the key specified
@@ -154,6 +160,25 @@ int radio_metadata_add_raw(radio_metadata_t **metadata,
                            const radio_metadata_key_t key,
                            const unsigned char *value,
                            const unsigned int size);
+
+/*
+ * Add a clock meta data to the buffer.
+ *
+ * arguments:
+ * - metadata: the address of the meta data buffer. I/O. the meta data can be modified if the
+ * buffer is re-allocated.
+ * - key: the meta data key.
+ * - value: the meta data value.
+ *
+ * returns:
+ * 0 if successfully added
+ * - EINVAL if the buffer passed is invalid or the key does not match a raw type
+ * - ENOMEM if meta data buffer cannot be re-allocated
+ */
+ANDROID_API
+int radio_metadata_add_clock(radio_metadata_t **metadata,
+                             const radio_metadata_key_t key,
+                             const radio_metadata_clock_t *clock);
 
 /*
  * add all meta data in source buffer to destinaiton buffer.

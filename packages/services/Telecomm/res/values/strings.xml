@@ -18,7 +18,7 @@
     <!-- Official label of the Telecomm/Phone app, as seen in "Manage Applications"
          and other settings UIs. This is the "app name" used in notification, recents,
          and app info screens. -->
-    <string name="telecommAppLabel" product="default">Phone Call Management</string>
+    <string name="telecommAppLabel" product="default">Call Management</string>
 
     <!-- Title used for the activity for placing a call. This name appears
          in activity disambig dialogs -->
@@ -30,6 +30,8 @@
     <!-- Notification strings -->
     <!-- Missed call notification label, used when there's exactly one missed call -->
     <string name="notification_missedCallTitle">Missed call</string>
+    <!-- Missed work call notification label, used when there's exactly one missed call [CHAR LIMIT=NONE] -->
+    <string name="notification_missedWorkCallTitle">Missed work call</string>
     <!-- Missed call notification label, used when there are two or more missed calls -->
     <string name="notification_missedCallsTitle">Missed calls</string>
     <!-- Missed call notification message used when there are multiple missed calls -->
@@ -85,7 +87,7 @@
 
     <!-- Message indicating that the user is not allowed to make non-emergency outgoing phone calls
          due to a user restriction -->
-    <string name="outgoing_call_not_allowed_user_restriction">Only emergency calls are allowed by the device owner.</string>
+    <string name="outgoing_call_not_allowed_user_restriction">Only emergency calls are allowed.</string>
 
     <!-- Message indicating that the user is not allowed to make non-emergency outgoing phone calls
          due to the lack of the CALL_PHONE permission -->
@@ -96,9 +98,6 @@
 
     <!-- Message shown when the user tries to make a video call when already in a video call. -->
     <string name ="duplicate_video_call_not_allowed">Call cannot be added at this time.</string>
-
-    <!-- Message indicating video calls not allowed if user enabled TTY Mode -->
-    <string name="video_call_not_allowed_if_tty_enabled">Please disable TTY Mode to make video calls.</string>
 
     <!-- missing voicemail number -->
     <!-- Title of the "Missing voicemail number" dialog -->
@@ -116,6 +115,42 @@
     <!-- Text in dialog used to confirm whether or not the user intends to change the default dialer, if a different default dialer has not been previously set. -->
     <string name="change_default_dialer_no_previous_app_set_text">Use <xliff:g id="new_app">%s</xliff:g> as your default dialer app?</string>
 
+
+    <!-- Blocked numbers -->
+    <string name="blocked_numbers">Blocked numbers</string>
+    <!-- Text shown at the beginning of the blocked numbers screen to explain what the screen is about. -->
+    <string name="blocked_numbers_msg">You won\'t receive calls or texts from blocked numbers.</string>
+    <!-- Button to add a blocked number. -->
+    <string name="block_number">Add a number</string>
+    <!-- Body of dialog to confirm unblocking a number. -->
+    <string name="unblock_dialog_body">Unblock <xliff:g id="number_to_block">%1$s</xliff:g>?</string>
+    <!-- Button to unblock a number. -->
+    <string name="unblock_button">Unblock</string>
+    <!-- Body of dialog to block a number.  -->
+    <string name="add_blocked_dialog_body">Block calls and texts from</string>
+    <!-- Hint shown in the edit text box for adding a blocked number -->
+    <string name="add_blocked_number_hint">Phone number</string>
+    <!-- Button to block a number. -->
+    <string name="block_button">Block</string>
+    <!-- String shown to users unable to manage blocked numbers because they are not owners of the
+        device. -->
+    <string name="non_primary_user">Only the device owner can view and manage blocked numbers.</string>
+    <!-- Description of icon to delete blocked number. -->
+    <string name="delete_icon_description">Unblock</string>
+    <!-- Title for butter bar shown when call blocking is disabled. -->
+    <string name="blocked_numbers_butter_bar_title">Blocking temporarily off</string>
+    <!-- Explanation for butter bar shown when call blocking is disabled. -->
+    <string name="blocked_numbers_butter_bar_body">After you dial or text an emergency number, blocking is turned off to ensure that emergency services can contact you.</string>
+    <!-- Button to re-enable blocking shown in butter bar shown when call blocking is disabled. -->
+    <string name="blocked_numbers_butter_bar_button">Re-enable now</string>
+    <!-- Message to show when a number is blocked. -->
+    <string name="blocked_numbers_number_blocked_message"><xliff:g id="blocked_number">%1$s</xliff:g> blocked</string>
+    <!-- Message to show when a number is unblocked. -->
+    <string name="blocked_numbers_number_unblocked_message"><xliff:g id="unblocked_number">%1$s</xliff:g> unblocked</string>
+    <!-- Message to show when a number cannot be blocked because it is associated with emergency services.. -->
+    <string name="blocked_numbers_block_emergency_number_message">Unable to block emergency number.</string>
+    <!-- Message to show when a number is already blocked. -->
+    <string name="blocked_numbers_number_already_blocked_message"><xliff:g id="blocked_number">%1$s</xliff:g> is already blocked.</string>
 
     <!-- DO NOT TRANSLATE. Label for test Subscription 0. -->
     <string name="test_account_0_label">Q Mobile</string>
@@ -137,4 +172,6 @@
 
     <!-- DO NOT TRANSLATE. Hardcoded number used for restricted incoming phone numbers. -->
     <string name="handle_restricted">RESTRICTED</string>
+
+    <string name="toast_personal_call_msg">Using the personal dialer to make the call</string>
 </resources>

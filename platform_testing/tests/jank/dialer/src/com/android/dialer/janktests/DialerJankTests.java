@@ -97,8 +97,7 @@ public class DialerJankTests extends JankTestBase {
         mDevice.waitForIdle();
 
         // Open contacts list
-        UiObject2 contacts = mDevice.wait(Until.findObject(
-                By.clazz(View.class).desc("Contacts")), TIMEOUT);
+        UiObject2 contacts = mDevice.wait(Until.findObject(By.desc("Contacts")), TIMEOUT);
         assertNotNull("Contacts can't be found", contacts);
         contacts.clickAndWait(Until.newWindow(), TIMEOUT);
         // Find a contact by a given contact-name
@@ -141,19 +140,16 @@ public class DialerJankTests extends JankTestBase {
         }
         launchApp(PACKAGE_NAME);
         mDevice.waitForIdle();
-        // Find recents and click
-        mDevice.wait(Until.findObject(By.clazz(View.class).desc("Recents")), TIMEOUT).click();
-        // to ensure enough record for fling, expand full call-history
-        mDevice.wait(Until.findObject(
-                By.res(RES_PACKAGE_NAME,"lists_pager")), TIMEOUT).fling(Direction.DOWN);
-        mDevice.wait(Until.findObject(By.text("View full call history")), TIMEOUT).click();
+        // Find 'Call History' and click
+        mDevice.wait(Until.findObject(By.desc("Call History")), TIMEOUT).click();
+        mDevice.wait(Until.findObject(By.res(RES_PACKAGE_NAME,"lists_pager")), TIMEOUT);
     }
 
     @JankTest(beforeTest="launchCallLog", expectedFrames=EXPECTED_FRAMES)
     @GfxMonitor(processName=PACKAGE_NAME)
     public void testDialerCallLogFling() {
         UiObject2 callLog = mDevice.wait(Until.findObject(
-                By.res(RES_PACKAGE_NAME, "call_log_pager")), TIMEOUT);
+                By.res(RES_PACKAGE_NAME,"lists_pager")), TIMEOUT);
         assertNotNull("Call log can't be found", callLog);
         for (int i = 0; i < INNER_LOOP; i++) {
             callLog.fling(Direction.DOWN);

@@ -18,10 +18,10 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
   <string-array name="sleep_timeout_entries">
     <item msgid="1213527366819650274">"5 minuti"</item>
-    <item msgid="3695675702735844029">"10 minuti"</item>
-    <item msgid="5742541267966746817">"15 minuti"</item>
-    <item msgid="4333958225402992378">"30 minuti"</item>
-    <item msgid="3103819305854192542">"1 ora"</item>
+    <item msgid="6561800022721381078">"15 minuti"</item>
+    <item msgid="7718735533503035428">"30 minuti"</item>
+    <item msgid="8784595382489738498">"1 ora"</item>
+    <item msgid="1529312035777735084">"2 ore"</item>
   </string-array>
   <string-array name="screen_off_timeout_entries">
     <item msgid="8244337465472020927">"30 minuti"</item>
@@ -43,11 +43,11 @@
     <item msgid="5560655268137500927">"Maiuscoletto"</item>
   </string-array>
   <string-array name="captioning_font_size_selector_titles">
-    <item msgid="4304493614734189861">"Molto piccole"</item>
-    <item msgid="1694402928400844023">"Piccole"</item>
-    <item msgid="1235495470844109970">"Normali"</item>
-    <item msgid="481223375568095790">"Grandi"</item>
-    <item msgid="8614563351231073075">"Molto grandi"</item>
+    <item msgid="4304493614734189861">"Molto piccolo"</item>
+    <item msgid="1694402928400844023">"Piccolo"</item>
+    <item msgid="1235495470844109970">"Normale"</item>
+    <item msgid="481223375568095790">"Grande"</item>
+    <item msgid="8614563351231073075">"Molto grande"</item>
   </string-array>
   <string-array name="captioning_edge_type_selector_titles">
     <item msgid="5333047169042840730">"Nessuno"</item>
@@ -62,11 +62,9 @@
     <item msgid="1626485489418859846">"75%"</item>
     <item msgid="1811192455405034366">"100%"</item>
   </string-array>
-  <string-array name="captioning_preset_selector_titles">
-    <item msgid="7937747884375690010">"Bianco su nero"</item>
-    <item msgid="5187532965364561774">"Nero su bianco"</item>
-    <item msgid="7275908232441066633">"Giallo su nero"</item>
-    <item msgid="3907210401785295669">"Giallo su blu"</item>
-    <item msgid="7050475937183962123">"Personalizzato"</item>
+  <string-array name="surround_sound_entries">
+    <item msgid="5639265918353416799">"Automatico"</item>
+    <item msgid="5990497479384785807">"Sempre"</item>
+    <item msgid="6178602073308944697">"Mai"</item>
   </string-array>
 </resources>

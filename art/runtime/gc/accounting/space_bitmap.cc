@@ -79,7 +79,7 @@ SpaceBitmap<kAlignment>* SpaceBitmap<kAlignment>::Create(
 
 template<size_t kAlignment>
 void SpaceBitmap<kAlignment>::SetHeapLimit(uintptr_t new_end) {
-  DCHECK(IsAligned<kBitsPerIntPtrT * kAlignment>(new_end));
+  DCHECK_ALIGNED(new_end, kBitsPerIntPtrT * kAlignment);
   size_t new_size = OffsetToIndex(new_end - heap_begin_) * sizeof(intptr_t);
   if (new_size < bitmap_size_) {
     bitmap_size_ = new_size;
@@ -188,18 +188,16 @@ template<size_t kAlignment>
 void SpaceBitmap<kAlignment>::WalkInstanceFields(SpaceBitmap<kAlignment>* visited,
                                                  ObjectCallback* callback, mirror::Object* obj,
                                                  mirror::Class* klass, void* arg)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   // Visit fields of parent classes first.
   mirror::Class* super = klass->GetSuperClass();
   if (super != nullptr) {
     WalkInstanceFields(visited, callback, obj, super, arg);
   }
   // Walk instance fields
-  auto* fields = klass->GetIFields();
-  for (size_t i = 0, count = klass->NumInstanceFields(); i < count; ++i) {
-    ArtField* field = &fields[i];
-    if (!field->IsPrimitiveType()) {
-      mirror::Object* value = field->GetObj(obj);
+  for (ArtField& field : klass->GetIFields()) {
+    if (!field.IsPrimitiveType()) {
+      mirror::Object* value = field.GetObj(obj);
       if (value != nullptr) {
         WalkFieldsInOrder(visited, callback, value, arg);
       }
@@ -222,11 +220,9 @@ void SpaceBitmap<kAlignment>::WalkFieldsInOrder(SpaceBitmap<kAlignment>* visited
   WalkInstanceFields(visited, callback, obj, klass, arg);
   // Walk static fields of a Class
   if (obj->IsClass()) {
-    auto* sfields = klass->GetSFields();
-    for (size_t i = 0, count = klass->NumStaticFields(); i < count; ++i) {
-      ArtField* field = &sfields[i];
-      if (!field->IsPrimitiveType()) {
-        mirror::Object* value = field->GetObj(nullptr);
+    for (ArtField& field : klass->GetSFields()) {
+      if (!field.IsPrimitiveType()) {
+        mirror::Object* value = field.GetObj(nullptr);
         if (value != nullptr) {
           WalkFieldsInOrder(visited, callback, value, arg);
         }

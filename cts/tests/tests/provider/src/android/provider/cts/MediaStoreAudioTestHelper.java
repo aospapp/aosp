@@ -107,7 +107,7 @@ public class MediaStoreAudioTestHelper {
         public static final String DISPLAY_NAME = "Jam -Michael Jackson";
 
         public static final String INTERNAL_DATA =
-            "/data/data/com.android.cts.provider/files/Jam.mp3";
+            "/data/data/android.provider.cts/files/Jam.mp3";
 
         public static final String FILE_NAME = "Jam.mp3";
 
@@ -190,7 +190,7 @@ public class MediaStoreAudioTestHelper {
             Environment.getExternalStorageDirectory().getPath() + "/" + FILE_NAME;
 
         public static final String INTERNAL_DATA =
-            "/data/data/com.android.cts.provider/files/Jam_live.mp3";
+            "/data/data/android.provider.cts/files/Jam_live.mp3";
 
 
 

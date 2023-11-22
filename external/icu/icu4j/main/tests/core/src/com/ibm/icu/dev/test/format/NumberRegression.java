@@ -1444,13 +1444,17 @@ public class NumberRegression extends com.ibm.icu.dev.test.TestFmwk {
         for (int i = 0; i < offsets.length; ++i) {
             bytes[offsets[i]] = 4;
         }
+        // Android patch (http://b/27855939) start.
+        // Allow 2 billion integer digits.
+        bytes[offsets[1]-2] = 127;
 
         {
             ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(bytes));
             NumberFormat format = (NumberFormat) ois.readObject();
             //For compatibility with previous version
-            if ((format.getMaximumIntegerDigits() != 309) 
+            if ((format.getMaximumIntegerDigits() != 2000000000)
                 || format.getMaximumFractionDigits() != 340) {
+                // Android patch (http://b/27855939) end.
                 errln("FAIL: Deserialized bogus NumberFormat with values out of range," +
                       " intMin: " + format.getMinimumIntegerDigits() +
                       " intMax: " + format.getMaximumIntegerDigits() +

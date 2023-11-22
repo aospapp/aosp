@@ -67,6 +67,10 @@ abstract public class ContactEditorBaseActivity extends ContactsActivity
     public static final String ACTION_JOIN_COMPLETED = "joinCompleted";
     public static final String ACTION_SAVE_COMPLETED = "saveCompleted";
 
+    public static final int RESULT_CODE_SPLIT = 2;
+
+    protected int mActionBarTitleResId;
+
     /**
      * Contract for contact editors Fragments that are managed by this Activity.
      */
@@ -155,11 +159,8 @@ abstract public class ContactEditorBaseActivity extends ContactsActivity
         /**
          * Saves or creates the contact based on the mode, and if successful
          * finishes the activity.
-         *
-         * @param backPressed whether the save was initiated as a result of a back button press
-         *         or because the framework stopped the editor Activity
          */
-        boolean save(int saveMode, boolean backPressed);
+        boolean save(int saveMode);
 
         /**
          * If there are no unsaved changes, just close the editor, otherwise the user is prompted
@@ -171,8 +172,7 @@ abstract public class ContactEditorBaseActivity extends ContactsActivity
          * Invoked after the contact is saved.
          */
         void onSaveCompleted(boolean hadChanges, int saveMode, boolean saveSucceeded,
-                Uri contactLookupUri, Bundle updatedPhotos, boolean backPressed, long photoId,
-                long nameId);
+                Uri contactLookupUri, Long joinContactId);
 
         /**
          * Invoked after the contact is joined.
@@ -222,12 +222,11 @@ abstract public class ContactEditorBaseActivity extends ContactsActivity
         ActionBar actionBar = getActionBar();
         if (actionBar != null) {
             if (Intent.ACTION_EDIT.equals(action) || ACTION_EDIT.equals(action)) {
-                actionBar.setTitle(getResources().getString(
-                        R.string.contact_editor_title_existing_contact));
+                mActionBarTitleResId = R.string.contact_editor_title_existing_contact;
             } else {
-                actionBar.setTitle(getResources().getString(
-                        R.string.contact_editor_title_new_contact));
+                mActionBarTitleResId = R.string.contact_editor_title_new_contact;
             }
+            actionBar.setTitle(getResources().getString(mActionBarTitleResId));
             actionBar.setDisplayShowHomeEnabled(true);
             actionBar.setDisplayHomeAsUpEnabled(true);
         }
@@ -260,11 +259,7 @@ abstract public class ContactEditorBaseActivity extends ContactsActivity
                             ContactEditor.SaveMode.CLOSE),
                     intent.getBooleanExtra(ContactSaveService.EXTRA_SAVE_SUCCEEDED, false),
                     intent.getData(),
-                    (Bundle) intent.getParcelableExtra(ContactSaveService.EXTRA_UPDATED_PHOTOS),
-                    intent.getBooleanExtra(ContactEditorFragment.INTENT_EXTRA_SAVE_BACK_PRESSED,
-                            false),
-                    intent.getLongExtra(ContactEditorFragment.INTENT_EXTRA_PHOTO_ID, -1),
-                    intent.getLongExtra(ContactEditorFragment.INTENT_EXTRA_NAME_ID, -1));
+                    intent.getLongExtra(ContactEditorFragment.JOIN_CONTACT_ID_EXTRA_KEY, -1));
         } else if (ACTION_JOIN_COMPLETED.equals(action)) {
             mFragment.onJoinCompleted(intent.getData());
         }
@@ -277,6 +272,13 @@ abstract public class ContactEditorBaseActivity extends ContactsActivity
         // Nobody knows about the Dialog
         Log.w(TAG, "Unknown dialog requested, id: " + id + ", args: " + args);
         return null;
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (mFragment != null) {
+            mFragment.revert();
+        }
     }
 
     protected final ContactEditorBaseFragment.Listener  mFragmentListener =
@@ -294,21 +296,18 @@ abstract public class ContactEditorBaseActivity extends ContactsActivity
 
         @Override
         public void onSaveFinished(Intent resultIntent) {
-            final boolean backPressed = resultIntent == null ? false : resultIntent.getBooleanExtra(
-                    ContactEditorBaseFragment.INTENT_EXTRA_SAVE_BACK_PRESSED, false);
             if (mFinishActivityOnSaveCompleted) {
                 setResult(resultIntent == null ? RESULT_CANCELED : RESULT_OK, resultIntent);
             } else if (resultIntent != null) {
-                if (backPressed) {
-                    ImplicitIntentsUtil.startActivityInApp(ContactEditorBaseActivity.this,
-                            resultIntent);
-                }
+                ImplicitIntentsUtil.startActivityInApp(ContactEditorBaseActivity.this,
+                        resultIntent);
             }
             finish();
         }
 
         @Override
         public void onContactSplit(Uri newLookupUri) {
+            setResult(RESULT_CODE_SPLIT, /* data */ null);
             finish();
         }
 

@@ -15,8 +15,8 @@
  */
 package android.support.v17.leanback.app;
 
-import android.support.annotation.ColorInt;
 import android.support.v17.leanback.R;
+import android.support.v17.leanback.transition.TransitionHelper;
 import android.support.v17.leanback.widget.BrowseFrameLayout;
 import android.support.v17.leanback.widget.OnChildLaidOutListener;
 import android.support.v17.leanback.widget.OnItemViewClickedListener;
@@ -24,8 +24,6 @@ import android.support.v17.leanback.widget.OnItemViewSelectedListener;
 import android.support.v17.leanback.widget.Presenter;
 import android.support.v17.leanback.widget.Row;
 import android.support.v17.leanback.widget.RowPresenter;
-import android.support.v17.leanback.widget.TitleHelper;
-import android.support.v17.leanback.widget.TitleView;
 import android.support.v17.leanback.widget.VerticalGridPresenter;
 import android.support.v17.leanback.widget.ObjectAdapter;
 import android.os.Bundle;
@@ -40,7 +38,7 @@ import android.view.ViewGroup;
  * <p>Renders a vertical grid of objects given a {@link VerticalGridPresenter} and
  * an {@link ObjectAdapter}.
  */
-public class VerticalGridSupportFragment extends BrandedSupportFragment {
+public class VerticalGridSupportFragment extends BaseSupportFragment {
     private static final String TAG = "VerticalGridSupportFragment";
     private static boolean DEBUG = false;
 
@@ -49,6 +47,7 @@ public class VerticalGridSupportFragment extends BrandedSupportFragment {
     private VerticalGridPresenter.ViewHolder mGridViewHolder;
     private OnItemViewSelectedListener mOnItemViewSelectedListener;
     private OnItemViewClickedListener mOnItemViewClickedListener;
+    private Object mSceneAfterEntranceTransition;
     private int mSelectedPosition = -1;
 
     /**
@@ -160,7 +159,9 @@ public class VerticalGridSupportFragment extends BrandedSupportFragment {
             Bundle savedInstanceState) {
         ViewGroup root = (ViewGroup) inflater.inflate(R.layout.lb_vertical_grid_fragment,
                 container, false);
-        setTitleView((TitleView) root.findViewById(R.id.browse_title_group));
+        ViewGroup gridFrame = (ViewGroup) root.findViewById(R.id.grid_frame);
+        installTitleView(inflater, gridFrame, savedInstanceState);
+        getProgressBarManager().setRootView(root);
         return root;
     }
 
@@ -171,6 +172,13 @@ public class VerticalGridSupportFragment extends BrandedSupportFragment {
         mGridViewHolder = mGridPresenter.onCreateViewHolder(gridDock);
         gridDock.addView(mGridViewHolder.view);
         mGridViewHolder.getGridView().setOnChildLaidOutListener(mChildLaidOutListener);
+
+        mSceneAfterEntranceTransition = TransitionHelper.createScene(gridDock, new Runnable() {
+            @Override
+            public void run() {
+                setEntranceTransitionState(true);
+            }
+        });
 
         updateAdapter();
     }
@@ -185,7 +193,9 @@ public class VerticalGridSupportFragment extends BrandedSupportFragment {
     public void onStart() {
         super.onStart();
         setupFocusSearchListener();
-        mGridViewHolder.getGridView().requestFocus();
+        if (isEntranceTransitionEnabled()) {
+            setEntranceTransitionState(false);
+        }
     }
 
     @Override
@@ -211,5 +221,20 @@ public class VerticalGridSupportFragment extends BrandedSupportFragment {
                 mGridViewHolder.getGridView().setSelectedPosition(mSelectedPosition);
             }
         }
+    }
+
+    @Override
+    protected Object createEntranceTransition() {
+        return TransitionHelper.loadTransition(getActivity(),
+                R.transition.lb_vertical_grid_entrance_transition);
+    }
+
+    @Override
+    protected void runEntranceTransition(Object entranceTransition) {
+        TransitionHelper.runTransition(mSceneAfterEntranceTransition, entranceTransition);
+    }
+
+    void setEntranceTransitionState(boolean afterTransition) {
+        mGridPresenter.setEntranceTransitionState(mGridViewHolder, afterTransition);
     }
 }

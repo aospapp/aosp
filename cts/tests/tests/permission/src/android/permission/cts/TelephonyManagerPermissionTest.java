@@ -17,6 +17,7 @@
 package android.permission.cts;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.media.AudioManager;
 import android.telephony.TelephonyManager;
@@ -57,6 +58,12 @@ public class TelephonyManagerPermissionTest extends AndroidTestCase {
 
         try {
             String id = mTelephonyManager.getDeviceId();
+            fail("Got device ID: " + id);
+        } catch (SecurityException e) {
+            // expected
+        }
+        try {
+            String id = mTelephonyManager.getDeviceId(0);
             fail("Got device ID: " + id);
         } catch (SecurityException e) {
             // expected
@@ -158,5 +165,54 @@ public class TelephonyManagerPermissionTest extends AndroidTestCase {
         int audioMode = mAudioManager.getMode();
         mAudioManager.setMode(AudioManager.MODE_IN_CALL);
         assertEquals(audioMode, mAudioManager.getMode());
+    }
+
+    /**
+     * Verify that Telephony related broadcasts are protected.
+     */
+    @SmallTest
+    public void testProtectedBroadcasts() {
+        if (!mHasTelephony) {
+            return;
+        }
+        try {
+            Intent intent = new Intent("android.intent.action.SIM_STATE_CHANGED");
+            getContext().sendBroadcast(intent);
+            fail("SecurityException expected!");
+        } catch (SecurityException e) {}
+        try {
+            Intent intent = new Intent("android.intent.action.SERVICE_STATE");
+            getContext().sendBroadcast(intent);
+            fail("SecurityException expected!");
+        } catch (SecurityException e) {}
+        try {
+            Intent intent = new Intent("android.intent.action.ACTION_DEFAULT_SUBSCRIPTION_CHANGED");
+            getContext().sendBroadcast(intent);
+            fail("SecurityException expected!");
+        } catch (SecurityException e) {}
+        try {
+            Intent intent = new Intent(
+                    "android.intent.action.ACTION_DEFAULT_DATA_SUBSCRIPTION_CHANGED");
+            getContext().sendBroadcast(intent);
+            fail("SecurityException expected!");
+        } catch (SecurityException e) {}
+        try {
+            Intent intent = new Intent(
+                    "android.intent.action.ACTION_DEFAULT_SMS_SUBSCRIPTION_CHANGED");
+            getContext().sendBroadcast(intent);
+            fail("SecurityException expected!");
+        } catch (SecurityException e) {}
+        try {
+            Intent intent = new Intent(
+                    "android.intent.action.ACTION_DEFAULT_VOICE_SUBSCRIPTION_CHANGED");
+            getContext().sendBroadcast(intent);
+            fail("SecurityException expected!");
+        } catch (SecurityException e) {}
+        try {
+            Intent intent = new Intent("android.intent.action.SIG_STR");
+            getContext().sendBroadcast(intent);
+            fail("SecurityException expected!");
+        } catch (SecurityException e) {}
+
     }
 }

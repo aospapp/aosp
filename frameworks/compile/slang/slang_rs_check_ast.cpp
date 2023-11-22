@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
+#include "clang/AST/Attr.h"
+
 #include "slang_rs_check_ast.h"
 
 #include "slang_assert.h"
 #include "slang.h"
 #include "slang_rs_export_foreach.h"
+#include "slang_rs_export_reduce.h"
 #include "slang_rs_export_type.h"
 
 namespace slang {
@@ -148,6 +151,31 @@ void RSCheckAST::ValidateFunctionDecl(clang::FunctionDecl *FD) {
     return;
   }
 
+  if (FD->hasAttr<clang::KernelAttr>()) {
+    // Validate that the kernel attribute is not used with static.
+    if (FD->getStorageClass() == clang::SC_Static) {
+      Context->ReportError(FD->getLocation(),
+                           "Invalid use of attribute kernel with "
+                           "static function declaration: %0")
+        << FD->getName();
+      mValid = false;
+    }
+
+    // We allow no arguments to the attribute, or an expected single
+    // argument. If there is an expected single argument, we verify
+    // that it is one of the recognized kernel kinds.
+    llvm::StringRef KernelKind =
+      FD->getAttr<clang::KernelAttr>()->getKernelKind();
+
+    if (!KernelKind.empty()) {
+      Context->ReportError(FD->getLocation(),
+                           "Unknown kernel attribute argument '%0' "
+                           "in declaration of function '%1'")
+        << KernelKind << FD->getName();
+      mValid = false;
+    }
+  }
+
   clang::QualType resultType = FD->getReturnType().getCanonicalType();
   bool isExtern = (FD->getFormalLinkage() == clang::ExternalLinkage);
 
@@ -169,7 +197,7 @@ void RSCheckAST::ValidateFunctionDecl(clang::FunctionDecl *FD) {
   }
 
   bool saveKernel = mInKernel;
-  mInKernel = RSExportForEach::isRSForEachFunc(mTargetAPI, Context, FD);
+  mInKernel = RSExportForEach::isRSForEachFunc(mTargetAPI, FD);
 
   if (clang::Stmt *Body = FD->getBody()) {
     Visit(Body);
@@ -180,7 +208,7 @@ void RSCheckAST::ValidateFunctionDecl(clang::FunctionDecl *FD) {
 
 
 void RSCheckAST::ValidateVarDecl(clang::VarDecl *VD) {
-  if (!VD) {
+  if (!VD || RSContext::isSyntheticName(VD->getName())) {
     return;
   }
 
@@ -189,7 +217,8 @@ void RSCheckAST::ValidateVarDecl(clang::VarDecl *VD) {
   if (VD->getFormalLinkage() == clang::ExternalLinkage) {
     llvm::StringRef TypeName;
     const clang::Type *T = QT.getTypePtr();
-    if (!RSExportType::NormalizeType(T, TypeName, Context, VD)) {
+    if (!RSExportType::NormalizeType(T, TypeName, Context, VD,
+                                     NotLegacyKernelArgument)) {
       mValid = false;
     }
   }

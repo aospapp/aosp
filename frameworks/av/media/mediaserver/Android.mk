@@ -5,6 +5,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := register.cpp
 LOCAL_MODULE := libregistermsext
 LOCAL_MODULE_TAGS := optional
+LOCAL_CFLAGS := -Werror -Wall
 include $(BUILD_STATIC_LIBRARY)
 endif
 
@@ -14,22 +15,16 @@ LOCAL_SRC_FILES:= \
 	main_mediaserver.cpp
 
 LOCAL_SHARED_LIBRARIES := \
-	libaudioflinger \
-	libaudiopolicyservice \
-	libcamera_metadata\
+	libcamera_metadata \
+	libcamera_client \
 	libcameraservice \
-	libicuuc \
-	libmedialogservice \
 	libresourcemanagerservice \
 	libcutils \
-	libnbaio \
 	libmedia \
 	libmediaplayerservice \
 	libutils \
-	liblog \
 	libbinder \
-	libsoundtriggerservice \
-	libradioservice
+	libicuuc \
 
 LOCAL_STATIC_LIBRARIES := \
         libicuandroid_utils \
@@ -37,20 +32,14 @@ LOCAL_STATIC_LIBRARIES := \
 
 LOCAL_C_INCLUDES := \
     frameworks/av/media/libmediaplayerservice \
-    frameworks/av/services/medialog \
-    frameworks/av/services/audioflinger \
-    frameworks/av/services/audiopolicy \
-    frameworks/av/services/audiopolicy/common/managerdefinitions/include \
-    frameworks/av/services/audiopolicy/common/include \
-    frameworks/av/services/audiopolicy/engine/interface \
     frameworks/av/services/camera/libcameraservice \
     frameworks/av/services/mediaresourcemanager \
-    $(call include-path-for, audio-utils) \
-    frameworks/av/services/soundtrigger \
-    frameworks/av/services/radio \
-    external/sonic
 
 LOCAL_MODULE:= mediaserver
 LOCAL_32_BIT_ONLY := true
+
+LOCAL_INIT_RC := mediaserver.rc
+
+LOCAL_CFLAGS := -Werror -Wall
 
 include $(BUILD_EXECUTABLE)

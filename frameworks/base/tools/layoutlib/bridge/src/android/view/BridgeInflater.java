@@ -23,6 +23,7 @@ import com.android.ide.common.rendering.api.ResourceReference;
 import com.android.ide.common.rendering.api.ResourceValue;
 import com.android.layoutlib.bridge.Bridge;
 import com.android.layoutlib.bridge.BridgeConstants;
+import com.android.layoutlib.bridge.MockView;
 import com.android.layoutlib.bridge.android.BridgeContext;
 import com.android.layoutlib.bridge.android.BridgeXmlBlockParser;
 import com.android.layoutlib.bridge.android.support.DrawerLayoutUtil;
@@ -36,6 +37,7 @@ import org.xmlpull.v1.XmlPullParser;
 
 import android.annotation.NonNull;
 import android.content.Context;
+import android.content.res.TypedArray;
 import android.util.AttributeSet;
 
 import java.io.File;
@@ -53,6 +55,9 @@ public final class BridgeInflater extends LayoutInflater {
     private boolean mIsInMerge = false;
     private ResourceReference mResourceReference;
     private Map<View, String> mOpenDrawerLayouts;
+
+    // Keep in sync with the same value in LayoutInflater.
+    private static final int[] ATTRS_THEME = new int[] {com.android.internal.R.attr.theme };
 
     /**
      * List of class prefixes which are tried first by default.
@@ -122,6 +127,9 @@ public final class BridgeInflater extends LayoutInflater {
             if (view == null) {
                 view = loadCustomView(name, attrs);
             }
+        } catch (InflateException e) {
+            // Don't catch the InflateException below as that results in hiding the real cause.
+            throw e;
         } catch (Exception e) {
             // Wrap the real exception in a ClassNotFoundException, so that the calling method
             // can deal with it.
@@ -135,24 +143,45 @@ public final class BridgeInflater extends LayoutInflater {
 
     @Override
     public View createViewFromTag(View parent, String name, Context context, AttributeSet attrs,
-            boolean ignoreThemeAttrs) {
+            boolean ignoreThemeAttr) {
         View view;
         try {
-            view = super.createViewFromTag(parent, name, context, attrs, ignoreThemeAttrs);
+            view = super.createViewFromTag(parent, name, context, attrs, ignoreThemeAttr);
         } catch (InflateException e) {
-            // try to load the class from using the custom view loader
-            try {
-                view = loadCustomView(name, attrs);
-            } catch (Exception e2) {
-                // Wrap the real exception in an InflateException so that the calling
-                // method can deal with it.
-                InflateException exception = new InflateException();
-                if (!e2.getClass().equals(ClassNotFoundException.class)) {
-                    exception.initCause(e2);
-                } else {
-                    exception.initCause(e);
+            // Creation of ContextThemeWrapper code is same as in the super method.
+            // Apply a theme wrapper, if allowed and one is specified.
+            if (!ignoreThemeAttr) {
+                final TypedArray ta = context.obtainStyledAttributes(attrs, ATTRS_THEME);
+                final int themeResId = ta.getResourceId(0, 0);
+                if (themeResId != 0) {
+                    context = new ContextThemeWrapper(context, themeResId);
                 }
-                throw exception;
+                ta.recycle();
+            }
+            if (!(e.getCause() instanceof ClassNotFoundException)) {
+                // There is some unknown inflation exception in inflating a View that was found.
+                view = new MockView(context, attrs);
+                ((MockView) view).setText(name);
+                Bridge.getLog().error(LayoutLog.TAG_BROKEN, e.getMessage(), e, null);
+            } else {
+                final Object lastContext = mConstructorArgs[0];
+                mConstructorArgs[0] = context;
+                // try to load the class from using the custom view loader
+                try {
+                    view = loadCustomView(name, attrs);
+                } catch (Exception e2) {
+                    // Wrap the real exception in an InflateException so that the calling
+                    // method can deal with it.
+                    InflateException exception = new InflateException();
+                    if (!e2.getClass().equals(ClassNotFoundException.class)) {
+                        exception.initCause(e2);
+                    } else {
+                        exception.initCause(e);
+                    }
+                    throw exception;
+                } finally {
+                    mConstructorArgs[0] = lastContext;
+                }
             }
         }
 
@@ -188,7 +217,7 @@ public final class BridgeInflater extends LayoutInflater {
                 File f = new File(value.getValue());
                 if (f.isFile()) {
                     try {
-                        XmlPullParser parser = ParserFactory.create(f);
+                        XmlPullParser parser = ParserFactory.create(f, true);
 
                         BridgeXmlBlockParser bridgeParser = new BridgeXmlBlockParser(
                                 parser, bridgeContext, value.isFramework());
@@ -236,12 +265,15 @@ public final class BridgeInflater extends LayoutInflater {
             if (viewKey != null) {
                 bc.addViewKey(view, viewKey);
             }
-            String scrollPos = attrs.getAttributeValue(BridgeConstants.NS_RESOURCES, "scrollY");
-            if (scrollPos != null) {
-                if (scrollPos.endsWith("px")) {
-                    int value = Integer.parseInt(scrollPos.substring(0, scrollPos.length() - 2));
-                    bc.setScrollYPos(view, value);
-                }
+            String scrollPosX = attrs.getAttributeValue(BridgeConstants.NS_RESOURCES, "scrollX");
+            if (scrollPosX != null && scrollPosX.endsWith("px")) {
+                int value = Integer.parseInt(scrollPosX.substring(0, scrollPosX.length() - 2));
+                bc.setScrollXPos(view, value);
+            }
+            String scrollPosY = attrs.getAttributeValue(BridgeConstants.NS_RESOURCES, "scrollY");
+            if (scrollPosY != null && scrollPosY.endsWith("px")) {
+                int value = Integer.parseInt(scrollPosY.substring(0, scrollPosY.length() - 2));
+                bc.setScrollYPos(view, value);
             }
             if (ReflectionUtils.isInstanceOf(view, RecyclerViewUtil.CN_RECYCLER_VIEW)) {
                 Integer resourceId = null;

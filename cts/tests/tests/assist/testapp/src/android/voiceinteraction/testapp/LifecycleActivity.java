@@ -39,22 +39,22 @@ public class LifecycleActivity extends Activity {
 
     @Override
     protected void onPause() {
-        super.onPause();
         Log.i(TAG, "activity was paused");
         sendBroadcast(new Intent("android.intent.action.lifecycle_onpause"));
+        super.onPause();
     }
 
     @Override
     protected void onStop() {
-        super.onStop();
         Log.i(TAG, "activity was stopped");
         sendBroadcast(new Intent("android.intent.action.lifecycle_onstop"));
+        super.onStop();
     }
 
     @Override
     protected void onDestroy() {
-        super.onDestroy();
         Log.i(TAG, "activity was destroyed");
         sendBroadcast(new Intent("android.intent.action.lifecycle_ondestroy"));
+        super.onDestroy();
     }
 }

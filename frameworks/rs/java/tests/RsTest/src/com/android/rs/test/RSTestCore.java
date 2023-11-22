@@ -85,14 +85,21 @@ public class RSTestCore {
         unitTests.add(new UT_foreach(this, mRes, mCtx));
         unitTests.add(new UT_foreach_bounds(this, mRes, mCtx));
         unitTests.add(new UT_noroot(this, mRes, mCtx));
+        unitTests.add(new UT_single_source_alloc(this, mRes, mCtx));
+        unitTests.add(new UT_single_source_script(this, mRes, mCtx));
+        unitTests.add(new UT_single_source_ref_count(this, mRes, mCtx));
         unitTests.add(new UT_script_group2_pointwise(this, mRes, mCtx));
         unitTests.add(new UT_script_group2_gatherscatter(this, mRes, mCtx));
         unitTests.add(new UT_script_group2_nochain(this, mRes, mCtx));
+        unitTests.add(new UT_script_group2_float(this, mRes, mCtx));
         unitTests.add(new UT_atomic(this, mRes, mCtx));
         unitTests.add(new UT_struct(this, mRes, mCtx));
         unitTests.add(new UT_math(this, mRes, mCtx));
         unitTests.add(new UT_math_conformance(this, mRes, mCtx));
         unitTests.add(new UT_math_agree(this, mRes, mCtx));
+        unitTests.add(new UT_fp16(this, mRes, mCtx));
+        unitTests.add(new UT_math_fp16(this, mRes, mCtx));
+        unitTests.add(new UT_fp16_globals(this, mRes, mCtx));
         unitTests.add(new UT_min(this, mRes, mCtx));
         unitTests.add(new UT_int4(this, mRes, mCtx));
         unitTests.add(new UT_element(this, mRes, mCtx));
@@ -102,6 +109,9 @@ public class RSTestCore {
         unitTests.add(new UT_mesh(this, mRes, mCtx));*/
         unitTests.add(new UT_foreach_multi(this, mRes, mCtx));
         unitTests.add(new UT_fp_mad(this, mRes, mCtx));
+        unitTests.add(new UT_reduce(this, mRes, mCtx));
+        unitTests.add(new UT_reduce_backward(this, mRes, mCtx));
+        unitTests.add(new UT_small_struct(this, mRes, mCtx));
 
         /*
         unitTests.add(new UnitTest(null, "<Pass>", 1));

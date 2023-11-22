@@ -45,6 +45,7 @@ llvm_c_test_STATIC_LIBRARIES := \
   libLLVMAsmPrinter \
   libLLVMSelectionDAG \
   libLLVMCodeGen \
+  libLLVMInstrumentation \
   libLLVMScalarOpts \
   libLLVMTransformUtils \
   libLLVMAnalysis \

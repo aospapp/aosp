@@ -172,6 +172,17 @@ class TestRunner(object):
     parser.add_option("--suite", dest="suite",
                       help="Run all tests defined as part of the "
                       "the given test suite")
+    parser.add_option("--user", dest="user",
+                      help="The user that test apks are installing to."
+                      " This is the integer user id, e.g. 0 or 10."
+                      " If no user is specified, apk will be installed with"
+                      " adb's default behavior, which is currently all users.")
+    parser.add_option("--install-filter", dest="filter_re",
+                      help="Regular expression which generated apks have to"
+                      " match to be installed to target device. Default is None"
+                      " and will install all packages built.  This is"
+                      " useful when the test path has a lot of apks but you"
+                      " only care about one.")
     group = optparse.OptionGroup(
         parser, "Targets", "Use these options to direct tests to a specific "
         "Android target")
@@ -295,8 +306,15 @@ class TestRunner(object):
           target_build_string, self._options.make_jobs, self._root_path,
           extra_args_string)
       # mmma equivalent, used when regular mmm fails
-      alt_cmd = 'make -j%s -C "%s" -f build/core/main.mk %s all_modules BUILD_MODULES_IN_PATHS="%s"' % (
-              self._options.make_jobs, self._root_path, extra_args_string, target_dir_build_string)
+      mmma_goals = []
+      for d in target_dir_list:
+        if d.startswith("./"):
+          d = d[2:]
+        if d.endswith("/"):
+          d = d[:-1]
+        mmma_goals.append("MODULES-IN-" + d.replace("/","-"))
+      alt_cmd = 'make -j%s -C "%s" -f build/core/main.mk %s %s' % (
+              self._options.make_jobs, self._root_path, extra_args_string, " ".join(mmma_goals))
 
       logger.Log(cmd)
       if not self._options.preview:
@@ -313,9 +331,11 @@ class TestRunner(object):
           output = run_command.RunCommand(cmd, return_output=True, timeout_time=600)
         run_command.SetAbortOnError(False)
         logger.SilentLog(output)
-        self._DoInstall(output, test_requires_permissions)
+        filter_re = re.compile(self._options.filter_re) if self._options.filter_re else None
 
-  def _DoInstall(self, make_output, test_requires_permissions):
+        self._DoInstall(output, test_requires_permissions, filter_re=filter_re)
+
+  def _DoInstall(self, make_output, test_requires_permissions, filter_re=None):
     """Install artifacts from build onto device.
 
     Looks for 'install:' text from make output to find artifacts to install.
@@ -333,11 +353,15 @@ class TestRunner(object):
         # the remaining string is a space-separated list of build-generated files
         install_paths = m.group(2)
         for install_path in re.split(r'\s+', install_paths):
+          if filter_re and not filter_re.match(install_path):
+            continue
           if install_path.endswith(".apk"):
             abs_install_path = os.path.join(self._root_path, install_path)
             extra_flags = ""
             if test_requires_permissions and not self._options.skip_permissions:
               extra_flags = "-g"
+            if self._options.user:
+              extra_flags += " --user " + self._options.user
             logger.Log("adb install -r %s %s" % (extra_flags, abs_install_path))
             logger.Log(self._adb.Install(abs_install_path, extra_flags))
           else:
@@ -421,13 +445,6 @@ class TestRunner(object):
         raise errors.AbortError
       self._tests_to_run.append(test)
     return self._tests_to_run
-
-  def _IsCtsTests(self, test_list):
-    """Check if any cts tests are included in given list of tests to run."""
-    for test in test_list:
-      if test.GetSuite() == 'cts':
-        return True
-    return False
 
   def _TurnOffVerifier(self, test_list):
     """Turn off the dalvik verifier if needed by given tests.

@@ -50,6 +50,7 @@ LOCAL_SRC_FILES := \
     aio.c \
     bjm.c \
     block.c \
+    bpf.c \
     cacheflush.c \
     capability.c \
     chdir.c \
@@ -58,13 +59,21 @@ LOCAL_SRC_FILES := \
     count.c \
     desc.c \
     dirent.c \
+    dirent64.c \
+    epoll.c \
+    eventfd.c \
     execve.c \
     exit.c \
     fadvise.c \
     fallocate.c \
     fanotify.c \
     fchownat.c \
+    fcntl.c \
+    fetch_seccomp_fprog.c \
+    fetch_struct_flock.c \
     file.c \
+    file_handle.c \
+    flock.c \
     futex.c \
     getcpu.c \
     getcwd.c \
@@ -74,24 +83,43 @@ LOCAL_SRC_FILES := \
     inotify.c \
     io.c \
     ioctl.c \
+    ioperm.c \
+    iopl.c \
     ioprio.c \
-    ipc.c \
+    ipc_msg.c \
+    ipc_msgctl.c \
+    ipc_sem.c \
+    ipc_shm.c \
+    ipc_shmctl.c \
+    kcmp.c \
     kexec.c \
     keyctl.c \
     ldt.c \
     link.c \
+    lookup_dcookie.c \
     loop.c \
     lseek.c \
     mem.c \
+    membarrier.c \
+    memfd_create.c \
     mknod.c \
     mount.c \
+    mq.c \
     mtd.c \
     net.c \
     open.c \
     pathtrace.c \
+    perf.c \
     personality.c \
+    poll.c \
     prctl.c \
+    print_mq_attr.c \
+    print_msgbuf.c \
+    print_sigevent.c \
+    print_time.c \
+    print_timex.c \
     printmode.c \
+    printrusage.c \
     printsiginfo.c \
     process.c \
     process_vm.c \
@@ -102,18 +130,20 @@ LOCAL_SRC_FILES := \
     reboot.c \
     renameat.c \
     resource.c \
+    rtc.c \
     sched.c \
     scsi.c \
     seccomp.c \
+    sendfile.c \
     sigaltstack.c \
     signal.c \
+    signalfd.c \
     sigreturn.c \
     sock.c \
     socketutils.c \
     sram_alloc.c \
     statfs.c \
     strace.c \
-    stream.c \
     swapon.c \
     sync_file_range.c \
     syscall.c \
@@ -123,12 +153,14 @@ LOCAL_SRC_FILES := \
     sysmips.c \
     term.c \
     time.c \
+    times.c \
     truncate.c \
     uid16.c \
     uid.c \
     umask.c \
     umount.c \
     uname.c \
+    userfaultfd.c \
     util.c \
     utime.c \
     utimes.c \
@@ -136,6 +168,7 @@ LOCAL_SRC_FILES := \
     vsprintf.c \
     wait.c \
     xattr.c \
+    xmalloc.c \
 
 LOCAL_SHARED_LIBRARIES :=
 
@@ -174,8 +207,13 @@ LOCAL_CFLAGS := \
     -DHAVE_LINUX_ICMP_H=1 \
     -DHAVE_LINUX_IF_PACKET_H=1 \
     -DHAVE_LINUX_IN6_H=1 \
+    -DHAVE_LINUX_IPC_H=1 \
+    -DHAVE_LINUX_MQUEUE=1 \
+    -DHAVE_LINUX_MSG_H=1 \
     -DHAVE_LINUX_NETLINK_H=1 \
     -DHAVE_LINUX_PERF_EVENT_H=1 \
+    -DHAVE_LINUX_SEM_H=1 \
+    -DHAVE_LINUX_SHM_H=1 \
     -DHAVE_LITTLE_ENDIAN_LONG_LONG=1 \
     -DHAVE_LONG_LONG=1 \
     -DHAVE_NETINET_TCP_H=1 \
@@ -194,6 +232,7 @@ LOCAL_CFLAGS := \
     -DHAVE_STATFS64=1 \
     -DHAVE_STDBOOL_H=1 \
     -DHAVE_STRERROR=1 \
+    -DHAVE_STRUCT_FLOCK=1 \
     -DHAVE_STRUCT_FLOCK64=1 \
     -DHAVE_STRUCT_MMSGHDR=1 \
     -DHAVE_STRUCT_MSGHDR_MSG_CONTROL=1 \
@@ -201,13 +240,13 @@ LOCAL_CFLAGS := \
     -DHAVE_STRUCT_SIGEVENT__SIGEV_UN__PAD=1 \
     -DHAVE_STRUCT_SOCKADDR_IN6_SIN6_SCOPE_ID=1 \
     -DHAVE_STRUCT_STATFS64=1 \
-    -DHAVE_STRUCT_STAT_ST_ACLCNT=0 \
+    -UHAVE_STRUCT_STAT_ST_ACLCNT \
     -DHAVE_STRUCT_STAT_ST_BLKSIZE=1 \
     -DHAVE_STRUCT_STAT_ST_BLOCKS=1 \
-    -DHAVE_STRUCT_STAT_ST_FLAGS=0 \
-    -DHAVE_STRUCT_STAT_ST_FSTYPE=0 \
-    -DHAVE_STRUCT_STAT_ST_GEN=0 \
-    -DHAVE_STRUCT_STAT_ST_LEVEL=0 \
+    -UHAVE_STRUCT_STAT_ST_FLAGS \
+    -UHAVE_STRUCT_STAT_ST_FSTYPE \
+    -UHAVE_STRUCT_STAT_ST_GEN \
+    -UHAVE_STRUCT_STAT_ST_LEVEL \
     -DHAVE_STRUCT_STAT_ST_RDEV=1 \
     -DHAVE_STRUCT_SYSINFO_FREEHIGH=1 \
     -DHAVE_STRUCT_SYSINFO_MEM_UNIT=1 \
@@ -229,6 +268,8 @@ LOCAL_CFLAGS := \
     -D_LFS64_LARGEFILE=1 \
 
 LOCAL_CFLAGS += -D_GNU_SOURCE=1 -D_POSIX_SOURCE=1
+
+LOCAL_CFLAGS += -fno-strict-aliasing
 
 LOCAL_CFLAGS_32 += -DSIZEOF_LONG=4 -DSIZEOF_RLIM_T=4 -DHAVE_STAT64=1
 LOCAL_CFLAGS_64 += -DSIZEOF_LONG=8 -DSIZEOF_RLIM_T=8
@@ -264,6 +305,8 @@ LOCAL_C_INCLUDES_mips64 := $(LOCAL_PATH)/linux/mips $(LOCAL_PATH)/linux
 LOCAL_C_INCLUDES_x86 := $(LOCAL_PATH)/linux/i386 $(LOCAL_PATH)/linux
 LOCAL_C_INCLUDES_x86_64 := $(LOCAL_PATH)/linux/x86_64 $(LOCAL_PATH)/linux
 
+LOCAL_CLANG := true
+
 LOCAL_MODULE := strace
 
 LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)
@@ -273,39 +316,3 @@ LOCAL_MODULE_TAGS := debug
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 
 include $(BUILD_EXECUTABLE)
-
-
-# -------------------------------------------------------------------------
-
-# TODO: this is currently broken; the checked in ioctlent*.h files are from the 4.10 release.
-
-.PHONY: update-ioctls
-update-ioctls:
-	# Build the generated .h files needed by ioctlsort from the current bionic uapi headers.
-	cd external/strace; ./linux/ioctlent.sh ../../bionic/libc/kernel/uapi/
-	# Build the ioctlsort tool.
-	ONE_SHOT_MAKEFILE=external/strace/Android.mk make -f build/core/main.mk $(HOST_OUT_EXECUTABLES)/ioctlsort
-	# Remove the generated .h files now we've built ioctlsort.
-	rm external/strace/ioctls.h external/strace/ioctldefs.h
-	# Run the ioctlsort tool to generate the one file we do want to check in.
-	ioctlsort | tr -d '\r' | sed 's/^\([[:space:]]*{\)"[^"]\+",[[:space:]]*/\1/' | sort -u -k2,2 -k1,1 > external/strace/linux/ioctlent.h
-	# Rebuild strace with the new "ioctlent.h".
-	ONE_SHOT_MAKEFILE=external/strace/Android.mk make -f build/core/main.mk $(TARGET_OUT_OPTIONAL_EXECUTABLES)/strace
-
-# We don't build ioctlsort unless really necessary, because we don't check
-# in the temporary files needed to build it. This tool is only necessary
-# when updating strace's list of ioctls.
-ifneq (,$(filter $(HOST_OUT_EXECUTABLES)/ioctlsort,$(MAKECMDGOALS)))
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES := ioctlsort.c
-# As long as ashmem isn't in glibc, we need the bionic header.
-# Unfortunately, it uses __u32 without pulling in a definition, so we need asm/types.h too.
-LOCAL_CFLAGS += -include asm/types.h -include bionic/libc/kernel/uapi/linux/ashmem.h
-LOCAL_CFLAGS += -Wno-unused-parameter
-LOCAL_MODULE := ioctlsort
-LOCAL_MODULE_TAGS := optional
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
-include $(BUILD_HOST_EXECUTABLE)
-endif
-
-# -------------------------------------------------------------------------

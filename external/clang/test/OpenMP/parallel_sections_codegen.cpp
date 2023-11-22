@@ -1,11 +1,10 @@
-// RUN: %clang_cc1 -verify -fopenmp=libiomp5 -x c++ -emit-llvm -triple x86_64-unknown-unknown -fexceptions -fcxx-exceptions -o - %s | FileCheck %s
-// RUN: %clang_cc1 -fopenmp=libiomp5 -x c++ -std=c++11 -fexceptions -fcxx-exceptions -triple x86_64-unknown-unknown -emit-pch -o %t %s
-// RUN: %clang_cc1 -fopenmp=libiomp5 -x c++ -std=c++11 -include-pch %t -fsyntax-only -verify %s -triple x86_64-unknown-unknown -fexceptions -fcxx-exceptions -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -verify -fopenmp -x c++ -emit-llvm -triple x86_64-unknown-unknown -fexceptions -fcxx-exceptions -o - %s | FileCheck %s
+// RUN: %clang_cc1 -fopenmp -x c++ -std=c++11 -fexceptions -fcxx-exceptions -triple x86_64-unknown-unknown -emit-pch -o %t %s
+// RUN: %clang_cc1 -fopenmp -x c++ -std=c++11 -include-pch %t -fsyntax-only -verify %s -triple x86_64-unknown-unknown -fexceptions -fcxx-exceptions -emit-llvm -o - | FileCheck %s
 // expected-no-diagnostics
-
+// REQUIRES: x86-registered-target
 #ifndef HEADER
 #define HEADER
-// CHECK: [[IMPLICIT_BARRIER_LOC:@.+]] = private unnamed_addr constant %{{.+}} { i32 0, i32 66, i32 0, i32 0, i8*
 // CHECK-LABEL: foo
 void foo() {};
 // CHECK-LABEL: bar
@@ -22,9 +21,9 @@ T tmain() {
 
 // CHECK-LABEL: @main
 int main() {
-// CHECK: call void (%{{.+}}*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_call(%{{.+}}* @{{.+}}, i32 1, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, %{{.+}}*)* [[OMP_PARALLEL_FUNC:@.+]] to void (i32*, i32*, ...)*), i8* %{{.+}})
+// CHECK: call void (%{{.+}}*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_call(%{{.+}}* @{{.+}}, i32 0, void (i32*, i32*, ...)* bitcast (void (i32*, i32*)* [[OMP_PARALLEL_FUNC:@.+]] to void (i32*, i32*, ...)*))
 // CHECK-LABEL: }
-// CHECK: define internal void [[OMP_PARALLEL_FUNC]](i32* [[GTID_PARAM_ADDR:%.+]], i32* %{{.+}}, %{{.+}}* %{{.+}})
+// CHECK: define internal void [[OMP_PARALLEL_FUNC]](i32* noalias [[GTID_PARAM_ADDR:%.+]], i32* noalias %{{.+}})
 // CHECK: store i32* [[GTID_PARAM_ADDR]], i32** [[GTID_REF_ADDR:%.+]],
 #pragma omp parallel sections
   {
@@ -73,7 +72,6 @@ int main() {
 // CHECK:      [[INNER_LOOP_END]]
   }
 // CHECK:      call void @__kmpc_for_static_fini(%{{.+}}* @{{.+}}, i32 [[GTID]])
-// CHECK:      call i32 @__kmpc_cancel_barrier(%{{.+}}* [[IMPLICIT_BARRIER_LOC]],
   return tmain<int>();
 }
 
@@ -89,7 +87,6 @@ int main() {
 // CHECK:       call void @__kmpc_end_single(
 // CHECK-NEXT:  br label %[[END]]
 // CHECK:       [[END]]
-// CHECK-NEXT:  call i32 @__kmpc_cancel_barrier(%{{.+}}* [[IMPLICIT_BARRIER_LOC]],
 // CHECK-NEXT:  ret
 // CHECK:       [[TERM_LPAD]]
 // CHECK:       call void @__clang_call_terminate(i8*

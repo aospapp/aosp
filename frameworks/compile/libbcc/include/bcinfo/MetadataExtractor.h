@@ -18,6 +18,8 @@
 #define __ANDROID_BCINFO_METADATAEXTRACTOR_H__
 
 #include <cstddef>
+#include <memory>
+
 #include <stdint.h>
 
 namespace llvm {
@@ -46,6 +48,40 @@ enum MetadataSignatureBitval {
 };
 
 class MetadataExtractor {
+ public:
+  struct Reduce {
+    // These strings are owned by the Reduce instance, and deleted upon its destruction.
+    // They are assumed to have been allocated by "new []" and hence are deleted by "delete []".
+    const char *mReduceName;
+    const char *mInitializerName;
+    const char *mAccumulatorName;
+    const char *mCombinerName;
+    const char *mOutConverterName;
+    const char *mHalterName;
+
+    uint32_t mSignature;   // of accumulator function
+    uint32_t mInputCount;  // of accumulator function (and of kernel itself)
+    uint32_t mAccumulatorDataSize;  // in bytes
+
+    Reduce() :
+        mReduceName(nullptr),
+        mInitializerName(nullptr), mAccumulatorName(nullptr), mCombinerName(nullptr),
+        mOutConverterName(nullptr), mHalterName(nullptr),
+        mSignature(0), mInputCount(0), mAccumulatorDataSize(0) {
+    }
+    ~Reduce() {
+      delete [] mReduceName;
+      delete [] mInitializerName;
+      delete [] mAccumulatorName;
+      delete [] mCombinerName;
+      delete [] mOutConverterName;
+      delete [] mHalterName;
+    }
+
+    Reduce(const Reduce &) = delete;
+    void operator=(const Reduce &) = delete;
+  };
+
  private:
   const llvm::Module *mModule;
   const char *mBitcode;
@@ -54,12 +90,13 @@ class MetadataExtractor {
   size_t mExportVarCount;
   size_t mExportFuncCount;
   size_t mExportForEachSignatureCount;
+  size_t mExportReduceCount;
   const char **mExportVarNameList;
   const char **mExportFuncNameList;
   const char **mExportForEachNameList;
   const uint32_t *mExportForEachSignatureList;
-
   const uint32_t *mExportForEachInputCountList;
+  const Reduce *mExportReduceList;
 
   size_t mPragmaCount;
   const char **mPragmaKeyList;
@@ -79,11 +116,12 @@ class MetadataExtractor {
 
   const char *mBuildChecksum;
 
+  bool mHasDebugInfo;
+
   // Helper functions for extraction
-  bool populateVarNameMetadata(const llvm::NamedMDNode *VarNameMetadata);
-  bool populateFuncNameMetadata(const llvm::NamedMDNode *FuncNameMetadata);
   bool populateForEachMetadata(const llvm::NamedMDNode *Names,
                                const llvm::NamedMDNode *Signatures);
+  bool populateReduceMetadata(const llvm::NamedMDNode *ReduceMetadata);
   bool populateObjectSlotMetadata(const llvm::NamedMDNode *ObjectSlotMetadata);
   void populatePragmaMetadata(const llvm::NamedMDNode *PragmaMetadata);
   void readThreadableFlag(const llvm::NamedMDNode *ThreadableMetadata);
@@ -181,6 +219,20 @@ class MetadataExtractor {
    */
   const uint32_t *getExportForEachInputCountList() const {
     return mExportForEachInputCountList;
+  }
+
+  /**
+   * \return number of exported general reduce kernels (slots) in this script/module.
+   */
+  size_t getExportReduceCount() const {
+    return mExportReduceCount;
+  }
+
+  /**
+   * \return array of exported general reduce kernel descriptions.
+   */
+  const Reduce *getExportReduceList() const {
+    return mExportReduceList;
   }
 
   /**
@@ -334,6 +386,13 @@ class MetadataExtractor {
    */
   const char *getBuildChecksum() const {
     return mBuildChecksum;
+  }
+
+  /**
+   * \return whether the module contains debug metadata
+   */
+  bool hasDebugInfo() const {
+    return mHasDebugInfo;
   }
 };
 

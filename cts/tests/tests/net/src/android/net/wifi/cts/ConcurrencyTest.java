@@ -20,11 +20,19 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.net.ConnectivityManager;
+import android.net.ConnectivityManager.NetworkCallback;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
 import android.net.wifi.WifiManager;
 import android.net.wifi.p2p.WifiP2pManager;
 import static android.net.wifi.p2p.WifiP2pManager.WIFI_P2P_STATE_DISABLED;
 import static android.net.wifi.p2p.WifiP2pManager.WIFI_P2P_STATE_ENABLED;
 import android.test.AndroidTestCase;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class ConcurrencyTest extends AndroidTestCase {
     private class MySync {
@@ -94,10 +102,7 @@ public class ConcurrencyTest extends AndroidTestCase {
         }
         mContext.unregisterReceiver(mReceiver);
 
-        if (mWifiManager.isWifiEnabled()) {
-            assertTrue(mWifiManager.setWifiEnabled(false));
-            Thread.sleep(DURATION);
-        }
+        enableWifi();
         super.tearDown();
     }
 
@@ -112,6 +117,33 @@ public class ConcurrencyTest extends AndroidTestCase {
                 } catch (InterruptedException e) { }
             }
         }
+    }
+
+    /*
+     * Enables Wifi and block until connection is established.
+     */
+    private void enableWifi() throws InterruptedException {
+        if (!mWifiManager.isWifiEnabled()) {
+            assertTrue(mWifiManager.setWifiEnabled(true));
+        }
+
+        ConnectivityManager cm =
+            (ConnectivityManager) getContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkRequest request =
+            new NetworkRequest.Builder().addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                                        .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                                        .build();
+        final CountDownLatch latch = new CountDownLatch(1);
+        NetworkCallback networkCallback = new NetworkCallback() {
+            @Override
+            public void onAvailable(Network network) {
+                latch.countDown();
+            }
+        };
+        cm.registerNetworkCallback(request, networkCallback);
+        latch.await(DURATION, TimeUnit.MILLISECONDS);
+
+        cm.unregisterNetworkCallback(networkCallback);
     }
 
     public void testConcurrency() {

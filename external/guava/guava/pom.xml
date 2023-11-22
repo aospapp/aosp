@@ -4,11 +4,11 @@
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>com.google.guava</groupId>
-    <artifactId>guava-parent-jdk5</artifactId>
-    <version>17.0</version>
+    <artifactId>guava-parent</artifactId>
+    <version>18.0</version>
   </parent>
-  <artifactId>guava-jdk5</artifactId>
-  <name>Guava: Google Core Libraries for Java (JDK5 Backport)</name>
+  <artifactId>guava</artifactId>
+  <name>Guava: Google Core Libraries for Java</name>
   <packaging>bundle</packaging>
   <description>
     Guava is a suite of core and expanded libraries that include
@@ -25,12 +25,6 @@
       <optional>true</optional><!-- needed only for annotations -->
     </dependency>
     <!-- TODO(cpovirk): want this only for dependency plugin but seems not to work there? Maven runs without failure, but the resulting Javadoc is missing the hoped-for inherited text -->
-    <dependency>
-      <groupId>${project.groupId}</groupId>
-      <artifactId>guava-bootstrap-jdk5</artifactId>
-      <version>${project.version}</version>
-      <scope>provided</scope>
-    </dependency>
   </dependencies>
   <build>
     <plugins>
@@ -53,18 +47,14 @@
             <Export-Package>!com.google.common.base.internal,com.google.common.*</Export-Package>
             <Import-Package>
               javax.annotation;resolution:=optional,
-              javax.inject;resolution:=optional,
               sun.misc.*;resolution:=optional
             </Import-Package>
+            <Bundle-DocURL>https://guava-libraries.googlecode.com/</Bundle-DocURL>
           </instructions>
         </configuration>
       </plugin>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <!-- Prepend guava-bootstrap to avoid an API incompatibility between JDK5 and JDK6 -->
-          <compilerArgument>-Xbootclasspath/p:${project.build.directory}/dependency/guava-bootstrap-jdk5-${project.version}.jar</compilerArgument>
-        </configuration>
       </plugin>
       <plugin>
         <artifactId>maven-source-plugin</artifactId>
@@ -73,14 +63,6 @@
       <plugin>
         <artifactId>maven-dependency-plugin</artifactId>
         <executions>
-          <execution>
-            <id>prep-guava-bootstrap</id>
-            <phase>process-sources</phase>
-            <goals><goal>copy-dependencies</goal></goals>
-            <configuration>
-              <includeArtifactIds>guava-bootstrap-jdk5</includeArtifactIds>
-            </configuration>
-          </execution>
           <execution>
             <id>unpack-jdk-sources</id>
             <phase>site</phase>

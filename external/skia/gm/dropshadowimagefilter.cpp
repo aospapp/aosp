@@ -58,36 +58,13 @@ static void draw_bitmap(SkCanvas* canvas, const SkRect& r, SkImageFilter* imf) {
     bm.allocN32Pixels(bounds.width(), bounds.height());
     bm.eraseColor(SK_ColorTRANSPARENT);
     SkCanvas c(bm);
-    draw_path(&c, r, NULL);
+    draw_path(&c, r, nullptr);
 
     paint.setImageFilter(imf);
     canvas->save();
     canvas->clipRect(r);
     canvas->drawBitmap(bm, 0, 0, &paint);
     canvas->restore();
-}
-
-static void draw_sprite(SkCanvas* canvas, const SkRect& r, SkImageFilter* imf) {
-    SkPaint paint;
-
-    SkIRect bounds;
-    r.roundOut(&bounds);
-
-    SkBitmap bm;
-    bm.allocN32Pixels(bounds.width(), bounds.height());
-    bm.eraseColor(SK_ColorRED);
-    SkCanvas c(bm);
-
-    SkIRect cropRect = SkIRect::MakeXYWH(10, 10, 44, 44);
-    paint.setColor(SK_ColorGREEN);
-    c.drawRect(SkRect::Make(cropRect), paint);
-
-    paint.setImageFilter(imf);
-    SkPoint loc = { r.fLeft, r.fTop };
-    canvas->getTotalMatrix().mapPoints(&loc, 1);
-    canvas->drawSprite(bm,
-                       SkScalarRoundToInt(loc.fX), SkScalarRoundToInt(loc.fY),
-                       &paint);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -113,7 +90,7 @@ protected:
 
     virtual void onDraw(SkCanvas* canvas) {
         void (*drawProc[])(SkCanvas*, const SkRect&, SkImageFilter*) = {
-            draw_sprite, draw_bitmap, draw_path, draw_paint, draw_text
+            draw_bitmap, draw_path, draw_paint, draw_text
         };
 
         SkAutoTUnref<SkColorFilter> cf(
@@ -125,7 +102,7 @@ protected:
                                           SkImageFilter::CropRect::kHasAll_CropEdge);
 
         SkImageFilter* filters[] = {
-            NULL,
+            nullptr,
             SkDropShadowImageFilter::Create(7.0f, 0.0f, 0.0f, 3.0f, SK_ColorBLUE,
                 SkDropShadowImageFilter::kDrawShadowAndForeground_ShadowMode),
             SkDropShadowImageFilter::Create(0.0f, 7.0f, 3.0f, 0.0f, SK_ColorBLUE,
@@ -133,11 +110,11 @@ protected:
             SkDropShadowImageFilter::Create(7.0f, 7.0f, 3.0f, 3.0f, SK_ColorBLUE,
                 SkDropShadowImageFilter::kDrawShadowAndForeground_ShadowMode),
             SkDropShadowImageFilter::Create(7.0f, 7.0f, 3.0f, 3.0f, SK_ColorBLUE,
-                SkDropShadowImageFilter::kDrawShadowAndForeground_ShadowMode, cfif, NULL),
+                SkDropShadowImageFilter::kDrawShadowAndForeground_ShadowMode, cfif, nullptr),
             SkDropShadowImageFilter::Create(7.0f, 7.0f, 3.0f, 3.0f, SK_ColorBLUE,
-                SkDropShadowImageFilter::kDrawShadowAndForeground_ShadowMode, NULL, &cropRect),
+                SkDropShadowImageFilter::kDrawShadowAndForeground_ShadowMode, nullptr, &cropRect),
             SkDropShadowImageFilter::Create(7.0f, 7.0f, 3.0f, 3.0f, SK_ColorBLUE,
-                SkDropShadowImageFilter::kDrawShadowAndForeground_ShadowMode, NULL, &bogusRect),
+                SkDropShadowImageFilter::kDrawShadowAndForeground_ShadowMode, nullptr, &bogusRect),
             SkDropShadowImageFilter::Create(7.0f, 7.0f, 3.0f, 3.0f, SK_ColorBLUE,
                 SkDropShadowImageFilter::kDrawShadowOnly_ShadowMode),
         };
@@ -169,5 +146,4 @@ private:
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static skiagm::GM* MyFactory(void*) { return new DropShadowImageFilterGM; }
-static skiagm::GMRegistry reg(MyFactory);
+DEF_GM( return new DropShadowImageFilterGM; )

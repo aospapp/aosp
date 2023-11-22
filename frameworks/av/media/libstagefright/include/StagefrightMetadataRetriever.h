@@ -18,9 +18,9 @@
 
 #define STAGEFRIGHT_METADATA_RETRIEVER_H_
 
+#include <media/IMediaExtractor.h>
 #include <media/MediaMetadataRetrieverInterface.h>
 
-#include <media/stagefright/OMXClient.h>
 #include <utils/KeyedVector.h>
 
 namespace android {
@@ -45,9 +45,8 @@ struct StagefrightMetadataRetriever : public MediaMetadataRetrieverInterface {
     virtual const char *extractMetadata(int keyCode);
 
 private:
-    OMXClient mClient;
     sp<DataSource> mSource;
-    sp<MediaExtractor> mExtractor;
+    sp<IMediaExtractor> mExtractor;
 
     bool mParsedMetaData;
     KeyedVector<int, String8> mMetaData;

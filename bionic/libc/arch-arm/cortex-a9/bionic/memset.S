@@ -69,12 +69,9 @@ END(bzero)
 ENTRY(memset)
         // The neon memset only wins for less than 132.
         cmp         r2, #132
-        bhi         __memset_large_copy
+        bhi         .L_memset_large_copy
 
-        stmfd       sp!, {r0}
-        .cfi_def_cfa_offset 4
-        .cfi_rel_offset r0, 0
-
+        mov         r3, r0
         vdup.8      q0, r1
 
         /* make sure we have at least 32 bytes to write */
@@ -84,7 +81,7 @@ ENTRY(memset)
 
 1:      /* The main loop writes 32 bytes at a time */
         subs        r2, r2, #32
-        vst1.8      {d0 - d3}, [r0]!
+        vst1.8      {d0 - d3}, [r3]!
         bhs         1b
 
 2:      /* less than 32 left */
@@ -93,22 +90,20 @@ ENTRY(memset)
         beq         3f
 
         // writes 16 bytes, 128-bits aligned
-        vst1.8      {d0, d1}, [r0]!
+        vst1.8      {d0, d1}, [r3]!
 3:      /* write up to 15-bytes (count in r2) */
         movs        ip, r2, lsl #29
         bcc         1f
-        vst1.8      {d0}, [r0]!
+        vst1.8      {d0}, [r3]!
 1:      bge         2f
-        vst1.32     {d0[0]}, [r0]!
+        vst1.32     {d0[0]}, [r3]!
 2:      movs        ip, r2, lsl #31
-        strbmi      r1, [r0], #1
-        strbcs      r1, [r0], #1
-        strbcs      r1, [r0], #1
-        ldmfd       sp!, {r0}
+        strbmi      r1, [r3], #1
+        strbcs      r1, [r3], #1
+        strbcs      r1, [r3], #1
         bx          lr
-END(memset)
 
-ENTRY_PRIVATE(__memset_large_copy)
+.L_memset_large_copy:
         /* compute the offset to align the destination
          * offset = (4-(src&3))&3 = -src & 3
          */
@@ -136,8 +131,7 @@ ENTRY_PRIVATE(__memset_large_copy)
         strbcs      r1, [r0], #1
         strbmi      r1, [r0], #1
         subs        r2, r2, r3
-        popls       {r0, r4-r7, lr}   /* return */
-        bxls        lr
+        popls       {r0, r4-r7, pc}   /* return */
 
         /* align the destination to a cache-line */
         mov         r12, r1
@@ -180,9 +174,8 @@ ENTRY_PRIVATE(__memset_large_copy)
         strhmi      r1, [r0], #2
         movs        r2, r2, lsl #2
         strbcs      r1, [r0]
-        ldmfd       sp!, {r0, r4-r7, lr}
-        bx          lr
-END(__memset_large_copy)
+        ldmfd       sp!, {r0, r4-r7, pc}
+END(memset)
 
         .data
 error_string:

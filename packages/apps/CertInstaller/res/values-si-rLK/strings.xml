@@ -36,7 +36,6 @@
     <string name="password_empty_error" msgid="591713406761723025">"මුරපදය ටයිප් කරන්න."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"නමක් ටයිප් කරන්න."</string>
     <string name="name_char_error" msgid="3176618568784938968">"අකුරු සහ ඉලක්කම් පමණක් ඇති නමක් ටයිප් කරන්න."</string>
-    <string name="storage_error" msgid="8306802455802770779">"සහතිකය සුරැකිය නොහැකි විය. නැවත උත්සාහ කිරීමට හරි ස්පර්ශ කරන්න."</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"සහතිකය සුරැකීමට නොහැකි විය. අක්තපත්‍ර සංචිතය ක්‍රියා කරවීමට හෝ හරියාකාරව ඇරඹීමට නොහැක."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"සහතිකය ස්ථාපනය කර නැත."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"ස්ථාපනයට සහතික නැත."</string>

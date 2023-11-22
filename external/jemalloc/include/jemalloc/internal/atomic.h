@@ -28,8 +28,8 @@
  * callers.
  *
  *   <t> atomic_read_<t>(<t> *p) { return (*p); }
- *   <t> atomic_add_<t>(<t> *p, <t> x) { return (*p + x); }
- *   <t> atomic_sub_<t>(<t> *p, <t> x) { return (*p - x); }
+ *   <t> atomic_add_<t>(<t> *p, <t> x) { return (*p += x); }
+ *   <t> atomic_sub_<t>(<t> *p, <t> x) { return (*p -= x); }
  *   bool atomic_cas_<t>(<t> *p, <t> c, <t> s)
  *   {
  *     if (*p != c)
@@ -143,15 +143,15 @@ atomic_sub_uint64(uint64_t *p, uint64_t x)
 JEMALLOC_INLINE bool
 atomic_cas_uint64(uint64_t *p, uint64_t c, uint64_t s)
 {
-
-	return (!atomic_compare_exchange_strong(p, &c, s));
+	volatile atomic_uint_least64_t *a = (volatile atomic_uint_least64_t *)p;
+	return (!atomic_compare_exchange_strong(a, &c, s));
 }
 
 JEMALLOC_INLINE void
 atomic_write_uint64(uint64_t *p, uint64_t x)
 {
-
-	atomic_store(p, x);
+	volatile atomic_uint_least64_t *a = (volatile atomic_uint_least64_t *)p;
+	atomic_store(a, x);
 }
 #  elif (defined(JEMALLOC_ATOMIC9))
 JEMALLOC_INLINE uint64_t
@@ -367,15 +367,15 @@ atomic_sub_uint32(uint32_t *p, uint32_t x)
 JEMALLOC_INLINE bool
 atomic_cas_uint32(uint32_t *p, uint32_t c, uint32_t s)
 {
-
-	return (!atomic_compare_exchange_strong(p, &c, s));
+	volatile atomic_uint_least32_t *a = (volatile atomic_uint_least32_t *)p;
+	return (!atomic_compare_exchange_strong(a, &c, s));
 }
 
 JEMALLOC_INLINE void
 atomic_write_uint32(uint32_t *p, uint32_t x)
 {
-
-	atomic_store(p, x);
+	volatile atomic_uint_least32_t *a = (volatile atomic_uint_least32_t *)p;
+	atomic_store(a, x);
 }
 #elif (defined(JEMALLOC_ATOMIC9))
 JEMALLOC_INLINE uint32_t

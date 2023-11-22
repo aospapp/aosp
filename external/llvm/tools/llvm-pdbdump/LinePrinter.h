@@ -41,16 +41,20 @@ private:
   void SetFilters(std::list<Regex> &List, Iter Begin, Iter End) {
     List.clear();
     for (; Begin != End; ++Begin)
-      List.push_back(StringRef(*Begin));
+      List.emplace_back(StringRef(*Begin));
   }
 
   raw_ostream &OS;
   int IndentSpaces;
   int CurrentIndent;
 
-  std::list<Regex> CompilandFilters;
-  std::list<Regex> TypeFilters;
-  std::list<Regex> SymbolFilters;
+  std::list<Regex> ExcludeCompilandFilters;
+  std::list<Regex> ExcludeTypeFilters;
+  std::list<Regex> ExcludeSymbolFilters;
+
+  std::list<Regex> IncludeCompilandFilters;
+  std::list<Regex> IncludeTypeFilters;
+  std::list<Regex> IncludeSymbolFilters;
 };
 
 template <class T>
@@ -80,8 +84,7 @@ public:
   raw_ostream &get() { return OS; }
 
 private:
-  void translateColor(PDB_ColorItem C, raw_ostream::Colors &Color,
-                      bool &Bold) const;
+  void applyColor(PDB_ColorItem C);
   raw_ostream &OS;
 };
 }

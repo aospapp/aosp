@@ -16,47 +16,30 @@
 package android.databinding.adapters;
 
 import android.databinding.BindingAdapter;
+import android.databinding.InverseBindingListener;
+import android.databinding.InverseBindingMethod;
+import android.databinding.InverseBindingMethods;
 import android.widget.SeekBar;
 import android.widget.SeekBar.OnSeekBarChangeListener;
 
+@InverseBindingMethods({
+        @InverseBindingMethod(type = SeekBar.class, attribute = "android:progress"),
+})
 public class SeekBarBindingAdapter {
-    @BindingAdapter("android:onProgressChanged")
-    public static void setListener(SeekBar view, OnProgressChanged listener) {
-        setListener(view, null, null, listener);
+
+    @BindingAdapter("android:progress")
+    public static void setProgress(SeekBar view, int progress) {
+        if (progress != view.getProgress()) {
+            view.setProgress(progress);
+        }
     }
 
-    @BindingAdapter("android:onStartTrackingTouch")
-    public static void setListener(SeekBar view, OnStartTrackingTouch listener) {
-        setListener(view, listener, null, null);
-    }
-
-    @BindingAdapter("android:onStopTrackingTouch")
-    public static void setListener(SeekBar view, OnStopTrackingTouch listener) {
-        setListener(view, null, listener, null);
-    }
-
-    @BindingAdapter({"android:onStartTrackingTouch", "android:onStopTrackingTouch"})
-    public static void setListener(SeekBar view, final OnStartTrackingTouch start,
-            final OnStopTrackingTouch stop) {
-        setListener(view, start, stop, null);
-    }
-
-    @BindingAdapter({"android:onStartTrackingTouch", "android:onProgressChanged"})
-    public static void setListener(SeekBar view, final OnStartTrackingTouch start,
-            final OnProgressChanged progressChanged) {
-        setListener(view, start, null, progressChanged);
-    }
-
-    @BindingAdapter({"android:onStopTrackingTouch", "android:onProgressChanged"})
-    public static void setListener(SeekBar view, final OnStopTrackingTouch stop,
-            final OnProgressChanged progressChanged) {
-        setListener(view, null, stop, progressChanged);
-    }
-
-    @BindingAdapter({"android:onStartTrackingTouch", "android:onStopTrackingTouch", "android:onProgressChanged"})
-    public static void setListener(SeekBar view, final OnStartTrackingTouch start,
-            final OnStopTrackingTouch stop, final OnProgressChanged progressChanged) {
-        if (start == null && stop == null && progressChanged == null) {
+    @BindingAdapter(value = {"android:onStartTrackingTouch", "android:onStopTrackingTouch",
+            "android:onProgressChanged", "android:progressAttrChanged"}, requireAll = false)
+    public static void setOnSeekBarChangeListener(SeekBar view, final OnStartTrackingTouch start,
+            final OnStopTrackingTouch stop, final OnProgressChanged progressChanged,
+            final InverseBindingListener attrChanged) {
+        if (start == null && stop == null && progressChanged == null && attrChanged == null) {
             view.setOnSeekBarChangeListener(null);
         } else {
             view.setOnSeekBarChangeListener(new OnSeekBarChangeListener() {
@@ -64,6 +47,9 @@ public class SeekBarBindingAdapter {
                 public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                     if (progressChanged != null) {
                         progressChanged.onProgressChanged(seekBar, progress, fromUser);
+                    }
+                    if (attrChanged != null) {
+                        attrChanged.onChange();
                     }
                 }
 

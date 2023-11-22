@@ -117,7 +117,7 @@ end:
 type: rs_font
 version: 9 22
 size: 32
-simple: _RS_HANDLE
+rs_object:
 deprecated: 22
 summary: Handle to a Font
 description:
@@ -129,7 +129,7 @@ end:
 type: rs_mesh
 version: 9 22
 size: 32
-simple: _RS_HANDLE
+rs_object:
 deprecated: 22
 summary: Handle to a Mesh
 description:
@@ -140,7 +140,7 @@ end:
 type: rs_program_fragment
 version: 9 22
 size: 32
-simple: _RS_HANDLE
+rs_object:
 deprecated: 22
 summary: Handle to a ProgramFragment
 description:
@@ -151,7 +151,7 @@ end:
 type: rs_program_vertex
 version: 9 22
 size: 32
-simple: _RS_HANDLE
+rs_object:
 deprecated: 22
 summary: Handle to a ProgramVertex
 description:
@@ -162,7 +162,7 @@ end:
 type: rs_program_raster
 version: 9 22
 size: 32
-simple: _RS_HANDLE
+rs_object:
 deprecated: 22
 summary: Handle to a ProgramRaster
 description:
@@ -173,7 +173,7 @@ end:
 type: rs_program_store
 version: 9 22
 size: 32
-simple: _RS_HANDLE
+rs_object:
 deprecated: 22
 summary: Handle to a ProgramStore
 description:
@@ -691,7 +691,6 @@ end:
 function: rsgMeshComputeBoundingBox
 version: 9 22
 size: 32
-attrib: always_inline
 ret: void
 arg: rs_mesh mesh
 arg: float3* bBoxMin

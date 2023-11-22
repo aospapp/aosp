@@ -15,7 +15,6 @@
  */
 package android.media.cts;
 
-
 import android.content.pm.PackageManager;
 import android.cts.util.MediaUtils;
 import android.graphics.Canvas;
@@ -55,11 +54,15 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
     private final String OUTPUT_PATH2;
     private static final float TOLERANCE = 0.0002f;
     private static final int RECORD_TIME_MS = 3000;
-    private static final int RECORD_TIME_LAPSE_MS = 4000;
+    private static final int RECORD_TIME_LAPSE_MS = 6000;
     private static final int RECORD_TIME_LONG_MS = 20000;
     private static final int RECORDED_DUR_TOLERANCE_MS = 1000;
+    // Tolerate 4 frames off at maximum
+    private static final float RECORDED_DUR_TOLERANCE_FRAMES = 4f;
     private static final int VIDEO_WIDTH = 176;
     private static final int VIDEO_HEIGHT = 144;
+    private static int mVideoWidth = VIDEO_WIDTH;
+    private static int mVideoHeight = VIDEO_HEIGHT;
     private static final int VIDEO_BIT_RATE_IN_BPS = 128000;
     private static final double VIDEO_TIMELAPSE_CAPTURE_RATE_FPS = 1.0;
     private static final int AUDIO_BIT_RATE_IN_BPS = 12200;
@@ -88,7 +91,7 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
     private ConditionVariable mMaxFileSizeCond;
 
     public MediaRecorderTest() {
-        super("com.android.cts.media", MediaStubActivity.class);
+        super("android.media.cts", MediaStubActivity.class);
         OUTPUT_PATH = new File(Environment.getExternalStorageDirectory(),
                 "record.out").getAbsolutePath();
         OUTPUT_PATH2 = new File(Environment.getExternalStorageDirectory(),
@@ -207,27 +210,57 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
 
     @UiThreadTest
     public void testSetCamera() throws Exception {
-        recordVideoUsingCamera(false);
+        recordVideoUsingCamera(false, false);
     }
 
     public void testRecorderTimelapsedVideo() throws Exception {
-        recordVideoUsingCamera(true);
+        recordVideoUsingCamera(true, false);
     }
 
-    private void recordVideoUsingCamera(boolean timelapse) throws Exception {
+    public void testRecorderPauseResume() throws Exception {
+        recordVideoUsingCamera(false, true);
+    }
+
+    public void testRecorderPauseResumeOnTimeLapse() throws Exception {
+        recordVideoUsingCamera(true, true);
+    }
+
+    private void recordVideoUsingCamera(boolean timelapse, boolean pause) throws Exception {
         int nCamera = Camera.getNumberOfCameras();
         int durMs = timelapse? RECORD_TIME_LAPSE_MS: RECORD_TIME_MS;
         for (int cameraId = 0; cameraId < nCamera; cameraId++) {
             mCamera = Camera.open(cameraId);
-            recordVideoUsingCamera(mCamera, OUTPUT_PATH, durMs, timelapse);
+            setSupportedResolution(mCamera);
+            recordVideoUsingCamera(mCamera, OUTPUT_PATH, durMs, timelapse, pause);
             mCamera.release();
             mCamera = null;
             assertTrue(checkLocationInFile(OUTPUT_PATH));
         }
     }
 
+    private void setSupportedResolution(Camera camera) {
+        Camera.Parameters parameters = camera.getParameters();
+        List<Camera.Size> videoSizes = parameters.getSupportedVideoSizes();
+        // getSupportedVideoSizes returns null when separate video/preview size
+        // is not supported.
+        if (videoSizes == null) {
+            videoSizes = parameters.getSupportedPreviewSizes();
+        }
+        for (Camera.Size size : videoSizes)
+        {
+            if (size.width == VIDEO_WIDTH && size.height == VIDEO_HEIGHT) {
+                mVideoWidth = VIDEO_WIDTH;
+                mVideoHeight = VIDEO_HEIGHT;
+                return;
+            }
+        }
+        mVideoWidth = videoSizes.get(0).width;
+        mVideoHeight = videoSizes.get(0).height;
+    }
+
     private void recordVideoUsingCamera(
-            Camera camera, String fileName, int durMs, boolean timelapse) throws Exception {
+            Camera camera, String fileName, int durMs, boolean timelapse, boolean pause)
+        throws Exception {
         // FIXME:
         // We should add some test case to use Camera.Parameters.getPreviewFpsRange()
         // to get the supported video frame rate range.
@@ -242,7 +275,7 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.DEFAULT);
         mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.DEFAULT);
         mMediaRecorder.setVideoFrameRate(frameRate);
-        mMediaRecorder.setVideoSize(VIDEO_WIDTH, VIDEO_HEIGHT);
+        mMediaRecorder.setVideoSize(mVideoWidth, mVideoHeight);
         mMediaRecorder.setPreviewDisplay(mActivity.getSurfaceHolder().getSurface());
         mMediaRecorder.setOutputFile(fileName);
         mMediaRecorder.setLocation(LATITUDE, LONGITUDE);
@@ -253,18 +286,27 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
 
         mMediaRecorder.prepare();
         mMediaRecorder.start();
-        Thread.sleep(durMs);
+        if (pause) {
+            Thread.sleep(durMs / 2);
+            mMediaRecorder.pause();
+            Thread.sleep(durMs / 2);
+            mMediaRecorder.resume();
+            Thread.sleep(durMs / 2);
+        } else {
+            Thread.sleep(durMs);
+        }
         mMediaRecorder.stop();
         assertTrue(mOutFile.exists());
 
         int targetDurMs = timelapse? ((int) (durMs * (captureRate / frameRate))): durMs;
         boolean hasVideo = true;
         boolean hasAudio = timelapse? false: true;
-        checkTracksAndDuration(targetDurMs, hasVideo, hasAudio, fileName);
+        checkTracksAndDuration(targetDurMs, hasVideo, hasAudio, fileName, frameRate);
     }
 
     private void checkTracksAndDuration(
-            int targetMs, boolean hasVideo, boolean hasAudio, String fileName) throws Exception {
+            int targetMs, boolean hasVideo, boolean hasAudio, String fileName,
+            float frameRate) throws Exception {
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
         retriever.setDataSource(fileName);
         String hasVideoStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_VIDEO);
@@ -276,7 +318,15 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         // check on the duration.
         String durStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
         assertTrue(durStr != null);
-        assertTrue(Integer.parseInt(durStr) > 0);
+        int duration = Integer.parseInt(durStr);
+        assertTrue("duration is non-positive: dur = " + duration, duration > 0);
+        if (targetMs != 0) {
+            float toleranceMs = RECORDED_DUR_TOLERANCE_FRAMES * (1000f / frameRate);
+            assertTrue(String.format("duration is too large: dur = %d, target = %d, tolerance = %f",
+                        duration, targetMs, toleranceMs),
+                    duration <= targetMs + toleranceMs);
+        }
+
         retriever.release();
         retriever = null;
     }
@@ -374,6 +424,17 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         return 1;
     }
 
+    public void testRecordAudioFromAudioSourceUnprocessed() throws Exception {
+        if (!hasMicrophone()) {
+            return; // skip
+        }
+        mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.UNPROCESSED);
+        mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.DEFAULT);
+        mMediaRecorder.setOutputFile(OUTPUT_PATH);
+        mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.DEFAULT);
+        recordMedia(MAX_FILE_SIZE, mOutFile);
+    }
+
     public void testGetAudioSourceMax() throws Exception {
         final int max = MediaRecorder.getAudioSourceMax();
         assertTrue(MediaRecorder.AudioSource.DEFAULT <= max);
@@ -384,6 +445,7 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         assertTrue(MediaRecorder.AudioSource.VOICE_DOWNLINK <= max);
         assertTrue(MediaRecorder.AudioSource.VOICE_RECOGNITION <= max);
         assertTrue(MediaRecorder.AudioSource.VOICE_UPLINK <= max);
+        assertTrue(MediaRecorder.AudioSource.UNPROCESSED <= max);
     }
 
     public void testRecorderAudio() throws Exception {
@@ -872,6 +934,13 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         boolean success = false;
         Surface surface = null;
         int noOfFailure = 0;
+        final float frameRate = getMaxFrameRateForCodec(MediaRecorder.VideoEncoder.H264);
+
+        if (!hasH264()) {
+            MediaUtils.skipTest("no codecs");
+            return true;
+        }
+
         try {
             if (persistent) {
                 surface = MediaCodec.createPersistentInputSurface();
@@ -898,7 +967,7 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
                 Log.v(TAG, "testRecordFromSurface - round " + k);
                 success = recordFromSurface(filename, captureRate, hasAudio, surface);
                 if (success) {
-                    checkTracksAndDuration(0, true /* hasVideo */, hasAudio, filename);
+                    checkTracksAndDuration(0, true /* hasVideo */, hasAudio, filename, frameRate);
 
                     // verify capture fps meta key
                     if (timelapse && !checkCaptureFps(filename, captureRate)) {

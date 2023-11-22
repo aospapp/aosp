@@ -432,6 +432,7 @@ void AudioOutput::doPCMWrite(const uint8_t* data, size_t len, audio_format_t for
 
     int err = BAD_VALUE;
     switch(format) {
+    case AUDIO_FORMAT_IEC61937:
     case AUDIO_FORMAT_PCM_16_BIT: {
         const size_t outputSize = len * 2;
         if (outputSize > mStagingSize) {

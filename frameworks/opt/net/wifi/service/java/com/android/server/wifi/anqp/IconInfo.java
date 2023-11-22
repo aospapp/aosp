@@ -15,7 +15,7 @@ import static com.android.server.wifi.anqp.Constants.SHORT_MASK;
 public class IconInfo {
     private final int mWidth;
     private final int mHeight;
-    private final Locale mLocale;
+    private final String mLanguage;
     private final String mIconType;
     private final String mFileName;
 
@@ -26,7 +26,8 @@ public class IconInfo {
 
         mWidth = payload.getShort() & SHORT_MASK;
         mHeight = payload.getShort() & SHORT_MASK;
-        mLocale = Locale.forLanguageTag(Constants.getString(payload, 3, StandardCharsets.US_ASCII));
+        mLanguage = Constants.getTrimmedString(payload,
+                Constants.LANG_CODE_LENGTH, StandardCharsets.US_ASCII);
         mIconType = Constants.getPrefixedString(payload, 1, StandardCharsets.US_ASCII);
         mFileName = Constants.getPrefixedString(payload, 1, StandardCharsets.UTF_8);
     }
@@ -39,8 +40,8 @@ public class IconInfo {
         return mHeight;
     }
 
-    public Locale getLocale() {
-        return mLocale;
+    public String getLanguage() {
+        return mLanguage;
     }
 
     public String getIconType() {
@@ -52,13 +53,40 @@ public class IconInfo {
     }
 
     @Override
+    public boolean equals(Object thatObject) {
+        if (this == thatObject) {
+            return true;
+        }
+        if (thatObject == null || getClass() != thatObject.getClass()) {
+            return false;
+        }
+
+        IconInfo that = (IconInfo) thatObject;
+        return mHeight == that.mHeight &&
+                mWidth == that.mWidth &&
+                mFileName.equals(that.mFileName) &&
+                mIconType.equals(that.mIconType) &&
+                mLanguage.equals(that.mLanguage);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = mWidth;
+        result = 31 * result + mHeight;
+        result = 31 * result + mLanguage.hashCode();
+        result = 31 * result + mIconType.hashCode();
+        result = 31 * result + mFileName.hashCode();
+        return result;
+    }
+
+    @Override
     public String toString() {
         return "IconInfo{" +
-                "mWidth=" + mWidth +
-                ", mHeight=" + mHeight +
-                ", mLocale=" + mLocale +
-                ", mIconType='" + mIconType + '\'' +
-                ", mFileName='" + mFileName + '\'' +
+                "Width=" + mWidth +
+                ", Height=" + mHeight +
+                ", Language=" + mLanguage +
+                ", IconType='" + mIconType + '\'' +
+                ", FileName='" + mFileName + '\'' +
                 '}';
     }
 }

@@ -20,7 +20,7 @@
 
 #include <stdint.h>
 
-#include "allocator.h"
+#include "osi/include/allocator.h"
 #include "bdaddr.h"
 #include "bt_types.h"
 #include "device_features.h"
@@ -91,6 +91,11 @@ typedef struct {
     BT_HDR *response,
     uint16_t *ble_default_packet_length_ptr
   );
+
+  void (*parse_read_local_supported_codecs_response)(
+    BT_HDR *response,
+    uint8_t *number_of_local_supported_codecs, uint8_t *local_supported_codecs);
+
 } hci_packet_parser_t;
 
 const hci_packet_parser_t *hci_packet_parser_get_interface();

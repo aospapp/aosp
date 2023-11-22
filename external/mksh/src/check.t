@@ -1,9 +1,9 @@
-# $MirOS: src/bin/mksh/check.t,v 1.667.2.7 2015/04/19 19:18:10 tg Exp $
+# $MirOS: src/bin/mksh/check.t,v 1.721 2016/01/20 21:34:09 tg Exp $
 # -*- mode: sh -*-
 #-
 # Copyright © 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-#	      2011, 2012, 2013, 2014, 2015
-#	Thorsten Glaser <tg@mirbsd.org>
+#	      2011, 2012, 2013, 2014, 2015, 2016
+#	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
@@ -30,7 +30,7 @@
 # (2013/12/02 20:39:44) http://openbsd.cs.toronto.edu/cgi-bin/cvsweb/src/regress/bin/ksh/?sortby=date
 
 expected-stdout:
-	@(#)MIRBSD KSH R50 2015/04/19
+	@(#)MIRBSD KSH R52 2016/01/20
 description:
 	Check version of shell.
 stdin:
@@ -39,7 +39,7 @@ name: KSH_VERSION
 category: shell:legacy-no
 ---
 expected-stdout:
-	@(#)LEGACY KSH R50 2015/04/19
+	@(#)LEGACY KSH R52 2016/01/20
 description:
 	Check version of legacy shell.
 stdin:
@@ -232,7 +232,7 @@ time-limit: 3
 stdin:
 	print '#!'"$__progname"'\necho tf' >lq
 	chmod +x lq
-	PATH=$PWD:$PATH
+	PATH=$PWD$PATHSEP$PATH
 	alias lq=lq
 	lq
 	echo = now
@@ -269,6 +269,14 @@ stdin:
 	foo 'bar - baz'
 expected-stdout:
 	bar - baz,z
+---
+name: arith-compound
+description:
+	Check that arithmetic expressions are compound constructs
+stdin:
+	{ ! (( 0$(cat >&2) )) <<<1; } <<<2
+expected-stderr:
+	1
 ---
 name: arith-lazy-1
 description:
@@ -475,6 +483,9 @@ stdin:
 	va[1975973142]=right
 	va[4123456789]=wrong
 	echo x7 ${va[#4123456789%2147483647]}
+	# make sure multiple calculations don't interfere with each other
+	let '# mca = -4 % -2' ' mcb = -4 % -2'
+	echo x8 $mca $mcb
 expected-stdout:
 	x1 -1 4294967295
 	x2 -171510507 4123456789
@@ -483,6 +494,7 @@ expected-stdout:
 	x5 -171510507 4123456789
 	x6 1975973142 1975973142
 	x7 right
+	x8 -4 0
 ---
 name: arith-limit32-1
 description:
@@ -1198,7 +1210,7 @@ need-pass: no
 # the mv command fails on Cygwin
 # Hurd aborts the testsuite (permission denied)
 # QNX does not find subdir to cd into
-category: !os:cygwin,!os:gnu,!os:msys,!os:nto,!nosymlink
+category: !os:cygwin,!os:gnu,!os:msys,!os:nto,!os:os390,!nosymlink
 file-setup: file 644 "x"
 	mkdir noread noread/target noread/target/subdir
 	ln -s noread link
@@ -1664,6 +1676,17 @@ expected-stdout:
 	1=02.
 	2=02.
 ---
+name: expand-weird-4
+description:
+	Check that tilde expansion is enabled in ${x#~}
+	and cases that are modelled after it (${x/~/~})
+stdin:
+	HOME=/etc
+	a="~/x"
+	echo "<${a#~}> <${a#\~}> <${b:-~}> <${b:-\~}> <${c:=~}><$c> <${a/~}> <${a/x/~}> <${a/x/\~}>"
+expected-stdout:
+	<~/x> </x> <~> <\~> <~><~> <~/x> <~//etc> <~/~>
+---
 name: expand-number-1
 description:
 	Check that positional arguments do not overflow
@@ -1857,13 +1880,15 @@ stdin:
 	echo 20: ${x/\//.}
 	echo 21: ${x//\//.}
 	echo 22: ${x///.}
-	echo 23: ${x//#1/9}
-	echo 24: ${x//%1/9}
-	echo 25: ${x//\%1/9}
-	echo 26: ${x//\\%1/9}
-	echo 27: ${x//\a/9}
-	echo 28: ${x//\\a/9}
-	echo 29: ${x/2/$y}
+	echo 23: ${x/#1/9}
+	echo 24: ${x//#1/9}
+	echo 25: ${x/%1/9}
+	echo 26: ${x//%1/9}
+	echo 27: ${x//\%1/9}
+	echo 28: ${x//\\%1/9}
+	echo 29: ${x//\a/9}
+	echo 30: ${x//\\a/9}
+	echo 31: ${x/2/$y}
 expected-stdout:
 	1: 122321_ab/cde_b/c_1221
 	2: 131_ab/cde_b/c_11
@@ -1888,12 +1913,14 @@ expected-stdout:
 	21: 1222321_ab.cde_b.c_1221
 	22: 1222321_ab/cde_b/c_1221
 	23: 9222321_ab/cde_b/c_1221
-	24: 1222321_ab/cde_b/c_1229
+	24: 1222321_ab/cde_b/c_1221
 	25: 1222321_ab/cde_b/c_1229
 	26: 1222321_ab/cde_b/c_1221
-	27: 1222321_9b/cde_b/c_1221
-	28: 1222321_9b/cde_b/c_1221
-	29: 1xyz22321_ab/cde_b/c_1221
+	27: 1222321_ab/cde_b/c_1221
+	28: 1222321_ab/cde_b/c_1221
+	29: 1222321_9b/cde_b/c_1221
+	30: 1222321_ab/cde_b/c_1221
+	31: 1xyz22321_ab/cde_b/c_1221
 ---
 name: eglob-substrpl-2
 description:
@@ -1918,6 +1945,7 @@ name: eglob-substrpl-3a
 description:
 	Check substring replacement works with variables and slashes, too
 stdin:
+	HOME=/etc
 	pfx=/home/user
 	wd=/home/user/tmp
 	echo "${wd/#$pfx/~}"
@@ -1927,9 +1955,9 @@ stdin:
 	echo "${wd/#"\$pfx"/~}"
 	echo "${wd/#'\$pfx'/~}"
 expected-stdout:
-	~/tmp
+	/etc/tmp
 	/home/user/tmp
-	~/tmp
+	/etc/tmp
 	/home/user/tmp
 	/home/user/tmp
 	/home/user/tmp
@@ -1938,20 +1966,22 @@ name: eglob-substrpl-3b
 description:
 	More of this, bash fails it (bash4 passes)
 stdin:
+	HOME=/etc
 	pfx=/home/user
 	wd=/home/user/tmp
 	echo "${wd/#$(echo /home/user)/~}"
 	echo "${wd/#"$(echo /home/user)"/~}"
 	echo "${wd/#'$(echo /home/user)'/~}"
 expected-stdout:
-	~/tmp
-	~/tmp
+	/etc/tmp
+	/etc/tmp
 	/home/user/tmp
 ---
 name: eglob-substrpl-3c
 description:
 	Even more weird cases
 stdin:
+	HOME=/etc
 	pfx=/home/user
 	wd='$pfx/tmp'
 	echo 1: ${wd/#$pfx/~}
@@ -1977,31 +2007,31 @@ stdin:
 	echo 17: ${ts/+($tp)/$tr}
 	echo 18: ${ts/+($tp)/c/d}
 	echo 19: ${ts/+($tp)/c\/d}
-	echo 25: ${ts//a\/b/$tr}
-	echo 26: ${ts//a\/b/\$tr}
-	echo 27: ${ts//$tp/$tr}
-	echo 28: ${ts//$tp/c/d}
-	echo 29: ${ts//$tp/c\/d}
-	echo 30: ${ts//+(a\/b)/$tr}
-	echo 31: ${ts//+(a\/b)/\$tr}
-	echo 32: ${ts//+($tp)/$tr}
-	echo 33: ${ts//+($tp)/c/d}
-	echo 34: ${ts//+($tp)/c\/d}
+	echo 20: ${ts//a\/b/$tr}
+	echo 21: ${ts//a\/b/\$tr}
+	echo 22: ${ts//$tp/$tr}
+	echo 23: ${ts//$tp/c/d}
+	echo 24: ${ts//$tp/c\/d}
+	echo 25: ${ts//+(a\/b)/$tr}
+	echo 26: ${ts//+(a\/b)/\$tr}
+	echo 27: ${ts//+($tp)/$tr}
+	echo 28: ${ts//+($tp)/c/d}
+	echo 29: ${ts//+($tp)/c\/d}
 	tp="+($tp)"
-	echo 40: ${ts/$tp/$tr}
-	echo 41: ${ts//$tp/$tr}
+	echo 30: ${ts/$tp/$tr}
+	echo 31: ${ts//$tp/$tr}
 expected-stdout:
 	1: $pfx/tmp
-	2: ~/tmp
+	2: /etc/tmp
 	3: $pfx/tmp
-	4: ~/tmp
-	5: ~/tmp
-	6: ~/tmp
+	4: /etc/tmp
+	5: /etc/tmp
+	6: $pfx/tmp
 	7: c/da/b$tp$tp_a/b$tp_*(a/b)_*($tp)
 	8: $tra/b$tp$tp_a/b$tp_*(a/b)_*($tp)
 	9: c/da/b$tp$tp_a/b$tp_*(a/b)_*($tp)
 	10: a/ba/bc/d$tp_a/b$tp_*(a/b)_*($tp)
-	11: c/da/b$tp$tp_a/b$tp_*(a/b)_*($tp)
+	11: a/ba/b$tp$tp_a/b$tp_*(a/b)_*($tp)
 	12: c/da/b$tp$tp_a/b$tp_*(a/b)_*($tp)
 	13: c/da/b$tp$tp_a/b$tp_*(a/b)_*($tp)
 	14: c\/da/b$tp$tp_a/b$tp_*(a/b)_*($tp)
@@ -2010,21 +2040,21 @@ expected-stdout:
 	17: c/d$tp$tp_a/b$tp_*(a/b)_*($tp)
 	18: c/d$tp$tp_a/b$tp_*(a/b)_*($tp)
 	19: c/d$tp$tp_a/b$tp_*(a/b)_*($tp)
-	25: c/dc/d$tp$tp_c/d$tp_*(c/d)_*($tp)
-	26: $tr$tr$tp$tp_$tr$tp_*($tr)_*($tp)
-	27: c/dc/d$tp$tp_c/d$tp_*(c/d)_*($tp)
-	28: c/dc/d$tp$tp_c/d$tp_*(c/d)_*($tp)
-	29: c/dc/d$tp$tp_c/d$tp_*(c/d)_*($tp)
-	30: c/d$tp$tp_c/d$tp_*(c/d)_*($tp)
-	31: $tr$tp$tp_$tr$tp_*($tr)_*($tp)
-	32: c/d$tp$tp_c/d$tp_*(c/d)_*($tp)
-	33: c/d$tp$tp_c/d$tp_*(c/d)_*($tp)
-	34: c/d$tp$tp_c/d$tp_*(c/d)_*($tp)
-	40: a/ba/b$tp$tp_a/b$tp_*(a/b)_*($tp)
-	41: a/ba/b$tp$tp_a/b$tp_*(a/b)_*($tp)
+	20: c/dc/d$tp$tp_c/d$tp_*(c/d)_*($tp)
+	21: $tr$tr$tp$tp_$tr$tp_*($tr)_*($tp)
+	22: c/dc/d$tp$tp_c/d$tp_*(c/d)_*($tp)
+	23: c/dc/d$tp$tp_c/d$tp_*(c/d)_*($tp)
+	24: c/dc/d$tp$tp_c/d$tp_*(c/d)_*($tp)
+	25: c/d$tp$tp_c/d$tp_*(c/d)_*($tp)
+	26: $tr$tp$tp_$tr$tp_*($tr)_*($tp)
+	27: c/d$tp$tp_c/d$tp_*(c/d)_*($tp)
+	28: c/d$tp$tp_c/d$tp_*(c/d)_*($tp)
+	29: c/d$tp$tp_c/d$tp_*(c/d)_*($tp)
+	30: a/ba/b$tp$tp_a/b$tp_*(a/b)_*($tp)
+	31: a/ba/b$tp$tp_a/b$tp_*(a/b)_*($tp)
 #	This is what GNU bash does:
-#	40: c/d$tp$tp_a/b$tp_*(a/b)_*($tp)
-#	41: c/d$tp$tp_c/d$tp_*(c/d)_*($tp)
+#	30: c/d$tp$tp_a/b$tp_*(a/b)_*($tp)
+#	31: c/d$tp$tp_c/d$tp_*(c/d)_*($tp)
 ---
 name: eglob-utf8-1
 description:
@@ -2075,9 +2105,9 @@ expected-stdout:
 name: glob-bad-2
 description:
 	Check that symbolic links aren't stat()'d
-# breaks on FreeMiNT (cannot unlink dangling symlinks)
-# breaks on MSYS (does not support symlinks)
 # breaks on Dell UNIX 4.0 R2.2 (SVR4) where unlink also fails
+# breaks on FreeMiNT (cannot unlink dangling symlinks)
+# breaks on MSYS, OS/2 (do not support symlinks)
 category: !os:mint,!os:msys,!os:svr4.0,!nosymlink
 file-setup: dir 755 "dir"
 file-setup: symlink 644 "dir/abc"
@@ -2132,7 +2162,7 @@ description:
 # breaks on Mac OSX (HFS+ non-standard Unicode canonical decomposition)
 # breaks on Cygwin 1.7 (files are now UTF-16 or something)
 # breaks on QNX 6.4.1 (says RT)
-category: !os:cygwin,!os:darwin,!os:msys,!os:nto
+category: !os:cygwin,!os:darwin,!os:msys,!os:nto,!os:os2
 need-pass: no
 file-setup: file 644 "a�c"
 stdin:
@@ -2325,6 +2355,8 @@ stdin:
 	tr abcdefghijklmnopqrstuvwxyz nopqrstuvwxyzabcdefghijklm <<<\$bar
 	tr abcdefghijklmnopqrstuvwxyz nopqrstuvwxyzabcdefghijklm <<<-foo
 	tr abcdefghijklmnopqrstuvwxyz nopqrstuvwxyzabcdefghijklm <<<"$(echo "foo bar")"
+	tr abcdefghijklmnopqrstuvwxyz nopqrstuvwxyzabcdefghijklm <<<"A $(echo "foo bar") B"
+	tr abcdefghijklmnopqrstuvwxyz nopqrstuvwxyzabcdefghijklm <<<\$b\$b$bar
 expected-stdout:
 	sbb
 	sbb
@@ -2334,6 +2366,9 @@ expected-stdout:
 	$one
 	-sbb
 	sbb one
+	A sbb one B
+	$o$oone
+		onm
 ---
 name: heredoc-9b
 description:
@@ -2423,7 +2458,7 @@ stdin:
 	print -r -- "| ${v//$'\n'/^} |"
 expected-stdout:
 	function foo {
-		vc=<<-EOF
+		vc=<<-EOF 
 	=c $x \x40=
 	EOF
 	
@@ -2476,11 +2511,11 @@ stdin:
 	print -r -- "| ${v//$'\n'/^} |"
 expected-stdout:
 	function foo {
-		vc=<<-
+		vc=<<- 
 	=c $x \x40=
 	<<
 	
-		vd=<<-""
+		vd=<<-"" 
 	=d $x \x40=
 	
 	
@@ -2537,6 +2572,46 @@ expected-stdout:
 	3 bar "a b" bar
 	3 baz a b baz
 	3 bla "a b" bla
+---
+name: heredoc-14
+description:
+	Check that using multiple here documents works
+stdin:
+	foo() {
+		echo "got $(cat) on stdin"
+		echo "got $(cat <&4) on fd#4"
+		echo "got $(cat <&5) on fd#5"
+	}
+	bar() {
+		foo 4<<-a <<-b 5<<-c
+		four
+		a
+		zero
+		b
+		five
+		c
+	}
+	x=$(typeset -f bar)
+	eval "$x"
+	y=$(typeset -f bar)
+	[[ $x = "$y" ]]; echo $?
+	typeset -f bar
+	bar
+expected-stdout:
+	0
+	bar() {
+		foo 4<<-a <<-b 5<<-c 
+	four
+	a
+	zero
+	b
+	five
+	c
+	
+	} 
+	got zero on stdin
+	got four on fd#4
+	got five on fd#5
 ---
 name: heredoc-comsub-1
 description:
@@ -3555,7 +3630,6 @@ name: history-ed-3-old
 description:
 	Newly created multi line commands show up as single command
 	in history.
-	(NOTE: adjusted for COMPLEX HISTORY compile time option)
 	(ksh88 fails 'cause it lists the fc command)
 category: stdout-ed
 need-ctty: yes
@@ -3582,7 +3656,7 @@ expected-stdout:
 	a new line
 	1	echo abc def
 	2	echo FOOBAR def
-	3	echo a new line
+		echo a new line
 expected-stderr-pattern:
 	/^X*echo FOOBAR def\necho a new line\nX*$/
 ---
@@ -3664,7 +3738,7 @@ expected-stdout:
 	a new line
 	1	echo abc def
 	2	echo FOOBAR def
-	3	echo a new line
+		echo a new line
 expected-stderr-pattern:
 	/^X*13\n32\necho FOOBAR def\necho a new line\nX*$/
 ---
@@ -4545,6 +4619,20 @@ expected-stdout:
 	64
 	64
 ---
+name: integer-base-8
+description:
+	Check that base-36 works (full span)
+stdin:
+	echo 1:$((36#109AZ)).
+	typeset -i36 x=1691675
+	echo 2:$x.
+	typeset -Uui36 x
+	echo 3:$x.
+expected-stdout:
+	1:1691675.
+	2:36#109az.
+	3:36#109AZ.
+---
 name: integer-base-check-flat
 description:
 	Check behaviour does not match POSuX (except if set -o posix),
@@ -4561,11 +4649,11 @@ expected-stdout:
 ---
 name: integer-base-check-numeric-from
 description:
-	Check behaviour for base one to 36, and that 37 errors out
+	Check behaviour for base one to 36, and that 37 degrades to 10
 stdin:
 	echo 1:$((1#1))0.
 	i=1
-	while (( ++i <= 36 )); do
+	while (( ++i <= 37 )); do
 		eval 'echo '$i':$(('$i'#10)).'
 	done
 	echo 37:$($__progname -c 'echo $((37#10))').$?:
@@ -4606,13 +4694,12 @@ expected-stdout:
 	34:34.
 	35:35.
 	36:36.
-	37:.0:
-expected-stderr-pattern:
-	/.*bad number '37#10'/
+	37:10.
+	37:10.0:
 ---
 name: integer-base-check-numeric-to
 description:
-	Check behaviour for base one to 36, and that 37 errors out
+	Check behaviour for base one to 36, and that 37 degrades to 10
 stdin:
 	i=0
 	while (( ++i <= 37 )); do
@@ -4657,9 +4744,7 @@ expected-stdout:
 	34:34#1U.64.
 	35:35#1T.64.
 	36:36#1S.64.
-	37:36#1S.64.
-expected-stderr-pattern:
-	/.*bad integer base: 37/
+	37:64.64.
 ---
 name: integer-arithmetic-span
 description:
@@ -4826,7 +4911,7 @@ expected-stdout:
 	PROG: trap: bad signal 'UNKNOWNSIGNAL'
 	PROG: trap: bad signal '999999'
 	PROG: trap: bad signal 'FNORD'
-	= 3
+	= 1
 	trap 2 executed
 ---
 name: read-IFS-1
@@ -5008,8 +5093,8 @@ description:
 	need to be moved out of the switch to before findcom() is
 	called - I don't know what this will break.
 stdin:
-	: ${PWD:-`pwd 2> /dev/null`}
-	: ${PWD:?"PWD not set - can't do test"}
+	: "${PWD:-`pwd 2> /dev/null`}"
+	: "${PWD:?"PWD not set - cannot do test"}"
 	mkdir Y
 	cat > Y/xxxscript << EOF
 	#!/bin/sh
@@ -5547,7 +5632,7 @@ description:
 stdin:
 	print '#!'"$__progname"'\nunset RANDOM\nexport | while IFS= read -r' \
 	    'RANDOM; do eval '\''print -r -- "$RANDOM=$'\''"$RANDOM"'\'\"\'\; \
-	    done >env; chmod +x env; PATH=.:$PATH
+	    done >env; chmod +x env; PATH=.$PATHSEP$PATH
 	foo=bar
 	readonly foo
 	foo=stuff env | grep '^foo'
@@ -6253,7 +6338,7 @@ description:
 stdin:
 	print '#!'"$__progname"'\nunset RANDOM\nexport | while IFS= read -r' \
 	    'RANDOM; do eval '\''print -r -- "$RANDOM=$'\''"$RANDOM"'\'\"\'\; \
-	    done >env; chmod +x env; PATH=.:$PATH
+	    done >env; chmod +x env; PATH=.$PATHSEP$PATH
 	FOO=bar exec env
 expected-stdout-pattern:
 	/(^|.*\n)FOO=bar\n/
@@ -6265,7 +6350,7 @@ description:
 stdin:
 	print '#!'"$__progname"'\nunset RANDOM\nexport | while IFS= read -r' \
 	    'RANDOM; do eval '\''print -r -- "$RANDOM=$'\''"$RANDOM"'\'\"\'\; \
-	    done >env; chmod +x env; PATH=.:$PATH
+	    done >env; chmod +x env; PATH=.$PATHSEP$PATH
 	env >bar1
 	FOO=bar exec; env >bar2
 	cmp -s bar1 bar2
@@ -6324,6 +6409,41 @@ stdin:
 expected-stderr-pattern:
 	/bad substitution/
 expected-exit: 1
+---
+name: xxx-variable-syntax-4
+description:
+	Not all kinds of trims are currently impossible, check those who do
+stdin:
+	foo() {
+		echo "<$*> X${*:+ }X"
+	}
+	foo a b
+	foo "" c
+	foo ""
+	foo "" ""
+	IFS=:
+	foo a b
+	foo "" c
+	foo ""
+	foo "" ""
+	IFS=
+	foo a b
+	foo "" c
+	foo ""
+	foo "" ""
+expected-stdout:
+	<a b> X X
+	< c> X X
+	<> XX
+	< > X X
+	<a:b> X X
+	<:c> X X
+	<> XX
+	<:> X X
+	<ab> X X
+	<c> X X
+	<> XX
+	<> XX
 ---
 name: xxx-substitution-eval-order
 description:
@@ -6450,18 +6570,13 @@ name: xxx-param-subst-qmark-1
 description:
 	Check suppresion of error message with null string.  According to
 	POSIX, it shouldn't print the error as 'word' isn't ommitted.
-	ksh88/93, Solaris /bin/sh and /usr/xpg4/bin/sh all print the error,
-	that's why the condition is reversed.
+	ksh88/93, Solaris /bin/sh and /usr/xpg4/bin/sh all print the error.
 stdin:
 	unset foo
 	x=
 	echo x${foo?$x}
 expected-exit: 1
-# POSIX
-#expected-fail: yes
-#expected-stderr-pattern: !/not set/
-# common use
-expected-stderr-pattern: /parameter null or not set/
+expected-stderr-pattern: !/not set/
 ---
 name: xxx-param-_-1
 # fails due to weirdness of execv stuff
@@ -6477,12 +6592,24 @@ description:
 env-setup: !HOME=/sweet!
 stdin:
 	echo ${A=a=}~ b=~ c=d~ ~
-	set +o braceexpand
-	unset A
+	export e=~ f=d~
+	command command export g=~ h=d~
+	echo ". $e . $f ."
+	echo ". $g . $h ."
+	set -o posix
+	unset A e f g h
 	echo ${A=a=}~ b=~ c=d~ ~
+	export e=~ f=d~
+	command command export g=~ h=d~
+	echo ". $e . $f ."
+	echo ". $g . $h ."
 expected-stdout:
 	a=/sweet b=/sweet c=d~ /sweet
+	. /sweet . d~ .
+	. /sweet . d~ .
 	a=~ b=~ c=d~ /sweet
+	. /sweet . d~ .
+	. /sweet . d~ .
 ---
 name: tilde-expand-2
 description:
@@ -6509,7 +6636,7 @@ stdin:
 	print '#!'"$__progname"'\nexec "$1"' >env
 	print '#!'"$__progname"'\nexit 1' >false
 	chmod +x env false
-	PATH=.:$PATH
+	PATH=.$PATHSEP$PATH
 	set -ex
 	env false && echo something
 	echo END
@@ -6527,7 +6654,7 @@ stdin:
 	print '#!'"$__progname"'\nexit 1' >false
 	print '#!'"$__progname"'\nexit 0' >true
 	chmod +x env false
-	PATH=.:$PATH
+	PATH=.$PATHSEP$PATH
 	set -ex
 	if env true; then
 		env false && echo something
@@ -6971,6 +7098,131 @@ expected-stdout:
 	2- 1 1 1 =
 	3- 0 0 0 =
 ---
+name: test-stnze-1
+description:
+	Check that the short form [ $x ] works
+stdin:
+	i=0
+	[ -n $x ]
+	rv=$?; echo $((++i)) $rv
+	[ $x ]
+	rv=$?; echo $((++i)) $rv
+	[ -n "$x" ]
+	rv=$?; echo $((++i)) $rv
+	[ "$x" ]
+	rv=$?; echo $((++i)) $rv
+	x=0
+	[ -n $x ]
+	rv=$?; echo $((++i)) $rv
+	[ $x ]
+	rv=$?; echo $((++i)) $rv
+	[ -n "$x" ]
+	rv=$?; echo $((++i)) $rv
+	[ "$x" ]
+	rv=$?; echo $((++i)) $rv
+	x='1 -a 1 = 2'
+	[ -n $x ]
+	rv=$?; echo $((++i)) $rv
+	[ $x ]
+	rv=$?; echo $((++i)) $rv
+	[ -n "$x" ]
+	rv=$?; echo $((++i)) $rv
+	[ "$x" ]
+	rv=$?; echo $((++i)) $rv
+expected-stdout:
+	1 0
+	2 1
+	3 1
+	4 1
+	5 0
+	6 0
+	7 0
+	8 0
+	9 1
+	10 1
+	11 0
+	12 0
+---
+name: test-stnze-2
+description:
+	Check that the short form [[ $x ]] works (ksh93 extension)
+stdin:
+	i=0
+	[[ -n $x ]]
+	rv=$?; echo $((++i)) $rv
+	[[ $x ]]
+	rv=$?; echo $((++i)) $rv
+	[[ -n "$x" ]]
+	rv=$?; echo $((++i)) $rv
+	[[ "$x" ]]
+	rv=$?; echo $((++i)) $rv
+	x=0
+	[[ -n $x ]]
+	rv=$?; echo $((++i)) $rv
+	[[ $x ]]
+	rv=$?; echo $((++i)) $rv
+	[[ -n "$x" ]]
+	rv=$?; echo $((++i)) $rv
+	[[ "$x" ]]
+	rv=$?; echo $((++i)) $rv
+	x='1 -a 1 = 2'
+	[[ -n $x ]]
+	rv=$?; echo $((++i)) $rv
+	[[ $x ]]
+	rv=$?; echo $((++i)) $rv
+	[[ -n "$x" ]]
+	rv=$?; echo $((++i)) $rv
+	[[ "$x" ]]
+	rv=$?; echo $((++i)) $rv
+expected-stdout:
+	1 1
+	2 1
+	3 1
+	4 1
+	5 0
+	6 0
+	7 0
+	8 0
+	9 0
+	10 0
+	11 0
+	12 0
+---
+name: test-numeq
+description:
+	Check numeric -eq works (R40d regression); spotted by Martijn Dekker
+stdin:
+	tst() {
+		eval "$2"
+		case $? in
+		(0) echo yepp 0 \#"$*" ;;
+		(1) echo nope 1 \#"$*" ;;
+		(2) echo terr 2 \#"$*" ;;
+		(*) echo wtf\? $? \#"$*" ;;
+		esac
+	}
+	tst 1 'test 2 -eq 2'
+	tst 2 'test 2 -eq 2a'
+	tst 3 'test 2 -eq 3'
+	tst 4 'test 2 -ne 2'
+	tst 5 'test 2 -ne 2a'
+	tst 6 'test 2 -ne 3'
+	tst 7 'test \! 2 -eq 2'
+	tst 8 'test \! 2 -eq 2a'
+	tst 9 'test \! 2 -eq 3'
+expected-stdout:
+	yepp 0 #1 test 2 -eq 2
+	terr 2 #2 test 2 -eq 2a
+	nope 1 #3 test 2 -eq 3
+	nope 1 #4 test 2 -ne 2
+	terr 2 #5 test 2 -ne 2a
+	yepp 0 #6 test 2 -ne 3
+	nope 1 #7 test \! 2 -eq 2
+	terr 2 #8 test \! 2 -eq 2a
+	yepp 0 #9 test \! 2 -eq 3
+expected-stderr-pattern:
+	/bad number/
+---
 name: mkshrc-1
 description:
 	Check that ~/.mkshrc works correctly.
@@ -7271,7 +7523,7 @@ stdin:
 	set -A anzahl -- foo/*
 	echo got ${#anzahl[*]} files
 	chmod +x foo/*
-	export PATH=$(pwd)/foo:$PATH
+	export PATH=$(pwd)/foo$PATHSEP$PATH
 	"$__progname" -c '﻿fnord'
 	echo =
 	"$__progname" -c '﻿fnord; fnord; ﻿fnord; fnord'
@@ -7441,159 +7693,61 @@ expected-stdout:
 name: aliases-1
 description:
 	Check if built-in shell aliases are okay
-category: !android,!arge
 stdin:
 	alias
 	typeset -f
 expected-stdout:
-	autoload='typeset -fu'
-	functions='typeset -f'
-	hash='alias -t'
-	history='fc -l'
-	integer='typeset -i'
-	local=typeset
-	login='exec login'
-	nameref='typeset -n'
+	autoload='\typeset -fu'
+	functions='\typeset -f'
+	hash='\builtin alias -t'
+	history='\builtin fc -l'
+	integer='\typeset -i'
+	local='\typeset'
+	login='\exec login'
+	nameref='\typeset -n'
 	nohup='nohup '
-	r='fc -e -'
-	source='PATH=$PATH:. command .'
-	stop='kill -STOP'
-	type='whence -v'
----
-name: aliases-1-hartz4
-description:
-	Check if built-in shell aliases are okay
-category: android,arge
-stdin:
-	alias
-	typeset -f
-expected-stdout:
-	autoload='typeset -fu'
-	functions='typeset -f'
-	hash='alias -t'
-	history='fc -l'
-	integer='typeset -i'
-	local=typeset
-	login='exec login'
-	nameref='typeset -n'
-	nohup='nohup '
-	r='fc -e -'
-	source='PATH=$PATH:. command .'
-	type='whence -v'
----
-name: aliases-2a
-description:
-	Check if “set -o sh” disables built-in aliases (except a few)
-category: disabled
-arguments: !-o!sh!
-stdin:
-	alias
-	typeset -f
-expected-stdout:
-	integer='typeset -i'
-	local=typeset
----
-name: aliases-3a
-description:
-	Check if running as sh disables built-in aliases (except a few)
-category: disabled
-stdin:
-	cp "$__progname" sh
-	./sh -c 'alias; typeset -f'
-	rm -f sh
-expected-stdout:
-	integer='typeset -i'
-	local=typeset
+	r='\builtin fc -e -'
+	type='\builtin whence -v'
 ---
 name: aliases-2b
 description:
 	Check if “set -o sh” does not influence built-in aliases
-category: !android,!arge
 arguments: !-o!sh!
 stdin:
 	alias
 	typeset -f
 expected-stdout:
-	autoload='typeset -fu'
-	functions='typeset -f'
-	hash='alias -t'
-	history='fc -l'
-	integer='typeset -i'
-	local=typeset
-	login='exec login'
-	nameref='typeset -n'
+	autoload='\typeset -fu'
+	functions='\typeset -f'
+	hash='\builtin alias -t'
+	history='\builtin fc -l'
+	integer='\typeset -i'
+	local='\typeset'
+	login='\exec login'
+	nameref='\typeset -n'
 	nohup='nohup '
-	r='fc -e -'
-	source='PATH=$PATH:. command .'
-	stop='kill -STOP'
-	type='whence -v'
+	r='\builtin fc -e -'
+	type='\builtin whence -v'
 ---
 name: aliases-3b
 description:
 	Check if running as sh does not influence built-in aliases
-category: !android,!arge
 stdin:
 	cp "$__progname" sh
 	./sh -c 'alias; typeset -f'
 	rm -f sh
 expected-stdout:
-	autoload='typeset -fu'
-	functions='typeset -f'
-	hash='alias -t'
-	history='fc -l'
-	integer='typeset -i'
-	local=typeset
-	login='exec login'
-	nameref='typeset -n'
+	autoload='\typeset -fu'
+	functions='\typeset -f'
+	hash='\builtin alias -t'
+	history='\builtin fc -l'
+	integer='\typeset -i'
+	local='\typeset'
+	login='\exec login'
+	nameref='\typeset -n'
 	nohup='nohup '
-	r='fc -e -'
-	source='PATH=$PATH:. command .'
-	stop='kill -STOP'
-	type='whence -v'
----
-name: aliases-2b-hartz4
-description:
-	Check if “set -o sh” does not influence built-in aliases
-category: android,arge
-arguments: !-o!sh!
-stdin:
-	alias
-	typeset -f
-expected-stdout:
-	autoload='typeset -fu'
-	functions='typeset -f'
-	hash='alias -t'
-	history='fc -l'
-	integer='typeset -i'
-	local=typeset
-	login='exec login'
-	nameref='typeset -n'
-	nohup='nohup '
-	r='fc -e -'
-	source='PATH=$PATH:. command .'
-	type='whence -v'
----
-name: aliases-3b-hartz4
-description:
-	Check if running as sh does not influence built-in aliases
-category: android,arge
-stdin:
-	cp "$__progname" sh
-	./sh -c 'alias; typeset -f'
-	rm -f sh
-expected-stdout:
-	autoload='typeset -fu'
-	functions='typeset -f'
-	hash='alias -t'
-	history='fc -l'
-	integer='typeset -i'
-	local=typeset
-	login='exec login'
-	nameref='typeset -n'
-	nohup='nohup '
-	r='fc -e -'
-	source='PATH=$PATH:. command .'
-	type='whence -v'
+	r='\builtin fc -e -'
+	type='\builtin whence -v'
 ---
 name: aliases-cmdline
 description:
@@ -7616,7 +7770,7 @@ stdin:
 	}
 	foo
 expected-stdout:
-	funktion
+	makro
 ---
 name: aliases-funcdef-2
 description:
@@ -7628,7 +7782,7 @@ stdin:
 	}
 	foo
 expected-stdout:
-	funktion
+	makro
 ---
 name: aliases-funcdef-3
 description:
@@ -7650,8 +7804,8 @@ stdin:
 	:|| local() { :; }
 	alias local
 expected-stdout:
-	local=typeset
-	local=typeset
+	local='\typeset'
+	local='\typeset'
 ---
 name: arrays-1
 description:
@@ -8373,7 +8527,7 @@ expected-stdout:
 name: varexpand-substr-3
 description:
 	Check that some things that work in bash fail.
-	This is by design. And that some things fail in both.
+	This is by design. Oh and vice versa, nowadays.
 stdin:
 	export x=abcdefghi n=2
 	"$__progname" -c 'echo v${x:(n)}x'
@@ -8381,12 +8535,13 @@ stdin:
 	"$__progname" -c 'echo x${x:n}x'
 	"$__progname" -c 'echo y${x:}x'
 	"$__progname" -c 'echo z${x}x'
+	# next fails only in bash
 	"$__progname" -c 'x=abcdef;y=123;echo ${x:${y:2:1}:2}' >/dev/null 2>&1; echo $?
 expected-stdout:
 	vcdefghix
 	wcdefghix
 	zabcdefghix
-	1
+	0
 expected-stderr-pattern:
 	/x:n.*bad substitution.*\n.*bad substitution/
 ---
@@ -8518,6 +8673,7 @@ description:
 	Ensure concatenating behaviour matches other shells
 stdin:
 	showargs() { for s_arg in "$@"; do echo -n "<$s_arg> "; done; echo .; }
+	showargs 0 ""$@
 	x=; showargs 1 "$x"$@
 	set A; showargs 2 "${@:+}"
 	n() { echo "$#"; }
@@ -8537,6 +8693,7 @@ stdin:
 	n "$@"
 	n "$@""$e"
 expected-stdout:
+	<0> <> .
 	<1> <> .
 	<2> <> .
 	2
@@ -8552,13 +8709,36 @@ expected-stdout:
 	0
 	1
 ---
+name: varexpand-funny-chars
+description:
+	Check some characters
+	XXX \uEF80 is asymmetric, possibly buggy so we don’t check this
+stdin:
+	x=$'<\x00>'; typeset -p x
+	x=$'<\x01>'; typeset -p x
+	x=$'<\u0000>'; typeset -p x
+	x=$'<\u0001>'; typeset -p x
+expected-stdout:
+	typeset x='<'
+	typeset x=$'<\001>'
+	typeset x='<'
+	typeset x=$'<\001>'
+---
 name: print-funny-chars
 description:
 	Check print builtin's capability to output designated characters
 stdin:
 	print '<\0144\0344\xDB\u00DB\u20AC\uDB\x40>'
+	print '<\x00>'
+	print '<\x01>'
+	print '<\u0000>'
+	print '<\u0001>'
 expected-stdout:
 	<d��Û€Û@>
+	< >
+	<>
+	< >
+	<>
 ---
 name: print-bksl-c
 description:
@@ -8597,6 +8777,7 @@ stdin:
 	cat >foo <<-'EOF'
 		x='bar
 		' #
+		echo .${#x} #
 		if test x"$KSH_VERSION" = x""; then #
 			printf '<%s>' "$x" #
 		else #
@@ -8608,8 +8789,10 @@ stdin:
 		print -r -- "{$line}"
 	done
 expected-stdout:
-	[<bar
+	[.5
+	<bar
 	>]
+	{.5}
 	{<bar}
 ---
 name: print-lf
@@ -8619,6 +8802,7 @@ stdin:
 	cat >foo <<-'EOF'
 		x='bar
 		' #
+		echo .${#x} #
 		if test x"$KSH_VERSION" = x""; then #
 			printf '<%s>' "$x" #
 		else #
@@ -8630,8 +8814,10 @@ stdin:
 		print -r -- "{$line}"
 	done
 expected-stdout:
-	[<bar
+	[.4
+	<bar
 	>]
+	{.4}
 	{<bar}
 ---
 name: print-nul-chars
@@ -8828,15 +9014,13 @@ stdin:
 	"$__progname" -c source
 expected-exit: e != 0
 expected-stderr-pattern:
-	/\.: missing argument.*\n.*\.: missing argument/
+	/\.: missing argument.*\n.*source: missing argument/
 ---
-name: alias-function-no-conflict-legacy
+name: alias-function-no-conflict
 description:
-	make aliases not conflict with functions, legacy version:
-	undefine these aliases upon definition of the function
-	note: for ksh functions, the order of preference differs in GNU bash
+	make aliases not conflict with function definitions
 stdin:
-	# POSIX function overrides and removes alias
+	# POSIX function can be defined, but alias overrides it
 	alias foo='echo bar'
 	foo
 	foo() {
@@ -8863,8 +9047,8 @@ stdin:
 	bla
 expected-stdout:
 	bar
-	baz
-	rab
+	bar
+	bar
 	bar
 	bar
 	bfn
@@ -8886,20 +9070,16 @@ stdin:
 	mk 'function foo' >f-korn
 	mk 'foo ()' >f-dash
 	mk 'function foo ()' >f-bash
-	# pre-R51 can do without a backslash in front of the second stop
-	mk 'function stop ()' 'stop' >f-stop
 	print '#!'"$__progname"'\nprint -r -- "${0%/f-argh}"' >f-argh
 	chmod +x f-*
 	u=$(./f-argh)
 	x="korn: $(./f-korn)"; echo "${x/@("$u")/.}"
 	x="dash: $(./f-dash)"; echo "${x/@("$u")/.}"
 	x="bash: $(./f-bash)"; echo "${x/@("$u")/.}"
-	x="stop: $(./f-stop)"; echo "${x/@("$u")/.}"
 expected-stdout:
 	korn: bar='foo'
 	dash: bar='./f-dash'
 	bash: bar='./f-bash'
-	stop: bar='./f-stop'
 ---
 name: integer-base-one-1
 description:
@@ -9844,7 +10024,7 @@ description:
 stdin:
 	print '#!'"$__progname"'\nunset RANDOM\nexport | while IFS= read -r' \
 	    'RANDOM; do eval '\''print -r -- "$RANDOM=$'\''"$RANDOM"'\'\"\'\; \
-	    done >env; chmod +x env; PATH=.:$PATH
+	    done >env; chmod +x env; PATH=.$PATHSEP$PATH
 	function k {
 		if [ x$FOO != xbar ]; then
 			echo 1
@@ -10016,7 +10196,7 @@ description:
 	is a must (a non-recursive parser cannot pass all three of
 	these test cases, especially the ‘#’ is difficult)
 stdin:
-	print '#!'"$__progname"'\necho 1234' >id; chmod +x id; PATH=.:$PATH
+	print '#!'"$__progname"'\necho 1234' >id; chmod +x id; PATH=.$PATHSEP$PATH
 	echo $(typeset -i10 x=16#20; echo $x)
 	echo $(typeset -Uui16 x=16#$(id -u)
 	) .
@@ -10328,7 +10508,9 @@ expected-stdout:
 	}
 	inline_TWHILE() {
 		i=1 
-		while let] " i < 10 " 
+		while {
+			      \let] " i < 10 " 
+		      } 
 		do
 			echo $i 
 			let ++i 
@@ -10338,20 +10520,22 @@ expected-stdout:
 		i=1; while (( i < 10 )); do echo $i; let ++i; done
 	); }
 	function comsub_TWHILE {
-		x=$(i=1 ; while let] " i < 10 " ; do echo $i ; let ++i ; done ) 
+		x=$(i=1 ; while { \let] " i < 10 " ; } ; do echo $i ; let ++i ; done ) 
 	} 
 	function reread_TWHILE { x=$((
 		i=1; while (( i < 10 )); do echo $i; let ++i; done
 	)|tr u x); }
 	function reread_TWHILE {
-		x=$(( i=1 ; while let] " i < 10 " ; do echo $i ; let ++i ; done ) | tr u x ) 
+		x=$(( i=1 ; while { \let] " i < 10 " ; } ; do echo $i ; let ++i ; done ) | tr u x ) 
 	} 
 	inline_TUNTIL() {
 		i=10; until  (( !--i )) ; do echo $i; done
 	}
 	inline_TUNTIL() {
 		i=10 
-		until let] " !--i " 
+		until {
+			      \let] " !--i " 
+		      } 
 		do
 			echo $i 
 		done 
@@ -10360,13 +10544,13 @@ expected-stdout:
 		i=10; until  (( !--i )) ; do echo $i; done
 	); }
 	function comsub_TUNTIL {
-		x=$(i=10 ; until let] " !--i " ; do echo $i ; done ) 
+		x=$(i=10 ; until { \let] " !--i " ; } ; do echo $i ; done ) 
 	} 
 	function reread_TUNTIL { x=$((
 		i=10; until  (( !--i )) ; do echo $i; done
 	)|tr u x); }
 	function reread_TUNTIL {
-		x=$(( i=10 ; until let] " !--i " ; do echo $i ; done ) | tr u x ) 
+		x=$(( i=10 ; until { \let] " !--i " ; } ; do echo $i ; done ) | tr u x ) 
 	} 
 	inline_TCOPROC() {
 		cat  *  |&  ls
@@ -10438,7 +10622,7 @@ expected-stdout:
 	EOFN
 	}
 	inline_IOWRITE_IOCLOB_IOHERE_noIOSKIP() {
-		cat >|bar <<"EOFN"
+		cat >|bar <<"EOFN" 
 		foo
 	EOFN
 	
@@ -10449,7 +10633,7 @@ expected-stdout:
 	EOFN
 	); }
 	function comsub_IOWRITE_IOCLOB_IOHERE_noIOSKIP {
-		x=$(cat >|bar <<"EOFN"
+		x=$(cat >|bar <<"EOFN" 
 		foo
 	EOFN
 	) 
@@ -10460,7 +10644,7 @@ expected-stdout:
 	EOFN
 	)|tr u x); }
 	function reread_IOWRITE_IOCLOB_IOHERE_noIOSKIP {
-		x=$(( cat >|bar <<"EOFN"
+		x=$(( cat >|bar <<"EOFN" 
 		foo
 	EOFN
 	) | tr u x ) 
@@ -10471,7 +10655,7 @@ expected-stdout:
 		EOFI
 	}
 	inline_IOWRITE_noIOCLOB_IOHERE_IOSKIP() {
-		cat >bar <<-EOFI
+		cat >bar <<-EOFI 
 	foo
 	EOFI
 	
@@ -10482,7 +10666,7 @@ expected-stdout:
 		EOFI
 	); }
 	function comsub_IOWRITE_noIOCLOB_IOHERE_IOSKIP {
-		x=$(cat >bar <<-EOFI
+		x=$(cat >bar <<-EOFI 
 	foo
 	EOFI
 	) 
@@ -10493,7 +10677,7 @@ expected-stdout:
 		EOFI
 	)|tr u x); }
 	function reread_IOWRITE_noIOCLOB_IOHERE_IOSKIP {
-		x=$(( cat >bar <<-EOFI
+		x=$(( cat >bar <<-EOFI 
 	foo
 	EOFI
 	) | tr u x ) 
@@ -10584,7 +10768,7 @@ expected-stdout:
 	EOFN); echo $x
 	}
 	inline_heredoc_closed() {
-		x=$(cat <<EOFN
+		x=$(cat <<EOFN 
 		note there must be no space between EOFN and )
 	EOFN
 	) 
@@ -10596,7 +10780,7 @@ expected-stdout:
 	EOFN); echo $x
 	); }
 	function comsub_heredoc_closed {
-		x=$(x=$(cat <<EOFN
+		x=$(x=$(cat <<EOFN 
 		note there must be no space between EOFN and )
 	EOFN
 	) ; echo $x ) 
@@ -10607,7 +10791,7 @@ expected-stdout:
 	EOFN); echo $x
 	)|tr u x); }
 	function reread_heredoc_closed {
-		x=$(( x=$(cat <<EOFN
+		x=$(( x=$(cat <<EOFN 
 		note there must be no space between EOFN and )
 	EOFN
 	) ; echo $x ) | tr u x ) 
@@ -10618,7 +10802,7 @@ expected-stdout:
 	EOFN ); echo $x
 	}
 	inline_heredoc_space() {
-		x=$(cat <<EOFN\ 
+		x=$(cat <<EOFN\  
 		note the space between EOFN and ) is actually part of the here document marker
 	EOFN 
 	) 
@@ -10630,7 +10814,7 @@ expected-stdout:
 	EOFN ); echo $x
 	); }
 	function comsub_heredoc_space {
-		x=$(x=$(cat <<EOFN\ 
+		x=$(x=$(cat <<EOFN\  
 		note the space between EOFN and ) is actually part of the here document marker
 	EOFN 
 	) ; echo $x ) 
@@ -10641,7 +10825,7 @@ expected-stdout:
 	EOFN ); echo $x
 	)|tr u x); }
 	function reread_heredoc_space {
-		x=$(( x=$(cat <<EOFN\ 
+		x=$(( x=$(cat <<EOFN\  
 		note the space between EOFN and ) is actually part of the here document marker
 	EOFN 
 	) ; echo $x ) | tr u x ) 
@@ -10664,7 +10848,7 @@ expected-stdout:
 	}
 	inline_patch_motd() {
 		x=$(sysctl -n kern.version | sed 1q ) 
-		[[ -s /etc/motd && "$([[ "$(head -1 /etc/motd )" != $x ]] && ed -s /etc/motd 2>&1 <<-EOF
+		[[ -s /etc/motd && "$([[ "$(head -1 /etc/motd )" != $x ]] && ed -s /etc/motd 2>&1 <<-EOF 
 	1,/^\$/d
 	0a
 	$x
@@ -10696,7 +10880,7 @@ expected-stdout:
 		fi
 	); }
 	function comsub_patch_motd {
-		x=$(x=$(sysctl -n kern.version | sed 1q ) ; [[ -s /etc/motd && "$([[ "$(head -1 /etc/motd )" != $x ]] && ed -s /etc/motd 2>&1 <<-EOF
+		x=$(x=$(sysctl -n kern.version | sed 1q ) ; [[ -s /etc/motd && "$([[ "$(head -1 /etc/motd )" != $x ]] && ed -s /etc/motd 2>&1 <<-EOF 
 	1,/^\$/d
 	0a
 	$x
@@ -10723,7 +10907,7 @@ expected-stdout:
 		fi
 	)|tr u x); }
 	function reread_patch_motd {
-		x=$(( x=$(sysctl -n kern.version | sed 1q ) ; [[ -s /etc/motd && "$([[ "$(head -1 /etc/motd )" != $x ]] && ed -s /etc/motd 2>&1 <<-EOF
+		x=$(( x=$(sysctl -n kern.version | sed 1q ) ; [[ -s /etc/motd && "$([[ "$(head -1 /etc/motd )" != $x ]] && ed -s /etc/motd 2>&1 <<-EOF 
 	1,/^\$/d
 	0a
 	$x
@@ -10742,7 +10926,7 @@ expected-stdout:
 		case x in
 		(x)
 			a+=b 
-			set -A c+ -- d e 
+			\set -A c+ -- d e 
 			;;
 		esac 
 	} 
@@ -10752,7 +10936,7 @@ expected-stdout:
 		esac
 	); }
 	function comsub_wdarrassign {
-		x=$(case x in (x) a+=b ; set -A c+ -- d e  ;; esac ) 
+		x=$(case x in (x) a+=b ; \set -A c+ -- d e  ;; esac ) 
 	} 
 	function reread_wdarrassign { x=$((
 		case x in
@@ -10760,7 +10944,7 @@ expected-stdout:
 		esac
 	)|tr u x); }
 	function reread_wdarrassign {
-		x=$(( case x in (x) a+=b ; set -A c+ -- d e  ;; esac ) | tr u x ) 
+		x=$(( case x in (x) a+=b ; \set -A c+ -- d e  ;; esac ) | tr u x ) 
 	} 
 ---
 name: comsub-torture-io
@@ -10980,7 +11164,9 @@ expected-stdout:
 	}
 	inline_TWHILE() {
 		i=1 
-		while let] " i < 10 " >&3 
+		while {
+			      \let] " i < 10 " 
+		      } >&3 
 		do
 			echo $i 
 			let ++i 
@@ -10990,20 +11176,22 @@ expected-stdout:
 		i=1; while (( i < 10 )) >&3; do echo $i; let ++i; done >&3
 	); }
 	function comsub_TWHILE {
-		x=$(i=1 ; while let] " i < 10 " >&3 ; do echo $i ; let ++i ; done >&3 ) 
+		x=$(i=1 ; while { \let] " i < 10 " ; } >&3 ; do echo $i ; let ++i ; done >&3 ) 
 	} 
 	function reread_TWHILE { x=$((
 		i=1; while (( i < 10 )) >&3; do echo $i; let ++i; done >&3
 	)|tr u x); }
 	function reread_TWHILE {
-		x=$(( i=1 ; while let] " i < 10 " >&3 ; do echo $i ; let ++i ; done >&3 ) | tr u x ) 
+		x=$(( i=1 ; while { \let] " i < 10 " ; } >&3 ; do echo $i ; let ++i ; done >&3 ) | tr u x ) 
 	} 
 	inline_TUNTIL() {
 		i=10; until  (( !--i )) >&3 ; do echo $i; done >&3
 	}
 	inline_TUNTIL() {
 		i=10 
-		until let] " !--i " >&3 
+		until {
+			      \let] " !--i " 
+		      } >&3 
 		do
 			echo $i 
 		done >&3 
@@ -11012,13 +11200,13 @@ expected-stdout:
 		i=10; until  (( !--i )) >&3 ; do echo $i; done >&3
 	); }
 	function comsub_TUNTIL {
-		x=$(i=10 ; until let] " !--i " >&3 ; do echo $i ; done >&3 ) 
+		x=$(i=10 ; until { \let] " !--i " ; } >&3 ; do echo $i ; done >&3 ) 
 	} 
 	function reread_TUNTIL { x=$((
 		i=10; until  (( !--i )) >&3 ; do echo $i; done >&3
 	)|tr u x); }
 	function reread_TUNTIL {
-		x=$(( i=10 ; until let] " !--i " >&3 ; do echo $i ; done >&3 ) | tr u x ) 
+		x=$(( i=10 ; until { \let] " !--i " ; } >&3 ; do echo $i ; done >&3 ) | tr u x ) 
 	} 
 	inline_TCOPROC() {
 		cat  *  >&3 |&  >&3 ls
@@ -11150,96 +11338,6 @@ expected-stdout:
 	typeset t=$'foo\n\n'
 	this used to segfault.
 ---
-name: test-stnze-1
-description:
-	Check that the short form [ $x ] works
-stdin:
-	i=0
-	[ -n $x ]
-	rv=$?; echo $((++i)) $rv
-	[ $x ]
-	rv=$?; echo $((++i)) $rv
-	[ -n "$x" ]
-	rv=$?; echo $((++i)) $rv
-	[ "$x" ]
-	rv=$?; echo $((++i)) $rv
-	x=0
-	[ -n $x ]
-	rv=$?; echo $((++i)) $rv
-	[ $x ]
-	rv=$?; echo $((++i)) $rv
-	[ -n "$x" ]
-	rv=$?; echo $((++i)) $rv
-	[ "$x" ]
-	rv=$?; echo $((++i)) $rv
-	x='1 -a 1 = 2'
-	[ -n $x ]
-	rv=$?; echo $((++i)) $rv
-	[ $x ]
-	rv=$?; echo $((++i)) $rv
-	[ -n "$x" ]
-	rv=$?; echo $((++i)) $rv
-	[ "$x" ]
-	rv=$?; echo $((++i)) $rv
-expected-stdout:
-	1 0
-	2 1
-	3 1
-	4 1
-	5 0
-	6 0
-	7 0
-	8 0
-	9 1
-	10 1
-	11 0
-	12 0
----
-name: test-stnze-2
-description:
-	Check that the short form [[ $x ]] works (ksh93 extension)
-stdin:
-	i=0
-	[[ -n $x ]]
-	rv=$?; echo $((++i)) $rv
-	[[ $x ]]
-	rv=$?; echo $((++i)) $rv
-	[[ -n "$x" ]]
-	rv=$?; echo $((++i)) $rv
-	[[ "$x" ]]
-	rv=$?; echo $((++i)) $rv
-	x=0
-	[[ -n $x ]]
-	rv=$?; echo $((++i)) $rv
-	[[ $x ]]
-	rv=$?; echo $((++i)) $rv
-	[[ -n "$x" ]]
-	rv=$?; echo $((++i)) $rv
-	[[ "$x" ]]
-	rv=$?; echo $((++i)) $rv
-	x='1 -a 1 = 2'
-	[[ -n $x ]]
-	rv=$?; echo $((++i)) $rv
-	[[ $x ]]
-	rv=$?; echo $((++i)) $rv
-	[[ -n "$x" ]]
-	rv=$?; echo $((++i)) $rv
-	[[ "$x" ]]
-	rv=$?; echo $((++i)) $rv
-expected-stdout:
-	1 1
-	2 1
-	3 1
-	4 1
-	5 0
-	6 0
-	7 0
-	8 0
-	9 0
-	10 0
-	11 0
-	12 0
----
 name: event-subst-3
 description:
 	Check that '!' substitution in noninteractive mode is ignored
@@ -11251,7 +11349,7 @@ file-setup: file 755 "!false"
 	#! /bin/sh
 	echo si
 stdin:
-	export PATH=.:$PATH
+	export PATH=.$PATHSEP$PATH
 	falsetto
 	echo yeap
 	!false
@@ -11281,7 +11379,7 @@ file-setup: file 755 "!false"
 	#! /bin/sh
 	echo si
 stdin:
-	export PATH=.:$PATH
+	export PATH=.$PATHSEP$PATH
 	falsetto
 	echo yeap
 	!false
@@ -11604,6 +11702,16 @@ stdin:
 	x=$((echo fubar)|(tr u x)); echo $x $?
 expected-stdout:
 	fxbar 0
+---
+name: better-parens-5
+description:
+	Another corner case
+stdin:
+	( (echo 'fo	o$bar' "baz\$bla\"" m\$eh) | tr a A)
+	((echo 'fo	o$bar' "baz\$bla\"" m\$eh) | tr a A)
+expected-stdout:
+	fo	o$bAr bAz$blA" m$eh
+	fo	o$bAr bAz$blA" m$eh
 ---
 name: echo-test-1
 description:
@@ -12104,9 +12212,30 @@ expected-stderr:
 	[(p:sh)(f1:sh)(f2:sh)] print '(o1:shx)'
 	[(p:sh)(f1:sh)(f2:sh)] set +x
 ---
+name: fksh-flags
+description:
+	Check that FKSH functions have their own shell flags
+category: shell:legacy-no
+stdin:
+	[[ $KSH_VERSION = Version* ]] && set +B
+	function foo {
+		set +f
+		set -e
+		echo 2 "${-/s}" .
+	}
+	set -fh
+	echo 1 "${-/s}" .
+	foo
+	echo 3 "${-/s}" .
+expected-stdout:
+	1 fh .
+	2 eh .
+	3 fh .
+---
 name: fksh-flags-legacy
 description:
 	Check that even FKSH functions share the shell flags
+category: shell:legacy-yes
 stdin:
 	[[ $KSH_VERSION = Version* ]] && set +B
 	foo() {

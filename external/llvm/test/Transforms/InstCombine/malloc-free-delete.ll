@@ -127,7 +127,7 @@ declare i32 @__gxx_personality_v0(...)
 declare void @_ZN1AC2Ev(i8* %this)
 
 ; CHECK-LABEL: @test7(
-define void @test7() {
+define void @test7() personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
 entry:
   %nt = alloca i8
   ; CHECK-NOT: call {{.*}}@_ZnwmRKSt9nothrow_t(
@@ -139,7 +139,7 @@ entry:
   unreachable
 
 lpad.i:                                           ; preds = %entry
-  %0 = landingpad { i8*, i32 } personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) cleanup
+  %0 = landingpad { i8*, i32 } cleanup
   ; CHECK-NOT: call {{.*}}@_ZdlPvRKSt9nothrow_t(
   call void @_ZdlPvRKSt9nothrow_t(i8* %call.i, i8* %nt) builtin nounwind
   resume { i8*, i32 } %0
@@ -184,5 +184,16 @@ define void @test8() {
   call void @_ZdaPvm(i8* %nam, i64 32) builtin
   %naj = call i8* @_Znaj(i32 32) builtin
   call void @_ZdaPvj(i8* %naj, i32 32) builtin
+  ret void
+}
+
+declare noalias i8* @"\01??2@YAPEAX_K@Z"(i64) nobuiltin
+declare void @"\01??3@YAXPEAX@Z"(i8*) nobuiltin
+
+; CHECK-LABEL: @test9(
+define void @test9() {
+  ; CHECK-NOT: call
+  %new_long_long = call noalias i8* @"\01??2@YAPEAX_K@Z"(i64 32) builtin
+  call void @"\01??3@YAXPEAX@Z"(i8* %new_long_long) builtin
   ret void
 }

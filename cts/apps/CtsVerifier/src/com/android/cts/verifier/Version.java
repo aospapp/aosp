@@ -24,19 +24,11 @@ import android.content.pm.PackageManager.NameNotFoundException;
 class Version {
 
     static String getVersionName(Context context) {
-        return getVersionNameStrings(context)[0];
+        return getPackageInfo(context).versionName;
     }
 
     static int getVersionCode(Context context) {
         return getPackageInfo(context).versionCode;
-    }
-
-    static String getBuildNumber(Context context) {
-        return getVersionNameStrings(context)[1];
-    }
-
-    static private String[] getVersionNameStrings(Context context) {
-        return getPackageInfo(context).versionName.split(" ");
     }
 
     static PackageInfo getPackageInfo(Context context) {

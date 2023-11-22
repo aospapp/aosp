@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -27,8 +27,12 @@ OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "mm_qcamera_dbg.h"
+// System dependencies
+#include <fcntl.h>
+
+// Camera dependencies
 #include "mm_qcamera_app.h"
+#include "mm_qcamera_dbg.h"
 
 static uint32_t rdi_len = 0;
 
@@ -46,7 +50,7 @@ static void mm_app_rdi_dump_frame(mm_camera_buf_def_t *frame,
             QCAMERA_DUMP_FRM_LOCATION"%s_%03u.%s", name, frame_idx, ext);
         file_fd = open(file_name, O_RDWR | O_CREAT, 0777);
         if (file_fd < 0) {
-            CDBG_ERROR("%s: cannot open file %s \n", __func__, file_name);
+            LOGE(" cannot open file %s \n",  file_name);
         } else {
             for (i = 0; i < frame->planes_buf.num_planes; i++) {
                 write(file_fd,
@@ -55,7 +59,7 @@ static void mm_app_rdi_dump_frame(mm_camera_buf_def_t *frame,
             }
 
             close(file_fd);
-            CDBG("%s: dump rdi frame %s", __func__,file_name);
+            LOGD(" dump rdi frame %s", file_name);
         }
     }
 }
@@ -67,20 +71,20 @@ static void mm_app_rdi_notify_cb(mm_camera_super_buf_t *bufs,
     mm_camera_buf_def_t *frame = bufs->bufs[0];
     mm_camera_test_obj_t *pme = (mm_camera_test_obj_t *)user_data;
 
-    CDBG("%s: BEGIN - length=%zu, frame idx = %d stream_id=%d\n",
-         __func__, frame->frame_len, frame->frame_idx, frame->stream_id);
+    LOGD(" BEGIN - length=%zu, frame idx = %d stream_id=%d\n",
+          frame->frame_len, frame->frame_idx, frame->stream_id);
     snprintf(file_name, sizeof(file_name), "RDI_dump_%d", pme->cam->camera_handle);
     mm_app_rdi_dump_frame(frame, file_name, "raw", frame->frame_idx);
 
     if (MM_CAMERA_OK != pme->cam->ops->qbuf(bufs->camera_handle,
                                             bufs->ch_id,
                                             frame)) {
-        CDBG_ERROR("%s: Failed in RDI Qbuf\n", __func__);
+        LOGE(" Failed in RDI Qbuf\n");
     }
     mm_app_cache_ops((mm_camera_app_meminfo_t *)frame->mem_info,
                      ION_IOC_INV_CACHES);
 
-    CDBG("%s: END\n", __func__);
+    LOGD(" END\n");
 }
 
 mm_camera_stream_t * mm_app_add_rdi_stream(mm_camera_test_obj_t *test_obj,
@@ -96,29 +100,48 @@ mm_camera_stream_t * mm_app_add_rdi_stream(mm_camera_test_obj_t *test_obj,
     cam_capability_t *cam_cap = (cam_capability_t *)(test_obj->cap_buf.buf.buffer);
     cam_format_t fmt = CAM_FORMAT_MAX;
     cam_stream_buf_plane_info_t *buf_planes;
+    cam_stream_size_info_t abc ;
+    memset (&abc , 0, sizeof (cam_stream_size_info_t));
 
-    stream = mm_app_add_stream(test_obj, channel);
-    if (NULL == stream) {
-        CDBG_ERROR("%s: add stream failed\n", __func__);
-        return NULL;
-    }
 
-    CDBG_ERROR("%s: raw_dim w:%d height:%d\n", __func__, cam_cap->raw_dim[0].width, cam_cap->raw_dim[0].height);
+
+    LOGE(" raw_dim w:%d height:%d\n",  cam_cap->raw_dim[0].width, cam_cap->raw_dim[0].height);
     for (i = 0;i < cam_cap->supported_raw_fmt_cnt;i++) {
-        CDBG_ERROR("%s: supported_raw_fmts[%zd]=%d\n", __func__,
+        LOGE(" supported_raw_fmts[%zd]=%d\n",
             i, (int)cam_cap->supported_raw_fmts[i]);
         if (((CAM_FORMAT_BAYER_MIPI_RAW_8BPP_GBRG <= cam_cap->supported_raw_fmts[i]) &&
             (CAM_FORMAT_BAYER_MIPI_RAW_12BPP_BGGR >= cam_cap->supported_raw_fmts[i])) ||
             (cam_cap->supported_raw_fmts[i] == CAM_FORMAT_META_RAW_8BIT) ||
-            (cam_cap->supported_raw_fmts[i] == CAM_FORMAT_JPEG_RAW_8BIT))
+            (cam_cap->supported_raw_fmts[i] == CAM_FORMAT_JPEG_RAW_8BIT) ||
+            (cam_cap->supported_raw_fmts[i] == CAM_FORMAT_BAYER_MIPI_RAW_14BPP_BGGR))
         {
             fmt = cam_cap->supported_raw_fmts[i];
-            CDBG_ERROR("%s: fmt=%d\n", __func__, fmt);
+            LOGE(" fmt=%d\n",  fmt);
         }
     }
 
     if (CAM_FORMAT_MAX == fmt) {
-        CDBG_ERROR("%s: rdi format not supported\n", __func__);
+        LOGE(" rdi format not supported\n");
+        return NULL;
+    }
+
+    abc.num_streams = 1;
+    abc.postprocess_mask[0] = 0;
+    abc.stream_sizes[0].width = cam_cap->raw_dim[0].width;
+    abc.stream_sizes[0].height = cam_cap->raw_dim[0].height;
+    abc.type[0] = CAM_STREAM_TYPE_RAW;
+    abc.buffer_info.min_buffers = num_bufs;
+    abc.buffer_info.max_buffers = num_bufs;
+    abc.is_type = IS_TYPE_NONE;
+
+    rc = setmetainfoCommand(test_obj, &abc);
+    if (rc != MM_CAMERA_OK) {
+       LOGE(" meta info command failed\n");
+    }
+
+    stream = mm_app_add_stream(test_obj, channel);
+    if (NULL == stream) {
+        LOGE(" add stream failed\n");
         return NULL;
     }
 
@@ -129,6 +152,7 @@ mm_camera_stream_t * mm_app_add_rdi_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.mem_vtbl.invalidate_buf = mm_app_stream_invalidate_buf;
     stream->s_config.mem_vtbl.user_data = (void *)stream;
     stream->s_config.stream_cb = stream_cb;
+    stream->s_config.stream_cb_sync = NULL;
     stream->s_config.userdata = userdata;
     stream->num_of_bufs = num_bufs;
 
@@ -141,8 +165,8 @@ mm_camera_stream_t * mm_app_add_rdi_stream(mm_camera_test_obj_t *test_obj,
         stream->s_config.stream_info->streaming_mode = CAM_STREAMING_MODE_BURST;
         stream->s_config.stream_info->num_of_burst = num_burst;
     }
-    stream->s_config.stream_info->fmt = fmt;
-    CDBG("%s: RAW: w: %d, h: %d ", __func__,
+    stream->s_config.stream_info->fmt = DEFAULT_RAW_FORMAT;
+    LOGD(" RAW: w: %d, h: %d ",
        cam_cap->raw_dim[0].width, cam_cap->raw_dim[0].height);
 
     stream->s_config.stream_info->dim.width = cam_cap->raw_dim[0].width;
@@ -151,13 +175,13 @@ mm_camera_stream_t * mm_app_add_rdi_stream(mm_camera_test_obj_t *test_obj,
 
     rc = mm_app_config_stream(test_obj, channel, stream, &stream->s_config);
     if (MM_CAMERA_OK != rc) {
-        CDBG_ERROR("%s:config rdi stream err=%d\n", __func__, rc);
+        LOGE("config rdi stream err=%d\n",  rc);
         return NULL;
     }
 
     buf_planes = &stream->s_config.stream_info->buf_planes;
     rdi_len = buf_planes->plane_info.mp[0].len;
-    CDBG("%s: plane_info %dx%d len:%d frame_len:%d\n", __func__,
+    LOGD(" plane_info %dx%d len:%d frame_len:%d\n",
         buf_planes->plane_info.mp[0].stride, buf_planes->plane_info.mp[0].scanline,
         buf_planes->plane_info.mp[0].len, buf_planes->plane_info.frame_len);
 
@@ -177,7 +201,7 @@ mm_camera_stream_t * mm_app_add_rdi_snapshot_stream(mm_camera_test_obj_t *test_o
 
     stream = mm_app_add_stream(test_obj, channel);
     if (NULL == stream) {
-        CDBG_ERROR("%s: add stream failed\n", __func__);
+        LOGE(" add stream failed\n");
         return NULL;
     }
 
@@ -188,6 +212,7 @@ mm_camera_stream_t * mm_app_add_rdi_snapshot_stream(mm_camera_test_obj_t *test_o
     stream->s_config.mem_vtbl.invalidate_buf = mm_app_stream_invalidate_buf;
     stream->s_config.mem_vtbl.user_data = (void *)stream;
     stream->s_config.stream_cb = stream_cb;
+    stream->s_config.stream_cb_sync = NULL;
     stream->s_config.userdata = userdata;
     stream->num_of_bufs = num_bufs;
 
@@ -207,7 +232,7 @@ mm_camera_stream_t * mm_app_add_rdi_snapshot_stream(mm_camera_test_obj_t *test_o
 
     rc = mm_app_config_stream(test_obj, channel, stream, &stream->s_config);
     if (MM_CAMERA_OK != rc) {
-        CDBG_ERROR("%s:config rdi stream err=%d\n", __func__, rc);
+        LOGE("config rdi stream err=%d\n",  rc);
         return NULL;
     }
 
@@ -225,7 +250,7 @@ mm_camera_channel_t * mm_app_add_rdi_channel(mm_camera_test_obj_t *test_obj, uin
                                  NULL,
                                  NULL);
     if (NULL == channel) {
-        CDBG_ERROR("%s: add channel failed", __func__);
+        LOGE(" add channel failed");
         return NULL;
     }
 
@@ -236,12 +261,12 @@ mm_camera_channel_t * mm_app_add_rdi_channel(mm_camera_test_obj_t *test_obj, uin
                                        RDI_BUF_NUM,
                                        num_burst);
     if (NULL == stream) {
-        CDBG_ERROR("%s: add stream failed\n", __func__);
+        LOGE(" add stream failed\n");
         mm_app_del_channel(test_obj, channel);
         return NULL;
     }
 
-    CDBG("%s: channel=%d stream=%d\n", __func__, channel->ch_id, stream->s_id);
+    LOGD(" channel=%d stream=%d\n",  channel->ch_id, stream->s_id);
     return channel;
 }
 
@@ -251,10 +276,12 @@ int mm_app_stop_and_del_rdi_channel(mm_camera_test_obj_t *test_obj,
     int rc = MM_CAMERA_OK;
     mm_camera_stream_t *stream = NULL;
     uint8_t i;
+    cam_stream_size_info_t abc ;
+    memset (&abc , 0, sizeof (cam_stream_size_info_t));
 
     rc = mm_app_stop_channel(test_obj, channel);
     if (MM_CAMERA_OK != rc) {
-        CDBG_ERROR("%s:Stop RDI failed rc=%d\n", __func__, rc);
+        LOGE("Stop RDI failed rc=%d\n",  rc);
     }
 
     if (channel->num_streams <= MAX_STREAM_NUM_IN_BUNDLE) {
@@ -262,17 +289,20 @@ int mm_app_stop_and_del_rdi_channel(mm_camera_test_obj_t *test_obj,
             stream = &channel->streams[i];
             rc = mm_app_del_stream(test_obj, channel, stream);
             if (MM_CAMERA_OK != rc) {
-                CDBG_ERROR("%s:del stream(%d) failed rc=%d\n", __func__, i, rc);
+                LOGE("del stream(%d) failed rc=%d\n",  i, rc);
             }
         }
     } else {
-        CDBG_ERROR("%s: num_streams = %d. Should not be more than %d\n",
-            __func__, channel->num_streams, MAX_STREAM_NUM_IN_BUNDLE);
+        LOGE(" num_streams = %d. Should not be more than %d\n",
+             channel->num_streams, MAX_STREAM_NUM_IN_BUNDLE);
     }
-
+    rc = setmetainfoCommand(test_obj, &abc);
+    if (rc != MM_CAMERA_OK) {
+       LOGE(" meta info command failed\n");
+    }
     rc = mm_app_del_channel(test_obj, channel);
     if (MM_CAMERA_OK != rc) {
-        CDBG_ERROR("%s:delete channel failed rc=%d\n", __func__, rc);
+        LOGE("delete channel failed rc=%d\n",  rc);
     }
 
     return rc;
@@ -285,13 +315,13 @@ int mm_app_start_rdi(mm_camera_test_obj_t *test_obj, uint8_t num_burst)
 
     channel = mm_app_add_rdi_channel(test_obj, num_burst);
     if (NULL == channel) {
-        CDBG_ERROR("%s: add channel failed", __func__);
+        LOGE(" add channel failed");
         return -MM_CAMERA_E_GENERAL;
     }
 
     rc = mm_app_start_channel(test_obj, channel);
     if (MM_CAMERA_OK != rc) {
-        CDBG_ERROR("%s:start rdi failed rc=%d\n", __func__, rc);
+        LOGE("start rdi failed rc=%d\n",  rc);
         mm_app_del_channel(test_obj, channel);
         return rc;
     }
@@ -308,7 +338,7 @@ int mm_app_stop_rdi(mm_camera_test_obj_t *test_obj)
 
     rc = mm_app_stop_and_del_rdi_channel(test_obj, channel);
     if (MM_CAMERA_OK != rc) {
-        CDBG_ERROR("%s:Stop RDI failed rc=%d\n", __func__, rc);
+        LOGE("Stop RDI failed rc=%d\n",  rc);
     }
 
     return rc;

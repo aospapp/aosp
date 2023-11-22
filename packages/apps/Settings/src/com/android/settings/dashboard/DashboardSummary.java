@@ -16,202 +16,234 @@
 
 package com.android.settings.dashboard;
 
-import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.content.pm.PackageManager.NameNotFoundException;
-import android.content.res.Resources;
-import android.graphics.drawable.Drawable;
+import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Message;
-import android.text.TextUtils;
+import android.support.v7.widget.LinearLayoutManager;
 import android.util.Log;
-import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
-import android.widget.TextView;
-
 import com.android.internal.logging.MetricsLogger;
-import com.android.settings.HelpUtils;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.InstrumentedFragment;
 import com.android.settings.R;
+import com.android.settings.Settings;
 import com.android.settings.SettingsActivity;
+import com.android.settings.dashboard.conditional.Condition;
+import com.android.settings.dashboard.conditional.ConditionAdapterUtils;
+import com.android.settings.dashboard.conditional.ConditionManager;
+import com.android.settings.dashboard.conditional.FocusRecyclerView;
+import com.android.settingslib.HelpUtils;
+import com.android.settingslib.SuggestionParser;
+import com.android.settingslib.drawer.DashboardCategory;
+import com.android.settingslib.drawer.SettingsDrawerActivity;
+import com.android.settingslib.drawer.Tile;
 
 import java.util.List;
 
-public class DashboardSummary extends InstrumentedFragment {
-    private static final String LOG_TAG = "DashboardSummary";
+public class DashboardSummary extends InstrumentedFragment
+        implements SettingsDrawerActivity.CategoryListener, ConditionManager.ConditionListener,
+        FocusRecyclerView.FocusListener {
+    public static final boolean DEBUG = false;
+    private static final boolean DEBUG_TIMING = false;
+    private static final String TAG = "DashboardSummary";
 
-    private LayoutInflater mLayoutInflater;
-    private ViewGroup mDashboard;
-
-    private static final int MSG_REBUILD_UI = 1;
-    private Handler mHandler = new Handler() {
-        @Override
-        public void handleMessage(Message msg) {
-            switch (msg.what) {
-                case MSG_REBUILD_UI: {
-                    final Context context = getActivity();
-                    rebuildUI(context);
-                } break;
-            }
-        }
+    public static final String[] INITIAL_ITEMS = new String[] {
+            Settings.WifiSettingsActivity.class.getName(),
+            Settings.BluetoothSettingsActivity.class.getName(),
+            Settings.DataUsageSummaryActivity.class.getName(),
+            Settings.PowerUsageSummaryActivity.class.getName(),
+            Settings.ManageApplicationsActivity.class.getName(),
+            Settings.StorageSettingsActivity.class.getName(),
     };
 
-    private class HomePackageReceiver extends BroadcastReceiver {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            rebuildUI(context);
-        }
-    }
-    private HomePackageReceiver mHomePackageReceiver = new HomePackageReceiver();
+    private static final String SUGGESTIONS = "suggestions";
+
+    private static final String EXTRA_SCROLL_POSITION = "scroll_position";
+
+    private FocusRecyclerView mDashboard;
+    private DashboardAdapter mAdapter;
+    private SummaryLoader mSummaryLoader;
+    private ConditionManager mConditionManager;
+    private SuggestionParser mSuggestionParser;
+    private LinearLayoutManager mLayoutManager;
+    private SuggestionsChecks mSuggestionsChecks;
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.DASHBOARD_SUMMARY;
+        return MetricsEvent.DASHBOARD_SUMMARY;
     }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        long startTime = System.currentTimeMillis();
         super.onCreate(savedInstanceState);
 
+        List<DashboardCategory> categories =
+                ((SettingsActivity) getActivity()).getDashboardCategories();
+        mSummaryLoader = new SummaryLoader(getActivity(), categories);
         setHasOptionsMenu(true);
+        Context context = getContext();
+        mConditionManager = ConditionManager.get(context, false);
+        mSuggestionParser = new SuggestionParser(context,
+                context.getSharedPreferences(SUGGESTIONS, 0), R.xml.suggestion_ordering);
+        mSuggestionsChecks = new SuggestionsChecks(getContext());
+        if (DEBUG_TIMING) Log.d(TAG, "onCreate took " + (System.currentTimeMillis() - startTime)
+                + " ms");
+    }
+
+    @Override
+    public void onDestroy() {
+        mSummaryLoader.release();
+        super.onDestroy();
     }
 
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         super.onCreateOptionsMenu(menu, inflater);
+        if (getActivity() == null) return;
         HelpUtils.prepareHelpMenuItem(getActivity(), menu, R.string.help_uri_dashboard,
                 getClass().getName());
     }
 
     @Override
-    public void onResume() {
-        super.onResume();
+    public void onStart() {
+        long startTime = System.currentTimeMillis();
+        super.onStart();
 
-        sendRebuildUI();
-
-        final IntentFilter filter = new IntentFilter(Intent.ACTION_PACKAGE_ADDED);
-        filter.addAction(Intent.ACTION_PACKAGE_REMOVED);
-        filter.addAction(Intent.ACTION_PACKAGE_CHANGED);
-        filter.addAction(Intent.ACTION_PACKAGE_REPLACED);
-        filter.addDataScheme("package");
-        getActivity().registerReceiver(mHomePackageReceiver, filter);
+        ((SettingsDrawerActivity) getActivity()).addCategoryListener(this);
+        mSummaryLoader.setListening(true);
+        for (Condition c : mConditionManager.getConditions()) {
+            if (c.shouldShow()) {
+                MetricsLogger.visible(getContext(), c.getMetricsConstant());
+            }
+        }
+        if (mAdapter.getSuggestions() != null) {
+            for (Tile suggestion : mAdapter.getSuggestions()) {
+                MetricsLogger.action(getContext(), MetricsEvent.ACTION_SHOW_SETTINGS_SUGGESTION,
+                        DashboardAdapter.getSuggestionIdentifier(getContext(), suggestion));
+            }
+        }
+        if (DEBUG_TIMING) Log.d(TAG, "onStart took " + (System.currentTimeMillis() - startTime)
+                + " ms");
     }
 
     @Override
-    public void onPause() {
-        super.onPause();
+    public void onStop() {
+        super.onStop();
 
-        getActivity().unregisterReceiver(mHomePackageReceiver);
+        ((SettingsDrawerActivity) getActivity()).remCategoryListener(this);
+        mSummaryLoader.setListening(false);
+        for (Condition c : mConditionManager.getConditions()) {
+            if (c.shouldShow()) {
+                MetricsLogger.hidden(getContext(), c.getMetricsConstant());
+            }
+        }
+        if (mAdapter.getSuggestions() == null) {
+            return;
+        }
+        for (Tile suggestion : mAdapter.getSuggestions()) {
+            MetricsLogger.action(getContext(), MetricsEvent.ACTION_HIDE_SETTINGS_SUGGESTION,
+                    DashboardAdapter.getSuggestionIdentifier(getContext(), suggestion));
+        }
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasWindowFocus) {
+        long startTime = System.currentTimeMillis();
+        if (hasWindowFocus) {
+            mConditionManager.addListener(this);
+            mConditionManager.refreshAll();
+        } else {
+            mConditionManager.remListener(this);
+        }
+        if (DEBUG_TIMING) Log.d(TAG, "onWindowFocusChanged took "
+                + (System.currentTimeMillis() - startTime) + " ms");
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-
-        mLayoutInflater = inflater;
-
-        final View rootView = inflater.inflate(R.layout.dashboard, container, false);
-        mDashboard = (ViewGroup) rootView.findViewById(R.id.dashboard_container);
-
-        return rootView;
+        return inflater.inflate(R.layout.dashboard, container, false);
     }
 
-    private void rebuildUI(Context context) {
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (mLayoutManager == null) return;
+        outState.putInt(EXTRA_SCROLL_POSITION, mLayoutManager.findFirstVisibleItemPosition());
+    }
+
+    @Override
+    public void onViewCreated(View view, Bundle bundle) {
+        long startTime = System.currentTimeMillis();
+        mDashboard = (FocusRecyclerView) view.findViewById(R.id.dashboard_container);
+        mLayoutManager = new LinearLayoutManager(getContext());
+        mLayoutManager.setOrientation(LinearLayoutManager.VERTICAL);
+        if (bundle != null) {
+            int scrollPosition = bundle.getInt(EXTRA_SCROLL_POSITION);
+            mLayoutManager.scrollToPosition(scrollPosition);
+        }
+        mDashboard.setLayoutManager(mLayoutManager);
+        mDashboard.setHasFixedSize(true);
+        mDashboard.setListener(this);
+        mDashboard.addItemDecoration(new DashboardDecorator(getContext()));
+        mAdapter = new DashboardAdapter(getContext(), mSuggestionParser);
+        mAdapter.setConditions(mConditionManager.getConditions());
+        mDashboard.setAdapter(mAdapter);
+        mSummaryLoader.setAdapter(mAdapter);
+        ConditionAdapterUtils.addDismiss(mDashboard);
+        if (DEBUG_TIMING) Log.d(TAG, "onViewCreated took "
+                + (System.currentTimeMillis() - startTime) + " ms");
+
+        rebuildUI();
+    }
+
+    private void rebuildUI() {
         if (!isAdded()) {
-            Log.w(LOG_TAG, "Cannot build the DashboardSummary UI yet as the Fragment is not added");
+            Log.w(TAG, "Cannot build the DashboardSummary UI yet as the Fragment is not added");
             return;
         }
 
-        long start = System.currentTimeMillis();
-        final Resources res = getResources();
-
-        mDashboard.removeAllViews();
-
         List<DashboardCategory> categories =
-                ((SettingsActivity) context).getDashboardCategories(true);
+                ((SettingsActivity) getActivity()).getDashboardCategories();
+        mAdapter.setCategories(categories);
 
-        final int count = categories.size();
-
-        for (int n = 0; n < count; n++) {
-            DashboardCategory category = categories.get(n);
-
-            View categoryView = mLayoutInflater.inflate(R.layout.dashboard_category, mDashboard,
-                    false);
-
-            TextView categoryLabel = (TextView) categoryView.findViewById(R.id.category_title);
-            categoryLabel.setText(category.getTitle(res));
-
-            ViewGroup categoryContent =
-                    (ViewGroup) categoryView.findViewById(R.id.category_content);
-
-            final int tilesCount = category.getTilesCount();
-            for (int i = 0; i < tilesCount; i++) {
-                DashboardTile tile = category.getTile(i);
-
-                DashboardTileView tileView = new DashboardTileView(context);
-                updateTileView(context, res, tile, tileView.getImageView(),
-                        tileView.getTitleTextView(), tileView.getStatusTextView());
-
-                tileView.setTile(tile);
-
-                categoryContent.addView(tileView);
-            }
-
-            // Add the category
-            mDashboard.addView(categoryView);
-        }
-        long delta = System.currentTimeMillis() - start;
-        Log.d(LOG_TAG, "rebuildUI took: " + delta + " ms");
+        // recheck to see if any suggestions have been changed.
+        new SuggestionLoader().execute();
     }
 
-    private void updateTileView(Context context, Resources res, DashboardTile tile,
-            ImageView tileIcon, TextView tileTextView, TextView statusTextView) {
+    @Override
+    public void onCategoriesChanged() {
+        rebuildUI();
+    }
 
-        if (!TextUtils.isEmpty(tile.iconPkg)) {
-            try {
-                Drawable drawable = context.getPackageManager()
-                        .getResourcesForApplication(tile.iconPkg).getDrawable(tile.iconRes, null);
-                if (!tile.iconPkg.equals(context.getPackageName()) && drawable != null) {
-                    // If this drawable is coming from outside Settings, tint it to match the color.
-                    TypedValue tintColor = new TypedValue();
-                    context.getTheme().resolveAttribute(com.android.internal.R.attr.colorAccent,
-                            tintColor, true);
-                    drawable.setTint(tintColor.data);
+    @Override
+    public void onConditionsChanged() {
+        Log.d(TAG, "onConditionsChanged");
+        mAdapter.setConditions(mConditionManager.getConditions());
+    }
+
+    private class SuggestionLoader extends AsyncTask<Void, Void, List<Tile>> {
+
+        @Override
+        protected List<Tile> doInBackground(Void... params) {
+            List<Tile> suggestions = mSuggestionParser.getSuggestions();
+            for (int i = 0; i < suggestions.size(); i++) {
+                if (mSuggestionsChecks.isSuggestionComplete(suggestions.get(i))) {
+                    mAdapter.disableSuggestion(suggestions.get(i));
+                    suggestions.remove(i--);
                 }
-                tileIcon.setImageDrawable(drawable);
-            } catch (NameNotFoundException | Resources.NotFoundException e) {
-                tileIcon.setImageDrawable(null);
-                tileIcon.setBackground(null);
             }
-        } else if (tile.iconRes > 0) {
-            tileIcon.setImageResource(tile.iconRes);
-        } else {
-            tileIcon.setImageDrawable(null);
-            tileIcon.setBackground(null);
+            return suggestions;
         }
 
-        tileTextView.setText(tile.getTitle(res));
-
-        CharSequence summary = tile.getSummary(res);
-        if (!TextUtils.isEmpty(summary)) {
-            statusTextView.setVisibility(View.VISIBLE);
-            statusTextView.setText(summary);
-        } else {
-            statusTextView.setVisibility(View.GONE);
-        }
-    }
-
-    private void sendRebuildUI() {
-        if (!mHandler.hasMessages(MSG_REBUILD_UI)) {
-            mHandler.sendEmptyMessage(MSG_REBUILD_UI);
+        @Override
+        protected void onPostExecute(List<Tile> tiles) {
+            mAdapter.setSuggestions(tiles);
         }
     }
 }

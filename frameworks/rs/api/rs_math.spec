@@ -48,6 +48,7 @@ description:
  </ul>
 end:
 
+# TODO Add f16 versions of these constants.
 constant: M_1_PI
 value: 0.318309886183790671537767526745028724f
 summary: 1 / pi, as a 32 bit float
@@ -176,6 +177,15 @@ description:
  See also @native_acos().
 end:
 
+function: acos
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(-1,1)
+end:
+
 function: acosh
 version: 9
 attrib: const
@@ -188,6 +198,15 @@ description:
  Returns the inverse hyperbolic cosine, in radians.
 
  See also @native_acosh().
+end:
+
+function: acosh
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: acospi
@@ -206,6 +225,15 @@ description:
  See also @native_acospi().
 end:
 
+function: acospi
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(-1,1)
+end:
+
 function: asin
 version: 9
 attrib: const
@@ -220,6 +248,15 @@ description:
  See also @native_asin().
 end:
 
+function: asin
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(-1,1)
+end:
+
 function: asinh
 version: 9
 attrib: const
@@ -232,6 +269,15 @@ description:
  Returns the inverse hyperbolic sine, in radians.
 
  See also @native_asinh().
+end:
+
+function: asinh
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: asinpi
@@ -250,6 +296,15 @@ description:
  See also @native_asinpi().
 end:
 
+function: asinpi
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(-1,1)
+end:
+
 function: atan
 version: 9
 attrib: const
@@ -262,6 +317,15 @@ description:
  Returns the inverse tangent, in radians.
 
  See also @native_atan().
+end:
+
+function: atan
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(-1,1)
 end:
 
 function: atan2
@@ -277,6 +341,16 @@ description:
  Returns the inverse tangent of <code>(numerator / denominator)</code>, in radians.
 
  See also @native_atan2().
+end:
+
+function: atan2
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 numerator
+arg: #2#1 denominator
 end:
 
 function: atan2pi
@@ -296,6 +370,16 @@ description:
  See also @native_atan2pi().
 end:
 
+function: atan2pi
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 numerator
+arg: #2#1 denominator
+end:
+
 function: atanh
 version: 9
 attrib: const
@@ -308,6 +392,15 @@ description:
  Returns the inverse hyperbolic tangent, in radians.
 
  See also @native_atanh().
+end:
+
+function: atanh
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(-1,1)
 end:
 
 function: atanpi
@@ -326,6 +419,15 @@ description:
  See also @native_atanpi().
 end:
 
+function: atanpi
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(-1,1)
+end:
+
 function: cbrt
 version: 9
 attrib: const
@@ -338,6 +440,15 @@ description:
  Returns the cube root.
 
  See also @native_cbrt().
+end:
+
+function: cbrt
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: ceil
@@ -354,6 +465,15 @@ description:
  For example, <code>ceil(1.2f)</code> returns 2.f, and <code>ceil(-1.2f)</code> returns -1.f.
 
  See also @floor().
+end:
+
+function: ceil
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: clamp
@@ -409,6 +529,28 @@ arg: #2 min_value
 arg: #2 max_value, above(min_value)
 end:
 
+function: clamp
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 value
+arg: #2#1 min_value
+arg: #2#1 max_value, above(min_value)
+end:
+
+function: clamp
+version: 24
+attrib: const
+w: 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 value
+arg: #2 min_value
+arg: #2 max_value, above(min_value)
+end:
+
 function: clz
 version: 9
 attrib: const
@@ -440,6 +582,16 @@ description:
  For example, <code>copysign(4.0f, -2.7f)</code> returns -4.0f and <code>copysign(-4.0f, 2.7f)</code> returns 4.0f.
 end:
 
+function: copysign
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 magnitude_value
+arg: #2#1 sign_value
+end:
+
 function: cos
 version: 9
 attrib: const
@@ -454,6 +606,15 @@ description:
  See also @native_cos().
 end:
 
+function: cos
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+end:
+
 function: cosh
 version: 9
 attrib: const
@@ -466,6 +627,15 @@ description:
  Returns the hypebolic cosine of v, where v is measured in radians.
 
  See also @native_cosh().
+end:
+
+function: cosh
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: cospi
@@ -484,6 +654,15 @@ description:
  See also @native_cospi().
 end:
 
+function: cospi
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+end:
+
 function: degrees
 version: 9
 attrib: const
@@ -494,6 +673,15 @@ arg: #2#1 v
 summary: Converts radians into degrees
 description:
  Converts from radians to degrees.
+end:
+
+function: degrees
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: erf
@@ -508,6 +696,15 @@ description:
  Returns the error function.
 end:
 
+function: erf
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+end:
+
 function: erfc
 version: 9
 attrib: const
@@ -518,6 +715,15 @@ arg: #2#1 v
 summary: Mathematical complementary error function
 description:
  Returns the complementary error function.
+end:
+
+function: erfc
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: exp
@@ -534,6 +740,15 @@ description:
  See also @native_exp().
 end:
 
+function: exp
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+end:
+
 function: exp10
 version: 9
 attrib: const
@@ -546,6 +761,15 @@ description:
  Returns 10 raised to v, i.e. 10.f ^ v.
 
  See also @native_exp10().
+end:
+
+function: exp10
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: exp2
@@ -562,6 +786,15 @@ description:
  See also @native_exp2().
 end:
 
+function: exp2
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+end:
+
 function: expm1
 version: 9
 attrib: const
@@ -576,6 +809,15 @@ description:
  See also @native_expm1().
 end:
 
+function: expm1
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+end:
+
 function: fabs
 version: 9
 attrib: const
@@ -588,6 +830,15 @@ description:
  Returns the absolute value of the float v.
 
  For integers, use @abs().
+end:
+
+function: fabs
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: fdim
@@ -605,6 +856,16 @@ description:
  If a &gt; b, returns (a - b) otherwise returns 0f.
 end:
 
+function: fdim
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 a
+arg: #2#1 b
+end:
+
 function: floor
 version: 9
 attrib: const
@@ -619,6 +880,15 @@ description:
  For example, <code>floor(1.2f)</code> returns 1.f, and <code>floor(-1.2f)</code> returns -2.f.
 
  See also @ceil().
+end:
+
+function: floor
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: fma
@@ -639,6 +909,17 @@ description:
  This extra precision is not guaranteed in rs_fp_relaxed mode.
 end:
 
+function: fma
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 multiplicand1
+arg: #2#1 multiplicand2
+arg: #2#1 offset
+end:
+
 function: fmax
 version: 9
 attrib: const
@@ -655,10 +936,30 @@ description:
 end:
 
 function: fmax
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 a
+arg: #2#1 b
+end:
+
+function: fmax
 version: 9
 attrib: const
 w: 2, 3, 4
 t: f32
+ret: #2#1
+arg: #2#1 a
+arg: #2 b
+end:
+
+function: fmax
+version: 24
+attrib: const
+w: 2, 3, 4
+t: f16
 ret: #2#1
 arg: #2#1 a
 arg: #2 b
@@ -680,10 +981,30 @@ description:
 end:
 
 function: fmin
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 a
+arg: #2#1 b
+end:
+
+function: fmin
 version: 9
 attrib: const
 w: 2, 3, 4
 t: f32
+ret: #2#1
+arg: #2#1 a
+arg: #2 b
+end:
+
+function: fmin
+version: 24
+attrib: const
+w: 2, 3, 4
+t: f16
 ret: #2#1
 arg: #2#1 a
 arg: #2 b
@@ -706,6 +1027,16 @@ description:
  while <code>@remainder(-3.8f, 2.f)</code> returns 0.2f (-3.8f - -2.f * 2.f).
 end:
 
+function: fmod
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 numerator
+arg: #2#1 denominator
+end:
+
 function: fract
 version: 9
 w: 1, 2, 3, 4
@@ -722,7 +1053,7 @@ description:
 end:
 
 function: fract
-version: 9
+version: 9 23
 attrib: const
 w: 1, 2, 3, 4
 t: f32
@@ -731,6 +1062,31 @@ arg: #2#1 v
 inline:
  #2#1 unused;
  return fract(v, &unused);
+end:
+
+function: fract
+version: 24
+w: 1, 2, 3, 4
+t: f32
+ret: #2#1
+arg: #2#1 v
+end:
+
+function: fract
+version: 24
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+arg: #2#1* floor
+end:
+
+function: fract
+version: 24
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: frexp
@@ -747,6 +1103,16 @@ description:
  The mantissa is always between 0.5 (inclusive) and 1.0 (exclusive).
 
  See @ldexp() for the reverse operation.  See also @logb() and @ilogb().
+end:
+
+function: frexp
+version: 24
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+arg: int#1* exponent
+test: none
 end:
 
 function: half_recip
@@ -812,6 +1178,16 @@ description:
  See also @native_hypot().
 end:
 
+function: hypot
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 a
+arg: #2#1 b
+end:
+
 function: ilogb
 version: 9
 attrib: const
@@ -832,6 +1208,16 @@ description:
 test: custom
 end:
 
+function: ilogb
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: int#1
+arg: half#1 v
+test: none
+end:
+
 function: ldexp
 version: 9
 attrib: const
@@ -848,12 +1234,32 @@ description:
 end:
 
 function: ldexp
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+ret: half#1
+arg: half#1 mantissa
+arg: int#1 exponent
+test: none
+end:
+
+function: ldexp
 version: 9
 attrib: const
 w: 2, 3, 4
 ret: float#1
 arg: float#1 mantissa
 arg: int exponent
+end:
+
+function: ldexp
+version: 24
+attrib: const
+w: 2, 3, 4
+ret: half#1
+arg: half#1 mantissa
+arg: int exponent
+test: none
 end:
 
 function: lgamma
@@ -872,6 +1278,16 @@ description:
 end:
 
 function: lgamma
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+test: none
+end:
+
+function: lgamma
 version: 9
 w: 1, 2, 3, 4
 t: f32
@@ -880,6 +1296,16 @@ arg: #2#1 v
 arg: int#1* sign_of_gamma, "If sign_of_gamma is not null, *sign_of_gamma will be set to -1.f if the gamma of v is negative, otherwise to 1.f."
 test: custom
 #TODO Temporary until bionic & associated drivers are fixed
+end:
+
+function: lgamma
+version: 24
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+arg: int#1* sign_of_gamma
+test: none
 end:
 
 function: log
@@ -896,6 +1322,15 @@ description:
  See also @native_log().
 end:
 
+function: log
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+end:
+
 function: log10
 version: 9
 attrib: const
@@ -908,6 +1343,15 @@ description:
  Returns the base 10 logarithm.
 
  See also @native_log10().
+end:
+
+function: log10
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: log1p
@@ -924,6 +1368,15 @@ description:
  See also @native_log1p().
 end:
 
+function: log1p
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+end:
+
 function: log2
 version: 9
 attrib: const
@@ -936,6 +1389,15 @@ description:
  Returns the base 2 logarithm.
 
  See also @native_log2().
+end:
+
+function: log2
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: logb
@@ -957,6 +1419,15 @@ description:
  @ilogb() is similar but returns an integer.
 end:
 
+function: logb
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+end:
+
 function: mad
 version: 9
 attrib: const
@@ -975,6 +1446,17 @@ description:
  In rs_fp_relaxed mode, mad() may not do the rounding after multiplicaiton.
 end:
 
+function: mad
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 multiplicand1
+arg: #2#1 multiplicand2
+arg: #2#1 offset
+end:
+
 function: max
 version: 9
 attrib: const
@@ -989,10 +1471,30 @@ description:
 end:
 
 function: max
+version:24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 a
+arg: #2#1 b
+end:
+
+function: max
 version: 9
 attrib: const
 w: 2, 3, 4
 t: f32
+ret: #2#1
+arg: #2#1 a
+arg: #2 b
+end:
+
+function: max
+version: 24
+attrib: const
+w: 2, 3, 4
+t: f16
 ret: #2#1
 arg: #2#1 a
 arg: #2 b
@@ -1082,10 +1584,30 @@ description:
 end:
 
 function: min
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 a
+arg: #2#1 b
+end:
+
+function: min
 version: 9
 attrib: const
 w: 2, 3, 4
 t: f32
+ret: #2#1
+arg: #2#1 a
+arg: #2 b
+end:
+
+function: min
+version: 24
+attrib: const
+w: 2, 3, 4
+t: f16
 ret: #2#1
 arg: #2#1 a
 arg: #2 b
@@ -1179,10 +1701,32 @@ description:
 end:
 
 function: mix
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 start
+arg: #2#1 stop
+arg: #2#1 fraction
+end:
+
+function: mix
 version: 9
 attrib: const
 w: 2, 3, 4
 t: f32
+ret: #2#1
+arg: #2#1 start
+arg: #2#1 stop
+arg: #2 fraction
+end:
+
+function: mix
+version: 24
+attrib: const
+w: 2, 3, 4
+t: f16
 ret: #2#1
 arg: #2#1 start
 arg: #2#1 stop
@@ -1201,7 +1745,17 @@ description:
  Returns the integral and fractional components of a number.
 
  Both components will have the same sign as x.  For example, for an input of -3.72f,
- iret will be set to -3.f and .72f will be returned.
+ *integral_part will be set to -3.f and .72f will be returned.
+end:
+
+function: modf
+version: 24
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+arg: #2#1* integral_part
+test: none
 end:
 
 function: nan
@@ -1216,6 +1770,16 @@ arg: uint#1 v, "Not used."
 summary: Not a Number
 description:
  Returns a NaN value (Not a Number).
+end:
+
+function: nan_half
+version: 24
+attrib: const
+t: f16
+ret: #1
+summary: Not a Number
+description:
+  Returns a half-precision floating point NaN value (Not a Number).
 end:
 
 function: native_acos
@@ -1236,6 +1800,17 @@ description:
 test: limited(0.0005)
 end:
 
+function: native_acos
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(-1,1)
+# Absolute error of 2^-11, i.e. 0.00048828125
+test: limited(0.00048828125)
+end:
+
 function: native_acosh
 version: 21
 attrib: const
@@ -1250,6 +1825,15 @@ description:
  See also @acosh().
 # TODO Temporary
 test: limited(0.0005)
+end:
+
+function: native_acosh
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: native_acospi
@@ -1272,6 +1856,17 @@ description:
 test: limited(0.0005)
 end:
 
+function: native_acospi
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(-1,1)
+# Absolute error of 2^-11, i.e. 0.00048828125
+test: limited(0.00048828125)
+end:
+
 function: native_asin
 version: 21
 attrib: const
@@ -1290,6 +1885,17 @@ description:
 test: limited(0.0005)
 end:
 
+function: native_asin
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(-1,1)
+# Absolute error of 2^-11, i.e. 0.00048828125
+test: limited(0.00048828125)
+end:
+
 function: native_asinh
 version: 21
 attrib: const
@@ -1304,6 +1910,15 @@ description:
  See also @asinh().
 # TODO Temporary
 test: limited(0.0005)
+end:
+
+function: native_asinh
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: native_asinpi
@@ -1326,6 +1941,17 @@ description:
 test: limited(0.0005)
 end:
 
+function: native_asinpi
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(-1,1)
+# Absolute error of 2^-11, i.e. 0.00048828125
+test: limited(0.00048828125)
+end:
+
 function: native_atan
 version: 21
 attrib: const
@@ -1340,6 +1966,15 @@ description:
  See also @atan().
 # TODO Temporary
 test: limited(0.0005)
+end:
+
+function: native_atan
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(-1, 1)
 end:
 
 function: native_atan2
@@ -1357,6 +1992,16 @@ description:
  See also @atan2().
 # TODO Temporary
 test: limited(0.0005)
+end:
+
+function: native_atan2
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 numerator
+arg: #2#1 denominator
 end:
 
 function: native_atan2pi
@@ -1379,6 +2024,16 @@ description:
 test: limited(0.0005)
 end:
 
+function: native_atan2pi
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 numerator
+arg: #2#1 denominator
+end:
+
 function: native_atanh
 version: 21
 attrib: const
@@ -1393,6 +2048,15 @@ description:
  See also @atanh().
 # TODO Temporary
 test: limited(0.0005)
+end:
+
+function: native_atanh
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(-1,1)
 end:
 
 function: native_atanpi
@@ -1413,6 +2077,15 @@ description:
 test: limited(0.0005)
 end:
 
+function: native_atanpi
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(-1,1)
+end:
+
 function: native_cbrt
 version: 21
 attrib: const
@@ -1425,6 +2098,15 @@ description:
  Returns the approximate cubic root.
 
  See also @cbrt().
+end:
+
+function: native_cbrt
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: native_cos
@@ -1441,6 +2123,17 @@ description:
  See also @cos().
 end:
 
+function: native_cos
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(-314,314)
+# Absolute error of 2^-11, i.e. 0.00048828125
+test: limited(0.00048828125)
+end:
+
 function: native_cosh
 version: 21
 attrib: const
@@ -1453,6 +2146,15 @@ description:
  Returns the approximate hypebolic cosine.
 
  See also @cosh().
+end:
+
+function: native_cosh
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: native_cospi
@@ -1471,6 +2173,17 @@ description:
  See also @cospi().
 end:
 
+function: native_cospi
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(-100,100)
+# Absolute error of 2^-11, i.e. 0.00048828125
+test: limited(0.00048828125)
+end:
+
 function: native_divide
 version: 21
 attrib: const
@@ -1482,6 +2195,16 @@ arg: #2#1 right_vector
 summary: Approximate division
 description:
  Computes the approximate division of two values.
+end:
+
+function: native_divide
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 left_vector
+arg: #2#1 right_vector
 end:
 
 function: native_exp
@@ -1502,6 +2225,15 @@ description:
 test: limited
 end:
 
+function: native_exp
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(-86,86)
+end:
+
 function: native_exp10
 version: 18
 attrib: const
@@ -1518,6 +2250,15 @@ description:
 
  See also @exp10().
 test: limited
+end:
+
+function: native_exp10
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(-37,37)
 end:
 
 function: native_exp2
@@ -1538,6 +2279,15 @@ description:
 test: limited
 end:
 
+function: native_exp2
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(-125,125)
+end:
+
 function: native_expm1
 version: 21
 attrib: const
@@ -1550,6 +2300,16 @@ description:
  Returns the approximate (e ^ v) - 1.
 
  See also @expm1().
+end:
+
+function: native_expm1
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+test: custom
 end:
 
 function: native_hypot
@@ -1565,6 +2325,16 @@ description:
  Returns the approximate native_sqrt(a * a + b * b)
 
  See also @hypot().
+end:
+
+function: native_hypot
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 a
+arg: #2#1 b
 end:
 
 function: native_log
@@ -1584,6 +2354,15 @@ description:
 test: limited
 end:
 
+function: native_log
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(10e-5,65504)
+end:
+
 function: native_log10
 version: 18
 attrib: const
@@ -1601,6 +2380,15 @@ description:
 test: limited
 end:
 
+function: native_log10
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(10e-5,65504)
+end:
+
 function: native_log1p
 version: 21
 attrib: const
@@ -1613,6 +2401,15 @@ description:
  Returns the approximate natural logarithm of (v + 1.0f)
 
  See also @log1p().
+end:
+
+function: native_log1p
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: native_log2
@@ -1632,6 +2429,15 @@ description:
 test: limited
 end:
 
+function: native_log2
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(10e-5,65504)
+end:
+
 function: native_powr
 version: 18
 attrib: const
@@ -1648,6 +2454,16 @@ description:
 test: limited
 end:
 
+function: native_powr
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 base, range(0,256)
+arg: #2#1 exponent, range(-15,15)
+end:
+
 function: native_recip
 version: 21
 attrib: const
@@ -1660,6 +2476,15 @@ description:
  Returns the approximate approximate reciprocal of a value.
 
  See also @half_recip().
+end:
+
+function: native_recip
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: native_rootn
@@ -1677,6 +2502,17 @@ description:
  See also @rootn().
 end:
 
+function: native_rootn
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+arg: int#1 n
+test: none
+end:
+
 function: native_rsqrt
 version: 21
 attrib: const
@@ -1691,6 +2527,15 @@ description:
  See also @rsqrt(), @half_rsqrt().
 end:
 
+function: native_rsqrt
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+end:
+
 function: native_sin
 version: 21
 attrib: const
@@ -1703,6 +2548,17 @@ description:
  Returns the approximate sine of an angle measured in radians.
 
  See also @sin().
+end:
+
+function: native_sin
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(-314,314)
+# Absolute error of 2^-11, i.e. 0.00048828125
+test: limited(0.00048828125)
 end:
 
 function: native_sincos
@@ -1721,6 +2577,17 @@ description:
 test: limited(0.0005)
 end:
 
+function: native_sincos
+version: 24
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+arg: #2#1* cos, range(-314,314)
+# Absolute error of 2^-11, i.e. 0.00048828125
+test: limited(0.00048828125)
+end:
+
 function: native_sinh
 version: 21
 attrib: const
@@ -1733,6 +2600,15 @@ description:
  Returns the approximate hyperbolic sine of a value specified in radians.
 
  See also @sinh().
+end:
+
+function: native_sinh
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: native_sinpi
@@ -1751,6 +2627,17 @@ description:
  See also @sinpi().
 end:
 
+function: native_sinpi
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(-100,100)
+# Absolute error of 2^-11, i.e. 0.00048828125
+test: limited(0.00048828125)
+end:
+
 function: native_sqrt
 version: 21
 attrib: const
@@ -1765,6 +2652,15 @@ description:
  See also @sqrt(), @half_sqrt().
 end:
 
+function: native_sqrt
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+end:
+
 function: native_tan
 version: 21
 attrib: const
@@ -1775,6 +2671,16 @@ arg: #2#1 v
 summary: Approximate tangent
 description:
  Returns the approximate tangent of an angle measured in radians.
+end:
+
+function: native_tan
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(-314,314)
+test: custom
 end:
 
 function: native_tanh
@@ -1789,6 +2695,15 @@ description:
  Returns the approximate hyperbolic tangent of a value.
 
  See also @tanh().
+end:
+
+function: native_tanh
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: native_tanpi
@@ -1807,6 +2722,16 @@ description:
  See also @tanpi().
 end:
 
+function: native_tanpi
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v, range(-100,100)
+test: custom
+end:
+
 function: nextafter
 version: 9
 attrib: const
@@ -1821,6 +2746,17 @@ description:
 
  In rs_fp_relaxed mode, a denormalized input value may not yield the next denormalized
  value, as support of denormalized values is optional in relaxed mode.
+end:
+
+function: nextafter
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+arg: #2#1 target
+test: none
 end:
 
 function: pow
@@ -1839,6 +2775,16 @@ description:
  base to be non-negative.
 end:
 
+function: pow
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 base
+arg: #2#1 exponent
+end:
+
 function: pown
 version: 9
 attrib: const
@@ -1853,6 +2799,16 @@ description:
 
  @pow() and @powr() are similar.  The both take a float exponent. @powr() also assumes the
  base to be non-negative.
+end:
+
+function: pown
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 base
+arg: int#1 exponent
 end:
 
 function: powr
@@ -1873,6 +2829,16 @@ description:
  See also @native_powr().
 end:
 
+function: powr
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 base, range(0,300)
+arg: #2#1 exponent
+end:
+
 function: radians
 version: 9
 attrib: const
@@ -1883,6 +2849,15 @@ arg: #2#1 v
 summary: Converts degrees into radians
 description:
  Converts from degrees to radians.
+end:
+
+function: radians
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: remainder
@@ -1901,6 +2876,16 @@ description:
  The function @fmod() is similar but rounds toward the closest interger.
  For example, <code>@fmod(-3.8f, 2.f)</code> returns -1.8f (-3.8f - -1.f * 2.f)
  while <code>remainder(-3.8f, 2.f)</code> returns 0.2f (-3.8f - -2.f * 2.f).
+end:
+
+function: remainder
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 numerator
+arg: #2#1 denominator
 end:
 
 function: remquo
@@ -1927,6 +2912,17 @@ description:
 test: custom
 end:
 
+function: remquo
+version: 24
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 numerator
+arg: #2#1 denominator
+arg: int#1* quotient
+test: none
+end:
+
 function: rint
 version: 9
 attrib: const
@@ -1945,6 +2941,15 @@ description:
  @round() is similar but rounds away from zero.  @trunc() truncates the decimal fraction.
 end:
 
+function: rint
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+end:
+
 function: rootn
 version: 9
 attrib: const
@@ -1958,6 +2963,17 @@ description:
  Compute the Nth root of a value.
 
  See also @native_rootn().
+end:
+
+function: rootn
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+arg: int#1 n
+test: none
 end:
 
 function: round
@@ -1978,6 +2994,15 @@ description:
  @rint() is similar but rounds half values toward even.  @trunc() truncates the decimal fraction.
 end:
 
+function: round
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+end:
+
 function: rsqrt
 version: 9
 attrib: const
@@ -1990,6 +3015,15 @@ description:
  Returns (1 / sqrt(v)).
 
  See also @half_rsqrt(), @native_rsqrt().
+end:
+
+function: rsqrt
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: sign
@@ -2008,6 +3042,15 @@ description:
  else return 0.f;
 end:
 
+function: sign
+version:24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+end:
+
 function: sin
 version: 9
 attrib: const
@@ -2020,6 +3063,15 @@ description:
  Returns the sine of an angle measured in radians.
 
  See also @native_sin().
+end:
+
+function: sin
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: sincos
@@ -2036,6 +3088,15 @@ description:
  See also @native_sincos().
 end:
 
+function: sincos
+version: 24
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+arg: #2#1* cos
+end:
+
 function: sinh
 version: 9
 attrib: const
@@ -2048,6 +3109,15 @@ description:
  Returns the hyperbolic sine of v, where v is measured in radians.
 
  See also @native_sinh().
+end:
+
+function: sinh
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: sinpi
@@ -2066,6 +3136,15 @@ description:
  See also @native_sinpi().
 end:
 
+function: sinpi
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+end:
+
 function: sqrt
 version: 9
 attrib: const
@@ -2078,6 +3157,15 @@ description:
  Returns the square root of a value.
 
  See also @half_sqrt(), @native_sqrt().
+end:
+
+function: sqrt
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: step
@@ -2098,6 +3186,16 @@ description:
 end:
 
 function: step
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 edge
+arg: #2#1 v
+end:
+
+function: step
 version: 9
 attrib: const
 w: 2, 3, 4
@@ -2108,10 +3206,30 @@ arg: #2 v
 end:
 
 function: step
+version: 24
+attrib: const
+w: 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 edge
+arg: #2 v
+end:
+
+function: step
 version: 21
 attrib: const
 w: 2, 3, 4
 t: f32
+ret: #2#1
+arg: #2 edge
+arg: #2#1 v
+end:
+
+function: step
+version: 24
+attrib: const
+w: 2, 3, 4
+t: f16
 ret: #2#1
 arg: #2 edge
 arg: #2#1 v
@@ -2131,6 +3249,15 @@ description:
  See also @native_tan().
 end:
 
+function: tan
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+end:
+
 function: tanh
 version: 9
 attrib: const
@@ -2143,6 +3270,15 @@ description:
  Returns the hyperbolic tangent of a value.
 
  See also @native_tanh().
+end:
+
+function: tanh
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: tanpi
@@ -2161,6 +3297,15 @@ description:
  See also @native_tanpi().
 end:
 
+function: tanpi
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+end:
+
 function: tgamma
 version: 9
 attrib: const
@@ -2173,6 +3318,15 @@ description:
  Returns the gamma function of a value.
 
  See also @lgamma().
+end:
+
+function: tgamma
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
 end:
 
 function: trunc
@@ -2191,9 +3345,17 @@ description:
  See @rint() and @round() for other rounding options.
 end:
 
+function: trunc
+version: 24
+attrib: const
+w: 1, 2, 3, 4
+t: f16
+ret: #2#1
+arg: #2#1 v
+end:
+
 function: rsClamp
-# TODO Why always_inline?
-attrib: const, always_inline
+attrib: const
 t: i8, i16, i32, u8, u16, u32
 ret: #1
 arg: #1 amount, "Value to clamp."

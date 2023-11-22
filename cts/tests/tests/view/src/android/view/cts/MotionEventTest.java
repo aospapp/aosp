@@ -180,6 +180,40 @@ public class MotionEventTest extends AndroidTestCase {
         assertEquals(mMotionEvent2.getDeviceId(), motionEvent.getDeviceId());
     }
 
+    public void testReadFromParcelWithInvalidPointerCountSize() {
+        Parcel parcel = Parcel.obtain();
+        mMotionEvent2.writeToParcel(parcel, Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
+
+        // Move to pointer id count.
+        parcel.setDataPosition(4);
+        parcel.writeInt(17);
+
+        parcel.setDataPosition(0);
+        try {
+            MotionEvent.CREATOR.createFromParcel(parcel);
+            fail("deserialized invalid parcel");
+        } catch (RuntimeException e) {
+            // Expected.
+        }
+    }
+
+    public void testReadFromParcelWithInvalidSampleSize() {
+        Parcel parcel = Parcel.obtain();
+        mMotionEvent2.writeToParcel(parcel, Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
+
+        // Move to sample count.
+        parcel.setDataPosition(2 * 4);
+        parcel.writeInt(0x000f0000);
+
+        parcel.setDataPosition(0);
+        try {
+            MotionEvent.CREATOR.createFromParcel(parcel);
+            fail("deserialized invalid parcel");
+        } catch (RuntimeException e) {
+            // Expected.
+        }
+    }
+
     public void testToString() {
         // make sure this method never throw exception.
         mMotionEvent2.toString();

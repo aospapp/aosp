@@ -15,7 +15,7 @@
  */
 package com.android.cts.tradefed.device;
 
-import com.android.cts.util.AbiUtils;
+import com.android.compatibility.common.util.AbiUtils;
 import com.android.cts.tradefed.result.CtsXmlResultReporter;
 import com.android.ddmlib.IDevice;
 import com.android.ddmlib.Log;
@@ -48,14 +48,14 @@ public class DeviceInfoCollector {
     public static final String EXTENDED_APP_PACKAGE_NAME =
             "com.android.compatibility.common.deviceinfo";
     private static final String EXTENDED_INSTRUMENTATION_NAME =
-            "com.android.compatibility.common.deviceinfo.DeviceInfoInstrument";
+            "android.support.test.runner.AndroidJUnitRunner";
     private static final String DEVICE_INFO_FILES = "device-info-files";
 
     public static final Set<String> IDS = new HashSet<String>();
     public static final Set<String> EXTENDED_IDS = new HashSet<String>();
 
     static {
-        for (String abi : AbiUtils.getAbisSupportedByCts()) {
+        for (String abi : AbiUtils.getAbisSupportedByCompatibility()) {
             IDS.add(AbiUtils.createId(abi, APP_PACKAGE_NAME));
             EXTENDED_IDS.add(AbiUtils.createId(abi, EXTENDED_APP_PACKAGE_NAME));
         }

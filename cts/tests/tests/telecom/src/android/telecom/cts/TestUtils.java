@@ -21,6 +21,7 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.ParcelFileDescriptor;
+import android.os.Process;
 import android.telecom.PhoneAccountHandle;
 
 import java.io.BufferedReader;
@@ -33,10 +34,12 @@ public class TestUtils {
     static final String TAG = "TelecomCTSTests";
     static final boolean HAS_TELECOM = Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP;
     static final long WAIT_FOR_STATE_CHANGE_TIMEOUT_MS = 10000;
+    static final long WAIT_FOR_CALL_ADDED_TIMEOUT_S = 15;
+    static final long WAIT_FOR_STATE_CHANGE_TIMEOUT_CALLBACK = 50;
 
     // Non-final to allow modification by tests not in this package (e.g. permission-related
     // tests in the Telecom2 test package.
-    public static String PACKAGE = "com.android.cts.telecom";
+    public static String PACKAGE = "android.telecom.cts";
     public static final String COMPONENT = "android.telecom.cts.CtsConnectionService";
     public static final String REMOTE_COMPONENT = "android.telecom.cts.CtsRemoteConnectionService";
     public static final String ACCOUNT_ID = "xtstest_CALL_PROVIDER_ID";
@@ -57,6 +60,7 @@ public class TestUtils {
 
     public static final String MERGE_CALLER_NAME = "calls-merged";
     public static final String SWAP_CALLER_NAME = "calls-swapped";
+    private static final String PRIMARY_USER_SN = "0";
 
     public static boolean shouldTestTelecom(Context context) {
         if (!HAS_TELECOM) {
@@ -85,7 +89,7 @@ public class TestUtils {
         final ComponentName component = handle.getComponentName();
         executeShellCommand(instrumentation, COMMAND_ENABLE
                 + component.getPackageName() + "/" + component.getClassName() + " "
-                + handle.getId());
+                + handle.getId() + " " + PRIMARY_USER_SN);
     }
 
     public static void registerSimPhoneAccount(Instrumentation instrumentation,
@@ -93,7 +97,7 @@ public class TestUtils {
         final ComponentName component = handle.getComponentName();
         executeShellCommand(instrumentation, COMMAND_REGISTER_SIM
                 + component.getPackageName() + "/" + component.getClassName() + " "
-                + handle.getId() + " " + label + " " + address);
+                + handle.getId() + " " + PRIMARY_USER_SN + " " + label + " " + address);
     }
 
     /**

@@ -18,3 +18,5 @@ const uint64_t uint64_tTest = 117179869184l;
 
 const bool boolTest = true;
 
+extern const int i = 5;
+

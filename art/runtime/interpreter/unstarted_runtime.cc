@@ -16,17 +16,25 @@
 
 #include "unstarted_runtime.h"
 
+#include <ctype.h>
+#include <errno.h>
+#include <stdlib.h>
+
 #include <cmath>
+#include <limits>
+#include <locale>
 #include <unordered_map>
 
 #include "ScopedLocalRef.h"
 
 #include "art_method-inl.h"
+#include "base/casts.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "class_linker.h"
 #include "common_throws.h"
 #include "entrypoints/entrypoint_utils-inl.h"
+#include "gc/reference_processor.h"
 #include "handle_scope-inl.h"
 #include "interpreter/interpreter_common.h"
 #include "mirror/array-inl.h"
@@ -36,6 +44,7 @@
 #include "mirror/object_array-inl.h"
 #include "mirror/string-inl.h"
 #include "nth_caller_visitor.h"
+#include "reflection.h"
 #include "thread.h"
 #include "transaction.h"
 #include "well_known_classes.h"
@@ -46,7 +55,7 @@ namespace interpreter {
 
 static void AbortTransactionOrFail(Thread* self, const char* fmt, ...)
     __attribute__((__format__(__printf__, 2, 3)))
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+    SHARED_REQUIRES(Locks::mutator_lock_);
 
 static void AbortTransactionOrFail(Thread* self, const char* fmt, ...) {
   va_list args;
@@ -64,12 +73,49 @@ static void AbortTransactionOrFail(Thread* self, const char* fmt, ...) {
   }
 }
 
+// Restricted support for character upper case / lower case. Only support ASCII, where
+// it's easy. Abort the transaction otherwise.
+static void CharacterLowerUpper(Thread* self,
+                                ShadowFrame* shadow_frame,
+                                JValue* result,
+                                size_t arg_offset,
+                                bool to_lower_case) SHARED_REQUIRES(Locks::mutator_lock_) {
+  uint32_t int_value = static_cast<uint32_t>(shadow_frame->GetVReg(arg_offset));
+
+  // Only ASCII (7-bit).
+  if (!isascii(int_value)) {
+    AbortTransactionOrFail(self,
+                           "Only support ASCII characters for toLowerCase/toUpperCase: %u",
+                           int_value);
+    return;
+  }
+
+  std::locale c_locale("C");
+  char char_value = static_cast<char>(int_value);
+
+  if (to_lower_case) {
+    result->SetI(std::tolower(char_value, c_locale));
+  } else {
+    result->SetI(std::toupper(char_value, c_locale));
+  }
+}
+
+void UnstartedRuntime::UnstartedCharacterToLowerCase(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  CharacterLowerUpper(self, shadow_frame, result, arg_offset, true);
+}
+
+void UnstartedRuntime::UnstartedCharacterToUpperCase(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  CharacterLowerUpper(self, shadow_frame, result, arg_offset, false);
+}
+
 // Helper function to deal with class loading in an unstarted runtime.
 static void UnstartedRuntimeFindClass(Thread* self, Handle<mirror::String> className,
                                       Handle<mirror::ClassLoader> class_loader, JValue* result,
                                       const std::string& method_name, bool initialize_class,
                                       bool abort_if_not_found)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   CHECK(className.Get() != nullptr);
   std::string descriptor(DotToDescriptor(className->ToModifiedUtf8().c_str()));
   ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
@@ -99,7 +145,7 @@ static void UnstartedRuntimeFindClass(Thread* self, Handle<mirror::String> class
 // actually the transaction abort exception. This must not be wrapped, as it signals an
 // initialization abort.
 static void CheckExceptionGenerateClassNotFound(Thread* self)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   if (self->IsExceptionPending()) {
     // If it is not the transaction abort exception, wrap it.
     std::string type(PrettyTypeOf(self->GetException()));
@@ -111,7 +157,7 @@ static void CheckExceptionGenerateClassNotFound(Thread* self)
 }
 
 static mirror::String* GetClassName(Thread* self, ShadowFrame* shadow_frame, size_t arg_offset)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   mirror::Object* param = shadow_frame->GetVRegReference(arg_offset);
   if (param == nullptr) {
     AbortTransactionOrFail(self, "Null-pointer in Class.forName.");
@@ -128,8 +174,13 @@ void UnstartedRuntime::UnstartedClassForName(
   }
   StackHandleScope<1> hs(self);
   Handle<mirror::String> h_class_name(hs.NewHandle(class_name));
-  UnstartedRuntimeFindClass(self, h_class_name, NullHandle<mirror::ClassLoader>(), result,
-                            "Class.forName", true, false);
+  UnstartedRuntimeFindClass(self,
+                            h_class_name,
+                            ScopedNullHandle<mirror::ClassLoader>(),
+                            result,
+                            "Class.forName",
+                            true,
+                            false);
   CheckExceptionGenerateClassNotFound(self);
 }
 
@@ -229,20 +280,16 @@ void UnstartedRuntime::UnstartedClassGetDeclaredField(
   mirror::Class* klass = shadow_frame->GetVRegReference(arg_offset)->AsClass();
   mirror::String* name2 = shadow_frame->GetVRegReference(arg_offset + 1)->AsString();
   ArtField* found = nullptr;
-  ArtField* fields = klass->GetIFields();
-  for (int32_t i = 0, count = klass->NumInstanceFields(); i < count; ++i) {
-    ArtField* f = &fields[i];
-    if (name2->Equals(f->GetName())) {
-      found = f;
+  for (ArtField& field : klass->GetIFields()) {
+    if (name2->Equals(field.GetName())) {
+      found = &field;
       break;
     }
   }
   if (found == nullptr) {
-    fields = klass->GetSFields();
-    for (int32_t i = 0, count = klass->NumStaticFields(); i < count; ++i) {
-      ArtField* f = &fields[i];
-      if (name2->Equals(f->GetName())) {
-        found = f;
+    for (ArtField& field : klass->GetSFields()) {
+      if (name2->Equals(field.GetName())) {
+        found = &field;
         break;
       }
     }
@@ -258,6 +305,217 @@ void UnstartedRuntime::UnstartedClassGetDeclaredField(
   } else {
     result->SetL(mirror::Field::CreateFromArtField<false>(self, found, true));
   }
+}
+
+// This is required for Enum(Set) code, as that uses reflection to inspect enum classes.
+void UnstartedRuntime::UnstartedClassGetDeclaredMethod(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  // Special managed code cut-out to allow method lookup in a un-started runtime.
+  mirror::Class* klass = shadow_frame->GetVRegReference(arg_offset)->AsClass();
+  if (klass == nullptr) {
+    ThrowNullPointerExceptionForMethodAccess(shadow_frame->GetMethod(), InvokeType::kVirtual);
+    return;
+  }
+  mirror::String* name = shadow_frame->GetVRegReference(arg_offset + 1)->AsString();
+  mirror::ObjectArray<mirror::Class>* args =
+      shadow_frame->GetVRegReference(arg_offset + 2)->AsObjectArray<mirror::Class>();
+  if (Runtime::Current()->IsActiveTransaction()) {
+    result->SetL(mirror::Class::GetDeclaredMethodInternal<true>(self, klass, name, args));
+  } else {
+    result->SetL(mirror::Class::GetDeclaredMethodInternal<false>(self, klass, name, args));
+  }
+}
+
+// Special managed code cut-out to allow constructor lookup in a un-started runtime.
+void UnstartedRuntime::UnstartedClassGetDeclaredConstructor(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  mirror::Class* klass = shadow_frame->GetVRegReference(arg_offset)->AsClass();
+  if (klass == nullptr) {
+    ThrowNullPointerExceptionForMethodAccess(shadow_frame->GetMethod(), InvokeType::kVirtual);
+    return;
+  }
+  mirror::ObjectArray<mirror::Class>* args =
+      shadow_frame->GetVRegReference(arg_offset + 1)->AsObjectArray<mirror::Class>();
+  if (Runtime::Current()->IsActiveTransaction()) {
+    result->SetL(mirror::Class::GetDeclaredConstructorInternal<true>(self, klass, args));
+  } else {
+    result->SetL(mirror::Class::GetDeclaredConstructorInternal<false>(self, klass, args));
+  }
+}
+
+void UnstartedRuntime::UnstartedClassGetEnclosingClass(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  StackHandleScope<1> hs(self);
+  Handle<mirror::Class> klass(hs.NewHandle(shadow_frame->GetVRegReference(arg_offset)->AsClass()));
+  if (klass->IsProxyClass() || klass->GetDexCache() == nullptr) {
+    result->SetL(nullptr);
+  }
+  result->SetL(klass->GetDexFile().GetEnclosingClass(klass));
+}
+
+void UnstartedRuntime::UnstartedClassGetInnerClassFlags(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  StackHandleScope<1> hs(self);
+  Handle<mirror::Class> klass(hs.NewHandle(
+      reinterpret_cast<mirror::Class*>(shadow_frame->GetVRegReference(arg_offset))));
+  const int32_t default_value = shadow_frame->GetVReg(arg_offset + 1);
+  result->SetI(mirror::Class::GetInnerClassFlags(klass, default_value));
+}
+
+static std::unique_ptr<MemMap> FindAndExtractEntry(const std::string& jar_file,
+                                                   const char* entry_name,
+                                                   size_t* size,
+                                                   std::string* error_msg) {
+  CHECK(size != nullptr);
+
+  std::unique_ptr<ZipArchive> zip_archive(ZipArchive::Open(jar_file.c_str(), error_msg));
+  if (zip_archive == nullptr) {
+    return nullptr;;
+  }
+  std::unique_ptr<ZipEntry> zip_entry(zip_archive->Find(entry_name, error_msg));
+  if (zip_entry == nullptr) {
+    return nullptr;
+  }
+  std::unique_ptr<MemMap> tmp_map(
+      zip_entry->ExtractToMemMap(jar_file.c_str(), entry_name, error_msg));
+  if (tmp_map == nullptr) {
+    return nullptr;
+  }
+
+  // OK, from here everything seems fine.
+  *size = zip_entry->GetUncompressedLength();
+  return tmp_map;
+}
+
+static void GetResourceAsStream(Thread* self,
+                                ShadowFrame* shadow_frame,
+                                JValue* result,
+                                size_t arg_offset) SHARED_REQUIRES(Locks::mutator_lock_) {
+  mirror::Object* resource_obj = shadow_frame->GetVRegReference(arg_offset + 1);
+  if (resource_obj == nullptr) {
+    AbortTransactionOrFail(self, "null name for getResourceAsStream");
+    return;
+  }
+  CHECK(resource_obj->IsString());
+  mirror::String* resource_name = resource_obj->AsString();
+
+  std::string resource_name_str = resource_name->ToModifiedUtf8();
+  if (resource_name_str.empty() || resource_name_str == "/") {
+    AbortTransactionOrFail(self,
+                           "Unsupported name %s for getResourceAsStream",
+                           resource_name_str.c_str());
+    return;
+  }
+  const char* resource_cstr = resource_name_str.c_str();
+  if (resource_cstr[0] == '/') {
+    resource_cstr++;
+  }
+
+  Runtime* runtime = Runtime::Current();
+
+  std::vector<std::string> split;
+  Split(runtime->GetBootClassPathString(), ':', &split);
+  if (split.empty()) {
+    AbortTransactionOrFail(self,
+                           "Boot classpath not set or split error:: %s",
+                           runtime->GetBootClassPathString().c_str());
+    return;
+  }
+
+  std::unique_ptr<MemMap> mem_map;
+  size_t map_size;
+  std::string last_error_msg;  // Only store the last message (we could concatenate).
+
+  for (const std::string& jar_file : split) {
+    mem_map = FindAndExtractEntry(jar_file, resource_cstr, &map_size, &last_error_msg);
+    if (mem_map != nullptr) {
+      break;
+    }
+  }
+
+  if (mem_map == nullptr) {
+    // Didn't find it. There's a good chance this will be the same at runtime, but still
+    // conservatively abort the transaction here.
+    AbortTransactionOrFail(self,
+                           "Could not find resource %s. Last error was %s.",
+                           resource_name_str.c_str(),
+                           last_error_msg.c_str());
+    return;
+  }
+
+  StackHandleScope<3> hs(self);
+
+  // Create byte array for content.
+  Handle<mirror::ByteArray> h_array(hs.NewHandle(mirror::ByteArray::Alloc(self, map_size)));
+  if (h_array.Get() == nullptr) {
+    AbortTransactionOrFail(self, "Could not find/create byte array class");
+    return;
+  }
+  // Copy in content.
+  memcpy(h_array->GetData(), mem_map->Begin(), map_size);
+  // Be proactive releasing memory.
+  mem_map.release();
+
+  // Create a ByteArrayInputStream.
+  Handle<mirror::Class> h_class(hs.NewHandle(
+      runtime->GetClassLinker()->FindClass(self,
+                                           "Ljava/io/ByteArrayInputStream;",
+                                           ScopedNullHandle<mirror::ClassLoader>())));
+  if (h_class.Get() == nullptr) {
+    AbortTransactionOrFail(self, "Could not find ByteArrayInputStream class");
+    return;
+  }
+  if (!runtime->GetClassLinker()->EnsureInitialized(self, h_class, true, true)) {
+    AbortTransactionOrFail(self, "Could not initialize ByteArrayInputStream class");
+    return;
+  }
+
+  Handle<mirror::Object> h_obj(hs.NewHandle(h_class->AllocObject(self)));
+  if (h_obj.Get() == nullptr) {
+    AbortTransactionOrFail(self, "Could not allocate ByteArrayInputStream object");
+    return;
+  }
+
+  auto* cl = Runtime::Current()->GetClassLinker();
+  ArtMethod* constructor = h_class->FindDeclaredDirectMethod(
+      "<init>", "([B)V", cl->GetImagePointerSize());
+  if (constructor == nullptr) {
+    AbortTransactionOrFail(self, "Could not find ByteArrayInputStream constructor");
+    return;
+  }
+
+  uint32_t args[1];
+  args[0] = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(h_array.Get()));
+  EnterInterpreterFromInvoke(self, constructor, h_obj.Get(), args, nullptr);
+
+  if (self->IsExceptionPending()) {
+    AbortTransactionOrFail(self, "Could not run ByteArrayInputStream constructor");
+    return;
+  }
+
+  result->SetL(h_obj.Get());
+}
+
+void UnstartedRuntime::UnstartedClassLoaderGetResourceAsStream(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  {
+    mirror::Object* this_obj = shadow_frame->GetVRegReference(arg_offset);
+    CHECK(this_obj != nullptr);
+    CHECK(this_obj->IsClassLoader());
+
+    StackHandleScope<1> hs(self);
+    Handle<mirror::Class> this_classloader_class(hs.NewHandle(this_obj->GetClass()));
+
+    if (self->DecodeJObject(WellKnownClasses::java_lang_BootClassLoader) !=
+            this_classloader_class.Get()) {
+      AbortTransactionOrFail(self,
+                            "Unsupported classloader type %s for getResourceAsStream",
+                            PrettyClass(this_classloader_class.Get()).c_str());
+      return;
+    }
+  }
+
+  GetResourceAsStream(self, shadow_frame, result, arg_offset);
 }
 
 void UnstartedRuntime::UnstartedVmClassLoaderFindLoadedClass(
@@ -294,7 +552,7 @@ static void PrimitiveArrayCopy(Thread* self,
                                mirror::Array* src_array, int32_t src_pos,
                                mirror::Array* dst_array, int32_t dst_pos,
                                int32_t length)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   if (src_array->GetClass()->GetComponentType() != dst_array->GetClass()->GetComponentType()) {
     AbortTransactionOrFail(self, "Types mismatched in arraycopy: %s vs %s.",
                            PrettyDescriptor(src_array->GetClass()->GetComponentType()).c_str(),
@@ -321,28 +579,35 @@ void UnstartedRuntime::UnstartedSystemArraycopy(
   jint src_pos = shadow_frame->GetVReg(arg_offset + 1);
   jint dst_pos = shadow_frame->GetVReg(arg_offset + 3);
   jint length = shadow_frame->GetVReg(arg_offset + 4);
-  mirror::Array* src_array = shadow_frame->GetVRegReference(arg_offset)->AsArray();
-  mirror::Array* dst_array = shadow_frame->GetVRegReference(arg_offset + 2)->AsArray();
 
-  // Null checking.
-  if (src_array == nullptr) {
+  mirror::Object* src_obj = shadow_frame->GetVRegReference(arg_offset);
+  mirror::Object* dst_obj = shadow_frame->GetVRegReference(arg_offset + 2);
+  // Null checking. For simplicity, abort transaction.
+  if (src_obj == nullptr) {
     AbortTransactionOrFail(self, "src is null in arraycopy.");
     return;
   }
-  if (dst_array == nullptr) {
+  if (dst_obj == nullptr) {
     AbortTransactionOrFail(self, "dst is null in arraycopy.");
     return;
   }
+  // Test for arrayness. Throw ArrayStoreException.
+  if (!src_obj->IsArrayInstance() || !dst_obj->IsArrayInstance()) {
+    self->ThrowNewException("Ljava/lang/ArrayStoreException;", "src or trg is not an array");
+    return;
+  }
 
-  // Bounds checking.
+  mirror::Array* src_array = src_obj->AsArray();
+  mirror::Array* dst_array = dst_obj->AsArray();
+
+  // Bounds checking. Throw IndexOutOfBoundsException.
   if (UNLIKELY(src_pos < 0) || UNLIKELY(dst_pos < 0) || UNLIKELY(length < 0) ||
       UNLIKELY(src_pos > src_array->GetLength() - length) ||
       UNLIKELY(dst_pos > dst_array->GetLength() - length)) {
-    self->ThrowNewExceptionF("Ljava/lang/ArrayIndexOutOfBoundsException;",
+    self->ThrowNewExceptionF("Ljava/lang/IndexOutOfBoundsException;",
                              "src.length=%d srcPos=%d dst.length=%d dstPos=%d length=%d",
                              src_array->GetLength(), src_pos, dst_array->GetLength(), dst_pos,
                              length);
-    AbortTransactionOrFail(self, "Index out of bounds.");
     return;
   }
 
@@ -361,19 +626,11 @@ void UnstartedRuntime::UnstartedSystemArraycopy(
       return;
     }
 
-    // For simplicity only do this if the component types are the same. Otherwise we have to copy
-    // even more code from the object-array functions.
-    if (src_type != trg_type) {
-      AbortTransactionOrFail(self, "Types not the same in arraycopy: %s vs %s",
-                             PrettyDescriptor(src_array->GetClass()->GetComponentType()).c_str(),
-                             PrettyDescriptor(dst_array->GetClass()->GetComponentType()).c_str());
-      return;
-    }
-
     mirror::ObjectArray<mirror::Object>* src = src_array->AsObjectArray<mirror::Object>();
     mirror::ObjectArray<mirror::Object>* dst = dst_array->AsObjectArray<mirror::Object>();
     if (src == dst) {
       // Can overlap, but not have type mismatches.
+      // We cannot use ObjectArray::MemMove here, as it doesn't support transactions.
       const bool copy_forward = (dst_pos < src_pos) || (dst_pos - src_pos >= length);
       if (copy_forward) {
         for (int32_t i = 0; i < length; ++i) {
@@ -385,11 +642,19 @@ void UnstartedRuntime::UnstartedSystemArraycopy(
         }
       }
     } else {
-      // Can't overlap. Would need type checks, but we abort above.
-      for (int32_t i = 0; i < length; ++i) {
-        dst->Set(dst_pos + i, src->Get(src_pos + i));
+      // We're being lazy here. Optimally this could be a memcpy (if component types are
+      // assignable), but the ObjectArray implementation doesn't support transactions. The
+      // checking version, however, does.
+      if (Runtime::Current()->IsActiveTransaction()) {
+        dst->AssignableCheckingMemcpy<true>(
+            dst_pos, src, src_pos, length, true /* throw_exception */);
+      } else {
+        dst->AssignableCheckingMemcpy<false>(
+                    dst_pos, src, src_pos, length, true /* throw_exception */);
       }
     }
+  } else if (src_type->IsPrimitiveByte()) {
+    PrimitiveArrayCopy<uint8_t>(self, src_array, src_pos, dst_array, dst_pos, length);
   } else if (src_type->IsPrimitiveChar()) {
     PrimitiveArrayCopy<uint16_t>(self, src_array, src_pos, dst_array, dst_pos, length);
   } else if (src_type->IsPrimitiveInt()) {
@@ -398,6 +663,12 @@ void UnstartedRuntime::UnstartedSystemArraycopy(
     AbortTransactionOrFail(self, "Unimplemented System.arraycopy for type '%s'",
                            PrettyDescriptor(src_type).c_str());
   }
+}
+
+void UnstartedRuntime::UnstartedSystemArraycopyByte(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  // Just forward.
+  UnstartedRuntime::UnstartedSystemArraycopy(self, shadow_frame, result, arg_offset);
 }
 
 void UnstartedRuntime::UnstartedSystemArraycopyChar(
@@ -412,46 +683,137 @@ void UnstartedRuntime::UnstartedSystemArraycopyInt(
   UnstartedRuntime::UnstartedSystemArraycopy(self, shadow_frame, result, arg_offset);
 }
 
+void UnstartedRuntime::UnstartedSystemGetSecurityManager(
+    Thread* self ATTRIBUTE_UNUSED, ShadowFrame* shadow_frame ATTRIBUTE_UNUSED,
+    JValue* result, size_t arg_offset ATTRIBUTE_UNUSED) {
+  result->SetL(nullptr);
+}
+
+static constexpr const char* kAndroidHardcodedSystemPropertiesFieldName = "STATIC_PROPERTIES";
+
+static void GetSystemProperty(Thread* self,
+                              ShadowFrame* shadow_frame,
+                              JValue* result,
+                              size_t arg_offset,
+                              bool is_default_version)
+    SHARED_REQUIRES(Locks::mutator_lock_) {
+  StackHandleScope<4> hs(self);
+  Handle<mirror::String> h_key(
+      hs.NewHandle(reinterpret_cast<mirror::String*>(shadow_frame->GetVRegReference(arg_offset))));
+  if (h_key.Get() == nullptr) {
+    AbortTransactionOrFail(self, "getProperty key was null");
+    return;
+  }
+
+  // This is overall inefficient, but reflecting the values here is not great, either. So
+  // for simplicity, and with the assumption that the number of getProperty calls is not
+  // too great, just iterate each time.
+
+  // Get the storage class.
+  ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
+  Handle<mirror::Class> h_props_class(hs.NewHandle(
+      class_linker->FindClass(self,
+                              "Ljava/lang/AndroidHardcodedSystemProperties;",
+                              ScopedNullHandle<mirror::ClassLoader>())));
+  if (h_props_class.Get() == nullptr) {
+    AbortTransactionOrFail(self, "Could not find AndroidHardcodedSystemProperties");
+    return;
+  }
+  if (!class_linker->EnsureInitialized(self, h_props_class, true, true)) {
+    AbortTransactionOrFail(self, "Could not initialize AndroidHardcodedSystemProperties");
+    return;
+  }
+
+  // Get the storage array.
+  ArtField* static_properties =
+      h_props_class->FindDeclaredStaticField(kAndroidHardcodedSystemPropertiesFieldName,
+                                             "[[Ljava/lang/String;");
+  if (static_properties == nullptr) {
+    AbortTransactionOrFail(self,
+                           "Could not find %s field",
+                           kAndroidHardcodedSystemPropertiesFieldName);
+    return;
+  }
+  Handle<mirror::ObjectArray<mirror::ObjectArray<mirror::String>>> h_2string_array(
+      hs.NewHandle(reinterpret_cast<mirror::ObjectArray<mirror::ObjectArray<mirror::String>>*>(
+          static_properties->GetObject(h_props_class.Get()))));
+  if (h_2string_array.Get() == nullptr) {
+    AbortTransactionOrFail(self, "Field %s is null", kAndroidHardcodedSystemPropertiesFieldName);
+    return;
+  }
+
+  // Iterate over it.
+  const int32_t prop_count = h_2string_array->GetLength();
+  // Use the third handle as mutable.
+  MutableHandle<mirror::ObjectArray<mirror::String>> h_string_array(
+      hs.NewHandle<mirror::ObjectArray<mirror::String>>(nullptr));
+  for (int32_t i = 0; i < prop_count; ++i) {
+    h_string_array.Assign(h_2string_array->Get(i));
+    if (h_string_array.Get() == nullptr ||
+        h_string_array->GetLength() != 2 ||
+        h_string_array->Get(0) == nullptr) {
+      AbortTransactionOrFail(self,
+                             "Unexpected content of %s",
+                             kAndroidHardcodedSystemPropertiesFieldName);
+      return;
+    }
+    if (h_key->Equals(h_string_array->Get(0))) {
+      // Found a value.
+      if (h_string_array->Get(1) == nullptr && is_default_version) {
+        // Null is being delegated to the default map, and then resolved to the given default value.
+        // As there's no default map, return the given value.
+        result->SetL(shadow_frame->GetVRegReference(arg_offset + 1));
+      } else {
+        result->SetL(h_string_array->Get(1));
+      }
+      return;
+    }
+  }
+
+  // Key is not supported.
+  AbortTransactionOrFail(self, "getProperty key %s not supported", h_key->ToModifiedUtf8().c_str());
+}
+
+void UnstartedRuntime::UnstartedSystemGetProperty(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  GetSystemProperty(self, shadow_frame, result, arg_offset, false);
+}
+
+void UnstartedRuntime::UnstartedSystemGetPropertyWithDefault(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  GetSystemProperty(self, shadow_frame, result, arg_offset, true);
+}
+
 void UnstartedRuntime::UnstartedThreadLocalGet(
     Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset ATTRIBUTE_UNUSED) {
   std::string caller(PrettyMethod(shadow_frame->GetLink()->GetMethod()));
   bool ok = false;
-  if (caller == "java.lang.String java.lang.IntegralToString.convertInt"
-                "(java.lang.AbstractStringBuilder, int)") {
+  if (caller == "void java.lang.FloatingDecimal.developLongDigits(int, long, long)" ||
+      caller == "java.lang.String java.lang.FloatingDecimal.toJavaFormatString()") {
     // Allocate non-threadlocal buffer.
-    result->SetL(mirror::CharArray::Alloc(self, 11));
+    result->SetL(mirror::CharArray::Alloc(self, 26));
     ok = true;
-  } else if (caller == "java.lang.RealToString java.lang.RealToString.getInstance()") {
-    // Note: RealToString is implemented and used in a different fashion than IntegralToString.
-    // Conversion is done over an actual object of RealToString (the conversion method is an
-    // instance method). This means it is not as clear whether it is correct to return a new
-    // object each time. The caller needs to be inspected by hand to see whether it (incorrectly)
-    // stores the object for later use.
-    // See also b/19548084 for a possible rewrite and bringing it in line with IntegralToString.
-    if (shadow_frame->GetLink()->GetLink() != nullptr) {
-      std::string caller2(PrettyMethod(shadow_frame->GetLink()->GetLink()->GetMethod()));
-      if (caller2 == "java.lang.String java.lang.Double.toString(double)") {
-        // Allocate new object.
-        StackHandleScope<2> hs(self);
-        Handle<mirror::Class> h_real_to_string_class(hs.NewHandle(
-            shadow_frame->GetLink()->GetMethod()->GetDeclaringClass()));
-        Handle<mirror::Object> h_real_to_string_obj(hs.NewHandle(
-            h_real_to_string_class->AllocObject(self)));
-        if (h_real_to_string_obj.Get() != nullptr) {
-          auto* cl = Runtime::Current()->GetClassLinker();
-          ArtMethod* init_method = h_real_to_string_class->FindDirectMethod(
-              "<init>", "()V", cl->GetImagePointerSize());
-          if (init_method == nullptr) {
-            h_real_to_string_class->DumpClass(LOG(FATAL), mirror::Class::kDumpClassFullDetail);
-          } else {
-            JValue invoke_result;
-            EnterInterpreterFromInvoke(self, init_method, h_real_to_string_obj.Get(), nullptr,
-                                       nullptr);
-            if (!self->IsExceptionPending()) {
-              result->SetL(h_real_to_string_obj.Get());
-              ok = true;
-            }
-          }
+  } else if (caller ==
+             "java.lang.FloatingDecimal java.lang.FloatingDecimal.getThreadLocalInstance()") {
+    // Allocate new object.
+    StackHandleScope<2> hs(self);
+    Handle<mirror::Class> h_real_to_string_class(hs.NewHandle(
+        shadow_frame->GetLink()->GetMethod()->GetDeclaringClass()));
+    Handle<mirror::Object> h_real_to_string_obj(hs.NewHandle(
+        h_real_to_string_class->AllocObject(self)));
+    if (h_real_to_string_obj.Get() != nullptr) {
+      auto* cl = Runtime::Current()->GetClassLinker();
+      ArtMethod* init_method = h_real_to_string_class->FindDirectMethod(
+          "<init>", "()V", cl->GetImagePointerSize());
+      if (init_method == nullptr) {
+        h_real_to_string_class->DumpClass(LOG(FATAL), mirror::Class::kDumpClassFullDetail);
+      } else {
+        JValue invoke_result;
+        EnterInterpreterFromInvoke(self, init_method, h_real_to_string_obj.Get(), nullptr,
+                                   nullptr);
+        if (!self->IsExceptionPending()) {
+          result->SetL(h_real_to_string_obj.Get());
+          ok = true;
         }
       }
     }
@@ -464,17 +826,28 @@ void UnstartedRuntime::UnstartedThreadLocalGet(
 
 void UnstartedRuntime::UnstartedMathCeil(
     Thread* self ATTRIBUTE_UNUSED, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
-  double in = shadow_frame->GetVRegDouble(arg_offset);
-  double out;
-  // Special cases:
-  // 1) NaN, infinity, +0, -0 -> out := in. All are guaranteed by cmath.
-  // -1 < in < 0 -> out := -0.
-  if (-1.0 < in && in < 0) {
-    out = -0.0;
-  } else {
-    out = ceil(in);
-  }
-  result->SetD(out);
+  result->SetD(ceil(shadow_frame->GetVRegDouble(arg_offset)));
+}
+
+void UnstartedRuntime::UnstartedMathFloor(
+    Thread* self ATTRIBUTE_UNUSED, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  result->SetD(floor(shadow_frame->GetVRegDouble(arg_offset)));
+}
+
+void UnstartedRuntime::UnstartedMathSin(
+    Thread* self ATTRIBUTE_UNUSED, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  result->SetD(sin(shadow_frame->GetVRegDouble(arg_offset)));
+}
+
+void UnstartedRuntime::UnstartedMathCos(
+    Thread* self ATTRIBUTE_UNUSED, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  result->SetD(cos(shadow_frame->GetVRegDouble(arg_offset)));
+}
+
+void UnstartedRuntime::UnstartedMathPow(
+    Thread* self ATTRIBUTE_UNUSED, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  result->SetD(pow(shadow_frame->GetVRegDouble(arg_offset),
+                   shadow_frame->GetVRegDouble(arg_offset + 2)));
 }
 
 void UnstartedRuntime::UnstartedObjectHashCode(
@@ -490,7 +863,7 @@ void UnstartedRuntime::UnstartedDoubleDoubleToRawLongBits(
 }
 
 static mirror::Object* GetDexFromDexCache(Thread* self, mirror::DexCache* dex_cache)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   const DexFile* dex_file = dex_cache->GetDexFile();
   if (dex_file == nullptr) {
     return nullptr;
@@ -601,7 +974,7 @@ void UnstartedRuntime::UnstartedMemoryPeekLong(
 
 static void UnstartedMemoryPeekArray(
     Primitive::Type type, Thread* self, ShadowFrame* shadow_frame, size_t arg_offset)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   int64_t address_long = shadow_frame->GetVRegLong(arg_offset);
   mirror::Object* obj = shadow_frame->GetVRegReference(arg_offset + 2);
   if (obj == nullptr) {
@@ -651,98 +1024,6 @@ static void UnstartedMemoryPeekArray(
 void UnstartedRuntime::UnstartedMemoryPeekByteArray(
     Thread* self, ShadowFrame* shadow_frame, JValue* result ATTRIBUTE_UNUSED, size_t arg_offset) {
   UnstartedMemoryPeekArray(Primitive::kPrimByte, self, shadow_frame, arg_offset);
-}
-
-// This allows reading security.properties in an unstarted runtime and initialize Security.
-void UnstartedRuntime::UnstartedSecurityGetSecurityPropertiesReader(
-    Thread* self, ShadowFrame* shadow_frame ATTRIBUTE_UNUSED, JValue* result,
-    size_t arg_offset ATTRIBUTE_UNUSED) {
-  Runtime* runtime = Runtime::Current();
-  const std::vector<const DexFile*>& path = runtime->GetClassLinker()->GetBootClassPath();
-  std::string canonical(DexFile::GetDexCanonicalLocation(path[0]->GetLocation().c_str()));
-  mirror::String* string_data;
-
-  // Use a block to enclose the I/O and MemMap code so buffers are released early.
-  {
-    std::string error_msg;
-    std::unique_ptr<ZipArchive> zip_archive(ZipArchive::Open(canonical.c_str(), &error_msg));
-    if (zip_archive.get() == nullptr) {
-      AbortTransactionOrFail(self, "Could not open zip file %s: %s", canonical.c_str(),
-                             error_msg.c_str());
-      return;
-    }
-    std::unique_ptr<ZipEntry> zip_entry(zip_archive->Find("java/security/security.properties",
-                                                          &error_msg));
-    if (zip_entry.get() == nullptr) {
-      AbortTransactionOrFail(self, "Could not find security.properties file in %s: %s",
-                             canonical.c_str(), error_msg.c_str());
-      return;
-    }
-    std::unique_ptr<MemMap> map(zip_entry->ExtractToMemMap(canonical.c_str(),
-                                                           "java/security/security.properties",
-                                                           &error_msg));
-    if (map.get() == nullptr) {
-      AbortTransactionOrFail(self, "Could not unzip security.properties file in %s: %s",
-                             canonical.c_str(), error_msg.c_str());
-      return;
-    }
-
-    uint32_t length = zip_entry->GetUncompressedLength();
-    std::unique_ptr<char[]> tmp(new char[length + 1]);
-    memcpy(tmp.get(), map->Begin(), length);
-    tmp.get()[length] = 0;  // null terminator
-
-    string_data = mirror::String::AllocFromModifiedUtf8(self, tmp.get());
-  }
-
-  if (string_data == nullptr) {
-    AbortTransactionOrFail(self, "Could not create string from file content of %s",
-                           canonical.c_str());
-    return;
-  }
-
-  // Create a StringReader.
-  StackHandleScope<3> hs(self);
-  Handle<mirror::String> h_string(hs.NewHandle(string_data));
-
-  Handle<mirror::Class> h_class(hs.NewHandle(
-      runtime->GetClassLinker()->FindClass(self,
-                                           "Ljava/io/StringReader;",
-                                           NullHandle<mirror::ClassLoader>())));
-  if (h_class.Get() == nullptr) {
-    AbortTransactionOrFail(self, "Could not find StringReader class");
-    return;
-  }
-
-  if (!runtime->GetClassLinker()->EnsureInitialized(self, h_class, true, true)) {
-    AbortTransactionOrFail(self, "Could not initialize StringReader class");
-    return;
-  }
-
-  Handle<mirror::Object> h_obj(hs.NewHandle(h_class->AllocObject(self)));
-  if (h_obj.Get() == nullptr) {
-    AbortTransactionOrFail(self, "Could not allocate StringReader object");
-    return;
-  }
-
-  auto* cl = Runtime::Current()->GetClassLinker();
-  ArtMethod* constructor = h_class->FindDeclaredDirectMethod(
-      "<init>", "(Ljava/lang/String;)V", cl->GetImagePointerSize());
-  if (constructor == nullptr) {
-    AbortTransactionOrFail(self, "Could not find StringReader constructor");
-    return;
-  }
-
-  uint32_t args[1];
-  args[0] = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(h_string.Get()));
-  EnterInterpreterFromInvoke(self, constructor, h_obj.Get(), args, nullptr);
-
-  if (self->IsExceptionPending()) {
-    AbortTransactionOrFail(self, "Could not run StringReader constructor");
-    return;
-  }
-
-  result->SetL(h_obj.Get());
 }
 
 // This allows reading the new style of String objects during compilation.
@@ -840,7 +1121,7 @@ void UnstartedRuntime::UnstartedStringFastSubstring(
 // This allows getting the char array for new style of String objects during compilation.
 void UnstartedRuntime::UnstartedStringToCharArray(
     Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   mirror::String* string = shadow_frame->GetVRegReference(arg_offset)->AsString();
   if (string == nullptr) {
     AbortTransactionOrFail(self, "String.charAt with null object");
@@ -848,6 +1129,290 @@ void UnstartedRuntime::UnstartedStringToCharArray(
   }
   result->SetL(string->ToCharArray(self));
 }
+
+// This allows statically initializing ConcurrentHashMap and SynchronousQueue.
+void UnstartedRuntime::UnstartedReferenceGetReferent(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  mirror::Reference* const ref = down_cast<mirror::Reference*>(
+      shadow_frame->GetVRegReference(arg_offset));
+  if (ref == nullptr) {
+    AbortTransactionOrFail(self, "Reference.getReferent() with null object");
+    return;
+  }
+  mirror::Object* const referent =
+      Runtime::Current()->GetHeap()->GetReferenceProcessor()->GetReferent(self, ref);
+  result->SetL(referent);
+}
+
+// This allows statically initializing ConcurrentHashMap and SynchronousQueue. We use a somewhat
+// conservative upper bound. We restrict the callers to SynchronousQueue and ConcurrentHashMap,
+// where we can predict the behavior (somewhat).
+// Note: this is required (instead of lazy initialization) as these classes are used in the static
+//       initialization of other classes, so will *use* the value.
+void UnstartedRuntime::UnstartedRuntimeAvailableProcessors(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset ATTRIBUTE_UNUSED) {
+  std::string caller(PrettyMethod(shadow_frame->GetLink()->GetMethod()));
+  if (caller == "void java.util.concurrent.SynchronousQueue.<clinit>()") {
+    // SynchronousQueue really only separates between single- and multiprocessor case. Return
+    // 8 as a conservative upper approximation.
+    result->SetI(8);
+  } else if (caller == "void java.util.concurrent.ConcurrentHashMap.<clinit>()") {
+    // ConcurrentHashMap uses it for striding. 8 still seems an OK general value, as it's likely
+    // a good upper bound.
+    // TODO: Consider resetting in the zygote?
+    result->SetI(8);
+  } else {
+    // Not supported.
+    AbortTransactionOrFail(self, "Accessing availableProcessors not allowed");
+  }
+}
+
+// This allows accessing ConcurrentHashMap/SynchronousQueue.
+
+void UnstartedRuntime::UnstartedUnsafeCompareAndSwapLong(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  // Argument 0 is the Unsafe instance, skip.
+  mirror::Object* obj = shadow_frame->GetVRegReference(arg_offset + 1);
+  if (obj == nullptr) {
+    AbortTransactionOrFail(self, "Cannot access null object, retry at runtime.");
+    return;
+  }
+  int64_t offset = shadow_frame->GetVRegLong(arg_offset + 2);
+  int64_t expectedValue = shadow_frame->GetVRegLong(arg_offset + 4);
+  int64_t newValue = shadow_frame->GetVRegLong(arg_offset + 6);
+
+  // Must use non transactional mode.
+  if (kUseReadBarrier) {
+    // Need to make sure the reference stored in the field is a to-space one before attempting the
+    // CAS or the CAS could fail incorrectly.
+    mirror::HeapReference<mirror::Object>* field_addr =
+        reinterpret_cast<mirror::HeapReference<mirror::Object>*>(
+            reinterpret_cast<uint8_t*>(obj) + static_cast<size_t>(offset));
+    ReadBarrier::Barrier<mirror::Object, kWithReadBarrier, /*kAlwaysUpdateField*/true>(
+        obj,
+        MemberOffset(offset),
+        field_addr);
+  }
+  bool success;
+  // Check whether we're in a transaction, call accordingly.
+  if (Runtime::Current()->IsActiveTransaction()) {
+    success = obj->CasFieldStrongSequentiallyConsistent64<true>(MemberOffset(offset),
+                                                                expectedValue,
+                                                                newValue);
+  } else {
+    success = obj->CasFieldStrongSequentiallyConsistent64<false>(MemberOffset(offset),
+                                                                 expectedValue,
+                                                                 newValue);
+  }
+  result->SetZ(success ? 1 : 0);
+}
+
+void UnstartedRuntime::UnstartedUnsafeCompareAndSwapObject(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  // Argument 0 is the Unsafe instance, skip.
+  mirror::Object* obj = shadow_frame->GetVRegReference(arg_offset + 1);
+  if (obj == nullptr) {
+    AbortTransactionOrFail(self, "Cannot access null object, retry at runtime.");
+    return;
+  }
+  int64_t offset = shadow_frame->GetVRegLong(arg_offset + 2);
+  mirror::Object* expected_value = shadow_frame->GetVRegReference(arg_offset + 4);
+  mirror::Object* newValue = shadow_frame->GetVRegReference(arg_offset + 5);
+
+  // Must use non transactional mode.
+  if (kUseReadBarrier) {
+    // Need to make sure the reference stored in the field is a to-space one before attempting the
+    // CAS or the CAS could fail incorrectly.
+    mirror::HeapReference<mirror::Object>* field_addr =
+        reinterpret_cast<mirror::HeapReference<mirror::Object>*>(
+            reinterpret_cast<uint8_t*>(obj) + static_cast<size_t>(offset));
+    ReadBarrier::Barrier<mirror::Object, kWithReadBarrier, /*kAlwaysUpdateField*/true>(
+        obj,
+        MemberOffset(offset),
+        field_addr);
+  }
+  bool success;
+  // Check whether we're in a transaction, call accordingly.
+  if (Runtime::Current()->IsActiveTransaction()) {
+    success = obj->CasFieldStrongSequentiallyConsistentObject<true>(MemberOffset(offset),
+                                                                    expected_value,
+                                                                    newValue);
+  } else {
+    success = obj->CasFieldStrongSequentiallyConsistentObject<false>(MemberOffset(offset),
+                                                                     expected_value,
+                                                                     newValue);
+  }
+  result->SetZ(success ? 1 : 0);
+}
+
+void UnstartedRuntime::UnstartedUnsafeGetObjectVolatile(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset)
+    SHARED_REQUIRES(Locks::mutator_lock_) {
+  // Argument 0 is the Unsafe instance, skip.
+  mirror::Object* obj = shadow_frame->GetVRegReference(arg_offset + 1);
+  if (obj == nullptr) {
+    AbortTransactionOrFail(self, "Cannot access null object, retry at runtime.");
+    return;
+  }
+  int64_t offset = shadow_frame->GetVRegLong(arg_offset + 2);
+  mirror::Object* value = obj->GetFieldObjectVolatile<mirror::Object>(MemberOffset(offset));
+  result->SetL(value);
+}
+
+void UnstartedRuntime::UnstartedUnsafePutObjectVolatile(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result ATTRIBUTE_UNUSED, size_t arg_offset)
+    SHARED_REQUIRES(Locks::mutator_lock_) {
+  // Argument 0 is the Unsafe instance, skip.
+  mirror::Object* obj = shadow_frame->GetVRegReference(arg_offset + 1);
+  if (obj == nullptr) {
+    AbortTransactionOrFail(self, "Cannot access null object, retry at runtime.");
+    return;
+  }
+  int64_t offset = shadow_frame->GetVRegLong(arg_offset + 2);
+  mirror::Object* value = shadow_frame->GetVRegReference(arg_offset + 4);
+  if (Runtime::Current()->IsActiveTransaction()) {
+    obj->SetFieldObjectVolatile<true>(MemberOffset(offset), value);
+  } else {
+    obj->SetFieldObjectVolatile<false>(MemberOffset(offset), value);
+  }
+}
+
+void UnstartedRuntime::UnstartedUnsafePutOrderedObject(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result ATTRIBUTE_UNUSED, size_t arg_offset)
+    SHARED_REQUIRES(Locks::mutator_lock_) {
+  // Argument 0 is the Unsafe instance, skip.
+  mirror::Object* obj = shadow_frame->GetVRegReference(arg_offset + 1);
+  if (obj == nullptr) {
+    AbortTransactionOrFail(self, "Cannot access null object, retry at runtime.");
+    return;
+  }
+  int64_t offset = shadow_frame->GetVRegLong(arg_offset + 2);
+  mirror::Object* newValue = shadow_frame->GetVRegReference(arg_offset + 4);
+  QuasiAtomic::ThreadFenceRelease();
+  if (Runtime::Current()->IsActiveTransaction()) {
+    obj->SetFieldObject<true>(MemberOffset(offset), newValue);
+  } else {
+    obj->SetFieldObject<false>(MemberOffset(offset), newValue);
+  }
+}
+
+// A cutout for Integer.parseInt(String). Note: this code is conservative and will bail instead
+// of correctly handling the corner cases.
+void UnstartedRuntime::UnstartedIntegerParseInt(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset)
+    SHARED_REQUIRES(Locks::mutator_lock_) {
+  mirror::Object* obj = shadow_frame->GetVRegReference(arg_offset);
+  if (obj == nullptr) {
+    AbortTransactionOrFail(self, "Cannot parse null string, retry at runtime.");
+    return;
+  }
+
+  std::string string_value = obj->AsString()->ToModifiedUtf8();
+  if (string_value.empty()) {
+    AbortTransactionOrFail(self, "Cannot parse empty string, retry at runtime.");
+    return;
+  }
+
+  const char* c_str = string_value.c_str();
+  char *end;
+  // Can we set errno to 0? Is this always a variable, and not a macro?
+  // Worst case, we'll incorrectly fail a transaction. Seems OK.
+  int64_t l = strtol(c_str, &end, 10);
+
+  if ((errno == ERANGE && l == LONG_MAX) || l > std::numeric_limits<int32_t>::max() ||
+      (errno == ERANGE && l == LONG_MIN) || l < std::numeric_limits<int32_t>::min()) {
+    AbortTransactionOrFail(self, "Cannot parse string %s, retry at runtime.", c_str);
+    return;
+  }
+  if (l == 0) {
+    // Check whether the string wasn't exactly zero.
+    if (string_value != "0") {
+      AbortTransactionOrFail(self, "Cannot parse string %s, retry at runtime.", c_str);
+      return;
+    }
+  } else if (*end != '\0') {
+    AbortTransactionOrFail(self, "Cannot parse string %s, retry at runtime.", c_str);
+    return;
+  }
+
+  result->SetI(static_cast<int32_t>(l));
+}
+
+// A cutout for Long.parseLong.
+//
+// Note: for now use code equivalent to Integer.parseInt, as the full range may not be supported
+//       well.
+void UnstartedRuntime::UnstartedLongParseLong(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset)
+    SHARED_REQUIRES(Locks::mutator_lock_) {
+  mirror::Object* obj = shadow_frame->GetVRegReference(arg_offset);
+  if (obj == nullptr) {
+    AbortTransactionOrFail(self, "Cannot parse null string, retry at runtime.");
+    return;
+  }
+
+  std::string string_value = obj->AsString()->ToModifiedUtf8();
+  if (string_value.empty()) {
+    AbortTransactionOrFail(self, "Cannot parse empty string, retry at runtime.");
+    return;
+  }
+
+  const char* c_str = string_value.c_str();
+  char *end;
+  // Can we set errno to 0? Is this always a variable, and not a macro?
+  // Worst case, we'll incorrectly fail a transaction. Seems OK.
+  int64_t l = strtol(c_str, &end, 10);
+
+  // Note: comparing against int32_t min/max is intentional here.
+  if ((errno == ERANGE && l == LONG_MAX) || l > std::numeric_limits<int32_t>::max() ||
+      (errno == ERANGE && l == LONG_MIN) || l < std::numeric_limits<int32_t>::min()) {
+    AbortTransactionOrFail(self, "Cannot parse string %s, retry at runtime.", c_str);
+    return;
+  }
+  if (l == 0) {
+    // Check whether the string wasn't exactly zero.
+    if (string_value != "0") {
+      AbortTransactionOrFail(self, "Cannot parse string %s, retry at runtime.", c_str);
+      return;
+    }
+  } else if (*end != '\0') {
+    AbortTransactionOrFail(self, "Cannot parse string %s, retry at runtime.", c_str);
+    return;
+  }
+
+  result->SetJ(l);
+}
+
+void UnstartedRuntime::UnstartedMethodInvoke(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset)
+    SHARED_REQUIRES(Locks::mutator_lock_) {
+  JNIEnvExt* env = self->GetJniEnv();
+  ScopedObjectAccessUnchecked soa(self);
+
+  mirror::Object* java_method_obj = shadow_frame->GetVRegReference(arg_offset);
+  ScopedLocalRef<jobject> java_method(env,
+      java_method_obj == nullptr ? nullptr :env->AddLocalReference<jobject>(java_method_obj));
+
+  mirror::Object* java_receiver_obj = shadow_frame->GetVRegReference(arg_offset + 1);
+  ScopedLocalRef<jobject> java_receiver(env,
+      java_receiver_obj == nullptr ? nullptr : env->AddLocalReference<jobject>(java_receiver_obj));
+
+  mirror::Object* java_args_obj = shadow_frame->GetVRegReference(arg_offset + 2);
+  ScopedLocalRef<jobject> java_args(env,
+      java_args_obj == nullptr ? nullptr : env->AddLocalReference<jobject>(java_args_obj));
+
+  ScopedLocalRef<jobject> result_jobj(env,
+      InvokeMethod(soa, java_method.get(), java_receiver.get(), java_args.get()));
+
+  result->SetL(self->DecodeJObject(result_jobj.get()));
+
+  // Conservatively flag all exceptions as transaction aborts. This way we don't need to unwrap
+  // InvocationTargetExceptions.
+  if (self->IsExceptionPending()) {
+    AbortTransactionOrFail(self, "Failed Method.invoke");
+  }
+}
+
 
 void UnstartedRuntime::UnstartedJNIVMRuntimeNewUnpaddedArray(
     Thread* self, ArtMethod* method ATTRIBUTE_UNUSED, mirror::Object* receiver ATTRIBUTE_UNUSED,
@@ -895,11 +1460,29 @@ void UnstartedRuntime::UnstartedJNIMathExp(
   result->SetD(exp(value.GetD()));
 }
 
+void UnstartedRuntime::UnstartedJNIAtomicLongVMSupportsCS8(
+    Thread* self ATTRIBUTE_UNUSED,
+    ArtMethod* method ATTRIBUTE_UNUSED,
+    mirror::Object* receiver ATTRIBUTE_UNUSED,
+    uint32_t* args ATTRIBUTE_UNUSED,
+    JValue* result) {
+  result->SetZ(QuasiAtomic::LongAtomicsUseMutexes(Runtime::Current()->GetInstructionSet())
+                   ? 0
+                   : 1);
+}
+
 void UnstartedRuntime::UnstartedJNIClassGetNameNative(
     Thread* self, ArtMethod* method ATTRIBUTE_UNUSED, mirror::Object* receiver,
     uint32_t* args ATTRIBUTE_UNUSED, JValue* result) {
   StackHandleScope<1> hs(self);
   result->SetL(mirror::Class::ComputeName(hs.NewHandle(receiver->AsClass())));
+}
+
+void UnstartedRuntime::UnstartedJNIDoubleLongBitsToDouble(
+    Thread* self ATTRIBUTE_UNUSED, ArtMethod* method ATTRIBUTE_UNUSED,
+    mirror::Object* receiver ATTRIBUTE_UNUSED, uint32_t* args, JValue* result) {
+  uint64_t long_input = args[0] | (static_cast<uint64_t>(args[1]) << 32);
+  result->SetD(bit_cast<double>(long_input));
 }
 
 void UnstartedRuntime::UnstartedJNIFloatFloatToRawIntBits(
@@ -1021,6 +1604,19 @@ void UnstartedRuntime::UnstartedJNIUnsafeCompareAndSwapInt(
   result->SetZ(success ? JNI_TRUE : JNI_FALSE);
 }
 
+void UnstartedRuntime::UnstartedJNIUnsafeGetIntVolatile(
+    Thread* self, ArtMethod* method ATTRIBUTE_UNUSED, mirror::Object* receiver ATTRIBUTE_UNUSED,
+    uint32_t* args, JValue* result) {
+  mirror::Object* obj = reinterpret_cast<mirror::Object*>(args[0]);
+  if (obj == nullptr) {
+    AbortTransactionOrFail(self, "Cannot access null object, retry at runtime.");
+    return;
+  }
+
+  jlong offset = (static_cast<uint64_t>(args[2]) << 32) | args[1];
+  result->SetI(obj->GetField32Volatile(MemberOffset(offset)));
+}
+
 void UnstartedRuntime::UnstartedJNIUnsafePutObject(
     Thread* self ATTRIBUTE_UNUSED, ArtMethod* method ATTRIBUTE_UNUSED,
     mirror::Object* receiver ATTRIBUTE_UNUSED, uint32_t* args, JValue* result ATTRIBUTE_UNUSED) {
@@ -1100,10 +1696,16 @@ void UnstartedRuntime::Invoke(Thread* self, const DexFile::CodeItem* code_item,
   if (iter != invoke_handlers_.end()) {
     // Clear out the result in case it's not zeroed out.
     result->SetL(0);
+
+    // Push the shadow frame. This is so the failing method can be seen in abort dumps.
+    self->PushShadowFrame(shadow_frame);
+
     (*iter->second)(self, shadow_frame, result, arg_offset);
+
+    self->PopShadowFrame();
   } else {
     // Not special, continue with regular interpreter execution.
-    artInterpreterToInterpreterBridge(self, code_item, shadow_frame, result);
+    ArtInterpreterToInterpreterBridge(self, code_item, shadow_frame, result);
   }
 }
 

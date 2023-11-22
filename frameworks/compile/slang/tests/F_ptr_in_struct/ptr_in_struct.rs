@@ -7,7 +7,8 @@ struct s {
 
 struct s myStruct;
 
-int root(int num) {
-    return 10;
-}
+struct voidStruct {
+    void *v;
+};
 
+struct voidStruct myVoidStruct;

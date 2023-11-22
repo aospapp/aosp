@@ -17,6 +17,7 @@
 package android.dpi.cts;
 
 import android.os.Build;
+import android.platform.test.annotations.RestrictedBuildTest;
 
 /**
  * This class actually tests the manifest attributes from
@@ -24,10 +25,13 @@ import android.os.Build;
  */
 public class DefaultManifestAttributesSdkTest extends DefaultManifestAttributesTest {
     protected String getPackageName() {
-        return "com.android.cts.dpi";
+        return "android.dpi.cts";
     }
 
-    // This is a sanity test to make sure that we're instrumenting the proper package
+    /**
+     * Sanity test to make sure that we're instrumenting the proper package
+     */
+    @RestrictedBuildTest
     public void testPackageHasExpectedSdkVersion() {
         assertEquals(Build.VERSION.SDK_INT, getAppInfo().targetSdkVersion);
     }

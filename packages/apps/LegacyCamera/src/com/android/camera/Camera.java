@@ -1085,7 +1085,21 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
     private void getPreferredCameraId() {
         mPreferences = new ComboPreferences(this);
         CameraSettings.upgradeGlobalPreferences(mPreferences.getGlobal());
-        mCameraId = CameraSettings.readPreferredCameraId(mPreferences);
+
+        mNumberOfCameras = CameraHolder.instance().getNumberOfCameras();
+        int attemptedCameraId = CameraSettings.readPreferredCameraId(mPreferences);
+
+        // It is possible that the user can connect/disconnect cameras
+        // between device boots.
+        // We need to check that the preferred camera ID
+        // does not refer to a disconnected camera.
+        if (attemptedCameraId >= mNumberOfCameras) {
+            Log.v(TAG, "Preferred camera (id= " + attemptedCameraId +
+                       ") missing. Defaulting to the first one");
+            mCameraId = 0;
+        } else {
+            mCameraId = attemptedCameraId;
+        }
 
         // Testing purpose. Launch a specific camera through the intent extras.
         int intentCameraId = Util.getCameraFacingIntentExtras(this);
@@ -1144,7 +1158,6 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
         mPreferences.setLocalId(this, mCameraId);
         CameraSettings.upgradeLocalPreferences(mPreferences.getLocal());
 
-        mNumberOfCameras = CameraHolder.instance().getNumberOfCameras();
         mQuickCapture = getIntent().getBooleanExtra(EXTRA_QUICK_CAPTURE, false);
 
         // we need to reset exposure for the preview

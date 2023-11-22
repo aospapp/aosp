@@ -21,5 +21,9 @@
     <string name="copy_number" msgid="530057841276106843">"Копиране на телефонния номер"</string>
     <string name="action_label" msgid="1318401633653605424">"Enter"</string>
     <string name="accessbility_suggestion_dropdown_opened" msgid="3231589819168382515">"Предложенията за контакти са отворени"</string>
+    <string name="accessbility_suggestion_dropdown_closed" msgid="5545766162855459747">"Няма налични предложения"</string>
     <string name="dropdown_delete_button_desc" msgid="8506791557733906887">"Премахване на <xliff:g id="CONTACT">%s</xliff:g> от получателите"</string>
+    <string name="chips_action_copy" msgid="1929144660075507103">"Копиране"</string>
+    <string name="chips_action_cancel" msgid="6077877438943543501">"Отказ"</string>
+    <string name="chips_permission_text" msgid="1978301259208877495">"Разрешаване на предложенията за контакти"</string>
 </resources>

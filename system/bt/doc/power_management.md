@@ -2,10 +2,10 @@
 
 ### Overview
 
-Power management (PM) in bluedroid is an event-driven state machine, tickled by
-various `bta/sys` events via a callback. The actual state switching calls are
-handled by the BTM HCI interfacing code, with results being posted back to the
-PM code via the BTA workqueue thread.
+Power management (PM) is an event-driven state machine, tickled by various
+`bta/sys` events via a callback. The actual state switching calls are handled
+by the BTM HCI interfacing code, with results being posted back to the PM
+code via the BTA workqueue thread.
 
 Power states are managed per-device, per-profile, so every incoming event
 includes a profile ID, app ID, and a `BD_ADDR`.

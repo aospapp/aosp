@@ -20,7 +20,7 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.widget.MediaController;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 /**
  * A minimal application for {@link MediaController} test.

@@ -68,8 +68,9 @@ class AesEvpOperation : public Operation {
     keymaster_error_t Update(const AuthorizationSet& additional_params, const Buffer& input,
                              AuthorizationSet* output_params, Buffer* output,
                              size_t* input_consumed) override;
-    keymaster_error_t Finish(const AuthorizationSet& additional_params, const Buffer& signature,
-                             AuthorizationSet* output_params, Buffer* output) override;
+    keymaster_error_t Finish(const AuthorizationSet& additional_params, const Buffer& input,
+                             const Buffer& signature, AuthorizationSet* output_params,
+                             Buffer* output) override;
     keymaster_error_t Abort() override;
 
     virtual int evp_encrypt_mode() = 0;
@@ -85,6 +86,8 @@ class AesEvpOperation : public Operation {
     bool ProcessBufferedAadBlock(keymaster_error_t* error);
     bool InternalUpdate(const uint8_t* input, size_t input_length, Buffer* output,
                         keymaster_error_t* error);
+    bool UpdateForFinish(const AuthorizationSet& additional_params, const Buffer& input,
+                         AuthorizationSet* output_params, Buffer* output, keymaster_error_t* error);
 
     const keymaster_block_mode_t block_mode_;
     EVP_CIPHER_CTX ctx_;
@@ -111,8 +114,9 @@ class AesEvpEncryptOperation : public AesEvpOperation {
 
     keymaster_error_t Begin(const AuthorizationSet& input_params,
                             AuthorizationSet* output_params) override;
-    keymaster_error_t Finish(const AuthorizationSet& additional_params, const Buffer& signature,
-                             AuthorizationSet* output_params, Buffer* output) override;
+    keymaster_error_t Finish(const AuthorizationSet& additional_params, const Buffer& input,
+                             const Buffer& signature, AuthorizationSet* output_params,
+                             Buffer* output) override;
 
     int evp_encrypt_mode() override { return 1; }
 
@@ -132,8 +136,9 @@ class AesEvpDecryptOperation : public AesEvpOperation {
     keymaster_error_t Update(const AuthorizationSet& additional_params, const Buffer& input,
                              AuthorizationSet* output_params, Buffer* output,
                              size_t* input_consumed) override;
-    keymaster_error_t Finish(const AuthorizationSet& additional_params, const Buffer& signature,
-                             AuthorizationSet* output_params, Buffer* output) override;
+    keymaster_error_t Finish(const AuthorizationSet& additional_params, const Buffer& input,
+                             const Buffer& signature, AuthorizationSet* output_params,
+                             Buffer* output) override;
 
     int evp_encrypt_mode() override { return 0; }
 

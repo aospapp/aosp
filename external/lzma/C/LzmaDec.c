@@ -1,5 +1,7 @@
 /* LzmaDec.c -- LZMA Decoder
-2009-09-20 : Igor Pavlov : Public domain */
+2015-01-01 : Igor Pavlov : Public domain */
+
+#include "Precomp.h"
 
 #include "LzmaDec.h"
 
@@ -43,6 +45,13 @@
   TREE_GET_BIT(probs, i); \
   i -= 0x40; }
 #endif
+
+#define NORMAL_LITER_DEC GET_BIT(prob + symbol, symbol)
+#define MATCHED_LITER_DEC \
+  matchByte <<= 1; \
+  bit = (matchByte & offs); \
+  probLit = prob + offs + bit + symbol; \
+  GET_BIT2(probLit, symbol, offs &= ~bit, offs &= bit)
 
 #define NORMALIZE_CHECK if (range < kTopValue) { if (buf >= bufLimit) return DUMMY_ERROR; range <<= 8; code = (code << 8) | (*buf++); }
 
@@ -171,24 +180,47 @@ static int MY_FAST_CALL LzmaDec_DecodeReal(CLzmaDec *p, SizeT limit, const Byte 
       {
         state -= (state < 4) ? state : 3;
         symbol = 1;
-        do { GET_BIT(prob + symbol, symbol) } while (symbol < 0x100);
+        #ifdef _LZMA_SIZE_OPT
+        do { NORMAL_LITER_DEC } while (symbol < 0x100);
+        #else
+        NORMAL_LITER_DEC
+        NORMAL_LITER_DEC
+        NORMAL_LITER_DEC
+        NORMAL_LITER_DEC
+        NORMAL_LITER_DEC
+        NORMAL_LITER_DEC
+        NORMAL_LITER_DEC
+        NORMAL_LITER_DEC
+        #endif
       }
       else
       {
-        unsigned matchByte = p->dic[(dicPos - rep0) + ((dicPos < rep0) ? dicBufSize : 0)];
+        unsigned matchByte = dic[(dicPos - rep0) + ((dicPos < rep0) ? dicBufSize : 0)];
         unsigned offs = 0x100;
         state -= (state < 10) ? 3 : 6;
         symbol = 1;
+        #ifdef _LZMA_SIZE_OPT
         do
         {
           unsigned bit;
           CLzmaProb *probLit;
-          matchByte <<= 1;
-          bit = (matchByte & offs);
-          probLit = prob + offs + bit + symbol;
-          GET_BIT2(probLit, symbol, offs &= ~bit, offs &= bit)
+          MATCHED_LITER_DEC
         }
         while (symbol < 0x100);
+        #else
+        {
+          unsigned bit;
+          CLzmaProb *probLit;
+          MATCHED_LITER_DEC
+          MATCHED_LITER_DEC
+          MATCHED_LITER_DEC
+          MATCHED_LITER_DEC
+          MATCHED_LITER_DEC
+          MATCHED_LITER_DEC
+          MATCHED_LITER_DEC
+          MATCHED_LITER_DEC
+        }
+        #endif
       }
       dic[dicPos++] = (Byte)symbol;
       processedPos++;
@@ -442,8 +474,9 @@ static void MY_FAST_CALL LzmaDec_WriteRem(CLzmaDec *p, SizeT limit)
 
     p->processedPos += len;
     p->remainLen -= len;
-    while (len-- != 0)
+    while (len != 0)
     {
+      len--;
       dic[dicPos] = dic[(dicPos - rep0) + ((dicPos < rep0) ? dicBufSize : 0)];
       dicPos++;
     }
@@ -972,28 +1005,21 @@ SRes LzmaDecode(Byte *dest, SizeT *destLen, const Byte *src, SizeT *srcLen,
 {
   CLzmaDec p;
   SRes res;
-  SizeT inSize = *srcLen;
-  SizeT outSize = *destLen;
-  *srcLen = *destLen = 0;
+  SizeT outSize = *destLen, inSize = *srcLen;
+  *destLen = *srcLen = 0;
+  *status = LZMA_STATUS_NOT_SPECIFIED;
   if (inSize < RC_INIT_SIZE)
     return SZ_ERROR_INPUT_EOF;
-
   LzmaDec_Construct(&p);
-  res = LzmaDec_AllocateProbs(&p, propData, propSize, alloc);
-  if (res != 0)
-    return res;
+  RINOK(LzmaDec_AllocateProbs(&p, propData, propSize, alloc));
   p.dic = dest;
   p.dicBufSize = outSize;
-
   LzmaDec_Init(&p);
-  
   *srcLen = inSize;
   res = LzmaDec_DecodeToDic(&p, outSize, src, srcLen, finishMode, status);
-
+  *destLen = p.dicPos;
   if (res == SZ_OK && *status == LZMA_STATUS_NEEDS_MORE_INPUT)
     res = SZ_ERROR_INPUT_EOF;
-
-  (*destLen) = p.dicPos;
   LzmaDec_FreeProbs(&p, alloc);
   return res;
 }

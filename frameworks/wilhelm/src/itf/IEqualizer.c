@@ -85,8 +85,8 @@ static SLresult IEqualizer_IsEnabled(SLEqualizerItf self, SLboolean *pEnabled)
     } else {
         IEqualizer *thiz = (IEqualizer *) self;
         interface_lock_exclusive(thiz);
-        SLboolean enabled = thiz->mEnabled;
  #if !defined(ANDROID)
+        SLboolean enabled = thiz->mEnabled;
         *pEnabled = enabled;
         result = SL_RESULT_SUCCESS;
  #else

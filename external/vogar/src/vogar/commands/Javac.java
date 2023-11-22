@@ -49,6 +49,11 @@ public final class Javac {
         return this;
     }
 
+    public Javac javaVersion(String version) {
+        builder.args("-source", version, "-target", version);
+        return this;
+    }
+
     public Javac sourcepath(File... path) {
         builder.args("-sourcepath", Classpath.of(path).toString());
         return this;

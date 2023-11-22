@@ -21,7 +21,6 @@
     <package>com.example.android.apprestrictionschema</package>
 
     <minSdk>21</minSdk>
-    <compileSdkVersion>21</compileSdkVersion>
 
     <strings>
         <intro>

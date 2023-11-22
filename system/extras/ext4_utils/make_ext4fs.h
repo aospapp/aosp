@@ -25,8 +25,14 @@ struct selabel_handle;
 
 int make_ext4fs(const char *filename, long long len,
                 const char *mountpoint, struct selabel_handle *sehnd);
+int make_ext4fs_directory(const char *filename, long long len,
+                const char *mountpoint, struct selabel_handle *sehnd,
+                const char *directory);
 int make_ext4fs_sparse_fd(int fd, long long len,
                 const char *mountpoint, struct selabel_handle *sehnd);
+int make_ext4fs_sparse_fd_directory(int fd, long long len,
+                const char *mountpoint, struct selabel_handle *sehnd,
+                const char *directory);
 
 #ifdef __cplusplus
 }

@@ -34,13 +34,19 @@ import com.android.cts.verifier.R;
 
 public class KeyguardDisabledFeaturesActivity extends DialogTestListActivity {
 
-    private DevicePolicyManager mDpm;
+    protected DevicePolicyManager mDpm;
 
     public KeyguardDisabledFeaturesActivity() {
         super(R.layout.provisioning_byod,
                 R.string.provisioning_byod_keyguard_disabled_features,
                 R.string.provisioning_byod_keyguard_disabled_features_info,
                 R.string.provisioning_byod_keyguard_disabled_features_instruction);
+    }
+
+    protected int getKeyguardDisabledFeatures() {
+        return DevicePolicyManager.KEYGUARD_DISABLE_TRUST_AGENTS
+                | DevicePolicyManager.KEYGUARD_DISABLE_FINGERPRINT
+                | DevicePolicyManager.KEYGUARD_DISABLE_UNREDACTED_NOTIFICATIONS;
     }
 
     @Override
@@ -54,73 +60,90 @@ public class KeyguardDisabledFeaturesActivity extends DialogTestListActivity {
         mPrepareTestButton.setOnClickListener(new OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    if (!mDpm.isAdminActive(DeviceAdminTestReceiver.getReceiverComponentName())) {
+                    if (!mDpm.isAdminActive(getAdminComponent())) {
                         Toast.makeText(KeyguardDisabledFeaturesActivity.this,
                                 R.string.provisioning_byod_keyguard_disabled_features_not_admin,
                                 Toast.LENGTH_SHORT).show();
                         return;
                     }
-                    mDpm.resetPassword("testpassword", 0);
-                    setKeyguardDisabledFeatures(DevicePolicyManager.KEYGUARD_DISABLE_TRUST_AGENTS |
-                            DevicePolicyManager.KEYGUARD_DISABLE_FINGERPRINT |
-                            DevicePolicyManager.KEYGUARD_DISABLE_UNREDACTED_NOTIFICATIONS);
+                    setKeyguardDisabledFeatures();
                 }
             });
+    }
+
+    protected ComponentName getAdminComponent() {
+        return DeviceAdminTestReceiver.getReceiverComponentName();
+    }
+
+    protected String getTestIdPrefix() {
+        return "BYOD_";
     }
 
     @Override
     public void finish() {
         // Pass and fail buttons are known to call finish() when clicked, and this is when we want to
         // clear the password.
-        final ComponentName adminComponent = DeviceAdminTestReceiver.getReceiverComponentName();
+        final ComponentName adminComponent = getAdminComponent();
         if (mDpm.isAdminActive(adminComponent)) {
-            mDpm.resetPassword(null, 0);
             mDpm.removeActiveAdmin(adminComponent);
         }
         super.finish();
     }
 
-    private void setKeyguardDisabledFeatures(final int flags) {
-        Intent setKeyguardDisabledFeaturesIntent =
-                new Intent(ByodHelperActivity.ACTION_KEYGUARD_DISABLED_FEATURES)
-                .putExtra(ByodHelperActivity.EXTRA_PARAMETER_1, flags);
+    protected void setKeyguardDisabledFeatures() {
+        int flags = getKeyguardDisabledFeatures();
+        Intent setKeyguardDisabledFeaturesIntent = new Intent(
+                ByodHelperActivity.ACTION_KEYGUARD_DISABLED_FEATURES)
+                        .putExtra(ByodHelperActivity.EXTRA_PARAMETER_1, flags);
         startActivity(setKeyguardDisabledFeaturesIntent);
     }
 
-    @Override
-    protected void setupTests(ArrayTestListAdapter adapter) {
+    protected void setupDisableTrustAgentsTest(ArrayTestListAdapter adapter) {
         adapter.add(new DialogTestListItem(this, R.string.provisioning_byod_disable_trust_agents,
-                "BYOD_DisableTrustAgentsTest",
+                getTestIdPrefix() + "DisableTrustAgentsTest",
                 R.string.provisioning_byod_disable_trust_agents_instruction,
                 new Intent(Settings.ACTION_SECURITY_SETTINGS)));
+    }
+
+    protected void setupDisableUnredactedWorkNotification(ArrayTestListAdapter adapter) {
         adapter.add(new DialogTestListItemWithIcon(this,
-                R.string.provisioning_byod_disable_notifications,
-                "BYOD_DisableUnredactedNotifications",
-                R.string.provisioning_byod_disable_notifications_instruction,
-                new Intent(WorkNotificationTestActivity.ACTION_WORK_NOTIFICATION_ON_LOCKSCREEN),
+                R.string.provisioning_byod_disable_unredacted_notifications,
+                getTestIdPrefix() + "DisableUnredactedNotifications",
+                R.string.provisioning_byod_disable_unredacted_notifications_instruction,
+                new Intent(ByodHelperActivity.ACTION_NOTIFICATION_ON_LOCKSCREEN),
                 R.drawable.ic_corp_icon));
+    }
+
+    protected void setupFingerprintTests(ArrayTestListAdapter adapter) {
         FingerprintManager fpm = (FingerprintManager) getSystemService(Context.FINGERPRINT_SERVICE);
         if (fpm.isHardwareDetected()) {
             adapter.add(new DialogTestListItem(this,
                     R.string.provisioning_byod_fingerprint_disabled_in_settings,
-                    "BYOD_FingerprintDisabledInSettings",
+                    getTestIdPrefix() + "FingerprintDisabledInSettings",
                     R.string.provisioning_byod_fingerprint_disabled_in_settings_instruction,
                     new Intent(Settings.ACTION_SECURITY_SETTINGS)));
             adapter.add(new DialogTestListItem(this, R.string.provisioning_byod_disable_fingerprint,
-                    "BYOD_DisableFingerprint",
+                    getTestIdPrefix() + "DisableFingerprint",
                     R.string.provisioning_byod_disable_fingerprint_instruction,
                     ByodHelperActivity.createLockIntent()));
         }
     }
 
     @Override
+    protected void setupTests(ArrayTestListAdapter adapter) {
+        setupDisableTrustAgentsTest(adapter);
+        setupDisableUnredactedWorkNotification(adapter);
+        setupFingerprintTests(adapter);
+    }
+
+    @Override
     protected void clearRemainingState(final DialogTestListItem test) {
         super.clearRemainingState(test);
-        if (WorkNotificationTestActivity.ACTION_WORK_NOTIFICATION_ON_LOCKSCREEN.equals(
+        if (ByodHelperActivity.ACTION_NOTIFICATION_ON_LOCKSCREEN.equals(
                 test.getManualTestIntent().getAction())) {
             try {
                 startActivity(new Intent(
-                        WorkNotificationTestActivity.ACTION_CLEAR_WORK_NOTIFICATION));
+                        ByodHelperActivity.ACTION_CLEAR_NOTIFICATION));
             } catch (ActivityNotFoundException e) {
                 // User shouldn't run this test before work profile is set up.
             }

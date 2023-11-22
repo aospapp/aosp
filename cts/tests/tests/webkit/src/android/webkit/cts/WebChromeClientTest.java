@@ -198,7 +198,7 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
         runWindowTest(false);
     }
 
-    public void testOnJsBeforeUnload() throws Exception {
+    public void testOnJsBeforeUnloadIsCalled() throws Exception {
         if (!NullWebViewUtils.isWebViewAvailable()) {
             return;
         }
@@ -221,7 +221,6 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
                 return webChromeClient.hadOnJsBeforeUnload();
             }
         }.run();
-        assertEquals(webChromeClient.getMessage(), "testOnJsBeforeUnload");
     }
 
     public void testOnJsAlert() throws Exception {

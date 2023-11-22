@@ -55,9 +55,7 @@ public:
     enum {
         DEVICE_PRIMARY = HWC_DISPLAY_PRIMARY,
         DEVICE_EXTERNAL = HWC_DISPLAY_EXTERNAL,
-#ifdef INTEL_WIDI_MERRIFIELD
         DEVICE_VIRTUAL = HWC_DISPLAY_VIRTUAL,
-#endif
         DEVICE_COUNT,
     };
     enum {

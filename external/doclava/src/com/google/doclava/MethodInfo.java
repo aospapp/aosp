@@ -227,7 +227,7 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
     }
     return mIsDeprecated;
   }
-  
+
   public void setDeprecated(boolean deprecated) {
     mDeprecatedKnown = true;
     mIsDeprecated = deprecated;
@@ -252,7 +252,7 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
         new MethodInfo(getRawCommentText(), mTypeParameters, name(), signature(),
             newContainingClass, realContainingClass(), isPublic(), isProtected(),
             isPackagePrivate(), isPrivate(), isFinal(), isStatic(), isSynthetic(), mIsAbstract,
-            mIsSynchronized, mIsNative, mIsAnnotationElement, kind(), mFlatSignature,
+            mIsSynchronized, mIsNative, mIsDefault, mIsAnnotationElement, kind(), mFlatSignature,
             mOverriddenMethod, returnType, mParameters, mThrownExceptions, position(),
             annotations());
     result.init(mDefaultAnnotationElementValue);
@@ -263,10 +263,10 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
       String signature, ClassInfo containingClass, ClassInfo realContainingClass, boolean isPublic,
       boolean isProtected, boolean isPackagePrivate, boolean isPrivate, boolean isFinal,
       boolean isStatic, boolean isSynthetic, boolean isAbstract, boolean isSynchronized,
-      boolean isNative, boolean isAnnotationElement, String kind, String flatSignature,
-      MethodInfo overriddenMethod, TypeInfo returnType, ArrayList<ParameterInfo> parameters,
-      ArrayList<ClassInfo> thrownExceptions, SourcePositionInfo position,
-      ArrayList<AnnotationInstanceInfo> annotations) {
+      boolean isNative, boolean isDefault, boolean isAnnotationElement, String kind,
+      String flatSignature, MethodInfo overriddenMethod, TypeInfo returnType,
+      ArrayList<ParameterInfo> parameters, ArrayList<ClassInfo> thrownExceptions,
+      SourcePositionInfo position, ArrayList<AnnotationInstanceInfo> annotations) {
     // Explicitly coerce 'final' state of Java6-compiled enum values() method, to match
     // the Java5-emitted base API description.
     super(rawCommentText, name, signature, containingClass, realContainingClass, isPublic,
@@ -274,19 +274,13 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
         ((name.equals("values") && containingClass.isEnum()) ? true : isFinal),
         isStatic, isSynthetic, kind, position, annotations);
 
-    // The underlying MethodDoc for an interface's declared methods winds up being marked
-    // non-abstract. Correct that here by looking at the immediate-parent class, and marking
-    // this method abstract if it is an unimplemented interface method.
-    if (containingClass.isInterface()) {
-      isAbstract = true;
-    }
-
     mReasonOpened = "0:0";
     mIsAnnotationElement = isAnnotationElement;
     mTypeParameters = typeParameters;
     mIsAbstract = isAbstract;
     mIsSynchronized = isSynchronized;
     mIsNative = isNative;
+    mIsDefault = isDefault;
     mFlatSignature = flatSignature;
     mOverriddenMethod = overriddenMethod;
     mReturnType = returnType;
@@ -310,12 +304,20 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
     return mIsNative;
   }
 
+  public boolean isDefault() {
+    return mIsDefault;
+  }
+
   public String flatSignature() {
     return mFlatSignature;
   }
 
   public InheritedTags inlineTags() {
     return new InlineTags();
+  }
+
+  public TagInfo[] blockTags() {
+    return comment().blockTags();
   }
 
   public InheritedTags firstSentenceTags() {
@@ -329,7 +331,7 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
   public TypeInfo returnType() {
     return mReturnType;
   }
-  
+
   public String prettySignature() {
     return name() + prettyParameters();
   }
@@ -337,7 +339,7 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
   public String prettyQualifiedSignature() {
     return qualifiedName() + prettyParameters();
   }
-  
+
   /**
    * Returns a printable version of the parameters of this method's signature.
    */
@@ -349,7 +351,7 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
       }
       params.append(pInfo.type().simpleTypeName());
     }
-    
+
     params.append(")");
     return params.toString();
   }
@@ -415,79 +417,97 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
     return mThrowsTags;
   }
 
-  private static int indexOfParam(String name, String[] list) {
+  private static int indexOfParam(String name, ParamTagInfo[] list) {
     final int N = list.length;
     for (int i = 0; i < N; i++) {
-      if (name.equals(list[i])) {
+      if (name.equals(list[i].parameterName())) {
         return i;
       }
     }
     return -1;
   }
 
+  /* Checks whether the name documented with the provided @param tag
+   * actually matches one of the method parameters. */
+  private boolean isParamTagInMethod(ParamTagInfo tag) {
+    for (ParameterInfo paramInfo : mParameters) {
+      if (paramInfo.name().equals(tag.parameterName())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   public ParamTagInfo[] paramTags() {
     if (mParamTags == null) {
       final int N = mParameters.size();
+      final String DEFAULT_COMMENT = "<!-- no parameter comment -->";
 
       if (N == 0) {
           // Early out for empty case.
           mParamTags = ParamTagInfo.EMPTY_ARRAY;
           return ParamTagInfo.EMPTY_ARRAY;
       }
+      // Where we put each result
+      mParamTags = ParamTagInfo.getArray(N);
 
-      String[] names = new String[N];
-      String[] comments = new String[N];
-      SourcePositionInfo[] positions = new SourcePositionInfo[N];
+      // collect all the @param tag info
+      ParamTagInfo[] paramTags = comment().paramTags();
 
-      // get the right names so we can handle our names being different from
-      // our parent's names.
+      // Complain about misnamed @param tags
+      for (ParamTagInfo tag : paramTags) {
+        if (!isParamTagInMethod(tag) && !tag.isTypeParameter()){
+          Errors.error(Errors.UNKNOWN_PARAM_TAG_NAME, tag.position(),
+              "@param tag with name that doesn't match the parameter list: '"
+              + tag.parameterName() + "'");
+        }
+      }
+
+      // Loop the parameters known from the method signature...
+      // Start by getting the known parameter name and data type. Then, if
+      // there's an @param tag that matches the current parameter name, get the
+      // javadoc comments. But if there's no @param comments here, then
+      // check if it's available from the parent class.
       int i = 0;
       for (ParameterInfo param : mParameters) {
-        names[i] = param.name();
-        comments[i] = "";
-        positions[i] = param.position();
-        i++;
-      }
+        String name = param.name();
+        String type = param.type().simpleTypeName();
+        String comment = DEFAULT_COMMENT;
+        SourcePositionInfo position = param.position();
 
-      // gather our comments, and complain about misnamed @param tags
-      for (ParamTagInfo tag : comment().paramTags()) {
-        int index = indexOfParam(tag.parameterName(), names);
+        // Find the matching param from the @param tags in order to get
+        // the parameter comments
+        int index = indexOfParam(name, paramTags);
         if (index >= 0) {
-          comments[index] = tag.parameterComment();
-          positions[index] = tag.position();
-        } else {
-          Errors.error(Errors.UNKNOWN_PARAM_TAG_NAME, tag.position(),
-              "@param tag with name that doesn't match the parameter list: '" + tag.parameterName()
-                  + "'");
+          comment = paramTags[index].parameterComment();
+          position = paramTags[index].position();
         }
-      }
 
-      // get our parent's tags to fill in the blanks
-      MethodInfo overridden = this.findOverriddenMethod(name(), signature());
-      if (overridden != null) {
-        ParamTagInfo[] maternal = overridden.paramTags();
-        for (i = 0; i < N; i++) {
-          if (comments[i].equals("")) {
-            comments[i] = maternal[i].parameterComment();
-            positions[i] = maternal[i].position();
+        // get our parent's tags to fill in the blanks
+        MethodInfo overridden = this.findOverriddenMethod(name(), signature());
+        if (overridden != null) {
+          ParamTagInfo[] maternal = overridden.paramTags();
+          if (comment.equals(DEFAULT_COMMENT)) {
+            comment = maternal[i].parameterComment();
+            position = maternal[i].position();
           }
         }
-      }
 
-      // construct the results, and cache them for next time
-      mParamTags = ParamTagInfo.getArray(N);
-      for (i = 0; i < N; i++) {
+        // Okay, now add the collected parameter information to the method data
         mParamTags[i] =
-            new ParamTagInfo("@param", "@param", names[i] + " " + comments[i], parent(),
-                positions[i]);
+            new ParamTagInfo("@param", type, name + " " + comment, parent(),
+                position);
 
-        // while we're here, if we find any parameters that are still undocumented at this
-        // point, complain. (this warning is off by default, because it's really, really
-        // common; but, it's good to be able to enforce it)
-        if (comments[i].equals("")) {
-          Errors.error(Errors.UNDOCUMENTED_PARAMETER, positions[i], "Undocumented parameter '"
-              + names[i] + "' on method '" + name() + "'");
+        // while we're here, if we find any parameters that are still
+        // undocumented at this point, complain. This warning is off by
+        // default, because it's really, really common;
+        // but, it's good to be able to enforce it.
+        if (comment.equals(DEFAULT_COMMENT)) {
+          Errors.error(Errors.UNDOCUMENTED_PARAMETER, position,
+              "Undocumented parameter '" + name + "' on method '"
+              + name() + "'");
         }
+        i++;
       }
     }
     return mParamTags;
@@ -527,16 +547,16 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
       }
       int i = 0;
       for (ParameterInfo mine : mParameters) {
-        if (!mine.matchesDimension(dimensions[i], varargs)) {
+        // If the method we're matching against is a varargs method (varargs == true), then
+        // only its last parameter is varargs.
+        if (!mine.matchesDimension(dimensions[i], (i == params.length - 1) ? varargs : false)) {
           return false;
         }
         TypeInfo myType = mine.type();
         String qualifiedName = myType.qualifiedTypeName();
         String realType = myType.isPrimitive() ? "" : myType.asClassInfo().qualifiedName();
         String s = params[i];
-        int slen = s.length();
-        int qnlen = qualifiedName.length();
-        
+
         // Check for a matching generic name or best known type
         if (!matchesType(qualifiedName, s) && !matchesType(realType, s)) {
           return false;
@@ -546,7 +566,7 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
     }
     return true;
   }
-  
+
   /**
    * Checks to see if a parameter from a method signature is
    * compatible with a parameter given in a {@code @link} tag.
@@ -575,12 +595,14 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
       data.setValue(base + ".abstract", mIsAbstract ? "abstract" : "");
     }
 
+    data.setValue(base + ".default", mIsDefault ? "default" : "");
     data.setValue(base + ".synchronized", mIsSynchronized ? "synchronized" : "");
     data.setValue(base + ".final", isFinal() ? "final" : "");
     data.setValue(base + ".static", isStatic() ? "static" : "");
 
     TagInfo.makeHDF(data, base + ".shortDescr", firstSentenceTags());
     TagInfo.makeHDF(data, base + ".descr", inlineTags());
+    TagInfo.makeHDF(data, base + ".blockTags", blockTags());
     TagInfo.makeHDF(data, base + ".deprecated", deprecatedTags());
     TagInfo.makeHDF(data, base + ".seeAlso", seeTags());
     data.setValue(base + ".since", getSince());
@@ -692,13 +714,13 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
   public String getReason() {
     return mReasonOpened;
   }
-  
+
   public void addException(String exec) {
     ClassInfo exceptionClass = new ClassInfo(exec);
 
     mThrownExceptions.add(exceptionClass);
   }
-  
+
   public void addParameter(ParameterInfo p) {
     // Name information
     if (mParameters == null) {
@@ -718,6 +740,7 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
   private boolean mIsVarargs;
   private boolean mDeprecatedKnown;
   private boolean mIsDeprecated;
+  private boolean mIsDefault;
   private ArrayList<ParameterInfo> mParameters;
   private ArrayList<ClassInfo> mThrownExceptions;
   private String[] mParamStrings;
@@ -727,8 +750,8 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
   private AnnotationValueInfo mDefaultAnnotationElementValue;
   private String mReasonOpened;
   private ArrayList<Resolution> mResolutions;
-  
-  // TODO: merge with droiddoc version (above)  
+
+  // TODO: merge with droiddoc version (above)
   public String qualifiedName() {
     String parentQName = (containingClass() != null)
         ? (containingClass().qualifiedName() + ".") : "";
@@ -747,7 +770,7 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
         }
         params.append(pInfo.type().fullName());
       }
-      
+
       params.append(")");
       mSignature = params.toString();
     }

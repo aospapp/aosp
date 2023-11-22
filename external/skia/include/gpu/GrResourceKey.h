@@ -9,9 +9,10 @@
 #ifndef GrResourceKey_DEFINED
 #define GrResourceKey_DEFINED
 
+#include "../private/SkTemplates.h"
 #include "GrTypes.h"
-#include "SkOnce.h"
-#include "SkTemplates.h"
+#include "SkData.h"
+#include "../private/SkOnce.h"
 
 uint32_t GrResourceKeyHash(const uint32_t* data, size_t size);
 
@@ -46,7 +47,10 @@ protected:
     }
 
     bool operator==(const GrResourceKey& that) const {
-        return 0 == memcmp(fKey.get(), that.fKey.get(), this->size());
+        return this->hash() == that.hash() &&
+                0 == memcmp(&fKey[kHash_MetaDataIdx + 1],
+                            &that.fKey[kHash_MetaDataIdx + 1],
+                            this->internalSize() - sizeof(uint32_t));
     }
 
     GrResourceKey& operator=(const GrResourceKey& that) {
@@ -134,8 +138,8 @@ private:
 
     friend class TestResource; // For unit test to access kMetaDataCnt.
 
-    // bmp textures require 4 uint32_t values.
-    SkAutoSTMalloc<kMetaDataCnt + 4, uint32_t> fKey;
+    // bmp textures require 5 uint32_t values.
+    SkAutoSTMalloc<kMetaDataCnt + 5, uint32_t> fKey;
 };
 
 /**
@@ -234,6 +238,7 @@ public:
 
     GrUniqueKey& operator=(const GrUniqueKey& that) {
         this->INHERITED::operator=(that);
+        this->setCustomData(that.getCustomData());
         return *this;
     }
 
@@ -241,6 +246,14 @@ public:
         return this->INHERITED::operator==(that);
     }
     bool operator!=(const GrUniqueKey& that) const { return !(*this == that); }
+
+    void setCustomData(const SkData* data) {
+        SkSafeRef(data);
+        fData.reset(data);
+    }
+    const SkData* getCustomData() const {
+        return fData.get();
+    }
 
     class Builder : public INHERITED::Builder {
     public:
@@ -265,6 +278,9 @@ public:
             return SkToInt((innerKey.dataSize() >> 2) + 1);
         }
     };
+
+private:
+    SkAutoTUnref<const SkData> fData;
 };
 
 /**
@@ -277,11 +293,13 @@ public:
 #define GR_DECLARE_STATIC_UNIQUE_KEY(name) SK_DECLARE_STATIC_ONCE(name##_once)
 
 /** Place inside function where the key is used. */
-#define GR_DEFINE_STATIC_UNIQUE_KEY(name)                           \
-    static GrUniqueKey name;                                        \
-    SkOnce(&name##_once, gr_init_static_unique_key_once, &name)
+#define GR_DEFINE_STATIC_UNIQUE_KEY(name)                                                       \
+    static SkAlignedSTStorage<1, GrUniqueKey> name##_storage;                                   \
+    SkOnce(&name##_once, gr_init_static_unique_key_once, &name##_storage);                      \
+    static const GrUniqueKey& name = *reinterpret_cast<GrUniqueKey*>(name##_storage.get());
 
-static inline void gr_init_static_unique_key_once(GrUniqueKey* key) {
+static inline void gr_init_static_unique_key_once(SkAlignedSTStorage<1,GrUniqueKey>* keyStorage) {
+    GrUniqueKey* key = new (keyStorage->get()) GrUniqueKey;
     GrUniqueKey::Builder builder(key, GrUniqueKey::GenerateDomain(), 0);
 }
 

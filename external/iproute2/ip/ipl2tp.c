@@ -25,6 +25,7 @@
 
 #include <linux/genetlink.h>
 #include <linux/l2tp.h>
+#include "libgenl.h"
 
 #include "utils.h"
 #include "ip_common.h"
@@ -50,8 +51,8 @@ struct l2tp_parm {
 	uint8_t cookie[8];
 	int peer_cookie_len;
 	uint8_t peer_cookie[8];
-	struct in_addr local_ip;
-	struct in_addr peer_ip;
+	inet_prefix local_ip;
+	inet_prefix peer_ip;
 
 	uint16_t pw_type;
 	uint16_t mtu;
@@ -64,6 +65,8 @@ struct l2tp_parm {
 	int session:1;
 	int reorder_timeout;
 	const char *ifname;
+	uint8_t l2spec_type;
+	uint8_t l2spec_len;
 };
 
 struct l2tp_stats {
@@ -92,32 +95,31 @@ static int genl_family = -1;
 
 static int create_tunnel(struct l2tp_parm *p)
 {
-	struct {
-		struct nlmsghdr 	n;
-		struct genlmsghdr	g;
-		char   			buf[1024];
-	} req;
+	uint32_t local_attr = L2TP_ATTR_IP_SADDR;
+	uint32_t peer_attr = L2TP_ATTR_IP_DADDR;
 
-	memset(&req, 0, sizeof(req));
-	req.n.nlmsg_type = genl_family;
-	req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
-	req.n.nlmsg_len = NLMSG_LENGTH(GENL_HDRLEN);
-	req.g.cmd = L2TP_CMD_TUNNEL_CREATE;
-	req.g.version = L2TP_GENL_VERSION;
+	GENL_REQUEST(req, 1024, genl_family, 0, L2TP_GENL_VERSION,
+		     L2TP_CMD_TUNNEL_CREATE, NLM_F_REQUEST | NLM_F_ACK);
 
 	addattr32(&req.n, 1024, L2TP_ATTR_CONN_ID, p->tunnel_id);
 	addattr32(&req.n, 1024, L2TP_ATTR_PEER_CONN_ID, p->peer_tunnel_id);
 	addattr8(&req.n, 1024, L2TP_ATTR_PROTO_VERSION, 3);
 	addattr16(&req.n, 1024, L2TP_ATTR_ENCAP_TYPE, p->encap);
 
-	addattr32(&req.n, 1024, L2TP_ATTR_IP_SADDR, p->local_ip.s_addr);
-	addattr32(&req.n, 1024, L2TP_ATTR_IP_DADDR, p->peer_ip.s_addr);
+	if (p->local_ip.family == AF_INET6)
+		local_attr = L2TP_ATTR_IP6_SADDR;
+	addattr_l(&req.n, 1024, local_attr, &p->local_ip.data, p->local_ip.bytelen);
+
+	if (p->peer_ip.family == AF_INET6)
+		peer_attr = L2TP_ATTR_IP6_DADDR;
+	addattr_l(&req.n, 1024, peer_attr, &p->peer_ip.data, p->peer_ip.bytelen);
+
 	if (p->encap == L2TP_ENCAPTYPE_UDP) {
 		addattr16(&req.n, 1024, L2TP_ATTR_UDP_SPORT, p->local_udp_port);
 		addattr16(&req.n, 1024, L2TP_ATTR_UDP_DPORT, p->peer_udp_port);
 	}
 
-	if (rtnl_talk(&genl_rth, &req.n, 0, 0, NULL) < 0)
+	if (rtnl_talk(&genl_rth, &req.n, NULL, 0) < 0)
 		return -2;
 
 	return 0;
@@ -125,22 +127,12 @@ static int create_tunnel(struct l2tp_parm *p)
 
 static int delete_tunnel(struct l2tp_parm *p)
 {
-	struct {
-		struct nlmsghdr 	n;
-		struct genlmsghdr	g;
-		char   			buf[128];
-	} req;
-
-	memset(&req, 0, sizeof(req));
-	req.n.nlmsg_type = genl_family;
-	req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
-	req.n.nlmsg_len = NLMSG_LENGTH(GENL_HDRLEN);
-	req.g.cmd = L2TP_CMD_TUNNEL_DELETE;
-	req.g.version = L2TP_GENL_VERSION;
+	GENL_REQUEST(req, 128, genl_family, 0, L2TP_GENL_VERSION,
+		     L2TP_CMD_TUNNEL_DELETE, NLM_F_REQUEST | NLM_F_ACK);
 
 	addattr32(&req.n, 128, L2TP_ATTR_CONN_ID, p->tunnel_id);
 
-	if (rtnl_talk(&genl_rth, &req.n, 0, 0, NULL) < 0)
+	if (rtnl_talk(&genl_rth, &req.n, NULL, 0) < 0)
 		return -2;
 
 	return 0;
@@ -148,24 +140,16 @@ static int delete_tunnel(struct l2tp_parm *p)
 
 static int create_session(struct l2tp_parm *p)
 {
-	struct {
-		struct nlmsghdr 	n;
-		struct genlmsghdr	g;
-		char   			buf[1024];
-	} req;
-
-	memset(&req, 0, sizeof(req));
-	req.n.nlmsg_type = genl_family;
-	req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
-	req.n.nlmsg_len = NLMSG_LENGTH(GENL_HDRLEN);
-	req.g.cmd = L2TP_CMD_SESSION_CREATE;
-	req.g.version = L2TP_GENL_VERSION;
+	GENL_REQUEST(req, 1024, genl_family, 0, L2TP_GENL_VERSION,
+		     L2TP_CMD_SESSION_CREATE, NLM_F_REQUEST | NLM_F_ACK);
 
 	addattr32(&req.n, 1024, L2TP_ATTR_CONN_ID, p->tunnel_id);
 	addattr32(&req.n, 1024, L2TP_ATTR_PEER_CONN_ID, p->peer_tunnel_id);
 	addattr32(&req.n, 1024, L2TP_ATTR_SESSION_ID, p->session_id);
 	addattr32(&req.n, 1024, L2TP_ATTR_PEER_SESSION_ID, p->peer_session_id);
 	addattr16(&req.n, 1024, L2TP_ATTR_PW_TYPE, p->pw_type);
+	addattr8(&req.n, 1024, L2TP_ATTR_L2SPEC_TYPE, p->l2spec_type);
+	addattr8(&req.n, 1024, L2TP_ATTR_L2SPEC_LEN, p->l2spec_len);
 
 	if (p->mtu)		addattr16(&req.n, 1024, L2TP_ATTR_MTU, p->mtu);
 	if (p->recv_seq)	addattr(&req.n, 1024, L2TP_ATTR_RECV_SEQ);
@@ -182,7 +166,7 @@ static int create_session(struct l2tp_parm *p)
 	if (p->ifname && p->ifname[0])
 		addattrstrz(&req.n, 1024, L2TP_ATTR_IFNAME, p->ifname);
 
-	if (rtnl_talk(&genl_rth, &req.n, 0, 0, NULL) < 0)
+	if (rtnl_talk(&genl_rth, &req.n, NULL, 0) < 0)
 		return -2;
 
 	return 0;
@@ -190,22 +174,12 @@ static int create_session(struct l2tp_parm *p)
 
 static int delete_session(struct l2tp_parm *p)
 {
-	struct {
-		struct nlmsghdr 	n;
-		struct genlmsghdr	g;
-		char   			buf[128];
-	} req;
-
-	memset(&req, 0, sizeof(req));
-	req.n.nlmsg_type = genl_family;
-	req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
-	req.n.nlmsg_len = NLMSG_LENGTH(GENL_HDRLEN);
-	req.g.cmd = L2TP_CMD_SESSION_DELETE;
-	req.g.version = L2TP_GENL_VERSION;
+	GENL_REQUEST(req, 1024, genl_family, 0, L2TP_GENL_VERSION,
+		     L2TP_CMD_SESSION_DELETE, NLM_F_REQUEST | NLM_F_ACK);
 
 	addattr32(&req.n, 1024, L2TP_ATTR_CONN_ID, p->tunnel_id);
 	addattr32(&req.n, 1024, L2TP_ATTR_SESSION_ID, p->session_id);
-	if (rtnl_talk(&genl_rth, &req.n, 0, 0, NULL) < 0)
+	if (rtnl_talk(&genl_rth, &req.n, NULL, 0) < 0)
 		return -2;
 
 	return 0;
@@ -225,13 +199,14 @@ static void print_cookie(char *name, const uint8_t *cookie, int len)
 static void print_tunnel(const struct l2tp_data *data)
 {
 	const struct l2tp_parm *p = &data->config;
+	char buf[INET6_ADDRSTRLEN];
 
 	printf("Tunnel %u, encap %s\n",
 	       p->tunnel_id,
 	       p->encap == L2TP_ENCAPTYPE_UDP ? "UDP" :
 	       p->encap == L2TP_ENCAPTYPE_IP ? "IP" : "??");
-	printf("  From %s ", inet_ntoa(p->local_ip));
-	printf("to %s\n", inet_ntoa(p->peer_ip));
+	printf("  From %s ", inet_ntop(p->local_ip.family, p->local_ip.data, buf, sizeof(buf)));
+	printf("to %s\n", inet_ntop(p->peer_ip.family, p->peer_ip.data, buf, sizeof(buf)));
 	printf("  Peer tunnel %u\n",
 	       p->peer_tunnel_id);
 
@@ -259,9 +234,10 @@ static void print_session(struct l2tp_data *data)
 	if (p->peer_cookie_len > 0)
 		print_cookie("peer cookie", p->peer_cookie, p->peer_cookie_len);
 
-	if (p->reorder_timeout != 0) {
+	if (p->reorder_timeout != 0)
 		printf("  reorder timeout: %u\n", p->reorder_timeout);
-	}
+	else
+		printf("\n");
 }
 
 static int get_response(struct nlmsghdr *n, void *arg)
@@ -300,6 +276,10 @@ static int get_response(struct nlmsghdr *n, void *arg)
 		p->session_id = rta_getattr_u32(attrs[L2TP_ATTR_SESSION_ID]);
 	if (attrs[L2TP_ATTR_PEER_SESSION_ID])
 		p->peer_session_id = rta_getattr_u32(attrs[L2TP_ATTR_PEER_SESSION_ID]);
+	if (attrs[L2TP_ATTR_L2SPEC_TYPE])
+		p->l2spec_type = rta_getattr_u8(attrs[L2TP_ATTR_L2SPEC_TYPE]);
+	if (attrs[L2TP_ATTR_L2SPEC_LEN])
+		p->l2spec_len = rta_getattr_u8(attrs[L2TP_ATTR_L2SPEC_LEN]);
 
 	p->udp_csum = !!attrs[L2TP_ATTR_UDP_CSUM];
 	if (attrs[L2TP_ATTR_COOKIE])
@@ -315,10 +295,30 @@ static int get_response(struct nlmsghdr *n, void *arg)
 
 	if (attrs[L2TP_ATTR_RECV_TIMEOUT])
 		p->reorder_timeout = rta_getattr_u64(attrs[L2TP_ATTR_RECV_TIMEOUT]);
-	if (attrs[L2TP_ATTR_IP_SADDR])
-		p->local_ip.s_addr = rta_getattr_u32(attrs[L2TP_ATTR_IP_SADDR]);
-	if (attrs[L2TP_ATTR_IP_DADDR])
-		p->peer_ip.s_addr = rta_getattr_u32(attrs[L2TP_ATTR_IP_DADDR]);
+	if (attrs[L2TP_ATTR_IP_SADDR]) {
+		p->local_ip.family = AF_INET;
+		p->local_ip.data[0] = rta_getattr_u32(attrs[L2TP_ATTR_IP_SADDR]);
+		p->local_ip.bytelen = 4;
+		p->local_ip.bitlen = -1;
+	}
+	if (attrs[L2TP_ATTR_IP_DADDR]) {
+		p->peer_ip.family = AF_INET;
+		p->peer_ip.data[0] = rta_getattr_u32(attrs[L2TP_ATTR_IP_DADDR]);
+		p->peer_ip.bytelen = 4;
+		p->peer_ip.bitlen = -1;
+	}
+	if (attrs[L2TP_ATTR_IP6_SADDR]) {
+		p->local_ip.family = AF_INET6;
+		memcpy(&p->local_ip.data, RTA_DATA(attrs[L2TP_ATTR_IP6_SADDR]),
+			p->local_ip.bytelen = 16);
+		p->local_ip.bitlen = -1;
+	}
+	if (attrs[L2TP_ATTR_IP6_DADDR]) {
+		p->peer_ip.family = AF_INET6;
+		memcpy(&p->peer_ip.data, RTA_DATA(attrs[L2TP_ATTR_IP6_DADDR]),
+			p->peer_ip.bytelen = 16);
+		p->peer_ip.bitlen = -1;
+	}
 	if (attrs[L2TP_ATTR_UDP_SPORT])
 		p->local_udp_port = rta_getattr_u16(attrs[L2TP_ATTR_UDP_SPORT]);
 	if (attrs[L2TP_ATTR_UDP_DPORT])
@@ -367,20 +367,11 @@ static int session_nlmsg(const struct sockaddr_nl *who, struct nlmsghdr *n, void
 
 static int get_session(struct l2tp_data *p)
 {
-	struct {
-		struct nlmsghdr 	n;
-		struct genlmsghdr	g;
-		char buf[128];
-	} req;
+	GENL_REQUEST(req, 128, genl_family, 0, L2TP_GENL_VERSION,
+		     L2TP_CMD_SESSION_GET,
+		     NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST);
 
-	memset(&req, 0, sizeof(req));
-	req.n.nlmsg_len = NLMSG_LENGTH(GENL_HDRLEN);
-	req.n.nlmsg_type = genl_family;
-	req.n.nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST;
 	req.n.nlmsg_seq = genl_rth.dump = ++genl_rth.seq;
-
-	req.g.cmd = L2TP_CMD_SESSION_GET;
-	req.g.version = L2TP_GENL_VERSION;
 
 	if (p->config.tunnel_id && p->config.session_id) {
 		addattr32(&req.n, 128, L2TP_ATTR_CONN_ID, p->config.tunnel_id);
@@ -410,20 +401,11 @@ static int tunnel_nlmsg(const struct sockaddr_nl *who, struct nlmsghdr *n, void 
 
 static int get_tunnel(struct l2tp_data *p)
 {
-	struct {
-		struct nlmsghdr 	n;
-		struct genlmsghdr	g;
-		char buf[1024];
-	} req;
+	GENL_REQUEST(req, 1024, genl_family, 0, L2TP_GENL_VERSION,
+		     L2TP_CMD_TUNNEL_GET,
+		     NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST);
 
-	memset(&req, 0, sizeof(req));
-	req.n.nlmsg_len = NLMSG_LENGTH(GENL_HDRLEN);
-	req.n.nlmsg_type = genl_family;
-	req.n.nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST;
 	req.n.nlmsg_seq = genl_rth.dump = ++genl_rth.seq;
-
-	req.g.cmd = L2TP_CMD_TUNNEL_GET;
-	req.g.version = L2TP_GENL_VERSION;
 
 	if (p->config.tunnel_id)
 		addattr32(&req.n, 1024, L2TP_ATTR_CONN_ID, p->config.tunnel_id);
@@ -493,6 +475,7 @@ static void usage(void)
 	fprintf(stderr, "          session_id ID peer_session_id ID\n");
 	fprintf(stderr, "          [ cookie HEXSTR ] [ peer_cookie HEXSTR ]\n");
 	fprintf(stderr, "          [ offset OFFSET ] [ peer_offset OFFSET ]\n");
+	fprintf(stderr, "          [ l2spec_type L2SPEC ]\n");
 	fprintf(stderr, "       ip l2tp del tunnel tunnel_id ID\n");
 	fprintf(stderr, "       ip l2tp del session tunnel_id ID session_id ID\n");
 	fprintf(stderr, "       ip l2tp show tunnel [ tunnel_id ID ]\n");
@@ -503,6 +486,7 @@ static void usage(void)
 	fprintf(stderr, "       PORT   := { 0..65535 }\n");
 	fprintf(stderr, "       ID     := { 1..4294967295 }\n");
 	fprintf(stderr, "       HEXSTR := { 8 or 16 hex digits (4 / 8 bytes) }\n");
+	fprintf(stderr, "       L2SPEC := { none | default }\n");
 	exit(-1);
 }
 
@@ -513,6 +497,10 @@ static int parse_args(int argc, char **argv, int cmd, struct l2tp_parm *p)
 	if (argc == 0)
 		usage();
 
+	/* Defaults */
+	p->l2spec_type = L2TP_L2SPECTYPE_DEFAULT;
+	p->l2spec_len = 4;
+
 	while (argc > 0) {
 		if (strcmp(*argv, "encap") == 0) {
 			NEXT_ARG();
@@ -521,7 +509,7 @@ static int parse_args(int argc, char **argv, int cmd, struct l2tp_parm *p)
 			} else if (strcmp(*argv, "udp") == 0) {
 				p->encap = L2TP_ENCAPTYPE_UDP;
 			} else {
-				fprintf(stderr, "Unknown tunnel encapsulation.\n");
+				fprintf(stderr, "Unknown tunnel encapsulation \"%s\"\n", *argv);
 				exit(-1);
 			}
 		} else if (strcmp(*argv, "name") == 0) {
@@ -529,10 +517,12 @@ static int parse_args(int argc, char **argv, int cmd, struct l2tp_parm *p)
 			p->ifname = *argv;
 		} else if (strcmp(*argv, "remote") == 0) {
 			NEXT_ARG();
-			p->peer_ip.s_addr = get_addr32(*argv);
+			if (get_addr(&p->peer_ip, *argv, AF_UNSPEC))
+				invarg("invalid remote address\n", *argv);
 		} else if (strcmp(*argv, "local") == 0) {
 			NEXT_ARG();
-			p->local_ip.s_addr = get_addr32(*argv);
+			if (get_addr(&p->local_ip, *argv, AF_UNSPEC))
+				invarg("invalid local address\n", *argv);
 		} else if ((strcmp(*argv, "tunnel_id") == 0) ||
 			   (strcmp(*argv, "tid") == 0)) {
 			__u32 uval;
@@ -605,6 +595,18 @@ static int parse_args(int argc, char **argv, int cmd, struct l2tp_parm *p)
 			p->peer_cookie_len = slen / 2;
 			if (hex2mem(*argv, p->peer_cookie, p->peer_cookie_len) < 0)
 				invarg("cookie must be a hex string\n", *argv);
+		} else if (strcmp(*argv, "l2spec_type") == 0) {
+			NEXT_ARG();
+			if (strcasecmp(*argv, "default") == 0) {
+				p->l2spec_type = L2TP_L2SPECTYPE_DEFAULT;
+				p->l2spec_len = 4;
+			} else if (strcasecmp(*argv, "none") == 0) {
+				p->l2spec_type = L2TP_L2SPECTYPE_NONE;
+				p->l2spec_len = 0;
+			} else {
+				fprintf(stderr, "Unknown layer2specific header type \"%s\"\n", *argv);
+				exit(-1);
+			}
 		} else if (strcmp(*argv, "tunnel") == 0) {
 			p->tunnel = 1;
 		} else if (strcmp(*argv, "session") == 0) {
@@ -648,10 +650,10 @@ static int do_add(int argc, char **argv)
 		missarg("peer_tunnel_id");
 
 	if (p.tunnel) {
-		if (p.local_ip.s_addr == 0)
+		if (p.local_ip.family == AF_UNSPEC)
 			missarg("local");
 
-		if (p.peer_ip.s_addr == 0)
+		if (p.peer_ip.family == AF_UNSPEC)
 			missarg("remote");
 
 		if (p.encap == L2TP_ENCAPTYPE_UDP) {
@@ -716,67 +718,6 @@ static int do_show(int argc, char **argv)
 	return 0;
 }
 
-static int genl_parse_getfamily(struct nlmsghdr *nlh)
-{
-	struct rtattr *tb[CTRL_ATTR_MAX + 1];
-	struct genlmsghdr *ghdr = NLMSG_DATA(nlh);
-	int len = nlh->nlmsg_len;
-	struct rtattr *attrs;
-
-	if (nlh->nlmsg_type != GENL_ID_CTRL) {
-		fprintf(stderr, "Not a controller message, nlmsg_len=%d "
-			"nlmsg_type=0x%x\n", nlh->nlmsg_len, nlh->nlmsg_type);
-		return -1;
-	}
-
-	if (ghdr->cmd != CTRL_CMD_NEWFAMILY) {
-		fprintf(stderr, "Unknown controller command %d\n", ghdr->cmd);
-		return -1;
-	}
-
-	len -= NLMSG_LENGTH(GENL_HDRLEN);
-
-	if (len < 0) {
-		fprintf(stderr, "wrong controller message len %d\n", len);
-		return -1;
-	}
-
-	attrs = (struct rtattr *) ((char *) ghdr + GENL_HDRLEN);
-	parse_rtattr(tb, CTRL_ATTR_MAX, attrs, len);
-
-	if (tb[CTRL_ATTR_FAMILY_ID] == NULL) {
-		fprintf(stderr, "Missing family id TLV\n");
-		return -1;
-	}
-
-	return rta_getattr_u16(tb[CTRL_ATTR_FAMILY_ID]);
-}
-
-int genl_ctrl_resolve_family(const char *family)
-{
-	struct {
-		struct nlmsghdr         n;
-		struct genlmsghdr	g;
-		char                    buf[1024];
-	} req;
-
-	memset(&req, 0, sizeof(req));
-	req.n.nlmsg_len = NLMSG_LENGTH(GENL_HDRLEN);
-	req.n.nlmsg_flags = NLM_F_REQUEST;
-	req.n.nlmsg_type = GENL_ID_CTRL;
-	req.g.cmd = CTRL_CMD_GETFAMILY;
-
-	addattr_l(&req.n, 1024, CTRL_ATTR_FAMILY_NAME,
-		  family, strlen(family) + 1);
-
-	if (rtnl_talk(&genl_rth, &req.n, 0, 0, &req.n) < 0) {
-		fprintf(stderr, "Error talking to the kernel\n");
-		return -2;
-	}
-
-	return genl_parse_getfamily(&req.n);
-}
-
 int do_ipl2tp(int argc, char **argv)
 {
 	if (genl_family < 0) {
@@ -785,7 +726,7 @@ int do_ipl2tp(int argc, char **argv)
 			exit(1);
 		}
 
-		genl_family = genl_ctrl_resolve_family(L2TP_GENL_NAME);
+		genl_family = genl_resolve_family(&genl_rth, L2TP_GENL_NAME);
 		if (genl_family < 0)
 			exit(1);
 	}
@@ -795,7 +736,7 @@ int do_ipl2tp(int argc, char **argv)
 
 	if (matches(*argv, "add") == 0)
 		return do_add(argc-1, argv+1);
-	if (matches(*argv, "del") == 0)
+	if (matches(*argv, "delete") == 0)
 		return do_del(argc-1, argv+1);
 	if (matches(*argv, "show") == 0 ||
 	    matches(*argv, "lst") == 0 ||

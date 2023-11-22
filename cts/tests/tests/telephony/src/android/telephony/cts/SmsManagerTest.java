@@ -18,19 +18,32 @@ package android.telephony.cts;
 
 
 import android.app.PendingIntent;
+import android.app.UiAutomation;
 import android.content.BroadcastReceiver;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
-import android.telephony.SmsManager;
+import android.provider.BlockedNumberContract;
+import android.provider.Telephony;
 import android.telephony.SmsMessage;
 import android.telephony.TelephonyManager;
 import android.test.AndroidTestCase;
+import android.test.InstrumentationTestCase;
+import android.text.TextUtils;
 import android.util.Log;
 
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -40,7 +53,7 @@ import java.util.List;
  *
  * Structured so tests can be reused to test {@link android.telephony.gsm.SmsManager}
  */
-public class SmsManagerTest extends AndroidTestCase {
+public class SmsManagerTest extends InstrumentationTestCase {
 
     private static final String TAG = "SmsManagerTest";
     private static final String LONG_TEXT =
@@ -57,6 +70,7 @@ public class SmsManagerTest extends AndroidTestCase {
     private static final String SMS_SEND_ACTION = "CTS_SMS_SEND_ACTION";
     private static final String SMS_DELIVERY_ACTION = "CTS_SMS_DELIVERY_ACTION";
     private static final String DATA_SMS_RECEIVED_ACTION = "android.intent.action.DATA_SMS_RECEIVED";
+    public static final String SMS_DELIVER_DEFAULT_APP_ACTION = "CTS_SMS_DELIVERY_ACTION_DEFAULT_APP";
 
     // List of network operators that don't support SMS delivery report
     private static final List<String> NO_DELIVERY_REPORTS =
@@ -66,6 +80,7 @@ public class SmsManagerTest extends AndroidTestCase {
                     "45005",    // SKT Mobility
                     "45002",    // SKT Mobility
                     "45008",    // KT Mobility
+                    "45028",    // KT Safety Network
                     "45006",    // LGT
                     "311660",   // MetroPCS
                     "310120",   // Sprint
@@ -101,6 +116,7 @@ public class SmsManagerTest extends AndroidTestCase {
                     "311230",   // C SPire Wireless + Celluar South
                     "310600",    // Cellcom
                     "31000",     // Republic Wireless US
+                    "310260",    // Republic Wireless US
                     "310026",     // T-Mobile US
                     "330120", // OpenMobile communication
                     // Verizon
@@ -142,6 +158,7 @@ public class SmsManagerTest extends AndroidTestCase {
                     "45005",    // SKT Mobility
                     "45002",     // SKT Mobility
                     "45006",    // LGT
+                    "310260",   // Republic Wireless US
                     // Verizon
                     "310004",
                     "310012",
@@ -188,21 +205,29 @@ public class SmsManagerTest extends AndroidTestCase {
     private SmsBroadcastReceiver mSendReceiver;
     private SmsBroadcastReceiver mDeliveryReceiver;
     private SmsBroadcastReceiver mDataSmsReceiver;
+    private SmsBroadcastReceiver mSmsDeliverReceiver;
+    private SmsBroadcastReceiver mSmsReceivedReceiver;
     private PendingIntent mSentIntent;
     private PendingIntent mDeliveredIntent;
     private Intent mSendIntent;
     private Intent mDeliveryIntent;
+    private Context mContext;
+    private Uri mBlockedNumberUri;
+    private boolean mTestAppSetAsDefaultSmsApp;
     private boolean mDeliveryReportSupported;
     private static boolean mReceivedDataSms;
     private static String mReceivedText;
 
     private static final int TIME_OUT = 1000 * 60 * 5;
+    private static final int NO_CALLS_TIMEOUT_MILLIS = 1000; // 1 second
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
+        mContext = getInstrumentation().getContext();
         mTelephonyManager =
-            (TelephonyManager) getContext().getSystemService(Context.TELEPHONY_SERVICE);
+            (TelephonyManager) getInstrumentation().getContext().getSystemService(
+                    Context.TELEPHONY_SERVICE);
         mPackageManager = mContext.getPackageManager();
         mDestAddr = mTelephonyManager.getLine1Number();
         mText = "This is a test message";
@@ -213,6 +238,17 @@ public class SmsManagerTest extends AndroidTestCase {
             // exclude the networks that don't support SMS delivery report
             String mccmnc = mTelephonyManager.getSimOperator();
             mDeliveryReportSupported = !(NO_DELIVERY_REPORTS.contains(mccmnc));
+        }
+    }
+
+    @Override
+    protected void tearDown() throws Exception {
+        if (mBlockedNumberUri != null) {
+            mContext.getContentResolver().delete(mBlockedNumberUri, null, null);
+            mBlockedNumberUri = null;
+        }
+        if (mTestAppSetAsDefaultSmsApp) {
+            setDefaultSmsApp(false);
         }
     }
 
@@ -252,37 +288,32 @@ public class SmsManagerTest extends AndroidTestCase {
         return longText.equals(actualMessage);
     }
 
-    public void testSendMessages() throws InterruptedException {
+    public void testSendAndReceiveMessages() throws Exception {
         if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
             return;
         }
 
+        assertFalse("[RERUN] SIM card does not provide phone number. Use a suitable SIM Card.",
+                TextUtils.isEmpty(mDestAddr));
+
         String mccmnc = mTelephonyManager.getSimOperator();
-
-        mSendIntent = new Intent(SMS_SEND_ACTION);
-        mDeliveryIntent = new Intent(SMS_DELIVERY_ACTION);
-
-        IntentFilter sendIntentFilter = new IntentFilter(SMS_SEND_ACTION);
-        IntentFilter deliveryIntentFilter = new IntentFilter(SMS_DELIVERY_ACTION);
-        IntentFilter dataSmsReceivedIntentFilter = new IntentFilter(DATA_SMS_RECEIVED_ACTION);
-        dataSmsReceivedIntentFilter.addDataScheme("sms");
-        dataSmsReceivedIntentFilter.addDataAuthority("localhost", "19989");
-
-        mSendReceiver = new SmsBroadcastReceiver(SMS_SEND_ACTION);
-        mDeliveryReceiver = new SmsBroadcastReceiver(SMS_DELIVERY_ACTION);
-        mDataSmsReceiver = new SmsBroadcastReceiver(DATA_SMS_RECEIVED_ACTION);
-
-        getContext().registerReceiver(mSendReceiver, sendIntentFilter);
-        getContext().registerReceiver(mDeliveryReceiver, deliveryIntentFilter);
-        getContext().registerReceiver(mDataSmsReceiver, dataSmsReceivedIntentFilter);
+        setupBroadcastReceivers();
 
         // send single text sms
         init();
         sendTextMessage(mDestAddr, mDestAddr, mSentIntent, mDeliveredIntent);
-        assertTrue(mSendReceiver.waitForCalls(1, TIME_OUT));
+        assertTrue("[RERUN] Could not send SMS. Check signal.",
+                mSendReceiver.waitForCalls(1, TIME_OUT));
         if (mDeliveryReportSupported) {
-            assertTrue(mDeliveryReceiver.waitForCalls(1, TIME_OUT));
+            assertTrue("[RERUN] SMS message delivery notification not received. Check signal.",
+                    mDeliveryReceiver.waitForCalls(1, TIME_OUT));
         }
+        // non-default app should receive only SMS_RECEIVED_ACTION
+        assertTrue(mSmsReceivedReceiver.waitForCalls(1, TIME_OUT));
+        assertTrue(mSmsDeliverReceiver.waitForCalls(0, 0));
+
+        // due to permission restrictions, currently there is no way to make this test app the
+        // default SMS app
 
         if (mTelephonyManager.getPhoneType() == TelephonyManager.PHONE_TYPE_CDMA) {
             // TODO: temp workaround, OCTET encoding for EMS not properly supported
@@ -290,18 +321,15 @@ public class SmsManagerTest extends AndroidTestCase {
         }
 
         // send data sms
-        if (!UNSUPPORT_DATA_SMS_MESSAGES.contains(mccmnc)) {
-            byte[] data = mText.getBytes();
-            short port = 19989;
-
-            init();
-            sendDataMessage(mDestAddr, port, data, mSentIntent, mDeliveredIntent);
-            assertTrue(mSendReceiver.waitForCalls(1, TIME_OUT));
+        if (sendDataMessageIfSupported(mccmnc)) {
+            assertTrue("[RERUN] Could not send data SMS. Check signal.",
+                    mSendReceiver.waitForCalls(1, TIME_OUT));
             if (mDeliveryReportSupported) {
-                assertTrue(mDeliveryReceiver.waitForCalls(1, TIME_OUT));
+                assertTrue("[RERUN] Data SMS message delivery notification not received. " +
+                        "Check signal.", mDeliveryReceiver.waitForCalls(1, TIME_OUT));
             }
             mDataSmsReceiver.waitForCalls(1, TIME_OUT);
-            assertTrue(mReceivedDataSms);
+            assertTrue("[RERUN] Data SMS message not received. Check signal.", mReceivedDataSms);
             assertEquals(mReceivedText, mText);
         } else {
             // This GSM network doesn't support Data(binary) SMS message.
@@ -309,21 +337,72 @@ public class SmsManagerTest extends AndroidTestCase {
         }
 
         // send multi parts text sms
-        if (!UNSUPPORT_MULTIPART_SMS_MESSAGES.contains(mccmnc)) {
-            init();
-            ArrayList<String> parts = divideMessage(LONG_TEXT);
-            int numParts = parts.size();
-            ArrayList<PendingIntent> sentIntents = new ArrayList<PendingIntent>();
-            ArrayList<PendingIntent> deliveryIntents = new ArrayList<PendingIntent>();
-            for (int i = 0; i < numParts; i++) {
-                sentIntents.add(PendingIntent.getBroadcast(getContext(), 0, mSendIntent, 0));
-                deliveryIntents.add(PendingIntent.getBroadcast(getContext(), 0, mDeliveryIntent, 0));
-            }
-            sendMultiPartTextMessage(mDestAddr, parts, sentIntents, deliveryIntents);
-            assertTrue(mSendReceiver.waitForCalls(numParts, TIME_OUT));
+        int numPartsSent = sendMultipartTextMessageIfSupported(mccmnc);
+        if (numPartsSent > 0) {
+            assertTrue("[RERUN] Could not send multi part SMS. Check signal.",
+                    mSendReceiver.waitForCalls(numPartsSent, TIME_OUT));
             if (mDeliveryReportSupported) {
-              assertTrue(mDeliveryReceiver.waitForCalls(numParts, TIME_OUT));
+                assertTrue("[RERUN] Multi part SMS message delivery notification not received. " +
+                        "Check signal.", mDeliveryReceiver.waitForCalls(numPartsSent, TIME_OUT));
             }
+            // non-default app should receive only SMS_RECEIVED_ACTION
+            assertTrue(mSmsReceivedReceiver.waitForCalls(1, TIME_OUT));
+            assertTrue(mSmsDeliverReceiver.waitForCalls(0, 0));
+        } else {
+            // This GSM network doesn't support Multipart SMS message.
+            // Skip the test.
+        }
+    }
+
+    public void testSmsBlocking() throws Exception {
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            return;
+        }
+
+        assertFalse("[RERUN] SIM card does not provide phone number. Use a suitable SIM Card.",
+                TextUtils.isEmpty(mDestAddr));
+
+        String mccmnc = mTelephonyManager.getSimOperator();
+        // Setting default SMS App is needed to be able to block numbers.
+        setDefaultSmsApp(true);
+        blockNumber(mDestAddr);
+        setupBroadcastReceivers();
+
+        // single-part SMS blocking
+        init();
+        sendTextMessage(mDestAddr, mDestAddr, mSentIntent, mDeliveredIntent);
+        assertTrue("[RERUN] Could not send SMS. Check signal.",
+                mSendReceiver.waitForCalls(1, TIME_OUT));
+        assertTrue("Expected no messages to be received due to number blocking.",
+                mSmsReceivedReceiver.verifyNoCalls(NO_CALLS_TIMEOUT_MILLIS));
+        assertTrue("Expected no messages to be delivered due to number blocking.",
+                mSmsDeliverReceiver.verifyNoCalls(NO_CALLS_TIMEOUT_MILLIS));
+
+        // send data sms
+        if (!sendDataMessageIfSupported(mccmnc)) {
+            assertTrue("[RERUN] Could not send data SMS. Check signal.",
+                    mSendReceiver.waitForCalls(1, TIME_OUT));
+            if (mDeliveryReportSupported) {
+                assertTrue("[RERUN] Data SMS message delivery notification not received. " +
+                        "Check signal.", mDeliveryReceiver.waitForCalls(1, TIME_OUT));
+            }
+            assertTrue("Expected no messages to be delivered due to number blocking.",
+                    mSmsDeliverReceiver.verifyNoCalls(NO_CALLS_TIMEOUT_MILLIS));
+        } else {
+            // This GSM network doesn't support Data(binary) SMS message.
+            // Skip the test.
+        }
+
+        // multi-part SMS blocking
+        int numPartsSent = sendMultipartTextMessageIfSupported(mccmnc);
+        if (numPartsSent > 0) {
+            assertTrue("[RERUN] Could not send multi part SMS. Check signal.",
+                    mSendReceiver.waitForCalls(numPartsSent, TIME_OUT));
+
+            assertTrue("Expected no messages to be received due to number blocking.",
+                    mSmsReceivedReceiver.verifyNoCalls(NO_CALLS_TIMEOUT_MILLIS));
+            assertTrue("Expected no messages to be delivered due to number blocking.",
+                    mSmsDeliverReceiver.verifyNoCalls(NO_CALLS_TIMEOUT_MILLIS));
         } else {
             // This GSM network doesn't support Multipart SMS message.
             // Skip the test.
@@ -334,11 +413,72 @@ public class SmsManagerTest extends AndroidTestCase {
         mSendReceiver.reset();
         mDeliveryReceiver.reset();
         mDataSmsReceiver.reset();
+        mSmsDeliverReceiver.reset();
+        mSmsReceivedReceiver.reset();
         mReceivedDataSms = false;
-        mSentIntent = PendingIntent.getBroadcast(getContext(), 0, mSendIntent,
+        mSentIntent = PendingIntent.getBroadcast(mContext, 0, mSendIntent,
                 PendingIntent.FLAG_ONE_SHOT);
-        mDeliveredIntent = PendingIntent.getBroadcast(getContext(), 0, mDeliveryIntent,
+        mDeliveredIntent = PendingIntent.getBroadcast(mContext, 0, mDeliveryIntent,
                 PendingIntent.FLAG_ONE_SHOT);
+    }
+
+    private void setupBroadcastReceivers() {
+        mSendIntent = new Intent(SMS_SEND_ACTION);
+        mDeliveryIntent = new Intent(SMS_DELIVERY_ACTION);
+
+        IntentFilter sendIntentFilter = new IntentFilter(SMS_SEND_ACTION);
+        IntentFilter deliveryIntentFilter = new IntentFilter(SMS_DELIVERY_ACTION);
+        IntentFilter dataSmsReceivedIntentFilter = new IntentFilter(DATA_SMS_RECEIVED_ACTION);
+        IntentFilter smsDeliverIntentFilter = new IntentFilter(SMS_DELIVER_DEFAULT_APP_ACTION);
+        IntentFilter smsReceivedIntentFilter =
+                new IntentFilter(Telephony.Sms.Intents.SMS_RECEIVED_ACTION);
+        dataSmsReceivedIntentFilter.addDataScheme("sms");
+        dataSmsReceivedIntentFilter.addDataAuthority("localhost", "19989");
+
+        mSendReceiver = new SmsBroadcastReceiver(SMS_SEND_ACTION);
+        mDeliveryReceiver = new SmsBroadcastReceiver(SMS_DELIVERY_ACTION);
+        mDataSmsReceiver = new SmsBroadcastReceiver(DATA_SMS_RECEIVED_ACTION);
+        mSmsDeliverReceiver = new SmsBroadcastReceiver(SMS_DELIVER_DEFAULT_APP_ACTION);
+        mSmsReceivedReceiver = new SmsBroadcastReceiver(Telephony.Sms.Intents.SMS_RECEIVED_ACTION);
+
+        mContext.registerReceiver(mSendReceiver, sendIntentFilter);
+        mContext.registerReceiver(mDeliveryReceiver, deliveryIntentFilter);
+        mContext.registerReceiver(mDataSmsReceiver, dataSmsReceivedIntentFilter);
+        mContext.registerReceiver(mSmsDeliverReceiver, smsDeliverIntentFilter);
+        mContext.registerReceiver(mSmsReceivedReceiver, smsReceivedIntentFilter);
+    }
+
+    /**
+     * Returns the number of parts sent in the message. If Multi-part SMS is not supported,
+     * returns 0.
+     */
+    private int sendMultipartTextMessageIfSupported(String mccmnc) {
+        int numPartsSent = 0;
+        if (!UNSUPPORT_MULTIPART_SMS_MESSAGES.contains(mccmnc)) {
+            init();
+            ArrayList<String> parts = divideMessage(LONG_TEXT);
+            numPartsSent = parts.size();
+            ArrayList<PendingIntent> sentIntents = new ArrayList<PendingIntent>();
+            ArrayList<PendingIntent> deliveryIntents = new ArrayList<PendingIntent>();
+            for (int i = 0; i < numPartsSent; i++) {
+                sentIntents.add(PendingIntent.getBroadcast(mContext, 0, mSendIntent, 0));
+                deliveryIntents.add(PendingIntent.getBroadcast(mContext, 0, mDeliveryIntent, 0));
+            }
+            sendMultiPartTextMessage(mDestAddr, parts, sentIntents, deliveryIntents);
+        }
+        return numPartsSent;
+    }
+
+    private boolean sendDataMessageIfSupported(String mccmnc) {
+        if (!UNSUPPORT_DATA_SMS_MESSAGES.contains(mccmnc)) {
+            byte[] data = mText.getBytes();
+            short port = 19989;
+
+            init();
+            sendDataMessage(mDestAddr, port, data, mSentIntent, mDeliveredIntent);
+            return true;
+        }
+        return false;
     }
 
     public void testGetDefault() {
@@ -364,6 +504,44 @@ public class SmsManagerTest extends AndroidTestCase {
 
     protected void sendTextMessage(String destAddr, String text, PendingIntent sentIntent, PendingIntent deliveredIntent) {
         getSmsManager().sendTextMessage(destAddr, null, text, sentIntent, deliveredIntent);
+    }
+
+    private void blockNumber(String phoneNumber) {
+        ContentValues cv = new ContentValues();
+        cv.put(BlockedNumberContract.BlockedNumbers.COLUMN_ORIGINAL_NUMBER, phoneNumber);
+        mBlockedNumberUri = mContext.getContentResolver().insert(
+                BlockedNumberContract.BlockedNumbers.CONTENT_URI, cv);
+    }
+
+    private void setDefaultSmsApp(boolean setToSmsApp)
+            throws Exception {
+        String command = String.format(
+                "appops set %s WRITE_SMS %s",
+                mContext.getPackageName(),
+                setToSmsApp ? "allow" : "default");
+        assertTrue("Setting default SMS app failed : " + setToSmsApp,
+                executeShellCommand(command).isEmpty());
+        mTestAppSetAsDefaultSmsApp = setToSmsApp;
+    }
+
+    private String executeShellCommand(String command)
+            throws IOException {
+        ParcelFileDescriptor pfd =
+                getInstrumentation().getUiAutomation().executeShellCommand(command);
+        BufferedReader br = null;
+        try (InputStream in = new FileInputStream(pfd.getFileDescriptor());) {
+            br = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
+            String str;
+            StringBuilder out = new StringBuilder();
+            while ((str = br.readLine()) != null) {
+                out.append(str);
+            }
+            return out.toString();
+        } finally {
+            if (br != null) {
+                br.close();
+            }
+        }
     }
 
     private static class SmsBroadcastReceiver extends BroadcastReceiver {
@@ -411,6 +589,13 @@ public class SmsManagerTest extends AndroidTestCase {
                     mCalls += 1;
                     mLock.notify();
                 }
+            }
+        }
+
+        private boolean verifyNoCalls(long timeout) throws InterruptedException {
+            synchronized(mLock) {
+                mLock.wait(timeout);
+                return mCalls == 0;
             }
         }
 

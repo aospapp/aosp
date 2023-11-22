@@ -68,9 +68,7 @@ public class PopFrames002Test extends JDWPStackFrameTestCase {
 
         //check capability, relevant for this test
         logWriter.println("=> Check capability: canPopFrames");
-        debuggeeWrapper.vmMirror.capabilities();
-        boolean isCapability = debuggeeWrapper.vmMirror.targetVMCapabilities.canPopFrames;
-        if (!isCapability) {
+        if (!debuggeeWrapper.vmMirror.canPopFrames()) {
             logWriter.println("##WARNING: this VM doesn't possess capability: canPopFrames");
             return;
         }
@@ -194,9 +192,7 @@ public class PopFrames002Test extends JDWPStackFrameTestCase {
 
         //check capability, relevant for this test
         logWriter.println("=> Check capability: canPopFrames");
-        debuggeeWrapper.vmMirror.capabilities();
-        boolean isCapability = debuggeeWrapper.vmMirror.targetVMCapabilities.canPopFrames;
-        if (!isCapability) {
+        if (!debuggeeWrapper.vmMirror.canPopFrames()) {
             logWriter.println("##WARNING: this VM doesn't possess capability: canPopFrames");
             return;
         }
@@ -291,9 +287,7 @@ public class PopFrames002Test extends JDWPStackFrameTestCase {
 
         //check capability, relevant for this test
         logWriter.println("=> Check capability: canPopFrames");
-        debuggeeWrapper.vmMirror.capabilities();
-        boolean isCapability = debuggeeWrapper.vmMirror.targetVMCapabilities.canPopFrames;
-        if (!isCapability) {
+        if (!debuggeeWrapper.vmMirror.canPopFrames()) {
             logWriter.println("##WARNING: this VM doesn't possess capability: canPopFrames");
             return;
         }

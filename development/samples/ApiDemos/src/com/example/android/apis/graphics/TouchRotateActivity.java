@@ -23,6 +23,8 @@ import android.app.Activity;
 import android.content.Context;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
+import android.view.InputDevice;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
 
 /**
@@ -85,19 +87,22 @@ class TouchSurfaceView extends GLSurfaceView {
     }
 
     @Override public boolean onTouchEvent(MotionEvent e) {
-        float x = e.getX();
-        float y = e.getY();
-        switch (e.getAction()) {
-        case MotionEvent.ACTION_MOVE:
-            float dx = x - mPreviousX;
-            float dy = y - mPreviousY;
+        if (e.getActionMasked() == MotionEvent.ACTION_MOVE) {
+            updateAngles(e);
+        }
+        mPreviousX = e.getX();
+        mPreviousY = e.getY();
+        return true;
+    }
+
+    private void updateAngles(MotionEvent e) {
+        float dx = e.getX() - mPreviousX;
+        float dy = e.getY() - mPreviousY;
+        if (dx != 0 && dy != 0) {
             mRenderer.mAngleX += dx * TOUCH_SCALE_FACTOR;
             mRenderer.mAngleY += dy * TOUCH_SCALE_FACTOR;
             requestRender();
         }
-        mPreviousX = x;
-        mPreviousY = y;
-        return true;
     }
 
     /**
@@ -180,5 +185,3 @@ class TouchSurfaceView extends GLSurfaceView {
     private float mPreviousX;
     private float mPreviousY;
 }
-
-

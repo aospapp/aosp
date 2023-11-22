@@ -74,12 +74,6 @@ public class EthernetServiceImpl extends IEthernetManager.Stub {
                 "EthernetService");
     }
 
-    private void enforceChangePermission() {
-        int uid = Binder.getCallingUid();
-        Settings.checkAndNoteChangeNetworkStateOperation(mContext, uid, Settings
-                .getPackageNameForUid(mContext, uid), true);
-    }
-
     private void enforceConnectivityInternalPermission() {
         mContext.enforceCallingOrSelfPermission(
                 android.Manifest.permission.CONNECTIVITY_INTERNAL,
@@ -120,7 +114,6 @@ public class EthernetServiceImpl extends IEthernetManager.Stub {
             Log.w(TAG, "System isn't ready enough to change ethernet configuration");
         }
 
-        enforceChangePermission();
         enforceConnectivityInternalPermission();
 
         synchronized (mIpConfiguration) {

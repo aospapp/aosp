@@ -32,34 +32,60 @@ import com.android.contacts.R;
  * Does not split the contact itself.
  */
 public class SplitContactConfirmationDialogFragment extends DialogFragment {
-    public static final String TAG = "SplitContactConfirmationDialog";
 
-    public static void show(ContactEditorBaseFragment fragment) {
-        SplitContactConfirmationDialogFragment dialog = new
+    private static final String ARG_HAS_PENDING_CHANGES = "hasPendingChanges";
+
+    /**
+     * Callbacks for the dialog host.
+     */
+    public interface Listener {
+
+        /**
+         * Invoked after the user has confirmed that they want to proceed with the split.
+         *
+         * @param hasPendingChanges whether there are unsaved changes in the underlying contact
+         *         that should be saved before the split.
+         */
+        void onSplitContactConfirmed(boolean hasPendingChanges);
+    }
+
+    public static void show(ContactEditorBaseFragment fragment, boolean hasPendingChanges) {
+        final Bundle args = new Bundle();
+        args.putBoolean(ARG_HAS_PENDING_CHANGES, hasPendingChanges);
+
+        final SplitContactConfirmationDialogFragment dialog = new
                 SplitContactConfirmationDialogFragment();
         dialog.setTargetFragment(fragment, 0);
+        dialog.setArguments(args);
         dialog.show(fragment.getFragmentManager(), "splitContact");
+    }
+
+    private boolean mHasPendingChanges;
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        mHasPendingChanges = getArguments().getBoolean(ARG_HAS_PENDING_CHANGES);
     }
 
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         final AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-        builder.setTitle(R.string.splitConfirmation_title);
-        builder.setIconAttribute(android.R.attr.alertDialogIcon);
-        builder.setMessage(R.string.splitConfirmation);
-        builder.setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                final Listener targetListener = (Listener) getTargetFragment();
-                targetListener.onSplitContactConfirmed();
-            }
-        });
+        builder.setMessage(mHasPendingChanges
+                ? R.string.splitConfirmationWithPendingChanges
+                : R.string.splitConfirmation);
+        builder.setPositiveButton(mHasPendingChanges
+                ? R.string.splitConfirmationWithPendingChanges_positive_button
+                : R.string.splitConfirmation_positive_button,
+                new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        final Listener targetListener = (Listener) getTargetFragment();
+                        targetListener.onSplitContactConfirmed(mHasPendingChanges);
+                    }
+                });
         builder.setNegativeButton(android.R.string.cancel, null);
         builder.setCancelable(false);
         return builder.create();
-    }
-
-    public interface Listener {
-        void onSplitContactConfirmed();
     }
 }

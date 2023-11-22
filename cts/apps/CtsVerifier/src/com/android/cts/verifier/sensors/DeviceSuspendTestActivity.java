@@ -34,6 +34,7 @@ import android.hardware.cts.helpers.TestSensorManager;
 import android.hardware.cts.helpers.sensoroperations.TestSensorOperation;
 import android.hardware.cts.helpers.SensorNotSupportedException;
 import android.hardware.cts.helpers.sensorverification.BatchArrivalVerification;
+import android.hardware.cts.helpers.sensorverification.TimestampClockSourceVerification;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
 import android.os.SystemClock;
@@ -89,6 +90,9 @@ public class DeviceSuspendTestActivity
               // Ignore.
             }
             LocalBroadcastManager.getInstance(this).unregisterReceiver(myBroadCastReceiver);
+            if (mDeviceSuspendLock != null && mDeviceSuspendLock.isHeld()) {
+                mDeviceSuspendLock.release();
+            }
         }
 
         @Override
@@ -97,9 +101,6 @@ public class DeviceSuspendTestActivity
             if (mScreenManipulator != null) {
                 mScreenManipulator.releaseScreenOn();
                 mScreenManipulator.close();
-            }
-            if (mDeviceSuspendLock.isHeld()) {
-                mDeviceSuspendLock.release();
             }
         }
 
@@ -185,38 +186,110 @@ public class DeviceSuspendTestActivity
             return runAPWakeUpByAlarmNonWakeSensor(accel, 0);
         }
 
+        /**
+         * Verify that each continuous sensor is using the correct
+         * clock source (CLOCK_BOOTTIME) for timestamps.
+         */
+        public String testTimestampClockSource() throws Throwable {
+            String string = null;
+            boolean error_occurred = false;
+            List<Sensor> sensorList = mSensorManager.getSensorList(Sensor.TYPE_ALL);
+            if (sensorList == null) {
+                throw new SensorTestStateNotSupportedException(
+                    "Sensors are not available in the system.");
+            }
+
+            // Make sure clocks are different (i.e. kernel has suspended at least once)
+            // so that we can determine if sensors are using correct clocksource timestamp
+            final int MAX_SLEEP_ATTEMPTS = 10;
+            final int SLEEP_DURATION_MS = 2000;
+            int sleep_attempts = 0;
+            boolean device_needs_sleep = true;
+            boolean wakelock_was_held = false;
+
+            final long ALARM_WAKE_UP_DELAY_MS = TimeUnit.SECONDS.toMillis(20);
+            mAlarmManager.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                                    SystemClock.elapsedRealtime() + ALARM_WAKE_UP_DELAY_MS,
+                                    mPendingIntent);
+
+            if (mDeviceSuspendLock != null && mDeviceSuspendLock.isHeld()) {
+                wakelock_was_held = true;
+                mDeviceSuspendLock.release();
+            }
+
+            do {
+                try {
+                    verifyClockDelta();
+                    device_needs_sleep = false;
+                } catch(Throwable e) {
+                    // Delta between clocks too small, must sleep longer
+                    if (sleep_attempts++ > MAX_SLEEP_ATTEMPTS) {
+                        mAlarmManager.cancel(mPendingIntent);
+                        if (wakelock_was_held) {
+                            mDeviceSuspendLock.acquire();
+                        }
+                        throw e;
+                    }
+                    Thread.sleep(SLEEP_DURATION_MS);
+                }
+            } while (device_needs_sleep);
+
+            if (wakelock_was_held) {
+                mDeviceSuspendLock.acquire();
+            }
+            mAlarmManager.cancel(mPendingIntent);
+
+            for (Sensor sensor : sensorList) {
+                if (sensor.getReportingMode() == Sensor.REPORTING_MODE_CONTINUOUS) {
+                    try {
+                        string = runVerifySensorTimestampClockbase(sensor, false);
+                        if (string != null) {
+                            return string;
+                        }
+                    } catch(Throwable e) {
+                        Log.e(TAG, e.getMessage());
+                        error_occurred = true;
+                    }
+                } else {
+                    Log.i(TAG, "testTimestampClockSource skipping non-continuous sensor: '" + sensor.getName());
+                }
+            }
+            if (error_occurred) {
+                throw new Error("Sensors must use CLOCK_BOOTTIME as clock source for timestamping events");
+            }
+            return null;
+        }
+
         public String runAPWakeUpWhenReportLatencyExpires(Sensor sensor) throws Throwable {
+
+            verifyBatchingSupport(sensor);
+
             int fifoMaxEventCount = sensor.getFifoMaxEventCount();
-            if (fifoMaxEventCount == 0) {
-                throw new SensorTestStateNotSupportedException("Batching not supported.");
-            }
-            int maximumExpectedSamplingPeriodUs = sensor.getMaxDelay();
-            if (maximumExpectedSamplingPeriodUs == 0) {
+            int samplingPeriodUs = sensor.getMaxDelay();
+            if (samplingPeriodUs == 0) {
                 // If maxDelay is not defined, set the value for 5 Hz.
-                maximumExpectedSamplingPeriodUs = 200000;
-            }
-            int fifoBasedReportLatencyUs = fifoMaxEventCount * maximumExpectedSamplingPeriodUs;
-
-            // Ensure that FIFO based report latency is at least 20 seconds, we need at least 10
-            // seconds of time to allow the device to be in suspend state.
-            if (fifoBasedReportLatencyUs < 20000000L) {
-                throw new SensorTestStateNotSupportedException("FIFO too small to test reliably");
+                samplingPeriodUs = 200000;
             }
 
-            final int MAX_REPORT_LATENCY_US = 15000000; // 15 seconds
+            long fifoBasedReportLatencyUs = maxBatchingPeriod(sensor, samplingPeriodUs);
+            verifyBatchingPeriod(fifoBasedReportLatencyUs);
+
+            final long MAX_REPORT_LATENCY_US = TimeUnit.SECONDS.toMicros(15); // 15 seconds
             TestSensorEnvironment environment = new TestSensorEnvironment(
                     this,
                     sensor,
                     false,
-                    maximumExpectedSamplingPeriodUs,
-                    MAX_REPORT_LATENCY_US,
+                    samplingPeriodUs,
+                    (int) MAX_REPORT_LATENCY_US,
                     true /*isDeviceSuspendTest*/);
 
             TestSensorOperation op = TestSensorOperation.createOperation(environment,
                                                                           mDeviceSuspendLock,
                                                                           false);
-            final int ALARM_WAKE_UP_DELAY_MS = MAX_REPORT_LATENCY_US/1000 +
-                (int)TimeUnit.SECONDS.toMillis(10);
+            final long ALARM_WAKE_UP_DELAY_MS =
+                    TimeUnit.MICROSECONDS.toMillis(MAX_REPORT_LATENCY_US) +
+                    TimeUnit.SECONDS.toMillis(10);
+
             op.addVerification(BatchArrivalVerification.getDefault(environment));
             mAlarmManager.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP,
                                     SystemClock.elapsedRealtime() + ALARM_WAKE_UP_DELAY_MS,
@@ -231,35 +304,37 @@ public class DeviceSuspendTestActivity
         }
 
         public String runAPWakeUpWhenFIFOFull(Sensor sensor) throws Throwable {
-            int fifoMaxEventCount = sensor.getFifoMaxEventCount();
-            if (fifoMaxEventCount == 0) {
-                throw new SensorTestStateNotSupportedException("Batching not supported.");
-            }
+            verifyBatchingSupport(sensor);
+
             // Try to fill the FIFO at the fastest rate and check if the time is enough to run
             // the manual test.
-            int maximumExpectedSamplingPeriodUs = sensor.getMinDelay();
-            int fifoBasedReportLatencyUs = fifoMaxEventCount * maximumExpectedSamplingPeriodUs;
+            int samplingPeriodUs = sensor.getMinDelay();
 
-            final int MIN_LATENCY_US = (int)TimeUnit.SECONDS.toMicros(20);
+            long fifoBasedReportLatencyUs = maxBatchingPeriod(sensor, samplingPeriodUs);
+
+            final long MIN_LATENCY_US = TimeUnit.SECONDS.toMicros(20);
             // Ensure that FIFO based report latency is at least 20 seconds, we need at least 10
             // seconds of time to allow the device to be in suspend state.
             if (fifoBasedReportLatencyUs < MIN_LATENCY_US) {
-                maximumExpectedSamplingPeriodUs = MIN_LATENCY_US/fifoMaxEventCount;
+                int fifoMaxEventCount = sensor.getFifoMaxEventCount();
+                samplingPeriodUs = (int) MIN_LATENCY_US/fifoMaxEventCount;
                 fifoBasedReportLatencyUs = MIN_LATENCY_US;
             }
 
             final int MAX_REPORT_LATENCY_US = Integer.MAX_VALUE;
-            final int ALARM_WAKE_UP_DELAY_MS = fifoBasedReportLatencyUs/1000 +
-                (int)TimeUnit.SECONDS.toMillis(10);
+            final long ALARM_WAKE_UP_DELAY_MS =
+                    TimeUnit.MICROSECONDS.toMillis(fifoBasedReportLatencyUs) +
+                    TimeUnit.SECONDS.toMillis(10);
+
             TestSensorEnvironment environment = new TestSensorEnvironment(
                     this,
                     sensor,
                     false,
-                    maximumExpectedSamplingPeriodUs,
-                    MAX_REPORT_LATENCY_US,
+                    (int) samplingPeriodUs,
+                    (int) MAX_REPORT_LATENCY_US,
                     true /*isDeviceSuspendTest*/);
 
-           TestSensorOperation op = TestSensorOperation.createOperation(environment,
+            TestSensorOperation op = TestSensorOperation.createOperation(environment,
                                                                         mDeviceSuspendLock,
                                                                         true);
             mAlarmManager.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP,
@@ -275,35 +350,85 @@ public class DeviceSuspendTestActivity
             return null;
         }
 
+        /**
+         * Verify the CLOCK_MONOTONIC and CLOCK_BOOTTIME clock sources are different
+         * by at least 2 seconds.  Since delta between these two clock sources represents
+         * time kernel has spent in suspend, device needs to have gone into suspend for
+         * for at least 2 seconds since device was initially booted.
+         */
+        private void verifyClockDelta() throws Throwable {
+            final int MIN_DELTA_BETWEEN_CLOCKS_MS = 2000;
+            long uptimeMs = SystemClock.uptimeMillis();
+            long realtimeMs = SystemClock.elapsedRealtime();
+            long deltaMs = (realtimeMs - uptimeMs);
+            if (deltaMs < MIN_DELTA_BETWEEN_CLOCKS_MS) {
+                throw new Error("Delta between clock sources too small ("
+                                  + deltaMs + "mS), device must sleep more than "
+                                  + MIN_DELTA_BETWEEN_CLOCKS_MS/1000 + " seconds");
+            }
+            Log.i(TAG, "Delta between CLOCK_MONOTONIC and CLOCK_BOOTTIME is " + deltaMs + " mS");
+        }
+
+
+        /**
+         * Verify sensor is using the correct clock source (CLOCK_BOOTTIME) for timestamps.
+         * To tell the clock sources apart, the kernel must have suspended at least once.
+         *
+         * @param sensor - sensor to verify
+         * @param verify_clock_delta
+         *          true to verify that clock sources differ before running test
+         *          false to skip verification of sufficient delta between clock sources
+         */
+        public String runVerifySensorTimestampClockbase(Sensor sensor, boolean verify_clock_delta)
+            throws Throwable {
+            Log.i(TAG, "Running .. " + getCurrentTestNode().getName() + " " + sensor.getName());
+            if (verify_clock_delta) {
+                verifyClockDelta();
+            }
+            /* Enable a sensor, grab a sample, and then verify timestamp is > realtimeNs
+             * to assure the correct clock source is being used for the sensor timestamp.
+             */
+            final int MIN_TIMESTAMP_BASE_SAMPLES = 1;
+            int samplingPeriodUs = sensor.getMinDelay();
+            TestSensorEnvironment environment = new TestSensorEnvironment(
+                    this,
+                    sensor,
+                    false,
+                    (int) samplingPeriodUs,
+                    0,
+                    false /*isDeviceSuspendTest*/);
+            TestSensorOperation op = TestSensorOperation.createOperation(environment, MIN_TIMESTAMP_BASE_SAMPLES);
+            op.addVerification(TimestampClockSourceVerification.getDefault(environment));
+            try {
+                op.execute(getCurrentTestNode());
+            } finally {
+            }
+            return null;
+        }
+
+
         public String runAPWakeUpByAlarmNonWakeSensor(Sensor sensor, int maxReportLatencyUs)
             throws  Throwable {
-            int fifoMaxEventCount = sensor.getFifoMaxEventCount();
-            if (fifoMaxEventCount == 0) {
-                throw new SensorTestStateNotSupportedException("Batching not supported.");
-            }
-            int maximumExpectedSamplingPeriodUs = sensor.getMaxDelay();
-            if (maximumExpectedSamplingPeriodUs == 0 ||
-                    maximumExpectedSamplingPeriodUs > 200000) {
-                // If maxDelay is not defined, set the value for 5 Hz.
-                maximumExpectedSamplingPeriodUs = 200000;
-            }
-            int fifoBasedReportLatencyUs = fifoMaxEventCount * maximumExpectedSamplingPeriodUs;
+            verifyBatchingSupport(sensor);
 
-            // Ensure that FIFO based report latency is at least 20 seconds, we need at least 10
-            // seconds of time to allow the device to be in suspend state.
-            if (fifoBasedReportLatencyUs < 20000000L) {
-                throw new SensorTestStateNotSupportedException("FIFO too small to test reliably");
+            int samplingPeriodUs = sensor.getMaxDelay();
+            if (samplingPeriodUs == 0 || samplingPeriodUs > 200000) {
+                // If maxDelay is not defined, set the value for 5 Hz.
+                samplingPeriodUs = 200000;
             }
+
+            long fifoBasedReportLatencyUs = maxBatchingPeriod(sensor, samplingPeriodUs);
+            verifyBatchingPeriod(fifoBasedReportLatencyUs);
 
             TestSensorEnvironment environment = new TestSensorEnvironment(
                     this,
                     sensor,
                     false,
-                    maximumExpectedSamplingPeriodUs,
+                    (int) samplingPeriodUs,
                     maxReportLatencyUs,
                     true /*isDeviceSuspendTest*/);
 
-            final int ALARM_WAKE_UP_DELAY_MS = 20000;
+            final long ALARM_WAKE_UP_DELAY_MS = 20000;
             TestSensorOperation op = TestSensorOperation.createOperation(environment,
                                                                          mDeviceSuspendLock,
                                                                          true);
@@ -318,4 +443,27 @@ public class DeviceSuspendTestActivity
             }
             return null;
         }
+
+        private void verifyBatchingSupport(Sensor sensor)
+                throws SensorTestStateNotSupportedException {
+            int fifoMaxEventCount = sensor.getFifoMaxEventCount();
+            if (fifoMaxEventCount == 0) {
+                throw new SensorTestStateNotSupportedException("Batching not supported.");
+            }
+        }
+
+        private void verifyBatchingPeriod(long periodUs)
+                throws SensorTestStateNotSupportedException {
+            // Ensure that FIFO based report latency is at least 20 seconds, we need at least 10
+            // seconds of time to allow the device to be in suspend state.
+            if (periodUs < TimeUnit.SECONDS.toMicros(20)) {
+                throw new SensorTestStateNotSupportedException("FIFO too small to test reliably");
+            }
+        }
+
+        private long maxBatchingPeriod (Sensor sensor, long samplePeriod) {
+            long fifoMaxEventCount = sensor.getFifoMaxEventCount();
+            return fifoMaxEventCount * samplePeriod;
+        }
+
 }

@@ -14,14 +14,37 @@
 ** limitations under the License.
 */
 
-#include "installd.h"
+#include "utils.h"
 
-#include <base/stringprintf.h>
-#include <base/logging.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
 
+#if defined(__APPLE__)
+#include <sys/mount.h>
+#else
+#include <sys/statfs.h>
+#endif
+
+#include <android-base/logging.h>
+#include <android-base/stringprintf.h>
+#include <cutils/fs.h>
+#include <cutils/log.h>
+#include <private/android_filesystem_config.h>
+
+#include "globals.h"  // extern variables.
+
+#ifndef LOG_TAG
+#define LOG_TAG "installd"
+#endif
 #define CACHE_NOISY(x) //x
 
 using android::base::StringPrintf;
+
+namespace android {
+namespace installd {
 
 /**
  * Check that given string is valid filename, and that it attempts no
@@ -36,6 +59,11 @@ static bool is_valid_filename(const std::string& name) {
     }
 }
 
+static void check_package_name(const char* package_name) {
+    CHECK(is_valid_filename(package_name));
+    CHECK(is_valid_package_name(package_name) == 0);
+}
+
 /**
  * Create the path name where package app contents should be stored for
  * the given volume UUID and package name.  An empty UUID is assumed to
@@ -43,9 +71,7 @@ static bool is_valid_filename(const std::string& name) {
  */
 std::string create_data_app_package_path(const char* volume_uuid,
         const char* package_name) {
-    CHECK(is_valid_filename(package_name));
-    CHECK(is_valid_package_name(package_name) == 0);
-
+    check_package_name(package_name);
     return StringPrintf("%s/%s",
             create_data_app_path(volume_uuid).c_str(), package_name);
 }
@@ -55,13 +81,51 @@ std::string create_data_app_package_path(const char* volume_uuid,
  * volume UUID, package name, and user ID. An empty UUID is assumed to be
  * internal storage.
  */
-std::string create_data_user_package_path(const char* volume_uuid,
+std::string create_data_user_ce_package_path(const char* volume_uuid,
         userid_t user, const char* package_name) {
-    CHECK(is_valid_filename(package_name));
-    CHECK(is_valid_package_name(package_name) == 0);
-
+    check_package_name(package_name);
     return StringPrintf("%s/%s",
-            create_data_user_path(volume_uuid, user).c_str(), package_name);
+            create_data_user_ce_path(volume_uuid, user).c_str(), package_name);
+}
+
+std::string create_data_user_ce_package_path(const char* volume_uuid, userid_t user,
+        const char* package_name, ino_t ce_data_inode) {
+    // For testing purposes, rely on the inode when defined; this could be
+    // optimized to use access() in the future.
+    auto fallback = create_data_user_ce_package_path(volume_uuid, user, package_name);
+    if (ce_data_inode != 0) {
+        auto user_path = create_data_user_ce_path(volume_uuid, user);
+        DIR* dir = opendir(user_path.c_str());
+        if (dir == nullptr) {
+            PLOG(ERROR) << "Failed to opendir " << user_path;
+            return fallback;
+        }
+
+        struct dirent* ent;
+        while ((ent = readdir(dir))) {
+            if (ent->d_ino == ce_data_inode) {
+                auto resolved = StringPrintf("%s/%s", user_path.c_str(), ent->d_name);
+                if (resolved != fallback) {
+                    LOG(DEBUG) << "Resolved path " << resolved << " for inode " << ce_data_inode
+                            << " instead of " << fallback;
+                }
+                closedir(dir);
+                return resolved;
+            }
+        }
+        LOG(WARNING) << "Failed to resolve inode " << ce_data_inode << "; using " << fallback;
+        closedir(dir);
+        return fallback;
+    } else {
+        return fallback;
+    }
+}
+
+std::string create_data_user_de_package_path(const char* volume_uuid,
+        userid_t user, const char* package_name) {
+    check_package_name(package_name);
+    return StringPrintf("%s/%s",
+            create_data_user_de_path(volume_uuid, user).c_str(), package_name);
 }
 
 int create_pkg_path(char path[PKG_PATH_MAX], const char *pkgname,
@@ -71,7 +135,7 @@ int create_pkg_path(char path[PKG_PATH_MAX], const char *pkgname,
         return -1;
     }
 
-    std::string _tmp(create_data_user_package_path(nullptr, userid, pkgname) + postfix);
+    std::string _tmp(create_data_user_ce_package_path(nullptr, userid, pkgname) + postfix);
     const char* tmp = _tmp.c_str();
     if (strlen(tmp) >= PKG_PATH_MAX) {
         path[0] = '\0';
@@ -101,7 +165,7 @@ std::string create_data_app_path(const char* volume_uuid) {
 /**
  * Create the path name for user data for a certain userid.
  */
-std::string create_data_user_path(const char* volume_uuid, userid_t userid) {
+std::string create_data_user_ce_path(const char* volume_uuid, userid_t userid) {
     std::string data(create_data_path(volume_uuid));
     if (volume_uuid == nullptr) {
         if (userid == 0) {
@@ -115,10 +179,36 @@ std::string create_data_user_path(const char* volume_uuid, userid_t userid) {
 }
 
 /**
+ * Create the path name for device encrypted user data for a certain userid.
+ */
+std::string create_data_user_de_path(const char* volume_uuid, userid_t userid) {
+    std::string data(create_data_path(volume_uuid));
+    return StringPrintf("%s/user_de/%u", data.c_str(), userid);
+}
+
+/**
  * Create the path name for media for a certain userid.
  */
 std::string create_data_media_path(const char* volume_uuid, userid_t userid) {
     return StringPrintf("%s/media/%u", create_data_path(volume_uuid).c_str(), userid);
+}
+
+std::string create_data_misc_legacy_path(userid_t userid) {
+    return StringPrintf("%s/misc/user/%u", create_data_path(nullptr).c_str(), userid);
+}
+
+std::string create_data_user_profiles_path(userid_t userid) {
+    return StringPrintf("%s/cur/%u", android_profiles_dir.path, userid);
+}
+
+std::string create_data_user_profile_package_path(userid_t user, const char* package_name) {
+    check_package_name(package_name);
+    return StringPrintf("%s/%s",create_data_user_profiles_path(user).c_str(), package_name);
+}
+
+std::string create_data_ref_profile_package_path(const char* package_name) {
+    check_package_name(package_name);
+    return StringPrintf("%s/ref/%s", android_profiles_dir.path, package_name);
 }
 
 std::vector<userid_t> get_known_users(const char* volume_uuid) {
@@ -153,21 +243,10 @@ std::vector<userid_t> get_known_users(const char* volume_uuid) {
     return users;
 }
 
-/**
- * Create the path name for config for a certain userid.
- * Returns 0 on success, and -1 on failure.
- */
-int create_user_config_path(char path[PATH_MAX], userid_t userid) {
-    if (snprintf(path, PATH_MAX, "%s%d", "/data/misc/user/", userid) > PATH_MAX) {
-        return -1;
-    }
-    return 0;
-}
-
 int create_move_path(char path[PKG_PATH_MAX],
     const char* pkgname,
     const char* leaf,
-    userid_t userid __unused)
+    userid_t userid ATTRIBUTE_UNUSED)
 {
     if ((android_data_dir.len + strlen(PRIMARY_USER_PREFIX) + strlen(pkgname) + strlen(leaf) + 1)
             >= PKG_PATH_MAX) {
@@ -256,7 +335,7 @@ static int _delete_dir_contents(DIR *d,
                 if ((name[1] == '.') && (name[2] == 0)) continue;
             }
 
-            subfd = openat(dfd, name, O_RDONLY | O_DIRECTORY);
+            subfd = openat(dfd, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
             if (subfd < 0) {
                 ALOGE("Couldn't openat %s: %s\n", name, strerror(errno));
                 result = -1;
@@ -288,15 +367,27 @@ static int _delete_dir_contents(DIR *d,
     return result;
 }
 
+int delete_dir_contents(const std::string& pathname, bool ignore_if_missing) {
+    return delete_dir_contents(pathname.c_str(), 0, NULL, ignore_if_missing);
+}
+
+int delete_dir_contents_and_dir(const std::string& pathname, bool ignore_if_missing) {
+    return delete_dir_contents(pathname.c_str(), 1, NULL, ignore_if_missing);
+}
+
 int delete_dir_contents(const char *pathname,
                         int also_delete_dir,
-                        int (*exclusion_predicate)(const char*, const int))
+                        int (*exclusion_predicate)(const char*, const int),
+                        bool ignore_if_missing)
 {
     int res = 0;
     DIR *d;
 
     d = opendir(pathname);
     if (d == NULL) {
+        if (ignore_if_missing && (errno == ENOENT)) {
+            return 0;
+        }
         ALOGE("Couldn't opendir %s: %s\n", pathname, strerror(errno));
         return -errno;
     }
@@ -316,7 +407,7 @@ int delete_dir_contents_fd(int dfd, const char *name)
     int fd, res;
     DIR *d;
 
-    fd = openat(dfd, name, O_RDONLY | O_DIRECTORY);
+    fd = openat(dfd, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
     if (fd < 0) {
         ALOGE("Couldn't openat %s: %s\n", name, strerror(errno));
         return -1;
@@ -428,56 +519,6 @@ int copy_dir_files(const char *srcname,
     closedir(dd);
     closedir(ds);
     return res;
-}
-
-int lookup_media_dir(char basepath[PATH_MAX], const char *dir)
-{
-    DIR *d;
-    struct dirent *de;
-    struct stat s;
-    char* dirpos = basepath + strlen(basepath);
-
-    if ((*(dirpos-1)) != '/') {
-        *dirpos = '/';
-        dirpos++;
-    }
-
-    CACHE_NOISY(ALOGI("Looking up %s in %s\n", dir, basepath));
-    // Verify the path won't extend beyond our buffer, to avoid
-    // repeated checking later.
-    if ((dirpos-basepath+strlen(dir)) >= (PATH_MAX-1)) {
-        ALOGW("Path exceeds limit: %s%s", basepath, dir);
-        return -1;
-    }
-
-    // First, can we find this directory with the case that is given?
-    strcpy(dirpos, dir);
-    if (stat(basepath, &s) >= 0) {
-        CACHE_NOISY(ALOGI("Found direct: %s\n", basepath));
-        return 0;
-    }
-
-    // Not found with that case...  search through all entries to find
-    // one that matches regardless of case.
-    *dirpos = 0;
-
-    d = opendir(basepath);
-    if (d == NULL) {
-        return -1;
-    }
-
-    while ((de = readdir(d))) {
-        if (strcasecmp(de->d_name, dir) == 0) {
-            strcpy(dirpos, de->d_name);
-            closedir(d);
-            CACHE_NOISY(ALOGI("Found search: %s\n", basepath));
-            return 0;
-        }
-    }
-
-    ALOGW("Couldn't find %s in %s", dir, basepath);
-    closedir(d);
-    return -1;
 }
 
 int64_t data_disk_free(const std::string& data_path)
@@ -656,7 +697,7 @@ static int _add_cache_files(cache_t *cache, cache_dir_t *parentDir, const char *
                 if ((name[1] == '.') && (name[2] == 0)) continue;
             }
 
-            subfd = openat(dfd, name, O_RDONLY | O_DIRECTORY);
+            subfd = openat(dfd, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
             if (subfd < 0) {
                 ALOGE("Couldn't openat %s: %s\n", name, strerror(errno));
                 continue;
@@ -738,13 +779,13 @@ static int _add_cache_files(cache_t *cache, cache_dir_t *parentDir, const char *
     return 0;
 }
 
-void add_cache_files(cache_t* cache, const char *basepath, const char *cachedir)
-{
+void add_cache_files(cache_t* cache, const std::string& data_path) {
     DIR *d;
     struct dirent *de;
     char dirname[PATH_MAX];
 
-    CACHE_NOISY(ALOGI("add_cache_files: base=%s cachedir=%s\n", basepath, cachedir));
+    const char* basepath = data_path.c_str();
+    CACHE_NOISY(ALOGI("add_cache_files: basepath=%s\n", basepath));
 
     d = opendir(basepath);
     if (d == NULL) {
@@ -770,12 +811,11 @@ void add_cache_files(cache_t* cache, const char *basepath, const char *cachedir)
                 pathpos++;
                 *pathpos = 0;
             }
-            if (cachedir != NULL) {
-                snprintf(pathpos, sizeof(dirname)-(pathpos-dirname), "%s/%s", name, cachedir);
-            } else {
-                snprintf(pathpos, sizeof(dirname)-(pathpos-dirname), "%s", name);
-            }
+
+            // TODO: also try searching using xattr when CE is locked
+            snprintf(pathpos, sizeof(dirname)-(pathpos-dirname), "%s/cache", name);
             CACHE_NOISY(ALOGI("Adding cache files from dir: %s\n", dirname));
+
             subdir = opendir(dirname);
             if (subdir != NULL) {
                 size_t dirnameLen = strlen(dirname);
@@ -1054,6 +1094,8 @@ static int validate_apk_path_internal(const char *path, int maxSubdirs) {
         dir = &android_app_dir;
     } else if (!strncmp(path, android_app_private_dir.path, android_app_private_dir.len)) {
         dir = &android_app_private_dir;
+    } else if (!strncmp(path, android_app_ephemeral_dir.path, android_app_ephemeral_dir.len)) {
+        dir = &android_app_ephemeral_dir;
     } else if (!strncmp(path, android_asec_dir.path, android_asec_dir.len)) {
         dir = &android_asec_dir;
     } else if (!strncmp(path, android_mnt_expand_dir.path, android_mnt_expand_dir.len)) {
@@ -1118,67 +1160,41 @@ char *build_string3(const char *s1, const char *s2, const char *s3) {
     return result;
 }
 
-/* Ensure that /data/media directories are prepared for given user. */
-int ensure_media_user_dirs(const char* uuid, userid_t userid) {
-    std::string media_user_path(create_data_media_path(uuid, userid));
-    if (fs_prepare_dir(media_user_path.c_str(), 0770, AID_MEDIA_RW, AID_MEDIA_RW) == -1) {
-        return -1;
-    }
-
-    return 0;
-}
-
 int ensure_config_user_dirs(userid_t userid) {
-    char config_user_path[PATH_MAX];
-
     // writable by system, readable by any app within the same user
     const int uid = multiuser_get_uid(userid, AID_SYSTEM);
     const int gid = multiuser_get_uid(userid, AID_EVERYBODY);
 
     // Ensure /data/misc/user/<userid> exists
-    create_user_config_path(config_user_path, userid);
-    if (fs_prepare_dir(config_user_path, 0750, uid, gid) == -1) {
-        return -1;
+    auto path = create_data_misc_legacy_path(userid);
+    return fs_prepare_dir(path.c_str(), 0750, uid, gid);
+}
+
+int wait_child(pid_t pid)
+{
+    int status;
+    pid_t got_pid;
+
+    while (1) {
+        got_pid = waitpid(pid, &status, 0);
+        if (got_pid == -1 && errno == EINTR) {
+            printf("waitpid interrupted, retrying\n");
+        } else {
+            break;
+        }
+    }
+    if (got_pid != pid) {
+        ALOGW("waitpid failed: wanted %d, got %d: %s\n",
+            (int) pid, (int) got_pid, strerror(errno));
+        return 1;
     }
 
-   return 0;
-}
-
-int create_profile_file(const char *pkgname, gid_t gid) {
-    const char *profile_dir = DALVIK_CACHE_PREFIX "profiles";
-    char profile_file[PKG_PATH_MAX];
-
-    snprintf(profile_file, sizeof(profile_file), "%s/%s", profile_dir, pkgname);
-
-    // The 'system' user needs to be able to read the profile to determine if dex2oat
-    // needs to be run.  This is done in dalvik.system.DexFile.isDexOptNeededInternal().  So
-    // we assign ownership to AID_SYSTEM and ensure it's not world-readable.
-
-    int fd = open(profile_file, O_WRONLY | O_CREAT | O_NOFOLLOW | O_CLOEXEC, 0660);
-
-    // Always set the uid/gid/permissions. The file could have been previously created
-    // with different permissions.
-    if (fd >= 0) {
-        if (fchown(fd, AID_SYSTEM, gid) < 0) {
-            ALOGE("cannot chown profile file '%s': %s\n", profile_file, strerror(errno));
-            close(fd);
-            unlink(profile_file);
-            return -1;
-        }
-
-        if (fchmod(fd, 0660) < 0) {
-            ALOGE("cannot chmod profile file '%s': %s\n", profile_file, strerror(errno));
-            close(fd);
-            unlink(profile_file);
-            return -1;
-        }
-        close(fd);
+    if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+        return 0;
+    } else {
+        return status;      /* always nonzero */
     }
-    return 0;
 }
 
-void remove_profile_file(const char *pkgname) {
-    char profile_file[PKG_PATH_MAX];
-    snprintf(profile_file, sizeof(profile_file), "%s/%s", DALVIK_CACHE_PREFIX "profiles", pkgname);
-    unlink(profile_file);
-}
+}  // namespace installd
+}  // namespace android

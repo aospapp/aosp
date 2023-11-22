@@ -126,6 +126,9 @@ public class HeadsetMediaButton extends CallsManagerListenerBase {
     /** ${inheritDoc} */
     @Override
     public void onCallAdded(Call call) {
+        if (call.isExternalCall()) {
+            return;
+        }
         mMediaSessionHandler.obtainMessage(MSG_MEDIA_SESSION_SET_ACTIVE, 1, 0).sendToTarget();
     }
 
@@ -134,6 +137,16 @@ public class HeadsetMediaButton extends CallsManagerListenerBase {
     public void onCallRemoved(Call call) {
         if (!mCallsManager.hasAnyCalls()) {
             mMediaSessionHandler.obtainMessage(MSG_MEDIA_SESSION_SET_ACTIVE, 0, 0).sendToTarget();
+        }
+    }
+
+    /** ${inheritDoc} */
+    @Override
+    public void onExternalCallChanged(Call call, boolean isExternalCall) {
+        if (isExternalCall) {
+            onCallRemoved(call);
+        } else {
+            onCallAdded(call);
         }
     }
 }

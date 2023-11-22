@@ -28,11 +28,26 @@
                 android:padding="@{obj.padding}"
                 />
         <View
+                android:id="@+id/paddingFloat"
+                android:layout_width="10dp"
+                android:layout_height="10dp"
+                android:padding="@{@dimen/testPadding}"
+                />
+        <View
                 android:id="@+id/paddingStartEnd"
                 android:layout_width="10dp"
                 android:layout_height="10dp"
                 android:paddingEnd="@{obj.paddingEnd}"
                 android:paddingStart="@{obj.paddingStart}"
+                />
+        <View
+                android:id="@+id/paddingStartEndFloat"
+                android:layout_width="10dp"
+                android:layout_height="10dp"
+                android:paddingTop="@{@dimen/testPadding}"
+                android:paddingBottom="@{@dimen/testPadding}"
+                android:paddingEnd="@{@dimen/testPadding}"
+                android:paddingStart="@{@dimen/testPadding}"
                 />
         <View
                 android:id="@+id/paddingTopBottom"
@@ -47,6 +62,15 @@
                 android:layout_height="10dp"
                 android:paddingLeft="@{obj.paddingLeft}"
                 android:paddingRight="@{obj.paddingRight}"
+                />
+        <View
+                android:id="@+id/paddingLeftRightFloat"
+                android:layout_width="10dp"
+                android:layout_height="10dp"
+                android:paddingTop="@{@dimen/testPadding}"
+                android:paddingBottom="@{@dimen/testPadding}"
+                android:paddingLeft="@{@dimen/testPadding}"
+                android:paddingRight="@{@dimen/testPadding}"
                 />
         <View
                 android:id="@+id/backgroundTint"
@@ -86,5 +110,16 @@
                 android:transformPivotY="@{obj.transformPivotY}"
                 android:layout_width="10dp"
                 android:layout_height="10dp"/>
+
+        <View
+                android:id="@+id/backgroundDrawable"
+                android:layout_width="10dp"
+                android:layout_height="10dp"
+                android:background="@{@drawable/ic_launcher}"/>
+        <View
+                android:id="@+id/backgroundWithTheme"
+                android:layout_width="10dp"
+                android:layout_height="10dp"
+                android:background="@{@drawable/circle}"/>
     </LinearLayout>
 </layout>

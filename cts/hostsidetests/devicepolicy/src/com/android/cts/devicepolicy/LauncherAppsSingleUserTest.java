@@ -20,12 +20,15 @@ import com.android.ddmlib.Log.LogLevel;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
 
+import java.util.Collections;
+
 /**
  * Set of tests for LauncherApps with managed profiles.
  */
 public class LauncherAppsSingleUserTest extends BaseLauncherAppsTest {
 
     private boolean mHasLauncherApps;
+    private String mSerialNumber;
 
     @Override
     protected void setUp() throws Exception {
@@ -33,6 +36,7 @@ public class LauncherAppsSingleUserTest extends BaseLauncherAppsTest {
         mHasLauncherApps = getDevice().getApiLevel() >= 21;
 
         if (mHasLauncherApps) {
+            mSerialNumber = Integer.toString(getUserSerialNumber(USER_SYSTEM));
             installTestApps();
         }
     }
@@ -49,15 +53,10 @@ public class LauncherAppsSingleUserTest extends BaseLauncherAppsTest {
         if (!mHasLauncherApps) {
             return;
         }
-        installApp(SIMPLE_APP_APK);
-        try {
-            int serialNumber = getUserSerialNumber(0);
-            assertTrue(runDeviceTests(LAUNCHER_TESTS_PKG,
-                    LAUNCHER_TESTS_CLASS, "testSimpleAppInstalledForUser",
-                            0, "-e testUser " + serialNumber));
-        } finally {
-            getDevice().uninstallPackage(SIMPLE_APP_PKG);
-        }
+        installAppAsUser(SIMPLE_APP_APK, mPrimaryUserId);
+        assertTrue(runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
+                LAUNCHER_TESTS_CLASS, "testSimpleAppInstalledForUser",
+                mPrimaryUserId, Collections.singletonMap(PARAM_TEST_USER, mSerialNumber)));
     }
 
     public void testLauncherCallbackPackageAddedMainUser() throws Exception {
@@ -65,96 +64,67 @@ public class LauncherAppsSingleUserTest extends BaseLauncherAppsTest {
             return;
         }
         startCallbackService();
-        installApp(SIMPLE_APP_APK);
-        try {
-            int serialNumber = getUserSerialNumber(0);
-            assertTrue(runDeviceTests(LAUNCHER_TESTS_PKG,
-                    LAUNCHER_TESTS_CLASS,
-                            "testPackageAddedCallbackForUser",
-                            0, "-e testUser " + serialNumber));
-        } finally {
-            getDevice().uninstallPackage(SIMPLE_APP_PKG);
-        }
+        installAppAsUser(SIMPLE_APP_APK, mPrimaryUserId);
+
+        assertTrue(runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
+                LAUNCHER_TESTS_CLASS,
+                "testPackageAddedCallbackForUser",
+                mPrimaryUserId, Collections.singletonMap(PARAM_TEST_USER, mSerialNumber)));
     }
 
     public void testLauncherCallbackPackageRemovedMainUser() throws Exception {
         if (!mHasLauncherApps) {
             return;
         }
-        installApp(SIMPLE_APP_APK);
-        try {
-            startCallbackService();
-            int serialNumber = getUserSerialNumber(0);
-            getDevice().uninstallPackage(SIMPLE_APP_PKG);
-            assertTrue(runDeviceTests(LAUNCHER_TESTS_PKG,
-                    LAUNCHER_TESTS_CLASS,
-                            "testPackageRemovedCallbackForUser",
-                            0, "-e testUser " + serialNumber));
-        } finally {
-            getDevice().uninstallPackage(SIMPLE_APP_PKG);
-        }
+        installAppAsUser(SIMPLE_APP_APK, mPrimaryUserId);
+        startCallbackService();
+        getDevice().uninstallPackage(SIMPLE_APP_PKG);
+        assertTrue(runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
+                LAUNCHER_TESTS_CLASS,
+                "testPackageRemovedCallbackForUser",
+                mPrimaryUserId, Collections.singletonMap(PARAM_TEST_USER, mSerialNumber)));
     }
 
     public void testLauncherCallbackPackageChangedMainUser() throws Exception {
         if (!mHasLauncherApps) {
             return;
         }
-        installApp(SIMPLE_APP_APK);
-        try {
-            startCallbackService();
-            int serialNumber = getUserSerialNumber(0);
-            installApp(SIMPLE_APP_APK);
-            assertTrue(runDeviceTests(LAUNCHER_TESTS_PKG,
-                    LAUNCHER_TESTS_CLASS,
-                            "testPackageChangedCallbackForUser",
-                            0, "-e testUser " + serialNumber));
-        } finally {
-            getDevice().uninstallPackage(SIMPLE_APP_PKG);
-        }
+        installAppAsUser(SIMPLE_APP_APK, mPrimaryUserId);
+        startCallbackService();
+        installAppAsUser(SIMPLE_APP_APK, mPrimaryUserId);
+        assertTrue(runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
+                LAUNCHER_TESTS_CLASS,
+                "testPackageChangedCallbackForUser",
+                mPrimaryUserId, Collections.singletonMap(PARAM_TEST_USER, mSerialNumber)));
     }
 
     public void testLauncherNonExportedAppFails() throws Exception {
         if (!mHasLauncherApps) {
             return;
         }
-        installApp(SIMPLE_APP_APK);
-        try {
-            int serialNumber = getUserSerialNumber(0);
-            assertTrue(runDeviceTests(LAUNCHER_TESTS_PKG,
-                    LAUNCHER_TESTS_CLASS, "testLaunchNonExportActivityFails",
-                            0, "-e testUser " + serialNumber));
-        } finally {
-            getDevice().uninstallPackage(SIMPLE_APP_PKG);
-        }
+        installAppAsUser(SIMPLE_APP_APK, mPrimaryUserId);
+        assertTrue(runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
+                LAUNCHER_TESTS_CLASS, "testLaunchNonExportActivityFails",
+                mPrimaryUserId, Collections.singletonMap(PARAM_TEST_USER, mSerialNumber)));
     }
 
     public void testLaunchNonExportActivityFails() throws Exception {
         if (!mHasLauncherApps) {
             return;
         }
-        installApp(SIMPLE_APP_APK);
-        try {
-            int serialNumber = getUserSerialNumber(0);
-            assertTrue(runDeviceTests(LAUNCHER_TESTS_PKG,
-                    LAUNCHER_TESTS_CLASS, "testLaunchNonExportLauncherFails",
-                            0, "-e testUser " + serialNumber));
-        } finally {
-            getDevice().uninstallPackage(SIMPLE_APP_PKG);
-        }
+        installAppAsUser(SIMPLE_APP_APK, mPrimaryUserId);
+        assertTrue(runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
+                LAUNCHER_TESTS_CLASS, "testLaunchNonExportLauncherFails",
+                mPrimaryUserId, Collections.singletonMap(PARAM_TEST_USER, mSerialNumber)));
     }
 
     public void testLaunchMainActivity() throws Exception {
         if (!mHasLauncherApps) {
             return;
         }
-        installApp(SIMPLE_APP_APK);
-        try {
-            int serialNumber = getUserSerialNumber(0);
-            assertTrue(runDeviceTests(LAUNCHER_TESTS_PKG,
-                    LAUNCHER_TESTS_CLASS, "testLaunchMainActivity",
-                            0, "-e testUser " + serialNumber));
-        } finally {
-            getDevice().uninstallPackage(SIMPLE_APP_PKG);
-        }
+        installAppAsUser(SIMPLE_APP_APK, mPrimaryUserId);
+        assertTrue(runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
+                LAUNCHER_TESTS_CLASS, "testLaunchMainActivity",
+                mPrimaryUserId, Collections.singletonMap(PARAM_TEST_USER, mSerialNumber)));
     }
 }

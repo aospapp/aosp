@@ -24,17 +24,17 @@
  *
  ******************************************************************************/
 
+#define LOG_TAG "bt_btif_queue"
+
+#include "btif_profile_queue.h"
+
 #include <assert.h>
 #include <string.h>
-#include <hardware/bluetooth.h>
-#include <string.h>
 
-#define LOG_TAG "bt_btif_queue"
 #include "btif_common.h"
-#include "btif_profile_queue.h"
-#include "gki.h"
-#include "osi/include/list.h"
+#include "bt_common.h"
 #include "osi/include/allocator.h"
+#include "osi/include/list.h"
 #include "stack_manager.h"
 
 /*******************************************************************************
@@ -76,13 +76,12 @@ static void queue_int_add(connect_node_t *p_param) {
 
     for (const list_node_t *node = list_begin(connect_queue); node != list_end(connect_queue); node = list_next(node)) {
         if (((connect_node_t *)list_node(node))->uuid == p_param->uuid) {
-            LOG_INFO("%s dropping duplicate connect request for uuid: %04x", __func__, p_param->uuid);
+            LOG_INFO(LOG_TAG, "%s dropping duplicate connect request for uuid: %04x", __func__, p_param->uuid);
             return;
         }
     }
 
     connect_node_t *p_node = osi_malloc(sizeof(connect_node_t));
-    assert(p_node != NULL);
     memcpy(p_node, p_param, sizeof(connect_node_t));
     list_append(connect_queue, p_node);
 }
@@ -159,7 +158,6 @@ bt_status_t btif_queue_connect_next(void) {
     p_head->busy = true;
     return p_head->connect_cb(&p_head->bda, p_head->uuid);
 }
-
 
 /*******************************************************************************
 **

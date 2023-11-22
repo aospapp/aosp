@@ -556,6 +556,10 @@ public final class CaptureRequest extends CameraMetadata<CaptureRequest.Key<?>>
          * Set a capture request field to a value. The field definitions can be
          * found in {@link CaptureRequest}.
          *
+         * <p>Setting a field to {@code null} will remove that field from the capture request.
+         * Unless the field is optional, removing it will likely produce an error from the camera
+         * device when the request is submitted.</p>
+         *
          * @param key The metadata field to write.
          * @param value The value to set the field to, which must be of a matching
          * type to the key.
@@ -1545,7 +1549,7 @@ public final class CaptureRequest extends CameraMetadata<CaptureRequest.Key<?>>
     /**
      * <p>Whether video stabilization is
      * active.</p>
-     * <p>Video stabilization automatically translates and scales images from
+     * <p>Video stabilization automatically warps images from
      * the camera in order to stabilize motion between consecutive frames.</p>
      * <p>If enabled, video stabilization can modify the
      * {@link CaptureRequest#SCALER_CROP_REGION android.scaler.cropRegion} to keep the video stream stabilized.</p>
@@ -1555,6 +1559,15 @@ public final class CaptureRequest extends CameraMetadata<CaptureRequest.Key<?>>
      * the video stabilization modes in the first several capture results may
      * still be "OFF", and it will become "ON" when the initialization is
      * done.</p>
+     * <p>In addition, not all recording sizes or frame rates may be supported for
+     * stabilization by a device that reports stabilization support. It is guaranteed
+     * that an output targeting a MediaRecorder or MediaCodec will be stabilized if
+     * the recording resolution is less than or equal to 1920 x 1080 (width less than
+     * or equal to 1920, height less than or equal to 1080), and the recording
+     * frame rate is less than or equal to 30fps.  At other sizes, the CaptureResult
+     * {@link CaptureRequest#CONTROL_VIDEO_STABILIZATION_MODE android.control.videoStabilizationMode} field will return
+     * OFF if the recording output is not stabilized, or if there are no output
+     * Surface types that can be stabilized.</p>
      * <p>If a camera device supports both this mode and OIS
      * ({@link CaptureRequest#LENS_OPTICAL_STABILIZATION_MODE android.lens.opticalStabilizationMode}), turning both modes on may
      * produce undesirable interaction, so it is recommended not to enable
@@ -1566,6 +1579,7 @@ public final class CaptureRequest extends CameraMetadata<CaptureRequest.Key<?>>
      * </ul></p>
      * <p>This key is available on all devices.</p>
      *
+     * @see CaptureRequest#CONTROL_VIDEO_STABILIZATION_MODE
      * @see CaptureRequest#LENS_OPTICAL_STABILIZATION_MODE
      * @see CaptureRequest#SCALER_CROP_REGION
      * @see #CONTROL_VIDEO_STABILIZATION_MODE_OFF
@@ -1574,6 +1588,41 @@ public final class CaptureRequest extends CameraMetadata<CaptureRequest.Key<?>>
     @PublicKey
     public static final Key<Integer> CONTROL_VIDEO_STABILIZATION_MODE =
             new Key<Integer>("android.control.videoStabilizationMode", int.class);
+
+    /**
+     * <p>The amount of additional sensitivity boost applied to output images
+     * after RAW sensor data is captured.</p>
+     * <p>Some camera devices support additional digital sensitivity boosting in the
+     * camera processing pipeline after sensor RAW image is captured.
+     * Such a boost will be applied to YUV/JPEG format output images but will not
+     * have effect on RAW output formats like RAW_SENSOR, RAW10, RAW12 or RAW_OPAQUE.</p>
+     * <p>This key will be <code>null</code> for devices that do not support any RAW format
+     * outputs. For devices that do support RAW format outputs, this key will always
+     * present, and if a device does not support post RAW sensitivity boost, it will
+     * list <code>100</code> in this key.</p>
+     * <p>If the camera device cannot apply the exact boost requested, it will reduce the
+     * boost to the nearest supported value.
+     * The final boost value used will be available in the output capture result.</p>
+     * <p>For devices that support post RAW sensitivity boost, the YUV/JPEG output images
+     * of such device will have the total sensitivity of
+     * <code>{@link CaptureRequest#SENSOR_SENSITIVITY android.sensor.sensitivity} * {@link CaptureRequest#CONTROL_POST_RAW_SENSITIVITY_BOOST android.control.postRawSensitivityBoost} / 100</code>
+     * The sensitivity of RAW format images will always be <code>{@link CaptureRequest#SENSOR_SENSITIVITY android.sensor.sensitivity}</code></p>
+     * <p>This control is only effective if {@link CaptureRequest#CONTROL_AE_MODE android.control.aeMode} or {@link CaptureRequest#CONTROL_MODE android.control.mode} is set to
+     * OFF; otherwise the auto-exposure algorithm will override this value.</p>
+     * <p><b>Units</b>: ISO arithmetic units, the same as {@link CaptureRequest#SENSOR_SENSITIVITY android.sensor.sensitivity}</p>
+     * <p><b>Range of valid values:</b><br>
+     * {@link CameraCharacteristics#CONTROL_POST_RAW_SENSITIVITY_BOOST_RANGE android.control.postRawSensitivityBoostRange}</p>
+     * <p><b>Optional</b> - This value may be {@code null} on some devices.</p>
+     *
+     * @see CaptureRequest#CONTROL_AE_MODE
+     * @see CaptureRequest#CONTROL_MODE
+     * @see CaptureRequest#CONTROL_POST_RAW_SENSITIVITY_BOOST
+     * @see CameraCharacteristics#CONTROL_POST_RAW_SENSITIVITY_BOOST_RANGE
+     * @see CaptureRequest#SENSOR_SENSITIVITY
+     */
+    @PublicKey
+    public static final Key<Integer> CONTROL_POST_RAW_SENSITIVITY_BOOST =
+            new Key<Integer>("android.control.postRawSensitivityBoost", int.class);
 
     /**
      * <p>Operation mode for edge
@@ -2230,6 +2279,8 @@ public final class CaptureRequest extends CameraMetadata<CaptureRequest.Key<?>>
      * requested, it will reduce the gain to the nearest supported
      * value. The final sensitivity used will be available in the
      * output capture result.</p>
+     * <p>This control is only effective if {@link CaptureRequest#CONTROL_AE_MODE android.control.aeMode} or {@link CaptureRequest#CONTROL_MODE android.control.mode} is set to
+     * OFF; otherwise the auto-exposure algorithm will override this value.</p>
      * <p><b>Units</b>: ISO arithmetic units</p>
      * <p><b>Range of valid values:</b><br>
      * {@link CameraCharacteristics#SENSOR_INFO_SENSITIVITY_RANGE android.sensor.info.sensitivityRange}</p>
@@ -2238,6 +2289,8 @@ public final class CaptureRequest extends CameraMetadata<CaptureRequest.Key<?>>
      * Present on all camera devices that report being {@link CameraCharacteristics#INFO_SUPPORTED_HARDWARE_LEVEL_FULL HARDWARE_LEVEL_FULL} devices in the
      * {@link CameraCharacteristics#INFO_SUPPORTED_HARDWARE_LEVEL android.info.supportedHardwareLevel} key</p>
      *
+     * @see CaptureRequest#CONTROL_AE_MODE
+     * @see CaptureRequest#CONTROL_MODE
      * @see CameraCharacteristics#INFO_SUPPORTED_HARDWARE_LEVEL
      * @see CameraCharacteristics#SENSOR_INFO_SENSITIVITY_RANGE
      * @see CameraCharacteristics#SENSOR_MAX_ANALOG_SENSITIVITY

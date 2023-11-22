@@ -16,8 +16,13 @@
 
 package com.android.sysapp.janktests;
 
+import java.io.File;
+import java.io.IOException;
+
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Bundle;
+import android.os.Environment;
 import android.os.RemoteException;
 import android.os.SystemClock;
 import android.support.test.jank.GfxMonitor;
@@ -32,8 +37,10 @@ import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.UiObjectNotFoundException;
 import android.support.test.uiautomator.Until;
 import android.view.View;
-
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import junit.framework.Assert;
+import android.support.test.timeresulthelper.TimeResultLogger;
 
 /**
  * Jank test for Calendar
@@ -50,6 +57,10 @@ public class CalendarJankTests extends JankTestBase {
     private static final String PACKAGE_NAME = "com.google.android.calendar";
     private static final String RES_PACKAGE_NAME = "com.android.calendar";
     private UiDevice mDevice;
+    private static final File TIMESTAMP_FILE = new File(Environment.getExternalStorageDirectory()
+            .getAbsolutePath(), "autotester.log");
+    private static final File RESULTS_FILE = new File(Environment.getExternalStorageDirectory()
+            .getAbsolutePath(), "results.log");
 
     private BySelector mCalendarSelector = null;
     private Direction mScrollDirection = null;
@@ -82,16 +93,27 @@ public class CalendarJankTests extends JankTestBase {
         SystemClock.sleep(SHORT_TIMEOUT * 10);
     }
 
-    public void launchCalendar () throws UiObjectNotFoundException {
+    public void launchCalendar() throws UiObjectNotFoundException, IOException {
         launchApp(PACKAGE_NAME);
         mDevice.waitForIdle();
         dismissCling();
         assertNotNull("Calendar can't be found",
                 mDevice.wait(Until.findObject(mCalendarSelector), LONG_TIMEOUT));
+        TimeResultLogger.writeTimeStampLogStart(String.format("%s-%s",
+                getClass().getSimpleName(), getName()), TIMESTAMP_FILE);
+    }
+
+    public void afterTestCalendarItemsFling(Bundle metrics) throws IOException {
+        TimeResultLogger.writeTimeStampLogEnd(String.format("%s-%s",
+                getClass().getSimpleName(), getName()), TIMESTAMP_FILE);
+        TimeResultLogger.writeResultToFile(String.format("%s-%s",
+                getClass().getSimpleName(), getName()), RESULTS_FILE, metrics);
+        super.afterTest(metrics);
     }
 
     // Measures jank of flinging calendar items
-    @JankTest(beforeTest="launchCalendar", expectedFrames=EXPECTED_FRAMES)
+    @JankTest(beforeTest="launchCalendar", expectedFrames=EXPECTED_FRAMES,
+            afterTest="afterTestCalendarItemsFling")
     @GfxMonitor(processName=PACKAGE_NAME)
     public void testCalendarItemsFling() {
         UiObject2 calendarItems = null;
@@ -104,8 +126,8 @@ public class CalendarJankTests extends JankTestBase {
 
     private void dismissCling() {
         UiObject2 splashScreen = null;
-      splashScreen = mDevice.wait(Until.findObject(
-              By.pkg(PACKAGE_NAME).clazz(View.class).desc("Got it")), LONG_TIMEOUT);
+        splashScreen = mDevice.wait(Until.findObject(
+                By.pkg(PACKAGE_NAME).clazz(View.class).desc("Got it")), LONG_TIMEOUT);
         if (splashScreen != null) {
             splashScreen.clickAndWait(Until.newWindow(), SHORT_TIMEOUT);
         }
@@ -117,10 +139,20 @@ public class CalendarJankTests extends JankTestBase {
             rightArrow.click();
             --counter;
         }
+
+        Pattern pattern = Pattern.compile("GOT IT", Pattern.CASE_INSENSITIVE);
         UiObject2 gotIt = mDevice.wait(Until.findObject(
-              By.res(PACKAGE_NAME, "done_button").text("Got it")), LONG_TIMEOUT);
+                By.res(PACKAGE_NAME, "done_button").text(pattern)), LONG_TIMEOUT);
         if (gotIt != null) {
             gotIt.click();
         }
+
+        pattern = Pattern.compile("DISMISS", Pattern.CASE_INSENSITIVE);
+        UiObject2 dismissSync = mDevice.wait(Until.findObject(
+                By.res(PACKAGE_NAME, "button_dismiss").text(pattern)), LONG_TIMEOUT);
+        if (dismissSync != null) {
+            dismissSync.click();
+        }
+
     }
 }

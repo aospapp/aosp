@@ -214,6 +214,13 @@ void btm_ble_update_resolving_list(BD_ADDR pseudo_bda, BOOLEAN add)
     }
 }
 
+bool clear_resolving_list_bit(void *data, void *context)
+{
+    tBTM_SEC_DEV_REC *p_dev_rec = data;
+    p_dev_rec->ble.in_controller_list &= ~BTM_RESOLVING_LIST_BIT;
+    return true;
+}
+
 /*******************************************************************************
 **
 ** Function         btm_ble_clear_resolving_list_complete
@@ -256,8 +263,7 @@ void btm_ble_clear_resolving_list_complete(UINT8 *p, UINT16 evt_len)
         BTM_TRACE_DEBUG("%s resolving_list_avail_size=%d",
                         __func__, btm_cb.ble_ctr_cb.resolving_list_avail_size);
 
-        for (UINT8 i = 0; i < BTM_SEC_MAX_DEVICE_RECORDS; ++i)
-            btm_cb.sec_dev_rec[i].ble.in_controller_list &= ~BTM_RESOLVING_LIST_BIT;
+        list_foreach(btm_cb.sec_dev_rec, clear_resolving_list_bit, NULL);
     }
 }
 
@@ -769,7 +775,6 @@ BOOLEAN btm_ble_resolving_list_load_dev(tBTM_SEC_DEV_REC *p_dev_rec)
 
     /* only add RPA enabled device into resolving list */
     if (p_dev_rec != NULL && /* RPA is being used and PID is known */
-       (p_dev_rec->sec_flags & BTM_SEC_IN_USE) != 0 &&
        ((p_dev_rec->ble.key_type & BTM_LE_KEY_PID) != 0 ||
        (p_dev_rec->ble.key_type & BTM_LE_KEY_LID) != 0))
     {
@@ -922,6 +927,18 @@ BOOLEAN btm_ble_resolving_list_empty(void)
             btm_cb.ble_ctr_cb.resolving_list_avail_size);
 }
 
+
+bool is_on_resolving_list(void *data, void *context)
+{
+    tBTM_SEC_DEV_REC *p_dev = data;
+    if ((p_dev->ble.in_controller_list & BTM_RESOLVING_LIST_BIT) &&
+        (p_dev->ble.in_controller_list & BTM_WHITE_LIST_BIT))
+        return false;
+
+    return true;
+}
+
+
 /*******************************************************************************
 **
 ** Function         btm_ble_enable_resolving_list_for_platform
@@ -949,17 +966,11 @@ void btm_ble_enable_resolving_list_for_platform (UINT8 rl_mask)
         return;
     }
 
-    tBTM_SEC_DEV_REC *p_dev = &btm_cb.sec_dev_rec[0];
-    for (UINT8 i = 0; i < BTM_SEC_MAX_DEVICE_RECORDS; i ++, p_dev ++)
-    {
-        if ((p_dev->ble.in_controller_list & BTM_RESOLVING_LIST_BIT) &&
-            (p_dev->ble.in_controller_list & BTM_WHITE_LIST_BIT))
-        {
-            btm_ble_enable_resolving_list(rl_mask);
-            return;
-        }
-    }
-    btm_ble_disable_resolving_list(rl_mask, TRUE);
+    list_node_t *n = list_foreach(btm_cb.sec_dev_rec, is_on_resolving_list, NULL);
+    if (n)
+        btm_ble_enable_resolving_list(rl_mask);
+    else
+        btm_ble_disable_resolving_list(rl_mask, TRUE);
 }
 
 /*******************************************************************************
@@ -981,12 +992,12 @@ void btm_ble_resolving_list_init(UINT8 max_irk_list_sz)
 
     if (max_irk_list_sz > 0)
     {
-        p_q->resolve_q_random_pseudo = (BD_ADDR *)GKI_getbuf(sizeof(BD_ADDR) * max_irk_list_sz);
-        p_q->resolve_q_action = (UINT8 *)GKI_getbuf(max_irk_list_sz);
+        p_q->resolve_q_random_pseudo = (BD_ADDR *)osi_malloc(sizeof(BD_ADDR) * max_irk_list_sz);
+        p_q->resolve_q_action = (UINT8 *)osi_malloc(max_irk_list_sz);
 
         /* RPA offloading feature */
         if (btm_cb.ble_ctr_cb.irk_list_mask == NULL)
-            btm_cb.ble_ctr_cb.irk_list_mask = (UINT8 *)GKI_getbuf(irk_mask_size);
+            btm_cb.ble_ctr_cb.irk_list_mask = (UINT8 *)osi_malloc(irk_mask_size);
 
         BTM_TRACE_DEBUG ("%s max_irk_list_sz = %d", __func__, max_irk_list_sz);
     }
@@ -1011,16 +1022,11 @@ void btm_ble_resolving_list_cleanup(void)
 {
     tBTM_BLE_RESOLVE_Q *p_q = &btm_cb.ble_ctr_cb.resolving_list_pend_q;
 
-    if (p_q->resolve_q_random_pseudo)
-        GKI_freebuf(p_q->resolve_q_random_pseudo);
-
-    if (p_q->resolve_q_action)
-       GKI_freebuf(p_q->resolve_q_action);
+    osi_free_and_reset((void **)&p_q->resolve_q_random_pseudo);
+    osi_free_and_reset((void **)&p_q->resolve_q_action);
 
     controller_get_interface()->set_ble_resolving_list_max_size(0);
-    if (btm_cb.ble_ctr_cb.irk_list_mask)
-       GKI_freebuf(btm_cb.ble_ctr_cb.irk_list_mask);
 
-    btm_cb.ble_ctr_cb.irk_list_mask = NULL;
+    osi_free_and_reset((void **)&btm_cb.ble_ctr_cb.irk_list_mask);
 }
 #endif

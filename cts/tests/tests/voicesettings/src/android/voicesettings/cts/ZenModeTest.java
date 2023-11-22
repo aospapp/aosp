@@ -16,17 +16,29 @@
 
 package android.voicesettings.cts;
 
+import static android.provider.Settings.ACTION_VOICE_CONTROL_DO_NOT_DISTURB_MODE;
 import static android.provider.Settings.EXTRA_DO_NOT_DISTURB_MODE_ENABLED;
 import static android.provider.Settings.EXTRA_DO_NOT_DISTURB_MODE_MINUTES;
 
+import android.cts.util.BroadcastTestBase;
+import android.cts.util.BroadcastUtils;
 import android.provider.Settings;
 import android.provider.Settings.Global;
 import android.util.Log;
 
-import common.src.android.voicesettings.common.Utils;
-
-public class ZenModeTest extends VoiceSettingsTestBase {
+public class ZenModeTest extends BroadcastTestBase {
     static final String TAG = "ZenModeTest";
+    private static final String VOICE_SETTINGS_PACKAGE = "android.voicesettings.service";
+    private static final String VOICE_INTERACTION_CLASS =
+        "android.voicesettings.service.VoiceInteractionMain";
+    protected static final String FEATURE_VOICE_RECOGNIZERS = "android.software.voice_recognizers";
+
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp();
+        mContext = getInstrumentation().getTargetContext();
+        mHasFeature = mContext.getPackageManager().hasSystemFeature(FEATURE_VOICE_RECOGNIZERS);
+    }
 
     // The following are hidden in frameworks/base/core/java/android/provider/Settings.java
     // If they weren't, we could have used them directly here.
@@ -39,6 +51,14 @@ public class ZenModeTest extends VoiceSettingsTestBase {
     }
 
     public void testAll() throws Exception {
+        if (!mHasFeature) {
+            Log.i(TAG, "The device doesn't support feature: " + FEATURE_VOICE_RECOGNIZERS);
+            return;
+        }
+        if (!isIntentSupported(ACTION_VOICE_CONTROL_DO_NOT_DISTURB_MODE)) {
+            Log.e(TAG, "Voice intent for Zen Mode NOT supported. existing the test");
+            return;
+        }
         int mode;
         try {
             mode = getMode();
@@ -53,25 +73,25 @@ public class ZenModeTest extends VoiceSettingsTestBase {
             // mode is currently OFF.
             // run a test to turn it on.
             // After successful run of the test, run a test to turn it back off.
-            if (!runTest(Utils.TestcaseType.ZEN_MODE_ON, ZEN_MODE_IS_ALARMS)) {
+            if (!runTest(BroadcastUtils.TestcaseType.ZEN_MODE_ON, ZEN_MODE_IS_ALARMS)) {
                 // the test failed. don't test the next one.
                 return;
             }
-            runTest(Utils.TestcaseType.ZEN_MODE_OFF, ZEN_MODE_IS_OFF);
+            runTest(BroadcastUtils.TestcaseType.ZEN_MODE_OFF, ZEN_MODE_IS_OFF);
         } else {
             // mode is currently ON.
             // run a test to turn it off.
             // After successful run of the test, run a test to turn it back on.
-            if (!runTest(Utils.TestcaseType.ZEN_MODE_OFF, ZEN_MODE_IS_OFF)) {
+            if (!runTest(BroadcastUtils.TestcaseType.ZEN_MODE_OFF, ZEN_MODE_IS_OFF)) {
                 // the test failed. don't test the next one.
                 return;
             }
-            runTest(Utils.TestcaseType.ZEN_MODE_ON, ZEN_MODE_IS_ALARMS);
+            runTest(BroadcastUtils.TestcaseType.ZEN_MODE_ON, ZEN_MODE_IS_ALARMS);
         }
     }
 
-    private boolean runTest(Utils.TestcaseType test, int expectedMode) throws Exception {
-        if (!startTestAndWaitForBroadcast(test)) {
+    private boolean runTest(BroadcastUtils.TestcaseType test, int expectedMode) throws Exception {
+        if (!startTestAndWaitForBroadcast(test, VOICE_SETTINGS_PACKAGE, VOICE_INTERACTION_CLASS)) {
             return false;
         }
 
@@ -79,11 +99,11 @@ public class ZenModeTest extends VoiceSettingsTestBase {
         int mode = getMode();
         Log.i(TAG, "After testing, zen-mode is set to: " + mode);
         assertEquals(expectedMode, mode);
-        Log.i(TAG, "results_received: " + Utils.toBundleString(mResultExtras));
+        Log.i(TAG, "results_received: " + BroadcastUtils.toBundleString(mResultExtras));
         assertNotNull(mResultExtras);
         if (expectedMode == ZEN_MODE_IS_ALARMS) {
             assertTrue(mResultExtras.getBoolean(EXTRA_DO_NOT_DISTURB_MODE_ENABLED));
-            assertEquals(Utils.NUM_MINUTES_FOR_ZENMODE,
+            assertEquals(BroadcastUtils.NUM_MINUTES_FOR_ZENMODE,
                     mResultExtras.getInt(EXTRA_DO_NOT_DISTURB_MODE_MINUTES));
         } else {
             assertFalse(mResultExtras.getBoolean(EXTRA_DO_NOT_DISTURB_MODE_ENABLED));

@@ -19,19 +19,19 @@ static SkNullGLContext::ContextState* current_context();
 
 class BufferObj {
 public:
-    SK_DECLARE_INST_COUNT(BufferObj);
+    
 
-    BufferObj(GrGLuint id) : fID(id), fDataPtr(NULL), fSize(0), fMapped(false) {}
-    ~BufferObj() { SkDELETE_ARRAY(fDataPtr); }
+    BufferObj(GrGLuint id) : fID(id), fDataPtr(nullptr), fSize(0), fMapped(false) {}
+    ~BufferObj() { delete[] fDataPtr; }
 
     void allocate(GrGLsizeiptr size, const GrGLchar* dataPtr) {
         if (fDataPtr) {
             SkASSERT(0 != fSize);
-            SkDELETE_ARRAY(fDataPtr);
+            delete[] fDataPtr;
         }
 
         fSize = size;
-        fDataPtr = SkNEW_ARRAY(char, size);
+        fDataPtr = new char[size];
     }
 
     GrGLuint id() const          { return fID; }
@@ -51,16 +51,16 @@ private:
 // This class maintains a sparsely populated array of buffer pointers.
 class BufferManager {
 public:
-    SK_DECLARE_INST_COUNT(BufferManager);
+    
 
     BufferManager() : fFreeListHead(kFreeListEnd) {}
 
     ~BufferManager() {
-        // NULL out the entries that are really free list links rather than ptrs before deleting.
+        // nullptr out the entries that are really free list links rather than ptrs before deleting.
         intptr_t curr = fFreeListHead;
         while (kFreeListEnd != curr) {
             intptr_t next = reinterpret_cast<intptr_t>(fBuffers[SkToS32(curr)]);
-            fBuffers[SkToS32(curr)] = NULL;
+            fBuffers[SkToS32(curr)] = nullptr;
             curr = next;
         }
 
@@ -80,14 +80,14 @@ public:
         if (kFreeListEnd == fFreeListHead) {
             // no free slots - create a new one
             id = fBuffers.count();
-            buffer = SkNEW_ARGS(BufferObj, (id));
+            buffer = new BufferObj(id);
             *fBuffers.append() = buffer;
         } else {
             // grab the head of the free list and advance the head to the next free slot.
             id = static_cast<GrGLuint>(fFreeListHead);
             fFreeListHead = reinterpret_cast<intptr_t>(fBuffers[id]);
 
-            buffer = SkNEW_ARGS(BufferObj, (id));
+            buffer = new BufferObj(id);
             fBuffers[id] = buffer;
         }
 
@@ -98,7 +98,7 @@ public:
         SkASSERT(fBuffers.count() > 0);
 
         GrGLuint id = buffer->id();
-        SkDELETE(buffer);
+        delete buffer;
 
         fBuffers[id] = reinterpret_cast<BufferObj*>(fFreeListHead);
         fFreeListHead = id;
@@ -117,11 +117,13 @@ private:
  */
 class SkNullGLContext::ContextState : public SkRefCnt {
 public:
-    SK_DECLARE_INST_COUNT(ContextState);
+    
 
     BufferManager   fBufferManager;
     GrGLuint        fCurrArrayBuffer;
     GrGLuint        fCurrElementArrayBuffer;
+    GrGLuint        fCurrPixelPackBuffer;
+    GrGLuint        fCurrPixelUnpackBuffer;
     GrGLuint        fCurrProgramID;
     GrGLuint        fCurrShaderID;
 
@@ -129,6 +131,8 @@ public:
     ContextState()
         : fCurrArrayBuffer(0)
         , fCurrElementArrayBuffer(0)
+        , fCurrPixelPackBuffer(0)
+        , fCurrPixelUnpackBuffer(0)
         , fCurrProgramID(0)
         , fCurrShaderID(0) {}
 
@@ -171,6 +175,12 @@ GrGLvoid GR_GL_FUNCTION_TYPE nullGLBufferData(GrGLenum target,
         break;
     case GR_GL_ELEMENT_ARRAY_BUFFER:
         id = state->fCurrElementArrayBuffer;
+        break;
+    case GR_GL_PIXEL_PACK_BUFFER:
+        id = state->fCurrPixelPackBuffer;
+        break;
+    case GR_GL_PIXEL_UNPACK_BUFFER:
+        id = state->fCurrPixelUnpackBuffer;
         break;
     default:
         SkFAIL("Unexpected target to nullGLBufferData");
@@ -215,6 +225,12 @@ GrGLvoid GR_GL_FUNCTION_TYPE nullGLBindBuffer(GrGLenum target, GrGLuint buffer) 
     case GR_GL_ELEMENT_ARRAY_BUFFER:
         state->fCurrElementArrayBuffer = buffer;
         break;
+    case GR_GL_PIXEL_PACK_BUFFER:
+        state->fCurrPixelPackBuffer = buffer;
+        break;
+    case GR_GL_PIXEL_UNPACK_BUFFER:
+        state->fCurrPixelUnpackBuffer = buffer;
+        break;
     }
 }
 
@@ -227,6 +243,12 @@ GrGLvoid GR_GL_FUNCTION_TYPE nullGLDeleteBuffers(GrGLsizei n, const GrGLuint* id
         }
         if (ids[i] == state->fCurrElementArrayBuffer) {
             state->fCurrElementArrayBuffer = 0;
+        }
+        if (ids[i] == state->fCurrPixelPackBuffer) {
+            state->fCurrPixelPackBuffer = 0;
+        }
+        if (ids[i] == state->fCurrPixelUnpackBuffer) {
+            state->fCurrPixelUnpackBuffer = 0;
         }
 
         BufferObj* buffer = state->fBufferManager.lookUp(ids[i]);
@@ -245,6 +267,12 @@ GrGLvoid* GR_GL_FUNCTION_TYPE nullGLMapBufferRange(GrGLenum target, GrGLintptr o
         case GR_GL_ELEMENT_ARRAY_BUFFER:
             id = state->fCurrElementArrayBuffer;
             break;
+        case GR_GL_PIXEL_PACK_BUFFER:
+            id = state->fCurrPixelPackBuffer;
+            break;
+        case GR_GL_PIXEL_UNPACK_BUFFER:
+            id = state->fCurrPixelUnpackBuffer;
+            break;
     }
 
     if (id > 0) {
@@ -254,7 +282,7 @@ GrGLvoid* GR_GL_FUNCTION_TYPE nullGLMapBufferRange(GrGLenum target, GrGLintptr o
         buffer->setMapped(true);
         return buffer->dataPtr();
     }
-    return NULL;
+    return nullptr;
 }
 
 GrGLvoid* GR_GL_FUNCTION_TYPE nullGLMapBuffer(GrGLenum target, GrGLenum access) {
@@ -267,6 +295,12 @@ GrGLvoid* GR_GL_FUNCTION_TYPE nullGLMapBuffer(GrGLenum target, GrGLenum access) 
         case GR_GL_ELEMENT_ARRAY_BUFFER:
             id = state->fCurrElementArrayBuffer;
             break;
+        case GR_GL_PIXEL_PACK_BUFFER:
+            id = state->fCurrPixelPackBuffer;
+            break;
+        case GR_GL_PIXEL_UNPACK_BUFFER:
+            id = state->fCurrPixelUnpackBuffer;
+            break;
     }
 
     if (id > 0) {
@@ -277,7 +311,7 @@ GrGLvoid* GR_GL_FUNCTION_TYPE nullGLMapBuffer(GrGLenum target, GrGLenum access) 
     }
 
     SkASSERT(false);
-    return NULL;            // no buffer bound to target
+    return nullptr;            // no buffer bound to target
 }
 
 GrGLvoid GR_GL_FUNCTION_TYPE nullGLFlushMappedBufferRange(GrGLenum target,
@@ -294,6 +328,12 @@ GrGLboolean GR_GL_FUNCTION_TYPE nullGLUnmapBuffer(GrGLenum target) {
         break;
     case GR_GL_ELEMENT_ARRAY_BUFFER:
         id = state->fCurrElementArrayBuffer;
+        break;
+    case GR_GL_PIXEL_PACK_BUFFER:
+        id = state->fCurrPixelPackBuffer;
+        break;
+    case GR_GL_PIXEL_UNPACK_BUFFER:
+        id = state->fCurrPixelUnpackBuffer;
         break;
     }
     if (id > 0) {
@@ -319,6 +359,12 @@ GrGLvoid GR_GL_FUNCTION_TYPE nullGLGetBufferParameteriv(GrGLenum target, GrGLenu
                     break;
                 case GR_GL_ELEMENT_ARRAY_BUFFER:
                     id = state->fCurrElementArrayBuffer;
+                    break;
+                case GR_GL_PIXEL_PACK_BUFFER:
+                    id = state->fCurrPixelPackBuffer;
+                    break;
+                case GR_GL_PIXEL_UNPACK_BUFFER:
+                    id = state->fCurrPixelUnpackBuffer;
                     break;
             }
             if (id > 0) {
@@ -346,7 +392,7 @@ public:
 } // end anonymous namespace
 
 static GrGLInterface* create_null_interface(State* state) {
-    GrGLInterface* interface = SkNEW_ARGS(NullInterface, (state));
+    GrGLInterface* interface = new NullInterface(state);
 
     interface->fStandard = kGL_GrGLStandard;
 
@@ -385,9 +431,11 @@ static GrGLInterface* create_null_interface(State* state) {
     functions->fDisable = noOpGLDisable;
     functions->fDisableVertexAttribArray = noOpGLDisableVertexAttribArray;
     functions->fDrawArrays = noOpGLDrawArrays;
+    functions->fDrawArraysInstanced = noOpGLDrawArraysInstanced;
     functions->fDrawBuffer = noOpGLDrawBuffer;
     functions->fDrawBuffers = noOpGLDrawBuffers;
     functions->fDrawElements = noOpGLDrawElements;
+    functions->fDrawElementsInstanced = noOpGLDrawElementsInstanced;
     functions->fEnable = noOpGLEnable;
     functions->fEnableVertexAttribArray = noOpGLEnableVertexAttribArray;
     functions->fEndQuery = noOpGLEndQuery;
@@ -466,6 +514,8 @@ static GrGLInterface* create_null_interface(State* state) {
     functions->fVertexAttrib2fv = noOpGLVertexAttrib2fv;
     functions->fVertexAttrib3fv = noOpGLVertexAttrib3fv;
     functions->fVertexAttrib4fv = noOpGLVertexAttrib4fv;
+    functions->fVertexAttribDivisor = noOpGLVertexAttribDivisor;
+    functions->fVertexAttribIPointer = noOpGLVertexAttribIPointer;
     functions->fVertexAttribPointer = noOpGLVertexAttribPointer;
     functions->fViewport = nullGLViewport;
     functions->fBindFramebuffer = nullGLBindFramebuffer;
@@ -488,15 +538,15 @@ static GrGLInterface* create_null_interface(State* state) {
     functions->fBindFragDataLocationIndexed = noOpGLBindFragDataLocationIndexed;
 
     interface->fExtensions.init(kGL_GrGLStandard, functions->fGetString, functions->fGetStringi,
-                                functions->fGetIntegerv);
+                                functions->fGetIntegerv, nullptr, GR_EGL_NO_DISPLAY);
     return interface;
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
 static void* create_tls() {
-    State** current = SkNEW(State*);
-    *current = NULL;
+    State** current = new State*;
+    *current = nullptr;
     return current;
 }
 
@@ -505,7 +555,7 @@ static void delete_tls(void* ctx) {
     if (*current) {
         (*current)->unref();
     }
-    SkDELETE(current);
+    delete current;
 }
 
 static State* current_context() {
@@ -529,22 +579,19 @@ static void set_current_context_from_interface(const GrGLInterface* interface) {
 }
 #endif
 
-SkNullGLContext* SkNullGLContext::Create(GrGLStandard forcedGpuAPI) {
-    if (kGLES_GrGLStandard == forcedGpuAPI) {
-        return NULL;
-    }
-    SkNullGLContext* ctx = SkNEW(SkNullGLContext);
+SkNullGLContext* SkNullGLContext::Create() {
+    SkNullGLContext* ctx = new SkNullGLContext;
     if (!ctx->isValid()) {
-        SkDELETE(ctx);
-        return NULL;
+        delete ctx;
+        return nullptr;
     }
     return ctx;
 }
 
 SkNullGLContext::SkNullGLContext() {
-    fState = SkNEW(ContextState);
+    fState = new ContextState;
     GrGLInterface* interface = create_null_interface(fState);
-    fGL.reset(interface);
+    this->init(interface);
 #if GR_GL_PER_GL_FUNC_CALLBACK
     interface->fCallback = set_current_context_from_interface;
     interface->fCallbackData = reinterpret_cast<GrGLInterfaceCallbackData>(fState);
@@ -552,8 +599,8 @@ SkNullGLContext::SkNullGLContext() {
 }
 
 SkNullGLContext::~SkNullGLContext() {
-    fGL.reset(NULL);
+    this->teardown();
     fState->unref();
 }
 
-void SkNullGLContext::makeCurrent() const { set_current_context(fState); }
+void SkNullGLContext::onPlatformMakeCurrent() const { set_current_context(fState); }

@@ -201,6 +201,12 @@ def SDT_PPCsc     : SDTypeProfile<0, 1, [SDTCisInt<0>]>;
 def PPCsc         : SDNode<"PPCISD::SC", SDT_PPCsc,
                            [SDNPHasChain, SDNPSideEffect]>;
 
+def PPCclrbhrb    : SDNode<"PPCISD::CLRBHRB", SDTNone,
+                           [SDNPHasChain, SDNPSideEffect]>;
+def PPCmfbhrbe    : SDNode<"PPCISD::MFBHRBE", SDTIntBinOp, [SDNPHasChain]>;
+def PPCrfebb      : SDNode<"PPCISD::RFEBB", SDT_PPCsc,
+                           [SDNPHasChain, SDNPSideEffect]>;
+
 def PPCvcmp       : SDNode<"PPCISD::VCMP" , SDT_PPCvcmp, []>;
 def PPCvcmp_o     : SDNode<"PPCISD::VCMPo", SDT_PPCvcmp, [SDNPOutGlue]>;
 
@@ -220,7 +226,9 @@ def PPCcr6unset : SDNode<"PPCISD::CR6UNSET", SDTNone,
 
 // Instructions to support dynamic alloca.
 def SDTDynOp  : SDTypeProfile<1, 2, []>;
+def SDTDynAreaOp  : SDTypeProfile<1, 1, []>;
 def PPCdynalloc   : SDNode<"PPCISD::DYNALLOC", SDTDynOp, [SDNPHasChain]>;
+def PPCdynareaoffset   : SDNode<"PPCISD::DYNAREAOFFSET", SDTDynAreaOp, [SDNPHasChain]>;
 
 //===----------------------------------------------------------------------===//
 // PowerPC specific transformation functions and pattern fragments.
@@ -228,41 +236,42 @@ def PPCdynalloc   : SDNode<"PPCISD::DYNALLOC", SDTDynOp, [SDNPHasChain]>;
 
 def SHL32 : SDNodeXForm<imm, [{
   // Transformation function: 31 - imm
-  return getI32Imm(31 - N->getZExtValue());
+  return getI32Imm(31 - N->getZExtValue(), SDLoc(N));
 }]>;
 
 def SRL32 : SDNodeXForm<imm, [{
   // Transformation function: 32 - imm
-  return N->getZExtValue() ? getI32Imm(32 - N->getZExtValue()) : getI32Imm(0);
+  return N->getZExtValue() ? getI32Imm(32 - N->getZExtValue(), SDLoc(N))
+                           : getI32Imm(0, SDLoc(N));
 }]>;
 
 def LO16 : SDNodeXForm<imm, [{
   // Transformation function: get the low 16 bits.
-  return getI32Imm((unsigned short)N->getZExtValue());
+  return getI32Imm((unsigned short)N->getZExtValue(), SDLoc(N));
 }]>;
 
 def HI16 : SDNodeXForm<imm, [{
   // Transformation function: shift the immediate value down into the low bits.
-  return getI32Imm((unsigned)N->getZExtValue() >> 16);
+  return getI32Imm((unsigned)N->getZExtValue() >> 16, SDLoc(N));
 }]>;
 
 def HA16 : SDNodeXForm<imm, [{
   // Transformation function: shift the immediate value down into the low bits.
   signed int Val = N->getZExtValue();
-  return getI32Imm((Val - (signed short)Val) >> 16);
+  return getI32Imm((Val - (signed short)Val) >> 16, SDLoc(N));
 }]>;
 def MB : SDNodeXForm<imm, [{
   // Transformation function: get the start bit of a mask
   unsigned mb = 0, me;
   (void)isRunOfOnes((unsigned)N->getZExtValue(), mb, me);
-  return getI32Imm(mb);
+  return getI32Imm(mb, SDLoc(N));
 }]>;
 
 def ME : SDNodeXForm<imm, [{
   // Transformation function: get the end bit of a mask
   unsigned mb, me = 0;
   (void)isRunOfOnes((unsigned)N->getZExtValue(), mb, me);
-  return getI32Imm(me);
+  return getI32Imm(me, SDLoc(N));
 }]>;
 def maskimm32 : PatLeaf<(imm), [{
   // maskImm predicate - True if immediate is a run of ones.
@@ -497,6 +506,15 @@ def u6imm   : Operand<i32> {
   let PrintMethod = "printU6ImmOperand";
   let ParserMatchClass = PPCU6ImmAsmOperand;
   let DecoderMethod = "decodeUImmOperand<6>";
+}
+def PPCU10ImmAsmOperand : AsmOperandClass {
+  let Name = "U10Imm"; let PredicateMethod = "isU10Imm";
+  let RenderMethod = "addImmOperands";
+}
+def u10imm  : Operand<i32> {
+  let PrintMethod = "printU10ImmOperand";
+  let ParserMatchClass = PPCU10ImmAsmOperand;
+  let DecoderMethod = "decodeUImmOperand<10>";
 }
 def PPCU12ImmAsmOperand : AsmOperandClass {
   let Name = "U12Imm"; let PredicateMethod = "isU12Imm";
@@ -1013,6 +1031,8 @@ let Defs = [R1], Uses = [R1] in
 def DYNALLOC : Pseudo<(outs gprc:$result), (ins gprc:$negsize, memri:$fpsi), "#DYNALLOC",
                        [(set i32:$result,
                              (PPCdynalloc i32:$negsize, iaddr:$fpsi))]>;
+def DYNAREAOFFSET : Pseudo<(outs i32imm:$result), (ins memri:$fpsi), "#DYNAREAOFFSET",
+                       [(set i32:$result, (PPCdynareaoffset iaddr:$fpsi))]>;
                          
 // SELECT_CC_* - Used to implement the SELECT_CC DAG operation.  Expanded after
 // instruction selection into a branch sequence.
@@ -1356,6 +1376,24 @@ let PPC970_Unit = 7 in {
                       "sc $lev", IIC_BrB, [(PPCsc (i32 imm:$lev))]>;
 }
 
+// Branch history rolling buffer.
+def CLRBHRB : XForm_0<31, 430, (outs), (ins), "clrbhrb", IIC_BrB,
+                      [(PPCclrbhrb)]>,
+                      PPC970_DGroup_Single;
+// The $dmy argument used for MFBHRBE is not needed; however, including
+// it avoids automatic generation of PPCFastISel::fastEmit_i(), which
+// interferes with necessary special handling (see PPCFastISel.cpp).
+def MFBHRBE : XFXForm_3p<31, 302, (outs gprc:$rD),
+                         (ins u10imm:$imm, u10imm:$dmy),
+                         "mfbhrbe $rD, $imm", IIC_BrB,
+                         [(set i32:$rD,
+                               (PPCmfbhrbe imm:$imm, imm:$dmy))]>,
+                         PPC970_DGroup_First;
+
+def RFEBB : XLForm_S<19, 146, (outs), (ins u1imm:$imm), "rfebb $imm",
+                     IIC_BrB, [(PPCrfebb (i32 imm:$imm))]>,
+                     PPC970_DGroup_Single;
+
 // DCB* instructions.
 def DCBA   : DCB_Form<758, 0, (outs), (ins memrr:$dst), "dcba $dst",
                       IIC_LdStDCBF, [(int_ppc_dcba xoaddr:$dst)]>,
@@ -1369,12 +1407,6 @@ def DCBI   : DCB_Form<470, 0, (outs), (ins memrr:$dst), "dcbi $dst",
 def DCBST  : DCB_Form<54, 0, (outs), (ins memrr:$dst), "dcbst $dst",
                       IIC_LdStDCBF, [(int_ppc_dcbst xoaddr:$dst)]>,
                       PPC970_DGroup_Single;
-def DCBT   : DCB_Form<278, 0, (outs), (ins memrr:$dst), "dcbt $dst",
-                      IIC_LdStDCBF, [(int_ppc_dcbt xoaddr:$dst)]>,
-                      PPC970_DGroup_Single;
-def DCBTST : DCB_Form<246, 0, (outs), (ins memrr:$dst), "dcbtst $dst",
-                      IIC_LdStDCBF, [(int_ppc_dcbtst xoaddr:$dst)]>,
-                      PPC970_DGroup_Single;
 def DCBZ   : DCB_Form<1014, 0, (outs), (ins memrr:$dst), "dcbz $dst",
                       IIC_LdStDCBF, [(int_ppc_dcbz xoaddr:$dst)]>,
                       PPC970_DGroup_Single;
@@ -1382,13 +1414,27 @@ def DCBZL  : DCB_Form<1014, 1, (outs), (ins memrr:$dst), "dcbzl $dst",
                       IIC_LdStDCBF, [(int_ppc_dcbzl xoaddr:$dst)]>,
                       PPC970_DGroup_Single;
 
+let hasSideEffects = 0, mayLoad = 1, mayStore = 1 in {
+def DCBT   : DCB_Form_hint<278, (outs), (ins u5imm:$TH, memrr:$dst),
+                      "dcbt $dst, $TH", IIC_LdStDCBF, []>,
+                      PPC970_DGroup_Single;
+def DCBTST : DCB_Form_hint<246, (outs), (ins u5imm:$TH, memrr:$dst),
+                      "dcbtst $dst, $TH", IIC_LdStDCBF, []>,
+                      PPC970_DGroup_Single;
+} // hasSideEffects = 0
+
 def ICBT  : XForm_icbt<31, 22, (outs), (ins u4imm:$CT, memrr:$src),
                        "icbt $CT, $src", IIC_LdStLoad>, Requires<[HasICBT]>;
 
+def : Pat<(int_ppc_dcbt xoaddr:$dst),
+          (DCBT 0, xoaddr:$dst)>;
+def : Pat<(int_ppc_dcbtst xoaddr:$dst),
+          (DCBTST 0, xoaddr:$dst)>;
+
 def : Pat<(prefetch xoaddr:$dst, (i32 0), imm, (i32 1)),
-          (DCBT xoaddr:$dst)>;   // data prefetch for loads
+          (DCBT 0, xoaddr:$dst)>;   // data prefetch for loads
 def : Pat<(prefetch xoaddr:$dst, (i32 1), imm, (i32 1)),
-          (DCBTST xoaddr:$dst)>; // data prefetch for stores
+          (DCBTST 0, xoaddr:$dst)>; // data prefetch for stores
 def : Pat<(prefetch xoaddr:$dst, (i32 0), imm, (i32 0)),
           (ICBT 0, xoaddr:$dst)>, Requires<[HasICBT]>; // inst prefetch (for read)
 
@@ -2183,7 +2229,7 @@ def MTSPR : XFXForm_1<31, 467, (outs), (ins i32imm:$SPR, gprc:$RT),
                       "mtspr $SPR, $RT", IIC_SprMTSPR>;
 
 def MFTB : XFXForm_1<31, 371, (outs gprc:$RT), (ins i32imm:$SPR),
-                     "mftb $RT, $SPR", IIC_SprMFTB>, Deprecated<DeprecatedMFTB>;
+                     "mftb $RT, $SPR", IIC_SprMFTB>;
 
 // A pseudo-instruction used to implement the read of the 64-bit cycle counter
 // on a 32-bit target.
@@ -2793,24 +2839,84 @@ def : Pat<(i64 (anyext i1:$in)),
           (SELECT_I8 $in, (LI8 1), (LI8 0))>;
 
 // match setcc on i1 variables.
+// CRANDC is:
+//   1 1 : F
+//   1 0 : T
+//   0 1 : F
+//   0 0 : F
+//
+// LT is:
+//  -1 -1  : F
+//  -1  0  : T
+//   0 -1  : F
+//   0  0  : F
+//
+// ULT is:
+//   1 1 : F
+//   1 0 : F
+//   0 1 : T
+//   0 0 : F
 def : Pat<(i1 (setcc i1:$s1, i1:$s2, SETLT)),
-          (CRANDC $s2, $s1)>;
+          (CRANDC $s1, $s2)>;
 def : Pat<(i1 (setcc i1:$s1, i1:$s2, SETULT)),
           (CRANDC $s2, $s1)>;
+// CRORC is:
+//   1 1 : T
+//   1 0 : T
+//   0 1 : F
+//   0 0 : T
+//
+// LE is:
+//  -1 -1 : T
+//  -1  0 : T
+//   0 -1 : F
+//   0  0 : T
+//
+// ULE is:
+//   1 1 : T
+//   1 0 : F
+//   0 1 : T
+//   0 0 : T
 def : Pat<(i1 (setcc i1:$s1, i1:$s2, SETLE)),
-          (CRORC $s2, $s1)>;
+          (CRORC $s1, $s2)>;
 def : Pat<(i1 (setcc i1:$s1, i1:$s2, SETULE)),
           (CRORC $s2, $s1)>;
+
 def : Pat<(i1 (setcc i1:$s1, i1:$s2, SETEQ)),
           (CREQV $s1, $s2)>;
+
+// GE is:
+//  -1 -1 : T
+//  -1  0 : F
+//   0 -1 : T
+//   0  0 : T
+//
+// UGE is:
+//   1 1 : T
+//   1 0 : T
+//   0 1 : F
+//   0 0 : T
 def : Pat<(i1 (setcc i1:$s1, i1:$s2, SETGE)),
-          (CRORC $s1, $s2)>;
+          (CRORC $s2, $s1)>;
 def : Pat<(i1 (setcc i1:$s1, i1:$s2, SETUGE)),
           (CRORC $s1, $s2)>;
+
+// GT is:
+//  -1 -1 : F
+//  -1  0 : F
+//   0 -1 : T
+//   0  0 : F
+//
+// UGT is:
+//  1 1 : F
+//  1 0 : T
+//  0 1 : F
+//  0 0 : F
 def : Pat<(i1 (setcc i1:$s1, i1:$s2, SETGT)),
-          (CRANDC $s1, $s2)>;
+          (CRANDC $s2, $s1)>;
 def : Pat<(i1 (setcc i1:$s1, i1:$s2, SETUGT)),
           (CRANDC $s1, $s2)>;
+
 def : Pat<(i1 (setcc i1:$s1, i1:$s2, SETNE)),
           (CRXOR $s1, $s2)>;
 
@@ -3161,18 +3267,30 @@ def : Pat<(i1 (select i1:$cond, i1:$tval, i1:$fval)),
 //   select (lhs == rhs), tval, fval is:
 //   ((lhs == rhs) & tval) | (!(lhs == rhs) & fval)
 def : Pat <(i1 (selectcc i1:$lhs, i1:$rhs, i1:$tval, i1:$fval, SETLT)),
+           (CROR (CRAND (CRANDC $lhs, $rhs), $tval),
+                 (CRAND (CRORC  $rhs, $lhs), $fval))>;
+def : Pat <(i1 (selectcc i1:$lhs, i1:$rhs, i1:$tval, i1:$fval, SETULT)),
            (CROR (CRAND (CRANDC $rhs, $lhs), $tval),
                  (CRAND (CRORC  $lhs, $rhs), $fval))>;
 def : Pat <(i1 (selectcc i1:$lhs, i1:$rhs, i1:$tval, i1:$fval, SETLE)),
+           (CROR (CRAND (CRORC  $lhs, $rhs), $tval),
+                 (CRAND (CRANDC $rhs, $lhs), $fval))>;
+def : Pat <(i1 (selectcc i1:$lhs, i1:$rhs, i1:$tval, i1:$fval, SETULE)),
            (CROR (CRAND (CRORC  $rhs, $lhs), $tval),
                  (CRAND (CRANDC $lhs, $rhs), $fval))>;
 def : Pat <(i1 (selectcc i1:$lhs, i1:$rhs, i1:$tval, i1:$fval, SETEQ)),
            (CROR (CRAND (CREQV $lhs, $rhs), $tval),
                  (CRAND (CRXOR $lhs, $rhs), $fval))>;
 def : Pat <(i1 (selectcc i1:$lhs, i1:$rhs, i1:$tval, i1:$fval, SETGE)),
+           (CROR (CRAND (CRORC  $rhs, $lhs), $tval),
+                 (CRAND (CRANDC $lhs, $rhs), $fval))>;
+def : Pat <(i1 (selectcc i1:$lhs, i1:$rhs, i1:$tval, i1:$fval, SETUGE)),
            (CROR (CRAND (CRORC  $lhs, $rhs), $tval),
                  (CRAND (CRANDC $rhs, $lhs), $fval))>;
 def : Pat <(i1 (selectcc i1:$lhs, i1:$rhs, i1:$tval, i1:$fval, SETGT)),
+           (CROR (CRAND (CRANDC $rhs, $lhs), $tval),
+                 (CRAND (CRORC  $lhs, $rhs), $fval))>;
+def : Pat <(i1 (selectcc i1:$lhs, i1:$rhs, i1:$tval, i1:$fval, SETUGT)),
            (CROR (CRAND (CRANDC $lhs, $rhs), $tval),
                  (CRAND (CRORC  $rhs, $lhs), $fval))>;
 def : Pat <(i1 (selectcc i1:$lhs, i1:$rhs, i1:$tval, i1:$fval, SETNE)),
@@ -3181,66 +3299,106 @@ def : Pat <(i1 (selectcc i1:$lhs, i1:$rhs, i1:$tval, i1:$fval, SETNE)),
 
 // match selectcc on i1 variables with non-i1 output.
 def : Pat<(i32 (selectcc i1:$lhs, i1:$rhs, i32:$tval, i32:$fval, SETLT)),
+          (SELECT_I4 (CRANDC $lhs, $rhs), $tval, $fval)>;
+def : Pat<(i32 (selectcc i1:$lhs, i1:$rhs, i32:$tval, i32:$fval, SETULT)),
           (SELECT_I4 (CRANDC $rhs, $lhs), $tval, $fval)>;
 def : Pat<(i32 (selectcc i1:$lhs, i1:$rhs, i32:$tval, i32:$fval, SETLE)),
+          (SELECT_I4 (CRORC  $lhs, $rhs), $tval, $fval)>;
+def : Pat<(i32 (selectcc i1:$lhs, i1:$rhs, i32:$tval, i32:$fval, SETULE)),
           (SELECT_I4 (CRORC  $rhs, $lhs), $tval, $fval)>;
 def : Pat<(i32 (selectcc i1:$lhs, i1:$rhs, i32:$tval, i32:$fval, SETEQ)),
           (SELECT_I4 (CREQV $lhs, $rhs), $tval, $fval)>;
 def : Pat<(i32 (selectcc i1:$lhs, i1:$rhs, i32:$tval, i32:$fval, SETGE)),
+          (SELECT_I4 (CRORC  $rhs, $lhs), $tval, $fval)>;
+def : Pat<(i32 (selectcc i1:$lhs, i1:$rhs, i32:$tval, i32:$fval, SETUGE)),
           (SELECT_I4 (CRORC  $lhs, $rhs), $tval, $fval)>;
 def : Pat<(i32 (selectcc i1:$lhs, i1:$rhs, i32:$tval, i32:$fval, SETGT)),
+          (SELECT_I4 (CRANDC $rhs, $lhs), $tval, $fval)>;
+def : Pat<(i32 (selectcc i1:$lhs, i1:$rhs, i32:$tval, i32:$fval, SETUGT)),
           (SELECT_I4 (CRANDC $lhs, $rhs), $tval, $fval)>;
 def : Pat<(i32 (selectcc i1:$lhs, i1:$rhs, i32:$tval, i32:$fval, SETNE)),
           (SELECT_I4 (CRXOR $lhs, $rhs), $tval, $fval)>;
 
 def : Pat<(i64 (selectcc i1:$lhs, i1:$rhs, i64:$tval, i64:$fval, SETLT)),
+          (SELECT_I8 (CRANDC $lhs, $rhs), $tval, $fval)>;
+def : Pat<(i64 (selectcc i1:$lhs, i1:$rhs, i64:$tval, i64:$fval, SETULT)),
           (SELECT_I8 (CRANDC $rhs, $lhs), $tval, $fval)>;
 def : Pat<(i64 (selectcc i1:$lhs, i1:$rhs, i64:$tval, i64:$fval, SETLE)),
+          (SELECT_I8 (CRORC  $lhs, $rhs), $tval, $fval)>;
+def : Pat<(i64 (selectcc i1:$lhs, i1:$rhs, i64:$tval, i64:$fval, SETULE)),
           (SELECT_I8 (CRORC  $rhs, $lhs), $tval, $fval)>;
 def : Pat<(i64 (selectcc i1:$lhs, i1:$rhs, i64:$tval, i64:$fval, SETEQ)),
           (SELECT_I8 (CREQV $lhs, $rhs), $tval, $fval)>;
 def : Pat<(i64 (selectcc i1:$lhs, i1:$rhs, i64:$tval, i64:$fval, SETGE)),
+          (SELECT_I8 (CRORC  $rhs, $lhs), $tval, $fval)>;
+def : Pat<(i64 (selectcc i1:$lhs, i1:$rhs, i64:$tval, i64:$fval, SETUGE)),
           (SELECT_I8 (CRORC  $lhs, $rhs), $tval, $fval)>;
 def : Pat<(i64 (selectcc i1:$lhs, i1:$rhs, i64:$tval, i64:$fval, SETGT)),
+          (SELECT_I8 (CRANDC $rhs, $lhs), $tval, $fval)>;
+def : Pat<(i64 (selectcc i1:$lhs, i1:$rhs, i64:$tval, i64:$fval, SETUGT)),
           (SELECT_I8 (CRANDC $lhs, $rhs), $tval, $fval)>;
 def : Pat<(i64 (selectcc i1:$lhs, i1:$rhs, i64:$tval, i64:$fval, SETNE)),
           (SELECT_I8 (CRXOR $lhs, $rhs), $tval, $fval)>;
 
 def : Pat<(f32 (selectcc i1:$lhs, i1:$rhs, f32:$tval, f32:$fval, SETLT)),
+          (SELECT_F4 (CRANDC $lhs, $rhs), $tval, $fval)>;
+def : Pat<(f32 (selectcc i1:$lhs, i1:$rhs, f32:$tval, f32:$fval, SETULT)),
           (SELECT_F4 (CRANDC $rhs, $lhs), $tval, $fval)>;
 def : Pat<(f32 (selectcc i1:$lhs, i1:$rhs, f32:$tval, f32:$fval, SETLE)),
+          (SELECT_F4 (CRORC  $lhs, $rhs), $tval, $fval)>;
+def : Pat<(f32 (selectcc i1:$lhs, i1:$rhs, f32:$tval, f32:$fval, SETULE)),
           (SELECT_F4 (CRORC  $rhs, $lhs), $tval, $fval)>;
 def : Pat<(f32 (selectcc i1:$lhs, i1:$rhs, f32:$tval, f32:$fval, SETEQ)),
           (SELECT_F4 (CREQV $lhs, $rhs), $tval, $fval)>;
 def : Pat<(f32 (selectcc i1:$lhs, i1:$rhs, f32:$tval, f32:$fval, SETGE)),
+          (SELECT_F4 (CRORC  $rhs, $lhs), $tval, $fval)>;
+def : Pat<(f32 (selectcc i1:$lhs, i1:$rhs, f32:$tval, f32:$fval, SETUGE)),
           (SELECT_F4 (CRORC  $lhs, $rhs), $tval, $fval)>;
 def : Pat<(f32 (selectcc i1:$lhs, i1:$rhs, f32:$tval, f32:$fval, SETGT)),
+          (SELECT_F4 (CRANDC $rhs, $lhs), $tval, $fval)>;
+def : Pat<(f32 (selectcc i1:$lhs, i1:$rhs, f32:$tval, f32:$fval, SETUGT)),
           (SELECT_F4 (CRANDC $lhs, $rhs), $tval, $fval)>;
 def : Pat<(f32 (selectcc i1:$lhs, i1:$rhs, f32:$tval, f32:$fval, SETNE)),
           (SELECT_F4 (CRXOR $lhs, $rhs), $tval, $fval)>;
 
 def : Pat<(f64 (selectcc i1:$lhs, i1:$rhs, f64:$tval, f64:$fval, SETLT)),
+          (SELECT_F8 (CRANDC $lhs, $rhs), $tval, $fval)>;
+def : Pat<(f64 (selectcc i1:$lhs, i1:$rhs, f64:$tval, f64:$fval, SETULT)),
           (SELECT_F8 (CRANDC $rhs, $lhs), $tval, $fval)>;
 def : Pat<(f64 (selectcc i1:$lhs, i1:$rhs, f64:$tval, f64:$fval, SETLE)),
+          (SELECT_F8 (CRORC  $lhs, $rhs), $tval, $fval)>;
+def : Pat<(f64 (selectcc i1:$lhs, i1:$rhs, f64:$tval, f64:$fval, SETULE)),
           (SELECT_F8 (CRORC  $rhs, $lhs), $tval, $fval)>;
 def : Pat<(f64 (selectcc i1:$lhs, i1:$rhs, f64:$tval, f64:$fval, SETEQ)),
           (SELECT_F8 (CREQV $lhs, $rhs), $tval, $fval)>;
 def : Pat<(f64 (selectcc i1:$lhs, i1:$rhs, f64:$tval, f64:$fval, SETGE)),
+          (SELECT_F8 (CRORC  $rhs, $lhs), $tval, $fval)>;
+def : Pat<(f64 (selectcc i1:$lhs, i1:$rhs, f64:$tval, f64:$fval, SETUGE)),
           (SELECT_F8 (CRORC  $lhs, $rhs), $tval, $fval)>;
 def : Pat<(f64 (selectcc i1:$lhs, i1:$rhs, f64:$tval, f64:$fval, SETGT)),
+          (SELECT_F8 (CRANDC $rhs, $lhs), $tval, $fval)>;
+def : Pat<(f64 (selectcc i1:$lhs, i1:$rhs, f64:$tval, f64:$fval, SETUGT)),
           (SELECT_F8 (CRANDC $lhs, $rhs), $tval, $fval)>;
 def : Pat<(f64 (selectcc i1:$lhs, i1:$rhs, f64:$tval, f64:$fval, SETNE)),
           (SELECT_F8 (CRXOR $lhs, $rhs), $tval, $fval)>;
 
 def : Pat<(v4i32 (selectcc i1:$lhs, i1:$rhs, v4i32:$tval, v4i32:$fval, SETLT)),
+          (SELECT_VRRC (CRANDC $lhs, $rhs), $tval, $fval)>;
+def : Pat<(v4i32 (selectcc i1:$lhs, i1:$rhs, v4i32:$tval, v4i32:$fval, SETULT)),
           (SELECT_VRRC (CRANDC $rhs, $lhs), $tval, $fval)>;
 def : Pat<(v4i32 (selectcc i1:$lhs, i1:$rhs, v4i32:$tval, v4i32:$fval, SETLE)),
+          (SELECT_VRRC (CRORC  $lhs, $rhs), $tval, $fval)>;
+def : Pat<(v4i32 (selectcc i1:$lhs, i1:$rhs, v4i32:$tval, v4i32:$fval, SETULE)),
           (SELECT_VRRC (CRORC  $rhs, $lhs), $tval, $fval)>;
 def : Pat<(v4i32 (selectcc i1:$lhs, i1:$rhs, v4i32:$tval, v4i32:$fval, SETEQ)),
           (SELECT_VRRC (CREQV $lhs, $rhs), $tval, $fval)>;
 def : Pat<(v4i32 (selectcc i1:$lhs, i1:$rhs, v4i32:$tval, v4i32:$fval, SETGE)),
+          (SELECT_VRRC (CRORC  $rhs, $lhs), $tval, $fval)>;
+def : Pat<(v4i32 (selectcc i1:$lhs, i1:$rhs, v4i32:$tval, v4i32:$fval, SETUGE)),
           (SELECT_VRRC (CRORC  $lhs, $rhs), $tval, $fval)>;
 def : Pat<(v4i32 (selectcc i1:$lhs, i1:$rhs, v4i32:$tval, v4i32:$fval, SETGT)),
+          (SELECT_VRRC (CRANDC $rhs, $lhs), $tval, $fval)>;
+def : Pat<(v4i32 (selectcc i1:$lhs, i1:$rhs, v4i32:$tval, v4i32:$fval, SETUGT)),
           (SELECT_VRRC (CRANDC $lhs, $rhs), $tval, $fval)>;
 def : Pat<(v4i32 (selectcc i1:$lhs, i1:$rhs, v4i32:$tval, v4i32:$fval, SETNE)),
           (SELECT_VRRC (CRXOR $lhs, $rhs), $tval, $fval)>;
@@ -3476,7 +3634,7 @@ class PPCAsmPseudo<string asm, dag iops>
 def : InstAlias<"sc", (SC 0)>;
 
 def : InstAlias<"sync", (SYNC 0)>, Requires<[HasSYNC]>;
-def : InstAlias<"msync", (SYNC 0)>, Requires<[HasSYNC]>;
+def : InstAlias<"msync", (SYNC 0), 0>, Requires<[HasSYNC]>;
 def : InstAlias<"lwsync", (SYNC 1)>, Requires<[HasSYNC]>;
 def : InstAlias<"ptesync", (SYNC 2)>, Requires<[HasSYNC]>;
 
@@ -3485,6 +3643,17 @@ def : InstAlias<"waitrsv", (WAIT 1)>;
 def : InstAlias<"waitimpl", (WAIT 2)>;
 
 def : InstAlias<"mbar", (MBAR 0)>, Requires<[IsBookE]>;
+
+def DCBTx   : PPCAsmPseudo<"dcbt $dst", (ins memrr:$dst)>;
+def DCBTSTx : PPCAsmPseudo<"dcbtst $dst", (ins memrr:$dst)>;
+
+def DCBTCT : PPCAsmPseudo<"dcbtct $dst, $TH", (ins memrr:$dst, u5imm:$TH)>;
+def DCBTDS : PPCAsmPseudo<"dcbtds $dst, $TH", (ins memrr:$dst, u5imm:$TH)>;
+def DCBTT  : PPCAsmPseudo<"dcbtt $dst", (ins memrr:$dst)>;
+
+def DCBTSTCT : PPCAsmPseudo<"dcbtstct $dst, $TH", (ins memrr:$dst, u5imm:$TH)>;
+def DCBTSTDS : PPCAsmPseudo<"dcbtstds $dst, $TH", (ins memrr:$dst, u5imm:$TH)>;
+def DCBTSTT  : PPCAsmPseudo<"dcbtstt $dst", (ins memrr:$dst)>;
 
 def : InstAlias<"crset $bx", (CREQV crbitrc:$bx, crbitrc:$bx, crbitrc:$bx)>;
 def : InstAlias<"crclr $bx", (CRXOR crbitrc:$bx, crbitrc:$bx, crbitrc:$bx)>;
@@ -3718,8 +3887,11 @@ def : InstAlias<"rotlw. $rA, $rS, $rB", (RLWNMo gprc:$rA, gprc:$rS, gprc:$rB, 0,
 def : InstAlias<"clrlwi $rA, $rS, $n", (RLWINM gprc:$rA, gprc:$rS, 0, u5imm:$n, 31)>;
 def : InstAlias<"clrlwi. $rA, $rS, $n", (RLWINMo gprc:$rA, gprc:$rS, 0, u5imm:$n, 31)>;
 
-def : InstAlias<"cntlz $rA, $rS", (CNTLZW gprc:$rA, gprc:$rS)>;
-def : InstAlias<"cntlz. $rA, $rS", (CNTLZWo gprc:$rA, gprc:$rS)>;
+def : InstAlias<"cntlzw $rA, $rS", (CNTLZW gprc:$rA, gprc:$rS)>;
+def : InstAlias<"cntlzw. $rA, $rS", (CNTLZWo gprc:$rA, gprc:$rS)>;
+// The POWER variant
+def : MnemonicAlias<"cntlz",  "cntlzw">;
+def : MnemonicAlias<"cntlz.", "cntlzw.">;
 
 def EXTLDI : PPCAsmPseudo<"extldi $rA, $rS, $n, $b",
                           (ins g8rc:$rA, g8rc:$rS, u6imm:$n, u6imm:$b)>;

@@ -17,12 +17,9 @@
 package com.android.server.wifi;
 
 import android.content.Context;
-import android.net.wifi.ScanResult;
-import android.net.wifi.WifiScanner;
 import android.util.Log;
-import com.android.server.SystemService;
 
-import java.util.List;
+import com.android.server.SystemService;
 
 public final class WifiService extends SystemService {
 
@@ -45,5 +42,10 @@ public final class WifiService extends SystemService {
         if (phase == SystemService.PHASE_SYSTEM_SERVICES_READY) {
             mImpl.checkAndStartWifi();
         }
+    }
+
+    @Override
+    public void onSwitchUser(int userId) {
+        mImpl.handleUserSwitch(userId);
     }
 }

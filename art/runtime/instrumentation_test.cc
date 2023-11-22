@@ -20,6 +20,7 @@
 #include "common_throws.h"
 #include "class_linker-inl.h"
 #include "dex_file.h"
+#include "gc/scoped_gc_critical_section.h"
 #include "handle_scope-inl.h"
 #include "jvalue.h"
 #include "runtime.h"
@@ -36,7 +37,8 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
     : received_method_enter_event(false), received_method_exit_event(false),
       received_method_unwind_event(false), received_dex_pc_moved_event(false),
       received_field_read_event(false), received_field_written_event(false),
-      received_exception_caught_event(false), received_backward_branch_event(false) {}
+      received_exception_caught_event(false), received_branch_event(false),
+      received_invoke_virtual_or_interface_event(false) {}
 
   virtual ~TestInstrumentationListener() {}
 
@@ -44,7 +46,7 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
                      mirror::Object* this_object ATTRIBUTE_UNUSED,
                      ArtMethod* method ATTRIBUTE_UNUSED,
                      uint32_t dex_pc ATTRIBUTE_UNUSED)
-      OVERRIDE SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      OVERRIDE SHARED_REQUIRES(Locks::mutator_lock_) {
     received_method_enter_event = true;
   }
 
@@ -53,7 +55,7 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
                     ArtMethod* method ATTRIBUTE_UNUSED,
                     uint32_t dex_pc ATTRIBUTE_UNUSED,
                     const JValue& return_value ATTRIBUTE_UNUSED)
-      OVERRIDE SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      OVERRIDE SHARED_REQUIRES(Locks::mutator_lock_) {
     received_method_exit_event = true;
   }
 
@@ -61,7 +63,7 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
                     mirror::Object* this_object ATTRIBUTE_UNUSED,
                     ArtMethod* method ATTRIBUTE_UNUSED,
                     uint32_t dex_pc ATTRIBUTE_UNUSED)
-      OVERRIDE SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      OVERRIDE SHARED_REQUIRES(Locks::mutator_lock_) {
     received_method_unwind_event = true;
   }
 
@@ -69,7 +71,7 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
                   mirror::Object* this_object ATTRIBUTE_UNUSED,
                   ArtMethod* method ATTRIBUTE_UNUSED,
                   uint32_t new_dex_pc ATTRIBUTE_UNUSED)
-      OVERRIDE SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      OVERRIDE SHARED_REQUIRES(Locks::mutator_lock_) {
     received_dex_pc_moved_event = true;
   }
 
@@ -78,7 +80,7 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
                  ArtMethod* method ATTRIBUTE_UNUSED,
                  uint32_t dex_pc ATTRIBUTE_UNUSED,
                  ArtField* field ATTRIBUTE_UNUSED)
-      OVERRIDE SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      OVERRIDE SHARED_REQUIRES(Locks::mutator_lock_) {
     received_field_read_event = true;
   }
 
@@ -88,21 +90,31 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
                     uint32_t dex_pc ATTRIBUTE_UNUSED,
                     ArtField* field ATTRIBUTE_UNUSED,
                     const JValue& field_value ATTRIBUTE_UNUSED)
-      OVERRIDE SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      OVERRIDE SHARED_REQUIRES(Locks::mutator_lock_) {
     received_field_written_event = true;
   }
 
   void ExceptionCaught(Thread* thread ATTRIBUTE_UNUSED,
                        mirror::Throwable* exception_object ATTRIBUTE_UNUSED)
-      OVERRIDE SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      OVERRIDE SHARED_REQUIRES(Locks::mutator_lock_) {
     received_exception_caught_event = true;
   }
 
-  void BackwardBranch(Thread* thread ATTRIBUTE_UNUSED,
-                      ArtMethod* method ATTRIBUTE_UNUSED,
-                      int32_t dex_pc_offset ATTRIBUTE_UNUSED)
-      OVERRIDE SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-    received_backward_branch_event = true;
+  void Branch(Thread* thread ATTRIBUTE_UNUSED,
+              ArtMethod* method ATTRIBUTE_UNUSED,
+              uint32_t dex_pc ATTRIBUTE_UNUSED,
+              int32_t dex_pc_offset ATTRIBUTE_UNUSED)
+      OVERRIDE SHARED_REQUIRES(Locks::mutator_lock_) {
+    received_branch_event = true;
+  }
+
+  void InvokeVirtualOrInterface(Thread* thread ATTRIBUTE_UNUSED,
+                                mirror::Object* this_object ATTRIBUTE_UNUSED,
+                                ArtMethod* caller ATTRIBUTE_UNUSED,
+                                uint32_t dex_pc ATTRIBUTE_UNUSED,
+                                ArtMethod* callee ATTRIBUTE_UNUSED)
+      OVERRIDE SHARED_REQUIRES(Locks::mutator_lock_) {
+    received_invoke_virtual_or_interface_event = true;
   }
 
   void Reset() {
@@ -113,7 +125,8 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
     received_field_read_event = false;
     received_field_written_event = false;
     received_exception_caught_event = false;
-    received_backward_branch_event = false;
+    received_branch_event = false;
+    received_invoke_virtual_or_interface_event = false;
   }
 
   bool received_method_enter_event;
@@ -123,7 +136,8 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
   bool received_field_read_event;
   bool received_field_written_event;
   bool received_exception_caught_event;
-  bool received_backward_branch_event;
+  bool received_branch_event;
+  bool received_invoke_virtual_or_interface_event;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(TestInstrumentationListener);
@@ -138,14 +152,12 @@ class InstrumentationTest : public CommonRuntimeTest {
   void CheckConfigureStubs(const char* key, Instrumentation::InstrumentationLevel level) {
     ScopedObjectAccess soa(Thread::Current());
     instrumentation::Instrumentation* instr = Runtime::Current()->GetInstrumentation();
-    {
-      soa.Self()->TransitionFromRunnableToSuspended(kSuspended);
-      Runtime* runtime = Runtime::Current();
-      runtime->GetThreadList()->SuspendAll("Instrumentation::ConfigureStubs");
-      instr->ConfigureStubs(key, level);
-      runtime->GetThreadList()->ResumeAll();
-      soa.Self()->TransitionFromSuspendedToRunnable();
-    }
+    ScopedThreadSuspension sts(soa.Self(), kSuspended);
+    gc::ScopedGCCriticalSection gcs(soa.Self(),
+                                    gc::kGcCauseInstrumentation,
+                                    gc::kCollectorTypeInstrumentation);
+    ScopedSuspendAll ssa("Instrumentation::ConfigureStubs");
+    instr->ConfigureStubs(key, level);
   }
 
   Instrumentation::InstrumentationLevel GetCurrentInstrumentationLevel() {
@@ -162,12 +174,9 @@ class InstrumentationTest : public CommonRuntimeTest {
     instrumentation::Instrumentation* instr = Runtime::Current()->GetInstrumentation();
     TestInstrumentationListener listener;
     {
-      soa.Self()->TransitionFromRunnableToSuspended(kSuspended);
-      Runtime* runtime = Runtime::Current();
-      runtime->GetThreadList()->SuspendAll("Add instrumentation listener");
+      ScopedThreadSuspension sts(soa.Self(), kSuspended);
+      ScopedSuspendAll ssa("Add instrumentation listener");
       instr->AddListener(&listener, instrumentation_event);
-      runtime->GetThreadList()->ResumeAll();
-      soa.Self()->TransitionFromSuspendedToRunnable();
     }
 
     ArtMethod* const event_method = nullptr;
@@ -182,12 +191,9 @@ class InstrumentationTest : public CommonRuntimeTest {
 
     listener.Reset();
     {
-      soa.Self()->TransitionFromRunnableToSuspended(kSuspended);
-      Runtime* runtime = Runtime::Current();
-      runtime->GetThreadList()->SuspendAll("Remove instrumentation listener");
+      ScopedThreadSuspension sts(soa.Self(), kSuspended);
+      ScopedSuspendAll ssa("Remove instrumentation listener");
       instr->RemoveListener(&listener, instrumentation_event);
-      runtime->GetThreadList()->ResumeAll();
-      soa.Self()->TransitionFromSuspendedToRunnable();
     }
 
     // Check the listener is not registered and is not notified of the event.
@@ -198,87 +204,93 @@ class InstrumentationTest : public CommonRuntimeTest {
   }
 
   void DeoptimizeMethod(Thread* self, ArtMethod* method, bool enable_deoptimization)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     Runtime* runtime = Runtime::Current();
     instrumentation::Instrumentation* instrumentation = runtime->GetInstrumentation();
-    self->TransitionFromRunnableToSuspended(kSuspended);
-    runtime->GetThreadList()->SuspendAll("Single method deoptimization");
+    ScopedThreadSuspension sts(self, kSuspended);
+    gc::ScopedGCCriticalSection gcs(self,
+                                    gc::kGcCauseInstrumentation,
+                                    gc::kCollectorTypeInstrumentation);
+    ScopedSuspendAll ssa("Single method deoptimization");
     if (enable_deoptimization) {
       instrumentation->EnableDeoptimization();
     }
     instrumentation->Deoptimize(method);
-    runtime->GetThreadList()->ResumeAll();
-    self->TransitionFromSuspendedToRunnable();
   }
 
   void UndeoptimizeMethod(Thread* self, ArtMethod* method,
                           const char* key, bool disable_deoptimization)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     Runtime* runtime = Runtime::Current();
     instrumentation::Instrumentation* instrumentation = runtime->GetInstrumentation();
-    self->TransitionFromRunnableToSuspended(kSuspended);
-    runtime->GetThreadList()->SuspendAll("Single method undeoptimization");
+    ScopedThreadSuspension sts(self, kSuspended);
+    gc::ScopedGCCriticalSection gcs(self,
+                                    gc::kGcCauseInstrumentation,
+                                    gc::kCollectorTypeInstrumentation);
+    ScopedSuspendAll ssa("Single method undeoptimization");
     instrumentation->Undeoptimize(method);
     if (disable_deoptimization) {
       instrumentation->DisableDeoptimization(key);
     }
-    runtime->GetThreadList()->ResumeAll();
-    self->TransitionFromSuspendedToRunnable();
   }
 
   void DeoptimizeEverything(Thread* self, const char* key, bool enable_deoptimization)
-        SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+        SHARED_REQUIRES(Locks::mutator_lock_) {
     Runtime* runtime = Runtime::Current();
     instrumentation::Instrumentation* instrumentation = runtime->GetInstrumentation();
-    self->TransitionFromRunnableToSuspended(kSuspended);
-    runtime->GetThreadList()->SuspendAll("Full deoptimization");
+    ScopedThreadSuspension sts(self, kSuspended);
+    gc::ScopedGCCriticalSection gcs(self,
+                                    gc::kGcCauseInstrumentation,
+                                    gc::kCollectorTypeInstrumentation);
+    ScopedSuspendAll ssa("Full deoptimization");
     if (enable_deoptimization) {
       instrumentation->EnableDeoptimization();
     }
     instrumentation->DeoptimizeEverything(key);
-    runtime->GetThreadList()->ResumeAll();
-    self->TransitionFromSuspendedToRunnable();
   }
 
   void UndeoptimizeEverything(Thread* self, const char* key, bool disable_deoptimization)
-        SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+        SHARED_REQUIRES(Locks::mutator_lock_) {
     Runtime* runtime = Runtime::Current();
     instrumentation::Instrumentation* instrumentation = runtime->GetInstrumentation();
-    self->TransitionFromRunnableToSuspended(kSuspended);
-    runtime->GetThreadList()->SuspendAll("Full undeoptimization");
+    ScopedThreadSuspension sts(self, kSuspended);
+    gc::ScopedGCCriticalSection gcs(self,
+                                    gc::kGcCauseInstrumentation,
+                                    gc::kCollectorTypeInstrumentation);
+    ScopedSuspendAll ssa("Full undeoptimization");
     instrumentation->UndeoptimizeEverything(key);
     if (disable_deoptimization) {
       instrumentation->DisableDeoptimization(key);
     }
-    runtime->GetThreadList()->ResumeAll();
-    self->TransitionFromSuspendedToRunnable();
   }
 
   void EnableMethodTracing(Thread* self, const char* key, bool needs_interpreter)
-        SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+        SHARED_REQUIRES(Locks::mutator_lock_) {
     Runtime* runtime = Runtime::Current();
     instrumentation::Instrumentation* instrumentation = runtime->GetInstrumentation();
-    self->TransitionFromRunnableToSuspended(kSuspended);
-    runtime->GetThreadList()->SuspendAll("EnableMethodTracing");
+    ScopedThreadSuspension sts(self, kSuspended);
+    gc::ScopedGCCriticalSection gcs(self,
+                                    gc::kGcCauseInstrumentation,
+                                    gc::kCollectorTypeInstrumentation);
+    ScopedSuspendAll ssa("EnableMethodTracing");
     instrumentation->EnableMethodTracing(key, needs_interpreter);
-    runtime->GetThreadList()->ResumeAll();
-    self->TransitionFromSuspendedToRunnable();
   }
 
   void DisableMethodTracing(Thread* self, const char* key)
-        SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+        SHARED_REQUIRES(Locks::mutator_lock_) {
     Runtime* runtime = Runtime::Current();
     instrumentation::Instrumentation* instrumentation = runtime->GetInstrumentation();
-    self->TransitionFromRunnableToSuspended(kSuspended);
-    runtime->GetThreadList()->SuspendAll("EnableMethodTracing");
+    ScopedThreadSuspension sts(self, kSuspended);
+    gc::ScopedGCCriticalSection gcs(self,
+                                    gc::kGcCauseInstrumentation,
+                                    gc::kCollectorTypeInstrumentation);
+    ScopedSuspendAll ssa("EnableMethodTracing");
     instrumentation->DisableMethodTracing(key);
-    runtime->GetThreadList()->ResumeAll();
-    self->TransitionFromSuspendedToRunnable();
   }
 
  private:
   static bool HasEventListener(const instrumentation::Instrumentation* instr, uint32_t event_type)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     switch (event_type) {
       case instrumentation::Instrumentation::kMethodEntered:
         return instr->HasMethodEntryListeners();
@@ -294,8 +306,10 @@ class InstrumentationTest : public CommonRuntimeTest {
         return instr->HasFieldWriteListeners();
       case instrumentation::Instrumentation::kExceptionCaught:
         return instr->HasExceptionCaughtListeners();
-      case instrumentation::Instrumentation::kBackwardBranch:
-        return instr->HasBackwardBranchListeners();
+      case instrumentation::Instrumentation::kBranch:
+        return instr->HasBranchListeners();
+      case instrumentation::Instrumentation::kInvokeVirtualOrInterface:
+        return instr->HasInvokeVirtualOrInterfaceListeners();
       default:
         LOG(FATAL) << "Unknown instrumentation event " << event_type;
         UNREACHABLE();
@@ -305,7 +319,7 @@ class InstrumentationTest : public CommonRuntimeTest {
   static void ReportEvent(const instrumentation::Instrumentation* instr, uint32_t event_type,
                           Thread* self, ArtMethod* method, mirror::Object* obj,
                           uint32_t dex_pc)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     switch (event_type) {
       case instrumentation::Instrumentation::kMethodEntered:
         instr->MethodEnterEvent(self, obj, method, dex_pc);
@@ -336,8 +350,11 @@ class InstrumentationTest : public CommonRuntimeTest {
         self->ClearException();
         break;
       }
-      case instrumentation::Instrumentation::kBackwardBranch:
-        instr->BackwardBranch(self, method, dex_pc);
+      case instrumentation::Instrumentation::kBranch:
+        instr->Branch(self, method, dex_pc, -1);
+        break;
+      case instrumentation::Instrumentation::kInvokeVirtualOrInterface:
+        instr->InvokeVirtualOrInterface(self, obj, method, dex_pc, method);
         break;
       default:
         LOG(FATAL) << "Unknown instrumentation event " << event_type;
@@ -362,8 +379,10 @@ class InstrumentationTest : public CommonRuntimeTest {
         return listener.received_field_written_event;
       case instrumentation::Instrumentation::kExceptionCaught:
         return listener.received_exception_caught_event;
-      case instrumentation::Instrumentation::kBackwardBranch:
-        return listener.received_backward_branch_event;
+      case instrumentation::Instrumentation::kBranch:
+        return listener.received_branch_event;
+      case instrumentation::Instrumentation::kInvokeVirtualOrInterface:
+        return listener.received_invoke_virtual_or_interface_event;
       default:
         LOG(FATAL) << "Unknown instrumentation event " << event_type;
         UNREACHABLE();
@@ -423,8 +442,12 @@ TEST_F(InstrumentationTest, ExceptionCaughtEvent) {
   TestEvent(instrumentation::Instrumentation::kExceptionCaught);
 }
 
-TEST_F(InstrumentationTest, BackwardBranchEvent) {
-  TestEvent(instrumentation::Instrumentation::kBackwardBranch);
+TEST_F(InstrumentationTest, BranchEvent) {
+  TestEvent(instrumentation::Instrumentation::kBranch);
+}
+
+TEST_F(InstrumentationTest, InvokeVirtualOrInterfaceEvent) {
+  TestEvent(instrumentation::Instrumentation::kInvokeVirtualOrInterface);
 }
 
 TEST_F(InstrumentationTest, DeoptimizeDirectMethod) {

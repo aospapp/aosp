@@ -23,25 +23,20 @@ class GrCoverageSetOpXPFactory : public GrXPFactory {
 public:
     static GrXPFactory* Create(SkRegion::Op regionOp, bool invertCoverage = false);
 
-    bool supportsRGBCoverage(GrColor /*knownColor*/,
-                             uint32_t /*knownColorFlags*/) const override {
-        return true;
-    }
-
-    void getInvariantOutput(const GrProcOptInfo& colorPOI, const GrProcOptInfo& coveragePOI,
-                            GrXPFactory::InvariantOutput*) const override;
+    void getInvariantBlendedColor(const GrProcOptInfo& colorPOI,
+                                  GrXPFactory::InvariantBlendedColor*) const override;
 
 private:
     GrCoverageSetOpXPFactory(SkRegion::Op regionOp, bool invertCoverage);
 
-    GrXferProcessor* onCreateXferProcessor(const GrDrawTargetCaps& caps,
-                                           const GrProcOptInfo& colorPOI,
-                                           const GrProcOptInfo& coveragePOI,
-                                           const GrDeviceCoordTexture* dstCopy) const override;
+    GrXferProcessor* onCreateXferProcessor(const GrCaps& caps,
+                                           const GrPipelineOptimizations& optimizations,
+                                           bool hasMixedSamples,
+                                           const DstTexture*) const override;
 
-    bool willReadDstColor(const GrDrawTargetCaps& /*caps*/,
-                          const GrProcOptInfo& /*colorPOI*/,
-                          const GrProcOptInfo& /*coveragePOI*/) const override {
+    bool onWillReadDstColor(const GrCaps& /*caps*/,
+                            const GrPipelineOptimizations& /*optimizations*/,
+                            bool /*hasMixedSamples*/) const override {
         return false;
     }
 

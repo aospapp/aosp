@@ -37,6 +37,7 @@ LOCAL_SRC_FILES := \
     ../../common/devices/PhysicalDevice.cpp \
     ../../common/devices/PrimaryDevice.cpp \
     ../../common/devices/ExternalDevice.cpp \
+    ../../common/devices/VirtualDevice.cpp \
     ../../common/observers/UeventObserver.cpp \
     ../../common/observers/VsyncEventObserver.cpp \
     ../../common/observers/SoftVsyncObserver.cpp \
@@ -118,13 +119,9 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := hwcomposer.$(TARGET_BOARD_PLATFORM)
 LOCAL_CFLAGS += -DLINUX
 
-#$(error local path is: $(LOCAL_C_INCLUDES))
-ifeq ($(INTEL_WIDI_MERRIFIELD), true)
-LOCAL_SRC_FILES += \
-    ../../common/devices/VirtualDevice.cpp
-
+ifeq ($(INTEL_WIDI), true)
    LOCAL_SHARED_LIBRARIES += libhwcwidi libbinder
-   LOCAL_CFLAGS += -DINTEL_WIDI_MERRIFIELD
+   LOCAL_CFLAGS += -DINTEL_WIDI
 endif
 
 ifeq ($(TARGET_HAS_MULTIPLE_DISPLAY),true)
@@ -132,7 +129,9 @@ ifeq ($(TARGET_HAS_MULTIPLE_DISPLAY),true)
    LOCAL_CFLAGS += -DTARGET_HAS_MULTIPLE_DISPLAY
 endif
 
-LOCAL_COPY_HEADERS := ../../include/pvr/hal/hal_public.h
+LOCAL_COPY_HEADERS := \
+    ../../include/pvr/hal/hal_public.h \
+    ../../include/pvr/hal/img_gralloc_public.h
 LOCAL_COPY_HEADERS_TO := pvr/hal
 
 ifneq ($(TARGET_BUILD_VARIANT),user)

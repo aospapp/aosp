@@ -49,6 +49,14 @@ public class NavTree {
       ClearPage.write(data, "gms_navtree_data.cs", "gms_navtree_data.js");
     } else if (refPrefix == "gcm-"){
       ClearPage.write(data, "gcm_navtree_data.cs", "gcm_navtree_data.js");
+    } else if ((Doclava.USE_DEVSITE_LOCALE_OUTPUT_PATHS)
+          && (Doclava.testSupportRef)){
+        ClearPage.write(data, "navtree_data.cs", dir + Doclava.testSupportPath
+          + "navtree_data.js");
+    } else if ((Doclava.USE_DEVSITE_LOCALE_OUTPUT_PATHS)
+          && (Doclava.wearableSupportRef)){
+        ClearPage.write(data, "navtree_data.cs", dir + Doclava.wearableSupportPath
+          + "navtree_data.js");
     } else {
       ClearPage.write(data, "navtree_data.cs", "navtree_data.js");
     }
@@ -80,6 +88,11 @@ public class NavTree {
     }
 
     data = makeYamlHDF(sorted, "docs.pages", data);
+    if ((Doclava.USE_DEVSITE_LOCALE_OUTPUT_PATHS) && (Doclava.testSupportRef)) {
+      dir = Doclava.ensureSlash(dir) + Doclava.testSupportPath;
+    } else if ((Doclava.USE_DEVSITE_LOCALE_OUTPUT_PATHS) && (Doclava.wearableSupportRef)) {
+      dir = Doclava.ensureSlash(dir) + Doclava.wearableSupportPath;
+    }
     ClearPage.write(data, "yaml_navtree.cs", Doclava.ensureSlash(dir) + fileName);
   }
 
@@ -96,6 +109,7 @@ public class NavTree {
         data.setValue("docs.pages." + i + ".id", "" + i);
         data.setValue("docs.pages." + i + ".label", pkg.name());
         data.setValue("docs.pages." + i + ".shortname", "API");
+        data.setValue("docs.pages." + i + ".apilevel", pkg.getSince());
         data.setValue("docs.pages." + i + ".link", pkg.htmlPage());
         data.setValue("docs.pages." + i + ".type", "package");
       } else if (o instanceof ClassInfo) {

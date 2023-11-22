@@ -46,8 +46,7 @@ include:
 end:
 
 function: rsExtractFrustumPlanes
-# TODO Why always_inline?
-attrib: always_inline
+version: 9 23
 ret: void
 arg: const rs_matrix4x4* viewProj, "Matrix to extract planes from."
 arg: float4* left, "Left plane."
@@ -106,7 +105,22 @@ inline:
 test: none
 end:
 
+# New version. Same signature but doesn't contain a body.
+function: rsExtractFrustumPlanes
+version: 24
+ret: void
+arg: const rs_matrix4x4* viewProj
+arg: float4* left
+arg: float4* righ
+arg: float4* top
+arg: float4* bottom
+arg: float4* near
+arg: float4* far
+test: none
+end:
+
 function: rsIsSphereInFrustum
+version: 9 23
 attrib: always_inline
 ret: bool
 arg: float4* sphere, "float4 representing the sphere."
@@ -145,6 +159,20 @@ inline:
      return false;
  }
  return true;
+test: none
+end:
+
+# New version. Same signature but doesn't contain a body.
+function: rsIsSphereInFrustum
+version: 24
+ret: bool
+arg: float4* sphere
+arg: float4* left
+arg: float4* right
+arg: float4* top
+arg: float4* bottom
+arg: float4* near
+arg: float4* far
 test: none
 end:
 

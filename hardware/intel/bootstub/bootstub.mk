@@ -44,17 +44,17 @@ $(LOCAL_BUILT_MODULE): $(all_objects)
 		-o $(PRIVATE_ELF_FILE)
 	$(hide) $(TARGET_OBJCOPY) -O binary -R .note -R .comment -S $(PRIVATE_ELF_FILE) $@
 
-# Then assemble the final bootstub file
-
-bootstub_full := $(PRODUCT_OUT)/$(BOOTSTUB_BINARY)
-$(BOOTSTUB_BINARY)_CHECK_BOOTSTUB_SIZE : $(LOCAL_BUILT_MODULE)
+$(LOCAL_BUILT_MODULE).size_check: $(LOCAL_BUILT_MODULE)
 	$(hide) ACTUAL_SIZE=`$(call get-file-size,$<)`; \
 	if [ "$$ACTUAL_SIZE" -gt "$(BOOTSTUB_SIZE)" ]; then \
 		echo "$<: $$ACTUAL_SIZE exceeds size limit of $(BOOTSTUB_SIZE) bytes, aborting."; \
 		exit 1; \
 	fi
+	$(hide) touch $@
 
-$(bootstub_full) : $(LOCAL_BUILT_MODULE) $(BOOTSTUB_BINARY)_CHECK_BOOTSTUB_SIZE
+# Then assemble the final bootstub file
+bootstub_full := $(PRODUCT_OUT)/$(BOOTSTUB_BINARY)
+$(bootstub_full) : $(LOCAL_BUILT_MODULE) $(LOCAL_BUILT_MODULE).size_check
 	@echo "Generating bootstub: $@"
 	$(hide) cat $< /dev/zero | dd bs=$(BOOTSTUB_SIZE) count=1 > $@
 

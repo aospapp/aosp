@@ -140,158 +140,36 @@ typedef enum {
 /* Extended Structures                                                       */
 /*****************************************************************************/
 
+
 /*****************************************************************************/
-/*  Get Number of Memory Records                                             */
+/*  Delete Codec                                                             */
 /*****************************************************************************/
+
+typedef struct {
+    ivd_delete_ip_t               s_ivd_delete_ip_t;
+}ihevcd_cxa_delete_ip_t;
 
 
 typedef struct {
-
-    /**
-     * ivd_num_mem_rec_ip_t
-     */
-    iv_num_mem_rec_ip_t                    s_ivd_num_mem_rec_ip_t;
-}ihevcd_cxa_num_mem_rec_ip_t;
-
-
-typedef struct {
-
-    /**
-     * ivd_num_mem_rec_op_t
-     */
-    iv_num_mem_rec_op_t                    s_ivd_num_mem_rec_op_t;
-}ihevcd_cxa_num_mem_rec_op_t;
-
-
-/*****************************************************************************/
-/*  Fill Memory Records                                                      */
-/*****************************************************************************/
-
-
-typedef struct {
-    /**
-     * ivd_fill_mem_rec_ip_t
-     */
-    iv_fill_mem_rec_ip_t                    s_ivd_fill_mem_rec_ip_t;
-
-    /**
-     * level
-     */
-    WORD32                                  i4_level;
-
-    /**
-     * num_reorder_frames
-     */
-    UWORD32                                 u4_num_reorder_frames;
-
-    /**
-     * num_ref_frames
-     */
-    UWORD32                                 u4_num_ref_frames;
-
-    /**
-     * share_disp_buf
-     */
-    UWORD32                                 u4_share_disp_buf;
-
-    /**
-     * format in which codec has to give out frame data for display
-     */
-    IV_COLOR_FORMAT_T                       e_output_format;
-
-    /**
-     * Number of extra display buffers that will be allocated to handle display pipeline depth
-     */
-    UWORD32                                 u4_num_extra_disp_buf;
-
-}ihevcd_cxa_fill_mem_rec_ip_t;
-
-
-typedef struct {
-
-    /**
-     * ivd_fill_mem_rec_op_t
-     */
-
-    iv_fill_mem_rec_op_t                   s_ivd_fill_mem_rec_op_t;
-
-}ihevcd_cxa_fill_mem_rec_op_t;
-
-/*****************************************************************************/
-/*  Retrieve Memory Records                                                  */
-/*****************************************************************************/
-
-
-typedef struct {
-
-    /**
-     * ivd_retrieve_mem_rec_ip_t
-     */
-    iv_retrieve_mem_rec_ip_t               s_ivd_retrieve_mem_rec_ip_t;
-}ihevcd_cxa_retrieve_mem_rec_ip_t;
-
-
-typedef struct {
-
-    /**
-     * ivd_retrieve_mem_rec_op_t
-     */
-    iv_retrieve_mem_rec_op_t               s_ivd_retrieve_mem_rec_op_t;
-}ihevcd_cxa_retrieve_mem_rec_op_t;
-
+    ivd_delete_op_t               s_ivd_delete_op_t;
+}ihevcd_cxa_delete_op_t;
 
 /*****************************************************************************/
 /*   Initialize decoder                                                      */
 /*****************************************************************************/
 
-
 typedef struct {
-
-    /**
-     * ivd_init_ip_t
-     */
-    ivd_init_ip_t                           s_ivd_init_ip_t;
-
-    /**
-     * level
-     */
-    WORD32                                  i4_level;
-
-    /**
-     * num_reorder_frames
-     */
-    UWORD32                                 u4_num_reorder_frames;
-
-    /**
-     * num_ref_frames
-     */
-    UWORD32                                 u4_num_ref_frames;
-
-    /**
-     * share_disp_buf
-     */
-    UWORD32                                 u4_share_disp_buf;
-
-    /**
-     * Number of extra display buffers that will be allocated to handle display pipeline depth
-     */
-    UWORD32                                 u4_num_extra_disp_buf;
-}ihevcd_cxa_init_ip_t;
+    ivd_create_ip_t                         s_ivd_create_ip_t;
+}ihevcd_cxa_create_ip_t;
 
 
 typedef struct {
-
-    /**
-     * ivd_init_op_t
-     */
-    ivd_init_op_t                           s_ivd_init_op_t;
-}ihevcd_cxa_init_op_t;
-
+    ivd_create_op_t                         s_ivd_create_op_t;
+}ihevcd_cxa_create_op_t;
 
 /*****************************************************************************/
 /*   Video Decode                                                            */
 /*****************************************************************************/
-
 
 typedef struct {
 
@@ -314,7 +192,6 @@ typedef struct {
 /*****************************************************************************/
 /*   Get Display Frame                                                       */
 /*****************************************************************************/
-
 
 typedef struct
 {

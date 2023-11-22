@@ -20,7 +20,7 @@
 #include "rsFont.h"
 #include "rsProgramFragment.h"
 #include "rsMesh.h"
-#ifdef HAVE_ANDROID_OS
+#ifdef __ANDROID__
 #include <cutils/properties.h>
 #endif
 
@@ -343,7 +343,7 @@ FontState::FontState() {
     int32_t blackThreshold = DEFAULT_TEXT_BLACK_GAMMA_THRESHOLD;
     int32_t whiteThreshold = DEFAULT_TEXT_WHITE_GAMMA_THRESHOLD;
 
-#ifdef HAVE_ANDROID_OS
+#ifdef __ANDROID__
     // Get the renderer properties
     char property[PROPERTY_VALUE_MAX];
 

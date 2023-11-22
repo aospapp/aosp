@@ -56,35 +56,36 @@ public class ClearKeySystemTest extends MediaPlayerTestBase {
     private static final String TAG = ClearKeySystemTest.class.getSimpleName();
 
     // Add additional keys here if the content has more keys.
-    private static final byte[] CLEAR_KEY =
+    private static final byte[] CLEAR_KEY_CENC =
         { 0x1a, (byte)0x8a, 0x20, (byte)0x95, (byte)0xe4, (byte)0xde, (byte)0xb2, (byte)0xd2,
           (byte)0x9e, (byte)0xc8, 0x16, (byte)0xac, 0x7b, (byte)0xae, 0x20, (byte)0x82 };
 
-    private static final int SLEEP_TIME_MS = 1000;
-    private static final int VIDEO_WIDTH = 1280;
-    private static final int VIDEO_HEIGHT = 720;
-    private static final long PLAY_TIME_MS = TimeUnit.MILLISECONDS.convert(1, TimeUnit.MINUTES);
-    private static final String MIME_VIDEO_AVC = MediaFormat.MIMETYPE_VIDEO_AVC;
+    private static final byte[] CLEAR_KEY_WEBM = "_CLEAR_KEY_WEBM_".getBytes();
 
-    private static final Uri AUDIO_URL = Uri.parse(
+    private static final int CONNECTION_RETRIES = 10;
+    private static final int SLEEP_TIME_MS = 1000;
+    private static final int VIDEO_WIDTH_CENC = 1280;
+    private static final int VIDEO_HEIGHT_CENC = 720;
+    private static final int VIDEO_WIDTH_WEBM = 320;
+    private static final int VIDEO_HEIGHT_WEBM = 180;
+    private static final long PLAY_TIME_MS = TimeUnit.MILLISECONDS.convert(25, TimeUnit.SECONDS);
+    private static final String MIME_VIDEO_AVC = MediaFormat.MIMETYPE_VIDEO_AVC;
+    private static final String MIME_VIDEO_VP8 = MediaFormat.MIMETYPE_VIDEO_VP8;
+
+    private static final Uri CENC_AUDIO_URL = Uri.parse(
             "http://yt-dash-mse-test.commondatastorage.googleapis.com/media/car_cenc-20120827-8c.mp4");
-    private static final Uri VIDEO_URL = Uri.parse(
+    private static final Uri CENC_VIDEO_URL = Uri.parse(
             "http://yt-dash-mse-test.commondatastorage.googleapis.com/media/car_cenc-20120827-88.mp4");
+    private static final Uri WEBM_URL = Uri.parse(
+            "android.resource://android.media.cts/" + R.raw.video_320x240_webm_vp8_800kbps_30fps_vorbis_stereo_128kbps_44100hz_crypt);
 
     private static final UUID CLEARKEY_SCHEME_UUID =
             new UUID(0x1077efecc0b24d02L, 0xace33c1e52e2fb4bL);
 
     private byte[] mDrmInitData;
     private byte[] mSessionId;
-    private Context mContext;
-    private final List<byte[]> mClearKeys = new ArrayList<byte[]>() {
-        {
-            add(CLEAR_KEY);
-            // add additional keys here
-        }
-    };
     private Looper mLooper;
-    private MediaCodecCencPlayer mMediaCodecPlayer;
+    private MediaCodecClearKeyPlayer mMediaCodecPlayer;
     private MediaDrm mDrm;
     private Object mLock = new Object();
     private SurfaceHolder mSurfaceHolder;
@@ -161,10 +162,11 @@ public class ClearKeySystemTest extends MediaPlayerTestBase {
      * Retrieves clear key ids from getKeyRequest(), create JSON Web Key
      * set and send it to the CDM via provideKeyResponse().
      */
-    private void getKeys(MediaDrm drm, byte[] sessionId, byte[] drmInitData) {
+    private void getKeys(MediaDrm drm, String initDataType,
+            byte[] sessionId, byte[] drmInitData, byte[][] clearKeys) {
         MediaDrm.KeyRequest drmRequest = null;;
         try {
-            drmRequest = drm.getKeyRequest(sessionId, drmInitData, "cenc",
+            drmRequest = drm.getKeyRequest(sessionId, drmInitData, initDataType,
                     MediaDrm.KEY_TYPE_STREAMING, null);
         } catch (Exception e) {
             e.printStackTrace();
@@ -181,16 +183,16 @@ public class ClearKeySystemTest extends MediaPlayerTestBase {
             return;
         }
 
-        if (mClearKeys.size() != keyIds.size()) {
+        if (clearKeys.length != keyIds.size()) {
             Log.e(TAG, "Mismatch number of key ids and keys: ids=" +
-                    keyIds.size() + ", keys=" + mClearKeys.size());
+                    keyIds.size() + ", keys=" + clearKeys.length);
             return;
         }
 
         // Base64 encodes clearkeys. Keys are known to the application.
         Vector<String> keys = new Vector<String>();
-        for (int i = 0; i < mClearKeys.size(); ++i) {
-            String clearKey = Base64.encodeToString(mClearKeys.get(i),
+        for (int i = 0; i < clearKeys.length; ++i) {
+            String clearKey = Base64.encodeToString(clearKeys[i],
                     Base64.NO_PADDING | Base64.NO_WRAP);
             keys.add(clearKey);
         }
@@ -210,7 +212,7 @@ public class ClearKeySystemTest extends MediaPlayerTestBase {
         }
     }
 
-    private MediaDrm startDrm() {
+    private MediaDrm startDrm(final byte[][] clearKeys, final String initDataType) {
         new Thread() {
             @Override
             public void run() {
@@ -235,10 +237,10 @@ public class ClearKeySystemTest extends MediaPlayerTestBase {
                                     int extra, byte[] data) {
                                 if (event == MediaDrm.EVENT_KEY_REQUIRED) {
                                     Log.i(TAG, "MediaDrm event: Key required");
-                                    getKeys(mDrm, mSessionId, mDrmInitData);
+                                    getKeys(mDrm, initDataType, mSessionId, mDrmInitData, clearKeys);
                                 } else if (event == MediaDrm.EVENT_KEY_EXPIRED) {
                                     Log.i(TAG, "MediaDrm event: Key expired");
-                                    getKeys(mDrm, mSessionId, mDrmInitData);
+                                    getKeys(mDrm, initDataType, mSessionId, mDrmInitData, clearKeys);
                                 } else {
                                     Log.e(TAG, "Events not supported" + event);
                                 }
@@ -285,7 +287,8 @@ public class ClearKeySystemTest extends MediaPlayerTestBase {
         drm.closeSession(sessionId);
     }
 
-    public boolean isResolutionSupported(int videoWidth, int videoHeight) {
+    public boolean isResolutionSupported(String mime, String[] features,
+            int videoWidth, int videoHeight) {
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.JELLY_BEAN) {
             if  (videoHeight <= 144) {
                 return CamcorderProfile.hasProfile(CamcorderProfile.QUALITY_QCIF);
@@ -304,10 +307,10 @@ public class ClearKeySystemTest extends MediaPlayerTestBase {
             }
         }
 
-        MediaFormat format = MediaFormat.createVideoFormat(
-                MIME_VIDEO_AVC, videoWidth, videoHeight);
-        // using secure codec even though it is clear key DRM
-        format.setFeatureEnabled(CodecCapabilities.FEATURE_SecurePlayback, true);
+        MediaFormat format = MediaFormat.createVideoFormat(mime, videoWidth, videoHeight);
+        for (String feature: features) {
+            format.setFeatureEnabled(feature, true);
+        }
         MediaCodecList mcl = new MediaCodecList(MediaCodecList.ALL_CODECS);
         if (mcl.findDecoderForFormat(format) == null) {
             Log.i(TAG, "could not find codec for " + format);
@@ -319,9 +322,13 @@ public class ClearKeySystemTest extends MediaPlayerTestBase {
     /**
      * Tests clear key system playback.
      */
-    public void testClearKeyPlayback() throws Exception {
-
-        MediaDrm drm = startDrm();
+    private void testClearKeyPlayback(
+            String videoMime, String[] videoFeatures,
+            String initDataType, byte[][] clearKeys,
+            Uri audioUrl, boolean audioEncrypted,
+            Uri videoUrl, boolean videoEncrypted,
+            int videoWidth, int videoHeight) throws Exception {
+        MediaDrm drm = startDrm(clearKeys, initDataType);
         if (null == drm) {
             throw new Error("Failed to create drm.");
         }
@@ -331,27 +338,48 @@ public class ClearKeySystemTest extends MediaPlayerTestBase {
             throw new Error("Crypto scheme is not supported.");
         }
 
-        if (!isResolutionSupported(VIDEO_WIDTH, VIDEO_HEIGHT)) {
+        if (!isResolutionSupported(videoMime, videoFeatures, videoWidth, videoHeight)) {
             Log.i(TAG, "Device does not support " +
-                    VIDEO_WIDTH + "x" + VIDEO_HEIGHT + "resolution.");
+                    videoWidth + "x" + videoHeight + " resolution for " + videoMime);
             return;
         }
 
-        mSessionId = openSession(drm);
-        mMediaCodecPlayer = new MediaCodecCencPlayer(
-                getActivity().getSurfaceHolder(), mSessionId);
+        IConnectionStatus wifiStatus = new WifiStatus(mContext);
+        if (!wifiStatus.isEnabled()) {
+            throw new Error("Wifi is not enabled, please enable Wifi to run tests.");
+        }
+        // If Wifi is not connected, recheck the status a few times.
+        int retries = 0;
+        while (!wifiStatus.isConnected()) {
+            if (retries++ >= CONNECTION_RETRIES) {
+                wifiStatus.printConnectionInfo();
+                throw new Error("Wifi is not connected, reason: " +
+                        wifiStatus.getNotConnectedReason());
+            }
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+            }
+        }
+        wifiStatus.testConnection(videoUrl);
 
-        mMediaCodecPlayer.setAudioDataSource(AUDIO_URL, null, false);
-        mMediaCodecPlayer.setVideoDataSource(VIDEO_URL, null, true);
+        mSessionId = openSession(drm);
+        mMediaCodecPlayer = new MediaCodecClearKeyPlayer(
+                getActivity().getSurfaceHolder(),
+                mSessionId,
+                mContext.getResources());
+
+        mMediaCodecPlayer.setAudioDataSource(audioUrl, null, audioEncrypted);
+        mMediaCodecPlayer.setVideoDataSource(videoUrl, null, videoEncrypted);
         mMediaCodecPlayer.start();
         mMediaCodecPlayer.prepare();
-        mDrmInitData = mMediaCodecPlayer.getPsshInfo().get(CLEARKEY_SCHEME_UUID);
+        mDrmInitData = mMediaCodecPlayer.getDrmInitData();
 
-        getKeys(mDrm, mSessionId, mDrmInitData);
+        getKeys(mDrm, initDataType, mSessionId, mDrmInitData, clearKeys);
         // starts video playback
         mMediaCodecPlayer.startThread();
 
-        long timeOut = System.currentTimeMillis() + PLAY_TIME_MS * 4;
+        long timeOut = System.currentTimeMillis() + PLAY_TIME_MS;
         while (timeOut > System.currentTimeMillis() && !mMediaCodecPlayer.isEnded()) {
             Thread.sleep(SLEEP_TIME_MS);
             if (mMediaCodecPlayer.getCurrentPosition() >= mMediaCodecPlayer.getDuration() ) {
@@ -365,5 +393,24 @@ public class ClearKeySystemTest extends MediaPlayerTestBase {
         mMediaCodecPlayer.reset();
         closeSession(drm, mSessionId);
         stopDrm(drm);
+    }
+
+    public void testClearKeyPlaybackCenc() throws Exception {
+        testClearKeyPlayback(
+            // using secure codec even though it is clear key DRM
+            MIME_VIDEO_AVC, new String[] { CodecCapabilities.FEATURE_SecurePlayback },
+            "cenc", new byte[][] { CLEAR_KEY_CENC },
+            CENC_AUDIO_URL, false,
+            CENC_VIDEO_URL, true,
+            VIDEO_WIDTH_CENC, VIDEO_HEIGHT_CENC);
+    }
+
+    public void testClearKeyPlaybackWebm() throws Exception {
+        testClearKeyPlayback(
+            MIME_VIDEO_VP8, new String[0],
+            "webm", new byte[][] { CLEAR_KEY_WEBM },
+            WEBM_URL, true,
+            WEBM_URL, true,
+            VIDEO_WIDTH_WEBM, VIDEO_WIDTH_WEBM);
     }
 }

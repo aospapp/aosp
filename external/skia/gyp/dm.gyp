@@ -15,21 +15,14 @@
         'conditions': [
           ['skia_android_framework', {
               'libraries': [
-                  '-lskia',
-                  '-landroid',
-                  '-lgui',
-                  '-lhwui',
-                  '-lutils',
-              ],
-              'include_dirs': [
-                  '../../../frameworks/base/libs/hwui/',
-                  '../../../frameworks/native/include/',
+                  'skia_static.a',
+                  'hwui_static.a',
               ],
               'sources': [
                 '../dm/DMSrcSinkAndroid.cpp',
               ],
               'dependencies': [
-                'utils.gyp:android_utils',
+                'tools.gyp:android_utils',
               ],
           }],
         ],

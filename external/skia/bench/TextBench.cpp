@@ -52,27 +52,33 @@ class TextBench : public Benchmark {
     SkPoint*    fPos;
 public:
     TextBench(const char text[], int ps,
-              SkColor color, FontQuality fq, bool doColorEmoji = false, bool doPos = false)  {
-        fPos = NULL;
-        fFQ = fq;
-        fDoPos = doPos;
-        fDoColorEmoji = doColorEmoji;
-        fText.set(text);
-
+              SkColor color, FontQuality fq, bool doColorEmoji = false, bool doPos = false)
+        : fText(text)
+        , fFQ(fq)
+        , fDoPos(doPos)
+        , fDoColorEmoji(doColorEmoji)
+        , fPos(nullptr) {
         fPaint.setAntiAlias(kBW != fq);
         fPaint.setLCDRenderText(kLCD == fq);
         fPaint.setTextSize(SkIntToScalar(ps));
         fPaint.setColor(color);
+    }
 
-        if (doColorEmoji) {
+    virtual ~TextBench() {
+        delete[] fPos;
+    }
+
+protected:
+    void onDelayedSetup() override {
+        if (fDoColorEmoji) {
             SkASSERT(kBW == fFQ);
             fColorEmojiTypeface.reset(GetResourceAsTypeface("/fonts/Funkster.ttf"));
         }
 
-        if (doPos) {
-            size_t len = strlen(text);
+        if (fDoPos) {
+            size_t len = fText.size();
             SkScalar* adv = new SkScalar[len];
-            fPaint.getTextWidths(text, len, adv);
+            fPaint.getTextWidths(fText.c_str(), len, adv);
             fPos = new SkPoint[len];
             SkScalar x = 0;
             for (size_t i = 0; i < len; ++i) {
@@ -83,31 +89,29 @@ public:
         }
     }
 
-    virtual ~TextBench() {
-        delete[] fPos;
-    }
 
-protected:
-    virtual const char* onGetName() {
+    const char* onGetName() override {
         fName.printf("text_%g", SkScalarToFloat(fPaint.getTextSize()));
         if (fDoPos) {
             fName.append("_pos");
         }
         fName.appendf("_%s", fontQualityName(fPaint));
-        if (SK_ColorBLACK != fPaint.getColor()) {
-            fName.appendf("_%02X", fPaint.getAlpha());
-        } else {
+        if (SK_ColorBLACK == fPaint.getColor()) {
             fName.append("_BK");
+        } else if (SK_ColorWHITE == fPaint.getColor()) {
+            fName.append("_WT");
+        } else {
+            fName.appendf("_%02X", fPaint.getAlpha());
         }
 
-        if (fDoColorEmoji && fColorEmojiTypeface) {
+        if (fDoColorEmoji) {
             fName.append("_ColorEmoji");
         }
 
         return fName.c_str();
     }
 
-    virtual void onDraw(const int loops, SkCanvas* canvas) {
+    void onDraw(int loops, SkCanvas* canvas) override {
         const SkIPoint dim = this->getSize();
         SkRandom rand;
 
@@ -150,18 +154,22 @@ private:
 
 #define STR     "Hamburgefons"
 
+DEF_BENCH( return new TextBench(STR, 16, 0xFFFFFFFF, kBW); )
 DEF_BENCH( return new TextBench(STR, 16, 0xFF000000, kBW); )
 DEF_BENCH( return new TextBench(STR, 16, 0xFFFF0000, kBW); )
 DEF_BENCH( return new TextBench(STR, 16, 0x88FF0000, kBW); )
 
+DEF_BENCH( return new TextBench(STR, 16, 0xFFFFFFFF, kAA); )
 DEF_BENCH( return new TextBench(STR, 16, 0xFF000000, kAA); )
 DEF_BENCH( return new TextBench(STR, 16, 0xFFFF0000, kAA); )
 DEF_BENCH( return new TextBench(STR, 16, 0x88FF0000, kAA); )
 
+DEF_BENCH( return new TextBench(STR, 16, 0xFFFFFFFF, kLCD); )
 DEF_BENCH( return new TextBench(STR, 16, 0xFF000000, kLCD); )
 DEF_BENCH( return new TextBench(STR, 16, 0xFFFF0000, kLCD); )
 DEF_BENCH( return new TextBench(STR, 16, 0x88FF0000, kLCD); )
 
+DEF_BENCH( return new TextBench(STR, 16, 0xFFFFFFFF, kBW, true); )
 DEF_BENCH( return new TextBench(STR, 16, 0xFF000000, kBW, true); )
 DEF_BENCH( return new TextBench(STR, 16, 0xFFFF0000, kBW, true); )
 DEF_BENCH( return new TextBench(STR, 16, 0x88FF0000, kBW, true); )

@@ -54,7 +54,6 @@ enum
     BTA_JV_API_RFCOMM_CLOSE_EVT,
     BTA_JV_API_RFCOMM_START_SERVER_EVT,
     BTA_JV_API_RFCOMM_STOP_SERVER_EVT,
-    BTA_JV_API_RFCOMM_READ_EVT,
     BTA_JV_API_RFCOMM_WRITE_EVT,
     BTA_JV_API_SET_PM_PROFILE_EVT,
     BTA_JV_API_PM_STATE_CHANGE_EVT,
@@ -164,6 +163,7 @@ typedef struct
 typedef struct
 {
     BT_HDR              hdr;
+    INT32               type;       /* One of BTA_JV_CONN_TYPE_ */
     tBTA_SEC            sec_mask;
     tBTA_JV_ROLE        role;
     union {
@@ -184,6 +184,7 @@ typedef struct
 typedef struct
 {
     BT_HDR              hdr;
+    INT32               type;       /* One of BTA_JV_CONN_TYPE_ */
     tBTA_SEC            sec_mask;
     tBTA_JV_ROLE        role;
     union {
@@ -268,18 +269,6 @@ typedef struct
     tBTA_JV_RFCOMM_CBACK *p_cback;
     void            *user_data;
 } tBTA_JV_API_RFCOMM_SERVER;
-
-/* data type for BTA_JV_API_RFCOMM_READ_EVT */
-typedef struct
-{
-    BT_HDR          hdr;
-    UINT32          handle;
-    UINT32          req_id;
-    UINT8           *p_data;
-    UINT16          len;
-    tBTA_JV_RFC_CB  *p_cb;
-    tBTA_JV_PCB     *p_pcb;
-} tBTA_JV_API_RFCOMM_READ;
 
 /* data type for BTA_JV_API_SET_PM_PROFILE_EVT */
 typedef struct
@@ -370,7 +359,6 @@ typedef union
     tBTA_JV_API_L2CAP_CLOSE         l2cap_close;
     tBTA_JV_API_L2CAP_SERVER        l2cap_server;
     tBTA_JV_API_RFCOMM_CONNECT      rfcomm_connect;
-    tBTA_JV_API_RFCOMM_READ         rfcomm_read;
     tBTA_JV_API_RFCOMM_WRITE        rfcomm_write;
     tBTA_JV_API_SET_PM_PROFILE      set_pm;
     tBTA_JV_API_PM_STATE_CHANGE     change_pm_state;

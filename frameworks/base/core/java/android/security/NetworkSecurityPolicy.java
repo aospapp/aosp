@@ -16,6 +16,12 @@
 
 package android.security;
 
+import android.annotation.TestApi;
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.security.net.config.ApplicationConfig;
+import android.security.net.config.ManifestConfigSource;
+
 /**
  * Network security policy.
  *
@@ -43,7 +49,7 @@ public class NetworkSecurityPolicy {
 
     /**
      * Returns whether cleartext network traffic (e.g. HTTP, FTP, WebSockets, XMPP, IMAP, SMTP --
-     * without TLS or STARTTLS) is permitted for this process.
+     * without TLS or STARTTLS) is permitted for all network communication from this process.
      *
      * <p>When cleartext network traffic is not permitted, the platform's components (e.g. HTTP and
      * FTP stacks, {@link android.app.DownloadManager}, {@link android.media.MediaPlayer}) will
@@ -60,7 +66,18 @@ public class NetworkSecurityPolicy {
      * <p>NOTE: {@link android.webkit.WebView} does not honor this flag.
      */
     public boolean isCleartextTrafficPermitted() {
-        return libcore.net.NetworkSecurityPolicy.isCleartextTrafficPermitted();
+        return libcore.net.NetworkSecurityPolicy.getInstance().isCleartextTrafficPermitted();
+    }
+
+    /**
+     * Returns whether cleartext network traffic (e.g. HTTP, FTP, XMPP, IMAP, SMTP -- without
+     * TLS or STARTTLS) is permitted for communicating with {@code hostname} for this process.
+     *
+     * @see #isCleartextTrafficPermitted()
+     */
+    public boolean isCleartextTrafficPermitted(String hostname) {
+        return libcore.net.NetworkSecurityPolicy.getInstance()
+                .isCleartextTrafficPermitted(hostname);
     }
 
     /**
@@ -72,6 +89,28 @@ public class NetworkSecurityPolicy {
      * @hide
      */
     public void setCleartextTrafficPermitted(boolean permitted) {
-        libcore.net.NetworkSecurityPolicy.setCleartextTrafficPermitted(permitted);
+        FrameworkNetworkSecurityPolicy policy = new FrameworkNetworkSecurityPolicy(permitted);
+        libcore.net.NetworkSecurityPolicy.setInstance(policy);
+    }
+
+    /**
+     * Handle an update to the system or user certificate stores.
+     * @hide
+     */
+    @TestApi
+    public void handleTrustStorageUpdate() {
+        ApplicationConfig.getDefaultInstance().handleTrustStorageUpdate();
+    }
+
+    /**
+     * Returns an {@link ApplicationConfig} based on the configuration for {@code packageName}.
+     *
+     * @hide
+     */
+    public static ApplicationConfig getApplicationConfigForPackage(Context context,
+            String packageName) throws PackageManager.NameNotFoundException {
+        Context appContext = context.createPackageContext(packageName, 0);
+        ManifestConfigSource source = new ManifestConfigSource(appContext);
+        return new ApplicationConfig(source);
     }
 }

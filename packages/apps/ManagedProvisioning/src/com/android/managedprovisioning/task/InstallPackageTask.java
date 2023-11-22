@@ -28,7 +28,7 @@ import android.text.TextUtils;
 import android.Manifest.permission;
 
 import com.android.managedprovisioning.ProvisionLogger;
-import com.android.managedprovisioning.ProvisioningParams;
+import com.android.managedprovisioning.model.ProvisioningParams;
 
 import java.io.File;
 import java.util.HashSet;
@@ -55,8 +55,8 @@ public class InstallPackageTask {
     private Set<InstallInfo> mPackagesToInstall;
 
     /**
-     * Create an InstallPackageTask. When run, this will attempt to install the device initializer
-     * and device admin packages if they are non-null.
+     * Create an InstallPackageTask. When run, this will attempt to install the device admin
+     * packages if it is non-null.
      *
      * {@see #run(String, String)} for more detail on package installation.
      */
@@ -130,10 +130,12 @@ public class InstallPackageTask {
             mCallback.onError(ERROR_PACKAGE_INVALID);
             return false;
         }
-        for (ActivityInfo ai : pi.receivers) {
-            if (!TextUtils.isEmpty(ai.permission) &&
-                    ai.permission.equals(android.Manifest.permission.BIND_DEVICE_ADMIN)) {
-                return true;
+        if (pi.receivers != null) {
+            for (ActivityInfo ai : pi.receivers) {
+                if (!TextUtils.isEmpty(ai.permission) &&
+                        ai.permission.equals(android.Manifest.permission.BIND_DEVICE_ADMIN)) {
+                    return true;
+                }
             }
         }
         ProvisionLogger.loge("Installed package has no admin receiver.");
@@ -172,6 +174,8 @@ public class InstallPackageTask {
                         "Errorcode returned by IPackageInstallObserver = " + returnCode);
                 mCallback.onError(ERROR_INSTALLATION_FAILED);
             }
+            // remove the file containing the apk in order not to use too much space.
+            new File(mInstallInfo.location).delete();
         }
     }
 

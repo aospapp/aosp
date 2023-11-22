@@ -18,37 +18,38 @@ package android.support.v4.widget;
 
 import android.graphics.drawable.Drawable;
 import android.os.Build;
+import android.support.annotation.DrawableRes;
+import android.support.annotation.IdRes;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.StyleRes;
 import android.widget.TextView;
 
 /**
  * Helper for accessing features in {@link TextView} introduced after API level
  * 4 in a backwards compatible fashion.
  */
-public class TextViewCompat {
+public final class TextViewCompat {
 
     // Hide constructor
-    private TextViewCompat() {
-    }
+    private TextViewCompat() {}
 
     interface TextViewCompatImpl {
-
-        public void setCompoundDrawablesRelative(@NonNull TextView textView,
+        void setCompoundDrawablesRelative(@NonNull TextView textView,
                 @Nullable Drawable start, @Nullable Drawable top, @Nullable Drawable end,
                 @Nullable Drawable bottom);
-
-        public void setCompoundDrawablesRelativeWithIntrinsicBounds(@NonNull TextView textView,
+        void setCompoundDrawablesRelativeWithIntrinsicBounds(@NonNull TextView textView,
                 @Nullable Drawable start, @Nullable Drawable top, @Nullable Drawable end,
                 @Nullable Drawable bottom);
-
-        public void setCompoundDrawablesRelativeWithIntrinsicBounds(@NonNull TextView textView,
-                int start, int top, int end, int bottom);
-
+        void setCompoundDrawablesRelativeWithIntrinsicBounds(@NonNull TextView textView,
+                @DrawableRes int start, @DrawableRes int top, @DrawableRes int end,
+                @DrawableRes int bottom);
+        int getMaxLines(TextView textView);
+        int getMinLines(TextView textView);
+        void setTextAppearance(@NonNull TextView textView, @StyleRes int resId);
     }
 
     static class BaseTextViewCompatImpl implements TextViewCompatImpl {
-
         @Override
         public void setCompoundDrawablesRelative(@NonNull TextView textView,
                 @Nullable Drawable start, @Nullable Drawable top, @Nullable Drawable end,
@@ -65,14 +66,40 @@ public class TextViewCompat {
 
         @Override
         public void setCompoundDrawablesRelativeWithIntrinsicBounds(@NonNull TextView textView,
-                int start, int top, int end, int bottom) {
+                @DrawableRes int start, @DrawableRes int top, @DrawableRes int end,
+                @DrawableRes int bottom) {
             textView.setCompoundDrawablesWithIntrinsicBounds(start, top, end, bottom);
         }
 
+        @Override
+        public int getMaxLines(TextView textView) {
+            return TextViewCompatDonut.getMaxLines(textView);
+        }
+
+        @Override
+        public int getMinLines(TextView textView) {
+            return TextViewCompatDonut.getMinLines(textView);
+        }
+
+        @Override
+        public void setTextAppearance(TextView textView, @StyleRes int resId) {
+            TextViewCompatDonut.setTextAppearance(textView, resId);
+        }
     }
 
-    static class JbMr1TextViewCompatImpl extends BaseTextViewCompatImpl {
+    static class JbTextViewCompatImpl extends BaseTextViewCompatImpl {
+        @Override
+        public int getMaxLines(TextView textView) {
+            return TextViewCompatJb.getMaxLines(textView);
+        }
 
+        @Override
+        public int getMinLines(TextView textView) {
+            return TextViewCompatJb.getMinLines(textView);
+        }
+    }
+
+    static class JbMr1TextViewCompatImpl extends JbTextViewCompatImpl {
         @Override
         public void setCompoundDrawablesRelative(@NonNull TextView textView,
                 @Nullable Drawable start, @Nullable Drawable top, @Nullable Drawable end,
@@ -90,15 +117,14 @@ public class TextViewCompat {
 
         @Override
         public void setCompoundDrawablesRelativeWithIntrinsicBounds(@NonNull TextView textView,
-                int start, int top, int end, int bottom) {
+                @DrawableRes int start, @DrawableRes int top, @DrawableRes int end,
+                @DrawableRes int bottom) {
             TextViewCompatJbMr1.setCompoundDrawablesRelativeWithIntrinsicBounds(textView,
                     start, top, end, bottom);
         }
-
     }
 
     static class JbMr2TextViewCompatImpl extends JbMr1TextViewCompatImpl {
-
         @Override
         public void setCompoundDrawablesRelative(@NonNull TextView textView,
                 @Nullable Drawable start, @Nullable Drawable top, @Nullable Drawable end,
@@ -117,9 +143,17 @@ public class TextViewCompat {
 
         @Override
         public void setCompoundDrawablesRelativeWithIntrinsicBounds(@NonNull TextView textView,
-                int start, int top, int end, int bottom) {
+                @DrawableRes int start, @DrawableRes int top, @DrawableRes int end,
+                @DrawableRes int bottom) {
             TextViewCompatJbMr2.setCompoundDrawablesRelativeWithIntrinsicBounds(textView,
                     start, top, end, bottom);
+        }
+    }
+
+    static class Api23TextViewCompatImpl extends JbMr2TextViewCompatImpl {
+        @Override
+        public void setTextAppearance(@NonNull TextView textView, @StyleRes int resId) {
+            TextViewCompatApi23.setTextAppearance(textView, resId);
         }
     }
 
@@ -127,10 +161,14 @@ public class TextViewCompat {
 
     static {
         final int version = Build.VERSION.SDK_INT;
-        if (version >= 18) {
+        if (version >= 23) {
+            IMPL = new Api23TextViewCompatImpl();
+        } else if (version >= 18) {
             IMPL = new JbMr2TextViewCompatImpl();
         } else if (version >= 17) {
             IMPL = new JbMr1TextViewCompatImpl();
+        } else if (version >= 16) {
+            IMPL = new JbTextViewCompatImpl();
         } else {
             IMPL = new BaseTextViewCompatImpl();
         }
@@ -146,10 +184,10 @@ public class TextViewCompat {
      * {@link TextView#setCompoundDrawables} or related methods.
      *
      * @param textView The TextView against which to invoke the method.
-     * @attr ref android.R.styleable#TextView_drawableStart
-     * @attr ref android.R.styleable#TextView_drawableTop
-     * @attr ref android.R.styleable#TextView_drawableEnd
-     * @attr ref android.R.styleable#TextView_drawableBottom
+     * @attr name android:drawableStart
+     * @attr name android:drawableTop
+     * @attr name android:drawableEnd
+     * @attr name android:drawableBottom
      */
     public static void setCompoundDrawablesRelative(@NonNull TextView textView,
             @Nullable Drawable start, @Nullable Drawable top, @Nullable Drawable end,
@@ -166,10 +204,10 @@ public class TextViewCompat {
      * {@link TextView#setCompoundDrawables} or related methods.
      *
      * @param textView The TextView against which to invoke the method.
-     * @attr ref android.R.styleable#TextView_drawableStart
-     * @attr ref android.R.styleable#TextView_drawableTop
-     * @attr ref android.R.styleable#TextView_drawableEnd
-     * @attr ref android.R.styleable#TextView_drawableBottom
+     * @attr name android:drawableStart
+     * @attr name android:drawableTop
+     * @attr name android:drawableEnd
+     * @attr name android:drawableBottom
      */
     public static void setCompoundDrawablesRelativeWithIntrinsicBounds(@NonNull TextView textView,
             @Nullable Drawable start, @Nullable Drawable top, @Nullable Drawable end,
@@ -190,14 +228,45 @@ public class TextViewCompat {
      * @param top      Resource identifier of the top Drawable.
      * @param end      Resource identifier of the end Drawable.
      * @param bottom   Resource identifier of the bottom Drawable.
-     * @attr ref android.R.styleable#TextView_drawableStart
-     * @attr ref android.R.styleable#TextView_drawableTop
-     * @attr ref android.R.styleable#TextView_drawableEnd
-     * @attr ref android.R.styleable#TextView_drawableBottom
+     * @attr name android:drawableStart
+     * @attr name android:drawableTop
+     * @attr name android:drawableEnd
+     * @attr name android:drawableBottom
      */
     public static void setCompoundDrawablesRelativeWithIntrinsicBounds(@NonNull TextView textView,
-            int start, int top, int end, int bottom) {
+            @DrawableRes int start, @DrawableRes int top, @DrawableRes int end,
+            @DrawableRes int bottom) {
         IMPL.setCompoundDrawablesRelativeWithIntrinsicBounds(textView, start, top, end, bottom);
     }
 
+    /**
+     * Returns the maximum number of lines displayed in the given TextView, or -1 if the maximum
+     * height was set in pixels instead.
+     */
+    public static int getMaxLines(@NonNull TextView textView) {
+        return IMPL.getMaxLines(textView);
+    }
+
+    /**
+     * Returns the minimum number of lines displayed in the given TextView, or -1 if the minimum
+     * height was set in pixels instead.
+     */
+    public static int getMinLines(@NonNull TextView textView) {
+        return IMPL.getMinLines(textView);
+    }
+
+    /**
+     * Sets the text appearance from the specified style resource.
+     * <p>
+     * Use a framework-defined {@code TextAppearance} style like
+     * {@link android.R.style#TextAppearance_Material_Body1 @android:style/TextAppearance.Material.Body1}
+     * or see {@link android.R.styleable#TextAppearance TextAppearance} for the
+     * set of attributes that can be used in a custom style.
+     *
+     * @param textView The TextView against which to invoke the method.
+     * @param resId    The resource identifier of the style to apply.
+     */
+    public static void setTextAppearance(@NonNull TextView textView, @StyleRes int resId) {
+        IMPL.setTextAppearance(textView, resId);
+    }
 }

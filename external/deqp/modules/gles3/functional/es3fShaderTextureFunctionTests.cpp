@@ -24,6 +24,7 @@
 #include "es3fShaderTextureFunctionTests.hpp"
 #include "glsShaderRenderCase.hpp"
 #include "glsShaderLibrary.hpp"
+#include "glsTextureTestUtil.hpp"
 #include "gluTexture.hpp"
 #include "gluTextureUtil.hpp"
 #include "gluPixelTransfer.hpp"
@@ -49,6 +50,8 @@ namespace Functional
 
 namespace
 {
+
+using gls::TextureTestUtil::computeLodFromDerivates;
 
 enum Function
 {
@@ -237,86 +240,20 @@ using tcu::IVec2;
 using tcu::IVec3;
 using tcu::IVec4;
 
-enum LodMode
-{
-	LODMODE_EXACT = 0,
-	LODMODE_MIN_BOUND,
-	LODMODE_MAX_BOUND,
-
-	LODMODE_LAST
-};
-
-static const LodMode DEFAULT_LOD_MODE = LODMODE_EXACT;
-
-inline float computeLodFromDerivates (float dudx, float dvdx, float dudy, float dvdy)
-{
-	const LodMode	mode	= DEFAULT_LOD_MODE;
-	float			p;
-
-	switch (mode)
-	{
-		case LODMODE_EXACT:
-			p = de::max(deFloatSqrt(dudx*dudx + dvdx*dvdx), deFloatSqrt(dudy*dudy + dvdy*dvdy));
-			break;
-
-		case LODMODE_MIN_BOUND:
-		case LODMODE_MAX_BOUND:
-		{
-			float mu = de::max(deFloatAbs(dudx), deFloatAbs(dudy));
-			float mv = de::max(deFloatAbs(dvdx), deFloatAbs(dvdy));
-
-			p = mode == LODMODE_MIN_BOUND ? de::max(mu, mv) : mu + mv;
-			break;
-		}
-
-		default:
-			DE_ASSERT(DE_FALSE);
-	}
-
-	return deFloatLog2(p);
-}
-
-inline float computeLodFromDerivates (float dudx, float dvdx, float dwdx, float dudy, float dvdy, float dwdy)
-{
-	const LodMode	mode	= DEFAULT_LOD_MODE;
-	float			p;
-
-	switch (mode)
-	{
-		case LODMODE_EXACT:
-			p = de::max(deFloatSqrt(dudx*dudx + dvdx*dvdx + dwdx*dwdx), deFloatSqrt(dudy*dudy + dvdy*dvdy + dwdy*dwdy));
-			break;
-
-		case LODMODE_MIN_BOUND:
-		case LODMODE_MAX_BOUND:
-		{
-			float mu = de::max(deFloatAbs(dudx), deFloatAbs(dudy));
-			float mv = de::max(deFloatAbs(dvdx), deFloatAbs(dvdy));
-			float mw = de::max(deFloatAbs(dwdx), deFloatAbs(dwdy));
-
-			p = mode == LODMODE_MIN_BOUND ? de::max(de::max(mu, mv), mw) : (mu + mv + mw);
-			break;
-		}
-
-		default:
-			DE_ASSERT(DE_FALSE);
-	}
-
-	return deFloatLog2(p);
-}
+static const gls::TextureTestUtil::LodMode DEFAULT_LOD_MODE = gls::TextureTestUtil::LODMODE_EXACT;
 
 inline float computeLodFromGrad2D (const gls::ShaderEvalContext& c)
 {
 	float w = (float)c.textures[0].tex2D->getWidth();
 	float h = (float)c.textures[0].tex2D->getHeight();
-	return computeLodFromDerivates(c.in[1].x()*w, c.in[1].y()*h, c.in[2].x()*w, c.in[2].y()*h);
+	return computeLodFromDerivates(DEFAULT_LOD_MODE, c.in[1].x()*w, c.in[1].y()*h, c.in[2].x()*w, c.in[2].y()*h);
 }
 
 inline float computeLodFromGrad2DArray (const gls::ShaderEvalContext& c)
 {
 	float w = (float)c.textures[0].tex2DArray->getWidth();
 	float h = (float)c.textures[0].tex2DArray->getHeight();
-	return computeLodFromDerivates(c.in[1].x()*w, c.in[1].y()*h, c.in[2].x()*w, c.in[2].y()*h);
+	return computeLodFromDerivates(DEFAULT_LOD_MODE, c.in[1].x()*w, c.in[1].y()*h, c.in[2].x()*w, c.in[2].y()*h);
 }
 
 inline float computeLodFromGrad3D (const gls::ShaderEvalContext& c)
@@ -324,7 +261,7 @@ inline float computeLodFromGrad3D (const gls::ShaderEvalContext& c)
 	float w = (float)c.textures[0].tex3D->getWidth();
 	float h = (float)c.textures[0].tex3D->getHeight();
 	float d = (float)c.textures[0].tex3D->getDepth();
-	return computeLodFromDerivates(c.in[1].x()*w, c.in[1].y()*h, c.in[1].z()*d, c.in[2].x()*w, c.in[2].y()*h, c.in[2].z()*d);
+	return computeLodFromDerivates(DEFAULT_LOD_MODE, c.in[1].x()*w, c.in[1].y()*h, c.in[1].z()*d, c.in[2].x()*w, c.in[2].y()*h, c.in[2].z()*d);
 }
 
 inline float computeLodFromGradCube (const gls::ShaderEvalContext& c)
@@ -334,7 +271,7 @@ inline float computeLodFromGradCube (const gls::ShaderEvalContext& c)
 	float d = (float)c.textures[0].texCube->getSize();
 	float s = d/(2.0f*m);
 	float t = d/(2.0f*m);
-	return computeLodFromDerivates(c.in[1].x()*s, c.in[1].y()*t, c.in[2].x()*s, c.in[2].y()*t);
+	return computeLodFromDerivates(DEFAULT_LOD_MODE, c.in[1].x()*s, c.in[1].y()*t, c.in[2].x()*s, c.in[2].y()*t);
 }
 
 typedef void (*TexEvalFunc) (gls::ShaderEvalContext& c, const TexLookupParams& lookupParams);
@@ -647,7 +584,7 @@ void ShaderTextureFunctionCase::initTexture (void)
 			m_texture2D = new glu::Texture2D(m_renderCtx, m_textureSpec.format, m_textureSpec.width, m_textureSpec.height);
 			for (int level = 0; level < m_textureSpec.numLevels; level++)
 			{
-				float	fA		= level*levelStep;
+				float	fA		= float(level)*levelStep;
 				float	fB		= 1.0f-fA;
 				Vec4	colorA	= cBias + cScale*Vec4(fA, fB, fA, fB);
 				Vec4	colorB	= cBias + cScale*Vec4(fB, fA, fB, fA);
@@ -658,9 +595,9 @@ void ShaderTextureFunctionCase::initTexture (void)
 			m_texture2D->upload();
 
 			// Compute LOD.
-			float dudx = (m_lookupSpec.maxCoord[0]-m_lookupSpec.minCoord[0])*proj*m_textureSpec.width	/ (float)viewportSize[0];
-			float dvdy = (m_lookupSpec.maxCoord[1]-m_lookupSpec.minCoord[1])*proj*m_textureSpec.height	/ (float)viewportSize[1];
-			m_lookupParams.lod = computeLodFromDerivates(dudx, 0.0f, 0.0f, dvdy);
+			float dudx = (m_lookupSpec.maxCoord[0]-m_lookupSpec.minCoord[0])*proj*(float)m_textureSpec.width	/ (float)viewportSize[0];
+			float dvdy = (m_lookupSpec.maxCoord[1]-m_lookupSpec.minCoord[1])*proj*(float)m_textureSpec.height	/ (float)viewportSize[1];
+			m_lookupParams.lod = computeLodFromDerivates(DEFAULT_LOD_MODE, dudx, 0.0f, 0.0f, dvdy);
 
 			// Append to texture list.
 			m_textures.push_back(gls::TextureBinding(m_texture2D, m_textureSpec.sampler));
@@ -679,7 +616,7 @@ void ShaderTextureFunctionCase::initTexture (void)
 			m_textureCube = new glu::TextureCube(m_renderCtx, m_textureSpec.format, m_textureSpec.width);
 			for (int level = 0; level < m_textureSpec.numLevels; level++)
 			{
-				float	fA		= level*levelStep;
+				float	fA		= float(level)*levelStep;
 				float	fB		= 1.0f-fA;
 				Vec2	f		(fA, fB);
 
@@ -716,10 +653,10 @@ void ShaderTextureFunctionCase::initTexture (void)
 			tcu::CubeFaceFloatCoords	c00		= tcu::getCubeFaceCoords(Vec3(m_lookupSpec.minCoord[0]*proj, m_lookupSpec.minCoord[1]*proj, m_lookupSpec.minCoord[2]*proj));
 			tcu::CubeFaceFloatCoords	c10		= tcu::getCubeFaceCoords(Vec3(m_lookupSpec.maxCoord[0]*proj, m_lookupSpec.minCoord[1]*proj, m_lookupSpec.minCoord[2]*proj));
 			tcu::CubeFaceFloatCoords	c01		= tcu::getCubeFaceCoords(Vec3(m_lookupSpec.minCoord[0]*proj, m_lookupSpec.maxCoord[1]*proj, m_lookupSpec.minCoord[2]*proj));
-			float						dudx	= (c10.s - c00.s)*m_textureSpec.width	/ (float)viewportSize[0];
-			float						dvdy	= (c01.t - c00.t)*m_textureSpec.height	/ (float)viewportSize[1];
+			float						dudx	= (c10.s - c00.s)*(float)m_textureSpec.width	/ (float)viewportSize[0];
+			float						dvdy	= (c01.t - c00.t)*(float)m_textureSpec.height	/ (float)viewportSize[1];
 
-			m_lookupParams.lod = computeLodFromDerivates(dudx, 0.0f, 0.0f, dvdy);
+			m_lookupParams.lod = computeLodFromDerivates(DEFAULT_LOD_MODE, dudx, 0.0f, 0.0f, dvdy);
 
 			m_textures.push_back(gls::TextureBinding(m_textureCube, m_textureSpec.sampler));
 			break;
@@ -741,7 +678,7 @@ void ShaderTextureFunctionCase::initTexture (void)
 
 				for (int layer = 0; layer < levelAccess.getDepth(); layer++)
 				{
-					float	fA		= layer*layerStep + level*levelStep;
+					float	fA		= (float)layer*layerStep + (float)level*levelStep;
 					float	fB		= 1.0f-fA;
 					Vec4	colorA	= cBias + cScale*Vec4(fA, fB, fA, fB);
 					Vec4	colorB	= cBias + cScale*Vec4(fB, fA, fB, fA);
@@ -752,9 +689,9 @@ void ShaderTextureFunctionCase::initTexture (void)
 			m_texture2DArray->upload();
 
 			// Compute LOD.
-			float dudx = (m_lookupSpec.maxCoord[0]-m_lookupSpec.minCoord[0])*proj*m_textureSpec.width	/ (float)viewportSize[0];
-			float dvdy = (m_lookupSpec.maxCoord[1]-m_lookupSpec.minCoord[1])*proj*m_textureSpec.height	/ (float)viewportSize[1];
-			m_lookupParams.lod = computeLodFromDerivates(dudx, 0.0f, 0.0f, dvdy);
+			float dudx = (m_lookupSpec.maxCoord[0]-m_lookupSpec.minCoord[0])*proj*(float)m_textureSpec.width	/ (float)viewportSize[0];
+			float dvdy = (m_lookupSpec.maxCoord[1]-m_lookupSpec.minCoord[1])*proj*(float)m_textureSpec.height	/ (float)viewportSize[1];
+			m_lookupParams.lod = computeLodFromDerivates(DEFAULT_LOD_MODE, dudx, 0.0f, 0.0f, dvdy);
 
 			// Append to texture list.
 			m_textures.push_back(gls::TextureBinding(m_texture2DArray, m_textureSpec.sampler));
@@ -771,7 +708,7 @@ void ShaderTextureFunctionCase::initTexture (void)
 			m_texture3D = new glu::Texture3D(m_renderCtx, m_textureSpec.format, m_textureSpec.width, m_textureSpec.height, m_textureSpec.depth);
 			for (int level = 0; level < m_textureSpec.numLevels; level++)
 			{
-				float	fA		= level*levelStep;
+				float	fA		= (float)level*levelStep;
 				float	fB		= 1.0f-fA;
 				Vec4	colorA	= cBias + cScale*Vec4(fA, fB, fA, fB);
 				Vec4	colorB	= cBias + cScale*Vec4(fB, fA, fB, fA);
@@ -782,11 +719,11 @@ void ShaderTextureFunctionCase::initTexture (void)
 			m_texture3D->upload();
 
 			// Compute LOD.
-			float dudx = (m_lookupSpec.maxCoord[0]-m_lookupSpec.minCoord[0])*proj*m_textureSpec.width		/ (float)viewportSize[0];
-			float dvdy = (m_lookupSpec.maxCoord[1]-m_lookupSpec.minCoord[1])*proj*m_textureSpec.height		/ (float)viewportSize[1];
-			float dwdx = (m_lookupSpec.maxCoord[2]-m_lookupSpec.minCoord[2])*0.5f*proj*m_textureSpec.depth	/ (float)viewportSize[0];
-			float dwdy = (m_lookupSpec.maxCoord[2]-m_lookupSpec.minCoord[2])*0.5f*proj*m_textureSpec.depth	/ (float)viewportSize[1];
-			m_lookupParams.lod = computeLodFromDerivates(dudx, 0.0f, dwdx, 0.0f, dvdy, dwdy);
+			float dudx = (m_lookupSpec.maxCoord[0]-m_lookupSpec.minCoord[0])*proj*(float)m_textureSpec.width		/ (float)viewportSize[0];
+			float dvdy = (m_lookupSpec.maxCoord[1]-m_lookupSpec.minCoord[1])*proj*(float)m_textureSpec.height		/ (float)viewportSize[1];
+			float dwdx = (m_lookupSpec.maxCoord[2]-m_lookupSpec.minCoord[2])*0.5f*proj*(float)m_textureSpec.depth	/ (float)viewportSize[0];
+			float dwdy = (m_lookupSpec.maxCoord[2]-m_lookupSpec.minCoord[2])*0.5f*proj*(float)m_textureSpec.depth	/ (float)viewportSize[1];
+			m_lookupParams.lod = computeLodFromDerivates(DEFAULT_LOD_MODE, dudx, 0.0f, dwdx, 0.0f, dvdy, dwdy);
 
 			// Append to texture list.
 			m_textures.push_back(gls::TextureBinding(m_texture3D, m_textureSpec.sampler));

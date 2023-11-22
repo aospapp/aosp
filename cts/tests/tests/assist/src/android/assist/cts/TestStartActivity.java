@@ -23,27 +23,60 @@ import android.app.assist.AssistStructure;
 import android.app.assist.AssistStructure.ViewNode;
 import android.content.Intent;
 import android.content.ComponentName;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.widget.ScrollView;
 import android.widget.TextView;
+
+import java.lang.Override;
 
 public class TestStartActivity extends Activity {
     static final String TAG = "TestStartActivity";
+
+    private ScrollView mScrollView;
+    private TextView mTextView;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Log.i(TAG, " in onCreate");
-
         // Set the respective view we want compared with the test activity
-        String testCaseName = getIntent().getStringExtra(Utils.TESTCASE_TYPE);
-        switch (testCaseName) {
+        String testName = getIntent().getStringExtra(Utils.TESTCASE_TYPE);
+        switch (testName) {
             case Utils.ASSIST_STRUCTURE:
                 setContentView(R.layout.test_app);
                 setTitle(R.string.testAppTitle);
+                return;
+            case Utils.TEXTVIEW:
+                setContentView(R.layout.text_view);
+                mTextView =  (TextView) findViewById(R.id.text_view);
+                mScrollView = (ScrollView) findViewById(R.id.scroll_view);
+                setTitle(R.string.textViewActivityTitle);
+                return;
+            case Utils.LARGE_VIEW_HIERARCHY:
+                setContentView(R.layout.multiple_text_views);
+                setTitle(R.string.testAppTitle);
+                return;
+            case Utils.WEBVIEW:
+                if (getPackageManager().hasSystemFeature(
+                        PackageManager.FEATURE_WEBVIEW)) {
+                    setContentView(R.layout.webview);
+                    setTitle(R.string.webViewActivityTitle);
+                    WebView webview = (WebView) findViewById(R.id.webview);
+                    webview.setWebViewClient(new WebViewClient() {
+                        @Override
+                        public void onPageFinished(WebView view, String url) {
+                            sendBroadcast(new Intent(Utils.TEST_ACTIVITY_LOADED));
+                        }
+                    });
+                    webview.loadData(Utils.WEBVIEW_HTML, "text/html", "UTF-8");
+                }
                 return;
         }
     }
@@ -66,6 +99,7 @@ public class TestStartActivity extends Activity {
 
     public void start3pApp(String testCaseName) {
         Intent intent = new Intent();
+        intent.putExtra(Utils.TESTCASE_TYPE, testCaseName);
         intent.setAction("android.intent.action.TEST_APP_" + testCaseName);
         intent.setComponent(Utils.getTestAppComponent(testCaseName));
         startActivity(intent);
@@ -79,12 +113,14 @@ public class TestStartActivity extends Activity {
         startActivity(intent);
     }
 
-    @Override protected void onPause() {
+    @Override
+    protected void onPause() {
         Log.i(TAG, " in onPause");
         super.onPause();
     }
 
-    @Override protected void onStart() {
+    @Override
+    protected void onStart() {
         super.onStart();
         Log.i(TAG, " in onStart");
     }
@@ -94,7 +130,8 @@ public class TestStartActivity extends Activity {
         Log.i(TAG, " in onRestart");
     }
 
-    @Override protected void onStop() {
+    @Override
+    protected void onStop() {
         Log.i(TAG, " in onStop");
         super.onStop();
     }
@@ -103,5 +140,26 @@ public class TestStartActivity extends Activity {
     protected void onDestroy() {
         Log.i(TAG, " in onDestroy");
         super.onDestroy();
+    }
+
+    public void scrollText(int scrollX, int scrollY, boolean scrollTextView,
+            boolean scrollScrollView) {
+        if (scrollTextView) {
+            if (scrollX < 0 || scrollY < 0) {
+                scrollX = mTextView.getWidth();
+                scrollY = mTextView.getLayout().getLineTop(mTextView.getLineCount()) - mTextView.getHeight();
+            }
+            Log.i(TAG, "Scrolling text view to " + scrollX + ", " + scrollY);
+            mTextView.scrollTo(scrollX, scrollY);
+        } else if (scrollScrollView) {
+            if (scrollX < 0 || scrollY < 0) {
+                Log.i(TAG, "Scrolling scroll view to bottom right");
+                mScrollView.fullScroll(View.FOCUS_DOWN);
+                mScrollView.fullScroll(View.FOCUS_RIGHT);
+            } else {
+                Log.i(TAG, "Scrolling scroll view to " + scrollX + ", " + scrollY);
+                mScrollView.scrollTo(scrollX, scrollY);
+            }
+        }
     }
 }

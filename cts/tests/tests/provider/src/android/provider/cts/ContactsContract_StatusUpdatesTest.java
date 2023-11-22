@@ -33,7 +33,7 @@ import java.util.ArrayList;
 
 public class ContactsContract_StatusUpdatesTest extends AndroidTestCase {
 
-    private static final String ACCOUNT_TYPE = "com.android.cts.provider";
+    private static final String ACCOUNT_TYPE = "android.provider.cts";
     private static final String ACCOUNT_NAME = "ContactsContract_StatusUpdatesTest";
 
     private ContentResolver mResolver;

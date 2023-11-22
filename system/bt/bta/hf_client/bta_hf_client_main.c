@@ -19,7 +19,9 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include <cutils/properties.h>
+
+#include "osi/include/osi.h"
+#include "osi/include/properties.h"
 #include "bt_utils.h"
 #include "bta_api.h"
 #include "bta_sys.h"
@@ -32,6 +34,8 @@
 #ifndef BTA_HF_CLIENT_DEBUG
 #define BTA_HF_CLIENT_DEBUG FALSE
 #endif
+
+extern fixed_queue_t *btu_bta_alarm_queue;
 
 #if BTA_HF_CLIENT_DEBUG == TRUE
 static char *bta_hf_client_evt_str(UINT16 event);
@@ -239,7 +243,12 @@ void bta_hf_client_scb_init(void)
 {
     APPL_TRACE_DEBUG("%s", __FUNCTION__);
 
+    alarm_free(bta_hf_client_cb.scb.collision_timer);
+    alarm_free(bta_hf_client_cb.scb.at_cb.resp_timer);
+    alarm_free(bta_hf_client_cb.scb.at_cb.hold_timer);
     memset(&bta_hf_client_cb.scb, 0, sizeof(tBTA_HF_CLIENT_SCB));
+    bta_hf_client_cb.scb.collision_timer =
+      alarm_new("bta_hf_client.scb_collision_timer");
     bta_hf_client_cb.scb.sco_idx = BTM_INVALID_SCO_INDEX;
     bta_hf_client_cb.scb.negotiated_codec = BTM_SCO_CODEC_CVSD;
 }
@@ -287,7 +296,7 @@ void bta_hf_client_resume_open (void)
 
 /*******************************************************************************
 **
-** Function         bta_hf_client_colli_timer_cback
+** Function         bta_hf_client_collision_timer_cback
 **
 ** Description      HF Client connection collision timer callback
 **
@@ -295,17 +304,12 @@ void bta_hf_client_resume_open (void)
 ** Returns          void
 **
 *******************************************************************************/
-static void bta_hf_client_colli_timer_cback (TIMER_LIST_ENT *p_tle)
+static void bta_hf_client_collision_timer_cback(UNUSED_ATTR void *data)
 {
     APPL_TRACE_DEBUG("%s", __FUNCTION__);
 
-    if (p_tle)
-    {
-        bta_hf_client_cb.scb.colli_tmr_on = FALSE;
-
-        /* If the peer haven't opened connection, restart opening process */
-        bta_hf_client_resume_open ();
-    }
+    /* If the peer haven't opened connection, restart opening process */
+    bta_hf_client_resume_open();
 }
 
 /*******************************************************************************
@@ -354,9 +358,11 @@ void bta_hf_client_collision_cback (tBTA_SYS_CONN_STATUS status, UINT8 id,
         bta_hf_client_start_server();
 
         /* Start timer to handle connection opening restart */
-        bta_hf_client_cb.scb.colli_timer.p_cback = (TIMER_CBACK*)&bta_hf_client_colli_timer_cback;
-        bta_sys_start_timer(&bta_hf_client_cb.scb.colli_timer, 0, BTA_HF_CLIENT_COLLISION_TIMER);
-        bta_hf_client_cb.scb.colli_tmr_on = TRUE;
+        alarm_set_on_queue(bta_hf_client_cb.scb.collision_timer,
+                           BTA_HF_CLIENT_COLLISION_TIMER_MS,
+                           bta_hf_client_collision_timer_cback,
+                           NULL,
+                           btu_bta_alarm_queue);
     }
 }
 
@@ -381,7 +387,7 @@ static void bta_hf_client_api_enable(tBTA_HF_CLIENT_DATA *p_data)
     bta_hf_client_cb.p_cback = p_data->api_enable.p_cback;
 
     /* check if mSBC support enabled */
-    property_get("ro.bluetooth.hfp.ver", value, "0");
+    osi_property_get("ro.bluetooth.hfp.ver", value, "0");
     if (strcmp(value,"1.6") == 0)
     {
        bta_hf_client_cb.msbc_enabled = TRUE;
@@ -571,7 +577,8 @@ void bta_hf_client_slc_seq(BOOLEAN error)
         break;
 
     case BTA_HF_CLIENT_AT_BRSF:
-        if (bta_hf_client_cb.scb.peer_features & BTA_HF_CLIENT_PEER_CODEC)
+        if ((bta_hf_client_cb.scb.features & BTA_HF_CLIENT_FEAT_CODEC)
+                && (bta_hf_client_cb.scb.peer_features & BTA_HF_CLIENT_PEER_CODEC))
         {
             bta_hf_client_send_at_bac();
             break;
@@ -593,7 +600,8 @@ void bta_hf_client_slc_seq(BOOLEAN error)
         break;
 
     case BTA_HF_CLIENT_AT_CMER:
-        if (bta_hf_client_cb.scb.peer_features & BTA_HF_CLIENT_PEER_FEAT_3WAY)
+        if (bta_hf_client_cb.scb.peer_features & BTA_HF_CLIENT_PEER_FEAT_3WAY
+               && bta_hf_client_cb.scb.features & BTA_HF_CLIENT_FEAT_3WAY)
         {
             bta_hf_client_send_at_chld('?', 0);
         }

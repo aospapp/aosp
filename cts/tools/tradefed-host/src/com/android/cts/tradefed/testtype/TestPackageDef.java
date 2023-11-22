@@ -16,8 +16,7 @@
 
 package com.android.cts.tradefed.testtype;
 
-import com.android.cts.util.AbiUtils;
-import com.android.ddmlib.Log.LogLevel;
+import com.android.compatibility.common.util.AbiUtils;
 import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.ITargetPreparer;
@@ -54,8 +53,8 @@ class TestPackageDef implements ITestPackageDef {
     public static final String WRAPPED_NATIVE_TEST = "wrappednative";
     public static final String VM_HOST_TEST = "vmHostTest";
     public static final String DEQP_TEST = "deqpTest";
-    public static final String UIAUTOMATOR_TEST = "uiAutomator";
     public static final String JUNIT_DEVICE_TEST = "jUnitDeviceTest";
+    public static final String TESTNG_DEVICE_TEST = "testNGDeviceTest";
 
     private String mAppPackageName = null;
     private String mAppNameSpace = null;
@@ -241,7 +240,7 @@ class TestPackageDef implements ITestPackageDef {
                 CLog.d("Setting new timeout to " + mTimeoutInMins + " mins");
                 hostTest.setTimeout(mTimeoutInMins * 60 * 1000);
             }
-            hostTest.setRunName(mAppPackageName);
+            hostTest.setRunName(getId());
             hostTest.setJarFileName(mJarPath);
             hostTest.setTests(mTests);
             hostTest.setAbi(mAbi);
@@ -250,7 +249,7 @@ class TestPackageDef implements ITestPackageDef {
         } else if (VM_HOST_TEST.equals(mTestType)) {
             CLog.d("Creating vm host test for %s", mName);
             VMHostTest vmHostTest = new VMHostTest();
-            vmHostTest.setRunName(mAppPackageName);
+            vmHostTest.setRunName(getId());
             vmHostTest.setJarFileName(mJarPath);
             vmHostTest.setTests(mTests);
             vmHostTest.setAbi(mAbi);
@@ -270,20 +269,28 @@ class TestPackageDef implements ITestPackageDef {
             WrappedGTest wrappedGeeTest = new WrappedGTest(mAppNameSpace, mAppPackageName, mName, mRunner);
             wrappedGeeTest.setAbi(mAbi);
             return wrappedGeeTest;
-        } else if (UIAUTOMATOR_TEST.equals(mTestType)) {
-            UiAutomatorJarTest uiautomatorTest = new UiAutomatorJarTest();
-            return setUiAutomatorTest(uiautomatorTest);
         } else if (JUNIT_DEVICE_TEST.equals(mTestType)){
             CLog.d("Creating JUnit device test %s", mName);
             JUnitDeviceTest jUnitDeviceTest = new JUnitDeviceTest();
-            jUnitDeviceTest.setRunName(mAppPackageName);
+            jUnitDeviceTest.setRunName(getId());
             jUnitDeviceTest.addTestJarFileName(mJarPath);
             jUnitDeviceTest.addRunTimeArgs(mRunTimeArgs);
             jUnitDeviceTest.setTests(mTests);
             jUnitDeviceTest.setAbi(mAbi);
             mDigest = generateDigest(testCaseDir, mJarPath);
             return jUnitDeviceTest;
-        } else {
+        } else if (TESTNG_DEVICE_TEST.equals(mTestType)){
+            CLog.d("Creating TestNG device test %s", mName);
+            TestNGDeviceTest testNGDeviceTest = new TestNGDeviceTest();
+            testNGDeviceTest.setRunName(getId());
+            testNGDeviceTest.addTestJarFileName(mJarPath);
+            testNGDeviceTest.addRunTimeArgs(mRunTimeArgs);
+            testNGDeviceTest.setTests(mTests);
+            testNGDeviceTest.setAbi(mAbi);
+            mDigest = generateDigest(testCaseDir, mJarPath);
+            return testNGDeviceTest;
+        }
+        else {
             CLog.d("Creating instrumentation test for %s", mName);
             CtsInstrumentationApkTest instrTest = new CtsInstrumentationApkTest();
             if (mTimeoutInMins >= 0) {
@@ -305,7 +312,7 @@ class TestPackageDef implements ITestPackageDef {
      */
     private InstrumentationTest setInstrumentationTest(CtsInstrumentationApkTest instrTest,
             File testCaseDir) {
-        instrTest.setRunName(mAppPackageName);
+        instrTest.setRunName(getId());
         instrTest.setPackageName(mAppNameSpace);
         instrTest.setRunnerName(mRunner);
         instrTest.setAbi(mAbi);
@@ -315,34 +322,7 @@ class TestPackageDef implements ITestPackageDef {
         // mName means 'apk file name' for instrumentation tests
         instrTest.addInstallApk(String.format("%s.apk", mName), mAppNameSpace);
         mDigest = generateDigest(testCaseDir, String.format("%s.apk", mName));
-        if (mTests.size() > 1000) {
-            // TODO: hack, large test suites can take longer to collect tests, increase timeout
-            instrTest.setCollectsTestsShellTimeout(10 * 60 * 1000);
-        }
         return instrTest;
-    }
-
-    /**
-     * Populates given {@link UiAutomatorJarTest} with data from the package xml.
-     *
-     * @param uiautomatorTest
-     * @return the populated {@link UiAutomatorJarTest} or <code>null</code>
-     */
-    @SuppressWarnings("deprecation")
-    private IRemoteTest setUiAutomatorTest(UiAutomatorJarTest uiautomatorTest) {
-        uiautomatorTest.setInstallArtifacts(getJarPath());
-        if (mClassName != null) {
-            if (mMethodName != null) {
-                CLog.logAndDisplay(LogLevel.WARN, "ui automator tests don't currently support" +
-                        "running  individual methods");
-            }
-            uiautomatorTest.addClassName(mClassName);
-        } else {
-            uiautomatorTest.addClassNames(mTestClasses);
-        }
-        uiautomatorTest.setRunName(mAppPackageName);
-        uiautomatorTest.setCaptureLogs(false);
-        return uiautomatorTest;
     }
 
     /**

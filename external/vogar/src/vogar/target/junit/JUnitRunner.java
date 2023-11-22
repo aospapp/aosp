@@ -25,7 +25,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
-import junit.framework.AssertionFailedError;
 import vogar.Result;
 import vogar.monitor.TargetMonitor;
 import vogar.target.Profiler;
@@ -38,44 +37,27 @@ import vogar.util.Threads;
  */
 public final class JUnitRunner implements Runner {
 
-    private TargetMonitor monitor;
-    private Class<?> testClass;
-    private String qualification;
-    private AtomicReference<String> skipPastReference;
-    private String actionName;
-    private TestEnvironment testEnvironment;
-    private int timeoutSeconds;
+    private final TargetMonitor monitor;
+    private final AtomicReference<String> skipPastReference;
+
+    private final TestEnvironment testEnvironment;
+    private final int timeoutSeconds;
     private boolean vmIsUnstable;
+    private final List<VogarTest> tests;
 
     private final ExecutorService executor = Executors.newCachedThreadPool(
             Threads.daemonThreadFactory("testrunner"));
 
-    public void init(TargetMonitor monitor, String actionName, String qualification,
-            Class<?> testClass, AtomicReference<String> skipPastReference,
-            TestEnvironment testEnvironment, int timeoutSeconds, boolean profile) {
+    public JUnitRunner(TargetMonitor monitor, AtomicReference<String> skipPastReference,
+                       TestEnvironment testEnvironment, int timeoutSeconds, List<VogarTest> tests) {
         this.monitor = monitor;
-        this.testClass = testClass;
-        this.qualification = qualification;
         this.skipPastReference = skipPastReference;
-        this.actionName = actionName;
         this.testEnvironment = testEnvironment;
         this.timeoutSeconds = timeoutSeconds;
+        this.tests = tests;
     }
 
-    public boolean run(String actionName, Profiler profiler, String[] args) {
-        final List<VogarTest> tests;
-        if (Junit3.isJunit3Test(testClass)) {
-            tests = qualification != null
-                    ? Junit3.classToVogarTests(testClass, qualification)
-                    : Junit3.classToVogarTests(testClass, args);
-        } else if (Junit4.isJunit4Test(testClass)) {
-            tests = qualification != null
-                    ? Junit4.classToVogarTests(testClass, qualification)
-                    : Junit4.classToVogarTests(testClass, args); 
-        } else {
-            throw new AssertionFailedError("Unknown JUnit type: " + testClass.getName());
-        }
-
+    public boolean run(Profiler profiler) {
         for (VogarTest test : tests) {
             String skipPast = skipPastReference.get();
             if (skipPast != null) {
@@ -103,7 +85,7 @@ public final class JUnitRunner implements Runner {
      */
     private void runWithTimeout(final Profiler profiler, final VogarTest test) {
         testEnvironment.reset();
-        monitor.outcomeStarted(JUnitRunner.this, test.toString(), actionName);
+        monitor.outcomeStarted(getClass(), test.toString());
 
         // Start the test on a background thread.
         final AtomicReference<Thread> executingThreadReference = new AtomicReference<Thread>();
@@ -158,20 +140,20 @@ public final class JUnitRunner implements Runner {
      * first two Assert lines and everything after the testFoo() line in this
      * stack trace:
      *
-   	 *   at junit.framework.Assert.fail(Assert.java:198)
-   	 *   at junit.framework.Assert.assertEquals(Assert.java:56)
-   	 *   at junit.framework.Assert.assertEquals(Assert.java:61)
-   	 *   at libcore.java.net.FooTest.testFoo(FooTest.java:124)
-   	 *   at java.lang.reflect.Method.invokeNative(Native Method)
-   	 *   at java.lang.reflect.Method.invoke(Method.java:491)
-   	 *   at vogar.target.junit.Junit$JUnitTest.run(Junit.java:214)
-   	 *   at vogar.target.junit.JUnitRunner$1.call(JUnitRunner.java:112)
-   	 *   at vogar.target.junit.JUnitRunner$1.call(JUnitRunner.java:105)
-   	 *   at java.util.concurrent.FutureTask$Sync.innerRun(FutureTask.java:305)
-   	 *   at java.util.concurrent.FutureTask.run(FutureTask.java:137)
-   	 *   at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1076)
-   	 *   at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:569)
-   	 *   at java.lang.Thread.run(Thread.java:863)
+     *   at junit.framework.Assert.fail(Assert.java:198)
+     *   at junit.framework.Assert.assertEquals(Assert.java:56)
+     *   at junit.framework.Assert.assertEquals(Assert.java:61)
+     *   at libcore.java.net.FooTest.testFoo(FooTest.java:124)
+     *   at java.lang.reflect.Method.invokeNative(Native Method)
+     *   at java.lang.reflect.Method.invoke(Method.java:491)
+     *   at vogar.target.junit.Junit$JUnitTest.run(Junit.java:214)
+     *   at vogar.target.junit.JUnitRunner$1.call(JUnitRunner.java:112)
+     *   at vogar.target.junit.JUnitRunner$1.call(JUnitRunner.java:105)
+     *   at java.util.concurrent.FutureTask$Sync.innerRun(FutureTask.java:305)
+     *   at java.util.concurrent.FutureTask.run(FutureTask.java:137)
+     *   at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1076)
+     *   at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:569)
+     *   at java.lang.Thread.run(Thread.java:863)
      */
     public void prepareForDisplay(Throwable t) {
         StackTraceElement[] stackTraceElements = t.getStackTrace();
@@ -211,9 +193,5 @@ public final class JUnitRunner implements Runner {
             System.arraycopy(stackTraceElements, first, copyOfRange, 0, last - first);
             t.setStackTrace(copyOfRange);
         }
-    }
-
-    public boolean supports(Class<?> klass) {
-        return Junit3.isJunit3Test(klass) || Junit4.isJunit4Test(klass);
     }
 }

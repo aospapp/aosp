@@ -66,7 +66,7 @@ if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   set(PACKAGE_NAME libcxxabi)
   set(PACKAGE_VERSION 3.7.0svn)
   set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
-  set(PACKAGE_BUGREPORT "llvmbugs@cs.uiuc.edu")
+  set(PACKAGE_BUGREPORT "llvm-bugs@lists.llvm.org")
 
   if(EXISTS ${LLVM_MAIN_SRC_DIR}/utils/lit/lit.py)
     set(LLVM_LIT ${LLVM_MAIN_SRC_DIR}/utils/lit/lit.py)
@@ -118,6 +118,7 @@ option(LIBCXXABI_USE_LLVM_UNWINDER "Build and use the LLVM unwinder." OFF)
 option(LIBCXXABI_ENABLE_THREADS "Build with threads enabled" ON)
 set(LIBCXXABI_GCC_TOOLCHAIN "" CACHE STRING "GCC toolchain for cross compiling.")
 set(LIBCXXABI_SYSROOT "" CACHE STRING "Sysroot for cross compiling.")
+set(LIBCXXABI_LIBCXX_LIBRARY_PATH "" CACHE STRING "The path to libc++ library.")
 
 # Default to building a shared library so that the default options still test
 # the libc++abi that is being built. There are two problems with testing a
@@ -280,7 +281,7 @@ if (MSVC)
 endif()
 
 # Define LIBCXXABI_USE_LLVM_UNWINDER for conditional compilation.
-if (LIBCXXABI_USE_LLVM_UNWINDER)
+if (LIBCXXABI_USE_LLVM_UNWINDER OR LLVM_NATIVE_ARCH MATCHES ARM)
   add_definitions(-DLIBCXXABI_USE_LLVM_UNWINDER=1)
 endif()
 
@@ -298,15 +299,44 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LIBCXXABI_C_FLAGS}")
 # Setup Source Code
 #===============================================================================
 
+set(LIBCXXABI_LIBUNWIND_INCLUDES "${LIBCXXABI_LIBUNWIND_INCLUDES}" CACHE PATH
+    "Specify path to libunwind includes." FORCE)
+set(LIBCXXABI_LIBUNWIND_PATH "${LIBCXXABI_LIBUNWIND_PATH}" CACHE PATH
+    "Specify path to libunwind source." FORCE)
+
 include_directories(include)
+if (LIBCXXABI_USE_LLVM_UNWINDER OR LLVM_NATIVE_ARCH MATCHES ARM)
+  find_path(
+    LIBCXXABI_LIBUNWIND_INCLUDES_INTERNAL
+    libunwind.h
+    PATHS ${LIBCXXABI_LIBUNWIND_INCLUDES}
+          ${LIBCXXABI_LIBUNWIND_PATH}/include
+          ${CMAKE_BINARY_DIR}/${LIBCXXABI_LIBUNWIND_INCLUDES}
+          ${LLVM_MAIN_SRC_DIR}/projects/libunwind/include
+    NO_DEFAULT_PATH
+  )
+
+  find_path(
+    LIBCXXABI_LIBUNWIND_SOURCES
+    libunwind_ext.h
+    PATHS ${LIBCXXABI_LIBUNWIND_PATH}/src/
+          ${LIBCXXABI_LIBUNWIND_INCLUDES}/../src/
+          ${LLVM_MAIN_SRC_DIR}/projects/libunwind/src/
+    NO_DEFAULT_PATH
+  )
+
+  if (LIBCXXABI_LIBUNWIND_SOURCES STREQUAL "LIBCXXABI_LIBUNWIND_SOURCES-NOTFOUND")
+    message(WARNING "LIBCXXABI_LIBCXX_PATH was not specified and couldn't be infered.")
+    set(LIBCXXABI_LIBUNWIND_SOURCES "")
+  endif()
+
+  include_directories("${LIBCXXABI_LIBUNWIND_INCLUDES_INTERNAL}")
+  include_directories("${LIBCXXABI_LIBUNWIND_SOURCES}")
+endif ()
 
 # Add source code. This also contains all of the logic for deciding linker flags
 # soname, etc...
 add_subdirectory(src)
-
-if (LIBCXXABI_USE_LLVM_UNWINDER)
-  add_subdirectory(src/Unwind)
-endif()
 
 if(NOT LIBCXXABI_ENABLE_SHARED)
   # TODO: Fix the libc++ cmake files so that libc++abi can be statically linked.
@@ -320,10 +350,3 @@ if(NOT LIBCXXABI_ENABLE_SHARED)
 else()
   add_subdirectory(test)
 endif()
-
-install(DIRECTORY include/
-  DESTINATION include
-  FILES_MATCHING
-    PATTERN "*.h"
-    PATTERN ".svn" EXCLUDE
-)

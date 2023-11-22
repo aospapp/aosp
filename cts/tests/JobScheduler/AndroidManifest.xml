@@ -16,26 +16,33 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.jobscheduler.cts.deviceside">
+    package="android.jobscheduler.cts">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
     <application>
         <uses-library android:name="android.test.runner" />
 
         <service android:name="android.jobscheduler.MockJobService"
             android:permission="android.permission.BIND_JOB_SERVICE" />
+        <service android:name="android.jobscheduler.TriggerContentJobService"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <provider android:name="android.jobscheduler.DummyJobContentProvider"
+            android:authorities="android.jobscheduler.dummyprovider" android:multiprocess="false" />
     </application>
 
     <!--  self-instrumenting test package. -->
     <instrumentation
         android:name="android.support.test.runner.AndroidJUnitRunner"
         android:label="JobScheduler device-side tests"
-        android:targetPackage="android.jobscheduler.cts.deviceside" >
+        android:targetPackage="android.jobscheduler.cts" >
         <meta-data
             android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

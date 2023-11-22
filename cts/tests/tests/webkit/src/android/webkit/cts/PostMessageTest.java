@@ -38,7 +38,7 @@ public class PostMessageTest extends ActivityInstrumentationTestCase2<WebViewCts
     private static final String BASE_URI = "http://www.example.com";
 
     public PostMessageTest() {
-        super("com.android.cts.webkit", WebViewCtsActivity.class);
+        super("android.webkit.cts", WebViewCtsActivity.class);
     }
 
     @Override

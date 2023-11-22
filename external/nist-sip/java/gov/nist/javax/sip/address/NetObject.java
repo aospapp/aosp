@@ -43,6 +43,10 @@ import java.lang.reflect.*;
  */
 public abstract class NetObject extends GenericObject {
 
+    // BEGIN android-added
+    protected static final long serialVersionUID = 6149926203633320729L;
+    // END android-added
+
     protected static final String CORE_PACKAGE = PackageNames.CORE_PACKAGE;
     protected static final String NET_PACKAGE = PackageNames.NET_PACKAGE;
     protected static final String PARSER_PACKAGE = PackageNames.PARSER_PACKAGE;

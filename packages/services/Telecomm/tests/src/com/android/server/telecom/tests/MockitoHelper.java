@@ -18,19 +18,13 @@ package com.android.server.telecom.tests;
 
 import com.android.server.telecom.Log;
 
-import android.annotation.TargetApi;
 import android.content.Context;
-import android.os.Looper;
 
 /**
  * Helper for Mockito-based test cases.
  */
 public final class MockitoHelper {
     private static final String DEXCACHE = "dexmaker.dexcache";
-
-    private Thread mRequestThread;
-    private ClassLoader mRequestThreadOriginalClassLoader;
-    private ClassLoader mMainThreadOriginalClassLoader;
 
     /**
      * Creates a new helper, which in turn will set the context classloader so
@@ -39,24 +33,6 @@ public final class MockitoHelper {
      * @param packageClass test case class
      */
     public void setUp(Context context, Class<?> packageClass) throws Exception {
-        // makes a copy of the context classloader
-        mRequestThread = Thread.currentThread();
-        mRequestThreadOriginalClassLoader = mRequestThread.getContextClassLoader();
-        mMainThreadOriginalClassLoader = Looper.getMainLooper().getThread().getContextClassLoader();
-
-        ClassLoader newClassLoader = packageClass.getClassLoader();
-
-        Log.v(this, "Changing context classloader for thread %s from %s to %s",
-                mRequestThread.getName(),
-                mRequestThreadOriginalClassLoader,
-                newClassLoader);
-        mRequestThread.setContextClassLoader(newClassLoader);
-
-        Log.v(this, "Changing context classloader for MAIN thread from %s to %s",
-                mMainThreadOriginalClassLoader,
-                newClassLoader);
-        Looper.getMainLooper().getThread().setContextClassLoader(newClassLoader);
-
         String dexCache = context.getCacheDir().toString();
         Log.v(this, "Setting property %s to %s", DEXCACHE, dexCache);
         System.setProperty(DEXCACHE, dexCache);
@@ -67,7 +43,6 @@ public final class MockitoHelper {
      */
     public void tearDown() throws Exception {
         Log.v(this, "Restoring context classloaders");
-        mRequestThread.setContextClassLoader(mRequestThreadOriginalClassLoader);
         Log.v(this, "Clearing property %s", DEXCACHE);
         System.clearProperty(DEXCACHE);
     }

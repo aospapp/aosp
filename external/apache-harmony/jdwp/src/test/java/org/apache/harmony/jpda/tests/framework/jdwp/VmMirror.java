@@ -55,7 +55,7 @@ import org.apache.harmony.jpda.tests.framework.jdwp.exceptions.TimeoutException;
 public class VmMirror {
 
     /** Target VM Capabilities. */
-    public Capabilities targetVMCapabilities;
+    private Capabilities targetVMCapabilities;
 
     /** Transport used to sent and receive packets. */
     private TransportWrapper connection;
@@ -445,19 +445,84 @@ public class VmMirror {
         return replyPacket;
     }
 
-    public boolean canWatchFieldModification() {
+    /**
+     * Indicates whether the capability <i>canRedefineClasses</i> is supported.
+     *
+     * @return true if supported, false otherwise.
+     */
+    public boolean canRedefineClasses() {
         capabilities();
-        return targetVMCapabilities.canWatchFieldModification;
+        return targetVMCapabilities.canRedefineClasses;
     }
 
-    public boolean canWatchFieldAccess() {
+    /**
+     * Indicates whether the capability <i>canPopFrames</i> is supported.
+     *
+     * @return true if supported, false otherwise.
+     */
+    public boolean canPopFrames() {
         capabilities();
-        return targetVMCapabilities.canWatchFieldAccess;
+        return targetVMCapabilities.canPopFrames;
     }
 
-    public boolean canUseInstanceFilters() {
+    /**
+     * Indicates whether the capability <i>canGetSourceDebugExtension</i> is supported.
+     *
+     * @return true if supported, false otherwise.
+     */
+    public boolean canGetSourceDebugExtension() {
         capabilities();
-        return targetVMCapabilities.canUseInstanceFilters;
+        return targetVMCapabilities.canGetSourceDebugExtension;
+    }
+
+    /**
+     * Indicates whether the capability <i>canRequestVMDeathEvent</i> is supported.
+     *
+     * @return true if supported, false otherwise.
+     */
+    public boolean canRequestVMDeathEvent() {
+        capabilities();
+        return targetVMCapabilities.canRequestVMDeathEvent;
+    }
+
+    /**
+     * Indicates whether the capability <i>canSetDefaultStratum</i> is supported.
+     *
+     * @return true if supported, false otherwise.
+     */
+    public boolean canSetDefaultStratum() {
+        capabilities();
+        return targetVMCapabilities.canSetDefaultStratum;
+    }
+
+    /**
+     * Indicates whether the capability <i>canUseSourceNameFilters</i> is supported.
+     *
+     * @return true if supported, false otherwise.
+     */
+    public boolean canUseSourceNameFilters() {
+        capabilities();
+        return targetVMCapabilities.canUseSourceNameFilters;
+    }
+
+    /**
+     * Indicates whether the capability <i>canGetConstantPool</i> is supported.
+     *
+     * @return true if supported, false otherwise.
+     */
+    public boolean canGetConstantPool() {
+        capabilities();
+        return targetVMCapabilities.canGetConstantPool;
+    }
+
+    /**
+     * Indicates whether the capability <i>canForceEarlyReturn</i> is supported.
+     *
+     * @return true if supported, false otherwise.
+     */
+    public boolean canForceEarlyReturn() {
+        capabilities();
+        return targetVMCapabilities.canForceEarlyReturn;
     }
 
     /**
@@ -1735,26 +1800,22 @@ public class VmMirror {
     }
 
     /**
-     * Sets step event request for given thread name.
-     * 
-     * @param threadName
-     *            thread name
+     * Sets step event request for given thread ID.
+     *
+     * @param threadID
+     *          the ID of the thread
      * @param stepSize
+     *          the step size
      * @param stepDepth
+     *          the step depth
      * @return ReplyPacket for corresponding command
      */
-    public ReplyPacket setStep(String threadName, int stepSize, int stepDepth) {
-        long typeID = -1;
-
-        // Request referenceTypeID for class
-        typeID = getThreadID(threadName);
-
+    public ReplyPacket setStep(long threadID, int stepSize, int stepDepth) {
         // Prepare corresponding event
         byte eventKind = JDWPConstants.EventKind.SINGLE_STEP;
         byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        // EventMod[] mods = new EventMod[1];
         EventMod[] mods = new EventMod[] { new EventMod() };
-        mods[0].thread = typeID;
+        mods[0].thread = threadID;
         mods[0].modKind = EventMod.ModKind.Step;
         mods[0].size = stepSize;
         mods[0].depth = stepDepth;
@@ -2036,7 +2097,10 @@ public class VmMirror {
                     "Unexpected event received: zero length");
         case (1):
             throw new TestErrorException("Unexpected event received: "
-                    + parsedEvents[0].getEventKind());
+                    + "expected " + JDWPConstants.EventKind.getName(eventKind)
+                    + " (" + eventKind + ") but received "
+                    + JDWPConstants.EventKind.getName(parsedEvents[0].getEventKind())
+                    + " (" + parsedEvents[0].getEventKind() + ")");
         default:
             throw new TestErrorException(
                     "Unexpected event received: Event was grouped in a composite event");

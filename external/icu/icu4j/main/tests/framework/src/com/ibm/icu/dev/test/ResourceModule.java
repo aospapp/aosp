@@ -76,7 +76,8 @@ class ResourceModule implements TestDataModule {
     
     ResourceModule(String baseName, String localeName) throws DataModuleFormatError{
 
-        res = (UResourceBundle) UResourceBundle.getBundleInstance(baseName, localeName);
+        res = (UResourceBundle) UResourceBundle.getBundleInstance(baseName, localeName,
+                getClass().getClassLoader());
         info = getFromTable(res, INFO, UResourceBundle.TABLE);
         testData = getFromTable(res, TEST_DATA, UResourceBundle.TABLE);
 

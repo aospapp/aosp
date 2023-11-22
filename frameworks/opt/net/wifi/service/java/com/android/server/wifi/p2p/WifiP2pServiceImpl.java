@@ -17,7 +17,6 @@
 package com.android.server.wifi.p2p;
 
 import android.app.AlertDialog;
-import android.app.Notification;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
@@ -27,11 +26,12 @@ import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.net.ConnectivityManager;
 import android.net.DhcpResults;
-import android.net.DhcpStateMachine;
 import android.net.InterfaceConfiguration;
 import android.net.LinkAddress;
+import android.net.LinkProperties;
 import android.net.NetworkInfo;
 import android.net.NetworkUtils;
+import android.net.ip.IpManager;
 import android.net.wifi.WpsInfo;
 import android.net.wifi.p2p.IWifiP2pManager;
 import android.net.wifi.p2p.WifiP2pConfig;
@@ -87,7 +87,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 
 
 /**
@@ -100,17 +99,16 @@ import java.util.Locale;
  * of Wifi operation
  * @hide
  */
-public final class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
+public class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
     private static final String TAG = "WifiP2pService";
     private static final boolean DBG = false;
     private static final String NETWORKTYPE = "WIFI_P2P";
 
     private Context mContext;
-    private String mInterface;
-    private Notification mNotification;
 
     INetworkManagementService mNwService;
-    private DhcpStateMachine mDhcpStateMachine;
+    private IpManager mIpManager;
+    private DhcpResults mDhcpResults;
 
     private P2pStateMachine mP2pStateMachine;
     private AsyncChannel mReplyChannel = new AsyncChannel();
@@ -178,8 +176,12 @@ public final class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
     //   msg.obj  = StateMachine to send to when blocked
     public static final int BLOCK_DISCOVERY                 =   BASE + 15;
 
-    // set country code
-    public static final int SET_COUNTRY_CODE                =   BASE + 16;
+    // Messages for interaction with IpManager.
+    private static final int IPM_PRE_DHCP_ACTION            =   BASE + 30;
+    private static final int IPM_POST_DHCP_ACTION           =   BASE + 31;
+    private static final int IPM_DHCP_RESULTS               =   BASE + 32;
+    private static final int IPM_PROVISIONING_SUCCESS       =   BASE + 33;
+    private static final int IPM_PROVISIONING_FAILURE       =   BASE + 34;
 
     public static final int ENABLED                         = 1;
     public static final int DISABLED                        = 0;
@@ -204,10 +206,6 @@ public final class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
      * (notably dhcp)
      */
     private boolean mDiscoveryBlocked;
-
-    // Supplicant doesn't like setting the same country code multiple times (it may drop
-    // current connected network), so we save the country code here to avoid redundency
-    private String mLastSetCountryCode;
 
     /*
      * remember if we were in a scan when it had to be stopped
@@ -359,8 +357,6 @@ public final class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
     public WifiP2pServiceImpl(Context context) {
         mContext = context;
 
-        //STOPSHIP: get this from native side
-        mInterface = "p2p0";
         mNetworkInfo = new NetworkInfo(ConnectivityManager.TYPE_WIFI_P2P, 0, NETWORKTYPE, "");
 
         mP2pSupported = mContext.getPackageManager().hasSystemFeature(
@@ -413,6 +409,52 @@ public final class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
                 && checkLocationHardwarePermission() != PackageManager.PERMISSION_GRANTED) {
             enforceConnectivityInternalPermission();
         }
+    }
+
+    private void stopIpManager() {
+        if (mIpManager != null) {
+            mIpManager.stop();
+            mIpManager = null;
+        }
+        mDhcpResults = null;
+    }
+
+    private void startIpManager(String ifname) {
+        stopIpManager();
+
+        mIpManager = new IpManager(mContext, ifname,
+                new IpManager.Callback() {
+                    @Override
+                    public void onPreDhcpAction() {
+                        mP2pStateMachine.sendMessage(IPM_PRE_DHCP_ACTION);
+                    }
+                    @Override
+                    public void onPostDhcpAction() {
+                        mP2pStateMachine.sendMessage(IPM_POST_DHCP_ACTION);
+                    }
+                    @Override
+                    public void onNewDhcpResults(DhcpResults dhcpResults) {
+                        mP2pStateMachine.sendMessage(IPM_DHCP_RESULTS, dhcpResults);
+                    }
+                    @Override
+                    public void onProvisioningSuccess(LinkProperties newLp) {
+                        mP2pStateMachine.sendMessage(IPM_PROVISIONING_SUCCESS);
+                    }
+                    @Override
+                    public void onProvisioningFailure(LinkProperties newLp) {
+                        mP2pStateMachine.sendMessage(IPM_PROVISIONING_FAILURE);
+                    }
+                },
+                mNwService);
+
+        final IpManager.ProvisioningConfiguration config =
+                mIpManager.buildProvisioningConfiguration()
+                          .withoutIPv6()
+                          .withoutIpReachabilityMonitor()
+                          .withPreDhcpAction(30 * 1000)
+                          .withProvisioningTimeoutMs(36 * 1000)
+                          .build();
+        mIpManager.startProvisioning(config);
     }
 
     /**
@@ -468,6 +510,12 @@ public final class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
         pw.println("mTemporarilyDisconnectedWifi " + mTemporarilyDisconnectedWifi);
         pw.println("mServiceDiscReqId " + mServiceDiscReqId);
         pw.println();
+
+        final IpManager ipManager = mIpManager;
+        if (ipManager != null) {
+            pw.println("mIpManager:");
+            ipManager.dump(fd, pw, args);
+        }
     }
 
 
@@ -491,15 +539,14 @@ public final class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
                 = new UserAuthorizingNegotiationRequestState();
         private ProvisionDiscoveryState mProvisionDiscoveryState = new ProvisionDiscoveryState();
         private GroupNegotiationState mGroupNegotiationState = new GroupNegotiationState();
-        private FrequencyConflictState mFrequencyConflictState =new FrequencyConflictState();
+        private FrequencyConflictState mFrequencyConflictState = new FrequencyConflictState();
 
         private GroupCreatedState mGroupCreatedState = new GroupCreatedState();
         private UserAuthorizingJoinState mUserAuthorizingJoinState = new UserAuthorizingJoinState();
         private OngoingGroupRemovalState mOngoingGroupRemovalState = new OngoingGroupRemovalState();
 
-        private WifiNative mWifiNative = new WifiNative(mInterface);
-        private WifiMonitor mWifiMonitor = new WifiMonitor(this, mWifiNative);
-
+        private WifiNative mWifiNative = WifiNative.getP2pNativeInterface();
+        private WifiMonitor mWifiMonitor = WifiMonitor.getInstance();
         private final WifiP2pDeviceList mPeers = new WifiP2pDeviceList();
         /* During a connection, supplicant can tell us that a device was lost. From a supplicant's
          * perspective, the discovery stops during connection and it purges device since it does
@@ -528,9 +575,6 @@ public final class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
         // or if it is connected without any ongoing join request
         private WifiP2pConfig mSavedPeerConfig = new WifiP2pConfig();
 
-        // Saved WifiP2pGroup from invitation request
-        private WifiP2pGroup mSavedP2pGroup;
-
         P2pStateMachine(String name, Looper looper, boolean p2pSupported) {
             super(name, looper);
 
@@ -558,6 +602,70 @@ public final class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
             }
             setLogRecSize(50);
             setLogOnlyTransitions(true);
+
+            String interfaceName = mWifiNative.getInterfaceName();
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.AP_STA_CONNECTED_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.AP_STA_DISCONNECTED_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.AUTHENTICATION_FAILURE_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.NETWORK_CONNECTION_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.NETWORK_DISCONNECTION_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.P2P_DEVICE_FOUND_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.P2P_DEVICE_LOST_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.P2P_FIND_STOPPED_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.P2P_GO_NEGOTIATION_FAILURE_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.P2P_GO_NEGOTIATION_REQUEST_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.P2P_GO_NEGOTIATION_SUCCESS_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.P2P_GROUP_FORMATION_FAILURE_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.P2P_GROUP_FORMATION_SUCCESS_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.P2P_GROUP_REMOVED_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.P2P_GROUP_STARTED_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.P2P_INVITATION_RECEIVED_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.P2P_INVITATION_RESULT_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.P2P_PROV_DISC_ENTER_PIN_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.P2P_PROV_DISC_FAILURE_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.P2P_PROV_DISC_PBC_REQ_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.P2P_PROV_DISC_PBC_RSP_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.P2P_PROV_DISC_SHOW_PIN_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.P2P_SERV_DISC_RESP_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.SCAN_RESULTS_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.SUP_CONNECTION_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.SUP_DISCONNECTION_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.SUPPLICANT_STATE_CHANGE_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.WPS_FAIL_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.WPS_OVERLAP_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.WPS_SUCCESS_EVENT, getHandler());
+            mWifiMonitor.registerHandler(interfaceName,
+                    WifiMonitor.WPS_TIMEOUT_EVENT, getHandler());
         }
 
     class DefaultState extends State {
@@ -722,16 +830,16 @@ public final class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
                 case DROP_WIFI_USER_REJECT:
                 case GROUP_CREATING_TIMED_OUT:
                 case DISABLE_P2P_TIMED_OUT:
-                case DhcpStateMachine.CMD_PRE_DHCP_ACTION:
-                case DhcpStateMachine.CMD_POST_DHCP_ACTION:
-                case DhcpStateMachine.CMD_ON_QUIT:
+                case IPM_PRE_DHCP_ACTION:
+                case IPM_POST_DHCP_ACTION:
+                case IPM_DHCP_RESULTS:
+                case IPM_PROVISIONING_SUCCESS:
+                case IPM_PROVISIONING_FAILURE:
                 case WifiMonitor.P2P_PROV_DISC_FAILURE_EVENT:
                 case SET_MIRACAST_MODE:
                 case WifiP2pManager.START_LISTEN:
                 case WifiP2pManager.STOP_LISTEN:
                 case WifiP2pManager.SET_CHANNEL:
-                case SET_COUNTRY_CODE:
-                    break;
                 case WifiStateMachine.CMD_ENABLE_P2P:
                     // Enable is lazy and has no response
                     break;
@@ -898,13 +1006,13 @@ public final class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
             switch (message.what) {
                 case WifiStateMachine.CMD_ENABLE_P2P:
                     try {
-                        mNwService.setInterfaceUp(mInterface);
+                        mNwService.setInterfaceUp(mWifiNative.getInterfaceName());
                     } catch (RemoteException re) {
                         loge("Unable to change interface settings: " + re);
                     } catch (IllegalStateException ie) {
                         loge("Unable to change interface settings: " + ie);
                     }
-                    mWifiMonitor.startMonitoring();
+                    mWifiMonitor.startMonitoring(mWifiNative.getInterfaceName());
                     transitionTo(mP2pEnablingState);
                     break;
                 default:
@@ -970,7 +1078,7 @@ public final class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
                     }
                     if (mGroups.clear()) sendP2pPersistentGroupsChangedBroadcast();
 
-                    mWifiMonitor.stopMonitoring();
+                    mWifiMonitor.stopMonitoring(mWifiNative.getInterfaceName());
                     transitionTo(mP2pDisablingState);
                     break;
                 case WifiP2pManager.SET_DEVICE_NAME:
@@ -1163,16 +1271,6 @@ public final class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
                         replyToMessage(message, WifiP2pManager.SET_CHANNEL_FAILED);
                     }
                     break;
-                case SET_COUNTRY_CODE:
-                    String countryCode = (String) message.obj;
-                    countryCode = countryCode.toUpperCase(Locale.ROOT);
-                    if (mLastSetCountryCode == null ||
-                            countryCode.equals(mLastSetCountryCode) == false) {
-                        if (mWifiNative.setCountryCode(countryCode)) {
-                            mLastSetCountryCode = countryCode;
-                        }
-                    }
-                    break;
                 case WifiP2pManager.GET_HANDOVER_REQUEST:
                     Bundle requestBundle = new Bundle();
                     requestBundle.putString(WifiP2pManager.EXTRA_HANDOVER_MESSAGE,
@@ -1198,8 +1296,6 @@ public final class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
             sendP2pDiscoveryChangedBroadcast(false);
             sendP2pStateChangedBroadcast(false);
             mNetworkInfo.setIsAvailable(false);
-
-            mLastSetCountryCode = null;
         }
     }
 
@@ -1657,11 +1753,7 @@ public final class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
                         startDhcpServer(mGroup.getInterface());
                     } else {
                         mWifiNative.setP2pGroupIdle(mGroup.getInterface(), GROUP_IDLE_TIME_S);
-                        mDhcpStateMachine = DhcpStateMachine.makeDhcpStateMachine(mContext,
-                                P2pStateMachine.this, mGroup.getInterface());
-                        // TODO: We should use DHCP state machine PRE message like WifiStateMachine
-                        mWifiNative.setP2pPowerSave(mGroup.getInterface(), false);
-                        mDhcpStateMachine.sendMessage(DhcpStateMachine.CMD_START_DHCP);
+                        startIpManager(mGroup.getInterface());
                         WifiP2pDevice groupOwner = mGroup.getOwner();
                         WifiP2pDevice peer = mPeers.get(groupOwner.deviceAddress);
                         if (peer != null) {
@@ -1904,26 +1996,31 @@ public final class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
                         loge("Disconnect on unknown device: " + device);
                     }
                     break;
-                case DhcpStateMachine.CMD_POST_DHCP_ACTION:
-                    DhcpResults dhcpResults = (DhcpResults) message.obj;
-                    if (message.arg1 == DhcpStateMachine.DHCP_SUCCESS &&
-                            dhcpResults != null) {
-                        if (DBG) logd("DhcpResults: " + dhcpResults);
-                        setWifiP2pInfoOnGroupFormation(dhcpResults.serverAddress);
-                        sendP2pConnectionChangedBroadcast();
-                        //Turn on power save on client
-                        mWifiNative.setP2pPowerSave(mGroup.getInterface(), true);
-                        try {
-                            String iface = mGroup.getInterface();
-                            mNwService.addInterfaceToLocalNetwork(iface,
-                                                                  dhcpResults.getRoutes(iface));
-                        } catch (RemoteException e) {
-                            loge("Failed to add iface to local network " + e);
-                        }
-                    } else {
-                        loge("DHCP failed");
-                        mWifiNative.p2pGroupRemove(mGroup.getInterface());
+                case IPM_PRE_DHCP_ACTION:
+                    mWifiNative.setP2pPowerSave(mGroup.getInterface(), false);
+                    mIpManager.completedPreDhcpAction();
+                    break;
+                case IPM_POST_DHCP_ACTION:
+                    mWifiNative.setP2pPowerSave(mGroup.getInterface(), true);
+                    break;
+                case IPM_DHCP_RESULTS:
+                    mDhcpResults = (DhcpResults) message.obj;
+                    break;
+                case IPM_PROVISIONING_SUCCESS:
+                    if (DBG) logd("mDhcpResults: " + mDhcpResults);
+                    setWifiP2pInfoOnGroupFormation(mDhcpResults.serverAddress);
+                    sendP2pConnectionChangedBroadcast();
+                    try {
+                        final String ifname = mGroup.getInterface();
+                        mNwService.addInterfaceToLocalNetwork(
+                                ifname, mDhcpResults.getRoutes(ifname));
+                    } catch (RemoteException e) {
+                        loge("Failed to add iface to local network " + e);
                     }
+                    break;
+                case IPM_PROVISIONING_FAILURE:
+                    loge("IP provisioning failed");
+                    mWifiNative.p2pGroupRemove(mGroup.getInterface());
                     break;
                 case WifiP2pManager.REMOVE_GROUP:
                     if (DBG) logd(getName() + " remove group");
@@ -2144,7 +2241,6 @@ public final class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
         pw.println("mWifiP2pInfo " + mWifiP2pInfo);
         pw.println("mGroup " + mGroup);
         pw.println("mSavedPeerConfig " + mSavedPeerConfig);
-        pw.println("mSavedP2pGroup " + mSavedP2pGroup);
         pw.println();
     }
 
@@ -2735,12 +2831,6 @@ public final class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
         mServiceTransactionId = 0;
         mServiceDiscReqId = null;
 
-        String countryCode = Settings.Global.getString(mContext.getContentResolver(),
-                Settings.Global.WIFI_COUNTRY_CODE);
-        if (countryCode != null && !countryCode.isEmpty()) {
-            mP2pStateMachine.sendMessage(SET_COUNTRY_CODE, countryCode);
-        }
-
         updatePersistentNetworks(RELOAD);
     }
 
@@ -2774,10 +2864,8 @@ public final class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
         if (mGroup.isGroupOwner()) {
             stopDhcpServer(mGroup.getInterface());
         } else {
-            if (DBG) logd("stop DHCP client");
-            mDhcpStateMachine.sendMessage(DhcpStateMachine.CMD_STOP_DHCP);
-            mDhcpStateMachine.doQuit();
-            mDhcpStateMachine = null;
+            if (DBG) logd("stop IpManager");
+            stopIpManager();
             try {
                 mNwService.removeInterfaceFromLocalNetwork(mGroup.getInterface());
             } catch (RemoteException e) {
@@ -2790,7 +2878,6 @@ public final class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
         } catch (Exception e) {
             loge("Failed to clear addresses " + e);
         }
-        NetworkUtils.resetConnections(mGroup.getInterface(), NetworkUtils.RESET_ALL_ADDRESSES);
 
         // Clear any timeout that was set. This is essential for devices
         // that reuse the main p2p interface for a created group.
@@ -2816,7 +2903,7 @@ public final class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
             mWifiChannel.sendMessage(WifiP2pServiceImpl.DISCONNECT_WIFI_REQUEST, 0);
             mTemporarilyDisconnectedWifi = false;
         }
-   }
+    }
 
     //State machine initiated requests can have replyTo set to null indicating
     //there are no recipients, we ignore those reply actions

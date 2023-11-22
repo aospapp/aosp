@@ -15,13 +15,13 @@
  */
 package com.android.cts.tradefed.result;
 
+import android.tests.getinfo.DeviceInfoConstants;
+
 import com.android.tradefed.log.LogUtil.CLog;
 
 import org.kxml2.io.KXmlSerializer;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
-
-import android.tests.getinfo.DeviceInfoConstants;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -42,6 +42,7 @@ class DeviceInfoResult extends AbstractXmlPullParser {
     static final String BUILD_TAG = "BuildInfo";
     private static final String PHONE_TAG = "PhoneSubInfo";
     private static final String SCREEN_TAG = "Screen";
+    private static final String MEMORY_TAG = "MemoryInfo";
 
     private static final String FEATURE_INFO_TAG = "FeatureInfo";
     private static final String FEATURE_TAG = "Feature";
@@ -103,6 +104,17 @@ class DeviceInfoResult extends AbstractXmlPullParser {
         serializer.attribute(ns, DeviceInfoConstants.PHONE_NUMBER,
                 getMetric(metricsCopy, DeviceInfoConstants.PHONE_NUMBER));
         serializer.endTag(ns, PHONE_TAG);
+
+        serializer.startTag(ns, MEMORY_TAG);
+        serializer.attribute(ns, DeviceInfoConstants.IS_LOW_RAM_DEVICE,
+            getMetric(metricsCopy, DeviceInfoConstants.IS_LOW_RAM_DEVICE));
+        serializer.attribute(ns, DeviceInfoConstants.MEMORY_CLASS,
+            getMetric(metricsCopy, DeviceInfoConstants.MEMORY_CLASS));
+        serializer.attribute(ns, DeviceInfoConstants.LARGE_MEMORY_CLASS,
+            getMetric(metricsCopy, DeviceInfoConstants.LARGE_MEMORY_CLASS));
+        serializer.attribute(ns, DeviceInfoConstants.TOTAL_MEMORY,
+            getMetric(metricsCopy, DeviceInfoConstants.TOTAL_MEMORY));
+        serializer.endTag(ns, MEMORY_TAG);
 
         String featureData = getMetric(metricsCopy, DeviceInfoConstants.FEATURES);
         String processData = getMetric(metricsCopy, DeviceInfoConstants.PROCESSES);

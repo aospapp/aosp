@@ -44,7 +44,7 @@ public class TouchDelegateTest extends ActivityInstrumentationTestCase2<MockActi
     private Exception mException;
 
     public TouchDelegateTest() {
-        super("com.android.cts.view", MockActivity.class);
+        super("android.view.cts", MockActivity.class);
     }
 
     @Override

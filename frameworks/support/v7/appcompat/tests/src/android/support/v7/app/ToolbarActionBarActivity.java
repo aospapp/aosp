@@ -17,6 +17,7 @@
 package android.support.v7.app;
 
 import android.support.v7.appcompat.test.R;
+import android.support.v7.testutils.BaseTestActivity;
 import android.support.v7.widget.Toolbar;
 
 public class ToolbarActionBarActivity extends BaseTestActivity {

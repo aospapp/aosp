@@ -82,7 +82,7 @@ public class SensorTestScreenManipulator {
         mWakeUpScreenWakeLock = powerManager.newWakeLock(levelAndFlags, "SensorTestWakeUpScreen");
         mWakeUpScreenWakeLock.setReferenceCounted(false);
         mKeepScreenOnWakeLock = powerManager.newWakeLock(levelAndFlags, "SensorTestKeepScreenOn");
-        mWakeUpScreenWakeLock.setReferenceCounted(false);
+        mKeepScreenOnWakeLock.setReferenceCounted(false);
     }
 
     /**

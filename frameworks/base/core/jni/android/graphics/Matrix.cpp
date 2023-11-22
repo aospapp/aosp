@@ -15,16 +15,13 @@
 ** limitations under the License.
 */
 
-#include "jni.h"
 #include "GraphicsJNI.h"
-#include <core_jni_helpers.h>
-
-#include "SkMatrix.h"
-#include "SkTemplates.h"
-
 #include "Matrix.h"
+#include "SkMatrix.h"
+#include "core_jni_helpers.h"
 
 #include <Caches.h>
+#include <jni.h>
 
 namespace android {
 
@@ -305,7 +302,7 @@ public:
     }
  };
 
-static JNINativeMethod methods[] = {
+static const JNINativeMethod methods[] = {
     {"finalizer", "(J)V", (void*) SkMatrixGlue::finalizer},
     {"native_create","(J)J", (void*) SkMatrixGlue::create},
 

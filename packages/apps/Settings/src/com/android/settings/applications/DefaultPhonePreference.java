@@ -17,34 +17,33 @@
 package com.android.settings.applications;
 
 import android.content.Context;
+import android.os.UserHandle;
 import android.os.UserManager;
 import android.telecom.DefaultDialerManager;
 import android.telecom.TelecomManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.AttributeSet;
-
 import com.android.settings.AppListPreference;
+import com.android.settings.SelfAvailablePreference;
 
 import java.util.List;
 import java.util.Objects;
 
-public class DefaultPhonePreference extends AppListPreference {
+public class DefaultPhonePreference extends AppListPreference implements SelfAvailablePreference {
     private final Context mContext;
 
     public DefaultPhonePreference(Context context, AttributeSet attrs) {
         super(context, attrs);
 
         mContext = context.getApplicationContext();
-        if (isAvailable(context)) {
-            loadDialerApps();
-        }
+        loadDialerApps();
     }
 
     @Override
     protected boolean persistString(String value) {
         if (!TextUtils.isEmpty(value) && !Objects.equals(value, getDefaultPackage())) {
-            TelecomManager.from(mContext).setDefaultDialer(value);
+            DefaultDialerManager.setDefaultDialerApplication(getContext(), value, mUserId);
         }
         setSummary(getEntry());
         return true;
@@ -52,20 +51,26 @@ public class DefaultPhonePreference extends AppListPreference {
 
     private void loadDialerApps() {
         List<String> dialerPackages =
-                DefaultDialerManager.getInstalledDialerApplications(getContext());
+                DefaultDialerManager.getInstalledDialerApplications(getContext(), mUserId);
 
         final String[] dialers = new String[dialerPackages.size()];
         for (int i = 0; i < dialerPackages.size(); i++) {
             dialers[i] = dialerPackages.get(i);
         }
-        setPackageNames(dialers, getDefaultPackage());
+        setPackageNames(dialers, getDefaultPackage(), getSystemPackage());
     }
 
     private String getDefaultPackage() {
-        return DefaultDialerManager.getDefaultDialerApplication(getContext());
+        return DefaultDialerManager.getDefaultDialerApplication(getContext(), mUserId);
     }
 
-    public static boolean isAvailable(Context context) {
+    private String getSystemPackage() {
+        TelecomManager tm = TelecomManager.from(getContext());
+        return tm.getSystemDialerPackage();
+    }
+
+    @Override
+    public boolean isAvailable(Context context) {
         final TelephonyManager tm =
                 (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
         if (!tm.isVoiceCapable()) {
@@ -75,5 +80,17 @@ public class DefaultPhonePreference extends AppListPreference {
         final UserManager um =
                 (UserManager) context.getSystemService(Context.USER_SERVICE);
         return !um.hasUserRestriction(UserManager.DISALLOW_OUTGOING_CALLS);
+    }
+
+    public static boolean hasPhonePreference(String pkg, Context context) {
+        List<String> dialerPackages =
+                DefaultDialerManager.getInstalledDialerApplications(context, UserHandle.myUserId());
+        return dialerPackages.contains(pkg);
+    }
+
+    public static boolean isPhoneDefault(String pkg, Context context) {
+        String def = DefaultDialerManager.getDefaultDialerApplication(context,
+                UserHandle.myUserId());
+        return def != null && def.equals(pkg);
     }
 }

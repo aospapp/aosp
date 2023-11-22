@@ -46,7 +46,6 @@ import java.util.Locale;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 
-import javax.net.ssl.DistinguishedNameParser;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
@@ -209,8 +208,8 @@ public abstract class AbstractVerifier implements X509HostnameVerifier {
     }
 
     public static String[] getCNs(X509Certificate cert) {
-        DistinguishedNameParser dnParser =
-                new DistinguishedNameParser(cert.getSubjectX500Principal());
+        AndroidDistinguishedNameParser dnParser =
+                new AndroidDistinguishedNameParser(cert.getSubjectX500Principal());
         List<String> cnList = dnParser.getAllMostSpecificFirst("cn");
 
         if(!cnList.isEmpty()) {

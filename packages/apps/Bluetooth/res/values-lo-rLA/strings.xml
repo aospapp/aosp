@@ -36,9 +36,8 @@
     <string name="incoming_file_confirm_ok" msgid="281462442932231475">"ຮັບເອົາ"</string>
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"ຕົກລົງ"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"ເກີດມີການໝົດເວລາໃນລະຫວ່າງທີ່ກຳລັງຮັບເອົາໄຟລ໌ທີ່ເຂົ້າມາຈາກ \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
-    <string name="incoming_file_confirm_Notification_title" msgid="2958227698135117210">"ແບ່ງປັນໃນ Bluetooth: ມີໄຟລ໌ເຂົ້າມາ"</string>
-    <string name="incoming_file_confirm_Notification_caption" msgid="6671081128475981157">"ທ່ານຕ້ອງການທີ່ຮັບເອົາໄຟລ໌ນີ້ບໍ່?"</string>
-    <string name="incoming_file_toast_msg" msgid="1733710749992901811">"ມີໄຟລ໌ກຳລັງເຂົ້າມາຈາກອຸປະກອນອື່ນ. ຢືນຢັນວ່າທ່ານຕ້ອງການຮັບເອົາໄຟລ໌ນີ້."</string>
+    <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"ໄຟ​ລ໌​ເຂົ້າ​ມາ"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> ພ້ອມ​ທີ່​ຈະ​ສົ່ງ <xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"ແບ່ງປັນໃນ Bluetooth: ກຳລັງຮັບເອົາ <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received" msgid="3324588019186687985">"ແບ່ງປັນໃນ Bluetooth: ໄດ້ຮັບ <xliff:g id="FILE">%1$s</xliff:g> ແລ້ວ"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"ແບ່ງປັນໃນ Bluetooth: ບໍ່ໄດ້ຮັບ <xliff:g id="FILE">%1$s</xliff:g>"</string>
@@ -124,9 +123,11 @@
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"ລຶບ"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"ບັນທຶກ"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"ຍົກເລີກ"</string>
-    <string name="bluetooth_map_settings_intro" msgid="6793938602201480648">"ເລືອກ​ບັນ​ຊີ​​ທີ່​ທ່ານ​ຕ້ອງ​ການ​​ແບ່ງ​ປັນ​ຜ່ານ Bluetooth. ​ທ່ານ​ຍັງ​ຄົງ​ຕ້ອງຍອມ​ຮັບ​ການ​ເຂົ້າ​ເຖິງ​ໃດໆ​ຕໍ່​ບັນ​ຊີ​ຕ່າງໆ​ເມື່ອ​ທຳ​ການ​ເຊື່ອມ​ຕໍ່."</string>
+    <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"ເລືອກ​ບັນ​ຊີ​​ທີ່​ທ່ານ​ຕ້ອງ​ການ​​ແບ່ງ​ປັນ​ຜ່ານ Bluetooth. ​ທ່ານ​ຍັງ​ຈຳເປັນຕ້ອງຍອມ​ຮັບທຸກ​ການ​ເຂົ້າ​ເຖິງ​ບັນ​ຊີ​ຕ່າງໆ​ໃນເວລາ​ເຊື່ອມ​ຕໍ່."</string>
     <string name="bluetooth_map_settings_count" msgid="4557473074937024833">"ຊ່ອງ​ຊ້າຍ:"</string>
     <string name="bluetooth_map_settings_app_icon" msgid="7105805610929114707">"​ໄອ​ຄອນ​ແອັບ​ພລິ​ເຄ​ຊັນ"</string>
     <string name="bluetooth_map_settings_title" msgid="7420332483392851321">"ການ​ຕັ້ງ​ຄ່າ​ແບ່ງ​ປັນ​ຂໍ້​ຄວາມ Bluetooth"</string>
     <string name="bluetooth_map_settings_no_account_slots_left" msgid="1796029082612965251">"ບໍ່​ສາ​ມາດ​ເລືອກ​ບັນ​ຊີ​ໄດ້. ​ເຫຼືອ 0 ຊ່ອງ"</string>
+    <string name="bluetooth_connected" msgid="6718623220072656906">"ເຊື່ອມຕໍ່ສຽງ Bluetooth ແລ້ວ"</string>
+    <string name="bluetooth_disconnected" msgid="3318303728981478873">"ຕັດການເຊື່ອມຕໍ່ສຽງ Bluetooth ແລ້ວ"</string>
 </resources>

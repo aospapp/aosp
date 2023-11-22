@@ -16,7 +16,7 @@
 
 package android.view.animation.cts;
 
-import com.android.cts.view.R;
+import android.view.cts.R;
 
 
 import android.app.Activity;
@@ -41,7 +41,7 @@ public class AccelerateDecelerateInterpolatorTest
     private static final long ALPHA_DURATION = 2000;
 
     public AccelerateDecelerateInterpolatorTest() {
-        super("com.android.cts.view", AnimationTestCtsActivity.class);
+        super("android.view.cts", AnimationTestCtsActivity.class);
     }
 
     @Override

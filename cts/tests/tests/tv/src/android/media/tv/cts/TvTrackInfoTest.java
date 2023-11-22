@@ -70,6 +70,8 @@ public class TvTrackInfoTest extends AndroidTestCase {
                 .setVideoWidth(1920)
                 .setVideoHeight(1080)
                 .setVideoFrameRate(29.97f)
+                .setVideoPixelAspectRatio(1.0f)
+                .setVideoActiveFormatDescription((byte) 8)
                 .setLanguage("eng")
                 .setExtra(bundle)
                 .build();
@@ -78,6 +80,8 @@ public class TvTrackInfoTest extends AndroidTestCase {
         assertEquals(1920, info.getVideoWidth());
         assertEquals(1080, info.getVideoHeight());
         assertEquals(29.97f, info.getVideoFrameRate());
+        assertEquals(1.0f, info.getVideoPixelAspectRatio());
+        assertEquals((byte) 8, info.getVideoActiveFormatDescription());
         assertEquals("eng", info.getLanguage());
         assertEquals(bundle.get("testTrue"), info.getExtra().get("testTrue"));
         assertEquals(0, info.describeContents());
@@ -92,6 +96,8 @@ public class TvTrackInfoTest extends AndroidTestCase {
         assertEquals(1920, infoFromParcel.getVideoWidth());
         assertEquals(1080, infoFromParcel.getVideoHeight());
         assertEquals(29.97f, infoFromParcel.getVideoFrameRate());
+        assertEquals(1.0f, infoFromParcel.getVideoPixelAspectRatio());
+        assertEquals((byte) 8, infoFromParcel.getVideoActiveFormatDescription());
         assertEquals("eng", infoFromParcel.getLanguage());
         assertEquals(bundle.get("testTrue"), infoFromParcel.getExtra().get("testTrue"));
         assertEquals(0, infoFromParcel.describeContents());

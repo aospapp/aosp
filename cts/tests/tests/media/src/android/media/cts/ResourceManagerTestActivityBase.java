@@ -210,6 +210,7 @@ public class ResourceManagerTestActivityBase extends Activity {
             Log.d(TAG, "useCodecs got CodecException 0x" + Integer.toHexString(e.getErrorCode()));
             if (e.getErrorCode() == MediaCodec.CodecException.ERROR_RECLAIMED) {
                 Log.d(TAG, "Remove codec " + current + " from the list");
+                mCodecs.get(current).release();
                 mCodecs.remove(current);
                 mGotReclaimedException = true;
                 mUseCodecs = false;

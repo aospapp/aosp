@@ -18,15 +18,18 @@ set -e
 devnull='> /dev/null 2>&1'
 
 BUILD_ROOT="_iosbuild"
+CONFIGURE_ARGS="--disable-docs
+                --disable-examples
+                --disable-libyuv
+                --disable-unit-tests"
 DIST_DIR="_dist"
 FRAMEWORK_DIR="VPX.framework"
 HEADER_DIR="${FRAMEWORK_DIR}/Headers/vpx"
-MAKE_JOBS=1
-LIBVPX_SOURCE_DIR=$(dirname "$0" | sed -e s,/build/make,,)
+SCRIPT_DIR=$(dirname "$0")
+LIBVPX_SOURCE_DIR=$(cd ${SCRIPT_DIR}/../..; pwd)
 LIPO=$(xcrun -sdk iphoneos${SDK} -find lipo)
 ORIG_PWD="$(pwd)"
 TARGETS="arm64-darwin-gcc
-         armv6-darwin-gcc
          armv7-darwin-gcc
          armv7s-darwin-gcc
          x86-iphonesimulator-gcc
@@ -37,15 +40,24 @@ TARGETS="arm64-darwin-gcc
 build_target() {
   local target="$1"
   local old_pwd="$(pwd)"
+  local target_specific_flags=""
 
   vlog "***Building target: ${target}***"
 
+  case "${target}" in
+    x86-*)
+      target_specific_flags="--enable-pic"
+      vlog "Enabled PIC for ${target}"
+      ;;
+  esac
+
   mkdir "${target}"
   cd "${target}"
-  eval "../../${LIBVPX_SOURCE_DIR}/configure" --target="${target}" \
-      --disable-docs ${devnull}
+  eval "${LIBVPX_SOURCE_DIR}/configure" --target="${target}" \
+    ${CONFIGURE_ARGS} ${EXTRA_CONFIGURE_ARGS} ${target_specific_flags} \
+    ${devnull}
   export DIST_DIR
-  eval make -j ${MAKE_JOBS} dist ${devnull}
+  eval make dist ${devnull}
   cd "${old_pwd}"
 
   vlog "***Done building target: ${target}***"
@@ -58,11 +70,8 @@ target_to_preproc_symbol() {
     arm64-*)
       echo "__aarch64__"
       ;;
-    armv6-*)
-      echo "__ARM_ARCH_6__"
-      ;;
     armv7-*)
-      echo "__ARM_ARCH_7__"
+      echo "__ARM_ARCH_7A__"
       ;;
     armv7s-*)
       echo "__ARM_ARCH_7S__"
@@ -176,7 +185,12 @@ build_framework() {
 # Trap function. Cleans up the subtree used to build all targets contained in
 # $TARGETS.
 cleanup() {
+  local readonly res=$?
   cd "${ORIG_PWD}"
+
+  if [ $res -ne 0 ]; then
+    elog "build exited with error ($res)"
+  fi
 
   if [ "${PRESERVE_BUILD_OUTPUT}" != "yes" ]; then
     rm -rf "${BUILD_ROOT}"
@@ -187,12 +201,20 @@ iosbuild_usage() {
 cat << EOF
   Usage: ${0##*/} [arguments]
     --help: Display this message and exit.
-    --jobs: Number of make jobs.
+    --extra-configure-args <args>: Extra args to pass when configuring libvpx.
     --preserve-build-output: Do not delete the build directory.
     --show-build-output: Show output from each library build.
+    --targets <targets>: Override default target list. Defaults:
+         ${TARGETS}
+    --test-link: Confirms all targets can be linked. Functionally identical to
+                 passing --enable-examples via --extra-configure-args.
     --verbose: Output information about the environment and each stage of the
                build.
 EOF
+}
+
+elog() {
+  echo "${0##*/} failed because: $@" 1>&2
 }
 
 vlog() {
@@ -206,19 +228,26 @@ trap cleanup EXIT
 # Parse the command line.
 while [ -n "$1" ]; do
   case "$1" in
+    --extra-configure-args)
+      EXTRA_CONFIGURE_ARGS="$2"
+      shift
+      ;;
     --help)
       iosbuild_usage
       exit
-      ;;
-    --jobs)
-      MAKE_JOBS="$2"
-      shift
       ;;
     --preserve-build-output)
       PRESERVE_BUILD_OUTPUT=yes
       ;;
     --show-build-output)
       devnull=
+      ;;
+    --test-link)
+      EXTRA_CONFIGURE_ARGS="${EXTRA_CONFIGURE_ARGS} --enable-examples"
+      ;;
+    --targets)
+      TARGETS="$2"
+      shift
       ;;
     --verbose)
       VERBOSE=yes
@@ -235,15 +264,19 @@ if [ "${VERBOSE}" = "yes" ]; then
 cat << EOF
   BUILD_ROOT=${BUILD_ROOT}
   DIST_DIR=${DIST_DIR}
+  CONFIGURE_ARGS=${CONFIGURE_ARGS}
+  EXTRA_CONFIGURE_ARGS=${EXTRA_CONFIGURE_ARGS}
   FRAMEWORK_DIR=${FRAMEWORK_DIR}
   HEADER_DIR=${HEADER_DIR}
-  MAKE_JOBS=${MAKE_JOBS}
-  PRESERVE_BUILD_OUTPUT=${PRESERVE_BUILD_OUTPUT}
   LIBVPX_SOURCE_DIR=${LIBVPX_SOURCE_DIR}
   LIPO=${LIPO}
+  MAKEFLAGS=${MAKEFLAGS}
   ORIG_PWD=${ORIG_PWD}
+  PRESERVE_BUILD_OUTPUT=${PRESERVE_BUILD_OUTPUT}
   TARGETS="${TARGETS}"
 EOF
 fi
 
 build_framework "${TARGETS}"
+echo "Successfully built '${FRAMEWORK_DIR}' for:"
+echo "         ${TARGETS}"

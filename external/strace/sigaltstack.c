@@ -1,51 +1,66 @@
+/*
+ * Copyright (c) 1991, 1992 Paul Kranenburg <pk@cs.few.eur.nl>
+ * Copyright (c) 1993 Branko Lankester <branko@hacktic.nl>
+ * Copyright (c) 1993-1996 Rick Sladkey <jrs@world.std.com>
+ * Copyright (c) 1996-1999 Wichert Akkerman <wichert@cistron.nl>
+ * Copyright (c) 2005-2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2015 Elvira Khabirova <lineprinter0@gmail.com>
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. The name of the author may not be used to endorse or promote products
+ *    derived from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #include "defs.h"
+
+#include DEF_MPERS_TYPE(stack_t)
+
+#include <signal.h>
+
+#include MPERS_DEFS
+
 #include "xlat/sigaltstack_flags.h"
 
 static void
 print_stack_t(struct tcb *tcp, unsigned long addr)
 {
 	stack_t ss;
-	int r;
 
-	if (!addr) {
-		tprints("NULL");
+	if (umove_or_printaddr(tcp, addr, &ss))
 		return;
-	}
 
-#if SUPPORTED_PERSONALITIES > 1 && SIZEOF_LONG > 4
-	if (current_wordsize != sizeof(ss.ss_sp) && current_wordsize == 4) {
-		struct {
-			uint32_t ss_sp;
-			int32_t ss_flags;
-			uint32_t ss_size;
-		} ss32;
-		r = umove(tcp, addr, &ss32);
-		if (r >= 0) {
-			memset(&ss, 0, sizeof(ss));
-			ss.ss_sp = (void*)(unsigned long) ss32.ss_sp;
-			ss.ss_flags = ss32.ss_flags;
-			ss.ss_size = (unsigned long) ss32.ss_size;
-		}
-	} else
-#endif
-	{
-		r = umove(tcp, addr, &ss);
-	}
-	if (r < 0) {
-		tprintf("%#lx", addr);
-	} else {
-		tprintf("{ss_sp=%#lx, ss_flags=", (unsigned long) ss.ss_sp);
-		printflags(sigaltstack_flags, ss.ss_flags, "SS_???");
-		tprintf(", ss_size=%lu}", (unsigned long) ss.ss_size);
-	}
+	tprints("{ss_sp=");
+	printaddr((unsigned long) ss.ss_sp);
+	tprints(", ss_flags=");
+	printflags(sigaltstack_flags, ss.ss_flags, "SS_???");
+	tprintf(", ss_size=%lu}", (unsigned long) ss.ss_size);
 }
 
 SYS_FUNC(sigaltstack)
 {
 	if (entering(tcp)) {
 		print_stack_t(tcp, tcp->u_arg[0]);
-	} else {
 		tprints(", ");
+	} else {
 		print_stack_t(tcp, tcp->u_arg[1]);
 	}
 	return 0;

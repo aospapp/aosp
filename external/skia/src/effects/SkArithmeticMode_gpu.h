@@ -12,8 +12,8 @@
 
 #if SK_SUPPORT_GPU
 
+#include "GrCaps.h"
 #include "GrCoordTransform.h"
-#include "GrDrawTargetCaps.h"
 #include "GrFragmentProcessor.h"
 #include "GrTextureAccess.h"
 #include "GrTypes.h"
@@ -31,18 +31,20 @@ class GrGLArtithmeticFP;
 
 class GrArithmeticFP : public GrFragmentProcessor {
 public:
-    static GrFragmentProcessor* Create(float k1, float k2, float k3, float k4, bool enforcePMColor,
-                               GrTexture* background) {
-        return SkNEW_ARGS(GrArithmeticFP, (k1, k2, k3, k4, enforcePMColor, background));
+    static const GrFragmentProcessor* Create(float k1, float k2, float k3, float k4,
+                                             bool enforcePMColor, const GrFragmentProcessor* dst) {
+        return new GrArithmeticFP(k1, k2, k3, k4, enforcePMColor, dst);
     }
 
     ~GrArithmeticFP() override {};
 
     const char* name() const override { return "Arithmetic"; }
 
-    void getGLProcessorKey(const GrGLSLCaps& caps, GrProcessorKeyBuilder* b) const override;
-
-    GrGLFragmentProcessor* createGLInstance() const override;
+    SkString dumpInfo() const override {
+        SkString str;
+        str.appendf("K1: %.2f K2: %.2f K3: %.2f K4: %.2f", fK1, fK2, fK3, fK4);
+        return str;
+    }
 
     float k1() const { return fK1; }
     float k2() const { return fK2; }
@@ -51,17 +53,19 @@ public:
     bool enforcePMColor() const { return fEnforcePMColor; }
 
 private:
+    GrGLSLFragmentProcessor* onCreateGLSLInstance() const override;
+
+    void onGetGLSLProcessorKey(const GrGLSLCaps& caps, GrProcessorKeyBuilder* b) const override;
+
     bool onIsEqual(const GrFragmentProcessor&) const override;
 
     void onComputeInvariantOutput(GrInvariantOutput* inout) const override;
 
     GrArithmeticFP(float k1, float k2, float k3, float k4, bool enforcePMColor,
-                   GrTexture* background);
+                   const GrFragmentProcessor* dst);
 
     float                       fK1, fK2, fK3, fK4;
     bool                        fEnforcePMColor;
-    GrCoordTransform            fBackgroundTransform;
-    GrTextureAccess             fBackgroundAccess;
 
     GR_DECLARE_FRAGMENT_PROCESSOR_TEST;
     typedef GrFragmentProcessor INHERITED;
@@ -74,27 +78,23 @@ private:
 class GrArithmeticXPFactory : public GrXPFactory {
 public:
     static GrXPFactory* Create(float k1, float k2, float k3, float k4, bool enforcePMColor) {
-        return SkNEW_ARGS(GrArithmeticXPFactory, (k1, k2, k3, k4, enforcePMColor));
+        return new GrArithmeticXPFactory(k1, k2, k3, k4, enforcePMColor);
     }
 
-    bool supportsRGBCoverage(GrColor knownColor, uint32_t knownColorFlags) const override {
-        return true;
-    }
-
-    void getInvariantOutput(const GrProcOptInfo& colorPOI, const GrProcOptInfo& coveragePOI,
-                            GrXPFactory::InvariantOutput*) const override;
+    void getInvariantBlendedColor(const GrProcOptInfo& colorPOI,
+                                  GrXPFactory::InvariantBlendedColor*) const override;
 
 private:
     GrArithmeticXPFactory(float k1, float k2, float k3, float k4, bool enforcePMColor); 
 
-    GrXferProcessor* onCreateXferProcessor(const GrDrawTargetCaps& caps,
-                                           const GrProcOptInfo& colorPOI,
-                                           const GrProcOptInfo& coveragePOI,
-                                           const GrDeviceCoordTexture* dstCopy) const override; 
+    GrXferProcessor* onCreateXferProcessor(const GrCaps& caps,
+                                           const GrPipelineOptimizations& optimizations,
+                                           bool hasMixedSamples,
+                                           const DstTexture*) const override; 
 
-    bool willReadDstColor(const GrDrawTargetCaps& caps,
-                          const GrProcOptInfo& colorPOI,
-                          const GrProcOptInfo& coveragePOI) const override {
+    bool onWillReadDstColor(const GrCaps& caps,
+                            const GrPipelineOptimizations& optimizations,
+                            bool hasMixedSamples) const override {
         return true;
     }
 

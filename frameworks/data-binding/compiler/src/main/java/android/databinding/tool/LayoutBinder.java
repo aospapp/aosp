@@ -16,37 +16,38 @@
 
 package android.databinding.tool;
 
-import org.antlr.v4.runtime.misc.Nullable;
-
 import android.databinding.tool.expr.Dependency;
 import android.databinding.tool.expr.Expr;
 import android.databinding.tool.expr.ExprModel;
-import android.databinding.tool.expr.ExprModel.ResolveListenersCallback;
 import android.databinding.tool.expr.IdentifierExpr;
 import android.databinding.tool.processing.Scope;
 import android.databinding.tool.processing.scopes.FileScopeProvider;
 import android.databinding.tool.store.Location;
 import android.databinding.tool.store.ResourceBundle;
 import android.databinding.tool.store.ResourceBundle.BindingTargetBundle;
+import android.databinding.tool.util.L;
 import android.databinding.tool.util.Preconditions;
 import android.databinding.tool.writer.LayoutBinderWriter;
-import android.databinding.tool.writer.WriterPackage;
+import android.databinding.tool.writer.LayoutBinderWriterKt;
+
+import org.antlr.v4.runtime.misc.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 
 /**
  * Keeps all information about the bindings per layout file
  */
-public class LayoutBinder implements ResolveListenersCallback, FileScopeProvider {
+public class LayoutBinder implements FileScopeProvider {
     private static final Comparator<BindingTarget> COMPARE_FIELD_NAME = new Comparator<BindingTarget>() {
         @Override
         public int compare(BindingTarget first, BindingTarget second) {
-            final String fieldName1 = WriterPackage.getFieldName(first);
-            final String fieldName2 = WriterPackage.getFieldName(second);
+            final String fieldName1 = LayoutBinderWriterKt.getFieldName(first);
+            final String fieldName2 = LayoutBinderWriterKt.getFieldName(second);
             return fieldName1.compareTo(fieldName2);
         }
     };
@@ -172,27 +173,63 @@ public class LayoutBinder implements ResolveListenersCallback, FileScopeProvider
             mBindingTargets = new ArrayList<BindingTarget>();
             mBundle = layoutBundle;
             mModulePackage = layoutBundle.getModulePackage();
+            HashSet<String> names = new HashSet<String>();
             // copy over data.
-            for (ResourceBundle.NameTypeLocation variable : mBundle.getVariables()) {
-                addVariable(variable.name, variable.type, variable.location);
+            for (ResourceBundle.VariableDeclaration variable : mBundle.getVariables()) {
+                addVariable(variable.name, variable.type, variable.location, variable.declared);
+                names.add(variable.name);
             }
 
             for (ResourceBundle.NameTypeLocation userImport : mBundle.getImports()) {
                 mExprModel.addImport(userImport.name, userImport.type, userImport.location);
+                names.add(userImport.name);
+            }
+            if (!names.contains("context")) {
+                mExprModel.builtInVariable("context", "android.content.Context",
+                        "getRoot().getContext()");
+                names.add("context");
             }
             for (String javaLangClass : sJavaLangClasses) {
                 mExprModel.addImport(javaLangClass, "java.lang." + javaLangClass, null);
             }
+            // First resolve all the View fields
+            // Ensure there are no conflicts with variable names
             for (BindingTargetBundle targetBundle : mBundle.getBindingTargetBundles()) {
                 try {
                     Scope.enter(targetBundle);
                     final BindingTarget bindingTarget = createBindingTarget(targetBundle);
-                    for (BindingTargetBundle.BindingBundle bindingBundle : targetBundle
-                            .getBindingBundleList()) {
-                        bindingTarget.addBinding(bindingBundle.getName(),
-                                parse(bindingBundle.getExpr(), bindingBundle.getValueLocation()));
+                    if (bindingTarget.getId() != null) {
+                        final String fieldName = LayoutBinderWriterKt.
+                                getReadableName(bindingTarget);
+                        if (names.contains(fieldName)) {
+                            L.w("View field %s collides with a variable or import", fieldName);
+                        } else {
+                            names.add(fieldName);
+                            mExprModel.viewFieldExpr(bindingTarget);
+                        }
                     }
+                } finally {
+                    Scope.exit();
+                }
+            }
+
+            for (BindingTarget bindingTarget : mBindingTargets) {
+                try {
+                    Scope.enter(bindingTarget.mBundle);
+                    for (BindingTargetBundle.BindingBundle bindingBundle : bindingTarget.mBundle
+                            .getBindingBundleList()) {
+                        try {
+                            Scope.enter(bindingBundle.getValueLocation());
+                            bindingTarget.addBinding(bindingBundle.getName(),
+                                    parse(bindingBundle.getExpr(), bindingBundle.isTwoWay(),
+                                            bindingBundle.getValueLocation()));
+                        } finally {
+                            Scope.exit();
+                        }
+                    }
+                    bindingTarget.resolveTwoWayExpressions();
                     bindingTarget.resolveMultiSetters();
+                    bindingTarget.resolveListeners();
                 } finally {
                     Scope.exit();
                 }
@@ -223,7 +260,8 @@ public class LayoutBinder implements ResolveListenersCallback, FileScopeProvider
         }
     }
 
-    public IdentifierExpr addVariable(String name, String type, Location location) {
+    public IdentifierExpr addVariable(String name, String type, Location location,
+            boolean declared) {
         Preconditions.check(!mUserDefinedVariables.containsKey(name),
                 "%s has already been defined as %s", name, type);
         final IdentifierExpr id = mExprModel.identifier(name);
@@ -233,6 +271,9 @@ public class LayoutBinder implements ResolveListenersCallback, FileScopeProvider
             id.addLocation(location);
         }
         mUserDefinedVariables.put(name, type);
+        if (declared) {
+            id.setDeclared();
+        }
         return id;
     }
 
@@ -247,9 +288,10 @@ public class LayoutBinder implements ResolveListenersCallback, FileScopeProvider
         return target;
     }
 
-    public Expr parse(String input, @Nullable Location locationInFile) {
+    public Expr parse(String input, boolean isTwoWay, @Nullable Location locationInFile) {
         final Expr parsed = mExpressionParser.parse(input, locationInFile);
         parsed.setBindingExpression(true);
+        parsed.setTwoWay(isTwoWay);
         return parsed;
     }
 
@@ -276,7 +318,7 @@ public class LayoutBinder implements ResolveListenersCallback, FileScopeProvider
     }
 
     public void sealModel() {
-        mExprModel.seal(this);
+        mExprModel.seal();
     }
 
     public String writeViewBinderBaseClass(boolean forLibrary) {
@@ -325,15 +367,6 @@ public class LayoutBinder implements ResolveListenersCallback, FileScopeProvider
 
     public boolean hasVariations() {
         return mBundle.hasVariations();
-    }
-
-    @Override
-    public void resolveListeners() {
-        for (BindingTarget target : mBindingTargets) {
-            for (Binding binding : target.getBindings()) {
-                binding.resolveListeners();
-            }
-        }
     }
 
     @Override

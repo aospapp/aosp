@@ -6,7 +6,7 @@
     android:versionName="1.0" >
 
     <uses-sdk
-        android:minSdkVersion="21" />
+        android:minSdkVersion="23" />
 
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -18,7 +18,7 @@
     <uses-permission android:name="android.permission.DELETE_CACHE_FILES" />
     <uses-permission android:name="android.permission.DUMP" />
     <uses-permission android:name="android.permission.FORCE_STOP_PACKAGES" />
-    <uses-permission android:name="android.permission.GET_ACCOUNTS" />
+    <uses-permission android:name="android.permission.GET_ACCOUNTS_PRIVILEGED" />
     <uses-permission android:name="android.permission.GET_PACKAGE_SIZE" />
     <uses-permission android:name="android.permission.INJECT_EVENTS" />
     <uses-permission android:name="android.permission.INTERNET" />
@@ -36,15 +36,19 @@
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
     <application
-        android:icon="@drawable/ic_launcher_settings"
+        android:icon="@drawable/logo_settings_color_48dp"
         android:label="@string/settings_app_name"
         android:banner="@drawable/ic_launcher_banner_settings"
         android:supportsRtl="true"
         android:theme="@style/Theme.Settings"
-        android:usesCleartextTraffic="true">
+        android:usesCleartextTraffic="true"
+        android:defaultToDeviceProtectedStorage="true"
+        android:directBootAware="true">
 
         <activity
             android:name=".MainSettings"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.Settings.Transparent"
             android:configChanges="keyboard|keyboardHidden|navigation"
             android:label="@string/settings_app_name" >
             <intent-filter>
@@ -69,6 +73,8 @@
         <activity
             android:name=".connectivity.setup.WifiSetupActivity"
             android:clearTaskOnLaunch="true"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.Setup"
             android:configChanges="keyboard|keyboardHidden|navigation" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -83,47 +89,40 @@
             android:name=".connectivity.WifiConnectionActivity"
             android:clearTaskOnLaunch="true"
             android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
             android:exported="true"
             android:theme="@style/Theme.Leanback.FormWizard.Solid" />
         <activity
             android:name=".connectivity.EditProxySettingsActivity"
             android:clearTaskOnLaunch="true"
             android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
             android:theme="@style/Theme.Leanback.FormWizard.Solid" />
         <activity
             android:name=".connectivity.EditIpSettingsActivity"
             android:clearTaskOnLaunch="true"
             android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
             android:theme="@style/Theme.Leanback.FormWizard.Solid" />
         <activity
             android:name=".connectivity.AddWifiNetworkActivity"
             android:clearTaskOnLaunch="true"
             android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
             android:exported="true"
             android:theme="@style/Theme.Leanback.FormWizard.Solid" />
-        <activity
-            android:name=".connectivity.WifiNetworksActivity"
-            android:configChanges="keyboard|keyboardHidden|navigation"
-            android:exported="true" />
         <!-- WpsConnectionActivity may be started from setup so theme
              is determined at runtime -->
         <activity
             android:name=".connectivity.WpsConnectionActivity"
             android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
             android:exported="true" />
         <activity
-            android:name=".accounts.AccountSettingsActivity"
+            android:name=".accounts.AccountSyncActivity"
+            android:theme="@style/Theme.Settings.Transparent"
             android:configChanges="keyboard|keyboardHidden|navigation"
-            android:exported="true" >
-            <intent-filter>
-                <action android:name="android.settings.ADD_ACCOUNT_SETTINGS" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </activity>
-        <activity
-            android:name=".accounts.AccountSyncSettings"
-            android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
             android:exported="true" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -134,13 +133,23 @@
         </activity>
         <activity
             android:name=".accounts.RemoveAccountDialog"
-            android:configChanges="keyboard|keyboardHidden|navigation" />
+            android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true" />
         <activity
             android:name=".accounts.AddAccountWithTypeActivity"
-            android:exported="true" />
+            android:excludeFromRecents="true"
+            android:exported="true" >
+            <intent-filter>
+                <action android:name="android.settings.ADD_ACCOUNT_SETTINGS" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
         <activity
             android:name=".device.apps.AppsActivity"
+            android:theme="@style/Theme.Settings.Transparent"
             android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
             android:exported="true" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -155,7 +164,9 @@
         </activity>
         <activity
             android:name=".device.apps.AppManagementActivity"
+            android:theme="@style/Theme.Settings.Transparent"
             android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
             android:exported="true" >
             <intent-filter android:priority="1">
                 <action android:name="android.settings.APPLICATION_DETAILS_SETTINGS" />
@@ -165,17 +176,29 @@
         </activity>
         <activity
             android:name=".device.StorageResetActivity"
+            android:theme="@style/Theme.Settings.Transparent"
             android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
             android:exported="true">
+            <intent-filter android:priority="1">
+                <action android:name="android.settings.INTERNAL_STORAGE_SETTINGS" />
+                <action android:name="android.settings.MEMORY_CARD_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <action android:name="android.intent.action.MANAGE_PACKAGE_STORAGE" />
             </intent-filter>
         </activity>
-        <activity
-            android:name=".connectivity.NetworkActivity"
+        <activity android:name=".device.storage.ResetActivity"
+            android:theme="@style/Theme.Settings.Transparent"
             android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true" />
+        <activity android:name=".connectivity.NetworkActivity"
+            android:theme="@style/Theme.Settings.Transparent"
+            android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
             android:exported="true" >
 
             <!-- Intent filter used to display this activity as a settings
@@ -183,7 +206,7 @@
             <intent-filter
                 android:priority="2"
                 android:label="@string/launcher_network_app_name"
-                android:icon="@drawable/ic_settings_wifi_0" >
+                android:icon="@drawable/ic_settings_wifi_active_0_launcher" >
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LEANBACK_SETTINGS" />
             </intent-filter>
@@ -195,15 +218,23 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".users.RestrictedProfileActivity"
+            android:name=".system.SecurityActivity"
+            android:theme="@style/Theme.Settings.Transparent"
             android:configChanges="keyboard|keyboardHidden|navigation"
-            android:exported="true"
-            android:theme="@style/Theme.Leanback.FormWizard.Solid" />
+            android:excludeFromRecents="true"
+            android:exported="true" >
+            <intent-filter>
+                <action android:name="android.settings.SECURITY_SETTINGS" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
         <activity-alias
             android:name=".users.RestrictedProfileActivityLauncherEntry"
             android:enabled="false"
+            android:excludeFromRecents="true"
             android:exported="true"
-            android:targetActivity=".users.RestrictedProfileActivity" >
+            android:targetActivity=".system.SecurityActivity" >
 
             <!--
                  Intent filter used to display this activity as a settings
@@ -220,7 +251,9 @@
         </activity-alias>
         <activity
             android:name=".device.sound.SoundActivity"
+            android:theme="@style/Theme.Settings.Transparent"
             android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
             android:exported="true" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -233,29 +266,14 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".device.display.DisplayActivity"
-            android:configChanges="keyboard|keyboardHidden|navigation"
-            android:exported="true" >
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <action android:name="com.android.settings.DISPLAY_SETTINGS" />
-                <action android:name="android.settings.DISPLAY_SETTINGS" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.VOICE_LAUNCH" />
-                <category android:name="com.android.settings.SHORTCUT" />
-            </intent-filter>
-        </activity>
-        <activity
-            android:name=".device.display.widi.WifiDisplayActivity"
-            android:configChanges="keyboard|keyboardHidden|navigation"
-            android:exported="true" />
-        <activity
             android:name=".device.display.daydream.DaydreamActivity"
+            android:theme="@style/Theme.Settings.Transparent"
             android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
             android:exported="true" />
         <activity
             android:name=".device.display.daydream.DaydreamVoiceAction"
+            android:excludeFromRecents="true"
             android:exported="true"
             android:theme="@android:style/Theme.NoTitleBar.Fullscreen" >
             <intent-filter>
@@ -269,7 +287,9 @@
         <activity
             android:name=".device.privacy.PrivacyActivity"
             android:configChanges="keyboard|keyboardHidden|navigation"
-            android:exported="true" >
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:theme="@android:style/Theme.NoDisplay" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <action android:name="android.settings.PRIVACY_SETTINGS" />
@@ -280,11 +300,14 @@
         </activity>
         <activity
             android:name=".system.AccessibilityActivity"
+            android:theme="@style/Theme.Settings.Transparent"
             android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
             android:exported="true" />
         <activity
             android:name=".system.CaptionSetupActivity"
             android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
             android:exported="true" >
             <intent-filter>
                 <action android:name="android.settings.CAPTIONING_SETTINGS" />
@@ -294,7 +317,9 @@
         </activity>
         <activity
             android:name=".system.DateTimeActivity"
+            android:theme="@style/Theme.Settings.Transparent"
             android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
             android:exported="true" >
             <intent-filter>
                 <action android:name="android.settings.DATE_SETTINGS" />
@@ -305,10 +330,13 @@
         <activity
             android:name=".system.SetDateTimeActivity"
             android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
             android:exported="false" />
         <activity
             android:name=".system.LocationActivity"
+            android:theme="@style/Theme.Settings.Transparent"
             android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
             android:exported="true" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -319,8 +347,10 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".system.DeveloperOptionsActivity"
+            android:name=".system.development.DevelopmentActivity"
+            android:theme="@style/Theme.Settings.Transparent"
             android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
             android:exported="true" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -330,9 +360,15 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <activity android:name=".system.development.AppPicker"
+            android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
+            android:exported="false" />
         <activity
             android:name=".system.KeyboardActivity"
+            android:theme="@style/Theme.Settings.Transparent"
             android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
             android:exported="true" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -344,7 +380,9 @@
         </activity>
         <activity
             android:name=".system.LanguageActivity"
+            android:theme="@style/Theme.Settings.Transparent"
             android:configChanges="keyboard|keyboardHidden|navigation|locale"
+            android:excludeFromRecents="true"
             android:exported="true" >
             <intent-filter>
                 <action android:name="android.settings.LOCALE_SETTINGS" />
@@ -353,36 +391,24 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".system.SecurityActivity"
-            android:configChanges="keyboard|keyboardHidden|navigation"
-            android:exported="true" >
-            <intent-filter>
-                <action android:name="android.settings.SECURITY_SETTINGS" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </activity>
-        <activity
             android:name=".system.InputsActivity"
             android:configChanges="keyboard|keyboardHidden|navigation"
-            android:exported="true" />
-        <activity
-            android:name=".system.InputsCustomLabelActivity"
-            android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
             android:exported="true" />
         <activity
             android:name=".accessories.BluetoothAccessoryActivity"
+            android:theme="@style/Theme.Settings.Transparent"
             android:configChanges="keyboard|keyboardHidden|navigation"
-            android:exported="true" />
-        <activity
-            android:name=".accessories.TestImeActivity"
-            android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
             android:exported="true" />
         <activity
             android:name=".accessories.AddAccessoryActivity"
             android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
             android:exported="true"
-            android:launchMode="singleTop" >
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:persistableMode="persistNever">
             <intent-filter>
                 <action android:name="com.google.android.intent.action.CONNECT_INPUT" />
 
@@ -428,6 +454,8 @@
         </activity>
         <activity
             android:name=".about.AboutActivity"
+            android:theme="@style/Theme.Settings.Transparent"
+            android:excludeFromRecents="true"
             android:exported="true" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -437,8 +465,21 @@
                 <category android:name="android.intent.category.VOICE_LAUNCH" />
             </intent-filter>
         </activity>
+        <!-- Runs in the phone process since it needs access to the Phone object -->
+        <activity android:name=".about.StatusActivity"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.Settings.Transparent"
+            android:process="com.android.phone">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.VOICE_LAUNCH" />
+            </intent-filter>
+        </activity>
         <activity
             android:name=".about.LicenseActivity"
+            android:label="@string/about_legal_license"
+            android:excludeFromRecents="true"
             android:exported="true" >
             <intent-filter>
                 <action android:name="android.settings.LICENSE" />
@@ -447,25 +488,9 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".resolver.ResolverActivity"
-            android:excludeFromRecents="true"
-            android:finishOnCloseSystemDialogs="true"
-            android:launchMode="singleTop" />
-        <activity
-            android:name=".resolver.ChooserActivity"
-            android:excludeFromRecents="true"
-            android:finishOnCloseSystemDialogs="true"
-            android:launchMode="singleTop" >
-            <intent-filter android:priority="1" >
-                <action android:name="android.intent.action.CHOOSER" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </activity>
-        <activity
-                android:name=".name.DeviceNameSettingsActivity"
-                android:configChanges="keyboardHidden|navigation"
-                android:theme="@style/Theme.Leanback.FormWizard.Solid" >
+            android:name=".name.DeviceNameSettingsActivity"
+            android:configChanges="keyboardHidden|navigation"
+            android:excludeFromRecents="true" >
                 <intent-filter>
                     <action android:name="android.settings.DEVICE_NAME" />
                     <category android:name="android.intent.category.DEFAULT" />
@@ -487,18 +512,52 @@
             </intent-filter>
         </receiver>
 
+        <service android:name=".device.storage.SettingsStorageService$Impl"
+            android:exported="false" />
+
         <activity android:name=".device.storage.NewStorageActivity"
+            android:excludeFromRecents="true"
             android:exported="false"
             android:taskAffinity="" />
 
         <activity android:name=".device.storage.UnmountActivity"
+            android:excludeFromRecents="true"
             android:exported="false" />
 
         <activity android:name=".device.storage.FormatActivity"
+            android:excludeFromRecents="true"
             android:exported="false" />
 
         <activity android:name=".device.storage.MigrateStorageActivity"
+            android:excludeFromRecents="true"
             android:exported="false" />
+
+        <activity android:name=".device.apps.MoveAppActivity"
+            android:excludeFromRecents="true"
+            android:exported="false" />
+
+        <activity android:name=".accessories.BluetoothRequestPermissionActivity"
+            android:label="@string/bluetooth_permission_request"
+            android:excludeFromRecents="true"
+            android:permission="android.permission.BLUETOOTH"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter android:priority="1">
+                <action android:name="android.bluetooth.adapter.action.REQUEST_DISCOVERABLE" />
+                <action android:name="android.bluetooth.adapter.action.REQUEST_ENABLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- Triggered when user-selected home app isn't encryption aware -->
+        <activity android:name=".system.FallbackHome"
+                  android:excludeFromRecents="true"
+                  android:theme="@style/FallbackHome">
+            <intent-filter android:priority="-1000">
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
     </application>
 
 </manifest>

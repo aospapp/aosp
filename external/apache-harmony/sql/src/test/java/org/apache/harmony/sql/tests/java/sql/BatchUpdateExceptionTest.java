@@ -97,9 +97,8 @@ public class BatchUpdateExceptionTest extends TestCase {
                 assertEquals(i + " Final state mismatch: ",
                         aBatchUpdateException.getErrorCode(),
                         theFinalStates1[i]);
-                assertEquals(i + " Final state mismatch: ",
-                        aBatchUpdateException.getUpdateCounts(),
-                        theFinalStates2[i]);
+                assertTrue(i + " Final state mismatch: ",
+                        Arrays.equals(aBatchUpdateException.getUpdateCounts(), theFinalStates2[i]));
                 assertEquals(i + " Final state mismatch: ",
                         aBatchUpdateException.getSQLState(), theFinalStates3[i]);
                 assertEquals(i + " Final state mismatch: ",
@@ -152,9 +151,8 @@ public class BatchUpdateExceptionTest extends TestCase {
                 assertEquals(i + " Final state mismatch: ",
                         aBatchUpdateException.getErrorCode(),
                         theFinalStates1[i]);
-                assertEquals(i + " Final state mismatch: ",
-                        aBatchUpdateException.getUpdateCounts(),
-                        theFinalStates2[i]);
+                assertTrue(i + " Final state mismatch: ",
+                        Arrays.equals(aBatchUpdateException.getUpdateCounts(), theFinalStates2[i]));
                 assertEquals(i + " Final state mismatch: ",
                         aBatchUpdateException.getSQLState(), theFinalStates3[i]);
                 assertEquals(i + " Final state mismatch: ",
@@ -209,9 +207,8 @@ public class BatchUpdateExceptionTest extends TestCase {
                 assertEquals(i + " Final state mismatch: ",
                         aBatchUpdateException.getErrorCode(),
                         theFinalStates1[i]);
-                assertEquals(i + " Final state mismatch: ",
-                        aBatchUpdateException.getUpdateCounts(),
-                        theFinalStates2[i]);
+                assertTrue(i + " Final state mismatch: ",
+                        Arrays.equals(aBatchUpdateException.getUpdateCounts(), theFinalStates2[i]));
                 assertEquals(i + " Final state mismatch: ",
                         aBatchUpdateException.getSQLState(), theFinalStates3[i]);
                 assertEquals(i + " Final state mismatch: ",
@@ -267,9 +264,8 @@ public class BatchUpdateExceptionTest extends TestCase {
                 assertEquals(i + " Final state mismatch: ",
                         aBatchUpdateException.getErrorCode(),
                         theFinalStates1[i]);
-                assertEquals(i + " Final state mismatch: ",
-                        aBatchUpdateException.getUpdateCounts(),
-                        theFinalStates2[i]);
+                assertTrue(i + " Final state mismatch: ",
+                        Arrays.equals(aBatchUpdateException.getUpdateCounts(), theFinalStates2[i]));
                 assertEquals(i + " Final state mismatch: ",
                         aBatchUpdateException.getSQLState(), theFinalStates3[i]);
                 assertEquals(i + " Final state mismatch: ",
@@ -399,14 +395,12 @@ public class BatchUpdateExceptionTest extends TestCase {
                 if (theExceptions[i] != null) {
                     fail(i + "Exception missed");
                 }
-                assertEquals(i + "Return value mismatch", theReturn,
-                        theReturns[i]);
+                assertTrue(i + "Return value mismatch", Arrays.equals(theReturn, theReturns[i]));
                 assertEquals(i + " Final state mismatch: ",
                         aBatchUpdateException.getErrorCode(),
                         theFinalStates1[i]);
-                assertEquals(i + " Final state mismatch: ",
-                        aBatchUpdateException.getUpdateCounts(),
-                        theFinalStates2[i]);
+                assertTrue(i + " Final state mismatch: ",
+                        Arrays.equals(aBatchUpdateException.getUpdateCounts(), theFinalStates2[i]));
                 assertEquals(i + " Final state mismatch: ",
                         aBatchUpdateException.getSQLState(), theFinalStates3[i]);
                 assertEquals(i + " Final state mismatch: ",

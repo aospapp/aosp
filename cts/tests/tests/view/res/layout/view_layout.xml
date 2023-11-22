@@ -102,4 +102,50 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content" />
 
+    <LinearLayout
+        android:id="@+id/pointer_icon_layout"
+        android:orientation="vertical"
+        android:layout_width="100px"
+        android:layout_height="100px">
+      <LinearLayout
+          android:orientation="vertical"
+          android:layout_width="match_parent"
+          android:layout_height="70px"
+          android:pointerIcon="crosshair">
+        <View android:layout_width="match_parent"
+              android:layout_height="20px"
+              android:pointerIcon="help"/>
+        <View android:layout_width="match_parent"
+              android:layout_height="20px"/>
+        <View android:layout_width="match_parent"
+              android:layout_height="20px"
+              android:pointerIcon="@drawable/custom_pointer_icon"/>
+      </LinearLayout>
+    </LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/aggregate_visibility_parent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content">
+        <android.view.cts.MockView
+            android:id="@+id/mock_view_aggregate_visibility"
+            android:layout_width="10px"
+            android:layout_height="10px" />
+    </FrameLayout>
+
+    <View
+            android:id="@+id/overlapping_rendering_unset"
+            android:layout_width="10px"
+            android:layout_height="10px" />
+    <View
+            android:id="@+id/overlapping_rendering_false"
+            android:forceHasOverlappingRendering="false"
+            android:layout_width="10px"
+            android:layout_height="10px" />
+    <View
+            android:id="@+id/overlapping_rendering_true"
+            android:forceHasOverlappingRendering="true"
+            android:layout_width="10px"
+            android:layout_height="10px" />
+
 </LinearLayout>

@@ -109,7 +109,10 @@ public final class Driver {
 
         run.taskQueue.printTasks();
         run.taskQueue.runTasks();
-        run.taskQueue.printProblemTasks();
+        if (run.taskQueue.hasFailedTasks()) {
+            run.taskQueue.printProblemTasks();
+            return false;
+        }
 
         if (run.reportPrinter.isReady()) {
             run.console.info("Printing XML Reports... ");
@@ -148,8 +151,12 @@ public final class Driver {
     private void enqueueActionTasks(Action action) {
         Expectation expectation = run.expectationStore.get(action.getName());
         boolean useLargeTimeout = expectation.getTags().contains("large");
-        File jar = run.hostJar(action);
-
+        File jar;
+        if (run.useJack) {
+            jar = run.hostJack(action);
+        } else {
+            jar = run.hostJar(action);
+        }
         Task build = new BuildActionTask(run, action, this, jar);
         run.taskQueue.enqueue(build);
 

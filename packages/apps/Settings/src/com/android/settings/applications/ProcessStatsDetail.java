@@ -31,8 +31,8 @@ import android.content.pm.ServiceInfo;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.os.Process;
-import android.preference.Preference;
-import android.preference.PreferenceCategory;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.PreferenceCategory;
 import android.text.format.Formatter;
 import android.util.ArrayMap;
 import android.util.Log;
@@ -40,15 +40,13 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.TextView;
-
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.AppHeader;
 import com.android.settings.CancellablePreference;
 import com.android.settings.CancellablePreference.OnCancelListener;
 import com.android.settings.R;
 import com.android.settings.SettingsPreferenceFragment;
-import com.android.settings.Utils;
+import com.android.settings.SummaryPreference;
 import com.android.settings.applications.ProcStatsEntry.Service;
 
 import java.util.ArrayList;
@@ -88,8 +86,6 @@ public class ProcessStatsDetail extends SettingsPreferenceFragment {
     private long mTotalTime;
     private long mOnePercentTime;
 
-    private LinearColorBar mColorBar;
-
     private double mMaxMemoryUsage;
 
     private double mTotalScale;
@@ -119,15 +115,18 @@ public class ProcessStatsDetail extends SettingsPreferenceFragment {
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        if (mApp.mUiTargetApp == null) {
+            finish();
+            return;
+        }
         AppHeader.createAppHeader(this,
                 mApp.mUiTargetApp != null ? mApp.mUiTargetApp.loadIcon(mPm) : new ColorDrawable(0),
-                mApp.mUiLabel, mApp.mPackage.equals(Utils.OS_PKG) ? null
-                        : AppInfoWithHeader.getInfoIntent(this, mApp.mPackage));
+                mApp.mUiLabel, mApp.mPackage, mApp.mUiTargetApp.uid);
     }
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.APPLICATIONS_PROCESS_STATS_DETAIL;
+        return MetricsEvent.APPLICATIONS_PROCESS_STATS_DETAIL;
     }
 
     @Override
@@ -179,20 +178,19 @@ public class ProcessStatsDetail extends SettingsPreferenceFragment {
         mProcGroup = (PreferenceCategory) findPreference(KEY_PROCS);
         fillProcessesSection();
 
-        LayoutPreference headerLayout = (LayoutPreference) findPreference(KEY_DETAILS_HEADER);
+        SummaryPreference summaryPreference = (SummaryPreference) findPreference(KEY_DETAILS_HEADER);
 
         // TODO: Find way to share this code with ProcessStatsPreference.
         boolean statsForeground = mApp.mRunWeight > mApp.mBgWeight;
         double avgRam = (statsForeground ? mApp.mRunWeight : mApp.mBgWeight) * mWeightToRam;
         float avgRatio = (float) (avgRam / mMaxMemoryUsage);
         float remainingRatio = 1 - avgRatio;
-        mColorBar = (LinearColorBar) headerLayout.findViewById(R.id.color_bar);
         Context context = getActivity();
-        mColorBar.setColors( context.getColor(R.color.memory_max_use), 0,
-                context.getColor(R.color.memory_remaining));
-        mColorBar.setRatios(avgRatio, 0, remainingRatio);
-        ((TextView) headerLayout.findViewById(R.id.memory_state)).setText(
-                Formatter.formatShortFileSize(getContext(), (long) avgRam));
+        summaryPreference.setRatios(avgRatio, 0, remainingRatio);
+        Formatter.BytesResult usedResult = Formatter.formatBytes(context.getResources(),
+                (long) avgRam, Formatter.FLAG_SHORTER);
+        summaryPreference.setAmount(usedResult.value);
+        summaryPreference.setUnits(usedResult.units);
 
         long duration = Math.max(mApp.mRunDuration, mApp.mBgDuration);
         CharSequence frequency = ProcStatsPackageEntry.getFrequency(duration
@@ -246,7 +244,7 @@ public class ProcessStatsDetail extends SettingsPreferenceFragment {
         Collections.sort(entries, sEntryCompare);
         for (int ie = 0; ie < entries.size(); ie++) {
             ProcStatsEntry entry = entries.get(ie);
-            Preference processPref = new Preference(getActivity());
+            Preference processPref = new Preference(getPrefContext());
             processPref.setTitle(entry.mLabel);
             processPref.setSelectable(false);
 
@@ -351,7 +349,7 @@ public class ProcessStatsDetail extends SettingsPreferenceFragment {
             for (int is=0; is<services.size(); is++) {
                 final ProcStatsEntry.Service service = services.get(is);
                 CharSequence label = getLabel(service);
-                CancellablePreference servicePref = new CancellablePreference(getActivity());
+                CancellablePreference servicePref = new CancellablePreference(getPrefContext());
                 servicePref.setSelectable(false);
                 servicePref.setTitle(label);
                 servicePref.setSummary(ProcStatsPackageEntry.getFrequency(

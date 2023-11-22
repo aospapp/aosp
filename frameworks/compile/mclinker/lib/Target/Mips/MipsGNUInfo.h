@@ -18,7 +18,7 @@ class MipsGNUInfo : public GNUInfo {
   explicit MipsGNUInfo(const llvm::Triple& pTriple);
 
   void setABIVersion(uint8_t ver);
-  void setPICFlags(uint64_t flags);
+  void setElfFlags(uint64_t flags);
 
   // GNUInfo
   uint32_t machine() const;
@@ -31,7 +31,7 @@ class MipsGNUInfo : public GNUInfo {
 
  private:
   uint8_t m_ABIVersion;
-  uint64_t m_PICFlags;
+  uint64_t m_ElfFlags;
 };
 
 }  // namespace mcld

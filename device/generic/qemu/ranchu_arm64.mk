@@ -28,9 +28,7 @@ PRODUCT_PACKAGES += \
     libGLES_android
 
 
-TARGET_PROVIDES_INIT_RC := true
 PRODUCT_COPY_FILES += $(call add-to-product-copy-files-if-exists,\
-			system/core/rootdir/init.rc:root/init.rc \
 			$(LOCAL_PATH)/init.ranchu.rc:root/init.ranchu.rc \
 			$(LOCAL_PATH)/fstab.ranchu:root/fstab.ranchu \
 			$(LOCAL_PATH)/ueventd.ranchu.rc:root/ueventd.ranchu.rc)

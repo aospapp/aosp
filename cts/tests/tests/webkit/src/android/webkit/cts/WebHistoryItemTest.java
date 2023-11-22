@@ -48,7 +48,7 @@ public class WebHistoryItemTest extends ActivityInstrumentationTestCase2<WebView
     };
 
     public WebHistoryItemTest() {
-        super("com.android.cts.webkit", WebViewCtsActivity.class);
+        super("android.webkit.cts", WebViewCtsActivity.class);
     }
 
     @Override

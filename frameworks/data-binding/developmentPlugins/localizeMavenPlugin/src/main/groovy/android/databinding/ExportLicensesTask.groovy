@@ -24,7 +24,8 @@ class ExportLicensesTask extends DefaultTask {
 
     static def knownLicenses = [
             [
-                    libraries: ["kotlin-stdlib", "kotlin-runtime", "kotlin-annotation-processing", "kotlin-gradle-plugin", "kotlin-gradle-plugin-api"],
+                    libraries: ["kotlin-stdlib", "kotlin-runtime", "kotlin-annotation-processing", "kotlin-gradle-plugin", "kotlin-gradle-plugin-api",
+                    "kdoc", "kotlin-gradle-plugin-core", "kotlin-jdk-annotations", "kotlin-compiler", "kotlin-compiler-embeddable"],
                     licenses : ["https://raw.githubusercontent.com/JetBrains/kotlin/master/license/LICENSE.txt",
                                 "http://www.apache.org/licenses/LICENSE-2.0.txt"],
                     notices  : ["https://raw.githubusercontent.com/JetBrains/kotlin/master/license/NOTICE.txt"]
@@ -96,9 +97,12 @@ class ExportLicensesTask extends DefaultTask {
             ],
             [
                     libraries: ["logkit"],
-                    licenses: ["unknown. see: http://commons.apache.org/proper/commons-logging/dependencies.html"]
-            ]
-
+                    licenseText: ["unknown. see: http://commons.apache.org/proper/commons-logging/dependencies.html"]
+            ],
+            [
+                    libraries: ["juniversalchardet"],
+                    licenses: ["https://mozorg.cdn.mozilla.net/media/MPL/1.1/index.0c5913925d40.txt"]
+            ],
     ]
 
     Map<String, Object> usedLicenses = new HashMap<>();
@@ -121,12 +125,15 @@ class ExportLicensesTask extends DefaultTask {
 
     @TaskAction
     public void exportNotice() {
-        project.configurations.compile.getResolvedConfiguration().getResolvedArtifacts().each {
-            add(it)
+        project.configurations.compile.getResolvedConfiguration()
+                .getFirstLevelModuleDependencies().each {
+            if (!it.getModuleGroup().equals("com.android.tools.build")) {
+                it.getAllModuleArtifacts().each { add(it) }
+            }
         }
         resolveLicenses()
         def notice = buildNotice(usedLicenses)
-        def noticeFile = new File(project.buildDir,'NOTICE.txt')
+        def noticeFile = new File("${project.projectDir}/src/main/resources",'NOTICE.txt')
         noticeFile.delete()
         println ("writing notice file to: ${noticeFile.getAbsolutePath()}")
         noticeFile << notice
@@ -149,8 +156,7 @@ class ExportLicensesTask extends DefaultTask {
     }
 
     public static String urlToText(String url) {
-        //return new URL(url).getText()
-        return url
+        return new URL(url).getText()
     }
 
     public boolean shouldSkip(ResolvedArtifact artifact) {
@@ -173,6 +179,9 @@ class ExportLicensesTask extends DefaultTask {
             }
             license.licenses.each {
                 notice.append("\n ****** LICENSE:\n${urlToText(it)}")
+            }
+            license.licenseText.each {
+                notice.append("\n ****** LICENSE:\n${it}")
             }
             notice.append("\n\n\n")
         }

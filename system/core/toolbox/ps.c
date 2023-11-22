@@ -41,14 +41,14 @@ static int ppid_filter = 0;
 
 static void print_exe_abi(int pid);
 
-static int ps_line(int pid, int tid, char *namefilter)
+static int ps_line(int pid, int tid)
 {
     char statline[1024];
     char cmdline[1024];
     char macline[1024];
     char user[32];
     struct stat stats;
-    int fd, r;
+    int r;
     char *ptr, *name, *state;
     int ppid;
     unsigned rss, vss;
@@ -57,7 +57,7 @@ static int ps_line(int pid, int tid, char *namefilter)
     int prio, nice, rtprio, sched, psr;
     struct passwd *pw;
 
-    sprintf(statline, "/proc/%d", pid);
+    sprintf(statline, "/proc/%d", tid ? tid : pid);
     stat(statline, &stats);
 
     if(tid) {
@@ -68,7 +68,7 @@ static int ps_line(int pid, int tid, char *namefilter)
         sprintf(statline, "/proc/%d/stat", pid);
         sprintf(cmdline, "/proc/%d/cmdline", pid);
         snprintf(macline, sizeof(macline), "/proc/%d/attr/current", pid);
-        fd = open(cmdline, O_RDONLY);
+        int fd = open(cmdline, O_RDONLY);
         if(fd == 0) {
             r = 0;
         } else {
@@ -79,7 +79,7 @@ static int ps_line(int pid, int tid, char *namefilter)
         cmdline[r] = 0;
     }
 
-    fd = open(statline, O_RDONLY);
+    int fd = open(statline, O_RDONLY);
     if(fd == 0) return -1;
     r = read(fd, statline, 1023);
     close(fd);
@@ -158,51 +158,48 @@ static int ps_line(int pid, int tid, char *namefilter)
         return 0;
     }
 
-    if(!namefilter || !strncmp(cmdline[0] ? cmdline : name, namefilter, strlen(namefilter))) {
-        if (display_flags & SHOW_MACLABEL) {
-            fd = open(macline, O_RDONLY);
-            strcpy(macline, "-");
-            if (fd >= 0) {
-                r = read(fd, macline, sizeof(macline)-1);
-                close(fd);
-                if (r > 0)
-                    macline[r] = 0;
-            }
-            printf("%-30s %-9s %-5d %-5d %s\n", macline, user, pid, ppid, cmdline[0] ? cmdline : name);
-            return 0;
+    if (display_flags & SHOW_MACLABEL) {
+        fd = open(macline, O_RDONLY);
+        strcpy(macline, "-");
+        if (fd >= 0) {
+            r = read(fd, macline, sizeof(macline)-1);
+            close(fd);
+            if (r > 0)
+                macline[r] = 0;
         }
-
-        printf("%-9s %-5d %-5d %-6d %-5d", user, pid, ppid, vss / 1024, rss * 4);
-        if (display_flags & SHOW_CPU)
-            printf(" %-2d", psr);
-        if (display_flags & SHOW_PRIO)
-            printf(" %-5d %-5d %-5d %-5d", prio, nice, rtprio, sched);
-        if (display_flags & SHOW_POLICY) {
-            SchedPolicy p;
-            if (get_sched_policy(pid, &p) < 0)
-                printf(" un ");
-            else
-                printf(" %.2s ", get_sched_policy_name(p));
-        }
-        char path[PATH_MAX];
-        snprintf(path, sizeof(path), "/proc/%d/wchan", pid);
-        char wchan[10];
-        int fd = open(path, O_RDONLY);
-        ssize_t wchan_len = read(fd, wchan, sizeof(wchan));
-        if (wchan_len == -1) {
-            wchan[wchan_len = 0] = '\0';
-        }
-        close(fd);
-        printf(" %10.*s %0*" PRIxPTR " %s ", (int) wchan_len, wchan, (int) PC_WIDTH, eip, state);
-        if (display_flags & SHOW_ABI) {
-            print_exe_abi(pid);
-        }
-        printf("%s", cmdline[0] ? cmdline : name);
-        if(display_flags&SHOW_TIME)
-            printf(" (u:%d, s:%d)", utime, stime);
-
-        printf("\n");
+        printf("%-30s ", macline);
     }
+
+    printf("%-9s %-5d %-5d %-6d %-5d", user, pid, ppid, vss / 1024, rss * 4);
+    if (display_flags & SHOW_CPU)
+        printf(" %-2d", psr);
+    if (display_flags & SHOW_PRIO)
+        printf(" %-5d %-5d %-5d %-5d", prio, nice, rtprio, sched);
+    if (display_flags & SHOW_POLICY) {
+        SchedPolicy p;
+        if (get_sched_policy(pid, &p) < 0)
+            printf(" un ");
+        else
+            printf(" %.2s ", get_sched_policy_name(p));
+    }
+    char path[PATH_MAX];
+    snprintf(path, sizeof(path), "/proc/%d/wchan", pid);
+    char wchan[10];
+    fd = open(path, O_RDONLY);
+    ssize_t wchan_len = read(fd, wchan, sizeof(wchan));
+    if (wchan_len == -1) {
+        wchan[wchan_len = 0] = '\0';
+    }
+    close(fd);
+    printf(" %10.*s %0*" PRIxPTR " %s ", (int) wchan_len, wchan, (int) PC_WIDTH, eip, state);
+    if (display_flags & SHOW_ABI) {
+        print_exe_abi(pid);
+    }
+    printf("%s", cmdline[0] ? cmdline : name);
+    if(display_flags&SHOW_TIME)
+        printf(" (u:%d, s:%d)", utime, stime);
+
+    printf("\n");
     return 0;
 }
 
@@ -240,7 +237,7 @@ static void print_exe_abi(int pid)
     }
 }
 
-void ps_threads(int pid, char *namefilter)
+void ps_threads(int pid)
 {
     char tmp[128];
     DIR *d;
@@ -254,7 +251,7 @@ void ps_threads(int pid, char *namefilter)
         if(isdigit(de->d_name[0])){
             int tid = atoi(de->d_name);
             if(tid == pid) continue;
-            ps_line(pid, tid, namefilter);
+            ps_line(pid, tid);
         }
     }
     closedir(d);
@@ -264,12 +261,8 @@ int ps_main(int argc, char **argv)
 {
     DIR *d;
     struct dirent *de;
-    char *namefilter = 0;
     int pidfilter = 0;
     int threads = 0;
-
-    d = opendir("/proc");
-    if(d == 0) return -1;
 
     while(argc > 1){
         if(!strcmp(argv[1],"-t")) {
@@ -290,33 +283,48 @@ int ps_main(int argc, char **argv)
             display_flags |= SHOW_ABI;
         } else if(!strcmp(argv[1],"--ppid")) {
             ppid_filter = atoi(argv[2]);
+            if (ppid_filter == 0) {
+                /* Bug 26554285: Use printf because some apps require at least
+                 * one line of output to stdout even for errors.
+                 */
+                printf("bad ppid '%s'\n", argv[2]);
+                return 1;
+            }
             argc--;
             argv++;
-        } else if(isdigit(argv[1][0])){
-            pidfilter = atoi(argv[1]);
         } else {
-            namefilter = argv[1];
+            pidfilter = atoi(argv[1]);
+            if (pidfilter == 0) {
+                /* Bug 26554285: Use printf because some apps require at least
+                 * one line of output to stdout even for errors.
+                 */
+                printf("bad pid '%s'\n", argv[1]);
+                return 1;
+            }
         }
         argc--;
         argv++;
     }
 
     if (display_flags & SHOW_MACLABEL) {
-        printf("LABEL                          USER      PID   PPID  NAME\n");
-    } else {
-        printf("USER      PID   PPID  VSIZE  RSS  %s%s %sWCHAN      %*s  %sNAME\n",
-               (display_flags&SHOW_CPU)?"CPU ":"",
-               (display_flags&SHOW_PRIO)?"PRIO  NICE  RTPRI SCHED ":"",
-               (display_flags&SHOW_POLICY)?"PCY " : "",
-               (int) PC_WIDTH, "PC",
-               (display_flags&SHOW_ABI)?"ABI " : "");
+        printf("LABEL                          ");
     }
+    printf("USER      PID   PPID  VSIZE  RSS  %s%s %sWCHAN      %*s  %sNAME\n",
+           (display_flags&SHOW_CPU)?"CPU ":"",
+           (display_flags&SHOW_PRIO)?"PRIO  NICE  RTPRI SCHED ":"",
+           (display_flags&SHOW_POLICY)?"PCY " : "",
+           (int) PC_WIDTH, "PC",
+           (display_flags&SHOW_ABI)?"ABI " : "");
+
+    d = opendir("/proc");
+    if(d == 0) return -1;
+
     while((de = readdir(d)) != 0){
         if(isdigit(de->d_name[0])){
             int pid = atoi(de->d_name);
             if(!pidfilter || (pidfilter == pid)) {
-                ps_line(pid, 0, namefilter);
-                if(threads) ps_threads(pid, namefilter);
+                ps_line(pid, 0);
+                if(threads) ps_threads(pid);
             }
         }
     }

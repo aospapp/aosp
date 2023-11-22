@@ -205,7 +205,8 @@ public class VoicemailContractTest extends InstrumentationTestCase {
         final String[] STATUS_PROJECTION = new String[] {
                 Status._ID, Status.SOURCE_PACKAGE, Status.CONFIGURATION_STATE,
                 Status.DATA_CHANNEL_STATE, Status.NOTIFICATION_CHANNEL_STATE,
-                Status.SETTINGS_URI, Status.VOICEMAIL_ACCESS_URI};
+                Status.SETTINGS_URI, Status.VOICEMAIL_ACCESS_URI,
+                Status.QUOTA_OCCUPIED, Status.QUOTA_TOTAL};
         final int ID_INDEX = 0;
         final int SOURCE_PACKAGE_INDEX = 1;
         final int CONFIGURATION_STATE_INDEX = 2;
@@ -213,16 +214,22 @@ public class VoicemailContractTest extends InstrumentationTestCase {
         final int NOTIFICATION_CHANNEL_STATE_INDEX = 4;
         final int SETTINGS_URI_INDEX = 5;
         final int VOICEMAIL_ACCESS_URI_INDEX = 6;
+        final int QUOTA_OCCUPIED_INDEX = 7;
+        final int QUOTA_TOTAL_INDEX = 8;
 
         int insertConfigurationState = Status.CONFIGURATION_STATE_OK;
         int insertDataChannelState = Status.DATA_CHANNEL_STATE_OK;
         int insertNotificationChannelState = Status.NOTIFICATION_CHANNEL_STATE_OK;
         String insertSettingsUri = "settings_uri";
         String insertVoicemailAccessUri = "tel:901";
+        int quotaOccupied = 7;
+        int quotaTotal = 42;
 
         int updateDataChannelState = Status.DATA_CHANNEL_STATE_NO_CONNECTION;
         int updateNotificationChannelState = Status.NOTIFICATION_CHANNEL_STATE_MESSAGE_WAITING;
         String updateSettingsUri = "settings_uri_2";
+        int updateQuotaOccupied = 1337;
+        int updateQuotaTotal = 2187;
 
         // Test: insert
         ContentValues value = new ContentValues();
@@ -231,6 +238,8 @@ public class VoicemailContractTest extends InstrumentationTestCase {
         value.put(Status.NOTIFICATION_CHANNEL_STATE, insertNotificationChannelState);
         value.put(Status.SETTINGS_URI, insertSettingsUri);
         value.put(Status.VOICEMAIL_ACCESS_URI, insertVoicemailAccessUri);
+        value.put(Status.QUOTA_OCCUPIED, quotaOccupied);
+        value.put(Status.QUOTA_TOTAL, quotaTotal);
 
         Uri uri = mStatusProvider.insert(mStatusContentUri, value);
         Cursor cursor = mStatusProvider.query(
@@ -243,6 +252,8 @@ public class VoicemailContractTest extends InstrumentationTestCase {
                 cursor.getInt(NOTIFICATION_CHANNEL_STATE_INDEX));
         assertEquals(insertSettingsUri, cursor.getString(SETTINGS_URI_INDEX));
         assertEquals(insertVoicemailAccessUri, cursor.getString(VOICEMAIL_ACCESS_URI_INDEX));
+        assertEquals(quotaOccupied, cursor.getInt(QUOTA_OCCUPIED_INDEX));
+        assertEquals(quotaTotal, cursor.getInt(QUOTA_TOTAL_INDEX));
         int id = cursor.getInt(ID_INDEX);
         assertEquals(id, Integer.parseInt(uri.getLastPathSegment()));
         cursor.close();
@@ -252,6 +263,8 @@ public class VoicemailContractTest extends InstrumentationTestCase {
         value.put(Status.DATA_CHANNEL_STATE, updateDataChannelState);
         value.put(Status.NOTIFICATION_CHANNEL_STATE, updateNotificationChannelState);
         value.put(Status.SETTINGS_URI, updateSettingsUri);
+        value.put(Status.QUOTA_OCCUPIED, updateQuotaOccupied);
+        value.put(Status.QUOTA_TOTAL, updateQuotaTotal);
 
         mStatusProvider.update(uri, value, null, null);
         cursor = mStatusProvider.query(mStatusContentUri, STATUS_PROJECTION,
@@ -263,6 +276,8 @@ public class VoicemailContractTest extends InstrumentationTestCase {
         assertEquals(updateNotificationChannelState,
                 cursor.getInt(NOTIFICATION_CHANNEL_STATE_INDEX));
         assertEquals(updateSettingsUri, cursor.getString(SETTINGS_URI_INDEX));
+        assertEquals(updateQuotaOccupied, cursor.getInt(QUOTA_OCCUPIED_INDEX));
+        assertEquals(updateQuotaTotal, cursor.getInt(QUOTA_TOTAL_INDEX));
         cursor.close();
 
         // Test: delete

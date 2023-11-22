@@ -16,6 +16,7 @@
 
 package com.google.doclava;
 
+import com.google.clearsilver.jsilver.data.Data;
 import java.util.ArrayList;
 
 public class ParsedTagInfo extends TagInfo {
@@ -44,6 +45,12 @@ public class ParsedTagInfo extends TagInfo {
 
   protected void setCommentText(String comment) {
     mCommentText = comment;
+  }
+
+  @Override
+  public void makeHDF(Data data, String base) {
+    super.makeHDF(data, base);
+    TagInfo.makeHDF(data, base + ".commentTags", commentTags());
   }
 
   public static <T extends ParsedTagInfo> TagInfo[] joinTags(T[] tags) {

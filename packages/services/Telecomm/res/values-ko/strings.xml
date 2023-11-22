@@ -16,10 +16,11 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="9166784827254469057">"통화 관리"</string>
+    <string name="telecommAppLabel" product="default" msgid="382363169988504520">"통화 관리"</string>
     <string name="userCallActivityLabel" product="default" msgid="5415173590855187131">"전화"</string>
     <string name="unknown" msgid="6878797917991465859">"알 수 없음"</string>
     <string name="notification_missedCallTitle" msgid="7554385905572364535">"부재중 전화"</string>
+    <string name="notification_missedWorkCallTitle" msgid="6242489980390803090">"부재중 업무 통화"</string>
     <string name="notification_missedCallsTitle" msgid="1361677948941502522">"부재중 통화"</string>
     <string name="notification_missedCallsMsg" msgid="4575787816055205600">"부재중 통화 <xliff:g id="NUM_MISSED_CALLS">%s</xliff:g>통"</string>
     <string name="notification_missedCallTicker" msgid="504686252427747209">"<xliff:g id="MISSED_CALL_FROM">%s</xliff:g>의 부재중 전화"</string>
@@ -37,15 +38,32 @@
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"빠른 응답"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"<xliff:g id="PHONE_NUMBER">%s</xliff:g>(으)로 메시지를 보냈습니다."</string>
     <string name="enable_account_preference_title" msgid="2021848090086481720">"통화 계정"</string>
-    <string name="outgoing_call_not_allowed_user_restriction" msgid="8504993498756056279">"기기 소유자만 긴급 전화를 사용할 수 있습니다."</string>
+    <string name="outgoing_call_not_allowed_user_restriction" msgid="6872406278300131364">"긴급 전화만 허용됩니다."</string>
     <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"전화 권한이 없으므로 애플리케이션에서 발신 전화를 걸 수 없습니다."</string>
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"전화를 걸려면 올바른 번호를 입력하세요."</string>
     <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"현재 통화를 추가할 수 없습니다."</string>
-    <string name="video_call_not_allowed_if_tty_enabled" msgid="7593649283571253283">"화상 통화를 하려면 TTY 모드를 중지하세요."</string>
     <string name="no_vm_number" msgid="4164780423805688336">"음성사서함 번호 없음"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"SIM 카드에 저장된 음성사서함 번호가 없습니다."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"번호 추가"</string>
     <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"기본 다이얼러 앱을 변경하시겠습니까?"</string>
     <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"<xliff:g id="CURRENT_APP">%2$s</xliff:g> 대신 <xliff:g id="NEW_APP">%1$s</xliff:g>을(를) 기본 다이얼러 앱으로 사용하시겠습니까?"</string>
     <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"<xliff:g id="NEW_APP">%s</xliff:g>을(를) 기본 다이얼러 앱으로 사용하시겠습니까?"</string>
+    <string name="blocked_numbers" msgid="2751843139572970579">"차단된 번호"</string>
+    <string name="blocked_numbers_msg" msgid="1045015186124965643">"차단한 번호에서 걸려오는 전화나 문자를 더 이상 받지 않습니다."</string>
+    <string name="block_number" msgid="1101252256321306179">"번호 추가"</string>
+    <string name="unblock_dialog_body" msgid="1614238499771862793">"<xliff:g id="NUMBER_TO_BLOCK">%1$s</xliff:g>번을 차단 해제하시겠습니까?"</string>
+    <string name="unblock_button" msgid="3078048901972674170">"차단 해제"</string>
+    <string name="add_blocked_dialog_body" msgid="9030243212265516828">"전화와 문자 메시지를 차단할 번호"</string>
+    <string name="add_blocked_number_hint" msgid="6847675097085433553">"전화번호"</string>
+    <string name="block_button" msgid="8822290682524373357">"차단"</string>
+    <string name="non_primary_user" msgid="5180129233352533459">"기기 소유자만 차단된 번호를 보고 관리할 수 있습니다."</string>
+    <string name="delete_icon_description" msgid="8903995728252556724">"차단 해제"</string>
+    <string name="blocked_numbers_butter_bar_title" msgid="438170866438793182">"차단 기능이 일시적으로 중지됨"</string>
+    <string name="blocked_numbers_butter_bar_body" msgid="2223244484319442431">"긴급 전화번호로 전화를 걸거나 문자를 보내면 긴급 서비스를 사용할 수 있도록 차단 기능이 중지됩니다."</string>
+    <string name="blocked_numbers_butter_bar_button" msgid="2197943354922010696">"지금 다시 사용 설정"</string>
+    <string name="blocked_numbers_number_blocked_message" msgid="7678509606805029540">"<xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g>번은 차단되었습니다."</string>
+    <string name="blocked_numbers_number_unblocked_message" msgid="977894647366750418">"<xliff:g id="UNBLOCKED_NUMBER">%1$s</xliff:g>번은 차단 해제되었습니다."</string>
+    <string name="blocked_numbers_block_emergency_number_message" msgid="917851876780698387">"긴급 전화번호를 차단할 수 없습니다."</string>
+    <string name="blocked_numbers_number_already_blocked_message" msgid="4392247814500811798">"<xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g>번은 이미 차단되었습니다."</string>
+    <string name="toast_personal_call_msg" msgid="5115361633476779723">"전화를 걸 때 개인 다이얼러 사용"</string>
 </resources>

@@ -15,21 +15,30 @@
  */
 
 #include <stdio.h>
+#include <map>
 #include <string>
 #include <vector>
 
-#include <base/logging.h>
+#include <android-base/logging.h>
 
 #include "command.h"
+#include "environment.h"
+#include "event_attr.h"
+#include "event_fd.h"
 #include "event_type.h"
-#include "perf_event.h"
 
-static void PrintEventTypesOfType(uint32_t type, const char* type_name,
-                                  const std::vector<const EventType>& event_types) {
-  printf("List of %s:\n", type_name);
+static void PrintEventTypesOfType(uint32_t type, const std::string& type_name,
+                                  const std::vector<EventType>& event_types) {
+  printf("List of %s:\n", type_name.c_str());
   for (auto& event_type : event_types) {
-    if (event_type.type == type && event_type.IsSupportedByKernel()) {
-      printf("  %s\n", event_type.name);
+    if (event_type.type == type) {
+      perf_event_attr attr = CreateDefaultPerfEventAttr(event_type);
+      // Exclude kernel to list supported events even when
+      // /proc/sys/kernel/perf_event_paranoid is 2.
+      attr.exclude_kernel = 1;
+      if (IsEventAttrSupportedByKernel(attr)) {
+        printf("  %s\n", event_type.name.c_str());
+      }
     }
   }
   printf("\n");
@@ -38,8 +47,8 @@ static void PrintEventTypesOfType(uint32_t type, const char* type_name,
 class ListCommand : public Command {
  public:
   ListCommand()
-      : Command("list", "list all available perf events",
-                "Usage: simpleperf list\n"
+      : Command("list", "list available event types",
+                "Usage: simpleperf list [hw|sw|cache|tracepoint]\n"
                 "    List all available perf events on this machine.\n") {
   }
 
@@ -47,17 +56,42 @@ class ListCommand : public Command {
 };
 
 bool ListCommand::Run(const std::vector<std::string>& args) {
-  if (args.size() != 1) {
-    LOG(ERROR) << "malformed command line: list subcommand needs no argument";
-    LOG(ERROR) << "try using \"help list\"";
+  if (!CheckPerfEventLimit()) {
     return false;
   }
-  auto& event_types = EventTypeFactory::GetAllEventTypes();
 
-  PrintEventTypesOfType(PERF_TYPE_HARDWARE, "hardware events", event_types);
-  PrintEventTypesOfType(PERF_TYPE_SOFTWARE, "software events", event_types);
-  PrintEventTypesOfType(PERF_TYPE_HW_CACHE, "hw-cache events", event_types);
+  static std::map<std::string, std::pair<int, std::string>> type_map = {
+      {"hw", {PERF_TYPE_HARDWARE, "hardware events"}},
+      {"sw", {PERF_TYPE_SOFTWARE, "software events"}},
+      {"cache", {PERF_TYPE_HW_CACHE, "hw-cache events"}},
+      {"tracepoint", {PERF_TYPE_TRACEPOINT, "tracepoint events"}},
+  };
+
+  std::vector<std::string> names;
+  if (args.empty()) {
+    for (auto& item : type_map) {
+      names.push_back(item.first);
+    }
+  } else {
+    for (auto& arg : args) {
+      if (type_map.find(arg) != type_map.end()) {
+        names.push_back(arg);
+      } else {
+        LOG(ERROR) << "unknown event type category: " << arg << ", try using \"help list\"";
+        return false;
+      }
+    }
+  }
+
+  auto& event_types = GetAllEventTypes();
+
+  for (auto& name : names) {
+    auto it = type_map.find(name);
+    PrintEventTypesOfType(it->second.first, it->second.second, event_types);
+  }
   return true;
 }
 
-ListCommand list_command;
+void RegisterListCommand() {
+  RegisterCommand("list", [] { return std::unique_ptr<Command>(new ListCommand); });
+}

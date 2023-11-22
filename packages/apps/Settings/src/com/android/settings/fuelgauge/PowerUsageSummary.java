@@ -17,6 +17,7 @@
 package com.android.settings.fuelgauge;
 
 import android.app.Activity;
+import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.os.BatteryStats;
 import android.os.Build;
@@ -25,25 +26,24 @@ import android.os.Handler;
 import android.os.Message;
 import android.os.Process;
 import android.os.UserHandle;
-import android.preference.Preference;
-import android.preference.PreferenceGroup;
-import android.preference.PreferenceScreen;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.PreferenceGroup;
 import android.text.TextUtils;
 import android.util.SparseArray;
 import android.util.TypedValue;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
-
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.internal.os.BatterySipper;
 import com.android.internal.os.BatterySipper.DrainType;
 import com.android.internal.os.PowerProfile;
-import com.android.settings.HelpUtils;
 import com.android.settings.R;
 import com.android.settings.Settings.HighPowerApplicationsActivity;
 import com.android.settings.SettingsActivity;
 import com.android.settings.applications.ManageApplications;
+import com.android.settings.dashboard.SummaryLoader;
+import com.android.settingslib.BatteryInfo;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -66,7 +66,6 @@ public class PowerUsageSummary extends PowerUsageBase {
     private static final String KEY_BATTERY_HISTORY = "battery_history";
 
     private static final int MENU_STATS_TYPE = Menu.FIRST;
-    private static final int MENU_BATTERY_SAVER = Menu.FIRST + 2;
     private static final int MENU_HIGH_POWER_APPS = Menu.FIRST + 3;
     private static final int MENU_HELP = Menu.FIRST + 4;
 
@@ -83,6 +82,7 @@ public class PowerUsageSummary extends PowerUsageBase {
     @Override
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
+        setAnimationAllowed(true);
 
         addPreferencesFromResource(R.xml.power_usage_summary);
         mHistPref = (BatteryHistoryPreference) findPreference(KEY_BATTERY_HISTORY);
@@ -91,7 +91,7 @@ public class PowerUsageSummary extends PowerUsageBase {
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.FUELGAUGE_POWER_USAGE_SUMMARY;
+        return MetricsEvent.FUELGAUGE_POWER_USAGE_SUMMARY;
     }
 
     @Override
@@ -116,15 +116,15 @@ public class PowerUsageSummary extends PowerUsageBase {
     }
 
     @Override
-    public boolean onPreferenceTreeClick(PreferenceScreen preferenceScreen, Preference preference) {
+    public boolean onPreferenceTreeClick(Preference preference) {
         if (!(preference instanceof PowerGaugePreference)) {
-            return false;
+            return super.onPreferenceTreeClick(preference);
         }
         PowerGaugePreference pgp = (PowerGaugePreference) preference;
         BatteryEntry entry = pgp.getInfo();
         PowerUsageDetail.startBatteryDetailPage((SettingsActivity) getActivity(), mStatsHelper,
-                mStatsType, entry, true);
-        return super.onPreferenceTreeClick(preferenceScreen, preference);
+                mStatsType, entry, true, true);
+        return super.onPreferenceTreeClick(preference);
     }
 
     @Override
@@ -134,9 +134,6 @@ public class PowerUsageSummary extends PowerUsageBase {
                     .setIcon(com.android.internal.R.drawable.ic_menu_info_details)
                     .setAlphabeticShortcut('t');
         }
-
-        MenuItem batterySaver = menu.add(0, MENU_BATTERY_SAVER, 0, R.string.battery_saver);
-        batterySaver.setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
 
         menu.add(0, MENU_HIGH_POWER_APPS, 0, R.string.high_power_apps);
         super.onCreateOptionsMenu(menu, inflater);
@@ -159,10 +156,6 @@ public class PowerUsageSummary extends PowerUsageBase {
                 }
                 refreshStats();
                 return true;
-            case MENU_BATTERY_SAVER:
-                sa.startPreferencePanel(BatterySaverSettings.class.getName(), null,
-                        R.string.battery_saver, null, null, 0);
-                return true;
             case MENU_HIGH_POWER_APPS:
                 Bundle args = new Bundle();
                 args.putString(ManageApplications.EXTRA_CLASSNAME,
@@ -176,9 +169,14 @@ public class PowerUsageSummary extends PowerUsageBase {
     }
 
     private void addNotAvailableMessage() {
-        Preference notAvailable = new Preference(getActivity());
-        notAvailable.setTitle(R.string.power_usage_not_available);
-        mAppListGroup.addPreference(notAvailable);
+        final String NOT_AVAILABLE = "not_available";
+        Preference notAvailable = getCachedPreference(NOT_AVAILABLE);
+        if (notAvailable == null) {
+            notAvailable = new Preference(getPrefContext());
+            notAvailable.setKey(NOT_AVAILABLE);
+            notAvailable.setTitle(R.string.power_usage_not_available);
+            mAppListGroup.addPreference(notAvailable);
+        }
     }
 
     private static boolean isSharedGid(int uid) {
@@ -208,7 +206,7 @@ public class PowerUsageSummary extends PowerUsageBase {
                 // Check if this UID is a shared GID. If so, we combine it with the OWNER's
                 // actual app UID.
                 if (isSharedGid(sipper.getUid())) {
-                    realUid = UserHandle.getUid(UserHandle.USER_OWNER,
+                    realUid = UserHandle.getUid(UserHandle.USER_SYSTEM,
                             UserHandle.getAppIdFromSharedAppGid(sipper.getUid()));
                 }
 
@@ -282,7 +280,7 @@ public class PowerUsageSummary extends PowerUsageBase {
     protected void refreshStats() {
         super.refreshStats();
         updatePreference(mHistPref);
-        mAppListGroup.removeAll();
+        cacheRemoveAllPrefs(mAppListGroup);
         mAppListGroup.setOrderingAsAdded(false);
         boolean addedSome = false;
 
@@ -344,8 +342,16 @@ public class PowerUsageSummary extends PowerUsageBase {
                         userHandle);
                 final CharSequence contentDescription = mUm.getBadgedLabelForUser(entry.getLabel(),
                         userHandle);
-                final PowerGaugePreference pref = new PowerGaugePreference(getActivity(),
-                        badgedIcon, contentDescription, entry);
+                final String key = sipper.drainType == DrainType.APP ? sipper.getPackages() != null
+                        ? TextUtils.concat(sipper.getPackages()).toString()
+                        : String.valueOf(sipper.getUid())
+                        : sipper.drainType.toString();
+                PowerGaugePreference pref = (PowerGaugePreference) getCachedPreference(key);
+                if (pref == null) {
+                    pref = new PowerGaugePreference(getPrefContext(), badgedIcon,
+                            contentDescription, entry);
+                    pref.setKey(key);
+                }
 
                 final double percentOfMax = (sipper.totalPowerMah * 100)
                         / mStatsHelper.getMaxPower();
@@ -362,7 +368,8 @@ public class PowerUsageSummary extends PowerUsageBase {
                 }
                 addedSome = true;
                 mAppListGroup.addPreference(pref);
-                if (mAppListGroup.getPreferenceCount() > (MAX_ITEMS_TO_LIST + 1)) {
+                if (mAppListGroup.getPreferenceCount() - getCachedCount()
+                        > (MAX_ITEMS_TO_LIST + 1)) {
                     break;
                 }
             }
@@ -370,6 +377,7 @@ public class PowerUsageSummary extends PowerUsageBase {
         if (!addedSome) {
             addNotAvailableMessage();
         }
+        removeCachedPrefs(mAppListGroup);
 
         BatteryEntry.startRequestQueue();
     }
@@ -384,8 +392,10 @@ public class PowerUsageSummary extends PowerUsageBase {
             stats.add(new BatterySipper(type, null, use));
             use += 5;
         }
-        stats.add(new BatterySipper(DrainType.APP,
-                new FakeUid(Process.FIRST_APPLICATION_UID), use));
+        for (int i = 0; i < 100; i++) {
+            stats.add(new BatterySipper(DrainType.APP,
+                    new FakeUid(Process.FIRST_APPLICATION_UID + i), use));
+        }
         stats.add(new BatterySipper(DrainType.APP,
                 new FakeUid(0), use));
 
@@ -422,6 +432,9 @@ public class PowerUsageSummary extends PowerUsageBase {
                         final UserHandle userHandle = new UserHandle(userId);
                         pgp.setIcon(mUm.getBadgedIconForUser(entry.getIcon(), userHandle));
                         pgp.setTitle(entry.name);
+                        if (entry.sipper.drainType == DrainType.APP) {
+                            pgp.setContentDescription(entry.name);
+                        }
                     }
                     break;
                 case BatteryEntry.MSG_REPORT_FULLY_DRAWN:
@@ -432,6 +445,38 @@ public class PowerUsageSummary extends PowerUsageBase {
                     break;
             }
             super.handleMessage(msg);
+        }
+    };
+
+    private static class SummaryProvider implements SummaryLoader.SummaryProvider {
+        private final Context mContext;
+        private final SummaryLoader mLoader;
+
+        private SummaryProvider(Context context, SummaryLoader loader) {
+            mContext = context;
+            mLoader = loader;
+        }
+
+        @Override
+        public void setListening(boolean listening) {
+            if (listening) {
+                // TODO: Listen.
+                BatteryInfo.getBatteryInfo(mContext, new BatteryInfo.Callback() {
+                    @Override
+                    public void onBatteryInfoLoaded(BatteryInfo info) {
+                        mLoader.setSummary(SummaryProvider.this, info.mChargeLabelString);
+                    }
+                });
+            }
+        }
+    }
+
+    public static final SummaryLoader.SummaryProviderFactory SUMMARY_PROVIDER_FACTORY
+            = new SummaryLoader.SummaryProviderFactory() {
+        @Override
+        public SummaryLoader.SummaryProvider createSummaryProvider(Activity activity,
+                                                                   SummaryLoader summaryLoader) {
+            return new SummaryProvider(activity, summaryLoader);
         }
     };
 }

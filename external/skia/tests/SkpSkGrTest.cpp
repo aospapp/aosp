@@ -1,6 +1,9 @@
-#if !SK_SUPPORT_GPU
-#error "GPU support required"
-#endif
+/*
+ * Copyright 2013 Google Inc.
+ *
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
 
 #include "GrContext.h"
 #include "GrContextFactory.h"
@@ -13,12 +16,10 @@
 #include "SkColor.h"
 #include "SkDevice.h"
 #include "SkGraphics.h"
-#include "SkImageDecoder.h"
 #include "SkImageEncoder.h"
 #include "SkOSFile.h"
 #include "SkPicture.h"
 #include "SkRTConf.h"
-#include "SkRunnable.h"
 #include "SkStream.h"
 #include "SkString.h"
 #include "SkTArray.h"
@@ -26,6 +27,10 @@
 #include "SkTaskGroup.h"
 #include "SkTime.h"
 #include "Test.h"
+
+#if !SK_SUPPORT_GPU
+#error "GPU support required"
+#endif
 
 #ifdef SK_BUILD_FOR_WIN
     #define PATH_SLASH "\\"
@@ -135,7 +140,7 @@ struct SkpSkGrThreadedTestRunner {
     skiatest::Reporter* fReporter;
 };
 
-class SkpSkGrThreadedRunnable : public SkRunnable {
+class SkpSkGrThreadedRunnable {
 public:
     SkpSkGrThreadedRunnable(void (*testFun)(SkpSkGrThreadState*), int dirNo, const char* str,
             SkpSkGrThreadedTestRunner* runner) {
@@ -146,7 +151,7 @@ public:
         fTestFun = testFun;
     }
 
-    void run() override {
+    void operator()() {
         SkGraphics::SetTLSFontCacheLimit(1 * 1024 * 1024);
         (*fTestFun)(&fState);
     }
@@ -157,15 +162,14 @@ public:
 
 SkpSkGrThreadedTestRunner::~SkpSkGrThreadedTestRunner() {
     for (int index = 0; index < fRunnables.count(); index++) {
-        SkDELETE(fRunnables[index]);
+        delete fRunnables[index];
     }
 }
 
 void SkpSkGrThreadedTestRunner::render() {
-    SkTaskGroup tg;
-    for (int index = 0; index < fRunnables.count(); ++ index) {
-        tg.add(fRunnables[index]);
-    }
+    SkTaskGroup().batch(fRunnables.count(), [&](int i) {
+        fRunnables[i]();
+    });
 }
 
 ////////////////////////////////////////////////
@@ -374,7 +378,7 @@ static void writePict(const SkBitmap& bitmap, const char* outDir, const char* pn
 }
 
 void TestResult::testOne() {
-    SkPicture* pic = NULL;
+    SkPicture* pic = nullptr;
     {
         SkString d;
         d.printf("    {%d, \"%s\"},", fDirNo, fFilename);
@@ -395,7 +399,7 @@ void TestResult::testOne() {
             wStream.write(&bytes[0], length);
             wStream.flush();
         }
-        pic = SkPicture::CreateFromStream(&stream, &SkImageDecoder::DecodeMemory);
+        pic = SkPicture::CreateFromStream(&stream);
         if (!pic) {
             SkDebugf("unable to decode %s\n", fFilename);
             goto finish;
@@ -409,7 +413,7 @@ void TestResult::testOne() {
 #else
         GrContext* context = contextFactory.get(kNative);
 #endif
-        if (NULL == context) {
+        if (nullptr == context) {
             SkDebugf("unable to allocate context for %s\n", fFilename);
             goto finish;
         }
@@ -442,7 +446,7 @@ void TestResult::testOne() {
         desc.fWidth = dim.fX;
         desc.fHeight = dim.fY;
         desc.fSampleCnt = 0;
-        SkAutoTUnref<GrTexture> texture(context->createUncachedTexture(desc, NULL, 0));
+        SkAutoTUnref<GrTexture> texture(context->createUncachedTexture(desc, nullptr, 0));
         if (!texture) {
             SkDebugf("unable to allocate texture for %s (w=%d h=%d)\n", fFilename,
                 dim.fX, dim.fY);
@@ -469,7 +473,7 @@ void TestResult::testOne() {
         }
     }
 finish:
-    SkDELETE(pic);
+    delete pic;
 }
 
 static SkString makeStatusString(int dirNo) {
@@ -697,8 +701,8 @@ DEF_TEST(SkpSkGrThreaded, reporter) {
                     goto skipOver;
                 }
             }
-            *testRunner.fRunnables.append() = SkNEW_ARGS(SkpSkGrThreadedRunnable,
-                    (&testSkGrMain, dirIndex, filename.c_str(), &testRunner));
+            *testRunner.fRunnables.append() = new SkpSkGrThreadedRunnable(
+                    &testSkGrMain, dirIndex, filename.c_str(), &testRunner);
     skipOver:
             ;
         }

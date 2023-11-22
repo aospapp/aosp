@@ -15,7 +15,7 @@
  */
 
 #ifndef LEARNING_JNI_STOCHASTIC_LINEAR_RANKER_H
-#define LEAENING_JNI_STOCHASTIC_LINEAR_RANKER_H
+#define LEARNING_JNI_STOCHASTIC_LINEAR_RANKER_H
 
 #include <jni.h>
 
@@ -179,4 +179,4 @@ Java_android_bordeaux_learning_StochasticLinearRanker_nativeSetParameterClassifi
 }
 #endif
 
-#endif /* ANDROID_LERNING_JNI_STOCHASTIC_LINEAR_RANKER_H */
+#endif /* ANDROID_LEARNING_JNI_STOCHASTIC_LINEAR_RANKER_H */

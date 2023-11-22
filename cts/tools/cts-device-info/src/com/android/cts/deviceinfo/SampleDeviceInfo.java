@@ -17,47 +17,44 @@ package com.android.cts.deviceinfo;
 
 import android.os.Bundle;
 
-import com.android.compatibility.common.deviceinfo.DeviceInfoActivity;
+import com.android.compatibility.common.deviceinfo.DeviceInfo;
+import com.android.compatibility.common.util.DeviceInfoStore;
+
+import java.util.Arrays;
 
 /**
  * Sample device info collector.
  */
-public class SampleDeviceInfo extends DeviceInfoActivity {
+public class SampleDeviceInfo extends DeviceInfo {
 
     @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-    }
-
-    @Override
-    protected void collectDeviceInfo() {
+    protected void collectDeviceInfo(DeviceInfoStore store) throws Exception {
         boolean[] booleans = {Boolean.TRUE, Boolean.FALSE};
         double[] doubles = {Double.MAX_VALUE, Double.MIN_VALUE};
         int[] ints = {Integer.MAX_VALUE, Integer.MIN_VALUE};
         long[] longs = {Long.MAX_VALUE, Long.MIN_VALUE};
 
         // Group Foo
-        startGroup("foo");
-        addResult("foo_boolean", Boolean.TRUE);
+        store.startGroup("foo");
+        store.addResult("foo_boolean", Boolean.TRUE);
 
         // Group Bar
-        startGroup("bar");
-        addArray("bar_string", new String[] {
+        store.startGroup("bar");
+        store.addListResult("bar_string", Arrays.asList(new String[] {
                 "bar-string-1",
                 "bar-string-2",
-                "bar-string-3"});
+                "bar-string-3"}));
 
-        addArray("bar_boolean", booleans);
-        addArray("bar_double", doubles);
-        addArray("bar_int", ints);
-        addArray("bar_long", longs);
-        endGroup(); // bar
+        store.addArrayResult("bar_boolean", booleans);
+        store.addArrayResult("bar_double", doubles);
+        store.addArrayResult("bar_int", ints);
+        store.addArrayResult("bar_long", longs);
+        store.endGroup(); // bar
 
-        addResult("foo_double", Double.MAX_VALUE);
-        addResult("foo_int", Integer.MAX_VALUE);
-        addResult("foo_long", Long.MAX_VALUE);
-        addResult("foo_string", "foo-string");
-        endGroup(); // foo
+        store.addResult("foo_double", Double.MAX_VALUE);
+        store.addResult("foo_int", Integer.MAX_VALUE);
+        store.addResult("foo_long", Long.MAX_VALUE);
+        store.addResult("foo_string", "foo-string");
+        store.endGroup(); // foo
     }
 }
-

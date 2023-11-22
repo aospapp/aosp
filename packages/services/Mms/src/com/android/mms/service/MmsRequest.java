@@ -277,6 +277,11 @@ public abstract class MmsRequest {
         return getClass().getSimpleName() + '@' + Integer.toHexString(hashCode());
     }
 
+
+    protected String getRequestId() {
+        return this.toString();
+    }
+
     /**
      * Making the HTTP request to MMSC
      *
@@ -347,8 +352,8 @@ public abstract class MmsRequest {
         }
 
         @Override
-        public void onFilterComplete(boolean keepMessage) {
-            LogUtil.e("Unexpected onFilterComplete call with result: " + keepMessage);
+        public void onFilterComplete(int result) {
+            LogUtil.e("Unexpected onFilterComplete call with result: " + result);
         }
     }
 }

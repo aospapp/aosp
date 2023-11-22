@@ -15,21 +15,26 @@
  */
 package android.support.v7.widget;
 
+import android.content.res.ColorStateList;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.graphics.Outline;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffColorFilter;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
+import android.support.annotation.Nullable;
 
 import static android.support.v7.widget.RoundRectDrawableWithShadow.calculateVerticalPadding;
 import static android.support.v7.widget.RoundRectDrawableWithShadow.calculateHorizontalPadding;
 
 /**
  * Very simple drawable that draws a rounded rectangle background with arbitrary corners and also
- * reports proper outline for L.
+ * reports proper outline for Lollipop.
  * <p>
  * Simpler and uses less resources compared to GradientDrawable or ShapeDrawable.
  */
@@ -42,12 +47,23 @@ class RoundRectDrawable extends Drawable {
     private boolean mInsetForPadding = false;
     private boolean mInsetForRadius = true;
 
-    public RoundRectDrawable(int backgroundColor, float radius) {
+    private ColorStateList mBackground;
+    private PorterDuffColorFilter mTintFilter;
+    private ColorStateList mTint;
+    private PorterDuff.Mode mTintMode = PorterDuff.Mode.SRC_IN;
+
+    public RoundRectDrawable(ColorStateList backgroundColor, float radius) {
         mRadius = radius;
         mPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG);
-        mPaint.setColor(backgroundColor);
+        setBackground(backgroundColor);
+
         mBoundsF = new RectF();
         mBoundsI = new Rect();
+    }
+
+    private void setBackground(ColorStateList color) {
+        mBackground = (color == null) ?  ColorStateList.valueOf(Color.TRANSPARENT) : color;
+        mPaint.setColor(mBackground.getColorForState(getState(), mBackground.getDefaultColor()));
     }
 
     void setPadding(float padding, boolean insetForPadding, boolean insetForRadius) {
@@ -68,7 +84,21 @@ class RoundRectDrawable extends Drawable {
 
     @Override
     public void draw(Canvas canvas) {
-        canvas.drawRoundRect(mBoundsF, mRadius, mRadius, mPaint);
+        final Paint paint = mPaint;
+
+        final boolean clearColorFilter;
+        if (mTintFilter != null && paint.getColorFilter() == null) {
+            paint.setColorFilter(mTintFilter);
+            clearColorFilter = true;
+        } else {
+            clearColorFilter = false;
+        }
+
+        canvas.drawRoundRect(mBoundsF, mRadius, mRadius, paint);
+
+        if (clearColorFilter) {
+            paint.setColorFilter(null);
+        }
     }
 
     private void updateBounds(Rect bounds) {
@@ -108,12 +138,12 @@ class RoundRectDrawable extends Drawable {
 
     @Override
     public void setAlpha(int alpha) {
-        // not supported because older versions do not support
+        mPaint.setAlpha(alpha);
     }
 
     @Override
     public void setColorFilter(ColorFilter cf) {
-        // not supported because older versions do not support
+        mPaint.setColorFilter(cf);
     }
 
     @Override
@@ -125,8 +155,58 @@ class RoundRectDrawable extends Drawable {
         return mRadius;
     }
 
-    public void setColor(int color) {
-        mPaint.setColor(color);
+    public void setColor(@Nullable ColorStateList color) {
+        setBackground(color);
         invalidateSelf();
+    }
+
+    public ColorStateList getColor() {
+        return mBackground;
+    }
+
+    @Override
+    public void setTintList(ColorStateList tint) {
+        mTint = tint;
+        mTintFilter = createTintFilter(mTint, mTintMode);
+        invalidateSelf();
+    }
+
+    @Override
+    public void setTintMode(PorterDuff.Mode tintMode) {
+        mTintMode = tintMode;
+        mTintFilter = createTintFilter(mTint, mTintMode);
+        invalidateSelf();
+    }
+
+    @Override
+    protected boolean onStateChange(int[] stateSet) {
+        final int newColor = mBackground.getColorForState(stateSet, mBackground.getDefaultColor());
+        final boolean colorChanged = newColor != mPaint.getColor();
+        if (colorChanged) {
+            mPaint.setColor(newColor);
+        }
+        if (mTint != null && mTintMode != null) {
+            mTintFilter = createTintFilter(mTint, mTintMode);
+            return true;
+        }
+        return colorChanged;
+    }
+
+    @Override
+    public boolean isStateful() {
+        return (mTint != null && mTint.isStateful())
+                || (mBackground != null && mBackground.isStateful()) || super.isStateful();
+    }
+
+    /**
+     * Ensures the tint filter is consistent with the current tint color and
+     * mode.
+     */
+    private PorterDuffColorFilter createTintFilter(ColorStateList tint, PorterDuff.Mode tintMode) {
+        if (tint == null || tintMode == null) {
+            return null;
+        }
+        final int color = tint.getColorForState(getState(), Color.TRANSPARENT);
+        return new PorterDuffColorFilter(color, tintMode);
     }
 }

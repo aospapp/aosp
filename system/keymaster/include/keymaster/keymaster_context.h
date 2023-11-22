@@ -19,6 +19,8 @@
 
 #include <assert.h>
 
+#include <openssl/evp.h>
+
 #include <hardware/keymaster_defs.h>
 #include <keymaster/keymaster_enforcement.h>
 
@@ -63,6 +65,28 @@ class KeymasterContext {
     KeymasterContext() {}
     virtual ~KeymasterContext(){};
 
+    /**
+     * Returns the security level (SW or TEE) of this keymaster implementation.
+     */
+    virtual keymaster_security_level_t GetSecurityLevel() const = 0;
+
+    /**
+     * Sets the system version as reported by the system *itself*.  This is used to verify that the
+     * system believes itself to be running the same version that is reported by the bootloader, in
+     * hardware implementations.  For SoftKeymasterDevice, this sets the version information used.
+     *
+     * If the specified values don't match the bootloader-provided values, this method must return
+     * KM_ERROR_INVALID_ARGUMENT;
+     */
+    virtual keymaster_error_t SetSystemVersion(uint32_t os_version, uint32_t os_patchlevel) = 0;
+
+    /**
+     * Returns the system version.  For hardware-based implementations this will be the value
+     * reported by the bootloader.  For SoftKeymasterDevice it will be the verion information set by
+     * SetSystemVersion above.
+     */
+    virtual void GetSystemVersion(uint32_t* os_version, uint32_t* os_patchlevel) const = 0;
+
     virtual KeyFactory* GetKeyFactory(keymaster_algorithm_t algorithm) const = 0;
     virtual OperationFactory* GetOperationFactory(keymaster_algorithm_t algorithm,
                                                   keymaster_purpose_t purpose) const = 0;
@@ -81,6 +105,14 @@ class KeymasterContext {
                                             const KeymasterKeyBlob& key_material,
                                             KeymasterKeyBlob* blob, AuthorizationSet* hw_enforced,
                                             AuthorizationSet* sw_enforced) const = 0;
+
+    /**
+     * UpgradeKeyBlob takes an existing blob, parses out key material and constructs a new blob with
+     * the current format and OS version info.
+     */
+    virtual keymaster_error_t UpgradeKeyBlob(const KeymasterKeyBlob& key_to_upgrade,
+                                             const AuthorizationSet& upgrade_params,
+                                             KeymasterKeyBlob* upgraded_key) const = 0;
 
     /**
      * ParseKeyBlob takes a blob and extracts authorization sets and key material, returning an
@@ -126,6 +158,29 @@ class KeymasterContext {
      * Return the enforcement policy for this context, or null if no enforcement should be done.
      */
     virtual KeymasterEnforcement* enforcement_policy() = 0;
+
+    /**
+     * Return the attestation signing key of the specified algorithm (KM_ALGORITHM_RSA or
+     * KM_ALGORITHM_EC).  Caller does not acquire ownership and should not delete.
+     */
+    virtual EVP_PKEY* AttestationKey(keymaster_algorithm_t algorithm,
+                                     keymaster_error_t* error) const = 0;
+
+    /**
+     * Return the certificate chain of the attestation signing key of the specified algorithm
+     * (KM_ALGORITHM_RSA or KM_ALGORITHM_EC).  Caller does not acquire ownership and should not
+     * delete.
+     */
+    virtual keymaster_cert_chain_t* AttestationChain(keymaster_algorithm_t algorithm,
+                                                     keymaster_error_t* error) const = 0;
+
+    /**
+     * Generate the current unique ID.
+     */
+    virtual keymaster_error_t GenerateUniqueId(uint64_t creation_date_time,
+                                               const keymaster_blob_t& application_id,
+                                               bool reset_since_rotation,
+                                               Buffer* unique_id) const = 0;
 
   private:
     // Uncopyable.

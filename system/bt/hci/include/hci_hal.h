@@ -21,7 +21,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "thread.h"
+#include "osi/include/thread.h"
 #include "vendor.h"
 
 typedef enum {
@@ -57,10 +57,9 @@ typedef struct hci_hal_t {
   void (*close)(void);
 
   // Retrieve up to |max_size| bytes for ACL, SCO, or EVENT data packets into
-  // |buffer|, blocking until max_size bytes read if |block| is true.
-  // Only guaranteed to be correct in the context of a data_ready callback
-  // of the corresponding type.
-  size_t (*read_data)(serial_data_type_t type, uint8_t *buffer, size_t max_size, bool block);
+  // |buffer|. Only guaranteed to be correct in the context of a data_ready
+  // callback of the corresponding type.
+  size_t (*read_data)(serial_data_type_t type, uint8_t *buffer, size_t max_size);
   // The upper layer must call this to notify the HAL that it has finished
   // reading a packet of the specified |type|. Underlying implementations that
   // use shared channels for multiple data types depend on this to know when

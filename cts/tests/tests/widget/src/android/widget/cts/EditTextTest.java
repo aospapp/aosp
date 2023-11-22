@@ -20,6 +20,7 @@ import org.xmlpull.v1.XmlPullParser;
 
 import android.content.Context;
 import android.test.AndroidTestCase;
+import android.test.suitebuilder.annotation.SmallTest;
 import android.text.TextUtils;
 import android.text.method.ArrowKeyMovementMethod;
 import android.text.method.MovementMethod;
@@ -28,7 +29,7 @@ import android.util.Xml;
 import android.widget.EditText;
 import android.widget.TextView.BufferType;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 
 public class EditTextTest extends AndroidTestCase {
@@ -236,6 +237,78 @@ public class EditTextTest extends AndroidTestCase {
         } catch (IllegalArgumentException e) {
             // expected, test success.
         }
+    }
+
+    @SmallTest
+    public void testOnSaveInstanceState_savesTextStateWhenFreezesTextIsTrue() {
+        // prepare TextView for before saveInstanceState
+        final String testStr = "This is a test str";
+        EditText editText1 = new EditText(mContext);
+        editText1.setFreezesText(true);
+        editText1.setText(testStr);
+
+        // prepare TextView for after saveInstanceState
+        EditText editText2 = new EditText(mContext);
+        editText2.setFreezesText(true);
+
+        editText2.onRestoreInstanceState(editText1.onSaveInstanceState());
+
+        assertEquals(editText1.getText().toString(), editText2.getText().toString());
+    }
+
+    @SmallTest
+    public void testOnSaveInstanceState_savesTextStateWhenFreezesTextIfFalse() {
+        // prepare TextView for before saveInstanceState
+        final String testStr = "This is a test str";
+        EditText editText1 = new EditText(mContext);
+        editText1.setFreezesText(false);
+        editText1.setText(testStr);
+
+        // prepare TextView for after saveInstanceState
+        EditText editText2 = new EditText(mContext);
+        editText2.setFreezesText(false);
+
+        editText2.onRestoreInstanceState(editText1.onSaveInstanceState());
+
+        assertEquals(editText1.getText().toString(), editText2.getText().toString());
+    }
+
+    @SmallTest
+    public void testOnSaveInstanceState_savesSelectionStateWhenFreezesTextIsFalse() {
+        // prepare TextView for before saveInstanceState
+        final String testStr = "This is a test str";
+        EditText editText1 = new EditText(mContext);
+        editText1.setFreezesText(false);
+        editText1.setText(testStr);
+        editText1.setSelection(2, testStr.length() - 2);
+
+        // prepare TextView for after saveInstanceState
+        EditText editText2 = new EditText(mContext);
+        editText2.setFreezesText(false);
+
+        editText2.onRestoreInstanceState(editText1.onSaveInstanceState());
+
+        assertEquals(editText1.getSelectionStart(), editText2.getSelectionStart());
+        assertEquals(editText1.getSelectionEnd(), editText2.getSelectionEnd());
+    }
+
+    @SmallTest
+    public void testOnSaveInstanceState_savesSelectionStateWhenFreezesTextIsTrue() {
+        // prepare TextView for before saveInstanceState
+        final String testStr = "This is a test str";
+        EditText editText1 = new EditText(mContext);
+        editText1.setFreezesText(true);
+        editText1.setText(testStr);
+        editText1.setSelection(2, testStr.length() - 2);
+
+        // prepare TextView for after saveInstanceState
+        EditText editText2 = new EditText(mContext);
+        editText2.setFreezesText(true);
+
+        editText2.onRestoreInstanceState(editText1.onSaveInstanceState());
+
+        assertEquals(editText1.getSelectionStart(), editText2.getSelectionStart());
+        assertEquals(editText1.getSelectionEnd(), editText2.getSelectionEnd());
     }
 
     private class MockEditText extends EditText {

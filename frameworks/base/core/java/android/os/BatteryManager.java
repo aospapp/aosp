@@ -101,6 +101,27 @@ public class BatteryManager {
      */
     public static final String EXTRA_INVALID_CHARGER = "invalid_charger";
 
+    /**
+     * Extra for {@link android.content.Intent#ACTION_BATTERY_CHANGED}:
+     * Int value set to the maximum charging current supported by the charger in micro amperes.
+     * {@hide}
+     */
+    public static final String EXTRA_MAX_CHARGING_CURRENT = "max_charging_current";
+
+    /**
+     * Extra for {@link android.content.Intent#ACTION_BATTERY_CHANGED}:
+     * Int value set to the maximum charging voltage supported by the charger in micro volts.
+     * {@hide}
+     */
+    public static final String EXTRA_MAX_CHARGING_VOLTAGE = "max_charging_voltage";
+
+    /**
+     * Extra for {@link android.content.Intent#ACTION_BATTERY_CHANGED}:
+     * integer containing the charge counter present in the battery.
+     * {@hide}
+     */
+     public static final String EXTRA_CHARGE_COUNTER = "charge_counter";
+
     // values for "status" field in the ACTION_BATTERY_CHANGED Intent
     public static final int BATTERY_STATUS_UNKNOWN = 1;
     public static final int BATTERY_STATUS_CHARGING = 2;
@@ -207,7 +228,7 @@ public class BatteryManager {
         try {
             return mBatteryStats.isCharging();
         } catch (RemoteException e) {
-            return true;
+            throw e.rethrowFromSystemServer();
         }
     }
 
@@ -232,7 +253,7 @@ public class BatteryManager {
             else
                 ret = Long.MIN_VALUE;
         } catch (RemoteException e) {
-            ret = Long.MIN_VALUE;
+            throw e.rethrowFromSystemServer();
         }
 
         return ret;

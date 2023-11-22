@@ -42,7 +42,7 @@ using llvm::RefCountedBase;
 #include "llvm/Target/TargetMachine.h"
 
 #include "slang_diagnostic_buffer.h"
-#include "slang_pragma_recorder.h"
+#include "slang_pragma_list.h"
 
 namespace llvm {
   class tool_output_file;
@@ -57,8 +57,11 @@ namespace clang {
   class DiagnosticsEngine;
   class FileManager;
   class FileSystemOptions;
+  class HeaderSearchOptions;
   class LangOptions;
+  class PCHContainerOperations;
   class Preprocessor;
+  class PreprocessorOptions;
   class SourceManager;
   class TargetInfo;
 }  // namespace clang
@@ -123,6 +126,16 @@ class Slang : public clang::ModuleLoader {
   // AST consumer, responsible for code generation
   std::unique_ptr<clang::ASTConsumer> mBackend;
 
+  // Options for includes
+  llvm::IntrusiveRefCntPtr<clang::HeaderSearchOptions> mHSOpts;
+
+  // Options for the preprocessor (but not header includes)
+  llvm::IntrusiveRefCntPtr<clang::PreprocessorOptions> mPPOpts;
+
+  // Module provider (probably not necessary, but keeps us more consistent
+  // with regular Clang.
+  std::shared_ptr<clang::PCHContainerOperations> mPCHContainerOperations;
+
   // File names
   std::string mInputFileName;
   std::string mOutputFileName;
@@ -182,6 +195,8 @@ class Slang : public clang::ModuleLoader {
   clang::SourceManager &getSourceManager() { return *mSourceMgr; }
   clang::Preprocessor &getPreprocessor() { return *mPP; }
   clang::ASTContext &getASTContext() { return *mASTContext; }
+  clang::HeaderSearchOptions &getHeaderSearchOpts() { return *mHSOpts; }
+  clang::PreprocessorOptions &getPreprocessorOpts() { return *mPPOpts; }
 
   inline clang::TargetOptions const &getTargetOptions() const
     { return *mTargetOpts.get(); }
@@ -189,7 +204,8 @@ class Slang : public clang::ModuleLoader {
   void initPreprocessor();
   void initASTContext();
 
-  clang::ASTConsumer *createBackend(const clang::CodeGenOptions &CodeGenOpts,
+  clang::ASTConsumer *createBackend(const RSCCOptions &Opts,
+                                    const clang::CodeGenOptions &CodeGenOpts,
                                     llvm::raw_ostream *OS,
                                     OutputType OT);
 
@@ -237,9 +253,9 @@ class Slang : public clang::ModuleLoader {
     mGeneratedFileNames.push_back(GeneratedFileName);
   }
 
-  int generateDepFile();
+  int generateDepFile(bool PhonyTarget);
 
-  int compile();
+  int compile(const RSCCOptions &Opts);
 
   char const *getErrorMessage() { return mDiagClient->str().c_str(); }
 
@@ -271,8 +287,7 @@ class Slang : public clang::ModuleLoader {
 
   void makeModuleVisible(clang::Module *Mod,
                          clang::Module::NameVisibilityKind Visibility,
-                         clang::SourceLocation ImportLoc,
-                         bool Complain = false) override {}
+                         clang::SourceLocation ImportLoc) override {}
 
   clang::GlobalModuleIndex *
   loadGlobalModuleIndex(clang::SourceLocation TriggerLoc) override {

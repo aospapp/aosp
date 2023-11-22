@@ -26,6 +26,8 @@
 #include <utils/RefBase.h>
 #include <audio_utils/roundup.h>
 #include <media/AudioResamplerPublic.h>
+#include <media/AudioTimestamp.h>
+#include <media/Modulo.h>
 #include <media/SingleStateQueue.h>
 
 namespace android {
@@ -58,7 +60,8 @@ struct AudioTrackSharedStreaming {
     volatile int32_t mRear;     // written by producer (output: client, input: server)
     volatile int32_t mFlush;    // incremented by client to indicate a request to flush;
                                 // server notices and discards all data between mFront and mRear
-    volatile uint32_t mUnderrunFrames;  // server increments for each unavailable but desired frame
+    volatile uint32_t mUnderrunFrames; // server increments for each unavailable but desired frame
+    volatile uint32_t mUnderrunCount;  // server increments for each underrun occurrence
 };
 
 // Represents a single state of an AudioTrack that was created in static mode (shared memory buffer
@@ -116,6 +119,8 @@ struct AudioTrackSharedStatic {
 
 typedef SingleStateQueue<AudioPlaybackRate> PlaybackRateQueue;
 
+typedef SingleStateQueue<ExtendedTimestamp> ExtendedTimestampQueue;
+
 // ----------------------------------------------------------------------------
 
 // Important: do not add any virtual methods, including ~
@@ -169,11 +174,16 @@ private:
 
                 uint16_t    mPad2;           // unused
 
+                // server write-only, client read
+                ExtendedTimestampQueue::Shared mExtendedTimestampQueue;
+
+                // This is set by AudioTrack.setBufferSizeInFrames().
+                // A write will not fill the buffer above this limit.
+    volatile    uint32_t   mBufferSizeInFrames;  // effective size of the buffer
+
 public:
 
     volatile    int32_t     mFlags;         // combinations of CBLK_*
-
-                // Cache line boundary (32 bytes)
 
 public:
                 union {
@@ -202,6 +212,8 @@ public:
         void*   mRaw;                   // pointer to first frame
         size_t  mNonContig;             // number of additional non-contiguous frames available
     };
+
+    size_t frameCount() const { return mFrameCount; }
 
 protected:
     // These refer to shared memory, and are virtual addresses with respect to the current process.
@@ -260,6 +272,8 @@ public:
     //  DEAD_OBJECT Server has died or invalidated, caller should destroy this proxy and re-create.
     //  -EINTR      Call has been interrupted.  Look around to see why, and then perhaps try again.
     //  NO_INIT     Shared memory is corrupt.
+    //  NOT_ENOUGH_DATA Server has disabled the track because of underrun: restart the track
+    //              if still in active state.
     // Assertion failure on entry, if buffer == NULL or buffer->mFrameCount == 0.
     status_t    obtainBuffer(Buffer* buffer, const struct timespec *requested = NULL,
             struct timespec *elapsed = NULL);
@@ -280,11 +294,11 @@ public:
     // Call to force an obtainBuffer() to return quickly with -EINTR
     void        interrupt();
 
-    size_t      getPosition() {
+    Modulo<uint32_t> getPosition() {
         return mEpoch + mCblk->mServer;
     }
 
-    void        setEpoch(size_t epoch) {
+    void        setEpoch(const Modulo<uint32_t> &epoch) {
         mEpoch = epoch;
     }
 
@@ -300,14 +314,38 @@ public:
     // in order for the client to be aligned at start of buffer
     virtual size_t  getMisalignment();
 
-    size_t      getEpoch() const {
+    Modulo<uint32_t> getEpoch() const {
         return mEpoch;
     }
 
-    size_t      getFramesFilled();
+    uint32_t      getBufferSizeInFrames() const { return mBufferSizeInFrames; }
+    // See documentation for AudioTrack::setBufferSizeInFrames()
+    uint32_t      setBufferSizeInFrames(uint32_t requestedSize);
+
+    status_t    getTimestamp(ExtendedTimestamp *timestamp) {
+        if (timestamp == nullptr) {
+            return BAD_VALUE;
+        }
+        (void) mTimestampObserver.poll(mTimestamp);
+        *timestamp = mTimestamp;
+        return OK;
+    }
+
+    void        clearTimestamp() {
+        mTimestamp.clear();
+    }
 
 private:
-    size_t      mEpoch;
+    // This is a copy of mCblk->mBufferSizeInFrames
+    uint32_t   mBufferSizeInFrames;  // effective size of the buffer
+
+    Modulo<uint32_t> mEpoch;
+
+    // The shared buffer contents referred to by the timestamp observer
+    // is initialized when the server proxy created.  A local zero timestamp
+    // is initialized by the client constructor.
+    ExtendedTimestampQueue::Observer mTimestampObserver;
+    ExtendedTimestamp mTimestamp; // initialized by constructor
 };
 
 // ----------------------------------------------------------------------------
@@ -319,7 +357,9 @@ public:
             size_t frameSize, bool clientInServer = false)
         : ClientProxy(cblk, buffers, frameCount, frameSize, true /*isOut*/,
           clientInServer),
-          mPlaybackRateMutator(&cblk->mPlaybackRateQueue) { }
+          mPlaybackRateMutator(&cblk->mPlaybackRateQueue) {
+    }
+
     virtual ~AudioTrackClientProxy() { }
 
     // No barriers on the following operations, so the ordering of loads/stores
@@ -347,6 +387,9 @@ public:
 
     virtual uint32_t    getUnderrunFrames() const {
         return mCblk->u.mStreaming.mUnderrunFrames;
+    }
+    virtual uint32_t    getUnderrunCount() const {
+        return mCblk->u.mStreaming.mUnderrunCount;
     }
 
     bool        clearStreamEndDone();   // and return previous value
@@ -416,6 +459,16 @@ public:
         : ClientProxy(cblk, buffers, frameCount, frameSize,
             false /*isOut*/, false /*clientInServer*/) { }
     ~AudioRecordClientProxy() { }
+
+    // Advances the client read pointer to the server write head pointer
+    // effectively flushing the client read buffer. The effect is
+    // instantaneous. Returns the number of frames flushed.
+    uint32_t    flush() {
+        int32_t rear = android_atomic_acquire_load(&mCblk->u.mStreaming.mRear);
+        int32_t front = mCblk->u.mStreaming.mFront;
+        android_atomic_release_store(rear, &mCblk->u.mStreaming.mFront);
+        return (Modulo<int32_t>(rear) - front).unsignedValue();
+    }
 };
 
 // ----------------------------------------------------------------------------
@@ -461,9 +514,28 @@ public:
     //  buffer->mRaw is NULL.
     virtual void        releaseBuffer(Buffer* buffer);
 
+    // Return the total number of frames that AudioFlinger has obtained and released
+    virtual int64_t     framesReleased() const { return mReleased; }
+
+    // Expose timestamp to client proxy. Should only be called by a single thread.
+    virtual void        setTimestamp(const ExtendedTimestamp &timestamp) {
+        mTimestampMutator.push(timestamp);
+    }
+
+    // Total count of the number of flushed frames since creation (never reset).
+    virtual int64_t     framesFlushed() const { return mFlushed; }
+
+    // Get dynamic buffer size from the shared control block.
+    uint32_t            getBufferSizeInFrames() const {
+        return android_atomic_acquire_load((int32_t *)&mCblk->mBufferSizeInFrames);
+    }
+
 protected:
     size_t      mAvailToClient; // estimated frames available to client prior to releaseBuffer()
     int32_t     mFlush;         // our copy of cblk->u.mStreaming.mFlush, for streaming output only
+    int64_t     mReleased;      // our copy of cblk->mServer, at 64 bit resolution
+    int64_t     mFlushed;       // flushed frames to account for client-server discrepancy
+    ExtendedTimestampQueue::Mutator mTimestampMutator;
 };
 
 // Proxy used by AudioFlinger for servicing AudioTrack
@@ -472,7 +544,8 @@ public:
     AudioTrackServerProxy(audio_track_cblk_t* cblk, void *buffers, size_t frameCount,
             size_t frameSize, bool clientInServer = false, uint32_t sampleRate = 0)
         : ServerProxy(cblk, buffers, frameCount, frameSize, true /*isOut*/, clientInServer),
-          mPlaybackRateObserver(&cblk->mPlaybackRateQueue) {
+          mPlaybackRateObserver(&cblk->mPlaybackRateQueue),
+          mUnderrunCount(0), mUnderrunning(false), mDrained(true) {
         mCblk->mSampleRate = sampleRate;
         mPlaybackRate = AUDIO_PLAYBACK_RATE_DEFAULT;
     }
@@ -506,15 +579,30 @@ public:
     // and thus which resulted in an underrun.
     virtual uint32_t    getUnderrunFrames() const { return mCblk->u.mStreaming.mUnderrunFrames; }
 
-    // Return the total number of frames that AudioFlinger has obtained and released
-    virtual size_t      framesReleased() const { return mCblk->mServer; }
-
     // Return the playback speed and pitch read atomically. Not multi-thread safe on server side.
     AudioPlaybackRate getPlaybackRate();
+
+    // Set the internal drain state of the track buffer from the timestamp received.
+    virtual void        setDrained(bool drained) {
+        mDrained.store(drained);
+    }
+
+    // Check if the internal drain state of the track buffer.
+    // This is not a guarantee, but advisory for determining whether the track is
+    // fully played out.
+    virtual bool        isDrained() const {
+        return mDrained.load();
+    }
 
 private:
     AudioPlaybackRate             mPlaybackRate;  // last observed playback rate
     PlaybackRateQueue::Observer   mPlaybackRateObserver;
+
+    // The server keeps a copy here where it is safe from the client.
+    uint32_t                      mUnderrunCount; // echoed to mCblk
+    bool                          mUnderrunning;  // used to detect edge of underrun
+
+    std::atomic<bool>             mDrained; // is the track buffer drained
 };
 
 class StaticAudioTrackServerProxy : public AudioTrackServerProxy {
@@ -558,6 +646,7 @@ public:
     AudioRecordServerProxy(audio_track_cblk_t* cblk, void *buffers, size_t frameCount,
             size_t frameSize, bool clientInServer)
         : ServerProxy(cblk, buffers, frameCount, frameSize, false /*isOut*/, clientInServer) { }
+
 protected:
     virtual ~AudioRecordServerProxy() { }
 };

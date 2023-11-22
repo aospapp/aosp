@@ -86,10 +86,10 @@ static void mca_sec_check_complete_term (BD_ADDR bd_addr, tBT_TRANSPORT transpor
         /* Set the FCR options: control channel mandates ERTM */
         ertm_info.preferred_mode    = mca_l2c_fcr_opts_def.mode;
         ertm_info.allowed_modes     = L2CAP_FCR_CHAN_OPT_ERTM;
-        ertm_info.user_rx_pool_id   = MCA_USER_RX_POOL_ID;
-        ertm_info.user_tx_pool_id   = MCA_USER_TX_POOL_ID;
-        ertm_info.fcr_rx_pool_id    = MCA_FCR_RX_POOL_ID;
-        ertm_info.fcr_tx_pool_id    = MCA_FCR_TX_POOL_ID;
+        ertm_info.user_rx_buf_size  = MCA_USER_RX_BUF_SIZE;
+        ertm_info.user_tx_buf_size  = MCA_USER_TX_BUF_SIZE;
+        ertm_info.fcr_rx_buf_size   = MCA_FCR_RX_BUF_SIZE;
+        ertm_info.fcr_tx_buf_size   = MCA_FCR_TX_BUF_SIZE;
         /* Send response to the L2CAP layer. */
         L2CA_ErtmConnectRsp (bd_addr, p_tbl->id, p_tbl->lcid, L2CAP_CONN_OK, L2CAP_CONN_OK, &ertm_info);
 
@@ -182,10 +182,10 @@ void mca_l2c_cconn_ind_cback(BD_ADDR bd_addr, UINT16 lcid, UINT16 psm, UINT8 id)
                 /* Set the FCR options: control channel mandates ERTM */
                 ertm_info.preferred_mode    = mca_l2c_fcr_opts_def.mode;
                 ertm_info.allowed_modes     = L2CAP_FCR_CHAN_OPT_ERTM;
-                ertm_info.user_rx_pool_id   = MCA_USER_RX_POOL_ID;
-                ertm_info.user_tx_pool_id   = MCA_USER_TX_POOL_ID;
-                ertm_info.fcr_rx_pool_id    = MCA_FCR_RX_POOL_ID;
-                ertm_info.fcr_tx_pool_id    = MCA_FCR_TX_POOL_ID;
+                ertm_info.user_rx_buf_size  = MCA_USER_RX_BUF_SIZE;
+                ertm_info.user_tx_buf_size  = MCA_USER_TX_BUF_SIZE;
+                ertm_info.fcr_rx_buf_size   = MCA_FCR_RX_BUF_SIZE;
+                ertm_info.fcr_tx_buf_size   = MCA_FCR_TX_BUF_SIZE;
                 p_ertm_info = &ertm_info;
                 result = L2CAP_CONN_PENDING;
             }
@@ -254,10 +254,10 @@ void mca_l2c_dconn_ind_cback(BD_ADDR bd_addr, UINT16 lcid, UINT16 psm, UINT8 id)
         /* Set the FCR options: control channel mandates ERTM */
         ertm_info.preferred_mode    = p_chnl_cfg->fcr_opt.mode;
         ertm_info.allowed_modes     = (1 << p_chnl_cfg->fcr_opt.mode);
-        ertm_info.user_rx_pool_id   = p_chnl_cfg->user_rx_pool_id;
-        ertm_info.user_tx_pool_id   = p_chnl_cfg->user_tx_pool_id;
-        ertm_info.fcr_rx_pool_id    = p_chnl_cfg->fcr_rx_pool_id;
-        ertm_info.fcr_tx_pool_id    = p_chnl_cfg->fcr_tx_pool_id;
+        ertm_info.user_rx_buf_size  = p_chnl_cfg->user_rx_buf_size;
+        ertm_info.user_tx_buf_size  = p_chnl_cfg->user_tx_buf_size;
+        ertm_info.fcr_rx_buf_size   = p_chnl_cfg->fcr_rx_buf_size;
+        ertm_info.fcr_tx_buf_size   = p_chnl_cfg->fcr_tx_buf_size;
         p_ertm_info = &ertm_info;
         result = L2CAP_CONN_OK;
     }
@@ -547,7 +547,7 @@ void mca_l2c_data_ind_cback(UINT16 lcid, BT_HDR *p_buf)
         mca_tc_data_ind(p_tbl, p_buf);
     }
     else /* prevent buffer leak */
-        GKI_freebuf(p_buf);
+        osi_free(p_buf);
 }
 
 
@@ -568,19 +568,19 @@ UINT16 mca_l2c_open_req(BD_ADDR bd_addr, UINT16 psm, const tMCA_CHNL_CFG *p_chnl
     {
         ertm_info.preferred_mode    = p_chnl_cfg->fcr_opt.mode;
         ertm_info.allowed_modes     = (1 << p_chnl_cfg->fcr_opt.mode);
-        ertm_info.user_rx_pool_id   = p_chnl_cfg->user_rx_pool_id;
-        ertm_info.user_tx_pool_id   = p_chnl_cfg->user_tx_pool_id;
-        ertm_info.fcr_rx_pool_id    = p_chnl_cfg->fcr_rx_pool_id;
-        ertm_info.fcr_tx_pool_id    = p_chnl_cfg->fcr_tx_pool_id;
+        ertm_info.user_rx_buf_size  = p_chnl_cfg->user_rx_buf_size;
+        ertm_info.user_tx_buf_size  = p_chnl_cfg->user_tx_buf_size;
+        ertm_info.fcr_rx_buf_size   = p_chnl_cfg->fcr_rx_buf_size;
+        ertm_info.fcr_tx_buf_size   = p_chnl_cfg->fcr_tx_buf_size;
     }
     else
     {
         ertm_info.preferred_mode    = mca_l2c_fcr_opts_def.mode;
         ertm_info.allowed_modes     = L2CAP_FCR_CHAN_OPT_ERTM;
-        ertm_info.user_rx_pool_id   = MCA_USER_RX_POOL_ID;
-        ertm_info.user_tx_pool_id   = MCA_USER_TX_POOL_ID;
-        ertm_info.fcr_rx_pool_id    = MCA_FCR_RX_POOL_ID;
-        ertm_info.fcr_tx_pool_id    = MCA_FCR_TX_POOL_ID;
+        ertm_info.user_rx_buf_size  = MCA_USER_RX_BUF_SIZE;
+        ertm_info.user_tx_buf_size  = MCA_USER_TX_BUF_SIZE;
+        ertm_info.fcr_rx_buf_size   = MCA_FCR_RX_BUF_SIZE;
+        ertm_info.fcr_tx_buf_size   = MCA_FCR_TX_BUF_SIZE;
     }
     return L2CA_ErtmConnectReq (psm, bd_addr, &ertm_info);
 }

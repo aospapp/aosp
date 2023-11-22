@@ -35,5 +35,8 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-renderscript-fil
 
 LOCAL_SDK_VERSION := current
 
+# Tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
+
 include $(BUILD_CTS_PACKAGE)
 include $(LOCAL_PATH)/librscpptest/Android.mk

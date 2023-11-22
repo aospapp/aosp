@@ -43,11 +43,25 @@ public class JDWPUnitDebuggeeWrapper extends JDWPUnitDebuggeeProcessWrapper {
      */
     public String savedVMOptions = null;
 
+    /**
+     * Wrapper around JDWP transport connection.
+     */
     protected TransportWrapper transport;
 
     /**
+     * JDWP transport address.
+     */
+    protected String address;
+
+    /**
+     * Is this a "listen" JDWP connection? (If false, it is a an "attach" connection.)
+     */
+    boolean isListenConnection;
+
+
+    /**
      * Creates new instance with given data.
-     * 
+     *
      * @param settings
      *            test run options
      * @param logWriter
@@ -58,13 +72,12 @@ public class JDWPUnitDebuggeeWrapper extends JDWPUnitDebuggeeProcessWrapper {
     }
 
     /**
-     * Launches new debuggee process according to test run options and
-     * establishes JDWP connection.
+     * Set up server side JDWP connection before launching the debuggee.
      */
-    public void start() {
-        boolean isListenConnection = settings.isListenConnectorKind();
+    public void setUpConnection() {
+        isListenConnection = settings.isListenConnectorKind();
         transport = createTransportWrapper();
-        String address = settings.getTransportAddress();
+        address = settings.getTransportAddress();
 
         if (isListenConnection) {
             logWriter.println("Start listening on: " + address);
@@ -77,7 +90,13 @@ public class JDWPUnitDebuggeeWrapper extends JDWPUnitDebuggeeProcessWrapper {
         } else {
             logWriter.println("Attach to: " + address);
         }
+    }
 
+    /**
+     * Launches new debuggee process according to test run options and
+     * establishes JDWP connection.
+     */
+    public void start() {
         String cmdLine = settings.getDebuggeeJavaPath() + " -cp \""
                 + settings.getDebuggeeClassPath() + "\" -agentlib:"
                 + settings.getDebuggeeAgentName() + "="

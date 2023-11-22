@@ -16,7 +16,7 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 
 import android.app.Activity;
@@ -38,7 +38,7 @@ public class SeekBarTest extends ActivityInstrumentationTestCase2<SeekBarCtsActi
     private Instrumentation mInstrumentation;
 
     public SeekBarTest() {
-        super("com.android.cts.widget", SeekBarCtsActivity.class);
+        super("android.widget.cts", SeekBarCtsActivity.class);
     }
 
     @Override

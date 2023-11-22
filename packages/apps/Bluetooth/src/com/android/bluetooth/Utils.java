@@ -211,8 +211,9 @@ final public class Utils {
             ok = (foregroundUser == callingUser);
             if (!ok) {
                 // Always allow SystemUI/System access.
-                int systemUiUid = ActivityThread.getPackageManager().getPackageUid(
-                        "com.android.systemui", UserHandle.USER_OWNER);
+                final int systemUiUid = ActivityThread.getPackageManager().getPackageUid(
+                        "com.android.systemui", PackageManager.MATCH_SYSTEM_ONLY,
+                        UserHandle.USER_SYSTEM);
                 ok = (systemUiUid == callingUid) || (Process.SYSTEM_UID == callingUid);
             }
         } catch (Exception ex) {
@@ -245,8 +246,9 @@ final public class Utils {
                     (foregroundUser == parentUser);
             if (!ok) {
                 // Always allow SystemUI/System access.
-                int systemUiUid = ActivityThread.getPackageManager().getPackageUid(
-                        "com.android.systemui", UserHandle.USER_OWNER);
+                final int systemUiUid = ActivityThread.getPackageManager().getPackageUid(
+                        "com.android.systemui", PackageManager.MATCH_SYSTEM_ONLY,
+                        UserHandle.USER_SYSTEM);
                 ok = (systemUiUid == callingUid) || (Process.SYSTEM_UID == callingUid);
             }
         } catch (Exception ex) {
@@ -288,16 +290,14 @@ final public class Utils {
             return true;
         }
         // Enforce location permission for apps targeting M and later versions
-        boolean enforceLocationPermission = true;
-        try {
-            enforceLocationPermission = context.getPackageManager().getApplicationInfo(
-                    callingPackage, 0).targetSdkVersion >= Build.VERSION_CODES.M;
-        } catch (PackageManager.NameNotFoundException e) {
-            // In case of exception, enforce permission anyway
-        }
-        if (enforceLocationPermission) {
-            throw new SecurityException("Need ACCESS_COARSE_LOCATION or "
-                    + "ACCESS_FINE_LOCATION permission to get scan results");
+        if (isMApp(context, callingPackage)) {
+            // PEERS_MAC_ADDRESS is another way to get scan results without
+            // requiring location permissions, so only throw an exception here
+            // if PEERS_MAC_ADDRESS permission is missing as well
+            if (!checkCallerHasPeersMacAddressPermission(context)) {
+                throw new SecurityException("Need ACCESS_COARSE_LOCATION or "
+                        + "ACCESS_FINE_LOCATION permission to get scan results");
+            }
         } else {
             // Pre-M apps running in the foreground should continue getting scan results
             if (isForegroundApp(context, callingPackage)) {
@@ -315,6 +315,20 @@ final public class Utils {
     public static boolean checkCallerHasPeersMacAddressPermission(Context context) {
         return context.checkCallingOrSelfPermission(
                 android.Manifest.permission.PEERS_MAC_ADDRESS) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    public static boolean isLegacyForegroundApp(Context context, String pkgName) {
+        return !isMApp(context, pkgName) && isForegroundApp(context, pkgName);
+    }
+
+    private static boolean isMApp(Context context, String pkgName) {
+        try {
+            return context.getPackageManager().getApplicationInfo(pkgName, 0)
+                    .targetSdkVersion >= Build.VERSION_CODES.M;
+        } catch (PackageManager.NameNotFoundException e) {
+            // In case of exception, assume M app
+        }
+        return true;
     }
 
     /**

@@ -21,13 +21,14 @@ import org.xmlpull.v1.XmlPullParser;
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.StateListDrawable;
 import android.test.InstrumentationTestCase;
 import android.test.UiThreadTest;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.widget.ToggleButton;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 
 /**
@@ -96,9 +97,13 @@ public class ToggleButtonTest extends InstrumentationTestCase {
         // drawableStateChanged without any drawable.
         toggleButton.drawableStateChanged();
 
+        StateListDrawable drawable = new StateListDrawable();
+        drawable.addState(new int[] { android.R.attr.state_pressed },
+                mContext.getDrawable(R.drawable.scenery));
+        drawable.addState(new int[] {},
+                mContext.getDrawable(R.drawable.scenery));
+
         // drawableStateChanged when CheckMarkDrawable is not null.
-        Resources resources = mContext.getResources();
-        Drawable drawable = resources.getDrawable(R.drawable.scenery);
         toggleButton.setButtonDrawable(drawable);
         drawable.setState(null);
         assertNull(drawable.getState());

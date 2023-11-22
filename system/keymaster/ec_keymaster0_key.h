@@ -49,27 +49,20 @@ class EcdsaKeymaster0KeyFactory : public EcKeyFactory {
                                 AuthorizationSet* sw_enforced) const override;
 
     keymaster_error_t LoadKey(const KeymasterKeyBlob& key_material,
+                              const AuthorizationSet& additional_params,
                               const AuthorizationSet& hw_enforced,
                               const AuthorizationSet& sw_enforced,
                               UniquePtr<Key>* key) const override;
 
   private:
     const Keymaster0Engine* engine_;
-    const SoftKeymasterContext* soft_context_;
 };
 
 class EcKeymaster0Key : public EcKey {
-    typedef EcKey super;
-
   public:
     EcKeymaster0Key(EC_KEY* ec_key, const AuthorizationSet& hw_enforced,
-                    const AuthorizationSet& sw_enforced, const Keymaster0Engine* engine,
-                    keymaster_error_t* error);
-
-    keymaster_error_t key_material(UniquePtr<uint8_t[]>* material, size_t* size) const override;
-
-  private:
-    const Keymaster0Engine* engine_;
+                    const AuthorizationSet& sw_enforced, keymaster_error_t* error)
+        : EcKey(ec_key, hw_enforced, sw_enforced, error) {}
 };
 
 }  // namespace keymaster

@@ -62,7 +62,7 @@ public:
 		DE_ASSERT(deInRange32(g, 0, 255));
 		DE_ASSERT(deInRange32(b, 0, 255));
 		DE_ASSERT(deInRange32(a, 0, 255));
-		m_value = (a << ALPHA_SHIFT) | (r << RED_SHIFT) | (g << GREEN_SHIFT) | (b << BLUE_SHIFT);
+		m_value = ((deUint32)a << ALPHA_SHIFT) | ((deUint32)r << RED_SHIFT) | ((deUint32)g << GREEN_SHIFT) | ((deUint32)b << BLUE_SHIFT);
 	}
 
 	explicit RGBA (deUint32 val)
@@ -72,33 +72,33 @@ public:
 
 	explicit	RGBA					(const Vec4& v);
 
-	void		setRed					(int v) { DE_ASSERT(deInRange32(v, 0, 255)); m_value = (m_value & ~(0xFF << RED_SHIFT)) | (v << RED_SHIFT); }
-	void		setGreen				(int v) { DE_ASSERT(deInRange32(v, 0, 255)); m_value = (m_value & ~(0xFF << GREEN_SHIFT)) | (v << GREEN_SHIFT); }
-	void		setBlue					(int v) { DE_ASSERT(deInRange32(v, 0, 255)); m_value = (m_value & ~(0xFF << BLUE_SHIFT)) | (v << BLUE_SHIFT); }
-	void		setAlpha				(int v) { DE_ASSERT(deInRange32(v, 0, 255)); m_value = (m_value & ~(0xFF << ALPHA_SHIFT)) | (v << ALPHA_SHIFT); }
-	int			getRed					(void) const { return (m_value >> RED_SHIFT) & 0xFF; }
-	int			getGreen				(void) const { return (m_value >> GREEN_SHIFT) & 0xFF; }
-	int			getBlue					(void) const { return (m_value >> BLUE_SHIFT) & 0xFF; }
-	int			getAlpha				(void) const { return (m_value >> ALPHA_SHIFT) & 0xFF; }
+	void		setRed					(int v) { DE_ASSERT(deInRange32(v, 0, 255)); m_value = (m_value & ~((deUint32)0xFFu << RED_SHIFT))   | ((deUint32)v << RED_SHIFT);   }
+	void		setGreen				(int v) { DE_ASSERT(deInRange32(v, 0, 255)); m_value = (m_value & ~((deUint32)0xFFu << GREEN_SHIFT)) | ((deUint32)v << GREEN_SHIFT); }
+	void		setBlue					(int v) { DE_ASSERT(deInRange32(v, 0, 255)); m_value = (m_value & ~((deUint32)0xFFu << BLUE_SHIFT))  | ((deUint32)v << BLUE_SHIFT);  }
+	void		setAlpha				(int v) { DE_ASSERT(deInRange32(v, 0, 255)); m_value = (m_value & ~((deUint32)0xFFu << ALPHA_SHIFT)) | ((deUint32)v << ALPHA_SHIFT); }
+	int			getRed					(void) const { return (int)((m_value >> (deUint32)RED_SHIFT)   & 0xFFu); }
+	int			getGreen				(void) const { return (int)((m_value >> (deUint32)GREEN_SHIFT) & 0xFFu); }
+	int			getBlue					(void) const { return (int)((m_value >> (deUint32)BLUE_SHIFT)  & 0xFFu); }
+	int			getAlpha				(void) const { return (int)((m_value >> (deUint32)ALPHA_SHIFT) & 0xFFu); }
 	deUint32	getPacked				(void) const { return m_value; }
 
 	bool		isBelowThreshold		(RGBA thr) const	{ return (getRed() <= thr.getRed()) && (getGreen() <= thr.getGreen()) && (getBlue() <= thr.getBlue()) && (getAlpha() <= thr.getAlpha()); }
 
 	static RGBA	fromBytes				(const deUint8* bytes)	{ return RGBA(bytes[0], bytes[1], bytes[2], bytes[3]); }
-	void		toBytes					(deUint8* bytes) const	{ bytes[0] = getRed(); bytes[1] = getGreen(); bytes[2] = getBlue(); bytes[3] = getAlpha(); }
+	void		toBytes					(deUint8* bytes) const	{ bytes[0] = (deUint8)getRed(); bytes[1] = (deUint8)getGreen(); bytes[2] = (deUint8)getBlue(); bytes[3] = (deUint8)getAlpha(); }
 	Vec4		toVec					(void) const;
 	IVec4		toIVec					(void) const;
 
 	bool		operator==				(const RGBA& v) const { return (m_value == v.m_value); }
 	bool		operator!=				(const RGBA& v) const { return (m_value != v.m_value); }
 
-	// Color constants
-	const static RGBA	red;
-	const static RGBA	green;
-	const static RGBA	blue;
-	const static RGBA	gray;
-	const static RGBA	white;
-	const static RGBA	black;
+	// Color constants.  Designed as methods to avoid static-initialization-order fiasco.
+	static inline const RGBA red	(void) { return RGBA(0xFF, 0x0,  0x0,  0xFF); }
+	static inline const RGBA green	(void) { return RGBA(0x0,  0xFF, 0x0,  0xFF); }
+	static inline const RGBA blue	(void) { return RGBA(0x0,  0x0,  0xFF, 0xFF); }
+	static inline const RGBA gray	(void) { return RGBA(0x80, 0x80, 0x80, 0xFF); }
+	static inline const RGBA white	(void) { return RGBA(0xFF, 0xFF, 0xFF, 0xFF); }
+	static inline const RGBA black	(void) { return RGBA(0x0,  0x0,  0x0,  0xFF); }
 
 private:
 	deUint32	m_value;

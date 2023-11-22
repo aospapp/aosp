@@ -36,22 +36,24 @@ import android.os.Bundle;
 import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.os.UserManager;
-import android.preference.Preference;
-import android.preference.PreferenceScreen;
-import android.preference.SwitchPreference;
 import android.provider.SearchIndexableResource;
 import android.provider.Settings;
+import android.support.v14.preference.SwitchPreference;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.PreferenceScreen;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.ims.ImsManager;
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.internal.telephony.TelephonyIntents;
 import com.android.internal.telephony.TelephonyProperties;
 import com.android.settings.nfc.NfcEnabler;
 import com.android.settings.search.BaseSearchIndexProvider;
 import com.android.settings.search.Indexable;
+import com.android.settingslib.RestrictedLockUtils;
+import com.android.settingslib.RestrictedPreference;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -69,8 +71,6 @@ public class WirelessSettings extends SettingsPreferenceFragment implements Inde
     private static final String KEY_PROXY_SETTINGS = "proxy_settings";
     private static final String KEY_MOBILE_NETWORK_SETTINGS = "mobile_network_settings";
     private static final String KEY_MANAGE_MOBILE_PLAN = "manage_mobile_plan";
-    private static final String KEY_TOGGLE_NSD = "toggle_nsd"; //network service discovery
-    private static final String KEY_CELL_BROADCAST_SETTINGS = "cell_broadcast_settings";
     private static final String KEY_WFC_SETTINGS = "wifi_calling_settings";
 
     public static final String EXIT_ECM_RESULT = "exit_ecm_result";
@@ -80,7 +80,6 @@ public class WirelessSettings extends SettingsPreferenceFragment implements Inde
     private SwitchPreference mAirplaneModePreference;
     private NfcEnabler mNfcEnabler;
     private NfcAdapter mNfcAdapter;
-    private NsdEnabler mNsdEnabler;
 
     private ConnectivityManager mCm;
     private TelephonyManager mTm;
@@ -98,7 +97,7 @@ public class WirelessSettings extends SettingsPreferenceFragment implements Inde
      * preference click events.
      */
     @Override
-    public boolean onPreferenceTreeClick(PreferenceScreen preferenceScreen, Preference preference) {
+    public boolean onPreferenceTreeClick(Preference preference) {
         log("onPreferenceTreeClick: preference=" + preference);
         if (preference == mAirplaneModePreference && Boolean.parseBoolean(
                 SystemProperties.get(TelephonyProperties.PROPERTY_INECM_MODE))) {
@@ -111,7 +110,7 @@ public class WirelessSettings extends SettingsPreferenceFragment implements Inde
             onManageMobilePlanClick();
         }
         // Let the intents be launched by the Preference manager
-        return super.onPreferenceTreeClick(preferenceScreen, preference);
+        return super.onPreferenceTreeClick(preference);
     }
 
     private String mManageMobilePlanMessage;
@@ -207,7 +206,7 @@ public class WirelessSettings extends SettingsPreferenceFragment implements Inde
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.WIRELESS;
+        return MetricsEvent.WIRELESS;
     }
 
     @Override
@@ -225,39 +224,34 @@ public class WirelessSettings extends SettingsPreferenceFragment implements Inde
 
         addPreferencesFromResource(R.xml.wireless_settings);
 
-        final int myUserId = UserHandle.myUserId();
-        final boolean isSecondaryUser = myUserId != UserHandle.USER_OWNER;
+        final boolean isAdmin = mUm.isAdminUser();
 
         final Activity activity = getActivity();
         mAirplaneModePreference = (SwitchPreference) findPreference(KEY_TOGGLE_AIRPLANE);
         SwitchPreference nfc = (SwitchPreference) findPreference(KEY_TOGGLE_NFC);
-        PreferenceScreen androidBeam = (PreferenceScreen) findPreference(KEY_ANDROID_BEAM_SETTINGS);
-        SwitchPreference nsd = (SwitchPreference) findPreference(KEY_TOGGLE_NSD);
+        RestrictedPreference androidBeam = (RestrictedPreference) findPreference(
+                KEY_ANDROID_BEAM_SETTINGS);
 
         mAirplaneModeEnabler = new AirplaneModeEnabler(activity, mAirplaneModePreference);
         mNfcEnabler = new NfcEnabler(activity, nfc, androidBeam);
 
         mButtonWfc = (PreferenceScreen) findPreference(KEY_WFC_SETTINGS);
 
-        // Remove NSD checkbox by default
-        getPreferenceScreen().removePreference(nsd);
-        //mNsdEnabler = new NsdEnabler(activity, nsd);
-
         String toggleable = Settings.Global.getString(activity.getContentResolver(),
                 Settings.Global.AIRPLANE_MODE_TOGGLEABLE_RADIOS);
 
         //enable/disable wimax depending on the value in config.xml
-        final boolean isWimaxEnabled = !isSecondaryUser && this.getResources().getBoolean(
+        final boolean isWimaxEnabled = isAdmin && this.getResources().getBoolean(
                 com.android.internal.R.bool.config_wimaxEnabled);
-        if (!isWimaxEnabled
-                || mUm.hasUserRestriction(UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS)) {
+        if (!isWimaxEnabled || RestrictedLockUtils.hasBaseUserRestriction(activity,
+                UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS, UserHandle.myUserId())) {
             PreferenceScreen root = getPreferenceScreen();
-            Preference ps = (Preference) findPreference(KEY_WIMAX_SETTINGS);
+            Preference ps = findPreference(KEY_WIMAX_SETTINGS);
             if (ps != null) root.removePreference(ps);
         } else {
             if (toggleable == null || !toggleable.contains(Settings.Global.RADIO_WIMAX )
                     && isWimaxEnabled) {
-                Preference ps = (Preference) findPreference(KEY_WIMAX_SETTINGS);
+                Preference ps = findPreference(KEY_WIMAX_SETTINGS);
                 ps.setDependency(KEY_TOGGLE_AIRPLANE);
             }
         }
@@ -267,7 +261,9 @@ public class WirelessSettings extends SettingsPreferenceFragment implements Inde
             findPreference(KEY_VPN_SETTINGS).setDependency(KEY_TOGGLE_AIRPLANE);
         }
         // Disable VPN.
-        if (isSecondaryUser || mUm.hasUserRestriction(UserManager.DISALLOW_CONFIG_VPN)) {
+        // TODO: http://b/23693383
+        if (!isAdmin || RestrictedLockUtils.hasBaseUserRestriction(activity,
+                UserManager.DISALLOW_CONFIG_VPN, UserHandle.myUserId())) {
             removePreference(KEY_VPN_SETTINGS);
         }
 
@@ -291,9 +287,10 @@ public class WirelessSettings extends SettingsPreferenceFragment implements Inde
         }
 
         // Remove Mobile Network Settings and Manage Mobile Plan for secondary users,
-        // if it's a wifi-only device, or if the settings are restricted.
-        if (isSecondaryUser || Utils.isWifiOnly(getActivity())
-                || mUm.hasUserRestriction(UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS)) {
+        // if it's a wifi-only device.
+        if (!isAdmin || Utils.isWifiOnly(getActivity()) ||
+                RestrictedLockUtils.hasBaseUserRestriction(activity,
+                        UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS, UserHandle.myUserId())) {
             removePreference(KEY_MOBILE_NETWORK_SETTINGS);
             removePreference(KEY_MANAGE_MOBILE_PLAN);
         }
@@ -324,36 +321,20 @@ public class WirelessSettings extends SettingsPreferenceFragment implements Inde
         // Disable Tethering if it's not allowed or if it's a wifi-only device
         final ConnectivityManager cm =
                 (ConnectivityManager) activity.getSystemService(Context.CONNECTIVITY_SERVICE);
-        if (isSecondaryUser || !cm.isTetheringSupported()
-                || mUm.hasUserRestriction(UserManager.DISALLOW_CONFIG_TETHERING)) {
+
+        final boolean adminDisallowedTetherConfig = RestrictedLockUtils.checkIfRestrictionEnforced(
+                activity, UserManager.DISALLOW_CONFIG_TETHERING, UserHandle.myUserId()) != null;
+        if ((!cm.isTetheringSupported() && !adminDisallowedTetherConfig) ||
+                RestrictedLockUtils.hasBaseUserRestriction(activity,
+                        UserManager.DISALLOW_CONFIG_TETHERING, UserHandle.myUserId())) {
             getPreferenceScreen().removePreference(findPreference(KEY_TETHER_SETTINGS));
-        } else {
+        } else if (!adminDisallowedTetherConfig) {
             Preference p = findPreference(KEY_TETHER_SETTINGS);
-            p.setTitle(Utils.getTetheringLabel(cm));
+            p.setTitle(com.android.settingslib.Utils.getTetheringLabel(cm));
 
             // Grey out if provisioning is not available.
             p.setEnabled(!TetherSettings
                     .isProvisioningNeededButUnavailable(getActivity()));
-        }
-
-        // Enable link to CMAS app settings depending on the value in config.xml.
-        boolean isCellBroadcastAppLinkEnabled = this.getResources().getBoolean(
-                com.android.internal.R.bool.config_cellBroadcastAppLinks);
-        try {
-            if (isCellBroadcastAppLinkEnabled) {
-                if (mPm.getApplicationEnabledSetting("com.android.cellbroadcastreceiver")
-                        == PackageManager.COMPONENT_ENABLED_STATE_DISABLED) {
-                    isCellBroadcastAppLinkEnabled = false;  // CMAS app disabled
-                }
-            }
-        } catch (IllegalArgumentException ignored) {
-            isCellBroadcastAppLinkEnabled = false;  // CMAS app not installed
-        }
-        if (isSecondaryUser || !isCellBroadcastAppLinkEnabled
-                || mUm.hasUserRestriction(UserManager.DISALLOW_CONFIG_CELL_BROADCASTS)) {
-            PreferenceScreen root = getPreferenceScreen();
-            Preference ps = findPreference(KEY_CELL_BROADCAST_SETTINGS);
-            if (ps != null) root.removePreference(ps);
         }
     }
 
@@ -364,9 +345,6 @@ public class WirelessSettings extends SettingsPreferenceFragment implements Inde
         mAirplaneModeEnabler.resume();
         if (mNfcEnabler != null) {
             mNfcEnabler.resume();
-        }
-        if (mNsdEnabler != null) {
-            mNsdEnabler.resume();
         }
 
         // update WFC setting
@@ -397,9 +375,6 @@ public class WirelessSettings extends SettingsPreferenceFragment implements Inde
         mAirplaneModeEnabler.pause();
         if (mNfcEnabler != null) {
             mNfcEnabler.pause();
-        }
-        if (mNsdEnabler != null) {
-            mNsdEnabler.pause();
         }
     }
 
@@ -436,16 +411,12 @@ public class WirelessSettings extends SettingsPreferenceFragment implements Inde
             public List<String> getNonIndexableKeys(Context context) {
                 final ArrayList<String> result = new ArrayList<String>();
 
-                result.add(KEY_TOGGLE_NSD);
-
                 final UserManager um = (UserManager) context.getSystemService(Context.USER_SERVICE);
-                final int myUserId = UserHandle.myUserId();
-                final boolean isSecondaryUser = myUserId != UserHandle.USER_OWNER;
+                final boolean isSecondaryUser = !um.isAdminUser();
                 final boolean isWimaxEnabled = !isSecondaryUser
                         && context.getResources().getBoolean(
                         com.android.internal.R.bool.config_wimaxEnabled);
-                if (!isWimaxEnabled
-                        || um.hasUserRestriction(UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS)) {
+                if (!isWimaxEnabled) {
                     result.add(KEY_WIMAX_SETTINGS);
                 }
 
@@ -495,21 +466,8 @@ public class WirelessSettings extends SettingsPreferenceFragment implements Inde
                     result.add(KEY_TETHER_SETTINGS);
                 }
 
-                // Enable link to CMAS app settings depending on the value in config.xml.
-                boolean isCellBroadcastAppLinkEnabled = context.getResources().getBoolean(
-                        com.android.internal.R.bool.config_cellBroadcastAppLinks);
-                try {
-                    if (isCellBroadcastAppLinkEnabled) {
-                        if (pm.getApplicationEnabledSetting("com.android.cellbroadcastreceiver")
-                                == PackageManager.COMPONENT_ENABLED_STATE_DISABLED) {
-                            isCellBroadcastAppLinkEnabled = false;  // CMAS app disabled
-                        }
-                    }
-                } catch (IllegalArgumentException ignored) {
-                    isCellBroadcastAppLinkEnabled = false;  // CMAS app not installed
-                }
-                if (isSecondaryUser || !isCellBroadcastAppLinkEnabled) {
-                    result.add(KEY_CELL_BROADCAST_SETTINGS);
+                if (!ImsManager.isWfcEnabledByPlatform(context)) {
+                    result.add(KEY_WFC_SETTINGS);
                 }
 
                 return result;

@@ -21,8 +21,8 @@
 #include "AllocationTestHarness.h"
 
 extern "C" {
-#include "hash_map.h"
-#include "osi.h"
+#include "osi/include/hash_map.h"
+#include "osi/include/osi.h"
 }
 
 class HashMapTest : public AllocationTestHarness {};

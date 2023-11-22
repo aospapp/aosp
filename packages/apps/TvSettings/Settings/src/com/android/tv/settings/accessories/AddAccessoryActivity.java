@@ -16,47 +16,39 @@
 
 package com.android.tv.settings.accessories;
 
+import android.app.Activity;
 import android.app.FragmentManager;
-import android.app.FragmentTransaction;
 import android.bluetooth.BluetoothDevice;
+import android.content.ComponentName;
 import android.content.Intent;
-import android.graphics.drawable.AnimationDrawable;
+import android.content.ServiceConnection;
+import android.content.pm.ResolveInfo;
 import android.hardware.input.InputManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Message;
+import android.os.Messenger;
 import android.os.RemoteException;
-import android.os.ServiceManager;
 import android.os.SystemClock;
-import android.service.dreams.DreamService;
-import android.service.dreams.IDreamManager;
 import android.support.annotation.NonNull;
-import android.support.v4.view.ViewCompat;
+import android.transition.TransitionManager;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewTreeObserver;
 import android.view.WindowManager;
-import android.view.animation.DecelerateInterpolator;
-import android.widget.ImageView;
-import android.widget.TextView;
 
 import com.android.tv.settings.R;
-import com.android.tv.settings.dialog.old.Action;
-import com.android.tv.settings.dialog.old.ActionAdapter;
-import com.android.tv.settings.dialog.old.ActionFragment;
-import com.android.tv.settings.dialog.old.DialogActivity;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Activity for detecting and adding (pairing) new bluetooth devices.
  */
-public class AddAccessoryActivity extends DialogActivity
-        implements ActionAdapter.Listener,
-        BluetoothDevicePairer.EventListener {
+public class AddAccessoryActivity extends Activity implements BluetoothDevicePairer.EventListener {
 
     private static final boolean DEBUG = false;
     private static final String TAG = "AddAccessoryActivity";
@@ -66,7 +58,12 @@ public class AddAccessoryActivity extends DialogActivity
 
     private static final String INTENT_EXTRA_NO_INPUT_MODE = "no_input_mode";
 
-    private static final String KEY_BT_DEVICE = "selected_bt_device";
+    private static final String SAVED_STATE_PREFERENCE_FRAGMENT =
+            "AddAccessoryActivity.PREFERENCE_FRAGMENT";
+    private static final String SAVED_STATE_CONTENT_FRAGMENT =
+            "AddAccessoryActivity.CONTENT_FRAGMENT";
+    private static final String SAVED_STATE_BLUETOOTH_DEVICES =
+            "AddAccessoryActivity.BLUETOOTH_DEVICES";
 
     private static final String ADDRESS_NONE = "NONE";
 
@@ -81,7 +78,6 @@ public class AddAccessoryActivity extends DialogActivity
     private static final int MSG_TRIGGER_SELECT_UP = 7;
     private static final int MSG_AUTOPAIR_TICK = 8;
     private static final int MSG_START_AUTOPAIR_COUNTDOWN = 9;
-    private static final int MSG_MULTIPAIR_BLINK = 10;
 
     private static final int CANCEL_MESSAGE_TIMEOUT = 3000;
     private static final int DONE_MESSAGE_TIMEOUT = 3000;
@@ -91,46 +87,62 @@ public class AddAccessoryActivity extends DialogActivity
     private static final int LONG_PRESS_DURATION = 3000;
     private static final int KEY_DOWN_TIME = 150;
     private static final int TIME_TO_START_AUTOPAIR_COUNT = 5000;
-    private static final int BLINK_START = 1000;
     private static final int EXIT_TIMEOUT_MILLIS = 90 * 1000;
 
-    private ActionFragment mActionFragment;
-    private ArrayList<Action> mActions;
+    private AddAccessoryPreferenceFragment mPreferenceFragment;
     private AddAccessoryContentFragment mContentFragment;
 
     // members related to Bluetooth pairing
-    private BluetoothDevicePairer mBtPairer;
+    private BluetoothDevicePairer mBluetoothPairer;
     private int mPreviousStatus = BluetoothDevicePairer.STATUS_NONE;
     private boolean mPairingSuccess = false;
     private boolean mPairingBluetooth = false;
-    private ArrayList<BluetoothDevice> mBtDevices;
+    private List<BluetoothDevice> mBluetoothDevices;
     private String mCancelledAddress = ADDRESS_NONE;
     private String mCurrentTargetAddress = ADDRESS_NONE;
     private String mCurrentTargetStatus = "";
     private boolean mPairingInBackground = false;
 
-    private boolean mActionsVisible = false;
-    private ViewGroup mTopLayout;
-    private View mActionView;
-    private View mContentView;
-    private boolean mShowingMultiFragment;
-    private TextView mAutoPairText;
-    private AnimationDrawable mAnimation;
-    private int mViewOffset = 0;
-    private static final int ANIMATE_IN_DELAY = 1500;
-    private static long mStartTime;
-    private boolean mAnimateOnStart = true;
     private boolean mDone = false;
-    private final Object mLock = new Object();
 
-    private FragmentManager mFragmentManager;
-
-    private IDreamManager mDreamManager;
     private boolean mHwKeyDown;
     private boolean mHwKeyDidSelect;
     private boolean mNoInputMode;
-    private boolean mActionsAnimationDone;
-    private boolean mFragmentTransactionPending;
+
+    private static final String GAMEPAD_PAIRING_SERVICE =
+            "com.google.android.settings.accessories.GamepadPairingService";
+    private static final String GAMEPAD_PAIRING_PACKAGE =
+            "com.google.android.tv.remotepairing";
+    /* Keep in sync with GamepadPairingService */
+    private static final int GAMEPAD_MESSAGE_START_PAIRING = 1;
+    private static final int GAMEPAD_MESSAGE_STOP_PAIRING = 2;
+    private static final int GAMEPAD_MESSAGE_PAUSE_PAIRING = 3;
+    private static final int GAMEPAD_MESSAGE_RESUME_PAIRING = 4;
+    private final List<Message> mGamepadMessageQueue = new ArrayList<>();
+    private Messenger mGamepadService;
+    private ServiceConnection mGamepadServiceConn;
+
+    private class GamepadServiceConnection implements ServiceConnection {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            Log.d(TAG, "Gamepad Service Connected");
+            mGamepadService = new Messenger(service);
+            for (Message message : mGamepadMessageQueue) {
+                try {
+                    mGamepadService.send(message);
+                } catch (RemoteException e) {
+                    Log.e(TAG, "Remote exception sending message " + message + " " + e);
+                }
+            }
+            mGamepadMessageQueue.clear();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            Log.d(TAG, "Gamepad Service Disconnected");
+            mGamepadService = null;
+        }
+    };
 
     // Internal message handler
     private final MessageHandler mMsgHandler = new MessageHandler();
@@ -164,9 +176,9 @@ public class AddAccessoryActivity extends DialogActivity
                     activity.handlePairingTimeout();
                     break;
                 case MSG_RESTART:
-                    if (activity.mBtPairer != null) {
-                        activity.mBtPairer.start();
-                        activity.mBtPairer.cancelPairing();
+                    if (activity.mBluetoothPairer != null) {
+                        activity.mBluetoothPairer.start();
+                        activity.mBluetoothPairer.cancelPairing();
                     }
                     break;
                 case MSG_TRIGGER_SELECT_DOWN:
@@ -179,36 +191,23 @@ public class AddAccessoryActivity extends DialogActivity
                     activity.sendKeyEvent(KeyEvent.KEYCODE_DPAD_CENTER, false);
                     break;
                 case MSG_START_AUTOPAIR_COUNTDOWN:
-                    activity.mAutoPairText.setVisibility(View.VISIBLE);
-                    activity.mAutoPairText.setText(String.format(
-                            activity.getString(R.string.accessories_autopair_msg), AUTOPAIR_COUNT));
+                    activity.setPairingText(
+                            activity.getString(R.string.accessories_autopair_msg, AUTOPAIR_COUNT));
                     sendMessageDelayed(obtainMessage(MSG_AUTOPAIR_TICK,
                             AUTOPAIR_COUNT, 0, null), 1000);
                     break;
                 case MSG_AUTOPAIR_TICK:
                     int countToAutoPair = msg.arg1 - 1;
-                    if (activity.mAutoPairText != null) {
-                        if (countToAutoPair <= 0) {
-                            activity.mAutoPairText.setVisibility(View.GONE);
-                            // AutoPair
-                            activity.startAutoPairing();
-                        } else {
-                            activity.mAutoPairText.setText(String.format(
-                                    activity.getString(R.string.accessories_autopair_msg),
-                                    countToAutoPair));
-                            sendMessageDelayed(obtainMessage(MSG_AUTOPAIR_TICK,
-                                    countToAutoPair, 0, null), 1000);
-                        }
-                    }
-                    break;
-                case MSG_MULTIPAIR_BLINK:
-                    // Kick off the blinking animation
-                    ImageView backImage = (ImageView) activity.findViewById(R.id.back_panel_image);
-                    if (backImage != null) {
-                        activity.mAnimation = (AnimationDrawable) backImage.getDrawable();
-                        if (activity.mAnimation != null) {
-                            activity.mAnimation.start();
-                        }
+                    if (countToAutoPair <= 0) {
+                        activity.setPairingText(null);
+                        // AutoPair
+                        activity.startAutoPairing();
+                    } else {
+                        activity.setPairingText(
+                                activity.getString(R.string.accessories_autopair_msg,
+                                        countToAutoPair));
+                        sendMessageDelayed(obtainMessage(MSG_AUTOPAIR_TICK,
+                                countToAutoPair, 0, null), 1000);
                     }
                     break;
                 default:
@@ -222,7 +221,7 @@ public class AddAccessoryActivity extends DialogActivity
     private final Runnable mAutoExitRunnable = new Runnable() {
         @Override
         public void run() {
-            stopActivity();
+            finish();
         }
     };
 
@@ -230,30 +229,62 @@ public class AddAccessoryActivity extends DialogActivity
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        setContentView(R.layout.lb_dialog_fragment);
+
+        Intent intent = new Intent();
+        intent.setAction(GAMEPAD_PAIRING_SERVICE);
+        intent.setPackage(GAMEPAD_PAIRING_PACKAGE);
+        if (serviceIntentIsHandled(intent)) {
+            // Don't auto-start the service. If it's not running we don't need to pause it.
+            mGamepadServiceConn = new GamepadServiceConnection();
+            bindService(intent, mGamepadServiceConn, BIND_ADJUST_WITH_ACTIVITY);
+        }
+
+        pauseGamepadPairingService();
+
         mMsgHandler.setActivity(this);
 
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        mDreamManager = IDreamManager.Stub.asInterface(ServiceManager.checkService(
-                DreamService.DREAM_SERVICE));
-
-        mFragmentManager = getFragmentManager();
-
-        mBtDevices = new ArrayList<>();
-
-        mActions = new ArrayList<>();
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON |
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
 
         mNoInputMode = getIntent().getBooleanExtra(INTENT_EXTRA_NO_INPUT_MODE, false);
         mHwKeyDown = false;
 
-        mActions.clear();
+        if (savedInstanceState == null) {
+            mBluetoothDevices = new ArrayList<>();
+        } else {
+            mBluetoothDevices =
+                    savedInstanceState.getParcelableArrayList(SAVED_STATE_BLUETOOTH_DEVICES);
+        }
 
-        mActionFragment = ActionFragment.newInstance(mActions);
-        mContentFragment = AddAccessoryContentFragment.newInstance(false);
-        setContentAndActionFragments(mContentFragment, mActionFragment);
-        mShowingMultiFragment = false;
+        final FragmentManager fm = getFragmentManager();
+        if (savedInstanceState == null) {
+            mPreferenceFragment = AddAccessoryPreferenceFragment.newInstance();
+            mContentFragment = AddAccessoryContentFragment.newInstance();
+            fm.beginTransaction()
+                    .add(R.id.action_fragment, mPreferenceFragment)
+                    .add(R.id.content_fragment, mContentFragment)
+                    .commit();
+        } else {
+            mPreferenceFragment = (AddAccessoryPreferenceFragment)
+                    fm.getFragment(savedInstanceState,
+                            SAVED_STATE_PREFERENCE_FRAGMENT);
+            mContentFragment = (AddAccessoryContentFragment)
+                    fm.getFragment(savedInstanceState,
+                            SAVED_STATE_CONTENT_FRAGMENT);
+        }
 
-        mActionsAnimationDone = false;
-        mFragmentTransactionPending = false;
+        rearrangeViews();
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        getFragmentManager().putFragment(outState,
+                SAVED_STATE_PREFERENCE_FRAGMENT, mPreferenceFragment);
+        getFragmentManager().putFragment(outState,
+                SAVED_STATE_CONTENT_FRAGMENT, mContentFragment);
+        outState.putParcelableList(SAVED_STATE_BLUETOOTH_DEVICES, mBluetoothDevices);
     }
 
     @Override
@@ -267,59 +298,10 @@ public class AddAccessoryActivity extends DialogActivity
         // Only do the following if we are not coming back to this activity from
         // the Secure Pairing activity.
         if (!mPairingInBackground) {
-            if (mAnimateOnStart) {
-                mAnimateOnStart = false;
-                ViewGroup contentView = (ViewGroup) findViewById(android.R.id.content);
-                mTopLayout = (ViewGroup) contentView.getChildAt(0);
-
-                // Fade out the old activity, and fade in the new activity.
-                overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
-
-                // Set the activity background
-                int bgColor = getColor(R.color.dialog_activity_background);
-                getBackgroundDrawable().setColor(bgColor);
-                mTopLayout.setBackground(getBackgroundDrawable());
-
-                // Delay the rest of the changes until the first layout event
-                mTopLayout.getViewTreeObserver().addOnGlobalLayoutListener(
-                        new ViewTreeObserver.OnGlobalLayoutListener() {
-                            @Override
-                            public void onGlobalLayout() {
-                                mTopLayout.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-
-                                // set the Action and Content fragments to their start offsets
-                                mActionView = findViewById(R.id.action_fragment);
-                                mContentView = findViewById(R.id.content_fragment);
-                                if (mActionView != null) {
-                                    mViewOffset = mActionView.getMeasuredWidth();
-                                    int offset = (ViewCompat.getLayoutDirection(mActionView) ==
-                                            ViewCompat.LAYOUT_DIRECTION_RTL) ?
-                                            -mViewOffset : mViewOffset;
-                                    mActionView.setTranslationX(offset);
-                                    mContentView.setTranslationX(offset / 2);
-                                }
-                                mAutoPairText = (TextView) findViewById(R.id.autopair_message);
-                                if (mAutoPairText != null) {
-                                    mAutoPairText.setVisibility(View.GONE);
-                                }
-                                updateView();
-                            }
-                        });
-            }
-
             startBluetoothPairer();
-
-            mStartTime = SystemClock.elapsedRealtime();
         }
 
         mPairingInBackground = false;
-    }
-
-    @Override
-    public void onPause() {
-        super.onPause();
-        if (DEBUG) Log.d(TAG, "stopping auto-exit timer");
-        mAutoExitHandler.removeCallbacks(mAutoExitRunnable);
     }
 
     @Override
@@ -333,12 +315,21 @@ public class AddAccessoryActivity extends DialogActivity
     }
 
     @Override
+    public void onPause() {
+        super.onPause();
+        if (DEBUG) Log.d(TAG, "stopping auto-exit timer");
+        mAutoExitHandler.removeCallbacks(mAutoExitRunnable);
+    }
+
+
+    @Override
     public void onStop() {
         if (DEBUG) {
             Log.d(TAG, "onStop()");
         }
         if (!mPairingBluetooth) {
-            stopActivity();
+            stopBluetoothPairer();
+            mMsgHandler.removeCallbacksAndMessages(null);
         } else {
             // allow activity to remain in the background while we perform the
             // BT Secure pairing.
@@ -346,6 +337,18 @@ public class AddAccessoryActivity extends DialogActivity
         }
 
         super.onStop();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        resumeGamepadPairingService();
+        if (mGamepadServiceConn != null) {
+            unbindService(mGamepadServiceConn);
+            mGamepadServiceConn = null;
+        }
+        stopBluetoothPairer();
+        mMsgHandler.removeCallbacksAndMessages(null);
     }
 
     @Override
@@ -362,15 +365,6 @@ public class AddAccessoryActivity extends DialogActivity
     public void onNewIntent(Intent intent) {
         if (ACTION_CONNECT_INPUT.equals(intent.getAction()) &&
                 (intent.getFlags() & Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT) == 0) {
-            // We were the front most app and we got a new intent.
-            // If screen saver is going, stop it.
-            try {
-                if (mDreamManager != null && mDreamManager.isDreaming()) {
-                    mDreamManager.awaken();
-                }
-            } catch (RemoteException e) {
-                // Do nothing.
-            }
 
             KeyEvent event = intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
             if (event != null && event.getKeyCode() == KeyEvent.KEYCODE_PAIRING) {
@@ -385,24 +379,51 @@ public class AddAccessoryActivity extends DialogActivity
         }
     }
 
-    @Override
-    protected void onIntroAnimationFinished() {
-        mActionsAnimationDone = true;
-        if (mFragmentTransactionPending) {
-            mFragmentTransactionPending = false;
-            switchToMultipleDevicesFragment();
+    private boolean serviceIntentIsHandled(Intent intent) {
+        List<ResolveInfo> matches = getPackageManager().queryIntentServices(intent, 0);
+        if (matches != null) {
+            for (ResolveInfo info : matches) {
+                if (info.serviceInfo != null && info.serviceInfo.enabled) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private void pauseGamepadPairingService() {
+        final Message m = Message.obtain(null, GAMEPAD_MESSAGE_PAUSE_PAIRING);
+        if (mGamepadService != null) {
+            try {
+                mGamepadService.send(m);
+            } catch (RemoteException e) {
+                Log.e(TAG, "Remote exception sending message " + m + " " + e);
+            }
+        } else {
+            Log.d(TAG, "Queueing pause message");
+            mGamepadMessageQueue.add(m);
         }
     }
 
-    @Override
-    public void onActionClicked(Action action) {
+    private void resumeGamepadPairingService() {
+        final Message m = Message.obtain(null, GAMEPAD_MESSAGE_RESUME_PAIRING);
+        if (mGamepadService != null) {
+            try {
+                mGamepadService.send(m);
+            } catch (RemoteException e) {
+                Log.e(TAG, "Remote exception sending message " + m + " " + e);
+            }
+        } else {
+            Log.d(TAG, "Queueing resume message");
+            mGamepadMessageQueue.add(m);
+        }
+    }
+
+
+    public void onActionClicked(String address) {
         cancelPairingCountdown();
         if (!mDone) {
-            String key = action.getKey();
-
-            if (KEY_BT_DEVICE.equals(key)) {
-                btDeviceClicked(action.getDescription());
-            }
+            btDeviceClicked(address);
         }
     }
 
@@ -425,11 +446,7 @@ public class AddAccessoryActivity extends DialogActivity
                 if (!mHwKeyDidSelect) {
                     // key wasn't pressed long enough for selection, move selection
                     // to next item.
-                    int selectedIndex = mActionFragment.getSelectedItemPosition() + 1;
-                    if (selectedIndex >= mActions.size()) {
-                        selectedIndex = 0;
-                    }
-                    mActionFragment.setSelectionSmooth(selectedIndex);
+                    mPreferenceFragment.advanceSelection();
                 }
                 mHwKeyDidSelect = false;
             }
@@ -448,88 +465,58 @@ public class AddAccessoryActivity extends DialogActivity
     }
 
     protected void updateView() {
-        if (mActionView == null || mStartTime == 0) {
+        if (mPreferenceFragment == null) {
             // view not yet ready, update will happen on first layout event
             return;
         }
 
-        synchronized (mLock) {
-            int prevNumDevices = mActions.size();
-            mActions.clear();
+        int prevNumDevices = mPreferenceFragment.getPreferenceScreen().getPreferenceCount();
 
-            if (mActionFragment != null && mBtPairer != null) {
-                // Add entries for the discovered Bluetooth devices
-                for (BluetoothDevice bt : mBtDevices) {
-                    String title = bt.getName();
-                    String desc;
-                    if (mCurrentTargetAddress.equalsIgnoreCase(bt.getAddress()) &&
-                            !mCurrentTargetStatus.isEmpty()) {
-                        desc = mCurrentTargetStatus;
-                    } else if (mCancelledAddress.equalsIgnoreCase(bt.getAddress())) {
-                        desc = getString(R.string.accessory_state_canceled);
-                    } else {
-                        desc = bt.getAddress();
-                    }
-                    mActions.add(new Action.Builder()
-                            .key(KEY_BT_DEVICE)
-                            .title(title)
-                            .description(desc.toUpperCase())
-                            .drawableResource(AccessoryUtils.getImageIdForDevice(bt))
-                            .build());
+        mPreferenceFragment.updateList(mBluetoothDevices, mCurrentTargetAddress,
+                mCurrentTargetStatus, mCancelledAddress);
+
+        if (mNoInputMode) {
+            if (DEBUG) Log.d(TAG, "stopping auto-exit timer");
+            mAutoExitHandler.removeCallbacks(mAutoExitRunnable);
+            if (mBluetoothDevices.size() == 1 && prevNumDevices == 0) {
+                // first device added, start counter for autopair
+                mMsgHandler.sendEmptyMessageDelayed(MSG_START_AUTOPAIR_COUNTDOWN,
+                        TIME_TO_START_AUTOPAIR_COUNT);
+            } else {
+
+                // Start timer count down for exiting activity.
+                if (DEBUG) Log.d(TAG, "starting auto-exit timer");
+                mAutoExitHandler.postDelayed(mAutoExitRunnable, EXIT_TIMEOUT_MILLIS);
+
+                if (mBluetoothDevices.size() > 1) {
+                    // More than one device found, cancel auto pair
+                    cancelPairingCountdown();
                 }
-            }
+           }
+        }
 
-            // Update the main fragment.
-            ActionAdapter adapter = (ActionAdapter) mActionFragment.getAdapter();
-            if (adapter != null) {
-                adapter.setActions(mActions);
-            }
+        TransitionManager.beginDelayedTransition((ViewGroup) findViewById(R.id.content_frame));
 
-            if (!mActionsVisible && mActions.size() > 0) {
-                mActionsVisible = true;
-                long delay = ANIMATE_IN_DELAY - (SystemClock.elapsedRealtime() - mStartTime);
-                if (delay > 0) {
-                    // Make sure we have a little bit of time after the activity
-                    // fades in
-                    // before we animate the actions in
-                    mActionView.postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            animateActionsIn();
-                        }
-                    }, delay);
-                } else {
-                    animateActionsIn();
-                }
-            }
+        rearrangeViews();
+    }
 
-            if (mNoInputMode) {
-                if (DEBUG) Log.d(TAG, "stopping auto-exit timer");
-                mAutoExitHandler.removeCallbacks(mAutoExitRunnable);
-                if (mActions.size() == 1 && prevNumDevices == 0) {
-                    // first device added, start counter for autopair
-                    mMsgHandler.sendEmptyMessageDelayed(MSG_START_AUTOPAIR_COUNTDOWN,
-                            TIME_TO_START_AUTOPAIR_COUNT);
-                } else {
+    private void rearrangeViews() {
+        final boolean empty = mBluetoothDevices.isEmpty();
 
-                    // Start timer count down for exiting activity.
-                    if (DEBUG) Log.d(TAG, "starting auto-exit timer");
-                    mAutoExitHandler.postDelayed(mAutoExitRunnable, EXIT_TIMEOUT_MILLIS);
+        final View contentView = findViewById(R.id.content_fragment);
+        final ViewGroup.LayoutParams contentLayoutParams = contentView.getLayoutParams();
+        contentLayoutParams.width = empty ? ViewGroup.LayoutParams.MATCH_PARENT :
+                getResources().getDimensionPixelSize(R.dimen.lb_content_section_width);
+        contentView.setLayoutParams(contentLayoutParams);
 
-                    if (mActions.size() > 1) {
-                        // More than one device found, cancel auto pair
-                        cancelPairingCountdown();
+        mContentFragment.setContentWidth(empty
+                ? getResources().getDimensionPixelSize(R.dimen.progress_fragment_content_width)
+                : getResources().getDimensionPixelSize(R.dimen.bt_progress_width_narrow));
+    }
 
-                        if (!mShowingMultiFragment && !mFragmentTransactionPending) {
-                            if (mActionsAnimationDone) {
-                                switchToMultipleDevicesFragment();
-                            } else {
-                                mFragmentTransactionPending = true;
-                            }
-                        }
-                    }
-               }
-            }
+    private void setPairingText(CharSequence text) {
+        if (mContentFragment != null) {
+            mContentFragment.setExtraText(text);
         }
     }
 
@@ -537,21 +524,7 @@ public class AddAccessoryActivity extends DialogActivity
         // Cancel countdown
         mMsgHandler.removeMessages(MSG_AUTOPAIR_TICK);
         mMsgHandler.removeMessages(MSG_START_AUTOPAIR_COUNTDOWN);
-        if (mAutoPairText != null) {
-            mAutoPairText.setVisibility(View.GONE);
-        }
-    }
-
-    protected void switchToMultipleDevicesFragment() {
-        FragmentTransaction ft = mFragmentManager.beginTransaction();
-        mContentFragment = AddAccessoryContentFragment.newInstance(true);
-        ft.setTransition(FragmentTransaction.TRANSIT_FRAGMENT_OPEN);
-        ft.replace(R.id.content_fragment, mContentFragment);
-        ft.disallowAddToBackStack();
-
-        ft.commit();
-        mMsgHandler.sendEmptyMessageDelayed(MSG_MULTIPAIR_BLINK, BLINK_START);
-        mShowingMultiFragment = true;
+        setPairingText(null);
     }
 
     private void setTimeout(int timeout) {
@@ -563,37 +536,30 @@ public class AddAccessoryActivity extends DialogActivity
         mMsgHandler.removeMessages(MSG_OP_TIMEOUT);
     }
 
-    private void animateActionsIn() {
-        prepareAndAnimateView(mContentView, 1f, mViewOffset / 2, 0, ANIMATE_IN_DURATION,
-                new DecelerateInterpolator(1.0f), true);
-        prepareAndAnimateView(mActionView, 1f, mViewOffset, 0, ANIMATE_IN_DURATION,
-                new DecelerateInterpolator(1.0f), false);
-    }
-
     protected void startAutoPairing() {
-        if (mActions.size() > 0) {
-            onActionClicked(mActions.get(0));
+        if (mBluetoothDevices.size() > 0) {
+            onActionClicked(mBluetoothDevices.get(0).getAddress());
         }
     }
 
     private void btDeviceClicked(String clickedAddress) {
-        if (mBtPairer != null && !mBtPairer.isInProgress()) {
-            if (mBtPairer.getStatus() == BluetoothDevicePairer.STATUS_WAITING_TO_PAIR &&
-                    mBtPairer.getTargetDevice() != null) {
+        if (mBluetoothPairer != null && !mBluetoothPairer.isInProgress()) {
+            if (mBluetoothPairer.getStatus() == BluetoothDevicePairer.STATUS_WAITING_TO_PAIR &&
+                    mBluetoothPairer.getTargetDevice() != null) {
                 cancelBtPairing();
             } else {
                 if (DEBUG) {
                     Log.d(TAG, "Looking for " + clickedAddress +
                             " in available devices to start pairing");
                 }
-                for (BluetoothDevice target : mBtDevices) {
+                for (BluetoothDevice target : mBluetoothDevices) {
                     if (target.getAddress().equalsIgnoreCase(clickedAddress)) {
                         if (DEBUG) {
                             Log.d(TAG, "Found it!");
                         }
                         mCancelledAddress = ADDRESS_NONE;
                         setPairingBluetooth(true);
-                        mBtPairer.startPairing(target);
+                        mBluetoothPairer.startPairing(target);
                         break;
                     }
                 }
@@ -603,13 +569,13 @@ public class AddAccessoryActivity extends DialogActivity
 
     private void cancelBtPairing() {
         // cancel current request to pair
-        if (mBtPairer != null) {
-            if (mBtPairer.getTargetDevice() != null) {
-                mCancelledAddress = mBtPairer.getTargetDevice().getAddress();
+        if (mBluetoothPairer != null) {
+            if (mBluetoothPairer.getTargetDevice() != null) {
+                mCancelledAddress = mBluetoothPairer.getTargetDevice().getAddress();
             } else {
                 mCancelledAddress = ADDRESS_NONE;
             }
-            mBtPairer.cancelPairing();
+            mBluetoothPairer.cancelPairing();
         }
         mPairingSuccess = false;
         setPairingBluetooth(false);
@@ -625,20 +591,20 @@ public class AddAccessoryActivity extends DialogActivity
 
     private void startBluetoothPairer() {
         stopBluetoothPairer();
-        mBtPairer = new BluetoothDevicePairer(this, this);
-        mBtPairer.start();
+        mBluetoothPairer = new BluetoothDevicePairer(this, this);
+        mBluetoothPairer.start();
 
-        mBtPairer.disableAutoPairing();
+        mBluetoothPairer.disableAutoPairing();
 
         mPairingSuccess = false;
         statusChanged();
     }
 
     private void stopBluetoothPairer() {
-        if (mBtPairer != null) {
-            mBtPairer.setListener(null);
-            mBtPairer.dispose();
-            mBtPairer = null;
+        if (mBluetoothPairer != null) {
+            mBluetoothPairer.setListener(null);
+            mBluetoothPairer.dispose();
+            mBluetoothPairer = null;
         }
     }
 
@@ -668,143 +634,126 @@ public class AddAccessoryActivity extends DialogActivity
 
     @Override
     public void statusChanged() {
-        synchronized (mLock) {
-            if (mBtPairer == null) return;
+        if (mBluetoothPairer == null) return;
 
-            int numDevices = mBtPairer.getAvailableDevices().size();
-            int status = mBtPairer.getStatus();
-            int oldStatus = mPreviousStatus;
-            mPreviousStatus = status;
+        int numDevices = mBluetoothPairer.getAvailableDevices().size();
+        int status = mBluetoothPairer.getStatus();
+        int oldStatus = mPreviousStatus;
+        mPreviousStatus = status;
 
-            String address = mBtPairer.getTargetDevice() == null ? ADDRESS_NONE :
-                    mBtPairer.getTargetDevice().getAddress();
+        String address = mBluetoothPairer.getTargetDevice() == null ? ADDRESS_NONE :
+                mBluetoothPairer.getTargetDevice().getAddress();
 
-            if (DEBUG) {
-                String state = "?";
-                switch (status) {
-                    case BluetoothDevicePairer.STATUS_NONE:
-                        state = "BluetoothDevicePairer.STATUS_NONE";
-                        break;
-                    case BluetoothDevicePairer.STATUS_SCANNING:
-                        state = "BluetoothDevicePairer.STATUS_SCANNING";
-                        break;
-                    case BluetoothDevicePairer.STATUS_WAITING_TO_PAIR:
-                        state = "BluetoothDevicePairer.STATUS_WAITING_TO_PAIR";
-                        break;
-                    case BluetoothDevicePairer.STATUS_PAIRING:
-                        state = "BluetoothDevicePairer.STATUS_PAIRING";
-                        break;
-                    case BluetoothDevicePairer.STATUS_CONNECTING:
-                        state = "BluetoothDevicePairer.STATUS_CONNECTING";
-                        break;
-                    case BluetoothDevicePairer.STATUS_ERROR:
-                        state = "BluetoothDevicePairer.STATUS_ERROR";
-                        break;
-                }
-                long time = mBtPairer.getNextStageTime() - SystemClock.elapsedRealtime();
-                Log.d(TAG, "Update received, number of devices:" + numDevices + " state: " +
-                        state + " target device: " + address + " time to next event: " + time);
-            }
-
-            mBtDevices.clear();
-            for (BluetoothDevice device : mBtPairer.getAvailableDevices()) {
-                mBtDevices.add(device);
-            }
-
-            cancelTimeout();
-
+        if (DEBUG) {
+            String state = "?";
             switch (status) {
                 case BluetoothDevicePairer.STATUS_NONE:
-                    // if we just connected to something or just tried to connect
-                    // to something, restart scanning just in case the user wants
-                    // to pair another device.
-                    if (oldStatus == BluetoothDevicePairer.STATUS_CONNECTING) {
-                        if (mPairingSuccess) {
-                            // Pairing complete
-                            mCurrentTargetStatus = getString(R.string.accessory_state_paired);
-                            mMsgHandler.sendEmptyMessage(MSG_UPDATE_VIEW);
-                            mMsgHandler.sendEmptyMessageDelayed(MSG_PAIRING_COMPLETE,
-                                    DONE_MESSAGE_TIMEOUT);
-                            mDone = true;
-                            if (mAnimation != null) {
-                                mAnimation.setOneShot(true);
-                            }
-
-                            // Done, return here and just wait for the message
-                            // to close the activity
-                            return;
-                        }
-                        if (DEBUG) {
-                            Log.d(TAG, "Invalidating and restarting.");
-                        }
-
-                        mBtPairer.invalidateDevice(mBtPairer.getTargetDevice());
-                        mBtPairer.start();
-                        mBtPairer.cancelPairing();
-                        setPairingBluetooth(false);
-
-                        // if this looks like a successful connection run, reflect
-                        // this in the UI, otherwise use the default message
-                        if (!mPairingSuccess && BluetoothDevicePairer.hasValidInputDevice(this)) {
-                            mPairingSuccess = true;
-                        }
-                    }
+                    state = "BluetoothDevicePairer.STATUS_NONE";
                     break;
                 case BluetoothDevicePairer.STATUS_SCANNING:
-                    mPairingSuccess = false;
+                    state = "BluetoothDevicePairer.STATUS_SCANNING";
                     break;
                 case BluetoothDevicePairer.STATUS_WAITING_TO_PAIR:
+                    state = "BluetoothDevicePairer.STATUS_WAITING_TO_PAIR";
                     break;
                 case BluetoothDevicePairer.STATUS_PAIRING:
-                    // reset the pairing success value since this is now a new
-                    // pairing run
-                    mPairingSuccess = true;
-                    setTimeout(PAIR_OPERATION_TIMEOUT);
+                    state = "BluetoothDevicePairer.STATUS_PAIRING";
                     break;
                 case BluetoothDevicePairer.STATUS_CONNECTING:
-                    setTimeout(CONNECT_OPERATION_TIMEOUT);
+                    state = "BluetoothDevicePairer.STATUS_CONNECTING";
                     break;
                 case BluetoothDevicePairer.STATUS_ERROR:
-                    mPairingSuccess = false;
-                    setPairingBluetooth(false);
-                    if (mNoInputMode) {
-                        clearDeviceList();
-                    }
+                    state = "BluetoothDevicePairer.STATUS_ERROR";
                     break;
             }
-
-            mCurrentTargetAddress = address;
-            mCurrentTargetStatus = getMessageForStatus(status);
-            mMsgHandler.sendEmptyMessage(MSG_UPDATE_VIEW);
+            long time = mBluetoothPairer.getNextStageTime() - SystemClock.elapsedRealtime();
+            Log.d(TAG, "Update received, number of devices:" + numDevices + " state: " +
+                    state + " target device: " + address + " time to next event: " + time);
         }
+
+        mBluetoothDevices.clear();
+        for (BluetoothDevice device : mBluetoothPairer.getAvailableDevices()) {
+            mBluetoothDevices.add(device);
+        }
+
+        cancelTimeout();
+
+        switch (status) {
+            case BluetoothDevicePairer.STATUS_NONE:
+                // if we just connected to something or just tried to connect
+                // to something, restart scanning just in case the user wants
+                // to pair another device.
+                if (oldStatus == BluetoothDevicePairer.STATUS_CONNECTING) {
+                    if (mPairingSuccess) {
+                        // Pairing complete
+                        mCurrentTargetStatus = getString(R.string.accessory_state_paired);
+                        mMsgHandler.sendEmptyMessage(MSG_UPDATE_VIEW);
+                        mMsgHandler.sendEmptyMessageDelayed(MSG_PAIRING_COMPLETE,
+                                DONE_MESSAGE_TIMEOUT);
+                        mDone = true;
+
+                        // Done, return here and just wait for the message
+                        // to close the activity
+                        return;
+                    }
+                    if (DEBUG) {
+                        Log.d(TAG, "Invalidating and restarting.");
+                    }
+
+                    mBluetoothPairer.invalidateDevice(mBluetoothPairer.getTargetDevice());
+                    mBluetoothPairer.start();
+                    mBluetoothPairer.cancelPairing();
+                    setPairingBluetooth(false);
+
+                    // if this looks like a successful connection run, reflect
+                    // this in the UI, otherwise use the default message
+                    if (!mPairingSuccess && BluetoothDevicePairer.hasValidInputDevice(this)) {
+                        mPairingSuccess = true;
+                    }
+                }
+                break;
+            case BluetoothDevicePairer.STATUS_SCANNING:
+                mPairingSuccess = false;
+                break;
+            case BluetoothDevicePairer.STATUS_WAITING_TO_PAIR:
+                break;
+            case BluetoothDevicePairer.STATUS_PAIRING:
+                // reset the pairing success value since this is now a new
+                // pairing run
+                mPairingSuccess = true;
+                setTimeout(PAIR_OPERATION_TIMEOUT);
+                break;
+            case BluetoothDevicePairer.STATUS_CONNECTING:
+                setTimeout(CONNECT_OPERATION_TIMEOUT);
+                break;
+            case BluetoothDevicePairer.STATUS_ERROR:
+                mPairingSuccess = false;
+                setPairingBluetooth(false);
+                if (mNoInputMode) {
+                    clearDeviceList();
+                }
+                break;
+        }
+
+        mCurrentTargetAddress = address;
+        mCurrentTargetStatus = getMessageForStatus(status);
+        mMsgHandler.sendEmptyMessage(MSG_UPDATE_VIEW);
     }
 
     private void clearDeviceList() {
-        mBtDevices.clear();
-        mBtPairer.clearDeviceList();
-    }
-
-    private void stopActivity() {
-        stopBluetoothPairer();
-        mMsgHandler.removeCallbacksAndMessages(null);
-        mAnimateOnStart = true;
-
-        // Forcing this activity to finish in OnStop, to make sure it always gets created
-        // fresh, since it has different behavior depending on the intent that launched
-        // it (Settings vs HW button press).
-        Log.d(TAG, "Calling finish() on activity.onStop().");
-        finish();
+        mBluetoothDevices.clear();
+        mBluetoothPairer.clearDeviceList();
     }
 
     private void handlePairingTimeout() {
         if (mPairingInBackground) {
-            stopActivity();
+            finish();
         } else {
             // Either Pairing or Connecting timeout out.
             // Display error message and post delayed message to the scanning process.
             mPairingSuccess = false;
-            if (mBtPairer != null) {
-                mBtPairer.cancelPairing();
+            if (mBluetoothPairer != null) {
+                mBluetoothPairer.cancelPairing();
             }
             mCurrentTargetStatus = getString(R.string.accessory_state_error);
             mMsgHandler.sendEmptyMessage(MSG_UPDATE_VIEW);
@@ -812,4 +761,19 @@ public class AddAccessoryActivity extends DialogActivity
         }
     }
 
+    List<BluetoothDevice> getBluetoothDevices() {
+        return mBluetoothDevices;
+    }
+
+    String getCurrentTargetAddress() {
+        return mCurrentTargetAddress;
+    }
+
+    String getCurrentTargetStatus() {
+        return mCurrentTargetStatus;
+    }
+
+    String getCancelledAddress() {
+        return mCancelledAddress;
+    }
 }

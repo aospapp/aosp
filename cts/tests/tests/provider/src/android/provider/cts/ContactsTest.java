@@ -220,12 +220,12 @@ public class ContactsTest extends InstrumentationTestCase {
         try {
             Context context = getInstrumentation().getTargetContext();
             InputStream inputStream = context.getResources().openRawResource(
-                    com.android.cts.provider.R.drawable.testimage);
+                    android.provider.cts.R.drawable.testimage);
             int size = inputStream.available();
             byte[] data =  new byte[size];
             inputStream.read(data);
             BitmapDrawable sourceDrawable = (BitmapDrawable) context.getResources().getDrawable(
-                    com.android.cts.provider.R.drawable.testimage);
+                    android.provider.cts.R.drawable.testimage);
             // Test: insert
             ContentValues value = new ContentValues();
             value.put(Photos.PERSON_ID, 1);
@@ -417,7 +417,7 @@ public class ContactsTest extends InstrumentationTestCase {
                 Calls.CACHED_NUMBER_LABEL, Calls.CACHED_FORMATTED_NUMBER,
                 Calls.CACHED_MATCHED_NUMBER, Calls.CACHED_NORMALIZED_NUMBER,
                 Calls.CACHED_LOOKUP_URI, Calls.CACHED_PHOTO_ID, Calls.COUNTRY_ISO,
-                Calls.GEOCODED_LOCATION, Calls.CACHED_PHOTO_URI};
+                Calls.GEOCODED_LOCATION, Calls.CACHED_PHOTO_URI, Calls.LAST_MODIFIED};
         final int ID_INDEX = 0;
         final int NUMBER_INDEX = 1;
         final int DATE_INDEX = 2;
@@ -435,6 +435,7 @@ public class ContactsTest extends InstrumentationTestCase {
         final int COUNTRY_ISO_INDEX = 14;
         final int GEOCODED_LOCATION_INDEX = 15;
         final int CACHED_PHOTO_URI_INDEX = 16;
+        final int LAST_MODIFIED_INDEX = 17;
 
         String insertCallsNumber = "0123456789";
         int insertCallsDuration = 120;
@@ -481,6 +482,7 @@ public class ContactsTest extends InstrumentationTestCase {
             assertEquals(insertCallsName, cursor.getString(CACHED_NAME_INDEX));
             assertEquals(Phones.TYPE_HOME, cursor.getInt(CACHED_NUMBER_TYPE_INDEX));
             assertEquals(insertCallsNumberLabel, cursor.getString(CACHED_NUMBER_LABEL_INDEX));
+            assertTrue(getElapsedDurationMillis(cursor.getLong(LAST_MODIFIED_INDEX)) < 1000);
             int id = cursor.getInt(ID_INDEX);
             cursor.close();
 
@@ -527,6 +529,7 @@ public class ContactsTest extends InstrumentationTestCase {
             assertEquals(updateCountryIso, cursor.getString(COUNTRY_ISO_INDEX));
             assertEquals(updateGeocodedLocation, cursor.getString(GEOCODED_LOCATION_INDEX));
             assertEquals(updateCachedLookupUri, cursor.getString(CACHED_LOOKUP_URI_INDEX));
+            assertTrue(getElapsedDurationMillis(cursor.getLong(LAST_MODIFIED_INDEX)) < 1000);
             cursor.close();
 
             // Test: delete
@@ -900,5 +903,9 @@ public class ContactsTest extends InstrumentationTestCase {
         } catch (RemoteException e) {
             fail("Unexpected RemoteException");
         }
+    }
+
+    private long getElapsedDurationMillis(long timeStampMillis){
+        return (System.currentTimeMillis() - timeStampMillis);
     }
 }

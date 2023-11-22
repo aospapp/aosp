@@ -37,8 +37,7 @@ BOARD_CACHEIMAGE_PARTITION_SIZE := 260014080
 TARGET_DROIDBOOT_LIBS := libintel_droidboot
 TARGET_RECOVERY_PIXEL_FORMAT := "RGBX_8888"
 
-# Use dlmalloc
-MALLOC_IMPL := dlmalloc
+MALLOC_SVELTE := true
 
 # Kernel cmdline
 BOARD_KERNEL_CMDLINE := pci=noearly vmalloc=256M ptrace.ptrace_can_access=1
@@ -52,16 +51,6 @@ BOARD_HAL_STATIC_LIBRARIES := libdumpstate.fugu
 
 # Binder API version
 TARGET_USES_64_BIT_BINDER := true
-
-# Enable dex-preoptimization to speed up first boot sequence
-ifeq ($(HOST_OS),linux)
-  ifeq ($(TARGET_BUILD_VARIANT),user)
-    ifeq ($(WITH_DEXPREOPT),)
-      WITH_DEXPREOPT := true
-    endif
-  endif
-endif
-DONT_DEXPREOPT_PREBUILTS := true
 
 # Security
 BUILD_WITH_SECURITY_FRAMEWORK := chaabi_token
@@ -114,6 +103,10 @@ ADDITIONAL_DEFAULT_PROPERTIES += \
     ro.hwui.texture_cache_flushrate = 0.4 \
     ro.hwui.texture_cache_size = 48.0 \
 
+# Temporary to workaround b/28521732 & b/27903668
+ADDITIONAL_DEFAULT_PROPERTIES += \
+    debug.hwui.use_buffer_age = 0
+
 MAX_EGL_CACHE_ENTRY_SIZE := 65536
 MAX_EGL_CACHE_SIZE := 1048576
 
@@ -140,8 +133,6 @@ ADDITIONAL_DEFAULT_PROPERTIES += \
     persist.intel.isv.vpp = 1 \
     persist.intel.isv.frc = 1
 
-COMMON_GLOBAL_CFLAGS += -DGFX_BUF_EXT
-
 OVERRIDE_RS_DRIVER := libPVRRS.so
 
 # enable ARM codegen for x86 with Houdini
@@ -157,8 +148,14 @@ TARGET_BOOTLOADER_IS_2ND := true
 
 BOARD_SEPOLICY_DIRS += device/asus/fugu/sepolicy
 
+USE_CLANG_PLATFORM_BUILD := true
+
 # Use the non-open-source parts, if they're present
 -include vendor/asus/fugu/BoardConfigVendor.mk
 
 # Recipes to generate prebuilts
 -include device/intel/common/external/external.mk
+
+# Don't dex preopt prebuilt apps that will be updated from Play Store
+DONT_DEXPREOPT_PREBUILTS := true
+

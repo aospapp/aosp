@@ -34,10 +34,10 @@
 
 int main()
 {
-    size_t s = 0;
-    div_t d;
-    ldiv_t ld;
-    lldiv_t lld;
+    size_t s = 0; ((void)s);
+    div_t d; ((void)d);
+    ldiv_t ld; ((void)ld);
+    lldiv_t lld; ((void)lld);
     char** endptr = 0;
     static_assert((std::is_same<decltype(atof("")), double>::value), "");
     static_assert((std::is_same<decltype(atoi("")), int>::value), "");
@@ -71,12 +71,14 @@ int main()
     static_assert((std::is_same<decltype(div(0,0)), div_t>::value), "");
     static_assert((std::is_same<decltype(ldiv(0L,0L)), ldiv_t>::value), "");
     static_assert((std::is_same<decltype(lldiv(0LL,0LL)), lldiv_t>::value), "");
-    static_assert((std::is_same<decltype(mblen("",0)), int>::value), "");
     wchar_t* pw = 0;
     const wchar_t* pwc = 0;
     char* pc = 0;
+#ifndef _LIBCPP_HAS_NO_THREAD_UNSAFE_C_FUNCTIONS
+    static_assert((std::is_same<decltype(mblen("",0)), int>::value), "");
     static_assert((std::is_same<decltype(mbtowc(pw,"",0)), int>::value), "");
     static_assert((std::is_same<decltype(wctomb(pc,L' ')), int>::value), "");
+#endif
     static_assert((std::is_same<decltype(mbstowcs(pw,"",0)), size_t>::value), "");
     static_assert((std::is_same<decltype(wcstombs(pc,pwc,0)), size_t>::value), "");
 }

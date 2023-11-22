@@ -16,7 +16,7 @@
 
 package com.android.cts.tradefed.testtype;
 
-import com.android.cts.util.AbiUtils;
+import com.android.compatibility.common.util.AbiUtils;
 import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.util.xml.AbstractXmlParser.ParseException;
 
@@ -75,7 +75,7 @@ public class TestPlanTest extends TestCase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mPlan = new TestPlan("plan", AbiUtils.getAbisSupportedByCts());
+        mPlan = new TestPlan("plan", AbiUtils.getAbisSupportedByCompatibility());
     }
 
     /**
@@ -91,7 +91,7 @@ public class TestPlanTest extends TestCase {
      * @param plan
      */
     private void assertTestData(TestPlan plan) {
-        Set<String> abis = AbiUtils.getAbisSupportedByCts();
+        Set<String> abis = AbiUtils.getAbisSupportedByCompatibility();
         assertEquals(2 * abis.size(), plan.getTestIds().size());
         List<String> sortedAbis = new ArrayList<String>(abis);
         Collections.sort(sortedAbis);
@@ -112,7 +112,7 @@ public class TestPlanTest extends TestCase {
      */
     public void testParse_exclude() throws ParseException  {
         mPlan.parse(getStringAsStream(TEST_EXCLUDED_DATA));
-        Set<String> abis = AbiUtils.getAbisSupportedByCts();
+        Set<String> abis = AbiUtils.getAbisSupportedByCompatibility();
         assertEquals(abis.size(), mPlan.getTestIds().size());
 
         for (String abi : abis) {
@@ -136,7 +136,7 @@ public class TestPlanTest extends TestCase {
      * @param plan
      */
     private void assertMultiExcluded(TestPlan plan) {
-        Set<String> abis = AbiUtils.getAbisSupportedByCts();
+        Set<String> abis = AbiUtils.getAbisSupportedByCompatibility();
         assertEquals(abis.size(), plan.getTestIds().size());
 
         for (String abi : abis) {
@@ -154,7 +154,7 @@ public class TestPlanTest extends TestCase {
      */
     public void testParse_classExclude() throws ParseException  {
         mPlan.parse(getStringAsStream(TEST_CLASS_EXCLUDED_DATA));
-        Set<String> abis = AbiUtils.getAbisSupportedByCts();
+        Set<String> abis = AbiUtils.getAbisSupportedByCompatibility();
         assertEquals(abis.size(), mPlan.getTestIds().size());
 
         for (String abi : abis) {
@@ -179,14 +179,14 @@ public class TestPlanTest extends TestCase {
      * @throws IOException
      */
     public void testSerialize_packages() throws ParseException, IOException  {
-        Set<String> abis = AbiUtils.getAbisSupportedByCts();
+        Set<String> abis = AbiUtils.getAbisSupportedByCompatibility();
         for (String abi : abis) {
             mPlan.addPackage(AbiUtils.createId(abi, TEST_NAME1));
             mPlan.addPackage(AbiUtils.createId(abi, TEST_NAME2));
         }
         ByteArrayOutputStream outStream = new ByteArrayOutputStream();
         mPlan.serialize(outStream);
-        TestPlan parsedPlan = new TestPlan("parsed", AbiUtils.getAbisSupportedByCts());
+        TestPlan parsedPlan = new TestPlan("parsed", AbiUtils.getAbisSupportedByCompatibility());
         parsedPlan.parse(getStringAsStream(outStream.toString()));
         // parsedPlan should contain same contents as TEST_DATA
         assertTestData(parsedPlan);
@@ -196,7 +196,7 @@ public class TestPlanTest extends TestCase {
      * Test serializing and deserializing plan with multiple excluded tests
      */
     public void testSerialize_multiExclude() throws ParseException, IOException  {
-        Set<String> abis = AbiUtils.getAbisSupportedByCts();
+        Set<String> abis = AbiUtils.getAbisSupportedByCompatibility();
 
         for (String abi : abis) {
             String test1Id = AbiUtils.createId(abi, TEST_NAME1);
@@ -208,7 +208,7 @@ public class TestPlanTest extends TestCase {
         }
         ByteArrayOutputStream outStream = new ByteArrayOutputStream();
         mPlan.serialize(outStream);
-        TestPlan parsedPlan = new TestPlan("parsed", AbiUtils.getAbisSupportedByCts());
+        TestPlan parsedPlan = new TestPlan("parsed", AbiUtils.getAbisSupportedByCompatibility());
         parsedPlan.parse(getStringAsStream(outStream.toString()));
         // parsedPlan should contain same contents as TEST_DATA
         assertMultiExcluded(parsedPlan);

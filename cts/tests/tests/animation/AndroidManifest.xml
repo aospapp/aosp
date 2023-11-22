@@ -15,20 +15,22 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.animation">
+    package="android.animation.cts">
     <uses-sdk android:minSdkVersion="11" />
     <uses-permission android:name="android.permission.INJECT_EVENTS" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <application>
         <activity android:name="android.animation.cts.AnimationActivity"
-            android:label="AnimationActivity"/>
+                  android:label="AnimationActivity"/>
+        <activity android:name="android.animation.cts.ButtonViewActivity"
+                  android:label="ButtonViewActivity"/>
         <activity
            android:name="android.animation.cts.LayoutAnimationActivity" />
         <uses-library android:name="android.test.runner" />
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.animation"
+                     android:targetPackage="android.animation.cts"
                      android:label="CTS tests for android.animation package">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

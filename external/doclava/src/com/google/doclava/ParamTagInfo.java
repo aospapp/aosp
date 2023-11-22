@@ -75,6 +75,7 @@ public class ParamTagInfo extends ParsedTagInfo {
   @Override
   public void makeHDF(Data data, String base) {
     data.setValue(base + ".name", parameterName());
+    data.setValue(base + ".kind", kind());
     data.setValue(base + ".isTypeParameter", isTypeParameter() ? "1" : "0");
     TagInfo.makeHDF(data, base + ".comment", commentTags());
   }

@@ -37,6 +37,7 @@ public class BaseManagedProfileTest extends InstrumentationTestCase {
             BasicAdminReceiver.class.getPackage().getName(), BasicAdminReceiver.class.getName());
 
     protected DevicePolicyManager mDevicePolicyManager;
+    protected DevicePolicyManager mParentDevicePolicyManager;
     protected Context mContext;
 
     @Override
@@ -46,6 +47,8 @@ public class BaseManagedProfileTest extends InstrumentationTestCase {
 
         mDevicePolicyManager = (DevicePolicyManager)
                 mContext.getSystemService(Context.DEVICE_POLICY_SERVICE);
+        mParentDevicePolicyManager =
+                mDevicePolicyManager.getParentProfileInstance(ADMIN_RECEIVER_COMPONENT);
         assertNotNull(mDevicePolicyManager);
 
         // TODO: Only check the below if we are running as the profile user. If running under the
@@ -55,5 +58,9 @@ public class BaseManagedProfileTest extends InstrumentationTestCase {
         assertTrue(mDevicePolicyManager.isAdminActive(ADMIN_RECEIVER_COMPONENT));
         assertTrue(mDevicePolicyManager.isProfileOwnerApp(
                 ADMIN_RECEIVER_COMPONENT.getPackageName()));
+    }
+
+    protected DevicePolicyManager getDevicePolicyManager(boolean isParent) {
+        return isParent ? mParentDevicePolicyManager : mDevicePolicyManager;
     }
 }

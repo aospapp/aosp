@@ -63,6 +63,10 @@ public class DisableContextTest extends AssistTestBase {
     }
 
     public void testContextAndScreenshotOff() throws Exception {
+        if (mActivityManager.isLowRamDevice()) {
+            Log.d(TAG, "Not running assist tests on low-RAM device.");
+            return;
+        }
         // Both settings off
         Log.i(TAG, "DisableContext: Screenshot OFF, Context OFF");
         SystemUtil.runShellCommand(getInstrumentation(),

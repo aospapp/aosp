@@ -14,17 +14,17 @@ namespace skiagm {
 
 class MatrixConvolutionGM : public GM {
 public:
-    MatrixConvolutionGM() : fInitialized(false) {
+    MatrixConvolutionGM() {
         this->setBGColor(0x00000000);
     }
 
 protected:
 
-    virtual SkString onShortName() {
+    SkString onShortName() override {
         return SkString("matrixconvolution");
     }
 
-    void make_bitmap() {
+    void makeBitmap() {
         fBitmap.allocN32Pixels(80, 80);
         SkCanvas canvas(fBitmap);
         canvas.clear(0x00000000);
@@ -43,13 +43,13 @@ protected:
         canvas.drawText(str, strlen(str), SkIntToScalar(-10), SkIntToScalar(80), paint);
     }
 
-    virtual SkISize onISize() {
+    SkISize onISize() override {
         return SkISize::Make(500, 300);
     }
 
     void draw(SkCanvas* canvas, int x, int y, const SkIPoint& kernelOffset,
               SkMatrixConvolutionImageFilter::TileMode tileMode, bool convolveAlpha,
-              const SkImageFilter::CropRect* cropRect = NULL) {
+              const SkImageFilter::CropRect* cropRect = nullptr) {
         SkScalar kernel[9] = {
             SkIntToScalar( 1), SkIntToScalar( 1), SkIntToScalar( 1),
             SkIntToScalar( 1), SkIntToScalar(-7), SkIntToScalar( 1),
@@ -66,7 +66,7 @@ protected:
                                                    kernelOffset,
                                                    tileMode,
                                                    convolveAlpha,
-                                                   NULL,
+                                                   nullptr,
                                                    cropRect));
         paint.setImageFilter(filter);
         canvas->save();
@@ -79,39 +79,39 @@ protected:
 
     typedef SkMatrixConvolutionImageFilter MCIF;
 
-    virtual void onDraw(SkCanvas* canvas) {
-        if (!fInitialized) {
-            make_bitmap();
-            fInitialized = true;
-        }
+    void onOnceBeforeDraw() override {
+        this->makeBitmap();
+    }
+
+    void onDraw(SkCanvas* canvas) override {
         canvas->clear(SK_ColorBLACK);
         SkIPoint kernelOffset = SkIPoint::Make(1, 0);
+        SkImageFilter::CropRect rect(SkRect::Make(fBitmap.bounds()));
         for (int x = 10; x < 310; x += 100) {
-            this->draw(canvas, x, 10, kernelOffset, MCIF::kClamp_TileMode, true);
-            this->draw(canvas, x, 110, kernelOffset, MCIF::kClampToBlack_TileMode, true);
-            this->draw(canvas, x, 210, kernelOffset, MCIF::kRepeat_TileMode, true);
+            this->draw(canvas, x, 10, kernelOffset, MCIF::kClamp_TileMode, true, &rect);
+            this->draw(canvas, x, 110, kernelOffset, MCIF::kClampToBlack_TileMode, true, &rect);
+            this->draw(canvas, x, 210, kernelOffset, MCIF::kRepeat_TileMode, true, &rect);
             kernelOffset.fY++;
         }
         kernelOffset.fY = 1;
-        SkImageFilter::CropRect rect(SkRect::MakeXYWH(10, 5, 60, 60));
-        this->draw(canvas, 310, 10, kernelOffset, MCIF::kClamp_TileMode, true, &rect);
-        this->draw(canvas, 310, 110, kernelOffset, MCIF::kClampToBlack_TileMode, true, &rect);
-        this->draw(canvas, 310, 210, kernelOffset, MCIF::kRepeat_TileMode, true, &rect);
+        SkImageFilter::CropRect smallRect(SkRect::MakeXYWH(10, 5, 60, 60));
+        this->draw(canvas, 310, 10, kernelOffset, MCIF::kClamp_TileMode, true, &smallRect);
+        this->draw(canvas, 310, 110, kernelOffset, MCIF::kClampToBlack_TileMode, true, &smallRect);
+        this->draw(canvas, 310, 210, kernelOffset, MCIF::kRepeat_TileMode, true, &smallRect);
 
-        this->draw(canvas, 410, 10, kernelOffset, MCIF::kClamp_TileMode, false);
-        this->draw(canvas, 410, 110, kernelOffset, MCIF::kClampToBlack_TileMode, false);
-        this->draw(canvas, 410, 210, kernelOffset, MCIF::kRepeat_TileMode, false);
+        this->draw(canvas, 410, 10, kernelOffset, MCIF::kClamp_TileMode, false, &rect);
+        this->draw(canvas, 410, 110, kernelOffset, MCIF::kClampToBlack_TileMode, false, &rect);
+        this->draw(canvas, 410, 210, kernelOffset, MCIF::kRepeat_TileMode, false, &rect);
     }
 
 private:
-    typedef GM INHERITED;
     SkBitmap fBitmap;
-    bool fInitialized;
+
+    typedef GM INHERITED;
 };
 
 //////////////////////////////////////////////////////////////////////////////
 
-static GM* MyFactory(void*) { return new MatrixConvolutionGM; }
-static GMRegistry reg(MyFactory);
+DEF_GM(return new MatrixConvolutionGM;)
 
 }

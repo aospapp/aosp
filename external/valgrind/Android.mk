@@ -159,7 +159,6 @@ vg_local_src_files := \
 	coregrind/m_commandline.c \
 	coregrind/m_clientstate.c \
 	coregrind/m_cpuid.S \
-	coregrind/m_debugger.c \
 	coregrind/m_debuglog.c \
 	coregrind/m_errormgr.c \
 	coregrind/m_execontext.c \

@@ -27,25 +27,35 @@
 namespace android {
 // ---------------------------------------------------------------------------
 
-RotationVectorSensor::RotationVectorSensor()
-    : mSensorDevice(SensorDevice::getInstance()),
-      mSensorFusion(SensorFusion::getInstance())
-{
+RotationVectorSensor::RotationVectorSensor(int mode) :
+      mMode(mode) {
+    const sensor_t sensor = {
+        .name       = getSensorName(),
+        .vendor     = "AOSP",
+        .version    = 3,
+        .handle     = getSensorToken(),
+        .type       = getSensorType(),
+        .maxRange   = 1,
+        .resolution = 1.0f / (1<<24),
+        .power      = mSensorFusion.getPowerUsage(),
+        .minDelay   = mSensorFusion.getMinDelay(),
+    };
+    mSensor = Sensor(&sensor);
 }
 
 bool RotationVectorSensor::process(sensors_event_t* outEvent,
         const sensors_event_t& event)
 {
     if (event.type == SENSOR_TYPE_ACCELEROMETER) {
-        if (mSensorFusion.hasEstimate()) {
-            const vec4_t q(mSensorFusion.getAttitude());
+        if (mSensorFusion.hasEstimate(mMode)) {
+            const vec4_t q(mSensorFusion.getAttitude(mMode));
             *outEvent = event;
             outEvent->data[0] = q.x;
             outEvent->data[1] = q.y;
             outEvent->data[2] = q.z;
             outEvent->data[3] = q.w;
-            outEvent->sensor = '_rov';
-            outEvent->type = SENSOR_TYPE_ROTATION_VECTOR;
+            outEvent->sensor = getSensorToken();
+            outEvent->type = getSensorType();
             return true;
         }
     }
@@ -53,34 +63,70 @@ bool RotationVectorSensor::process(sensors_event_t* outEvent,
 }
 
 status_t RotationVectorSensor::activate(void* ident, bool enabled) {
-    return mSensorFusion.activate(ident, enabled);
+    return mSensorFusion.activate(mMode, ident, enabled);
 }
 
 status_t RotationVectorSensor::setDelay(void* ident, int /*handle*/, int64_t ns) {
-    return mSensorFusion.setDelay(ident, ns);
+    return mSensorFusion.setDelay(mMode, ident, ns);
 }
 
-Sensor RotationVectorSensor::getSensor() const {
-    sensor_t hwSensor;
-    hwSensor.name       = "Rotation Vector Sensor";
-    hwSensor.vendor     = "AOSP";
-    hwSensor.version    = 3;
-    hwSensor.handle     = '_rov';
-    hwSensor.type       = SENSOR_TYPE_ROTATION_VECTOR;
-    hwSensor.maxRange   = 1;
-    hwSensor.resolution = 1.0f / (1<<24);
-    hwSensor.power      = mSensorFusion.getPowerUsage();
-    hwSensor.minDelay   = mSensorFusion.getMinDelay();
-    Sensor sensor(&hwSensor);
-    return sensor;
+int RotationVectorSensor::getSensorType() const {
+    switch(mMode) {
+        case FUSION_9AXIS:
+            return SENSOR_TYPE_ROTATION_VECTOR;
+        case FUSION_NOMAG:
+            return SENSOR_TYPE_GAME_ROTATION_VECTOR;
+        case FUSION_NOGYRO:
+            return SENSOR_TYPE_GEOMAGNETIC_ROTATION_VECTOR;
+        default:
+            assert(0);
+            return 0;
+    }
+}
+
+const char* RotationVectorSensor::getSensorName() const {
+    switch(mMode) {
+        case FUSION_9AXIS:
+            return "Rotation Vector Sensor";
+        case FUSION_NOMAG:
+            return "Game Rotation Vector Sensor";
+        case FUSION_NOGYRO:
+            return "GeoMag Rotation Vector Sensor";
+        default:
+            assert(0);
+            return NULL;
+    }
+}
+
+int RotationVectorSensor::getSensorToken() const {
+    switch(mMode) {
+        case FUSION_9AXIS:
+            return '_rov';
+        case FUSION_NOMAG:
+            return '_gar';
+        case FUSION_NOGYRO:
+            return '_geo';
+        default:
+            assert(0);
+            return 0;
+    }
 }
 
 // ---------------------------------------------------------------------------
 
-GyroDriftSensor::GyroDriftSensor()
-    : mSensorDevice(SensorDevice::getInstance()),
-      mSensorFusion(SensorFusion::getInstance())
-{
+GyroDriftSensor::GyroDriftSensor() {
+    const sensor_t sensor = {
+        .name       = "Gyroscope Bias (debug)",
+        .vendor     = "AOSP",
+        .version    = 1,
+        .handle     = '_gbs',
+        .type       = SENSOR_TYPE_ACCELEROMETER,
+        .maxRange   = 1,
+        .resolution = 1.0f / (1<<24),
+        .power      = mSensorFusion.getPowerUsage(),
+        .minDelay   = mSensorFusion.getMinDelay(),
+    };
+    mSensor = Sensor(&sensor);
 }
 
 bool GyroDriftSensor::process(sensors_event_t* outEvent,
@@ -102,26 +148,11 @@ bool GyroDriftSensor::process(sensors_event_t* outEvent,
 }
 
 status_t GyroDriftSensor::activate(void* ident, bool enabled) {
-    return mSensorFusion.activate(ident, enabled);
+    return mSensorFusion.activate(FUSION_9AXIS, ident, enabled);
 }
 
 status_t GyroDriftSensor::setDelay(void* ident, int /*handle*/, int64_t ns) {
-    return mSensorFusion.setDelay(ident, ns);
-}
-
-Sensor GyroDriftSensor::getSensor() const {
-    sensor_t hwSensor;
-    hwSensor.name       = "Gyroscope Bias (debug)";
-    hwSensor.vendor     = "AOSP";
-    hwSensor.version    = 1;
-    hwSensor.handle     = '_gbs';
-    hwSensor.type       = SENSOR_TYPE_ACCELEROMETER;
-    hwSensor.maxRange   = 1;
-    hwSensor.resolution = 1.0f / (1<<24);
-    hwSensor.power      = mSensorFusion.getPowerUsage();
-    hwSensor.minDelay   = mSensorFusion.getMinDelay();
-    Sensor sensor(&hwSensor);
-    return sensor;
+    return mSensorFusion.setDelay(FUSION_9AXIS, ident, ns);
 }
 
 // ---------------------------------------------------------------------------

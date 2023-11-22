@@ -35,6 +35,8 @@ import org.xml.sax.helpers.XMLReaderFactory;
 
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Stack;
 
 class XmlApiFile extends DefaultHandler {
@@ -137,6 +139,7 @@ class XmlApiFile extends DefaultHandler {
       boolean isAbstract = Boolean.valueOf(attributes.getValue("abstract"));
       boolean isSynchronized = Boolean.valueOf(attributes.getValue("synchronized"));
       boolean isNative = Boolean.valueOf(attributes.getValue("native"));
+      boolean isDefault = Boolean.valueOf(attributes.getValue("default"));
       boolean isAnnotationElement = false; // TODO
       String kind = qName;
       String flatSignature = null; // TODO
@@ -150,9 +153,9 @@ class XmlApiFile extends DefaultHandler {
       mCurrentMethod = 
           new MethodInfo(rawCommentText, typeParameters, name, signature, containingClass,
           realContainingClass, isPublic, isProtected, isPackagePrivate, isPrivate, isFinal,
-          isStatic, isSynthetic, isAbstract, isSynchronized, isNative, isAnnotationElement, kind,
-          flatSignature, overriddenMethod, returnType, parameters, thrownExceptions, position,
-          annotations);
+          isStatic, isSynthetic, isAbstract, isSynchronized, isNative, isDefault,
+          isAnnotationElement, kind, flatSignature, overriddenMethod, returnType, parameters,
+          thrownExceptions, position, annotations);
       
       mCurrentMethod.setDeprecated("deprecated".equals(attributes.getValue("deprecated")));
     } else if (qName.equals("constructor")) {
@@ -164,9 +167,9 @@ class XmlApiFile extends DefaultHandler {
               attributes.getValue("name"), null/*signature*/, mCurrentClass, mCurrentClass,
               pub, prot, pkgpriv, false/*isPrivate*/, false/*isFinal*/, false/*isStatic*/,
               false/*isSynthetic*/, false/*isAbstract*/, false/*isSynthetic*/, false/*isNative*/,
-              false /*isAnnotationElement*/, "constructor", null/*flatSignature*/,
-              null/*overriddenMethod*/, mCurrentClass.asTypeInfo(), new ArrayList<ParameterInfo>(),
-              new ArrayList<ClassInfo>()/*thrownExceptions*/,
+              false/*isDefault*/, false/*isAnnotationElement*/, "constructor",
+              null/*flatSignature*/, null/*overriddenMethod*/, mCurrentClass.asTypeInfo(),
+              new ArrayList<ParameterInfo>(), new ArrayList<ClassInfo>()/*thrownExceptions*/,
               SourcePositionInfo.fromXml(attributes.getValue("source")),
               new ArrayList<AnnotationInstanceInfo>()/*annotations*/);
       mCurrentMethod.setDeprecated("deprecated".equals(attributes.getValue("deprecated")));
@@ -202,8 +205,10 @@ class XmlApiFile extends DefaultHandler {
       TypeInfo type = Converter.obtainTypeFromString(typeName);
       boolean isVarArg = typeName.endsWith("...");
       SourcePositionInfo position = null;
-      
-      mCurrentMethod.addParameter(new ParameterInfo(name, typeName, type, isVarArg, position));
+      List<AnnotationInstanceInfo> annotations = Collections.emptyList();
+
+      mCurrentMethod.addParameter(
+          new ParameterInfo(name, typeName, type, isVarArg, position, annotations));
       mCurrentMethod.setVarargs(isVarArg);
     } else if (qName.equals("exception")) {
       mCurrentMethod.addException(attributes.getValue("type"));

@@ -543,7 +543,7 @@ struct TupleExpander : SetTheory::Expander {
     std::vector<Record*> Indices = Def->getValueAsListOfDefs("SubRegIndices");
     unsigned Dim = Indices.size();
     ListInit *SubRegs = Def->getValueAsListInit("SubRegs");
-    if (Dim != SubRegs->getSize())
+    if (Dim != SubRegs->size())
       PrintFatalError(Def->getLoc(), "SubRegIndices and SubRegs size mismatch");
     if (Dim < 2)
       PrintFatalError(Def->getLoc(),
@@ -924,7 +924,7 @@ CodeGenRegBank::CodeGenRegBank(RecordKeeper &Records) {
   // Configure register Sets to understand register classes and tuples.
   Sets.addFieldExpander("RegisterClass", "MemberList");
   Sets.addFieldExpander("CalleeSavedRegs", "SaveList");
-  Sets.addExpander("RegisterTuples", new TupleExpander());
+  Sets.addExpander("RegisterTuples", llvm::make_unique<TupleExpander>());
 
   // Read in the user-defined (named) sub-register indices.
   // More indices will be synthesized later.
@@ -994,7 +994,7 @@ CodeGenRegBank::CodeGenRegBank(RecordKeeper &Records) {
 
   // Allocate user-defined register classes.
   for (auto *RC : RCs) {
-    RegClasses.push_back(CodeGenRegisterClass(*this, RC));
+    RegClasses.emplace_back(*this, RC);
     addToMaps(&RegClasses.back());
   }
 
@@ -1056,7 +1056,7 @@ CodeGenRegBank::getOrCreateSubClass(const CodeGenRegisterClass *RC,
     return FoundI->second;
 
   // Sub-class doesn't exist, create a new one.
-  RegClasses.push_back(CodeGenRegisterClass(*this, Name, K));
+  RegClasses.emplace_back(*this, Name, K);
   addToMaps(&RegClasses.back());
   return &RegClasses.back();
 }
@@ -1171,20 +1171,13 @@ void CodeGenRegBank::computeSubRegLaneMasks() {
   CoveringLanes = ~0u;
   for (auto &Idx : SubRegIndices) {
     if (Idx.getComposites().empty()) {
+      if (Bit > 32) {
+        PrintFatalError(
+          Twine("Ran out of lanemask bits to represent subregister ")
+          + Idx.getName());
+      }
       Idx.LaneMask = 1u << Bit;
-      // Share bit 31 in the unlikely case there are more than 32 leafs.
-      //
-      // Sharing bits is harmless; it allows graceful degradation in targets
-      // with more than 32 vector lanes. They simply get a limited resolution
-      // view of lanes beyond the 32nd.
-      //
-      // See also the comment for getSubRegIndexLaneMask().
-      if (Bit < 31)
-        ++Bit;
-      else
-        // Once bit 31 is shared among multiple leafs, the 'lane' it represents
-        // is no longer covering its registers.
-        CoveringLanes &= ~(1u << Bit);
+      ++Bit;
     } else {
       Idx.LaneMask = 0;
     }
@@ -1274,6 +1267,12 @@ void CodeGenRegBank::computeSubRegLaneMasks() {
         continue;
       LaneMask |= SubRegIndex.LaneMask;
     }
+
+    // For classes without any subregisters set LaneMask to ~0u instead of 0.
+    // This makes it easier for client code to handle classes uniformly.
+    if (LaneMask == 0)
+      LaneMask = ~0u;
+
     RegClass.LaneMask = LaneMask;
   }
 }
@@ -1568,6 +1567,12 @@ void CodeGenRegBank::pruneUnitSets() {
           && UnitWeight == RegUnits[SuperSet.Units.back()].Weight) {
         DEBUG(dbgs() << "UnitSet " << SubIdx << " subsumed by " << SuperIdx
               << "\n");
+        // We can pick any of the set names for the merged set. Go for the
+        // shortest one to avoid picking the name of one of the classes that are
+        // artificially created by tablegen. So "FPR128_lo" instead of
+        // "QQQQ_with_qsub3_in_FPR128_lo".
+        if (RegUnitSets[SubIdx].Name.size() < RegUnitSets[SuperIdx].Name.size())
+          RegUnitSets[SuperIdx].Name = RegUnitSets[SubIdx].Name;
         break;
       }
     }

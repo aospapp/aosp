@@ -16,6 +16,7 @@
 
 package com.android.settings;
 
+import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.app.ActivityManager;
 import android.app.ActivityManagerNative;
@@ -34,49 +35,52 @@ import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.IPackageManager;
 import android.content.pm.IntentFilterVerificationInfo;
-import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.ResolveInfo;
-import android.content.pm.Signature;
 import android.content.pm.UserInfo;
 import android.content.res.Resources;
-import android.content.res.Resources.NotFoundException;
 import android.content.res.TypedArray;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.drawable.Drawable;
-import android.hardware.usb.IUsbManager;
 import android.net.ConnectivityManager;
 import android.net.LinkProperties;
 import android.net.Uri;
 import android.os.BatteryManager;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.INetworkManagementService;
+import android.os.Looper;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.os.storage.StorageManager;
-import android.preference.Preference;
 import android.preference.PreferenceFrameLayout;
-import android.preference.PreferenceGroup;
 import android.provider.ContactsContract.CommonDataKinds;
 import android.provider.ContactsContract.Contacts;
 import android.provider.ContactsContract.Data;
 import android.provider.ContactsContract.Profile;
 import android.provider.ContactsContract.RawContacts;
+import android.provider.Settings;
 import android.service.persistentdata.PersistentDataBlockManager;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.PreferenceGroup;
+import android.support.v7.preference.PreferenceManager;
+import android.support.v7.preference.PreferenceScreen;
 import android.telephony.TelephonyManager;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.TextUtils;
+import android.text.format.DateUtils;
 import android.text.style.TtsSpan;
 import android.util.ArraySet;
 import android.util.Log;
 import android.util.SparseArray;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -85,25 +89,24 @@ import android.view.animation.Animation.AnimationListener;
 import android.view.animation.AnimationUtils;
 import android.widget.ListView;
 import android.widget.TabWidget;
-
+import com.android.internal.app.UnlaunchableAppActivity;
+import com.android.internal.util.ArrayUtils;
 import com.android.internal.util.UserIcons;
-import com.android.settings.UserAdapter.UserDetails;
-import com.android.settings.dashboard.DashboardTile;
-import com.android.settings.drawable.CircleFramedDrawable;
-import com.android.settingslib.applications.ApplicationsState;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetAddress;
-import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 
 import static android.content.Intent.EXTRA_USER;
+import static android.text.format.DateUtils.FORMAT_ABBREV_MONTH;
+import static android.text.format.DateUtils.FORMAT_SHOW_DATE;
 
-public final class Utils {
+public final class Utils extends com.android.settingslib.Utils {
+
     private static final String TAG = "Settings";
 
     /**
@@ -124,24 +127,6 @@ public final class Utils {
             0x00000000, 0xffc43828, 0xffe54918, 0xfff47b00,
             0xfffabf2c, 0xff679e37, 0xff0a7f42
     };
-
-    /**
-     * Name of the meta-data item that should be set in the AndroidManifest.xml
-     * to specify the icon that should be displayed for the preference.
-     */
-    public static final String META_DATA_PREFERENCE_ICON = "com.android.settings.icon";
-
-    /**
-     * Name of the meta-data item that should be set in the AndroidManifest.xml
-     * to specify the title that should be displayed for the preference.
-     */
-    public static final String META_DATA_PREFERENCE_TITLE = "com.android.settings.title";
-
-    /**
-     * Name of the meta-data item that should be set in the AndroidManifest.xml
-     * to specify the summary text that should be displayed for the preference.
-     */
-    public static final String META_DATA_PREFERENCE_SUMMARY = "com.android.settings.summary";
 
     private static final String SETTINGS_PACKAGE_NAME = "com.android.settings";
 
@@ -208,72 +193,17 @@ public final class Utils {
         return false;
     }
 
-    public static boolean updateTileToSpecificActivityFromMetaDataOrRemove(Context context,
-            DashboardTile tile) {
-
-        Intent intent = tile.intent;
-        if (intent != null) {
-            // Find the activity that is in the system image
-            PackageManager pm = context.getPackageManager();
-            List<ResolveInfo> list = tile.userHandle.size() != 0
-                    ? pm.queryIntentActivitiesAsUser(intent, PackageManager.GET_META_DATA,
-                            tile.userHandle.get(0).getIdentifier())
-                    : pm.queryIntentActivities(intent, PackageManager.GET_META_DATA);
-            int listSize = list.size();
-            for (int i = 0; i < listSize; i++) {
-                ResolveInfo resolveInfo = list.get(i);
-                if ((resolveInfo.activityInfo.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM)
-                        != 0) {
-                    int icon = 0;
-                    CharSequence title = null;
-                    String summary = null;
-
-                    // Get the activity's meta-data
-                    try {
-                        Resources res = pm.getResourcesForApplication(
-                                resolveInfo.activityInfo.packageName);
-                        Bundle metaData = resolveInfo.activityInfo.metaData;
-
-                        if (res != null && metaData != null) {
-                            if (metaData.containsKey(META_DATA_PREFERENCE_ICON)) {
-                                icon = metaData.getInt(META_DATA_PREFERENCE_ICON);
-                            }
-                            if (metaData.containsKey(META_DATA_PREFERENCE_TITLE)) {
-                                title = res.getString(metaData.getInt(META_DATA_PREFERENCE_TITLE));
-                            }
-                            if (metaData.containsKey(META_DATA_PREFERENCE_SUMMARY)) {
-                                summary = res.getString(
-                                        metaData.getInt(META_DATA_PREFERENCE_SUMMARY));
-                            }
-                        }
-                    } catch (NameNotFoundException | NotFoundException e) {
-                        // Ignore
-                    }
-
-                    // Set the preference title to the activity's label if no
-                    // meta-data is found
-                    if (TextUtils.isEmpty(title)) {
-                        title = resolveInfo.loadLabel(pm).toString();
-                    }
-                    if (icon == 0) {
-                        icon = resolveInfo.activityInfo.icon;
-                    }
-
-                    // Set icon, title and summary for the preference
-                    tile.iconRes = icon;
-                    tile.iconPkg = resolveInfo.activityInfo.packageName;
-                    tile.title = title;
-                    tile.summary = summary;
-                    // Replace the intent with this specific activity
-                    tile.intent = new Intent().setClassName(resolveInfo.activityInfo.packageName,
-                            resolveInfo.activityInfo.name);
-
-                    return true;
-                }
-            }
+    /**
+     * Returns the UserManager for a given context
+     *
+     * @throws IllegalStateException if no UserManager could be retrieved.
+     */
+    public static UserManager getUserManager(Context context) {
+        UserManager um = UserManager.get(context);
+        if (um == null) {
+            throw new IllegalStateException("Unable to load UserManager");
         }
-
-        return false;
+        return um;
     }
 
     /**
@@ -355,65 +285,12 @@ public final class Utils {
         }
     }
 
-    /** Formats the ratio of amount/total as a percentage. */
-    public static String formatPercentage(long amount, long total) {
-        return formatPercentage(((double) amount) / total);
-    }
-
-    /** Formats an integer from 0..100 as a percentage. */
-    public static String formatPercentage(int percentage) {
-        return formatPercentage(((double) percentage) / 100.0);
-    }
-
-    /** Formats a double from 0.0..1.0 as a percentage. */
-    private static String formatPercentage(double percentage) {
-      return NumberFormat.getPercentInstance().format(percentage);
-    }
-
     public static boolean isBatteryPresent(Intent batteryChangedIntent) {
         return batteryChangedIntent.getBooleanExtra(BatteryManager.EXTRA_PRESENT, true);
     }
 
     public static String getBatteryPercentage(Intent batteryChangedIntent) {
         return formatPercentage(getBatteryLevel(batteryChangedIntent));
-    }
-
-    public static int getBatteryLevel(Intent batteryChangedIntent) {
-        int level = batteryChangedIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, 0);
-        int scale = batteryChangedIntent.getIntExtra(BatteryManager.EXTRA_SCALE, 100);
-        return (level * 100) / scale;
-    }
-
-    public static String getBatteryStatus(Resources res, Intent batteryChangedIntent) {
-        final Intent intent = batteryChangedIntent;
-
-        int plugType = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0);
-        int status = intent.getIntExtra(BatteryManager.EXTRA_STATUS,
-                BatteryManager.BATTERY_STATUS_UNKNOWN);
-        String statusString;
-        if (status == BatteryManager.BATTERY_STATUS_CHARGING) {
-            int resId;
-            if (plugType == BatteryManager.BATTERY_PLUGGED_AC) {
-                resId = R.string.battery_info_status_charging_ac;
-            } else if (plugType == BatteryManager.BATTERY_PLUGGED_USB) {
-                resId = R.string.battery_info_status_charging_usb;
-            } else if (plugType == BatteryManager.BATTERY_PLUGGED_WIRELESS) {
-                resId = R.string.battery_info_status_charging_wireless;
-            } else {
-                resId = R.string.battery_info_status_charging;
-            }
-            statusString = res.getString(resId);
-        } else if (status == BatteryManager.BATTERY_STATUS_DISCHARGING) {
-            statusString = res.getString(R.string.battery_info_status_discharging);
-        } else if (status == BatteryManager.BATTERY_STATUS_NOT_CHARGING) {
-            statusString = res.getString(R.string.battery_info_status_not_charging);
-        } else if (status == BatteryManager.BATTERY_STATUS_FULL) {
-            statusString = res.getString(R.string.battery_info_status_full);
-        } else {
-            statusString = res.getString(R.string.battery_info_status_unknown);
-        }
-
-        return statusString;
     }
 
     public static void forcePrepareCustomPreferencesList(
@@ -460,55 +337,33 @@ public final class Utils {
         view.setPaddingRelative(paddingStart, 0, paddingEnd, paddingBottom);
     }
 
-    /**
-     * Return string resource that best describes combination of tethering
-     * options available on this device.
-     */
-    public static int getTetheringLabel(ConnectivityManager cm) {
-        String[] usbRegexs = cm.getTetherableUsbRegexs();
-        String[] wifiRegexs = cm.getTetherableWifiRegexs();
-        String[] bluetoothRegexs = cm.getTetherableBluetoothRegexs();
-
-        boolean usbAvailable = usbRegexs.length != 0;
-        boolean wifiAvailable = wifiRegexs.length != 0;
-        boolean bluetoothAvailable = bluetoothRegexs.length != 0;
-
-        if (wifiAvailable && usbAvailable && bluetoothAvailable) {
-            return R.string.tether_settings_title_all;
-        } else if (wifiAvailable && usbAvailable) {
-            return R.string.tether_settings_title_all;
-        } else if (wifiAvailable && bluetoothAvailable) {
-            return R.string.tether_settings_title_all;
-        } else if (wifiAvailable) {
-            return R.string.tether_settings_title_wifi;
-        } else if (usbAvailable && bluetoothAvailable) {
-            return R.string.tether_settings_title_usb_bluetooth;
-        } else if (usbAvailable) {
-            return R.string.tether_settings_title_usb;
-        } else {
-            return R.string.tether_settings_title_bluetooth;
-        }
-    }
-
     /* Used by UserSettings as well. Call this on a non-ui thread. */
-    public static boolean copyMeProfilePhoto(Context context, UserInfo user) {
+    public static void copyMeProfilePhoto(Context context, UserInfo user) {
         Uri contactUri = Profile.CONTENT_URI;
+
+        int userId = user != null ? user.id : UserHandle.myUserId();
 
         InputStream avatarDataStream = Contacts.openContactPhotoInputStream(
                     context.getContentResolver(),
                     contactUri, true);
         // If there's no profile photo, assign a default avatar
         if (avatarDataStream == null) {
-            return false;
+            assignDefaultPhoto(context, userId);
+            return;
         }
-        int userId = user != null ? user.id : UserHandle.myUserId();
+
         UserManager um = (UserManager) context.getSystemService(Context.USER_SERVICE);
         Bitmap icon = BitmapFactory.decodeStream(avatarDataStream);
         um.setUserIcon(userId, icon);
         try {
             avatarDataStream.close();
         } catch (IOException ioe) { }
-        return true;
+    }
+
+    public static void assignDefaultPhoto(Context context, int userId) {
+        UserManager um = (UserManager) context.getSystemService(Context.USER_SERVICE);
+        Bitmap bitmap = getDefaultUserIconAsBitmap(userId);
+        um.setUserIcon(userId, bitmap);
     }
 
     public static String getMeProfileName(Context context, boolean full) {
@@ -679,21 +534,32 @@ public final class Utils {
     public static void startWithFragmentAsUser(Context context, String fragmentName, Bundle args,
             int titleResId, CharSequence title, boolean isShortcut,
             UserHandle userHandle) {
-        Intent intent = onBuildStartFragmentIntent(context, fragmentName, args,
-                null /* titleResPackageName */, titleResId, title, isShortcut);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        context.startActivityAsUser(intent, userHandle);
+        // workaround to avoid crash in b/17523189
+        if (userHandle.getIdentifier() == UserHandle.myUserId()) {
+            startWithFragment(context, fragmentName, args, null, 0, titleResId, title, isShortcut);
+        } else {
+            Intent intent = onBuildStartFragmentIntent(context, fragmentName, args,
+                    null /* titleResPackageName */, titleResId, title, isShortcut);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            context.startActivityAsUser(intent, userHandle);
+        }
     }
 
     public static void startWithFragmentAsUser(Context context, String fragmentName, Bundle args,
             String titleResPackageName, int titleResId, CharSequence title, boolean isShortcut,
             UserHandle userHandle) {
-        Intent intent = onBuildStartFragmentIntent(context, fragmentName, args, titleResPackageName,
-                titleResId, title, isShortcut);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        context.startActivityAsUser(intent, userHandle);
+        // workaround to avoid crash in b/17523189
+        if (userHandle.getIdentifier() == UserHandle.myUserId()) {
+            startWithFragment(context, fragmentName, args, null, 0, titleResPackageName, titleResId,
+                    title, isShortcut);
+        } else {
+            Intent intent = onBuildStartFragmentIntent(context, fragmentName, args,
+                    titleResPackageName, titleResId, title, isShortcut);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            context.startActivityAsUser(intent, userHandle);
+        }
     }
 
     /**
@@ -748,43 +614,39 @@ public final class Utils {
 
     /**
      * Returns true if the current profile is a managed one.
+     *
+     * @throws IllegalArgumentException if userManager is null.
      */
-    public static boolean isManagedProfile(UserManager userManager) {
-        UserInfo currentUser = userManager.getUserInfo(userManager.getUserHandle());
-        return currentUser.isManagedProfile();
+    public static boolean isManagedProfile(@NonNull UserManager userManager) {
+        return isManagedProfile(userManager, UserHandle.myUserId());
     }
 
     /**
-     * Creates a {@link UserAdapter} if there is more than one profile on the device.
+     * Retrieves the id for the given user's managed profile.
      *
-     * <p> The adapter can be used to populate a spinner that switches between the Settings
-     * app on the different profiles.
-     *
-     * @return a {@link UserAdapter} or null if there is only one profile.
+     * @return the managed profile id or UserHandle.USER_NULL if there is none.
      */
-    public static UserAdapter createUserSpinnerAdapter(UserManager userManager,
-            Context context) {
-        List<UserHandle> userProfiles = userManager.getUserProfiles();
-        if (userProfiles.size() < 2) {
-            return null;
+    public static int getManagedProfileId(UserManager um, int parentUserId) {
+        int[] profileIds = um.getProfileIdsWithDisabled(parentUserId);
+        for (int profileId : profileIds) {
+            if (profileId != parentUserId) {
+                return profileId;
+            }
         }
-
-        UserHandle myUserHandle = new UserHandle(UserHandle.myUserId());
-        // The first option should be the current profile
-        userProfiles.remove(myUserHandle);
-        userProfiles.add(0, myUserHandle);
-
-        return createUserAdapter(userManager, context, userProfiles);
+        return UserHandle.USER_NULL;
     }
 
-    public static UserAdapter createUserAdapter(UserManager userManager,
-            Context context, List<UserHandle> userProfiles) {
-        ArrayList<UserDetails> userDetails = new ArrayList<UserDetails>(userProfiles.size());
-        final int count = userProfiles.size();
-        for (int i = 0; i < count; i++) {
-            userDetails.add(new UserDetails(userProfiles.get(i), userManager, context));
+    /**
+     * Returns true if the userId passed in is a managed profile.
+     *
+     * @throws IllegalArgumentException if userManager is null.
+     */
+    public static boolean isManagedProfile(@NonNull UserManager userManager, int userId) {
+        if (userManager == null) {
+            throw new IllegalArgumentException("userManager must not be null");
         }
-        return new UserAdapter(context, userDetails);
+        UserInfo userInfo = userManager.getUserInfo(userId);
+        return (userInfo != null) ? userInfo.isManagedProfile() : false;
     }
 
     /**
@@ -905,45 +767,6 @@ public final class Utils {
     }
 
     /**
-     * Returns a circular icon for a user.
-     */
-    public static Drawable getUserIcon(Context context, UserManager um, UserInfo user) {
-        if (user.isManagedProfile()) {
-            // We use predefined values for managed profiles
-            Bitmap b = BitmapFactory.decodeResource(context.getResources(),
-                    com.android.internal.R.drawable.ic_corp_icon);
-            return CircleFramedDrawable.getInstance(context, b);
-        }
-        if (user.iconPath != null) {
-            Bitmap icon = um.getUserIcon(user.id);
-            if (icon != null) {
-                return CircleFramedDrawable.getInstance(context, icon);
-            }
-        }
-        return CircleFramedDrawable.getInstance(context, UserIcons.convertToBitmap(
-                UserIcons.getDefaultUserIcon(user.id, /* light= */ false)));
-    }
-
-    /**
-     * Returns a label for the user, in the form of "User: user name" or "Work profile".
-     */
-    public static String getUserLabel(Context context, UserInfo info) {
-        String name = info != null ? info.name : null;
-        if (info.isManagedProfile()) {
-            // We use predefined values for managed profiles
-            return context.getString(R.string.managed_user_title);
-        } else if (info.isGuest()) {
-            name = context.getString(R.string.user_guest);
-        }
-        if (name == null && info != null) {
-            name = Integer.toString(info.id);
-        } else if (info == null) {
-            name = context.getString(R.string.unknown);
-        }
-        return context.getResources().getString(R.string.running_process_item_user_label, name);
-    }
-
-    /**
      * Return whether or not the user should have a SIM Cards option in Settings.
      * TODO: Change back to returning true if count is greater than one after testing.
      * TODO: See bug 16533525.
@@ -953,35 +776,6 @@ public final class Utils {
                 (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
 
         return tm.getSimCount() > 1;
-    }
-
-    /**
-     * Determine whether a package is a "system package", in which case certain things (like
-     * disabling notifications or disabling the package altogether) should be disallowed.
-     */
-    public static boolean isSystemPackage(PackageManager pm, PackageInfo pkg) {
-        if (sSystemSignature == null) {
-            sSystemSignature = new Signature[]{ getSystemSignature(pm) };
-        }
-        return sSystemSignature[0] != null && sSystemSignature[0].equals(getFirstSignature(pkg));
-    }
-
-    private static Signature[] sSystemSignature;
-
-    private static Signature getFirstSignature(PackageInfo pkg) {
-        if (pkg != null && pkg.signatures != null && pkg.signatures.length > 0) {
-            return pkg.signatures[0];
-        }
-        return null;
-    }
-
-    private static Signature getSystemSignature(PackageManager pm) {
-        try {
-            final PackageInfo sys = pm.getPackageInfo("android", PackageManager.GET_SIGNATURES);
-            return getFirstSignature(sys);
-        } catch (NameNotFoundException e) {
-        }
-        return null;
     }
 
     /**
@@ -1095,17 +889,6 @@ public final class Utils {
         return bitmap;
     }
 
-    public static boolean hasUsbDefaults(IUsbManager usbManager, String packageName) {
-        try {
-            if (usbManager != null) {
-                return usbManager.hasDefaults(packageName, UserHandle.myUserId());
-            }
-        } catch (RemoteException e) {
-            Log.e(TAG, "mUsbManager.hasDefaults", e);
-        }
-        return false;
-    }
-
     public static boolean hasPreferredActivities(PackageManager pm, String packageName) {
         // Get list of preferred activities
         List<ComponentName> prefActList = new ArrayList<>();
@@ -1138,20 +921,6 @@ public final class Utils {
             }
         }
         return result;
-    }
-
-    public static CharSequence getLaunchByDeafaultSummary(ApplicationsState.AppEntry appEntry,
-            IUsbManager usbManager, PackageManager pm, Context context) {
-        String packageName = appEntry.info.packageName;
-        boolean hasPreferred = hasPreferredActivities(pm, packageName)
-                || hasUsbDefaults(usbManager, packageName);
-        int status = pm.getIntentVerificationStatus(packageName, UserHandle.myUserId());
-        boolean hasDomainURLsPreference =
-                (status == PackageManager.INTENT_FILTER_DOMAIN_VERIFICATION_STATUS_ALWAYS) ||
-                (status == PackageManager.INTENT_FILTER_DOMAIN_VERIFICATION_STATUS_NEVER);
-        return context.getString(hasPreferred || hasDomainURLsPreference
-                ? R.string.launch_defaults_some
-                : R.string.launch_defaults_none);
     }
 
     public static void handleLoadingContainer(View loading, View doneLoading, boolean done,
@@ -1236,14 +1005,146 @@ public final class Utils {
         return str;
     }
 
-    public static int getEffectiveUserId(Context context) {
-        UserManager um = UserManager.get(context);
-        if (um != null) {
-            return um.getCredentialOwnerProfile(UserHandle.myUserId());
-        } else {
-            Log.e(TAG, "Unable to acquire UserManager");
-            return UserHandle.myUserId();
+    /**
+     * Returns the user id present in the bundle with {@link Intent#EXTRA_USER_ID} if it
+     * belongs to the current user.
+     *
+     * @throws SecurityException if the given userId does not belong to the current user group.
+     */
+    public static int getUserIdFromBundle(Context context, Bundle bundle) {
+        if (bundle == null) {
+            return getCredentialOwnerUserId(context);
         }
+        int userId = bundle.getInt(Intent.EXTRA_USER_ID, UserHandle.myUserId());
+        return enforceSameOwner(context, userId);
+    }
+
+    /**
+     * Returns the given user id if it belongs to the current user.
+     *
+     * @throws SecurityException if the given userId does not belong to the current user group.
+     */
+    public static int enforceSameOwner(Context context, int userId) {
+        final UserManager um = getUserManager(context);
+        final int[] profileIds = um.getProfileIdsWithDisabled(UserHandle.myUserId());
+        if (ArrayUtils.contains(profileIds, userId)) {
+            return userId;
+        }
+        throw new SecurityException("Given user id " + userId + " does not belong to user "
+                + UserHandle.myUserId());
+    }
+
+    /**
+     * Returns the effective credential owner of the calling user.
+     */
+    public static int getCredentialOwnerUserId(Context context) {
+        return getCredentialOwnerUserId(context, UserHandle.myUserId());
+    }
+
+    /**
+     * Returns the user id of the credential owner of the given user id.
+     */
+    public static int getCredentialOwnerUserId(Context context, int userId) {
+        UserManager um = getUserManager(context);
+        return um.getCredentialOwnerProfile(userId);
+    }
+
+    public static int resolveResource(Context context, int attr) {
+        TypedValue value = new TypedValue();
+        context.getTheme().resolveAttribute(attr, value, true);
+        return value.resourceId;
+    }
+
+    private static final StringBuilder sBuilder = new StringBuilder(50);
+    private static final java.util.Formatter sFormatter = new java.util.Formatter(
+            sBuilder, Locale.getDefault());
+
+    public static String formatDateRange(Context context, long start, long end) {
+        final int flags = FORMAT_SHOW_DATE | FORMAT_ABBREV_MONTH;
+
+        synchronized (sBuilder) {
+            sBuilder.setLength(0);
+            return DateUtils.formatDateRange(context, sFormatter, start, end, flags, null)
+                    .toString();
+        }
+    }
+
+    public static List<String> getNonIndexable(int xml, Context context) {
+        if (Looper.myLooper() == null) {
+            // Hack to make sure Preferences can initialize.  Prefs expect a looper, but
+            // don't actually use it for the basic stuff here.
+            Looper.prepare();
+        }
+        final List<String> ret = new ArrayList<>();
+        PreferenceManager manager = new PreferenceManager(context);
+        PreferenceScreen screen = manager.inflateFromResource(context, xml, null);
+        checkPrefs(screen, ret);
+
+        return ret;
+    }
+
+    private static void checkPrefs(PreferenceGroup group, List<String> ret) {
+        if (group == null) return;
+        for (int i = 0; i < group.getPreferenceCount(); i++) {
+            Preference pref = group.getPreference(i);
+            if (pref instanceof SelfAvailablePreference
+                    && !((SelfAvailablePreference) pref).isAvailable(group.getContext())) {
+                ret.add(pref.getKey());
+                if (pref instanceof PreferenceGroup) {
+                    addAll((PreferenceGroup) pref, ret);
+                }
+            } else if (pref instanceof PreferenceGroup) {
+                checkPrefs((PreferenceGroup) pref, ret);
+            }
+        }
+    }
+
+    private static void addAll(PreferenceGroup group, List<String> ret) {
+        if (group == null) return;
+        for (int i = 0; i < group.getPreferenceCount(); i++) {
+            Preference pref = group.getPreference(i);
+            ret.add(pref.getKey());
+            if (pref instanceof PreferenceGroup) {
+                addAll((PreferenceGroup) pref, ret);
+            }
+        }
+    }
+
+    public static boolean isDeviceProvisioned(Context context) {
+        return Settings.Global.getInt(context.getContentResolver(),
+                Settings.Global.DEVICE_PROVISIONED, 0) != 0;
+    }
+
+    public static boolean startQuietModeDialogIfNecessary(Context context, UserManager um,
+            int userId) {
+        if (um.isQuietModeEnabled(UserHandle.of(userId))) {
+            final Intent intent = UnlaunchableAppActivity.createInQuietModeDialogIntent(userId);
+            context.startActivity(intent);
+            return true;
+        }
+        return false;
+    }
+
+    public static CharSequence getApplicationLabel(Context context, String packageName) {
+        try {
+            final ApplicationInfo appInfo = context.getPackageManager().getApplicationInfo(
+                    packageName,
+                    PackageManager.MATCH_DISABLED_COMPONENTS
+                    | PackageManager.MATCH_UNINSTALLED_PACKAGES);
+            return appInfo.loadLabel(context.getPackageManager());
+        } catch (PackageManager.NameNotFoundException e) {
+            Log.w(TAG, "Unable to find info for package: " + packageName);
+        }
+        return null;
+    }
+
+    public static boolean isPackageEnabled(Context context, String packageName) {
+        try {
+            return context.getPackageManager().getApplicationInfo(packageName, 0).enabled;
+        } catch (NameNotFoundException e) {
+            // Thrown by PackageManager.getApplicationInfo if the package does not exist
+        }
+        return false;
     }
 }
 

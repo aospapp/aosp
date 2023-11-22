@@ -16,11 +16,11 @@
 
 package android.text.method.cts;
 
+import android.cts.util.KeyEventUtil;
 import android.text.InputType;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.Spanned;
-import android.text.method.cts.KeyListenerTestCase;
 import android.text.method.DigitsKeyListener;
 import android.view.KeyEvent;
 
@@ -28,6 +28,15 @@ import android.view.KeyEvent;
  * Test {@link DigitsKeyListener}.
  */
 public class DigitsKeyListenerTest extends KeyListenerTestCase {
+
+    private KeyEventUtil mKeyEventUtil;
+
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp();
+        mKeyEventUtil = new KeyEventUtil(getInstrumentation());
+    }
+
     public void testConstructor() {
         new DigitsKeyListener();
 
@@ -394,19 +403,19 @@ public class DigitsKeyListenerTest extends KeyListenerTestCase {
         assertEquals("", mTextView.getText().toString());
 
         // press '-' key.
-        sendKeys(KeyEvent.KEYCODE_MINUS);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_MINUS);
         assertEquals("", mTextView.getText().toString());
 
         // press '1' key.
-        sendKeys(KeyEvent.KEYCODE_1);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_1);
         assertEquals("1", mTextView.getText().toString());
 
         // press '.' key.
-        sendKeys(KeyEvent.KEYCODE_PERIOD);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_PERIOD);
         assertEquals("1", mTextView.getText().toString());
 
         // press '2' key.
-        sendKeys(KeyEvent.KEYCODE_2);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_2);
         assertEquals("12", mTextView.getText().toString());
     }
 
@@ -428,27 +437,27 @@ public class DigitsKeyListenerTest extends KeyListenerTestCase {
         assertEquals("", mTextView.getText().toString());
 
         // press '-' key.
-        sendKeys(KeyEvent.KEYCODE_MINUS);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_MINUS);
         assertEquals("-", mTextView.getText().toString());
 
         // press '1' key.
-        sendKeys(KeyEvent.KEYCODE_1);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_1);
         assertEquals("-1", mTextView.getText().toString());
 
         // press '.' key.
-        sendKeys(KeyEvent.KEYCODE_PERIOD);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_PERIOD);
         assertEquals("-1", mTextView.getText().toString());
 
         // press '+' key.
-        sendKeys(KeyEvent.KEYCODE_PLUS);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_PLUS);
         assertEquals("-1", mTextView.getText().toString());
 
         // press '2' key.
-        sendKeys(KeyEvent.KEYCODE_2);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_2);
         assertEquals("-12", mTextView.getText().toString());
 
         // press '-' key.
-        sendKeys(KeyEvent.KEYCODE_MINUS);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_MINUS);
         assertEquals("-12", mTextView.getText().toString());
     }
 
@@ -470,27 +479,27 @@ public class DigitsKeyListenerTest extends KeyListenerTestCase {
         assertEquals("", mTextView.getText().toString());
 
         // press '-' key.
-        sendKeys(KeyEvent.KEYCODE_MINUS);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_MINUS);
         assertEquals("", mTextView.getText().toString());
 
         // press '+' key.
-        sendKeys(KeyEvent.KEYCODE_PLUS);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_PLUS);
         assertEquals("", mTextView.getText().toString());
 
         // press '1' key.
-        sendKeys(KeyEvent.KEYCODE_1);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_1);
         assertEquals("1", mTextView.getText().toString());
 
         // press '.' key.
-        sendKeys(KeyEvent.KEYCODE_PERIOD);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_PERIOD);
         assertEquals("1.", mTextView.getText().toString());
 
         // press '2' key.
-        sendKeys(KeyEvent.KEYCODE_2);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_2);
         assertEquals("1.2", mTextView.getText().toString());
 
         // press '.' key.
-        sendKeys(KeyEvent.KEYCODE_PERIOD);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_PERIOD);
         assertEquals("1.2", mTextView.getText().toString());
     }
 
@@ -514,27 +523,27 @@ public class DigitsKeyListenerTest extends KeyListenerTestCase {
         assertEquals("", mTextView.getText().toString());
 
         // press '+' key.
-        sendKeys(KeyEvent.KEYCODE_PLUS);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_PLUS);
         assertEquals("+", mTextView.getText().toString());
 
         // press '1' key.
-        sendKeys(KeyEvent.KEYCODE_1);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_1);
         assertEquals("+1", mTextView.getText().toString());
 
         // press '.' key.
-        sendKeys(KeyEvent.KEYCODE_PERIOD);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_PERIOD);
         assertEquals("+1.", mTextView.getText().toString());
 
         // press '2' key.
-        sendKeys(KeyEvent.KEYCODE_2);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_2);
         assertEquals("+1.2", mTextView.getText().toString());
 
         // press '-' key.
-        sendKeys(KeyEvent.KEYCODE_MINUS);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_MINUS);
         assertEquals("+1.2", mTextView.getText().toString());
 
         // press '.' key.
-        sendKeys(KeyEvent.KEYCODE_PERIOD);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_PERIOD);
         assertEquals("+1.2", mTextView.getText().toString());
     }
 
@@ -555,19 +564,19 @@ public class DigitsKeyListenerTest extends KeyListenerTestCase {
         assertEquals("", mTextView.getText().toString());
 
         // press '1' key.
-        sendKeys(KeyEvent.KEYCODE_1);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_1);
         assertEquals("", mTextView.getText().toString());
 
         // press '5' key.
-        sendKeys(KeyEvent.KEYCODE_5);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_5);
         assertEquals("5", mTextView.getText().toString());
 
         // press '.' key.
-        sendKeys(KeyEvent.KEYCODE_PERIOD);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_PERIOD);
         assertEquals("5", mTextView.getText().toString());
 
         // press '-' key.
-        sendKeys(KeyEvent.KEYCODE_MINUS);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_MINUS);
         assertEquals("5", mTextView.getText().toString());
 
         // remove DigitsKeyListener
@@ -581,7 +590,7 @@ public class DigitsKeyListenerTest extends KeyListenerTestCase {
         assertEquals("5", mTextView.getText().toString());
 
         // press '5' key.
-        sendKeys(KeyEvent.KEYCODE_5);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_5);
         assertEquals("5", mTextView.getText().toString());
     }
 

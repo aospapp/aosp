@@ -16,22 +16,19 @@
 
 package android.widget.cts;
 
-import android.content.res.ColorStateList;
-import android.graphics.Color;
-import android.graphics.PorterDuff;
-import android.test.UiThreadTest;
-
-import com.android.cts.widget.R;
-
+import android.widget.cts.R;
 
 import android.app.Activity;
 import android.content.Context;
-import android.content.res.Resources;
+import android.content.res.ColorStateList;
 import android.cts.util.PollingCheck;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.ColorFilter;
+import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.test.ActivityInstrumentationTestCase2;
+import android.test.UiThreadTest;
 import android.util.AttributeSet;
 import android.view.KeyEvent;
 import android.widget.AbsSeekBar;
@@ -42,17 +39,16 @@ import android.widget.SeekBar;
  */
 public class AbsSeekBarTest extends ActivityInstrumentationTestCase2<ProgressBarCtsActivity> {
     public AbsSeekBarTest() {
-        super("com.android.cts.widget", ProgressBarCtsActivity.class);
+        super("android.widget.cts", ProgressBarCtsActivity.class);
     }
 
     private Activity mActivity;
-    private Resources mResources;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
+
         mActivity = getActivity();
-        mResources = mActivity.getResources();
     }
 
     public void testConstructor() {
@@ -81,17 +77,38 @@ public class AbsSeekBarTest extends ActivityInstrumentationTestCase2<ProgressBar
 
     public void testSetThumb() {
         MyAbsSeekBar myAbsSeekBar = new MyAbsSeekBar(mActivity);
-        Drawable drawable1 = mResources.getDrawable(R.drawable.scenery);
-        Drawable drawable2 = mResources.getDrawable(R.drawable.pass);
+        Drawable drawable1 = mActivity.getDrawable(R.drawable.scenery);
+        Drawable drawable2 = mActivity.getDrawable(R.drawable.pass);
 
         assertFalse(myAbsSeekBar.verifyDrawable(drawable1));
         assertFalse(myAbsSeekBar.verifyDrawable(drawable2));
 
         myAbsSeekBar.setThumb(drawable1);
+        assertSame(drawable1, myAbsSeekBar.getThumb());
         assertTrue(myAbsSeekBar.verifyDrawable(drawable1));
         assertFalse(myAbsSeekBar.verifyDrawable(drawable2));
 
         myAbsSeekBar.setThumb(drawable2);
+        assertSame(drawable2, myAbsSeekBar.getThumb());
+        assertFalse(myAbsSeekBar.verifyDrawable(drawable1));
+        assertTrue(myAbsSeekBar.verifyDrawable(drawable2));
+    }
+
+    public void testSetTickMark() {
+        MyAbsSeekBar myAbsSeekBar = new MyAbsSeekBar(mActivity);
+        Drawable drawable1 = mActivity.getDrawable(R.drawable.black);
+        Drawable drawable2 = mActivity.getDrawable(R.drawable.black);
+
+        assertFalse(myAbsSeekBar.verifyDrawable(drawable1));
+        assertFalse(myAbsSeekBar.verifyDrawable(drawable2));
+
+        myAbsSeekBar.setTickMark(drawable1);
+        assertSame(drawable1, myAbsSeekBar.getTickMark());
+        assertTrue(myAbsSeekBar.verifyDrawable(drawable1));
+        assertFalse(myAbsSeekBar.verifyDrawable(drawable2));
+
+        myAbsSeekBar.setTickMark(drawable2);
+        assertSame(drawable2, myAbsSeekBar.getTickMark());
         assertFalse(myAbsSeekBar.verifyDrawable(drawable1));
         assertTrue(myAbsSeekBar.verifyDrawable(drawable2));
     }
@@ -112,30 +129,27 @@ public class AbsSeekBarTest extends ActivityInstrumentationTestCase2<ProgressBar
 
     public void testVerifyDrawable() {
         MyAbsSeekBar myAbsSeekBar = new MyAbsSeekBar(mActivity);
-        Drawable drawable1 = mResources.getDrawable(R.drawable.scenery);
-        Drawable drawable2 = mResources.getDrawable(R.drawable.pass);
-        Drawable drawable3 = mResources.getDrawable(R.drawable.blue);
-        Drawable drawable4 = mResources.getDrawable(R.drawable.black);
+        Drawable drawable1 = mActivity.getDrawable(R.drawable.scenery);
+        Drawable drawable2 = mActivity.getDrawable(R.drawable.pass);
+        Drawable drawable3 = mActivity.getDrawable(R.drawable.blue);
+        Drawable drawable4 = mActivity.getDrawable(R.drawable.black);
 
         assertFalse(myAbsSeekBar.verifyDrawable(drawable1));
         assertFalse(myAbsSeekBar.verifyDrawable(drawable2));
         assertFalse(myAbsSeekBar.verifyDrawable(drawable3));
         assertFalse(myAbsSeekBar.verifyDrawable(drawable4));
-        assertTrue(myAbsSeekBar.verifyDrawable(null));
 
         myAbsSeekBar.setThumb(drawable1);
         assertTrue(myAbsSeekBar.verifyDrawable(drawable1));
         assertFalse(myAbsSeekBar.verifyDrawable(drawable2));
         assertFalse(myAbsSeekBar.verifyDrawable(drawable3));
         assertFalse(myAbsSeekBar.verifyDrawable(drawable4));
-        assertTrue(myAbsSeekBar.verifyDrawable(null));
 
         myAbsSeekBar.setThumb(drawable2);
         assertFalse(myAbsSeekBar.verifyDrawable(drawable1));
         assertTrue(myAbsSeekBar.verifyDrawable(drawable2));
         assertFalse(myAbsSeekBar.verifyDrawable(drawable3));
         assertFalse(myAbsSeekBar.verifyDrawable(drawable4));
-        assertTrue(myAbsSeekBar.verifyDrawable(null));
 
         myAbsSeekBar.setBackgroundDrawable(drawable2);
         myAbsSeekBar.setProgressDrawable(drawable3);
@@ -144,7 +158,6 @@ public class AbsSeekBarTest extends ActivityInstrumentationTestCase2<ProgressBar
         assertTrue(myAbsSeekBar.verifyDrawable(drawable2));
         assertTrue(myAbsSeekBar.verifyDrawable(drawable3));
         assertTrue(myAbsSeekBar.verifyDrawable(drawable4));
-        assertFalse(myAbsSeekBar.verifyDrawable(null));
     }
 
     public void testAccessKeyProgressIncrement() throws Throwable {
@@ -239,10 +252,32 @@ public class AbsSeekBarTest extends ActivityInstrumentationTestCase2<ProgressBar
                 thumb.hasCalledSetTint());
     }
 
-    public void testFoo() {
-        // Do not test these APIs. They are callbacks which:
-        // 1. The callback machanism has been tested in super class
-        // 2. The functionality is implmentation details, no need to test
+    @UiThreadTest
+    public void testTickMarkTint() {
+        mActivity.setContentView(R.layout.seekbar_layout);
+
+        SeekBar inflatedView = (SeekBar) mActivity.findViewById(R.id.tick_mark_tint);
+
+        assertEquals("TickMark tint inflated correctly",
+                Color.WHITE, inflatedView.getTickMarkTintList().getDefaultColor());
+        assertEquals("TickMark tint mode inflated correctly",
+                PorterDuff.Mode.SRC_OVER, inflatedView.getTickMarkTintMode());
+
+        MockDrawable tickMark = new MockDrawable();
+        SeekBar view = new SeekBar(mActivity);
+
+        view.setTickMark(tickMark);
+        assertFalse("No tickMark tint applied by default", tickMark.hasCalledSetTint());
+
+        view.setTickMarkTintList(ColorStateList.valueOf(Color.WHITE));
+        assertTrue("TickMark tint applied when setTickMarkTintList() called after setTickMark()",
+                tickMark.hasCalledSetTint());
+
+        tickMark.reset();
+        view.setTickMark(null);
+        view.setTickMark(tickMark);
+        assertTrue("TickMark tint applied when setTickMarkTintList() called before setTickMark()",
+                tickMark.hasCalledSetTint());
     }
 
     private static class MyAbsSeekBar extends AbsSeekBar {
@@ -275,13 +310,7 @@ public class AbsSeekBarTest extends ActivityInstrumentationTestCase2<ProgressBar
         private boolean mCalledSetTint = false;
 
         @Override
-        public void draw(Canvas canvas) {
-            mCalledDraw = true;
-        }
-
-        public boolean hasCalledDraw() {
-            return mCalledDraw;
-        }
+        public void draw(Canvas canvas) { }
 
         public void reset() {
             mCalledDraw = false;

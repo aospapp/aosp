@@ -15,6 +15,7 @@
       android:largeHeap="true">
       <service android:name="PhotoTableDream"
           android:exported="true"
+          android:permission="android.permission.BIND_DREAM_SERVICE"
           android:icon="@mipmap/ic_launcher_phototable"
           android:label="@string/table_screensaver_name">
           <meta-data
@@ -36,6 +37,7 @@
       </activity>
       <service android:name="FlipperDream"
           android:exported="true"
+          android:permission="android.permission.BIND_DREAM_SERVICE"
           android:icon="@mipmap/ic_launcher_photoframe"
           android:label="@string/flipper_screensaver_name">
           <meta-data

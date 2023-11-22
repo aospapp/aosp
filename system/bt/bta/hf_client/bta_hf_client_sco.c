@@ -214,7 +214,6 @@ static void bta_hf_client_esco_connreq_cback(tBTM_ESCO_EVT event, tBTM_ESCO_EVT_
 *******************************************************************************/
 static void bta_hf_client_sco_conn_cback(UINT16 sco_idx)
 {
-    BT_HDR  *p_buf;
     UINT8 *rem_bd;
 
     APPL_TRACE_DEBUG("%s %d", __FUNCTION__, sco_idx);
@@ -224,12 +223,10 @@ static void bta_hf_client_sco_conn_cback(UINT16 sco_idx)
     if (rem_bd && bdcmp(bta_hf_client_cb.scb.peer_addr, rem_bd) == 0 &&
             bta_hf_client_cb.scb.svc_conn && bta_hf_client_cb.scb.sco_idx == sco_idx)
     {
-        if ((p_buf = (BT_HDR *) GKI_getbuf(sizeof(BT_HDR))) != NULL)
-        {
-            p_buf->event = BTA_HF_CLIENT_SCO_OPEN_EVT;
-            p_buf->layer_specific = bta_hf_client_cb.scb.conn_handle;
-            bta_sys_sendmsg(p_buf);
-        }
+        BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
+        p_buf->event = BTA_HF_CLIENT_SCO_OPEN_EVT;
+        p_buf->layer_specific = bta_hf_client_cb.scb.conn_handle;
+        bta_sys_sendmsg(p_buf);
     }
     /* no match found; disconnect sco, init sco variables */
     else
@@ -251,18 +248,13 @@ static void bta_hf_client_sco_conn_cback(UINT16 sco_idx)
 *******************************************************************************/
 static void bta_hf_client_sco_disc_cback(UINT16 sco_idx)
 {
-    BT_HDR  *p_buf;
+    APPL_TRACE_DEBUG("%s %d", __func__, sco_idx);
 
-    APPL_TRACE_DEBUG("%s %d", __FUNCTION__, sco_idx);
-
-    if (bta_hf_client_cb.scb.sco_idx == sco_idx)
-    {
-        if ((p_buf = (BT_HDR *) GKI_getbuf(sizeof(BT_HDR))) != NULL)
-        {
-            p_buf->event = BTA_HF_CLIENT_SCO_CLOSE_EVT;
-            p_buf->layer_specific = bta_hf_client_cb.scb.conn_handle;;
-            bta_sys_sendmsg(p_buf);
-        }
+    if (bta_hf_client_cb.scb.sco_idx == sco_idx) {
+        BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
+        p_buf->event = BTA_HF_CLIENT_SCO_CLOSE_EVT;
+        p_buf->layer_specific = bta_hf_client_cb.scb.conn_handle;;
+        bta_sys_sendmsg(p_buf);
     }
 }
 

@@ -34,8 +34,6 @@
 namespace keymaster {
 
 static const size_t GCM_NONCE_SIZE = 12;
-static const size_t GCM_MAX_TAG_LENGTH = 16;
-static const size_t GCM_MIN_TAG_LENGTH = 12;
 
 inline bool allows_padding(keymaster_block_mode_t block_mode) {
     switch (block_mode) {
@@ -213,17 +211,18 @@ inline bool is_bad_decrypt(unsigned long error) {
             ERR_GET_REASON(error) == CIPHER_R_BAD_DECRYPT);
 }
 
-keymaster_error_t AesEvpOperation::Finish(const AuthorizationSet& /* additional_params */,
-                                          const Buffer& /* signature */,
-                                          AuthorizationSet* /* output_params */, Buffer* output) {
+keymaster_error_t AesEvpOperation::Finish(const AuthorizationSet& additional_params,
+                                          const Buffer& input, const Buffer& /* signature */,
+                                          AuthorizationSet* output_params, Buffer* output) {
+    keymaster_error_t error;
+    if (!UpdateForFinish(additional_params, input, output_params, output, &error))
+        return error;
+
     if (!output->reserve(AES_BLOCK_SIZE))
         return KM_ERROR_MEMORY_ALLOCATION_FAILED;
 
-    keymaster_error_t error;
-    if (block_mode_ == KM_MODE_GCM && aad_block_buf_length_ > 0 &&
-        !ProcessBufferedAadBlock(&error)) {
+    if (block_mode_ == KM_MODE_GCM && aad_block_buf_length_ > 0 && !ProcessBufferedAadBlock(&error))
         return error;
-    }
 
     int output_written = -1;
     if (!EVP_CipherFinal_ex(&ctx_, output->peek_write(), &output_written)) {
@@ -466,6 +465,23 @@ bool AesEvpOperation::InternalUpdate(const uint8_t* input, size_t input_length, 
     return output->advance_write(output_written);
 }
 
+bool AesEvpOperation::UpdateForFinish(const AuthorizationSet& additional_params,
+                                      const Buffer& input, AuthorizationSet* output_params,
+                                      Buffer* output, keymaster_error_t* error) {
+    if (input.available_read() || !additional_params.empty()) {
+        size_t input_consumed;
+        *error = Update(additional_params, input, output_params, output, &input_consumed);
+        if (*error != KM_ERROR_OK)
+            return false;
+        if (input_consumed != input.available_read()) {
+            *error = KM_ERROR_INVALID_INPUT_LENGTH;
+            return false;
+        }
+    }
+
+    return true;
+}
+
 keymaster_error_t AesEvpEncryptOperation::Begin(const AuthorizationSet& input_params,
                                                 AuthorizationSet* output_params) {
     if (!output_params)
@@ -490,18 +506,18 @@ keymaster_error_t AesEvpEncryptOperation::Begin(const AuthorizationSet& input_pa
 }
 
 keymaster_error_t AesEvpEncryptOperation::Finish(const AuthorizationSet& additional_params,
-                                                 const Buffer& signature,
+                                                 const Buffer& input, const Buffer& signature,
                                                  AuthorizationSet* output_params, Buffer* output) {
-    if (!output->reserve(AES_BLOCK_SIZE + tag_length_))
+    if (!output->reserve(input.available_read() + AES_BLOCK_SIZE + tag_length_))
         return KM_ERROR_MEMORY_ALLOCATION_FAILED;
 
     keymaster_error_t error =
-        AesEvpOperation::Finish(additional_params, signature, output_params, output);
+        AesEvpOperation::Finish(additional_params, input, signature, output_params, output);
     if (error != KM_ERROR_OK)
         return error;
 
     if (tag_length_ > 0) {
-        if (!output->reserve(output->available_read() + tag_length_))
+        if (!output->reserve(tag_length_))
             return KM_ERROR_MEMORY_ALLOCATION_FAILED;
 
         if (!EVP_CIPHER_CTX_ctrl(&ctx_, EVP_CTRL_GCM_GET_TAG, tag_length_, output->peek_write()))
@@ -611,15 +627,21 @@ void AesEvpDecryptOperation::BufferCandidateTagData(const uint8_t* data, size_t 
 }
 
 keymaster_error_t AesEvpDecryptOperation::Finish(const AuthorizationSet& additional_params,
-                                                 const Buffer& signature,
+                                                 const Buffer& input, const Buffer& signature,
                                                  AuthorizationSet* output_params, Buffer* output) {
+    keymaster_error_t error;
+    if (!UpdateForFinish(additional_params, input, output_params, output, &error))
+        return error;
+
     if (tag_buf_length_ < tag_length_)
         return KM_ERROR_INVALID_INPUT_LENGTH;
     else if (tag_length_ > 0 &&
              !EVP_CIPHER_CTX_ctrl(&ctx_, EVP_CTRL_GCM_SET_TAG, tag_length_, tag_buf_.get()))
         return TranslateLastOpenSslError();
 
-    return AesEvpOperation::Finish(additional_params, signature, output_params, output);
+    AuthorizationSet empty_params;
+    Buffer empty_input;
+    return AesEvpOperation::Finish(empty_params, empty_input, signature, output_params, output);
 }
 
 keymaster_error_t AesEvpOperation::Abort() {

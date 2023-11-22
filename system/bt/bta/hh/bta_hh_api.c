@@ -22,21 +22,22 @@
  *
  ******************************************************************************/
 
+#define LOG_TAG "bt_bta_hh"
+
+#include "bta_hh_api.h"
+
 #include "bt_target.h"
 
 #if defined(BTA_HH_INCLUDED) && (BTA_HH_INCLUDED == TRUE)
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 
-#include "bta_hh_api.h"
 #include "bta_hh_int.h"
 #include "l2c_api.h"
-#include "utl.h"
-
-#define LOG_TAG "bt_bta_hh"
 #include "osi/include/log.h"
+#include "utl.h"
 
 /*****************************************************************************
 **  Constants
@@ -63,24 +64,20 @@ static const tBTA_SYS_REG bta_hh_reg =
 *******************************************************************************/
 void BTA_HhEnable(tBTA_SEC sec_mask, tBTA_HH_CBACK *p_cback)
 {
-    tBTA_HH_API_ENABLE *p_buf;
+    tBTA_HH_API_ENABLE *p_buf =
+        (tBTA_HH_API_ENABLE *)osi_calloc(sizeof(tBTA_HH_API_ENABLE));
+
+    LOG_INFO(LOG_TAG, "%s sec_mask:0x%x p_cback:%p", __func__, sec_mask,
+             p_cback);
 
     /* register with BTA system manager */
     bta_sys_register(BTA_ID_HH, &bta_hh_reg);
 
-    LOG_INFO("%s sec_mask:0x%x p_cback:%p", __func__, sec_mask, p_cback);
-    p_buf = (tBTA_HH_API_ENABLE *)GKI_getbuf((UINT16)sizeof(tBTA_HH_API_ENABLE));
+    p_buf->hdr.event = BTA_HH_API_ENABLE_EVT;
+    p_buf->p_cback = p_cback;
+    p_buf->sec_mask = sec_mask;
 
-    if (p_buf != NULL)
-    {
-        memset(p_buf, 0, sizeof(tBTA_HH_API_ENABLE));
-
-        p_buf->hdr.event = BTA_HH_API_ENABLE_EVT;
-        p_buf->p_cback = p_cback;
-        p_buf->sec_mask = sec_mask;
-
-        bta_sys_sendmsg(p_buf);
-    }
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -95,14 +92,12 @@ void BTA_HhEnable(tBTA_SEC sec_mask, tBTA_HH_CBACK *p_cback)
 *******************************************************************************/
 void BTA_HhDisable(void)
 {
-    BT_HDR  *p_buf;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
 
     bta_sys_deregister(BTA_ID_HH);
-    if ((p_buf = (BT_HDR *)GKI_getbuf(sizeof(BT_HDR))) != NULL)
-    {
-        p_buf->event = BTA_HH_API_DISABLE_EVT;
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->event = BTA_HH_API_DISABLE_EVT;
+
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -116,16 +111,12 @@ void BTA_HhDisable(void)
 *******************************************************************************/
 void BTA_HhClose(UINT8 dev_handle)
 {
-    BT_HDR    *p_buf;
+    BT_HDR *p_buf = (BT_HDR *)osi_calloc(sizeof(BT_HDR));
 
-    if ((p_buf = (BT_HDR *)GKI_getbuf((UINT16)sizeof(BT_HDR))) != NULL)
-    {
-        memset(p_buf, 0, sizeof(BT_HDR));
-        p_buf->event            = BTA_HH_API_CLOSE_EVT;
-        p_buf->layer_specific   = (UINT16) dev_handle;
+    p_buf->event = BTA_HH_API_CLOSE_EVT;
+    p_buf->layer_specific = (UINT16)dev_handle;
 
-        bta_sys_sendmsg(p_buf);
-    }
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -140,26 +131,16 @@ void BTA_HhClose(UINT8 dev_handle)
 *******************************************************************************/
 void BTA_HhOpen(BD_ADDR dev_bda, tBTA_HH_PROTO_MODE mode, tBTA_SEC sec_mask)
 {
-    tBTA_HH_API_CONN *p_buf;
+    tBTA_HH_API_CONN *p_buf =
+        (tBTA_HH_API_CONN *)osi_calloc(sizeof(tBTA_HH_API_CONN));
 
-    p_buf = (tBTA_HH_API_CONN *)GKI_getbuf((UINT16)sizeof(tBTA_HH_API_CONN));
+    p_buf->hdr.event = BTA_HH_API_OPEN_EVT;
+    p_buf->hdr.layer_specific = BTA_HH_INVALID_HANDLE;
+    p_buf->sec_mask = sec_mask;
+    p_buf->mode = mode;
+    bdcpy(p_buf->bd_addr, dev_bda);
 
-    if (p_buf!= NULL)
-    {
-        memset((void *)p_buf, 0, sizeof(tBTA_HH_API_CONN));
-
-        p_buf->hdr.event            = BTA_HH_API_OPEN_EVT;
-        p_buf->hdr.layer_specific   = BTA_HH_INVALID_HANDLE;
-        p_buf->sec_mask             = sec_mask;
-        p_buf->mode                 = mode;
-        bdcpy(p_buf->bd_addr, dev_bda);
-
-        bta_sys_sendmsg((void *)p_buf);
-    }
-    else
-    {
-        APPL_TRACE_ERROR("No resource to send HID host Connect request.");
-    }
+    bta_sys_sendmsg((void *)p_buf);
 }
 
 /*******************************************************************************
@@ -170,24 +151,20 @@ void BTA_HhOpen(BD_ADDR dev_bda, tBTA_HH_PROTO_MODE mode, tBTA_SEC sec_mask)
 static void bta_hh_snd_write_dev(UINT8 dev_handle, UINT8 t_type, UINT8 param,
                                  UINT16 data, UINT8 rpt_id, BT_HDR  *p_data)
 {
-    tBTA_HH_CMD_DATA *p_buf;
-    UINT16          len = (UINT16) (sizeof(tBTA_HH_CMD_DATA) );
+    tBTA_HH_CMD_DATA *p_buf =
+        (tBTA_HH_CMD_DATA *)osi_calloc(sizeof(tBTA_HH_CMD_DATA));
 
-    if ((p_buf = (tBTA_HH_CMD_DATA *)GKI_getbuf(len))!= NULL)
-    {
-        memset(p_buf, 0, sizeof(tBTA_HH_CMD_DATA));
+    p_buf->hdr.event = BTA_HH_API_WRITE_DEV_EVT;
+    p_buf->hdr.layer_specific = (UINT16)dev_handle;
+    p_buf->t_type = t_type;
+    p_buf->data = data;
+    p_buf->param = param;
+    p_buf->p_data = p_data;
+    p_buf->rpt_id = rpt_id;
 
-        p_buf->hdr.event = BTA_HH_API_WRITE_DEV_EVT;
-        p_buf->hdr.layer_specific   = (UINT16) dev_handle;
-        p_buf->t_type   = t_type;
-        p_buf->data     = data;
-        p_buf->param    = param;
-        p_buf->p_data   = p_data;
-        p_buf->rpt_id   = rpt_id;
-
-        bta_sys_sendmsg(p_buf);
-    }
+    bta_sys_sendmsg(p_buf);
 }
+
 /*******************************************************************************
 **
 ** Function         BTA_HhSetReport
@@ -329,16 +306,12 @@ void BTA_HhSendData(UINT8 dev_handle, BD_ADDR dev_bda, BT_HDR  *p_data)
 *******************************************************************************/
 void BTA_HhGetDscpInfo(UINT8 dev_handle)
 {
-    BT_HDR    *p_buf;
+    BT_HDR *p_buf = (BT_HDR *)osi_calloc(sizeof(BT_HDR));
 
-    if ((p_buf = (BT_HDR *)GKI_getbuf((UINT16)sizeof(BT_HDR))) != NULL)
-    {
-        memset(p_buf, 0, sizeof(BT_HDR));
-        p_buf->event            = BTA_HH_API_GET_DSCP_EVT;
-        p_buf->layer_specific   = (UINT16) dev_handle;
+    p_buf->event = BTA_HH_API_GET_DSCP_EVT;
+    p_buf->layer_specific = (UINT16)dev_handle;
 
-        bta_sys_sendmsg(p_buf);
-    }
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -356,40 +329,33 @@ void BTA_HhGetDscpInfo(UINT8 dev_handle)
 void BTA_HhAddDev(BD_ADDR bda, tBTA_HH_ATTR_MASK attr_mask, UINT8 sub_class,
                   UINT8 app_id, tBTA_HH_DEV_DSCP_INFO dscp_info)
 {
-    tBTA_HH_MAINT_DEV    *p_buf;
-    UINT16  len = sizeof(tBTA_HH_MAINT_DEV) + dscp_info.descriptor.dl_len;
+    size_t len = sizeof(tBTA_HH_MAINT_DEV) + dscp_info.descriptor.dl_len;
+    tBTA_HH_MAINT_DEV *p_buf = (tBTA_HH_MAINT_DEV *)osi_calloc(len);
 
-    p_buf = (tBTA_HH_MAINT_DEV *)GKI_getbuf(len);
+    p_buf->hdr.event = BTA_HH_API_MAINT_DEV_EVT;
+    p_buf->sub_event = BTA_HH_ADD_DEV_EVT;
+    p_buf->hdr.layer_specific = BTA_HH_INVALID_HANDLE;
 
-    if (p_buf != NULL)
-    {
-        memset(p_buf, 0, sizeof(tBTA_HH_MAINT_DEV));
+    p_buf->attr_mask = (UINT16) attr_mask;
+    p_buf->sub_class = sub_class;
+    p_buf->app_id = app_id;
+    bdcpy(p_buf->bda, bda);
 
-        p_buf->hdr.event            = BTA_HH_API_MAINT_DEV_EVT;
-        p_buf->sub_event            = BTA_HH_ADD_DEV_EVT;
-        p_buf->hdr.layer_specific   = BTA_HH_INVALID_HANDLE;
-
-        p_buf->attr_mask            = (UINT16) attr_mask;
-        p_buf->sub_class            = sub_class;
-        p_buf->app_id               = app_id;
-        bdcpy(p_buf->bda, bda);
-
-        memcpy(&p_buf->dscp_info, &dscp_info, sizeof(tBTA_HH_DEV_DSCP_INFO));
-        if ( dscp_info.descriptor.dl_len != 0 && dscp_info.descriptor.dsc_list)
-        {
-            p_buf->dscp_info.descriptor.dl_len =  dscp_info.descriptor.dl_len;
-            p_buf->dscp_info.descriptor.dsc_list = (UINT8 *)(p_buf + 1);
-            memcpy(p_buf->dscp_info.descriptor.dsc_list, dscp_info.descriptor.dsc_list, dscp_info.descriptor.dl_len);
-        }
-        else
-        {
-            p_buf->dscp_info.descriptor.dsc_list = NULL;
-            p_buf->dscp_info.descriptor.dl_len = 0;
-        }
-
-        bta_sys_sendmsg(p_buf);
+    memcpy(&p_buf->dscp_info, &dscp_info, sizeof(tBTA_HH_DEV_DSCP_INFO));
+    if ( dscp_info.descriptor.dl_len != 0 && dscp_info.descriptor.dsc_list) {
+        p_buf->dscp_info.descriptor.dl_len =  dscp_info.descriptor.dl_len;
+        p_buf->dscp_info.descriptor.dsc_list = (UINT8 *)(p_buf + 1);
+        memcpy(p_buf->dscp_info.descriptor.dsc_list,
+               dscp_info.descriptor.dsc_list,
+               dscp_info.descriptor.dl_len);
+    } else {
+      p_buf->dscp_info.descriptor.dsc_list = NULL;
+      p_buf->dscp_info.descriptor.dl_len = 0;
     }
+
+    bta_sys_sendmsg(p_buf);
 }
+
 /*******************************************************************************
 **
 ** Function         BTA_HhRemoveDev
@@ -401,21 +367,16 @@ void BTA_HhAddDev(BD_ADDR bda, tBTA_HH_ATTR_MASK attr_mask, UINT8 sub_class,
 *******************************************************************************/
 void BTA_HhRemoveDev(UINT8 dev_handle )
 {
-    tBTA_HH_MAINT_DEV    *p_buf;
+    tBTA_HH_MAINT_DEV *p_buf =
+        (tBTA_HH_MAINT_DEV *)osi_calloc(sizeof(tBTA_HH_MAINT_DEV));
 
-    p_buf = (tBTA_HH_MAINT_DEV *)GKI_getbuf((UINT16)sizeof(tBTA_HH_MAINT_DEV));
+    p_buf->hdr.event = BTA_HH_API_MAINT_DEV_EVT;
+    p_buf->sub_event = BTA_HH_RMV_DEV_EVT;
+    p_buf->hdr.layer_specific = (UINT16)dev_handle;
 
-    if (p_buf != NULL)
-    {
-        memset(p_buf, 0, sizeof(tBTA_HH_MAINT_DEV));
-
-        p_buf->hdr.event            = BTA_HH_API_MAINT_DEV_EVT;
-        p_buf->sub_event            = BTA_HH_RMV_DEV_EVT;
-        p_buf->hdr.layer_specific   = (UINT16) dev_handle;
-
-        bta_sys_sendmsg(p_buf);
-    }
+    bta_sys_sendmsg(p_buf);
 }
+
 #if BTA_HH_LE_INCLUDED == TRUE
 
 /*******************************************************************************
@@ -430,23 +391,18 @@ void BTA_HhRemoveDev(UINT8 dev_handle )
 *******************************************************************************/
 void BTA_HhUpdateLeScanParam(UINT8 dev_handle, UINT16 scan_int, UINT16 scan_win)
 {
-    tBTA_HH_SCPP_UPDATE    *p_buf;
+    tBTA_HH_SCPP_UPDATE *p_buf =
+        (tBTA_HH_SCPP_UPDATE *)osi_calloc(sizeof(tBTA_HH_SCPP_UPDATE));
 
-    p_buf = (tBTA_HH_SCPP_UPDATE *)GKI_getbuf((UINT16)sizeof(tBTA_HH_SCPP_UPDATE));
+    p_buf->hdr.event = BTA_HH_API_SCPP_UPDATE_EVT;
+    p_buf->hdr.layer_specific = (UINT16)dev_handle;
+    p_buf->scan_int = scan_int;
+    p_buf->scan_win = scan_win;
 
-    if (p_buf != NULL)
-    {
-        memset(p_buf, 0, sizeof(tBTA_HH_SCPP_UPDATE));
-
-        p_buf->hdr.event            = BTA_HH_API_SCPP_UPDATE_EVT;
-        p_buf->hdr.layer_specific   = (UINT16) dev_handle;
-        p_buf->scan_int             =  scan_int;
-        p_buf->scan_win             =  scan_win;
-
-        bta_sys_sendmsg(p_buf);
-    }
+    bta_sys_sendmsg(p_buf);
 }
 #endif
+
 /*******************************************************************************/
 /*                          Utility Function                                   */
 /*******************************************************************************/

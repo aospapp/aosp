@@ -18,7 +18,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.sample.app">
 
-    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <application>
         <activity android:name=".SampleDeviceActivity" >
             <intent-filter>

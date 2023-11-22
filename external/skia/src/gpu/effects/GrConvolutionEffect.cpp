@@ -6,79 +6,59 @@
  */
 
 #include "GrConvolutionEffect.h"
-#include "gl/GrGLProcessor.h"
-#include "gl/GrGLSL.h"
-#include "gl/GrGLTexture.h"
-#include "gl/builders/GrGLProgramBuilder.h"
+#include "glsl/GrGLSLFragmentProcessor.h"
+#include "glsl/GrGLSLFragmentShaderBuilder.h"
+#include "glsl/GrGLSLProgramDataManager.h"
+#include "glsl/GrGLSLUniformHandler.h"
 
 // For brevity
-typedef GrGLProgramDataManager::UniformHandle UniformHandle;
+typedef GrGLSLProgramDataManager::UniformHandle UniformHandle;
 
-class GrGLConvolutionEffect : public GrGLFragmentProcessor {
+class GrGLConvolutionEffect : public GrGLSLFragmentProcessor {
 public:
-    GrGLConvolutionEffect(const GrProcessor&);
-
-    virtual void emitCode(GrGLFPBuilder*,
-                          const GrFragmentProcessor&,
-                          const char* outputColor,
-                          const char* inputColor,
-                          const TransformedCoordsArray&,
-                          const TextureSamplerArray&) override;
-
-    void setData(const GrGLProgramDataManager& pdman, const GrProcessor&) override;
+    void emitCode(EmitArgs&) override;
 
     static inline void GenKey(const GrProcessor&, const GrGLSLCaps&, GrProcessorKeyBuilder*);
 
-private:
-    int width() const { return Gr1DKernelEffect::WidthFromRadius(fRadius); }
-    bool useBounds() const { return fUseBounds; }
-    Gr1DKernelEffect::Direction direction() const { return fDirection; }
+protected:
+    void onSetData(const GrGLSLProgramDataManager& pdman, const GrProcessor&) override;
 
-    int                 fRadius;
-    bool                fUseBounds;
-    Gr1DKernelEffect::Direction    fDirection;
+private:
     UniformHandle       fKernelUni;
     UniformHandle       fImageIncrementUni;
     UniformHandle       fBoundsUni;
 
-    typedef GrGLFragmentProcessor INHERITED;
+    typedef GrGLSLFragmentProcessor INHERITED;
 };
 
-GrGLConvolutionEffect::GrGLConvolutionEffect(const GrProcessor& processor) {
-    const GrConvolutionEffect& c = processor.cast<GrConvolutionEffect>();
-    fRadius = c.radius();
-    fUseBounds = c.useBounds();
-    fDirection = c.direction();
-}
+void GrGLConvolutionEffect::emitCode(EmitArgs& args) {
+    const GrConvolutionEffect& ce = args.fFp.cast<GrConvolutionEffect>();
 
-void GrGLConvolutionEffect::emitCode(GrGLFPBuilder* builder,
-                                     const GrFragmentProcessor&,
-                                     const char* outputColor,
-                                     const char* inputColor,
-                                     const TransformedCoordsArray& coords,
-                                     const TextureSamplerArray& samplers) {
-    fImageIncrementUni = builder->addUniform(GrGLProgramBuilder::kFragment_Visibility,
-                                             kVec2f_GrSLType, kDefault_GrSLPrecision,
-                                             "ImageIncrement");
-    if (this->useBounds()) {
-        fBoundsUni = builder->addUniform(GrGLProgramBuilder::kFragment_Visibility,
-                                         kVec2f_GrSLType, kDefault_GrSLPrecision,
-                                         "Bounds");
+    GrGLSLUniformHandler* uniformHandler = args.fUniformHandler;
+    fImageIncrementUni = uniformHandler->addUniform(kFragment_GrShaderFlag,
+                                                    kVec2f_GrSLType, kDefault_GrSLPrecision,
+                                                    "ImageIncrement");
+    if (ce.useBounds()) {
+        fBoundsUni = uniformHandler->addUniform(kFragment_GrShaderFlag,
+                                                kVec2f_GrSLType, kDefault_GrSLPrecision,
+                                                "Bounds");
     }
-    fKernelUni = builder->addUniformArray(GrGLProgramBuilder::kFragment_Visibility,
-                                          kFloat_GrSLType, kDefault_GrSLPrecision,
-                                          "Kernel", this->width());
 
-    GrGLFragmentBuilder* fsBuilder = builder->getFragmentShaderBuilder();
-    SkString coords2D = fsBuilder->ensureFSCoords2D(coords, 0);
+    int width = Gr1DKernelEffect::WidthFromRadius(ce.radius());
 
-    fsBuilder->codeAppendf("\t\t%s = vec4(0, 0, 0, 0);\n", outputColor);
+    fKernelUni = uniformHandler->addUniformArray(kFragment_GrShaderFlag,
+                                                 kFloat_GrSLType, kDefault_GrSLPrecision,
+                                                 "Kernel", width);
 
-    int width = this->width();
-    const GrGLShaderVar& kernel = builder->getUniformVariable(fKernelUni);
-    const char* imgInc = builder->getUniformCStr(fImageIncrementUni);
+    GrGLSLFPFragmentBuilder* fragBuilder = args.fFragBuilder;
+    SkString coords2D = fragBuilder->ensureFSCoords2D(args.fCoords, 0);
 
-    fsBuilder->codeAppendf("\t\tvec2 coord = %s - %d.0 * %s;\n", coords2D.c_str(), fRadius, imgInc);
+    fragBuilder->codeAppendf("%s = vec4(0, 0, 0, 0);", args.fOutputColor);
+
+    const GrGLSLShaderVar& kernel = uniformHandler->getUniformVariable(fKernelUni);
+    const char* imgInc = uniformHandler->getUniformCStr(fImageIncrementUni);
+
+    fragBuilder->codeAppendf("vec2 coord = %s - %d.0 * %s;", coords2D.c_str(), ce.radius(), imgInc);
 
     // Manually unroll loop because some drivers don't; yields 20-30% speedup.
     for (int i = 0; i < width; i++) {
@@ -86,29 +66,35 @@ void GrGLConvolutionEffect::emitCode(GrGLFPBuilder* builder,
         SkString kernelIndex;
         index.appendS32(i);
         kernel.appendArrayAccess(index.c_str(), &kernelIndex);
-        fsBuilder->codeAppendf("\t\t%s += ", outputColor);
-        fsBuilder->appendTextureLookup(samplers[0], "coord");
-        if (this->useBounds()) {
-            const char* bounds = builder->getUniformCStr(fBoundsUni);
-            const char* component = this->direction() == Gr1DKernelEffect::kY_Direction ? "y" : "x";
-            fsBuilder->codeAppendf(" * float(coord.%s >= %s.x && coord.%s <= %s.y)",
-                component, bounds, component, bounds);
+
+        if (ce.useBounds()) {
+            // We used to compute a bool indicating whether we're in bounds or not, cast it to a
+            // float, and then mul weight*texture_sample by the float. However, the Adreno 430 seems
+            // to have a bug that caused corruption.
+            const char* bounds = uniformHandler->getUniformCStr(fBoundsUni);
+            const char* component = ce.direction() == Gr1DKernelEffect::kY_Direction ? "y" : "x";
+            fragBuilder->codeAppendf("if (coord.%s >= %s.x && coord.%s <= %s.y) {",
+                                     component, bounds, component, bounds);
         }
-        fsBuilder->codeAppendf(" * %s;\n", kernelIndex.c_str());
-        fsBuilder->codeAppendf("\t\tcoord += %s;\n", imgInc);
+        fragBuilder->codeAppendf("\t\t%s += ", args.fOutputColor);
+        fragBuilder->appendTextureLookup(args.fSamplers[0], "coord");
+        fragBuilder->codeAppendf(" * %s;\n", kernelIndex.c_str());
+        if (ce.useBounds()) {
+            fragBuilder->codeAppend("}");
+        }
+        fragBuilder->codeAppendf("\t\tcoord += %s;\n", imgInc);
     }
 
     SkString modulate;
-    GrGLSLMulVarBy4f(&modulate, outputColor, inputColor);
-    fsBuilder->codeAppend(modulate.c_str());
+    GrGLSLMulVarBy4f(&modulate, args.fOutputColor, args.fInputColor);
+    fragBuilder->codeAppend(modulate.c_str());
 }
 
-void GrGLConvolutionEffect::setData(const GrGLProgramDataManager& pdman,
-                                    const GrProcessor& processor) {
+void GrGLConvolutionEffect::onSetData(const GrGLSLProgramDataManager& pdman,
+                                      const GrProcessor& processor) {
     const GrConvolutionEffect& conv = processor.cast<GrConvolutionEffect>();
     GrTexture& texture = *conv.texture(0);
-    // the code we generated was for a specific kernel radius
-    SkASSERT(conv.radius() == fRadius);
+
     float imageIncrement[2] = { 0 };
     float ySign = texture.origin() != kTopLeft_GrSurfaceOrigin ? 1.0f : -1.0f;
     switch (conv.direction()) {
@@ -131,7 +117,9 @@ void GrGLConvolutionEffect::setData(const GrGLProgramDataManager& pdman,
             pdman.set2f(fBoundsUni, bounds[0], bounds[1]);
         }
     }
-    pdman.set1fv(fKernelUni, this->width(), conv.kernel());
+    int width = Gr1DKernelEffect::WidthFromRadius(conv.radius());
+
+    pdman.set1fv(fKernelUni, width, conv.kernel());
 }
 
 void GrGLConvolutionEffect::GenKey(const GrProcessor& processor, const GrGLSLCaps&,
@@ -154,7 +142,7 @@ GrConvolutionEffect::GrConvolutionEffect(GrTexture* texture,
                                          const float* kernel,
                                          bool useBounds,
                                          float bounds[2])
-    : Gr1DKernelEffect(texture, direction, radius), fUseBounds(useBounds) {
+    : INHERITED(texture, direction, radius), fUseBounds(useBounds) {
     this->initClassID<GrConvolutionEffect>();
     SkASSERT(radius <= kMaxKernelRadius);
     SkASSERT(kernel);
@@ -171,7 +159,7 @@ GrConvolutionEffect::GrConvolutionEffect(GrTexture* texture,
                                          float gaussianSigma,
                                          bool useBounds,
                                          float bounds[2])
-    : Gr1DKernelEffect(texture, direction, radius), fUseBounds(useBounds) {
+    : INHERITED(texture, direction, radius), fUseBounds(useBounds) {
     this->initClassID<GrConvolutionEffect>();
     SkASSERT(radius <= kMaxKernelRadius);
     int width = this->width();
@@ -196,13 +184,13 @@ GrConvolutionEffect::GrConvolutionEffect(GrTexture* texture,
 GrConvolutionEffect::~GrConvolutionEffect() {
 }
 
-void GrConvolutionEffect::getGLProcessorKey(const GrGLSLCaps& caps,
-                                        GrProcessorKeyBuilder* b) const {
+void GrConvolutionEffect::onGetGLSLProcessorKey(const GrGLSLCaps& caps,
+                                                GrProcessorKeyBuilder* b) const {
     GrGLConvolutionEffect::GenKey(*this, caps, b);
 }
 
-GrGLFragmentProcessor* GrConvolutionEffect::createGLInstance() const  {
-    return SkNEW_ARGS(GrGLConvolutionEffect, (*this));
+GrGLSLFragmentProcessor* GrConvolutionEffect::onCreateGLSLInstance() const  {
+    return new GrGLConvolutionEffect;
 }
 
 bool GrConvolutionEffect::onIsEqual(const GrFragmentProcessor& sBase) const {
@@ -218,25 +206,22 @@ bool GrConvolutionEffect::onIsEqual(const GrFragmentProcessor& sBase) const {
 
 GR_DEFINE_FRAGMENT_PROCESSOR_TEST(GrConvolutionEffect);
 
-GrFragmentProcessor* GrConvolutionEffect::TestCreate(SkRandom* random,
-                                                     GrContext*,
-                                                     const GrDrawTargetCaps&,
-                                                     GrTexture* textures[]) {
-    int texIdx = random->nextBool() ? GrProcessorUnitTest::kSkiaPMTextureIdx :
-                                      GrProcessorUnitTest::kAlphaTextureIdx;
-    Direction dir = random->nextBool() ? kX_Direction : kY_Direction;
-    int radius = random->nextRangeU(1, kMaxKernelRadius);
+const GrFragmentProcessor* GrConvolutionEffect::TestCreate(GrProcessorTestData* d) {
+    int texIdx = d->fRandom->nextBool() ? GrProcessorUnitTest::kSkiaPMTextureIdx :
+                                          GrProcessorUnitTest::kAlphaTextureIdx;
+    Direction dir = d->fRandom->nextBool() ? kX_Direction : kY_Direction;
+    int radius = d->fRandom->nextRangeU(1, kMaxKernelRadius);
     float kernel[kMaxKernelWidth];
     for (size_t i = 0; i < SK_ARRAY_COUNT(kernel); ++i) {
-        kernel[i] = random->nextSScalar1();
+        kernel[i] = d->fRandom->nextSScalar1();
     }
     float bounds[2];
     for (size_t i = 0; i < SK_ARRAY_COUNT(bounds); ++i) {
-        bounds[i] = random->nextF();
+        bounds[i] = d->fRandom->nextF();
     }
 
-    bool useBounds = random->nextBool();
-    return GrConvolutionEffect::Create(textures[texIdx],
+    bool useBounds = d->fRandom->nextBool();
+    return GrConvolutionEffect::Create(d->fTextures[texIdx],
                                        dir,
                                        radius,
                                        kernel,

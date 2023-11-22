@@ -16,15 +16,13 @@
 
 package android.sample.cts;
 
-import com.android.cts.tradefed.build.CtsBuildHelper;
-import com.android.cts.tradefed.util.HostReportLog;
-import com.android.cts.util.MeasureRun;
-import com.android.cts.util.MeasureTime;
-import com.android.cts.util.ResultType;
-import com.android.cts.util.ResultUnit;
-import com.android.cts.util.ReportLog;
-import com.android.cts.util.Stat;
-import com.android.ddmlib.IDevice;
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
+import com.android.compatibility.common.util.MeasureRun;
+import com.android.compatibility.common.util.MeasureTime;
+import com.android.compatibility.common.util.MetricsReportLog;
+import com.android.compatibility.common.util.ResultType;
+import com.android.compatibility.common.util.ResultUnit;
+import com.android.compatibility.common.util.Stat;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceTestCase;
@@ -37,7 +35,6 @@ import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.RunUtil;
 
 import java.io.File;
-import java.lang.Exception;
 
 /**
  * Test to measure the transfer time of a file from the host to the device.
@@ -47,21 +44,31 @@ public class SampleHostResultTest extends DeviceTestCase implements IAbiReceiver
     private static final String TAG = SampleHostResultTest.class.getSimpleName();
 
     /**
+     * Name of the report log to store test metrics.
+     */
+    private static final String REPORT_LOG_NAME = "SampleHostTestMetrics";
+
+    /**
      * The number of times to repeat the test.
      */
     private static final int REPEAT = 5;
 
     /**
-     * The name of the plan to transfer.
-     *
-     * In this case we will transfer the CTS.xml file.
+     * The device-side location to write the file to.
      */
-    private static final String PLAN_NAME = "CTS";
+    private static final String FILE_PATH = "/data/local/tmp/%s";
 
     /**
-     * A reference to the build.
+     * The name of the file to transfer.
+     *
+     * In this case we will transfer this test's module config.
      */
-    private CtsBuildHelper mBuild;
+    private static final String FILE_NAME = "CtsSampleHostTestCases.config";
+
+    /**
+     * A helper to access resources in the build.
+     */
+    private CompatibilityBuildHelper mBuildHelper;
 
     /**
      * A reference to the device under test.
@@ -81,7 +88,7 @@ public class SampleHostResultTest extends DeviceTestCase implements IAbiReceiver
     @Override
     public void setBuild(IBuildInfo buildInfo) {
         // Get the build, this is used to access the APK.
-        mBuild = CtsBuildHelper.createBuildHelper(buildInfo);
+        mBuildHelper = new CompatibilityBuildHelper(buildInfo);
     }
 
     @Override
@@ -100,13 +107,10 @@ public class SampleHostResultTest extends DeviceTestCase implements IAbiReceiver
      */
     public void testTransferTime() throws Exception {
         final ITestDevice device = mDevice;
-        // Get the external storage location and ensure its not null.
-        final String externalStorePath = mDevice.getMountPoint(IDevice.MNT_EXTERNAL_STORAGE);
-        assertNotNull("External storage location no found", externalStorePath);
         // Create the device side path where the file will be transfered.
-        final String devicePath = String.format("%s/%s", externalStorePath, "tmp_testPushPull.txt");
-        // Get the file from the build.
-        final File testFile = mBuild.getTestPlanFile(PLAN_NAME);
+        final String devicePath = String.format(FILE_PATH, "tmp_testPushPull.txt");
+        // Get this test's module config file from the build.
+        final File testFile = new File(mBuildHelper.getTestsDir(), FILE_NAME);
         double[] result = MeasureTime.measure(REPEAT, new MeasureRun() {
             @Override
             public void prepare(int i) throws Exception {
@@ -133,15 +137,18 @@ public class SampleHostResultTest extends DeviceTestCase implements IAbiReceiver
         // Compute the stats.
         Stat.StatResult stat = Stat.getStat(result);
         // Get the report for this test and add the results to record.
-        HostReportLog report = new HostReportLog(mDevice.getSerialNumber(), mAbi.getName(),
-                ReportLog.getClassMethodNames());
-        report.printArray("Times", result, ResultType.LOWER_BETTER, ResultUnit.MS);
-        report.printValue("Min", stat.mMin, ResultType.LOWER_BETTER, ResultUnit.MS);
-        report.printValue("Max", stat.mMax, ResultType.LOWER_BETTER, ResultUnit.MS);
-        // Every report must have a summary,
-        report.printSummary("Average", stat.mAverage, ResultType.LOWER_BETTER, ResultUnit.MS);
+        String streamName = "test_transfer_time_metrics";
+        MetricsReportLog report = new MetricsReportLog(
+                mBuildHelper.getBuildInfo(), mAbi.getName(),
+                String.format("%s#testTransferTime", getClass().getCanonicalName()),
+                REPORT_LOG_NAME, streamName);
+        report.addValues("times", result, ResultType.LOWER_BETTER, ResultUnit.MS);
+        report.addValue("min", stat.mMin, ResultType.LOWER_BETTER, ResultUnit.MS);
+        report.addValue("max", stat.mMax, ResultType.LOWER_BETTER, ResultUnit.MS);
+        // Set a summary.
+        report.setSummary("average", stat.mAverage, ResultType.LOWER_BETTER, ResultUnit.MS);
         // Send the report to Tradefed.
-        report.deliverReportToHost();
+        report.submit();
     }
 
     /**

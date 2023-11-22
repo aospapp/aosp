@@ -21,18 +21,48 @@ LOCAL_MODULE_TAGS := tests
 # Include both the 32 and 64 bit versions
 LOCAL_MULTILIB := both
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestserver ctstestrunner ctsdeviceutil guava
+LOCAL_STATIC_JAVA_LIBRARIES := ctstestserver ctstestrunner ctsdeviceutil compatibility-device-util guava
 
 LOCAL_JAVA_LIBRARIES := android.test.runner org.apache.http.legacy
 
-LOCAL_JNI_SHARED_LIBRARIES := libctssecurity_jni libcts_jni
+LOCAL_JNI_SHARED_LIBRARIES := libctssecurity_jni libcts_jni libnativehelper_compat_libc++ \
+		libnativehelper \
+		libbinder \
+		libutils \
+		libmedia \
+		libselinux \
+		libcutils \
+		libcrypto \
+		libc++ \
+		libbacktrace \
+		libui \
+		libsonivox \
+		libexpat \
+		libcamera_client \
+		libgui \
+		libaudioutils \
+		libnbaio \
+		libpcre \
+		libpackagelistparser \
+		libpowermanager \
+		libbase \
+		libunwind \
+		libhardware \
+		libsync \
+		libcamera_metadata \
+		libspeexresampler \
+		liblzma \
+		libstagefright_foundation
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)\
                    src/android/security/cts/activity/ISecureRandomService.aidl
 
 LOCAL_PACKAGE_NAME := CtsSecurityTestCases
 
-LOCAL_SDK_VERSION := current
+#LOCAL_SDK_VERSION := current
+
+# Tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
 
 include $(BUILD_CTS_PACKAGE)
 

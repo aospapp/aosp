@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.support.v4.content.LocalBroadcastManager;
 import android.text.TextUtils;
 
 import com.android.tv.settings.MainSettings;
@@ -18,6 +19,9 @@ public class BluetoothConnectionsManager extends BroadcastReceiver {
     private static final String KEY_CONNECTED_SET = "conencted-set";
     private static final String KEY_BT_STATE = "bt-state";
 
+    public static final String ACTION_BLUETOOTH_UPDATE =
+            "BluetoothConnectionsManager.BLUETOOTH_UPDATE";
+
     public void onReceive(Context context, Intent intent) {
         onConnectionChanged(context, intent);
     }
@@ -25,7 +29,8 @@ public class BluetoothConnectionsManager extends BroadcastReceiver {
     public static void onConnectionChanged(Context context, Intent intent) {
         final String action = intent.getAction();
 
-        final SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        final SharedPreferences prefs =
+                context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         Set<String> connected = prefs.getStringSet(KEY_CONNECTED_SET, new HashSet<String>());
         int btState = prefs.getInt(KEY_BT_STATE, BluetoothAdapter.STATE_OFF);
 
@@ -73,15 +78,9 @@ public class BluetoothConnectionsManager extends BroadcastReceiver {
         }
 
         if (listChanged) {
-            MainSettings settings = MainSettings.getInstance();
-            if (settings != null) {
-                settings.updateAccessories();
-            }
+            LocalBroadcastManager.getInstance(context)
+                    .sendBroadcast(new Intent(ACTION_BLUETOOTH_UPDATE));
         }
-    }
-
-    public static boolean isConnected(Context context, String address) {
-        return getConnectedSet(context).contains(address);
     }
 
     public static Set<String> getConnectedSet(Context context) {

@@ -1,9 +1,9 @@
 package com.android.server.wifi.hotspot2;
 
+import android.util.Base64;
 import android.util.Log;
 
 import com.android.server.wifi.ScanDetail;
-import com.android.server.wifi.WifiConfigStore;
 import com.android.server.wifi.WifiNative;
 import com.android.server.wifi.anqp.ANQPElement;
 import com.android.server.wifi.anqp.ANQPFactory;
@@ -17,7 +17,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.ProtocolException;
-import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.CharBuffer;
@@ -30,9 +29,10 @@ import java.util.Map;
 
 public class SupplicantBridge {
     private final WifiNative mSupplicantHook;
-    private final WifiConfigStore mConfigStore;
+    private final SupplicantBridgeCallbacks mCallbacks;
     private final Map<Long, ScanDetail> mRequestMap = new HashMap<>();
 
+    private static final int IconChunkSize = 1400;  // 2K*3/4 - overhead
     private static final Map<String, Constants.ANQPElementType> sWpsNames = new HashMap<>();
 
     static {
@@ -51,14 +51,34 @@ public class SupplicantBridge {
         sWpsNames.put("hs20_osu_providers_list", Constants.ANQPElementType.HSOSUProviders);
     }
 
+    /**
+     * Interface to be implemented by the client to receive callbacks from SupplicantBridge.
+     */
+    public interface SupplicantBridgeCallbacks {
+        /**
+         * Response from supplicant bridge for the initiated request.
+         * @param scanDetail
+         * @param anqpElements
+         */
+        void notifyANQPResponse(
+                ScanDetail scanDetail,
+                Map<Constants.ANQPElementType, ANQPElement> anqpElements);
+
+        /**
+         * Notify failure.
+         * @param bssid
+         */
+        void notifyIconFailed(long bssid);
+    }
+
     public static boolean isAnqpAttribute(String line) {
         int split = line.indexOf('=');
         return split >= 0 && sWpsNames.containsKey(line.substring(0, split));
     }
 
-    public SupplicantBridge(WifiNative supplicantHook, WifiConfigStore configStore) {
+    public SupplicantBridge(WifiNative supplicantHook, SupplicantBridgeCallbacks callbacks) {
         mSupplicantHook = supplicantHook;
-        mConfigStore = configStore;
+        mCallbacks = callbacks;
     }
 
     public static Map<Constants.ANQPElementType, ANQPElement> parseANQPLines(List<String> lines) {
@@ -80,19 +100,76 @@ public class SupplicantBridge {
         return elements;
     }
 
-    public void startANQP(ScanDetail scanDetail) {
-        String anqpGet = buildWPSQueryRequest(scanDetail.getNetworkDetail());
+    public boolean startANQP(ScanDetail scanDetail, List<Constants.ANQPElementType> elements) {
+        String anqpGet = buildWPSQueryRequest(scanDetail.getNetworkDetail(), elements);
+        if (anqpGet == null) {
+            return false;
+        }
         synchronized (mRequestMap) {
             mRequestMap.put(scanDetail.getNetworkDetail().getBSSID(), scanDetail);
         }
-        String result = mSupplicantHook.doCustomCommand(anqpGet);
+        String result = mSupplicantHook.doCustomSupplicantCommand(anqpGet);
         if (result != null && result.startsWith("OK")) {
-            Log.d(Utils.hs2LogTag(getClass()), "ANQP initiated on " + scanDetail);
+            Log.d(Utils.hs2LogTag(getClass()), "ANQP initiated on "
+                    + scanDetail + " (" + anqpGet + ")");
+            return true;
         }
         else {
             Log.d(Utils.hs2LogTag(getClass()), "ANQP failed on " +
                     scanDetail + ": " + result);
+            return false;
         }
+    }
+
+    public boolean doIconQuery(long bssid, String fileName) {
+        String result = mSupplicantHook.doCustomSupplicantCommand("REQ_HS20_ICON " +
+                Utils.macToString(bssid) + " " + fileName);
+        return result != null && result.startsWith("OK");
+    }
+
+    public byte[] retrieveIcon(IconEvent iconEvent) throws IOException {
+        byte[] iconData = new byte[iconEvent.getSize()];
+        try {
+            int offset = 0;
+            while (offset < iconEvent.getSize()) {
+                int size = Math.min(iconEvent.getSize() - offset, IconChunkSize);
+
+                String command = String.format("GET_HS20_ICON %s %s %d %d",
+                        Utils.macToString(iconEvent.getBSSID()), iconEvent.getFileName(),
+                        offset, size);
+                Log.d(Utils.hs2LogTag(getClass()), "Issuing '" + command + "'");
+                String response = mSupplicantHook.doCustomSupplicantCommand(command);
+                if (response == null) {
+                    throw new IOException("No icon data returned");
+                }
+
+                try {
+                    byte[] fragment = Base64.decode(response, Base64.DEFAULT);
+                    if (fragment.length == 0) {
+                        throw new IOException("Null data for '" + command + "': " + response);
+                    }
+                    if (fragment.length + offset > iconData.length) {
+                        throw new IOException("Icon chunk exceeds image size");
+                    }
+                    System.arraycopy(fragment, 0, iconData, offset, fragment.length);
+                    offset += fragment.length;
+                } catch (IllegalArgumentException iae) {
+                    throw new IOException("Failed to parse response to '" + command
+                            + "': " + response);
+                }
+            }
+            if (offset != iconEvent.getSize()) {
+                Log.w(Utils.hs2LogTag(getClass()), "Partial icon data: " + offset +
+                        ", expected " + iconEvent.getSize());
+            }
+        }
+        finally {
+            Log.d(Utils.hs2LogTag(getClass()), "Deleting icon for " + iconEvent);
+            String result = mSupplicantHook.doCustomSupplicantCommand("DEL_HS20_ICON " +
+                    Utils.macToString(iconEvent.getBSSID()) + " " + iconEvent.getFileName());
+        }
+
+        return iconData;
     }
 
     public void notifyANQPDone(Long bssid, boolean success) {
@@ -100,9 +177,11 @@ public class SupplicantBridge {
         synchronized (mRequestMap) {
             scanDetail = mRequestMap.remove(bssid);
         }
+
         if (scanDetail == null) {
-            Log.d(Utils.hs2LogTag(getClass()), String.format("Spurious %s ANQP response for %012x",
-                            success ? "successful" : "failed", bssid));
+            if (!success) {
+                mCallbacks.notifyIconFailed(bssid);
+            }
             return;
         }
 
@@ -111,7 +190,7 @@ public class SupplicantBridge {
             Map<Constants.ANQPElementType, ANQPElement> elements = parseWPSData(bssData);
             Log.d(Utils.hs2LogTag(getClass()), String.format("%s ANQP response for %012x: %s",
                     success ? "successful" : "failed", bssid, elements));
-            mConfigStore.notifyANQPResponse(scanDetail, success ? elements : null);
+            mCallbacks.notifyANQPResponse(scanDetail, success ? elements : null);
         }
         catch (IOException ioe) {
             Log.e(Utils.hs2LogTag(getClass()), "Failed to parse ANQP: " +
@@ -121,73 +200,8 @@ public class SupplicantBridge {
             Log.e(Utils.hs2LogTag(getClass()), "Failed to parse ANQP: " +
                     rte.toString() + ": " + bssData, rte);
         }
-        mConfigStore.notifyANQPResponse(scanDetail, null);
+        mCallbacks.notifyANQPResponse(scanDetail, null);
     }
-
-    /*
-    public boolean addCredential(HomeSP homeSP, NetworkDetail networkDetail) {
-        Credential credential = homeSP.getCredential();
-        if (credential == null)
-            return false;
-
-        String nwkID = null;
-        if (mLastSSID != null) {
-            String nwkList = mSupplicantHook.doCustomCommand("LIST_NETWORKS");
-
-            BufferedReader reader = new BufferedReader(new StringReader(nwkList));
-            String line;
-            try {
-                while ((line = reader.readLine()) != null) {
-                    String[] tokens = line.split("\\t");
-                    if (tokens.length < 2 || ! Utils.isDecimal(tokens[0])) {
-                        continue;
-                    }
-                    if (unescapeSSID(tokens[1]).equals(mLastSSID)) {
-                        nwkID = tokens[0];
-                        Log.d("HS2J", "Network " + tokens[0] +
-                                " matches last SSID '" + mLastSSID + "'");
-                        break;
-                    }
-                }
-            }
-            catch (IOException ioe) {
-                //
-            }
-        }
-
-        if (nwkID == null) {
-            nwkID = mSupplicantHook.doCustomCommand("ADD_NETWORK");
-            Log.d("HS2J", "add_network: '" + nwkID + "'");
-            if (! Utils.isDecimal(nwkID)) {
-                return false;
-            }
-        }
-
-        List<String> credCommand = getWPSNetCommands(nwkID, networkDetail, credential);
-        for (String command : credCommand) {
-            String status = mSupplicantHook.doCustomCommand(command);
-            Log.d("HS2J", "Status of '" + command + "': '" + status + "'");
-        }
-
-        if (! networkDetail.getSSID().equals(mLastSSID)) {
-            mLastSSID = networkDetail.getSSID();
-            PrintWriter out = null;
-            try {
-                out = new PrintWriter(new OutputStreamWriter(
-                        new FileOutputStream(mLastSSIDFile, false), StandardCharsets.UTF_8));
-                out.println(mLastSSID);
-            } catch (IOException ioe) {
-            //
-            } finally {
-                if (out != null) {
-                    out.close();
-                }
-            }
-        }
-
-        return true;
-    }
-    */
 
     private static String escapeSSID(NetworkDetail networkDetail) {
         return escapeString(networkDetail.getSSID(), networkDetail.isSSID_UTF8());
@@ -217,29 +231,47 @@ public class SupplicantBridge {
         }
     }
 
-    private static String buildWPSQueryRequest(NetworkDetail networkDetail) {
+    /**
+     * Build a wpa_supplicant ANQP query command
+     * @param networkDetail The network to query.
+     * @param querySet elements to query
+     * @return A command string.
+     */
+    private static String buildWPSQueryRequest(NetworkDetail networkDetail,
+                                               List<Constants.ANQPElementType> querySet) {
+
+        boolean baseANQPElements = Constants.hasBaseANQPElements(querySet);
         StringBuilder sb = new StringBuilder();
-        sb.append("ANQP_GET ").append(networkDetail.getBSSIDString()).append(' ');
+        if (baseANQPElements) {
+            sb.append("ANQP_GET ");
+        }
+        else {
+            sb.append("HS20_ANQP_GET ");     // ANQP_GET does not work for a sole hs20:8 (OSU) query
+        }
+        sb.append(networkDetail.getBSSIDString()).append(' ');
 
         boolean first = true;
-        for (Constants.ANQPElementType elementType : ANQPFactory.getBaseANQPSet()) {
-            if (networkDetail.getAnqpOICount() == 0 &&
-                    elementType == Constants.ANQPElementType.ANQPRoamingConsortium) {
-                continue;
-            }
+        for (Constants.ANQPElementType elementType : querySet) {
             if (first) {
                 first = false;
             }
             else {
                 sb.append(',');
             }
-            sb.append(Constants.getANQPElementID(elementType));
-        }
-        if (networkDetail.getHSRelease() != null) {
-            for (Constants.ANQPElementType elementType : ANQPFactory.getHS20ANQPSet()) {
-                sb.append(",hs20:").append(Constants.getHS20ElementID(elementType));
+
+            Integer id = Constants.getANQPElementID(elementType);
+            if (id != null) {
+                sb.append(id);
+            }
+            else {
+                id = Constants.getHS20ElementID(elementType);
+                if (baseANQPElements) {
+                    sb.append("hs20:");
+                }
+                sb.append(id);
             }
         }
+
         return sb.toString();
     }
 

@@ -46,6 +46,16 @@ static void EnableDebugger() {
   if (prctl(PR_SET_DUMPABLE, 1, 0, 0, 0) == -1) {
     PLOG(ERROR) << "prctl(PR_SET_DUMPABLE) failed for pid " << getpid();
   }
+
+  // Even if Yama is on a non-privileged native debugger should
+  // be able to attach to the debuggable app.
+  if (prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0) == -1) {
+    // if Yama is off prctl(PR_SET_PTRACER) returns EINVAL - don't log in this
+    // case since it's expected behaviour.
+    if (errno != EINVAL) {
+      PLOG(ERROR) << "prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY) failed for pid " << getpid();
+    }
+  }
 #endif
   // We don't want core dumps, though, so set the core dump size to 0.
   rlimit rl;
@@ -64,8 +74,9 @@ static void EnableDebugFeatures(uint32_t debug_flags) {
     DEBUG_ENABLE_ASSERT             = 1 << 2,
     DEBUG_ENABLE_SAFEMODE           = 1 << 3,
     DEBUG_ENABLE_JNI_LOGGING        = 1 << 4,
-    DEBUG_ENABLE_JIT                = 1 << 5,
-    DEBUG_GENERATE_DEBUG_INFO       = 1 << 6,
+    DEBUG_GENERATE_DEBUG_INFO       = 1 << 5,
+    DEBUG_ALWAYS_JIT                = 1 << 6,
+    DEBUG_NATIVE_DEBUGGABLE         = 1 << 7,
   };
 
   Runtime* const runtime = Runtime::Current();
@@ -97,20 +108,9 @@ static void EnableDebugFeatures(uint32_t debug_flags) {
   if (safe_mode) {
     // Ensure that any (secondary) oat files will be interpreted.
     runtime->AddCompilerOption("--compiler-filter=interpret-only");
+    runtime->SetSafeMode(true);
     debug_flags &= ~DEBUG_ENABLE_SAFEMODE;
   }
-
-  bool use_jit = false;
-  if ((debug_flags & DEBUG_ENABLE_JIT) != 0) {
-    if (safe_mode) {
-      LOG(INFO) << "Not enabling JIT due to safe mode";
-    } else {
-      use_jit = true;
-      LOG(INFO) << "Late-enabling JIT";
-    }
-    debug_flags &= ~DEBUG_ENABLE_JIT;
-  }
-  runtime->GetJITOptions()->SetUseJIT(use_jit);
 
   const bool generate_debug_info = (debug_flags & DEBUG_GENERATE_DEBUG_INFO) != 0;
   if (generate_debug_info) {
@@ -120,6 +120,20 @@ static void EnableDebugFeatures(uint32_t debug_flags) {
 
   // This is for backwards compatibility with Dalvik.
   debug_flags &= ~DEBUG_ENABLE_ASSERT;
+
+  if ((debug_flags & DEBUG_ALWAYS_JIT) != 0) {
+    jit::JitOptions* jit_options = runtime->GetJITOptions();
+    CHECK(jit_options != nullptr);
+    jit_options->SetJitAtFirstUse();
+    debug_flags &= ~DEBUG_ALWAYS_JIT;
+  }
+
+  if ((debug_flags & DEBUG_NATIVE_DEBUGGABLE) != 0) {
+    runtime->AddCompilerOption("--debuggable");
+    runtime->AddCompilerOption("--generate-debug-info");
+    runtime->SetNativeDebuggable(true);
+    debug_flags &= ~DEBUG_NATIVE_DEBUGGABLE;
+  }
 
   if (debug_flags != 0) {
     LOG(ERROR) << StringPrintf("Unknown bits set in debug_flags: %#x", debug_flags);
@@ -141,7 +155,11 @@ static jlong ZygoteHooks_nativePreFork(JNIEnv* env, jclass) {
   return reinterpret_cast<jlong>(ThreadForEnv(env));
 }
 
-static void ZygoteHooks_nativePostForkChild(JNIEnv* env, jclass, jlong token, jint debug_flags,
+static void ZygoteHooks_nativePostForkChild(JNIEnv* env,
+                                            jclass,
+                                            jlong token,
+                                            jint debug_flags,
+                                            jboolean is_system_server,
                                             jstring instruction_set) {
   Thread* thread = reinterpret_cast<Thread*>(token);
   // Our system thread ID, etc, has changed so reset Thread state.
@@ -171,43 +189,51 @@ static void ZygoteHooks_nativePostForkChild(JNIEnv* env, jclass, jlong token, ji
         proc_name = StringPrintf("%u", static_cast<uint32_t>(pid));
       }
 
-      std::string profiles_dir(GetDalvikCache("profiles", false /* create_if_absent */));
-      if (!profiles_dir.empty()) {
-        std::string trace_file = StringPrintf("%s/%s.trace.bin", profiles_dir.c_str(),
-                                              proc_name.c_str());
-        Trace::Start(trace_file.c_str(),
-                     -1,
-                     buffer_size,
-                     0,   // TODO: Expose flags.
-                     output_mode,
-                     trace_mode,
-                     0);  // TODO: Expose interval.
-        if (thread->IsExceptionPending()) {
-          ScopedObjectAccess soa(env);
-          thread->ClearException();
-        }
-      } else {
-        LOG(ERROR) << "Profiles dir is empty?!?!";
+      std::string trace_file = StringPrintf("/data/misc/trace/%s.trace.bin", proc_name.c_str());
+      Trace::Start(trace_file.c_str(),
+                   -1,
+                   buffer_size,
+                   0,   // TODO: Expose flags.
+                   output_mode,
+                   trace_mode,
+                   0);  // TODO: Expose interval.
+      if (thread->IsExceptionPending()) {
+        ScopedObjectAccess soa(env);
+        thread->ClearException();
       }
     }
   }
 
-  if (instruction_set != nullptr) {
+  if (instruction_set != nullptr && !is_system_server) {
     ScopedUtfChars isa_string(env, instruction_set);
     InstructionSet isa = GetInstructionSetFromString(isa_string.c_str());
     Runtime::NativeBridgeAction action = Runtime::NativeBridgeAction::kUnload;
     if (isa != kNone && isa != kRuntimeISA) {
       action = Runtime::NativeBridgeAction::kInitialize;
     }
-    Runtime::Current()->DidForkFromZygote(env, action, isa_string.c_str());
+    Runtime::Current()->InitNonZygoteOrPostFork(
+        env, is_system_server, action, isa_string.c_str());
   } else {
-    Runtime::Current()->DidForkFromZygote(env, Runtime::NativeBridgeAction::kUnload, nullptr);
+    Runtime::Current()->InitNonZygoteOrPostFork(
+        env, is_system_server, Runtime::NativeBridgeAction::kUnload, nullptr);
   }
+}
+
+static void ZygoteHooks_startZygoteNoThreadCreation(JNIEnv* env ATTRIBUTE_UNUSED,
+                                                    jclass klass ATTRIBUTE_UNUSED) {
+  Runtime::Current()->SetZygoteNoThreadSection(true);
+}
+
+static void ZygoteHooks_stopZygoteNoThreadCreation(JNIEnv* env ATTRIBUTE_UNUSED,
+                                                   jclass klass ATTRIBUTE_UNUSED) {
+  Runtime::Current()->SetZygoteNoThreadSection(false);
 }
 
 static JNINativeMethod gMethods[] = {
   NATIVE_METHOD(ZygoteHooks, nativePreFork, "()J"),
-  NATIVE_METHOD(ZygoteHooks, nativePostForkChild, "(JILjava/lang/String;)V"),
+  NATIVE_METHOD(ZygoteHooks, nativePostForkChild, "(JIZLjava/lang/String;)V"),
+  NATIVE_METHOD(ZygoteHooks, startZygoteNoThreadCreation, "()V"),
+  NATIVE_METHOD(ZygoteHooks, stopZygoteNoThreadCreation, "()V"),
 };
 
 void register_dalvik_system_ZygoteHooks(JNIEnv* env) {

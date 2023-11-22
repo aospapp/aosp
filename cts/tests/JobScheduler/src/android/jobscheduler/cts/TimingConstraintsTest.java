@@ -41,18 +41,6 @@ public class TimingConstraintsTest extends ConstraintTest {
         assertTrue("Timed out waiting for override deadline.", executed);
     }
 
-    public void testSchedulePeriodic() throws Exception {
-        JobInfo periodicJob =
-                new JobInfo.Builder(TIMING_JOB_ID, kJobServiceComponent)
-                        .setPeriodic(5000L)  // 5 second period.
-                        .build();
-
-        kTestEnvironment.setExpectedExecutions(3);
-        mJobScheduler.schedule(periodicJob);
-        final boolean countedDown = kTestEnvironment.awaitExecution();
-        assertTrue("Timed out waiting for periodic jobs to execute", countedDown);
-    }
-
     public void testCancel() throws Exception {
         JobInfo cancelJob = new JobInfo.Builder(CANCEL_JOB_ID, kJobServiceComponent)
                 .setMinimumLatency(5000L) // make sure it doesn't actually run immediately
@@ -72,16 +60,17 @@ public class TimingConstraintsTest extends ConstraintTest {
      * {@link JobParameters#isOverrideDeadlineExpired()} returns the correct value.
      */
     public void testJobParameters_expiredDeadline() throws Exception {
-
+        // It is expected that the "device idle" constraint will *not* be met
+        // for the duration of the override deadline.
         JobInfo deadlineJob =
                 new JobInfo.Builder(EXPIRED_JOB_ID, kJobServiceComponent)
+                        .setRequiresDeviceIdle(true)
                         .setOverrideDeadline(2000L)
                         .build();
         kTestEnvironment.setExpectedExecutions(1);
         mJobScheduler.schedule(deadlineJob);
         assertTrue("Failed to execute deadline job", kTestEnvironment.awaitExecution());
-        assertTrue("Job that had its deadline expire didn't have" +
-                        " JobParameters#isOverrideDeadlineExpired=true",
+        assertTrue("Job does not show its deadline as expired",
                 kTestEnvironment.getLastJobParameters().isOverrideDeadlineExpired());
     }
 

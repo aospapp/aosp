@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm -g -triple x86_64-pc-linux-gnu %s -o - | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -debug-info-kind=limited -triple x86_64-pc-linux-gnu %s -o - | FileCheck %s
 
 struct C {
   void member_function();
@@ -25,12 +25,12 @@ int global_namespace_variable = 1;
 // functions that belong to the namespace have it as a context, and the global
 // function has the file as a context.
 
-// CHECK: ![[FILE:[0-9]+]] = !MDFile(filename: "{{.*}}context.cpp",
-// CHECK: !MDSubprogram(name: "member_function",{{.*}} scope: !"_ZTS1C",{{.*}} isDefinition: true
+// CHECK: ![[FILE:[0-9]+]] = !DIFile(filename: "{{.*}}context.cpp",
+// CHECK: !DISubprogram(name: "member_function",{{.*}} scope: !"_ZTS1C",{{.*}} isDefinition: true
 
-// CHECK: !MDSubprogram(name: "static_member_function",{{.*}} scope: !"_ZTS1C",{{.*}} isDefinition: true
+// CHECK: !DISubprogram(name: "static_member_function",{{.*}} scope: !"_ZTS1C",{{.*}} isDefinition: true
 
-// CHECK: !MDSubprogram(name: "global_function",{{.*}} scope: ![[FILE]],{{.*}} isDefinition: true
+// CHECK: !DISubprogram(name: "global_function",{{.*}} scope: ![[FILE]],{{.*}} isDefinition: true
 
-// CHECK: !MDSubprogram(name: "global_namespace_function",{{.*}} scope: ![[NS:[0-9]+]],{{.*}} isDefinition: true
-// CHECK: ![[NS]] = !MDNamespace(name: "ns"
+// CHECK: !DISubprogram(name: "global_namespace_function",{{.*}} scope: ![[NS:[0-9]+]],{{.*}} isDefinition: true
+// CHECK: ![[NS]] = !DINamespace(name: "ns"

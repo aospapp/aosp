@@ -3,7 +3,7 @@
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <version>24.0.2-SNAPSHOT</version>
+    <version>24.3.3-SNAPSHOT</version>
     <artifactId>bundles</artifactId>
     <packaging>eclipse-repository</packaging>
     <name>bundles</name>
@@ -49,11 +49,6 @@
                             <id>monitorproduct</id>
                             <attachId>com.android.ide.eclipse.monitor.product</attachId>
                             <rootFolder>monitor</rootFolder>
-                        </product>
-                        <product>
-                            <id>adtproduct</id>
-                            <attachId>adtproduct</attachId>
-                            <rootFolder>adt</rootFolder>
                         </product>
                     </products>
                 </configuration>

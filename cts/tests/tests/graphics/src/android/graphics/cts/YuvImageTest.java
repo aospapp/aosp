@@ -33,7 +33,7 @@ import android.graphics.YuvImage;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
-import com.android.cts.graphics.R;
+import android.graphics.cts.R;
 
 
 public class YuvImageTest extends AndroidTestCase {

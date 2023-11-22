@@ -19,8 +19,7 @@
     <group>Wearable</group>
     <package>com.example.android.google.wearable.app</package>
 
-    <minSdk>18</minSdk>
-    <targetSdkVersion>22</targetSdkVersion>
+    <targetSdkVersionWear>22</targetSdkVersionWear>
 
     <strings>
         <intro>
@@ -35,7 +34,7 @@
     <template src="base-build"/>
     <template src="Wear"/>
     <metadata>
-        <status>PUBLISHED</status>
+        <status>DEPRECATED</status>
         <categories>Getting Started, Wearable</categories>
         <technologies>Android</technologies>
         <languages>Java</languages>

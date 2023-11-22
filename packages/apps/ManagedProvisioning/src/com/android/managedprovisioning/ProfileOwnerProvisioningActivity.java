@@ -44,6 +44,8 @@ import android.support.v4.content.LocalBroadcastManager;
 import android.view.View;
 import android.widget.TextView;
 
+import com.android.managedprovisioning.model.ProvisioningParams;
+
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 
@@ -69,21 +71,23 @@ public class ProfileOwnerProvisioningActivity extends SetupLayoutActivity {
     private static final int BROADCAST_TIMEOUT = 2 * 60 * 1000;
 
     // Provisioning service started
-    private static final int CANCELSTATUS_PROVISIONING = 1;
+    private static final int STATUS_PROVISIONING = 1;
     // Back button pressed during provisioning, confirm dialog showing.
-    private static final int CANCELSTATUS_CONFIRMING = 2;
+    private static final int STATUS_CANCEL_CONFIRMING = 2;
     // Cancel confirmed, waiting for the provisioning service to complete.
-    private static final int CANCELSTATUS_CANCELLING = 3;
+    private static final int STATUS_CANCELLING = 3;
     // Cancelling not possible anymore, provisioning already finished successfully.
-    private static final int CANCELSTATUS_FINALIZING = 4;
+    private static final int STATUS_FINALIZING = 4;
 
-    private static final String KEY_CANCELSTATUS= "cancelstatus";
+    private static final String KEY_STATUS= "status";
     private static final String KEY_PENDING_INTENT = "pending_intent";
 
-    private int mCancelStatus = CANCELSTATUS_PROVISIONING;
+    private int mCancelStatus = STATUS_PROVISIONING;
     private Intent mPendingProvisioningResult = null;
     private ProgressDialog mCancelProgressDialog = null;
     private AccountManager mAccountManager;
+
+    private ProvisioningParams mParams;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -92,7 +96,7 @@ public class ProfileOwnerProvisioningActivity extends SetupLayoutActivity {
         mAccountManager = (AccountManager) getSystemService(Context.ACCOUNT_SERVICE);
 
         if (savedInstanceState != null) {
-            mCancelStatus = savedInstanceState.getInt(KEY_CANCELSTATUS, CANCELSTATUS_PROVISIONING);
+            mCancelStatus = savedInstanceState.getInt(KEY_STATUS, STATUS_PROVISIONING);
             mPendingProvisioningResult = savedInstanceState.getParcelable(KEY_PENDING_INTENT);
         }
 
@@ -103,10 +107,15 @@ public class ProfileOwnerProvisioningActivity extends SetupLayoutActivity {
         TextView textView = (TextView) findViewById(R.id.prog_text);
         if (textView != null) textView.setText(R.string.setting_up_workspace);
 
-        if (mCancelStatus == CANCELSTATUS_CONFIRMING) {
+        if (mCancelStatus == STATUS_CANCEL_CONFIRMING) {
             showCancelProvisioningDialog();
-        } else if (mCancelStatus == CANCELSTATUS_CANCELLING) {
+        } else if (mCancelStatus == STATUS_CANCELLING) {
             showCancelProgressDialog();
+        }
+        mParams = (ProvisioningParams) getIntent().getParcelableExtra(
+                ProvisioningParams.EXTRA_PROVISIONING_PARAMS);
+        if (mParams != null) {
+            maybeSetLogoAndMainColor(mParams.mainColor);
         }
     }
 
@@ -138,7 +147,7 @@ public class ProfileOwnerProvisioningActivity extends SetupLayoutActivity {
     class ServiceMessageReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
-            if (mCancelStatus == CANCELSTATUS_CONFIRMING) {
+            if (mCancelStatus == STATUS_CANCEL_CONFIRMING) {
                 // Store the incoming intent and only process it after the user has responded to
                 // the cancel dialog
                 mPendingProvisioningResult = intent;
@@ -151,7 +160,7 @@ public class ProfileOwnerProvisioningActivity extends SetupLayoutActivity {
     private void handleProvisioningResult(Intent intent) {
         String action = intent.getAction();
         if (ProfileOwnerProvisioningService.ACTION_PROVISIONING_SUCCESS.equals(action)) {
-            if (mCancelStatus == CANCELSTATUS_CANCELLING) {
+            if (mCancelStatus == STATUS_CANCELLING) {
                 return;
             }
 
@@ -160,7 +169,7 @@ public class ProfileOwnerProvisioningActivity extends SetupLayoutActivity {
 
             onProvisioningSuccess();
         } else if (ProfileOwnerProvisioningService.ACTION_PROVISIONING_ERROR.equals(action)) {
-            if (mCancelStatus == CANCELSTATUS_CANCELLING){
+            if (mCancelStatus == STATUS_CANCELLING){
                 return;
             }
             String errorLogMessage = intent.getStringExtra(
@@ -168,9 +177,9 @@ public class ProfileOwnerProvisioningActivity extends SetupLayoutActivity {
             ProvisionLogger.logd("Error reported: " + errorLogMessage);
             error(R.string.managed_provisioning_error_text, errorLogMessage);
             // Note that this will be reported as a canceled action
-            mCancelStatus = CANCELSTATUS_FINALIZING;
+            mCancelStatus = STATUS_FINALIZING;
         } else if (ProfileOwnerProvisioningService.ACTION_PROVISIONING_CANCELLED.equals(action)) {
-            if (mCancelStatus != CANCELSTATUS_CANCELLING) {
+            if (mCancelStatus != STATUS_CANCELLING) {
                 return;
             }
             mCancelProgressDialog.dismiss();
@@ -186,9 +195,11 @@ public class ProfileOwnerProvisioningActivity extends SetupLayoutActivity {
 
     @Override
     public void onBackPressed() {
-        if (mCancelStatus != CANCELSTATUS_PROVISIONING) {
-            mCancelStatus = CANCELSTATUS_CONFIRMING;
+        if (mCancelStatus == STATUS_PROVISIONING) {
+            mCancelStatus = STATUS_CANCEL_CONFIRMING;
             showCancelProvisioningDialog();
+        } else {
+            super.onBackPressed();
         }
     }
 
@@ -200,7 +211,7 @@ public class ProfileOwnerProvisioningActivity extends SetupLayoutActivity {
                         new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog,int id) {
-                                mCancelStatus = CANCELSTATUS_PROVISIONING;
+                                mCancelStatus = STATUS_PROVISIONING;
                                 if (mPendingProvisioningResult != null) {
                                     handleProvisioningResult(mPendingProvisioningResult);
                                 }
@@ -242,11 +253,11 @@ public class ProfileOwnerProvisioningActivity extends SetupLayoutActivity {
     }
 
     private void confirmCancel() {
-        if (mCancelStatus != CANCELSTATUS_CONFIRMING) {
+        if (mCancelStatus != STATUS_CANCEL_CONFIRMING) {
             // Can only cancel if provisioning hasn't finished at this point.
             return;
         }
-        mCancelStatus = CANCELSTATUS_CANCELLING;
+        mCancelStatus = STATUS_CANCELLING;
         Intent intent = new Intent(ProfileOwnerProvisioningActivity.this,
                 ProfileOwnerProvisioningService.class);
         intent.setAction(ACTION_CANCEL_PROVISIONING);
@@ -260,13 +271,7 @@ public class ProfileOwnerProvisioningActivity extends SetupLayoutActivity {
     private void onProvisioningSuccess() {
         mBackButton.setVisibility(View.INVISIBLE);
 
-        if (!Utils.isUserSetupCompleted(this)) {
-            // Since provisioning could have started from Setup wizard, we should set
-            // USER_SETUP_COMPLETE to true in order to shut down the Setup wizard.
-            Utils.markDeviceProvisioned(ProfileOwnerProvisioningActivity.this);
-        }
-
-        mCancelStatus = CANCELSTATUS_FINALIZING;
+        mCancelStatus = STATUS_FINALIZING;
         stopService(new Intent(this, ProfileOwnerProvisioningService.class));
         setResult(Activity.RESULT_OK);
         finish();
@@ -274,7 +279,7 @@ public class ProfileOwnerProvisioningActivity extends SetupLayoutActivity {
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
-        outState.putInt(KEY_CANCELSTATUS, mCancelStatus);
+        outState.putInt(KEY_STATUS, mCancelStatus);
         outState.putParcelable(KEY_PENDING_INTENT, mPendingProvisioningResult);
     }
 

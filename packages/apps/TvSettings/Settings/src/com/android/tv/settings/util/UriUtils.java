@@ -74,20 +74,6 @@ public final class UriUtils {
     }
 
     /**
-     * Gets a URI with the account image scheme, and specifying an URI to be
-     * used in notifyChange() when the image pointed to by the returned URI is
-     * updated.
-     */
-    public static Uri getAccountImageUri(String accountName, Uri changeNotifyUri) {
-        Uri uri = Uri.parse(SCHEME_ACCOUNT_IMAGE + SCHEME_DELIMITER + accountName);
-        if (changeNotifyUri != null) {
-            uri = uri.buildUpon().appendQueryParameter(ACCOUNT_IMAGE_CHANGE_NOTIFY_URI,
-                    changeNotifyUri.toString()).build();
-        }
-        return uri;
-    }
-
-    /**
      * Checks if the URI refers to an account image.
      */
     public static boolean isAccountImageUri(Uri uri) {

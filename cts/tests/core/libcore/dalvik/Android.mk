@@ -17,4 +17,5 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 LOCAL_PACKAGE_NAME := android.core.tests.libcore.package.dalvik
 LOCAL_STATIC_JAVA_LIBRARIES := core-tests
+LOCAL_JAVA_LANGUAGE_VERSION := 1.8
 include $(BUILD_CTSCORE_PACKAGE)

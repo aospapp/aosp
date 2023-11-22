@@ -66,14 +66,13 @@ void SkNWayCanvas::willSave() {
     this->INHERITED::willSave();
 }
 
-SkCanvas::SaveLayerStrategy SkNWayCanvas::willSaveLayer(const SkRect* bounds, const SkPaint* paint,
-                                                        SaveFlags flags) {
+SkCanvas::SaveLayerStrategy SkNWayCanvas::getSaveLayerStrategy(const SaveLayerRec& rec) {
     Iter iter(fList);
     while (iter.next()) {
-        iter->saveLayer(bounds, paint, flags);
+        iter->saveLayer(rec);
     }
 
-    this->INHERITED::willSaveLayer(bounds, paint, flags);
+    this->INHERITED::getSaveLayerStrategy(rec);
     // No need for a layer.
     return kNoLayer_SaveLayerStrategy;
 }
@@ -170,8 +169,7 @@ void SkNWayCanvas::onDrawRRect(const SkRRect& rrect, const SkPaint& paint) {
     }
 }
 
-void SkNWayCanvas::onDrawDRRect(const SkRRect& outer, const SkRRect& inner,
-                                const SkPaint& paint) {
+void SkNWayCanvas::onDrawDRRect(const SkRRect& outer, const SkRRect& inner, const SkPaint& paint) {
     Iter iter(fList);
     while (iter.next()) {
         iter->drawDRRect(outer, inner, paint);
@@ -194,10 +192,10 @@ void SkNWayCanvas::onDrawBitmap(const SkBitmap& bitmap, SkScalar x, SkScalar y,
 }
 
 void SkNWayCanvas::onDrawBitmapRect(const SkBitmap& bitmap, const SkRect* src, const SkRect& dst,
-                                    const SkPaint* paint, DrawBitmapRectFlags flags) {
+                                    const SkPaint* paint, SrcRectConstraint constraint) {
     Iter iter(fList);
     while (iter.next()) {
-        iter->drawBitmapRectToRect(bitmap, src, dst, paint, flags);
+        iter->legacy_drawBitmapRect(bitmap, src, dst, paint, (SrcRectConstraint)constraint);
     }
 }
 
@@ -218,17 +216,10 @@ void SkNWayCanvas::onDrawImage(const SkImage* image, SkScalar left, SkScalar top
 }
 
 void SkNWayCanvas::onDrawImageRect(const SkImage* image, const SkRect* src, const SkRect& dst,
-                                   const SkPaint* paint) {
+                                   const SkPaint* paint, SrcRectConstraint constraint) {
     Iter iter(fList);
     while (iter.next()) {
-        iter->drawImageRect(image, src, dst, paint);
-    }
-}
-
-void SkNWayCanvas::onDrawSprite(const SkBitmap& bitmap, int x, int y, const SkPaint* paint) {
-    Iter iter(fList);
-    while (iter.next()) {
-        iter->drawSprite(bitmap, x, y, paint);
+        iter->legacy_drawImageRect(image, src, dst, paint, constraint);
     }
 }
 
@@ -301,6 +292,7 @@ void SkNWayCanvas::onDrawPatch(const SkPoint cubics[12], const SkColor colors[4]
     }
 }
 
+#ifdef SK_SUPPORT_LEGACY_DRAWFILTER
 SkDrawFilter* SkNWayCanvas::setDrawFilter(SkDrawFilter* filter) {
     Iter iter(fList);
     while (iter.next()) {
@@ -308,24 +300,4 @@ SkDrawFilter* SkNWayCanvas::setDrawFilter(SkDrawFilter* filter) {
     }
     return this->INHERITED::setDrawFilter(filter);
 }
-
-void SkNWayCanvas::beginCommentGroup(const char* description) {
-    Iter iter(fList);
-    while (iter.next()) {
-        iter->beginCommentGroup(description);
-    }
-}
-
-void SkNWayCanvas::addComment(const char* kywd, const char* value) {
-    Iter iter(fList);
-    while (iter.next()) {
-        iter->addComment(kywd, value);
-    }
-}
-
-void SkNWayCanvas::endCommentGroup() {
-    Iter iter(fList);
-    while (iter.next()) {
-        iter->endCommentGroup();
-    }
-}
+#endif

@@ -16,6 +16,7 @@
 
 package vogar.target;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,38 +29,37 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 import vogar.Result;
 import vogar.TestProperties;
 import vogar.monitor.TargetMonitor;
-import vogar.target.junit.JUnitRunner;
+import vogar.target.junit.JUnitRunnerFactory;
 
 /**
  * Runs an action, in process on the target.
  */
 public final class TestRunner {
 
-    protected final Properties properties;
-
-    protected final String qualifiedName;
-    protected final String qualifiedClassOrPackageName;
+    private final String qualifiedName;
+    private final String qualifiedClassOrPackageName;
 
     /** the monitor port if a monitor is expected, or null for no monitor */
-    protected final Integer monitorPort;
+    @VisibleForTesting final Integer monitorPort;
 
     /** use an atomic reference so the runner can null it out when it is encountered. */
-    protected final AtomicReference<String> skipPastReference;
-    protected final int timeoutSeconds;
-    protected final List<Runner> runners;
+    @VisibleForTesting final AtomicReference<String> skipPastReference;
+    private final int timeoutSeconds;
+
+    private final RunnerFactory runnerFactory;
     private final boolean profile;
     private final int profileDepth;
     private final int profileInterval;
     private final File profileFile;
     private final boolean profileThreadGroup;
-    protected final String[] args;
+    private final String[] args;
     private boolean useSocketMonitor;
 
-    public TestRunner(List<String> argsList) {
-        properties = loadProperties();
+    public TestRunner(Properties properties, List<String> argsList) {
         qualifiedName = properties.getProperty(TestProperties.QUALIFIED_NAME);
         qualifiedClassOrPackageName = properties.getProperty(TestProperties.TEST_CLASS_OR_PACKAGE);
         timeoutSeconds = Integer.parseInt(properties.getProperty(TestProperties.TIMEOUT));
@@ -74,14 +74,6 @@ public final class TestRunner {
         boolean profileThreadGroup
                 = Boolean.parseBoolean(properties.getProperty(TestProperties.PROFILE_THREAD_GROUP));
 
-        boolean testOnly = Boolean.parseBoolean(properties.getProperty(TestProperties.TEST_ONLY));
-        if (testOnly) {
-          runners = Arrays.asList((Runner)new JUnitRunner());
-        } else {
-          runners = Arrays.asList(new JUnitRunner(),
-                                  new CaliperRunner(),
-                                  new MainRunner());
-        }
         for (Iterator<String> i = argsList.iterator(); i.hasNext(); ) {
             String arg = i.next();
             if (arg.equals("--monitorPort")) {
@@ -96,8 +88,18 @@ public final class TestRunner {
             }
         }
 
+        boolean testOnly = Boolean.parseBoolean(properties.getProperty(TestProperties.TEST_ONLY));
+        if (testOnly) {
+            runnerFactory = new CompositeRunnerFactory(new JUnitRunnerFactory());
+        } else {
+            runnerFactory = new CompositeRunnerFactory(
+                    new JUnitRunnerFactory(),
+                    new CaliperRunnerFactory(argsList),
+                    new MainRunnerFactory());
+        }
+
         this.monitorPort = monitorPort;
-        this.skipPastReference = new AtomicReference<String>(skipPast);
+        this.skipPastReference = new AtomicReference<>(skipPast);
         this.profile = profile;
         this.profileDepth = profileDepth;
         this.profileInterval = profileInterval;
@@ -106,7 +108,14 @@ public final class TestRunner {
         this.args = argsList.toArray(new String[argsList.size()]);
     }
 
-    private Properties loadProperties() {
+    /**
+     * Load the properties that were either encapsulated in the APK (if using
+     * {@link vogar.android.ActivityMode}), or encapsulated in the JAR compiled by Vogar (in other
+     * modes).
+     *
+     * @return The {@link Properties} that were loaded.
+     */
+    public static Properties loadProperties() {
         try {
             InputStream in = getPropertiesStream();
             Properties properties = new Properties();
@@ -131,7 +140,7 @@ public final class TestRunner {
      * Attempt to load the test properties file from both the application and system classloader.
      * This is necessary because sometimes we run tests from the boot classpath.
      */
-    private InputStream getPropertiesStream() throws IOException {
+    private static InputStream getPropertiesStream() throws IOException {
         for (Class<?> classToLoadFrom : new Class<?>[] { TestRunner.class, Object.class }) {
             InputStream propertiesStream = classToLoadFrom.getResourceAsStream(
                     "/" + TestProperties.FILE);
@@ -140,22 +149,6 @@ public final class TestRunner {
             }
         }
         throw new IOException(TestProperties.FILE + " missing!");
-    }
-
-    /**
-     * Returns the class to run the test with based on {@param klass}. For instance, a class
-     * that extends junit.framework.TestCase should be run with JUnitSpec.
-     *
-     * Returns null if no such associated runner exists.
-     */
-    private Class<?> runnerClass(Class<?> klass) {
-        for (Runner runner : runners) {
-            if (runner.supports(klass)) {
-                return runner.getClass();
-            }
-        }
-
-        return null;
     }
 
     public void run() throws IOException {
@@ -180,7 +173,7 @@ public final class TestRunner {
         }
     }
 
-    public void run(final TargetMonitor monitor) {
+    private void run(final TargetMonitor monitor) {
         TestEnvironment testEnvironment = new TestEnvironment();
         testEnvironment.reset();
 
@@ -204,7 +197,7 @@ public final class TestRunner {
         // if there is more than one class in the set, this must be a package. Since we're
         // running everything in the package already, remove any class called AllTests.
         if (classes.size() > 1) {
-            Set<Class<?>> toRemove = new HashSet<Class<?>>();
+            Set<Class<?>> toRemove = new HashSet<>();
             for (Class<?> klass : classes) {
                 if (klass.getName().endsWith(".AllTests")) {
                     toRemove.add(klass);
@@ -226,27 +219,26 @@ public final class TestRunner {
             profiler.setup(profileThreadGroup, profileDepth, profileInterval);
         }
         for (Class<?> klass : classes) {
-            Class<?> runnerClass = runnerClass(klass);
-            if (runnerClass == null) {
-                monitor.outcomeStarted(null, klass.getName(), qualifiedName);
+            Runner runner;
+            try {
+                runner = runnerFactory.newRunner(monitor, qualification, klass,
+                        skipPastReference, testEnvironment, timeoutSeconds, profile, args);
+            } catch (RuntimeException e) {
+                monitor.outcomeStarted(null, qualifiedName);
+                e.printStackTrace();
+                monitor.outcomeFinished(Result.ERROR);
+                return;
+            }
+
+            if (runner == null) {
+                monitor.outcomeStarted(null, klass.getName());
                 System.out.println("Skipping " + klass.getName()
                         + ": no associated runner class");
                 monitor.outcomeFinished(Result.UNSUPPORTED);
                 continue;
             }
 
-            Runner runner;
-            try {
-                runner = (Runner) runnerClass.newInstance();
-                runner.init(monitor, qualifiedName, qualification, klass, skipPastReference,
-                        testEnvironment, timeoutSeconds, profile);
-            } catch (Exception e) {
-                monitor.outcomeStarted(null, qualifiedName, qualifiedName);
-                e.printStackTrace();
-                monitor.outcomeFinished(Result.ERROR);
-                return;
-            }
-            boolean completedNormally = runner.run(qualifiedName, profiler, args);
+            boolean completedNormally = runner.run(profiler);
             if (!completedNormally) {
                 return; // let the caller start another process
             }
@@ -259,8 +251,35 @@ public final class TestRunner {
     }
 
     public static void main(String[] args) throws IOException {
-        new TestRunner(new ArrayList<String>(Arrays.asList(args))).run();
+        new TestRunner(loadProperties(), new ArrayList<>(Arrays.asList(args))).run();
         System.exit(0);
     }
 
+    /**
+     * A {@link RunnerFactory} that will traverse a list of {@link RunnerFactory} instances to find
+     * one that can be used to run the code.
+     */
+    private static class CompositeRunnerFactory implements RunnerFactory {
+
+        private final List<? extends RunnerFactory> runnerFactories;
+
+        private CompositeRunnerFactory(RunnerFactory... runnerFactories) {
+            this.runnerFactories = Arrays.asList(runnerFactories);
+        }
+
+        @Override @Nullable
+        public Runner newRunner(TargetMonitor monitor, String qualification,
+                Class<?> klass, AtomicReference<String> skipPastReference,
+                TestEnvironment testEnvironment, int timeoutSeconds, boolean profile, String[] args) {
+            for (RunnerFactory runnerFactory : runnerFactories) {
+                Runner runner = runnerFactory.newRunner(monitor, qualification, klass,
+                        skipPastReference, testEnvironment, timeoutSeconds, profile, args);
+                if (runner != null) {
+                    return runner;
+                }
+            }
+
+            return null;
+        }
+    }
 }

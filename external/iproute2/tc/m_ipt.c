@@ -1,6 +1,6 @@
 /*
  * m_ipt.c	iptables based targets
- * 		utilities mostly ripped from iptables <duh, its the linux way>
+ *		utilities mostly ripped from iptables <duh, its the linux way>
  *
  *		This program is free software; you can distribute it and/or
  *		modify it under the terms of the GNU General Public License
@@ -415,7 +415,7 @@ static int parse_ipt(struct action_util *a,int *argc_p,
 	}
 
 	if (argc <= 2) {
-		fprintf(stderr,"bad arguements to ipt %d vs %d \n", argc, rargc);
+		fprintf(stderr,"bad arguments to ipt %d vs %d \n", argc, rargc);
 		return -1;
 	}
 
@@ -618,4 +618,3 @@ struct action_util ipt_action_util = {
         .parse_aopt = parse_ipt,
         .print_aopt = print_ipt,
 };
-

@@ -8,7 +8,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2010-2013 RT-RK 
+   Copyright (C) 2010-2015 RT-RK 
       mips-valgrind@rt-rk.com 
 
    This program is free software; you can redistribute it and/or
@@ -116,6 +116,7 @@ static void setup_sigcontext ( ThreadState* tst, struct vki_sigcontext **sc1,
 
 /* EXPORTED */
 void VG_(sigframe_create) ( ThreadId tid,
+                            Bool on_altstack,
                             Addr sp_top_of_frame,
                             const vki_siginfo_t *siginfo,
                             const struct vki_ucontext *siguc,
@@ -265,7 +266,7 @@ void VG_(sigframe_destroy) ( ThreadId tid, Bool isRT )
    VG_TRACK(die_mem_stack_signal, sp, frame_size);
    if (VG_(clo_trace_signals))
       VG_(message)(Vg_DebugMsg,
-         "VG_(signal_return) (thread %d): isRT=%d valid magic; EIP=%#llx\n",
+         "VG_(signal_return) (thread %u): isRT=%d valid magic; EIP=%#llx\n",
          tid, isRT, tst->arch.vex.guest_PC);
    /* tell the tools */
    VG_TRACK( post_deliver_signal, tid, sigNo );

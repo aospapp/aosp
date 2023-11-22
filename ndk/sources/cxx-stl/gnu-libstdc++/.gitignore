@@ -3,3 +3,5 @@
 # in our git repository.
 libs/
 include/
+/repo.prop
+/NOTICE

@@ -20,12 +20,22 @@ import static android.os.Environment.buildExternalStorageAppCacheDirs;
 import static android.os.Environment.buildExternalStorageAppFilesDirs;
 import static android.os.Environment.buildExternalStorageAppMediaDirs;
 import static android.os.Environment.buildExternalStorageAppObbDirs;
+import static android.provider.Downloads.Impl.FLAG_REQUIRES_CHARGING;
+import static android.provider.Downloads.Impl.FLAG_REQUIRES_DEVICE_IDLE;
+
 import static com.android.providers.downloads.Constants.TAG;
 
+import android.app.job.JobInfo;
+import android.app.job.JobScheduler;
+import android.content.ComponentName;
 import android.content.Context;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Environment;
 import android.os.FileUtils;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Process;
 import android.os.SystemClock;
 import android.os.UserHandle;
 import android.os.storage.StorageManager;
@@ -33,6 +43,8 @@ import android.os.storage.StorageVolume;
 import android.provider.Downloads;
 import android.util.Log;
 import android.webkit.MimeTypeMap;
+
+import com.google.common.annotations.VisibleForTesting;
 
 import java.io.File;
 import java.io.IOException;
@@ -53,7 +65,114 @@ public class Helpers {
 
     private static final Object sUniqueLock = new Object();
 
+    private static HandlerThread sAsyncHandlerThread;
+    private static Handler sAsyncHandler;
+
+    private static SystemFacade sSystemFacade;
+    private static DownloadNotifier sNotifier;
+
     private Helpers() {
+    }
+
+    public synchronized static Handler getAsyncHandler() {
+        if (sAsyncHandlerThread == null) {
+            sAsyncHandlerThread = new HandlerThread("sAsyncHandlerThread",
+                    Process.THREAD_PRIORITY_BACKGROUND);
+            sAsyncHandlerThread.start();
+            sAsyncHandler = new Handler(sAsyncHandlerThread.getLooper());
+        }
+        return sAsyncHandler;
+    }
+
+    @VisibleForTesting
+    public synchronized static void setSystemFacade(SystemFacade systemFacade) {
+        sSystemFacade = systemFacade;
+    }
+
+    public synchronized static SystemFacade getSystemFacade(Context context) {
+        if (sSystemFacade == null) {
+            sSystemFacade = new RealSystemFacade(context);
+        }
+        return sSystemFacade;
+    }
+
+    public synchronized static DownloadNotifier getDownloadNotifier(Context context) {
+        if (sNotifier == null) {
+            sNotifier = new DownloadNotifier(context);
+        }
+        return sNotifier;
+    }
+
+    public static String getString(Cursor cursor, String col) {
+        return cursor.getString(cursor.getColumnIndexOrThrow(col));
+    }
+
+    public static int getInt(Cursor cursor, String col) {
+        return cursor.getInt(cursor.getColumnIndexOrThrow(col));
+    }
+
+    public static void scheduleJob(Context context, long downloadId) {
+        final boolean scheduled = scheduleJob(context,
+                DownloadInfo.queryDownloadInfo(context, downloadId));
+        if (!scheduled) {
+            // If we didn't schedule a future job, kick off a notification
+            // update pass immediately
+            getDownloadNotifier(context).update();
+        }
+    }
+
+    /**
+     * Schedule (or reschedule) a job for the given {@link DownloadInfo} using
+     * its current state to define job constraints.
+     */
+    public static boolean scheduleJob(Context context, DownloadInfo info) {
+        if (info == null) return false;
+
+        final JobScheduler scheduler = context.getSystemService(JobScheduler.class);
+
+        // Tear down any existing job for this download
+        final int jobId = (int) info.mId;
+        scheduler.cancel(jobId);
+
+        // Skip scheduling if download is paused or finished
+        if (!info.isReadyToSchedule()) return false;
+
+        final JobInfo.Builder builder = new JobInfo.Builder(jobId,
+                new ComponentName(context, DownloadJobService.class));
+
+        // When this download will show a notification, run with a higher
+        // priority, since it's effectively a foreground service
+        if (info.isVisible()) {
+            builder.setPriority(JobInfo.PRIORITY_FOREGROUND_APP);
+            builder.setFlags(JobInfo.FLAG_WILL_BE_FOREGROUND);
+        }
+
+        // We might have a backoff constraint due to errors
+        final long latency = info.getMinimumLatency();
+        if (latency > 0) {
+            builder.setMinimumLatency(latency);
+        }
+
+        // We always require a network, but the type of network might be further
+        // restricted based on download request or user override
+        builder.setRequiredNetworkType(info.getRequiredNetworkType(info.mTotalBytes));
+
+        if ((info.mFlags & FLAG_REQUIRES_CHARGING) != 0) {
+            builder.setRequiresCharging(true);
+        }
+        if ((info.mFlags & FLAG_REQUIRES_DEVICE_IDLE) != 0) {
+            builder.setRequiresDeviceIdle(true);
+        }
+
+        // If package name was filtered during insert (probably due to being
+        // invalid), blame based on the requesting UID instead
+        String packageName = info.mPackage;
+        if (packageName == null) {
+            packageName = context.getPackageManager().getPackagesForUid(info.mUid)[0];
+        }
+
+        scheduler.scheduleAsPackage(builder.build(), packageName, UserHandle.myUserId(), TAG);
+        return true;
     }
 
     /*
@@ -357,8 +476,6 @@ public class Helpers {
     static boolean isFilenameValidInExternalPackage(Context context, File file,
             String packageName) {
         try {
-            file = file.getCanonicalFile();
-
             if (containsCanonical(buildExternalStorageAppFilesDirs(packageName), file) ||
                     containsCanonical(buildExternalStorageAppObbDirs(packageName), file) ||
                     containsCanonical(buildExternalStorageAppCacheDirs(packageName), file) ||
@@ -380,8 +497,6 @@ public class Helpers {
      */
     static boolean isFilenameValid(Context context, File file, boolean allowInternal) {
         try {
-            file = file.getCanonicalFile();
-
             if (allowInternal) {
                 if (containsCanonical(context.getFilesDir(), file)
                         || containsCanonical(context.getCacheDir(), file)

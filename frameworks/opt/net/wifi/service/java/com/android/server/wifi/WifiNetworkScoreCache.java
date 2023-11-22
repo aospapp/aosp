@@ -31,16 +31,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class WifiNetworkScoreCache extends INetworkScoreCache.Stub
- {
+public class WifiNetworkScoreCache extends INetworkScoreCache.Stub {
+    private static final String TAG = "WifiNetworkScoreCache";
+    private static final boolean DBG = false;
 
     // A Network scorer returns a score in the range [-128, +127]
     // We treat the lowest possible score as though there were no score, effectively allowing the
     // scorer to provide an RSSI threshold below which a network should not be used.
-    public static int INVALID_NETWORK_SCORE = Byte.MIN_VALUE;
-
-    private static String TAG = "WifiNetworkScoreCache";
-    private boolean DBG = true;
+    public static final int INVALID_NETWORK_SCORE = Byte.MIN_VALUE;
     private final Context mContext;
 
     // The key is of the form "<ssid>"<bssid>
@@ -110,6 +108,16 @@ public class WifiNetworkScoreCache extends INetworkScoreCache.Stub
         return score;
     }
 
+    /**
+     * Returns the ScoredNetwork metered hint for a given ScanResult.
+     *
+     * If there is no ScoredNetwork associated with the ScanResult then false will be returned.
+     */
+    public boolean getMeteredHint(ScanResult result) {
+        ScoredNetwork network = getScoredNetwork(result);
+        return network != null && network.meteredHint;
+    }
+
     public int getNetworkScore(ScanResult result, boolean isActiveNetwork) {
 
         int score = INVALID_NETWORK_SCORE;
@@ -170,7 +178,9 @@ public class WifiNetworkScoreCache extends INetworkScoreCache.Stub
         writer.println("WifiNetworkScoreCache");
         writer.println("  All score curves:");
         for (Map.Entry<String, ScoredNetwork> entry : mNetworkCache.entrySet()) {
-            writer.println("    " + entry.getKey() + ": " + entry.getValue().rssiCurve);
+            ScoredNetwork scoredNetwork = entry.getValue();
+            writer.println("    " + entry.getKey() + ": " + scoredNetwork.rssiCurve
+                    + ", meteredHint=" + scoredNetwork.meteredHint);
         }
         writer.println("  Current network scores:");
         WifiManager wifiManager = (WifiManager) mContext.getSystemService(Context.WIFI_SERVICE);

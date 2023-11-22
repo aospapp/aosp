@@ -30,7 +30,7 @@ page.title=Camera
 camera framework APIs in <a href="http://developer.android.com/reference/android/hardware/package-summary.html">android.hardware</a> to your underlying camera driver and hardware. The camera subsystem includes implementations for camera pipeline components while the camera HAL provides interfaces for use in implementing your version of these components.</p>
 
 <h2 id="architecture">Architecture</h2>
-<p>The following figure and list describe the components involved and where to find the source for each:
+<p>The following figure and list describe the HAL components:
 </p>
 
 <img src="images/ape_fwk_camera.png" alt="Android camera architecture" id="figure1" />

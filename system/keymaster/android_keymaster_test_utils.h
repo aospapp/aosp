@@ -33,9 +33,12 @@
 
 #include <hardware/keymaster0.h>
 #include <hardware/keymaster1.h>
+#include <hardware/keymaster2.h>
 #include <hardware/keymaster_defs.h>
+
 #include <keymaster/android_keymaster_utils.h>
 #include <keymaster/authorization_set.h>
+#include <keymaster/keymaster_context.h>
 #include <keymaster/logger.h>
 
 std::ostream& operator<<(std::ostream& os, const keymaster_key_param_t& param);
@@ -143,37 +146,42 @@ inline std::string make_string(const uint8_t* data, size_t length) {
     return std::string(reinterpret_cast<const char*>(data), length);
 }
 
-template <size_t N> std::string make_string(const uint8_t(&a)[N]) {
+template <size_t N> std::string make_string(const uint8_t (&a)[N]) {
     return make_string(a, N);
 }
 
 /**
- * Keymaster1TestInstance is used to parameterize Keymaster1Tests.  Its main function is to create a
- * keymaster1_device_t to which test calls can be directed.  It also provides a place to specify
+ * Keymaster2TestInstance is used to parameterize Keymaster2Tests.  Its main function is to create a
+ * keymaster2_device_t to which test calls can be directed.  It also provides a place to specify
  * various bits of alternative behavior, in cases where different devices are expected to behave
  * differently (any such cases are a potential bug, but sometimes they may make sense).
  */
-class Keymaster1TestInstanceCreator {
+class Keymaster2TestInstanceCreator {
   public:
-    virtual ~Keymaster1TestInstanceCreator(){};
-    virtual keymaster1_device_t* CreateDevice() const = 0;
+    virtual ~Keymaster2TestInstanceCreator(){};
+    virtual keymaster2_device_t* CreateDevice() const = 0;
 
-    virtual bool algorithm_in_hardware(keymaster_algorithm_t algorithm) const = 0;
+    virtual bool algorithm_in_km0_hardware(keymaster_algorithm_t algorithm) const = 0;
     virtual int keymaster0_calls() const = 0;
+    virtual int minimal_digest_set() const { return false; }
+    virtual bool is_keymaster1_hw() const = 0;
+    virtual KeymasterContext* keymaster_context() const = 0;
 };
 
 // Use a shared_ptr because it's copyable.
-typedef std::shared_ptr<Keymaster1TestInstanceCreator> InstanceCreatorPtr;
+typedef std::shared_ptr<Keymaster2TestInstanceCreator> InstanceCreatorPtr;
 
 const uint64_t OP_HANDLE_SENTINEL = 0xFFFFFFFFFFFFFFFF;
-class Keymaster1Test : public testing::TestWithParam<InstanceCreatorPtr> {
+class Keymaster2Test : public testing::TestWithParam<InstanceCreatorPtr> {
   protected:
-    Keymaster1Test();
-    ~Keymaster1Test();
+    Keymaster2Test();
+    ~Keymaster2Test();
 
-    keymaster1_device_t* device();
+    keymaster2_device_t* device();
 
     keymaster_error_t GenerateKey(const AuthorizationSetBuilder& builder);
+
+    keymaster_error_t DeleteKey();
 
     keymaster_error_t ImportKey(const AuthorizationSetBuilder& builder,
                                 keymaster_key_format_t format, const std::string& key_material);
@@ -203,6 +211,10 @@ class Keymaster1Test : public testing::TestWithParam<InstanceCreatorPtr> {
                                       std::string* output);
 
     keymaster_error_t AbortOperation();
+
+    keymaster_error_t AttestKey(const std::string& attest_challenge, keymaster_cert_chain_t* chain);
+
+    keymaster_error_t UpgradeKey(const AuthorizationSet& upgrade_params);
 
     keymaster_error_t GetVersion(uint8_t* major, uint8_t* minor, uint8_t* subminor);
 
@@ -301,7 +313,7 @@ class Keymaster1Test : public testing::TestWithParam<InstanceCreatorPtr> {
     }
 
   private:
-    keymaster1_device_t* device_;
+    keymaster2_device_t* device_;
     keymaster_blob_t client_id_ = {.data = reinterpret_cast<const uint8_t*>("app_id"),
                                    .data_length = 6};
     keymaster_key_param_t client_params_[1] = {
@@ -310,7 +322,7 @@ class Keymaster1Test : public testing::TestWithParam<InstanceCreatorPtr> {
     uint64_t op_handle_;
 
     keymaster_key_blob_t blob_;
-    keymaster_key_characteristics_t* characteristics_;
+    keymaster_key_characteristics_t characteristics_;
 };
 
 struct Keymaster0CountingWrapper : public keymaster0_device_t {
@@ -404,6 +416,8 @@ struct Keymaster0CountingWrapper : public keymaster0_device_t {
     static int counting_delete_keypair(const struct keymaster0_device* dev, const uint8_t* key_blob,
                                        const size_t key_blob_length) {
         increment(dev);
+        if (key_blob && key_blob_length > 0)
+            EXPECT_EQ('Q', *key_blob);
         if (device(dev)->delete_keypair) {
             std::unique_ptr<uint8_t[]> dup_blob(unmunge_blob(key_blob, key_blob_length));
             return device(dev)->delete_keypair(device(dev), dup_blob.get(), key_blob_length);
@@ -443,6 +457,12 @@ struct Keymaster0CountingWrapper : public keymaster0_device_t {
     keymaster0_device_t* device_;
     int counter_;
 };
+
+/**
+ * This function takes a keymaster1_device_t and wraps it in an adapter that supports only
+ * KM_DIGEST_SHA_2_256.
+ */
+keymaster1_device_t* make_device_sha256_only(keymaster1_device_t* device);
 
 }  // namespace test
 }  // namespace keymaster

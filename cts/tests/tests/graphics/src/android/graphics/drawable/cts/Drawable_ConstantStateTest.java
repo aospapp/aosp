@@ -16,15 +16,53 @@
 
 package android.graphics.drawable.cts;
 
-import junit.framework.TestCase;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.Drawable.ConstantState;
+import android.test.AndroidTestCase;
 
-public class Drawable_ConstantStateTest extends TestCase {
-    public void testGetChangingConfigurations() {
-        // getChangingConfigurations is an abstract function.
-    }
+public class Drawable_ConstantStateTest extends AndroidTestCase {
 
     public void testNewDrawable() {
-        // newDrawable is an abstract function.
+        MockConstantState mock = new MockConstantState();
+        ConstantState cs = mock;
+
+        assertEquals(null, cs.newDrawable());
+        assertTrue(mock.hasCalledNewDrawable());
+        mock.reset();
+
+        assertEquals(null, cs.newDrawable(mContext.getResources()));
+        assertTrue(mock.hasCalledNewDrawable());
+        mock.reset();
+
+        assertEquals(null, cs.newDrawable(mContext.getResources(), mContext.getTheme()));
+        assertTrue(mock.hasCalledNewDrawable());
+    }
+
+    public void testCanApplyTheme() {
+        ConstantState cs = new MockConstantState();
+        assertFalse(cs.canApplyTheme());
+    }
+
+    public static class MockConstantState extends ConstantState {
+        private boolean mCalledNewDrawable;
+
+        @Override
+        public Drawable newDrawable() {
+            mCalledNewDrawable = true;
+            return null;
+        }
+
+        @Override
+        public int getChangingConfigurations() {
+            return 0;
+        }
+
+        public boolean hasCalledNewDrawable() {
+            return mCalledNewDrawable;
+        }
+
+        public void reset() {
+            mCalledNewDrawable = false;
+        }
     }
 }

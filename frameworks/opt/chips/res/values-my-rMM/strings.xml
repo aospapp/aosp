@@ -21,5 +21,9 @@
     <string name="copy_number" msgid="530057841276106843">"ဖုန်းနံပါတ် ကူးထည့်ရန်"</string>
     <string name="action_label" msgid="1318401633653605424">"နောက်ပြန်ရန်"</string>
     <string name="accessbility_suggestion_dropdown_opened" msgid="3231589819168382515">"အဆက်အသွယ် အကြံပေးချက်များ ဖွင့်ထား"</string>
+    <string name="accessbility_suggestion_dropdown_closed" msgid="5545766162855459747">"အကြံပြုချက်များ မရှိပါ"</string>
     <string name="dropdown_delete_button_desc" msgid="8506791557733906887">"လက်ခံသူများ မှ<xliff:g id="CONTACT">%s</xliff:g> အားဖယ်ရှားရန်"</string>
+    <string name="chips_action_copy" msgid="1929144660075507103">"ကူးယူရန်"</string>
+    <string name="chips_action_cancel" msgid="6077877438943543501">"မလုပ်တော့ပါ"</string>
+    <string name="chips_permission_text" msgid="1978301259208877495">"အဆက်အသွယ်အကြံပြုချက်များကို ခွင့်ပြုမည်"</string>
 </resources>

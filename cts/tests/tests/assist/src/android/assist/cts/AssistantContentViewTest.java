@@ -83,6 +83,10 @@ public class AssistantContentViewTest extends AssistTestBase {
     }
 
     public void testAssistantContentViewDimens() throws Exception {
+        if (mActivityManager.isLowRamDevice()) {
+          Log.d(TAG, "Not running assist tests on low-RAM device.");
+          return;
+        }
         mTestActivity.startTest(Utils.VERIFY_CONTENT_VIEW);
         waitForAssistantToBeReady(mReadyLatch);
         startSession();

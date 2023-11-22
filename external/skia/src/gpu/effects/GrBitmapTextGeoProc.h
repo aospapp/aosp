@@ -22,9 +22,9 @@ class GrInvariantOutput;
 class GrBitmapTextGeoProc : public GrGeometryProcessor {
 public:
     static GrGeometryProcessor* Create(GrColor color, GrTexture* tex, const GrTextureParams& p,
-                                       GrMaskFormat format,
-                                       const SkMatrix& localMatrix) {
-        return SkNEW_ARGS(GrBitmapTextGeoProc, (color, tex, p, format, localMatrix));
+                                       GrMaskFormat format, const SkMatrix& localMatrix,
+                                       bool usesLocalCoords) {
+        return new GrBitmapTextGeoProc(color, tex, p, format, localMatrix, usesLocalCoords);
     }
 
     virtual ~GrBitmapTextGeoProc() {}
@@ -36,23 +36,22 @@ public:
     const Attribute* inTextureCoords() const { return fInTextureCoords; }
     GrMaskFormat maskFormat() const { return fMaskFormat; }
     GrColor color() const { return fColor; }
+    bool colorIgnored() const { return GrColor_ILLEGAL == fColor; }
+    bool hasVertexColor() const { return SkToBool(fInColor); }
     const SkMatrix& localMatrix() const { return fLocalMatrix; }
+    bool usesLocalCoords() const { return fUsesLocalCoords; }
 
-    virtual void getGLProcessorKey(const GrBatchTracker& bt,
-                                   const GrGLSLCaps& caps,
-                                   GrProcessorKeyBuilder* b) const override;
+    void getGLSLProcessorKey(const GrGLSLCaps& caps, GrProcessorKeyBuilder* b) const override;
 
-    virtual GrGLPrimitiveProcessor* createGLInstance(const GrBatchTracker& bt,
-                                                     const GrGLSLCaps& caps) const override;
-
-    void initBatchTracker(GrBatchTracker*, const GrPipelineInfo&) const override;
+    GrGLSLPrimitiveProcessor* createGLSLInstance(const GrGLSLCaps& caps) const override;
 
 private:
     GrBitmapTextGeoProc(GrColor, GrTexture* texture, const GrTextureParams& params,
-                        GrMaskFormat format, const SkMatrix& localMatrix);
+                        GrMaskFormat format, const SkMatrix& localMatrix, bool usesLocalCoords);
 
     GrColor          fColor;
     SkMatrix         fLocalMatrix;
+    bool             fUsesLocalCoords;
     GrTextureAccess  fTextureAccess;
     const Attribute* fInPosition;
     const Attribute* fInColor;

@@ -16,13 +16,22 @@
 
 package android.text.method.cts;
 
+import android.cts.util.KeyEventUtil;
 import android.text.InputType;
-import android.text.method.cts.KeyListenerTestCase;
 import android.text.method.TimeKeyListener;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 
 public class TimeKeyListenerTest extends KeyListenerTestCase {
+
+    private KeyEventUtil mKeyEventUtil;
+
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp();
+        mKeyEventUtil = new KeyEventUtil(getInstrumentation());
+    }
+
     public void testConstructor() {
         new TimeKeyListener();
     }
@@ -67,12 +76,12 @@ public class TimeKeyListenerTest extends KeyListenerTestCase {
         assertEquals(expectedText, mTextView.getText().toString());
 
         // press '1' key.
-        mInstrumentation.sendStringSync("1");
+        mKeyEventUtil.sendString(mTextView, "1");
         expectedText += "1";
         assertEquals(expectedText, mTextView.getText().toString());
 
         // press '2' key.
-        mInstrumentation.sendStringSync("2");
+        mKeyEventUtil.sendString(mTextView, "2");
         expectedText += "2";
         assertEquals("12", mTextView.getText().toString());
 
@@ -80,35 +89,35 @@ public class TimeKeyListenerTest extends KeyListenerTestCase {
         KeyCharacterMap kcm = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD);
         if ('a' == kcm.getMatch(KeyEvent.KEYCODE_A, TimeKeyListener.CHARACTERS)) {
             expectedText += "a";
-            mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_A);
+            mKeyEventUtil.sendKeyDownUp(mTextView, KeyEvent.KEYCODE_A);
             assertEquals(expectedText, mTextView.getText().toString());
         }
 
         // press 'p' key if producible
         if ('p' == kcm.getMatch(KeyEvent.KEYCODE_P, TimeKeyListener.CHARACTERS)) {
             expectedText += "p";
-            mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_P);
+            mKeyEventUtil.sendKeyDownUp(mTextView, KeyEvent.KEYCODE_P);
             assertEquals(expectedText, mTextView.getText().toString());
         }
 
         // press 'm' key if producible
         if ('m' == kcm.getMatch(KeyEvent.KEYCODE_M, TimeKeyListener.CHARACTERS)) {
             expectedText += "m";
-            mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_M);
+            mKeyEventUtil.sendKeyDownUp(mTextView, KeyEvent.KEYCODE_M);
             assertEquals(expectedText, mTextView.getText().toString());
         }
 
         // press an unaccepted key if it exists.
         int keyCode = TextMethodUtils.getUnacceptedKeyCode(TimeKeyListener.CHARACTERS);
         if (-1 != keyCode) {
-            sendKeys(keyCode);
+            mKeyEventUtil.sendKeys(mTextView, keyCode);
             assertEquals(expectedText, mTextView.getText().toString());
         }
 
         setKeyListenerSync(null);
 
         // press '1' key.
-        mInstrumentation.sendStringSync("1");
+        mKeyEventUtil.sendString(mTextView, "1");
         assertEquals(expectedText, mTextView.getText().toString());
     }
 

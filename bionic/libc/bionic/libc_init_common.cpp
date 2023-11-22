@@ -42,18 +42,18 @@
 #include <unistd.h>
 
 #include "private/bionic_auxv.h"
+#include "private/bionic_globals.h"
 #include "private/bionic_ssp.h"
 #include "private/bionic_tls.h"
 #include "private/KernelArgumentBlock.h"
 #include "private/libc_logging.h"
+#include "private/WriteProtected.h"
 #include "pthread_internal.h"
 
 extern "C" abort_msg_t** __abort_message_ptr;
 extern "C" int __system_properties_init(void);
-extern "C" int __set_tls(void* ptr);
-extern "C" int __set_tid_address(int* tid_address);
 
-__LIBC_HIDDEN__ void __libc_init_vdso();
+__LIBC_HIDDEN__ WriteProtected<libc_globals> __libc_globals;
 
 // Not public, but well-known in the BSDs.
 const char* __progname;
@@ -64,64 +64,53 @@ char** environ;
 // Declared in "private/bionic_ssp.h".
 uintptr_t __stack_chk_guard = 0;
 
-/* Init TLS for the initial thread. Called by the linker _before_ libc is mapped
- * in memory. Beware: all writes to libc globals from this function will
- * apply to linker-private copies and will not be visible from libc later on.
- *
- * Note: this function creates a pthread_internal_t for the initial thread and
- * stores the pointer in TLS, but does not add it to pthread's thread list. This
- * has to be done later from libc itself (see __libc_init_common).
- *
- * This function also stores a pointer to the kernel argument block in a TLS slot to be
- * picked up by the libc constructor.
- */
-void __libc_init_tls(KernelArgumentBlock& args) {
+void __libc_init_global_stack_chk_guard(KernelArgumentBlock& args) {
+  // AT_RANDOM is a pointer to 16 bytes of randomness on the stack.
+  // Take the first 4/8 for the -fstack-protector implementation.
+  __stack_chk_guard = *reinterpret_cast<uintptr_t*>(args.getauxval(AT_RANDOM));
+}
+
+#if defined(__i386__)
+__LIBC_HIDDEN__ void* __libc_sysinfo = nullptr;
+
+__LIBC_HIDDEN__ void __libc_init_sysinfo(KernelArgumentBlock& args) {
+  __libc_sysinfo = reinterpret_cast<void*>(args.getauxval(AT_SYSINFO));
+}
+
+// TODO: lose this function and just access __libc_sysinfo directly.
+extern "C" void* __kernel_syscall() {
+  return __libc_sysinfo;
+}
+#endif
+
+void __libc_init_globals(KernelArgumentBlock& args) {
+#if defined(__i386__)
+  __libc_init_sysinfo(args);
+#endif
+  // Initialize libc globals that are needed in both the linker and in libc.
+  // In dynamic binaries, this is run at least twice for different copies of the
+  // globals, once for the linker's copy and once for the one in libc.so.
+  __libc_init_global_stack_chk_guard(args);
   __libc_auxv = args.auxv;
-
-  static pthread_internal_t main_thread;
-
-  // Tell the kernel to clear our tid field when we exit, so we're like any other pthread.
-  // As a side-effect, this tells us our pid (which is the same as the main thread's tid).
-  main_thread.tid = __set_tid_address(&main_thread.tid);
-  main_thread.set_cached_pid(main_thread.tid);
-
-  // We don't want to free the main thread's stack even when the main thread exits
-  // because things like environment variables with global scope live on it.
-  // We also can't free the pthread_internal_t itself, since that lives on the main
-  // thread's stack rather than on the heap.
-  // The main thread has no mmap allocated space for stack or pthread_internal_t.
-  main_thread.mmap_size = 0;
-  pthread_attr_init(&main_thread.attr);
-  main_thread.attr.guard_size = 0; // The main thread has no guard page.
-  main_thread.attr.stack_size = 0; // User code should never see this; we'll compute it when asked.
-  // TODO: the main thread's sched_policy and sched_priority need to be queried.
-
-  __init_thread(&main_thread);
-  __init_tls(&main_thread);
-  __set_tls(main_thread.tls);
-  main_thread.tls[TLS_SLOT_BIONIC_PREINIT] = &args;
-
-  __init_alternate_signal_stack(&main_thread);
+  __libc_globals.initialize();
+  __libc_globals.mutate([&args](libc_globals* globals) {
+    __libc_init_vdso(globals, args);
+    __libc_init_setjmp_cookie(globals, args);
+  });
 }
 
 void __libc_init_common(KernelArgumentBlock& args) {
   // Initialize various globals.
   environ = args.envp;
   errno = 0;
-  __libc_auxv = args.auxv;
   __progname = args.argv[0] ? args.argv[0] : "<unknown>";
   __abort_message_ptr = args.abort_message_ptr;
-
-  // AT_RANDOM is a pointer to 16 bytes of randomness on the stack.
-  __stack_chk_guard = *reinterpret_cast<uintptr_t*>(getauxval(AT_RANDOM));
 
   // Get the main thread from TLS and add it to the thread list.
   pthread_internal_t* main_thread = __get_thread();
   __pthread_internal_add(main_thread);
 
   __system_properties_init(); // Requires 'environ'.
-
-  __libc_init_vdso();
 }
 
 __noreturn static void __early_abort(int line) {
@@ -234,39 +223,42 @@ static bool __is_valid_environment_variable(const char* name) {
 }
 
 static bool __is_unsafe_environment_variable(const char* name) {
-  // None of these should be allowed in setuid programs.
-  static const char* const UNSAFE_VARIABLE_NAMES[] = {
-      "GCONV_PATH",
-      "GETCONF_DIR",
-      "HOSTALIASES",
-      "JE_MALLOC_CONF",
-      "LD_AOUT_LIBRARY_PATH",
-      "LD_AOUT_PRELOAD",
-      "LD_AUDIT",
-      "LD_DEBUG",
-      "LD_DEBUG_OUTPUT",
-      "LD_DYNAMIC_WEAK",
-      "LD_LIBRARY_PATH",
-      "LD_ORIGIN_PATH",
-      "LD_PRELOAD",
-      "LD_PROFILE",
-      "LD_SHOW_AUXV",
-      "LD_USE_LOAD_BIAS",
-      "LOCALDOMAIN",
-      "LOCPATH",
-      "MALLOC_CHECK_",
-      "MALLOC_CONF",
-      "MALLOC_TRACE",
-      "NIS_PATH",
-      "NLSPATH",
-      "RESOLV_HOST_CONF",
-      "RES_OPTIONS",
-      "TMPDIR",
-      "TZDIR",
-      nullptr
+  // None of these should be allowed when the AT_SECURE auxv
+  // flag is set. This flag is set to inform userspace that a
+  // security transition has occurred, for example, as a result
+  // of executing a setuid program or the result of an SELinux
+  // security transition.
+  static constexpr const char* UNSAFE_VARIABLE_NAMES[] = {
+    "GCONV_PATH",
+    "GETCONF_DIR",
+    "HOSTALIASES",
+    "JE_MALLOC_CONF",
+    "LD_AOUT_LIBRARY_PATH",
+    "LD_AOUT_PRELOAD",
+    "LD_AUDIT",
+    "LD_DEBUG",
+    "LD_DEBUG_OUTPUT",
+    "LD_DYNAMIC_WEAK",
+    "LD_LIBRARY_PATH",
+    "LD_ORIGIN_PATH",
+    "LD_PRELOAD",
+    "LD_PROFILE",
+    "LD_SHOW_AUXV",
+    "LD_USE_LOAD_BIAS",
+    "LOCALDOMAIN",
+    "LOCPATH",
+    "MALLOC_CHECK_",
+    "MALLOC_CONF",
+    "MALLOC_TRACE",
+    "NIS_PATH",
+    "NLSPATH",
+    "RESOLV_HOST_CONF",
+    "RES_OPTIONS",
+    "TMPDIR",
+    "TZDIR",
   };
-  for (size_t i = 0; UNSAFE_VARIABLE_NAMES[i] != nullptr; ++i) {
-    if (env_match(name, UNSAFE_VARIABLE_NAMES[i]) != nullptr) {
+  for (const auto& unsafe_variable_name : UNSAFE_VARIABLE_NAMES) {
+    if (env_match(name, unsafe_variable_name) != nullptr) {
       return true;
     }
   }
@@ -319,7 +311,7 @@ void __libc_init_AT_SECURE(KernelArgumentBlock& args) {
 
   if (getauxval(AT_SECURE)) {
     // If this is a setuid/setgid program, close the security hole described in
-    // ftp://ftp.freebsd.org/pub/FreeBSD/CERT/advisories/FreeBSD-SA-02:23.stdio.asc
+    // https://www.freebsd.org/security/advisories/FreeBSD-SA-02:23.stdio.asc
     __nullify_closed_stdio();
 
     __sanitize_environment_variables(args.envp);
@@ -368,13 +360,4 @@ void __libc_fini(void* array) {
 
     dtor();
   }
-
-#ifndef LIBC_STATIC
-  {
-    extern void __libc_postfini(void) __attribute__((weak));
-    if (__libc_postfini) {
-      __libc_postfini();
-    }
-  }
-#endif
 }

@@ -16,65 +16,71 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
-
-import android.content.Context;
+import android.app.Activity;
 import android.content.res.ColorStateList;
-import android.content.res.XmlResourceParser;
-import android.cts.util.WidgetTestUtils;
 import android.graphics.Color;
 import android.graphics.PorterDuff.Mode;
-import android.test.AndroidTestCase;
-import android.util.Xml;
+import android.test.ActivityInstrumentationTestCase;
+import android.test.UiThreadTest;
+import android.test.suitebuilder.annotation.SmallTest;
 import android.widget.Switch;
+import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
-import org.xmlpull.v1.XmlPullParserException;
 
 /**
  * Test {@link Switch}.
  */
-public class SwitchTest extends AndroidTestCase {
-    public void testConstructor() throws XmlPullParserException, IOException {
-        new Switch(mContext);
+@SmallTest
+public class SwitchTest extends ActivityInstrumentationTestCase<SwitchCtsActivity> {
+    private Activity mActivity;
+    private Switch mSwitch;
 
-        XmlResourceParser parser = mContext.getResources().getLayout(R.layout.switch_layout);
-        WidgetTestUtils.beginDocument(parser, "Switch");
-
-        new Switch(mContext, parser);
-
-        new Switch(mContext, parser, 0);
-
-        new Switch(mContext, parser, 0, 0);
+    public SwitchTest() {
+        super("android.widget.cts", SwitchCtsActivity.class);
     }
 
-    public void testAccessThumbTint() throws XmlPullParserException, IOException {
-        XmlResourceParser parser = mContext.getResources().getLayout(R.layout.switch_layout);
-        WidgetTestUtils.beginDocument(parser, "Switch");
-        Switch aSwitch = new Switch(mContext, parser);
-        assertEquals(Color.WHITE, aSwitch.getThumbTintList().getDefaultColor());
-        assertEquals(Mode.SRC_OVER, aSwitch.getThumbTintMode());
-
-        ColorStateList colors = ColorStateList.valueOf(Color.RED);
-        aSwitch.setThumbTintList(colors);
-        aSwitch.setThumbTintMode(Mode.XOR);
-
-        assertSame(colors, aSwitch.getThumbTintList());
-        assertEquals(Mode.XOR, aSwitch.getThumbTintMode());
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp();
+        mActivity = getActivity();
+        mSwitch = (Switch) mActivity.findViewById(R.id.switch_view);
     }
 
-    public void testAccessTrackTint() throws XmlPullParserException, IOException {
-        XmlResourceParser parser = mContext.getResources().getLayout(R.layout.switch_layout);
-        WidgetTestUtils.beginDocument(parser, "Switch");
-        Switch aSwitch = new Switch(mContext, parser);
-        assertEquals(Color.BLACK, aSwitch.getTrackTintList().getDefaultColor());
-        assertEquals(Mode.SRC_ATOP, aSwitch.getTrackTintMode());
+    @UiThreadTest
+    public void testConstructor() {
+        new Switch(mActivity);
+
+        new Switch(mActivity, null);
+
+        new Switch(mActivity, null, android.R.attr.switchStyle);
+
+        new Switch(mActivity, null, 0, android.R.style.Widget_Material_Light_CompoundButton_Switch);
+    }
+
+    @UiThreadTest
+    public void testAccessThumbTint() {
+        assertEquals(Color.WHITE, mSwitch.getThumbTintList().getDefaultColor());
+        assertEquals(Mode.SRC_OVER, mSwitch.getThumbTintMode());
 
         ColorStateList colors = ColorStateList.valueOf(Color.RED);
-        aSwitch.setTrackTintList(colors);
-        aSwitch.setTrackTintMode(Mode.XOR);
+        mSwitch.setThumbTintList(colors);
+        mSwitch.setThumbTintMode(Mode.XOR);
 
-        assertSame(colors, aSwitch.getTrackTintList());
-        assertEquals(Mode.XOR, aSwitch.getTrackTintMode());
+        assertSame(colors, mSwitch.getThumbTintList());
+        assertEquals(Mode.XOR, mSwitch.getThumbTintMode());
+    }
+
+    @UiThreadTest
+    public void testAccessTrackTint() {
+        assertEquals(Color.BLACK, mSwitch.getTrackTintList().getDefaultColor());
+        assertEquals(Mode.SRC_ATOP, mSwitch.getTrackTintMode());
+
+        ColorStateList colors = ColorStateList.valueOf(Color.RED);
+        mSwitch.setTrackTintList(colors);
+        mSwitch.setTrackTintMode(Mode.XOR);
+
+        assertSame(colors, mSwitch.getTrackTintList());
+        assertEquals(Mode.XOR, mSwitch.getTrackTintMode());
     }
 }

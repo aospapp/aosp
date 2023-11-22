@@ -16,8 +16,6 @@
 LOCAL_PATH := $(my-dir)
 include $(CLEAR_VARS)
 
-LOCAL_JAVACFLAGS := -source 6 -target 6
-
 #
 # Define rules to build temp_layoutlib.jar, which contains a subset of
 # the classes in framework.jar.  The layoutlib_create tool is used to
@@ -30,6 +28,9 @@ LOCAL_JAVACFLAGS := -source 6 -target 6
 built_framework_dep := $(call java-lib-deps,framework)
 built_framework_classes := $(call java-lib-files,framework)
 
+built_oj_dep := $(call java-lib-deps,core-oj)
+built_oj_classes := $(call java-lib-files,core-oj)
+
 built_core_dep := $(call java-lib-deps,core-libart)
 built_core_classes := $(call java-lib-files,core-libart)
 
@@ -37,10 +38,8 @@ built_ext_dep := $(call java-lib-deps,ext)
 built_ext_classes := $(call java-lib-files,ext)
 built_ext_data := $(call intermediates-dir-for, \
 			JAVA_LIBRARIES,ext,,COMMON)/javalib.jar
-built_icudata_dep := $(call java-lib-deps,icu4j-icudata-jarjar)
-built_icudata_data := $(call java-lib-files,icu4j-icudata-jarjar)
-built_icutzdata_dep := $(call java-lib-deps,icu4j-icutzdata-jarjar)
-built_icutzdata_data := $(call java-lib-files,icu4j-icutzdata-jarjar)
+built_icudata_dep := $(call java-lib-deps,icu4j-icudata-host-jarjar,HOST)
+built_icutzdata_dep := $(call java-lib-deps,icu4j-icutzdata-host-jarjar,HOST)
 
 built_layoutlib_create_jar := $(call intermediates-dir-for, \
 			JAVA_LIBRARIES,layoutlib_create,HOST)/javalib.jar
@@ -56,7 +55,8 @@ LOCAL_BUILT_MODULE_STEM := javalib.jar
 include $(BUILD_SYSTEM)/base_rules.mk
 #######################################
 
-$(LOCAL_BUILT_MODULE): $(built_core_dep) \
+$(LOCAL_BUILT_MODULE): $(built_oj_dep) \
+                       $(built_core_dep) \
                        $(built_framework_dep) \
                        $(built_ext_dep) \
                        $(built_ext_data) \
@@ -69,11 +69,12 @@ $(LOCAL_BUILT_MODULE): $(built_core_dep) \
 	$(hide) ls -l $(built_framework_classes)
 	$(hide) java -ea -jar $(built_layoutlib_create_jar) \
 	             $@ \
+	             $(built_oj_classes) \
 	             $(built_core_classes) \
 	             $(built_framework_classes) \
 	             $(built_ext_classes) \
-		     $(built_icudata_data) \
-		     $(built_icutzdata_data) \
+		     $(built_icudata_dep) \
+		     $(built_icutzdata_dep) \
 	             $(built_ext_data)
 	$(hide) ls -l $(built_framework_classes)
 

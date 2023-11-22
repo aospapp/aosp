@@ -24,6 +24,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.net.Uri;
 import android.util.ArrayMap;
 import android.util.Log;
 import android.util.Printer;
@@ -46,7 +47,6 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -243,42 +243,15 @@ public final class StrictMode {
 
     // Byte 3: Penalty
 
-    /**
-     * @hide
-     */
+    /** {@hide} */
     public static final int PENALTY_LOG = 0x01 << 16;  // normal android.util.Log
-
-    // Used for both process and thread policy:
-
-    /**
-     * @hide
-     */
+    /** {@hide} */
     public static final int PENALTY_DIALOG = 0x02 << 16;
-
-    /**
-     * Death on any detected violation.
-     *
-     * @hide
-     */
+    /** {@hide} */
     public static final int PENALTY_DEATH = 0x04 << 16;
-
-    /**
-     * Death just for detected network usage.
-     *
-     * @hide
-     */
-    public static final int PENALTY_DEATH_ON_NETWORK = 0x08 << 16;
-
-    /**
-     * Flash the screen during violations.
-     *
-     * @hide
-     */
+    /** {@hide} */
     public static final int PENALTY_FLASH = 0x10 << 16;
-
-    /**
-     * @hide
-     */
+    /** {@hide} */
     public static final int PENALTY_DROPBOX = 0x20 << 16;
 
     /**
@@ -294,12 +267,28 @@ public final class StrictMode {
      */
     public static final int PENALTY_GATHER = 0x40 << 16;
 
+    // Byte 4: Special cases
+
+    /**
+     * Death when network traffic is detected on main thread.
+     *
+     * @hide
+     */
+    public static final int PENALTY_DEATH_ON_NETWORK = 0x01 << 24;
+
     /**
      * Death when cleartext network traffic is detected.
      *
      * @hide
      */
-    public static final int PENALTY_DEATH_ON_CLEARTEXT_NETWORK = 0x80 << 16;
+    public static final int PENALTY_DEATH_ON_CLEARTEXT_NETWORK = 0x02 << 24;
+
+    /**
+     * Death when file exposure is detected.
+     *
+     * @hide
+     */
+    public static final int PENALTY_DEATH_ON_FILE_URI_EXPOSURE = 0x04 << 24;
 
     /**
      * Mask of all the penalty bits valid for thread policies.
@@ -312,7 +301,7 @@ public final class StrictMode {
      * Mask of all the penalty bits valid for VM policies.
      */
     private static final int VM_PENALTY_MASK = PENALTY_LOG | PENALTY_DEATH | PENALTY_DROPBOX
-            | PENALTY_DEATH_ON_CLEARTEXT_NETWORK;
+            | PENALTY_DEATH_ON_CLEARTEXT_NETWORK | PENALTY_DEATH_ON_FILE_URI_EXPOSURE;
 
     /** {@hide} */
     public static final int NETWORK_POLICY_ACCEPT = 0;
@@ -748,10 +737,22 @@ public final class StrictMode {
             }
 
             /**
-             * Detect when a {@code file://} {@link android.net.Uri} is exposed beyond this
-             * app. The receiving app may not have access to the sent path.
-             * Instead, when sharing files between apps, {@code content://}
-             * should be used with permission grants.
+             * Detect when this application exposes a {@code file://}
+             * {@link android.net.Uri} to another app.
+             * <p>
+             * This exposure is discouraged since the receiving app may not have
+             * access to the shared path. For example, the receiving app may not
+             * have requested the
+             * {@link android.Manifest.permission#READ_EXTERNAL_STORAGE} runtime
+             * permission, or the platform may be sharing the
+             * {@link android.net.Uri} across user profile boundaries.
+             * <p>
+             * Instead, apps should use {@code content://} Uris so the platform
+             * can extend temporary permission for the receiving app to access
+             * the resource.
+             *
+             * @see android.support.v4.content.FileProvider
+             * @see Intent#FLAG_GRANT_READ_URI_PERMISSION
              */
             public Builder detectFileUriExposure() {
                 return enable(DETECT_VM_FILE_URI_EXPOSURE);
@@ -795,6 +796,16 @@ public final class StrictMode {
              */
             public Builder penaltyDeathOnCleartextNetwork() {
                 return enable(PENALTY_DEATH_ON_CLEARTEXT_NETWORK);
+            }
+
+            /**
+             * Crashes the whole process when a {@code file://}
+             * {@link android.net.Uri} is exposed beyond this app.
+             *
+             * @see #detectFileUriExposure()
+             */
+            public Builder penaltyDeathOnFileUriExposure() {
+                return enable(PENALTY_DEATH_ON_FILE_URI_EXPOSURE);
             }
 
             /**
@@ -1111,6 +1122,25 @@ public final class StrictMode {
     }
 
     /**
+     * Used by the framework to make file usage a fatal error.
+     *
+     * @hide
+     */
+    public static void enableDeathOnFileUriExposure() {
+        sVmPolicyMask |= DETECT_VM_FILE_URI_EXPOSURE | PENALTY_DEATH_ON_FILE_URI_EXPOSURE;
+    }
+
+    /**
+     * Used by lame internal apps that haven't done the hard work to get
+     * themselves off file:// Uris yet.
+     *
+     * @hide
+     */
+    public static void disableDeathOnFileUriExposure() {
+        sVmPolicyMask &= ~(DETECT_VM_FILE_URI_EXPOSURE | PENALTY_DEATH_ON_FILE_URI_EXPOSURE);
+    }
+
+    /**
      * Parses the BlockGuard policy mask out from the Exception's
      * getMessage() String value.  Kinda gross, but least
      * invasive.  :/
@@ -1133,7 +1163,7 @@ public final class StrictMode {
         }
         String policyString = message.substring(7, spaceIndex);
         try {
-            return Integer.valueOf(policyString).intValue();
+            return Integer.parseInt(policyString);
         } catch (NumberFormatException e) {
             return 0;
         }
@@ -1157,7 +1187,7 @@ public final class StrictMode {
         }
         String violationString = message.substring(numberStartIndex, numberEndIndex);
         try {
-            return Integer.valueOf(violationString).intValue();
+            return Integer.parseInt(violationString);
         } catch (NumberFormatException e) {
             return 0;
         }
@@ -1487,7 +1517,11 @@ public final class StrictMode {
                         violationMaskSubset,
                         info);
                 } catch (RemoteException e) {
-                    Log.e(TAG, "RemoteException trying to handle StrictMode violation", e);
+                    if (e instanceof DeadObjectException) {
+                        // System process is dead; ignore
+                    } else {
+                        Log.e(TAG, "RemoteException trying to handle StrictMode violation", e);
+                    }
                 } finally {
                     // Restore the policy.
                     setThreadPolicyMask(savedPolicyMask);
@@ -1539,7 +1573,11 @@ public final class StrictMode {
                             info);
                     }
                 } catch (RemoteException e) {
-                    Log.e(TAG, "RemoteException handling StrictMode violation", e);
+                    if (e instanceof DeadObjectException) {
+                        // System process is dead; ignore
+                    } else {
+                        Log.e(TAG, "RemoteException handling StrictMode violation", e);
+                    }
                 }
                 int outstanding = sDropboxCallsInFlight.decrementAndGet();
                 if (LOG_V) Log.d(TAG, "Dropbox complete; in-flight=" + outstanding);
@@ -1574,7 +1612,8 @@ public final class StrictMode {
      */
     public static void conditionallyCheckInstanceCounts() {
         VmPolicy policy = getVmPolicy();
-        if (policy.classInstanceLimit.size() == 0) {
+        int policySize = policy.classInstanceLimit.size();
+        if (policySize == 0) {
             return;
         }
 
@@ -1583,15 +1622,17 @@ public final class StrictMode {
         System.gc();
 
         // Note: classInstanceLimit is immutable, so this is lock-free
-        for (Map.Entry<Class, Integer> entry : policy.classInstanceLimit.entrySet()) {
-            Class klass = entry.getKey();
-            int limit = entry.getValue();
-            long instances = VMDebug.countInstancesOfClass(klass, false);
-            if (instances <= limit) {
-                continue;
+        // Create the classes array.
+        Class[] classes = policy.classInstanceLimit.keySet().toArray(new Class[policySize]);
+        long[] instanceCounts = VMDebug.countInstancesOfClasses(classes, false);
+        for (int i = 0; i < classes.length; ++i) {
+            Class klass = classes[i];
+            int limit = policy.classInstanceLimit.get(klass);
+            long instances = instanceCounts[i];
+            if (instances > limit) {
+                Throwable tr = new InstanceCountViolation(klass, instances, limit);
+                onVmPolicyViolation(tr.getMessage(), tr);
             }
-            Throwable tr = new InstanceCountViolation(klass, instances, limit);
-            onVmPolicyViolation(tr.getMessage(), tr);
         }
     }
 
@@ -1752,9 +1793,13 @@ public final class StrictMode {
     /**
      * @hide
      */
-    public static void onFileUriExposed(String location) {
-        final String message = "file:// Uri exposed through " + location;
-        onVmPolicyViolation(null, new Throwable(message));
+    public static void onFileUriExposed(Uri uri, String location) {
+        final String message = uri + " exposed beyond app through " + location;
+        if ((sVmPolicyMask & PENALTY_DEATH_ON_FILE_URI_EXPOSURE) != 0) {
+            throw new FileUriExposedException(message);
+        } else {
+            onVmPolicyViolation(null, new Throwable(message));
+        }
     }
 
     /**
@@ -1860,7 +1905,11 @@ public final class StrictMode {
                     violationMaskSubset,
                     info);
             } catch (RemoteException e) {
-                Log.e(TAG, "RemoteException trying to handle StrictMode violation", e);
+                if (e instanceof DeadObjectException) {
+                    // System process is dead; ignore
+                } else {
+                    Log.e(TAG, "RemoteException trying to handle StrictMode violation", e);
+                }
             } finally {
                 // Restore the policy.
                 setThreadPolicyMask(savedPolicyMask);
@@ -1920,7 +1969,7 @@ public final class StrictMode {
             if (LOG_V) Log.d(TAG, "strict mode violation stacks read from binder call.  i=" + i);
             ViolationInfo info = new ViolationInfo(p, !currentlyGathering);
             if (info.crashInfo.stackTrace != null && info.crashInfo.stackTrace.length() > 30000) {
-                String front = info.crashInfo.stackTrace.substring(256);
+                String front = info.crashInfo.stackTrace.substring(0, 256);
                 // 30000 characters is way too large for this to be any sane kind of
                 // strict mode collection of stacks.  We've had a problem where we leave
                 // strict mode violations associated with the thread, and it keeps tacking
@@ -1928,9 +1977,9 @@ public final class StrictMode {
                 // so we'll report it and bail on all of the current strict mode violations
                 // we currently are maintaining for this thread.
                 // First, drain the remaining violations from the parcel.
-                while (i < numViolations) {
+                i++;  // Skip the current entry.
+                for (; i < numViolations; i++) {
                     info = new ViolationInfo(p, !currentlyGathering);
-                    i++;
                 }
                 // Next clear out all gathered violations.
                 clearGatheredViolations();

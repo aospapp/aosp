@@ -17,13 +17,13 @@
 #ifndef SIMPLE_PERF_EVENT_FD_H_
 #define SIMPLE_PERF_EVENT_FD_H_
 
-#include <poll.h>
 #include <sys/types.h>
 
 #include <memory>
 #include <string>
+#include <vector>
 
-#include <base/macros.h>
+#include <android-base/macros.h>
 
 #include "perf_event.h"
 
@@ -34,25 +34,25 @@ struct PerfCounter {
   uint64_t id;            // The id of the perf_event_file.
 };
 
+struct pollfd;
+
 // EventFd represents an opened perf_event_file.
 class EventFd {
  public:
-  static std::unique_ptr<EventFd> OpenEventFileForProcess(const perf_event_attr& attr, pid_t pid);
-  static std::unique_ptr<EventFd> OpenEventFileForCpu(const perf_event_attr& attr, int cpu);
-  static std::unique_ptr<EventFd> OpenEventFile(const perf_event_attr& attr, pid_t pid, int cpu);
+  static std::unique_ptr<EventFd> OpenEventFile(const perf_event_attr& attr, pid_t tid, int cpu,
+                                                bool report_error = true);
 
   ~EventFd();
 
-  // Give information about this perf_event_file, like (event_name, pid, cpu).
-  std::string Name() const;
-
   uint64_t Id() const;
 
-  // It tells the kernel to start counting and recording events specified by this file.
-  bool EnableEvent();
+  pid_t ThreadId() const {
+    return tid_;
+  }
 
-  // It tells the kernel to stop counting and recording events specified by this file.
-  bool DisableEvent();
+  int Cpu() const {
+    return cpu_;
+  }
 
   bool ReadCounter(PerfCounter* counter) const;
 
@@ -64,28 +64,31 @@ class EventFd {
   // the start address and size of the data.
   size_t GetAvailableMmapData(char** pdata);
 
-  // Discard how much data we have read, so the kernel can reuse this part of mapped area to store
-  // new data.
-  void DiscardMmapData(size_t discard_size);
-
   // Prepare pollfd for poll() to wait on available mmap_data.
   void PreparePollForMmapData(pollfd* poll_fd);
 
  private:
-  EventFd(int perf_event_fd, const std::string& event_name, pid_t pid, int cpu)
+  EventFd(int perf_event_fd, const std::string& event_name, pid_t tid, int cpu)
       : perf_event_fd_(perf_event_fd),
         id_(0),
         event_name_(event_name),
-        pid_(pid),
+        tid_(tid),
         cpu_(cpu),
         mmap_addr_(nullptr),
         mmap_len_(0) {
   }
 
+  // Give information about this perf_event_file, like (event_name, tid, cpu).
+  std::string Name() const;
+
+  // Discard how much data we have read, so the kernel can reuse this part of mapped area to store
+  // new data.
+  void DiscardMmapData(size_t discard_size);
+
   int perf_event_fd_;
   mutable uint64_t id_;
   const std::string event_name_;
-  pid_t pid_;
+  pid_t tid_;
   int cpu_;
 
   void* mmap_addr_;
@@ -95,7 +98,14 @@ class EventFd {
                             // by then kernel.
   size_t mmap_data_buffer_size_;
 
+  // As mmap_data_buffer is a ring buffer, it is possible that one record is wrapped at the
+  // end of the buffer. So we need to copy records from mmap_data_buffer to data_process_buffer
+  // before processing them.
+  static std::vector<char> data_process_buffer_;
+
   DISALLOW_COPY_AND_ASSIGN(EventFd);
 };
+
+bool IsEventAttrSupportedByKernel(perf_event_attr attr);
 
 #endif  // SIMPLE_PERF_EVENT_FD_H_

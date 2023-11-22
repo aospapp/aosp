@@ -10,8 +10,8 @@
 #ifndef SkString_DEFINED
 #define SkString_DEFINED
 
+#include "../private/SkTArray.h"
 #include "SkScalar.h"
-#include "SkTArray.h"
 
 #include <stdarg.h>
 
@@ -37,6 +37,12 @@ static int SkStrFind(const char string[], const char substring[]) {
     const char *first = strstr(string, substring);
     if (NULL == first) return -1;
     return SkToS32(first - &string[0]);
+}
+
+static int SkStrFindLastOf(const char string[], const char subchar) {
+    const char* last = strrchr(string, subchar);
+    if (NULL == last) return -1;
+    return SkToS32(last - &string[0]);
 }
 
 static bool SkStrContains(const char string[], const char substring[]) {
@@ -120,6 +126,7 @@ public:
     explicit    SkString(const char text[]);
                 SkString(const char text[], size_t len);
                 SkString(const SkString&);
+                SkString(SkString&&);
                 ~SkString();
 
     bool        isEmpty() const { return 0 == fRec->fLength; }
@@ -152,6 +159,9 @@ public:
     int find(const char substring[]) const {
         return SkStrFind(fRec->data(), substring);
     }
+    int findLastOf(const char subchar) const {
+        return SkStrFindLastOf(fRec->data(), subchar);
+    }
 
     friend bool operator==(const SkString& a, const SkString& b) {
         return a.equals(b);
@@ -163,12 +173,14 @@ public:
     // these methods edit the string
 
     SkString& operator=(const SkString&);
+    SkString& operator=(SkString&&);
     SkString& operator=(const char text[]);
 
     char* writable_str();
     char& operator[](size_t n) { return this->writable_str()[n]; }
 
     void reset();
+    /** Destructive resize, does not preserve contents. */
     void resize(size_t len) { this->set(NULL, len); }
     void set(const SkString& src) { *this = src; }
     void set(const char text[]);
@@ -257,7 +269,22 @@ template <> inline void SkTSwap(SkString& a, SkString& b) {
     a.swap(b);
 }
 
+enum SkStrSplitMode {
+    // Strictly return all results. If the input is ",," and the separator is ',' this will return
+    // an array of three empty strings.
+    kStrict_SkStrSplitMode,
+
+    // Only nonempty results will be added to the results. Multiple separators will be
+    // coalesced. Separators at the beginning and end of the input will be ignored.  If the input is
+    // ",," and the separator is ',', this will return an empty vector.
+    kCoalesce_SkStrSplitMode
+};
+
 // Split str on any characters in delimiters into out.  (Think, strtok with a sane API.)
-void SkStrSplit(const char* str, const char* delimiters, SkTArray<SkString>* out);
+void SkStrSplit(const char* str, const char* delimiters, SkStrSplitMode splitMode,
+                SkTArray<SkString>* out);
+inline void SkStrSplit(const char* str, const char* delimiters, SkTArray<SkString>* out) {
+    SkStrSplit(str, delimiters, kCoalesce_SkStrSplitMode, out);
+}
 
 #endif

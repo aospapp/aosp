@@ -25,6 +25,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.support.annotation.ColorInt;
 import android.support.annotation.IntDef;
+import android.support.annotation.IntRange;
 import android.support.annotation.NonNull;
 import android.support.annotation.StringRes;
 import android.support.design.R;
@@ -37,6 +38,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
+import android.view.accessibility.AccessibilityManager;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 import android.widget.Button;
@@ -120,6 +122,7 @@ public final class Snackbar {
      * @hide
      */
     @IntDef({LENGTH_INDEFINITE, LENGTH_SHORT, LENGTH_LONG})
+    @IntRange(from = 1)
     @Retention(RetentionPolicy.SOURCE)
     public @interface Duration {}
 
@@ -145,8 +148,8 @@ public final class Snackbar {
      */
     public static final int LENGTH_LONG = 0;
 
-    private static final int ANIMATION_DURATION = 250;
-    private static final int ANIMATION_FADE_DURATION = 180;
+    static final int ANIMATION_DURATION = 250;
+    static final int ANIMATION_FADE_DURATION = 180;
 
     private static final Handler sHandler;
     private static final int MSG_SHOW = 0;
@@ -169,18 +172,26 @@ public final class Snackbar {
         });
     }
 
-    private final ViewGroup mParent;
+    private final ViewGroup mTargetParent;
     private final Context mContext;
     private final SnackbarLayout mView;
     private int mDuration;
     private Callback mCallback;
 
+    private final AccessibilityManager mAccessibilityManager;
+
     private Snackbar(ViewGroup parent) {
-        mParent = parent;
+        mTargetParent = parent;
         mContext = parent.getContext();
 
+        ThemeUtils.checkAppCompatTheme(mContext);
+
         LayoutInflater inflater = LayoutInflater.from(mContext);
-        mView = (SnackbarLayout) inflater.inflate(R.layout.design_layout_snackbar, mParent, false);
+        mView = (SnackbarLayout) inflater.inflate(
+                R.layout.design_layout_snackbar, mTargetParent, false);
+
+        mAccessibilityManager = (AccessibilityManager)
+                mContext.getSystemService(Context.ACCESSIBILITY_SERVICE);
     }
 
     /**
@@ -401,10 +412,18 @@ public final class Snackbar {
     }
 
     /**
-     * Return whether this Snackbar is currently being shown.
+     * Return whether this {@link Snackbar} is currently being shown.
      */
     public boolean isShown() {
-        return mView.isShown();
+        return SnackbarManager.getInstance().isCurrent(mManagerCallback);
+    }
+
+    /**
+     * Returns whether this {@link Snackbar} is currently being shown, or is queued to be
+     * shown next.
+     */
+    public boolean isShownOrQueued() {
+        return SnackbarManager.getInstance().isCurrentOrNext(mManagerCallback);
     }
 
     private final SnackbarManager.Callback mManagerCallback = new SnackbarManager.Callback() {
@@ -433,6 +452,7 @@ public final class Snackbar {
                 behavior.setListener(new SwipeDismissBehavior.OnDismissListener() {
                     @Override
                     public void onDismiss(View view) {
+                        view.setVisibility(View.GONE);
                         dispatchDismiss(Callback.DISMISS_EVENT_SWIPE);
                     }
 
@@ -454,19 +474,52 @@ public final class Snackbar {
                 ((CoordinatorLayout.LayoutParams) lp).setBehavior(behavior);
             }
 
-            mParent.addView(mView);
+            mTargetParent.addView(mView);
         }
 
+        mView.setOnAttachStateChangeListener(new SnackbarLayout.OnAttachStateChangeListener() {
+            @Override
+            public void onViewAttachedToWindow(View v) {}
+
+            @Override
+            public void onViewDetachedFromWindow(View v) {
+                if (isShownOrQueued()) {
+                    // If we haven't already been dismissed then this event is coming from a
+                    // non-user initiated action. Hence we need to make sure that we callback
+                    // and keep our state up to date. We need to post the call since removeView()
+                    // will call through to onDetachedFromWindow and thus overflow.
+                    sHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            onViewHidden(Callback.DISMISS_EVENT_MANUAL);
+                        }
+                    });
+                }
+            }
+        });
+
         if (ViewCompat.isLaidOut(mView)) {
-            // If the view is already laid out, animate it now
-            animateViewIn();
+            if (shouldAnimate()) {
+                // If animations are enabled, animate it in
+                animateViewIn();
+            } else {
+                // Else if anims are disabled just call back now
+                onViewShown();
+            }
         } else {
-            // Otherwise, add one of our layout change listeners and animate it in when laid out
+            // Otherwise, add one of our layout change listeners and show it in when laid out
             mView.setOnLayoutChangeListener(new SnackbarLayout.OnLayoutChangeListener() {
                 @Override
                 public void onLayoutChange(View view, int left, int top, int right, int bottom) {
-                    animateViewIn();
                     mView.setOnLayoutChangeListener(null);
+
+                    if (shouldAnimate()) {
+                        // If animations are enabled, animate it in
+                        animateViewIn();
+                    } else {
+                        // Else if anims are disabled just call back now
+                        onViewShown();
+                    }
                 }
             });
         }
@@ -475,7 +528,8 @@ public final class Snackbar {
     private void animateViewIn() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
             ViewCompat.setTranslationY(mView, mView.getHeight());
-            ViewCompat.animate(mView).translationY(0f)
+            ViewCompat.animate(mView)
+                    .translationY(0f)
                     .setInterpolator(FAST_OUT_SLOW_IN_INTERPOLATOR)
                     .setDuration(ANIMATION_DURATION)
                     .setListener(new ViewPropertyAnimatorListenerAdapter() {
@@ -487,23 +541,18 @@ public final class Snackbar {
 
                         @Override
                         public void onAnimationEnd(View view) {
-                            if (mCallback != null) {
-                                mCallback.onShown(Snackbar.this);
-                            }
-                            SnackbarManager.getInstance().onShown(mManagerCallback);
+                            onViewShown();
                         }
                     }).start();
         } else {
-            Animation anim = AnimationUtils.loadAnimation(mView.getContext(), R.anim.design_snackbar_in);
+            Animation anim = AnimationUtils.loadAnimation(mView.getContext(),
+                    R.anim.design_snackbar_in);
             anim.setInterpolator(FAST_OUT_SLOW_IN_INTERPOLATOR);
             anim.setDuration(ANIMATION_DURATION);
             anim.setAnimationListener(new Animation.AnimationListener() {
                 @Override
                 public void onAnimationEnd(Animation animation) {
-                    if (mCallback != null) {
-                        mCallback.onShown(Snackbar.this);
-                    }
-                    SnackbarManager.getInstance().onShown(mManagerCallback);
+                    onViewShown();
                 }
 
                 @Override
@@ -518,7 +567,8 @@ public final class Snackbar {
 
     private void animateViewOut(final int event) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
-            ViewCompat.animate(mView).translationY(mView.getHeight())
+            ViewCompat.animate(mView)
+                    .translationY(mView.getHeight())
                     .setInterpolator(FAST_OUT_SLOW_IN_INTERPOLATOR)
                     .setDuration(ANIMATION_DURATION)
                     .setListener(new ViewPropertyAnimatorListenerAdapter() {
@@ -533,7 +583,8 @@ public final class Snackbar {
                         }
                     }).start();
         } else {
-            Animation anim = AnimationUtils.loadAnimation(mView.getContext(), R.anim.design_snackbar_out);
+            Animation anim = AnimationUtils.loadAnimation(mView.getContext(),
+                    R.anim.design_snackbar_out);
             anim.setInterpolator(FAST_OUT_SLOW_IN_INTERPOLATOR);
             anim.setDuration(ANIMATION_DURATION);
             anim.setAnimationListener(new Animation.AnimationListener() {
@@ -552,41 +603,41 @@ public final class Snackbar {
         }
     }
 
-    final void hideView(int event) {
-        if (mView.getVisibility() != View.VISIBLE || isBeingDragged()) {
-            onViewHidden(event);
-        } else {
+    final void hideView(@Callback.DismissEvent final int event) {
+        if (shouldAnimate() && mView.getVisibility() == View.VISIBLE) {
             animateViewOut(event);
+        } else {
+            // If anims are disabled or the view isn't visible, just call back now
+            onViewHidden(event);
+        }
+    }
+
+    private void onViewShown() {
+        SnackbarManager.getInstance().onShown(mManagerCallback);
+        if (mCallback != null) {
+            mCallback.onShown(this);
         }
     }
 
     private void onViewHidden(int event) {
-        // First remove the view from the parent
-        mParent.removeView(mView);
+        // First tell the SnackbarManager that it has been dismissed
+        SnackbarManager.getInstance().onDismissed(mManagerCallback);
         // Now call the dismiss listener (if available)
         if (mCallback != null) {
             mCallback.onDismissed(this, event);
         }
-        // Finally, tell the SnackbarManager that it has been dismissed
-        SnackbarManager.getInstance().onDismissed(mManagerCallback);
+        // Lastly, remove the view from the parent (if attached)
+        final ViewParent parent = mView.getParent();
+        if (parent instanceof ViewGroup) {
+            ((ViewGroup) parent).removeView(mView);
+        }
     }
 
     /**
-     * @return if the view is being being dragged or settled by {@link SwipeDismissBehavior}.
+     * Returns true if we should animate the Snackbar view in/out.
      */
-    private boolean isBeingDragged() {
-        final ViewGroup.LayoutParams lp = mView.getLayoutParams();
-
-        if (lp instanceof CoordinatorLayout.LayoutParams) {
-            final CoordinatorLayout.LayoutParams cllp = (CoordinatorLayout.LayoutParams) lp;
-            final CoordinatorLayout.Behavior behavior = cllp.getBehavior();
-
-            if (behavior instanceof SwipeDismissBehavior) {
-                return ((SwipeDismissBehavior) behavior).getDragState()
-                        != SwipeDismissBehavior.STATE_IDLE;
-            }
-        }
-        return false;
+    private boolean shouldAnimate() {
+        return !mAccessibilityManager.isEnabled();
     }
 
     /**
@@ -600,10 +651,16 @@ public final class Snackbar {
         private int mMaxInlineActionWidth;
 
         interface OnLayoutChangeListener {
-            public void onLayoutChange(View view, int left, int top, int right, int bottom);
+            void onLayoutChange(View view, int left, int top, int right, int bottom);
+        }
+
+        interface OnAttachStateChangeListener {
+            void onViewAttachedToWindow(View v);
+            void onViewDetachedFromWindow(View v);
         }
 
         private OnLayoutChangeListener mOnLayoutChangeListener;
+        private OnAttachStateChangeListener mOnAttachStateChangeListener;
 
         public SnackbarLayout(Context context) {
             this(context, null);
@@ -627,6 +684,11 @@ public final class Snackbar {
             // in the layout since older versions of the Android do not inflate includes with
             // the correct Context.
             LayoutInflater.from(context).inflate(R.layout.design_layout_snackbar_include, this);
+
+            ViewCompat.setAccessibilityLiveRegion(this,
+                    ViewCompat.ACCESSIBILITY_LIVE_REGION_POLITE);
+            ViewCompat.setImportantForAccessibility(this,
+                    ViewCompat.IMPORTANT_FOR_ACCESSIBILITY_YES);
         }
 
         @Override
@@ -705,13 +767,33 @@ public final class Snackbar {
         @Override
         protected void onLayout(boolean changed, int l, int t, int r, int b) {
             super.onLayout(changed, l, t, r, b);
-            if (changed && mOnLayoutChangeListener != null) {
+            if (mOnLayoutChangeListener != null) {
                 mOnLayoutChangeListener.onLayoutChange(this, l, t, r, b);
+            }
+        }
+
+        @Override
+        protected void onAttachedToWindow() {
+            super.onAttachedToWindow();
+            if (mOnAttachStateChangeListener != null) {
+                mOnAttachStateChangeListener.onViewAttachedToWindow(this);
+            }
+        }
+
+        @Override
+        protected void onDetachedFromWindow() {
+            super.onDetachedFromWindow();
+            if (mOnAttachStateChangeListener != null) {
+                mOnAttachStateChangeListener.onViewDetachedFromWindow(this);
             }
         }
 
         void setOnLayoutChangeListener(OnLayoutChangeListener onLayoutChangeListener) {
             mOnLayoutChangeListener = onLayoutChangeListener;
+        }
+
+        void setOnAttachStateChangeListener(OnAttachStateChangeListener listener) {
+            mOnAttachStateChangeListener = listener;
         }
 
         private boolean updateViewsWithinLayout(final int orientation,
@@ -742,6 +824,11 @@ public final class Snackbar {
     }
 
     final class Behavior extends SwipeDismissBehavior<SnackbarLayout> {
+        @Override
+        public boolean canSwipeDismissView(View child) {
+            return child instanceof SnackbarLayout;
+        }
+
         @Override
         public boolean onInterceptTouchEvent(CoordinatorLayout parent, SnackbarLayout child,
                 MotionEvent event) {

@@ -32,10 +32,10 @@
 using namespace std;
 
 // API level when RenderScript was added.
-const int MIN_API_LEVEL = 9;
+const unsigned int MIN_API_LEVEL = 9;
 
 const NumericalType TYPES[] = {
-            {"f16", "FLOAT_16", "half", "float", FLOATING_POINT, 11, 5},
+            {"f16", "FLOAT_16", "half", "short", FLOATING_POINT, 11, 5},
             {"f32", "FLOAT_32", "float", "float", FLOATING_POINT, 24, 8},
             {"f64", "FLOAT_64", "double", "double", FLOATING_POINT, 53, 11},
             {"i8", "SIGNED_8", "char", "byte", SIGNED_INTEGER, 7, 0},
@@ -49,6 +49,13 @@ const NumericalType TYPES[] = {
 };
 
 const int NUM_TYPES = sizeof(TYPES) / sizeof(TYPES[0]);
+
+static const char kTagUnreleased[] = "UNRELEASED";
+
+// Patterns that get substituted with C type or RS Data type names in function
+// names, arguments, return types, and inlines.
+static const string kCTypePatterns[] = {"#1", "#2", "#3", "#4"};
+static const string kRSTypePatterns[] = {"#RST_1", "#RST_2", "#RST_3", "#RST_4"};
 
 // The singleton of the collected information of all the spec files.
 SystemSpecification systemSpecification;
@@ -99,6 +106,36 @@ static vector<string> convertToTypeVector(const string& input) {
     return result;
 }
 
+// Returns true if each entry in typeVector is an RS numerical type
+static bool isRSTValid(const vector<string> &typeVector) {
+    for (auto type: typeVector) {
+        if (findCType(type) == -1)
+            return false;
+    }
+    return true;
+}
+
+void getVectorSizeAndBaseType(const string& type, string& vectorSize, string& baseType) {
+    vectorSize = "1";
+    baseType = type;
+
+    /* If it's a vector type, we need to split the base type from the size.
+     * We know that's it's a vector type if the last character is a digit and
+     * the rest is an actual base type.   We used to only verify the first part,
+     * which created a problem with rs_matrix2x2.
+     */
+    const int last = type.size() - 1;
+    const char lastChar = type[last];
+    if (lastChar >= '0' && lastChar <= '9') {
+        const string trimmed = type.substr(0, last);
+        int i = findCType(trimmed);
+        if (i >= 0) {
+            baseType = trimmed;
+            vectorSize = lastChar;
+        }
+    }
+}
+
 void ParameterDefinition::parseParameterDefinition(const string& type, const string& name,
                                                    const string& testOption, int lineNumber,
                                                    bool isReturn, Scanner* scanner) {
@@ -108,23 +145,7 @@ void ParameterDefinition::parseParameterDefinition(const string& type, const str
     // Determine if this is an output.
     isOutParameter = isReturn || charRemoved('*', &rsType);
 
-    rsBaseType = rsType;
-    mVectorSize = "1";
-    /* If it's a vector type, we need to split the base type from the size.
-     * We know that's it's a vector type if the last character is a digit and
-     * the rest is an actual base type.   We used to only verify the first part,
-     * which created a problem with rs_matrix2x2.
-     */
-    const int last = rsType.size() - 1;
-    const char lastChar = rsType[last];
-    if (lastChar >= '0' && lastChar <= '9') {
-        const string trimmed = rsType.substr(0, last);
-        int i = findCType(trimmed);
-        if (i >= 0) {
-            rsBaseType = trimmed;
-            mVectorSize = lastChar;
-        }
-    }
+    getVectorSizeAndBaseType(rsType, mVectorSize, rsBaseType);
     typeIndex = findCType(rsBaseType);
 
     if (mVectorSize == "3") {
@@ -143,12 +164,14 @@ void ParameterDefinition::parseParameterDefinition(const string& type, const str
         } else if (!isReturn) {
             scanner->error(lineNumber) << "Should have a name.\n";
         }
+        doubleVariableName = variableName + "Double";
     } else {
         variableName = "in";
         if (specName.empty()) {
             scanner->error(lineNumber) << "Should have a name.\n";
         }
         variableName += capitalize(specName);
+        doubleVariableName = variableName + "Double";
     }
     rsAllocName = "gAlloc" + capitalize(variableName);
     javaAllocName = variableName;
@@ -201,26 +224,34 @@ void ParameterDefinition::parseParameterDefinition(const string& type, const str
     }
 }
 
-bool VersionInfo::scan(Scanner* scanner, int maxApiLevel) {
+bool VersionInfo::scan(Scanner* scanner, unsigned int maxApiLevel) {
     if (scanner->findOptionalTag("version:")) {
         const string s = scanner->getValue();
-        sscanf(s.c_str(), "%i %i", &minVersion, &maxVersion);
-        if (minVersion && minVersion < MIN_API_LEVEL) {
-            scanner->error() << "Minimum version must >= 9\n";
-        }
-        if (minVersion == MIN_API_LEVEL) {
-            minVersion = 0;
-        }
-        if (maxVersion && maxVersion < MIN_API_LEVEL) {
-            scanner->error() << "Maximum version must >= 9\n";
+        if (s.compare(0, sizeof(kTagUnreleased), kTagUnreleased) == 0) {
+            // The API is still under development and does not have
+            // an official version number.
+            minVersion = maxVersion = kUnreleasedVersion;
+        } else {
+            sscanf(s.c_str(), "%u %u", &minVersion, &maxVersion);
+            if (minVersion && minVersion < MIN_API_LEVEL) {
+                scanner->error() << "Minimum version must >= 9\n";
+            }
+            if (minVersion == MIN_API_LEVEL) {
+                minVersion = 0;
+            }
+            if (maxVersion && maxVersion < MIN_API_LEVEL) {
+                scanner->error() << "Maximum version must >= 9\n";
+            }
         }
     }
     if (scanner->findOptionalTag("size:")) {
         sscanf(scanner->getValue().c_str(), "%i", &intSize);
     }
+
     if (maxVersion > maxApiLevel) {
         maxVersion = maxApiLevel;
     }
+
     return minVersion == 0 || minVersion <= maxApiLevel;
 }
 
@@ -331,7 +362,7 @@ void Function::addReturn(ParameterEntry* entry, Scanner* scanner) {
 }
 
 void ConstantSpecification::scanConstantSpecification(Scanner* scanner, SpecFile* specFile,
-                                                      int maxApiLevel) {
+                                                      unsigned int maxApiLevel) {
     string name = scanner->getValue();
     VersionInfo info;
     if (!info.scan(scanner, maxApiLevel)) {
@@ -357,7 +388,7 @@ void ConstantSpecification::scanConstantSpecification(Scanner* scanner, SpecFile
 }
 
 void TypeSpecification::scanTypeSpecification(Scanner* scanner, SpecFile* specFile,
-                                              int maxApiLevel) {
+                                              unsigned int maxApiLevel) {
     string name = scanner->getValue();
     VersionInfo info;
     if (!info.scan(scanner, maxApiLevel)) {
@@ -377,6 +408,9 @@ void TypeSpecification::scanTypeSpecification(Scanner* scanner, SpecFile* specFi
     if (scanner->findOptionalTag("simple:")) {
         spec->mKind = SIMPLE;
         spec->mSimpleType = scanner->getValue();
+    }
+    if (scanner->findOptionalTag("rs_object:")) {
+        spec->mKind = RS_OBJECT;
     }
     if (scanner->findOptionalTag("struct:")) {
         spec->mKind = STRUCT;
@@ -418,20 +452,34 @@ FunctionSpecification::~FunctionSpecification() {
     }
 }
 
+string FunctionSpecification::expandRSTypeInString(const string &s,
+                                                   const string &pattern,
+                                                   const string &cTypeStr) const {
+    // Find index of numerical type corresponding to cTypeStr.  The case where
+    // pattern is found in s but cTypeStr is not a numerical type is checked in
+    // checkRSTPatternValidity.
+    int typeIdx = findCType(cTypeStr);
+    if (typeIdx == -1) {
+        return s;
+    }
+    // If index exists, perform replacement.
+    return stringReplace(s, pattern, TYPES[typeIdx].rsDataType);
+}
+
 string FunctionSpecification::expandString(string s,
                                            int replacementIndexes[MAX_REPLACEABLES]) const {
-    if (mReplaceables.size() > 0) {
-        s = stringReplace(s, "#1", mReplaceables[0][replacementIndexes[0]]);
+
+
+    for (unsigned idx = 0; idx < mReplaceables.size(); idx ++) {
+        string toString = mReplaceables[idx][replacementIndexes[idx]];
+
+        // replace #RST_i patterns with RS datatype corresponding to toString
+        s = expandRSTypeInString(s, kRSTypePatterns[idx], toString);
+
+        // replace #i patterns with C type from mReplaceables
+        s = stringReplace(s, kCTypePatterns[idx], toString);
     }
-    if (mReplaceables.size() > 1) {
-        s = stringReplace(s, "#2", mReplaceables[1][replacementIndexes[1]]);
-    }
-    if (mReplaceables.size() > 2) {
-        s = stringReplace(s, "#3", mReplaceables[2][replacementIndexes[2]]);
-    }
-    if (mReplaceables.size() > 3) {
-        s = stringReplace(s, "#4", mReplaceables[3][replacementIndexes[3]]);
-    }
+
     return s;
 }
 
@@ -519,7 +567,7 @@ void FunctionSpecification::parseTest(Scanner* scanner) {
     }
 }
 
-bool FunctionSpecification::hasTests(int versionOfTestFiles) const {
+bool FunctionSpecification::hasTests(unsigned int versionOfTestFiles) const {
     if (mVersionInfo.maxVersion != 0 && mVersionInfo.maxVersion < versionOfTestFiles) {
         return false;
     }
@@ -529,8 +577,26 @@ bool FunctionSpecification::hasTests(int versionOfTestFiles) const {
     return true;
 }
 
+void FunctionSpecification::checkRSTPatternValidity(const string &inlineStr,  bool allow,
+                                                    Scanner *scanner) {
+    for (int i = 0; i < MAX_REPLACEABLES; i ++) {
+        bool patternFound = inlineStr.find(kRSTypePatterns[i]) != string::npos;
+
+        if (patternFound) {
+            if (!allow) {
+                scanner->error() << "RST_i pattern not allowed here\n";
+            }
+            else if (mIsRSTAllowed[i] == false) {
+                scanner->error() << "Found pattern \"" << kRSTypePatterns[i]
+                    << "\" in spec.  But some entry in the corresponding"
+                    << " parameter list cannot be translated to an RS type\n";
+            }
+        }
+    }
+}
+
 void FunctionSpecification::scanFunctionSpecification(Scanner* scanner, SpecFile* specFile,
-                                                      int maxApiLevel) {
+                                                      unsigned int maxApiLevel) {
     // Some functions like convert have # part of the name.  Truncate at that point.
     const string& unexpandedName = scanner->getValue();
     string name = unexpandedName;
@@ -559,6 +625,12 @@ void FunctionSpecification::scanFunctionSpecification(Scanner* scanner, SpecFile
     spec->mTest = "scalar";  // default
     spec->mVersionInfo = info;
 
+    if (scanner->findOptionalTag("internal:")) {
+        spec->mInternal = (scanner->getValue() == "true");
+    }
+    if (scanner->findOptionalTag("intrinsic:")) {
+        spec->mIntrinsic = (scanner->getValue() == "true");
+    }
     if (scanner->findOptionalTag("attrib:")) {
         spec->mAttribute = scanner->getValue();
     }
@@ -577,21 +649,35 @@ void FunctionSpecification::scanFunctionSpecification(Scanner* scanner, SpecFile
             t.push_back("4");
         }
         spec->mReplaceables.push_back(t);
+        // RST_i pattern not applicable for width.
+        spec->mIsRSTAllowed.push_back(false);
     }
 
     while (scanner->findOptionalTag("t:")) {
         spec->mReplaceables.push_back(convertToTypeVector(scanner->getValue()));
+        spec->mIsRSTAllowed.push_back(isRSTValid(spec->mReplaceables.back()));
     }
+
+    // Disallow RST_* pattern in function name
+    // FIXME the line number for this error would be wrong
+    spec->checkRSTPatternValidity(unexpandedName, false, scanner);
 
     if (scanner->findTag("ret:")) {
         ParameterEntry* p = scanner->parseArgString(true);
         function->addReturn(p, scanner);
         spec->mReturn = p;
+
+        // Disallow RST_* pattern in return type
+        spec->checkRSTPatternValidity(p->type, false, scanner);
     }
     while (scanner->findOptionalTag("arg:")) {
         ParameterEntry* p = scanner->parseArgString(false);
         function->addParameter(p, scanner);
         spec->mParameters.push_back(p);
+
+        // Disallow RST_* pattern in parameter type or testOption
+        spec->checkRSTPatternValidity(p->type, false, scanner);
+        spec->checkRSTPatternValidity(p->testOption, false, scanner);
     }
 
     function->scanDocumentationTags(scanner, created, specFile);
@@ -600,6 +686,9 @@ void FunctionSpecification::scanFunctionSpecification(Scanner* scanner, SpecFile
         scanner->checkNoValue();
         while (scanner->findOptionalTag("")) {
             spec->mInline.push_back(scanner->getValue());
+
+            // Allow RST_* pattern in inline definitions
+            spec->checkRSTPatternValidity(spec->mInline.back(), true, scanner);
         }
     }
     if (scanner->findOptionalTag("test:")) {
@@ -708,7 +797,7 @@ void SpecFile::addFunctionSpecification(FunctionSpecification* spec, bool hasDoc
 }
 
 // Read the specification, adding the definitions to the global functions map.
-bool SpecFile::readSpecFile(int maxApiLevel) {
+bool SpecFile::readSpecFile(unsigned int maxApiLevel) {
     FILE* specFile = fopen(mSpecFileName.c_str(), "rt");
     if (!specFile) {
         cerr << "Error opening input file: " << mSpecFileName << "\n";
@@ -801,7 +890,7 @@ Function* SystemSpecification::findOrCreateFunction(const string& name, bool* cr
     return findOrCreate<Function>(name, &mFunctions, created);
 }
 
-bool SystemSpecification::readSpecFile(const string& fileName, int maxApiLevel) {
+bool SystemSpecification::readSpecFile(const string& fileName, unsigned int maxApiLevel) {
     SpecFile* spec = new SpecFile(fileName);
     if (!spec->readSpecFile(maxApiLevel)) {
         cerr << fileName << ": Failed to parse.\n";
@@ -812,12 +901,16 @@ bool SystemSpecification::readSpecFile(const string& fileName, int maxApiLevel) 
 }
 
 
-static void updateMaxApiLevel(const VersionInfo& info, int* maxApiLevel) {
+static void updateMaxApiLevel(const VersionInfo& info, unsigned int* maxApiLevel) {
+    if (info.minVersion == VersionInfo::kUnreleasedVersion) {
+        // Ignore development API level in consideration of max API level.
+        return;
+    }
     *maxApiLevel = max(*maxApiLevel, max(info.minVersion, info.maxVersion));
 }
 
-int SystemSpecification::getMaximumApiLevel() {
-    int maxApiLevel = 0;
+unsigned int SystemSpecification::getMaximumApiLevel() {
+    unsigned int maxApiLevel = 0;
     for (auto i : mConstants) {
         for (auto j: i.second->getSpecifications()) {
             updateMaxApiLevel(j->getVersionInfo(), &maxApiLevel);
@@ -836,7 +929,7 @@ int SystemSpecification::getMaximumApiLevel() {
     return maxApiLevel;
 }
 
-bool SystemSpecification::generateFiles(bool forVerification, int maxApiLevel) const {
+bool SystemSpecification::generateFiles(bool forVerification, unsigned int maxApiLevel) const {
     bool success = generateHeaderFiles("scriptc") &&
                    generateDocumentation("docs", forVerification) &&
                    generateTestFiles("test", maxApiLevel) &&

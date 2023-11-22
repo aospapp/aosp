@@ -34,8 +34,8 @@ public class AudioAttributesTest extends CtsAndroidTestCase {
     public void testParcelableDescribeContents() throws Exception {
         final AudioAttributes aa = new AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_MEDIA).build();
-        final int c = aa.describeContents();
         assertNotNull("Failure to create the AudioAttributes", aa);
+        assertEquals(0, aa.describeContents());
     }
 
     // Test case 2: create an instance, marshall it and create a new instance,

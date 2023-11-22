@@ -16,9 +16,12 @@
 
 package android.provider.cts;
 
+import junit.framework.Assert;
+
 import android.content.res.Resources;
 import android.provider.ContactsContract.CommonDataKinds.Im;
 import android.provider.ContactsContract.CommonDataKinds.Organization;
+import android.provider.ContactsContract.Data;
 import android.test.AndroidTestCase;
 
 public class ContactsContract_CommonDataKinds_OrganizationTest extends AndroidTestCase {
@@ -50,5 +53,11 @@ public class ContactsContract_CommonDataKinds_OrganizationTest extends AndroidTe
         int res = Organization.getTypeLabelResource(Im.TYPE_CUSTOM);
         assertTrue(res != 0);
         assertEquals(label, Organization.getTypeLabel(mResources, Im.TYPE_CUSTOM, label));
+    }
+
+    public void testPhoneticNameStyleColumnName() throws Exception {
+        // Make sure the column name is data10 and not phonetic_name_style
+        // from the parent class.
+        assertEquals(Data.DATA10, Organization.PHONETIC_NAME_STYLE);
     }
 }

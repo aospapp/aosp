@@ -1,12 +1,12 @@
 /* WARNING: This is auto-generated file. Do not modify, since changes will
  * be lost! Modify the generating script instead.
  *
- * Generated from Khronos GL API description (gl.xml) revision 30159.
+ * Generated from Khronos GL API description (gl.xml) revision 32093.
  */
 
 if (de::contains(extSet, "GL_KHR_blend_equation_advanced"))
 {
-	gl->blendBarrierKHR	= (glBlendBarrierKHRFunc)	loader->get("glBlendBarrierKHR");
+	gl->blendBarrier	= (glBlendBarrierFunc)	loader->get("glBlendBarrierKHR");
 }
 
 if (de::contains(extSet, "GL_KHR_debug"))
@@ -42,7 +42,7 @@ if (de::contains(extSet, "GL_EXT_texture_buffer"))
 
 if (de::contains(extSet, "GL_EXT_primitive_bounding_box"))
 {
-	gl->primitiveBoundingBoxEXT	= (glPrimitiveBoundingBoxEXTFunc)	loader->get("glPrimitiveBoundingBoxEXT");
+	gl->primitiveBoundingBox	= (glPrimitiveBoundingBoxFunc)	loader->get("glPrimitiveBoundingBoxEXT");
 }
 
 if (de::contains(extSet, "GL_OES_EGL_image"))
@@ -95,4 +95,21 @@ if (de::contains(extSet, "GL_EXT_debug_marker"))
 	gl->insertEventMarkerEXT	= (glInsertEventMarkerEXTFunc)	loader->get("glInsertEventMarkerEXT");
 	gl->popGroupMarkerEXT		= (glPopGroupMarkerEXTFunc)		loader->get("glPopGroupMarkerEXT");
 	gl->pushGroupMarkerEXT		= (glPushGroupMarkerEXTFunc)	loader->get("glPushGroupMarkerEXT");
+}
+
+if (de::contains(extSet, "GL_EXT_robustness"))
+{
+	gl->getGraphicsResetStatus	= (glGetGraphicsResetStatusFunc)	loader->get("glGetGraphicsResetStatusEXT");
+	gl->getnUniformfv			= (glGetnUniformfvFunc)				loader->get("glGetnUniformfvEXT");
+	gl->getnUniformiv			= (glGetnUniformivFunc)				loader->get("glGetnUniformivEXT");
+	gl->readnPixels				= (glReadnPixelsFunc)				loader->get("glReadnPixelsEXT");
+}
+
+if (de::contains(extSet, "GL_KHR_robustness"))
+{
+	gl->getGraphicsResetStatus	= (glGetGraphicsResetStatusFunc)	loader->get("glGetGraphicsResetStatusKHR");
+	gl->getnUniformfv			= (glGetnUniformfvFunc)				loader->get("glGetnUniformfvKHR");
+	gl->getnUniformiv			= (glGetnUniformivFunc)				loader->get("glGetnUniformivKHR");
+	gl->getnUniformuiv			= (glGetnUniformuivFunc)			loader->get("glGetnUniformuivKHR");
+	gl->readnPixels				= (glReadnPixelsFunc)				loader->get("glReadnPixelsKHR");
 }

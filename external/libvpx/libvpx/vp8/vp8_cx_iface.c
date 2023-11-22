@@ -10,10 +10,14 @@
 
 
 #include "./vpx_config.h"
-#include "vp8_rtcd.h"
+#include "./vp8_rtcd.h"
+#include "./vpx_dsp_rtcd.h"
+#include "./vpx_scale_rtcd.h"
 #include "vpx/vpx_codec.h"
 #include "vpx/internal/vpx_codec_internal.h"
 #include "vpx_version.h"
+#include "vpx_mem/vpx_mem.h"
+#include "vpx_ports/vpx_once.h"
 #include "vp8/encoder/onyx_int.h"
 #include "vpx/vp8cx.h"
 #include "vp8/encoder/firstpass.h"
@@ -36,43 +40,33 @@ struct vp8_extracfg
     vp8e_tuning                 tuning;
     unsigned int                cq_level;         /* constrained quality level */
     unsigned int                rc_max_intra_bitrate_pct;
+    unsigned int                screen_content_mode;
 
 };
 
-struct extraconfig_map
-{
-    int                 usage;
-    struct vp8_extracfg cfg;
-};
-
-static const struct extraconfig_map extracfg_map[] =
-{
-    {
-        0,
-        {
-            NULL,
+static struct vp8_extracfg default_extracfg = {
+  NULL,
 #if !(CONFIG_REALTIME_ONLY)
-            0,                          /* cpu_used      */
+  0,                          /* cpu_used      */
 #else
-            4,                          /* cpu_used      */
+  4,                          /* cpu_used      */
 #endif
-            0,                          /* enable_auto_alt_ref */
-            0,                          /* noise_sensitivity */
-            0,                          /* Sharpness */
-            0,                          /* static_thresh */
+  0,                          /* enable_auto_alt_ref */
+  0,                          /* noise_sensitivity */
+  0,                          /* Sharpness */
+  0,                          /* static_thresh */
 #if (CONFIG_REALTIME_ONLY & CONFIG_ONTHEFLY_BITPACKING)
-            VP8_EIGHT_TOKENPARTITION,
+  VP8_EIGHT_TOKENPARTITION,
 #else
-            VP8_ONE_TOKENPARTITION,     /* token_partitions */
+  VP8_ONE_TOKENPARTITION,     /* token_partitions */
 #endif
-            0,                          /* arnr_max_frames */
-            3,                          /* arnr_strength */
-            3,                          /* arnr_type*/
-            0,                          /* tuning*/
-            10,                         /* cq_level */
-            0,                          /* rc_max_intra_bitrate_pct */
-        }
-    }
+  0,                          /* arnr_max_frames */
+  3,                          /* arnr_strength */
+  3,                          /* arnr_type*/
+  0,                          /* tuning*/
+  10,                         /* cq_level */
+  0,                          /* rc_max_intra_bitrate_pct */
+  0,                          /* screen_content_mode */
 };
 
 struct vpx_codec_alg_priv
@@ -90,6 +84,7 @@ struct vpx_codec_alg_priv
     /* pkt_list size depends on the maximum number of lagged frames allowed. */
     vpx_codec_pkt_list_decl(64) pkt_list;
     unsigned int                fixed_kf_cntr;
+    vpx_enc_frame_flags_t   control_frame_flags;
 };
 
 
@@ -141,7 +136,7 @@ static vpx_codec_err_t validate_config(vpx_codec_alg_priv_t      *ctx,
     RANGE_CHECK(cfg, g_w,                   1, 16383); /* 14 bits available */
     RANGE_CHECK(cfg, g_h,                   1, 16383); /* 14 bits available */
     RANGE_CHECK(cfg, g_timebase.den,        1, 1000000000);
-    RANGE_CHECK(cfg, g_timebase.num,        1, cfg->g_timebase.den);
+    RANGE_CHECK(cfg, g_timebase.num,        1, 1000000000);
     RANGE_CHECK_HI(cfg, g_profile,          3);
     RANGE_CHECK_HI(cfg, rc_max_quantizer,   63);
     RANGE_CHECK_HI(cfg, rc_min_quantizer,   cfg->rc_max_quantizer);
@@ -205,6 +200,7 @@ static vpx_codec_err_t validate_config(vpx_codec_alg_priv_t      *ctx,
     RANGE_CHECK_HI(vp8_cfg, arnr_strength,   6);
     RANGE_CHECK(vp8_cfg, arnr_type,       1, 3);
     RANGE_CHECK(vp8_cfg, cq_level, 0, 63);
+    RANGE_CHECK_HI(vp8_cfg, screen_content_mode, 2);
     if (finalize && (cfg->rc_end_usage == VPX_CQ || cfg->rc_end_usage == VPX_Q))
         RANGE_CHECK(vp8_cfg, cq_level,
                     cfg->rc_min_quantizer, cfg->rc_max_quantizer);
@@ -242,7 +238,8 @@ static vpx_codec_err_t validate_config(vpx_codec_alg_priv_t      *ctx,
         RANGE_CHECK_HI(cfg, ts_periodicity, 16);
 
         for (i=1; i<cfg->ts_number_layers; i++)
-            if (cfg->ts_target_bitrate[i] <= cfg->ts_target_bitrate[i-1])
+            if (cfg->ts_target_bitrate[i] <= cfg->ts_target_bitrate[i-1] &&
+                cfg->rc_target_bitrate > 0)
                 ERROR("ts_target_bitrate entries are not strictly increasing");
 
         RANGE_CHECK(cfg, ts_rate_decimator[cfg->ts_number_layers-1], 1, 1);
@@ -371,9 +368,9 @@ static vpx_codec_err_t set_vp8e_config(VP8_CONFIG *oxcf,
     if (oxcf->number_of_layers > 1)
     {
         memcpy (oxcf->target_bitrate, cfg.ts_target_bitrate,
-                          sizeof(cfg.ts_target_bitrate));
+                sizeof(cfg.ts_target_bitrate));
         memcpy (oxcf->rate_decimator, cfg.ts_rate_decimator,
-                          sizeof(cfg.ts_rate_decimator));
+                sizeof(cfg.ts_rate_decimator));
         memcpy (oxcf->layer_id, cfg.ts_layer_id, sizeof(cfg.ts_layer_id));
     }
 
@@ -390,6 +387,8 @@ static vpx_codec_err_t set_vp8e_config(VP8_CONFIG *oxcf,
         oxcf->mr_down_sampling_factor.den = mr_cfg->mr_down_sampling_factor.den;
         oxcf->mr_low_res_mode_info        = mr_cfg->mr_low_res_mode_info;
     }
+#else
+    (void)mr_cfg;
 #endif
 
     oxcf->cpu_used               = vp8_cfg.cpu_used;
@@ -407,6 +406,8 @@ static vpx_codec_err_t set_vp8e_config(VP8_CONFIG *oxcf,
     oxcf->arnr_type              = vp8_cfg.arnr_type;
 
     oxcf->tuning                 = vp8_cfg.tuning;
+
+    oxcf->screen_content_mode    = vp8_cfg.screen_content_mode;
 
     /*
         printf("Current VP8 Settings: \n");
@@ -449,9 +450,14 @@ static vpx_codec_err_t vp8e_set_config(vpx_codec_alg_priv_t       *ctx,
 {
     vpx_codec_err_t res;
 
-    if (((cfg->g_w != ctx->cfg.g_w) || (cfg->g_h != ctx->cfg.g_h))
-        && (cfg->g_lag_in_frames > 1 || cfg->g_pass != VPX_RC_ONE_PASS))
-        ERROR("Cannot change width or height after initialization");
+    if (cfg->g_w != ctx->cfg.g_w || cfg->g_h != ctx->cfg.g_h)
+    {
+        if (cfg->g_lag_in_frames > 1 || cfg->g_pass != VPX_RC_ONE_PASS)
+            ERROR("Cannot change width or height after initialization");
+        if ((ctx->cpi->initial_width && (int)cfg->g_w > ctx->cpi->initial_width) ||
+            (ctx->cpi->initial_height && (int)cfg->g_h > ctx->cpi->initial_height))
+            ERROR("Cannot increase width or height larger than their initial values");
+    }
 
     /* Prevent increasing lag_in_frames. This check is stricter than it needs
      * to be -- the limit is not increasing past the first lag_in_frames
@@ -472,8 +478,6 @@ static vpx_codec_err_t vp8e_set_config(vpx_codec_alg_priv_t       *ctx,
 
     return res;
 }
-
-int vp8_reverse_trans(int);
 
 static vpx_codec_err_t get_quantizer(vpx_codec_alg_priv_t *ctx, va_list args)
 {
@@ -597,6 +601,15 @@ static vpx_codec_err_t set_rc_max_intra_bitrate_pct(vpx_codec_alg_priv_t *ctx,
   return update_extracfg(ctx, &extra_cfg);
 }
 
+static vpx_codec_err_t set_screen_content_mode(vpx_codec_alg_priv_t *ctx,
+                                               va_list args)
+{
+  struct vp8_extracfg extra_cfg = ctx->vp8_cfg;
+  extra_cfg.screen_content_mode =
+      CAST(VP8E_SET_SCREEN_CONTENT_MODE, args);
+  return update_extracfg(ctx, &extra_cfg);
+}
+
 static vpx_codec_err_t vp8e_mr_alloc_mem(const vpx_codec_enc_cfg_t *cfg,
                                         void **mem_loc)
 {
@@ -623,6 +636,9 @@ static vpx_codec_err_t vp8e_mr_alloc_mem(const vpx_codec_enc_cfg_t *cfg,
         *mem_loc = (void *)shared_mem_loc;
         res = VPX_CODEC_OK;
     }
+#else
+    (void)cfg;
+    (void)mem_loc;
 #endif
     return res;
 }
@@ -631,27 +647,23 @@ static vpx_codec_err_t vp8e_init(vpx_codec_ctx_t *ctx,
                                  vpx_codec_priv_enc_mr_cfg_t *mr_cfg)
 {
     vpx_codec_err_t        res = VPX_CODEC_OK;
-    struct vpx_codec_alg_priv *priv;
-    vpx_codec_enc_cfg_t       *cfg;
-    unsigned int               i;
 
-    struct VP8_COMP *optr;
 
     vp8_rtcd();
+    vpx_dsp_rtcd();
+    vpx_scale_rtcd();
 
     if (!ctx->priv)
     {
-        priv = calloc(1, sizeof(struct vpx_codec_alg_priv));
+        struct vpx_codec_alg_priv *priv =
+            (struct vpx_codec_alg_priv *)vpx_calloc(1, sizeof(*priv));
 
         if (!priv)
         {
             return VPX_CODEC_MEM_ERROR;
         }
 
-        ctx->priv = &priv->base;
-        ctx->priv->sz = sizeof(*ctx->priv);
-        ctx->priv->iface = ctx->iface;
-        ctx->priv->alg_priv = priv;
+        ctx->priv = (vpx_codec_priv_t *)priv;
         ctx->priv->init_flags = ctx->init_flags;
 
         if (ctx->config.enc)
@@ -659,21 +671,11 @@ static vpx_codec_err_t vp8e_init(vpx_codec_ctx_t *ctx,
             /* Update the reference to the config structure to an
              * internal copy.
              */
-            ctx->priv->alg_priv->cfg = *ctx->config.enc;
-            ctx->config.enc = &ctx->priv->alg_priv->cfg;
+            priv->cfg = *ctx->config.enc;
+            ctx->config.enc = &priv->cfg;
         }
 
-        cfg =  &ctx->priv->alg_priv->cfg;
-
-        /* Select the extra vp8 configuration table based on the current
-         * usage value. If the current usage value isn't found, use the
-         * values for usage case 0.
-         */
-        for (i = 0;
-             extracfg_map[i].usage && extracfg_map[i].usage != cfg->g_usage;
-             i++);
-
-        priv->vp8_cfg = extracfg_map[i].cfg;
+        priv->vp8_cfg = default_extracfg;
         priv->vp8_cfg.pkt_list = &priv->pkt_list.head;
 
         priv->cx_data_sz = priv->cfg.g_w * priv->cfg.g_h * 3 / 2 * 2;
@@ -692,21 +694,16 @@ static vpx_codec_err_t vp8e_init(vpx_codec_ctx_t *ctx,
         else
             ctx->priv->enc.total_encoders   = 1;
 
+        once(vp8_initialize_enc);
+
         res = validate_config(priv, &priv->cfg, &priv->vp8_cfg, 0);
 
         if (!res)
         {
-            set_vp8e_config(&ctx->priv->alg_priv->oxcf,
-                             ctx->priv->alg_priv->cfg,
-                             ctx->priv->alg_priv->vp8_cfg,
-                             mr_cfg);
-
-            optr = vp8_create_compressor(&ctx->priv->alg_priv->oxcf);
-
-            if (!optr)
+            set_vp8e_config(&priv->oxcf, priv->cfg, priv->vp8_cfg, mr_cfg);
+            priv->cpi = vp8_create_compressor(&priv->oxcf);
+            if (!priv->cpi)
                 res = VPX_CODEC_MEM_ERROR;
-            else
-                ctx->priv->alg_priv->cpi = optr;
         }
     }
 
@@ -727,24 +724,30 @@ static vpx_codec_err_t vp8e_destroy(vpx_codec_alg_priv_t *ctx)
 
     free(ctx->cx_data);
     vp8_remove_compressor(&ctx->cpi);
-    free(ctx);
+    vpx_free(ctx);
     return VPX_CODEC_OK;
 }
 
 static vpx_codec_err_t image2yuvconfig(const vpx_image_t   *img,
                                        YV12_BUFFER_CONFIG  *yv12)
 {
+    const int y_w = img->d_w;
+    const int y_h = img->d_h;
+    const int uv_w = (img->d_w + 1) / 2;
+    const int uv_h = (img->d_h + 1) / 2;
     vpx_codec_err_t        res = VPX_CODEC_OK;
     yv12->y_buffer = img->planes[VPX_PLANE_Y];
     yv12->u_buffer = img->planes[VPX_PLANE_U];
     yv12->v_buffer = img->planes[VPX_PLANE_V];
 
-    yv12->y_crop_width  = img->d_w;
-    yv12->y_crop_height = img->d_h;
-    yv12->y_width  = img->d_w;
-    yv12->y_height = img->d_h;
-    yv12->uv_width = (1 + yv12->y_width) / 2;
-    yv12->uv_height = (1 + yv12->y_height) / 2;
+    yv12->y_crop_width  = y_w;
+    yv12->y_crop_height = y_h;
+    yv12->y_width  = y_w;
+    yv12->y_height = y_h;
+    yv12->uv_crop_width = uv_w;
+    yv12->uv_crop_height = uv_h;
+    yv12->uv_width = uv_w;
+    yv12->uv_height = uv_h;
 
     yv12->y_stride = img->stride[VPX_PLANE_Y];
     yv12->uv_stride = img->stride[VPX_PLANE_U];
@@ -796,27 +799,9 @@ static void pick_quickcompress_mode(vpx_codec_alg_priv_t  *ctx,
     }
 }
 
-
-static vpx_codec_err_t vp8e_encode(vpx_codec_alg_priv_t  *ctx,
-                                   const vpx_image_t     *img,
-                                   vpx_codec_pts_t        pts,
-                                   unsigned long          duration,
-                                   vpx_enc_frame_flags_t  flags,
-                                   unsigned long          deadline)
+static vpx_codec_err_t set_reference_and_update(vpx_codec_alg_priv_t *ctx,
+                                                int flags)
 {
-    vpx_codec_err_t res = VPX_CODEC_OK;
-
-    if (!ctx->cfg.rc_target_bitrate)
-        return res;
-
-    if (img)
-        res = validate_img(ctx, img);
-
-    if (!res)
-        res = validate_config(ctx, &ctx->cfg, &ctx->vp8_cfg, 1);
-
-    pick_quickcompress_mode(ctx, duration, deadline);
-    vpx_codec_pkt_list_init(&ctx->pkt_list);
 
     /* Handle Flags */
     if (((flags & VP8_EFLAG_NO_UPD_GF) && (flags & VP8_EFLAG_FORCE_GF))
@@ -865,6 +850,40 @@ static vpx_codec_err_t vp8e_encode(vpx_codec_alg_priv_t  *ctx,
     {
         vp8_update_entropy(ctx->cpi, 0);
     }
+
+    return VPX_CODEC_OK;
+}
+
+static vpx_codec_err_t vp8e_encode(vpx_codec_alg_priv_t  *ctx,
+                                   const vpx_image_t     *img,
+                                   vpx_codec_pts_t        pts,
+                                   unsigned long          duration,
+                                   vpx_enc_frame_flags_t  flags,
+                                   unsigned long          deadline)
+{
+    vpx_codec_err_t res = VPX_CODEC_OK;
+
+    if (!ctx->cfg.rc_target_bitrate)
+        return res;
+
+    if (img)
+        res = validate_img(ctx, img);
+
+    if (!res)
+        res = validate_config(ctx, &ctx->cfg, &ctx->vp8_cfg, 1);
+
+    pick_quickcompress_mode(ctx, duration, deadline);
+    vpx_codec_pkt_list_init(&ctx->pkt_list);
+
+    // If no flags are set in the encode call, then use the frame flags as
+    // defined via the control function: vp8e_set_frame_flags.
+    if (!flags) {
+        flags = ctx->control_frame_flags;
+    }
+    ctx->control_frame_flags = 0;
+
+    if (!res)
+        res = set_reference_and_update(ctx, flags);
 
     /* Handle fixed keyframe intervals */
     if (ctx->cfg.kf_mode == VPX_KF_AUTO
@@ -1168,6 +1187,25 @@ static vpx_codec_err_t vp8e_use_reference(vpx_codec_alg_priv_t *ctx,
     return VPX_CODEC_OK;
 }
 
+static vpx_codec_err_t vp8e_set_frame_flags(vpx_codec_alg_priv_t *ctx,
+                                            va_list args)
+{
+    int frame_flags = va_arg(args, int);
+    ctx->control_frame_flags = frame_flags;
+    return set_reference_and_update(ctx, frame_flags);
+}
+
+static vpx_codec_err_t vp8e_set_temporal_layer_id(vpx_codec_alg_priv_t *ctx,
+                                                  va_list args)
+{
+    int layer_id = va_arg(args, int);
+    if (layer_id < 0 || layer_id >= (int)ctx->cfg.ts_number_layers) {
+      return VPX_CODEC_INVALID_PARAM;
+    }
+    ctx->cpi->temporal_layer_id = layer_id;
+    return VPX_CODEC_OK;
+}
+
 static vpx_codec_err_t vp8e_set_roi_map(vpx_codec_alg_priv_t *ctx,
                                         va_list args)
 {
@@ -1239,9 +1277,8 @@ static vpx_codec_ctrl_fn_map_t vp8e_ctf_maps[] =
     {VP8_SET_REFERENCE,                 vp8e_set_reference},
     {VP8_COPY_REFERENCE,                vp8e_get_reference},
     {VP8_SET_POSTPROC,                  vp8e_set_previewpp},
-    {VP8E_UPD_ENTROPY,                  vp8e_update_entropy},
-    {VP8E_UPD_REFERENCE,                vp8e_update_reference},
-    {VP8E_USE_REFERENCE,                vp8e_use_reference},
+    {VP8E_SET_FRAME_FLAGS,              vp8e_set_frame_flags},
+    {VP8E_SET_TEMPORAL_LAYER_ID,        vp8e_set_temporal_layer_id},
     {VP8E_SET_ROI_MAP,                  vp8e_set_roi_map},
     {VP8E_SET_ACTIVEMAP,                vp8e_set_activemap},
     {VP8E_SET_SCALEMODE,                vp8e_set_scalemode},
@@ -1259,6 +1296,7 @@ static vpx_codec_ctrl_fn_map_t vp8e_ctf_maps[] =
     {VP8E_SET_TUNING,                   set_tuning},
     {VP8E_SET_CQ_LEVEL,                 set_cq_level},
     {VP8E_SET_MAX_INTRA_BITRATE_PCT,    set_rc_max_intra_bitrate_pct},
+    {VP8E_SET_SCREEN_CONTENT_MODE,      set_screen_content_mode},
     { -1, NULL},
 };
 
@@ -1273,6 +1311,9 @@ static vpx_codec_enc_cfg_map_t vp8e_usage_cfg_map[] =
 
         320,                /* g_width */
         240,                /* g_height */
+        VPX_BITS_8,         /* g_bit_depth */
+        8,                  /* g_input_bit_depth */
+
         {1, 30},            /* g_timebase */
 
         0,                  /* g_error_resilient */
@@ -1289,10 +1330,8 @@ static vpx_codec_enc_cfg_map_t vp8e_usage_cfg_map[] =
         30,                 /* rc_resize_up_thresold */
 
         VPX_VBR,            /* rc_end_usage */
-#if VPX_ENCODER_ABI_VERSION > (1 + VPX_CODEC_ABI_VERSION)
         {0},                /* rc_twopass_stats_in */
         {0},                /* rc_firstpass_mb_stats_in */
-#endif
         256,                /* rc_target_bandwidth */
         4,                  /* rc_min_quantizer */
         63,                 /* rc_max_quantizer */
@@ -1312,9 +1351,6 @@ static vpx_codec_enc_cfg_map_t vp8e_usage_cfg_map[] =
         0,                  /* kf_min_dist */
         128,                /* kf_max_dist */
 
-#if VPX_ENCODER_ABI_VERSION == (1 + VPX_CODEC_ABI_VERSION)
-        "vp8.fpf"           /* first pass filename */
-#endif
         VPX_SS_DEFAULT_LAYERS, /* ss_number_layers */
         {0},
         {0},                /* ss_target_bitrate */
@@ -1341,18 +1377,19 @@ CODEC_INTERFACE(vpx_codec_vp8_cx) =
     vp8e_destroy,       /* vpx_codec_destroy_fn_t    destroy; */
     vp8e_ctf_maps,      /* vpx_codec_ctrl_fn_map_t  *ctrl_maps; */
     {
-        NOT_IMPLEMENTED,    /* vpx_codec_peek_si_fn_t    peek_si; */
-        NOT_IMPLEMENTED,    /* vpx_codec_get_si_fn_t     get_si; */
-        NOT_IMPLEMENTED,    /* vpx_codec_decode_fn_t     decode; */
-        NOT_IMPLEMENTED,    /* vpx_codec_frame_get_fn_t  frame_get; */
+        NULL,    /* vpx_codec_peek_si_fn_t    peek_si; */
+        NULL,    /* vpx_codec_get_si_fn_t     get_si; */
+        NULL,    /* vpx_codec_decode_fn_t     decode; */
+        NULL,    /* vpx_codec_frame_get_fn_t  frame_get; */
+        NULL,    /* vpx_codec_set_fb_fn_t     set_fb_fn; */
     },
     {
         1,                  /* 1 cfg map */
-        vp8e_usage_cfg_map, /* vpx_codec_enc_cfg_map_t    peek_si; */
+        vp8e_usage_cfg_map, /* vpx_codec_enc_cfg_map_t    cfg_maps; */
         vp8e_encode,        /* vpx_codec_encode_fn_t      encode; */
-        vp8e_get_cxdata,    /* vpx_codec_get_cx_data_fn_t   frame_get; */
+        vp8e_get_cxdata,    /* vpx_codec_get_cx_data_fn_t   get_cx_data; */
         vp8e_set_config,
-        NOT_IMPLEMENTED,
+        NULL,
         vp8e_get_preview,
         vp8e_mr_alloc_mem,
     } /* encoder functions */

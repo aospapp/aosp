@@ -16,6 +16,8 @@
 
 package vogar.commands;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -45,33 +47,30 @@ public final class Command {
             = Executors.newSingleThreadScheduledExecutor();
 
     private final Log log;
+    private final File workingDir;
     private final List<String> args;
     private final Map<String, String> env;
-    private final File workingDirectory;
     private final boolean permitNonZeroExitStatus;
     private final PrintStream tee;
+
     private volatile Process process;
     private volatile boolean destroyed;
     private volatile long timeoutNanoTime;
 
     public Command(Log log, String... args) {
-        this(log, Arrays.asList(args));
-    }
-
-    public Command(Log log, List<String> args) {
         this.log = log;
-        this.args = new ArrayList<String>(args);
+        this.workingDir = null;
+        this.args = ImmutableList.copyOf(args);
         this.env = Collections.emptyMap();
-        this.workingDirectory = null;
         this.permitNonZeroExitStatus = false;
         this.tee = null;
     }
 
     private Command(Builder builder) {
         this.log = builder.log;
-        this.args = new ArrayList<String>(builder.args);
+        this.workingDir = builder.workingDir;
+        this.args = ImmutableList.copyOf(builder.args);
         this.env = builder.env;
-        this.workingDirectory = builder.workingDirectory;
         this.permitNonZeroExitStatus = builder.permitNonZeroExitStatus;
         this.tee = builder.tee;
         if (builder.maxLength != -1) {
@@ -88,31 +87,12 @@ public final class Command {
             throw new IllegalStateException("Already started!");
         }
 
-        // Translate ["sh", "-c", "ls", "/tmp"] into ["sh", "-c", "ls /tmp"].
-        // This is needed for host execution.
-        ArrayList<String> actual = new ArrayList<String>();
-        int i = 0;
-        while (i < args.size()) {
-            String arg = args.get(i++);
-            actual.add(arg);
-            if (arg.equals("-c")) break;
-        }
-        if (i < args.size()) {
-            String cmd = "";
-            for (; i < args.size(); ++i) {
-                cmd += args.get(i) + " ";
-            }
-            actual.add(cmd);
-        }
-
-        log.verbose("executing " + actual);
+        log.verbose("executing " + args + (workingDir != null ? " in " + workingDir : ""));
 
         ProcessBuilder processBuilder = new ProcessBuilder()
-                .command(actual)
+                .directory(workingDir)
+                .command(args)
                 .redirectErrorStream(true);
-        if (workingDirectory != null) {
-            processBuilder.directory(workingDirectory);
-        }
 
         processBuilder.environment().putAll(env);
 
@@ -151,10 +131,6 @@ public final class Command {
         int exitValue = process.waitFor();
         destroyed = true;
         if (exitValue != 0 && !permitNonZeroExitStatus) {
-            StringBuilder message = new StringBuilder();
-            for (String line : outputLines) {
-                message.append("\n").append(line);
-            }
             throw new CommandFailedException(args, outputLines);
         }
 
@@ -206,9 +182,7 @@ public final class Command {
             process.waitFor();
             int exitValue = process.exitValue();
             log.verbose("received exit value " + exitValue + " from destroyed command " + this);
-        } catch (IllegalThreadStateException destroyUnsuccessful) {
-            log.warn("couldn't destroy " + this);
-        } catch (InterruptedException e) {
+        } catch (IllegalThreadStateException | InterruptedException destroyUnsuccessful) {
             log.warn("couldn't destroy " + this);
         }
     }
@@ -266,17 +240,32 @@ public final class Command {
         return System.nanoTime() >= timeoutNanoTime;
     }
 
+    @VisibleForTesting
+    public List<String> getArgs() {
+        return args;
+    }
+
     public static class Builder {
         private final Log log;
         private final List<String> args = new ArrayList<String>();
         private final Map<String, String> env = new LinkedHashMap<String, String>();
-        private File workingDirectory;
         private boolean permitNonZeroExitStatus = false;
         private PrintStream tee = null;
         private int maxLength = -1;
+        private File workingDir;
 
         public Builder(Log log) {
             this.log = log;
+        }
+
+        public Builder(Builder other) {
+            this.log = other.log;
+            this.workingDir = other.workingDir;
+            this.args.addAll(other.args);
+            this.env.putAll(other.env);
+            this.permitNonZeroExitStatus = other.permitNonZeroExitStatus;
+            this.tee = other.tee;
+            this.maxLength = other.maxLength;
         }
 
         public Builder args(Object... args) {
@@ -296,22 +285,11 @@ public final class Command {
         }
 
         /**
-         * Sets the working directory from which the command will be executed.
-         * This must be a <strong>local</strong> directory; Commands run on
-         * remote devices (ie. via {@code adb shell}) require a local working
-         * directory.
-         */
-        public Builder workingDirectory(File workingDirectory) {
-            this.workingDirectory = workingDirectory;
-            return this;
-        }
-
-        /**
-         * Prevents execute() from throwing if the invoked process returns a
+         * Controls whether execute() throws if the invoked process returns a
          * nonzero exit code.
          */
-        public Builder permitNonZeroExitStatus() {
-            this.permitNonZeroExitStatus = true;
+        public Builder permitNonZeroExitStatus(boolean value) {
+            this.permitNonZeroExitStatus = value;
             return this;
         }
 
@@ -322,6 +300,11 @@ public final class Command {
 
         public Builder maxLength(int maxLength) {
             this.maxLength = maxLength;
+            return this;
+        }
+
+        public Builder workingDir(File workingDir) {
+            this.workingDir = workingDir;
             return this;
         }
 

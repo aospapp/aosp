@@ -518,8 +518,9 @@ private:
         return false;
     }
 
-    virtual status_t mapKey(int32_t deviceId, int32_t scanCode, int32_t usageCode,
-            int32_t* outKeycode, uint32_t* outFlags) const {
+    virtual status_t mapKey(int32_t deviceId,
+            int32_t scanCode, int32_t usageCode, int32_t metaState,
+            int32_t* outKeycode, int32_t *outMetaState, uint32_t* outFlags) const {
         Device* device = getDevice(deviceId);
         if (device) {
             const KeyInfo* key = getKey(device, scanCode, usageCode);
@@ -529,6 +530,9 @@ private:
                 }
                 if (outFlags) {
                     *outFlags = key->flags;
+                }
+                if (outMetaState) {
+                    *outMetaState = metaState;
                 }
                 return OK;
             }
@@ -1524,8 +1528,8 @@ TEST_F(SwitchInputMapperTest, Process) {
     NotifySwitchArgs args;
     ASSERT_NO_FATAL_FAILURE(mFakeListener->assertNotifySwitchWasCalled(&args));
     ASSERT_EQ(ARBITRARY_TIME, args.eventTime);
-    ASSERT_EQ((1 << SW_LID) | (1 << SW_JACK_PHYSICAL_INSERT), args.switchValues);
-    ASSERT_EQ((1 << SW_LID) | (1 << SW_JACK_PHYSICAL_INSERT) | (1 << SW_HEADPHONE_INSERT),
+    ASSERT_EQ((1U << SW_LID) | (1U << SW_JACK_PHYSICAL_INSERT), args.switchValues);
+    ASSERT_EQ((1U << SW_LID) | (1U << SW_JACK_PHYSICAL_INSERT) | (1 << SW_HEADPHONE_INSERT),
             args.switchMask);
     ASSERT_EQ(uint32_t(0), args.policyFlags);
 }

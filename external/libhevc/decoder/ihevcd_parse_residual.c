@@ -191,7 +191,7 @@ WORD32 ihevcd_parse_residual_coding(codec_t *ps_codec,
     bitstrm_t *ps_bitstrm = &ps_codec->s_parse.s_bitstrm;
     WORD32 last_significant_coeff_x_prefix, last_significant_coeff_y_prefix;
     WORD32 last_significant_coeff_x, last_significant_coeff_y;
-    const UWORD8 *pu1_scan_blk, *pu1_scan_coeff;
+    const UWORD8 *pu1_scan_blk = NULL, *pu1_scan_coeff;
     WORD32 scan_idx;
     WORD32 i;
     WORD32 sign_data_hiding_flag;
@@ -387,7 +387,8 @@ WORD32 ihevcd_parse_residual_coding(codec_t *ps_codec,
 
         last_scan_pos = pu1_scan_coeff[scan_pos];
     }
-    pu1_scan_blk = (UWORD8 *)gapv_ihevc_invscan[scan_idx * 3 + (log2_trafo_size - 2 - 1)];
+    if(log2_trafo_size > 2)
+        pu1_scan_blk = (UWORD8 *)gapv_ihevc_invscan[scan_idx * 3 + (log2_trafo_size - 2 - 1)];
     pu1_scan_coeff  = &gau1_ihevc_invscan4x4[scan_idx][0];
 
     /* Set CSBF array to zero */

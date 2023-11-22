@@ -35,7 +35,7 @@
 #include "elf_file.h"
 #include "elf_file_impl.h"
 #include "gc/space/image_space.h"
-#include "image.h"
+#include "image-inl.h"
 #include "mirror/abstract_method.h"
 #include "mirror/object-inl.h"
 #include "mirror/method.h"
@@ -92,139 +92,76 @@ static bool LocationToFilename(const std::string& location, InstructionSet isa,
   }
 }
 
-bool PatchOat::Patch(const std::string& image_location, off_t delta,
-                     File* output_image, InstructionSet isa,
-                     TimingLogger* timings) {
-  CHECK(Runtime::Current() == nullptr);
-  CHECK(output_image != nullptr);
-  CHECK_GE(output_image->Fd(), 0);
-  CHECK(!image_location.empty()) << "image file must have a filename.";
-  CHECK_NE(isa, kNone);
-
-  TimingLogger::ScopedTiming t("Runtime Setup", timings);
-  const char *isa_name = GetInstructionSetString(isa);
-  std::string image_filename;
-  if (!LocationToFilename(image_location, isa, &image_filename)) {
-    LOG(ERROR) << "Unable to find image at location " << image_location;
-    return false;
-  }
-  std::unique_ptr<File> input_image(OS::OpenFileForReading(image_filename.c_str()));
-  if (input_image.get() == nullptr) {
-    LOG(ERROR) << "unable to open input image file at " << image_filename
-               << " for location " << image_location;
-    return false;
+static const OatHeader* GetOatHeader(const ElfFile* elf_file) {
+  uint64_t off = 0;
+  if (!elf_file->GetSectionOffsetAndSize(".rodata", &off, nullptr)) {
+    return nullptr;
   }
 
-  int64_t image_len = input_image->GetLength();
-  if (image_len < 0) {
-    LOG(ERROR) << "Error while getting image length";
-    return false;
-  }
-  ImageHeader image_header;
-  if (sizeof(image_header) != input_image->Read(reinterpret_cast<char*>(&image_header),
-                                                sizeof(image_header), 0)) {
-    LOG(ERROR) << "Unable to read image header from image file " << input_image->GetPath();
-    return false;
-  }
+  OatHeader* oat_header = reinterpret_cast<OatHeader*>(elf_file->Begin() + off);
+  return oat_header;
+}
 
-  /*bool is_image_pic = */IsImagePic(image_header, input_image->GetPath());
-  // Nothing special to do right now since the image always needs to get patched.
-  // Perhaps in some far-off future we may have images with relative addresses that are true-PIC.
-
-  // Set up the runtime
-  RuntimeOptions options;
-  NoopCompilerCallbacks callbacks;
-  options.push_back(std::make_pair("compilercallbacks", &callbacks));
-  std::string img = "-Ximage:" + image_location;
-  options.push_back(std::make_pair(img.c_str(), nullptr));
-  options.push_back(std::make_pair("imageinstructionset", reinterpret_cast<const void*>(isa_name)));
-  if (!Runtime::Create(options, false)) {
-    LOG(ERROR) << "Unable to initialize runtime";
+// This function takes an elf file and reads the current patch delta value
+// encoded in its oat header value
+static bool ReadOatPatchDelta(const ElfFile* elf_file, off_t* delta, std::string* error_msg) {
+  const OatHeader* oat_header = GetOatHeader(elf_file);
+  if (oat_header == nullptr) {
+    *error_msg = "Unable to get oat header from elf file.";
     return false;
   }
-  // Runtime::Create acquired the mutator_lock_ that is normally given away when we Runtime::Start,
-  // give it away now and then switch to a more manageable ScopedObjectAccess.
-  Thread::Current()->TransitionFromRunnableToSuspended(kNative);
-  ScopedObjectAccess soa(Thread::Current());
-
-  t.NewTiming("Image and oat Patching setup");
-  // Create the map where we will write the image patches to.
-  std::string error_msg;
-  std::unique_ptr<MemMap> image(MemMap::MapFile(image_len, PROT_READ | PROT_WRITE, MAP_PRIVATE,
-                                                input_image->Fd(), 0,
-                                                input_image->GetPath().c_str(),
-                                                &error_msg));
-  if (image.get() == nullptr) {
-    LOG(ERROR) << "unable to map image file " << input_image->GetPath() << " : " << error_msg;
+  if (!oat_header->IsValid()) {
+    *error_msg = "Elf file has an invalid oat header";
     return false;
   }
-  gc::space::ImageSpace* ispc = Runtime::Current()->GetHeap()->GetImageSpace();
-
-  PatchOat p(isa, image.release(), ispc->GetLiveBitmap(), ispc->GetMemMap(),
-             delta, timings);
-  t.NewTiming("Patching files");
-  if (!p.PatchImage()) {
-    LOG(ERROR) << "Failed to patch image file " << input_image->GetPath();
-    return false;
-  }
-
-  t.NewTiming("Writing files");
-  if (!p.WriteImage(output_image)) {
-    return false;
-  }
+  *delta = oat_header->GetImagePatchDelta();
   return true;
 }
 
-bool PatchOat::Patch(File* input_oat, const std::string& image_location, off_t delta,
-                     File* output_oat, File* output_image, InstructionSet isa,
-                     TimingLogger* timings,
-                     bool output_oat_opened_from_fd,
-                     bool new_oat_out) {
+static File* CreateOrOpen(const char* name, bool* created) {
+  if (OS::FileExists(name)) {
+    *created = false;
+    return OS::OpenFileReadWrite(name);
+  } else {
+    *created = true;
+    std::unique_ptr<File> f(OS::CreateEmptyFile(name));
+    if (f.get() != nullptr) {
+      if (fchmod(f->Fd(), 0644) != 0) {
+        PLOG(ERROR) << "Unable to make " << name << " world readable";
+        unlink(name);
+        return nullptr;
+      }
+    }
+    return f.release();
+  }
+}
+
+// Either try to close the file (close=true), or erase it.
+static bool FinishFile(File* file, bool close) {
+  if (close) {
+    if (file->FlushCloseOrErase() != 0) {
+      PLOG(ERROR) << "Failed to flush and close file.";
+      return false;
+    }
+    return true;
+  } else {
+    file->Erase();
+    return false;
+  }
+}
+
+bool PatchOat::Patch(const std::string& image_location,
+                     off_t delta,
+                     const std::string& output_directory,
+                     InstructionSet isa,
+                     TimingLogger* timings) {
   CHECK(Runtime::Current() == nullptr);
-  CHECK(output_image != nullptr);
-  CHECK_GE(output_image->Fd(), 0);
-  CHECK(input_oat != nullptr);
-  CHECK(output_oat != nullptr);
-  CHECK_GE(input_oat->Fd(), 0);
-  CHECK_GE(output_oat->Fd(), 0);
   CHECK(!image_location.empty()) << "image file must have a filename.";
 
   TimingLogger::ScopedTiming t("Runtime Setup", timings);
 
-  if (isa == kNone) {
-    Elf32_Ehdr elf_hdr;
-    if (sizeof(elf_hdr) != input_oat->Read(reinterpret_cast<char*>(&elf_hdr), sizeof(elf_hdr), 0)) {
-      LOG(ERROR) << "unable to read elf header";
-      return false;
-    }
-    isa = GetInstructionSetFromELF(elf_hdr.e_machine, elf_hdr.e_flags);
-  }
+  CHECK_NE(isa, kNone);
   const char* isa_name = GetInstructionSetString(isa);
-  std::string image_filename;
-  if (!LocationToFilename(image_location, isa, &image_filename)) {
-    LOG(ERROR) << "Unable to find image at location " << image_location;
-    return false;
-  }
-  std::unique_ptr<File> input_image(OS::OpenFileForReading(image_filename.c_str()));
-  if (input_image.get() == nullptr) {
-    LOG(ERROR) << "unable to open input image file at " << image_filename
-               << " for location " << image_location;
-    return false;
-  }
-  int64_t image_len = input_image->GetLength();
-  if (image_len < 0) {
-    LOG(ERROR) << "Error while getting image length";
-    return false;
-  }
-  ImageHeader image_header;
-  if (sizeof(image_header) != input_image->Read(reinterpret_cast<char*>(&image_header),
-                                              sizeof(image_header), 0)) {
-    LOG(ERROR) << "Unable to read image header from image file " << input_image->GetPath();
-  }
-
-  /*bool is_image_pic = */IsImagePic(image_header, input_image->GetPath());
-  // Nothing special to do right now since the image always needs to get patched.
-  // Perhaps in some far-off future we may have images with relative addresses that are true-PIC.
 
   // Set up the runtime
   RuntimeOptions options;
@@ -233,6 +170,7 @@ bool PatchOat::Patch(File* input_oat, const std::string& image_location, off_t d
   std::string img = "-Ximage:" + image_location;
   options.push_back(std::make_pair(img.c_str(), nullptr));
   options.push_back(std::make_pair("imageinstructionset", reinterpret_cast<const void*>(isa_name)));
+  options.push_back(std::make_pair("-Xno-sig-chain", nullptr));
   if (!Runtime::Create(options, false)) {
     LOG(ERROR) << "Unable to initialize runtime";
     return false;
@@ -243,65 +181,167 @@ bool PatchOat::Patch(File* input_oat, const std::string& image_location, off_t d
   ScopedObjectAccess soa(Thread::Current());
 
   t.NewTiming("Image and oat Patching setup");
-  // Create the map where we will write the image patches to.
-  std::string error_msg;
-  std::unique_ptr<MemMap> image(MemMap::MapFile(image_len, PROT_READ | PROT_WRITE, MAP_PRIVATE,
-                                                input_image->Fd(), 0,
-                                                input_image->GetPath().c_str(),
-                                                &error_msg));
-  if (image.get() == nullptr) {
-    LOG(ERROR) << "unable to map image file " << input_image->GetPath() << " : " << error_msg;
-    return false;
-  }
-  gc::space::ImageSpace* ispc = Runtime::Current()->GetHeap()->GetImageSpace();
+  std::vector<gc::space::ImageSpace*> spaces = Runtime::Current()->GetHeap()->GetBootImageSpaces();
+  std::map<gc::space::ImageSpace*, std::unique_ptr<File>> space_to_file_map;
+  std::map<gc::space::ImageSpace*, std::unique_ptr<MemMap>> space_to_memmap_map;
+  std::map<gc::space::ImageSpace*, PatchOat> space_to_patchoat_map;
+  std::map<gc::space::ImageSpace*, bool> space_to_skip_patching_map;
 
-  std::unique_ptr<ElfFile> elf(ElfFile::Open(input_oat,
-                                             PROT_READ | PROT_WRITE, MAP_PRIVATE, &error_msg));
-  if (elf.get() == nullptr) {
-    LOG(ERROR) << "unable to open oat file " << input_oat->GetPath() << " : " << error_msg;
-    return false;
-  }
-
-  bool skip_patching_oat = false;
-  MaybePic is_oat_pic = IsOatPic(elf.get());
-  if (is_oat_pic >= ERROR_FIRST) {
-    // Error logged by IsOatPic
-    return false;
-  } else if (is_oat_pic == PIC) {
-    // Do not need to do ELF-file patching. Create a symlink and skip the ELF patching.
-    if (!ReplaceOatFileWithSymlink(input_oat->GetPath(),
-                                   output_oat->GetPath(),
-                                   output_oat_opened_from_fd,
-                                   new_oat_out)) {
-      // Errors already logged by above call.
+  for (size_t i = 0; i < spaces.size(); ++i) {
+    gc::space::ImageSpace* space = spaces[i];
+    std::string input_image_filename = space->GetImageFilename();
+    std::unique_ptr<File> input_image(OS::OpenFileForReading(input_image_filename.c_str()));
+    if (input_image.get() == nullptr) {
+      LOG(ERROR) << "Unable to open input image file at " << input_image_filename;
       return false;
     }
-    // Don't patch the OAT, since we just symlinked it. Image still needs patching.
-    skip_patching_oat = true;
-  } else {
-    CHECK(is_oat_pic == NOT_PIC);
+
+    int64_t image_len = input_image->GetLength();
+    if (image_len < 0) {
+      LOG(ERROR) << "Error while getting image length";
+      return false;
+    }
+    ImageHeader image_header;
+    if (sizeof(image_header) != input_image->Read(reinterpret_cast<char*>(&image_header),
+                                                  sizeof(image_header), 0)) {
+      LOG(ERROR) << "Unable to read image header from image file " << input_image->GetPath();
+    }
+
+    /*bool is_image_pic = */IsImagePic(image_header, input_image->GetPath());
+    // Nothing special to do right now since the image always needs to get patched.
+    // Perhaps in some far-off future we may have images with relative addresses that are true-PIC.
+
+    // Create the map where we will write the image patches to.
+    std::string error_msg;
+    std::unique_ptr<MemMap> image(MemMap::MapFile(image_len,
+                                                  PROT_READ | PROT_WRITE,
+                                                  MAP_PRIVATE,
+                                                  input_image->Fd(),
+                                                  0,
+                                                  /*low_4gb*/false,
+                                                  input_image->GetPath().c_str(),
+                                                  &error_msg));
+    if (image.get() == nullptr) {
+      LOG(ERROR) << "Unable to map image file " << input_image->GetPath() << " : " << error_msg;
+      return false;
+    }
+    space_to_file_map.emplace(space, std::move(input_image));
+    space_to_memmap_map.emplace(space, std::move(image));
   }
 
-  PatchOat p(isa, elf.release(), image.release(), ispc->GetLiveBitmap(), ispc->GetMemMap(),
-             delta, timings);
-  t.NewTiming("Patching files");
-  if (!skip_patching_oat && !p.PatchElf()) {
-    LOG(ERROR) << "Failed to patch oat file " << input_oat->GetPath();
-    return false;
-  }
-  if (!p.PatchImage()) {
-    LOG(ERROR) << "Failed to patch image file " << input_image->GetPath();
-    return false;
+  for (size_t i = 0; i < spaces.size(); ++i) {
+    gc::space::ImageSpace* space = spaces[i];
+    std::string input_image_filename = space->GetImageFilename();
+    std::string input_oat_filename =
+        ImageHeader::GetOatLocationFromImageLocation(input_image_filename);
+    std::unique_ptr<File> input_oat_file(OS::OpenFileForReading(input_oat_filename.c_str()));
+    if (input_oat_file.get() == nullptr) {
+      LOG(ERROR) << "Unable to open input oat file at " << input_oat_filename;
+      return false;
+    }
+    std::string error_msg;
+    std::unique_ptr<ElfFile> elf(ElfFile::Open(input_oat_file.get(),
+                                               PROT_READ | PROT_WRITE, MAP_PRIVATE, &error_msg));
+    if (elf.get() == nullptr) {
+      LOG(ERROR) << "Unable to open oat file " << input_oat_file->GetPath() << " : " << error_msg;
+      return false;
+    }
+
+    bool skip_patching_oat = false;
+    MaybePic is_oat_pic = IsOatPic(elf.get());
+    if (is_oat_pic >= ERROR_FIRST) {
+      // Error logged by IsOatPic
+      return false;
+    } else if (is_oat_pic == PIC) {
+      // Do not need to do ELF-file patching. Create a symlink and skip the ELF patching.
+
+      std::string converted_image_filename = space->GetImageLocation();
+      std::replace(converted_image_filename.begin() + 1, converted_image_filename.end(), '/', '@');
+      std::string output_image_filename = output_directory +
+                                          (StartsWith(converted_image_filename, "/") ? "" : "/") +
+                                          converted_image_filename;
+      std::string output_oat_filename =
+          ImageHeader::GetOatLocationFromImageLocation(output_image_filename);
+
+      if (!ReplaceOatFileWithSymlink(input_oat_file->GetPath(),
+                                     output_oat_filename,
+                                     false,
+                                     true)) {
+        // Errors already logged by above call.
+        return false;
+      }
+      // Don't patch the OAT, since we just symlinked it. Image still needs patching.
+      skip_patching_oat = true;
+    } else {
+      CHECK(is_oat_pic == NOT_PIC);
+    }
+
+    PatchOat& p = space_to_patchoat_map.emplace(space,
+                                                PatchOat(
+                                                    isa,
+                                                    elf.release(),
+                                                    space_to_memmap_map.find(space)->second.get(),
+                                                    space->GetLiveBitmap(),
+                                                    space->GetMemMap(),
+                                                    delta,
+                                                    &space_to_memmap_map,
+                                                    timings)).first->second;
+
+    t.NewTiming("Patching files");
+    if (!skip_patching_oat && !p.PatchElf()) {
+      LOG(ERROR) << "Failed to patch oat file " << input_oat_file->GetPath();
+      return false;
+    }
+    if (!p.PatchImage(i == 0)) {
+      LOG(ERROR) << "Failed to patch image file " << input_image_filename;
+      return false;
+    }
+
+    space_to_skip_patching_map.emplace(space, skip_patching_oat);
   }
 
-  t.NewTiming("Writing files");
-  if (!skip_patching_oat && !p.WriteElf(output_oat)) {
-    LOG(ERROR) << "Failed to write oat file " << input_oat->GetPath();
-    return false;
-  }
-  if (!p.WriteImage(output_image)) {
-    LOG(ERROR) << "Failed to write image file " << input_image->GetPath();
-    return false;
+  for (size_t i = 0; i < spaces.size(); ++i) {
+    gc::space::ImageSpace* space = spaces[i];
+    std::string input_image_filename = space->GetImageFilename();
+
+    t.NewTiming("Writing files");
+    std::string converted_image_filename = space->GetImageLocation();
+    std::replace(converted_image_filename.begin() + 1, converted_image_filename.end(), '/', '@');
+    std::string output_image_filename = output_directory +
+                                        (StartsWith(converted_image_filename, "/") ? "" : "/") +
+                                        converted_image_filename;
+    bool new_oat_out;
+    std::unique_ptr<File>
+        output_image_file(CreateOrOpen(output_image_filename.c_str(), &new_oat_out));
+    if (output_image_file.get() == nullptr) {
+      LOG(ERROR) << "Failed to open output image file at " << output_image_filename;
+      return false;
+    }
+
+    PatchOat& p = space_to_patchoat_map.find(space)->second;
+
+    bool success = p.WriteImage(output_image_file.get());
+    success = FinishFile(output_image_file.get(), success);
+    if (!success) {
+      return false;
+    }
+
+    bool skip_patching_oat = space_to_skip_patching_map.find(space)->second;
+    if (!skip_patching_oat) {
+      std::string output_oat_filename =
+          ImageHeader::GetOatLocationFromImageLocation(output_image_filename);
+      std::unique_ptr<File>
+          output_oat_file(CreateOrOpen(output_oat_filename.c_str(), &new_oat_out));
+      if (output_oat_file.get() == nullptr) {
+        LOG(ERROR) << "Failed to open output oat file at " << output_oat_filename;
+        return false;
+      }
+      success = p.WriteElf(output_oat_file.get());
+      success = FinishFile(output_oat_file.get(), success);
+      if (!success) {
+        return false;
+      }
+    }
   }
   return true;
 }
@@ -400,7 +440,7 @@ bool PatchOat::ReplaceOatFileWithSymlink(const std::string& input_oat_filename,
   }
 
   // Delete the original file, since we won't need it.
-  TEMP_FAILURE_RETRY(unlink(output_oat_filename.c_str()));
+  unlink(output_oat_filename.c_str());
 
   // Create a symlink from the old oat to the new oat
   if (symlink(input_oat_filename.c_str(), output_oat_filename.c_str()) < 0) {
@@ -417,24 +457,52 @@ bool PatchOat::ReplaceOatFileWithSymlink(const std::string& input_oat_filename,
   return true;
 }
 
-void PatchOat::PatchArtFields(const ImageHeader* image_header) {
-  const auto& section = image_header->GetImageSection(ImageHeader::kSectionArtFields);
-  for (size_t pos = 0; pos < section.Size(); pos += sizeof(ArtField)) {
-    auto* src = reinterpret_cast<ArtField*>(heap_->Begin() + section.Offset() + pos);
-    auto* dest = RelocatedCopyOf(src);
-    dest->SetDeclaringClass(RelocatedAddressOfPointer(src->GetDeclaringClass()));
+class PatchOatArtFieldVisitor : public ArtFieldVisitor {
+ public:
+  explicit PatchOatArtFieldVisitor(PatchOat* patch_oat) : patch_oat_(patch_oat) {}
+
+  void Visit(ArtField* field) OVERRIDE SHARED_REQUIRES(Locks::mutator_lock_) {
+    ArtField* const dest = patch_oat_->RelocatedCopyOf(field);
+    dest->SetDeclaringClass(patch_oat_->RelocatedAddressOfPointer(field->GetDeclaringClass()));
   }
+
+ private:
+  PatchOat* const patch_oat_;
+};
+
+void PatchOat::PatchArtFields(const ImageHeader* image_header) {
+  PatchOatArtFieldVisitor visitor(this);
+  image_header->VisitPackedArtFields(&visitor, heap_->Begin());
 }
 
-void PatchOat::PatchArtMethods(const ImageHeader* image_header) {
-  const auto& section = image_header->GetMethodsSection();
-  const size_t pointer_size = InstructionSetPointerSize(isa_);
-  size_t method_size = ArtMethod::ObjectSize(pointer_size);
-  for (size_t pos = 0; pos < section.Size(); pos += method_size) {
-    auto* src = reinterpret_cast<ArtMethod*>(heap_->Begin() + section.Offset() + pos);
-    auto* dest = RelocatedCopyOf(src);
-    FixupMethod(src, dest);
+class PatchOatArtMethodVisitor : public ArtMethodVisitor {
+ public:
+  explicit PatchOatArtMethodVisitor(PatchOat* patch_oat) : patch_oat_(patch_oat) {}
+
+  void Visit(ArtMethod* method) OVERRIDE SHARED_REQUIRES(Locks::mutator_lock_) {
+    ArtMethod* const dest = patch_oat_->RelocatedCopyOf(method);
+    patch_oat_->FixupMethod(method, dest);
   }
+
+ private:
+  PatchOat* const patch_oat_;
+};
+
+void PatchOat::PatchArtMethods(const ImageHeader* image_header) {
+  const size_t pointer_size = InstructionSetPointerSize(isa_);
+  PatchOatArtMethodVisitor visitor(this);
+  image_header->VisitPackedArtMethods(&visitor, heap_->Begin(), pointer_size);
+}
+
+void PatchOat::PatchImtConflictTables(const ImageHeader* image_header) {
+  const size_t pointer_size = InstructionSetPointerSize(isa_);
+  // We can safely walk target image since the conflict tables are independent.
+  image_header->VisitPackedImtConflictTables(
+      [this](ArtMethod* method) {
+        return RelocatedAddressOfPointer(method);
+      },
+      image_->Begin(),
+      pointer_size);
 }
 
 class FixupRootVisitor : public RootVisitor {
@@ -443,7 +511,7 @@ class FixupRootVisitor : public RootVisitor {
   }
 
   void VisitRoots(mirror::Object*** roots, size_t count, const RootInfo& info ATTRIBUTE_UNUSED)
-      OVERRIDE SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      OVERRIDE SHARED_REQUIRES(Locks::mutator_lock_) {
     for (size_t i = 0; i < count; ++i) {
       *roots[i] = patch_oat_->RelocatedAddressOfPointer(*roots[i]);
     }
@@ -451,7 +519,7 @@ class FixupRootVisitor : public RootVisitor {
 
   void VisitRoots(mirror::CompressedReference<mirror::Object>** roots, size_t count,
                   const RootInfo& info ATTRIBUTE_UNUSED)
-      OVERRIDE SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      OVERRIDE SHARED_REQUIRES(Locks::mutator_lock_) {
     for (size_t i = 0; i < count; ++i) {
       roots[i]->Assign(patch_oat_->RelocatedAddressOfPointer(roots[i]->AsMirrorPtr()));
     }
@@ -467,51 +535,99 @@ void PatchOat::PatchInternedStrings(const ImageHeader* image_header) {
   // Note that we require that ReadFromMemory does not make an internal copy of the elements.
   // This also relies on visit roots not doing any verification which could fail after we update
   // the roots to be the image addresses.
-  temp_table.ReadFromMemory(image_->Begin() + section.Offset());
+  temp_table.AddTableFromMemory(image_->Begin() + section.Offset());
   FixupRootVisitor visitor(this);
   temp_table.VisitRoots(&visitor, kVisitRootFlagAllRoots);
 }
 
+void PatchOat::PatchClassTable(const ImageHeader* image_header) {
+  const auto& section = image_header->GetImageSection(ImageHeader::kSectionClassTable);
+  if (section.Size() == 0) {
+    return;
+  }
+  // Note that we require that ReadFromMemory does not make an internal copy of the elements.
+  // This also relies on visit roots not doing any verification which could fail after we update
+  // the roots to be the image addresses.
+  WriterMutexLock mu(Thread::Current(), *Locks::classlinker_classes_lock_);
+  ClassTable temp_table;
+  temp_table.ReadFromMemory(image_->Begin() + section.Offset());
+  FixupRootVisitor visitor(this);
+  BufferedRootVisitor<kDefaultBufferedRootCount> buffered_visitor(&visitor, RootInfo(kRootUnknown));
+  temp_table.VisitRoots(buffered_visitor);
+}
+
+
+class RelocatedPointerVisitor {
+ public:
+  explicit RelocatedPointerVisitor(PatchOat* patch_oat) : patch_oat_(patch_oat) {}
+
+  template <typename T>
+  T* operator()(T* ptr) const {
+    return patch_oat_->RelocatedAddressOfPointer(ptr);
+  }
+
+ private:
+  PatchOat* const patch_oat_;
+};
+
 void PatchOat::PatchDexFileArrays(mirror::ObjectArray<mirror::Object>* img_roots) {
   auto* dex_caches = down_cast<mirror::ObjectArray<mirror::DexCache>*>(
       img_roots->Get(ImageHeader::kDexCaches));
+  const size_t pointer_size = InstructionSetPointerSize(isa_);
   for (size_t i = 0, count = dex_caches->GetLength(); i < count; ++i) {
-    auto* dex_cache = dex_caches->GetWithoutChecks(i);
-    auto* fields = dex_cache->GetResolvedFields();
-    if (fields != nullptr) {
-      CHECK(!fields->IsObjectArray());
-      CHECK(fields->IsArrayInstance());
-      FixupNativePointerArray(fields);
+    auto* orig_dex_cache = dex_caches->GetWithoutChecks(i);
+    auto* copy_dex_cache = RelocatedCopyOf(orig_dex_cache);
+    // Though the DexCache array fields are usually treated as native pointers, we set the full
+    // 64-bit values here, clearing the top 32 bits for 32-bit targets. The zero-extension is
+    // done by casting to the unsigned type uintptr_t before casting to int64_t, i.e.
+    //     static_cast<int64_t>(reinterpret_cast<uintptr_t>(image_begin_ + offset))).
+    GcRoot<mirror::String>* orig_strings = orig_dex_cache->GetStrings();
+    GcRoot<mirror::String>* relocated_strings = RelocatedAddressOfPointer(orig_strings);
+    copy_dex_cache->SetField64<false>(
+        mirror::DexCache::StringsOffset(),
+        static_cast<int64_t>(reinterpret_cast<uintptr_t>(relocated_strings)));
+    if (orig_strings != nullptr) {
+      orig_dex_cache->FixupStrings(RelocatedCopyOf(orig_strings), RelocatedPointerVisitor(this));
     }
-    auto* methods = dex_cache->GetResolvedMethods();
-    if (methods != nullptr) {
-      CHECK(!methods->IsObjectArray());
-      CHECK(methods->IsArrayInstance());
-      FixupNativePointerArray(methods);
+    GcRoot<mirror::Class>* orig_types = orig_dex_cache->GetResolvedTypes();
+    GcRoot<mirror::Class>* relocated_types = RelocatedAddressOfPointer(orig_types);
+    copy_dex_cache->SetField64<false>(
+        mirror::DexCache::ResolvedTypesOffset(),
+        static_cast<int64_t>(reinterpret_cast<uintptr_t>(relocated_types)));
+    if (orig_types != nullptr) {
+      orig_dex_cache->FixupResolvedTypes(RelocatedCopyOf(orig_types),
+                                         RelocatedPointerVisitor(this));
+    }
+    ArtMethod** orig_methods = orig_dex_cache->GetResolvedMethods();
+    ArtMethod** relocated_methods = RelocatedAddressOfPointer(orig_methods);
+    copy_dex_cache->SetField64<false>(
+        mirror::DexCache::ResolvedMethodsOffset(),
+        static_cast<int64_t>(reinterpret_cast<uintptr_t>(relocated_methods)));
+    if (orig_methods != nullptr) {
+      ArtMethod** copy_methods = RelocatedCopyOf(orig_methods);
+      for (size_t j = 0, num = orig_dex_cache->NumResolvedMethods(); j != num; ++j) {
+        ArtMethod* orig = mirror::DexCache::GetElementPtrSize(orig_methods, j, pointer_size);
+        ArtMethod* copy = RelocatedAddressOfPointer(orig);
+        mirror::DexCache::SetElementPtrSize(copy_methods, j, copy, pointer_size);
+      }
+    }
+    ArtField** orig_fields = orig_dex_cache->GetResolvedFields();
+    ArtField** relocated_fields = RelocatedAddressOfPointer(orig_fields);
+    copy_dex_cache->SetField64<false>(
+        mirror::DexCache::ResolvedFieldsOffset(),
+        static_cast<int64_t>(reinterpret_cast<uintptr_t>(relocated_fields)));
+    if (orig_fields != nullptr) {
+      ArtField** copy_fields = RelocatedCopyOf(orig_fields);
+      for (size_t j = 0, num = orig_dex_cache->NumResolvedFields(); j != num; ++j) {
+        ArtField* orig = mirror::DexCache::GetElementPtrSize(orig_fields, j, pointer_size);
+        ArtField* copy = RelocatedAddressOfPointer(orig);
+        mirror::DexCache::SetElementPtrSize(copy_fields, j, copy, pointer_size);
+      }
     }
   }
 }
 
-void PatchOat::FixupNativePointerArray(mirror::PointerArray* object) {
-  if (object->IsIntArray()) {
-    mirror::IntArray* arr = object->AsIntArray();
-    mirror::IntArray* copy_arr = down_cast<mirror::IntArray*>(RelocatedCopyOf(arr));
-    for (size_t j = 0, count2 = arr->GetLength(); j < count2; ++j) {
-      copy_arr->SetWithoutChecks<false>(
-          j, RelocatedAddressOfIntPointer(arr->GetWithoutChecks(j)));
-    }
-  } else {
-    CHECK(object->IsLongArray());
-    mirror::LongArray* arr = object->AsLongArray();
-    mirror::LongArray* copy_arr = down_cast<mirror::LongArray*>(RelocatedCopyOf(arr));
-    for (size_t j = 0, count2 = arr->GetLength(); j < count2; ++j) {
-      copy_arr->SetWithoutChecks<false>(
-          j, RelocatedAddressOfIntPointer(arr->GetWithoutChecks(j)));
-    }
-  }
-}
-
-bool PatchOat::PatchImage() {
+bool PatchOat::PatchImage(bool primary_image) {
   ImageHeader* image_header = reinterpret_cast<ImageHeader*>(image_->Begin());
   CHECK_GT(image_->Size(), sizeof(ImageHeader));
   // These are the roots from the original file.
@@ -520,13 +636,18 @@ bool PatchOat::PatchImage() {
 
   PatchArtFields(image_header);
   PatchArtMethods(image_header);
+  PatchImtConflictTables(image_header);
   PatchInternedStrings(image_header);
+  PatchClassTable(image_header);
   // Patch dex file int/long arrays which point to ArtFields.
   PatchDexFileArrays(img_roots);
 
-  VisitObject(img_roots);
+  if (primary_image) {
+    VisitObject(img_roots);
+  }
+
   if (!image_header->IsValid()) {
-    LOG(ERROR) << "reloction renders image header invalid";
+    LOG(ERROR) << "relocation renders image header invalid";
     return false;
   }
 
@@ -539,17 +660,10 @@ bool PatchOat::PatchImage() {
   return true;
 }
 
-bool PatchOat::InHeap(mirror::Object* o) {
-  uintptr_t begin = reinterpret_cast<uintptr_t>(heap_->Begin());
-  uintptr_t end = reinterpret_cast<uintptr_t>(heap_->End());
-  uintptr_t obj = reinterpret_cast<uintptr_t>(o);
-  return o == nullptr || (begin <= obj && obj < end);
-}
 
 void PatchOat::PatchVisitor::operator() (mirror::Object* obj, MemberOffset off,
                                          bool is_static_unused ATTRIBUTE_UNUSED) const {
   mirror::Object* referent = obj->GetFieldObject<mirror::Object, kVerifyNone>(off);
-  DCHECK(patcher_->InHeap(referent)) << "Referent is not in the heap.";
   mirror::Object* moved_object = patcher_->RelocatedAddressOfPointer(referent);
   copy_->SetFieldObjectWithoutWriteBarrier<false, true, kVerifyNone>(off, moved_object);
 }
@@ -558,28 +672,10 @@ void PatchOat::PatchVisitor::operator() (mirror::Class* cls ATTRIBUTE_UNUSED,
                                          mirror::Reference* ref) const {
   MemberOffset off = mirror::Reference::ReferentOffset();
   mirror::Object* referent = ref->GetReferent();
-  DCHECK(patcher_->InHeap(referent)) << "Referent is not in the heap.";
+  DCHECK(referent == nullptr ||
+         Runtime::Current()->GetHeap()->ObjectIsInBootImageSpace(referent)) << referent;
   mirror::Object* moved_object = patcher_->RelocatedAddressOfPointer(referent);
   copy_->SetFieldObjectWithoutWriteBarrier<false, true, kVerifyNone>(off, moved_object);
-}
-
-const OatHeader* PatchOat::GetOatHeader(const ElfFile* elf_file) {
-  if (elf_file->Is64Bit()) {
-    return GetOatHeader<ElfFileImpl64>(elf_file->GetImpl64());
-  } else {
-    return GetOatHeader<ElfFileImpl32>(elf_file->GetImpl32());
-  }
-}
-
-template <typename ElfFileImpl>
-const OatHeader* PatchOat::GetOatHeader(const ElfFileImpl* elf_file) {
-  auto rodata_sec = elf_file->FindSectionByName(".rodata");
-  if (rodata_sec == nullptr) {
-    return nullptr;
-  }
-
-  OatHeader* oat_header = reinterpret_cast<OatHeader*>(elf_file->Begin() + rodata_sec->sh_offset);
-  return oat_header;
 }
 
 // Called by BitmapCallback
@@ -595,18 +691,16 @@ void PatchOat::VisitObject(mirror::Object* object) {
     }
   }
   PatchOat::PatchVisitor visitor(this, copy);
-  object->VisitReferences<true, kVerifyNone>(visitor, visitor);
+  object->VisitReferences<kVerifyNone>(visitor, visitor);
   if (object->IsClass<kVerifyNone>()) {
-    auto* klass = object->AsClass();
-    auto* copy_klass = down_cast<mirror::Class*>(copy);
-    copy_klass->SetSFieldsUnchecked(RelocatedAddressOfPointer(klass->GetSFields()));
-    copy_klass->SetIFieldsUnchecked(RelocatedAddressOfPointer(klass->GetIFields()));
-    copy_klass->SetDirectMethodsPtrUnchecked(
-        RelocatedAddressOfPointer(klass->GetDirectMethodsPtr()));
-    copy_klass->SetVirtualMethodsPtr(RelocatedAddressOfPointer(klass->GetVirtualMethodsPtr()));
+    const size_t pointer_size = InstructionSetPointerSize(isa_);
+    mirror::Class* klass = object->AsClass();
+    mirror::Class* copy_klass = down_cast<mirror::Class*>(copy);
+    RelocatedPointerVisitor native_visitor(this);
+    klass->FixupNativePointers(copy_klass, pointer_size, native_visitor);
     auto* vtable = klass->GetVTable();
     if (vtable != nullptr) {
-      FixupNativePointerArray(vtable);
+      vtable->Fixup(RelocatedCopyOfFollowImages(vtable), pointer_size, native_visitor);
     }
     auto* iftable = klass->GetIfTable();
     if (iftable != nullptr) {
@@ -614,24 +708,14 @@ void PatchOat::VisitObject(mirror::Object* object) {
         if (iftable->GetMethodArrayCount(i) > 0) {
           auto* method_array = iftable->GetMethodArray(i);
           CHECK(method_array != nullptr);
-          FixupNativePointerArray(method_array);
+          method_array->Fixup(RelocatedCopyOfFollowImages(method_array),
+                              pointer_size,
+                              native_visitor);
         }
       }
     }
-    if (klass->ShouldHaveEmbeddedImtAndVTable()) {
-      const size_t pointer_size = InstructionSetPointerSize(isa_);
-      for (int32_t i = 0; i < klass->GetEmbeddedVTableLength(); ++i) {
-        copy_klass->SetEmbeddedVTableEntryUnchecked(i, RelocatedAddressOfPointer(
-            klass->GetEmbeddedVTableEntry(i, pointer_size)), pointer_size);
-      }
-      for (size_t i = 0; i < mirror::Class::kImtSize; ++i) {
-        copy_klass->SetEmbeddedImTableEntry(i, RelocatedAddressOfPointer(
-            klass->GetEmbeddedImTableEntry(i, pointer_size)), pointer_size);
-      }
-    }
-  }
-  if (object->GetClass() == mirror::Method::StaticClass() ||
-      object->GetClass() == mirror::Constructor::StaticClass()) {
+  } else if (object->GetClass() == mirror::Method::StaticClass() ||
+             object->GetClass() == mirror::Constructor::StaticClass()) {
     // Need to go update the ArtMethod.
     auto* dest = down_cast<mirror::AbstractMethod*>(copy);
     auto* src = down_cast<mirror::AbstractMethod*>(object);
@@ -645,12 +729,13 @@ void PatchOat::FixupMethod(ArtMethod* object, ArtMethod* copy) {
   // Just update the entry points if it looks like we should.
   // TODO: sanity check all the pointers' values
   copy->SetDeclaringClass(RelocatedAddressOfPointer(object->GetDeclaringClass()));
-  copy->SetDexCacheResolvedMethods(RelocatedAddressOfPointer(object->GetDexCacheResolvedMethods()));
-  copy->SetDexCacheResolvedTypes(RelocatedAddressOfPointer(object->GetDexCacheResolvedTypes()));
+  copy->SetDexCacheResolvedMethods(
+      RelocatedAddressOfPointer(object->GetDexCacheResolvedMethods(pointer_size)), pointer_size);
+  copy->SetDexCacheResolvedTypes(
+      RelocatedAddressOfPointer(object->GetDexCacheResolvedTypes(pointer_size)), pointer_size);
   copy->SetEntryPointFromQuickCompiledCodePtrSize(RelocatedAddressOfPointer(
       object->GetEntryPointFromQuickCompiledCodePtrSize(pointer_size)), pointer_size);
-  copy->SetEntryPointFromInterpreterPtrSize(RelocatedAddressOfPointer(
-      object->GetEntryPointFromInterpreterPtrSize(pointer_size)), pointer_size);
+  // No special handling for IMT conflict table since all pointers are moved by the same offset.
   copy->SetEntryPointFromJniPtrSize(RelocatedAddressOfPointer(
       object->GetEntryPointFromJniPtrSize(pointer_size)), pointer_size);
 }
@@ -839,23 +924,11 @@ NO_RETURN static void Usage(const char *fmt, ...) {
   UsageError("  --output-image-file=<file.art>: Specifies the exact file to write the patched");
   UsageError("      image file to.");
   UsageError("");
-  UsageError("  --output-image-fd=<file-descriptor>: Specifies the file-descriptor to write the");
-  UsageError("      the patched image file to.");
-  UsageError("");
-  UsageError("  --orig-base-offset=<original-base-offset>: Specify the base offset the input file");
-  UsageError("      was compiled with. This is needed if one is specifying a --base-offset");
-  UsageError("");
-  UsageError("  --base-offset=<new-base-offset>: Specify the base offset we will repatch the");
-  UsageError("      given files to use. This requires that --orig-base-offset is also given.");
-  UsageError("");
   UsageError("  --base-offset-delta=<delta>: Specify the amount to change the old base-offset by.");
   UsageError("      This value may be negative.");
   UsageError("");
-  UsageError("  --patched-image-file=<file.art>: Use the same patch delta as was used to patch");
-  UsageError("      the given image file.");
-  UsageError("");
-  UsageError("  --patched-image-location=<file.art>: Use the same patch delta as was used to");
-  UsageError("      patch the given image location. If used one must also specify the");
+  UsageError("  --patched-image-location=<file.art>: Relocate the oat file to be the same as the");
+  UsageError("      image at the given location. If used one must also specify the");
   UsageError("      --instruction-set flag. It will search for this image in the same way that");
   UsageError("      is done when loading one.");
   UsageError("");
@@ -899,36 +972,246 @@ static bool ReadBaseDelta(const char* name, off_t* delta, std::string* error_msg
   return true;
 }
 
-static File* CreateOrOpen(const char* name, bool* created) {
-  if (OS::FileExists(name)) {
-    *created = false;
-    return OS::OpenFileReadWrite(name);
-  } else {
-    *created = true;
-    std::unique_ptr<File> f(OS::CreateEmptyFile(name));
-    if (f.get() != nullptr) {
-      if (fchmod(f->Fd(), 0644) != 0) {
-        PLOG(ERROR) << "Unable to make " << name << " world readable";
-        TEMP_FAILURE_RETRY(unlink(name));
-        return nullptr;
-      }
-    }
-    return f.release();
+static int patchoat_image(TimingLogger& timings,
+                          InstructionSet isa,
+                          const std::string& input_image_location,
+                          const std::string& output_image_filename,
+                          off_t base_delta,
+                          bool base_delta_set,
+                          bool debug) {
+  CHECK(!input_image_location.empty());
+  if (output_image_filename.empty()) {
+    Usage("Image patching requires --output-image-file");
   }
+
+  if (!base_delta_set) {
+    Usage("Must supply a desired new offset or delta.");
+  }
+
+  if (!IsAligned<kPageSize>(base_delta)) {
+    Usage("Base offset/delta must be aligned to a pagesize (0x%08x) boundary.", kPageSize);
+  }
+
+  if (debug) {
+    LOG(INFO) << "moving offset by " << base_delta
+        << " (0x" << std::hex << base_delta << ") bytes or "
+        << std::dec << (base_delta/kPageSize) << " pages.";
+  }
+
+  TimingLogger::ScopedTiming pt("patch image and oat", &timings);
+
+  std::string output_directory =
+      output_image_filename.substr(0, output_image_filename.find_last_of("/"));
+  bool ret = PatchOat::Patch(input_image_location, base_delta, output_directory, isa, &timings);
+
+  if (kIsDebugBuild) {
+    LOG(INFO) << "Exiting with return ... " << ret;
+  }
+  return ret ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
-// Either try to close the file (close=true), or erase it.
-static bool FinishFile(File* file, bool close) {
-  if (close) {
-    if (file->FlushCloseOrErase() != 0) {
-      PLOG(ERROR) << "Failed to flush and close file.";
+static int patchoat_oat(TimingLogger& timings,
+                        InstructionSet isa,
+                        const std::string& patched_image_location,
+                        off_t base_delta,
+                        bool base_delta_set,
+                        int input_oat_fd,
+                        const std::string& input_oat_location,
+                        std::string input_oat_filename,
+                        bool have_input_oat,
+                        int output_oat_fd,
+                        std::string output_oat_filename,
+                        bool have_output_oat,
+                        bool lock_output,
+                        bool debug) {
+  {
+    // Only 1 of these may be set.
+    uint32_t cnt = 0;
+    cnt += (base_delta_set) ? 1 : 0;
+    cnt += (!patched_image_location.empty()) ? 1 : 0;
+    if (cnt > 1) {
+      Usage("Only one of --base-offset-delta or --patched-image-location may be used.");
+    } else if (cnt == 0) {
+      Usage("Must specify --base-offset-delta or --patched-image-location.");
+    }
+  }
+
+  if (!have_input_oat || !have_output_oat) {
+    Usage("Both input and output oat must be supplied to patch an app odex.");
+  }
+
+  if (!input_oat_location.empty()) {
+    if (!LocationToFilename(input_oat_location, isa, &input_oat_filename)) {
+      Usage("Unable to find filename for input oat location %s", input_oat_location.c_str());
+    }
+    if (debug) {
+      LOG(INFO) << "Using input-oat-file " << input_oat_filename;
+    }
+  }
+
+  bool match_delta = false;
+  if (!patched_image_location.empty()) {
+    std::string system_filename;
+    bool has_system = false;
+    std::string cache_filename;
+    bool has_cache = false;
+    bool has_android_data_unused = false;
+    bool is_global_cache = false;
+    if (!gc::space::ImageSpace::FindImageFilename(patched_image_location.c_str(), isa,
+                                                  &system_filename, &has_system, &cache_filename,
+                                                  &has_android_data_unused, &has_cache,
+                                                  &is_global_cache)) {
+      Usage("Unable to determine image file for location %s", patched_image_location.c_str());
+    }
+    std::string patched_image_filename;
+    if (has_cache) {
+      patched_image_filename = cache_filename;
+    } else if (has_system) {
+      LOG(WARNING) << "Only image file found was in /system for image location "
+          << patched_image_location;
+      patched_image_filename = system_filename;
+    } else {
+      Usage("Unable to determine image file for location %s", patched_image_location.c_str());
+    }
+    if (debug) {
+      LOG(INFO) << "Using patched-image-file " << patched_image_filename;
+    }
+
+    base_delta_set = true;
+    match_delta = true;
+    std::string error_msg;
+    if (!ReadBaseDelta(patched_image_filename.c_str(), &base_delta, &error_msg)) {
+      Usage(error_msg.c_str(), patched_image_filename.c_str());
+    }
+  }
+
+  if (!IsAligned<kPageSize>(base_delta)) {
+    Usage("Base offset/delta must be alligned to a pagesize (0x%08x) boundary.", kPageSize);
+  }
+
+  // Do we need to cleanup output files if we fail?
+  bool new_oat_out = false;
+
+  std::unique_ptr<File> input_oat;
+  std::unique_ptr<File> output_oat;
+
+  if (input_oat_fd != -1) {
+    if (input_oat_filename.empty()) {
+      input_oat_filename = "input-oat-file";
+    }
+    input_oat.reset(new File(input_oat_fd, input_oat_filename, false));
+    if (input_oat_fd == output_oat_fd) {
+      input_oat.get()->DisableAutoClose();
+    }
+    if (input_oat == nullptr) {
+      // Unlikely, but ensure exhaustive logging in non-0 exit code case
+      LOG(ERROR) << "Failed to open input oat file by its FD" << input_oat_fd;
+      return EXIT_FAILURE;
+    }
+  } else {
+    CHECK(!input_oat_filename.empty());
+    input_oat.reset(OS::OpenFileForReading(input_oat_filename.c_str()));
+    if (input_oat == nullptr) {
+      int err = errno;
+      LOG(ERROR) << "Failed to open input oat file " << input_oat_filename
+          << ": " << strerror(err) << "(" << err << ")";
+      return EXIT_FAILURE;
+    }
+  }
+
+  std::string error_msg;
+  std::unique_ptr<ElfFile> elf(ElfFile::Open(input_oat.get(), PROT_READ, MAP_PRIVATE, &error_msg));
+  if (elf.get() == nullptr) {
+    LOG(ERROR) << "unable to open oat file " << input_oat->GetPath() << " : " << error_msg;
+    return EXIT_FAILURE;
+  }
+  if (!elf->HasSection(".text.oat_patches")) {
+    LOG(ERROR) << "missing oat patch section in input oat file " << input_oat->GetPath();
+    return EXIT_FAILURE;
+  }
+
+  if (output_oat_fd != -1) {
+    if (output_oat_filename.empty()) {
+      output_oat_filename = "output-oat-file";
+    }
+    output_oat.reset(new File(output_oat_fd, output_oat_filename, true));
+    if (output_oat == nullptr) {
+      // Unlikely, but ensure exhaustive logging in non-0 exit code case
+      LOG(ERROR) << "Failed to open output oat file by its FD" << output_oat_fd;
+    }
+  } else {
+    CHECK(!output_oat_filename.empty());
+    output_oat.reset(CreateOrOpen(output_oat_filename.c_str(), &new_oat_out));
+    if (output_oat == nullptr) {
+      int err = errno;
+      LOG(ERROR) << "Failed to open output oat file " << output_oat_filename
+          << ": " << strerror(err) << "(" << err << ")";
+    }
+  }
+
+  // TODO: get rid of this.
+  auto cleanup = [&output_oat_filename, &new_oat_out](bool success) {
+    if (!success) {
+      if (new_oat_out) {
+        CHECK(!output_oat_filename.empty());
+        unlink(output_oat_filename.c_str());
+      }
+    }
+
+    if (kIsDebugBuild) {
+      LOG(INFO) << "Cleaning up.. success? " << success;
+    }
+  };
+
+  if (output_oat.get() == nullptr) {
+    cleanup(false);
+    return EXIT_FAILURE;
+  }
+
+  if (match_delta) {
+    // Figure out what the current delta is so we can match it to the desired delta.
+    off_t current_delta = 0;
+    if (!ReadOatPatchDelta(elf.get(), &current_delta, &error_msg)) {
+      LOG(ERROR) << "Unable to get current delta: " << error_msg;
+      cleanup(false);
+      return EXIT_FAILURE;
+    }
+    // Before this line base_delta is the desired final delta. We need it to be the actual amount to
+    // change everything by. We subtract the current delta from it to make it this.
+    base_delta -= current_delta;
+    if (!IsAligned<kPageSize>(base_delta)) {
+      LOG(ERROR) << "Given image file was relocated by an illegal delta";
+      cleanup(false);
       return false;
     }
-    return true;
-  } else {
-    file->Erase();
-    return false;
   }
+
+  if (debug) {
+    LOG(INFO) << "moving offset by " << base_delta
+        << " (0x" << std::hex << base_delta << ") bytes or "
+        << std::dec << (base_delta/kPageSize) << " pages.";
+  }
+
+  ScopedFlock output_oat_lock;
+  if (lock_output) {
+    if (!output_oat_lock.Init(output_oat.get(), &error_msg)) {
+      LOG(ERROR) << "Unable to lock output oat " << output_oat->GetPath() << ": " << error_msg;
+      cleanup(false);
+      return EXIT_FAILURE;
+    }
+  }
+
+  TimingLogger::ScopedTiming pt("patch oat", &timings);
+  bool ret = PatchOat::Patch(input_oat.get(), base_delta, output_oat.get(), &timings,
+                             output_oat_fd >= 0,  // was it opened from FD?
+                             new_oat_out);
+  ret = FinishFile(output_oat.get(), ret);
+
+  if (kIsDebugBuild) {
+    LOG(INFO) << "Exiting with return ... " << ret;
+  }
+  cleanup(ret);
+  return ret ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 static int patchoat(int argc, char **argv) {
@@ -963,12 +1246,6 @@ static int patchoat(int argc, char **argv) {
   int output_oat_fd = -1;
   bool have_output_oat = false;
   std::string output_image_filename;
-  int output_image_fd = -1;
-  bool have_output_image = false;
-  uintptr_t base_offset = 0;
-  bool base_offset_set = false;
-  uintptr_t orig_base_offset = 0;
-  bool orig_base_offset_set = false;
   off_t base_delta = 0;
   bool base_delta_set = false;
   std::string patched_image_filename;
@@ -1034,36 +1311,7 @@ static int patchoat(int argc, char **argv) {
         Usage("--output-oat-fd pass a negative value %d", output_oat_fd);
       }
     } else if (option.starts_with("--output-image-file=")) {
-      if (have_output_image) {
-        Usage("Only one of --output-image-file, and --output-image-fd may be used.");
-      }
-      have_output_image = true;
       output_image_filename = option.substr(strlen("--output-image-file=")).data();
-    } else if (option.starts_with("--output-image-fd=")) {
-      if (have_output_image) {
-        Usage("Only one of --output-image-file, and --output-image-fd may be used.");
-      }
-      have_output_image = true;
-      const char* image_fd_str = option.substr(strlen("--output-image-fd=")).data();
-      if (!ParseInt(image_fd_str, &output_image_fd)) {
-        Usage("Failed to parse --output-image-fd argument '%s' as an integer", image_fd_str);
-      }
-      if (output_image_fd < 0) {
-        Usage("--output-image-fd pass a negative value %d", output_image_fd);
-      }
-    } else if (option.starts_with("--orig-base-offset=")) {
-      const char* orig_base_offset_str = option.substr(strlen("--orig-base-offset=")).data();
-      orig_base_offset_set = true;
-      if (!ParseUint(orig_base_offset_str, &orig_base_offset)) {
-        Usage("Failed to parse --orig-base-offset argument '%s' as an uintptr_t",
-              orig_base_offset_str);
-      }
-    } else if (option.starts_with("--base-offset=")) {
-      const char* base_offset_str = option.substr(strlen("--base-offset=")).data();
-      base_offset_set = true;
-      if (!ParseUint(base_offset_str, &base_offset)) {
-        Usage("Failed to parse --base-offset argument '%s' as an uintptr_t", base_offset_str);
-      }
     } else if (option.starts_with("--base-offset-delta=")) {
       const char* base_delta_str = option.substr(strlen("--base-offset-delta=")).data();
       base_delta_set = true;
@@ -1072,8 +1320,6 @@ static int patchoat(int argc, char **argv) {
       }
     } else if (option.starts_with("--patched-image-location=")) {
       patched_image_location = option.substr(strlen("--patched-image-location=")).data();
-    } else if (option.starts_with("--patched-image-file=")) {
-      patched_image_filename = option.substr(strlen("--patched-image-file=")).data();
     } else if (option == "--lock-output") {
       lock_output = true;
     } else if (option == "--no-lock-output") {
@@ -1087,254 +1333,43 @@ static int patchoat(int argc, char **argv) {
     }
   }
 
-  {
-    // Only 1 of these may be set.
-    uint32_t cnt = 0;
-    cnt += (base_delta_set) ? 1 : 0;
-    cnt += (base_offset_set && orig_base_offset_set) ? 1 : 0;
-    cnt += (!patched_image_filename.empty()) ? 1 : 0;
-    cnt += (!patched_image_location.empty()) ? 1 : 0;
-    if (cnt > 1) {
-      Usage("Only one of --base-offset/--orig-base-offset, --base-offset-delta, "
-            "--patched-image-filename or --patched-image-location may be used.");
-    } else if (cnt == 0) {
-      Usage("Must specify --base-offset-delta, --base-offset and --orig-base-offset, "
-            "--patched-image-location or --patched-image-file");
-    }
+  // The instruction set is mandatory. This simplifies things...
+  if (!isa_set) {
+    Usage("Instruction set must be set.");
   }
 
-  if (have_input_oat != have_output_oat) {
-    Usage("Either both input and output oat must be supplied or niether must be.");
-  }
-
-  if ((!input_image_location.empty()) != have_output_image) {
-    Usage("Either both input and output image must be supplied or niether must be.");
-  }
-
-  // We know we have both the input and output so rename for clarity.
-  bool have_image_files = have_output_image;
-  bool have_oat_files = have_output_oat;
-
-  if (!have_oat_files && !have_image_files) {
-    Usage("Must be patching either an oat or an image file or both.");
-  }
-
-  if (!have_oat_files && !isa_set) {
-    Usage("Must include ISA if patching an image file without an oat file.");
-  }
-
-  if (!input_oat_location.empty()) {
-    if (!isa_set) {
-      Usage("specifying a location requires specifying an instruction set");
-    }
-    if (!LocationToFilename(input_oat_location, isa, &input_oat_filename)) {
-      Usage("Unable to find filename for input oat location %s", input_oat_location.c_str());
-    }
-    if (debug) {
-      LOG(INFO) << "Using input-oat-file " << input_oat_filename;
-    }
-  }
-  if (!patched_image_location.empty()) {
-    if (!isa_set) {
-      Usage("specifying a location requires specifying an instruction set");
-    }
-    std::string system_filename;
-    bool has_system = false;
-    std::string cache_filename;
-    bool has_cache = false;
-    bool has_android_data_unused = false;
-    bool is_global_cache = false;
-    if (!gc::space::ImageSpace::FindImageFilename(patched_image_location.c_str(), isa,
-                                                  &system_filename, &has_system, &cache_filename,
-                                                  &has_android_data_unused, &has_cache,
-                                                  &is_global_cache)) {
-      Usage("Unable to determine image file for location %s", patched_image_location.c_str());
-    }
-    if (has_cache) {
-      patched_image_filename = cache_filename;
-    } else if (has_system) {
-      LOG(WARNING) << "Only image file found was in /system for image location "
-                   << patched_image_location;
-      patched_image_filename = system_filename;
-    } else {
-      Usage("Unable to determine image file for location %s", patched_image_location.c_str());
-    }
-    if (debug) {
-      LOG(INFO) << "Using patched-image-file " << patched_image_filename;
-    }
-  }
-
-  if (!base_delta_set) {
-    if (orig_base_offset_set && base_offset_set) {
-      base_delta_set = true;
-      base_delta = base_offset - orig_base_offset;
-    } else if (!patched_image_filename.empty()) {
-      base_delta_set = true;
-      std::string error_msg;
-      if (!ReadBaseDelta(patched_image_filename.c_str(), &base_delta, &error_msg)) {
-        Usage(error_msg.c_str(), patched_image_filename.c_str());
-      }
-    } else {
-      if (base_offset_set) {
-        Usage("Unable to determine original base offset.");
-      } else {
-        Usage("Must supply a desired new offset or delta.");
-      }
-    }
-  }
-
-  if (!IsAligned<kPageSize>(base_delta)) {
-    Usage("Base offset/delta must be alligned to a pagesize (0x%08x) boundary.", kPageSize);
-  }
-
-  // Do we need to cleanup output files if we fail?
-  bool new_image_out = false;
-  bool new_oat_out = false;
-
-  std::unique_ptr<File> input_oat;
-  std::unique_ptr<File> output_oat;
-  std::unique_ptr<File> output_image;
-
-  if (have_image_files) {
-    CHECK(!input_image_location.empty());
-
-    if (output_image_fd != -1) {
-      if (output_image_filename.empty()) {
-        output_image_filename = "output-image-file";
-      }
-      output_image.reset(new File(output_image_fd, output_image_filename, true));
-    } else {
-      CHECK(!output_image_filename.empty());
-      output_image.reset(CreateOrOpen(output_image_filename.c_str(), &new_image_out));
-    }
+  int ret;
+  if (!input_image_location.empty()) {
+    ret = patchoat_image(timings,
+                         isa,
+                         input_image_location,
+                         output_image_filename,
+                         base_delta,
+                         base_delta_set,
+                         debug);
   } else {
-    CHECK(output_image_filename.empty() && output_image_fd == -1 && input_image_location.empty());
+    ret = patchoat_oat(timings,
+                       isa,
+                       patched_image_location,
+                       base_delta,
+                       base_delta_set,
+                       input_oat_fd,
+                       input_oat_location,
+                       input_oat_filename,
+                       have_input_oat,
+                       output_oat_fd,
+                       output_oat_filename,
+                       have_output_oat,
+                       lock_output,
+                       debug);
   }
 
-  if (have_oat_files) {
-    if (input_oat_fd != -1) {
-      if (input_oat_filename.empty()) {
-        input_oat_filename = "input-oat-file";
-      }
-      input_oat.reset(new File(input_oat_fd, input_oat_filename, false));
-      if (input_oat_fd == output_oat_fd) {
-        input_oat.get()->DisableAutoClose();
-      }
-      if (input_oat == nullptr) {
-        // Unlikely, but ensure exhaustive logging in non-0 exit code case
-        LOG(ERROR) << "Failed to open input oat file by its FD" << input_oat_fd;
-      }
-    } else {
-      CHECK(!input_oat_filename.empty());
-      input_oat.reset(OS::OpenFileForReading(input_oat_filename.c_str()));
-      if (input_oat == nullptr) {
-        int err = errno;
-        LOG(ERROR) << "Failed to open input oat file " << input_oat_filename
-                   << ": " << strerror(err) << "(" << err << ")";
-      }
-    }
-
-    if (output_oat_fd != -1) {
-      if (output_oat_filename.empty()) {
-        output_oat_filename = "output-oat-file";
-      }
-      output_oat.reset(new File(output_oat_fd, output_oat_filename, true));
-      if (output_oat == nullptr) {
-        // Unlikely, but ensure exhaustive logging in non-0 exit code case
-        LOG(ERROR) << "Failed to open output oat file by its FD" << output_oat_fd;
-      }
-    } else {
-      CHECK(!output_oat_filename.empty());
-      output_oat.reset(CreateOrOpen(output_oat_filename.c_str(), &new_oat_out));
-      if (output_oat == nullptr) {
-        int err = errno;
-        LOG(ERROR) << "Failed to open output oat file " << output_oat_filename
-                   << ": " << strerror(err) << "(" << err << ")";
-      }
-    }
+  timings.EndTiming();
+  if (dump_timings) {
+    LOG(INFO) << Dumpable<TimingLogger>(timings);
   }
 
-  // TODO: get rid of this.
-  auto cleanup = [&output_image_filename, &output_oat_filename,
-                  &new_oat_out, &new_image_out, &timings, &dump_timings](bool success) {
-    timings.EndTiming();
-    if (!success) {
-      if (new_oat_out) {
-        CHECK(!output_oat_filename.empty());
-        TEMP_FAILURE_RETRY(unlink(output_oat_filename.c_str()));
-      }
-      if (new_image_out) {
-        CHECK(!output_image_filename.empty());
-        TEMP_FAILURE_RETRY(unlink(output_image_filename.c_str()));
-      }
-    }
-    if (dump_timings) {
-      LOG(INFO) << Dumpable<TimingLogger>(timings);
-    }
-
-    if (kIsDebugBuild) {
-      LOG(INFO) << "Cleaning up.. success? " << success;
-    }
-  };
-
-  if (have_oat_files && (input_oat.get() == nullptr || output_oat.get() == nullptr)) {
-    LOG(ERROR) << "Failed to open input/output oat files";
-    cleanup(false);
-    return EXIT_FAILURE;
-  } else if (have_image_files && output_image.get() == nullptr) {
-    LOG(ERROR) << "Failed to open output image file";
-    cleanup(false);
-    return EXIT_FAILURE;
-  }
-
-  if (debug) {
-    LOG(INFO) << "moving offset by " << base_delta
-              << " (0x" << std::hex << base_delta << ") bytes or "
-              << std::dec << (base_delta/kPageSize) << " pages.";
-  }
-
-  // TODO: is it going to be promatic to unlink a file that was flock-ed?
-  ScopedFlock output_oat_lock;
-  if (lock_output) {
-    std::string error_msg;
-    if (have_oat_files && !output_oat_lock.Init(output_oat.get(), &error_msg)) {
-      LOG(ERROR) << "Unable to lock output oat " << output_image->GetPath() << ": " << error_msg;
-      cleanup(false);
-      return EXIT_FAILURE;
-    }
-  }
-
-  bool ret;
-  if (have_image_files && have_oat_files) {
-    TimingLogger::ScopedTiming pt("patch image and oat", &timings);
-    ret = PatchOat::Patch(input_oat.get(), input_image_location, base_delta,
-                          output_oat.get(), output_image.get(), isa, &timings,
-                          output_oat_fd >= 0,  // was it opened from FD?
-                          new_oat_out);
-    // The order here doesn't matter. If the first one is successfully saved and the second one
-    // erased, ImageSpace will still detect a problem and not use the files.
-    ret = ret && FinishFile(output_image.get(), ret);
-    ret = ret && FinishFile(output_oat.get(), ret);
-  } else if (have_oat_files) {
-    TimingLogger::ScopedTiming pt("patch oat", &timings);
-    ret = PatchOat::Patch(input_oat.get(), base_delta, output_oat.get(), &timings,
-                          output_oat_fd >= 0,  // was it opened from FD?
-                          new_oat_out);
-    ret = ret && FinishFile(output_oat.get(), ret);
-  } else if (have_image_files) {
-    TimingLogger::ScopedTiming pt("patch image", &timings);
-    ret = PatchOat::Patch(input_image_location, base_delta, output_image.get(), isa, &timings);
-    ret = ret && FinishFile(output_image.get(), ret);
-  } else {
-    CHECK(false);
-    ret = true;
-  }
-
-  if (kIsDebugBuild) {
-    LOG(INFO) << "Exiting with return ... " << ret;
-  }
-  cleanup(ret);
-  return (ret) ? EXIT_SUCCESS : EXIT_FAILURE;
+  return ret;
 }
 
 }  // namespace art

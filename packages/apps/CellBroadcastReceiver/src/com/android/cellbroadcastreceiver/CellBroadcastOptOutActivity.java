@@ -63,6 +63,16 @@ public class CellBroadcastOptOutActivity extends Activity {
                                 activity.finish();
                             }
                         })
+                .setOnCancelListener(
+                        new DialogInterface.OnCancelListener() {
+                            @Override
+                            public void onCancel(DialogInterface dialog) {
+                                Log.d(TAG, "User cancelled");
+                                // If the user presses the back button, make sure we dismiss the
+                                // emergency alert's dialog as well.
+                                activity.finish();
+                            }
+                        })
                 .create().show();
     }
 }

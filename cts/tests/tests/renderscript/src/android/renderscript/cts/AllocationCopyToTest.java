@@ -58,7 +58,7 @@ public class AllocationCopyToTest extends RSBaseCompute {
                    result);
     }
 
-    public void test_Allocationcopy1DRangeTo_Short() {
+    void test_Allocationcopy1DRangeTo_Short_Helper(Element element, boolean testTyped) {
         Random random = new Random(0x172d8ab9);
         int width = random.nextInt(512);
         int arr_len = width;
@@ -70,13 +70,18 @@ public class AllocationCopyToTest extends RSBaseCompute {
             inArray[i] = (short)random.nextInt();
         }
 
-        Type.Builder typeBuilder = new Type.Builder(mRS, Element.I16(mRS));
+        Type.Builder typeBuilder = new Type.Builder(mRS, element);
         typeBuilder.setX(width);
         alloc = Allocation.createTyped(mRS, typeBuilder.create());
         int offset = random.nextInt(arr_len);
         int count = arr_len - offset;
-        alloc.copy1DRangeFrom(offset, count, inArray);
-        alloc.copy1DRangeTo(offset, count, outArray);
+        if (testTyped) {
+            alloc.copy1DRangeFrom(offset, count, inArray);
+            alloc.copy1DRangeTo(offset, count, outArray);
+        } else {
+            alloc.copy1DRangeFrom(offset, count, (Object) inArray);
+            alloc.copy1DRangeTo(offset, count, (Object) outArray);
+        }
 
         boolean result = true;
         for (int i = 0; i < count; i++) {
@@ -91,8 +96,14 @@ public class AllocationCopyToTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_Allocationcopy1DRangeTo_Short failed, output array does not match input",
+        assertTrue("test_Allocationcopy1DRangeTo_Short_Helper failed, output array does not match input",
                    result);
+    }
+
+    public void test_Allocationcopy1DRangeTo_Short() {
+        test_Allocationcopy1DRangeTo_Short_Helper(Element.I16(mRS), true);
+        test_Allocationcopy1DRangeTo_Short_Helper(Element.F16(mRS), true);
+        test_Allocationcopy1DRangeTo_Short_Helper(Element.F16(mRS), false);
     }
 
     public void test_Allocationcopy1DRangeTo_Int() {
@@ -237,7 +248,7 @@ public class AllocationCopyToTest extends RSBaseCompute {
                    result);
     }
 
-    public void test_Allocationcopy2DRangeTo_Short() {
+    void test_Allocationcopy2DRangeTo_Short_Helper(Element element, boolean testTyped) {
         Random random = new Random(0x172d8ab9);
         int width = random.nextInt(128);
         int height = random.nextInt(128);
@@ -257,8 +268,13 @@ public class AllocationCopyToTest extends RSBaseCompute {
         Type.Builder typeBuilder = new Type.Builder(mRS, Element.I16(mRS));
         typeBuilder.setX(width).setY(height);
         alloc = Allocation.createTyped(mRS, typeBuilder.create());
-        alloc.copy2DRangeFrom(xoff, yoff, xcount, ycount, inArray);
-        alloc.copy2DRangeTo(xoff, yoff, xcount, ycount, outArray);
+        if (testTyped) {
+            alloc.copy2DRangeFrom(xoff, yoff, xcount, ycount, inArray);
+            alloc.copy2DRangeTo(xoff, yoff, xcount, ycount, outArray);
+        } else {
+            alloc.copy2DRangeFrom(xoff, yoff, xcount, ycount, (Object) inArray);
+            alloc.copy2DRangeTo(xoff, yoff, xcount, ycount, (Object) outArray);
+        }
 
         boolean result = true;
         for (int i = 0; i < arr_len; i++) {
@@ -267,8 +283,14 @@ public class AllocationCopyToTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_Allocationcopy2DRangeTo_Short failed, output array does not match input",
+        assertTrue("test_Allocationcopy2DRangeTo_Short_Helper failed, output array does not match input",
                    result);
+    }
+
+    public void test_Allocationcopy2DRangeTo_Short() {
+        test_Allocationcopy2DRangeTo_Short_Helper(Element.I16(mRS), true);
+        test_Allocationcopy2DRangeTo_Short_Helper(Element.F16(mRS), true);
+        test_Allocationcopy2DRangeTo_Short_Helper(Element.F16(mRS), false);
     }
 
     public void test_Allocationcopy2DRangeTo_Int() {
@@ -410,7 +432,7 @@ public class AllocationCopyToTest extends RSBaseCompute {
                    result);
     }
 
-    public void test_Allocationcopy3DRangeTo_Short() {
+    void test_Allocationcopy3DRangeTo_Short_Helper(Element element) {
         Random random = new Random(0x172d8ab9);
         int width = random.nextInt(64);
         int height = random.nextInt(64);
@@ -432,7 +454,7 @@ public class AllocationCopyToTest extends RSBaseCompute {
             inArray[i] = (short)random.nextInt();
         }
 
-        Type.Builder typeBuilder = new Type.Builder(mRS, Element.I16(mRS));
+        Type.Builder typeBuilder = new Type.Builder(mRS, element);
         typeBuilder.setX(width).setY(height).setZ(depth);
         alloc = Allocation.createTyped(mRS, typeBuilder.create());
         alloc.copy3DRangeFrom(xoff, yoff, zoff, xcount, ycount, zcount, (Object)inArray);
@@ -446,8 +468,13 @@ public class AllocationCopyToTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_Allocationcopy3DRangeTo_Short failed, output array does not match input",
+        assertTrue("test_Allocationcopy3DRangeTo_Short_Helper failed, output array does not match input",
                    result);
+    }
+
+    public void test_Allocationcopy3DRangeTo_Short() {
+        test_Allocationcopy3DRangeTo_Short_Helper(Element.I16(mRS));
+        test_Allocationcopy3DRangeTo_Short_Helper(Element.F16(mRS));
     }
 
     public void test_Allocationcopy3DRangeTo_Int() {
@@ -647,7 +674,7 @@ public class AllocationCopyToTest extends RSBaseCompute {
                    result);
     }
 
-    public void test_Allocationcopy1DRangeToUnchecked_Short() {
+    void test_Allocationcopy1DRangeToUnchecked_Short_Helper(Element element) {
         Random random = new Random(0x172d8ab9);
         int width = random.nextInt(512);
         int arr_len = width;
@@ -659,7 +686,7 @@ public class AllocationCopyToTest extends RSBaseCompute {
             inArray[i] = (short)random.nextInt();
         }
 
-        Type.Builder typeBuilder = new Type.Builder(mRS, Element.I16(mRS));
+        Type.Builder typeBuilder = new Type.Builder(mRS, element);
         typeBuilder.setX(width);
         alloc = Allocation.createTyped(mRS, typeBuilder.create());
         int offset = random.nextInt(arr_len);
@@ -680,8 +707,13 @@ public class AllocationCopyToTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_Allocationcopy1DRangeToUnchecked_Short failed, output array does not match input",
+        assertTrue("test_Allocationcopy1DRangeToUnchecked_Short_Helper failed, output array does not match input",
                    result);
+    }
+
+    public void test_Allocationcopy1DRangeToUnchecked_Short() {
+        test_Allocationcopy1DRangeToUnchecked_Short_Helper(Element.I16(mRS));
+        test_Allocationcopy1DRangeToUnchecked_Short_Helper(Element.F16(mRS));
     }
 
     public void test_Allocationcopy1DRangeToUnchecked_Int() {

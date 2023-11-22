@@ -22,6 +22,11 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import android.system.ErrnoException;
+import android.system.OsConstants;
 import junit.framework.TestCase;
 
 import libcore.io.IoUtils;
@@ -107,6 +112,7 @@ public final class FileInputStreamTest extends TestCase {
 
         // Close the second FileDescriptor and check we can't use it...
         fis2.close();
+
         try {
             fis2.available();
             fail();
@@ -128,6 +134,7 @@ public final class FileInputStreamTest extends TestCase {
         } catch (IOException expected) {
         }
         // ...but that we can still use the first.
+        assertTrue(fis1.getFD().valid());
         assertFalse(fis1.read() == -1);
 
         // Close the first FileDescriptor and check we can't use it...
@@ -152,6 +159,9 @@ public final class FileInputStreamTest extends TestCase {
             fail();
         } catch (IOException expected) {
         }
+
+        // FD is no longer owned by any stream, should be invalidated.
+        assertFalse(fis1.getFD().valid());
     }
 
     public void testClose() throws Exception {
@@ -191,5 +201,66 @@ public final class FileInputStreamTest extends TestCase {
         }
         // ...but not 0-byte reads...
         fis.read(new byte[0], 0, 0);
+    }
+
+    // http://b/26117827
+    public void testReadProcVersion() throws IOException {
+        File file = new File("/proc/version");
+        FileInputStream input = new FileInputStream(file);
+        assertTrue(input.available() == 0);
+    }
+
+    // http://b/25695227
+    public void testFdLeakWhenOpeningDirectory() throws Exception {
+        File phile = IoUtils.createTemporaryDirectory("test_bug_25695227");
+
+        try {
+            new FileInputStream(phile);
+            fail();
+        } catch (FileNotFoundException expected) {
+        }
+
+        assertTrue(getOpenFdsForPrefix("test_bug_25695227").isEmpty());
+    }
+
+    // http://b/28192631
+    public void testSkipOnLargeFiles() throws Exception {
+        File largeFile = File.createTempFile("FileInputStreamTest_testSkipOnLargeFiles", "");
+        FileOutputStream fos = new FileOutputStream(largeFile);
+        try {
+            byte[] buffer = new byte[1024 * 1024]; // 1 MB
+            for (int i = 0; i < 3 * 1024; i++) { // 3 GB
+                fos.write(buffer);
+            }
+        } finally {
+            fos.close();
+        }
+
+        FileInputStream fis = new FileInputStream(largeFile);
+        long lastByte = 3 * 1024 * 1024 * 1024L - 1;
+        assertEquals(0, Libcore.os.lseek(fis.getFD(), 0, OsConstants.SEEK_CUR));
+        assertEquals(lastByte, fis.skip(lastByte));
+
+        // Proactively cleanup - it's a pretty large file.
+        assertTrue(largeFile.delete());
+    }
+
+    private static List<Integer> getOpenFdsForPrefix(String path) throws Exception {
+        File[] fds = new File("/proc/self/fd").listFiles();
+        List<Integer> list = new ArrayList<>();
+        for (File fd : fds) {
+            try {
+                File fdPath = new File(android.system.Os.readlink(fd.getAbsolutePath()));
+                if (fdPath.getName().startsWith(path)) {
+                    list.add(Integer.valueOf(fd.getName()));
+                }
+            } catch (ErrnoException e) {
+                if (e.errno != OsConstants.ENOENT) {
+                    throw e.rethrowAsIOException();
+                }
+            }
+        }
+
+        return list;
     }
 }

@@ -34,7 +34,6 @@ VerificationResults::VerificationResults(const CompilerOptions* compiler_options
       verified_methods_(),
       rejected_classes_lock_("compiler rejected classes lock"),
       rejected_classes_() {
-  UNUSED(compiler_options);
 }
 
 VerificationResults::~VerificationResults() {
@@ -45,14 +44,14 @@ VerificationResults::~VerificationResults() {
   }
 }
 
-bool VerificationResults::ProcessVerifiedMethod(verifier::MethodVerifier* method_verifier) {
+void VerificationResults::ProcessVerifiedMethod(verifier::MethodVerifier* method_verifier) {
   DCHECK(method_verifier != nullptr);
   MethodReference ref = method_verifier->GetMethodReference();
   bool compile = IsCandidateForCompilation(ref, method_verifier->GetAccessFlags());
   const VerifiedMethod* verified_method = VerifiedMethod::Create(method_verifier, compile);
   if (verified_method == nullptr) {
-    // Do not report an error to the verifier. We'll just punt this later.
-    return true;
+    // We'll punt this later.
+    return;
   }
 
   WriterMutexLock mu(Thread::Current(), verified_methods_lock_);
@@ -61,35 +60,24 @@ bool VerificationResults::ProcessVerifiedMethod(verifier::MethodVerifier* method
     // TODO: Investigate why are we doing the work again for this method and try to avoid it.
     LOG(WARNING) << "Method processed more than once: "
         << PrettyMethod(ref.dex_method_index, *ref.dex_file);
-    if (!Runtime::Current()->UseJit()) {
+    if (!Runtime::Current()->UseJitCompilation()) {
       DCHECK_EQ(it->second->GetDevirtMap().size(), verified_method->GetDevirtMap().size());
       DCHECK_EQ(it->second->GetSafeCastSet().size(), verified_method->GetSafeCastSet().size());
     }
-    DCHECK_EQ(it->second->GetDexGcMap().size(), verified_method->GetDexGcMap().size());
     // Delete the new verified method since there was already an existing one registered. It
     // is unsafe to replace the existing one since the JIT may be using it to generate a
     // native GC map.
     delete verified_method;
-    return true;
+    return;
   }
   verified_methods_.Put(ref, verified_method);
   DCHECK(verified_methods_.find(ref) != verified_methods_.end());
-  return true;
 }
 
 const VerifiedMethod* VerificationResults::GetVerifiedMethod(MethodReference ref) {
   ReaderMutexLock mu(Thread::Current(), verified_methods_lock_);
   auto it = verified_methods_.find(ref);
   return (it != verified_methods_.end()) ? it->second : nullptr;
-}
-
-void VerificationResults::RemoveVerifiedMethod(MethodReference ref) {
-  WriterMutexLock mu(Thread::Current(), verified_methods_lock_);
-  auto it = verified_methods_.find(ref);
-  if (it != verified_methods_.end()) {
-    delete it->second;
-    verified_methods_.erase(it);
-  }
 }
 
 void VerificationResults::AddRejectedClass(ClassReference ref) {
@@ -107,11 +95,11 @@ bool VerificationResults::IsClassRejected(ClassReference ref) {
 
 bool VerificationResults::IsCandidateForCompilation(MethodReference&,
                                                     const uint32_t access_flags) {
-  if (!compiler_options_->IsCompilationEnabled()) {
+  if (!compiler_options_->IsBytecodeCompilationEnabled()) {
     return false;
   }
   // Don't compile class initializers unless kEverything.
-  if ((compiler_options_->GetCompilerFilter() != CompilerOptions::kEverything) &&
+  if ((compiler_options_->GetCompilerFilter() != CompilerFilter::kEverything) &&
      ((access_flags & kAccConstructor) != 0) && ((access_flags & kAccStatic) != 0)) {
     return false;
   }

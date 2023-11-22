@@ -75,7 +75,7 @@ static int msm_bo_cpu_prep(struct fd_bo *bo, struct fd_pipe *pipe, uint32_t op)
 			.op = op,
 	};
 
-	get_abs_timeout(&req.timeout, 5000);
+	get_abs_timeout(&req.timeout, 5000000000);
 
 	return drmCommandWrite(bo->dev->fd, DRM_MSM_GEM_CPU_PREP, &req, sizeof(req));
 }
@@ -96,7 +96,7 @@ static void msm_bo_destroy(struct fd_bo *bo)
 
 }
 
-static struct fd_bo_funcs funcs = {
+static const struct fd_bo_funcs funcs = {
 		.offset = msm_bo_offset,
 		.cpu_prep = msm_bo_cpu_prep,
 		.cpu_fini = msm_bo_cpu_fini,
@@ -104,7 +104,7 @@ static struct fd_bo_funcs funcs = {
 };
 
 /* allocate a buffer handle: */
-int msm_bo_new_handle(struct fd_device *dev,
+drm_private int msm_bo_new_handle(struct fd_device *dev,
 		uint32_t size, uint32_t flags, uint32_t *handle)
 {
 	struct drm_msm_gem_new req = {
@@ -124,12 +124,11 @@ int msm_bo_new_handle(struct fd_device *dev,
 }
 
 /* allocate a new buffer object */
-struct fd_bo * msm_bo_from_handle(struct fd_device *dev,
+drm_private struct fd_bo * msm_bo_from_handle(struct fd_device *dev,
 		uint32_t size, uint32_t handle)
 {
 	struct msm_bo *msm_bo;
 	struct fd_bo *bo;
-	unsigned i;
 
 	msm_bo = calloc(1, sizeof(*msm_bo));
 	if (!msm_bo)
@@ -137,9 +136,6 @@ struct fd_bo * msm_bo_from_handle(struct fd_device *dev,
 
 	bo = &msm_bo->base;
 	bo->funcs = &funcs;
-
-	for (i = 0; i < ARRAY_SIZE(msm_bo->list); i++)
-		list_inithead(&msm_bo->list[i]);
 
 	return bo;
 }

@@ -13,11 +13,14 @@
 #if SK_SUPPORT_GPU
 
 #include "GrContext.h"
-#include "GrTest.h"
-#include "effects/GrYUVtoRGBEffect.h"
+#include "GrDrawContext.h"
+#include "GrPipelineBuilder.h"
 #include "SkBitmap.h"
 #include "SkGr.h"
 #include "SkGradientShader.h"
+#include "batches/GrDrawBatch.h"
+#include "batches/GrRectBatchFactory.h"
+#include "effects/GrYUVEffect.h"
 
 #define YSIZE 8
 #define USIZE 4
@@ -39,7 +42,7 @@ protected:
     }
 
     SkISize onISize() override {
-        return SkISize::Make(238, 84);
+        return SkISize::Make(238, 120);
     }
 
     void onOnceBeforeDraw() override {
@@ -68,26 +71,27 @@ protected:
 
     void onDraw(SkCanvas* canvas) override {
         GrRenderTarget* rt = canvas->internal_private_accessTopLayerRenderTarget();
-        if (NULL == rt) {
+        if (nullptr == rt) {
             return;
         }
         GrContext* context = rt->getContext();
-        if (NULL == context) {
-            this->drawGpuOnlyMessage(canvas);
+        if (nullptr == context) {
+            skiagm::GM::DrawGpuOnlyMessage(canvas);
             return;
         }
 
-        GrTestTarget tt;
-        context->getTestTarget(&tt);
-        if (NULL == tt.target()) {
-            SkDEBUGFAIL("Couldn't get Gr test target.");
+        SkAutoTUnref<GrDrawContext> drawContext(context->drawContext(rt));
+        if (!drawContext) {
             return;
         }
 
         SkAutoTUnref<GrTexture> texture[3];
-        texture[0].reset(GrRefCachedBitmapTexture(context, fBmp[0], NULL));
-        texture[1].reset(GrRefCachedBitmapTexture(context, fBmp[1], NULL));
-        texture[2].reset(GrRefCachedBitmapTexture(context, fBmp[2], NULL));
+        texture[0].reset(GrRefCachedBitmapTexture(context, fBmp[0],
+                                                  GrTextureParams::ClampBilerp()));
+        texture[1].reset(GrRefCachedBitmapTexture(context, fBmp[1],
+                                                  GrTextureParams::ClampBilerp()));
+        texture[2].reset(GrRefCachedBitmapTexture(context, fBmp[2],
+                                                  GrTextureParams::ClampBilerp()));
 
         if (!texture[0] || !texture[1] || !texture[2]) {
             return;
@@ -111,22 +115,24 @@ protected:
                                        {1, 2, 0}, {2, 0, 1}, {2, 1, 0}};
 
             for (int i = 0; i < 6; ++i) {
-                SkAutoTUnref<GrFragmentProcessor> fp(
-                            GrYUVtoRGBEffect::Create(texture[indices[i][0]],
-                                                     texture[indices[i][1]],
-                                                     texture[indices[i][2]],
-                                                     sizes,
-                                                     static_cast<SkYUVColorSpace>(space)));
+                GrPipelineBuilder pipelineBuilder;
+                pipelineBuilder.setXPFactory(
+                    GrPorterDuffXPFactory::Create(SkXfermode::kSrc_Mode))->unref();
+                SkAutoTUnref<const GrFragmentProcessor> fp(
+                            GrYUVEffect::CreateYUVToRGB(texture[indices[i][0]],
+                                                        texture[indices[i][1]],
+                                                        texture[indices[i][2]],
+                                                        sizes,
+                                                        static_cast<SkYUVColorSpace>(space)));
                 if (fp) {
                     SkMatrix viewMatrix;
                     viewMatrix.setTranslate(x, y);
-                    GrPipelineBuilder pipelineBuilder;
                     pipelineBuilder.setRenderTarget(rt);
-                    pipelineBuilder.addColorProcessor(fp);
-                    tt.target()->drawSimpleRect(&pipelineBuilder,
-                                                GrColor_WHITE,
-                                                viewMatrix,
-                                                renderRect);
+                    pipelineBuilder.addColorFragmentProcessor(fp);
+                    SkAutoTUnref<GrDrawBatch> batch(
+                            GrRectBatchFactory::CreateNonAAFill(GrColor_WHITE, viewMatrix,
+                                                                renderRect, nullptr, nullptr));
+                    drawContext->internal_drawBatch(pipelineBuilder, batch);
                 }
                 x += renderRect.width() + kTestPad;
             }
@@ -139,7 +145,7 @@ private:
     typedef GM INHERITED;
 };
 
-DEF_GM( return SkNEW(YUVtoRGBEffect); )
+DEF_GM(return new YUVtoRGBEffect;)
 }
 
 #endif

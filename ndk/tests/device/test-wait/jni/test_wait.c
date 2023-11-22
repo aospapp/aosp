@@ -27,22 +27,25 @@
  */
 
 #include <errno.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/resource.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 #define CHILD_EXIT_CODE  111
 
 typedef int (*wait_call_function)(pid_t child_pid);
 
-static int check_wait_call(const char* title,
-                           wait_call_function wait_func,
-                           int expected_exit_code) {
+static bool check_wait_call(const char *title, wait_call_function wait_func,
+                            int expected_exit_code) {
   printf("Testing %s(): ", title);
   int cpid = fork();
   if (cpid < 0) {
     fprintf(stderr, "ERROR: fork() failed: %s\n", strerror(errno));
-    return -1;
+    return false;
   }
 
   if (cpid == 0) {  /* in the chid process */
@@ -54,15 +57,15 @@ static int check_wait_call(const char* title,
   printf("Parent waiting for child with pid=%d\n", cpid);
   int exit_code = wait_func(cpid);
   if (exit_code < 0)
-    return -1;
+    return false;
 
   if (exit_code != expected_exit_code) {
     fprintf(stderr, "ERROR: Child exited with code %d, expected %d\n",
             exit_code, expected_exit_code);
-    return -1;
+    return false;
   }
   printf("Testing %s(): OK\n", title);
-  return 0;
+  return true;
 }
 
 // To be called by check_wait_call() to check wait().
@@ -88,36 +91,26 @@ static int check_waitpid(pid_t child_pid) {
 }
 
 // To be called by check_wait_call() to check wait3()
-static int check_wait3(pid_t child_pid) {
-  int status = 0;
-  struct rusage ru;
-  pid_t ret = wait3(&status, 0, &ru);
-  if (ret != child_pid) {
-    fprintf(stderr, "ERROR: wait3() returned %d, expected %d\n", ret, child_pid);
-    return -1;
-  }
-  return WEXITSTATUS(status);
-}
-
-// To be called by check_wait_call() to check wait3()
 static int check_wait4(pid_t child_pid) {
   int status = 0;
   struct rusage ru;
   pid_t ret = wait4(-1, &status, 0, &ru);
   if (ret != child_pid) {
-    fprintf(stderr, "ERROR: wait3() returned %d, expected %d\n", ret, child_pid);
+    fprintf(stderr, "ERROR: wait4() returned %d, expected %d\n", ret, child_pid);
     return -1;
   }
   return WEXITSTATUS(status);
 }
 
 int main(int argc, char *argv[]) {
-  printf("Testing for API level %d\n", __ANDROID_API__);
-  if (check_wait_call("wait", check_wait, CHILD_EXIT_CODE + 0) < 0 ||
-      check_wait_call("waitpid", check_waitpid, CHILD_EXIT_CODE + 1) < 0 ||
-      check_wait_call("wait3", check_wait3, CHILD_EXIT_CODE + 2) < 0 ||
-      check_wait_call("wait4", check_wait4, CHILD_EXIT_CODE + 3)) {
-    return 1;
+  if (!check_wait_call("wait", check_wait, CHILD_EXIT_CODE + 0)) {
+    return EXIT_FAILURE;
+  }
+  if (!check_wait_call("waitpid", check_waitpid, CHILD_EXIT_CODE + 1)) {
+    return EXIT_FAILURE;
+  }
+  if (!check_wait_call("wait4", check_wait4, CHILD_EXIT_CODE + 3)) {
+    return EXIT_FAILURE;
   }
 
   return EXIT_SUCCESS;

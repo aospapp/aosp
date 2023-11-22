@@ -13,7 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import com.android.cts.util.AbiUtils;
+
+import com.android.compatibility.common.util.AbiUtils;
 
 import org.junit.runner.RunWith;
 import org.w3c.dom.Document;
@@ -217,6 +218,13 @@ public class CollectAllTests extends DescriptionGenerator {
             }
 
             if (!matchesPrefix) {
+                continue;
+            }
+
+            // Avoid inner classes: they should not have tests and often they can have dependencies
+            // on test frameworks that need to be resolved and would need to be on the classpath.
+            // e.g. Mockito.
+            if (className.contains("$")) {
                 continue;
             }
 

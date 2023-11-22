@@ -20,7 +20,8 @@
      own application, the package name must be changed from "com.example.*"
      to come from a domain that you own or have control over. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.android.apis">
+    package="com.example.android.apis"
+    android:installLocation="auto">
 
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <uses-permission android:name="android.permission.WRITE_CONTACTS" />
@@ -37,6 +38,7 @@
     <uses-permission android:name="android.permission.NFC" />
     <uses-permission android:name="android.permission.TRANSMIT_IR" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
 
 
     <!-- For android.media.audiofx.Visualizer -->
@@ -48,11 +50,14 @@
     <uses-feature android:name="android.hardware.camera" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
+    <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="23" />
+
     <application android:name="ApiDemosApplication"
             android:label="@string/activity_sample_code"
             android:icon="@drawable/app_sample_code"
             android:hardwareAccelerated="true"
-            android:supportsRtl="true">
+            android:supportsRtl="true"
+            android:theme="@android:style/Theme.Material.Light.DarkActionBar">
 
         <!-- This is how we can request a library but still allow the app
              to be installed if it doesn't exist. -->
@@ -662,6 +667,16 @@
             </intent-filter>
         </service>
 
+        <service android:name=".accessibility.MagnificationService"
+                 android:label="@string/magnification_service_label"
+                 android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data android:name="android.accessibilityservice"
+                       android:resource="@xml/magnification_service" />
+        </service>
+
         <activity android:name=".accessibility.TaskListActivity"
                   android:label="@string/accessibility_query_window"
                   android:enabled="@bool/atLeastIceCreamSandwich">
@@ -909,6 +924,16 @@
                 android:permission="android.permission.BIND_DEVICE_ADMIN">
             <meta-data android:name="android.app.device_admin"
                        android:resource="@xml/device_admin_sample" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+        <receiver android:name=".app.DeviceAdminSample$DeviceAdminSampleReceiver2"
+            android:label="@string/sample_device_admin2"
+            android:description="@string/sample_device_admin_description2"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data android:name="android.app.device_admin"
+                android:resource="@xml/device_admin_sample" />
             <intent-filter>
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
             </intent-filter>
@@ -1239,6 +1264,20 @@
                 <category android:name="android.intent.category.SAMPLE_CODE"/>
             </intent-filter>
         </activity>
+
+        <activity android:name=".content.MediaContentObserver"
+                android:label="@string/activity_media_content_observer">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.SAMPLE_CODE"/>
+            </intent-filter>
+        </activity>
+
+        <service android:name=".content.MediaContentJob"
+                android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <service android:name=".content.PhotosContentJob"
+                android:permission="android.permission.BIND_JOB_SERVICE" />
 
         <activity android:name=".content.InstallApk" android:label="@string/activity_install_apk"
                 android:enabled="@bool/atLeastHoneycombMR2">
@@ -2124,6 +2163,22 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".inputmethod.ShowInputMethodAndSubtypeEnabler"
+                  android:label="Views/Input Method/ShowInputMethodAndSubtypeEnabler">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.SAMPLE_CODE" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".inputmethod.HintLocales"
+                  android:label="Views/Input Method/HintLocales">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.SAMPLE_CODE" />
+            </intent-filter>
+        </activity>
+
         <activity android:name=".view.EditTextDemo"
                   android:label="Views/Text/EditText">
             <intent-filter>
@@ -2296,7 +2351,7 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".view.Controls5"
+        <activity android:name=".view.ControlsMaterialLight"
                   android:label="Views/Controls/5. Material Light Theme"
                   android:theme="@android:style/Theme.Material.Light"
                   android:enabled="@bool/atLeastLRelease">
@@ -2306,7 +2361,7 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".view.Controls6"
+        <activity android:name=".view.ControlsMaterialDark"
                   android:label="Views/Controls/6. Material Dark Theme"
                   android:theme="@android:style/Theme.Material"
                   android:enabled="@bool/atLeastLRelease">
@@ -2413,14 +2468,14 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".view.ProgressBar4" android:label="Views/Progress Bar/4. In Title Bar">
+        <activity android:name=".view.SeekBar1" android:label="Views/Seek Bar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.SAMPLE_CODE" />
             </intent-filter>
         </activity>
 
-        <activity android:name=".view.SeekBar1" android:label="Views/Seek Bar">
+        <activity android:name=".view.NumberPickerActivity" android:label="Views/Number Picker">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.SAMPLE_CODE" />
@@ -2645,6 +2700,13 @@
         </activity>
 
         <activity android:name=".view.Switches" android:label="Views/Switches">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.SAMPLE_CODE" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".view.PointerShapes" android:label="Views/Pointer shapes">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.SAMPLE_CODE" />

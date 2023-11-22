@@ -17,7 +17,9 @@
 package android.telecom.cts;
 
 import android.net.Uri;
+import android.os.RemoteException;
 import android.telecom.Connection;
+import android.telecom.RemoteConnection;
 import android.telecom.VideoProfile;
 import android.view.Surface;
 
@@ -48,6 +50,7 @@ public class MockVideoProvider extends VideoProvider {
     private Surface mPreviewSurface = null;
     private Surface mDisplaySurface = null;
     private VideoProfile mSessionModifyResponse = null;
+    private BaseTelecomTestWithMockServices.InvokeCounter mVideoProviderHandlerTracker;
 
     public MockVideoProvider(MockConnection mockConnection) {
         mMockConnection = mockConnection;
@@ -75,6 +78,10 @@ public class MockVideoProvider extends VideoProvider {
 
     @Override
     public void onSetZoom(float value) {
+        if (mVideoProviderHandlerTracker != null) {
+            mVideoProviderHandlerTracker.invoke();
+            return;
+        }
         mZoom = value;
     }
 
@@ -135,6 +142,17 @@ public class MockVideoProvider extends VideoProvider {
     }
 
     /**
+     * Waits until all messages in the VideoProvider message handler up to the point of this call
+     * have been cleared and processed. Use this to wait for the callback to actually register.
+     */
+    public void waitForVideoProviderHandler(RemoteConnection.VideoProvider remoteVideoProvider) {
+        mVideoProviderHandlerTracker =
+                new BaseTelecomTestWithMockServices.InvokeCounter("WaitForHandler");
+        remoteVideoProvider.setZoom(0);
+        mVideoProviderHandlerTracker.waitForCount(1);
+        mVideoProviderHandlerTracker = null;
+    }
+    /**
      * Sends a mock video quality value from the provider.
      *
      * @param videoQuality The video quality.
@@ -170,6 +188,18 @@ public class MockVideoProvider extends VideoProvider {
         super.receiveSessionModifyRequest(request);
     }
 
+    /**
+     * Sends a mock session modify response from the provider.
+     *
+     * @param status The response status.
+     * @param requestProfile The request video profile.
+     * @param responseProfile The response video profile.
+     */
+    public void sendMockSessionModifyResponse(int status, VideoProfile requestProfile,
+            VideoProfile responseProfile) {
+        super.receiveSessionModifyResponse(status, requestProfile, responseProfile);
+    }
+
     public int getDeviceOrientation() {
         return mDeviceOrientation;
     }
@@ -188,5 +218,9 @@ public class MockVideoProvider extends VideoProvider {
 
     public VideoProfile getSessionModifyResponse() {
         return mSessionModifyResponse;
+    }
+
+    public Uri getPauseImageUri() {
+        return mPauseImageUri;
     }
 }

@@ -20,7 +20,7 @@
     <uses-sdk android:minSdkVersion="22"/>
 
     <application>
-        <activity android:name="CertInstallerActivity">
+        <receiver android:name=".CertInstallerReceiver">
             <intent-filter>
                 <action android:name="com.android.cts.certinstaller.install_cert" />
                 <action android:name="com.android.cts.certinstaller.remove_cert" />
@@ -28,7 +28,7 @@
                 <action android:name="com.android.cts.certinstaller.install_keypair" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
-        </activity>
+        </receiver>
     </application>
 
 </manifest>

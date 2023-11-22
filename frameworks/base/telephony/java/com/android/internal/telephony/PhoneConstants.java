@@ -35,17 +35,17 @@ public class PhoneConstants {
         IDLE, RINGING, OFFHOOK;
     };
 
-   /**
-     * The state of a data connection.
-     * <ul>
-     * <li>CONNECTED = IP traffic should be available</li>
-     * <li>CONNECTING = Currently setting up data connection</li>
-     * <li>DISCONNECTED = IP not available</li>
-     * <li>SUSPENDED = connection is created but IP traffic is
-     *                 temperately not available. i.e. voice call is in place
-     *                 in 2G network</li>
-     * </ul>
-     */
+    /**
+      * The state of a data connection.
+      * <ul>
+      * <li>CONNECTED = IP traffic should be available</li>
+      * <li>CONNECTING = Currently setting up data connection</li>
+      * <li>DISCONNECTED = IP not available</li>
+      * <li>SUSPENDED = connection is created but IP traffic is
+      *                 temperately not available. i.e. voice call is in place
+      *                 in 2G network</li>
+      * </ul>
+      */
     public enum DataState {
         CONNECTED, CONNECTING, DISCONNECTED, SUSPENDED;
     };
@@ -59,6 +59,9 @@ public class PhoneConstants {
     public static final int PHONE_TYPE_SIP = RILConstants.SIP_PHONE;
     public static final int PHONE_TYPE_THIRD_PARTY = RILConstants.THIRD_PARTY_PHONE;
     public static final int PHONE_TYPE_IMS = RILConstants.IMS_PHONE;
+    // Currently this is used only to differentiate CDMA and CDMALTE Phone in GsmCdma* files. For
+    // anything outside of that, a cdma + lte phone is still CDMA_PHONE
+    public static final int PHONE_TYPE_CDMA_LTE = RILConstants.CDMA_LTE_PHONE;
 
     // Modes for LTE_ON_CDMA
     public static final int LTE_ON_CDMA_UNKNOWN = RILConstants.LTE_ON_CDMA_UNKNOWN;
@@ -86,6 +89,7 @@ public class PhoneConstants {
     public static final String NETWORK_UNAVAILABLE_KEY = "networkUnvailable";
     public static final String DATA_NETWORK_ROAMING_KEY = "networkRoaming";
     public static final String PHONE_IN_ECM_STATE = "phoneinECMState";
+    public static final String PHONE_IN_EMERGENCY_CALL = "phoneInEmergencyCall";
 
     public static final String REASON_LINK_PROPERTIES_CHANGED = "linkPropertiesChanged";
 
@@ -198,4 +202,10 @@ public class PhoneConstants {
     public static final int AUDIO_OUTPUT_ENABLE_SPEAKER = 0;
     public static final int AUDIO_OUTPUT_DISABLE_SPEAKER = 1;
     public static final int AUDIO_OUTPUT_DEFAULT = AUDIO_OUTPUT_ENABLE_SPEAKER;
+
+    // authContext (parameter P2) when doing SIM challenge,
+    // per 3GPP TS 31.102 (Section 7.1.2)
+    public static final int AUTH_CONTEXT_EAP_SIM = 128;
+    public static final int AUTH_CONTEXT_EAP_AKA = 129;
+    public static final int AUTH_CONTEXT_UNDEFINED = -1;
 }

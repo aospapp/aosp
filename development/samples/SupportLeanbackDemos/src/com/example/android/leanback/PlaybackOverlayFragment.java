@@ -37,9 +37,14 @@ import android.support.v17.leanback.widget.OnItemViewClickedListener;
 import android.support.v17.leanback.widget.ControlButtonPresenterSelector;
 import android.support.v17.leanback.widget.SparseArrayObjectAdapter;
 import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Toast;
 
-public class PlaybackOverlayFragment extends android.support.v17.leanback.app.PlaybackOverlayFragment {
+public class PlaybackOverlayFragment
+        extends android.support.v17.leanback.app.PlaybackOverlayFragment
+        implements PlaybackOverlayActivity.PictureInPictureListener {
     private static final String TAG = "leanback.PlaybackControlsFragment";
 
     /**
@@ -102,7 +107,7 @@ public class PlaybackOverlayFragment extends android.support.v17.leanback.app.Pl
             @Override
             public int getUpdatePeriod() {
                 int totalTime = getControlsRow().getTotalTime();
-                if (getView() == null || totalTime <= 0) {
+                if (getView() == null || getView().getWidth() == 0 || totalTime <= 0) {
                     return 1000;
                 }
                 return Math.max(16, totalTime / getView().getWidth());
@@ -117,6 +122,15 @@ public class PlaybackOverlayFragment extends android.support.v17.leanback.app.Pl
                 if (index >= 0) {
                     getAdapter().notifyArrayItemRangeChanged(index, 1);
                 }
+            }
+
+            @Override
+            public void onActionClicked(Action action) {
+                if (action.getId() == R.id.lb_control_picture_in_picture) {
+                    getActivity().enterPictureInPictureMode();
+                    return;
+                }
+                super.onActionClicked(action);
             }
         };
 
@@ -149,17 +163,32 @@ public class PlaybackOverlayFragment extends android.support.v17.leanback.app.Pl
             HeaderItem header = new HeaderItem(i, "Row " + i);
             getAdapter().set(ROW_CONTROLS + 1 + i, new ListRow(header, listRowAdapter));
         }
+
     }
 
     @Override
     public void onStart() {
         super.onStart();
+        mGlue.setFadingEnabled(true);
         mGlue.enableProgressUpdating(mGlue.hasValidMedia() && mGlue.isMediaPlaying());
+        ((PlaybackOverlayActivity) getActivity()).registerPictureInPictureListener(this);
     }
 
     @Override
     public void onStop() {
         mGlue.enableProgressUpdating(false);
+        ((PlaybackOverlayActivity) getActivity()).unregisterPictureInPictureListener(this);
         super.onStop();
+    }
+
+    @Override
+    public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode) {
+        if (isInPictureInPictureMode) {
+            // Hide the controls in picture-in-picture mode.
+            setFadingEnabled(true);
+            fadeOut();
+        } else {
+            setFadingEnabled(mGlue.isMediaPlaying());
+        }
     }
 }

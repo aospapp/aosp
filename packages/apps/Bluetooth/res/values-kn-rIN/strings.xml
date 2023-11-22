@@ -36,9 +36,8 @@
     <string name="incoming_file_confirm_ok" msgid="281462442932231475">"ಸ್ವೀಕರಿಸಿ"</string>
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"ಸರಿ"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" ಅವರಿಂದ ಫೈಲ್‌ ಸ್ವೀಕರಿಸುವಾಗ ಕಾಲಾವಧಿ ಮುಕ್ತಾಯಗೊಂಡಿದೆ"</string>
-    <string name="incoming_file_confirm_Notification_title" msgid="2958227698135117210">"ಬ್ಲೂಟೂತ್‌ ಹಂಚಿಕೆ: ಒಳಬರುವ ಫೈಲ್‌"</string>
-    <string name="incoming_file_confirm_Notification_caption" msgid="6671081128475981157">"ಈ ಫೈಲ್‌ ಅನ್ನು ಸ್ವೀಕರಿಸಲು ನೀವು ಬಯಸುವಿರಾ?"</string>
-    <string name="incoming_file_toast_msg" msgid="1733710749992901811">"ಮತ್ತೊಂದು ಸಾಧನದಿಂದ ಒಳಬರುವ ಫೈಲ್‌. ಈ ಫೈಲ್‌ ಸ್ವೀಕರಿಸಲು ನೀವು ಬಯಸುತ್ತೀರಾ ಎಂಬುದನ್ನು ಖಚಿತಪಡಿಸಿ."</string>
+    <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"ಒಳಬರುತ್ತಿರುವ ಫೈಲ್"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> ಅವರು <xliff:g id="FILE">%2$s</xliff:g> ಫೈಲ್ ಕಳುಹಿಸಲು ಸಿದ್ಧವಾಗಿದ್ದಾರೆ"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"ಬ್ಲೂಟೂತ್‌ ಹಂಚಿಕೆ: <xliff:g id="FILE">%1$s</xliff:g> ಸ್ವೀಕರಿಸಲಾಗುತ್ತಿದೆ"</string>
     <string name="notification_received" msgid="3324588019186687985">"ಬ್ಲೂಟೂತ್‌ ಹಂಚಿಕೆ: <xliff:g id="FILE">%1$s</xliff:g> ಸ್ವೀಕರಿಸಲಾಗಿದೆ"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"ಬ್ಲೂಟೂತ್‌ ಹಂಚಿಕೆ: ಫೈಲ್‌ <xliff:g id="FILE">%1$s</xliff:g> ಸ್ವೀಕರಿಸಿಲ್ಲ"</string>
@@ -70,7 +69,7 @@
     <string name="upload_succ_ok" msgid="7705428476405478828">"ಸರಿ"</string>
     <string name="upload_fail_line1" msgid="7899394672421491701">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" ಇವರಿಗೆ ಫೈಲ್‌ ಕಳುಹಿಸಲಾಗಲಿಲ್ಲ."</string>
     <string name="upload_fail_line1_2" msgid="2108129204050841798">"ಫೈಲ್‌: <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="upload_fail_ok" msgid="5807702461606714296">"ಮತ್ತೆ ಪ್ರಯತ್ನಿಸು"</string>
+    <string name="upload_fail_ok" msgid="5807702461606714296">"ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ"</string>
     <string name="upload_fail_cancel" msgid="9118496285835687125">"ಮುಚ್ಚು"</string>
     <string name="bt_error_btn_ok" msgid="5965151173011534240">"ಸರಿ"</string>
     <string name="unknown_file" msgid="6092727753965095366">"ಅಪರಿಚಿತ ಫೈಲ್"</string>
@@ -124,9 +123,11 @@
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"ತೆರವುಗೊಳಿಸು"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"ಉಳಿಸು"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"ರದ್ದುಮಾಡು"</string>
-    <string name="bluetooth_map_settings_intro" msgid="6793938602201480648">"ಬ್ಲೂಟೂತ್‌ ಮೂಲಕ ಹಂಚಿಕೊಳ್ಳಲು ಬಯಸುವ ಖಾತೆಗಳನ್ನು ಆಯ್ಕೆಮಾಡಿ. ಸಂಪರ್ಕಿಸುವಾಗ ಖಾತೆಗಳಿಗೆ ಯಾವುದೇ ಪ್ರವೇಶವನ್ನು ನೀವು ಈಗಲೂ ಒಪ್ಪಿಕೊಳ್ಳಬೇಕಾಗುತ್ತದೆ."</string>
+    <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"ಬ್ಲೂಟೂತ್‌ ಮೂಲಕ ಹಂಚಿಕೊಳ್ಳಲು ಬಯಸುವ ಖಾತೆಗಳನ್ನು ಆಯ್ಕೆಮಾಡಿ. ಸಂಪರ್ಕಪಡಿಸುವಾಗ ಖಾತೆಗಳಿಗೆ ಯಾವುದೇ ಪ್ರವೇಶವನ್ನು ನೀವು ಈಗಲೂ ಸಮ್ಮತಿಸಬೇಕಾಗುತ್ತದೆ."</string>
     <string name="bluetooth_map_settings_count" msgid="4557473074937024833">"ಉಳಿದಿರುವ ಸ್ಲಾಟ್‌ಗಳು:"</string>
     <string name="bluetooth_map_settings_app_icon" msgid="7105805610929114707">"ಅಪ್ಲಿಕೇಶನ್‌ ಐಕಾನ್‌"</string>
     <string name="bluetooth_map_settings_title" msgid="7420332483392851321">"ಬ್ಲೂಟೂತ್ ಸಂದೇಶ ಹಂಚಿಕೆ ಸೆಟ್ಟಿಂಗ್‌ಗಳು"</string>
     <string name="bluetooth_map_settings_no_account_slots_left" msgid="1796029082612965251">"ಖಾತೆಯನ್ನು ಆಯ್ಕೆಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ. 0 ಸ್ಲಾಟ್‌ಗಳು ಉಳಿದಿವೆ"</string>
+    <string name="bluetooth_connected" msgid="6718623220072656906">"ಬ್ಲೂಟೂತ್‌ ಆಡಿಯೊ ಸಂಪರ್ಕಗೊಂಡಿದೆ"</string>
+    <string name="bluetooth_disconnected" msgid="3318303728981478873">"ಬ್ಲೂಟೂತ್‌ ಆಡಿಯೊ ಸಂಪರ್ಕ ಕಡಿತಗೊಂಡಿದೆ"</string>
 </resources>

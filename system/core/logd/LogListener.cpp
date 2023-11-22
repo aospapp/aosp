@@ -15,6 +15,7 @@
  */
 
 #include <limits.h>
+#include <sys/cdefs.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -26,7 +27,9 @@
 #include <private/android_filesystem_config.h>
 #include <private/android_logger.h>
 
+#include "LogBuffer.h"
 #include "LogListener.h"
+#include "LogUtils.h"
 
 LogListener::LogListener(LogBuffer *buf, LogReader *reader) :
         SocketListener(getLogSocket(), false),
@@ -44,9 +47,8 @@ bool LogListener::onDataAvailable(SocketClient *cli) {
     char buffer[sizeof_log_id_t + sizeof(uint16_t) + sizeof(log_time)
         + LOGGER_ENTRY_MAX_PAYLOAD];
     struct iovec iov = { buffer, sizeof(buffer) };
-    memset(buffer, 0, sizeof(buffer));
 
-    char control[CMSG_SPACE(sizeof(struct ucred))];
+    char control[CMSG_SPACE(sizeof(struct ucred))] __aligned(4);
     struct msghdr hdr = {
         NULL,
         0,
@@ -59,6 +61,9 @@ bool LogListener::onDataAvailable(SocketClient *cli) {
 
     int socket = cli->getSocket();
 
+    // To clear the entire buffer is secure/safe, but this contributes to 1.68%
+    // overhead under logging load. We are safe because we check counts.
+    // memset(buffer, 0, sizeof(buffer));
     ssize_t n = recvmsg(socket, &hdr, 0);
     if (n <= (ssize_t)(sizeof(android_log_header_t))) {
         return false;
@@ -89,6 +94,12 @@ bool LogListener::onDataAvailable(SocketClient *cli) {
 
     android_log_header_t *header = reinterpret_cast<android_log_header_t *>(buffer);
     if (/* header->id < LOG_ID_MIN || */ header->id >= LOG_ID_MAX || header->id == LOG_ID_KERNEL) {
+        return false;
+    }
+
+    if ((header->id == LOG_ID_SECURITY) &&
+            (!__android_log_security() ||
+             !clientHasLogCredentials(cred->uid, cred->gid, cred->pid))) {
         return false;
     }
 

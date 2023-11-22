@@ -16,8 +16,6 @@
 
 package android.content.cts;
 
-import dalvik.annotation.TestTargetClass;
-
 import android.content.ContentProvider;
 import android.content.ContentValues;
 import android.content.Context;
@@ -33,7 +31,6 @@ import android.net.Uri;
  * @see AsyncQueryHandlerTest
  * @see ContentQueryMapTest
  */
-@TestTargetClass(ContentProvider.class)
 public class DummyProvider extends ContentProvider {
     private static final String MOCK_OPERATION = "mockOperation";
 

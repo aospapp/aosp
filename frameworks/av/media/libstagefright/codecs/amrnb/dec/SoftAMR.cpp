@@ -148,6 +148,10 @@ OMX_ERRORTYPE SoftAMR::internalGetParameter(
             OMX_AUDIO_PARAM_AMRTYPE *amrParams =
                 (OMX_AUDIO_PARAM_AMRTYPE *)params;
 
+            if (!isValidOMXParam(amrParams)) {
+                return OMX_ErrorBadParameter;
+            }
+
             if (amrParams->nPortIndex != 0) {
                 return OMX_ErrorUndefined;
             }
@@ -173,6 +177,10 @@ OMX_ERRORTYPE SoftAMR::internalGetParameter(
         {
             OMX_AUDIO_PARAM_PCMMODETYPE *pcmParams =
                 (OMX_AUDIO_PARAM_PCMMODETYPE *)params;
+
+            if (!isValidOMXParam(pcmParams)) {
+                return OMX_ErrorBadParameter;
+            }
 
             if (pcmParams->nPortIndex != 1) {
                 return OMX_ErrorUndefined;
@@ -207,6 +215,10 @@ OMX_ERRORTYPE SoftAMR::internalSetParameter(
             const OMX_PARAM_COMPONENTROLETYPE *roleParams =
                 (const OMX_PARAM_COMPONENTROLETYPE *)params;
 
+            if (!isValidOMXParam(roleParams)) {
+                return OMX_ErrorBadParameter;
+            }
+
             if (mMode == MODE_NARROW) {
                 if (strncmp((const char *)roleParams->cRole,
                             "audio_decoder.amrnb",
@@ -229,6 +241,10 @@ OMX_ERRORTYPE SoftAMR::internalSetParameter(
             const OMX_AUDIO_PARAM_AMRTYPE *aacParams =
                 (const OMX_AUDIO_PARAM_AMRTYPE *)params;
 
+            if (!isValidOMXParam(aacParams)) {
+                return OMX_ErrorBadParameter;
+            }
+
             if (aacParams->nPortIndex != 0) {
                 return OMX_ErrorUndefined;
             }
@@ -240,6 +256,10 @@ OMX_ERRORTYPE SoftAMR::internalSetParameter(
         {
             const OMX_AUDIO_PARAM_PCMMODETYPE *pcmParams =
                 (OMX_AUDIO_PARAM_PCMMODETYPE *)params;
+
+            if (!isValidOMXParam(pcmParams)) {
+                return OMX_ErrorBadParameter;
+            }
 
             if (pcmParams->nPortIndex != 1) {
                 return OMX_ErrorUndefined;
@@ -303,6 +323,13 @@ void SoftAMR::onQueueFilled(OMX_U32 /* portIndex */) {
             return;
         }
 
+        if (inHeader->nFilledLen == 0) {
+            inInfo->mOwnedByUs = false;
+            inQueue.erase(inQueue.begin());
+            notifyEmptyBufferDone(inHeader);
+            continue;
+        }
+
         if (inHeader->nOffset == 0) {
             mAnchorTimeUs = inHeader->nTimeStamp;
             mNumSamplesOutput = 0;
@@ -312,6 +339,26 @@ void SoftAMR::onQueueFilled(OMX_U32 /* portIndex */) {
         int32_t numBytesRead;
 
         if (mMode == MODE_NARROW) {
+            if (outHeader->nAllocLen < kNumSamplesPerFrameNB * sizeof(int16_t)) {
+                ALOGE("b/27662364: NB expected output buffer %zu bytes vs %u",
+                       kNumSamplesPerFrameNB * sizeof(int16_t), outHeader->nAllocLen);
+                android_errorWriteLog(0x534e4554, "27662364");
+                notify(OMX_EventError, OMX_ErrorOverflow, 0, NULL);
+                mSignalledError = true;
+                return;
+            }
+
+            int16 mode = ((inputPtr[0] >> 3) & 0x0f);
+            // for WMF since MIME_IETF is used when calling AMRDecode.
+            size_t frameSize = WmfDecBytesPerFrame[mode] + 1;
+
+            if (inHeader->nFilledLen < frameSize) {
+                ALOGE("b/27662364: expected %zu bytes vs %u", frameSize, inHeader->nFilledLen);
+                notify(OMX_EventError, OMX_ErrorStreamCorrupt, 0, NULL);
+                mSignalledError = true;
+                return;
+            }
+
             numBytesRead =
                 AMRDecode(mState,
                   (Frame_Type_3GPP)((inputPtr[0] >> 3) & 0x0f),
@@ -339,6 +386,15 @@ void SoftAMR::onQueueFilled(OMX_U32 /* portIndex */) {
                 return;
             }
         } else {
+            if (outHeader->nAllocLen < kNumSamplesPerFrameWB * sizeof(int16_t)) {
+                ALOGE("b/27662364: WB expected output buffer %zu bytes vs %u",
+                       kNumSamplesPerFrameWB * sizeof(int16_t), outHeader->nAllocLen);
+                android_errorWriteLog(0x534e4554, "27662364");
+                notify(OMX_EventError, OMX_ErrorOverflow, 0, NULL);
+                mSignalledError = true;
+                return;
+            }
+
             int16 mode = ((inputPtr[0] >> 3) & 0x0f);
 
             if (mode >= 10 && mode <= 13) {
@@ -352,7 +408,12 @@ void SoftAMR::onQueueFilled(OMX_U32 /* portIndex */) {
             }
 
             size_t frameSize = getFrameSize(mode);
-            CHECK_GE(inHeader->nFilledLen, frameSize);
+            if (inHeader->nFilledLen < frameSize) {
+                ALOGE("b/27662364: expected %zu bytes vs %u", frameSize, inHeader->nFilledLen);
+                notify(OMX_EventError, OMX_ErrorStreamCorrupt, 0, NULL);
+                mSignalledError = true;
+                return;
+            }
 
             int16_t *outPtr = (int16_t *)outHeader->pBuffer;
 

@@ -20,11 +20,15 @@
 #include <stdint.h>
 #include <sys/cdefs.h>
 
+/** \cond */
 __BEGIN_DECLS
+/** \endcond */
 
-/* See description in fixedfft.cpp */
+/** See description in fixedfft.cpp */
 extern void fixed_fft_real(int n, int32_t *v);
 
+/** \cond */
 __END_DECLS
+/** \endcond */
 
 #endif  // ANDROID_AUDIO_FIXEDFFT_H

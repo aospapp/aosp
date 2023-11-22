@@ -18,6 +18,7 @@ package libcore.java.security;
 
 import com.android.org.bouncycastle.asn1.DEROctetString;
 import com.android.org.bouncycastle.asn1.x509.BasicConstraints;
+import com.android.org.bouncycastle.asn1.x509.CRLReason;
 import com.android.org.bouncycastle.asn1.x509.ExtendedKeyUsage;
 import com.android.org.bouncycastle.asn1.x509.GeneralName;
 import com.android.org.bouncycastle.asn1.x509.GeneralNames;
@@ -25,15 +26,28 @@ import com.android.org.bouncycastle.asn1.x509.GeneralSubtree;
 import com.android.org.bouncycastle.asn1.x509.KeyPurposeId;
 import com.android.org.bouncycastle.asn1.x509.KeyUsage;
 import com.android.org.bouncycastle.asn1.x509.NameConstraints;
+import com.android.org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import com.android.org.bouncycastle.asn1.x509.X509Extensions;
+import com.android.org.bouncycastle.cert.X509CertificateHolder;
+import com.android.org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
+import com.android.org.bouncycastle.cert.ocsp.BasicOCSPResp;
+import com.android.org.bouncycastle.cert.ocsp.BasicOCSPRespBuilder;
+import com.android.org.bouncycastle.cert.ocsp.CertificateID;
+import com.android.org.bouncycastle.cert.ocsp.CertificateStatus;
+import com.android.org.bouncycastle.cert.ocsp.OCSPException;
+import com.android.org.bouncycastle.cert.ocsp.OCSPResp;
+import com.android.org.bouncycastle.cert.ocsp.OCSPRespBuilder;
+import com.android.org.bouncycastle.cert.ocsp.RevokedStatus;
 import com.android.org.bouncycastle.jce.provider.BouncyCastleProvider;
+import com.android.org.bouncycastle.operator.DigestCalculatorProvider;
+import com.android.org.bouncycastle.operator.OperatorCreationException;
+import com.android.org.bouncycastle.operator.bc.BcDigestCalculatorProvider;
+import com.android.org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import com.android.org.bouncycastle.x509.X509V3CertificateGenerator;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.math.BigInteger;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.KeyStore;
@@ -50,16 +64,16 @@ import java.security.Security;
 import java.security.UnrecoverableEntryException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateEncodingException;
+import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
-import java.security.interfaces.ECPrivateKey;
-import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.AlgorithmParameterSpec;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
-import java.util.Vector;
+import javax.crypto.spec.DHParameterSpec;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.TrustManager;
@@ -77,6 +91,43 @@ import libcore.javax.net.ssl.TestTrustManager;
  * accessible via TestKeyStore.get().
  */
 public final class TestKeyStore extends Assert {
+    /** Size of DSA keys to generate for testing. */
+    private static final int DSA_KEY_SIZE_BITS = 1024;
+
+    /** Size of EC keys to generate for testing. */
+    private static final int EC_KEY_SIZE_BITS = 256;
+
+    /** Size of RSA keys to generate for testing. */
+    private static final int RSA_KEY_SIZE_BITS = 1024;
+
+    // Generated with: openssl dhparam -C 1024
+    private static final BigInteger DH_PARAMS_P = new BigInteger(1, new byte[] {
+            (byte) 0xA2, (byte) 0x31, (byte) 0xB4, (byte) 0xB3, (byte) 0x6D, (byte) 0x9B,
+            (byte) 0x7E, (byte) 0xF4, (byte) 0xE7, (byte) 0x21, (byte) 0x51, (byte) 0x40,
+            (byte) 0xEB, (byte) 0xC6, (byte) 0xB6, (byte) 0xD6, (byte) 0x54, (byte) 0x56,
+            (byte) 0x72, (byte) 0xBE, (byte) 0x43, (byte) 0x18, (byte) 0x30, (byte) 0x5C,
+            (byte) 0x15, (byte) 0x5A, (byte) 0xF9, (byte) 0x19, (byte) 0x62, (byte) 0xAD,
+            (byte) 0xF4, (byte) 0x29, (byte) 0xCB, (byte) 0xC6, (byte) 0xF6, (byte) 0x64,
+            (byte) 0x0B, (byte) 0x9D, (byte) 0x23, (byte) 0x80, (byte) 0xF9, (byte) 0x5B,
+            (byte) 0x1C, (byte) 0x1C, (byte) 0x6A, (byte) 0xB4, (byte) 0xEA, (byte) 0xB9,
+            (byte) 0x80, (byte) 0x98, (byte) 0x8B, (byte) 0xAF, (byte) 0x15, (byte) 0xA8,
+            (byte) 0x5C, (byte) 0xC4, (byte) 0xB0, (byte) 0x41, (byte) 0x29, (byte) 0x66,
+            (byte) 0x9F, (byte) 0x9F, (byte) 0x1F, (byte) 0x88, (byte) 0x50, (byte) 0x97,
+            (byte) 0x38, (byte) 0x0B, (byte) 0x01, (byte) 0x16, (byte) 0xD6, (byte) 0x84,
+            (byte) 0x1D, (byte) 0x48, (byte) 0x6F, (byte) 0x7C, (byte) 0x06, (byte) 0x8C,
+            (byte) 0x6E, (byte) 0x68, (byte) 0xCD, (byte) 0x38, (byte) 0xE6, (byte) 0x22,
+            (byte) 0x30, (byte) 0x61, (byte) 0x37, (byte) 0x02, (byte) 0x3D, (byte) 0x47,
+            (byte) 0x62, (byte) 0xCE, (byte) 0xB9, (byte) 0x1A, (byte) 0x69, (byte) 0x9D,
+            (byte) 0xA1, (byte) 0x9F, (byte) 0x10, (byte) 0xA1, (byte) 0xAA, (byte) 0x70,
+            (byte) 0xF7, (byte) 0x27, (byte) 0x9C, (byte) 0xD4, (byte) 0xA5, (byte) 0x15,
+            (byte) 0xE2, (byte) 0x15, (byte) 0x0C, (byte) 0x20, (byte) 0x90, (byte) 0x08,
+            (byte) 0xB6, (byte) 0xF5, (byte) 0xDF, (byte) 0x1C, (byte) 0xCB, (byte) 0x82,
+            (byte) 0x6D, (byte) 0xC0, (byte) 0xE1, (byte) 0xBD, (byte) 0xCC, (byte) 0x4A,
+            (byte) 0x76, (byte) 0xE3,
+    });
+
+    // generator of 2
+    private static final BigInteger DH_PARAMS_G = BigInteger.valueOf(2);
 
     private static TestKeyStore ROOT_CA;
     private static TestKeyStore INTERMEDIATE_CA;
@@ -98,6 +149,9 @@ public final class TestKeyStore extends Assert {
     }
 
     private static final boolean TEST_MANAGERS = true;
+    private static final byte[] LOCAL_HOST_ADDRESS = { 127, 0, 0, 1 };
+    private static final String LOCAL_HOST_NAME = "localhost";
+
 
     public final KeyStore keyStore;
     public final char[] storePassword;
@@ -148,6 +202,7 @@ public final class TestKeyStore extends Assert {
                 .aliasPrefix("RootCA")
                 .subject("CN=Test Root Certificate Authority")
                 .ca(true)
+                .certificateSerialNumber(BigInteger.valueOf(1))
                 .build();
         INTERMEDIATE_CA = new Builder()
                 .aliasPrefix("IntermediateCA")
@@ -155,17 +210,15 @@ public final class TestKeyStore extends Assert {
                 .ca(true)
                 .signer(ROOT_CA.getPrivateKey("RSA", "RSA"))
                 .rootCa(ROOT_CA.getRootCertificate("RSA"))
+                .certificateSerialNumber(BigInteger.valueOf(2))
                 .build();
-        try {
-            SERVER = new Builder()
-                    .aliasPrefix("server")
-                    .signer(INTERMEDIATE_CA.getPrivateKey("RSA", "RSA"))
-                    .rootCa(INTERMEDIATE_CA.getRootCertificate("RSA"))
-                    .addSubjectAltNameIpAddress(InetAddress.getLocalHost().getAddress())
-                    .build();
-        } catch (UnknownHostException e) {
-            throw new RuntimeException(e);
-        }
+        SERVER = new Builder()
+                .aliasPrefix("server")
+                .signer(INTERMEDIATE_CA.getPrivateKey("RSA", "RSA"))
+                .rootCa(INTERMEDIATE_CA.getRootCertificate("RSA"))
+                .addSubjectAltNameIpAddress(LOCAL_HOST_ADDRESS)
+                .certificateSerialNumber(BigInteger.valueOf(3))
+                .build();
         CLIENT = new TestKeyStore(createClient(INTERMEDIATE_CA.keyStore), null, null);
         CLIENT_CERTIFICATE = new Builder()
                 .aliasPrefix("client")
@@ -271,6 +324,8 @@ public final class TestKeyStore extends Assert {
                 = new ArrayList<GeneralSubtree>();
         private final List<GeneralSubtree> excludedNameConstraints
                 = new ArrayList<GeneralSubtree>();
+        // Generated randomly if not set
+        private BigInteger certificateSerialNumber = null;
 
         public Builder() {
             subject = localhost();
@@ -364,6 +419,11 @@ public final class TestKeyStore extends Assert {
                     new GeneralName(GeneralName.iPAddress, new DEROctetString(ipAddress)));
         }
 
+        public Builder certificateSerialNumber(BigInteger certificateSerialNumber) {
+            this.certificateSerialNumber = certificateSerialNumber;
+            return this;
+        }
+
         public TestKeyStore build() {
             try {
                 if (StandardNames.IS_RI) {
@@ -423,9 +483,9 @@ public final class TestKeyStore extends Assert {
          * name.
          *
          * If a CA is provided, it will be used to sign the generated
-         * certificate. Otherwise, the certificate will be self
-         * signed. The certificate will be valid for one day before and
-         * one day after the time of creation.
+         * certificate and OCSP responses. Otherwise, the certificate
+         * will be self signed. The certificate will be valid for one
+         * day before and one day after the time of creation.
          *
          * Based on:
          * org.bouncycastle.jce.provider.test.SigTest
@@ -461,30 +521,35 @@ public final class TestKeyStore extends Assert {
             } else {
                 if (privateEntry == null) {
                     // 1a.) we make the keys
-                    int keySize;
+                    int keySize = -1;
+                    AlgorithmParameterSpec spec = null;
                     if (keyAlgorithm.equals("RSA")) {
-                        // 512 breaks SSL_RSA_EXPORT_* on RI and
-                        // TLS_ECDHE_RSA_WITH_RC4_128_SHA for us
-                        keySize = 1024;
+                        keySize = RSA_KEY_SIZE_BITS;
                     } else if (keyAlgorithm.equals("DH_RSA")) {
-                        keySize = 512;
+                        spec = new DHParameterSpec(DH_PARAMS_P, DH_PARAMS_G);
                         keyAlgorithm = "DH";
                     } else if (keyAlgorithm.equals("DSA")) {
-                        keySize = 512;
+                        keySize = DSA_KEY_SIZE_BITS;
                     } else if (keyAlgorithm.equals("DH_DSA")) {
-                        keySize = 512;
+                        spec = new DHParameterSpec(DH_PARAMS_P, DH_PARAMS_G);
                         keyAlgorithm = "DH";
                     } else if (keyAlgorithm.equals("EC")) {
-                        keySize = 256;
+                        keySize = EC_KEY_SIZE_BITS;
                     } else if (keyAlgorithm.equals("EC_RSA")) {
-                        keySize = 256;
+                        keySize = EC_KEY_SIZE_BITS;
                         keyAlgorithm = "EC";
                     } else {
                         throw new IllegalArgumentException("Unknown key algorithm " + keyAlgorithm);
                     }
 
                     KeyPairGenerator kpg = KeyPairGenerator.getInstance(keyAlgorithm);
-                    kpg.initialize(keySize, new SecureRandom());
+                    if (spec != null) {
+                        kpg.initialize(spec);
+                    } else if (keySize != -1) {
+                        kpg.initialize(keySize);
+                    } else {
+                        throw new AssertionError("Must either have set algorithm parameters or key size!");
+                    }
 
                     KeyPair kp = kpg.generateKeyPair();
                     privateKey = kp.getPrivate();
@@ -503,7 +568,8 @@ public final class TestKeyStore extends Assert {
                 x509c = createCertificate(publicKey, signingKey, subject, issuer, keyUsage, ca,
                                           extendedKeyUsages, criticalExtendedKeyUsages,
                                           subjectAltNames,
-                                          permittedNameConstraints, excludedNameConstraints);
+                                          permittedNameConstraints, excludedNameConstraints,
+                                          certificateSerialNumber);
             }
 
             X509Certificate[] x509cc;
@@ -529,11 +595,7 @@ public final class TestKeyStore extends Assert {
         }
 
         private X500Principal localhost() {
-            try {
-                return new X500Principal("CN=" + InetAddress.getLocalHost().getHostName());
-            } catch (UnknownHostException e) {
-                throw new RuntimeException(e);
-            }
+            return new X500Principal("CN=" + LOCAL_HOST_NAME);
         }
     }
 
@@ -549,7 +611,8 @@ public final class TestKeyStore extends Assert {
                                      new ArrayList<Boolean>(),
                                      new ArrayList<GeneralName>(),
                                      new ArrayList<GeneralSubtree>(),
-                                     new ArrayList<GeneralSubtree>());
+                                     new ArrayList<GeneralSubtree>(),
+                                     null /* serialNumber, generated randomly */);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -566,7 +629,8 @@ public final class TestKeyStore extends Assert {
             List<Boolean> criticalExtendedKeyUsages,
             List<GeneralName> subjectAltNames,
             List<GeneralSubtree> permittedNameConstraints,
-            List<GeneralSubtree> excludedNameConstraints) throws Exception {
+            List<GeneralSubtree> excludedNameConstraints,
+            BigInteger serialNumber) throws Exception {
         // Note that there is no way to programmatically make a
         // Certificate using java.* or javax.* APIs. The
         // CertificateFactory interface assumes you want to read
@@ -579,7 +643,6 @@ public final class TestKeyStore extends Assert {
         long now = System.currentTimeMillis();
         Date start = new Date(now - millisPerDay);
         Date end = new Date(now + millisPerDay);
-        BigInteger serial = BigInteger.valueOf(1);
 
         String keyAlgorithm = privateKey.getAlgorithm();
         String signatureAlgorithm;
@@ -602,7 +665,12 @@ public final class TestKeyStore extends Assert {
         x509cg.setNotAfter(end);
         x509cg.setPublicKey(publicKey);
         x509cg.setSignatureAlgorithm(signatureAlgorithm);
-        x509cg.setSerialNumber(serial);
+        if (serialNumber == null) {
+            byte[] serialBytes = new byte[16];
+            new SecureRandom().nextBytes(serialBytes);
+            serialNumber = new BigInteger(1, serialBytes);
+        }
+        x509cg.setSerialNumber(serialNumber);
         if (keyUsage != 0) {
             x509cg.addExtension(X509Extensions.KeyUsage,
                                 true,
@@ -804,6 +872,53 @@ public final class TestKeyStore extends Assert {
      */
     public X509Certificate getRootCertificate(String algorithm)  {
         return rootCertificate(keyStore, algorithm);
+    }
+
+    private static OCSPResp generateOCSPResponse(PrivateKeyEntry server, PrivateKeyEntry issuer,
+            CertificateStatus status) throws CertificateException {
+        try {
+            X509Certificate serverCertJca = (X509Certificate) server.getCertificate();
+            X509Certificate caCertJca = (X509Certificate) issuer.getCertificate();
+
+            X509CertificateHolder caCert = new JcaX509CertificateHolder(caCertJca);
+
+            DigestCalculatorProvider digCalcProv = new BcDigestCalculatorProvider();
+            BasicOCSPRespBuilder basicBuilder = new BasicOCSPRespBuilder(
+                    SubjectPublicKeyInfo.getInstance(caCertJca.getPublicKey().getEncoded()),
+                    digCalcProv.get(CertificateID.HASH_SHA1));
+
+            CertificateID certId = new CertificateID(digCalcProv.get(CertificateID.HASH_SHA1),
+                    caCert, serverCertJca.getSerialNumber());
+
+            basicBuilder.addResponse(certId, status);
+
+            BasicOCSPResp resp = basicBuilder.build(
+                    new JcaContentSignerBuilder("SHA256withRSA").build(issuer.getPrivateKey()),
+                    null, new Date());
+
+            OCSPRespBuilder builder = new OCSPRespBuilder();
+            return builder.build(OCSPRespBuilder.SUCCESSFUL, resp);
+        } catch (Exception e) {
+            throw new CertificateException("cannot generate OCSP response", e);
+        }
+    }
+
+    public static byte[] getOCSPResponseForGood(PrivateKeyEntry server, PrivateKeyEntry issuer) throws CertificateException {
+        try {
+            return generateOCSPResponse(server, issuer, CertificateStatus.GOOD).getEncoded();
+        } catch (IOException e) {
+            throw new CertificateException(e);
+        }
+    }
+
+    public static byte[] getOCSPResponseForRevoked(PrivateKeyEntry server, PrivateKeyEntry issuer)
+            throws CertificateException {
+        try {
+            return generateOCSPResponse(server, issuer,
+                    new RevokedStatus(new Date(), CRLReason.keyCompromise)).getEncoded();
+        } catch (IOException e) {
+            throw new CertificateException(e);
+        }
     }
 
     /**

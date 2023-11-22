@@ -7,7 +7,6 @@ LOCAL_SRC_FILES := \
  	src/bitno_tab.cpp \
  	src/bitreorder_tab.cpp \
  	src/bits2prm.cpp \
- 	src/bytesused.cpp \
  	src/c2_9pf_tab.cpp \
  	src/copy.cpp \
  	src/div_32.cpp \
@@ -38,7 +37,6 @@ LOCAL_SRC_FILES := \
  	src/mult_r.cpp \
  	src/norm_l.cpp \
  	src/norm_s.cpp \
- 	src/overflow_tbl.cpp \
  	src/ph_disp_tab.cpp \
  	src/pow2.cpp \
  	src/pow2_tbl.cpp \
@@ -70,6 +68,9 @@ LOCAL_CFLAGS := \
         -D"OSCL_UNUSED_ARG(x)=(void)(x)" -DOSCL_IMPORT_REF= -DOSCL_EXPORT_REF=
 
 LOCAL_CFLAGS += -Werror
+LOCAL_CLANG := true
+#addressing b/25409744
+#LOCAL_SANITIZE := signed-integer-overflow unsigned-integer-overflow
 
 LOCAL_MODULE := libstagefright_amrnb_common
 

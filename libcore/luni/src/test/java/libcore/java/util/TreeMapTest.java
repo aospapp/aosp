@@ -17,14 +17,21 @@
 package libcore.java.util;
 
 import java.util.AbstractMap.SimpleEntry;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.ConcurrentModificationException;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
+import java.util.Set;
 import java.util.SortedMap;
+import java.util.Spliterator;
 import java.util.TreeMap;
+import java.util.WeakHashMap;
+
 import junit.framework.TestCase;
 import libcore.util.SerializationTester;
 
@@ -292,9 +299,10 @@ public class TreeMapTest extends TestCase {
     }
 
     public void testSubMapSerialization() {
+        // Updated golden value since we have a different serialVersionUID in OpenJDK.
         String s = "aced0005737200216a6176612e7574696c2e547265654d617024417363656e646"
                 + "96e675375624d61700cab946d1f0fab1c020000787200216a6176612e7574696c2"
-                + "e547265654d6170244e6176696761626c655375624d6170e2d0a70e64210e08020"
+                + "e547265654d6170244e6176696761626c655375624d617026617d4eacdd5933020"
                 + "0075a000966726f6d53746172745a000b6869496e636c75736976655a000b6c6f4"
                 + "96e636c75736976655a0005746f456e644c000268697400124c6a6176612f6c616"
                 + "e672f4f626a6563743b4c00026c6f71007e00024c00016d7400134c6a6176612f7"
@@ -324,9 +332,10 @@ public class TreeMapTest extends TestCase {
     }
 
     public void testNavigableSubMapSerialization() {
+        // Updated golden value since we have a different serialVersionUID in OpenJDK.
         String s = "aced0005737200216a6176612e7574696c2e547265654d617024417363656e646"
                 + "96e675375624d61700cab946d1f0fab1c020000787200216a6176612e7574696c2"
-                + "e547265654d6170244e6176696761626c655375624d6170e2d0a70e64210e08020"
+                + "e547265654d6170244e6176696761626c655375624d617026617d4eacdd5933020"
                 + "0075a000966726f6d53746172745a000b6869496e636c75736976655a000b6c6f4"
                 + "96e636c75736976655a0005746f456e644c000268697400124c6a6176612f6c616"
                 + "e672f4f626a6563743b4c00026c6f71007e00024c00016d7400134c6a6176612f7"
@@ -356,11 +365,12 @@ public class TreeMapTest extends TestCase {
     }
 
     public void testDescendingMapSerialization() {
+        // Updated golden value since we have a different serialVersionUID in OpenJDK.
         String s = "aced0005737200226a6176612e7574696c2e547265654d61702444657363656e6"
                 + "4696e675375624d61700cab946d1f0f9d0c0200014c001172657665727365436f6"
                 + "d70617261746f727400164c6a6176612f7574696c2f436f6d70617261746f723b7"
                 + "87200216a6176612e7574696c2e547265654d6170244e6176696761626c6553756"
-                + "24d6170e2d0a70e64210e080200075a000966726f6d53746172745a000b6869496"
+                + "24d617026617d4eacdd59330200075a000966726f6d53746172745a000b6869496"
                 + "e636c75736976655a000b6c6f496e636c75736976655a0005746f456e644c00026"
                 + "8697400124c6a6176612f6c616e672f4f626a6563743b4c00026c6f71007e00034"
                 + "c00016d7400134c6a6176612f7574696c2f547265654d61703b787001010101707"
@@ -430,5 +440,170 @@ public class TreeMapTest extends TestCase {
                 }
             }
         }.test();
+    }
+
+    // http://b//26336181
+    //
+    // Note that this is only worth working around because these bogus comparators worked
+    // somewhat-fine on M and below provided that :
+    //
+    // (1) put was called with distinct elements (i.e, with no two elements equal() to each other)
+    // (2) get or get-like methods are never called
+    //
+    // These comparators are clearly bogus but are somewhat common.
+    public void testTreeMapWithBogusComparator() {
+        TreeMap<String, String> treeMap = new TreeMap<String, String>(
+                new Comparator<String>() {
+                    @Override
+                    public int compare(String o1, String o2) {
+                        if (o1.equals(o2)) {
+                            throw new IllegalArgumentException("Expected unequal elements");
+                        }
+
+                        return o1.compareTo(o2);
+                    }
+                }
+        );
+
+        treeMap.put("candy", "floss");
+        treeMap.put("cheddar", "cheese");
+    }
+
+    public void test_spliterator_keySet() {
+        TreeMap<String, String> treeMap = new TreeMap<>();
+        treeMap.put("a", "1");
+        treeMap.put("b", "2");
+        treeMap.put("c", "3");
+        treeMap.put("d", "4");
+        treeMap.put("e", "5");
+        treeMap.put("f", "6");
+        treeMap.put("g", "7");
+        treeMap.put("h", "8");
+        treeMap.put("i", "9");
+        treeMap.put("j", "10");
+        treeMap.put("k", "11");
+        treeMap.put("l", "12");
+        treeMap.put("m", "13");
+        treeMap.put("n", "14");
+        treeMap.put("o", "15");
+        treeMap.put("p", "16");
+
+        Set<String> keys = treeMap.keySet();
+        ArrayList<String> expectedKeys = new ArrayList<>(keys);
+
+        SpliteratorTester.runBasicIterationTests_unordered(keys.spliterator(), expectedKeys,
+                String::compareTo);
+        SpliteratorTester.runBasicSplitTests(keys, expectedKeys);
+        SpliteratorTester.testSpliteratorNPE(keys.spliterator());
+
+        assertTrue(keys.spliterator().hasCharacteristics(Spliterator.ORDERED | Spliterator.SORTED));
+        SpliteratorTester.runSortedTests(keys);
+        SpliteratorTester.runOrderedTests(keys);
+    }
+
+    public void test_spliterator_valueSet() {
+        TreeMap<String, String> treeMap = new TreeMap<>();
+        treeMap.put("a", "1");
+        treeMap.put("b", "2");
+        treeMap.put("c", "3");
+        treeMap.put("d", "4");
+        treeMap.put("e", "5");
+        treeMap.put("f", "6");
+        treeMap.put("g", "7");
+        treeMap.put("h", "8");
+        treeMap.put("i", "9");
+        treeMap.put("j", "10");
+        treeMap.put("k", "11");
+        treeMap.put("l", "12");
+        treeMap.put("m", "13");
+        treeMap.put("n", "14");
+        treeMap.put("o", "15");
+        treeMap.put("p", "16");
+
+        Collection<String> values = treeMap.values();
+        ArrayList<String> expectedValues = new ArrayList<>(values);
+
+        SpliteratorTester.runBasicIterationTests_unordered(
+                values.spliterator(), expectedValues, String::compareTo);
+        SpliteratorTester.runBasicSplitTests(values, expectedValues);
+        SpliteratorTester.testSpliteratorNPE(values.spliterator());
+
+        assertTrue(values.spliterator().hasCharacteristics(Spliterator.ORDERED | Spliterator.SIZED));
+        SpliteratorTester.runSizedTests(values, 16);
+        SpliteratorTester.runOrderedTests(values);
+    }
+
+    public void test_spliterator_entrySet() {
+        TreeMap<String, String> treeMap = new TreeMap<>();
+        treeMap.put("a", "1");
+        treeMap.put("b", "2");
+        treeMap.put("c", "3");
+        treeMap.put("d", "4");
+        treeMap.put("e", "5");
+        treeMap.put("f", "6");
+        treeMap.put("g", "7");
+        treeMap.put("h", "8");
+        treeMap.put("i", "9");
+        treeMap.put("j", "10");
+        treeMap.put("k", "11");
+        treeMap.put("l", "12");
+        treeMap.put("m", "13");
+        treeMap.put("n", "14");
+        treeMap.put("o", "15");
+        treeMap.put("p", "16");
+
+        Set<Map.Entry<String, String>> values = treeMap.entrySet();
+        ArrayList<Map.Entry<String, String>> expectedValues = new ArrayList<>(values);
+
+        Comparator<Map.Entry<String, String>> comparator =
+                (a, b) -> (a.getKey().compareTo(b.getKey()));
+
+        SpliteratorTester.runBasicIterationTests_unordered(values.spliterator(), expectedValues,
+                (a, b) -> (a.getKey().compareTo(b.getKey())));
+        SpliteratorTester.runBasicSplitTests(values, expectedValues, comparator);
+        SpliteratorTester.testSpliteratorNPE(values.spliterator());
+
+        assertTrue(values.spliterator().hasCharacteristics(Spliterator.ORDERED | Spliterator.SORTED));
+        SpliteratorTester.runSortedTests(values, (a, b) -> (a.getKey().compareTo(b.getKey())));
+        SpliteratorTester.runOrderedTests(values);
+    }
+
+    public void test_replaceAll() throws Exception {
+        TreeMap<String, String> map = new TreeMap<>();
+        map.put("one", "1");
+        map.put("two", "2");
+        map.put("three", "3");
+
+        TreeMap<String, String> output = new TreeMap<>();
+        map.replaceAll((k, v) -> k + v);
+        assertEquals("one1", map.get("one"));
+        assertEquals("two2", map.get("two"));
+        assertEquals("three3", map.get("three"));
+
+        try {
+            map.replaceAll(null);
+            fail();
+        } catch(NullPointerException expected) {}
+
+        try {
+            map.replaceAll(new java.util.function.BiFunction<String, String, String>() {
+                @Override
+                public String apply(String k, String v) {
+                    map.put("foo", v);
+                    return v;
+                }
+            });
+            fail();
+        } catch(ConcurrentModificationException expected) {}
+    }
+
+    public void test_replace$K$V$V() {
+        MapDefaultMethodTester.test_replace$K$V$V(new TreeMap<>(), false /* acceptsNullKey */,
+                true /* acceptsNullValue */);
+    }
+
+    public void test_replace$K$V() {
+        MapDefaultMethodTester.test_replace$K$V(new TreeMap<>(), false /* acceptsNullKey */,
+                true /* acceptsNullValue */);
     }
 }

@@ -16,7 +16,7 @@
 
 package android.content.pm.cts;
 
-import com.android.cts.content.R;
+import android.content.cts.R;
 
 
 import android.content.ComponentName;
@@ -44,8 +44,8 @@ import java.util.List;
  */
 public class PackageManagerTest extends AndroidTestCase {
     private PackageManager mPackageManager;
-    private static final String PACKAGE_NAME = "com.android.cts.content";
-    private static final String CONTENT_PKG_NAME = "com.android.cts.content";
+    private static final String PACKAGE_NAME = "android.content.cts";
+    private static final String CONTENT_PKG_NAME = "android.content.cts";
     private static final String ACTIVITY_ACTION_NAME = "android.intent.action.PMTEST";
     private static final String MAIN_ACTION_NAME = "android.intent.action.MAIN";
     private static final String SERVICE_ACTION_NAME =
@@ -110,7 +110,7 @@ public class PackageManagerTest extends AndroidTestCase {
         String testPermissionsGroup = "android.permission-group.COST_MONEY";
         List<PermissionInfo> permissions = mPackageManager.queryPermissionsByGroup(
                 testPermissionsGroup, PackageManager.GET_META_DATA);
-        checkPermissionInfoName("com.android.cts.content.CALL_ABROAD_PERMISSION", permissions);
+        checkPermissionInfoName("android.content.cts.CALL_ABROAD_PERMISSION", permissions);
 
         ApplicationInfo appInfo = mPackageManager.getApplicationInfo(PACKAGE_NAME, 0);
         List<ProviderInfo> providers = mPackageManager.queryContentProviders(PACKAGE_NAME,
@@ -390,7 +390,7 @@ public class PackageManagerTest extends AndroidTestCase {
 
     public void testOpPermission() {
         PermissionInfo permissionInfo = new PermissionInfo();
-        String permissionName = "com.android.cts.content.permission.TEST_DYNAMIC.ADD";
+        String permissionName = "android.content.cts.permission.TEST_DYNAMIC.ADD";
         permissionInfo.name = permissionName;
         permissionInfo.labelRes = R.string.permlab_testDynamic;
         permissionInfo.nonLocalizedLabel = "Test Tree";
@@ -445,7 +445,7 @@ public class PackageManagerTest extends AndroidTestCase {
     public void testGetResources() throws NameNotFoundException {
         ComponentName componentName = new ComponentName(PACKAGE_NAME, ACTIVITY_NAME);
         int resourceId = R.xml.pm_test;
-        String xmlName = "com.android.cts.content:xml/pm_test";
+        String xmlName = "android.content.cts:xml/pm_test";
         ApplicationInfo appInfo = mPackageManager.getApplicationInfo(PACKAGE_NAME, 0);
         assertNotNull(mPackageManager.getXml(PACKAGE_NAME, resourceId, appInfo));
         assertEquals(xmlName, mPackageManager.getResourcesForActivity(componentName)

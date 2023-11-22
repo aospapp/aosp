@@ -23,6 +23,8 @@ import android.hardware.cts.helpers.sensoroperations.SensorOperation;
 
 import java.util.concurrent.TimeUnit;
 
+/* TODO: Refactor constructors into a builder */
+
 /**
  * A class that encapsulates base environment information for the {@link SensorOperation}.
  * The environment is self contained and carries its state around all the sensor test framework.
@@ -41,6 +43,7 @@ public class TestSensorEnvironment {
     private final int mSamplingPeriodUs;
     private final int mMaxReportLatencyUs;
     private final boolean mIsDeviceSuspendTest;
+    private final boolean mIsIntegrationTest;
 
     /**
      * Constructs an environment for sensor testing.
@@ -131,6 +134,34 @@ public class TestSensorEnvironment {
      * Constructs an environment for sensor testing.
      *
      * @param context The context for the test
+     * @param sensorType The type of the sensor under test
+     * @param sensorMightHaveMoreListeners Whether the sensor under test is acting under load
+     * @param isIntegrationTest Whether this is an integration test (more than one sensor actived)
+     * @param samplingPeriodUs The requested collection period for the sensor under test
+     * @param maxReportLatencyUs The requested collection report latency for the sensor under test
+     *
+     * @deprecated Use variants with {@link Sensor} objects.
+     */
+    @Deprecated
+    public TestSensorEnvironment(
+            Context context,
+            int sensorType,
+            boolean sensorMightHaveMoreListeners,
+            boolean isIntegrationTest,
+            int samplingPeriodUs,
+            int maxReportLatencyUs) {
+        this(context,
+                getSensor(context, sensorType),
+                sensorMightHaveMoreListeners,
+                isIntegrationTest,
+                samplingPeriodUs,
+                maxReportLatencyUs);
+    }
+
+    /**
+     * Constructs an environment for sensor testing.
+     *
+     * @param context The context for the test
      * @param sensor The sensor under test
      * @param samplingPeriodUs The requested collection period for the sensor under test
      * @param maxReportLatencyUs The requested collection report latency for the sensor under test
@@ -176,15 +207,46 @@ public class TestSensorEnvironment {
             Context context,
             Sensor sensor,
             boolean sensorMightHaveMoreListeners,
+            boolean isIntegrationTest,
+            int samplingPeriodUs,
+            int maxReportLatencyUs) {
+        this(context,
+                sensor,
+                sensorMightHaveMoreListeners,
+                samplingPeriodUs,
+                maxReportLatencyUs,
+                false /* isDeviceSuspendTest */,
+                isIntegrationTest);
+    }
+
+    public TestSensorEnvironment(
+            Context context,
+            Sensor sensor,
+            boolean sensorMightHaveMoreListeners,
             int samplingPeriodUs,
             int maxReportLatencyUs,
             boolean isDeviceSuspendTest) {
+        this(context, sensor, sensorMightHaveMoreListeners,
+                samplingPeriodUs, maxReportLatencyUs,
+                false /* isDeviceSuspendTest */,
+                false /* isIntegrationTest */);
+    }
+
+    public TestSensorEnvironment(
+            Context context,
+            Sensor sensor,
+            boolean sensorMightHaveMoreListeners,
+            int samplingPeriodUs,
+            int maxReportLatencyUs,
+            boolean isDeviceSuspendTest,
+            boolean isIntegrationTest) {
         mContext = context;
         mSensor = sensor;
         mSensorMightHaveMoreListeners = sensorMightHaveMoreListeners;
         mSamplingPeriodUs = samplingPeriodUs;
         mMaxReportLatencyUs = maxReportLatencyUs;
         mIsDeviceSuspendTest = isDeviceSuspendTest;
+        mIsIntegrationTest = isIntegrationTest;
     }
 
     /**
@@ -265,6 +327,7 @@ public class TestSensorEnvironment {
     }
 
     /**
+     * Calculate the maximum expected sampling period in us.
      * @return The maximum acceptable actual sampling period of this sensor.
      *         For continuous sensors, this is higher than {@link #getExpectedSamplingPeriodUs()}
      *         because sensors are allowed to run up to 10% slower than requested.
@@ -280,6 +343,20 @@ public class TestSensorEnvironment {
 
         int expectedSamplingPeriodUs = getExpectedSamplingPeriodUs();
         return (int) (expectedSamplingPeriodUs / MAXIMUM_EXPECTED_SAMPLING_FREQUENCY_MULTIPLIER);
+    }
+
+
+    /**
+     * Calculate the allowed sensor start delay.
+     *
+     * CDD Section 7.3:
+     * MUST report the first sensor sample within 400 milliseconds + 2 * sample_time of the
+     * sensor being activated. It is acceptable for this sample to have an accuracy of 0.
+     *
+     * [CDD] Keep this updated with CDD.
+     */
+    public long getAllowedSensorStartDelay() {
+        return TimeUnit.MILLISECONDS.toMicros(400) + 2 * getMaximumExpectedSamplingPeriodUs();
     }
 
     /**
@@ -377,6 +454,10 @@ public class TestSensorEnvironment {
 
     public boolean isDeviceSuspendTest() {
         return mIsDeviceSuspendTest;
+    }
+
+    public boolean isIntegrationTest() {
+        return mIsIntegrationTest;
     }
 }
 

@@ -15,8 +15,8 @@
  */
 package com.android.cts.usb;
 
-import com.android.cts.tradefed.build.CtsBuildHelper;
-import com.android.cts.util.AbiUtils;
+import com.android.compatibility.common.util.AbiUtils;
+import com.android.cts.migration.MigrationHelper;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.TestRunResult;
 import com.android.tradefed.build.IBuildInfo;
@@ -45,7 +45,7 @@ public class TestUsbTest extends DeviceTestCase implements IAbiReceiver, IBuildR
     private static final String APK_NAME="CtsUsbSerialTestApp.apk";
     private ITestDevice mDevice;
     private IAbi mAbi;
-    private CtsBuildHelper mBuild;
+    private IBuildInfo mBuild;
 
     @Override
     public void setAbi(IAbi abi) {
@@ -54,7 +54,7 @@ public class TestUsbTest extends DeviceTestCase implements IAbiReceiver, IBuildR
 
     @Override
     public void setBuild(IBuildInfo buildInfo) {
-        mBuild = CtsBuildHelper.createBuildHelper(buildInfo);
+        mBuild = buildInfo;
     }
 
     @Override
@@ -62,7 +62,7 @@ public class TestUsbTest extends DeviceTestCase implements IAbiReceiver, IBuildR
         super.setUp();
         mDevice = getDevice();
         mDevice.uninstallPackage(PACKAGE_NAME);
-        File app = mBuild.getTestApp(APK_NAME);
+        File app = MigrationHelper.getTestFile(mBuild, APK_NAME);
         String[] options = {AbiUtils.createAbiFlag(mAbi.getName())};
         mDevice.installPackage(app, false, options);
     }

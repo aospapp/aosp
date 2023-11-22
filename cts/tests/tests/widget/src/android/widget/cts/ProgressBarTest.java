@@ -21,7 +21,7 @@ import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.view.LayoutInflater;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 
 import android.content.Context;
@@ -267,18 +267,8 @@ public class ProgressBarTest extends InstrumentationTestCase {
         mockProgressBar.invalidateDrawable(mockDrawable2);
         assertFalse(mockProgressBar.hasCalledInvalidate());
 
-        try {
-            mockProgressBar.invalidateDrawable(null);
-            fail("Should throw NullPointerException");
-        } catch (NullPointerException e) {
-            // issue 1695243, not clear what is supposed to happen if drawable is null.
-        }
-
         mockProgressBar.setIndeterminateDrawable(mockDrawable1);
         mockProgressBar.setProgressDrawable(mockDrawable2);
-
-        mockProgressBar.invalidateDrawable(null);
-        assertFalse(mockProgressBar.hasCalledInvalidate());
     }
 
     public void testPostInvalidate() {

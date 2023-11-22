@@ -74,6 +74,7 @@ public class PhotoCaptureActivity extends Activity
     private Size mSurfaceSize;
     private boolean mCameraInitialized = false;
     private boolean mPreviewActive = false;
+    private boolean mTakingPicture = false;
     private int mResolutionSpinnerIndex = -1;
     private WakeLock mWakeLock;
     private long shutterStartTime;
@@ -148,15 +149,18 @@ public class PhotoCaptureActivity extends Activity
         previewView.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
-                shutterStartTime = System.currentTimeMillis();
+                if (!mTakingPicture) {
+                    mTakingPicture = true;
+                    shutterStartTime = System.currentTimeMillis();
 
-                mCamera.takePicture(new ShutterCallback() {
-                    @Override
-                    public void onShutter() {
-                        long dT = System.currentTimeMillis() - shutterStartTime;
-                        Log.d("CTS", "Shutter Lag: " + dT);
-                    }
-                }, null, PhotoCaptureActivity.this);
+                    mCamera.takePicture(new ShutterCallback() {
+                        @Override
+                        public void onShutter() {
+                            long dT = System.currentTimeMillis() - shutterStartTime;
+                            Log.d("CTS", "Shutter Lag: " + dT);
+                        }
+                    }, null, PhotoCaptureActivity.this);
+                }
             }
         });
 
@@ -268,6 +272,7 @@ public class PhotoCaptureActivity extends Activity
             String message  = getResources().getString(R.string.camera_fov_reported_fov_problem_message);
             dialogBuilder.setMessage(String.format(message, mReportedFovPrePictureTaken, mReportedFovDegrees));
             mActiveDialog = dialogBuilder.show();
+            mTakingPicture = false;
             return;
         }
 
@@ -285,8 +290,8 @@ public class PhotoCaptureActivity extends Activity
             Log.e(TAG, "Could not save picture file.", e);
             Toast.makeText(this, "Could not save picture file: " + e.getMessage(),
                     Toast.LENGTH_LONG).show();
-            return;
         }
+        mTakingPicture = false;
     }
 
     @Override

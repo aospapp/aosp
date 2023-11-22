@@ -76,6 +76,7 @@ bool OperationFactory::is_public_key_operation() const {
         return true;
     case KM_PURPOSE_SIGN:
     case KM_PURPOSE_DECRYPT:
+    case KM_PURPOSE_DERIVE_KEY:
         return false;
     };
 
@@ -131,6 +132,24 @@ bool OperationFactory::GetAndValidateDigest(const AuthorizationSet& begin_params
     }
     *error = KM_ERROR_OK;
     return true;
+}
+
+keymaster_error_t Operation::UpdateForFinish(const AuthorizationSet& input_params,
+                                             const Buffer& input) {
+    if (!input_params.empty() || input.available_read()) {
+        size_t input_consumed;
+        Buffer output;
+        AuthorizationSet output_params;
+        keymaster_error_t error =
+            Update(input_params, input, &output_params, &output, &input_consumed);
+        if (error != KM_ERROR_OK)
+            return error;
+        assert(input_consumed == input.available_read());
+        assert(output_params.empty());
+        assert(output.available_read() == 0);
+    }
+
+    return KM_ERROR_OK;
 }
 
 }  // namespace keymaster

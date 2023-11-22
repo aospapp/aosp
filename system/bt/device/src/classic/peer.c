@@ -18,13 +18,14 @@
 
 #define LOG_TAG "bt_classic_peer"
 
+#include "device/include/classic/peer.h"
+
 #include <assert.h>
 #include <cutils/log.h>
 #include <pthread.h>
 #include <stdbool.h>
 
 #include "btcore/include/module.h"
-#include "device/include/classic/peer.h"
 #include "osi/include/allocator.h"
 #include "osi/include/future.h"
 #include "osi/include/hash_map.h"
@@ -68,7 +69,7 @@ static future_t *clean_up(void) {
   return NULL;
 }
 
-const module_t classic_peer_module = {
+EXPORT_SYMBOL const module_t classic_peer_module = {
   .name = CLASSIC_PEER_MODULE,
   .init = init,
   .start_up = NULL,

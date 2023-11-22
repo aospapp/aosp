@@ -18,9 +18,13 @@ package android.media.cts;
 
 import android.app.Instrumentation;
 import android.app.UiAutomation;
+import android.content.ContentResolver;
+import android.content.Context;
 import android.os.ParcelFileDescriptor;
+import android.provider.Settings;
 
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.Scanner;
 
@@ -66,5 +70,47 @@ public class Utils {
             InputStream inputStream = new FileInputStream(pfd.getFileDescriptor());
             result = convertStreamToString(inputStream);
         }
+    }
+
+    protected static void toggleNotificationPolicyAccess(String packageName,
+            Instrumentation instrumentation, boolean on) throws IOException {
+        Context context = instrumentation.getContext();
+
+        // Get permission to enable accessibility
+        UiAutomation uiAutomation = instrumentation.getUiAutomation();
+
+        ContentResolver cr = context.getContentResolver();
+        String alreadyEnabledServices = Settings.Secure.getString(
+                cr, Settings.Secure.ENABLED_NOTIFICATION_POLICY_ACCESS_PACKAGES);
+        ParcelFileDescriptor fd = null;
+        if (on) {
+            if ((alreadyEnabledServices == null) || !alreadyEnabledServices.contains(packageName)) {
+                // Change the settings to enable the media cts package
+                final String newEnabledServices = (alreadyEnabledServices == null) ? packageName
+                        : alreadyEnabledServices + ":" + packageName;
+                fd = uiAutomation.executeShellCommand(
+                        "settings --user cur put secure "
+                                + Settings.Secure.ENABLED_NOTIFICATION_POLICY_ACCESS_PACKAGES + " "
+                                + newEnabledServices);
+            }
+        } else if (alreadyEnabledServices != null) {
+            int index =  alreadyEnabledServices.indexOf(":" + packageName);
+            if (index >= 0) {
+                fd = uiAutomation.executeShellCommand(
+                        "settings --user cur put secure "
+                                + Settings.Secure.ENABLED_NOTIFICATION_POLICY_ACCESS_PACKAGES + " "
+                                + alreadyEnabledServices.substring(0, index));
+            } else if (alreadyEnabledServices.equals(packageName)) {
+                // "packageName" is the only enabled service
+                fd = uiAutomation.executeShellCommand("settings --user cur put secure "
+                        + Settings.Secure.ENABLED_NOTIFICATION_POLICY_ACCESS_PACKAGES + "  null");
+            }
+        }
+        if (fd != null) {
+            InputStream in = new FileInputStream(fd.getFileDescriptor());
+            byte[] buffer = new byte[4096];
+            while (in.read(buffer) > 0) ;
+        }
+        uiAutomation.destroy();
     }
 }

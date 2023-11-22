@@ -17,19 +17,6 @@
 package com.android.contacts.editor;
 
 import android.content.Context;
-import android.graphics.drawable.Drawable;
-import android.provider.Contacts.GroupMembership;
-import android.provider.ContactsContract.CommonDataKinds.Email;
-import android.provider.ContactsContract.CommonDataKinds.Event;
-import android.provider.ContactsContract.CommonDataKinds.Im;
-import android.provider.ContactsContract.CommonDataKinds.Note;
-import android.provider.ContactsContract.CommonDataKinds.Organization;
-import android.provider.ContactsContract.CommonDataKinds.Phone;
-import android.provider.ContactsContract.CommonDataKinds.Photo;
-import android.provider.ContactsContract.CommonDataKinds.Relation;
-import android.provider.ContactsContract.CommonDataKinds.SipAddress;
-import android.provider.ContactsContract.CommonDataKinds.StructuredPostal;
-import android.provider.ContactsContract.CommonDataKinds.Website;
 import android.provider.ContactsContract.Data;
 import android.text.TextUtils;
 import android.util.AttributeSet;
@@ -70,15 +57,6 @@ public class KindSectionView extends LinearLayout implements EditorListener {
     private DataKind mKind;
     private RawContactDelta mState;
     private boolean mReadOnly;
-    private boolean mShowOneEmptyEditor;
-
-    /**
-     * Whether this KindSectionView will be removed from the layout.
-     * We need this because we want to animate KindSectionViews away (which takes time),
-     * but calculate which KindSectionViews will be visible immediately after starting removal
-     * animations.
-     */
-    private boolean mMarkedForRemoval;
 
     private ViewIdGenerator mViewIdGenerator;
 
@@ -125,7 +103,7 @@ public class KindSectionView extends LinearLayout implements EditorListener {
 
     @Override
     public void onDeleteRequested(Editor editor) {
-        if (mShowOneEmptyEditor && getEditorCount() == 1) {
+        if (getEditorCount() == 1) {
             // If there is only 1 editor in the section, then don't allow the user to delete it.
             // Just clear the fields in the editor.
             editor.clearAllFields();
@@ -141,25 +119,6 @@ public class KindSectionView extends LinearLayout implements EditorListener {
         }
     }
 
-    /**
-     * Calling this signifies that this entire section view is intended to be removed from the
-     * layout. Note, calling this does not change the deleted state of any underlying
-     * {@link Editor}, i.e. {@link com.android.contacts.common.model.ValuesDelta#markDeleted()}
-     * is not invoked on any editor in this section.  It is purely marked for higher level UI
-     * layers to manipulate the layout w/o introducing jank.
-     * See b/22228718 for context.
-     */
-    public void markForRemoval() {
-        mMarkedForRemoval = true;
-    }
-
-    /**
-     * Whether the entire section view is intended to be removed from the layout.
-     */
-    public boolean isMarkedForRemoval() {
-        return mMarkedForRemoval;
-    }
-
     @Override
     public void onRequest(int request) {
         // If a field has become empty or non-empty, then check if another row
@@ -169,20 +128,8 @@ public class KindSectionView extends LinearLayout implements EditorListener {
         }
     }
 
-    /**
-     * @param showOneEmptyEditor If true, one empty input will always be displayed,
-     *         otherwise an empty input will only be displayed if there is no non-empty value.
-     */
-    public void setShowOneEmptyEditor(boolean showOneEmptyEditor) {
-        mShowOneEmptyEditor = showOneEmptyEditor;
-    }
-
     public void setListener(Listener listener) {
         mListener = listener;
-    }
-
-    public void setIconVisibility(boolean visible) {
-        mIcon.setVisibility(visible ? View.VISIBLE : View.INVISIBLE);
     }
 
     public void setState(DataKind kind, RawContactDelta state, boolean readOnly,
@@ -200,7 +147,7 @@ public class KindSectionView extends LinearLayout implements EditorListener {
                 : getResources().getString(kind.titleRes);
         mIcon.setContentDescription(titleString);
 
-        mIcon.setImageDrawable(getMimeTypeDrawable(kind.mimeType));
+        mIcon.setImageDrawable(EditorUiUtils.getMimeTypeDrawable(getContext(), kind.mimeType));
         if (mIcon.getDrawable() == null) {
             mIcon.setContentDescription(null);
         }
@@ -247,13 +194,7 @@ public class KindSectionView extends LinearLayout implements EditorListener {
                     layoutResId + " for MIME type " + mKind.mimeType +
                     " with error " + e.toString());
         }
-        // Hide the types drop downs until the associated edit field is focused
-        if (view instanceof LabeledEditorView) {
-            ((LabeledEditorView) view).setHideTypeInitially(true);
-        }
-
         view.setEnabled(isEnabled());
-
         if (view instanceof Editor) {
             Editor editor = (Editor) view;
             editor.setDeletable(true);
@@ -308,13 +249,13 @@ public class KindSectionView extends LinearLayout implements EditorListener {
         } else if (isReadOnly()) {
             // We don't show empty editors for read only data kinds.
             return;
-        } else if (mKind.typeOverallMax == getEditorCount() && mKind.typeOverallMax != 0) {
+        } else if (!RawContactModifier.canInsert(mState, mKind)) {
             // We have already reached the maximum number of editors. Lets not add any more.
             return;
         } else if (emptyEditors.size() == 1) {
             // We have already reached the maximum number of empty editors. Lets not add any more.
             return;
-        } else if (mShowOneEmptyEditor) {
+        } else {
             final ValuesDelta values = RawContactModifier.insertChild(mState, mKind);
             final View newField = createEditorView(values);
             if (shouldAnimate) {
@@ -338,55 +279,11 @@ public class KindSectionView extends LinearLayout implements EditorListener {
         return emptyEditorViews;
     }
 
-    public boolean areAllEditorsEmpty() {
-        for (int i = 0; i < mEditors.getChildCount(); i++) {
-            final View view = mEditors.getChildAt(i);
-            if (!((Editor) view).isEmpty()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     public int getEditorCount() {
         return mEditors.getChildCount();
     }
 
     public DataKind getKind() {
         return mKind;
-    }
-
-    /**
-     * Return an icon that represents {@param mimeType}.
-     */
-    private Drawable getMimeTypeDrawable(String mimeType) {
-        switch (mimeType) {
-            case StructuredPostal.CONTENT_ITEM_TYPE:
-                return getResources().getDrawable(R.drawable.ic_place_24dp);
-            case SipAddress.CONTENT_ITEM_TYPE:
-                return getResources().getDrawable(R.drawable.ic_dialer_sip_black_24dp);
-            case Phone.CONTENT_ITEM_TYPE:
-                return getResources().getDrawable(R.drawable.ic_phone_24dp);
-            case Im.CONTENT_ITEM_TYPE:
-                return getResources().getDrawable(R.drawable.ic_message_24dp);
-            case Event.CONTENT_ITEM_TYPE:
-                return getResources().getDrawable(R.drawable.ic_event_24dp);
-            case Email.CONTENT_ITEM_TYPE:
-                return getResources().getDrawable(R.drawable.ic_email_24dp);
-            case Website.CONTENT_ITEM_TYPE:
-                return getResources().getDrawable(R.drawable.ic_public_black_24dp);
-            case Photo.CONTENT_ITEM_TYPE:
-                return getResources().getDrawable(R.drawable.ic_camera_alt_black_24dp);
-            case GroupMembership.CONTENT_ITEM_TYPE:
-                return getResources().getDrawable(R.drawable.ic_people_black_24dp);
-            case Organization.CONTENT_ITEM_TYPE:
-                return getResources().getDrawable(R.drawable.ic_business_black_24dp);
-            case Note.CONTENT_ITEM_TYPE:
-                return getResources().getDrawable(R.drawable.ic_insert_comment_black_24dp);
-            case Relation.CONTENT_ITEM_TYPE:
-                return getResources().getDrawable(R.drawable.ic_circles_extended_black_24dp);
-            default:
-                return null;
-        }
     }
 }

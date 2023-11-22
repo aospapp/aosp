@@ -16,15 +16,12 @@
 
 package android.mediastress.cts;
 
-import com.android.cts.util.TimeoutReq;
-
 public class H263QcifLongPlayerTest extends MediaPlayerStressTest {
     private final static String VIDEO_PATH_MIDDLE = "bbb_full/176x144/3gp_h263_libfaac/";
     private final String[] mMedias = { // indentation shortened due to long file name
         "bbb_full.ffmpeg.176x144.3gp.h263_56kbps_12fps.libfaac_mono_24kbps_11025Hz.3gp"
     };
 
-    @TimeoutReq(minutes = 11)
     public void testPlay00() throws Exception {
         doTestVideoPlaybackLong(0);
     }

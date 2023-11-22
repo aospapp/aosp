@@ -17,6 +17,7 @@ package com.android.example.notificationlistener;
 
 import android.app.AlertDialog;
 import android.app.ListActivity;
+import android.app.Notification;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -44,6 +45,7 @@ public class NotificationListenerActivity extends ListActivity {
     private static final String TAG = "NotificationListenerActivity";
 
     private Button mLaunchButton;
+    private Button mSnoozeButton;
     private TextView mEmptyText;
     private StatusAdaptor mStatusAdaptor;
     private final BroadcastReceiver mRefreshListener = new BroadcastReceiver() {
@@ -53,6 +55,13 @@ public class NotificationListenerActivity extends ListActivity {
             updateList(intent.getStringExtra(Listener.EXTRA_KEY));
         }
     };
+    private final BroadcastReceiver mStateListener = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.i(TAG, "state tickle");
+            checkEnabled();
+        }
+    };
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -60,6 +69,7 @@ public class NotificationListenerActivity extends ListActivity {
         setTitle(R.string.long_app_name);
         setContentView(R.layout.main);
         mLaunchButton = (Button) findViewById(R.id.launch_settings);
+        mSnoozeButton = (Button) findViewById(R.id.snooze);
         mEmptyText = (TextView) findViewById(android.R.id.empty);
         mStatusAdaptor = new StatusAdaptor(this);
         setListAdapter(mStatusAdaptor);
@@ -67,15 +77,20 @@ public class NotificationListenerActivity extends ListActivity {
 
     @Override
     protected void onStop() {
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(mRefreshListener);
+        LocalBroadcastManager localBroadcastManager = LocalBroadcastManager.getInstance(this);
+        localBroadcastManager.unregisterReceiver(mRefreshListener);
+        localBroadcastManager.unregisterReceiver(mStateListener);
         super.onStop();
     }
 
     @Override
     public void onStart() {
         super.onStart();
-        final IntentFilter intentFilter = new IntentFilter(Listener.ACTION_REFRESH);
-        LocalBroadcastManager.getInstance(this).registerReceiver(mRefreshListener, intentFilter);
+        LocalBroadcastManager localBroadcastManager = LocalBroadcastManager.getInstance(this);
+        localBroadcastManager.registerReceiver(mRefreshListener,
+                new IntentFilter(Listener.ACTION_REFRESH));
+        localBroadcastManager.registerReceiver(mStateListener,
+                new IntentFilter(Listener.ACTION_STATE_CHANGE));
         updateList(null);
     }
 
@@ -95,8 +110,15 @@ public class NotificationListenerActivity extends ListActivity {
         if (listeners != null && listeners.contains(LISTENER_PATH)) {
             mLaunchButton.setText(R.string.launch_to_disable);
             mEmptyText.setText(R.string.waiting_for_content);
+            mSnoozeButton.setEnabled(true);
+            if (Listener.isConnected()) {
+                mSnoozeButton.setText(R.string.snooze);
+            } else {
+                mSnoozeButton.setText(R.string.unsnooze);
+            }
         } else {
             mLaunchButton.setText(R.string.launch_to_enable);
+            mSnoozeButton.setEnabled(false);
             mEmptyText.setText(R.string.nothing_to_see);
             AlertDialog.Builder builder = new AlertDialog.Builder(this);
             builder.setMessage(R.string.explanation)
@@ -114,6 +136,11 @@ public class NotificationListenerActivity extends ListActivity {
     public void launchSettings(View v) {
         startActivityForResult(
                 new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"), 0);
+    }
+
+    public void snooze(View v) {
+        Log.d(TAG, "clicked snooze");
+        Listener.toggleSnooze(this);
     }
 
     public void dismiss(View v) {
@@ -141,11 +168,9 @@ public class NotificationListenerActivity extends ListActivity {
     }
 
     private void updateList(String key) {
-        if (mStatusAdaptor.requiresInitialization()) {
-            final List<StatusBarNotification> notifications = Listener.getNotifications();
-            if (notifications != null) {
-                mStatusAdaptor.init(notifications);
-            }
+        final List<StatusBarNotification> notifications = Listener.getNotifications();
+        if (notifications != null) {
+            mStatusAdaptor.setData(notifications);
         }
         mStatusAdaptor.update(key);
     }
@@ -217,7 +242,9 @@ public class NotificationListenerActivity extends ListActivity {
             }
             child = mRecycledViews.get(sbn.getKey());
             if (child == null) {
-                child = sbn.getNotification().contentView.apply(mContext, null);
+                Notification.Builder builder =
+                        Notification.Builder.recoverBuilder(mContext, sbn.getNotification());
+                child = builder.createContentView().apply(mContext, null);
             }
             container.setTag(sbn);
             container.removeAllViews();
@@ -249,11 +276,7 @@ public class NotificationListenerActivity extends ListActivity {
             }
         }
 
-        public boolean requiresInitialization() {
-            return mNotifications == null;
-        }
-
-        public void init(List<StatusBarNotification> notifications) {
+        public void setData(List<StatusBarNotification> notifications) {
             mNotifications = notifications;
         }
     }

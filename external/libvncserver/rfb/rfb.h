@@ -52,7 +52,7 @@ extern "C"
 #include <sys/types.h>
 #endif
 
-#ifdef __MINGW32__
+#ifdef WIN32
 #undef SOCKET
 #include <winsock2.h>
 #ifdef LIBVNCSERVER_HAVE_WS2TCPIP_H
@@ -267,7 +267,7 @@ typedef struct _rfbScreenInfo
     SOCKET listenSock;
     int maxSock;
     int maxFd;
-#ifdef __MINGW32__
+#ifdef WIN32
     struct fd_set allFds;
 #else
     fd_set allFds;
@@ -686,7 +686,7 @@ typedef struct _rfbClientRec {
 #ifdef LIBVNCSERVER_HAVE_LIBJPEG
     /* TurboVNC Encoding support (extends TightVNC) */
     int turboSubsampLevel;
-    int turboQualityLevel;  // 1-100 scale
+    int turboQualityLevel;  /* 1-100 scale */
 #endif
 #endif
 
@@ -1090,7 +1090,6 @@ extern void rfbSetProtocolVersion(rfbScreenInfoPtr rfbScreen, int major_, int mi
 /** send a TextChat message to a client */
 extern rfbBool rfbSendTextChatMessage(rfbClientPtr cl, uint32_t length, char *buffer);
 
-extern void rfbScalingSetup(rfbClientPtr cl, int width, int height);
 
 /*
  * Additions for Qt event loop integration

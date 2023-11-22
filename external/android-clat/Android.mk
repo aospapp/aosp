@@ -39,6 +39,7 @@ include $(BUILD_NATIVE_TEST)
 # Microbenchmark.
 include $(CLEAR_VARS)
 
+LOCAL_CLANG := true
 LOCAL_MODULE := clatd_microbenchmark
 LOCAL_CFLAGS := -Wall -Werror -Wunused-parameter
 LOCAL_SRC_FILES := clatd_microbenchmark.c checksum.c tun.c

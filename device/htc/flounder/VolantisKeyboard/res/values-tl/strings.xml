@@ -3,9 +3,9 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="8309373558371161520">"Volantis Keyboard"</string>
     <string name="keyboard_layouts_label" msgid="771692943642467584">"Nexus Compact Keyboard"</string>
-    <string name="keyboard_layout_volantis_english_uk_label" msgid="1425137404576186880">"Ingles (UK)"</string>
-    <string name="keyboard_layout_volantis_english_us_label" msgid="953130059365065614">"Ingles (US)"</string>
-    <string name="keyboard_layout_volantis_english_us_intl_label" msgid="8444053619141689693">"Ingles (US International)"</string>
+    <string name="keyboard_layout_volantis_english_uk_label" msgid="1425137404576186880">"English (UK)"</string>
+    <string name="keyboard_layout_volantis_english_us_label" msgid="953130059365065614">"English (US)"</string>
+    <string name="keyboard_layout_volantis_english_us_intl_label" msgid="8444053619141689693">"English (US International)"</string>
     <string name="keyboard_layout_volantis_german_label" msgid="1115175249339065508">"German"</string>
     <string name="keyboard_layout_volantis_french_label" msgid="7039437279465504539">"French"</string>
     <string name="keyboard_layout_volantis_french_ca_label" msgid="773887798068625483">"French (Canada)"</string>

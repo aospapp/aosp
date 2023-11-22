@@ -17,12 +17,14 @@
 package vogar.android;
 
 import com.google.common.collect.Iterables;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
 import vogar.Action;
 import vogar.Classpath;
 import vogar.Mode;
@@ -63,9 +65,11 @@ public final class HostRuntime implements Mode {
     @Override public Set<Task> installTasks() {
         Set<Task> result = new HashSet<Task>();
         for (File classpathElement : run.classpath.getElements()) {
+            // Libraries need to be dex'ed and put in the temporary directory.
             String name = run.basenameOfJar(classpathElement);
-            result.add(new DexTask(run.androidSdk, run.classpath, run.benchmark, name,
-                    classpathElement, null, run.localDexFile(name)));
+            File localDex = run.localDexFile(name);
+            result.add(createCreateDexJarTask(run.classpath, classpathElement, name,
+                    null /* action */, localDex));
         }
         result.add(new MkdirTask(run.mkdir, dalvikCache()));
         return result;
@@ -76,20 +80,31 @@ public final class HostRuntime implements Mode {
     }
 
     @Override public Set<Task> installActionTasks(Action action, File jar) {
-        return Collections.<Task>singleton(new DexTask(run.androidSdk, Classpath.of(jar),
-                run.benchmark, action.getName(), jar, action, run.localDexFile(action.getName())));
+        File localDexFile = run.localDexFile(action.getName());
+        Task createDexJarTask = createCreateDexJarTask(Classpath.of(jar), jar, action.getName(),
+                action, localDexFile);
+        return Collections.singleton(createDexJarTask);
     }
 
     @Override public VmCommandBuilder newVmCommandBuilder(Action action, File workingDirectory) {
-        String buildRoot = System.getenv("ANDROID_BUILD_TOP");
+        String hostOut = System.getenv("ANDROID_HOST_OUT");
+        if (hostOut == null || hostOut.length() == 0) {
+          hostOut = System.getenv("ANDROID_BUILD_TOP");
+          if (hostOut == null) {
+            hostOut = "";
+          } else {
+            hostOut += "/";
+          }
+          hostOut += "out/host/linux-x86";
+        }
 
         List<File> jars = new ArrayList<File>();
         for (String jar : modeId.getJarNames()) {
-            jars.add(new File(buildRoot, "out/host/linux-x86/framework/" + jar + ".jar"));
+            jars.add(new File(hostOut, "framework/" + jar + ".jar"));
         }
         Classpath bootClasspath = Classpath.of(jars);
 
-        String libDir = buildRoot + "/out/host/linux-x86";
+        String libDir = hostOut;
         if (variant == Variant.X32) {
             libDir += "/lib";
         } else if (variant == Variant.X64) {
@@ -99,34 +114,29 @@ public final class HostRuntime implements Mode {
         }
 
         List<String> vmCommand = new ArrayList<String>();
-        vmCommand.addAll(run.target.targetProcessPrefix());
-        vmCommand.add("ANDROID_PRINTF_LOG=tag");
-        vmCommand.add("ANDROID_LOG_TAGS=*:i");
-        vmCommand.add("ANDROID_DATA=" + dalvikCache().getParent());
-        vmCommand.add("ANDROID_ROOT=" + buildRoot + "/out/host/linux-x86");
-        vmCommand.add("LD_LIBRARY_PATH=" + libDir);
-        vmCommand.add("DYLD_LIBRARY_PATH=" + libDir);
         Iterables.addAll(vmCommand, run.invokeWith());
-        vmCommand.add(buildRoot + "/out/host/linux-x86/bin/" + run.vmCommand);
-
-        VmCommandBuilder builder = new VmCommandBuilder(run.log);
+        vmCommand.add(hostOut + "/bin/" + run.vmCommand);
 
         // If you edit this, see also DeviceRuntime...
-        builder.vmCommand(vmCommand)
+        VmCommandBuilder builder = new VmCommandBuilder(run.log)
+                .env("ANDROID_PRINTF_LOG", "tag")
+                .env("ANDROID_LOG_TAGS", "*:i")
+                .env("ANDROID_DATA", dalvikCache().getParent())
+                .env("ANDROID_ROOT", hostOut)
+                .env("LD_LIBRARY_PATH", libDir)
+                .env("DYLD_LIBRARY_PATH", libDir)
+                // This is needed on the host so that the linker loads core.oat at the necessary
+                // address.
+                .env("LD_USE_LOAD_BIAS", "1")
+                .vmCommand(vmCommand)
                 .vmArgs("-Xbootclasspath:" + bootClasspath.toString())
                 .vmArgs("-Duser.language=en")
                 .vmArgs("-Duser.region=US");
-        if (!run.benchmark) {
-            if (modeId == ModeId.HOST_DALVIK) {
-              // Historically, vogar has turned off these options for Dalvik.
-              builder.vmArgs("-Xverify:none");
-              builder.vmArgs("-Xdexopt:none");
-            }
-            builder.vmArgs("-Xcheck:jni");
+        if (run.debugPort != null) {
+            builder.vmArgs("-Xcompiler-option", "--debuggable");
         }
-        if (modeId == ModeId.HOST_ART_KITKAT) {
-            // Required for KitKat to select the ART runtime. Default is Dalvik.
-            builder.vmArgs("-XXlib:libart.so");
+        if (!run.benchmark && run.checkJni) {
+            builder.vmArgs("-Xcheck:jni");
         }
         // dalvikvm defaults to no limit, but the framework sets the limit at 2000.
         builder.vmArgs("-Xjnigreflimit:2000");
@@ -141,5 +151,18 @@ public final class HostRuntime implements Mode {
         }
         result.addAll(run.resourceClasspath);
         return result;
+    }
+
+    private Task createCreateDexJarTask(Classpath classpath, File classpathElement, String name,
+            Action action, File localDex) {
+        Task dex;
+        if (run.useJack) {
+            dex = new JackDexTask(run, classpath, run.benchmark, name, classpathElement, action,
+                    localDex);
+        } else {
+            dex = new DexTask(run.androidSdk, classpath, run.benchmark, name, classpathElement,
+                    action, localDex);
+        }
+        return dex;
     }
 }

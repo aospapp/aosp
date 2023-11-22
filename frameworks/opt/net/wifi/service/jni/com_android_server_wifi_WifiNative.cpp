@@ -21,85 +21,37 @@
 #include <ScopedUtfChars.h>
 #include <ScopedBytes.h>
 #include <utils/misc.h>
-#include <android_runtime/AndroidRuntime.h>
 #include <utils/Log.h>
 #include <utils/String16.h>
 #include <ctype.h>
+#include <stdlib.h>
 #include <sys/socket.h>
+#include <sys/klog.h>
 #include <linux/if.h>
+#include <linux/if_arp.h>
+
+#include <algorithm>
+#include <limits>
+#include <vector>
+
 #include "wifi.h"
 #include "wifi_hal.h"
 #include "jni_helper.h"
 #include "rtt.h"
 #include "wifi_hal_stub.h"
-#define REPLY_BUF_SIZE 4096 // wpa_supplicant's maximum size.
+#define REPLY_BUF_SIZE 4096 + 1         // wpa_supplicant's maximum size + 1 for nul
 #define EVENT_BUF_SIZE 2048
+#define WAKE_REASON_TYPE_MAX 10
 
 namespace android {
+
+extern "C"
+jint Java_com_android_server_wifi_WifiNative_registerNanNatives(JNIEnv* env, jclass clazz);
 
 static jint DBG = false;
 
 //Please put all HAL function call here and call from the function table instead of directly call
-static wifi_hal_fn hal_fn;
-int init_wifi_hal_func_table(wifi_hal_fn *hal_fn) {
-    if (hal_fn == NULL) {
-        return -1;
-    }
-    hal_fn->wifi_initialize = wifi_initialize_stub;
-    hal_fn->wifi_cleanup = wifi_cleanup_stub;
-    hal_fn->wifi_event_loop = wifi_event_loop_stub;
-    hal_fn->wifi_get_error_info = wifi_get_error_info_stub;
-    hal_fn->wifi_get_supported_feature_set = wifi_get_supported_feature_set_stub;
-    hal_fn->wifi_get_concurrency_matrix = wifi_get_concurrency_matrix_stub;
-    hal_fn->wifi_set_scanning_mac_oui =  wifi_set_scanning_mac_oui_stub;
-    hal_fn->wifi_get_supported_channels = wifi_get_supported_channels_stub;
-    hal_fn->wifi_is_epr_supported = wifi_is_epr_supported_stub;
-    hal_fn->wifi_get_ifaces = wifi_get_ifaces_stub;
-    hal_fn->wifi_get_iface_name = wifi_get_iface_name_stub;
-    hal_fn->wifi_reset_iface_event_handler = wifi_reset_iface_event_handler_stub;
-    hal_fn->wifi_start_gscan = wifi_start_gscan_stub;
-    hal_fn->wifi_stop_gscan = wifi_stop_gscan_stub;
-    hal_fn->wifi_get_cached_gscan_results = wifi_get_cached_gscan_results_stub;
-    hal_fn->wifi_set_bssid_hotlist = wifi_set_bssid_hotlist_stub;
-    hal_fn->wifi_reset_bssid_hotlist = wifi_reset_bssid_hotlist_stub;
-    hal_fn->wifi_set_significant_change_handler = wifi_set_significant_change_handler_stub;
-    hal_fn->wifi_reset_significant_change_handler = wifi_reset_significant_change_handler_stub;
-    hal_fn->wifi_get_gscan_capabilities = wifi_get_gscan_capabilities_stub;
-    hal_fn->wifi_set_link_stats = wifi_set_link_stats_stub;
-    hal_fn->wifi_get_link_stats = wifi_get_link_stats_stub;
-    hal_fn->wifi_clear_link_stats = wifi_clear_link_stats_stub;
-    hal_fn->wifi_get_valid_channels = wifi_get_valid_channels_stub;
-    hal_fn->wifi_rtt_range_request = wifi_rtt_range_request_stub;
-    hal_fn->wifi_rtt_range_cancel = wifi_rtt_range_cancel_stub;
-    hal_fn->wifi_get_rtt_capabilities = wifi_get_rtt_capabilities_stub;
-    hal_fn->wifi_start_logging = wifi_start_logging_stub;
-    hal_fn->wifi_set_epno_list = wifi_set_epno_list_stub;
-    hal_fn->wifi_set_country_code = wifi_set_country_code_stub;
-    hal_fn->wifi_enable_tdls = wifi_enable_tdls_stub;
-    hal_fn->wifi_disable_tdls = wifi_disable_tdls_stub;
-    hal_fn->wifi_get_tdls_status = wifi_get_tdls_status_stub;
-    hal_fn->wifi_get_tdls_capabilities = wifi_get_tdls_capabilities_stub;
-    hal_fn->wifi_set_nodfs_flag = wifi_set_nodfs_flag_stub;
-    hal_fn->wifi_get_firmware_memory_dump = wifi_get_firmware_memory_dump_stub;
-    hal_fn->wifi_set_log_handler = wifi_set_log_handler_stub;
-    hal_fn->wifi_reset_log_handler = wifi_reset_log_handler_stub;
-    hal_fn->wifi_set_alert_handler = wifi_set_alert_handler_stub;
-    hal_fn->wifi_reset_alert_handler = wifi_reset_alert_handler_stub;
-    hal_fn->wifi_get_firmware_version = wifi_get_firmware_version_stub;
-    hal_fn->wifi_get_ring_buffers_status = wifi_get_ring_buffers_status_stub;
-    hal_fn->wifi_get_logger_supported_feature_set = wifi_get_logger_supported_feature_set_stub;
-    hal_fn->wifi_get_ring_data = wifi_get_ring_data_stub;
-    hal_fn->wifi_get_driver_version = wifi_get_driver_version_stub;
-    hal_fn->wifi_set_ssid_white_list = wifi_set_ssid_white_list_stub;
-    hal_fn->wifi_set_gscan_roam_params = wifi_set_gscan_roam_params_stub;
-    hal_fn->wifi_set_bssid_preference = wifi_set_bssid_preference_stub;
-    hal_fn->wifi_enable_lazy_roam = wifi_enable_lazy_roam_stub;
-    hal_fn->wifi_set_bssid_blacklist = wifi_set_bssid_blacklist_stub;
-    hal_fn->wifi_start_sending_offloaded_packet = wifi_start_sending_offloaded_packet_stub;
-    hal_fn->wifi_stop_sending_offloaded_packet = wifi_stop_sending_offloaded_packet_stub;
-    return 0;
-}
-
+wifi_hal_fn hal_fn;
 static bool doCommand(JNIEnv* env, jstring javaCommand,
                       char* reply, size_t reply_len) {
     ScopedUtfChars command(env, javaCommand);
@@ -138,7 +90,12 @@ static jboolean doBooleanCommand(JNIEnv* env, jstring javaCommand) {
     if (!doCommand(env, javaCommand, reply, sizeof(reply))) {
         return JNI_FALSE;
     }
-    return (strcmp(reply, "OK") == 0);
+    jboolean result = (strcmp(reply, "OK") == 0);
+    if (!result) {
+        ScopedUtfChars command(env, javaCommand);
+        ALOGI("command '%s' returned '%s", command.c_str(), reply);
+    }
+    return result;
 }
 
 // Send a command to the supplicant, and return the reply as a String.
@@ -150,42 +107,42 @@ static jstring doStringCommand(JNIEnv* env, jstring javaCommand) {
     return env->NewStringUTF(reply);
 }
 
-static jboolean android_net_wifi_isDriverLoaded(JNIEnv* env, jobject)
+static jboolean android_net_wifi_isDriverLoaded(JNIEnv* env, jclass)
 {
     return (::is_wifi_driver_loaded() == 1);
 }
 
-static jboolean android_net_wifi_loadDriver(JNIEnv* env, jobject)
+static jboolean android_net_wifi_loadDriver(JNIEnv* env, jclass)
 {
     return (::wifi_load_driver() == 0);
 }
 
-static jboolean android_net_wifi_unloadDriver(JNIEnv* env, jobject)
+static jboolean android_net_wifi_unloadDriver(JNIEnv* env, jclass)
 {
     return (::wifi_unload_driver() == 0);
 }
 
-static jboolean android_net_wifi_startSupplicant(JNIEnv* env, jobject, jboolean p2pSupported)
+static jboolean android_net_wifi_startSupplicant(JNIEnv* env, jclass, jboolean p2pSupported)
 {
     return (::wifi_start_supplicant(p2pSupported) == 0);
 }
 
-static jboolean android_net_wifi_killSupplicant(JNIEnv* env, jobject, jboolean p2pSupported)
+static jboolean android_net_wifi_killSupplicant(JNIEnv* env, jclass, jboolean p2pSupported)
 {
     return (::wifi_stop_supplicant(p2pSupported) == 0);
 }
 
-static jboolean android_net_wifi_connectToSupplicant(JNIEnv* env, jobject)
+static jboolean android_net_wifi_connectToSupplicant(JNIEnv* env, jclass)
 {
     return (::wifi_connect_to_supplicant() == 0);
 }
 
-static void android_net_wifi_closeSupplicantConnection(JNIEnv* env, jobject)
+static void android_net_wifi_closeSupplicantConnection(JNIEnv* env, jclass)
 {
     ::wifi_close_supplicant_connection();
 }
 
-static jstring android_net_wifi_waitForEvent(JNIEnv* env, jobject)
+static jstring android_net_wifi_waitForEvent(JNIEnv* env, jclass)
 {
     char buf[EVENT_BUF_SIZE];
     int nread = ::wifi_wait_for_event(buf, sizeof buf);
@@ -196,15 +153,15 @@ static jstring android_net_wifi_waitForEvent(JNIEnv* env, jobject)
     }
 }
 
-static jboolean android_net_wifi_doBooleanCommand(JNIEnv* env, jobject, jstring javaCommand) {
+static jboolean android_net_wifi_doBooleanCommand(JNIEnv* env, jclass, jstring javaCommand) {
     return doBooleanCommand(env, javaCommand);
 }
 
-static jint android_net_wifi_doIntCommand(JNIEnv* env, jobject, jstring javaCommand) {
+static jint android_net_wifi_doIntCommand(JNIEnv* env, jclass, jstring javaCommand) {
     return doIntCommand(env, javaCommand);
 }
 
-static jstring android_net_wifi_doStringCommand(JNIEnv* env, jobject, jstring javaCommand) {
+static jstring android_net_wifi_doStringCommand(JNIEnv* env, jclass, jstring javaCommand) {
     return doStringCommand(env,javaCommand);
 }
 
@@ -215,13 +172,12 @@ static JavaVM *mVM;                             /* saved JVM pointer */
 
 static const char *WifiHandleVarName = "sWifiHalHandle";
 static const char *WifiIfaceHandleVarName = "sWifiIfaceHandles";
-static jmethodID OnScanResultsMethodID;
 
-static wifi_handle getWifiHandle(JNIHelper &helper, jclass cls) {
+wifi_handle getWifiHandle(JNIHelper &helper, jclass cls) {
     return (wifi_handle) helper.getStaticLongField(cls, WifiHandleVarName);
 }
 
-static wifi_interface_handle getIfaceHandle(JNIHelper &helper, jclass cls, jint index) {
+wifi_interface_handle getIfaceHandle(JNIHelper &helper, jclass cls, jint index) {
     return (wifi_interface_handle) helper.getStaticLongArrayField(cls, WifiIfaceHandleVarName, index);
 }
 
@@ -240,10 +196,9 @@ jboolean setSSIDField(JNIHelper helper, jobject scanResult, const char *rawSsid)
         return true;
     }
 }
-static JNIObject<jobject> createScanResult(JNIHelper &helper, wifi_scan_result *result) {
-
+static JNIObject<jobject> createScanResult(JNIHelper &helper, wifi_scan_result *result,
+        bool fill_ie) {
     // ALOGD("creating scan result");
-
     JNIObject<jobject> scanResult = helper.createObject("android/net/wifi/ScanResult");
     if (scanResult == NULL) {
         ALOGE("Error in creating scan result");
@@ -267,10 +222,21 @@ static JNIObject<jobject> createScanResult(JNIHelper &helper, wifi_scan_result *
     helper.setIntField(scanResult, "frequency", result->channel);
     helper.setLongField(scanResult, "timestamp", result->ts);
 
+    if (fill_ie) {
+        JNIObject<jbyteArray> elements = helper.newByteArray(result->ie_length);
+        if (elements == NULL) {
+            ALOGE("Error in allocating elements array, length=%d", result->ie_length);
+            return JNIObject<jobject>(helper, NULL);
+        }
+        jbyte * bytes = (jbyte *)&(result->ie_data[0]);
+        helper.setByteArrayRegion(elements, 0, result->ie_length, bytes);
+        helper.setObjectField(scanResult, "bytes", "[B", elements);
+    }
+
     return scanResult;
 }
 
-int set_iface_flags(const char *ifname, int dev_up) {
+int set_iface_flags(const char *ifname, bool dev_up) {
     struct ifreq ifr;
     int ret;
     int sock = socket(PF_INET, SOCK_DGRAM, 0);
@@ -323,8 +289,8 @@ int set_iface_flags(const char *ifname, int dev_up) {
     return 0;
 }
 
-static jboolean android_net_wifi_toggle_interface(JNIEnv* env, jclass cls, int toggle) {
-    return(set_iface_flags("wlan0", toggle) == 0);
+static jboolean android_net_wifi_set_interface_up(JNIEnv* env, jclass cls, jboolean up) {
+    return (set_iface_flags("wlan0", (bool)up) == 0);
 }
 
 static jboolean android_net_wifi_startHal(JNIEnv* env, jclass cls) {
@@ -332,18 +298,18 @@ static jboolean android_net_wifi_startHal(JNIEnv* env, jclass cls) {
     wifi_handle halHandle = getWifiHandle(helper, cls);
     if (halHandle == NULL) {
 
-        if(init_wifi_hal_func_table(&hal_fn) != 0 ) {
-            ALOGD("Can not initialize the basic function pointer table");
+        if(init_wifi_stub_hal_func_table(&hal_fn) != 0 ) {
+            ALOGE("Can not initialize the basic function pointer table");
             return false;
         }
 
         wifi_error res = init_wifi_vendor_hal_func_table(&hal_fn);
         if (res != WIFI_SUCCESS) {
-            ALOGD("Can not initialize the vendor function pointer table");
+            ALOGE("Can not initialize the vendor function pointer table");
 	    return false;
         }
 
-        int ret = set_iface_flags("wlan0", 1);
+        int ret = set_iface_flags("wlan0", true);
         if(ret != 0) {
             return false;
         }
@@ -358,7 +324,7 @@ static jboolean android_net_wifi_startHal(JNIEnv* env, jclass cls) {
         ALOGD("halHandle = %p, mVM = %p, mCls = %p", halHandle, mVM, mCls);
         return res == WIFI_SUCCESS;
     } else {
-        return (set_iface_flags("wlan0", 1) == 0);
+        return (set_iface_flags("wlan0", true) == 0);
     }
 }
 
@@ -392,7 +358,7 @@ static void android_net_wifi_waitForHalEvents(JNIEnv* env, jclass cls) {
     JNIHelper helper(env);
     wifi_handle halHandle = getWifiHandle(helper, cls);
     hal_fn.wifi_event_loop(halHandle);
-    set_iface_flags("wlan0", 0);
+    set_iface_flags("wlan0", false);
 }
 
 static int android_net_wifi_getInterfaces(JNIEnv *env, jclass cls) {
@@ -457,49 +423,30 @@ static jstring android_net_wifi_getInterfaceName(JNIEnv *env, jclass cls, jint i
 }
 
 
-static void onScanResultsAvailable(wifi_request_id id, unsigned num_results) {
-
-    JNIHelper helper(mVM);
-
-    // ALOGD("onScanResultsAvailable called, vm = %p, obj = %p, env = %p", mVM, mCls, env);
-
-    helper.reportEvent(mCls, "onScanResultsAvailable", "(I)V", id);
-}
-
-static void onScanEvent(wifi_scan_event event, unsigned status) {
+static void onScanEvent(wifi_request_id id, wifi_scan_event event) {
 
     JNIHelper helper(mVM);
 
     // ALOGD("onScanStatus called, vm = %p, obj = %p, env = %p", mVM, mCls, env);
 
-    helper.reportEvent(mCls, "onScanStatus", "(I)V", event);
+    helper.reportEvent(mCls, "onScanStatus", "(II)V", id, event);
 }
 
-static void onFullScanResult(wifi_request_id id, wifi_scan_result *result) {
+static void onFullScanResult(wifi_request_id id, wifi_scan_result *result,
+        unsigned buckets_scanned) {
 
     JNIHelper helper(mVM);
 
     //ALOGD("onFullScanResult called, vm = %p, obj = %p, env = %p", mVM, mCls, env);
 
-    JNIObject<jobject> scanResult = createScanResult(helper, result);
+    JNIObject<jobject> scanResult = createScanResult(helper, result, true);
 
-    //ALOGD("Creating a byte array of length %d", result->ie_length);
-
-    JNIObject<jbyteArray> elements = helper.newByteArray(result->ie_length);
-    if (elements == NULL) {
-        ALOGE("Error in allocating array");
+    if (scanResult == NULL) {
         return;
     }
 
-    // ALOGD("Setting byte array");
-
-    jbyte *bytes = (jbyte *)&(result->ie_data[0]);
-    helper.setByteArrayRegion(elements, 0, result->ie_length, bytes);
-
-    // ALOGD("Returning result");
-
-    helper.reportEvent(mCls, "onFullScanResult", "(ILandroid/net/wifi/ScanResult;[B)V", id,
-            scanResult.get(), elements.get());
+    helper.reportEvent(mCls, "onFullScanResult", "(ILandroid/net/wifi/ScanResult;II)V", id,
+            scanResult.get(), buckets_scanned, (jint) result->capability);
 }
 
 static jboolean android_net_wifi_startScan(
@@ -534,12 +481,23 @@ static jboolean android_net_wifi_startScan(
         params.buckets[i].bucket = helper.getIntField(bucket, "bucket");
         params.buckets[i].band = (wifi_band) helper.getIntField(bucket, "band");
         params.buckets[i].period = helper.getIntField(bucket, "period_ms");
+        params.buckets[i].max_period = helper.getIntField(bucket, "max_period_ms");
+        // Although HAL API allows configurable base value for the truncated
+        // exponential back off scan. Native API and above support only
+        // truncated binary exponential back off scan.
+        // Hard code value of base to 2 here.
+        params.buckets[i].base = 2;
+        params.buckets[i].step_count = helper.getIntField(bucket, "step_count");
 
         int report_events = helper.getIntField(bucket, "report_events");
         params.buckets[i].report_events = report_events;
 
-        ALOGD("bucket[%d] = %d:%d:%d:%d", i, params.buckets[i].bucket,
-                params.buckets[i].band, params.buckets[i].period, report_events);
+        if (DBG) {
+            ALOGD("bucket[%d] = %d:%d:%d:%d:%d:%d:%d", i, params.buckets[i].bucket,
+                    params.buckets[i].band, params.buckets[i].period,
+                    params.buckets[i].max_period, params.buckets[i].base,
+                    params.buckets[i].step_count, report_events);
+        }
 
         params.buckets[i].num_channels = helper.getIntField(bucket, "num_channels");
         // ALOGD("Initialized num_channels to %d", params.buckets[i].num_channels);
@@ -562,7 +520,6 @@ static jboolean android_net_wifi_startScan(
 
     wifi_scan_result_handler handler;
     memset(&handler, 0, sizeof(handler));
-    handler.on_scan_results_available = &onScanResultsAvailable;
     handler.on_full_scan_result = &onFullScanResult;
     handler.on_scan_event = &onScanEvent;
 
@@ -600,7 +557,8 @@ static jobject android_net_wifi_getScanResults(
         JNIObject<jobjectArray> scanData = helper.createObjectArray(
                 "android/net/wifi/WifiScanner$ScanData", num_scan_data);
         if (scanData == NULL) {
-            ALOGE("Error in allocating array of scanData");
+            ALOGE("Error in allocating array of scanData for getScanResults, length=%d",
+                  num_scan_data);
             return NULL;
         }
 
@@ -608,12 +566,13 @@ static jobject android_net_wifi_getScanResults(
 
             JNIObject<jobject> data = helper.createObject("android/net/wifi/WifiScanner$ScanData");
             if (data == NULL) {
-                ALOGE("Error in allocating scanData");
+                ALOGE("Error in allocating scanData for getScanResults");
                 return NULL;
             }
 
             helper.setIntField(data, "mId", scan_data[i].scan_id);
             helper.setIntField(data, "mFlags", scan_data[i].flags);
+            helper.setIntField(data, "mBucketsScanned", scan_data[i].buckets_scanned);
 
             /* sort all scan results by timestamp */
             qsort(scan_data[i].results, scan_data[i].num_results,
@@ -622,16 +581,17 @@ static jobject android_net_wifi_getScanResults(
             JNIObject<jobjectArray> scanResults = helper.createObjectArray(
                     "android/net/wifi/ScanResult", scan_data[i].num_results);
             if (scanResults == NULL) {
-                ALOGE("Error in allocating scanResult array");
+                ALOGE("Error in allocating scanResult array for getScanResults, length=%d",
+                      scan_data[i].num_results);
                 return NULL;
             }
 
             wifi_scan_result *results = scan_data[i].results;
             for (int j = 0; j < scan_data[i].num_results; j++) {
 
-                JNIObject<jobject> scanResult = createScanResult(helper, &results[j]);
+                JNIObject<jobject> scanResult = createScanResult(helper, &results[j], false);
                 if (scanResult == NULL) {
-                    ALOGE("Error in creating scan result");
+                    ALOGE("Error in creating scan result for getScanResults");
                     return NULL;
                 }
 
@@ -672,7 +632,13 @@ static jboolean android_net_wifi_getScanCapabilities(
     helper.setIntField(capabilities, "max_scan_reporting_threshold", c.max_scan_reporting_threshold);
     helper.setIntField(capabilities, "max_hotlist_bssids", c.max_hotlist_bssids);
     helper.setIntField(capabilities, "max_significant_wifi_change_aps",
-                c.max_significant_wifi_change_aps);
+            c.max_significant_wifi_change_aps);
+    helper.setIntField(capabilities, "max_bssid_history_entries", c.max_bssid_history_entries);
+    helper.setIntField(capabilities, "max_number_epno_networks", c.max_number_epno_networks);
+    helper.setIntField(capabilities, "max_number_epno_networks_by_ssid",
+            c.max_number_epno_networks_by_ssid);
+    helper.setIntField(capabilities, "max_number_of_white_listed_ssid",
+            c.max_number_of_white_listed_ssid);
 
     return JNI_TRUE;
 }
@@ -692,15 +658,23 @@ static byte parseHexChar(char ch) {
 }
 
 static byte parseHexByte(const char * &str) {
+    if (str[0] == '\0') {
+        ALOGE("Passed an empty string");
+        return 0;
+    }
     byte b = parseHexChar(str[0]);
-    if (str[1] == ':' || str[1] == '\0') {
-        str += 2;
-        return b;
+    if (str[1] == '\0' || str[1] == ':') {
+        str ++;
     } else {
         b = b << 4 | parseHexChar(str[1]);
-        str += 3;
-        return b;
+        str += 2;
     }
+
+    // Skip trailing delimiter if not at the end of the string.
+    if (str[0] != '\0') {
+        str++;
+    }
+    return b;
 }
 
 static void parseMacAddress(const char *str, mac_addr addr) {
@@ -740,15 +714,15 @@ static void onHotlistApFound(wifi_request_id id,
     JNIObject<jobjectArray> scanResults = helper.newObjectArray(num_results,
             "android/net/wifi/ScanResult", NULL);
     if (scanResults == NULL) {
-        ALOGE("Error in allocating array");
+        ALOGE("Error in allocating ScanResult array in onHotlistApFound, length=%d", num_results);
         return;
     }
 
     for (unsigned i = 0; i < num_results; i++) {
 
-        JNIObject<jobject> scanResult = createScanResult(helper, &results[i]);
+        JNIObject<jobject> scanResult = createScanResult(helper, &results[i], false);
         if (scanResult == NULL) {
-            ALOGE("Error in creating scan result");
+            ALOGE("Error in creating scan result in onHotlistApFound");
             return;
         }
 
@@ -770,15 +744,15 @@ static void onHotlistApLost(wifi_request_id id,
     JNIObject<jobjectArray> scanResults = helper.newObjectArray(num_results,
             "android/net/wifi/ScanResult", NULL);
     if (scanResults == NULL) {
-        ALOGE("Error in allocating array");
+        ALOGE("Error in allocating ScanResult array onHotlistApLost, length=%d", num_results);
         return;
     }
 
     for (unsigned i = 0; i < num_results; i++) {
 
-        JNIObject<jobject> scanResult = createScanResult(helper, &results[i]);
+        JNIObject<jobject> scanResult = createScanResult(helper, &results[i], false);
         if (scanResult == NULL) {
-            ALOGE("Error in creating scan result");
+            ALOGE("Error in creating scan result in onHotlistApLost");
             return;
         }
 
@@ -809,7 +783,7 @@ static jboolean android_net_wifi_setHotlist(
     params.num_bssid = helper.getArrayLength(array);
 
     if (params.num_bssid == 0) {
-        ALOGE("Error in accesing array");
+        ALOGE("setHotlist array length was 0");
         return false;
     }
 
@@ -870,7 +844,8 @@ void onSignificantWifiChange(wifi_request_id id,
     JNIObject<jobjectArray> scanResults = helper.newObjectArray(
             num_results, "android/net/wifi/ScanResult", NULL);
     if (scanResults == NULL) {
-        ALOGE("Error in allocating array");
+        ALOGE("Error in allocating ScanResult array in onSignificantWifiChange, length=%d",
+              num_results);
         return;
     }
 
@@ -880,7 +855,7 @@ void onSignificantWifiChange(wifi_request_id id,
 
         JNIObject<jobject> scanResult = helper.createObject("android/net/wifi/ScanResult");
         if (scanResult == NULL) {
-            ALOGE("Error in creating scan result");
+            ALOGE("Error in creating scan result in onSignificantWifiChange");
             return;
         }
 
@@ -924,7 +899,7 @@ static jboolean android_net_wifi_trackSignificantWifiChange(
     params.num_bssid = helper.getArrayLength(bssids);
 
     if (params.num_bssid == 0) {
-        ALOGE("Error in accessing array");
+        ALOGE("BssidInfo array length was 0");
         return false;
     }
 
@@ -982,6 +957,20 @@ static jboolean android_net_wifi_untrackSignificantWifiChange(
 
 wifi_iface_stat link_stat;
 wifi_radio_stat radio_stat; // L release has support for only one radio
+u32 *tx_time_per_level_arr = 0;
+// Let's cache the supported feature set to avoid unnecessary HAL invocations.
+feature_set cached_feature_set = 0;
+
+bool isTxLevelStatsPresent(wifi_radio_stat *radio_stats) {
+    if (IS_SUPPORTED_FEATURE(WIFI_FEATURE_TX_TRANSMIT_POWER, cached_feature_set)) {
+        if(radio_stats->tx_time_per_levels != 0 && radio_stats->num_tx_levels > 0) {
+            return true;
+        } else {
+            ALOGE("Ignoring invalid tx_level info in radio_stats");
+        }
+    }
+    return false;
+}
 
 void onLinkStatsResults(wifi_request_id id, wifi_iface_stat *iface_stat,
          int num_radios, wifi_radio_stat *radio_stats)
@@ -994,6 +983,17 @@ void onLinkStatsResults(wifi_request_id id, wifi_iface_stat *iface_stat,
 
     if (num_radios > 0 && radio_stats != 0) {
         memcpy(&radio_stat, radio_stats, sizeof(wifi_radio_stat));
+        if (isTxLevelStatsPresent(radio_stats)) {
+            // This realloc should be a no-op after the first allocation because for a given
+            // device, the number of power levels should not change.
+            u32 arr_size = sizeof(u32) * radio_stats->num_tx_levels;
+            tx_time_per_level_arr = (u32 *)realloc(tx_time_per_level_arr, arr_size);
+            memcpy(tx_time_per_level_arr, radio_stats->tx_time_per_levels, arr_size);
+            radio_stat.tx_time_per_levels = tx_time_per_level_arr;
+        } else {
+            radio_stat.num_tx_levels = 0;
+            radio_stat.tx_time_per_levels = 0;
+        }
     } else {
         memset(&radio_stat, 0, sizeof(wifi_radio_stat));
     }
@@ -1019,7 +1019,16 @@ static jobject android_net_wifi_getLinkLayerStats (JNIEnv *env, jclass cls, jint
     memset(&handler, 0, sizeof(handler));
     handler.on_link_stats_results = &onLinkStatsResults;
     wifi_interface_handle handle = getIfaceHandle(helper, cls, iface);
-    int result = hal_fn.wifi_get_link_stats(0, handle, handler);
+    int result;
+    // Cache the features supported by the device to determine if tx level stats are present or not
+    if (cached_feature_set == 0) {
+        result = hal_fn.wifi_get_supported_feature_set(handle, &cached_feature_set);
+        if (result != WIFI_SUCCESS) {
+            cached_feature_set = 0;
+        }
+    }
+
+    result = hal_fn.wifi_get_link_stats(0, handle, handler);
     if (result < 0) {
         ALOGE("android_net_wifi_getLinkLayerStats: failed to get link statistics\n");
         return NULL;
@@ -1030,6 +1039,12 @@ static jobject android_net_wifi_getLinkLayerStats (JNIEnv *env, jclass cls, jint
     if (wifiLinkLayerStats == NULL) {
        ALOGE("Error in allocating wifiLinkLayerStats");
        return NULL;
+    }
+
+    JNIObject<jintArray> tx_time_per_level = helper.newIntArray(radio_stat.num_tx_levels);
+    if (tx_time_per_level == NULL) {
+        ALOGE("Error in allocating wifiLinkLayerStats");
+        return NULL;
     }
 
     helper.setIntField(wifiLinkLayerStats, "beacon_rx", link_stat.beacon_rx);
@@ -1055,6 +1070,12 @@ static jobject android_net_wifi_getLinkLayerStats (JNIEnv *env, jclass cls, jint
     helper.setIntField(wifiLinkLayerStats, "tx_time", radio_stat.tx_time);
     helper.setIntField(wifiLinkLayerStats, "rx_time", radio_stat.rx_time);
     helper.setIntField(wifiLinkLayerStats, "on_time_scan", radio_stat.on_time_scan);
+    if (radio_stat.tx_time_per_levels != 0) {
+        helper.setIntArrayRegion(tx_time_per_level, 0, radio_stat.num_tx_levels,
+                (jint *)radio_stat.tx_time_per_levels);
+    }
+    helper.setObjectField(wifiLinkLayerStats, "tx_time_per_level", "[I", tx_time_per_level);
+
 
     return wifiLinkLayerStats.detach();
 }
@@ -1097,7 +1118,7 @@ static void onRttResults(wifi_request_id id, unsigned num_results, wifi_rtt_resu
     JNIObject<jobjectArray> rttResults = helper.newObjectArray(
             num_results, "android/net/wifi/RttManager$RttResult", NULL);
     if (rttResults == NULL) {
-        ALOGE("Error in allocating array");
+        ALOGE("Error in allocating RttResult array in onRttResults, length=%d", num_results);
         return;
     }
 
@@ -1107,7 +1128,7 @@ static void onRttResults(wifi_request_id id, unsigned num_results, wifi_rtt_resu
 
         JNIObject<jobject> rttResult = helper.createObject("android/net/wifi/RttManager$RttResult");
         if (rttResult == NULL) {
-            ALOGE("Error in creating rtt result");
+            ALOGE("Error in creating rtt result in onRttResults");
             return;
         }
 
@@ -1130,9 +1151,9 @@ static void onRttResults(wifi_request_id id, unsigned num_results, wifi_rtt_resu
         helper.setIntField( rttResult, "rxRate",                   result->rx_rate.bitrate);
         helper.setLongField(rttResult, "rtt",                      result->rtt);
         helper.setLongField(rttResult, "rttStandardDeviation",     result->rtt_sd);
-        helper.setIntField( rttResult, "distance",                 result->distance);
-        helper.setIntField( rttResult, "distanceStandardDeviation", result->distance_sd);
-        helper.setIntField( rttResult, "distanceSpread",           result->distance_spread);
+        helper.setIntField( rttResult, "distance",                 result->distance_mm / 10);
+        helper.setIntField( rttResult, "distanceStandardDeviation", result->distance_sd_mm / 10);
+        helper.setIntField( rttResult, "distanceSpread",           result->distance_spread_mm / 10);
         helper.setIntField( rttResult, "burstDuration",             result->burst_duration);
         helper.setIntField( rttResult, "negotiatedBurstNum",      result->negotiated_burst_num);
 
@@ -1184,6 +1205,10 @@ static jboolean android_net_wifi_requestRange(
 
     wifi_interface_handle handle = getIfaceHandle(helper, cls, iface);
     ALOGD("sending rtt request [%d] = %p", id, handle);
+    if (params == NULL) {
+        ALOGE("ranging params are empty");
+        return false;
+    }
 
     wifi_rtt_config configs[MaxRttConfigs];
     memset(&configs, 0, sizeof(configs));
@@ -1249,6 +1274,11 @@ static jboolean android_net_wifi_cancelRange(
     wifi_interface_handle handle = getIfaceHandle(helper, cls, iface);
     ALOGD("cancelling rtt request [%d] = %p", id, handle);
 
+    if (params == NULL) {
+        ALOGE("ranging params are empty");
+        return false;
+    }
+
     mac_addr addrs[MaxRttConfigs];
     memset(&addrs, 0, sizeof(addrs));
 
@@ -1271,6 +1301,65 @@ static jboolean android_net_wifi_cancelRange(
     return hal_fn.wifi_rtt_range_cancel(id, handle, len, addrs) == WIFI_SUCCESS;
 }
 
+static jobject android_net_wifi_enableResponder(
+        JNIEnv *env, jclass cls, jint iface, jint id, jint timeout_seconds, jobject channel_hint) {
+    JNIHelper helper(env);
+    wifi_interface_handle handle = getIfaceHandle(helper, cls, iface);
+    if (DBG) ALOGD("enabling responder request [%d] = %p", id, handle);
+    wifi_channel_info channel;
+    // Get channel information from HAL if it's not provided by caller.
+    if (channel_hint == NULL) {
+        wifi_rtt_responder responder_info_hint;
+        bool status = hal_fn.wifi_rtt_get_responder_info(handle, &responder_info_hint);
+        if (status != WIFI_SUCCESS) {
+            ALOGE("could not get available channel for responder");
+            return NULL;
+        }
+        channel = responder_info_hint.channel;
+    } else {
+        channel.center_freq = helper.getIntField(channel_hint, "mPrimaryFrequency");
+        channel.center_freq0 = helper.getIntField(channel_hint, "mCenterFrequency0");
+        channel.center_freq1 = helper.getIntField(channel_hint, "mCenterFrequency1");
+        channel.width = (wifi_channel_width)helper.getIntField(channel_hint, "mChannelWidth");
+    }
+
+    if (DBG) {
+        ALOGD("wifi_channel_width: %d, center_freq: %d, center_freq0: %d",
+              channel.width, channel.center_freq, channel.center_freq0);
+    }
+
+    wifi_rtt_responder responder_info_used;
+    bool status = hal_fn.wifi_enable_responder(id, handle, channel, timeout_seconds,
+            &responder_info_used);
+    if (status != WIFI_SUCCESS) {
+        ALOGE("enabling responder mode failed");
+        return NULL;
+    }
+    wifi_channel_info channel_used = responder_info_used.channel;
+    if (DBG) {
+        ALOGD("wifi_channel_width: %d, center_freq: %d, center_freq0: %d",
+              channel_used.width, channel_used.center_freq, channel_used.center_freq0);
+    }
+    JNIObject<jobject> responderConfig =
+        helper.createObject("android/net/wifi/RttManager$ResponderConfig");
+    if (responderConfig == NULL) return NULL;
+    helper.setIntField(responderConfig, "frequency", channel_used.center_freq);
+    helper.setIntField(responderConfig, "centerFreq0", channel_used.center_freq0);
+    helper.setIntField(responderConfig, "centerFreq1", channel_used.center_freq1);
+    helper.setIntField(responderConfig, "channelWidth", channel_used.width);
+    helper.setIntField(responderConfig, "preamble", responder_info_used.preamble);
+    return responderConfig.detach();
+}
+
+static jboolean android_net_wifi_disableResponder(
+        JNIEnv *env, jclass cls, jint iface, jint id)  {
+    JNIHelper helper(env);
+    wifi_interface_handle handle = getIfaceHandle(helper, cls, iface);
+    if (DBG) ALOGD("disabling responder request [%d] = %p", id, handle);
+    return hal_fn.wifi_disable_responder(id, handle) == WIFI_SUCCESS;
+}
+
+
 static jboolean android_net_wifi_setScanningMacOui(JNIEnv *env, jclass cls,
         jint iface, jbyteArray param)  {
 
@@ -1285,10 +1374,10 @@ static jboolean android_net_wifi_setScanningMacOui(JNIEnv *env, jclass cls,
         return false;
     }
 
-    ScopedBytesRO paramBytes(env, param);
-    const jbyte* bytes = paramBytes.get();
+    ScopedBytesRW paramBytes(env, param);
+    jbyte* bytes = paramBytes.get();
     if (bytes == NULL) {
-        ALOGE("failed to get array");
+        ALOGE("failed to get setScanningMacOui param array");
         return false;
     }
 
@@ -1304,7 +1393,7 @@ static jintArray android_net_wifi_getValidChannels(JNIEnv *env, jclass cls,
 
     JNIHelper helper(env);
     wifi_interface_handle handle = getIfaceHandle(helper, cls, iface);
-    ALOGD("getting valid channels %p", handle);
+    ALOGV("getting valid channels %p", handle);
 
     static const int MaxChannels = 64;
     wifi_channel channels[64];
@@ -1315,7 +1404,7 @@ static jintArray android_net_wifi_getValidChannels(JNIEnv *env, jclass cls,
     if (result == WIFI_SUCCESS) {
         JNIObject<jintArray> channelArray = helper.newIntArray(num_channels);
         if (channelArray == NULL) {
-            ALOGE("failed to allocate channel list");
+            ALOGE("failed to allocate channel list, num_channels=%d", num_channels);
             return NULL;
         }
 
@@ -1360,20 +1449,71 @@ static jobject android_net_wifi_get_rtt_capabilities(JNIEnv *env, jclass cls, ji
                  rtt_capabilities.preamble_support);
          helper.setIntField(capabilities, "bwSupported",
                  rtt_capabilities.bw_support);
-         ALOGD("One side RTT is: %s", rtt_capabilities.rtt_one_sided_supported ==1 ? "support" :
-                 "not support");
-         ALOGD("Two side RTT is: %s", rtt_capabilities.rtt_ftm_supported == 1 ? "support" :
-                 "not support");
-         ALOGD("LCR is: %s", rtt_capabilities.lcr_support == 1 ? "support" : "not support");
-
-         ALOGD("LCI is: %s", rtt_capabilities.lci_support == 1 ? "support" : "not support");
-
-         ALOGD("Support Preamble is : %d support BW is %d", rtt_capabilities.preamble_support,
-                 rtt_capabilities.bw_support);
+         helper.setBooleanField(capabilities, "responderSupported",
+                 rtt_capabilities.responder_supported == 1);
+         if (DBG) {
+             ALOGD("One side RTT is %s", rtt_capabilities.rtt_one_sided_supported == 1 ?
+                "supported" : "not supported");
+             ALOGD("Two side RTT is %s", rtt_capabilities.rtt_ftm_supported == 1 ?
+                "supported" : "not supported");
+             ALOGD("LCR is %s", rtt_capabilities.lcr_support == 1 ? "supported" : "not supported");
+             ALOGD("LCI is %s", rtt_capabilities.lci_support == 1 ? "supported" : "not supported");
+             ALOGD("Supported preamble is %d", rtt_capabilities.preamble_support);
+             ALOGD("Supported bandwidth is %d", rtt_capabilities.bw_support);
+             ALOGD("Sta responder is %s",
+                 rtt_capabilities.responder_supported == 1 ? "supported" : "not supported");
+         }
          return capabilities.detach();
     } else {
         return NULL;
     }
+}
+
+static jobject android_net_wifi_get_apf_capabilities(JNIEnv *env, jclass cls,
+        jint iface) {
+
+    JNIHelper helper(env);
+    u32 version = 0, max_len = 0;
+    wifi_interface_handle handle = getIfaceHandle(helper, cls, iface);
+    wifi_error ret = hal_fn.wifi_get_packet_filter_capabilities(handle, &version, &max_len);
+
+    if (WIFI_SUCCESS == ret) {
+        // Cannot just use createObject() because members are final and initializer values must be
+        // passed via ApfCapabilities().
+        JNIObject<jclass> apf_cls(helper, env->FindClass("android/net/apf/ApfCapabilities"));
+        if (apf_cls == NULL) {
+            ALOGE("Error in finding class android/net/apf/ApfCapabilities");
+            return NULL;
+        }
+        jmethodID constructor = env->GetMethodID(apf_cls, "<init>", "(III)V");
+        if (constructor == 0) {
+            ALOGE("Error in constructor ID for android/net/apf/ApfCapabilities");
+            return NULL;
+        }
+        JNIObject<jobject> capabilities(helper, env->NewObject(apf_cls, constructor, version,
+                max_len, ARPHRD_ETHER));
+        if (capabilities == NULL) {
+            ALOGE("Could not create new object of android/net/apf/ApfCapabilities");
+            return NULL;
+        }
+        ALOGD("APF version supported: %d", version);
+        ALOGD("Maximum APF program size: %d", max_len);
+        return capabilities.detach();
+    } else {
+        return NULL;
+    }
+}
+
+static jboolean android_net_wifi_install_packet_filter(JNIEnv *env, jclass cls, jint iface,
+        jbyteArray jfilter) {
+
+    JNIHelper helper(env);
+    const u8* filter = (uint8_t*)env->GetByteArrayElements(jfilter, NULL);
+    const u32 filter_len = env->GetArrayLength(jfilter);
+    wifi_interface_handle handle = getIfaceHandle(helper, cls, iface);
+    wifi_error ret = hal_fn.wifi_set_packet_filter(handle, filter, filter_len);
+    env->ReleaseByteArrayElements(jfilter, (jbyte*)filter, JNI_ABORT);
+    return WIFI_SUCCESS == ret;
 }
 
 static jboolean android_net_wifi_set_Country_Code_Hal(JNIEnv *env,jclass cls, jint iface,
@@ -1489,8 +1629,6 @@ static jobject android_net_wifi_get_tdls_capabilities(JNIEnv *env, jclass cls, j
 // ----------------------------------------------------------------------------
 static jint android_net_wifi_get_supported_logger_feature(JNIEnv *env, jclass cls, jint iface){
     //Not implemented yet
-    JNIHelper helper(env);
-    wifi_interface_handle handle = getIfaceHandle(helper, cls, iface);
     return -1;
 }
 
@@ -1507,6 +1645,7 @@ static jobject android_net_wifi_get_driver_version(JNIEnv *env, jclass cls, jint
     ALOGD("android_net_wifi_get_driver_version = %p", handle);
 
     if (handle == 0) {
+        free(buffer);
         return NULL;
     }
 
@@ -1518,7 +1657,7 @@ static jobject android_net_wifi_get_driver_version(JNIEnv *env, jclass cls, jint
         free(buffer);
         return driver_version.detach();
     } else {
-        ALOGD("Fail to get driver version");
+        ALOGE("Fail to get driver version");
         free(buffer);
         return NULL;
     }
@@ -1537,6 +1676,7 @@ static jobject android_net_wifi_get_firmware_version(JNIEnv *env, jclass cls, ji
     ALOGD("android_net_wifi_get_firmware_version = %p", handle);
 
     if (handle == 0) {
+        free(buffer);
         return NULL;
     }
 
@@ -1548,7 +1688,7 @@ static jobject android_net_wifi_get_firmware_version(JNIEnv *env, jclass cls, ji
         free(buffer);
         return firmware_version.detach();
     } else {
-        ALOGD("Fail to get Firmware version");
+        ALOGE("Fail to get Firmware version");
         free(buffer);
         return NULL;
     }
@@ -1711,7 +1851,7 @@ static jboolean android_net_wifi_get_ring_buffer_data(JNIEnv *env, jclass cls, j
 }
 
 
-void on_firmware_memory_dump(char *buffer, int buffer_size) {
+static void on_firmware_memory_dump(char *buffer, int buffer_size) {
 
     JNIHelper helper(mVM);
     /* ALOGD("on_firmware_memory_dump called, vm = %p, obj = %p, env = %p buffer_size = %d"
@@ -1741,6 +1881,63 @@ static jboolean android_net_wifi_get_fw_memory_dump(JNIEnv *env, jclass cls, jin
     int result = hal_fn.wifi_get_firmware_memory_dump(handle, fw_dump_handle);
     return result == WIFI_SUCCESS;
 
+}
+
+std::vector<jbyte>* driver_state_dump_buffer_for_callback = nullptr;
+
+static void on_driver_state_dump(char *buffer, int buffer_size);
+static wifi_driver_memory_dump_callbacks driver_state_dump_callbacks = {
+    on_driver_state_dump
+};
+
+static void on_driver_state_dump(char *buffer, int buffer_size) {
+
+    if (!driver_state_dump_buffer_for_callback) {
+        ALOGE("Unexpected call from HAL implementation, into %s", __func__);
+        return;
+    }
+
+    if (buffer_size > 0) {
+        driver_state_dump_buffer_for_callback->insert(
+            driver_state_dump_buffer_for_callback->end(), buffer, buffer + buffer_size);
+    }
+}
+
+// TODO(quiche): Add unit tests. b/28072392
+static jbyteArray android_net_wifi_get_driver_state_dump(JNIEnv *env, jclass cls, jint iface){
+
+    JNIHelper helper(env);
+    wifi_interface_handle interface_handle = getIfaceHandle(helper, cls, iface);
+
+    if (!interface_handle) {
+        return nullptr;
+    }
+
+    int result;
+    std::vector<jbyte> state_dump_buffer_local;
+    driver_state_dump_buffer_for_callback = &state_dump_buffer_local;
+    result = hal_fn.wifi_get_driver_memory_dump(interface_handle, driver_state_dump_callbacks);
+    driver_state_dump_buffer_for_callback = nullptr;
+
+    if (result != WIFI_SUCCESS) {
+        ALOGW("HAL's wifi_get_driver_memory_dump returned %d", result);
+        return nullptr;
+    }
+
+    if (state_dump_buffer_local.empty()) {
+        ALOGW("HAL's wifi_get_driver_memory_dump provided zero bytes");
+        return nullptr;
+    }
+
+    const size_t dump_size = state_dump_buffer_local.size();
+    JNIObject<jbyteArray> driver_dump_java = helper.newByteArray(dump_size);
+    if (!driver_dump_java)  {
+        ALOGW("Failed to allocate Java buffer for driver state dump");
+        return nullptr;
+    }
+
+    helper.setByteArrayRegion(driver_dump_java, 0, dump_size, state_dump_buffer_local.data());
+    return driver_dump_java.detach();
 }
 
 static jboolean android_net_wifi_set_log_handler(JNIEnv *env, jclass cls, jint iface, jint id) {
@@ -1794,6 +1991,137 @@ static jboolean android_net_wifi_reset_log_handler(JNIEnv *env, jclass cls, jint
     return true;
 }
 
+static jint android_net_wifi_start_pkt_fate_monitoring(JNIEnv *env, jclass cls, jint iface) {
+
+    JNIHelper helper(env);
+    return hal_fn.wifi_start_pkt_fate_monitoring(
+        getIfaceHandle(helper, cls, iface));
+}
+
+// Helper for make_default_fate().
+template<typename T> void set_to_max(T* value) {
+    if (!value) {
+        return;
+    }
+    *value = std::numeric_limits<T>::max();
+}
+
+// make_default_fate() has two purposes:
+// 1) Minimize the chances of data leakage. In case the HAL gives us an overlong long |frame_len|,
+//    for example, we want to return zeros, rather than other data from this process.
+// 2) Make it obvious when the HAL doesn't set a field. We accomplish this by setting fields
+//    to "impossible" values, where possible.
+// Normally, such work would be done in a ctor. However, doing so would make the HAL API
+// incompatible with C. So we use a free-standing function instead.
+//
+// TODO(quiche): Add unit test for this function. b/27726696
+template<typename FateReportT> FateReportT make_default_fate() {
+
+    FateReportT fate_report;
+    set_to_max(&fate_report.fate);
+    std::fill(std::begin(fate_report.md5_prefix), std::end(fate_report.md5_prefix), 0);
+    set_to_max(&fate_report.frame_inf.payload_type);
+    fate_report.frame_inf.frame_len = 0;
+    fate_report.frame_inf.driver_timestamp_usec = 0;
+    fate_report.frame_inf.firmware_timestamp_usec = 0;
+    std::fill(std::begin(fate_report.frame_inf.frame_content.ieee_80211_mgmt_bytes),
+        std::end(fate_report.frame_inf.frame_content.ieee_80211_mgmt_bytes), 0);
+    return fate_report;
+}
+
+// TODO(quiche): Add unit test for this function. b/27726696
+template<typename FateReportT, typename HalFateFetcherT> wifi_error get_pkt_fates(
+    HalFateFetcherT fate_fetcher_func, const char *java_fate_type,
+    JNIEnv *env, jclass cls, jint iface, jobjectArray reports) {
+
+    JNIHelper helper(env);
+    const size_t n_reports_wanted =
+        std::min(helper.getArrayLength(reports), MAX_FATE_LOG_LEN);
+
+    std::vector<FateReportT> report_bufs(n_reports_wanted, make_default_fate<FateReportT>());
+    size_t n_reports_provided = 0;
+    wifi_error result = fate_fetcher_func(
+        getIfaceHandle(helper, cls, iface),
+        report_bufs.data(),
+        n_reports_wanted,
+        &n_reports_provided);
+    if (result != WIFI_SUCCESS) {
+        return result;
+    }
+
+    if (n_reports_provided > n_reports_wanted) {
+        LOG_ALWAYS_FATAL(
+            "HAL data exceeds request; memory may be corrupt (provided: %zu, requested: %zu)",
+            n_reports_provided, n_reports_wanted);
+    }
+
+    for (size_t i = 0; i < n_reports_provided; ++i) {
+        const FateReportT& report(report_bufs[i]);
+
+        const char *frame_bytes_native = nullptr;
+        size_t max_frame_len;
+        switch (report.frame_inf.payload_type) {
+            case FRAME_TYPE_UNKNOWN:
+            case FRAME_TYPE_ETHERNET_II:
+                max_frame_len = MAX_FRAME_LEN_ETHERNET;
+                frame_bytes_native = report.frame_inf.frame_content.ethernet_ii_bytes;
+                break;
+            case FRAME_TYPE_80211_MGMT:
+                max_frame_len = MAX_FRAME_LEN_80211_MGMT;
+                frame_bytes_native = report.frame_inf.frame_content.ieee_80211_mgmt_bytes;
+                break;
+            default:
+                max_frame_len = 0;
+                frame_bytes_native = 0;
+        }
+
+        size_t copy_len = report.frame_inf.frame_len;
+        if (copy_len > max_frame_len) {
+            ALOGW("Overly long frame (len: %zu, max: %zu)", copy_len, max_frame_len);
+            copy_len = max_frame_len;
+        }
+
+        JNIObject<jbyteArray> frame_bytes_java = helper.newByteArray(copy_len);
+        if (frame_bytes_java.isNull()) {
+            ALOGE("Failed to allocate frame data buffer");
+            return WIFI_ERROR_OUT_OF_MEMORY;
+        }
+        helper.setByteArrayRegion(frame_bytes_java, 0, copy_len,
+            reinterpret_cast<const jbyte *>(frame_bytes_native));
+
+        JNIObject<jobject> fate_report = helper.createObjectWithArgs(
+            java_fate_type,
+            "(BJB[B)V",  // byte, long, byte, byte array
+            static_cast<jbyte>(report.fate),
+            static_cast<jlong>(report.frame_inf.driver_timestamp_usec),
+            static_cast<jbyte>(report.frame_inf.payload_type),
+            frame_bytes_java.get());
+        if (fate_report.isNull()) {
+            ALOGE("Failed to create %s", java_fate_type);
+            return WIFI_ERROR_OUT_OF_MEMORY;
+        }
+        helper.setObjectArrayElement(reports, i, fate_report);
+    }
+
+    return result;
+}
+
+static jint android_net_wifi_get_tx_pkt_fates(JNIEnv *env, jclass cls, jint iface,
+    jobjectArray reports) {
+
+    return get_pkt_fates<wifi_tx_report>(
+        hal_fn.wifi_get_tx_pkt_fates, "com/android/server/wifi/WifiNative$TxFateReport",
+        env, cls, iface, reports);
+}
+
+static jint android_net_wifi_get_rx_pkt_fates(JNIEnv *env, jclass cls, jint iface,
+    jobjectArray reports) {
+
+    return get_pkt_fates<wifi_rx_report>(
+        hal_fn.wifi_get_rx_pkt_fates, "com/android/server/wifi/WifiNative$RxFateReport",
+        env, cls, iface, reports);
+}
+
 // ----------------------------------------------------------------------------
 // ePno framework
 // ----------------------------------------------------------------------------
@@ -1801,64 +2129,52 @@ static jboolean android_net_wifi_reset_log_handler(JNIEnv *env, jclass cls, jint
 
 static void onPnoNetworkFound(wifi_request_id id,
                                           unsigned num_results, wifi_scan_result *results) {
-
     JNIHelper helper(mVM);
-
     ALOGD("onPnoNetworkFound called, vm = %p, obj = %p, num_results %u", mVM, mCls, num_results);
 
-    if (results == 0 || num_results == 0) {
+    if (results == NULL || num_results == 0) {
        ALOGE("onPnoNetworkFound: Error no results");
        return;
     }
 
-    jbyte *bytes;
-    JNIObject<jobjectArray> scanResults(helper, NULL);
-    //jbyteArray elements;
+    JNIObject<jobjectArray> scanResults = helper.newObjectArray(num_results,
+            "android/net/wifi/ScanResult", NULL);
+    if (scanResults == NULL) {
+        ALOGE("onpnoNetworkFound: Error in allocating scanResults array");
+        return;
+    }
+
+    JNIObject<jintArray> beaconCaps = helper.newIntArray(num_results);
+    if (beaconCaps == NULL) {
+        ALOGE("onpnoNetworkFound: Error in allocating beaconCaps array");
+        return;
+    }
 
     for (unsigned i=0; i<num_results; i++) {
 
-        JNIObject<jobject> scanResult = createScanResult(helper, &results[i]);
-        if (i == 0) {
-            scanResults = helper.newObjectArray(
-                    num_results, "android/net/wifi/ScanResult", scanResult);
-            if (scanResults == 0) {
-                ALOGD("cant allocate array");
-            } else {
-                ALOGD("allocated array %u", helper.getArrayLength(scanResults));
-            }
-        } else {
-            helper.setObjectArrayElement(scanResults, i, scanResult);
+        JNIObject<jobject> scanResult = createScanResult(helper, &results[i], true);
+        if (scanResult == NULL) {
+            ALOGE("Error in creating scan result");
+            return;
         }
 
-        ALOGD("Scan result with ie length %d, i %u, <%s> rssi=%d %02x:%02x:%02x:%02x:%02x:%02x",
-                results->ie_length, i, results[i].ssid, results[i].rssi, results[i].bssid[0],
-                results[i].bssid[1],results[i].bssid[2], results[i].bssid[3], results[i].bssid[4],
-                results[i].bssid[5]);
+        helper.setObjectArrayElement(scanResults, i, scanResult);
+        helper.setIntArrayRegion(beaconCaps, i, 1, (jint *)&(results[i].capability));
 
-        /*elements = helper.newByteArray(results->ie_length);
-        if (elements == NULL) {
-            ALOGE("Error in allocating array");
-            return;
-        }*/
-
-        //ALOGD("onPnoNetworkFound: Setting byte array");
-
-        //bytes = (jbyte *)&(results->ie_data[0]);
-        //helper.setByteArrayRegion(elements, 0, results->ie_length, bytes);
-
-        //ALOGD("onPnoNetworkFound: Returning result");
+        if (DBG) {
+            ALOGD("ScanResult: IE length %d, i %u, <%s> rssi=%d %02x:%02x:%02x:%02x:%02x:%02x",
+                    results->ie_length, i, results[i].ssid, results[i].rssi,
+                    results[i].bssid[0], results[i].bssid[1],results[i].bssid[2],
+                    results[i].bssid[3], results[i].bssid[4], results[i].bssid[5]);
+        }
     }
 
-
-    ALOGD("calling report");
-
-    helper.reportEvent(mCls, "onPnoNetworkFound", "(I[Landroid/net/wifi/ScanResult;)V", id,
-               scanResults.get());
-        ALOGD("free ref");
+    helper.reportEvent(mCls, "onPnoNetworkFound", "(I[Landroid/net/wifi/ScanResult;[I)V", id,
+               scanResults.get(), beaconCaps.get());
 }
 
 static jboolean android_net_wifi_setPnoListNative(
-        JNIEnv *env, jclass cls, jint iface, jint id, jobject list)  {
+        JNIEnv *env, jclass cls, jint iface, jint id, jobject settings)  {
 
     JNIHelper helper(env);
     wifi_epno_handler handler;
@@ -1867,30 +2183,33 @@ static jboolean android_net_wifi_setPnoListNative(
     wifi_interface_handle handle = getIfaceHandle(helper, cls, iface);
     ALOGD("configure ePno list request [%d] = %p", id, handle);
 
-    if (list == NULL) {
-        // stop pno
-        int result = hal_fn.wifi_set_epno_list(id, handle, 0, NULL, handler);
-        ALOGE(" setPnoListNative: STOP result = %d", result);
-        return result >= 0;
-    }
-
-    wifi_epno_network net_list[MAX_PNO_SSID];
-    memset(&net_list, 0, sizeof(net_list));
-
-    size_t len = helper.getArrayLength((jobjectArray)list);
-    if (len > (size_t)MAX_PNO_SSID) {
+    if (settings == NULL) {
         return false;
     }
 
+    JNIObject<jobjectArray> list = helper.getArrayField(settings, "networkList",
+            "[Lcom/android/server/wifi/WifiNative$PnoNetwork;");
+    if (list == NULL) {
+        return false;
+    }
+
+    size_t len = helper.getArrayLength(list);
+    if (len > (size_t)MAX_EPNO_NETWORKS) {
+        return false;
+    }
+
+    wifi_epno_params params;
+    memset(&params, 0, sizeof(params));
+
     for (unsigned int i = 0; i < len; i++) {
 
-        JNIObject<jobject> pno_net = helper.getObjectArrayElement((jobjectArray)list, i);
+        JNIObject<jobject> pno_net = helper.getObjectArrayElement(list, i);
         if (pno_net == NULL) {
-            ALOGD("setPnoListNative: could not get element %d", i);
+            ALOGE("setPnoListNative: could not get element %d", i);
             continue;
         }
 
-        JNIObject<jstring> sssid = helper.getStringField(pno_net, "SSID");
+        JNIObject<jstring> sssid = helper.getStringField(pno_net, "ssid");
         if (sssid == NULL) {
               ALOGE("Error setPnoListNative: getting ssid field");
               return false;
@@ -1904,11 +2223,11 @@ static jboolean android_net_wifi_setPnoListNative(
         }
         int ssid_len = strnlen((const char*)ssid, 33);
         if (ssid_len > 32) {
-           ALOGE("Error setPnoListNative: long ssid %u", strnlen((const char*)ssid, 256));
+           ALOGE("Error setPnoListNative: long ssid %zu", strnlen((const char*)ssid, 256));
            return false;
         }
 
-        if (ssid_len > 1 && ssid[0] == '"' && ssid[ssid_len-1])
+        if (ssid_len > 1 && ssid[0] == '"' && ssid[ssid_len-1] == '"')
         {
             // strip leading and trailing '"'
             ssid++;
@@ -1918,54 +2237,41 @@ static jboolean android_net_wifi_setPnoListNative(
             ALOGE("Error setPnoListNative: zero length ssid, skip it");
             continue;
         }
-        memcpy(net_list[i].ssid, ssid, ssid_len);
+        memcpy(params.networks[i].ssid, ssid, ssid_len);
 
-        int rssit = helper.getIntField(pno_net, "rssi_threshold");
-        net_list[i].rssi_threshold = (byte)rssit;
-        int a = helper.getIntField(pno_net, "auth");
-        net_list[i].auth_bit_field = a;
-        int f = helper.getIntField(pno_net, "flags");
-        net_list[i].flags = f;
-        ALOGE(" setPnoListNative: idx %u rssi %d/%d auth %x/%x flags %x/%x [%s]", i,
-                (signed)net_list[i].rssi_threshold, net_list[i].rssi_threshold,
-                net_list[i].auth_bit_field, a, net_list[i].flags, f, net_list[i].ssid);
+        params.networks[i].auth_bit_field = helper.getByteField(pno_net, "auth_bit_field");
+        params.networks[i].flags = helper.getByteField(pno_net, "flags");
+        ALOGD(" setPnoListNative: idx %u auth %x flags %x [%s]", i,
+                params.networks[i].auth_bit_field, params.networks[i].flags,
+                params.networks[i].ssid);
     }
+    params.min5GHz_rssi = helper.getIntField(settings, "min5GHzRssi");
+    params.min24GHz_rssi = helper.getIntField(settings, "min24GHzRssi");
+    params.initial_score_max = helper.getIntField(settings, "initialScoreMax");
+    params.current_connection_bonus = helper.getIntField(settings, "currentConnectionBonus");
+    params.same_network_bonus = helper.getIntField(settings, "sameNetworkBonus");
+    params.secure_bonus = helper.getIntField(settings, "secureBonus");
+    params.band5GHz_bonus = helper.getIntField(settings, "band5GHzBonus");
+    params.num_networks = len;
 
-    int result = hal_fn.wifi_set_epno_list(id, handle, len, net_list, handler);
-    ALOGE(" setPnoListNative: result %d", result);
+    int result = hal_fn.wifi_set_epno_list(id, handle, &params, handler);
+    ALOGD(" setPnoListNative: result %d", result);
 
     return result >= 0;
 }
 
-static jboolean android_net_wifi_setLazyRoam(
-        JNIEnv *env, jclass cls, jint iface, jint id, jboolean enabled, jobject roam_param)  {
+static jboolean android_net_wifi_resetPnoListNative(
+        JNIEnv *env, jclass cls, jint iface, jint id)  {
 
     JNIHelper helper(env);
-    wifi_error status = WIFI_SUCCESS;
-    wifi_roam_params params;
-    memset(&params, 0, sizeof(params));
 
     wifi_interface_handle handle = getIfaceHandle(helper, cls, iface);
-    ALOGD("configure lazy roam request [%d] = %p", id, handle);
+    ALOGD("reset ePno list request [%d] = %p", id, handle);
 
-    if (roam_param != NULL) {
-        params.A_band_boost_threshold  = helper.getIntField(roam_param, "A_band_boost_threshold");
-        params.A_band_penalty_threshold  = helper.getIntField(roam_param, "A_band_penalty_threshold");
-        params.A_band_boost_factor = helper.getIntField(roam_param, "A_band_boost_factor");
-        params.A_band_penalty_factor  = helper.getIntField(roam_param, "A_band_penalty_factor");
-        params.A_band_max_boost  = helper.getIntField(roam_param, "A_band_max_boost");
-        params.lazy_roam_hysteresis = helper.getIntField(roam_param, "lazy_roam_hysteresis");
-        params.alert_roam_rssi_trigger = helper.getIntField(roam_param, "alert_roam_rssi_trigger");
-        status = hal_fn.wifi_set_gscan_roam_params(id, handle, &params);
-    }
-    ALOGE("android_net_wifi_setLazyRoam configured params status=%d\n", status);
-
-    if (status >= 0) {
-        int doEnable = enabled ? 1 : 0;
-        status = hal_fn.wifi_enable_lazy_roam(id, handle, doEnable);
-        ALOGE("android_net_wifi_setLazyRoam enabled roam status=%d\n", status);
-    }
-    return status >= 0;
+    // stop pno
+    int result = hal_fn.wifi_reset_epno_list(id, handle);
+    ALOGD(" ressetPnoListNative: result = %d", result);
+    return result >= 0;
 }
 
 static jboolean android_net_wifi_setBssidBlacklist(
@@ -1987,7 +2293,7 @@ static jboolean android_net_wifi_setBssidBlacklist(
 
             JNIObject<jobject> jbssid = helper.getObjectArrayElement(list, i);
             if (jbssid == NULL) {
-                ALOGD("configure BSSID blacklist: could not get element %d", i);
+                ALOGE("configure BSSID blacklist: could not get element %d", i);
                 continue;
             }
 
@@ -2016,54 +2322,205 @@ static jboolean android_net_wifi_setBssidBlacklist(
     return hal_fn.wifi_set_bssid_blacklist(id, handle, params) == WIFI_SUCCESS;
 }
 
-static jboolean android_net_wifi_setSsidWhitelist(
-        JNIEnv *env, jclass cls, jint iface, jint id, jobject list)  {
+static jint android_net_wifi_start_sending_offloaded_packet(JNIEnv *env, jclass cls, jint iface,
+                    jint idx, jbyteArray srcMac, jbyteArray dstMac, jbyteArray pkt, jint period)  {
+    JNIHelper helper(env);
+    wifi_interface_handle handle = getIfaceHandle(helper, cls, iface);
+    ALOGD("Start packet offload [%d] = %p", idx, handle);
+    wifi_error ret;
+    wifi_request_id id = idx;
+
+    ScopedBytesRO pktBytes(env, pkt), srcMacBytes(env, srcMac), dstMacBytes(env, dstMac);
+
+    byte * pkt_data = (byte*) pktBytes.get();
+    unsigned short pkt_len = env->GetArrayLength(pkt);
+    byte* src_mac_addr = (byte*) srcMacBytes.get();
+    byte* dst_mac_addr = (byte*) dstMacBytes.get();
+    int i;
+    char macAddr[32];
+    sprintf(macAddr, "%0x:%0x:%0x:%0x:%0x:%0x", src_mac_addr[0], src_mac_addr[1],
+            src_mac_addr[2], src_mac_addr[3], src_mac_addr[4], src_mac_addr[5]);
+    ALOGD("src_mac_addr %s", macAddr);
+    sprintf(macAddr, "%0x:%0x:%0x:%0x:%0x:%0x", dst_mac_addr[0], dst_mac_addr[1],
+            dst_mac_addr[2], dst_mac_addr[3], dst_mac_addr[4], dst_mac_addr[5]);
+    ALOGD("dst_mac_addr %s", macAddr);
+    ALOGD("pkt_len %d\n", pkt_len);
+    ALOGD("Pkt data : ");
+    for(i = 0; i < pkt_len; i++) {
+        ALOGD(" %x ", pkt_data[i]);
+    }
+    ALOGD("\n");
+    ret =  hal_fn.wifi_start_sending_offloaded_packet(id, handle, pkt_data, pkt_len,
+                src_mac_addr, dst_mac_addr, period);
+    ALOGD("ret= %d\n", ret);
+    return ret;
+}
+
+static jint android_net_wifi_stop_sending_offloaded_packet(JNIEnv *env, jclass cls,
+                    jint iface, jint idx) {
+    int ret;
+    JNIHelper helper(env);
+    wifi_interface_handle handle = getIfaceHandle(helper, cls, iface);
+    ALOGD("Stop packet offload [%d] = %p", idx, handle);
+    ret =  hal_fn.wifi_stop_sending_offloaded_packet(idx, handle);
+    ALOGD("ret= %d\n", ret);
+    return ret;
+}
+
+static void onRssiThresholdbreached(wifi_request_id id, u8 *cur_bssid, s8 cur_rssi) {
+
+    ALOGD("RSSI threshold breached, cur RSSI - %d!!\n", cur_rssi);
+    ALOGD("BSSID %02x:%02x:%02x:%02x:%02x:%02x\n",
+            cur_bssid[0], cur_bssid[1], cur_bssid[2],
+            cur_bssid[3], cur_bssid[4], cur_bssid[5]);
+    JNIHelper helper(mVM);
+    //ALOGD("onRssiThresholdbreached called, vm = %p, obj = %p, env = %p", mVM, mCls, env);
+    helper.reportEvent(mCls, "onRssiThresholdBreached", "(IB)V", id, cur_rssi);
+}
+
+static jint android_net_wifi_start_rssi_monitoring_native(JNIEnv *env, jclass cls, jint iface,
+        jint idx, jbyte maxRssi, jbyte minRssi) {
 
     JNIHelper helper(env);
     wifi_interface_handle handle = getIfaceHandle(helper, cls, iface);
-    ALOGD("configure SSID white list request [%d] = %p", id, handle);
-    wifi_ssid *ssids = NULL;
-    int num_ssids = 0;
-    if (list != NULL) {
-        size_t len = helper.getArrayLength((jobjectArray)list);
-        if (len > 0) {
-            ssids = (wifi_ssid *)malloc(len * sizeof (wifi_ssid));
-            if (!ssids) return false;
-            memset(ssids, 0, len * sizeof (wifi_ssid));
-            for (unsigned int i = 0; i < len; i++) {
+    ALOGD("Start Rssi monitoring = %p", handle);
+    ALOGD("MinRssi %d MaxRssi %d", minRssi, maxRssi);
+    wifi_error ret;
+    wifi_request_id id = idx;
+    wifi_rssi_event_handler eh;
+    eh.on_rssi_threshold_breached = onRssiThresholdbreached;
+    ret = hal_fn.wifi_start_rssi_monitoring(id, handle, maxRssi, minRssi, eh);
+    return ret;
+}
 
-                JNIObject<jobject> jssid = helper.getObjectArrayElement(list, i);
-                if (jssid == NULL) {
-                    ALOGD("configure SSID whitelist: could not get element %d", i);
-                    free(ssids);
-                   return false;
-                }
+static jint android_net_wifi_stop_rssi_monitoring_native(JNIEnv *env, jclass cls,
+        jint iface, jint idx) {
+    JNIHelper helper(env);
+    wifi_interface_handle handle = getIfaceHandle(helper, cls, iface);
+    ALOGD("Stop Rssi monitoring = %p", handle);
+    wifi_error ret;
+    wifi_request_id id = idx;
+    ret = hal_fn.wifi_stop_rssi_monitoring(id, handle);
+    return ret;
+}
 
-                ScopedUtfChars chars(env, (jstring)jssid.get());
-                const char *utf = chars.c_str();
-                if (utf == NULL) {
-                    ALOGE("Error getting sssid");
-                    free(ssids);
-                    return false;
-                }
+static jobject android_net_wifi_get_wlan_wake_reason_count(JNIEnv *env, jclass cls, jint iface) {
 
-                int slen = strnlen(utf, 33);
-                if (slen <= 0 || slen > 32) {
-                    ALOGE("Error wrong ssid length %d", slen);
-                    free(ssids);
-                    return false;
-                }
+    JNIHelper helper(env);
+    WLAN_DRIVER_WAKE_REASON_CNT wake_reason_cnt;
+    int cmd_event_wake_cnt_array[WAKE_REASON_TYPE_MAX];
+    int driver_fw_local_wake_cnt_array[WAKE_REASON_TYPE_MAX];
+    wifi_interface_handle handle = getIfaceHandle(helper, cls, iface);
+    wifi_error ret;
 
-                memcpy(ssids[i].ssid, utf, slen);
-                num_ssids++;
-                ALOGD("SSID white list: added ssid %s", utf);
-            }
-        }
+    wake_reason_cnt.cmd_event_wake_cnt = cmd_event_wake_cnt_array;
+    wake_reason_cnt.cmd_event_wake_cnt_sz = WAKE_REASON_TYPE_MAX;
+    wake_reason_cnt.cmd_event_wake_cnt_used = 0;
+
+    wake_reason_cnt.driver_fw_local_wake_cnt = driver_fw_local_wake_cnt_array;
+    wake_reason_cnt.driver_fw_local_wake_cnt_sz = WAKE_REASON_TYPE_MAX;
+    wake_reason_cnt.driver_fw_local_wake_cnt_used = 0;
+
+    ret = hal_fn.wifi_get_wake_reason_stats(handle, &wake_reason_cnt);
+
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("android_net_wifi_get_wlan_wake_reason_count: failed to get wake reason count\n");
+        return NULL;
     }
 
-    ALOGD("android_net_wifi_setSsidWhitelist Added %d sssids", num_ssids);
-    return hal_fn.wifi_set_ssid_white_list(id, handle, num_ssids, ssids) == WIFI_SUCCESS;
+    JNIObject<jobject> stats = helper.createObject( "android/net/wifi/WifiWakeReasonAndCounts");
+    if (stats == NULL) {
+        ALOGE("android_net_wifi_get_wlan_wake_reason_count: error allocating object\n");
+        return NULL;
+    }
+    JNIObject<jintArray> cmd_wake_arr =
+            helper.newIntArray(wake_reason_cnt.cmd_event_wake_cnt_used);
+    if (cmd_wake_arr == NULL) {
+        ALOGE("android_net_wifi_get_wlan_wake_reason_count: error allocating array object\n");
+        return NULL;
+    }
+    JNIObject<jintArray> local_wake_arr =
+            helper.newIntArray(wake_reason_cnt.driver_fw_local_wake_cnt_used);
+    if (local_wake_arr == NULL) {
+        ALOGE("android_net_wifi_get_wlan_wake_reason_count: error allocating array object\n");
+        return NULL;
+    }
+
+    helper.setIntField(stats, "totalCmdEventWake", wake_reason_cnt.total_cmd_event_wake);
+    helper.setIntField(stats, "totalDriverFwLocalWake", wake_reason_cnt.total_driver_fw_local_wake);
+    helper.setIntField(stats, "totalRxDataWake", wake_reason_cnt.total_rx_data_wake);
+    helper.setIntField(stats, "rxUnicast", wake_reason_cnt.rx_wake_details.rx_unicast_cnt);
+    helper.setIntField(stats, "rxMulticast", wake_reason_cnt.rx_wake_details.rx_multicast_cnt);
+    helper.setIntField(stats, "rxBroadcast", wake_reason_cnt.rx_wake_details.rx_broadcast_cnt);
+    helper.setIntField(stats, "icmp", wake_reason_cnt.rx_wake_pkt_classification_info.icmp_pkt);
+    helper.setIntField(stats, "icmp6", wake_reason_cnt.rx_wake_pkt_classification_info.icmp6_pkt);
+    helper.setIntField(stats, "icmp6Ra", wake_reason_cnt.rx_wake_pkt_classification_info.icmp6_ra);
+    helper.setIntField(stats, "icmp6Na", wake_reason_cnt.rx_wake_pkt_classification_info.icmp6_na);
+    helper.setIntField(stats, "icmp6Ns", wake_reason_cnt.rx_wake_pkt_classification_info.icmp6_ns);
+    helper.setIntField(stats, "ipv4RxMulticast",
+            wake_reason_cnt.rx_multicast_wake_pkt_info.ipv4_rx_multicast_addr_cnt);
+    helper.setIntField(stats, "ipv6Multicast",
+            wake_reason_cnt.rx_multicast_wake_pkt_info.ipv6_rx_multicast_addr_cnt);
+    helper.setIntField(stats, "otherRxMulticast",
+            wake_reason_cnt.rx_multicast_wake_pkt_info.other_rx_multicast_addr_cnt);
+    helper.setIntArrayRegion(cmd_wake_arr, 0, wake_reason_cnt.cmd_event_wake_cnt_used,
+            wake_reason_cnt.cmd_event_wake_cnt);
+    helper.setIntArrayRegion(local_wake_arr, 0, wake_reason_cnt.driver_fw_local_wake_cnt_used,
+            wake_reason_cnt.driver_fw_local_wake_cnt);
+    helper.setObjectField(stats, "cmdEventWakeCntArray", "[I", cmd_wake_arr);
+    helper.setObjectField(stats, "driverFWLocalWakeCntArray", "[I", local_wake_arr);
+    return stats.detach();
 }
+
+static jbyteArray android_net_wifi_readKernelLog(JNIEnv *env, jclass cls) {
+    JNIHelper helper(env);
+    ALOGV("Reading kernel logs");
+
+    int size = klogctl(/* SYSLOG_ACTION_SIZE_BUFFER */ 10, 0, 0);
+    if (size < 1) {
+        ALOGD("no kernel logs");
+        return helper.newByteArray(0).detach();
+    }
+
+    char *buf = (char *)malloc(size);
+    if (buf == NULL) {
+        ALOGD("can't allocate temporary storage");
+        return helper.newByteArray(0).detach();
+    }
+
+    int read = klogctl(/* SYSLOG_ACTION_READ_ALL */ 3, buf, size);
+    if (read < 0) {
+        ALOGD("can't read logs - %d", read);
+        free(buf);
+        return helper.newByteArray(0).detach();
+    } else {
+        ALOGV("read %d bytes", read);
+    }
+
+    if (read != size) {
+        ALOGV("read %d bytes, expecting %d", read, size);
+    }
+
+    JNIObject<jbyteArray> result = helper.newByteArray(read);
+    if (result.isNull()) {
+        ALOGD("can't allocate array");
+        free(buf);
+        return result.detach();
+    }
+
+    helper.setByteArrayRegion(result, 0, read, (jbyte*)buf);
+    free(buf);
+    return result.detach();
+}
+
+static jint android_net_wifi_configure_nd_offload(JNIEnv *env, jclass cls,
+        jint iface, jboolean enable) {
+    JNIHelper helper(env);
+    return hal_fn.wifi_configure_nd_offload(
+            getIfaceHandle(helper, cls, iface),
+            static_cast<int>(enable));
+}
+
 
 // ----------------------------------------------------------------------------
 
@@ -2073,11 +2530,11 @@ static jboolean android_net_wifi_setSsidWhitelist(
 static JNINativeMethod gWifiMethods[] = {
     /* name, signature, funcPtr */
 
-    { "loadDriver", "()Z",  (void *)android_net_wifi_loadDriver },
-    { "isDriverLoaded", "()Z",  (void *)android_net_wifi_isDriverLoaded },
-    { "unloadDriver", "()Z",  (void *)android_net_wifi_unloadDriver },
-    { "startSupplicant", "(Z)Z",  (void *)android_net_wifi_startSupplicant },
-    { "killSupplicant", "(Z)Z",  (void *)android_net_wifi_killSupplicant },
+    { "loadDriverNative", "()Z",  (void *)android_net_wifi_loadDriver },
+    { "isDriverLoadedNative", "()Z",  (void *)android_net_wifi_isDriverLoaded },
+    { "unloadDriverNative", "()Z",  (void *)android_net_wifi_unloadDriver },
+    { "startSupplicantNative", "(Z)Z",  (void *)android_net_wifi_startSupplicant },
+    { "killSupplicantNative", "(Z)Z",  (void *)android_net_wifi_killSupplicant },
     { "connectToSupplicantNative", "()Z", (void *)android_net_wifi_connectToSupplicant },
     { "closeSupplicantConnectionNative", "()V",
             (void *)android_net_wifi_closeSupplicantConnection },
@@ -2115,16 +2572,26 @@ static JNINativeMethod gWifiMethods[] = {
             (void*) android_net_wifi_requestRange},
     { "cancelRangeRequestNative", "(II[Landroid/net/wifi/RttManager$RttParams;)Z",
             (void*) android_net_wifi_cancelRange},
+    { "enableRttResponderNative",
+        "(IIILcom/android/server/wifi/WifiNative$WifiChannelInfo;)Landroid/net/wifi/RttManager$ResponderConfig;",
+            (void*) android_net_wifi_enableResponder},
+    { "disableRttResponderNative", "(II)Z",
+            (void*) android_net_wifi_disableResponder},
+
     { "setScanningMacOuiNative", "(I[B)Z",  (void*) android_net_wifi_setScanningMacOui},
     { "getChannelsForBandNative", "(II)[I", (void*) android_net_wifi_getValidChannels},
     { "setDfsFlagNative",         "(IZ)Z",  (void*) android_net_wifi_setDfsFlag},
-    { "toggleInterfaceNative",    "(I)Z",  (void*) android_net_wifi_toggle_interface},
+    { "setInterfaceUpNative", "(Z)Z",  (void*) android_net_wifi_set_interface_up},
     { "getRttCapabilitiesNative", "(I)Landroid/net/wifi/RttManager$RttCapabilities;",
             (void*) android_net_wifi_get_rtt_capabilities},
+    { "getApfCapabilitiesNative", "(I)Landroid/net/apf/ApfCapabilities;",
+            (void*) android_net_wifi_get_apf_capabilities},
+    { "installPacketFilterNative", "(I[B)Z", (void*) android_net_wifi_install_packet_filter},
     {"setCountryCodeHalNative", "(ILjava/lang/String;)Z",
             (void*) android_net_wifi_set_Country_Code_Hal},
-    { "setPnoListNative", "(II[Lcom/android/server/wifi/WifiNative$WifiPnoNetwork;)Z",
+    { "setPnoListNative", "(IILcom/android/server/wifi/WifiNative$PnoSettings;)Z",
             (void*) android_net_wifi_setPnoListNative},
+    { "resetPnoListNative", "(II)Z", (void*) android_net_wifi_resetPnoListNative},
     {"enableDisableTdlsNative", "(IZLjava/lang/String;)Z",
             (void*) android_net_wifi_enable_disable_tdls},
     {"getTdlsStatusNative", "(ILjava/lang/String;)Lcom/android/server/wifi/WifiNative$TdlsStatus;",
@@ -2144,28 +2611,39 @@ static JNINativeMethod gWifiMethods[] = {
     {"getRingBufferDataNative", "(ILjava/lang/String;)Z",
             (void*) android_net_wifi_get_ring_buffer_data},
     {"getFwMemoryDumpNative","(I)Z", (void*) android_net_wifi_get_fw_memory_dump},
-    { "setLazyRoamNative", "(IIZLcom/android/server/wifi/WifiNative$WifiLazyRoamParams;)Z",
-            (void*) android_net_wifi_setLazyRoam},
+    {"getDriverStateDumpNative","(I)[B", (void*) android_net_wifi_get_driver_state_dump},
     { "setBssidBlacklistNative", "(II[Ljava/lang/String;)Z",
             (void*)android_net_wifi_setBssidBlacklist},
-    { "setSsidWhitelistNative", "(II[Ljava/lang/String;)Z",
-            (void*)android_net_wifi_setSsidWhitelist},
     {"setLoggingEventHandlerNative", "(II)Z", (void *) android_net_wifi_set_log_handler},
     {"resetLogHandlerNative", "(II)Z", (void *) android_net_wifi_reset_log_handler},
+    {"startPktFateMonitoringNative", "(I)I", (void*) android_net_wifi_start_pkt_fate_monitoring},
+    {"getTxPktFatesNative", "(I[Lcom/android/server/wifi/WifiNative$TxFateReport;)I",
+            (void*) android_net_wifi_get_tx_pkt_fates},
+    {"getRxPktFatesNative", "(I[Lcom/android/server/wifi/WifiNative$RxFateReport;)I",
+            (void*) android_net_wifi_get_rx_pkt_fates},
+    { "startSendingOffloadedPacketNative", "(II[B[B[BI)I",
+             (void*)android_net_wifi_start_sending_offloaded_packet},
+    { "stopSendingOffloadedPacketNative", "(II)I",
+             (void*)android_net_wifi_stop_sending_offloaded_packet},
+    {"startRssiMonitoringNative", "(IIBB)I",
+            (void*)android_net_wifi_start_rssi_monitoring_native},
+    {"stopRssiMonitoringNative", "(II)I",
+            (void*)android_net_wifi_stop_rssi_monitoring_native},
+    { "getWlanWakeReasonCountNative", "(I)Landroid/net/wifi/WifiWakeReasonAndCounts;",
+            (void*) android_net_wifi_get_wlan_wake_reason_count},
     {"isGetChannelsForBandSupportedNative", "()Z",
-            (void*)android_net_wifi_is_get_channels_for_band_supported}
+            (void*)android_net_wifi_is_get_channels_for_band_supported},
+    {"readKernelLogNative", "()[B", (void*)android_net_wifi_readKernelLog},
+    {"configureNeighborDiscoveryOffload", "(IZ)I", (void*)android_net_wifi_configure_nd_offload},
 };
-
-int register_android_net_wifi_WifiNative(JNIEnv* env) {
-    return AndroidRuntime::registerNativeMethods(env,
-            "com/android/server/wifi/WifiNative", gWifiMethods, NELEM(gWifiMethods));
-}
-
 
 /* User to register native functions */
 extern "C"
 jint Java_com_android_server_wifi_WifiNative_registerNatives(JNIEnv* env, jclass clazz) {
-    return AndroidRuntime::registerNativeMethods(env,
+    // initialization needed for unit test APK
+    JniConstants::init(env);
+
+    return jniRegisterNativeMethods(env,
             "com/android/server/wifi/WifiNative", gWifiMethods, NELEM(gWifiMethods));
 }
 

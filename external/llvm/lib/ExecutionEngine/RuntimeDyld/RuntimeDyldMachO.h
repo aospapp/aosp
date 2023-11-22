@@ -72,13 +72,18 @@ protected:
 
     bool IsPCRel = Obj.getAnyRelocationPCRel(RelInfo);
     unsigned Size = Obj.getAnyRelocationLength(RelInfo);
-    uint64_t Offset;
-    RI->getOffset(Offset);
+    uint64_t Offset = RI->getOffset();
     MachO::RelocationInfoType RelType =
       static_cast<MachO::RelocationInfoType>(Obj.getAnyRelocationType(RelInfo));
 
     return RelocationEntry(SectionID, Offset, RelType, 0, IsPCRel, Size);
   }
+
+  /// Process a scattered vanilla relocation.
+  relocation_iterator processScatteredVANILLA(
+                           unsigned SectionID, relocation_iterator RelI,
+                           const ObjectFile &BaseObjT,
+                           RuntimeDyldMachO::ObjSectionToIDMap &ObjSectionToID);
 
   /// Construct a RelocationValueRef representing the relocation target.
   /// For Symbols in known sections, this will return a RelocationValueRef
@@ -96,7 +101,6 @@ protected:
 
   /// Make the RelocationValueRef addend PC-relative.
   void makeValueAddendPCRel(RelocationValueRef &Value,
-                            const ObjectFile &BaseTObj,
                             const relocation_iterator &RI,
                             unsigned OffsetToNextPC);
 
@@ -142,7 +146,7 @@ private:
   Impl &impl() { return static_cast<Impl &>(*this); }
   const Impl &impl() const { return static_cast<const Impl &>(*this); }
 
-  unsigned char *processFDE(unsigned char *P, int64_t DeltaForText,
+  unsigned char *processFDE(uint8_t *P, int64_t DeltaForText,
                             int64_t DeltaForEH);
 
 public:

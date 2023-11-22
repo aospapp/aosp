@@ -9,6 +9,7 @@
 
 #include "bmpdecoderhelper.h"
 #include "SkColorPriv.h"
+#include "SkData.h"
 #include "SkImageDecoder.h"
 #include "SkScaledBitmapSampler.h"
 #include "SkStream.h"
@@ -46,9 +47,9 @@ static bool is_bmp(SkStreamRewindable* stream) {
 
 static SkImageDecoder* sk_libbmp_dfactory(SkStreamRewindable* stream) {
     if (is_bmp(stream)) {
-        return SkNEW(SkBMPImageDecoder);
+        return new SkBMPImageDecoder;
     }
-    return NULL;
+    return nullptr;
 }
 
 static SkImageDecoder_DecodeReg gReg(sk_libbmp_dfactory);
@@ -74,7 +75,7 @@ public:
         fWidth = width;
         fHeight = height;
         if (fJustBounds) {
-            return NULL;
+            return nullptr;
         }
 
         fRGB.setCount(width * height * 3);  // 3 == r, g, b
@@ -96,10 +97,13 @@ SkImageDecoder::Result SkBMPImageDecoder::onDecode(SkStream* stream, SkBitmap* b
     // First read the entire stream, so that all of the data can be passed to
     // the BmpDecoderHelper.
 
-    // Allocated space used to hold the data.
-    SkAutoMalloc storage;
+    SkAutoTUnref<SkData> data(SkCopyStreamToData(stream));
+    if (!data) {
+        return kFailure;
+    }
+
     // Byte length of all of the data.
-    const size_t length = SkCopyStreamToStorage(&storage, stream);
+    const size_t length = data->size();
     if (0 == length) {
         return kFailure;
     }
@@ -111,7 +115,7 @@ SkImageDecoder::Result SkBMPImageDecoder::onDecode(SkStream* stream, SkBitmap* b
     {
         image_codec::BmpDecoderHelper helper;
         const int max_pixels = 16383*16383; // max width*height
-        if (!helper.DecodeImage((const char*)storage.get(), length,
+        if (!helper.DecodeImage((const char*) data->data(), length,
                                 max_pixels, &callback)) {
             return kFailure;
         }
@@ -119,7 +123,7 @@ SkImageDecoder::Result SkBMPImageDecoder::onDecode(SkStream* stream, SkBitmap* b
 
     // we don't need this anymore, so free it now (before we try to allocate
     // the bitmap's pixels) rather than waiting for its destructor
-    storage.free();
+    data.reset(nullptr);
 
     int width = callback.width();
     int height = callback.height();
@@ -139,7 +143,7 @@ SkImageDecoder::Result SkBMPImageDecoder::onDecode(SkStream* stream, SkBitmap* b
         return kSuccess;
     }
 
-    if (!this->allocPixelRef(bm, NULL)) {
+    if (!this->allocPixelRef(bm, nullptr)) {
         return kFailure;
     }
 

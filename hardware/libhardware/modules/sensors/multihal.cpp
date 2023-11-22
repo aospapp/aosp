@@ -27,6 +27,8 @@
 #include <cutils/log.h>
 
 #include <vector>
+#include <string>
+#include <fstream>
 #include <map>
 #include <string>
 
@@ -34,10 +36,10 @@
 #include <dlfcn.h>
 #include <SensorEventQueue.h>
 
+#include <limits.h>
+#include <stdlib.h>
 
 static const char* CONFIG_FILENAME = "/system/etc/sensors/hals.conf";
-static const char* LEGAL_SUBHAL_PATH_PREFIX = "/system/lib/hw/";
-static const char* LEGAL_SUBHAL_ALTERNATE_PATH_PREFIX = "/system/vendor/lib/";
 static const int MAX_CONF_LINE_LENGTH = 1024;
 
 static pthread_mutex_t init_modules_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -127,7 +129,7 @@ static int get_global_handle(FullHandle* full_handle) {
     return global_handle;
 }
 
-static const int SENSOR_EVENT_QUEUE_CAPACITY = 20;
+static const int SENSOR_EVENT_QUEUE_CAPACITY = 36;
 
 struct TaskContext {
   sensors_poll_device_t* device;
@@ -226,7 +228,7 @@ void sensors_poll_context_t::addSubHwDevice(struct hw_device_t* sub_hw_device) {
 // Returns the device pointer, or NULL if the global handle is invalid.
 sensors_poll_device_t* sensors_poll_context_t::get_v0_device_by_handle(int global_handle) {
     int sub_index = get_module_index(global_handle);
-    if (sub_index < 0 || sub_index >= this->sub_hw_devices.size()) {
+    if (sub_index < 0 || sub_index >= (int) this->sub_hw_devices.size()) {
         return NULL;
     }
     return (sensors_poll_device_t*) this->sub_hw_devices[sub_index];
@@ -235,7 +237,7 @@ sensors_poll_device_t* sensors_poll_context_t::get_v0_device_by_handle(int globa
 // Returns the device pointer, or NULL if the global handle is invalid.
 sensors_poll_device_1_t* sensors_poll_context_t::get_v1_device_by_handle(int global_handle) {
     int sub_index = get_module_index(global_handle);
-    if (sub_index < 0 || sub_index >= this->sub_hw_devices.size()) {
+    if (sub_index < 0 || sub_index >= (int) this->sub_hw_devices.size()) {
         return NULL;
     }
     return (sensors_poll_device_1_t*) this->sub_hw_devices[sub_index];
@@ -463,39 +465,19 @@ static bool starts_with(const char* s, const char* prefix) {
  * Adds valid paths from the config file to the vector passed in.
  * The vector must not be null.
  */
-static void get_so_paths(std::vector<char*> *so_paths) {
-    FILE *conf_file = fopen(CONFIG_FILENAME, "r");
-    if (conf_file == NULL) {
+static void get_so_paths(std::vector<std::string> *so_paths) {
+    std::string line;
+    std::ifstream conf_file(CONFIG_FILENAME);
+
+    if(!conf_file) {
         ALOGW("No multihal config file found at %s", CONFIG_FILENAME);
         return;
     }
     ALOGV("Multihal config file found at %s", CONFIG_FILENAME);
-    char *line = NULL;
-    size_t len = 0;
-    int line_count = 0;
-    while (getline(&line, &len, conf_file) != -1) {
-        // overwrite trailing eoln with null char
-        char* pch = strchr(line, '\n');
-        if (pch != NULL) {
-            *pch = '\0';
-        }
-        ALOGV("config file line #%d: '%s'", ++line_count, line);
-        char *real_path = realpath(line, NULL);
-        if (starts_with(real_path, LEGAL_SUBHAL_PATH_PREFIX) ||
-		starts_with(real_path, LEGAL_SUBHAL_ALTERNATE_PATH_PREFIX)) {
-            ALOGV("accepting valid path '%s'", real_path);
-            char* compact_line = new char[strlen(real_path) + 1];
-            strcpy(compact_line, real_path);
-            so_paths->push_back(compact_line);
-        } else {
-            ALOGW("rejecting path '%s' because it does not start with '%s' or '%s'",
-                    real_path, LEGAL_SUBHAL_PATH_PREFIX, LEGAL_SUBHAL_ALTERNATE_PATH_PREFIX);
-        }
-        free(real_path);
+    while (std::getline(conf_file, line)) {
+        ALOGV("config file line: '%s'", line.c_str());
+        so_paths->push_back(line);
     }
-    free(line);
-    fclose(conf_file);
-    ALOGV("hals.conf contained %d lines", line_count);
 }
 
 /*
@@ -508,15 +490,15 @@ static void lazy_init_modules() {
         pthread_mutex_unlock(&init_modules_mutex);
         return;
     }
-    std::vector<char*> *so_paths = new std::vector<char*>();
+    std::vector<std::string> *so_paths = new std::vector<std::string>();
     get_so_paths(so_paths);
 
     // dlopen the module files and cache their module symbols in sub_hw_modules
     sub_hw_modules = new std::vector<hw_module_t *>();
     dlerror(); // clear any old errors
     const char* sym = HAL_MODULE_INFO_SYM_AS_STR;
-    for (std::vector<char*>::iterator it = so_paths->begin(); it != so_paths->end(); it++) {
-        char* path = *it;
+    for (std::vector<std::string>::iterator it = so_paths->begin(); it != so_paths->end(); it++) {
+        const char* path = it->c_str();
         void* lib_handle = dlopen(path, RTLD_LAZY);
         if (lib_handle == NULL) {
             ALOGW("dlerror(): %s", dlerror());
@@ -623,22 +605,22 @@ static int module__get_sensors_list(__unused struct sensors_module_t* module,
 }
 
 static struct hw_module_methods_t sensors_module_methods = {
-    open : open_sensors
+    .open = open_sensors
 };
 
 struct sensors_module_t HAL_MODULE_INFO_SYM = {
-    common :{
-        tag : HARDWARE_MODULE_TAG,
-        version_major : 1,
-        version_minor : 1,
-        id : SENSORS_HARDWARE_MODULE_ID,
-        name : "MultiHal Sensor Module",
-        author : "Google, Inc",
-        methods : &sensors_module_methods,
-        dso : NULL,
-        reserved : {0},
+    .common = {
+        .tag = HARDWARE_MODULE_TAG,
+        .version_major = 1,
+        .version_minor = 1,
+        .id = SENSORS_HARDWARE_MODULE_ID,
+        .name = "MultiHal Sensor Module",
+        .author = "Google, Inc",
+        .methods = &sensors_module_methods,
+        .dso = NULL,
+        .reserved = {0},
     },
-    get_sensors_list : module__get_sensors_list
+    .get_sensors_list = module__get_sensors_list
 };
 
 static int open_sensors(const struct hw_module_t* hw_module, const char* name,

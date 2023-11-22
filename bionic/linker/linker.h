@@ -29,13 +29,15 @@
 #ifndef _LINKER_H_
 #define _LINKER_H_
 
+#include <dlfcn.h>
+#include <android/dlext.h>
 #include <elf.h>
 #include <inttypes.h>
 #include <link.h>
-#include <unistd.h>
-#include <android/dlext.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
+#include "private/bionic_page.h"
 #include "private/libc_logging.h"
 #include "linked_list.h"
 
@@ -77,27 +79,19 @@
 #define ELF64_R_TYPE(info)  (((info) >> 56) & 0xff)
 #endif
 
-// Returns the address of the page containing address 'x'.
-#define PAGE_START(x)  ((x) & PAGE_MASK)
-
-// Returns the offset of address 'x' in its page.
-#define PAGE_OFFSET(x) ((x) & ~PAGE_MASK)
-
-// Returns the address of the next page after address 'x', unless 'x' is
-// itself at the start of a page.
-#define PAGE_END(x)    PAGE_START((x) + (PAGE_SIZE-1))
-
-#define FLAG_LINKED     0x00000001
-#define FLAG_EXE        0x00000004 // The main executable
-#define FLAG_LINKER     0x00000010 // The linker itself
-#define FLAG_GNU_HASH   0x00000040 // uses gnu hash
-#define FLAG_NEW_SOINFO 0x40000000 // new soinfo format
+#define FLAG_LINKED           0x00000001
+#define FLAG_EXE              0x00000004 // The main executable
+#define FLAG_LINKER           0x00000010 // The linker itself
+#define FLAG_GNU_HASH         0x00000040 // uses gnu hash
+#define FLAG_MAPPED_BY_CALLER 0x00000080 // the map is reserved by the caller
+                                         // and should not be unmapped
+#define FLAG_NEW_SOINFO       0x40000000 // new soinfo format
 
 #define SUPPORTED_DT_FLAGS_1 (DF_1_NOW | DF_1_GLOBAL | DF_1_NODELETE)
 
-#define SOINFO_VERSION 2
+#define SOINFO_VERSION 3
 
-#if defined(__work_around_b_19059885__)
+#if defined(__work_around_b_24465209__)
 #define SOINFO_NAME_LEN 128
 #endif
 
@@ -118,6 +112,16 @@ class SoinfoListAllocator {
  private:
   // unconstructable
   DISALLOW_IMPLICIT_CONSTRUCTORS(SoinfoListAllocator);
+};
+
+class NamespaceListAllocator {
+ public:
+  static LinkedListEntry<android_namespace_t>* alloc();
+  static void free(LinkedListEntry<android_namespace_t>* entry);
+
+ private:
+  // unconstructable
+  DISALLOW_IMPLICIT_CONSTRUCTORS(NamespaceListAllocator);
 };
 
 class SymbolName {
@@ -144,7 +148,7 @@ class SymbolName {
 };
 
 struct version_info {
-  version_info() : elf_hash(0), name(nullptr), target_si(nullptr) {}
+  constexpr version_info() : elf_hash(0), name(nullptr), target_si(nullptr) {}
 
   uint32_t elf_hash;
   const char* name;
@@ -172,7 +176,8 @@ class VersionTracker {
 struct soinfo {
  public:
   typedef LinkedList<soinfo, SoinfoListAllocator> soinfo_list_t;
-#if defined(__work_around_b_19059885__)
+  typedef LinkedList<android_namespace_t, NamespaceListAllocator> android_namespace_list_t;
+#if defined(__work_around_b_24465209__)
  private:
   char old_name_[SOINFO_NAME_LEN];
 #endif
@@ -183,13 +188,13 @@ struct soinfo {
   ElfW(Addr) base;
   size_t size;
 
-#if defined(__work_around_b_19059885__)
+#if defined(__work_around_b_24465209__)
   uint32_t unused1;  // DO NOT USE, maintained for compatibility.
 #endif
 
   ElfW(Dyn)* dynamic;
 
-#if defined(__work_around_b_19059885__)
+#if defined(__work_around_b_24465209__)
   uint32_t unused2; // DO NOT USE, maintained for compatibility
   uint32_t unused3; // DO NOT USE, maintained for compatibility
 #endif
@@ -250,7 +255,9 @@ struct soinfo {
   bool mips_relocate_got(const VersionTracker& version_tracker,
                          const soinfo_list_t& global_group,
                          const soinfo_list_t& local_group);
-
+#if !defined(__LP64__)
+  bool mips_check_and_adjust_fp_modes();
+#endif
 #endif
   size_t ref_count_;
  public:
@@ -268,7 +275,9 @@ struct soinfo {
   bool has_DT_SYMBOLIC;
 
  public:
-  soinfo(const char* name, const struct stat* file_stat, off64_t file_offset, int rtld_flags);
+  soinfo(android_namespace_t* ns, const char* name, const struct stat* file_stat,
+         off64_t file_offset, int rtld_flags);
+  ~soinfo();
 
   void call_constructors();
   void call_destructors();
@@ -276,6 +285,7 @@ struct soinfo {
   bool prelink_image();
   bool link_image(const soinfo_list_t& global_group, const soinfo_list_t& local_group,
                   const android_dlextinfo* extinfo);
+  bool protect_relro();
 
   void add_child(soinfo* child);
   void remove_all_links();
@@ -305,7 +315,7 @@ struct soinfo {
   bool is_gnu_hash() const;
 
   bool inline has_min_version(uint32_t min_version __unused) const {
-#if defined(__work_around_b_19059885__)
+#if defined(__work_around_b_24465209__)
     return (flags_ & FLAG_NEW_SOINFO) != 0 && version_ >= min_version;
 #else
     return true;
@@ -313,17 +323,20 @@ struct soinfo {
   }
 
   bool is_linked() const;
+  bool is_linker() const;
   bool is_main_executable() const;
 
   void set_linked();
   void set_linker_flag();
   void set_main_executable();
+  void set_nodelete();
 
   void increment_ref_count();
   size_t decrement_ref_count();
 
   soinfo* get_local_group_root() const;
 
+  void set_soname(const char* soname);
   const char* get_soname() const;
   const char* get_realpath() const;
   const ElfW(Versym)* get_versym(size_t n) const;
@@ -335,6 +348,18 @@ struct soinfo {
   bool find_verdef_version_index(const version_info* vi, ElfW(Versym)* versym) const;
 
   uint32_t get_target_sdk_version() const;
+
+  void set_dt_runpath(const char *);
+  const std::vector<std::string>& get_dt_runpath() const;
+  android_namespace_t* get_primary_namespace();
+  void add_secondary_namespace(android_namespace_t* secondary_ns);
+
+  void set_mapped_by_caller(bool reserved_map);
+  bool is_mapped_by_caller() const;
+
+  uintptr_t get_handle() const;
+  void generate_handle();
+  void* to_handle();
 
  private:
   bool elf_lookup(SymbolName& symbol_name, const version_info* vi, uint32_t* symbol_index) const;
@@ -397,6 +422,12 @@ struct soinfo {
 
   uint32_t target_sdk_version_;
 
+  // version >= 3
+  std::vector<std::string> dt_runpath_;
+  android_namespace_t* primary_namespace_;
+  android_namespace_list_t secondary_namespaces_;
+  uintptr_t handle_;
+
   friend soinfo* get_libdl_info();
 };
 
@@ -418,24 +449,58 @@ soinfo* get_libdl_info();
 
 void do_android_get_LD_LIBRARY_PATH(char*, size_t);
 void do_android_update_LD_LIBRARY_PATH(const char* ld_library_path);
-soinfo* do_dlopen(const char* name, int flags, const android_dlextinfo* extinfo);
-void do_dlclose(soinfo* si);
+void* do_dlopen(const char* name, int flags, const android_dlextinfo* extinfo, void* caller_addr);
+int do_dlclose(void* handle);
 
 int do_dl_iterate_phdr(int (*cb)(dl_phdr_info* info, size_t size, void* data), void* data);
 
-const ElfW(Sym)* dlsym_linear_lookup(const char* name, soinfo** found, soinfo* caller, void* handle);
-soinfo* find_containing_library(const void* addr);
+bool do_dlsym(void* handle, const char* sym_name, const char* sym_ver,
+              void* caller_addr, void** symbol);
 
-const ElfW(Sym)* dlsym_handle_lookup(soinfo* si, soinfo** found, const char* name);
+int do_dladdr(const void* addr, Dl_info* info);
 
 void debuggerd_init();
 extern "C" abort_msg_t* g_abort_message;
-extern "C" void notify_gdb_of_libraries();
 
 char* linker_get_error_buffer();
 size_t linker_get_error_buffer_size();
 
 void set_application_target_sdk_version(uint32_t target);
 uint32_t get_application_target_sdk_version();
+
+enum {
+  /* A regular namespace is the namespace with a custom search path that does
+   * not impose any restrictions on the location of native libraries.
+   */
+  ANDROID_NAMESPACE_TYPE_REGULAR = 0,
+
+  /* An isolated namespace requires all the libraries to be on the search path
+   * or under permitted_when_isolated_path. The search path is the union of
+   * ld_library_path and default_library_path.
+   */
+  ANDROID_NAMESPACE_TYPE_ISOLATED = 1,
+
+  /* The shared namespace clones the list of libraries of the caller namespace upon creation
+   * which means that they are shared between namespaces - the caller namespace and the new one
+   * will use the same copy of a library if it was loaded prior to android_create_namespace call.
+   *
+   * Note that libraries loaded after the namespace is created will not be shared.
+   *
+   * Shared namespaces can be isolated or regular. Note that they do not inherit the search path nor
+   * permitted_path from the caller's namespace.
+   */
+  ANDROID_NAMESPACE_TYPE_SHARED = 2,
+  ANDROID_NAMESPACE_TYPE_SHARED_ISOLATED = ANDROID_NAMESPACE_TYPE_SHARED |
+                                           ANDROID_NAMESPACE_TYPE_ISOLATED,
+};
+
+bool init_namespaces(const char* public_ns_sonames, const char* anon_ns_library_path);
+android_namespace_t* create_namespace(const void* caller_addr,
+                                      const char* name,
+                                      const char* ld_library_path,
+                                      const char* default_library_path,
+                                      uint64_t type,
+                                      const char* permitted_when_isolated_path,
+                                      android_namespace_t* parent_namespace);
 
 #endif

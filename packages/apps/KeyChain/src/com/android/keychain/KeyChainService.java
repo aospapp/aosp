@@ -72,6 +72,8 @@ public class KeyChainService extends IntentService {
 
     private static final String SELECTION_GRANTS_BY_UID = GRANTS_GRANTEE_UID + "=?";
 
+    private static final String SELECTION_GRANTS_BY_ALIAS = GRANTS_ALIAS + "=?";
+
     public KeyChainService() {
         super(KeyChainService.class.getSimpleName());
     }
@@ -118,6 +120,11 @@ public class KeyChainService extends IntentService {
             return mKeyStore.get(Credentials.USER_CERTIFICATE + alias);
         }
 
+        @Override public byte[] getCaCertificates(String alias) {
+            checkArgs(alias);
+            return mKeyStore.get(Credentials.CA_CERTIFICATE + alias);
+        }
+
         private void checkArgs(String alias) {
             if (alias == null) {
                 throw new NullPointerException("alias == null");
@@ -149,9 +156,26 @@ public class KeyChainService extends IntentService {
             broadcastStorageChange();
         }
 
+        /**
+         * Install a key pair to the keystore.
+         *
+         * @param privateKey The private key associated with the client certificate
+         * @param userCertificate The client certificate to be installed
+         * @param userCertificateChain The rest of the chain for the client certificate
+         * @param alias The alias under which the key pair is installed
+         * @return Whether the operation succeeded or not.
+         */
         @Override public boolean installKeyPair(byte[] privateKey, byte[] userCertificate,
-                String alias) {
+                byte[] userCertificateChain, String alias) {
             checkCertInstallerOrSystemCaller();
+            if (!mKeyStore.isUnlocked()) {
+                Log.e(TAG, "Keystore is " + mKeyStore.state().toString() + ". Credentials cannot"
+                        + " be installed until device is unlocked");
+                return false;
+            }
+            if (!removeKeyPair(alias)) {
+                return false;
+            }
             if (!mKeyStore.importKey(Credentials.USER_PRIVATE_KEY + alias, privateKey, -1,
                     KeyStore.FLAG_ENCRYPTED)) {
                 Log.e(TAG, "Failed to import private key " + alias);
@@ -165,6 +189,27 @@ public class KeyChainService extends IntentService {
                 }
                 return false;
             }
+            if (userCertificateChain != null && userCertificateChain.length > 0) {
+                if (!mKeyStore.put(Credentials.CA_CERTIFICATE + alias, userCertificateChain, -1,
+                        KeyStore.FLAG_ENCRYPTED)) {
+                    Log.e(TAG, "Failed to import certificate chain" + userCertificateChain);
+                    if (!removeKeyPair(alias)) {
+                        Log.e(TAG, "Failed to clean up key chain after certificate chain"
+                                + " importing failed");
+                    }
+                    return false;
+                }
+            }
+            broadcastStorageChange();
+            return true;
+        }
+
+        @Override public boolean removeKeyPair(String alias) {
+            checkCertInstallerOrSystemCaller();
+            if (!Credentials.deleteAllTypesForAlias(mKeyStore, alias)) {
+                return false;
+            }
+            removeGrantsForAlias(alias);
             broadcastStorageChange();
             return true;
         }
@@ -353,6 +398,11 @@ public class KeyChainService extends IntentService {
             db.delete(TABLE_GRANTS, SELECT_GRANTS_BY_UID_AND_ALIAS,
                     new String[]{String.valueOf(uid), alias});
         }
+    }
+
+    private void removeGrantsForAlias(String alias) {
+        final SQLiteDatabase db = mDatabaseHelper.getWritableDatabase();
+        db.delete(TABLE_GRANTS, SELECTION_GRANTS_BY_ALIAS, new String[] {alias});
     }
 
     private void removeAllGrants(final SQLiteDatabase db) {

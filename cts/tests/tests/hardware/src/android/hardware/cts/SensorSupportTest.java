@@ -23,26 +23,30 @@ import android.hardware.SensorManager;
 import android.test.AndroidTestCase;
 
 /**
- * Checks if Hifi sensors are supported. When supported, checks individual support for
- * Accelerometer, Gyroscope, Gyroscope_uncal, GeoMagneticField, MagneticField_uncal
- * Pressure, RotationVector, SignificantMotion, StepDetector, StepCounter, TiltDetector.
+ * Checks if Hifi sensors  or VR High performance mode sensors
+ * are supported. When supported, checks individual support for
+ * Accelerometer, Gyroscope, Gyroscope_uncal, GeoMagneticField,
+ * MagneticField_uncal Pressure, RotationVector,
+ * SignificantMotion, StepDetector, StepCounter, TiltDetector.
  *
  * <p>To execute these test cases, the following command can be used:</p>
  * <pre>
  * adb shell am instrument -e class android.hardware.cts.SensorSupportTest \
- *     -w com.android.cts.hardware/android.test.AndroidJUnitRunner
+ *     -w android.hardware.cts/android.test.AndroidJUnitRunner
  * </pre>
  */
 public class SensorSupportTest extends AndroidTestCase {
     private SensorManager mSensorManager;
     private boolean mAreHifiSensorsSupported;
+    private boolean mVrHighPerformanceModeSupported;
 
     @Override
     public void setUp() {
-        // Tests will only run if HIFI_SENSORS are supported.
-        mAreHifiSensorsSupported = getContext().getPackageManager().hasSystemFeature(
-                PackageManager.FEATURE_HIFI_SENSORS);
-        if (mAreHifiSensorsSupported) {
+        PackageManager pm = getContext().getPackageManager();
+        // Tests will only run if either HIFI_SENSORS or VR high performance mode is supported.
+        mAreHifiSensorsSupported = pm.hasSystemFeature(PackageManager.FEATURE_HIFI_SENSORS);
+        mVrHighPerformanceModeSupported = pm.hasSystemFeature(PackageManager.FEATURE_VR_MODE_HIGH_PERFORMANCE);
+        if (mAreHifiSensorsSupported || mVrHighPerformanceModeSupported) {
             mSensorManager =
                     (SensorManager) getContext().getSystemService(Context.SENSOR_SERVICE);
         }
@@ -61,7 +65,7 @@ public class SensorSupportTest extends AndroidTestCase {
     }
 
     public void testSupportsGeoMagneticField() {
-        checkSupportsSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR);
+        checkSupportsSensor(Sensor.TYPE_MAGNETIC_FIELD);
     }
 
     public void testSupportsMagneticFieldUncalibrated() {
@@ -93,8 +97,20 @@ public class SensorSupportTest extends AndroidTestCase {
         checkSupportsSensor(TYPE_TILT_DETECTOR);
     }
 
+    private boolean sensorRequiredForVrHighPerformanceMode(int sensorType) {
+        if (sensorType == Sensor.TYPE_MAGNETIC_FIELD ||
+            sensorType == Sensor.TYPE_GYROSCOPE ||
+            sensorType == Sensor.TYPE_ACCELEROMETER) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     private void checkSupportsSensor(int sensorType) {
-        if (mAreHifiSensorsSupported) {
+        if (mAreHifiSensorsSupported ||
+            (mVrHighPerformanceModeSupported &&
+             sensorRequiredForVrHighPerformanceMode(sensorType))) {
             assertTrue(mSensorManager.getDefaultSensor(sensorType) != null);
         }
     }

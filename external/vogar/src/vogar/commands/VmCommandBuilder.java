@@ -27,6 +27,9 @@ import java.util.List;
 import java.util.Map;
 import vogar.Classpath;
 import vogar.Log;
+import vogar.Target;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Builds a virtual machine command.
@@ -45,6 +48,7 @@ public final class VmCommandBuilder {
     private List<String> vmCommand = Collections.singletonList("java");
     private List<String> vmArgs = new ArrayList<String>();
     private List<String> args = new ArrayList<String>();
+    private File workingDirectory;
     private Map<String, String> env = new LinkedHashMap<String, String>();
 
     public VmCommandBuilder(Log log) {
@@ -53,6 +57,14 @@ public final class VmCommandBuilder {
 
     public VmCommandBuilder vmCommand(List<String> vmCommand) {
         this.vmCommand = new ArrayList<String>(vmCommand);
+        return this;
+    }
+
+    /**
+     * Set the working directory of the target process.
+     */
+    public VmCommandBuilder workingDirectory(File workingDirectory) {
+        this.workingDirectory = workingDirectory;
         return this;
     }
 
@@ -85,8 +97,11 @@ public final class VmCommandBuilder {
         return this;
     }
 
+    /**
+     * Add a setting for an environment variable in the target process.
+     */
     public VmCommandBuilder env(String key, String value) {
-        this.env.put(key, value);
+        env.put(key, value);
         return this;
     }
 
@@ -128,42 +143,50 @@ public final class VmCommandBuilder {
         return this;
     }
 
-    public Command build() {
-        Command.Builder builder = new Command.Builder(log);
+    public Command build(Target target) {
+        // Make sure that the main class to run has been specified.
+        checkNotNull(mainClass, "mainClass may not be null");
 
-        for (Map.Entry<String, String> entry : env.entrySet()) {
-            builder.env(entry.getKey(), entry.getValue());
+        Target.ScriptBuilder builder = target.newScriptBuilder();
+
+        if (workingDirectory != null) {
+            builder.workingDirectory(workingDirectory);
         }
 
-        builder.args(vmCommand);
+        builder.env(env);
+
+        builder.tokens(vmCommand);
         if (classpathViaProperty) {
-            builder.args("-Djava.class.path=" + classpath);
+            builder.tokens("-Djava.class.path=" + classpath);
         } else {
-            builder.args("-classpath", classpath.toString());
+            builder.tokens("-classpath", classpath.toString());
         }
         // Only output this if there's something on the boot classpath,
         // otherwise dalvikvm gets upset.
         if (!bootClasspath.isEmpty()) {
-            builder.args("-Xbootclasspath/a:" + bootClasspath);
+            builder.tokens("-Xbootclasspath/a:" + bootClasspath);
         }
         if (userDir != null) {
-            builder.args("-Duser.dir=" + userDir);
+            builder.tokens("-Duser.dir=" + userDir);
         }
 
         if (temp != null) {
-            builder.args("-Djava.io.tmpdir=" + temp);
+            builder.tokens("-Djava.io.tmpdir=" + temp);
         }
 
         if (debugPort != null) {
-            builder.args("-Xrunjdwp:transport=dt_socket,address="
+            builder.tokens("-Xrunjdwp:transport=dt_socket,address="
                     + debugPort + ",server=y,suspend=y");
         }
 
-        builder.args(vmArgs);
-        builder.args(mainClass);
-        builder.args(args);
-        builder.tee(output);
-        builder.maxLength(maxLength);
-        return builder.build();
+        builder.tokens(vmArgs);
+        builder.tokens(mainClass);
+        builder.tokens(args);
+
+        return new Command.Builder(log)
+                .args(builder.commandLine())
+                .tee(output)
+                .maxLength(maxLength)
+                .build();
     }
 }

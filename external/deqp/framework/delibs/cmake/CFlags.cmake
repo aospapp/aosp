@@ -43,12 +43,16 @@ if (DE_COMPILER_IS_GCC OR DE_COMPILER_IS_CLANG)
 	set(DE_3RD_PARTY_C_FLAGS	"${CMAKE_C_FLAGS} ${TARGET_FLAGS} -w")
 	set(DE_3RD_PARTY_CXX_FLAGS	"${CMAKE_CXX_FLAGS} ${TARGET_FLAGS} -w")
 
-	# \note Add -Wconversion for more warnings
-	set(WARNING_FLAGS			"-Wall -Wextra -Wno-long-long -Wshadow -Wundef")
+	# \note Remove -Wno-sign-conversion for more warnings
+	set(WARNING_FLAGS			"-Wall -Wextra -Wno-long-long -Wshadow -Wundef -Wconversion -Wno-sign-conversion")
 
 	set(CMAKE_C_FLAGS			"${CMAKE_C_FLAGS} ${TARGET_FLAGS} ${WARNING_FLAGS} -ansi -pedantic ")
 	set(CMAKE_CXX_FLAGS			"${CMAKE_CXX_FLAGS} ${TARGET_FLAGS} ${WARNING_FLAGS}")
 
+	# Force compiler to generate code where integers have well defined overflow
+	# Turn on -Wstrict-overflow=5 and check all warnings before removing
+	set(CMAKE_C_FLAGS			"${CMAKE_C_FLAGS} -fwrapv")
+	set(CMAKE_CXX_FLAGS			"${CMAKE_CXX_FLAGS} -fwrapv")
 elseif (DE_COMPILER_IS_MSC)
 	# Compiler flags for msc
 

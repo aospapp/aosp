@@ -75,7 +75,6 @@ LOCAL_STATIC_LIBRARIES := \
   libLLVMBitWriter \
   libLLVMSelectionDAG \
   libLLVMipo \
-  libLLVMipa \
   libLLVMInstCombine \
   libLLVMInstrumentation \
   libLLVMCodeGen \
@@ -97,19 +96,21 @@ LOCAL_STATIC_LIBRARIES := \
   libLLVMSupport
 
 LOCAL_LDLIBS += -lm
-ifdef USE_MINGW
-LOCAL_LDLIBS += -limagehlp
-else
-LOCAL_LDLIBS += -lpthread -ldl
-endif
+LOCAL_LDLIBS_windows := -limagehlp
+LOCAL_LDLIBS_darwin := -lpthread -ldl
+LOCAL_LDLIBS_linux := -lpthread -ldl
 
 # remove when we can use PIE binaries in all places again
 LOCAL_NO_FPIE := true
 
 # Create symlink clang++ pointing to clang.
 # Use "=" (instead of ":=") to defer the evaluation.
-LOCAL_POST_INSTALL_CMD = $(hide) ln -sf clang $(dir $(LOCAL_INSTALLED_MODULE))clang++
+LOCAL_POST_INSTALL_CMD = \
+  $(hide) ln -sf clang$(LOCAL_MODULE_SUFFIX) \
+  $(dir $(LOCAL_INSTALLED_MODULE))clang++$(LOCAL_MODULE_SUFFIX)
 
 include $(CLANG_HOST_BUILD_MK)
 include $(CLANG_TBLGEN_RULES_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
+include $(LLVM_GEN_INTRINSICS_MK)
 include $(BUILD_HOST_EXECUTABLE)

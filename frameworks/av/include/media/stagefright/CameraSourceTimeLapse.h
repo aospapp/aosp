@@ -26,18 +26,22 @@
 
 namespace android {
 
+namespace hardware {
 class ICamera;
+}
+
 class IMemory;
 class Camera;
 
 class CameraSourceTimeLapse : public CameraSource {
 public:
     static CameraSourceTimeLapse *CreateFromCamera(
-        const sp<ICamera> &camera,
+        const sp<hardware::ICamera> &camera,
         const sp<ICameraRecordingProxy> &proxy,
         int32_t cameraId,
         const String16& clientName,
         uid_t clientUid,
+        pid_t clientPid,
         Size videoSize,
         int32_t videoFrameRate,
         const sp<IGraphicBufferProducer>& surface,
@@ -109,11 +113,12 @@ private:
     status_t mLastReadStatus;
 
     CameraSourceTimeLapse(
-        const sp<ICamera> &camera,
+        const sp<hardware::ICamera> &camera,
         const sp<ICameraRecordingProxy> &proxy,
         int32_t cameraId,
         const String16& clientName,
         uid_t clientUid,
+        pid_t clientPid,
         Size videoSize,
         int32_t videoFrameRate,
         const sp<IGraphicBufferProducer>& surface,
@@ -135,8 +140,22 @@ private:
     // In the video camera case calls skipFrameAndModifyTimeStamp() to modify
     // timestamp and set mSkipCurrentFrame.
     // Then it calls the base CameraSource::dataCallbackTimestamp()
+    // This will be called in VIDEO_BUFFER_MODE_DATA_CALLBACK_YUV and
+    // VIDEO_BUFFER_MODE_DATA_CALLBACK_METADATA mode.
     virtual void dataCallbackTimestamp(int64_t timestampUs, int32_t msgType,
             const sp<IMemory> &data);
+
+    // In the video camera case calls skipFrameAndModifyTimeStamp() to modify
+    // timestamp and set mSkipCurrentFrame.
+    // Then it calls the base CameraSource::recordingFrameHandleCallbackTimestamp()
+    // This will be called in VIDEO_BUFFER_MODE_DATA_CALLBACK_METADATA mode when
+    // the metadata is VideoNativeHandleMetadata.
+    virtual void recordingFrameHandleCallbackTimestamp(int64_t timestampUs,
+            native_handle_t* handle);
+
+    // Process a buffer item received in CameraSource::BufferQueueListener.
+    // This will be called in VIDEO_BUFFER_MODE_BUFFER_QUEUE mode.
+    virtual void processBufferQueueFrame(BufferItem& buffer);
 
     // Convenience function to fill mLastReadBufferCopy from the just read
     // buffer.

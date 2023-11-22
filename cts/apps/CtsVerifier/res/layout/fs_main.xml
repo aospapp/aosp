@@ -13,11 +13,11 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<android.support.wearable.view.BoxInsetLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.android.cts.verifier.BoxInsetLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
-    <LinearLayout app:layout_box="all"
+    <LinearLayout app:ctsv_layout_box="all"
              android:orientation="vertical"
              android:layout_width="match_parent"
              android:layout_height="match_parent">
@@ -30,17 +30,15 @@
          <ListView android:id="@id/android:list"
                    android:layout_width="match_parent"
                    android:layout_height="match_parent"
-                   android:background="#000000"
                    android:layout_weight="1"
                    android:drawSelectorOnTop="false"/>
 
          <TextView android:id="@id/android:empty"
                    android:layout_width="match_parent"
                    android:layout_height="match_parent"
-                   android:background="#000000"
                    android:text="@string/fs_no_data"/>
 
         <include layout="@layout/pass_fail_buttons" />
 
     </LinearLayout>
-</android.support.wearable.view.BoxInsetLayout>
+</com.android.cts.verifier.BoxInsetLayout>

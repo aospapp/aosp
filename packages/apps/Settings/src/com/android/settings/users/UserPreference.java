@@ -16,19 +16,26 @@
 
 package com.android.settings.users;
 
-import com.android.settings.R;
-
 import android.content.Context;
+import android.graphics.drawable.Drawable;
 import android.os.UserHandle;
 import android.os.UserManager;
-import android.preference.Preference;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.PreferenceViewHolder;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.widget.ImageView;
+
+import com.android.settings.R;
+import com.android.settingslib.RestrictedLockUtils;
+import com.android.settingslib.RestrictedPreference;
 
 import java.util.Comparator;
 
-public class UserPreference extends Preference {
+public class UserPreference extends RestrictedPreference {
+    private static final int ALPHA_ENABLED = 255;
+    private static final int ALPHA_DISABLED = 102;
 
     public static final int USERID_UNKNOWN = -10;
     public static final int USERID_GUEST_DEFAULTS = -11;
@@ -63,43 +70,63 @@ public class UserPreference extends Preference {
             OnClickListener deleteListener) {
         super(context, attrs);
         if (deleteListener != null || settingsListener != null) {
-            setWidgetLayoutResource(R.layout.preference_user_delete_widget);
+            setWidgetLayoutResource(R.layout.restricted_preference_user_delete_widget);
         }
         mDeleteClickListener = deleteListener;
         mSettingsClickListener = settingsListener;
         mUserId = userId;
+        useAdminDisabledSummary(true);
+    }
+
+    private void dimIcon(boolean dimmed) {
+        Drawable icon = getIcon();
+        if (icon != null) {
+            icon.mutate().setAlpha(dimmed ? ALPHA_DISABLED : ALPHA_ENABLED);
+            setIcon(icon);
+        }
     }
 
     @Override
-    protected void onBindView(View view) {
-        UserManager um = (UserManager) getContext().getSystemService(Context.USER_SERVICE);
-        View deleteDividerView = view.findViewById(R.id.divider_delete);
-        View manageDividerView = view.findViewById(R.id.divider_manage);
-        View deleteView = view.findViewById(R.id.trash_user);
-        if (deleteView != null) {
-            if (mDeleteClickListener != null
-                    && !um.hasUserRestriction(UserManager.DISALLOW_REMOVE_USER)) {
-                deleteView.setOnClickListener(mDeleteClickListener);
-                deleteView.setTag(this);
-            } else {
-                deleteView.setVisibility(View.GONE);
-                deleteDividerView.setVisibility(View.GONE);
-            }
+    public void onBindViewHolder(PreferenceViewHolder view) {
+        super.onBindViewHolder(view);
+        final boolean disabledByAdmin = isDisabledByAdmin();
+        dimIcon(disabledByAdmin);
+        View userDeleteWidget = view.findViewById(R.id.user_delete_widget);
+        if (userDeleteWidget != null) {
+            userDeleteWidget.setVisibility(disabledByAdmin ? View.GONE : View.VISIBLE);
         }
-        View manageView = view.findViewById(R.id.manage_user);
-        if (manageView != null) {
-            if (mSettingsClickListener != null) {
-                manageView.setOnClickListener(mSettingsClickListener);
-                manageView.setTag(this);
-                if (mDeleteClickListener != null) {
+        if (!disabledByAdmin) {
+            UserManager um = (UserManager) getContext().getSystemService(Context.USER_SERVICE);
+            View deleteDividerView = view.findViewById(R.id.divider_delete);
+            View manageDividerView = view.findViewById(R.id.divider_manage);
+            View deleteView = view.findViewById(R.id.trash_user);
+            if (deleteView != null) {
+                if (mDeleteClickListener != null
+                        && !RestrictedLockUtils.hasBaseUserRestriction(getContext(),
+                                UserManager.DISALLOW_REMOVE_USER, UserHandle.myUserId())) {
+                    deleteView.setVisibility(View.VISIBLE);
+                    deleteDividerView.setVisibility(View.VISIBLE);
+                    deleteView.setOnClickListener(mDeleteClickListener);
+                    deleteView.setTag(this);
+                } else {
+                    deleteView.setVisibility(View.GONE);
+                    deleteDividerView.setVisibility(View.GONE);
+                }
+            }
+            ImageView manageView = (ImageView) view.findViewById(R.id.manage_user);
+            if (manageView != null) {
+                if (mSettingsClickListener != null) {
+                    manageView.setVisibility(View.VISIBLE);
+                    manageDividerView.setVisibility(mDeleteClickListener == null
+                            ? View.VISIBLE : View.GONE);
+                    manageView.setOnClickListener(mSettingsClickListener);
+                    manageView.setTag(this);
+                } else {
+                    manageView.setVisibility(View.GONE);
                     manageDividerView.setVisibility(View.GONE);
                 }
-            } else {
-                manageView.setVisibility(View.GONE);
-                manageDividerView.setVisibility(View.GONE);
             }
         }
-        super.onBindView(view);
     }
 
     private int getSerialNumber() {

@@ -35,11 +35,15 @@ jclass WellKnownClasses::dalvik_system_DexPathList;
 jclass WellKnownClasses::dalvik_system_DexPathList__Element;
 jclass WellKnownClasses::dalvik_system_PathClassLoader;
 jclass WellKnownClasses::dalvik_system_VMRuntime;
+jclass WellKnownClasses::java_lang_annotation_Annotation__array;
 jclass WellKnownClasses::java_lang_BootClassLoader;
 jclass WellKnownClasses::java_lang_ClassLoader;
 jclass WellKnownClasses::java_lang_ClassNotFoundException;
 jclass WellKnownClasses::java_lang_Daemons;
 jclass WellKnownClasses::java_lang_Error;
+jclass WellKnownClasses::java_lang_ExceptionInInitializerError;
+jclass WellKnownClasses::java_lang_IllegalAccessError;
+jclass WellKnownClasses::java_lang_NoClassDefFoundError;
 jclass WellKnownClasses::java_lang_Object;
 jclass WellKnownClasses::java_lang_OutOfMemoryError;
 jclass WellKnownClasses::java_lang_reflect_AbstractMethod;
@@ -59,6 +63,8 @@ jclass WellKnownClasses::java_lang_Throwable;
 jclass WellKnownClasses::java_nio_DirectByteBuffer;
 jclass WellKnownClasses::java_util_ArrayList;
 jclass WellKnownClasses::java_util_Collections;
+jclass WellKnownClasses::libcore_reflect_AnnotationFactory;
+jclass WellKnownClasses::libcore_reflect_AnnotationMember;
 jclass WellKnownClasses::libcore_util_EmptyArray;
 jclass WellKnownClasses::org_apache_harmony_dalvik_ddmc_Chunk;
 jclass WellKnownClasses::org_apache_harmony_dalvik_ddmc_DdmServer;
@@ -120,10 +126,13 @@ jmethodID WellKnownClasses::java_lang_Thread_run;
 jmethodID WellKnownClasses::java_lang_Thread__UncaughtExceptionHandler_uncaughtException;
 jmethodID WellKnownClasses::java_lang_ThreadGroup_removeThread;
 jmethodID WellKnownClasses::java_nio_DirectByteBuffer_init;
+jmethodID WellKnownClasses::libcore_reflect_AnnotationFactory_createAnnotation;
+jmethodID WellKnownClasses::libcore_reflect_AnnotationMember_init;
 jmethodID WellKnownClasses::org_apache_harmony_dalvik_ddmc_DdmServer_broadcast;
 jmethodID WellKnownClasses::org_apache_harmony_dalvik_ddmc_DdmServer_dispatch;
 
 jfieldID WellKnownClasses::dalvik_system_DexFile_cookie;
+jfieldID WellKnownClasses::dalvik_system_DexFile_fileName;
 jfieldID WellKnownClasses::dalvik_system_PathClassLoader_pathList;
 jfieldID WellKnownClasses::dalvik_system_DexPathList_dexElements;
 jfieldID WellKnownClasses::dalvik_system_DexPathList__Element_dexFile;
@@ -135,6 +144,7 @@ jfieldID WellKnownClasses::java_lang_Thread_priority;
 jfieldID WellKnownClasses::java_lang_Thread_uncaughtHandler;
 jfieldID WellKnownClasses::java_lang_Thread_nativePeer;
 jfieldID WellKnownClasses::java_lang_ThreadGroup_groups;
+jfieldID WellKnownClasses::java_lang_ThreadGroup_ngroups;
 jfieldID WellKnownClasses::java_lang_ThreadGroup_mainThreadGroup;
 jfieldID WellKnownClasses::java_lang_ThreadGroup_name;
 jfieldID WellKnownClasses::java_lang_ThreadGroup_parent;
@@ -213,6 +223,7 @@ void WellKnownClasses::Init(JNIEnv* env) {
   dalvik_system_PathClassLoader = CacheClass(env, "dalvik/system/PathClassLoader");
   dalvik_system_VMRuntime = CacheClass(env, "dalvik/system/VMRuntime");
 
+  java_lang_annotation_Annotation__array = CacheClass(env, "[Ljava/lang/annotation/Annotation;");
   java_lang_BootClassLoader = CacheClass(env, "java/lang/BootClassLoader");
   java_lang_ClassLoader = CacheClass(env, "java/lang/ClassLoader");
   java_lang_ClassNotFoundException = CacheClass(env, "java/lang/ClassNotFoundException");
@@ -220,6 +231,9 @@ void WellKnownClasses::Init(JNIEnv* env) {
   java_lang_Object = CacheClass(env, "java/lang/Object");
   java_lang_OutOfMemoryError = CacheClass(env, "java/lang/OutOfMemoryError");
   java_lang_Error = CacheClass(env, "java/lang/Error");
+  java_lang_ExceptionInInitializerError = CacheClass(env, "java/lang/ExceptionInInitializerError");
+  java_lang_IllegalAccessError = CacheClass(env, "java/lang/IllegalAccessError");
+  java_lang_NoClassDefFoundError = CacheClass(env, "java/lang/NoClassDefFoundError");
   java_lang_reflect_AbstractMethod = CacheClass(env, "java/lang/reflect/AbstractMethod");
   java_lang_reflect_Constructor = CacheClass(env, "java/lang/reflect/Constructor");
   java_lang_reflect_Field = CacheClass(env, "java/lang/reflect/Field");
@@ -238,6 +252,8 @@ void WellKnownClasses::Init(JNIEnv* env) {
   java_nio_DirectByteBuffer = CacheClass(env, "java/nio/DirectByteBuffer");
   java_util_ArrayList = CacheClass(env, "java/util/ArrayList");
   java_util_Collections = CacheClass(env, "java/util/Collections");
+  libcore_reflect_AnnotationFactory = CacheClass(env, "libcore/reflect/AnnotationFactory");
+  libcore_reflect_AnnotationMember = CacheClass(env, "libcore/reflect/AnnotationMember");
   libcore_util_EmptyArray = CacheClass(env, "libcore/util/EmptyArray");
   org_apache_harmony_dalvik_ddmc_Chunk = CacheClass(env, "org/apache/harmony/dalvik/ddmc/Chunk");
   org_apache_harmony_dalvik_ddmc_DdmServer = CacheClass(env, "org/apache/harmony/dalvik/ddmc/DdmServer");
@@ -260,8 +276,10 @@ void WellKnownClasses::Init(JNIEnv* env) {
   java_lang_Thread_init = CacheMethod(env, java_lang_Thread, false, "<init>", "(Ljava/lang/ThreadGroup;Ljava/lang/String;IZ)V");
   java_lang_Thread_run = CacheMethod(env, java_lang_Thread, false, "run", "()V");
   java_lang_Thread__UncaughtExceptionHandler_uncaughtException = CacheMethod(env, java_lang_Thread__UncaughtExceptionHandler, false, "uncaughtException", "(Ljava/lang/Thread;Ljava/lang/Throwable;)V");
-  java_lang_ThreadGroup_removeThread = CacheMethod(env, java_lang_ThreadGroup, false, "removeThread", "(Ljava/lang/Thread;)V");
+  java_lang_ThreadGroup_removeThread = CacheMethod(env, java_lang_ThreadGroup, false, "threadTerminated", "(Ljava/lang/Thread;)V");
   java_nio_DirectByteBuffer_init = CacheMethod(env, java_nio_DirectByteBuffer, false, "<init>", "(JI)V");
+  libcore_reflect_AnnotationFactory_createAnnotation = CacheMethod(env, libcore_reflect_AnnotationFactory, true, "createAnnotation", "(Ljava/lang/Class;[Llibcore/reflect/AnnotationMember;)Ljava/lang/annotation/Annotation;");
+  libcore_reflect_AnnotationMember_init = CacheMethod(env, libcore_reflect_AnnotationMember, false, "<init>", "(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Class;Ljava/lang/reflect/Method;)V");
   org_apache_harmony_dalvik_ddmc_DdmServer_broadcast = CacheMethod(env, org_apache_harmony_dalvik_ddmc_DdmServer, true, "broadcast", "(I)V");
   org_apache_harmony_dalvik_ddmc_DdmServer_dispatch = CacheMethod(env, org_apache_harmony_dalvik_ddmc_DdmServer, true, "dispatch", "(I[BII)Lorg/apache/harmony/dalvik/ddmc/Chunk;");
 
@@ -322,6 +340,7 @@ void WellKnownClasses::Init(JNIEnv* env) {
        true, "newStringFromStringBuilder", "(Ljava/lang/StringBuilder;)Ljava/lang/String;");
 
   dalvik_system_DexFile_cookie = CacheField(env, dalvik_system_DexFile, false, "mCookie", "Ljava/lang/Object;");
+  dalvik_system_DexFile_fileName = CacheField(env, dalvik_system_DexFile, false, "mFileName", "Ljava/lang/String;");
   dalvik_system_PathClassLoader_pathList = CacheField(env, dalvik_system_PathClassLoader, false, "pathList", "Ldalvik/system/DexPathList;");
   dalvik_system_DexPathList_dexElements = CacheField(env, dalvik_system_DexPathList, false, "dexElements", "[Ldalvik/system/DexPathList$Element;");
   dalvik_system_DexPathList__Element_dexFile = CacheField(env, dalvik_system_DexPathList__Element, false, "dexFile", "Ldalvik/system/DexFile;");
@@ -330,9 +349,10 @@ void WellKnownClasses::Init(JNIEnv* env) {
   java_lang_Thread_lock = CacheField(env, java_lang_Thread, false, "lock", "Ljava/lang/Object;");
   java_lang_Thread_name = CacheField(env, java_lang_Thread, false, "name", "Ljava/lang/String;");
   java_lang_Thread_priority = CacheField(env, java_lang_Thread, false, "priority", "I");
-  java_lang_Thread_uncaughtHandler = CacheField(env, java_lang_Thread, false, "uncaughtHandler", "Ljava/lang/Thread$UncaughtExceptionHandler;");
+  java_lang_Thread_uncaughtHandler = CacheField(env, java_lang_Thread, false, "uncaughtExceptionHandler", "Ljava/lang/Thread$UncaughtExceptionHandler;");
   java_lang_Thread_nativePeer = CacheField(env, java_lang_Thread, false, "nativePeer", "J");
-  java_lang_ThreadGroup_groups = CacheField(env, java_lang_ThreadGroup, false, "groups", "Ljava/util/List;");
+  java_lang_ThreadGroup_groups = CacheField(env, java_lang_ThreadGroup, false, "groups", "[Ljava/lang/ThreadGroup;");
+  java_lang_ThreadGroup_ngroups = CacheField(env, java_lang_ThreadGroup, false, "ngroups", "I");
   java_lang_ThreadGroup_mainThreadGroup = CacheField(env, java_lang_ThreadGroup, true, "mainThreadGroup", "Ljava/lang/ThreadGroup;");
   java_lang_ThreadGroup_name = CacheField(env, java_lang_ThreadGroup, false, "name", "Ljava/lang/String;");
   java_lang_ThreadGroup_parent = CacheField(env, java_lang_ThreadGroup, false, "parent", "Ljava/lang/ThreadGroup;");
@@ -340,13 +360,13 @@ void WellKnownClasses::Init(JNIEnv* env) {
   java_lang_Throwable_cause = CacheField(env, java_lang_Throwable, false, "cause", "Ljava/lang/Throwable;");
   java_lang_Throwable_detailMessage = CacheField(env, java_lang_Throwable, false, "detailMessage", "Ljava/lang/String;");
   java_lang_Throwable_stackTrace = CacheField(env, java_lang_Throwable, false, "stackTrace", "[Ljava/lang/StackTraceElement;");
-  java_lang_Throwable_stackState = CacheField(env, java_lang_Throwable, false, "stackState", "Ljava/lang/Object;");
+  java_lang_Throwable_stackState = CacheField(env, java_lang_Throwable, false, "backtrace", "Ljava/lang/Object;");
   java_lang_Throwable_suppressedExceptions = CacheField(env, java_lang_Throwable, false, "suppressedExceptions", "Ljava/util/List;");
   java_lang_reflect_AbstractMethod_artMethod = CacheField(env, java_lang_reflect_AbstractMethod, false, "artMethod", "J");
   java_lang_reflect_Proxy_h = CacheField(env, java_lang_reflect_Proxy, false, "h", "Ljava/lang/reflect/InvocationHandler;");
   java_nio_DirectByteBuffer_capacity = CacheField(env, java_nio_DirectByteBuffer, false, "capacity", "I");
-  java_nio_DirectByteBuffer_effectiveDirectAddress = CacheField(env, java_nio_DirectByteBuffer, false, "effectiveDirectAddress", "J");
-  java_util_ArrayList_array = CacheField(env, java_util_ArrayList, false, "array", "[Ljava/lang/Object;");
+  java_nio_DirectByteBuffer_effectiveDirectAddress = CacheField(env, java_nio_DirectByteBuffer, false, "address", "J");
+  java_util_ArrayList_array = CacheField(env, java_util_ArrayList, false, "elementData", "[Ljava/lang/Object;");
   java_util_ArrayList_size = CacheField(env, java_util_ArrayList, false, "size", "I");
   java_util_Collections_EMPTY_LIST = CacheField(env, java_util_Collections, true, "EMPTY_LIST", "Ljava/util/List;");
   libcore_util_EmptyArray_STACK_TRACE_ELEMENT = CacheField(env, libcore_util_EmptyArray, true, "STACK_TRACE_ELEMENT", "[Ljava/lang/StackTraceElement;");
@@ -369,7 +389,10 @@ void WellKnownClasses::Init(JNIEnv* env) {
 
 void WellKnownClasses::LateInit(JNIEnv* env) {
   ScopedLocalRef<jclass> java_lang_Runtime(env, env->FindClass("java/lang/Runtime"));
-  java_lang_Runtime_nativeLoad = CacheMethod(env, java_lang_Runtime.get(), true, "nativeLoad", "(Ljava/lang/String;Ljava/lang/ClassLoader;Ljava/lang/String;)Ljava/lang/String;");
+  java_lang_Runtime_nativeLoad =
+      CacheMethod(env, java_lang_Runtime.get(), true, "nativeLoad",
+                  "(Ljava/lang/String;Ljava/lang/ClassLoader;Ljava/lang/String;)"
+                      "Ljava/lang/String;");
 }
 
 mirror::Class* WellKnownClasses::ToClass(jclass global_jclass) {

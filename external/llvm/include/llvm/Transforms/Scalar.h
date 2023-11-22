@@ -16,10 +16,12 @@
 #define LLVM_TRANSFORMS_SCALAR_H
 
 #include "llvm/ADT/StringRef.h"
+#include <functional>
 
 namespace llvm {
 
 class BasicBlockPass;
+class Function;
 class FunctionPass;
 class ModulePass;
 class Pass;
@@ -91,7 +93,7 @@ FunctionPass *createBitTrackingDCEPass();
 //
 // SROA - Replace aggregates or pieces of aggregates with scalar SSA values.
 //
-FunctionPass *createSROAPass(bool RequiresDomTree = true);
+FunctionPass *createSROAPass();
 
 //===----------------------------------------------------------------------===//
 //
@@ -152,7 +154,15 @@ Pass *createLoopInterchangePass();
 //
 Pass *createLoopStrengthReducePass();
 
-Pass *createGlobalMergePass(const TargetMachine *TM, unsigned MaximalOffset);
+//===----------------------------------------------------------------------===//
+//
+// GlobalMerge - This pass merges internal (by default) globals into structs
+// to enable reuse of a base pointer by indexed addressing modes.
+// It can also be configured to focus on size optimizations only.
+//
+Pass *createGlobalMergePass(const TargetMachine *TM, unsigned MaximalOffset,
+                            bool OnlyOptimizeForSize = false,
+                            bool MergeExternalByDefault = false);
 
 //===----------------------------------------------------------------------===//
 //
@@ -238,7 +248,8 @@ FunctionPass *createJumpThreadingPass(int Threshold = -1);
 // CFGSimplification - Merge basic blocks, eliminate unreachable blocks,
 // simplify terminator instructions, etc...
 //
-FunctionPass *createCFGSimplificationPass(int Threshold = -1);
+FunctionPass *createCFGSimplificationPass(
+    int Threshold = -1, std::function<bool(const Function &)> Ftor = nullptr);
 
 //===----------------------------------------------------------------------===//
 //
@@ -371,6 +382,13 @@ Pass *createLowerAtomicPass();
 
 //===----------------------------------------------------------------------===//
 //
+// LowerEmuTLS - This pass generates __emutls_[vt].xyz variables for all
+// TLS variables for the emulated TLS model.
+//
+ModulePass *createLowerEmuTLSPass(const TargetMachine *TM);
+
+//===----------------------------------------------------------------------===//
+//
 // ValuePropagation - Propagate CFG-derived value information
 //
 Pass *createCorrelatedValuePropagationPass();
@@ -397,13 +415,6 @@ FunctionPass *createPartiallyInlineLibCallsPass();
 
 //===----------------------------------------------------------------------===//
 //
-// SampleProfilePass - Loads sample profile data from disk and generates
-// IR metadata to reflect the profile.
-FunctionPass *createSampleProfileLoaderPass();
-FunctionPass *createSampleProfileLoaderPass(StringRef Name);
-
-//===----------------------------------------------------------------------===//
-//
 // ScalarizerPass - Converts vector operations into scalar operations
 //
 FunctionPass *createScalarizerPass();
@@ -420,6 +431,13 @@ FunctionPass *createAddDiscriminatorsPass();
 FunctionPass *
 createSeparateConstOffsetFromGEPPass(const TargetMachine *TM = nullptr,
                                      bool LowerGEP = false);
+
+//===----------------------------------------------------------------------===//
+//
+// SpeculativeExecution - Aggressively hoist instructions to enable
+// speculative execution on targets where branches are expensive.
+//
+FunctionPass *createSpeculativeExecutionPass();
 
 //===----------------------------------------------------------------------===//
 //
@@ -442,14 +460,14 @@ FunctionPass *createStraightLineStrengthReducePass();
 // RewriteStatepointsForGC which can be run at an arbitrary point in the pass
 // order following this pass.
 //
-ModulePass *createPlaceSafepointsPass();
+FunctionPass *createPlaceSafepointsPass();
 
 //===----------------------------------------------------------------------===//
 //
 // RewriteStatepointsForGC - Rewrite any gc.statepoints which do not yet have
 // explicit relocations to include explicit relocations.
 //
-FunctionPass *createRewriteStatepointsForGCPass();
+ModulePass *createRewriteStatepointsForGCPass();
 
 //===----------------------------------------------------------------------===//
 //
@@ -462,6 +480,18 @@ FunctionPass *createFloat2IntPass();
 // NaryReassociate - Simplify n-ary operations by reassociation.
 //
 FunctionPass *createNaryReassociatePass();
+
+//===----------------------------------------------------------------------===//
+//
+// LoopDistribute - Distribute loops.
+//
+FunctionPass *createLoopDistributePass();
+
+//===----------------------------------------------------------------------===//
+//
+// LoopLoadElimination - Perform loop-aware load elimination.
+//
+FunctionPass *createLoopLoadEliminationPass();
 
 } // End llvm namespace
 

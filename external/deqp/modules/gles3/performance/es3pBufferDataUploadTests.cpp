@@ -509,9 +509,9 @@ static std::string getHumanReadableByteSize (int numBytes)
 	if (numBytes < 1024)
 		buf << numBytes << " byte(s)";
 	else if (numBytes < 1024 * 1024)
-		buf << de::floatToString(numBytes/1024.0f, 1) << " KiB";
+		buf << de::floatToString((float)numBytes/1024.0f, 1) << " KiB";
 	else
-		buf << de::floatToString(numBytes/1024.0f/1024.0f, 1) << " MiB";
+		buf << de::floatToString((float)numBytes/1024.0f/1024.0f, 1) << " MiB";
 
 	return buf.str();
 }
@@ -582,7 +582,7 @@ static deUint64 medianTimeMemcpy (void* dst, const void* src, int numBytes)
 				bestTime = sectionTimes[sectionNdx];
 
 			// Detect if write takes 50% longer than it should, and warm up if that happened
-			if (sectionNdx != numSections-1 && (float)sectionTimes[sectionNdx] > 1.5f * bestTime)
+			if (sectionNdx != numSections-1 && (float)sectionTimes[sectionNdx] > 1.5f * (float)bestTime)
 			{
 				deYield();
 				tcu::warmupCPU();
@@ -652,7 +652,7 @@ static float linearSample (const std::vector<T>& values, float position)
 	DE_ASSERT(position >= 0.0f);
 	DE_ASSERT(position <= 1.0f);
 
-	const float	floatNdx			= ((int)values.size() - 1) * position;
+	const float	floatNdx			= (float)(values.size() - 1) * position;
 	const int	lowerNdx			= (int)deFloatFloor(floatNdx);
 	const int	higherNdx			= lowerNdx + 1;
 	const float	interpolationFactor = floatNdx - (float)lowerNdx;
@@ -698,8 +698,8 @@ void calculateBasicStatistics (StatisticsType& stats, const LineParametersWithCo
 
 		for (int ndx = 0; ndx < (int)samples.size(); ++ndx)
 		{
-			const float timeInSeconds = values[ndx] / 1000.0f / 1000.0f;
-			processingRates[ndx] = samples[ndx].*predictor / timeInSeconds;
+			const float timeInSeconds = (float)values[ndx] / 1000.0f / 1000.0f;
+			processingRates[ndx] = (float)(samples[ndx].*predictor) / timeInSeconds;
 		}
 
 		std::sort(processingRates.begin(), processingRates.end());
@@ -713,7 +713,7 @@ void calculateBasicStatistics (StatisticsType& stats, const LineParametersWithCo
 
 		for (int ndx = 0; ndx < (int)samples.size(); ++ndx)
 		{
-			const float prediction	= samples[ndx].*predictor * fit.coefficient + fit.offset;
+			const float prediction	= (float)(samples[ndx].*predictor) * fit.coefficient + fit.offset;
 			const float actual		= (float)values[ndx];
 			timeDiffs[ndx] = actual - prediction;
 		}
@@ -730,7 +730,7 @@ void calculateBasicStatistics (StatisticsType& stats, const LineParametersWithCo
 
 		for (int ndx = 0; ndx < (int)samples.size(); ++ndx)
 		{
-			const float prediction	= samples[ndx].*predictor * fit.coefficient + fit.offset;
+			const float prediction	= (float)(samples[ndx].*predictor) * fit.coefficient + fit.offset;
 			const float actual		= (float)values[ndx];
 
 			// Ignore cases where we predict negative times, or if
@@ -1082,7 +1082,7 @@ static void bucketizeSamplesUniformly (const std::vector<UploadSampleResult<Dura
 
 	for (int sampleNdx = 0; sampleNdx < (int)samples.size(); ++sampleNdx)
 	{
-		const float bucketNdxFloat	= (samples[sampleNdx].allocatedSize - minBufferSize) / (float)(maxBufferSize - minBufferSize) * numBuckets;
+		const float bucketNdxFloat	= (float)(samples[sampleNdx].allocatedSize - minBufferSize) / (float)(maxBufferSize - minBufferSize) * (float)numBuckets;
 		const int bucketNdx			= de::clamp((int)deFloatFloor(bucketNdxFloat), 0, numBuckets-1);
 
 		buckets[bucketNdx].push_back(samples[sampleNdx]);
@@ -1373,7 +1373,7 @@ void logSampleList (tcu::TestLog& log, const LineParametersWithConfidence& theil
 
 	for (int sampleNdx = 0; sampleNdx < (int)samples.size(); ++sampleNdx)
 	{
-		const float fitResidual = samples[sampleNdx].duration.fitResponseDuration - (theilSenFitting.offset + theilSenFitting.coefficient * samples[sampleNdx].writtenSize);
+		const float fitResidual = (float)samples[sampleNdx].duration.fitResponseDuration - (theilSenFitting.offset + theilSenFitting.coefficient * (float)samples[sampleNdx].writtenSize);
 		log	<< tcu::TestLog::Sample
 			<< samples[sampleNdx].writtenSize
 			<< samples[sampleNdx].bufferSize
@@ -1401,7 +1401,7 @@ void logSampleList (tcu::TestLog& log, const LineParametersWithConfidence& theil
 
 	for (int sampleNdx = 0; sampleNdx < (int)samples.size(); ++sampleNdx)
 	{
-		const float fitResidual = samples[sampleNdx].duration.fitResponseDuration - (theilSenFitting.offset + theilSenFitting.coefficient * samples[sampleNdx].writtenSize);
+		const float fitResidual = (float)samples[sampleNdx].duration.fitResponseDuration - (theilSenFitting.offset + theilSenFitting.coefficient * (float)samples[sampleNdx].writtenSize);
 		log	<< tcu::TestLog::Sample
 			<< samples[sampleNdx].writtenSize
 			<< samples[sampleNdx].bufferSize
@@ -1432,7 +1432,7 @@ void logSampleList (tcu::TestLog& log, const LineParametersWithConfidence& theil
 
 	for (int sampleNdx = 0; sampleNdx < (int)samples.size(); ++sampleNdx)
 	{
-		const float fitResidual = samples[sampleNdx].duration.fitResponseDuration - (theilSenFitting.offset + theilSenFitting.coefficient * samples[sampleNdx].writtenSize);
+		const float fitResidual = (float)samples[sampleNdx].duration.fitResponseDuration - (theilSenFitting.offset + theilSenFitting.coefficient * (float)samples[sampleNdx].writtenSize);
 		log	<< tcu::TestLog::Sample
 			<< samples[sampleNdx].writtenSize
 			<< samples[sampleNdx].bufferSize
@@ -1464,7 +1464,7 @@ void logSampleList (tcu::TestLog& log, const LineParametersWithConfidence& theil
 
 	for (int sampleNdx = 0; sampleNdx < (int)samples.size(); ++sampleNdx)
 	{
-		const float fitResidual = samples[sampleNdx].duration.fitResponseDuration - (theilSenFitting.offset + theilSenFitting.coefficient * samples[sampleNdx].writtenSize);
+		const float fitResidual = (float)samples[sampleNdx].duration.fitResponseDuration - (theilSenFitting.offset + theilSenFitting.coefficient * (float)samples[sampleNdx].writtenSize);
 		log	<< tcu::TestLog::Sample
 			<< samples[sampleNdx].writtenSize
 			<< samples[sampleNdx].bufferSize
@@ -1497,7 +1497,7 @@ void logSampleList (tcu::TestLog& log, const LineParametersWithConfidence& theil
 
 	for (int sampleNdx = 0; sampleNdx < (int)samples.size(); ++sampleNdx)
 	{
-		const float fitResidual = samples[sampleNdx].duration.fitResponseDuration - (theilSenFitting.offset + theilSenFitting.coefficient * samples[sampleNdx].writtenSize);
+		const float fitResidual = (float)samples[sampleNdx].duration.fitResponseDuration - (theilSenFitting.offset + theilSenFitting.coefficient * (float)samples[sampleNdx].writtenSize);
 		log	<< tcu::TestLog::Sample
 			<< samples[sampleNdx].writtenSize
 			<< samples[sampleNdx].bufferSize
@@ -1527,7 +1527,7 @@ void logSampleList (tcu::TestLog& log, const LineParametersWithConfidence& theil
 
 	for (int sampleNdx = 0; sampleNdx < (int)samples.size(); ++sampleNdx)
 	{
-		const float fitResidual = samples[sampleNdx].duration.fitResponseDuration - (theilSenFitting.offset + theilSenFitting.coefficient * samples[sampleNdx].renderDataSize);
+		const float fitResidual = (float)samples[sampleNdx].duration.fitResponseDuration - (theilSenFitting.offset + theilSenFitting.coefficient * (float)samples[sampleNdx].renderDataSize);
 		log	<< tcu::TestLog::Sample
 			<< samples[sampleNdx].renderDataSize
 			<< samples[sampleNdx].numVertices
@@ -1556,7 +1556,7 @@ void logSampleList (tcu::TestLog& log, const LineParametersWithConfidence& theil
 
 	for (int sampleNdx = 0; sampleNdx < (int)samples.size(); ++sampleNdx)
 	{
-		const float fitResidual = samples[sampleNdx].duration.fitResponseDuration - (theilSenFitting.offset + theilSenFitting.coefficient * samples[sampleNdx].renderDataSize);
+		const float fitResidual = (float)samples[sampleNdx].duration.fitResponseDuration - (theilSenFitting.offset + theilSenFitting.coefficient * (float)samples[sampleNdx].renderDataSize);
 		log	<< tcu::TestLog::Sample
 			<< samples[sampleNdx].renderDataSize
 			<< samples[sampleNdx].numVertices
@@ -1588,7 +1588,7 @@ void logSampleList (tcu::TestLog& log, const LineParametersWithConfidence& theil
 
 	for (int sampleNdx = 0; sampleNdx < (int)samples.size(); ++sampleNdx)
 	{
-		const float fitResidual = samples[sampleNdx].duration.fitResponseDuration - (theilSenFitting.offset + theilSenFitting.coefficient * samples[sampleNdx].renderDataSize);
+		const float fitResidual = (float)samples[sampleNdx].duration.fitResponseDuration - (theilSenFitting.offset + theilSenFitting.coefficient * (float)samples[sampleNdx].renderDataSize);
 		log	<< tcu::TestLog::Sample
 			<< samples[sampleNdx].renderDataSize
 			<< samples[sampleNdx].uploadedDataSize
@@ -1623,7 +1623,7 @@ void logSampleList (tcu::TestLog& log, const LineParametersWithConfidence& theil
 
 	for (int sampleNdx = 0; sampleNdx < (int)samples.size(); ++sampleNdx)
 	{
-		const float fitResidual = samples[sampleNdx].duration.fitResponseDuration - (theilSenFitting.offset + theilSenFitting.coefficient * samples[sampleNdx].renderDataSize);
+		const float fitResidual = (float)samples[sampleNdx].duration.fitResponseDuration - (theilSenFitting.offset + theilSenFitting.coefficient * (float)samples[sampleNdx].renderDataSize);
 		log	<< tcu::TestLog::Sample
 			<< samples[sampleNdx].renderDataSize
 			<< samples[sampleNdx].uploadedDataSize
@@ -1659,7 +1659,7 @@ void logSampleList (tcu::TestLog& log, const LineParametersWithConfidence& theil
 
 	for (int sampleNdx = 0; sampleNdx < (int)samples.size(); ++sampleNdx)
 	{
-		const float fitResidual = samples[sampleNdx].duration.fitResponseDuration - (theilSenFitting.offset + theilSenFitting.coefficient * samples[sampleNdx].renderDataSize);
+		const float fitResidual = (float)samples[sampleNdx].duration.fitResponseDuration - (theilSenFitting.offset + theilSenFitting.coefficient * (float)samples[sampleNdx].renderDataSize);
 		log	<< tcu::TestLog::Sample
 			<< samples[sampleNdx].renderDataSize
 			<< samples[sampleNdx].uploadedDataSize
@@ -1681,7 +1681,7 @@ template <typename SampleType>
 static UploadSampleAnalyzeResult analyzeSampleResults (tcu::TestLog& log, const std::vector<UploadSampleResult<SampleType> >& samples, bool logBucketPerformance)
 {
 	// Assume data is linear with some outliers, fit a line
-	const LineParametersWithConfidence									theilSenFitting						= fitLineToSamples(samples);
+	const LineParametersWithConfidence						theilSenFitting						= fitLineToSamples(samples);
 	const typename SampleTypeTraits<SampleType>::StatsType	resultStats							= calculateSampleStatistics(theilSenFitting, samples);
 	float													approximatedTransferRate;
 	float													approximatedTransferRateNoConstant;
@@ -1709,8 +1709,8 @@ static UploadSampleAnalyzeResult analyzeSampleResults (tcu::TestLog& log, const 
 
 			// Print a nice result summary
 
-			const int												bucketRangeMin	= minBufferSize + (int)(( bucketNdx    / (float)numBuckets) * (maxBufferSize - minBufferSize));
-			const int												bucketRangeMax	= minBufferSize + (int)(((bucketNdx+1) / (float)numBuckets) * (maxBufferSize - minBufferSize));
+			const int												bucketRangeMin	= minBufferSize + (int)(((float) bucketNdx    / (float)numBuckets) * (float)(maxBufferSize - minBufferSize));
+			const int												bucketRangeMax	= minBufferSize + (int)(((float)(bucketNdx+1) / (float)numBuckets) * (float)(maxBufferSize - minBufferSize));
 			const typename SampleTypeTraits<SampleType>::StatsType	stats			= calculateSampleStatistics(theilSenFitting, buckets[bucketNdx]);
 			const tcu::ScopedLogSection								section			(log, "BufferSizeRange", std::string("Transfer performance with buffer size in range [").append(getHumanReadableByteSize(bucketRangeMin).append(", ").append(getHumanReadableByteSize(bucketRangeMax).append("]"))));
 
@@ -1752,13 +1752,13 @@ static UploadSampleAnalyzeResult analyzeSampleResults (tcu::TestLog& log, const 
 		const tcu::ScopedLogSection	section(log, "Results", "Results");
 
 		const int	medianBufferSize					= (samples.front().bufferSize + samples.back().bufferSize) / 2;
-		const float	approximatedTransferTime			= (theilSenFitting.offset + theilSenFitting.coefficient * medianBufferSize) / 1000.0f / 1000.0f;
-		const float	approximatedTransferTimeNoConstant	= (theilSenFitting.coefficient * medianBufferSize) / 1000.0f / 1000.0f;
+		const float	approximatedTransferTime			= (theilSenFitting.offset + theilSenFitting.coefficient * (float)medianBufferSize) / 1000.0f / 1000.0f;
+		const float	approximatedTransferTimeNoConstant	= (theilSenFitting.coefficient * (float)medianBufferSize) / 1000.0f / 1000.0f;
 		const float	sampleLinearity						= calculateSampleFitLinearity(samples);
 		const float	sampleTemporalStability				= calculateSampleTemporalStability(samples);
 
-		approximatedTransferRateNoConstant				= medianBufferSize / approximatedTransferTimeNoConstant;
-		approximatedTransferRate						= medianBufferSize / approximatedTransferTime;
+		approximatedTransferRateNoConstant				= (float)medianBufferSize / approximatedTransferTimeNoConstant;
+		approximatedTransferRate						= (float)medianBufferSize / approximatedTransferTime;
 
 		log	<< tcu::TestLog::Float("ResultLinearity", "Sample linearity", "%", QP_KEY_TAG_QUALITY, sampleLinearity * 100.0f)
 			<< tcu::TestLog::Float("SampleTemporalStability", "Sample temporal stability", "%", QP_KEY_TAG_QUALITY, sampleTemporalStability * 100.0f)
@@ -1790,7 +1790,7 @@ template <typename SampleType>
 static RenderSampleAnalyzeResult analyzeSampleResults (tcu::TestLog& log, const std::vector<RenderSampleResult<SampleType> >& samples)
 {
 	// Assume data is linear with some outliers, fit a line
-	const LineParametersWithConfidence									theilSenFitting						= fitLineToSamples(samples);
+	const LineParametersWithConfidence						theilSenFitting						= fitLineToSamples(samples);
 	const typename SampleTypeTraits<SampleType>::StatsType	resultStats							= calculateSampleStatistics(theilSenFitting, samples);
 	float													approximatedProcessingRate;
 	float													approximatedProcessingRateNoConstant;
@@ -1819,13 +1819,13 @@ static RenderSampleAnalyzeResult analyzeSampleResults (tcu::TestLog& log, const 
 		const tcu::ScopedLogSection	section(log, "Results", "Results");
 
 		const int	medianDataSize						= (samples.front().renderDataSize + samples.back().renderDataSize) / 2;
-		const float	approximatedRenderTime				= (theilSenFitting.offset + theilSenFitting.coefficient * medianDataSize) / 1000.0f / 1000.0f;
-		const float	approximatedRenderTimeNoConstant	= (theilSenFitting.coefficient * medianDataSize) / 1000.0f / 1000.0f;
+		const float	approximatedRenderTime				= (theilSenFitting.offset + theilSenFitting.coefficient * (float)medianDataSize) / 1000.0f / 1000.0f;
+		const float	approximatedRenderTimeNoConstant	= (theilSenFitting.coefficient * (float)medianDataSize) / 1000.0f / 1000.0f;
 		const float	sampleLinearity						= calculateSampleFitLinearity(samples);
 		const float	sampleTemporalStability				= calculateSampleTemporalStability(samples);
 
-		approximatedProcessingRateNoConstant			= medianDataSize / approximatedRenderTimeNoConstant;
-		approximatedProcessingRate						= medianDataSize / approximatedRenderTime;
+		approximatedProcessingRateNoConstant			= (float)medianDataSize / approximatedRenderTimeNoConstant;
+		approximatedProcessingRate						= (float)medianDataSize / approximatedRenderTime;
 
 		log	<< tcu::TestLog::Float("ResultLinearity", "Sample linearity", "%", QP_KEY_TAG_QUALITY, sampleLinearity * 100.0f)
 			<< tcu::TestLog::Float("SampleTemporalStability", "Sample temporal stability", "%", QP_KEY_TAG_QUALITY, sampleTemporalStability * 100.0f)
@@ -1945,9 +1945,9 @@ BasicBufferCase<SampleType>::BasicBufferCase (Context& context, const char* name
 	// choose buffer sizes
 	for (int sampleNdx = 0; sampleNdx < m_numSamples; ++sampleNdx)
 	{
-		const int rawBufferSize			= (int)deFloatFloor(bufferSizeMin + (bufferSizeMax - bufferSizeMin) * ((float)(sampleNdx + 1) / m_numSamples));
+		const int rawBufferSize			= (int)deFloatFloor((float)bufferSizeMin + (float)(bufferSizeMax - bufferSizeMin) * ((float)(sampleNdx + 1) / (float)m_numSamples));
 		const int bufferSize			= deAlign32(rawBufferSize, 16);
-		const int allocatedBufferSize	= deAlign32((m_allocateLargerBuffer) ? ((int)(bufferSize * 1.5f)) : (bufferSize), 16);
+		const int allocatedBufferSize	= deAlign32((m_allocateLargerBuffer) ? ((int)((float)bufferSize * 1.5f)) : (bufferSize), 16);
 
 		m_results[sampleNdx].bufferSize		= bufferSize;
 		m_results[sampleNdx].allocatedSize	= allocatedBufferSize;
@@ -2334,7 +2334,7 @@ void BasicUploadCase<SampleType>::deinit (void)
 		m_dummyBufferID = 0;
 	}
 
-	m_zeroData.clear();
+	m_zeroData = std::vector<deUint8>();
 
 	BasicBufferCase<SampleType>::deinit();
 }
@@ -2534,7 +2534,7 @@ void ReferenceMemcpyCase::init (void)
 
 void ReferenceMemcpyCase::deinit (void)
 {
-	m_dstBuf.clear();
+	m_dstBuf = std::vector<deUint8>();
 	BasicUploadCase<SingleOperationDuration>::deinit();
 }
 
@@ -3246,7 +3246,7 @@ void ModifyAfterBasicCase<SampleType>::init (void)
 template <typename SampleType>
 void ModifyAfterBasicCase<SampleType>::deinit (void)
 {
-	m_zeroData.clear();
+	m_zeroData = std::vector<deUint8>();
 
 	BasicBufferCase<SampleType>::deinit();
 }
@@ -3435,7 +3435,7 @@ void ModifyAfterWithBufferDataCase::init (void)
 	// make sure our zeroBuffer is large enough
 	if (m_respecifySize)
 	{
-		const int largerBufferSize = deAlign32((int)(m_bufferSizeMax * m_sizeDifferenceFactor), 4*4);
+		const int largerBufferSize = deAlign32((int)((float)m_bufferSizeMax * m_sizeDifferenceFactor), 4*4);
 		m_zeroData.resize(largerBufferSize, 0x00);
 	}
 }
@@ -3452,7 +3452,7 @@ void ModifyAfterWithBufferDataCase::testWithBufferSize (UploadSampleResult<Singl
 	const int					drawEnd				= deAlign32(bufferSize * 3 / 4, 4*4);
 
 	const glw::Functions&		gl					= m_context.getRenderContext().getFunctions();
-	const int					largerBufferSize	= deAlign32((int)(bufferSize * m_sizeDifferenceFactor), 4*4);
+	const int					largerBufferSize	= deAlign32((int)((float)bufferSize * m_sizeDifferenceFactor), 4*4);
 	const int					newBufferSize		= (m_respecifySize) ? (largerBufferSize) : (bufferSize);
 	deUint64					startTime;
 	deUint64					endTime;
@@ -3892,10 +3892,10 @@ static void generateLayeredGridVertexAttribData4C4V (std::vector<tcu::Vec4>& ver
 	for (int cellZ = 0; cellZ < scene.gridLayers; ++cellZ)
 	{
 		const tcu::Vec4	color		= (((cellX + cellY + cellZ) % 2) == 0) ? (green) : (yellow);
-		const float		cellLeft	= (float(cellX  ) / scene.gridWidth  - 0.5f) * 2.0f;
-		const float		cellRight	= (float(cellX+1) / scene.gridWidth  - 0.5f) * 2.0f;
-		const float		cellTop		= (float(cellY+1) / scene.gridHeight - 0.5f) * 2.0f;
-		const float		cellBottom	= (float(cellY  ) / scene.gridHeight - 0.5f) * 2.0f;
+		const float		cellLeft	= (float(cellX  ) / (float)scene.gridWidth  - 0.5f) * 2.0f;
+		const float		cellRight	= (float(cellX+1) / (float)scene.gridWidth  - 0.5f) * 2.0f;
+		const float		cellTop		= (float(cellY+1) / (float)scene.gridHeight - 0.5f) * 2.0f;
+		const float		cellBottom	= (float(cellY  ) / (float)scene.gridHeight - 0.5f) * 2.0f;
 
 		vertexData[(cellY * scene.gridWidth * scene.gridLayers + cellX * scene.gridLayers + cellZ) * 12 +  0] = color;
 		vertexData[(cellY * scene.gridWidth * scene.gridLayers + cellX * scene.gridLayers + cellZ) * 12 +  1] = tcu::Vec4(cellLeft, cellTop, 0.0f, 1.0f);
@@ -4635,7 +4635,7 @@ ReferenceReadPixelsTimeCase::IterateResult ReferenceReadPixelsTimeCase::iterate 
 	deYield();
 
 	// "Render" something and wait for it
-	gl.clearColor(0.0f, 1.0f, m_sampleNdx / float(m_numSamples), 1.0f);
+	gl.clearColor(0.0f, 1.0f, float(m_sampleNdx) / float(m_numSamples), 1.0f);
 	gl.clear(GL_COLOR_BUFFER_BIT);
 
 	// wait for results
@@ -4763,13 +4763,13 @@ void GenericUploadRenderTimeCase<SampleType>::init (void)
 	// log
 	{
 		const char* const	targetFunctionName		= (m_drawMethod == DRAWMETHOD_DRAW_ARRAYS) ? ("drawArrays") : ("drawElements");
-		const int			perVertexSize			= (m_targetBuffer == TARGETBUFFER_INDEX) ? (sizeof(deUint32)) : (sizeof(tcu::Vec4[2]));
+		const int			perVertexSize			= (m_targetBuffer == TARGETBUFFER_INDEX) ? ((int)sizeof(deUint32)) : ((int)sizeof(tcu::Vec4[2]));
 		const int			fullMinUploadSize		= RenderCase<SampleType>::getMinWorkloadSize() * perVertexSize;
 		const int			fullMaxUploadSize		= RenderCase<SampleType>::getMaxWorkloadSize() * perVertexSize;
 		const int			minUploadSize			= (m_uploadRange == UPLOADRANGE_FULL) ? (fullMinUploadSize) : (deAlign32(fullMinUploadSize/2, 4));
 		const int			maxUploadSize			= (m_uploadRange == UPLOADRANGE_FULL) ? (fullMaxUploadSize) : (deAlign32(fullMaxUploadSize/2, 4));
-		const int			minUnrelatedUploadSize	= RenderCase<SampleType>::getMinWorkloadSize() * sizeof(tcu::Vec4[2]);
-		const int			maxUnrelatedUploadSize	= RenderCase<SampleType>::getMaxWorkloadSize() * sizeof(tcu::Vec4[2]);
+		const int			minUnrelatedUploadSize	= RenderCase<SampleType>::getMinWorkloadSize() * (int)sizeof(tcu::Vec4[2]);
+		const int			maxUnrelatedUploadSize	= RenderCase<SampleType>::getMaxWorkloadSize() * (int)sizeof(tcu::Vec4[2]);
 
 		m_testCtx.getLog()
 			<< tcu::TestLog::Message
@@ -4939,7 +4939,7 @@ void GenericUploadRenderTimeCase<SampleType>::runSample (SampleResult& sample)
 
 			// upload to 25% - 75% range
 			target	= GL_ELEMENT_ARRAY_BUFFER;
-			size	= (glw::GLsizeiptr)deAlign32((glw::GLsizeiptr)((int)(indexData.size() * sizeof(deUint32))) / 2, 4);
+			size	= (glw::GLsizeiptr)deAlign32((deInt32)(indexData.size() * sizeof(deUint32)) / 2, 4);
 			offset	= (glw::GLintptr)deAlign32((int)size / 2, 4);
 			source	= (const deUint8*)&indexData[0] + offset;
 		}
@@ -5275,7 +5275,7 @@ void BufferInUseRenderTimeCase::runSample (SampleResult& sample)
 		{
 			// upload to 25% - 75% range
 			target	= GL_ELEMENT_ARRAY_BUFFER;
-			size	= (glw::GLsizeiptr)deAlign32((glw::GLsizeiptr)((int)(indexData.size() * sizeof(deUint32))) / 2, 4);
+			size	= (glw::GLsizeiptr)deAlign32((deInt32)(indexData.size() * sizeof(deUint32)) / 2, 4);
 			offset	= (glw::GLintptr)deAlign32((int)size / 2, 4);
 			source	= (const deUint8*)&indexData[0] + offset;
 		}
@@ -6007,7 +6007,7 @@ static float sumOfRanks (const std::vector<deUint64>& testSamples, const std::ve
 		const int		upperIndex		= (int)(std::upper_bound(allSamples.begin(), allSamples.end(), testSample, comparer) - allSamples.begin());
 		const int		lowerRank		= lowerIndex + 1;	// convert zero-indexed to rank
 		const int		upperRank		= upperIndex;		// convert zero-indexed to rank, upperIndex is last equal + 1
-		const float		rankMidpoint	= (lowerRank + upperRank) / 2.0f;
+		const float		rankMidpoint	= (float)(lowerRank + upperRank) / 2.0f;
 
 		sum += rankMidpoint;
 	}
@@ -6031,14 +6031,14 @@ static DistributionCompareResult distributionCompare (const std::vector<deUint64
 	{
 		const float					R1		= sumOfRanks(orderedObservationsA, allSamples, comparer);
 
-		const float					U1		= n1*n2 + n1*(n1 + 1)/2 - R1;
-		const float					U2		= (n1 * n2) - U1;
+		const float					U1		= (float)(n1*n2 + n1*(n1 + 1)/2) - R1;
+		const float					U2		= (float)(n1 * n2) - U1;
 		const float					U		= de::min(U1, U2);
 
 		// \note: sample sizes might not be large enough to expect normal distribution but we do it anyway
 
-		const float					mU		= n1*n2 / 2.0f;
-		const float					sigmaU	= deFloatSqrt((n1*n2*(n1+n2+1)) / 12.0f);
+		const float					mU		= (float)(n1 * n2) / 2.0f;
+		const float					sigmaU	= deFloatSqrt((float)(n1*n2*(n1+n2+1)) / 12.0f);
 		const float					z		= (U - mU) / sigmaU;
 
 		DistributionCompareResult	result;
@@ -6063,8 +6063,8 @@ struct ThresholdComparer
 		// thresholds
 		if (diff <= (float)absoluteThreshold)
 			return false;
-		if (diff <= a*relativeThreshold ||
-			diff <= b*relativeThreshold)
+		if (diff <= float(a)*relativeThreshold ||
+			diff <= float(b)*relativeThreshold)
 			return false;
 
 		// cmp
@@ -6163,7 +6163,7 @@ bool UploadWaitDrawCase::checkSampleTemporalStability (deUint64 (UploadWaitDrawC
 	lineFit = theilSenSiegelLinearRegression(dataPoints, 0.6f);
 
 	// Difference of more than 25% of the offset along the whole sample range
-	if (de::abs(lineFit.coefficient) * numDataPoints > de::abs(lineFit.offset) * 0.25f)
+	if (de::abs(lineFit.coefficient) * (float)numDataPoints > de::abs(lineFit.offset) * 0.25f)
 	{
 		m_testCtx.getLog()
 			<< tcu::TestLog::Message

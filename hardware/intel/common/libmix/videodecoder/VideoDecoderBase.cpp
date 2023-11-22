@@ -913,14 +913,14 @@ Decode_Status VideoDecoderBase::setupVA(uint32_t numSurface, VAProfile profile, 
             mVASurfaceAttrib->pixel_format = VA_FOURCC_NV12;
             mVASurfaceAttrib->width = mVideoFormatInfo.surfaceWidth;
             mVASurfaceAttrib->height = mVideoFormatInfo.surfaceHeight;
-            mVASurfaceAttrib->data_size = mConfigBuffer.graphicBufferStride * mVideoFormatInfo.surfaceHeight * 1.5;
+            mVASurfaceAttrib->data_size = mConfigBuffer.graphicBufferHStride * mConfigBuffer.graphicBufferVStride * 1.5;
             mVASurfaceAttrib->num_planes = 2;
-            mVASurfaceAttrib->pitches[0] = mConfigBuffer.graphicBufferStride;
-            mVASurfaceAttrib->pitches[1] = mConfigBuffer.graphicBufferStride;
+            mVASurfaceAttrib->pitches[0] = mConfigBuffer.graphicBufferHStride;
+            mVASurfaceAttrib->pitches[1] = mConfigBuffer.graphicBufferHStride;
             mVASurfaceAttrib->pitches[2] = 0;
             mVASurfaceAttrib->pitches[3] = 0;
             mVASurfaceAttrib->offsets[0] = 0;
-            mVASurfaceAttrib->offsets[1] = mConfigBuffer.graphicBufferStride * mVideoFormatInfo.surfaceHeight;
+            mVASurfaceAttrib->offsets[1] = mConfigBuffer.graphicBufferHStride * mConfigBuffer.graphicBufferVStride;
             mVASurfaceAttrib->offsets[2] = 0;
             mVASurfaceAttrib->offsets[3] = 0;
             mVASurfaceAttrib->private_data = (void *)mConfigBuffer.nativeWindow;
@@ -1218,6 +1218,11 @@ Decode_Status VideoDecoderBase::getRawDataFromSurface(VideoRenderBuffer *renderB
     // size in NV12 format
     uint32_t cropWidth = mVideoFormatInfo.width - (mVideoFormatInfo.cropLeft + mVideoFormatInfo.cropRight);
     uint32_t cropHeight = mVideoFormatInfo.height - (mVideoFormatInfo.cropBottom + mVideoFormatInfo.cropTop);
+    if (strcasecmp(mVideoFormatInfo.mimeType,"video/avc") == 0 ||
+        strcasecmp(mVideoFormatInfo.mimeType,"video/h264") == 0) {
+        cropHeight = mVideoFormatInfo.height;
+        cropWidth = mVideoFormatInfo.width;
+    }
     int32_t size = cropWidth  * cropHeight * 3 / 2;
 
     if (internal) {
@@ -1321,14 +1326,14 @@ Decode_Status VideoDecoderBase::createSurfaceFromHandle(int index) {
     surfExtBuf.pixel_format = VA_FOURCC_NV12;
     surfExtBuf.width = mVideoFormatInfo.surfaceWidth;
     surfExtBuf.height = mVideoFormatInfo.surfaceHeight;
-    surfExtBuf.data_size = mConfigBuffer.graphicBufferStride * mVideoFormatInfo.surfaceHeight * 1.5;
+    surfExtBuf.data_size = mConfigBuffer.graphicBufferHStride * mConfigBuffer.graphicBufferVStride * 1.5;
     surfExtBuf.num_planes = 2;
-    surfExtBuf.pitches[0] = mConfigBuffer.graphicBufferStride;
-    surfExtBuf.pitches[1] = mConfigBuffer.graphicBufferStride;
+    surfExtBuf.pitches[0] = mConfigBuffer.graphicBufferHStride;
+    surfExtBuf.pitches[1] = mConfigBuffer.graphicBufferHStride;
     surfExtBuf.pitches[2] = 0;
     surfExtBuf.pitches[3] = 0;
     surfExtBuf.offsets[0] = 0;
-    surfExtBuf.offsets[1] = mConfigBuffer.graphicBufferStride * mVideoFormatInfo.surfaceHeight;
+    surfExtBuf.offsets[1] = mConfigBuffer.graphicBufferHStride * mConfigBuffer.graphicBufferVStride;
     surfExtBuf.offsets[2] = 0;
     surfExtBuf.offsets[3] = 0;
     surfExtBuf.private_data = (void *)mConfigBuffer.nativeWindow;
@@ -1647,6 +1652,11 @@ void VideoDecoderBase::setRenderRect() {
     rect.y = mVideoFormatInfo.cropTop;
     rect.width = mVideoFormatInfo.width - (mVideoFormatInfo.cropLeft + mVideoFormatInfo.cropRight);
     rect.height = mVideoFormatInfo.height - (mVideoFormatInfo.cropBottom + mVideoFormatInfo.cropTop);
+    if (strcasecmp(mVideoFormatInfo.mimeType,"video/avc") == 0 ||
+        strcasecmp(mVideoFormatInfo.mimeType,"video/h264") == 0) {
+        rect.height = mVideoFormatInfo.height;
+        rect.width = mVideoFormatInfo.width;
+    }
 
     VADisplayAttribute render_rect;
     render_rect.type = VADisplayAttribRenderRect;

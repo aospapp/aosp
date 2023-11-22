@@ -16,63 +16,54 @@
 
 public class Main {
 
-  // CHECK-START: Main Main.keepTest(Main) instruction_simplifier_after_types (before)
-  // CHECK:         NullCheck
-  // CHECK:         InvokeStaticOrDirect
+  /// CHECK-START: Main Main.keepTest(Main) instruction_simplifier (before)
+  /// CHECK:         NullCheck
+  /// CHECK:         InvokeStaticOrDirect
 
-  // CHECK-START: Main Main.keepTest(Main) instruction_simplifier_after_types (after)
-  // CHECK:         NullCheck
-  // CHECK:         InvokeStaticOrDirect
+  /// CHECK-START: Main Main.keepTest(Main) instruction_simplifier (after)
+  /// CHECK:         NullCheck
+  /// CHECK:         InvokeStaticOrDirect
   public Main keepTest(Main m) {
     return m.g();
   }
 
-  // CHECK-START: Main Main.thisTest() instruction_simplifier (before)
-  // CHECK:         NullCheck
-  // CHECK:         InvokeStaticOrDirect
-
-  // CHECK-START: Main Main.thisTest() instruction_simplifier (after)
-  // CHECK-NOT:     NullCheck
-  // CHECK:         InvokeStaticOrDirect
+  /// CHECK-START: Main Main.thisTest() builder (after)
+  /// CHECK-NOT:     NullCheck
+  /// CHECK:         InvokeStaticOrDirect
   public Main thisTest() {
     return g();
   }
 
-  // CHECK-START: Main Main.newInstanceRemoveTest() instruction_simplifier (before)
-  // CHECK:         NewInstance
-  // CHECK:         NullCheck
-  // CHECK:         InvokeStaticOrDirect
-  // CHECK:         NullCheck
-  // CHECK:         InvokeStaticOrDirect
+  /// CHECK-START: Main Main.newInstanceRemoveTest() builder (after)
+  /// CHECK:         NewInstance
+  /// CHECK:         InvokeStaticOrDirect
+  /// CHECK:         InvokeStaticOrDirect
 
-  // CHECK-START: Main Main.newInstanceRemoveTest() instruction_simplifier (after)
-  // CHECK-NOT:     NullCheck
+  /// CHECK-START: Main Main.newInstanceRemoveTest() builder (after)
+  /// CHECK-NOT:     NullCheck
   public Main newInstanceRemoveTest() {
     Main m = new Main();
     return m.g();
   }
 
-  // CHECK-START: Main Main.newArrayRemoveTest() instruction_simplifier (before)
-  // CHECK:         NewArray
-  // CHECK:         NullCheck
-  // CHECK:         ArrayGet
+  /// CHECK-START: Main Main.newArrayRemoveTest() builder (after)
+  /// CHECK:         NewArray
+  /// CHECK:         ArrayGet
 
-  // CHECK-START: Main Main.newArrayRemoveTest() instruction_simplifier (after)
-  // CHECK:         NewArray
-  // CHECK-NOT:     NullCheck
-  // CHECK:         ArrayGet
+  /// CHECK-START: Main Main.newArrayRemoveTest() builder (after)
+  /// CHECK-NOT:     NullCheck
   public Main newArrayRemoveTest() {
     Main[] ms = new Main[1];
     return ms[0];
   }
 
-  // CHECK-START: Main Main.ifRemoveTest(boolean) instruction_simplifier_after_types (before)
-  // CHECK:         NewInstance
-  // CHECK:         NullCheck
+  /// CHECK-START: Main Main.ifRemoveTest(boolean) instruction_simplifier (before)
+  /// CHECK:         NewInstance
+  /// CHECK:         NullCheck
 
-  // CHECK-START: Main Main.ifRemoveTest(boolean) instruction_simplifier_after_types (after)
-  // CHECK:         NewInstance
-  // CHECK-NOT:     NullCheck
+  /// CHECK-START: Main Main.ifRemoveTest(boolean) instruction_simplifier (after)
+  /// CHECK:         NewInstance
+  /// CHECK-NOT:     NullCheck
   public Main ifRemoveTest(boolean flag) {
     Main m = null;
     if (flag) {
@@ -83,13 +74,13 @@ public class Main {
     return m.g();
   }
 
-  // CHECK-START: Main Main.ifKeepTest(boolean) instruction_simplifier_after_types (before)
-  // CHECK:         NewInstance
-  // CHECK:         NullCheck
+  /// CHECK-START: Main Main.ifKeepTest(boolean) instruction_simplifier (before)
+  /// CHECK:         NewInstance
+  /// CHECK:         NullCheck
 
-  // CHECK-START: Main Main.ifKeepTest(boolean) instruction_simplifier_after_types (after)
-  // CHECK:         NewInstance
-  // CHECK:         NullCheck
+  /// CHECK-START: Main Main.ifKeepTest(boolean) instruction_simplifier (after)
+  /// CHECK:         NewInstance
+  /// CHECK:         NullCheck
   public Main ifKeepTest(boolean flag) {
     Main m = null;
     if (flag) {
@@ -98,11 +89,11 @@ public class Main {
     return m.g();
   }
 
-  // CHECK-START: Main Main.forRemoveTest(int) instruction_simplifier_after_types (before)
-  // CHECK:         NullCheck
+  /// CHECK-START: Main Main.forRemoveTest(int) instruction_simplifier (before)
+  /// CHECK:         NullCheck
 
-  // CHECK-START: Main Main.forRemoveTest(int) instruction_simplifier_after_types (after)
-  // CHECK-NOT:     NullCheck
+  /// CHECK-START: Main Main.forRemoveTest(int) instruction_simplifier (after)
+  /// CHECK-NOT:     NullCheck
   public Main forRemoveTest(int count) {
     Main a = new Main();
     Main m = new Main();
@@ -114,11 +105,11 @@ public class Main {
     return m.g();
   }
 
-  // CHECK-START: Main Main.forKeepTest(int) instruction_simplifier_after_types (before)
-  // CHECK:         NullCheck
+  /// CHECK-START: Main Main.forKeepTest(int) instruction_simplifier (before)
+  /// CHECK:         NullCheck
 
-  // CHECK-START: Main Main.forKeepTest(int) instruction_simplifier_after_types (after)
-  // CHECK:         NullCheck
+  /// CHECK-START: Main Main.forKeepTest(int) instruction_simplifier (after)
+  /// CHECK:         NullCheck
   public Main forKeepTest(int count) {
     Main a = new Main();
     Main m = new Main();
@@ -132,11 +123,11 @@ public class Main {
     return m.g();
   }
 
-  // CHECK-START: Main Main.phiFlowRemoveTest(int) instruction_simplifier_after_types (before)
-  // CHECK:         NullCheck
+  /// CHECK-START: Main Main.phiFlowRemoveTest(int) instruction_simplifier (before)
+  /// CHECK:         NullCheck
 
-  // CHECK-START: Main Main.phiFlowRemoveTest(int) instruction_simplifier_after_types (after)
-  // CHECK-NOT:     NullCheck
+  /// CHECK-START: Main Main.phiFlowRemoveTest(int) instruction_simplifier (after)
+  /// CHECK-NOT:     NullCheck
   public Main phiFlowRemoveTest(int count) {
     Main a = new Main();
     Main m = new Main();
@@ -154,11 +145,11 @@ public class Main {
     return n.g();
   }
 
-  // CHECK-START: Main Main.phiFlowKeepTest(int) instruction_simplifier_after_types (before)
-  // CHECK:         NullCheck
+  /// CHECK-START: Main Main.phiFlowKeepTest(int) instruction_simplifier (before)
+  /// CHECK:         NullCheck
 
-  // CHECK-START: Main Main.phiFlowKeepTest(int) instruction_simplifier_after_types (after)
-  // CHECK:         NullCheck
+  /// CHECK-START: Main Main.phiFlowKeepTest(int) instruction_simplifier (after)
+  /// CHECK:         NullCheck
   public Main phiFlowKeepTest(int count) {
     Main a = new Main();
     Main m = new Main();
@@ -178,11 +169,8 @@ public class Main {
     return n.g();
   }
 
-  // CHECK-START: Main Main.scopeRemoveTest(int, Main) instruction_simplifier (before)
-  // CHECK:         NullCheck
-
-  // CHECK-START: Main Main.scopeRemoveTest(int, Main) instruction_simplifier (after)
-  // CHECK-NOT:     NullCheck
+  /// CHECK-START: Main Main.scopeRemoveTest(int, Main) builder (after)
+  /// CHECK-NOT:     NullCheck
   public Main scopeRemoveTest(int count, Main a) {
     Main m = null;
     for (int i = 0; i < count; i++) {
@@ -196,11 +184,11 @@ public class Main {
     return m;
   }
 
-  // CHECK-START: Main Main.scopeKeepTest(int, Main) instruction_simplifier_after_types (before)
-  // CHECK:         NullCheck
+  /// CHECK-START: Main Main.scopeKeepTest(int, Main) instruction_simplifier (before)
+  /// CHECK:         NullCheck
 
-  // CHECK-START: Main Main.scopeKeepTest(int, Main) instruction_simplifier_after_types (after)
-  // CHECK:         NullCheck
+  /// CHECK-START: Main Main.scopeKeepTest(int, Main) instruction_simplifier (after)
+  /// CHECK:         NullCheck
   public Main scopeKeepTest(int count, Main a) {
     Main m = new Main();
     for (int i = 0; i < count; i++) {
@@ -214,11 +202,11 @@ public class Main {
     return m;
   }
 
-  // CHECK-START: Main Main.scopeIfNotNullRemove(Main) instruction_simplifier_after_types (before)
-  // CHECK:         NullCheck
+  /// CHECK-START: Main Main.scopeIfNotNullRemove(Main) instruction_simplifier (before)
+  /// CHECK:         NullCheck
 
-  // CHECK-START: Main Main.scopeIfNotNullRemove(Main) instruction_simplifier_after_types (after)
-  // CHECK-NOT:     NullCheck
+  /// CHECK-START: Main Main.scopeIfNotNullRemove(Main) instruction_simplifier (after)
+  /// CHECK-NOT:     NullCheck
   public Main scopeIfNotNullRemove(Main m) {
     if (m != null) {
       return m.g();
@@ -226,11 +214,11 @@ public class Main {
     return m;
   }
 
-  // CHECK-START: Main Main.scopeIfKeep(Main) instruction_simplifier_after_types (before)
-  // CHECK:         NullCheck
+  /// CHECK-START: Main Main.scopeIfKeep(Main) instruction_simplifier (before)
+  /// CHECK:         NullCheck
 
-  // CHECK-START: Main Main.scopeIfKeep(Main) instruction_simplifier_after_types (after)
-  // CHECK:         NullCheck
+  /// CHECK-START: Main Main.scopeIfKeep(Main) instruction_simplifier (after)
+  /// CHECK:         NullCheck
   public Main scopeIfKeep(Main m) {
     if (m == null) {
       m = new Main();
@@ -258,12 +246,12 @@ public class Main {
 class ListElement {
   private ListElement next;
 
-  // CHECK-START: boolean ListElement.isShorter(ListElement, ListElement) instruction_simplifier_after_types (before)
-  // CHECK:         NullCheck
-  // CHECK:         NullCheck
+  /// CHECK-START: boolean ListElement.isShorter(ListElement, ListElement) instruction_simplifier (before)
+  /// CHECK:         NullCheck
+  /// CHECK:         NullCheck
 
-  // CHECK-START: boolean ListElement.isShorter(ListElement, ListElement) instruction_simplifier_after_types (after)
-  // CHECK-NOT:     NullCheck
+  /// CHECK-START: boolean ListElement.isShorter(ListElement, ListElement) instruction_simplifier (after)
+  /// CHECK-NOT:     NullCheck
   static boolean isShorter(ListElement x, ListElement y) {
     ListElement xTail = x;
     ListElement yTail = y;

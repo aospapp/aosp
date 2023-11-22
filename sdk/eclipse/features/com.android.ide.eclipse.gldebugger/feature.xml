@@ -2,7 +2,7 @@
 <feature
       id="com.android.ide.eclipse.gldebugger.feature"
       label="Tracer for OpenGL ES"
-      version="24.0.2.qualifier"
+      version="24.3.3.qualifier"
       provider-name="The Android Open Source Project">
 
    <description>

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2009 The Android Open Source Project
+<!--
+     Copyright (C) 2009 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -13,36 +14,12 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<Button xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/ActionBarSetWallpaperStyle"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-
-    android:layout_gravity="center_horizontal|bottom"
-    android:background="#88000000"
-    style="?android:attr/buttonBarStyle">
-
-    <Button
-        android:id="@+id/configure"
-
-        android:layout_width="0dip"
-        android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:layout_gravity="center_vertical"
-
-        android:text="@string/configure_wallpaper"
-
-        android:onClick="configureLiveWallpaper"
-        style="?android:attr/buttonBarButtonStyle" />
-
-    <Button
-        android:layout_width="0dip"
-        android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:layout_gravity="center_vertical"
-
-        android:text="@string/wallpaper_instructions"
-
-        android:onClick="setLiveWallpaper"
-        style="?android:attr/buttonBarButtonStyle" />
-</LinearLayout>
+    android:layout_height="match_parent"
+    android:drawablePadding="8dp"
+    android:drawableStart="@drawable/ic_tick"
+    android:gravity="start|center_vertical"
+    android:onClick="setLiveWallpaper"
+    android:text="@string/wallpaper_instructions" />

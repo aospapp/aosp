@@ -28,7 +28,7 @@
 #include "bta_sys.h"
 #include "bta_ag_api.h"
 #include "bta_ag_int.h"
-#include "gki.h"
+#include "bt_common.h"
 #include <string.h>
 
 /*****************************************************************************
@@ -56,14 +56,9 @@ static const tBTA_SYS_REG bta_ag_reg =
 *******************************************************************************/
 tBTA_STATUS BTA_AgEnable(tBTA_AG_PARSE_MODE parse_mode, tBTA_AG_CBACK *p_cback)
 {
-    tBTA_AG_API_ENABLE  *p_buf;
-    UINT8       idx;
-
     /* Error if AG is already enabled, or AG is in the middle of disabling. */
-    for (idx = 0; idx < BTA_AG_NUM_SCB; idx++)
-    {
-        if (bta_ag_cb.scb[idx].in_use)
-        {
+    for (int idx = 0; idx < BTA_AG_NUM_SCB; idx++) {
+        if (bta_ag_cb.scb[idx].in_use) {
             APPL_TRACE_ERROR ("BTA_AgEnable: FAILED, AG already enabled.");
             return BTA_FAILURE;
         }
@@ -72,16 +67,15 @@ tBTA_STATUS BTA_AgEnable(tBTA_AG_PARSE_MODE parse_mode, tBTA_AG_CBACK *p_cback)
     /* register with BTA system manager */
     bta_sys_register(BTA_ID_AG, &bta_ag_reg);
 
-    if ((p_buf = (tBTA_AG_API_ENABLE *) GKI_getbuf(sizeof(tBTA_AG_API_ENABLE))) != NULL)
-    {
-        p_buf->hdr.event = BTA_AG_API_ENABLE_EVT;
-        p_buf->parse_mode = parse_mode;
-        p_buf->p_cback = p_cback;
-        bta_sys_sendmsg(p_buf);
-    }
+    tBTA_AG_API_ENABLE *p_buf =
+        (tBTA_AG_API_ENABLE *)osi_malloc(sizeof(tBTA_AG_API_ENABLE));
+    p_buf->hdr.event = BTA_AG_API_ENABLE_EVT;
+    p_buf->parse_mode = parse_mode;
+    p_buf->p_cback = p_cback;
+
+    bta_sys_sendmsg(p_buf);
 
     return BTA_SUCCESS;
-
 }
 
 /*******************************************************************************
@@ -96,13 +90,11 @@ tBTA_STATUS BTA_AgEnable(tBTA_AG_PARSE_MODE parse_mode, tBTA_AG_CBACK *p_cback)
 *******************************************************************************/
 void BTA_AgDisable(void)
 {
-    BT_HDR  *p_buf;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
 
-    if ((p_buf = (BT_HDR *) GKI_getbuf(sizeof(BT_HDR))) != NULL)
-    {
-        p_buf->event = BTA_AG_API_DISABLE_EVT;
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->event = BTA_AG_API_DISABLE_EVT;
+
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -118,30 +110,22 @@ void BTA_AgDisable(void)
 void BTA_AgRegister(tBTA_SERVICE_MASK services, tBTA_SEC sec_mask,tBTA_AG_FEAT features,
                   char * p_service_names[], UINT8 app_id)
 {
-    tBTA_AG_API_REGISTER    *p_buf;
-    int                     i;
+    tBTA_AG_API_REGISTER *p_buf =
+        (tBTA_AG_API_REGISTER *)osi_malloc(sizeof(tBTA_AG_API_REGISTER));
 
-    if ((p_buf = (tBTA_AG_API_REGISTER *) GKI_getbuf(sizeof(tBTA_AG_API_REGISTER))) != NULL)
-    {
-        p_buf->hdr.event = BTA_AG_API_REGISTER_EVT;
-        p_buf->features = features;
-        p_buf->sec_mask = sec_mask;
-        p_buf->services = services;
-        p_buf->app_id = app_id;
-        for (i = 0; i < BTA_AG_NUM_IDX; i++)
-        {
-            if(p_service_names[i])
-            {
-                BCM_STRNCPY_S(p_buf->p_name[i], BTA_SERVICE_NAME_LEN+1, p_service_names[i], BTA_SERVICE_NAME_LEN);
-                p_buf->p_name[i][BTA_SERVICE_NAME_LEN] = 0;
-            }
-            else
-            {
-                p_buf->p_name[i][0] = 0;
-            }
-        }
-        bta_sys_sendmsg(p_buf);
+    p_buf->hdr.event = BTA_AG_API_REGISTER_EVT;
+    p_buf->features = features;
+    p_buf->sec_mask = sec_mask;
+    p_buf->services = services;
+    p_buf->app_id = app_id;
+    for (int i = 0; i < BTA_AG_NUM_IDX; i++) {
+        if (p_service_names[i])
+            strlcpy(p_buf->p_name[i], p_service_names[i], BTA_SERVICE_NAME_LEN);
+        else
+            p_buf->p_name[i][0] = 0;
     }
+
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -156,14 +140,12 @@ void BTA_AgRegister(tBTA_SERVICE_MASK services, tBTA_SEC sec_mask,tBTA_AG_FEAT f
 *******************************************************************************/
 void BTA_AgDeregister(UINT16 handle)
 {
-    BT_HDR  *p_buf;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
 
-    if ((p_buf = (BT_HDR *) GKI_getbuf(sizeof(BT_HDR))) != NULL)
-    {
-        p_buf->event = BTA_AG_API_DEREGISTER_EVT;
-        p_buf->layer_specific = handle;
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->event = BTA_AG_API_DEREGISTER_EVT;
+    p_buf->layer_specific = handle;
+
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -181,17 +163,16 @@ void BTA_AgDeregister(UINT16 handle)
 *******************************************************************************/
 void BTA_AgOpen(UINT16 handle, BD_ADDR bd_addr, tBTA_SEC sec_mask, tBTA_SERVICE_MASK services)
 {
-    tBTA_AG_API_OPEN  *p_buf;
+    tBTA_AG_API_OPEN *p_buf =
+        (tBTA_AG_API_OPEN *)osi_malloc(sizeof(tBTA_AG_API_OPEN));
 
-    if ((p_buf = (tBTA_AG_API_OPEN *) GKI_getbuf(sizeof(tBTA_AG_API_OPEN))) != NULL)
-    {
-        p_buf->hdr.event = BTA_AG_API_OPEN_EVT;
-        p_buf->hdr.layer_specific = handle;
-        bdcpy(p_buf->bd_addr, bd_addr);
-        p_buf->services = services;
-        p_buf->sec_mask = sec_mask;
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->hdr.event = BTA_AG_API_OPEN_EVT;
+    p_buf->hdr.layer_specific = handle;
+    bdcpy(p_buf->bd_addr, bd_addr);
+    p_buf->services = services;
+    p_buf->sec_mask = sec_mask;
+
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -207,14 +188,12 @@ void BTA_AgOpen(UINT16 handle, BD_ADDR bd_addr, tBTA_SEC sec_mask, tBTA_SERVICE_
 *******************************************************************************/
 void BTA_AgClose(UINT16 handle)
 {
-    BT_HDR  *p_buf;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
 
-    if ((p_buf = (BT_HDR *) GKI_getbuf(sizeof(BT_HDR))) != NULL)
-    {
-        p_buf->event = BTA_AG_API_CLOSE_EVT;
-        p_buf->layer_specific = handle;
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->event = BTA_AG_API_CLOSE_EVT;
+    p_buf->layer_specific = handle;
+
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -230,14 +209,12 @@ void BTA_AgClose(UINT16 handle)
 *******************************************************************************/
 void BTA_AgAudioOpen(UINT16 handle)
 {
-    BT_HDR  *p_buf;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
 
-    if ((p_buf = (BT_HDR *) GKI_getbuf(sizeof(BT_HDR))) != NULL)
-    {
-        p_buf->event = BTA_AG_API_AUDIO_OPEN_EVT;
-        p_buf->layer_specific = handle;
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->event = BTA_AG_API_AUDIO_OPEN_EVT;
+    p_buf->layer_specific = handle;
+
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -253,16 +230,13 @@ void BTA_AgAudioOpen(UINT16 handle)
 *******************************************************************************/
 void BTA_AgAudioClose(UINT16 handle)
 {
-    BT_HDR  *p_buf;
+    BT_HDR  *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
 
-    if ((p_buf = (BT_HDR *) GKI_getbuf(sizeof(BT_HDR))) != NULL)
-    {
-        p_buf->event = BTA_AG_API_AUDIO_CLOSE_EVT;
-        p_buf->layer_specific = handle;
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->event = BTA_AG_API_AUDIO_CLOSE_EVT;
+    p_buf->layer_specific = handle;
+
+    bta_sys_sendmsg(p_buf);
 }
-
 
 /*******************************************************************************
 **
@@ -278,19 +252,16 @@ void BTA_AgAudioClose(UINT16 handle)
 *******************************************************************************/
 void BTA_AgResult(UINT16 handle, tBTA_AG_RES result, tBTA_AG_RES_DATA *p_data)
 {
-    tBTA_AG_API_RESULT  *p_buf;
+    tBTA_AG_API_RESULT *p_buf =
+        (tBTA_AG_API_RESULT *)osi_malloc(sizeof(tBTA_AG_API_RESULT));
 
-    if ((p_buf = (tBTA_AG_API_RESULT *) GKI_getbuf(sizeof(tBTA_AG_API_RESULT))) != NULL)
-    {
-        p_buf->hdr.event = BTA_AG_API_RESULT_EVT;
-        p_buf->hdr.layer_specific = handle;
-        p_buf->result = result;
-        if(p_data)
-        {
-            memcpy(&p_buf->data, p_data, sizeof(p_buf->data));
-        }
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->hdr.event = BTA_AG_API_RESULT_EVT;
+    p_buf->hdr.layer_specific = handle;
+    p_buf->result = result;
+    if (p_data)
+        memcpy(&p_buf->data, p_data, sizeof(p_buf->data));
+
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -307,14 +278,12 @@ void BTA_AgResult(UINT16 handle, tBTA_AG_RES result, tBTA_AG_RES_DATA *p_data)
 *******************************************************************************/
 void BTA_AgSetCodec(UINT16 handle, tBTA_AG_PEER_CODEC codec)
 {
-    tBTA_AG_API_SETCODEC    *p_buf;
+    tBTA_AG_API_SETCODEC *p_buf =
+        (tBTA_AG_API_SETCODEC *)osi_malloc(sizeof(tBTA_AG_API_SETCODEC));
 
-    if ((p_buf = (tBTA_AG_API_SETCODEC *) GKI_getbuf(sizeof(tBTA_AG_API_SETCODEC))) != NULL)
-    {
-        p_buf->hdr.event = BTA_AG_API_SETCODEC_EVT;
-        p_buf->hdr.layer_specific = handle;
-        p_buf->codec = codec;
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->hdr.event = BTA_AG_API_SETCODEC_EVT;
+    p_buf->hdr.layer_specific = handle;
+    p_buf->codec = codec;
+
+    bta_sys_sendmsg(p_buf);
 }
-

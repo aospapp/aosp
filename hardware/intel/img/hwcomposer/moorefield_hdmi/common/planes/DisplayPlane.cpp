@@ -217,7 +217,10 @@ bool DisplayPlane::setDataBuffer(uint32_t handle)
     if (index < 0) {
         VLOGTRACE("unmapped buffer, mapping...");
         mapper = mapBuffer(buffer);
-        if (!mapper) {
+        // Skip the unsupported format in case that a new gralloc buffer was
+        // created and added into the mapped list, triggered by SoftwareRender
+        // with color conversion from known formats to YV12.
+        if (!mapper || mapper->getFormat() == HAL_PIXEL_FORMAT_YV12) {
             ELOGTRACE("failed to map buffer %#x", handle);
             bm->unlockDataBuffer(buffer);
             return false;

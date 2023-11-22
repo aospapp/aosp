@@ -61,6 +61,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.text.DecimalFormatSymbols;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.SSLContext;
@@ -1136,6 +1137,32 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
                         .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                         .setRandomizedEncryptionRequired(false)
                         .build());
+    }
+
+    // http://b/28384942
+    public void testGenerateWithFarsiLocale() throws Exception {
+        Locale defaultLocale = Locale.getDefault();
+        // Note that we use farsi here because its number formatter doesn't use
+        // arabic digits.
+        Locale fa_IR = Locale.forLanguageTag("fa-IR");
+        DecimalFormatSymbols dfs = DecimalFormatSymbols.getInstance(fa_IR);
+        assertFalse('0' == dfs.getZeroDigit());
+
+        Locale.setDefault(fa_IR);
+        try {
+            KeyPairGenerator keyGenerator = KeyPairGenerator.getInstance(
+                    KeyProperties.KEY_ALGORITHM_RSA, "AndroidKeyStore");
+
+            keyGenerator.initialize(new KeyGenParameterSpec.Builder(
+                   TEST_ALIAS_1, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                   .setBlockModes(KeyProperties.BLOCK_MODE_ECB)
+                   .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1)
+                   .build());
+
+            keyGenerator.generateKeyPair();
+        } finally {
+            Locale.setDefault(defaultLocale);
+        }
     }
 
     private void assertKeyGenInitSucceeds(String algorithm, AlgorithmParameterSpec params)

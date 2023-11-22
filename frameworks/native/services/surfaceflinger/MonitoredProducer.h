@@ -35,9 +35,10 @@ public:
 
     // From IGraphicBufferProducer
     virtual status_t requestBuffer(int slot, sp<GraphicBuffer>* buf);
-    virtual status_t setBufferCount(int bufferCount);
-    virtual status_t dequeueBuffer(int* slot, sp<Fence>* fence, bool async,
-            uint32_t w, uint32_t h, PixelFormat format, uint32_t usage);
+    virtual status_t setMaxDequeuedBufferCount(int maxDequeuedBuffers);
+    virtual status_t setAsyncMode(bool async);
+    virtual status_t dequeueBuffer(int* slot, sp<Fence>* fence, uint32_t w,
+            uint32_t h, PixelFormat format, uint32_t usage);
     virtual status_t detachBuffer(int slot);
     virtual status_t detachNextBuffer(sp<GraphicBuffer>* outBuffer,
             sp<Fence>* outFence);
@@ -45,18 +46,25 @@ public:
             const sp<GraphicBuffer>& buffer);
     virtual status_t queueBuffer(int slot, const QueueBufferInput& input,
             QueueBufferOutput* output);
-    virtual void cancelBuffer(int slot, const sp<Fence>& fence);
+    virtual status_t cancelBuffer(int slot, const sp<Fence>& fence);
     virtual int query(int what, int* value);
     virtual status_t connect(const sp<IProducerListener>& token, int api,
             bool producerControlledByApp, QueueBufferOutput* output);
     virtual status_t disconnect(int api);
     virtual status_t setSidebandStream(const sp<NativeHandle>& stream);
-    virtual void allocateBuffers(bool async, uint32_t width, uint32_t height,
+    virtual void allocateBuffers(uint32_t width, uint32_t height,
             PixelFormat format, uint32_t usage);
     virtual status_t allowAllocation(bool allow);
     virtual status_t setGenerationNumber(uint32_t generationNumber);
     virtual String8 getConsumerName() const override;
+    virtual uint64_t getNextFrameNumber() const override;
+    virtual status_t setDequeueTimeout(nsecs_t timeout) override;
+    virtual status_t getLastQueuedBuffer(sp<GraphicBuffer>* outBuffer,
+            sp<Fence>* outFence, float outTransformMatrix[16]) override;
     virtual IBinder* onAsBinder();
+    virtual status_t setSharedBufferMode(bool sharedBufferMode) override;
+    virtual status_t setAutoRefresh(bool autoRefresh) override;
+    virtual status_t getUniqueId(uint64_t* outId) const override;
 
 private:
     sp<IGraphicBufferProducer> mProducer;

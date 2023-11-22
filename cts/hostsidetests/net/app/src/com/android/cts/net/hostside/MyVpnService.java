@@ -26,7 +26,6 @@ import android.util.Log;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
 
 public class MyVpnService extends VpnService {
 

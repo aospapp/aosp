@@ -140,7 +140,19 @@ implements   ClassVisitor,
 
     public void visitLineNumberTableAttribute(Clazz clazz, Method method, CodeAttribute codeAttribute, LineNumberTableAttribute lineNumberTableAttribute)
     {
-        ps.print(lineNumberTableAttribute.getLowestLineNumber() + ":" +
-                 lineNumberTableAttribute.getHighestLineNumber() + ":");
+        // ps.print(lineNumberTableAttribute.getLowestLineNumber() + ":" +
+        //          lineNumberTableAttribute.getHighestLineNumber() + ":");
+        // With the above statement,
+        // OpenJDK 8 (openjdk version "1.8.0_45-internal") crashed with:
+        // Exception in thread "main" java.lang.AbstractMethodError:
+        // java.lang.Exception.getMessage()Ljava/lang/String;
+        // at proguard.ProGuard.main(ProGuard.java:519)
+        //
+        // Using temporary variables fixed the crash.
+        // See bug 26274804.
+        int low,high;
+        low = lineNumberTableAttribute.getLowestLineNumber();
+        high = lineNumberTableAttribute.getHighestLineNumber();
+        ps.print(low + ":" + high + ":");
     }
 }

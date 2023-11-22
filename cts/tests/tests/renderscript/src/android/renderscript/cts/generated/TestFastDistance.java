@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ package android.renderscript.cts;
 import android.renderscript.Allocation;
 import android.renderscript.RSRuntimeException;
 import android.renderscript.Element;
+import android.renderscript.cts.Target;
 
 import java.util.Arrays;
 
@@ -81,7 +82,7 @@ public class TestFastDistance extends RSBaseCompute {
             // Fill args with the input values
             args.inLeftVector = arrayInLeftVector[i];
             args.inRightVector = arrayInRightVector[i];
-            Target target = new Target(relaxed);
+            Target target = new Target(Target.FunctionType.FAST, Target.ReturnType.FLOAT, relaxed);
             CoreMathVerifier.computeFastDistance(args, target);
 
             // Compare the expected outputs to the actual values returned by RS.
@@ -169,7 +170,7 @@ public class TestFastDistance extends RSBaseCompute {
             for (int j = 0; j < 2 ; j++) {
                 args.inRightVector[j] = arrayInRightVector[i * 2 + j];
             }
-            Target target = new Target(relaxed);
+            Target target = new Target(Target.FunctionType.FAST, Target.ReturnType.FLOAT, relaxed);
             CoreMathVerifier.computeFastDistance(args, target);
 
             // Compare the expected outputs to the actual values returned by RS.
@@ -255,7 +256,7 @@ public class TestFastDistance extends RSBaseCompute {
             for (int j = 0; j < 3 ; j++) {
                 args.inRightVector[j] = arrayInRightVector[i * 4 + j];
             }
-            Target target = new Target(relaxed);
+            Target target = new Target(Target.FunctionType.FAST, Target.ReturnType.FLOAT, relaxed);
             CoreMathVerifier.computeFastDistance(args, target);
 
             // Compare the expected outputs to the actual values returned by RS.
@@ -341,7 +342,7 @@ public class TestFastDistance extends RSBaseCompute {
             for (int j = 0; j < 4 ; j++) {
                 args.inRightVector[j] = arrayInRightVector[i * 4 + j];
             }
-            Target target = new Target(relaxed);
+            Target target = new Target(Target.FunctionType.FAST, Target.ReturnType.FLOAT, relaxed);
             CoreMathVerifier.computeFastDistance(args, target);
 
             // Compare the expected outputs to the actual values returned by RS.

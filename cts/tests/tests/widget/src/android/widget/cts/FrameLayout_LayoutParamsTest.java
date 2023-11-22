@@ -16,7 +16,8 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
+import android.view.Gravity;
+import android.widget.cts.R;
 
 
 import org.xmlpull.v1.XmlPullParser;
@@ -74,5 +75,48 @@ public class FrameLayout_LayoutParamsTest extends AndroidTestCase {
         } catch (NullPointerException e) {
             // expected, test success.
         }
+    }
+
+    public void testCopyConstructor() {
+        FrameLayout.LayoutParams copy;
+
+        final FrameLayout.LayoutParams fllp = new FrameLayout.LayoutParams(
+                LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
+        fllp.gravity = Gravity.BOTTOM;
+        fllp.leftMargin = 5;
+        fllp.topMargin = 10;
+        fllp.rightMargin = 15;
+        fllp.bottomMargin = 20;
+
+        copy = new FrameLayout.LayoutParams(fllp);
+        assertEquals("Width", fllp.width, copy.width);
+        assertEquals("Height", fllp.height, copy.height);
+        assertEquals("Gravity", fllp.gravity, copy.gravity);
+        assertEquals("Left margin", fllp.leftMargin, copy.leftMargin);
+        assertEquals("Top margin", fllp.topMargin, copy.topMargin);
+        assertEquals("Right margin", fllp.rightMargin, copy.rightMargin);
+        assertEquals("Bottom margin", fllp.bottomMargin, copy.bottomMargin);
+
+        final MarginLayoutParams mlp = new MarginLayoutParams(
+                LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
+        mlp.leftMargin = 5;
+        mlp.topMargin = 10;
+        mlp.rightMargin = 15;
+        mlp.bottomMargin = 20;
+
+        copy = new FrameLayout.LayoutParams(mlp);
+        assertEquals("Width", mlp.width, copy.width);
+        assertEquals("Height", mlp.height, copy.height);
+        assertEquals("Left margin", fllp.leftMargin, copy.leftMargin);
+        assertEquals("Top margin", fllp.topMargin, copy.topMargin);
+        assertEquals("Right margin", fllp.rightMargin, copy.rightMargin);
+        assertEquals("Bottom margin", fllp.bottomMargin, copy.bottomMargin);
+
+        final ViewGroup.LayoutParams vglp = new ViewGroup.LayoutParams(
+                LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
+
+        copy = new FrameLayout.LayoutParams(vglp);
+        assertEquals("Width", vglp.width, copy.width);
+        assertEquals("Height", vglp.height, copy.height);
     }
 }

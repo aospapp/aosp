@@ -372,3 +372,131 @@ TEST(malloc, malloc_info) {
   }
 #endif
 }
+
+TEST(malloc, calloc_usable_size) {
+  for (size_t size = 1; size <= 2048; size++) {
+    void* pointer = malloc(size);
+    ASSERT_TRUE(pointer != nullptr);
+    memset(pointer, 0xeb, malloc_usable_size(pointer));
+    free(pointer);
+
+    // We should get a previous pointer that has been set to non-zero.
+    // If calloc does not zero out all of the data, this will fail.
+    uint8_t* zero_mem = reinterpret_cast<uint8_t*>(calloc(1, size));
+    ASSERT_TRUE(pointer != nullptr);
+    size_t usable_size = malloc_usable_size(zero_mem);
+    for (size_t i = 0; i < usable_size; i++) {
+      ASSERT_EQ(0, zero_mem[i]) << "Failed at allocation size " << size << " at byte " << i;
+    }
+    free(zero_mem);
+  }
+}
+
+TEST(malloc, malloc_0) {
+  void* p = malloc(0);
+  ASSERT_TRUE(p != nullptr);
+  free(p);
+}
+
+TEST(malloc, calloc_0_0) {
+  void* p = calloc(0, 0);
+  ASSERT_TRUE(p != nullptr);
+  free(p);
+}
+
+TEST(malloc, calloc_0_1) {
+  void* p = calloc(0, 1);
+  ASSERT_TRUE(p != nullptr);
+  free(p);
+}
+
+TEST(malloc, calloc_1_0) {
+  void* p = calloc(1, 0);
+  ASSERT_TRUE(p != nullptr);
+  free(p);
+}
+
+TEST(malloc, realloc_nullptr_0) {
+  // realloc(nullptr, size) is actually malloc(size).
+  void* p = realloc(nullptr, 0);
+  ASSERT_TRUE(p != nullptr);
+  free(p);
+}
+
+TEST(malloc, realloc_0) {
+  void* p = malloc(1024);
+  ASSERT_TRUE(p != nullptr);
+  // realloc(p, 0) is actually free(p).
+  void* p2 = realloc(p, 0);
+  ASSERT_TRUE(p2 == nullptr);
+}
+
+constexpr size_t MAX_LOOPS = 200;
+
+// Make sure that memory returned by malloc is aligned to allow these data types.
+TEST(malloc, verify_alignment) {
+  uint32_t** values_32 = new uint32_t*[MAX_LOOPS];
+  uint64_t** values_64 = new uint64_t*[MAX_LOOPS];
+  long double** values_ldouble = new long double*[MAX_LOOPS];
+  // Use filler to attempt to force the allocator to get potentially bad alignments.
+  void** filler = new void*[MAX_LOOPS];
+
+  for (size_t i = 0; i < MAX_LOOPS; i++) {
+    // Check uint32_t pointers.
+    filler[i] = malloc(1);
+    ASSERT_TRUE(filler[i] != nullptr);
+
+    values_32[i] = reinterpret_cast<uint32_t*>(malloc(sizeof(uint32_t)));
+    ASSERT_TRUE(values_32[i] != nullptr);
+    *values_32[i] = i;
+    ASSERT_EQ(*values_32[i], i);
+    ASSERT_EQ(0U, reinterpret_cast<uintptr_t>(values_32[i]) & (sizeof(uint32_t) - 1));
+
+    free(filler[i]);
+  }
+
+  for (size_t i = 0; i < MAX_LOOPS; i++) {
+    // Check uint64_t pointers.
+    filler[i] = malloc(1);
+    ASSERT_TRUE(filler[i] != nullptr);
+
+    values_64[i] = reinterpret_cast<uint64_t*>(malloc(sizeof(uint64_t)));
+    ASSERT_TRUE(values_64[i] != nullptr);
+    *values_64[i] = 0x1000 + i;
+    ASSERT_EQ(*values_64[i], 0x1000 + i);
+    ASSERT_EQ(0U, reinterpret_cast<uintptr_t>(values_64[i]) & (sizeof(uint64_t) - 1));
+
+    free(filler[i]);
+  }
+
+  for (size_t i = 0; i < MAX_LOOPS; i++) {
+    // Check long double pointers.
+    filler[i] = malloc(1);
+    ASSERT_TRUE(filler[i] != nullptr);
+
+    values_ldouble[i] = reinterpret_cast<long double*>(malloc(sizeof(long double)));
+    ASSERT_TRUE(values_ldouble[i] != nullptr);
+    *values_ldouble[i] = 5.5 + i;
+    ASSERT_DOUBLE_EQ(*values_ldouble[i], 5.5 + i);
+    // 32 bit glibc has a long double size of 12 bytes, so hardcode the
+    // required alignment to 0x7.
+#if !defined(__BIONIC__) && !defined(__LP64__)
+    ASSERT_EQ(0U, reinterpret_cast<uintptr_t>(values_ldouble[i]) & 0x7);
+#else
+    ASSERT_EQ(0U, reinterpret_cast<uintptr_t>(values_ldouble[i]) & (sizeof(long double) - 1));
+#endif
+
+    free(filler[i]);
+  }
+
+  for (size_t i = 0; i < MAX_LOOPS; i++) {
+    free(values_32[i]);
+    free(values_64[i]);
+    free(values_ldouble[i]);
+  }
+
+  delete[] filler;
+  delete[] values_32;
+  delete[] values_64;
+  delete[] values_ldouble;
+}

@@ -25,18 +25,8 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-/*
- * libc_init_static.c
- *
- * The program startup function __libc_init() defined here is
- * used for static executables only (i.e. those that don't depend
- * on shared libraries). It is called from arch-$ARCH/bionic/crtbegin_static.S
- * which is directly invoked by the kernel when the program is launched.
- *
- * The 'structors' parameter contains pointers to various initializer
- * arrays that must be run before the program's 'main' routine is launched.
- */
 
+#include <android/api-level.h>
 #include <elf.h>
 #include <errno.h>
 #include <stddef.h>
@@ -49,15 +39,9 @@
 #include "libc_init_common.h"
 #include "pthread_internal.h"
 
+#include "private/bionic_page.h"
 #include "private/bionic_tls.h"
 #include "private/KernelArgumentBlock.h"
-
-// Returns the address of the page containing address 'x'.
-#define PAGE_START(x)  ((x) & PAGE_MASK)
-
-// Returns the address of the next page after address 'x', unless 'x' is
-// itself at the start of a page.
-#define PAGE_END(x)    PAGE_START((x) + (PAGE_SIZE-1))
 
 extern "C" int __cxa_atexit(void (*)(void *), void *, void *);
 
@@ -85,12 +69,24 @@ static void apply_gnu_relro() {
   }
 }
 
+// The program startup function __libc_init() defined here is
+// used for static executables only (i.e. those that don't depend
+// on shared libraries). It is called from arch-$ARCH/bionic/crtbegin_static.S
+// which is directly invoked by the kernel when the program is launched.
+//
+// The 'structors' parameter contains pointers to various initializer
+// arrays that must be run before the program's 'main' routine is launched.
+
 __noreturn void __libc_init(void* raw_args,
                             void (*onexit)(void) __unused,
                             int (*slingshot)(int, char**, char**),
                             structors_array_t const * const structors) {
   KernelArgumentBlock args(raw_args);
-  __libc_init_tls(args);
+  __libc_init_main_thread(args);
+
+  // Initializing the globals requires TLS to be available for errno.
+  __libc_init_globals(args);
+
   __libc_init_AT_SECURE(args);
   __libc_init_common(args);
 
@@ -110,4 +106,8 @@ __noreturn void __libc_init(void* raw_args,
   }
 
   exit(slingshot(args.argc, args.argv, args.envp));
+}
+
+uint32_t bionic_get_application_target_sdk_version() {
+  return __ANDROID_API__;
 }

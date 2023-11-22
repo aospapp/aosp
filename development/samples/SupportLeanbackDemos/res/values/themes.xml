@@ -23,6 +23,8 @@
     </style>
     <style name="Theme.Example.Leanback.Details" parent="Theme.Leanback.Details">
     </style>
+    <style name="Theme.Example.Leanback.VerticalGrid" parent="Theme.Leanback.VerticalGrid">
+    </style>
     <style name="Theme.Example.Leanback.Rows" parent="Theme.Leanback">
         <item name="browseTitleTextStyle">@style/Widget.Example.Leanback.Title.Text</item>
         <item name="rowsVerticalGridStyle">@style/Widget.Example.Leanback.Rows.VerticalGridView</item>
@@ -32,5 +34,11 @@
     </style>
     <style name="Theme.Example.Leanback.GuidedStep.First">
         <item name="guidanceIconStyle">@style/Widget.Example.Leanback.FirstStepGuidanceIconStyle</item>
+    </style>
+    <style name="Theme.Example.Leanback.GuidedStep.Half" parent="Theme.Leanback.GuidedStep.Half">
+    </style>
+    <style name="Theme.Example.Leanback.Onboarding" parent="Theme.Leanback.Onboarding">
+        <item name="onboardingLogoStyle">@style/Widget.Example.Leanback.OnboardingLogoStyle</item>
+        <item name="onboardingPageIndicatorStyle">@style/Widget.Example.Leanback.OnboardingPageIndicatorStyle</item>
     </style>
 </resources>

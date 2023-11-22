@@ -140,7 +140,7 @@ uint32_t rsrToClientBlocking(Context *, int cmdID, const void *data, int len);
 //////////////////////////////////////////////////////////////////////////////
 
 void rsrSetObject(const Context *, rs_object_base *dst, const ObjectBase *src);
-void rsrClearObject(const Context *, rs_object_base *dst);
+void rsrClearObject(rs_object_base *dst);
 
 bool rsrIsObject(const Context *, rs_object_base src);
 bool rsrIsObject(const Context *, ObjectBase* src);
@@ -155,12 +155,24 @@ void rsrAllocationSyncAll(Context *, Allocation *a, RsAllocationUsageType source
 
 
 void rsrForEach(Context *, Script *target,
-                Allocation *in,
+                uint32_t slot,
+                uint32_t numInputs,
+                Allocation **in,
                 Allocation *out,
                 const void *usr,
                 uint32_t usrBytes,
                 const RsScriptCall *call);
 
+RsElement rsrElementCreate(Context *rsc, RsDataType dt, RsDataKind dk,
+                           bool norm, uint32_t vecSize);
+
+RsType rsrTypeCreate(Context *, const RsElement element, uint32_t dimX,
+                     uint32_t dimY, uint32_t dimZ, bool mipmaps, bool faces,
+                     uint32_t yuv);
+
+RsAllocation rsrAllocationCreateTyped(Context *, const RsType type,
+                                      RsAllocationMipmapControl mipmaps,
+                                      uint32_t usages, uintptr_t ptr);
 
 //////////////////////////////////////////////////////////////////////////////
 // Heavy math functions

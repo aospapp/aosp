@@ -84,6 +84,11 @@ uint32_t rsdAllocationGrallocBits(const android::renderscript::Context *rsc,
 bool rsdAllocationInit(const android::renderscript::Context *rsc,
                        android::renderscript::Allocation *alloc,
                        bool forceZero);
+#ifdef RS_COMPATIBILITY_LIB
+bool rsdAllocationInitStrided(const android::renderscript::Context *rsc,
+                              android::renderscript::Allocation *alloc,
+                              bool forceZero, size_t requiredAlignment);
+#endif
 bool rsdAllocationAdapterInit(const android::renderscript::Context *rsc,
                               android::renderscript::Allocation *alloc);
 void rsdAllocationDestroy(const android::renderscript::Context *rsc,

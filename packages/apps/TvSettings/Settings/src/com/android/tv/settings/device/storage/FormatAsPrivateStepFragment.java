@@ -19,6 +19,7 @@ package com.android.tv.settings.device.storage;
 import android.os.Bundle;
 import android.os.storage.DiskInfo;
 import android.support.annotation.NonNull;
+import android.support.v17.leanback.app.GuidedStepFragment;
 import android.support.v17.leanback.widget.GuidanceStylist;
 import android.support.v17.leanback.widget.GuidedAction;
 
@@ -26,9 +27,8 @@ import com.android.tv.settings.R;
 
 import java.util.List;
 
-public class FormatAsPrivateStepFragment extends StorageGuidedStepFragment {
+public class FormatAsPrivateStepFragment extends GuidedStepFragment {
 
-    private static final int ACTION_ID_CANCEL = 0;
     private static final int ACTION_ID_FORMAT = 1;
 //    private static final int ACTION_ID_LEARN_MORE = 2;
 
@@ -50,16 +50,15 @@ public class FormatAsPrivateStepFragment extends StorageGuidedStepFragment {
         return new GuidanceStylist.Guidance(
                 getString(R.string.storage_wizard_format_as_private_title),
                 getString(R.string.storage_wizard_format_as_private_description), "",
-                getActivity().getDrawable(R.drawable.ic_settings_warning));
+                getActivity().getDrawable(R.drawable.ic_warning_132dp));
     }
 
     @Override
     public void onCreateActions(@NonNull List<GuidedAction> actions, Bundle savedInstanceState) {
-        actions.add(new GuidedAction.Builder()
-                .id(ACTION_ID_CANCEL)
-                .title(getString(android.R.string.cancel))
+        actions.add(new GuidedAction.Builder(getContext())
+                .clickAction(GuidedAction.ACTION_ID_CANCEL)
                 .build());
-        actions.add(new GuidedAction.Builder()
+        actions.add(new GuidedAction.Builder(getContext())
                 .id(ACTION_ID_FORMAT)
                 .title(getString(R.string.storage_wizard_format_action))
                 .build());
@@ -74,7 +73,7 @@ public class FormatAsPrivateStepFragment extends StorageGuidedStepFragment {
     public void onGuidedActionClicked(GuidedAction action) {
         final long id = action.getId();
 
-        if (id == ACTION_ID_CANCEL) {
+        if (id == GuidedAction.ACTION_ID_CANCEL) {
             final Callback callback = (Callback) getActivity();
             callback.onCancelFormatDialog();
         } else if (id == ACTION_ID_FORMAT) {

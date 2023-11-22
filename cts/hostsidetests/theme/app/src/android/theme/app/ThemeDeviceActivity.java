@@ -44,10 +44,10 @@ public class ThemeDeviceActivity extends Activity {
     private static final String TAG = "ThemeDeviceActivity";
 
     /**
-     * The duration of the CalendarView adjustment to settle to its final
+     * Delay that allows the Holo-style CalendarView to settle to its final
      * position.
      */
-    private static final long CALENDAR_VIEW_ADJUSTMENT_DURATION = 540;
+    private static final long HOLO_CALENDAR_VIEW_ADJUSTMENT_DURATION = 540;
 
     private Theme mTheme;
     private ReferenceViewGroup mViewGroup;
@@ -111,8 +111,10 @@ public class ThemeDeviceActivity extends Activity {
     @Override
     protected void onDestroy() {
         if (mLayoutIndex < LAYOUTS.length) {
-            Log.e(TAG, "Not all layouts got rendered: " + mLayoutIndex);
-            setResult(RESULT_CANCELED);
+            final Intent data = new Intent();
+            data.putExtra(GenerateImagesActivity.EXTRA_REASON, "Only rendered "
+                    + mLayoutIndex + "/" + LAYOUTS.length + " layouts");
+            setResult(RESULT_CANCELED, data);
         }
 
         super.onDestroy();
@@ -150,10 +152,10 @@ public class ThemeDeviceActivity extends Activity {
             }
         };
 
-        if (view instanceof DatePicker) {
+        if (view instanceof DatePicker && mTheme.spec == Theme.HOLO) {
             // The Holo-styled DatePicker uses a CalendarView that has a
             // non-configurable adjustment duration of 540ms.
-            view.postDelayed(generateBitmapRunnable, CALENDAR_VIEW_ADJUSTMENT_DURATION);
+            view.postDelayed(generateBitmapRunnable, HOLO_CALENDAR_VIEW_ADJUSTMENT_DURATION);
         } else {
             view.post(generateBitmapRunnable);
         }
@@ -180,11 +182,16 @@ public class ThemeDeviceActivity extends Activity {
      * A class to encapsulate information about a theme.
      */
     static class Theme {
+        public static final int HOLO = 0;
+        public static final int MATERIAL = 1;
+
+        public final int spec;
         public final int id;
         public final int apiLevel;
         public final String name;
 
-        private Theme(int id, int apiLevel, String name) {
+        private Theme(int spec, int id, int apiLevel, String name) {
+            this.spec = spec;
             this.id = id;
             this.apiLevel = apiLevel;
             this.name = name;
@@ -194,139 +201,139 @@ public class ThemeDeviceActivity extends Activity {
     // List of themes to verify.
     static final Theme[] THEMES = {
             // Holo
-            new Theme(android.R.style.Theme_Holo,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo,
                     Build.VERSION_CODES.HONEYCOMB, "holo"),
-            new Theme(android.R.style.Theme_Holo_Dialog,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_Dialog,
                     Build.VERSION_CODES.HONEYCOMB, "holo_dialog"),
-            new Theme(android.R.style.Theme_Holo_Dialog_MinWidth,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_Dialog_MinWidth,
                     Build.VERSION_CODES.HONEYCOMB, "holo_dialog_minwidth"),
-            new Theme(android.R.style.Theme_Holo_Dialog_NoActionBar,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_Dialog_NoActionBar,
                     Build.VERSION_CODES.HONEYCOMB, "holo_dialog_noactionbar"),
-            new Theme(android.R.style.Theme_Holo_Dialog_NoActionBar_MinWidth,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_Dialog_NoActionBar_MinWidth,
                     Build.VERSION_CODES.HONEYCOMB, "holo_dialog_noactionbar_minwidth"),
-            new Theme(android.R.style.Theme_Holo_DialogWhenLarge,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_DialogWhenLarge,
                     Build.VERSION_CODES.HONEYCOMB, "holo_dialogwhenlarge"),
-            new Theme(android.R.style.Theme_Holo_DialogWhenLarge_NoActionBar,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_DialogWhenLarge_NoActionBar,
                     Build.VERSION_CODES.HONEYCOMB, "holo_dialogwhenlarge_noactionbar"),
-            new Theme(android.R.style.Theme_Holo_InputMethod,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_InputMethod,
                     Build.VERSION_CODES.HONEYCOMB, "holo_inputmethod"),
-            new Theme(android.R.style.Theme_Holo_NoActionBar,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_NoActionBar,
                     Build.VERSION_CODES.HONEYCOMB, "holo_noactionbar"),
-            new Theme(android.R.style.Theme_Holo_NoActionBar_Fullscreen,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_NoActionBar_Fullscreen,
                     Build.VERSION_CODES.HONEYCOMB, "holo_noactionbar_fullscreen"),
-            new Theme(android.R.style.Theme_Holo_NoActionBar_Overscan,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_NoActionBar_Overscan,
                     Build.VERSION_CODES.JELLY_BEAN_MR2, "holo_noactionbar_overscan"),
-            new Theme(android.R.style.Theme_Holo_NoActionBar_TranslucentDecor,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_NoActionBar_TranslucentDecor,
                     Build.VERSION_CODES.KITKAT, "holo_noactionbar_translucentdecor"),
-            new Theme(android.R.style.Theme_Holo_Panel,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_Panel,
                     Build.VERSION_CODES.HONEYCOMB, "holo_panel"),
-            new Theme(android.R.style.Theme_Holo_Wallpaper,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_Wallpaper,
                     Build.VERSION_CODES.HONEYCOMB, "holo_wallpaper"),
-            new Theme(android.R.style.Theme_Holo_Wallpaper_NoTitleBar,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_Wallpaper_NoTitleBar,
                     Build.VERSION_CODES.HONEYCOMB, "holo_wallpaper_notitlebar"),
 
             // Holo Light
-            new Theme(android.R.style.Theme_Holo_Light,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_Light,
                     Build.VERSION_CODES.HONEYCOMB, "holo_light"),
-            new Theme(android.R.style.Theme_Holo_Light_DarkActionBar,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_Light_DarkActionBar,
                     Build.VERSION_CODES.ICE_CREAM_SANDWICH, "holo_light_darkactionbar"),
-            new Theme(android.R.style.Theme_Holo_Light_Dialog,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_Light_Dialog,
                     Build.VERSION_CODES.HONEYCOMB, "holo_light_dialog"),
-            new Theme(android.R.style.Theme_Holo_Light_Dialog_MinWidth,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_Light_Dialog_MinWidth,
                     Build.VERSION_CODES.HONEYCOMB, "holo_light_dialog_minwidth"),
-            new Theme(android.R.style.Theme_Holo_Light_Dialog_NoActionBar,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_Light_Dialog_NoActionBar,
                     Build.VERSION_CODES.HONEYCOMB, "holo_light_dialog_noactionbar"),
-            new Theme(android.R.style.Theme_Holo_Light_Dialog_NoActionBar_MinWidth,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_Light_Dialog_NoActionBar_MinWidth,
                     Build.VERSION_CODES.HONEYCOMB, "holo_light_dialog_noactionbar_minwidth"),
-            new Theme(android.R.style.Theme_Holo_Light_DialogWhenLarge,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_Light_DialogWhenLarge,
                     Build.VERSION_CODES.HONEYCOMB, "holo_light_dialogwhenlarge"),
-            new Theme(android.R.style.Theme_Holo_Light_DialogWhenLarge_NoActionBar,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_Light_DialogWhenLarge_NoActionBar,
                     Build.VERSION_CODES.HONEYCOMB, "holo_light_dialogwhenlarge_noactionbar"),
-            new Theme(android.R.style.Theme_Holo_Light_NoActionBar,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_Light_NoActionBar,
                     Build.VERSION_CODES.HONEYCOMB_MR2, "holo_light_noactionbar"),
-            new Theme(android.R.style.Theme_Holo_Light_NoActionBar_Fullscreen,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_Light_NoActionBar_Fullscreen,
                     Build.VERSION_CODES.HONEYCOMB_MR2, "holo_light_noactionbar_fullscreen"),
-            new Theme(android.R.style.Theme_Holo_Light_NoActionBar_Overscan,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_Light_NoActionBar_Overscan,
                     Build.VERSION_CODES.JELLY_BEAN_MR2, "holo_light_noactionbar_overscan"),
-            new Theme(android.R.style.Theme_Holo_Light_NoActionBar_TranslucentDecor,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_Light_NoActionBar_TranslucentDecor,
                     Build.VERSION_CODES.KITKAT, "holo_light_noactionbar_translucentdecor"),
-            new Theme(android.R.style.Theme_Holo_Light_Panel,
+            new Theme(Theme.HOLO, android.R.style.Theme_Holo_Light_Panel,
                     Build.VERSION_CODES.HONEYCOMB, "holo_light_panel"),
 
             // Material
-            new Theme(android.R.style.Theme_Material,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material,
                     Build.VERSION_CODES.LOLLIPOP, "material"),
-            new Theme(android.R.style.Theme_Material_Dialog,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Dialog,
                     Build.VERSION_CODES.LOLLIPOP, "material_dialog"),
-            new Theme(android.R.style.Theme_Material_Dialog_Alert,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Dialog_Alert,
                     Build.VERSION_CODES.LOLLIPOP, "material_dialog_alert"),
-            new Theme(android.R.style.Theme_Material_Dialog_MinWidth,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Dialog_MinWidth,
                     Build.VERSION_CODES.LOLLIPOP, "material_dialog_minwidth"),
-            new Theme(android.R.style.Theme_Material_Dialog_NoActionBar,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Dialog_NoActionBar,
                     Build.VERSION_CODES.LOLLIPOP, "material_dialog_noactionbar"),
-            new Theme(android.R.style.Theme_Material_Dialog_NoActionBar_MinWidth,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Dialog_NoActionBar_MinWidth,
                     Build.VERSION_CODES.LOLLIPOP, "material_dialog_noactionbar_minwidth"),
-            new Theme(android.R.style.Theme_Material_Dialog_Presentation,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Dialog_Presentation,
                     Build.VERSION_CODES.LOLLIPOP, "material_dialog_presentation"),
-            new Theme(android.R.style.Theme_Material_DialogWhenLarge,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_DialogWhenLarge,
                     Build.VERSION_CODES.LOLLIPOP, "material_dialogwhenlarge"),
-            new Theme(android.R.style.Theme_Material_DialogWhenLarge_NoActionBar,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_DialogWhenLarge_NoActionBar,
                     Build.VERSION_CODES.LOLLIPOP, "material_dialogwhenlarge_noactionbar"),
-            new Theme(android.R.style.Theme_Material_InputMethod,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_InputMethod,
                     Build.VERSION_CODES.LOLLIPOP, "material_inputmethod"),
-            new Theme(android.R.style.Theme_Material_NoActionBar,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_NoActionBar,
                     Build.VERSION_CODES.LOLLIPOP, "material_noactionbar"),
-            new Theme(android.R.style.Theme_Material_NoActionBar_Fullscreen,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_NoActionBar_Fullscreen,
                     Build.VERSION_CODES.LOLLIPOP, "material_noactionbar_fullscreen"),
-            new Theme(android.R.style.Theme_Material_NoActionBar_Overscan,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_NoActionBar_Overscan,
                     Build.VERSION_CODES.LOLLIPOP, "material_noactionbar_overscan"),
-            new Theme(android.R.style.Theme_Material_NoActionBar_TranslucentDecor,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_NoActionBar_TranslucentDecor,
                     Build.VERSION_CODES.LOLLIPOP, "material_noactionbar_translucentdecor"),
-            new Theme(android.R.style.Theme_Material_Panel,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Panel,
                     Build.VERSION_CODES.LOLLIPOP, "material_panel"),
-            new Theme(android.R.style.Theme_Material_Settings,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Settings,
                     Build.VERSION_CODES.LOLLIPOP, "material_settings"),
-            new Theme(android.R.style.Theme_Material_Voice,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Voice,
                     Build.VERSION_CODES.LOLLIPOP, "material_voice"),
-            new Theme(android.R.style.Theme_Material_Wallpaper,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Wallpaper,
                     Build.VERSION_CODES.LOLLIPOP, "material_wallpaper"),
-            new Theme(android.R.style.Theme_Material_Wallpaper_NoTitleBar,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Wallpaper_NoTitleBar,
                     Build.VERSION_CODES.LOLLIPOP, "material_wallpaper_notitlebar"),
 
             // Material Light
-            new Theme(android.R.style.Theme_Material_Light,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Light,
                     Build.VERSION_CODES.LOLLIPOP, "material_light"),
-            new Theme(android.R.style.Theme_Material_Light_DarkActionBar,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Light_DarkActionBar,
                     Build.VERSION_CODES.LOLLIPOP, "material_light_darkactionbar"),
-            new Theme(android.R.style.Theme_Material_Light_Dialog,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Light_Dialog,
                     Build.VERSION_CODES.LOLLIPOP, "material_light_dialog"),
-            new Theme(android.R.style.Theme_Material_Light_Dialog_Alert,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Light_Dialog_Alert,
                     Build.VERSION_CODES.LOLLIPOP, "material_light_dialog_alert"),
-            new Theme(android.R.style.Theme_Material_Light_Dialog_MinWidth,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Light_Dialog_MinWidth,
                     Build.VERSION_CODES.LOLLIPOP, "material_light_dialog_minwidth"),
-            new Theme(android.R.style.Theme_Material_Light_Dialog_NoActionBar,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Light_Dialog_NoActionBar,
                     Build.VERSION_CODES.LOLLIPOP, "material_light_dialog_noactionbar"),
-            new Theme(android.R.style.Theme_Material_Light_Dialog_NoActionBar_MinWidth,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Light_Dialog_NoActionBar_MinWidth,
                     Build.VERSION_CODES.LOLLIPOP, "material_light_dialog_noactionbar_minwidth"),
-            new Theme(android.R.style.Theme_Material_Light_Dialog_Presentation,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Light_Dialog_Presentation,
                     Build.VERSION_CODES.LOLLIPOP, "material_light_dialog_presentation"),
-            new Theme(android.R.style.Theme_Material_Light_DialogWhenLarge,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Light_DialogWhenLarge,
                     Build.VERSION_CODES.LOLLIPOP, "material_light_dialogwhenlarge"),
-            new Theme(android.R.style.Theme_Material_Light_DialogWhenLarge_NoActionBar,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Light_DialogWhenLarge_NoActionBar,
                     Build.VERSION_CODES.LOLLIPOP, "material_light_dialogwhenlarge_noactionbar"),
-            new Theme(android.R.style.Theme_Material_Light_LightStatusBar,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Light_LightStatusBar,
                     Build.VERSION_CODES.M, "material_light_lightstatusbar"),
-            new Theme(android.R.style.Theme_Material_Light_NoActionBar,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Light_NoActionBar,
                     Build.VERSION_CODES.LOLLIPOP, "material_light_noactionbar"),
-            new Theme(android.R.style.Theme_Material_Light_NoActionBar_Fullscreen,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Light_NoActionBar_Fullscreen,
                     Build.VERSION_CODES.LOLLIPOP, "material_light_noactionbar_fullscreen"),
-            new Theme(android.R.style.Theme_Material_Light_NoActionBar_Overscan,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Light_NoActionBar_Overscan,
                     Build.VERSION_CODES.LOLLIPOP, "material_light_noactionbar_overscan"),
-            new Theme(android.R.style.Theme_Material_Light_NoActionBar_TranslucentDecor,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Light_NoActionBar_TranslucentDecor,
                     Build.VERSION_CODES.LOLLIPOP, "material_light_noactionbar_translucentdecor"),
-            new Theme(android.R.style.Theme_Material_Light_Panel,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Light_Panel,
                     Build.VERSION_CODES.LOLLIPOP, "material_light_panel"),
-            new Theme(android.R.style.Theme_Material_Light_Voice,
+            new Theme(Theme.MATERIAL, android.R.style.Theme_Material_Light_Voice,
                     Build.VERSION_CODES.LOLLIPOP, "material_light_voice")
     };
 
@@ -370,7 +377,6 @@ public class ThemeDeviceActivity extends Activity {
             new Layout(R.layout.color_red_light, "color_red_light"),
             new Layout(R.layout.datepicker, "datepicker",
                     new DatePickerModifier()),
-            new Layout(R.layout.display_info, "display_info"),
             new Layout(R.layout.edittext, "edittext"),
             new Layout(R.layout.progressbar_horizontal_0, "progressbar_horizontal_0"),
             new Layout(R.layout.progressbar_horizontal_100, "progressbar_horizontal_100"),

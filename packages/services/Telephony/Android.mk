@@ -11,8 +11,7 @@ res_dirs := res $(phone_common_dir)/res sip/res
 
 LOCAL_JAVA_LIBRARIES := telephony-common voip-common ims-common
 LOCAL_STATIC_JAVA_LIBRARIES := \
-        com.android.services.telephony.common \
-        guava \
+        guava
 
 LOCAL_SRC_FILES := $(call all-java-files-under, $(src_dirs))
 LOCAL_SRC_FILES += \
@@ -32,6 +31,8 @@ LOCAL_CERTIFICATE := platform
 LOCAL_PRIVILEGED_MODULE := true
 
 LOCAL_PROGUARD_FLAG_FILES := proguard.flags sip/proguard.flags
+
+include frameworks/base/packages/SettingsLib/common.mk
 
 include $(BUILD_PACKAGE)
 

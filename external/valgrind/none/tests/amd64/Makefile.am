@@ -1,7 +1,7 @@
 
 include $(top_srcdir)/Makefile.tool-tests.am
 
-dist_noinst_SCRIPTS = filter_cpuid filter_stderr gen_insn_test.pl
+dist_noinst_SCRIPTS = filter_cpuid filter_inf_nan filter_stderr gen_insn_test.pl
 
 CLEANFILES = $(addsuffix .c,$(INSN_TESTS))
 
@@ -44,6 +44,7 @@ EXTRA_DIST = \
 	fcmovnu.vgtest fcmovnu.stderr.exp fcmovnu.stdout.exp \
 	fxtract.vgtest fxtract.stderr.exp fxtract.stdout.exp \
 	fxtract.stdout.exp-older-glibc \
+	getseg.stdout.exp getseg.stderr.exp getseg.vgtest \
 	$(addsuffix .stderr.exp,$(INSN_TESTS)) \
 	$(addsuffix .stdout.exp,$(INSN_TESTS)) \
 	$(addsuffix .vgtest,$(INSN_TESTS)) \
@@ -91,6 +92,7 @@ check_PROGRAMS = \
 	bug127521-64 bug132813-amd64 bug132918 bug137714-amd64 \
 	clc \
 	cmpxchg \
+	getseg \
 	$(INSN_TESTS) \
 	nan80and64 \
 	rcl-amd64 \
@@ -103,26 +105,29 @@ check_PROGRAMS = \
 if BUILD_ADDR32_TESTS
  check_PROGRAMS += asorep
 endif
-if BUILD_SSSE3_TESTS
- check_PROGRAMS += ssse3_misaligned
-endif
-if BUILD_LZCNT_TESTS
- check_PROGRAMS += lzcnt64
-endif
-if BUILD_SSE42_TESTS
- check_PROGRAMS += \
-	pcmpstr64 pcmpxstrx64 sse4-64 crc32 aes \
-	pcmpstr64w pcmpxstrx64w
-endif
 if BUILD_AVX_TESTS
 if BUILD_VPCLMULQDQ_TESTS
- check_PROGRAMS += avx-1
+  check_PROGRAMS += avx-1
 endif
 endif
 if BUILD_AVX2_TESTS
 if !COMPILER_IS_ICC
   check_PROGRAMS += avx2-1
 endif
+endif
+if BUILD_SSSE3_TESTS
+ check_PROGRAMS += ssse3_misaligned
+endif
+if BUILD_LZCNT_TESTS
+ check_PROGRAMS += lzcnt64
+endif
+if BUILD_MOVBE_TESTS
+ check_PROGRAMS += movbe
+endif
+if BUILD_SSE42_TESTS
+ check_PROGRAMS += \
+	pcmpstr64 pcmpxstrx64 sse4-64 crc32 aes \
+	pcmpstr64w pcmpxstrx64w
 endif
 if BUILD_TSX_TESTS
   check_PROGRAMS += tm1 xacq_xrel
@@ -132,9 +137,6 @@ if BUILD_BMI_TESTS
 endif
 if BUILD_FMA_TESTS
  check_PROGRAMS += fma
-endif
-if BUILD_MOVBE_TESTS
- check_PROGRAMS += movbe
 endif
 if BUILD_MPX_TESTS
  check_PROGRAMS += mpx

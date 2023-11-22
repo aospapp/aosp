@@ -50,7 +50,7 @@ class CertificateData {
   static final String[] CERTIFICATE_DATA = {
 STARTCLASS
 
-CERT_DIRECTORY=$ANDROID_BUILD_TOP/libcore/luni/src/main/files/cacerts
+CERT_DIRECTORY=$ANDROID_BUILD_TOP/system/ca-certificates/files/
 for FILE in `ls $CERT_DIRECTORY`; do
   FINGERPRINT=`cat $CERT_DIRECTORY/$FILE | grep "SHA1 Fingerprint=" | cut -d '=' -f 2`
   echo "      \"${FINGERPRINT}\","

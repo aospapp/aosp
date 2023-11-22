@@ -100,9 +100,6 @@ void TestPlayUri( SLObjectItf sl, const char* path)
 {
     SLEngineItf                EngineItf;
 
-    SLint32                    numOutputs = 0;
-    SLuint32                   deviceID = 0;
-
     SLresult                   res;
 
     SLDataSource               audioSource;
@@ -251,7 +248,7 @@ void TestPlayUri( SLObjectItf sl, const char* path)
     res = (*playItf)->SetPlayState(playItf, SL_PLAYSTATE_STOPPED);
     CheckErr(res);
 
-destroyRes:
+//destroyRes:
 
     /* Destroy the player */
     (*player)->Destroy(player);

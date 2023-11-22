@@ -16,32 +16,31 @@
 
 package com.android.settings.fuelgauge;
 
-import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.DashPathEffect;
-import android.os.BatteryManager;
-import android.text.format.DateFormat;
-import android.text.format.Formatter;
-import android.util.Log;
-import android.util.TimeUtils;
-import com.android.settings.R;
-import com.android.settings.Utils;
-
 import android.content.Context;
+import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.content.res.TypedArray;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.DashPathEffect;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Typeface;
 import android.os.BatteryStats;
-import android.os.SystemClock;
 import android.os.BatteryStats.HistoryItem;
+import android.os.SystemClock;
 import android.telephony.ServiceState;
 import android.text.TextPaint;
+import android.text.format.DateFormat;
+import android.text.format.Formatter;
 import android.util.AttributeSet;
+import android.util.Log;
+import android.util.TimeUtils;
 import android.util.TypedValue;
 import android.view.View;
+import com.android.settings.R;
+import com.android.settings.Utils;
+import com.android.settingslib.BatteryInfo;
 import libcore.icu.LocaleData;
 
 import java.util.ArrayList;
@@ -154,15 +153,13 @@ public class BatteryHistoryChart extends View {
     final Path mWifiRunningPath = new Path();
     final Path mCpuRunningPath = new Path();
     final Path mDateLinePath = new Path();
-    
+
     BatteryStats mStats;
     Intent mBatteryBroadcast;
     long mStatsPeriod;
-    int mBatteryLevel;
     String mMaxPercentLabelString;
     String mMinPercentLabelString;
     String mDurationString;
-    String mChargeLabelString;
     String mChargeDurationString;
     String mDrainString;
     String mChargingLabel;
@@ -173,6 +170,8 @@ public class BatteryHistoryChart extends View {
     String mWifiRunningLabel;
     String mCpuRunningLabel;
     String mPhoneSignalLabel;
+
+    BatteryInfo mInfo;
 
     int mChartMinHeight;
     int mHeaderHeight;
@@ -219,7 +218,6 @@ public class BatteryHistoryChart extends View {
     long mStartWallTime;
     long mEndDataWallTime;
     long mEndWallTime;
-    boolean mDischarging;
     int mBatLow;
     int mBatHigh;
     boolean mHaveWifi;
@@ -509,54 +507,11 @@ public class BatteryHistoryChart extends View {
 
         mMaxPercentLabelString = Utils.formatPercentage(100);
         mMinPercentLabelString = Utils.formatPercentage(0);
-
-        mBatteryLevel = com.android.settings.Utils.getBatteryLevel(mBatteryBroadcast);
-        String batteryPercentString = Utils.formatPercentage(mBatteryLevel);
-        long remainingTimeUs = 0;
-        mDischarging = true;
-        if (mBatteryBroadcast.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) == 0) {
-            final long drainTime = mStats.computeBatteryTimeRemaining(elapsedRealtimeUs);
-            if (drainTime > 0) {
-                remainingTimeUs = drainTime;
-                String timeString = Formatter.formatShortElapsedTime(getContext(),
-                        drainTime / 1000);
-                mChargeLabelString = getContext().getResources().getString(
-                        R.string.power_discharging_duration, batteryPercentString, timeString);
-            } else {
-                mChargeLabelString = batteryPercentString;
-            }
-        } else {
-            final long chargeTime = mStats.computeChargeTimeRemaining(elapsedRealtimeUs);
-            final String statusLabel = com.android.settings.Utils.getBatteryStatus(getResources(),
-                    mBatteryBroadcast);
-            final int status = mBatteryBroadcast.getIntExtra(BatteryManager.EXTRA_STATUS,
-                    BatteryManager.BATTERY_STATUS_UNKNOWN);
-            if (chargeTime > 0 && status != BatteryManager.BATTERY_STATUS_FULL) {
-                mDischarging = false;
-                remainingTimeUs = chargeTime;
-                String timeString = Formatter.formatShortElapsedTime(getContext(),
-                        chargeTime / 1000);
-                int plugType = mBatteryBroadcast.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0);
-                int resId;
-                if (plugType == BatteryManager.BATTERY_PLUGGED_AC) {
-                    resId = R.string.power_charging_duration_ac;
-                } else if (plugType == BatteryManager.BATTERY_PLUGGED_USB) {
-                    resId = R.string.power_charging_duration_usb;
-                } else if (plugType == BatteryManager.BATTERY_PLUGGED_WIRELESS) {
-                    resId = R.string.power_charging_duration_wireless;
-                } else {
-                    resId = R.string.power_charging_duration;
-                }
-                mChargeLabelString = getContext().getResources().getString(
-                        resId, batteryPercentString, timeString);
-            } else {
-                mChargeLabelString = getContext().getResources().getString(
-                        R.string.power_charging, batteryPercentString, statusLabel);
-            }
-        }
+        mInfo = BatteryInfo.getBatteryInfo(getContext(), mBatteryBroadcast, mStats,
+                elapsedRealtimeUs);
         mDrainString = "";
         mChargeDurationString = "";
-        setContentDescription(mChargeLabelString);
+        setContentDescription(mInfo.mChargeLabelString);
 
         int pos = 0;
         int lastInteresting = 0;
@@ -612,9 +567,9 @@ public class BatteryHistoryChart extends View {
                 }
             }
         }
-        mHistEnd = mHistDataEnd + (remainingTimeUs/1000);
+        mHistEnd = mHistDataEnd + (mInfo.remainingTimeUs/1000);
         mEndDataWallTime = lastWallTime + mHistDataEnd - lastRealtime;
-        mEndWallTime = mEndDataWallTime + (remainingTimeUs/1000);
+        mEndWallTime = mEndDataWallTime + (mInfo.remainingTimeUs/1000);
         mNumHist = lastInteresting;
         mHaveGps = (aggrStates&HistoryItem.STATE_GPS_ON_FLAG) != 0;
         mHaveFlashlight = (aggrStates2&HistoryItem.STATE2_FLASHLIGHT_FLAG) != 0;
@@ -634,7 +589,7 @@ public class BatteryHistoryChart extends View {
         mMaxPercentLabelStringWidth = (int)mTextPaint.measureText(mMaxPercentLabelString);
         mMinPercentLabelStringWidth = (int)mTextPaint.measureText(mMinPercentLabelString);
         mDrainStringWidth = (int)mHeaderTextPaint.measureText(mDrainString);
-        mChargeLabelStringWidth = (int)mHeaderTextPaint.measureText(mChargeLabelString);
+        mChargeLabelStringWidth = (int)mHeaderTextPaint.measureText(mInfo.mChargeLabelString);
         mChargeDurationStringWidth = (int)mHeaderTextPaint.measureText(mChargeDurationString);
         mTextAscent = (int)mTextPaint.ascent();
         mTextDescent = (int)mTextPaint.descent();
@@ -1028,9 +983,9 @@ public class BatteryHistoryChart extends View {
         if (lastY < 0 || lastX < 0) {
             // Didn't get any data...
             x = lastX = mLevelLeft;
-            y = lastY = mLevelTop + levelh - ((mBatteryLevel-batLow)*(levelh-1))/batChange;
+            y = lastY = mLevelTop + levelh - ((mInfo.mBatteryLevel-batLow)*(levelh-1))/batChange;
             Path path;
-            byte value = (byte)mBatteryLevel;
+            byte value = (byte)mInfo.mBatteryLevel;
             if (value <= mBatteryCriticalLevel) path = mBatCriticalPath;
             else if (value <= mBatteryWarnLevel) path = mBatWarnPath;
             else path = null; //mBatGoodPath;
@@ -1059,7 +1014,7 @@ public class BatteryHistoryChart extends View {
             mTimeRemainPath.moveTo(x, lastY);
             int fullY = mLevelTop + levelh - ((100-batLow)*(levelh-1))/batChange;
             int emptyY = mLevelTop + levelh - ((0-batLow)*(levelh-1))/batChange;
-            if (mDischarging) {
+            if (mInfo.mDischarging) {
                 mTimeRemainPath.lineTo(mLevelRight, emptyY);
             } else {
                 mTimeRemainPath.lineTo(mLevelRight, fullY);
@@ -1117,8 +1072,13 @@ public class BatteryHistoryChart extends View {
                 if (startRoundTime < endRoundTime) {
                     addDateLabel(calStart, mLevelLeft, mLevelRight, isDayFirst);
                     Calendar calMid = Calendar.getInstance();
-                    calMid.setTimeInMillis(startRoundTime + ((endRoundTime - startRoundTime) / 2));
+
+                    // The middle between two beginnings of days can be anywhere between -1 to 13
+                    // after the beginning of the "median" day.
+                    calMid.setTimeInMillis(startRoundTime + ((endRoundTime - startRoundTime) / 2)
+                                           + 2 * 60 * 60 * 1000);
                     calMid.set(Calendar.HOUR_OF_DAY, 0);
+                    calMid.set(Calendar.MINUTE, 0);
                     long calMidMillis = calMid.getTimeInMillis();
                     if (calMidMillis > startRoundTime && calMidMillis < endRoundTime) {
                         addDateLabel(calMid, mLevelLeft, mLevelRight, isDayFirst);
@@ -1251,8 +1211,8 @@ public class BatteryHistoryChart extends View {
 
         int headerTop = -mHeaderTextAscent + (mHeaderTextDescent-mHeaderTextAscent)/3;
         mHeaderTextPaint.setTextAlign(textAlignLeft);
-        if (DEBUG) Log.d(TAG, "Drawing charge label string: " + mChargeLabelString);
-        canvas.drawText(mChargeLabelString, textStartX, headerTop, mHeaderTextPaint);
+        if (DEBUG) Log.d(TAG, "Drawing charge label string: " + mInfo.mChargeLabelString);
+        canvas.drawText(mInfo.mChargeLabelString, textStartX, headerTop, mHeaderTextPaint);
         int stringHalfWidth = mChargeDurationStringWidth / 2;
         if (layoutRtl) stringHalfWidth = -stringHalfWidth;
         int headerCenter = ((width-mChargeDurationStringWidth-mDrainStringWidth)/2)

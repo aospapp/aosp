@@ -18,5 +18,5 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := tests
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_PACKAGE_NAME := KeyChainTests
-LOCAL_STATIC_JAVA_LIBRARIES := com.android.keychain.tests.support core-tests mockwebserver
+LOCAL_STATIC_JAVA_LIBRARIES := com.android.keychain.tests.support core-tests-support mockwebserver
 include $(BUILD_PACKAGE)

@@ -33,6 +33,7 @@ LOCAL_C_INCLUDES += \
 LOCAL_STATIC_LIBRARIES := libusbhost libcutils
 LOCAL_LDLIBS += -lpthread
 LOCAL_CFLAGS := -g -O0
+LOCAL_CXX_STL := none
 
 include $(BUILD_HOST_EXECUTABLE)
 

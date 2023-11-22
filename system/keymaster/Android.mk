@@ -24,11 +24,16 @@ LOCAL_SRC_FILES:= \
 		android_keymaster_messages.cpp \
 		android_keymaster_utils.cpp \
 		authorization_set.cpp \
+		keymaster_tags.cpp \
 		logger.cpp \
 		serializable.cpp
 LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/include
-LOCAL_CFLAGS = -Wall -Werror -Wunused
+LOCAL_CFLAGS = -Wall -Werror -Wunused -DKEYMASTER_NAME_TAGS
+LOCAL_CLANG := true
+# TODO(krasin): reenable coverage flags, when the new Clang toolchain is released.
+# Currently, if enabled, these flags will cause an internal error in Clang.
+LOCAL_CLANG_CFLAGS += -fno-sanitize-coverage=edge,indirect-calls,8bit-counters,trace-cmp
 LOCAL_MODULE_TAGS := optional
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
@@ -50,17 +55,22 @@ LOCAL_SRC_FILES:= \
 		android_keymaster_utils.cpp \
 		asymmetric_key.cpp \
 		asymmetric_key_factory.cpp \
+		attestation_record.cpp \
 		auth_encrypted_key_blob.cpp \
 		ec_key.cpp \
 		ec_key_factory.cpp \
 		ecdsa_operation.cpp \
+		ecies_kem.cpp \
 		hkdf.cpp \
 		hmac.cpp \
 		hmac_key.cpp \
 		hmac_operation.cpp \
 		integrity_assured_key_blob.cpp \
+		iso18033kdf.cpp \
+		kdf.cpp \
 		key.cpp \
 		keymaster_enforcement.cpp \
+		nist_curve_key_exchange.cpp \
 		ocb.c \
 		ocb_utils.cpp \
 		openssl_err.cpp \
@@ -75,8 +85,12 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/include
 LOCAL_SHARED_LIBRARIES := libcrypto libkeymaster_messages
 LOCAL_CFLAGS = -Wall -Werror -Wunused
+LOCAL_CLANG := true
 LOCAL_CLANG_CFLAGS += -Wno-error=unused-const-variable -Wno-error=unused-private-field
-# Ignore benigh warnings for now.
+# TODO(krasin): reenable coverage flags, when the new Clang toolchain is released.
+# Currently, if enabled, these flags will cause an internal error in Clang.
+LOCAL_CLANG_CFLAGS += -fno-sanitize-coverage=edge,indirect-calls,8bit-counters,trace-cmp
+# Ignore benign warnings for now.
 LOCAL_CLANG_CFLAGS += -Wno-error=unused-private-field
 LOCAL_MODULE_TAGS := optional
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
@@ -93,8 +107,14 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libsoftkeymasterdevice
 LOCAL_SRC_FILES := \
 	ec_keymaster0_key.cpp \
+	ec_keymaster1_key.cpp \
+	ecdsa_keymaster1_operation.cpp \
 	keymaster0_engine.cpp \
+	keymaster1_engine.cpp \
+	keymaster_configuration.cpp \
 	rsa_keymaster0_key.cpp \
+	rsa_keymaster1_key.cpp \
+	rsa_keymaster1_operation.cpp \
 	soft_keymaster_context.cpp \
 	soft_keymaster_device.cpp \
 	soft_keymaster_logger.cpp
@@ -102,12 +122,28 @@ LOCAL_C_INCLUDES := \
 	system/security/keystore \
 	$(LOCAL_PATH)/include
 LOCAL_CFLAGS = -Wall -Werror -Wunused
+LOCAL_CLANG := true
 LOCAL_CLANG_CFLAGS += -Wno-error=unused-const-variable -Wno-error=unused-private-field
-LOCAL_SHARED_LIBRARIES := libkeymaster_messages libkeymaster1 liblog libcrypto
+# TODO(krasin): reenable coverage flags, when the new Clang toolchain is released.
+# Currently, if enabled, these flags will cause an internal error in Clang.
+LOCAL_CLANG_CFLAGS += -fno-sanitize-coverage=edge,indirect-calls,8bit-counters,trace-cmp
+LOCAL_SHARED_LIBRARIES := libkeymaster_messages libkeymaster1 liblog libcrypto libcutils
 LOCAL_MODULE_TAGS := optional
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
 include $(BUILD_SHARED_LIBRARY)
+
+###
+# libkeymasterfiles is an empty library that exports all of the files in keymaster as includes.
+###
+include $(CLEAR_VARS)
+LOCAL_MODULE := libkeymasterfiles
+LOCAL_EXPORT_C_INCLUDE_DIRS := \
+	$(LOCAL_PATH) \
+	$(LOCAL_PATH)/include
+LOCAL_MODULE_TAGS := optional
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
+include $(BUILD_STATIC_LIBRARY)
 
 # Unit tests for libkeymaster
 include $(CLEAR_VARS)
@@ -116,15 +152,24 @@ LOCAL_SRC_FILES := \
 	android_keymaster_messages_test.cpp \
 	android_keymaster_test.cpp \
 	android_keymaster_test_utils.cpp \
+	attestation_record_test.cpp \
 	authorization_set_test.cpp \
 	hkdf_test.cpp \
 	hmac_test.cpp \
+	kdf1_test.cpp \
+	kdf2_test.cpp \
+	kdf_test.cpp \
 	key_blob_test.cpp \
 	keymaster_enforcement_test.cpp
+
 LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/include
-LOCAL_CFLAGS = -Wall -Werror -Wunused
+LOCAL_CFLAGS = -Wall -Werror -Wunused -DKEYMASTER_NAME_TAGS
+LOCAL_CLANG := true
 LOCAL_CLANG_CFLAGS += -Wno-error=unused-const-variable -Wno-error=unused-private-field
+# TODO(krasin): reenable coverage flags, when the new Clang toolchain is released.
+# Currently, if enabled, these flags will cause an internal error in Clang.
+LOCAL_CLANG_CFLAGS += -fno-sanitize-coverage=edge,indirect-calls,8bit-counters,trace-cmp
 LOCAL_MODULE_TAGS := tests
 LOCAL_SHARED_LIBRARIES := \
 	libsoftkeymasterdevice \
@@ -134,4 +179,3 @@ LOCAL_SHARED_LIBRARIES := \
 	libsoftkeymaster
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 include $(BUILD_NATIVE_TEST)
-

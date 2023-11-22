@@ -20,6 +20,7 @@ import android.app.ActionBar;
 import android.content.Context;
 import android.nfc.NfcAdapter;
 import android.os.Bundle;
+import android.os.UserHandle;
 import android.os.UserManager;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -28,12 +29,16 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Switch;
 
-import com.android.internal.logging.MetricsLogger;
-import com.android.settings.HelpUtils;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.settingslib.HelpUtils;
 import com.android.settings.InstrumentedFragment;
 import com.android.settings.R;
 import com.android.settings.SettingsActivity;
+import com.android.settings.ShowAdminSupportDetailsDialog;
 import com.android.settings.widget.SwitchBar;
+import com.android.settingslib.RestrictedLockUtils;
+
+import static com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
 
 public class AndroidBeam extends InstrumentedFragment
         implements SwitchBar.OnSwitchChangeListener {
@@ -41,20 +46,13 @@ public class AndroidBeam extends InstrumentedFragment
     private NfcAdapter mNfcAdapter;
     private SwitchBar mSwitchBar;
     private CharSequence mOldActivityTitle;
-    private boolean mBeamDisallowed;
+    private boolean mBeamDisallowedByBase;
+    private boolean mBeamDisallowedByOnlyAdmin;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        final ActionBar actionBar = getActivity().getActionBar();
-
-        mOldActivityTitle = actionBar.getTitle();
-        actionBar.setTitle(R.string.android_beam_settings_title);
-
         mNfcAdapter = NfcAdapter.getDefaultAdapter(getActivity());
-        mBeamDisallowed = ((UserManager) getActivity().getSystemService(Context.USER_SERVICE))
-                .hasUserRestriction(UserManager.DISALLOW_OUTGOING_BEAM);
         setHasOptionsMenu(true);
     }
 
@@ -68,8 +66,19 @@ public class AndroidBeam extends InstrumentedFragment
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
+        final EnforcedAdmin admin = RestrictedLockUtils.checkIfRestrictionEnforced(
+                getActivity(), UserManager.DISALLOW_OUTGOING_BEAM, UserHandle.myUserId());
+        final UserManager um = UserManager.get(getActivity());
+        mBeamDisallowedByBase = RestrictedLockUtils.hasBaseUserRestriction(getActivity(),
+                UserManager.DISALLOW_OUTGOING_BEAM, UserHandle.myUserId());
+        if (!mBeamDisallowedByBase && admin != null) {
+            View view = inflater.inflate(R.layout.admin_support_details_empty_view, null);
+            ShowAdminSupportDetailsDialog.setAdminSupportDetails(getActivity(), view, admin, false);
+            view.setVisibility(View.VISIBLE);
+            mBeamDisallowedByOnlyAdmin = true;
+            return view;
+        }
         mView = inflater.inflate(R.layout.android_beam, container, false);
-
         return mView;
     }
 
@@ -79,11 +88,17 @@ public class AndroidBeam extends InstrumentedFragment
 
         SettingsActivity activity = (SettingsActivity) getActivity();
 
+        mOldActivityTitle = activity.getActionBar().getTitle();
+
         mSwitchBar = activity.getSwitchBar();
-        mSwitchBar.setChecked(!mBeamDisallowed && mNfcAdapter.isNdefPushEnabled());
-        mSwitchBar.addOnSwitchChangeListener(this);
-        mSwitchBar.setEnabled(!mBeamDisallowed);
-        mSwitchBar.show();
+        if (mBeamDisallowedByOnlyAdmin) {
+            mSwitchBar.hide();
+        } else {
+            mSwitchBar.setChecked(!mBeamDisallowedByBase && mNfcAdapter.isNdefPushEnabled());
+            mSwitchBar.addOnSwitchChangeListener(this);
+            mSwitchBar.setEnabled(!mBeamDisallowedByBase);
+            mSwitchBar.show();
+        }
     }
 
     @Override
@@ -92,8 +107,10 @@ public class AndroidBeam extends InstrumentedFragment
         if (mOldActivityTitle != null) {
             getActivity().getActionBar().setTitle(mOldActivityTitle);
         }
-        mSwitchBar.removeOnSwitchChangeListener(this);
-        mSwitchBar.hide();
+        if (!mBeamDisallowedByOnlyAdmin) {
+            mSwitchBar.removeOnSwitchChangeListener(this);
+            mSwitchBar.hide();
+        }
     }
 
     @Override
@@ -113,6 +130,6 @@ public class AndroidBeam extends InstrumentedFragment
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.NFC_BEAM;
+        return MetricsEvent.NFC_BEAM;
     }
 }

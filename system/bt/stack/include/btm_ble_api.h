@@ -26,7 +26,8 @@
 #define BTM_BLE_API_H
 
 #include "btm_api.h"
-#include "gki.h"
+#include "bt_common.h"
+#include "osi/include/alarm.h"
 #include <hardware/bt_common_types.h>
 
 #define CHNL_MAP_LEN    5
@@ -179,6 +180,11 @@ typedef UINT8   tBTM_BLE_SFP;
 /* default supervision timeout */
 #ifndef BTM_BLE_CONN_TIMEOUT_DEF
 #define BTM_BLE_CONN_TIMEOUT_DEF    2000
+#endif
+
+/* minimum supervision timeout */
+#ifndef BTM_BLE_CONN_TIMEOUT_MIN_DEF
+#define BTM_BLE_CONN_TIMEOUT_MIN_DEF    100
 #endif
 
 /* minimum acceptable connection interval */
@@ -387,67 +393,73 @@ typedef struct
 }tBTM_BLE_INT_RANGE;
 
 /* Service tag supported in the device */
+#define MAX_16BIT_SERVICES 16
 typedef struct
 {
     UINT8       num_service;
     BOOLEAN     list_cmpl;
-    UINT16      *p_uuid;
+    UINT16      uuid[MAX_16BIT_SERVICES];
 }tBTM_BLE_SERVICE;
 
 /* 32 bits Service supported in the device */
+#define MAX_32BIT_SERVICES 4
 typedef struct
 {
     UINT8       num_service;
     BOOLEAN     list_cmpl;
-    UINT32      *p_uuid;
+    UINT32      uuid[MAX_32BIT_SERVICES];
 }tBTM_BLE_32SERVICE;
 
 /* 128 bits Service supported in the device */
 typedef struct
 {
+    UINT8       num_service;
     BOOLEAN     list_cmpl;
     UINT8       uuid128[MAX_UUID_SIZE];
 }tBTM_BLE_128SERVICE;
 
+#define MAX_SIZE_MANUFACTURER_DATA 32
 typedef struct
 {
-    UINT8       len;
-    UINT8      *p_val;
+    UINT8 len;
+    UINT8 val[MAX_SIZE_MANUFACTURER_DATA];
 }tBTM_BLE_MANU;
 
-
+#define MAX_SIZE_SERVICE_DATA 32
 typedef struct
 {
     tBT_UUID    service_uuid;
     UINT8       len;
-    UINT8      *p_val;
+    UINT8       val[MAX_SIZE_SERVICE_DATA];
 }tBTM_BLE_SERVICE_DATA;
 
+#define MAX_SIZE_PROPRIETARY_ELEMENT 32
 typedef struct
 {
     UINT8       adv_type;
     UINT8       len;
-    UINT8       *p_val;     /* number of len byte */
+    UINT8       val[MAX_SIZE_PROPRIETARY_ELEMENT];     /* number of len byte */
 }tBTM_BLE_PROP_ELEM;
 
+#define MAX_PROPRIETARY_ELEMENTS 4
 typedef struct
 {
     UINT8                   num_elem;
-    tBTM_BLE_PROP_ELEM      *p_elem;
+    tBTM_BLE_PROP_ELEM      elem[MAX_PROPRIETARY_ELEMENTS];
 }tBTM_BLE_PROPRIETARY;
 
 typedef struct
 {
     tBTM_BLE_INT_RANGE      int_range;      /* slave prefered conn interval range */
-    tBTM_BLE_MANU           *p_manu;           /* manufactuer data */
-    tBTM_BLE_SERVICE        *p_services;       /* services */
-    tBTM_BLE_128SERVICE     *p_services_128b;  /* 128 bits service */
-    tBTM_BLE_32SERVICE      *p_service_32b;     /* 32 bits Service UUID */
-    tBTM_BLE_SERVICE        *p_sol_services;    /* 16 bits services Solicitation UUIDs */
-    tBTM_BLE_32SERVICE      *p_sol_service_32b;    /* List of 32 bit Service Solicitation UUIDs */
-    tBTM_BLE_128SERVICE     *p_sol_service_128b;    /* List of 128 bit Service Solicitation UUIDs */
-    tBTM_BLE_PROPRIETARY    *p_proprietary;
-    tBTM_BLE_SERVICE_DATA   *p_service_data;    /* service data */
+    tBTM_BLE_MANU           manu;           /* manufactuer data */
+    tBTM_BLE_SERVICE        services;       /* services */
+    tBTM_BLE_128SERVICE     services_128b;  /* 128 bits service */
+    tBTM_BLE_32SERVICE      service_32b;     /* 32 bits Service UUID */
+    tBTM_BLE_SERVICE        sol_services;    /* 16 bits services Solicitation UUIDs */
+    tBTM_BLE_32SERVICE      sol_service_32b;    /* List of 32 bit Service Solicitation UUIDs */
+    tBTM_BLE_128SERVICE     sol_service_128b;    /* List of 128 bit Service Solicitation UUIDs */
+    tBTM_BLE_PROPRIETARY    proprietary;
+    tBTM_BLE_SERVICE_DATA   service_data;    /* service data */
     UINT16                  appearance;
     UINT8                   flag;
     UINT8                   tx_power;
@@ -495,7 +507,7 @@ typedef struct
     BOOLEAN                     in_use;
     UINT8                       adv_evt;
     BD_ADDR                     rpa;
-    TIMER_LIST_ENT              raddr_timer_ent;
+    alarm_t                     *adv_raddr_timer;
     tBTM_BLE_MULTI_ADV_CBACK    *p_cback;
     void                        *p_ref;
     UINT8                       index;

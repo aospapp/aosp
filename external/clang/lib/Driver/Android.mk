@@ -17,6 +17,7 @@ clang_driver_SRC_FILES := \
   Driver.cpp \
   DriverOptions.cpp \
   Job.cpp \
+  MinGWToolChain.cpp \
   MSVCToolChain.cpp \
   Multilib.cpp \
   Phases.cpp \

@@ -19,11 +19,13 @@ package com.android.example.notificationlistener;
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Handler;
 import android.os.Message;
+import android.os.RemoteException;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.NotificationListenerService.Ranking;
 import android.service.notification.NotificationListenerService.RankingMap;
@@ -47,20 +49,48 @@ public class Listener extends NotificationListenerService {
     private static final int MSG_ORDER = 4;
     private static final int MSG_DISMISS = 5;
     private static final int MSG_LAUNCH = 6;
-    private static final int PAGE = 10;
+    private static final int MSG_SNOOZE = 7;
 
     static final String ACTION_DISMISS = "com.android.example.notificationlistener.DISMISS";
     static final String ACTION_LAUNCH = "com.android.example.notificationlistener.LAUNCH";
     static final String ACTION_REFRESH = "com.android.example.notificationlistener.REFRESH";
+    static final String ACTION_STATE_CHANGE = "com.android.example.notificationlistener.STATE";
     static final String EXTRA_KEY = "key";
 
     private static ArrayList<StatusBarNotification> sNotifications;
+    private static boolean sConnected;
 
     public static List<StatusBarNotification> getNotifications() {
         return sNotifications;
     }
 
+    public static boolean isConnected() {
+        return sConnected;
+    }
+
+    public static void toggleSnooze(Context context) {
+        if (sConnected) {
+            Log.d(TAG, "scheduling snooze");
+            if (sHandler != null) {
+                sHandler.sendEmptyMessage(MSG_SNOOZE);
+            }
+        } else {
+            Log.d(TAG, "trying to unsnooze");
+            try {
+                NotificationListenerService.requestRebind(
+                        ComponentName.createRelative(context.getPackageName(),
+                                Listener.class.getCanonicalName()));
+            } catch (RemoteException e) {
+                Log.e(TAG, "failed to rebind service", e);
+            }
+        }
+    }
+
     private final Ranking mTmpRanking = new Ranking();
+
+    private static Handler sHandler;
+
+    private RankingMap mRankingMap;
 
     private class Delta {
         final StatusBarNotification mSbn;
@@ -97,113 +127,124 @@ public class Listener extends NotificationListenerService {
             Log.d(TAG, "received an action broadcast " + intent.getAction());
             if (!TextUtils.isEmpty(key)) {
                 Log.d(TAG, "  on " + key);
-                Message.obtain(mHandler, what, key).sendToTarget();
+                Message.obtain(sHandler, what, key).sendToTarget();
             }
         }
     };
-
-    private final Handler mHandler = new Handler() {
-        @Override
-        public void handleMessage(Message msg) {
-            Delta delta = null;
-            if (msg.obj instanceof Delta) {
-                delta = (Delta) msg.obj;
-            }
-
-            switch (msg.what) {
-                case MSG_NOTIFY:
-                    Log.i(TAG, "notify: " + delta.mSbn.getKey());
-                    synchronized (sNotifications) {
-                        boolean exists = mRankingMap.getRanking(delta.mSbn.getKey(), mTmpRanking);
-                        if (!exists) {
-                            sNotifications.add(delta.mSbn);
-                        } else {
-                            int position = mTmpRanking.getRank();
-                            sNotifications.set(position, delta.mSbn);
-                        }
-                        mRankingMap = delta.mRankingMap;
-                        Collections.sort(sNotifications, mRankingComparator);
-                        Log.i(TAG, "finish with: " + sNotifications.size());
-                    }
-                    LocalBroadcastManager.getInstance(Listener.this)
-                            .sendBroadcast(new Intent(ACTION_REFRESH)
-                            .putExtra(EXTRA_KEY, delta.mSbn.getKey()));
-                    break;
-
-                case MSG_CANCEL:
-                    Log.i(TAG, "remove: " + delta.mSbn.getKey());
-                    synchronized (sNotifications) {
-                        boolean exists = mRankingMap.getRanking(delta.mSbn.getKey(), mTmpRanking);
-                        if (exists) {
-                            sNotifications.remove(mTmpRanking.getRank());
-                        }
-                        mRankingMap = delta.mRankingMap;
-                        Collections.sort(sNotifications, mRankingComparator);
-                    }
-                    LocalBroadcastManager.getInstance(Listener.this)
-                            .sendBroadcast(new Intent(ACTION_REFRESH));
-                    break;
-
-                case MSG_ORDER:
-                    Log.i(TAG, "reorder");
-                    synchronized (sNotifications) {
-                        mRankingMap = delta.mRankingMap;
-                        Collections.sort(sNotifications, mRankingComparator);
-                    }
-                    LocalBroadcastManager.getInstance(Listener.this)
-                            .sendBroadcast(new Intent(ACTION_REFRESH));
-                    break;
-
-                case MSG_STARTUP:
-                    fetchActive();
-                    Log.i(TAG, "start with: " + sNotifications.size() + " notifications.");
-                    LocalBroadcastManager.getInstance(Listener.this)
-                            .sendBroadcast(new Intent(ACTION_REFRESH));
-                    break;
-
-                case MSG_DISMISS:
-                    if (msg.obj instanceof String) {
-                        final String key = (String) msg.obj;
-                        mRankingMap.getRanking(key, mTmpRanking);
-                        StatusBarNotification sbn = sNotifications.get(mTmpRanking.getRank());
-                        if ((sbn.getNotification().flags & Notification.FLAG_AUTO_CANCEL) != 0 &&
-                                sbn.getNotification().contentIntent != null) {
-                            try {
-                                sbn.getNotification().contentIntent.send();
-                            } catch (PendingIntent.CanceledException e) {
-                                Log.d(TAG, "failed to send intent for " + sbn.getKey(), e);
-                            }
-                        }
-                        cancelNotification(key);
-                    }
-                    break;
-
-                case MSG_LAUNCH:
-                    if (msg.obj instanceof String) {
-                        final String key = (String) msg.obj;
-                        mRankingMap.getRanking(key, mTmpRanking);
-                        StatusBarNotification sbn = sNotifications.get(mTmpRanking.getRank());
-                        if (sbn.getNotification().contentIntent != null) {
-                            try {
-                                sbn.getNotification().contentIntent.send();
-                            } catch (PendingIntent.CanceledException e) {
-                                Log.d(TAG, "failed to send intent for " + sbn.getKey(), e);
-                            }
-                        }
-                        if ((sbn.getNotification().flags & Notification.FLAG_AUTO_CANCEL) != 0) {
-                            cancelNotification(key);
-                        }
-                    }
-                    break;
-            }
-        }
-    };
-
-    private RankingMap mRankingMap;
 
     @Override
     public void onCreate() {
         super.onCreate();
+        sHandler = new Handler() {
+            @Override
+            public void handleMessage(Message msg) {
+                Delta delta = null;
+                if (msg.obj instanceof Delta) {
+                    delta = (Delta) msg.obj;
+                }
+
+                switch (msg.what) {
+                    case MSG_NOTIFY:
+                        Log.i(TAG, "notify: " + delta.mSbn.getKey());
+                        synchronized (sNotifications) {
+                            boolean exists = mRankingMap.getRanking(delta.mSbn.getKey(), mTmpRanking);
+                            if (!exists) {
+                                sNotifications.add(delta.mSbn);
+                            } else {
+                                int position = mTmpRanking.getRank();
+                                sNotifications.set(position, delta.mSbn);
+                            }
+                            mRankingMap = delta.mRankingMap;
+                            Collections.sort(sNotifications, mRankingComparator);
+                            Log.i(TAG, "finish with: " + sNotifications.size());
+                        }
+                        LocalBroadcastManager.getInstance(Listener.this)
+                                .sendBroadcast(new Intent(ACTION_REFRESH)
+                                        .putExtra(EXTRA_KEY, delta.mSbn.getKey()));
+                        break;
+
+                    case MSG_CANCEL:
+                        final String cancelKey = delta.mSbn.getKey();
+                        Log.i(TAG, "remove: " + cancelKey);
+                        synchronized (sNotifications) {
+                            boolean exists = mRankingMap.getRanking(cancelKey, mTmpRanking);
+                            if (exists) {
+                                sNotifications.remove(mTmpRanking.getRank());
+                            }
+                            mRankingMap = delta.mRankingMap;
+                            Collections.sort(sNotifications, mRankingComparator);
+                        }
+                        LocalBroadcastManager.getInstance(Listener.this)
+                                .sendBroadcast(new Intent(ACTION_REFRESH)
+                                        .putExtra(EXTRA_KEY, cancelKey));
+                        break;
+
+                    case MSG_ORDER:
+                        Log.i(TAG, "reorder");
+                        synchronized (sNotifications) {
+                            mRankingMap = delta.mRankingMap;
+                            Collections.sort(sNotifications, mRankingComparator);
+                        }
+                        LocalBroadcastManager.getInstance(Listener.this)
+                                .sendBroadcast(new Intent(ACTION_REFRESH));
+                        break;
+
+                    case MSG_STARTUP:
+                        sConnected = true;
+                        fetchActive();
+                        Log.i(TAG, "start with: " + sNotifications.size() + " notifications.");
+                        LocalBroadcastManager.getInstance(Listener.this)
+                                .sendBroadcast(new Intent(ACTION_REFRESH));
+                        LocalBroadcastManager.getInstance(Listener.this)
+                                .sendBroadcast(new Intent(ACTION_STATE_CHANGE));
+                        break;
+
+                    case MSG_DISMISS:
+                        if (msg.obj instanceof String) {
+                            final String key = (String) msg.obj;
+                            mRankingMap.getRanking(key, mTmpRanking);
+                            StatusBarNotification sbn = sNotifications.get(mTmpRanking.getRank());
+                            if ((sbn.getNotification().flags & Notification.FLAG_AUTO_CANCEL) != 0 &&
+                                    sbn.getNotification().contentIntent != null) {
+                                try {
+                                    sbn.getNotification().contentIntent.send();
+                                } catch (PendingIntent.CanceledException e) {
+                                    Log.d(TAG, "failed to send intent for " + sbn.getKey(), e);
+                                }
+                            }
+                            cancelNotification(key);
+                        }
+                        break;
+
+                    case MSG_LAUNCH:
+                        if (msg.obj instanceof String) {
+                            final String key = (String) msg.obj;
+                            mRankingMap.getRanking(key, mTmpRanking);
+                            StatusBarNotification sbn = sNotifications.get(mTmpRanking.getRank());
+                            if (sbn.getNotification().contentIntent != null) {
+                                try {
+                                    sbn.getNotification().contentIntent.send();
+                                } catch (PendingIntent.CanceledException e) {
+                                    Log.d(TAG, "failed to send intent for " + sbn.getKey(), e);
+                                }
+                            }
+                            if ((sbn.getNotification().flags & Notification.FLAG_AUTO_CANCEL) != 0) {
+                                cancelNotification(key);
+                            }
+                        }
+                        break;
+
+                    case MSG_SNOOZE:
+                        Log.d(TAG, "trying to snooze");
+                        try {
+                            requestUnbind();
+                        } catch (RemoteException e) {
+                            Log.e(TAG, "failed to unbind service", e);
+                        }
+                        break;
+                }
+            }
+        };
         Log.d(TAG, "registering broadcast listener");
         final IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(ACTION_DISMISS);
@@ -213,30 +254,43 @@ public class Listener extends NotificationListenerService {
 
     @Override
     public void onDestroy() {
+        sConnected = false;
+        LocalBroadcastManager.getInstance(Listener.this)
+                .sendBroadcast(new Intent(ACTION_STATE_CHANGE));
+        sHandler = null;
         LocalBroadcastManager.getInstance(this).unregisterReceiver(mBroadcastReceiver);
         super.onDestroy();
     }
 
     @Override
     public void onListenerConnected() {
-        Message.obtain(mHandler, MSG_STARTUP).sendToTarget();
+        Log.w(TAG, "onListenerConnected: ");
+        Message.obtain(sHandler, MSG_STARTUP).sendToTarget();
+    }
+
+    @Override
+    public void onListenerDisconnected() {
+        Log.w(TAG, "onListenerDisconnected: ");
     }
 
     @Override
     public void onNotificationRankingUpdate(RankingMap rankingMap) {
-        Message.obtain(mHandler, MSG_ORDER,
+        Log.w(TAG, "onNotificationRankingUpdate");
+        Message.obtain(sHandler, MSG_ORDER,
                 new Delta(null, rankingMap)).sendToTarget();
     }
 
     @Override
     public void onNotificationPosted(StatusBarNotification sbn, RankingMap rankingMap) {
-        Message.obtain(mHandler, MSG_NOTIFY,
+        Log.w(TAG, "onNotificationPosted: " + sbn.getKey());
+        Message.obtain(sHandler, MSG_NOTIFY,
                 new Delta(sbn, rankingMap)).sendToTarget();
     }
 
     @Override
     public void onNotificationRemoved(StatusBarNotification sbn, RankingMap rankingMap) {
-        Message.obtain(mHandler, MSG_CANCEL,
+        Log.w(TAG, "onNotificationRemoved: " + sbn.getKey());
+        Message.obtain(sHandler, MSG_CANCEL,
                 new Delta(sbn, rankingMap)).sendToTarget();
     }
 
@@ -245,6 +299,7 @@ public class Listener extends NotificationListenerService {
         sNotifications = new ArrayList<StatusBarNotification>();
         for (StatusBarNotification sbn : getActiveNotifications()) {
             sNotifications.add(sbn);
+            Log.w(TAG, "startup poll: " + sbn.getKey());
         }
         Collections.sort(sNotifications, mRankingComparator);
     }

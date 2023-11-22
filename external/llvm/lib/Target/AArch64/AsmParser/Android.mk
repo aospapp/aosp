@@ -25,7 +25,7 @@ include $(CLEAR_VARS)
 include $(CLEAR_TBLGEN_VARS)
 
 LOCAL_MODULE:= libLLVMAArch64AsmParser
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_HOST_OS := darwin linux windows
 LOCAL_SRC_FILES := $(aarch64_asm_parser_SRC_FILES)
 LOCAL_C_INCLUDES += $(aarch64_asm_parser_C_INCLUDES)
 TBLGEN_TABLES := $(aarch64_asm_parser_TBLGEN_TABLES)
@@ -33,13 +33,12 @@ TBLGEN_TD_DIR := $(aarch64_asm_parser_TBLGEN_TD_DIR)
 
 include $(LLVM_HOST_BUILD_MK)
 include $(LLVM_TBLGEN_RULES_MK)
-ifneq (,$(filter windows darwin,$(HOST_OS)))
 # Override the default optimization level to work around taking forever (~50m)
 # to compile AArch64AsmParser.cpp on Mac with gcc 4.2,
 # or on Linux with mingw32msvc-gcc 4.2, which is used to cross-compile
 # the win_sdk.
-LOCAL_CFLAGS += -O0
-endif
+LOCAL_CFLAGS_darwin += -O0
+LOCAL_CFLAGS_windows += -O0
 include $(BUILD_HOST_STATIC_LIBRARY)
 
 
@@ -51,7 +50,6 @@ include $(CLEAR_VARS)
 include $(CLEAR_TBLGEN_VARS)
 
 LOCAL_MODULE:= libLLVMAArch64AsmParser
-LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := $(aarch64_asm_parser_SRC_FILES)
 LOCAL_C_INCLUDES += $(aarch64_asm_parser_C_INCLUDES)
 TBLGEN_TABLES := $(aarch64_asm_parser_TBLGEN_TABLES)

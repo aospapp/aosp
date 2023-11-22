@@ -25,8 +25,6 @@
  */
 package org.apache.harmony.jpda.tests.jdwp.Method;
 
-import java.io.UnsupportedEncodingException;
-
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
@@ -43,17 +41,8 @@ public class IsObsoleteTest extends JDWPMethodTestCase {
      * <BR>It runs MethodDebuggee, receives checked method,
      * which is not obsolete, and checks it with Method.IsObsolete command.
      */
-    public void testIsObsoleteTest001() throws UnsupportedEncodingException {
+    public void testIsObsoleteTest001() {
         logWriter.println("testObsoleteTest001 started");
-
-        //check capability, relevant for this test
-        logWriter.println("=> Check, can VM redefine classes");
-        debuggeeWrapper.vmMirror.capabilities();
-        boolean isCapability = debuggeeWrapper.vmMirror.targetVMCapabilities.canRedefineClasses;
-        if (!isCapability) {
-            logWriter.println("##WARNING: this VM can't redefine classes");
-            return;
-        }
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
@@ -62,20 +51,21 @@ public class IsObsoleteTest extends JDWPMethodTestCase {
         MethodInfo[] methodsInfo = jdwpGetMethodsInfo(classID);
         assertFalse("Invalid number of methods", methodsInfo.length == 0);
 
-        for (int i = 0; i < methodsInfo.length; i++) {
-            logWriter.println(methodsInfo[i].toString());
+        for (MethodInfo methodInfo : methodsInfo) {
+            logWriter.println(methodInfo.toString());
 
             // get variable table for this class
             CommandPacket packet = new CommandPacket(
                     JDWPCommands.MethodCommandSet.CommandSetID,
                     JDWPCommands.MethodCommandSet.IsObsoleteCommand);
             packet.setNextValueAsClassID(classID);
-            packet.setNextValueAsMethodID(methodsInfo[i].getMethodID());
+            packet.setNextValueAsMethodID(methodInfo.getMethodID());
             ReplyPacket reply = debuggeeWrapper.vmMirror.performCommand(packet);
             checkReplyPacket(reply, "Method::IsObsolete command");
 
             boolean isObsolete = reply.getNextValueAsBoolean();
             logWriter.println("isObsolete=" + isObsolete);
+            assertAllDataRead(reply);
         }
 
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);

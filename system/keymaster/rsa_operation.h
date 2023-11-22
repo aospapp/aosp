@@ -54,11 +54,11 @@ class RsaOperation : public Operation {
     virtual bool require_digest() const = 0;
 
     keymaster_error_t StoreData(const Buffer& input, size_t* input_consumed);
-    keymaster_error_t SetRsaPaddingInEvpContext(EVP_PKEY_CTX* pkey_ctx);
+    keymaster_error_t SetRsaPaddingInEvpContext(EVP_PKEY_CTX* pkey_ctx, bool signing);
     keymaster_error_t InitDigest();
 
     EVP_PKEY* rsa_key_;
-    keymaster_padding_t padding_;
+    const keymaster_padding_t padding_;
     Buffer data_;
     const keymaster_digest_t digest_;
     const EVP_MD* digest_algorithm_;
@@ -95,8 +95,9 @@ class RsaSignOperation : public RsaDigestingOperation {
     keymaster_error_t Update(const AuthorizationSet& additional_params, const Buffer& input,
                              AuthorizationSet* output_params, Buffer* output,
                              size_t* input_consumed) override;
-    keymaster_error_t Finish(const AuthorizationSet& additional_params, const Buffer& signature,
-                             AuthorizationSet* output_params, Buffer* output) override;
+    keymaster_error_t Finish(const AuthorizationSet& additional_params, const Buffer& input,
+                             const Buffer& signature, AuthorizationSet* output_params,
+                             Buffer* output) override;
 
   private:
     keymaster_error_t SignUndigested(Buffer* output);
@@ -116,8 +117,9 @@ class RsaVerifyOperation : public RsaDigestingOperation {
     keymaster_error_t Update(const AuthorizationSet& additional_params, const Buffer& input,
                              AuthorizationSet* output_params, Buffer* output,
                              size_t* input_consumed) override;
-    keymaster_error_t Finish(const AuthorizationSet& additional_params, const Buffer& signature,
-                             AuthorizationSet* output_params, Buffer* output) override;
+    keymaster_error_t Finish(const AuthorizationSet& additional_params, const Buffer& input,
+                             const Buffer& signature, AuthorizationSet* output_params,
+                             Buffer* output) override;
 
   private:
     keymaster_error_t VerifyUndigested(const Buffer& signature);
@@ -129,9 +131,9 @@ class RsaVerifyOperation : public RsaDigestingOperation {
  */
 class RsaCryptOperation : public RsaOperation {
   public:
-    RsaCryptOperation(keymaster_purpose_t, keymaster_digest_t digest, keymaster_padding_t padding,
-                      EVP_PKEY* key)
-        : RsaOperation(KM_PURPOSE_ENCRYPT, digest, padding, key) {}
+    RsaCryptOperation(keymaster_purpose_t purpose, keymaster_digest_t digest,
+                      keymaster_padding_t padding, EVP_PKEY* key)
+        : RsaOperation(purpose, digest, padding, key) {}
 
   protected:
     keymaster_error_t SetOaepDigestIfRequired(EVP_PKEY_CTX* pkey_ctx);
@@ -148,8 +150,9 @@ class RsaEncryptOperation : public RsaCryptOperation {
   public:
     RsaEncryptOperation(keymaster_digest_t digest, keymaster_padding_t padding, EVP_PKEY* key)
         : RsaCryptOperation(KM_PURPOSE_ENCRYPT, digest, padding, key) {}
-    keymaster_error_t Finish(const AuthorizationSet& additional_params, const Buffer& signature,
-                             AuthorizationSet* output_params, Buffer* output) override;
+    keymaster_error_t Finish(const AuthorizationSet& additional_params, const Buffer& input,
+                             const Buffer& signature, AuthorizationSet* output_params,
+                             Buffer* output) override;
 };
 
 /**
@@ -159,8 +162,9 @@ class RsaDecryptOperation : public RsaCryptOperation {
   public:
     RsaDecryptOperation(keymaster_digest_t digest, keymaster_padding_t padding, EVP_PKEY* key)
         : RsaCryptOperation(KM_PURPOSE_DECRYPT, digest, padding, key) {}
-    keymaster_error_t Finish(const AuthorizationSet& additional_params, const Buffer& signature,
-                             AuthorizationSet* output_params, Buffer* output) override;
+    keymaster_error_t Finish(const AuthorizationSet& additional_params, const Buffer& input,
+                             const Buffer& signature, AuthorizationSet* output_params,
+                             Buffer* output) override;
 };
 
 /**
@@ -189,9 +193,7 @@ class RsaOperationFactory : public OperationFactory {
 };
 
 /**
- * Abstract base for RSA operations that digest their input (signing and verification).  This class
- * does most of the work of creation of RSA digesting operations, delegating only the actual
- * operation instantiation.
+ * Abstract base for RSA operations that digest their input (signing and verification).
  */
 class RsaDigestingOperationFactory : public RsaOperationFactory {
   public:

@@ -151,6 +151,7 @@ public class TestSensorManager {
         }
         mSensorManager.unregisterListener(mTestSensorEventListener, mEnvironment.getSensor());
         mTestSensorEventListener.assertEventsReceivedInHandler();
+        mTestSensorEventListener.releaseWakeLock(); // clean up wakelock if it is acquired
         mTestSensorEventListener = null;
     }
 

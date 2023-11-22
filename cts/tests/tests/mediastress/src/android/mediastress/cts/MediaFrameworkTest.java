@@ -27,7 +27,7 @@ import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
-import com.android.cts.mediastress.R;
+import android.mediastress.cts.R;
 
 public class MediaFrameworkTest extends Activity implements SurfaceHolder.Callback {
     private static String TAG = "MediaFrameworkTest";

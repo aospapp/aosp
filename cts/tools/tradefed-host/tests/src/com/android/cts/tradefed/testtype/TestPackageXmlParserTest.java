@@ -16,7 +16,7 @@
 
 package com.android.cts.tradefed.testtype;
 
-import com.android.cts.util.AbiUtils;
+import com.android.compatibility.common.util.AbiUtils;
 import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.util.xml.AbstractXmlParser.ParseException;
 
@@ -100,7 +100,7 @@ public class TestPackageXmlParserTest extends TestCase {
             assertEquals("com.example", def.getAppNameSpace());
             assertEquals("android.example", def.getAppPackageName());
             assertEquals("android.test.InstrumentationTestRunner", def.getRunner());
-            assertTrue(AbiUtils.isAbiSupportedByCts(def.getAbi().getName()));
+            assertTrue(AbiUtils.isAbiSupportedByCompatibility(def.getAbi().getName()));
         }
     }
 

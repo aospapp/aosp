@@ -60,10 +60,11 @@ public class ToastService extends IntentService {
         }
     }
 
-    public static PendingIntent getPendingIntent(Context context, String text) {
+    public static PendingIntent getPendingIntent(Context context, int resId) {
+        String text = context.getString(resId);
         Intent toastIntent = new Intent(context, ToastService.class);
         toastIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        toastIntent.setAction(ACTION_TOAST + ":" + text); // one per toast message
+        toastIntent.setAction(ACTION_TOAST + ":" + resId); // one per toast message
         toastIntent.putExtra("text", text);
         PendingIntent pi = PendingIntent.getService(
                 context, 58, toastIntent, PendingIntent.FLAG_UPDATE_CURRENT);

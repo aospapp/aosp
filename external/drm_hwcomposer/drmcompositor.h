@@ -17,36 +17,36 @@
 #ifndef ANDROID_DRM_COMPOSITOR_H_
 #define ANDROID_DRM_COMPOSITOR_H_
 
-#include "compositor.h"
+#include "drmcomposition.h"
 #include "drmdisplaycompositor.h"
-#include "importer.h"
+#include "platform.h"
 
 #include <map>
+#include <memory>
 #include <sstream>
 
 namespace android {
 
-class DrmCompositor : public Compositor {
+class DrmCompositor {
  public:
   DrmCompositor(DrmResources *drm);
   ~DrmCompositor();
 
-  virtual int Init();
+  int Init();
 
-  virtual Targeting *targeting() {
-    return NULL;
-  }
+  std::unique_ptr<DrmComposition> CreateComposition(Importer *importer);
 
-  virtual Composition *CreateComposition(Importer *importer);
-
-  virtual int QueueComposition(Composition *composition);
-  virtual int Composite();
-  virtual void Dump(std::ostringstream *out) const;
+  int QueueComposition(std::unique_ptr<DrmComposition> composition);
+  int Composite();
+  void Dump(std::ostringstream *out) const;
 
  private:
   DrmCompositor(const DrmCompositor &) = delete;
 
   DrmResources *drm_;
+  std::unique_ptr<Planner> planner_;
+
+  uint64_t frame_no_;
 
   // mutable for Dump() propagation
   mutable std::map<int, DrmDisplayCompositor> compositor_map_;

@@ -28,7 +28,7 @@
 
 #include <string.h>
 #include "bt_utils.h"
-#include "gki.h"
+#include "bt_common.h"
 #include "gatt_int.h"
 #include "l2c_int.h"
 
@@ -611,8 +611,12 @@ void gatt_process_error_rsp(tGATT_TCB *p_tcb, tGATT_CLCB *p_clcb, UINT8 op_code,
 void gatt_process_prep_write_rsp (tGATT_TCB *p_tcb, tGATT_CLCB *p_clcb, UINT8 op_code,
                                   UINT16 len, UINT8 *p_data)
 {
-    tGATT_VALUE  value = {0};
-    UINT8        *p= p_data;
+    UINT8 *p = p_data;
+
+    tGATT_VALUE value = {
+        .conn_id = p_clcb->conn_id,
+        .auth_req = GATT_AUTH_REQ_NONE,
+    };
 
     GATT_TRACE_ERROR("value resp op_code = %s len = %d", gatt_dbg_op_name(op_code), len);
 
@@ -659,7 +663,7 @@ void gatt_process_prep_write_rsp (tGATT_TCB *p_tcb, tGATT_CLCB *p_clcb, UINT8 op
 void gatt_process_notification(tGATT_TCB *p_tcb, UINT8 op_code,
                                UINT16 len, UINT8 *p_data)
 {
-    tGATT_VALUE     value = {0};
+    tGATT_VALUE     value;
     tGATT_REG       *p_reg;
     UINT16          conn_id;
     tGATT_STATUS    encrypt_status;
@@ -674,7 +678,8 @@ void gatt_process_notification(tGATT_TCB *p_tcb, UINT8 op_code,
         return;
     }
 
-    STREAM_TO_UINT16 (value.handle, p);
+    memset(&value, 0, sizeof(value));
+    STREAM_TO_UINT16(value.handle, p);
     value.len = len - 2;
     memcpy (value.value, p, value.len);
 
@@ -863,14 +868,13 @@ void gatt_process_read_by_type_rsp (tGATT_TCB *p_tcb, tGATT_CLCB *p_clcb, UINT8 
             {
                 p_clcb->op_subtype = GATT_READ_BY_HANDLE;
                 if (!p_clcb->p_attr_buf)
-                    p_clcb->p_attr_buf = (UINT8 *)GKI_getbuf(GATT_MAX_ATTR_LEN);
-                if (p_clcb->p_attr_buf && p_clcb->counter <= GATT_MAX_ATTR_LEN)
-                {
+                    p_clcb->p_attr_buf = (UINT8 *)osi_malloc(GATT_MAX_ATTR_LEN);
+                if (p_clcb->counter <= GATT_MAX_ATTR_LEN) {
                     memcpy(p_clcb->p_attr_buf, p, p_clcb->counter);
                     gatt_act_read(p_clcb, p_clcb->counter);
+                } else {
+                    gatt_end_operation(p_clcb, GATT_INTERNAL_ERROR, (void *)p);
                 }
-                else
-                   gatt_end_operation(p_clcb, GATT_INTERNAL_ERROR, (void *)p);
             }
             else
             {
@@ -964,11 +968,10 @@ void gatt_process_read_rsp(tGATT_TCB *p_tcb, tGATT_CLCB *p_clcb,  UINT8 op_code,
 
             /* allocate GKI buffer holding up long attribute value  */
             if (!p_clcb->p_attr_buf)
-                p_clcb->p_attr_buf = (UINT8 *)GKI_getbuf(GATT_MAX_ATTR_LEN);
+                p_clcb->p_attr_buf = (UINT8 *)osi_malloc(GATT_MAX_ATTR_LEN);
 
             /* copy attrobute value into cb buffer  */
-            if (p_clcb->p_attr_buf && offset < GATT_MAX_ATTR_LEN)
-            {
+            if (offset < GATT_MAX_ATTR_LEN) {
                 if ((len + offset) > GATT_MAX_ATTR_LEN)
                     len = GATT_MAX_ATTR_LEN - offset;
 
@@ -1181,7 +1184,7 @@ void gatt_client_handle_server_rsp (tGATT_TCB *p_tcb, UINT8 op_code,
         }
         else
         {
-            btu_stop_timer (&p_clcb->rsp_timer_ent);
+            alarm_cancel(p_clcb->gatt_rsp_timer_ent);
             p_clcb->retry_count = 0;
         }
     }

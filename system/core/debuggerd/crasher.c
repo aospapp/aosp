@@ -51,6 +51,11 @@ __attribute__ ((noinline)) static int smash_stack(volatile int* plen) {
     return 0;
 }
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Winfinite-recursion"
+#endif
+
 static void* global = 0; // So GCC doesn't optimize the tail recursion out of overflow_stack.
 
 __attribute__((noinline)) static void overflow_stack(void* p) {
@@ -59,6 +64,10 @@ __attribute__((noinline)) static void overflow_stack(void* p) {
     global = buf;
     overflow_stack(&buf);
 }
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 static void *noisy(void *x)
 {
@@ -157,12 +166,6 @@ static int do_action(const char* arg)
     } else if (!strcmp(arg, "SIGFPE")) {
         raise(SIGFPE);
         return EXIT_SUCCESS;
-    } else if (!strcmp(arg, "SIGPIPE")) {
-        int pipe_fds[2];
-        pipe(pipe_fds);
-        close(pipe_fds[0]);
-        write(pipe_fds[1], "oops", 4);
-        return EXIT_SUCCESS;
     } else if (!strcmp(arg, "SIGTRAP")) {
         raise(SIGTRAP);
         return EXIT_SUCCESS;
@@ -189,7 +192,6 @@ static int do_action(const char* arg)
     fprintf(stderr, "  LOG_ALWAYS_FATAL      call LOG_ALWAYS_FATAL\n");
     fprintf(stderr, "  LOG_ALWAYS_FATAL_IF   call LOG_ALWAYS_FATAL\n");
     fprintf(stderr, "  SIGFPE                cause a SIGFPE\n");
-    fprintf(stderr, "  SIGPIPE               cause a SIGPIPE\n");
     fprintf(stderr, "  SIGSEGV               cause a SIGSEGV at address 0x0 (synonym: crash)\n");
     fprintf(stderr, "  SIGSEGV-non-null      cause a SIGSEGV at a non-zero address\n");
     fprintf(stderr, "  SIGSEGV-unmapped      mmap/munmap a region of memory and then attempt to access it\n");

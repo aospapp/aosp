@@ -43,40 +43,53 @@ struct audio_utils_fifo {
     volatile int32_t mRear;  // frame index of next frame slot available to write, or write index
 };
 
-// Initialize a FIFO object.
-// Input parameters:
-//  fifo        Pointer to the FIFO object.
-//  frameCount  Max number of significant frames to be stored in the FIFO > 0.
-//              If writes and reads always use the same count, and that count is a divisor of
-//              frameCount, then the writes and reads will never do a partial transfer.
-//  frameSize   Size of each frame in bytes.
-//  buffer      Pointer to a caller-allocated buffer of frameCount frames.
+/**
+ * Initialize a FIFO object.
+ *
+ *  \param fifo        Pointer to the FIFO object.
+ *  \param frameCount  Max number of significant frames to be stored in the FIFO > 0.
+ *                     If writes and reads always use the same count, and that count is a divisor of
+ *                     frameCount, then the writes and reads will never do a partial transfer.
+ *  \param frameSize   Size of each frame in bytes.
+ *  \param buffer      Pointer to a caller-allocated buffer of frameCount frames.
+ */
 void audio_utils_fifo_init(struct audio_utils_fifo *fifo, size_t frameCount, size_t frameSize,
         void *buffer);
 
-// De-initialize a FIFO object.
-// Input parameters:
-//  fifo        Pointer to the FIFO object.
+/**
+ * De-initialize a FIFO object.
+ *
+ *  \param fifo        Pointer to the FIFO object.
+ */
 void audio_utils_fifo_deinit(struct audio_utils_fifo *fifo);
 
-// Write to FIFO.
-// Input parameters:
-//  fifo        Pointer to the FIFO object.
-//  buffer      Pointer to source buffer containing 'count' frames of data.
-// Returns actual number of frames written <= count.
-// The actual transfer count may be zero if the FIFO is full,
-// or partial if the FIFO was almost full.
-// A negative return value indicates an error.  Currently there are no errors defined.
+/**
+ * Write to FIFO.
+ *
+ *  \param fifo        Pointer to the FIFO object.
+ *  \param buffer      Pointer to source buffer containing 'count' frames of data.
+ *  \param count       Desired number of frames to write.
+ *
+ * \return actual number of frames written <= count.
+ *
+ * The actual transfer count may be zero if the FIFO is full,
+ * or partial if the FIFO was almost full.
+ * A negative return value indicates an error.  Currently there are no errors defined.
+ */
 ssize_t audio_utils_fifo_write(struct audio_utils_fifo *fifo, const void *buffer, size_t count);
 
-// Read from FIFO.
-// Input parameters:
-//  fifo        Pointer to the FIFO object.
-//  buffer      Pointer to destination buffer to be filled with up to 'count' frames of data.
-// Returns actual number of frames read <= count.
-// The actual transfer count may be zero if the FIFO is empty,
-// or partial if the FIFO was almost empty.
-// A negative return value indicates an error.  Currently there are no errors defined.
+/** Read from FIFO.
+ *
+ *  \param fifo        Pointer to the FIFO object.
+ *  \param buffer      Pointer to destination buffer to be filled with up to 'count' frames of data.
+ *  \param count       Desired number of frames to read.
+ *
+ * \return actual number of frames read <= count.
+ *
+ * The actual transfer count may be zero if the FIFO is empty,
+ * or partial if the FIFO was almost empty.
+ * A negative return value indicates an error.  Currently there are no errors defined.
+ */
 ssize_t audio_utils_fifo_read(struct audio_utils_fifo *fifo, void *buffer, size_t count);
 
 #ifdef __cplusplus

@@ -251,15 +251,7 @@ final class MultiDexExtractor {
     /**
      * This removes any files that do not have the correct prefix.
      */
-    private static void prepareDexDir(File dexDir, final String extractedFilePrefix)
-            throws IOException {
-        /* mkdirs() has some bugs, especially before jb-mr1 and we have only a maximum of one parent
-         * to create, lets stick to mkdir().
-         */
-        File cache = dexDir.getParentFile();
-        mkdirChecked(cache);
-        mkdirChecked(dexDir);
-
+    private static void prepareDexDir(File dexDir, final String extractedFilePrefix) {
         // Clean possible old files
         FileFilter filter = new FileFilter() {
 
@@ -281,24 +273,6 @@ final class MultiDexExtractor {
             } else {
                 Log.i(TAG, "Deleted old file " + oldFile.getPath());
             }
-        }
-    }
-
-    private static void mkdirChecked(File dir) throws IOException {
-        dir.mkdir();
-        if (!dir.isDirectory()) {
-            File parent = dir.getParentFile();
-            if (parent == null) {
-                Log.e(TAG, "Failed to create dir " + dir.getPath() + ". Parent file is null.");
-            } else {
-                Log.e(TAG, "Failed to create dir " + dir.getPath() +
-                        ". parent file is a dir " + parent.isDirectory() +
-                        ", a file " + parent.isFile() +
-                        ", exists " + parent.exists() +
-                        ", readable " + parent.canRead() +
-                        ", writable " + parent.canWrite());
-            }
-            throw new IOException("Failed to create cache directory " + dir.getPath());
         }
     }
 

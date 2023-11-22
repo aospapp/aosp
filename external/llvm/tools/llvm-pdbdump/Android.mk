@@ -9,6 +9,7 @@ llvm_pdbdump_SRC_FILES := \
   ClassDefinitionDumper.cpp \
   CompilandDumper.cpp \
   EnumDumper.cpp \
+  ExternalSymbolDumper.cpp \
   FunctionDumper.cpp \
   LinePrinter.cpp \
   TypedefDumper.cpp \

@@ -25,15 +25,17 @@ import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.RadialGradient;
 import android.graphics.Shader;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.test.suitebuilder.annotation.MediumTest;
 import android.uirendering.cts.bitmapcomparers.MSSIMComparer;
 import android.uirendering.cts.bitmapverifiers.ColorVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 import android.uirendering.cts.testinfrastructure.CanvasClient;
-import com.android.cts.uirendering.R;
+import android.uirendering.cts.R;
+import org.junit.Test;
 
+@MediumTest
 public class ShaderTests extends ActivityTestBase {
-    @SmallTest
+    @Test
     public void testSinglePixelBitmapShader() {
         createTest()
                 .addCanvasClient(new CanvasClient() {
@@ -52,7 +54,7 @@ public class ShaderTests extends ActivityTestBase {
                 .runWithVerifier(new ColorVerifier(Color.BLUE));
     }
 
-    @SmallTest
+    @Test
     public void testSinglePixelComposeShader() {
         createTest()
                 .addCanvasClient(new CanvasClient() {
@@ -83,7 +85,7 @@ public class ShaderTests extends ActivityTestBase {
                 .runWithVerifier(new ColorVerifier(Color.BLUE));
     }
 
-    @SmallTest
+    @Test
     public void testComplexShaderUsage() {
         /*
          * This test not only builds a very complex drawing operation, but also tests an

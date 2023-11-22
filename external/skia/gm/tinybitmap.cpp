@@ -20,7 +20,7 @@ static SkBitmap make_bitmap() {
     SkBitmap bm;
     bm.allocPixels(SkImageInfo::Make(1, 1, kIndex_8_SkColorType,
                                      kPremul_SkAlphaType),
-                   NULL, ctable);
+                   nullptr, ctable);
     ctable->unref();
 
     bm.lockPixels();
@@ -32,7 +32,7 @@ static SkBitmap make_bitmap() {
 class TinyBitmapGM : public GM {
 public:
     TinyBitmapGM() {
-        this->setBGColor(0xFFDDDDDD);
+        this->setBGColor(sk_tool_utils::color_to_565(0xFFDDDDDD));
     }
 
 protected:

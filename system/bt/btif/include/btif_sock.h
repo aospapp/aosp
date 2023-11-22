@@ -18,9 +18,11 @@
 
 #pragma once
 
+#include "btif_uid.h"
+
 #include <hardware/bt_sock.h>
 
 btsock_interface_t *btif_sock_get_interface(void);
 
-bt_status_t btif_sock_init(void);
+bt_status_t btif_sock_init(uid_set_t* uid_set);
 void btif_sock_cleanup(void);

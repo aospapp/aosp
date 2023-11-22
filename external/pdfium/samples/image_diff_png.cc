@@ -16,9 +16,9 @@
 
 #include <string>
 
-#include "../third_party/base/logging.h"
-#include "../core/src/fxcodec/fx_zlib/include/fx_zlib.h"
-#include "fx_lpng/include/fx_png.h"
+#include "third_party/base/logging.h"
+#include "third_party/lpng_v163/png.h"
+#include "third_party/zlib_v128/zlib.h"
 
 namespace image_diff_png {
 

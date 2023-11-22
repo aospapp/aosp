@@ -20,8 +20,8 @@
 $(call assert-defined,TARGET_PLATFORM TARGET_ARCH TARGET_ARCH_ABI)
 $(call assert-defined,NDK_APPS NDK_APP_STL)
 
-LLVM_VERSION_LIST := 2.6 2.7 2.8 2.9 3.0 3.1 3.2 3.3 3.4 3.5
-NDK_64BIT_TOOLCHAIN_LIST := clang3.5 clang3.4 4.9
+LLVM_VERSION_LIST := 2.6 2.7 2.8 2.9 3.0 3.1 3.2 3.3 3.4 3.5 3.6
+NDK_64BIT_TOOLCHAIN_LIST := clang3.6 clang3.5 clang3.4 4.9
 
 # Check that we have a toolchain that supports the current ABI.
 # NOTE: If NDK_TOOLCHAIN is defined, we're going to use it.
@@ -131,11 +131,8 @@ TARGET_PREBUILT_SHARED_LIBRARIES :=
 TOOLCHAIN_NAME   := $(TARGET_TOOLCHAIN)
 TOOLCHAIN_VERSION := $(call last,$(subst -,$(space),$(TARGET_TOOLCHAIN)))
 
-# Define the root path of the toolchain in the NDK tree.
-TOOLCHAIN_ROOT   := $(NDK_ROOT)/toolchains/$(TOOLCHAIN_NAME)
-
 # Define the root path where toolchain prebuilts are stored
-TOOLCHAIN_PREBUILT_ROOT := $(call host-prebuilt-tag,$(TOOLCHAIN_ROOT))
+TOOLCHAIN_PREBUILT_ROOT := $(call get-toolchain-root,$(TOOLCHAIN_NAME))
 
 # Do the same for TOOLCHAIN_PREFIX. Note that we must chop the version
 # number from the toolchain name, e.g. arm-eabi-4.4.0 -> path/bin/arm-eabi-

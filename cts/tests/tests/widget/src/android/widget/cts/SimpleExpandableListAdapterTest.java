@@ -98,7 +98,7 @@ public class SimpleExpandableListAdapterTest extends InstrumentationTestCase {
 
         mAdapterHost = (LinearLayout) ((LayoutInflater) mContext
                 .getSystemService(Context.LAYOUT_INFLATER_SERVICE)).inflate(
-                com.android.cts.widget.R.layout.cursoradapter_host, null);
+                android.widget.cts.R.layout.cursoradapter_host, null);
     }
 
     public void testConstructor() {

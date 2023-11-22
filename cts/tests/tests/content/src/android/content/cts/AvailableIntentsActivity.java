@@ -16,7 +16,7 @@
 
 package android.content.cts;
 
-import com.android.cts.content.R;
+import android.content.cts.R;
 
 import android.app.Activity;
 import android.os.Bundle;

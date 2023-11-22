@@ -61,7 +61,9 @@ typedef enum {
     EVENT_WLAN_EAPOL = 0xA8D, /* 96 bytes payload */
     EVENT_WLAN_EXTSCAN_FEATURE_STOP = 0xAA3,
     EVENT_WLAN_EXTSCAN_RESULTS_AVAILABLE = 0xAA4,
+    EVENT_WLAN_BEACON_EVENT = 0xAA6,
     EVENT_WLAN_LOG_COMPLETE = 0xAA7,
+    EVENT_WLAN_LOW_RESOURCE_FAILURE = 0xABB,
 
     EVENT_MAX_ID = 0x0FFF
 } event_id_enum_type;
@@ -148,6 +150,8 @@ typedef enum
     WLAN_PE_DIAG_ROAM_ASSOC_COMP_EVENT,
     WLAN_PE_DIAG_SCAN_COMP_EVENT,
     WLAN_PE_DIAG_SCAN_RES_FOUND_EVENT,
+    WLAN_PE_DIAG_ASSOC_TIMEOUT,
+    WLAN_PE_DIAG_AUTH_TIMEOUT,
 } wlan_host_diag_event_type;
 
 typedef struct wlan_pe_event {
@@ -324,7 +328,7 @@ typedef struct {
     u16 Tsco;
     u8 Rsco;
 } __attribute__((packed)) wlan_bt_coex_bt_sco_stop_payload_type;
-/*End EVENT_WLAN_BT_COEX_BT_SCO_STOP*/
+/* End EVENT_WLAN_BT_COEX_BT_SCO_STOP */
 
 /* EVENT_WLAN_BT_COEX_BT_SCAN_START */
 typedef struct {
@@ -332,16 +336,16 @@ typedef struct {
     u8 scan_bitmap;
 } __attribute__((packed)) wlan_bt_coex_bt_scan_start_payload_type;
 
-/*End EVENT_WLAN_BT_COEX_BT_SCAN_START*/
+/* End EVENT_WLAN_BT_COEX_BT_SCAN_START */
 
 /* EVENT_WLAN_BT_COEX_BT_SCAN_STOP */
 typedef struct {
     u8 scan_type;
     u8 scan_bitmap;
 } __attribute__((packed)) wlan_bt_coex_bt_scan_stop_payload_type;
-/*End EVENT_WLAN_BT_COEX_BT_SCAN_STOP*/
+/* End EVENT_WLAN_BT_COEX_BT_SCAN_STOP */
 
-/*EVENT_WIFI_BT_COEX_BT_HID_START */
+/* EVENT_WIFI_BT_COEX_BT_HID_START */
 typedef struct {
     u8 link_id;
     u8 link_state;
@@ -349,7 +353,7 @@ typedef struct {
     u8 Tsniff;
     u8 attempts;
 } __attribute__((packed)) wlan_bt_coex_bt_hid_start_payload_type;
-/*End EVENT_WIFI_BT_COEX_BT_HID_START */
+/* End EVENT_WIFI_BT_COEX_BT_HID_START */
 
 /* EVENT_WIFI_BT_COEX_BT_HID_STOP */
 typedef struct {
@@ -378,7 +382,7 @@ typedef struct {
 } __attribute__((packed)) wlan_ext_scan_results_available_payload_type;
 /* End EVENT_WLAN_EXTSCAN_RESULTS_AVAILABLE */
 
-/* EVENT_WLAN_EXTSCAN_CAPABILITIES */
+/* Log LOG_WLAN_EXTSCAN_CAPABILITIES */
 typedef struct {
     u32 header;
     u32 request_id;
@@ -423,10 +427,11 @@ typedef struct {
     wlan_extscan_cache_capabilities extscan_cache_capabilities;
     wlan_extscan_hotlist_monitor_capabilities extscan_hotlist_monitor_capabilities;
 } __attribute__((packed)) wlan_ext_scan_capabilities_payload_type;
-/* End EVENT_WLAN_EXTSCAN_CAPABILITIES*/
+/* End LOG_WLAN_EXTSCAN_CAPABILITIES */
 
 /* EVENT_WLAN_BEACON_RECEIVED */
 typedef struct {
+    u8 bssid[6];
     u32 beacon_rssi;
 } __attribute__((packed)) wlan_beacon_received_payload_type;
 /* End EVENT_WLAN_BEACON_RECEIVED */
@@ -446,5 +451,15 @@ typedef struct {
     u8 ucReasonCode;
     u8 fInitiator;
 } __attribute__((packed)) wlan_add_block_ack_failed_payload_type;
+
+typedef enum
+{
+    WIFI_EVENT_MEMORY_FAILURE,
+} resource_failure_type;
+
+typedef struct wlan_low_resource_failure_event
+{
+    resource_failure_type event_sub_type;
+} __attribute__((packed)) wlan_low_resource_failure_event_t;
 
 #endif /* WIFILOGGER_EVENT_DEFS_H */

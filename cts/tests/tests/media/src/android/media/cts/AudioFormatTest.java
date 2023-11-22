@@ -18,6 +18,7 @@ package android.media.cts;
 
 import android.cts.util.CtsAndroidTestCase;
 import android.media.AudioFormat;
+import android.os.Parcel;
 
 public class AudioFormatTest extends CtsAndroidTestCase {
 
@@ -137,5 +138,34 @@ public class AudioFormatTest extends CtsAndroidTestCase {
                 0, copiedFormat.getSampleRate());
         assertEquals("New AudioFormat doesn't report expected channel mask",
                 AudioFormat.CHANNEL_INVALID, copiedFormat.getChannelMask());
+    }
+
+    // Test case 6: create an instance, marshall it and create a new instance,
+    //      check for equality
+    public void testParcel() throws Exception {
+        final int TEST_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
+        final int TEST_SR = 48000;
+        final int TEST_CONF_POS = AudioFormat.CHANNEL_OUT_5POINT1;
+        // 6ch, like in 5.1 above offset by a randomly chosen number
+        final int TEST_CONF_IDX = 0x3F << 3;
+
+        final AudioFormat formatToMarshall = new AudioFormat.Builder()
+                .setEncoding(TEST_ENCODING).setSampleRate(TEST_SR)
+                .setChannelMask(TEST_CONF_POS).setChannelIndexMask(TEST_CONF_IDX).build();
+        assertNotNull("Failure to create the AudioFormat to marshall", formatToMarshall);
+        assertEquals(0, formatToMarshall.describeContents());
+
+        final Parcel srcParcel = Parcel.obtain();
+        final Parcel dstParcel = Parcel.obtain();
+
+        formatToMarshall.writeToParcel(srcParcel, 0 /*no public flags for marshalling*/);
+        final byte[] mbytes = srcParcel.marshall();
+        dstParcel.unmarshall(mbytes, 0, mbytes.length);
+        dstParcel.setDataPosition(0);
+        final AudioFormat unmarshalledFormat = AudioFormat.CREATOR.createFromParcel(dstParcel);
+
+        assertNotNull("Failure to unmarshall AudioFormat", unmarshalledFormat);
+        assertEquals("Source and destination AudioFormat not equal",
+                formatToMarshall, unmarshalledFormat);
     }
 }

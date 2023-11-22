@@ -85,7 +85,11 @@ public class CharsetDecoderTest extends junit.framework.TestCase {
 
     private static byte[] encode(String charsetName, String s) throws Exception {
         CharsetEncoder encoder = Charset.forName(charsetName).newEncoder();
-        return encoder.encode(CharBuffer.wrap(s)).array();
+        ByteBuffer buf = encoder.encode(CharBuffer.wrap(s));
+        byte[] out = new byte[buf.remaining()];
+        buf.get(out);
+        assertEquals(0, buf.remaining());
+        return out;
     }
 
     public void testUtf8BytesSplitAcrossMultipleWrites() throws Exception {
@@ -104,5 +108,16 @@ public class CharsetDecoderTest extends junit.framework.TestCase {
         assertEquals(CoderResult.UNDERFLOW, cr);
         assertEquals(1, cb.position());
         assertEquals('\u2603', cb.get(0));
+    }
+
+    public void testBufferWithNonZeroOffset() {
+        CharsetDecoder decoder = Charset.forName("UTF-8").newDecoder();
+        CharBuffer cb = CharBuffer.allocate(128);
+        cb.position(42);
+        CharBuffer out = cb.slice();
+        CoderResult cr = decoder.decode(
+                ByteBuffer.wrap(new byte[] { 'h', 'e', 'l', 'l', 'o'}), out, false);
+        assertTrue(cr.isUnderflow());
+        assertEquals(5, out.position());
     }
 }

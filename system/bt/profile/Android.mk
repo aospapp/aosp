@@ -18,6 +18,8 @@
 
 LOCAL_PATH := $(call my-dir)
 
+# Bluetooth profile static library for target
+# ========================================================
 include $(CLEAR_VARS)
 
 LOCAL_C_INCLUDES := \
@@ -25,17 +27,18 @@ LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/include \
     $(LOCAL_PATH)/../btcore/include \
     $(LOCAL_PATH)/../include \
-    $(LOCAL_PATH)/../osi/include \
-    $(bdroid_C_INCLUDES)
+    $(bluetooth_C_INCLUDES)
 
 LOCAL_SRC_FILES := \
     src/manager.c
 
-LOCAL_CFLAGS := $(bdroid_CFLAGS)
-LOCAL_CONLYFLAGS := $(bdroid_CONLYFLAGS)
 LOCAL_MODULE := libbtprofile
 LOCAL_MODULE_TAGS := optional
 LOCAL_SHARED_LIBRARIES := libc liblog
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
+
+LOCAL_CFLAGS += $(bluetooth_CFLAGS)
+LOCAL_CONLYFLAGS += $(bluetooth_CONLYFLAGS)
+LOCAL_CPPFLAGS += $(bluetooth_CPPFLAGS)
 
 include $(BUILD_STATIC_LIBRARY)

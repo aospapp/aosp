@@ -17,6 +17,7 @@ LOCAL_SRC_FILES:= \
 LOCAL_C_INCLUDES:= \
         $(TOP)/frameworks/av/media/libstagefright \
         $(TOP)/frameworks/native/include/media/openmax \
+        $(TOP)/frameworks/native/include/media/hardware \
         $(TOP)/frameworks/av/media/libstagefright/mpeg2ts \
 
 LOCAL_SHARED_LIBRARIES:= \
@@ -32,6 +33,7 @@ LOCAL_SHARED_LIBRARIES:= \
 
 LOCAL_CFLAGS += -Wno-multichar -Werror -Wall
 LOCAL_CLANG := true
+LOCAL_SANITIZE := signed-integer-overflow
 
 LOCAL_MODULE:= libstagefright_wfd
 

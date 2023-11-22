@@ -15,7 +15,7 @@
  */
 package android.animation.cts;
 
-import com.android.cts.animation.R;
+import android.animation.cts.R;
 import android.app.Activity;
 import android.os.Bundle;
 import android.view.View;

@@ -65,16 +65,6 @@ class Sampler;
  };
 
  /**
-  * YUV formats supported by the RenderScript API.
-  */
- enum RSYuvFormat {
-     RS_YUV_NONE = 0, ///< No YUV data
-     RS_YUV_YV12 = 1, ///< YUV data in YV12 format
-     RS_YUV_NV21 = 2, ///< YUV data in NV21 format
-     RS_YUV_MAX = 3
- };
-
- /**
   * Flags that can control RenderScript behavior on a per-context level.
   */
  enum RSInitFlags {
@@ -84,6 +74,277 @@ class Sampler;
      RS_INIT_WAIT_FOR_ATTACH = 8,   ///< Kernel execution will hold to give time for a debugger to be attached
      RS_INIT_MAX = 16
  };
+
+
+class Byte2 {
+ public:
+  int8_t x, y;
+
+  Byte2(int8_t initX, int8_t initY)
+    : x(initX), y(initY) {}
+  Byte2() : x(0), y(0) {}
+};
+
+class Byte3 {
+ public:
+  int8_t x, y, z;
+
+  Byte3(int8_t initX, int8_t initY, int8_t initZ)
+    : x(initX), y(initY), z(initZ) {}
+  Byte3() : x(0), y(0), z(0) {}
+};
+
+class Byte4 {
+ public:
+  int8_t x, y, z, w;
+
+  Byte4(int8_t initX, int8_t initY, int8_t initZ, int8_t initW)
+    : x(initX), y(initY), z(initZ), w(initW) {}
+  Byte4() : x(0), y(0), z(0), w(0) {}
+};
+
+class UByte2 {
+ public:
+  uint8_t x, y;
+
+  UByte2(uint8_t initX, uint8_t initY)
+    : x(initX), y(initY) {}
+  UByte2() : x(0), y(0) {}
+};
+
+class UByte3 {
+ public:
+  uint8_t x, y, z;
+
+  UByte3(uint8_t initX, uint8_t initY, uint8_t initZ)
+    : x(initX), y(initY), z(initZ) {}
+  UByte3() : x(0), y(0), z(0) {}
+};
+
+class UByte4 {
+ public:
+  uint8_t x, y, z, w;
+
+  UByte4(uint8_t initX, uint8_t initY, uint8_t initZ, uint8_t initW)
+    : x(initX), y(initY), z(initZ), w(initW) {}
+  UByte4() : x(0), y(0), z(0), w(0) {}
+};
+
+class Short2 {
+ public:
+  short x, y;
+
+  Short2(short initX, short initY)
+    : x(initX), y(initY) {}
+  Short2() : x(0), y(0) {}
+};
+
+class Short3 {
+ public:
+  short x, y, z;
+
+  Short3(short initX, short initY, short initZ)
+    : x(initX), y(initY), z(initZ) {}
+  Short3() : x(0), y(0), z(0) {}
+};
+
+class Short4 {
+ public:
+  short x, y, z, w;
+
+  Short4(short initX, short initY, short initZ, short initW)
+    : x(initX), y(initY), z(initZ), w(initW) {}
+  Short4() : x(0), y(0), z(0), w(0) {}
+};
+
+class UShort2 {
+ public:
+  uint16_t x, y;
+
+  UShort2(uint16_t initX, uint16_t initY)
+    : x(initX), y(initY) {}
+  UShort2() : x(0), y(0) {}
+};
+
+class UShort3 {
+ public:
+  uint16_t x, y, z;
+
+  UShort3(uint16_t initX, uint16_t initY, uint16_t initZ)
+    : x(initX), y(initY), z(initZ) {}
+  UShort3() : x(0), y(0), z(0) {}
+};
+
+class UShort4 {
+ public:
+  uint16_t x, y, z, w;
+
+  UShort4(uint16_t initX, uint16_t initY, uint16_t initZ, uint16_t initW)
+    : x(initX), y(initY), z(initZ), w(initW) {}
+  UShort4() : x(0), y(0), z(0), w(0) {}
+};
+
+class Int2 {
+ public:
+  int x, y;
+
+  Int2(int initX, int initY)
+    : x(initX), y(initY) {}
+  Int2() : x(0), y(0) {}
+};
+
+class Int3 {
+ public:
+  int x, y, z;
+
+  Int3(int initX, int initY, int initZ)
+    : x(initX), y(initY), z(initZ) {}
+  Int3() : x(0), y(0), z(0) {}
+};
+
+class Int4 {
+ public:
+  int x, y, z, w;
+
+  Int4(int initX, int initY, int initZ, int initW)
+    : x(initX), y(initY), z(initZ), w(initW) {}
+  Int4() : x(0), y(0), z(0), w(0) {}
+};
+
+class UInt2 {
+ public:
+  uint32_t x, y;
+
+  UInt2(uint32_t initX, uint32_t initY)
+    : x(initX), y(initY) {}
+  UInt2() : x(0), y(0) {}
+};
+
+class UInt3 {
+ public:
+  uint32_t x, y, z;
+
+  UInt3(uint32_t initX, uint32_t initY, uint32_t initZ)
+    : x(initX), y(initY), z(initZ) {}
+  UInt3() : x(0), y(0), z(0) {}
+};
+
+class UInt4 {
+ public:
+  uint32_t x, y, z, w;
+
+  UInt4(uint32_t initX, uint32_t initY, uint32_t initZ, uint32_t initW)
+    : x(initX), y(initY), z(initZ), w(initW) {}
+  UInt4() : x(0), y(0), z(0), w(0) {}
+};
+
+class Long2 {
+ public:
+  int64_t x, y;
+
+  Long2(int64_t initX, int64_t initY)
+    : x(initX), y(initY) {}
+  Long2() : x(0), y(0) {}
+};
+
+class Long3 {
+ public:
+  int64_t x, y, z;
+
+  Long3(int64_t initX, int64_t initY, int64_t initZ)
+    : x(initX), y(initY), z(initZ) {}
+  Long3() : x(0), y(0), z(0) {}
+};
+
+class Long4 {
+ public:
+  int64_t x, y, z, w;
+
+  Long4(int64_t initX, int64_t initY, int64_t initZ, int64_t initW)
+    : x(initX), y(initY), z(initZ), w(initW) {}
+  Long4() : x(0), y(0), z(0), w(0) {}
+};
+
+class ULong2 {
+ public:
+  uint64_t x, y;
+
+  ULong2(uint64_t initX, uint64_t initY)
+    : x(initX), y(initY) {}
+  ULong2() : x(0), y(0) {}
+};
+
+class ULong3 {
+ public:
+  uint64_t x, y, z;
+
+  ULong3(uint64_t initX, uint64_t initY, uint64_t initZ)
+    : x(initX), y(initY), z(initZ) {}
+  ULong3() : x(0), y(0), z(0) {}
+};
+
+class ULong4 {
+ public:
+  uint64_t x, y, z, w;
+
+  ULong4(uint64_t initX, uint64_t initY, uint64_t initZ, uint64_t initW)
+    : x(initX), y(initY), z(initZ), w(initW) {}
+  ULong4() : x(0), y(0), z(0), w(0) {}
+};
+
+class Float2 {
+ public:
+  float x, y;
+
+  Float2(float initX, float initY)
+    : x(initX), y(initY) {}
+  Float2() : x(0), y(0) {}
+};
+
+class Float3 {
+ public:
+  float x, y, z;
+
+  Float3(float initX, float initY, float initZ)
+    : x(initX), y(initY), z(initZ) {}
+  Float3() : x(0.f), y(0.f), z(0.f) {}
+};
+
+class Float4 {
+ public:
+  float x, y, z, w;
+
+  Float4(float initX, float initY, float initZ, float initW)
+    : x(initX), y(initY), z(initZ), w(initW) {}
+  Float4() : x(0.f), y(0.f), z(0.f), w(0.f) {}
+};
+
+class Double2 {
+ public:
+  double x, y;
+
+  Double2(double initX, double initY)
+    : x(initX), y(initY) {}
+  Double2() : x(0), y(0) {}
+};
+
+class Double3 {
+ public:
+  double x, y, z;
+
+  Double3(double initX, double initY, double initZ)
+    : x(initX), y(initY), z(initZ) {}
+  Double3() : x(0), y(0), z(0) {}
+};
+
+class Double4 {
+ public:
+  double x, y, z, w;
+
+  Double4(double initX, double initY, double initZ, double initW)
+    : x(initX), y(initY), z(initZ), w(initW) {}
+  Double4() : x(0), y(0), z(0), w(0) {}
+};
 
  /**
   * The RenderScript context. This class controls initialization, resource management, and teardown.
@@ -102,6 +363,16 @@ class Sampler;
      * @return true on success
      */
     bool init(const char * name, uint32_t flags = 0);
+
+    /**
+     * Initializes a RenderScript context. A context must be initialized before it can be used.
+     * @param[in] name Directory name to be used by this context. This should be equivalent to
+     * Context.getCacheDir().
+     * @param[in] flags Flags for this context.
+     * @param[in] targetApi Target RS API level.
+     * @return true on success
+     */
+    bool init(const char * name, uint32_t flags, int targetApi);
 
     /**
      * Sets the error handler function for this context. This error handler is
@@ -155,7 +426,6 @@ class Sampler;
     static bool usingNative;
     static bool initDispatch(int targetApi);
 
-    bool init(const char * name, int targetApi, uint32_t flags);
     static void * threadProc(void *);
 
     static bool gInitialized;
@@ -165,7 +435,6 @@ class Sampler;
     pid_t mNativeMessageThreadId;
     bool mMessageRun;
 
-    RsDevice mDev;
     RsContext mContext;
     RSError mCurrentError;
 
@@ -209,6 +478,10 @@ class Sampler;
         sp<const Element> I64_2;
         sp<const Element> I64_3;
         sp<const Element> I64_4;
+        sp<const Element> F16;
+        sp<const Element> F16_2;
+        sp<const Element> F16_3;
+        sp<const Element> F16_4;
         sp<const Element> F32;
         sp<const Element> F32_2;
         sp<const Element> F32_3;
@@ -781,6 +1054,12 @@ public:
      */
     static sp<const Element> I64(sp<RS> rs);
     /**
+     * Utility function for returning an Element containing a single half.
+     * @param[in] rs RenderScript context
+     * @return Element
+     */
+    static sp<const Element> F16(sp<RS> rs);
+    /**
      * Utility function for returning an Element containing a single float.
      * @param[in] rs RenderScript context
      * @return Element
@@ -858,6 +1137,25 @@ public:
      * @return Element
      */
     static sp<const Element> RGBA_8888(sp<RS> rs);
+
+    /**
+     * Utility function for returning an Element containing a half2.
+     * @param[in] rs RenderScript context
+     * @return Element
+     */
+    static sp<const Element> F16_2(sp<RS> rs);
+    /**
+     * Utility function for returning an Element containing a half3.
+     * @param[in] rs RenderScript context
+     * @return Element
+     */
+    static sp<const Element> F16_3(sp<RS> rs);
+    /**
+     * Utility function for returning an Element containing a half4.
+     * @param[in] rs RenderScript context
+     * @return Element
+     */
+    static sp<const Element> F16_4(sp<RS> rs);
 
     /**
      * Utility function for returning an Element containing a float2.
@@ -1121,6 +1419,7 @@ public:
     };
 
 protected:
+    friend class Type;
     Element(void *id, sp<RS> rs,
             sp<const Element> * elements,
             size_t elementCount,
@@ -1128,6 +1427,7 @@ protected:
             size_t * elementNameLengths,
             uint32_t * arraySizes);
     Element(void *id, sp<RS> rs, RsDataType dt, RsDataKind dk, bool norm, uint32_t size);
+    Element(void *id, sp<RS> rs);
     Element(sp<RS> rs);
     virtual ~Element();
 
@@ -1260,7 +1560,7 @@ public:
  * present.
  *
  * A Type also supports YUV format information to support an Allocation in a YUV
- * format. The YUV formats supported are YV12 and NV21.
+ * format. The YUV formats supported are RS_YUV_YV12 and RS_YUV_NV21.
  */
 class Type : public BaseObj {
 protected:
@@ -1269,7 +1569,7 @@ protected:
     uint32_t mDimX;
     uint32_t mDimY;
     uint32_t mDimZ;
-    RSYuvFormat mYuvFormat;
+    RsYuvFormat mYuvFormat;
     bool mDimMipmaps;
     bool mDimFaces;
     size_t mElementCount;
@@ -1286,7 +1586,7 @@ public:
      * Returns the YUV format.
      * @return YUV format of the Allocation
      */
-    RSYuvFormat getYuvFormat() const {
+    RsYuvFormat getYuvFormat() const {
         return mYuvFormat;
     }
 
@@ -1371,7 +1671,7 @@ public:
         uint32_t mDimX;
         uint32_t mDimY;
         uint32_t mDimZ;
-        RSYuvFormat mYuvFormat;
+        RsYuvFormat mYuvFormat;
         bool mDimMipmaps;
         bool mDimFaces;
         sp<const Element> mElement;
@@ -1382,7 +1682,7 @@ public:
         void setX(uint32_t value);
         void setY(uint32_t value);
         void setZ(uint32_t value);
-        void setYuvFormat(RSYuvFormat format);
+        void setYuvFormat(RsYuvFormat format);
         void setMipmaps(bool value);
         void setFaces(bool value);
         sp<const Type> create();
@@ -1507,6 +1807,1946 @@ class ScriptIntrinsic3DLUT : public ScriptIntrinsic {
      * @param[in] lut new lookup table
      */
     void setLUT(sp<Allocation> lut);
+};
+
+
+/**
+ * Intrinsic kernel provides high performance RenderScript APIs to BLAS.
+ *
+ * The BLAS (Basic Linear Algebra Subprograms) are routines that provide standard
+ * building blocks for performing basic vector and matrix operations.
+ *
+ * For detailed description of BLAS, please refer to http://www.netlib.org/blas/
+ *
+ **/
+class ScriptIntrinsicBLAS : public ScriptIntrinsic {
+ private:
+    ScriptIntrinsicBLAS(sp<RS> rs, sp<const Element> e);
+ public:
+    /**
+     * Create an intrinsic to access BLAS subroutines.
+     *
+     * @param rs The RenderScript context
+     * @return ScriptIntrinsicBLAS
+     */
+    static sp<ScriptIntrinsicBLAS> create(sp<RS> rs);
+
+    /**
+     * SGEMV performs one of the matrix-vector operations
+     * y := alpha*A*x + beta*y   or   y := alpha*A**T*x + beta*y
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/db/d58/sgemv_8f.html
+     *
+     * @param TransA The type of transpose applied to matrix A.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param beta The scalar beta.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F32}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     */
+    void SGEMV(RsBlasTranspose TransA,
+               float alpha, sp<Allocation> A, sp<Allocation> X, int incX,
+               float beta, sp<Allocation> Y, int incY);
+
+    /**
+     * DGEMV performs one of the matrix-vector operations
+     * y := alpha*A*x + beta*y   or   y := alpha*A**T*x + beta*y
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/dc/da8/dgemv_8f.html
+     *
+     * @param TransA The type of transpose applied to matrix A.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param beta The scalar beta.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F64}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     */
+    void DGEMV(RsBlasTranspose TransA,
+               double alpha, sp<Allocation> A, sp<Allocation> X, int incX,
+               double beta, sp<Allocation> Y, int incY);
+
+    /**
+     * CGEMV performs one of the matrix-vector operations
+     * y := alpha*A*x + beta*y   or   y := alpha*A**T*x + beta*y   or   y := alpha*A**H*x + beta*y
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d4/d8a/cgemv_8f.html
+     *
+     * @param TransA The type of transpose applied to matrix A.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32_2}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param beta The scalar beta.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F32_2}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     */
+    void CGEMV(RsBlasTranspose TransA,
+               Float2 alpha, sp<Allocation> A, sp<Allocation> X, int incX,
+               Float2 beta, sp<Allocation> Y, int incY);
+
+    /**
+     * ZGEMV performs one of the matrix-vector operations
+     * y := alpha*A*x + beta*y   or   y := alpha*A**T*x + beta*y   or   y := alpha*A**H*x + beta*y
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/db/d40/zgemv_8f.html
+     *
+     * @param TransA The type of transpose applied to matrix A.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param beta The scalar beta.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F64_2}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     */
+    void ZGEMV(RsBlasTranspose TransA,
+               Double2 alpha, sp<Allocation> A, sp<Allocation> X, int incX,
+               Double2 beta, sp<Allocation> Y, int incY);
+
+    /**
+     * SGBMV performs one of the matrix-vector operations
+     * y := alpha*A*x + beta*y   or   y := alpha*A**T*x + beta*y
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d6/d46/sgbmv_8f.html
+     *
+     * Note: For a M*N matrix, the input Allocation should also be of size M*N (dimY = M, dimX = N),
+     *       but only the region M*(KL+KU+1) will be referenced. The following subroutine can is an
+     *       example showing how to convert the original matrix 'a' to row-based band matrix 'b'.
+     *           for i in range(0, m):
+     *              for j in range(max(0, i-kl), min(i+ku+1, n)):
+     *                  b[i, j-i+kl] = a[i, j]
+     *
+     * @param TransA The type of transpose applied to matrix A.
+     * @param KL The number of sub-diagonals of the matrix A.
+     * @param KU The number of super-diagonals of the matrix A.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains the band matrix A, supported elements type: {Element#F32}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param beta The scalar beta.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F32}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     */
+    void SGBMV(RsBlasTranspose TransA,
+               int KL, int KU, float alpha, sp<Allocation> A, sp<Allocation> X, int incX,
+               float beta, sp<Allocation> Y, int incY);
+
+    /**
+     * DGBMV performs one of the matrix-vector operations
+     * y := alpha*A*x + beta*y   or   y := alpha*A**T*x + beta*y
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d2/d3f/dgbmv_8f.html
+     *
+     * Note: For a M*N matrix, the input Allocation should also be of size M*N (dimY = M, dimX = N),
+     *       but only the region M*(KL+KU+1) will be referenced. The following subroutine can is an
+     *       example showing how to convert the original matrix 'a' to row-based band matrix 'b'.
+     *           for i in range(0, m):
+     *              for j in range(max(0, i-kl), min(i+ku+1, n)):
+     *                  b[i, j-i+kl] = a[i, j]
+     *
+     * @param TransA The type of transpose applied to matrix A.
+     * @param KL The number of sub-diagonals of the matrix A.
+     * @param KU The number of super-diagonals of the matrix A.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains the band matrix A, supported elements type: {Element#F64}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param beta The scalar beta.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F64}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     */
+    void DGBMV(RsBlasTranspose TransA,
+               int KL, int KU, double alpha, sp<Allocation> A, sp<Allocation> X,
+               int incX, double beta, sp<Allocation> Y, int incY);
+
+    /**
+     * CGBMV performs one of the matrix-vector operations
+     * y := alpha*A*x + beta*y   or   y := alpha*A**T*x + beta*y   or   y := alpha*A**H*x + beta*y
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d0/d75/cgbmv_8f.html
+     *
+     * Note: For a M*N matrix, the input Allocation should also be of size M*N (dimY = M, dimX = N),
+     *       but only the region M*(KL+KU+1) will be referenced. The following subroutine can is an
+     *       example showing how to convert the original matrix 'a' to row-based band matrix 'b'.
+     *           for i in range(0, m):
+     *              for j in range(max(0, i-kl), min(i+ku+1, n)):
+     *                  b[i, j-i+kl] = a[i, j]
+     *
+     * @param TransA The type of transpose applied to matrix A.
+     * @param KL The number of sub-diagonals of the matrix A.
+     * @param KU The number of super-diagonals of the matrix A.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains the band matrix A, supported elements type: {Element#F32_2}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param beta The scalar beta.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F32_2}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     */
+    void CGBMV(RsBlasTranspose TransA,
+               int KL, int KU, Float2 alpha, sp<Allocation> A, sp<Allocation> X,
+               int incX, Float2 beta, sp<Allocation> Y, int incY);
+
+    /**
+     * ZGBMV performs one of the matrix-vector operations
+     * y := alpha*A*x + beta*y   or   y := alpha*A**T*x + beta*y   or   y := alpha*A**H*x + beta*y
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d9/d46/zgbmv_8f.html
+     *
+     * Note: For a M*N matrix, the input Allocation should also be of size M*N (dimY = M, dimX = N),
+     *       but only the region M*(KL+KU+1) will be referenced. The following subroutine can is an
+     *       example showing how to convert the original matrix 'a' to row-based band matrix 'b'.
+     *           for i in range(0, m):
+     *              for j in range(max(0, i-kl), min(i+ku+1, n)):
+     *                  b[i, j-i+kl] = a[i, j]
+     *
+     * @param TransA The type of transpose applied to matrix A.
+     * @param KL The number of sub-diagonals of the matrix A.
+     * @param KU The number of super-diagonals of the matrix A.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains the band matrix A, supported elements type: {Element#F64_2}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param beta The scalar beta.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F64_2}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     */
+    void ZGBMV(RsBlasTranspose TransA,
+               int KL, int KU, Double2 alpha, sp<Allocation> A, sp<Allocation> X, int incX,
+               Double2 beta, sp<Allocation> Y, int incY);
+
+    /**
+     * STRMV performs one of the matrix-vector operations
+     * x := A*x   or   x := A**T*x
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/de/d45/strmv_8f.html
+     *
+     * @param Uplo Specifies whether the matrix is an upper or lower triangular matrix.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     */
+    void STRMV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               sp<Allocation> A, sp<Allocation> X, int incX);
+
+    /**
+     * DTRMV performs one of the matrix-vector operations
+     * x := A*x   or   x := A**T*x
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/dc/d7e/dtrmv_8f.html
+     *
+     * @param Uplo Specifies whether the matrix is an upper or lower triangular matrix.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     */
+    void DTRMV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               sp<Allocation> A, sp<Allocation> X, int incX);
+
+    /**
+     * CTRMV performs one of the matrix-vector operations
+     * x := A*x   or   x := A**T*x   or   x := A**H*x
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/df/d78/ctrmv_8f.html
+     *
+     * @param Uplo Specifies whether the matrix is an upper or lower triangular matrix.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32_2}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     */
+    void CTRMV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               sp<Allocation> A, sp<Allocation> X, int incX);
+
+    /**
+     * ZTRMV performs one of the matrix-vector operations
+     * x := A*x   or   x := A**T*x   or   x := A**H*x
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d0/dd1/ztrmv_8f.html
+     *
+     * @param Uplo Specifies whether the matrix is an upper or lower triangular matrix.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     */
+    void ZTRMV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               sp<Allocation> A, sp<Allocation> X, int incX);
+
+    /**
+     * STBMV performs one of the matrix-vector operations
+     * x := A*x   or   x := A**T*x
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d6/d7d/stbmv_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should also be of size N*N (dimY = N, dimX = N),
+     *       but only the region N*(K+1) will be referenced. The following subroutine can is an
+     *       example showing how to convert a UPPER trianglar matrix 'a' to row-based band matrix 'b'.
+     *           for i in range(0, n):
+     *              for j in range(i, min(i+k+1, n)):
+     *                  b[i, j-i] = a[i, j]
+     *
+     * @param Uplo Specifies whether the matrix is an upper or lower triangular matrix.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param K The number of off-diagonals of the matrix A
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     */
+    void STBMV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               int K, sp<Allocation> A, sp<Allocation> X, int incX);
+
+    /**
+     * DTBMV performs one of the matrix-vector operations
+     * x := A*x   or   x := A**T*x
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/df/d29/dtbmv_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should also be of size N*N (dimY = N, dimX = N),
+     *       but only the region N*(K+1) will be referenced. The following subroutine can is an
+     *       example showing how to convert a UPPER trianglar matrix 'a' to row-based band matrix 'b'.
+     *           for i in range(0, n):
+     *              for j in range(i, min(i+k+1, n)):
+     *                  b[i, j-i] = a[i, j]
+     *
+     * @param Uplo Specifies whether the matrix is an upper or lower triangular matrix.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param K The number of off-diagonals of the matrix A
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     */
+    void DTBMV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               int K, sp<Allocation> A, sp<Allocation> X, int incX);
+
+    /**
+     * CTBMV performs one of the matrix-vector operations
+     * x := A*x   or   x := A**T*x   or   x := A**H*x
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d3/dcd/ctbmv_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should also be of size N*N (dimY = N, dimX = N),
+     *       but only the region N*(K+1) will be referenced. The following subroutine can is an
+     *       example showing how to convert a UPPER trianglar matrix 'a' to row-based band matrix 'b'.
+     *           for i in range(0, n):
+     *              for j in range(i, min(i+k+1, n)):
+     *                  b[i, j-i] = a[i, j]
+     *
+     * @param Uplo Specifies whether the matrix is an upper or lower triangular matrix.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param K The number of off-diagonals of the matrix A
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32_2}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     */
+    void CTBMV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               int K, sp<Allocation> A, sp<Allocation> X, int incX);
+
+    /**
+     * ZTBMV performs one of the matrix-vector operations
+     * x := A*x   or   x := A**T*x   or   x := A**H*x
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d3/d39/ztbmv_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should also be of size N*N (dimY = N, dimX = N),
+     *       but only the region N*(K+1) will be referenced. The following subroutine can is an
+     *       example showing how to convert a UPPER trianglar matrix 'a' to row-based band matrix 'b'.
+     *           for i in range(0, n):
+     *              for j in range(i, min(i+k+1, n)):
+     *                  b[i, j-i] = a[i, j]
+     *
+     * @param Uplo Specifies whether the matrix is an upper or lower triangular matrix.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param K The number of off-diagonals of the matrix A
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     */
+    void ZTBMV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               int K, sp<Allocation> A, sp<Allocation> X, int incX);
+
+    /**
+     * STPMV performs one of the matrix-vector operations
+     * x := A*x   or   x := A**T*x
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/db/db1/stpmv_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should be a 1D allocation of size dimX = N*(N+1)/2,
+     *       The following subroutine can is an example showing how to convert a UPPER trianglar matrix
+     *       'a' to packed matrix 'b'.
+     *           k = 0
+     *           for i in range(0, n):
+     *              for j in range(i, n):
+     *                  b[k++] = a[i, j]
+     *
+     * @param Uplo Specifies whether the matrix is an upper or lower triangular matrix.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param Ap The input allocation contains packed matrix A, supported elements type: {Element#F32}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     */
+    void STPMV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               sp<Allocation> Ap, sp<Allocation> X, int incX);
+
+    /**
+     * DTPMV performs one of the matrix-vector operations
+     * x := A*x   or   x := A**T*x
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/dc/dcd/dtpmv_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should be a 1D allocation of size dimX = N*(N+1)/2,
+     *       The following subroutine can is an example showing how to convert a UPPER trianglar matrix
+     *       'a' to packed matrix 'b'.
+     *           k = 0
+     *           for i in range(0, n):
+     *              for j in range(i, n):
+     *                  b[k++] = a[i, j]
+     *
+     * @param Uplo Specifies whether the matrix is an upper or lower triangular matrix.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param Ap The input allocation contains packed matrix A, supported elements type: {Element#F64}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     */
+    void DTPMV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               sp<Allocation> Ap, sp<Allocation> X, int incX);
+
+    /**
+     * CTPMV performs one of the matrix-vector operations
+     * x := A*x   or   x := A**T*x   or   x := A**H*x
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d4/dbb/ctpmv_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should be a 1D allocation of size dimX = N*(N+1)/2,
+     *       The following subroutine can is an example showing how to convert a UPPER trianglar matrix
+     *       'a' to packed matrix 'b'.
+     *           k = 0
+     *           for i in range(0, n):
+     *              for j in range(i, n):
+     *                  b[k++] = a[i, j]
+     *
+     * @param Uplo Specifies whether the matrix is an upper or lower triangular matrix.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param Ap The input allocation contains packed matrix A, supported elements type: {Element#F32_2}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     */
+    void CTPMV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               sp<Allocation> Ap, sp<Allocation> X, int incX);
+
+    /**
+     * ZTPMV performs one of the matrix-vector operations
+     * x := A*x   or   x := A**T*x   or   x := A**H*x
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d2/d9e/ztpmv_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should be a 1D allocation of size dimX = N*(N+1)/2,
+     *       The following subroutine can is an example showing how to convert a UPPER trianglar matrix
+     *       'a' to packed matrix 'b'.
+     *           k = 0
+     *           for i in range(0, n):
+     *              for j in range(i, n):
+     *                  b[k++] = a[i, j]
+     *
+     * @param Uplo Specifies whether the matrix is an upper or lower triangular matrix.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param Ap The input allocation contains packed matrix A, supported elements type: {Element#F64_2}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     */
+    void ZTPMV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               sp<Allocation> Ap, sp<Allocation> X, int incX);
+
+    /**
+     * STRSV solves one of the systems of equations
+     * A*x = b   or   A**T*x = b
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d0/d2a/strsv_8f.html
+     *
+     * @param Uplo Specifies whether the matrix is an upper or lower triangular matrix.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     */
+    void STRSV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               sp<Allocation> A, sp<Allocation> X, int incX);
+
+    /**
+     * DTRSV solves one of the systems of equations
+     * A*x = b   or   A**T*x = b
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d6/d96/dtrsv_8f.html
+     *
+     * @param Uplo Specifies whether the matrix is an upper or lower triangular matrix.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     */
+    void DTRSV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               sp<Allocation> A, sp<Allocation> X, int incX);
+
+    /**
+     * CTRSV solves one of the systems of equations
+     * A*x = b   or   A**T*x = b   or   A**H*x = b
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d4/dc8/ctrsv_8f.html
+     *
+     * @param Uplo Specifies whether the matrix is an upper or lower triangular matrix.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32_2}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     */
+    void CTRSV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               sp<Allocation> A, sp<Allocation> X, int incX);
+
+    /**
+     * ZTRSV solves one of the systems of equations
+     * A*x = b   or   A**T*x = b   or   A**H*x = b
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d1/d2f/ztrsv_8f.html
+     *
+     * @param Uplo Specifies whether the matrix is an upper or lower triangular matrix.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     */
+    void ZTRSV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               sp<Allocation> A, sp<Allocation> X, int incX);
+
+    /**
+     * STBSV solves one of the systems of equations
+     * A*x = b   or   A**T*x = b
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d0/d1f/stbsv_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should also be of size N*N (dimY = N, dimX = N),
+     *       but only the region N*(K+1) will be referenced. The following subroutine can is an
+     *       example showing how to convert a UPPER trianglar matrix 'a' to row-based band matrix 'b'.
+     *           for i in range(0, n):
+     *              for j in range(i, min(i+k+1, n)):
+     *                  b[i, j-i] = a[i, j]
+     *
+     * @param Uplo Specifies whether the matrix is an upper or lower triangular matrix.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param K The number of off-diagonals of the matrix A
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     */
+    void STBSV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               int K, sp<Allocation> A, sp<Allocation> X, int incX);
+
+    /**
+     * DTBSV solves one of the systems of equations
+     * A*x = b   or   A**T*x = b
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d4/dcf/dtbsv_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should also be of size N*N (dimY = N, dimX = N),
+     *       but only the region N*(K+1) will be referenced. The following subroutine can is an
+     *       example showing how to convert a UPPER trianglar matrix 'a' to row-based band matrix 'b'.
+     *           for i in range(0, n):
+     *              for j in range(i, min(i+k+1, n)):
+     *                  b[i, j-i] = a[i, j]
+     *
+     * @param Uplo Specifies whether the matrix is an upper or lower triangular matrix.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param K The number of off-diagonals of the matrix A
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     */
+    void DTBSV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               int K, sp<Allocation> A, sp<Allocation> X, int incX);
+
+    /**
+     * CTBSV solves one of the systems of equations
+     * A*x = b   or   A**T*x = b   or   A**H*x = b
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d9/d5f/ctbsv_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should also be of size N*N (dimY = N, dimX = N),
+     *       but only the region N*(K+1) will be referenced. The following subroutine can is an
+     *       example showing how to convert a UPPER trianglar matrix 'a' to row-based band matrix 'b'.
+     *           for i in range(0, n):
+     *              for j in range(i, min(i+k+1, n)):
+     *                  b[i, j-i] = a[i, j]
+     *
+     * @param Uplo Specifies whether the matrix is an upper or lower triangular matrix.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param K The number of off-diagonals of the matrix A
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32_2}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     */
+    void CTBSV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               int K, sp<Allocation> A, sp<Allocation> X, int incX);
+
+    /**
+     * ZTBSV solves one of the systems of equations
+     * A*x = b   or   A**T*x = b   or   A**H*x = b
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d4/d5a/ztbsv_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should also be of size N*N (dimY = N, dimX = N),
+     *       but only the region N*(K+1) will be referenced. The following subroutine can is an
+     *       example showing how to convert a UPPER trianglar matrix 'a' to row-based band matrix 'b'.
+     *           for i in range(0, n):
+     *              for j in range(i, min(i+k+1, n)):
+     *                  b[i, j-i] = a[i, j]
+     *
+     * @param Uplo Specifies whether the matrix is an upper or lower triangular matrix.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param K The number of off-diagonals of the matrix A
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     */
+    void ZTBSV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               int K, sp<Allocation> A, sp<Allocation> X, int incX);
+
+    /**
+     * STPSV solves one of the systems of equations
+     * A*x = b   or   A**T*x = b
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d0/d7c/stpsv_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should be a 1D allocation of size dimX = N*(N+1)/2,
+     *       The following subroutine can is an example showing how to convert a UPPER trianglar matrix
+     *       'a' to packed matrix 'b'.
+     *           k = 0
+     *           for i in range(0, n):
+     *              for j in range(i, n):
+     *                  b[k++] = a[i, j]
+     *
+     * @param Uplo Specifies whether the matrix is an upper or lower triangular matrix.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param Ap The input allocation contains packed matrix A, supported elements type: {Element#F32}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     */
+    void STPSV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               sp<Allocation> Ap, sp<Allocation> X, int incX);
+
+    /**
+     * DTPSV solves one of the systems of equations
+     * A*x = b   or   A**T*x = b
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d9/d84/dtpsv_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should be a 1D allocation of size dimX = N*(N+1)/2,
+     *       The following subroutine can is an example showing how to convert a UPPER trianglar matrix
+     *       'a' to packed matrix 'b'.
+     *           k = 0
+     *           for i in range(0, n):
+     *              for j in range(i, n):
+     *                  b[k++] = a[i, j]
+     *
+     * @param Uplo Specifies whether the matrix is an upper or lower triangular matrix.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param Ap The input allocation contains packed matrix A, supported elements type: {Element#F64}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     */
+    void DTPSV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               sp<Allocation> Ap, sp<Allocation> X, int incX);
+
+    /**
+     * CTPSV solves one of the systems of equations
+     * A*x = b   or   A**T*x = b   or   A**H*x = b
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d8/d56/ctpsv_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should be a 1D allocation of size dimX = N*(N+1)/2,
+     *       The following subroutine can is an example showing how to convert a UPPER trianglar matrix
+     *       'a' to packed matrix 'b'.
+     *           k = 0
+     *           for i in range(0, n):
+     *              for j in range(i, n):
+     *                  b[k++] = a[i, j]
+     *
+     * @param Uplo Specifies whether the matrix is an upper or lower triangular matrix.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param Ap The input allocation contains packed matrix A, supported elements type: {Element#F32_2}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     */
+    void CTPSV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               sp<Allocation> Ap, sp<Allocation> X, int incX);
+
+    /**
+     * ZTPSV solves one of the systems of equations
+     * A*x = b   or   A**T*x = b   or   A**H*x = b
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/da/d57/ztpsv_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should be a 1D allocation of size dimX = N*(N+1)/2,
+     *       The following subroutine can is an example showing how to convert a UPPER trianglar matrix
+     *       'a' to packed matrix 'b'.
+     *           k = 0
+     *           for i in range(0, n):
+     *              for j in range(i, n):
+     *                  b[k++] = a[i, j]
+     *
+     * @param Uplo Specifies whether the matrix is an upper or lower triangular matrix.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param Ap The input allocation contains packed matrix A, supported elements type: {Element#F64_2}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     */
+    void ZTPSV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               sp<Allocation> Ap, sp<Allocation> X, int incX);
+
+    /**
+     * SSYMV performs the matrix-vector operation
+     * y := alpha*A*x + beta*y
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d2/d94/ssymv_8f.html
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part is to be referenced.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param beta The scalar beta.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F32}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     */
+    void SSYMV(RsBlasUplo Uplo, float alpha, sp<Allocation> A, sp<Allocation> X,
+               int incX, float beta, sp<Allocation> Y, int incY);
+
+    /**
+     * SSBMV performs the matrix-vector operation
+     * y := alpha*A*x + beta*y
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d3/da1/ssbmv_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should also be of size N*N (dimY = N, dimX = N),
+     *       but only the region N*(K+1) will be referenced. The following subroutine can is an
+     *       example showing how to convert a UPPER trianglar matrix 'a' to row-based band matrix 'b'.
+     *           for i in range(0, n):
+     *              for j in range(i, min(i+k+1, n)):
+     *                  b[i, j-i] = a[i, j]
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part of the band matrix A is being supplied.
+     * @param K The number of off-diagonals of the matrix A
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param beta The scalar beta.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F32}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     */
+    void SSBMV(RsBlasUplo Uplo, int K, float alpha, sp<Allocation> A, sp<Allocation> X,
+               int incX, float beta, sp<Allocation> Y, int incY);
+
+    /**
+     * SSPMV performs the matrix-vector operation
+     * y := alpha*A*x + beta*y
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d8/d68/sspmv_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should be a 1D allocation of size dimX = N*(N+1)/2,
+     *       The following subroutine can is an example showing how to convert a UPPER trianglar matrix
+     *       'a' to packed matrix 'b'.
+     *           k = 0
+     *           for i in range(0, n):
+     *              for j in range(i, n):
+     *                  b[k++] = a[i, j]
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part of the matrix A is supplied in packed form.
+     * @param alpha The scalar alpha.
+     * @param Ap The input allocation contains matrix A, supported elements type: {Element#F32}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param beta The scalar beta.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F32}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     */
+    void SSPMV(RsBlasUplo Uplo, float alpha, sp<Allocation> Ap, sp<Allocation> X,
+               int incX, float beta, sp<Allocation> Y, int incY);
+
+    /**
+     * SGER performs the rank 1 operation
+     * A := alpha*x*y**T + A
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/db/d5c/sger_8f.html
+     *
+     * @param alpha The scalar alpha.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F32}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32}.
+     */
+    void SGER(float alpha, sp<Allocation> X, int incX, sp<Allocation> Y, int incY, sp<Allocation> A);
+
+    /**
+     * SSYR performs the rank 1 operation
+     * A := alpha*x*x**T + A
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d6/dac/ssyr_8f.html
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part is to be referenced.
+     * @param alpha The scalar alpha.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32}.
+     */
+    void SSYR(RsBlasUplo Uplo, float alpha, sp<Allocation> X, int incX, sp<Allocation> A);
+
+    /**
+     * SSPR performs the rank 1 operation
+     * A := alpha*x*x**T + A
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d2/d9b/sspr_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should be a 1D allocation of size dimX = N*(N+1)/2,
+     *       The following subroutine can is an example showing how to convert a UPPER trianglar matrix
+     *       'a' to packed matrix 'b'.
+     *           k = 0
+     *           for i in range(0, n):
+     *              for j in range(i, n):
+     *                  b[k++] = a[i, j]
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part is to be supplied in the packed form.
+     * @param alpha The scalar alpha.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param Ap The input allocation contains matrix A, supported elements type: {Element#F32}.
+     */
+    void SSPR(RsBlasUplo Uplo, float alpha, sp<Allocation> X, int incX, sp<Allocation> Ap);
+
+    /**
+     * SSYR2 performs the symmetric rank 2 operation
+     * A := alpha*x*y**T + alpha*y*x**T + A
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/db/d99/ssyr2_8f.html
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part is to be referenced.
+     * @param alpha The scalar alpha.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F32}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32}.
+     */
+    void SSYR2(RsBlasUplo Uplo, float alpha, sp<Allocation> X, int incX,
+               sp<Allocation> Y, int incY, sp<Allocation> A);
+
+    /**
+     * SSPR2 performs the symmetric rank 2 operation
+     * A := alpha*x*y**T + alpha*y*x**T + A
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/db/d3e/sspr2_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should be a 1D allocation of size dimX = N*(N+1)/2,
+     *       The following subroutine can is an example showing how to convert a UPPER trianglar matrix
+     *       'a' to packed matrix 'b'.
+     *           k = 0
+     *           for i in range(0, n):
+     *              for j in range(i, n):
+     *                  b[k++] = a[i, j]
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part is to be supplied in the packed form.
+     * @param alpha The scalar alpha.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F32}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     * @param Ap The input allocation contains matrix A, supported elements type: {Element#F32}.
+     */
+    void SSPR2(RsBlasUplo Uplo, float alpha, sp<Allocation> X, int incX,
+               sp<Allocation> Y, int incY, sp<Allocation> Ap);
+
+    /**
+     * DSYMV performs the matrix-vector operation
+     * y := alpha*A*x + beta*y
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d8/dbe/dsymv_8f.html
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part is to be referenced.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param beta The scalar beta.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F64}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     */
+    void DSYMV(RsBlasUplo Uplo, double alpha, sp<Allocation> A, sp<Allocation> X, int incX,
+               double beta, sp<Allocation> Y, int incY);
+
+    /**
+     * DSBMV performs the matrix-vector operation
+     * y := alpha*A*x + beta*y
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d8/d1e/dsbmv_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should also be of size N*N (dimY = N, dimX = N),
+     *       but only the region N*(K+1) will be referenced. The following subroutine can is an
+     *       example showing how to convert a UPPER trianglar matrix 'a' to row-based band matrix 'b'.
+     *           for i in range(0, n):
+     *              for j in range(i, min(i+k+1, n)):
+     *                  b[i, j-i] = a[i, j]
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part of the band matrix A is being supplied.
+     * @param K The number of off-diagonals of the matrix A
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param beta The scalar beta.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F64}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     */
+    void DSBMV(RsBlasUplo Uplo, int K, double alpha, sp<Allocation> A, sp<Allocation> X, int incX,
+               double beta, sp<Allocation> Y, int incY);
+
+    /**
+     * DSPMV performs the matrix-vector operation
+     * y := alpha*A*x + beta*y
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d4/d85/dspmv_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should be a 1D allocation of size dimX = N*(N+1)/2,
+     *       The following subroutine can is an example showing how to convert a UPPER trianglar matrix
+     *       'a' to packed matrix 'b'.
+     *           k = 0
+     *           for i in range(0, n):
+     *              for j in range(i, n):
+     *                  b[k++] = a[i, j]
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part of the matrix A is supplied in packed form.
+     * @param alpha The scalar alpha.
+     * @param Ap The input allocation contains matrix A, supported elements type: {Element#F64}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param beta The scalar beta.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F64}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     */
+    void DSPMV(RsBlasUplo Uplo, double alpha, sp<Allocation> Ap, sp<Allocation> X, int incX,
+               double beta, sp<Allocation> Y, int incY);
+
+    /**
+     * DGER performs the rank 1 operation
+     * A := alpha*x*y**T + A
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/dc/da8/dger_8f.html
+     *
+     * @param alpha The scalar alpha.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F64}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64}.
+     */
+    void DGER(double alpha, sp<Allocation> X, int incX, sp<Allocation> Y, int incY, sp<Allocation> A);
+
+    /**
+     * DSYR performs the rank 1 operation
+     * A := alpha*x*x**T + A
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d3/d60/dsyr_8f.html
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part is to be referenced.
+     * @param alpha The scalar alpha.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64}.
+     */
+    void DSYR(RsBlasUplo Uplo, double alpha, sp<Allocation> X, int incX, sp<Allocation> A);
+
+    /**
+     * DSPR performs the rank 1 operation
+     * A := alpha*x*x**T + A
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/dd/dba/dspr_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should be a 1D allocation of size dimX = N*(N+1)/2,
+     *       The following subroutine can is an example showing how to convert a UPPER trianglar matrix
+     *       'a' to packed matrix 'b'.
+     *           k = 0
+     *           for i in range(0, n):
+     *              for j in range(i, n):
+     *                  b[k++] = a[i, j]
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part is to be supplied in the packed form.
+     * @param alpha The scalar alpha.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param Ap The input allocation contains matrix A, supported elements type: {Element#F64}.
+     */
+    void DSPR(RsBlasUplo Uplo, double alpha, sp<Allocation> X, int incX, sp<Allocation> Ap);
+
+    /**
+     * DSYR2 performs the symmetric rank 2 operation
+     * A := alpha*x*y**T + alpha*y*x**T + A
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/de/d41/dsyr2_8f.html
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part is to be referenced.
+     * @param alpha The scalar alpha.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F64}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64}.
+     */
+    void DSYR2(RsBlasUplo Uplo, double alpha, sp<Allocation> X, int incX,
+               sp<Allocation> Y, int incY, sp<Allocation> A);
+
+    /**
+     * DSPR2 performs the symmetric rank 2 operation
+     * A := alpha*x*y**T + alpha*y*x**T + A
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/dd/d9e/dspr2_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should be a 1D allocation of size dimX = N*(N+1)/2,
+     *       The following subroutine can is an example showing how to convert a UPPER trianglar matrix
+     *       'a' to packed matrix 'b'.
+     *           k = 0
+     *           for i in range(0, n):
+     *              for j in range(i, n):
+     *                  b[k++] = a[i, j]
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part is to be supplied in the packed form.
+     * @param alpha The scalar alpha.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F64}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     * @param Ap The input allocation contains matrix A, supported elements type: {Element#F64}.
+     */
+    void DSPR2(RsBlasUplo Uplo, double alpha, sp<Allocation> X, int incX,
+               sp<Allocation> Y, int incY, sp<Allocation> Ap);
+
+    /**
+     * CHEMV performs the matrix-vector operation
+     * y := alpha*A*x + beta*y
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d7/d51/chemv_8f.html
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part is to be referenced.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32_2}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param beta The scalar beta.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F32_2}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     */
+    void CHEMV(RsBlasUplo Uplo, Float2 alpha, sp<Allocation> A, sp<Allocation> X,
+               int incX, Float2 beta, sp<Allocation> Y, int incY);
+
+    /**
+     * CHBMV performs the matrix-vector operation
+     * y := alpha*A*x + beta*y
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/db/dc2/chbmv_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should also be of size N*N (dimY = N, dimX = N),
+     *       but only the region N*(K+1) will be referenced. The following subroutine can is an
+     *       example showing how to convert a UPPER trianglar matrix 'a' to row-based band matrix 'b'.
+     *           for i in range(0, n):
+     *              for j in range(i, min(i+k+1, n)):
+     *                  b[i, j-i] = a[i, j]
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part of the band matrix A is being supplied.
+     * @param K The number of off-diagonals of the matrix A
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32_2}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param beta The scalar beta.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F32_2}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     */
+    void CHBMV(RsBlasUplo Uplo, int K, Float2 alpha, sp<Allocation> A, sp<Allocation> X,
+               int incX, Float2 beta, sp<Allocation> Y, int incY);
+
+    /**
+     * CHPMV performs the matrix-vector operation
+     * y := alpha*A*x + beta*y
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d2/d06/chpmv_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should be a 1D allocation of size dimX = N*(N+1)/2,
+     *       The following subroutine can is an example showing how to convert a UPPER trianglar matrix
+     *       'a' to packed matrix 'b'.
+     *           k = 0
+     *           for i in range(0, n):
+     *              for j in range(i, n):
+     *                  b[k++] = a[i, j]
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part of the matrix A is supplied in packed form.
+     * @param alpha The scalar alpha.
+     * @param Ap The input allocation contains matrix A, supported elements type: {Element#F32_2}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param beta The scalar beta.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F32_2}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     */
+    void CHPMV(RsBlasUplo Uplo, Float2 alpha, sp<Allocation> Ap, sp<Allocation> X,
+               int incX, Float2 beta, sp<Allocation> Y, int incY);
+
+    /**
+     * CGERU performs the rank 1 operation
+     * A := alpha*x*y**T + A
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/db/d5f/cgeru_8f.html
+     *
+     * @param alpha The scalar alpha.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F32_2}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32_2}.
+     */
+    void CGERU(Float2 alpha, sp<Allocation> X, int incX,
+               sp<Allocation> Y, int incY, sp<Allocation> A);
+
+    /**
+     * CGERC performs the rank 1 operation
+     * A := alpha*x*y**H + A
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/dd/d84/cgerc_8f.html
+     *
+     * @param alpha The scalar alpha.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F32_2}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32_2}.
+     */
+    void CGERC(Float2 alpha, sp<Allocation> X, int incX,
+               sp<Allocation> Y, int incY, sp<Allocation> A);
+
+    /**
+     * CHER performs the rank 1 operation
+     * A := alpha*x*x**H + A
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d3/d6d/cher_8f.html
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part is to be referenced.
+     * @param alpha The scalar alpha.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32_2}.
+     */
+    void CHER(RsBlasUplo Uplo, float alpha, sp<Allocation> X, int incX, sp<Allocation> A);
+
+    /**
+     * CHPR performs the rank 1 operation
+     * A := alpha*x*x**H + A
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/db/dcd/chpr_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should be a 1D allocation of size dimX = N*(N+1)/2,
+     *       The following subroutine can is an example showing how to convert a UPPER trianglar matrix
+     *       'a' to packed matrix 'b'.
+     *           k = 0
+     *           for i in range(0, n):
+     *              for j in range(i, n):
+     *                  b[k++] = a[i, j]
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part is to be supplied in the packed form.
+     * @param alpha The scalar alpha.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param Ap The input allocation contains matrix A, supported elements type: {Element#F32_2}.
+     */
+    void CHPR(RsBlasUplo Uplo, float alpha, sp<Allocation> X, int incX, sp<Allocation> Ap);
+
+    /**
+     * CHER2 performs the symmetric rank 2 operation
+     * A := alpha*x*y**H + alpha*y*x**H + A
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/db/d87/cher2_8f.html
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part is to be referenced.
+     * @param alpha The scalar alpha.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F32_2}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32_2}.
+     */
+    void CHER2(RsBlasUplo Uplo, Float2 alpha, sp<Allocation> X, int incX,
+               sp<Allocation> Y, int incY, sp<Allocation> A);
+
+    /**
+     * CHPR2 performs the symmetric rank 2 operation
+     * A := alpha*x*y**H + alpha*y*x**H + A
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d6/d44/chpr2_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should be a 1D allocation of size dimX = N*(N+1)/2,
+     *       The following subroutine can is an example showing how to convert a UPPER trianglar matrix
+     *       'a' to packed matrix 'b'.
+     *           k = 0
+     *           for i in range(0, n):
+     *              for j in range(i, n):
+     *                  b[k++] = a[i, j]
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part is to be supplied in the packed form.
+     * @param alpha The scalar alpha.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F32_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F32_2}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     * @param Ap The input allocation contains matrix A, supported elements type: {Element#F32_2}.
+     */
+    void CHPR2(RsBlasUplo Uplo, Float2 alpha, sp<Allocation> X, int incX,
+               sp<Allocation> Y, int incY, sp<Allocation> Ap);
+
+    /**
+     * ZHEMV performs the matrix-vector operation
+     * y := alpha*A*x + beta*y
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d0/ddd/zhemv_8f.html
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part is to be referenced.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param beta The scalar beta.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F64_2}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     */
+    void ZHEMV(RsBlasUplo Uplo, Double2 alpha, sp<Allocation> A, sp<Allocation> X,
+               int incX, Double2 beta, sp<Allocation> Y, int incY);
+
+    /**
+     * ZHBMV performs the matrix-vector operation
+     * y := alpha*A*x + beta*y
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d3/d1a/zhbmv_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should also be of size N*N (dimY = N, dimX = N),
+     *       but only the region N*(K+1) will be referenced. The following subroutine can is an
+     *       example showing how to convert a UPPER trianglar matrix 'a' to row-based band matrix 'b'.
+     *           for i in range(0, n):
+     *              for j in range(i, min(i+k+1, n)):
+     *                  b[i, j-i] = a[i, j]
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part of the band matrix A is being supplied.
+     * @param K The number of off-diagonals of the matrix A
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param beta The scalar beta.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F64_2}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     */
+    void ZHBMV(RsBlasUplo Uplo, int K, Double2 alpha, sp<Allocation> A, sp<Allocation> X,
+               int incX, Double2 beta, sp<Allocation> Y, int incY);
+
+    /**
+     * ZHPMV performs the matrix-vector operation
+     * y := alpha*A*x + beta*y
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d0/d60/zhpmv_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should be a 1D allocation of size dimX = N*(N+1)/2,
+     *       The following subroutine can is an example showing how to convert a UPPER trianglar matrix
+     *       'a' to packed matrix 'b'.
+     *           k = 0
+     *           for i in range(0, n):
+     *              for j in range(i, n):
+     *                  b[k++] = a[i, j]
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part of the matrix A is supplied in packed form.
+     * @param alpha The scalar alpha.
+     * @param Ap The input allocation contains matrix A, supported elements type: {Element#F64_2}.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param beta The scalar beta.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F64_2}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     */
+    void ZHPMV(RsBlasUplo Uplo, Double2 alpha, sp<Allocation> Ap, sp<Allocation> X,
+               int incX, Double2 beta, sp<Allocation> Y, int incY);
+
+    /**
+     * ZGERU performs the rank 1 operation
+     * A := alpha*x*y**T + A
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d7/d12/zgeru_8f.html
+     *
+     * @param alpha The scalar alpha.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F64_2}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2}.
+     */
+    void ZGERU(Double2 alpha, sp<Allocation> X, int incX,
+               sp<Allocation> Y, int incY, sp<Allocation> A);
+
+    /**
+     * ZGERC performs the rank 1 operation
+     * A := alpha*x*y**H + A
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d3/dad/zgerc_8f.html
+     *
+     * @param alpha The scalar alpha.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F64_2}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2}.
+     */
+    void ZGERC(Double2 alpha, sp<Allocation> X, int incX,
+               sp<Allocation> Y, int incY, sp<Allocation> A);
+
+    /**
+     * ZHER performs the rank 1 operation
+     * A := alpha*x*x**H + A
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/de/d0e/zher_8f.html
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part is to be referenced.
+     * @param alpha The scalar alpha.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2}.
+     */
+    void ZHER(RsBlasUplo Uplo, double alpha, sp<Allocation> X, int incX, sp<Allocation> A);
+
+    /**
+     * ZHPR performs the rank 1 operation
+     * A := alpha*x*x**H + A
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/de/de1/zhpr_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should be a 1D allocation of size dimX = N*(N+1)/2,
+     *       The following subroutine can is an example showing how to convert a UPPER trianglar matrix
+     *       'a' to packed matrix 'b'.
+     *           k = 0
+     *           for i in range(0, n):
+     *              for j in range(i, n):
+     *                  b[k++] = a[i, j]
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part is to be supplied in the packed form.
+     * @param alpha The scalar alpha.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param Ap The input allocation contains matrix A, supported elements type: {Element#F64_2}.
+     */
+    void ZHPR(RsBlasUplo Uplo, double alpha, sp<Allocation> X, int incX, sp<Allocation> Ap);
+
+    /**
+     * ZHER2 performs the symmetric rank 2 operation
+     * A := alpha*x*y**H + alpha*y*x**H + A
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/da/d8a/zher2_8f.html
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part is to be referenced.
+     * @param alpha The scalar alpha.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F64_2}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2}.
+     */
+    void ZHER2(RsBlasUplo Uplo, Double2 alpha, sp<Allocation> X, int incX,
+               sp<Allocation> Y, int incY, sp<Allocation> A);
+
+    /**
+     * ZHPR2 performs the symmetric rank 2 operation
+     * A := alpha*x*y**H + alpha*y*x**H + A
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d5/d52/zhpr2_8f.html
+     *
+     * Note: For a N*N matrix, the input Allocation should be a 1D allocation of size dimX = N*(N+1)/2,
+     *       The following subroutine can is an example showing how to convert a UPPER trianglar matrix
+     *       'a' to packed matrix 'b'.
+     *           k = 0
+     *           for i in range(0, n):
+     *              for j in range(i, n):
+     *                  b[k++] = a[i, j]
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part is to be supplied in the packed form.
+     * @param alpha The scalar alpha.
+     * @param X The input allocation contains vector x, supported elements type: {Element#F64_2}.
+     * @param incX The increment for the elements of vector x, must be larger than zero.
+     * @param Y The input allocation contains vector y, supported elements type: {Element#F64_2}.
+     * @param incY The increment for the elements of vector y, must be larger than zero.
+     * @param Ap The input allocation contains matrix A, supported elements type: {Element#F64_2}.
+     */
+    void ZHPR2(RsBlasUplo Uplo, Double2 alpha, sp<Allocation> X, int incX,
+               sp<Allocation> Y, int incY, sp<Allocation> Ap);
+
+    /**
+     * SGEMM performs one of the matrix-matrix operations
+     * C := alpha*op(A)*op(B) + beta*C   where op(X) is one of op(X) = X  or  op(X) = X**T
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d4/de2/sgemm_8f.html
+     *
+     * @param TransA The type of transpose applied to matrix A.
+     * @param TransB The type of transpose applied to matrix B.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32}.
+     * @param B The input allocation contains matrix B, supported elements type: {Element#F32}.
+     * @param beta The scalar beta.
+     * @param C The input allocation contains matrix C, supported elements type: {Element#F32}.
+     */
+    void SGEMM(RsBlasTranspose TransA, RsBlasTranspose TransB, float alpha, sp<Allocation> A,
+                      sp<Allocation> B, float beta, sp<Allocation> C);
+
+
+    /**
+     * DGEMM performs one of the matrix-matrix operations
+     * C := alpha*op(A)*op(B) + beta*C   where op(X) is one of op(X) = X  or  op(X) = X**T
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d7/d2b/dgemm_8f.html
+     *
+     * @param TransA The type of transpose applied to matrix A.
+     * @param TransB The type of transpose applied to matrix B.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64}.
+     * @param B The input allocation contains matrix B, supported elements type: {Element#F64}.
+     * @param beta The scalar beta.
+     * @param C The input allocation contains matrix C, supported elements type: {Element#F64}.
+     */
+    void DGEMM(RsBlasTranspose TransA, RsBlasTranspose TransB, double alpha, sp<Allocation> A,
+                      sp<Allocation> B, double beta, sp<Allocation> C);
+
+    /**
+     * CGEMM performs one of the matrix-matrix operations
+     * C := alpha*op(A)*op(B) + beta*C   where op(X) is one of op(X) = X  or  op(X) = X**T  or  op(X) = X**H
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d6/d5b/cgemm_8f.html
+     *
+     * @param TransA The type of transpose applied to matrix A.
+     * @param TransB The type of transpose applied to matrix B.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32_2}.
+     * @param B The input allocation contains matrix B, supported elements type: {Element#F32_2}.
+     * @param beta The scalar beta.
+     * @param C The input allocation contains matrix C, supported elements type: {Element#F32_2}.
+     */
+    void CGEMM(RsBlasTranspose TransA, RsBlasTranspose TransB, Float2 alpha, sp<Allocation> A,
+                      sp<Allocation> B, Float2 beta, sp<Allocation> C);
+
+    /**
+     * ZGEMM performs one of the matrix-matrix operations
+     * C := alpha*op(A)*op(B) + beta*C   where op(X) is one of op(X) = X  or  op(X) = X**T  or  op(X) = X**H
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d7/d76/zgemm_8f.html
+     *
+     * @param TransA The type of transpose applied to matrix A.
+     * @param TransB The type of transpose applied to matrix B.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2
+     * @param B The input allocation contains matrix B, supported elements type: {Element#F64_2
+     * @param beta The scalar beta.
+     * @param C The input allocation contains matrix C, supported elements type: {Element#F64_2
+     */
+    void ZGEMM(RsBlasTranspose TransA, RsBlasTranspose TransB, Double2 alpha, sp<Allocation> A,
+                      sp<Allocation> B, Double2 beta, sp<Allocation> C);
+
+    /**
+     * SSYMM performs one of the matrix-matrix operations
+     * C := alpha*A*B + beta*C   or   C := alpha*B*A + beta*C
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d7/d42/ssymm_8f.html
+     *
+     * @param Side Specifies whether the symmetric matrix A appears on the left or right.
+     * @param Uplo Specifies whether the upper or lower triangular part is to be referenced.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32}.
+     * @param B The input allocation contains matrix B, supported elements type: {Element#F32}.
+     * @param beta The scalar beta.
+     * @param C The input allocation contains matrix C, supported elements type: {Element#F32}.
+     */
+    void SSYMM(RsBlasSide Side, RsBlasUplo Uplo, float alpha, sp<Allocation> A,
+                      sp<Allocation> B, float beta, sp<Allocation> C);
+
+    /**
+     * DSYMM performs one of the matrix-matrix operations
+     * C := alpha*A*B + beta*C   or   C := alpha*B*A + beta*C
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d8/db0/dsymm_8f.html
+     *
+     * @param Side Specifies whether the symmetric matrix A appears on the left or right.
+     * @param Uplo Specifies whether the upper or lower triangular part is to be referenced.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64}.
+     * @param B The input allocation contains matrix B, supported elements type: {Element#F64}.
+     * @param beta The scalar beta.
+     * @param C The input allocation contains matrix C, supported elements type: {Element#F64}.
+     */
+    void DSYMM(RsBlasSide Side, RsBlasUplo Uplo, double alpha, sp<Allocation> A,
+                      sp<Allocation> B, double beta, sp<Allocation> C);
+
+    /**
+     * CSYMM performs one of the matrix-matrix operations
+     * C := alpha*A*B + beta*C   or   C := alpha*B*A + beta*C
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/db/d59/csymm_8f.html
+     *
+     * @param Side Specifies whether the symmetric matrix A appears on the left or right.
+     * @param Uplo Specifies whether the upper or lower triangular part is to be referenced.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32_2}.
+     * @param B The input allocation contains matrix B, supported elements type: {Element#F32_2}.
+     * @param beta The scalar beta.
+     * @param C The input allocation contains matrix C, supported elements type: {Element#F32_2}.
+     */
+    void CSYMM(RsBlasSide Side, RsBlasUplo Uplo, Float2 alpha, sp<Allocation> A,
+                      sp<Allocation> B, Float2 beta, sp<Allocation> C);
+
+    /**
+     * ZSYMM performs one of the matrix-matrix operations
+     * C := alpha*A*B + beta*C   or   C := alpha*B*A + beta*C
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/df/d51/zsymm_8f.html
+     *
+     * @param Side Specifies whether the symmetric matrix A appears on the left or right.
+     * @param Uplo Specifies whether the upper or lower triangular part is to be referenced.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2}.
+     * @param B The input allocation contains matrix B, supported elements type: {Element#F64_2}.
+     * @param beta The scalar beta.
+     * @param C The input allocation contains matrix C, supported elements type: {Element#F64_2}.
+     */
+    void ZSYMM(RsBlasSide Side, RsBlasUplo Uplo, Double2 alpha, sp<Allocation> A,
+                      sp<Allocation> B, Double2 beta, sp<Allocation> C);
+
+    /**
+     * SSYRK performs one of the symmetric rank k operations
+     * C := alpha*A*A**T + beta*C   or   C := alpha*A**T*A + beta*C
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d0/d40/ssyrk_8f.html
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part of C is to be referenced.
+     * @param Trans The type of transpose applied to the operation.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32}.
+     * @param beta The scalar beta.
+     * @param C The input allocation contains matrix C, supported elements type: {Element#F32}.
+     */
+    void SSYRK(RsBlasUplo Uplo, RsBlasTranspose Trans, float alpha,
+               sp<Allocation> A, float beta, sp<Allocation> C);
+
+    /**
+     * DSYRK performs one of the symmetric rank k operations
+     * C := alpha*A*A**T + beta*C   or   C := alpha*A**T*A + beta*C
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/dc/d05/dsyrk_8f.html
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part of C is to be referenced.
+     * @param Trans The type of transpose applied to the operation.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64}.
+     * @param beta The scalar beta.
+     * @param C The input allocation contains matrix C, supported elements type: {Element#F64}.
+     */
+    void DSYRK(RsBlasUplo Uplo, RsBlasTranspose Trans, double alpha,
+               sp<Allocation> A, double beta, sp<Allocation> C);
+
+    /**
+     * CSYRK performs one of the symmetric rank k operations
+     * C := alpha*A*A**T + beta*C   or   C := alpha*A**T*A + beta*C
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d3/d6a/csyrk_8f.html
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part of C is to be referenced.
+     * @param Trans The type of transpose applied to the operation.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32_2}.
+     * @param beta The scalar beta.
+     * @param C The input allocation contains matrix C, supported elements type: {Element#F32_2}.
+     */
+    void CSYRK(RsBlasUplo Uplo, RsBlasTranspose Trans, Float2 alpha,
+               sp<Allocation> A, Float2 beta, sp<Allocation> C);
+
+    /**
+     * ZSYRK performs one of the symmetric rank k operations
+     * C := alpha*A*A**T + beta*C   or   C := alpha*A**T*A + beta*C
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/de/d54/zsyrk_8f.html
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part of C is to be referenced.
+     * @param Trans The type of transpose applied to the operation.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2}.
+     * @param beta The scalar beta.
+     * @param C The input allocation contains matrix C, supported elements type: {Element#F64_2}.
+     */
+    void ZSYRK(RsBlasUplo Uplo, RsBlasTranspose Trans, Double2 alpha,
+               sp<Allocation> A, Double2 beta, sp<Allocation> C);
+
+    /**
+     * SSYR2K performs one of the symmetric rank 2k operations
+     * C := alpha*A*B**T + alpha*B*A**T + beta*C   or   C := alpha*A**T*B + alpha*B**T*A + beta*C
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/df/d3d/ssyr2k_8f.html
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part of C is to be referenced.
+     * @param Trans The type of transpose applied to the operation.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32}.
+     * @param B The input allocation contains matrix B, supported elements type: {Element#F32}.
+     * @param beta The scalar beta.
+     * @param C The input allocation contains matrix C, supported elements type: {Element#F32}.
+     */
+    void SSYR2K(RsBlasUplo Uplo, RsBlasTranspose Trans, float alpha,
+                sp<Allocation> A, sp<Allocation> B, float beta, sp<Allocation> C);
+
+    /**
+     * DSYR2K performs one of the symmetric rank 2k operations
+     * C := alpha*A*B**T + alpha*B*A**T + beta*C   or   C := alpha*A**T*B + alpha*B**T*A + beta*C
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d1/dec/dsyr2k_8f.html
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part of C is to be referenced.
+     * @param Trans The type of transpose applied to the operation.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64}.
+     * @param B The input allocation contains matrix B, supported elements type: {Element#F64}.
+     * @param beta The scalar beta.
+     * @param C The input allocation contains matrix C, supported elements type: {Element#F64}.
+     */
+    void DSYR2K(RsBlasUplo Uplo, RsBlasTranspose Trans, double alpha,
+                sp<Allocation> A, sp<Allocation> B, double beta, sp<Allocation> C);
+
+    /**
+     * CSYR2K performs one of the symmetric rank 2k operations
+     * C := alpha*A*B**T + alpha*B*A**T + beta*C   or   C := alpha*A**T*B + alpha*B**T*A + beta*C
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/de/d7e/csyr2k_8f.html
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part of C is to be referenced.
+     * @param Trans The type of transpose applied to the operation.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32_2}.
+     * @param B The input allocation contains matrix B, supported elements type: {Element#F32_2}.
+     * @param beta The scalar beta.
+     * @param C The input allocation contains matrix C, supported elements type: {Element#F32_2}.
+     */
+    void CSYR2K(RsBlasUplo Uplo, RsBlasTranspose Trans, Float2 alpha,
+                sp<Allocation> A, sp<Allocation> B, Float2 beta, sp<Allocation> C);
+
+    /**
+     * ZSYR2K performs one of the symmetric rank 2k operations
+     * C := alpha*A*B**T + alpha*B*A**T + beta*C   or   C := alpha*A**T*B + alpha*B**T*A + beta*C
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/df/d20/zsyr2k_8f.html
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part of C is to be referenced.
+     * @param Trans The type of transpose applied to the operation.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2}.
+     * @param B The input allocation contains matrix B, supported elements type: {Element#F64_2}.
+     * @param beta The scalar beta.
+     * @param C The input allocation contains matrix C, supported elements type: {Element#F64_2}.
+     */
+    void ZSYR2K(RsBlasUplo Uplo, RsBlasTranspose Trans, Double2 alpha,
+                sp<Allocation> A, sp<Allocation> B, Double2 beta, sp<Allocation> C);
+
+    /**
+     * STRMM performs one of the matrix-matrix operations
+     * B := alpha*op(A)*B   or   B := alpha*B*op(A)
+     * op(A) is one of  op(A) = A  or  op(A) = A**T
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/df/d01/strmm_8f.html
+     *
+     * @param Side Specifies whether the symmetric matrix A appears on the left or right.
+     * @param Uplo Specifies whether matrix A is upper or lower triangular.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32}.
+     * @param B The input allocation contains matrix B, supported elements type: {Element#F32}.
+     */
+    void STRMM(RsBlasSide Side, RsBlasUplo Uplo, RsBlasTranspose TransA,
+               RsBlasDiag Diag, float alpha, sp<Allocation> A, sp<Allocation> B);
+
+    /**
+     * DTRMM performs one of the matrix-matrix operations
+     * B := alpha*op(A)*B   or   B := alpha*B*op(A)
+     * op(A) is one of  op(A) = A  or  op(A) = A**T
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/dd/d19/dtrmm_8f.html
+     *
+     * @param Side Specifies whether the symmetric matrix A appears on the left or right.
+     * @param Uplo Specifies whether matrix A is upper or lower triangular.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64}.
+     * @param B The input allocation contains matrix B, supported elements type: {Element#F64}.
+     */
+    void DTRMM(RsBlasSide Side, RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               double alpha, sp<Allocation> A, sp<Allocation> B);
+
+    /**
+     * CTRMM performs one of the matrix-matrix operations
+     * B := alpha*op(A)*B   or   B := alpha*B*op(A)
+     * op(A) is one of  op(A) = A  or  op(A) = A**T  or  op(A) = A**H
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d4/d9b/ctrmm_8f.html
+     *
+     * @param Side Specifies whether the symmetric matrix A appears on the left or right.
+     * @param Uplo Specifies whether matrix A is upper or lower triangular.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32_2}.
+     * @param B The input allocation contains matrix B, supported elements type: {Element#F32_2}.
+     */
+    void CTRMM(RsBlasSide Side, RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               Float2 alpha, sp<Allocation> A, sp<Allocation> B);
+
+    /**
+     * ZTRMM performs one of the matrix-matrix operations
+     * B := alpha*op(A)*B   or   B := alpha*B*op(A)
+     * op(A) is one of  op(A) = A  or  op(A) = A**T  or  op(A) = A**H
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d8/de1/ztrmm_8f.html
+     *
+     * @param Side Specifies whether the symmetric matrix A appears on the left or right.
+     * @param Uplo Specifies whether matrix A is upper or lower triangular.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2}.
+     * @param B The input allocation contains matrix B, supported elements type: {Element#F64_2}.
+     */
+    void ZTRMM(RsBlasSide Side, RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               Double2 alpha, sp<Allocation> A, sp<Allocation> B);
+
+    /**
+     * STRSM solves one of the matrix equations
+     * op(A)*X := alpha*B   or   X*op(A) := alpha*B
+     * op(A) is one of  op(A) = A  or  op(A) = A**T
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d2/d8b/strsm_8f.html
+     *
+     * @param Side Specifies whether the symmetric matrix A appears on the left or right.
+     * @param Uplo Specifies whether matrix A is upper or lower triangular.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32}.
+     * @param B The input allocation contains matrix B, supported elements type: {Element#F32}.
+     */
+    void STRSM(RsBlasSide Side, RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               float alpha, sp<Allocation> A, sp<Allocation> B);
+
+    /**
+     * DTRSM solves one of the matrix equations
+     * op(A)*X := alpha*B   or   X*op(A) := alpha*B
+     * op(A) is one of  op(A) = A  or  op(A) = A**T
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/de/da7/dtrsm_8f.html
+     *
+     * @param Side Specifies whether the symmetric matrix A appears on the left or right.
+     * @param Uplo Specifies whether matrix A is upper or lower triangular.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64}.
+     * @param B The input allocation contains matrix B, supported elements type: {Element#F64}.
+     */
+    void DTRSM(RsBlasSide Side, RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               double alpha, sp<Allocation> A, sp<Allocation> B);
+
+    /**
+     * CTRSM solves one of the matrix equations
+     * op(A)*X := alpha*B   or   X*op(A) := alpha*B
+     * op(A) is one of  op(A) = A  or  op(A) = A**T  or  op(A) = A**H
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/de/d30/ctrsm_8f.html
+     *
+     * @param Side Specifies whether the symmetric matrix A appears on the left or right.
+     * @param Uplo Specifies whether matrix A is upper or lower triangular.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32_2}.
+     * @param B The input allocation contains matrix B, supported elements type: {Element#F32_2}.
+     */
+    void CTRSM(RsBlasSide Side, RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               Float2 alpha, sp<Allocation> A, sp<Allocation> B);
+
+    /**
+     * ZTRSM solves one of the matrix equations
+     * op(A)*X := alpha*B   or   X*op(A) := alpha*B
+     * op(A) is one of  op(A) = A  or  op(A) = A**T  or  op(A) = A**H
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d1/d39/ztrsm_8f.html
+     *
+     * @param Side Specifies whether the symmetric matrix A appears on the left or right.
+     * @param Uplo Specifies whether matrix A is upper or lower triangular.
+     * @param TransA The type of transpose applied to matrix A.
+     * @param Diag Specifies whether or not A is unit triangular.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2}.
+     * @param B The input allocation contains matrix B, supported elements type: {Element#F64_2}.
+     */
+    void ZTRSM(RsBlasSide Side, RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
+               Double2 alpha, sp<Allocation> A, sp<Allocation> B);
+
+    /**
+     * CHEMM performs one of the matrix-matrix operations
+     * C := alpha*A*B + beta*C   or   C := alpha*B*A + beta*C
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d3/d66/chemm_8f.html
+     *
+     * @param Side Specifies whether the symmetric matrix A appears on the left or right.
+     * @param Uplo Specifies whether the upper or lower triangular part is to be referenced.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32_2}.
+     * @param B The input allocation contains matrix B, supported elements type: {Element#F32_2}.
+     * @param beta The scalar beta.
+     * @param C The input allocation contains matrix C, supported elements type: {Element#F32_2}.
+     */
+    void CHEMM(RsBlasSide Side, RsBlasUplo Uplo, Float2 alpha, sp<Allocation> A,
+               sp<Allocation> B, Float2 beta, sp<Allocation> C);
+
+    /**
+     * ZHEMM performs one of the matrix-matrix operations
+     * C := alpha*A*B + beta*C   or   C := alpha*B*A + beta*C
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d6/d3e/zhemm_8f.html
+     *
+     * @param Side Specifies whether the symmetric matrix A appears on the left or right.
+     * @param Uplo Specifies whether the upper or lower triangular part is to be referenced.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2}.
+     * @param B The input allocation contains matrix B, supported elements type: {Element#F64_2}.
+     * @param beta The scalar beta.
+     * @param C The input allocation contains matrix C, supported elements type: {Element#F64_2}.
+     */
+    void ZHEMM(RsBlasSide Side, RsBlasUplo Uplo, Double2 alpha, sp<Allocation> A,
+               sp<Allocation> B, Double2 beta, sp<Allocation> C);
+
+    /**
+     * CHERK performs one of the hermitian rank k operations
+     * C := alpha*A*A**H + beta*C   or   C := alpha*A**H*A + beta*C
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d8/d52/cherk_8f.html
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part of C is to be referenced.
+     * @param Trans The type of transpose applied to the operation.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32_2}.
+     * @param beta The scalar beta.
+     * @param C The input allocation contains matrix C, supported elements type: {Element#F32_2}.
+     */
+    void CHERK(RsBlasUplo Uplo, RsBlasTranspose Trans, float alpha, sp<Allocation> A,
+               float beta, sp<Allocation> C);
+
+    /**
+     * ZHERK performs one of the hermitian rank k operations
+     * C := alpha*A*A**H + beta*C   or   C := alpha*A**H*A + beta*C
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d1/db1/zherk_8f.html
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part of C is to be referenced.
+     * @param Trans The type of transpose applied to the operation.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2}.
+     * @param beta The scalar beta.
+     * @param C The input allocation contains matrix C, supported elements type: {Element#F64_2}.
+     */
+    void ZHERK(RsBlasUplo Uplo, RsBlasTranspose Trans, double alpha, sp<Allocation> A,
+               double beta, sp<Allocation> C);
+
+    /**
+     * CHER2K performs one of the hermitian rank 2k operations
+     * C := alpha*A*B**H + conjg( alpha )*B*A**H + beta*C   or   C := alpha*A**H*B + conjg( alpha )*B**H*A + beta*C
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d1/d82/cher2k_8f.html
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part of C is to be referenced.
+     * @param Trans The type of transpose applied to the operation.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F32_2}.
+     * @param B The input allocation contains matrix B, supported elements type: {Element#F32_2}.
+     * @param beta The scalar beta.
+     * @param C The input allocation contains matrix C, supported elements type: {Element#F32_2}.
+     */
+    void CHER2K(RsBlasUplo Uplo, RsBlasTranspose Trans, Float2 alpha, sp<Allocation> A,
+                sp<Allocation> B, float beta, sp<Allocation> C);
+
+    /**
+     * ZHER2K performs one of the hermitian rank 2k operations
+     * C := alpha*A*B**H + conjg( alpha )*B*A**H + beta*C   or   C := alpha*A**H*B + conjg( alpha )*B**H*A + beta*C
+     *
+     * Details: http://www.netlib.org/lapack/explore-html/d7/dfa/zher2k_8f.html
+     *
+     * @param Uplo Specifies whether the upper or lower triangular part of C is to be referenced.
+     * @param Trans The type of transpose applied to the operation.
+     * @param alpha The scalar alpha.
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2}.
+     * @param B The input allocation contains matrix B, supported elements type: {Element#F64_2}.
+     * @param beta The scalar beta.
+     * @param C The input allocation contains matrix C, supported elements type: {Element#F64_2}.
+     */
+    void ZHER2K(RsBlasUplo Uplo, RsBlasTranspose Trans, Double2 alpha, sp<Allocation> A,
+                sp<Allocation> B, double beta, sp<Allocation> C);
+
+    /**
+     * 8-bit GEMM-like operation for neural networks: C = A * Transpose(B)
+     * Calculations are done in 1.10.21 fixed-point format for the final output,
+     * just before there's a shift down to drop the fractional parts. The output
+     * values are gated to 0 to 255 to fit in a byte, but the 10-bit format
+     * gives some headroom to avoid wrapping around on small overflows.
+     *
+     * @param A The input allocation contains matrix A, supported elements type: {Element#U8}.
+     * @param a_offset The offset for all values in matrix A, e.g A[i,j] = A[i,j] - a_offset. Value should be from 0 to 255.
+     * @param B The input allocation contains matrix B, supported elements type: {Element#U8}.
+     * @param b_offset The offset for all values in matrix B, e.g B[i,j] = B[i,j] - b_offset. Value should be from 0 to 255.
+     * @param C The input allocation contains matrix C, supported elements type: {Element#U8}.
+     * @param c_offset The offset for all values in matrix C.
+     * @param c_mult The multiplier for all values in matrix C, e.g C[i,j] = (C[i,j] + c_offset) * c_mult.
+     **/
+    void BNNM(sp<Allocation> A, int a_offset, sp<Allocation> B, int b_offset, sp<Allocation> C,
+              int c_offset, int c_mult);
 };
 
 /**
@@ -2109,276 +4349,6 @@ class ScriptIntrinsicYuvToRGB : public ScriptIntrinsic {
      */
     static sp<const Sampler> MIRRORED_REPEAT_LINEAR_MIP_LINEAR(sp<RS> rs);
 
-};
-
-class Byte2 {
- public:
-  int8_t x, y;
-
-  Byte2(int8_t initX, int8_t initY)
-    : x(initX), y(initY) {}
-  Byte2() : x(0), y(0) {}
-};
-
-class Byte3 {
- public:
-  int8_t x, y, z;
-
-  Byte3(int8_t initX, int8_t initY, int8_t initZ)
-    : x(initX), y(initY), z(initZ) {}
-  Byte3() : x(0), y(0), z(0) {}
-};
-
-class Byte4 {
- public:
-  int8_t x, y, z, w;
-
-  Byte4(int8_t initX, int8_t initY, int8_t initZ, int8_t initW)
-    : x(initX), y(initY), z(initZ), w(initW) {}
-  Byte4() : x(0), y(0), z(0), w(0) {}
-};
-
-class UByte2 {
- public:
-  uint8_t x, y;
-
-  UByte2(uint8_t initX, uint8_t initY)
-    : x(initX), y(initY) {}
-  UByte2() : x(0), y(0) {}
-};
-
-class UByte3 {
- public:
-  uint8_t x, y, z;
-
-  UByte3(uint8_t initX, uint8_t initY, uint8_t initZ)
-    : x(initX), y(initY), z(initZ) {}
-  UByte3() : x(0), y(0), z(0) {}
-};
-
-class UByte4 {
- public:
-  uint8_t x, y, z, w;
-
-  UByte4(uint8_t initX, uint8_t initY, uint8_t initZ, uint8_t initW)
-    : x(initX), y(initY), z(initZ), w(initW) {}
-  UByte4() : x(0), y(0), z(0), w(0) {}
-};
-
-class Short2 {
- public:
-  short x, y;
-
-  Short2(short initX, short initY)
-    : x(initX), y(initY) {}
-  Short2() : x(0), y(0) {}
-};
-
-class Short3 {
- public:
-  short x, y, z;
-
-  Short3(short initX, short initY, short initZ)
-    : x(initX), y(initY), z(initZ) {}
-  Short3() : x(0), y(0), z(0) {}
-};
-
-class Short4 {
- public:
-  short x, y, z, w;
-
-  Short4(short initX, short initY, short initZ, short initW)
-    : x(initX), y(initY), z(initZ), w(initW) {}
-  Short4() : x(0), y(0), z(0), w(0) {}
-};
-
-class UShort2 {
- public:
-  uint16_t x, y;
-
-  UShort2(uint16_t initX, uint16_t initY)
-    : x(initX), y(initY) {}
-  UShort2() : x(0), y(0) {}
-};
-
-class UShort3 {
- public:
-  uint16_t x, y, z;
-
-  UShort3(uint16_t initX, uint16_t initY, uint16_t initZ)
-    : x(initX), y(initY), z(initZ) {}
-  UShort3() : x(0), y(0), z(0) {}
-};
-
-class UShort4 {
- public:
-  uint16_t x, y, z, w;
-
-  UShort4(uint16_t initX, uint16_t initY, uint16_t initZ, uint16_t initW)
-    : x(initX), y(initY), z(initZ), w(initW) {}
-  UShort4() : x(0), y(0), z(0), w(0) {}
-};
-
-class Int2 {
- public:
-  int x, y;
-
-  Int2(int initX, int initY)
-    : x(initX), y(initY) {}
-  Int2() : x(0), y(0) {}
-};
-
-class Int3 {
- public:
-  int x, y, z;
-
-  Int3(int initX, int initY, int initZ)
-    : x(initX), y(initY), z(initZ) {}
-  Int3() : x(0), y(0), z(0) {}
-};
-
-class Int4 {
- public:
-  int x, y, z, w;
-
-  Int4(int initX, int initY, int initZ, int initW)
-    : x(initX), y(initY), z(initZ), w(initW) {}
-  Int4() : x(0), y(0), z(0), w(0) {}
-};
-
-class UInt2 {
- public:
-  uint32_t x, y;
-
-  UInt2(uint32_t initX, uint32_t initY)
-    : x(initX), y(initY) {}
-  UInt2() : x(0), y(0) {}
-};
-
-class UInt3 {
- public:
-  uint32_t x, y, z;
-
-  UInt3(uint32_t initX, uint32_t initY, uint32_t initZ)
-    : x(initX), y(initY), z(initZ) {}
-  UInt3() : x(0), y(0), z(0) {}
-};
-
-class UInt4 {
- public:
-  uint32_t x, y, z, w;
-
-  UInt4(uint32_t initX, uint32_t initY, uint32_t initZ, uint32_t initW)
-    : x(initX), y(initY), z(initZ), w(initW) {}
-  UInt4() : x(0), y(0), z(0), w(0) {}
-};
-
-class Long2 {
- public:
-  int64_t x, y;
-
-  Long2(int64_t initX, int64_t initY)
-    : x(initX), y(initY) {}
-  Long2() : x(0), y(0) {}
-};
-
-class Long3 {
- public:
-  int64_t x, y, z;
-
-  Long3(int64_t initX, int64_t initY, int64_t initZ)
-    : x(initX), y(initY), z(initZ) {}
-  Long3() : x(0), y(0), z(0) {}
-};
-
-class Long4 {
- public:
-  int64_t x, y, z, w;
-
-  Long4(int64_t initX, int64_t initY, int64_t initZ, int64_t initW)
-    : x(initX), y(initY), z(initZ), w(initW) {}
-  Long4() : x(0), y(0), z(0), w(0) {}
-};
-
-class ULong2 {
- public:
-  uint64_t x, y;
-
-  ULong2(uint64_t initX, uint64_t initY)
-    : x(initX), y(initY) {}
-  ULong2() : x(0), y(0) {}
-};
-
-class ULong3 {
- public:
-  uint64_t x, y, z;
-
-  ULong3(uint64_t initX, uint64_t initY, uint64_t initZ)
-    : x(initX), y(initY), z(initZ) {}
-  ULong3() : x(0), y(0), z(0) {}
-};
-
-class ULong4 {
- public:
-  uint64_t x, y, z, w;
-
-  ULong4(uint64_t initX, uint64_t initY, uint64_t initZ, uint64_t initW)
-    : x(initX), y(initY), z(initZ), w(initW) {}
-  ULong4() : x(0), y(0), z(0), w(0) {}
-};
-
-class Float2 {
- public:
-  float x, y;
-
-  Float2(float initX, float initY)
-    : x(initX), y(initY) {}
-  Float2() : x(0), y(0) {}
-};
-
-class Float3 {
- public:
-  float x, y, z;
-
-  Float3(float initX, float initY, float initZ)
-    : x(initX), y(initY), z(initZ) {}
-  Float3() : x(0.f), y(0.f), z(0.f) {}
-};
-
-class Float4 {
- public:
-  float x, y, z, w;
-
-  Float4(float initX, float initY, float initZ, float initW)
-    : x(initX), y(initY), z(initZ), w(initW) {}
-  Float4() : x(0.f), y(0.f), z(0.f), w(0.f) {}
-};
-
-class Double2 {
- public:
-  double x, y;
-
-  Double2(double initX, double initY)
-    : x(initX), y(initY) {}
-  Double2() : x(0), y(0) {}
-};
-
-class Double3 {
- public:
-  double x, y, z;
-
-  Double3(double initX, double initY, double initZ)
-    : x(initX), y(initY), z(initZ) {}
-  Double3() : x(0), y(0), z(0) {}
-};
-
-class Double4 {
- public:
-  double x, y, z, w;
-
-  Double4(double initX, double initY, double initZ, double initW)
-    : x(initX), y(initY), z(initZ), w(initW) {}
-  Double4() : x(0), y(0), z(0), w(0) {}
 };
 
 }

@@ -18,10 +18,13 @@ package com.android.server.telecom;
 
 import android.util.ArrayMap;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 import java.util.Map;
 
 /** Utility to map {@link Call} objects to unique IDs. IDs are generated when a call is added. */
-class CallIdMapper {
+@VisibleForTesting
+public class CallIdMapper {
     /**
      * A very basic bidirectional map.
      */
@@ -75,12 +78,6 @@ class CallIdMapper {
     }
 
     private final BiMap<String, Call> mCalls = new BiMap<>();
-    private final String mCallIdPrefix;
-    private static int sIdCount;
-
-    CallIdMapper(String callIdPrefix) {
-        mCallIdPrefix = callIdPrefix + "@";
-    }
 
     void replaceCall(Call newCall, Call callToReplace) {
         // Use the old call's ID for the new call.
@@ -96,7 +93,7 @@ class CallIdMapper {
     }
 
     void addCall(Call call) {
-        addCall(call, getNewId());
+        addCall(call, call.getId());
     }
 
     void removeCall(Call call) {
@@ -111,10 +108,10 @@ class CallIdMapper {
     }
 
     String getCallId(Call call) {
-        if (call == null) {
+        if (call == null || mCalls.getKey(call) == null) {
             return null;
         }
-        return mCalls.getKey(call);
+        return call.getId();
     }
 
     Call getCall(Object objId) {
@@ -122,28 +119,11 @@ class CallIdMapper {
         if (objId instanceof String) {
             callId = (String) objId;
         }
-        if (!isValidCallId(callId) && !isValidConferenceId(callId)) {
-            return null;
-        }
 
         return mCalls.getValue(callId);
     }
 
     void clear() {
         mCalls.clear();
-    }
-
-    boolean isValidCallId(String callId) {
-        // Note, no need for thread check, this method is thread safe.
-        return callId != null && callId.startsWith(mCallIdPrefix);
-    }
-
-    boolean isValidConferenceId(String callId) {
-        return callId != null;
-    }
-
-    String getNewId() {
-        sIdCount++;
-        return mCallIdPrefix + sIdCount;
     }
 }

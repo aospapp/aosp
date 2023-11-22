@@ -16,11 +16,9 @@
 
 #include "sles_allinclusive.h"
 
-#include <media/IMediaPlayerService.h>
-#include <media/stagefright/OMXClient.h>
-#include <media/stagefright/OMXCodec.h>
-#include <media/IOMX.h>
+#include <media/stagefright/MediaCodecList.h>
 #include <media/stagefright/MediaDefs.h>
+#include <media/stagefright/SimpleDecodingSource.h>
 
 
 namespace android {
@@ -38,8 +36,11 @@ static const char *kVideoMimeTypes[] = {
 static const size_t kNbVideoMimeTypes = sizeof(kVideoMimeTypes) / sizeof(kVideoMimeTypes[0]);
 
 // codec capabilities in the following arrays maps to the mime types defined in kVideoMimeTypes
-// CodecCapabilities is from OMXCodec.h
-static Vector<CodecCapabilities> VideoDecoderCapabilities[kNbVideoMimeTypes];
+struct CodecCapabilities {
+    Vector<MediaCodecInfo::ProfileLevel> mProfileLevels;
+};
+
+static CodecCapabilities VideoDecoderCapabilities[kNbVideoMimeTypes];
 static XAuint32 VideoDecoderNbProfLevel[kNbVideoMimeTypes];
 
 static XAuint32 NbSupportedDecoderTypes = 0;
@@ -58,54 +59,60 @@ XAuint32 convertOpenMaxIlToAl(OMX_U32 ilVideoProfileOrLevel) {
 bool android_videoCodec_expose() {
     SL_LOGV("android_videoCodec_expose()");
 
-    sp<IMediaPlayerService> service(IMediaDeathNotifier::getMediaPlayerService());
-    if (service == NULL) {
-        // no need to SL_LOGE; getMediaPlayerService already will have done so
-        return false;
-    }
-
-    sp<IOMX> omx(service->getOMX());
-    if (omx.get() == NULL) {
-        ALOGE("android_videoCodec_expose() couldn't access OMX interface");
+    sp<IMediaCodecList> list = MediaCodecList::getInstance();
+    if (list == NULL) {
+        SL_LOGE("could not get MediaCodecList");
         return false;
     }
 
     // used to check whether no codecs were found, which is a sign of failure
     NbSupportedDecoderTypes = 0;
     for (size_t m = 0 ; m < kNbVideoMimeTypes ; m++) {
-        // QueryCodecs is from OMXCodec.h
-        if (OK == QueryCodecs(omx, kVideoMimeTypes[m], true /* queryDecoders */,
-                true /* hwCodecOnly */, &VideoDecoderCapabilities[m])) {
-            if (VideoDecoderCapabilities[m].empty()) {
-                VideoDecoderNbProfLevel[m] = 0;
-            } else {
-                // get the number of profiles and levels for the first codec implementation
-                // for a given decoder ID / MIME type
-                Vector<CodecProfileLevel> &profileLevels =
-                        VideoDecoderCapabilities[m].editItemAt(0).mProfileLevels;
+        VideoDecoderNbProfLevel[m] = 0;
+        for (ssize_t index = 0;; ++index) {
+            index = list->findCodecByType(
+                    kVideoMimeTypes[m], false /* encoder */, index);
+            if (index < 0) {
+                break;
+            }
+
+            sp<MediaCodecInfo> info = list->getCodecInfo(index);
+            if (info == NULL || MediaCodecList::isSoftwareCodec(info->getCodecName())) {
+                continue; // HW codec only
+            }
+
+            sp<MediaCodecInfo::Capabilities> caps = info->getCapabilitiesFor(kVideoMimeTypes[m]);
+            if (caps == NULL) {
+                continue; // this should not happen
+            }
+
+            // get the number of profiles and levels
+            Vector<MediaCodecInfo::ProfileLevel> &profileLevels =
+                VideoDecoderCapabilities[m].mProfileLevels;
+            caps->getSupportedProfileLevels(&profileLevels);
 #if 0   // Intentionally disabled example of making modifications to profile / level combinations
-                if (VideoDecoderIds[m] == XA_VIDEOCODEC_AVC) {
-                    // remove non-core profile / level combinations
-                    for (size_t i = 0, size = profileLevels.size(); i < size; ) {
-                        CodecProfileLevel profileLevel = profileLevels.itemAt(i);
-                        if (profileLevel.mProfile == XA_VIDEOPROFILE_AVC_BASELINE) {
-                            // either skip past this item and don't change vector size
-                            ++i;
-                        } else {
-                            // or remove this item, decrement the vector size,
-                            // and next time through the loop check a different item at same index
-                            profileLevels.removeAt(i);
-                            --size;
-                        }
+            if (VideoDecoderIds[m] == XA_VIDEOCODEC_AVC) {
+                // remove non-core profile / level combinations
+                for (size_t i = 0, size = profileLevels.size(); i < size; ) {
+                    MediaCodecInfo::ProfileLevel profileLevel = profileLevels.itemAt(i);
+                    if (profileLevel.mProfile == XA_VIDEOPROFILE_AVC_BASELINE) {
+                        // either skip past this item and don't change vector size
+                        ++i;
+                    } else {
+                        // or remove this item, decrement the vector size,
+                        // and next time through the loop check a different item at same index
+                        profileLevels.removeAt(i);
+                        --size;
                     }
                 }
-#endif
-                if ((VideoDecoderNbProfLevel[m] = profileLevels.size()) > 0) {
-                    NbSupportedDecoderTypes++;
-                } else {
-                    VideoDecoderCapabilities[m].clear();
-                }
             }
+#endif
+            if ((VideoDecoderNbProfLevel[m] = profileLevels.size()) > 0) {
+                NbSupportedDecoderTypes++;
+            }
+
+            // only consider first codec implementation for given decoder ID / MIME type
+            break;
         }
     }
 
@@ -115,9 +122,6 @@ bool android_videoCodec_expose() {
 
 void android_videoCodec_deinit() {
     SL_LOGV("android_videoCodec_deinit()");
-    for (size_t m = 0 ; m < kNbVideoMimeTypes ; m++) {
-        VideoDecoderCapabilities[m].clear();
-    }
     // not needed
     // memset(VideoDecoderNbProfLevel, 0, sizeof(VideoDecoderNbProfLevel));
     // NbSupportedDecoderTypes = 0;
@@ -133,7 +137,7 @@ void android_videoCodec_getDecoderIds(XAuint32 nbDecoders, XAuint32 *pDecoderIds
     XAuint32 *pIds = pDecoderIds;
     XAuint32 nbFound = 0;
     for (size_t m = 0 ; m < kNbVideoMimeTypes ; m++) {
-        if (!VideoDecoderCapabilities[m].empty()) {
+        if (VideoDecoderNbProfLevel[m] > 0) {
             *pIds = VideoDecoderIds[m];
             pIds++;
             nbFound++;
@@ -173,7 +177,7 @@ SLresult android_videoCodec_getProfileLevelCombination(XAuint32 decoderId, XAuin
         if (decoderId == VideoDecoderIds[decoderIndex]) {
             // We only look at the first codec implementation for a given decoder ID / MIME type.
             // OpenMAX AL doesn't let you expose the capabilities of multiple codec implementations.
-            if (!(plIndex < VideoDecoderCapabilities[decoderIndex].itemAt(0).mProfileLevels.size()))
+            if (!(plIndex < VideoDecoderCapabilities[decoderIndex].mProfileLevels.size()))
             {
                 // asking for invalid profile/level
                 return XA_RESULT_PARAMETER_INVALID;
@@ -181,9 +185,9 @@ SLresult android_videoCodec_getProfileLevelCombination(XAuint32 decoderId, XAuin
             //     set the fields we know about
             pDescr->codecId = decoderId;
             pDescr->profileSetting = convertOpenMaxIlToAl(VideoDecoderCapabilities[decoderIndex].
-                    itemAt(0).mProfileLevels.itemAt(plIndex).mProfile);
+                    mProfileLevels.itemAt(plIndex).mProfile);
             pDescr->levelSetting = convertOpenMaxIlToAl(VideoDecoderCapabilities[decoderIndex].
-                    itemAt(0).mProfileLevels.itemAt(plIndex).mLevel);
+                    mProfileLevels.itemAt(plIndex).mLevel);
             //     initialize the fields we don't know about
             pDescr->maxWidth = 0;
             pDescr->maxHeight = 0;

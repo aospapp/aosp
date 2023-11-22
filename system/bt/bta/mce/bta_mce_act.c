@@ -27,7 +27,7 @@
 #include <arpa/inet.h>
 
 #include "bt_types.h"
-#include "gki.h"
+#include "bt_common.h"
 #include "utl.h"
 #include "bta_sys.h"
 #include "bta_api.h"

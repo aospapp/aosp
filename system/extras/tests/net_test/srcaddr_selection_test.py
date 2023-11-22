@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import errno
-import os
 import random
 from socket import *  # pylint: disable=wildcard-import
 import time
@@ -26,7 +25,7 @@ from scapy import all as scapy
 import csocket
 import iproute
 import multinetwork_base
-import multinetwork_test
+import packets
 import net_test
 
 # Setsockopt values.
@@ -34,12 +33,26 @@ IPV6_ADDR_PREFERENCES = 72
 IPV6_PREFER_SRC_PUBLIC = 0x0002
 
 
-USE_OPTIMISTIC_SYSCTL = "/proc/sys/net/ipv6/conf/default/use_optimistic"
-
-HAVE_USE_OPTIMISTIC = os.path.isfile(USE_OPTIMISTIC_SYSCTL)
-
-
 class IPv6SourceAddressSelectionTest(multinetwork_base.MultiNetworkBaseTest):
+  """Test for IPv6 source address selection.
+
+  Relevant kernel commits:
+    upstream net-next:
+      7fd2561 net: ipv6: Add a sysctl to make optimistic addresses useful candidates
+      c58da4c net: ipv6: allow explicitly choosing optimistic addresses
+      9131f3d ipv6: Do not iterate over all interfaces when finding source address on specific interface.
+      c0b8da1 ipv6: Fix finding best source address in ipv6_dev_get_saddr().
+      c15df30 ipv6: Remove unused arguments for __ipv6_dev_get_saddr().
+      3985e8a ipv6: sysctl to restrict candidate source addresses
+
+    android-3.10:
+      2ce95507 net: ipv6: Add a sysctl to make optimistic addresses useful candidates
+      0065bf4 net: ipv6: allow choosing optimistic addresses with use_optimistic
+      0633924 ipv6: sysctl to restrict candidate source addresses
+  """
+
+  def SetIPv6Sysctl(self, ifname, sysctl, value):
+    self.SetSysctl("/proc/sys/net/ipv6/conf/%s/%s" % (ifname, sysctl), value)
 
   def SetDAD(self, ifname, value):
     self.SetSysctl("/proc/sys/net/ipv6/conf/%s/accept_dad" % ifname, value)
@@ -120,23 +133,27 @@ class MultiInterfaceSourceAddressSelectionTest(IPv6SourceAddressSelectionTest):
     # [0]  Make sure DAD, optimistic DAD, and the use_optimistic option
     # are all consistently disabled at the outset.
     for netid in self.tuns:
-      self.SetDAD(self.GetInterfaceName(netid), 0)
-      self.SetOptimisticDAD(self.GetInterfaceName(netid), 0)
-      self.SetUseTempaddrs(self.GetInterfaceName(netid), 0)
-      if HAVE_USE_OPTIMISTIC:
-        self.SetUseOptimistic(self.GetInterfaceName(netid), 0)
+      ifname = self.GetInterfaceName(netid)
+      self.SetDAD(ifname, 0)
+      self.SetOptimisticDAD(ifname, 0)
+      self.SetUseTempaddrs(ifname, 0)
+      self.SetUseOptimistic(ifname, 0)
+      self.SetIPv6Sysctl(ifname, "use_oif_addrs_only", 0)
 
     # [1]  Pick an interface on which to test.
     self.test_netid = random.choice(self.tuns.keys())
     self.test_ip = self.MyAddress(6, self.test_netid)
     self.test_ifindex = self.ifindices[self.test_netid]
     self.test_ifname = self.GetInterfaceName(self.test_netid)
+    self.test_lladdr = net_test.GetLinkAddress(self.test_ifname, True)
 
     # [2]  Delete the test interface's IPv6 address.
     self.iproute.DelAddress(self.test_ip, 64, self.test_ifindex)
     self.assertAddressNotPresent(self.test_ip)
 
     self.assertAddressNotUsable(self.test_ip, self.test_netid)
+    # Verify that the link-local address is not tentative.
+    self.assertFalse(self.AddressIsTentative(self.test_lladdr))
 
 
 class TentativeAddressTest(MultiInterfaceSourceAddressSelectionTest):
@@ -194,7 +211,6 @@ class OptimisticAddressTest(MultiInterfaceSourceAddressSelectionTest):
 
 class OptimisticAddressOkayTest(MultiInterfaceSourceAddressSelectionTest):
 
-  @unittest.skipUnless(HAVE_USE_OPTIMISTIC, "use_optimistic not supported")
   def testModifiedRfc6724Behaviour(self):
     # [3]  Get an IPv6 address back, in optimistic DAD start-up.
     self.SetDAD(self.test_ifname, 1)  # Enable DAD
@@ -214,7 +230,6 @@ class OptimisticAddressOkayTest(MultiInterfaceSourceAddressSelectionTest):
 
 class ValidBeforeOptimisticTest(MultiInterfaceSourceAddressSelectionTest):
 
-  @unittest.skipUnless(HAVE_USE_OPTIMISTIC, "use_optimistic not supported")
   def testModifiedRfc6724Behaviour(self):
     # [3]  Add a valid IPv6 address to this interface and verify it is
     # selected as the source address.
@@ -243,7 +258,6 @@ class ValidBeforeOptimisticTest(MultiInterfaceSourceAddressSelectionTest):
 
 class DadFailureTest(MultiInterfaceSourceAddressSelectionTest):
 
-  @unittest.skipUnless(HAVE_USE_OPTIMISTIC, "use_optimistic not supported")
   def testDadFailure(self):
     # [3]  Get an IPv6 address back, in optimistic DAD start-up.
     self.SetDAD(self.test_ifname, 1)  # Enable DAD
@@ -275,9 +289,6 @@ class DadFailureTest(MultiInterfaceSourceAddressSelectionTest):
 
 class NoNsFromOptimisticTest(MultiInterfaceSourceAddressSelectionTest):
 
-  @unittest.skipUnless(HAVE_USE_OPTIMISTIC, "use_optimistic not supported")
-  @unittest.skipUnless(net_test.LinuxVersion() >= (3, 18, 0),
-                       "correct optimistic bind() not supported")
   def testSendToOnlinkDestination(self):
     # [3]  Get an IPv6 address back, in optimistic DAD start-up.
     self.SetDAD(self.test_ifname, 1)  # Enable DAD
@@ -297,14 +308,37 @@ class NoNsFromOptimisticTest(MultiInterfaceSourceAddressSelectionTest):
     onlink_dest = self.GetRandomDestination(self.IPv6Prefix(self.test_netid))
     self.SendWithSourceAddress(self.test_ip, self.test_netid, onlink_dest)
 
-    expected_ns = multinetwork_test.Packets.NS(
-        net_test.GetLinkAddress(self.test_ifname, True),
-        onlink_dest,
-        self.MyMacAddress(self.test_netid))[1]
-    self.ExpectPacketOn(self.test_netid, "link-local NS", expected_ns)
+    if net_test.LinuxVersion() >= (3, 18, 0):
+      # Older versions will actually choose the optimistic address to
+      # originate Neighbor Solications (RFC violation).
+      expected_ns = packets.NS(
+          self.test_lladdr,
+          onlink_dest,
+          self.MyMacAddress(self.test_netid))[1]
+      self.ExpectPacketOn(self.test_netid, "link-local NS", expected_ns)
 
 
 # TODO(ek): add tests listening for netlink events.
+
+
+class DefaultCandidateSrcAddrsTest(MultiInterfaceSourceAddressSelectionTest):
+
+  def testChoosesNonInterfaceSourceAddress(self):
+    self.SetIPv6Sysctl(self.test_ifname, "use_oif_addrs_only", 0)
+    src_ip = self.GetSourceIP(self.test_netid)
+    self.assertFalse(src_ip in [self.test_ip, self.test_lladdr])
+    self.assertTrue(src_ip in
+                    [self.MyAddress(6, netid)
+                     for netid in self.tuns if netid != self.test_netid])
+
+
+class RestrictedCandidateSrcAddrsTest(MultiInterfaceSourceAddressSelectionTest):
+
+  def testChoosesOnlyInterfaceSourceAddress(self):
+    self.SetIPv6Sysctl(self.test_ifname, "use_oif_addrs_only", 1)
+    # self.test_ifname does not have a global IPv6 address, so the only
+    # candidate is the existing link-local address.
+    self.assertAddressSelected(self.test_lladdr, self.test_netid)
 
 
 if __name__ == "__main__":

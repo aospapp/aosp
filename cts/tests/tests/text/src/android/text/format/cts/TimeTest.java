@@ -813,10 +813,10 @@ public class TimeTest extends AndroidTestCase {
         assertFormatEquals(t, "%m", "06");
         assertFormatEquals(t, "%n", "\n");
         assertFormatEquals(t, "%O", "O");
-        assertFormatEquals(t, "%p", "p.m.");
-        assertFormatEquals(t, "%P", "p.m.");
+        assertFormatEquals(t, "%p", "pm");
+        assertFormatEquals(t, "%P", "pm");
         assertFormatEquals(t, "%R", "12:30");
-        assertFormatEquals(t, "%r", "12:30:15 p.m.");
+        assertFormatEquals(t, "%r", "12:30:15 pm");
         assertFormatEquals(t, "%S", "15");
         // The original C implementation uses the (native) system default TZ, not the timezone of
         // the Time to calculate this and was therefore not stable. This changed to use the Time's

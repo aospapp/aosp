@@ -23,6 +23,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.database.DataSetObserver;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -41,6 +42,7 @@ import com.android.cts.verifier.R;
  * Instructions are shown on top of the screen and a test preparation button is provided.
  */
 public abstract class DialogTestListActivity extends PassFailButtons.TestListActivity {
+    private final String TAG = "DialogTestListActivity";
     private final int mLayoutId;
     private final int mTitleStringId;
     private final int mInfoStringId;
@@ -95,11 +97,6 @@ public abstract class DialogTestListActivity extends PassFailButtons.TestListAct
      * @param adapter The adapter to add test items to.
      */
     protected abstract void setupTests(ArrayTestListAdapter adapter);
-
-    // Enable Pass Button when all tests passed.
-    private void updatePassButton() {
-        getPassButton().setEnabled(mAdapter.allTestsPassed());
-    }
 
     public class DefaultTestCallback implements DialogTestListItem.TestCallback {
         final private DialogTestListItem mTest;
@@ -170,7 +167,13 @@ public abstract class DialogTestListActivity extends PassFailButtons.TestListAct
             mCurrentTestPosition = position;
             ((DialogTestListItem)test).performTest(this);
         } else {
-            super.handleItemClick(l, v, position, id);
+            try {
+                super.handleItemClick(l, v, position, id);
+            } catch (ActivityNotFoundException e) {
+                Log.d(TAG, "handleItemClick() threw exception: ", e);
+                setTestResult(test, TestResult.TEST_RESULT_FAILED);
+                showToast(R.string.test_failed_cannot_start_intent);
+            }
         }
     }
 
@@ -185,6 +188,7 @@ public abstract class DialogTestListActivity extends PassFailButtons.TestListAct
         try {
             startActivity(intent);
         } catch (ActivityNotFoundException e) {
+            Log.w(TAG, "Cannot start activity.", e);
             Toast.makeText(this, "Cannot start " + intent, Toast.LENGTH_LONG).show();
             setTestResult(test, TestResult.TEST_RESULT_FAILED);
             return false;
@@ -196,7 +200,7 @@ public abstract class DialogTestListActivity extends PassFailButtons.TestListAct
         // do nothing, override in subclass if needed
     }
 
-    protected void setTestResult(DialogTestListItem test, int result) {
+    protected void setTestResult(TestListAdapter.TestListItem test, int result) {
         // Bundle result in an intent to feed into handleLaunchTestResult
         Intent resultIntent = new Intent();
         TestResult.addResultData(resultIntent, result, test.testName, /* testDetails */ null,

@@ -25,9 +25,11 @@ import android.content.res.Resources;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.MediaPlayer.OnErrorListener;
+import android.media.MediaPlayer.OnCompletionListener;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
@@ -39,6 +41,7 @@ import android.util.Log;
 
 import java.util.HashMap;
 import java.util.Locale;
+import java.util.MissingResourceException;
 
 import static com.android.cellbroadcastreceiver.CellBroadcastReceiver.DBG;
 
@@ -61,9 +64,14 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
     public static final String ALERT_AUDIO_MESSAGE_BODY =
             "com.android.cellbroadcastreceiver.ALERT_AUDIO_MESSAGE_BODY";
 
-    /** Extra for text-to-speech language (if speech enabled in settings). */
-    public static final String ALERT_AUDIO_MESSAGE_LANGUAGE =
-            "com.android.cellbroadcastreceiver.ALERT_AUDIO_MESSAGE_LANGUAGE";
+    /** Extra for text-to-speech preferred language (if speech enabled in settings). */
+    public static final String ALERT_AUDIO_MESSAGE_PREFERRED_LANGUAGE =
+            "com.android.cellbroadcastreceiver.ALERT_AUDIO_MESSAGE_PREFERRED_LANGUAGE";
+
+    /** Extra for text-to-speech default language when preferred language is
+        not available (if speech enabled in settings). */
+    public static final String ALERT_AUDIO_MESSAGE_DEFAULT_LANGUAGE =
+            "com.android.cellbroadcastreceiver.ALERT_AUDIO_MESSAGE_DEFAULT_LANGUAGE";
 
     /** Extra for alert audio vibration enabled (from settings). */
     public static final String ALERT_AUDIO_VIBRATE_EXTRA =
@@ -77,6 +85,9 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
 
     /** Pause duration between alert sound and alert speech. */
     private static final int PAUSE_DURATION_BEFORE_SPEAKING_MSEC = 1000;
+
+    /** Duration of a CMAS alert. */
+    private static final int CMAS_DURATION_MSEC = 10500;
 
     /** Vibration uses the same on/off pattern as the CMAS alert tone */
     private static final long[] sVibratePattern = { 0, 2000, 500, 1000, 500, 1000, 500,
@@ -93,7 +104,8 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
     private boolean mTtsEngineReady;
 
     private String mMessageBody;
-    private String mMessageLanguage;
+    private String mMessagePreferredLanguage;
+    private String mMessageDefaultLanguage;
     private boolean mTtsLanguageSupported;
     private boolean mEnableVibrate;
     private boolean mEnableAudio;
@@ -122,6 +134,9 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                                 PAUSE_DURATION_BEFORE_SPEAKING_MSEC);
                         mState = STATE_PAUSING;
                     } else {
+                        if (DBG) log("MessageEmpty = " + (mMessageBody == null) +
+                                ", mTtsEngineReady = " + mTtsEngineReady +
+                                ", mTtsLanguageSupported = " + mTtsLanguageSupported);
                         stopSelf();
                         mState = STATE_IDLE;
                     }
@@ -132,10 +147,16 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                     int res = TextToSpeech.ERROR;
                     if (mMessageBody != null && mTtsEngineReady && mTtsLanguageSupported) {
                         if (DBG) log("Speaking broadcast text: " + mMessageBody);
-                        HashMap<String, String> ttsHashMap = new HashMap<String, String>();
-                        ttsHashMap.put(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID,
-                                TTS_UTTERANCE_ID);
-                        res = mTts.speak(mMessageBody, TextToSpeech.QUEUE_FLUSH, ttsHashMap);
+
+                        Bundle params = new Bundle();
+                        // Play TTS in notification stream.
+                        params.putInt(TextToSpeech.Engine.KEY_PARAM_STREAM,
+                                AudioManager.STREAM_NOTIFICATION);
+                        // Use the non-public parameter 2 --> TextToSpeech.QUEUE_DESTROY for TTS.
+                        // The entire playback queue is purged. This is different from QUEUE_FLUSH
+                        // in that all entries are purged, not just entries from a given caller.
+                        // This is for emergency so we want to kill all other TTS sessions.
+                        res = mTts.speak(mMessageBody, 2, params, TTS_UTTERANCE_ID);
                         mState = STATE_SPEAKING;
                     }
                     if (res != TextToSpeech.SUCCESS) {
@@ -182,20 +203,34 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
     }
 
     /**
-     * Try to set the TTS engine language to the value of mMessageLanguage.
-     * mTtsLanguageSupported will be updated based on the response.
+     * Try to set the TTS engine language to the preferred language. If failed, set
+     * it to the default language. mTtsLanguageSupported will be updated based on the response.
      */
     private void setTtsLanguage() {
-        if (mMessageLanguage != null) {
-            if (DBG) log("Setting TTS language to '" + mMessageLanguage + '\'');
-            int result = mTts.setLanguage(new Locale(mMessageLanguage));
-            // success values are >= 0, failure returns negative value
+
+        String language = mMessagePreferredLanguage;
+        if (language == null || language.isEmpty() ||
+                TextToSpeech.LANG_AVAILABLE != mTts.isLanguageAvailable(new Locale(language))) {
+            language = mMessageDefaultLanguage;
+            if (language == null || language.isEmpty() ||
+                    TextToSpeech.LANG_AVAILABLE != mTts.isLanguageAvailable(new Locale(language))) {
+                mTtsLanguageSupported = false;
+                return;
+            }
+            if (DBG) log("Language '" + mMessagePreferredLanguage + "' is not available, using" +
+                    "the default language '" + mMessageDefaultLanguage + "'");
+        }
+
+        if (DBG) log("Setting TTS language to '" + language + '\'');
+
+        try {
+            int result = mTts.setLanguage(new Locale(language));
             if (DBG) log("TTS setLanguage() returned: " + result);
-            mTtsLanguageSupported = result >= 0;
-        } else {
-            // try to use the default TTS language for broadcasts with no language specified
-            if (DBG) log("No language specified in broadcast: using default");
-            mTtsLanguageSupported = true;
+            mTtsLanguageSupported = (result == TextToSpeech.LANG_AVAILABLE);
+        }
+        catch (MissingResourceException e) {
+            mTtsLanguageSupported = false;
+            loge("Language '" + language + "' is not available.");
         }
     }
 
@@ -206,7 +241,11 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
     @Override
     public void onUtteranceCompleted(String utteranceId) {
         if (utteranceId.equals(TTS_UTTERANCE_ID)) {
-            stopSelf();
+            // When we reach here, it could be TTS completed or TTS was cut due to another
+            // new alert started playing. We don't want to stop the service in the later case.
+            if (mState == STATE_SPEAKING) {
+                stopSelf();
+            }
         }
     }
 
@@ -236,6 +275,12 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                 loge("exception trying to shutdown text-to-speech");
             }
         }
+        if (mEnableAudio) {
+            // Release the audio focus so other audio (e.g. music) can resume.
+            // Do not do this in stop() because stop() is also called when we stop the tone (before
+            // TTS is playing). We only want to release the focus when tone and TTS are played.
+            mAudioManager.abandonAudioFocus(null);
+        }
         // release CPU wake lock acquired by CellBroadcastAlertService
         CellBroadcastAlertWakeLock.releaseCpuLock();
     }
@@ -255,11 +300,13 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
 
         // This extra should always be provided by CellBroadcastAlertService,
         // but default to 10.5 seconds just to be safe (CMAS requirement).
-        int duration = intent.getIntExtra(ALERT_AUDIO_DURATION_EXTRA, 10500);
+        int duration = intent.getIntExtra(ALERT_AUDIO_DURATION_EXTRA, CMAS_DURATION_MSEC);
+        if (DBG) log("Duration: " + duration);
 
         // Get text to speak (if enabled by user)
         mMessageBody = intent.getStringExtra(ALERT_AUDIO_MESSAGE_BODY);
-        mMessageLanguage = intent.getStringExtra(ALERT_AUDIO_MESSAGE_LANGUAGE);
+        mMessagePreferredLanguage = intent.getStringExtra(ALERT_AUDIO_MESSAGE_PREFERRED_LANGUAGE);
+        mMessageDefaultLanguage = intent.getStringExtra(ALERT_AUDIO_MESSAGE_DEFAULT_LANGUAGE);
 
         mEnableVibrate = intent.getBooleanExtra(ALERT_AUDIO_VIBRATE_EXTRA, true);
         if (intent.getBooleanExtra(ALERT_AUDIO_ETWS_VIBRATE_EXTRA, false)) {
@@ -338,6 +385,14 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                 }
             });
 
+            mMediaPlayer.setOnCompletionListener(new OnCompletionListener() {
+                public void onCompletion(MediaPlayer mp) {
+                    if (DBG) log("Audio playback complete.");
+                    mHandler.sendMessage(mHandler.obtainMessage(ALERT_SOUND_FINISHED));
+                    return;
+                }
+            });
+
             try {
                 // Check if we are in a call. If we are, play the alert
                 // sound at a low volume to not disrupt the call.
@@ -352,22 +407,28 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                         R.raw.attention_signal);
                 mAudioManager.requestAudioFocus(null, AudioManager.STREAM_NOTIFICATION,
                         AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
-                startAlarm(mMediaPlayer);
+                // if the duration isn't equal to one play of the full 10.5s file then play
+                // with looping enabled.
+                startAlarm(mMediaPlayer, duration != CMAS_DURATION_MSEC);
             } catch (Exception ex) {
                 loge("Failed to play alert sound: " + ex);
             }
         }
 
-        // stop alert after the specified duration
-        mHandler.sendMessageDelayed(mHandler.obtainMessage(ALERT_SOUND_FINISHED), duration);
+        // stop alert after the specified duration, unless we are playing the full 10.5s file once
+        // in which case we'll use the end of playback callback rather than a delayed message.
+        // This is to avoid the CMAS alert potentially being truncated due to audio playback lag.
+        if (duration != CMAS_DURATION_MSEC) {
+            mHandler.sendMessageDelayed(mHandler.obtainMessage(ALERT_SOUND_FINISHED), duration);
+        }
         mState = STATE_ALERTING;
     }
 
     // Do the common stuff when starting the alarm.
-    private static void startAlarm(MediaPlayer player)
+    private static void startAlarm(MediaPlayer player, boolean looping)
             throws java.io.IOException, IllegalArgumentException, IllegalStateException {
         player.setAudioStreamType(AudioManager.STREAM_NOTIFICATION);
-        player.setLooping(true);
+        player.setLooping(looping);
         player.prepare();
         player.start();
     }
@@ -435,7 +496,6 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                 loge("exception trying to stop text-to-speech");
             }
         }
-        mAudioManager.abandonAudioFocus(null);
         mState = STATE_IDLE;
     }
 

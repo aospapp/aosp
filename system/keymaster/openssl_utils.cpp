@@ -22,6 +22,52 @@
 
 namespace keymaster {
 
+keymaster_error_t ec_get_group_size(const EC_GROUP* group, size_t* key_size_bits) {
+    switch (EC_GROUP_get_curve_name(group)) {
+    case NID_secp224r1:
+        *key_size_bits = 224;
+        break;
+    case NID_X9_62_prime256v1:
+        *key_size_bits = 256;
+        break;
+    case NID_secp384r1:
+        *key_size_bits = 384;
+        break;
+    case NID_secp521r1:
+        *key_size_bits = 521;
+        break;
+    default:
+        return KM_ERROR_UNSUPPORTED_EC_FIELD;
+    }
+    return KM_ERROR_OK;
+}
+
+EC_GROUP* ec_get_group(keymaster_ec_curve_t curve) {
+    switch (curve) {
+    case KM_EC_CURVE_P_224:
+        return EC_GROUP_new_by_curve_name(NID_secp224r1);
+        break;
+    case KM_EC_CURVE_P_256:
+        return EC_GROUP_new_by_curve_name(NID_X9_62_prime256v1);
+        break;
+    case KM_EC_CURVE_P_384:
+        return EC_GROUP_new_by_curve_name(NID_secp384r1);
+        break;
+    case KM_EC_CURVE_P_521:
+        return EC_GROUP_new_by_curve_name(NID_secp521r1);
+        break;
+    default:
+        return nullptr;
+        break;
+    }
+}
+
+void convert_bn_to_blob(BIGNUM* bn, keymaster_blob_t* blob) {
+    blob->data_length = BN_num_bytes(bn);
+    blob->data = new uint8_t[blob->data_length];
+    BN_bn2bin(bn, const_cast<uint8_t*>(blob->data));
+}
+
 static int convert_to_evp(keymaster_algorithm_t algorithm) {
     switch (algorithm) {
     case KM_ALGORITHM_RSA:
@@ -80,6 +126,17 @@ keymaster_error_t EvpKeyToKeyMaterial(const EVP_PKEY* pkey, KeymasterKeyBlob* ke
     i2d_PrivateKey(pkey, &tmp);
 
     return KM_ERROR_OK;
+}
+
+size_t ec_group_size_bits(EC_KEY* ec_key) {
+    const EC_GROUP* group = EC_KEY_get0_group(ec_key);
+    UniquePtr<BN_CTX, BN_CTX_Delete> bn_ctx(BN_CTX_new());
+    UniquePtr<BIGNUM, BIGNUM_Delete> order(BN_new());
+    if (!EC_GROUP_get_order(group, order.get(), bn_ctx.get())) {
+        LOG_E("Failed to get EC group order", 0);
+        return 0;
+    }
+    return BN_num_bits(order.get());
 }
 
 }  // namespace keymaster

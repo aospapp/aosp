@@ -15,7 +15,9 @@
  */
 
 #define LOG_TAG "InputHub"
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
+
+#include "InputHub.h"
 
 #include <dirent.h>
 #include <errno.h>
@@ -33,13 +35,13 @@
 
 #include <vector>
 
-#include "InputHub.h"
-
 #include <android/input.h>
 #include <hardware_legacy/power.h>
 #include <linux/input.h>
 
 #include <utils/Log.h>
+
+#include "BitUtils.h"
 
 namespace android {
 
@@ -74,7 +76,6 @@ static bool processHasCapability(int capability) {
     caphdr->version = _LINUX_CAPABILITY_VERSION_3;
     LOG_ALWAYS_FATAL_IF(capget(caphdr, capdata) != 0,
             "Could not get process capabilities. errno=%d", errno);
-    ALOGV("effective capabilities: %08x %08x", capdata[0].effective, capdata[1].effective);
     int idx = CAP_TO_INDEX(capability);
     return capdata[idx].effective & CAP_TO_MASK(capability);
 }
@@ -102,16 +103,20 @@ public:
     virtual uint16_t getVersion() const override { return mVersion; }
 
     virtual bool hasKey(int32_t key) const override;
-    virtual bool hasRelativeAxis(int axis) const override;
-    virtual const AbsoluteAxisInfo* getAbsoluteAxisInfo(int32_t axis) const override;
+    virtual bool hasKeyInRange(int32_t start, int32_t end) const override;
+    virtual bool hasRelativeAxis(int32_t axis) const override;
+    virtual bool hasAbsoluteAxis(int32_t axis) const override;
+    virtual bool hasSwitch(int32_t sw) const override;
+    virtual bool hasForceFeedback(int32_t ff) const override;
     virtual bool hasInputProperty(int property) const override;
 
     virtual int32_t getKeyState(int32_t key) const override;
     virtual int32_t getSwitchState(int32_t sw) const override;
+    virtual const AbsoluteAxisInfo* getAbsoluteAxisInfo(int32_t axis) const override;
     virtual status_t getAbsoluteAxisValue(int32_t axis, int32_t* outValue) const override;
 
     virtual void vibrate(nsecs_t duration) override;
-    virtual void cancelVibrate(int32_t deviceId) override;
+    virtual void cancelVibrate() override;
 
     virtual void disableDriverKeyRepeat() override;
 
@@ -272,9 +277,20 @@ bool EvdevDeviceNode::hasKey(int32_t key) const {
     return false;
 }
 
+bool EvdevDeviceNode::hasKeyInRange(int32_t startKey, int32_t endKey) const {
+    return testBitInRange(mKeyBitmask, startKey, endKey);
+}
+
 bool EvdevDeviceNode::hasRelativeAxis(int axis) const {
     if (axis >= 0 && axis <= REL_MAX) {
         return testBit(axis, mRelBitmask);
+    }
+    return false;
+}
+
+bool EvdevDeviceNode::hasAbsoluteAxis(int axis) const {
+    if (axis >= 0 && axis <= ABS_MAX) {
+        return getAbsoluteAxisInfo(axis) != nullptr;
     }
     return false;
 }
@@ -289,6 +305,20 @@ const AbsoluteAxisInfo* EvdevDeviceNode::getAbsoluteAxisInfo(int32_t axis) const
         return absInfo->second.get();
     }
     return nullptr;
+}
+
+bool EvdevDeviceNode::hasSwitch(int32_t sw) const {
+    if (sw >= 0 && sw <= SW_MAX) {
+        return testBit(sw, mSwBitmask);
+    }
+    return false;
+}
+
+bool EvdevDeviceNode::hasForceFeedback(int32_t ff) const {
+    if (ff >= 0 && ff <= FF_MAX) {
+        return testBit(ff, mFfBitmask);
+    }
+    return false;
 }
 
 bool EvdevDeviceNode::hasInputProperty(int property) const {
@@ -371,7 +401,7 @@ void EvdevDeviceNode::vibrate(nsecs_t duration) {
     mFfEffectPlaying = true;
 }
 
-void EvdevDeviceNode::cancelVibrate(int32_t deviceId) {
+void EvdevDeviceNode::cancelVibrate() {
     if (mFfEffectPlaying) {
         mFfEffectPlaying = false;
 
@@ -396,7 +426,7 @@ void EvdevDeviceNode::disableDriverKeyRepeat() {
     }
 }
 
-InputHub::InputHub(std::shared_ptr<InputCallbackInterface> cb) :
+InputHub::InputHub(const std::shared_ptr<InputCallbackInterface>& cb) :
     mInputCallback(cb) {
     // Determine the type of suspend blocking we can do on this device. There
     // are 3 options, in decreasing order of preference:
@@ -670,9 +700,8 @@ status_t InputHub::readNotify() {
             ALOGV("inotify event for path %s", path.c_str());
 
             if (event->mask & IN_CREATE) {
-                std::shared_ptr<InputDeviceNode> deviceNode;
-                status_t res = openNode(path, &deviceNode);
-                if (res != OK) {
+                auto deviceNode = openNode(path);
+                if (deviceNode == nullptr) {
                     ALOGE("could not open device node %s. err=%d", path.c_str(), res);
                 } else {
                     mInputCallback->onDeviceAdded(deviceNode);
@@ -680,7 +709,7 @@ status_t InputHub::readNotify() {
             } else {
                 auto deviceNode = findNodeByPath(path);
                 if (deviceNode != nullptr) {
-                    status_t ret = closeNode(deviceNode);
+                    status_t ret = closeNode(deviceNode.get());
                     if (ret != OK) {
                         ALOGW("Could not close device %s. errno=%d", path.c_str(), ret);
                     } else {
@@ -712,8 +741,8 @@ status_t InputHub::scanDir(const std::string& path) {
             continue;
         }
         std::string filename = path + "/" + dirent->d_name;
-        std::shared_ptr<InputDeviceNode> node;
-        if (openNode(filename, &node) != OK) {
+        auto node = openNode(filename);
+        if (node == nullptr) {
             ALOGE("could not open device node %s", filename.c_str());
         } else {
             mInputCallback->onDeviceAdded(node);
@@ -723,18 +752,16 @@ status_t InputHub::scanDir(const std::string& path) {
     return OK;
 }
 
-status_t InputHub::openNode(const std::string& path,
-        std::shared_ptr<InputDeviceNode>* outNode) {
+std::shared_ptr<InputDeviceNode> InputHub::openNode(const std::string& path) {
     ALOGV("opening %s...", path.c_str());
     auto evdevNode = std::shared_ptr<EvdevDeviceNode>(EvdevDeviceNode::openDeviceNode(path));
     if (evdevNode == nullptr) {
-        return UNKNOWN_ERROR;
+        return nullptr;
     }
 
     auto fd = evdevNode->getFd();
     ALOGV("opened %s with fd %d", path.c_str(), fd);
-    *outNode = std::static_pointer_cast<InputDeviceNode>(evdevNode);
-    mDeviceNodes[fd] = *outNode;
+    mDeviceNodes[fd] = evdevNode;
     struct epoll_event eventItem{};
     eventItem.events = EPOLLIN;
     if (mWakeupMechanism == WakeMechanism::EPOLL_WAKEUP) {
@@ -743,7 +770,7 @@ status_t InputHub::openNode(const std::string& path,
     eventItem.data.u32 = fd;
     if (epoll_ctl(mEpollFd, EPOLL_CTL_ADD, fd, &eventItem)) {
         ALOGE("Could not add device fd to epoll instance. errno=%d", errno);
-        return -errno;
+        return nullptr;
     }
 
     if (mNeedToCheckSuspendBlockIoctl) {
@@ -765,12 +792,12 @@ status_t InputHub::openNode(const std::string& path,
         mNeedToCheckSuspendBlockIoctl = false;
     }
 
-    return OK;
+    return evdevNode;
 }
 
-status_t InputHub::closeNode(const std::shared_ptr<InputDeviceNode>& node) {
+status_t InputHub::closeNode(const InputDeviceNode* node) {
     for (auto pair : mDeviceNodes) {
-        if (pair.second.get() == node.get()) {
+        if (pair.second.get() == node) {
             return closeNodeByFd(pair.first);
         }
     }

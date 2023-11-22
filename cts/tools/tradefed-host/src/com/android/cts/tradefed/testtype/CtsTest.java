@@ -16,11 +16,13 @@
 
 package com.android.cts.tradefed.testtype;
 
+import com.android.compatibility.common.util.AbiUtils;
+import com.android.compatibility.common.util.MonitoringUtils;
 import com.android.cts.tradefed.build.CtsBuildHelper;
 import com.android.cts.tradefed.device.DeviceInfoCollector;
 import com.android.cts.tradefed.result.CtsTestStatus;
 import com.android.cts.tradefed.result.PlanCreator;
-import com.android.cts.util.AbiUtils;
+import com.android.cts.tradefed.util.ReportLogUtil;
 import com.android.ddmlib.Log;
 import com.android.ddmlib.Log.LogLevel;
 import com.android.ddmlib.testrunner.TestIdentifier;
@@ -30,6 +32,7 @@ import com.android.tradefed.config.Option;
 import com.android.tradefed.config.Option.Importance;
 import com.android.tradefed.config.OptionCopier;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.device.DeviceUnresponsiveException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.TestDeviceOptions;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -56,10 +59,13 @@ import com.android.tradefed.util.xml.AbstractXmlParser.ParseException;
 import junit.framework.Test;
 
 import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -198,6 +204,11 @@ public class CtsTest implements IDeviceTest, IResumableTest, IShardableTest, IBu
     @Option(name = "min-pre-reboot-package-count", description =
             "The minimum number of packages to require a pre test reboot")
     private int mMinPreRebootPackageCount = 2;
+
+    @Option(name = "skip-connectivity-check",
+            description = "Don't verify device connectivity between module execution.")
+    private boolean mSkipConnectivityCheck = false;
+
     private final int mShardAssignment;
     private final int mTotalShards;
     private ITestDevice mDevice = null;
@@ -509,6 +520,8 @@ public class CtsTest implements IDeviceTest, IResumableTest, IShardableTest, IBu
             // always collect the device info, even for resumed runs, since test will likely be
             // running on a different device
             collectDeviceInfo(getDevice(), mCtsBuild, listener);
+            // prepare containers to hold test metric report logs.
+            prepareReportLogContainers(getDevice(), mBuildInfo);
             preRebootIfNecessary(mTestPackageList);
 
             mPrevRebootTime = System.currentTimeMillis();
@@ -518,6 +531,10 @@ public class CtsTest implements IDeviceTest, IResumableTest, IShardableTest, IBu
                     remainingPackageCount, totalTestCount));
             IAbi currentAbi = null;
 
+            // check connectivity upfront
+            if (!mSkipConnectivityCheck) {
+                MonitoringUtils.checkDeviceConnectivity(getDevice(), listener, "start");
+            }
             for (int i = mLastTestPackageIndex; i < mTestPackageList.size(); i++) {
                 TestPackage testPackage = mTestPackageList.get(i);
 
@@ -562,9 +579,31 @@ public class CtsTest implements IDeviceTest, IResumableTest, IShardableTest, IBu
                 }
 
                 forwardPackageDetails(testPackage.getPackageDef(), listener);
-                performPackagePrepareSetup(testPackage.getPackageDef());
-                test.run(filterMap.get(testPackage.getPackageDef().getId()));
-                performPackagePreparerTearDown(testPackage.getPackageDef());
+                try {
+                    performPackagePrepareSetup(testPackage.getPackageDef());
+                    test.run(filterMap.get(testPackage.getPackageDef().getId()));
+                    performPackagePreparerTearDown(testPackage.getPackageDef());
+                } catch (DeviceUnresponsiveException due) {
+                    // being able to catch a DeviceUnresponsiveException here implies that recovery
+                    // was successful, and test execution should proceed to next module
+                    ByteArrayOutputStream stack = new ByteArrayOutputStream();
+                    due.printStackTrace(new PrintWriter(stack, true));
+                    try {
+                        stack.close();
+                    } catch (IOException ioe) {
+                        // won't happen on BAOS
+                    }
+                    CLog.w("Ignored DeviceUnresponsiveException because recovery was successful, "
+                            + "proceeding with next test package. Stack trace: %s",
+                            stack.toString());
+                    CLog.w("This may be due to incorrect timeout setting on test package %s",
+                            testPackage.getPackageDef().getName());
+                }
+                if (!mSkipConnectivityCheck) {
+                    MonitoringUtils.checkDeviceConnectivity(getDevice(), listener,
+                            String.format("%s-%s", testPackage.getPackageDef().getName(),
+                                    testPackage.getPackageDef().getAbi().getName()));
+                }
                 if (i < mTestPackageList.size() - 1) {
                     TestPackage nextPackage = mTestPackageList.get(i + 1);
                     rebootIfNecessary(testPackage, nextPackage);
@@ -584,7 +623,8 @@ public class CtsTest implements IDeviceTest, IResumableTest, IShardableTest, IBu
             }
 
             uninstallPrequisiteApks(uninstallPackages);
-
+            // Collect test metric report logs.
+            collectReportLogs(getDevice(), mBuildInfo);
         } catch (RuntimeException e) {
             CLog.e(e);
             throw e;
@@ -720,7 +760,8 @@ public class CtsTest implements IDeviceTest, IResumableTest, IShardableTest, IBu
         // Also reboot after package which is know to leave pop-up behind
         final List<String> rebootAfterList = Arrays.asList(
                 "CtsMediaTestCases",
-                "CtsAccessibilityTestCases");
+                "CtsAccessibilityTestCases",
+                "CtsAccountManagerTestCases");
         final List<String> rebootBeforeList = Arrays.asList(
                 "CtsAnimationTestCases",
                 "CtsGraphicsTestCases",
@@ -1063,6 +1104,20 @@ public class CtsTest implements IDeviceTest, IResumableTest, IShardableTest, IBu
     }
 
     /**
+     * Prepares the report log directory on host to store test metric report logs.
+     */
+    void prepareReportLogContainers(ITestDevice device, IBuildInfo buildInfo) {
+        ReportLogUtil.prepareReportLogContainers(device, buildInfo);
+    }
+
+    /**
+     * Collects the test metric report logs written out by device-side and host-side tests.
+     */
+    void collectReportLogs(ITestDevice device, IBuildInfo buildInfo) {
+        ReportLogUtil.collectReportLogs(device, buildInfo);
+    }
+
+    /**
      * Factory method for creating a {@link ITestPackageRepo}.
      * <p/>
      * Exposed for unit testing
@@ -1077,7 +1132,7 @@ public class CtsTest implements IDeviceTest, IResumableTest, IShardableTest, IBu
      * Exposed for unit testing
      */
     ITestPlan createPlan(String planName) {
-        return new TestPlan(planName, AbiUtils.getAbisSupportedByCts());
+        return new TestPlan(planName, AbiUtils.getAbisSupportedByCompatibility());
     }
 
     /**
@@ -1091,7 +1146,7 @@ public class CtsTest implements IDeviceTest, IResumableTest, IShardableTest, IBu
         String bitness = (mForceAbi == null) ? "" : mForceAbi;
         Set<String> abis = new HashSet<>();
         for (String abi : AbiFormatter.getSupportedAbis(mDevice, bitness)) {
-            if (AbiUtils.isAbiSupportedByCts(abi)) {
+            if (AbiUtils.isAbiSupportedByCompatibility(abi)) {
                 abis.add(abi);
             }
         }
@@ -1106,7 +1161,7 @@ public class CtsTest implements IDeviceTest, IResumableTest, IShardableTest, IBu
      */
     ITestPlan createPlan(PlanCreator planCreator)
             throws ConfigurationException {
-        return planCreator.createDerivedPlan(mCtsBuild, AbiUtils.getAbisSupportedByCts());
+        return planCreator.createDerivedPlan(mCtsBuild, AbiUtils.getAbisSupportedByCompatibility());
     }
 
     /**

@@ -58,7 +58,6 @@ void bcc::init::Initialize() {
   llvm::initializeVectorization(Registry);
   llvm::initializeIPO(Registry);
   llvm::initializeAnalysis(Registry);
-  llvm::initializeIPA(Registry);
   llvm::initializeTransformUtils(Registry);
   llvm::initializeInstCombine(Registry);
   llvm::initializeInstrumentation(Registry);

@@ -29,6 +29,7 @@ import android.util.Pools.SynchronizedPool;
 import com.android.internal.util.ArrayUtils;
 import com.android.internal.util.GrowingArrayUtils;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Locale;
 
@@ -341,7 +342,8 @@ public class StaticLayout extends Layout {
 
         private void setLocale(Locale locale) {
             if (!locale.equals(mLocale)) {
-                nSetLocale(mNativePtr, locale.toLanguageTag(), Hyphenator.get(locale));
+                nSetLocale(mNativePtr, locale.toLanguageTag(),
+                        Hyphenator.get(locale).getNativePtr());
                 mLocale = locale;
             }
         }
@@ -625,7 +627,9 @@ public class StaticLayout extends Layout {
 
                 chooseHt = getParagraphSpans(spanned, paraStart, paraEnd, LineHeightSpan.class);
 
-                if (chooseHt.length != 0) {
+                if (chooseHt.length == 0) {
+                    chooseHt = null; // So that out() would not assume it has any contents
+                } else {
                     if (chooseHtv == null ||
                         chooseHtv.length < chooseHt.length) {
                         chooseHtv = ArrayUtils.newUnpaddedIntArray(chooseHt.length);
@@ -679,7 +683,7 @@ public class StaticLayout extends Layout {
                 // interface.
                 int leftLen = mLeftIndents == null ? 0 : mLeftIndents.length;
                 int rightLen = mRightIndents == null ? 0 : mRightIndents.length;
-                int indentsLen = Math.max(1, Math.min(leftLen, rightLen) - mLineCount);
+                int indentsLen = Math.max(1, Math.max(leftLen, rightLen) - mLineCount);
                 int[] indents = new int[indentsLen];
                 for (int i = 0; i < indentsLen; i++) {
                     int leftMargin = mLeftIndents == null ? 0 :
@@ -750,15 +754,21 @@ public class StaticLayout extends Layout {
                                 && ellipsize != TextUtils.TruncateAt.MARQUEE));
             if (remainingLineCount > 0 && remainingLineCount < breakCount &&
                     ellipsisMayBeApplied) {
-                // Treat the last line and overflowed lines as a single line.
-                breaks[remainingLineCount - 1] = breaks[breakCount - 1];
                 // Calculate width and flag.
                 float width = 0;
                 int flag = 0;
                 for (int i = remainingLineCount - 1; i < breakCount; i++) {
-                    width += lineWidths[i];
+                    if (i == breakCount - 1) {
+                        width += lineWidths[i];
+                    } else {
+                        for (int j = (i == 0 ? 0 : breaks[i - 1]); j < breaks[i]; j++) {
+                            width += widths[j];
+                        }
+                    }
                     flag |= flags[i] & TAB_MASK;
                 }
+                // Treat the last line and overflowed lines as a single line.
+                breaks[remainingLineCount - 1] = breaks[breakCount - 1];
                 lineWidths[remainingLineCount - 1] = width;
                 flags[remainingLineCount - 1] = flag;
 
@@ -808,7 +818,7 @@ public class StaticLayout extends Layout {
 
                     v = out(source, here, endPos,
                             fmAscent, fmDescent, fmTop, fmBottom,
-                            v, spacingmult, spacingadd, chooseHt,chooseHtv, fm, flags[breakIndex],
+                            v, spacingmult, spacingadd, chooseHt, chooseHtv, fm, flags[breakIndex],
                             needMultiply, chdirs, dir, easy, bufEnd, includepad, trackpad,
                             chs, widths, paraStart, ellipsize, ellipsizedWidth,
                             lineWidths[breakIndex], paint, moreChars);
@@ -1128,22 +1138,12 @@ public class StaticLayout extends Layout {
 
     @Override
     public int getLineTop(int line) {
-        int top = mLines[mColumns * line + TOP];
-        if (mMaximumVisibleLineCount > 0 && line >= mMaximumVisibleLineCount &&
-                line != mLineCount) {
-            top += getBottomPadding();
-        }
-        return top;
+        return mLines[mColumns * line + TOP];
     }
 
     @Override
     public int getLineDescent(int line) {
-        int descent = mLines[mColumns * line + DESCENT];
-        if (mMaximumVisibleLineCount > 0 && line >= mMaximumVisibleLineCount - 1 && // -1 intended
-                line != mLineCount) {
-            descent += getBottomPadding();
-        }
-        return descent;
+        return mLines[mColumns * line + DESCENT];
     }
 
     @Override
@@ -1243,7 +1243,7 @@ public class StaticLayout extends Layout {
     private static native void nFreeBuilder(long nativePtr);
     private static native void nFinishBuilder(long nativePtr);
 
-    /* package */ static native long nLoadHyphenator(String patternData);
+    /* package */ static native long nLoadHyphenator(ByteBuffer buf, int offset);
 
     private static native void nSetLocale(long nativePtr, String locale, long nativeHyphenator);
 
@@ -1308,7 +1308,7 @@ public class StaticLayout extends Layout {
         private static final int INITIAL_SIZE = 16;
         public int[] breaks = new int[INITIAL_SIZE];
         public float[] widths = new float[INITIAL_SIZE];
-        public int[] flags = new int[INITIAL_SIZE]; // hasTabOrEmoji
+        public int[] flags = new int[INITIAL_SIZE]; // hasTab
         // breaks, widths, and flags should all have the same length
     }
 

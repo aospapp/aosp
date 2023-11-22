@@ -18,61 +18,50 @@ package com.android.phone;
 
 import android.app.Activity;
 import android.app.KeyguardManager;
-import android.app.PendingIntent;
 import android.app.ProgressDialog;
-import android.app.TaskStackBuilder;
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.IBluetoothHeadsetPhone;
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.ServiceConnection;
 import android.media.AudioManager;
+import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.os.AsyncResult;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.IBinder;
-import android.os.IPowerManager;
 import android.os.Message;
 import android.os.PersistableBundle;
 import android.os.PowerManager;
-import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.SystemClock;
 import android.os.SystemProperties;
+import android.os.SystemService;
 import android.os.UpdateLock;
-import android.os.UserHandle;
+import android.os.UserManager;
 import android.preference.PreferenceManager;
-import android.provider.Settings.System;
+import android.provider.Settings;
 import android.telephony.CarrierConfigManager;
 import android.telephony.ServiceState;
-import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.android.internal.telephony.Call;
 import com.android.internal.telephony.CallManager;
-import com.android.internal.telephony.IccCard;
 import com.android.internal.telephony.IccCardConstants;
 import com.android.internal.telephony.MmiCode;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.PhoneFactory;
-import com.android.internal.telephony.SubscriptionController;
 import com.android.internal.telephony.TelephonyCapabilities;
 import com.android.internal.telephony.TelephonyIntents;
 import com.android.phone.common.CallLogAsync;
 import com.android.phone.settings.SettingsConstants;
 import com.android.server.sip.SipService;
 import com.android.services.telephony.activation.SimActivationManager;
-
-import java.util.ArrayList;
-import java.util.List;
+import com.android.services.telephony.sip.SipUtil;
 
 /**
  * Global state for the telephony subsystem when running in the primary
@@ -109,8 +98,7 @@ public class PhoneGlobals extends ContextWrapper {
     private static final int EVENT_DATA_ROAMING_DISCONNECTED = 10;
     private static final int EVENT_DATA_ROAMING_OK = 11;
     private static final int EVENT_UNSOL_CDMA_INFO_RECORD = 12;
-    private static final int EVENT_DOCK_STATE_CHANGED = 13;
-    private static final int EVENT_START_SIP_SERVICE = 14;
+    private static final int EVENT_RESTART_SIP = 13;
 
     // The MMI codes are also used by the InCallScreen.
     public static final int MMI_INITIATE = 51;
@@ -118,6 +106,9 @@ public class PhoneGlobals extends ContextWrapper {
     public static final int MMI_CANCEL = 53;
     // Don't use message codes larger than 99 here; those are reserved for
     // the individual Activities of the Phone UI.
+
+    public static final int AIRPLANE_ON = 1;
+    public static final int AIRPLANE_OFF = 0;
 
     /**
      * Allowable values for the wake lock code.
@@ -130,14 +121,6 @@ public class PhoneGlobals extends ContextWrapper {
         PARTIAL,
         FULL
     }
-
-    /**
-     * Intent Action used for hanging up the current call from Notification bar. This will
-     * choose first ringing call, first active call, or first background call (typically in
-     * HOLDING state).
-     */
-    public static final String ACTION_HANG_UP_ONGOING_CALL =
-            "com.android.phone.ACTION_HANG_UP_ONGOING_CALL";
 
     private static PhoneGlobals sMe;
 
@@ -152,11 +135,9 @@ public class PhoneGlobals extends ContextWrapper {
     public SimActivationManager simActivationManager;
     CarrierConfigLoader configLoader;
 
-    private BluetoothManager bluetoothManager;
     private CallGatewayManager callGatewayManager;
-    private CallStateMonitor callStateMonitor;
+    private Phone phoneInEcm;
 
-    static int mDockState = Intent.EXTRA_DOCK_STATE_UNDOCKED;
     static boolean sVoiceCapable = true;
 
     // TODO: Remove, no longer used.
@@ -169,20 +150,11 @@ public class PhoneGlobals extends ContextWrapper {
     private Activity mPUKEntryActivity;
     private ProgressDialog mPUKEntryProgressDialog;
 
-    private boolean mIsSimPinEnabled;
-    private String mCachedSimPin;
-
-    // True if we are beginning a call, but the phone state has not changed yet
-    private boolean mBeginningCall;
     private boolean mDataDisconnectedDueToRoaming = false;
-
-    // Last phone state seen by updatePhoneState()
-    private PhoneConstants.State mLastPhoneState = PhoneConstants.State.IDLE;
 
     private WakeState mWakeState = WakeState.SLEEP;
 
     private PowerManager mPowerManager;
-    private IPowerManager mPowerManagerService;
     private PowerManager.WakeLock mWakeLock;
     private PowerManager.WakeLock mPartialWakeLock;
     private KeyguardManager mKeyguardManager;
@@ -191,9 +163,6 @@ public class PhoneGlobals extends ContextWrapper {
 
     // Broadcast receiver for various intent broadcasts (see onCreate())
     private final BroadcastReceiver mReceiver = new PhoneAppBroadcastReceiver();
-
-    /** boolean indicating restoring mute state on InCallScreen.onResume() */
-    private boolean mShouldRestoreMuteOnInCallResume;
 
     /**
      * The singleton OtaUtils instance used for OTASP calls.
@@ -215,28 +184,11 @@ public class PhoneGlobals extends ContextWrapper {
     public OtaUtils.CdmaOtaScreenState cdmaOtaScreenState;
     public OtaUtils.CdmaOtaInCallScreenUiState cdmaOtaInCallScreenUiState;
 
-    /**
-     * Set the restore mute state flag. Used when we are setting the mute state
-     * OUTSIDE of user interaction {@link PhoneUtils#startNewCall(Phone)}
-     */
-    /*package*/void setRestoreMuteOnInCallResume (boolean mode) {
-        mShouldRestoreMuteOnInCallResume = mode;
-    }
-
     Handler mHandler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
             PhoneConstants.State phoneState;
             switch (msg.what) {
-                // Starts the SIP service. It's a no-op if SIP API is not supported
-                // on the deivce.
-                // TODO: Having the phone process host the SIP service is only
-                // temporary. Will move it to a persistent communication process
-                // later.
-                case EVENT_START_SIP_SERVICE:
-                    SipService.start(getApplicationContext());
-                    break;
-
                 // TODO: This event should be handled by the lock screen, just
                 // like the "SIM missing" and "Sim locked" cases (bug 1804111).
                 case EVENT_SIM_NETWORK_LOCKED:
@@ -250,9 +202,7 @@ public class PhoneGlobals extends ContextWrapper {
                         // The user won't be able to do anything else until
                         // they enter a valid SIM network PIN.
                         Log.i(LOG_TAG, "show sim depersonal panel");
-                        IccNetworkDepersonalizationPanel ndpPanel =
-                                new IccNetworkDepersonalizationPanel(PhoneGlobals.getInstance());
-                        ndpPanel.show();
+                        IccNetworkDepersonalizationPanel.showDialog();
                     }
                     break;
 
@@ -294,21 +244,14 @@ public class PhoneGlobals extends ContextWrapper {
                 case EVENT_UNSOL_CDMA_INFO_RECORD:
                     //TODO: handle message here;
                     break;
-
-                case EVENT_DOCK_STATE_CHANGED:
-                    // If the phone is docked/undocked during a call, and no wired or BT headset
-                    // is connected: turn on/off the speaker accordingly.
-                    boolean inDockMode = false;
-                    if (mDockState != Intent.EXTRA_DOCK_STATE_UNDOCKED) {
-                        inDockMode = true;
-                    }
-                    if (VDBG) Log.d(LOG_TAG, "received EVENT_DOCK_STATE_CHANGED. Phone inDock = "
-                            + inDockMode);
-
-                    phoneState = mCM.getState();
-                    if (phoneState == PhoneConstants.State.OFFHOOK &&
-                            !bluetoothManager.isBluetoothHeadsetAudioOn()) {
-                        PhoneUtils.turnOnSpeaker(getApplicationContext(), inDockMode, true);
+                case EVENT_RESTART_SIP:
+                    // This should only run if the Phone process crashed and was restarted. We do
+                    // not want this running if the device is still in the FBE encrypted state.
+                    // This is the same procedure that is triggered in the SipBroadcastReceiver
+                    // upon BOOT_COMPLETED.
+                    UserManager userManager = UserManager.get(sMe);
+                    if (userManager != null && userManager.isUserUnlocked()) {
+                        SipUtil.startSipService();
                     }
                     break;
             }
@@ -352,7 +295,8 @@ public class PhoneGlobals extends ContextWrapper {
             // status bar icons and control other status bar behavior.
             notificationMgr = NotificationMgr.init(this);
 
-            mHandler.sendEmptyMessage(EVENT_START_SIP_SERVICE);
+            // If PhoneGlobals has crashed and is being restarted, then restart.
+            mHandler.sendEmptyMessage(EVENT_RESTART_SIP);
 
             // Create an instance of CdmaPhoneCallState and initialize it to IDLE
             cdmaPhoneCallState = new CdmaPhoneCallState();
@@ -366,11 +310,6 @@ public class PhoneGlobals extends ContextWrapper {
                     | PowerManager.ON_AFTER_RELEASE, LOG_TAG);
 
             mKeyguardManager = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
-
-            // get a handle to the service so that we can use it later when we
-            // want to set the poke lock.
-            mPowerManagerService = IPowerManager.Stub.asInterface(
-                    ServiceManager.getService("power"));
 
             // Get UpdateLock to suppress system-update related events (e.g. dialog show-up)
             // during phone calls.
@@ -393,12 +332,6 @@ public class PhoneGlobals extends ContextWrapper {
             // The asynchronous caching will start just after this call.
             callerInfoCache = CallerInfoCache.init(this);
 
-            // Monitors call activity from the telephony layer
-            callStateMonitor = new CallStateMonitor(mCM);
-
-            // Bluetooth manager
-            bluetoothManager = new BluetoothManager();
-
             phoneMgr = PhoneInterfaceManager.init(this, PhoneFactory.getDefaultPhone());
 
             configLoader = CarrierConfigLoader.init(this);
@@ -407,7 +340,7 @@ public class PhoneGlobals extends ContextWrapper {
             // asynchronous events from the telephony layer (like
             // launching the incoming-call UI when an incoming call comes
             // in.)
-            notifier = CallNotifier.init(this, callLogger, callStateMonitor, bluetoothManager);
+            notifier = CallNotifier.init(this);
 
             PhoneUtils.registerIccStatus(mHandler, EVENT_SIM_NETWORK_LOCKED);
 
@@ -421,7 +354,6 @@ public class PhoneGlobals extends ContextWrapper {
             IntentFilter intentFilter =
                     new IntentFilter(Intent.ACTION_AIRPLANE_MODE_CHANGED);
             intentFilter.addAction(TelephonyIntents.ACTION_ANY_DATA_CONNECTION_STATE_CHANGED);
-            intentFilter.addAction(Intent.ACTION_DOCK_EVENT);
             intentFilter.addAction(TelephonyIntents.ACTION_SIM_STATE_CHANGED);
             intentFilter.addAction(TelephonyIntents.ACTION_RADIO_TECHNOLOGY_CHANGED);
             intentFilter.addAction(TelephonyIntents.ACTION_SERVICE_STATE_CHANGED);
@@ -448,9 +380,6 @@ public class PhoneGlobals extends ContextWrapper {
 
         // XXX pre-load the SimProvider so that it's ready
         resolver.getType(Uri.parse("content://icc/adn"));
-
-        // start with the default value to set the mute state.
-        mShouldRestoreMuteOnInCallResume = false;
 
         // TODO: Register for Cdma Information Records
         // phone.registerCdmaInformationRecord(mHandler, EVENT_UNSOL_CDMA_INFO_RECORD, null);
@@ -499,42 +428,16 @@ public class PhoneGlobals extends ContextWrapper {
         return PhoneFactory.getPhone(SubscriptionManager.getPhoneId(subId));
     }
 
-    /* package */ BluetoothManager getBluetoothManager() {
-        return bluetoothManager;
-    }
-
     /* package */ CallManager getCallManager() {
         return mCM;
     }
 
     public PersistableBundle getCarrierConfig() {
-        return getCarrierConfigForSubId(SubscriptionManager.getDefaultSubId());
+        return getCarrierConfigForSubId(SubscriptionManager.getDefaultSubscriptionId());
     }
 
     public PersistableBundle getCarrierConfigForSubId(int subId) {
         return configLoader.getConfigForSubId(subId);
-    }
-
-    /**
-     * Returns PendingIntent for hanging up ongoing phone call. This will typically be used from
-     * Notification context.
-     */
-    /* package */ static PendingIntent createHangUpOngoingCallPendingIntent(Context context) {
-        Intent intent = new Intent(PhoneGlobals.ACTION_HANG_UP_ONGOING_CALL, null,
-                context, NotificationBroadcastReceiver.class);
-        return PendingIntent.getBroadcast(context, 0, intent, 0);
-    }
-
-    boolean isSimPinEnabled() {
-        return mIsSimPinEnabled;
-    }
-
-    boolean authenticateAgainstCachedSimPin(String pin) {
-        return (mCachedSimPin != null && mCachedSimPin.equals(pin));
-    }
-
-    void setCachedSimPin(String pin) {
-        mCachedSimPin = pin;
     }
 
     /**
@@ -605,10 +508,6 @@ public class PhoneGlobals extends ContextWrapper {
      */
     void setPukEntryProgressDialog(ProgressDialog dialog) {
         mPUKEntryProgressDialog = dialog;
-    }
-
-    ProgressDialog getPUKEntryProgressDialog() {
-        return mPUKEntryProgressDialog;
     }
 
     /**
@@ -716,51 +615,6 @@ public class PhoneGlobals extends ContextWrapper {
         requestWakeState(keepScreenOn ? WakeState.FULL : WakeState.SLEEP);
     }
 
-    /**
-     * Manually pokes the PowerManager's userActivity method.  Since we
-     * set the {@link WindowManager.LayoutParams#INPUT_FEATURE_DISABLE_USER_ACTIVITY}
-     * flag while the InCallScreen is active when there is no proximity sensor,
-     * we need to do this for touch events that really do count as user activity
-     * (like pressing any onscreen UI elements.)
-     */
-    /* package */ void pokeUserActivity() {
-        if (VDBG) Log.d(LOG_TAG, "pokeUserActivity()...");
-        mPowerManager.userActivity(SystemClock.uptimeMillis(), false);
-    }
-
-    /**
-     * Notifies the phone app when the phone state changes.
-     *
-     * This method will updates various states inside Phone app (e.g. update-lock state, etc.)
-     */
-    /* package */ void updatePhoneState(PhoneConstants.State state) {
-        if (state != mLastPhoneState) {
-            mLastPhoneState = state;
-
-            // Try to acquire or release UpdateLock.
-            //
-            // Watch out: we don't release the lock here when the screen is still in foreground.
-            // At that time InCallScreen will release it on onPause().
-            if (state != PhoneConstants.State.IDLE) {
-                // UpdateLock is a recursive lock, while we may get "acquire" request twice and
-                // "release" request once for a single call (RINGING + OFFHOOK and IDLE).
-                // We need to manually ensure the lock is just acquired once for each (and this
-                // will prevent other possible buggy situations too).
-                if (!mUpdateLock.isHeld()) {
-                    mUpdateLock.acquire();
-                }
-            } else {
-                if (mUpdateLock.isHeld()) {
-                    mUpdateLock.release();
-                }
-            }
-        }
-    }
-
-    /* package */ PhoneConstants.State getPhoneState() {
-        return mLastPhoneState;
-    }
-
     KeyguardManager getKeyguardManager() {
         return mKeyguardManager;
     }
@@ -781,15 +635,25 @@ public class PhoneGlobals extends ContextWrapper {
         }
 
         notifier.updateCallNotifierRegistrationsAfterRadioTechnologyChange();
-        callStateMonitor.updateAfterRadioTechnologyChange();
+    }
 
-        // Update registration for ICC status after radio technology change
-        IccCard sim = phone == null ? null : phone.getIccCard();
-        if (sim != null) {
-            if (DBG) Log.d(LOG_TAG, "Update registration for ICC status...");
-
-            //Register all events new to the new active phone
-            sim.registerForNetworkLocked(mHandler, EVENT_SIM_NETWORK_LOCKED, null);
+    private void handleAirplaneModeChange(int newMode) {
+        if (newMode == AIRPLANE_ON) {
+            // If we are trying to turn off the radio, make sure there are no active
+            // emergency calls.  If there are, switch airplane mode back to off.
+            if (PhoneUtils.isInEmergencyCall(mCM)) {
+                // Switch airplane mode back to off.
+                ConnectivityManager.from(this).setAirplaneMode(false);
+                Toast.makeText(this, R.string.radio_off_during_emergency_call, Toast.LENGTH_LONG)
+                        .show();
+                Log.i(LOG_TAG, "Ignoring airplane mode: emergency call. Turning airplane off");
+            } else {
+                Log.i(LOG_TAG, "Turning radio off - airplane");
+                PhoneUtils.setRadioPower(false);
+            }
+        } else {
+            Log.i(LOG_TAG, "Turning radio on - airplane");
+            PhoneUtils.setRadioPower(true);
         }
     }
 
@@ -801,9 +665,13 @@ public class PhoneGlobals extends ContextWrapper {
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             if (action.equals(Intent.ACTION_AIRPLANE_MODE_CHANGED)) {
-                boolean enabled = System.getInt(getContentResolver(),
-                        System.AIRPLANE_MODE_ON, 0) == 0;
-                PhoneUtils.setRadioPower(enabled);
+                int airplaneMode = Settings.Global.getInt(getContentResolver(),
+                        Settings.Global.AIRPLANE_MODE_ON, AIRPLANE_OFF);
+                // Treat any non-OFF values as ON.
+                if (airplaneMode != AIRPLANE_OFF) {
+                    airplaneMode = AIRPLANE_ON;
+                }
+                handleAirplaneModeChange(airplaneMode);
             } else if (action.equals(TelephonyIntents.ACTION_ANY_DATA_CONNECTION_STATE_CHANGED)) {
                 int subId = intent.getIntExtra(PhoneConstants.SUBSCRIPTION_KEY,
                         SubscriptionManager.INVALID_SUBSCRIPTION_ID);
@@ -851,48 +719,29 @@ public class PhoneGlobals extends ContextWrapper {
             } else if (action.equals(TelephonyIntents.ACTION_SERVICE_STATE_CHANGED)) {
                 handleServiceStateChanged(intent);
             } else if (action.equals(TelephonyIntents.ACTION_EMERGENCY_CALLBACK_MODE_CHANGED)) {
-                if (TelephonyCapabilities.supportsEcm(mCM.getFgPhone())) {
-                    Log.d(LOG_TAG, "Emergency Callback Mode arrived in PhoneApp.");
-                    // Start Emergency Callback Mode service
-                    if (intent.getBooleanExtra("phoneinECMState", false)) {
-                        context.startService(new Intent(context,
-                                EmergencyCallbackModeService.class));
+                int phoneId = intent.getIntExtra(PhoneConstants.PHONE_KEY, 0);
+                phoneInEcm = getPhone(phoneId);
+                Log.d(LOG_TAG, "Emergency Callback Mode. phoneId:" + phoneId);
+                if (phoneInEcm != null) {
+                    if (TelephonyCapabilities.supportsEcm(phoneInEcm)) {
+                        Log.d(LOG_TAG, "Emergency Callback Mode arrived in PhoneApp.");
+                        // Start Emergency Callback Mode service
+                        if (intent.getBooleanExtra("phoneinECMState", false)) {
+                            context.startService(new Intent(context,
+                                    EmergencyCallbackModeService.class));
+                        } else {
+                            phoneInEcm = null;
+                        }
+                    } else {
+                        // It doesn't make sense to get ACTION_EMERGENCY_CALLBACK_MODE_CHANGED
+                        // on a device that doesn't support ECM in the first place.
+                        Log.e(LOG_TAG, "Got ACTION_EMERGENCY_CALLBACK_MODE_CHANGED, but "
+                                + "ECM isn't supported for phone: " + phoneInEcm.getPhoneName());
+                        phoneInEcm = null;
                     }
                 } else {
-                    // It doesn't make sense to get ACTION_EMERGENCY_CALLBACK_MODE_CHANGED
-                    // on a device that doesn't support ECM in the first place.
-                    Log.e(LOG_TAG, "Got ACTION_EMERGENCY_CALLBACK_MODE_CHANGED, "
-                            + "but ECM isn't supported for phone: "
-                            + mCM.getFgPhone().getPhoneName());
+                    Log.w(LOG_TAG, "phoneInEcm is null.");
                 }
-            } else if (action.equals(Intent.ACTION_DOCK_EVENT)) {
-                mDockState = intent.getIntExtra(Intent.EXTRA_DOCK_STATE,
-                        Intent.EXTRA_DOCK_STATE_UNDOCKED);
-                if (VDBG) Log.d(LOG_TAG, "ACTION_DOCK_EVENT -> mDockState = " + mDockState);
-                mHandler.sendMessage(mHandler.obtainMessage(EVENT_DOCK_STATE_CHANGED, 0));
-            }
-        }
-    }
-
-    /**
-     * Accepts broadcast Intents which will be prepared by {@link NotificationMgr} and thus
-     * sent from framework's notification mechanism (which is outside Phone context).
-     * This should be visible from outside, but shouldn't be in "exported" state.
-     *
-     * TODO: If possible merge this into PhoneAppBroadcastReceiver.
-     */
-    public static class NotificationBroadcastReceiver extends BroadcastReceiver {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            // TODO: use "if (VDBG)" here.
-            Log.d(LOG_TAG, "Broadcast from Notification: " + action);
-
-            if (action.equals(ACTION_HANG_UP_ONGOING_CALL)) {
-                PhoneUtils.hangup(PhoneGlobals.getInstance().mCM);
-            } else {
-                Log.w(LOG_TAG, "Received hang-up request from notification,"
-                        + " but there's no call the system can hang up.");
             }
         }
     }
@@ -916,18 +765,6 @@ public class PhoneGlobals extends ContextWrapper {
         }
     }
 
-    public boolean isOtaCallInActiveState() {
-        boolean otaCallActive = false;
-        if (VDBG) Log.d(LOG_TAG, "- isOtaCallInActiveState " + otaCallActive);
-        return otaCallActive;
-    }
-
-    public boolean isOtaCallInEndState() {
-        boolean otaCallEnded = false;
-        if (VDBG) Log.d(LOG_TAG, "- isOtaCallInEndState " + otaCallEnded);
-        return otaCallEnded;
-    }
-
     // it is safe to call clearOtaState() even if the InCallScreen isn't active
     public void clearOtaState() {
         if (DBG) Log.d(LOG_TAG, "- clearOtaState ...");
@@ -944,6 +781,10 @@ public class PhoneGlobals extends ContextWrapper {
             otaUtils.dismissAllOtaDialogs();
             if (DBG) Log.d(LOG_TAG, "  - dismissOtaDialogs clears OTA dialogs");
         }
+    }
+
+    public Phone getPhoneInEcm() {
+        return phoneInEcm;
     }
 
     /**
@@ -963,22 +804,4 @@ public class PhoneGlobals extends ContextWrapper {
     public void clearMwiIndicator(int subId) {
         notificationMgr.updateMwi(subId, false);
     }
-
-    /**
-     * "Call origin" may be used by Contacts app to specify where the phone call comes from.
-     * Currently, the only permitted value for this extra is {@link #ALLOWED_EXTRA_CALL_ORIGIN}.
-     * Any other value will be ignored, to make sure that malicious apps can't trick the in-call
-     * UI into launching some random other app after a call ends.
-     *
-     * TODO: make this more generic. Note that we should let the "origin" specify its package
-     * while we are now assuming it is "com.android.contacts"
-     */
-    public static final String EXTRA_CALL_ORIGIN = "com.android.phone.CALL_ORIGIN";
-    private static final String DEFAULT_CALL_ORIGIN_PACKAGE = "com.android.dialer";
-    private static final String ALLOWED_EXTRA_CALL_ORIGIN =
-            "com.android.dialer.DialtactsActivity";
-    /**
-     * Used to determine if the preserved call origin is fresh enough.
-     */
-    private static final long CALL_ORIGIN_EXPIRATION_MILLIS = 30 * 1000;
 }

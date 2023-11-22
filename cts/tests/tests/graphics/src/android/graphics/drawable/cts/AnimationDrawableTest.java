@@ -16,7 +16,7 @@
 
 package android.graphics.drawable.cts;
 
-import com.android.cts.graphics.R;
+import android.graphics.cts.R;
 
 
 import org.xmlpull.v1.XmlPullParser;
@@ -50,7 +50,7 @@ public class AnimationDrawableTest extends ActivityInstrumentationTestCase2<Imag
     private Resources mResources;
 
     public AnimationDrawableTest() {
-        super("com.android.cts.graphics", ImageViewCtsActivity.class);
+        super("android.graphics.cts", ImageViewCtsActivity.class);
     }
 
     @Override
@@ -153,8 +153,22 @@ public class AnimationDrawableTest extends ActivityInstrumentationTestCase2<Imag
         assertStoppedAnimation(THIRD_FRAME_INDEX, THIRD_FRAME_DURATION);
     }
 
-    public void testRun() {
-        // This method should not be called directly.
+    public void testRun() throws Throwable {
+        assertFalse(mAnimationDrawable.isRunning());
+        runTestOnUiThread(new Runnable() {
+            public void run() {
+                mAnimationDrawable.run();
+            }
+        });
+
+        assertTrue(mAnimationDrawable.isRunning());
+        pollingCheckDrawable(SECOND_FRAME_INDEX, FIRST_FRAME_DURATION);
+
+        runTestOnUiThread(new Runnable() {
+            public void run() {
+                mAnimationDrawable.unscheduleSelf(mAnimationDrawable);
+            }
+        });
     }
 
     public void testUnscheduleSelf() throws Throwable {
@@ -274,6 +288,23 @@ public class AnimationDrawableTest extends ActivityInstrumentationTestCase2<Imag
         pollingCheckDrawable(SECOND_FRAME_INDEX, FIRST_FRAME_DURATION);
         pollingCheckDrawable(THIRD_FRAME_INDEX, SECOND_FRAME_DURATION);
         // do not repeat
+        assertStoppedAnimation(THIRD_FRAME_INDEX, THIRD_FRAME_DURATION);
+        runTestOnUiThread(new Runnable() {
+            public void run() {
+                // Set visible to false and restart to false
+                mAnimationDrawable.setVisible(false, false);
+            }
+        });
+        // Check that animation drawable stays on the same frame
+        assertStoppedAnimation(THIRD_FRAME_INDEX, THIRD_FRAME_DURATION);
+
+        runTestOnUiThread(new Runnable() {
+            public void run() {
+                // Set visible to true and restart to false
+                mAnimationDrawable.setVisible(true, false);
+            }
+        });
+        // Check that animation drawable stays on the same frame
         assertStoppedAnimation(THIRD_FRAME_INDEX, THIRD_FRAME_DURATION);
     }
 

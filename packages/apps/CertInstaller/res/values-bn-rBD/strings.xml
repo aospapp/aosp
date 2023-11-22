@@ -34,7 +34,6 @@
     <string name="password_empty_error" msgid="591713406761723025">"পাসওয়ার্ডটি টাইপ করুন৷"</string>
     <string name="name_empty_error" msgid="3808800768660110354">"একটি নাম টাইপ করুন৷"</string>
     <string name="name_char_error" msgid="3176618568784938968">"এমন একটি নাম লিখুন যাতে কেবলমাত্র অক্ষর ও সংখ্যা থাকবে৷"</string>
-    <string name="storage_error" msgid="8306802455802770779">"শংসাপত্রটির সংরক্ষণ করা যায়নি৷ আবার চেষ্টা করতে \'ওকে\' স্পর্শ করুন৷"</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"শংসাপত্রটির সংরক্ষণ করা যায়নি৷ প্রমাণপত্রের সংগ্রহস্থল সক্ষম করা নেই অথবা যথাযথভাবে শুরু করা হয়নি৷"</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"শংসাপত্র ইনস্টল করা হয়নি৷"</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"ইনস্টল করার জন্য কোনো শংসাপত্র নেই৷"</string>
@@ -51,9 +50,9 @@
     <string name="credential_usage_label" msgid="1513892208033156805">"প্রমাণপত্রাদির ব্যবহার:"</string>
   <string-array name="credential_usage">
     <item msgid="375085478373011304">"VPN এবং অ্যাপ্লিকেশানগুলি"</item>
-    <item msgid="692322974985472861">"Wi-Fi"</item>
+    <item msgid="692322974985472861">"ওয়াই-ফাই"</item>
   </string-array>
-    <string name="wifi_title" msgid="8475811746333426489">"Wi-Fi প্রোফাইল"</string>
+    <string name="wifi_title" msgid="8475811746333426489">"ওয়াই-ফাই প্রোফাইল"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"%s এর বিশদ বিবরণ"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"বিশদ বিবরণ"</string>
     <string name="wifi_install_label" msgid="1449629407724323233">"ইনস্টল করুন"</string>
@@ -67,12 +66,12 @@
     <string name="wifi_sim_config_text" msgid="1666019954520831840">"SIM: %s\n"</string>
     <string name="wifi_trust_config_text" msgid="5916047381475747783">"ট্রাস্টের শংসাপত্র:\n%s\n"</string>
     <string name="install_done_title" msgid="4822989918460334497">"শংসাপত্রগুলি ইনস্টল করা হয়েছে"</string>
-    <string name="install_done" msgid="1522718684172097080">"Wi-Fi এর সংরক্ষিত নেটওয়ার্কগুলিতে <xliff:g id="NAME">%1$s</xliff:g> শংসাপত্রগুলি সংরক্ষণ করা হয়েছে৷"</string>
+    <string name="install_done" msgid="1522718684172097080">"ওয়াই-ফাই এর সংরক্ষিত নেটওয়ার্কগুলিতে <xliff:g id="NAME">%1$s</xliff:g> শংসাপত্রগুলি সংরক্ষণ করা হয়েছে৷"</string>
     <string name="done_label" msgid="5597425930652904250">"সম্পন্ন"</string>
-    <string name="wifi_installer_detail" msgid="63879632832701669">"<xliff:g id="NAME">%1$s</xliff:g> এর মাধ্যমে উপলব্ধ নেটওয়ার্কেগুলিতে সংযুক্ত করতে Wi-Fi শংসাপত্রগুলি ইনস্টল করুন৷"</string>
+    <string name="wifi_installer_detail" msgid="63879632832701669">"<xliff:g id="NAME">%1$s</xliff:g> এর মাধ্যমে উপলব্ধ নেটওয়ার্কেগুলিতে সংযুক্ত করতে ওয়াই-ফাই শংসাপত্রগুলি ইনস্টল করুন৷"</string>
     <string name="wifi_installer_download_error" msgid="5429453090956277692">"ডাউনলোড করা ফাইলে কিছু সমস্যা রয়েছে এবং ইনস্টল করা যাবে না৷ আপনি সঠিক উৎস থেকে ফাইলটি ডাউনলোড করেছেন কিনা নিশ্চিত করুন৷"</string>
-    <string name="wifi_installer_fail" msgid="894483173306576331">"Wi-Fi শংসাপত্রগুলি ইনস্টল করা যাবে না৷ ফাইলটি পুনরায় ডাউনলোড করার চেষ্টা করুন৷"</string>
+    <string name="wifi_installer_fail" msgid="894483173306576331">"ওয়াই-ফাই শংসাপত্রগুলি ইনস্টল করা যাবে না৷ ফাইলটি পুনরায় ডাউনলোড করার চেষ্টা করুন৷"</string>
     <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"ইনস্টলেশন বাতিল হয়েছে"</string>
     <string name="wifi_installer_fail_title" msgid="5547079779067835479">"ইনস্টল করতে পারবেন না"</string>
-    <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"Wi-Fi চালু করুন এবং আবার চেষ্টা করুন।"</string>
+    <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"ওয়াই-ফাই চালু করুন এবং আবার চেষ্টা করুন।"</string>
 </resources>

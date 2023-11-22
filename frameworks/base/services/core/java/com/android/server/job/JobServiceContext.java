@@ -24,6 +24,8 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
@@ -59,21 +61,20 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * To mitigate this, tearing down the context removes all messages from the handler, including any
  * tardy {@link #MSG_CANCEL}s. Additionally, we avoid sending duplicate onStopJob()
  * calls to the client after they've specified jobFinished().
- *
  */
 public class JobServiceContext extends IJobCallback.Stub implements ServiceConnection {
-    private static final boolean DEBUG = false;
+    private static final boolean DEBUG = JobSchedulerService.DEBUG;
     private static final String TAG = "JobServiceContext";
     /** Define the maximum # of jobs allowed to run on a service at once. */
     private static final int defaultMaxActiveJobsPerService =
             ActivityManager.isLowRamDeviceStatic() ? 1 : 3;
     /** Amount of time a job is allowed to execute for before being considered timed-out. */
-    private static final long EXECUTING_TIMESLICE_MILLIS = 10 * 60 * 1000;
+    private static final long EXECUTING_TIMESLICE_MILLIS = 10 * 60 * 1000;  // 10mins.
     /** Amount of time the JobScheduler will wait for a response from an app for a message. */
     private static final long OP_TIMEOUT_MILLIS = 8 * 1000;
 
     private static final String[] VERB_STRINGS = {
-            "VERB_BINDING", "VERB_STARTING", "VERB_EXECUTING", "VERB_STOPPING"
+            "VERB_BINDING", "VERB_STARTING", "VERB_EXECUTING", "VERB_STOPPING", "VERB_FINISHED"
     };
 
     // States that a job occupies while interacting with the client.
@@ -81,6 +82,7 @@ public class JobServiceContext extends IJobCallback.Stub implements ServiceConne
     static final int VERB_STARTING = 1;
     static final int VERB_EXECUTING = 2;
     static final int VERB_STOPPING = 3;
+    static final int VERB_FINISHED = 4;
 
     // Messages that result from interactions with the client service.
     /** System timed out waiting for a response. */
@@ -94,12 +96,16 @@ public class JobServiceContext extends IJobCallback.Stub implements ServiceConne
     /** Shutdown the job. Used when the client crashes and we can't die gracefully.*/
     private static final int MSG_SHUTDOWN_EXECUTION = 4;
 
+    public static final int NO_PREFERRED_UID = -1;
+
     private final Handler mCallbackHandler;
     /** Make callbacks to {@link JobSchedulerService} to inform on job completion status. */
     private final JobCompletedListener mCompletedListener;
     /** Used for service binding, etc. */
     private final Context mContext;
+    private final Object mLock;
     private final IBatteryStats mBatteryStats;
+    private final JobPackageTracker mJobPackageTracker;
     private PowerManager.WakeLock mWakeLock;
 
     // Execution state.
@@ -108,12 +114,18 @@ public class JobServiceContext extends IJobCallback.Stub implements ServiceConne
     int mVerb;
     private AtomicBoolean mCancelled = new AtomicBoolean();
 
-    /** All the information maintained about the job currently being executed. */
+    /**
+     * All the information maintained about the job currently being executed.
+     *
+     * Any reads (dereferences) not done from the handler thread must be synchronized on
+     * {@link #mLock}.
+     * Writes can only be done from the handler thread, or {@link #executeRunnableJob(JobStatus)}.
+     */
     private JobStatus mRunningJob;
-    /** Binder to the client service. */
+    /** Used to store next job to run when current job is to be preempted. */
+    private int mPreferredUid;
     IJobService service;
 
-    private final Object mLock = new Object();
     /**
      * Whether this context is free. This is set to false at the start of execution, and reset to
      * true when execution is complete.
@@ -125,23 +137,28 @@ public class JobServiceContext extends IJobCallback.Stub implements ServiceConne
     /** Track when job will timeout. */
     private long mTimeoutElapsed;
 
-    JobServiceContext(JobSchedulerService service, IBatteryStats batteryStats, Looper looper) {
-        this(service.getContext(), batteryStats, service, looper);
+    JobServiceContext(JobSchedulerService service, IBatteryStats batteryStats,
+            JobPackageTracker tracker, Looper looper) {
+        this(service.getContext(), service.getLock(), batteryStats, tracker, service, looper);
     }
 
     @VisibleForTesting
-    JobServiceContext(Context context, IBatteryStats batteryStats,
-            JobCompletedListener completedListener, Looper looper) {
+    JobServiceContext(Context context, Object lock, IBatteryStats batteryStats,
+            JobPackageTracker tracker, JobCompletedListener completedListener, Looper looper) {
         mContext = context;
+        mLock = lock;
         mBatteryStats = batteryStats;
+        mJobPackageTracker = tracker;
         mCallbackHandler = new JobServiceHandler(looper);
         mCompletedListener = completedListener;
         mAvailable = true;
+        mVerb = VERB_FINISHED;
+        mPreferredUid = NO_PREFERRED_UID;
     }
 
     /**
-     * Give a job to this context for execution. Callers must first check {@link #isAvailable()}
-     * to make sure this is a valid context.
+     * Give a job to this context for execution. Callers must first check {@link #getRunningJob()}
+     * and ensure it is null to make sure this is a valid context.
      * @param job The status of the job that we are going to run.
      * @return True if the job is valid and is running. False if the job cannot be executed.
      */
@@ -152,11 +169,24 @@ public class JobServiceContext extends IJobCallback.Stub implements ServiceConne
                 return false;
             }
 
+            mPreferredUid = NO_PREFERRED_UID;
+
             mRunningJob = job;
             final boolean isDeadlineExpired =
                     job.hasDeadlineConstraint() &&
                             (job.getLatestRunTimeElapsed() < SystemClock.elapsedRealtime());
-            mParams = new JobParameters(this, job.getJobId(), job.getExtras(), isDeadlineExpired);
+            Uri[] triggeredUris = null;
+            if (job.changedUris != null) {
+                triggeredUris = new Uri[job.changedUris.size()];
+                job.changedUris.toArray(triggeredUris);
+            }
+            String[] triggeredAuthorities = null;
+            if (job.changedAuthorities != null) {
+                triggeredAuthorities = new String[job.changedAuthorities.size()];
+                job.changedAuthorities.toArray(triggeredAuthorities);
+            }
+            mParams = new JobParameters(this, job.getJobId(), job.getExtras(), isDeadlineExpired,
+                    triggeredUris, triggeredAuthorities);
             mExecutionStartTimeElapsed = SystemClock.elapsedRealtime();
 
             mVerb = VERB_BINDING;
@@ -172,14 +202,16 @@ public class JobServiceContext extends IJobCallback.Stub implements ServiceConne
                 mRunningJob = null;
                 mParams = null;
                 mExecutionStartTimeElapsed = 0L;
+                mVerb = VERB_FINISHED;
                 removeOpTimeOut();
                 return false;
             }
             try {
-                mBatteryStats.noteJobStart(job.getName(), job.getUid());
+                mBatteryStats.noteJobStart(job.getBatteryName(), job.getSourceUid());
             } catch (RemoteException e) {
                 // Whatever.
             }
+            mJobPackageTracker.noteActive(job);
             mAvailable = false;
             return true;
         }
@@ -191,23 +223,30 @@ public class JobServiceContext extends IJobCallback.Stub implements ServiceConne
      * stop executing.
      */
     JobStatus getRunningJob() {
+        final JobStatus job;
         synchronized (mLock) {
-            return mRunningJob;
+            job = mRunningJob;
         }
+        return job == null ? null : new JobStatus(job);
     }
 
     /** Called externally when a job that was scheduled for execution should be cancelled. */
-    void cancelExecutingJob() {
-        mCallbackHandler.obtainMessage(MSG_CANCEL).sendToTarget();
+    void cancelExecutingJob(int reason) {
+        mCallbackHandler.obtainMessage(MSG_CANCEL, reason, 0 /* unused */).sendToTarget();
     }
 
-    /**
-     * @return Whether this context is available to handle incoming work.
-     */
-    boolean isAvailable() {
-        synchronized (mLock) {
-            return mAvailable;
-        }
+    void preemptExecutingJob() {
+        Message m = mCallbackHandler.obtainMessage(MSG_CANCEL);
+        m.arg1 = JobParameters.REASON_PREEMPT;
+        m.sendToTarget();
+    }
+
+    int getPreferredUid() {
+        return mPreferredUid;
+    }
+
+    void clearPreferredUid() {
+        mPreferredUid = NO_PREFERRED_UID;
     }
 
     long getExecutionStartTimeElapsed() {
@@ -253,15 +292,22 @@ public class JobServiceContext extends IJobCallback.Stub implements ServiceConne
      */
     @Override
     public void onServiceConnected(ComponentName name, IBinder service) {
-        if (!name.equals(mRunningJob.getServiceComponent())) {
+        JobStatus runningJob;
+        synchronized (mLock) {
+            // This isn't strictly necessary b/c the JobServiceHandler is running on the main
+            // looper and at this point we can't get any binder callbacks from the client. Better
+            // safe than sorry.
+            runningJob = mRunningJob;
+        }
+        if (runningJob == null || !name.equals(runningJob.getServiceComponent())) {
             mCallbackHandler.obtainMessage(MSG_SHUTDOWN_EXECUTION).sendToTarget();
             return;
         }
         this.service = IJobService.Stub.asInterface(service);
         final PowerManager pm =
                 (PowerManager) mContext.getSystemService(Context.POWER_SERVICE);
-        mWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, mRunningJob.getTag());
-        mWakeLock.setWorkSource(new WorkSource(mRunningJob.getUid()));
+        mWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, runningJob.getTag());
+        mWakeLock.setWorkSource(new WorkSource(runningJob.getSourceUid()));
         mWakeLock.setReferenceCounted(false);
         mWakeLock.acquire();
         mCallbackHandler.obtainMessage(MSG_SERVICE_BOUND).sendToTarget();
@@ -279,13 +325,15 @@ public class JobServiceContext extends IJobCallback.Stub implements ServiceConne
      * @return True if the binder calling is coming from the client we expect.
      */
     private boolean verifyCallingUid() {
-        if (mRunningJob == null || Binder.getCallingUid() != mRunningJob.getUid()) {
-            if (DEBUG) {
-                Slog.d(TAG, "Stale callback received, ignoring.");
+        synchronized (mLock) {
+            if (mRunningJob == null || Binder.getCallingUid() != mRunningJob.getUid()) {
+                if (DEBUG) {
+                    Slog.d(TAG, "Stale callback received, ignoring.");
+                }
+                return false;
             }
-            return false;
+            return true;
         }
-        return true;
     }
 
     /**
@@ -307,8 +355,8 @@ public class JobServiceContext extends IJobCallback.Stub implements ServiceConne
                     break;
                 case MSG_CALLBACK:
                     if (DEBUG) {
-                        Slog.d(TAG, "MSG_CALLBACK of : " + mRunningJob + " v:" +
-                                (mVerb >= 0 ? VERB_STRINGS[mVerb] : "[invalid]"));
+                        Slog.d(TAG, "MSG_CALLBACK of : " + mRunningJob
+                                + " v:" + VERB_STRINGS[mVerb]);
                     }
                     removeOpTimeOut();
 
@@ -326,6 +374,18 @@ public class JobServiceContext extends IJobCallback.Stub implements ServiceConne
                     }
                     break;
                 case MSG_CANCEL:
+                    if (mVerb == VERB_FINISHED) {
+                        if (DEBUG) {
+                            Slog.d(TAG,
+                                   "Trying to process cancel for torn-down context, ignoring.");
+                        }
+                        return;
+                    }
+                    mParams.setStopReason(message.arg1);
+                    if (message.arg1 == JobParameters.REASON_PREEMPT) {
+                        mPreferredUid = mRunningJob != null ? mRunningJob.getUid() :
+                                NO_PREFERRED_UID;
+                    }
                     handleCancelH();
                     break;
                 case MSG_TIMEOUT:
@@ -430,12 +490,6 @@ public class JobServiceContext extends IJobCallback.Stub implements ServiceConne
          *     _ENDING     -> No point in doing anything here, so we ignore.
          */
         private void handleCancelH() {
-            if (mRunningJob == null) {
-                if (DEBUG) {
-                    Slog.d(TAG, "Trying to process cancel for torn-down context, ignoring.");
-                }
-                return;
-            }
             if (JobSchedulerService.DEBUG) {
                 Slog.d(TAG, "Handling cancel for: " + mRunningJob.getJobId() + " "
                         + VERB_STRINGS[mVerb]);
@@ -487,6 +541,7 @@ public class JobServiceContext extends IJobCallback.Stub implements ServiceConne
                     // Not an error - client ran out of time.
                     Slog.i(TAG, "Client timed out while executing (no jobFinished received)." +
                             " sending onStop. "  + mRunningJob.toShortString());
+                    mParams.setStopReason(JobParameters.REASON_TIMEOUT);
                     sendStopMessageH();
                     break;
                 default:
@@ -524,10 +579,16 @@ public class JobServiceContext extends IJobCallback.Stub implements ServiceConne
          * we want to clean up internally.
          */
         private void closeAndCleanupJobH(boolean reschedule) {
-            final JobStatus completedJob = mRunningJob;
+            final JobStatus completedJob;
             synchronized (mLock) {
+                if (mVerb == VERB_FINISHED) {
+                    return;
+                }
+                completedJob = mRunningJob;
+                mJobPackageTracker.noteInactive(completedJob);
                 try {
-                    mBatteryStats.noteJobFinish(mRunningJob.getName(), mRunningJob.getUid());
+                    mBatteryStats.noteJobFinish(mRunningJob.getBatteryName(),
+                            mRunningJob.getSourceUid());
                 } catch (RemoteException e) {
                     // Whatever.
                 }
@@ -538,7 +599,7 @@ public class JobServiceContext extends IJobCallback.Stub implements ServiceConne
                 mWakeLock = null;
                 mRunningJob = null;
                 mParams = null;
-                mVerb = -1;
+                mVerb = VERB_FINISHED;
                 mCancelled.set(false);
                 service = null;
                 mAvailable = true;

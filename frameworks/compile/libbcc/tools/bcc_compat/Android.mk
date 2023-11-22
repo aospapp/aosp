@@ -25,6 +25,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := bcc_compat
 LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_HOST_OS := darwin linux windows
 
 LOCAL_SHARED_LIBRARIES := \
   libbcc \
@@ -34,9 +35,8 @@ LOCAL_SHARED_LIBRARIES := \
 LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../include
 
-ifndef USE_MINGW
-LOCAL_LDLIBS = -ldl
-endif
+LOCAL_LDLIBS_darwin = -ldl
+LOCAL_LDLIBS_linux = -ldl
 
 LOCAL_SRC_FILES := Main.cpp
 

@@ -106,7 +106,7 @@ public:
     TargetInfo::IntType PtrDiff = Target.getPtrDiffType(0);
     uint64_t Width = Target.getTypeWidth(PtrDiff);
     unsigned Align = Target.getTypeAlign(PtrDiff);
-    if (MPT->getPointeeType()->isFunctionType())
+    if (MPT->isMemberFunctionPointer())
       Width = 2 * Width;
     return std::make_pair(Width, Align);
   }
@@ -146,6 +146,20 @@ public:
 
   Expr *getDefaultArgExprForConstructor(const CXXConstructorDecl *CD,
                                         unsigned ParmIdx) override {
+    return nullptr;
+  }
+
+  void addTypedefNameForUnnamedTagDecl(TagDecl *TD,
+                                       TypedefNameDecl *DD) override {}
+
+  TypedefNameDecl *getTypedefNameForUnnamedTagDecl(const TagDecl *TD) override {
+    return nullptr;
+  }
+
+  void addDeclaratorForUnnamedTagDecl(TagDecl *TD,
+                                      DeclaratorDecl *DD) override {}
+
+  DeclaratorDecl *getDeclaratorForUnnamedTagDecl(const TagDecl *TD) override {
     return nullptr;
   }
 

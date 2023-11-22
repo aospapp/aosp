@@ -4,6 +4,7 @@ package android.support.v7.widget {
     ctor public CardView(android.content.Context);
     ctor public CardView(android.content.Context, android.util.AttributeSet);
     ctor public CardView(android.content.Context, android.util.AttributeSet, int);
+    method public android.content.res.ColorStateList getCardBackgroundColor();
     method public float getCardElevation();
     method public int getContentPaddingBottom();
     method public int getContentPaddingLeft();
@@ -14,6 +15,7 @@ package android.support.v7.widget {
     method public float getRadius();
     method public boolean getUseCompatPadding();
     method public void setCardBackgroundColor(int);
+    method public void setCardBackgroundColor(android.content.res.ColorStateList);
     method public void setCardElevation(float);
     method public void setContentPadding(int, int, int, int);
     method public void setMaxCardElevation(float);

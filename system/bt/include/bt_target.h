@@ -35,7 +35,6 @@
 #include "bt_types.h"   /* This must be defined AFTER buildcfg.h */
 
 /* Include common GKI definitions used by this platform */
-#include "gki_target.h"
 #include "dyn_mem.h"    /* defines static and/or dynamic memory for components */
 
 //------------------Added from bdroid_buildcfg.h---------------------
@@ -95,19 +94,6 @@
 #define BTA_DISABLE_DELAY 200 /* in milliseconds */
 #endif
 
-// If the next wakeup time is less than this threshold, we should acquire
-// a wakelock instead of setting a wake alarm so we're not bouncing in
-// and out of suspend frequently.
-// in millisecond
-// TODO(zachoverflow): reinstate in alarm code
-#ifndef GKI_TIMER_INTERVAL_FOR_WAKELOCK
-#define GKI_TIMER_INTERVAL_FOR_WAKELOCK 3000
-#endif
-
-#ifndef BTA_SYS_TIMER_PERIOD
-#define BTA_SYS_TIMER_PERIOD  100
-#endif
-
 #ifndef SBC_FOR_EMBEDDED_LINUX
 #define SBC_FOR_EMBEDDED_LINUX TRUE
 #endif
@@ -132,25 +118,29 @@
 #define BTA_AV_RET_TOUT 15
 #endif
 
-#ifndef PORCHE_PAIRING_CONFLICT
-#define PORCHE_PAIRING_CONFLICT  TRUE
-#endif
-
 #ifndef BTA_AV_CO_CP_SCMS_T
 #define BTA_AV_CO_CP_SCMS_T  FALSE
 #endif
 
-/* This feature is used to eanble interleaved scan*/
+#ifndef BTIF_A2DP_SRC_SAMPLING_RATE
+#define BTIF_A2DP_SRC_SAMPLING_RATE 44100
+#endif
+
+#ifndef BTIF_A2DP_SRC_BIT_DEPTH
+#define BTIF_A2DP_SRC_BIT_DEPTH 16
+#endif
+
+#ifndef BTIF_A2DP_SRC_NUM_CHANNELS
+#define BTIF_A2DP_SRC_NUM_CHANNELS 2
+#endif
+
+/* This feature is used to enable interleaved scan */
 #ifndef BTA_HOST_INTERLEAVE_SEARCH
 #define BTA_HOST_INTERLEAVE_SEARCH FALSE
 #endif
 
 #ifndef BT_USE_TRACES
 #define BT_USE_TRACES  TRUE
-#endif
-
-#ifndef BT_TRACE_BTIF
-#define BT_TRACE_BTIF  TRUE
 #endif
 
 #ifndef BT_TRACE_VERBOSE
@@ -184,199 +174,139 @@
 
 /******************************************************************************
 **
-** GKI Buffer Pools
+** Buffer sizes
 **
 ******************************************************************************/
 
+#ifndef BT_DEFAULT_BUFFER_SIZE
+#define BT_DEFAULT_BUFFER_SIZE          (4096 + 16)
+#endif
+
+#ifndef BT_SMALL_BUFFER_SIZE
+#define BT_SMALL_BUFFER_SIZE            660
+#endif
+
 /* Receives HCI events from the lower-layer. */
-#ifndef HCI_CMD_POOL_ID
-#define HCI_CMD_POOL_ID             GKI_POOL_ID_2
-#endif
-
-#ifndef HCI_CMD_POOL_BUF_SIZE
-#define HCI_CMD_POOL_BUF_SIZE       GKI_BUF2_SIZE
-#endif
-
-/* Receives ACL data packets from thelower-layer. */
-#ifndef HCI_ACL_POOL_ID
-#define HCI_ACL_POOL_ID             GKI_POOL_ID_3
-#endif
-
-/* Maximum number of buffers available for ACL receive data. */
-#ifndef HCI_ACL_BUF_MAX
-#define HCI_ACL_BUF_MAX             GKI_BUF3_MAX
-#endif
-
-/* Receives SCO data packets from the lower-layer. */
-#ifndef HCI_SCO_POOL_ID
-#define HCI_SCO_POOL_ID             GKI_POOL_ID_6
+#ifndef HCI_CMD_BUF_SIZE
+#define HCI_CMD_BUF_SIZE                BT_SMALL_BUFFER_SIZE
 #endif
 
 /* Sends SDP data packets. */
-#ifndef SDP_POOL_ID
-#define SDP_POOL_ID                 3
+#ifndef SDP_DATA_BUF_SIZE
+#define SDP_DATA_BUF_SIZE               BT_DEFAULT_BUFFER_SIZE
 #endif
 
 /* Sends RFCOMM command packets. */
-#ifndef RFCOMM_CMD_POOL_ID
-#define RFCOMM_CMD_POOL_ID          GKI_POOL_ID_2
+#ifndef RFCOMM_CMD_BUF_SIZE
+#define RFCOMM_CMD_BUF_SIZE             BT_SMALL_BUFFER_SIZE
 #endif
 
 /* Sends RFCOMM data packets. */
-#ifndef RFCOMM_DATA_POOL_ID
-#define RFCOMM_DATA_POOL_ID         GKI_POOL_ID_3
-#endif
-
-#ifndef RFCOMM_DATA_POOL_BUF_SIZE
-#define RFCOMM_DATA_POOL_BUF_SIZE   GKI_BUF3_SIZE
+#ifndef RFCOMM_DATA_BUF_SIZE
+#define RFCOMM_DATA_BUF_SIZE            BT_DEFAULT_BUFFER_SIZE
 #endif
 
 /* Sends L2CAP packets to the peer and HCI messages to the controller. */
-#ifndef L2CAP_CMD_POOL_ID
-#define L2CAP_CMD_POOL_ID           GKI_POOL_ID_2
+#ifndef L2CAP_CMD_BUF_SIZE
+#define L2CAP_CMD_BUF_SIZE              BT_SMALL_BUFFER_SIZE
+#endif
+
+#ifndef L2CAP_USER_TX_BUF_SIZE
+#define L2CAP_USER_TX_BUF_SIZE          BT_DEFAULT_BUFFER_SIZE
+#endif
+
+#ifndef L2CAP_USER_RX_BUF_SIZE
+#define L2CAP_USER_RX_BUF_SIZE          BT_DEFAULT_BUFFER_SIZE
 #endif
 
 /* Sends L2CAP segmented packets in ERTM mode */
-#ifndef L2CAP_FCR_TX_POOL_ID
-#define L2CAP_FCR_TX_POOL_ID        HCI_ACL_POOL_ID
+#ifndef L2CAP_FCR_TX_BUF_SIZE
+#define L2CAP_FCR_TX_BUF_SIZE           BT_DEFAULT_BUFFER_SIZE
 #endif
 
 /* Receives L2CAP segmented packets in ERTM mode */
-#ifndef L2CAP_FCR_RX_POOL_ID
-#define L2CAP_FCR_RX_POOL_ID        HCI_ACL_POOL_ID
+#ifndef L2CAP_FCR_RX_BUF_SIZE
+#define L2CAP_FCR_RX_BUF_SIZE           BT_DEFAULT_BUFFER_SIZE
 #endif
 
-/* Number of ACL buffers to assign to LE
-   if the HCI buffer pool is shared with BR/EDR */
+#ifndef L2CAP_FCR_ERTM_BUF_SIZE
+#define L2CAP_FCR_ERTM_BUF_SIZE         (10240 + 24)
+#endif
+
+/* Number of ACL buffers to assign to LE */
+/*
+ * TODO: Do we need this?
+ * It was used when the HCI buffers were shared with BR/EDR.
+ */
 #ifndef L2C_DEF_NUM_BLE_BUF_SHARED
 #define L2C_DEF_NUM_BLE_BUF_SHARED      1
 #endif
 
 /* Used by BTM when it sends HCI commands to the controller. */
-#ifndef BTM_CMD_POOL_ID
-#define BTM_CMD_POOL_ID             GKI_POOL_ID_2
+#ifndef BTM_CMD_BUF_SIZE
+#define BTM_CMD_BUF_SIZE                BT_SMALL_BUFFER_SIZE
 #endif
 
-#ifndef OBX_LRG_DATA_POOL_SIZE
-#define OBX_LRG_DATA_POOL_SIZE      GKI_BUF4_SIZE
+#ifndef OBX_LRG_DATA_BUF_SIZE
+#define OBX_LRG_DATA_BUF_SIZE           (8080 + 26)
 #endif
 
-#ifndef OBX_LRG_DATA_POOL_ID
-#define OBX_LRG_DATA_POOL_ID        GKI_POOL_ID_4
-#endif
 /* Used to send data to L2CAP. */
-#ifndef GAP_DATA_POOL_ID
-#define GAP_DATA_POOL_ID            GKI_POOL_ID_3
-#endif
-
-#ifndef SPP_DB_SIZE
-#define SPP_DB_SIZE                 GKI_BUF3_SIZE
+#ifndef GAP_DATA_BUF_SIZE
+#define GAP_DATA_BUF_SIZE               BT_DEFAULT_BUFFER_SIZE
 #endif
 
 /* BNEP data and protocol messages. */
-#ifndef BNEP_POOL_ID
-#define BNEP_POOL_ID                GKI_POOL_ID_3
+#ifndef BNEP_BUF_SIZE
+#define BNEP_BUF_SIZE                   BT_DEFAULT_BUFFER_SIZE
 #endif
 
-/* RPC pool for temporary trace message buffers. */
-#ifndef RPC_SCRATCH_POOL_ID
-#define RPC_SCRATCH_POOL_ID         GKI_POOL_ID_2
+/* AVDTP buffer size for protocol messages */
+#ifndef AVDT_CMD_BUF_SIZE
+#define AVDT_CMD_BUF_SIZE               BT_SMALL_BUFFER_SIZE
 #endif
 
-/* AVDTP pool for protocol messages */
-#ifndef AVDT_CMD_POOL_ID
-#define AVDT_CMD_POOL_ID            GKI_POOL_ID_2
+/* AVDTP buffer size for media packets in case of fragmentation */
+#ifndef AVDT_DATA_BUF_SIZE
+#define AVDT_DATA_BUF_SIZE              BT_DEFAULT_BUFFER_SIZE
 #endif
 
-/* AVDTP pool size for media packets in case of fragmentation */
-#ifndef AVDT_DATA_POOL_SIZE
-#define AVDT_DATA_POOL_SIZE         GKI_BUF3_SIZE
+#ifndef PAN_BUF_SIZE
+#define PAN_BUF_SIZE                    BT_DEFAULT_BUFFER_SIZE
 #endif
 
-#ifndef PAN_POOL_ID
-#define PAN_POOL_ID                 GKI_POOL_ID_3
-/* Maximum amount of the shared buffer to allocate for PAN */
-#define PAN_POOL_MAX                (GKI_BUF3_MAX / 4)
+/* Maximum number of buffers to allocate for PAN */
+#ifndef PAN_BUF_MAX
+#define PAN_BUF_MAX                     100
 #endif
 
-/* AVCTP pool for protocol messages */
-#ifndef AVCT_CMD_POOL_ID
-#define AVCT_CMD_POOL_ID            GKI_POOL_ID_1
+/* AVCTP buffer size for protocol messages */
+#ifndef AVCT_CMD_BUF_SIZE
+#define AVCT_CMD_BUF_SIZE               288
 #endif
 
-/* AVRCP pool for protocol messages */
-#ifndef AVRC_CMD_POOL_ID
-#define AVRC_CMD_POOL_ID            GKI_POOL_ID_1
+/* AVRCP buffer size for protocol messages */
+#ifndef AVRC_CMD_BUF_SIZE
+#define AVRC_CMD_BUF_SIZE               288
 #endif
 
-/* AVRCP pool size for protocol messages */
-#ifndef AVRC_CMD_POOL_SIZE
-#define AVRC_CMD_POOL_SIZE          GKI_BUF1_SIZE
+/* AVRCP Metadata buffer size for protocol messages */
+#ifndef AVRC_META_CMD_BUF_SIZE
+#define AVRC_META_CMD_BUF_SIZE          BT_SMALL_BUFFER_SIZE
 #endif
 
-/* AVRCP Metadata pool for protocol messages */
-#ifndef AVRC_META_CMD_POOL_ID
-#define AVRC_META_CMD_POOL_ID       GKI_POOL_ID_2
+#ifndef BTA_HL_LRG_DATA_BUF_SIZE
+#define BTA_HL_LRG_DATA_BUF_SIZE        (10240 + 24)
 #endif
 
-/* AVRCP Metadata pool size for protocol messages */
-#ifndef AVRC_META_CMD_POOL_SIZE
-#define AVRC_META_CMD_POOL_SIZE     GKI_BUF2_SIZE
+/* GATT Server Database buffer size */
+#ifndef GATT_DB_BUF_SIZE
+#define GATT_DB_BUF_SIZE                128
 #endif
 
-
-/* AVRCP buffer size for browsing channel messages */
-#ifndef AVRC_BROWSE_POOL_SIZE
-#define AVRC_BROWSE_POOL_SIZE     GKI_MAX_BUF_SIZE
-#endif
-
-#ifndef BTA_HL_LRG_DATA_POOL_ID
-#define BTA_HL_LRG_DATA_POOL_ID        GKI_POOL_ID_7
-#endif
-
-/* GATT Server Database pool ID */
-#ifndef GATT_DB_POOL_ID
-#define GATT_DB_POOL_ID                 GKI_POOL_ID_8
-#endif
-
-/* GATT Data sending buffer pool ID, use default ACL pool for fix channel data */
-#ifndef GATT_BUF_POOL_ID
-#define GATT_BUF_POOL_ID                HCI_ACL_POOL_ID
-#endif
-
-/******************************************************************************
-**
-** Lower Layer Interface
-**
-******************************************************************************/
-
-/* Macro for allocating buffer for HCI commands */
-#ifndef HCI_GET_CMD_BUF
-#if (!defined(HCI_USE_VARIABLE_SIZE_CMD_BUF) || (HCI_USE_VARIABLE_SIZE_CMD_BUF == FALSE))
-/* Allocate fixed-size buffer from HCI_CMD_POOL (default case) */
-#define HCI_GET_CMD_BUF(paramlen)    ((BT_HDR *)GKI_getpoolbuf (HCI_CMD_POOL_ID))
-#else
-/* Allocate smallest possible buffer (for platforms with limited RAM) */
-#define HCI_GET_CMD_BUF(paramlen)    ((BT_HDR *)GKI_getbuf ((UINT16)(BT_HDR_SIZE + HCIC_PREAMBLE_SIZE + (paramlen))))
-#endif
-#endif  /* HCI_GET_CMD_BUF */
-
-/******************************************************************************
-**
-** HCI Services (H4)
-**
-******************************************************************************/
-
-/* Use 2 second for low-resolution systems, override to 1 for high-resolution systems */
-#ifndef BT_1SEC_TIMEOUT
-#define BT_1SEC_TIMEOUT             (2)
-#endif
-
-/* Quick Timer */
-/* if L2CAP_FCR_INCLUDED is TRUE then it should have 100 millisecond resolution */
-/* if none of them is included then QUICK_TIMER_TICKS_PER_SEC is set to 0 to exclude quick timer */
-#ifndef QUICK_TIMER_TICKS_PER_SEC
-#define QUICK_TIMER_TICKS_PER_SEC   10       /* 100ms timer */
+/* GATT Data sending buffer size */
+#ifndef GATT_DATA_BUF_SIZE
+#define GATT_DATA_BUF_SIZE              BT_DEFAULT_BUFFER_SIZE
 #endif
 
 /******************************************************************************
@@ -387,22 +317,22 @@
 
 /* Cancel Inquiry on incoming SSP */
 #ifndef BTM_NO_SSP_ON_INQUIRY
-#define BTM_NO_SSP_ON_INQUIRY       FALSE
+#define BTM_NO_SSP_ON_INQUIRY   FALSE
 #endif
 
 /* Includes SCO if TRUE */
 #ifndef BTM_SCO_INCLUDED
-#define BTM_SCO_INCLUDED            TRUE       /* TRUE includes SCO code */
+#define BTM_SCO_INCLUDED        TRUE    /* TRUE includes SCO code */
 #endif
 
 /* Includes SCO if TRUE */
 #ifndef BTM_SCO_HCI_INCLUDED
-#define BTM_SCO_HCI_INCLUDED            FALSE       /* TRUE includes SCO over HCI code */
+#define BTM_SCO_HCI_INCLUDED    FALSE   /* TRUE includes SCO over HCI code */
 #endif
 
 /* Includes WBS if TRUE */
 #ifndef BTM_WBS_INCLUDED
-#define BTM_WBS_INCLUDED            FALSE       /* TRUE includes WBS code */
+#define BTM_WBS_INCLUDED        FALSE   /* TRUE includes WBS code */
 #endif
 
 /*  This is used to work around a controller bug that doesn't like Disconnect
@@ -520,11 +450,6 @@
 #define BT_MAX_SERVICE_NAME_LEN     21
 #endif
 
-/* ACL buffer size in HCI Host Buffer Size command. */
-#ifndef BTM_ACL_BUF_SIZE
-#define BTM_ACL_BUF_SIZE            0
-#endif
-
 /* The maximum number of clients that can register with the power manager. */
 #ifndef BTM_MAX_PM_RECORDS
 #define BTM_MAX_PM_RECORDS          2
@@ -579,11 +504,6 @@
  * Possible values are BTM_AUTH_AP_YES or BTM_AUTH_AP_NO */
 #ifndef BTM_DEFAULT_DD_AUTH_REQ
 #define BTM_DEFAULT_DD_AUTH_REQ            BTM_AUTH_AP_YES
-#endif
-
-/* Include Out-of-Band implementation for Simple Pairing */
-#ifndef BTM_OOB_INCLUDED
-#define BTM_OOB_INCLUDED                TRUE
 #endif
 
 /* TRUE to include Sniff Subrating */
@@ -643,12 +563,15 @@
 #define L2CAP_LINK_STARTUP_TOUT     60
 #endif
 
-/* The L2CAP MTU; must be in accord with the HCI ACL pool size. */
+/* The L2CAP MTU; must be in accord with the HCI ACL buffer size. */
 #ifndef L2CAP_MTU_SIZE
 #define L2CAP_MTU_SIZE              1691
 #endif
 
-/* The L2CAP MPS over Bluetooth; must be in accord with the FCR tx pool size and ACL down buffer size. */
+/*
+ * The L2CAP MPS over Bluetooth; must be in accord with the FCR tx buffer size
+ * and ACL down buffer size.
+ */
 #ifndef L2CAP_MPS_OVER_BR_EDR
 #define L2CAP_MPS_OVER_BR_EDR       1010
 #endif
@@ -681,11 +604,6 @@
 /* used for monitoring HCI ACL credit management */
 #ifndef L2CAP_HCI_FLOW_CONTROL_DEBUG
 #define L2CAP_HCI_FLOW_CONTROL_DEBUG        TRUE
-#endif
-
-/* Used for calculating transmit buffers off of */
-#ifndef L2CAP_NUM_XMIT_BUFFS
-#define L2CAP_NUM_XMIT_BUFFS                HCI_ACL_BUF_MAX
 #endif
 
 /* Unicast Connectionless Data */
@@ -728,11 +646,6 @@
 #define L2CAP_ROUND_ROBIN_CHANNEL_SERVICE   TRUE
 #endif
 
-/* Used for calculating transmit buffers off of */
-#ifndef L2CAP_NUM_XMIT_BUFFS
-#define L2CAP_NUM_XMIT_BUFFS                HCI_ACL_BUF_MAX
-#endif
-
 /* used for monitoring eL2CAP data flow */
 #ifndef L2CAP_ERTM_STATS
 #define L2CAP_ERTM_STATS                    FALSE
@@ -751,10 +664,6 @@
 #define L2CAP_MAX_RX_BUFFER                 0x100000
 #endif
 
-
-#ifndef TIMER_PARAM_TYPE
-#define TIMER_PARAM_TYPE    UINT32
-#endif
 
 /******************************************************************************
 **
@@ -801,9 +710,9 @@
 #define BTM_BLE_ADV_TX_POWER {-21, -15, -7, 1, 9}
 #endif
 
-
-#ifndef BLE_BATCH_SCAN_INCLUDED
-#define BLE_BATCH_SCAN_INCLUDED  TRUE
+/* The maximum number of simultaneous applications that can register with LE L2CAP. */
+#ifndef BLE_MAX_L2CAP_CLIENTS
+#define BLE_MAX_L2CAP_CLIENTS           15
 #endif
 
 /******************************************************************************
@@ -903,10 +812,6 @@
 
 #ifndef SMP_MAX_ENC_KEY_SIZE
 #define SMP_MAX_ENC_KEY_SIZE    16
-#endif
-
-#ifndef SMP_MIN_ENC_KEY_SIZE
-#define SMP_MIN_ENC_KEY_SIZE    7
 #endif
 
 /* minimum link timeout after SMP pairing is done, leave room for key exchange
@@ -1088,111 +993,84 @@
 #define PORT_CREDIT_RX_LOW          8
 #endif
 
-/* if application like BTA, Java or script test engine is running on other than BTU thread, */
-/* PORT_SCHEDULE_LOCK shall be defined as GKI_sched_lock() or GKI_disable() */
-#ifndef PORT_SCHEDULE_LOCK
-#define PORT_SCHEDULE_LOCK          GKI_disable()
-#endif
-
-/* if application like BTA, Java or script test engine is running on other than BTU thread, */
-/* PORT_SCHEDULE_LOCK shall be defined as GKI_sched_unlock() or GKI_enable() */
-#ifndef PORT_SCHEDULE_UNLOCK
-#define PORT_SCHEDULE_UNLOCK        GKI_enable()
-#endif
-
 /******************************************************************************
 **
 ** OBEX
 **
 ******************************************************************************/
-#define OBX_14_INCLUDED             FALSE
 
-/* The maximum number of registered servers. */
-#ifndef OBX_NUM_SERVERS
-#define OBX_NUM_SERVERS             12
+/*
+ * Buffer size to reassemble the SDU.
+ * It will allow buffers to be used that are larger than the L2CAP_MAX_MTU.
+ */
+#ifndef OBX_USER_RX_BUF_SIZE
+#define OBX_USER_RX_BUF_SIZE    OBX_LRG_DATA_BUF_SIZE
 #endif
 
-/* The maximum number of active clients. */
-#ifndef OBX_NUM_CLIENTS
-#define OBX_NUM_CLIENTS             8
+/*
+ * Buffer size to hold the SDU.
+ * It will allow buffers to be used that are larger than the L2CAP_MAX_MTU.
+ */
+#ifndef OBX_USER_TX_BUF_SIZE
+#define OBX_USER_TX_BUF_SIZE    OBX_LRG_DATA_BUF_SIZE
 #endif
 
-/* This option is application when OBX_14_INCLUDED=TRUE
-   Pool ID where to reassemble the SDU.
-   This Pool will allow buffers to be used that are larger than
-   the L2CAP_MAX_MTU. */
-#ifndef OBX_USER_RX_POOL_ID
-#define OBX_USER_RX_POOL_ID     OBX_LRG_DATA_POOL_ID
+/* Buffer size used to hold MPS segments during SDU reassembly. */
+#ifndef OBX_FCR_RX_BUF_SIZE
+#define OBX_FCR_RX_BUF_SIZE     BT_DEFAULT_BUFFER_SIZE
 #endif
 
-/* This option is application when OBX_14_INCLUDED=TRUE
-   Pool ID where to hold the SDU.
-   This Pool will allow buffers to be used that are larger than
-   the L2CAP_MAX_MTU. */
-#ifndef OBX_USER_TX_POOL_ID
-#define OBX_USER_TX_POOL_ID     OBX_LRG_DATA_POOL_ID
+/*
+ * Buffer size used to hold MPS segments used in (re)transmissions.
+ * The size of each buffer must be able to hold the maximum MPS segment size
+ * passed in L2CA_SetFCROptions plus BT_HDR (8) + HCI preamble (4) +
+ * L2CAP_MIN_OFFSET (11 - as of BT 2.1 + EDR Spec).
+ */
+#ifndef OBX_FCR_TX_BUF_SIZE
+#define OBX_FCR_TX_BUF_SIZE     BT_DEFAULT_BUFFER_SIZE
 #endif
 
-/* This option is application when OBX_14_INCLUDED=TRUE
-GKI Buffer Pool ID used to hold MPS segments during SDU reassembly
-*/
-#ifndef OBX_FCR_RX_POOL_ID
-#define OBX_FCR_RX_POOL_ID      HCI_ACL_POOL_ID
-#endif
-
-/* This option is application when OBX_14_INCLUDED=TRUE
-GKI Buffer Pool ID used to hold MPS segments used in (re)transmissions.
-L2CAP_DEFAULT_ERM_POOL_ID is specified to use the HCI ACL data pool.
-Note:  This pool needs to have enough buffers to hold two times the window size negotiated
- in the L2CA_SetFCROptions (2 * tx_win_size)  to allow for retransmissions.
- The size of each buffer must be able to hold the maximum MPS segment size passed in
- L2CA_SetFCROptions plus BT_HDR (8) + HCI preamble (4) + L2CAP_MIN_OFFSET (11 - as of BT 2.1 + EDR Spec).
-*/
-#ifndef OBX_FCR_TX_POOL_ID
-#define OBX_FCR_TX_POOL_ID      HCI_ACL_POOL_ID
-#endif
-
-/* This option is application when OBX_14_INCLUDED=TRUE
-Size of the transmission window when using enhanced retransmission mode. Not used
-in basic and streaming modes. Range: 1 - 63
-*/
+/*
+ * Size of the transmission window when using enhanced retransmission mode.
+ * Not used in basic and streaming modes. Range: 1 - 63
+ */
 #ifndef OBX_FCR_OPT_TX_WINDOW_SIZE_BR_EDR
 #define OBX_FCR_OPT_TX_WINDOW_SIZE_BR_EDR       20
 #endif
 
-/* This option is application when OBX_14_INCLUDED=TRUE
-Number of transmission attempts for a single I-Frame before taking
-Down the connection. Used In ERTM mode only. Value is Ignored in basic and
-Streaming modes.
-Range: 0, 1-0xFF
-0 - infinite retransmissions
-1 - single transmission
-*/
+/*
+ * Number of transmission attempts for a single I-Frame before taking
+ * Down the connection. Used In ERTM mode only. Value is Ignored in basic and
+ * Streaming modes.
+ * Range: 0, 1-0xFF
+ * 0 - infinite retransmissions
+ * 1 - single transmission
+ */
 #ifndef OBX_FCR_OPT_MAX_TX_B4_DISCNT
 #define OBX_FCR_OPT_MAX_TX_B4_DISCNT    20
 #endif
 
-/* This option is application when OBX_14_INCLUDED=TRUE
-Retransmission Timeout
-Range: Minimum 2000 (2 secs) on BR/EDR when supporting PBF.
+/*
+ * Retransmission Timeout
+ * Range: Minimum 2000 (2 secs) on BR/EDR when supporting PBF.
  */
 #ifndef OBX_FCR_OPT_RETX_TOUT
 #define OBX_FCR_OPT_RETX_TOUT           2000
 #endif
 
-/* This option is application when OBX_14_INCLUDED=TRUE
-Monitor Timeout
-Range: Minimum 12000 (12 secs) on BR/EDR when supporting PBF.
-*/
+/*
+ * Monitor Timeout
+ * Range: Minimum 12000 (12 secs) on BR/EDR when supporting PBF.
+ */
 #ifndef OBX_FCR_OPT_MONITOR_TOUT
 #define OBX_FCR_OPT_MONITOR_TOUT        12000
 #endif
 
-/* This option is application when OBX_14_INCLUDED=TRUE
-Maximum PDU payload size.
-Suggestion: The maximum amount of data that will fit into a 3-DH5 packet.
-Range: 2 octets
-*/
+/*
+ * Maximum PDU payload size.
+ * Suggestion: The maximum amount of data that will fit into a 3-DH5 packet.
+ * Range: 2 octets
+ */
 #ifndef OBX_FCR_OPT_MAX_PDU_SIZE
 #define OBX_FCR_OPT_MAX_PDU_SIZE        L2CAP_MPS_OVER_BR_EDR
 #endif
@@ -1283,22 +1161,7 @@ Range: 2 octets
 #define AVDT_NUM_SEPS               3
 #endif
 
-/* Number of transport channels setup per media stream(audio or video) */
-#ifndef AVDT_NUM_CHANNELS
-
-#if AVDT_REPORTING == TRUE
-/* signaling, media and reporting channels */
-#define AVDT_NUM_CHANNELS   3
-#else
-/* signaling and media channels */
-#define AVDT_NUM_CHANNELS   2
-#endif  // AVDT_REPORTING
-
-#endif  // AVDT_NUM_CHANNELS
-
-/* Number of transport channels setup by AVDT for all media streams
- * AVDT_NUM_CHANNELS * Number of simultaneous streams.
- */
+/* Number of transport channels setup by AVDT for all media streams */
 #ifndef AVDT_NUM_TC_TBL
 #define AVDT_NUM_TC_TBL             6
 #endif
@@ -1313,8 +1176,7 @@ Range: 2 octets
 #define AVDT_PROTECT_SIZE           90
 #endif
 
-/* Maximum number of GKI buffers in the fragment queue (for video frames).
- * Must be less than the number of buffers in the buffer pool of size AVDT_DATA_POOL_SIZE */
+/* Maximum number of buffers in the fragment queue (for video frames). */
 #ifndef AVDT_MAX_FRAG_COUNT
 #define AVDT_MAX_FRAG_COUNT         15
 #endif
@@ -1440,16 +1302,12 @@ Range: 2 octets
 **
 ******************************************************************************/
 
-#ifndef HID_DEV_SUBCLASS
-#define HID_DEV_SUBCLASS            COD_MINOR_POINTING
+#ifndef HID_CONTROL_BUF_SIZE
+#define HID_CONTROL_BUF_SIZE            BT_DEFAULT_BUFFER_SIZE
 #endif
 
-#ifndef HID_CONTROL_POOL_ID
-#define HID_CONTROL_POOL_ID             2
-#endif
-
-#ifndef HID_INTERRUPT_POOL_ID
-#define HID_INTERRUPT_POOL_ID           2
+#ifndef HID_INTERRUPT_BUF_SIZE
+#define HID_INTERRUPT_BUF_SIZE          BT_DEFAULT_BUFFER_SIZE
 #endif
 
 /*************************************************************************
@@ -1487,7 +1345,7 @@ Range: 2 octets
 #endif
 
 #ifndef HID_HOST_MAX_CONN_RETRY
-#define HID_HOST_MAX_CONN_RETRY     (3)
+#define HID_HOST_MAX_CONN_RETRY     (1)
 #endif
 
 #ifndef HID_HOST_REPAGE_WIN
@@ -1569,33 +1427,31 @@ Range: 2 octets
 #define MCA_NUM_MDLS    4
 #endif
 
-/* Pool ID where to reassemble the SDU. */
-#ifndef MCA_USER_RX_POOL_ID
-#define MCA_USER_RX_POOL_ID     HCI_ACL_POOL_ID
+/* Buffer size to reassemble the SDU. */
+#ifndef MCA_USER_RX_BUF_SIZE
+#define MCA_USER_RX_BUF_SIZE    BT_DEFAULT_BUFFER_SIZE
 #endif
 
-/* Pool ID where to hold the SDU. */
-#ifndef MCA_USER_TX_POOL_ID
-#define MCA_USER_TX_POOL_ID     HCI_ACL_POOL_ID
-#endif
-
-/*
-GKI Buffer Pool ID used to hold MPS segments during SDU reassembly
-*/
-#ifndef MCA_FCR_RX_POOL_ID
-#define MCA_FCR_RX_POOL_ID      HCI_ACL_POOL_ID
+/* Buffer size to hold the SDU. */
+#ifndef MCA_USER_TX_BUF_SIZE
+#define MCA_USER_TX_BUF_SIZE    BT_DEFAULT_BUFFER_SIZE
 #endif
 
 /*
-GKI Buffer Pool ID used to hold MPS segments used in (re)transmissions.
-L2CAP_DEFAULT_ERM_POOL_ID is specified to use the HCI ACL data pool.
-Note:  This pool needs to have enough buffers to hold two times the window size negotiated
- in the tL2CAP_FCR_OPTIONS (2 * tx_win_size)  to allow for retransmissions.
- The size of each buffer must be able to hold the maximum MPS segment size passed in
- tL2CAP_FCR_OPTIONS plus BT_HDR (8) + HCI preamble (4) + L2CAP_MIN_OFFSET (11 - as of BT 2.1 + EDR Spec).
-*/
-#ifndef MCA_FCR_TX_POOL_ID
-#define MCA_FCR_TX_POOL_ID      HCI_ACL_POOL_ID
+ * Buffer size used to hold MPS segments during SDU reassembly
+ */
+#ifndef MCA_FCR_RX_BUF_SIZE
+#define MCA_FCR_RX_BUF_SIZE     BT_DEFAULT_BUFFER_SIZE
+#endif
+
+/*
+ * Default buffer size used to hold MPS segments used in (re)transmissions.
+ * The size of each buffer must be able to hold the maximum MPS segment size
+ * passed in tL2CAP_FCR_OPTIONS plus BT_HDR (8) + HCI preamble (4) +
+ * L2CAP_MIN_OFFSET (11 - as of BT 2.1 + EDR Spec).
+ */
+#ifndef MCA_FCR_TX_BUF_SIZE
+#define MCA_FCR_TX_BUF_SIZE     BT_DEFAULT_BUFFER_SIZE
 #endif
 
 /* MCAP control channel FCR Option:
@@ -1643,11 +1499,6 @@ The maximum number of payload octets that the local device can receive in a sing
 #define MCA_FCR_OPT_MPS_SIZE            1000
 #endif
 
-/* Shared transport */
-#ifndef NFC_SHARED_TRANSPORT_ENABLED
-#define NFC_SHARED_TRANSPORT_ENABLED    FALSE
-#endif
-
 /******************************************************************************
 **
 ** Sleep Mode (Low Power Mode)
@@ -1657,15 +1508,6 @@ The maximum number of payload octets that the local device can receive in a sing
 #ifndef HCILP_INCLUDED
 #define HCILP_INCLUDED                  TRUE
 #endif
-
-/******************************************************************************
-**
-** APPL - Application Task
-**
-******************************************************************************/
-
-#define L2CAP_FEATURE_REQ_ID      73
-#define L2CAP_FEATURE_RSP_ID     173
 
 /******************************************************************************
 **
@@ -1682,7 +1524,7 @@ The maximum number of payload octets that the local device can receive in a sing
 #define BTA_EIR_SERVER_NUM_CUSTOM_UUID     8
 #endif
 
-/* CHLD override for bluedroid */
+/* CHLD override */
 #ifndef BTA_AG_CHLD_VAL_ECC
 #define BTA_AG_CHLD_VAL_ECC  "(0,1,1x,2,2x,3)"
 #endif

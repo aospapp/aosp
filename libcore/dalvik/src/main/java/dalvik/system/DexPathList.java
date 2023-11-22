@@ -27,11 +27,12 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
-import java.util.zip.ZipFile;
 import java.util.zip.ZipEntry;
 import libcore.io.IoUtils;
 import libcore.io.Libcore;
-import static android.system.OsConstants.*;
+import libcore.io.ClassPathURLStreamHandler;
+
+import static android.system.OsConstants.S_ISDIR;
 
 /**
  * A pair of lists of entries, associated with a {@code ClassLoader}.
@@ -58,7 +59,7 @@ import static android.system.OsConstants.*;
      * Should be called pathElements, but the Facebook app uses reflection
      * to modify 'dexElements' (http://b/7726934).
      */
-    private final Element[] dexElements;
+    private Element[] dexElements;
 
     /** List of native library path elements. */
     private final Element[] nativeLibraryPathElements;
@@ -72,7 +73,7 @@ import static android.system.OsConstants.*;
     /**
      * Exceptions thrown during creation of the dexElements list.
      */
-    private final IOException[] dexElementsSuppressedExceptions;
+    private IOException[] dexElementsSuppressedExceptions;
 
     /**
      * Constructs an instance.
@@ -81,14 +82,19 @@ import static android.system.OsConstants.*;
      * classes should be defined
      * @param dexPath list of dex/resource path elements, separated by
      * {@code File.pathSeparator}
-     * @param libraryPath list of native library directory path elements,
+     * @param librarySearchPath list of native library directory path elements,
      * separated by {@code File.pathSeparator}
+     * @param libraryPermittedPath is path containing permitted directories for
+     * linker isolated namespaces (in addition to librarySearchPath which is allowed
+     * implicitly). Note that this path does not affect the search order for the library
+     * and intended for white-listing additional paths when loading native libraries
+     * by absolute path.
      * @param optimizedDirectory directory where optimized {@code .dex} files
      * should be found and written to, or {@code null} to use the default
      * system directory for same
      */
     public DexPathList(ClassLoader definingContext, String dexPath,
-            String libraryPath, File optimizedDirectory) {
+            String librarySearchPath, File optimizedDirectory) {
 
         if (definingContext == null) {
             throw new NullPointerException("definingContext == null");
@@ -117,27 +123,28 @@ import static android.system.OsConstants.*;
 
         ArrayList<IOException> suppressedExceptions = new ArrayList<IOException>();
         // save dexPath for BaseDexClassLoader
-        this.dexElements = makePathElements(splitDexPath(dexPath), optimizedDirectory,
-                                            suppressedExceptions);
+        this.dexElements = makeDexElements(splitDexPath(dexPath), optimizedDirectory,
+                                           suppressedExceptions, definingContext);
 
         // Native libraries may exist in both the system and
         // application library paths, and we use this search order:
         //
-        //   1. This class loader's library path for application libraries (libraryPath):
+        //   1. This class loader's library path for application libraries (librarySearchPath):
         //   1.1. Native library directories
         //   1.2. Path to libraries in apk-files
         //   2. The VM's library path from the system property for system libraries
         //      also known as java.library.path
         //
         // This order was reversed prior to Gingerbread; see http://b/2933456.
-        this.nativeLibraryDirectories = splitPaths(libraryPath, false);
+        this.nativeLibraryDirectories = splitPaths(librarySearchPath, false);
         this.systemNativeLibraryDirectories =
                 splitPaths(System.getProperty("java.library.path"), true);
         List<File> allNativeLibraryDirectories = new ArrayList<>(nativeLibraryDirectories);
         allNativeLibraryDirectories.addAll(systemNativeLibraryDirectories);
 
-        this.nativeLibraryPathElements = makePathElements(allNativeLibraryDirectories, null,
-                                                          suppressedExceptions);
+        this.nativeLibraryPathElements = makePathElements(allNativeLibraryDirectories,
+                                                          suppressedExceptions,
+                                                          definingContext);
 
         if (suppressedExceptions.size() > 0) {
             this.dexElementsSuppressedExceptions =
@@ -167,10 +174,49 @@ import static android.system.OsConstants.*;
     }
 
     /**
+     * Adds a new path to this instance
+     * @param dexPath list of dex/resource path element, separated by
+     * {@code File.pathSeparator}
+     * @param optimizedDirectory directory where optimized {@code .dex} files
+     * should be found and written to, or {@code null} to use the default
+     * system directory for same
+     */
+    public void addDexPath(String dexPath, File optimizedDirectory) {
+        final List<IOException> suppressedExceptionList = new ArrayList<IOException>();
+        final Element[] newElements = makeDexElements(splitDexPath(dexPath), optimizedDirectory,
+                suppressedExceptionList, definingContext);
+
+        if (newElements != null && newElements.length > 0) {
+            final Element[] oldElements = dexElements;
+            dexElements = new Element[oldElements.length + newElements.length];
+            System.arraycopy(
+                    oldElements, 0, dexElements, 0, oldElements.length);
+            System.arraycopy(
+                    newElements, 0, dexElements, oldElements.length, newElements.length);
+        }
+
+        if (suppressedExceptionList.size() > 0) {
+            final IOException[] newSuppressedExceptions = suppressedExceptionList.toArray(
+                    new IOException[suppressedExceptionList.size()]);
+            if (dexElementsSuppressedExceptions != null) {
+                final IOException[] oldSuppressedExceptions = dexElementsSuppressedExceptions;
+                final int suppressedExceptionsLength = oldSuppressedExceptions.length +
+                        newSuppressedExceptions.length;
+                dexElementsSuppressedExceptions = new IOException[suppressedExceptionsLength];
+                System.arraycopy(oldSuppressedExceptions, 0, dexElementsSuppressedExceptions,
+                        0, oldSuppressedExceptions.length);
+                System.arraycopy(newSuppressedExceptions, 0, dexElementsSuppressedExceptions,
+                        oldSuppressedExceptions.length, newSuppressedExceptions.length);
+            } else {
+                dexElementsSuppressedExceptions = newSuppressedExceptions;
+            }
+        }
+    }
+
+    /**
      * Splits the given dex path string into elements using the path
      * separator, pruning out any elements that do not refer to existing
-     * and readable files. (That is, directories are not included in the
-     * result.)
+     * and readable files.
      */
     private static List<File> splitDexPath(String path) {
         return splitPaths(path, false);
@@ -211,9 +257,36 @@ import static android.system.OsConstants.*;
      * Makes an array of dex/resource path elements, one per element of
      * the given array.
      */
+    private static Element[] makeDexElements(List<File> files, File optimizedDirectory,
+                                             List<IOException> suppressedExceptions,
+                                             ClassLoader loader) {
+        return makeElements(files, optimizedDirectory, suppressedExceptions, false, loader);
+    }
+
+    /**
+     * Makes an array of directory/zip path elements, one per element of the given array.
+     */
+    private static Element[] makePathElements(List<File> files,
+                                              List<IOException> suppressedExceptions,
+                                              ClassLoader loader) {
+        return makeElements(files, null, suppressedExceptions, true, loader);
+    }
+
+    /*
+     * TODO (dimitry): Revert after apps stops relying on the existence of this
+     * method (see http://b/21957414 and http://b/26317852 for details)
+     */
     private static Element[] makePathElements(List<File> files, File optimizedDirectory,
                                               List<IOException> suppressedExceptions) {
-        List<Element> elements = new ArrayList<>();
+        return makeElements(files, optimizedDirectory, suppressedExceptions, false, null);
+    }
+
+    private static Element[] makeElements(List<File> files, File optimizedDirectory,
+                                          List<IOException> suppressedExceptions,
+                                          boolean ignoreDexFiles,
+                                          ClassLoader loader) {
+        Element[] elements = new Element[files.size()];
+        int elementsPos = 0;
         /*
          * Open all files and load the (direct or contained) dex files
          * up front.
@@ -232,29 +305,32 @@ import static android.system.OsConstants.*;
             } else if (file.isDirectory()) {
                 // We support directories for looking up resources and native libraries.
                 // Looking up resources in directories is useful for running libcore tests.
-                elements.add(new Element(file, true, null, null));
+                elements[elementsPos++] = new Element(file, true, null, null);
             } else if (file.isFile()) {
-                if (name.endsWith(DEX_SUFFIX)) {
+                if (!ignoreDexFiles && name.endsWith(DEX_SUFFIX)) {
                     // Raw dex file (not inside a zip/jar).
                     try {
-                        dex = loadDexFile(file, optimizedDirectory);
-                    } catch (IOException ex) {
-                        System.logE("Unable to load dex file: " + file, ex);
+                        dex = loadDexFile(file, optimizedDirectory, loader, elements);
+                    } catch (IOException suppressed) {
+                        System.logE("Unable to load dex file: " + file, suppressed);
+                        suppressedExceptions.add(suppressed);
                     }
                 } else {
                     zip = file;
 
-                    try {
-                        dex = loadDexFile(file, optimizedDirectory);
-                    } catch (IOException suppressed) {
-                        /*
-                         * IOException might get thrown "legitimately" by the DexFile constructor if
-                         * the zip file turns out to be resource-only (that is, no classes.dex file
-                         * in it).
-                         * Let dex == null and hang on to the exception to add to the tea-leaves for
-                         * when findClass returns null.
-                         */
-                        suppressedExceptions.add(suppressed);
+                    if (!ignoreDexFiles) {
+                        try {
+                            dex = loadDexFile(file, optimizedDirectory, loader, elements);
+                        } catch (IOException suppressed) {
+                            /*
+                             * IOException might get thrown "legitimately" by the DexFile constructor if
+                             * the zip file turns out to be resource-only (that is, no classes.dex file
+                             * in it).
+                             * Let dex == null and hang on to the exception to add to the tea-leaves for
+                             * when findClass returns null.
+                             */
+                            suppressedExceptions.add(suppressed);
+                        }
                     }
                 }
             } else {
@@ -262,24 +338,28 @@ import static android.system.OsConstants.*;
             }
 
             if ((zip != null) || (dex != null)) {
-                elements.add(new Element(dir, false, zip, dex));
+                elements[elementsPos++] = new Element(dir, false, zip, dex);
             }
         }
-
-        return elements.toArray(new Element[elements.size()]);
+        if (elementsPos != elements.length) {
+            elements = Arrays.copyOf(elements, elementsPos);
+        }
+        return elements;
     }
 
     /**
-     * Constructs a {@code DexFile} instance, as appropriate depending
-     * on whether {@code optimizedDirectory} is {@code null}.
+     * Constructs a {@code DexFile} instance, as appropriate depending on whether
+     * {@code optimizedDirectory} is {@code null}. An application image file may be associated with
+     * the {@code loader} if it is not null.
      */
-    private static DexFile loadDexFile(File file, File optimizedDirectory)
+    private static DexFile loadDexFile(File file, File optimizedDirectory, ClassLoader loader,
+                                       Element[] elements)
             throws IOException {
         if (optimizedDirectory == null) {
-            return new DexFile(file);
+            return new DexFile(file, loader, elements);
         } else {
             String optimizedPath = optimizedPathFor(file, optimizedDirectory);
-            return DexFile.loadDex(file.getPath(), optimizedPath, 0);
+            return DexFile.loadDex(file.getPath(), optimizedPath, 0, loader, elements);
         }
     }
 
@@ -408,7 +488,7 @@ import static android.system.OsConstants.*;
     }
 
     /**
-     * Element of the dex/resource file path
+     * Element of the dex/resource/native library path
      */
     /*package*/ static class Element {
         private final File dir;
@@ -416,7 +496,7 @@ import static android.system.OsConstants.*;
         private final File zip;
         private final DexFile dexFile;
 
-        private ZipFile zipFile;
+        private ClassPathURLStreamHandler urlHandler;
         private boolean initialized;
 
         public Element(File dir, boolean isDirectory, File zip, DexFile dexFile) {
@@ -449,7 +529,7 @@ import static android.system.OsConstants.*;
             }
 
             try {
-                zipFile = new ZipFile(zip);
+                urlHandler = new ClassPathURLStreamHandler(zip.getPath());
             } catch (IOException ioe) {
                 /*
                  * Note: ZipException (a subclass of IOException)
@@ -458,23 +538,8 @@ import static android.system.OsConstants.*;
                  * file).
                  */
                 System.logE("Unable to open zip file: " + zip, ioe);
-                zipFile = null;
+                urlHandler = null;
             }
-        }
-
-        /**
-         * Returns true if entry with specified path exists and not compressed.
-         *
-         * Note that ZipEntry does not provide information about offset so we
-         * cannot reliably check if entry is page-aligned. For now we are going
-         * take optimistic approach and rely on (1) if library was extracted
-         * it would have been found by the previous step (2) if library was not extracted
-         * but STORED and not page-aligned the installation of the app would have failed
-         * because of checks in PackageManagerService.
-         */
-        private boolean isZipEntryExistsAndStored(ZipFile zipFile, String path) {
-            ZipEntry entry = zipFile.getEntry(path);
-            return entry != null && entry.getMethod() == ZipEntry.STORED;
         }
 
         public String findNativeLibrary(String name) {
@@ -485,9 +550,13 @@ import static android.system.OsConstants.*;
                 if (IoUtils.canOpenReadOnly(path)) {
                     return path;
                 }
-            } else if (zipFile != null) {
+            } else if (urlHandler != null) {
+                // Having a urlHandler means the element has a zip file.
+                // In this case Android supports loading the library iff
+                // it is stored in the zip uncompressed.
+
                 String entryName = new File(dir, name).getPath();
-                if (isZipEntryExistsAndStored(zipFile, entryName)) {
+                if (urlHandler.isEntryStored(entryName)) {
                   return zip.getPath() + zipSeparator + entryName;
                 }
             }
@@ -511,27 +580,12 @@ import static android.system.OsConstants.*;
                 }
             }
 
-            if (zipFile == null || zipFile.getEntry(name) == null) {
-                /*
-                 * Either this element has no zip/jar file (first
-                 * clause), or the zip/jar file doesn't have an entry
-                 * for the given name (second clause).
+            if (urlHandler == null) {
+                /* This element has no zip/jar file.
                  */
                 return null;
             }
-
-            try {
-                /*
-                 * File.toURL() is compliant with RFC 1738 in
-                 * always creating absolute path names. If we
-                 * construct the URL by concatenating strings, we
-                 * might end up with illegal URLs for relative
-                 * names.
-                 */
-                return new URL("jar:" + zip.toURL() + "!/" + name);
-            } catch (MalformedURLException ex) {
-                throw new RuntimeException(ex);
-            }
+            return urlHandler.getEntryUrlOrNull(name);
         }
     }
 }

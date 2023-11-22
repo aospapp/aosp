@@ -1,7 +1,7 @@
 /*
  *******************************************************************************
- * Copyright (C) 2008-2014, International Business Machines Corporation and    *
- * others. All Rights Reserved.                                                *
+ * Copyright (C) 2008-2016, International Business Machines Corporation and
+ * others. All Rights Reserved.
  *******************************************************************************
  */
 package com.ibm.icu.dev.test.format;
@@ -9,11 +9,12 @@ package com.ibm.icu.dev.test.format;
 import java.util.Arrays;
 
 import com.ibm.icu.dev.test.TestFmwk;
+import com.ibm.icu.impl.SimplePatternFormatter;
+import com.ibm.icu.impl.StandardPlural;
 import com.ibm.icu.text.MeasureFormat;
 import com.ibm.icu.text.MeasureFormat.FormatWidth;
 import com.ibm.icu.text.PluralRanges;
 import com.ibm.icu.text.PluralRules.Factory;
-import com.ibm.icu.text.PluralRules.StandardPluralCategories;
 import com.ibm.icu.util.Currency;
 import com.ibm.icu.util.Measure;
 import com.ibm.icu.util.MeasureUnit;
@@ -41,12 +42,12 @@ public class PluralRangesTest extends TestFmwk {
         };
         for (String[] test : tests) {
             final ULocale locale = new ULocale(test[0]);
-            final StandardPluralCategories start = StandardPluralCategories.valueOf(test[1]);
-            final StandardPluralCategories end = StandardPluralCategories.valueOf(test[2]);
-            final StandardPluralCategories expected = StandardPluralCategories.valueOf(test[3]);
+            final StandardPlural start = StandardPlural.fromString(test[1]);
+            final StandardPlural end = StandardPlural.fromString(test[2]);
+            final StandardPlural expected = StandardPlural.fromString(test[3]);
             final PluralRanges pluralRanges = Factory.getDefaultFactory().getPluralRanges(locale);
 
-            StandardPluralCategories actual = pluralRanges.get(start, end);
+            StandardPlural actual = pluralRanges.get(start, end);
             assertEquals("Deriving range category", expected, actual);
         }
     }
@@ -60,11 +61,12 @@ public class PluralRangesTest extends TestFmwk {
             ULocale ulocale = new ULocale(test[0]);
             FormatWidth width = FormatWidth.valueOf(test[1]);
             String expected = test[2];
-            String actual = MeasureFormat.getRangePattern(ulocale, width);
+            String formatter = MeasureFormat.getRangeFormat(ulocale, width);
+            String actual = SimplePatternFormatter.formatCompiledPattern(formatter, "{0}", "{1}");
             assertEquals("range pattern " + Arrays.asList(test), expected, actual);
         }
     }
-    
+
     public void TestFormatting() {
         Object[][] tests = {
                 {0.0, 1.0, ULocale.FRANCE, FormatWidth.WIDE, MeasureUnit.FAHRENHEIT, "0–1 degré Fahrenheit"},
@@ -110,12 +112,12 @@ public class PluralRangesTest extends TestFmwk {
 
     public void TestBasic() {
         PluralRanges a = new PluralRanges();
-        a.add(StandardPluralCategories.one, StandardPluralCategories.other, StandardPluralCategories.one);
-        StandardPluralCategories actual = a.get(StandardPluralCategories.one, StandardPluralCategories.other);
-        assertEquals("range", StandardPluralCategories.one, actual);
+        a.add(StandardPlural.ONE, StandardPlural.OTHER, StandardPlural.ONE);
+        StandardPlural actual = a.get(StandardPlural.ONE, StandardPlural.OTHER);
+        assertEquals("range", StandardPlural.ONE, actual);
         a.freeze();
         try {
-            a.add(StandardPluralCategories.one, StandardPluralCategories.one, StandardPluralCategories.one);
+            a.add(StandardPlural.ONE, StandardPlural.ONE, StandardPlural.ONE);
             errln("Failed to cause exception on frozen instance");
         } catch (UnsupportedOperationException e) {
         }

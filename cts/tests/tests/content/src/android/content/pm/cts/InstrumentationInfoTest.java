@@ -25,7 +25,7 @@ import android.os.Parcel;
 import android.test.AndroidTestCase;
 
 public class InstrumentationInfoTest extends AndroidTestCase {
-    private static final String PACKAGE_NAME = "com.android.cts.content";
+    private static final String PACKAGE_NAME = "android.content.cts";
     private static final String INSTRUMENTATION_NAME =
             "android.content.pm.cts.TestPmInstrumentation";
 

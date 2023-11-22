@@ -17,12 +17,15 @@
 package com.android.providers.downloads;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import android.app.DownloadManager;
 import android.app.NotificationManager;
-import android.content.ComponentName;
+import android.app.job.JobParameters;
+import android.app.job.JobScheduler;
 import android.content.ContentResolver;
 import android.content.Context;
-import android.content.Intent;
+import android.content.pm.ProviderInfo;
 import android.database.ContentObserver;
 import android.database.Cursor;
 import android.net.Uri;
@@ -47,7 +50,7 @@ import java.net.MalformedURLException;
 import java.net.UnknownHostException;
 
 public abstract class AbstractDownloadProviderFunctionalTest extends
-        ServiceTestCase<DownloadService> {
+        ServiceTestCase<DownloadJobService> {
 
     protected static final String LOG_TAG = "DownloadProviderFunctionalTest";
     private static final String PROVIDER_AUTHORITY = "downloads";
@@ -99,13 +102,15 @@ public abstract class AbstractDownloadProviderFunctionalTest extends
 
         private final ContentResolver mResolver;
         private final NotificationManager mNotifManager;
-
-        boolean mHasServiceBeenStarted = false;
+        private final DownloadManager mDownloadManager;
+        private final JobScheduler mJobScheduler;
 
         public TestContext(Context realContext) {
             super(realContext, FILENAME_PREFIX);
             mResolver = new MockContentResolverWithNotify(this);
             mNotifManager = mock(NotificationManager.class);
+            mDownloadManager = mock(DownloadManager.class);
+            mJobScheduler = mock(JobScheduler.class);
         }
 
         /**
@@ -123,26 +128,18 @@ public abstract class AbstractDownloadProviderFunctionalTest extends
         public Object getSystemService(String name) {
             if (Context.NOTIFICATION_SERVICE.equals(name)) {
                 return mNotifManager;
+            } else if (Context.DOWNLOAD_SERVICE.equals(name)) {
+                return mDownloadManager;
+            } else if (Context.JOB_SCHEDULER_SERVICE.equals(name)) {
+                return mJobScheduler;
             }
 
             return super.getSystemService(name);
         }
-
-        /**
-         * Record when DownloadProvider starts DownloadService.
-         */
-        @Override
-        public ComponentName startService(Intent service) {
-            if (service.getComponent().getClassName().equals(DownloadService.class.getName())) {
-                mHasServiceBeenStarted = true;
-                return service.getComponent();
-            }
-            throw new UnsupportedOperationException("Unexpected service: " + service);
-        }
     }
 
     public AbstractDownloadProviderFunctionalTest(FakeSystemFacade systemFacade) {
-        super(DownloadService.class);
+        super(DownloadJobService.class);
         mSystemFacade = systemFacade;
     }
 
@@ -162,13 +159,16 @@ public abstract class AbstractDownloadProviderFunctionalTest extends
 
         final DownloadProvider provider = new DownloadProvider();
         provider.mSystemFacade = mSystemFacade;
-        provider.attachInfo(mTestContext, null);
+
+        ProviderInfo info = new ProviderInfo();
+        info.authority = "downloads";
+        provider.attachInfo(mTestContext, info);
 
         mResolver.addProvider(PROVIDER_AUTHORITY, provider);
 
         setContext(mTestContext);
         setupService();
-        getService().mSystemFacade = mSystemFacade;
+        Helpers.setSystemFacade(mSystemFacade);
 
         mSystemFacade.setUp();
         assertTrue(isDatabaseEmpty()); // ensure we're not messing with real data
@@ -182,6 +182,12 @@ public abstract class AbstractDownloadProviderFunctionalTest extends
         mServer.shutdown();
         mMockitoHelper.tearDown();
         super.tearDown();
+    }
+
+    protected void startDownload(long id) {
+        final JobParameters params = mock(JobParameters.class);
+        when(params.getJobId()).thenReturn((int) id);
+        getService().onStartJob(params);
     }
 
     private boolean isDatabaseEmpty() {

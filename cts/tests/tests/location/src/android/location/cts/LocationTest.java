@@ -377,6 +377,19 @@ public class LocationTest extends AndroidTestCase {
         assertEquals(12000, location.getTime());
     }
 
+    public void testAccessElapsedRealtime() {
+        Location location = new Location("");
+
+        location.setElapsedRealtimeNanos(0);
+        assertEquals(0, location.getElapsedRealtimeNanos());
+
+        location.setElapsedRealtimeNanos(Long.MAX_VALUE);
+        assertEquals(Long.MAX_VALUE, location.getElapsedRealtimeNanos());
+
+        location.setElapsedRealtimeNanos(12000);
+        assertEquals(12000, location.getElapsedRealtimeNanos());
+    }
+
     public void testSet() {
         Location location = new Location("");
 
@@ -453,6 +466,8 @@ public class LocationTest extends AndroidTestCase {
 
         // enabled == true case
         service.setEnabled(true);
+        assertTrue(service.onGetEnabled());
+        assertEquals("Summary", service.onGetSummary());
         resultHandler.expectEnabled(true);
         resultHandler.expectMessage(true);
         ret = service.callOnStartCommand(intent, SettingInjectorService.START_NOT_STICKY, 0);
@@ -563,7 +578,7 @@ public class LocationTest extends AndroidTestCase {
         @Override
         // Deprecated API
         protected String onGetSummary() {
-            return "";
+            return "Summary";
         }
 
         @Override
@@ -575,7 +590,7 @@ public class LocationTest extends AndroidTestCase {
             mEnabled = enabled;
         }
 
-        // API coverage dashboard will not cound method call from derived class.
+        // API coverage dashboard will not count method call from derived class.
         // Thus, it is necessary to make explicit call to SettingInjectorService public methods.
         public IBinder callOnBind(Intent intent) {
             return super.onBind(intent);

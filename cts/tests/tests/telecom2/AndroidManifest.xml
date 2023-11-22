@@ -15,7 +15,7 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.telecom2">
+    package="android.telecom2.cts">
     <uses-sdk android:minSdkVersion="21" />
 
     <!--
@@ -74,7 +74,7 @@
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.telecom2"
+                     android:targetPackage="android.telecom2.cts"
                      android:label="CTS tests for android.telecom package">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

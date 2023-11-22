@@ -21,7 +21,9 @@
     android:layout_height="wrap_content"
     android:clipToPadding="false"
     android:orientation="vertical"
-    android:tag="stickyContainer">
+    android:elevation="@dimen/suw_header_elevation_hack"
+    android:tag="stickyContainer"
+    tools:ignore="UnusedAttribute">
 
     <com.android.setupwizardlib.view.Illustration
         android:id="@+id/suw_layout_decor"

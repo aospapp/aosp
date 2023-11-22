@@ -183,7 +183,7 @@ size_t AacAdtsExtractor::countTracks() {
 }
 
 
-sp<MediaSource> AacAdtsExtractor::getTrack(size_t index) {
+sp<IMediaSource> AacAdtsExtractor::getTrack(size_t index) {
     if (mInitCheck != OK || index != 0) {
         return NULL;
     }

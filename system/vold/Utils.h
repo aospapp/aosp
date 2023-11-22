@@ -18,6 +18,7 @@
 #define ANDROID_VOLD_UTILS_H
 
 #include <utils/Errors.h>
+#include <cutils/multiuser.h>
 #include <selinux/selinux.h>
 
 #include <vector>
@@ -30,6 +31,8 @@
     TypeName(const TypeName&) = delete;  \
     void operator=(const TypeName&) = delete
 #endif
+
+struct DIR;
 
 namespace android {
 namespace vold {
@@ -48,6 +51,9 @@ status_t PrepareDir(const std::string& path, mode_t mode, uid_t uid, gid_t gid);
 
 /* Really unmounts the path, killing active processes along the way */
 status_t ForceUnmount(const std::string& path);
+
+/* Kills any processes using given path */
+status_t KillProcessesUsingPath(const std::string& path);
 
 /* Creates bind mount from source to target */
 status_t BindMount(const std::string& source, const std::string& target);
@@ -90,9 +96,48 @@ status_t WipeBlockDevice(const std::string& path);
 
 std::string BuildKeyPath(const std::string& partGuid);
 
+std::string BuildDataSystemLegacyPath(userid_t userid);
+std::string BuildDataSystemCePath(userid_t userid);
+std::string BuildDataSystemDePath(userid_t userid);
+std::string BuildDataMiscLegacyPath(userid_t userid);
+std::string BuildDataMiscCePath(userid_t userid);
+std::string BuildDataMiscDePath(userid_t userid);
+std::string BuildDataProfilesDePath(userid_t userid);
+std::string BuildDataProfilesForeignDexDePath(userid_t userid);
+
+std::string BuildDataPath(const char* volumeUuid);
+std::string BuildDataMediaCePath(const char* volumeUuid, userid_t userid);
+std::string BuildDataUserCePath(const char* volumeUuid, userid_t userid);
+std::string BuildDataUserDePath(const char* volumeUuid, userid_t userid);
+
 dev_t GetDevice(const std::string& path);
 
 std::string DefaultFstabPath();
+
+status_t SaneReadLinkAt(int dirfd, const char* path, char* buf, size_t bufsiz);
+
+class ScopedFd {
+    const int fd_;
+public:
+    ScopedFd(int fd);
+    ~ScopedFd();
+    int get() const { return fd_; }
+
+    DISALLOW_COPY_AND_ASSIGN(ScopedFd);
+};
+
+class ScopedDir {
+    DIR* const dir_;
+public:
+    ScopedDir(DIR* dir);
+    ~ScopedDir();
+    DIR* get() const { return dir_; }
+
+    DISALLOW_COPY_AND_ASSIGN(ScopedDir);
+};
+
+/* Checks if Android is running in QEMU */
+bool IsRunningInEmulator();
 
 }  // namespace vold
 }  // namespace android

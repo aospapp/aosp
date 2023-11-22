@@ -16,6 +16,7 @@
 
 package libcore.java.util;
 
+import java.io.ObjectInputStream;
 import java.text.BreakIterator;
 import java.text.Collator;
 import java.text.DateFormat;
@@ -146,7 +147,7 @@ public class LocaleTest extends junit.framework.TestCase {
         // he (new) -> iw (obsolete)
         assertObsolete("he", "iw", "עברית");
         // id (new) -> in (obsolete)
-        assertObsolete("id", "in", "Bahasa Indonesia");
+        assertObsolete("id", "in", "Indonesia");
     }
 
     private static void assertObsolete(String newCode, String oldCode, String displayName) {
@@ -250,7 +251,9 @@ public class LocaleTest extends junit.framework.TestCase {
 
         // Too long
         try {
-            b.setLanguage("engl");
+            // note: pre-openJdk Locale assumed that language will be between
+            // 2-3 characters. openJdk accepts 2-8 character languages.
+            b.setLanguage("foobarbar");
             fail();
         } catch (IllformedLocaleException expected) {
         }
@@ -791,7 +794,7 @@ public class LocaleTest extends junit.framework.TestCase {
 
     public void test_setLanguageTag_malformedTags() {
         Locale l = fromLanguageTag("a", false);
-        assertEquals("und", l.getLanguage());
+        assertEquals("", l.getLanguage());
         assertEquals("", l.getCountry());
         assertEquals("", l.getVariant());
         assertEquals("", l.getScript());
@@ -994,8 +997,7 @@ public class LocaleTest extends junit.framework.TestCase {
 
         // Empty builder.
         Locale l = b.build();
-        // TODO: Fix this. We should return "und" and not NULL.
-        // assertEquals("und", l.toLanguageTag());
+        assertEquals("und", l.toLanguageTag());
 
         // Only language.
         b = new Locale.Builder();
@@ -1134,7 +1136,7 @@ public class LocaleTest extends junit.framework.TestCase {
 
         // Irregular grandfathered locale.
         Locale enochian = Locale.forLanguageTag("i-enochian");
-        assertEquals("und", enochian.getLanguage());
+        assertEquals("", enochian.getLanguage());
         assertEquals("i-enochian", enochian.getExtension(Locale.PRIVATE_USE_EXTENSION));
         assertEquals("", enochian.getCountry());
         assertEquals("", enochian.getScript());
@@ -1176,7 +1178,7 @@ public class LocaleTest extends junit.framework.TestCase {
             System.setUnchangeableSystemProperty("user.language", "en");
             System.setUnchangeableSystemProperty("user.region", "US");
 
-            Locale l = Locale.getDefaultLocaleFromSystemProperties();
+            Locale l = Locale.initDefault();
             assertEquals("de", l.getLanguage());
             assertEquals("DE", l.getCountry());
 
@@ -1185,18 +1187,20 @@ public class LocaleTest extends junit.framework.TestCase {
             System.setUnchangeableSystemProperty("user.language", "en");
             System.setUnchangeableSystemProperty("user.region", "US");
 
-            l = Locale.getDefaultLocaleFromSystemProperties();
+            l = Locale.initDefault();
             assertEquals("de", l.getLanguage());
             assertEquals("DE", l.getCountry());
             assertEquals("Latn", l.getScript());
 
-            // Assert that we use "und" if we're faced with a bad language tag, and
-            // that we don't end up with a null default locale or an exception.
-            System.setUnchangeableSystemProperty("user.locale", "dexx-Latn-DE");
+            // Assert that we don't end up with a null default locale or an exception.
+            System.setUnchangeableSystemProperty("user.locale", "toolonglang-Latn-DE");
 
-            l = Locale.getDefaultLocaleFromSystemProperties();
-            assertEquals("und", l.getLanguage());
-            assertEquals("DE", l.getCountry());
+            // Note: pre-enso Locale#fromLanguageTag parser was more error-tolerant
+            // then the current one. Result of bad language part of tag from line above
+            // will be an empty Locale object.
+            l = Locale.initDefault();
+            assertEquals("", l.getLanguage());
+            assertEquals("", l.getCountry());
         } finally {
             System.setUnchangeableSystemProperty("user.language", userLanguage);
             System.setUnchangeableSystemProperty("user.region", userRegion);
@@ -1236,5 +1240,41 @@ public class LocaleTest extends junit.framework.TestCase {
         b.setExtension('U', "nu-arab");
         b.setExtension('u', "nu-thai");
         assertEquals("ar-EG-u-nu-thai", b.build().toLanguageTag());
+    }
+
+    // http://b/26387905
+    public void test_SerializationBug_26387905() throws Exception {
+        try (ObjectInputStream oinput = new ObjectInputStream(getClass()
+                .getResource("/serialization/org/apache/harmony/tests/java/util/Locale_Bug_26387905.ser")
+                .openStream())) {
+            Locale l = (Locale) oinput.readObject();
+        }
+    }
+
+    public void test_setDefault_withCategory() {
+        final Locale defaultLocale = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.US);
+            assertEquals(Locale.US, Locale.getDefault(Locale.Category.FORMAT));
+            assertEquals(Locale.US, Locale.getDefault(Locale.Category.DISPLAY));
+            assertEquals(Locale.US, Locale.getDefault());
+
+            Locale.setDefault(Locale.Category.FORMAT, Locale.UK);
+            assertEquals(Locale.UK, Locale.getDefault(Locale.Category.FORMAT));
+            assertEquals(Locale.US, Locale.getDefault(Locale.Category.DISPLAY));
+            assertEquals(Locale.US, Locale.getDefault());
+
+            Locale.setDefault(Locale.Category.DISPLAY, Locale.CANADA);
+            assertEquals(Locale.UK, Locale.getDefault(Locale.Category.FORMAT));
+            assertEquals(Locale.CANADA, Locale.getDefault(Locale.Category.DISPLAY));
+            assertEquals(Locale.US, Locale.getDefault());
+
+            Locale.setDefault(Locale.FRANCE);
+            assertEquals(Locale.FRANCE, Locale.getDefault(Locale.Category.FORMAT));
+            assertEquals(Locale.FRANCE, Locale.getDefault(Locale.Category.DISPLAY));
+            assertEquals(Locale.FRANCE, Locale.getDefault());
+        } finally {
+            Locale.setDefault(defaultLocale);
+        }
     }
 }

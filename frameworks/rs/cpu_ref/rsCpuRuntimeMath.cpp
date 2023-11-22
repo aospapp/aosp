@@ -107,11 +107,6 @@ float SC_randf2(float min, float max) {
     return r;
 }
 
-static float SC_frac(float v) {
-    int i = (int)floor(v);
-    return fmin(v - i, 0x1.fffffep-1f);
-}
-
 EXPORT_F32_FN_F32(acosf)
 EXPORT_F32_FN_F32(acoshf)
 EXPORT_F32_FN_F32(asinf)
@@ -158,9 +153,6 @@ EXPORT_F32_FN_F32(sqrtf)
 EXPORT_F32_FN_F32(tanf)
 EXPORT_F32_FN_F32(tanhf)
 EXPORT_F32_FN_F32(truncf)
-float __attribute__((overloadable)) rsFrac(float f) {
-    return SC_frac(f);
-}
 void __attribute__((overloadable)) rsMatrixLoadRotate(rs_matrix4x4 *m,
         float rot, float x, float y, float z) {
     SC_MatrixLoadRotate((Matrix4x4 *) m, rot, x, y, z);

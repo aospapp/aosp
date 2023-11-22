@@ -35,11 +35,12 @@ namespace android {
 
 // static
 CameraSourceTimeLapse *CameraSourceTimeLapse::CreateFromCamera(
-        const sp<ICamera> &camera,
+        const sp<hardware::ICamera> &camera,
         const sp<ICameraRecordingProxy> &proxy,
         int32_t cameraId,
         const String16& clientName,
         uid_t clientUid,
+        pid_t clientPid,
         Size videoSize,
         int32_t videoFrameRate,
         const sp<IGraphicBufferProducer>& surface,
@@ -48,7 +49,7 @@ CameraSourceTimeLapse *CameraSourceTimeLapse::CreateFromCamera(
 
     CameraSourceTimeLapse *source = new
             CameraSourceTimeLapse(camera, proxy, cameraId,
-                clientName, clientUid,
+                clientName, clientUid, clientPid,
                 videoSize, videoFrameRate, surface,
                 timeBetweenFrameCaptureUs,
                 storeMetaDataInVideoBuffers);
@@ -63,17 +64,18 @@ CameraSourceTimeLapse *CameraSourceTimeLapse::CreateFromCamera(
 }
 
 CameraSourceTimeLapse::CameraSourceTimeLapse(
-        const sp<ICamera>& camera,
+        const sp<hardware::ICamera>& camera,
         const sp<ICameraRecordingProxy>& proxy,
         int32_t cameraId,
         const String16& clientName,
         uid_t clientUid,
+        pid_t clientPid,
         Size videoSize,
         int32_t videoFrameRate,
         const sp<IGraphicBufferProducer>& surface,
         int64_t timeBetweenFrameCaptureUs,
         bool storeMetaDataInVideoBuffers)
-      : CameraSource(camera, proxy, cameraId, clientName, clientUid,
+      : CameraSource(camera, proxy, cameraId, clientName, clientUid, clientPid,
                 videoSize, videoFrameRate, surface,
                 storeMetaDataInVideoBuffers),
       mTimeBetweenTimeLapseVideoFramesUs(1E6/videoFrameRate),
@@ -304,6 +306,21 @@ void CameraSourceTimeLapse::dataCallbackTimestamp(int64_t timestampUs, int32_t m
     ALOGV("dataCallbackTimestamp");
     mSkipCurrentFrame = skipFrameAndModifyTimeStamp(&timestampUs);
     CameraSource::dataCallbackTimestamp(timestampUs, msgType, data);
+}
+
+void CameraSourceTimeLapse::recordingFrameHandleCallbackTimestamp(int64_t timestampUs,
+            native_handle_t* handle) {
+    ALOGV("recordingFrameHandleCallbackTimestamp");
+    mSkipCurrentFrame = skipFrameAndModifyTimeStamp(&timestampUs);
+    CameraSource::recordingFrameHandleCallbackTimestamp(timestampUs, handle);
+}
+
+void CameraSourceTimeLapse::processBufferQueueFrame(BufferItem& buffer) {
+    ALOGV("processBufferQueueFrame");
+    int64_t timestampUs = buffer.mTimestamp / 1000;
+    mSkipCurrentFrame = skipFrameAndModifyTimeStamp(&timestampUs);
+    buffer.mTimestamp = timestampUs * 1000;
+    CameraSource::processBufferQueueFrame(buffer);
 }
 
 }  // namespace android

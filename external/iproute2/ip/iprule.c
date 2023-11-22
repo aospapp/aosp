@@ -21,6 +21,7 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <linux/fib_rules.h>
+#include <errno.h>
 
 #include "rt_names.h"
 #include "utils.h"
@@ -32,13 +33,16 @@ static void usage(void) __attribute__((noreturn));
 
 static void usage(void)
 {
-	fprintf(stderr, "Usage: ip rule [ list | add | del | flush ] SELECTOR ACTION\n");
+	fprintf(stderr, "Usage: ip rule [ list | add | del | flush | save ] SELECTOR ACTION\n");
+	fprintf(stderr, "       ip rule restore\n");
 	fprintf(stderr, "SELECTOR := [ not ] [ from PREFIX ] [ to PREFIX ] [ tos TOS ] [ fwmark FWMARK[/MASK] ]\n");
 	fprintf(stderr, "            [ iif STRING ] [ oif STRING ] [ pref NUMBER ] [ uidrange UID1-UID2 ]\n");
 	fprintf(stderr, "ACTION := [ table TABLE_ID ]\n");
-	fprintf(stderr, "          [ prohibit | reject | unreachable ]\n");
 	fprintf(stderr, "          [ realms [SRCREALM/]DSTREALM ]\n");
 	fprintf(stderr, "          [ goto NUMBER ]\n");
+	fprintf(stderr, "          SUPPRESSOR\n");
+	fprintf(stderr, "SUPPRESSOR := [ suppress_prefixlength NUMBER ]\n");
+	fprintf(stderr, "              [ suppress_ifgroup DEVGROUP ]\n");
 	fprintf(stderr, "TABLE_ID := [ local | main | default | NUMBER ]\n");
 	exit(-1);
 }
@@ -63,14 +67,7 @@ int print_rule(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 
 	parse_rtattr(tb, FRA_MAX, RTM_RTA(r), len);
 
-	if (r->rtm_family == AF_INET)
-		host_len = 32;
-	else if (r->rtm_family == AF_INET6)
-		host_len = 128;
-	else if (r->rtm_family == AF_DECnet)
-		host_len = 16;
-	else if (r->rtm_family == AF_IPX)
-		host_len = 80;
+	host_len = af_bit_len(r->rtm_family);
 
 	if (n->nlmsg_type == RTM_DELRULE)
 		fprintf(fp, "Deleted ");
@@ -86,9 +83,9 @@ int print_rule(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	if (tb[FRA_SRC]) {
 		if (r->rtm_src_len != host_len) {
 			fprintf(fp, "from %s/%u ", rt_addr_n2a(r->rtm_family,
-							 RTA_PAYLOAD(tb[FRA_SRC]),
-							 RTA_DATA(tb[FRA_SRC]),
-							 abuf, sizeof(abuf)),
+						       RTA_PAYLOAD(tb[FRA_SRC]),
+						       RTA_DATA(tb[FRA_SRC]),
+						       abuf, sizeof(abuf)),
 				r->rtm_src_len
 				);
 		} else {
@@ -107,9 +104,9 @@ int print_rule(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	if (tb[FRA_DST]) {
 		if (r->rtm_dst_len != host_len) {
 			fprintf(fp, "to %s/%u ", rt_addr_n2a(r->rtm_family,
-							 RTA_PAYLOAD(tb[FRA_DST]),
-							 RTA_DATA(tb[FRA_DST]),
-							 abuf, sizeof(abuf)),
+						       RTA_PAYLOAD(tb[FRA_DST]),
+						       RTA_DATA(tb[FRA_DST]),
+						       abuf, sizeof(abuf)),
 				r->rtm_dst_len
 				);
 		} else {
@@ -127,7 +124,7 @@ int print_rule(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		fprintf(fp, "tos %s ", rtnl_dsfield_n2a(r->rtm_tos, b1, sizeof(b1)));
 	}
 
- 	if (tb[FRA_FWMARK] || tb[FRA_FWMASK]) {
+	if (tb[FRA_FWMARK] || tb[FRA_FWMASK]) {
 		__u32 mark = 0, mask = 0;
 
 		if (tb[FRA_FWMARK])
@@ -166,8 +163,23 @@ int print_rule(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	}
 
 	table = rtm_get_table(r, tb);
-	if (table)
+	if (table) {
 		fprintf(fp, "lookup %s ", rtnl_rttable_n2a(table, b1, sizeof(b1)));
+
+		if (tb[FRA_SUPPRESS_PREFIXLEN]) {
+			int pl = rta_getattr_u32(tb[FRA_SUPPRESS_PREFIXLEN]);
+			if (pl != -1) {
+				fprintf(fp, "suppress_prefixlength %d ", pl);
+			}
+		}
+		if (tb[FRA_SUPPRESS_IFGROUP]) {
+			int group = rta_getattr_u32(tb[FRA_SUPPRESS_IFGROUP]);
+			if (group != -1) {
+				SPRINT_BUF(b1);
+				fprintf(fp, "suppress_ifgroup %s ", rtnl_group_n2a(group, b1, sizeof(b1)));
+			}
+		}
+	}
 
 	if (tb[FRA_FLOW]) {
 		__u32 to = rta_getattr_u32(tb[FRA_FLOW]);
@@ -208,16 +220,57 @@ int print_rule(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	return 0;
 }
 
-static int iprule_list(int argc, char **argv)
+static __u32 rule_dump_magic = 0x71706986;
+
+static int save_rule_prep(void)
 {
+	int ret;
+
+	if (isatty(STDOUT_FILENO)) {
+		fprintf(stderr, "Not sending a binary stream to stdout\n");
+		return -1;
+	}
+
+	ret = write(STDOUT_FILENO, &rule_dump_magic, sizeof(rule_dump_magic));
+	if (ret != sizeof(rule_dump_magic)) {
+		fprintf(stderr, "Can't write magic to dump file\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+static int save_rule(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+{
+	int ret;
+
+	ret = write(STDOUT_FILENO, n, n->nlmsg_len);
+	if ((ret > 0) && (ret != n->nlmsg_len)) {
+		fprintf(stderr, "Short write while saving nlmsg\n");
+		ret = -EIO;
+	}
+
+	return ret == n->nlmsg_len ? 0 : ret;
+}
+
+static int iprule_list_or_save(int argc, char **argv, int save)
+{
+	rtnl_filter_t filter = print_rule;
 	int af = preferred_family;
 
 	if (af == AF_UNSPEC)
 		af = AF_INET;
 
 	if (argc > 0) {
-		fprintf(stderr, "\"ip rule show\" does not take any arguments.\n");
+		fprintf(stderr, "\"ip rule %s\" does not take any arguments.\n",
+				save ? "save" : "show");
 		return -1;
+	}
+
+	if (save) {
+		if (save_rule_prep())
+			return -1;
+		filter = save_rule;
 	}
 
 	if (rtnl_wilddump_request(&rth, af, RTM_GETRULE) < 0) {
@@ -225,7 +278,7 @@ static int iprule_list(int argc, char **argv)
 		return 1;
 	}
 
-	if (rtnl_dump_filter(&rth, print_rule, stdout) < 0) {
+	if (rtnl_dump_filter(&rth, filter, stdout) < 0) {
 		fprintf(stderr, "Dump terminated\n");
 		return 1;
 	}
@@ -233,14 +286,58 @@ static int iprule_list(int argc, char **argv)
 	return 0;
 }
 
+static int rule_dump_check_magic(void)
+{
+	int ret;
+	__u32 magic = 0;
+
+	if (isatty(STDIN_FILENO)) {
+		fprintf(stderr, "Can't restore rule dump from a terminal\n");
+		return -1;
+	}
+
+	ret = fread(&magic, sizeof(magic), 1, stdin);
+	if (magic != rule_dump_magic) {
+		fprintf(stderr, "Magic mismatch (%d elems, %x magic)\n", ret, magic);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int restore_handler(const struct sockaddr_nl *nl,
+			   struct rtnl_ctrl_data *ctrl,
+			   struct nlmsghdr *n, void *arg)
+{
+	int ret;
+
+	n->nlmsg_flags |= NLM_F_REQUEST | NLM_F_CREATE | NLM_F_ACK;
+
+	ll_init_map(&rth);
+
+	ret = rtnl_talk(&rth, n, n, sizeof(*n));
+	if ((ret < 0) && (errno == EEXIST))
+		ret = 0;
+
+	return ret;
+}
+
+
+static int iprule_restore(void)
+{
+	if (rule_dump_check_magic())
+		exit(-1);
+
+	exit(rtnl_from_file(stdin, &restore_handler, NULL));
+}
 
 static int iprule_modify(int cmd, int argc, char **argv)
 {
 	int table_ok = 0;
 	struct {
-		struct nlmsghdr 	n;
-		struct rtmsg 		r;
-		char   			buf[1024];
+		struct nlmsghdr	n;
+		struct rtmsg		r;
+		char  			buf[1024];
 	} req;
 
 	memset(&req, 0, sizeof(req));
@@ -307,7 +404,7 @@ static int iprule_modify(int cmd, int argc, char **argv)
 		} else if (matches(*argv, "realms") == 0) {
 			__u32 realm;
 			NEXT_ARG();
-			if (get_rt_realms(&realm, *argv))
+			if (get_rt_realms_or_raw(&realm, *argv))
 				invarg("invalid realms\n", *argv);
 			addattr32(&req.n, sizeof(req), FRA_FLOW, realm);
 		} else if (matches(*argv, "table") == 0 ||
@@ -323,6 +420,20 @@ static int iprule_modify(int cmd, int argc, char **argv)
 				addattr32(&req.n, sizeof(req), FRA_TABLE, tid);
 			}
 			table_ok = 1;
+		} else if (matches(*argv, "suppress_prefixlength") == 0 ||
+			   strcmp(*argv, "sup_pl") == 0) {
+			int pl;
+			NEXT_ARG();
+			if (get_s32(&pl, *argv, 0) || pl < 0)
+				invarg("suppress_prefixlength value is invalid\n", *argv);
+			addattr32(&req.n, sizeof(req), FRA_SUPPRESS_PREFIXLEN, pl);
+		} else if (matches(*argv, "suppress_ifgroup") == 0 ||
+			   strcmp(*argv, "sup_group") == 0) {
+			NEXT_ARG();
+			int group;
+			if (rtnl_group_a2n(&group, *argv))
+				invarg("Invalid \"suppress_ifgroup\" value\n", *argv);
+			addattr32(&req.n, sizeof(req), FRA_SUPPRESS_IFGROUP, group);
 		} else if (strcmp(*argv, "dev") == 0 ||
 			   strcmp(*argv, "iif") == 0) {
 			NEXT_ARG();
@@ -375,8 +486,8 @@ static int iprule_modify(int cmd, int argc, char **argv)
 	if (!table_ok && cmd == RTM_NEWRULE)
 		req.r.rtm_table = RT_TABLE_MAIN;
 
-	if (rtnl_talk(&rth, &req.n, 0, 0, NULL) < 0)
-		return 2;
+	if (rtnl_talk(&rth, &req.n, NULL, 0) < 0)
+		return -2;
 
 	return 0;
 }
@@ -402,7 +513,7 @@ static int flush_rule(const struct sockaddr_nl *who, struct nlmsghdr *n, void *a
 		if (rtnl_open(&rth2, 0) < 0)
 			return -1;
 
-		if (rtnl_talk(&rth2, n, 0, 0, NULL) < 0)
+		if (rtnl_talk(&rth2, n, NULL, 0) < 0)
 			return -2;
 
 		rtnl_close(&rth2);
@@ -439,11 +550,15 @@ static int iprule_flush(int argc, char **argv)
 int do_iprule(int argc, char **argv)
 {
 	if (argc < 1) {
-		return iprule_list(0, NULL);
+		return iprule_list_or_save(0, NULL, 0);
 	} else if (matches(argv[0], "list") == 0 ||
 		   matches(argv[0], "lst") == 0 ||
 		   matches(argv[0], "show") == 0) {
-		return iprule_list(argc-1, argv+1);
+		return iprule_list_or_save(argc-1, argv+1, 0);
+	} else if (matches(argv[0], "save") == 0) {
+		return iprule_list_or_save(argc-1, argv+1, 1);
+	} else if (matches(argv[0], "restore") == 0) {
+		return iprule_restore();
 	} else if (matches(argv[0], "add") == 0) {
 		return iprule_modify(RTM_NEWRULE, argc-1, argv+1);
 	} else if (matches(argv[0], "delete") == 0) {

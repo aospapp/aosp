@@ -32,7 +32,7 @@ bool DisplayQuery::isVideoFormat(uint32_t format)
     case OMX_INTEL_COLOR_FormatYUV420PackedSemiPlanar_Tiled:
     // Expand format to support the case: Software decoder + HW rendering
     // Only VP9 use this foramt now
-    case HAL_PIXEL_FORMAT_YV12:
+    case HAL_PIXEL_FORMAT_INTEL_YV12:
         return true;
     default:
         return false;
@@ -44,6 +44,7 @@ int DisplayQuery::getOverlayLumaStrideAlignment(uint32_t format)
     // both luma and chroma stride need to be 64-byte aligned for overlay
     switch (format) {
     case HAL_PIXEL_FORMAT_YV12:
+    case HAL_PIXEL_FORMAT_INTEL_YV12:
     case HAL_PIXEL_FORMAT_I420:
         // for these two formats, chroma stride is calculated as half of luma stride
         // so luma stride needs to be 128-byte aligned.

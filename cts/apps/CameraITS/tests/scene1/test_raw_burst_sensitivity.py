@@ -44,6 +44,8 @@ def main():
 
         # Expose for the scene with min sensitivity
         sens_min, sens_max = props['android.sensor.info.sensitivityRange']
+        # Digital gains might not be visible on RAW data
+        sens_max = props['android.sensor.maxAnalogSensitivity']
         sens_step = (sens_max - sens_min) / NUM_STEPS
         s_ae,e_ae,_,_,_  = cam.do_3a(get_results=True)
         s_e_prod = s_ae * e_ae

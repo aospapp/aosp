@@ -43,6 +43,7 @@ public class NonBlockingAudioTrack {
     private int mSampleRate;
     private int mNumBytesQueued = 0;
     private LinkedList<QueueElement> mQueue = new LinkedList<QueueElement>();
+    private boolean mStopped;
 
     public NonBlockingAudioTrack(int sampleRate, int channelCount, boolean hwAvSync,
                     int audioSessionId) {
@@ -107,14 +108,17 @@ public class NonBlockingAudioTrack {
     }
 
     public void play() {
+        mStopped = false;
         mAudioTrack.play();
     }
 
     public void stop() {
-        mAudioTrack.stop();
-
-        mQueue.clear();
-        mNumBytesQueued = 0;
+        if (mQueue.isEmpty()) {
+            mAudioTrack.stop();
+            mNumBytesQueued = 0;
+        } else {
+            mStopped = true;
+        }
     }
 
     public void pause() {
@@ -128,6 +132,7 @@ public class NonBlockingAudioTrack {
         mAudioTrack.flush();
         mQueue.clear();
         mNumBytesQueued = 0;
+        mStopped = false;
     }
 
     public void release() {
@@ -135,6 +140,7 @@ public class NonBlockingAudioTrack {
         mNumBytesQueued = 0;
         mAudioTrack.release();
         mAudioTrack = null;
+        mStopped = false;
     }
 
     public void process() {
@@ -152,6 +158,11 @@ public class NonBlockingAudioTrack {
                 break;
             }
             mQueue.removeFirst();
+        }
+        if (mStopped) {
+            mAudioTrack.stop();
+            mNumBytesQueued = 0;
+            mStopped = false;
         }
     }
 

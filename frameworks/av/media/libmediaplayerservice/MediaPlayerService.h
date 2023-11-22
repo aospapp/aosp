@@ -75,7 +75,7 @@ class MediaPlayerService : public BnMediaPlayerService
         class CallbackData;
 
      public:
-                                AudioOutput(int sessionId, int uid, int pid,
+                                AudioOutput(audio_session_t sessionId, int uid, int pid,
                                         const audio_attributes_t * attr);
         virtual                 ~AudioOutput();
 
@@ -88,9 +88,11 @@ class MediaPlayerService : public BnMediaPlayerService
         virtual float           msecsPerFrame() const;
         virtual status_t        getPosition(uint32_t *position) const;
         virtual status_t        getTimestamp(AudioTimestamp &ts) const;
+        virtual int64_t         getPlayedOutDurationUs(int64_t nowUs) const;
         virtual status_t        getFramesWritten(uint32_t *frameswritten) const;
-        virtual int             getSessionId() const;
+        virtual audio_session_t getSessionId() const;
         virtual uint32_t        getSampleRate() const;
+        virtual int64_t         getBufferDurationInUs() const;
 
         virtual status_t        open(
                 uint32_t sampleRate, int channelCount, audio_channel_mask_t channelMask,
@@ -140,7 +142,6 @@ class MediaPlayerService : public BnMediaPlayerService
         AudioCallback           mCallback;
         void *                  mCallbackCookie;
         CallbackData *          mCallbackData;
-        uint64_t                mBytesWritten;
         audio_stream_type_t     mStreamType;
         audio_attributes_t *    mAttributes;
         float                   mLeftVolume;
@@ -149,7 +150,7 @@ class MediaPlayerService : public BnMediaPlayerService
         uint32_t                mSampleRateHz; // sample rate of the content, as set in open()
         float                   mMsecsPerFrame;
         size_t                  mFrameSize;
-        int                     mSessionId;
+        audio_session_t         mSessionId;
         int                     mUid;
         int                     mPid;
         float                   mSendLevel;
@@ -213,12 +214,11 @@ public:
     void    removeMediaRecorderClient(wp<MediaRecorderClient> client);
     virtual sp<IMediaMetadataRetriever> createMetadataRetriever();
 
-    virtual sp<IMediaPlayer>    create(const sp<IMediaPlayerClient>& client, int audioSessionId);
+    virtual sp<IMediaPlayer>    create(const sp<IMediaPlayerClient>& client,
+                                       audio_session_t audioSessionId);
 
     virtual sp<IMediaCodecList> getCodecList() const;
     virtual sp<IOMX>            getOMX();
-    virtual sp<ICrypto>         makeCrypto();
-    virtual sp<IDrm>            makeDrm();
     virtual sp<IHDCP>           makeHDCP(bool createEncryptionModule);
 
     virtual sp<IRemoteDisplay> listenForRemoteDisplay(const String16 &opPackageName,
@@ -226,6 +226,14 @@ public:
     virtual status_t            dump(int fd, const Vector<String16>& args);
 
             void                removeClient(wp<Client> client);
+
+    enum {
+        MEDIASERVER_PROCESS_DEATH = 0,
+        MEDIAEXTRACTOR_PROCESS_DEATH = 1,
+        MEDIACODEC_PROCESS_DEATH = 2,
+        AUDIO_PROCESS_DEATH = 3,   // currently no need to track this
+        CAMERA_PROCESS_DEATH = 4
+    };
 
     // For battery usage tracking purpose
     struct BatteryUsageInfo {
@@ -331,15 +339,31 @@ private:
                 pid_t           pid() const { return mPid; }
         virtual status_t        dump(int fd, const Vector<String16>& args);
 
-                int             getAudioSessionId() { return mAudioSessionId; }
+                audio_session_t getAudioSessionId() { return mAudioSessionId; }
 
     private:
+        class ServiceDeathNotifier: public IBinder::DeathRecipient
+        {
+        public:
+            ServiceDeathNotifier(
+                    const sp<IBinder>& service,
+                    const sp<MediaPlayerBase>& listener,
+                    int which);
+            virtual ~ServiceDeathNotifier();
+            virtual void binderDied(const wp<IBinder>& who);
+
+        private:
+            int mWhich;
+            sp<IBinder> mService;
+            wp<MediaPlayerBase> mListener;
+        };
+
         friend class MediaPlayerService;
                                 Client( const sp<MediaPlayerService>& service,
                                         pid_t pid,
                                         int32_t connId,
                                         const sp<IMediaPlayerClient>& client,
-                                        int audioSessionId,
+                                        audio_session_t audioSessionId,
                                         uid_t uid);
                                 Client();
         virtual                 ~Client();
@@ -374,7 +398,7 @@ private:
                     status_t                    mStatus;
                     bool                        mLoop;
                     int32_t                     mConnId;
-                    int                         mAudioSessionId;
+                    audio_session_t             mAudioSessionId;
                     audio_attributes_t *        mAudioAttributes;
                     uid_t                       mUID;
                     sp<ANativeWindow>           mConnectedWindow;
@@ -393,6 +417,8 @@ private:
         // getMetadata clears this set.
         media::Metadata::Filter mMetadataUpdated;  // protected by mLock
 
+        sp<IBinder::DeathRecipient> mExtractorDeathListener;
+        sp<IBinder::DeathRecipient> mCodecDeathListener;
 #if CALLBACK_ANTAGONIZER
                     Antagonizer*                mAntagonizer;
 #endif
@@ -408,7 +434,6 @@ private:
                 SortedVector< wp<MediaRecorderClient> > mMediaRecorderClients;
                 int32_t                     mNextConnId;
                 sp<IOMX>                    mOMX;
-                sp<ICrypto>                 mCrypto;
 };
 
 // ----------------------------------------------------------------------------

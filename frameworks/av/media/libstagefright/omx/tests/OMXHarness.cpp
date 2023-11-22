@@ -27,7 +27,7 @@
 #include <binder/IServiceManager.h>
 #include <binder/MemoryDealer.h>
 #include <media/IMediaHTTPService.h>
-#include <media/IMediaPlayerService.h>
+#include <media/IMediaCodecService.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/foundation/ALooper.h>
 #include <media/stagefright/DataSource.h>
@@ -37,7 +37,7 @@
 #include <media/stagefright/MediaExtractor.h>
 #include <media/stagefright/MediaSource.h>
 #include <media/stagefright/MetaData.h>
-#include <media/stagefright/OMXCodec.h>
+#include <media/stagefright/SimpleDecodingSource.h>
 
 #define DEFAULT_TIMEOUT         500000
 
@@ -57,8 +57,8 @@ status_t Harness::initCheck() const {
 
 status_t Harness::initOMX() {
     sp<IServiceManager> sm = defaultServiceManager();
-    sp<IBinder> binder = sm->getService(String16("media.player"));
-    sp<IMediaPlayerService> service = interface_cast<IMediaPlayerService>(binder);
+    sp<IBinder> binder = sm->getService(String16("media.codec"));
+    sp<IMediaCodecService> service = interface_cast<IMediaCodecService>(binder);
     mOMX = service->getOMX();
 
     return mOMX != 0 ? OK : NO_INIT;
@@ -244,7 +244,7 @@ private:
     NodeReaper &operator=(const NodeReaper &);
 };
 
-static sp<MediaExtractor> CreateExtractorFromURI(const char *uri) {
+static sp<IMediaExtractor> CreateExtractorFromURI(const char *uri) {
     sp<DataSource> source =
         DataSource::CreateFromURI(NULL /* httpService */, uri);
 
@@ -267,7 +267,7 @@ status_t Harness::testStateTransitions(
     IOMX::node_id node;
 
     status_t err =
-        mOMX->allocateNode(componentName, this, &node);
+        mOMX->allocateNode(componentName, this, NULL, &node);
     EXPECT_SUCCESS(err, "allocateNode");
 
     NodeReaper reaper(this, node);
@@ -492,14 +492,14 @@ static const char *GetURLForMime(const char *mime) {
     return NULL;
 }
 
-static sp<MediaSource> CreateSourceForMime(const char *mime) {
+static sp<IMediaSource> CreateSourceForMime(const char *mime) {
     const char *url = GetURLForMime(mime);
 
     if (url == NULL) {
         return NULL;
     }
 
-    sp<MediaExtractor> extractor = CreateExtractorFromURI(url);
+    sp<IMediaExtractor> extractor = CreateExtractorFromURI(url);
 
     if (extractor == NULL) {
         return NULL;
@@ -559,7 +559,7 @@ status_t Harness::testSeek(
         return OK;
     }
 
-    sp<MediaSource> source = CreateSourceForMime(mime);
+    sp<IMediaSource> source = CreateSourceForMime(mime);
 
     if (source == NULL) {
         printf("  * Unable to open test content for type '%s', "
@@ -569,16 +569,15 @@ status_t Harness::testSeek(
         return OK;
     }
 
-    sp<MediaSource> seekSource = CreateSourceForMime(mime);
+    sp<IMediaSource> seekSource = CreateSourceForMime(mime);
     if (source == NULL || seekSource == NULL) {
         return UNKNOWN_ERROR;
     }
 
     CHECK_EQ(seekSource->start(), (status_t)OK);
 
-    sp<MediaSource> codec = OMXCodec::Create(
-            mOMX, source->getFormat(), false /* createEncoder */,
-            source, componentName);
+    sp<IMediaSource> codec = SimpleDecodingSource::Create(
+            source, 0 /* flags */, NULL /* nativeWindow */, componentName);
 
     CHECK(codec != NULL);
 

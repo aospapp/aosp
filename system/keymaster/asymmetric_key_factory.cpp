@@ -39,6 +39,7 @@ AsymmetricKeyFactory::SupportedExportFormats(size_t* format_count) const {
 }
 
 keymaster_error_t AsymmetricKeyFactory::LoadKey(const KeymasterKeyBlob& key_material,
+                                                const AuthorizationSet& /* additional_params */,
                                                 const AuthorizationSet& hw_enforced,
                                                 const AuthorizationSet& sw_enforced,
                                                 UniquePtr<Key>* key) const {

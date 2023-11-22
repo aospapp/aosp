@@ -16,12 +16,12 @@
 
 package com.android.tv.settings.system;
 
-import android.annotation.Nullable;
 import android.app.AlarmManager;
 import android.app.Fragment;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.support.annotation.Nullable;
 import android.text.format.DateFormat;
 
 import com.android.tv.settings.R;
@@ -130,13 +130,13 @@ public class SetDateTimeActivity extends DialogActivity {
 
             if (TYPE_DATE.equals(pickerType)) {
                 contentFragment = ContentFragment.newInstance(getString(R.string.system_set_date),
-                        getString(R.string.system_date), null, R.drawable.ic_settings_datetime,
+                        getString(R.string.system_date), null, R.drawable.ic_access_time_132dp,
                         getColor(R.color.icon_background));
                 actionFragment = DatePicker
                         .newInstance(new String(DateFormat.getDateFormatOrder(this)));
             } else {
                 contentFragment = ContentFragment.newInstance(getString(R.string.system_set_time),
-                        getString(R.string.system_time), null, R.drawable.ic_settings_datetime,
+                        getString(R.string.system_time), null, R.drawable.ic_access_time_132dp,
                         getColor(R.color.icon_background));
                 actionFragment = TimePicker.newInstance(isTimeFormat24h(this), true);
             }
@@ -158,9 +158,7 @@ public class SetDateTimeActivity extends DialogActivity {
         c.set(Calendar.DAY_OF_MONTH, day);
         long when = c.getTimeInMillis();
 
-        if (when / 1000 < Integer.MAX_VALUE) {
-            ((AlarmManager) context.getSystemService(Context.ALARM_SERVICE)).setTime(when);
-        }
+        ((AlarmManager) context.getSystemService(Context.ALARM_SERVICE)).setTime(when);
     }
 
     public static void setTime(Context context, int hourOfDay, int minute) {
@@ -172,9 +170,7 @@ public class SetDateTimeActivity extends DialogActivity {
         c.set(Calendar.MILLISECOND, 0);
         long when = c.getTimeInMillis();
 
-        if (when / 1000 < Integer.MAX_VALUE) {
-            ((AlarmManager) context.getSystemService(Context.ALARM_SERVICE)).setTime(when);
-        }
+        ((AlarmManager) context.getSystemService(Context.ALARM_SERVICE)).setTime(when);
     }
 
     private static boolean isTimeFormat24h(Context context) {

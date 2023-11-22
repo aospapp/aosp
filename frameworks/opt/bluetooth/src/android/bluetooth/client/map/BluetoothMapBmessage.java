@@ -159,6 +159,7 @@ public class BluetoothMapBmessage {
             json.put("status", mBmsgStatus);
             json.put("type", mBmsgType);
             json.put("folder", mBmsgFolder);
+            json.put("charset", mBbodyCharset);
             json.put("message", mMessage);
         } catch (JSONException e) {
             // do nothing

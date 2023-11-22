@@ -17,6 +17,7 @@
 package android.support.v7.util;
 
 import android.support.test.runner.AndroidJUnit4;
+import android.test.suitebuilder.annotation.SmallTest;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -28,6 +29,7 @@ import static org.hamcrest.CoreMatchers.sameInstance;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 @RunWith(AndroidJUnit4.class)
+@SmallTest
 public class MessageQueueTest {
     MessageThreadUtil.MessageQueue mQueue;
 
@@ -37,7 +39,7 @@ public class MessageQueueTest {
     }
 
     @Test
-    public void testAllArguments() {
+    public void allArguments() {
         String data = "data";
         mQueue.sendMessage(MessageThreadUtil.SyncQueueItem.obtainMessage(
                 0, 1, 2, 3, 4, 5, data));
@@ -53,7 +55,7 @@ public class MessageQueueTest {
     }
 
     @Test
-    public void testSendInOrder() {
+    public void sendInOrder() {
         mQueue.sendMessage(obtainMessage(1, 2));
         mQueue.sendMessage(obtainMessage(3, 4));
         mQueue.sendMessage(obtainMessage(5, 6));
@@ -75,7 +77,7 @@ public class MessageQueueTest {
     }
 
     @Test
-    public void testSendAtFront() {
+    public void sendAtFront() {
         mQueue.sendMessage(obtainMessage(1, 2));
         mQueue.sendMessageAtFrontOfQueue(obtainMessage(3, 4));
         mQueue.sendMessage(obtainMessage(5, 6));
@@ -97,7 +99,7 @@ public class MessageQueueTest {
     }
 
     @Test
-    public void testRemove() {
+    public void remove() {
         mQueue.sendMessage(obtainMessage(1, 0));
         mQueue.sendMessage(obtainMessage(2, 0));
         mQueue.sendMessage(obtainMessage(1, 0));

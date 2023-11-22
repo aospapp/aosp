@@ -18,24 +18,26 @@
 #define ART_COMPILER_COMPILED_METHOD_H_
 
 #include <memory>
+#include <iosfwd>
 #include <string>
 #include <vector>
 
 #include "arch/instruction_set.h"
 #include "base/bit_utils.h"
+#include "base/length_prefixed_array.h"
 #include "method_reference.h"
 #include "utils/array_ref.h"
-#include "utils/swap_space.h"
 
 namespace art {
 
 class CompilerDriver;
+class CompiledMethodStorage;
 
 class CompiledCode {
  public:
   // For Quick to supply an code blob
   CompiledCode(CompilerDriver* compiler_driver, InstructionSet instruction_set,
-               const ArrayRef<const uint8_t>& quick_code, bool owns_code_array);
+               const ArrayRef<const uint8_t>& quick_code);
 
   virtual ~CompiledCode();
 
@@ -43,11 +45,9 @@ class CompiledCode {
     return instruction_set_;
   }
 
-  const SwapVector<uint8_t>* GetQuickCode() const {
-    return quick_code_;
+  ArrayRef<const uint8_t> GetQuickCode() const {
+    return GetArray(quick_code_);
   }
-
-  void SetCode(const ArrayRef<const uint8_t>* quick_code);
 
   bool operator==(const CompiledCode& rhs) const;
 
@@ -68,40 +68,45 @@ class CompiledCode {
   static const void* CodePointer(const void* code_pointer,
                                  InstructionSet instruction_set);
 
-  const std::vector<uint32_t>& GetOatdataOffsetsToCompliledCodeOffset() const;
-  void AddOatdataOffsetToCompliledCodeOffset(uint32_t offset);
+ protected:
+  template <typename T>
+  static ArrayRef<const T> GetArray(const LengthPrefixedArray<T>* array) {
+    if (array == nullptr) {
+      return ArrayRef<const T>();
+    }
+    DCHECK_NE(array->size(), 0u);
+    return ArrayRef<const T>(&array->At(0), array->size());
+  }
+
+  CompilerDriver* GetCompilerDriver() {
+    return compiler_driver_;
+  }
 
  private:
   CompilerDriver* const compiler_driver_;
 
   const InstructionSet instruction_set_;
 
-  // If we own the code array (means that we free in destructor).
-  const bool owns_code_array_;
-
   // Used to store the PIC code for Quick.
-  SwapVector<uint8_t>* quick_code_;
-
-  // There are offsets from the oatdata symbol to where the offset to
-  // the compiled method will be found. These are computed by the
-  // OatWriter and then used by the ElfWriter to add relocations so
-  // that MCLinker can update the values to the location in the linked .so.
-  std::vector<uint32_t> oatdata_offsets_to_compiled_code_offset_;
+  const LengthPrefixedArray<uint8_t>* const quick_code_;
 };
 
 class SrcMapElem {
  public:
   uint32_t from_;
   int32_t to_;
-
-  // Lexicographical compare.
-  bool operator<(const SrcMapElem& other) const {
-    if (from_ != other.from_) {
-      return from_ < other.from_;
-    }
-    return to_ < other.to_;
-  }
 };
+
+inline bool operator<(const SrcMapElem& lhs, const SrcMapElem& rhs) {
+  if (lhs.from_ != rhs.from_) {
+    return lhs.from_ < rhs.from_;
+  }
+  return lhs.to_ < rhs.to_;
+}
+
+inline bool operator==(const SrcMapElem& lhs, const SrcMapElem& rhs) {
+  return lhs.from_ == rhs.from_ && lhs.to_ == rhs.to_;
+}
 
 template <class Allocator>
 class SrcMap FINAL : public std::vector<SrcMapElem, Allocator> {
@@ -153,23 +158,35 @@ class SrcMap FINAL : public std::vector<SrcMapElem, Allocator> {
 };
 
 using DefaultSrcMap = SrcMap<std::allocator<SrcMapElem>>;
-using SwapSrcMap = SrcMap<SwapAllocator<SrcMapElem>>;
-
-
-enum LinkerPatchType {
-  kLinkerPatchMethod,
-  kLinkerPatchCall,
-  kLinkerPatchCallRelative,  // NOTE: Actual patching is instruction_set-dependent.
-  kLinkerPatchType,
-  kLinkerPatchDexCacheArray,  // NOTE: Actual patching is instruction_set-dependent.
-};
 
 class LinkerPatch {
  public:
+  // Note: We explicitly specify the underlying type of the enum because GCC
+  // would otherwise select a bigger underlying type and then complain that
+  //     'art::LinkerPatch::patch_type_' is too small to hold all
+  //     values of 'enum class art::LinkerPatch::Type'
+  // which is ridiculous given we have only a handful of values here. If we
+  // choose to squeeze the Type into fewer than 8 bits, we'll have to declare
+  // patch_type_ as an uintN_t and do explicit static_cast<>s.
+  enum class Type : uint8_t {
+    kRecordPosition,   // Just record patch position for patchoat.
+    kMethod,
+    kCall,
+    kCallRelative,     // NOTE: Actual patching is instruction_set-dependent.
+    kType,
+    kString,
+    kStringRelative,   // NOTE: Actual patching is instruction_set-dependent.
+    kDexCacheArray,    // NOTE: Actual patching is instruction_set-dependent.
+  };
+
+  static LinkerPatch RecordPosition(size_t literal_offset) {
+    return LinkerPatch(literal_offset, Type::kRecordPosition, /* target_dex_file */ nullptr);
+  }
+
   static LinkerPatch MethodPatch(size_t literal_offset,
                                  const DexFile* target_dex_file,
                                  uint32_t target_method_idx) {
-    LinkerPatch patch(literal_offset, kLinkerPatchMethod, target_dex_file);
+    LinkerPatch patch(literal_offset, Type::kMethod, target_dex_file);
     patch.method_idx_ = target_method_idx;
     return patch;
   }
@@ -177,7 +194,7 @@ class LinkerPatch {
   static LinkerPatch CodePatch(size_t literal_offset,
                                const DexFile* target_dex_file,
                                uint32_t target_method_idx) {
-    LinkerPatch patch(literal_offset, kLinkerPatchCall, target_dex_file);
+    LinkerPatch patch(literal_offset, Type::kCall, target_dex_file);
     patch.method_idx_ = target_method_idx;
     return patch;
   }
@@ -185,7 +202,7 @@ class LinkerPatch {
   static LinkerPatch RelativeCodePatch(size_t literal_offset,
                                        const DexFile* target_dex_file,
                                        uint32_t target_method_idx) {
-    LinkerPatch patch(literal_offset, kLinkerPatchCallRelative, target_dex_file);
+    LinkerPatch patch(literal_offset, Type::kCallRelative, target_dex_file);
     patch.method_idx_ = target_method_idx;
     return patch;
   }
@@ -193,8 +210,26 @@ class LinkerPatch {
   static LinkerPatch TypePatch(size_t literal_offset,
                                const DexFile* target_dex_file,
                                uint32_t target_type_idx) {
-    LinkerPatch patch(literal_offset, kLinkerPatchType, target_dex_file);
+    LinkerPatch patch(literal_offset, Type::kType, target_dex_file);
     patch.type_idx_ = target_type_idx;
+    return patch;
+  }
+
+  static LinkerPatch StringPatch(size_t literal_offset,
+                                 const DexFile* target_dex_file,
+                                 uint32_t target_string_idx) {
+    LinkerPatch patch(literal_offset, Type::kString, target_dex_file);
+    patch.string_idx_ = target_string_idx;
+    return patch;
+  }
+
+  static LinkerPatch RelativeStringPatch(size_t literal_offset,
+                                         const DexFile* target_dex_file,
+                                         uint32_t pc_insn_offset,
+                                         uint32_t target_string_idx) {
+    LinkerPatch patch(literal_offset, Type::kStringRelative, target_dex_file);
+    patch.string_idx_ = target_string_idx;
+    patch.pc_insn_offset_ = pc_insn_offset;
     return patch;
   }
 
@@ -203,7 +238,7 @@ class LinkerPatch {
                                         uint32_t pc_insn_offset,
                                         size_t element_offset) {
     DCHECK(IsUint<32>(element_offset));
-    LinkerPatch patch(literal_offset, kLinkerPatchDexCacheArray, target_dex_file);
+    LinkerPatch patch(literal_offset, Type::kDexCacheArray, target_dex_file);
     patch.pc_insn_offset_ = pc_insn_offset;
     patch.element_offset_ = element_offset;
     return patch;
@@ -216,47 +251,65 @@ class LinkerPatch {
     return literal_offset_;
   }
 
-  LinkerPatchType Type() const {
+  Type GetType() const {
     return patch_type_;
   }
 
   bool IsPcRelative() const {
-    return Type() == kLinkerPatchCallRelative || Type() == kLinkerPatchDexCacheArray;
+    switch (GetType()) {
+      case Type::kCallRelative:
+      case Type::kStringRelative:
+      case Type::kDexCacheArray:
+        return true;
+      default:
+        return false;
+    }
   }
 
   MethodReference TargetMethod() const {
-    DCHECK(patch_type_ == kLinkerPatchMethod ||
-           patch_type_ == kLinkerPatchCall || patch_type_ == kLinkerPatchCallRelative);
+    DCHECK(patch_type_ == Type::kMethod ||
+           patch_type_ == Type::kCall ||
+           patch_type_ == Type::kCallRelative);
     return MethodReference(target_dex_file_, method_idx_);
   }
 
   const DexFile* TargetTypeDexFile() const {
-    DCHECK(patch_type_ == kLinkerPatchType);
+    DCHECK(patch_type_ == Type::kType);
     return target_dex_file_;
   }
 
   uint32_t TargetTypeIndex() const {
-    DCHECK(patch_type_ == kLinkerPatchType);
+    DCHECK(patch_type_ == Type::kType);
     return type_idx_;
   }
 
+  const DexFile* TargetStringDexFile() const {
+    DCHECK(patch_type_ == Type::kString || patch_type_ == Type::kStringRelative);
+    return target_dex_file_;
+  }
+
+  uint32_t TargetStringIndex() const {
+    DCHECK(patch_type_ == Type::kString || patch_type_ == Type::kStringRelative);
+    return string_idx_;
+  }
+
   const DexFile* TargetDexCacheDexFile() const {
-    DCHECK(patch_type_ == kLinkerPatchDexCacheArray);
+    DCHECK(patch_type_ == Type::kDexCacheArray);
     return target_dex_file_;
   }
 
   size_t TargetDexCacheElementOffset() const {
-    DCHECK(patch_type_ == kLinkerPatchDexCacheArray);
+    DCHECK(patch_type_ == Type::kDexCacheArray);
     return element_offset_;
   }
 
   uint32_t PcInsnOffset() const {
-    DCHECK(patch_type_ == kLinkerPatchDexCacheArray);
+    DCHECK(patch_type_ == Type::kStringRelative || patch_type_ == Type::kDexCacheArray);
     return pc_insn_offset_;
   }
 
  private:
-  LinkerPatch(size_t literal_offset, LinkerPatchType patch_type, const DexFile* target_dex_file)
+  LinkerPatch(size_t literal_offset, Type patch_type, const DexFile* target_dex_file)
       : target_dex_file_(target_dex_file),
         literal_offset_(literal_offset),
         patch_type_(patch_type) {
@@ -269,24 +322,32 @@ class LinkerPatch {
 
   const DexFile* target_dex_file_;
   uint32_t literal_offset_ : 24;  // Method code size up to 16MiB.
-  LinkerPatchType patch_type_ : 8;
+  Type patch_type_ : 8;
   union {
     uint32_t cmp1_;             // Used for relational operators.
     uint32_t method_idx_;       // Method index for Call/Method patches.
     uint32_t type_idx_;         // Type index for Type patches.
+    uint32_t string_idx_;       // String index for String patches.
     uint32_t element_offset_;   // Element offset in the dex cache arrays.
+    static_assert(sizeof(method_idx_) == sizeof(cmp1_), "needed by relational operators");
+    static_assert(sizeof(type_idx_) == sizeof(cmp1_), "needed by relational operators");
+    static_assert(sizeof(string_idx_) == sizeof(cmp1_), "needed by relational operators");
+    static_assert(sizeof(element_offset_) == sizeof(cmp1_), "needed by relational operators");
   };
   union {
-    uint32_t cmp2_;             // Used for relational operators.
+    // Note: To avoid uninitialized padding on 64-bit systems, we use `size_t` for `cmp2_`.
+    // This allows a hashing function to treat an array of linker patches as raw memory.
+    size_t cmp2_;             // Used for relational operators.
     // Literal offset of the insn loading PC (same as literal_offset if it's the same insn,
     // may be different if the PC-relative addressing needs multiple insns).
     uint32_t pc_insn_offset_;
-    static_assert(sizeof(pc_insn_offset_) == sizeof(cmp2_), "needed by relational operators");
+    static_assert(sizeof(pc_insn_offset_) <= sizeof(cmp2_), "needed by relational operators");
   };
 
   friend bool operator==(const LinkerPatch& lhs, const LinkerPatch& rhs);
   friend bool operator<(const LinkerPatch& lhs, const LinkerPatch& rhs);
 };
+std::ostream& operator<<(std::ostream& os, const LinkerPatch::Type& type);
 
 inline bool operator==(const LinkerPatch& lhs, const LinkerPatch& rhs) {
   return lhs.literal_offset_ == rhs.literal_offset_ &&
@@ -315,10 +376,8 @@ class CompiledMethod FINAL : public CompiledCode {
                  const size_t frame_size_in_bytes,
                  const uint32_t core_spill_mask,
                  const uint32_t fp_spill_mask,
-                 DefaultSrcMap* src_mapping_table,
-                 const ArrayRef<const uint8_t>& mapping_table,
+                 const ArrayRef<const SrcMapElem>& src_mapping_table,
                  const ArrayRef<const uint8_t>& vmap_table,
-                 const ArrayRef<const uint8_t>& native_gc_map,
                  const ArrayRef<const uint8_t>& cfi_info,
                  const ArrayRef<const LinkerPatch>& patches);
 
@@ -331,10 +390,8 @@ class CompiledMethod FINAL : public CompiledCode {
       const size_t frame_size_in_bytes,
       const uint32_t core_spill_mask,
       const uint32_t fp_spill_mask,
-      DefaultSrcMap* src_mapping_table,
-      const ArrayRef<const uint8_t>& mapping_table,
+      const ArrayRef<const SrcMapElem>& src_mapping_table,
       const ArrayRef<const uint8_t>& vmap_table,
-      const ArrayRef<const uint8_t>& native_gc_map,
       const ArrayRef<const uint8_t>& cfi_info,
       const ArrayRef<const LinkerPatch>& patches);
 
@@ -352,35 +409,23 @@ class CompiledMethod FINAL : public CompiledCode {
     return fp_spill_mask_;
   }
 
-  const SwapSrcMap& GetSrcMappingTable() const {
-    DCHECK(src_mapping_table_ != nullptr);
-    return *src_mapping_table_;
+  ArrayRef<const SrcMapElem> GetSrcMappingTable() const {
+    return GetArray(src_mapping_table_);
   }
 
-  SwapVector<uint8_t> const* GetMappingTable() const {
-    return mapping_table_;
+  ArrayRef<const uint8_t> GetVmapTable() const {
+    return GetArray(vmap_table_);
   }
 
-  const SwapVector<uint8_t>* GetVmapTable() const {
-    DCHECK(vmap_table_ != nullptr);
-    return vmap_table_;
-  }
-
-  SwapVector<uint8_t> const* GetGcMap() const {
-    return gc_map_;
-  }
-
-  const SwapVector<uint8_t>* GetCFIInfo() const {
-    return cfi_info_;
+  ArrayRef<const uint8_t> GetCFIInfo() const {
+    return GetArray(cfi_info_);
   }
 
   ArrayRef<const LinkerPatch> GetPatches() const {
-    return ArrayRef<const LinkerPatch>(patches_);
+    return GetArray(patches_);
   }
 
  private:
-  // Whether or not the arrays are owned by the compiled method or dedupe sets.
-  const bool owns_arrays_;
   // For quick code, the size of the activation used by the code.
   const size_t frame_size_in_bytes_;
   // For quick code, a bit mask describing spilled GPR callee-save registers.
@@ -388,19 +433,13 @@ class CompiledMethod FINAL : public CompiledCode {
   // For quick code, a bit mask describing spilled FPR callee-save registers.
   const uint32_t fp_spill_mask_;
   // For quick code, a set of pairs (PC, DEX) mapping from native PC offset to DEX offset.
-  SwapSrcMap* src_mapping_table_;
-  // For quick code, a uleb128 encoded map from native PC offset to dex PC aswell as dex PC to
-  // native PC offset. Size prefixed.
-  SwapVector<uint8_t>* mapping_table_;
+  const LengthPrefixedArray<SrcMapElem>* const src_mapping_table_;
   // For quick code, a uleb128 encoded map from GPR/FPR register to dex register. Size prefixed.
-  SwapVector<uint8_t>* vmap_table_;
-  // For quick code, a map keyed by native PC indices to bitmaps describing what dalvik registers
-  // are live.
-  SwapVector<uint8_t>* gc_map_;
+  const LengthPrefixedArray<uint8_t>* const vmap_table_;
   // For quick code, a FDE entry for the debug_frame section.
-  SwapVector<uint8_t>* cfi_info_;
+  const LengthPrefixedArray<uint8_t>* const cfi_info_;
   // For quick code, linker patches needed by the method.
-  const SwapVector<LinkerPatch> patches_;
+  const LengthPrefixedArray<LinkerPatch>* const patches_;
 };
 
 }  // namespace art

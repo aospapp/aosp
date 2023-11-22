@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,11 @@
 extern "C"
 {
 #endif
+
 #include "wifi_hal.h"
+
+int init_wifi_stub_hal_func_table(wifi_hal_fn *hal_fn);
+
 /* declare all HAL stub API here*/
 wifi_error wifi_initialize_stub(wifi_handle *handle);
 void wifi_cleanup_stub(wifi_handle handle, wifi_cleaned_up_handler handler);
@@ -66,11 +70,19 @@ wifi_error wifi_rtt_range_cancel_stub(wifi_request_id id,  wifi_interface_handle
          unsigned num_devices, mac_addr addr[]);
 wifi_error wifi_get_rtt_capabilities_stub(wifi_interface_handle iface,
          wifi_rtt_capabilities *capabilities);
+wifi_error wifi_rtt_get_available_channel_stub(wifi_interface_handle iface,
+        wifi_channel_info* channel);
+wifi_error wifi_enable_responder_stub(wifi_request_id id, wifi_interface_handle iface,
+        wifi_channel_info channel_hint, unsigned max_duration_seconds,
+        wifi_channel_info* channel_used);
+wifi_error wifi_disable_responder_stub(wifi_request_id id, wifi_interface_handle iface);
+
 wifi_error wifi_set_nodfs_flag_stub(wifi_interface_handle iface, u32 nodfs);
 wifi_error wifi_start_logging_stub(wifi_interface_handle iface, u32 verbose_level, u32 flags,
          u32 max_interval_sec, u32 min_data_size, char *buffer_name);
-wifi_error wifi_set_epno_list_stub(int id, wifi_interface_info *iface, int num_networks,
-         wifi_epno_network *networks, wifi_epno_handler handler);
+wifi_error wifi_set_epno_list_stub(wifi_request_id id, wifi_interface_info *iface,
+        const wifi_epno_params *params, wifi_epno_handler handler);
+wifi_error wifi_reset_epno_list_stub(wifi_request_id id, wifi_interface_info *iface);
 wifi_error wifi_set_country_code_stub(wifi_interface_handle iface, const char *code);
 wifi_error wifi_get_firmware_memory_dump_stub( wifi_interface_handle iface,
         wifi_firmware_memory_dump_handler handler);
@@ -87,8 +99,6 @@ wifi_error wifi_get_ring_buffers_status_stub(wifi_interface_handle iface,
 wifi_error wifi_get_logger_supported_feature_set_stub(wifi_interface_handle iface,
         unsigned int *support);
 wifi_error wifi_get_ring_data_stub(wifi_interface_handle iface, char *ring_name);
-wifi_error wifi_set_epno_list_stub(int id, wifi_interface_info *iface, int num_networks,
-        wifi_epno_network *networks, wifi_epno_handler handler);
 wifi_error wifi_enable_tdls_stub(wifi_interface_handle iface, mac_addr addr,
         wifi_tdls_params *params, wifi_tdls_handler handler);
 wifi_error wifi_disable_tdls_stub(wifi_interface_handle iface, mac_addr addr);
@@ -101,17 +111,56 @@ wifi_error wifi_get_driver_version_stub(wifi_interface_handle iface, char *buffe
  wifi_error wifi_set_country_code_stub(wifi_interface_handle iface, const char *code);
 wifi_error wifi_set_bssid_blacklist_stub(wifi_request_id id, wifi_interface_handle iface,
         wifi_bssid_params params);
-wifi_error wifi_enable_lazy_roam_stub(wifi_request_id id, wifi_interface_handle iface, int enable);
-wifi_error wifi_set_bssid_preference_stub(wifi_request_id id, wifi_interface_handle iface,
-                                    int num_bssid, wifi_bssid_preference *prefs);
-wifi_error wifi_set_gscan_roam_params_stub(wifi_request_id id, wifi_interface_handle iface,
-                                        wifi_roam_params * params);
-wifi_error wifi_set_ssid_white_list_stub(wifi_request_id id, wifi_interface_handle iface,
-                       int num_networks, wifi_ssid *ssids);
 wifi_error wifi_start_sending_offloaded_packet_stub(wifi_request_id id,
         wifi_interface_handle iface, u8 *ip_packet, u16 ip_packet_len,
         u8 *src_mac_addr, u8 *dst_mac_addr, u32 period_msec);
 wifi_error wifi_stop_sending_offloaded_packet_stub(wifi_request_id id, wifi_interface_handle iface);
+wifi_error wifi_get_wake_reason_stats_stub(wifi_interface_handle iface,
+                                        WLAN_DRIVER_WAKE_REASON_CNT *wifi_wake_reason_cnt);
+wifi_error wifi_configure_nd_offload_stub(wifi_interface_handle iface, u8 enable);
+wifi_error wifi_nan_enable_request_stub(transaction_id id,
+                              wifi_interface_handle iface,
+                              NanEnableRequest* msg);
+wifi_error wifi_nan_disable_request_stub(transaction_id id,
+                               wifi_interface_handle iface);
+wifi_error wifi_nan_publish_request_stub(transaction_id id,
+                               wifi_interface_handle iface,
+                               NanPublishRequest* msg);
+wifi_error wifi_nan_publish_cancel_request_stub(transaction_id id,
+                                      wifi_interface_handle iface,
+                                      NanPublishCancelRequest* msg);
+wifi_error wifi_nan_subscribe_request_stub(transaction_id id,
+                                 wifi_interface_handle iface,
+                                 NanSubscribeRequest* msg);
+wifi_error wifi_nan_subscribe_cancel_request_stub(transaction_id id,
+                                        wifi_interface_handle iface,
+                                        NanSubscribeCancelRequest* msg);
+wifi_error wifi_nan_transmit_followup_request_stub(transaction_id id,
+                                         wifi_interface_handle iface,
+                                         NanTransmitFollowupRequest* msg);
+wifi_error wifi_nan_stats_request_stub(transaction_id id,
+                             wifi_interface_handle iface,
+                             NanStatsRequest* msg);
+wifi_error wifi_nan_config_request_stub(transaction_id id,
+                              wifi_interface_handle iface,
+                              NanConfigRequest* msg);
+wifi_error wifi_nan_tca_request_stub(transaction_id id,
+                           wifi_interface_handle iface,
+                           NanTCARequest* msg);
+wifi_error wifi_nan_beacon_sdf_payload_request_stub(transaction_id id,
+                                         wifi_interface_handle iface,
+                                         NanBeaconSdfPayloadRequest* msg);
+wifi_error wifi_nan_register_handler_stub(wifi_interface_handle iface,
+                                NanCallbackHandler handlers);
+wifi_error wifi_nan_get_version_stub(wifi_handle handle,
+                           NanVersion* version);
+wifi_error wifi_nan_get_capabilities_stub(transaction_id id,
+                                wifi_interface_handle iface);
+wifi_error wifi_get_packet_filter_capabilities_stub(wifi_interface_handle handle,
+                                          u32 *version, u32 *max_len);
+wifi_error wifi_set_packet_filter_stub(wifi_interface_handle handle,
+                             const u8 *program, u32 len);
+
 #ifdef __cplusplus
 }
 #endif

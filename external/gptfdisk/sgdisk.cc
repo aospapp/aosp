@@ -18,6 +18,7 @@
 #include <errno.h>
 #include "gptcl.h"
 #include <fcntl.h>
+#include <unistd.h>
 
 using namespace std;
 

@@ -24,12 +24,16 @@
 #include <va/va_android.h>
 #include <VideoEncoderHost.h>
 
+#include <OMX_VideoExt.h>
+#include <OMX_IndexExt.h>
+
 #define LOGV(...) ALOGI_IF(mOmxLogLevel, __VA_ARGS__)
 #define LOGI(...) ALOGI_IF(mOmxLogLevel, __VA_ARGS__)
 #define LOGW(...) ALOGI_IF(mOmxLogLevel, __VA_ARGS__)
 #define LOGD(...) ALOGI_IF(mOmxLogLevel, __VA_ARGS__)
 #define LOGE ALOGE
 #define LOGV_IF ALOGV_IF
+
 
 using android::sp;
 
@@ -74,6 +78,7 @@ protected:
     DECLARE_HANDLER(OMXVideoEncoderBase, TemporalLayer);
     DECLARE_HANDLER(OMXVideoEncoderBase, ConfigVideoBitrate);
     DECLARE_HANDLER(OMXVideoEncoderBase, BlackFramePointer);
+    DECLARE_HANDLER(OMXVideoEncoderBase, ConfigAndroidIntraRefresh);
 
 protected:
     virtual OMX_ERRORTYPE SetVideoEncoderParam();
@@ -82,6 +87,7 @@ protected:
     OMX_VIDEO_CONFIG_PRI_INFOTYPE mConfigPriInfo;
     OMX_VIDEO_CONFIG_INTEL_BITRATETYPE mConfigIntelBitrate;
     OMX_VIDEO_CONFIG_INTEL_AIR mConfigIntelAir;
+    OMX_VIDEO_CONFIG_ANDROID_INTRAREFRESHTYPE mConfigAndroidIntraRefresh;
     OMX_VIDEO_PARAM_INTRAREFRESHTYPE mParamVideoRefresh;
     OMX_CONFIG_FRAMERATETYPE  mConfigFramerate;
     OMX_VIDEO_PARAM_INTEL_ADAPTIVE_SLICE_CONTROL mParamIntelAdaptiveSliceControl;

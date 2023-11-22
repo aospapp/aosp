@@ -15,13 +15,11 @@
  */
 package android.transition.cts;
 
-import com.android.cts.transition.R;
-
 import android.animation.Animator;
 import android.animation.ObjectAnimator;
-import android.os.SystemClock;
 import android.test.ActivityInstrumentationTestCase2;
 import android.transition.Scene;
+import android.transition.Transition;
 import android.transition.TransitionManager;
 import android.transition.TransitionValues;
 import android.transition.Visibility;
@@ -32,13 +30,16 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
 import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class BaseTransitionTest extends ActivityInstrumentationTestCase2<TransitionActivity> {
     protected TransitionActivity mActivity;
     protected FrameLayout mSceneRoot;
     public float mAnimatedValue;
-    protected ArrayList<View> mTargets = new ArrayList<>();
-    protected TestTransition mTransition;
+    protected ArrayList<View> mTargets = new ArrayList<View>();
+    protected Transition mTransition;
+    protected SimpleTransitionListener mListener;
 
     public BaseTransitionTest() {
         super(TransitionActivity.class);
@@ -52,50 +53,72 @@ public class BaseTransitionTest extends ActivityInstrumentationTestCase2<Transit
         mSceneRoot = (FrameLayout) mActivity.findViewById(R.id.container);
         mTargets.clear();
         mTransition = new TestTransition();
+        mListener = new SimpleTransitionListener();
+        mTransition.addListener(mListener);
     }
 
     protected void waitForStart() throws InterruptedException {
-        waitForStart(mTransition.listener);
+        waitForStart(mListener);
     }
 
-    protected static void waitForStart(SimpleTransitionListener listener) throws InterruptedException {
-        long endTime = SystemClock.uptimeMillis() + 50;
-        synchronized (listener) {
-            while (!listener.started) {
-                long now = SystemClock.uptimeMillis();
-                long waitTime = endTime - now;
-                if (waitTime <= 0) {
-                    throw new InterruptedException();
-                }
-                listener.wait(waitTime);
-            }
-        }
+    protected void waitForStart(SimpleTransitionListener listener) throws InterruptedException {
+        assertTrue(listener.startLatch.await(4000, TimeUnit.MILLISECONDS));
     }
 
     protected void waitForEnd(long waitMillis) throws InterruptedException {
-        waitForEnd(mTransition.listener, waitMillis);
+        waitForEnd(mListener, waitMillis);
+        getInstrumentation().waitForIdleSync();
     }
 
     protected static void waitForEnd(SimpleTransitionListener listener, long waitMillis)
             throws InterruptedException {
-        long endTime = SystemClock.uptimeMillis() + waitMillis;
-        synchronized (listener) {
-            while (!listener.ended) {
-                long now = SystemClock.uptimeMillis();
-                long waitTime = endTime - now;
-                if (waitTime <= 0) {
-                    throw new InterruptedException();
-                }
-                listener.wait(waitTime);
-            }
-        }
+        listener.endLatch.await(waitMillis, TimeUnit.MILLISECONDS);
     }
 
-    protected void startTransition(final int layoutId) throws Throwable {
+    protected View loadLayout(final int layout) throws Throwable {
+        View[] root = new View[1];
+
         runTestOnUiThread(new Runnable() {
             @Override
             public void run() {
-                Scene scene = Scene.getSceneForLayout(mSceneRoot, layoutId, mActivity);
+                root[0] = mActivity.getLayoutInflater().inflate(layout, mSceneRoot, false);
+            }
+        });
+
+        return root[0];
+    }
+
+    protected Scene loadScene(final View layout) throws Throwable {
+        Scene[] scene = new Scene[1];
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                scene[0] = new Scene(mSceneRoot, layout);
+            }
+        });
+
+        return scene[0];
+    }
+
+    protected Scene loadScene(final int layoutId) throws Throwable {
+        Scene scene[] = new Scene[1];
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                scene[0] = Scene.getSceneForLayout(mSceneRoot, layoutId, mActivity);
+            }
+        });
+        return scene[0];
+    }
+
+    protected void startTransition(final int layoutId) throws Throwable {
+        startTransition(loadScene(layoutId));
+    }
+
+    protected void startTransition(final Scene scene) throws Throwable {
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
                 TransitionManager.go(scene, mTransition);
             }
         });
@@ -112,52 +135,38 @@ public class BaseTransitionTest extends ActivityInstrumentationTestCase2<Transit
     }
 
     protected void enterScene(final int layoutId) throws Throwable {
+        enterScene(loadScene(layoutId));
+    }
+
+    protected void enterScene(final Scene scene) throws Throwable {
         runTestOnUiThread(new Runnable() {
             @Override
             public void run() {
-                Scene scene = Scene.getSceneForLayout(mSceneRoot, layoutId, mActivity);
                 scene.enter();
             }
         });
         getInstrumentation().waitForIdleSync();
     }
 
-    // Waits at least one frame and it could be more. The animated values should have changed
-    // from the previously recorded values by the end of this method.
-    protected void waitForAnimationFrame() throws Throwable {
-        final boolean[] tripped = new boolean[] { false };
+    protected void exitScene(final Scene scene) throws Throwable {
         runTestOnUiThread(new Runnable() {
             @Override
             public void run() {
-                Choreographer.getInstance().postFrameCallbackDelayed(new FrameCallback() {
-                    @Override
-                    public void doFrame(long frameTimeNanos) {
-                        synchronized (tripped) {
-                            tripped[0] = true;
-                            tripped.notifyAll();
-                        }
-                    }
-                }, 16); // make sure it is the next animation frame.
+                scene.exit();
             }
         });
-        synchronized (tripped) {
-            long endTime = SystemClock.uptimeMillis() + 60;
-            while (!tripped[0]) {
-                long waitTime = endTime - SystemClock.uptimeMillis();
-                if (waitTime <= 0) {
-                    throw new InterruptedException();
-                }
-                tripped.wait(waitTime);
-            }
-        }
+        getInstrumentation().waitForIdleSync();
+    }
+
+    protected void resetListener() {
+        mTransition.removeListener(mListener);
+        mListener = new SimpleTransitionListener();
+        mTransition.addListener(mListener);
     }
 
     public class TestTransition extends Visibility {
-        public final SimpleTransitionListener listener = new SimpleTransitionListener();
 
         public TestTransition() {
-            addListener(listener);
-            setDuration(100);
         }
 
         @Override

@@ -74,6 +74,7 @@ final class ColorFade {
 
     // Set to true when the animation context has been fully prepared.
     private boolean mPrepared;
+    private boolean mCreatedResources;
     private int mMode;
 
     private final DisplayManagerInternal mDisplayManagerInternal;
@@ -169,6 +170,7 @@ final class ColorFade {
         }
 
         // Done.
+        mCreatedResources = true;
         mPrepared = true;
 
         // Dejanking optimization.
@@ -313,6 +315,34 @@ final class ColorFade {
     }
 
     /**
+     * Dismisses the color fade animation resources.
+     *
+     * This function destroys the resources that are created for the color fade
+     * animation but does not clean up the surface.
+     */
+    public void dismissResources() {
+        if (DEBUG) {
+            Slog.d(TAG, "dismissResources");
+        }
+
+        if (mCreatedResources) {
+            attachEglContext();
+            try {
+                destroyScreenshotTexture();
+                destroyGLShaders();
+                destroyGLBuffers();
+                destroyEglSurface();
+            } finally {
+                detachEglContext();
+            }
+            // This is being called with no active context so shouldn't be
+            // needed but is safer to not change for now.
+            GLES20.glFlush();
+            mCreatedResources = false;
+        }
+    }
+
+    /**
      * Dismisses the color fade animation surface and cleans up.
      *
      * To prevent stray photons from leaking out after the color fade has been
@@ -325,17 +355,8 @@ final class ColorFade {
         }
 
         if (mPrepared) {
-            attachEglContext();
-            try {
-                destroyScreenshotTexture();
-                destroyGLShaders();
-                destroyGLBuffers();
-                destroyEglSurface();
-            } finally {
-                detachEglContext();
-            }
+            dismissResources();
             destroySurface();
-            GLES20.glFlush();
             mPrepared = false;
         }
     }
@@ -566,16 +587,16 @@ final class ColorFade {
                     Slog.e(TAG, "Unable to create surface.", ex);
                     return false;
                 }
+
+                mSurfaceControl.setLayerStack(mDisplayLayerStack);
+                mSurfaceControl.setSize(mDisplayWidth, mDisplayHeight);
+                mSurface = new Surface();
+                mSurface.copyFrom(mSurfaceControl);
+
+                mSurfaceLayout = new NaturalSurfaceLayout(mDisplayManagerInternal,
+                        mDisplayId, mSurfaceControl);
+                mSurfaceLayout.onDisplayTransaction();
             }
-
-            mSurfaceControl.setLayerStack(mDisplayLayerStack);
-            mSurfaceControl.setSize(mDisplayWidth, mDisplayHeight);
-            mSurface = new Surface();
-            mSurface.copyFrom(mSurfaceControl);
-
-            mSurfaceLayout = new NaturalSurfaceLayout(mDisplayManagerInternal,
-                    mDisplayId, mSurfaceControl);
-            mSurfaceLayout.onDisplayTransaction();
         } finally {
             SurfaceControl.closeTransaction();
         }

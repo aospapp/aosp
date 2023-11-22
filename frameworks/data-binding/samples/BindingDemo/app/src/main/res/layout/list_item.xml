@@ -14,7 +14,9 @@
   See the License for the specific language governing permissions and
   limitations under the License.
   -->
-
+<!--DISCLAIMER: This is a demo layout showing various calculations you can make in binding
+expressions. It is usually a good practice to keep these expressions simple and use a ViewModel
+if they are getting complex.-->
 <layout xmlns:card_view="http://schemas.android.com/apk/res-auto"
     xmlns:bind="http://schemas.android.com/apk/res-auto"
     xmlns:android="http://schemas.android.com/apk/res/android"

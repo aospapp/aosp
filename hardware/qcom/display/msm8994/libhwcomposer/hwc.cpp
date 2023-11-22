@@ -249,12 +249,42 @@ static void scaleDisplayFrame(hwc_context_t *ctx, int dpy,
     }
 }
 
+static void hwc_configure_color_temp(hwc_composer_device_1* dev) {
+    hwc_context_t* ctx = (hwc_context_t*)(dev);
+    char value[PROPERTY_VALUE_MAX];
+    bool cool;
+
+    property_get("persist.sys.debug.color_temp", value, "x");
+    cool = (value[0] == '1');
+
+    if ((value[0] == '0' || value[0] == '1') &&
+        cool != ctx->mCoolColorTemperatureEnabled) {
+        ctx->mCoolColorTemperatureEnabled = cool;
+
+        ALOGI("Color temperature change. Cool = %d", cool ? 1 : 0);
+
+        int fd = open("/sys/class/graphics/fb0/color_temp", O_WRONLY);
+        if (fd >= 0) {
+            if (cool)
+                write(fd, "1", 2);
+            else
+                write(fd, "0", 2);
+            close(fd);
+        } else {
+            ALOGE("Failed to open color_temp file with result=%d", fd);
+        }
+    }
+}
+
+
 static int hwc_prepare_primary(hwc_composer_device_1 *dev,
         hwc_display_contents_1_t *list) {
     ATRACE_CALL();
     hwc_context_t* ctx = (hwc_context_t*)(dev);
     const int dpy = HWC_DISPLAY_PRIMARY;
     bool fbComp = false;
+    if (!ctx->mDefaultModeApplied)
+        applyDefaultMode(ctx);
     if (LIKELY(list && list->numHwLayers > 1) && ctx->dpyAttr[dpy].connected &&
             (ctx->dpyAttr[dpy].isActive ||
              ctx->mHDMIDisplay->isHDMIPrimaryDisplay())
@@ -513,6 +543,9 @@ static int hwc_setPowerMode(struct hwc_composer_device_1* dev, int dpy,
         return -EINVAL;
     }
 
+    // Configure the color temperature
+    hwc_configure_color_temp(dev);
+
     ALOGD_IF(POWER_MODE_DEBUG, "%s: Done setting mode %d on display %d",
             __FUNCTION__, mode, dpy);
     return ret;
@@ -633,7 +666,11 @@ static int hwc_set_primary(hwc_context_t *ctx, hwc_display_contents_1_t* list) {
             }
         }
 
-        int lSplit = getLeftSplit(ctx, dpy);
+        /* When source split is enabled, right ROI will always be NULL since the
+         * ROI for the whole panel generated in a single coordinate system will
+         * be populuated in left ROI. So leave the right ROI untouched */
+        int lSplit = qdutils::MDPVersion::getInstance().isSrcSplit() ? 0 :
+                    (isDisplaySplit(ctx, dpy) ? getLeftSplit(ctx, dpy) : 0);
         qhwc::ovutils::Dim lRoi = qhwc::ovutils::Dim(
             ctx->listStats[dpy].lRoi.left,
             ctx->listStats[dpy].lRoi.top,
@@ -766,8 +803,15 @@ int hwc_getDisplayConfigs(struct hwc_composer_device_1* dev, int disp,
             if (hotPluggable) {
                 ctx->mHDMIDisplay->getDisplayConfigs(configs, numConfigs);
             } else {
-                configs[0] = 0;
-                *numConfigs = 1;
+                if(ctx->mColorMode->getNumModes() > 0) {
+                    *numConfigs = ctx->mColorMode->getNumModes();
+                    for (size_t i = 0; i < *numConfigs; i++)
+                        configs[i] = (uint32_t) i;
+
+                } else {
+                    configs[0] = 0;
+                    *numConfigs = 1;
+                }
             }
             break;
         case HWC_DISPLAY_EXTERNAL:
@@ -795,22 +839,6 @@ int hwc_getDisplayAttributes(struct hwc_composer_device_1* dev, int disp,
         return -EINVAL;
     }
 
-    //From HWComposer
-    static const uint32_t DISPLAY_ATTRIBUTES[] = {
-        HWC_DISPLAY_VSYNC_PERIOD,
-        HWC_DISPLAY_WIDTH,
-        HWC_DISPLAY_HEIGHT,
-        HWC_DISPLAY_DPI_X,
-        HWC_DISPLAY_DPI_Y,
-#ifdef QCOM_BSP
-        HWC_DISPLAY_SECURE,
-#endif
-        HWC_DISPLAY_NO_ATTRIBUTE,
-    };
-
-    const size_t NUM_DISPLAY_ATTRIBUTES = (sizeof(DISPLAY_ATTRIBUTES) /
-            sizeof(DISPLAY_ATTRIBUTES)[0]);
-
     uint32_t xres = 0, yres = 0, refresh = 0;
     int ret = 0;
     if (hotPluggable) {
@@ -822,7 +850,7 @@ int hwc_getDisplayAttributes(struct hwc_composer_device_1* dev, int disp,
         }
     }
 
-    for (size_t i = 0; i < NUM_DISPLAY_ATTRIBUTES - 1; i++) {
+    for (size_t i = 0; attributes[i] != HWC_DISPLAY_NO_ATTRIBUTE; i++) {
         switch (attributes[i]) {
         case HWC_DISPLAY_VSYNC_PERIOD:
             values[i] =
@@ -851,11 +879,9 @@ int hwc_getDisplayAttributes(struct hwc_composer_device_1* dev, int disp,
         case HWC_DISPLAY_DPI_Y:
             values[i] = (int32_t) (ctx->dpyAttr[disp].ydpi*1000.0);
             break;
-#ifdef QCOM_BSP
-        case HWC_DISPLAY_SECURE:
-            values[i] = (int32_t) (ctx->dpyAttr[disp].secure);
+        case HWC_DISPLAY_COLOR_TRANSFORM:
+            values[i] = ctx->mColorMode->getModeForIndex(config);
             break;
-#endif
         default:
             ALOGE("Unknown display attribute %d",
                     attributes[i]);
@@ -908,7 +934,9 @@ int hwc_getActiveConfig(struct hwc_composer_device_1* dev, int disp)
 
     // For use cases when primary panel is the default interface we only have
     // the default config (0th index)
-    if (!hotPluggable) {
+    if (!hotPluggable && disp == HWC_DISPLAY_PRIMARY) {
+        return ctx->mColorMode->getActiveModeIndex();
+    } else if (isVirtualDisplay) {
         return 0;
     }
 
@@ -928,10 +956,12 @@ int hwc_setActiveConfig(struct hwc_composer_device_1* dev, int disp, int index)
         return -EINVAL;
     }
 
-    // For use cases when primary panel is the default interface we only have
-    // the default config (0th index)
-    if (!hotPluggable) {
-        // Primary and virtual supports only the default config (0th index)
+    // For use cases when primary panel is the default interface we only switch
+    // color modes
+    if(!hotPluggable && disp == HWC_DISPLAY_PRIMARY) {
+        return ctx->mColorMode->applyModeByIndex(index);
+    } else if (isVirtualDisplay) {
+        // virtual supports only the default config (0th index)
         return (index == 0) ? index : -EINVAL;
     }
 
@@ -967,7 +997,7 @@ static int hwc_device_open(const struct hw_module_t* module, const char* name,
 
         //Setup HWC methods
         dev->device.common.tag          = HARDWARE_DEVICE_TAG;
-        dev->device.common.version      = HWC_DEVICE_API_VERSION_1_4;
+        dev->device.common.version      = HWC_DEVICE_API_VERSION_1_5;
         dev->device.common.module       = const_cast<hw_module_t*>(module);
         dev->device.common.close        = hwc_device_close;
         dev->device.prepare             = hwc_prepare;

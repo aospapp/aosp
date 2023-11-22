@@ -21,15 +21,14 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
-import android.preference.Preference;
 import android.speech.tts.TextToSpeech.EngineInfo;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.PreferenceViewHolder;
 import android.util.Log;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Checkable;
 import android.widget.CompoundButton;
 import android.widget.RadioButton;
-
 
 import com.android.settings.R;
 import com.android.settings.SettingsActivity;
@@ -109,15 +108,17 @@ public class TtsEnginePreference extends Preference {
     }
 
     @Override
-    public View getView(View convertView, ViewGroup parent) {
+    public void onBindViewHolder(PreferenceViewHolder view) {
+        super.onBindViewHolder(view);
+
         if (mSharedState == null) {
             throw new IllegalStateException("Call to getView() before a call to" +
                     "setSharedState()");
         }
 
-        View view = super.getView(convertView, parent);
         final RadioButton rb = (RadioButton) view.findViewById(R.id.tts_engine_radiobutton);
         rb.setOnCheckedChangeListener(mRadioChangeListener);
+        rb.setText(mEngineInfo.label);
 
         boolean isChecked = getKey().equals(mSharedState.getCurrentKey());
         if (isChecked) {
@@ -129,14 +130,6 @@ public class TtsEnginePreference extends Preference {
         mPreventRadioButtonCallbacks = false;
 
         mRadioButton = rb;
-
-        View textLayout = view.findViewById(R.id.tts_engine_pref_text);
-        textLayout.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                onRadioButtonClicked(rb, !rb.isChecked());
-            }
-        });
 
         mSettingsIcon = view.findViewById(R.id.tts_engine_settings);
         // Will be enabled only the engine has passed the voice check, and
@@ -168,8 +161,6 @@ public class TtsEnginePreference extends Preference {
         if (mVoiceCheckData != null) {
             mSettingsIcon.setEnabled(mRadioButton.isChecked());
         }
-
-        return view;
     }
 
     public void setVoiceDataDetails(Intent data) {

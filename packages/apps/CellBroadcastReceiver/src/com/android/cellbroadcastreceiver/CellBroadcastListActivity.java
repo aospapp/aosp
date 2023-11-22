@@ -31,6 +31,7 @@ import android.content.Loader;
 import android.database.Cursor;
 import android.os.Bundle;
 import android.os.UserHandle;
+import android.os.UserManager;
 import android.provider.Telephony;
 import android.telephony.CellBroadcastMessage;
 import android.view.ContextMenu;
@@ -122,7 +123,7 @@ public class CellBroadcastListActivity extends Activity {
         public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
             menu.add(0, MENU_DELETE_ALL, 0, R.string.menu_delete_all).setIcon(
                     android.R.drawable.ic_menu_delete);
-            if (UserHandle.myUserId() == UserHandle.USER_OWNER) {
+            if (UserManager.get(getActivity()).isAdminUser()) {
                 menu.add(0, MENU_PREFERENCES, 0, R.string.menu_preferences).setIcon(
                         android.R.drawable.ic_menu_preferences);
             }

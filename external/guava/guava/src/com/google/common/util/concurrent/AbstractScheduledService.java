@@ -16,6 +16,8 @@
 
 package com.google.common.util.concurrent;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
@@ -299,7 +301,8 @@ public abstract class AbstractScheduledService implements Service {
       }
       @Override public void failed(State from, Throwable failure) {
         executor.shutdown();
-      }}, MoreExecutors.sameThreadExecutor());
+      }
+    }, directExecutor());
     return executor;
   }
 
@@ -317,38 +320,12 @@ public abstract class AbstractScheduledService implements Service {
     return serviceName() + " [" + state() + "]";
   }
 
-  // We override instead of using ForwardingService so that these can be final.
-
-  @Deprecated
-  @Override
-   public final ListenableFuture<State> start() {
-    return delegate.start();
-  }
-
-  @Deprecated
-  @Override
-   public final State startAndWait() {
-    return delegate.startAndWait();
-  }
-
   @Override public final boolean isRunning() {
     return delegate.isRunning();
   }
 
   @Override public final State state() {
     return delegate.state();
-  }
-
-  @Deprecated
-  @Override
-   public final ListenableFuture<State> stop() {
-    return delegate.stop();
-  }
-
-  @Deprecated
-  @Override
-   public final State stopAndWait() {
-    return delegate.stopAndWait();
   }
 
   /**

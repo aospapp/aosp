@@ -16,9 +16,6 @@
 
 package com.android.settings.wifi;
 
-import com.android.settings.R;
-import com.android.settingslib.wifi.AccessPoint;
-
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -26,37 +23,41 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 
-class WifiDialog extends AlertDialog implements WifiConfigUiBase {
-    static final int BUTTON_SUBMIT = DialogInterface.BUTTON_POSITIVE;
-    static final int BUTTON_FORGET = DialogInterface.BUTTON_NEUTRAL;
+import com.android.settings.R;
+import com.android.settingslib.RestrictedLockUtils;
+import com.android.settingslib.wifi.AccessPoint;
 
-    private final boolean mEdit;
-    private final boolean mModify;
-    private final DialogInterface.OnClickListener mListener;
+class WifiDialog extends AlertDialog implements WifiConfigUiBase, DialogInterface.OnClickListener {
+
+    public interface WifiDialogListener {
+        void onForget(WifiDialog dialog);
+        void onSubmit(WifiDialog dialog);
+    }
+
+    private static final int BUTTON_SUBMIT = DialogInterface.BUTTON_POSITIVE;
+    private static final int BUTTON_FORGET = DialogInterface.BUTTON_NEUTRAL;
+
+    private final int mMode;
+    private final WifiDialogListener mListener;
     private final AccessPoint mAccessPoint;
 
     private View mView;
     private WifiConfigController mController;
     private boolean mHideSubmitButton;
-    private boolean mHideForgetButton;
 
-    public WifiDialog(Context context, DialogInterface.OnClickListener listener,
-            AccessPoint accessPoint, boolean edit, boolean modify,
-            boolean hideSubmitButton, boolean hideForgetButton) {
-        this(context, listener, accessPoint, edit, modify);
+    public WifiDialog(Context context, WifiDialogListener listener, AccessPoint accessPoint,
+            int mode, boolean hideSubmitButton) {
+        this(context, listener, accessPoint, mode);
         mHideSubmitButton = hideSubmitButton;
-        mHideForgetButton = hideForgetButton;
     }
 
-    public WifiDialog(Context context, DialogInterface.OnClickListener listener,
-            AccessPoint accessPoint, boolean edit, boolean modify) {
+    public WifiDialog(Context context, WifiDialogListener listener, AccessPoint accessPoint,
+            int mode) {
         super(context);
-        mEdit = edit;
-        mModify = modify;
+        mMode = mode;
         mListener = listener;
         mAccessPoint = accessPoint;
         mHideSubmitButton = false;
-        mHideForgetButton = false;
     }
 
     @Override
@@ -69,7 +70,7 @@ class WifiDialog extends AlertDialog implements WifiConfigUiBase {
         mView = getLayoutInflater().inflate(R.layout.wifi_dialog, null);
         setView(mView);
         setInverseBackgroundForced(true);
-        mController = new WifiConfigController(this, mView, mAccessPoint, mEdit, mModify);
+        mController = new WifiConfigController(this, mView, mAccessPoint, mMode);
         super.onCreate(savedInstanceState);
 
         if (mHideSubmitButton) {
@@ -80,7 +81,7 @@ class WifiDialog extends AlertDialog implements WifiConfigUiBase {
             mController.enableSubmitIfAppropriate();
         }
 
-        if (mHideForgetButton) {
+        if (mAccessPoint == null) {
             mController.hideForgetButton();
         }
     }
@@ -91,8 +92,36 @@ class WifiDialog extends AlertDialog implements WifiConfigUiBase {
     }
 
     @Override
-    public boolean isEdit() {
-        return mEdit;
+    public void dispatchSubmit() {
+        if (mListener != null) {
+            mListener.onSubmit(this);
+        }
+        dismiss();
+    }
+
+    @Override
+    public void onClick(DialogInterface dialogInterface, int id) {
+        if (mListener != null) {
+            switch (id) {
+                case BUTTON_SUBMIT:
+                    mListener.onSubmit(this);
+                    break;
+                case BUTTON_FORGET:
+                    if (WifiSettings.isEditabilityLockedDown(
+                            getContext(), mAccessPoint.getConfig())) {
+                        RestrictedLockUtils.sendShowAdminSupportDetailsIntent(getContext(),
+                                RestrictedLockUtils.getDeviceOwner(getContext()));
+                        return;
+                    }
+                    mListener.onForget(this);
+                    break;
+            }
+        }
+    }
+
+    @Override
+    public int getMode() {
+        return mMode;
     }
 
     @Override
@@ -112,16 +141,16 @@ class WifiDialog extends AlertDialog implements WifiConfigUiBase {
 
     @Override
     public void setSubmitButton(CharSequence text) {
-        setButton(BUTTON_SUBMIT, text, mListener);
+        setButton(BUTTON_SUBMIT, text, this);
     }
 
     @Override
     public void setForgetButton(CharSequence text) {
-        setButton(BUTTON_FORGET, text, mListener);
+        setButton(BUTTON_FORGET, text, this);
     }
 
     @Override
     public void setCancelButton(CharSequence text) {
-        setButton(BUTTON_NEGATIVE, text, mListener);
+        setButton(BUTTON_NEGATIVE, text, this);
     }
 }

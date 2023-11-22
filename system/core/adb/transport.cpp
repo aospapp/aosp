@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define TRACE_TAG TRACE_TRANSPORT
+#define TRACE_TAG TRANSPORT
 
 #include "sysdeps.h"
 #include "transport.h"
@@ -26,73 +26,29 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <base/stringprintf.h>
+#include <algorithm>
+#include <list>
+
+#include <android-base/logging.h>
+#include <android-base/parsenetaddress.h>
+#include <android-base/stringprintf.h>
+#include <android-base/strings.h>
 
 #include "adb.h"
 #include "adb_utils.h"
+#include "diagnose_usb.h"
 
 static void transport_unref(atransport *t);
 
-static atransport transport_list = {
-    .next = &transport_list,
-    .prev = &transport_list,
-};
-
-static atransport pending_list = {
-    .next = &pending_list,
-    .prev = &pending_list,
-};
+static auto& transport_list = *new std::list<atransport*>();
+static auto& pending_list = *new std::list<atransport*>();
 
 ADB_MUTEX_DEFINE( transport_lock );
 
-void kick_transport(atransport* t)
-{
-    if (t && !t->kicked)
-    {
-        int  kicked;
+const char* const kFeatureShell2 = "shell_v2";
+const char* const kFeatureCmd = "cmd";
 
-        adb_mutex_lock(&transport_lock);
-        kicked = t->kicked;
-        if (!kicked)
-            t->kicked = 1;
-        adb_mutex_unlock(&transport_lock);
-
-        if (!kicked)
-            t->kick(t);
-    }
-}
-
-// Each atransport contains a list of adisconnects (t->disconnects).
-// An adisconnect contains a link to the next/prev adisconnect, a function
-// pointer to a disconnect callback which takes a void* piece of user data and
-// the atransport, and some user data for the callback (helpfully named
-// "opaque").
-//
-// The list is circular. New items are added to the entry member of the list
-// (t->disconnects) by add_transport_disconnect.
-//
-// run_transport_disconnects invokes each function in the list.
-//
-// Gotchas:
-//   * run_transport_disconnects assumes that t->disconnects is non-null, so
-//     this can't be run on a zeroed atransport.
-//   * The callbacks in this list are not removed when called, and this function
-//     is not guarded against running more than once. As such, ensure that this
-//     function is not called multiple times on the same atransport.
-//     TODO(danalbert): Just fix this so that it is guarded once you have tests.
-void run_transport_disconnects(atransport* t)
-{
-    adisconnect*  dis = t->disconnects.next;
-
-    D("%s: run_transport_disconnects\n", t->serial);
-    while (dis != &t->disconnects) {
-        adisconnect*  next = dis->next;
-        dis->func( dis->opaque, t );
-        dis = next;
-    }
-}
-
-static void dump_packet(const char* name, const char* func, apacket* p) {
+static std::string dump_packet(const char* name, const char* func, apacket* p) {
     unsigned  command = p->msg.command;
     int       len     = p->msg.data_length;
     char      cmd[9];
@@ -123,63 +79,55 @@ static void dump_packet(const char* name, const char* func, apacket* p) {
     else
         snprintf(arg1, sizeof arg1, "0x%x", p->msg.arg1);
 
-    D("%s: %s: [%s] arg0=%s arg1=%s (len=%d) ",
-        name, func, cmd, arg0, arg1, len);
-    dump_hex(p->data, len);
+    std::string result = android::base::StringPrintf("%s: %s: [%s] arg0=%s arg1=%s (len=%d) ",
+                                                     name, func, cmd, arg0, arg1, len);
+    result += dump_hex(p->data, len);
+    return result;
 }
 
 static int
 read_packet(int  fd, const char* name, apacket** ppacket)
 {
-    char *p = (char*)ppacket;  /* really read a packet address */
-    int   r;
-    int   len = sizeof(*ppacket);
-    char  buff[8];
+    char buff[8];
     if (!name) {
         snprintf(buff, sizeof buff, "fd=%d", fd);
         name = buff;
     }
+    char* p = reinterpret_cast<char*>(ppacket);  /* really read a packet address */
+    int len = sizeof(apacket*);
     while(len > 0) {
-        r = adb_read(fd, p, len);
+        int r = adb_read(fd, p, len);
         if(r > 0) {
             len -= r;
-            p   += r;
+            p += r;
         } else {
-            D("%s: read_packet (fd=%d), error ret=%d errno=%d: %s\n", name, fd, r, errno, strerror(errno));
-            if((r < 0) && (errno == EINTR)) continue;
+            D("%s: read_packet (fd=%d), error ret=%d: %s", name, fd, r, strerror(errno));
             return -1;
         }
     }
 
-    if (ADB_TRACING) {
-        dump_packet(name, "from remote", *ppacket);
-    }
+    VLOG(TRANSPORT) << dump_packet(name, "from remote", *ppacket);
     return 0;
 }
 
 static int
 write_packet(int  fd, const char* name, apacket** ppacket)
 {
-    char *p = (char*) ppacket;  /* we really write the packet address */
-    int r, len = sizeof(ppacket);
     char buff[8];
     if (!name) {
         snprintf(buff, sizeof buff, "fd=%d", fd);
         name = buff;
     }
-
-    if (ADB_TRACING) {
-        dump_packet(name, "to remote", *ppacket);
-    }
-    len = sizeof(ppacket);
+    VLOG(TRANSPORT) << dump_packet(name, "to remote", *ppacket);
+    char* p = reinterpret_cast<char*>(ppacket);  /* we really write the packet address */
+    int len = sizeof(apacket*);
     while(len > 0) {
-        r = adb_write(fd, p, len);
+        int r = adb_write(fd, p, len);
         if(r > 0) {
             len -= r;
             p += r;
         } else {
-            D("%s: write_packet (fd=%d) error ret=%d errno=%d: %s\n", name, fd, r, errno, strerror(errno));
-            if((r < 0) && (errno == EINTR)) continue;
+            D("%s: write_packet (fd=%d) error ret=%d: %s", name, fd, r, strerror(errno));
             return -1;
         }
     }
@@ -189,11 +137,11 @@ write_packet(int  fd, const char* name, apacket** ppacket)
 static void transport_socket_events(int fd, unsigned events, void *_t)
 {
     atransport *t = reinterpret_cast<atransport*>(_t);
-    D("transport_socket_events(fd=%d, events=%04x,...)\n", fd, events);
+    D("transport_socket_events(fd=%d, events=%04x,...)", fd, events);
     if(events & FDE_READ){
         apacket *p = 0;
         if(read_packet(fd, t->serial, &p)){
-            D("%s: failed to read packet from transport socket on fd %d\n", t->serial, fd);
+            D("%s: failed to read packet from transport socket on fd %d", t->serial, fd);
         } else {
             handle_packet(p, (atransport *) _t);
         }
@@ -219,7 +167,7 @@ void send_packet(apacket *p, atransport *t)
     print_packet("send", p);
 
     if (t == NULL) {
-        D("Transport is null \n");
+        D("Transport is null");
         // Zap errno because print_packet() and other stuff have errno effect.
         errno = 0;
         fatal_errno("Transport is null");
@@ -230,25 +178,26 @@ void send_packet(apacket *p, atransport *t)
     }
 }
 
-/* The transport is opened by transport_register_func before
-** the input and output threads are started.
-**
-** The output thread issues a SYNC(1, token) message to let
-** the input thread know to start things up.  In the event
-** of transport IO failure, the output thread will post a
-** SYNC(0,0) message to ensure shutdown.
-**
-** The transport will not actually be closed until both
-** threads exit, but the input thread will kick the transport
-** on its way out to disconnect the underlying device.
-*/
-
-static void *output_thread(void *_t)
-{
+// The transport is opened by transport_register_func before
+// the read_transport and write_transport threads are started.
+//
+// The read_transport thread issues a SYNC(1, token) message to let
+// the write_transport thread know to start things up.  In the event
+// of transport IO failure, the read_transport thread will post a
+// SYNC(0,0) message to ensure shutdown.
+//
+// The transport will not actually be closed until both threads exit, but the threads
+// will kick the transport on their way out to disconnect the underlying device.
+//
+// read_transport thread reads data from a transport (representing a usb/tcp connection),
+// and makes the main thread call handle_packet().
+static void read_transport_thread(void* _t) {
     atransport *t = reinterpret_cast<atransport*>(_t);
     apacket *p;
 
-    D("%s: starting transport output thread on fd %d, SYNC online (%d)\n",
+    adb_thread_setname(android::base::StringPrintf("<-%s",
+                                                   (t->serial != nullptr ? t->serial : "transport")));
+    D("%s: starting read_transport thread on fd %d, SYNC online (%d)",
        t->serial, t->fd, t->sync_token + 1);
     p = get_apacket();
     p->msg.command = A_SYNC;
@@ -257,30 +206,30 @@ static void *output_thread(void *_t)
     p->msg.magic = A_SYNC ^ 0xffffffff;
     if(write_packet(t->fd, t->serial, &p)) {
         put_apacket(p);
-        D("%s: failed to write SYNC packet\n", t->serial);
+        D("%s: failed to write SYNC packet", t->serial);
         goto oops;
     }
 
-    D("%s: data pump started\n", t->serial);
+    D("%s: data pump started", t->serial);
     for(;;) {
         p = get_apacket();
 
         if(t->read_from_remote(p, t) == 0){
-            D("%s: received remote packet, sending to transport\n",
+            D("%s: received remote packet, sending to transport",
               t->serial);
             if(write_packet(t->fd, t->serial, &p)){
                 put_apacket(p);
-                D("%s: failed to write apacket to transport\n", t->serial);
+                D("%s: failed to write apacket to transport", t->serial);
                 goto oops;
             }
         } else {
-            D("%s: remote read failed for transport\n", t->serial);
+            D("%s: remote read failed for transport", t->serial);
             put_apacket(p);
             break;
         }
     }
 
-    D("%s: SYNC offline for transport\n", t->serial);
+    D("%s: SYNC offline for transport", t->serial);
     p = get_apacket();
     p->msg.command = A_SYNC;
     p->msg.arg0 = 0;
@@ -292,63 +241,69 @@ static void *output_thread(void *_t)
     }
 
 oops:
-    D("%s: transport output thread is exiting\n", t->serial);
+    D("%s: read_transport thread is exiting", t->serial);
     kick_transport(t);
     transport_unref(t);
-    return 0;
 }
 
-static void *input_thread(void *_t)
-{
+// write_transport thread gets packets sent by the main thread (through send_packet()),
+// and writes to a transport (representing a usb/tcp connection).
+static void write_transport_thread(void* _t) {
     atransport *t = reinterpret_cast<atransport*>(_t);
     apacket *p;
     int active = 0;
 
-    D("%s: starting transport input thread, reading from fd %d\n",
+    adb_thread_setname(android::base::StringPrintf("->%s",
+                                                   (t->serial != nullptr ? t->serial : "transport")));
+    D("%s: starting write_transport thread, reading from fd %d",
        t->serial, t->fd);
 
     for(;;){
         if(read_packet(t->fd, t->serial, &p)) {
-            D("%s: failed to read apacket from transport on fd %d\n",
+            D("%s: failed to read apacket from transport on fd %d",
                t->serial, t->fd );
             break;
         }
         if(p->msg.command == A_SYNC){
             if(p->msg.arg0 == 0) {
-                D("%s: transport SYNC offline\n", t->serial);
+                D("%s: transport SYNC offline", t->serial);
                 put_apacket(p);
                 break;
             } else {
                 if(p->msg.arg1 == t->sync_token) {
-                    D("%s: transport SYNC online\n", t->serial);
+                    D("%s: transport SYNC online", t->serial);
                     active = 1;
                 } else {
-                    D("%s: transport ignoring SYNC %d != %d\n",
+                    D("%s: transport ignoring SYNC %d != %d",
                       t->serial, p->msg.arg1, t->sync_token);
                 }
             }
         } else {
             if(active) {
-                D("%s: transport got packet, sending to remote\n", t->serial);
+                D("%s: transport got packet, sending to remote", t->serial);
                 t->write_to_remote(p, t);
             } else {
-                D("%s: transport ignoring packet while offline\n", t->serial);
+                D("%s: transport ignoring packet while offline", t->serial);
             }
         }
 
         put_apacket(p);
     }
 
-    // this is necessary to avoid a race condition that occured when a transport closes
-    // while a client socket is still active.
-    close_all_sockets(t);
-
-    D("%s: transport input thread is exiting, fd %d\n", t->serial, t->fd);
+    D("%s: write_transport thread is exiting, fd %d", t->serial, t->fd);
     kick_transport(t);
     transport_unref(t);
-    return 0;
 }
 
+void kick_transport(atransport* t) {
+    adb_mutex_lock(&transport_lock);
+    // As kick_transport() can be called from threads without guarantee that t is valid,
+    // check if the transport is in transport_list first.
+    if (std::find(transport_list.begin(), transport_list.end(), t) != transport_list.end()) {
+        t->Kick();
+    }
+    adb_mutex_unlock(&transport_lock);
+}
 
 static int transport_registration_send = -1;
 static int transport_registration_recv = -1;
@@ -395,7 +350,7 @@ device_tracker_close( asocket*  socket )
     device_tracker*  tracker = (device_tracker*) socket;
     asocket*         peer    = socket->peer;
 
-    D( "device tracker %p removed\n", tracker);
+    D( "device tracker %p removed", tracker);
     if (peer) {
         peer->peer = NULL;
         peer->close(peer);
@@ -442,7 +397,7 @@ create_device_tracker(void)
     device_tracker* tracker = reinterpret_cast<device_tracker*>(calloc(1, sizeof(*tracker)));
     if (tracker == nullptr) fatal("cannot allocate device tracker");
 
-    D( "device tracker %p created\n", tracker);
+    D( "device tracker %p created", tracker);
 
     tracker->socket.enqueue = device_tracker_enqueue;
     tracker->socket.ready   = device_tracker_ready;
@@ -496,9 +451,7 @@ transport_read_action(int  fd, struct tmsg*  m)
             len -= r;
             p   += r;
         } else {
-            if((r < 0) && (errno == EINTR)) continue;
-            D("transport_read_action: on fd %d, error %d: %s\n",
-              fd, errno, strerror(errno));
+            D("transport_read_action: on fd %d: %s", fd, strerror(errno));
             return -1;
         }
     }
@@ -518,9 +471,7 @@ transport_write_action(int  fd, struct tmsg*  m)
             len -= r;
             p   += r;
         } else {
-            if((r < 0) && (errno == EINTR)) continue;
-            D("transport_write_action: on fd %d, error %d: %s\n",
-              fd, errno, strerror(errno));
+            D("transport_write_action: on fd %d: %s", fd, strerror(errno));
             return -1;
         }
     }
@@ -530,8 +481,6 @@ transport_write_action(int  fd, struct tmsg*  m)
 static void transport_registration_func(int _fd, unsigned ev, void *data)
 {
     tmsg m;
-    adb_thread_t output_thread_ptr;
-    adb_thread_t input_thread_ptr;
     int s[2];
     atransport *t;
 
@@ -545,8 +494,8 @@ static void transport_registration_func(int _fd, unsigned ev, void *data)
 
     t = m.transport;
 
-    if(m.action == 0){
-        D("transport: %s removing and free'ing %d\n", t->serial, t->transport_socket);
+    if (m.action == 0) {
+        D("transport: %s removing and free'ing %d", t->serial, t->transport_socket);
 
             /* IMPORTANT: the remove closes one half of the
             ** socket pair.  The close closes the other half.
@@ -555,11 +504,8 @@ static void transport_registration_func(int _fd, unsigned ev, void *data)
         adb_close(t->fd);
 
         adb_mutex_lock(&transport_lock);
-        t->next->prev = t->prev;
-        t->prev->next = t->next;
+        transport_list.remove(t);
         adb_mutex_unlock(&transport_lock);
-
-        run_transport_disconnects(t);
 
         if (t->product)
             free(t->product);
@@ -572,19 +518,18 @@ static void transport_registration_func(int _fd, unsigned ev, void *data)
         if (t->devpath)
             free(t->devpath);
 
-        memset(t,0xee,sizeof(atransport));
-        free(t);
+        delete t;
 
         update_transports();
         return;
     }
 
     /* don't create transport threads for inaccessible devices */
-    if (t->connection_state != CS_NOPERM) {
+    if (t->connection_state != kCsNoPerm) {
         /* initial references are the two threads */
         t->ref_count = 2;
 
-        if(adb_socketpair(s)) {
+        if (adb_socketpair(s)) {
             fatal_errno("cannot open transport socketpair");
         }
 
@@ -600,27 +545,19 @@ static void transport_registration_func(int _fd, unsigned ev, void *data)
 
         fdevent_set(&(t->transport_fde), FDE_READ);
 
-        if(adb_thread_create(&input_thread_ptr, input_thread, t)){
-            fatal_errno("cannot create input thread");
+        if (!adb_thread_create(write_transport_thread, t)) {
+            fatal_errno("cannot create write_transport thread");
         }
 
-        if(adb_thread_create(&output_thread_ptr, output_thread, t)){
-            fatal_errno("cannot create output thread");
+        if (!adb_thread_create(read_transport_thread, t)) {
+            fatal_errno("cannot create read_transport thread");
         }
     }
 
     adb_mutex_lock(&transport_lock);
-    /* remove from pending list */
-    t->next->prev = t->prev;
-    t->prev->next = t->next;
-    /* put us on the master device list */
-    t->next = &transport_list;
-    t->prev = transport_list.prev;
-    t->next->prev = t;
-    t->prev->next = t;
+    pending_list.remove(t);
+    transport_list.push_front(t);
     adb_mutex_unlock(&transport_lock);
-
-    t->disconnects.next = t->disconnects.prev = &t->disconnects;
 
     update_transports();
 }
@@ -651,7 +588,7 @@ static void register_transport(atransport *transport)
     tmsg m;
     m.transport = transport;
     m.action = 1;
-    D("transport: %s registered\n", transport->serial);
+    D("transport: %s registered", transport->serial);
     if(transport_write_action(transport_registration_send, &m)) {
         fatal_errno("cannot write transport registration socket\n");
     }
@@ -662,53 +599,26 @@ static void remove_transport(atransport *transport)
     tmsg m;
     m.transport = transport;
     m.action = 0;
-    D("transport: %s removed\n", transport->serial);
+    D("transport: %s removed", transport->serial);
     if(transport_write_action(transport_registration_send, &m)) {
         fatal_errno("cannot write transport registration socket\n");
     }
 }
 
 
-static void transport_unref_locked(atransport *t)
-{
+static void transport_unref(atransport* t) {
+    CHECK(t != nullptr);
+    adb_mutex_lock(&transport_lock);
+    CHECK_GT(t->ref_count, 0u);
     t->ref_count--;
     if (t->ref_count == 0) {
-        D("transport: %s unref (kicking and closing)\n", t->serial);
-        if (!t->kicked) {
-            t->kicked = 1;
-            t->kick(t);
-        }
+        D("transport: %s unref (kicking and closing)", t->serial);
         t->close(t);
         remove_transport(t);
     } else {
-        D("transport: %s unref (count=%d)\n", t->serial, t->ref_count);
+        D("transport: %s unref (count=%zu)", t->serial, t->ref_count);
     }
-}
-
-static void transport_unref(atransport *t)
-{
-    if (t) {
-        adb_mutex_lock(&transport_lock);
-        transport_unref_locked(t);
-        adb_mutex_unlock(&transport_lock);
-    }
-}
-
-void add_transport_disconnect(atransport*  t, adisconnect*  dis)
-{
-    adb_mutex_lock(&transport_lock);
-    dis->next       = &t->disconnects;
-    dis->prev       = dis->next->prev;
-    dis->prev->next = dis;
-    dis->next->prev = dis;
     adb_mutex_unlock(&transport_lock);
-}
-
-void remove_transport_disconnect(atransport*  t, adisconnect*  dis)
-{
-    dis->prev->next = dis->next;
-    dis->next->prev = dis->prev;
-    dis->next = dis->prev = dis;
 }
 
 static int qual_match(const char *to_test,
@@ -740,60 +650,62 @@ static int qual_match(const char *to_test,
     return !*to_test;
 }
 
-atransport* acquire_one_transport(int state, transport_type ttype,
-                                  const char* serial, std::string* error_out)
-{
-    atransport *t;
-    atransport *result = NULL;
-    int ambiguous = 0;
+atransport* acquire_one_transport(TransportType type, const char* serial,
+                                  bool* is_ambiguous, std::string* error_out) {
+    atransport* result = nullptr;
 
-retry:
-    if (error_out) *error_out = android::base::StringPrintf("device '%s' not found", serial);
+    if (serial) {
+        *error_out = android::base::StringPrintf("device '%s' not found", serial);
+    } else if (type == kTransportLocal) {
+        *error_out = "no emulators found";
+    } else if (type == kTransportAny) {
+        *error_out = "no devices/emulators found";
+    } else {
+        *error_out = "no devices found";
+    }
 
     adb_mutex_lock(&transport_lock);
-    for (t = transport_list.next; t != &transport_list; t = t->next) {
-        if (t->connection_state == CS_NOPERM) {
-            if (error_out) *error_out = "insufficient permissions for device";
+    for (const auto& t : transport_list) {
+        if (t->connection_state == kCsNoPerm) {
+#if ADB_HOST
+            *error_out = UsbNoPermissionsLongHelpText();
+#endif
             continue;
         }
 
-        /* check for matching serial number */
+        // Check for matching serial number.
         if (serial) {
-            if ((t->serial && !strcmp(serial, t->serial)) ||
-                (t->devpath && !strcmp(serial, t->devpath)) ||
-                qual_match(serial, "product:", t->product, false) ||
-                qual_match(serial, "model:", t->model, true) ||
-                qual_match(serial, "device:", t->device, false)) {
+            if (t->MatchesTarget(serial)) {
                 if (result) {
-                    if (error_out) *error_out = "more than one device";
-                    ambiguous = 1;
-                    result = NULL;
+                    *error_out = "more than one device";
+                    if (is_ambiguous) *is_ambiguous = true;
+                    result = nullptr;
                     break;
                 }
                 result = t;
             }
         } else {
-            if (ttype == kTransportUsb && t->type == kTransportUsb) {
+            if (type == kTransportUsb && t->type == kTransportUsb) {
                 if (result) {
-                    if (error_out) *error_out = "more than one device";
-                    ambiguous = 1;
-                    result = NULL;
+                    *error_out = "more than one device";
+                    if (is_ambiguous) *is_ambiguous = true;
+                    result = nullptr;
                     break;
                 }
                 result = t;
-            } else if (ttype == kTransportLocal && t->type == kTransportLocal) {
+            } else if (type == kTransportLocal && t->type == kTransportLocal) {
                 if (result) {
-                    if (error_out) *error_out = "more than one emulator";
-                    ambiguous = 1;
-                    result = NULL;
+                    *error_out = "more than one emulator";
+                    if (is_ambiguous) *is_ambiguous = true;
+                    result = nullptr;
                     break;
                 }
                 result = t;
-            } else if (ttype == kTransportAny) {
+            } else if (type == kTransportAny) {
                 if (result) {
-                    if (error_out) *error_out = "more than one device/emulator";
-                    ambiguous = 1;
-                    result = NULL;
+                    *error_out = "more than one device/emulator";
+                    if (is_ambiguous) *is_ambiguous = true;
+                    result = nullptr;
                     break;
                 }
                 result = t;
@@ -802,55 +714,162 @@ retry:
     }
     adb_mutex_unlock(&transport_lock);
 
-    if (result) {
-        if (result->connection_state == CS_UNAUTHORIZED) {
-            if (error_out) {
-                *error_out = "device unauthorized.\n";
-                char* ADB_VENDOR_KEYS = getenv("ADB_VENDOR_KEYS");
-                *error_out += "This adbd's $ADB_VENDOR_KEYS is ";
-                *error_out += ADB_VENDOR_KEYS ? ADB_VENDOR_KEYS : "not set";
-                *error_out += "; try 'adb kill-server' if that seems wrong.\n";
-                *error_out += "Otherwise check for a confirmation dialog on your device.";
-            }
-            result = NULL;
-        }
+    // Don't return unauthorized devices; the caller can't do anything with them.
+    if (result && result->connection_state == kCsUnauthorized) {
+        *error_out = "device unauthorized.\n";
+        char* ADB_VENDOR_KEYS = getenv("ADB_VENDOR_KEYS");
+        *error_out += "This adb server's $ADB_VENDOR_KEYS is ";
+        *error_out += ADB_VENDOR_KEYS ? ADB_VENDOR_KEYS : "not set";
+        *error_out += "\n";
+        *error_out += "Try 'adb kill-server' if that seems wrong.\n";
+        *error_out += "Otherwise check for a confirmation dialog on your device.";
+        result = nullptr;
+    }
 
-        /* offline devices are ignored -- they are either being born or dying */
-        if (result && result->connection_state == CS_OFFLINE) {
-            if (error_out) *error_out = "device offline";
-            result = NULL;
-        }
-
-        /* check for required connection state */
-        if (result && state != CS_ANY && result->connection_state != state) {
-            if (error_out) *error_out = "invalid device state";
-            result = NULL;
-        }
+    // Don't return offline devices; the caller can't do anything with them.
+    if (result && result->connection_state == kCsOffline) {
+        *error_out = "device offline";
+        result = nullptr;
     }
 
     if (result) {
-        /* found one that we can take */
-        if (error_out) *error_out = "success";
-    } else if (state != CS_ANY && (serial || !ambiguous)) {
-        adb_sleep_ms(1000);
-        goto retry;
+        *error_out = "success";
     }
 
     return result;
 }
 
-const char* atransport::connection_state_name() const {
-    switch (connection_state) {
-    case CS_OFFLINE: return "offline";
-    case CS_BOOTLOADER: return "bootloader";
-    case CS_DEVICE: return "device";
-    case CS_HOST: return "host";
-    case CS_RECOVERY: return "recovery";
-    case CS_NOPERM: return "no permissions";
-    case CS_SIDELOAD: return "sideload";
-    case CS_UNAUTHORIZED: return "unauthorized";
-    default: return "unknown";
+void atransport::Kick() {
+    if (!kicked_) {
+        kicked_ = true;
+        CHECK(kick_func_ != nullptr);
+        kick_func_(this);
     }
+}
+
+const std::string atransport::connection_state_name() const {
+    switch (connection_state) {
+        case kCsOffline: return "offline";
+        case kCsBootloader: return "bootloader";
+        case kCsDevice: return "device";
+        case kCsHost: return "host";
+        case kCsRecovery: return "recovery";
+        case kCsNoPerm: return UsbNoPermissionsShortHelpText();
+        case kCsSideload: return "sideload";
+        case kCsUnauthorized: return "unauthorized";
+        default: return "unknown";
+    }
+}
+
+void atransport::update_version(int version, size_t payload) {
+    protocol_version = std::min(version, A_VERSION);
+    max_payload = std::min(payload, MAX_PAYLOAD);
+}
+
+int atransport::get_protocol_version() const {
+    return protocol_version;
+}
+
+size_t atransport::get_max_payload() const {
+    return max_payload;
+}
+
+namespace {
+
+constexpr char kFeatureStringDelimiter = ',';
+
+}  // namespace
+
+const FeatureSet& supported_features() {
+    // Local static allocation to avoid global non-POD variables.
+    static const FeatureSet* features = new FeatureSet{
+        kFeatureShell2,
+        kFeatureCmd
+        // Increment ADB_SERVER_VERSION whenever the feature list changes to
+        // make sure that the adb client and server features stay in sync
+        // (http://b/24370690).
+    };
+
+    return *features;
+}
+
+std::string FeatureSetToString(const FeatureSet& features) {
+    return android::base::Join(features, kFeatureStringDelimiter);
+}
+
+FeatureSet StringToFeatureSet(const std::string& features_string) {
+    if (features_string.empty()) {
+        return FeatureSet();
+    }
+
+    auto names = android::base::Split(features_string,
+                                      {kFeatureStringDelimiter});
+    return FeatureSet(names.begin(), names.end());
+}
+
+bool CanUseFeature(const FeatureSet& feature_set, const std::string& feature) {
+    return feature_set.count(feature) > 0 &&
+            supported_features().count(feature) > 0;
+}
+
+bool atransport::has_feature(const std::string& feature) const {
+    return features_.count(feature) > 0;
+}
+
+void atransport::SetFeatures(const std::string& features_string) {
+    features_ = StringToFeatureSet(features_string);
+}
+
+void atransport::AddDisconnect(adisconnect* disconnect) {
+    disconnects_.push_back(disconnect);
+}
+
+void atransport::RemoveDisconnect(adisconnect* disconnect) {
+    disconnects_.remove(disconnect);
+}
+
+void atransport::RunDisconnects() {
+    for (const auto& disconnect : disconnects_) {
+        disconnect->func(disconnect->opaque, this);
+    }
+    disconnects_.clear();
+}
+
+bool atransport::MatchesTarget(const std::string& target) const {
+    if (serial) {
+        if (target == serial) {
+            return true;
+        } else if (type == kTransportLocal) {
+            // Local transports can match [tcp:|udp:]<hostname>[:port].
+            const char* local_target_ptr = target.c_str();
+
+            // For fastboot compatibility, ignore protocol prefixes.
+            if (android::base::StartsWith(target, "tcp:") ||
+                    android::base::StartsWith(target, "udp:")) {
+                local_target_ptr += 4;
+            }
+
+            // Parse our |serial| and the given |target| to check if the hostnames and ports match.
+            std::string serial_host, error;
+            int serial_port = -1;
+            if (android::base::ParseNetAddress(serial, &serial_host, &serial_port, nullptr,
+                                               &error)) {
+                // |target| may omit the port to default to ours.
+                std::string target_host;
+                int target_port = serial_port;
+                if (android::base::ParseNetAddress(local_target_ptr, &target_host, &target_port,
+                                                   nullptr, &error) &&
+                        serial_host == target_host && serial_port == target_port) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    return (devpath && target == devpath) ||
+           qual_match(target.c_str(), "product:", product, false) ||
+           qual_match(target.c_str(), "model:", model, true) ||
+           qual_match(target.c_str(), "device:", device, false);
 }
 
 #if ADB_HOST
@@ -869,7 +888,8 @@ static void append_transport_info(std::string* result, const char* key,
     }
 }
 
-static void append_transport(atransport* t, std::string* result, bool long_listing) {
+static void append_transport(const atransport* t, std::string* result,
+                             bool long_listing) {
     const char* serial = t->serial;
     if (!serial || !serial[0]) {
         serial = "(no serial number)";
@@ -880,7 +900,8 @@ static void append_transport(atransport* t, std::string* result, bool long_listi
         *result += '\t';
         *result += t->connection_state_name();
     } else {
-        android::base::StringAppendF(result, "%-22s %s", serial, t->connection_state_name());
+        android::base::StringAppendF(result, "%-22s %s", serial,
+                                     t->connection_state_name().c_str());
 
         append_transport_info(result, "", t->devpath, false);
         append_transport_info(result, "product:", t->product, false);
@@ -893,7 +914,7 @@ static void append_transport(atransport* t, std::string* result, bool long_listi
 std::string list_transports(bool long_listing) {
     std::string result;
     adb_mutex_lock(&transport_lock);
-    for (atransport* t = transport_list.next; t != &transport_list; t = t->next) {
+    for (const auto& t : transport_list) {
         append_transport(t, &result, long_listing);
     }
     adb_mutex_unlock(&transport_lock);
@@ -901,60 +922,48 @@ std::string list_transports(bool long_listing) {
 }
 
 /* hack for osx */
-void close_usb_devices()
-{
+void close_usb_devices() {
     adb_mutex_lock(&transport_lock);
-    for (atransport* t = transport_list.next; t != &transport_list; t = t->next) {
-        if ( !t->kicked ) {
-            t->kicked = 1;
-            t->kick(t);
-        }
+    for (const auto& t : transport_list) {
+        t->Kick();
     }
     adb_mutex_unlock(&transport_lock);
 }
 #endif // ADB_HOST
 
-int register_socket_transport(int s, const char *serial, int port, int local)
-{
-    atransport *t = reinterpret_cast<atransport*>(calloc(1, sizeof(atransport)));
-    if (t == nullptr) {
-        return -1;
-    }
-
-    atransport *n;
-    char buff[32];
+int register_socket_transport(int s, const char *serial, int port, int local) {
+    atransport* t = new atransport();
 
     if (!serial) {
-        snprintf(buff, sizeof buff, "T-%p", t);
-        serial = buff;
+        char buf[32];
+        snprintf(buf, sizeof(buf), "T-%p", t);
+        serial = buf;
     }
-    D("transport: %s init'ing for socket %d, on port %d\n", serial, s, port);
+
+    D("transport: %s init'ing for socket %d, on port %d", serial, s, port);
     if (init_socket_transport(t, s, port, local) < 0) {
-        free(t);
+        delete t;
         return -1;
     }
 
     adb_mutex_lock(&transport_lock);
-    for (n = pending_list.next; n != &pending_list; n = n->next) {
-        if (n->serial && !strcmp(serial, n->serial)) {
+    for (const auto& transport : pending_list) {
+        if (transport->serial && strcmp(serial, transport->serial) == 0) {
             adb_mutex_unlock(&transport_lock);
-            free(t);
+            delete t;
             return -1;
         }
     }
 
-    for (n = transport_list.next; n != &transport_list; n = n->next) {
-        if (n->serial && !strcmp(serial, n->serial)) {
+    for (const auto& transport : transport_list) {
+        if (transport->serial && strcmp(serial, transport->serial) == 0) {
             adb_mutex_unlock(&transport_lock);
-            free(t);
+            delete t;
             return -1;
         }
     }
 
-    t->next = &pending_list;
-    t->prev = pending_list.prev;
-    t->next->prev = t;
-    t->prev->next = t;
+    pending_list.push_front(t);
     t->serial = strdup(serial);
     adb_mutex_unlock(&transport_lock);
 
@@ -963,111 +972,79 @@ int register_socket_transport(int s, const char *serial, int port, int local)
 }
 
 #if ADB_HOST
-atransport *find_transport(const char *serial)
-{
-    atransport *t;
+atransport *find_transport(const char *serial) {
+    atransport* result = nullptr;
 
     adb_mutex_lock(&transport_lock);
-    for(t = transport_list.next; t != &transport_list; t = t->next) {
-        if (t->serial && !strcmp(serial, t->serial)) {
+    for (auto& t : transport_list) {
+        if (t->serial && strcmp(serial, t->serial) == 0) {
+            result = t;
             break;
         }
-     }
+    }
     adb_mutex_unlock(&transport_lock);
 
-    if (t != &transport_list)
-        return t;
-    else
-        return 0;
+    return result;
 }
 
-void unregister_transport(atransport *t)
-{
+void kick_all_tcp_devices() {
     adb_mutex_lock(&transport_lock);
-    t->next->prev = t->prev;
-    t->prev->next = t->next;
-    adb_mutex_unlock(&transport_lock);
-
-    kick_transport(t);
-    transport_unref(t);
-}
-
-// unregisters all non-emulator TCP transports
-void unregister_all_tcp_transports()
-{
-    atransport *t, *next;
-    adb_mutex_lock(&transport_lock);
-    for (t = transport_list.next; t != &transport_list; t = next) {
-        next = t->next;
+    for (auto& t : transport_list) {
+        // TCP/IP devices have adb_port == 0.
         if (t->type == kTransportLocal && t->adb_port == 0) {
-            t->next->prev = t->prev;
-            t->prev->next = next;
-            // we cannot call kick_transport when holding transport_lock
-            if (!t->kicked)
-            {
-                t->kicked = 1;
-                t->kick(t);
-            }
-            transport_unref_locked(t);
+            // Kicking breaks the read_transport thread of this transport out of any read, then
+            // the read_transport thread will notify the main thread to make this transport
+            // offline. Then the main thread will notify the write_transport thread to exit.
+            // Finally, this transport will be closed and freed in the main thread.
+            t->Kick();
         }
-     }
-
+    }
     adb_mutex_unlock(&transport_lock);
 }
 
 #endif
 
-void register_usb_transport(usb_handle *usb, const char *serial, const char *devpath, unsigned writeable)
-{
-    atransport *t = reinterpret_cast<atransport*>(calloc(1, sizeof(atransport)));
-    if (t == nullptr) fatal("cannot allocate USB atransport");
-    D("transport: %p init'ing for usb_handle %p (sn='%s')\n", t, usb,
+void register_usb_transport(usb_handle* usb, const char* serial,
+                            const char* devpath, unsigned writeable) {
+    atransport* t = new atransport();
+
+    D("transport: %p init'ing for usb_handle %p (sn='%s')", t, usb,
       serial ? serial : "");
-    init_usb_transport(t, usb, (writeable ? CS_OFFLINE : CS_NOPERM));
+    init_usb_transport(t, usb, (writeable ? kCsOffline : kCsNoPerm));
     if(serial) {
         t->serial = strdup(serial);
     }
-    if(devpath) {
+
+    if (devpath) {
         t->devpath = strdup(devpath);
     }
 
     adb_mutex_lock(&transport_lock);
-    t->next = &pending_list;
-    t->prev = pending_list.prev;
-    t->next->prev = t;
-    t->prev->next = t;
+    pending_list.push_front(t);
     adb_mutex_unlock(&transport_lock);
 
     register_transport(t);
 }
 
-/* this should only be used for transports with connection_state == CS_NOPERM */
-void unregister_usb_transport(usb_handle *usb)
-{
-    atransport *t;
+// This should only be used for transports with connection_state == kCsNoPerm.
+void unregister_usb_transport(usb_handle *usb) {
     adb_mutex_lock(&transport_lock);
-    for(t = transport_list.next; t != &transport_list; t = t->next) {
-        if (t->usb == usb && t->connection_state == CS_NOPERM) {
-            t->next->prev = t->prev;
-            t->prev->next = t->next;
-            break;
-        }
-     }
+    transport_list.remove_if([usb](atransport* t) {
+        return t->usb == usb && t->connection_state == kCsNoPerm;
+    });
     adb_mutex_unlock(&transport_lock);
 }
 
-#undef TRACE_TAG
-#define TRACE_TAG  TRACE_RWX
-
-int check_header(apacket *p)
+int check_header(apacket *p, atransport *t)
 {
     if(p->msg.magic != (p->msg.command ^ 0xffffffff)) {
-        D("check_header(): invalid magic\n");
+        VLOG(RWX) << "check_header(): invalid magic";
         return -1;
     }
 
-    if(p->msg.data_length > MAX_PAYLOAD) {
-        D("check_header(): %d > MAX_PAYLOAD\n", p->msg.data_length);
+    if(p->msg.data_length > t->get_max_payload()) {
+        VLOG(RWX) << "check_header(): " << p->msg.data_length << " atransport::max_payload = "
+                  << t->get_max_payload();
         return -1;
     }
 

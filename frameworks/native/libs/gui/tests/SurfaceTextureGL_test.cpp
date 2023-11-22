@@ -28,6 +28,8 @@ TEST_F(SurfaceTextureGLTest, TexturingFromCpuFilledYV12BufferNpot) {
     const int texWidth = 64;
     const int texHeight = 66;
 
+    ASSERT_EQ(NO_ERROR, native_window_api_connect(mANW.get(),
+            NATIVE_WINDOW_API_CPU));
     ASSERT_EQ(NO_ERROR, native_window_set_buffers_dimensions(mANW.get(),
             texWidth, texHeight));
     ASSERT_EQ(NO_ERROR, native_window_set_buffers_format(mANW.get(),
@@ -76,6 +78,8 @@ TEST_F(SurfaceTextureGLTest, TexturingFromCpuFilledYV12BufferPow2) {
     const int texWidth = 64;
     const int texHeight = 64;
 
+    ASSERT_EQ(NO_ERROR, native_window_api_connect(mANW.get(),
+            NATIVE_WINDOW_API_CPU));
     ASSERT_EQ(NO_ERROR, native_window_set_buffers_dimensions(mANW.get(),
             texWidth, texHeight));
     ASSERT_EQ(NO_ERROR, native_window_set_buffers_format(mANW.get(),
@@ -124,6 +128,8 @@ TEST_F(SurfaceTextureGLTest, TexturingFromCpuFilledYV12BufferWithCrop) {
     const int texWidth = 64;
     const int texHeight = 66;
 
+    ASSERT_EQ(NO_ERROR, native_window_api_connect(mANW.get(),
+            NATIVE_WINDOW_API_CPU));
     ASSERT_EQ(NO_ERROR, native_window_set_buffers_dimensions(mANW.get(),
             texWidth, texHeight));
     ASSERT_EQ(NO_ERROR, native_window_set_buffers_format(mANW.get(),
@@ -190,7 +196,8 @@ TEST_F(SurfaceTextureGLTest, TexturingFromCpuFilledYV12BuffersRepeatedly) {
     enum { texHeight = 16 };
     enum { numFrames = 1024 };
 
-    ASSERT_EQ(NO_ERROR, mST->setDefaultMaxBufferCount(2));
+    ASSERT_EQ(NO_ERROR, native_window_api_connect(mANW.get(),
+            NATIVE_WINDOW_API_CPU));
     ASSERT_EQ(NO_ERROR, native_window_set_buffers_dimensions(mANW.get(),
             texWidth, texHeight));
     ASSERT_EQ(NO_ERROR, native_window_set_buffers_format(mANW.get(),
@@ -288,7 +295,7 @@ TEST_F(SurfaceTextureGLTest, TexturingFromCpuFilledYV12BuffersRepeatedly) {
     };
 
     sp<Thread> pt(new ProducerThread(mANW, testPixels));
-    pt->run();
+    pt->run("ProducerThread");
 
     glViewport(0, 0, texWidth, texHeight);
 
@@ -334,6 +341,8 @@ TEST_F(SurfaceTextureGLTest, TexturingFromCpuFilledRGBABufferNpot) {
     const int texWidth = 64;
     const int texHeight = 66;
 
+    ASSERT_EQ(NO_ERROR, native_window_api_connect(mANW.get(),
+            NATIVE_WINDOW_API_CPU));
     ASSERT_EQ(NO_ERROR, native_window_set_buffers_dimensions(mANW.get(),
             texWidth, texHeight));
     ASSERT_EQ(NO_ERROR, native_window_set_buffers_format(mANW.get(),
@@ -378,6 +387,8 @@ TEST_F(SurfaceTextureGLTest, TexturingFromCpuFilledRGBABufferPow2) {
     const int texWidth = 64;
     const int texHeight = 64;
 
+    ASSERT_EQ(NO_ERROR, native_window_api_connect(mANW.get(),
+            NATIVE_WINDOW_API_CPU));
     ASSERT_EQ(NO_ERROR, native_window_set_buffers_dimensions(mANW.get(),
             texWidth, texHeight));
     ASSERT_EQ(NO_ERROR, native_window_set_buffers_format(mANW.get(),
@@ -436,7 +447,10 @@ TEST_F(SurfaceTextureGLTest, DisconnectStressTest) {
         virtual bool threadLoop() {
             ANativeWindowBuffer* anb;
 
-            native_window_api_connect(mANW.get(), NATIVE_WINDOW_API_EGL);
+            if (native_window_api_connect(mANW.get(), NATIVE_WINDOW_API_CPU) !=
+                    NO_ERROR) {
+                return false;
+            }
 
             for (int numFrames =0 ; numFrames < 2; numFrames ++) {
 
@@ -453,7 +467,10 @@ TEST_F(SurfaceTextureGLTest, DisconnectStressTest) {
                 }
             }
 
-            native_window_api_disconnect(mANW.get(), NATIVE_WINDOW_API_EGL);
+            if (native_window_api_disconnect(mANW.get(), NATIVE_WINDOW_API_CPU)
+                    != NO_ERROR) {
+                return false;
+            }
 
             return false;
         }
@@ -467,7 +484,7 @@ TEST_F(SurfaceTextureGLTest, DisconnectStressTest) {
 
 
     sp<Thread> pt(new ProducerThread(mANW));
-    pt->run();
+    pt->run("ProducerThread");
 
     // eat a frame so GLConsumer will own an at least one slot
     dw->waitForFrame();
@@ -487,7 +504,7 @@ TEST_F(SurfaceTextureGLTest, DisconnectStressTest) {
 // attempt to release a buffer that it does not owned
 TEST_F(SurfaceTextureGLTest, DisconnectClearsCurrentTexture) {
     ASSERT_EQ(OK, native_window_api_connect(mANW.get(),
-            NATIVE_WINDOW_API_EGL));
+            NATIVE_WINDOW_API_CPU));
 
     ANativeWindowBuffer *anb;
 
@@ -501,9 +518,9 @@ TEST_F(SurfaceTextureGLTest, DisconnectClearsCurrentTexture) {
     EXPECT_EQ(OK,mST->updateTexImage());
 
     ASSERT_EQ(OK, native_window_api_disconnect(mANW.get(),
-            NATIVE_WINDOW_API_EGL));
+            NATIVE_WINDOW_API_CPU));
     ASSERT_EQ(OK, native_window_api_connect(mANW.get(),
-            NATIVE_WINDOW_API_EGL));
+            NATIVE_WINDOW_API_CPU));
 
     EXPECT_EQ(OK, native_window_dequeue_buffer_and_wait(mANW.get(), &anb));
     EXPECT_EQ(OK, mANW->queueBuffer(mANW.get(), anb, -1));
@@ -513,7 +530,7 @@ TEST_F(SurfaceTextureGLTest, DisconnectClearsCurrentTexture) {
     EXPECT_EQ(OK,mST->updateTexImage());
 
     ASSERT_EQ(OK, native_window_api_disconnect(mANW.get(),
-            NATIVE_WINDOW_API_EGL));
+            NATIVE_WINDOW_API_CPU));
 }
 
 TEST_F(SurfaceTextureGLTest, ScaleToWindowMode) {
@@ -615,6 +632,11 @@ TEST_F(SurfaceTextureGLTest, AbandonUnblocksDequeueBuffer) {
             Mutex::Autolock lock(mMutex);
             ANativeWindowBuffer* anb;
 
+            if (native_window_api_connect(mANW.get(), NATIVE_WINDOW_API_CPU) !=
+                    NO_ERROR) {
+                return false;
+            }
+
             // Frame 1
             if (native_window_dequeue_buffer_and_wait(mANW.get(),
                     &anb) != NO_ERROR) {
@@ -658,10 +680,8 @@ TEST_F(SurfaceTextureGLTest, AbandonUnblocksDequeueBuffer) {
         Mutex mMutex;
     };
 
-    ASSERT_EQ(OK, mST->setDefaultMaxBufferCount(2));
-
     sp<Thread> pt(new ProducerThread(mANW));
-    pt->run();
+    pt->run("ProducerThread");
 
     mFW->waitForFrame();
     mFW->waitForFrame();
@@ -680,6 +700,9 @@ TEST_F(SurfaceTextureGLTest, AbandonUnblocksDequeueBuffer) {
 TEST_F(SurfaceTextureGLTest, InvalidWidthOrHeightFails) {
     int texHeight = 16;
     ANativeWindowBuffer* anb;
+
+    ASSERT_EQ(NO_ERROR, native_window_api_connect(mANW.get(),
+            NATIVE_WINDOW_API_CPU));
 
     GLint maxTextureSize;
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);

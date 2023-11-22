@@ -39,7 +39,7 @@ public:
         }
     }
 
-    int set(int sampleRate, const char *fmtp) {
+    int set(int sampleRate, const char */* fmtp */) {
         return (sampleRate == 8000 && mEncode && mDecode) ? 160 : -1;
     }
 

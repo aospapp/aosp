@@ -1,6 +1,6 @@
 /*
  ******************************************************************************
- * Copyright (C) 1996-2014, International Business Machines Corporation and
+ * Copyright (C) 1996-2015, International Business Machines Corporation and
  * others. All Rights Reserved.
  ******************************************************************************
  */
@@ -15,6 +15,9 @@ import com.ibm.icu.text.UTF16;
 
 /**
  * Trie implementation which stores data in int, 32 bits.
+ * 2015-sep-03: Used only in CharsetSelector which could be switched to {@link Trie2_32}
+ * as long as that does not load ICU4C selector data.
+ *
  * @author synwee
  * @see com.ibm.icu.impl.Trie
  * @since release 2.1, Jan 01 2002
@@ -248,10 +251,7 @@ public class IntTrie extends Trie
     {
         super.unserialize(bytes);
         // one used for initial value
-        m_data_               = new int[m_dataLength_];
-        for (int i = 0; i < m_dataLength_; i ++) {
-            m_data_[i] = bytes.getInt();
-        }
+        m_data_ = ICUBinary.getInts(bytes, m_dataLength_, 0);
         m_initialValue_ = m_data_[0];
     }
 

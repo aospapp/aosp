@@ -16,7 +16,9 @@
 
 package com.android.nfc;
 
+import android.app.ActivityManager;
 import android.bluetooth.BluetoothAdapter;
+import android.os.UserManager;
 
 import com.android.nfc.RegisteredComponentCache.ComponentInfo;
 import com.android.nfc.handover.HandoverDataParser;
@@ -228,6 +230,7 @@ class NfcDispatcher {
         PendingIntent overrideIntent;
         IntentFilter[] overrideFilters;
         String[][] overrideTechLists;
+        String[] provisioningMimes;
         boolean provisioningOnly;
 
         synchronized (this) {
@@ -235,6 +238,7 @@ class NfcDispatcher {
             overrideIntent = mOverrideIntent;
             overrideTechLists = mOverrideTechLists;
             provisioningOnly = mProvisioningOnly;
+            provisioningMimes = mProvisioningMimes;
         }
 
         boolean screenUnlocked = false;
@@ -278,18 +282,27 @@ class NfcDispatcher {
             return screenUnlocked ? DISPATCH_UNLOCK : DISPATCH_SUCCESS;
         }
 
-        if (tryNdef(dispatch, message, provisioningOnly)) {
+        if (provisioningOnly) {
+            if (message == null) {
+                // We only allow NDEF-message dispatch in provisioning mode
+                return DISPATCH_FAIL;
+            }
+            // Restrict to mime-types in whitelist.
+            String ndefMimeType = message.getRecords()[0].toMimeType();
+            if (provisioningMimes == null ||
+                    !(Arrays.asList(provisioningMimes).contains(ndefMimeType))) {
+                Log.e(TAG, "Dropping NFC intent in provisioning mode.");
+                return DISPATCH_FAIL;
+            }
+        }
+
+        if (tryNdef(dispatch, message)) {
             return screenUnlocked ? DISPATCH_UNLOCK : DISPATCH_SUCCESS;
         }
 
         if (screenUnlocked) {
             // We only allow NDEF-based mimeType matching in case of an unlock
             return DISPATCH_UNLOCK;
-        }
-
-        if (provisioningOnly) {
-            // We only allow NDEF-based mimeType matching
-            return DISPATCH_FAIL;
         }
 
         // Only allow NDEF-based mimeType matching for unlock tags
@@ -450,7 +463,7 @@ class NfcDispatcher {
         return false;
     }
 
-    boolean tryNdef(DispatchInfo dispatch, NdefMessage message, boolean provisioningOnly) {
+    boolean tryNdef(DispatchInfo dispatch, NdefMessage message) {
         if (message == null) {
             return false;
         }
@@ -458,14 +471,6 @@ class NfcDispatcher {
 
         // Bail out if the intent does not contain filterable NDEF data
         if (intent == null) return false;
-
-        if (provisioningOnly) {
-            if (mProvisioningMimes == null ||
-                    !(Arrays.asList(mProvisioningMimes).contains(intent.getType()))) {
-                Log.e(TAG, "Dropping NFC intent in provisioning mode.");
-                return false;
-            }
-        }
 
         // Try to start AAR activity with matching filter
         List<String> aarPackages = extractAarPackages(message);
@@ -584,11 +589,20 @@ class NfcDispatcher {
 
         HandoverDataParser.BluetoothHandoverData handover = mHandoverDataParser.parseBluetooth(m);
         if (handover == null || !handover.valid) return false;
+        if (UserManager.get(mContext).hasUserRestriction(
+                UserManager.DISALLOW_CONFIG_BLUETOOTH,
+                // hasUserRestriction does not support UserHandle.CURRENT
+                UserHandle.of(ActivityManager.getCurrentUser()))) {
+            return false;
+        }
 
         Intent intent = new Intent(mContext, PeripheralHandoverService.class);
         intent.putExtra(PeripheralHandoverService.EXTRA_PERIPHERAL_DEVICE, handover.device);
         intent.putExtra(PeripheralHandoverService.EXTRA_PERIPHERAL_NAME, handover.name);
         intent.putExtra(PeripheralHandoverService.EXTRA_PERIPHERAL_TRANSPORT, handover.transport);
+        if (handover.oobData != null) {
+            intent.putExtra(PeripheralHandoverService.EXTRA_PERIPHERAL_OOB_DATA, handover.oobData);
+        }
         mContext.startServiceAsUser(intent, UserHandle.CURRENT);
 
         return true;

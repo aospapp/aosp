@@ -77,9 +77,14 @@ extern "C" void art_quick_handle_fill_data(void*, void*);
 extern "C" void art_quick_lock_object(art::mirror::Object*);
 extern "C" void art_quick_unlock_object(art::mirror::Object*);
 
+// Lock entrypoints that do not inline any behavior (e.g., thin-locks).
+extern "C" void art_quick_lock_object_no_inline(art::mirror::Object*);
+extern "C" void art_quick_unlock_object_no_inline(art::mirror::Object*);
+
 // Math entrypoints.
 extern "C" int64_t art_quick_d2l(double);
 extern "C" int64_t art_quick_f2l(float);
+extern "C" float art_quick_l2f(int64_t);
 extern "C" int64_t art_quick_ldiv(int64_t, int64_t);
 extern "C" int64_t art_quick_lmod(int64_t, int64_t);
 extern "C" int64_t art_quick_lmul(int64_t, int64_t);
@@ -92,7 +97,7 @@ extern "C" uint64_t art_quick_shr_long(uint64_t, uint32_t);
 extern "C" uint64_t art_quick_ushr_long(uint64_t, uint32_t);
 
 // Intrinsic entrypoints.
-extern "C" int32_t art_quick_indexof(void*, uint32_t, uint32_t, uint32_t);
+extern "C" int32_t art_quick_indexof(void*, uint32_t, uint32_t);
 extern "C" int32_t art_quick_string_compareto(void*, void*);
 extern "C" void* art_quick_memcpy(void*, const void*, size_t);
 

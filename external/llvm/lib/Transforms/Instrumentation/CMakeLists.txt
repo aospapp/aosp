@@ -6,6 +6,8 @@ add_llvm_library(LLVMInstrumentation
   MemorySanitizer.cpp
   Instrumentation.cpp
   InstrProfiling.cpp
+  PGOInstrumentation.cpp
+  SafeStack.cpp
   SanitizerCoverage.cpp
   ThreadSanitizer.cpp
 

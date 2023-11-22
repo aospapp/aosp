@@ -25,10 +25,12 @@ import android.content.pm.PackageManager;
 import android.content.pm.PermissionGroupInfo;
 import android.content.pm.PermissionInfo;
 import android.os.Build;
+import android.os.Process;
 import android.os.UserHandle;
 import android.util.ArrayMap;
 
 import com.android.packageinstaller.R;
+import com.android.packageinstaller.permission.utils.ArrayUtils;
 import com.android.packageinstaller.permission.utils.LocationUtils;
 
 import java.util.ArrayList;
@@ -67,7 +69,7 @@ public final class AppPermissionGroup implements Comparable<AppPermissionGroup> 
 
         if (permissionInfo.protectionLevel != PermissionInfo.PROTECTION_DANGEROUS
                 || (permissionInfo.flags & PermissionInfo.FLAG_INSTALLED) == 0
-                || (permissionInfo.flags & PermissionInfo.FLAG_HIDDEN) != 0) {
+                || (permissionInfo.flags & PermissionInfo.FLAG_REMOVED) != 0) {
             return null;
         }
 
@@ -92,7 +94,7 @@ public final class AppPermissionGroup implements Comparable<AppPermissionGroup> 
         }
 
         return create(context, packageInfo, groupInfo, permissionInfos,
-                new UserHandle(context.getUserId()));
+                Process.myUserHandle());
     }
 
     public static AppPermissionGroup create(Context context, PackageInfo packageInfo,
@@ -135,21 +137,20 @@ public final class AppPermissionGroup implements Comparable<AppPermissionGroup> 
                 continue;
             }
 
-            // Don't allow toggle of non platform defined permissions for legacy apps via app ops.
+            // Don't allow toggling non-platform permission groups for legacy apps via app ops.
             if (packageInfo.applicationInfo.targetSdkVersion <= Build.VERSION_CODES.LOLLIPOP_MR1
-                    && !PLATFORM_PACKAGE_NAME.equals(requestedPermissionInfo.packageName)) {
+                    && !PLATFORM_PACKAGE_NAME.equals(groupInfo.packageName)) {
                 continue;
             }
 
             final boolean granted = (packageInfo.requestedPermissionsFlags[i]
                     & PackageInfo.REQUESTED_PERMISSION_GRANTED) != 0;
 
-            final int appOp = PLATFORM_PACKAGE_NAME.equals(requestedPermissionInfo.packageName)
-                    ? AppOpsManager.permissionToOpCode(requestedPermissionInfo.name)
-                    : AppOpsManager.OP_NONE;
+            final String appOp = PLATFORM_PACKAGE_NAME.equals(requestedPermissionInfo.packageName)
+                    ? AppOpsManager.permissionToOp(requestedPermissionInfo.name) : null;
 
-            final boolean appOpAllowed = appOp != AppOpsManager.OP_NONE
-                    && context.getSystemService(AppOpsManager.class).checkOp(appOp,
+            final boolean appOpAllowed = appOp != null
+                    && context.getSystemService(AppOpsManager.class).checkOpNoThrow(appOp,
                     packageInfo.applicationInfo.uid, packageInfo.packageName)
                     == AppOpsManager.MODE_ALLOWED;
 
@@ -209,23 +210,39 @@ public final class AppPermissionGroup implements Comparable<AppPermissionGroup> 
         return mAppSupportsRuntimePermissions;
     }
 
-
-    public boolean hasGrantedByDefaultPermission() {
+    public boolean isReviewRequired() {
+        if (mAppSupportsRuntimePermissions) {
+            return false;
+        }
         final int permissionCount = mPermissions.size();
         for (int i = 0; i < permissionCount; i++) {
             Permission permission = mPermissions.valueAt(i);
-            if (permission.isGrantedByDefault()) {
+            if (permission.isReviewRequired()) {
                 return true;
             }
         }
         return false;
     }
 
-    public boolean hasAppOpPermission() {
+    public void resetReviewRequired() {
         final int permissionCount = mPermissions.size();
         for (int i = 0; i < permissionCount; i++) {
             Permission permission = mPermissions.valueAt(i);
-            if (permission.getAppOp() != AppOpsManager.OP_NONE) {
+            if (permission.isReviewRequired()) {
+                permission.resetReviewRequired();
+                mPackageManager.updatePermissionFlags(permission.getName(),
+                        mPackageInfo.packageName,
+                        PackageManager.FLAG_PERMISSION_REVIEW_REQUIRED,
+                        0, mUserHandle);
+            }
+        }
+    }
+
+    public boolean hasGrantedByDefaultPermission() {
+        final int permissionCount = mPermissions.size();
+        for (int i = 0; i < permissionCount; i++) {
+            Permission permission = mPermissions.valueAt(i);
+            if (permission.isGrantedByDefault()) {
                 return true;
             }
         }
@@ -260,24 +277,35 @@ public final class AppPermissionGroup implements Comparable<AppPermissionGroup> 
         return mDescription;
     }
 
+    public int getUserId() {
+        return mUserHandle.getIdentifier();
+    }
+
     public boolean hasPermission(String permission) {
         return mPermissions.get(permission) != null;
     }
 
     public boolean areRuntimePermissionsGranted() {
+        return areRuntimePermissionsGranted(null);
+    }
+
+    public boolean areRuntimePermissionsGranted(String[] filterPermissions) {
         if (LocationUtils.isLocationGroupAndProvider(mName, mPackageInfo.packageName)) {
             return LocationUtils.isLocationEnabled(mContext);
         }
         final int permissionCount = mPermissions.size();
         for (int i = 0; i < permissionCount; i++) {
             Permission permission = mPermissions.valueAt(i);
+            if (filterPermissions != null
+                    && !ArrayUtils.contains(filterPermissions, permission.getName())) {
+                continue;
+            }
             if (mAppSupportsRuntimePermissions) {
                 if (permission.isGranted()) {
                     return true;
                 }
-            } else if (permission.isGranted() && ((permission.getAppOp()
-                    != AppOpsManager.OP_NONE && permission.isAppOpAllowed())
-                    || permission.getAppOp() == AppOpsManager.OP_NONE)) {
+            } else if (permission.isGranted() && (permission.getAppOp() == null
+                    || permission.isAppOpAllowed())) {
                 return true;
             }
         }
@@ -285,13 +313,21 @@ public final class AppPermissionGroup implements Comparable<AppPermissionGroup> 
     }
 
     public boolean grantRuntimePermissions(boolean fixedByTheUser) {
-        final boolean isSharedUser = mPackageInfo.sharedUserId != null;
+        return grantRuntimePermissions(fixedByTheUser, null);
+    }
+
+    public boolean grantRuntimePermissions(boolean fixedByTheUser, String[] filterPermissions) {
         final int uid = mPackageInfo.applicationInfo.uid;
 
         // We toggle permissions only to apps that support runtime
         // permissions, otherwise we toggle the app op corresponding
         // to the permission if the permission is granted to the app.
         for (Permission permission : mPermissions.values()) {
+            if (filterPermissions != null
+                    && !ArrayUtils.contains(filterPermissions, permission.getName())) {
+                continue;
+            }
+
             if (mAppSupportsRuntimePermissions) {
                 // Do not touch permissions fixed by the system.
                 if (permission.isSystemFixed()) {
@@ -327,43 +363,42 @@ public final class AppPermissionGroup implements Comparable<AppPermissionGroup> 
                 }
             } else {
                 // Legacy apps cannot have a not granted permission but just in case.
-                // Also if the permissions has no corresponding app op, then it is a
-                // third-party one and we do not offer toggling of such permissions.
-                if (!permission.isGranted() || !permission.hasAppOp()) {
+                if (!permission.isGranted()) {
                     continue;
                 }
 
-                if (!permission.isAppOpAllowed()) {
-                    permission.setAppOpAllowed(true);
-                    // It this is a shared user we want to enable the app op for all
-                    // packages in the shared user to match the behavior of this
-                    // shared user having a runtime permission.
-                    if (isSharedUser) {
-                        // Enable the app op.
-                        String[] packageNames = mPackageManager.getPackagesForUid(uid);
-                        for (String packageName : packageNames) {
-                            mAppOps.setUidMode(permission.getAppOp(), uid,
-                                    AppOpsManager.MODE_ALLOWED);
-                        }
-                    } else {
+                int killUid = -1;
+                int mask = 0;
+
+                // If the permissions has no corresponding app op, then it is a
+                // third-party one and we do not offer toggling of such permissions.
+                if (permission.hasAppOp()) {
+                    if (!permission.isAppOpAllowed()) {
+                        permission.setAppOpAllowed(true);
                         // Enable the app op.
                         mAppOps.setUidMode(permission.getAppOp(), uid, AppOpsManager.MODE_ALLOWED);
+
+                        // Legacy apps do not know that they have to retry access to a
+                        // resource due to changes in runtime permissions (app ops in this
+                        // case). Therefore, we restart them on app op change, so they
+                        // can pick up the change.
+                        killUid = uid;
                     }
 
                     // Mark that the permission should not be be granted on upgrade
                     // when the app begins supporting runtime permissions.
                     if (permission.shouldRevokeOnUpgrade()) {
                         permission.setRevokeOnUpgrade(false);
-                        mPackageManager.updatePermissionFlags(permission.getName(),
-                                mPackageInfo.packageName,
-                                PackageManager.FLAG_PERMISSION_REVOKE_ON_UPGRADE,
-                                0, mUserHandle);
+                        mask |= PackageManager.FLAG_PERMISSION_REVOKE_ON_UPGRADE;
                     }
+                }
 
-                    // Legacy apps do not know that they have to retry access to a
-                    // resource due to changes in runtime permissions (app ops in this
-                    // case). Therefore, we restart them on app op change, so they
-                    // can pick up the change.
+                if (mask != 0) {
+                    mPackageManager.updatePermissionFlags(permission.getName(),
+                            mPackageInfo.packageName, mask, 0, mUserHandle);
+                }
+
+                if (killUid != -1) {
                     mActivityManager.killUid(uid, KILL_REASON_APP_OP_CHANGE);
                 }
             }
@@ -373,13 +408,21 @@ public final class AppPermissionGroup implements Comparable<AppPermissionGroup> 
     }
 
     public boolean revokeRuntimePermissions(boolean fixedByTheUser) {
-        final boolean isSharedUser = mPackageInfo.sharedUserId != null;
+        return revokeRuntimePermissions(fixedByTheUser, null);
+    }
+
+    public boolean revokeRuntimePermissions(boolean fixedByTheUser, String[] filterPermissions) {
         final int uid = mPackageInfo.applicationInfo.uid;
 
         // We toggle permissions only to apps that support runtime
         // permissions, otherwise we toggle the app op corresponding
         // to the permission if the permission is granted to the app.
         for (Permission permission : mPermissions.values()) {
+            if (filterPermissions != null
+                    && !ArrayUtils.contains(filterPermissions, permission.getName())) {
+                continue;
+            }
+
             if (mAppSupportsRuntimePermissions) {
                 // Do not touch permissions fixed by the system.
                 if (permission.isSystemFixed()) {
@@ -419,43 +462,43 @@ public final class AppPermissionGroup implements Comparable<AppPermissionGroup> 
                 }
             } else {
                 // Legacy apps cannot have a non-granted permission but just in case.
-                // Also if the permission has no corresponding app op, then it is a
-                // third-party one and we do not offer toggling of such permissions.
-                if (!permission.isGranted() || !permission.hasAppOp()) {
+                if (!permission.isGranted()) {
                     continue;
                 }
 
-                if (permission.isAppOpAllowed()) {
-                    permission.setAppOpAllowed(false);
-                    // It this is a shared user we want to enable the app op for all
-                    // packages the the shared user to match the behavior of this
-                    // shared user having a runtime permission.
-                    if (isSharedUser) {
-                        String[] packageNames = mPackageManager.getPackagesForUid(uid);
-                        for (String packageName : packageNames) {
-                            // Disable the app op.
-                            mAppOps.setUidMode(permission.getAppOp(), uid,
-                                    AppOpsManager.MODE_IGNORED);
-                        }
-                    } else {
+                int mask = 0;
+                int flags = 0;
+                int killUid = -1;
+
+                // If the permission has no corresponding app op, then it is a
+                // third-party one and we do not offer toggling of such permissions.
+                if (permission.hasAppOp()) {
+                    if (permission.isAppOpAllowed()) {
+                        permission.setAppOpAllowed(false);
                         // Disable the app op.
                         mAppOps.setUidMode(permission.getAppOp(), uid, AppOpsManager.MODE_IGNORED);
+
+                        // Disabling an app op may put the app in a situation in which it
+                        // has a handle to state it shouldn't have, so we have to kill the
+                        // app. This matches the revoke runtime permission behavior.
+                        killUid = uid;
                     }
 
                     // Mark that the permission should not be granted on upgrade
                     // when the app begins supporting runtime permissions.
                     if (!permission.shouldRevokeOnUpgrade()) {
                         permission.setRevokeOnUpgrade(true);
-                        mPackageManager.updatePermissionFlags(permission.getName(),
-                                mPackageInfo.packageName,
-                                PackageManager.FLAG_PERMISSION_REVOKE_ON_UPGRADE,
-                                PackageManager.FLAG_PERMISSION_REVOKE_ON_UPGRADE,
-                                mUserHandle);
+                        mask |= PackageManager.FLAG_PERMISSION_REVOKE_ON_UPGRADE;
+                        flags |= PackageManager.FLAG_PERMISSION_REVOKE_ON_UPGRADE;
                     }
+                }
 
-                    // Disabling an app op may put the app in a situation in which it
-                    // has a handle to state it shouldn't have, so we have to kill the
-                    // app. This matches the revoke runtime permission behavior.
+                if (mask != 0) {
+                    mPackageManager.updatePermissionFlags(permission.getName(),
+                            mPackageInfo.packageName, mask, flags, mUserHandle);
+                }
+
+                if (killUid != -1) {
                     mActivityManager.killUid(uid, KILL_REASON_APP_OP_CHANGE);
                 }
             }

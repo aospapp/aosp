@@ -25,6 +25,9 @@ LOCAL_STATIC_JAVA_LIBRARIES := android-support-test
 
 LOCAL_PACKAGE_NAME := CtsAppWithData
 
+# tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
+
 LOCAL_CERTIFICATE := cts/hostsidetests/appsecurity/certs/cts-testkey1
 
 LOCAL_DEX_PREOPT := false

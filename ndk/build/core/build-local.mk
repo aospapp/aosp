@@ -20,9 +20,17 @@
 # Detect the NDK installation path by processing this Makefile's location.
 # This assumes we are located under $NDK_ROOT/build/core/main.mk
 #
+
+# Don't output to stdout if we're being invoked to dump a variable
+DUMP_VAR := $(patsubst DUMP_%,%,$(filter DUMP_%,$(MAKECMDGOALS)))
+ifneq (,$(DUMP_VAR))
+    NDK_NO_INFO := 1
+    NDK_NO_WARNINGS := 1
+endif
+
 NDK_ROOT := $(dir $(lastword $(MAKEFILE_LIST)))
-NDK_ROOT := $(strip $(NDK_ROOT:%build/core/=%))
 NDK_ROOT := $(subst \,/,$(NDK_ROOT))
+NDK_ROOT := $(strip $(NDK_ROOT:%build/core/=%))
 NDK_ROOT := $(NDK_ROOT:%/=%)
 ifeq ($(NDK_ROOT),)
     # for the case when we're invoked from the NDK install path
@@ -32,7 +40,7 @@ ifeq ($(NDK_LOG),1)
     $(info Android NDK: NDK installation path auto-detected: '$(NDK_ROOT)')
 endif
 ifneq ($(words $(NDK_ROOT)),1)
-    $(info Android NDK: You NDK installation path contains spaces.)
+    $(info Android NDK: Your NDK installation path contains spaces.)
     $(info Android NDK: Please re-install to a different location to fix the issue !)
     $(error Aborting.)
 endif
@@ -66,27 +74,6 @@ include $(NDK_ROOT)/build/core/init.mk
 #
 # ====================================================================
 
-ifeq ($(HOST_OS),windows)
-# On Windows, defining host-dir-parent is a bit more tricky because the
-# GNU Make $(dir ...) function doesn't return an empty string when it
-# reaches the top of the directory tree, and we want to enforce this to
-# avoid infinite loops.
-#
-#   $(dir C:)     -> C:       (empty expected)
-#   $(dir C:/)    -> C:/      (empty expected)
-#   $(dir C:\)    -> C:\      (empty expected)
-#   $(dir C:/foo) -> C:/      (correct)
-#   $(dir C:\foo) -> C:\      (correct)
-#
-host-dir-parent = $(patsubst %/,%,$(strip \
-    $(eval __host_dir_node := $(patsubst %/,%,$(subst \,/,$1)))\
-    $(eval __host_dir_parent := $(dir $(__host_dir_node)))\
-    $(filter-out $1,$(__host_dir_parent))\
-    ))
-else
-host-dir-parent = $(patsubst %/,%,$(dir $1))
-endif
-
 find-project-dir = $(strip $(call find-project-dir-inner,$(abspath $1),$2))
 
 find-project-dir-inner = \
@@ -103,7 +90,7 @@ find-project-dir-inner-2 = \
         $(call ndk_log,    Found it !)\
         $(eval __found_project_path := $(__find_project_path))\
         ,\
-        $(eval __find_project_parent := $(call host-dir-parent,$(__find_project_path)))\
+        $(eval __find_project_parent := $(call parent-dir,$(__find_project_path)))\
         $(if $(__find_project_parent),\
             $(eval __find_project_path := $(__find_project_parent))\
             $(call find-project-dir-inner-2)\
@@ -221,7 +208,6 @@ endif
 # If a goal is DUMP_xxx then we dump a variable xxx instead
 # of building anything
 #
-DUMP_VAR     := $(patsubst DUMP_%,%,$(filter DUMP_%,$(MAKECMDGOALS)))
 MAKECMDGOALS := $(filter-out DUMP_$(DUMP_VAR),$(MAKECMDGOALS))
 
 include $(BUILD_SYSTEM)/setup-imports.mk

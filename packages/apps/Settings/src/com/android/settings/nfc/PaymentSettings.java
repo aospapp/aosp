@@ -16,18 +16,23 @@
 
 package com.android.settings.nfc;
 
+import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
+import android.nfc.NfcAdapter;
 import android.os.Bundle;
-import android.preference.PreferenceManager;
-import android.preference.PreferenceScreen;
+import android.support.v7.preference.PreferenceManager;
+import android.support.v7.preference.PreferenceScreen;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import com.android.internal.logging.MetricsLogger;
+
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.R;
 import com.android.settings.SettingsPreferenceFragment;
+import com.android.settings.dashboard.SummaryLoader;
 import com.android.settings.nfc.PaymentBackend.PaymentAppInfo;
 
 import java.util.List;
@@ -38,7 +43,7 @@ public class PaymentSettings extends SettingsPreferenceFragment {
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.NFC_PAYMENT;
+        return MetricsEvent.NFC_PAYMENT;
     }
 
     @Override
@@ -47,6 +52,21 @@ public class PaymentSettings extends SettingsPreferenceFragment {
 
         mPaymentBackend = new PaymentBackend(getActivity());
         setHasOptionsMenu(true);
+
+        PreferenceManager manager = getPreferenceManager();
+        PreferenceScreen screen = manager.createPreferenceScreen(getActivity());
+
+        List<PaymentBackend.PaymentAppInfo> appInfos = mPaymentBackend.getPaymentAppInfos();
+        if (appInfos != null && appInfos.size() > 0) {
+            NfcPaymentPreference preference =
+                    new NfcPaymentPreference(getPrefContext(), mPaymentBackend);
+            preference.setKey("payment");
+            screen.addPreference(preference);
+            NfcForegroundPreference foreground = new NfcForegroundPreference(getPrefContext(),
+                    mPaymentBackend);
+            screen.addPreference(foreground);
+        }
+        setPreferenceScreen(screen);
     }
 
     @Override
@@ -56,21 +76,7 @@ public class PaymentSettings extends SettingsPreferenceFragment {
         View emptyView = getActivity().getLayoutInflater().inflate(
                 R.layout.nfc_payment_empty, contentRoot, false);
         contentRoot.addView(emptyView);
-        getListView().setEmptyView(emptyView);
-
-        PreferenceManager manager = getPreferenceManager();
-        PreferenceScreen screen = manager.createPreferenceScreen(getActivity());
-
-        List<PaymentAppInfo> appInfos = mPaymentBackend.getPaymentAppInfos();
-        if (appInfos != null && appInfos.size() > 0) {
-            NfcPaymentPreference preference =
-                    new NfcPaymentPreference(getActivity(), mPaymentBackend);
-            screen.addPreference(preference);
-            NfcForegroundPreference foreground = new NfcForegroundPreference(getActivity(),
-                    mPaymentBackend);
-            screen.addPreference(foreground);
-        }
-        setPreferenceScreen(screen);
+        setEmptyView(emptyView);
     }
 
     @Override
@@ -93,4 +99,37 @@ public class PaymentSettings extends SettingsPreferenceFragment {
         menuItem.setIntent(howItWorksIntent);
         menuItem.setShowAsActionFlags(MenuItem.SHOW_AS_ACTION_NEVER);
     }
+
+    private static class SummaryProvider implements SummaryLoader.SummaryProvider {
+
+        private final Context mContext;
+        private final SummaryLoader mSummaryLoader;
+
+        public SummaryProvider(Context context, SummaryLoader summaryLoader) {
+            mContext = context;
+            mSummaryLoader = summaryLoader;
+        }
+
+        @Override
+        public void setListening(boolean listening) {
+            if (listening && NfcAdapter.getDefaultAdapter(mContext) != null) {
+                PaymentBackend paymentBackend = new PaymentBackend(mContext);
+                paymentBackend.refresh();
+                PaymentAppInfo app = paymentBackend.getDefaultApp();
+                if (app != null) {
+                    mSummaryLoader.setSummary(this, mContext.getString(R.string.payment_summary,
+                            app.label));
+                }
+            }
+        }
+    }
+
+    public static final SummaryLoader.SummaryProviderFactory SUMMARY_PROVIDER_FACTORY
+            = new SummaryLoader.SummaryProviderFactory() {
+        @Override
+        public SummaryLoader.SummaryProvider createSummaryProvider(Activity activity,
+                                                                   SummaryLoader summaryLoader) {
+            return new SummaryProvider(activity, summaryLoader);
+        }
+    };
 }

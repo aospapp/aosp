@@ -34,15 +34,12 @@ import com.android.internal.util.Preconditions;
  * class employs a concept of a call "session" that starts and stops when the foreground call
  * changes.
  */
-class DtmfLocalTonePlayer extends CallsManagerListenerBase {
+public class DtmfLocalTonePlayer {
     /** Generator used to actually play the tone. */
     private ToneGenerator mToneGenerator;
 
     /** The current call associated with an existing dtmf session. */
     private Call mCall;
-
-    /** The context. */
-    private final Context mContext;
 
     /**
      * Message codes to be used for creating and deleting ToneGenerator object in the tonegenerator
@@ -54,13 +51,8 @@ class DtmfLocalTonePlayer extends CallsManagerListenerBase {
     /** Handler running on the tonegenerator thread. */
     private Handler mHandler;
 
+    public DtmfLocalTonePlayer() { }
 
-    public DtmfLocalTonePlayer(Context context) {
-        mContext = context;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public void onForegroundCallChanged(Call oldForegroundCall, Call newForegroundCall) {
         endDtmfSession(oldForegroundCall);
         startDtmfSession(newForegroundCall);
@@ -219,7 +211,7 @@ class DtmfLocalTonePlayer extends CallsManagerListenerBase {
         };
     }
 
-    private static final int getMappedTone(char digit) {
+    private static int getMappedTone(char digit) {
         if (digit >= '0' && digit <= '9') {
             return ToneGenerator.TONE_DTMF_0 + digit - '0';
         } else if (digit == '#') {

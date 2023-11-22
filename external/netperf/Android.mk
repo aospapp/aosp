@@ -14,29 +14,40 @@
 
 LOCAL_PATH := $(call my-dir)
 
-L_DEFS := -DHAVE_CONFIG_H
-L_CFLAGS := $(L_DEFS)
-L_USE_CPU_SOURCE := netcpu_none.c
+netperf_CFLAGS := \
+  -D_GNU_SOURCE \
+  -DHAVE_CONFIG_H \
+  -include unistd.h \
+  -include sys/sendfile.h \
+  -Wno-sign-compare \
+  -Wno-unused-parameter \
 
-L_COMMON_SRC := hist.h netlib.c netsh.c nettest_bsd.c nettest_dlpi.c \
-  nettest_unix.c nettest_xti.c nettest_sctp.c nettest_sdp.c
-
-netperf_SOURCES := netperf.c $(L_COMMON_SRC) $(L_USE_CPU_SOURCE)
-netserver_SOURCES := netserver.c $(L_COMMON_SRC) $(L_USE_CPU_SOURCE)
+netperf_SRC_FILES := \
+  src/dscp.c \
+  src/netcpu_procstat.c \
+  src/netlib.c \
+  src/netsh.c \
+  src/nettest_bsd.c \
+  src/nettest_dlpi.c \
+  src/nettest_omni.c \
+  src/nettest_unix.c \
+  src/nettest_xti.c \
+  src/nettest_sctp.c \
+  src/nettest_sdp.c \
+  src/net_uuid.c \
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := netperf
 LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)
 LOCAL_MODULE_TAGS := eng
-LOCAL_CFLAGS := $(L_CFLAGS)
-LOCAL_SRC_FILES := $(netperf_SOURCES)
+LOCAL_CFLAGS := $(netperf_CFLAGS)
+LOCAL_SRC_FILES := src/netperf.c $(netperf_SRC_FILES)
 include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := netserver
 LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)
 LOCAL_MODULE_TAGS := eng
-LOCAL_CFLAGS := $(L_CFLAGS)
-LOCAL_SRC_FILES := $(netserver_SOURCES)
+LOCAL_CFLAGS := $(netperf_CFLAGS)
+LOCAL_SRC_FILES := src/netserver.c $(netperf_SRC_FILES)
 include $(BUILD_EXECUTABLE)
-

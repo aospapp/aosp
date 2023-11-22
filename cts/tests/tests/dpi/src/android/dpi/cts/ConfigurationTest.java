@@ -18,6 +18,7 @@ package android.dpi.cts;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.platform.test.annotations.Presubmit;
 import android.test.AndroidTestCase;
 import android.util.DisplayMetrics;
 import android.view.Display;
@@ -31,6 +32,7 @@ import java.util.Set;
  */
 public class ConfigurationTest extends AndroidTestCase {
 
+    @Presubmit
     public void testScreenConfiguration() {
         WindowManager windowManager =
                 (WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);

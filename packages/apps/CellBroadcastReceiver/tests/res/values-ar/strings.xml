@@ -27,7 +27,7 @@
     <string name="button_cmas_monthly_test" msgid="1609320625517248393">"‏إرسال تنبيه اختبار شهري CMAS"</string>
     <string name="button_gsm_7bit_type" msgid="4757698592787955850">"‏إرسال بث تجريبي لنظام GSM ‏7 بت"</string>
     <string name="button_gsm_7bit_umts_type" msgid="4377077702628367387">"‏إرسال بث تجريبي لكود النظام العالمي لاتصالات الجوال عن بعد (UMTS) ‏7 بت"</string>
-    <string name="button_gsm_7bit_nopadding_type" msgid="5289528095948674862">"‏إرسال بث طويل لنظام GSM ‏7 بت"</string>
+    <string name="button_gsm_7bit_nopadding_type" msgid="5289528095948674862">"‏إرسال بث طويل لنظام GSM 7 بت"</string>
     <string name="button_gsm_7bit_nopadding_umts_type" msgid="7953047238483884846">"‏إرسال بث طويل للنظام العالمي لاتصالات الجوال عن بعد (UMTS) ‏7 بت"</string>
     <string name="button_gsm_7bit_multipage_type" msgid="8516540964071070491">"‏إرسال بث متعدد الصفحات لكود نظام GSM ‏7 بت"</string>
     <string name="button_gsm_7bit_multipage_umts_type" msgid="474883728254547100">"‏إرسال بث متعدد الصفحات لكود النظام العالمي لاتصالات الجوال عن بعد (UMTS) ‏7 بت"</string>
@@ -39,7 +39,7 @@
     <string name="button_gsm_ucs2_multipage_umts_type" msgid="4557772309524939206">"‏إرسال بث متعدد الصفحات لكود النظام العالمي لاتصالات الجوال عن بعد (UMTS) ‏UCS-2"</string>
     <string name="button_gsm_ucs2_with_language_type" msgid="8992961254390480388">"‏إرسال كود GSM UCS-2 مع اللغة"</string>
     <string name="button_gsm_ucs2_with_language_umts_type" msgid="1080788762601688380">"‏إرسال كود النظام العالمي لاتصالات الجوال عن بعد (UMTS) ‏UCS-2 مع اللغة"</string>
-    <string name="button_delay_broadcast" msgid="5138650276363839541">"التأخير 5 ثوانٍ قبل الإرسال"</string>
+    <string name="button_delay_broadcast" msgid="5138650276363839541">"التأخير ۵ ثوانٍ قبل الإرسال"</string>
     <string name="message_id_label" msgid="4365322663037110887">"معرف الرسالة:"</string>
     <string name="category_id_label" msgid="8472814003810180738">"الفئة:"</string>
 </resources>

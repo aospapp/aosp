@@ -8,7 +8,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2000-2013 Nicholas Nethercote
+   Copyright (C) 2000-2015 Nicholas Nethercote
       njn@valgrind.org
 
    This program is free software; you can redistribute it and/or
@@ -440,6 +440,9 @@ DEF0(track_post_mem_write,        CorePart, ThreadId, Addr, SizeT)
 
 DEF0(track_pre_reg_read,          CorePart, ThreadId, const HChar*, PtrdiffT, SizeT)
 DEF0(track_post_reg_write,        CorePart, ThreadId,               PtrdiffT, SizeT)
+
+DEF0(track_copy_mem_to_reg,       CorePart, ThreadId, Addr, PtrdiffT, SizeT)
+DEF0(track_copy_reg_to_mem,       CorePart, ThreadId, PtrdiffT, Addr, SizeT)
 
 DEF0(track_post_reg_write_clientcall_return, ThreadId, PtrdiffT, SizeT, Addr)
 

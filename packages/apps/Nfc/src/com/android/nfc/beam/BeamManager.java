@@ -15,7 +15,6 @@
 */
 package com.android.nfc.beam;
 
-import com.android.nfc.NfcService;
 import com.android.nfc.handover.HandoverDataParser;
 
 import android.bluetooth.BluetoothDevice;
@@ -46,8 +45,6 @@ public class BeamManager implements Handler.Callback {
     private boolean mBeamInProgress;
     private final Handler mCallback;
 
-    private NfcService mNfcService;
-
     private static final class Singleton {
         public static final BeamManager INSTANCE = new BeamManager();
     }
@@ -56,7 +53,6 @@ public class BeamManager implements Handler.Callback {
         mLock = new Object();
         mBeamInProgress = false;
         mCallback = new Handler(Looper.getMainLooper(), this);
-        mNfcService = NfcService.getInstance();
     }
 
     public static BeamManager getInstance() {
@@ -121,11 +117,6 @@ public class BeamManager implements Handler.Callback {
         if (msg.what == MSG_BEAM_COMPLETE) {
             synchronized (mLock) {
                 mBeamInProgress = false;
-            }
-
-            boolean success = msg.arg1 == 1;
-            if (success) {
-                mNfcService.playSound(NfcService.SOUND_END);
             }
             return true;
         }

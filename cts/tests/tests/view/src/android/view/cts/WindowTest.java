@@ -16,7 +16,8 @@
 
 package android.view.cts;
 
-import com.android.cts.view.R;
+import android.view.ContextThemeWrapper;
+import android.view.cts.R;
 
 import android.app.Instrumentation;
 import android.app.Presentation;
@@ -45,6 +46,7 @@ import android.view.Gravity;
 import android.view.InputDevice;
 import android.view.InputQueue;
 import android.view.KeyEvent;
+import android.view.KeyboardShortcutGroup;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -61,6 +63,7 @@ import android.view.accessibility.AccessibilityEvent;
 import android.widget.Button;
 import android.widget.TextView;
 
+import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -80,7 +83,7 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
     private VirtualDisplay mVirtualDisplay;
 
     public WindowTest() {
-        super("com.android.cts.view", WindowCtsActivity.class);
+        super("android.view.cts", WindowCtsActivity.class);
     }
 
     @Override
@@ -292,7 +295,7 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
         int screenHeight = dm.heightPixels;
         assertTrue(decor.getWidth() >= screenWidth);
         assertTrue(decor.getHeight() >= screenHeight);
-        assertSame(mWindow.getContext(), decor.getContext());
+        assertTrue(decor.getContext() instanceof ContextThemeWrapper);
     }
 
     /**
@@ -868,6 +871,9 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
         public void addContentView(View view, ViewGroup.LayoutParams params) {
         }
 
+        public void clearContentView() {
+        }
+
         public View getCurrentFocus() {
             return null;
         }
@@ -1025,8 +1031,26 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
         }
 
         @Override
+        public void setDecorCaptionShade(int decorCaptionShade) {
+
+        }
+
+        @Override
+        public void setResizingCaptionDrawable(Drawable drawable) {
+
+        }
+
+        @Override
         public int getNavigationBarColor() {
             return 0;
+        }
+
+        @Override
+        public void onMultiWindowModeChanged() {
+        }
+
+        @Override
+        public void reportActivityRelaunched() {
         }
     }
 

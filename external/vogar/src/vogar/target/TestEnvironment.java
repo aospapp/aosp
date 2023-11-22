@@ -74,8 +74,12 @@ public final class TestEnvironment {
         }
         System.setProperties(null); // Reset.
 
-        // From "L" release onwards, calling System.setProperties(null) clears the java.io.tmpdir,
-        // so we set it again. No-op on earlier releases.
+        // On android, behaviour around clearing "java.io.tmpdir" is inconsistent.
+        // Some release set it to "null" and others set it to "/tmp" both values are
+        // wrong for normal apps (mode=activity), where the value that the framework
+        // sets must be used. We unconditionally restore that value here. This code
+        // should be correct on the host and on the jvm too, since tmpdir is assumed
+        // to be immutable.
         System.setProperty("java.io.tmpdir", tmpDir);
 
         String userHome = System.getProperty("user.home");
@@ -91,35 +95,45 @@ public final class TestEnvironment {
         disableSecurity();
     }
 
+    private String createTempDirectory(String subDirName) {
+        String dirName = tmpDir + "/" + subDirName;
+        IoUtils.safeMkdirs(new File(dirName));
+        return dirName;
+    }
+
     public void reset() {
         // Reset system properties.
         System.setProperties(null);
 
-        // From "L" release onwards, calling System.setProperties(null) clears the java.io.tmpdir,
-        // so we set it again. No-op on earlier releases.
+        // On android, behaviour around clearing "java.io.tmpdir" is inconsistent.
+        // Some release set it to "null" and others set it to "/tmp" both values are
+        // wrong for normal apps (mode=activity), where the value that the framework
+        // sets must be used. We unconditionally restore that value here. This code
+        // should be correct on the host and on the jvm too, since tmpdir is assumed
+        // to be immutable.
         System.setProperty("java.io.tmpdir", tmpDir);
-
-        if (JAVA_RUNTIME_VERSION != null) {
-            System.setProperty("java.runtime.version", JAVA_RUNTIME_VERSION);
-        }
-        if (JAVA_VM_INFO != null) {
-            System.setProperty("java.vm.info", JAVA_VM_INFO);
-        }
-        if (JAVA_VM_VERSION != null) {
-            System.setProperty("java.vm.version", JAVA_VM_VERSION);
-        }
-        if (JAVA_VM_VENDOR != null) {
-            System.setProperty("java.vm.vendor", JAVA_VM_VENDOR);
-        }
-        if (JAVA_VM_NAME != null) {
-            System.setProperty("java.vm.name", JAVA_VM_NAME);
-        }
 
         // Require writable java.home and user.dir directories for preferences
         if ("Dalvik".equals(System.getProperty("java.vm.name"))) {
-            String javaHome = tmpDir + "/java.home";
-            IoUtils.safeMkdirs(new File(javaHome));
-            System.setProperty("java.home", javaHome);
+            setPropertyIfNull("java.home", createTempDirectory("java.home"));
+            setPropertyIfNull("dexmaker.dexcache", createTempDirectory("dexmaker.dexcache"));
+        } else {
+            // The mode --jvm has these properties writable.
+            if (JAVA_RUNTIME_VERSION != null) {
+                System.setProperty("java.runtime.version", JAVA_RUNTIME_VERSION);
+            }
+            if (JAVA_VM_INFO != null) {
+                System.setProperty("java.vm.info", JAVA_VM_INFO);
+            }
+            if (JAVA_VM_VERSION != null) {
+                System.setProperty("java.vm.version", JAVA_VM_VERSION);
+            }
+            if (JAVA_VM_VENDOR != null) {
+                System.setProperty("java.vm.vendor", JAVA_VM_VENDOR);
+            }
+            if (JAVA_VM_NAME != null) {
+                System.setProperty("java.vm.name", JAVA_VM_NAME);
+            }
         }
         String userHome = System.getProperty("user.home");
         if (userHome.length() == 0) {
@@ -237,6 +251,12 @@ public final class TestEnvironment {
             Error e2 = new AssertionError("Unable to set java.text.DateFormat.is24Hour");
             e2.initCause(e);
             throw e2;
+        }
+    }
+
+    private static void setPropertyIfNull(String property, String value) {
+        if (System.getProperty(property) == null) {
+           System.setProperty(property, value);
         }
     }
 }

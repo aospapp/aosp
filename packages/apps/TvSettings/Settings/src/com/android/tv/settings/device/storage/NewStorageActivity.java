@@ -16,26 +16,30 @@
 
 package com.android.tv.settings.device.storage;
 
-import android.annotation.Nullable;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.UserInfo;
 import android.os.Bundle;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.os.storage.DiskInfo;
+import android.os.storage.StorageEventListener;
 import android.os.storage.StorageManager;
 import android.os.storage.VolumeInfo;
 import android.os.storage.VolumeRecord;
 import android.provider.Settings;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+import android.support.v17.leanback.app.GuidedStepFragment;
 import android.support.v17.leanback.widget.GuidanceStylist;
 import android.support.v17.leanback.widget.GuidedAction;
 import android.text.TextUtils;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.android.tv.settings.R;
 import com.android.tv.settings.device.StorageResetActivity;
@@ -99,7 +103,7 @@ public class NewStorageActivity extends Activity {
         }
     }
 
-    public static class NewStorageFragment extends StorageGuidedStepFragment {
+    public static class NewStorageFragment extends GuidedStepFragment {
 
         private static final int ACTION_BROWSE = 1;
         private static final int ACTION_FORMAT_AS_PRIVATE = 2;
@@ -109,6 +113,18 @@ public class NewStorageActivity extends Activity {
         private String mVolumeId;
         private String mDiskId;
         private String mDescription;
+
+        private final StorageEventListener mStorageEventListener = new StorageEventListener() {
+            @Override
+            public void onDiskDestroyed(DiskInfo disk) {
+                checkForUnmount();
+            }
+
+            @Override
+            public void onVolumeStateChanged(VolumeInfo vol, int oldState, int newState) {
+                checkForUnmount();
+            }
+        };
 
         public static NewStorageFragment newInstance(String volumeId, String diskId) {
             final Bundle b = new Bundle(1);
@@ -140,34 +156,49 @@ public class NewStorageActivity extends Activity {
         }
 
         @Override
+        public void onStart() {
+            super.onStart();
+            checkForUnmount();
+            getActivity().getSystemService(StorageManager.class)
+                    .registerListener(mStorageEventListener);
+        }
+
+        @Override
+        public void onStop() {
+            super.onStop();
+            getActivity().getSystemService(StorageManager.class)
+                    .unregisterListener(mStorageEventListener);
+        }
+
+        @Override
         public @NonNull GuidanceStylist.Guidance onCreateGuidance(Bundle savedInstanceState) {
             return new GuidanceStylist.Guidance(
                     getString(R.string.storage_new_title),
                     mDescription,
                     null,
-                    getActivity().getDrawable(R.drawable.ic_settings_storage));
+                    getActivity().getDrawable(R.drawable.ic_storage_132dp));
         }
 
         @Override
         public void onCreateActions(@NonNull List<GuidedAction> actions,
                 Bundle savedInstanceState) {
             if (TextUtils.isEmpty(mVolumeId)) {
-                actions.add(new GuidedAction.Builder()
-                        .title(getString(R.string.storage_new_action_format_public))
+                actions.add(new GuidedAction.Builder(getContext())
+                        .title(R.string.storage_new_action_format_public)
                         .id(ACTION_FORMAT_AS_PUBLIC)
                         .build());
             } else {
-                actions.add(new GuidedAction.Builder()
-                        .title(getString(R.string.storage_new_action_browse))
+                actions.add(new GuidedAction.Builder(getContext())
+                        .title(R.string.storage_new_action_browse)
                         .id(ACTION_BROWSE)
                         .build());
             }
-            actions.add(new GuidedAction.Builder()
-                    .title(getString(R.string.storage_new_action_adopt))
+            actions.add(new GuidedAction.Builder(getContext())
+                    .title(R.string.storage_new_action_adopt)
                     .id(ACTION_FORMAT_AS_PRIVATE)
                     .build());
-            actions.add(new GuidedAction.Builder()
-                    .title(getString(R.string.storage_new_action_eject))
+            actions.add(new GuidedAction.Builder(getContext())
+                    .title(R.string.storage_new_action_eject)
                     .id(ACTION_UNMOUNT)
                     .build());
         }
@@ -194,14 +225,57 @@ public class NewStorageActivity extends Activity {
             }
             getActivity().finish();
         }
+
+        private void checkForUnmount() {
+            if (!isAdded()) {
+                return;
+            }
+
+            final StorageManager storageManager =
+                    getContext().getSystemService(StorageManager.class);
+
+            if (!TextUtils.isEmpty(mDiskId)) {
+                // If the disk disappears, assume we're done
+                final List<DiskInfo> diskInfos = storageManager.getDisks();
+                boolean found = false;
+                for (DiskInfo diskInfo : diskInfos) {
+                    if (TextUtils.equals(diskInfo.getId(), mDiskId)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    getActivity().finish();
+                }
+            } else if (!TextUtils.isEmpty(mVolumeId)) {
+                final List<VolumeInfo> volumeInfos = storageManager.getVolumes();
+                boolean found = false;
+                for (VolumeInfo volumeInfo : volumeInfos) {
+                    if (TextUtils.equals(volumeInfo.getId(), mVolumeId)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    getActivity().finish();
+                }
+            }
+        }
     }
 
-    public static class MissingStorageFragment extends StorageGuidedStepFragment {
-
-        private static final int ACTION_OK = 0;
+    public static class MissingStorageFragment extends GuidedStepFragment {
 
         private String mFsUuid;
         private String mDescription;
+
+        private final BroadcastReceiver mDiskReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (TextUtils.equals(intent.getAction(), VolumeInfo.ACTION_VOLUME_STATE_CHANGED)) {
+                    checkForRemount();
+                }
+            }
+        };
 
         public static MissingStorageFragment newInstance(String fsUuid) {
             final MissingStorageFragment fragment = new MissingStorageFragment();
@@ -226,20 +300,33 @@ public class NewStorageActivity extends Activity {
         }
 
         @Override
+        public void onStart() {
+            super.onStart();
+            getContext().registerReceiver(mDiskReceiver,
+                    new IntentFilter(VolumeInfo.ACTION_VOLUME_STATE_CHANGED));
+            checkForRemount();
+        }
+
+        @Override
+        public void onStop() {
+            super.onStop();
+            getContext().unregisterReceiver(mDiskReceiver);
+        }
+
+        @Override
         public @NonNull GuidanceStylist.Guidance onCreateGuidance(Bundle savedInstanceState) {
             return new GuidanceStylist.Guidance(
                     getString(R.string.storage_missing_title, mDescription),
                     getString(R.string.storage_missing_description),
                     null,
-                    getActivity().getDrawable(R.drawable.ic_settings_error));
+                    getActivity().getDrawable(R.drawable.ic_error_132dp));
         }
 
         @Override
         public void onCreateActions(@NonNull List<GuidedAction> actions,
                 Bundle savedInstanceState) {
-            actions.add(new GuidedAction.Builder()
-                    .title(getString(android.R.string.ok))
-                    .id(ACTION_OK)
+            actions.add(new GuidedAction.Builder(getContext())
+                    .clickAction(GuidedAction.ACTION_ID_OK)
                     .build());
         }
 
@@ -248,6 +335,23 @@ public class NewStorageActivity extends Activity {
             getActivity().finish();
         }
 
+        private void checkForRemount() {
+            if (!isAdded()) {
+                return;
+            }
+
+            final List<VolumeInfo> volumeInfos =
+                    getContext().getSystemService(StorageManager.class).getVolumes();
+
+            for (final VolumeInfo info : volumeInfos) {
+                if (!TextUtils.equals(info.getFsUuid(), mFsUuid)) {
+                    continue;
+                }
+                if (info.isMountedReadable()) {
+                    getActivity().finish();
+                }
+            }
+        }
     }
 
     public static class DiskReceiver extends BroadcastReceiver {
@@ -297,6 +401,10 @@ public class NewStorageActivity extends Activity {
                 return;
             }
             final DiskInfo diskInfo = mStorageManager.findDiskById(diskId);
+            if (diskInfo == null) {
+                Log.e(TAG, "Disk ID " + diskId + " is no longer mounted");
+                return;
+            }
             if (diskInfo.size <= 0) {
                 Log.d(TAG, "Disk ID " + diskId + " has no media");
                 return;
@@ -321,6 +429,12 @@ public class NewStorageActivity extends Activity {
                 }
                 final String uuid = info.getFsUuid();
                 Log.d(TAG, "Scanning volume: " + info);
+                if (info.getType() == VolumeInfo.TYPE_PRIVATE
+                        && !TextUtils.equals(volumeId, VolumeInfo.ID_PRIVATE_INTERNAL)) {
+                    Toast.makeText(context, R.string.storage_mount_adopted, Toast.LENGTH_SHORT)
+                            .show();
+                    return;
+                }
                 if (info.getType() != VolumeInfo.TYPE_PUBLIC || TextUtils.isEmpty(uuid)) {
                     continue;
                 }
@@ -345,7 +459,12 @@ public class NewStorageActivity extends Activity {
                 Log.e(TAG, "Missing fsUuid, not launching activity.");
                 return;
             }
-            final VolumeRecord volumeRecord = mStorageManager.findRecordByUuid(fsUuid);
+            VolumeRecord volumeRecord = null;
+            try {
+                volumeRecord = mStorageManager.findRecordByUuid(fsUuid);
+            } catch (Exception e) {
+                Log.e(TAG, "Error finding volume record", e);
+            }
             if (volumeRecord == null) {
                 return;
             }

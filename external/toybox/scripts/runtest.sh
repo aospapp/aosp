@@ -43,9 +43,9 @@ SHOWSKIP=SKIP
 
 if tty -s <&1
 then
-  SHOWPASS="$(echo -e "\033[1m\033[32m${SHOWPASS}\033[0m")"
-  SHOWFAIL="$(echo -e "\033[1m\033[31m${SHOWFAIL}\033[0m")"
-  SHOWSKIP="$(echo -e "\033[1m\033[33m${SHOWSKIP}\033[0m")"
+  SHOWPASS="$(echo -e "\033[1;32m${SHOWPASS}\033[0m")"
+  SHOWFAIL="$(echo -e "\033[1;31m${SHOWFAIL}\033[0m")"
+  SHOWSKIP="$(echo -e "\033[1;33m${SHOWSKIP}\033[0m")"
 fi
 
 optional()
@@ -86,6 +86,10 @@ testing()
   echo -ne "$5" | eval "$2" > actual
   RETVAL=$?
 
+  # Catch segfaults
+  [ $RETVAL -gt 128 ] && [ $RETVAL -lt 255 ] &&
+    echo "exited with signal (or returned $RETVAL)" >> actual
+ 
   cmp expected actual > /dev/null 2>&1
   if [ $? -ne 0 ]
   then

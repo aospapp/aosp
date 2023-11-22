@@ -14,60 +14,49 @@
  * limitations under the License.
  */
 
+#include "private/bionic_globals.h"
+#include "private/bionic_vdso.h"
+
+#if defined(__aarch64__) || defined(__x86_64__) || defined (__i386__)
+
+#include <limits.h>
 #include <link.h>
 #include <string.h>
-#include <sys/auxv.h>
-#include <unistd.h>
-
-// x86 has a vdso, but there's nothing useful to us in it.
-#if defined(__aarch64__) || defined(__x86_64__)
-
-#if defined(__aarch64__)
-#define VDSO_CLOCK_GETTIME_SYMBOL "__kernel_clock_gettime"
-#define VDSO_GETTIMEOFDAY_SYMBOL  "__kernel_gettimeofday"
-#elif defined(__x86_64__)
-#define VDSO_CLOCK_GETTIME_SYMBOL "__vdso_clock_gettime"
-#define VDSO_GETTIMEOFDAY_SYMBOL  "__vdso_gettimeofday"
-#endif
-
+#include <sys/cdefs.h>
+#include <sys/time.h>
 #include <time.h>
-
-extern "C" int __clock_gettime(int, timespec*);
-extern "C" int __gettimeofday(timeval*, struct timezone*);
-
-struct vdso_entry {
-  const char* name;
-  void* fn;
-};
-
-enum {
-  VDSO_CLOCK_GETTIME = 0,
-  VDSO_GETTIMEOFDAY,
-  VDSO_END
-};
-
-static vdso_entry vdso_entries[] = {
-  [VDSO_CLOCK_GETTIME] = { VDSO_CLOCK_GETTIME_SYMBOL, reinterpret_cast<void*>(__clock_gettime) },
-  [VDSO_GETTIMEOFDAY] = { VDSO_GETTIMEOFDAY_SYMBOL, reinterpret_cast<void*>(__gettimeofday) },
-};
+#include <unistd.h>
+#include "private/KernelArgumentBlock.h"
 
 int clock_gettime(int clock_id, timespec* tp) {
-  static int (*vdso_clock_gettime)(int, timespec*) =
-      reinterpret_cast<int (*)(int, timespec*)>(vdso_entries[VDSO_CLOCK_GETTIME].fn);
-  return vdso_clock_gettime(clock_id, tp);
+  auto vdso_clock_gettime = reinterpret_cast<decltype(&clock_gettime)>(
+    __libc_globals->vdso[VDSO_CLOCK_GETTIME].fn);
+  if (__predict_true(vdso_clock_gettime)) {
+    return vdso_clock_gettime(clock_id, tp);
+  }
+  return __clock_gettime(clock_id, tp);
 }
 
 int gettimeofday(timeval* tv, struct timezone* tz) {
-  static int (*vdso_gettimeofday)(timeval*, struct timezone*) =
-      reinterpret_cast<int (*)(timeval*, struct timezone*)>(vdso_entries[VDSO_GETTIMEOFDAY].fn);
-  return vdso_gettimeofday(tv, tz);
+  auto vdso_gettimeofday = reinterpret_cast<decltype(&gettimeofday)>(
+    __libc_globals->vdso[VDSO_GETTIMEOFDAY].fn);
+  if (__predict_true(vdso_gettimeofday)) {
+    return vdso_gettimeofday(tv, tz);
+  }
+  return __gettimeofday(tv, tz);
 }
 
-void __libc_init_vdso() {
+void __libc_init_vdso(libc_globals* globals, KernelArgumentBlock& args) {
+  auto&& vdso = globals->vdso;
+  vdso[VDSO_CLOCK_GETTIME] = { VDSO_CLOCK_GETTIME_SYMBOL,
+                               reinterpret_cast<void*>(__clock_gettime) };
+  vdso[VDSO_GETTIMEOFDAY] = { VDSO_GETTIMEOFDAY_SYMBOL,
+                              reinterpret_cast<void*>(__gettimeofday) };
+
   // Do we have a vdso?
-  uintptr_t vdso_ehdr_addr = getauxval(AT_SYSINFO_EHDR);
+  uintptr_t vdso_ehdr_addr = args.getauxval(AT_SYSINFO_EHDR);
   ElfW(Ehdr)* vdso_ehdr = reinterpret_cast<ElfW(Ehdr)*>(vdso_ehdr_addr);
-  if (vdso_ehdr == NULL) {
+  if (vdso_ehdr == nullptr) {
     return;
   }
 
@@ -85,7 +74,7 @@ void __libc_init_vdso() {
 
   // Where's the dynamic table?
   ElfW(Addr) vdso_addr = 0;
-  ElfW(Dyn)* vdso_dyn = NULL;
+  ElfW(Dyn)* vdso_dyn = nullptr;
   ElfW(Phdr)* vdso_phdr = reinterpret_cast<ElfW(Phdr)*>(vdso_ehdr_addr + vdso_ehdr->e_phoff);
   for (size_t i = 0; i < vdso_ehdr->e_phnum; ++i) {
     if (vdso_phdr[i].p_type == PT_DYNAMIC) {
@@ -94,13 +83,13 @@ void __libc_init_vdso() {
       vdso_addr = vdso_ehdr_addr + vdso_phdr[i].p_offset - vdso_phdr[i].p_vaddr;
     }
   }
-  if (vdso_addr == 0 || vdso_dyn == NULL) {
+  if (vdso_addr == 0 || vdso_dyn == nullptr) {
     return;
   }
 
   // Where are the string and symbol tables?
-  const char* strtab = NULL;
-  ElfW(Sym)* symtab = NULL;
+  const char* strtab = nullptr;
+  ElfW(Sym)* symtab = nullptr;
   for (ElfW(Dyn)* d = vdso_dyn; d->d_tag != DT_NULL; ++d) {
     if (d->d_tag == DT_STRTAB) {
       strtab = reinterpret_cast<const char*>(vdso_addr + d->d_un.d_ptr);
@@ -108,15 +97,15 @@ void __libc_init_vdso() {
       symtab = reinterpret_cast<ElfW(Sym)*>(vdso_addr + d->d_un.d_ptr);
     }
   }
-  if (strtab == NULL || symtab == NULL) {
+  if (strtab == nullptr || symtab == nullptr) {
     return;
   }
 
   // Are there any symbols we want?
   for (size_t i = 0; i < symbol_count; ++i) {
     for (size_t j = 0; j < VDSO_END; ++j) {
-      if (strcmp(vdso_entries[j].name, strtab + symtab[i].st_name) == 0) {
-        vdso_entries[j].fn = reinterpret_cast<void*>(vdso_addr + symtab[i].st_value);
+      if (strcmp(vdso[j].name, strtab + symtab[i].st_name) == 0) {
+        vdso[j].fn = reinterpret_cast<void*>(vdso_addr + symtab[i].st_value);
       }
     }
   }
@@ -124,7 +113,7 @@ void __libc_init_vdso() {
 
 #else
 
-void __libc_init_vdso() {
+void __libc_init_vdso(libc_globals*, KernelArgumentBlock&) {
 }
 
 #endif

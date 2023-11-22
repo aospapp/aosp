@@ -129,8 +129,6 @@ void PlayEventCallback(
 
 //-----------------------------------------------------------------
 void TestSetup(const char* path) {
-    SLint32                 numOutputs = 0;
-    SLuint32                deviceID = 0;
     SLresult                res;
 
     /* Create the engine */

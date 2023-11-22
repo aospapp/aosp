@@ -37,7 +37,7 @@ public class EglConfigTest extends ActivityInstrumentationTestCase2<EglConfigCts
     private Instrumentation mInstrumentation;
 
     public EglConfigTest() {
-        super("com.android.cts.graphics", EglConfigCtsActivity.class);
+        super("android.graphics.cts", EglConfigCtsActivity.class);
     }
 
     @Override
@@ -60,7 +60,7 @@ public class EglConfigTest extends ActivityInstrumentationTestCase2<EglConfigCts
             Bundle extras = new Bundle();
             extras.putInt(EglConfigCtsActivity.CONFIG_ID_EXTRA, configId);
             extras.putInt(EglConfigCtsActivity.CONTEXT_CLIENT_VERSION_EXTRA, contextClientVersion);
-            EglConfigCtsActivity activity = launchActivity("com.android.cts.graphics",
+            EglConfigCtsActivity activity = launchActivity("android.graphics.cts",
                     EglConfigCtsActivity.class, extras);
             activity.waitToFinishDrawing();
             activity.finish();

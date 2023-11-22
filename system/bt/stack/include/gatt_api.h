@@ -549,7 +549,7 @@ typedef struct
 } tGATT_DISC_RES;
 
 
-#define GATT_LINK_IDLE_TIMEOUT_WHEN_NO_APP    0 /* start a idle timer for this duration
+#define GATT_LINK_IDLE_TIMEOUT_WHEN_NO_APP    1 /* start a idle timer for this duration
                                                  when no application need to use the link */
 
 #define GATT_LINK_NO_IDLE_TIMEOUT            0xFFFF

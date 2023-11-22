@@ -15,7 +15,7 @@
  */
 package com.android.cts.tradefed.testtype;
 
-import com.android.cts.util.AbiUtils;
+import com.android.compatibility.common.util.AbiUtils;
 import com.android.ddmlib.Log;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.ConfigurationFactory;

@@ -20,7 +20,8 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
 LOCAL_SDK_VERSION := current
-LOCAL_STATIC_JAVA_LIBRARIES := ctsdeviceutil ctstestrunner ub-uiautomator
+LOCAL_STATIC_JAVA_LIBRARIES := ctsdeviceutil ctstestrunner ub-uiautomator \
+        CtsHostsideNetworkTestsAidl
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
@@ -28,5 +29,8 @@ LOCAL_PACKAGE_NAME := CtsHostsideNetworkTestsApp
 
 LOCAL_PROGUARD_ENABLED := disabled
 LOCAL_DEX_PREOPT := false
+
+# Tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)

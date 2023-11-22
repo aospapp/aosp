@@ -29,6 +29,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.test.InstrumentationTestCase;
 
+import java.lang.Math;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Random;
@@ -170,13 +171,26 @@ public class AbstractCursorTest extends InstrumentationTestCase {
     }
 
     public void testOnMove() {
-        mTestAbstractCursor.resetOnMoveRet();
         assertFalse(mTestAbstractCursor.getOnMoveRet());
         mTestAbstractCursor.moveToFirst();
+        assertTrue(mTestAbstractCursor.getOnMoveRet());
+        assertEquals(1, mTestAbstractCursor.getRowsMovedSum());
+
         mTestAbstractCursor.moveToPosition(5);
         assertTrue(mTestAbstractCursor.getOnMoveRet());
+        assertEquals(6, mTestAbstractCursor.getRowsMovedSum());
         assertEquals(0, mTestAbstractCursor.getOldPos());
         assertEquals(5, mTestAbstractCursor.getNewPos());
+    }
+
+    public void testOnMove_samePosition() {
+        mTestAbstractCursor.moveToFirst();
+        mTestAbstractCursor.moveToPosition(5);
+        assertEquals(6, mTestAbstractCursor.getRowsMovedSum());
+        mTestAbstractCursor.moveToPosition(5);
+        // Moving to the same position should either call onMove(5, 5)
+        // or be a no-op. It should no change the RowsMovedSum.
+        assertEquals(6, mTestAbstractCursor.getRowsMovedSum());
     }
 
     public void testMoveToPrevious() {
@@ -403,7 +417,7 @@ public class AbstractCursorTest extends InstrumentationTestCase {
 
     private void setupDatabase() {
         File dbDir = getInstrumentation().getTargetContext().getDir("tests",
-                Context.MODE_WORLD_WRITEABLE);
+                Context.MODE_PRIVATE);
         mDatabaseFile = new File(dbDir, "database_test.db");
         if (mDatabaseFile.exists()) {
             mDatabaseFile.delete();
@@ -426,6 +440,8 @@ public class AbstractCursorTest extends InstrumentationTestCase {
         private boolean mOnMoveReturnValue;
         private int mOldPosition;
         private int mNewPosition;
+        /** The accumulated number of rows this cursor has moved over. */
+        private int mRowsMovedSum;
         private String[] mColumnNames;
         private ArrayList<Object>[] mRows;
         private boolean mHadCalledOnChange = false;
@@ -481,11 +497,16 @@ public class AbstractCursorTest extends InstrumentationTestCase {
             return mNewPosition;
         }
 
+        public int getRowsMovedSum() {
+            return mRowsMovedSum;
+        }
+
         @Override
         public boolean onMove(int oldPosition, int newPosition) {
             mOnMoveReturnValue = super.onMove(oldPosition, newPosition);
             mOldPosition = oldPosition;
             mNewPosition = newPosition;
+            mRowsMovedSum += Math.abs(newPosition - oldPosition);
             return mOnMoveReturnValue;
         }
 
@@ -618,3 +639,4 @@ public class AbstractCursorTest extends InstrumentationTestCase {
         }
     }
 }
+

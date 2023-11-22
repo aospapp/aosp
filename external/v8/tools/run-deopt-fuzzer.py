@@ -66,6 +66,8 @@ SUPPORTED_ARCHS = ["android_arm",
                    "android_ia32",
                    "arm",
                    "ia32",
+                   "ppc",
+                   "ppc64",
                    "mipsel",
                    "nacl_ia32",
                    "nacl_x64",
@@ -159,6 +161,9 @@ def BuildOptions():
                     default=False, action="store_true")
   result.add_option("--buildbot",
                     help="Adapt to path structure used on buildbots",
+                    default=False, action="store_true")
+  result.add_option("--dcheck-always-on",
+                    help="Indicates that V8 was compiled with DCHECKs enabled",
                     default=False, action="store_true")
   result.add_option("--command-prefix",
                     help="Prepended to each shell command used to run a test",
@@ -311,6 +316,7 @@ def Main():
     suite = testsuite.TestSuite.LoadTestSuite(
         os.path.join(workspace, "test", root))
     if suite:
+      suite.SetupWorkingDirectory()
       suites.append(suite)
 
   if options.download_data:
@@ -374,7 +380,9 @@ def Execute(arch, mode, args, options, suites, workspace):
                         True,  # No sorting of test cases.
                         0,  # Don't rerun failing tests.
                         0,  # No use of a rerun-failing-tests maximum.
-                        False)  # No predictable mode.
+                        False,  # No predictable mode.
+                        False,  # No no_harness mode.
+                        False)   # Don't use perf data.
 
   # Find available test suites and read test cases from them.
   variables = {
@@ -382,6 +390,8 @@ def Execute(arch, mode, args, options, suites, workspace):
     "asan": options.asan,
     "deopt_fuzzer": True,
     "gc_stress": False,
+    "gcov_coverage": False,
+    "ignition": False,
     "isolates": options.isolates,
     "mode": mode,
     "no_i18n": False,
@@ -389,6 +399,11 @@ def Execute(arch, mode, args, options, suites, workspace):
     "simulator": utils.UseSimulator(arch),
     "system": utils.GuessOS(),
     "tsan": False,
+    "msan": False,
+    "dcheck_always_on": options.dcheck_always_on,
+    "novfp3": False,
+    "predictable": False,
+    "byteorder": sys.byteorder,
   }
   all_tests = []
   num_tests = 0
@@ -407,7 +422,7 @@ def Execute(arch, mode, args, options, suites, workspace):
     test_backup[s] = s.tests
     analysis_flags = ["--deopt-every-n-times", "%d" % MAX_DEOPT,
                       "--print-deopt-stress"]
-    s.tests = [ t.CopyAddingFlags(analysis_flags) for t in s.tests ]
+    s.tests = [ t.CopyAddingFlags(t.variant, analysis_flags) for t in s.tests ]
     num_tests += len(s.tests)
     for t in s.tests:
       t.id = test_id
@@ -454,7 +469,7 @@ def Execute(arch, mode, args, options, suites, workspace):
         print "%s %s" % (t.path, distribution)
       for i in distribution:
         fuzzing_flags = ["--deopt-every-n-times", "%d" % i]
-        s.tests.append(t.CopyAddingFlags(fuzzing_flags))
+        s.tests.append(t.CopyAddingFlags(t.variant, fuzzing_flags))
     num_tests += len(s.tests)
     for t in s.tests:
       t.id = test_id

@@ -59,7 +59,7 @@
  * Constants are defined as follows:
  *
  * constant:  {The name of the constant.}
- * [version: {Starting API level} [ {Last API level that supports this.}]
+ * [version: ({Starting API level} [ {Last API level that supports this.}] | UNRELEASED)
  * [size: {32 or 64.  Used if this is available only for 32 or 64 bit code.}]
  * value: {The value of the constant.}
  * [hidden:]   ...If present, don't document the constant.  Omit the following two fields.
@@ -73,7 +73,7 @@
  * Types can either be simple types, structs, or enums.  They have the format:
  *
  * type:  {The typedef name of the type.}
- * [version: {Starting API level} [ {Last API level that supports this.}]
+ * [version: ({Starting API level} [ {Last API level that supports this.}] | UNRELEASED)
  * [size: {32 or 64.  Used if this is available only for 32 or 64 bit code.}]
  * simple: {The C declaration that this type is the typedef equivalent.}
  * [hidden:]   ...If present, don't document the type.  Omit the following two fields.
@@ -85,7 +85,7 @@
  * end:
  *
  * type:  {The typedef name of the type.}
- * [version: {Starting API level} [ {Last API level that supports this.}]
+ * [version: ({Starting API level} [ {Last API level that supports this.}] | UNRELEASED)
  * [size: {32 or 64.  Used if this is available only for 32 or 64 bit code.}]
  * struct: [{The name that will appear right after the struct keyword}]
  * field: {Type and name of the field}[, "{One line documentation of the field}"]
@@ -99,7 +99,7 @@
  * end:
  *
  * type:  {The typedef name of the type.}
- * [version: {Starting API level} [ {Last API level that supports this.}]
+ * [version: ({Starting API level} [ {Last API level that supports this.}] | UNRELEASED)
  * [size: {32 or 64.  Used if this is available only for 32 or 64 bit code.}]
  * enum: [{The name that will appear right after the enum keyword}]
  * value: {Type and name of the field}[, "{One line documentation of the field}"]
@@ -114,7 +114,7 @@
  * Functions have the following format:
  *
  * function:  {The name of the function.}
- * [version: {Starting API level} [ {Last API level that supports this.}]
+ * [version: ({Starting API level} [ {Last API level that supports this.}] | UNRELEASED)
  * [size: {32 or 64.  Used if this is available only for 32 or 64 bit code.}]
  * [attrib: {Attributes of the function.}]
  * [w: {A comma separated list of width supported.  Only 1, 2, 3, 4 are supported.
@@ -122,7 +122,7 @@
  * ... Up to four w: or t: can be defined.  The order matter.  These will be replace
  * ... the #1, #2, #3, #4 that can be found in the rest of the specification.
  * ret: [{The return type} [, "{One line documentation of the return}"]]
- * [arg: {Type}[, {Name}][, {ParameterEntry.testOption}][, "{One line documentation of the field}"]]
+ * [arg:(({Type}[ {Name})]|{Elipsis})[, {ParameterEntry.testOption}][, "{One line documentation of the field}"]]
  * [arg:   ... Same for all the other arguments of the function.]
  * [hidden:]   ... If present, don't include in the HTML documentation.
  * [deprecated: [{Deprecation message.}]   ... This is deprecated.  Compiler will issue a wrning.
@@ -153,7 +153,7 @@
 
 using namespace std;
 
-static bool parseCommandLine(int argc, char* argv[], int* maxApiLevel, bool* forVerification,
+static bool parseCommandLine(int argc, char* argv[], unsigned int* maxApiLevel, bool* forVerification,
                              vector<string>* specFileNames) {
     for (int i = 1; i < argc; i++) {
         if (argv[i][0] == '-') {
@@ -189,7 +189,7 @@ static bool parseCommandLine(int argc, char* argv[], int* maxApiLevel, bool* for
 
 int main(int argc, char* argv[]) {
     // If there's no restriction, generated test files for the very highest version.
-    int maxApiLevel = 999999;
+    unsigned int maxApiLevel = VersionInfo::kUnreleasedVersion;
     vector<string> specFileNames;
     bool forVerification = false;
     if (!parseCommandLine(argc, argv, &maxApiLevel, &forVerification, &specFileNames)) {

@@ -16,8 +16,6 @@
 
 package android.text.method.cts;
 
-import dalvik.annotation.KnownFailure;
-
 import android.cts.util.WidgetTestUtils;
 import android.os.SystemClock;
 import android.test.ActivityInstrumentationTestCase2;
@@ -26,6 +24,8 @@ import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.method.MovementMethod;
 import android.text.method.ScrollingMovementMethod;
+import android.util.DisplayMetrics;
+import android.util.TypedValue;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
@@ -55,13 +55,14 @@ public class ScrollingMovementMethodTest extends ActivityInstrumentationTestCase
     private int mScaledTouchSlop;
 
     public ScrollingMovementMethodTest() {
-        super("com.android.cts.text", CtsActivity.class);
+        super("android.text.cts", CtsActivity.class);
     }
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mTextView = new TextView(getActivity());
+        mTextView = new TextViewNoIme(getActivity());
+        mTextView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         mTextView.setText(THREE_LINES_TEXT, BufferType.EDITABLE);
         mSpannable = (Spannable) mTextView.getText();
         mScaledTouchSlop = ViewConfiguration.get(getActivity()).getScaledTouchSlop();
@@ -650,7 +651,8 @@ public class ScrollingMovementMethodTest extends ActivityInstrumentationTestCase
         ScrollingMovementMethod method = new ScrollingMovementMethod();
         SpannableString spannable = new SpannableString("Test Content");
         KeyEvent event = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_0);
-        TextView view = new TextView(getActivity());
+        TextView view = new TextViewNoIme(getActivity());
+        view.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
 
         assertFalse(method.onKeyUp(view, spannable, KeyEvent.KEYCODE_0, event));
         assertFalse(method.onKeyUp(null, null, 0, null));
@@ -738,7 +740,8 @@ public class ScrollingMovementMethodTest extends ActivityInstrumentationTestCase
             public void run() {
                 mTextView.setText("short");
                 mTextView.setSingleLine();
-                int width = WidgetTestUtils.convertDipToPixels(getActivity(), LITTLE_SPACE);
+                DisplayMetrics dm = getActivity().getResources().getDisplayMetrics();
+                int width = (int) (LITTLE_SPACE * dm.scaledDensity);
                 getActivity().setContentView(mTextView,
                         new ViewGroup.LayoutParams(width, ViewGroup.LayoutParams.WRAP_CONTENT));
             }

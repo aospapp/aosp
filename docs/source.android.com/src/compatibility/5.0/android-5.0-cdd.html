@@ -4851,8 +4851,7 @@ screen), so that the display draws correctly when the device is oriented with
 the port at bottom. Existing and new Android devices are <strong>very strongly encouraged to meet these requirements</strong> so they will be able to upgrade to future platform releases.
   <li> It MUST allow a USB host connected with the Android device to access the
 contents of the shared storage volume using either USB mass storage or Media
-Transfer Protocol, if the device reports the android.hardware.feature.output
-feature or the android.hardware.camera feature.
+Transfer.
   <li> It SHOULD implement the Android Open Accessory (AOA) API and specification as
 documented in the Android SDK documentation, and if it is an Android Handheld
 device it MUST implement the AOA API. Device implementations implementing the
@@ -4993,12 +4992,12 @@ consistent frame rate and response times for applications and games. Device
 implementations MUST meet the following requirements: </p>
 
 <ul>
-  <li> <strong>Consistent frame latency</strong>—Inconsistent frame latency or a delay to render frames MUST NOT happen more
+  <li> <strong>Consistent frame latency</strong>Inconsistent frame latency or a delay to render frames MUST NOT happen more
 often than 5 frames in a second, and SHOULD be below 1 frames in a second. 
-  <li> <strong>User interface latency</strong>—Device implementations MUST ensure low latency user experience by scrolling a
+  <li> <strong>User interface latency</strong>Device implementations MUST ensure low latency user experience by scrolling a
 list of 10K list entries as defined by the Android Compatibility Test Suite
 (CTS) in less than 36 secs. 
-  <li> <strong>Task switching</strong>—When multiple applications have been launched, re-launching an already-running
+  <li> <strong>Task switching</strong>When multiple applications have been launched, re-launching an already-running
 application after it has been launched MUST take less than 1 second.
 </ul>
 
@@ -5009,13 +5008,13 @@ application after it has been launched MUST take less than 1 second.
 and write operations. </p>
 
 <ul>
-  <li> <strong>Sequential write</strong>—Device implementations MUST ensure a sequential write performance of 10MB/s
+  <li> <strong>Sequential write</strong>Device implementations MUST ensure a sequential write performance of 5MB/s
 for a 256MB file using 10MB write buffer. 
-  <li> <strong>Random write</strong>—Device implementations MUST ensure a random write performance of 0.5MB/s for a
+  <li> <strong>Random write</strong>Device implementations MUST ensure a random write performance of 0.5MB/s for a
 256MB file using 4KB write buffer. 
-  <li> <strong>Sequential read</strong>—Device implementations MUST ensure a sequential read performance of 15MB/s for
+  <li> <strong>Sequential read</strong>Device implementations MUST ensure a sequential read performance of 15MB/s for
 a 256MB file using 10MB write buffer. 
-  <li> <strong>Random read</strong>—Device implementations MUST ensure a random read performance of 3.5MB/s for a
+  <li> <strong>Random read</strong>Device implementations MUST ensure a random read performance of 3.5MB/s for a
 256MB file using 4KB write buffer. 
 </ul>
 
@@ -5170,9 +5169,9 @@ Project provides an implementation that satisfies this requirement.</p>
 <h2 id=9_7_kernel_security_features>9.7. Kernel Security Features</h2>
 
 
-<p>The Android Sandbox includes features that can use the Security-Enhanced Linux
+<p>The Android Sandbox includes features that use the Security-Enhanced Linux
 (SELinux) mandatory access control (MAC) system and other security features in
-the Linux kernel. SELinux or any other security features, if implemented below
+the Linux kernel. SELinux or any other security features implemented below
 the Android framework:</p>
 
 <ul>
@@ -5187,30 +5186,26 @@ unblocked security violation occurs resulting in a successful exploit
 affect another application (such as a Device Administration API), the API MUST
 NOT allow configurations that break compatibility. </p>
 
-<p>Devices MUST implement SELinux or an equivalent mandatory access control system
-if using a kernel other than Linux and meet the following requirements, which
+<p>Devices MUST implement SELinux or, if using a kernel other than Linux, an equivalent mandatory access control system.
+Devices must also meet the following requirements, which
 are satisfied by the reference implementation in the upstream Android Open
 Source Project.</p>
 
 <p>Device implementations:</p>
 
 <ul>
-  <li> MUST support a SELinux policy that allows the SELinux mode to be set on a
-per-domain basis, and MUST configure all domains in enforcing mode. No
+  <li> MUST set SELinux to global enforcing mode,
+  <li> MUST configure all domains in enforcing mode. No
 permissive mode domains are allowed, including domains specific to a
-device/vendor
-  <li> SHOULD load policy from /sepolicy file on the device
+device/vendor.
   <li> MUST NOT modify, omit, or replace the neverallow rules present within the
-sepolicy file provided in the upstream Android Open Source Project (AOSP) and
-the policy MUST compile with all neverallow present, for both AOSP SELinux
-domains as well as device/vendor specific domains
-  <li> MUST support dynamic updates of the SELinux policy file without requiring a
-system image update
+external/sepolicy folder provided in the upstream Android Open Source Project (AOSP) and
+the policy MUST compile with all neverallow rules present, for both AOSP SELinux
+domains as well as device/vendor specific domains.
 </ul>
 
-<p>Device implementations SHOULD retain the default SELinux policy provided in the
-upstream Android Open Source Project, until they have first audited their
-additions to the SELinux policy. Device implementations MUST be compatible with
+<p>Device implementations SHOULD retain the default SELinux policy provided in the external/sepolicy folder of the
+upstream Android Open Source Project and only further add to this policy for their own device-specific configuration. Device implementations MUST be compatible with
 the upstream Android Open Source Project.</p>
 
 <h2 id=9_8_privacy>9.8. Privacy</h2>
@@ -5900,7 +5895,7 @@ resulting in a successful exploit. No permissive mode domains allowed.</p>
 <p>9.9. Full-Disk Encryption</p>
 </td>
     <td>
-<p>Devices with a lock screen MUST support full-disk encryption. For new devices,
+<p>Devices with a lock screen SHOULD support full-disk encryption. For new devices,
 full-disk encryption must be enabled out of box. </p>
 </td>
  </tr>

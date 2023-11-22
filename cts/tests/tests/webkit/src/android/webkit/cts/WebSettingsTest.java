@@ -64,7 +64,7 @@ public class WebSettingsTest extends ActivityInstrumentationTestCase2<WebViewCts
     private Context mContext;
 
     public WebSettingsTest() {
-        super("com.android.cts.webkit", WebViewCtsActivity.class);
+        super("android.webkit.cts", WebViewCtsActivity.class);
     }
 
     @Override

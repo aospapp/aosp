@@ -55,6 +55,8 @@
 #define GAP_EVT_CONN_DATA_AVAIL     0x0102
 #define GAP_EVT_CONN_CONGESTED      0x0103
 #define GAP_EVT_CONN_UNCONGESTED    0x0104
+#define GAP_EVT_TX_EMPTY            0x0105
+
 /* Values for 'chan_mode_mask' field */
 /* GAP_ConnOpen() - optional channels to negotiate */
 #define GAP_FCR_CHAN_OPT_BASIC      L2CAP_FCR_CHAN_OPT_BASIC
@@ -145,7 +147,8 @@ typedef void (tGAP_BLE_CMPL_CBACK)(BOOLEAN status, BD_ADDR addr, UINT16 length, 
 extern UINT16 GAP_ConnOpen (char *p_serv_name, UINT8 service_id, BOOLEAN is_server,
                                     BD_ADDR p_rem_bda, UINT16 psm, tL2CAP_CFG_INFO *p_cfg,
                                     tL2CAP_ERTM_INFO *ertm_info,
-                                    UINT16 security, UINT8 chan_mode_mask, tGAP_CONN_CALLBACK *p_cb);
+                                    UINT16 security, UINT8 chan_mode_mask,
+                                    tGAP_CONN_CALLBACK *p_cb, tBT_TRANSPORT transport);
 
 /*******************************************************************************
 **
@@ -202,20 +205,6 @@ extern int GAP_GetRxQueueCnt (UINT16 handle, UINT32 *p_rx_queue_count);
 **
 *******************************************************************************/
 extern UINT16 GAP_ConnBTRead (UINT16 gap_handle, BT_HDR **pp_buf);
-
-/*******************************************************************************
-**
-** Function         GAP_ConnBTWrite
-**
-** Description      GKI buffer aware applications can call this function to write data
-**                  by passing a pointer to the GKI buffer of data.
-**
-** Returns          BT_PASS                 - data read
-**                  GAP_ERR_BAD_HANDLE      - invalid handle
-**                  GAP_ERR_BAD_STATE       - connection not established
-**                  GAP_INVALID_BUF_OFFSET  - buffer offset is invalid
-*******************************************************************************/
-extern UINT16 GAP_ConnBTWrite (UINT16 gap_handle, BT_HDR *p_buf);
 
 /*******************************************************************************
 **

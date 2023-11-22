@@ -1,5 +1,6 @@
 package com.android.server.telecom.components;
 
+import com.android.server.telecom.Log;
 import com.android.server.telecom.TelecomSystem;
 
 import android.content.BroadcastReceiver;
@@ -16,9 +17,11 @@ public class PrimaryCallReceiver extends BroadcastReceiver implements TelecomSys
 
     @Override
     public void onReceive(Context context, Intent intent) {
+        Log.startSession("PCR.oR");
         synchronized (getTelecomSystem().getLock()) {
             getTelecomSystem().getCallIntentProcessor().processIntent(intent);
         }
+        Log.endSession();
     }
 
     @Override

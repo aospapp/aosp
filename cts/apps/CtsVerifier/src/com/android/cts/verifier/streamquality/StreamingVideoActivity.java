@@ -117,7 +117,7 @@ public class StreamingVideoActivity extends PassFailButtons.TestListActivity {
 
     private static final Stream[] HTTP_STREAMS = {
         new Stream("H263 Video, AMR Audio", "http_h263_amr",
-                "http://redirector.c.play.google.com/"
+                "http://redirector.gvt1.com/"
                 + "videoplayback?id=271de9756065677e"
                 + "&itag=13&ip=0.0.0.0&ipbits=0&expire=19000000000"
                 + "&sparams=ip,ipbits,expire,id,itag"
@@ -126,7 +126,7 @@ public class StreamingVideoActivity extends PassFailButtons.TestListActivity {
                 + "&source=youtube"
                 + "&key=ik0&user=android-device-test"),
         new Stream("MPEG4 SP Video, AAC Audio", "http_mpeg4_aac",
-                "http://redirector.c.play.google.com/"
+                "http://redirector.gvt1.com/"
                 + "videoplayback?id=271de9756065677e"
                 + "&itag=17&ip=0.0.0.0&ipbits=0&expire=19000000000"
                 + "&sparams=ip,ipbits,expire,id,itag"
@@ -135,7 +135,7 @@ public class StreamingVideoActivity extends PassFailButtons.TestListActivity {
                 + "&source=youtube"
                 + "&key=ik0&user=android-device-test"),
         new Stream("H264 Base Video, AAC Audio", "http_h264_aac",
-                "http://redirector.c.play.google.com/"
+                "http://redirector.gvt1.com/"
                 + "videoplayback?id=271de9756065677e"
                 + "&itag=18&ip=0.0.0.0&ipbits=0&expire=19000000000"
                 + "&sparams=ip,ipbits,expire,id,itag"
@@ -218,10 +218,6 @@ public class StreamingVideoActivity extends PassFailButtons.TestListActivity {
         i.putExtra(PlayVideoActivity.EXTRA_STREAM, stream);
         streams.add(TestListItem.newTest(stream.name, PlayVideoActivity.getTestId(stream.code),
                 i, null));
-    }
-
-    private void updatePassButton() {
-        getPassButton().setEnabled(mAdapter.allTestsPassed());
     }
 
     /** @returns the appropriate RTSP url, or null in case of failure */

@@ -22,21 +22,14 @@
 #include "btif/include/btif_debug.h"
 #include "btif/include/btif_debug_btsnoop.h"
 #include "btif/include/btif_debug_conn.h"
+#include "btif/include/btif_media.h"
 #include "include/bt_target.h"
+#include "osi/include/wakelock.h"
 
 void btif_debug_init(void) {
 #if defined(BTSNOOP_MEM) && (BTSNOOP_MEM == TRUE)
   btif_debug_btsnoop_init();
 #endif
-}
-
-void btif_debug_dump(int fd) {
-  btif_debug_conn_dump(fd);
-#if defined(BTSNOOP_MEM) && (BTSNOOP_MEM == TRUE)
-  btif_debug_btsnoop_dump(fd);
-#endif
-
-  close(fd);
 }
 
 // TODO: Find a better place for this to enable additional re-use

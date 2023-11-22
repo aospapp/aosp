@@ -16,6 +16,8 @@
 
 package com.android.ims;
 
+import android.net.Uri;
+
 /**
  * Listener for receiving notifications about changes to the IMS connection.
  * It provides a state of IMS registration between UE and IMS network, the service
@@ -65,6 +67,20 @@ public class ImsConnectionStateListener {
      */
     public void onFeatureCapabilityChanged(int serviceClass,
                 int[] enabledFeatures, int[] disabledFeatures) {
+        // no-op
+    }
+
+    /**
+     * Called when waiting voice message count changes.
+     */
+    public void onVoiceMessageCountChanged(int count) {
+        // no-op
+    }
+
+    /**
+     * Called after IMS registration.
+     */
+    public void registrationAssociatedUriChanged(Uri[] uris) {
         // no-op
     }
 }

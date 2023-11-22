@@ -1,10 +1,13 @@
 package com.android.server.wifi;
 
+import android.Manifest;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.net.wifi.IRttManager;
 import android.net.wifi.RttManager;
+import android.net.wifi.RttManager.ResponderConfig;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.Handler;
@@ -12,29 +15,28 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Messenger;
-import android.os.Parcel;
 import android.os.RemoteException;
 import android.util.Log;
-import android.net.wifi.IRttManager;
 import android.util.Slog;
 
 import com.android.internal.util.AsyncChannel;
 import com.android.internal.util.Protocol;
-import com.android.internal.util.StateMachine;
 import com.android.internal.util.State;
+import com.android.internal.util.StateMachine;
 import com.android.server.SystemService;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Queue;
-import android.Manifest;
+import java.util.Set;
 
 public final class RttService extends SystemService {
 
     public static final boolean DBG = true;
 
-    class RttServiceImpl extends IRttManager.Stub {
+    static class RttServiceImpl extends IRttManager.Stub {
 
         @Override
         public Messenger getMessenger() {
@@ -50,21 +52,12 @@ public final class RttService extends SystemService {
             @Override
             public void handleMessage(Message msg) {
 
-                if (DBG) Log.d(TAG, "ClientHandler got" + msg);
+                if (DBG) {
+                    Log.d(TAG, "ClientHandler got" + msg + " what = " + getDescription(msg.what));
+                }
 
                 switch (msg.what) {
 
-                    case AsyncChannel.CMD_CHANNEL_HALF_CONNECTED:
-                        if (msg.arg1 == AsyncChannel.STATUS_SUCCESSFUL) {
-                            AsyncChannel c = (AsyncChannel) msg.obj;
-                            if (DBG) Slog.d(TAG, "New client listening to asynchronous messages: " +
-                                    msg.replyTo);
-                            ClientInfo cInfo = new ClientInfo(c, msg.replyTo);
-                            mClients.put(msg.replyTo, cInfo);
-                        } else {
-                            Slog.e(TAG, "Client connection failure, error=" + msg.arg1);
-                        }
-                        return;
                     case AsyncChannel.CMD_CHANNEL_DISCONNECTED:
                         if (msg.arg1 == AsyncChannel.STATUS_SEND_UNSUCCESSFUL) {
                             Slog.e(TAG, "Send failed, client connection lost");
@@ -77,7 +70,11 @@ public final class RttService extends SystemService {
                         return;
                     case AsyncChannel.CMD_CHANNEL_FULL_CONNECTION:
                         AsyncChannel ac = new AsyncChannel();
-                        ac.connect(mContext, this, msg.replyTo);
+                        ac.connected(mContext, this, msg.replyTo);
+                        ClientInfo client = new ClientInfo(ac, msg.replyTo);
+                        mClients.put(msg.replyTo, client);
+                        ac.replyToMessage(msg, AsyncChannel.CMD_CHANNEL_FULLY_CONNECTED,
+                                AsyncChannel.STATUS_SUCCESSFUL);
                         return;
                 }
 
@@ -87,13 +84,19 @@ public final class RttService extends SystemService {
                     replyFailed(msg, RttManager.REASON_INVALID_LISTENER, "Could not find listener");
                     return;
                 }
-
-                int validCommands[] = {
+                if (!enforcePermissionCheck(msg)) {
+                    replyFailed(msg, RttManager.REASON_PERMISSION_DENIED,
+                            "Client doesn't have LOCATION_HARDWARE permission");
+                    return;
+                }
+                final int validCommands[] = {
                         RttManager.CMD_OP_START_RANGING,
-                        RttManager.CMD_OP_STOP_RANGING
+                        RttManager.CMD_OP_STOP_RANGING,
+                        RttManager.CMD_OP_ENABLE_RESPONDER,
+                        RttManager.CMD_OP_DISABLE_RESPONDER,
                         };
 
-                for(int cmd : validCommands) {
+                for (int cmd : validCommands) {
                     if (cmd == msg.what) {
                         mStateMachine.sendMessage(Message.obtain(msg));
                         return;
@@ -102,26 +105,34 @@ public final class RttService extends SystemService {
 
                 replyFailed(msg, RttManager.REASON_INVALID_REQUEST, "Invalid request");
             }
+
+            private String getDescription(int what) {
+                switch(what) {
+                    case RttManager.CMD_OP_ENABLE_RESPONDER:
+                        return "CMD_OP_ENABLE_RESPONDER";
+                    case RttManager.CMD_OP_DISABLE_RESPONDER:
+                        return "CMD_OP_DISABLE_RESPONDER";
+                    default:
+                        return "CMD_UNKNOWN";
+                }
+            }
         }
 
-        private Context mContext;
+        private final WifiNative mWifiNative;
+        private final Context mContext;
+        private final Looper mLooper;
         private RttStateMachine mStateMachine;
         private ClientHandler mClientHandler;
 
-        RttServiceImpl() { }
-
-        RttServiceImpl(Context context) {
+        RttServiceImpl(Context context, Looper looper) {
             mContext = context;
+            mWifiNative = WifiNative.getWlanNativeInterface();
+            mLooper = looper;
         }
 
-        public void startService(Context context) {
-            mContext = context;
-
-            HandlerThread thread = new HandlerThread("WifiRttService");
-            thread.start();
-
-            mClientHandler = new ClientHandler(thread.getLooper());
-            mStateMachine = new RttStateMachine(thread.getLooper());
+        public void startService() {
+            mClientHandler = new ClientHandler(mLooper);
+            mStateMachine = new RttStateMachine(mLooper);
 
             mContext.registerReceiver(
                     new BroadcastReceiver() {
@@ -162,10 +173,20 @@ public final class RttService extends SystemService {
             private final Messenger mMessenger;
             HashMap<Integer, RttRequest> mRequests = new HashMap<Integer,
                     RttRequest>();
+            // Client keys of all outstanding responders.
+            Set<Integer> mResponderRequests = new HashSet<>();
 
             ClientInfo(AsyncChannel c, Messenger m) {
                 mChannel = c;
                 mMessenger = m;
+            }
+
+            void addResponderRequest(int key) {
+                mResponderRequests.add(key);
+            }
+
+            void removeResponderRequest(int key) {
+                mResponderRequests.remove(key);
             }
 
             boolean addRttRequest(int key, RttManager.ParcelableRttParams parcelableParams) {
@@ -186,6 +207,15 @@ public final class RttService extends SystemService {
 
             void removeRttRequest(int key) {
                 mRequests.remove(key);
+            }
+
+            void reportResponderEnableSucceed(int key, ResponderConfig config) {
+                mChannel.sendMessage(RttManager.CMD_OP_ENALBE_RESPONDER_SUCCEEDED, 0, key, config);
+            }
+
+            void reportResponderEnableFailed(int key, int reason) {
+                mChannel.sendMessage(RttManager.CMD_OP_ENALBE_RESPONDER_FAILED, reason, key);
+                mResponderRequests.remove(key);
             }
 
             void reportResult(RttRequest request, RttManager.RttResult[] results) {
@@ -217,6 +247,10 @@ public final class RttService extends SystemService {
             void cleanup() {
                 mRequests.clear();
                 mRequestQueue.clear();
+                // When client is lost, clean up responder requests and send disable responder
+                // message to RttStateMachine.
+                mResponderRequests.clear();
+                mStateMachine.sendMessage(RttManager.CMD_OP_DISABLE_RESPONDER);
             }
         }
 
@@ -230,18 +264,26 @@ public final class RttService extends SystemService {
         private static final int CMD_ISSUE_NEXT_REQUEST                  = BASE + 2;
         private static final int CMD_RTT_RESPONSE                        = BASE + 3;
 
+        // Maximum duration for responder role.
+        private static final int MAX_RESPONDER_DURATION_SECONDS = 60 * 10;
+
         class RttStateMachine extends StateMachine {
 
             DefaultState mDefaultState = new DefaultState();
             EnabledState mEnabledState = new EnabledState();
-            RequestPendingState mRequestPendingState = new RequestPendingState();
+            InitiatorEnabledState mInitiatorEnabledState = new InitiatorEnabledState();
+            ResponderEnabledState mResponderEnabledState = new ResponderEnabledState();
+            ResponderConfig mResponderConfig;
 
             RttStateMachine(Looper looper) {
                 super("RttStateMachine", looper);
 
+                // CHECKSTYLE:OFF IndentationCheck
                 addState(mDefaultState);
                 addState(mEnabledState);
-                    addState(mRequestPendingState, mEnabledState);
+                    addState(mInitiatorEnabledState, mEnabledState);
+                    addState(mResponderEnabledState, mEnabledState);
+                // CHECKSTYLE:ON IndentationCheck
 
                 setInitialState(mDefaultState);
             }
@@ -262,6 +304,18 @@ public final class RttService extends SystemService {
                             break;
                         case RttManager.CMD_OP_STOP_RANGING:
                             return HANDLED;
+                        case RttManager.CMD_OP_ENABLE_RESPONDER:
+                            ClientInfo client = mClients.get(msg.replyTo);
+                            if (client == null) {
+                                Log.e(TAG, "client not connected yet!");
+                                break;
+                            }
+                            int key = msg.arg2;
+                            client.reportResponderEnableFailed(key,
+                                    RttManager.REASON_NOT_AVAILABLE);
+                            break;
+                        case RttManager.CMD_OP_DISABLE_RESPONDER:
+                            return HANDLED;
                         default:
                             return NOT_HANDLED;
                     }
@@ -281,20 +335,13 @@ public final class RttService extends SystemService {
                             break;
                         case CMD_ISSUE_NEXT_REQUEST:
                             deferMessage(msg);
-                            transitionTo(mRequestPendingState);
+                            transitionTo(mInitiatorEnabledState);
                             break;
                         case RttManager.CMD_OP_START_RANGING: {
-                            //check permission
-                            if(DBG) Log.d(TAG, "UID is: " + msg.sendingUid);
-                            if (!enforcePermissionCheck(msg)) {
-                                Log.e(TAG, "UID: " + msg.sendingUid + " has no" +
-                                        " LOCATION_HARDWARE Permission");
-                                break;
-                            }
-
                             RttManager.ParcelableRttParams params =
                                     (RttManager.ParcelableRttParams)msg.obj;
-                            if (params == null) {
+                            if (params == null || params.mParams == null
+                                    || params.mParams.length == 0) {
                                 replyFailed(msg,
                                         RttManager.REASON_INVALID_REQUEST, "No params");
                             } else if (ci.addRttRequest(msg.arg2, params) == false) {
@@ -306,10 +353,6 @@ public final class RttService extends SystemService {
                         }
                             break;
                         case RttManager.CMD_OP_STOP_RANGING:
-                            if(!enforcePermissionCheck(msg)) {
-                                break;
-                            }
-
                             for (Iterator<RttRequest> it = mRequestQueue.iterator();
                                     it.hasNext(); ) {
                                 RttRequest request = it.next();
@@ -321,6 +364,25 @@ public final class RttService extends SystemService {
                                 }
                             }
                             break;
+                        case RttManager.CMD_OP_ENABLE_RESPONDER:
+                            int key = msg.arg2;
+                            mResponderConfig =
+                                    mWifiNative.enableRttResponder(MAX_RESPONDER_DURATION_SECONDS);
+                            if (DBG) Log.d(TAG, "mWifiNative.enableRttResponder called");
+
+                            if (mResponderConfig != null) {
+                                // TODO: remove once mac address is added when enabling responder.
+                                mResponderConfig.macAddress = mWifiNative.getMacAddress();
+                                ci.addResponderRequest(key);
+                                ci.reportResponderEnableSucceed(key, mResponderConfig);
+                                transitionTo(mResponderEnabledState);
+                            } else {
+                                Log.e(TAG, "enable responder failed");
+                                ci.reportResponderEnableFailed(key, RttManager.REASON_UNSPECIFIED);
+                            }
+                            break;
+                        case RttManager.CMD_OP_DISABLE_RESPONDER:
+                            break;
                         default:
                             return NOT_HANDLED;
                     }
@@ -328,7 +390,7 @@ public final class RttService extends SystemService {
                 }
             }
 
-            class RequestPendingState extends State {
+            class InitiatorEnabledState extends State {
                 RttRequest mOutstandingRequest;
                 @Override
                 public boolean processMessage(Message msg) {
@@ -336,7 +398,7 @@ public final class RttService extends SystemService {
                     switch (msg.what) {
                         case CMD_DRIVER_UNLOADED:
                             if (mOutstandingRequest != null) {
-                                WifiNative.cancelRtt(mOutstandingRequest.params);
+                                mWifiNative.cancelRtt(mOutstandingRequest.params);
                                 if (DBG) Log.d(TAG, "abort key: " + mOutstandingRequest.key);
                                 mOutstandingRequest.ci.reportAborted(mOutstandingRequest.key);
                                 mOutstandingRequest = null;
@@ -372,16 +434,10 @@ public final class RttService extends SystemService {
                             sendMessage(CMD_ISSUE_NEXT_REQUEST);
                             break;
                         case RttManager.CMD_OP_STOP_RANGING:
-                            if(!enforcePermissionCheck(msg)) {
-                                Log.e(TAG, "UID: " + msg.sendingUid + " has no " +
-                                        "LOCATION_HARDWARE Permission");
-                                break;
-                            }
-
                             if (mOutstandingRequest != null
                                     && msg.arg2 == mOutstandingRequest.key) {
                                 if (DBG) Log.d(TAG, "Cancelling ongoing RTT of: " + msg.arg2);
-                                WifiNative.cancelRtt(mOutstandingRequest.params);
+                                mWifiNative.cancelRtt(mOutstandingRequest.params);
                                 mOutstandingRequest.ci.reportAborted(mOutstandingRequest.key);
                                 mOutstandingRequest = null;
                                 sendMessage(CMD_ISSUE_NEXT_REQUEST);
@@ -394,6 +450,57 @@ public final class RttService extends SystemService {
                             return NOT_HANDLED;
                     }
                     return HANDLED;
+                }
+            }
+
+            // Check if there are still outstanding responder requests from any client.
+            private boolean hasOutstandingReponderRequests() {
+                for (ClientInfo client : mClients.values()) {
+                    if (!client.mResponderRequests.isEmpty()) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            /**
+             * Representing an outstanding RTT responder state.
+             */
+            class ResponderEnabledState extends State {
+                @Override
+                public boolean processMessage(Message msg) {
+                    if (DBG) Log.d(TAG, "ResponderEnabledState got " + msg);
+                    ClientInfo ci = mClients.get(msg.replyTo);
+                    int key = msg.arg2;
+                    switch(msg.what) {
+                        case RttManager.CMD_OP_ENABLE_RESPONDER:
+                            // Responder already enabled, simply return the responder config.
+                            ci.addResponderRequest(key);
+                            ci.reportResponderEnableSucceed(key, mResponderConfig);
+                            return HANDLED;
+                        case RttManager.CMD_OP_DISABLE_RESPONDER:
+                            if (ci != null) {
+                                ci.removeResponderRequest(key);
+                            }
+                            // Only disable responder when there are no outstanding clients.
+                            if (!hasOutstandingReponderRequests()) {
+                                if (!mWifiNative.disableRttResponder()) {
+                                    Log.e(TAG, "disable responder failed");
+                                }
+                                if (DBG) Log.d(TAG, "mWifiNative.disableRttResponder called");
+                                transitionTo(mEnabledState);
+                            }
+                            return HANDLED;
+                        case RttManager.CMD_OP_START_RANGING:
+                        case RttManager.CMD_OP_STOP_RANGING:  // fall through
+                            // Concurrent initiator and responder role is not supported.
+                            replyFailed(msg,
+                                    RttManager.REASON_INITIATOR_NOT_ALLOWED_WHEN_RESPONDER_ON,
+                                    "Initiator not allowed when responder is turned on");
+                            return HANDLED;
+                        default:
+                            return NOT_HANDLED;
+                    }
                 }
             }
         }
@@ -425,7 +532,9 @@ public final class RttService extends SystemService {
             reply.obj = bundle;
 
             try {
-                msg.replyTo.send(reply);
+                if (msg.replyTo != null) {
+                    msg.replyTo.send(reply);
+                }
             } catch (RemoteException e) {
                 // There's not much we can do if reply can't be sent!
             }
@@ -436,7 +545,7 @@ public final class RttService extends SystemService {
                 mContext.enforcePermission(Manifest.permission.LOCATION_HARDWARE,
                          -1, msg.sendingUid, "LocationRTT");
             } catch (SecurityException e) {
-                replyFailed(msg,RttManager.REASON_PERMISSION_DENIED, "No params");
+                Log.e(TAG, "UID: " + msg.sendingUid + " has no LOCATION_HARDWARE Permission");
                 return false;
             }
             return true;
@@ -454,7 +563,7 @@ public final class RttService extends SystemService {
             while (mRequestQueue.isEmpty() == false) {
                 request = mRequestQueue.remove();
                 if(request !=  null) {
-                    if (WifiNative.requestRtt(request.params, mEventHandler)) {
+                    if (mWifiNative.requestRtt(request.params, mEventHandler)) {
                         if (DBG) Log.d(TAG, "Issued next RTT request with key: " + request.key);
                         return request;
                     } else {
@@ -471,21 +580,24 @@ public final class RttService extends SystemService {
         }
         @Override
         public RttManager.RttCapabilities getRttCapabilities() {
-            return WifiNative.getRttCapabilities();
+            return mWifiNative.getRttCapabilities();
         }
     }
 
     private static final String TAG = "RttService";
     RttServiceImpl mImpl;
+    private final HandlerThread mHandlerThread;
 
     public RttService(Context context) {
         super(context);
+        mHandlerThread = new HandlerThread("WifiRttService");
+        mHandlerThread.start();
         Log.i(TAG, "Creating " + Context.WIFI_RTT_SERVICE);
     }
 
     @Override
     public void onStart() {
-        mImpl = new RttServiceImpl(getContext());
+        mImpl = new RttServiceImpl(getContext(), mHandlerThread.getLooper());
 
         Log.i(TAG, "Starting " + Context.WIFI_RTT_SERVICE);
         publishBinderService(Context.WIFI_RTT_SERVICE, mImpl);
@@ -496,9 +608,9 @@ public final class RttService extends SystemService {
         if (phase == SystemService.PHASE_SYSTEM_SERVICES_READY) {
             Log.i(TAG, "Registering " + Context.WIFI_RTT_SERVICE);
             if (mImpl == null) {
-                mImpl = new RttServiceImpl(getContext());
+                mImpl = new RttServiceImpl(getContext(), mHandlerThread.getLooper());
             }
-            mImpl.startService(getContext());
+            mImpl.startService();
         }
     }
 

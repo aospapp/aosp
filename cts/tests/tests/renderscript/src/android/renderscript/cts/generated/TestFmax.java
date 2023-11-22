@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ package android.renderscript.cts;
 import android.renderscript.Allocation;
 import android.renderscript.RSRuntimeException;
 import android.renderscript.Element;
+import android.renderscript.cts.Target;
 
 import java.util.Arrays;
 
@@ -82,7 +83,7 @@ public class TestFmax extends RSBaseCompute {
                 args.inA = arrayInA[i];
                 args.inB = arrayInB[i];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeFmax(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -161,7 +162,7 @@ public class TestFmax extends RSBaseCompute {
                 args.inA = arrayInA[i * 2 + j];
                 args.inB = arrayInB[i * 2 + j];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeFmax(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -240,7 +241,7 @@ public class TestFmax extends RSBaseCompute {
                 args.inA = arrayInA[i * 4 + j];
                 args.inB = arrayInB[i * 4 + j];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeFmax(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -319,7 +320,7 @@ public class TestFmax extends RSBaseCompute {
                 args.inA = arrayInA[i * 4 + j];
                 args.inB = arrayInB[i * 4 + j];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeFmax(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -355,6 +356,350 @@ public class TestFmax extends RSBaseCompute {
             }
         }
         assertFalse("Incorrect output for checkFmaxFloat4Float4Float4" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    public class ArgumentsHalfHalfHalf {
+        public short inA;
+        public double inADouble;
+        public short inB;
+        public double inBDouble;
+        public Target.Floaty out;
+    }
+
+    private void checkFmaxHalfHalfHalf() {
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x6dad4699l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x6dad469al, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
+            script.set_gAllocInB(inB);
+            script.forEach_testFmaxHalfHalfHalf(inA, out);
+            verifyResultsFmaxHalfHalfHalf(inA, inB, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testFmaxHalfHalfHalf: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
+            scriptRelaxed.set_gAllocInB(inB);
+            scriptRelaxed.forEach_testFmaxHalfHalfHalf(inA, out);
+            verifyResultsFmaxHalfHalfHalf(inA, inB, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testFmaxHalfHalfHalf: " + e.toString());
+        }
+    }
+
+    private void verifyResultsFmaxHalfHalfHalf(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
+        short[] arrayInA = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayInA, (short) 42);
+        inA.copyTo(arrayInA);
+        short[] arrayInB = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayInB, (short) 42);
+        inB.copyTo(arrayInB);
+        short[] arrayOut = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 1 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalf args = new ArgumentsHalfHalfHalf();
+                args.inA = arrayInA[i];
+                args.inADouble = Float16Utils.convertFloat16ToDouble(args.inA);
+                args.inB = arrayInB[i];
+                args.inBDouble = Float16Utils.convertFloat16ToDouble(args.inB);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeFmax(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 1 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inA: ");
+                        appendVariableToMessage(message, args.inA);
+                        message.append("\n");
+                        message.append("Input inB: ");
+                        appendVariableToMessage(message, args.inB);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 1 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 1 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 1 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkFmaxHalfHalfHalf" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkFmaxHalf2Half2Half2() {
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xa556216fl, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xa5562170l, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
+            script.set_gAllocInB(inB);
+            script.forEach_testFmaxHalf2Half2Half2(inA, out);
+            verifyResultsFmaxHalf2Half2Half2(inA, inB, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testFmaxHalf2Half2Half2: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
+            scriptRelaxed.set_gAllocInB(inB);
+            scriptRelaxed.forEach_testFmaxHalf2Half2Half2(inA, out);
+            verifyResultsFmaxHalf2Half2Half2(inA, inB, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testFmaxHalf2Half2Half2: " + e.toString());
+        }
+    }
+
+    private void verifyResultsFmaxHalf2Half2Half2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
+        short[] arrayInA = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayInA, (short) 42);
+        inA.copyTo(arrayInA);
+        short[] arrayInB = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayInB, (short) 42);
+        inB.copyTo(arrayInB);
+        short[] arrayOut = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 2 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalf args = new ArgumentsHalfHalfHalf();
+                args.inA = arrayInA[i * 2 + j];
+                args.inADouble = Float16Utils.convertFloat16ToDouble(args.inA);
+                args.inB = arrayInB[i * 2 + j];
+                args.inBDouble = Float16Utils.convertFloat16ToDouble(args.inB);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeFmax(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inA: ");
+                        appendVariableToMessage(message, args.inA);
+                        message.append("\n");
+                        message.append("Input inB: ");
+                        appendVariableToMessage(message, args.inB);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 2 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkFmaxHalf2Half2Half2" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkFmaxHalf3Half3Half3() {
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x3f5323el, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x3f5323fl, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            script.set_gAllocInB(inB);
+            script.forEach_testFmaxHalf3Half3Half3(inA, out);
+            verifyResultsFmaxHalf3Half3Half3(inA, inB, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testFmaxHalf3Half3Half3: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            scriptRelaxed.set_gAllocInB(inB);
+            scriptRelaxed.forEach_testFmaxHalf3Half3Half3(inA, out);
+            verifyResultsFmaxHalf3Half3Half3(inA, inB, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testFmaxHalf3Half3Half3: " + e.toString());
+        }
+    }
+
+    private void verifyResultsFmaxHalf3Half3Half3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
+        short[] arrayInA = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInA, (short) 42);
+        inA.copyTo(arrayInA);
+        short[] arrayInB = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInB, (short) 42);
+        inB.copyTo(arrayInB);
+        short[] arrayOut = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 3 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalf args = new ArgumentsHalfHalfHalf();
+                args.inA = arrayInA[i * 4 + j];
+                args.inADouble = Float16Utils.convertFloat16ToDouble(args.inA);
+                args.inB = arrayInB[i * 4 + j];
+                args.inBDouble = Float16Utils.convertFloat16ToDouble(args.inB);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeFmax(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inA: ");
+                        appendVariableToMessage(message, args.inA);
+                        message.append("\n");
+                        message.append("Input inB: ");
+                        appendVariableToMessage(message, args.inB);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 4 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkFmaxHalf3Half3Half3" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkFmaxHalf4Half4Half4() {
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x6294430dl, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x6294430el, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            script.set_gAllocInB(inB);
+            script.forEach_testFmaxHalf4Half4Half4(inA, out);
+            verifyResultsFmaxHalf4Half4Half4(inA, inB, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testFmaxHalf4Half4Half4: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            scriptRelaxed.set_gAllocInB(inB);
+            scriptRelaxed.forEach_testFmaxHalf4Half4Half4(inA, out);
+            verifyResultsFmaxHalf4Half4Half4(inA, inB, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testFmaxHalf4Half4Half4: " + e.toString());
+        }
+    }
+
+    private void verifyResultsFmaxHalf4Half4Half4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
+        short[] arrayInA = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInA, (short) 42);
+        inA.copyTo(arrayInA);
+        short[] arrayInB = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInB, (short) 42);
+        inB.copyTo(arrayInB);
+        short[] arrayOut = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 4 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalf args = new ArgumentsHalfHalfHalf();
+                args.inA = arrayInA[i * 4 + j];
+                args.inADouble = Float16Utils.convertFloat16ToDouble(args.inA);
+                args.inB = arrayInB[i * 4 + j];
+                args.inBDouble = Float16Utils.convertFloat16ToDouble(args.inB);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeFmax(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inA: ");
+                        appendVariableToMessage(message, args.inA);
+                        message.append("\n");
+                        message.append("Input inB: ");
+                        appendVariableToMessage(message, args.inB);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 4 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkFmaxHalf4Half4Half4" +
                 (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
     }
 
@@ -398,7 +743,7 @@ public class TestFmax extends RSBaseCompute {
                 args.inA = arrayInA[i * 2 + j];
                 args.inB = arrayInB[i];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeFmax(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -477,7 +822,7 @@ public class TestFmax extends RSBaseCompute {
                 args.inA = arrayInA[i * 4 + j];
                 args.inB = arrayInB[i];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeFmax(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -556,7 +901,7 @@ public class TestFmax extends RSBaseCompute {
                 args.inA = arrayInA[i * 4 + j];
                 args.inB = arrayInB[i];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeFmax(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -595,13 +940,272 @@ public class TestFmax extends RSBaseCompute {
                 (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
     }
 
+    private void checkFmaxHalf2HalfHalf2() {
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x3546cdbdl, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x3546cdbel, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
+            script.set_gAllocInB(inB);
+            script.forEach_testFmaxHalf2HalfHalf2(inA, out);
+            verifyResultsFmaxHalf2HalfHalf2(inA, inB, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testFmaxHalf2HalfHalf2: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
+            scriptRelaxed.set_gAllocInB(inB);
+            scriptRelaxed.forEach_testFmaxHalf2HalfHalf2(inA, out);
+            verifyResultsFmaxHalf2HalfHalf2(inA, inB, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testFmaxHalf2HalfHalf2: " + e.toString());
+        }
+    }
+
+    private void verifyResultsFmaxHalf2HalfHalf2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
+        short[] arrayInA = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayInA, (short) 42);
+        inA.copyTo(arrayInA);
+        short[] arrayInB = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayInB, (short) 42);
+        inB.copyTo(arrayInB);
+        short[] arrayOut = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 2 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalf args = new ArgumentsHalfHalfHalf();
+                args.inA = arrayInA[i * 2 + j];
+                args.inADouble = Float16Utils.convertFloat16ToDouble(args.inA);
+                args.inB = arrayInB[i];
+                args.inBDouble = Float16Utils.convertFloat16ToDouble(args.inB);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeFmax(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inA: ");
+                        appendVariableToMessage(message, args.inA);
+                        message.append("\n");
+                        message.append("Input inB: ");
+                        appendVariableToMessage(message, args.inB);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 2 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkFmaxHalf2HalfHalf2" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkFmaxHalf3HalfHalf3() {
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xe7e05f61l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xe7e05f62l, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            script.set_gAllocInB(inB);
+            script.forEach_testFmaxHalf3HalfHalf3(inA, out);
+            verifyResultsFmaxHalf3HalfHalf3(inA, inB, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testFmaxHalf3HalfHalf3: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            scriptRelaxed.set_gAllocInB(inB);
+            scriptRelaxed.forEach_testFmaxHalf3HalfHalf3(inA, out);
+            verifyResultsFmaxHalf3HalfHalf3(inA, inB, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testFmaxHalf3HalfHalf3: " + e.toString());
+        }
+    }
+
+    private void verifyResultsFmaxHalf3HalfHalf3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
+        short[] arrayInA = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInA, (short) 42);
+        inA.copyTo(arrayInA);
+        short[] arrayInB = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayInB, (short) 42);
+        inB.copyTo(arrayInB);
+        short[] arrayOut = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 3 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalf args = new ArgumentsHalfHalfHalf();
+                args.inA = arrayInA[i * 4 + j];
+                args.inADouble = Float16Utils.convertFloat16ToDouble(args.inA);
+                args.inB = arrayInB[i];
+                args.inBDouble = Float16Utils.convertFloat16ToDouble(args.inB);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeFmax(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inA: ");
+                        appendVariableToMessage(message, args.inA);
+                        message.append("\n");
+                        message.append("Input inB: ");
+                        appendVariableToMessage(message, args.inB);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 4 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkFmaxHalf3HalfHalf3" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkFmaxHalf4HalfHalf4() {
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x9a79f105l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x9a79f106l, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            script.set_gAllocInB(inB);
+            script.forEach_testFmaxHalf4HalfHalf4(inA, out);
+            verifyResultsFmaxHalf4HalfHalf4(inA, inB, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testFmaxHalf4HalfHalf4: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            scriptRelaxed.set_gAllocInB(inB);
+            scriptRelaxed.forEach_testFmaxHalf4HalfHalf4(inA, out);
+            verifyResultsFmaxHalf4HalfHalf4(inA, inB, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testFmaxHalf4HalfHalf4: " + e.toString());
+        }
+    }
+
+    private void verifyResultsFmaxHalf4HalfHalf4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
+        short[] arrayInA = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInA, (short) 42);
+        inA.copyTo(arrayInA);
+        short[] arrayInB = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayInB, (short) 42);
+        inB.copyTo(arrayInB);
+        short[] arrayOut = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 4 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalf args = new ArgumentsHalfHalfHalf();
+                args.inA = arrayInA[i * 4 + j];
+                args.inADouble = Float16Utils.convertFloat16ToDouble(args.inA);
+                args.inB = arrayInB[i];
+                args.inBDouble = Float16Utils.convertFloat16ToDouble(args.inB);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeFmax(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inA: ");
+                        appendVariableToMessage(message, args.inA);
+                        message.append("\n");
+                        message.append("Input inB: ");
+                        appendVariableToMessage(message, args.inB);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 4 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkFmaxHalf4HalfHalf4" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
     public void testFmax() {
         checkFmaxFloatFloatFloat();
         checkFmaxFloat2Float2Float2();
         checkFmaxFloat3Float3Float3();
         checkFmaxFloat4Float4Float4();
+        checkFmaxHalfHalfHalf();
+        checkFmaxHalf2Half2Half2();
+        checkFmaxHalf3Half3Half3();
+        checkFmaxHalf4Half4Half4();
         checkFmaxFloat2FloatFloat2();
         checkFmaxFloat3FloatFloat3();
         checkFmaxFloat4FloatFloat4();
+        checkFmaxHalf2HalfHalf2();
+        checkFmaxHalf3HalfHalf3();
+        checkFmaxHalf4HalfHalf4();
     }
 }

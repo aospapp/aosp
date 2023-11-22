@@ -28,7 +28,7 @@
 #include "bta_api.h"
 #include "bta_sys.h"
 #include "pan_api.h"
-#include "gki.h"
+#include "bt_common.h"
 #include "bta_pan_api.h"
 #include "bta_pan_int.h"
 #include <string.h>
@@ -56,18 +56,16 @@ static const tBTA_SYS_REG bta_pan_reg =
 *******************************************************************************/
 void BTA_PanEnable(tBTA_PAN_CBACK p_cback)
 {
-    tBTA_PAN_API_ENABLE  *p_buf;
+    tBTA_PAN_API_ENABLE *p_buf =
+        (tBTA_PAN_API_ENABLE *)osi_malloc(sizeof(tBTA_PAN_API_ENABLE));
 
     /* register with BTA system manager */
     bta_sys_register(BTA_ID_PAN, &bta_pan_reg);
 
-    if ((p_buf = (tBTA_PAN_API_ENABLE *) GKI_getbuf(sizeof(tBTA_PAN_API_ENABLE))) != NULL)
-    {
-        p_buf->hdr.event = BTA_PAN_API_ENABLE_EVT;
-        p_buf->p_cback = p_cback;
+    p_buf->hdr.event = BTA_PAN_API_ENABLE_EVT;
+    p_buf->p_cback = p_cback;
 
-        bta_sys_sendmsg(p_buf);
-    }
+    bta_sys_sendmsg(p_buf);
 }
 
 
@@ -84,14 +82,12 @@ void BTA_PanEnable(tBTA_PAN_CBACK p_cback)
 *******************************************************************************/
 void BTA_PanDisable(void)
 {
-    BT_HDR  *p_buf;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
 
     bta_sys_deregister(BTA_ID_PAN);
-    if ((p_buf = (BT_HDR *) GKI_getbuf(sizeof(BT_HDR))) != NULL)
-    {
-        p_buf->event = BTA_PAN_API_DISABLE_EVT;
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->event = BTA_PAN_API_DISABLE_EVT;
+
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -107,57 +103,44 @@ void BTA_PanDisable(void)
 void BTA_PanSetRole(tBTA_PAN_ROLE role, tBTA_PAN_ROLE_INFO *p_user_info, tBTA_PAN_ROLE_INFO *p_gn_info,
                                         tBTA_PAN_ROLE_INFO *p_nap_info)
 {
+    tBTA_PAN_API_SET_ROLE  *p_buf =
+        (tBTA_PAN_API_SET_ROLE *)osi_malloc(sizeof(tBTA_PAN_API_SET_ROLE));
 
-    tBTA_PAN_API_SET_ROLE  *p_buf;
+    p_buf->hdr.event = BTA_PAN_API_SET_ROLE_EVT;
+    p_buf->role = role;
 
-    if ((p_buf = (tBTA_PAN_API_SET_ROLE *) GKI_getbuf(sizeof(tBTA_PAN_API_SET_ROLE))) != NULL)
-    {
-        p_buf->hdr.event = BTA_PAN_API_SET_ROLE_EVT;
-        p_buf->role = role;
+    if (p_user_info && (role & BTA_PAN_ROLE_PANU)) {
+        if (p_user_info->p_srv_name)
+            strlcpy(p_buf->user_name, p_user_info->p_srv_name, BTA_SERVICE_NAME_LEN);
+        else
+            p_buf->user_name[0] = 0;
 
-        if(p_user_info && (role & BTA_PAN_ROLE_PANU))
-        {
-            if(p_user_info->p_srv_name)
-                BCM_STRNCPY_S(p_buf->user_name, sizeof(p_buf->user_name), p_user_info->p_srv_name, BTA_SERVICE_NAME_LEN);
-            else
-                p_buf->user_name[0] = 0;
-
-            p_buf->user_name[BTA_SERVICE_NAME_LEN] = 0;
-            p_buf->user_app_id = p_user_info->app_id;
-            p_buf->user_sec_mask = p_user_info->sec_mask;
-        }
-
-        if(p_gn_info && (role & BTA_PAN_ROLE_GN))
-        {
-            if(p_gn_info->p_srv_name)
-                BCM_STRNCPY_S(p_buf->gn_name, sizeof(p_buf->gn_name), p_gn_info->p_srv_name, BTA_SERVICE_NAME_LEN);
-            else
-                p_buf->gn_name[0] = 0;
-
-            p_buf->gn_name[BTA_SERVICE_NAME_LEN] = 0;
-            p_buf->gn_app_id = p_gn_info->app_id;
-            p_buf->gn_sec_mask = p_gn_info->sec_mask;
-
-        }
-
-        if(p_nap_info && (role & BTA_PAN_ROLE_NAP))
-        {
-            if(p_nap_info->p_srv_name)
-                BCM_STRNCPY_S(p_buf->nap_name, sizeof(p_buf->nap_name), p_nap_info->p_srv_name, BTA_SERVICE_NAME_LEN);
-            else
-                p_buf->nap_name[0] = 0;
-
-            p_buf->nap_name[BTA_SERVICE_NAME_LEN] = 0;
-            p_buf->nap_app_id = p_nap_info->app_id;
-            p_buf->nap_sec_mask = p_nap_info->sec_mask;
-
-        }
-
-        bta_sys_sendmsg(p_buf);
+        p_buf->user_app_id = p_user_info->app_id;
+        p_buf->user_sec_mask = p_user_info->sec_mask;
     }
 
+    if (p_gn_info && (role & BTA_PAN_ROLE_GN)) {
+        if (p_gn_info->p_srv_name)
+            strlcpy(p_buf->gn_name, p_gn_info->p_srv_name, BTA_SERVICE_NAME_LEN);
+        else
+            p_buf->gn_name[0] = 0;
 
+        p_buf->gn_app_id = p_gn_info->app_id;
+        p_buf->gn_sec_mask = p_gn_info->sec_mask;
+    }
 
+    if (p_nap_info && (role & BTA_PAN_ROLE_NAP)) {
+      if (p_nap_info->p_srv_name)
+          strlcpy(p_buf->nap_name, p_nap_info->p_srv_name, BTA_SERVICE_NAME_LEN);
+      else
+          p_buf->nap_name[0] = 0;
+
+      p_buf->nap_app_id = p_nap_info->app_id;
+      p_buf->nap_sec_mask = p_nap_info->sec_mask;
+
+    }
+
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -174,18 +157,15 @@ void BTA_PanSetRole(tBTA_PAN_ROLE role, tBTA_PAN_ROLE_INFO *p_user_info, tBTA_PA
 *******************************************************************************/
 void BTA_PanOpen(BD_ADDR bd_addr, tBTA_PAN_ROLE    local_role, tBTA_PAN_ROLE    peer_role)
 {
+    tBTA_PAN_API_OPEN *p_buf =
+        (tBTA_PAN_API_OPEN *)osi_malloc(sizeof(tBTA_PAN_API_OPEN));
 
-    tBTA_PAN_API_OPEN  *p_buf;
+    p_buf->hdr.event = BTA_PAN_API_OPEN_EVT;
+    p_buf->local_role = local_role;
+    p_buf->peer_role = peer_role;
+    bdcpy(p_buf->bd_addr, bd_addr);
 
-    if ((p_buf = (tBTA_PAN_API_OPEN *) GKI_getbuf(sizeof(tBTA_PAN_API_OPEN))) != NULL)
-    {
-        p_buf->hdr.event = BTA_PAN_API_OPEN_EVT;
-        p_buf->local_role = local_role;
-        p_buf->peer_role = peer_role;
-        bdcpy(p_buf->bd_addr, bd_addr);
-        bta_sys_sendmsg(p_buf);
-    }
-
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -200,14 +180,12 @@ void BTA_PanOpen(BD_ADDR bd_addr, tBTA_PAN_ROLE    local_role, tBTA_PAN_ROLE    
 *******************************************************************************/
 void BTA_PanClose(UINT16 handle)
 {
-    BT_HDR  *p_buf;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
 
-    if ((p_buf = (BT_HDR *) GKI_getbuf(sizeof(BT_HDR))) != NULL)
-    {
-        p_buf->event = BTA_PAN_API_CLOSE_EVT;
-        p_buf->layer_specific = handle;
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->event = BTA_PAN_API_CLOSE_EVT;
+    p_buf->layer_specific = handle;
+
+    bta_sys_sendmsg(p_buf);
 }
 #else
 

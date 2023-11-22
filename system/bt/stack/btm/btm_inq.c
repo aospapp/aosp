@@ -30,21 +30,27 @@
 #include <stdio.h>
 #include <stddef.h>
 
-#include "bt_types.h"
 #include "device/include/controller.h"
-#include "gki.h"
+#include "osi/include/time.h"
+
+#include "bt_types.h"
+#include "bt_common.h"
 #include "hcimsgs.h"
 #include "btu.h"
 #include "btm_api.h"
 #include "btm_int.h"
 #include "hcidefs.h"
 
-#define BTM_INQ_REPLY_TIMEOUT   3       /* 3 second timeout waiting for responses */
+/* 3 second timeout waiting for responses */
+#define BTM_INQ_REPLY_TIMEOUT_MS (3 * 1000)
 
 /* TRUE to enable DEBUG traces for btm_inq */
 #ifndef BTM_INQ_DEBUG
 #define BTM_INQ_DEBUG   FALSE
 #endif
+
+extern fixed_queue_t *btu_general_alarm_queue;
+
 /********************************************************************************/
 /*                 L O C A L    D A T A    D E F I N I T I O N S                */
 /********************************************************************************/
@@ -1067,7 +1073,7 @@ tBTM_STATUS  BTM_ReadRemoteDeviceName (BD_ADDR remote_bda, tBTM_CMPL_CB *p_cb
 #endif
 
     return (btm_initiate_rem_name (remote_bda, p_cur, BTM_RMT_NAME_EXT,
-                                   BTM_EXT_RMT_NAME_TIMEOUT, p_cb));
+                                   BTM_EXT_RMT_NAME_TIMEOUT_MS, p_cb));
 }
 
 /*******************************************************************************
@@ -1242,18 +1248,19 @@ tBTM_STATUS BTM_ClearInqDb (BD_ADDR p_bda)
 *******************************************************************************/
 tBTM_STATUS BTM_ReadInquiryRspTxPower (tBTM_CMPL_CB *p_cb)
 {
-    if (btm_cb.devcb.p_txpwer_cmpl_cb)
+    if (btm_cb.devcb.p_inq_tx_power_cmpl_cb)
         return (BTM_BUSY);
 
-     btu_start_timer (&btm_cb.devcb.txpwer_timer, BTU_TTYPE_BTM_ACL, BTM_INQ_REPLY_TIMEOUT );
-
-
-    btm_cb.devcb.p_txpwer_cmpl_cb = p_cb;
+    btm_cb.devcb.p_inq_tx_power_cmpl_cb = p_cb;
+    alarm_set_on_queue(btm_cb.devcb.read_inq_tx_power_timer,
+                       BTM_INQ_REPLY_TIMEOUT_MS,
+                       btm_read_inq_tx_power_timeout, NULL,
+                       btu_general_alarm_queue);
 
     if (!btsnd_hcic_read_inq_tx_power ())
     {
-        btm_cb.devcb.p_txpwer_cmpl_cb = NULL;
-        btu_stop_timer (&btm_cb.devcb.txpwer_timer);
+        btm_cb.devcb.p_inq_tx_power_cmpl_cb = NULL;
+        alarm_cancel(btm_cb.devcb.read_inq_tx_power_timer);
         return (BTM_NO_RESOURCES);
     }
     else
@@ -1285,8 +1292,6 @@ void btm_inq_db_reset (void)
     UINT8                    temp_inq_active;
     tBTM_STATUS              status;
 
-    btu_stop_timer (&p_inq->inq_timer_ent);
-
     /* If an inquiry or periodic inquiry is active, reset the mode to inactive */
     if (p_inq->inq_active != BTM_INQUIRY_INACTIVE)
     {
@@ -1309,7 +1314,7 @@ void btm_inq_db_reset (void)
     /* Cancel a remote name request if active, and notify the caller (if waiting) */
     if (p_inq->remname_active )
     {
-        btu_stop_timer (&p_inq->rmt_name_timer_ent);
+        alarm_cancel(p_inq->remote_name_timer);
         p_inq->remname_active = FALSE;
         memset(p_inq->remname_bda, 0, BD_ADDR_LEN);
 
@@ -1368,6 +1373,9 @@ void btm_inq_db_init (void)
 #if 0  /* cleared in btm_init; put back in if called from anywhere else! */
     memset (&btm_cb.btm_inq_vars, 0, sizeof (tBTM_INQUIRY_VAR_ST));
 #endif
+    alarm_free(btm_cb.btm_inq_vars.remote_name_timer);
+    btm_cb.btm_inq_vars.remote_name_timer =
+        alarm_new("btm_inq.remote_name_timer");
     btm_cb.btm_inq_vars.no_inc_ssp = BTM_NO_SSP_ON_INQUIRY;
 }
 
@@ -1477,11 +1485,7 @@ static void btm_clr_inq_result_flt (void)
 {
     tBTM_INQUIRY_VAR_ST *p_inq = &btm_cb.btm_inq_vars;
 
-    if (p_inq->p_bd_db)
-    {
-        GKI_freebuf(p_inq->p_bd_db);
-        p_inq->p_bd_db = NULL;
-    }
+    osi_free_and_reset((void **)&p_inq->p_bd_db);
     p_inq->num_bd_entries = 0;
     p_inq->max_bd_entries = 0;
 }
@@ -1818,13 +1822,8 @@ static void btm_initiate_inquiry (tBTM_INQUIRY_VAR_ST *p_inq)
         btm_clr_inq_result_flt();
 
         /* Allocate memory to hold bd_addrs responding */
-        if ((p_inq->p_bd_db = (tINQ_BDADDR *)GKI_getbuf(GKI_MAX_BUF_SIZE)) != NULL)
-        {
-            p_inq->max_bd_entries = (UINT16)(GKI_MAX_BUF_SIZE / sizeof(tINQ_BDADDR));
-            memset(p_inq->p_bd_db, 0, GKI_MAX_BUF_SIZE);
-/*            BTM_TRACE_DEBUG("btm_initiate_inquiry: memory allocated for %d bdaddrs",
-                              p_inq->max_bd_entries); */
-        }
+        p_inq->p_bd_db = (tINQ_BDADDR *)osi_calloc(BT_DEFAULT_BUFFER_SIZE);
+        p_inq->max_bd_entries = (UINT16)(BT_DEFAULT_BUFFER_SIZE / sizeof(tINQ_BDADDR));
 
         if (!btsnd_hcic_inquiry(*lap, p_inqparms->duration, 0))
             btm_process_inq_complete (BTM_NO_RESOURCES, (UINT8)(p_inqparms->mode & BTM_BR_INQUIRY_MASK));
@@ -1874,6 +1873,12 @@ void btm_process_inq_results (UINT8 *p, UINT8 inq_res_mode)
         return;
 
     STREAM_TO_UINT8 (num_resp, p);
+
+    if (inq_res_mode == BTM_INQ_RESULT_EXTENDED && (num_resp > 1)) {
+        BTM_TRACE_ERROR ("btm_process_inq_results() extended results (%d) > 1",
+                         num_resp);
+        return;
+    }
 
     for (xx = 0; xx < num_resp; xx++)
     {
@@ -1988,7 +1993,7 @@ void btm_process_inq_results (UINT8 *p, UINT8 inq_res_mode)
             p_cur->dev_class[2]       = dc[2];
             p_cur->clock_offset       = clock_offset  | BTM_CLOCK_OFFSET_VALID;
 
-            p_i->time_of_resp = GKI_get_os_tick_count();
+            p_i->time_of_resp = time_get_os_boottime_ms();
 
             if (p_i->inq_count != p_inq->inq_counter)
                 p_inq->inq_cmpl_info.num_resp++;       /* A new response was found */
@@ -2062,33 +2067,27 @@ void btm_process_inq_results (UINT8 *p, UINT8 inq_res_mode)
 *******************************************************************************/
 void btm_sort_inq_result(void)
 {
-    UINT8               xx, yy, num_resp;
-    tINQ_DB_ENT         *p_tmp  = NULL;
-    tINQ_DB_ENT         *p_ent  = btm_cb.btm_inq_vars.inq_db;
-    tINQ_DB_ENT         *p_next = btm_cb.btm_inq_vars.inq_db+1;
-    int                 size;
+    UINT8 xx, yy, num_resp;
+    tINQ_DB_ENT *p_ent  = btm_cb.btm_inq_vars.inq_db;
+    tINQ_DB_ENT *p_next = btm_cb.btm_inq_vars.inq_db+1;
+    int size;
+    tINQ_DB_ENT *p_tmp = (tINQ_DB_ENT *)osi_malloc(sizeof(tINQ_DB_ENT));
 
     num_resp = (btm_cb.btm_inq_vars.inq_cmpl_info.num_resp<BTM_INQ_DB_SIZE)?
                 btm_cb.btm_inq_vars.inq_cmpl_info.num_resp: BTM_INQ_DB_SIZE;
 
-    if((p_tmp = (tINQ_DB_ENT *)GKI_getbuf(sizeof(tINQ_DB_ENT))) != NULL)
-    {
-        size = sizeof(tINQ_DB_ENT);
-        for(xx = 0; xx < num_resp-1; xx++, p_ent++)
-        {
-            for(yy = xx+1, p_next = p_ent+1; yy < num_resp; yy++, p_next++)
-            {
-                if(p_ent->inq_info.results.rssi < p_next->inq_info.results.rssi)
-                {
-                    memcpy (p_tmp,  p_next, size);
-                    memcpy (p_next, p_ent,  size);
-                    memcpy (p_ent,  p_tmp,  size);
-                }
+    size = sizeof(tINQ_DB_ENT);
+    for (xx = 0; xx < num_resp-1; xx++, p_ent++) {
+        for (yy = xx+1, p_next = p_ent+1; yy < num_resp; yy++, p_next++) {
+            if (p_ent->inq_info.results.rssi < p_next->inq_info.results.rssi) {
+                memcpy(p_tmp, p_next, size);
+                memcpy(p_next, p_ent,  size);
+                memcpy(p_ent, p_tmp,  size);
             }
         }
-
-        GKI_freebuf(p_tmp);
     }
+
+    osi_free(p_tmp);
 }
 
 /*******************************************************************************
@@ -2243,7 +2242,8 @@ void btm_process_cancel_complete(UINT8 status, UINT8 mode)
 **
 *******************************************************************************/
 tBTM_STATUS  btm_initiate_rem_name (BD_ADDR remote_bda, tBTM_INQ_INFO *p_cur,
-                                    UINT8 origin, UINT32 timeout, tBTM_CMPL_CB *p_cb)
+                                    UINT8 origin, period_ms_t timeout_ms,
+                                    tBTM_CMPL_CB *p_cb)
 {
     tBTM_INQUIRY_VAR_ST *p_inq = &btm_cb.btm_inq_vars;
     BOOLEAN              cmd_ok;
@@ -2275,9 +2275,10 @@ tBTM_STATUS  btm_initiate_rem_name (BD_ADDR remote_bda, tBTM_INQ_INFO *p_cur,
             /* If there is no remote name request running,call the callback function and start timer */
             p_inq->p_remname_cmpl_cb = p_cb;
             memcpy(p_inq->remname_bda, remote_bda, BD_ADDR_LEN);
-            btu_start_timer (&p_inq->rmt_name_timer_ent,
-                             BTU_TTYPE_BTM_RMT_NAME,
-                             timeout);
+
+            alarm_set_on_queue(p_inq->remote_name_timer, timeout_ms,
+                               btm_inq_remote_name_timer_timeout, NULL,
+                               btu_general_alarm_queue);
 
             /* If the database entry exists for the device, use its clock offset */
             if (p_cur)
@@ -2354,7 +2355,7 @@ void btm_process_remote_name (BD_ADDR bda, BD_NAME bdn, UINT16 evt_len, UINT8 hc
                 btm_ble_cancel_remote_name(p_inq->remname_bda);
         }
 #endif
-        btu_stop_timer (&p_inq->rmt_name_timer_ent);
+        alarm_cancel(p_inq->remote_name_timer);
         p_inq->remname_active = FALSE;
          /* Clean up and return the status if the command was not successful */
          /* Note: If part of the inquiry, the name is not stored, and the    */
@@ -2396,6 +2397,11 @@ void btm_process_remote_name (BD_ADDR bda, BD_NAME bdn, UINT16 evt_len, UINT8 hc
     }
 }
 
+void btm_inq_remote_name_timer_timeout(UNUSED_ATTR void *data)
+{
+    btm_inq_rmt_name_failed();
+}
+
 /*******************************************************************************
 **
 ** Function         btm_inq_rmt_name_failed
@@ -2418,24 +2424,43 @@ void btm_inq_rmt_name_failed (void)
 
     btm_sec_rmt_name_request_complete (NULL, NULL, HCI_ERR_UNSPECIFIED);
 }
+
 /*******************************************************************************
 **
-** Function         btm_read_linq_tx_power_complete
+** Function         btm_read_inq_tx_power_timeout
+**
+** Description      Callback when reading the inquiry tx power times out.
+**
+** Returns          void
+**
+*******************************************************************************/
+void btm_read_inq_tx_power_timeout(UNUSED_ATTR void *data)
+{
+    tBTM_CMPL_CB  *p_cb = btm_cb.devcb.p_inq_tx_power_cmpl_cb;
+    btm_cb.devcb.p_inq_tx_power_cmpl_cb = NULL;
+    if (p_cb)
+        (*p_cb)((void *) NULL);
+}
+
+/*******************************************************************************
+**
+** Function         btm_read_inq_tx_power_complete
 **
 ** Description      read inquiry tx power level complete callback function.
 **
 ** Returns          void
 **
 *******************************************************************************/
-void btm_read_linq_tx_power_complete(UINT8 *p)
+void btm_read_inq_tx_power_complete(UINT8 *p)
 {
-    tBTM_CMPL_CB                *p_cb = btm_cb.devcb.p_txpwer_cmpl_cb;
+    tBTM_CMPL_CB                *p_cb = btm_cb.devcb.p_inq_tx_power_cmpl_cb;
     tBTM_INQ_TXPWR_RESULTS        results;
 
-    btu_stop_timer (&btm_cb.devcb.txpwer_timer);
-    /* If there was a callback registered for read inq tx power, call it */
-    btm_cb.devcb.p_txpwer_cmpl_cb = NULL;
+    BTM_TRACE_DEBUG("%s", __func__);
+    alarm_cancel(btm_cb.devcb.read_inq_tx_power_timer);
+    btm_cb.devcb.p_inq_tx_power_cmpl_cb = NULL;
 
+    /* If there was a registered callback, call it */
     if (p_cb)
     {
         STREAM_TO_UINT8  (results.hci_status, p);
@@ -2478,7 +2503,7 @@ tBTM_STATUS BTM_WriteEIR( BT_HDR *p_buff )
     }
     else
     {
-        GKI_freebuf(p_buff);
+        osi_free(p_buff);
         return BTM_MODE_UNSUPPORTED;
     }
 }

@@ -14,7 +14,7 @@
 * limitations under the License.
 */
 #ifndef GL_ENCODER_UTILS_H
-#define GL_ENCLODER_UTILS_H
+#define GL_ENCODER_UTILS_H
 
 namespace glesv1_enc {
     size_t pixelDataSize(void *self, GLsizei width, GLsizei height, GLenum format, GLenum type, int pack);

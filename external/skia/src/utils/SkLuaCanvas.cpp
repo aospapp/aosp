@@ -86,17 +86,16 @@ void SkLuaCanvas::willSave() {
     this->INHERITED::willSave();
 }
 
-SkCanvas::SaveLayerStrategy SkLuaCanvas::willSaveLayer(const SkRect* bounds, const SkPaint* paint,
-                                                       SaveFlags flags) {
+SkCanvas::SaveLayerStrategy SkLuaCanvas::getSaveLayerStrategy(const SaveLayerRec& rec) {
     AUTO_LUA("saveLayer");
-    if (bounds) {
-        lua.pushRect(*bounds, "bounds");
+    if (rec.fBounds) {
+        lua.pushRect(*rec.fBounds, "bounds");
     }
-    if (paint) {
-        lua.pushPaint(*paint, "paint");
+    if (rec.fPaint) {
+        lua.pushPaint(*rec.fPaint, "paint");
     }
 
-    this->INHERITED::willSaveLayer(bounds, paint, flags);
+    (void)this->INHERITED::getSaveLayerStrategy(rec);
     // No need for a layer.
     return kNoLayer_SaveLayerStrategy;
 }
@@ -215,7 +214,7 @@ void SkLuaCanvas::onDrawBitmap(const SkBitmap& bitmap, SkScalar x, SkScalar y,
 }
 
 void SkLuaCanvas::onDrawBitmapRect(const SkBitmap& bitmap, const SkRect* src, const SkRect& dst,
-                                   const SkPaint* paint, DrawBitmapRectFlags flags) {
+                                   const SkPaint* paint, SrcRectConstraint) {
     AUTO_LUA("drawBitmapRect");
     if (paint) {
         lua.pushPaint(*paint, "paint");
@@ -238,15 +237,8 @@ void SkLuaCanvas::onDrawImage(const SkImage* image, SkScalar x, SkScalar y, cons
 }
 
 void SkLuaCanvas::onDrawImageRect(const SkImage* image, const SkRect* src, const SkRect& dst,
-                                  const SkPaint* paint) {
+                                  const SkPaint* paint, SrcRectConstraint) {
     AUTO_LUA("drawImageRect");
-    if (paint) {
-        lua.pushPaint(*paint, "paint");
-    }
-}
-
-void SkLuaCanvas::onDrawSprite(const SkBitmap& bitmap, int x, int y, const SkPaint* paint) {
-    AUTO_LUA("drawSprite");
     if (paint) {
         lua.pushPaint(*paint, "paint");
     }

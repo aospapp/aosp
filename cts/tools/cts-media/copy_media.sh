@@ -17,15 +17,15 @@ adb_options=" "
 max_resolution=3
 if [ $# -eq 0 ]; then
   echo "assuming default resolution"
-elif [ "$1" == "-s" ]; then
+elif [ "$1" = "-s" ]; then
   adb_options=""$1" "$2""
-elif [ "$1" == "720x480" ]; then
+elif [ "$1" = "720x480" ]; then
   max_resolution=1
-elif [ "$1" == "1280x720" ]; then
+elif [ "$1" = "1280x720" ]; then
   max_resolution=2
-elif [ "$1" == "1920x1080" ]; then
+elif [ "$1" = "1920x1080" ]; then
   max_resolution=3
-elif [ "$1" == "all" ]; then
+elif [ "$1" = "all" ]; then
   max_resolution=3
 else
   echo "Usage: copy_media.sh [720x480|1280x720|1920x1080] [-s serial]"

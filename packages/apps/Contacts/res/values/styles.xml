@@ -169,7 +169,8 @@
     <!-- Action bar overflow menu icon. -->
     <style name="ContactsActionBarOverflowQP"
            parent="@android:style/Widget.Material.Light.ActionButton.Overflow">
-        <item name="android:src">@drawable/ic_menu_overflow_lt</item>
+        <item name="android:src">@drawable/ic_more_vert</item>
+        <item name="android:tint">@color/action_bar_button_text_color</item>
     </style>
 
     <style name="ContactsActionBarDropDownStyle" parent="@android:style/Widget.Holo.Light.Spinner">
@@ -324,5 +325,28 @@
             4dp of starting padding built in, we set this as 28dp. -->
         <item name="android:layout_marginEnd">28dp</item>
         <item name="android:layout_marginTop">@dimen/editor_kind_icon_top_margin</item>
+    </style>
+
+    <style name="EditSelectorIconStyle">
+        <item name="android:layout_width">24dp</item>
+        <item name="android:layout_height">24dp</item>
+        <item name="android:layout_marginStart">16dp</item>
+        <!-- We want 32dp of padding between these icon's and EditText's. Since EditText's have
+            4dp of starting padding built in, we set this as 28dp. -->
+        <item name="android:layout_marginEnd">28dp</item>
+        <item name="android:layout_marginTop">@dimen/editor_kind_icon_top_margin</item>
+    </style>
+
+    <style name="AccountTypeIconStyle">
+        <item name="android:layout_width">12dp</item>
+        <item name="android:layout_height">12dp</item>
+        <item name="android:layout_marginStart">4dp</item>
+        <item name="android:layout_marginEnd">4dp</item>
+    </style>
+
+    <style name="AccountTypeNameStyle">
+        <item name="android:textSize">10sp</item>
+        <item name="android:textColor">#363636</item>
+        <item name="android:fontFamily">sans-serif</item>
     </style>
 </resources>

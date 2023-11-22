@@ -41,11 +41,11 @@ warmup time.</p>
   At warmup, FastMixer calls <code>write()</code>
   repeatedly until the time between two <code>write()</code>s is the amount expected.
   FastMixer determines audio warmup by seeing how long a Hardware Abstraction
-Layer (HAL) <code>write()</code> takes to stabilize. 
+Layer (HAL) <code>write()</code> takes to stabilize.
 </p>
 
-<p>To measure audio warmup, follow these steps for the built-in speaker and wired headphones 
-  and at different times after booting. Warmup times are usually different for each output device 
+<p>To measure audio warmup, follow these steps for the built-in speaker and wired headphones
+  and at different times after booting. Warmup times are usually different for each output device
   and right after booting the device:</p>
 
 <ol>
@@ -91,7 +91,7 @@ sampleRate=44100 frameCount=256 measuredWarmup=X ms, warmupCycles=X
   There are currently no tools provided for measuring audio input warmup.
   However, input warmup time can be estimated by observing
   the time required for <a href="http://developer.android.com/reference/android/media/AudioRecord.html#startRecording()">startRecording()</a>
-  to return. 
+  to return.
 </p>
 
 
@@ -99,11 +99,12 @@ sampleRate=44100 frameCount=256 measuredWarmup=X ms, warmupCycles=X
 
 <p>
   Warmup time can usually be reduced by a combination of:
+</p>
   <ul>
   <li>Good circuit design</li>
   <li>Accurate time delays in kernel device driver</li>
   <li>Performing independent warmup operations concurrently rather than sequentially</li>
-  <li>Leaving circuits powered on or not reconfiguring clocks (increases idle power consumption)
+  <li>Leaving circuits powered on or not reconfiguring clocks (increases idle power consumption)</li>
   <li>Caching computed parameters</li>
   </ul>
 <p>

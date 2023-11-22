@@ -16,16 +16,22 @@
 
 package com.android.settings;
 
-import android.app.Activity;
-import android.app.AlertDialog.Builder;
+import android.app.AlertDialog;
+import android.app.AppGlobals;
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
+import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.res.TypedArray;
 import android.graphics.drawable.Drawable;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.preference.ListPreference;
+import android.os.RemoteException;
+import android.os.UserHandle;
+import android.os.UserManager;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -43,12 +49,17 @@ import java.util.List;
  * because the names of applications are very similar and the user may not be able to determine what
  * app they are selecting without an icon.
  */
-public class AppListPreference extends ListPreference {
+public class AppListPreference extends CustomListPreference {
 
     public static final String ITEM_NONE_VALUE = "";
 
+    protected final boolean mForWork;
+    protected final int mUserId;
+
     private Drawable[] mEntryDrawables;
     private boolean mShowItemNone = false;
+    private CharSequence[] mSummaries;
+    private int mSystemAppIndex = -1;
 
     public class AppArrayAdapter extends ArrayAdapter<CharSequence> {
         private Drawable[] mImageDrawables = null;
@@ -62,27 +73,56 @@ public class AppListPreference extends ListPreference {
         }
 
         @Override
+        public boolean isEnabled(int position) {
+            return mSummaries == null || mSummaries[position] == null;
+        }
+
+        @Override
         public View getView(int position, View convertView, ViewGroup parent) {
-            LayoutInflater inflater = ((Activity)getContext()).getLayoutInflater();
+            LayoutInflater inflater = LayoutInflater.from(getContext());
             View view = inflater.inflate(R.layout.app_preference_item, parent, false);
-            TextView textView = (TextView) view.findViewById(R.id.app_label);
+            TextView textView = (TextView) view.findViewById(android.R.id.title);
             textView.setText(getItem(position));
-            if (position == mSelectedIndex) {
+            if (position == mSelectedIndex && position == mSystemAppIndex) {
+                view.findViewById(R.id.system_default_label).setVisibility(View.VISIBLE);
+            } else if (position == mSelectedIndex) {
                 view.findViewById(R.id.default_label).setVisibility(View.VISIBLE);
+            } else if (position == mSystemAppIndex) {
+                view.findViewById(R.id.system_label).setVisibility(View.VISIBLE);
             }
-            ImageView imageView = (ImageView)view.findViewById(R.id.app_image);
+            ImageView imageView = (ImageView) view.findViewById(android.R.id.icon);
             imageView.setImageDrawable(mImageDrawables[position]);
+            // Summaries are describing why a item is disabled, so anything with a summary
+            // is not enabled.
+            boolean enabled = mSummaries == null || mSummaries[position] == null;
+            view.setEnabled(enabled);
+            if (!enabled) {
+                TextView summary = (TextView) view.findViewById(android.R.id.summary);
+                summary.setText(mSummaries[position]);
+                summary.setVisibility(View.VISIBLE);
+            }
             return view;
         }
     }
 
-    public AppListPreference(Context context, AttributeSet attrs,
-            int defStyleAttr, int defStyleRes) {
-        super(context, attrs, defStyleAttr, defStyleRes);
+    public AppListPreference(Context context, AttributeSet attrs, int defStyle, int defAttrs) {
+        super(context, attrs, defStyle, defAttrs);
+
+        TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.WorkPreference, 0, 0);
+        mForWork = a.getBoolean(R.styleable.WorkPreference_forWork, false);
+        final UserHandle managedProfile = Utils.getManagedProfile(UserManager.get(context));
+        mUserId = mForWork && managedProfile != null ? managedProfile.getIdentifier()
+                : UserHandle.myUserId();
     }
 
     public AppListPreference(Context context, AttributeSet attrs) {
         super(context, attrs);
+
+        TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.WorkPreference, 0, 0);
+        mForWork = a.getBoolean(R.styleable.WorkPreference_forWork, false);
+        final UserHandle managedProfile = Utils.getManagedProfile(UserManager.get(context));
+        mUserId = mForWork && managedProfile != null ? managedProfile.getIdentifier()
+                : UserHandle.myUserId();
     }
 
     public void setShowItemNone(boolean showItemNone) {
@@ -90,6 +130,11 @@ public class AppListPreference extends ListPreference {
     }
 
     public void setPackageNames(CharSequence[] packageNames, CharSequence defaultPackageName) {
+        setPackageNames(packageNames, defaultPackageName, null);
+    }
+
+    public void setPackageNames(CharSequence[] packageNames, CharSequence defaultPackageName,
+            CharSequence systemPackageName) {
         // Look up all package names in PackageManager. Skip ones we can't find.
         PackageManager pm = getContext().getPackageManager();
         final int entryCount = packageNames.length + (mShowItemNone ? 1 : 0);
@@ -97,15 +142,21 @@ public class AppListPreference extends ListPreference {
         List<CharSequence> validatedPackageNames = new ArrayList<>(entryCount);
         List<Drawable> entryDrawables = new ArrayList<>(entryCount);
         int selectedIndex = -1;
+        mSystemAppIndex = -1;
         for (int i = 0; i < packageNames.length; i++) {
             try {
-                ApplicationInfo appInfo = pm.getApplicationInfo(packageNames[i].toString(), 0);
+                ApplicationInfo appInfo = pm.getApplicationInfoAsUser(packageNames[i].toString(), 0,
+                        mUserId);
                 applicationNames.add(appInfo.loadLabel(pm));
                 validatedPackageNames.add(appInfo.packageName);
                 entryDrawables.add(appInfo.loadIcon(pm));
                 if (defaultPackageName != null &&
                         appInfo.packageName.contentEquals(defaultPackageName)) {
                     selectedIndex = i;
+                }
+                if (appInfo.packageName != null && systemPackageName != null &&
+                        appInfo.packageName.contentEquals(systemPackageName)) {
+                    mSystemAppIndex = i;
                 }
             } catch (NameNotFoundException e) {
                 // Skip unknown packages.
@@ -131,6 +182,55 @@ public class AppListPreference extends ListPreference {
         }
     }
 
+    public void setComponentNames(ComponentName[] componentNames, ComponentName defaultCN) {
+        setComponentNames(componentNames, defaultCN, null);
+    }
+
+    public void setComponentNames(ComponentName[] componentNames, ComponentName defaultCN,
+            CharSequence[] summaries) {
+        mSummaries = summaries;
+        // Look up all package names in PackageManager. Skip ones we can't find.
+        PackageManager pm = getContext().getPackageManager();
+        final int entryCount = componentNames.length + (mShowItemNone ? 1 : 0);
+        List<CharSequence> applicationNames = new ArrayList<>(entryCount);
+        List<CharSequence> validatedComponentNames = new ArrayList<>(entryCount);
+        List<Drawable> entryDrawables = new ArrayList<>(entryCount);
+        int selectedIndex = -1;
+        for (int i = 0; i < componentNames.length; i++) {
+            try {
+                ActivityInfo activityInfo = AppGlobals.getPackageManager().getActivityInfo(
+                        componentNames[i], 0, mUserId);
+                if (activityInfo == null) continue;
+                applicationNames.add(activityInfo.loadLabel(pm));
+                validatedComponentNames.add(componentNames[i].flattenToString());
+                entryDrawables.add(activityInfo.loadIcon(pm));
+                if (defaultCN != null && componentNames[i].equals(defaultCN)) {
+                    selectedIndex = i;
+                }
+            } catch (RemoteException e) {
+                // Skip unknown packages.
+            }
+        }
+
+        if (mShowItemNone) {
+            applicationNames.add(
+                    getContext().getResources().getText(R.string.app_list_preference_none));
+            validatedComponentNames.add(ITEM_NONE_VALUE);
+            entryDrawables.add(getContext().getDrawable(R.drawable.ic_remove_circle));
+        }
+
+        setEntries(applicationNames.toArray(new CharSequence[applicationNames.size()]));
+        setEntryValues(
+                validatedComponentNames.toArray(new CharSequence[validatedComponentNames.size()]));
+        mEntryDrawables = entryDrawables.toArray(new Drawable[entryDrawables.size()]);
+
+        if (selectedIndex != -1) {
+            setValueIndex(selectedIndex);
+        } else {
+            setValue(null);
+        }
+    }
+
     protected ListAdapter createListAdapter() {
         final String selectedValue = getValue();
         final boolean selectedNone = selectedValue == null ||
@@ -141,15 +241,15 @@ public class AppListPreference extends ListPreference {
     }
 
     @Override
-    protected void onPrepareDialogBuilder(Builder builder) {
-        builder.setAdapter(createListAdapter(), this);
-        super.onPrepareDialogBuilder(builder);
+    protected void onPrepareDialogBuilder(AlertDialog.Builder builder,
+            DialogInterface.OnClickListener listener) {
+        builder.setAdapter(createListAdapter(), listener);
     }
 
     @Override
     protected Parcelable onSaveInstanceState() {
         Parcelable superState = super.onSaveInstanceState();
-        return new SavedState(getEntryValues(), getValue(), mShowItemNone, superState);
+        return new SavedState(getEntryValues(), getValue(), mSummaries, mShowItemNone, superState);
     }
 
     @Override
@@ -158,6 +258,7 @@ public class AppListPreference extends ListPreference {
             SavedState savedState = (SavedState) state;
             mShowItemNone = savedState.showItemNone;
             setPackageNames(savedState.entryValues, savedState.value);
+            mSummaries = savedState.summaries;
             super.onRestoreInstanceState(savedState.superState);
         } else {
             super.onRestoreInstanceState(state);
@@ -170,13 +271,15 @@ public class AppListPreference extends ListPreference {
         public final CharSequence value;
         public final boolean showItemNone;
         public final Parcelable superState;
+        public final CharSequence[] summaries;
 
-        public SavedState(CharSequence[] entryValues, CharSequence value, boolean showItemNone,
-                Parcelable superState) {
+        public SavedState(CharSequence[] entryValues, CharSequence value, CharSequence[] summaries,
+                boolean showItemNone, Parcelable superState) {
             this.entryValues = entryValues;
             this.value = value;
             this.showItemNone = showItemNone;
             this.superState = superState;
+            this.summaries = summaries;
         }
 
         @Override
@@ -190,6 +293,7 @@ public class AppListPreference extends ListPreference {
             dest.writeCharSequence(value);
             dest.writeInt(showItemNone ? 1 : 0);
             dest.writeParcelable(superState, flags);
+            dest.writeCharSequenceArray(summaries);
         }
 
         public static Creator<SavedState> CREATOR = new Creator<SavedState>() {
@@ -199,7 +303,8 @@ public class AppListPreference extends ListPreference {
                 CharSequence value = source.readCharSequence();
                 boolean showItemNone = source.readInt() != 0;
                 Parcelable superState = source.readParcelable(getClass().getClassLoader());
-                return new SavedState(entryValues, value, showItemNone, superState);
+                CharSequence[] summaries = source.readCharSequenceArray();
+                return new SavedState(entryValues, value, summaries, showItemNone, superState);
             }
 
             @Override

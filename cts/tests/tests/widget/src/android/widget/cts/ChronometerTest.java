@@ -28,7 +28,7 @@ import android.widget.Chronometer.OnChronometerTickListener;
 public class ChronometerTest extends ActivityInstrumentationTestCase2<ChronometerCtsActivity> {
     private ChronometerCtsActivity mActivity;
     public ChronometerTest() {
-        super("com.android.cts.widget", ChronometerCtsActivity.class);
+        super("android.widget.cts", ChronometerCtsActivity.class);
     }
 
     @Override

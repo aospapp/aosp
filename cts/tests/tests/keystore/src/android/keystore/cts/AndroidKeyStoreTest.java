@@ -16,6 +16,8 @@
 
 package android.keystore.cts;
 
+import android.app.KeyguardManager;
+import android.content.Context;
 import android.security.KeyPairGeneratorSpec;
 import android.security.KeyStoreParameter;
 import android.security.keystore.KeyProperties;
@@ -25,7 +27,7 @@ import android.test.MoreAsserts;
 import android.test.suitebuilder.annotation.LargeTest;
 import android.util.Log;
 
-import com.android.cts.keystore.R;
+import android.keystore.cts.R;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -1334,6 +1336,14 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
     }
 
     public void testKeyStore_SetEntry_PrivateKeyEntry_Params_Unencrypted_Failure() throws Exception {
+        // This test asserts that Android Keystore refuses to create/import keys encrypted at rest
+        // using the secure lock screen credential. The test assumes that the secure lock screen is
+        // not set up.
+        KeyguardManager keyguardManager =
+                (KeyguardManager) getContext().getSystemService(Context.KEYGUARD_SERVICE);
+        assertNotNull(keyguardManager);
+        assertFalse("Secure lock screen must not be configured", keyguardManager.isDeviceSecure());
+
         mKeyStore.load(null, null);
 
         KeyFactory keyFact = KeyFactory.getInstance("RSA");

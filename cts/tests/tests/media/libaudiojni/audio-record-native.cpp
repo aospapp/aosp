@@ -75,7 +75,11 @@ public:
 
     typedef std::lock_guard<std::recursive_mutex> auto_lock;
 
-    status_t open(uint32_t numChannels, uint32_t sampleRate, bool useFloat, uint32_t numBuffers) {
+    status_t open(uint32_t numChannels,
+                  uint32_t channelMask,
+                  uint32_t sampleRate,
+                  bool useFloat,
+                  uint32_t numBuffers) {
         close();
         auto_lock l(mLock);
         mEngineObj = OpenSLEngine();
@@ -120,7 +124,7 @@ public:
             pcm.bitsPerSample = useFloat ?
                     SL_PCMSAMPLEFORMAT_FIXED_32 : SL_PCMSAMPLEFORMAT_FIXED_16;
             pcm.containerSize = pcm.bitsPerSample;
-            pcm.channelMask = channelCountToMask(numChannels);
+            pcm.channelMask = channelMask;
             pcm.endianness = SL_BYTEORDER_LITTLEENDIAN;
             // additional
             pcm.representation = useFloat ? SL_ANDROID_PCM_REPRESENTATION_FLOAT
@@ -401,7 +405,6 @@ private:
     }
 
     static void BufferQueueCallback(SLBufferQueueItf queueItf, void *pContext) {
-        SLresult res;
         // naked native record
         AudioRecordNative *record = (AudioRecordNative *)pContext;
         record->bufferQueueCallback(queueItf);
@@ -434,10 +437,9 @@ private:
  */
 
 extern "C" jint Java_android_media_cts_AudioRecordNative_nativeTest(
-    JNIEnv * /* env */, jclass /* clazz */,
-    jint numChannels, jint sampleRate, jboolean useFloat,
-    jint msecPerBuffer, jint numBuffers)
-{
+        JNIEnv * /* env */, jclass /* clazz */,
+        jint numChannels, jint channelMask, jint sampleRate,
+        jboolean useFloat, jint msecPerBuffer, jint numBuffers) {
     AudioRecordNative record;
     const size_t frameSize = numChannels * (useFloat ? sizeof(float) : sizeof(int16_t));
     const size_t framesPerBuffer = msecPerBuffer * sampleRate / 1000;
@@ -445,7 +447,7 @@ extern "C" jint Java_android_media_cts_AudioRecordNative_nativeTest(
     status_t res;
     void *buffer = calloc(framesPerBuffer * numBuffers, frameSize);
     for (;;) {
-        res = record.open(numChannels, sampleRate, useFloat, numBuffers);
+        res = record.open(numChannels, channelMask, sampleRate, useFloat, numBuffers);
         if (res != OK) break;
 
         record.logBufferState();
@@ -482,14 +484,14 @@ extern "C" void Java_android_media_cts_AudioRecordNative_nativeDestroyRecord(
 }
 
 extern "C" jint Java_android_media_cts_AudioRecordNative_nativeOpen(
-    JNIEnv * /* env */, jclass /* clazz */, jlong jrecord,
-    jint numChannels, jint sampleRate, jboolean useFloat, jint numBuffers)
+        JNIEnv * /* env */, jclass /* clazz */, jlong jrecord,
+        jint numChannels, jint channelMask, jint sampleRate, jboolean useFloat, jint numBuffers)
 {
     auto record = *(shared_pointer<AudioRecordNative> *)jrecord;
     if (record.get() == NULL) {
         return (jint)INVALID_OPERATION;
     }
-    return (jint)record->open(numChannels, sampleRate, useFloat == JNI_TRUE,
+    return (jint) record->open(numChannels, channelMask, sampleRate, useFloat == JNI_TRUE,
             numBuffers);
 }
 

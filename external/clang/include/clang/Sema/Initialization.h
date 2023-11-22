@@ -828,6 +828,9 @@ public:
     /// \brief Initializer has a placeholder type which cannot be
     /// resolved by initialization.
     FK_PlaceholderType,
+    /// \brief Trying to take the address of a function that doesn't support
+    /// having its address taken.
+    FK_AddressOfUnaddressableFunction,
     /// \brief List-copy-initialization chose an explicit constructor.
     FK_ExplicitConstructor
   };
@@ -844,6 +847,21 @@ private:
 
   /// \brief The incomplete type that caused a failure.
   QualType FailedIncompleteType;
+
+  /// \brief The fixit that needs to be applied to make this initialization
+  /// succeed.
+  std::string ZeroInitializationFixit;
+  SourceLocation ZeroInitializationFixitLoc;
+
+public:
+  /// \brief Call for initializations are invalid but that would be valid
+  /// zero initialzations if Fixit was applied.
+  void SetZeroInitializationFixit(const std::string& Fixit, SourceLocation L) {
+    ZeroInitializationFixit = Fixit;
+    ZeroInitializationFixitLoc = L;
+  }
+
+private:
   
   /// \brief Prints a follow-up note that highlights the location of
   /// the initialized entity, if it's remote.

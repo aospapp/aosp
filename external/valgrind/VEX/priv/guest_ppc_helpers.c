@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2004-2013 OpenWorks LLP
+   Copyright (C) 2004-2015 OpenWorks LLP
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -521,6 +521,8 @@ void LibVEX_GuestPPC32_initialise ( /*OUT*/VexGuestPPC32State* vex_state )
 
    vex_state->guest_IP_AT_SYSCALL = 0;
    vex_state->guest_SPRG3_RO = 0;
+   vex_state->guest_PPR = 0x4ULL << 50;  // medium priority
+   vex_state->guest_PSPB = 0x100;  // an arbitrary non-zero value to start with
 
    vex_state->padding1 = 0;
    vex_state->padding2 = 0;
@@ -691,6 +693,8 @@ void LibVEX_GuestPPC64_initialise ( /*OUT*/VexGuestPPC64State* vex_state )
    vex_state->guest_TFHAR  = 0;
    vex_state->guest_TFIAR  = 0;
    vex_state->guest_TEXASR = 0;
+   vex_state->guest_PPR = 0x4ULL << 50;  // medium priority
+   vex_state->guest_PSPB = 0x100;  // an arbitrary non-zero value to start with
 }
 
 

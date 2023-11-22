@@ -4,7 +4,6 @@
 
 #include <cmath>
 
-#include "include/v8stdint.h"
 #include "src/base/logging.h"
 #include "src/utils.h"
 
@@ -80,4 +79,5 @@ void DoubleToAscii(double v, DtoaMode mode, int requested_digits,
   buffer[*length] = '\0';
 }
 
-} }  // namespace v8::internal
+}  // namespace internal
+}  // namespace v8

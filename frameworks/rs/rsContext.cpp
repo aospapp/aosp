@@ -37,7 +37,7 @@
 #include <unistd.h>
 
 #if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB) && \
-        defined(HAVE_ANDROID_OS)
+        defined(__ANDROID__)
 #include <cutils/properties.h>
 #endif
 
@@ -215,7 +215,7 @@ void Context::setupProgramStore() {
 #endif
 
 static uint32_t getProp(const char *str) {
-#if !defined(RS_SERVER) && defined(HAVE_ANDROID_OS)
+#if !defined(RS_SERVER) && defined(__ANDROID__)
     char buf[PROPERTY_VALUE_MAX];
     property_get(str, buf, "0");
     return atoi(buf);
@@ -259,6 +259,8 @@ void * Context::threadProc(void *vrsc) {
     rsc->props.mLogShadersAttr = getProp("debug.rs.shader.attributes") != 0;
     rsc->props.mLogShadersUniforms = getProp("debug.rs.shader.uniforms") != 0;
     rsc->props.mLogVisual = getProp("debug.rs.visual") != 0;
+    rsc->props.mLogReduce = getProp("debug.rs.reduce");
+    rsc->props.mDebugReduceSplitAccum = getProp("debug.rs.reduce-split-accum") != 0;
     rsc->props.mDebugMaxThreads = getProp("debug.rs.max-threads");
 
     if (getProp("debug.rs.debug") != 0) {
@@ -459,6 +461,7 @@ Context::Context() {
     memset(&mHal, 0, sizeof(mHal));
     mForceCpu = false;
     mContextType = RS_CONTEXT_TYPE_NORMAL;
+    mOptLevel = 3;
     mSynchronous = false;
     mFatalErrorOccured = false;
 
@@ -579,8 +582,6 @@ bool Context::initContext(Device *dev, const RsSurfaceConfig *sc) {
 }
 
 Context::~Context() {
-    //ALOGV("%p Context::~Context", this);
-
     if (!mIsContextLite) {
         mPaused = false;
         void *res;
@@ -599,11 +600,11 @@ Context::~Context() {
         pthread_mutex_lock(&gInitMutex);
         if (mDev) {
             mDev->removeContext(this);
-            mDev = nullptr;
         }
         pthread_mutex_unlock(&gInitMutex);
     }
-    //ALOGV("%p Context::~Context done", this);
+
+    delete mDev;
 }
 
 #ifndef RS_COMPATIBILITY_LIB
@@ -874,7 +875,7 @@ void rsi_ContextDestroyWorker(Context *rsc) {
 
 void rsi_ContextDestroy(Context *rsc) {
     //ALOGE("%p rsContextDestroy", rsc);
-    rsContextDestroyWorker(rsc);
+    rsc->destroyWorkerThreadResources();
     delete rsc;
     //ALOGV("%p rsContextDestroy done", rsc);
 }
@@ -932,45 +933,4 @@ void LF_ObjDestroy_handcode(const Context *rsc, RsAsyncVoidPtr objPtr) {
 }
 
 }
-}
-
-extern "C" RsContext rsContextCreate(RsDevice vdev, uint32_t version, uint32_t sdkVersion,
-                                     RsContextType ct, uint32_t flags) {
-    //ALOGV("rsContextCreate dev=%p", vdev);
-    Device * dev = static_cast<Device *>(vdev);
-    Context *rsc = Context::createContext(dev, nullptr, ct, flags);
-    if (rsc) {
-        rsc->setTargetSdkVersion(sdkVersion);
-    }
-    return rsc;
-}
-
-extern "C" void rsaContextSetNativeLibDir(RsContext con, char *libDir, size_t length) {
-#ifdef RS_COMPATIBILITY_LIB
-    Context *rsc = static_cast<Context *>(con);
-    rsc->setNativeLibDir(libDir, length);
-#endif
-}
-
-#ifndef RS_COMPATIBILITY_LIB
-RsContext rsContextCreateGL(RsDevice vdev, uint32_t version,
-                            uint32_t sdkVersion, RsSurfaceConfig sc,
-                            uint32_t dpi) {
-    //ALOGV("rsContextCreateGL dev=%p", vdev);
-    Device * dev = static_cast<Device *>(vdev);
-    Context *rsc = Context::createContext(dev, &sc);
-    if (rsc) {
-        rsc->setTargetSdkVersion(sdkVersion);
-        rsc->setDPI(dpi);
-    }
-    //ALOGV("%p rsContextCreateGL ret", rsc);
-    return rsc;
-}
-#endif
-
-// Only to be called at a3d load time, before object is visible to user
-// not thread safe
-void rsaGetName(RsContext con, void * obj, const char **name) {
-    ObjectBase *ob = static_cast<ObjectBase *>(obj);
-    (*name) = ob->getName();
 }

@@ -51,6 +51,7 @@
 #define CAMCORDER_SRC_TAG "camcorder"               // AUDIO_SOURCE_CAMCORDER
 #define VOICE_REC_SRC_TAG "voice_recognition"       // AUDIO_SOURCE_VOICE_RECOGNITION
 #define VOICE_COMM_SRC_TAG "voice_communication"    // AUDIO_SOURCE_VOICE_COMMUNICATION
+#define UNPROCESSED_SRC_TAG "unprocessed"           // AUDIO_SOURCE_UNPROCESSED
 
 // audio_stream_type_t
 #define AUDIO_STREAM_DEFAULT_TAG "default"

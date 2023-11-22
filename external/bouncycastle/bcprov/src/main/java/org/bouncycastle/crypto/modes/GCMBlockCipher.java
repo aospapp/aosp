@@ -24,6 +24,11 @@ public class GCMBlockCipher
     implements AEADBlockCipher
 {
     private static final int BLOCK_SIZE = 16;
+    // BEGIN android-added
+    // 2^36-32 : limitation imposed by NIST GCM as otherwise the counter is wrapped and it can leak
+    // plaintext and authentication key
+    private static final long MAX_INPUT_SIZE = 68719476704L;
+    // END android-added
 
     // not final due to a compiler bug
     private BlockCipher   cipher;
@@ -202,6 +207,14 @@ public class GCMBlockCipher
         return totalData < macSize ? 0 : totalData - macSize;
     }
 
+    // BEGIN android-added
+    /** Helper used to ensure that {@link #MAX_INPUT_SIZE} is not exceeded. */
+    private long getTotalInputSizeAfterNewInput(int newInputLen)
+    {
+        return totalLength + newInputLen + bufOff;
+    }
+    // END android-added
+
     public int getUpdateOutputSize(int len)
     {
         int totalData = len + bufOff;
@@ -218,6 +231,11 @@ public class GCMBlockCipher
 
     public void processAADByte(byte in)
     {
+        // BEGIN android-added
+        if (getTotalInputSizeAfterNewInput(1) > MAX_INPUT_SIZE) {
+            throw new DataLengthException("Input exceeded " + MAX_INPUT_SIZE + " bytes");
+        }
+        // END android-added
         atBlock[atBlockPos] = in;
         if (++atBlockPos == BLOCK_SIZE)
         {
@@ -230,6 +248,11 @@ public class GCMBlockCipher
 
     public void processAADBytes(byte[] in, int inOff, int len)
     {
+        // BEGIN android-added
+        if (getTotalInputSizeAfterNewInput(len) > MAX_INPUT_SIZE) {
+            throw new DataLengthException("Input exceeded " + MAX_INPUT_SIZE + " bytes");
+        }
+        // END android-added
         for (int i = 0; i < len; ++i)
         {
             atBlock[atBlockPos] = in[inOff + i];
@@ -267,6 +290,11 @@ public class GCMBlockCipher
     public int processByte(byte in, byte[] out, int outOff)
         throws DataLengthException
     {
+        // BEGIN android-added
+        if (getTotalInputSizeAfterNewInput(1) > MAX_INPUT_SIZE) {
+            throw new DataLengthException("Input exceeded " + MAX_INPUT_SIZE + " bytes");
+        }
+        // END android-added
         bufBlock[bufOff] = in;
         if (++bufOff == bufBlock.length)
         {
@@ -279,6 +307,11 @@ public class GCMBlockCipher
     public int processBytes(byte[] in, int inOff, int len, byte[] out, int outOff)
         throws DataLengthException
     {
+        // BEGIN android-added
+        if (getTotalInputSizeAfterNewInput(len) > MAX_INPUT_SIZE) {
+            throw new DataLengthException("Input exceeded " + MAX_INPUT_SIZE + " bytes");
+        }
+        // END android-added
         if (in.length < (inOff + len))
         {
             throw new DataLengthException("Input buffer too short");
@@ -329,21 +362,30 @@ public class GCMBlockCipher
         }
 
         int extra = bufOff;
-        if (!forEncryption)
+
+        if (forEncryption)
+        {
+            if (out.length < (outOff + extra + macSize))
+            {
+                throw new OutputLengthException("Output buffer too short");
+            }
+        }
+        else
         {
             if (extra < macSize)
             {
                 throw new InvalidCipherTextException("data too short");
             }
             extra -= macSize;
-        }
 
-        if (extra > 0)
-        {
             if (out.length < (outOff + extra))
             {
                 throw new OutputLengthException("Output buffer too short");
             }
+        }
+
+        if (extra > 0)
+        {
             gCTRPartial(bufBlock, 0, extra, out, outOff);
         }
 
@@ -409,10 +451,6 @@ public class GCMBlockCipher
 
         if (forEncryption)
         {
-            if (out.length < (outOff + extra + macSize))
-            {
-                throw new OutputLengthException("Output buffer too short");
-            }
             // Append T to the message
             System.arraycopy(macBlock, 0, out, outOff + bufOff, macSize);
             resultLen += macSize;
@@ -517,16 +555,11 @@ public class GCMBlockCipher
 
     private byte[] getNextCounterBlock()
     {
-        for (int i = 15; i >= 12; --i)
-        {
-            byte b = (byte)((counter[i] + 1) & 0xff);
-            counter[i] = b;
-
-            if (b != 0)
-            {
-                break;
-            }
-        }
+        int c = 1;
+        c += counter[15] & 0xFF; counter[15] = (byte)c; c >>>= 8;
+        c += counter[14] & 0xFF; counter[14] = (byte)c; c >>>= 8;
+        c += counter[13] & 0xFF; counter[13] = (byte)c; c >>>= 8;
+        c += counter[12] & 0xFF; counter[12] = (byte)c;
 
         byte[] tmp = new byte[BLOCK_SIZE];
         // TODO Sure would be nice if ciphers could operate on int[]

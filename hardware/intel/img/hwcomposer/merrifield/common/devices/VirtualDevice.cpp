@@ -480,26 +480,34 @@ struct VirtualDevice::BlitTask : public VirtualDevice::RenderTask {
 
 struct VirtualDevice::FrameTypeChangedTask : public VirtualDevice::Task {
     virtual void run(VirtualDevice& vd) {
+#ifdef INTEL_WIDI
         typeChangeListener->frameTypeChanged(inputFrameInfo);
         ITRACE("Notify frameTypeChanged: %dx%d in %dx%d @ %d fps",
             inputFrameInfo.contentWidth, inputFrameInfo.contentHeight,
             inputFrameInfo.bufferWidth, inputFrameInfo.bufferHeight,
             inputFrameInfo.contentFrameRateN);
+#endif
     }
+#ifdef INTEL_WIDI
     sp<IFrameTypeChangeListener> typeChangeListener;
     FrameInfo inputFrameInfo;
+#endif
 };
 
 struct VirtualDevice::BufferInfoChangedTask : public VirtualDevice::Task {
     virtual void run(VirtualDevice& vd) {
+#ifdef INTEL_WIDI
         typeChangeListener->bufferInfoChanged(outputFrameInfo);
         ITRACE("Notify bufferInfoChanged: %dx%d in %dx%d @ %d fps",
             outputFrameInfo.contentWidth, outputFrameInfo.contentHeight,
             outputFrameInfo.bufferWidth, outputFrameInfo.bufferHeight,
             outputFrameInfo.contentFrameRateN);
+#endif
     }
+#ifdef INTEL_WIDI
     sp<IFrameTypeChangeListener> typeChangeListener;
     FrameInfo outputFrameInfo;
+#endif
 };
 
 struct VirtualDevice::OnFrameReadyTask : public VirtualDevice::Task {
@@ -513,7 +521,7 @@ struct VirtualDevice::OnFrameReadyTask : public VirtualDevice::Task {
             //from the vector properly even if the notifyBufferReturned call acquires mHeldBuffersLock first.
             vd.mHeldBuffers.add(handle, heldBuffer);
         }
-
+#ifdef INTEL_WIDI
         // FIXME: we could remove this casting once onFrameReady receives
         // a buffer_handle_t handle
         status_t result = frameListener->onFrameReady((uint32_t)handle, handleType, renderTimestamp, mediaTimestamp);
@@ -521,12 +529,18 @@ struct VirtualDevice::OnFrameReadyTask : public VirtualDevice::Task {
             Mutex::Autolock _l(vd.mHeldBuffersLock);
             vd.mHeldBuffers.removeItem(handle);
         }
+#else
+        Mutex::Autolock _l(vd.mHeldBuffersLock);
+        vd.mHeldBuffers.removeItem(handle);
+#endif
     }
     sp<RenderTask> renderTask;
     sp<RefBase> heldBuffer;
-    sp<IFrameListener> frameListener;
     buffer_handle_t handle;
+#ifdef INTEL_WIDI
+    sp<IFrameListener> frameListener;
     HWCBufferHandleType handleType;
+#endif
     int64_t renderTimestamp;
     int64_t mediaTimestamp;
 };
@@ -642,7 +656,9 @@ VirtualDevice::VirtualDevice(Hwcomposer& hwc)
       mDecHeight(0)
 {
     CTRACE();
+#ifdef INTEL_WIDI
     mNextConfig.frameServerActive = false;
+#endif
 }
 
 VirtualDevice::~VirtualDevice()
@@ -686,7 +702,7 @@ bool VirtualDevice::threadLoop()
 
     return true;
 }
-
+#ifdef INTEL_WIDI
 status_t VirtualDevice::start(sp<IFrameTypeChangeListener> typeChangeListener)
 {
     ITRACE();
@@ -730,12 +746,17 @@ status_t VirtualDevice::stop(bool isConnected)
     }
     return NO_ERROR;
 }
+#endif
 
 bool VirtualDevice::isFrameServerActive() const
 {
+#ifdef INTEL_WIDI
     return  mCurrentConfig.frameServerActive;
+#endif
+    return false;
 }
 
+#ifdef INTEL_WIDI
 /* TODO: 64-bit - this handle of size 32-bit is a problem for 64-bit */
 status_t VirtualDevice::notifyBufferReturned(int handle)
 {
@@ -759,7 +780,7 @@ status_t VirtualDevice::setResolution(const FrameProcessingPolicy& policy, sp<IF
     mNextConfig.policy = policy;
     return NO_ERROR;
 }
-
+#endif
 static bool canUseDirectly(const hwc_display_contents_1_t *display, size_t n)
 {
     const hwc_layer_1_t& fbTarget = display->hwLayers[display->numHwLayers-1];
@@ -792,11 +813,12 @@ bool VirtualDevice::prepare(hwc_display_contents_1_t *display)
     mVspInUse = false;
     mExpectAcquireFences = false;
     mIsForceCloneMode = false;
-
+#ifdef INTEL_WIDI
     {
         Mutex::Autolock _l(mConfigLock);
         mCurrentConfig = mNextConfig;
     }
+#endif
 
     bool shouldBeConnected = (display != NULL);
     if (shouldBeConnected != mLastConnectionStatus) {
@@ -822,12 +844,17 @@ bool VirtualDevice::prepare(hwc_display_contents_1_t *display)
         return true;
     }
 
+#ifdef INTEL_WIDI
     if (!mCurrentConfig.frameServerActive) {
         // We're done with CSC buffers, since we blit to outbuf in this mode.
         // We want to keep mappings cached, so we don't clear mMappedBufferCache.
         Mutex::Autolock _l(mTaskLock);
         mCscBuffers.clear();
     }
+#else
+    Mutex::Autolock _l(mTaskLock);
+    mCscBuffers.clear();
+#endif
 
     // by default send the FRAMEBUFFER_TARGET layer (composited image)
     const ssize_t fbTarget = display->numHwLayers-1;
@@ -837,7 +864,7 @@ bool VirtualDevice::prepare(hwc_display_contents_1_t *display)
     DisplayAnalyzer *analyzer = mHwc.getDisplayAnalyzer();
 
     mProtectedMode = false;
-
+#ifdef INTEL_WIDI
     if (mCurrentConfig.typeChangeListener != NULL &&
         !analyzer->isOverlayAllowed() &&
         analyzer->getVideoInstances() <= 1) {
@@ -879,13 +906,14 @@ bool VirtualDevice::prepare(hwc_display_contents_1_t *display)
             break;
         }
     }
+#endif
 
     if (mYuvLayer == -1) {
         mFirstVideoFrame = true;
         mDecWidth = 0;
         mDecHeight = 0;
     }
-
+#ifdef INTEL_WIDI
     if (mCurrentConfig.frameServerActive && mCurrentConfig.extendedModeEnabled && mYuvLayer != -1) {
         if (handleExtendedMode(display)) {
             mYuvLayer = -1;
@@ -903,7 +931,7 @@ bool VirtualDevice::prepare(hwc_display_contents_1_t *display)
         mIsForceCloneMode = true;
         mYuvLayer = -1;
     }
-
+#endif
     if (mYuvLayer == 0 && fbTarget == 1) {
         // No RGB layer, so tell queueCompose to use blank RGB in fbtarget.
         mRgbLayer = -1;
@@ -933,10 +961,11 @@ bool VirtualDevice::prepare(hwc_display_contents_1_t *display)
         // This has no effect when the video is the bottommost layer.
         display->hwLayers[mYuvLayer].hints |= HWC_HINT_CLEAR_FB;
 
+#ifdef INTEL_WIDI
     // we're streaming fbtarget, so send onFramePrepare and wait for composition to happen
     if (mCurrentConfig.frameListener != NULL)
         mCurrentConfig.frameListener->onFramePrepare(mRenderTimestamp, -1);
-
+#endif
     return true;
 }
 
@@ -1003,7 +1032,11 @@ bool VirtualDevice::queueCompose(hwc_display_contents_1_t *display)
         ETRACE("No video handle");
         return false;
     }
+#ifdef INTEL_WIDI
     if (!mCurrentConfig.frameServerActive && display->outbuf == NULL) {
+#else
+    if (display->outbuf == NULL) {
+#endif
         ETRACE("No outbuf");
         return true; // fallback would be pointless
     }
@@ -1021,6 +1054,7 @@ bool VirtualDevice::queueCompose(hwc_display_contents_1_t *display)
     composeTask->outHeight = fbTarget.sourceCropf.bottom - fbTarget.sourceCropf.top;
 
     bool scaleRgb = false;
+#ifdef INTEL_WIDI
     if (mCurrentConfig.frameServerActive) {
         if (mVspUpscale) {
             composeTask->outWidth = mCurrentConfig.policy.scaledWidth;
@@ -1039,6 +1073,9 @@ bool VirtualDevice::queueCompose(hwc_display_contents_1_t *display)
     } else {
         composeTask->outputHandle = display->outbuf;
     }
+#else
+    composeTask->outputHandle = display->outbuf;
+#endif
 
     vspPrepare(composeTask->outWidth, composeTask->outHeight);
 
@@ -1258,7 +1295,7 @@ bool VirtualDevice::queueCompose(hwc_display_contents_1_t *display)
 
     mTasks.push_back(composeTask);
     mRequestQueued.signal();
-
+#ifdef INTEL_WIDI
     if (mCurrentConfig.frameServerActive) {
 
         FrameInfo inputFrameInfo;
@@ -1315,6 +1352,9 @@ bool VirtualDevice::queueCompose(hwc_display_contents_1_t *display)
     else {
         display->retireFenceFd = dup(retireFd);
     }
+#else
+    display->retireFenceFd = dup(retireFd);
+#endif
 
     return true;
 }
@@ -1376,7 +1416,7 @@ bool VirtualDevice::queueColorConvert(hwc_display_contents_1_t *display)
     // Framebuffer after BlitTask::run() calls sw_sync_timeline_inc().
     layer.releaseFenceFd = sw_sync_fence_create(mSyncTimelineFd, "widi_blit_retire", mNextSyncPoint);
     mNextSyncPoint++;
-
+#ifdef INTEL_WIDI
     if (mCurrentConfig.frameServerActive) {
         blitTask->destHandle = mCscBuffers.get(blitTask->destRect.w, blitTask->destRect.h, &heldBuffer);
         blitTask->destAcquireFenceFd = -1;
@@ -1394,7 +1434,13 @@ bool VirtualDevice::queueColorConvert(hwc_display_contents_1_t *display)
         display->outbufAcquireFenceFd = -1;
         display->retireFenceFd = dup(layer.releaseFenceFd);
     }
-
+#else
+    blitTask->destHandle = display->outbuf;
+    blitTask->destAcquireFenceFd = display->outbufAcquireFenceFd;
+    // don't let TngDisplayContext::commitEnd() close this
+    display->outbufAcquireFenceFd = -1;
+    display->retireFenceFd = dup(layer.releaseFenceFd);
+#endif
     if (blitTask->destHandle == NULL) {
         WTRACE("Out of CSC buffers, dropping frame");
         return false;
@@ -1402,7 +1448,7 @@ bool VirtualDevice::queueColorConvert(hwc_display_contents_1_t *display)
 
     mTasks.push_back(blitTask);
     mRequestQueued.signal();
-
+#ifdef INTEL_WIDI
     if (mCurrentConfig.frameServerActive) {
         FrameInfo inputFrameInfo;
         memset(&inputFrameInfo, 0, sizeof(inputFrameInfo));
@@ -1444,10 +1490,10 @@ bool VirtualDevice::queueColorConvert(hwc_display_contents_1_t *display)
             mTasks.push_back(frameReadyTask);
         }
     }
-
+#endif
     return true;
 }
-
+#ifdef INTEL_WIDI
 bool VirtualDevice::handleExtendedMode(hwc_display_contents_1_t *display)
 {
     FrameInfo inputFrameInfo;
@@ -1689,6 +1735,7 @@ void VirtualDevice::queueBufferInfo(const FrameInfo& outputFrameInfo)
         mTasks.push_back(notifyTask);
     }
 }
+#endif
 
 void VirtualDevice::colorSwap(buffer_handle_t src, buffer_handle_t dest, uint32_t pixelCount)
 {
@@ -2169,6 +2216,9 @@ bool VirtualDevice::compositionComplete()
 
 bool VirtualDevice::initialize()
 {
+    mRgbLayer = -1;
+    mYuvLayer = -1;
+#ifdef INTEL_WIDI
     // Add initialization codes here. If init fails, invoke DEINIT_AND_RETURN_FALSE();
     mNextConfig.typeChangeListener = NULL;
     mNextConfig.policy.scaledWidth = 0;
@@ -2180,12 +2230,10 @@ bool VirtualDevice::initialize()
     mNextConfig.forceNotifyFrameType = false;
     mNextConfig.forceNotifyBufferInfo = false;
     mCurrentConfig = mNextConfig;
-    mRgbLayer = -1;
-    mYuvLayer = -1;
 
     memset(&mLastInputFrameInfo, 0, sizeof(mLastInputFrameInfo));
     memset(&mLastOutputFrameInfo, 0, sizeof(mLastOutputFrameInfo));
-
+#endif
     mPayloadManager = mHwc.getPlatFactory()->createVideoPayloadManager();
 
     if (!mPayloadManager) {
@@ -2204,6 +2252,7 @@ bool VirtualDevice::initialize()
     mThread = new WidiBlitThread(this);
     mThread->run("WidiBlit", PRIORITY_URGENT_DISPLAY);
 
+#ifdef INTEL_WIDI
     // Publish frame server service with service manager
     status_t ret = defaultServiceManager()->addService(String16("hwc.widi"), this);
     if (ret == NO_ERROR) {
@@ -2213,7 +2262,9 @@ bool VirtualDevice::initialize()
         ETRACE("Could not register hwc.widi with service manager, error = %d", ret);
         deinitialize();
     }
-
+#else
+    mInitialized = true;
+#endif
     mVspEnabled = false;
     mVspInUse = false;
     mVspWidth = 0;

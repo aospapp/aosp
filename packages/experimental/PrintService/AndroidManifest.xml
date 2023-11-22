@@ -1,11 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="foo.bar.printservice"
-    android:versionCode="1"
-    android:versionName="1.0" >
+    package="foo.bar.printservice" >
 
-    <uses-sdk
-        android:minSdkVersion="19"
-        android:targetSdkVersion="19" />
+    <uses-sdk android:minSdkVersion="19"
+            android:targetSdkVersion="24" />
 
     <application
         android:icon="@drawable/ic_launcher"
@@ -25,11 +22,16 @@
         <activity
             android:name=".SettingsActivity"
             android:label="@string/settings_activity_label"
-            >
+            android:exported="true">
+        </activity>
+       <activity
+            android:name=".InfoActivity"
+            android:exported="true">
         </activity>
         <activity
             android:name=".AddPrintersActivity"
-            android:label="@string/add_pritners_activity_label">
+            android:label="@string/add_pritners_activity_label"
+            android:exported="true">
         </activity>
 
         <activity

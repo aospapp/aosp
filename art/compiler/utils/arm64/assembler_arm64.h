@@ -10,7 +10,7 @@
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
+ * See the License for the specific language governing permissions and
  * limitations under the License.
  */
 
@@ -21,6 +21,7 @@
 #include <memory>
 #include <vector>
 
+#include "base/arena_containers.h"
 #include "base/logging.h"
 #include "constants_arm64.h"
 #include "utils/arm64/managed_register_arm64.h"
@@ -61,23 +62,45 @@ enum StoreOperandType {
   kStoreDWord
 };
 
-class Arm64Exception;
+class Arm64Exception {
+ private:
+  Arm64Exception(Arm64ManagedRegister scratch, size_t stack_adjust)
+      : scratch_(scratch), stack_adjust_(stack_adjust) {
+    }
+
+  vixl::Label* Entry() { return &exception_entry_; }
+
+  // Register used for passing Thread::Current()->exception_ .
+  const Arm64ManagedRegister scratch_;
+
+  // Stack adjust for ExceptionPool.
+  const size_t stack_adjust_;
+
+  vixl::Label exception_entry_;
+
+  friend class Arm64Assembler;
+  DISALLOW_COPY_AND_ASSIGN(Arm64Exception);
+};
 
 class Arm64Assembler FINAL : public Assembler {
  public:
   // We indicate the size of the initial code generation buffer to the VIXL
   // assembler. From there we it will automatically manage the buffer.
-  Arm64Assembler() : vixl_masm_(new vixl::MacroAssembler(kArm64BaseBufferSize)) {}
+  explicit Arm64Assembler(ArenaAllocator* arena)
+      : Assembler(arena),
+        exception_blocks_(arena->Adapter(kArenaAllocAssembler)),
+        vixl_masm_(new vixl::MacroAssembler(kArm64BaseBufferSize)) {}
 
   virtual ~Arm64Assembler() {
     delete vixl_masm_;
   }
 
-  // Emit slow paths queued during assembly.
-  void EmitSlowPaths();
+  // Finalize the code.
+  void FinalizeCode() OVERRIDE;
 
   // Size of generated code.
-  size_t CodeSize() const;
+  size_t CodeSize() const OVERRIDE;
+  const uint8_t* CodeBufferBaseAddress() const OVERRIDE;
 
   // Copy instructions out of assembly buffer into the given region of memory.
   void FinalizeInstructions(const MemoryRegion& region);
@@ -115,7 +138,7 @@ class Arm64Assembler FINAL : public Assembler {
   void LoadFromThread64(ManagedRegister dest, ThreadOffset<8> src, size_t size) OVERRIDE;
   void LoadRef(ManagedRegister dest, FrameOffset src) OVERRIDE;
   void LoadRef(ManagedRegister dest, ManagedRegister base, MemberOffset offs,
-               bool poison_reference) OVERRIDE;
+               bool unpoison_reference) OVERRIDE;
   void LoadRawPtr(ManagedRegister dest, ManagedRegister base, Offset offs) OVERRIDE;
   void LoadRawPtrFromThread64(ManagedRegister dest, ThreadOffset<8> offs) OVERRIDE;
 
@@ -181,6 +204,24 @@ class Arm64Assembler FINAL : public Assembler {
   // and branch to a ExceptionSlowPath if it is.
   void ExceptionPoll(ManagedRegister scratch, size_t stack_adjust) OVERRIDE;
 
+  //
+  // Heap poisoning.
+  //
+
+  // Poison a heap reference contained in `reg`.
+  void PoisonHeapReference(vixl::Register reg);
+  // Unpoison a heap reference contained in `reg`.
+  void UnpoisonHeapReference(vixl::Register reg);
+  // Unpoison a heap reference contained in `reg` if heap poisoning is enabled.
+  void MaybeUnpoisonHeapReference(vixl::Register reg);
+
+  void Bind(Label* label ATTRIBUTE_UNUSED) OVERRIDE {
+    UNIMPLEMENTED(FATAL) << "Do not use Bind for ARM64";
+  }
+  void Jump(Label* label ATTRIBUTE_UNUSED) OVERRIDE {
+    UNIMPLEMENTED(FATAL) << "Do not use Jump for ARM64";
+  }
+
  private:
   static vixl::Register reg_x(int code) {
     CHECK(code < kNumberOfXRegisters) << code;
@@ -230,7 +271,7 @@ class Arm64Assembler FINAL : public Assembler {
   void AddConstant(XRegister rd, XRegister rn, int32_t value, vixl::Condition cond = vixl::al);
 
   // List of exception blocks to generate at the end of the code cache.
-  std::vector<Arm64Exception*> exception_blocks_;
+  ArenaVector<std::unique_ptr<Arm64Exception>> exception_blocks_;
 
  public:
   // Vixl assembler.
@@ -238,26 +279,6 @@ class Arm64Assembler FINAL : public Assembler {
 
   // Used for testing.
   friend class Arm64ManagedRegister_VixlRegisters_Test;
-};
-
-class Arm64Exception {
- private:
-  explicit Arm64Exception(Arm64ManagedRegister scratch, size_t stack_adjust)
-      : scratch_(scratch), stack_adjust_(stack_adjust) {
-    }
-
-  vixl::Label* Entry() { return &exception_entry_; }
-
-  // Register used for passing Thread::Current()->exception_ .
-  const Arm64ManagedRegister scratch_;
-
-  // Stack adjust for ExceptionPool.
-  const size_t stack_adjust_;
-
-  vixl::Label exception_entry_;
-
-  friend class Arm64Assembler;
-  DISALLOW_COPY_AND_ASSIGN(Arm64Exception);
 };
 
 }  // namespace arm64

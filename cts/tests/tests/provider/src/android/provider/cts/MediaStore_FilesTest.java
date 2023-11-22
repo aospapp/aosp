@@ -16,7 +16,7 @@
 
 package android.provider.cts;
 
-import com.android.cts.provider.R;
+import android.provider.cts.R;
 
 import android.content.ContentResolver;
 import android.content.ContentUris;
@@ -277,16 +277,6 @@ public class MediaStore_FilesTest extends AndroidTestCase {
             fail("shouldn't be here");
         } catch (FileNotFoundException e) {
             // expected
-        }
-        // now make the file world-readable
-        fos = mContext.openFileOutput("dummy.dat", Context.MODE_WORLD_READABLE);
-        fos.write(0);
-        fos.close();
-        try {
-            pfd = mResolver.openFileDescriptor(uri, "r");
-            pfd.close();
-        } catch (FileNotFoundException e) {
-            fail("failed to open file");
         }
         path.delete();
 

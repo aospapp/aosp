@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -verify -fopenmp=libiomp5 -ferror-limit 100 %s
+// RUN: %clang_cc1 -verify -fopenmp -ferror-limit 100 %s
 
 void foo() {
 }
@@ -51,6 +51,11 @@ public:
 S3 h;
 #pragma omp threadprivate(h) // expected-note {{defined as threadprivate or thread local}}
 
+void bar(int n, int b[n]) {
+#pragma omp task firstprivate(b)
+    foo();
+}
+
 namespace A {
 double x;
 #pragma omp threadprivate(x) // expected-note {{defined as threadprivate or thread local}}
@@ -65,7 +70,8 @@ int main(int argc, char **argv) {
   S4 e(4);
   S5 g(5);
   int i;
-  int &j = i;                                               // expected-note {{'j' defined here}}
+  int &j = i;
+  static int m;
 #pragma omp task firstprivate                               // expected-error {{expected '(' after 'firstprivate'}}
 #pragma omp task firstprivate(                              // expected-error {{expected expression}} expected-error {{expected ')'}} expected-note {{to match this '('}}
 #pragma omp task firstprivate()                             // expected-error {{expected expression}}
@@ -87,7 +93,8 @@ int main(int argc, char **argv) {
   foo();
 #pragma omp task shared(i)
 #pragma omp task firstprivate(i)
-#pragma omp task firstprivate(j) // expected-error {{arguments of OpenMP clause 'firstprivate' cannot be of reference type}}
+#pragma omp task firstprivate(j)
+#pragma omp task firstprivate(m) // OK
   foo();
 
   return 0;

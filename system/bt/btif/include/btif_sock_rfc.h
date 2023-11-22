@@ -27,12 +27,14 @@
 #ifndef BTIF_SOCK_RFC_H
 #define BTIF_SOCK_RFC_H
 
-bt_status_t btsock_rfc_init(int handle);
+#include "btif_uid.h"
+
+bt_status_t btsock_rfc_init(int handle, uid_set_t* set);
 bt_status_t btsock_rfc_cleanup();
 bt_status_t btsock_rfc_listen(const char* name, const uint8_t* uuid, int channel,
-                              int* sock_fd, int flags);
+                              int* sock_fd, int flags, int app_uid);
 bt_status_t btsock_rfc_connect(const bt_bdaddr_t *bd_addr, const uint8_t* uuid,
-                               int channel, int* sock_fd, int flags);
+                               int channel, int* sock_fd, int flags, int app_uid);
 void btsock_rfc_signaled(int fd, int flags, uint32_t user_id);
 
 #endif

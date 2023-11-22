@@ -13,12 +13,12 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<android.support.wearable.view.BoxInsetLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.android.cts.verifier.BoxInsetLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
     <ScrollView android:id="@+id/log_scroll_view"
-            app:layout_box="all"
+            app:ctsv_layout_box="all"
             android:fillViewport="true"
             android:layout_height="match_parent"
             android:layout_width="match_parent">
@@ -42,4 +42,4 @@
         </LinearLayout>
 
     </ScrollView>
-</android.support.wearable.view.BoxInsetLayout>
+</com.android.cts.verifier.BoxInsetLayout>

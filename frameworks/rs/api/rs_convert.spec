@@ -17,7 +17,7 @@
 header:
 summary: Conversion Functions
 description:
- The functions below convert from a numerical vector type to another, of from one color
+ The functions below convert from a numerical vector type to another, or from one color
  representation to another.
 end:
 
@@ -73,6 +73,26 @@ ret: #3#1
 arg: #2#1 v, compatible(#3)
 end:
 
+function: convert_#3#1
+version: 24
+attrib: const
+w: 2, 3, 4
+t: f16
+t: u8, u16, u32, u64, i8, i16, i32, i64, f16, f32, f64
+ret: #3#1
+arg: #2#1 v, compatible(#3)
+end:
+
+function: convert_#3#1
+version: 24
+attrib: const
+w: 2, 3, 4
+t: u8, u16, u32, u64, i8, i16, i32, i64, f32, f64
+t: f16
+ret: #3#1
+arg: #2#1 v, compatible(#3)
+end:
+
 function: rsPackColorTo8888
 attrib: const
 ret: uchar4
@@ -83,10 +103,10 @@ summary: Create a uchar4 RGBA from floats
 description:
  Packs three or four floating point RGBA values into a uchar4.
 
- The input values are typically between 0.0 and 1.0 inclusive.  For input values outside
+ The input values are typically between 0.0f and 1.0f inclusive.  For input values outside
  of this range, the resulting outputs will be clamped to be between 0 and 255.  As this
  clamping may be done after the input is multiplied by 255.f and converted to an integer,
- input numbers greater than INT_MAX/255.f or less than INT_MIN/255.f can result in
+ input numbers greater than INT_MAX/255.f or less than INT_MIN/255.f result in
  undefined behavior.
 
  If the alpha component is not specified, it is assumed to be 1.0, i.e. the result will

@@ -26,7 +26,7 @@
 #include "bt_types.h"
 #include "bt_target.h"
 #include "bt_utils.h"
-#include "gki.h"
+#include "bt_common.h"
 #include "l2c_api.h"
 #include "l2cdefs.h"
 #include "btm_api.h"
@@ -429,13 +429,13 @@ UINT16 AVCT_MsgReq(UINT8 handle, UINT8 label, UINT8 cr, BT_HDR *p_msg)
     if ((p_ccb = avct_ccb_by_idx(handle)) == NULL)
     {
         result = AVCT_BAD_HANDLE;
-        GKI_freebuf(p_msg);
+        osi_free(p_msg);
     }
     /* verify channel is bound to link */
     else if (p_ccb->p_lcb == NULL)
     {
         result = AVCT_NOT_OPEN;
-        GKI_freebuf(p_msg);
+        osi_free(p_msg);
     }
 
     if (result == AVCT_SUCCESS)
@@ -453,7 +453,7 @@ UINT16 AVCT_MsgReq(UINT8 handle, UINT8 label, UINT8 cr, BT_HDR *p_msg)
             {
                 /* BCB channel is not open and not allocated */
                 result = AVCT_BAD_HANDLE;
-                GKI_freebuf(p_msg);
+                osi_free(p_msg);
             }
             else
             {

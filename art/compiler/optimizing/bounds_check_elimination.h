@@ -21,16 +21,26 @@
 
 namespace art {
 
+class SideEffectsAnalysis;
+class HInductionVarAnalysis;
+
 class BoundsCheckElimination : public HOptimization {
  public:
-  explicit BoundsCheckElimination(HGraph* graph)
-      : HOptimization(graph, true, kBoundsCheckEliminiationPassName) {}
+  BoundsCheckElimination(HGraph* graph,
+                         const SideEffectsAnalysis& side_effects,
+                         HInductionVarAnalysis* induction_analysis)
+      : HOptimization(graph, kBoundsCheckEliminationPassName),
+        side_effects_(side_effects),
+        induction_analysis_(induction_analysis) {}
 
   void Run() OVERRIDE;
 
-  static constexpr const char* kBoundsCheckEliminiationPassName = "BCE";
+  static constexpr const char* kBoundsCheckEliminationPassName = "BCE";
 
  private:
+  const SideEffectsAnalysis& side_effects_;
+  HInductionVarAnalysis* induction_analysis_;
+
   DISALLOW_COPY_AND_ASSIGN(BoundsCheckElimination);
 };
 

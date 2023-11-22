@@ -32,17 +32,20 @@
 
 #include "NetworkController.h"
 
+#define LOG_TAG "Netd"
+#include "log/log.h"
+
+#include "cutils/misc.h"
+#include "resolv_netid.h"
+
+#include "Controllers.h"
 #include "DummyNetwork.h"
+#include "DumpWriter.h"
 #include "Fwmark.h"
 #include "LocalNetwork.h"
 #include "PhysicalNetwork.h"
 #include "RouteController.h"
 #include "VirtualNetwork.h"
-
-#include "cutils/misc.h"
-#define LOG_TAG "Netd"
-#include "log/log.h"
-#include "resolv_netid.h"
 
 namespace {
 
@@ -132,7 +135,8 @@ int NetworkController::DelegateImpl::modifyFallthrough(const std::string& physic
 }
 
 NetworkController::NetworkController() :
-        mDelegateImpl(new NetworkController::DelegateImpl(this)), mDefaultNetId(NETID_UNSET) {
+        mDelegateImpl(new NetworkController::DelegateImpl(this)), mDefaultNetId(NETID_UNSET),
+        mProtectableUsers({AID_VPN}) {
     mNetworks[LOCAL_NET_ID] = new LocalNetwork(LOCAL_NET_ID);
     mNetworks[DUMMY_NET_ID] = new DummyNetwork(DUMMY_NET_ID);
 }
@@ -187,8 +191,18 @@ uint32_t NetworkController::getNetworkForDns(unsigned* netId, uid_t uid) const {
     if (checkUserNetworkAccessLocked(uid, *netId) == 0) {
         // If a non-zero NetId was explicitly specified, and the user has permission for that
         // network, use that network's DNS servers. Do not fall through to the default network even
-        // if the explicitly selected network is a split tunnel VPN or a VPN without DNS servers.
+        // if the explicitly selected network is a split tunnel VPN: the explicitlySelected bit
+        // ensures that the VPN fallthrough rule does not match.
         fwmark.explicitlySelected = true;
+
+        // If the network is a VPN and it doesn't have DNS servers, use the default network's DNS
+        // servers (through the default network). Otherwise, the query is guaranteed to fail.
+        // http://b/29498052
+        Network *network = getNetworkLocked(*netId);
+        if (network && network->getType() == Network::VIRTUAL &&
+                !static_cast<VirtualNetwork *>(network)->getHasDns()) {
+            *netId = mDefaultNetId;
+        }
     } else {
         // If the user is subject to a VPN and the VPN provides DNS servers, use those servers
         // (possibly falling through to the default network if the VPN doesn't provide a route to
@@ -197,6 +211,8 @@ uint32_t NetworkController::getNetworkForDns(unsigned* netId, uid_t uid) const {
         if (virtualNetwork && virtualNetwork->getHasDns()) {
             *netId = virtualNetwork->getNetId();
         } else {
+            // TODO: return an error instead of silently doing the DNS lookup on the wrong network.
+            // http://b/27560555
             *netId = mDefaultNetId;
         }
     }
@@ -247,11 +263,29 @@ void NetworkController::getNetworkContext(
             .uid = uid,
     };
 
-    if (nc.app_netid == NETID_UNSET) {
+    // |netId| comes directly (via dnsproxyd) from the value returned by netIdForResolv() in the
+    // client process. This value is nonzero iff.:
+    //
+    // 1. The app specified a netid/nethandle to a DNS resolution method such as:
+    //        - [Java] android.net.Network#getAllByName()
+    //        - [C/++] android_getaddrinfofornetwork()
+    // 2. The app specified a netid/nethandle to be used as a process default via:
+    //        - [Java] android.net.ConnectivityManager#bindProcessToNetwork()
+    //        - [C/++] android_setprocnetwork()
+    // 3. The app called android.net.ConnectivityManager#startUsingNetworkFeature().
+    //
+    // In all these cases (with the possible exception of #3), the right thing to do is to treat
+    // such cases as explicitlySelected.
+    const bool explicitlySelected = (nc.app_netid != NETID_UNSET);
+    if (!explicitlySelected) {
         nc.app_netid = getNetworkForConnect(uid);
     }
+
     Fwmark fwmark;
     fwmark.netId = nc.app_netid;
+    fwmark.explicitlySelected = explicitlySelected;
+    fwmark.protectedFromVpn = canProtect(uid);
+    fwmark.permission = getPermissionForUser(uid);
     nc.app_mark = fwmark.intValue;
 
     nc.dns_mark = getNetworkForDns(&(nc.dns_netid), uid);
@@ -439,7 +473,7 @@ int NetworkController::addUsersToNetwork(unsigned netId, const UidRanges& uidRan
         ALOGE("cannot add users to non-virtual network with netId %u", netId);
         return -EINVAL;
     }
-    if (int ret = static_cast<VirtualNetwork*>(network)->addUsers(uidRanges)) {
+    if (int ret = static_cast<VirtualNetwork*>(network)->addUsers(uidRanges, mProtectableUsers)) {
         return ret;
     }
     return 0;
@@ -456,7 +490,8 @@ int NetworkController::removeUsersFromNetwork(unsigned netId, const UidRanges& u
         ALOGE("cannot remove users from non-virtual network with netId %u", netId);
         return -EINVAL;
     }
-    if (int ret = static_cast<VirtualNetwork*>(network)->removeUsers(uidRanges)) {
+    if (int ret = static_cast<VirtualNetwork*>(network)->removeUsers(uidRanges,
+                                                                     mProtectableUsers)) {
         return ret;
     }
     return 0;
@@ -488,6 +523,30 @@ void NetworkController::denyProtect(const std::vector<uid_t>& uids) {
     for (uid_t uid : uids) {
         mProtectableUsers.erase(uid);
     }
+}
+
+void NetworkController::dump(DumpWriter& dw) {
+    android::RWLock::AutoRLock lock(mRWLock);
+
+    dw.incIndent();
+    dw.println("NetworkController");
+
+    dw.incIndent();
+    dw.println("Default network: %u", mDefaultNetId);
+
+    dw.blankline();
+    dw.println("Networks:");
+    dw.incIndent();
+    for (const auto& i : mNetworks) {
+        dw.println(i.second->toString().c_str());
+        android::net::gCtls->resolverCtrl.dump(dw, i.first);
+        dw.blankline();
+    }
+    dw.decIndent();
+
+    dw.decIndent();
+
+    dw.decIndent();
 }
 
 bool NetworkController::isValidNetwork(unsigned netId) const {

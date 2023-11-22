@@ -23,6 +23,7 @@
 #include <cutils/properties.h>
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/ADebug.h>
+#include <media/stagefright/foundation/base64.h>
 #include <media/stagefright/DataSource.h>
 #include <media/stagefright/MediaBuffer.h>
 #include <media/stagefright/MediaBufferGroup.h>
@@ -178,6 +179,9 @@ struct MyVorbisExtractor : public MyOggExtractor {
 
 protected:
     virtual int64_t getTimeUsOfGranule(uint64_t granulePos) const {
+        if (granulePos > INT64_MAX / 1000000ll) {
+            return INT64_MAX;
+        }
         return granulePos * 1000000ll / mVi.rate;
     }
 
@@ -709,6 +713,7 @@ status_t MyOggExtractor::_readNextPacket(MediaBuffer **out, bool calcVorbisTimes
                     packetSize);
 
             if (n < (ssize_t)packetSize) {
+                buffer->release();
                 ALOGV("failed to read %zu bytes at %#016llx, got %zd bytes",
                         packetSize, (long long)dataOffset, n);
                 return ERROR_IO;
@@ -770,8 +775,13 @@ status_t MyOggExtractor::_readNextPacket(MediaBuffer **out, bool calcVorbisTimes
             return n < 0 ? n : (status_t)ERROR_END_OF_STREAM;
         }
 
-        mCurrentPageSamples =
-            mCurrentPage.mGranulePosition - mPrevGranulePosition;
+        // Prevent a harmless unsigned integer overflow by clamping to 0
+        if (mCurrentPage.mGranulePosition >= mPrevGranulePosition) {
+            mCurrentPageSamples =
+                    mCurrentPage.mGranulePosition - mPrevGranulePosition;
+        } else {
+            mCurrentPageSamples = 0;
+        }
         mFirstPacketInPage = true;
 
         mPrevGranulePosition = mCurrentPage.mGranulePosition;
@@ -916,6 +926,9 @@ int64_t MyOpusExtractor::getTimeUsOfGranule(uint64_t granulePos) const {
     if (granulePos > mCodecDelay) {
         pcmSamplePosition = granulePos - mCodecDelay;
     }
+    if (pcmSamplePosition > INT64_MAX / 1000000ll) {
+        return INT64_MAX;
+    }
     return pcmSamplePosition * 1000000ll / kOpusSampleRate;
 }
 
@@ -953,7 +966,7 @@ status_t MyOpusExtractor::verifyOpusHeader(MediaBuffer *buffer) {
     mMeta->setInt32(kKeyChannelCount, mChannelCount);
     mMeta->setInt64(kKeyOpusSeekPreRoll /* ns */, kOpusSeekPreRollUs * 1000 /* = 80 ms*/);
     mMeta->setInt64(kKeyOpusCodecDelay /* ns */,
-            mCodecDelay /* sample/s */ * 1000000000 / kOpusSampleRate);
+            mCodecDelay /* sample/s */ * 1000000000ll / kOpusSampleRate);
 
     return OK;
 }
@@ -1202,83 +1215,18 @@ void parseVorbisComment(
 
 }
 
-// The returned buffer should be free()d.
-static uint8_t *DecodeBase64(const char *s, size_t size, size_t *outSize) {
-    *outSize = 0;
-
-    if ((size % 4) != 0) {
-        return NULL;
-    }
-
-    size_t n = size;
-    size_t padding = 0;
-    if (n >= 1 && s[n - 1] == '=') {
-        padding = 1;
-
-        if (n >= 2 && s[n - 2] == '=') {
-            padding = 2;
-        }
-    }
-
-    size_t outLen = 3 * size / 4 - padding;
-
-    *outSize = outLen;
-
-    void *buffer = malloc(outLen);
-
-    uint8_t *out = (uint8_t *)buffer;
-    size_t j = 0;
-    uint32_t accum = 0;
-    for (size_t i = 0; i < n; ++i) {
-        char c = s[i];
-        unsigned value;
-        if (c >= 'A' && c <= 'Z') {
-            value = c - 'A';
-        } else if (c >= 'a' && c <= 'z') {
-            value = 26 + c - 'a';
-        } else if (c >= '0' && c <= '9') {
-            value = 52 + c - '0';
-        } else if (c == '+') {
-            value = 62;
-        } else if (c == '/') {
-            value = 63;
-        } else if (c != '=') {
-            return NULL;
-        } else {
-            if (i < n - padding) {
-                return NULL;
-            }
-
-            value = 0;
-        }
-
-        accum = (accum << 6) | value;
-
-        if (((i + 1) % 4) == 0) {
-            out[j++] = (accum >> 16);
-
-            if (j < outLen) { out[j++] = (accum >> 8) & 0xff; }
-            if (j < outLen) { out[j++] = accum & 0xff; }
-
-            accum = 0;
-        }
-    }
-
-    return (uint8_t *)buffer;
-}
-
 static void extractAlbumArt(
         const sp<MetaData> &fileMeta, const void *data, size_t size) {
     ALOGV("extractAlbumArt from '%s'", (const char *)data);
 
-    size_t flacSize;
-    uint8_t *flac = DecodeBase64((const char *)data, size, &flacSize);
-
-    if (flac == NULL) {
+    sp<ABuffer> flacBuffer = decodeBase64(AString((const char *)data, size));
+    if (flacBuffer == NULL) {
         ALOGE("malformed base64 encoded data.");
         return;
     }
 
+    size_t flacSize = flacBuffer->size();
+    uint8_t *flac = flacBuffer->data();
     ALOGV("got flac of size %zu", flacSize);
 
     uint32_t picType;
@@ -1288,24 +1236,24 @@ static void extractAlbumArt(
     char type[128];
 
     if (flacSize < 8) {
-        goto exit;
+        return;
     }
 
     picType = U32_AT(flac);
 
     if (picType != 3) {
         // This is not a front cover.
-        goto exit;
+        return;
     }
 
     typeLen = U32_AT(&flac[4]);
     if (typeLen > sizeof(type) - 1) {
-        goto exit;
+        return;
     }
 
     // we've already checked above that flacSize >= 8
     if (flacSize - 8 < typeLen) {
-        goto exit;
+        return;
     }
 
     memcpy(type, &flac[8], typeLen);
@@ -1315,23 +1263,23 @@ static void extractAlbumArt(
 
     if (!strcmp(type, "-->")) {
         // This is not inline cover art, but an external url instead.
-        goto exit;
+        return;
+    }
+
+    if (flacSize < 32 || flacSize - 32 < typeLen) {
+        return;
     }
 
     descLen = U32_AT(&flac[8 + typeLen]);
-
-    if (flacSize < 32 ||
-        flacSize - 32 < typeLen ||
-        flacSize - 32 - typeLen < descLen) {
-        goto exit;
+    if (flacSize - 32 - typeLen < descLen) {
+        return;
     }
 
     dataLen = U32_AT(&flac[8 + typeLen + 4 + descLen + 16]);
 
-
     // we've already checked above that (flacSize - 32 - typeLen - descLen) >= 0
     if (flacSize - 32 - typeLen - descLen < dataLen) {
-        goto exit;
+        return;
     }
 
     ALOGV("got image data, %zu trailing bytes",
@@ -1341,10 +1289,6 @@ static void extractAlbumArt(
             kKeyAlbumArt, 0, &flac[8 + typeLen + 4 + descLen + 20], dataLen);
 
     fileMeta->setCString(kKeyAlbumArtMIME, type);
-
-exit:
-    free(flac);
-    flac = NULL;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1382,7 +1326,7 @@ size_t OggExtractor::countTracks() {
     return mInitCheck != OK ? 0 : 1;
 }
 
-sp<MediaSource> OggExtractor::getTrack(size_t index) {
+sp<IMediaSource> OggExtractor::getTrack(size_t index) {
     if (index >= 1) {
         return NULL;
     }

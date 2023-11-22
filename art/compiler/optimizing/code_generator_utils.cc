@@ -15,6 +15,7 @@
  */
 
 #include "code_generator_utils.h"
+#include "nodes.h"
 
 #include "base/logging.h"
 
@@ -92,6 +93,10 @@ void CalculateMagicAndShiftForDivRem(int64_t divisor, bool is_long,
   }
 
   *shift = is_long ? p - 64 : p - 32;
+}
+
+bool IsBooleanValueOrMaterializedCondition(HInstruction* cond_input) {
+  return !cond_input->IsCondition() || !cond_input->IsEmittedAtUseSite();
 }
 
 }  // namespace art

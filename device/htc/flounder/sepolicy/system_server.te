@@ -7,3 +7,9 @@ allow system_server gps_data_file:dir rw_dir_perms;
 
 # Grant access to Qualcomm MSM Interface (QMI) radio sockets for GPS
 qmux_socket(system_server)
+
+r_dir_file(system_server, debugfs_nvmap)
+
+allow system_server sysfs_gpu:file r_file_perms;
+allow system_server sysfs_socinfo:file r_file_perms;
+allow system_server sysfs_swap:file r_file_perms;

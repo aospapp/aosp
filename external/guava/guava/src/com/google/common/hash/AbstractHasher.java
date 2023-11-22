@@ -14,7 +14,6 @@
 
 package com.google.common.hash;
 
-import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 
 /**
@@ -37,14 +36,6 @@ abstract class AbstractHasher implements Hasher {
     return putInt(Float.floatToRawIntBits(f));
   }
 
-  /**
-   * @deprecated Use {@link AbstractHasher#putUnencodedChars} instead.
-   */
-  @Deprecated
-  @Override public Hasher putString(CharSequence charSequence) {
-    return putUnencodedChars(charSequence);
-  }
-
   @Override public Hasher putUnencodedChars(CharSequence charSequence) {
     for (int i = 0, len = charSequence.length(); i < len; i++) {
       putChar(charSequence.charAt(i));
@@ -53,10 +44,6 @@ abstract class AbstractHasher implements Hasher {
   }
 
   @Override public Hasher putString(CharSequence charSequence, Charset charset) {
-    try {
-      return putBytes(charSequence.toString().getBytes(charset.name()));
-    } catch (UnsupportedEncodingException e) {
-      throw new AssertionError(e);
-    }
+    return putBytes(charSequence.toString().getBytes(charset));
   }
 }

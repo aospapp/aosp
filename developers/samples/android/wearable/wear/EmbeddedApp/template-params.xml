@@ -23,7 +23,8 @@
     <package>com.example.android.wearable.embeddedapp</package>
 
     <minSdk>18</minSdk>
-    <targetSdkVersion>22</targetSdkVersion>
+    <targetSdkVersion>23</targetSdkVersion>
+    <targetSdkVersionWear>22</targetSdkVersionWear>
 
     <wearable>
         <has_handheld_app>true</has_handheld_app>
@@ -41,7 +42,7 @@
     <template src="Wear"/>
 
     <metadata>
-        <status>PUBLISHED</status>
+        <status>DEPRECATED</status>
         <categories>Wearable</categories>
         <technologies>Android</technologies>
         <languages>Java</languages>

@@ -73,7 +73,7 @@ page.title=3A Modes and State Transition
   triggered.<br/>
   AF_MODE_CONTINUOUS_VIDEO: Smooth continuous focusing, for recording video. 
   Triggering immediately locks focus in current position. Canceling resumes 
-  cotinuous focusing.<br/>
+  continuous focusing.<br/>
   AF_MODE_CONTINUOUS_PICTURE: Fast continuous focusing, for zero-shutter-lag still 
   capture. Triggering locks focus once currently active sweep concludes. Canceling 
   resumes continuous focusing.<br/>

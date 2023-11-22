@@ -11,9 +11,9 @@
 #define GrPaint_DEFINED
 
 #include "GrColor.h"
-#include "GrFragmentStage.h"
 #include "GrXferProcessor.h"
 #include "effects/GrPorterDuffXferProcessor.h"
+#include "GrFragmentProcessor.h"
 
 #include "SkRegion.h"
 #include "SkXfermode.h"
@@ -42,7 +42,7 @@ public:
 
     GrPaint(const GrPaint& paint) { *this = paint; }
 
-    ~GrPaint() {}
+    ~GrPaint() { this->resetFragmentProcessors();  }
 
     /**
      * The initial color of the drawn primitive. Defaults to solid white.
@@ -56,14 +56,8 @@ public:
     void setAntiAlias(bool aa) { fAntiAlias = aa; }
     bool isAntiAlias() const { return fAntiAlias; }
 
-    /**
-     * Should dithering be applied. Defaults to false.
-     */
-    void setDither(bool dither) { fDither = dither; }
-    bool isDither() const { return fDither; }
-
     const GrXPFactory* setXPFactory(const GrXPFactory* xpFactory) {
-        fXPFactory.reset(SkRef(xpFactory));
+        fXPFactory.reset(SkSafeRef(xpFactory));
         return xpFactory;
     }
 
@@ -76,18 +70,18 @@ public:
     /**
      * Appends an additional color processor to the color computation.
      */
-    const GrFragmentProcessor* addColorProcessor(const GrFragmentProcessor* fp) {
+    const GrFragmentProcessor* addColorFragmentProcessor(const GrFragmentProcessor* fp) {
         SkASSERT(fp);
-        SkNEW_APPEND_TO_TARRAY(&fColorStages, GrFragmentStage, (fp));
+        fColorFragmentProcessors.push_back(SkRef(fp));
         return fp;
     }
 
     /**
      * Appends an additional coverage processor to the coverage computation.
      */
-    const GrFragmentProcessor* addCoverageProcessor(const GrFragmentProcessor* fp) {
+    const GrFragmentProcessor* addCoverageFragmentProcessor(const GrFragmentProcessor* fp) {
         SkASSERT(fp);
-        SkNEW_APPEND_TO_TARRAY(&fCoverageStages, GrFragmentStage, (fp));
+        fCoverageFragmentProcessors.push_back(SkRef(fp));
         return fp;
     }
 
@@ -100,49 +94,68 @@ public:
     void addColorTextureProcessor(GrTexture*, const SkMatrix&, const GrTextureParams&);
     void addCoverageTextureProcessor(GrTexture*, const SkMatrix&, const GrTextureParams&);
 
-    int numColorStages() const { return fColorStages.count(); }
-    int numCoverageStages() const { return fCoverageStages.count(); }
-    int numTotalStages() const { return this->numColorStages() + this->numCoverageStages(); }
+    int numColorFragmentProcessors() const { return fColorFragmentProcessors.count(); }
+    int numCoverageFragmentProcessors() const { return fCoverageFragmentProcessors.count(); }
+    int numTotalFragmentProcessors() const { return this->numColorFragmentProcessors() +
+                                              this->numCoverageFragmentProcessors(); }
 
     const GrXPFactory* getXPFactory() const {
-        if (!fXPFactory) {
-            fXPFactory.reset(GrPorterDuffXPFactory::Create(SkXfermode::kSrc_Mode));
-        }
-        return fXPFactory.get();
+        return fXPFactory;
     }
 
-    const GrFragmentStage& getColorStage(int s) const { return fColorStages[s]; }
-    const GrFragmentStage& getCoverageStage(int s) const { return fCoverageStages[s]; }
+    const GrFragmentProcessor* getColorFragmentProcessor(int i) const {
+        return fColorFragmentProcessors[i];
+    }
+    const GrFragmentProcessor* getCoverageFragmentProcessor(int i) const {
+        return fCoverageFragmentProcessors[i];
+    }
 
     GrPaint& operator=(const GrPaint& paint) {
         fAntiAlias = paint.fAntiAlias;
-        fDither = paint.fDither;
 
         fColor = paint.fColor;
+        this->resetFragmentProcessors();
+        fColorFragmentProcessors = paint.fColorFragmentProcessors;
+        fCoverageFragmentProcessors = paint.fCoverageFragmentProcessors;
+        for (int i = 0; i < fColorFragmentProcessors.count(); ++i) {
+            fColorFragmentProcessors[i]->ref();
+        }
+        for (int i = 0; i < fCoverageFragmentProcessors.count(); ++i) {
+            fCoverageFragmentProcessors[i]->ref();
+        }
 
-        fColorStages = paint.fColorStages;
-        fCoverageStages = paint.fCoverageStages;
-
-        fXPFactory.reset(SkRef(paint.getXPFactory()));
+        fXPFactory.reset(SkSafeRef(paint.getXPFactory()));
 
         return *this;
     }
 
     /**
-     * Returns true if isOpaque would return true and the paint represents a solid constant color
-     * draw. If the result is true, constantColor will be updated to contain the constant color.
+     * Returns true if the paint's output color will be constant after blending. If the result is
+     * true, constantColor will be updated to contain the constant color. Note that we can conflate
+     * coverage and color, so the actual values written to pixels with partial coverage may still
+     * not seem constant, even if this function returns true.
      */
-    bool isOpaqueAndConstantColor(GrColor* constantColor) const;
+    bool isConstantBlendedColor(GrColor* constantColor) const;
 
 private:
-    mutable SkAutoTUnref<const GrXPFactory> fXPFactory;
-    SkSTArray<4, GrFragmentStage>   fColorStages;
-    SkSTArray<2, GrFragmentStage>   fCoverageStages;
+    void resetFragmentProcessors() {
+        for (int i = 0; i < fColorFragmentProcessors.count(); ++i) {
+            fColorFragmentProcessors[i]->unref();
+        }
+        for (int i = 0; i < fCoverageFragmentProcessors.count(); ++i) {
+            fCoverageFragmentProcessors[i]->unref();
+        }
+        fColorFragmentProcessors.reset();
+        fCoverageFragmentProcessors.reset();
+    }
 
-    bool                            fAntiAlias;
-    bool                            fDither;
+    mutable SkAutoTUnref<const GrXPFactory>         fXPFactory;
+    SkSTArray<4, const GrFragmentProcessor*, true>  fColorFragmentProcessors;
+    SkSTArray<2, const GrFragmentProcessor*, true>  fCoverageFragmentProcessors;
 
-    GrColor                         fColor;
+    bool                                            fAntiAlias;
+
+    GrColor                                         fColor;
 };
 
 #endif

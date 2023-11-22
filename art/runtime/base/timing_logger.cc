@@ -15,15 +15,14 @@
  */
 
 
-#define ATRACE_TAG ATRACE_TAG_DALVIK
 #include <stdio.h>
-#include <cutils/trace.h>
 
 #include "timing_logger.h"
 
 #include "base/logging.h"
 #include "base/stl_util.h"
 #include "base/histogram-inl.h"
+#include "base/systrace.h"
 #include "base/time_utils.h"
 #include "thread-inl.h"
 
@@ -125,7 +124,7 @@ void CumulativeLogger::DumpHistogram(std::ostream &os) const {
     histogram->CreateHistogram(&cumulative_data);
     histogram->PrintConfidenceIntervals(os, 0.99, cumulative_data);
   }
-  os << "Done Dumping histograms \n";
+  os << "Done Dumping histograms\n";
 }
 
 TimingLogger::TimingLogger(const char* name, bool precise, bool verbose)

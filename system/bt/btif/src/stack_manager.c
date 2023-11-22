@@ -18,17 +18,18 @@
 
 #define LOG_TAG "bt_stack_manager"
 
+#include "stack_manager.h"
+
 #include <hardware/bluetooth.h>
 
+#include "btcore/include/module.h"
+#include "btcore/include/osi_module.h"
 #include "btif_api.h"
 #include "btif_common.h"
 #include "device/include/controller.h"
-#include "btcore/include/module.h"
-#include "btcore/include/osi_module.h"
-#include "osi/include/osi.h"
 #include "osi/include/log.h"
+#include "osi/include/osi.h"
 #include "osi/include/semaphore.h"
-#include "stack_manager.h"
 #include "osi/include/thread.h"
 
 // Temp includes
@@ -62,7 +63,9 @@ void btif_thread_post(thread_fn func, void *context);
 
 static void init_stack(void) {
   // This is a synchronous process. Post it to the thread though, so
-  // state modification only happens there.
+  // state modification only happens there. Using the thread to perform
+  // all stack operations ensures that the operations are done serially
+  // and do not overlap.
   semaphore_t *semaphore = semaphore_new(0);
   thread_post(management_thread, event_init_stack, semaphore);
   semaphore_wait(semaphore);
@@ -77,8 +80,13 @@ static void shut_down_stack_async(void) {
   thread_post(management_thread, event_shut_down_stack, NULL);
 }
 
-static void clean_up_stack_async(void) {
-  thread_post(management_thread, event_clean_up_stack, NULL);
+static void clean_up_stack(void) {
+  // This is a synchronous process. Post it to the thread though, so
+  // state modification only happens there.
+  semaphore_t *semaphore = semaphore_new(0);
+  thread_post(management_thread, event_clean_up_stack, semaphore);
+  semaphore_wait(semaphore);
+  semaphore_free(semaphore);
 }
 
 static bool get_stack_is_running(void) {
@@ -91,9 +99,15 @@ static bool get_stack_is_running(void) {
 static void event_init_stack(void *context) {
   semaphore_t *semaphore = (semaphore_t *)context;
 
-  if (!stack_is_initialized) {
+  LOG_INFO(LOG_TAG, "%s is initializing the stack", __func__);
+
+ if (stack_is_initialized) {
+   LOG_INFO(LOG_TAG, "%s found the stack already in initialized state",
+            __func__);
+ } else {
     module_management_start();
 
+    module_init(get_module(OSI_MODULE));
     module_init(get_module(BT_UTILS_MODULE));
     module_init(get_module(BTIF_CONFIG_MODULE));
     btif_init_bluetooth();
@@ -102,13 +116,15 @@ static void event_init_stack(void *context) {
     stack_is_initialized = true;
   }
 
+  LOG_INFO(LOG_TAG, "%s finished", __func__);
+
   if (semaphore)
     semaphore_post(semaphore);
 }
 
 static void ensure_stack_is_initialized(void) {
   if (!stack_is_initialized) {
-    LOG_WARN("%s found the stack was uninitialized. Initializing now.", __func__);
+    LOG_WARN(LOG_TAG, "%s found the stack was uninitialized. Initializing now.", __func__);
     // No semaphore needed since we are calling it directly
     event_init_stack(NULL);
   }
@@ -117,79 +133,86 @@ static void ensure_stack_is_initialized(void) {
 // Synchronous function to start up the stack
 static void event_start_up_stack(UNUSED_ATTR void *context) {
   if (stack_is_running) {
-    LOG_DEBUG("%s stack already brought up.", __func__);
+    LOG_INFO(LOG_TAG, "%s stack already brought up", __func__);
     return;
   }
 
   ensure_stack_is_initialized();
 
-  LOG_DEBUG("%s is bringing up the stack.", __func__);
-  hack_future = future_new();
+  LOG_INFO(LOG_TAG, "%s is bringing up the stack", __func__);
+  future_t *local_hack_future = future_new();
+  hack_future = local_hack_future;
 
   // Include this for now to put btif config into a shutdown-able state
   module_start_up(get_module(BTIF_CONFIG_MODULE));
   bte_main_enable();
 
-  if (future_await(hack_future) != FUTURE_SUCCESS) {
+  if (future_await(local_hack_future) != FUTURE_SUCCESS) {
+    LOG_ERROR(LOG_TAG, "%s failed to start up the stack", __func__);
     stack_is_running = true; // So stack shutdown actually happens
     event_shut_down_stack(NULL);
     return;
   }
 
   stack_is_running = true;
-  LOG_DEBUG("%s finished", __func__);
+  LOG_INFO(LOG_TAG, "%s finished", __func__);
   btif_thread_post(event_signal_stack_up, NULL);
 }
 
 // Synchronous function to shut down the stack
 static void event_shut_down_stack(UNUSED_ATTR void *context) {
   if (!stack_is_running) {
-    LOG_DEBUG("%s stack is already brought down.", __func__);
+    LOG_INFO(LOG_TAG, "%s stack is already brought down", __func__);
     return;
   }
 
-  LOG_DEBUG("%s is bringing down the stack.", __func__);
-  hack_future = future_new();
+  LOG_INFO(LOG_TAG, "%s is bringing down the stack", __func__);
+  future_t *local_hack_future = future_new();
+  hack_future = local_hack_future;
   stack_is_running = false;
 
   btif_disable_bluetooth();
   module_shut_down(get_module(BTIF_CONFIG_MODULE));
 
-  future_await(hack_future);
+  future_await(local_hack_future);
   module_shut_down(get_module(CONTROLLER_MODULE)); // Doesn't do any work, just puts it in a restartable state
 
-  LOG_DEBUG("%s finished.", __func__);
+  LOG_INFO(LOG_TAG, "%s finished", __func__);
   btif_thread_post(event_signal_stack_down, NULL);
 }
 
 static void ensure_stack_is_not_running(void) {
   if (stack_is_running) {
-    LOG_WARN("%s found the stack was still running. Bringing it down now.", __func__);
+    LOG_WARN(LOG_TAG, "%s found the stack was still running. Bringing it down now.", __func__);
     event_shut_down_stack(NULL);
   }
 }
 
 // Synchronous function to clean up the stack
-static void event_clean_up_stack(UNUSED_ATTR void *context) {
+static void event_clean_up_stack(void *context) {
   if (!stack_is_initialized) {
-    LOG_DEBUG("%s found the stack already in a clean state.", __func__);
-    return;
+    LOG_INFO(LOG_TAG, "%s found the stack already in a clean state", __func__);
+    goto cleanup;
   }
 
   ensure_stack_is_not_running();
 
-  LOG_DEBUG("%s is cleaning up the stack.", __func__);
-  hack_future = future_new();
+  LOG_INFO(LOG_TAG, "%s is cleaning up the stack", __func__);
+  future_t *local_hack_future = future_new();
+  hack_future = local_hack_future;
   stack_is_initialized = false;
 
-  btif_shutdown_bluetooth();
+  btif_cleanup_bluetooth();
   module_clean_up(get_module(BTIF_CONFIG_MODULE));
   module_clean_up(get_module(BT_UTILS_MODULE));
-
-  future_await(hack_future);
   module_clean_up(get_module(OSI_MODULE));
   module_management_stop();
-  LOG_DEBUG("%s finished.", __func__);
+  LOG_INFO(LOG_TAG, "%s finished", __func__);
+
+cleanup:;
+  semaphore_t *semaphore = (semaphore_t *)context;
+  if (semaphore)
+    semaphore_post(semaphore);
 }
 
 static void event_signal_stack_up(UNUSED_ATTR void *context) {
@@ -209,7 +232,7 @@ static void ensure_manager_initialized(void) {
 
   management_thread = thread_new("stack_manager");
   if (!management_thread) {
-    LOG_ERROR("%s unable to create stack management thread.", __func__);
+    LOG_ERROR(LOG_TAG, "%s unable to create stack management thread", __func__);
     return;
   }
 }
@@ -218,7 +241,7 @@ static const stack_manager_t interface = {
   init_stack,
   start_up_stack_async,
   shut_down_stack_async,
-  clean_up_stack_async,
+  clean_up_stack,
 
   get_stack_is_running
 };

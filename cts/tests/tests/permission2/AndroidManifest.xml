@@ -16,7 +16,7 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.permission2">
+    package="android.permission2.cts">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <application>
@@ -63,7 +63,7 @@
             android:maxSdkVersion="9000" />
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.permission2"
+                     android:targetPackage="android.permission2.cts"
                      android:label="More CTS tests for permissions">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

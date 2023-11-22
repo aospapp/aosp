@@ -16,11 +16,12 @@
 package android.uirendering.cts.testinfrastructure;
 
 import android.annotation.Nullable;
+import android.app.Instrumentation;
 import android.graphics.Bitmap;
 import android.graphics.Point;
 import android.renderscript.Allocation;
 import android.renderscript.RenderScript;
-import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.rule.ActivityTestRule;
 import android.uirendering.cts.bitmapcomparers.BitmapComparer;
 import android.uirendering.cts.bitmapverifiers.BitmapVerifier;
 import android.uirendering.cts.differencevisualizers.DifferenceVisualizer;
@@ -29,18 +30,24 @@ import android.uirendering.cts.util.BitmapDumper;
 import android.util.Log;
 
 import android.support.test.InstrumentationRegistry;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.rules.TestName;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
+import static org.junit.Assert.assertTrue;
 
 /**
  * This class contains the basis for the graphics hardware test classes. Contained within this class
  * are several methods that help with the execution of tests, and should be extended to gain the
  * functionality built in.
  */
-public abstract class ActivityTestBase extends
-        ActivityInstrumentationTestCase2<DrawActivity> {
+public abstract class ActivityTestBase {
     public static final String TAG = "ActivityTestBase";
     public static final boolean DEBUG = false;
     public static final boolean USE_RS = false;
@@ -49,20 +56,24 @@ public abstract class ActivityTestBase extends
     public static final int TEST_WIDTH = 90;
     public static final int TEST_HEIGHT = 90;
 
-    public static final int MAX_SCREEN_SHOTS = 100;
-
     private int[] mHardwareArray = new int[TEST_HEIGHT * TEST_WIDTH];
     private int[] mSoftwareArray = new int[TEST_HEIGHT * TEST_WIDTH];
     private DifferenceVisualizer mDifferenceVisualizer;
     private RenderScript mRenderScript;
     private TestCaseBuilder mTestCaseBuilder;
 
+    @Rule
+    public ActivityTestRule<DrawActivity> mActivityRule = new ActivityTestRule<>(
+            DrawActivity.class);
+
+    @Rule
+    public TestName name = new TestName();
+
     /**
      * The default constructor creates the package name and sets the DrawActivity as the class that
      * we would use.
      */
     public ActivityTestBase() {
-        super(DrawActivity.class);
         mDifferenceVisualizer = new PassFailVisualizer();
 
         // Create a location for the files to be held, if it doesn't exist already
@@ -74,26 +85,27 @@ public abstract class ActivityTestBase extends
         }
     }
 
-    /**
-     * This method is called before each test case and should be called from the test class that
-     * extends this class.
-     */
-    @Override
+    protected DrawActivity getActivity() {
+        return mActivityRule.getActivity();
+    }
+
+    protected String getName() {
+        return name.getMethodName();
+    }
+
+    protected Instrumentation getInstrumentation() {
+        return InstrumentationRegistry.getInstrumentation();
+    }
+
+    @Before
     public void setUp() {
-        // As the way to access Instrumentation is changed in the new runner, we need to inject it
-        // manually into ActivityInstrumentationTestCase2. ActivityInstrumentationTestCase2 will
-        // be marked as deprecated and replaced with ActivityTestRule.
-        injectInstrumentation(InstrumentationRegistry.getInstrumentation());
         mDifferenceVisualizer = new PassFailVisualizer();
         if (USE_RS) {
             mRenderScript = RenderScript.create(getActivity().getApplicationContext());
         }
     }
 
-    /**
-     * This method will kill the activity so that it can be reset depending on the test.
-     */
-    @Override
+    @After
     public void tearDown() {
         if (mTestCaseBuilder != null) {
             List<TestCase> testCases = mTestCaseBuilder.getTestCases();
@@ -101,7 +113,6 @@ public abstract class ActivityTestBase extends
             if (testCases.size() == 0) {
                 throw new IllegalStateException("Must have at least one test case");
             }
-
 
             for (TestCase testCase : testCases) {
                 if (!testCase.wasTestRan) {
@@ -111,59 +122,34 @@ public abstract class ActivityTestBase extends
             }
             mTestCaseBuilder = null;
         }
-
-        Runnable finishRunnable = new Runnable() {
-
-            @Override
-            public void run() {
-                getActivity().finish();
-            }
-        };
-
-        getActivity().runOnUiThread(finishRunnable);
-    }
-
-    static int[] getBitmapPixels(Bitmap bitmap) {
-        int[] pixels = new int[bitmap.getWidth() * bitmap.getHeight()];
-        bitmap.getPixels(pixels, 0, bitmap.getWidth(),
-                0, 0, bitmap.getWidth(), bitmap.getHeight());
-        return pixels;
-    }
-
-    private Bitmap takeScreenshotImpl(Point testOffset) {
-        Bitmap source = getInstrumentation().getUiAutomation().takeScreenshot();
-        return Bitmap.createBitmap(source, testOffset.x, testOffset.y, TEST_WIDTH, TEST_HEIGHT);
     }
 
     public Bitmap takeScreenshot(Point testOffset) {
         getInstrumentation().waitForIdleSync();
-        Bitmap bitmap1 = takeScreenshotImpl(testOffset);
-        Bitmap bitmap2;
-        int count = 0;
-        do  {
-            bitmap2 = bitmap1;
-            bitmap1 = takeScreenshotImpl(testOffset);
-            count++;
-        } while (count < MAX_SCREEN_SHOTS &&
-                !Arrays.equals(getBitmapPixels(bitmap2), getBitmapPixels(bitmap1)));
-        return bitmap1;
+        Bitmap source = getInstrumentation().getUiAutomation().takeScreenshot();
+        return Bitmap.createBitmap(source, testOffset.x, testOffset.y, TEST_WIDTH, TEST_HEIGHT);
     }
 
-    /**
-     * Sets the current DifferenceVisualizer for use in current test.
-     */
-    public void setDifferenceVisualizer(DifferenceVisualizer differenceVisualizer) {
-        mDifferenceVisualizer = differenceVisualizer;
+    protected Point runRenderSpec(TestCase testCase) {
+        Point testOffset = getActivity().enqueueRenderSpecAndWait(
+                testCase.layoutID, testCase.canvasClient,
+                null, testCase.viewInitializer, testCase.useHardware);
+        testCase.wasTestRan = true;
+        if (testCase.readyFence != null) {
+            try {
+                testCase.readyFence.await(5, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                throw new RuntimeException("readyFence didn't signal within 5 seconds");
+            }
+        }
+        return testOffset;
     }
 
     /**
      * Used to execute a specific part of a test and get the resultant bitmap
      */
     protected Bitmap captureRenderSpec(TestCase testCase) {
-        Point testOffset = getActivity().enqueueRenderSpecAndWait(
-                testCase.layoutID, testCase.canvasClient,
-                testCase.webViewUrl, testCase.viewInitializer, testCase.useHardware);
-        testCase.wasTestRan = true;
+        Point testOffset = runRenderSpec(testCase);
         return takeScreenshot(testOffset);
     }
 
@@ -227,7 +213,7 @@ public abstract class ActivityTestBase extends
         private List<TestCase> mTestCases;
 
         private TestCaseBuilder() {
-            mTestCases = new ArrayList<TestCase>();
+            mTestCases = new ArrayList<>();
         }
 
         /**
@@ -263,6 +249,37 @@ public abstract class ActivityTestBase extends
             }
         }
 
+        private static final int VERIFY_ANIMATION_LOOP_COUNT = 20;
+        private static final int VERIFY_ANIMATION_SLEEP_MS = 100;
+
+        /**
+         * Runs a test where each testcase is independent of the others and each is checked against
+         * the verifier given in a loop.
+         *
+         * A screenshot is captured several times in a loop, to ensure that valid output is produced
+         * at many different times during the animation.
+         */
+        public void runWithAnimationVerifier(BitmapVerifier bitmapVerifier) {
+            if (mTestCases.size() == 0) {
+                throw new IllegalStateException("Need at least one test to run");
+            }
+
+            for (TestCase testCase : mTestCases) {
+                Point testOffset = runRenderSpec(testCase);
+
+                for (int i = 0; i < VERIFY_ANIMATION_LOOP_COUNT; i++) {
+                    try {
+                        Thread.sleep(VERIFY_ANIMATION_SLEEP_MS);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    Bitmap testCaseBitmap = takeScreenshot(testOffset);
+                    assertBitmapIsVerified(testCaseBitmap, bitmapVerifier,
+                            testCase.getDebugString());
+                }
+            }
+        }
+
         /**
          * Runs a test where each testcase is run without verification. Should only be used
          * where custom CanvasClients, Views, or ViewInitializers do their own internal
@@ -277,36 +294,41 @@ public abstract class ActivityTestBase extends
             });
         }
 
-        public TestCaseBuilder addWebView(String webViewUrl,
-                @Nullable ViewInitializer viewInitializer) {
-            return addWebView(webViewUrl, viewInitializer, false)
-                    .addWebView(webViewUrl, viewInitializer, true);
-        }
-
         public TestCaseBuilder addLayout(int layoutId, @Nullable ViewInitializer viewInitializer) {
             return addLayout(layoutId, viewInitializer, false)
                     .addLayout(layoutId, viewInitializer, true);
         }
 
-        public TestCaseBuilder addCanvasClient(CanvasClient canvasClient) {
-            return addCanvasClient(canvasClient, false)
-                    .addCanvasClient(canvasClient, true);
-        }
-
-        public TestCaseBuilder addWebView(String webViewUrl,
-                @Nullable ViewInitializer viewInitializer, boolean useHardware) {
-            mTestCases.add(new TestCase(null, 0, webViewUrl, viewInitializer, useHardware));
+        public TestCaseBuilder addLayout(int layoutId, @Nullable ViewInitializer viewInitializer,
+                                         boolean useHardware) {
+            mTestCases.add(new TestCase(layoutId, viewInitializer, useHardware));
             return this;
         }
 
         public TestCaseBuilder addLayout(int layoutId, @Nullable ViewInitializer viewInitializer,
-                boolean useHardware) {
-            mTestCases.add(new TestCase(null, layoutId, null, viewInitializer, useHardware));
+                boolean useHardware, CountDownLatch readyFence) {
+            TestCase test = new TestCase(layoutId, viewInitializer, useHardware);
+            test.readyFence = readyFence;
+            mTestCases.add(test);
             return this;
         }
 
+        public TestCaseBuilder addCanvasClient(CanvasClient canvasClient) {
+            return addCanvasClient(null, canvasClient);
+        }
+
         public TestCaseBuilder addCanvasClient(CanvasClient canvasClient, boolean useHardware) {
-            mTestCases.add(new TestCase(canvasClient, 0, null, null, useHardware));
+            return addCanvasClient(null, canvasClient, useHardware);
+        }
+
+        public TestCaseBuilder addCanvasClient(String debugString, CanvasClient canvasClient) {
+            return addCanvasClient(debugString, canvasClient, false)
+                    .addCanvasClient(debugString, canvasClient, true);
+        }
+
+        public TestCaseBuilder addCanvasClient(String debugString,
+                    CanvasClient canvasClient, boolean useHardware) {
+            mTestCases.add(new TestCase(canvasClient, debugString, useHardware));
             return this;
         }
 
@@ -317,39 +339,40 @@ public abstract class ActivityTestBase extends
 
     private class TestCase {
         public int layoutID;
-        public CanvasClient canvasClient;
-        public String webViewUrl;
         public ViewInitializer viewInitializer;
-        public boolean useHardware;
-        public boolean wasTestRan;
+        /** After launching the test case this fence is used to signal when
+         * to proceed with capture & verification. If this is null the test
+         * proceeds immediately to verification */
+        @Nullable
+        public CountDownLatch readyFence;
 
-        public TestCase(CanvasClient client, int id, String viewUrl,
-                ViewInitializer viewInitializer, boolean useHardware) {
-            int count = 0;
-            count += (client == null ? 0 : 1);
-            count += (viewUrl == null ? 0 : 1);
-            count += (id == 0 ? 0 : 1);
-            assert(count == 1);
-            assert(client == null || viewInitializer == null);
-            this.layoutID = id;
-            this.canvasClient = client;
-            this.webViewUrl = viewUrl;
+        public CanvasClient canvasClient;
+        public String canvasClientDebugString;
+
+        public boolean useHardware;
+        public boolean wasTestRan = false;
+
+        public TestCase(int layoutId, ViewInitializer viewInitializer, boolean useHardware) {
+            this.layoutID = layoutId;
             this.viewInitializer = viewInitializer;
             this.useHardware = useHardware;
-            this.wasTestRan = false;
+        }
+
+        public TestCase(CanvasClient client, String debugString, boolean useHardware) {
+            this.canvasClient = client;
+            this.canvasClientDebugString = debugString;
+            this.useHardware = useHardware;
         }
 
         public String getDebugString() {
             String debug = "";
             if (canvasClient != null) {
                 debug += "CanvasClient : ";
-                if (canvasClient.getDebugString() != null) {
-                    debug += canvasClient.getDebugString();
+                if (canvasClientDebugString != null) {
+                    debug += canvasClientDebugString;
                 } else {
                     debug += "no debug string given";
                 }
-            } else if (webViewUrl != null) {
-                debug += "WebView URL : " + webViewUrl;
             } else {
                 debug += "Layout resource : " +
                         getActivity().getResources().getResourceName(layoutID);

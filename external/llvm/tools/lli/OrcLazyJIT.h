@@ -21,46 +21,38 @@
 #include "llvm/ExecutionEngine/Orc/ExecutionUtils.h"
 #include "llvm/ExecutionEngine/Orc/IRCompileLayer.h"
 #include "llvm/ExecutionEngine/Orc/IRTransformLayer.h"
-#include "llvm/ExecutionEngine/Orc/LazyEmittingLayer.h"
 #include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
 #include "llvm/ExecutionEngine/RTDyldMemoryManager.h"
-#include "llvm/IR/LLVMContext.h"
 
 namespace llvm {
 
 class OrcLazyJIT {
 public:
 
-  typedef orc::JITCompileCallbackManagerBase CompileCallbackMgr;
+  typedef orc::JITCompileCallbackManager CompileCallbackMgr;
   typedef orc::ObjectLinkingLayer<> ObjLayerT;
   typedef orc::IRCompileLayer<ObjLayerT> CompileLayerT;
   typedef std::function<std::unique_ptr<Module>(std::unique_ptr<Module>)>
     TransformFtor;
   typedef orc::IRTransformLayer<CompileLayerT, TransformFtor> IRDumpLayerT;
-  typedef orc::LazyEmittingLayer<IRDumpLayerT> LazyEmitLayerT;
-  typedef orc::CompileOnDemandLayer<LazyEmitLayerT,
-                                    CompileCallbackMgr> CODLayerT;
+  typedef orc::CompileOnDemandLayer<IRDumpLayerT, CompileCallbackMgr> CODLayerT;
+  typedef CODLayerT::IndirectStubsManagerBuilderT
+    IndirectStubsManagerBuilder;
   typedef CODLayerT::ModuleSetHandleT ModuleHandleT;
 
-  typedef std::function<
-            std::unique_ptr<CompileCallbackMgr>(IRDumpLayerT&,
-                                                RuntimeDyld::MemoryManager&,
-                                                LLVMContext&)>
-    CallbackManagerBuilder;
-
-  static CallbackManagerBuilder createCallbackManagerBuilder(Triple T);
-
-  OrcLazyJIT(std::unique_ptr<TargetMachine> TM, LLVMContext &Context,
-             CallbackManagerBuilder &BuildCallbackMgr)
-    : TM(std::move(TM)),
-      Mang(this->TM->getDataLayout()),
-      ObjectLayer(),
-      CompileLayer(ObjectLayer, orc::SimpleCompiler(*this->TM)),
-      IRDumpLayer(CompileLayer, createDebugDumper()),
-      LazyEmitLayer(IRDumpLayer),
-      CCMgr(BuildCallbackMgr(IRDumpLayer, CCMgrMemMgr, Context)),
-      CODLayer(LazyEmitLayer, *CCMgr),
-      CXXRuntimeOverrides([this](const std::string &S) { return mangle(S); }) {}
+  OrcLazyJIT(std::unique_ptr<TargetMachine> TM,
+             std::unique_ptr<CompileCallbackMgr> CCMgr,
+             IndirectStubsManagerBuilder IndirectStubsMgrBuilder,
+             bool InlineStubs)
+      : TM(std::move(TM)), DL(this->TM->createDataLayout()),
+	CCMgr(std::move(CCMgr)),
+	ObjectLayer(),
+        CompileLayer(ObjectLayer, orc::SimpleCompiler(*this->TM)),
+        IRDumpLayer(CompileLayer, createDebugDumper()),
+        CODLayer(IRDumpLayer, extractSingleFunction, *this->CCMgr,
+                 std::move(IndirectStubsMgrBuilder), InlineStubs),
+        CXXRuntimeOverrides(
+            [this](const std::string &S) { return mangle(S); }) {}
 
   ~OrcLazyJIT() {
     // Run any destructors registered with __cxa_atexit.
@@ -70,15 +62,13 @@ public:
       DtorRunner.runViaLayer(CODLayer);
   }
 
-  template <typename PtrTy>
-  static PtrTy fromTargetAddress(orc::TargetAddress Addr) {
-    return reinterpret_cast<PtrTy>(static_cast<uintptr_t>(Addr));
-  }
+  static std::unique_ptr<CompileCallbackMgr> createCompileCallbackMgr(Triple T);
+  static IndirectStubsManagerBuilder createIndirectStubsMgrBuilder(Triple T);
 
   ModuleHandleT addModule(std::unique_ptr<Module> M) {
     // Attach a data-layout if one isn't already present.
     if (M->getDataLayout().isDefault())
-      M->setDataLayout(*TM->getDataLayout());
+      M->setDataLayout(DL);
 
     // Record the static constructors and destructors. We have to do this before
     // we hand over ownership of the module to the JIT.
@@ -92,22 +82,24 @@ public:
     //   1) Search the JIT symbols.
     //   2) Check for C++ runtime overrides.
     //   3) Search the host process (LLI)'s symbol table.
-    auto Resolver =
+    std::shared_ptr<RuntimeDyld::SymbolResolver> Resolver =
       orc::createLambdaResolver(
         [this](const std::string &Name) {
-
           if (auto Sym = CODLayer.findSymbol(Name, true))
-            return RuntimeDyld::SymbolInfo(Sym.getAddress(), Sym.getFlags());
-
+            return RuntimeDyld::SymbolInfo(Sym.getAddress(),
+                                           Sym.getFlags());
           if (auto Sym = CXXRuntimeOverrides.searchOverrides(Name))
             return Sym;
 
-          if (auto Addr = RTDyldMemoryManager::getSymbolAddressInProcess(Name))
+          if (auto Addr =
+              RTDyldMemoryManager::getSymbolAddressInProcess(Name))
             return RuntimeDyld::SymbolInfo(Addr, JITSymbolFlags::Exported);
 
           return RuntimeDyld::SymbolInfo(nullptr);
         },
-        [](const std::string &Name) { return RuntimeDyld::SymbolInfo(nullptr); }
+        [](const std::string &Name) {
+          return RuntimeDyld::SymbolInfo(nullptr);
+        }
       );
 
     // Add the module to the JIT.
@@ -120,8 +112,7 @@ public:
     orc::CtorDtorRunner<CODLayerT> CtorRunner(std::move(CtorNames), H);
     CtorRunner.runViaLayer(CODLayer);
 
-    IRStaticDestructorRunners.push_back(
-        orc::CtorDtorRunner<CODLayerT>(std::move(DtorNames), H));
+    IRStaticDestructorRunners.emplace_back(std::move(DtorNames), H);
 
     return H;
   }
@@ -140,22 +131,27 @@ private:
     std::string MangledName;
     {
       raw_string_ostream MangledNameStream(MangledName);
-      Mang.getNameWithPrefix(MangledNameStream, Name);
+      Mangler::getNameWithPrefix(MangledNameStream, Name, DL);
     }
     return MangledName;
+  }
+
+  static std::set<Function*> extractSingleFunction(Function &F) {
+    std::set<Function*> Partition;
+    Partition.insert(&F);
+    return Partition;
   }
 
   static TransformFtor createDebugDumper();
 
   std::unique_ptr<TargetMachine> TM;
-  Mangler Mang;
+  DataLayout DL;
   SectionMemoryManager CCMgrMemMgr;
 
+  std::unique_ptr<CompileCallbackMgr> CCMgr;
   ObjLayerT ObjectLayer;
   CompileLayerT CompileLayer;
   IRDumpLayerT IRDumpLayer;
-  LazyEmitLayerT LazyEmitLayer;
-  std::unique_ptr<CompileCallbackMgr> CCMgr;
   CODLayerT CODLayer;
 
   orc::LocalCXXRuntimeOverrides CXXRuntimeOverrides;

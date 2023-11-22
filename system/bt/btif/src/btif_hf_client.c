@@ -26,19 +26,21 @@
  *
  ***********************************************************************************/
 
-#include <hardware/bluetooth.h>
-#include <hardware/bt_hf_client.h>
+#define LOG_TAG "bt_btif_hfc"
+
 #include <stdlib.h>
 #include <string.h>
-#include <cutils/properties.h>
 
-#define LOG_TAG "bt_btif_hfc"
-#include "btif_common.h"
-#include "btif_util.h"
-#include "btif_profile_queue.h"
+#include <hardware/bluetooth.h>
+#include <hardware/bt_hf_client.h>
+
 #include "bt_utils.h"
-#include "btcore/include/bdaddr.h"
 #include "bta_hf_client_api.h"
+#include "btcore/include/bdaddr.h"
+#include "btif_common.h"
+#include "btif_profile_queue.h"
+#include "btif_util.h"
+#include "osi/include/properties.h"
 
 /************************************************************************************
 **  Constants & Macros
@@ -71,9 +73,9 @@
 **  Static variables
 ************************************************************************************/
 static bthf_client_callbacks_t *bt_hf_client_callbacks = NULL;
-char   btif_hf_client_version[PROPERTY_VALUE_MAX];
 static UINT32 btif_hf_client_features = 0;
 
+char btif_hf_client_version[PROPERTY_VALUE_MAX];
 
 #define CHECK_BTHF_CLIENT_INIT() if (bt_hf_client_callbacks == NULL)\
     {\
@@ -114,7 +116,6 @@ typedef struct
 } btif_hf_client_cb_t;
 
 static btif_hf_client_cb_t btif_hf_client_cb;
-
 
 /************************************************************************************
 **  Static functions
@@ -271,7 +272,8 @@ static bt_status_t connect_audio( bt_bdaddr_t *bd_addr )
 
     if (is_connected(bd_addr))
     {
-        if (btif_hf_client_cb.peer_feat & BTA_HF_CLIENT_PEER_CODEC)
+        if ((BTIF_HF_CLIENT_FEATURES & BTA_HF_CLIENT_FEAT_CODEC) &&
+                (btif_hf_client_cb.peer_feat & BTA_HF_CLIENT_PEER_CODEC))
         {
             BTA_HfClientSendAT(btif_hf_client_cb.handle, BTA_HF_CLIENT_AT_CMD_BCC, 0, 0, NULL);
         }
@@ -937,7 +939,7 @@ bt_status_t btif_hf_client_execute_service(BOOLEAN b_enable)
 {
     BTIF_TRACE_EVENT("%s enable:%d", __FUNCTION__, b_enable);
 
-    property_get("ro.bluetooth.hfp.ver", btif_hf_client_version, "1.5");
+    osi_property_get("ro.bluetooth.hfp.ver", btif_hf_client_version, "1.5");
 
      if (b_enable)
      {

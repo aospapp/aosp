@@ -18,59 +18,65 @@ package com.android.compatibility.common.deviceinfo;
 import android.os.Bundle;
 
 import java.lang.StringBuilder;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+
+import com.android.compatibility.common.util.DeviceInfoStore;
 
 /**
- * Collector for testing DeviceInfoActivity
+ * Collector for testing DeviceInfo
  */
-public class TestDeviceInfo extends DeviceInfoActivity {
+public class TestDeviceInfo extends DeviceInfo {
 
     @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    protected void setUp() throws Exception {
+        mActivityList = new HashSet<String>();
+        mActivityList.add(getClass().getName());
     }
 
     @Override
-    protected void collectDeviceInfo() {
+    protected void collectDeviceInfo(DeviceInfoStore store) throws Exception {
 
         // Test primitive results
-        addResult("test_boolean", true);
-        addResult("test_double", 1.23456789);
-        addResult("test_int", 123456789);
-        addResult("test_long", Long.MAX_VALUE);
-        addResult("test_string", "test string");
-        addArray("test_strings", new String[] {
-            "test string 1",
-            "test string 2",
-            "test string 3",
-        });
+        store.addResult("test_boolean", true);
+        store.addResult("test_double", 1.23456789);
+        store.addResult("test_int", 123456789);
+        store.addResult("test_long", Long.MAX_VALUE);
+        store.addResult("test_string", "test string");
+        List<String> list = new ArrayList<>();
+        list.add("test string 1");
+        list.add("test string 2");
+        list.add("test string 3");
+        store.addListResult("test_strings", list);
 
         // Test group
-        startGroup("test_group");
-        addResult("test_boolean", false);
-        addResult("test_double", 9.87654321);
-        addResult("test_int", 987654321);
-        addResult("test_long", Long.MAX_VALUE);
-        addResult("test_string", "test group string");
-        addArray("test_strings", new String[] {
-            "test group string 1",
-            "test group string 2",
-            "test group string 3"
-        });
-        endGroup(); // test_group
+        store.startGroup("test_group");
+        store.addResult("test_boolean", false);
+        store.addResult("test_double", 9.87654321);
+        store.addResult("test_int", 987654321);
+        store.addResult("test_long", Long.MAX_VALUE);
+        store.addResult("test_string", "test group string");
+        list = new ArrayList<>();
+        list.add("test group string 1");
+        list.add("test group string 2");
+        list.add("test group string 3");
+        store.addListResult("test_strings", list);
+        store.endGroup(); // test_group
 
         // Test array of groups
-        startArray("test_groups");
+        store.startArray("test_groups");
         for (int i = 1; i < 4; i++) {
-            startGroup();
-            addResult("test_string", "test groups string " + i);
-            addArray("test_strings", new String[] {
-                "test groups string " + i + "-1",
-                "test groups string " + i + "-2",
-                "test groups string " + i + "-3"
-            });
-            endGroup();
+            store.startGroup();
+            store.addResult("test_string", "test groups string " + i);
+            list = new ArrayList<>();
+            list.add("test groups string " + i + "-1");
+            list.add("test groups string " + i + "-2");
+            list.add("test groups string " + i + "-3");
+            store.addListResult("test_strings", list);
+            store.endGroup();
         }
-        endArray(); // test_groups
+        store.endArray(); // test_groups
 
         // Test max
         StringBuilder sb = new StringBuilder();
@@ -79,7 +85,7 @@ public class TestDeviceInfo extends DeviceInfoActivity {
             sb.append("a");
             arr[i] = i;
         }
-        addResult("max_length_string", sb.toString());
-        addArray("max_num_ints", arr);
+        store.addResult("max_length_string", sb.toString());
+        store.addArrayResult("max_num_ints", arr);
     }
 }

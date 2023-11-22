@@ -72,13 +72,6 @@ icu4j_config_root := $(LOCAL_PATH)/main/classes/core/src
 include external/icu/icu4j/adjust_icudt_path.mk
 
 include $(CLEAR_VARS)
-LOCAL_STATIC_JAVA_LIBRARIES := icu4j
-LOCAL_DONT_DELETE_JAR_DIRS := true
-LOCAL_MODULE := icu4j-jarjar
-LOCAL_JARJAR_RULES := $(TOP)/libcore/jarjar-rules.txt
-include $(BUILD_STATIC_JAVA_LIBRARY)
-
-include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(icu4j_src_files)
 LOCAL_JAVA_RESOURCE_DIRS := $(icu4j_resource_dirs)
 LOCAL_STATIC_JAVA_LIBRARIES := icu4j-icudata-host icu4j-icutzdata-host
@@ -109,6 +102,12 @@ $(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_EXTRA_JAR_ARGS += \
     -C "$(LOCAL_PATH)/main/tests/core/src" \
     "com/ibm/icu/dev/test/serializable/data"
 
+#==========================================================
+# build ICU tests for host for testing purposes
+#
+# Run the tests using the ICU4J test framework with the following command:
+#   java -cp ${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/icu4j-host.jar:${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/icu4j-tests-host.jar com.ibm.icu.dev.test.TestAll
+#==========================================================
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(icu4j_test_src_files)
 LOCAL_JAVA_RESOURCE_DIRS := $(icu4j_test_resource_dirs)
@@ -141,15 +140,13 @@ endif  # HOST_OS == linux
 # LayoutLib (frameworks/base/tools/layoutlib) needs JarJar'd versions of the
 # icudata and icutzdata, so add rules for it.
 include $(CLEAR_VARS)
-LOCAL_STATIC_JAVA_LIBRARIES := icu4j-icudata
-LOCAL_JARJAR_RULES := $(TOP)/libcore/jarjar-rules.txt
-LOCAL_JACK_ENABLED := disabled
-LOCAL_MODULE := icu4j-icudata-jarjar
-include $(BUILD_STATIC_JAVA_LIBRARY)
+LOCAL_STATIC_JAVA_LIBRARIES := icu4j-icudata-host
+LOCAL_JARJAR_RULES := $(LOCAL_PATH)/liblayout-jarjar-rules.txt
+LOCAL_MODULE := icu4j-icudata-host-jarjar
+include $(BUILD_HOST_JAVA_LIBRARY)
 
 include $(CLEAR_VARS)
-LOCAL_STATIC_JAVA_LIBRARIES := icu4j-icutzdata
-LOCAL_JARJAR_RULES := $(TOP)/libcore/jarjar-rules.txt
-LOCAL_JACK_ENABLED := disabled
-LOCAL_MODULE := icu4j-icutzdata-jarjar
-include $(BUILD_STATIC_JAVA_LIBRARY)
+LOCAL_STATIC_JAVA_LIBRARIES := icu4j-icutzdata-host
+LOCAL_JARJAR_RULES := $(LOCAL_PATH)/liblayout-jarjar-rules.txt
+LOCAL_MODULE := icu4j-icutzdata-host-jarjar
+include $(BUILD_HOST_JAVA_LIBRARY)

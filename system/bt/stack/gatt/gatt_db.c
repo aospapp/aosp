@@ -62,7 +62,7 @@ static tGATT_STATUS gatts_send_app_read_request(tGATT_TCB *p_tcb, UINT8 op_code,
 BOOLEAN gatts_init_service_db (tGATT_SVC_DB *p_db, tBT_UUID *p_service,  BOOLEAN is_pri,
                                UINT16 s_hdl, UINT16 num_handle)
 {
-    GKI_init_q(&p_db->svc_buffer);
+    p_db->svc_buffer = fixed_queue_new(SIZE_MAX);
 
     if (!allocate_svc_db_buf(p_db))
     {
@@ -336,9 +336,6 @@ tGATT_STATUS gatts_db_read_attr_value_by_type (tGATT_TCB   *p_tcb,
     UINT16      len = 0;
     UINT8       *p = (UINT8 *)(p_rsp + 1) + p_rsp->len + L2CAP_MIN_OFFSET;
     tBT_UUID    attr_uuid;
-#if (defined(BLE_DELAY_REQUEST_ENC) && (BLE_DELAY_REQUEST_ENC == TRUE))
-    UINT8       flag;
-#endif
 
     if (p_db && p_db->p_attr_list)
     {
@@ -409,6 +406,7 @@ tGATT_STATUS gatts_db_read_attr_value_by_type (tGATT_TCB   *p_tcb,
     }
 
 #if (defined(BLE_DELAY_REQUEST_ENC) && (BLE_DELAY_REQUEST_ENC == TRUE))
+    UINT8 flag = 0;
     if (BTM_GetSecurityFlags(p_tcb->peer_bda, &flag))
     {
         if ((p_tcb->att_lcid == L2CAP_ATT_CID) && (status == GATT_PENDING) &&
@@ -417,13 +415,9 @@ tGATT_STATUS gatts_db_read_attr_value_by_type (tGATT_TCB   *p_tcb,
             if ((flag & (BTM_SEC_LINK_KEY_KNOWN | BTM_SEC_FLAG_ENCRYPTED)) ==
                  BTM_SEC_LINK_KEY_KNOWN)
             {
-                tACL_CONN         *p;
-                p = btm_bda_to_acl(p_tcb->peer_bda, BT_TRANSPORT_LE);
+                tACL_CONN *p = btm_bda_to_acl(p_tcb->peer_bda, BT_TRANSPORT_LE);
                 if ((p != NULL) && (p->link_role == BTM_ROLE_MASTER))
-                {
-                    tBTM_BLE_SEC_ACT sec_act = BTM_BLE_SEC_ENCRYPT;
-                    btm_ble_set_encryption(p_tcb->peer_bda, &sec_act, p->link_role);
-                }
+                    btm_ble_set_encryption(p_tcb->peer_bda, BTM_BLE_SEC_ENCRYPT, p->link_role);
             }
         }
     }
@@ -868,11 +862,9 @@ tGATT_STATUS gatts_write_attr_perm_check (tGATT_SVC_DB *p_db, UINT8 op_code,
                         status = GATT_INVALID_PDU;
                     }
                     /* these attribute does not allow write blob */
-// btla-specific ++
                     else if ( (p_attr->uuid_type == GATT_ATTR_UUID_TYPE_16) &&
                               (p_attr->uuid == GATT_UUID_CHAR_CLIENT_CONFIG ||
                                p_attr->uuid == GATT_UUID_CHAR_SRVR_CONFIG) )
-// btla-specific --
                     {
                         if (op_code == GATT_REQ_PREPARE_WRITE && offset != 0) /* does not allow write blob */
                         {
@@ -1103,21 +1095,14 @@ static BOOLEAN copy_extra_byte_in_db(tGATT_SVC_DB *p_db, void **p_dst, UINT16 le
 *******************************************************************************/
 static BOOLEAN allocate_svc_db_buf(tGATT_SVC_DB *p_db)
 {
-    BT_HDR  *p_buf;
+    BT_HDR *p_buf = (BT_HDR *)osi_calloc(GATT_DB_BUF_SIZE);
 
-    GATT_TRACE_DEBUG("allocate_svc_db_buf allocating extra buffer");
+    GATT_TRACE_DEBUG("%s allocating extra buffer", __func__);
 
-    if ((p_buf = (BT_HDR *)GKI_getpoolbuf(GATT_DB_POOL_ID)) == NULL)
-    {
-        GATT_TRACE_ERROR("allocate_svc_db_buf failed, no resources");
-        return FALSE;
-    }
+    p_db->p_free_mem = (UINT8 *) p_buf;
+    p_db->mem_free = GATT_DB_BUF_SIZE;
 
-    memset(p_buf, 0, GKI_get_buf_size(p_buf));
-    p_db->p_free_mem    = (UINT8 *) p_buf;
-    p_db->mem_free      = GKI_get_buf_size(p_buf);
-
-    GKI_enqueue(&p_db->svc_buffer, p_buf);
+    fixed_queue_enqueue(p_db->svc_buffer, p_buf);
 
     return TRUE;
 

@@ -80,6 +80,13 @@
                   android:id="@+id/textInputMethod"
                   android:inputMethod="@{obj.inputMethod}"
                 />
-
+        <TextView android:layout_width="match_parent" android:layout_height="match_parent"
+                  android:id="@+id/textWithTheme"
+                  android:textColor="@{@colorStateList/text_colors}"
+                />
+        <TextView android:layout_width="match_parent" android:layout_height="match_parent"
+                  android:id="@+id/textWithColor"
+                  android:textColor="@{@android:color/holo_blue_bright}"
+        />
     </LinearLayout>
 </layout>

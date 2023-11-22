@@ -50,6 +50,7 @@ public class PhotoPagerAdapter extends BaseCursorPagerAdapter {
     public Fragment getItem(Context context, Cursor cursor, int position) {
         final String photoUri = getPhotoUri(cursor);
         final String thumbnailUri = getThumbnailUri(cursor);
+        final String contentDescription = getPhotoName(cursor);
         boolean loading = shouldShowLoadingIndicator(cursor);
         boolean onlyShowSpinner = false;
         if(photoUri == null && loading) {
@@ -62,6 +63,7 @@ public class PhotoPagerAdapter extends BaseCursorPagerAdapter {
         builder
             .setResolvedPhotoUri(photoUri)
             .setThumbnailUri(thumbnailUri)
+            .setContentDescription(contentDescription)
             .setDisplayThumbsFullScreen(mDisplayThumbsFullScreen)
             .setMaxInitialScale(mMaxScale);
 
@@ -107,6 +109,10 @@ public class PhotoPagerAdapter extends BaseCursorPagerAdapter {
 
     public String getContentType(Cursor cursor) {
         return getString(cursor, PhotoViewColumns.CONTENT_TYPE);
+    }
+
+    public String getPhotoName(Cursor cursor) {
+        return getString(cursor, PhotoViewColumns.NAME);
     }
 
     public boolean shouldShowLoadingIndicator(Cursor cursor) {

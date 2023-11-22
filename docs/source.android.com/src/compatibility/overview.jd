@@ -2,7 +2,7 @@ page.title=Compatibility Program Overview
 @jd:body
 
 <!--
-    Copyright 2013 The Android Open Source Project     
+    Copyright 2015 The Android Open Source Project     
 
     Licensed under the Apache License, Version 2.0 (the "License");    
     you may not use this file except in compliance with the License.   
@@ -16,10 +16,17 @@ page.title=Compatibility Program Overview
     See the License for the specific language governing permissions and    
     limitations under the License.   
 -->
+<div id="qv-wrapper">
+  <div id="qv">
+    <h2>In this document</h2>
+    <ol id="auto-toc">
+    </ol>
+  </div>
+</div>
 
 <p>The Android compatibility program makes it easy for mobile device
 manufacturers to develop compatible Android devices.</p>
-<h1 id="program-goals">Program goals</h1>
+<h2 id="program-goals">Program goals</h2>
 <p>The Android compatibility program works for the benefit of the entire
 Android community, including users, developers, and device manufacturers.</p>
 <p>Each group depends on the others. Users want a wide selection of devices
@@ -79,7 +86,7 @@ fees.</p>
 the source code tree, there is a separate CTS and CDD for each version as
 well. The CDD, CTS, and source code are -- along with your hardware and your
 software customizations -- everything you need to create a compatible device.</p>
-<h1 id="compatibility-definition-document-cdd">Compatibility Definition Document</h1>
+<h2 id="compatibility-definition-document-cdd">Compatibility Definition Document</h2>
 <p>For each release of the Android platform, a detailed CDD will be provided. The CDD represents the "policy"
 aspect of Android compatibility.</p>
 <p>No test suite, including CTS, can truly be comprehensive. For instance, the
@@ -99,9 +106,9 @@ result is a compatible system.</p>
 start by checking out the source code for that version, and then read the
 corresponding CDD and stay within its guidelines. For additional details,
 simply examine <a href="/compatibility/android-cdd.pdf">the latest CDD</a>.</p>
-<h1 id="compatibility-test-suite-cts">Compatibility Test Suite</h1>
-<p>The CTS is a free, commercial-grade test suite, available for
-<a href="downloads.html">download</a>.
+<h2 id="compatibility-test-suite-cts">Compatibility Test Suite</h2>
+<p>The <a href="cts/index.html">CTS</a> is a free, commercial-grade test suite,
+available for <a href="downloads.html">download</a>.
 The CTS represents the "mechanism" of compatibility.</p>
 <p>The CTS runs on a desktop machine and executes test cases directly on
 attached devices or an emulator. The CTS is a set of unit tests designed to be
@@ -109,11 +116,11 @@ integrated into the daily workflow (such as via a continuous build system) of
 the engineers building a device. Its intent is to reveal incompatibilities
 early on, and ensure that the software remains compatible throughout the
 development process.</p>
-<h1 id="compatibility-test-suite-verifier-cts-verifier">Compatibility Test Suite Verifier (CTS Verifier)</h1>
+<h2 id="compatibility-test-suite-verifier-cts-verifier">Compatibility Test Suite Verifier (CTS Verifier)</h2>
 <p>The Compatibility Test Suite Verifier (CTS Verifier) is a supplement to the
 CTS available for <a href="downloads.html">download</a>.
 CTS Verifier provides tests for APIs and functions that cannot be tested on a
 stationary device without manual input (e.g. audio quality, accelerometer, etc).</p>
-<p>For details on the CTS, consult the <a href="cts-intro.html">CTS introduction</a>.</p>
+<p>For details on the CTS, consult the <a href="cts/index.html">CTS introduction</a>.</p>
 
 

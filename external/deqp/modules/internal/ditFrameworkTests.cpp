@@ -22,6 +22,10 @@
  *//*--------------------------------------------------------------------*/
 
 #include "ditFrameworkTests.hpp"
+#include "ditTextureFormatTests.hpp"
+#include "ditAstcTests.hpp"
+#include "ditVulkanTests.hpp"
+
 #include "tcuFloatFormat.hpp"
 #include "tcuEither.hpp"
 #include "tcuTestLog.hpp"
@@ -791,8 +795,8 @@ protected:
 																	  (subCase.vtx[1].z() == subCase.vtx[2].z());
 			const float						refDepth				= subCase.vtx[0].z()*(zf - zn)/2.0f + (zn + zf)/2.0f;
 
-			rr::resolveMultisampleColorBuffer(resolvedColor.getAccess(), rr::MultisampleConstPixelBufferAccess::fromMultisampleAccess(interpolated.getAccess()));
-			rr::resolveMultisampleColorBuffer(resolvedDepthStencil.getAccess(), rr::MultisampleConstPixelBufferAccess::fromMultisampleAccess(depthStencil.getAccess()));
+			rr::resolveMultisampleBuffer(resolvedColor.getAccess(), rr::MultisampleConstPixelBufferAccess::fromMultisampleAccess(interpolated.getAccess()));
+			rr::resolveMultisampleBuffer(resolvedDepthStencil.getAccess(), rr::MultisampleConstPixelBufferAccess::fromMultisampleAccess(depthStencil.getAccess()));
 			clear(errorAccess, Vec4(0.0f, 1.0f, 0.0f, 1.0f));
 
 			for (int y = 0; y < height; y++)
@@ -909,6 +913,9 @@ void FrameworkTests::init (void)
 	addChild(new CommonFrameworkTests	(m_testCtx));
 	addChild(new CaseListParserTests	(m_testCtx));
 	addChild(new ReferenceRendererTests	(m_testCtx));
+	addChild(createTextureFormatTests	(m_testCtx));
+	addChild(createAstcTests			(m_testCtx));
+	addChild(createVulkanTests			(m_testCtx));
 }
 
-}
+} // dit

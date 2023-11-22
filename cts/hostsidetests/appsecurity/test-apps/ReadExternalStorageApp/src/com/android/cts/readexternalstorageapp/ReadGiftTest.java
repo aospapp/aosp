@@ -21,28 +21,35 @@ import static com.android.cts.externalstorageapp.CommonExternalStorageTest.PACKA
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.PACKAGE_WRITE;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertFileReadOnlyAccess;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertFileReadWriteAccess;
-import static com.android.cts.externalstorageapp.CommonExternalStorageTest.buildGiftForPackage;
+import static com.android.cts.externalstorageapp.CommonExternalStorageTest.getAllPackageSpecificGiftPaths;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.readInt;
 
 import android.test.AndroidTestCase;
 
 import java.io.File;
+import java.util.List;
 
 public class ReadGiftTest extends AndroidTestCase {
     /**
      * Verify we can read all gifts.
      */
     public void testGifts() throws Exception {
-        final File none = buildGiftForPackage(getContext(), PACKAGE_NONE);
-        assertFileReadOnlyAccess(none);
-        assertEquals(100, readInt(none));
+        final List<File> noneList = getAllPackageSpecificGiftPaths(getContext(), PACKAGE_NONE);
+        for (File none : noneList) {
+            assertFileReadOnlyAccess(none);
+            assertEquals(100, readInt(none));
+        }
 
-        final File read = buildGiftForPackage(getContext(), PACKAGE_READ);
-        assertFileReadWriteAccess(read);
-        assertEquals(101, readInt(read));
+        final List<File> readList = getAllPackageSpecificGiftPaths(getContext(), PACKAGE_READ);
+        for (File read : readList) {
+            assertFileReadWriteAccess(read);
+            assertEquals(101, readInt(read));
+        }
 
-        final File write = buildGiftForPackage(getContext(), PACKAGE_WRITE);
-        assertFileReadOnlyAccess(write);
-        assertEquals(102, readInt(write));
+        final List<File> writeList = getAllPackageSpecificGiftPaths(getContext(), PACKAGE_WRITE);
+        for (File write : writeList) {
+            assertFileReadOnlyAccess(write);
+            assertEquals(102, readInt(write));
+        }
     }
 }

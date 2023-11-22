@@ -36,15 +36,6 @@ public class ForceEarlyReturn006Test extends JDWPSyncTestCase {
         return "org.apache.harmony.jpda.tests.jdwp.ThreadReference.ForceEarlyReturnDebuggee";
     }
 
-    // ForceEarlyReturn needs canForceEarlyReturn VM capability support
-    private boolean isCapability() {
-        // check capability, relevant for this test
-        logWriter.println("=> Check capability: canForceEarlyReturn");
-        debuggeeWrapper.vmMirror.capabilities();
-        boolean isCapability = debuggeeWrapper.vmMirror.targetVMCapabilities.canForceEarlyReturn;
-        return isCapability;
-    }
-
     // Get the objectID of test thread
     private long getObjectID() {
         // Compose Instances command to get tested thread objectID
@@ -83,9 +74,9 @@ public class ForceEarlyReturn006Test extends JDWPSyncTestCase {
                 + ": START...");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        if (!isCapability()) {
-            logWriter
-                    .println("##WARNING: this VM dosn't possess capability:canForceEarlyReturn");
+        // ForceEarlyReturn needs canForceEarlyReturn VM capability support
+        if (!debuggeeWrapper.vmMirror.canForceEarlyReturn()) {
+            logWriter.println("##WARNING: this VM dosn't possess capability:canForceEarlyReturn");
             return;
         }
 

@@ -72,4 +72,10 @@ public interface DeviceInfoConstants {
     public static final String STORAGE_DEVICES = "storage_devices";
     public static final String MULTI_USER = "multi_user";
     public static final String ENCRYPTED = "encrypted";
+    public static final String IS_LOW_RAM_DEVICE = "is_low_ram_device";
+    public static final String MEMORY_CLASS = "memory_class";
+    public static final String LARGE_MEMORY_CLASS = "large_memory_class";
+    public static final String TOTAL_MEMORY = "total_memory";
+    public static final String REFERENCE_BUILD_FINGERPRINT = "reference_build_fingerprint";
+    public static final String AVAILABLE_PROCESSORS = "available_processors";
 }

@@ -17,9 +17,12 @@
 package com.android.cts.verifier.tv;
 
 import android.app.Activity;
+import android.content.ComponentName;
 import android.content.ContentUris;
 import android.content.ContentValues;
+import android.content.Intent;
 import android.database.Cursor;
+import android.graphics.Color;
 import android.media.tv.TvContract;
 import android.media.tv.TvContract.Programs;
 import android.media.tv.TvInputInfo;
@@ -27,6 +30,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.util.Pair;
 import android.view.View;
+
+import com.android.cts.verifier.R;
 
 import java.util.ArrayList;
 
@@ -38,6 +43,10 @@ public class MockTvInputSetupActivity extends Activity {
 
     /* package-private */ static final String PROGRAM_TITLE = "Dummy Program";
     /* package-private */ static final String PROGRAM_DESCRIPTION = "Dummy Program Description";
+
+    /* package-private */ static final String APP_LINK_TEST_KEY = "app_link_test_key";
+    /* package-private */ static final String APP_LINK_TEST_VALUE = "app_link_test_value";
+    private static final String APP_LINK_TEXT = "Cts App-Link Text";
     private static final long PROGRAM_LENGTH_MILLIS = 60 * 60 * 1000;
     private static final int PROGRAM_COUNT = 24;
 
@@ -69,6 +78,18 @@ public class MockTvInputSetupActivity extends Activity {
             values.put(TvContract.Channels.COLUMN_INPUT_ID, inputId);
             values.put(TvContract.Channels.COLUMN_DISPLAY_NUMBER, CHANNEL_NUMBER);
             values.put(TvContract.Channels.COLUMN_DISPLAY_NAME, CHANNEL_NAME);
+            values.put(TvContract.Channels.COLUMN_APP_LINK_TEXT, APP_LINK_TEXT);
+            values.put(TvContract.Channels.COLUMN_APP_LINK_COLOR, Color.RED);
+            values.put(TvContract.Channels.COLUMN_APP_LINK_ICON_URI,
+                    "android.resource://" + getPackageName() + "/" + R.drawable.icon);
+            values.put(TvContract.Channels.COLUMN_APP_LINK_POSTER_ART_URI,
+                    "android.resource://" + getPackageName() + "/" + R.raw.sns_texture);
+            Intent appLinkIntentUri = new Intent(this, AppLinkTestActivity.class);
+            appLinkIntentUri.putExtra(APP_LINK_TEST_KEY, APP_LINK_TEST_VALUE);
+            appLinkIntentUri.setFlags(Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY);
+            values.put(TvContract.Channels.COLUMN_APP_LINK_INTENT_URI,
+                    appLinkIntentUri.toUri(Intent.URI_INTENT_SCHEME));
+
             Uri channelUri = getContentResolver().insert(uri, values);
             // If the channel's ID happens to be zero, we add another and delete the one.
             if (ContentUris.parseId(channelUri) == 0) {

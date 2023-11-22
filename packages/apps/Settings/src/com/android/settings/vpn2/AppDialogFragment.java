@@ -19,15 +19,16 @@ package com.android.settings.vpn2;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.DialogFragment;
+import android.app.Fragment;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.pm.PackageInfo;
-import android.content.pm.PackageManager;
 import android.net.IConnectivityManager;
 import android.os.Bundle;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.UserHandle;
+import android.os.UserManager;
 import android.util.Log;
 
 import com.android.internal.net.VpnConfig;
@@ -46,13 +47,26 @@ public class AppDialogFragment extends DialogFragment implements AppDialog.Liste
     private static final String ARG_PACKAGE = "package";
 
     private PackageInfo mPackageInfo;
+    private Listener mListener;
 
+    private UserManager mUserManager;
     private final IConnectivityManager mService = IConnectivityManager.Stub.asInterface(
             ServiceManager.getService(Context.CONNECTIVITY_SERVICE));
 
-    public static void show(VpnSettings parent, PackageInfo packageInfo, String label,
+    public interface Listener {
+        public void onForget();
+        public void onCancel();
+    }
+
+    public static void show(Fragment parent, PackageInfo packageInfo, String label,
             boolean managing, boolean connected) {
-        if (!parent.isAdded()) return;
+        show(parent, null, packageInfo, label, managing, connected);
+    }
+
+    public static void show(Fragment parent, Listener listener, PackageInfo packageInfo,
+            String label, boolean managing, boolean connected) {
+        if (!parent.isAdded())
+            return;
 
         Bundle args = new Bundle();
         args.putParcelable(ARG_PACKAGE, packageInfo);
@@ -61,9 +75,16 @@ public class AppDialogFragment extends DialogFragment implements AppDialog.Liste
         args.putBoolean(ARG_CONNECTED, connected);
 
         final AppDialogFragment frag = new AppDialogFragment();
+        frag.mListener = listener;
         frag.setArguments(args);
         frag.setTargetFragment(parent, 0);
         frag.show(parent.getFragmentManager(), TAG_APP_DIALOG);
+    }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        mUserManager = UserManager.get(getContext());
     }
 
     @Override
@@ -83,7 +104,7 @@ public class AppDialogFragment extends DialogFragment implements AppDialog.Liste
                     .setMessage(getActivity().getString(R.string.vpn_disconnect_confirm))
                     .setNegativeButton(getActivity().getString(R.string.vpn_cancel), null);
 
-            if (connected) {
+            if (connected && !isUiRestricted()) {
                 dlog.setPositiveButton(getActivity().getString(R.string.vpn_disconnect),
                         new DialogInterface.OnClickListener() {
                             @Override
@@ -99,12 +120,18 @@ public class AppDialogFragment extends DialogFragment implements AppDialog.Liste
     @Override
     public void onCancel(DialogInterface dialog) {
         dismiss();
+        if (mListener != null) {
+            mListener.onCancel();
+        }
         super.onCancel(dialog);
     }
 
     @Override
     public void onForget(final DialogInterface dialog) {
-        final int userId = UserHandle.getUserId(mPackageInfo.applicationInfo.uid);
+        if (isUiRestricted()) {
+            return;
+        }
+        final int userId = getUserId();
         try {
             mService.setVpnPackageAuthorization(mPackageInfo.packageName, userId, false);
             onDisconnect(dialog);
@@ -112,21 +139,40 @@ public class AppDialogFragment extends DialogFragment implements AppDialog.Liste
             Log.e(TAG, "Failed to forget authorization of " + mPackageInfo.packageName +
                     " for user " + userId, e);
         }
+
+        if (mListener != null) {
+            mListener.onForget();
+        }
     }
 
     private void onDisconnect(final DialogInterface dialog) {
-        final int userId = UserHandle.getUserId(mPackageInfo.applicationInfo.uid);
+        if (isUiRestricted()) {
+            return;
+        }
+        final int userId = getUserId();
         try {
-            final VpnConfig vpnConfig = mService.getVpnConfig(userId);
-            if (vpnConfig == null || vpnConfig.legacy) {
-                return;
-            }
-            if (mPackageInfo.packageName.equals(vpnConfig.user)) {
+            if (mPackageInfo.packageName.equals(getConnectedPackage(mService, userId))) {
+                mService.setAlwaysOnVpnPackage(userId, null, /* lockdownEnabled */ false);
                 mService.prepareVpn(mPackageInfo.packageName, VpnConfig.LEGACY_VPN, userId);
             }
         } catch (RemoteException e) {
             Log.e(TAG, "Failed to disconnect package " + mPackageInfo.packageName +
                     " for user " + userId, e);
         }
+    }
+
+    private boolean isUiRestricted() {
+        final UserHandle userHandle = UserHandle.of(getUserId());
+        return mUserManager.hasUserRestriction(UserManager.DISALLOW_CONFIG_VPN, userHandle);
+    }
+
+    private int getUserId() {
+        return UserHandle.getUserId(mPackageInfo.applicationInfo.uid);
+    }
+
+    private static String getConnectedPackage(IConnectivityManager service, final int userId)
+            throws RemoteException {
+        final VpnConfig config = service.getVpnConfig(userId);
+        return config != null ? config.user : null;
     }
 }

@@ -165,13 +165,6 @@ public class DeskClockTestsActivity extends PassFailButtons.TestListActivity {
         }
     }
 
-    /**
-     * Enable Pass Button when the all tests passed.
-     */
-    private void updatePassButton() {
-        getPassButton().setEnabled(mAdapter.allTestsPassed());
-    }
-
     public static class DeskClockIntentFactory implements IntentFactory {
         @Override
         public Intent[] createIntents(String testId, int buttonText) {

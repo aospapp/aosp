@@ -29,7 +29,7 @@
 #define OMX_INTEL_COLOR_FormatYUV420PackedSemiPlanar 0x7FA00E00
 
 static hw_module_t const *gModule = NULL;
-static gralloc_module_t *gAllocMod = NULL; /* get by force hw_module_t */
+static gralloc_module_t const *gAllocMod = NULL; /* get by force hw_module_t */
 static alloc_device_t  *gAllocDev = NULL;
 
 static int gfx_init(void) {
@@ -40,7 +40,7 @@ static int gfx_init(void) {
         return -1;
     } else
         LOG_V("hw_get_module returned\n");
-    gAllocMod = (gralloc_module_t *)gModule;
+    gAllocMod = (gralloc_module_t const *)gModule;
 
     return 0;
 }
@@ -159,23 +159,22 @@ static int gfx_Blit(buffer_handle_t src, buffer_handle_t dest,
         }
     }
 
-    IMG_gralloc_module_public_t* GrallocMod = (IMG_gralloc_module_public_t*)gModule;
-
 #ifdef MRFLD_GFX
     {
         int fenceFd;
-        err = GrallocMod->Blit(GrallocMod, src, dest, w, h, 0, 0, 0, -1, &fenceFd);
+        err = gAllocMod->perform(gAllocMod, GRALLOC_MODULE_BLIT_HANDLE_TO_HANDLE_IMG, src, dest, w, h, 0, 0, 0, -1, &fenceFd);
         if (!err) {
             sync_wait(fenceFd, -1);
             close(fenceFd);
         }
     }
 #else
+    IMG_gralloc_module_public_t* GrallocMod = (IMG_gralloc_module_public_t*)gModule;
     err = GrallocMod->Blit2(GrallocMod, src, dest, w, h, 0, 0);
 #endif
 
     if (err) {
-        LOG_E("Blit(...) failed %d (%s)", err, strerror(-err));
+        LOG_E("Blit failed %d (%s)", err, strerror(-err));
         return -1;
     } else
         LOG_V("Blit returned\n");

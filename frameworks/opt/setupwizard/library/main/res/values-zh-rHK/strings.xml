@@ -18,6 +18,6 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="suw_next_button_label" msgid="7269625133873553978">"下一步"</string>
-    <string name="suw_back_button_label" msgid="1460929053642711025">"後置鏡頭"</string>
+    <string name="suw_back_button_label" msgid="1460929053642711025">"返回"</string>
     <string name="suw_more_button_label" msgid="7769076059705546563">"更多"</string>
 </resources>

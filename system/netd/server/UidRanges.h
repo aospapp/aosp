@@ -17,18 +17,27 @@
 #ifndef NETD_SERVER_UID_RANGES_H
 #define NETD_SERVER_UID_RANGES_H
 
+#include "android/net/UidRange.h"
+
 #include <sys/types.h>
 #include <utility>
 #include <vector>
 
 class UidRanges {
 public:
+    // TODO: replace with AIDL type: android::net::UidRange
+    // int32_t may not be a safe replacement for uid_t. If not, UidRange will need to change to use
+    // a larger type first.
     typedef std::pair<uid_t, uid_t> Range;
+
+    UidRanges() {}
+    UidRanges(const std::vector<android::net::UidRange>& ranges);
 
     bool hasUid(uid_t uid) const;
     const std::vector<Range>& getRanges() const;
 
     bool parseFrom(int argc, char* argv[]);
+    std::string toString() const;
 
     void add(const UidRanges& other);
     void remove(const UidRanges& other);

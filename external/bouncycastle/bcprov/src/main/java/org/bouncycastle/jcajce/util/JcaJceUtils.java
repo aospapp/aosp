@@ -32,6 +32,7 @@ public class JcaJceUtils
      * @param params the object to get the encoding used to create the return value.
      * @return an ASN.1 object representing the primitives making up the params parameter.
      * @throws IOException if an encoding cannot be extracted.
+     * @deprecated use AlgorithmParametersUtils.extractParameters(AlgorithmParameters params)
      */
     public static ASN1Encodable extractParameters(AlgorithmParameters params)
         throws IOException
@@ -56,6 +57,7 @@ public class JcaJceUtils
      * @param params the AlgorithmParameters object to be initialised.
      * @param sParams the ASN.1 encodable to initialise params with.
      * @throws IOException if the parameters cannot be initialised.
+     * @deprecated use AlgorithmParametersUtils.loadParameters(AlgorithmParameters params, ASN1Encodable sParams)
      */
     public static void loadParameters(AlgorithmParameters params, ASN1Encodable sParams)
         throws IOException
@@ -76,6 +78,7 @@ public class JcaJceUtils
      *
      * @param digestAlgOID the OID of the digest algorithm of interest.
      * @return a string representing the standard name - the OID as a string if none available.
+     * @deprecated use MessageDigestUtils,getDigestName()
      */
     public static String getDigestAlgName(
         ASN1ObjectIdentifier digestAlgOID)

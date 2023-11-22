@@ -16,20 +16,13 @@
 
 package com.android.settings.wifi;
 
-import com.android.settings.R;
-import com.android.settingslib.wifi.AccessPoint;
-
-import android.net.wifi.ScanResult;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.List;
-
 import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.NetworkInfo;
+import android.net.wifi.ScanResult;
 import android.net.wifi.SupplicantState;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
@@ -43,8 +36,14 @@ import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.TextView;
 
+import com.android.settings.R;
+import com.android.settingslib.wifi.AccessPoint;
+
 import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.net.UnknownHostException;
+import java.util.List;
 
 
 /**
@@ -69,12 +68,10 @@ public class WifiStatusTest extends Activity {
     private TextView mScanList;
 
 
-    private TextView mPingIpAddr;
     private TextView mPingHostname;
     private TextView mHttpClientTest;
     private Button pingTestButton;
 
-    private String mPingIpAddrResult;
     private String mPingHostnameResult;
     private String mHttpClientTestResult;
 
@@ -149,7 +146,6 @@ public class WifiStatusTest extends Activity {
         mScanList = (TextView) findViewById(R.id.scan_list);
 
 
-        mPingIpAddr = (TextView) findViewById(R.id.pingIpAddr);
         mPingHostname = (TextView) findViewById(R.id.pingHostname);
         mHttpClientTest = (TextView) findViewById(R.id.httpClientTest);
 
@@ -308,29 +304,18 @@ public class WifiStatusTest extends Activity {
     private final void updatePingState() {
         final Handler handler = new Handler();
         // Set all to unknown since the threads will take a few secs to update.
-        mPingIpAddrResult = getResources().getString(R.string.radioInfo_unknown);
         mPingHostnameResult = getResources().getString(R.string.radioInfo_unknown);
         mHttpClientTestResult = getResources().getString(R.string.radioInfo_unknown);
 
-        mPingIpAddr.setText(mPingIpAddrResult);
         mPingHostname.setText(mPingHostnameResult);
         mHttpClientTest.setText(mHttpClientTestResult);
 
         final Runnable updatePingResults = new Runnable() {
             public void run() {
-                mPingIpAddr.setText(mPingIpAddrResult);
                 mPingHostname.setText(mPingHostnameResult);
                 mHttpClientTest.setText(mHttpClientTestResult);
             }
         };
-        Thread ipAddrThread = new Thread() {
-            @Override
-            public void run() {
-                pingIpAddr();
-                handler.post(updatePingResults);
-            }
-        };
-        ipAddrThread.start();
 
         Thread hostnameThread = new Thread() {
             @Override
@@ -349,28 +334,6 @@ public class WifiStatusTest extends Activity {
             }
         };
         httpClientThread.start();
-    }
-
-    /**
-     * The ping functions have been borrowed from Radio diagnostic app to
-     * enable quick access on the wifi status screen
-     */
-    private final void pingIpAddr() {
-        try {
-            // TODO: Hardcoded for now, make it UI configurable
-            String ipAddress = "74.125.47.104";
-            Process p = Runtime.getRuntime().exec("ping -c 1 -w 100 " + ipAddress);
-            int status = p.waitFor();
-            if (status == 0) {
-                mPingIpAddrResult = "Pass";
-            } else {
-                mPingIpAddrResult = "Fail: IP addr not reachable";
-            }
-        } catch (IOException e) {
-            mPingIpAddrResult = "Fail: IOException";
-        } catch (InterruptedException e) {
-            mPingIpAddrResult = "Fail: InterruptedException";
-        }
     }
 
     private final void pingHostname() {

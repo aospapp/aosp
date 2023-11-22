@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -27,10 +27,18 @@
 *
 */
 
+// System dependencies
+#include <string.h>
 #include <utils/Errors.h>
-#include <utils/Log.h>
-#include <sys/prctl.h>
+#define PRCTL_H <SYSTEM_HEADER_PREFIX/prctl.h>
+#include PRCTL_H
+
+// Camera dependencies
 #include "QCameraCmdThread.h"
+
+extern "C" {
+#include "mm_camera_dbg.h"
+}
 
 using namespace android;
 
@@ -131,7 +139,7 @@ int32_t QCameraCmdThread::sendCmd(camera_cmd_type_t cmd, uint8_t sync_cmd, uint8
 {
     camera_cmd_t *node = (camera_cmd_t *)malloc(sizeof(camera_cmd_t));
     if (NULL == node) {
-        ALOGE("%s: No memory for camera_cmd_t", __func__);
+        LOGE("No memory for camera_cmd_t");
         return NO_MEMORY;
     }
     memset(node, 0, sizeof(camera_cmd_t));
@@ -171,7 +179,7 @@ camera_cmd_type_t QCameraCmdThread::getCmd()
     camera_cmd_type_t cmd = CAMERA_CMD_TYPE_NONE;
     camera_cmd_t *node = (camera_cmd_t *)cmd_queue.dequeue();
     if (NULL == node) {
-        ALOGD("%s: No notify avail", __func__);
+        LOGD("No notify avail");
         return CAMERA_CMD_TYPE_NONE;
     } else {
         cmd = node->cmd;
@@ -201,13 +209,13 @@ int32_t QCameraCmdThread::exit()
 
     rc = sendCmd(CAMERA_CMD_TYPE_EXIT, 0, 1);
     if (NO_ERROR != rc) {
-        ALOGE("%s: Error during exit, rc = %d", __func__, rc);
+        LOGE("Error during exit, rc = %d", rc);
         return rc;
     }
 
     /* wait until cmd thread exits */
     if (pthread_join(cmd_pid, NULL) != 0) {
-        ALOGD("%s: pthread dead already\n", __func__);
+        LOGD("pthread dead already\n");
     }
     cmd_pid = 0;
     return rc;

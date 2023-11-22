@@ -30,9 +30,3 @@ void foo_ll(long long l) {
     m = l;
 }
 
-void foo_ld(long double l) {
-    long double m;
-    float f = 0.0L;
-    m = l;
-}
-

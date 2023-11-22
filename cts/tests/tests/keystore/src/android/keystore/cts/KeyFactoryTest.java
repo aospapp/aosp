@@ -22,7 +22,7 @@ import android.security.keystore.KeyProperties;
 import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
 
-import com.android.cts.keystore.R;
+import android.keystore.cts.R;
 
 import java.io.InputStream;
 import java.security.InvalidKeyException;

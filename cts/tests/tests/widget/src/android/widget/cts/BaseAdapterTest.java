@@ -16,7 +16,6 @@
 
 package android.widget.cts;
 
-
 import android.database.DataSetObserver;
 import android.test.AndroidTestCase;
 import android.view.View;

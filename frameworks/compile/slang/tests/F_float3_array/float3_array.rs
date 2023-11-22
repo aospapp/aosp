@@ -3,7 +3,3 @@
 
 float3 f[2];
 
-int root(int num) {
-    return 10;
-}
-

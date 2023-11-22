@@ -30,6 +30,7 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.provider.BaseColumns;
+import android.provider.CallLog;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.AggregationExceptions;
 import android.provider.ContactsContract.CommonDataKinds.Email;
@@ -52,10 +53,11 @@ import android.provider.ContactsContract.RawContacts;
 import android.provider.ContactsContract.Settings;
 import android.provider.ContactsContract.StatusUpdates;
 import android.provider.ContactsContract.StreamItems;
+import android.provider.VoicemailContract;
 import android.test.MoreAsserts;
 import android.test.mock.MockContentResolver;
 import android.util.Log;
-
+import com.android.providers.contacts.ContactsDatabaseHelper.AccountsColumns;
 import com.android.providers.contacts.ContactsDatabaseHelper.Tables;
 import com.android.providers.contacts.testutil.CommonDatabaseUtils;
 import com.android.providers.contacts.testutil.DataUtil;
@@ -69,6 +71,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -133,6 +136,7 @@ public abstract class BaseContactsProvider2Test extends PhotoLoadingTestCase {
         mActor.addPermissions(
                 "android.permission.READ_CONTACTS",
                 "android.permission.WRITE_CONTACTS",
+                "android.permission.READ_WRITE_CONTACT_METADATA",
                 "android.permission.READ_SOCIAL_STREAM",
                 "android.permission.WRITE_SOCIAL_STREAM");
     }
@@ -151,7 +155,7 @@ public abstract class BaseContactsProvider2Test extends PhotoLoadingTestCase {
         return mActor.context;
     }
 
-    public ContentProvider addProvider(Class<? extends ContentProvider> providerClass,
+    public <T extends ContentProvider> T addProvider(Class<T> providerClass,
             String authority) throws Exception {
         return mActor.addProvider(providerClass, authority);
     }
@@ -557,6 +561,18 @@ public abstract class BaseContactsProvider2Test extends PhotoLoadingTestCase {
                 " WHERE " + BaseColumns._ID + "=" + contactId);
     }
 
+    protected long createAccount(String accountName, String accountType, String dataSet) {
+        // There's no api for this, so we just tweak the DB directly.
+        SQLiteDatabase db = ((ContactsProvider2) getProvider()).getDatabaseHelper()
+                .getWritableDatabase();
+
+        ContentValues values = new ContentValues();
+        values.put(AccountsColumns.ACCOUNT_NAME, accountName);
+        values.put(AccountsColumns.ACCOUNT_TYPE, accountType);
+        values.put(AccountsColumns.DATA_SET, dataSet);
+        return db.insert(Tables.ACCOUNTS, null, values);
+    }
+
     protected Cursor queryRawContact(long rawContactId) {
         return mResolver.query(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId),
                 null, null, null, null);
@@ -817,6 +833,14 @@ public abstract class BaseContactsProvider2Test extends PhotoLoadingTestCase {
         c.close();
     }
 
+    protected void assertMetadataDirty(Uri uri, boolean state) {
+        Cursor c = mResolver.query(uri, new String[]{"metadata_dirty"}, null, null, null);
+        assertTrue(c.moveToNext());
+        assertEquals(state, c.getLong(0) != 0);
+        assertFalse(c.moveToNext());
+        c.close();
+    }
+
     protected long getVersion(Uri uri) {
         Cursor c = mResolver.query(uri, new String[]{"version"}, null, null, null);
         assertTrue(c.moveToNext());
@@ -829,6 +853,12 @@ public abstract class BaseContactsProvider2Test extends PhotoLoadingTestCase {
     protected void clearDirty(Uri uri) {
         ContentValues values = new ContentValues();
         values.put("dirty", 0);
+        mResolver.update(uri, values, null, null);
+    }
+
+    protected void clearMetadataDirty(Uri uri) {
+        ContentValues values = new ContentValues();
+        values.put("metadata_dirty", 0);
         mResolver.update(uri, values, null, null);
     }
 
@@ -1290,11 +1320,25 @@ public abstract class BaseContactsProvider2Test extends PhotoLoadingTestCase {
         assertEquals(expected, (getContactsProvider()).isNetworkNotified());
     }
 
+    protected void assertMetadataNetworkNotified(boolean expected) {
+        assertEquals(expected, (getContactsProvider()).isMetadataNetworkNotified());
+    }
+
     protected void assertProjection(Uri uri, String[] expectedProjection) {
         Cursor cursor = mResolver.query(uri, null, "0", null, null);
         String[] actualProjection = cursor.getColumnNames();
         MoreAsserts.assertEquals("Incorrect projection for URI: " + uri,
                 Sets.newHashSet(expectedProjection), Sets.newHashSet(actualProjection));
+        cursor.close();
+    }
+
+    protected void assertContainProjection(Uri uri, String[] mustHaveProjection) {
+        Cursor cursor = mResolver.query(uri, null, "0", null, null);
+        String[] actualProjection = cursor.getColumnNames();
+        Set<String> actualProjectionSet = Sets.newHashSet(actualProjection);
+        Set<String> mustHaveProjectionSet = Sets.newHashSet(mustHaveProjection);
+        actualProjectionSet.retainAll(mustHaveProjectionSet);
+        MoreAsserts.assertEquals(mustHaveProjectionSet, actualProjectionSet);
         cursor.close();
     }
 
@@ -1311,6 +1355,17 @@ public abstract class BaseContactsProvider2Test extends PhotoLoadingTestCase {
         }
     }
 
+    protected void assertLastModified(Uri uri) {
+        assertLastModified(uri, System.currentTimeMillis(), 1000);
+    }
+
+    protected void assertLastModified(Uri uri, long time, long tolerance) {
+        Cursor c = mResolver.query(uri, null, null, null, null);
+        c.moveToFirst();
+        int index = c.getColumnIndex(CallLog.Calls.LAST_MODIFIED);
+        long timeStamp = c.getLong(index);
+        assertTrue(Math.abs(time - timeStamp) < tolerance);
+    }
     /**
      * A contact in the database, and the attributes used to create it.  Construct using
      * {@link GoldenContactBuilder#build()}.

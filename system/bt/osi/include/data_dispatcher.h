@@ -21,7 +21,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "fixed_queue.h"
+#include "osi/include/fixed_queue.h"
 
 #define DISPATCHER_NAME_MAX 16
 

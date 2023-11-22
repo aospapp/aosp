@@ -64,23 +64,23 @@ void LiveRangeCalc::calculate(LiveInterval &LI, bool TrackSubRegs) {
 
     unsigned SubReg = MO.getSubReg();
     if (LI.hasSubRanges() || (SubReg != 0 && TrackSubRegs)) {
-      unsigned Mask = SubReg != 0 ? TRI.getSubRegIndexLaneMask(SubReg)
-                                  : MRI->getMaxLaneMaskForVReg(Reg);
+      LaneBitmask Mask = SubReg != 0 ? TRI.getSubRegIndexLaneMask(SubReg)
+                                     : MRI->getMaxLaneMaskForVReg(Reg);
 
       // If this is the first time we see a subregister def, initialize
       // subranges by creating a copy of the main range.
       if (!LI.hasSubRanges() && !LI.empty()) {
-        unsigned ClassMask = MRI->getMaxLaneMaskForVReg(Reg);
+        LaneBitmask ClassMask = MRI->getMaxLaneMaskForVReg(Reg);
         LI.createSubRangeFrom(*Alloc, ClassMask, LI);
       }
 
       for (LiveInterval::SubRange &S : LI.subranges()) {
         // A Mask for subregs common to the existing subrange and current def.
-        unsigned Common = S.LaneMask & Mask;
+        LaneBitmask Common = S.LaneMask & Mask;
         if (Common == 0)
           continue;
         // A Mask for subregs covered by the subrange but not the current def.
-        unsigned LRest = S.LaneMask & ~Mask;
+        LaneBitmask LRest = S.LaneMask & ~Mask;
         LiveInterval::SubRange *CommonRange;
         if (LRest != 0) {
           // Split current subrange into Common and LRest ranges.
@@ -138,7 +138,8 @@ void LiveRangeCalc::createDeadDefs(LiveRange &LR, unsigned Reg) {
 }
 
 
-void LiveRangeCalc::extendToUses(LiveRange &LR, unsigned Reg, unsigned Mask) {
+void LiveRangeCalc::extendToUses(LiveRange &LR, unsigned Reg,
+                                 LaneBitmask Mask) {
   // Visit all operands that read Reg. This may include partial defs.
   const TargetRegisterInfo &TRI = *MRI->getTargetRegisterInfo();
   for (MachineOperand &MO : MRI->reg_nodbg_operands(Reg)) {
@@ -157,7 +158,7 @@ void LiveRangeCalc::extendToUses(LiveRange &LR, unsigned Reg, unsigned Mask) {
       continue;
     unsigned SubReg = MO.getSubReg();
     if (SubReg != 0) {
-      unsigned SubRegMask = TRI.getSubRegIndexLaneMask(SubReg);
+      LaneBitmask SubRegMask = TRI.getSubRegIndexLaneMask(SubReg);
       // Ignore uses not covering the current subrange.
       if ((SubRegMask & Mask) == 0)
         continue;
@@ -272,13 +273,19 @@ bool LiveRangeCalc::findReachingDefs(LiveRange &LR, MachineBasicBlock &UseMBB,
 #ifndef NDEBUG
     if (MBB->pred_empty()) {
       MBB->getParent()->verify();
+      errs() << "Use of " << PrintReg(PhysReg)
+             << " does not have a corresponding definition on every path:\n";
+      const MachineInstr *MI = Indexes->getInstructionFromIndex(Use);
+      if (MI != nullptr)
+        errs() << Use << " " << *MI;
       llvm_unreachable("Use not jointly dominated by defs.");
     }
 
     if (TargetRegisterInfo::isPhysicalRegister(PhysReg) &&
         !MBB->isLiveIn(PhysReg)) {
       MBB->getParent()->verify();
-      errs() << "The register needs to be live in to BB#" << MBB->getNumber()
+      errs() << "The register " << PrintReg(PhysReg)
+             << " needs to be live in to BB#" << MBB->getNumber()
              << ", but is missing from the live-in list.\n";
       llvm_unreachable("Invalid global physical register");
     }

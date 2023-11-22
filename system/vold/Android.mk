@@ -27,6 +27,10 @@ common_src_files := \
 	MoveTask.cpp \
 	Benchmark.cpp \
 	TrimTask.cpp \
+	Keymaster.cpp \
+	KeyStorage.cpp \
+	ScryptParameters.cpp \
+	secontext.cpp \
 
 common_c_includes := \
 	system/extras/ext4_utils \
@@ -53,13 +57,17 @@ common_shared_libraries := \
 	libhardware \
 	libsoftkeymaster \
 	libbase \
+	libkeymaster_messages \
 
 common_static_libraries := \
+	libbootloader_message_writer \
 	libfs_mgr \
+	libfec \
+	libfec_rs \
 	libsquashfs_utils \
 	libscrypt_static \
 	libmincrypt \
-	libbatteryservice
+	libbatteryservice \
 
 vold_conlyflags := -std=c11
 vold_cflags := -Werror -Wall -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-parameter
@@ -82,11 +90,13 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
-LOCAL_MODULE:= vold
+LOCAL_MODULE := vold
 LOCAL_CLANG := true
 LOCAL_SRC_FILES := \
 	main.cpp \
 	$(common_src_files)
+
+LOCAL_INIT_RC := vold.rc
 
 LOCAL_C_INCLUDES := $(common_c_includes)
 LOCAL_CFLAGS := $(vold_cflags)
@@ -107,9 +117,22 @@ include $(CLEAR_VARS)
 
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_CLANG := true
-LOCAL_SRC_FILES:= vdc.c
-LOCAL_MODULE:= vdc
-LOCAL_SHARED_LIBRARIES := libcutils
+LOCAL_SRC_FILES := vdc.cpp
+LOCAL_MODULE := vdc
+LOCAL_SHARED_LIBRARIES := libcutils libbase
+LOCAL_CFLAGS := $(vold_cflags)
+LOCAL_CONLYFLAGS := $(vold_conlyflags)
+LOCAL_INIT_RC := vdc.rc
+
+include $(BUILD_EXECUTABLE)
+
+include $(CLEAR_VARS)
+
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
+LOCAL_CLANG := true
+LOCAL_SRC_FILES:= secdiscard.cpp
+LOCAL_MODULE:= secdiscard
+LOCAL_SHARED_LIBRARIES := libbase
 LOCAL_CFLAGS := $(vold_cflags)
 LOCAL_CONLYFLAGS := $(vold_conlyflags)
 

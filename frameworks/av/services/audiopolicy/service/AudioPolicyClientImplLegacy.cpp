@@ -111,7 +111,7 @@ audio_io_handle_t aps_open_output(void *service __unused,
                                          uint32_t *pLatencyMs,
                                          audio_output_flags_t flags)
 {
-    return open_output((audio_module_handle_t)0, pDevices, pSamplingRate, pFormat, pChannelMask,
+    return open_output(AUDIO_MODULE_HANDLE_NONE, pDevices, pSamplingRate, pFormat, pChannelMask,
                           pLatencyMs, flags, NULL);
 }
 
@@ -190,7 +190,8 @@ static audio_io_handle_t open_input(audio_module_handle_t module,
     }
 
     if (((*pDevices & AUDIO_DEVICE_IN_REMOTE_SUBMIX) == AUDIO_DEVICE_IN_REMOTE_SUBMIX)
-            && !captureAudioOutputAllowed()) {
+            && !captureAudioOutputAllowed(IPCThreadState::self()->getCallingPid(),
+                                          IPCThreadState::self()->getCallingUid())) {
         ALOGE("open_input() permission denied: capture not allowed");
         return AUDIO_IO_HANDLE_NONE;
     }
@@ -219,7 +220,7 @@ audio_io_handle_t aps_open_input(void *service __unused,
                                         audio_channel_mask_t *pChannelMask,
                                         audio_in_acoustics_t acoustics __unused)
 {
-    return  open_input((audio_module_handle_t)0, pDevices, pSamplingRate, pFormat, pChannelMask);
+    return  open_input(AUDIO_MODULE_HANDLE_NONE, pDevices, pSamplingRate, pFormat, pChannelMask);
 }
 
 audio_io_handle_t aps_open_input_on_module(void *service __unused,
@@ -252,7 +253,7 @@ int aps_invalidate_stream(void *service __unused, audio_stream_type_t stream)
     return af->invalidateStream(stream);
 }
 
-int aps_move_effects(void *service __unused, int session,
+int aps_move_effects(void *service __unused, audio_session_t session,
                                 audio_io_handle_t src_output,
                                 audio_io_handle_t dst_output)
 {

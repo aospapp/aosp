@@ -31,7 +31,7 @@ import org.opencv.core.MatOfFloat;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.MatOfPoint3f;
 import org.opencv.core.Size;
-import org.opencv.highgui.Highgui;
+import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.calib3d.Calib3d;
 import org.opencv.core.Core;
@@ -65,10 +65,11 @@ public class RVCVXCheckAnalyzer {
 
     private static final boolean OUTPUT_DEBUG_IMAGE = false;
     private static final double VALID_FRAME_THRESHOLD = 0.8;
-    private static final double REPROJECTION_THREASHOLD = 4.0;
+    private static final double REPROJECTION_THREASHOLD_RATIO = 0.008;
     private static final boolean FORCE_CV_ANALYSIS  = false;
     private static final boolean TRACE_VIDEO_ANALYSIS = false;
     private static final double DECIMATION_FPS_TARGET = 15.0;
+    private static final double MIN_VIDEO_LENGTH_SEC = 10;
 
     RVCVXCheckAnalyzer(String path)
     {
@@ -199,6 +200,12 @@ public class RVCVXCheckAnalyzer {
             if (nvlog <= 0 || nframe <= 0) {
                 // invalid results
                 report.reason = "Unable to to load recorded video.";
+                return report;
+            }
+            if (nframe < MIN_VIDEO_LENGTH_SEC*VALID_FRAME_THRESHOLD) {
+                // video is too short
+                Log.w(TAG, "Video record is to short, n frame = " + nframe);
+                report.reason = "Video too short.";
                 return report;
             }
             if ((double) nvlog / nframe < VALID_FRAME_THRESHOLD) {
@@ -840,7 +847,7 @@ public class RVCVXCheckAnalyzer {
             // convert to gray manually as by default findCirclesGridDefault uses COLOR_BGR2GRAY
             Imgproc.cvtColor(frame, gray, Imgproc.COLOR_RGB2GRAY);
 
-            boolean foundPattern = Calib3d.findCirclesGridDefault(
+            boolean foundPattern = Calib3d.findCirclesGrid(
                     gray,  patternSize, centers, Calib3d.CALIB_CB_ASYMMETRIC_GRID);
 
             if (!foundPattern) {
@@ -877,8 +884,9 @@ public class RVCVXCheckAnalyzer {
                 Log.v(TAG, "Found attitude, re-projection error = " + error);
             }
 
-            // if error is reasonable, add it into the results
-            if (error < REPROJECTION_THREASHOLD) {
+            // if error is reasonable, add it into the results. use ratio to frame height to avoid
+            // discriminating higher definition videos
+            if (error < REPROJECTION_THREASHOLD_RATIO * frameSize.height) {
                 double [] rv = new double[3];
                 double timestamp;
 
@@ -894,7 +902,7 @@ public class RVCVXCheckAnalyzer {
 
             if (OUTPUT_DEBUG_IMAGE) {
                 Calib3d.drawChessboardCorners(frame, patternSize, reprojCenters, true);
-                Highgui.imwrite(Environment.getExternalStorageDirectory().getPath()
+                Imgcodecs.imwrite(Environment.getExternalStorageDirectory().getPath()
                         + "/RVCVRecData/DebugCV/img" + i + ".png", frame);
             }
         }

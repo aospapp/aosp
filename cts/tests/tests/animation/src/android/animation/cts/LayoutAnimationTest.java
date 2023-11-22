@@ -19,7 +19,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
-import com.android.cts.animation.R;
+import android.animation.cts.R;
 
 import android.animation.Animator;
 import android.animation.LayoutTransition;
@@ -28,7 +28,6 @@ import android.animation.ObjectAnimator;
 import android.animation.PropertyValuesHolder;
 import android.animation.TimeInterpolator;
 import android.test.ActivityInstrumentationTestCase2;
-import android.test.TouchUtils;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AccelerateInterpolator;
@@ -41,6 +40,7 @@ public class LayoutAnimationTest extends
     private MyLayoutTransition mLayoutTransition;
     private LinearLayout mView;
     private Button mButton;
+
     public LayoutAnimationTest() {
         super(LayoutAnimationActivity.class);
     }
@@ -65,14 +65,14 @@ public class LayoutAnimationTest extends
         assertEquals(listener, actualListener);
     }
 
-    public void testIsRunning() {
+    public void testIsRunning() throws Throwable {
         setDefaultTransition();
         assertFalse(mLayoutTransition.isRunning());
-        TouchUtils.clickView(this, mButton);
+        clickButton();
         assertTrue(mLayoutTransition.isRunning());
     }
 
-    public void testIsChangingLayout() {
+    public void testIsChangingLayout() throws Throwable {
         long duration = 2000l;
         mView.setLayoutTransition(mLayoutTransition);
         mLayoutTransition.setDuration(duration);
@@ -80,7 +80,7 @@ public class LayoutAnimationTest extends
                 new AccelerateInterpolator());
 
         assertFalse(mLayoutTransition.isChangingLayout());
-        TouchUtils.clickView(this, mButton);
+        clickButton();
         assertTrue(mLayoutTransition.isChangingLayout());
     }
 
@@ -138,7 +138,7 @@ public class LayoutAnimationTest extends
         mLayoutTransition.setAnimator(LayoutTransition.APPEARING, appearingAnimator);
 
         List<Float> alphaList = new LinkedList<Float>();
-        TouchUtils.clickView(this, mButton);
+        clickButton();
         while(listener.mTransition) {
             float alpha = mActivity.getLastButton().getAlpha();
             alphaList.add(alpha);
@@ -175,6 +175,15 @@ public class LayoutAnimationTest extends
         mLayoutTransition.setDuration(duration);
         mLayoutTransition.setInterpolator(LayoutTransition.APPEARING,
                 new AccelerateInterpolator());
+    }
+
+    private void clickButton() throws Throwable {
+        runTestOnUiThread(new Runnable() {
+            public void run() {
+                mButton.callOnClick();
+            }
+        });
+        getInstrumentation().waitForIdleSync();
     }
 
     class MyTransitionListener implements LayoutTransition.TransitionListener {

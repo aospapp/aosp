@@ -38,6 +38,7 @@ static void explain(void)
 "                 [ loss random PERCENT [CORRELATION]]\n" \
 "                 [ loss state P13 [P31 [P32 [P23 P14]]]\n" \
 "                 [ loss gemodel PERCENT [R [1-H [1-K]]]\n" \
+"                 [ ecn ]\n" \
 "                 [ reorder PRECENT [CORRELATION] [ gap DISTANCE ]]\n" \
 "                 [ rate RATE [PACKETOVERHEAD] [CELLSIZE] [CELLOVERHEAD]]\n");
 }
@@ -86,12 +87,12 @@ static int get_percent(__u32 *percent, const char *str)
 	return 0;
 }
 
-void print_percent(char *buf, int len, __u32 per)
+static void print_percent(char *buf, int len, __u32 per)
 {
 	snprintf(buf, len, "%g%%", 100. * (double) per / max_percent_value);
 }
 
-char * sprint_percent(__u32 per, char *buf)
+static char * sprint_percent(__u32 per, char *buf)
 {
 	print_percent(buf, SPRINT_BSIZE-1, per);
 	return buf;
@@ -146,6 +147,8 @@ static int get_distribution(const char *type, __s16 *data, int maxdata)
 }
 
 #define NEXT_IS_NUMBER() (NEXT_ARG_OK() && isdigit(argv[1][0]))
+#define NEXT_IS_SIGNED_NUMBER() \
+	(NEXT_ARG_OK() && (isdigit(argv[1][0]) || argv[1][0] == '-'))
 
 /* Adjust for the fact that psched_ticks aren't always usecs
    (based on kernel PSCHED_CLOCK configuration */
@@ -180,6 +183,7 @@ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 	__s16 *dist_data = NULL;
 	__u16 loss_type = NETEM_LOSS_UNSPEC;
 	int present[__TCA_NETEM_MAX];
+	__u64 rate64 = 0;
 
 	memset(&cor, 0, sizeof(cor));
 	memset(&reorder, 0, sizeof(reorder));
@@ -259,6 +263,7 @@ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 				set_percent(&gimodel.p31, 1. - p13);
 				set_percent(&gimodel.p32, 0);
 				set_percent(&gimodel.p23, 1.);
+				set_percent(&gimodel.p14, 0);
 				loss_type = NETEM_LOSS_GI;
 
 				if (!NEXT_IS_NUMBER())
@@ -284,6 +289,13 @@ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 					explain1("loss p23");
 					return -1;
 				}
+				if (!NEXT_IS_NUMBER())
+					continue;
+				NEXT_ARG();
+				if (get_percent(&gimodel.p14, *argv)) {
+					explain1("loss p14");
+					return -1;
+				}
 
 			} else if (!strcmp(*argv, "gemodel")) {
 				NEXT_ARG();
@@ -295,7 +307,7 @@ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 				/* set defaults */
 				set_percent(&gemodel.r, 1.);
 				set_percent(&gemodel.h, 0);
-				set_percent(&gemodel.k1, 1.);
+				set_percent(&gemodel.k1, 0);
 				loss_type = NETEM_LOSS_GE;
 
 				if (!NEXT_IS_NUMBER())
@@ -313,6 +325,10 @@ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 					explain1("loss gemodel h");
 					return -1;
 				}
+				/* netem option is "1-h" but kernel
+				 * expects "h".
+				 */
+				gemodel.h = max_percent_value - gemodel.h;
 
 				if (!NEXT_IS_NUMBER())
 					continue;
@@ -326,6 +342,8 @@ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 					*argv);
 				return -1;
 			}
+		} else if (matches(*argv, "ecn") == 0) {
+				present[TCA_NETEM_ECN] = 1;
 		} else if (matches(*argv, "reorder") == 0) {
 			NEXT_ARG();
 			present[TCA_NETEM_REORDER] = 1;
@@ -386,11 +404,11 @@ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 		} else if (matches(*argv, "rate") == 0) {
 			++present[TCA_NETEM_RATE];
 			NEXT_ARG();
-			if (get_rate(&rate.rate, *argv)) {
+			if (get_rate64(&rate64, *argv)) {
 				explain1("rate");
 				return -1;
 			}
-			if (NEXT_IS_NUMBER()) {
+			if (NEXT_IS_SIGNED_NUMBER()) {
 				NEXT_ARG();
 				if (get_s32(&rate.packet_overhead, *argv, 0)) {
 					explain1("rate");
@@ -404,7 +422,7 @@ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 					return -1;
 				}
 			}
-			if (NEXT_IS_NUMBER()) {
+			if (NEXT_IS_SIGNED_NUMBER()) {
 				NEXT_ARG();
 				if (get_s32(&rate.cell_overhead, *argv, 0)) {
 					explain1("rate");
@@ -437,6 +455,14 @@ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 		return -1;
 	}
 
+	if (present[TCA_NETEM_ECN]) {
+		if (opt.loss <= 0 && loss_type == NETEM_LOSS_UNSPEC) {
+			fprintf(stderr, "ecn requested without loss model\n");
+			explain();
+			return -1;
+		}
+	}
+
 	if (dist_data && (opt.latency == 0 || opt.jitter == 0)) {
 		fprintf(stderr, "distribution specified but no latency and jitter values\n");
 		explain();
@@ -453,6 +479,11 @@ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 	if (present[TCA_NETEM_REORDER] &&
 	    addattr_l(n, 1024, TCA_NETEM_REORDER, &reorder, sizeof(reorder)) < 0)
 		return -1;
+
+	if (present[TCA_NETEM_ECN] &&
+	    addattr_l(n, 1024, TCA_NETEM_ECN, &present[TCA_NETEM_ECN],
+		      sizeof(present[TCA_NETEM_ECN])) < 0)
+			return -1;
 
 	if (present[TCA_NETEM_CORRUPT] &&
 	    addattr_l(n, 1024, TCA_NETEM_CORRUPT, &corrupt, sizeof(corrupt)) < 0)
@@ -474,13 +505,22 @@ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 			fprintf(stderr, "loss in the weeds!\n");
 			return -1;
 		}
-		
+
 		addattr_nest_end(n, start);
 	}
 
-	if (present[TCA_NETEM_RATE] &&
-	    addattr_l(n, 1024, TCA_NETEM_RATE, &rate, sizeof(rate)) < 0)
-		return -1;
+	if (present[TCA_NETEM_RATE]) {
+		if (rate64 >= (1ULL << 32)) {
+			if (addattr_l(n, 1024,
+				      TCA_NETEM_RATE64, &rate64, sizeof(rate64)) < 0)
+				return -1;
+			rate.rate = ~0U;
+		} else {
+			rate.rate = rate64;
+		}
+		if (addattr_l(n, 1024, TCA_NETEM_RATE, &rate, sizeof(rate)) < 0)
+			return -1;
+	}
 
 	if (dist_data) {
 		if (addattr_l(n, MAX_DIST * sizeof(dist_data[0]),
@@ -500,9 +540,11 @@ static int netem_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 	const struct tc_netem_corrupt *corrupt = NULL;
 	const struct tc_netem_gimodel *gimodel = NULL;
 	const struct tc_netem_gemodel *gemodel = NULL;
+	int *ecn = NULL;
 	struct tc_netem_qopt qopt;
 	const struct tc_netem_rate *rate = NULL;
 	int len = RTA_PAYLOAD(opt) - sizeof(qopt);
+	__u64 rate64 = 0;
 	SPRINT_BUF(b1);
 
 	if (opt == NULL)
@@ -539,14 +581,24 @@ static int netem_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 
 			parse_rtattr_nested(lb, NETEM_LOSS_MAX, tb[TCA_NETEM_LOSS]);
 			if (lb[NETEM_LOSS_GI])
-				gemodel = RTA_DATA(lb[NETEM_LOSS_GI]);
+				gimodel = RTA_DATA(lb[NETEM_LOSS_GI]);
 			if (lb[NETEM_LOSS_GE])
 				gemodel = RTA_DATA(lb[NETEM_LOSS_GE]);
-		}			
+		}
 		if (tb[TCA_NETEM_RATE]) {
 			if (RTA_PAYLOAD(tb[TCA_NETEM_RATE]) < sizeof(*rate))
 				return -1;
 			rate = RTA_DATA(tb[TCA_NETEM_RATE]);
+		}
+		if (tb[TCA_NETEM_ECN]) {
+			if (RTA_PAYLOAD(tb[TCA_NETEM_ECN]) < sizeof(*ecn))
+				return -1;
+			ecn = RTA_DATA(tb[TCA_NETEM_ECN]);
+		}
+		if (tb[TCA_NETEM_RATE64]) {
+			if (RTA_PAYLOAD(tb[TCA_NETEM_RATE64]) < sizeof(rate64))
+				return -1;
+			rate64 = rta_getattr_u64(tb[TCA_NETEM_RATE64]);
 		}
 	}
 
@@ -577,10 +629,11 @@ static int netem_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 	}
 
 	if (gemodel) {
-		fprintf(f, "loss gemodel p %s",
+		fprintf(f, " loss gemodel p %s",
 			sprint_percent(gemodel->p, b1));
 		fprintf(f, " r %s", sprint_percent(gemodel->r, b1));
-		fprintf(f, " 1-h %s", sprint_percent(gemodel->h, b1));
+		fprintf(f, " 1-h %s", sprint_percent(max_percent_value -
+						     gemodel->h, b1));
 		fprintf(f, " 1-k %s", sprint_percent(gemodel->k1, b1));
 	}
 
@@ -608,7 +661,10 @@ static int netem_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 	}
 
 	if (rate && rate->rate) {
-		fprintf(f, " rate %s", sprint_rate(rate->rate, b1));
+		if (rate64)
+			fprintf(f, " rate %s", sprint_rate(rate64, b1));
+		else
+			fprintf(f, " rate %s", sprint_rate(rate->rate, b1));
 		if (rate->packet_overhead)
 			fprintf(f, " packetoverhead %d", rate->packet_overhead);
 		if (rate->cell_size)
@@ -617,8 +673,12 @@ static int netem_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 			fprintf(f, " celloverhead %d", rate->cell_overhead);
 	}
 
+	if (ecn)
+		fprintf(f, " ecn ");
+
 	if (qopt.gap)
 		fprintf(f, " gap %lu", (unsigned long)qopt.gap);
+
 
 	return 0;
 }
@@ -628,4 +688,3 @@ struct qdisc_util netem_qdisc_util = {
 	.parse_qopt	= netem_parse_opt,
 	.print_qopt	= netem_print_opt,
 };
-

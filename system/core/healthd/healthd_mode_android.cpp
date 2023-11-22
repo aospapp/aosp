@@ -16,7 +16,7 @@
 
 #define LOG_TAG "healthd-android"
 
-#include "healthd.h"
+#include <healthd/healthd.h>
 #include "BatteryPropertiesRegistrar.h"
 
 #include <binder/IPCThreadState.h>
@@ -58,5 +58,5 @@ void healthd_mode_android_init(struct healthd_config* /*config*/) {
     }
 
     gBatteryPropertiesRegistrar = new BatteryPropertiesRegistrar();
-    gBatteryPropertiesRegistrar->publish();
+    gBatteryPropertiesRegistrar->publish(gBatteryPropertiesRegistrar);
 }

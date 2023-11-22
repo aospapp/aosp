@@ -32,16 +32,17 @@ import android.hardware.input.InputManager;
 import android.hardware.input.KeyboardLayout;
 import android.os.Bundle;
 import android.os.Handler;
-import android.preference.ListPreference;
-import android.preference.Preference;
-import android.preference.Preference.OnPreferenceClickListener;
-import android.preference.PreferenceCategory;
-import android.preference.PreferenceManager;
-import android.preference.PreferenceScreen;
-import android.preference.SwitchPreference;
+import android.os.LocaleList;
 import android.provider.Settings;
 import android.provider.Settings.System;
 import android.speech.tts.TtsEngines;
+import android.support.v14.preference.SwitchPreference;
+import android.support.v7.preference.ListPreference;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.Preference.OnPreferenceClickListener;
+import android.support.v7.preference.PreferenceCategory;
+import android.support.v7.preference.PreferenceManager;
+import android.support.v7.preference.PreferenceScreen;
 import android.text.TextUtils;
 import android.view.InputDevice;
 import android.view.inputmethod.InputMethodInfo;
@@ -50,8 +51,9 @@ import android.view.inputmethod.InputMethodSubtype;
 import android.view.textservice.SpellCheckerInfo;
 import android.view.textservice.TextServicesManager;
 
+import com.android.internal.app.LocaleHelper;
 import com.android.internal.app.LocalePicker;
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.R;
 import com.android.settings.Settings.KeyboardLayoutPickerActivity;
 import com.android.settings.SettingsActivity;
@@ -60,6 +62,7 @@ import com.android.settings.SubSettings;
 import com.android.settings.UserDictionarySettings;
 import com.android.settings.Utils;
 import com.android.settings.VoiceInputOutputSettings;
+import com.android.settings.dashboard.SummaryLoader;
 import com.android.settings.search.BaseSearchIndexProvider;
 import com.android.settings.search.Indexable;
 import com.android.settings.search.SearchIndexableRaw;
@@ -106,7 +109,7 @@ public class InputMethodAndLanguageSettings extends SettingsPreferenceFragment
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.INPUTMETHOD_LANGUAGE;
+        return MetricsEvent.INPUTMETHOD_LANGUAGE;
     }
 
     @Override
@@ -154,12 +157,16 @@ public class InputMethodAndLanguageSettings extends SettingsPreferenceFragment
                 startingIntent.getAction());
         if (mShowsOnlyFullImeAndKeyboardList) {
             getPreferenceScreen().removeAll();
-            getPreferenceScreen().addPreference(mHardKeyboardCategory);
+            if (mHardKeyboardCategory != null) {
+                getPreferenceScreen().addPreference(mHardKeyboardCategory);
+            }
             if (SHOW_INPUT_METHOD_SWITCHER_SETTINGS) {
                 getPreferenceScreen().addPreference(mShowInputMethodSelectorPref);
             }
-            mKeyboardSettingsCategory.removeAll();
-            getPreferenceScreen().addPreference(mKeyboardSettingsCategory);
+            if (mKeyboardSettingsCategory != null) {
+                mKeyboardSettingsCategory.removeAll();
+                getPreferenceScreen().addPreference(mKeyboardSettingsCategory);
+            }
         }
 
         // Build hard keyboard and game controller preference categories.
@@ -254,19 +261,22 @@ public class InputMethodAndLanguageSettings extends SettingsPreferenceFragment
         if (spellChecker != null) {
             final TextServicesManager tsm = (TextServicesManager) getSystemService(
                     Context.TEXT_SERVICES_MANAGER_SERVICE);
-            final SpellCheckerInfo sci = tsm.getCurrentSpellChecker();
-            spellChecker.setEnabled(sci != null);
-            if (tsm.isSpellCheckerEnabled() && sci != null) {
-                spellChecker.setSummary(sci.loadLabel(getPackageManager()));
-            } else {
+            if (!tsm.isSpellCheckerEnabled()) {
                 spellChecker.setSummary(R.string.switch_off_text);
+            } else {
+                final SpellCheckerInfo sci = tsm.getCurrentSpellChecker();
+                if (sci != null) {
+                    spellChecker.setSummary(sci.loadLabel(getPackageManager()));
+                } else {
+                    spellChecker.setSummary(R.string.spell_checker_not_selected);
+                }
             }
         }
 
         if (!mShowsOnlyFullImeAndKeyboardList) {
             if (mLanguagePref != null) {
-                String localeName = getLocaleName(getActivity());
-                mLanguagePref.setSummary(localeName);
+                String localeNames = getLocaleNames(getActivity());
+                mLanguagePref.setSummary(localeNames);
             }
 
             updateUserDictionaryPreference(findPreference(KEY_USER_DICTIONARY_SETTINGS));
@@ -315,7 +325,7 @@ public class InputMethodAndLanguageSettings extends SettingsPreferenceFragment
     }
 
     @Override
-    public boolean onPreferenceTreeClick(PreferenceScreen preferenceScreen, Preference preference) {
+    public boolean onPreferenceTreeClick(Preference preference) {
         // Input Method stuff
         if (Utils.isMonkeyRunning()) {
             return false;
@@ -336,22 +346,16 @@ public class InputMethodAndLanguageSettings extends SettingsPreferenceFragment
                 return true;
             }
         }
-        return super.onPreferenceTreeClick(preferenceScreen, preference);
+        return super.onPreferenceTreeClick(preference);
     }
 
-    private static String getLocaleName(Context context) {
-        // We want to show the same string that the LocalePicker used.
-        // TODO: should this method be in LocalePicker instead?
-        Locale currentLocale = context.getResources().getConfiguration().locale;
-        List<LocalePicker.LocaleInfo> locales = LocalePicker.getAllAssetLocales(context, true);
-        for (LocalePicker.LocaleInfo locale : locales) {
-            if (locale.getLocale().equals(currentLocale)) {
-                return locale.getLabel();
-            }
-        }
-        // This can't happen as long as the locale was one set by Settings.
-        // Fall back in case a developer is testing an unsupported locale.
-        return currentLocale.getDisplayName(currentLocale);
+    private static String getLocaleNames(Context context) {
+        final LocaleList locales = LocalePicker.getLocales();
+        final Locale displayLocale = Locale.getDefault();
+        return LocaleHelper.toSentenceCase(
+                LocaleHelper.getDisplayLocaleList(
+                        locales, displayLocale, 2 /* Show up to two locales from the list */),
+                displayLocale);
     }
 
     private void saveInputMethodSelectorVisibility(String value) {
@@ -383,6 +387,10 @@ public class InputMethodAndLanguageSettings extends SettingsPreferenceFragment
     }
 
     private void updateInputMethodPreferenceViews() {
+        if (mKeyboardSettingsCategory == null) {
+            return;
+        }
+
         synchronized (mInputMethodPreferenceList) {
             // Clear existing "InputMethodPreference"s
             for (final InputMethodPreference pref : mInputMethodPreferenceList) {
@@ -390,7 +398,7 @@ public class InputMethodAndLanguageSettings extends SettingsPreferenceFragment
             }
             mInputMethodPreferenceList.clear();
             List<String> permittedList = mDpm.getPermittedInputMethodsForCurrentUser();
-            final Context context = getActivity();
+            final Context context = getPrefContext();
             final List<InputMethodInfo> imis = mShowsOnlyFullImeAndKeyboardList
                     ? mInputMethodSettingValues.getInputMethodList()
                     : mImm.getEnabledInputMethodList();
@@ -517,6 +525,10 @@ public class InputMethodAndLanguageSettings extends SettingsPreferenceFragment
     }
 
     private void updateHardKeyboards() {
+        if (mHardKeyboardCategory == null) {
+            return;
+        }
+
         mHardKeyboardPreferenceList.clear();
         final int[] devices = InputDevice.getDeviceIds();
         for (int i = 0; i < devices.length; i++) {
@@ -530,7 +542,7 @@ public class InputMethodAndLanguageSettings extends SettingsPreferenceFragment
                 final KeyboardLayout keyboardLayout = keyboardLayoutDescriptor != null ?
                     mIm.getKeyboardLayout(keyboardLayoutDescriptor) : null;
 
-                final PreferenceScreen pref = new PreferenceScreen(getActivity(), null);
+                final PreferenceScreen pref = new PreferenceScreen(getPrefContext(), null);
                 pref.setTitle(device.getName());
                 if (keyboardLayout != null) {
                     pref.setSummary(keyboardLayout.toString());
@@ -571,10 +583,13 @@ public class InputMethodAndLanguageSettings extends SettingsPreferenceFragment
     }
 
     private void showKeyboardLayoutDialog(InputDeviceIdentifier inputDeviceIdentifier) {
-        KeyboardLayoutDialogFragment fragment = new KeyboardLayoutDialogFragment(
-                inputDeviceIdentifier);
-        fragment.setTargetFragment(this, 0);
-        fragment.show(getActivity().getFragmentManager(), "keyboardLayout");
+        KeyboardLayoutDialogFragment fragment = (KeyboardLayoutDialogFragment)
+                getFragmentManager().findFragmentByTag("keyboardLayout");
+        if (fragment == null) {
+            fragment = new KeyboardLayoutDialogFragment(inputDeviceIdentifier);
+            fragment.setTargetFragment(this, 0);
+            fragment.show(getActivity().getFragmentManager(), "keyboardLayout");
+        }
     }
 
     @Override
@@ -648,6 +663,34 @@ public class InputMethodAndLanguageSettings extends SettingsPreferenceFragment
         }
     }
 
+    private static class SummaryProvider implements SummaryLoader.SummaryProvider {
+
+        private final Context mContext;
+        private final SummaryLoader mSummaryLoader;
+
+        public SummaryProvider(Context context, SummaryLoader summaryLoader) {
+            mContext = context;
+            mSummaryLoader = summaryLoader;
+        }
+
+        @Override
+        public void setListening(boolean listening) {
+            if (listening) {
+                String localeNames = getLocaleNames(mContext);
+                mSummaryLoader.setSummary(this, localeNames);
+            }
+        }
+    }
+
+    public static final SummaryLoader.SummaryProviderFactory SUMMARY_PROVIDER_FACTORY
+            = new SummaryLoader.SummaryProviderFactory() {
+        @Override
+        public SummaryLoader.SummaryProvider createSummaryProvider(Activity activity,
+                                                                   SummaryLoader summaryLoader) {
+            return new SummaryProvider(activity, summaryLoader);
+        }
+    };
+
     public static final Indexable.SearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
             new BaseSearchIndexProvider() {
         @Override
@@ -658,12 +701,12 @@ public class InputMethodAndLanguageSettings extends SettingsPreferenceFragment
 
             // Locale picker.
             if (context.getAssets().getLocales().length > 1) {
-                String localeName = getLocaleName(context);
+                String localeNames = getLocaleNames(context);
                 SearchIndexableRaw indexable = new SearchIndexableRaw(context);
                 indexable.key = KEY_PHONE_LANGUAGE;
                 indexable.title = context.getString(R.string.phone_language);
-                indexable.summaryOn = localeName;
-                indexable.summaryOff = localeName;
+                indexable.summaryOn = localeNames;
+                indexable.summaryOff = localeNames;
                 indexable.screenTitle = screenTitle;
                 indexables.add(indexable);
             }
@@ -715,22 +758,10 @@ public class InputMethodAndLanguageSettings extends SettingsPreferenceFragment
             final int inputMethodCount = (inputMethods == null ? 0 : inputMethods.size());
             for (int i = 0; i < inputMethodCount; ++i) {
                 InputMethodInfo inputMethod = inputMethods.get(i);
-
-                StringBuilder builder = new StringBuilder();
                 List<InputMethodSubtype> subtypes = inputMethodManager
                         .getEnabledInputMethodSubtypeList(inputMethod, true);
-                final int subtypeCount = subtypes.size();
-                for (int j = 0; j < subtypeCount; j++) {
-                    InputMethodSubtype subtype = subtypes.get(j);
-                    if (builder.length() > 0) {
-                        builder.append(',');
-                    }
-                    CharSequence subtypeLabel = subtype.getDisplayName(context,
-                            inputMethod.getPackageName(), inputMethod.getServiceInfo()
-                                    .applicationInfo);
-                    builder.append(subtypeLabel);
-                }
-                String summary = builder.toString();
+                String summary = InputMethodAndSubtypeUtil.getSubtypeLocaleNameListAsSentence(
+                        subtypes, context, inputMethod);
 
                 ServiceInfo serviceInfo = inputMethod.getServiceInfo();
                 ComponentName componentName = new ComponentName(serviceInfo.packageName,

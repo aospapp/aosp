@@ -43,11 +43,11 @@ public class ReplaceMethodCallsAdapter extends ClassVisitor {
      * Descriptors for specialized versions {@link System#arraycopy} that are not present on the
      * Desktop VM.
      */
-    private static Set<String> ARRAYCOPY_DESCRIPTORS = new HashSet<String>(Arrays.asList(
+    private static Set<String> ARRAYCOPY_DESCRIPTORS = new HashSet<>(Arrays.asList(
             "([CI[CII)V", "([BI[BII)V", "([SI[SII)V", "([II[III)V",
             "([JI[JII)V", "([FI[FII)V", "([DI[DII)V", "([ZI[ZII)V"));
 
-    private static final List<MethodReplacer> METHOD_REPLACERS = new ArrayList<MethodReplacer>(5);
+    private static final List<MethodReplacer> METHOD_REPLACERS = new ArrayList<>(5);
 
     private static final String ANDROID_LOCALE_CLASS =
             "com/android/layoutlib/bridge/android/AndroidLocale";
@@ -134,7 +134,33 @@ public class ReplaceMethodCallsAdapter extends ClassVisitor {
             }
         });
 
-        // Case 5: java.util.LinkedHashMap.eldest()
+        // Case 5: java.lang.System time calls
+        METHOD_REPLACERS.add(new MethodReplacer() {
+            @Override
+            public boolean isNeeded(String owner, String name, String desc, String sourceClass) {
+                return JAVA_LANG_SYSTEM.equals(owner) && name.equals("nanoTime");
+            }
+
+            @Override
+            public void replace(MethodInformation mi) {
+                mi.name = "nanoTime";
+                mi.owner = Type.getInternalName(System_Delegate.class);
+            }
+        });
+        METHOD_REPLACERS.add(new MethodReplacer() {
+            @Override
+            public boolean isNeeded(String owner, String name, String desc, String sourceClass) {
+                return JAVA_LANG_SYSTEM.equals(owner) && name.equals("currentTimeMillis");
+            }
+
+            @Override
+            public void replace(MethodInformation mi) {
+                mi.name = "currentTimeMillis";
+                mi.owner = Type.getInternalName(System_Delegate.class);
+            }
+        });
+
+        // Case 6: java.util.LinkedHashMap.eldest()
         METHOD_REPLACERS.add(new MethodReplacer() {
 
             private final String VOID_TO_MAP_ENTRY =
@@ -157,7 +183,7 @@ public class ReplaceMethodCallsAdapter extends ClassVisitor {
             }
         });
 
-        // Case 6: android.content.Context.getClassLoader() in LayoutInflater
+        // Case 7: android.content.Context.getClassLoader() in LayoutInflater
         METHOD_REPLACERS.add(new MethodReplacer() {
             // When LayoutInflater asks for a class loader, we must return the class loader that
             // cannot return app's custom views/classes. This is so that in case of any failure
@@ -206,7 +232,7 @@ public class ReplaceMethodCallsAdapter extends ClassVisitor {
     private final String mOriginalClassName;
 
     public ReplaceMethodCallsAdapter(ClassVisitor cv, String originalClassName) {
-        super(Opcodes.ASM4, cv);
+        super(Main.ASM_VERSION, cv);
         mOriginalClassName = originalClassName;
     }
 
@@ -219,11 +245,12 @@ public class ReplaceMethodCallsAdapter extends ClassVisitor {
     private class MyMethodVisitor extends MethodVisitor {
 
         public MyMethodVisitor(MethodVisitor mv) {
-            super(Opcodes.ASM4, mv);
+            super(Main.ASM_VERSION, mv);
         }
 
         @Override
-        public void visitMethodInsn(int opcode, String owner, String name, String desc) {
+        public void visitMethodInsn(int opcode, String owner, String name, String desc,
+                boolean itf) {
             for (MethodReplacer replacer : METHOD_REPLACERS) {
                 if (replacer.isNeeded(owner, name, desc, mOriginalClassName)) {
                     MethodInformation mi = new MethodInformation(opcode, owner, name, desc);
@@ -235,7 +262,7 @@ public class ReplaceMethodCallsAdapter extends ClassVisitor {
                     break;
                 }
             }
-            super.visitMethodInsn(opcode, owner, name, desc);
+            super.visitMethodInsn(opcode, owner, name, desc, itf);
         }
     }
 

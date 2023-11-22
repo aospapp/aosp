@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 %s -O3 -triple=x86_64-apple-darwin -target-feature +avx -emit-llvm -o - | FileCheck %s
+// FIXME: This is testing optimized generation of shuffle instructions and should be fixed.
 
 // Don't include mm_malloc.h, it's system specific.
 #define __MM_MALLOC_H
@@ -174,3 +175,38 @@ __m128i test_mm256_extractf128_si256_1(__m256i a) {
   return _mm256_extractf128_si256(a, 1);
 }
 
+__m256 test_mm256_set_m128(__m128 hi, __m128 lo) {
+  // CHECK-LABEL: @test_mm256_set_m128
+  // CHECK: shufflevector{{.*}}<i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+  return _mm256_set_m128(hi, lo);
+}
+
+__m256d test_mm256_set_m128d(__m128d hi, __m128d lo) {
+  // CHECK-LABEL: @test_mm256_set_m128d
+  // CHECK: shufflevector{{.*}}<i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+  return _mm256_set_m128d(hi, lo);
+}
+
+__m256i test_mm256_set_m128i(__m128i hi, __m128i lo) {
+  // CHECK-LABEL: @test_mm256_set_m128i
+  // CHECK: shufflevector{{.*}}<i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>  
+  return _mm256_set_m128i(hi, lo);
+}
+
+__m256 test_mm256_setr_m128(__m128 hi, __m128 lo) {
+  // CHECK-LABEL: @test_mm256_setr_m128
+  // CHECK: shufflevector{{.*}}<i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+  return _mm256_setr_m128(lo, hi);
+}
+
+__m256d test_mm256_setr_m128d(__m128d hi, __m128d lo) {
+  // CHECK-LABEL: @test_mm256_setr_m128d
+  // CHECK: shufflevector{{.*}}<i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+  return _mm256_setr_m128d(lo, hi);
+}
+
+__m256i test_mm256_setr_m128i(__m128i hi, __m128i lo) {
+  // CHECK-LABEL: @test_mm256_setr_m128i
+  // CHECK: shufflevector{{.*}}<i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+  return _mm256_setr_m128i(lo, hi);
+}

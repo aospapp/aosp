@@ -1,3 +1,4 @@
+
 /*
  * Copyright 2014 Google Inc.
  *
@@ -21,17 +22,20 @@ class SkPicture;
  */
 class SkPictureShader : public SkShader {
 public:
-    static SkPictureShader* Create(const SkPicture*, TileMode, TileMode, const SkMatrix*,
+    static SkShader* Create(const SkPicture*, TileMode, TileMode, const SkMatrix*,
                                    const SkRect*);
-    virtual ~SkPictureShader();
 
-    size_t contextSize() const override;
+    size_t contextSize(const ContextRec&) const override;
 
     SK_TO_STRING_OVERRIDE()
     SK_DECLARE_PUBLIC_FLATTENABLE_DESERIALIZATION_PROCS(SkPictureShader)
 
-    bool asFragmentProcessor(GrContext*, const SkPaint&, const SkMatrix& viewM, const SkMatrix*,
-                             GrColor*, GrFragmentProcessor**) const override;
+#if SK_SUPPORT_GPU
+    const GrFragmentProcessor* asFragmentProcessor(GrContext*,
+                                                   const SkMatrix& viewM,
+                                                   const SkMatrix*,
+                                                   SkFilterQuality) const override;
+#endif
 
 protected:
     SkPictureShader(SkReadBuffer&);
@@ -43,9 +47,9 @@ private:
 
     SkShader* refBitmapShader(const SkMatrix&, const SkMatrix* localMatrix, const int maxTextureSize = 0) const;
 
-    const SkPicture* fPicture;
-    SkRect           fTile;
-    TileMode         fTmx, fTmy;
+    SkAutoTUnref<const SkPicture> fPicture;
+    SkRect                        fTile;
+    TileMode                      fTmx, fTmy;
 
     class PictureShaderContext : public SkShader::Context {
     public:
@@ -58,7 +62,6 @@ private:
 
         ShadeProc asAShadeProc(void** ctx) override;
         void shadeSpan(int x, int y, SkPMColor dstC[], int count) override;
-        void shadeSpan16(int x, int y, uint16_t dstC[], int count) override;
 
     private:
         PictureShaderContext(const SkPictureShader&, const ContextRec&, SkShader* bitmapShader);

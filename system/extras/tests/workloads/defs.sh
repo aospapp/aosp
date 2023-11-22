@@ -10,21 +10,25 @@ generateActivities=0
 
 # default activities. Can dynamically generate with -g.
 gmailActivity='com.google.android.gm/com.google.android.gm.ConversationListActivityGmail'
+clockActivity='com.google.android.deskclock/com.android.deskclock.DeskClock'
 hangoutsActivity='com.google.android.talk/com.google.android.talk.SigningInActivity'
 chromeActivity='com.android.chrome/_not_used'
+contactsActivity='com.google.android.contacts/com.android.contacts.activities.PeopleActivity'
 youtubeActivity='com.google.android.youtube/com.google.android.apps.youtube.app.WatchWhileActivity'
 cameraActivity='com.google.android.GoogleCamera/com.android.camera.CameraActivity'
 playActivity='com.android.vending/com.google.android.finsky.activities.MainActivity'
 feedlyActivity='com.devhd.feedly/com.devhd.feedly.Main'
-photosActivity='com.google.android.apps.plus/com.google.android.apps.photos.phone.PhotosHomeActivity'
+photosActivity='com.google.android.apps.photos/com.google.android.apps.photos.home.HomeActivity'
 mapsActivity='com.google.android.apps.maps/com.google.android.maps.MapsActivity'
 calendarActivity='com.google.android.calendar/com.android.calendar.AllInOneActivity'
 earthActivity='com.google.earth/com.google.earth.EarthActivity'
-calculatorActivity='com.android.calculator2/com.android.calculator2.Calculator'
+calculatorActivity='com.google.android.calculator/com.android.calculator2.Calculator'
+calculatorLActivity='com.android.calculator2/com.android.calculator2.Calculator'
 sheetsActivity='com.google.android.apps.docs.editors.sheets/com.google.android.apps.docs.app.NewMainProxyActivity'
 docsActivity='com.google.android.apps.docs.editors.docs/com.google.android.apps.docs.app.NewMainProxyActivity'
 operaActivity='com.opera.mini.native/com.opera.mini.android.Browser'
 firefoxActivity='org.mozilla.firefox/org.mozilla.firefox.App'
+suntempleActivity='com.BrueComputing.SunTemple/com.epicgames.ue4.GameActivity'
 homeActivity='com.google.android.googlequicksearchbox/com.google.android.launcher.GEL'
 
 function showUsage {
@@ -93,8 +97,22 @@ else
 	fi
 	deviceName=$1
 	ADB="adb -s $deviceName shell "
-	DEVICE=$(echo $4 | sed 's/product://')
+	if [ "$DEVICE" = "" -o "$DEVICE" = unknown ]; then
+		DEVICE=$(echo $4 | sed 's/product://')
+	fi
 	isOnDevice=0
+fi
+
+if [ $isOnDevice -gt 0 ]; then
+	case "$DEVICE" in
+	(bullhead|angler)
+		if ! echo $$ > /dev/cpuset/background/tasks; then
+			echo Could not put PID $$ in background
+		fi
+		;;
+	(*)
+		;;
+	esac
 fi
 
 # default values if not set by options or calling script
@@ -109,7 +127,9 @@ ADB=${ADB:=""}
 output=${output:="./out"}
 
 # clear the output file
-> $output
+if [ -f $output ]; then
+	> $output
+fi
 
 # ADB commands
 AM_FORCE_START="${ADB}am start -W -S"
@@ -162,6 +182,7 @@ function log2msec {
 	in=$1
 	in=${in:=0.0}
 	set -- $(echo $in | tr . " ")
+
 	# shell addition via (( )) doesn't like leading zeroes in msecs
 	# field so remove leading zeroes
 	msecfield=$(expr 0 + $2)
@@ -209,7 +230,7 @@ function getEndTime {
 
 function resetJankyFrames {
 	_gfxapp=$1
-	_gfxapp=${app:="com.android.systemui"}
+	_gfxapp=${_gfxapp:="com.android.systemui"}
 	${ADB}dumpsys gfxinfo $_gfxapp reset 2>&1 >/dev/null
 }
 
@@ -256,14 +277,21 @@ function checkForDirectReclaim {
 }
 
 function startInstramentation {
+	_iter=$1
+	_iter=${_iter:=0}
+	enableAtrace=$2
+	enableAtrace=${enableAtrace:=1}
 	# Called at beginning of loop. Turn on instramentation like atrace
 	vout start instramentation $(date)
 	echo =============================== >> $output
-	echo Before iteration >> $output
+	echo Before iteration $_iter >> $output
 	echo =============================== >> $output
 	${ADB}cat /proc/meminfo 2>&1 >> $output
 	${ADB}dumpsys meminfo 2>&1 >> $output
-	if [ "$user" = root ]; then
+	if [ "$DEVICE" = volantis ]; then
+		${ADB}cat /d/nvmap/iovmm/procrank 2>&1 >> $output
+	fi
+	if [ "$user" = root -a $enableAtrace -gt 0 ]; then
 		vout ${ADB}atrace -b 32768 --async_start $tracecategories
 		${ADB}atrace -b 32768 --async_start $tracecategories >> $output
 		echo >> $output
@@ -271,14 +299,15 @@ function startInstramentation {
 }
 
 function stopInstramentation {
-	if [ "$user" = root ]; then
+	enableAtrace=$1
+	enableAtrace=${enableAtrace:=1}
+	if [ "$user" = root -a $enableAtrace -gt 0 ]; then
 		vout ${ADB}atrace --async_stop
 		${ADB}atrace --async_stop > /dev/null
 	fi
 }
 
 function stopAndDumpInstramentation {
-	# Called at beginning of loop. Turn on instramentation like atrace
 	vout stop instramentation $(date)
 	echo =============================== >> $output
 	echo After iteration >> $output
@@ -300,9 +329,9 @@ function stopAndDumpInstramentation {
 			python $UNCOMPRESS $tmpTrace >> $traceout
 			rm -f $tmpTrace
 		else
-			${ADB}atrace $zarg -b 32768 --async_dump >> $traceout
+			${ADB}atrace -b 32768 --async_dump > $traceout
 		fi
-		vout ${ADB}atrace $zarg --async_dump
+		vout ${ADB}atrace $zarg -b 32768 --async_dump
 		vout ${ADB}atrace --async_stop
 		${ADB}atrace --async_stop > /dev/null
 	fi
@@ -336,7 +365,7 @@ function startActivity {
 		echo 0
 		return 0
 	elif [ "$1" = chrome ]; then
-		if [ "$DEVICE" = volantis ]; then
+		if [ "$DEVICE" = volantis -o "$DEVICE" = ariel ]; then
 			vout $AM_START_NOWAIT -p "$(getPackageName $1)" http://www.theverge.com
 			$AM_START_NOWAIT -p "$(getPackageName $1)" http://www.theverge.com > /dev/null
 			set -- 0 0
@@ -375,7 +404,14 @@ function checkActivity {
 
 function doSwipe {
 	vout ${ADB}input swipe $*
-	${ADB}input swipe $*
+	${ADB}nice input swipe $*
+}
+
+function doText {
+	echo $* > ./tmpOutput
+	vout ${ADB}input text \"$*\"
+	${ADB}input text "$(cat ./tmpOutput)"
+	rm -f ./tmpOutput
 }
 
 function doTap {

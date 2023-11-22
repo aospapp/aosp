@@ -23,7 +23,7 @@
  *
  ******************************************************************************/
 #include <string.h>
-#include "gki.h"
+#include "bt_common.h"
 #include "bt_types.h"
 #include "rfcdefs.h"
 #include "l2cdefs.h"
@@ -121,11 +121,14 @@ void rfc_mx_sm_state_idle (tRFC_MCB *p_mcb, UINT16 event, void *p_data)
         /* Initialize L2CAP MTU */
         p_mcb->peer_l2cap_mtu = L2CAP_DEFAULT_MTU - RFCOMM_MIN_OFFSET - 1;
 
-        if ((p_mcb->lcid = L2CA_ConnectReq (BT_PSM_RFCOMM, p_mcb->bd_addr)) == 0)
-        {
-            PORT_StartCnf (p_mcb, RFCOMM_ERROR);
+        UINT16 lcid = L2CA_ConnectReq(BT_PSM_RFCOMM, p_mcb->bd_addr);
+        if (lcid == 0) {
+            rfc_save_lcid_mcb(NULL, p_mcb->lcid);
+            p_mcb->lcid = 0;
+            PORT_StartCnf(p_mcb, RFCOMM_ERROR);
             return;
         }
+        p_mcb->lcid = lcid;
         /* Save entry for quicker access to mcb based on the LCID */
         rfc_save_lcid_mcb (p_mcb, p_mcb->lcid);
 
@@ -411,6 +414,7 @@ void rfc_mx_sm_state_wait_sabme (tRFC_MCB *p_mcb, UINT16 event, void *p_data)
 
             p_mcb->state      = RFC_MX_STATE_CONNECTED;
             p_mcb->peer_ready = TRUE;
+            PORT_StartCnf (p_mcb, RFCOMM_SUCCESS);
         }
         return;
 
@@ -498,17 +502,20 @@ void rfc_mx_sm_state_disc_wait_ua (tRFC_MCB *p_mcb, UINT16 event, void *p_data)
         if (p_mcb->restart_required)
         {
             /* Start Request was received while disconnecting.  Execute it again */
-            if ((p_mcb->lcid = L2CA_ConnectReq (BT_PSM_RFCOMM, p_mcb->bd_addr)) == 0)
-            {
-                PORT_StartCnf (p_mcb, RFCOMM_ERROR);
+            UINT16 lcid = L2CA_ConnectReq(BT_PSM_RFCOMM, p_mcb->bd_addr);
+            if (lcid == 0) {
+                rfc_save_lcid_mcb(NULL, p_mcb->lcid);
+                p_mcb->lcid = 0;
+                PORT_StartCnf(p_mcb, RFCOMM_ERROR);
                 return;
             }
+            p_mcb->lcid = lcid;
             /* Save entry for quicker access to mcb based on the LCID */
             rfc_save_lcid_mcb (p_mcb, p_mcb->lcid);
 
             /* clean up before reuse it */
-            while ((p_buf = (BT_HDR *)GKI_dequeue(&p_mcb->cmd_q)) != NULL)
-                GKI_freebuf(p_buf);
+            while ((p_buf = (BT_HDR *)fixed_queue_try_dequeue(p_mcb->cmd_q)) != NULL)
+                osi_free(p_buf);
 
             rfc_timer_start (p_mcb, RFC_MCB_INIT_INACT_TIMER);
 
@@ -528,7 +535,7 @@ void rfc_mx_sm_state_disc_wait_ua (tRFC_MCB *p_mcb, UINT16 event, void *p_data)
         return;
 
     case RFC_EVENT_UIH:
-        GKI_freebuf (p_data);
+        osi_free(p_data);
         rfc_send_dm (p_mcb, RFCOMM_MX_DLCI, FALSE);
         return;
 

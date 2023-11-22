@@ -38,9 +38,32 @@
 
 namespace keymaster {
 
+namespace {
+
 const uint8_t MAJOR_VER = 1;
 const uint8_t MINOR_VER = 1;
 const uint8_t SUBMINOR_VER = 0;
+
+keymaster_error_t CheckVersionInfo(const AuthorizationSet& tee_enforced,
+                                   const AuthorizationSet& sw_enforced,
+                                   const KeymasterContext& context) {
+    uint32_t os_version;
+    uint32_t os_patchlevel;
+    context.GetSystemVersion(&os_version, &os_patchlevel);
+
+    uint32_t key_os_patchlevel;
+    if (tee_enforced.GetTagValue(TAG_OS_PATCHLEVEL, &key_os_patchlevel) ||
+        sw_enforced.GetTagValue(TAG_OS_PATCHLEVEL, &key_os_patchlevel)) {
+        if (key_os_patchlevel < os_patchlevel)
+            return KM_ERROR_KEY_REQUIRES_UPGRADE;
+        else if (key_os_patchlevel > os_patchlevel)
+            return KM_ERROR_INVALID_KEY_BLOB;
+    }
+
+    return KM_ERROR_OK;
+}
+
+}  // anonymous namespace
 
 AndroidKeymaster::AndroidKeymaster(KeymasterContext* context, size_t operation_table_size)
     : context_(context), operation_table_(new OperationTable(operation_table_size)) {}
@@ -193,6 +216,8 @@ void AndroidKeymaster::GetKeyCharacteristics(const GetKeyCharacteristicsRequest&
                                &key_material, &response->enforced, &response->unenforced);
     if (response->error != KM_ERROR_OK)
         return;
+
+    response->error = CheckVersionInfo(response->enforced, response->unenforced, *context_);
 }
 
 static KeyFactory* GetKeyFactory(const KeymasterContext& context,
@@ -275,8 +300,10 @@ void AndroidKeymaster::UpdateOperation(const UpdateOperationRequest& request,
         response->error = context_->enforcement_policy()->AuthorizeOperation(
             operation->purpose(), operation->key_id(), operation->authorizations(),
             request.additional_params, request.op_handle, false /* is_begin_operation */);
-        if (response->error != KM_ERROR_OK)
+        if (response->error != KM_ERROR_OK) {
+            operation_table_->Delete(request.op_handle);
             return;
+        }
     }
 
     response->error =
@@ -302,11 +329,13 @@ void AndroidKeymaster::FinishOperation(const FinishOperationRequest& request,
         response->error = context_->enforcement_policy()->AuthorizeOperation(
             operation->purpose(), operation->key_id(), operation->authorizations(),
             request.additional_params, request.op_handle, false /* is_begin_operation */);
-        if (response->error != KM_ERROR_OK)
+        if (response->error != KM_ERROR_OK) {
+            operation_table_->Delete(request.op_handle);
             return;
+        }
     }
 
-    response->error = operation->Finish(request.additional_params, request.signature,
+    response->error = operation->Finish(request.additional_params, request.input, request.signature,
                                         &response->output_params, &response->output);
     operation_table_->Delete(request.op_handle);
 }
@@ -346,7 +375,8 @@ void AndroidKeymaster::ExportKey(const ExportKeyRequest& request, ExportKeyRespo
         return;
 
     UniquePtr<Key> key;
-    response->error = key_factory->LoadKey(key_material, hw_enforced, sw_enforced, &key);
+    response->error = key_factory->LoadKey(key_material, request.additional_params, hw_enforced,
+                                           sw_enforced, &key);
     if (response->error != KM_ERROR_OK)
         return;
 
@@ -357,6 +387,35 @@ void AndroidKeymaster::ExportKey(const ExportKeyRequest& request, ExportKeyRespo
         response->key_data = out_key.release();
         response->key_data_length = size;
     }
+}
+
+void AndroidKeymaster::AttestKey(const AttestKeyRequest& request, AttestKeyResponse* response) {
+    if (!response)
+        return;
+
+    AuthorizationSet tee_enforced;
+    AuthorizationSet sw_enforced;
+    const KeyFactory* key_factory;
+    UniquePtr<Key> key;
+    response->error = LoadKey(request.key_blob, request.attest_params, &tee_enforced, &sw_enforced,
+                              &key_factory, &key);
+    if (response->error != KM_ERROR_OK)
+        return;
+
+    response->error = key->GenerateAttestation(*context_, request.attest_params, tee_enforced,
+                                               sw_enforced, &response->certificate_chain);
+}
+
+void AndroidKeymaster::UpgradeKey(const UpgradeKeyRequest& request, UpgradeKeyResponse* response) {
+    if (!response)
+        return;
+
+    KeymasterKeyBlob upgraded_key;
+    response->error = context_->UpgradeKeyBlob(KeymasterKeyBlob(request.key_blob),
+                                               request.upgrade_params, &upgraded_key);
+    if (response->error != KM_ERROR_OK)
+        return;
+    response->upgraded_key = upgraded_key.release();
 }
 
 void AndroidKeymaster::ImportKey(const ImportKeyRequest& request, ImportKeyResponse* response) {
@@ -392,6 +451,10 @@ void AndroidKeymaster::DeleteAllKeys(const DeleteAllKeysRequest&, DeleteAllKeysR
     response->error = context_->DeleteAllKeys();
 }
 
+bool AndroidKeymaster::has_operation(keymaster_operation_handle_t op_handle) const {
+    return operation_table_->Find(op_handle) != nullptr;
+}
+
 keymaster_error_t AndroidKeymaster::LoadKey(const keymaster_key_blob_t& key_blob,
                                             const AuthorizationSet& additional_params,
                                             AuthorizationSet* hw_enforced,
@@ -403,12 +466,16 @@ keymaster_error_t AndroidKeymaster::LoadKey(const keymaster_key_blob_t& key_blob
     if (error != KM_ERROR_OK)
         return error;
 
+    error = CheckVersionInfo(*hw_enforced, *sw_enforced, *context_);
+    if (error != KM_ERROR_OK)
+        return error;
+
     keymaster_algorithm_t algorithm;
     *factory = GetKeyFactory(*context_, *hw_enforced, *sw_enforced, &algorithm, &error);
     if (error != KM_ERROR_OK)
         return error;
 
-    return (*factory)->LoadKey(key_material, *hw_enforced, *sw_enforced, key);
+    return (*factory)->LoadKey(key_material, additional_params, *hw_enforced, *sw_enforced, key);
 }
 
 }  // namespace keymaster

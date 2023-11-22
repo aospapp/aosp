@@ -31,7 +31,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import java.util.ArrayList;
 
-import com.android.cts.transition.R;
+import android.transition.cts.R;
 
 public class TransitionActivity extends Activity {
     @Override

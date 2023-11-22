@@ -32,7 +32,7 @@ namespace slang {
 
 class RSASTReplace : public clang::StmtVisitor<RSASTReplace> {
  private:
-  clang::ASTContext &C;
+  const clang::ASTContext &C;
   clang::Stmt *mOuterStmt;
   clang::Stmt *mOldStmt;
   clang::Stmt *mNewStmt;
@@ -56,7 +56,7 @@ class RSASTReplace : public clang::StmtVisitor<RSASTReplace> {
   void ReplaceInCompoundStmt(clang::CompoundStmt *CS);
 
  public:
-  explicit RSASTReplace(clang::ASTContext &Con)
+  explicit RSASTReplace(const clang::ASTContext &Con)
       : C(Con),
         mOuterStmt(nullptr),
         mOldStmt(nullptr),
@@ -68,6 +68,7 @@ class RSASTReplace : public clang::StmtVisitor<RSASTReplace> {
   void VisitStmt(clang::Stmt *S);
   void VisitCompoundStmt(clang::CompoundStmt *CS);
   void VisitCaseStmt(clang::CaseStmt *CS);
+  void VisitDeclStmt(clang::DeclStmt* DS);
   void VisitDefaultStmt(clang::DefaultStmt *DS);
   void VisitDoStmt(clang::DoStmt *DS);
   void VisitForStmt(clang::ForStmt *FS);

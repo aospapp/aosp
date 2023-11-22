@@ -732,7 +732,7 @@ static int enable_snd_device(struct audio_device *adev,
         return -EINVAL;
 
     if (snd_device == SND_DEVICE_OUT_SPEAKER_AND_HEADPHONES) {
-        ALOGD("Request to enable combo device: enable individual devices\n");
+        ALOGV("Request to enable combo device: enable individual devices\n");
         enable_snd_device(adev, uc_info, SND_DEVICE_OUT_SPEAKER, update_mixer);
         enable_snd_device(adev, uc_info, SND_DEVICE_OUT_HEADPHONES, update_mixer);
         return 0;
@@ -770,7 +770,7 @@ static int disable_snd_device(struct audio_device *adev,
         return -EINVAL;
 
     if (snd_device == SND_DEVICE_OUT_SPEAKER_AND_HEADPHONES) {
-        ALOGD("Request to disable combo device: disable individual devices\n");
+        ALOGV("Request to disable combo device: disable individual devices\n");
         disable_snd_device(adev, uc_info, SND_DEVICE_OUT_SPEAKER, update_mixer);
         disable_snd_device(adev, uc_info, SND_DEVICE_OUT_HEADPHONES, update_mixer);
         return 0;
@@ -2096,7 +2096,7 @@ error_open:
     stop_input_stream(in);
 
 error_config:
-    ALOGD("%s: exit: status(%d)", __func__, ret);
+    ALOGV("%s: exit: status(%d)", __func__, ret);
     adev->active_input = NULL;
     return ret;
 }
@@ -2745,7 +2745,7 @@ static int out_set_parameters(struct audio_stream *stream, const char *kvpairs)
     struct stream_in *in = NULL;    /* if non-NULL, then force input to standby */
 #endif
 
-    ALOGD("%s: enter: usecase(%d: %s) kvpairs: %s out->devices(%d) adev->mode(%d)",
+    ALOGV("%s: enter: usecase(%d: %s) kvpairs: %s out->devices(%d) adev->mode(%d)",
           __func__, out->usecase, use_case_table[out->usecase], kvpairs, out->devices, adev->mode);
     parms = str_parms_create_str(kvpairs);
     ret = str_parms_get_str(parms, AUDIO_PARAMETER_STREAM_ROUTING, value, sizeof(value));
@@ -2794,7 +2794,7 @@ static int out_set_parameters(struct audio_stream *stream, const char *kvpairs)
                                   __func__, USECASE_AUDIO_PLAYBACK);
                         }
                         if (uc_info != NULL && uc_info->out_snd_device == SND_DEVICE_OUT_SPEAKER_AND_HEADPHONES) {
-                           ALOGD("Out_set_param: spk+headset enabled\n");
+                           ALOGV("Out_set_param: spk+headset enabled\n");
                            disable_snd_device(adev, uc_info, SND_DEVICE_OUT_SPEAKER, true);
                            uc_info->out_snd_device = SND_DEVICE_OUT_HEADPHONES;
                         }
@@ -2925,7 +2925,7 @@ static int out_set_volume(struct audio_stream_out *stream, float left,
             mixer_close(mixer);
             return -EINVAL;
         }
-        ALOGD("out_set_volume set offload volume (%f, %f)", left, right);
+        ALOGV("out_set_volume set offload volume (%f, %f)", left, right);
         mixer_ctl_set_array(ctl, offload_volume,
                             sizeof(offload_volume)/sizeof(offload_volume[0]));
         mixer_close(mixer);
@@ -2937,7 +2937,7 @@ static int out_set_volume(struct audio_stream_out *stream, float left,
 
 static void *tfa9895_config_thread(void *context)
 {
-    ALOGD("%s: enter", __func__);
+    ALOGV("%s: enter", __func__);
     pthread_detach(pthread_self());
     struct audio_device *adev = (struct audio_device *)context;
     pthread_mutex_lock(&adev->tfa9895_lock);
@@ -3173,7 +3173,7 @@ false_alarm:
                                      before giving dsp related i2c commands */
                                 usleep(100000);
                                 adev->tfa9895_mode_change &= ~0x1;
-                                ALOGD("@@##checking - 2: tfa9895_config_thread: "
+                                ALOGV("@@##checking - 2: tfa9895_config_thread: "
                                     "adev->tfa9895_mode_change=%d", adev->tfa9895_mode_change);
                                 adev->tfa9895_init =
                                         adev->htc_acoustic_set_amp_mode(
@@ -3968,7 +3968,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         out->usecase = USECASE_AUDIO_PLAYBACK_DEEP_BUFFER;
         out->config = pcm_config_deep_buffer;
         out->sample_rate = out->config.rate;
-        ALOGD("%s: use AUDIO_PLAYBACK_DEEP_BUFFER",__func__);
+        ALOGV("%s: use AUDIO_PLAYBACK_DEEP_BUFFER",__func__);
     } else {
         out->usecase = USECASE_AUDIO_PLAYBACK;
         out->sample_rate = out->config.rate;
@@ -4034,7 +4034,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
 error_open:
     free(out);
     *stream_out = NULL;
-    ALOGD("%s: exit: ret %d", __func__, ret);
+    ALOGV("%s: exit: ret %d", __func__, ret);
     return ret;
 }
 
@@ -4431,7 +4431,7 @@ static int adev_close(hw_device_t *device)
 
 static void *dummybuf_thread(void *context)
 {
-    ALOGD("%s: enter", __func__);
+    ALOGV("%s: enter", __func__);
     pthread_detach(pthread_self());
     struct audio_device *adev = (struct audio_device *)context;
     struct pcm_config config;
@@ -4459,7 +4459,7 @@ static void *dummybuf_thread(void *context)
         pcm_close(pcm);
         pcm = NULL;
     } else {
-        ALOGD("pcm_open: card=%d, id=%d", profile->card, profile->id);
+        ALOGV("pcm_open: card=%d, id=%d", profile->card, profile->id);
     }
 
     mixer = mixer_open(profile->card);
@@ -4500,10 +4500,10 @@ static void *dummybuf_thread(void *context)
                 pcm_write(pcm, (void *)data, DEEP_BUFFER_OUTPUT_PERIOD_SIZE * 8);
                 adev->dummybuf_thread_active = 1;
             } else {
-                ALOGD("%s: cant open a buffer, retry to open it", __func__);
+                ALOGV("%s: cant open a buffer, retry to open it", __func__);
             }
         } else {
-            ALOGD("%s: cant open a output deep stream, retry to open it", __func__);
+            ALOGV("%s: cant open a output deep stream, retry to open it", __func__);
             pcm = pcm_open(profile->card, profile->id,
                    (PCM_OUT | PCM_MONOTONIC), &config);
             if (pcm != NULL && !pcm_is_ready(pcm)) {
@@ -4511,7 +4511,7 @@ static void *dummybuf_thread(void *context)
                 pcm_close(pcm);
                 pcm = NULL;
             } else {
-                ALOGD("pcm_open: card=%d, id=%d", profile->card, profile->id);
+                ALOGV("pcm_open: card=%d, id=%d", profile->card, profile->id);
             }
         }
 
@@ -4566,7 +4566,7 @@ static void dummybuf_thread_open(struct audio_device *adev)
 
 static void dummybuf_thread_close(struct audio_device *adev)
 {
-    ALOGD("%s: enter", __func__);
+    ALOGV("%s: enter", __func__);
     int retry_cnt = 20;
 
     if (adev->dummybuf_thread == 0)
@@ -4616,7 +4616,7 @@ static int adev_open(const hw_module_t *module, const char *name,
     struct audio_device *adev;
     int retry_count = 0;
 
-    ALOGD("%s: enter", __func__);
+    ALOGV("%s: enter", __func__);
     if (strcmp(name, AUDIO_HARDWARE_INTERFACE) != 0) return -EINVAL;
 
     adev = calloc(1, sizeof(struct audio_device));

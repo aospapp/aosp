@@ -401,7 +401,7 @@ static bool verifyConstantDerivate (tcu::TestLog&						log,
 											<< ", at x = " << x << ", y = " << y
 						<< TestLog::EndMessage;
 				numFailedPixels += 1;
-				errorMask.setPixel(tcu::RGBA::red.toVec(), x, y);
+				errorMask.setPixel(tcu::RGBA::red().toVec(), x, y);
 			}
 		}
 	}
@@ -478,11 +478,11 @@ static bool reverifyConstantDerivateWithFlushRelaxations (tcu::TestLog&							lo
 		// * non-linearity may happen around zero or with very high function values due to subnorms not
 		//   behaving well.
 		const tcu::Vec4	functionValueForward	= (derivateFunc == DERIVATE_DFDX)
-													? (function.evaluateAt(x + 2.0f, y + 0.5f))
-													: (function.evaluateAt(x + 0.5f, y + 2.0f));
+													? (function.evaluateAt((float)x + 2.0f, (float)y + 0.5f))
+													: (function.evaluateAt((float)x + 0.5f, (float)y + 2.0f));
 		const tcu::Vec4	functionValueBackward	= (derivateFunc == DERIVATE_DFDX)
-													? (function.evaluateAt(x - 1.0f, y + 0.5f))
-													: (function.evaluateAt(x + 0.5f, y - 1.0f));
+													? (function.evaluateAt((float)x - 1.0f, (float)y + 0.5f))
+													: (function.evaluateAt((float)x + 0.5f, (float)y - 1.0f));
 
 		bool	anyComponentFailed				= false;
 
@@ -664,7 +664,7 @@ TriangleDerivateCase::IterateResult TriangleDerivateCase::iterate (void)
 	if (useFbo)
 	{
 		m_testCtx.getLog() << TestLog::Message
-						   << "Rendering to FBO, format = " << glu::getPixelFormatStr(fboFormat)
+						   << "Rendering to FBO, format = " << glu::getTextureFormatStr(fboFormat)
 						   << ", samples = " << m_numSamples
 						   << TestLog::EndMessage;
 
@@ -823,7 +823,7 @@ TriangleDerivateCase::IterateResult TriangleDerivateCase::iterate (void)
 	// Verify
 	{
 		tcu::Surface errorMask(result.getWidth(), result.getHeight());
-		tcu::clear(errorMask.getAccess(), tcu::RGBA::green.toVec());
+		tcu::clear(errorMask.getAccess(), tcu::RGBA::green().toVec());
 
 		const bool isOk = verify(result.getAccess(), errorMask.getAccess());
 

@@ -62,7 +62,7 @@
  * Version string. First two digits signify major version and last two minor
  * Increment major version for API change or major feature update
  */
-#define CODEC_RELEASE_VER       "04.04"
+#define CODEC_RELEASE_VER       "05.00"
 /**
  * Vendor name
  */
@@ -73,20 +73,18 @@
 * Concatenates various strings to form a version string
 *******************************************************************************
 */
+#define MAXVERSION_STRLEN       511
+#ifdef __ANDROID__
 #define VERSION(version_string, codec_name, codec_release_type, codec_release_ver, codec_vendor)    \
-    strcpy(version_string,"@(#)Id:");                                                               \
-    strcat(version_string,codec_name);                                                              \
-    strcat(version_string,"_");                                                                     \
-    strcat(version_string,codec_release_type);                                                      \
-    strcat(version_string," Ver:");                                                                 \
-    strcat(version_string,codec_release_ver);                                                       \
-    strcat(version_string," Released by ");                                                         \
-    strcat(version_string,codec_vendor);                                                            \
-    strcat(version_string," Build: ");                                                              \
-    strcat(version_string,__DATE__);                                                                \
-    strcat(version_string," @ ");                                                                   \
-    strcat(version_string,__TIME__);
-
+    snprintf(version_string, MAXVERSION_STRLEN,                                                     \
+             "@(#)Id:%s_%s Ver:%s Released by %s",                                                  \
+             codec_name, codec_release_type, codec_release_ver, codec_vendor)
+#else
+#define VERSION(version_string, codec_name, codec_release_type, codec_release_ver, codec_vendor)    \
+    snprintf(version_string, MAXVERSION_STRLEN,                                                     \
+             "@(#)Id:%s_%s Ver:%s Released by %s Build: %s @ %s",                                   \
+             codec_name, codec_release_type, codec_release_ver, codec_vendor, __DATE__, __TIME__)
+#endif
 
 /**
 *******************************************************************************
@@ -113,12 +111,13 @@
 IV_API_CALL_STATUS_T ihevcd_get_version(CHAR *pc_version_string,
                                         UWORD32 u4_version_buffer_size)
 {
-    CHAR ac_version_tmp[512];
+    CHAR ac_version_tmp[MAXVERSION_STRLEN + 1];
+    UWORD32 u4_len;
     VERSION(ac_version_tmp, CODEC_NAME, CODEC_RELEASE_TYPE, CODEC_RELEASE_VER, CODEC_VENDOR);
-
-    if(u4_version_buffer_size >= (strlen(ac_version_tmp) + 1))
+    u4_len = strnlen(ac_version_tmp, MAXVERSION_STRLEN) + 1;
+    if(u4_version_buffer_size >= u4_len)
     {
-        memcpy(pc_version_string, ac_version_tmp, (strlen(ac_version_tmp) + 1));
+        memcpy(pc_version_string, ac_version_tmp, u4_len);
         return IV_SUCCESS;
     }
     else

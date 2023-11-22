@@ -22,6 +22,8 @@
 #include <va/va_android.h>
 
 #include "OMXVideoDecoderBase.h"
+#include "ProtectedDataBuffer.h"
+
 
 static const char* VA_RAW_MIME_TYPE = "video/x-raw-va";
 static const uint32_t VA_COLOR_FORMAT = 0x7FA00E00;
@@ -38,6 +40,7 @@ OMXVideoDecoderBase::OMXVideoDecoderBase()
       mWorkingMode(RAWDATA_MODE),
       mErrorReportEnabled (false),
       mAPMode(LEGACY_MODE),
+      mFlushMode(false),
       mFormatChanged(false) {
       mOMXBufferHeaderTypePtrNum = 0;
       mMetaDataBuffersNum = 0;
@@ -350,10 +353,18 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorProcess(
             HandleFormatChange();
         }
 
-        // Actually, if mAPMode is set, mWorkingMode should be GRAPHICBUFFER_MODE.
-        if (((mAPMode == METADATA_MODE) && (mWorkingMode == GRAPHICBUFFER_MODE)) && mFormatChanged) {
-            if (((*pBuffers[OUTPORT_INDEX])->nFlags & OMX_BUFFERFLAG_EOS) || (mVideoDecoder->getOutputQueueLength() == 0)) {
-                HandleFormatChange();
+        if (mFlushMode) {
+            LOGI("in mFlushMode, do HandleFormatChange.");
+            HandleFormatChange();
+        } else {
+            // Actually, if mAPMode is set, mWorkingMode should be GRAPHICBUFFER_MODE.
+            if (((mAPMode == METADATA_MODE) && (mWorkingMode == GRAPHICBUFFER_MODE)) && mFormatChanged) {
+                if (((*pBuffers[OUTPORT_INDEX])->nFlags & OMX_BUFFERFLAG_EOS) || (mVideoDecoder->getOutputQueueLength() == 0)) {
+                    // Format changed, set mFlushMode, clear eos
+                    mFlushMode = true;
+                    mFormatChanged = false;
+                    (*pBuffers[OUTPORT_INDEX])->nFlags &= ~OMX_BUFFERFLAG_EOS;
+                }
             }
         }
 
@@ -434,9 +445,17 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorProcess(
         HandleFormatChange();
     }
 
-    if (((mAPMode == METADATA_MODE) && (mWorkingMode == GRAPHICBUFFER_MODE)) && mFormatChanged) {
-        if (((*pBuffers[OUTPORT_INDEX])->nFlags & OMX_BUFFERFLAG_EOS) || (mVideoDecoder->getOutputQueueLength() == 0)) {
-            HandleFormatChange();
+    if (mFlushMode) {
+        LOGI("in mFlushMode, do HandleFormatChange.");
+        HandleFormatChange();
+    } else {
+        if (((mAPMode == METADATA_MODE) && (mWorkingMode == GRAPHICBUFFER_MODE)) && mFormatChanged) {
+            if (((*pBuffers[OUTPORT_INDEX])->nFlags & OMX_BUFFERFLAG_EOS) || (mVideoDecoder->getOutputQueueLength() == 0)) {
+                // Format changed, set mFlushMode, clear eos.
+                mFlushMode = true;
+                mFormatChanged = false;
+                (*pBuffers[OUTPORT_INDEX])->nFlags &= ~OMX_BUFFERFLAG_EOS;
+            }
         }
     }
 
@@ -497,9 +516,10 @@ OMX_ERRORTYPE OMXVideoDecoderBase::PrepareConfigBuffer(VideoConfigBuffer *p) {
             mOMXBufferHeaderTypePtrNum = 0;
 
             mGraphicBufferParam.graphicBufferColorFormat = def_output->format.video.eColorFormat;
-            mGraphicBufferParam.graphicBufferStride = getStride(def_output->format.video.nFrameWidth);
+            mGraphicBufferParam.graphicBufferHStride = getStride(def_output->format.video.nFrameWidth);
+            mGraphicBufferParam.graphicBufferVStride = (def_output->format.video.nFrameHeight + 0x1f) & ~0x1f;
             mGraphicBufferParam.graphicBufferWidth = def_output->format.video.nFrameWidth;
-            mGraphicBufferParam.graphicBufferHeight = (def_output->format.video.nFrameHeight + 0xf) & ~0xf;
+            mGraphicBufferParam.graphicBufferHeight = def_output->format.video.nFrameHeight;
 
             p->surfaceNumber = mMetaDataBuffersNum;
             for (int i = 0; i < MAX_GRAPHIC_BUFFER_NUM; i++) {
@@ -515,10 +535,11 @@ OMX_ERRORTYPE OMXVideoDecoderBase::PrepareConfigBuffer(VideoConfigBuffer *p) {
             }
         }
         p->flag |= USE_NATIVE_GRAPHIC_BUFFER;
-        p->graphicBufferStride = mGraphicBufferParam.graphicBufferStride;
-        p->graphicBufferColorFormat = mGraphicBufferParam.graphicBufferColorFormat;
+        p->graphicBufferHStride = mGraphicBufferParam.graphicBufferHStride;
+        p->graphicBufferVStride = mGraphicBufferParam.graphicBufferVStride;
         p->graphicBufferWidth = mGraphicBufferParam.graphicBufferWidth;
         p->graphicBufferHeight = mGraphicBufferParam.graphicBufferHeight;
+        p->graphicBufferColorFormat = mGraphicBufferParam.graphicBufferColorFormat;
         if (p->graphicBufferColorFormat == OMX_INTEL_COLOR_FormatYUV420PackedSemiPlanar_Tiled
 #ifdef USE_GEN_HW
             || p->graphicBufferColorFormat == HAL_PIXEL_FORMAT_NV12_X_TILED_INTEL
@@ -599,6 +620,61 @@ OMX_ERRORTYPE OMXVideoDecoderBase::PrepareDecodeBuffer(OMX_BUFFERHEADERTYPE *buf
     return OMX_ErrorNone;
 }
 
+OMX_ERRORTYPE OMXVideoDecoderBase::PrepareDecodeNativeHandleBuffer(OMX_BUFFERHEADERTYPE *buffer, buffer_retain_t *retain, VideoDecodeBuffer *p) {
+    // default decode buffer preparation
+
+    memset(p, 0, sizeof(VideoDecodeBuffer));
+    if (buffer->nFilledLen == 0) {
+        LOGW("Len of filled data to decode is 0.");
+        return OMX_ErrorNone; //OMX_ErrorBadParameter;
+    }
+
+    if (buffer->pBuffer == NULL) {
+        LOGE("Buffer to decode is empty.");
+        return OMX_ErrorBadParameter;
+    }
+
+    if (buffer->nFlags & OMX_BUFFERFLAG_CODECCONFIG) {
+        LOGI("Buffer has OMX_BUFFERFLAG_CODECCONFIG flag.");
+    }
+
+    if (buffer->nFlags & OMX_BUFFERFLAG_DECODEONLY) {
+        // TODO: Handle OMX_BUFFERFLAG_DECODEONLY : drop the decoded frame without rendering it.
+        LOGW("Buffer has OMX_BUFFERFLAG_DECODEONLY flag.");
+    }
+    //Get data pointer from native_handle
+    native_handle_t *native_handle = (native_handle_t *)buffer->pBuffer;
+    ProtectedDataBuffer *dataBuffer = (ProtectedDataBuffer *) native_handle->data[1];
+    p->data =  dataBuffer->data + buffer->nOffset;
+
+
+
+    p->size = buffer->nFilledLen;
+    p->timeStamp = buffer->nTimeStamp;
+    if (buffer->nFlags & (OMX_BUFFERFLAG_ENDOFFRAME | OMX_BUFFERFLAG_EOS)) {
+        // TODO: OMX_BUFFERFLAG_ENDOFFRAME can be used to indicate end of a NAL unit.
+        // setting this flag may cause corruption if buffer does not contain end-of-frame data.
+        p->flag = HAS_COMPLETE_FRAME;
+    }
+
+    if (buffer->nFlags & OMX_BUFFERFLAG_SYNCFRAME) {
+        p->flag |= IS_SYNC_FRAME;
+    }
+
+    if (buffer->pInputPortPrivate) {
+        uint32_t degree = 0;
+        memcpy ((void *) &degree, buffer->pInputPortPrivate, sizeof(uint32_t));
+        p->rotationDegrees = degree;
+        LOGV("rotationDegrees = %d", p->rotationDegrees);
+    } else {
+        p->rotationDegrees = mRotationDegrees;
+    }
+
+    *retain= BUFFER_RETAIN_NOT_RETAIN;
+    return OMX_ErrorNone;
+}
+
+
 OMX_ERRORTYPE OMXVideoDecoderBase::FillRenderBuffer(OMX_BUFFERHEADERTYPE **pBuffer, buffer_retain_t *retain, OMX_U32 inportBufferFlags, OMX_BOOL *isResolutionChange) {
     OMX_BUFFERHEADERTYPE *buffer = *pBuffer;
     OMX_BUFFERHEADERTYPE *buffer_orign = buffer;
@@ -619,8 +695,15 @@ OMX_ERRORTYPE OMXVideoDecoderBase::FillRenderBuffer(OMX_BUFFERHEADERTYPE **pBuff
 
     bool draining = (inportBufferFlags & OMX_BUFFERFLAG_EOS);
     //pthread_mutex_lock(&mSerializationLock);
-    const VideoRenderBuffer *renderBuffer;
+    const VideoRenderBuffer *renderBuffer = NULL;
     //pthread_mutex_unlock(&mSerializationLock);
+
+    // in mFlushMode, provide empty buffer.
+    if (mFlushMode) {
+        buffer->nFilledLen = 0;
+        return OMX_ErrorNone;
+    }
+
     if (((mAPMode == METADATA_MODE) && (mWorkingMode == GRAPHICBUFFER_MODE)) && mFormatChanged) {
          renderBuffer = mVideoDecoder->getOutput(true, ErrBufPtr);
     } else {
@@ -700,6 +783,11 @@ OMX_ERRORTYPE OMXVideoDecoderBase::HandleFormatChange(void) {
 
     uint32_t widthCropped = formatInfo->width - formatInfo->cropLeft - formatInfo->cropRight;
     uint32_t heightCropped = formatInfo->height - formatInfo->cropTop - formatInfo->cropBottom;
+    if (strcasecmp(formatInfo->mimeType,"video/avc") == 0 ||
+        strcasecmp(formatInfo->mimeType,"video/h264") == 0) {
+        heightCropped = formatInfo->height;
+        widthCropped = formatInfo->width;
+    }
     uint32_t strideCropped = widthCropped;
     uint32_t sliceHeightCropped = heightCropped;
     int force_realloc = 0;
@@ -721,7 +809,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::HandleFormatChange(void) {
         paramPortDefinitionInput.format.video.nSliceHeight = sliceHeight;
         // output port
         paramPortDefinitionOutput.format.video.nFrameWidth = width;
-        paramPortDefinitionOutput.format.video.nFrameHeight = (height + 0x1f) & ~0x1f;
+        paramPortDefinitionOutput.format.video.nFrameHeight = height;
         paramPortDefinitionOutput.format.video.eColorFormat = GetOutputColorFormat(paramPortDefinitionOutput.format.video.nFrameWidth);
         paramPortDefinitionOutput.format.video.nStride = stride;
         paramPortDefinitionOutput.format.video.nSliceHeight = sliceHeight;
@@ -734,12 +822,13 @@ OMX_ERRORTYPE OMXVideoDecoderBase::HandleFormatChange(void) {
         this->ports[INPORT_INDEX]->SetPortDefinition(&paramPortDefinitionInput, true);
         this->ports[OUTPORT_INDEX]->SetPortDefinition(&paramPortDefinitionOutput, true);
 
+        ProcessorFlush(INPORT_INDEX);
+
         mVideoDecoder->freeSurfaceBuffers();
 
-        ProcessorFlush(INPORT_INDEX);
         this->ports[OUTPORT_INDEX]->ReportPortSettingsChanged();
 
-        mFormatChanged = false;
+        mFlushMode = false;
         return OMX_ErrorNone;
     }
 
@@ -969,7 +1058,9 @@ OMX_ERRORTYPE OMXVideoDecoderBase::SetNativeBuffer(OMX_PTR pStructure) {
 
     if (mOMXBufferHeaderTypePtrNum == 1) {
          mGraphicBufferParam.graphicBufferColorFormat = param->nativeBuffer->format;
-         mGraphicBufferParam.graphicBufferStride = param->nativeBuffer->stride;
+         mGraphicBufferParam.graphicBufferHStride = param->nativeBuffer->stride;
+         // FIXME: use IMG_native_handle_t->aiVStride[0] instead..
+         mGraphicBufferParam.graphicBufferVStride = param->nativeBuffer->height;
          mGraphicBufferParam.graphicBufferWidth = param->nativeBuffer->width;
          mGraphicBufferParam.graphicBufferHeight = param->nativeBuffer->height;
     }
@@ -1026,7 +1117,8 @@ OMX_ERRORTYPE OMXVideoDecoderBase::SetNativeBufferModeSpecific(OMX_PTR pStructur
     }
     port_def.format.video.cMIMEType = (OMX_STRING)VA_VED_RAW_MIME_TYPE;
     port_def.format.video.eColorFormat = OMX_INTEL_COLOR_FormatYUV420PackedSemiPlanar;
-    port_def.format.video.nFrameHeight = (port_def.format.video.nFrameHeight + 0x1f) & ~0x1f;
+    port_def.format.video.nFrameHeight = port_def.format.video.nFrameHeight;
+
     port_def.format.video.eColorFormat = GetOutputColorFormat(
                         port_def.format.video.nFrameWidth);
     port->SetPortDefinition(&port_def,true);
@@ -1121,6 +1213,11 @@ OMX_ERRORTYPE OMXVideoDecoderBase::GetDecoderOutputCropSpecific(OMX_PTR pStructu
         rectParams->nTop = formatInfo->cropTop;
         rectParams->nWidth = formatInfo->width - formatInfo->cropLeft - formatInfo->cropRight;
         rectParams->nHeight = formatInfo->height - formatInfo->cropTop - formatInfo->cropBottom;
+        if (strcasecmp(formatInfo->mimeType,"video/avc") == 0 ||
+            strcasecmp(formatInfo->mimeType,"video/h264") == 0) {
+            rectParams->nHeight = formatInfo->height;
+            rectParams->nWidth = formatInfo->width;
+        }
 
         // if port width parsed from extractor is not as same as from SPS/PPS nalu header,
         // align it.

@@ -118,7 +118,7 @@ class LockWord {
   }
 
   static LockWord FromForwardingAddress(size_t target) {
-    DCHECK(IsAligned < 1 << kStateSize>(target));
+    DCHECK_ALIGNED(target, (1 << kStateSize));
     return LockWord((target >> kStateSize) | (kStateForwardingAddress << kStateShift));
   }
 
@@ -197,7 +197,7 @@ class LockWord {
   size_t ForwardingAddress() const;
 
   // Constructor a lock word for inflation to use a Monitor.
-  explicit LockWord(Monitor* mon, uint32_t rb_state);
+  LockWord(Monitor* mon, uint32_t rb_state);
 
   // Return the hash code stored in the lock word, must be kHashCode state.
   int32_t GetHashCode() const;
@@ -208,6 +208,10 @@ class LockWord {
       return lw1.GetValue() == lw2.GetValue();
     }
     return lw1.GetValueWithoutReadBarrierState() == lw2.GetValueWithoutReadBarrierState();
+  }
+
+  void Dump(std::ostream& os) {
+    os << "LockWord:" << std::hex << value_;
   }
 
  private:

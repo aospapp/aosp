@@ -349,6 +349,7 @@ sp<IMemory> RadioService::CallbackThread::prepareEvent(radio_hal_event_t *halEve
         }
         break;
     case RADIO_EVENT_TA:
+    case RADIO_EVENT_EA:
     case RADIO_EVENT_ANTENNA:
     case RADIO_EVENT_CONTROL:
         event->on = halEvent->on;
@@ -734,7 +735,7 @@ status_t RadioService::ModuleClient::setConfiguration(const struct radio_band_co
         }
     } else {
         mConfig = *config;
-        status == INVALID_OPERATION;
+        status = INVALID_OPERATION;
     }
 
     return status;

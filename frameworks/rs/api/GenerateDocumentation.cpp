@@ -306,7 +306,8 @@ static void writeSummaryTables(GeneratedFile* file, const map<string, Constant*>
     writeSummaryTable(file, &functionStream, "Functions", deprecatedSelector, labelAsHeader);
 }
 
-static void writeHtmlVersionTag(GeneratedFile* file, VersionInfo info) {
+static void writeHtmlVersionTag(GeneratedFile* file, VersionInfo info,
+                                bool addSpacing) {
     ostringstream stream;
     if (info.intSize == 32) {
         stream << "When compiling for 32 bits. ";
@@ -322,7 +323,7 @@ static void writeHtmlVersionTag(GeneratedFile* file, VersionInfo info) {
         if (info.minVersion <= 1) {
             // No minimum
             if (info.maxVersion > 0) {
-                stream << "Removed from " << mid << info.maxVersion + 1 << " and beyond";
+                stream << "Removed from " << mid << info.maxVersion + 1 << " and higher";
             }
         } else {
             if (info.maxVersion == 0) {
@@ -334,9 +335,13 @@ static void writeHtmlVersionTag(GeneratedFile* file, VersionInfo info) {
         }
         stream << "</a>";
     }
-    const string s = stream.str();
+    string s = stream.str();
+    // Remove any trailing whitespace
+    while (s.back() == ' ') {
+        s.pop_back();
+    }
     if (!s.empty()) {
-        *file << "    " << s << "\n";
+        *file << (addSpacing ? "    " : "") << s << "\n";
     }
 }
 
@@ -345,16 +350,22 @@ static void writeDetailedTypeSpecification(GeneratedFile* file, const TypeSpecif
         case SIMPLE: {
             Type* type = spec->getType();
             *file << "<p>A typedef of: " << spec->getSimpleType()
-                  << makeAttributeTag(spec->getAttribute(), "", type->deprecated(),
+                  << makeAttributeTag(spec->getAttribute(), "", type->getDeprecatedApiLevel(),
                                       type->getDeprecatedMessage())
                   << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;";
-            writeHtmlVersionTag(file, spec->getVersionInfo());
+            writeHtmlVersionTag(file, spec->getVersionInfo(), false);
+            *file << "</p>\n";
+            break;
+        }
+        case RS_OBJECT: {
+            *file << "<p>";
+            writeHtmlVersionTag(file, spec->getVersionInfo(), false);
             *file << "</p>\n";
             break;
         }
         case ENUM: {
             *file << "<p>An enum with the following values:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\n";
-            writeHtmlVersionTag(file, spec->getVersionInfo());
+            writeHtmlVersionTag(file, spec->getVersionInfo(), false);
             *file << "</p>\n";
 
             *file << "  <table class='jd-tagtable'><tbody>\n";
@@ -372,7 +383,7 @@ static void writeDetailedTypeSpecification(GeneratedFile* file, const TypeSpecif
         }
         case STRUCT: {
             *file << "<p>A structure with the following fields:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;";
-            writeHtmlVersionTag(file, spec->getVersionInfo());
+            writeHtmlVersionTag(file, spec->getVersionInfo(), false);
             *file << "</p>\n";
 
             *file << "  <table class='jd-tagtable'><tbody>\n";
@@ -394,7 +405,7 @@ static void writeDetailedTypeSpecification(GeneratedFile* file, const TypeSpecif
 static void writeDetailedConstantSpecification(GeneratedFile* file, ConstantSpecification* c) {
     *file << "      <tr><td>";
     *file << "Value: " << c->getValue() << "\n";
-    writeHtmlVersionTag(file, c->getVersionInfo());
+    writeHtmlVersionTag(file, c->getVersionInfo(), true);
     *file << "      </td></tr>\n";
     *file << "<br/>\n";
 }
@@ -557,7 +568,7 @@ static bool writeDetailedFunction(GeneratedFile* file, Function* function) {
         *file << "      <tr>\n";
         *file << "        <td>" << i.second.htmlDeclaration << "</td>\n";
         *file << "        <td>";
-        writeHtmlVersionTag(file, i.second.info);
+        writeHtmlVersionTag(file, i.second.info, true);
         *file << "        </td>\n";
         *file << "      </tr>\n";
     }

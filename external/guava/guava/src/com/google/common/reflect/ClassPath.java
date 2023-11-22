@@ -237,7 +237,7 @@ public final class ClassPath {
         return CharMatcher.DIGIT.trimLeadingFrom(innerClassName);
       }
       String packageName = getPackageName();
-      if (packageName.length() == 0) {
+      if (packageName.isEmpty()) {
         return className;
       }
 

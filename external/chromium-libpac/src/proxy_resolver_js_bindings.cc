@@ -5,6 +5,7 @@
 #include "proxy_resolver_js_bindings.h"
 #include "proxy_resolver_v8.h"
 
+#include <arpa/inet.h>
 #include <netdb.h>
 #include <unistd.h>
 #include <cstddef>
@@ -64,10 +65,16 @@ class DefaultJSBindings : public ProxyResolverJSBindings {
                       std::string* first_ip_address) {
     struct hostent* he = gethostbyname(host.c_str());
 
-    if (he == NULL) {
+    if (he == NULL || he->h_addr == NULL || he->h_addrtype != AF_INET) {
       return false;
     }
-    *first_ip_address = std::string(he->h_addr);
+
+    char tmp[INET_ADDRSTRLEN];
+    if (inet_ntop(he->h_addrtype, he->h_addr, tmp, sizeof(tmp)) == NULL) {
+        return false;
+    }
+
+    *first_ip_address = std::string(tmp);
     return true;
   }
 

@@ -8,7 +8,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2000-2013 Julian Seward 
+   Copyright (C) 2000-2015 Julian Seward 
       jseward@acm.org
 
    This program is free software; you can redistribute it and/or
@@ -48,7 +48,7 @@
 
 #define VGAPPEND(str1,str2) str1##str2
  
-#if defined(VGO_linux)
+#if defined(VGO_linux) || defined(VGO_solaris)
 #  define VG_(str)    VGAPPEND( vgPlain_,          str)
 #  define ML_(str)    VGAPPEND( vgModuleLocal_,    str)
 #elif defined(VGO_darwin)
@@ -56,6 +56,20 @@
 #  define ML_(str)    VGAPPEND(_vgModuleLocal_,    str)
 #else
 #  error Unknown OS
+#endif
+
+/* Let the linker know we don't need an executable stack.
+   The call to MARK_STACK_NO_EXEC should be put unconditionally
+   at the end of all asm source files.
+*/
+#if defined(VGO_linux)
+#  if defined(VGA_arm)
+#    define MARK_STACK_NO_EXEC .section .note.GNU-stack,"",%progbits
+#  else
+#    define MARK_STACK_NO_EXEC .section .note.GNU-stack,"",@progbits
+#  endif
+#else
+#  define MARK_STACK_NO_EXEC
 #endif
 
 #endif /* __PUB_TOOL_BASICS_ASM_H */

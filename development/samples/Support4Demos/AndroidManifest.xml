@@ -23,6 +23,7 @@
     package="com.example.android.supportv4">
 
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <uses-sdk android:minSdkVersion="4" android:targetSdkVersion="22" />
@@ -271,6 +272,14 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".accessibility.AccessibilityRoleDescriptionSupportActivity"
+                android:label="@string/accessibility_roledescription_title">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="com.example.android.supportv4.SUPPORT4_SAMPLE_CODE" />
+            </intent-filter>
+        </activity>
+
         <activity android:name=".app.SharingSupport"
                   android:label="@string/sharing_support_title">
             <intent-filter>
@@ -297,22 +306,41 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".widget.DrawerLayoutActivity"
-                  android:label="@string/drawer_layout_support">
+        <activity android:name=".view.ViewPagerActivity"
+                  android:label="@string/view_pager_layout_support">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="com.example.android.supportv4.SUPPORT4_SAMPLE_CODE" />
             </intent-filter>
         </activity>
 
-        <activity android:name=".widget.SwipeRefreshLayoutActivity"
-                  android:label="@string/swipe"
+        <activity android:name=".widget.SwipeRefreshLayoutActivityList"
+                  android:label="@string/swipe_list"
                   android:theme="@style/ThemeHoloLight">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="com.example.android.supportv4.SUPPORT4_SAMPLE_CODE" />
             </intent-filter>
         </activity>
+
+        <activity android:name=".widget.SwipeRefreshLayoutActivityTextView"
+                  android:label="@string/swipe_text"
+                  android:theme="@style/ThemeHoloLight">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="com.example.android.supportv4.SUPPORT4_SAMPLE_CODE" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".widget.SwipeRefreshLayoutActivityNestedScrollView"
+                  android:label="@string/swipe_nested_sv"
+                  android:theme="@style/ThemeHoloLight">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="com.example.android.supportv4.SUPPORT4_SAMPLE_CODE" />
+            </intent-filter>
+        </activity>
+
 
         <activity android:name=".widget.ContentLoadingProgressBarActivity"
                   android:label="@string/content_loading_progress_bar">
@@ -367,6 +395,14 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".graphics.DrawableCompatActivity"
+                  android:label="Graphics/DrawableCompat">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="com.example.android.supportv4.SUPPORT4_SAMPLE_CODE" />
+            </intent-filter>
+        </activity>
+
 <!-- BEGIN_INCLUDE(file_provider_declaration) -->
         <provider
             android:name="android.support.v4.content.FileProvider"
@@ -386,6 +422,42 @@
                 <category android:name="com.example.android.supportv4.SUPPORT4_SAMPLE_CODE" />
             </intent-filter>
         </activity>
+
+        <!-- MediaBrowserCompat Sample -->
+        <activity android:name=".media.MediaBrowserSupport"
+            android:label="@string/media_browser_support">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="com.example.android.supportv4.SUPPORT4_SAMPLE_CODE" />
+            </intent-filter>
+        </activity>
+
+        <!-- (OPTIONAL) use this meta data to indicate which icon should be used in media
+            notifications (for example, when the music changes and the user is
+            looking at another app) -->
+        <meta-data android:name="com.google.android.gms.car.notification.SmallIcon"
+            android:resource="@drawable/ic_notification" />
+
+        <!--
+             (OPTIONAL) use this meta data to override the theme from which Android Auto will
+             look for colors. If you don't set this, Android Auto will look
+             for color attributes in your application theme.
+        -->
+        <meta-data android:name="com.google.android.gms.car.application.theme"
+            android:resource="@style/CarTheme" />
+
+        <service android:name=".media.MediaBrowserServiceSupport"
+            android:exported="true" android:process=":service">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+
+        <receiver android:name="android.support.v4.media.session.MediaButtonReceiver" >
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
 
     </application>
 </manifest>

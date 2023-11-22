@@ -36,12 +36,13 @@ namespace art {
 
 static constexpr bool kDumpHeapObjectOnSigsevg = false;
 static constexpr bool kUseSigRTTimeout = true;
+static constexpr bool kDumpNativeStackOnTimeout = true;
 
 struct Backtrace {
  public:
   explicit Backtrace(void* raw_context) : raw_context_(raw_context) {}
   void Dump(std::ostream& os) const {
-    DumpNativeStack(os, GetTid(), "\t", nullptr, raw_context_);
+    DumpNativeStack(os, GetTid(), nullptr, "\t", nullptr, raw_context_);
   }
  private:
   // Stores the context of the signal that was unexpected and will terminate the runtime. The
@@ -114,6 +115,9 @@ static const char* GetSignalCodeName(int signal_number, int signal_code) {
       switch (signal_code) {
         case SEGV_MAPERR: return "SEGV_MAPERR";
         case SEGV_ACCERR: return "SEGV_ACCERR";
+#if defined(SEGV_BNDERR)
+        case SEGV_BNDERR: return "SEGV_BNDERR";
+#endif
       }
       break;
     case SIGTRAP:
@@ -340,11 +344,16 @@ void HandleUnexpectedSignal(int signal_number, siginfo_t* info, void* raw_contex
                       << "Thread: " << tid << " \"" << thread_name << "\"\n"
                       << "Registers:\n" << Dumpable<UContext>(thread_context) << "\n"
                       << "Backtrace:\n" << Dumpable<Backtrace>(thread_backtrace);
+  if (kIsDebugBuild && signal_number == SIGSEGV) {
+    PrintFileToLog("/proc/self/maps", LogSeverity::INTERNAL_FATAL);
+  }
   Runtime* runtime = Runtime::Current();
   if (runtime != nullptr) {
     if (IsTimeoutSignal(signal_number)) {
       // Special timeout signal. Try to dump all threads.
-      runtime->GetThreadList()->DumpForSigQuit(LOG(INTERNAL_FATAL));
+      // Note: Do not use DumpForSigQuit, as that might disable native unwind, but the native parts
+      //       are of value here.
+      runtime->GetThreadList()->Dump(LOG(INTERNAL_FATAL), kDumpNativeStackOnTimeout);
     }
     gc::Heap* heap = runtime->GetHeap();
     LOG(INTERNAL_FATAL) << "Fault message: " << runtime->GetFaultMessage();

@@ -23,6 +23,12 @@
          used in the Launcher icon. -->
     <string name="launcherActivityLabel">Contacts</string>
 
+    <!-- Title for Quick Contact activity. -->
+    <string name="quickContactActivityLabel">View Contact</string>
+
+    <!-- Title for Edit Contact activity. -->
+    <string name="editContactActivityLabel">Edit Contact</string>
+
     <!-- Directory partition name -->
     <string name="contactsList">Contacts</string>
 
@@ -127,7 +133,7 @@
     <string name="menu_sendSMS">Text contact</string>
 
     <!-- Menu item that splits an item from the contact detail into a separate aggregate -->
-    <string name="menu_splitAggregate">Separate</string>
+    <string name="menu_splitAggregate">Unlink</string>
 
     <!-- Menu item that edits the currently selected group [CHAR LIMIT=30] -->
     <string name="menu_editGroup">Edit</string>
@@ -141,23 +147,36 @@
     <!-- Menu item (in the action bar) that creates a new group [CHAR LIMIT=30] -->
     <string name="menu_new_group_action_bar">Add Group</string>
 
-    <!-- Title of the confirmation dialog for separating contacts into multiple instances [CHAR LIMIT=26] -->
-    <string name="splitConfirmation_title">Separate contact?</string>
+    <!-- Confirmation dialog for unlinking contacts into multiple instances [CHAR LIMIT=NONE] -->
+    <string name="splitConfirmation">Unlink this contact into multiple contacts?</string>
 
-    <!-- Confirmation dialog for separating contacts into multiple instances [CHAR LIMIT=NONE] -->
-    <string name="splitConfirmation">This contact will be separated into multiple contacts.</string>
+    <!-- Positive button text from the confirmation dialog for unlinking contacts [CHAR LIMIT = 30] -->
+    <string name="splitConfirmation_positive_button">Unlink</string>
 
-    <!-- Menu item that joins an aggregate with another aggregate -->
-    <string name="menu_joinAggregate">Merge</string>
+    <!-- Confirmation dialog for unlinking contacts into multiple instances when there are also unsaved changes for the current contact. [CHAR LIMIT=NONE] -->
+    <string name="splitConfirmationWithPendingChanges">Would you like to save the changes you already made and unlink this contact into multiple contacts?</string>
+
+    <!-- Positive button text from the confirmation dialog for unlinking contacts with pending changes [CHAR LIMIT = 60] -->
+    <string name="splitConfirmationWithPendingChanges_positive_button">Save and Unlink</string>
+
+    <!-- Confirmation dialog message for joining contacts when there are unsaved changes. [CHAR LIMIT=NONE] -->
+    <string name="joinConfirmation">Would you like to save the changes you already made and link with the contact selected?</string>
+
+    <!-- Positive button text from the confirmation dialog for joining contacts when there are unsaved changes. [CHAR LIMIT = 60] -->
+    <string name="joinConfirmation_positive_button">Save and Link</string>
+
+    <!-- Menu item that links an aggregate with another aggregate -->
+    <string name="menu_joinAggregate">Link</string>
 
     <!-- Menu item (in the action bar) to indicate that changes should be saved [CHAR LIMIT=20] -->
     <string name="menu_save">Save</string>
 
-    <!-- Heading of the Join Contact screen -->
-    <string name="titleJoinContactDataWith">Join contacts</string>
+    <!-- Heading of the Link Contact screen -->
+    <string name="titleJoinContactDataWith">Link contacts</string>
 
-    <!-- Info blurb on the Join Contact screen [CHAR LIMIT=NONE]-->
-    <string name="blurbJoinContactDataWith">Choose the contact you want to join with <xliff:g id="name">%s</xliff:g>:</string>
+    <!-- Info blurb on the Link Contact screen [CHAR LIMIT=NONE]-->
+    <string name="blurbJoinContactDataWith">Choose the contact you want to link with <xliff:g
+        id="name">%s</xliff:g>:</string>
 
     <!-- An item in the Join Contact activity that opens up the full contact A-Z list -->
     <string name="showAllContactsJoinItem">Show all contacts</string>
@@ -168,11 +187,14 @@
     <!-- List separator for the Join Contact list: A-Z -->
     <string name="separatorJoinAggregateAll">All contacts</string>
 
-    <!-- Toast shown after two contacts have been joined by a user action. [CHAR LIMIT=NONE] -->
-    <string name="contactsJoinedMessage">Contacts merged</string>
+    <!-- Toast shown after two contacts have been linked by a user action. [CHAR LIMIT=NONE] -->
+    <string name="contactsJoinedMessage">Contacts linked</string>
 
-    <!-- Toast shown after contacts that the user has selected are deleted by a user action. [CHAR LIMIT=NONE] -->
-    <string name="contacts_deleted_toast">Contacts deleted</string>
+    <!-- Toast shown after contacts that the user has selected are deleted by a user action. [CHAR LIMIT=30] -->
+    <plurals name="contacts_deleted_toast">
+        <item quantity="one">Contact deleted</item>
+        <item quantity="other">Contacts deleted</item>
+    </plurals>
 
     <!-- Menu item that opens the Options activity for a given contact [CHAR LIMIT=15] -->
     <string name="menu_set_ring_tone">Set ringtone</string>
@@ -180,32 +202,44 @@
     <!-- Menu item that opens the Options activity for a given contact [CHAR LIMIT=30] -->
     <string name="menu_redirect_calls_to_vm">All calls to voicemail</string>
 
-    <!-- Warning dialog contents after users selects to delete a ReadOnly contact. [CHAR LIMIT=NONE] -->
-    <string name="readOnlyContactWarning">You can\'t delete contacts from read-only accounts, but you can hide them in your contacts lists.</string>
+    <!-- Warning dialog contents after users select to delete a ReadOnly contact. [CHAR LIMIT=NONE] -->
+    <string name="readOnlyContactWarning">Contacts from your read-only accounts cannot be deleted, but they can be hidden.</string>
 
-    <!-- Warning dialog contents after users selects to delete a contact with ReadOnly and Writable sources. -->
-    <string name="readOnlyContactDeleteConfirmation">This contact contains information from multiple accounts. Information from read-only accounts will be hidden in your contacts lists, not deleted.</string>
+    <!-- Positive button text of the warning dialog contents after users select to delete a ReadOnly contact. [CHAR LIMIT=30]-->
+    <string name="readOnlyContactWarning_positive_button">Hide</string>
 
-    <!-- Warning dialog. Shown if user selects a single contact to merge. [CHAR LIMIT=NONE]  -->
-    <string name="batch_merge_single_contact_warning">You need at least two contacts selected to perform a merge.</string>
+    <!-- Warning dialog contents after users selects to delete a contact with ReadOnly and Writable sources. [CHAR LIMIT=NONE]-->
+    <string name="readOnlyContactDeleteConfirmation">The contact to be deleted has details from multiple accounts. Details from read-only accounts will be hidden, not deleted.</string>
 
-    <!-- Confirmation dialog. Shown after user selects to merge contacts. [CHAR LIMIT=NONE]  -->
-    <string name="batch_merge_confirmation">The selected contacts will be merged into a single contact.</string>
+    <!-- Warning dialog. Shown if user selects a single contact to link. [CHAR LIMIT=NONE]  -->
+    <string name="batch_link_single_contact_warning">You need at least two contacts selected to perform a link.</string>
 
-    <!-- Confirmation dialog. Shown after user selects to delete writable contacts. [CHAR LIMIT=NONE]  -->
-    <string name="batch_delete_confirmation">The selected contacts will be deleted.</string>
+    <!-- Confirmation dialog. Shown after user selects to link contacts. [CHAR LIMIT=NONE]  -->
+    <string name="batch_link_confirmation">Link selected contacts?</string>
+
+    <!-- Positive button text from confirmation dialog. Shown after user selects to link contacts. [CHAR LIMIT=40]  -->
+    <string name="batch_link_confirmation_positive_button">Link</string>
+
+    <!-- Confirmation dialog. Shown after user selects to delete one writable contact [CHAR LIMIT=NONE]  -->
+    <string name="single_delete_confirmation">Delete this contact?</string>
+
+    <!-- Confirmation dialog. Shown after user selects to delete multimple writable contacts. [CHAR LIMIT=NONE]  -->
+    <string name="batch_delete_confirmation">Delete selected contacts?</string>
 
     <!-- Confirmation dialog. Shown after user selects to delete readonly contacts. [CHAR LIMIT=NONE] -->
-    <string name="batch_delete_read_only_contact_confirmation">Information from read-only accounts will be hidden in your contacts lists, not deleted.</string>
+    <string name="batch_delete_read_only_contact_confirmation">Contacts from your read-only accounts cannot be deleted, but they can be hidden.</string>
 
     <!-- Confirmation dialog. Shown after user selects to delete contacts from multiple accounts. [CHAR LIMIT=NONE]  -->
-    <string name="batch_delete_multiple_accounts_confirmation">These contacts contains information from multiple accounts. Information from read-only accounts will be hidden in your contacts lists, not deleted.</string>
+    <string name="batch_delete_multiple_accounts_confirmation">The contacts to be deleted have details from multiple accounts. Details from read-only accounts will be hidden, not deleted.</string>
 
     <!-- Warning dialog contents after users selects to delete a contact with multiple Writable sources. -->
-    <string name="multipleContactDeleteConfirmation">Deleting this contact will delete information from multiple accounts.</string>
+    <string name="multipleContactDeleteConfirmation">Deleting this contact will delete details from multiple accounts.</string>
 
     <!-- Confirmation dialog contents after users selects to delete a Writable contact. -->
-    <string name="deleteConfirmation">This contact will be deleted.</string>
+    <string name="deleteConfirmation">Delete this contact?</string>
+
+    <!-- Positive button text of confirmation dialog contents after users selects to delete a Writable contact. [CHAR LIMIT=30] -->
+    <string name="deleteConfirmation_positive_button">Delete</string>
 
     <!-- Menu item to indicate you want to stop editing a contact and NOT save the changes you've made [CHAR LIMIT=30] -->
     <string name="menu_discard">Discard changes</string>
@@ -214,8 +248,11 @@
          for some reason doesn't exist anymore. [CHAR LIMIT=NONE]-->
     <string name="invalidContactMessage">The contact doesn\'t exist.</string>
 
-    <!-- Message displayed in a toast after you create a contact shortcut in the launcher [CHAR LIMIT=NONE]-->
-    <string name="createContactShortcutSuccessful">Contact widget added to Home screen.</string>
+    <!-- Message without name displayed in a toast after you create a contact shortcut in the launcher [CHAR LIMIT=NONE]-->
+    <string name="createContactShortcutSuccessful_NoName">Contact added to Home screen.</string>
+
+    <!-- Message with name displayed in a toast after you create a contact shortcut in the launcher [CHAR LIMIT=NONE]-->
+    <string name="createContactShortcutSuccessful"><xliff:g id="name">%s</xliff:g> added to Home screen.</string>
 
     <!-- When picking a contact from a list of all contacts there is an entry at the top of the
          list that allows the user to create a new contact, which this string is used for -->
@@ -255,7 +292,7 @@
     <string name="removePhoto">Remove photo</string>
 
     <!-- The text displayed when the contacts list is empty while displaying all contacts [CHAR LIMIT=NONE] -->
-    <string name="noContacts">No contacts.</string>
+    <string name="noContacts">No contacts</string>
 
     <!-- The text displayed when the groups list is empty while displaying all groups [CHAR LIMIT=NONE] -->
     <string name="noGroups">No groups.</string>
@@ -273,10 +310,22 @@
     <string name="savingContact">Saving contact\u2026</string>
 
     <!-- Toast displayed when a contact is saved [CHAR LIMIT=NONE] -->
-    <string name="contactSavedToast">Contact saved.</string>
+    <string name="contactSavedToast">Contact saved</string>
+
+    <!-- Toast displayed when linked contacts get unlinked [CHAR LIMIT=NONE] -->
+    <string name="contactUnlinkedToast">Contacts unlinked</string>
 
     <!-- Toast displayed when saving a contact failed. [CHAR LIMIT=NONE] -->
     <string name="contactSavedErrorToast">Couldn\'t save contact changes.</string>
+
+    <!-- Toast displayed when unlinking a contact failed. [CHAR LIMIT=NONE] -->
+    <string name="contactUnlinkErrorToast">Couldn\'t unlink contact.</string>
+
+    <!-- Toast displayed when linking a contact failed. [CHAR LIMIT=NONE] -->
+    <string name="contactJoinErrorToast">Couldn\'t link contact.</string>
+
+    <!-- Generic error default clause displayed when saving a contact failed. [CHAR LIMIT=NONE] -->
+    <string name="contactGenericErrorToast">Error saving contact.</string>
 
     <!-- Toast displayed when saving a contact photo failed. [CHAR LIMIT=NONE] -->
     <string name="contactPhotoSavedErrorToast">Couldn\'t save contact photo changes.</string>
@@ -312,7 +361,7 @@
     </plurals>
 
     <!-- The title of "all contacts" tab. [CHAR LIMIT=14] -->
-    <string name="all_contacts_tab_label">All contacts</string>
+    <string name="all_contacts_tab_label">All</string>
 
     <!-- The title of "favorites" tab. [CHAR LIMIT=14] -->
     <string name="favorites_tab_label">Favorites</string>
@@ -466,16 +515,9 @@
     <!-- The title of the Edit-Contact screen -->
     <string name="edit_contact">Edit contact</string>
 
-    <!-- Shows how many contacts have been merged. The value 1 is not shown but should be translated
-         anyway if we change our mind later -->
-    <plurals name="merge_info">
-        <item quantity="one">not merged</item>
-        <item quantity="other">merged from <xliff:g id="count">%0$d</xliff:g> sources</item>
-    </plurals>
-
     <!-- The message in a confirmation dialog shown when the user selects a
         contact aggregation suggestion in Contact editor. [CHAR LIMIT=512]-->
-    <string name="aggregation_suggestion_join_dialog_message">Join
+    <string name="aggregation_suggestion_join_dialog_message">Link
         the current contact with the selected contact?</string>
 
     <!-- The message in a confirmation dialog shown when the user selects a
@@ -529,8 +571,8 @@
     <!-- Format string that combines the name and the phonetic name for the widget. if the phonetic name is empty, only the display name is used instead [CHAR LIMIT=25] -->
     <string name="widget_name_and_phonetic"><xliff:g id="display_name" example="John Huber">%1$s</xliff:g> (<xliff:g id="phonetic_name">%2$s</xliff:g>)</string>
 
-    <!-- Checkbox whether to provide a year for a birthday [CHAR LIMIT=30] -->
-    <string name="date_year_toggle">Provide a year</string>
+    <!-- Checkbox whether to include a year for a birthday [CHAR LIMIT=30] -->
+    <string name="date_year_toggle">Include year</string>
 
     <!-- Label for the widget that shows picture and social status of a contact [CHAR LIMIT=20] -->
     <string name="social_widget_label">Contact</string>
@@ -544,7 +586,7 @@
 
     <!-- Button shown on the main contacts screen when there are no contacts on the device.
     Navigates to account setup [CHAR LIMIT=128] -->
-    <string name="contacts_unavailable_add_account">Sign in to an account</string>
+    <string name="contacts_unavailable_add_account">Add account</string>
 
     <!-- Button shown on the main contacts screen when there are no contacts on the device.
     Initiates a contact import dialog [CHAR LIMIT=128] -->
@@ -580,9 +622,9 @@
         <item quantity="other"><xliff:g id="count">%1$d</xliff:g> people</item>
     </plurals>
 
-    <!-- Toast displayed when the user creates a new contact and attempts to join it
+    <!-- Toast displayed when the user creates a new contact and attempts to link it
       with another before entering any data  [CHAR LIMIT=256] -->
-    <string name="toast_join_with_empty_contact">Type contact name before joining
+    <string name="toast_join_with_empty_contact">Type contact name before linking
       with another.
     </string>
 
@@ -599,7 +641,17 @@
     <string name="toast_text_copied">Text copied</string>
 
     <!-- Contents of the alert dialog when the user hits the Cancel button in the editor [CHAR LIMIT=128] -->
-    <string name="cancel_confirmation_dialog_message">Discard your changes?</string>
+    <string name="cancel_confirmation_dialog_message">Discard your changes and quit editing?</string>
+
+    <!-- Positive button text for the cancel editing confirmation dialog.
+      Pushing this button indicates that the user wishes to discard the changes they have already
+      made and close the editor. [CHAR LIMIT=20] -->
+    <string name="cancel_confirmation_dialog_cancel_editing_button">Discard</string>
+
+    <!-- Negative button text for the cancel editing confirmation dialog.
+      Pushing this button indicates that the user wishes to continue editing
+      and return to the editor [CHAR LIMIT=30] -->
+    <string name="cancel_confirmation_dialog_keep_editing_button">Keep editing</string>
 
     <!-- Description of a call log entry, made of a call type and a date -->
     <string name="call_type_and_date">
@@ -626,9 +678,6 @@
          contact filter state. [CHAR LIMIT=64] -->
     <string name="toast_displaying_all_contacts">Displaying all contacts</string>
 
-    <!-- Message in the standard "no account" prompt that encourages the user to add a Google account before continuing to use the People app [CHAR LIMIT=NONE] -->
-    <string name="no_account_prompt">Contacts works better with a Google Account.\n\n\u2022 Access from any web browser.\n\u2022 Back up your contacts securely.</string>
-
     <!-- Message in the standard "no account" prompt that encourages the user to add any account (non Google-specific) before continuing to use the People app [CHAR LIMIT=NONE] -->
     <string name="generic_no_account_prompt">Keep your contacts safe even if you lose your phone: synchronize with an online service.</string>
 
@@ -639,10 +688,10 @@
     <string name="contact_editor_prompt_zero_accounts">Your new contact won\'t be backed up. Add an account that backs up contacts online?</string>
 
     <!-- Message in the contact editor prompt that asks the user if it's okay to save the newly created contact to the account shown. [CHAR LIMIT=NONE] -->
-    <string name="contact_editor_prompt_one_account">Your new contact will be synchronized with <xliff:g id="account_name">%1$s</xliff:g>.</string>
+    <string name="contact_editor_prompt_one_account">New contacts will be saved to <xliff:g id="account_name">%1$s</xliff:g>.</string>
 
     <!-- Message in the contact editor prompt that asks the user which account they want to save the newly created contact to. [CHAR LIMIT=NONE] -->
-    <string name="contact_editor_prompt_multiple_accounts">You can synchronize your new contact with one of the following accounts. Which do you want to use?</string>
+    <string name="contact_editor_prompt_multiple_accounts">Choose a default account for new contacts:</string>
 
     <!-- Title of the ContactEditorActivity when creating a new contact. The char
          limit is short and cannot be increased, since this needs to be displayed in a single line
@@ -756,18 +805,115 @@
     <!-- Prefix for messages that you sent [CHAR LIMIT=40] -->
     <string name="message_from_you_prefix">You: <xliff:g id="sms_body">%s</xliff:g></string>
 
-    <!-- File Authority for the photo picker -->
-    <string name="photo_file_provider_authority" translatable="false">com.android.contacts.files</string>
-
     <!-- When a user tries to create an IM Hangouts field, an alert dialog pops up displaying this message. We don't want users entering email addresses of phone numbers into the IM field. [CHAR LIMIT=200] -->
     <string name="contact_editor_hangouts_im_alert">Hangouts works better when you enter the person\'s Hangouts identifier into the email field or phone field.</string>
 
     <!-- Button to expand the compact contact editor to show all available input fields. [CHAR LIMIT=60] -->
-    <string name="compact_editor_more_fields">More Fields</string>
+    <string name="compact_editor_more_fields">More fields</string>
 
     <!-- Content description for the compact contact editor photo overlay which, when clicked, shows a dialog with the options for changing the contact photo. [CHAR LIMIT=30] -->
     <string name="compact_editor_change_photo_content_description">Change photo</string>
 
+    <!-- Toast message displayed when the editor fails to load for a contacts. [CHAR LIMIT=NONE] -->
+    <string name="compact_editor_failed_to_load">Failed to open editor.</string>
+
+    <!-- Label for the account selector to indicate which account a contact will be saved to. [CHAR LIMIT=30] -->
+    <string name="compact_editor_account_selector_title">Saving to</string>
+
+    <!-- Content description for the account selector to indicate which account a contact will be saved to. [CHAR LIMIT=NONE] -->
+    <string name="compact_editor_account_selector_description">Currently saving to <xliff:g id="account_name">%s</xliff:g>. Double-tap to pick a different account.</string>
+
+    <!-- Label for the linked contacts selector which indicates the number of raw contacts which have been linked together into the aggregate being viewed. [CHAR LIMIT=40] -->
+    <plurals name="compact_editor_linked_contacts_selector_title">
+        <item quantity="one">Linked contact</item>
+        <item quantity="other">Linked contacts (<xliff:g id="count">%d</xliff:g>)</item>
+    </plurals>
+
+    <!-- Number of linked contacts of the current contact, only shown when there are more than 2 linked contacts (plural only!!!) [CHAR LIMIT=60] -->
+    <string name="quickcontact_contacts_number"><xliff:g id="count">%d</xliff:g> linked contacts</string>
+
     <!-- Quick contact display name with phonetic name -->
     <string name="quick_contact_display_name_with_phonetic"><xliff:g id="display_name">%s</xliff:g> (<xliff:g id="phonetic_name">%s</xliff:g>)</string>
+
+    <!-- Button used in quick contact suggestion card to link selected contacts. [CHAR LIMIT=30]-->
+    <string name="quickcontact_suggestion_link_button">LINK CONTACTS</string>
+
+    <!-- Button used in quick contact suggestion card to collapse suggestion card. [CHAR LIMIT=30]-->
+    <string name="quickcontact_suggestion_cancel_button">CANCEL</string>
+
+    <!-- Suggestion card title in quick contact UI [CHAR LIMIT=100] -->
+    <plurals name="quickcontact_suggestion_card_title">
+        <item quantity="one">1 Possible duplicate</item>
+        <item quantity="other"><xliff:g id="count">%d</xliff:g> Possible duplicates</item>
+    </plurals>
+
+    <!-- Suggestions number in quick contact suggestion card [CHAR LIMIT=60] -->
+    <plurals name="quickcontact_suggestions_number">
+        <item quantity="one">1 linked contact</item>
+        <item quantity="other"><xliff:g id="count">%d</xliff:g> linked contacts</item>
+    </plurals>
+
+    <!-- Account type number for suggestions in quick contact suggestion card [CHAR LIMIT=30]-->
+    <plurals name="quickcontact_suggestion_account_type_number">
+        <item quantity="one"></item>
+        <item quantity="other">(<xliff:g id="count">%d</xliff:g>)</item>
+    </plurals>
+
+    <!-- Account type with number in quick contact suggestion card [CHAR LIMIT=30]-->
+    <string name="quickcontact_suggestion_account_type"><xliff:g id="account_type">%s</xliff:g><xliff:g id="account_type_number">%s</xliff:g></string>
+
+    <!-- "This contact" title showing in suggestion card in Quick contact. [CHAR LIMIT=30]-->
+    <string name="suggestion_card_this_contact_title">This contact</string>
+
+    <!-- "Duplicates" title showing in suggestion card in Quick contact. [CHAR LIMIT=30]-->
+    <string name="suggestion_card_duplicates_title">Possible duplicates</string>
+
+    <!-- Help message showing in suggestion card in Quick contact. [CHAR LIMIT=NONE]-->
+    <string name="suggestion_card_help_message">These contacts might be the same person. You can link them together as a single contact.</string>
+
+    <!-- Linked contacts title showing in contact editor UI. [CHAR LIMIT=30]-->
+    <string name="compact_editor_linked_contacts_title">Linked contacts</string>
+
+    <!-- Title of profile photos that are from your various accounts -->
+    <string name="from_your_accounts">From your accounts</string>
+
+    <!-- Button used in photo picker to open camera [CHAR LIMIT=30]-->
+    <string name="take_a_photo_button">Take a photo</string>
+
+    <!-- Button used in photo picker to open photo/gallery [CHAR LIMIT=20]-->
+    <string name="all_photos_button">All photos</string>
+
+    <!-- Title of photo picker [CHAR LIMIT=30]-->
+    <string name="photo_picker_title">Choose photo</string>
+
+    <!-- Message below contact name, showing from which account [CHAR LIMIT=NONE]-->
+    <string name="contact_from_account_name">From <xliff:g id="account_name">%s</xliff:g></string>
+
+    <!-- Content description of delete button to the right of each section in editor, including
+    data type. For example: Delete Home Phone, Delete Work Email, etc [CHAR LIMIT=30]-->
+    <string name="editor_delete_view_description">Delete <xliff:g id="data_type">%s </xliff:g><xliff:g id="data_kind">%s</xliff:g></string>
+
+    <!-- Content description of delete button to the right of each section in editor, without data
+    type. For example: Delete Website, Delete SIP, etc [CHAR LIMIT=30]-->
+    <string name="editor_delete_view_description_short">Delete <xliff:g id="data_kind">%s</xliff:g></string>
+
+    <!-- Content description of photo in photo picker indicating a photo from a specific account is *not* selected.
+         For example: Photo from Google abc@gmail.com not checked. [CHAR LIMIT=60]-->
+    <string name="photo_view_description_not_checked">Photo from <xliff:g id="account_type">%s </xliff:g><xliff:g id="user_name">%s </xliff:g>not checked</string>
+
+    <!-- Content description of photo in photo picker indicating a photo from a specific account is selected.
+         For example: Photo from Google abc@gmail.com checked. [CHAR LIMIT=60]-->
+    <string name="photo_view_description_checked">Photo from <xliff:g id="account_type">%s </xliff:g><xliff:g id="user_name">%s </xliff:g>checked</string>
+
+    <!-- Content description of photo in photo picker indicating a photo from unknown account is *not* selected.-->
+    <string name="photo_view_description_not_checked_no_info">Photo from unknown account not checked</string>
+
+    <!-- Content description of photo in photo picker indicating a photo from unknown account is selected. -->
+    <string name="photo_view_description_checked_no_info">Photo from unknown account checked</string>
+
+    <!-- Text shown in the contacts app while the background process updates contacts after a locale change [CHAR LIMIT=150]-->
+    <string name="locale_change_in_progress">Contact list is being updated to reflect the change of language.\n\nPlease wait...</string>
+
+    <!-- The menu item to open blocked numbers activity [CHAR LIMIT=60]-->
+    <string name="menu_blocked_numbers">Blocked numbers</string>
 </resources>

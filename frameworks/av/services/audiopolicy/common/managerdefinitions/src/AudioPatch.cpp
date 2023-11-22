@@ -19,7 +19,7 @@
 
 #include "AudioPatch.h"
 #include "AudioGain.h"
-#include "ConfigParsingUtils.h"
+#include "TypeConverter.h"
 #include <cutils/log.h>
 #include <utils/String8.h>
 
@@ -31,7 +31,7 @@ AudioPatch::AudioPatch(const struct audio_patch *patch, uid_t uid) :
     mHandle(static_cast<audio_patch_handle_t>(android_atomic_inc(&mNextUniqueId))),
     mPatch(*patch),
     mUid(uid),
-    mAfPatchHandle(0)
+    mAfPatchHandle(AUDIO_PATCH_HANDLE_NONE)
 {
 }
 
@@ -53,10 +53,11 @@ status_t AudioPatch::dump(int fd, int spaces, int index) const
     result.append(buffer);
     for (size_t i = 0; i < mPatch.num_sources; i++) {
         if (mPatch.sources[i].type == AUDIO_PORT_TYPE_DEVICE) {
+            std::string device;
+            DeviceConverter::toString(mPatch.sources[i].ext.device.type, device);
             snprintf(buffer, SIZE, "%*s- Device ID %d %s\n", spaces + 2, "",
-                     mPatch.sources[i].id, ConfigParsingUtils::enumToString(sDeviceTypeToEnumTable,
-                                                        ARRAY_SIZE(sDeviceTypeToEnumTable),
-                                                        mPatch.sources[i].ext.device.type));
+                     mPatch.sources[i].id,
+                     device.c_str());
         } else {
             snprintf(buffer, SIZE, "%*s- Mix ID %d I/O handle %d\n", spaces + 2, "",
                      mPatch.sources[i].id, mPatch.sources[i].ext.mix.handle);
@@ -67,10 +68,11 @@ status_t AudioPatch::dump(int fd, int spaces, int index) const
     result.append(buffer);
     for (size_t i = 0; i < mPatch.num_sinks; i++) {
         if (mPatch.sinks[i].type == AUDIO_PORT_TYPE_DEVICE) {
+            std::string device;
+            DeviceConverter::toString(mPatch.sinks[i].ext.device.type, device);
             snprintf(buffer, SIZE, "%*s- Device ID %d %s\n", spaces + 2, "",
-                     mPatch.sinks[i].id, ConfigParsingUtils::enumToString(sDeviceTypeToEnumTable,
-                                                        ARRAY_SIZE(sDeviceTypeToEnumTable),
-                                                        mPatch.sinks[i].ext.device.type));
+                     mPatch.sinks[i].id,
+                     device.c_str());
         } else {
             snprintf(buffer, SIZE, "%*s- Mix ID %d I/O handle %d\n", spaces + 2, "",
                      mPatch.sinks[i].id, mPatch.sinks[i].ext.mix.handle);
@@ -126,14 +128,35 @@ status_t AudioPatchCollection::listAudioPatches(unsigned int *num_patches,
 
     size_t patchesWritten = 0;
     size_t patchesMax = *num_patches;
-    for (size_t i = 0; i  < size() && patchesWritten < patchesMax; i++) {
-        const sp<AudioPatch>  patch = valueAt(i);
-        patches[patchesWritten] = patch->mPatch;
-        patches[patchesWritten++].id = patch->mHandle;
+    *num_patches = 0;
+    for (size_t patchIndex = 0; patchIndex < size(); patchIndex++) {
+        // do not report patches with AUDIO_DEVICE_IN_STUB as source or
+        // AUDIO_DEVICE_OUT_STUB as sink as those devices are used by stub HALs by convention
+        const sp<AudioPatch> patch = valueAt(patchIndex);
+        bool skip = false;
+        for (size_t srcIndex = 0; srcIndex < patch->mPatch.num_sources && !skip; srcIndex++) {
+            if (patch->mPatch.sources[srcIndex].type == AUDIO_PORT_TYPE_DEVICE &&
+                    patch->mPatch.sources[srcIndex].ext.device.type == AUDIO_DEVICE_IN_STUB) {
+                skip = true;
+            }
+        }
+        for (size_t sinkIndex = 0; sinkIndex < patch->mPatch.num_sinks && !skip; sinkIndex++) {
+            if (patch->mPatch.sinks[sinkIndex].type == AUDIO_PORT_TYPE_DEVICE &&
+                    patch->mPatch.sinks[sinkIndex].ext.device.type == AUDIO_DEVICE_OUT_STUB) {
+                skip = true;
+            }
+        }
+        if (skip) {
+            continue; // to next audio patch
+        }
+        if (patchesWritten < patchesMax) {
+            patches[patchesWritten] = patch->mPatch;
+            patches[patchesWritten++].id = patch->mHandle;
+        }
+        (*num_patches)++;
         ALOGV("listAudioPatches() patch %zu num_sources %d num_sinks %d",
-              i, patch->mPatch.num_sources, patch->mPatch.num_sinks);
+              patchIndex, patch->mPatch.num_sources, patch->mPatch.num_sinks);
     }
-    *num_patches = size();
 
     ALOGV("listAudioPatches() got %zu patches needed %d", patchesWritten, *num_patches);
     return NO_ERROR;

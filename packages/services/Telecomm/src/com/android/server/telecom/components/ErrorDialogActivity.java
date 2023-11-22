@@ -35,6 +35,7 @@ public class ErrorDialogActivity extends Activity {
 
     public static final String SHOW_MISSING_VOICEMAIL_NO_DIALOG_EXTRA = "show_missing_voicemail";
     public static final String ERROR_MESSAGE_ID_EXTRA = "error_message_id";
+    public static final String ERROR_MESSAGE_STRING_EXTRA = "error_message_string";
 
     /**
      * Intent action to bring up Voicemail Provider settings.
@@ -50,6 +51,10 @@ public class ErrorDialogActivity extends Activity {
 
         if (showVoicemailDialog) {
             showMissingVoicemailErrorDialog();
+        }  else if (getIntent().getCharSequenceExtra(ERROR_MESSAGE_STRING_EXTRA) != null) {
+            final CharSequence error = getIntent().getCharSequenceExtra(
+                    ERROR_MESSAGE_STRING_EXTRA);
+            showGenericErrorDialog(error);
         } else {
             final int error = getIntent().getIntExtra(ERROR_MESSAGE_ID_EXTRA, -1);
             if (error == -1) {
@@ -61,8 +66,7 @@ public class ErrorDialogActivity extends Activity {
         }
     }
 
-    private void showGenericErrorDialog(int resid) {
-        final CharSequence msg = getResources().getText(resid);
+    private void showGenericErrorDialog(CharSequence msg) {
         final DialogInterface.OnClickListener clickListener;
         final DialogInterface.OnCancelListener cancelListener;
 
@@ -85,6 +89,11 @@ public class ErrorDialogActivity extends Activity {
                         .setOnCancelListener(cancelListener).create();
 
         errorDialog.show();
+    }
+
+    private void showGenericErrorDialog(int resid) {
+        final CharSequence msg = getResources().getText(resid);
+        showGenericErrorDialog(msg);
     }
 
     private void showMissingVoicemailErrorDialog() {

@@ -39,9 +39,6 @@
 **  Type definitions for callback functions
 ********************************************************************************/
 
-typedef char bdstr_t[18];
-
-
 /*******************************************************************************
 **  Functions
 ********************************************************************************/
@@ -68,8 +65,14 @@ UINT32 devclass2uint(DEV_CLASS dev_class);
 void uint2devclass(UINT32 dev, DEV_CLASS dev_class);
 void uuid16_to_uuid128(uint16_t uuid16, bt_uuid_t* uuid128);
 
+// Takes a |str| containing a 128-bit GUID formatted UUID and stores the
+// result in |p_uuid|. |str| must be formatted in this format:
+//   "12345678-1234-1234-1234-123456789012"
+// |p_uuid| cannot be null. Returns true if parsing was successful, false
+// otherwise. Returns false if |str| is null.
+bool string_to_uuid(const char *str, bt_uuid_t *p_uuid);
+
 void uuid_to_string_legacy(bt_uuid_t *p_uuid, char *str);
-void string_to_uuid(char *str, bt_uuid_t *p_uuid);
-int ascii_2_hex (char *p_ascii, int len, UINT8 *p_hex);
+int ascii_2_hex (const char *p_ascii, int len, UINT8 *p_hex);
 
 #endif /* BTIF_UTIL_H */

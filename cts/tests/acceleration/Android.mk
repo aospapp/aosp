@@ -24,10 +24,15 @@ LOCAL_DEX_PREOPT := false
 
 LOCAL_PROGUARD_ENABLED := disabled
 
+LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner
+
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_PACKAGE_NAME := CtsAccelerationTestStubs
+# Tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
+
+LOCAL_PACKAGE_NAME := CtsAccelerationTestCases
 
 LOCAL_SDK_VERSION := current
 
-include $(BUILD_CTS_SUPPORT_PACKAGE)
+include $(BUILD_CTS_PACKAGE)

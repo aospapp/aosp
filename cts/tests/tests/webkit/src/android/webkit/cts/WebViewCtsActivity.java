@@ -16,7 +16,7 @@
 
 package android.webkit.cts;
 
-import com.android.cts.webkit.R;
+import android.webkit.cts.R;
 
 import android.app.Activity;
 import android.cts.util.NullWebViewUtils;

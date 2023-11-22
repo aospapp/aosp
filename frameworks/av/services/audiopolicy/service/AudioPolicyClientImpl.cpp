@@ -30,7 +30,7 @@ audio_module_handle_t AudioPolicyService::AudioPolicyClient::loadHwModule(const 
     sp<IAudioFlinger> af = AudioSystem::get_audio_flinger();
     if (af == 0) {
         ALOGW("%s: could not get AudioFlinger", __func__);
-        return 0;
+        return AUDIO_MODULE_HANDLE_NONE;
     }
 
     return af->loadHwModule(name);
@@ -171,7 +171,7 @@ status_t AudioPolicyService::AudioPolicyClient::setVoiceVolume(float volume, int
     return mAudioPolicyService->setVoiceVolume(volume, delay_ms);
 }
 
-status_t AudioPolicyService::AudioPolicyClient::moveEffects(int session,
+status_t AudioPolicyService::AudioPolicyClient::moveEffects(audio_session_t session,
                         audio_io_handle_t src_output,
                         audio_io_handle_t dst_output)
 {
@@ -219,9 +219,18 @@ void AudioPolicyService::AudioPolicyClient::onDynamicPolicyMixStateUpdate(
     mAudioPolicyService->onDynamicPolicyMixStateUpdate(regId, state);
 }
 
-audio_unique_id_t AudioPolicyService::AudioPolicyClient::newAudioUniqueId()
+void AudioPolicyService::AudioPolicyClient::onRecordingConfigurationUpdate(
+        int event, audio_session_t session, audio_source_t source,
+        const audio_config_base_t *clientConfig, const audio_config_base_t *deviceConfig,
+        audio_patch_handle_t patchHandle)
 {
-    return AudioSystem::newAudioUniqueId();
+    mAudioPolicyService->onRecordingConfigurationUpdate(event, session, source,
+            clientConfig, deviceConfig, patchHandle);
+}
+
+audio_unique_id_t AudioPolicyService::AudioPolicyClient::newAudioUniqueId(audio_unique_id_use_t use)
+{
+    return AudioSystem::newAudioUniqueId(use);
 }
 
 }; // namespace android

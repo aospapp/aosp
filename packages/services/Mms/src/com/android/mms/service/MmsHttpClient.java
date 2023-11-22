@@ -17,6 +17,8 @@
 package com.android.mms.service;
 
 import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.LinkProperties;
 import android.net.Network;
 import android.os.Bundle;
 import android.telephony.SmsManager;
@@ -25,7 +27,6 @@ import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Base64;
 import android.util.Log;
-
 import com.android.mms.service.exception.MmsHttpException;
 
 import java.io.BufferedInputStream;
@@ -36,6 +37,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
+import java.net.Inet4Address;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.MalformedURLException;
 import java.net.ProtocolException;
@@ -68,18 +71,24 @@ public class MmsHttpClient {
     private static final String HEADER_VALUE_CONTENT_TYPE_WITHOUT_CHARSET =
             "application/vnd.wap.mms-message";
 
+    private static final int IPV4_WAIT_ATTEMPTS = 15;
+    private static final long IPV4_WAIT_DELAY_MS = 1000; // 1 seconds
+
     private final Context mContext;
     private final Network mNetwork;
+    private final ConnectivityManager mConnectivityManager;
 
     /**
      * Constructor
-     *
-     * @param context The Context object
+     *  @param context The Context object
      * @param network The Network for creating an OKHttp client
+     * @param connectivityManager
      */
-    public MmsHttpClient(Context context, Network network) {
+    public MmsHttpClient(Context context, Network network,
+            ConnectivityManager connectivityManager) {
         mContext = context;
         mNetwork = network;
+        mConnectivityManager = connectivityManager;
     }
 
     /**
@@ -109,9 +118,11 @@ public class MmsHttpClient {
         try {
             Proxy proxy = Proxy.NO_PROXY;
             if (isProxySet) {
-                proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyHost, proxyPort));
+                proxy = new Proxy(Proxy.Type.HTTP,
+                        new InetSocketAddress(mNetwork.getByName(proxyHost), proxyPort));
             }
             final URL url = new URL(urlString);
+            maybeWaitForIpv4(requestId, url);
             // Now get the connection
             connection = (HttpURLConnection) mNetwork.openConnection(url, proxy);
             connection.setDoInput(true);
@@ -204,6 +215,40 @@ public class MmsHttpClient {
         } finally {
             if (connection != null) {
                 connection.disconnect();
+            }
+        }
+    }
+
+    private void maybeWaitForIpv4(final String requestId, final URL url) {
+        // If it's a literal IPv4 address and we're on an IPv6-only network,
+        // wait until IPv4 is available.
+        Inet4Address ipv4Literal = null;
+        try {
+            ipv4Literal = (Inet4Address) InetAddress.parseNumericAddress(url.getHost());
+        } catch (IllegalArgumentException | ClassCastException e) {
+            // Ignore
+        }
+        if (ipv4Literal == null) {
+            // Not an IPv4 address.
+            return;
+        }
+        for (int i = 0; i < IPV4_WAIT_ATTEMPTS; i++) {
+            final LinkProperties lp = mConnectivityManager.getLinkProperties(mNetwork);
+            if (lp != null) {
+                if (!lp.isReachable(ipv4Literal)) {
+                    LogUtil.w(requestId, "HTTP: IPv4 not yet provisioned");
+                    try {
+                        Thread.sleep(IPV4_WAIT_DELAY_MS);
+                    } catch (InterruptedException e) {
+                        // Ignore
+                    }
+                } else {
+                    LogUtil.i(requestId, "HTTP: IPv4 provisioned");
+                    break;
+                }
+            } else {
+                LogUtil.w(requestId, "HTTP: network disconnected, skip ipv4 check");
+                break;
             }
         }
     }
@@ -420,7 +465,7 @@ public class MmsHttpClient {
     private static String getLine1(Context context, int subId) {
         final TelephonyManager telephonyManager = (TelephonyManager) context.getSystemService(
                 Context.TELEPHONY_SERVICE);
-        return telephonyManager.getLine1NumberForSubscriber(subId);
+        return telephonyManager.getLine1Number(subId);
     }
 
     /**
@@ -432,7 +477,7 @@ public class MmsHttpClient {
         return PhoneUtils.getNationalNumber(
                 telephonyManager,
                 subId,
-                telephonyManager.getLine1NumberForSubscriber(subId));
+                telephonyManager.getLine1Number(subId));
     }
 
     /**

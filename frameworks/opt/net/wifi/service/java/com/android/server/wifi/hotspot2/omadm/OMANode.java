@@ -4,22 +4,51 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 public abstract class OMANode {
-    private final OMANode mParent;
+    private final OMAConstructed mParent;
     private final String mName;
     private final String mContext;
+    private final Map<String, String> mAttributes;
 
-    protected OMANode(OMANode parent, String name, String context) {
+    private static final Map<Character, String> sEscapes = new HashMap<>();
+
+    static {
+        sEscapes.put('"', "&quot;");
+        sEscapes.put('\'', "&apos;");
+        sEscapes.put('<', "&lt;");
+        sEscapes.put('>', "&gt;");
+        sEscapes.put('&', "&amp;");
+    }
+
+    protected OMANode(OMAConstructed parent, String name, String context, Map<String, String> avps) {
         mParent = parent;
         mName = name;
         mContext = context;
+        mAttributes = avps;
     }
 
-    public OMANode getParent() {
+    protected static Map<String, String> buildAttributes(String[] avps) {
+        if (avps == null) {
+            return null;
+        }
+        Map<String, String> attributes = new HashMap<>();
+        for (int n = 0; n < avps.length; n += 2) {
+            attributes.put(avps[n], avps[n+1]);
+        }
+        return attributes;
+    }
+
+    protected Map<String, String> getAttributes() {
+        return mAttributes;
+    }
+
+    public OMAConstructed getParent() {
         return mParent;
     }
 
@@ -47,15 +76,36 @@ public abstract class OMANode {
         return sb.toString();
     }
 
+    /**
+     * Perform escaping of special XML characters
+     * @param s the raw string
+     * @return a "XML clean" representation
+     */
+    public static String escape(String s) {
+        StringBuilder sb = new StringBuilder(s.length());
+        for (int n = 0; n < s.length(); n++) {
+            char ch = s.charAt(n);
+            String escape = sEscapes.get(ch);
+            if (escape != null) {
+                sb.append(escape);
+            } else {
+                sb.append(ch);
+            }
+        }
+        return sb.toString();
+    }
+
+    public abstract OMANode reparent(OMAConstructed parent);
+
     public abstract String getScalarValue(Iterator<String> path) throws OMAException;
 
-    public abstract OMAConstructed getListValue(Iterator<String> path) throws OMAException;
+    public abstract OMANode getListValue(Iterator<String> path) throws OMAException;
 
     public abstract boolean isLeaf();
 
     public abstract Collection<OMANode> getChildren();
 
-    public abstract OMANode getChild(String name);
+    public abstract OMANode getChild(String name) throws OMAException;
 
     public abstract String getValue();
 
@@ -65,6 +115,27 @@ public abstract class OMANode {
     public abstract void marshal(OutputStream out, int level) throws IOException;
 
     public abstract void toString(StringBuilder sb, int level);
+
+    public abstract void fillPayload(StringBuilder sb);
+
+    public void toXml(StringBuilder sb) {
+        sb.append('<').append(MOTree.NodeTag);
+        if (mAttributes != null && !mAttributes.isEmpty()) {
+            for (Map.Entry<String, String> avp : mAttributes.entrySet()) {
+                sb.append(' ').append(avp.getKey()).append("=\"")
+                        .append(escape(avp.getValue())).append('"');
+            }
+        }
+        sb.append(">\n");
+
+        sb.append('<').append(MOTree.NodeNameTag).append('>');
+        sb.append(getName());
+        sb.append("</").append(MOTree.NodeNameTag).append(">\n");
+
+        fillPayload(sb);
+
+        sb.append("</").append(MOTree.NodeTag).append(">\n");
+    }
 
     @Override
     public String toString() {

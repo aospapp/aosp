@@ -28,14 +28,14 @@ import android.test.AndroidTestCase;
 import android.util.Printer;
 import android.util.StringBuilderPrinter;
 
-import com.android.cts.content.R;
+import android.content.cts.R;
 
 
 /**
  * Test {@link ComponentInfo}.
  */
 public class ComponentInfoTest extends AndroidTestCase {
-    private final String PACKAGE_NAME = "com.android.cts.content";
+    private final String PACKAGE_NAME = "android.content.cts";
     private ComponentInfo mComponentInfo;
 
     public void testConstructor() {

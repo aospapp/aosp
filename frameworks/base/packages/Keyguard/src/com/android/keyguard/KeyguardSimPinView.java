@@ -23,6 +23,7 @@ import com.android.internal.telephony.PhoneConstants;
 
 import android.content.Context;
 import android.content.res.ColorStateList;
+import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.app.AlertDialog;
 import android.app.AlertDialog.Builder;
@@ -70,6 +71,7 @@ public class KeyguardSimPinView extends KeyguardPinBasedInputView {
         super(context, attrs);
     }
 
+    @Override
     public void resetState() {
         super.resetState();
         if (DEBUG) Log.v(TAG, "Resetting state");
@@ -93,6 +95,12 @@ public class KeyguardSimPinView extends KeyguardPinBasedInputView {
             mSecurityMessageDisplay.setMessage(msg, true);
             mSimImageView.setImageTintList(ColorStateList.valueOf(color));
         }
+    }
+
+    @Override
+    protected void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        resetState();
     }
 
     @Override
@@ -192,6 +200,7 @@ public class KeyguardSimPinView extends KeyguardPinBasedInputView {
                     Log.v(TAG, "supplyPinReportResult returned: " + result[0] + " " + result[1]);
                 }
                 post(new Runnable() {
+                    @Override
                     public void run() {
                         onSimCheckResponse(result[0], result[1]);
                     }
@@ -199,6 +208,7 @@ public class KeyguardSimPinView extends KeyguardPinBasedInputView {
             } catch (RemoteException e) {
                 Log.e(TAG, "RemoteException for supplyPinReportResult:", e);
                 post(new Runnable() {
+                    @Override
                     public void run() {
                         onSimCheckResponse(PhoneConstants.PIN_GENERAL_FAILURE, -1);
                     }
@@ -243,7 +253,7 @@ public class KeyguardSimPinView extends KeyguardPinBasedInputView {
         if (entry.length() < 4) {
             // otherwise, display a message to the user, and don't submit.
             mSecurityMessageDisplay.setMessage(R.string.kg_invalid_sim_pin_hint, true);
-            resetPasswordText(true);
+            resetPasswordText(true /* animate */, true /* announce */);
             mCallback.userActivity();
             return;
         }
@@ -252,13 +262,16 @@ public class KeyguardSimPinView extends KeyguardPinBasedInputView {
 
         if (mCheckSimPinThread == null) {
             mCheckSimPinThread = new CheckSimPin(mPasswordEntry.getText(), mSubId) {
+                @Override
                 void onSimCheckResponse(final int result, final int attemptsRemaining) {
                     post(new Runnable() {
+                        @Override
                         public void run() {
                             if (mSimUnlockProgressDialog != null) {
                                 mSimUnlockProgressDialog.hide();
                             }
-                            resetPasswordText(true /* animate */);
+                            resetPasswordText(true /* animate */,
+                                    result != PhoneConstants.PIN_RESULT_SUCCESS /* announce */);
                             if (result == PhoneConstants.PIN_RESULT_SUCCESS) {
                                 KeyguardUpdateMonitor.getInstance(getContext())
                                         .reportSimUnlocked(mSubId);

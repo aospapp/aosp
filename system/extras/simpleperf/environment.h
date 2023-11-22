@@ -17,40 +17,37 @@
 #ifndef SIMPLE_PERF_ENVIRONMENT_H_
 #define SIMPLE_PERF_ENVIRONMENT_H_
 
+#include <sys/types.h>
+
 #include <functional>
+#include <set>
 #include <string>
 #include <vector>
+
 #include "build_id.h"
 
 std::vector<int> GetOnlineCpus();
+std::vector<int> GetCpusFromString(const std::string& s);
 
-static const char* DEFAULT_KERNEL_MMAP_NAME = "[kernel.kallsyms]_text";
+constexpr char DEFAULT_KERNEL_MMAP_NAME[] = "[kernel.kallsyms]_text";
 
 struct KernelMmap {
-  std::string name;
-  uint64_t start_addr;
-  uint64_t len;
-  uint64_t pgoff;
-};
-
-struct ModuleMmap {
   std::string name;
   uint64_t start_addr;
   uint64_t len;
   std::string filepath;
 };
 
-bool GetKernelAndModuleMmaps(KernelMmap* kernel_mmap, std::vector<ModuleMmap>* module_mmaps);
+void GetKernelAndModuleMmaps(KernelMmap* kernel_mmap, std::vector<KernelMmap>* module_mmaps);
 
 struct ThreadComm {
-  pid_t tgid, tid;
+  pid_t pid, tid;
   std::string comm;
-  bool is_process;
 };
 
 bool GetThreadComms(std::vector<ThreadComm>* thread_comms);
 
-static const char* DEFAULT_EXECNAME_FOR_THREAD_MMAP = "//anon";
+constexpr char DEFAULT_EXECNAME_FOR_THREAD_MMAP[] = "//anon";
 
 struct ThreadMmap {
   uint64_t start_addr;
@@ -62,14 +59,17 @@ struct ThreadMmap {
 
 bool GetThreadMmapsInProcess(pid_t pid, std::vector<ThreadMmap>* thread_mmaps);
 
-static const char* DEFAULT_KERNEL_FILENAME_FOR_BUILD_ID = "[kernel.kallsyms]";
+constexpr char DEFAULT_KERNEL_FILENAME_FOR_BUILD_ID[] = "[kernel.kallsyms]";
 
 bool GetKernelBuildId(BuildId* build_id);
 bool GetModuleBuildId(const std::string& module_name, BuildId* build_id);
 
-// Expose the following functions for unit tests.
-std::vector<int> GetOnlineCpusFromString(const std::string& s);
+bool GetValidThreadsFromProcessString(const std::string& pid_str, std::set<pid_t>* tid_set);
+bool GetValidThreadsFromThreadString(const std::string& tid_str, std::set<pid_t>* tid_set);
 
+bool GetExecPath(std::string* exec_path);
+
+// Expose the following functions for unit tests.
 struct KernelSymbol {
   uint64_t addr;
   char type;
@@ -79,5 +79,6 @@ struct KernelSymbol {
 
 bool ProcessKernelSymbols(const std::string& symbol_file,
                           std::function<bool(const KernelSymbol&)> callback);
+bool CheckPerfEventLimit();
 
 #endif  // SIMPLE_PERF_ENVIRONMENT_H_

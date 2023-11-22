@@ -17,14 +17,13 @@
 package com.android.settings.print;
 
 import android.content.Context;
-import android.graphics.drawable.Drawable;
 import android.os.Bundle;
-import android.preference.Preference;
 import android.print.PrintJob;
 import android.print.PrintJobId;
 import android.print.PrintJobInfo;
 import android.print.PrintManager;
 import android.print.PrintManager.PrintJobStateChangeListener;
+import android.support.v7.preference.Preference;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.view.Menu;
@@ -32,7 +31,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.R;
 import com.android.settings.SettingsPreferenceFragment;
 
@@ -50,8 +49,6 @@ public class PrintJobSettingsFragment extends SettingsPreferenceFragment {
     private static final String PRINT_JOB_PREFERENCE = "print_job_preference";
     private static final String PRINT_JOB_MESSAGE_PREFERENCE = "print_job_message_preference";
 
-    private Drawable mListDivider;
-
     private final PrintJobStateChangeListener mPrintJobStateChangeListener =
             new PrintJobStateChangeListener() {
         @Override
@@ -66,11 +63,10 @@ public class PrintJobSettingsFragment extends SettingsPreferenceFragment {
     private Preference mMessagePreference;
 
     private PrintJobId mPrintJobId;
-    private PrintJob mPrintJob;
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.PRINT_JOB_SETTINGS;
+        return MetricsEvent.PRINT_JOB_SETTINGS;
     }
 
     @Override
@@ -99,16 +95,16 @@ public class PrintJobSettingsFragment extends SettingsPreferenceFragment {
     }
 
     @Override
-    public void onResume() {
-        super.onResume();
+    public void onStart() {
+        super.onStart();
         mPrintManager.addPrintJobStateChangeListener(
                 mPrintJobStateChangeListener);
         updateUi();
     }
 
     @Override
-    public void onPause() {
-        super.onPause();
+    public void onStop() {
+        super.onStop();
         mPrintManager.removePrintJobStateChangeListener(
                 mPrintJobStateChangeListener);
     }
@@ -137,17 +133,21 @@ public class PrintJobSettingsFragment extends SettingsPreferenceFragment {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-            case MENU_ITEM_ID_CANCEL: {
-                getPrintJob().cancel();
-                finish();
-                return true;
-            }
+        PrintJob printJob = getPrintJob();
 
-            case MENU_ITEM_ID_RESTART: {
-                getPrintJob().restart();
-                finish();
-                return true;
+        if (printJob != null) {
+            switch (item.getItemId()) {
+                case MENU_ITEM_ID_CANCEL: {
+                    printJob.cancel();
+                    finish();
+                    return true;
+                }
+
+                case MENU_ITEM_ID_RESTART: {
+                    printJob.restart();
+                    finish();
+                    return true;
+                }
             }
         }
 
@@ -156,17 +156,15 @@ public class PrintJobSettingsFragment extends SettingsPreferenceFragment {
 
     private void processArguments() {
         String printJobId = getArguments().getString(EXTRA_PRINT_JOB_ID);
-        mPrintJobId = PrintJobId.unflattenFromString(printJobId);
-        if (mPrintJobId == null) {
+        if (printJobId == null) {
             finish();
+        } else {
+            mPrintJobId = PrintJobId.unflattenFromString(printJobId);
         }
     }
 
     private PrintJob getPrintJob() {
-        if (mPrintJob == null) {
-            mPrintJob = mPrintManager.getPrintJob(mPrintJobId);
-        }
-        return mPrintJob;
+        return mPrintManager.getPrintJob(mPrintJobId);
     }
 
     private void updateUi() {
@@ -229,16 +227,14 @@ public class PrintJobSettingsFragment extends SettingsPreferenceFragment {
             } break;
         }
 
-        String stateReason = info.getStateReason();
-        if (!TextUtils.isEmpty(stateReason)) {
+        CharSequence status = info.getStatus(getPackageManager());
+        if (!TextUtils.isEmpty(status)) {
             if (getPreferenceScreen().findPreference(PRINT_JOB_MESSAGE_PREFERENCE) == null) {
                 getPreferenceScreen().addPreference(mMessagePreference);
             }
-            mMessagePreference.setSummary(stateReason);
-            getListView().setDivider(null);
+            mMessagePreference.setSummary(status);
         } else {
             getPreferenceScreen().removePreference(mMessagePreference);
-            getListView().setDivider(mListDivider);
         }
 
         getActivity().invalidateOptionsMenu();

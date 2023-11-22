@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define TRACE_TAG TRACE_SYSDEPS
+#define TRACE_TAG SYSDEPS
 
 #include "sysdeps.h"
 
@@ -25,7 +25,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <algorithm>
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+#include <cutils/sockets.h>
+
+#include <android-base/errors.h>
+#include <android-base/logging.h>
+#include <android-base/stringprintf.h>
+#include <android-base/strings.h>
+#include <android-base/utf8.h>
+
 #include "adb.h"
+#include "adb_utils.h"
 
 extern void fatal(const char *fmt, ...);
 
@@ -41,7 +56,6 @@ typedef struct FHClassRec_ {
     int (*_fh_lseek)(FH, int, int);
     int (*_fh_read)(FH, void*, int);
     int (*_fh_write)(FH, const void*, int);
-    void (*_fh_hook)(FH, int, EventHook);
 } FHClassRec;
 
 static void _fh_file_init(FH);
@@ -49,7 +63,6 @@ static int _fh_file_close(FH);
 static int _fh_file_lseek(FH, int, int);
 static int _fh_file_read(FH, void*, int);
 static int _fh_file_write(FH, const void*, int);
-static void _fh_file_hook(FH, int, EventHook);
 
 static const FHClassRec _fh_file_class = {
     _fh_file_init,
@@ -57,7 +70,6 @@ static const FHClassRec _fh_file_class = {
     _fh_file_lseek,
     _fh_file_read,
     _fh_file_write,
-    _fh_file_hook
 };
 
 static void _fh_socket_init(FH);
@@ -65,7 +77,6 @@ static int _fh_socket_close(FH);
 static int _fh_socket_lseek(FH, int, int);
 static int _fh_socket_read(FH, void*, int);
 static int _fh_socket_write(FH, const void*, int);
-static void _fh_socket_hook(FH, int, EventHook);
 
 static const FHClassRec _fh_socket_class = {
     _fh_socket_init,
@@ -73,10 +84,28 @@ static const FHClassRec _fh_socket_class = {
     _fh_socket_lseek,
     _fh_socket_read,
     _fh_socket_write,
-    _fh_socket_hook
 };
 
-#define assert(cond)  do { if (!(cond)) fatal( "assertion failed '%s' on %s:%ld\n", #cond, __FILE__, __LINE__ ); } while (0)
+#define assert(cond)                                                                       \
+    do {                                                                                   \
+        if (!(cond)) fatal("assertion failed '%s' on %s:%d\n", #cond, __FILE__, __LINE__); \
+    } while (0)
+
+void handle_deleter::operator()(HANDLE h) {
+    // CreateFile() is documented to return INVALID_HANDLE_FILE on error,
+    // implying that NULL is a valid handle, but this is probably impossible.
+    // Other APIs like CreateEvent() are documented to return NULL on error,
+    // implying that INVALID_HANDLE_VALUE is a valid handle, but this is also
+    // probably impossible. Thus, consider both NULL and INVALID_HANDLE_VALUE
+    // as invalid handles. std::unique_ptr won't call a deleter with NULL, so we
+    // only need to check for INVALID_HANDLE_VALUE.
+    if (h != INVALID_HANDLE_VALUE) {
+        if (!CloseHandle(h)) {
+            D("CloseHandle(%p) failed: %s", h,
+              android::base::SystemErrorCodeToString(GetLastError()).c_str());
+        }
+    }
+}
 
 /**************************************************************************/
 /**************************************************************************/
@@ -92,13 +121,17 @@ void *load_file(const char *fn, unsigned *_sz)
     char     *data;
     DWORD     file_size;
 
-    file = CreateFile( fn,
-                       GENERIC_READ,
-                       FILE_SHARE_READ,
-                       NULL,
-                       OPEN_EXISTING,
-                       0,
-                       NULL );
+    std::wstring fn_wide;
+    if (!android::base::UTF8ToWide(fn, &fn_wide))
+        return NULL;
+
+    file = CreateFileW( fn_wide.c_str(),
+                        GENERIC_READ,
+                        FILE_SHARE_READ,
+                        NULL,
+                        OPEN_EXISTING,
+                        0,
+                        NULL );
 
     if (file == INVALID_HANDLE_VALUE)
         return NULL;
@@ -109,7 +142,7 @@ void *load_file(const char *fn, unsigned *_sz)
     if (file_size > 0) {
         data = (char*) malloc( file_size + 1 );
         if (data == NULL) {
-            D("load_file: could not allocate %ld bytes\n", file_size );
+            D("load_file: could not allocate %ld bytes", file_size );
             file_size = 0;
         } else {
             DWORD  out_bytes;
@@ -117,7 +150,7 @@ void *load_file(const char *fn, unsigned *_sz)
             if ( !ReadFile( file, data, file_size, &out_bytes, NULL ) ||
                  out_bytes != file_size )
             {
-                D("load_file: could not read %ld bytes from '%s'\n", file_size, fn);
+                D("load_file: could not read %ld bytes from '%s'", file_size, fn);
                 free(data);
                 data      = NULL;
                 file_size = 0;
@@ -138,9 +171,6 @@ void *load_file(const char *fn, unsigned *_sz)
 /**************************************************************************/
 /**************************************************************************/
 
-/* used to emulate unix-domain socket pairs */
-typedef struct SocketPairRec_*  SocketPair;
-
 typedef struct FHRec_
 {
     FHClass    clazz;
@@ -149,10 +179,8 @@ typedef struct FHRec_
     union {
         HANDLE      handle;
         SOCKET      socket;
-        SocketPair  pair;
     } u;
 
-    HANDLE    event;
     int       mask;
 
     char  name[32];
@@ -161,25 +189,24 @@ typedef struct FHRec_
 
 #define  fh_handle  u.handle
 #define  fh_socket  u.socket
-#define  fh_pair    u.pair
 
-#define  WIN32_FH_BASE    100
-
-#define  WIN32_MAX_FHS    128
+#define  WIN32_FH_BASE    2048
+#define  WIN32_MAX_FHS    2048
 
 static adb_mutex_t   _win32_lock;
 static  FHRec        _win32_fhs[ WIN32_MAX_FHS ];
-static  int          _win32_fh_count;
+static  int          _win32_fh_next;  // where to start search for free FHRec
 
 static FH
-_fh_from_int( int   fd )
+_fh_from_int( int   fd, const char*   func )
 {
     FH  f;
 
     fd -= WIN32_FH_BASE;
 
-    if (fd < 0 || fd >= _win32_fh_count) {
-        D( "_fh_from_int: invalid fd %d\n", fd + WIN32_FH_BASE );
+    if (fd < 0 || fd >= WIN32_MAX_FHS) {
+        D( "_fh_from_int: invalid fd %d passed to %s", fd + WIN32_FH_BASE,
+           func );
         errno = EBADF;
         return NULL;
     }
@@ -187,7 +214,8 @@ _fh_from_int( int   fd )
     f = &_win32_fhs[fd];
 
     if (f->used == 0) {
-        D( "_fh_from_int: invalid fd %d\n", fd + WIN32_FH_BASE );
+        D( "_fh_from_int: invalid fd %d passed to %s", fd + WIN32_FH_BASE,
+           func );
         errno = EBADF;
         return NULL;
     }
@@ -208,28 +236,25 @@ _fh_to_int( FH  f )
 static FH
 _fh_alloc( FHClass  clazz )
 {
-    int  nn;
     FH   f = NULL;
 
     adb_mutex_lock( &_win32_lock );
 
-    if (_win32_fh_count < WIN32_MAX_FHS) {
-        f = &_win32_fhs[ _win32_fh_count++ ];
-        goto Exit;
-    }
-
-    for (nn = 0; nn < WIN32_MAX_FHS; nn++) {
-        if ( _win32_fhs[nn].clazz == NULL) {
-            f = &_win32_fhs[nn];
+    for (int i = _win32_fh_next; i < WIN32_MAX_FHS; ++i) {
+        if (_win32_fhs[i].clazz == NULL) {
+            f = &_win32_fhs[i];
+            _win32_fh_next = i + 1;
             goto Exit;
         }
     }
-    D( "_fh_alloc: no more free file descriptors\n" );
+    D( "_fh_alloc: no more free file descriptors" );
+    errno = EMFILE;   // Too many open files
 Exit:
     if (f) {
-        f->clazz = clazz;
-        f->used  = 1;
-        f->eof   = 0;
+        f->clazz   = clazz;
+        f->used    = 1;
+        f->eof     = 0;
+        f->name[0] = '\0';
         clazz->_fh_init(f);
     }
     adb_mutex_unlock( &_win32_lock );
@@ -240,14 +265,42 @@ Exit:
 static int
 _fh_close( FH   f )
 {
-    if ( f->used ) {
-        f->clazz->_fh_close( f );
-        f->used = 0;
-        f->eof  = 0;
-        f->clazz = NULL;
+    // Use lock so that closing only happens once and so that _fh_alloc can't
+    // allocate a FH that we're in the middle of closing.
+    adb_mutex_lock(&_win32_lock);
+
+    int offset = f - _win32_fhs;
+    if (_win32_fh_next > offset) {
+        _win32_fh_next = offset;
     }
+
+    if (f->used) {
+        f->clazz->_fh_close( f );
+        f->name[0] = '\0';
+        f->eof     = 0;
+        f->used    = 0;
+        f->clazz   = NULL;
+    }
+    adb_mutex_unlock(&_win32_lock);
     return 0;
 }
+
+// Deleter for unique_fh.
+class fh_deleter {
+ public:
+  void operator()(struct FHRec_* fh) {
+    // We're called from a destructor and destructors should not overwrite
+    // errno because callers may do:
+    //   errno = EBLAH;
+    //   return -1; // calls destructor, which should not overwrite errno
+    const int saved_errno = errno;
+    _fh_close(fh);
+    errno = saved_errno;
+  }
+};
+
+// Like std::unique_ptr, but calls _fh_close() instead of operator delete().
+typedef std::unique_ptr<struct FHRec_, fh_deleter> unique_fh;
 
 /**************************************************************************/
 /**************************************************************************/
@@ -271,7 +324,7 @@ static int _fh_file_read( FH  f,  void*  buf, int   len ) {
     DWORD  read_bytes;
 
     if ( !ReadFile( f->fh_handle, buf, (DWORD)len, &read_bytes, NULL ) ) {
-        D( "adb_read: could not read %d bytes from %s\n", len, f->name );
+        D( "adb_read: could not read %d bytes from %s", len, f->name );
         errno = EIO;
         return -1;
     } else if (read_bytes < (DWORD)len) {
@@ -284,7 +337,7 @@ static int _fh_file_write( FH  f,  const void*  buf, int   len ) {
     DWORD  wrote_bytes;
 
     if ( !WriteFile( f->fh_handle, buf, (DWORD)len, &wrote_bytes, NULL ) ) {
-        D( "adb_file_write: could not write %d bytes from %s\n", len, f->name );
+        D( "adb_file_write: could not write %d bytes from %s", len, f->name );
         errno = EIO;
         return -1;
     } else if (wrote_bytes < (DWORD)len) {
@@ -344,43 +397,47 @@ int  adb_open(const char*  path, int  options)
             desiredAccess = GENERIC_READ | GENERIC_WRITE;
             break;
         default:
-            D("adb_open: invalid options (0x%0x)\n", options);
+            D("adb_open: invalid options (0x%0x)", options);
             errno = EINVAL;
             return -1;
     }
 
     f = _fh_alloc( &_fh_file_class );
     if ( !f ) {
-        errno = ENOMEM;
         return -1;
     }
 
-    f->fh_handle = CreateFile( path, desiredAccess, shareMode, NULL, OPEN_EXISTING,
-                               0, NULL );
+    std::wstring path_wide;
+    if (!android::base::UTF8ToWide(path, &path_wide)) {
+        return -1;
+    }
+    f->fh_handle = CreateFileW( path_wide.c_str(), desiredAccess, shareMode,
+                                NULL, OPEN_EXISTING, 0, NULL );
 
     if ( f->fh_handle == INVALID_HANDLE_VALUE ) {
+        const DWORD err = GetLastError();
         _fh_close(f);
-        D( "adb_open: could not open '%s':", path );
-        switch (GetLastError()) {
+        D( "adb_open: could not open '%s': ", path );
+        switch (err) {
             case ERROR_FILE_NOT_FOUND:
-                D( "file not found\n" );
+                D( "file not found" );
                 errno = ENOENT;
                 return -1;
 
             case ERROR_PATH_NOT_FOUND:
-                D( "path not found\n" );
+                D( "path not found" );
                 errno = ENOTDIR;
                 return -1;
 
             default:
-                D( "unknown error\n" );
+                D("unknown error: %s", android::base::SystemErrorCodeToString(err).c_str());
                 errno = ENOENT;
                 return -1;
         }
     }
 
     snprintf( f->name, sizeof(f->name), "%d(%s)", _fh_to_int(f), path );
-    D( "adb_open: '%s' => fd %d\n", path, _fh_to_int(f) );
+    D( "adb_open: '%s' => fd %d", path, _fh_to_int(f) );
     return _fh_to_int(f);
 }
 
@@ -391,43 +448,48 @@ int  adb_creat(const char*  path, int  mode)
 
     f = _fh_alloc( &_fh_file_class );
     if ( !f ) {
-        errno = ENOMEM;
         return -1;
     }
 
-    f->fh_handle = CreateFile( path, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
-                               NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL,
-                               NULL );
+    std::wstring path_wide;
+    if (!android::base::UTF8ToWide(path, &path_wide)) {
+        return -1;
+    }
+    f->fh_handle = CreateFileW( path_wide.c_str(), GENERIC_WRITE,
+                                FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL,
+                                NULL );
 
     if ( f->fh_handle == INVALID_HANDLE_VALUE ) {
+        const DWORD err = GetLastError();
         _fh_close(f);
-        D( "adb_creat: could not open '%s':", path );
-        switch (GetLastError()) {
+        D( "adb_creat: could not open '%s': ", path );
+        switch (err) {
             case ERROR_FILE_NOT_FOUND:
-                D( "file not found\n" );
+                D( "file not found" );
                 errno = ENOENT;
                 return -1;
 
             case ERROR_PATH_NOT_FOUND:
-                D( "path not found\n" );
+                D( "path not found" );
                 errno = ENOTDIR;
                 return -1;
 
             default:
-                D( "unknown error\n" );
+                D("unknown error: %s", android::base::SystemErrorCodeToString(err).c_str());
                 errno = ENOENT;
                 return -1;
         }
     }
     snprintf( f->name, sizeof(f->name), "%d(%s)", _fh_to_int(f), path );
-    D( "adb_creat: '%s' => fd %d\n", path, _fh_to_int(f) );
+    D( "adb_creat: '%s' => fd %d", path, _fh_to_int(f) );
     return _fh_to_int(f);
 }
 
 
 int  adb_read(int  fd, void* buf, int len)
 {
-    FH     f = _fh_from_int(fd);
+    FH     f = _fh_from_int(fd, __func__);
 
     if (f == NULL) {
         return -1;
@@ -439,7 +501,7 @@ int  adb_read(int  fd, void* buf, int len)
 
 int  adb_write(int  fd, const void*  buf, int  len)
 {
-    FH     f = _fh_from_int(fd);
+    FH     f = _fh_from_int(fd, __func__);
 
     if (f == NULL) {
         return -1;
@@ -451,7 +513,7 @@ int  adb_write(int  fd, const void*  buf, int  len)
 
 int  adb_lseek(int  fd, int  pos, int  where)
 {
-    FH     f = _fh_from_int(fd);
+    FH     f = _fh_from_int(fd, __func__);
 
     if (!f) {
         return -1;
@@ -461,32 +523,92 @@ int  adb_lseek(int  fd, int  pos, int  where)
 }
 
 
-int  adb_shutdown(int  fd)
-{
-    FH   f = _fh_from_int(fd);
-
-    if (!f || f->clazz != &_fh_socket_class) {
-        D("adb_shutdown: invalid fd %d\n", fd);
-        return -1;
-    }
-
-    D( "adb_shutdown: %s\n", f->name);
-    shutdown( f->fh_socket, SD_BOTH );
-    return 0;
-}
-
-
 int  adb_close(int  fd)
 {
-    FH   f = _fh_from_int(fd);
+    FH   f = _fh_from_int(fd, __func__);
 
     if (!f) {
         return -1;
     }
 
-    D( "adb_close: %s\n", f->name);
+    D( "adb_close: %s", f->name);
     _fh_close(f);
     return 0;
+}
+
+// Overrides strerror() to handle error codes not supported by the Windows C
+// Runtime (MSVCRT.DLL).
+char* adb_strerror(int err) {
+    // sysdeps.h defines strerror to adb_strerror, but in this function, we
+    // want to call the real C Runtime strerror().
+#pragma push_macro("strerror")
+#undef strerror
+    const int saved_err = errno;      // Save because we overwrite it later.
+
+    // Lookup the string for an unknown error.
+    char* errmsg = strerror(-1);
+    const std::string unknown_error = (errmsg == nullptr) ? "" : errmsg;
+
+    // Lookup the string for this error to see if the C Runtime has it.
+    errmsg = strerror(err);
+    if (errmsg != nullptr && unknown_error != errmsg) {
+        // The CRT returned an error message and it is different than the error
+        // message for an unknown error, so it is probably valid, so use it.
+    } else {
+        // Check if we have a string for this error code.
+        const char* custom_msg = nullptr;
+        switch (err) {
+#pragma push_macro("ERR")
+#undef ERR
+#define ERR(errnum, desc) case errnum: custom_msg = desc; break
+            // These error strings are from AOSP bionic/libc/include/sys/_errdefs.h.
+            // Note that these cannot be longer than 94 characters because we
+            // pass this to _strerror() which has that requirement.
+            ERR(ECONNRESET,    "Connection reset by peer");
+            ERR(EHOSTUNREACH,  "No route to host");
+            ERR(ENETDOWN,      "Network is down");
+            ERR(ENETRESET,     "Network dropped connection because of reset");
+            ERR(ENOBUFS,       "No buffer space available");
+            ERR(ENOPROTOOPT,   "Protocol not available");
+            ERR(ENOTCONN,      "Transport endpoint is not connected");
+            ERR(ENOTSOCK,      "Socket operation on non-socket");
+            ERR(EOPNOTSUPP,    "Operation not supported on transport endpoint");
+#pragma pop_macro("ERR")
+        }
+
+        if (custom_msg != nullptr) {
+            // Use _strerror() to write our string into the writable per-thread
+            // buffer used by strerror()/_strerror(). _strerror() appends the
+            // msg for the current value of errno, so set errno to a consistent
+            // value for every call so that our code-path is always the same.
+            errno = 0;
+            errmsg = _strerror(custom_msg);
+            const size_t custom_msg_len = strlen(custom_msg);
+            // Just in case _strerror() returned a read-only string, check if
+            // the returned string starts with our custom message because that
+            // implies that the string is not read-only.
+            if ((errmsg != nullptr) &&
+                !strncmp(custom_msg, errmsg, custom_msg_len)) {
+                // _strerror() puts other text after our custom message, so
+                // remove that by terminating after our message.
+                errmsg[custom_msg_len] = '\0';
+            } else {
+                // For some reason nullptr was returned or a pointer to a
+                // read-only string was returned, so fallback to whatever
+                // strerror() can muster (probably "Unknown error" or some
+                // generic CRT error string).
+                errmsg = strerror(err);
+            }
+        } else {
+            // We don't have a custom message, so use whatever strerror(err)
+            // returned earlier.
+        }
+    }
+
+    errno = saved_err;  // restore
+
+    return errmsg;
+#pragma pop_macro("strerror")
 }
 
 /**************************************************************************/
@@ -499,29 +621,117 @@ int  adb_close(int  fd)
 
 #undef setsockopt
 
-static void _socket_set_errno( void ) {
-    switch (WSAGetLastError()) {
+static void _socket_set_errno( const DWORD err ) {
+    // Because the Windows C Runtime (MSVCRT.DLL) strerror() does not support a
+    // lot of POSIX and socket error codes, some of the resulting error codes
+    // are mapped to strings by adb_strerror() above.
+    switch ( err ) {
     case 0:              errno = 0; break;
+    // Don't map WSAEINTR since that is only for Winsock 1.1 which we don't use.
+    // case WSAEINTR:    errno = EINTR; break;
+    case WSAEFAULT:      errno = EFAULT; break;
+    case WSAEINVAL:      errno = EINVAL; break;
+    case WSAEMFILE:      errno = EMFILE; break;
+    // Mapping WSAEWOULDBLOCK to EAGAIN is absolutely critical because
+    // non-blocking sockets can cause an error code of WSAEWOULDBLOCK and
+    // callers check specifically for EAGAIN.
     case WSAEWOULDBLOCK: errno = EAGAIN; break;
-    case WSAEINTR:       errno = EINTR; break;
+    case WSAENOTSOCK:    errno = ENOTSOCK; break;
+    case WSAENOPROTOOPT: errno = ENOPROTOOPT; break;
+    case WSAEOPNOTSUPP:  errno = EOPNOTSUPP; break;
+    case WSAENETDOWN:    errno = ENETDOWN; break;
+    case WSAENETRESET:   errno = ENETRESET; break;
+    // Map WSAECONNABORTED to EPIPE instead of ECONNABORTED because POSIX seems
+    // to use EPIPE for these situations and there are some callers that look
+    // for EPIPE.
+    case WSAECONNABORTED: errno = EPIPE; break;
+    case WSAECONNRESET:  errno = ECONNRESET; break;
+    case WSAENOBUFS:     errno = ENOBUFS; break;
+    case WSAENOTCONN:    errno = ENOTCONN; break;
+    // Don't map WSAETIMEDOUT because we don't currently use SO_RCVTIMEO or
+    // SO_SNDTIMEO which would cause WSAETIMEDOUT to be returned. Future
+    // considerations: Reportedly send() can return zero on timeout, and POSIX
+    // code may expect EAGAIN instead of ETIMEDOUT on timeout.
+    // case WSAETIMEDOUT: errno = ETIMEDOUT; break;
+    case WSAEHOSTUNREACH: errno = EHOSTUNREACH; break;
     default:
-        D( "_socket_set_errno: unhandled value %d\n", WSAGetLastError() );
         errno = EINVAL;
+        D( "_socket_set_errno: mapping Windows error code %lu to errno %d",
+           err, errno );
     }
 }
 
-static void _fh_socket_init( FH  f ) {
+extern int adb_poll(adb_pollfd* fds, size_t nfds, int timeout) {
+    // WSAPoll doesn't handle invalid/non-socket handles, so we need to handle them ourselves.
+    int skipped = 0;
+    std::vector<WSAPOLLFD> sockets;
+    std::vector<adb_pollfd*> original;
+    for (size_t i = 0; i < nfds; ++i) {
+        FH fh = _fh_from_int(fds[i].fd, __func__);
+        if (!fh || !fh->used || fh->clazz != &_fh_socket_class) {
+            D("adb_poll received bad FD %d", fds[i].fd);
+            fds[i].revents = POLLNVAL;
+            ++skipped;
+        } else {
+            WSAPOLLFD wsapollfd = {
+                .fd = fh->u.socket,
+                .events = static_cast<short>(fds[i].events)
+            };
+            sockets.push_back(wsapollfd);
+            original.push_back(&fds[i]);
+        }
+    }
+
+    if (sockets.empty()) {
+        return skipped;
+    }
+
+    int result = WSAPoll(sockets.data(), sockets.size(), timeout);
+    if (result == SOCKET_ERROR) {
+        _socket_set_errno(WSAGetLastError());
+        return -1;
+    }
+
+    // Map the results back onto the original set.
+    for (size_t i = 0; i < sockets.size(); ++i) {
+        original[i]->revents = sockets[i].revents;
+    }
+
+    // WSAPoll appears to return the number of unique FDs with avaiable events, instead of how many
+    // of the pollfd elements have a non-zero revents field, which is what it and poll are specified
+    // to do. Ignore its result and calculate the proper return value.
+    result = 0;
+    for (size_t i = 0; i < nfds; ++i) {
+        if (fds[i].revents != 0) {
+            ++result;
+        }
+    }
+    return result;
+}
+
+static void _fh_socket_init(FH f) {
     f->fh_socket = INVALID_SOCKET;
-    f->event     = WSACreateEvent();
     f->mask      = 0;
 }
 
 static int _fh_socket_close( FH  f ) {
-    /* gently tell any peer that we're closing the socket */
-    shutdown( f->fh_socket, SD_BOTH );
-    closesocket( f->fh_socket );
-    f->fh_socket = INVALID_SOCKET;
-    CloseHandle( f->event );
+    if (f->fh_socket != INVALID_SOCKET) {
+        /* gently tell any peer that we're closing the socket */
+        if (shutdown(f->fh_socket, SD_BOTH) == SOCKET_ERROR) {
+            // If the socket is not connected, this returns an error. We want to
+            // minimize logging spam, so don't log these errors for now.
+#if 0
+            D("socket shutdown failed: %s",
+              android::base::SystemErrorCodeToString(WSAGetLastError()).c_str());
+#endif
+        }
+        if (closesocket(f->fh_socket) == SOCKET_ERROR) {
+            // Don't set errno here, since adb_close will ignore it.
+            const DWORD err = WSAGetLastError();
+            D("closesocket failed: %s", android::base::SystemErrorCodeToString(err).c_str());
+        }
+        f->fh_socket = INVALID_SOCKET;
+    }
     f->mask = 0;
     return 0;
 }
@@ -534,7 +744,14 @@ static int _fh_socket_lseek( FH  f, int pos, int origin ) {
 static int _fh_socket_read(FH f, void* buf, int len) {
     int  result = recv(f->fh_socket, reinterpret_cast<char*>(buf), len, 0);
     if (result == SOCKET_ERROR) {
-        _socket_set_errno();
+        const DWORD err = WSAGetLastError();
+        // WSAEWOULDBLOCK is normal with a non-blocking socket, so don't trace
+        // that to reduce spam and confusion.
+        if (err != WSAEWOULDBLOCK) {
+            D("recv fd %d failed: %s", _fh_to_int(f),
+              android::base::SystemErrorCodeToString(err).c_str());
+        }
+        _socket_set_errno(err);
         result = -1;
     }
     return  result;
@@ -543,8 +760,21 @@ static int _fh_socket_read(FH f, void* buf, int len) {
 static int _fh_socket_write(FH f, const void* buf, int len) {
     int  result = send(f->fh_socket, reinterpret_cast<const char*>(buf), len, 0);
     if (result == SOCKET_ERROR) {
-        _socket_set_errno();
+        const DWORD err = WSAGetLastError();
+        // WSAEWOULDBLOCK is normal with a non-blocking socket, so don't trace
+        // that to reduce spam and confusion.
+        if (err != WSAEWOULDBLOCK) {
+            D("send fd %d failed: %s", _fh_to_int(f),
+              android::base::SystemErrorCodeToString(err).c_str());
+        }
+        _socket_set_errno(err);
         result = -1;
+    } else {
+        // According to https://code.google.com/p/chromium/issues/detail?id=27870
+        // Winsock Layered Service Providers may cause this.
+        CHECK_LE(result, len) << "Tried to write " << len << " bytes to "
+                              << f->name << ", but " << result
+                              << " bytes reportedly written";
     }
     return result;
 }
@@ -562,1585 +792,470 @@ static int _fh_socket_write(FH f, const void* buf, int len) {
 static int  _winsock_init;
 
 static void
-_cleanup_winsock( void )
-{
-    WSACleanup();
-}
-
-static void
 _init_winsock( void )
 {
+    // TODO: Multiple threads calling this may potentially cause multiple calls
+    // to WSAStartup() which offers no real benefit.
     if (!_winsock_init) {
         WSADATA  wsaData;
         int      rc = WSAStartup( MAKEWORD(2,2), &wsaData);
         if (rc != 0) {
-            fatal( "adb: could not initialize Winsock\n" );
+            fatal("adb: could not initialize Winsock: %s",
+                  android::base::SystemErrorCodeToString(rc).c_str());
         }
-        atexit( _cleanup_winsock );
         _winsock_init = 1;
+
+        // Note that we do not call atexit() to register WSACleanup to be called
+        // at normal process termination because:
+        // 1) When exit() is called, there are still threads actively using
+        //    Winsock because we don't cleanly shutdown all threads, so it
+        //    doesn't make sense to call WSACleanup() and may cause problems
+        //    with those threads.
+        // 2) A deadlock can occur when exit() holds a C Runtime lock, then it
+        //    calls WSACleanup() which tries to unload a DLL, which tries to
+        //    grab the LoaderLock. This conflicts with the device_poll_thread
+        //    which holds the LoaderLock because AdbWinApi.dll calls
+        //    setupapi.dll which tries to load wintrust.dll which tries to load
+        //    crypt32.dll which calls atexit() which tries to acquire the C
+        //    Runtime lock that the other thread holds.
     }
 }
 
-int socket_loopback_client(int port, int type)
-{
-    FH  f = _fh_alloc( &_fh_socket_class );
+// Map a socket type to an explicit socket protocol instead of using the socket
+// protocol of 0. Explicit socket protocols are used by most apps and we should
+// do the same to reduce the chance of exercising uncommon code-paths that might
+// have problems or that might load different Winsock service providers that
+// have problems.
+static int GetSocketProtocolFromSocketType(int type) {
+    switch (type) {
+        case SOCK_STREAM:
+            return IPPROTO_TCP;
+        case SOCK_DGRAM:
+            return IPPROTO_UDP;
+        default:
+            LOG(FATAL) << "Unknown socket type: " << type;
+            return 0;
+    }
+}
+
+int network_loopback_client(int port, int type, std::string* error) {
     struct sockaddr_in addr;
-    SOCKET  s;
+    SOCKET s;
 
-    if (!f)
+    unique_fh f(_fh_alloc(&_fh_socket_class));
+    if (!f) {
+        *error = strerror(errno);
         return -1;
+    }
 
-    if (!_winsock_init)
-        _init_winsock();
+    if (!_winsock_init) _init_winsock();
 
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
     addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 
-    s = socket(AF_INET, type, 0);
-    if(s == INVALID_SOCKET) {
-        D("socket_loopback_client: could not create socket\n" );
-        _fh_close(f);
+    s = socket(AF_INET, type, GetSocketProtocolFromSocketType(type));
+    if (s == INVALID_SOCKET) {
+        const DWORD err = WSAGetLastError();
+        *error = android::base::StringPrintf("cannot create socket: %s",
+                                             android::base::SystemErrorCodeToString(err).c_str());
+        D("%s", error->c_str());
+        _socket_set_errno(err);
+        return -1;
+    }
+    f->fh_socket = s;
+
+    if (connect(s, (struct sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
+        // Save err just in case inet_ntoa() or ntohs() changes the last error.
+        const DWORD err = WSAGetLastError();
+        *error = android::base::StringPrintf("cannot connect to %s:%u: %s",
+                                             inet_ntoa(addr.sin_addr), ntohs(addr.sin_port),
+                                             android::base::SystemErrorCodeToString(err).c_str());
+        D("could not connect to %s:%d: %s", type != SOCK_STREAM ? "udp" : "tcp", port,
+          error->c_str());
+        _socket_set_errno(err);
         return -1;
     }
 
-    f->fh_socket = s;
-    if(connect(s, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
-        D("socket_loopback_client: could not connect to %s:%d\n", type != SOCK_STREAM ? "udp" : "tcp", port );
-        _fh_close(f);
-        return -1;
-    }
-    snprintf( f->name, sizeof(f->name), "%d(lo-client:%s%d)", _fh_to_int(f), type != SOCK_STREAM ? "udp:" : "", port );
-    D( "socket_loopback_client: port %d type %s => fd %d\n", port, type != SOCK_STREAM ? "udp" : "tcp", _fh_to_int(f) );
-    return _fh_to_int(f);
+    const int fd = _fh_to_int(f.get());
+    snprintf(f->name, sizeof(f->name), "%d(lo-client:%s%d)", fd, type != SOCK_STREAM ? "udp:" : "",
+             port);
+    D("port %d type %s => fd %d", port, type != SOCK_STREAM ? "udp" : "tcp", fd);
+    f.release();
+    return fd;
 }
 
 #define LISTEN_BACKLOG 4
 
-int socket_loopback_server(int port, int type)
-{
-    FH   f = _fh_alloc( &_fh_socket_class );
-    struct sockaddr_in addr;
-    SOCKET  s;
-    int  n;
-
-    if (!f) {
-        return -1;
-    }
-
-    if (!_winsock_init)
-        _init_winsock();
-
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-
-    s = socket(AF_INET, type, 0);
-    if(s == INVALID_SOCKET) return -1;
-
-    f->fh_socket = s;
-
-    n = 1;
-    setsockopt(s, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, (const char*)&n, sizeof(n));
-
-    if(bind(s, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
-        _fh_close(f);
-        return -1;
-    }
-    if (type == SOCK_STREAM) {
-        int ret;
-
-        ret = listen(s, LISTEN_BACKLOG);
-        if (ret < 0) {
-            _fh_close(f);
-            return -1;
-        }
-    }
-    snprintf( f->name, sizeof(f->name), "%d(lo-server:%s%d)", _fh_to_int(f), type != SOCK_STREAM ? "udp:" : "", port );
-    D( "socket_loopback_server: port %d type %s => fd %d\n", port, type != SOCK_STREAM ? "udp" : "tcp", _fh_to_int(f) );
-    return _fh_to_int(f);
-}
-
-
-int socket_network_client(const char *host, int port, int type)
-{
-    FH  f = _fh_alloc( &_fh_socket_class );
-    struct hostent *hp;
+// interface_address is INADDR_LOOPBACK or INADDR_ANY.
+static int _network_server(int port, int type, u_long interface_address, std::string* error) {
     struct sockaddr_in addr;
     SOCKET s;
-
-    if (!f)
-        return -1;
-
-    if (!_winsock_init)
-        _init_winsock();
-
-    hp = gethostbyname(host);
-    if(hp == 0) {
-        _fh_close(f);
-        return -1;
-    }
-
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = hp->h_addrtype;
-    addr.sin_port = htons(port);
-    memcpy(&addr.sin_addr, hp->h_addr, hp->h_length);
-
-    s = socket(hp->h_addrtype, type, 0);
-    if(s == INVALID_SOCKET) {
-        _fh_close(f);
-        return -1;
-    }
-    f->fh_socket = s;
-
-    if(connect(s, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
-        _fh_close(f);
-        return -1;
-    }
-
-    snprintf( f->name, sizeof(f->name), "%d(net-client:%s%d)", _fh_to_int(f), type != SOCK_STREAM ? "udp:" : "", port );
-    D( "socket_network_client: host '%s' port %d type %s => fd %d\n", host, port, type != SOCK_STREAM ? "udp" : "tcp", _fh_to_int(f) );
-    return _fh_to_int(f);
-}
-
-
-int socket_network_client_timeout(const char *host, int port, int type, int timeout)
-{
-    // TODO: implement timeouts for Windows.
-    return socket_network_client(host, port, type);
-}
-
-
-int socket_inaddr_any_server(int port, int type)
-{
-    FH  f = _fh_alloc( &_fh_socket_class );
-    struct sockaddr_in addr;
-    SOCKET  s;
     int n;
 
-    if (!f)
+    unique_fh f(_fh_alloc(&_fh_socket_class));
+    if (!f) {
+        *error = strerror(errno);
         return -1;
+    }
 
-    if (!_winsock_init)
-        _init_winsock();
+    if (!_winsock_init) _init_winsock();
 
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
-    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    addr.sin_addr.s_addr = htonl(interface_address);
 
-    s = socket(AF_INET, type, 0);
-    if(s == INVALID_SOCKET) {
-        _fh_close(f);
+    // TODO: Consider using dual-stack socket that can simultaneously listen on
+    // IPv4 and IPv6.
+    s = socket(AF_INET, type, GetSocketProtocolFromSocketType(type));
+    if (s == INVALID_SOCKET) {
+        const DWORD err = WSAGetLastError();
+        *error = android::base::StringPrintf("cannot create socket: %s",
+                                             android::base::SystemErrorCodeToString(err).c_str());
+        D("%s", error->c_str());
+        _socket_set_errno(err);
         return -1;
     }
 
     f->fh_socket = s;
-    n = 1;
-    setsockopt(s, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, (const char*)&n, sizeof(n));
 
-    if(bind(s, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
-        _fh_close(f);
+    // Note: SO_REUSEADDR on Windows allows multiple processes to bind to the
+    // same port, so instead use SO_EXCLUSIVEADDRUSE.
+    n = 1;
+    if (setsockopt(s, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, (const char*)&n, sizeof(n)) == SOCKET_ERROR) {
+        const DWORD err = WSAGetLastError();
+        *error = android::base::StringPrintf("cannot set socket option SO_EXCLUSIVEADDRUSE: %s",
+                                             android::base::SystemErrorCodeToString(err).c_str());
+        D("%s", error->c_str());
+        _socket_set_errno(err);
         return -1;
     }
 
+    if (bind(s, (struct sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
+        // Save err just in case inet_ntoa() or ntohs() changes the last error.
+        const DWORD err = WSAGetLastError();
+        *error = android::base::StringPrintf("cannot bind to %s:%u: %s", inet_ntoa(addr.sin_addr),
+                                             ntohs(addr.sin_port),
+                                             android::base::SystemErrorCodeToString(err).c_str());
+        D("could not bind to %s:%d: %s", type != SOCK_STREAM ? "udp" : "tcp", port, error->c_str());
+        _socket_set_errno(err);
+        return -1;
+    }
     if (type == SOCK_STREAM) {
-        int ret;
-
-        ret = listen(s, LISTEN_BACKLOG);
-        if (ret < 0) {
-            _fh_close(f);
+        if (listen(s, LISTEN_BACKLOG) == SOCKET_ERROR) {
+            const DWORD err = WSAGetLastError();
+            *error = android::base::StringPrintf(
+                "cannot listen on socket: %s", android::base::SystemErrorCodeToString(err).c_str());
+            D("could not listen on %s:%d: %s", type != SOCK_STREAM ? "udp" : "tcp", port,
+              error->c_str());
+            _socket_set_errno(err);
             return -1;
         }
     }
-    snprintf( f->name, sizeof(f->name), "%d(any-server:%s%d)", _fh_to_int(f), type != SOCK_STREAM ? "udp:" : "", port );
-    D( "socket_inaddr_server: port %d type %s => fd %d\n", port, type != SOCK_STREAM ? "udp" : "tcp", _fh_to_int(f) );
-    return _fh_to_int(f);
+    const int fd = _fh_to_int(f.get());
+    snprintf(f->name, sizeof(f->name), "%d(%s-server:%s%d)", fd,
+             interface_address == INADDR_LOOPBACK ? "lo" : "any", type != SOCK_STREAM ? "udp:" : "",
+             port);
+    D("port %d type %s => fd %d", port, type != SOCK_STREAM ? "udp" : "tcp", fd);
+    f.release();
+    return fd;
+}
+
+int network_loopback_server(int port, int type, std::string* error) {
+    return _network_server(port, type, INADDR_LOOPBACK, error);
+}
+
+int network_inaddr_any_server(int port, int type, std::string* error) {
+    return _network_server(port, type, INADDR_ANY, error);
+}
+
+int network_connect(const std::string& host, int port, int type, int timeout, std::string* error) {
+    unique_fh f(_fh_alloc(&_fh_socket_class));
+    if (!f) {
+        *error = strerror(errno);
+        return -1;
+    }
+
+    if (!_winsock_init) _init_winsock();
+
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = type;
+    hints.ai_protocol = GetSocketProtocolFromSocketType(type);
+
+    char port_str[16];
+    snprintf(port_str, sizeof(port_str), "%d", port);
+
+    struct addrinfo* addrinfo_ptr = nullptr;
+
+#if (NTDDI_VERSION >= NTDDI_WINXPSP2) || (_WIN32_WINNT >= _WIN32_WINNT_WS03)
+// TODO: When the Android SDK tools increases the Windows system
+// requirements >= WinXP SP2, switch to android::base::UTF8ToWide() + GetAddrInfoW().
+#else
+// Otherwise, keep using getaddrinfo(), or do runtime API detection
+// with GetProcAddress("GetAddrInfoW").
+#endif
+    if (getaddrinfo(host.c_str(), port_str, &hints, &addrinfo_ptr) != 0) {
+        const DWORD err = WSAGetLastError();
+        *error = android::base::StringPrintf("cannot resolve host '%s' and port %s: %s",
+                                             host.c_str(), port_str,
+                                             android::base::SystemErrorCodeToString(err).c_str());
+
+        D("%s", error->c_str());
+        _socket_set_errno(err);
+        return -1;
+    }
+    std::unique_ptr<struct addrinfo, decltype(freeaddrinfo)*> addrinfo(addrinfo_ptr, freeaddrinfo);
+    addrinfo_ptr = nullptr;
+
+    // TODO: Try all the addresses if there's more than one? This just uses
+    // the first. Or, could call WSAConnectByName() (Windows Vista and newer)
+    // which tries all addresses, takes a timeout and more.
+    SOCKET s = socket(addrinfo->ai_family, addrinfo->ai_socktype, addrinfo->ai_protocol);
+    if (s == INVALID_SOCKET) {
+        const DWORD err = WSAGetLastError();
+        *error = android::base::StringPrintf("cannot create socket: %s",
+                                             android::base::SystemErrorCodeToString(err).c_str());
+        D("%s", error->c_str());
+        _socket_set_errno(err);
+        return -1;
+    }
+    f->fh_socket = s;
+
+    // TODO: Implement timeouts for Windows. Seems like the default in theory
+    // (according to http://serverfault.com/a/671453) and in practice is 21 sec.
+    if (connect(s, addrinfo->ai_addr, addrinfo->ai_addrlen) == SOCKET_ERROR) {
+        // TODO: Use WSAAddressToString or inet_ntop on address.
+        const DWORD err = WSAGetLastError();
+        *error = android::base::StringPrintf("cannot connect to %s:%s: %s", host.c_str(), port_str,
+                                             android::base::SystemErrorCodeToString(err).c_str());
+        D("could not connect to %s:%s:%s: %s", type != SOCK_STREAM ? "udp" : "tcp", host.c_str(),
+          port_str, error->c_str());
+        _socket_set_errno(err);
+        return -1;
+    }
+
+    const int fd = _fh_to_int(f.get());
+    snprintf(f->name, sizeof(f->name), "%d(net-client:%s%d)", fd, type != SOCK_STREAM ? "udp:" : "",
+             port);
+    D("host '%s' port %d type %s => fd %d", host.c_str(), port, type != SOCK_STREAM ? "udp" : "tcp",
+      fd);
+    f.release();
+    return fd;
 }
 
 #undef accept
 int  adb_socket_accept(int  serverfd, struct sockaddr*  addr, socklen_t  *addrlen)
 {
-    FH   serverfh = _fh_from_int(serverfd);
-    FH   fh;
+    FH   serverfh = _fh_from_int(serverfd, __func__);
 
     if ( !serverfh || serverfh->clazz != &_fh_socket_class ) {
-        D( "adb_socket_accept: invalid fd %d\n", serverfd );
+        D("adb_socket_accept: invalid fd %d", serverfd);
+        errno = EBADF;
         return -1;
     }
 
-    fh = _fh_alloc( &_fh_socket_class );
+    unique_fh fh(_fh_alloc( &_fh_socket_class ));
     if (!fh) {
-        D( "adb_socket_accept: not enough memory to allocate accepted socket descriptor\n" );
+        PLOG(ERROR) << "adb_socket_accept: failed to allocate accepted socket "
+                       "descriptor";
         return -1;
     }
 
     fh->fh_socket = accept( serverfh->fh_socket, addr, addrlen );
     if (fh->fh_socket == INVALID_SOCKET) {
-        _fh_close( fh );
-        D( "adb_socket_accept: accept on fd %d return error %ld\n", serverfd, GetLastError() );
+        const DWORD err = WSAGetLastError();
+        LOG(ERROR) << "adb_socket_accept: accept on fd " << serverfd <<
+                      " failed: " + android::base::SystemErrorCodeToString(err);
+        _socket_set_errno( err );
         return -1;
     }
 
-    snprintf( fh->name, sizeof(fh->name), "%d(accept:%s)", _fh_to_int(fh), serverfh->name );
-    D( "adb_socket_accept on fd %d returns fd %d\n", serverfd, _fh_to_int(fh) );
-    return  _fh_to_int(fh);
+    const int fd = _fh_to_int(fh.get());
+    snprintf( fh->name, sizeof(fh->name), "%d(accept:%s)", fd, serverfh->name );
+    D( "adb_socket_accept on fd %d returns fd %d", serverfd, fd );
+    fh.release();
+    return  fd;
 }
 
 
 int  adb_setsockopt( int  fd, int  level, int  optname, const void*  optval, socklen_t  optlen )
 {
-    FH   fh = _fh_from_int(fd);
+    FH   fh = _fh_from_int(fd, __func__);
 
     if ( !fh || fh->clazz != &_fh_socket_class ) {
-        D("adb_setsockopt: invalid fd %d\n", fd);
+        D("adb_setsockopt: invalid fd %d", fd);
+        errno = EBADF;
         return -1;
     }
 
-    return setsockopt( fh->fh_socket, level, optname, reinterpret_cast<const char*>(optval), optlen );
+    // TODO: Once we can assume Windows Vista or later, if the caller is trying
+    // to set SOL_SOCKET, SO_SNDBUF/SO_RCVBUF, ignore it since the OS has
+    // auto-tuning.
+
+    int result = setsockopt( fh->fh_socket, level, optname,
+                             reinterpret_cast<const char*>(optval), optlen );
+    if ( result == SOCKET_ERROR ) {
+        const DWORD err = WSAGetLastError();
+        D("adb_setsockopt: setsockopt on fd %d level %d optname %d failed: %s\n",
+          fd, level, optname, android::base::SystemErrorCodeToString(err).c_str());
+        _socket_set_errno( err );
+        result = -1;
+    }
+    return result;
 }
 
-/**************************************************************************/
-/**************************************************************************/
-/*****                                                                *****/
-/*****    emulated socketpairs                                       *****/
-/*****                                                                *****/
-/**************************************************************************/
-/**************************************************************************/
+int adb_getsockname(int fd, struct sockaddr* sockaddr, socklen_t* optlen) {
+    FH fh = _fh_from_int(fd, __func__);
 
-/* we implement socketpairs directly in use space for the following reasons:
- *   - it avoids copying data from/to the Nt kernel
- *   - it allows us to implement fdevent hooks easily and cheaply, something
- *     that is not possible with standard Win32 pipes !!
- *
- * basically, we use two circular buffers, each one corresponding to a given
- * direction.
- *
- * each buffer is implemented as two regions:
- *
- *   region A which is (a_start,a_end)
- *   region B which is (0, b_end)  with b_end <= a_start
- *
- * an empty buffer has:  a_start = a_end = b_end = 0
- *
- * a_start is the pointer where we start reading data
- * a_end is the pointer where we start writing data, unless it is BUFFER_SIZE,
- * then you start writing at b_end
- *
- * the buffer is full when  b_end == a_start && a_end == BUFFER_SIZE
- *
- * there is room when b_end < a_start || a_end < BUFER_SIZE
- *
- * when reading, a_start is incremented, it a_start meets a_end, then
- * we do:  a_start = 0, a_end = b_end, b_end = 0, and keep going on..
- */
-
-#define  BIP_BUFFER_SIZE   4096
-
-#if 0
-#include <stdio.h>
-#  define  BIPD(x)      D x
-#  define  BIPDUMP   bip_dump_hex
-
-static void  bip_dump_hex( const unsigned char*  ptr, size_t  len )
-{
-    int  nn, len2 = len;
-
-    if (len2 > 8) len2 = 8;
-
-    for (nn = 0; nn < len2; nn++)
-        printf("%02x", ptr[nn]);
-    printf("  ");
-
-    for (nn = 0; nn < len2; nn++) {
-        int  c = ptr[nn];
-        if (c < 32 || c > 127)
-            c = '.';
-        printf("%c", c);
-    }
-    printf("\n");
-    fflush(stdout);
-}
-
-#else
-#  define  BIPD(x)        do {} while (0)
-#  define  BIPDUMP(p,l)   BIPD(p)
-#endif
-
-typedef struct BipBufferRec_
-{
-    int                a_start;
-    int                a_end;
-    int                b_end;
-    int                fdin;
-    int                fdout;
-    int                closed;
-    int                can_write;  /* boolean */
-    HANDLE             evt_write;  /* event signaled when one can write to a buffer  */
-    int                can_read;   /* boolean */
-    HANDLE             evt_read;   /* event signaled when one can read from a buffer */
-    CRITICAL_SECTION  lock;
-    unsigned char      buff[ BIP_BUFFER_SIZE ];
-
-} BipBufferRec, *BipBuffer;
-
-static void
-bip_buffer_init( BipBuffer  buffer )
-{
-    D( "bit_buffer_init %p\n", buffer );
-    buffer->a_start   = 0;
-    buffer->a_end     = 0;
-    buffer->b_end     = 0;
-    buffer->can_write = 1;
-    buffer->can_read  = 0;
-    buffer->fdin      = 0;
-    buffer->fdout     = 0;
-    buffer->closed    = 0;
-    buffer->evt_write = CreateEvent( NULL, TRUE, TRUE, NULL );
-    buffer->evt_read  = CreateEvent( NULL, TRUE, FALSE, NULL );
-    InitializeCriticalSection( &buffer->lock );
-}
-
-static void
-bip_buffer_close( BipBuffer  bip )
-{
-    bip->closed = 1;
-
-    if (!bip->can_read) {
-        SetEvent( bip->evt_read );
-    }
-    if (!bip->can_write) {
-        SetEvent( bip->evt_write );
-    }
-}
-
-static void
-bip_buffer_done( BipBuffer  bip )
-{
-    BIPD(( "bip_buffer_done: %d->%d\n", bip->fdin, bip->fdout ));
-    CloseHandle( bip->evt_read );
-    CloseHandle( bip->evt_write );
-    DeleteCriticalSection( &bip->lock );
-}
-
-static int
-bip_buffer_write( BipBuffer  bip, const void* src, int  len )
-{
-    int  avail, count = 0;
-
-    if (len <= 0)
-        return 0;
-
-    BIPD(( "bip_buffer_write: enter %d->%d len %d\n", bip->fdin, bip->fdout, len ));
-    BIPDUMP( src, len );
-
-    EnterCriticalSection( &bip->lock );
-
-    while (!bip->can_write) {
-        int  ret;
-        LeaveCriticalSection( &bip->lock );
-
-        if (bip->closed) {
-            errno = EPIPE;
-            return -1;
-        }
-        /* spinlocking here is probably unfair, but let's live with it */
-        ret = WaitForSingleObject( bip->evt_write, INFINITE );
-        if (ret != WAIT_OBJECT_0) {  /* buffer probably closed */
-            D( "bip_buffer_write: error %d->%d WaitForSingleObject returned %d, error %ld\n", bip->fdin, bip->fdout, ret, GetLastError() );
-            return 0;
-        }
-        if (bip->closed) {
-            errno = EPIPE;
-            return -1;
-        }
-        EnterCriticalSection( &bip->lock );
-    }
-
-    BIPD(( "bip_buffer_write: exec %d->%d len %d\n", bip->fdin, bip->fdout, len ));
-
-    avail = BIP_BUFFER_SIZE - bip->a_end;
-    if (avail > 0)
-    {
-        /* we can append to region A */
-        if (avail > len)
-            avail = len;
-
-        memcpy( bip->buff + bip->a_end, src, avail );
-        src   = (const char *)src + avail;
-        count += avail;
-        len   -= avail;
-
-        bip->a_end += avail;
-        if (bip->a_end == BIP_BUFFER_SIZE && bip->a_start == 0) {
-            bip->can_write = 0;
-            ResetEvent( bip->evt_write );
-            goto Exit;
-        }
-    }
-
-    if (len == 0)
-        goto Exit;
-
-    avail = bip->a_start - bip->b_end;
-    assert( avail > 0 );  /* since can_write is TRUE */
-
-    if (avail > len)
-        avail = len;
-
-    memcpy( bip->buff + bip->b_end, src, avail );
-    count += avail;
-    bip->b_end += avail;
-
-    if (bip->b_end == bip->a_start) {
-        bip->can_write = 0;
-        ResetEvent( bip->evt_write );
-    }
-
-Exit:
-    assert( count > 0 );
-
-    if ( !bip->can_read ) {
-        bip->can_read = 1;
-        SetEvent( bip->evt_read );
-    }
-
-    BIPD(( "bip_buffer_write: exit %d->%d count %d (as=%d ae=%d be=%d cw=%d cr=%d\n",
-            bip->fdin, bip->fdout, count, bip->a_start, bip->a_end, bip->b_end, bip->can_write, bip->can_read ));
-    LeaveCriticalSection( &bip->lock );
-
-    return count;
- }
-
-static int
-bip_buffer_read( BipBuffer  bip, void*  dst, int  len )
-{
-    int  avail, count = 0;
-
-    if (len <= 0)
-        return 0;
-
-    BIPD(( "bip_buffer_read: enter %d->%d len %d\n", bip->fdin, bip->fdout, len ));
-
-    EnterCriticalSection( &bip->lock );
-    while ( !bip->can_read )
-    {
-#if 0
-        LeaveCriticalSection( &bip->lock );
-        errno = EAGAIN;
+    if (!fh || fh->clazz != &_fh_socket_class) {
+        D("adb_getsockname: invalid fd %d", fd);
+        errno = EBADF;
         return -1;
-#else
-        int  ret;
-        LeaveCriticalSection( &bip->lock );
-
-        if (bip->closed) {
-            errno = EPIPE;
-            return -1;
-        }
-
-        ret = WaitForSingleObject( bip->evt_read, INFINITE );
-        if (ret != WAIT_OBJECT_0) { /* probably closed buffer */
-            D( "bip_buffer_read: error %d->%d WaitForSingleObject returned %d, error %ld\n", bip->fdin, bip->fdout, ret, GetLastError());
-            return 0;
-        }
-        if (bip->closed) {
-            errno = EPIPE;
-            return -1;
-        }
-        EnterCriticalSection( &bip->lock );
-#endif
     }
 
-    BIPD(( "bip_buffer_read: exec %d->%d len %d\n", bip->fdin, bip->fdout, len ));
-
-    avail = bip->a_end - bip->a_start;
-    assert( avail > 0 );  /* since can_read is TRUE */
-
-    if (avail > len)
-        avail = len;
-
-    memcpy( dst, bip->buff + bip->a_start, avail );
-    dst   = (char *)dst + avail;
-    count += avail;
-    len   -= avail;
-
-    bip->a_start += avail;
-    if (bip->a_start < bip->a_end)
-        goto Exit;
-
-    bip->a_start = 0;
-    bip->a_end   = bip->b_end;
-    bip->b_end   = 0;
-
-    avail = bip->a_end;
-    if (avail > 0) {
-        if (avail > len)
-            avail = len;
-        memcpy( dst, bip->buff, avail );
-        count += avail;
-        bip->a_start += avail;
-
-        if ( bip->a_start < bip->a_end )
-            goto Exit;
-
-        bip->a_start = bip->a_end = 0;
+    int result = getsockname(fh->fh_socket, sockaddr, optlen);
+    if (result == SOCKET_ERROR) {
+        const DWORD err = WSAGetLastError();
+        D("adb_getsockname: setsockopt on fd %d failed: %s\n", fd,
+          android::base::SystemErrorCodeToString(err).c_str());
+        _socket_set_errno(err);
+        result = -1;
     }
-
-    bip->can_read = 0;
-    ResetEvent( bip->evt_read );
-
-Exit:
-    assert( count > 0 );
-
-    if (!bip->can_write ) {
-        bip->can_write = 1;
-        SetEvent( bip->evt_write );
-    }
-
-    BIPDUMP( (const unsigned char*)dst - count, count );
-    BIPD(( "bip_buffer_read: exit %d->%d count %d (as=%d ae=%d be=%d cw=%d cr=%d\n",
-            bip->fdin, bip->fdout, count, bip->a_start, bip->a_end, bip->b_end, bip->can_write, bip->can_read ));
-    LeaveCriticalSection( &bip->lock );
-
-    return count;
+    return result;
 }
 
-typedef struct SocketPairRec_
+int  adb_shutdown(int  fd)
 {
-    BipBufferRec  a2b_bip;
-    BipBufferRec  b2a_bip;
-    FH            a_fd;
-    int           used;
+    FH   f = _fh_from_int(fd, __func__);
 
-} SocketPairRec;
+    if (!f || f->clazz != &_fh_socket_class) {
+        D("adb_shutdown: invalid fd %d", fd);
+        errno = EBADF;
+        return -1;
+    }
 
-void _fh_socketpair_init( FH  f )
-{
-    f->fh_pair = NULL;
-}
-
-static int
-_fh_socketpair_close( FH  f )
-{
-    if ( f->fh_pair ) {
-        SocketPair  pair = f->fh_pair;
-
-        if ( f == pair->a_fd ) {
-            pair->a_fd = NULL;
-        }
-
-        bip_buffer_close( &pair->b2a_bip );
-        bip_buffer_close( &pair->a2b_bip );
-
-        if ( --pair->used == 0 ) {
-            bip_buffer_done( &pair->b2a_bip );
-            bip_buffer_done( &pair->a2b_bip );
-            free( pair );
-        }
-        f->fh_pair = NULL;
+    D( "adb_shutdown: %s", f->name);
+    if (shutdown(f->fh_socket, SD_BOTH) == SOCKET_ERROR) {
+        const DWORD err = WSAGetLastError();
+        D("socket shutdown fd %d failed: %s", fd,
+          android::base::SystemErrorCodeToString(err).c_str());
+        _socket_set_errno(err);
+        return -1;
     }
     return 0;
 }
 
-static int
-_fh_socketpair_lseek( FH  f, int pos, int  origin )
-{
-    errno = ESPIPE;
+// Emulate socketpair(2) by binding and connecting to a socket.
+int adb_socketpair(int sv[2]) {
+    int server = -1;
+    int client = -1;
+    int accepted = -1;
+    sockaddr_storage addr_storage;
+    socklen_t addr_len = sizeof(addr_storage);
+    sockaddr_in* addr = nullptr;
+    std::string error;
+
+    server = network_loopback_server(0, SOCK_STREAM, &error);
+    if (server < 0) {
+        D("adb_socketpair: failed to create server: %s", error.c_str());
+        goto fail;
+    }
+
+    if (adb_getsockname(server, reinterpret_cast<sockaddr*>(&addr_storage), &addr_len) < 0) {
+        D("adb_socketpair: adb_getsockname failed: %s", strerror(errno));
+        goto fail;
+    }
+
+    if (addr_storage.ss_family != AF_INET) {
+        D("adb_socketpair: unknown address family received: %d", addr_storage.ss_family);
+        errno = ECONNABORTED;
+        goto fail;
+    }
+
+    addr = reinterpret_cast<sockaddr_in*>(&addr_storage);
+    D("adb_socketpair: bound on port %d", ntohs(addr->sin_port));
+    client = network_loopback_client(ntohs(addr->sin_port), SOCK_STREAM, &error);
+    if (client < 0) {
+        D("adb_socketpair: failed to connect client: %s", error.c_str());
+        goto fail;
+    }
+
+    accepted = adb_socket_accept(server, nullptr, nullptr);
+    if (accepted < 0) {
+        D("adb_socketpair: failed to accept: %s", strerror(errno));
+        goto fail;
+    }
+    adb_close(server);
+    sv[0] = client;
+    sv[1] = accepted;
+    return 0;
+
+fail:
+    if (server >= 0) {
+        adb_close(server);
+    }
+    if (client >= 0) {
+        adb_close(client);
+    }
+    if (accepted >= 0) {
+        adb_close(accepted);
+    }
     return -1;
 }
 
-static int
-_fh_socketpair_read( FH  f, void* buf, int  len )
-{
-    SocketPair  pair = f->fh_pair;
-    BipBuffer   bip;
+bool set_file_block_mode(int fd, bool block) {
+    FH fh = _fh_from_int(fd, __func__);
 
-    if (!pair)
-        return -1;
-
-    if ( f == pair->a_fd )
-        bip = &pair->b2a_bip;
-    else
-        bip = &pair->a2b_bip;
-
-    return bip_buffer_read( bip, buf, len );
-}
-
-static int
-_fh_socketpair_write( FH  f, const void*  buf, int  len )
-{
-    SocketPair  pair = f->fh_pair;
-    BipBuffer   bip;
-
-    if (!pair)
-        return -1;
-
-    if ( f == pair->a_fd )
-        bip = &pair->a2b_bip;
-    else
-        bip = &pair->b2a_bip;
-
-    return bip_buffer_write( bip, buf, len );
-}
-
-
-static void  _fh_socketpair_hook( FH  f, int  event, EventHook  hook );  /* forward */
-
-static const FHClassRec  _fh_socketpair_class =
-{
-    _fh_socketpair_init,
-    _fh_socketpair_close,
-    _fh_socketpair_lseek,
-    _fh_socketpair_read,
-    _fh_socketpair_write,
-    _fh_socketpair_hook
-};
-
-
-int  adb_socketpair(int sv[2]) {
-    SocketPair pair;
-
-    FH fa = _fh_alloc(&_fh_socketpair_class);
-    FH fb = _fh_alloc(&_fh_socketpair_class);
-
-    if (!fa || !fb)
-        goto Fail;
-
-    pair = reinterpret_cast<SocketPair>(malloc(sizeof(*pair)));
-    if (pair == NULL) {
-        D("adb_socketpair: not enough memory to allocate pipes\n" );
-        goto Fail;
+    if (!fh || !fh->used) {
+        errno = EBADF;
+        return false;
     }
 
-    bip_buffer_init( &pair->a2b_bip );
-    bip_buffer_init( &pair->b2a_bip );
-
-    fa->fh_pair = pair;
-    fb->fh_pair = pair;
-    pair->used  = 2;
-    pair->a_fd  = fa;
-
-    sv[0] = _fh_to_int(fa);
-    sv[1] = _fh_to_int(fb);
-
-    pair->a2b_bip.fdin  = sv[0];
-    pair->a2b_bip.fdout = sv[1];
-    pair->b2a_bip.fdin  = sv[1];
-    pair->b2a_bip.fdout = sv[0];
-
-    snprintf( fa->name, sizeof(fa->name), "%d(pair:%d)", sv[0], sv[1] );
-    snprintf( fb->name, sizeof(fb->name), "%d(pair:%d)", sv[1], sv[0] );
-    D( "adb_socketpair: returns (%d, %d)\n", sv[0], sv[1] );
-    return 0;
-
-Fail:
-    _fh_close(fb);
-    _fh_close(fa);
-    return -1;
-}
-
-/**************************************************************************/
-/**************************************************************************/
-/*****                                                                *****/
-/*****    fdevents emulation                                          *****/
-/*****                                                                *****/
-/*****   this is a very simple implementation, we rely on the fact    *****/
-/*****   that ADB doesn't use FDE_ERROR.                              *****/
-/*****                                                                *****/
-/**************************************************************************/
-/**************************************************************************/
-
-#define FATAL(x...) fatal(__FUNCTION__, x)
-
-#if DEBUG
-static void dump_fde(fdevent *fde, const char *info)
-{
-    fprintf(stderr,"FDE #%03d %c%c%c %s\n", fde->fd,
-            fde->state & FDE_READ ? 'R' : ' ',
-            fde->state & FDE_WRITE ? 'W' : ' ',
-            fde->state & FDE_ERROR ? 'E' : ' ',
-            info);
-}
-#else
-#define dump_fde(fde, info) do { } while(0)
-#endif
-
-#define FDE_EVENTMASK  0x00ff
-#define FDE_STATEMASK  0xff00
-
-#define FDE_ACTIVE     0x0100
-#define FDE_PENDING    0x0200
-#define FDE_CREATED    0x0400
-
-static void fdevent_plist_enqueue(fdevent *node);
-static void fdevent_plist_remove(fdevent *node);
-static fdevent *fdevent_plist_dequeue(void);
-
-static fdevent list_pending = {
-    .next = &list_pending,
-    .prev = &list_pending,
-};
-
-static fdevent **fd_table = 0;
-static int       fd_table_max = 0;
-
-typedef struct EventLooperRec_*  EventLooper;
-
-typedef struct EventHookRec_
-{
-    EventHook    next;
-    FH           fh;
-    HANDLE       h;
-    int          wanted;   /* wanted event flags */
-    int          ready;    /* ready event flags  */
-    void*        aux;
-    void        (*prepare)( EventHook  hook );
-    int         (*start)  ( EventHook  hook );
-    void        (*stop)   ( EventHook  hook );
-    int         (*check)  ( EventHook  hook );
-    int         (*peek)   ( EventHook  hook );
-} EventHookRec;
-
-static EventHook  _free_hooks;
-
-static EventHook
-event_hook_alloc(FH fh) {
-    EventHook hook = _free_hooks;
-    if (hook != NULL) {
-        _free_hooks = hook->next;
+    if (fh->clazz == &_fh_socket_class) {
+        u_long x = !block;
+        if (ioctlsocket(fh->u.socket, FIONBIO, &x) != 0) {
+            _socket_set_errno(WSAGetLastError());
+            return false;
+        }
+        return true;
     } else {
-        hook = reinterpret_cast<EventHook>(malloc(sizeof(*hook)));
-        if (hook == NULL)
-            fatal( "could not allocate event hook\n" );
-    }
-    hook->next   = NULL;
-    hook->fh     = fh;
-    hook->wanted = 0;
-    hook->ready  = 0;
-    hook->h      = INVALID_HANDLE_VALUE;
-    hook->aux    = NULL;
-
-    hook->prepare = NULL;
-    hook->start   = NULL;
-    hook->stop    = NULL;
-    hook->check   = NULL;
-    hook->peek    = NULL;
-
-    return hook;
-}
-
-static void
-event_hook_free( EventHook  hook )
-{
-    hook->fh     = NULL;
-    hook->wanted = 0;
-    hook->ready  = 0;
-    hook->next   = _free_hooks;
-    _free_hooks  = hook;
-}
-
-
-static void
-event_hook_signal( EventHook  hook )
-{
-    FH        f   = hook->fh;
-    int       fd  = _fh_to_int(f);
-    fdevent*  fde = fd_table[ fd - WIN32_FH_BASE ];
-
-    if (fde != NULL && fde->fd == fd) {
-        if ((fde->state & FDE_PENDING) == 0) {
-            fde->state |= FDE_PENDING;
-            fdevent_plist_enqueue( fde );
-        }
-        fde->events |= hook->wanted;
+        errno = ENOTSOCK;
+        return false;
     }
 }
 
+bool set_tcp_keepalive(int fd, int interval_sec) {
+    FH fh = _fh_from_int(fd, __func__);
 
-#define  MAX_LOOPER_HANDLES  WIN32_MAX_FHS
-
-typedef struct EventLooperRec_
-{
-    EventHook    hooks;
-    HANDLE       htab[ MAX_LOOPER_HANDLES ];
-    int          htab_count;
-
-} EventLooperRec;
-
-static EventHook*
-event_looper_find_p( EventLooper  looper, FH  fh )
-{
-    EventHook  *pnode = &looper->hooks;
-    EventHook   node  = *pnode;
-    for (;;) {
-        if ( node == NULL || node->fh == fh )
-            break;
-        pnode = &node->next;
-        node  = *pnode;
-    }
-    return  pnode;
-}
-
-static void
-event_looper_hook( EventLooper  looper, int  fd, int  events )
-{
-    FH          f = _fh_from_int(fd);
-    EventHook  *pnode;
-    EventHook   node;
-
-    if (f == NULL)  /* invalid arg */ {
-        D("event_looper_hook: invalid fd=%d\n", fd);
-        return;
+    if (!fh || fh->clazz != &_fh_socket_class) {
+        D("set_tcp_keepalive(%d) failed: invalid fd", fd);
+        errno = EBADF;
+        return false;
     }
 
-    pnode = event_looper_find_p( looper, f );
-    node  = *pnode;
-    if ( node == NULL ) {
-        node       = event_hook_alloc( f );
-        node->next = *pnode;
-        *pnode     = node;
+    tcp_keepalive keepalive;
+    keepalive.onoff = (interval_sec > 0);
+    keepalive.keepalivetime = interval_sec * 1000;
+    keepalive.keepaliveinterval = interval_sec * 1000;
+
+    DWORD bytes_returned = 0;
+    if (WSAIoctl(fh->fh_socket, SIO_KEEPALIVE_VALS, &keepalive, sizeof(keepalive), nullptr, 0,
+                 &bytes_returned, nullptr, nullptr) != 0) {
+        const DWORD err = WSAGetLastError();
+        D("set_tcp_keepalive(%d) failed: %s", fd,
+          android::base::SystemErrorCodeToString(err).c_str());
+        _socket_set_errno(err);
+        return false;
     }
 
-    if ( (node->wanted & events) != events ) {
-        /* this should update start/stop/check/peek */
-        D("event_looper_hook: call hook for %d (new=%x, old=%x)\n",
-           fd, node->wanted, events);
-        f->clazz->_fh_hook( f, events & ~node->wanted, node );
-        node->wanted |= events;
-    } else {
-        D("event_looper_hook: ignoring events %x for %d wanted=%x)\n",
-           events, fd, node->wanted);
-    }
+    return true;
 }
 
-static void
-event_looper_unhook( EventLooper  looper, int  fd, int  events )
-{
-    FH          fh    = _fh_from_int(fd);
-    EventHook  *pnode = event_looper_find_p( looper, fh );
-    EventHook   node  = *pnode;
-
-    if (node != NULL) {
-        int  events2 = events & node->wanted;
-        if ( events2 == 0 ) {
-            D( "event_looper_unhook: events %x not registered for fd %d\n", events, fd );
-            return;
-        }
-        node->wanted &= ~events2;
-        if (!node->wanted) {
-            *pnode = node->next;
-            event_hook_free( node );
-        }
-    }
-}
-
-/*
- * A fixer for WaitForMultipleObjects on condition that there are more than 64
- * handles to wait on.
- *
- * In cetain cases DDMS may establish more than 64 connections with ADB. For
- * instance, this may happen if there are more than 64 processes running on a
- * device, or there are multiple devices connected (including the emulator) with
- * the combined number of running processes greater than 64. In this case using
- * WaitForMultipleObjects to wait on connection events simply wouldn't cut,
- * because of the API limitations (64 handles max). So, we need to provide a way
- * to scale WaitForMultipleObjects to accept an arbitrary number of handles. The
- * easiest (and "Microsoft recommended") way to do that would be dividing the
- * handle array into chunks with the chunk size less than 64, and fire up as many
- * waiting threads as there are chunks. Then each thread would wait on a chunk of
- * handles, and will report back to the caller which handle has been set.
- * Here is the implementation of that algorithm.
- */
-
-/* Number of handles to wait on in each wating thread. */
-#define WAIT_ALL_CHUNK_SIZE 63
-
-/* Descriptor for a wating thread */
-typedef struct WaitForAllParam {
-    /* A handle to an event to signal when waiting is over. This handle is shared
-     * accross all the waiting threads, so each waiting thread knows when any
-     * other thread has exited, so it can exit too. */
-    HANDLE          main_event;
-    /* Upon exit from a waiting thread contains the index of the handle that has
-     * been signaled. The index is an absolute index of the signaled handle in
-     * the original array. This pointer is shared accross all the waiting threads
-     * and it's not guaranteed (due to a race condition) that when all the
-     * waiting threads exit, the value contained here would indicate the first
-     * handle that was signaled. This is fine, because the caller cares only
-     * about any handle being signaled. It doesn't care about the order, nor
-     * about the whole list of handles that were signaled. */
-    LONG volatile   *signaled_index;
-    /* Array of handles to wait on in a waiting thread. */
-    HANDLE*         handles;
-    /* Number of handles in 'handles' array to wait on. */
-    int             handles_count;
-    /* Index inside the main array of the first handle in the 'handles' array. */
-    int             first_handle_index;
-    /* Waiting thread handle. */
-    HANDLE          thread;
-} WaitForAllParam;
-
-/* Waiting thread routine. */
-static unsigned __stdcall
-_in_waiter_thread(void*  arg)
-{
-    HANDLE wait_on[WAIT_ALL_CHUNK_SIZE + 1];
-    int res;
-    WaitForAllParam* const param = (WaitForAllParam*)arg;
-
-    /* We have to wait on the main_event in order to be notified when any of the
-     * sibling threads is exiting. */
-    wait_on[0] = param->main_event;
-    /* The rest of the handles go behind the main event handle. */
-    memcpy(wait_on + 1, param->handles, param->handles_count * sizeof(HANDLE));
-
-    res = WaitForMultipleObjects(param->handles_count + 1, wait_on, FALSE, INFINITE);
-    if (res > 0 && res < (param->handles_count + 1)) {
-        /* One of the original handles got signaled. Save its absolute index into
-         * the output variable. */
-        InterlockedCompareExchange(param->signaled_index,
-                                   res - 1L + param->first_handle_index, -1L);
-    }
-
-    /* Notify the caller (and the siblings) that the wait is over. */
-    SetEvent(param->main_event);
-
-    _endthreadex(0);
-    return 0;
-}
-
-/* WaitForMultipeObjects fixer routine.
- * Param:
- *  handles Array of handles to wait on.
- *  handles_count Number of handles in the array.
- * Return:
- *  (>= 0 && < handles_count) - Index of the signaled handle in the array, or
- *  WAIT_FAILED on an error.
- */
-static int
-_wait_for_all(HANDLE* handles, int handles_count)
-{
-    WaitForAllParam* threads;
-    HANDLE main_event;
-    int chunks, chunk, remains;
-
-    /* This variable is going to be accessed by several threads at the same time,
-     * this is bound to fail randomly when the core is run on multi-core machines.
-     * To solve this, we need to do the following (1 _and_ 2):
-     * 1. Use the "volatile" qualifier to ensure the compiler doesn't optimize
-     *    out the reads/writes in this function unexpectedly.
-     * 2. Ensure correct memory ordering. The "simple" way to do that is to wrap
-     *    all accesses inside a critical section. But we can also use
-     *    InterlockedCompareExchange() which always provide a full memory barrier
-     *    on Win32.
-     */
-    volatile LONG sig_index = -1;
-
-    /* Calculate number of chunks, and allocate thread param array. */
-    chunks = handles_count / WAIT_ALL_CHUNK_SIZE;
-    remains = handles_count % WAIT_ALL_CHUNK_SIZE;
-    threads = (WaitForAllParam*)malloc((chunks + (remains ? 1 : 0)) *
-                                        sizeof(WaitForAllParam));
-    if (threads == NULL) {
-        D("Unable to allocate thread array for %d handles.", handles_count);
-        return (int)WAIT_FAILED;
-    }
-
-    /* Create main event to wait on for all waiting threads. This is a "manualy
-     * reset" event that will remain set once it was set. */
-    main_event = CreateEvent(NULL, TRUE, FALSE, NULL);
-    if (main_event == NULL) {
-        D("Unable to create main event. Error: %d", (int)GetLastError());
-        free(threads);
-        return (int)WAIT_FAILED;
-    }
-
-    /*
-     * Initialize waiting thread parameters.
-     */
-
-    for (chunk = 0; chunk < chunks; chunk++) {
-        threads[chunk].main_event = main_event;
-        threads[chunk].signaled_index = &sig_index;
-        threads[chunk].first_handle_index = WAIT_ALL_CHUNK_SIZE * chunk;
-        threads[chunk].handles = handles + threads[chunk].first_handle_index;
-        threads[chunk].handles_count = WAIT_ALL_CHUNK_SIZE;
-    }
-    if (remains) {
-        threads[chunk].main_event = main_event;
-        threads[chunk].signaled_index = &sig_index;
-        threads[chunk].first_handle_index = WAIT_ALL_CHUNK_SIZE * chunk;
-        threads[chunk].handles = handles + threads[chunk].first_handle_index;
-        threads[chunk].handles_count = remains;
-        chunks++;
-    }
-
-    /* Start the waiting threads. */
-    for (chunk = 0; chunk < chunks; chunk++) {
-        /* Note that using adb_thread_create is not appropriate here, since we
-         * need a handle to wait on for thread termination. */
-        threads[chunk].thread = (HANDLE)_beginthreadex(NULL, 0, _in_waiter_thread,
-                                                       &threads[chunk], 0, NULL);
-        if (threads[chunk].thread == NULL) {
-            /* Unable to create a waiter thread. Collapse. */
-            D("Unable to create a waiting thread %d of %d. errno=%d",
-              chunk, chunks, errno);
-            chunks = chunk;
-            SetEvent(main_event);
-            break;
-        }
-    }
-
-    /* Wait on any of the threads to get signaled. */
-    WaitForSingleObject(main_event, INFINITE);
-
-    /* Wait on all the waiting threads to exit. */
-    for (chunk = 0; chunk < chunks; chunk++) {
-        WaitForSingleObject(threads[chunk].thread, INFINITE);
-        CloseHandle(threads[chunk].thread);
-    }
-
-    CloseHandle(main_event);
-    free(threads);
-
-
-    const int ret = (int)InterlockedCompareExchange(&sig_index, -1, -1);
-    return (ret >= 0) ? ret : (int)WAIT_FAILED;
-}
-
-static EventLooperRec  win32_looper;
-
-static void fdevent_init(void)
-{
-    win32_looper.htab_count = 0;
-    win32_looper.hooks      = NULL;
-}
-
-static void fdevent_connect(fdevent *fde)
-{
-    EventLooper  looper = &win32_looper;
-    int          events = fde->state & FDE_EVENTMASK;
-
-    if (events != 0)
-        event_looper_hook( looper, fde->fd, events );
-}
-
-static void fdevent_disconnect(fdevent *fde)
-{
-    EventLooper  looper = &win32_looper;
-    int          events = fde->state & FDE_EVENTMASK;
-
-    if (events != 0)
-        event_looper_unhook( looper, fde->fd, events );
-}
-
-static void fdevent_update(fdevent *fde, unsigned events)
-{
-    EventLooper  looper  = &win32_looper;
-    unsigned     events0 = fde->state & FDE_EVENTMASK;
-
-    if (events != events0) {
-        int  removes = events0 & ~events;
-        int  adds    = events  & ~events0;
-        if (removes) {
-            D("fdevent_update: remove %x from %d\n", removes, fde->fd);
-            event_looper_unhook( looper, fde->fd, removes );
-        }
-        if (adds) {
-            D("fdevent_update: add %x to %d\n", adds, fde->fd);
-            event_looper_hook  ( looper, fde->fd, adds );
-        }
-    }
-}
-
-static void fdevent_process()
-{
-    EventLooper  looper = &win32_looper;
-    EventHook    hook;
-    int          gotone = 0;
-
-    /* if we have at least one ready hook, execute it/them */
-    for (hook = looper->hooks; hook; hook = hook->next) {
-        hook->ready = 0;
-        if (hook->prepare) {
-            hook->prepare(hook);
-            if (hook->ready != 0) {
-                event_hook_signal( hook );
-                gotone = 1;
-            }
-        }
-    }
-
-    /* nothing's ready yet, so wait for something to happen */
-    if (!gotone)
-    {
-        looper->htab_count = 0;
-
-        for (hook = looper->hooks; hook; hook = hook->next)
-        {
-            if (hook->start && !hook->start(hook)) {
-                D( "fdevent_process: error when starting a hook\n" );
-                return;
-            }
-            if (hook->h != INVALID_HANDLE_VALUE) {
-                int  nn;
-
-                for (nn = 0; nn < looper->htab_count; nn++)
-                {
-                    if ( looper->htab[nn] == hook->h )
-                        goto DontAdd;
-                }
-                looper->htab[ looper->htab_count++ ] = hook->h;
-            DontAdd:
-                ;
-            }
-        }
-
-        if (looper->htab_count == 0) {
-            D( "fdevent_process: nothing to wait for !!\n" );
-            return;
-        }
-
-        do
-        {
-            int   wait_ret;
-
-            D( "adb_win32: waiting for %d events\n", looper->htab_count );
-            if (looper->htab_count > MAXIMUM_WAIT_OBJECTS) {
-                D("handle count %d exceeds MAXIMUM_WAIT_OBJECTS.\n", looper->htab_count);
-                wait_ret = _wait_for_all(looper->htab, looper->htab_count);
-            } else {
-                wait_ret = WaitForMultipleObjects( looper->htab_count, looper->htab, FALSE, INFINITE );
-            }
-            if (wait_ret == (int)WAIT_FAILED) {
-                D( "adb_win32: wait failed, error %ld\n", GetLastError() );
-            } else {
-                D( "adb_win32: got one (index %d)\n", wait_ret );
-
-                /* according to Cygwin, some objects like consoles wake up on "inappropriate" events
-                 * like mouse movements. we need to filter these with the "check" function
-                 */
-                if ((unsigned)wait_ret < (unsigned)looper->htab_count)
-                {
-                    for (hook = looper->hooks; hook; hook = hook->next)
-                    {
-                        if ( looper->htab[wait_ret] == hook->h       &&
-                         (!hook->check || hook->check(hook)) )
-                        {
-                            D( "adb_win32: signaling %s for %x\n", hook->fh->name, hook->ready );
-                            event_hook_signal( hook );
-                            gotone = 1;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-        while (!gotone);
-
-        for (hook = looper->hooks; hook; hook = hook->next) {
-            if (hook->stop)
-                hook->stop( hook );
-        }
-    }
-
-    for (hook = looper->hooks; hook; hook = hook->next) {
-        if (hook->peek && hook->peek(hook))
-                event_hook_signal( hook );
-    }
-}
-
-
-static void fdevent_register(fdevent *fde)
-{
-    int  fd = fde->fd - WIN32_FH_BASE;
-
-    if(fd < 0) {
-        FATAL("bogus negative fd (%d)\n", fde->fd);
-    }
-
-    if(fd >= fd_table_max) {
-        int oldmax = fd_table_max;
-        if(fde->fd > 32000) {
-            FATAL("bogus huuuuge fd (%d)\n", fde->fd);
-        }
-        if(fd_table_max == 0) {
-            fdevent_init();
-            fd_table_max = 256;
-        }
-        while(fd_table_max <= fd) {
-            fd_table_max *= 2;
-        }
-        fd_table = reinterpret_cast<fdevent**>(realloc(fd_table, sizeof(fdevent*) * fd_table_max));
-        if(fd_table == 0) {
-            FATAL("could not expand fd_table to %d entries\n", fd_table_max);
-        }
-        memset(fd_table + oldmax, 0, sizeof(int) * (fd_table_max - oldmax));
-    }
-
-    fd_table[fd] = fde;
-}
-
-static void fdevent_unregister(fdevent *fde)
-{
-    int  fd = fde->fd - WIN32_FH_BASE;
-
-    if((fd < 0) || (fd >= fd_table_max)) {
-        FATAL("fd out of range (%d)\n", fde->fd);
-    }
-
-    if(fd_table[fd] != fde) {
-        FATAL("fd_table out of sync");
-    }
-
-    fd_table[fd] = 0;
-
-    if(!(fde->state & FDE_DONT_CLOSE)) {
-        dump_fde(fde, "close");
-        adb_close(fde->fd);
-    }
-}
-
-static void fdevent_plist_enqueue(fdevent *node)
-{
-    fdevent *list = &list_pending;
-
-    node->next = list;
-    node->prev = list->prev;
-    node->prev->next = node;
-    list->prev = node;
-}
-
-static void fdevent_plist_remove(fdevent *node)
-{
-    node->prev->next = node->next;
-    node->next->prev = node->prev;
-    node->next = 0;
-    node->prev = 0;
-}
-
-static fdevent *fdevent_plist_dequeue(void)
-{
-    fdevent *list = &list_pending;
-    fdevent *node = list->next;
-
-    if(node == list) return 0;
-
-    list->next = node->next;
-    list->next->prev = list;
-    node->next = 0;
-    node->prev = 0;
-
-    return node;
-}
-
-fdevent *fdevent_create(int fd, fd_func func, void *arg)
-{
-    fdevent *fde = (fdevent*) malloc(sizeof(fdevent));
-    if(fde == 0) return 0;
-    fdevent_install(fde, fd, func, arg);
-    fde->state |= FDE_CREATED;
-    return fde;
-}
-
-void fdevent_destroy(fdevent *fde)
-{
-    if(fde == 0) return;
-    if(!(fde->state & FDE_CREATED)) {
-        FATAL("fde %p not created by fdevent_create()\n", fde);
-    }
-    fdevent_remove(fde);
-}
-
-void fdevent_install(fdevent *fde, int fd, fd_func func, void *arg)
-{
-    memset(fde, 0, sizeof(fdevent));
-    fde->state = FDE_ACTIVE;
-    fde->fd = fd;
-    fde->func = func;
-    fde->arg = arg;
-
-    fdevent_register(fde);
-    dump_fde(fde, "connect");
-    fdevent_connect(fde);
-    fde->state |= FDE_ACTIVE;
-}
-
-void fdevent_remove(fdevent *fde)
-{
-    if(fde->state & FDE_PENDING) {
-        fdevent_plist_remove(fde);
-    }
-
-    if(fde->state & FDE_ACTIVE) {
-        fdevent_disconnect(fde);
-        dump_fde(fde, "disconnect");
-        fdevent_unregister(fde);
-    }
-
-    fde->state = 0;
-    fde->events = 0;
-}
-
-
-void fdevent_set(fdevent *fde, unsigned events)
-{
-    events &= FDE_EVENTMASK;
-
-    if((fde->state & FDE_EVENTMASK) == (int)events) return;
-
-    if(fde->state & FDE_ACTIVE) {
-        fdevent_update(fde, events);
-        dump_fde(fde, "update");
-    }
-
-    fde->state = (fde->state & FDE_STATEMASK) | events;
-
-    if(fde->state & FDE_PENDING) {
-            /* if we're pending, make sure
-            ** we don't signal an event that
-            ** is no longer wanted.
-            */
-        fde->events &= (~events);
-        if(fde->events == 0) {
-            fdevent_plist_remove(fde);
-            fde->state &= (~FDE_PENDING);
-        }
-    }
-}
-
-void fdevent_add(fdevent *fde, unsigned events)
-{
-    fdevent_set(
-        fde, (fde->state & FDE_EVENTMASK) | (events & FDE_EVENTMASK));
-}
-
-void fdevent_del(fdevent *fde, unsigned events)
-{
-    fdevent_set(
-        fde, (fde->state & FDE_EVENTMASK) & (~(events & FDE_EVENTMASK)));
-}
-
-void fdevent_loop()
-{
-    fdevent *fde;
-
-    for(;;) {
-#if DEBUG
-        fprintf(stderr,"--- ---- waiting for events\n");
-#endif
-        fdevent_process();
-
-        while((fde = fdevent_plist_dequeue())) {
-            unsigned events = fde->events;
-            fde->events = 0;
-            fde->state &= (~FDE_PENDING);
-            dump_fde(fde, "callback");
-            fde->func(fde->fd, events, fde->arg);
-        }
-    }
-}
-
-/**  FILE EVENT HOOKS
- **/
-
-static void  _event_file_prepare( EventHook  hook )
-{
-    if (hook->wanted & (FDE_READ|FDE_WRITE)) {
-        /* we can always read/write */
-        hook->ready |= hook->wanted & (FDE_READ|FDE_WRITE);
-    }
-}
-
-static int  _event_file_peek( EventHook  hook )
-{
-    return (hook->wanted & (FDE_READ|FDE_WRITE));
-}
-
-static void  _fh_file_hook( FH  f, int  events, EventHook  hook )
-{
-    hook->h       = f->fh_handle;
-    hook->prepare = _event_file_prepare;
-    hook->peek    = _event_file_peek;
-}
-
-/** SOCKET EVENT HOOKS
- **/
-
-static void  _event_socket_verify( EventHook  hook, WSANETWORKEVENTS*  evts )
-{
-    if ( evts->lNetworkEvents & (FD_READ|FD_ACCEPT|FD_CLOSE) ) {
-        if (hook->wanted & FDE_READ)
-            hook->ready |= FDE_READ;
-        if ((evts->iErrorCode[FD_READ] != 0) && hook->wanted & FDE_ERROR)
-            hook->ready |= FDE_ERROR;
-    }
-    if ( evts->lNetworkEvents & (FD_WRITE|FD_CONNECT|FD_CLOSE) ) {
-        if (hook->wanted & FDE_WRITE)
-            hook->ready |= FDE_WRITE;
-        if ((evts->iErrorCode[FD_WRITE] != 0) && hook->wanted & FDE_ERROR)
-            hook->ready |= FDE_ERROR;
-    }
-    if ( evts->lNetworkEvents & FD_OOB ) {
-        if (hook->wanted & FDE_ERROR)
-            hook->ready |= FDE_ERROR;
-    }
-}
-
-static void  _event_socket_prepare( EventHook  hook )
-{
-    WSANETWORKEVENTS  evts;
-
-    /* look if some of the events we want already happened ? */
-    if (!WSAEnumNetworkEvents( hook->fh->fh_socket, NULL, &evts ))
-        _event_socket_verify( hook, &evts );
-}
-
-static int  _socket_wanted_to_flags( int  wanted )
-{
-    int  flags = 0;
-    if (wanted & FDE_READ)
-        flags |= FD_READ | FD_ACCEPT | FD_CLOSE;
-
-    if (wanted & FDE_WRITE)
-        flags |= FD_WRITE | FD_CONNECT | FD_CLOSE;
-
-    if (wanted & FDE_ERROR)
-        flags |= FD_OOB;
-
-    return flags;
-}
-
-static int _event_socket_start( EventHook  hook )
-{
-    /* create an event which we're going to wait for */
-    FH    fh    = hook->fh;
-    long  flags = _socket_wanted_to_flags( hook->wanted );
-
-    hook->h = fh->event;
-    if (hook->h == INVALID_HANDLE_VALUE) {
-        D( "_event_socket_start: no event for %s\n", fh->name );
-        return 0;
-    }
-
-    if ( flags != fh->mask ) {
-        D( "_event_socket_start: hooking %s for %x (flags %ld)\n", hook->fh->name, hook->wanted, flags );
-        if ( WSAEventSelect( fh->fh_socket, hook->h, flags ) ) {
-            D( "_event_socket_start: WSAEventSelect() for %s failed, error %d\n", hook->fh->name, WSAGetLastError() );
-            CloseHandle( hook->h );
-            hook->h = INVALID_HANDLE_VALUE;
-            exit(1);
-            return 0;
-        }
-        fh->mask = flags;
-    }
-    return 1;
-}
-
-static void _event_socket_stop( EventHook  hook )
-{
-    hook->h = INVALID_HANDLE_VALUE;
-}
-
-static int  _event_socket_check( EventHook  hook )
-{
-    int               result = 0;
-    FH                fh = hook->fh;
-    WSANETWORKEVENTS  evts;
-
-    if (!WSAEnumNetworkEvents( fh->fh_socket, hook->h, &evts ) ) {
-        _event_socket_verify( hook, &evts );
-        result = (hook->ready != 0);
-        if (result) {
-            ResetEvent( hook->h );
-        }
-    }
-    D( "_event_socket_check %s returns %d\n", fh->name, result );
-    return  result;
-}
-
-static int  _event_socket_peek( EventHook  hook )
-{
-    WSANETWORKEVENTS  evts;
-    FH                fh = hook->fh;
-
-    /* look if some of the events we want already happened ? */
-    if (!WSAEnumNetworkEvents( fh->fh_socket, NULL, &evts )) {
-        _event_socket_verify( hook, &evts );
-        if (hook->ready)
-            ResetEvent( hook->h );
-    }
-
-    return hook->ready != 0;
-}
-
-
-
-static void  _fh_socket_hook( FH  f, int  events, EventHook  hook )
-{
-    hook->prepare = _event_socket_prepare;
-    hook->start   = _event_socket_start;
-    hook->stop    = _event_socket_stop;
-    hook->check   = _event_socket_check;
-    hook->peek    = _event_socket_peek;
-
-    _event_socket_start( hook );
-}
-
-/** SOCKETPAIR EVENT HOOKS
- **/
-
-static void  _event_socketpair_prepare( EventHook  hook )
-{
-    FH          fh   = hook->fh;
-    SocketPair  pair = fh->fh_pair;
-    BipBuffer   rbip = (pair->a_fd == fh) ? &pair->b2a_bip : &pair->a2b_bip;
-    BipBuffer   wbip = (pair->a_fd == fh) ? &pair->a2b_bip : &pair->b2a_bip;
-
-    if (hook->wanted & FDE_READ && rbip->can_read)
-        hook->ready |= FDE_READ;
-
-    if (hook->wanted & FDE_WRITE && wbip->can_write)
-        hook->ready |= FDE_WRITE;
- }
-
- static int  _event_socketpair_start( EventHook  hook )
- {
-    FH          fh   = hook->fh;
-    SocketPair  pair = fh->fh_pair;
-    BipBuffer   rbip = (pair->a_fd == fh) ? &pair->b2a_bip : &pair->a2b_bip;
-    BipBuffer   wbip = (pair->a_fd == fh) ? &pair->a2b_bip : &pair->b2a_bip;
-
-    if (hook->wanted == FDE_READ)
-        hook->h = rbip->evt_read;
-
-    else if (hook->wanted == FDE_WRITE)
-        hook->h = wbip->evt_write;
-
-    else {
-        D("_event_socketpair_start: can't handle FDE_READ+FDE_WRITE\n" );
-        return 0;
-    }
-    D( "_event_socketpair_start: hook %s for %x wanted=%x\n",
-       hook->fh->name, _fh_to_int(fh), hook->wanted);
-    return 1;
-}
-
-static int  _event_socketpair_peek( EventHook  hook )
-{
-    _event_socketpair_prepare( hook );
-    return hook->ready != 0;
-}
-
-static void  _fh_socketpair_hook( FH  fh, int  events, EventHook  hook )
-{
-    hook->prepare = _event_socketpair_prepare;
-    hook->start   = _event_socketpair_start;
-    hook->peek    = _event_socketpair_peek;
-}
-
+static adb_mutex_t g_console_output_buffer_lock;
 
 void
 adb_sysdeps_init( void )
@@ -2148,6 +1263,7 @@ adb_sysdeps_init( void )
 #define  ADB_MUTEX(x)  InitializeCriticalSection( & x );
 #include "mutex_list.h"
     InitializeCriticalSection( &_win32_lock );
+    InitializeCriticalSection( &g_console_output_buffer_lock );
 }
 
 /**************************************************************************/
@@ -2180,20 +1296,63 @@ adb_sysdeps_init( void )
 //
 // Code organization:
 //
+// * _get_console_handle() and unix_isatty() provide console information.
 // * stdin_raw_init() and stdin_raw_restore() reconfigure the console.
 // * unix_read() detects console windows (as opposed to pipes, files, etc.).
 // * _console_read() is the main code of the emulation.
 
+// Returns a console HANDLE if |fd| is a console, otherwise returns nullptr.
+// If a valid HANDLE is returned and |mode| is not null, |mode| is also filled
+// with the console mode. Requires GENERIC_READ access to the underlying HANDLE.
+static HANDLE _get_console_handle(int fd, DWORD* mode=nullptr) {
+    // First check isatty(); this is very fast and eliminates most non-console
+    // FDs, but returns 1 for both consoles and character devices like NUL.
+#pragma push_macro("isatty")
+#undef isatty
+    if (!isatty(fd)) {
+        return nullptr;
+    }
+#pragma pop_macro("isatty")
 
-// Read an input record from the console; one that should be processed.
-static bool _get_interesting_input_record_uncached(const HANDLE console,
-    INPUT_RECORD* const input_record) {
+    // To differentiate between character devices and consoles we need to get
+    // the underlying HANDLE and use GetConsoleMode(), which is what requires
+    // GENERIC_READ permissions.
+    const intptr_t intptr_handle = _get_osfhandle(fd);
+    if (intptr_handle == -1) {
+        return nullptr;
+    }
+    const HANDLE handle = reinterpret_cast<const HANDLE>(intptr_handle);
+    DWORD temp_mode = 0;
+    if (!GetConsoleMode(handle, mode ? mode : &temp_mode)) {
+        return nullptr;
+    }
+
+    return handle;
+}
+
+// Returns a console handle if |stream| is a console, otherwise returns nullptr.
+static HANDLE _get_console_handle(FILE* const stream) {
+    // Save and restore errno to make it easier for callers to prevent from overwriting errno.
+    android::base::ErrnoRestorer er;
+    const int fd = fileno(stream);
+    if (fd < 0) {
+        return nullptr;
+    }
+    return _get_console_handle(fd);
+}
+
+int unix_isatty(int fd) {
+    return _get_console_handle(fd) ? 1 : 0;
+}
+
+// Get the next KEY_EVENT_RECORD that should be processed.
+static bool _get_key_event_record(const HANDLE console, INPUT_RECORD* const input_record) {
     for (;;) {
         DWORD read_count = 0;
         memset(input_record, 0, sizeof(*input_record));
         if (!ReadConsoleInputA(console, input_record, 1, &read_count)) {
-            D("_get_interesting_input_record_uncached: ReadConsoleInputA() "
-              "failure, error %ld\n", GetLastError());
+            D("_get_key_event_record: ReadConsoleInputA() failed: %s\n",
+              android::base::SystemErrorCodeToString(GetLastError()).c_str());
             errno = EIO;
             return false;
         }
@@ -2204,6 +1363,18 @@ static bool _get_interesting_input_record_uncached(const HANDLE console,
 
         if (read_count != 1) {   // should be impossible
             fatal("ReadConsoleInputA did not return one input record");
+        }
+
+        // If the console window is resized, emulate SIGWINCH by breaking out
+        // of read() with errno == EINTR. Note that there is no event on
+        // vertical resize because we don't give the console our own custom
+        // screen buffer (with CreateConsoleScreenBuffer() +
+        // SetConsoleActiveScreenBuffer()). Instead, we use the default which
+        // supports scrollback, but doesn't seem to raise an event for vertical
+        // window resize.
+        if (input_record->EventType == WINDOW_BUFFER_SIZE_EVENT) {
+            errno = EINTR;
+            return false;
         }
 
         if ((input_record->EventType == KEY_EVENT) &&
@@ -2217,28 +1388,6 @@ static bool _get_interesting_input_record_uncached(const HANDLE console,
             return true;
         }
     }
-}
-
-// Cached input record (in case _console_read() is passed a buffer that doesn't
-// have enough space to fit wRepeatCount number of key sequences). A non-zero
-// wRepeatCount indicates that a record is cached.
-static INPUT_RECORD _win32_input_record;
-
-// Get the next KEY_EVENT_RECORD that should be processed.
-static KEY_EVENT_RECORD* _get_key_event_record(const HANDLE console) {
-    // If nothing cached, read directly from the console until we get an
-    // interesting record.
-    if (_win32_input_record.Event.KeyEvent.wRepeatCount == 0) {
-        if (!_get_interesting_input_record_uncached(console,
-            &_win32_input_record)) {
-            // There was an error, so make sure wRepeatCount is zero because
-            // that signifies no cached input record.
-            _win32_input_record.Event.KeyEvent.wRepeatCount = 0;
-            return NULL;
-        }
-    }
-
-    return &_win32_input_record.Event.KeyEvent;
 }
 
 static __inline__ bool _is_shift_pressed(const DWORD control_key_state) {
@@ -2585,16 +1734,34 @@ size_t _escape_prefix(char* const buf, const size_t len) {
     return len + 1;
 }
 
-// Writes to buffer buf (of length len), returning number of bytes written or
-// -1 on error. Never returns zero because Win32 consoles are never 'closed'
-// (as far as I can tell).
+// Internal buffer to satisfy future _console_read() calls.
+static auto& g_console_input_buffer = *new std::vector<char>();
+
+// Writes to buffer buf (of length len), returning number of bytes written or -1 on error. Never
+// returns zero on console closure because Win32 consoles are never 'closed' (as far as I can tell).
 static int _console_read(const HANDLE console, void* buf, size_t len) {
     for (;;) {
-        KEY_EVENT_RECORD* const key_event = _get_key_event_record(console);
-        if (key_event == NULL) {
+        // Read of zero bytes should not block waiting for something from the console.
+        if (len == 0) {
+            return 0;
+        }
+
+        // Flush as much as possible from input buffer.
+        if (!g_console_input_buffer.empty()) {
+            const int bytes_read = std::min(len, g_console_input_buffer.size());
+            memcpy(buf, g_console_input_buffer.data(), bytes_read);
+            const auto begin = g_console_input_buffer.begin();
+            g_console_input_buffer.erase(begin, begin + bytes_read);
+            return bytes_read;
+        }
+
+        // Read from the actual console. This may block until input.
+        INPUT_RECORD input_record;
+        if (!_get_key_event_record(console, &input_record)) {
             return -1;
         }
 
+        KEY_EVENT_RECORD* const key_event = &input_record.Event.KeyEvent;
         const WORD vk = key_event->wVirtualKeyCode;
         const CHAR ch = key_event->uChar.AsciiChar;
         const DWORD control_key_state = _normalize_altgr_control_key_state(
@@ -2772,27 +1939,13 @@ static int _console_read(const HANDLE console, void* buf, size_t len) {
                 break;
 
                 case 0x32:          // 2
+                case 0x33:          // 3
+                case 0x34:          // 4
+                case 0x35:          // 5
                 case 0x36:          // 6
+                case 0x37:          // 7
+                case 0x38:          // 8
                 case VK_OEM_MINUS:  // -_
-                {
-                    seqbuflen = _get_control_character(seqbuf, key_event,
-                        control_key_state);
-
-                    // If Alt is pressed and it isn't Ctrl-Alt-ShiftUp, then
-                    // prefix with escape.
-                    if (_is_alt_pressed(control_key_state) &&
-                        !(_is_ctrl_pressed(control_key_state) &&
-                        !_is_shift_pressed(control_key_state))) {
-                        seqbuflen = _escape_prefix(seqbuf, seqbuflen);
-                    }
-                }
-                break;
-
-                case 0x33:  // 3
-                case 0x34:  // 4
-                case 0x35:  // 5
-                case 0x37:  // 7
-                case 0x38:  // 8
                 {
                     seqbuflen = _get_control_character(seqbuf, key_event,
                         control_key_state);
@@ -2933,111 +2086,71 @@ static int _console_read(const HANDLE console, void* buf, size_t len) {
             //
             // Consume the input and 'continue' to cause us to get a new key
             // event.
-            D("_console_read: unknown virtual key code: %d, enhanced: %s\n",
+            D("_console_read: unknown virtual key code: %d, enhanced: %s",
                 vk, _is_enhanced_key(control_key_state) ? "true" : "false");
-            key_event->wRepeatCount = 0;
             continue;
         }
 
-        int bytesRead = 0;
-
-        // put output wRepeatCount times into buf/len
-        while (key_event->wRepeatCount > 0) {
-            if (len >= outlen) {
-                // Write to buf/len
-                memcpy(buf, out, outlen);
-                buf = (void*)((char*)buf + outlen);
-                len -= outlen;
-                bytesRead += outlen;
-
-                // consume the input
-                --key_event->wRepeatCount;
-            } else {
-                // Not enough space, so just leave it in _win32_input_record
-                // for a subsequent retrieval.
-                if (bytesRead == 0) {
-                    // We didn't write anything because there wasn't enough
-                    // space to even write one sequence. This should never
-                    // happen if the caller uses sensible buffer sizes
-                    // (i.e. >= maximum sequence length which is probably a
-                    // few bytes long).
-                    D("_console_read: no buffer space to write one sequence; "
-                        "buffer: %ld, sequence: %ld\n", (long)len,
-                        (long)outlen);
-                    errno = ENOMEM;
-                    return -1;
-                } else {
-                    // Stop trying to write to buf/len, just return whatever
-                    // we wrote so far.
-                    break;
-                }
-            }
+        // put output wRepeatCount times into g_console_input_buffer
+        while (key_event->wRepeatCount-- > 0) {
+            g_console_input_buffer.insert(g_console_input_buffer.end(), out, out + outlen);
         }
 
-        return bytesRead;
+        // Loop around and try to flush g_console_input_buffer
     }
 }
 
 static DWORD _old_console_mode; // previous GetConsoleMode() result
 static HANDLE _console_handle;  // when set, console mode should be restored
 
-void stdin_raw_init(const int fd) {
-    if (STDIN_FILENO == fd) {
-        const HANDLE in = GetStdHandle(STD_INPUT_HANDLE);
-        if ((in == INVALID_HANDLE_VALUE) || (in == NULL)) {
-            return;
-        }
+void stdin_raw_init() {
+    const HANDLE in = _get_console_handle(STDIN_FILENO, &_old_console_mode);
+    if (in == nullptr) {
+        return;
+    }
 
-        if (GetFileType(in) != FILE_TYPE_CHAR) {
-            // stdin might be a file or pipe.
-            return;
-        }
+    // Disable ENABLE_PROCESSED_INPUT so that Ctrl-C is read instead of
+    // calling the process Ctrl-C routine (configured by
+    // SetConsoleCtrlHandler()).
+    // Disable ENABLE_LINE_INPUT so that input is immediately sent.
+    // Disable ENABLE_ECHO_INPUT to disable local echo. Disabling this
+    // flag also seems necessary to have proper line-ending processing.
+    DWORD new_console_mode = _old_console_mode & ~(ENABLE_PROCESSED_INPUT |
+                                                   ENABLE_LINE_INPUT |
+                                                   ENABLE_ECHO_INPUT);
+    // Enable ENABLE_WINDOW_INPUT to get window resizes.
+    new_console_mode |= ENABLE_WINDOW_INPUT;
 
-        if (!GetConsoleMode(in, &_old_console_mode)) {
-            // If GetConsoleMode() fails, stdin is probably is not a console.
-            return;
-        }
+    if (!SetConsoleMode(in, new_console_mode)) {
+        // This really should not fail.
+        D("stdin_raw_init: SetConsoleMode() failed: %s",
+          android::base::SystemErrorCodeToString(GetLastError()).c_str());
+    }
 
-        // Disable ENABLE_PROCESSED_INPUT so that Ctrl-C is read instead of
-        // calling the process Ctrl-C routine (configured by
-        // SetConsoleCtrlHandler()).
-        // Disable ENABLE_LINE_INPUT so that input is immediately sent.
-        // Disable ENABLE_ECHO_INPUT to disable local echo. Disabling this
-        // flag also seems necessary to have proper line-ending processing.
-        if (!SetConsoleMode(in, _old_console_mode & ~(ENABLE_PROCESSED_INPUT |
-            ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT))) {
+    // Once this is set, it means that stdin has been configured for
+    // reading from and that the old console mode should be restored later.
+    _console_handle = in;
+
+    // Note that we don't need to configure C Runtime line-ending
+    // translation because _console_read() does not call the C Runtime to
+    // read from the console.
+}
+
+void stdin_raw_restore() {
+    if (_console_handle != NULL) {
+        const HANDLE in = _console_handle;
+        _console_handle = NULL;  // clear state
+
+        if (!SetConsoleMode(in, _old_console_mode)) {
             // This really should not fail.
-            D("stdin_raw_init: SetConsoleMode() failure, error %ld\n",
-                GetLastError());
-        }
-
-        // Once this is set, it means that stdin has been configured for
-        // reading from and that the old console mode should be restored later.
-        _console_handle = in;
-
-        // Note that we don't need to configure C Runtime line-ending
-        // translation because _console_read() does not call the C Runtime to
-        // read from the console.
-    }
-}
-
-void stdin_raw_restore(const int fd) {
-    if (STDIN_FILENO == fd) {
-        if (_console_handle != NULL) {
-            const HANDLE in = _console_handle;
-            _console_handle = NULL;  // clear state
-
-            if (!SetConsoleMode(in, _old_console_mode)) {
-                // This really should not fail.
-                D("stdin_raw_restore: SetConsoleMode() failure, error %ld\n",
-                    GetLastError());
-            }
+            D("stdin_raw_restore: SetConsoleMode() failed: %s",
+              android::base::SystemErrorCodeToString(GetLastError()).c_str());
         }
     }
 }
 
-// Called by 'adb shell' command to read from stdin.
-int unix_read(int fd, void* buf, size_t len) {
+// Called by 'adb shell' and 'adb exec-in' (via unix_read()) to read from stdin.
+int unix_read_interruptible(int fd, void* buf, size_t len) {
     if ((fd == STDIN_FILENO) && (_console_handle != NULL)) {
         // If it is a request to read from stdin, and stdin_raw_init() has been
         // called, and it successfully configured the console, then read from
@@ -3045,9 +2158,679 @@ int unix_read(int fd, void* buf, size_t len) {
         // terminal.
         return _console_read(_console_handle, buf, len);
     } else {
+        // On older versions of Windows (definitely 7, definitely not 10),
+        // ReadConsole() with a size >= 31367 fails, so if |fd| is a console
+        // we need to limit the read size.
+        if (len > 4096 && unix_isatty(fd)) {
+            len = 4096;
+        }
         // Just call into C Runtime which can read from pipes/files and which
-        // can do LF/CR translation.
+        // can do LF/CR translation (which is overridable with _setmode()).
+        // Undefine the macro that is set in sysdeps.h which bans calls to
+        // plain read() in favor of unix_read() or adb_read().
+#pragma push_macro("read")
 #undef read
         return read(fd, buf, len);
+#pragma pop_macro("read")
     }
+}
+
+/**************************************************************************/
+/**************************************************************************/
+/*****                                                                *****/
+/*****      Unicode support                                           *****/
+/*****                                                                *****/
+/**************************************************************************/
+/**************************************************************************/
+
+// This implements support for using files with Unicode filenames and for
+// outputting Unicode text to a Win32 console window. This is inspired from
+// http://utf8everywhere.org/.
+//
+// Background
+// ----------
+//
+// On POSIX systems, to deal with files with Unicode filenames, just pass UTF-8
+// filenames to APIs such as open(). This works because filenames are largely
+// opaque 'cookies' (perhaps excluding path separators).
+//
+// On Windows, the native file APIs such as CreateFileW() take 2-byte wchar_t
+// UTF-16 strings. There is an API, CreateFileA() that takes 1-byte char
+// strings, but the strings are in the ANSI codepage and not UTF-8. (The
+// CreateFile() API is really just a macro that adds the W/A based on whether
+// the UNICODE preprocessor symbol is defined).
+//
+// Options
+// -------
+//
+// Thus, to write a portable program, there are a few options:
+//
+// 1. Write the program with wchar_t filenames (wchar_t path[256];).
+//    For Windows, just call CreateFileW(). For POSIX, write a wrapper openW()
+//    that takes a wchar_t string, converts it to UTF-8 and then calls the real
+//    open() API.
+//
+// 2. Write the program with a TCHAR typedef that is 2 bytes on Windows and
+//    1 byte on POSIX. Make T-* wrappers for various OS APIs and call those,
+//    potentially touching a lot of code.
+//
+// 3. Write the program with a 1-byte char filenames (char path[256];) that are
+//    UTF-8. For POSIX, just call open(). For Windows, write a wrapper that
+//    takes a UTF-8 string, converts it to UTF-16 and then calls the real OS
+//    or C Runtime API.
+//
+// The Choice
+// ----------
+//
+// The code below chooses option 3, the UTF-8 everywhere strategy. It uses
+// android::base::WideToUTF8() which converts UTF-16 to UTF-8. This is used by the
+// NarrowArgs helper class that is used to convert wmain() args into UTF-8
+// args that are passed to main() at the beginning of program startup. We also use
+// android::base::UTF8ToWide() which converts from UTF-8 to UTF-16. This is used to
+// implement wrappers below that call UTF-16 OS and C Runtime APIs.
+//
+// Unicode console output
+// ----------------------
+//
+// The way to output Unicode to a Win32 console window is to call
+// WriteConsoleW() with UTF-16 text. (The user must also choose a proper font
+// such as Lucida Console or Consolas, and in the case of East Asian languages
+// (such as Chinese, Japanese, Korean), the user must go to the Control Panel
+// and change the "system locale" to Chinese, etc., which allows a Chinese, etc.
+// font to be used in console windows.)
+//
+// The problem is getting the C Runtime to make fprintf and related APIs call
+// WriteConsoleW() under the covers. The C Runtime API, _setmode() sounds
+// promising, but the various modes have issues:
+//
+// 1. _setmode(_O_TEXT) (the default) does not use WriteConsoleW() so UTF-8 and
+//    UTF-16 do not display properly.
+// 2. _setmode(_O_BINARY) does not use WriteConsoleW() and the text comes out
+//    totally wrong.
+// 3. _setmode(_O_U8TEXT) seems to cause the C Runtime _invalid_parameter
+//    handler to be called (upon a later I/O call), aborting the process.
+// 4. _setmode(_O_U16TEXT) and _setmode(_O_WTEXT) cause non-wide printf/fprintf
+//    to output nothing.
+//
+// So the only solution is to write our own adb_fprintf() that converts UTF-8
+// to UTF-16 and then calls WriteConsoleW().
+
+
+// Constructor for helper class to convert wmain() UTF-16 args to UTF-8 to
+// be passed to main().
+NarrowArgs::NarrowArgs(const int argc, wchar_t** const argv) {
+    narrow_args = new char*[argc + 1];
+
+    for (int i = 0; i < argc; ++i) {
+        std::string arg_narrow;
+        if (!android::base::WideToUTF8(argv[i], &arg_narrow)) {
+            fatal_errno("cannot convert argument from UTF-16 to UTF-8");
+        }
+        narrow_args[i] = strdup(arg_narrow.c_str());
+    }
+    narrow_args[argc] = nullptr;   // terminate
+}
+
+NarrowArgs::~NarrowArgs() {
+    if (narrow_args != nullptr) {
+        for (char** argp = narrow_args; *argp != nullptr; ++argp) {
+            free(*argp);
+        }
+        delete[] narrow_args;
+        narrow_args = nullptr;
+    }
+}
+
+int unix_open(const char* path, int options, ...) {
+    std::wstring path_wide;
+    if (!android::base::UTF8ToWide(path, &path_wide)) {
+        return -1;
+    }
+    if ((options & O_CREAT) == 0) {
+        return _wopen(path_wide.c_str(), options);
+    } else {
+        int      mode;
+        va_list  args;
+        va_start(args, options);
+        mode = va_arg(args, int);
+        va_end(args);
+        return _wopen(path_wide.c_str(), options, mode);
+    }
+}
+
+// Version of stat() that takes a UTF-8 path.
+int adb_stat(const char* path, struct adb_stat* s) {
+#pragma push_macro("wstat")
+// This definition of wstat seems to be missing from <sys/stat.h>.
+#if defined(_FILE_OFFSET_BITS) && (_FILE_OFFSET_BITS == 64)
+#ifdef _USE_32BIT_TIME_T
+#define wstat _wstat32i64
+#else
+#define wstat _wstat64
+#endif
+#else
+// <sys/stat.h> has a function prototype for wstat() that should be available.
+#endif
+
+    std::wstring path_wide;
+    if (!android::base::UTF8ToWide(path, &path_wide)) {
+        return -1;
+    }
+
+    return wstat(path_wide.c_str(), s);
+
+#pragma pop_macro("wstat")
+}
+
+// Version of opendir() that takes a UTF-8 path.
+DIR* adb_opendir(const char* path) {
+    std::wstring path_wide;
+    if (!android::base::UTF8ToWide(path, &path_wide)) {
+        return nullptr;
+    }
+
+    // Just cast _WDIR* to DIR*. This doesn't work if the caller reads any of
+    // the fields, but right now all the callers treat the structure as
+    // opaque.
+    return reinterpret_cast<DIR*>(_wopendir(path_wide.c_str()));
+}
+
+// Version of readdir() that returns UTF-8 paths.
+struct dirent* adb_readdir(DIR* dir) {
+    _WDIR* const wdir = reinterpret_cast<_WDIR*>(dir);
+    struct _wdirent* const went = _wreaddir(wdir);
+    if (went == nullptr) {
+        return nullptr;
+    }
+
+    // Convert from UTF-16 to UTF-8.
+    std::string name_utf8;
+    if (!android::base::WideToUTF8(went->d_name, &name_utf8)) {
+        return nullptr;
+    }
+
+    // Cast the _wdirent* to dirent* and overwrite the d_name field (which has
+    // space for UTF-16 wchar_t's) with UTF-8 char's.
+    struct dirent* ent = reinterpret_cast<struct dirent*>(went);
+
+    if (name_utf8.length() + 1 > sizeof(went->d_name)) {
+        // Name too big to fit in existing buffer.
+        errno = ENOMEM;
+        return nullptr;
+    }
+
+    // Note that sizeof(_wdirent::d_name) is bigger than sizeof(dirent::d_name)
+    // because _wdirent contains wchar_t instead of char. So even if name_utf8
+    // can fit in _wdirent::d_name, the resulting dirent::d_name field may be
+    // bigger than the caller expects because they expect a dirent structure
+    // which has a smaller d_name field. Ignore this since the caller should be
+    // resilient.
+
+    // Rewrite the UTF-16 d_name field to UTF-8.
+    strcpy(ent->d_name, name_utf8.c_str());
+
+    return ent;
+}
+
+// Version of closedir() to go with our version of adb_opendir().
+int adb_closedir(DIR* dir) {
+    return _wclosedir(reinterpret_cast<_WDIR*>(dir));
+}
+
+// Version of unlink() that takes a UTF-8 path.
+int adb_unlink(const char* path) {
+    std::wstring wpath;
+    if (!android::base::UTF8ToWide(path, &wpath)) {
+        return -1;
+    }
+
+    int  rc = _wunlink(wpath.c_str());
+
+    if (rc == -1 && errno == EACCES) {
+        /* unlink returns EACCES when the file is read-only, so we first */
+        /* try to make it writable, then unlink again...                 */
+        rc = _wchmod(wpath.c_str(), _S_IREAD | _S_IWRITE);
+        if (rc == 0)
+            rc = _wunlink(wpath.c_str());
+    }
+    return rc;
+}
+
+// Version of mkdir() that takes a UTF-8 path.
+int adb_mkdir(const std::string& path, int mode) {
+    std::wstring path_wide;
+    if (!android::base::UTF8ToWide(path, &path_wide)) {
+        return -1;
+    }
+
+    return _wmkdir(path_wide.c_str());
+}
+
+// Version of utime() that takes a UTF-8 path.
+int adb_utime(const char* path, struct utimbuf* u) {
+    std::wstring path_wide;
+    if (!android::base::UTF8ToWide(path, &path_wide)) {
+        return -1;
+    }
+
+    static_assert(sizeof(struct utimbuf) == sizeof(struct _utimbuf),
+        "utimbuf and _utimbuf should be the same size because they both "
+        "contain the same types, namely time_t");
+    return _wutime(path_wide.c_str(), reinterpret_cast<struct _utimbuf*>(u));
+}
+
+// Version of chmod() that takes a UTF-8 path.
+int adb_chmod(const char* path, int mode) {
+    std::wstring path_wide;
+    if (!android::base::UTF8ToWide(path, &path_wide)) {
+        return -1;
+    }
+
+    return _wchmod(path_wide.c_str(), mode);
+}
+
+// From libutils/Unicode.cpp, get the length of a UTF-8 sequence given the lead byte.
+static inline size_t utf8_codepoint_len(uint8_t ch) {
+    return ((0xe5000000 >> ((ch >> 3) & 0x1e)) & 3) + 1;
+}
+
+namespace internal {
+
+// Given a sequence of UTF-8 bytes (denoted by the range [first, last)), return the number of bytes
+// (from the beginning) that are complete UTF-8 sequences and append the remaining bytes to
+// remaining_bytes.
+size_t ParseCompleteUTF8(const char* const first, const char* const last,
+                         std::vector<char>* const remaining_bytes) {
+    // Walk backwards from the end of the sequence looking for the beginning of a UTF-8 sequence.
+    // Current_after points one byte past the current byte to be examined.
+    for (const char* current_after = last; current_after != first; --current_after) {
+        const char* const current = current_after - 1;
+        const char ch = *current;
+        const char kHighBit = 0x80u;
+        const char kTwoHighestBits = 0xC0u;
+        if ((ch & kHighBit) == 0) { // high bit not set
+            // The buffer ends with a one-byte UTF-8 sequence, possibly followed by invalid trailing
+            // bytes with no leading byte, so return the entire buffer.
+            break;
+        } else if ((ch & kTwoHighestBits) == kTwoHighestBits) { // top two highest bits set
+            // Lead byte in UTF-8 sequence, so check if we have all the bytes in the sequence.
+            const size_t bytes_available = last - current;
+            if (bytes_available < utf8_codepoint_len(ch)) {
+                // We don't have all the bytes in the UTF-8 sequence, so return all the bytes
+                // preceding the current incomplete UTF-8 sequence and append the remaining bytes
+                // to remaining_bytes.
+                remaining_bytes->insert(remaining_bytes->end(), current, last);
+                return current - first;
+            } else {
+                // The buffer ends with a complete UTF-8 sequence, possibly followed by invalid
+                // trailing bytes with no lead byte, so return the entire buffer.
+                break;
+            }
+        } else {
+            // Trailing byte, so keep going backwards looking for the lead byte.
+        }
+    }
+
+    // Return the size of the entire buffer. It is possible that we walked backward past invalid
+    // trailing bytes with no lead byte, in which case we want to return all those invalid bytes
+    // so that they can be processed.
+    return last - first;
+}
+
+}
+
+// Bytes that have not yet been output to the console because they are incomplete UTF-8 sequences.
+// Note that we use only one buffer even though stderr and stdout are logically separate streams.
+// This matches the behavior of Linux.
+// Protected by g_console_output_buffer_lock.
+static auto& g_console_output_buffer = *new std::vector<char>();
+
+// Internal helper function to write UTF-8 bytes to a console. Returns -1 on error.
+static int _console_write_utf8(const char* const buf, const size_t buf_size, FILE* stream,
+                               HANDLE console) {
+    const int saved_errno = errno;
+    std::vector<char> combined_buffer;
+
+    // Complete UTF-8 sequences that should be immediately written to the console.
+    const char* utf8;
+    size_t utf8_size;
+
+    adb_mutex_lock(&g_console_output_buffer_lock);
+    if (g_console_output_buffer.empty()) {
+        // If g_console_output_buffer doesn't have a buffered up incomplete UTF-8 sequence (the
+        // common case with plain ASCII), parse buf directly.
+        utf8 = buf;
+        utf8_size = internal::ParseCompleteUTF8(buf, buf + buf_size, &g_console_output_buffer);
+    } else {
+        // If g_console_output_buffer has a buffered up incomplete UTF-8 sequence, move it to
+        // combined_buffer (and effectively clear g_console_output_buffer) and append buf to
+        // combined_buffer, then parse it all together.
+        combined_buffer.swap(g_console_output_buffer);
+        combined_buffer.insert(combined_buffer.end(), buf, buf + buf_size);
+
+        utf8 = combined_buffer.data();
+        utf8_size = internal::ParseCompleteUTF8(utf8, utf8 + combined_buffer.size(),
+                                                &g_console_output_buffer);
+    }
+    adb_mutex_unlock(&g_console_output_buffer_lock);
+
+    std::wstring utf16;
+
+    // Try to convert from data that might be UTF-8 to UTF-16, ignoring errors (just like Linux
+    // which does not return an error on bad UTF-8). Data might not be UTF-8 if the user cat's
+    // random data, runs dmesg (which might have non-UTF-8), etc.
+    // This could throw std::bad_alloc.
+    (void)android::base::UTF8ToWide(utf8, utf8_size, &utf16);
+
+    // Note that this does not do \n => \r\n translation because that
+    // doesn't seem necessary for the Windows console. For the Windows
+    // console \r moves to the beginning of the line and \n moves to a new
+    // line.
+
+    // Flush any stream buffering so that our output is afterwards which
+    // makes sense because our call is afterwards.
+    (void)fflush(stream);
+
+    // Write UTF-16 to the console.
+    DWORD written = 0;
+    if (!WriteConsoleW(console, utf16.c_str(), utf16.length(), &written, NULL)) {
+        errno = EIO;
+        return -1;
+    }
+
+    // Return the size of the original buffer passed in, signifying that we consumed it all, even
+    // if nothing was displayed, in the case of being passed an incomplete UTF-8 sequence. This
+    // matches the Linux behavior.
+    errno = saved_errno;
+    return buf_size;
+}
+
+// Function prototype because attributes cannot be placed on func definitions.
+static int _console_vfprintf(const HANDLE console, FILE* stream,
+                             const char *format, va_list ap)
+    __attribute__((__format__(ADB_FORMAT_ARCHETYPE, 3, 0)));
+
+// Internal function to format a UTF-8 string and write it to a Win32 console.
+// Returns -1 on error.
+static int _console_vfprintf(const HANDLE console, FILE* stream,
+                             const char *format, va_list ap) {
+    const int saved_errno = errno;
+    std::string output_utf8;
+
+    // Format the string.
+    // This could throw std::bad_alloc.
+    android::base::StringAppendV(&output_utf8, format, ap);
+
+    const int result = _console_write_utf8(output_utf8.c_str(), output_utf8.length(), stream,
+                                           console);
+    if (result != -1) {
+        errno = saved_errno;
+    } else {
+        // If -1 was returned, errno has been set.
+    }
+    return result;
+}
+
+// Version of vfprintf() that takes UTF-8 and can write Unicode to a
+// Windows console.
+int adb_vfprintf(FILE *stream, const char *format, va_list ap) {
+    const HANDLE console = _get_console_handle(stream);
+
+    // If there is an associated Win32 console, write to it specially,
+    // otherwise defer to the regular C Runtime, passing it UTF-8.
+    if (console != NULL) {
+        return _console_vfprintf(console, stream, format, ap);
+    } else {
+        // If vfprintf is a macro, undefine it, so we can call the real
+        // C Runtime API.
+#pragma push_macro("vfprintf")
+#undef vfprintf
+        return vfprintf(stream, format, ap);
+#pragma pop_macro("vfprintf")
+    }
+}
+
+// Version of vprintf() that takes UTF-8 and can write Unicode to a Windows console.
+int adb_vprintf(const char *format, va_list ap) {
+    return adb_vfprintf(stdout, format, ap);
+}
+
+// Version of fprintf() that takes UTF-8 and can write Unicode to a
+// Windows console.
+int adb_fprintf(FILE *stream, const char *format, ...) {
+    va_list ap;
+    va_start(ap, format);
+    const int result = adb_vfprintf(stream, format, ap);
+    va_end(ap);
+
+    return result;
+}
+
+// Version of printf() that takes UTF-8 and can write Unicode to a
+// Windows console.
+int adb_printf(const char *format, ...) {
+    va_list ap;
+    va_start(ap, format);
+    const int result = adb_vfprintf(stdout, format, ap);
+    va_end(ap);
+
+    return result;
+}
+
+// Version of fputs() that takes UTF-8 and can write Unicode to a
+// Windows console.
+int adb_fputs(const char* buf, FILE* stream) {
+    // adb_fprintf returns -1 on error, which is conveniently the same as EOF
+    // which fputs (and hence adb_fputs) should return on error.
+    static_assert(EOF == -1, "EOF is not -1, so this code needs to be fixed");
+    return adb_fprintf(stream, "%s", buf);
+}
+
+// Version of fputc() that takes UTF-8 and can write Unicode to a
+// Windows console.
+int adb_fputc(int ch, FILE* stream) {
+    const int result = adb_fprintf(stream, "%c", ch);
+    if (result == -1) {
+        return EOF;
+    }
+    // For success, fputc returns the char, cast to unsigned char, then to int.
+    return static_cast<unsigned char>(ch);
+}
+
+// Version of putchar() that takes UTF-8 and can write Unicode to a Windows console.
+int adb_putchar(int ch) {
+    return adb_fputc(ch, stdout);
+}
+
+// Version of puts() that takes UTF-8 and can write Unicode to a Windows console.
+int adb_puts(const char* buf) {
+    // adb_printf returns -1 on error, which is conveniently the same as EOF
+    // which puts (and hence adb_puts) should return on error.
+    static_assert(EOF == -1, "EOF is not -1, so this code needs to be fixed");
+    return adb_printf("%s\n", buf);
+}
+
+// Internal function to write UTF-8 to a Win32 console. Returns the number of
+// items (of length size) written. On error, returns a short item count or 0.
+static size_t _console_fwrite(const void* ptr, size_t size, size_t nmemb,
+                              FILE* stream, HANDLE console) {
+    const int result = _console_write_utf8(reinterpret_cast<const char*>(ptr), size * nmemb, stream,
+                                           console);
+    if (result == -1) {
+        return 0;
+    }
+    return result / size;
+}
+
+// Version of fwrite() that takes UTF-8 and can write Unicode to a
+// Windows console.
+size_t adb_fwrite(const void* ptr, size_t size, size_t nmemb, FILE* stream) {
+    const HANDLE console = _get_console_handle(stream);
+
+    // If there is an associated Win32 console, write to it specially,
+    // otherwise defer to the regular C Runtime, passing it UTF-8.
+    if (console != NULL) {
+        return _console_fwrite(ptr, size, nmemb, stream, console);
+    } else {
+        // If fwrite is a macro, undefine it, so we can call the real
+        // C Runtime API.
+#pragma push_macro("fwrite")
+#undef fwrite
+        return fwrite(ptr, size, nmemb, stream);
+#pragma pop_macro("fwrite")
+    }
+}
+
+// Version of fopen() that takes a UTF-8 filename and can access a file with
+// a Unicode filename.
+FILE* adb_fopen(const char* path, const char* mode) {
+    std::wstring path_wide;
+    if (!android::base::UTF8ToWide(path, &path_wide)) {
+        return nullptr;
+    }
+
+    std::wstring mode_wide;
+    if (!android::base::UTF8ToWide(mode, &mode_wide)) {
+        return nullptr;
+    }
+
+    return _wfopen(path_wide.c_str(), mode_wide.c_str());
+}
+
+// Return a lowercase version of the argument. Uses C Runtime tolower() on
+// each byte which is not UTF-8 aware, and theoretically uses the current C
+// Runtime locale (which in practice is not changed, so this becomes a ASCII
+// conversion).
+static std::string ToLower(const std::string& anycase) {
+    // copy string
+    std::string str(anycase);
+    // transform the copy
+    std::transform(str.begin(), str.end(), str.begin(), tolower);
+    return str;
+}
+
+extern "C" int main(int argc, char** argv);
+
+// Link with -municode to cause this wmain() to be used as the program
+// entrypoint. It will convert the args from UTF-16 to UTF-8 and call the
+// regular main() with UTF-8 args.
+extern "C" int wmain(int argc, wchar_t **argv) {
+    // Convert args from UTF-16 to UTF-8 and pass that to main().
+    NarrowArgs narrow_args(argc, argv);
+    return main(argc, narrow_args.data());
+}
+
+// Shadow UTF-8 environment variable name/value pairs that are created from
+// _wenviron the first time that adb_getenv() is called. Note that this is not
+// currently updated if putenv, setenv, unsetenv are called. Note that no
+// thread synchronization is done, but we're called early enough in
+// single-threaded startup that things work ok.
+static auto& g_environ_utf8 = *new std::unordered_map<std::string, char*>();
+
+// Make sure that shadow UTF-8 environment variables are setup.
+static void _ensure_env_setup() {
+    // If some name/value pairs exist, then we've already done the setup below.
+    if (g_environ_utf8.size() != 0) {
+        return;
+    }
+
+    if (_wenviron == nullptr) {
+        // If _wenviron is null, then -municode probably wasn't used. That
+        // linker flag will cause the entry point to setup _wenviron. It will
+        // also require an implementation of wmain() (which we provide above).
+        fatal("_wenviron is not set, did you link with -municode?");
+    }
+
+    // Read name/value pairs from UTF-16 _wenviron and write new name/value
+    // pairs to UTF-8 g_environ_utf8. Note that it probably does not make sense
+    // to use the D() macro here because that tracing only works if the
+    // ADB_TRACE environment variable is setup, but that env var can't be read
+    // until this code completes.
+    for (wchar_t** env = _wenviron; *env != nullptr; ++env) {
+        wchar_t* const equal = wcschr(*env, L'=');
+        if (equal == nullptr) {
+            // Malformed environment variable with no equal sign. Shouldn't
+            // really happen, but we should be resilient to this.
+            continue;
+        }
+
+        // If we encounter an error converting UTF-16, don't error-out on account of a single env
+        // var because the program might never even read this particular variable.
+        std::string name_utf8;
+        if (!android::base::WideToUTF8(*env, equal - *env, &name_utf8)) {
+            continue;
+        }
+
+        // Store lowercase name so that we can do case-insensitive searches.
+        name_utf8 = ToLower(name_utf8);
+
+        std::string value_utf8;
+        if (!android::base::WideToUTF8(equal + 1, &value_utf8)) {
+            continue;
+        }
+
+        char* const value_dup = strdup(value_utf8.c_str());
+
+        // Don't overwrite a previus env var with the same name. In reality,
+        // the system probably won't let two env vars with the same name exist
+        // in _wenviron.
+        g_environ_utf8.insert({name_utf8, value_dup});
+    }
+}
+
+// Version of getenv() that takes a UTF-8 environment variable name and
+// retrieves a UTF-8 value. Case-insensitive to match getenv() on Windows.
+char* adb_getenv(const char* name) {
+    _ensure_env_setup();
+
+    // Case-insensitive search by searching for lowercase name in a map of
+    // lowercase names.
+    const auto it = g_environ_utf8.find(ToLower(std::string(name)));
+    if (it == g_environ_utf8.end()) {
+        return nullptr;
+    }
+
+    return it->second;
+}
+
+// Version of getcwd() that returns the current working directory in UTF-8.
+char* adb_getcwd(char* buf, int size) {
+    wchar_t* wbuf = _wgetcwd(nullptr, 0);
+    if (wbuf == nullptr) {
+        return nullptr;
+    }
+
+    std::string buf_utf8;
+    const bool narrow_result = android::base::WideToUTF8(wbuf, &buf_utf8);
+    free(wbuf);
+    wbuf = nullptr;
+
+    if (!narrow_result) {
+        return nullptr;
+    }
+
+    // If size was specified, make sure all the chars will fit.
+    if (size != 0) {
+        if (size < static_cast<int>(buf_utf8.length() + 1)) {
+            errno = ERANGE;
+            return nullptr;
+        }
+    }
+
+    // If buf was not specified, allocate storage.
+    if (buf == nullptr) {
+        if (size == 0) {
+            size = buf_utf8.length() + 1;
+        }
+        buf = reinterpret_cast<char*>(malloc(size));
+        if (buf == nullptr) {
+            return nullptr;
+        }
+    }
+
+    // Destination buffer was allocated with enough space, or we've already
+    // checked an existing buffer size for enough space.
+    strcpy(buf, buf_utf8.c_str());
+
+    return buf;
 }

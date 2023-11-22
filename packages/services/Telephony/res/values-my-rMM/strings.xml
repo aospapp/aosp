@@ -17,10 +17,10 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="phoneAppLabel" product="tablet" msgid="1107073389495104784">"ဆဲလ်လူလာ ဒေတာ"</string>
-    <string name="phoneAppLabel" product="default" msgid="906161039445636857">"ဖုန်း"</string>
+    <string name="phoneAppLabel" product="default" msgid="6790717591729922998">"ဖုန်းဝန်ဆောင်မှုများ"</string>
     <string name="emergencyDialerIconLabel" msgid="7812140032168171053">"အရေးပေါ်နံပါတ်ခေါ်ဆိုနံပါတ်ကွက်"</string>
     <string name="phoneIconLabel" msgid="2331230813161304895">"ဖုန်း"</string>
-    <string name="fdnListLabel" msgid="8630418672279521003">"FDN အမှတ်စဉ်"</string>
+    <string name="fdnListLabel" msgid="8630418672279521003">"FDN စာရင်း"</string>
     <string name="unknown" msgid="6878797917991465859">"အကြောင်းအရာ မသိရှိ"</string>
     <string name="private_num" msgid="6713286113000232309">"လျို့ဝှက် နံပါတ်"</string>
     <string name="payphone" msgid="4793877574636445118">"ငွေပေးရသည့်ဖုန်း"</string>
@@ -28,10 +28,10 @@
     <string name="mmiStarted" msgid="6347869857061147003">"MMIကုတ်နံပါတ်ကို စတင်ပြီးပါပြီ"</string>
     <string name="ussdRunning" msgid="485588686340541690">"USSD ကုဒ် လုပ်ဆောင်နေပါသည်…"</string>
     <string name="mmiCancelled" msgid="2771923949751842276">"MMIကုတ်နံပါတ်ကို ပယ်ဖျက်ပြီးပါပြီ"</string>
-    <string name="cancel" msgid="5044513931633602634">"ထားတော့"</string>
+    <string name="cancel" msgid="5044513931633602634">"မလုပ်တော့ပါ"</string>
     <string name="enter_input" msgid="1810529547726803893">"USSD စာများဟာ စာလုံးရေ <xliff:g id="MIN_LEN">%d</xliff:g> မှ<xliff:g id="MAX_LEN">%d</xliff:g> အတွင်း ဖြစ်ရပါမည်။ နောက်တစ်ခေါက်ကြိုးစားပါ"</string>
     <string name="manageConferenceLabel" msgid="4691922394301969053">"ကွန်းဖရင့် ခေါ်ဆိုမှုကို ထိန်းချုပ်သည်"</string>
-    <string name="ok" msgid="3811371167865772377">"ကောင်းပြီ"</string>
+    <string name="ok" msgid="3811371167865772377">"အိုကေ"</string>
     <string name="audio_mode_speaker" msgid="27649582100085266">"စပီကာ"</string>
     <string name="audio_mode_earpiece" msgid="4156527186373869107">"လက်ကိုင်တယ်လီဖုန်းနားခွက်"</string>
     <string name="audio_mode_wired_headset" msgid="1465350758489175975">"ကြိုးတပ် မိုက်ခွက်ပါနားကြပ်"</string>
@@ -40,7 +40,7 @@
     <string name="pause_prompt_str" msgid="1789964702154314806">"အသံ ပို့နေစဉ်\n"</string>
     <string name="send_button" msgid="4106860097497818751">"ပို့ခြင်း"</string>
     <string name="pause_prompt_yes" msgid="3564467212025151797">"ဟုတ်ကဲ့"</string>
-    <string name="pause_prompt_no" msgid="6686238803236884877">"မဟုတ်ပါ"</string>
+    <string name="pause_prompt_no" msgid="6686238803236884877">"No"</string>
     <string name="wild_prompt_str" msgid="5543521676355533577">"wildစာလုံးကို အစားထိုးရန်မှာ"</string>
     <string name="no_vm_number" msgid="4164780423805688336">"အသံစာပို့စနစ် နံပါတ် ပျောက်နေပါသည်"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"ဆင်းမ်ကဒ်ပေါ်တွင် အသံစာပို့စနစ် နံပါတ် သိမ်းဆည်ထားခြင်း မရှိပါ"</string>
@@ -63,6 +63,7 @@
     <string name="phone_accounts_make_calls_with" msgid="1969188078933152231">"ဖြင့် ခေါ်ဆိုမှုများပြုလုပ်မည်"</string>
     <string name="phone_accounts_make_sip_calls_with" msgid="4677789312053828493">"ဖြင့် SIP ခေါ်ဆိုမှုများ ပြုလုပ်မည်"</string>
     <string name="phone_accounts_ask_every_time" msgid="4346499067149985702">"အရင်မေးပါ"</string>
+    <string name="phone_accounts_default_account_label" msgid="4183772241814460014">"ကွန်ရက်မရှိပါ"</string>
     <string name="phone_accounts_settings_header" msgid="4141710640883261094">"ဆက်တင်များ"</string>
     <string name="phone_accounts_choose_accounts" msgid="5232948804226424002">"အကောင့်များ ရွေးချယ်မည်။"</string>
     <string name="phone_accounts_selection_header" msgid="1365215726106915865">"ဖုန်းအကောင့်များ"</string>
@@ -70,15 +71,15 @@
     <string name="phone_accounts_configure_account_settings" msgid="1361715069911607109">"အကောင့် ချိန်ညှိချက်များ ပြုပြင်မည်"</string>
     <string name="phone_accounts_all_calling_accounts" msgid="207619531589278471">"ခေါ်ဆိုနေသော အကောင့်များ အားလုံး"</string>
     <string name="phone_accounts_all_calling_accounts_summary" msgid="8594186415822657011">"ဖုန်းခေါ်ဆိုနိုင်သည့် အကောင့်များအား ရွေးရန်"</string>
-    <string name="wifi_calling" msgid="739018212480165598">"ဝိုင်ဖိုင် ခေါ်ဆိုမှု"</string>
+    <string name="wifi_calling" msgid="739018212480165598">"Wi-Fi  ခေါ်ဆိုမှု"</string>
     <string name="connection_service_default_label" msgid="1498481943805913754">"တပ်ဆင်ပြီး ချိတ်ဆက်ရေး ဝန်ဆောင်မှု"</string>
     <string name="voicemail" msgid="8693759337917898954">"အသံစာပို့စနစ်"</string>
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"အသံစာပို့စနစ် ( <xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g> )"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"အသံစာပို့နစ်အမှတ် -"</string>
     <string name="networks" msgid="8873030692174541976">"ကွန်ရက် အော်ပရေတာများ"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"အရေးပေါ် ထုတ်လွှင့်မှုများ"</string>
-    <string name="call_settings" msgid="6112441768261754562">"ခေါ်ဆိုခြင်း အဆင်အပြင်များ"</string>
-    <string name="additional_gsm_call_settings" msgid="1391795981938800617">"ပိုမိုသော အပြင်အဆင်များ"</string>
+    <string name="call_settings" msgid="6112441768261754562">"ဖုန်းခေါ်ဆိုခြင်း ဆက်တင်များ"</string>
+    <string name="additional_gsm_call_settings" msgid="1391795981938800617">"နောက်ထပ်ဆက်တင်များ"</string>
     <string name="additional_gsm_call_settings_with_label" msgid="1385241520708457376">"နောက်ထပ် ချိန်ညှိချက်များ (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="sum_gsm_call_settings" msgid="4076647190996778012">"GSM ခေါ်ဆိုမှုအတွက်သာ ဖြည့်စွက်အပြင်အဆင်"</string>
     <string name="additional_cdma_call_settings" msgid="8628958775721886909">"ပိုမိုသော CDMA ခေါ်ဆိုမှု အပြင်အဆင်"</string>
@@ -92,8 +93,8 @@
     <string name="labelCW" msgid="6120513814915920200">"ခေါ်ဆိုမှု စောင့်ဆိုင်းခြင်း"</string>
     <string name="sum_cw_enabled" msgid="8083061901633671397">"ဖုန်းပြောနေစဉ် အဝင်ခေါ်ဆိုမှုရှိပါက အသိပေးပါ"</string>
     <string name="sum_cw_disabled" msgid="3648693907300104575">"ဖုန်းပြောနေစဉ် အဝင်ခေါ်ဆိုမှုရှိပါက အသိပေးပါ"</string>
-    <string name="call_forwarding_settings" msgid="3378927671091537173">"ဖုန်းခေါ်ဆိုမှု ထပ်မံလွှဲပြောင်းခြင်း အပြင်အဆင်"</string>
-    <string name="call_forwarding_settings_with_label" msgid="8569489414006897127">"ခေါ်ဆိုမှု ထပ်ဆင့်ပို့ခြင်း ချိန်ညှိချက်များ (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
+    <string name="call_forwarding_settings" msgid="3378927671091537173">"ဖုန်းခေါ်ဆိုမှု ထပ်ဆင့်ပို့ခြင်း ဆက်တင်များ"</string>
+    <string name="call_forwarding_settings_with_label" msgid="8569489414006897127">"ခေါ်ဆိုမှု ထပ်ဆင့်ပို့ခြင်း ဆက်တင်များ (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="labelCF" msgid="2574386948026924737">"အဝင်ခေါ်ဆိုမှုအား ထပ်ဆင့်ပို့ခြင်း"</string>
     <string name="labelCFU" msgid="8147177368148660600">"အမြဲတမ်း ထပ်ဆင့်ပို့ပါ"</string>
     <string name="messageCFU" msgid="3560082430662923687">"ဤနံပါတ်ကို အမြဲသုံးပါ"</string>
@@ -116,18 +117,21 @@
     <string name="sum_cfnrc_enabled" msgid="7010898346095497421">"<xliff:g id="PHONENUMBER">{0}</xliff:g> သို့ခေါ်ဆိုမှုအား တဆင့်ထပ်ပို့နေသည်"</string>
     <string name="sum_cfnrc_disabled" msgid="7222141261321276464">"သုံးမရအောင် ပိတ်ထားခြင်း"</string>
     <string name="disable_cfnrc_forbidden" msgid="5646361343094064333">"သင့် ဖုန်း ဆက်သွယ်မှု လုပ်လို့မရစဉ် call forwarding ပြုလုပ်မှု ပယ်ဖျက်ရန် သင့် အော်ပရေတာမှ ခွင့်မပြုပါ"</string>
-    <string name="updating_title" msgid="6146755386174019046">"ခေါ်ဆိုခြင်း အဆင်အပြင်များ"</string>
-    <string name="call_settings_primary_user_only" msgid="5679923943740900965">"အဓိက အသုံးပြုသူသာလျှင် ခေါ်ဆိုမှု ချိန်ညှိချက်များကို ပြောင်းလဲနိုင်ပါသည်။"</string>
-    <string name="call_settings_with_label" msgid="89359812614544532">"ခေါ်ဆိုမှု ချိန်ညှိချက်များ (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
-    <string name="error_updating_title" msgid="7970259216988931777">"ခေါ်ဆိုမှု အပြင်အဆင်အမှား"</string>
+    <string name="updating_title" msgid="6146755386174019046">"ဖုန်းခေါ်ဆိုခြင်း ဆက်တင်များ"</string>
+    <string name="call_settings_admin_user_only" msgid="4526094783818216374">"ခေါ်ဆိုမှုကြိုတင်ပြင်ဆင်ချက်များကို ကြီးကြပ်သူသာလျှင် ပြောင်းလဲနိုင်သည်။"</string>
+    <string name="call_settings_with_label" msgid="3401177261468593519">"ဆက်တင်များ ( <xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g> )"</string>
+    <string name="error_updating_title" msgid="7970259216988931777">"ခေါ်ဆိုမှုဆက်တင်အမှား"</string>
     <string name="reading_settings" msgid="1920291699287055284">"အပြင်အဆင်များကို ဖတ်နေပါသည်…"</string>
     <string name="updating_settings" msgid="8171225533884883252">"ဆက်တင်များအား ပြင်နေသည်…"</string>
     <string name="reverting_settings" msgid="4752151682666912828">"ဆက်တင်များကို ပြန်ပြောင်းနေစဉ်…"</string>
     <string name="response_error" msgid="6674110501330139405">"ကွန်ယက်မှ မထင်မှတ်သောတုံ့ပြန်ချက်"</string>
     <string name="exception_error" msgid="7027667130619518211">"ကွန်ရက် သို့မဟုတ် ဆင်းမ်ကဒ်အမှား"</string>
+    <string name="stk_cc_ss_to_dial_error" msgid="2816779198916570502">"SS တောင်းဆိုချက်ကို နံပါတ်လှည့်ရန် တောင်းဆိုချက် အဖြစ် ပြောင်းပေးခဲ့။"</string>
+    <string name="stk_cc_ss_to_ussd_error" msgid="7490626178582654236">"SS တောင်းဆိုချက်ကို USSD တောင်းဆိုချက် အဖြစ် ပြောင်းပေးခဲ့။"</string>
+    <string name="stk_cc_ss_to_ss_error" msgid="5057846756489053759">"SS တောင်းဆိုချက်ကို SS တောင်းဆိုချက် အသစ် အဖြစ် ပြောင်းပေးခဲ့။"</string>
     <string name="fdn_check_failure" msgid="18200614306525434">"သင့်ဖုန်းအပ်ပလီကေးရှင်း ၏ ပုံသေ ခေါ်ဆိုမှု နံပါတ်များ ဖွင့်ထားပါသည်။ ထို့ကြောင့် တချို့ ဖုန်းခေါ်မှု စွမ်းဆောင်ရည်များ အလုပ်မလုပ်ပါ"</string>
     <string name="radio_off_error" msgid="2304459933248513376">"ဤအပြင်အဆင်များကို မကြည့်ခင် ရေဒီယိုကို ဖွင့်ပါ"</string>
-    <string name="close_dialog" msgid="2365884406356986917">"ကောင်းပြီ"</string>
+    <string name="close_dialog" msgid="2365884406356986917">"အိုကေ"</string>
     <string name="enable" msgid="7248657275000173526">"ဖွင့်ထားရန်"</string>
     <string name="disable" msgid="4678348128118573672">"ပိတ်မည်"</string>
     <string name="change_num" msgid="239476305819844391">"အဆင်မြှင့်ခြင်း"</string>
@@ -143,7 +147,7 @@
     <string name="no_change" msgid="3186040086622435212">"အပြောင်းအလဲများ မပြုလုပ်ထားပါ"</string>
     <string name="sum_voicemail_choose_provider" msgid="59911196126278922">"အသံစာပို့စနစ် ဝန်ဆောင်မှု ရွေးပါ"</string>
     <string name="voicemail_default" msgid="2001233554889016880">"သင့် မိုဘိုင်းဆက်သွယ်ရေး ဝန်ဆောင်မှုဌာန"</string>
-    <string name="mobile_networks" msgid="2843854043339307375">"ဆယ်လူလာ ကွန်ရက် ဆက်တင်များ"</string>
+    <string name="mobile_networks" msgid="2843854043339307375">"ဆဲလ်လူလာ ကွန်ရက် ဆက်တင်များ"</string>
     <string name="label_available" msgid="1181658289009300430">"ရရှိနိုင်သော ကွန်ယက်များ"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"ရှာဖွေနေသည်…"</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"ကွန်ယက်များ မတွေ့ပါ"</string>
@@ -177,6 +181,7 @@
     <string name="preferred_network_mode_lte_wcdma_summary" msgid="9180775701594742750">"ပိုမိုကြိုက်သော ကွန်ယက်စနစ်- LTE / WCDMA"</string>
     <string name="preferred_network_mode_lte_gsm_umts_summary" msgid="633315028976225026">"ပိုနှစ်သက်သည့် ကွန်ရက်မုဒ်: LTE / GSM / UMTS"</string>
     <string name="preferred_network_mode_lte_cdma_summary" msgid="3722647806454528426">"ပိုနှစ်သက်သည့် ကွန်ရက်မုဒ်: LTE / CDMA"</string>
+    <string name="preferred_network_mode_tdscdma_summary" msgid="8021016193718678775">"ပိုမိုကြိုက်သော ကွန်ရက်မုဒ်: TDSCDMA"</string>
   <string-array name="preferred_network_mode_choices">
     <item msgid="7886739962255042385">"LTE / WCDMA"</item>
     <item msgid="577652050447385699">"မြန်နှုန်းမြင့်လိုင်း"</item>
@@ -196,6 +201,7 @@
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"အသံခေါ်ဆိုမှုနှင့် အခြားဆက်သွယ်ရေးများ တိုးတက်စေရန် LTE ဝန်ဆောင်မှုများ ကိုအသုံးပြုမည် (အကြံပြုထား)"</string>
     <string name="data_enabled" msgid="5972538663568715366">"ဒေတာ ဖွင့်ထားပြီး"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"ဒေတာ သုံးစွဲမှု ခွင့်ပြုရန်"</string>
+    <string name="dialog_alert_title" msgid="6751344986194435476">"သတိပြုရန်"</string>
     <string name="roaming" msgid="8871412572928323707">"ဒေတာရုန်းမင်း"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"ရုန်းမင်းပြုလုပ်နေစဉ် ဒေတာဝန်ဆောင်မှုများကို ဆက်သွယ်ခြင်း"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"ရုန်းမင်းပြုလုပ်နေစဉ် ဒေတာဝန်ဆောင်မှုများကို ဆက်သွယ်ခြင်း"</string>
@@ -326,7 +332,7 @@
     <string name="cdma_activate_device" msgid="3793805892364814518">"စက်ကို အက်တီဗိတ် လုပ်ရန်"</string>
     <string name="cdma_lte_data_service" msgid="4255018217292548962">"ဒေတာဝန်ဆောင်မှု စတင်ရန်"</string>
     <string name="carrier_settings_title" msgid="9028166176523012300">"ဖုန်းလိုင်းဝန်ဆောင်မှုပေးသူ၏ အပြင်အဆင်"</string>
-    <string name="fdn" msgid="7878832555095183202">"ခေါ်ဆိုသည့်အခြေစိုက်နံပါတ်များ"</string>
+    <string name="fdn" msgid="7878832555095183202">"FDN သတ်မှတ်နံပါတ်ဝန်ဆောင်မှု"</string>
     <string name="fdn_with_label" msgid="187084204115493366">"အထိုင်ဖုန်းနံပါတ် (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="manage_fdn_list" msgid="8777755791892122369">"FDN စာရင်း"</string>
     <string name="fdn_list_with_label" msgid="7437232552210469217">"FDN စာရင်း (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -424,11 +430,12 @@
     <string name="notification_network_selection_text" msgid="2607085729661923269">"ရွေးချယ်ထားသော ကွန်ရက် (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) မရရှိနိုင်ပါ"</string>
     <string name="incall_error_power_off" msgid="2947938060513306698">"ဖုန်းခေါ်ရန် လေယာဉ်ပျံမုဒ် ပိတ်ထားပါ။"</string>
     <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"ဖုန်းခေါ်ရန် လေယာဉ်ပျံမုဒ် ပိတ်ပါ သို့မဟုတ် ကြိုးမဲ့ကွန်ယက်သို့ ချိတ်ဆက်ပါ။"</string>
+    <string name="incall_error_ecm_emergency_only" msgid="738708660612388692">"အရေးပေါ် မဟုတ်သည့် ခေါ်ဆိုမှုကို ပြုလုပ်ရန် အရေးပေါ် ဖုန်းခေါ်မှုမှ ထွက်ပါ။"</string>
     <string name="incall_error_emergency_only" msgid="4678640422710818317">"ကွန်ယက်ပေါ်မှာ မှတ်ပုံတင်မှု မပြုလုပ်ထားပါ"</string>
-    <string name="incall_error_out_of_service" msgid="4100065333878929223">"ဆယ်လူလာ ကွန်ရက် မရှိပါ။"</string>
-    <string name="incall_error_out_of_service_wfc" msgid="323851839058697057">"ဆဲလူလာ ကွန်ယက် မရပါ။ ဖုန်းခေါ်ရန် ကြိုးမဲ့ကွန်ယက်သို့ ချိတ်ဆက်ပါ။"</string>
+    <string name="incall_error_out_of_service" msgid="4100065333878929223">"ဆဲလ်လူလာ ကွန်ရက် မရှိပါ။"</string>
+    <string name="incall_error_out_of_service_wfc" msgid="323851839058697057">"ဆဲလူလာ ကွန်ရက် မရပါ။ ဖုန်းခေါ်ရန် ကြိုးမဲ့ကွန်ရက်သို့ ချိတ်ဆက်ပါ။"</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"ဖုန်းခေါ်ရန်အတွက်၊ သင့်လျော်သည့်နံပါတ် ရိုက်ထည့်ပါ။"</string>
-    <string name="incall_error_call_failed" msgid="6302746943230078197">"မခေါ်ဆိုနိုင်ပါ။"</string>
+    <string name="incall_error_call_failed" msgid="5891978320269774095">"ခေါ်ဆို၍ မရပါ။"</string>
     <string name="incall_status_dialed_mmi" msgid="3672498861336189563">"MMI အမှတ်စဉ်ကို စတင်နေပါသည်…"</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"ဤဝန်ဆောင်မှုအား မပံ့ပိုးပါ။"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"ဖုန်းခေါ်ခြင်းများကြား မကူးပ​ြောင်းနိုင်ပါ။"</string>
@@ -437,10 +444,12 @@
     <string name="incall_error_supp_service_conference" msgid="2505727299596357312">"ကွန်းဖရင့် ပြုလုပ်၍ မရပါ"</string>
     <string name="incall_error_supp_service_reject" msgid="8998568661508655638">"ဖုန်းခေါ်ခြင်းအား မငြင်းဆိုနိုင်ပါ။"</string>
     <string name="incall_error_supp_service_hangup" msgid="7434513517153834426">"ဖုန်းခေါ်ခြင်း(များ)အား လွှတ်မပေးနိုင်ပါ။"</string>
+    <string name="incall_error_supp_service_hold" msgid="7967020511232222078">"ခေါ်ဆိုမှုများကို ကိုင်ထား၍မရပါ။"</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="1782466780452640089">"ဖုန်းခေါ်ရန် ကြိုးမဲကွန်ယက်တစ်ခုသို့ ချိတ်ဆက်ပါ။"</string>
     <string name="emergency_enable_radio_dialog_title" msgid="4627849966634578257">"အရေးပေါ်ခေါ်ဆိုမှု"</string>
     <string name="emergency_enable_radio_dialog_message" msgid="207613549344420291">"ရေဒီယို ဖွင့်နေစဉ်…"</string>
     <string name="emergency_enable_radio_dialog_retry" msgid="5960061579996526883">"ဝန်ဆောင်မှု မရှိပါ။ ထပ်မံကြိုးစားပါ…"</string>
+    <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"အရေးပေါ်ဖုန်းခေါ်ဆိုနေစဉ် လေယာဉ်ပျံသန်းနေစဉ် သုံးသောစနစ်သို့ မဝင်ရောက်နိုင်ပါ"</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"မခေါ်ဆိုနိုင်ပါ။ <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> က အရေးပေါ်နံပါတ် မဟုတ်ပါ။"</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"မခေါ်ဆိုနိုင်ပါ။ အရေးပေါ်နံပါတ်အား ခေါ်ဆိုပါ။"</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"ကီးဘုတ်သုံး၍ခလုတ်နှိပ်ပါ"</string>
@@ -459,8 +468,10 @@
     <string name="importAllSimEntries" msgid="1503181169636198673">"အားလုံးကို ထည့်သွင်းပါ"</string>
     <string name="importingSimContacts" msgid="7374056215462575769">"ဆင်းမ်ကဒ်မှ လိပ်စာများအား ထည့်ပါ"</string>
     <string name="importToFDNfromContacts" msgid="2130620207013368580">"လိပ်စားများထဲမှ ထည့်ပါ"</string>
+    <string name="singleContactImportedMsg" msgid="6868483416182599206">"တင်သွင်းခဲ့သည့် အဆက်အသွယ်"</string>
+    <string name="failedToImportSingleContactMsg" msgid="415399285420353917">"အဆက်အသွယ်ကို တင်သွင်း မရခဲ့"</string>
     <string name="hac_mode_title" msgid="8740268574688743289">"နားကြပ်"</string>
-    <string name="hac_mode_summary" msgid="6833851160514929341">"အကြားအားရုံကိရိယာနှင့် ကိုက်ညီမှုကို ဖွင့်ပါ"</string>
+    <string name="hac_mode_summary" msgid="6833851160514929341">"အကြားအာရုံကိရိယာသုံးနိုင်ရန် ဖွင့်ပါ"</string>
   <string-array name="tty_mode_entries">
     <item msgid="512950011423868021">"TTY ပိတ်ထားသည်"</item>
     <item msgid="3971695875449640648">"TTY အပြည့်"</item>
@@ -514,7 +525,7 @@
     <string name="alert_dialog_in_ecm_call" msgid="1886723687211887104">"ရွေးချယ်ထားသော အပြုအမူမှာ အရေပေါ်ခေါ်ဆိုမှုပြုလုပ်နေစဉ် မရှိနိုင်ပါ"</string>
     <string name="progress_dialog_exiting_ecm" msgid="4835734101617817074">"အရေးပေါ်ပြန်လည်ခေါ်ဆိုမှု အခြေအနေအား ထွက်ပါမည်"</string>
     <string name="alert_dialog_yes" msgid="6674268047820703974">"ဟုတ်သည်"</string>
-    <string name="alert_dialog_no" msgid="1476091437797628703">"မဟုတ်ပါ"</string>
+    <string name="alert_dialog_no" msgid="1476091437797628703">"No"</string>
     <string name="alert_dialog_dismiss" msgid="2491494287075907171">"လွှတ်လိုက်သည်"</string>
     <string name="voicemail_provider" msgid="5135942703327136909">"ဝန်ဆောင်မှု"</string>
     <string name="voicemail_settings" msgid="72448049107749316">"ပြင်ဆင်သည်"</string>
@@ -542,7 +553,8 @@
     <string name="accessibility_settings_activity_title" msgid="8562004288733103868">"ရယူသုံးနိုင်မှု"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="8772915926382037499">"ဝင်လာသော ဝိုင်ဖိုင်ခေါ်ဆိုမှု"</string>
     <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"ဝိုင်ဖိုင်ခေါ်ဆိုမှု"</string>
-    <string name="emergency_action_launch_hint" msgid="5841511849007540970">"ဖွင့်ရန် ထပ်ပြီး ထိပါ"</string>
+    <string name="emergency_action_launch_hint" msgid="4906759256275562674">"ဖွင့်ရန် ထပ်တို့ပါ"</string>
     <string name="message_decode_error" msgid="3456481534066924855">"စာကို ကုဒ်ဖွင့်နေစဉ် အမှားရှိခဲ့သည်။"</string>
     <string name="callFailed_cdma_activation" msgid="2307989779233262164">"SIM ကဒ်သည် သင့် ဖုန်းဝန်ဆောင်မှုအား အသက်သွင်းခဲ့ပြီး သင့်ဖုန်း၏ ကွန်ယက်ပြင်ပဒေတာသုံးနိုင်စွမ်းအား ပြင်ဆင်မွမ်းမံပြီးဖြစ်၏။"</string>
+    <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"လက်ရှိခေါ်ဆိုမှုများ အလွန်များနေပါသည်။ ခေါ်ဆိုမှုအသစ်တစ်ခု မပြုလုပ်ခင် လက်ရှိဖုန်းခေါ်ဆိုမှုများကို အဆုံးသတ် (သို့) ပေါင်း လိုက်ပါ။"</string>
 </resources>

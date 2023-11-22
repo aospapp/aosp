@@ -52,10 +52,6 @@ public class CallsManagerListenerBase implements CallsManager.CallsManagerListen
     }
 
     @Override
-    public void onForegroundCallChanged(Call oldForegroundCall, Call newForegroundCall) {
-    }
-
-    @Override
     public void onCallAudioStateChanged(CallAudioState oldAudioState,
             CallAudioState newAudioState) {
     }
@@ -83,5 +79,13 @@ public class CallsManagerListenerBase implements CallsManager.CallsManagerListen
     @Override
     public void onSessionModifyRequestReceived(Call call, VideoProfile videoProfile) {
 
+    }
+
+    @Override
+    public void onHoldToneRequested(Call call) {
+    }
+
+    @Override
+    public void onExternalCallChanged(Call call, boolean isExternalCall) {
     }
 }

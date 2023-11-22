@@ -56,7 +56,8 @@ static int kgsl_pipe_get_param(struct fd_pipe *pipe,
 	}
 }
 
-static int kgsl_pipe_wait(struct fd_pipe *pipe, uint32_t timestamp)
+static int kgsl_pipe_wait(struct fd_pipe *pipe, uint32_t timestamp,
+		uint64_t timeout)
 {
 	struct kgsl_pipe *kgsl_pipe = to_kgsl_pipe(pipe);
 	struct kgsl_device_waittimestamp req = {
@@ -75,7 +76,8 @@ static int kgsl_pipe_wait(struct fd_pipe *pipe, uint32_t timestamp)
 	return ret;
 }
 
-int kgsl_pipe_timestamp(struct kgsl_pipe *kgsl_pipe, uint32_t *timestamp)
+drm_private int kgsl_pipe_timestamp(struct kgsl_pipe *kgsl_pipe,
+		uint32_t *timestamp)
 {
 	struct kgsl_cmdstream_readtimestamp req = {
 			.type = KGSL_TIMESTAMP_RETIRED
@@ -100,26 +102,26 @@ static void kgsl_pipe_destroy(struct fd_pipe *pipe)
 	if (kgsl_pipe->drawctxt_id)
 		ioctl(kgsl_pipe->fd, IOCTL_KGSL_DRAWCTXT_DESTROY, &req);
 
-	if (kgsl_pipe->fd)
+	if (kgsl_pipe->fd >= 0)
 		close(kgsl_pipe->fd);
 
 	free(kgsl_pipe);
 }
 
-static struct fd_pipe_funcs funcs = {
+static const struct fd_pipe_funcs funcs = {
 		.ringbuffer_new = kgsl_ringbuffer_new,
 		.get_param = kgsl_pipe_get_param,
 		.wait = kgsl_pipe_wait,
 		.destroy = kgsl_pipe_destroy,
 };
 
-int is_kgsl_pipe(struct fd_pipe *pipe)
+drm_private int is_kgsl_pipe(struct fd_pipe *pipe)
 {
 	return pipe->funcs == &funcs;
 }
 
 /* add buffer to submit list when it is referenced in cmdstream: */
-void kgsl_pipe_add_submit(struct kgsl_pipe *kgsl_pipe,
+drm_private void kgsl_pipe_add_submit(struct kgsl_pipe *kgsl_pipe,
 		struct kgsl_bo *kgsl_bo)
 {
 	struct fd_pipe *pipe = &kgsl_pipe->base;
@@ -134,7 +136,7 @@ void kgsl_pipe_add_submit(struct kgsl_pipe *kgsl_pipe,
 }
 
 /* prepare buffers on submit list before flush: */
-void kgsl_pipe_pre_submit(struct kgsl_pipe *kgsl_pipe)
+drm_private void kgsl_pipe_pre_submit(struct kgsl_pipe *kgsl_pipe)
 {
 	struct fd_pipe *pipe = &kgsl_pipe->base;
 	struct kgsl_bo *kgsl_bo = NULL;
@@ -150,7 +152,8 @@ void kgsl_pipe_pre_submit(struct kgsl_pipe *kgsl_pipe)
 }
 
 /* process buffers on submit list after flush: */
-void kgsl_pipe_post_submit(struct kgsl_pipe *kgsl_pipe, uint32_t timestamp)
+drm_private void kgsl_pipe_post_submit(struct kgsl_pipe *kgsl_pipe,
+		uint32_t timestamp)
 {
 	struct fd_pipe *pipe = &kgsl_pipe->base;
 	struct kgsl_bo *kgsl_bo = NULL, *tmp;
@@ -168,7 +171,8 @@ void kgsl_pipe_post_submit(struct kgsl_pipe *kgsl_pipe, uint32_t timestamp)
 		kgsl_pipe_process_pending(kgsl_pipe, timestamp);
 }
 
-void kgsl_pipe_process_pending(struct kgsl_pipe *kgsl_pipe, uint32_t timestamp)
+drm_private void kgsl_pipe_process_pending(struct kgsl_pipe *kgsl_pipe,
+		uint32_t timestamp)
 {
 	struct fd_pipe *pipe = &kgsl_pipe->base;
 	struct kgsl_bo *kgsl_bo = NULL, *tmp;
@@ -201,7 +205,8 @@ static int getprop(int fd, enum kgsl_property_type type,
 	} } while (0)
 
 
-struct fd_pipe * kgsl_pipe_new(struct fd_device *dev, enum fd_pipe_id id)
+drm_private struct fd_pipe * kgsl_pipe_new(struct fd_device *dev,
+		enum fd_pipe_id id)
 {
 	static const char *paths[] = {
 			[FD_PIPE_3D] = "/dev/kgsl-3d0",

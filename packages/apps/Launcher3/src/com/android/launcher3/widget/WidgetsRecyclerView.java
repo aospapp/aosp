@@ -64,10 +64,6 @@ public class WidgetsRecyclerView extends BaseRecyclerView {
         return Color.WHITE;
     }
 
-    public int getFastScrollerThumbInactiveColor(int defaultInactiveThumbColor) {
-        return getResources().getColor(R.color.widgets_view_fastscroll_thumb_inactive_color);
-    }
-
     /**
      * Sets the widget model in this view, used to determine the fast scroll position.
      */
@@ -92,6 +88,12 @@ public class WidgetsRecyclerView extends BaseRecyclerView {
      */
     @Override
     public String scrollToPositionAtProgress(float touchFraction) {
+        // Skip early if widgets are not bound.
+        if (mWidgets == null) {
+            return "";
+        }
+
+        // Skip early if there are no widgets.
         int rowCount = mWidgets.getPackageSize();
         if (rowCount == 0) {
             return "";
@@ -100,9 +102,9 @@ public class WidgetsRecyclerView extends BaseRecyclerView {
         // Stop the scroller if it is scrolling
         stopScroll();
 
-        getCurScrollState(mScrollPosState);
+        getCurScrollState(mScrollPosState, -1);
         float pos = rowCount * touchFraction;
-        int availableScrollHeight = getAvailableScrollHeight(rowCount, mScrollPosState.rowHeight, 0);
+        int availableScrollHeight = getAvailableScrollHeight(rowCount);
         LinearLayoutManager layoutManager = ((LinearLayoutManager) getLayoutManager());
         layoutManager.scrollToPositionWithOffset(0, (int) -(availableScrollHeight * touchFraction));
 
@@ -115,36 +117,44 @@ public class WidgetsRecyclerView extends BaseRecyclerView {
      * Updates the bounds for the scrollbar.
      */
     @Override
-    public void onUpdateScrollbar() {
-        int rowCount = mWidgets.getPackageSize();
+    public void onUpdateScrollbar(int dy) {
+        // Skip early if widgets are not bound.
+        if (mWidgets == null) {
+            return;
+        }
 
-        // Skip early if, there are no items.
+        // Skip early if there are no widgets.
+        int rowCount = mWidgets.getPackageSize();
         if (rowCount == 0) {
-            mScrollbar.setScrollbarThumbOffset(-1, -1);
+            mScrollbar.setThumbOffset(-1, -1);
             return;
         }
 
         // Skip early if, there no child laid out in the container.
-        getCurScrollState(mScrollPosState);
+        getCurScrollState(mScrollPosState, -1);
         if (mScrollPosState.rowIndex < 0) {
-            mScrollbar.setScrollbarThumbOffset(-1, -1);
+            mScrollbar.setThumbOffset(-1, -1);
             return;
         }
 
-        synchronizeScrollBarThumbOffsetToViewScroll(mScrollPosState, rowCount, 0);
+        synchronizeScrollBarThumbOffsetToViewScroll(mScrollPosState, rowCount);
     }
 
     /**
      * Returns the current scroll state.
      */
-    private void getCurScrollState(ScrollPositionState stateOut) {
+    protected void getCurScrollState(ScrollPositionState stateOut, int viewTypeMask) {
         stateOut.rowIndex = -1;
         stateOut.rowTopOffset = -1;
-        stateOut.rowHeight = -1;
+        stateOut.itemPos = -1;
 
-        int rowCount = mWidgets.getPackageSize();
+        // Skip early if widgets are not bound.
+        if (mWidgets == null) {
+            return;
+        }
 
         // Return early if there are no items
+        int rowCount = mWidgets.getPackageSize();
         if (rowCount == 0) {
             return;
         }
@@ -153,6 +163,17 @@ public class WidgetsRecyclerView extends BaseRecyclerView {
 
         stateOut.rowIndex = position;
         stateOut.rowTopOffset = getLayoutManager().getDecoratedTop(child);
-        stateOut.rowHeight = child.getHeight();
+        stateOut.itemPos = position;
+    }
+
+    @Override
+    protected int getTop(int rowIndex) {
+        if (getChildCount() == 0) {
+            return 0;
+        }
+
+        // All the rows are the same height, return any child height
+        View child = getChildAt(0);
+        return child.getMeasuredHeight() * rowIndex;
     }
 }

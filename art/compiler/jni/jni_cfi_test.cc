@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "arch/instruction_set.h"
+#include "base/arena_allocator.h"
 #include "cfi_test.h"
 #include "gtest/gtest.h"
 #include "jni/quick/calling_convention.h"
@@ -28,7 +29,7 @@
 namespace art {
 
 // Run the tests only on host.
-#ifndef HAVE_ANDROID_OS
+#ifndef __ANDROID__
 
 class JNICFITest : public CFITest {
  public:
@@ -42,21 +43,26 @@ class JNICFITest : public CFITest {
     const bool is_static = true;
     const bool is_synchronized = false;
     const char* shorty = "IIFII";
+
+    ArenaPool pool;
+    ArenaAllocator arena(&pool);
+
     std::unique_ptr<JniCallingConvention> jni_conv(
-        JniCallingConvention::Create(is_static, is_synchronized, shorty, isa));
+        JniCallingConvention::Create(&arena, is_static, is_synchronized, shorty, isa));
     std::unique_ptr<ManagedRuntimeCallingConvention> mr_conv(
-        ManagedRuntimeCallingConvention::Create(is_static, is_synchronized, shorty, isa));
+        ManagedRuntimeCallingConvention::Create(&arena, is_static, is_synchronized, shorty, isa));
     const int frame_size(jni_conv->FrameSize());
     const std::vector<ManagedRegister>& callee_save_regs = jni_conv->CalleeSaveRegisters();
 
     // Assemble the method.
-    std::unique_ptr<Assembler> jni_asm(Assembler::Create(isa));
+    std::unique_ptr<Assembler> jni_asm(Assembler::Create(&arena, isa));
+    jni_asm->cfi().SetEnabled(true);
     jni_asm->BuildFrame(frame_size, mr_conv->MethodRegister(),
                         callee_save_regs, mr_conv->EntrySpills());
     jni_asm->IncreaseFrameSize(32);
     jni_asm->DecreaseFrameSize(32);
     jni_asm->RemoveFrame(frame_size, callee_save_regs);
-    jni_asm->EmitSlowPaths();
+    jni_asm->FinalizeCode();
     std::vector<uint8_t> actual_asm(jni_asm->CodeSize());
     MemoryRegion code(&actual_asm[0], actual_asm.size());
     jni_asm->FinalizeInstructions(code);
@@ -88,6 +94,6 @@ TEST_ISA(kX86_64)
 TEST_ISA(kMips)
 TEST_ISA(kMips64)
 
-#endif  // HAVE_ANDROID_OS
+#endif  // __ANDROID__
 
 }  // namespace art

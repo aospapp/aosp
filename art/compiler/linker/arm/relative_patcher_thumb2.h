@@ -26,10 +26,14 @@ class Thumb2RelativePatcher FINAL : public ArmBaseRelativePatcher {
  public:
   explicit Thumb2RelativePatcher(RelativePatcherTargetProvider* provider);
 
-  void PatchCall(std::vector<uint8_t>* code, uint32_t literal_offset,
-                 uint32_t patch_offset, uint32_t target_offset) OVERRIDE;
-  void PatchDexCacheReference(std::vector<uint8_t>* code, const LinkerPatch& patch,
-                              uint32_t patch_offset, uint32_t target_offset) OVERRIDE;
+  void PatchCall(std::vector<uint8_t>* code,
+                 uint32_t literal_offset,
+                 uint32_t patch_offset,
+                 uint32_t target_offset) OVERRIDE;
+  void PatchPcRelativeReference(std::vector<uint8_t>* code,
+                                const LinkerPatch& patch,
+                                uint32_t patch_offset,
+                                uint32_t target_offset) OVERRIDE;
 
  private:
   static std::vector<uint8_t> CompileThunkCode();
@@ -37,8 +41,8 @@ class Thumb2RelativePatcher FINAL : public ArmBaseRelativePatcher {
   void SetInsn32(std::vector<uint8_t>* code, uint32_t offset, uint32_t value);
   static uint32_t GetInsn32(ArrayRef<const uint8_t> code, uint32_t offset);
 
-  template <typename Alloc>
-  static uint32_t GetInsn32(std::vector<uint8_t, Alloc>* code, uint32_t offset);
+  template <typename Vector>
+  static uint32_t GetInsn32(Vector* code, uint32_t offset);
 
   // PC displacement from patch location; Thumb2 PC is always at instruction address + 4.
   static constexpr int32_t kPcDisplacement = 4;

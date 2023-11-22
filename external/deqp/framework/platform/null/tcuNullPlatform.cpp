@@ -22,28 +22,16 @@
  *//*--------------------------------------------------------------------*/
 
 #include "tcuNullPlatform.hpp"
+#include "tcuNullContextFactory.hpp"
 #include "tcuNullRenderContext.hpp"
 #include "egluNativeDisplay.hpp"
 #include "eglwLibrary.hpp"
+#include "vkNullDriver.hpp"
 
 namespace tcu
 {
 namespace null
 {
-
-class NullGLContextFactory : public glu::ContextFactory
-{
-public:
-	NullGLContextFactory (void)
-		: glu::ContextFactory("null", "Null Render Context")
-	{
-	}
-
-	glu::RenderContext* createContext (const glu::RenderConfig& config, const tcu::CommandLine&) const
-	{
-		return new RenderContext(config);
-	}
-};
 
 class NullEGLDisplay : public eglu::NativeDisplay
 {
@@ -85,6 +73,21 @@ Platform::Platform (void)
 
 Platform::~Platform (void)
 {
+}
+
+vk::Library* Platform::createLibrary (void) const
+{
+	return vk::createNullDriver();
+}
+
+void Platform::getMemoryLimits (vk::PlatformMemoryLimits& limits) const
+{
+	limits.totalSystemMemory					= 256*1024*1024;
+	limits.totalDeviceLocalMemory				= 0;
+	limits.deviceMemoryAllocationGranularity	= 4096;
+	limits.devicePageSize						= 4096;
+	limits.devicePageTableEntrySize				= 8;
+	limits.devicePageTableHierarchyLevels		= 3;
 }
 
 } // null

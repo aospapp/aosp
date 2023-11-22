@@ -83,20 +83,14 @@ public class DeskClockBackupAgent extends BackupAgent {
      */
     @Override
     public void onRestoreFinished() {
-        // Write a preference to indicate a data restore has been completed.
-        final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        prefs.edit().putBoolean(KEY_RESTORE_FINISHED, true).apply();
-
-        // If device boot is not yet completed, use ACTION_BOOT_COMPLETED to trigger completion of
-        // the data restore process at a safer time.
-        if (registerReceiver(null, new IntentFilter(Intent.ACTION_BOOT_COMPLETED)) != null) {
-            LogUtils.i(TAG, "Waiting for %s to complete the data restore",
-                    Intent.ACTION_BOOT_COMPLETED);
-            return;
+        if (Utils.isNOrLater()) {
+            // TODO: migrate restored database and preferences over into
+            // the device-protected storage area
         }
 
-        // Otherwise, the device is already booted, so schedule a custom broadcast to start the
-        // application in 10 seconds.
+        // Write a preference to indicate a data restore has been completed.
+        final SharedPreferences prefs = Utils.getDefaultSharedPreferences(this);
+        prefs.edit().putBoolean(KEY_RESTORE_FINISHED, true).apply();
 
         // Create an Intent to send into DeskClock indicating restore is complete.
         final PendingIntent restoreIntent = PendingIntent.getBroadcast(this, 0,
@@ -119,7 +113,7 @@ public class DeskClockBackupAgent extends BackupAgent {
      */
     public static boolean processRestoredData(Context context) {
         // If the preference indicates data was not recently restored, there is nothing to do.
-        final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        final SharedPreferences prefs = Utils.getDefaultSharedPreferences(context);
         if (!prefs.getBoolean(KEY_RESTORE_FINISHED, false)) {
             return false;
         }

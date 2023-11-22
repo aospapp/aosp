@@ -22,6 +22,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.graphics.Color;
 import android.net.Uri;
+import android.os.Bundle;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
@@ -38,6 +39,16 @@ import java.util.List;
 public class PhoneAccountOperationsTest extends InstrumentationTestCase {
     public static final PhoneAccountHandle TEST_PHONE_ACCOUNT_HANDLE =
             new PhoneAccountHandle(new ComponentName(PACKAGE, COMPONENT), ACCOUNT_ID);
+    public static final Bundle TEST_BUNDLE = createTestBundle();
+    public static final int TEST_LENGTH = 10;
+    public static final String TEST_ENCODING = "enUS";
+
+    private static Bundle createTestBundle() {
+        Bundle testBundle = new Bundle();
+        testBundle.putInt(PhoneAccount.EXTRA_CALL_SUBJECT_MAX_LENGTH, TEST_LENGTH);
+        testBundle.putString(PhoneAccount.EXTRA_CALL_SUBJECT_CHARACTER_ENCODING, TEST_ENCODING);
+        return testBundle;
+    }
 
     public static final PhoneAccount TEST_SIM_PHONE_ACCOUNT = PhoneAccount.builder(
             TEST_PHONE_ACCOUNT_HANDLE, ACCOUNT_LABEL)
@@ -59,6 +70,7 @@ public class PhoneAccountOperationsTest extends InstrumentationTestCase {
             .setShortDescription(ACCOUNT_LABEL)
             .setSupportedUriSchemes(Arrays.asList(
                     PhoneAccount.SCHEME_TEL, PhoneAccount.SCHEME_VOICEMAIL))
+            .setExtras(TEST_BUNDLE)
             .build();
 
     public static final PhoneAccount TEST_CALL_MANAGER_PHONE_ACCOUNT = PhoneAccount.builder(
@@ -183,6 +195,22 @@ public class PhoneAccountOperationsTest extends InstrumentationTestCase {
         assertTrue("Phone account should have call provider & video calling capability.",
                 retrievedPhoneAccount.hasCapabilities(PhoneAccount.CAPABILITY_CALL_PROVIDER |
                         PhoneAccount.CAPABILITY_VIDEO_CALLING));
+    }
+
+    public void testRegisterPhoneAccount_CheckExtras() throws Exception {
+        if (!shouldTestTelecom(mContext)) {
+            return;
+        }
+        mTelecomManager.registerPhoneAccount(TEST_NO_SIM_PHONE_ACCOUNT);
+        PhoneAccount retrievedPhoneAccount = mTelecomManager.getPhoneAccount(
+                TEST_PHONE_ACCOUNT_HANDLE);
+        Bundle extras = retrievedPhoneAccount.getExtras();
+        assertTrue(extras.containsKey(PhoneAccount.EXTRA_CALL_SUBJECT_CHARACTER_ENCODING));
+        assertEquals(TEST_ENCODING,
+                extras.getString(PhoneAccount.EXTRA_CALL_SUBJECT_CHARACTER_ENCODING));
+        assertTrue(extras.containsKey(PhoneAccount.EXTRA_CALL_SUBJECT_MAX_LENGTH));
+        assertEquals(TEST_LENGTH,
+                extras.getInt(PhoneAccount.EXTRA_CALL_SUBJECT_MAX_LENGTH));
     }
 
     public void testRegisterPhoneAccount_CheckURISchemeSupported() throws Exception {

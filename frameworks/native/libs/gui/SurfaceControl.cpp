@@ -33,6 +33,7 @@
 #include <ui/GraphicBuffer.h>
 #include <ui/Rect.h>
 
+#include <gui/BufferQueueCore.h>
 #include <gui/ISurfaceComposer.h>
 #include <gui/Surface.h>
 #include <gui/SurfaceComposerClient.h>
@@ -81,6 +82,13 @@ void SurfaceControl::clear()
     destroy();
 }
 
+void SurfaceControl::disconnect() {
+    if (mGraphicBufferProducer != NULL) {
+        mGraphicBufferProducer->disconnect(
+                BufferQueueCore::CURRENTLY_CONNECTED_API);
+    }
+}
+
 bool SurfaceControl::isSameSurface(
         const sp<SurfaceControl>& lhs, const sp<SurfaceControl>& rhs)
 {
@@ -103,6 +111,11 @@ status_t SurfaceControl::setPosition(float x, float y) {
     status_t err = validate();
     if (err < 0) return err;
     return mClient->setPosition(mHandle, x, y);
+}
+status_t SurfaceControl::setPositionAppliesWithResize() {
+    status_t err = validate();
+    if (err < 0) return err;
+    return mClient->setPositionAppliesWithResize(mHandle);
 }
 status_t SurfaceControl::setSize(uint32_t w, uint32_t h) {
     status_t err = validate();
@@ -143,6 +156,24 @@ status_t SurfaceControl::setCrop(const Rect& crop) {
     status_t err = validate();
     if (err < 0) return err;
     return mClient->setCrop(mHandle, crop);
+}
+status_t SurfaceControl::setFinalCrop(const Rect& crop) {
+    status_t err = validate();
+    if (err < 0) return err;
+    return mClient->setFinalCrop(mHandle, crop);
+}
+
+status_t SurfaceControl::deferTransactionUntil(sp<IBinder> handle,
+        uint64_t frameNumber) {
+    status_t err = validate();
+    if (err < 0) return err;
+    return mClient->deferTransactionUntil(mHandle, handle, frameNumber);
+}
+
+status_t SurfaceControl::setOverrideScalingMode(int32_t overrideScalingMode) {
+    status_t err = validate();
+    if (err < 0) return err;
+    return mClient->setOverrideScalingMode(mHandle, overrideScalingMode);
 }
 
 status_t SurfaceControl::clearLayerFrameStats() const {
@@ -188,6 +219,12 @@ sp<Surface> SurfaceControl::getSurface() const
         mSurfaceData = new Surface(mGraphicBufferProducer, false);
     }
     return mSurfaceData;
+}
+
+sp<IBinder> SurfaceControl::getHandle() const
+{
+    Mutex::Autolock lock(mLock);
+    return mHandle;
 }
 
 // ----------------------------------------------------------------------------

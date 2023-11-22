@@ -1,10 +1,10 @@
-# Bluedroid Style Guide
-This document outlines the coding conventions and code style used in Bluedroid.
+# Fluoride Style Guide
+This document outlines the coding conventions and code style used in Fluoride.
 Its primary purpose is to provide explicit guidance on style so that developers
 are consistent with one another and spend less time debating style.
 
 ## Directory structure
-Directories at the top-level should consist of major subsystems in Bluedroid.
+Directories at the top-level should consist of major subsystems in Fluoride.
 Each subsystem's purpose should be documented in the `doc/directory_layout.md`
 file, even if it seems obvious from the name.
 
@@ -20,7 +20,7 @@ mirrored. In other words, if `src/` contains a subdirectory called `foo/`,
 `include/` must also have a subdirectory named `foo/`.
 
 ## Target architecture
-Bluedroid targets a variety of hardware and cannot make many assumptions about
+Fluoride targets a variety of hardware and cannot make many assumptions about
 memory layout, sizes, byte order, etc. As a result, some operations are
 considered unsafe and this section outlines the most important ones to watch out
 for.
@@ -49,9 +49,9 @@ deserializing data, it is unsafe to memcpy unless both source and destination
 pointers have the same type.
 
 ## Language
-Bluedroid is written in C99 and should take advantage of the features offered by
+Fluoride is written in C99 and should take advantage of the features offered by
 it. However, not all language features lend themselves well to the type of
-development required by Bluedroid. This section provides guidance on some of the
+development required by Fluoride. This section provides guidance on some of the
 features to embrace or avoid.
 
 ### C Preprocessor
@@ -67,7 +67,7 @@ explosion in build configurations. Setting up, testing, and verifying each of
 the `2^n` build configurations is untenable for `n` greater than, say, 4.
 
 ### C++
-Although C++ offers constructs that may make Bluedroid development faster,
+Although C++ offers constructs that may make Fluoride development faster,
 safer, more pleasant, etc. the decision _for the time being_ is to stick with
 pure C99. The exceptions are when linking against libraries that are written
 in C++. At the time of writing these libraries are `gtest` and `tinyxml2`,
@@ -158,8 +158,8 @@ in which it is used. The magic identifier `__FUNCTION__` should not be used
 as it is a non-standard language extension and an equivalent standardized
 mechanism exists. In other words, use `__func__` over `__FUNCTION__`.
 
-## Bluedroid conventions
-This section describes coding conventions that are specific to Bluedroid.
+## Fluoride conventions
+This section describes coding conventions that are specific to Fluoride.
 Whereas the _Language_ section describes the use of language features, this
 section describes idioms, best practices, and conventions that are independent
 of language features.

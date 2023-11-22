@@ -18,10 +18,10 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
   <string-array name="sleep_timeout_entries">
     <item msgid="1213527366819650274">"5 minutes"</item>
-    <item msgid="3695675702735844029">"10 minutes"</item>
-    <item msgid="5742541267966746817">"15 minutes"</item>
-    <item msgid="4333958225402992378">"30 minutes"</item>
-    <item msgid="3103819305854192542">"1 heure"</item>
+    <item msgid="6561800022721381078">"15 minutes"</item>
+    <item msgid="7718735533503035428">"30 minutes"</item>
+    <item msgid="8784595382489738498">"1 heure"</item>
+    <item msgid="1529312035777735084">"2 heures"</item>
   </string-array>
   <string-array name="screen_off_timeout_entries">
     <item msgid="8244337465472020927">"30 minutes"</item>
@@ -62,11 +62,9 @@
     <item msgid="1626485489418859846">"75 %"</item>
     <item msgid="1811192455405034366">"100 %"</item>
   </string-array>
-  <string-array name="captioning_preset_selector_titles">
-    <item msgid="7937747884375690010">"Texte blanc sur fond noir"</item>
-    <item msgid="5187532965364561774">"Texte noir sur fond blanc"</item>
-    <item msgid="7275908232441066633">"Texte jaune sur fond noir"</item>
-    <item msgid="3907210401785295669">"Texte jaune sur fond bleu"</item>
-    <item msgid="7050475937183962123">"Personnalisé"</item>
+  <string-array name="surround_sound_entries">
+    <item msgid="5639265918353416799">"Automatique"</item>
+    <item msgid="5990497479384785807">"Toujours"</item>
+    <item msgid="6178602073308944697">"Jamais"</item>
   </string-array>
 </resources>

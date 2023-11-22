@@ -19,7 +19,7 @@ LOCAL_SRC_FILES := $(mc_parser_SRC_FILES)
 
 LOCAL_MODULE:= libLLVMMCParser
 
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_HOST_OS := darwin linux windows
 
 include $(LLVM_HOST_BUILD_MK)
 include $(BUILD_HOST_STATIC_LIBRARY)
@@ -32,8 +32,6 @@ ifneq (true,$(DISABLE_LLVM_DEVICE_BUILDS))
 LOCAL_SRC_FILES := $(mc_parser_SRC_FILES)
 
 LOCAL_MODULE:= libLLVMMCParser
-
-LOCAL_MODULE_TAGS := optional
 
 include $(LLVM_DEVICE_BUILD_MK)
 include $(BUILD_STATIC_LIBRARY)

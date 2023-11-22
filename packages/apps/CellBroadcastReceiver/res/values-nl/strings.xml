@@ -20,7 +20,7 @@
     <string name="sms_cb_settings" msgid="971917159442705371">"Instellingen voor cell broadcasts"</string>
     <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"Instellingen voor cell broadcast zijn niet beschikbaar voor deze gebruiker"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"OK"</string>
-    <string name="no_cell_broadcasts" msgid="5409324337492758562">"Er zijn geen actieve waarschuwingen in uw omgeving. U kunt de waarschuwingsinstellingen wijzigen via de menuoptie \'Instellingen\'."</string>
+    <string name="no_cell_broadcasts" msgid="5409324337492758562">"Er zijn geen actieve waarschuwingen in je omgeving. Je kunt de waarschuwingsinstellingen wijzigen via de menuoptie Instellingen."</string>
     <string name="menu_preferences" msgid="3596514894131599202">"Instellingen"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"Broadcasts verwijderen"</string>
     <string name="message_options" msgid="3178489901903589574">"Berichtopties"</string>
@@ -105,7 +105,7 @@
     <string name="notification_multiple_title" msgid="1523638925739947855">"Nieuwe waarschuwingen"</string>
     <string name="show_cmas_opt_out_summary" msgid="4370292554938680862">"Een afmeldingsvenster weergeven na de eerste CMAS-melding (geen nationale melding)."</string>
     <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"Afmeldingsvenster weergeven"</string>
-    <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"U ontvangt momenteel noodmeldingen. Wilt u noodmeldingen blijven ontvangen?"</string>
+    <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"Je ontvangt momenteel noodmeldingen. Wil je noodmeldingen blijven ontvangen?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Ja"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"Nee"</string>
   <string-array name="alert_sound_duration_entries">

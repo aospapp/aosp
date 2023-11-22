@@ -37,15 +37,6 @@ public class OwnedMonitorsStackDepthInfoTest extends JDWPSyncTestCase {
         return "org.apache.harmony.jpda.tests.jdwp.ThreadReference.OwnedMonitorsStackDepthInfoDebuggee";
     }
 
-    // OwnedMonitorsStackDepthInfo needs canGetMonitorFrameInfo VM capability support
-    private boolean isCapability() {
-        // check capability, relevant for this test
-        logWriter.println("=> Check capability: canGetMonitorFrameInfo");
-        debuggeeWrapper.vmMirror.capabilities();
-        boolean isCapability = debuggeeWrapper.vmMirror.targetVMCapabilities.canGetMonitorFrameInfo;
-        return isCapability;
-    }
-
     private int jdwpGetFrameCount(long threadID) {
       CommandPacket packet = new CommandPacket(JDWPCommands.ThreadReferenceCommandSet.CommandSetID,
                                                JDWPCommands.ThreadReferenceCommandSet.FrameCountCommand);
@@ -74,11 +65,6 @@ public class OwnedMonitorsStackDepthInfoTest extends JDWPSyncTestCase {
 
         // Ensure we signal the debuggee to continue at the end of the test.
         finalSyncMessage = JPDADebuggeeSynchronizer.SGNL_CONTINUE;
-
-        if (!isCapability()) {
-            logWriter.println("##WARNING: this VM dosn't possess capability: canGetMonitorFrameInfo");
-            return;
-        }
 
         // Getting ID of the tested thread
         logWriter.println("==> testedThreadName = "
@@ -162,12 +148,6 @@ public class OwnedMonitorsStackDepthInfoTest extends JDWPSyncTestCase {
 
         // Ensure we signal the debuggee to continue at the end of the test.
         finalSyncMessage = JPDADebuggeeSynchronizer.SGNL_CONTINUE;
-
-        if (!isCapability()) {
-            logWriter
-                    .println("##WARNING: this VM dosn't possess capability: OwnedMonitorsStackDepthInfo");
-            return;
-        }
 
         // Getting ID of the tested thread
         logWriter.println("==> testedThreadName = "

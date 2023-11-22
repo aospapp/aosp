@@ -82,6 +82,10 @@ public class RSTestCore {
         unitTests.add(new UT_refcount(this, mRes, mCtx));
         unitTests.add(new UT_foreach(this, mRes, mCtx));
         unitTests.add(new UT_foreach_bounds(this, mRes, mCtx));
+        unitTests.add(new UT_script_group2_pointwise(this, mRes, mCtx));
+        unitTests.add(new UT_script_group2_gatherscatter(this, mRes, mCtx));
+        unitTests.add(new UT_script_group2_nochain(this, mRes, mCtx));
+        unitTests.add(new UT_script_group2_float(this, mRes, mCtx));
         unitTests.add(new UT_noroot(this, mRes, mCtx));
         unitTests.add(new UT_atomic(this, mRes, mCtx));
         unitTests.add(new UT_struct(this, mRes, mCtx));
@@ -93,6 +97,8 @@ public class RSTestCore {
         unitTests.add(new UT_element(this, mRes, mCtx));
         unitTests.add(new UT_sampler(this, mRes, mCtx));
         unitTests.add(new UT_fp_mad(this, mRes, mCtx));
+        unitTests.add(new UT_reduce(this, mRes, mCtx));
+        unitTests.add(new UT_reduce_backward(this, mRes, mCtx));
 
         /*
         unitTests.add(new UnitTest(null, "<Pass>", 1));

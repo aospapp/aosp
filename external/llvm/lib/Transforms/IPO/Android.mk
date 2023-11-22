@@ -4,9 +4,12 @@ transforms_ipo_SRC_FILES := \
   ArgumentPromotion.cpp \
   BarrierNoopPass.cpp \
   ConstantMerge.cpp \
+  CrossDSOCFI.cpp \
   DeadArgumentElimination.cpp \
+  ElimAvailExtern.cpp \
   ExtractGV.cpp \
   FunctionAttrs.cpp \
+  FunctionImport.cpp \
   GlobalDCE.cpp \
   GlobalOpt.cpp \
   IPConstantPropagation.cpp \
@@ -21,6 +24,7 @@ transforms_ipo_SRC_FILES := \
   PartialInlining.cpp \
   PassManagerBuilder.cpp \
   PruneEH.cpp \
+  SampleProfile.cpp \
   StripDeadPrototypes.cpp \
   StripSymbols.cpp
 
@@ -31,9 +35,10 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(transforms_ipo_SRC_FILES)
 LOCAL_MODULE:= libLLVMipo
 
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_HOST_OS := darwin linux windows
 
 include $(LLVM_HOST_BUILD_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
 include $(LLVM_GEN_INTRINSICS_MK)
 include $(BUILD_HOST_STATIC_LIBRARY)
 
@@ -45,9 +50,8 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(transforms_ipo_SRC_FILES)
 LOCAL_MODULE:= libLLVMipo
 
-LOCAL_MODULE_TAGS := optional
-
 include $(LLVM_DEVICE_BUILD_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
 include $(LLVM_GEN_INTRINSICS_MK)
 include $(BUILD_STATIC_LIBRARY)
 endif

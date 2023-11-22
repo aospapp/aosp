@@ -13,6 +13,7 @@
 #include "SkImageGenerator.h"
 #include "SkImageDecoder.h"
 #include "SkOSFile.h"
+#include "SkTemplates.h"
 
 #ifndef SK_IGNORE_ETC1_SUPPORT
 
@@ -46,9 +47,9 @@ bool slice_etc1_data(void *data, int* width, int* height) {
     int newHeight = (blockHeight - 1) << 2;
 
     size_t newDataSz = etc1_get_encoded_data_size(newWidth, newHeight) + ETC_PKM_HEADER_SIZE;
-    SkAutoMalloc am(newDataSz);
+    SkAutoTMalloc<etc1_byte> am(newDataSz);
 
-    etc1_byte *newData = reinterpret_cast<etc1_byte *>(am.get());
+    etc1_byte* newData = am.get();
 
     etc1_pkm_format_header(newData, newWidth, newHeight);
     newData += ETC_PKM_HEADER_SIZE;
@@ -98,17 +99,17 @@ protected:
         SkString filename = GetResourcePath("mandrill_128.");
         filename.append(this->fileExtension());
         SkAutoTUnref<SkData> fileData(SkData::NewFromFileName(filename.c_str()));
-        if (NULL == fileData) {
+        if (nullptr == fileData) {
             SkDebugf("Could not open the file. Did you forget to set the resourcePath?\n");
             return;
         }
 
-        if (!SkInstallDiscardablePixelRef(fileData, &bm)) {
-            SkDebugf("Could not install discardable pixel ref.\n");
+        SkAutoTUnref<SkImage> image(SkImage::NewFromEncoded(fileData));
+        if (nullptr == image) {
+            SkDebugf("Could not decode the ETC file. ETC may not be included in this platform.\n");
             return;
         }
-
-        canvas->drawBitmap(bm, 0, 0);
+        canvas->drawImage(image, 0, 0);
     }
 
 private:
@@ -182,7 +183,7 @@ protected:
         SkBitmap bm;
         SkString pkmFilename = GetResourcePath("mandrill_128.pkm");
         SkAutoDataUnref fileData(SkData::NewFromFileName(pkmFilename.c_str()));
-        if (NULL == fileData) {
+        if (nullptr == fileData) {
             SkDebugf("Could not open the file. Did you forget to set the resourcePath?\n");
             return;
         }
@@ -202,12 +203,8 @@ protected:
         size_t dataSz = etc1_get_encoded_data_size(width, height) + ETC_PKM_HEADER_SIZE;
         SkAutoDataUnref nonPOTData(SkData::NewWithCopy(am.get(), dataSz));
 
-        if (!SkInstallDiscardablePixelRef(nonPOTData, &bm)) {
-            SkDebugf("Could not install discardable pixel ref.\n");
-            return;
-        }
-
-        canvas->drawBitmap(bm, 0, 0);
+        SkAutoTUnref<SkImage> image(SkImage::NewFromEncoded(nonPOTData));
+        canvas->drawImage(image, 0, 0);
     }
 
 private:
@@ -219,10 +216,10 @@ private:
 
 //////////////////////////////////////////////////////////////////////////////
 
-DEF_GM( return SkNEW(skiagm::ETC1Bitmap_PKM_GM); )
-DEF_GM( return SkNEW(skiagm::ETC1Bitmap_KTX_GM); )
-DEF_GM( return SkNEW(skiagm::ETC1Bitmap_R11_KTX_GM); )
+DEF_GM(return new skiagm::ETC1Bitmap_PKM_GM;)
+DEF_GM(return new skiagm::ETC1Bitmap_KTX_GM;)
+DEF_GM(return new skiagm::ETC1Bitmap_R11_KTX_GM;)
 
 #ifndef SK_IGNORE_ETC1_SUPPORT
-DEF_GM( return SkNEW(skiagm::ETC1Bitmap_NPOT_GM); )
+DEF_GM(return new skiagm::ETC1Bitmap_NPOT_GM;)
 #endif  // SK_IGNORE_ETC1_SUPPORT

@@ -71,6 +71,7 @@ class ExternalFrameBufferList {
     if (ext_fb_list_[idx].size < min_size) {
       delete [] ext_fb_list_[idx].data;
       ext_fb_list_[idx].data = new uint8_t[min_size];
+      memset(ext_fb_list_[idx].data, 0, min_size);
       ext_fb_list_[idx].size = min_size;
     }
 
@@ -96,13 +97,19 @@ class ExternalFrameBufferList {
     return 0;
   }
 
-  // Marks the external frame buffer that |fb| is pointing too as free.
+  // Marks the external frame buffer that |fb| is pointing to as free.
   // Returns < 0 on an error.
   int ReturnFrameBuffer(vpx_codec_frame_buffer_t *fb) {
-    EXPECT_TRUE(fb != NULL);
+    if (fb == NULL) {
+      EXPECT_TRUE(fb != NULL);
+      return -1;
+    }
     ExternalFrameBuffer *const ext_fb =
         reinterpret_cast<ExternalFrameBuffer*>(fb->priv);
-    EXPECT_TRUE(ext_fb != NULL);
+    if (ext_fb == NULL) {
+      EXPECT_TRUE(ext_fb != NULL);
+      return -1;
+    }
     EXPECT_EQ(1, ext_fb->in_use);
     ext_fb->in_use = 0;
     return 0;
@@ -285,7 +292,7 @@ class ExternalFrameBufferTest : public ::testing::Test {
     video_->Init();
     video_->Begin();
 
-    vpx_codec_dec_cfg_t cfg = {0};
+    vpx_codec_dec_cfg_t cfg = vpx_codec_dec_cfg_t();
     decoder_ = new libvpx_test::VP9Decoder(cfg, 0);
     ASSERT_TRUE(decoder_ != NULL);
   }

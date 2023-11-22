@@ -52,10 +52,9 @@ public class ClearDeviceOwnerTest extends InstrumentationTestCase {
 
     @Override
     protected void tearDown() throws Exception {
-        removeActiveAdmin(ADMIN_RECEIVER_COMPONENT);
         mDevicePolicyManager.clearDeviceOwnerApp(PACKAGE_NAME);
-        assertFalse(mDevicePolicyManager.isAdminActive(ADMIN_RECEIVER_COMPONENT));
         assertFalse(mDevicePolicyManager.isDeviceOwnerApp(PACKAGE_NAME));
+        waitForActiveAdminRemoved(ADMIN_RECEIVER_COMPONENT);
 
         super.tearDown();
     }
@@ -65,12 +64,10 @@ public class ClearDeviceOwnerTest extends InstrumentationTestCase {
     public void testClearDeviceOwner() {
     }
 
-    private void removeActiveAdmin(ComponentName cn) throws InterruptedException {
-        if (mDevicePolicyManager.isAdminActive(cn)) {
-            mDevicePolicyManager.removeActiveAdmin(cn);
-            for (int i = 0; i < 1000 && mDevicePolicyManager.isAdminActive(cn); i++) {
-                Thread.sleep(100);
-            }
+    private void waitForActiveAdminRemoved(ComponentName cn) throws InterruptedException {
+        for (int i = 0; i < 1000 && mDevicePolicyManager.isAdminActive(cn); i++) {
+            Thread.sleep(100);
         }
+        assertFalse(mDevicePolicyManager.isAdminActive(cn));
     }
 }

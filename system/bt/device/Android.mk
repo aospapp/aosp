@@ -18,56 +18,55 @@
 
 LOCAL_PATH := $(call my-dir)
 
+# Bluetooth device static library for target
+# ========================================================
 include $(CLEAR_VARS)
-
-# osi/include/atomic.h depends on gcc atomic functions
-LOCAL_CLANG := false
 
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/.. \
     $(LOCAL_PATH)/include \
     $(LOCAL_PATH)/../btcore/include \
-    $(LOCAL_PATH)/../gki/common \
     $(LOCAL_PATH)/../hci/include \
     $(LOCAL_PATH)/../include \
-    $(LOCAL_PATH)/../osi/include \
     $(LOCAL_PATH)/../stack/include \
-    $(bdroid_C_INCLUDES)
+    $(bluetooth_C_INCLUDES)
 
 LOCAL_SRC_FILES := \
     src/classic/peer.c \
     src/controller.c \
     src/interop.c
 
-LOCAL_CFLAGS := -std=c99 $(bdroid_CFLAGS)
 LOCAL_MODULE := libbtdevice
 LOCAL_MODULE_TAGS := optional
 LOCAL_SHARED_LIBRARIES := libc liblog
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 
+LOCAL_CFLAGS += $(bluetooth_CFLAGS)
+LOCAL_CONLYFLAGS += $(bluetooth_CONLYFLAGS)
+LOCAL_CPPFLAGS += $(bluetooth_CPPFLAGS)
+
 include $(BUILD_STATIC_LIBRARY)
 
-#####################################################
-
+# Bluetooth device unit tests for target
+# ========================================================
 include $(CLEAR_VARS)
-
-# osi/include/atomic.h depends on gcc atomic functions
-LOCAL_CLANG := false
 
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/.. \
-    $(LOCAL_PATH)/../osi/include \
-    $(bdroid_C_INCLUDES)
+    $(bluetooth_C_INCLUDES)
 
 LOCAL_SRC_FILES := \
     ../osi/test/AllocationTestHarness.cpp \
     ./test/interop_test.cpp \
     ./test/classic/peer_test.cpp
 
-LOCAL_CFLAGS := -Wall -Werror -Werror=unused-variable
 LOCAL_MODULE := net_test_device
 LOCAL_MODULE_TAGS := tests
 LOCAL_SHARED_LIBRARIES := liblog libdl
 LOCAL_STATIC_LIBRARIES := libbtdevice libbtcore libosi libcutils
+
+LOCAL_CFLAGS += $(bluetooth_CFLAGS)
+LOCAL_CONLYFLAGS += $(bluetooth_CONLYFLAGS)
+LOCAL_CPPFLAGS += $(bluetooth_CPPFLAGS)
 
 include $(BUILD_NATIVE_TEST)

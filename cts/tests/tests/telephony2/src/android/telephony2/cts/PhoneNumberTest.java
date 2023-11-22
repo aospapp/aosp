@@ -16,6 +16,8 @@
 
 package android.telephony2.cts;
 
+import android.content.Context;
+import android.content.pm.PackageManager;
 import android.os.ParcelFileDescriptor;
 import android.telephony.TelephonyManager;
 import android.test.InstrumentationTestCase;
@@ -48,8 +50,13 @@ public class PhoneNumberTest extends InstrumentationTestCase {
     }
 
     public void testGetLine1Number() {
-        TelephonyManager tm = getInstrumentation().getContext().getSystemService(
-                TelephonyManager.class);
+        Context context = getInstrumentation().getContext();
+        PackageManager packageManager = context.getPackageManager();
+        if (!packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            return;
+        }
+
+        TelephonyManager tm = context.getSystemService(TelephonyManager.class);
 
         setDefaultSmsApp(true);
 

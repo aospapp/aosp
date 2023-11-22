@@ -31,6 +31,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
+import android.os.SystemClock;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.util.Log;
@@ -57,6 +58,8 @@ public class SimpleAppWidgetHostService extends Service {
     private static final int RESULT_NOT_PRESENT = 2;
     private static final int RESULT_INTERRUPTED = 3;
     private static final int RESULT_TIMEOUT = 4;
+
+    private static final long GET_PROVIDER_TIMEOUT_MILLIS = 30 * 1000; // 30 seconds
 
     public static final String USER_EXTRA = "user-extra";
     public static final String PACKAGE_EXTRA = "package-extra";
@@ -213,8 +216,10 @@ public class SimpleAppWidgetHostService extends Service {
         }
 
         public AppWidgetProviderInfo getProvider(Bundle params) throws InterruptedException {
+            final long startTime = SystemClock.elapsedRealtime();
+            long nextTimeout = GET_PROVIDER_TIMEOUT_MILLIS;
             String packageName = params.getString(PACKAGE_EXTRA);
-            while (mSemaphore.tryAcquire(30, TimeUnit.SECONDS)) {
+            while ((nextTimeout > 0) && mSemaphore.tryAcquire(nextTimeout, TimeUnit.MILLISECONDS)) {
                 mSemaphore.drainPermits();
                 Log.d(TAG, "checking for " + packageName + " " + mUserHandle);
                 synchronized (this) {
@@ -225,6 +230,8 @@ public class SimpleAppWidgetHostService extends Service {
                             return providerInfo;
                         }
                     }
+                    nextTimeout = startTime + GET_PROVIDER_TIMEOUT_MILLIS
+                            - SystemClock.elapsedRealtime();
                 }
             }
             return null;

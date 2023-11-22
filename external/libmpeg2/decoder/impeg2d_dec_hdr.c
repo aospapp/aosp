@@ -18,6 +18,7 @@
  * Originally developed and contributed by Ittiam Systems Pvt. Ltd, Bangalore
 */
 #include <string.h>
+#include <cutils/log.h>
 
 #include "iv_datatypedef.h"
 #include "iv.h"
@@ -40,6 +41,7 @@
 #include "impeg2d_structs.h"
 #include "impeg2_globals.h"
 #include "impeg2d_pic_proc.h"
+#include "impeg2d_deinterlace.h"
 
 
 
@@ -82,8 +84,8 @@ void impeg2d_next_code(dec_state_t *ps_dec, UWORD32 u4_start_code_val)
     ps_stream = &ps_dec->s_bit_stream;
     impeg2d_bit_stream_flush_to_byte_boundary(ps_stream);
 
-    while ((impeg2d_bit_stream_nxt(ps_stream,START_CODE_LEN) != u4_start_code_val)
-        && (ps_dec->s_bit_stream.u4_offset <= ps_dec->s_bit_stream.u4_max_offset))
+    while ((impeg2d_bit_stream_nxt(ps_stream,START_CODE_LEN) != u4_start_code_val) &&
+            (ps_dec->s_bit_stream.u4_offset < ps_dec->s_bit_stream.u4_max_offset))
     {
 
         if (impeg2d_bit_stream_get(ps_stream,8) != 0)
@@ -111,7 +113,7 @@ void impeg2d_peek_next_start_code(dec_state_t *ps_dec)
     impeg2d_bit_stream_flush_to_byte_boundary(ps_stream);
 
     while ((impeg2d_bit_stream_nxt(ps_stream,START_CODE_PREFIX_LEN) != START_CODE_PREFIX)
-        && (ps_dec->s_bit_stream.u4_offset <= ps_dec->s_bit_stream.u4_max_offset))
+        && (ps_dec->s_bit_stream.u4_offset < ps_dec->s_bit_stream.u4_max_offset))
     {
         impeg2d_bit_stream_get(ps_stream,8);
     }
@@ -156,7 +158,7 @@ IMPEG2D_ERROR_CODES_T impeg2d_dec_seq_hdr(dec_state_t *ps_dec)
             ps_dec->u2_vertical_size = u2_height;
             if (0 == ps_dec->u4_frm_buf_stride)
             {
-                ps_dec->u4_frm_buf_stride  = (UWORD32) ALIGN16(u2_width);
+                ps_dec->u4_frm_buf_stride  = (UWORD32) (u2_width);
             }
         }
         else
@@ -669,7 +671,8 @@ IMPEG2D_ERROR_CODES_T impeg2d_dec_pic_hdr(dec_state_t *ps_dec)
     /*  }                                                                    */
     /*  extra_bit_picture             1                                      */
     /*-----------------------------------------------------------------------*/
-    while (impeg2d_bit_stream_nxt(ps_stream,1) == 1)
+    while (impeg2d_bit_stream_nxt(ps_stream,1) == 1 &&
+           ps_stream->u4_offset < ps_stream->u4_max_offset)
     {
         impeg2d_bit_stream_get(ps_stream,9);
     }
@@ -800,7 +803,8 @@ IMPEG2D_ERROR_CODES_T impeg2d_dec_slice(dec_state_t *ps_dec)
     {
         impeg2d_bit_stream_flush(ps_stream,9);
         /* Flush extra bit information */
-        while (impeg2d_bit_stream_nxt(ps_stream,1) == 1)
+        while (impeg2d_bit_stream_nxt(ps_stream,1) == 1 &&
+               ps_stream->u4_offset < ps_stream->u4_max_offset)
         {
             impeg2d_bit_stream_flush(ps_stream,9);
         }
@@ -889,9 +893,22 @@ void impeg2d_dec_pic_data_thread(dec_state_t *ps_dec)
                     start_row = s_job.i2_start_mb_y << 4;
                     num_rows = MIN((s_job.i2_end_mb_y << 4), ps_dec->u2_vertical_size);
                     num_rows -= start_row;
-                    impeg2d_format_convert(ps_dec, ps_dec->ps_disp_pic,
-                                        ps_dec->ps_disp_frm_buf,
-                                        start_row, num_rows);
+
+                    if(ps_dec->u4_deinterlace && (0 == ps_dec->u2_progressive_frame))
+                    {
+                        impeg2d_deinterlace(ps_dec,
+                                            ps_dec->ps_disp_pic,
+                                            ps_dec->ps_disp_frm_buf,
+                                            start_row,
+                                            num_rows);
+
+                    }
+                    else
+                    {
+                        impeg2d_format_convert(ps_dec, ps_dec->ps_disp_pic,
+                                               ps_dec->ps_disp_frm_buf,
+                                               start_row, num_rows);
+                    }
                     break;
 
                 }
@@ -912,6 +929,12 @@ void impeg2d_dec_pic_data_thread(dec_state_t *ps_dec)
             u4_bits_read = impeg2d_bit_stream_nxt(&ps_dec->s_bit_stream,START_CODE_LEN);
             temp = u4_bits_read & 0xFF;
             i4_continue_decode = (((u4_bits_read >> 8) == 0x01) && (temp) && (temp <= 0xAF));
+
+            if (1 == ps_dec->i4_num_cores && 0 == ps_dec->u2_num_mbs_left)
+            {
+                i4_continue_decode = 0;
+                android_errorWriteLog(0x534e4554, "26070014");
+            }
 
             if(i4_continue_decode)
             {
@@ -955,18 +978,46 @@ void impeg2d_dec_pic_data_thread(dec_state_t *ps_dec)
                 start_row = s_job.i2_start_mb_y << 4;
                 num_rows = MIN((s_job.i2_end_mb_y << 4), ps_dec->u2_vertical_size);
                 num_rows -= start_row;
-                impeg2d_format_convert(ps_dec, ps_dec->ps_disp_pic,
-                                    ps_dec->ps_disp_frm_buf,
-                                    start_row, num_rows);
+                if(ps_dec->u4_deinterlace && (0 == ps_dec->u2_progressive_frame))
+                {
+                    impeg2d_deinterlace(ps_dec,
+                                        ps_dec->ps_disp_pic,
+                                        ps_dec->ps_disp_frm_buf,
+                                        start_row,
+                                        num_rows);
+
+                }
+                else
+                {
+                    impeg2d_format_convert(ps_dec,
+                                           ps_dec->ps_disp_pic,
+                                           ps_dec->ps_disp_frm_buf,
+                                           start_row,
+                                           num_rows);
+                }
             }
         }
     }
     else
     {
         if((NULL != ps_dec->ps_disp_pic) && ((0 == ps_dec->u4_share_disp_buf) || (IV_YUV_420P != ps_dec->i4_chromaFormat)))
-            impeg2d_format_convert(ps_dec, ps_dec->ps_disp_pic,
-                            ps_dec->ps_disp_frm_buf,
-                            0, ps_dec->u2_vertical_size);
+        {
+            if(ps_dec->u4_deinterlace && (0 == ps_dec->u2_progressive_frame))
+            {
+                impeg2d_deinterlace(ps_dec,
+                                    ps_dec->ps_disp_pic,
+                                    ps_dec->ps_disp_frm_buf,
+                                    0,
+                                    ps_dec->u2_vertical_size);
+
+            }
+            else
+            {
+                impeg2d_format_convert(ps_dec, ps_dec->ps_disp_pic,
+                                        ps_dec->ps_disp_frm_buf,
+                                        0, ps_dec->u2_vertical_size);
+            }
+        }
     }
 }
 
@@ -1088,9 +1139,10 @@ static WORD32 impeg2d_init_thread_dec_ctxt(dec_state_t *ps_dec,
 
     ps_dec_thd->ps_func_bi_direct = ps_dec->ps_func_bi_direct;
     ps_dec_thd->ps_func_forw_or_back = ps_dec->ps_func_forw_or_back;
+    ps_dec_thd->pv_deinterlacer_ctxt = ps_dec->pv_deinterlacer_ctxt;
+    ps_dec_thd->ps_deint_pic = ps_dec->ps_deint_pic;
 
     return 0;
-
 }
 
 
@@ -1146,7 +1198,7 @@ WORD32 impeg2d_get_slice_pos(dec_state_multi_core_t *ps_dec_state_multi_core)
         i4_row -= 1;
 
 
-        if(i4_prev_row != i4_row)
+        if(i4_prev_row < i4_row)
         {
             /* Create a job for previous slice row */
             if(i4_start_row != -1)
@@ -1170,6 +1222,8 @@ WORD32 impeg2d_get_slice_pos(dec_state_multi_core_t *ps_dec_state_multi_core)
             /* Store current slice's row position */
             i4_start_row = i4_row;
 
+        } else if (i4_prev_row > i4_row) {
+            android_errorWriteLog(0x534e4554, "26070014");
         }
 
 
@@ -1322,10 +1376,12 @@ void impeg2d_flush_ext_and_user_data(dec_state_t *ps_dec)
     ps_stream    = &ps_dec->s_bit_stream;
     u4_start_code = impeg2d_bit_stream_nxt(ps_stream,START_CODE_LEN);
 
-    while(u4_start_code == EXTENSION_START_CODE || u4_start_code == USER_DATA_START_CODE)
+    while((u4_start_code == EXTENSION_START_CODE || u4_start_code == USER_DATA_START_CODE) &&
+            (ps_stream->u4_offset < ps_stream->u4_max_offset))
     {
         impeg2d_bit_stream_flush(ps_stream,START_CODE_LEN);
-        while(impeg2d_bit_stream_nxt(ps_stream,START_CODE_PREFIX_LEN) != START_CODE_PREFIX)
+        while(impeg2d_bit_stream_nxt(ps_stream,START_CODE_PREFIX_LEN) != START_CODE_PREFIX &&
+                (ps_stream->u4_offset < ps_stream->u4_max_offset))
         {
             impeg2d_bit_stream_flush(ps_stream,8);
         }
@@ -1354,7 +1410,8 @@ void impeg2d_dec_user_data(dec_state_t *ps_dec)
     while(u4_start_code == USER_DATA_START_CODE)
     {
         impeg2d_bit_stream_flush(ps_stream,START_CODE_LEN);
-        while(impeg2d_bit_stream_nxt(ps_stream,START_CODE_PREFIX_LEN) != START_CODE_PREFIX)
+        while((impeg2d_bit_stream_nxt(ps_stream,START_CODE_PREFIX_LEN) != START_CODE_PREFIX) &&
+                (ps_stream->u4_offset < ps_stream->u4_max_offset))
         {
             impeg2d_bit_stream_flush(ps_stream,8);
         }
@@ -1384,7 +1441,8 @@ IMPEG2D_ERROR_CODES_T impeg2d_dec_seq_ext_data(dec_state_t *ps_dec)
     u4_start_code = impeg2d_bit_stream_nxt(ps_stream,START_CODE_LEN);
     while( (u4_start_code == EXTENSION_START_CODE ||
             u4_start_code == USER_DATA_START_CODE) &&
-            (IMPEG2D_ERROR_CODES_T)IVD_ERROR_NONE == e_error)
+            (IMPEG2D_ERROR_CODES_T)IVD_ERROR_NONE == e_error &&
+            (ps_stream->u4_offset < ps_stream->u4_max_offset))
     {
         if(u4_start_code == USER_DATA_START_CODE)
         {
@@ -1436,7 +1494,8 @@ IMPEG2D_ERROR_CODES_T impeg2d_dec_pic_ext_data(dec_state_t *ps_dec)
     u4_start_code   = impeg2d_bit_stream_nxt(ps_stream,START_CODE_LEN);
     while ( (u4_start_code == EXTENSION_START_CODE ||
             u4_start_code == USER_DATA_START_CODE) &&
-            (IMPEG2D_ERROR_CODES_T)IVD_ERROR_NONE == e_error)
+            (IMPEG2D_ERROR_CODES_T)IVD_ERROR_NONE == e_error &&
+            (ps_stream->u4_offset < ps_stream->u4_max_offset))
     {
         if(u4_start_code == USER_DATA_START_CODE)
         {

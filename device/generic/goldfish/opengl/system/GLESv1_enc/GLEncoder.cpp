@@ -26,7 +26,7 @@
 static GLubyte *gVendorString= (GLubyte *) "Android";
 static GLubyte *gRendererString= (GLubyte *) "Android HW-GLES 1.0";
 static GLubyte *gVersionString= (GLubyte *) "OpenGL ES-CM 1.0";
-static GLubyte *gExtensionsString= (GLubyte *) ""; // no extensions at this point;
+static GLubyte *gExtensionsString= (GLubyte *) "GL_OES_EGL_image_external ";
 
 #define SET_ERROR_IF(condition,err) if((condition)) {                            \
         ALOGE("%s:%s:%d GL error 0x%x\n", __FILE__, __FUNCTION__, __LINE__, err); \
@@ -421,6 +421,7 @@ void GLEncoder::sendVertexData(unsigned int first, unsigned int count)
             if (stride == 0) stride = state->elementSize;
             int firstIndex = stride * first;
 
+            this->m_glBindBuffer_enc(this, GL_ARRAY_BUFFER, state->bufferObject);
             if (state->bufferObject == 0) {
 
                 switch(i) {
@@ -461,7 +462,6 @@ void GLEncoder::sendVertexData(unsigned int first, unsigned int count)
                     break;
                 }
             } else {
-                this->m_glBindBuffer_enc(this, GL_ARRAY_BUFFER, state->bufferObject);
 
                 switch(i) {
                 case GLClientState::VERTEX_LOCATION:
@@ -500,8 +500,8 @@ void GLEncoder::sendVertexData(unsigned int first, unsigned int count)
                                               (uintptr_t)state->data+firstIndex);
                     break;
                 }
-                this->m_glBindBuffer_enc(this, GL_ARRAY_BUFFER, m_state->currentArrayVbo());
             }
+            this->m_glBindBuffer_enc(this, GL_ARRAY_BUFFER, m_state->currentArrayVbo());
         } else {
             this->m_glDisableClientState_enc(this, state->glConst);
         }
@@ -511,6 +511,24 @@ void GLEncoder::sendVertexData(unsigned int first, unsigned int count)
 void GLEncoder::s_glDrawArrays(void *self, GLenum mode, GLint first, GLsizei count)
 {
     GLEncoder *ctx = (GLEncoder *)self;
+
+    bool has_arrays = false;
+    for (int i = 0; i < GLClientState::LAST_LOCATION; i++) {
+        const GLClientState::VertexAttribState *state = ctx->m_state->getState(i);
+        if (state->enabled) {
+            if (state->bufferObject || state->data) {
+                has_arrays = true;
+            } else {
+                ALOGE("glDrawArrays: a vertex attribute array is enabled with no data bound\n");
+                ctx->setError(GL_INVALID_OPERATION);
+                return;
+            }
+        }
+    }
+    if (!has_arrays) {
+        ALOGE("glDrawArrays: no data bound to the command - ignoring\n");
+        return;
+    }
 
     ctx->sendVertexData(first, count);
     ctx->m_glDrawArrays_enc(ctx, mode, /*first*/ 0, count);
@@ -531,8 +549,12 @@ void GLEncoder::s_glDrawElements(void *self, GLenum mode, GLsizei count, GLenum 
         if (state->enabled) {
             if (state->bufferObject != 0) {
                 has_indirect_arrays = true;
-            } else {
+            } else if (state->data) {
                 has_immediate_arrays = true;
+            } else {
+                ALOGE("glDrawElements: a vertex attribute array is enabled with no data bound\n");
+                ctx->setError(GL_INVALID_OPERATION);
+                return;
             }
         }
     }
@@ -577,6 +599,16 @@ void GLEncoder::s_glDrawElements(void *self, GLenum mode, GLsizei count, GLenum 
                 adjustedIndices = ctx->m_fixedBuffer.alloc(glSizeof(type) * count);
                 GLUtils::shiftIndices<unsigned short>((unsigned short *)indices,
                                                  (unsigned short *)adjustedIndices,
+                                                 count, -minIndex);
+            }
+            break;
+        case GL_INT:
+        case GL_UNSIGNED_INT:
+            GLUtils::minmax<unsigned int>((unsigned int *)indices, count, &minIndex, &maxIndex);
+            if (minIndex != 0) {
+                adjustedIndices = ctx->m_fixedBuffer.alloc(glSizeof(type) * count);
+                GLUtils::shiftIndices<unsigned int>((unsigned int *)indices,
+                                                 (unsigned int *)adjustedIndices,
                                                  count, -minIndex);
             }
             break;
@@ -918,7 +950,8 @@ void GLEncoder::restore2DTextureTarget()
             m_state->getBoundTexture(priorityTarget));
 }
 
-GLEncoder::GLEncoder(IOStream *stream) : gl_encoder_context_t(stream)
+GLEncoder::GLEncoder(IOStream *stream, ChecksumCalculator *protocol)
+        : gl_encoder_context_t(stream, protocol)
 {
     m_initialized = false;
     m_state = NULL;

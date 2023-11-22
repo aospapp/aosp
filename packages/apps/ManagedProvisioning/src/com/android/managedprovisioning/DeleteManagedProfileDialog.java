@@ -28,7 +28,9 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import com.android.managedprovisioning.Utils.MdmPackageInfo;
+import com.android.managedprovisioning.common.MdmPackageInfo;
+import com.android.managedprovisioning.common.Utils;
+import com.android.setupwizardlib.util.SystemBarHelper;
 
 /**
  * Displays information about an existing managed profile and asks the user if it should be deleted.
@@ -40,6 +42,8 @@ public class DeleteManagedProfileDialog extends DialogFragment {
     private static final String KEY_USER_PROFILE_CALLBACK_ID = "user_profile_callback_id";
     private static final String KEY_MDM_PACKAGE_NAME = "mdm_package_name";
     private static final String KEY_PROFILE_OWNER_DOMAIN = "profile_owner_domain";
+
+    private final Utils mUtils = new Utils();
 
     /**
      * @param managedProfileUserId user-id for the managed profile which will be passed back to the
@@ -84,12 +88,11 @@ public class DeleteManagedProfileDialog extends DialogFragment {
         Drawable appIcon;
         MdmPackageInfo mdmPackageInfo = null;
         if (mdmPackageName != null) {
-            mdmPackageInfo = Utils.getMdmPackageInfo(
-                    getActivity().getPackageManager(), mdmPackageName);
+            mdmPackageInfo = MdmPackageInfo.createFromPackageName(getActivity(), mdmPackageName);
         }
         if (mdmPackageInfo != null) {
-            appLabel = mdmPackageInfo.getAppLabel();
-            appIcon = mdmPackageInfo.getPackageIcon();
+            appLabel = mdmPackageInfo.appLabel;
+            appIcon = mdmPackageInfo.packageIcon;
         } else {
             appLabel= getResources().getString(android.R.string.unknownName);
             appIcon = getActivity().getPackageManager().getDefaultActivityIcon();
@@ -99,15 +102,18 @@ public class DeleteManagedProfileDialog extends DialogFragment {
         dialog.setTitle(R.string.delete_profile_title);
         dialog.setContentView(R.layout.delete_managed_profile_dialog);
         dialog.setCanceledOnTouchOutside(false);
+        if (!mUtils.isUserSetupCompleted(getActivity())) {
+            SystemBarHelper.hideSystemBars(dialog);
+        }
 
         ImageView imageView = (ImageView) dialog.findViewById(
-                R.id.delete_managed_profile_mdm_icon_view);
+                R.id.device_manager_icon_view);
         imageView.setImageDrawable(appIcon);
         imageView.setContentDescription(
                     getResources().getString(R.string.mdm_icon_label, appLabel));
 
         TextView deviceManagerName = (TextView) dialog.findViewById(
-                R.id.delete_managed_profile_device_manager_name);
+                R.id.device_manager_name);
         deviceManagerName.setText(appLabel);
 
         Button positiveButton = (Button) dialog.findViewById(

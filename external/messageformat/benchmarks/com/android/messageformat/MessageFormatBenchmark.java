@@ -16,10 +16,9 @@
 
 package com.android.messageformat;
 
-import com.google.caliper.SimpleBenchmark;
 import java.util.Locale;
 
-public class MessageFormatBenchmark extends SimpleBenchmark {
+public class MessageFormatBenchmark {
     public void timePlurals(int nreps) throws Exception {
         final Locale sr = new Locale("sr");
         for (int i = 0; i < nreps; ++i) {

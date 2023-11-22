@@ -63,14 +63,14 @@ import org.bouncycastle.util.encoders.Hex;
  * each encoding in the contents octets may itself
  * be primitive or constructed.
  * However, such encodings will usually be primitive.
- * </p><p>
+ * <br />
  * NOTE 2 &mdash; In particular, the tags in the contents octets are always universal class, number 4.
  * </blockquote>
  * </p>
  * <p><b>9: Canonical encoding rules</b></p>
  * <p><b>9.1 Length forms</b></p>
  * <p>
- * If the encoding is constructed, it shall employ the indefinite length form.
+ * If the encoding is constructed, it shall employ the indefinite-length form.
  * If the encoding is primitive, it shall include the fewest length octets necessary.
  * [Contrast with 8.1.3.2 b).]
  * </p>
@@ -83,7 +83,7 @@ import org.bouncycastle.util.encoders.Hex;
  * the constructed encoding shall be encoded with a primitive encoding.
  * The encoding of each fragment, except possibly
  * the last, shall have 1000 contents octets. (Contrast with 8.21.6.)
- * </p>
+ * </p><p>
  * <b>10: Distinguished encoding rules</b>
  * </p><p>
  * <b>10.1 Length forms</b>
@@ -166,6 +166,8 @@ public abstract class ASN1OctetString
     }
 
     /**
+     * Base constructor.
+     *
      * @param string the octets making up the octet string.
      */
     public ASN1OctetString(

@@ -38,6 +38,10 @@ status_t layer_state_t::write(Parcel& output) const
     *reinterpret_cast<layer_state_t::matrix22_t *>(
             output.writeInplace(sizeof(layer_state_t::matrix22_t))) = matrix;
     output.write(crop);
+    output.write(finalCrop);
+    output.writeStrongBinder(handle);
+    output.writeUint64(frameNumber);
+    output.writeInt32(overrideScalingMode);
     output.write(transparentRegion);
     return NO_ERROR;
 }
@@ -62,6 +66,10 @@ status_t layer_state_t::read(const Parcel& input)
         return BAD_VALUE;
     }
     input.read(crop);
+    input.read(finalCrop);
+    handle = input.readStrongBinder();
+    frameNumber = input.readUint64();
+    overrideScalingMode = input.readInt32();
     input.read(transparentRegion);
     return NO_ERROR;
 }
@@ -76,6 +84,16 @@ status_t ComposerState::read(const Parcel& input) {
     return state.read(input);
 }
 
+
+DisplayState::DisplayState() :
+    what(0),
+    layerStack(0),
+    orientation(eOrientationDefault),
+    viewport(Rect::EMPTY_RECT),
+    frame(Rect::EMPTY_RECT),
+    width(0),
+    height(0) {
+}
 
 status_t DisplayState::write(Parcel& output) const {
     output.writeStrongBinder(token);

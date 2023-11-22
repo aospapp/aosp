@@ -27,10 +27,9 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * Tests for {@link EventOrderingVerification}.
+ * Tests for {@link JitterVerification}.
  */
 public class JitterVerificationTest extends TestCase {
-
 
     public void testVerify() {
         final int SAMPLE_SIZE = 100;
@@ -67,54 +66,58 @@ public class JitterVerificationTest extends TestCase {
         } catch (AssertionError e) {
             // Expected;
         }
-        verifyStats(stats, false, 47.34);
+        verifyStats(stats, false, 25); // 500 us range (250 us in single-sided sense)
+                                       // divide by 1ms requested sample time x 100%
     }
 
-    public void testCalculateJitter() {
+    public void testCalculateDelta() {
         long[] timestamps = new long[]{0, 1, 2, 3, 4};
         JitterVerification verification = getVerification(1, timestamps);
-        List<Double> jitterValues = verification.getJitterValues();
-        assertEquals(4, jitterValues.size());
-        assertEquals(0.0, jitterValues.get(0));
-        assertEquals(0.0, jitterValues.get(1));
-        assertEquals(0.0, jitterValues.get(2));
-        assertEquals(0.0, jitterValues.get(3));
+        List<Long> deltaValues = verification.getDeltaValues();
+        assertEquals(4, deltaValues.size());
+        assertEquals(1, deltaValues.get(0).longValue());
+        assertEquals(1, deltaValues.get(1).longValue());
+        assertEquals(1, deltaValues.get(2).longValue());
+        assertEquals(1, deltaValues.get(3).longValue());
 
         timestamps = new long[]{0, 0, 2, 4, 4};
         verification = getVerification(1, timestamps);
-        jitterValues = verification.getJitterValues();
-        assertEquals(4, jitterValues.size());
-        assertEquals(1.0, jitterValues.get(0));
-        assertEquals(1.0, jitterValues.get(1));
-        assertEquals(1.0, jitterValues.get(2));
-        assertEquals(1.0, jitterValues.get(3));
+        deltaValues = verification.getDeltaValues();
+        assertEquals(4, deltaValues.size());
+        assertEquals(0, deltaValues.get(0).longValue());
+        assertEquals(2, deltaValues.get(1).longValue());
+        assertEquals(2, deltaValues.get(2).longValue());
+        assertEquals(0, deltaValues.get(3).longValue());
 
         timestamps = new long[]{0, 1, 4, 9, 16};
         verification = getVerification(1, timestamps);
-        jitterValues = verification.getJitterValues();
-        assertEquals(4, jitterValues.size());
-        assertEquals(4, jitterValues.size());
-        assertEquals(3.0, jitterValues.get(0));
-        assertEquals(1.0, jitterValues.get(1));
-        assertEquals(1.0, jitterValues.get(2));
-        assertEquals(3.0, jitterValues.get(3));
+        deltaValues = verification.getDeltaValues();
+        assertEquals(4, deltaValues.size());
+        assertEquals(1, deltaValues.get(0).longValue());
+        assertEquals(3, deltaValues.get(1).longValue());
+        assertEquals(5, deltaValues.get(2).longValue());
+        assertEquals(7, deltaValues.get(3).longValue());
     }
 
-    private static JitterVerification getVerification(int threshold, long ... timestamps) {
+    private static JitterVerification getVerification(int marginPercent, long ... timestamps) {
         Collection<TestSensorEvent> events = new ArrayList<>(timestamps.length);
         for (long timestamp : timestamps) {
             events.add(new TestSensorEvent(null, timestamp, 0, null));
         }
-        JitterVerification verification = new JitterVerification(threshold);
+        long samplePeriodNs = 1000*1000; //1000Hz
+        long jitterThresholdNs = 20*1000; // 2% of that
+
+        JitterVerification verification =
+                new JitterVerification(marginPercent/100.0f, jitterThresholdNs, samplePeriodNs);
         verification.addSensorEvents(events);
         return verification;
     }
 
-    private void verifyStats(SensorStats stats, boolean passed, double jitter95) {
+    private void verifyStats(SensorStats stats, boolean passed, double percentageJitter) {
         assertEquals(passed, stats.getValue(JitterVerification.PASSED_KEY));
         assertEquals(
-                jitter95,
+                percentageJitter,
                 (Double) stats.getValue(SensorStats.JITTER_95_PERCENTILE_PERCENT_KEY),
-                0.1);
+                0.01);
     }
 }

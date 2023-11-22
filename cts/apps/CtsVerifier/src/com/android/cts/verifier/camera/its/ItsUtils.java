@@ -37,7 +37,9 @@ import org.json.JSONObject;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.concurrent.Semaphore;
 import java.util.List;
+
 
 public class ItsUtils {
     public static final String TAG = ItsUtils.class.getSimpleName();
@@ -161,7 +163,7 @@ public class ItsUtils {
         return maxSize;
     }
 
-    public static byte[] getDataFromImage(Image image)
+    public static byte[] getDataFromImage(Image image, Semaphore quota)
             throws ItsException {
         int format = image.getFormat();
         int width = image.getWidth();
@@ -180,13 +182,28 @@ public class ItsUtils {
         if (format == ImageFormat.JPEG) {
             // JPEG doesn't have pixelstride and rowstride, treat it as 1D buffer.
             ByteBuffer buffer = planes[0].getBuffer();
+            if (quota != null) {
+                try {
+                    quota.acquire(buffer.capacity());
+                } catch (java.lang.InterruptedException e) {
+                    Logt.e(TAG, "getDataFromImage error acquiring memory quota. Interrupted", e);
+                }
+            }
             data = new byte[buffer.capacity()];
             buffer.get(data);
             return data;
         } else if (format == ImageFormat.YUV_420_888 || format == ImageFormat.RAW_SENSOR
                 || format == ImageFormat.RAW10 || format == ImageFormat.RAW12) {
             int offset = 0;
-            data = new byte[width * height * ImageFormat.getBitsPerPixel(format) / 8];
+            int dataSize = width * height * ImageFormat.getBitsPerPixel(format) / 8;
+            if (quota != null) {
+                try {
+                    quota.acquire(dataSize);
+                } catch (java.lang.InterruptedException e) {
+                    Logt.e(TAG, "getDataFromImage error acquiring memory quota. Interrupted", e);
+                }
+            }
+            data = new byte[dataSize];
             int maxRowSize = planes[0].getRowStride();
             for (int i = 0; i < planes.length; i++) {
                 if (maxRowSize < planes[i].getRowStride()) {

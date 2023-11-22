@@ -16,7 +16,7 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 
 import org.xmlpull.v1.XmlPullParser;
@@ -33,7 +33,7 @@ public class AnalogClockTest extends ActivityInstrumentationTestCase2<FrameLayou
     private Activity mActivity;
 
     public AnalogClockTest() {
-        super("com.android.cts.widget", FrameLayoutCtsActivity.class);
+        super("android.widget.cts", FrameLayoutCtsActivity.class);
     }
 
     @Override

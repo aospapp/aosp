@@ -29,10 +29,15 @@ class AsymmetricKey : public Key {
                   keymaster_error_t* error)
         : Key(hw_enforced, sw_enforced, error) {}
 
-    keymaster_error_t key_material(UniquePtr<uint8_t[]>* material, size_t* size) const override;
     keymaster_error_t formatted_key_material(keymaster_key_format_t format,
                                              UniquePtr<uint8_t[]>* material,
                                              size_t* size) const override;
+
+    keymaster_error_t GenerateAttestation(const KeymasterContext& context,
+                                          const AuthorizationSet& attest_params,
+                                          const AuthorizationSet& tee_enforced,
+                                          const AuthorizationSet& sw_enforced,
+                                          keymaster_cert_chain_t* certificate_chain) const override;
 
     virtual bool InternalToEvp(EVP_PKEY* pkey) const = 0;
     virtual bool EvpToInternal(const EVP_PKEY* pkey) = 0;

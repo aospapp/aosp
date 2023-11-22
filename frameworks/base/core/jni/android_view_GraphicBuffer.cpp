@@ -158,7 +158,7 @@ static jboolean android_view_GraphicBuffer_lockCanvas(JNIEnv* env, jobject,
 
     sp<GraphicBuffer> buffer(wrapper->buffer);
 
-    Rect rect;
+    Rect rect(Rect::EMPTY_RECT);
     if (dirtyRect) {
         rect.left = GET_INT(dirtyRect, gRectClassInfo.left);
         rect.top = GET_INT(dirtyRect, gRectClassInfo.top);
@@ -268,7 +268,7 @@ sp<GraphicBuffer> graphicBufferForJavaObject(JNIEnv* env, jobject obj) {
 
 const char* const kClassPathName = "android/view/GraphicBuffer";
 
-static JNINativeMethod gMethods[] = {
+static const JNINativeMethod gMethods[] = {
     { "nCreateGraphicBuffer",  "(IIII)J", (void*) android_view_GraphiceBuffer_create },
     { "nDestroyGraphicBuffer", "(J)V",    (void*) android_view_GraphiceBuffer_destroy },
 

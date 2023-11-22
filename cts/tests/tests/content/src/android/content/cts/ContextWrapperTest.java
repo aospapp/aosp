@@ -16,7 +16,7 @@
 
 package android.content.cts;
 
-import com.android.cts.content.R;
+import android.content.cts.R;
 
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
@@ -157,6 +157,7 @@ public class ContextWrapperTest extends AndroidTestCase {
         registerBroadcastReceiver(lowPriorityReceiver, filterLowPriority);
 
         final Intent broadcastIntent = new Intent(ResultReceiver.MOCK_ACTION);
+        broadcastIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         mContextWrapper.sendOrderedBroadcast(broadcastIntent, null);
         new PollingCheck(BROADCAST_TIMEOUT) {
             @Override
@@ -186,8 +187,10 @@ public class ContextWrapperTest extends AndroidTestCase {
         Bundle bundle = new Bundle();
         bundle.putString(KEY_KEPT, VALUE_KEPT);
         bundle.putString(KEY_REMOVED, VALUE_REMOVED);
-        mContextWrapper.sendOrderedBroadcast(new Intent(ResultReceiver.MOCK_ACTION),
-                null, broadcastReceiver, null, 1, INTIAL_RESULT, bundle);
+        Intent intent = new Intent(ResultReceiver.MOCK_ACTION);
+        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+        mContextWrapper.sendOrderedBroadcast(intent, null, broadcastReceiver, null, 1,
+                INTIAL_RESULT, bundle);
 
         synchronized (mLockObj) {
             try {
@@ -216,13 +219,13 @@ public class ContextWrapperTest extends AndroidTestCase {
 
         // Test unwanted intent(action = MOCK_ACTION2)
         broadcastReceiver.reset();
-        waitForFilteredIntent(mContextWrapper, broadcastReceiver, MOCK_ACTION2);
+        waitForFilteredIntent(mContextWrapper, MOCK_ACTION2);
         assertFalse(broadcastReceiver.hadReceivedBroadCast1());
         assertFalse(broadcastReceiver.hadReceivedBroadCast2());
 
         // Send wanted intent(action = MOCK_ACTION1)
         broadcastReceiver.reset();
-        waitForFilteredIntent(mContextWrapper, broadcastReceiver, MOCK_ACTION1);
+        waitForFilteredIntent(mContextWrapper, MOCK_ACTION1);
         assertTrue(broadcastReceiver.hadReceivedBroadCast1());
         assertFalse(broadcastReceiver.hadReceivedBroadCast2());
 
@@ -235,13 +238,13 @@ public class ContextWrapperTest extends AndroidTestCase {
 
         // Test unwanted intent(action = MOCK_ACTION2)
         broadcastReceiver2.reset();
-        waitForFilteredIntent(mContextWrapper, broadcastReceiver2, MOCK_ACTION2);
+        waitForFilteredIntent(mContextWrapper, MOCK_ACTION2);
         assertFalse(broadcastReceiver2.hadReceivedBroadCast1());
         assertFalse(broadcastReceiver2.hadReceivedBroadCast2());
 
         // Send wanted intent(action = MOCK_ACTION1), but the receiver is unregistered.
         broadcastReceiver2.reset();
-        waitForFilteredIntent(mContextWrapper, broadcastReceiver2, MOCK_ACTION1);
+        waitForFilteredIntent(mContextWrapper, MOCK_ACTION1);
         assertFalse(broadcastReceiver2.hadReceivedBroadCast1());
         assertFalse(broadcastReceiver2.hadReceivedBroadCast2());
     }
@@ -256,13 +259,13 @@ public class ContextWrapperTest extends AndroidTestCase {
 
         // Test unwanted intent(action = MOCK_ACTION2)
         broadcastReceiver.reset();
-        waitForFilteredIntent(mContextWrapper, broadcastReceiver, MOCK_ACTION2);
+        waitForFilteredIntent(mContextWrapper, MOCK_ACTION2);
         assertFalse(broadcastReceiver.hadReceivedBroadCast1());
         assertFalse(broadcastReceiver.hadReceivedBroadCast2());
 
         // Send wanted intent(action = MOCK_ACTION1)
         broadcastReceiver.reset();
-        waitForFilteredIntent(mContextWrapper, broadcastReceiver, MOCK_ACTION1);
+        waitForFilteredIntent(mContextWrapper, MOCK_ACTION1);
         assertTrue(broadcastReceiver.hadReceivedBroadCast1());
         assertFalse(broadcastReceiver.hadReceivedBroadCast2());
 
@@ -343,11 +346,11 @@ public class ContextWrapperTest extends AndroidTestCase {
 
         // Test openOrCreateDatabase with null and actual factory
         mDatabase = mContextWrapper.openOrCreateDatabase(DATABASE_NAME1,
-                ContextWrapper.MODE_WORLD_READABLE | ContextWrapper.MODE_WORLD_WRITEABLE, factory);
+                ContextWrapper.MODE_PRIVATE, factory);
         assertNotNull(mDatabase);
         mDatabase.close();
         mDatabase = mContextWrapper.openOrCreateDatabase(DATABASE_NAME2,
-                ContextWrapper.MODE_WORLD_READABLE | ContextWrapper.MODE_WORLD_WRITEABLE, factory);
+                ContextWrapper.MODE_PRIVATE, factory);
         assertNotNull(mDatabase);
         mDatabase.close();
 
@@ -474,7 +477,7 @@ public class ContextWrapperTest extends AndroidTestCase {
     }
 
     public void testGetPackageName() {
-        assertEquals("com.android.cts.content", mContextWrapper.getPackageName());
+        assertEquals("android.content.cts", mContextWrapper.getPackageName());
     }
 
     public void testGetCacheDir() {
@@ -631,7 +634,7 @@ public class ContextWrapperTest extends AndroidTestCase {
     }
 
     public void testGetDir() {
-        File dir = mContextWrapper.getDir("testpath", Context.MODE_WORLD_WRITEABLE);
+        File dir = mContextWrapper.getDir("testpath", Context.MODE_PRIVATE);
         assertNotNull(dir);
         dir.delete();
     }
@@ -792,9 +795,9 @@ public class ContextWrapperTest extends AndroidTestCase {
         waitForCondition(con);
     }
 
-    private void waitForFilteredIntent(ContextWrapper contextWrapper,
-            final FilteredReceiver receiver, final String action) throws InterruptedException {
-        contextWrapper.sendOrderedBroadcast(new Intent(action), null);
+    private void waitForFilteredIntent(ContextWrapper contextWrapper, final String action)
+            throws InterruptedException {
+        contextWrapper.sendBroadcast(new Intent(action), null);
 
         synchronized (mLockObj) {
             mLockObj.wait(BROADCAST_TIMEOUT);
@@ -849,7 +852,6 @@ public class ContextWrapperTest extends AndroidTestCase {
 
     private class FilteredReceiver extends BroadcastReceiver {
         private boolean mHadReceivedBroadCast1 = false;
-
         private boolean mHadReceivedBroadCast2 = false;
 
         public void onReceive(Context context, Intent intent) {

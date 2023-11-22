@@ -17,6 +17,19 @@
 BCM_FW_SRC_FILE_STA := fw_bcm4343.bin
 BCM_FW_SRC_FILE_AP  := fw_bcm4343_apsta.bin
 
+ifneq (,$(WIFI_FW_VER))
+ifneq (,$(filter a0, $(WIFI_FW_VER)))
 PRODUCT_COPY_FILES += \
-    hardware/broadcom/wlan/bcmdhd/firmware/bcm4343/$(BCM_FW_SRC_FILE_STA):system/vendor/firmware/fw_bcmdhd.bin \
-    hardware/broadcom/wlan/bcmdhd/firmware/bcm4343/$(BCM_FW_SRC_FILE_AP):system/vendor/firmware/fw_bcmdhd_apsta.bin
+    hardware/broadcom/wlan/bcmdhd/firmware/bcm4343/$(BCM_FW_SRC_FILE_STA):$(TARGET_COPY_OUT_VENDOR)/firmware/fw_bcmdhd.bin \
+    hardware/broadcom/wlan/bcmdhd/firmware/bcm4343/$(BCM_FW_SRC_FILE_AP):$(TARGET_COPY_OUT_VENDOR)/firmware/fw_bcmdhd_apsta.bin
+endif
+ifneq (,$(filter a1, $(WIFI_FW_VER)))
+PRODUCT_COPY_FILES += \
+    hardware/broadcom/wlan/bcmdhd/firmware/bcm4343/fw_bcm4343_a1.bin:$(TARGET_COPY_OUT_VENDOR)/firmware/fw_bcmdhd.bin_a1 \
+    hardware/broadcom/wlan/bcmdhd/firmware/bcm4343/fw_bcm4343_a1_apsta.bin:$(TARGET_COPY_OUT_VENDOR)/firmware/fw_bcmdhd_apsta.bin_a1
+endif
+else
+PRODUCT_COPY_FILES += \
+    hardware/broadcom/wlan/bcmdhd/firmware/bcm4343/$(BCM_FW_SRC_FILE_STA):$(TARGET_COPY_OUT_VENDOR)/firmware/fw_bcmdhd.bin \
+    hardware/broadcom/wlan/bcmdhd/firmware/bcm4343/$(BCM_FW_SRC_FILE_AP):$(TARGET_COPY_OUT_VENDOR)/firmware/fw_bcmdhd_apsta.bin
+endif

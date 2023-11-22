@@ -1,7 +1,6 @@
 #define LOG_TAG "Bitmap"
 #include "Bitmap.h"
 
-#include "Paint.h"
 #include "SkBitmap.h"
 #include "SkPixelRef.h"
 #include "SkImageEncoder.h"
@@ -18,6 +17,7 @@
 #include "android_nio_utils.h"
 #include "CreateJavaOutputStreamAdaptor.h"
 #include <Caches.h>
+#include <hwui/Paint.h>
 
 #include "core_jni_helpers.h"
 
@@ -28,6 +28,7 @@
 #include <cutils/ashmem.h>
 
 #define DEBUG_PARCEL 0
+#define ASHMEM_BITMAP_MIN_SIZE (128 * (1 << 10))
 
 namespace android {
 
@@ -250,13 +251,6 @@ SkPixelRef* Bitmap::refPixelRefLocked() {
 
 void Bitmap::reconfigure(const SkImageInfo& info, size_t rowBytes,
         SkColorTable* ctable) {
-    {
-        android::AutoMutex _lock(mLock);
-        if (mPinnedRefCount) {
-            ALOGW("Called reconfigure on a bitmap that is in use! This may"
-                    " cause graphical corruption!");
-        }
-    }
     mPixelRef->reconfigure(info, rowBytes, ctable);
 }
 
@@ -758,24 +752,42 @@ static jobject Bitmap_copy(JNIEnv* env, jobject, jlong srcHandle,
             getPremulBitmapCreateFlags(isMutable));
 }
 
-static jobject Bitmap_copyAshmem(JNIEnv* env, jobject, jlong srcHandle) {
-    SkBitmap src;
-    reinterpret_cast<Bitmap*>(srcHandle)->getSkBitmap(&src);
+static Bitmap* Bitmap_copyAshmemImpl(JNIEnv* env, SkBitmap& src, SkColorType& dstCT) {
     SkBitmap result;
 
     AshmemPixelAllocator allocator(env);
-    if (!src.copyTo(&result, &allocator)) {
+    if (!src.copyTo(&result, dstCT, &allocator)) {
         return NULL;
     }
     Bitmap* bitmap = allocator.getStorageObjAndReset();
     bitmap->peekAtPixelRef()->setImmutable();
+    return bitmap;
+}
+
+static jobject Bitmap_copyAshmem(JNIEnv* env, jobject, jlong srcHandle) {
+    SkBitmap src;
+    reinterpret_cast<Bitmap*>(srcHandle)->getSkBitmap(&src);
+    SkColorType dstCT = src.colorType();
+    Bitmap* bitmap = Bitmap_copyAshmemImpl(env, src, dstCT);
     jobject ret = GraphicsJNI::createBitmap(env, bitmap, getPremulBitmapCreateFlags(false));
     return ret;
 }
 
-static void Bitmap_destructor(JNIEnv* env, jobject, jlong bitmapHandle) {
-    LocalScopedBitmap bitmap(bitmapHandle);
+static jobject Bitmap_copyAshmemConfig(JNIEnv* env, jobject, jlong srcHandle, jint dstConfigHandle) {
+    SkBitmap src;
+    reinterpret_cast<Bitmap*>(srcHandle)->getSkBitmap(&src);
+    SkColorType dstCT = GraphicsJNI::legacyBitmapConfigToColorType(dstConfigHandle);
+    Bitmap* bitmap = Bitmap_copyAshmemImpl(env, src, dstCT);
+    jobject ret = GraphicsJNI::createBitmap(env, bitmap, getPremulBitmapCreateFlags(false));
+    return ret;
+}
+
+static void Bitmap_destruct(Bitmap* bitmap) {
     bitmap->detachFromJava();
+}
+
+static jlong Bitmap_getNativeFinalizer(JNIEnv*, jobject) {
+    return static_cast<jlong>(reinterpret_cast<uintptr_t>(&Bitmap_destruct));
 }
 
 static jboolean Bitmap_recycle(JNIEnv* env, jobject, jlong bitmapHandle) {
@@ -993,7 +1005,7 @@ static jobject Bitmap_createFromParcel(JNIEnv* env, jobject, jobject parcel) {
 
     // Map the bitmap in place from the ashmem region if possible otherwise copy.
     Bitmap* nativeBitmap;
-    if (blob.fd() >= 0 && (blob.isMutable() || !isMutable)) {
+    if (blob.fd() >= 0 && (blob.isMutable() || !isMutable) && (size >= ASHMEM_BITMAP_MIN_SIZE)) {
 #if DEBUG_PARCEL
         ALOGD("Bitmap.createFromParcel: mapped contents of %s bitmap from %s blob "
                 "(fds %s)",
@@ -1005,6 +1017,7 @@ static jobject Bitmap_createFromParcel(JNIEnv* env, jobject, jobject parcel) {
         // is disposed.
         int dupFd = dup(blob.fd());
         if (dupFd < 0) {
+            ALOGE("Error allocating dup fd. Error:%d", errno);
             blob.release();
             SkSafeUnref(ctable);
             doThrowRE(env, "Could not allocate dup blob fd.");
@@ -1082,6 +1095,8 @@ static jboolean Bitmap_writeToParcel(JNIEnv* env, jobject,
     p->writeInt32(density);
 
     if (bitmap.colorType() == kIndex_8_SkColorType) {
+        // The bitmap needs to be locked to access its color table.
+        SkAutoLockPixels alp(bitmap);
         SkColorTable* ctable = bitmap.getColorTable();
         if (ctable != NULL) {
             int count = ctable->count();
@@ -1348,14 +1363,16 @@ static jlong Bitmap_refPixelRef(JNIEnv* env, jobject, jlong bitmapHandle) {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static JNINativeMethod gBitmapMethods[] = {
+static const JNINativeMethod gBitmapMethods[] = {
     {   "nativeCreate",             "([IIIIIIZ)Landroid/graphics/Bitmap;",
         (void*)Bitmap_creator },
     {   "nativeCopy",               "(JIZ)Landroid/graphics/Bitmap;",
         (void*)Bitmap_copy },
     {   "nativeCopyAshmem",         "(J)Landroid/graphics/Bitmap;",
         (void*)Bitmap_copyAshmem },
-    {   "nativeDestructor",         "(J)V", (void*)Bitmap_destructor },
+    {   "nativeCopyAshmemConfig",   "(JI)Landroid/graphics/Bitmap;",
+        (void*)Bitmap_copyAshmemConfig },
+    {   "nativeGetNativeFinalizer", "()J", (void*)Bitmap_getNativeFinalizer },
     {   "nativeRecycle",            "(J)Z", (void*)Bitmap_recycle },
     {   "nativeReconfigure",        "(JIIIIZ)V", (void*)Bitmap_reconfigure },
     {   "nativeCompress",           "(JIILjava/io/OutputStream;[B)Z",

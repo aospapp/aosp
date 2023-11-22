@@ -17,7 +17,6 @@
 package android.signature.cts;
 
 import android.content.res.Resources;
-import android.signature.R;
 import android.signature.cts.JDiffClassDescription.JDiffConstructor;
 import android.signature.cts.JDiffClassDescription.JDiffField;
 import android.signature.cts.JDiffClassDescription.JDiffMethod;
@@ -26,13 +25,17 @@ import android.util.Log;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
+import org.xmlpull.v1.XmlPullParserFactory;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Scanner;
 
 /**
  * Performs the signature check via a JUnit test.
@@ -40,6 +43,7 @@ import java.util.HashSet;
 public class SignatureTest extends AndroidTestCase {
 
     private static final String TAG = SignatureTest.class.getSimpleName();
+    private static final String CURRENT_API_FILE = "/data/local/tmp/signature-test/current.api";
 
     private static final String TAG_ROOT = "api";
     private static final String TAG_PACKAGE = "package";
@@ -104,25 +108,21 @@ public class SignatureTest extends AndroidTestCase {
      * Will check the entire API, and then report the complete list of failures
      */
     public void testSignature() {
-        Resources r = getContext().getResources();
-        Class rClass = R.xml.class;
-        logd(String.format("Class: %s", rClass.toString()));
-        Field[] fs = rClass.getFields();
-        for (Field f : fs) {
-            logd(String.format("Field: %s", f.toString()));
-            try {
-                start(r.getXml(f.getInt(rClass)));
-            } catch (Exception e) {
-                mResultObserver.notifyFailure(FailureType.CAUGHT_EXCEPTION, e.getMessage(),
-                        e.getMessage());
-            }
+        try {
+            XmlPullParserFactory factory = XmlPullParserFactory.newInstance();
+            XmlPullParser parser = factory.newPullParser();
+            parser.setInput(new FileInputStream(new File(CURRENT_API_FILE)), null);
+            start(parser);
+        } catch (Exception e) {
+            mResultObserver.notifyFailure(FailureType.CAUGHT_EXCEPTION, e.getMessage(),
+                    e.getMessage());
         }
         if (mResultObserver.mDidFail) {
             fail(mResultObserver.mErrorString.toString());
         }
     }
 
-    private  void beginDocument(XmlPullParser parser, String firstElementName)
+    private void beginDocument(XmlPullParser parser, String firstElementName)
             throws XmlPullParserException, IOException {
         int type;
         while ((type=parser.next()) != XmlPullParser.START_TAG

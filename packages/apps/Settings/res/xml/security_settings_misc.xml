@@ -15,7 +15,8 @@
 -->
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-                  android:title="@string/security_settings_title">
+        xmlns:settings="http://schemas.android.com/apk/res/com.android.settings"
+        android:title="@string/security_settings_title">
 
     <PreferenceCategory android:key="sim_lock"
             android:title="@string/sim_lock_settings_title"
@@ -27,7 +28,7 @@
 
             <intent android:action="android.intent.action.MAIN"
                     android:targetPackage="com.android.settings"
-                    android:targetClass="com.android.settings.IccLockSettings"/>
+                    android:targetClass="com.android.settings.Settings$IccLockSettingsActivity"/>
 
         </Preference>
 
@@ -37,8 +38,7 @@
             android:persistent="false">
 
         <SwitchPreference android:key="show_password"
-                android:title="@string/show_password"
-                android:persistent="false"/>
+                android:title="@string/show_password"/>
 
     </PreferenceCategory>
 
@@ -52,11 +52,11 @@
                 android:persistent="false"
                 android:fragment="com.android.settings.DeviceAdminSettings"/>
 
-        <SwitchPreference android:key="toggle_install_applications"
+        <com.android.settingslib.RestrictedSwitchPreference android:key="toggle_install_applications"
                 android:title="@string/install_applications"
                 android:summaryOff="@string/install_unknown_applications"
                 android:summaryOn="@string/install_unknown_applications"
-                android:persistent="false" />
+                settings:useAdditionalSummary="true" />
 
     </PreferenceCategory>
 
@@ -64,9 +64,8 @@
             android:title="@string/credentials_title"
             android:persistent="false">
 
-        <Preference android:key="credential_storage_type"
+        <com.android.settingslib.RestrictedPreference android:key="credential_storage_type"
                 android:title="@string/credential_storage_type"
-                style="?android:attr/preferenceInformationStyle"
                 android:persistent="false" />
 
         <Preference android:key="trusted_credentials"
@@ -75,7 +74,13 @@
                 android:persistent="false"
                 android:fragment="com.android.settings.TrustedCredentialsSettings"/>
 
-        <Preference android:key="credentials_install"
+        <com.android.settingslib.RestrictedPreference android:key="user_credentials"
+                android:title="@string/user_credentials"
+                android:summary="@string/user_credentials_summary"
+                android:persistent="false"
+                android:fragment="com.android.settings.UserCredentialsSettings"/>
+
+        <com.android.settingslib.RestrictedPreference android:key="credentials_install"
                 android:title="@string/credentials_install"
                 android:summary="@string/credentials_install_summary"
                 android:persistent="false">
@@ -84,9 +89,9 @@
                     android:targetPackage="com.android.certinstaller"
                     android:targetClass="com.android.certinstaller.CertInstallerMain"/>
 
-        </Preference>
+        </com.android.settingslib.RestrictedPreference>
 
-        <Preference android:key="credentials_reset"
+        <com.android.settingslib.RestrictedPreference android:key="credentials_reset"
                 android:title="@string/credentials_reset"
                 android:summary="@string/credentials_reset_summary"
                 android:persistent="false">
@@ -95,7 +100,7 @@
                     android:targetPackage="com.android.settings"
                     android:targetClass="com.android.settings.CredentialStorage"/>
 
-        </Preference>
+        </com.android.settingslib.RestrictedPreference>
 
     </PreferenceCategory>
 

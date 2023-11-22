@@ -16,11 +16,11 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="7559008249836700599">"Difusións de cela"</string>
+    <string name="app_label" msgid="7559008249836700599">"Difusións móbiles"</string>
     <string name="sms_cb_settings" msgid="971917159442705371">"Configuración da difusión móbil"</string>
     <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"A configuración da difusión móbil non está dispoñible para este usuario"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"Aceptar"</string>
-    <string name="no_cell_broadcasts" msgid="5409324337492758562">"Non hai alertas activas na túa zona. Podes cambiar a configuración das alertas a través da opción do menú de Configuración."</string>
+    <string name="no_cell_broadcasts" msgid="5409324337492758562">"Non hai alertas activas na túa zona. Podes cambiar a configuración das alertas a través da opción do menú Configuración."</string>
     <string name="menu_preferences" msgid="3596514894131599202">"Configuración"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"Eliminar emisións"</string>
     <string name="message_options" msgid="3178489901903589574">"Opcións das mensaxes"</string>
@@ -72,8 +72,8 @@
     <string name="cmas_category_heading" msgid="3923503130776640717">"Categoría de alerta:"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"Xeofísicas"</string>
     <string name="cmas_category_met" msgid="7563732573851773537">"Meteorolóxicas"</string>
-    <string name="cmas_category_safety" msgid="2986472639641883453">"Seguridade"</string>
-    <string name="cmas_category_security" msgid="2549520159044403704">"Seguridade"</string>
+    <string name="cmas_category_safety" msgid="2986472639641883453">"Seguranza"</string>
+    <string name="cmas_category_security" msgid="2549520159044403704">"Seguranza"</string>
     <string name="cmas_category_rescue" msgid="4907571719983321086">"Rescate"</string>
     <string name="cmas_category_fire" msgid="3331981591918341119">"Lume"</string>
     <string name="cmas_category_health" msgid="312569774587117324">"Saúde"</string>

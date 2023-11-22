@@ -24,44 +24,47 @@
  *
  *
  ***********************************************************************************/
-#include <hardware/bluetooth.h>
-#include <hardware/bt_pan.h>
-#include <assert.h>
-#include <string.h>
-#include <signal.h>
-#include <ctype.h>
-#include <sys/select.h>
-#include <sys/poll.h>
-#include <sys/ioctl.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <sys/socket.h>
-#include <sys/wait.h>
-#include <net/if.h>
-#include <linux/sockios.h>
-#include <sys/prctl.h>
-#include <linux/if_tun.h>
-#include <linux/if_ether.h>
 
 #define LOG_TAG "bt_btif_pan"
-#include "btif_common.h"
-#include "btif_util.h"
-#include "btm_api.h"
-#include "btcore/include/bdaddr.h"
-#include "device/include/controller.h"
+
+#include <assert.h>
+#include <ctype.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <linux/if_ether.h>
+#include <linux/if_tun.h>
+#include <linux/sockios.h>
+#include <net/if.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <signal.h>
+#include <stdio.h>
+#include <string.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/poll.h>
+#include <sys/prctl.h>
+#include <sys/select.h>
+#include <sys/socket.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+#include <hardware/bluetooth.h>
+#include <hardware/bt_pan.h>
 
 #include "bta_api.h"
 #include "bta_pan_api.h"
+#include "btcore/include/bdaddr.h"
+#include "btif_common.h"
+#include "btif_pan_internal.h"
 #include "btif_sock_thread.h"
 #include "btif_sock_util.h"
-#include "btif_pan_internal.h"
-#include "gki.h"
-#include "osi/include/osi.h"
+#include "btif_util.h"
+#include "btm_api.h"
+#include "device/include/controller.h"
+#include "bt_common.h"
 #include "osi/include/log.h"
+#include "osi/include/osi.h"
 
 #define FORWARD_IGNORE        1
 #define FORWARD_SUCCESS       0
@@ -210,8 +213,10 @@ static inline int btpan_role_to_bta(int btpan_role)
 }
 
 static volatile int btpan_dev_local_role;
+#if BTA_PAN_INCLUDED == TRUE
 static tBTA_PAN_ROLE_INFO bta_panu_info = {PANU_SERVICE_NAME, 0, PAN_SECURITY};
 static tBTA_PAN_ROLE_INFO bta_pan_nap_info = {PAN_NAP_SERVICE_NAME, 1, PAN_SECURITY};
+#endif
 
 static bt_status_t btpan_enable(int local_role)
 {
@@ -273,10 +278,10 @@ static bt_status_t btpan_disconnect(const bt_bdaddr_t *bd_addr)
     btpan_conn_t* conn = btpan_find_conn_addr(bd_addr->address);
     if (conn && conn->handle >= 0)
     {
-        BTA_PanClose(conn->handle);
         /* Inform the application that the disconnect has been initiated successfully */
         btif_transfer_context(btif_in_pan_generic_evt, BTIF_PAN_CB_DISCONNECTING,
                               (char *)bd_addr, sizeof(bt_bdaddr_t), NULL);
+        BTA_PanClose(conn->handle);
         return BT_STATUS_SUCCESS;
     }
     return BT_STATUS_FAIL;
@@ -389,7 +394,7 @@ void btpan_set_flow_control(BOOLEAN enable) {
     btpan_cb.flow = enable;
     if (enable) {
         btsock_thread_add_fd(pan_pth, btpan_cb.tap_fd, 0, SOCK_THREAD_FD_RD, 0);
-        bta_dmexecutecallback(btu_exec_tap_fd_read, (void *)btpan_cb.tap_fd);
+        bta_dmexecutecallback(btu_exec_tap_fd_read, INT_TO_PTR(btpan_cb.tap_fd));
     }
 }
 
@@ -445,15 +450,16 @@ int btpan_tap_send(int tap_fd, const BD_ADDR src, const BD_ADDR dst, UINT16 prot
         memcpy(packet, &eth_hdr, sizeof(tETH_HDR));
         if (len > TAP_MAX_PKT_WRITE_LEN)
         {
-            LOG_ERROR("btpan_tap_send eth packet size:%d is exceeded limit!", len);
+            LOG_ERROR(LOG_TAG, "btpan_tap_send eth packet size:%d is exceeded limit!", len);
             return -1;
         }
         memcpy(packet + sizeof(tETH_HDR), buf, len);
 
         /* Send data to network interface */
-        int ret = write(tap_fd, packet, len + sizeof(tETH_HDR));
+        ssize_t ret;
+        OSI_NO_INTR(ret = write(tap_fd, packet, len + sizeof(tETH_HDR)));
         BTIF_TRACE_DEBUG("ret:%d", ret);
-        return ret;
+        return (int)ret;
     }
     return -1;
 
@@ -487,6 +493,62 @@ btpan_conn_t* btpan_find_conn_addr(const BD_ADDR addr)
     }
     return NULL;
 }
+
+static void btpan_open_conn(btpan_conn_t* conn, tBTA_PAN *p_data)
+{
+    BTIF_TRACE_API("btpan_open_conn: local_role:%d, peer_role: %d,  handle:%d, conn: %p",
+            p_data->open.local_role, p_data->open.peer_role, p_data->open.handle, conn);
+
+    if (conn == NULL)
+        conn = btpan_new_conn(p_data->open.handle, p_data->open.bd_addr, p_data->open.local_role,
+                p_data->open.peer_role);
+    if (conn)
+    {
+        BTIF_TRACE_DEBUG("btpan_open_conn:tap_fd:%d, open_count:%d, "
+                "conn->handle:%d should = handle:%d, local_role:%d, remote_role:%d",
+                btpan_cb.tap_fd, btpan_cb.open_count, conn->handle, p_data->open.handle,
+                conn->local_role, conn->remote_role);
+
+        btpan_cb.open_count++;
+        conn->handle = p_data->open.handle;
+        if (btpan_cb.tap_fd < 0)
+        {
+            btpan_cb.tap_fd = btpan_tap_open();
+            if(btpan_cb.tap_fd >= 0)
+                create_tap_read_thread(btpan_cb.tap_fd);
+        }
+
+        if (btpan_cb.tap_fd >= 0)
+        {
+            btpan_cb.flow = 1;
+            conn->state = PAN_STATE_OPEN;
+        }
+    }
+}
+
+static void btpan_close_conn(btpan_conn_t* conn)
+{
+    BTIF_TRACE_API("btpan_close_conn: %p",conn);
+
+    if (conn && conn->state == PAN_STATE_OPEN)
+    {
+        BTIF_TRACE_DEBUG("btpan_close_conn: PAN_STATE_OPEN");
+
+        conn->state = PAN_STATE_CLOSE;
+        btpan_cb.open_count--;
+
+        if (btpan_cb.open_count == 0)
+        {
+            destroy_tap_read_thread();
+            if (btpan_cb.tap_fd != INVALID_FD)
+            {
+                btpan_tap_close(btpan_cb.tap_fd);
+                btpan_cb.tap_fd = INVALID_FD;
+            }
+        }
+    }
+}
+
 
 static void btpan_cleanup_conn(btpan_conn_t* conn)
 {
@@ -559,7 +621,7 @@ static int forward_bnep(tETH_HDR* eth_hdr, BT_HDR *hdr) {
             }
         }
     }
-    GKI_freebuf(hdr);
+    osi_free(hdr);
     return FORWARD_IGNORE;
 }
 
@@ -607,11 +669,12 @@ static void bta_pan_callback_transfer(UINT16 event, char *p_param)
                 bt_status_t status;
                 btpan_conn_t *conn = btpan_find_conn_handle(p_data->open.handle);
 
-                LOG_VERBOSE("%s pan connection open status: %d", __func__, p_data->open.status);
+                LOG_VERBOSE(LOG_TAG, "%s pan connection open status: %d", __func__, p_data->open.status);
                 if (p_data->open.status == BTA_PAN_SUCCESS)
                 {
                     state = BTPAN_STATE_CONNECTED;
                     status = BT_STATUS_SUCCESS;
+                    btpan_open_conn(conn, p_data);
                 }
                 else
                 {
@@ -629,9 +692,9 @@ static void bta_pan_callback_transfer(UINT16 event, char *p_param)
             }
         case BTA_PAN_CLOSE_EVT:
             {
+                LOG_INFO(LOG_TAG, "%s: event = BTA_PAN_CLOSE_EVT handle %d", __FUNCTION__, p_data->close.handle);
                 btpan_conn_t* conn = btpan_find_conn_handle(p_data->close.handle);
-
-                LOG_INFO("%s: event = BTA_PAN_CLOSE_EVT handle %d", __FUNCTION__, p_data->close.handle);
+                btpan_close_conn(conn);
 
                 if (conn && conn->handle >= 0)
                 {
@@ -659,22 +722,18 @@ static void bta_pan_callback(tBTA_PAN_EVT event, tBTA_PAN *p_data)
 #define IS_EXCEPTION(e) ((e) & (POLLHUP | POLLRDHUP | POLLERR | POLLNVAL))
 static void btu_exec_tap_fd_read(void *p_param) {
     struct pollfd ufd;
-    int fd = (int)p_param;
+    int fd = PTR_TO_INT(p_param);
 
     if (fd == INVALID_FD || fd != btpan_cb.tap_fd)
         return;
 
-    // Don't occupy BTU context too long, avoid GKI buffer overruns and
+    // Don't occupy BTU context too long, avoid buffer overruns and
     // give other profiles a chance to run by limiting the amount of memory
-    // PAN can use from the shared pool buffer.
-    for (int i = 0; i < PAN_POOL_MAX && btif_is_enabled() && btpan_cb.flow; i++) {
-        BT_HDR *buffer = (BT_HDR *)GKI_getpoolbuf(PAN_POOL_ID);
-        if (!buffer) {
-            BTIF_TRACE_WARNING("%s unable to allocate buffer for packet.", __func__);
-            break;
-        }
+    // PAN can use.
+    for (int i = 0; i < PAN_BUF_MAX && btif_is_enabled() && btpan_cb.flow; i++) {
+        BT_HDR *buffer = (BT_HDR *)osi_malloc(PAN_BUF_SIZE);
         buffer->offset = PAN_MINIMUM_OFFSET;
-        buffer->len = GKI_get_buf_size(buffer) - sizeof(BT_HDR) - buffer->offset;
+        buffer->len = PAN_BUF_SIZE - sizeof(BT_HDR) - buffer->offset;
 
         UINT8 *packet = (UINT8 *)buffer + sizeof(BT_HDR) + buffer->offset;
 
@@ -682,17 +741,19 @@ static void btu_exec_tap_fd_read(void *p_param) {
         // We save it in the congest_packet right away in case we can't deliver it in this
         // attempt.
         if (!btpan_cb.congest_packet_size) {
-            ssize_t ret = read(fd, btpan_cb.congest_packet, sizeof(btpan_cb.congest_packet));
+            ssize_t ret;
+            OSI_NO_INTR(ret = read(fd, btpan_cb.congest_packet,
+                                   sizeof(btpan_cb.congest_packet)));
             switch (ret) {
                 case -1:
                     BTIF_TRACE_ERROR("%s unable to read from driver: %s", __func__, strerror(errno));
-                    GKI_freebuf(buffer);
+                    osi_free(buffer);
                     //add fd back to monitor thread to try it again later
                     btsock_thread_add_fd(pan_pth, fd, 0, SOCK_THREAD_FD_RD, 0);
                     return;
                 case 0:
                     BTIF_TRACE_WARNING("%s end of file reached.", __func__);
-                    GKI_freebuf(buffer);
+                    osi_free(buffer);
                     //add fd back to monitor thread to process the exception
                     btsock_thread_add_fd(pan_pth, fd, 0, SOCK_THREAD_FD_RD, 0);
                     return;
@@ -719,18 +780,24 @@ static void btu_exec_tap_fd_read(void *p_param) {
         } else {
             BTIF_TRACE_WARNING("%s dropping packet of length %d", __func__, buffer->len);
             btpan_cb.congest_packet_size = 0;
-            GKI_freebuf(buffer);
+            osi_free(buffer);
         }
 
         // Bail out of the loop if reading from the TAP fd would block.
         ufd.fd = fd;
         ufd.events = POLLIN;
         ufd.revents = 0;
-        if (poll(&ufd, 1, 0) <= 0 || IS_EXCEPTION(ufd.revents))
+
+        int ret;
+        OSI_NO_INTR(ret = poll(&ufd, 1, 0));
+        if (ret <= 0 || IS_EXCEPTION(ufd.revents))
             break;
     }
-    //add fd back to monitor thread
-    btsock_thread_add_fd(pan_pth, fd, 0, SOCK_THREAD_FD_RD, 0);
+
+    if (btpan_cb.flow) {
+        //add fd back to monitor thread when the flow is on
+        btsock_thread_add_fd(pan_pth, fd, 0, SOCK_THREAD_FD_RD, 0);
+    }
 }
 
 static void btif_pan_close_all_conns() {
@@ -758,5 +825,5 @@ static void btpan_tap_fd_signaled(int fd, int type, int flags, uint32_t user_id)
         btpan_tap_close(fd);
         btif_pan_close_all_conns();
     } else if (flags & SOCK_THREAD_FD_RD)
-        bta_dmexecutecallback(btu_exec_tap_fd_read, (void *)fd);
+        bta_dmexecutecallback(btu_exec_tap_fd_read, INT_TO_PTR(fd));
 }

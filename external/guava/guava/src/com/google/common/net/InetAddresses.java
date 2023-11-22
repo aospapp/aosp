@@ -17,7 +17,7 @@
 package com.google.common.net;
 
 import com.google.common.annotations.Beta;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
@@ -570,7 +570,7 @@ public final class InetAddresses {
     Preconditions.checkArgument(isCompatIPv4Address(ip),
         "Address '%s' is not IPv4-compatible.", toAddrString(ip));
 
-    return getInet4Address(copyOfRange(ip.getAddress(), 12, 16));
+    return getInet4Address(Arrays.copyOfRange(ip.getAddress(), 12, 16));
   }
 
   /**
@@ -603,7 +603,7 @@ public final class InetAddresses {
     Preconditions.checkArgument(is6to4Address(ip),
         "Address '%s' is not a 6to4 address.", toAddrString(ip));
 
-    return getInet4Address(copyOfRange(ip.getAddress(), 2, 6));
+    return getInet4Address(Arrays.copyOfRange(ip.getAddress(), 2, 6));
   }
 
   /**
@@ -645,9 +645,9 @@ public final class InetAddresses {
           "port '%s' is out of range (0 <= port <= 0xffff)", port);
       Preconditions.checkArgument((flags >= 0) && (flags <= 0xffff),
           "flags '%s' is out of range (0 <= flags <= 0xffff)", flags);
-      
-      this.server = Objects.firstNonNull(server, ANY4);
-      this.client = Objects.firstNonNull(client, ANY4);
+
+      this.server = MoreObjects.firstNonNull(server, ANY4);
+      this.client = MoreObjects.firstNonNull(client, ANY4);
       this.port = port;
       this.flags = flags;
     }
@@ -695,14 +695,14 @@ public final class InetAddresses {
         "Address '%s' is not a Teredo address.", toAddrString(ip));
 
     byte[] bytes = ip.getAddress();
-    Inet4Address server = getInet4Address(copyOfRange(bytes, 4, 8));
+    Inet4Address server = getInet4Address(Arrays.copyOfRange(bytes, 4, 8));
 
     int flags = ByteStreams.newDataInput(bytes, 8).readShort() & 0xffff;
 
     // Teredo obfuscates the mapped client port, per section 4 of the RFC.
     int port = ~ByteStreams.newDataInput(bytes, 10).readShort() & 0xffff;
 
-    byte[] clientBytes = copyOfRange(bytes, 12, 16);
+    byte[] clientBytes = Arrays.copyOfRange(bytes, 12, 16);
     for (int i = 0; i < clientBytes.length; i++) {
       // Teredo obfuscates the mapped client IP, per section 4 of the RFC.
       clientBytes[i] = (byte) ~clientBytes[i];
@@ -759,7 +759,7 @@ public final class InetAddresses {
     Preconditions.checkArgument(isIsatapAddress(ip),
         "Address '%s' is not an ISATAP address.", toAddrString(ip));
 
-    return getInet4Address(copyOfRange(ip.getAddress(), 12, 16));
+    return getInet4Address(Arrays.copyOfRange(ip.getAddress(), 12, 16));
   }
 
   /**
@@ -969,6 +969,29 @@ public final class InetAddresses {
   }
 
   /**
+   * Returns a new InetAddress that is one less than the passed in address.
+   * This method works for both IPv4 and IPv6 addresses.
+   *
+   * @param address the InetAddress to decrement
+   * @return a new InetAddress that is one less than the passed in address
+   * @throws IllegalArgumentException if InetAddress is at the beginning of its range
+   * @since 18.0
+   */
+  public static InetAddress decrement(InetAddress address) {
+    byte[] addr = address.getAddress();
+    int i = addr.length - 1;
+    while (i >= 0 && addr[i] == (byte) 0x00) {
+      addr[i] = (byte) 0xff;
+      i--;
+    }
+
+    Preconditions.checkArgument(i >= 0, "Decrementing %s would wrap.", address);
+
+    addr[i]--;
+    return bytesToInetAddress(addr);
+  }
+
+  /**
    * Returns a new InetAddress that is one more than the passed in address.
    * This method works for both IPv4 and IPv6 addresses.
    *
@@ -1007,12 +1030,5 @@ public final class InetAddresses {
       }
     }
     return true;
-  }
-
-  private static byte[] copyOfRange(byte[] array, int start, int end) {
-    int length = end - start;
-    byte[] newArray = new byte[length];
-    System.arraycopy(array, start, newArray, 0, length);
-    return newArray;
   }
 }

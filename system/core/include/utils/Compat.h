@@ -33,6 +33,10 @@ static inline ssize_t pread64(int fd, void* buf, size_t nbytes, off64_t offset) 
     return pread(fd, buf, nbytes, offset);
 }
 
+static inline ssize_t pwrite64(int fd, const void* buf, size_t nbytes, off64_t offset) {
+    return pwrite(fd, buf, nbytes, offset);
+}
+
 #endif /* __APPLE__ */
 
 #if defined(_WIN32)
@@ -73,6 +77,12 @@ static inline ssize_t pread64(int fd, void* buf, size_t nbytes, off64_t offset) 
         _rc = (exp);                       \
     } while (_rc == -1 && errno == EINTR); \
     _rc; })
+#endif
+
+#if defined(_WIN32)
+#define OS_PATH_SEPARATOR '\\'
+#else
+#define OS_PATH_SEPARATOR '/'
 #endif
 
 #endif /* __LIB_UTILS_COMPAT_H */

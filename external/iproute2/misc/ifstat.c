@@ -29,6 +29,7 @@
 #include <getopt.h>
 
 #include <libnetlink.h>
+#include <json_writer.h>
 #include <linux/if.h>
 #include <linux/if_link.h>
 
@@ -38,10 +39,12 @@ int dump_zeros = 0;
 int reset_history = 0;
 int ignore_history = 0;
 int no_output = 0;
+int json_output = 0;
 int no_update = 0;
 int scan_interval = 0;
 int time_constant = 0;
 int show_errors = 0;
+int pretty;
 double W;
 char **patterns;
 int npatterns;
@@ -59,6 +62,32 @@ struct ifstat_ent
 	unsigned long long	val[MAXS];
 	double			rate[MAXS];
 	__u32			ival[MAXS];
+};
+
+static const char *stats[MAXS] = {
+	"rx_packets",
+	"tx_packets",
+	"rx_bytes",
+	"tx_bytes",
+	"rx_errors",
+	"tx_errors",
+	"rx_dropped",
+	"tx_dropped",
+	"multicast",
+	"collisions",
+	"rx_length_errors",
+	"rx_over_errors",
+	"rx_crc_errors",
+	"rx_frame_errors",
+	"rx_fifo_errors",
+	"rx_missed_errors",
+	"tx_aborted_errors",
+	"tx_carrier_errors",
+	"tx_fifo_errors",
+	"tx_heartbeat_errors",
+	"tx_window_errors",
+	"rx_compressed",
+	"tx_compressed"
 };
 
 struct ifstat_ent *kern_db;
@@ -115,7 +144,7 @@ static int get_nlmsg(const struct sockaddr_nl *who,
 	return 0;
 }
 
-void load_info(void)
+static void load_info(void)
 {
 	struct ifstat_ent *db, *n;
 	struct rtnl_handle rth;
@@ -146,7 +175,7 @@ void load_info(void)
 	}
 }
 
-void load_raw_table(FILE *fp)
+static void load_raw_table(FILE *fp)
 {
 	char buf[4096];
 	struct ifstat_ent *db = NULL;
@@ -209,11 +238,18 @@ void load_raw_table(FILE *fp)
 	}
 }
 
-void dump_raw_db(FILE *fp, int to_hist)
+static void dump_raw_db(FILE *fp, int to_hist)
 {
+	json_writer_t *jw = json_output ? jsonw_new(fp) : NULL;
 	struct ifstat_ent *n, *h;
+
 	h = hist_db;
-	fprintf(fp, "#%s\n", info_source);
+	if (jw) {
+		jsonw_pretty(jw, pretty);
+		jsonw_name(jw, info_source);
+		jsonw_start_object(jw);
+	} else
+		fprintf(fp, "#%s\n", info_source);
 
 	for (n=kern_db; n; n=n->next) {
 		int i;
@@ -232,10 +268,25 @@ void dump_raw_db(FILE *fp, int to_hist)
 				}
 			}
 		}
-		fprintf(fp, "%d %s ", n->ifindex, n->name);
-		for (i=0; i<MAXS; i++)
-			fprintf(fp, "%llu %u ", vals[i], (unsigned)rates[i]);
-		fprintf(fp, "\n");
+
+		if (jw) {
+			jsonw_name(jw, n->name);
+			jsonw_start_object(jw);
+
+			for (i=0; i<MAXS && stats[i]; i++)
+				jsonw_uint_field(jw, stats[i], vals[i]);
+			jsonw_end_object(jw);
+		} else {
+			fprintf(fp, "%d %s ", n->ifindex, n->name);
+			for (i=0; i<MAXS; i++)
+				fprintf(fp, "%llu %u ", vals[i],
+					(unsigned)rates[i]);
+			fprintf(fp, "\n");
+		}
+	}
+	if (jw) {
+		jsonw_end_object(jw);
+		jsonw_destroy(&jw);
 	}
 }
 
@@ -244,9 +295,11 @@ static const unsigned long long giga = 1000000000ull;
 static const unsigned long long mega = 1000000;
 static const unsigned long long kilo = 1000;
 
-void format_rate(FILE *fp, unsigned long long *vals, double *rates, int i)
+static void format_rate(FILE *fp, const unsigned long long *vals,
+			const double *rates, int i)
 {
 	char temp[64];
+
 	if (vals[i] > giga)
 		fprintf(fp, "%7lluM ", vals[i]/mega);
 	else if (vals[i] > mega)
@@ -264,7 +317,7 @@ void format_rate(FILE *fp, unsigned long long *vals, double *rates, int i)
 		fprintf(fp, "%-6u ", (unsigned)rates[i]);
 }
 
-void format_pair(FILE *fp, unsigned long long *vals, int i, int k)
+static void format_pair(FILE *fp, const unsigned long long *vals, int i, int k)
 {
 	char temp[64];
 	if (vals[i] > giga)
@@ -284,7 +337,7 @@ void format_pair(FILE *fp, unsigned long long *vals, int i, int k)
 		fprintf(fp, "%-6u ", (unsigned)vals[k]);
 }
 
-void print_head(FILE *fp)
+static void print_head(FILE *fp)
 {
 	fprintf(fp, "#%s\n", info_source);
 	fprintf(fp, "%-15s ", "Interface");
@@ -327,9 +380,25 @@ void print_head(FILE *fp)
 	}
 }
 
-void print_one_if(FILE *fp, struct ifstat_ent *n, unsigned long long *vals)
+static void print_one_json(json_writer_t *jw, const struct ifstat_ent *n,
+			   const unsigned long long *vals)
+{
+	int i, m = show_errors ? 20 : 10;
+
+	jsonw_name(jw, n->name);
+	jsonw_start_object(jw);
+
+	for (i=0; i < m && stats[i]; i++)
+		jsonw_uint_field(jw, stats[i], vals[i]);
+
+	jsonw_end_object(jw);
+}
+
+static void print_one_if(FILE *fp, const struct ifstat_ent *n,
+			 const unsigned long long *vals)
 {
 	int i;
+
 	fprintf(fp, "%-15s ", n->name);
 	for (i=0; i<4; i++)
 		format_rate(fp, vals, n->rate, i);
@@ -373,27 +442,43 @@ void print_one_if(FILE *fp, struct ifstat_ent *n, unsigned long long *vals)
 	}
 }
 
-
-void dump_kern_db(FILE *fp)
+static void dump_kern_db(FILE *fp)
 {
+	json_writer_t *jw = json_output ? jsonw_new(fp) : NULL;
 	struct ifstat_ent *n;
 
-	print_head(fp);
+	if (jw) {
+		jsonw_pretty(jw, pretty);
+		jsonw_name(jw, info_source);
+		jsonw_start_object(jw);
+	} else
+		print_head(fp);
 
 	for (n=kern_db; n; n=n->next) {
 		if (!match(n->name))
 			continue;
-		print_one_if(fp, n, n->val);
+
+		if (jw)
+			print_one_json(jw, n, n->val);
+		else
+			print_one_if(fp, n, n->val);
 	}
+	if (json_output)
+		fprintf(fp, "\n} }\n");
 }
 
-
-void dump_incr_db(FILE *fp)
+static void dump_incr_db(FILE *fp)
 {
 	struct ifstat_ent *n, *h;
-	h = hist_db;
+	json_writer_t *jw = json_output ? jsonw_new(fp) : NULL;
 
-	print_head(fp);
+	h = hist_db;
+	if (jw) {
+		jsonw_pretty(jw, pretty);
+		jsonw_name(jw, info_source);
+		jsonw_start_object(jw);
+	} else
+		print_head(fp);
 
 	for (n=kern_db; n; n=n->next) {
 		int i;
@@ -412,18 +497,26 @@ void dump_incr_db(FILE *fp)
 		}
 		if (!match(n->name))
 			continue;
-		print_one_if(fp, n, vals);
+
+		if (jw)
+			print_one_json(jw, n, n->val);
+		else
+			print_one_if(fp, n, vals);
+	}
+
+	if (jw) {
+		jsonw_end_object(jw);
+		jsonw_destroy(&jw);
 	}
 }
 
-
 static int children;
 
-void sigchild(int signo)
+static void sigchild(int signo)
 {
 }
 
-void update_db(int interval)
+static void update_db(int interval)
 {
 	struct ifstat_ent *n, *h;
 
@@ -482,7 +575,7 @@ void update_db(int interval)
 #define T_DIFF(a,b) (((a).tv_sec-(b).tv_sec)*1000 + ((a).tv_usec-(b).tv_usec)/1000)
 
 
-void server_loop(int fd)
+static void server_loop(int fd)
 {
 	struct timeval snaptime = { 0 };
 	struct pollfd p;
@@ -534,7 +627,7 @@ void server_loop(int fd)
 	}
 }
 
-int verify_forging(int fd)
+static int verify_forging(int fd)
 {
 	struct ucred cred;
 	socklen_t olen = sizeof(cred);
@@ -557,9 +650,11 @@ static void usage(void)
 "   -a, --ignore	ignore history\n"
 "   -d, --scan=SECS	sample every statistics every SECS\n"
 "   -e, --errors	show errors\n"
+"   -j, --json          format output in JSON\n"
 "   -n, --nooutput	do history only\n"
+"   -p, --pretty        pretty print\n"
 "   -r, --reset		reset history\n"
-"   -s, --noupdate	don;t update history\n"
+"   -s, --noupdate	don\'t update history\n"
 "   -t, --interval=SECS	report average over the last SECS\n"
 "   -V, --version	output version information\n"
 "   -z, --zeros		show entries with zero activity\n");
@@ -573,7 +668,9 @@ static const struct option longopts[] = {
 	{ "scan", 1, 0, 'd'},
 	{ "errors", 0, 0, 'e' },
 	{ "nooutput", 0, 0, 'n' },
+	{ "json", 0, 0, 'j' },
 	{ "reset", 0, 0, 'r' },
+	{ "pretty", 0, 0, 'p' },
 	{ "noupdate", 0, 0, 's' },
 	{ "interval", 1, 0, 't' },
 	{ "version", 0, 0, 'V' },
@@ -589,7 +686,7 @@ int main(int argc, char *argv[])
 	int ch;
 	int fd;
 
-	while ((ch = getopt_long(argc, argv, "hvVzrnasd:t:eK",
+	while ((ch = getopt_long(argc, argv, "hjpvVzrnasd:t:e",
 			longopts, NULL)) != EOF) {
 		switch(ch) {
 		case 'z':
@@ -609,6 +706,12 @@ int main(int argc, char *argv[])
 			break;
 		case 'e':
 			show_errors = 1;
+			break;
+		case 'j':
+			json_output = 1;
+			break;
+		case 'p':
+			pretty = 1;
 			break;
 		case 'd':
 			scan_interval = atoi(optarg) * 1000;
@@ -716,7 +819,8 @@ int main(int argc, char *argv[])
 			}
 			if (uptime >= 0 && time(NULL) >= stb.st_mtime+uptime) {
 				fprintf(stderr, "ifstat: history is aged out, resetting\n");
-				ftruncate(fileno(hist_fp), 0);
+				if (ftruncate(fileno(hist_fp), 0))
+					perror("ifstat: ftruncate");
 			}
 		}
 
@@ -757,11 +861,15 @@ int main(int argc, char *argv[])
 		else
 			dump_incr_db(stdout);
 	}
+
 	if (!no_update) {
-		ftruncate(fileno(hist_fp), 0);
+		if (ftruncate(fileno(hist_fp), 0))
+			perror("ifstat: ftruncate");
 		rewind(hist_fp);
+
+		json_output = 0;
 		dump_raw_db(hist_fp, 1);
-		fflush(hist_fp);
+		fclose(hist_fp);
 	}
 	exit(0);
 }

@@ -120,14 +120,10 @@ static btav_callbacks_t sBluetoothA2dpCallbacks = {
     sizeof(sBluetoothA2dpCallbacks),
     bta2dp_connection_state_callback,
     bta2dp_audio_state_callback,
-    bta2dp_audio_config_callback
+    bta2dp_audio_config_callback,
 };
 
 static void classInitNative(JNIEnv* env, jclass clazz) {
-    int err;
-    const bt_interface_t* btInf;
-    bt_status_t status;
-
     method_onConnectionStateChanged =
         env->GetMethodID(clazz, "onConnectionStateChanged", "(I[B)V");
 
@@ -178,7 +174,6 @@ static void initNative(JNIEnv *env, jobject object) {
 
 static void cleanupNative(JNIEnv *env, jobject object) {
     const bt_interface_t* btInf;
-    bt_status_t status;
 
     if ( (btInf = getBluetoothInterface()) == NULL) {
         ALOGE("Bluetooth module is not loaded");
@@ -237,17 +232,32 @@ static jboolean disconnectA2dpNative(JNIEnv *env, jobject object, jbyteArray add
     return (status == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
 }
 
+static void informAudioFocusStateNative(JNIEnv *env, jobject object, jint focus_state) {
+    if (!sBluetoothA2dpInterface) return;
+
+    sBluetoothA2dpInterface->set_audio_focus_state((uint8_t)focus_state);
+}
+
+static void informAudioTrackGainNative(JNIEnv *env, jobject object, jfloat gain) {
+    if (!sBluetoothA2dpInterface) return;
+
+    sBluetoothA2dpInterface->set_audio_track_gain((float) gain);
+
+}
+
 static JNINativeMethod sMethods[] = {
     {"classInitNative", "()V", (void *) classInitNative},
     {"initNative", "()V", (void *) initNative},
     {"cleanupNative", "()V", (void *) cleanupNative},
     {"connectA2dpNative", "([B)Z", (void *) connectA2dpNative},
     {"disconnectA2dpNative", "([B)Z", (void *) disconnectA2dpNative},
+    {"informAudioFocusStateNative", "(I)V", (void *) informAudioFocusStateNative},
+    {"informAudioTrackGainNative", "(F)V", (void *) informAudioTrackGainNative},
 };
 
 int register_com_android_bluetooth_a2dp_sink(JNIEnv* env)
 {
-    return jniRegisterNativeMethods(env, "com/android/bluetooth/a2dp/A2dpSinkStateMachine",
+    return jniRegisterNativeMethods(env, "com/android/bluetooth/a2dpsink/A2dpSinkStateMachine",
                                     sMethods, NELEM(sMethods));
 }
 

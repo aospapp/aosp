@@ -71,6 +71,7 @@ class ProxyResolverV8 {
 
   ProxyResolverJSBindings* js_bindings_;
   ProxyErrorListener* error_listener_;
+  static bool initialized_for_this_process_;
 };
 
 }  // namespace net

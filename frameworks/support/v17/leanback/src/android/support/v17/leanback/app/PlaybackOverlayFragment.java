@@ -21,7 +21,6 @@ import android.animation.TimeInterpolator;
 import android.animation.ValueAnimator;
 import android.support.v17.leanback.widget.Action;
 import android.support.v17.leanback.widget.PlaybackControlsRow;
-import android.support.v17.leanback.widget.Row;
 import android.view.InputEvent;
 import android.view.animation.AccelerateInterpolator;
 import android.animation.ValueAnimator.AnimatorUpdateListener;
@@ -33,12 +32,14 @@ import android.support.v7.widget.RecyclerView;
 import android.support.v17.leanback.R;
 import android.support.v17.leanback.animation.LogAccelerateInterpolator;
 import android.support.v17.leanback.animation.LogDecelerateInterpolator;
-import android.support.v17.leanback.widget.Presenter;
 import android.support.v17.leanback.widget.ItemBridgeAdapter;
 import android.support.v17.leanback.widget.ObjectAdapter;
 import android.support.v17.leanback.widget.ObjectAdapter.DataObserver;
-import android.support.v17.leanback.widget.VerticalGridView;
 import android.support.v17.leanback.widget.PlaybackControlsRowPresenter;
+import android.support.v17.leanback.widget.Presenter;
+import android.support.v17.leanback.widget.PresenterSelector;
+import android.support.v17.leanback.widget.RowPresenter;
+import android.support.v17.leanback.widget.VerticalGridView;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -52,8 +53,8 @@ import java.util.ArrayList;
  * A fragment for displaying playback controls and related content.
  * <p>
  * A PlaybackOverlayFragment renders the elements of its {@link ObjectAdapter} as a set
- * of rows in a vertical list. The elements in this adapter must be subclasses
- * of {@link Row}.
+ * of rows in a vertical list.  The Adapter's {@link PresenterSelector} must maintain subclasses
+ * of {@link RowPresenter}.
  * </p>
  * <p>
  * An instance of {@link android.support.v17.leanback.widget.PlaybackControlsRow} is expected to be
@@ -112,7 +113,7 @@ public class PlaybackOverlayFragment extends DetailsFragment {
     private static final int IN = 1;
     private static final int OUT = 2;
 
-    private int mAlignPosition;
+    private int mPaddingTop;
     private int mPaddingBottom;
     private View mRootView;
     private int mBackgroundType = BG_DARK;
@@ -156,9 +157,9 @@ public class PlaybackOverlayFragment extends DetailsFragment {
                     mFadeCompleteListener.onFadeInComplete();
                 }
             } else {
-                if (getVerticalGridView() != null) {
-                    // Reset focus to the controls row
-                    getVerticalGridView().setSelectedPosition(0);
+                VerticalGridView verticalView = getVerticalGridView();
+                // reset focus to the primary actions only if the selected row was the controls row
+                if (verticalView != null && verticalView.getSelectedPosition() == 0) {
                     resetControlsToPrimaryActions(null);
                 }
                 if (mFadeCompleteListener != null) {
@@ -293,6 +294,14 @@ public class PlaybackOverlayFragment extends DetailsFragment {
         } else {
             fade(true);
         }
+    }
+
+    /**
+     * Fades out the playback overlay immediately.
+     */
+    public void fadeOut() {
+        mHandler.removeMessages(START_FADE_OUT);
+        fade(false);
     }
 
     private boolean areControlsHidden() {
@@ -587,29 +596,29 @@ public class PlaybackOverlayFragment extends DetailsFragment {
         }
         // Padding affects alignment when last row is focused
         // (last is first when there's only one row).
-        setBottomPadding(listview, mPaddingBottom);
+        setPadding(listview, mPaddingTop, mPaddingBottom);
 
         // Item alignment affects focused row that isn't the last.
-        listview.setItemAlignmentOffset(mAlignPosition);
-        listview.setItemAlignmentOffsetPercent(100);
+        listview.setItemAlignmentOffset(0);
+        listview.setItemAlignmentOffsetPercent(50);
 
         // Push rows to the bottom.
         listview.setWindowAlignmentOffset(0);
-        listview.setWindowAlignmentOffsetPercent(100);
-        listview.setWindowAlignment(VerticalGridView.WINDOW_ALIGN_HIGH_EDGE);
+        listview.setWindowAlignmentOffsetPercent(50);
+        listview.setWindowAlignment(VerticalGridView.WINDOW_ALIGN_BOTH_EDGE);
     }
 
-    private static void setBottomPadding(View view, int padding) {
-        view.setPadding(view.getPaddingLeft(), view.getPaddingTop(),
-                view.getPaddingRight(), padding);
+    private static void setPadding(View view, int paddingTop, int paddingBottom) {
+        view.setPadding(view.getPaddingLeft(), paddingTop,
+                view.getPaddingRight(), paddingBottom);
     }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        mAlignPosition =
-                getResources().getDimensionPixelSize(R.dimen.lb_playback_controls_align_bottom);
+        mPaddingTop =
+                getResources().getDimensionPixelSize(R.dimen.lb_playback_controls_padding_top);
         mPaddingBottom =
                 getResources().getDimensionPixelSize(R.dimen.lb_playback_controls_padding_bottom);
         mBgDarkColor =
@@ -762,5 +771,6 @@ public class PlaybackOverlayFragment extends DetailsFragment {
             mViews.clear();
         }
         abstract void getViews(ArrayList<View> views);
+
     };
 }

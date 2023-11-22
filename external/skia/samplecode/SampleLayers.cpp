@@ -30,7 +30,7 @@
 static void make_paint(SkPaint* paint, const SkMatrix& localMatrix) {
     SkColor colors[] = { 0, SK_ColorWHITE };
     SkPoint pts[] = { { 0, 0 }, { 0, SK_Scalar1*20 } };
-    SkShader* s = SkGradientShader::CreateLinear(pts, colors, NULL, 2, SkShader::kClamp_TileMode,
+    SkShader* s = SkGradientShader::CreateLinear(pts, colors, nullptr, 2, SkShader::kClamp_TileMode,
                                                  0, &localMatrix);
 
     paint->setShader(s)->unref();
@@ -70,11 +70,11 @@ static void test_fade(SkCanvas* canvas) {
     canvas->clipRect(r);
 
     r.fBottom = SkIntToScalar(20);
-    canvas->saveLayer(&r, NULL);
+    canvas->saveLayer(&r, nullptr);
 
     r.fTop = SkIntToScalar(80);
     r.fBottom = SkIntToScalar(100);
-    canvas->saveLayer(&r, NULL);
+    canvas->saveLayer(&r, nullptr);
 
     // now draw the "content"
 
@@ -141,7 +141,7 @@ public:
 
 protected:
     // overrides from SkEventSink
-    virtual bool onQuery(SkEvent* evt) {
+    bool onQuery(SkEvent* evt) override {
         if (SampleCode::TitleQ(*evt)) {
             SampleCode::TitleR(evt, "Layers");
             return true;
@@ -153,7 +153,7 @@ protected:
         canvas->drawColor(SK_ColorGRAY);
     }
 
-    virtual void onDraw(SkCanvas* canvas) {
+    void onDraw(SkCanvas* canvas) override {
         this->drawBG(canvas);
 
         if (true) {
@@ -214,27 +214,98 @@ protected:
         test_fade(canvas);
     }
 
-    virtual SkView::Click* onFindClickHandler(SkScalar x, SkScalar y,
-                                              unsigned modi) override {
-        this->inval(NULL);
+    SkView::Click* onFindClickHandler(SkScalar x, SkScalar y, unsigned modi) override {
+        this->inval(nullptr);
 
         return this->INHERITED::onFindClickHandler(x, y, modi);
     }
 
-    virtual bool onClick(Click* click) {
+    bool onClick(Click* click) override {
         return this->INHERITED::onClick(click);
     }
 
     virtual bool handleKey(SkKey) {
-        this->inval(NULL);
+        this->inval(nullptr);
         return true;
     }
 
 private:
     typedef SkView INHERITED;
 };
+DEF_SAMPLE( return new LayersView; )
 
 //////////////////////////////////////////////////////////////////////////////
 
-static SkView* MyFactory() { return new LayersView; }
-static SkViewRegister reg(MyFactory);
+#include "SkBlurImageFilter.h"
+#include "SkMatrixConvolutionImageFilter.h"
+#include "SkMorphologyImageFilter.h"
+
+#include "Resources.h"
+#include "SkAnimTimer.h"
+
+class BackdropView : public SampleView {
+    SkPoint fCenter;
+    SkScalar fAngle;
+    SkAutoTUnref<SkImage> fImage;
+    SkAutoTUnref<SkImageFilter> fFilter;
+public:
+    BackdropView() {
+        fCenter.set(200, 150);
+        fAngle = 0;
+        fImage.reset(GetResourceAsImage("mandrill_512.png"));
+        fFilter.reset(SkDilateImageFilter::Create(8, 8));
+    }
+
+protected:
+    // overrides from SkEventSink
+    bool onQuery(SkEvent* evt) override {
+        if (SampleCode::TitleQ(*evt)) {
+            SampleCode::TitleR(evt, "Backdrop");
+            return true;
+        }
+        return this->INHERITED::onQuery(evt);
+    }
+
+    void onDrawContent(SkCanvas* canvas) override {
+        canvas->drawImage(fImage, 0, 0, nullptr);
+
+        const SkScalar w = 250;
+        const SkScalar h = 150;
+        SkPath path;
+        path.addOval(SkRect::MakeXYWH(-w/2, -h/2, w, h));
+        SkMatrix m;
+        m.setRotate(fAngle);
+        m.postTranslate(fCenter.x(), fCenter.y());
+        path.transform(m);
+
+        canvas->clipPath(path, SkRegion::kIntersect_Op, true);
+        const SkRect bounds = path.getBounds();
+
+        SkPaint paint;
+        paint.setAlpha(0xCC);
+        canvas->saveLayer({ &bounds, &paint, fFilter, 0 });
+
+        canvas->restore();
+    }
+
+    bool onAnimate(const SkAnimTimer& timer) override {
+        fAngle = SkDoubleToScalar(fmod(timer.secs() * 360 / 5, 360));
+        return true;
+    }
+
+    SkView::Click* onFindClickHandler(SkScalar x, SkScalar y, unsigned modi) override {
+        this->inval(nullptr);
+        return new Click(this);
+    }
+
+    bool onClick(Click* click) override {
+        this->inval(nullptr);
+        fCenter = click->fCurr;
+        return this->INHERITED::onClick(click);
+    }
+
+private:
+    typedef SampleView INHERITED;
+};
+DEF_SAMPLE( return new BackdropView; )
+

@@ -21,7 +21,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(mockwebserver_src_files)
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := mockwebserver
-LOCAL_JAVA_LIBRARIES := core-libart
+LOCAL_JAVA_LIBRARIES := core-oj core-libart
 LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 include $(BUILD_STATIC_JAVA_LIBRARY)

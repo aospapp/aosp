@@ -16,7 +16,7 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.uidisolation">
+    package="android.uidisolation.cts">
 
     <uses-library android:name="org.apache.http.legacy" android:required="false" />
 
@@ -34,7 +34,7 @@
    <uses-permission android:name="android.permission.INTERNET"/>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.uidisolation"
+                     android:targetPackage="android.uidisolation.cts"
                      android:label="CTS tests of android.uidisolation">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

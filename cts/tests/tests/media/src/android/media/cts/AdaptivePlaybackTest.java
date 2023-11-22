@@ -16,7 +16,7 @@
 
 package android.media.cts;
 
-import com.android.cts.media.R;
+import android.media.cts.R;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -40,6 +40,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Locale;
 import java.util.Vector;
 import java.util.zip.CRC32;
@@ -55,7 +56,8 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
                 MediaFormat.MIMETYPE_VIDEO_AVC,
                 "OMX.google.h264.decoder",
                 R.raw.video_480x360_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz,
-                R.raw.video_1280x720_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz);
+                R.raw.video_1280x720_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz,
+                R.raw.bbb_s1_720x480_mp4_h264_mp3_2mbps_30fps_aac_lc_5ch_320kbps_48000hz);
     }
 
     public Iterable<Codec> HEVC(CodecFactory factory) {
@@ -63,8 +65,9 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
                 mContext,
                 MediaFormat.MIMETYPE_VIDEO_HEVC,
                 "OMX.google.hevc.decoder",
-                R.raw.video_640x360_mp4_hevc_450kbps_30fps_aac_stereo_128kbps_48000hz,
-                R.raw.video_1280x720_mp4_hevc_1150kbps_30fps_aac_stereo_128kbps_48000hz);
+                R.raw.bbb_s1_720x480_mp4_hevc_mp3_1600kbps_30fps_aac_he_6ch_240kbps_48000hz,
+                R.raw.bbb_s4_1280x720_mp4_hevc_mp31_4mbps_30fps_aac_he_stereo_80kbps_32000hz,
+                R.raw.bbb_s1_352x288_mp4_hevc_mp2_600kbps_30fps_aac_he_stereo_96kbps_48000hz);
     }
 
     public Iterable<Codec> H263(CodecFactory factory) {
@@ -83,7 +86,8 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
                 "OMX.google.mpeg4.decoder",
 
                 R.raw.video_1280x720_mp4_mpeg4_1000kbps_25fps_aac_stereo_128kbps_44100hz,
-                R.raw.video_480x360_mp4_mpeg4_860kbps_25fps_aac_stereo_128kbps_44100hz);
+                R.raw.video_480x360_mp4_mpeg4_860kbps_25fps_aac_stereo_128kbps_44100hz,
+                R.raw.video_176x144_mp4_mpeg4_300kbps_25fps_aac_stereo_128kbps_44100hz);
     }
 
     public Iterable<Codec> VP8(CodecFactory factory) {
@@ -92,7 +96,8 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
                 MediaFormat.MIMETYPE_VIDEO_VP8,
                 "OMX.google.vp8.decoder",
                 R.raw.video_480x360_webm_vp8_333kbps_25fps_vorbis_stereo_128kbps_48000hz,
-                R.raw.video_1280x720_webm_vp8_333kbps_25fps_vorbis_stereo_128kbps_44100hz);
+                R.raw.bbb_s3_1280x720_webm_vp8_8mbps_60fps_opus_6ch_384kbps_48000hz,
+                R.raw.bbb_s1_320x180_webm_vp8_800kbps_30fps_opus_5ch_320kbps_48000hz);
     }
 
     public Iterable<Codec> VP9(CodecFactory factory) {
@@ -101,7 +106,8 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
                 MediaFormat.MIMETYPE_VIDEO_VP9,
                 "OMX.google.vp9.decoder",
                 R.raw.video_480x360_webm_vp9_333kbps_25fps_vorbis_stereo_128kbps_48000hz,
-                R.raw.video_1280x720_webm_vp9_309kbps_25fps_vorbis_stereo_128kbps_48000hz);
+                R.raw.bbb_s4_1280x720_webm_vp9_0p31_4mbps_30fps_opus_stereo_128kbps_48000hz,
+                R.raw.bbb_s1_320x180_webm_vp9_0p11_600kbps_30fps_vorbis_mono_64kbps_48000hz);
     }
 
     CodecFactory ALL = new CodecFactory();
@@ -1314,7 +1320,7 @@ class Media {
             }
         }
 
-        ByteBuffer readBuf = ByteBuffer.allocate(200000);
+        ByteBuffer readBuf = ByteBuffer.allocate(2000000);
         for (int ix = 0; ix < numFrames; ix++) {
             int sampleSize = extractor.readSampleData(readBuf, 0 /* offset */);
 
@@ -1361,14 +1367,29 @@ class Codec {
     public Codec(String n, CodecCapabilities c, Media[] m) {
         name = n;
         capabilities = c;
-        mediaList = m;
+        List<Media> medias = new ArrayList<Media>();
 
         if (capabilities == null) {
             adaptive = false;
         } else {
-            Log.w(TAG, "checking capabilities of " + name + " for " + mediaList[0].getMime());
+            Log.w(TAG, "checking capabilities of " + name + " for " + m[0].getMime());
             adaptive = capabilities.isFeatureSupported(CodecCapabilities.FEATURE_AdaptivePlayback);
+
+            for (Media media : m) {
+                if (media.getHeight() >= 720 &&
+                        !capabilities.isFormatSupported(media.getFormat())) {
+                    // skip if 720p and up is unsupported
+                    Log.w(TAG, "codec " + name + " doesn't support " + media.getFormat());
+                    continue;
+                }
+                medias.add(media);
+            }
         }
+
+        if (medias.size() < 2) {
+            Log.e(TAG, "codec " + name + " doesn't support required resolutions");
+        }
+        mediaList = medias.subList(0, 2).toArray(new Media[2]);
     }
 }
 

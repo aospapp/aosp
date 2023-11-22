@@ -16,6 +16,6 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="email_addresses" msgid="5320415175940315400">"آدرس‌های ایمیل"</string>
+    <string name="email_addresses" msgid="5320415175940315400">"آدرس‌های رایانامه"</string>
     <string name="phone_numbers" msgid="7836326833170390688">"شماره‌ تلفن‌ها"</string>
 </resources>

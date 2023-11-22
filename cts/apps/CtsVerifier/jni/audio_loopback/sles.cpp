@@ -35,19 +35,21 @@
 #include <string.h>
 #include <unistd.h>
 
-int slesInit(sles_data ** ppSles, int samplingRate, int frameCount, int micSource) {
+int slesInit(sles_data ** ppSles, int samplingRate, int frameCount, int micSource,
+             int numFramesToIgnore) {
     int status = SLES_FAIL;
     if (ppSles != NULL) {
         sles_data * pSles = (sles_data*) calloc(1, sizeof (sles_data));
 
-        SLES_PRINTF("malloc %d bytes at %p",sizeof(sles_data), pSles);
+        SLES_PRINTF("malloc %zu bytes at %p", sizeof(sles_data), pSles);
         *ppSles = pSles;
         if (pSles != NULL)
         {
             SLES_PRINTF("creating server. Sampling rate =%d, frame count = %d",samplingRate,
                     frameCount);
-            status = slesCreateServer(pSles, samplingRate, frameCount, micSource);
-            SLES_PRINTF("slesCreateServer =%d",status);
+            status = slesCreateServer(pSles, samplingRate, frameCount, micSource,
+                                      numFramesToIgnore);
+            SLES_PRINTF("slesCreateServer =%d", status);
         }
     }
     return status;
@@ -92,6 +94,17 @@ static void recorderCallback(SLAndroidSimpleBufferQueueItf caller __unused, void
         // Remove buffer from record queue
         if (++pSles->rxFront > pSles->rxBufCount) {
             pSles->rxFront = 0;
+        }
+
+        // Throw out first frames
+        if (pSles->numFramesToIgnore) {
+            SLuint32 framesToErase = pSles->numFramesToIgnore;
+            if (framesToErase > pSles->bufSizeInFrames) {
+                framesToErase = pSles->bufSizeInFrames;
+            }
+            pSles->numFramesToIgnore -= framesToErase;
+            // FIXME: this assumes each sample is a short
+            memset(buffer, 0, framesToErase * pSles->channels * sizeof(short));
         }
 
         ssize_t actual = audio_utils_fifo_write(&(pSles->fifo), buffer,
@@ -199,7 +212,8 @@ static void playerCallback(SLBufferQueueItf caller __unused, void *context) {
     } //pSles not null
 }
 
-int slesCreateServer(sles_data *pSles, int samplingRate, int frameCount, int micSource) {
+int slesCreateServer(sles_data *pSles, int samplingRate, int frameCount,
+                     int micSource, int numFramesToIgnore) {
     int status = SLES_FAIL;
 
     if (pSles == NULL) {
@@ -254,12 +268,19 @@ int slesCreateServer(sles_data *pSles, int samplingRate, int frameCount, int mic
     pSles->bufSizeInBytes = 0; // calculated
     pSles->injectImpulse = 300; // -i#i
 
+    if (numFramesToIgnore > 0) {
+        pSles->numFramesToIgnore = numFramesToIgnore;
+    } else {
+        pSles->numFramesToIgnore = 0;
+    }
+
     // Storage area for the buffer queues
     //        char **rxBuffers;
     //        char **txBuffers;
     //        char **freeBuffers;
 
     // Buffer indices
+/*
     pSles->rxFront;    // oldest recording
     pSles->rxRear;     // next to be recorded
     pSles->txFront;    // oldest playing
@@ -268,9 +289,8 @@ int slesCreateServer(sles_data *pSles, int samplingRate, int frameCount, int mic
     pSles->freeRear;   // next to be freed
 
     pSles->fifo; //(*)
+*/
     pSles->fifo2Buffer = NULL;
-    pSles->recorderBufferQueue;
-    pSles->playerBufferQueue;
 
     // compute total free buffers as -r plus -t
     pSles->freeBufCount = pSles->rxBufCount + pSles->txBufCount;
@@ -325,7 +345,6 @@ int slesCreateServer(sles_data *pSles, int samplingRate, int frameCount, int mic
     SLresult result;
 
     // create engine
-    pSles->engineObject;
     result = slCreateEngine(&(pSles->engineObject), 0, NULL, 0, NULL, NULL);
     ASSERT_EQ(SL_RESULT_SUCCESS, result);
     result = (*(pSles->engineObject))->Realize(pSles->engineObject, SL_BOOLEAN_FALSE);
@@ -336,7 +355,6 @@ int slesCreateServer(sles_data *pSles, int samplingRate, int frameCount, int mic
     ASSERT_EQ(SL_RESULT_SUCCESS, result);
 
     // create output mix
-    pSles->outputmixObject;
     result = (*engineEngine)->CreateOutputMix(engineEngine, &(pSles->outputmixObject), 0, NULL,
             NULL);
     ASSERT_EQ(SL_RESULT_SUCCESS, result);

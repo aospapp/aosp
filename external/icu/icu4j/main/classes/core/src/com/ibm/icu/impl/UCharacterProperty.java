@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (C) 1996-2014, International Business Machines Corporation and
+ * Copyright (C) 1996-2015, International Business Machines Corporation and
  * others. All Rights Reserved.
  *******************************************************************************
  */
@@ -646,19 +646,6 @@ public final class UCharacterProperty
     }
 
     /**
-    * Forms a supplementary code point from the argument character<br>
-    * Note this is for internal use hence no checks for the validity of the
-    * surrogate characters are done
-    * @param lead lead surrogate character
-    * @param trail trailing surrogate character
-    * @return code point of the supplementary character
-    */
-    public static int getRawSupplementary(char lead, char trail)
-    {
-        return (lead << LEAD_SURROGATE_SHIFT_) + trail + SURROGATE_OFFSET_;
-    }
-
-    /**
      * <p>
      * Unicode property names and property value names are compared
      * "loosely". Property[Value]Aliases.txt say:
@@ -972,20 +959,6 @@ public final class UCharacterProperty
     */
     private static final String DATA_FILE_NAME_ = "uprops.icu";
 
-    /**
-    * Shift value for lead surrogate to form a supplementary character.
-    */
-    private static final int LEAD_SURROGATE_SHIFT_ = 10;
-    /**
-    * Offset to add to combined surrogate pair to avoid masking.
-    */
-    private static final int SURROGATE_OFFSET_ =
-                           UTF16.SUPPLEMENTARY_MIN_VALUE -
-                           (UTF16.SURROGATE_MIN_VALUE <<
-                           LEAD_SURROGATE_SHIFT_) -
-                           UTF16.TRAIL_SURROGATE_MIN_VALUE;
-
-
     // property data constants -------------------------------------------------
 
     /**
@@ -1227,19 +1200,13 @@ public final class UCharacterProperty
 
             // additional properties
             int size = scriptExtensionsOffset - additionalVectorsOffset;
-            m_additionalVectors_ = new int[size];
-            for (int i = 0; i < size; i ++) {
-                m_additionalVectors_[i] = bytes.getInt();
-            }
+            m_additionalVectors_ = ICUBinary.getInts(bytes, size, 0);
         }
 
         // Script_Extensions
         int numChars = (reservedOffset7 - scriptExtensionsOffset) * 2;
         if(numChars > 0) {
-            m_scriptExtensions_ = new char[numChars];
-            for(int i = 0; i < numChars; ++i) {
-                m_scriptExtensions_[i] = bytes.getChar();
-            }
+            m_scriptExtensions_ = ICUBinary.getChars(bytes, numChars, 0);
         }
     }
 

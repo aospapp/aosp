@@ -39,6 +39,7 @@ extern "C"
     #include "nfa_ee_api.h"
     #include "nfc_brcm_defs.h"
     #include "ce_api.h"
+    #include "phNxpExtns.h"
 }
 
 extern const UINT8 nfca_version_string [];
@@ -59,6 +60,7 @@ namespace android
     extern void nativeNfcTag_formatStatus (bool is_ok);
     extern void nativeNfcTag_resetPresenceCheck ();
     extern void nativeNfcTag_doReadCompleted (tNFA_STATUS status);
+    extern void nativeNfcTag_setRfInterface (tNFA_INTF_TYPE rfInterface);
     extern void nativeNfcTag_abortWaits ();
     extern void nativeLlcpConnectionlessSocket_abortWait ();
     extern void nativeNfcTag_registerNdefTypeHandler ();
@@ -95,6 +97,7 @@ namespace android
     void                    doStartupConfig ();
     void                    startStopPolling (bool isStartPolling);
     void                    startRfDiscovery (bool isStart);
+    bool                    isDiscoveryStarted ();
 }
 
 
@@ -106,10 +109,6 @@ namespace android
 namespace android
 {
 static jint                 sLastError = ERROR_BUFFER_TOO_SMALL;
-static jmethodID            sCachedNfcManagerNotifySeApduReceived;
-static jmethodID            sCachedNfcManagerNotifySeMifareAccess;
-static jmethodID            sCachedNfcManagerNotifySeEmvCardRemoval;
-static jmethodID            sCachedNfcManagerNotifyTargetDeselected;
 static SyncEvent            sNfaEnableEvent;  //event for NFA_Enable()
 static SyncEvent            sNfaDisableEvent;  //event for NFA_Disable()
 static SyncEvent            sNfaEnableDisablePollingEvent;  //event for NFA_EnablePolling(), NFA_DisablePolling()
@@ -125,6 +124,8 @@ static bool                 sReaderModeEnabled = false; // whether we're only re
 static bool                 sP2pEnabled = false;
 static bool                 sP2pActive = false; // whether p2p was last active
 static bool                 sAbortConnlessWait = false;
+static jint                 sLfT3tMax = 0;
+
 #define CONFIG_UPDATE_TECH_MASK     (1 << 1)
 #define DEFAULT_TECH_MASK           (NFA_TECHNOLOGY_MASK_A \
                                      | NFA_TECHNOLOGY_MASK_B \
@@ -184,7 +185,7 @@ nfc_jni_native_data *getNative (JNIEnv* e, jobject o)
 *******************************************************************************/
 static void handleRfDiscoveryEvent (tNFC_RESULT_DEVT* discoveredDevice)
 {
-    if (discoveredDevice->more)
+    if (discoveredDevice->more == NCI_DISCOVER_NTF_MORE)
     {
         //there is more discovery notification coming
         return;
@@ -296,6 +297,16 @@ static void nfaConnectionCallback (UINT8 connEvent, tNFA_CONN_EVT_DATA* eventDat
 
     case NFA_ACTIVATED_EVT: // NFC link/protocol activated
         ALOGD("%s: NFA_ACTIVATED_EVT: gIsSelectingRfInterface=%d, sIsDisabling=%d", __FUNCTION__, gIsSelectingRfInterface, sIsDisabling);
+        if((eventData->activated.activate_ntf.protocol != NFA_PROTOCOL_NFC_DEP) && (!isListenMode (eventData->activated)))
+        {
+            nativeNfcTag_setRfInterface ((tNFA_INTF_TYPE) eventData->activated.activate_ntf.intf_param.type);
+        }
+        if (EXTNS_GetConnectFlag () == TRUE)
+        {
+            NfcTag::getInstance().setActivationState ();
+            nativeNfcTag_doConnectStatus (true);
+            break;
+        }
         NfcTag::getInstance().setActive(true);
         if (sIsDisabling || !sIsNfaEnabled)
             break;
@@ -361,8 +372,13 @@ static void nfaConnectionCallback (UINT8 connEvent, tNFA_CONN_EVT_DATA* eventDat
         }
         else if (gIsTagDeactivating)
         {
-            NfcTag::getInstance().setActive(false);
-            nativeNfcTag_doDeactivateStatus(0);
+            NfcTag::getInstance ().setActive (false);
+            nativeNfcTag_doDeactivateStatus (0);
+        }
+        else if (EXTNS_GetDeactivateFlag () == TRUE)
+        {
+            NfcTag::getInstance().setActive (false);
+            nativeNfcTag_doDeactivateStatus (0);
         }
 
         // If RF is activated for what we think is a Secure Element transaction
@@ -557,13 +573,13 @@ static jboolean nfcManager_initNativeStruc (JNIEnv* e, jobject o)
             "notifyLlcpLinkFirstPacketReceived", "(Lcom/android/nfc/dhimpl/NativeP2pDevice;)V");
 
     gCachedNfcManagerNotifyHostEmuActivated = e->GetMethodID(cls.get(),
-            "notifyHostEmuActivated", "()V");
+            "notifyHostEmuActivated", "(I)V");
 
     gCachedNfcManagerNotifyHostEmuData = e->GetMethodID(cls.get(),
-            "notifyHostEmuData", "([B)V");
+            "notifyHostEmuData", "(I[B)V");
 
     gCachedNfcManagerNotifyHostEmuDeactivated = e->GetMethodID(cls.get(),
-            "notifyHostEmuDeactivated", "()V");
+            "notifyHostEmuDeactivated", "(I)V");
 
     gCachedNfcManagerNotifyRfFieldActivated = e->GetMethodID(cls.get(),
             "notifyRfFieldActivated", "()V");
@@ -705,6 +721,7 @@ void nfaDeviceManagementCallback (UINT8 dmEvent, tNFA_DM_CBACK_DATA* eventData)
 
             if (!sIsDisabling && sIsNfaEnabled)
             {
+                EXTNS_Close ();
                 NFA_Disable(FALSE);
                 sIsDisabling = true;
             }
@@ -811,6 +828,74 @@ static jboolean nfcManager_commitRouting (JNIEnv* e, jobject)
 
 /*******************************************************************************
 **
+** Function:        nfcManager_doRegisterT3tIdentifier
+**
+** Description:     Registers LF_T3T_IDENTIFIER for NFC-F.
+**                  e: JVM environment.
+**                  o: Java object.
+**                  t3tIdentifier: LF_T3T_IDENTIFIER value (10 or 18 bytes)
+**
+** Returns:         Handle retrieve from RoutingManager.
+**
+*******************************************************************************/
+static jint nfcManager_doRegisterT3tIdentifier(JNIEnv* e, jobject, jbyteArray t3tIdentifier)
+{
+    ALOGD ("%s: enter", __FUNCTION__);
+
+    ScopedByteArrayRO bytes(e, t3tIdentifier);
+    uint8_t* buf = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(&bytes[0]));
+    size_t bufLen = bytes.size();
+    int handle = RoutingManager::getInstance().registerT3tIdentifier(buf, bufLen);
+
+    ALOGD ("%s: handle=%d", __FUNCTION__, handle);
+    ALOGD ("%s: exit", __FUNCTION__);
+
+    return handle;
+}
+
+/*******************************************************************************
+**
+** Function:        nfcManager_doDeregisterT3tIdentifier
+**
+** Description:     Deregisters LF_T3T_IDENTIFIER for NFC-F.
+**                  e: JVM environment.
+**                  o: Java object.
+**                  handle: Handle retrieve from libnfc-nci.
+**
+** Returns:         None
+**
+*******************************************************************************/
+static void nfcManager_doDeregisterT3tIdentifier(JNIEnv*, jobject, jint handle)
+{
+    ALOGD ("%s: enter; handle=%d", __FUNCTION__, handle);
+
+    RoutingManager::getInstance().deregisterT3tIdentifier(handle);
+
+    ALOGD ("%s: exit", __FUNCTION__);
+}
+
+/*******************************************************************************
+**
+** Function:        nfcManager_getLfT3tMax
+**
+** Description:     Returns LF_T3T_MAX value.
+**                  e: JVM environment.
+**                  o: Java object.
+**
+** Returns:         LF_T3T_MAX value.
+**
+*******************************************************************************/
+static jint nfcManager_getLfT3tMax(JNIEnv*, jobject)
+{
+    ALOGD ("%s: enter", __FUNCTION__);
+    ALOGD ("LF_T3T_MAX=%d", sLfT3tMax);
+    ALOGD ("%s: exit", __FUNCTION__);
+
+    return sLfT3tMax;
+}
+
+/*******************************************************************************
+**
 ** Function:        nfcManager_doInitialize
 **
 ** Description:     Turn on NFC.
@@ -860,6 +945,7 @@ static jboolean nfcManager_doInitialize (JNIEnv* e, jobject o)
                 NFA_P2pSetTraceLevel (num);
                 sNfaEnableEvent.wait(); //wait for NFA command to finish
             }
+            EXTNS_Init (nfaDeviceManagementCallback, nfaConnectionCallback);
         }
 
         if (stat == NFA_STATUS_OK)
@@ -895,6 +981,21 @@ static jboolean nfcManager_doInitialize (JNIEnv* e, jobject o)
 
                 NFA_SetRfDiscoveryDuration(nat->discovery_duration);
 
+                // get LF_T3T_MAX
+                {
+                    SyncEventGuard guard (sNfaGetConfigEvent);
+                    tNFA_PMID configParam[1] = {NCI_PARAM_ID_LF_T3T_MAX};
+                    stat = NFA_GetConfig(1, configParam);
+                    if (stat == NFA_STATUS_OK)
+                    {
+                        sNfaGetConfigEvent.wait ();
+                        if (sCurrentConfigLen >= 4 || sConfig[1] == NCI_PARAM_ID_LF_T3T_MAX) {
+                            ALOGD("%s: lfT3tMax=%d", __FUNCTION__, sConfig[3]);
+                            sLfT3tMax = sConfig[3];
+                        }
+                    }
+                }
+
                 // Do custom NFCA startup configuration.
                 doStartupConfig();
                 goto TheEnd;
@@ -904,7 +1005,10 @@ static jboolean nfcManager_doInitialize (JNIEnv* e, jobject o)
         ALOGE ("%s: fail nfa enable; error=0x%X", __FUNCTION__, stat);
 
         if (sIsNfaEnabled)
+        {
+            EXTNS_Close ();
             stat = NFA_Disable (FALSE /* ungraceful */);
+        }
 
         theInstance.Finalize();
     }
@@ -948,8 +1052,6 @@ static void nfcManager_enableDiscovery (JNIEnv* e, jobject o, jint technologies_
         ALOGE ("%s: already discovering", __FUNCTION__);
         return;
     }
-
-    tNFA_STATUS stat = NFA_STATUS_OK;
 
     PowerSwitch::getInstance ().setLevel (PowerSwitch::FULL_POWER);
 
@@ -1217,6 +1319,7 @@ static jboolean nfcManager_doDeinitialize (JNIEnv*, jobject)
     ALOGD ("%s: enter", __FUNCTION__);
 
     sIsDisabling = true;
+
     pn544InteropAbortNow ();
     RoutingManager::getInstance().onNfccShutdown();
     PowerSwitch::getInstance ().initialize (PowerSwitch::UNKNOWN_LEVEL);
@@ -1224,6 +1327,7 @@ static jboolean nfcManager_doDeinitialize (JNIEnv*, jobject)
     if (sIsNfaEnabled)
     {
         SyncEventGuard guard (sNfaDisableEvent);
+        EXTNS_Close ();
         tNFA_STATUS stat = NFA_Disable (TRUE /* graceful */);
         if (stat == NFA_STATUS_OK)
         {
@@ -1244,7 +1348,9 @@ static jboolean nfcManager_doDeinitialize (JNIEnv*, jobject)
     sDiscoveryEnabled = false;
     sPollingEnabled = false;
     sIsDisabling = false;
+    sP2pEnabled = false;
     gActivated = false;
+    sLfT3tMax = 0;
 
     {
         //unblock NFA_EnablePolling() and NFA_DisablePolling()
@@ -1624,6 +1730,15 @@ static JNINativeMethod gMethods[] =
     {"commitRouting", "()Z",
             (void*) nfcManager_commitRouting},
 
+    {"doRegisterT3tIdentifier", "([B)I",
+            (void*) nfcManager_doRegisterT3tIdentifier},
+
+    {"doDeregisterT3tIdentifier", "(I)V",
+            (void*) nfcManager_doDeregisterT3tIdentifier},
+
+    {"getLfT3tMax", "()I",
+            (void*) nfcManager_getLfT3tMax},
+
     {"doEnableDiscovery", "(IZZZZZ)V",
             (void*) nfcManager_enableDiscovery},
 
@@ -1722,6 +1837,21 @@ void startRfDiscovery(bool isStart)
     {
         ALOGE ("%s: Failed to start/stop RF discovery; error=0x%X", __FUNCTION__, status);
     }
+}
+
+
+/*******************************************************************************
+**
+** Function:        isDiscoveryStarted
+**
+** Description:     Indicates whether the discovery is started.
+**
+** Returns:         True if discovery is started
+**
+*******************************************************************************/
+bool isDiscoveryStarted ()
+{
+    return sRfEnabled;
 }
 
 

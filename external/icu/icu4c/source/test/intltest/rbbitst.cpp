@@ -40,6 +40,10 @@
 #include "unicode/uscript.h"
 #include "cmemory.h"
 
+#if !UCONFIG_NO_FILTERED_BREAK_ITERATION
+#include "unicode/filteredbrk.h"
+#endif // !UCONFIG_NO_FILTERED_BREAK_ITERATION
+
 #define TEST_ASSERT(x) {if (!(x)) { \
     errln("Failure in file %s, line %d", __FILE__, __LINE__);}}
 
@@ -1175,7 +1179,7 @@ void RBBITest::TestExtended() {
     UnicodeString       rules;
     TestParams          tp(status);
 
-    RegexMatcher      localeMatcher(UNICODE_STRING_SIMPLE("<locale *([\\p{L}\\p{Nd}_@=-]*) *>"), 0, status);
+    RegexMatcher      localeMatcher(UNICODE_STRING_SIMPLE("<locale *([\\p{L}\\p{Nd}_@&=-]*) *>"), 0, status);
     if (U_FAILURE(status)) {
         dataerrln("Failure in file %s, line %d, status = \"%s\"", __FILE__, __LINE__, u_errorName(status));
     }
@@ -1200,7 +1204,7 @@ void RBBITest::TestExtended() {
     }
 
 
-
+    bool skipTest = false; // Skip this test?
 
     //
     //  Put the test data into a UnicodeString
@@ -1268,25 +1272,28 @@ void RBBITest::TestExtended() {
             if (testString.compare(charIdx-1, 6, "<word>") == 0) {
                 delete tp.bi;
                 tp.bi = BreakIterator::createWordInstance(locale,  status);
+                skipTest = false;
                 charIdx += 5;
                 break;
             }
             if (testString.compare(charIdx-1, 6, "<char>") == 0) {
                 delete tp.bi;
                 tp.bi = BreakIterator::createCharacterInstance(locale,  status);
+                skipTest = false;
                 charIdx += 5;
                 break;
             }
             if (testString.compare(charIdx-1, 6, "<line>") == 0) {
                 delete tp.bi;
                 tp.bi = BreakIterator::createLineInstance(locale,  status);
+                skipTest = false;
                 charIdx += 5;
                 break;
             }
             if (testString.compare(charIdx-1, 6, "<sent>") == 0) {
                 delete tp.bi;
-                tp.bi = NULL;
                 tp.bi = BreakIterator::createSentenceInstance(locale,  status);
+                skipTest = false;
                 charIdx += 5;
                 break;
             }
@@ -1347,17 +1354,19 @@ void RBBITest::TestExtended() {
                 parseState = PARSE_TAG;
                 charIdx += 6;
 
-                // RUN THE TEST!
-                status = U_ZERO_ERROR;
-                tp.setUTF16(status);
-                executeTest(&tp, status);
-                TEST_ASSERT_SUCCESS(status);
+                if (!skipTest) {
+                    // RUN THE TEST!
+                    status = U_ZERO_ERROR;
+                    tp.setUTF16(status);
+                    executeTest(&tp, status);
+                    TEST_ASSERT_SUCCESS(status);
 
-                // Run again, this time with UTF-8 text wrapped in a UText.
-                status = U_ZERO_ERROR;
-                tp.setUTF8(status);
-                TEST_ASSERT_SUCCESS(status);
-                executeTest(&tp, status);
+                    // Run again, this time with UTF-8 text wrapped in a UText.
+                    status = U_ZERO_ERROR;
+                    tp.setUTF8(status);
+                    TEST_ASSERT_SUCCESS(status);
+                    executeTest(&tp, status);
+                }
                 break;
             }
 
@@ -2755,8 +2764,9 @@ int32_t RBBISentMonkey::next(int32_t prevPos) {
             continue;
         }
 
-        // Rule (7).  Upper ATerm  x  Uppper
-        if (fUpperSet->contains(c0) && fATermSet->contains(c1) && fUpperSet->contains(c2)) {
+        // Rule (7).  (Upper | Lower) ATerm  x  Uppper
+        if ((fUpperSet->contains(c0) || fLowerSet->contains(c0)) &&
+                fATermSet->contains(c1) && fUpperSet->contains(c2)) {
             continue;
         }
 
@@ -3371,6 +3381,7 @@ int32_t RBBILineMonkey::next(int32_t startPos) {
 
         // LB 22
         if ((fAL->contains(prevChar) && fIN->contains(thisChar)) ||
+            (fEX->contains(prevChar) && fIN->contains(thisChar)) ||
             (fHL->contains(prevChar) && fIN->contains(thisChar)) ||
             (fID->contains(prevChar) && fIN->contains(thisChar)) ||
             (fIN->contains(prevChar) && fIN->contains(thisChar)) ||

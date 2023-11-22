@@ -18,4 +18,5 @@
     android:sessionService="android.voiceinteraction.service.MainInteractionSessionService"
     android:recognitionService="android.voiceinteraction.service.MainRecognitionService"
     android:settingsActivity="android.voiceinteraction.service.SettingsActivity"
-    android:supportsAssist="false" />
+    android:supportsAssist="false"
+    android:supportsLocalInteraction="true" />

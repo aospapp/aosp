@@ -9,7 +9,10 @@
     {
       'target_name': 'flags',
       'type': 'static_library',
-      'include_dirs': [ '../src/core', ],
+      'include_dirs': [
+          '../include/private',
+          '../src/core',
+      ],
       'sources': [
         '../tools/flags/SkCommandLineFlags.cpp',
         '../tools/flags/SkCommandLineFlags.h',
@@ -26,9 +29,16 @@
     {
       'target_name': 'flags_common',
       'type': 'static_library',
+      'include_dirs': [
+          '../include/gpu',
+          '../include/private',
+          '../src/gpu',
+      ],
       'sources': [
         '../tools/flags/SkCommonFlags.cpp',
         '../tools/flags/SkCommonFlags.h',
+        '../tools/flags/SkCommonFlagsConfig.cpp',
+        '../tools/flags/SkCommonFlagsConfig.h',
       ],
       'dependencies': [
         'skia_lib.gyp:skia_lib',
@@ -36,6 +46,9 @@
       ],
       'direct_dependent_settings': {
         'include_dirs': [
+          '../include/gpu',
+          '../include/private',
+          '../src/gpu',
           '../tools/flags',
         ],
       }

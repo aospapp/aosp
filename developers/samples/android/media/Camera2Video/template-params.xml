@@ -20,7 +20,6 @@
     <group>Media</group>
     <package>com.example.android.camera2video</package>
 
-    <dependency>com.android.support:appcompat-v7:23.0.0</dependency>
     <minSdk>21</minSdk>
 
     <strings>

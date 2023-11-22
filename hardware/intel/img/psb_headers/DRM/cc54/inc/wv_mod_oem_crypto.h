@@ -41,6 +41,7 @@ struct drm_wv_mod_key_object
     uint32_t key_data_length;
     const uint8_t *key_control_iv;
     const uint8_t *key_control;
+    uint32_t cipher_mode;
 };
 
 struct drm_wv_mod_key_refresh_object

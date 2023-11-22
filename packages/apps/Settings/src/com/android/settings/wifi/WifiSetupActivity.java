@@ -29,7 +29,7 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
-import android.preference.PreferenceFragment;
+import android.support.v14.preference.PreferenceFragment;
 import android.util.Log;
 
 import com.android.settings.ButtonBarHandler;
@@ -129,7 +129,7 @@ public class WifiSetupActivity extends WifiPickerActivity
                 // can either connect to a different network or press "next" to proceed.
                 mUserSelectedNetwork = false;
             }
-            setNextButtonText(R.string.setup_wizard_next_button_label);
+            setNextButtonText(R.string.suw_next_button_label);
             setNextButtonEnabled(true);
         } else if (mIsWifiRequired || (mIsNetworkRequired && !isNetworkConnected())) {
             // We do not want the user to skip wifi setting if

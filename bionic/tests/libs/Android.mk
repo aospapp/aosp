@@ -17,14 +17,16 @@
 LOCAL_PATH := $(call my-dir)
 TEST_PATH := $(LOCAL_PATH)/..
 
-common_cppflags += -std=gnu++11
+common_cppflags :=
 common_additional_dependencies := \
     $(LOCAL_PATH)/Android.mk \
+    $(LOCAL_PATH)/Android.build.dt_runpath.mk \
     $(LOCAL_PATH)/Android.build.dlext_testzip.mk \
     $(LOCAL_PATH)/Android.build.dlopen_2_parents_reloc.mk \
     $(LOCAL_PATH)/Android.build.dlopen_check_order_dlsym.mk \
     $(LOCAL_PATH)/Android.build.dlopen_check_order_reloc_siblings.mk \
     $(LOCAL_PATH)/Android.build.dlopen_check_order_reloc_main_executable.mk \
+    $(LOCAL_PATH)/Android.build.linker_namespaces.mk \
     $(LOCAL_PATH)/Android.build.pthread_atfork.mk \
     $(LOCAL_PATH)/Android.build.testlib.mk \
     $(LOCAL_PATH)/Android.build.versioned_lib.mk \
@@ -67,6 +69,8 @@ libdlext_test_src_files := \
 libdlext_test_ldflags := \
     -Wl,-z,relro \
 
+libdlext_test_shared_libraries := libtest_simple
+
 module := libdlext_test
 module_tag := optional
 include $(LOCAL_PATH)/Android.build.testlib.mk
@@ -100,6 +104,8 @@ libdlext_test_norelro_src_files := \
 libdlext_test_norelro_ldflags := \
     -Wl,-z,norelro \
 
+libdlext_test_norelro_shared_libraries := libtest_simple
+
 module := libdlext_test_norelro
 module_tag := optional
 build_type := target
@@ -112,8 +118,36 @@ include $(TEST_PATH)/Android.build.mk
 libdlext_test_fd_src_files := \
     dlext_test_library.cpp \
 
+libdlext_test_fd_shared_libraries := libtest_simple
+
 libdlext_test_fd_install_to_out_data := true
 module := libdlext_test_fd
+module_tag := optional
+build_type := target
+build_target := SHARED_LIBRARY
+include $(TEST_PATH)/Android.build.mk
+
+
+# -----------------------------------------------------------------------------
+# Libraries used by dlext tests for open from a zip-file
+# -----------------------------------------------------------------------------
+libdlext_test_zip_src_files := \
+    dlext_test_library.cpp \
+
+libdlext_test_zip_shared_libraries := libatest_simple_zip
+
+libdlext_test_zip_install_to_out_data := true
+module := libdlext_test_zip
+module_tag := optional
+build_type := target
+build_target := SHARED_LIBRARY
+include $(TEST_PATH)/Android.build.mk
+
+libatest_simple_zip_src_files := \
+    dlopen_testlib_simple.cpp
+
+libatest_simple_zip_install_to_out_data := true
+module := libatest_simple_zip
 module_tag := optional
 build_type := target
 build_target := SHARED_LIBRARY
@@ -178,6 +212,16 @@ libtest_nodelete_dt_flags_1_ldflags := -Wl,-z,nodelete
 
 module := libtest_nodelete_dt_flags_1
 include $(LOCAL_PATH)/Android.build.testlib.mk
+
+# -----------------------------------------------------------------------------
+# Build test helper libraries for linker namespaces
+# -----------------------------------------------------------------------------
+include $(LOCAL_PATH)/Android.build.linker_namespaces.mk
+
+# -----------------------------------------------------------------------------
+# Build DT_RUNPATH test helper libraries
+# -----------------------------------------------------------------------------
+include $(LOCAL_PATH)/Android.build.dt_runpath.mk
 
 # -----------------------------------------------------------------------------
 # Build library with two parents
@@ -442,3 +486,18 @@ libtest_dlopen_from_ctor_main_shared_libraries := libtest_dlopen_from_ctor
 
 module := libtest_dlopen_from_ctor_main
 include $(LOCAL_PATH)/Android.build.testlib.mk
+
+# -----------------------------------------------------------------------------
+# Tool to use to align the shared libraries in a zip file.
+# -----------------------------------------------------------------------------
+include $(CLEAR_VARS)
+
+LOCAL_SRC_FILES := bionic_tests_zipalign.cpp
+LOCAL_MODULE := bionic_tests_zipalign
+LOCAL_CFLAGS := -Wall -Werror
+
+LOCAL_STATIC_LIBRARIES := libziparchive-host liblog libbase libz libutils
+
+LOCAL_MODULE_HOST_OS := darwin linux windows
+
+include $(BUILD_HOST_EXECUTABLE)

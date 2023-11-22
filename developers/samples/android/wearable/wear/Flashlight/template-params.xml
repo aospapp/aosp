@@ -22,21 +22,21 @@
     <group>Wearable</group>
     <package>com.example.android.wearable.flashlight</package>
 
-    <!-- change minSdk if needed-->
     <minSdk>18</minSdk>
-    <targetSdkVersion>22</targetSdkVersion>
+    <targetSdkVersion>23</targetSdkVersion>
+    <targetSdkVersionWear>22</targetSdkVersionWear>
 
     <strings>
         <intro>
             <![CDATA[
             Wearable activity that uses your wearable screen as a flashlight. There is also
-            a party-mode option, if you want to make things interesting.
+            a party-mode option (swipe left), if you want to make things interesting.
             ]]>
         </intro>
     </strings>
 
     <metadata>
-        <status>PUBLISHED</status>
+        <status>DEPRECATED</status>
         <categories>Wearable</categories>
         <technologies>Android</technologies>
         <language>Java</language>

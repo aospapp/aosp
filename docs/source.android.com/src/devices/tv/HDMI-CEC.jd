@@ -87,7 +87,7 @@ layer (HAL).</p>
 <p>Here are the key ingredients to a proper Android HDMI-CEC implementation:</p>
 
 <ul>
-  <li> A manager class <code>HdmiControlManager</code> provides priviledged apps with the API. System services like TV Input Manager service and Audio service can grab the service directly.</li>
+  <li> A manager class <code>HdmiControlManager</code> provides privileged apps with the API. System services like TV Input Manager service and Audio service can grab the service directly.</li>
   <li> The service is designed to allow hosting more than one type of logical device.</li>
   <li> HDMI-CEC is connected with the hardware via a hardware abstraction layer (HAL)
 to simplify handling differences of the protocol and signalling mechanisms
@@ -104,7 +104,7 @@ frameworks/native/data/etc/android.hardware.hdmi.cec.xml:system/etc/permissions/
 
 
 <p>Depending on whether your device is a HDMI sink device or a HDMI source device,
-device manufactureres need to set <code>ro.hdmi.device_type</code> in <code>device.mk</code> for <code>HdmiControlService</code> to work correctly.</p>
+device manufacturers need to set <code>ro.hdmi.device_type</code> in <code>device.mk</code> for <code>HdmiControlService</code> to work correctly.</p>
 
 <p>For HDMI source devices, like Over the Top (OTT) boxes, set:</p>
 
@@ -126,7 +126,7 @@ it. This work is left to the device manufacturer and not specified by Android.
 Note that any change made in the service for manufacturer-specific commands
 must not interfere with the way standard commands are handled or the device
 will not be Android compatible.</li>
-  <li> Access to the HDMI-CEC service is guarded with the protection level <code>SignatureOrSystem</code>. Only system components or the apps placed in <code>/system/priv-app</code> can access the service. This is to protect the service from abuse by apps with malicous intent.</li>
+  <li> Access to the HDMI-CEC service is guarded with the protection level <code>SignatureOrSystem</code>. Only system components or the apps placed in <code>/system/priv-app</code> can access the service. This is to protect the service from abuse by apps with malicious intent.</li>
 </ul>
 
 <p>Android supports type <code>TV/Display(0)</code> and <code>playback device(4)</code>, which can issue the One Touch Play command to display. The other types (tuner

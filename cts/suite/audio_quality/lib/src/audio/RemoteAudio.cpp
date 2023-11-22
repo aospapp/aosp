@@ -59,7 +59,7 @@ RemoteAudio::~RemoteAudio()
 bool RemoteAudio::init(int port)
 {
     mPort = port;
-    if (run() != android::NO_ERROR) {
+    if (run("RemoteAudio") != android::NO_ERROR) {
         LOGE("RemoteAudio cannot run");
         // cannot run thread
         return false;

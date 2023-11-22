@@ -22,7 +22,7 @@
     android:layout_height="match_parent">
 
     <fragment
-        android:name="android.cts.jank.leanback.ui.MainFragment"
+        android:name="android.leanbackjank.app.ui.MainFragment"
         android:id="@+id/main_browse_fragment"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />

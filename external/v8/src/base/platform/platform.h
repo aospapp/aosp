@@ -21,7 +21,7 @@
 #ifndef V8_BASE_PLATFORM_PLATFORM_H_
 #define V8_BASE_PLATFORM_PLATFORM_H_
 
-#include <stdarg.h>
+#include <cstdarg>
 #include <string>
 #include <vector>
 
@@ -29,47 +29,9 @@
 #include "src/base/platform/mutex.h"
 #include "src/base/platform/semaphore.h"
 
-#ifdef __sun
-# ifndef signbit
-namespace std {
-int signbit(double x);
-}
-# endif
-#endif
-
 #if V8_OS_QNX
 #include "src/base/qnx-math.h"
 #endif
-
-// Microsoft Visual C++ specific stuff.
-#if V8_LIBC_MSVCRT
-
-#include "src/base/win32-headers.h"
-#include "src/base/win32-math.h"
-
-int strncasecmp(const char* s1, const char* s2, int n);
-
-// Visual C++ 2013 and higher implement this function.
-#if (_MSC_VER < 1800)
-inline int lrint(double flt) {
-  int intgr;
-#if V8_TARGET_ARCH_IA32 || V8_TARGET_ARCH_X87
-  __asm {
-    fld flt
-    fistp intgr
-  };
-#else
-  intgr = static_cast<int>(flt + 0.5);
-  if ((intgr & 1) != 0 && intgr - flt == 0.5) {
-    // If the number is halfway between two integers, round to the even one.
-    intgr--;
-  }
-#endif
-  return intgr;
-}
-#endif  // _MSC_VER < 1800
-
-#endif  // V8_LIBC_MSVCRT
 
 namespace v8 {
 namespace base {
@@ -79,7 +41,7 @@ namespace base {
 
 #ifndef V8_NO_FAST_TLS
 
-#if defined(_MSC_VER) && (V8_HOST_ARCH_IA32)
+#if V8_CC_MSVC && V8_HOST_ARCH_IA32
 
 #define V8_FAST_TLS_SUPPORTED 1
 
@@ -180,6 +142,8 @@ class OS {
   static FILE* FOpen(const char* path, const char* mode);
   static bool Remove(const char* path);
 
+  static bool isDirectorySeparator(const char ch);
+
   // Opens a temporary file, the file is auto removed on close.
   static FILE* OpenTemporaryFile();
 
@@ -226,11 +190,11 @@ class OS {
   // Get the Alignment guaranteed by Allocate().
   static size_t AllocateAlignment();
 
-  // Sleep for a number of milliseconds.
-  static void Sleep(const int milliseconds);
+  // Sleep for a specified time interval.
+  static void Sleep(TimeDelta interval);
 
   // Abort the current process.
-  static void Abort();
+  V8_NORETURN static void Abort();
 
   // Debug break.
   static void DebugBreak();
@@ -246,11 +210,13 @@ class OS {
 
   class MemoryMappedFile {
    public:
+    virtual ~MemoryMappedFile() {}
+    virtual void* memory() const = 0;
+    virtual size_t size() const = 0;
+
     static MemoryMappedFile* open(const char* name);
-    static MemoryMappedFile* create(const char* name, int size, void* initial);
-    virtual ~MemoryMappedFile() { }
-    virtual void* memory() = 0;
-    virtual int size() = 0;
+    static MemoryMappedFile* create(const char* name, size_t size,
+                                    void* initial);
   };
 
   // Safe formatting print. Ensures that str is always null-terminated.
@@ -284,9 +250,6 @@ class OS {
   // using --never-compact) if accurate profiling is desired.
   static void SignalCodeMovingGC();
 
-  // Returns the double constant NAN
-  static double nan_value();
-
   // Support runtime detection of whether the hard float option of the
   // EABI is used.
   static bool ArmUsingHardFloat();
@@ -308,6 +271,7 @@ class OS {
 
   DISALLOW_IMPLICIT_CONSTRUCTORS(OS);
 };
+
 
 // Represents and controls an area of reserved memory.
 // Control of the reserved memory can be assigned to another VirtualMemory
@@ -366,6 +330,7 @@ class VirtualMemory {
     // inside the allocated region.
     void* address = address_;
     size_t size = size_;
+    CHECK(InVM(address, size));
     Reset();
     bool result = ReleaseRegion(address, size);
     USE(result);
@@ -397,6 +362,13 @@ class VirtualMemory {
   static bool HasLazyCommits();
 
  private:
+  bool InVM(void* address, size_t size) {
+    return (reinterpret_cast<uintptr_t>(address_) <=
+            reinterpret_cast<uintptr_t>(address)) &&
+           ((reinterpret_cast<uintptr_t>(address_) + size_) >=
+            (reinterpret_cast<uintptr_t>(address) + size));
+  }
+
   void* address_;  // Start address of the virtual memory.
   size_t size_;  // Size of the virtual memory.
 };
@@ -483,10 +455,6 @@ class Thread {
   }
 #endif
 
-  // A hint to the scheduler to let another thread run.
-  static void YieldCPU();
-
-
   // The thread name length is limited to 16 based on Linux's implementation of
   // prctl().
   static const int kMaxThreadNameLength = 16;
@@ -511,6 +479,7 @@ class Thread {
   DISALLOW_COPY_AND_ASSIGN(Thread);
 };
 
-} }  // namespace v8::base
+}  // namespace base
+}  // namespace v8
 
 #endif  // V8_BASE_PLATFORM_PLATFORM_H_

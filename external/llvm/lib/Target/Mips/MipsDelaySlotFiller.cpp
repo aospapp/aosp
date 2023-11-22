@@ -315,6 +315,14 @@ void RegDefsUses::init(const MachineInstr &MI) {
 void RegDefsUses::setCallerSaved(const MachineInstr &MI) {
   assert(MI.isCall());
 
+  // Add RA/RA_64 to Defs to prevent users of RA/RA_64 from going into
+  // the delay slot. The reason is that RA/RA_64 must not be changed
+  // in the delay slot so that the callee can return to the caller.
+  if (MI.definesRegister(Mips::RA) || MI.definesRegister(Mips::RA_64)) {
+    Defs.set(Mips::RA);
+    Defs.set(Mips::RA_64);
+  }
+
   // If MI is a call, add all caller-saved registers to Defs.
   BitVector CallerSavedRegs(TRI.getNumRegs(), true);
 
@@ -347,9 +355,8 @@ void RegDefsUses::addLiveOut(const MachineBasicBlock &MBB,
   for (MachineBasicBlock::const_succ_iterator SI = MBB.succ_begin(),
        SE = MBB.succ_end(); SI != SE; ++SI)
     if (*SI != &SuccBB)
-      for (MachineBasicBlock::livein_iterator LI = (*SI)->livein_begin(),
-           LE = (*SI)->livein_end(); LI != LE; ++LI)
-        Uses.set(*LI);
+      for (const auto &LI : (*SI)->liveins())
+        Uses.set(LI.PhysReg);
 }
 
 bool RegDefsUses::update(const MachineInstr &MI, unsigned Begin, unsigned End) {
@@ -423,7 +430,7 @@ bool LoadFromStackOrConst::hasHazard_(const MachineInstr &MI) {
       (*MI.memoperands_begin())->getPseudoValue()) {
     if (isa<FixedStackPseudoSourceValue>(PSV))
       return false;
-    return !PSV->isConstant(nullptr) && PSV != PseudoSourceValue::getStack();
+    return !PSV->isConstant(nullptr) && !PSV->isStack();
   }
 
   return true;
@@ -590,7 +597,7 @@ bool Filler::runOnMachineBasicBlock(MachineBasicBlock &MBB) {
         // Get instruction with delay slot.
         MachineBasicBlock::instr_iterator DSI(I);
 
-        if (InMicroMipsMode && TII->GetInstSizeInBytes(std::next(DSI)) == 2 &&
+        if (InMicroMipsMode && TII->GetInstSizeInBytes(&*std::next(DSI)) == 2 &&
             DSI->isCall()) {
           // If instruction in delay slot is 16b change opcode to
           // corresponding instruction with short delay slot.
@@ -643,18 +650,34 @@ template<typename IterTy>
 bool Filler::searchRange(MachineBasicBlock &MBB, IterTy Begin, IterTy End,
                          RegDefsUses &RegDU, InspectMemInstr& IM, Iter Slot,
                          IterTy &Filler) const {
-  for (IterTy I = Begin; I != End; ++I) {
+  bool IsReverseIter = std::is_convertible<IterTy, ReverseIter>::value;
+
+  for (IterTy I = Begin; I != End;) {
+    IterTy CurrI = I;
+    ++I;
+
     // skip debug value
-    if (I->isDebugValue())
+    if (CurrI->isDebugValue())
       continue;
 
-    if (terminateSearch(*I))
+    if (terminateSearch(*CurrI))
       break;
 
-    assert((!I->isCall() && !I->isReturn() && !I->isBranch()) &&
+    assert((!CurrI->isCall() && !CurrI->isReturn() && !CurrI->isBranch()) &&
            "Cannot put calls, returns or branches in delay slot.");
 
-    if (delayHasHazard(*I, RegDU, IM))
+    if (CurrI->isKill()) {
+      CurrI->eraseFromParent();
+
+      // This special case is needed for reverse iterators, because when we
+      // erase an instruction, the iterators are updated to point to the next
+      // instruction.
+      if (IsReverseIter && I != End)
+        I = CurrI;
+      continue;
+    }
+
+    if (delayHasHazard(*CurrI, RegDU, IM))
       continue;
 
     const MipsSubtarget &STI = MBB.getParent()->getSubtarget<MipsSubtarget>();
@@ -664,21 +687,21 @@ bool Filler::searchRange(MachineBasicBlock &MBB, IterTy Begin, IterTy End,
       // branches are not checked because non-NaCl targets never put them in
       // delay slots.
       unsigned AddrIdx;
-      if ((isBasePlusOffsetMemoryAccess(I->getOpcode(), &AddrIdx) &&
-           baseRegNeedsLoadStoreMask(I->getOperand(AddrIdx).getReg())) ||
-          I->modifiesRegister(Mips::SP, STI.getRegisterInfo()))
+      if ((isBasePlusOffsetMemoryAccess(CurrI->getOpcode(), &AddrIdx) &&
+           baseRegNeedsLoadStoreMask(CurrI->getOperand(AddrIdx).getReg())) ||
+          CurrI->modifiesRegister(Mips::SP, STI.getRegisterInfo()))
         continue;
     }
 
     bool InMicroMipsMode = STI.inMicroMipsMode();
     const MipsInstrInfo *TII = STI.getInstrInfo();
     unsigned Opcode = (*Slot).getOpcode();
-    if (InMicroMipsMode && TII->GetInstSizeInBytes(&(*I)) == 2 &&
+    if (InMicroMipsMode && TII->GetInstSizeInBytes(&(*CurrI)) == 2 &&
         (Opcode == Mips::JR || Opcode == Mips::PseudoIndirectBranch ||
          Opcode == Mips::PseudoReturn))
       continue;
 
-    Filler = I;
+    Filler = CurrI;
     return true;
   }
 
@@ -689,8 +712,9 @@ bool Filler::searchBackward(MachineBasicBlock &MBB, Iter Slot) const {
   if (DisableBackwardSearch)
     return false;
 
-  RegDefsUses RegDU(*MBB.getParent()->getSubtarget().getRegisterInfo());
-  MemDefsUses MemDU(*TM.getDataLayout(), MBB.getParent()->getFrameInfo());
+  auto *Fn = MBB.getParent();
+  RegDefsUses RegDU(*Fn->getSubtarget().getRegisterInfo());
+  MemDefsUses MemDU(Fn->getDataLayout(), Fn->getFrameInfo());
   ReverseIter Filler;
 
   RegDU.init(*Slot);
@@ -739,6 +763,7 @@ bool Filler::searchSuccBBs(MachineBasicBlock &MBB, Iter Slot) const {
   BB2BrMap BrMap;
   std::unique_ptr<InspectMemInstr> IM;
   Iter Filler;
+  auto *Fn = MBB.getParent();
 
   // Iterate over SuccBB's predecessor list.
   for (MachineBasicBlock::pred_iterator PI = SuccBB->pred_begin(),
@@ -748,15 +773,15 @@ bool Filler::searchSuccBBs(MachineBasicBlock &MBB, Iter Slot) const {
 
   // Do not allow moving instructions which have unallocatable register operands
   // across basic block boundaries.
-  RegDU.setUnallocatableRegs(*MBB.getParent());
+  RegDU.setUnallocatableRegs(*Fn);
 
   // Only allow moving loads from stack or constants if any of the SuccBB's
   // predecessors have multiple successors.
   if (HasMultipleSuccs) {
     IM.reset(new LoadFromStackOrConst());
   } else {
-    const MachineFrameInfo *MFI = MBB.getParent()->getFrameInfo();
-    IM.reset(new MemDefsUses(*TM.getDataLayout(), MFI));
+    const MachineFrameInfo *MFI = Fn->getFrameInfo();
+    IM.reset(new MemDefsUses(Fn->getDataLayout(), MFI));
   }
 
   if (!searchRange(MBB, SuccBB->begin(), SuccBB->end(), RegDU, *IM, Slot,
@@ -776,12 +801,13 @@ MachineBasicBlock *Filler::selectSuccBB(MachineBasicBlock &B) const {
 
   // Select the successor with the larget edge weight.
   auto &Prob = getAnalysis<MachineBranchProbabilityInfo>();
-  MachineBasicBlock *S = *std::max_element(B.succ_begin(), B.succ_end(),
-                                           [&](const MachineBasicBlock *Dst0,
-                                               const MachineBasicBlock *Dst1) {
-    return Prob.getEdgeWeight(&B, Dst0) < Prob.getEdgeWeight(&B, Dst1);
-  });
-  return S->isLandingPad() ? nullptr : S;
+  MachineBasicBlock *S = *std::max_element(
+      B.succ_begin(), B.succ_end(),
+      [&](const MachineBasicBlock *Dst0, const MachineBasicBlock *Dst1) {
+        return Prob.getEdgeProbability(&B, Dst0) <
+               Prob.getEdgeProbability(&B, Dst1);
+      });
+  return S->isEHPad() ? nullptr : S;
 }
 
 std::pair<MipsInstrInfo::BranchType, MachineInstr *>
@@ -843,7 +869,10 @@ bool Filler::examinePred(MachineBasicBlock &Pred, const MachineBasicBlock &Succ,
 
 bool Filler::delayHasHazard(const MachineInstr &Candidate, RegDefsUses &RegDU,
                             InspectMemInstr &IM) const {
-  bool HasHazard = (Candidate.isImplicitDef() || Candidate.isKill());
+  assert(!Candidate.isKill() &&
+         "KILL instructions should have been eliminated at this point.");
+
+  bool HasHazard = Candidate.isImplicitDef();
 
   HasHazard |= IM.hasHazard(Candidate);
   HasHazard |= RegDU.update(Candidate, 0, Candidate.getNumOperands());

@@ -20,7 +20,7 @@ ifeq ($(wildcard prebuilts/misc/common/jarjar),)
 LOCAL_SRC_FILES := $(call all-java-files-under, src/main)
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    jarjar-asm \
+    asm-5.0 \
     jarjar-asm-commons \
 
 LOCAL_JAVA_LIBRARIES := \

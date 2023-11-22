@@ -730,6 +730,26 @@ public class BundleTest extends AndroidTestCase {
         assertTrue(mBundle.hasFileDescriptors());
     }
 
+    public void testHasFileDescriptorsOnNullValuedCollection() {
+        assertFalse(mBundle.hasFileDescriptors());
+
+        mBundle.putParcelableArray("foo", new Parcelable[1]);
+        assertFalse(mBundle.hasFileDescriptors());
+        mBundle.clear();
+
+        SparseArray<Parcelable> sparseArray = new SparseArray<Parcelable>();
+        sparseArray.put(0, null);
+        mBundle.putSparseParcelableArray("bar", sparseArray);
+        assertFalse(mBundle.hasFileDescriptors());
+        mBundle.clear();
+
+        ArrayList<Parcelable> arrayList = new ArrayList<Parcelable>();
+        arrayList.add(null);
+        mBundle.putParcelableArrayList("baz", arrayList);
+        assertFalse(mBundle.hasFileDescriptors());
+        mBundle.clear();
+    }
+
     public void testSetClassLoader() {
         mBundle.setClassLoader(new MockClassLoader());
     }

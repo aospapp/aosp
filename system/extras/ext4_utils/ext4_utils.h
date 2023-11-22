@@ -99,6 +99,8 @@ struct ext2_group_desc {
 
 struct fs_aux_info {
 	struct ext4_super_block *sb;
+	struct ext4_super_block *sb_block;
+	struct ext4_super_block *sb_zero;
 	struct ext4_super_block **backup_sb;
 	struct ext2_group_desc *bg_desc;
 	struct block_group_info *bgs;
@@ -117,6 +119,7 @@ struct fs_aux_info {
 extern struct fs_info info;
 extern struct fs_aux_info aux_info;
 extern struct sparse_file *ext4_sparse_file;
+extern struct block_allocation *base_fs_allocations;
 
 extern jmp_buf setjmp_env;
 
@@ -142,7 +145,7 @@ void ext4_fill_in_sb(int real_uuid);
 void ext4_create_resize_inode(void);
 void ext4_create_journal_inode(void);
 void ext4_update_free(void);
-void ext4_queue_sb(void);
+void ext4_queue_sb(u64 start_block, struct ext4_super_block *sb);
 u64 get_block_device_size(int fd);
 int is_block_device_fd(int fd);
 u64 get_file_size(int fd);
@@ -159,7 +162,7 @@ int make_ext4fs_internal(int fd, const char *directory, const char *_target_out_
 						 const char *mountpoint, fs_config_func_t fs_config_func, int gzip,
 						 int sparse, int crc, int wipe, int real_uuid,
 						 struct selabel_handle *sehnd, int verbose, time_t fixed_time,
-						 FILE* block_list_file);
+						 FILE* block_list_file, FILE* base_alloc_file_in, FILE* base_alloc_file_out);
 
 int read_ext(int fd, int verbose);
 

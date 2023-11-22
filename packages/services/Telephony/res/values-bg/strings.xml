@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="phoneAppLabel" product="tablet" msgid="1107073389495104784">"Клетъчни данни"</string>
-    <string name="phoneAppLabel" product="default" msgid="906161039445636857">"Телефон"</string>
+    <string name="phoneAppLabel" product="default" msgid="6790717591729922998">"Телефонни услуги"</string>
     <string name="emergencyDialerIconLabel" msgid="7812140032168171053">"Набиране на спешни номера"</string>
     <string name="phoneIconLabel" msgid="2331230813161304895">"Телефон"</string>
     <string name="fdnListLabel" msgid="8630418672279521003">"Списък с FDN"</string>
@@ -63,6 +63,7 @@
     <string name="phone_accounts_make_calls_with" msgid="1969188078933152231">"Извършване на обажданията чрез"</string>
     <string name="phone_accounts_make_sip_calls_with" msgid="4677789312053828493">"Извършване на обажданията през SIP чрез"</string>
     <string name="phone_accounts_ask_every_time" msgid="4346499067149985702">"Първо да се извежда запитване"</string>
+    <string name="phone_accounts_default_account_label" msgid="4183772241814460014">"Няма налична мрежа"</string>
     <string name="phone_accounts_settings_header" msgid="4141710640883261094">"Настройки"</string>
     <string name="phone_accounts_choose_accounts" msgid="5232948804226424002">"Избиране на профили"</string>
     <string name="phone_accounts_selection_header" msgid="1365215726106915865">"Профили за телефонни услуги"</string>
@@ -117,14 +118,17 @@
     <string name="sum_cfnrc_disabled" msgid="7222141261321276464">"Деактивирано"</string>
     <string name="disable_cfnrc_forbidden" msgid="5646361343094064333">"Операторът ви не поддържа деактивиране на пренасочването на обаждания, когато няма връзка с телефона."</string>
     <string name="updating_title" msgid="6146755386174019046">"Настройки за обаждане"</string>
-    <string name="call_settings_primary_user_only" msgid="5679923943740900965">"Само основният потребител може да променя настройките за обаждане."</string>
-    <string name="call_settings_with_label" msgid="89359812614544532">"Настройки (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
+    <string name="call_settings_admin_user_only" msgid="4526094783818216374">"Само администраторът може да променя настройките за обаждане."</string>
+    <string name="call_settings_with_label" msgid="3401177261468593519">"Настройки (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="7970259216988931777">"Грешка в настройките за обаждане"</string>
     <string name="reading_settings" msgid="1920291699287055284">"Извършва се четене на настройки…"</string>
     <string name="updating_settings" msgid="8171225533884883252">"Настройките се актуализират…"</string>
     <string name="reverting_settings" msgid="4752151682666912828">"Настройките се променят в първоначалното състояние…"</string>
     <string name="response_error" msgid="6674110501330139405">"Неочакван отговор от мрежата."</string>
     <string name="exception_error" msgid="7027667130619518211">"Грешка в мрежата или SIM картата."</string>
+    <string name="stk_cc_ss_to_dial_error" msgid="2816779198916570502">"SS заявката е променена на DIAL заявка."</string>
+    <string name="stk_cc_ss_to_ussd_error" msgid="7490626178582654236">"SS заявката е променена на USSD заявка."</string>
+    <string name="stk_cc_ss_to_ss_error" msgid="5057846756489053759">"SS заявката е променена на нова SS заявка."</string>
     <string name="fdn_check_failure" msgid="18200614306525434">"Настройката „Фиксирани номера за набиране“ на приложението ви Телефон е включена. В резултат на това някои функции, свързани с обажданията, не работят."</string>
     <string name="radio_off_error" msgid="2304459933248513376">"Включете радиото, преди да разгледате тези настройки."</string>
     <string name="close_dialog" msgid="2365884406356986917">"OK"</string>
@@ -177,6 +181,7 @@
     <string name="preferred_network_mode_lte_wcdma_summary" msgid="9180775701594742750">"Предпочитан режим на мрежата: LTE/WCDMA"</string>
     <string name="preferred_network_mode_lte_gsm_umts_summary" msgid="633315028976225026">"Предпочитан мрежов режим: LTE/GSM/UMTS"</string>
     <string name="preferred_network_mode_lte_cdma_summary" msgid="3722647806454528426">"Предпочитан режим на мрежата: LTE / CDMA"</string>
+    <string name="preferred_network_mode_tdscdma_summary" msgid="8021016193718678775">"Предпочитан режим на мрежата: TDSCDMA"</string>
   <string-array name="preferred_network_mode_choices">
     <item msgid="7886739962255042385">"LTE/WCDMA"</item>
     <item msgid="577652050447385699">"LTE"</item>
@@ -196,6 +201,7 @@
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"Ползване на LTE услуги за подобряване на гласовите и др. комуникации (препоръч.)"</string>
     <string name="data_enabled" msgid="5972538663568715366">"Данните са активирани"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"Разрешаване на преноса на данни"</string>
+    <string name="dialog_alert_title" msgid="6751344986194435476">"Внимание"</string>
     <string name="roaming" msgid="8871412572928323707">"Роуминг на данни"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"Свързване с услуги за данни при роуминг"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"Свързване с услуги за данни при роуминг"</string>
@@ -424,11 +430,12 @@
     <string name="notification_network_selection_text" msgid="2607085729661923269">"Избраната мрежа (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) не е налична"</string>
     <string name="incall_error_power_off" msgid="2947938060513306698">"Изключете самолетния режим, за да осъществите обаждане."</string>
     <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"Изключете самолетния режим или се свържете с безжична мрежа, за да осъществите обаждане."</string>
+    <string name="incall_error_ecm_emergency_only" msgid="738708660612388692">"Излезте от режима на обратно обаждане при спешност, за да можете да извършвате обаждания, които не са спешни."</string>
     <string name="incall_error_emergency_only" msgid="4678640422710818317">"Няма регистрация в мрежата."</string>
     <string name="incall_error_out_of_service" msgid="4100065333878929223">"Няма достъп до клетъчната мрежа."</string>
     <string name="incall_error_out_of_service_wfc" msgid="323851839058697057">"Не е налице клетъчна мрежа. Свържете се с безжична, за да осъществите обаждане."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"За да извършите обаждане, въведете валиден номер."</string>
-    <string name="incall_error_call_failed" msgid="6302746943230078197">"Не може да се извърши обаждане."</string>
+    <string name="incall_error_call_failed" msgid="5891978320269774095">"Обаждането не бе успешно."</string>
     <string name="incall_status_dialed_mmi" msgid="3672498861336189563">"Стартира се последователността MMI…"</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"Услугата не се поддържа"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"Обажданията не могат да се превключат."</string>
@@ -437,10 +444,12 @@
     <string name="incall_error_supp_service_conference" msgid="2505727299596357312">"Не могат да се правят конферентни обаждания."</string>
     <string name="incall_error_supp_service_reject" msgid="8998568661508655638">"Обаждането не може да се отхвърли."</string>
     <string name="incall_error_supp_service_hangup" msgid="7434513517153834426">"Обаждането или съответно обажданията не могат да се освободят."</string>
+    <string name="incall_error_supp_service_hold" msgid="7967020511232222078">"Не може да се извършват обаждания."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="1782466780452640089">"Свържете се с безжична мрежа, за да осъществите обаждане."</string>
     <string name="emergency_enable_radio_dialog_title" msgid="4627849966634578257">"Спешно обаждане"</string>
     <string name="emergency_enable_radio_dialog_message" msgid="207613549344420291">"Радиото се включва…"</string>
     <string name="emergency_enable_radio_dialog_retry" msgid="5960061579996526883">"Няма услуга. Извършва се нов опит…"</string>
+    <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"Не може да се влезе в самолетен режим по време на спешно обаждане."</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"Не може да се извърши обаждане. <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> не е номер за спешни случаи."</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"Не може да се извърши обаждане. Наберете номер за спешни случаи."</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"Използвайте клавиатурата за набиране"</string>
@@ -459,6 +468,8 @@
     <string name="importAllSimEntries" msgid="1503181169636198673">"Импортиране на всички"</string>
     <string name="importingSimContacts" msgid="7374056215462575769">"Импортиране на контактите от SIM картата"</string>
     <string name="importToFDNfromContacts" msgid="2130620207013368580">"Импортиране от контактите"</string>
+    <string name="singleContactImportedMsg" msgid="6868483416182599206">"Контактът е импортиран"</string>
+    <string name="failedToImportSingleContactMsg" msgid="415399285420353917">"Импортирането на контакта не бе успешно"</string>
     <string name="hac_mode_title" msgid="8740268574688743289">"Слухови апарати"</string>
     <string name="hac_mode_summary" msgid="6833851160514929341">"Включване на съвместимостта за слухов апарат"</string>
   <string-array name="tty_mode_entries">
@@ -542,7 +553,8 @@
     <string name="accessibility_settings_activity_title" msgid="8562004288733103868">"Достъпност"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="8772915926382037499">"Вход. обаждане през Wi-Fi"</string>
     <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"Обаждане през Wi-Fi"</string>
-    <string name="emergency_action_launch_hint" msgid="5841511849007540970">"Докоснете отново за отваряне"</string>
+    <string name="emergency_action_launch_hint" msgid="4906759256275562674">"Докоснете отново, за да отворите"</string>
     <string name="message_decode_error" msgid="3456481534066924855">"При декодирането на съобщението възникна грешка."</string>
     <string name="callFailed_cdma_activation" msgid="2307989779233262164">"SIM картата е активирала клетъчните ви услуги и е актуализирала възможностите за роуминг на телефона ви."</string>
+    <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"Активните обаждания са твърде много. Моля, завършете или обединете съществуващи обаждания, преди да започнете ново."</string>
 </resources>

@@ -148,7 +148,8 @@ struct VideoConfigBuffer {
     VAProfile profile;
     uint32_t flag;
     void *graphicBufferHandler[MAX_GRAPHIC_BUFFER_NUM];
-    uint32_t graphicBufferStride;
+    uint32_t graphicBufferHStride;
+    uint32_t graphicBufferVStride;
     uint32_t graphicBufferColorFormat;
     uint32_t graphicBufferWidth;
     uint32_t graphicBufferHeight;

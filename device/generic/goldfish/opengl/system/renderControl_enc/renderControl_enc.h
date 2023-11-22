@@ -5,6 +5,7 @@
 #define GUARD_renderControl_encoder_context_t
 
 #include "IOStream.h"
+#include "ChecksumCalculator.h"
 #include "renderControl_client_context.h"
 
 
@@ -15,8 +16,9 @@
 struct renderControl_encoder_context_t : public renderControl_client_context_t {
 
 	IOStream *m_stream;
+	ChecksumCalculator *m_checksumCalculator;
 
-	renderControl_encoder_context_t(IOStream *stream);
+	renderControl_encoder_context_t(IOStream *stream, ChecksumCalculator *checksumCalculator);
 };
 
 #endif  // GUARD_renderControl_encoder_context_t

@@ -22,6 +22,7 @@
 #include <inttypes.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <cutils/properties.h>
 
 #include <log/log.h>
 
@@ -31,8 +32,7 @@
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
-/*TODO - Evaluate if this value should/can be retrieved from a device-specific property */
-#define BUFF_DURATION_MS   5
+#define PERIOD_DURATION_US (5 * 1000)
 
 #define DEFAULT_PERIOD_SIZE 1024
 
@@ -113,11 +113,13 @@ unsigned profile_calc_min_period_size(alsa_device_profile* profile, unsigned sam
     if (profile == NULL) {
         return DEFAULT_PERIOD_SIZE;
     } else {
-        unsigned num_sample_frames = (sample_rate * BUFF_DURATION_MS) / 1000;
+        unsigned period_us = property_get_int32("ro.audio.usb.period_us", PERIOD_DURATION_US);
+        unsigned num_sample_frames = ((uint64_t)sample_rate * period_us) / 1000000;
+
         if (num_sample_frames < profile->min_period_size) {
             num_sample_frames = profile->min_period_size;
         }
-        return round_to_16_mult(num_sample_frames) * 2;
+        return round_to_16_mult(num_sample_frames);
     }
 }
 
@@ -288,6 +290,12 @@ static unsigned profile_enum_channel_counts(alsa_device_profile* profile, unsign
             profile->channel_counts[num_counts++] = std_channel_counts[index];
         }
     }
+    // if we have no match with the standard counts, we use the largest (preferred) std count.
+    if (num_counts == 0) {
+        ALOGW("usb device does not match std channel counts, setting to %d",
+                std_channel_counts[0]);
+        profile->channel_counts[num_counts++] = std_channel_counts[0];
+    }
     profile->channel_counts[num_counts] = 0;
     return num_counts; /* return # of supported counts */
 }
@@ -326,7 +334,21 @@ static int read_alsa_device_config(alsa_device_profile * profile, struct pcm_con
 #endif
 
     config->channels = pcm_params_get_min(alsa_hw_params, PCM_PARAM_CHANNELS);
+    // For output devices, let's make sure we choose at least stereo
+    // (assuming the device supports it).
+    if (profile->direction == PCM_OUT &&
+        config->channels < 2 && pcm_params_get_max(alsa_hw_params, PCM_PARAM_CHANNELS) >= 2) {
+        config->channels = 2;
+    }
     config->rate = pcm_params_get_min(alsa_hw_params, PCM_PARAM_RATE);
+    // Prefer 48K or 44.1K
+    if (config->rate < 48000 &&
+        pcm_params_get_max(alsa_hw_params, PCM_PARAM_RATE) >= 48000) {
+        config->rate = 48000;
+    } else if (config->rate < 441000 &&
+               pcm_params_get_max(alsa_hw_params, PCM_PARAM_RATE) >= 44100) {
+        config->rate = 44100;
+    }
     config->period_size = profile_calc_min_period_size(profile, config->rate);
     config->period_count = pcm_params_get_min(alsa_hw_params, PCM_PARAM_PERIODS);
     config->format = get_pcm_format_for_mask(pcm_params_get_mask(alsa_hw_params, PCM_PARAM_FORMAT));

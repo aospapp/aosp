@@ -11,7 +11,8 @@
 # this script should be checked in to the repository
 
 # Update when switching to a different version of jflex
-EXPECTED_JFLEX_VERSION_STR="This is JFlex 1.4.3"
+EXPECTED_JFLEX_VERSION="1.4.3"
+EXPECTED_JFLEX_VERSION_STR="This is JFlex $EXPECTED_JFLEX_VERSION"
 
 # Get the location of this script used to find locations of other things in the tree.
 SCRIPT_DIR=`dirname $0`
@@ -19,10 +20,22 @@ echo $SCRIPT_DIR
 
 TOP_PATH="$SCRIPT_DIR/../../.."
 
+# Run the java jar when 'JFLEX' is not in the environment
+function exec_jar_jflex {
+  java -jar "$jflex_location" "$@"
+}
+
 # All specifying jflex but fallback to default location
 if [ -z  "$JFLEX" ]
 then
-  JFLEX=$TOP_PATH/external/jflex/bin/jflex
+  # Best effort to find it inside of the gradle cache
+  jflex_jar_name="jflex-${EXPECTED_JFLEX_VERSION}.jar"
+  jflex_location="$(find $HOME/.gradle/caches/artifacts-* -name "$jflex_jar_name" | head -n 1)"
+  if [ -z $jflex_location ]; then
+    echo "ERROR: Could not find jflex location, consider setting the \$JFLEX variable to point to it"
+    exit 1
+  fi
+  JFLEX=exec_jar_jflex
 fi
 
 JFLEX_VERSION=`"$JFLEX" --version`
@@ -42,7 +55,7 @@ fi
 JAVA_FILE=$SCRIPT_DIR/src/main/java/org/jf/smali/smaliFlexLexer.java
 rm -f "$JAVA_FILE"
 
-$JFLEX --nobak -d $SCRIPT_DIR/src/main/java/org/jf/smali $SCRIPT_DIR/src/main/jflex/smaliLexer.flex
+"$JFLEX" --nobak -d "$SCRIPT_DIR/src/main/java/org/jf/smali" "$SCRIPT_DIR/src/main/jflex/smaliLexer.jflex"
 
 # delete trailing space from end of each line to make gerrit happy
 sed 's/[ ]*$//' "$JAVA_FILE" > "$JAVA_FILE.tmp"

@@ -23,12 +23,12 @@
 #include <pthread.h>
 #include <string.h>
 
-#include "osi/include/allocator.h"
-#include "osi/include/hash_map.h"
 #include "btcore/include/module.h"
-#include "osi/include/osi.h"
+#include "osi/include/allocator.h"
 #include "osi/include/hash_functions.h"
+#include "osi/include/hash_map.h"
 #include "osi/include/log.h"
+#include "osi/include/osi.h"
 
 typedef enum {
   MODULE_STATE_NONE = 0,
@@ -78,10 +78,13 @@ bool module_init(const module_t *module) {
   assert(module != NULL);
   assert(get_module_state(module) == MODULE_STATE_NONE);
 
+  LOG_INFO(LOG_TAG, "%s Initializing module \"%s\"", __func__, module->name);
   if (!call_lifecycle_function(module->init)) {
-    LOG_ERROR("%s failed to initialize \"%s\"", __func__, module->name);
+    LOG_ERROR(LOG_TAG, "%s Failed to initialize module \"%s\"",
+              __func__, module->name);
     return false;
   }
+  LOG_INFO(LOG_TAG, "%s Initialized module \"%s\"", __func__, module->name);
 
   set_module_state(module, MODULE_STATE_INITIALIZED);
   return true;
@@ -95,10 +98,13 @@ bool module_start_up(const module_t *module) {
   // as we're converting the startup sequence.
   assert(get_module_state(module) == MODULE_STATE_INITIALIZED || module->init == NULL);
 
+  LOG_INFO(LOG_TAG, "%s Starting module \"%s\"", __func__, module->name);
   if (!call_lifecycle_function(module->start_up)) {
-    LOG_ERROR("%s failed to start up \"%s\"", __func__, module->name);
+    LOG_ERROR(LOG_TAG, "%s Failed to start up module \"%s\"",
+              __func__, module->name);
     return false;
   }
+  LOG_INFO(LOG_TAG, "%s Started module \"%s\"", __func__, module->name);
 
   set_module_state(module, MODULE_STATE_STARTED);
   return true;
@@ -114,8 +120,13 @@ void module_shut_down(const module_t *module) {
   if (state < MODULE_STATE_STARTED)
     return;
 
-  if (!call_lifecycle_function(module->shut_down))
-    LOG_ERROR("%s found \"%s\" reported failure during shutdown. Continuing anyway.", __func__, module->name);
+  LOG_INFO(LOG_TAG, "%s Shutting down module \"%s\"", __func__, module->name);
+  if (!call_lifecycle_function(module->shut_down)) {
+    LOG_ERROR(LOG_TAG, "%s Failed to shutdown module \"%s\". Continuing anyway.",
+              __func__, module->name);
+  }
+  LOG_INFO(LOG_TAG, "%s Shutdown of module \"%s\" completed",
+           __func__, module->name);
 
   set_module_state(module, MODULE_STATE_INITIALIZED);
 }
@@ -130,8 +141,13 @@ void module_clean_up(const module_t *module) {
   if (state < MODULE_STATE_INITIALIZED)
     return;
 
-  if (!call_lifecycle_function(module->clean_up))
-    LOG_ERROR("%s found \"%s\" reported failure during cleanup. Continuing anyway.", __func__, module->name);
+  LOG_INFO(LOG_TAG, "%s Cleaning up module \"%s\"", __func__, module->name);
+  if (!call_lifecycle_function(module->clean_up)) {
+    LOG_ERROR(LOG_TAG, "%s Failed to cleanup module \"%s\". Continuing anyway.",
+              __func__, module->name);
+  }
+  LOG_INFO(LOG_TAG, "%s Cleanup of module \"%s\" completed",
+           __func__, module->name);
 
   set_module_state(module, MODULE_STATE_NONE);
 }
@@ -222,7 +238,7 @@ static void post_result_to_callback(void *context) {
   thread_fn callback = wrapper->callback;
 
   // Clean up the resources we used
-  thread_stop(wrapper->lifecycle_thread);
+  thread_free(wrapper->lifecycle_thread);
   osi_free(wrapper);
 
   callback(result);

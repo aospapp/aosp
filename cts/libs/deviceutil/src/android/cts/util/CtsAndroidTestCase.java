@@ -18,13 +18,14 @@
 package android.cts.util;
 
 import android.content.Context;
+import android.test.ActivityInstrumentationTestCase2;
 
 /**
  *  This class emulates AndroidTestCase, but internally it is ActivityInstrumentationTestCase2
  *  to access Instrumentation.
  *  DummyActivity is not supposed to be accessed.
  */
-public class CtsAndroidTestCase extends CtsActivityInstrumentationTestCase2<DummyActivity> {
+public class CtsAndroidTestCase extends ActivityInstrumentationTestCase2<DummyActivity> {
     public CtsAndroidTestCase() {
         super(DummyActivity.class);
     }

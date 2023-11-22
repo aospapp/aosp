@@ -63,7 +63,7 @@ MediaPlayer::MediaPlayer()
     mLeftVolume = mRightVolume = 1.0;
     mVideoWidth = mVideoHeight = 0;
     mLockThreadId = 0;
-    mAudioSessionId = AudioSystem::newAudioUniqueId();
+    mAudioSessionId = (audio_session_t) AudioSystem::newAudioUniqueId(AUDIO_UNIQUE_ID_USE_SESSION);
     AudioSystem::acquireAudioSessionId(mAudioSessionId, -1);
     mSendLevel = 0;
     mRetransmitEndpointValid = false;
@@ -152,7 +152,7 @@ status_t MediaPlayer::setDataSource(
     ALOGV("setDataSource(%s)", url);
     status_t err = BAD_VALUE;
     if (url != NULL) {
-        const sp<IMediaPlayerService>& service(getMediaPlayerService());
+        const sp<IMediaPlayerService> service(getMediaPlayerService());
         if (service != 0) {
             sp<IMediaPlayer> player(service->create(this, mAudioSessionId));
             if ((NO_ERROR != doSetRetransmitEndpoint(player)) ||
@@ -169,7 +169,7 @@ status_t MediaPlayer::setDataSource(int fd, int64_t offset, int64_t length)
 {
     ALOGV("setDataSource(%d, %" PRId64 ", %" PRId64 ")", fd, offset, length);
     status_t err = UNKNOWN_ERROR;
-    const sp<IMediaPlayerService>& service(getMediaPlayerService());
+    const sp<IMediaPlayerService> service(getMediaPlayerService());
     if (service != 0) {
         sp<IMediaPlayer> player(service->create(this, mAudioSessionId));
         if ((NO_ERROR != doSetRetransmitEndpoint(player)) ||
@@ -181,27 +181,11 @@ status_t MediaPlayer::setDataSource(int fd, int64_t offset, int64_t length)
     return err;
 }
 
-status_t MediaPlayer::setDataSource(const sp<IStreamSource> &source)
-{
-    ALOGV("setDataSource");
-    status_t err = UNKNOWN_ERROR;
-    const sp<IMediaPlayerService>& service(getMediaPlayerService());
-    if (service != 0) {
-        sp<IMediaPlayer> player(service->create(this, mAudioSessionId));
-        if ((NO_ERROR != doSetRetransmitEndpoint(player)) ||
-            (NO_ERROR != player->setDataSource(source))) {
-            player.clear();
-        }
-        err = attachNewPlayer(player);
-    }
-    return err;
-}
-
 status_t MediaPlayer::setDataSource(const sp<IDataSource> &source)
 {
     ALOGV("setDataSource(IDataSource)");
     status_t err = UNKNOWN_ERROR;
-    const sp<IMediaPlayerService>& service(getMediaPlayerService());
+    const sp<IMediaPlayerService> service(getMediaPlayerService());
     if (service != 0) {
         sp<IMediaPlayer> player(service->create(this, mAudioSessionId));
         if ((NO_ERROR != doSetRetransmitEndpoint(player)) ||
@@ -223,7 +207,7 @@ status_t MediaPlayer::invoke(const Parcel& request, Parcel *reply)
         ALOGV("invoke %zu", request.dataSize());
         return  mPlayer->invoke(request, reply);
     }
-    ALOGE("invoke failed: wrong state %X", mCurrentState);
+    ALOGE("invoke failed: wrong state %X, mPlayer(%p)", mCurrentState, mPlayer.get());
     return INVALID_OPERATION;
 }
 
@@ -268,7 +252,7 @@ status_t MediaPlayer::prepareAsync_l()
         mCurrentState = MEDIA_PLAYER_PREPARING;
         return mPlayer->prepareAsync();
     }
-    ALOGE("prepareAsync called in state %d", mCurrentState);
+    ALOGE("prepareAsync called in state %d, mPlayer(%p)", mCurrentState, mPlayer.get());
     return INVALID_OPERATION;
 }
 
@@ -334,7 +318,7 @@ status_t MediaPlayer::start()
             }
         }
     } else {
-        ALOGE("start called in state %d", mCurrentState);
+        ALOGE("start called in state %d, mPlayer(%p)", mCurrentState, mPlayer.get());
         ret = INVALID_OPERATION;
     }
 
@@ -358,7 +342,7 @@ status_t MediaPlayer::stop()
         }
         return ret;
     }
-    ALOGE("stop called in state %d", mCurrentState);
+    ALOGE("stop called in state %d, mPlayer(%p)", mCurrentState, mPlayer.get());
     return INVALID_OPERATION;
 }
 
@@ -377,7 +361,7 @@ status_t MediaPlayer::pause()
         }
         return ret;
     }
-    ALOGE("pause called in state %d", mCurrentState);
+    ALOGE("pause called in state %d, mPlayer(%p)", mCurrentState, mPlayer.get());
     return INVALID_OPERATION;
 }
 
@@ -412,11 +396,22 @@ status_t MediaPlayer::setPlaybackSettings(const AudioPlaybackRate& rate)
     }
     Mutex::Autolock _l(mLock);
     if (mPlayer == 0) return INVALID_OPERATION;
+
+    if (rate.mSpeed != 0.f && !(mCurrentState & MEDIA_PLAYER_STARTED)
+            && (mCurrentState & (MEDIA_PLAYER_PREPARED | MEDIA_PLAYER_PAUSED
+                    | MEDIA_PLAYER_PLAYBACK_COMPLETE))) {
+        mPlayer->setLooping(mLoop);
+        mPlayer->setVolume(mLeftVolume, mRightVolume);
+        mPlayer->setAuxEffectSendLevel(mSendLevel);
+    }
+
     status_t err = mPlayer->setPlaybackSettings(rate);
     if (err == OK) {
         if (rate.mSpeed == 0.f && mCurrentState == MEDIA_PLAYER_STARTED) {
             mCurrentState = MEDIA_PLAYER_PAUSED;
-        } else if (rate.mSpeed != 0.f && mCurrentState == MEDIA_PLAYER_PAUSED) {
+        } else if (rate.mSpeed != 0.f
+                && (mCurrentState & (MEDIA_PLAYER_PREPARED | MEDIA_PLAYER_PAUSED
+                    | MEDIA_PLAYER_PLAYBACK_COMPLETE))) {
             mCurrentState = MEDIA_PLAYER_STARTED;
         }
     }
@@ -500,7 +495,8 @@ status_t MediaPlayer::getDuration_l(int *msec)
         }
         return ret;
     }
-    ALOGE("Attempt to call getDuration without a valid mediaplayer");
+    ALOGE("Attempt to call getDuration in wrong state: mPlayer=%p, mCurrentState=%u",
+            mPlayer.get(), mCurrentState);
     return INVALID_OPERATION;
 }
 
@@ -664,7 +660,7 @@ status_t MediaPlayer::setVolume(float leftVolume, float rightVolume)
     return OK;
 }
 
-status_t MediaPlayer::setAudioSessionId(int sessionId)
+status_t MediaPlayer::setAudioSessionId(audio_session_t sessionId)
 {
     ALOGV("MediaPlayer::setAudioSessionId(%d)", sessionId);
     Mutex::Autolock _l(mLock);
@@ -683,7 +679,7 @@ status_t MediaPlayer::setAudioSessionId(int sessionId)
     return NO_ERROR;
 }
 
-int MediaPlayer::getAudioSessionId()
+audio_session_t MediaPlayer::getAudioSessionId()
 {
     Mutex::Autolock _l(mLock);
     return mAudioSessionId;
@@ -707,7 +703,7 @@ status_t MediaPlayer::attachAuxEffect(int effectId)
     if (mPlayer == 0 ||
         (mCurrentState & MEDIA_PLAYER_IDLE) ||
         (mCurrentState == MEDIA_PLAYER_STATE_ERROR )) {
-        ALOGE("attachAuxEffect called in state %d", mCurrentState);
+        ALOGE("attachAuxEffect called in state %d, mPlayer(%p)", mCurrentState, mPlayer.get());
         return INVALID_OPERATION;
     }
 
@@ -922,6 +918,7 @@ void MediaPlayer::died()
 }
 
 status_t MediaPlayer::setNextMediaPlayer(const sp<MediaPlayer>& next) {
+    Mutex::Autolock _l(mLock);
     if (mPlayer == NULL) {
         return NO_INIT;
     }

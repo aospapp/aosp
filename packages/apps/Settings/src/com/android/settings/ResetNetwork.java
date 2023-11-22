@@ -17,38 +17,29 @@
 package com.android.settings;
 
 import android.app.Activity;
-import android.app.Fragment;
-import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.content.res.Resources;
-import android.graphics.drawable.Drawable;
 import android.os.Bundle;
-import android.os.Environment;
-import android.os.SystemProperties;
-import android.os.Process;
+import android.os.UserHandle;
 import android.os.UserManager;
-import android.preference.Preference;
-import android.preference.PreferenceActivity;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.text.TextUtils;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.CheckBox;
-import android.widget.LinearLayout;
 import android.widget.Spinner;
-import android.widget.TextView;
 
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.internal.telephony.PhoneConstants;
+import com.android.settingslib.RestrictedLockUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
 
 /**
  * Confirm and execute a reset of the device's network settings to a clean "just out of the box"
@@ -59,7 +50,7 @@ import java.util.List;
  *
  * This is the initial screen.
  */
-public class ResetNetwork extends InstrumentedFragment {
+public class ResetNetwork extends OptionsMenuFragment {
     private static final String TAG = "ResetNetwork";
 
     // Arbitrary to avoid conficts
@@ -144,15 +135,15 @@ public class ResetNetwork extends InstrumentedFragment {
         mSubscriptions = SubscriptionManager.from(getActivity()).getActiveSubscriptionInfoList();
         if (mSubscriptions != null && mSubscriptions.size() > 0) {
             // Get the default subscription in the order of data, voice, sms, first up.
-            int defaultSubscription = SubscriptionManager.getDefaultDataSubId();
+            int defaultSubscription = SubscriptionManager.getDefaultDataSubscriptionId();
             if (!SubscriptionManager.isUsableSubIdValue(defaultSubscription)) {
-                defaultSubscription = SubscriptionManager.getDefaultVoiceSubId();
+                defaultSubscription = SubscriptionManager.getDefaultVoiceSubscriptionId();
             }
             if (!SubscriptionManager.isUsableSubIdValue(defaultSubscription)) {
-                defaultSubscription = SubscriptionManager.getDefaultSmsSubId();
+                defaultSubscription = SubscriptionManager.getDefaultSmsSubscriptionId();
             }
             if (!SubscriptionManager.isUsableSubIdValue(defaultSubscription)) {
-                defaultSubscription = SubscriptionManager.getDefaultSubId();
+                defaultSubscription = SubscriptionManager.getDefaultSubscriptionId();
             }
 
             int selectedIndex = 0;
@@ -192,10 +183,17 @@ public class ResetNetwork extends InstrumentedFragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
-        if (!Process.myUserHandle().isOwner()
-                || UserManager.get(getActivity()).hasUserRestriction(
-                UserManager.DISALLOW_NETWORK_RESET)) {
+        final UserManager um = UserManager.get(getActivity());
+        final EnforcedAdmin admin = RestrictedLockUtils.checkIfRestrictionEnforced(
+                getActivity(), UserManager.DISALLOW_NETWORK_RESET, UserHandle.myUserId());
+        if (!um.isAdminUser() || RestrictedLockUtils.hasBaseUserRestriction(getActivity(),
+                UserManager.DISALLOW_NETWORK_RESET, UserHandle.myUserId())) {
             return inflater.inflate(R.layout.network_reset_disallowed_screen, null);
+        } else if (admin != null) {
+            View view = inflater.inflate(R.layout.admin_support_details_empty_view, null);
+            ShowAdminSupportDetailsDialog.setAdminSupportDetails(getActivity(), view, admin, false);
+            view.setVisibility(View.VISIBLE);
+            return view;
         }
 
         mContentView = inflater.inflate(R.layout.reset_network, null);
@@ -206,6 +204,6 @@ public class ResetNetwork extends InstrumentedFragment {
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.RESET_NETWORK;
+        return MetricsEvent.RESET_NETWORK;
     }
 }

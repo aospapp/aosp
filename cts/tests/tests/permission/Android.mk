@@ -19,14 +19,20 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
 
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
+
+# Tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
+
 # Include both the 32 and 64 bit versions
 LOCAL_MULTILIB := both
 
 LOCAL_JAVA_LIBRARIES := telephony-common
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner guava android-ex-camera2
+LOCAL_STATIC_JAVA_LIBRARIES := \
+    ctstestrunner guava android-ex-camera2
 
-LOCAL_JNI_SHARED_LIBRARIES := libctspermission_jni
+LOCAL_JNI_SHARED_LIBRARIES := libctspermission_jni libnativehelper_compat_libc++
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 

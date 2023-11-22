@@ -25,6 +25,7 @@ public class OSUProvider {
     private final List<IconInfo> mIcons;
     private final String mOsuNai;
     private final List<I18Name> mServiceDescriptions;
+    private final int mHashCode;
 
     public OSUProvider(ByteBuffer payload) throws ProtocolException {
         if (payload.remaining() < 11) {
@@ -38,7 +39,7 @@ public class OSUProvider {
         namesBuffer.limit(namesBuffer.position() + namesLength);
         payload.position(payload.position() + namesLength);
 
-        mNames = new ArrayList<I18Name>();
+        mNames = new ArrayList<>();
 
         while (namesBuffer.hasRemaining()) {
             mNames.add(new I18Name(namesBuffer));
@@ -46,7 +47,7 @@ public class OSUProvider {
 
         mOSUServer = Constants.getPrefixedString(payload, 1, StandardCharsets.UTF_8);
         int methodLength = payload.get() & BYTE_MASK;
-        mOSUMethods = new ArrayList<OSUMethod>(methodLength);
+        mOSUMethods = new ArrayList<>(methodLength);
         while (methodLength > 0) {
             int methodID = payload.get() & BYTE_MASK;
             mOSUMethods.add(methodID < OSUMethod.values().length ?
@@ -60,7 +61,7 @@ public class OSUProvider {
         iconsBuffer.limit(iconsBuffer.position() + iconsLength);
         payload.position(payload.position() + iconsLength);
 
-        mIcons = new ArrayList<IconInfo>();
+        mIcons = new ArrayList<>();
 
         while (iconsBuffer.hasRemaining()) {
             mIcons.add(new IconInfo(iconsBuffer));
@@ -73,11 +74,19 @@ public class OSUProvider {
         descriptionsBuffer.limit(descriptionsBuffer.position() + descriptionsLength);
         payload.position(payload.position() + descriptionsLength);
 
-        mServiceDescriptions = new ArrayList<I18Name>();
+        mServiceDescriptions = new ArrayList<>();
 
         while (descriptionsBuffer.hasRemaining()) {
             mServiceDescriptions.add(new I18Name(descriptionsBuffer));
         }
+
+        int result = mNames.hashCode();
+        result = 31 * result + mOSUServer.hashCode();
+        result = 31 * result + mOSUMethods.hashCode();
+        result = 31 * result + mIcons.hashCode();
+        result = 31 * result + (mOsuNai != null ? mOsuNai.hashCode() : 0);
+        result = 31 * result + mServiceDescriptions.hashCode();
+        mHashCode = result;
     }
 
     public List<I18Name> getNames() {
@@ -105,14 +114,36 @@ public class OSUProvider {
     }
 
     @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        OSUProvider that = (OSUProvider) o;
+
+        if (!mOSUServer.equals(that.mOSUServer)) return false;
+        if (!mNames.equals(that.mNames)) return false;
+        if (!mServiceDescriptions.equals(that.mServiceDescriptions)) return false;
+        if (!mIcons.equals(that.mIcons)) return false;
+        if (!mOSUMethods.equals(that.mOSUMethods)) return false;
+        if (mOsuNai != null ? !mOsuNai.equals(that.mOsuNai) : that.mOsuNai != null) return false;
+
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        return mHashCode;
+    }
+
+    @Override
     public String toString() {
         return "OSUProvider{" +
-                "mNames=" + mNames +
-                ", mOSUServer='" + mOSUServer + '\'' +
-                ", mOSUMethods=" + mOSUMethods +
-                ", mIcons=" + mIcons +
-                ", mOsuNai='" + mOsuNai + '\'' +
-                ", mServiceDescriptions=" + mServiceDescriptions +
+                "names=" + mNames +
+                ", OSUServer='" + mOSUServer + '\'' +
+                ", OSUMethods=" + mOSUMethods +
+                ", icons=" + mIcons +
+                ", NAI='" + mOsuNai + '\'' +
+                ", serviceDescriptions=" + mServiceDescriptions +
                 '}';
     }
 }

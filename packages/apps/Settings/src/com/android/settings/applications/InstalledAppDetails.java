@@ -16,10 +16,12 @@
 
 package com.android.settings.applications;
 
+import android.Manifest.permission;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.app.LoaderManager.LoaderCallbacks;
+import android.app.Notification;
 import android.app.admin.DevicePolicyManager;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
@@ -35,8 +37,8 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.ResolveInfo;
 import android.content.pm.UserInfo;
 import android.content.res.Resources;
-import android.icu.text.ListFormatter;
 import android.graphics.drawable.Drawable;
+import android.icu.text.ListFormatter;
 import android.net.INetworkStatsService;
 import android.net.INetworkStatsSession;
 import android.net.NetworkTemplate;
@@ -48,8 +50,13 @@ import android.os.Bundle;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.UserHandle;
-import android.preference.Preference;
-import android.preference.Preference.OnPreferenceClickListener;
+import android.os.UserManager;
+import android.provider.Settings;
+import android.service.notification.NotificationListenerService.Ranking;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.Preference.OnPreferenceClickListener;
+import android.support.v7.preference.PreferenceCategory;
+import android.support.v7.preference.PreferenceScreen;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.text.format.Formatter;
@@ -59,35 +66,47 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.View.OnClickListener;
 import android.view.ViewGroup;
+import android.webkit.IWebViewUpdateService;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.internal.os.BatterySipper;
 import com.android.internal.os.BatteryStatsHelper;
-import com.android.settings.DataUsageSummary;
-import com.android.settings.DataUsageSummary.AppItem;
+import com.android.internal.widget.LockPatternUtils;
+import com.android.settings.AppHeader;
+import com.android.settings.DeviceAdminAdd;
 import com.android.settings.R;
 import com.android.settings.SettingsActivity;
+import com.android.settings.SettingsPreferenceFragment;
 import com.android.settings.Utils;
 import com.android.settings.applications.PermissionsSummaryHelper.PermissionsResultCallback;
+import com.android.settings.datausage.AppDataUsage;
+import com.android.settings.datausage.DataUsageList;
+import com.android.settings.datausage.DataUsageSummary;
 import com.android.settings.fuelgauge.BatteryEntry;
 import com.android.settings.fuelgauge.PowerUsageDetail;
-import com.android.settings.net.ChartData;
-import com.android.settings.net.ChartDataLoader;
 import com.android.settings.notification.AppNotificationSettings;
 import com.android.settings.notification.NotificationBackend;
 import com.android.settings.notification.NotificationBackend.AppRow;
+import com.android.settingslib.AppItem;
+import com.android.settingslib.RestrictedLockUtils;
+import com.android.settingslib.applications.AppUtils;
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.settingslib.applications.ApplicationsState.AppEntry;
+import com.android.settingslib.net.ChartData;
+import com.android.settingslib.net.ChartDataLoader;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+
+import static com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
 
 /**
  * Activity to display application information from Settings. This activity presents
@@ -109,6 +128,8 @@ public class InstalledAppDetails extends AppInfoBase
 
     // Result code identifiers
     public static final int REQUEST_UNINSTALL = 0;
+    private static final int REQUEST_REMOVE_DEVICE_ADMIN = 1;
+
     private static final int SUB_INFO_FRAGMENT = 1;
 
     private static final int LOADER_CHART_DATA = 2;
@@ -116,7 +137,6 @@ public class InstalledAppDetails extends AppInfoBase
     private static final int DLG_FORCE_STOP = DLG_BASE + 1;
     private static final int DLG_DISABLE = DLG_BASE + 2;
     private static final int DLG_SPECIAL_DISABLE = DLG_BASE + 3;
-    private static final int DLG_FACTORY_RESET = DLG_BASE + 4;
 
     private static final String KEY_HEADER = "header_view";
     private static final String KEY_NOTIFICATION = "notification_settings";
@@ -126,6 +146,8 @@ public class InstalledAppDetails extends AppInfoBase
     private static final String KEY_LAUNCH = "preferred_settings";
     private static final String KEY_BATTERY = "battery";
     private static final String KEY_MEMORY = "memory";
+
+    private static final String NOTIFICATION_TUNER_SETTING = "show_importance_slider";
 
     private final HashSet<String> mHomePackages = new HashSet<String>();
 
@@ -156,8 +178,6 @@ public class InstalledAppDetails extends AppInfoBase
 
     protected ProcStatsData mStatsManager;
     protected ProcStatsPackageEntry mStats;
-
-    private BroadcastReceiver mPermissionReceiver;
 
     private boolean handleDisableable(Button button) {
         boolean disableable = false;
@@ -200,11 +220,19 @@ public class InstalledAppDetails extends AppInfoBase
         }
         // If this is a device admin, it can't be uninstalled or disabled.
         // We do this here so the text of the button is still set correctly.
-        if (mDpm.packageHasActiveAdmins(mPackageInfo.packageName)) {
+        if (isBundled && mDpm.packageHasActiveAdmins(mPackageInfo.packageName)) {
             enabled = false;
         }
 
+        // We don't allow uninstalling DO/PO on *any* users, because if it's a system app,
+        // "uninstall" is actually "downgrade to the system version + disable", and "downgrade"
+        // will clear data on all users.
         if (isProfileOrDeviceOwner(mPackageInfo.packageName)) {
+            enabled = false;
+        }
+
+        // If the uninstall intent is already queued, disable the uninstall button
+        if (mDpm.isUninstallInQueue(mPackageName)) {
             enabled = false;
         }
 
@@ -232,8 +260,18 @@ public class InstalledAppDetails extends AppInfoBase
             }
         }
 
-        if (mAppControlRestricted) {
+        if (mAppsControlDisallowedBySystem) {
             enabled = false;
+        }
+
+        try {
+            IWebViewUpdateService webviewUpdateService =
+                IWebViewUpdateService.Stub.asInterface(ServiceManager.getService("webviewupdate"));
+            if (webviewUpdateService.isFallbackPackage(mAppEntry.info.packageName)) {
+                enabled = false;
+            }
+        } catch (RemoteException e) {
+            throw new RuntimeException(e);
         }
 
         mUninstallButton.setEnabled(enabled);
@@ -248,7 +286,7 @@ public class InstalledAppDetails extends AppInfoBase
         List<UserInfo> userInfos = mUserManager.getUsers();
         DevicePolicyManager dpm = (DevicePolicyManager)
                 getContext().getSystemService(Context.DEVICE_POLICY_SERVICE);
-        if (packageName.equals(dpm.getDeviceOwner())) {
+        if (dpm.isDeviceOwnerAppOnAnyUser(packageName)) {
             return true;
         }
         for (UserInfo userInfo : userInfos) {
@@ -267,6 +305,7 @@ public class InstalledAppDetails extends AppInfoBase
 
         setHasOptionsMenu(true);
         addPreferencesFromResource(R.xml.installed_app_details);
+        addDynamicPrefs();
 
         if (Utils.isBandwidthControlEnabled()) {
             INetworkStatsService statsService = INetworkStatsService.Stub.asInterface(
@@ -284,7 +323,7 @@ public class InstalledAppDetails extends AppInfoBase
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.APPLICATIONS_INSTALLED_APP_DETAILS;
+        return MetricsEvent.APPLICATIONS_INSTALLED_APP_DETAILS;
     }
 
     @Override
@@ -303,6 +342,7 @@ public class InstalledAppDetails extends AppInfoBase
         }
         new BatteryUpdater().execute();
         new MemoryUpdater().execute();
+        updateDynamicPrefs();
     }
 
     @Override
@@ -314,11 +354,6 @@ public class InstalledAppDetails extends AppInfoBase
     @Override
     public void onDestroy() {
         TrafficStats.closeQuietly(mStatsSession);
-        if (mPermissionReceiver != null) {
-            getContext().unregisterReceiver(mPermissionReceiver);
-            mPermissionReceiver = null;
-        }
-
         super.onDestroy();
     }
 
@@ -367,6 +402,28 @@ public class InstalledAppDetails extends AppInfoBase
         mForceStopButton.setText(R.string.force_stop);
         mUninstallButton = (Button) btnPanel.findViewById(R.id.left_button);
         mForceStopButton.setEnabled(false);
+
+        View gear = mHeader.findViewById(R.id.gear);
+        Intent i = new Intent(Intent.ACTION_APPLICATION_PREFERENCES);
+        i.setPackage(mPackageName);
+        final Intent intent = resolveIntent(i);
+        if (intent != null) {
+            gear.setVisibility(View.VISIBLE);
+            gear.setOnClickListener(new OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    startActivity(intent);
+                }
+            });
+        } else {
+            gear.setVisibility(View.GONE);
+        }
+    }
+
+    private Intent resolveIntent(Intent i) {
+        ResolveInfo result = getContext().getPackageManager().resolveActivity(i, 0);
+        return result != null ? new Intent(i.getAction())
+                .setClassName(result.activityInfo.packageName, result.activityInfo.name) : null;
     }
 
     @Override
@@ -398,7 +455,12 @@ public class InstalledAppDetails extends AppInfoBase
         }
         menu.findItem(UNINSTALL_ALL_USERS_MENU).setVisible(showIt);
         mUpdatedSysApp = (mAppEntry.info.flags & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0;
-        menu.findItem(UNINSTALL_UPDATES).setVisible(mUpdatedSysApp && !mAppControlRestricted);
+        MenuItem uninstallUpdatesItem = menu.findItem(UNINSTALL_UPDATES);
+        uninstallUpdatesItem.setVisible(mUpdatedSysApp && !mAppsControlDisallowedBySystem);
+        if (uninstallUpdatesItem.isVisible()) {
+            RestrictedLockUtils.setMenuItemAsDisabledByAdmin(getActivity(),
+                    uninstallUpdatesItem, mAppsControlDisallowedAdmin);
+        }
     }
 
     @Override
@@ -408,7 +470,7 @@ public class InstalledAppDetails extends AppInfoBase
                 uninstallPkg(mAppEntry.info.packageName, true, false);
                 return true;
             case UNINSTALL_UPDATES:
-                showDialogInner(DLG_FACTORY_RESET, 0);
+                uninstallPkg(mAppEntry.info.packageName, false, false);
                 return true;
         }
         return false;
@@ -420,18 +482,15 @@ public class InstalledAppDetails extends AppInfoBase
         if (requestCode == REQUEST_UNINSTALL) {
             if (mDisableAfterUninstall) {
                 mDisableAfterUninstall = false;
-                try {
-                    ApplicationInfo ainfo = getActivity().getPackageManager().getApplicationInfo(
-                            mAppEntry.info.packageName, PackageManager.GET_UNINSTALLED_PACKAGES
-                            | PackageManager.GET_DISABLED_COMPONENTS);
-                    if ((ainfo.flags & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) == 0) {
-                        new DisableChanger(this, mAppEntry.info,
-                                PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER)
-                                .execute((Object)null);
-                    }
-                } catch (NameNotFoundException e) {
-                }
+                new DisableChanger(this, mAppEntry.info,
+                        PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER)
+                        .execute((Object)null);
             }
+            if (!refreshUi()) {
+                setIntentAndFinish(true, true);
+            }
+        }
+        if (requestCode == REQUEST_REMOVE_DEVICE_ADMIN) {
             if (!refreshUi()) {
                 setIntentAndFinish(true, true);
             }
@@ -498,12 +557,10 @@ public class InstalledAppDetails extends AppInfoBase
         // Update the preference summaries.
         Activity context = getActivity();
         mStoragePreference.setSummary(AppStorageSettings.getSummary(mAppEntry, context));
-        if (mPermissionReceiver != null) {
-            getContext().unregisterReceiver(mPermissionReceiver);
-        }
-        mPermissionReceiver = PermissionsSummaryHelper.getPermissionSummary(getContext(),
+
+        PermissionsSummaryHelper.getPermissionSummary(getContext(),
                 mPackageName, mPermissionCallback);
-        mLaunchPreference.setSummary(Utils.getLaunchByDeafaultSummary(mAppEntry, mUsbManager,
+        mLaunchPreference.setSummary(AppUtils.getLaunchByDefaultSummary(mAppEntry, mUsbManager,
                 mPm, context));
         mNotificationPreference.setSummary(getNotificationSummary(mAppEntry, context,
                 mBackend));
@@ -586,11 +643,11 @@ public class InstalledAppDetails extends AppInfoBase
                         .create();
             case DLG_SPECIAL_DISABLE:
                 return new AlertDialog.Builder(getActivity())
-                        .setMessage(getActivity().getText(R.string.app_special_disable_dlg_text))
+                        .setMessage(getActivity().getText(R.string.app_disable_dlg_text))
                         .setPositiveButton(R.string.app_disable_dlg_positive,
                                 new DialogInterface.OnClickListener() {
                             public void onClick(DialogInterface dialog, int which) {
-                                // Clear user data here
+                                // Disable the app and ask for uninstall
                                 uninstallPkg(mAppEntry.info.packageName,
                                         false, true);
                             }
@@ -609,19 +666,6 @@ public class InstalledAppDetails extends AppInfoBase
                         })
                         .setNegativeButton(R.string.dlg_cancel, null)
                         .create();
-            case DLG_FACTORY_RESET:
-                return new AlertDialog.Builder(getActivity())
-                        .setTitle(getActivity().getText(R.string.app_factory_reset_dlg_title))
-                        .setMessage(getActivity().getText(R.string.app_factory_reset_dlg_text))
-                        .setPositiveButton(R.string.dlg_ok, new DialogInterface.OnClickListener() {
-                            public void onClick(DialogInterface dialog, int which) {
-                                // Clear user data here
-                                uninstallPkg(mAppEntry.info.packageName,
-                                        false, false);
-                            }
-                        })
-                        .setNegativeButton(R.string.dlg_cancel, null)
-                        .create();
         }
         return null;
     }
@@ -636,7 +680,7 @@ public class InstalledAppDetails extends AppInfoBase
     }
 
     private void forceStopPackage(String pkgName) {
-        ActivityManager am = (ActivityManager)getActivity().getSystemService(
+        ActivityManager am = (ActivityManager) getActivity().getSystemService(
                 Context.ACTIVITY_SERVICE);
         am.forceStopPackage(pkgName);
         int userId = UserHandle.getUserId(mAppEntry.info.uid);
@@ -649,7 +693,7 @@ public class InstalledAppDetails extends AppInfoBase
     }
 
     private void updateForceStopButton(boolean enabled) {
-        if (mAppControlRestricted) {
+        if (mAppsControlDisallowedBySystem) {
             mForceStopButton.setEnabled(false);
         } else {
             mForceStopButton.setEnabled(enabled);
@@ -680,7 +724,7 @@ public class InstalledAppDetails extends AppInfoBase
         // start new activity to manage app permissions
         Intent intent = new Intent(Intent.ACTION_MANAGE_APP_PERMISSIONS);
         intent.putExtra(Intent.EXTRA_PACKAGE_NAME, mAppEntry.info.packageName);
-        intent.putExtra(AppInfoWithHeader.EXTRA_HIDE_INFO_BUTTON, true);
+        intent.putExtra(AppHeader.EXTRA_HIDE_INFO_BUTTON, true);
         try {
             startActivity(intent);
         } catch (ActivityNotFoundException e) {
@@ -689,14 +733,19 @@ public class InstalledAppDetails extends AppInfoBase
     }
 
     private void startAppInfoFragment(Class<?> fragment, CharSequence title) {
+        startAppInfoFragment(fragment, title, this, mAppEntry);
+    }
+
+    public static void startAppInfoFragment(Class<?> fragment, CharSequence title,
+            SettingsPreferenceFragment caller, AppEntry appEntry) {
         // start new fragment to display extended information
         Bundle args = new Bundle();
-        args.putString(ARG_PACKAGE_NAME, mAppEntry.info.packageName);
-        args.putInt(ARG_PACKAGE_UID, mAppEntry.info.uid);
-        args.putBoolean(AppInfoWithHeader.EXTRA_HIDE_INFO_BUTTON, true);
+        args.putString(ARG_PACKAGE_NAME, appEntry.info.packageName);
+        args.putInt(ARG_PACKAGE_UID, appEntry.info.uid);
+        args.putBoolean(AppHeader.EXTRA_HIDE_INFO_BUTTON, true);
 
-        SettingsActivity sa = (SettingsActivity) getActivity();
-        sa.startPreferencePanel(fragment.getName(), args, -1, title, this, SUB_INFO_FRAGMENT);
+        SettingsActivity sa = (SettingsActivity) caller.getActivity();
+        sa.startPreferencePanel(fragment.getName(), args, -1, title, caller, SUB_INFO_FRAGMENT);
     }
 
     /*
@@ -704,11 +753,32 @@ public class InstalledAppDetails extends AppInfoBase
      * @see android.view.View.OnClickListener#onClick(android.view.View)
      */
     public void onClick(View v) {
+        if (mAppEntry == null) {
+            setIntentAndFinish(true, true);
+            return;
+        }
         String packageName = mAppEntry.info.packageName;
-        if(v == mUninstallButton) {
-            if ((mAppEntry.info.flags & ApplicationInfo.FLAG_SYSTEM) != 0) {
+        if (v == mUninstallButton) {
+            if (mDpm.packageHasActiveAdmins(mPackageInfo.packageName)) {
+                Activity activity = getActivity();
+                Intent uninstallDAIntent = new Intent(activity, DeviceAdminAdd.class);
+                uninstallDAIntent.putExtra(DeviceAdminAdd.EXTRA_DEVICE_ADMIN_PACKAGE_NAME,
+                        mPackageName);
+                activity.startActivityForResult(uninstallDAIntent, REQUEST_REMOVE_DEVICE_ADMIN);
+                return;
+            }
+            EnforcedAdmin admin = RestrictedLockUtils.checkIfUninstallBlocked(getActivity(),
+                    packageName, mUserId);
+            boolean uninstallBlockedBySystem = mAppsControlDisallowedBySystem ||
+                    RestrictedLockUtils.hasBaseUserRestriction(getActivity(), packageName, mUserId);
+            if (admin != null && !uninstallBlockedBySystem) {
+                RestrictedLockUtils.sendShowAdminSupportDetailsIntent(getActivity(), admin);
+            } else if ((mAppEntry.info.flags & ApplicationInfo.FLAG_SYSTEM) != 0) {
                 if (mAppEntry.info.enabled && !isDisabledUntilUsed()) {
-                    if (mUpdatedSysApp) {
+                    // If the system app has an update and this is the only user on the device,
+                    // then offer to downgrade the app, otherwise only offer to disable the
+                    // app for this user.
+                    if (mUpdatedSysApp && isSingleUser()) {
                         showDialogInner(DLG_SPECIAL_DISABLE, 0);
                     } else {
                         showDialogInner(DLG_DISABLE, 0);
@@ -724,9 +794,21 @@ public class InstalledAppDetails extends AppInfoBase
                 uninstallPkg(packageName, false, false);
             }
         } else if (v == mForceStopButton) {
-            showDialogInner(DLG_FORCE_STOP, 0);
-            //forceStopPackage(mAppInfo.packageName);
+            if (mAppsControlDisallowedAdmin != null && !mAppsControlDisallowedBySystem) {
+                RestrictedLockUtils.sendShowAdminSupportDetailsIntent(
+                        getActivity(), mAppsControlDisallowedAdmin);
+            } else {
+                showDialogInner(DLG_FORCE_STOP, 0);
+                //forceStopPackage(mAppInfo.packageName);
+            }
         }
+    }
+
+    /** Returns whether there is only one user on this device, not including the system-only user */
+    private boolean isSingleUser() {
+        final int userCount = mUserManager.getUserCount();
+        return userCount == 1
+                || (mUserManager.isSplitSystemUser() && userCount == 2);
     }
 
     @Override
@@ -742,23 +824,170 @@ public class InstalledAppDetails extends AppInfoBase
             startAppInfoFragment(AppLaunchSettings.class, mLaunchPreference.getTitle());
         } else if (preference == mMemoryPreference) {
             ProcessStatsBase.launchMemoryDetail((SettingsActivity) getActivity(),
-                    mStatsManager.getMemInfo(), mStats);
+                    mStatsManager.getMemInfo(), mStats, false);
         } else if (preference == mDataPreference) {
-            Bundle args = new Bundle();
-            args.putString(DataUsageSummary.EXTRA_SHOW_APP_IMMEDIATE_PKG,
-                    mAppEntry.info.packageName);
-
-            SettingsActivity sa = (SettingsActivity) getActivity();
-            sa.startPreferencePanel(DataUsageSummary.class.getName(), args, -1,
-                    getString(R.string.app_data_usage), this, SUB_INFO_FRAGMENT);
+            startAppInfoFragment(AppDataUsage.class, getString(R.string.app_data_usage));
         } else if (preference == mBatteryPreference) {
             BatteryEntry entry = new BatteryEntry(getActivity(), null, mUserManager, mSipper);
             PowerUsageDetail.startBatteryDetailPage((SettingsActivity) getActivity(),
-                    mBatteryHelper, BatteryStats.STATS_SINCE_CHARGED, entry, true);
+                    mBatteryHelper, BatteryStats.STATS_SINCE_CHARGED, entry, true, false);
         } else {
             return false;
         }
         return true;
+    }
+
+    private void addDynamicPrefs() {
+        if (Utils.isManagedProfile(UserManager.get(getContext()))) {
+            return;
+        }
+        final PreferenceScreen screen = getPreferenceScreen();
+        if (DefaultHomePreference.hasHomePreference(mPackageName, getContext())) {
+            screen.addPreference(new ShortcutPreference(getPrefContext(),
+                    AdvancedAppSettings.class, "default_home", R.string.home_app,
+                    R.string.configure_apps));
+        }
+        if (DefaultBrowserPreference.hasBrowserPreference(mPackageName, getContext())) {
+            screen.addPreference(new ShortcutPreference(getPrefContext(),
+                    AdvancedAppSettings.class, "default_browser", R.string.default_browser_title,
+                    R.string.configure_apps));
+        }
+        if (DefaultPhonePreference.hasPhonePreference(mPackageName, getContext())) {
+            screen.addPreference(new ShortcutPreference(getPrefContext(),
+                    AdvancedAppSettings.class, "default_phone_app", R.string.default_phone_title,
+                    R.string.configure_apps));
+        }
+        if (DefaultEmergencyPreference.hasEmergencyPreference(mPackageName, getContext())) {
+            screen.addPreference(new ShortcutPreference(getPrefContext(),
+                    AdvancedAppSettings.class, "default_emergency_app",
+                    R.string.default_emergency_app, R.string.configure_apps));
+        }
+        if (DefaultSmsPreference.hasSmsPreference(mPackageName, getContext())) {
+            screen.addPreference(new ShortcutPreference(getPrefContext(),
+                    AdvancedAppSettings.class, "default_sms_app", R.string.sms_application_title,
+                    R.string.configure_apps));
+        }
+        boolean hasDrawOverOtherApps = hasPermission(permission.SYSTEM_ALERT_WINDOW);
+        boolean hasWriteSettings = hasPermission(permission.WRITE_SETTINGS);
+        if (hasDrawOverOtherApps || hasWriteSettings) {
+            PreferenceCategory category = new PreferenceCategory(getPrefContext());
+            category.setTitle(R.string.advanced_apps);
+            screen.addPreference(category);
+
+            if (hasDrawOverOtherApps) {
+                Preference pref = new Preference(getPrefContext());
+                pref.setTitle(R.string.draw_overlay);
+                pref.setKey("system_alert_window");
+                pref.setOnPreferenceClickListener(new OnPreferenceClickListener() {
+                    @Override
+                    public boolean onPreferenceClick(Preference preference) {
+                        startAppInfoFragment(DrawOverlayDetails.class,
+                                getString(R.string.draw_overlay));
+                        return true;
+                    }
+                });
+                category.addPreference(pref);
+            }
+            if (hasWriteSettings) {
+                Preference pref = new Preference(getPrefContext());
+                pref.setTitle(R.string.write_settings);
+                pref.setKey("write_settings_apps");
+                pref.setOnPreferenceClickListener(new OnPreferenceClickListener() {
+                    @Override
+                    public boolean onPreferenceClick(Preference preference) {
+                        startAppInfoFragment(WriteSettingsDetails.class,
+                                getString(R.string.write_settings));
+                        return true;
+                    }
+                });
+                category.addPreference(pref);
+            }
+        }
+
+        addAppInstallerInfoPref(screen);
+    }
+
+    private void addAppInstallerInfoPref(PreferenceScreen screen) {
+        String installerPackageName = null;
+        try {
+            installerPackageName =
+                    getContext().getPackageManager().getInstallerPackageName(mPackageName);
+        } catch (IllegalArgumentException e) {
+            Log.e(TAG, "Exception while retrieving the package installer of " + mPackageName, e);
+        }
+        if (installerPackageName == null) {
+            return;
+        }
+        final CharSequence installerLabel = Utils.getApplicationLabel(getContext(),
+                installerPackageName);
+        if (installerLabel == null) {
+            return;
+        }
+        PreferenceCategory category = new PreferenceCategory(getPrefContext());
+        category.setTitle(R.string.app_install_details_group_title);
+        screen.addPreference(category);
+        Preference pref = new Preference(getPrefContext());
+        pref.setTitle(R.string.app_install_details_title);
+        pref.setKey("app_info_store");
+        pref.setSummary(getString(R.string.app_install_details_summary, installerLabel));
+        final Intent intent = new Intent(Intent.ACTION_SHOW_APP_INFO)
+                .setPackage(installerPackageName);
+        final Intent result = resolveIntent(intent);
+        if (result != null) {
+            result.putExtra(Intent.EXTRA_PACKAGE_NAME, mPackageName);
+            pref.setIntent(result);
+        } else {
+            pref.setEnabled(false);
+        }
+        category.addPreference(pref);
+    }
+
+    private boolean hasPermission(String permission) {
+        if (mPackageInfo == null || mPackageInfo.requestedPermissions == null) {
+            return false;
+        }
+        for (int i = 0; i < mPackageInfo.requestedPermissions.length; i++) {
+            if (mPackageInfo.requestedPermissions[i].equals(permission)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void updateDynamicPrefs() {
+        Preference pref = findPreference("default_home");
+        if (pref != null) {
+            pref.setSummary(DefaultHomePreference.isHomeDefault(mPackageName, getContext())
+                    ? R.string.yes : R.string.no);
+        }
+        pref = findPreference("default_browser");
+        if (pref != null) {
+            pref.setSummary(DefaultBrowserPreference.isBrowserDefault(mPackageName, getContext())
+                    ? R.string.yes : R.string.no);
+        }
+        pref = findPreference("default_phone_app");
+        if (pref != null) {
+            pref.setSummary(DefaultPhonePreference.isPhoneDefault(mPackageName, getContext())
+                    ? R.string.yes : R.string.no);
+        }
+        pref = findPreference("default_emergency_app");
+        if (pref != null) {
+            pref.setSummary(DefaultEmergencyPreference.isEmergencyDefault(mPackageName,
+                    getContext()) ? R.string.yes : R.string.no);
+        }
+        pref = findPreference("default_sms_app");
+        if (pref != null) {
+            pref.setSummary(DefaultSmsPreference.isSmsDefault(mPackageName, getContext())
+                    ? R.string.yes : R.string.no);
+        }
+        pref = findPreference("system_alert_window");
+        if (pref != null) {
+            pref.setSummary(DrawOverlayDetails.getSummary(getContext(), mAppEntry));
+        }
+        pref = findPreference("write_settings_apps");
+        if (pref != null) {
+            pref.setSummary(WriteSettingsDetails.getSummary(getContext(), mAppEntry));
+        }
     }
 
     public static void setupAppSnippet(View appSnippet, CharSequence label, Drawable icon,
@@ -784,8 +1013,8 @@ public class InstalledAppDetails extends AppInfoBase
         }
     }
 
-    private static NetworkTemplate getTemplate(Context context) {
-        if (DataUsageSummary.hasReadyMobileRadio(context)) {
+    public static NetworkTemplate getTemplate(Context context) {
+        if (DataUsageList.hasReadyMobileRadio(context)) {
             return NetworkTemplate.buildTemplateMobileWildcard();
         }
         if (DataUsageSummary.hasWifiRadio(context)) {
@@ -800,36 +1029,48 @@ public class InstalledAppDetails extends AppInfoBase
 
     public static CharSequence getNotificationSummary(AppEntry appEntry, Context context,
             NotificationBackend backend) {
-        AppRow appRow = backend.loadAppRow(context.getPackageManager(), appEntry.info);
+        AppRow appRow = backend.loadAppRow(context, context.getPackageManager(), appEntry.info);
         return getNotificationSummary(appRow, context);
     }
 
     public static CharSequence getNotificationSummary(AppRow appRow, Context context) {
-        if (appRow.banned) {
-            return context.getString(R.string.notifications_disabled);
+        boolean showSlider = Settings.Secure.getInt(
+                context.getContentResolver(), NOTIFICATION_TUNER_SETTING, 0) == 1;
+        List<String> summaryAttributes = new ArrayList<>();
+        StringBuffer summary = new StringBuffer();
+        if (showSlider) {
+            if (appRow.appImportance != Ranking.IMPORTANCE_UNSPECIFIED) {
+                summaryAttributes.add(context.getString(
+                        R.string.notification_summary_level, appRow.appImportance));
+            }
+        } else {
+            if (appRow.banned) {
+                summaryAttributes.add(context.getString(R.string.notifications_disabled));
+            } else if (appRow.appImportance > Ranking.IMPORTANCE_NONE
+                    && appRow.appImportance < Ranking.IMPORTANCE_DEFAULT) {
+                summaryAttributes.add(context.getString(R.string.notifications_silenced));
+            }
         }
-        ArrayList<CharSequence> notifSummary = new ArrayList<>();
-        if (appRow.priority) {
-            notifSummary.add(context.getString(R.string.notifications_priority));
+        final boolean lockscreenSecure = new LockPatternUtils(context).isSecure(
+                UserHandle.myUserId());
+        if (lockscreenSecure) {
+            if (appRow.appVisOverride == Notification.VISIBILITY_PRIVATE) {
+                summaryAttributes.add(context.getString(R.string.notifications_redacted));
+            } else if (appRow.appVisOverride == Notification.VISIBILITY_SECRET) {
+                summaryAttributes.add(context.getString(R.string.notifications_hidden));
+            }
         }
-        if (appRow.sensitive) {
-            notifSummary.add(context.getString(R.string.notifications_sensitive));
+        if (appRow.appBypassDnd) {
+            summaryAttributes.add(context.getString(R.string.notifications_priority));
         }
-        if (!appRow.peekable) {
-            notifSummary.add(context.getString(R.string.notifications_no_peeking));
+        final int N = summaryAttributes.size();
+        for (int i = 0; i < N; i++) {
+            if (i > 0) {
+                summary.append(context.getString(R.string.notifications_summary_divider));
+            }
+            summary.append(summaryAttributes.get(i));
         }
-        switch (notifSummary.size()) {
-            case 3:
-                return context.getString(R.string.notifications_three_items,
-                        notifSummary.get(0), notifSummary.get(1), notifSummary.get(2));
-            case 2:
-                return context.getString(R.string.notifications_two_items,
-                        notifSummary.get(0), notifSummary.get(1));
-            case 1:
-                return notifSummary.get(0);
-            default:
-                return context.getString(R.string.notifications_enabled);
-        }
+        return summary.toString();
     }
 
     private class MemoryUpdater extends AsyncTask<Void, Void, ProcStatsPackageEntry> {
@@ -954,41 +1195,38 @@ public class InstalledAppDetails extends AppInfoBase
     private final PermissionsResultCallback mPermissionCallback
             = new PermissionsResultCallback() {
         @Override
-        public void onPermissionSummaryResult(int[] counts, CharSequence[] groupLabels) {
+        public void onPermissionSummaryResult(int standardGrantedPermissionCount,
+                int requestedPermissionCount, int additionalGrantedPermissionCount,
+                List<CharSequence> grantedGroupLabels) {
             if (getActivity() == null) {
                 return;
             }
-            mPermissionReceiver = null;
             final Resources res = getResources();
             CharSequence summary = null;
-            boolean enabled = false;
-            if (counts != null) {
-                int totalCount = counts[1];
-                int additionalCounts = counts[2];
 
-                if (totalCount == 0) {
-                    summary = res.getString(
-                            R.string.runtime_permissions_summary_no_permissions_requested);
-                } else {
-                    enabled = true;
-
-                    final ArrayList<CharSequence> list = new ArrayList(Arrays.asList(groupLabels));
-                    if (additionalCounts > 0) {
-                        // N additional permissions.
-                        list.add(res.getQuantityString(
-                                R.plurals.runtime_permissions_additional_count,
-                                additionalCounts, additionalCounts));
-                    }
-                    if (list.size() == 0) {
-                        summary = res.getString(
-                                R.string.runtime_permissions_summary_no_permissions_granted);
-                    } else {
-                        summary = ListFormatter.getInstance().format(list);
-                    }
+            if (requestedPermissionCount == 0) {
+                summary = res.getString(
+                        R.string.runtime_permissions_summary_no_permissions_requested);
+                mPermissionsPreference.setOnPreferenceClickListener(null);
+                mPermissionsPreference.setEnabled(false);
+            } else {
+                final ArrayList<CharSequence> list = new ArrayList<>(grantedGroupLabels);
+                if (additionalGrantedPermissionCount > 0) {
+                    // N additional permissions.
+                    list.add(res.getQuantityString(
+                            R.plurals.runtime_permissions_additional_count,
+                            additionalGrantedPermissionCount, additionalGrantedPermissionCount));
                 }
+                if (list.size() == 0) {
+                    summary = res.getString(
+                            R.string.runtime_permissions_summary_no_permissions_granted);
+                } else {
+                    summary = ListFormatter.getInstance().format(list);
+                }
+                mPermissionsPreference.setOnPreferenceClickListener(InstalledAppDetails.this);
+                mPermissionsPreference.setEnabled(true);
             }
             mPermissionsPreference.setSummary(summary);
-            mPermissionsPreference.setEnabled(enabled);
         }
     };
 }

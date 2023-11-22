@@ -48,11 +48,11 @@ import java.util.Set;
 import java.util.TimeZone;
 import javax.crypto.BadPaddingException;
 import javax.security.auth.x500.X500Principal;
-import org.apache.harmony.security.utils.AlgNameMapper;
 import org.conscrypt.OpenSSLX509CertificateFactory.ParsingException;
 
 public class OpenSSLX509Certificate extends X509Certificate {
     private transient final long mContext;
+    private transient Integer mHashCode;
 
     OpenSSLX509Certificate(long ctx) {
         mContext = ctx;
@@ -284,7 +284,12 @@ public class OpenSSLX509Certificate extends X509Certificate {
 
     @Override
     public String getSigAlgName() {
-        return AlgNameMapper.map2AlgName(getSigAlgOID());
+        String oid = getSigAlgOID();
+        String algName = Platform.oidToAlgorithmName(oid);
+        if (algName != null) {
+            return algName;
+        }
+        return oid;
     }
 
     @Override
@@ -357,16 +362,11 @@ public class OpenSSLX509Certificate extends X509Certificate {
     private void verifyInternal(PublicKey key, String sigProvider) throws CertificateException,
             NoSuchAlgorithmException, InvalidKeyException, NoSuchProviderException,
             SignatureException {
-        String sigAlg = getSigAlgName();
-        if (sigAlg == null) {
-            sigAlg = getSigAlgOID();
-        }
-
         final Signature sig;
         if (sigProvider == null) {
-            sig = Signature.getInstance(sigAlg);
+            sig = Signature.getInstance(getSigAlgName());
         } else {
-            sig = Signature.getInstance(sigAlg, sigProvider);
+            sig = Signature.getInstance(getSigAlgName(), sigProvider);
         }
 
         sig.initVerify(key);
@@ -493,8 +493,11 @@ public class OpenSSLX509Certificate extends X509Certificate {
 
     @Override
     public int hashCode() {
-        /* Make this faster since we might be in hash-based structures. */
-        return NativeCrypto.get_X509_hashCode(mContext);
+        if (mHashCode != null) {
+            return mHashCode;
+        }
+        mHashCode = super.hashCode();
+        return mHashCode;
     }
 
     /**
@@ -505,6 +508,19 @@ public class OpenSSLX509Certificate extends X509Certificate {
      */
     public long getContext() {
         return mContext;
+    }
+
+    /**
+     * Delete an extension.
+     *
+     * A modified copy of the certificate is returned. The original object
+     * is unchanged.
+     * If the extension is not present, an unmodified copy is returned.
+     */
+    public OpenSSLX509Certificate withDeletedExtension(String oid) {
+        OpenSSLX509Certificate copy = new OpenSSLX509Certificate(NativeCrypto.X509_dup(mContext));
+        NativeCrypto.X509_delete_ext(copy.getContext(), oid);
+        return copy;
     }
 
     @Override

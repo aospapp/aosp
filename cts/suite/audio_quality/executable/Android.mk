@@ -14,23 +14,15 @@
 # limitations under the License.
 #
 
-# build only for linux
-ifeq ($(HOST_OS),linux)
-
 LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
-LOCAL_CPP_EXTENSION := .cpp
-LOCAL_MODULE_TAGS := optional
-LOCAL_SRC_FILES := $(patsubst ./%,%, $(shell cd $(LOCAL_PATH); \
-  find . -name "*.cpp" -and -not -name ".*"))
-#$(info $(LOCAL_SRC_FILES))
+LOCAL_SRC_FILES := $(call all-subdir-cpp-files)
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../lib/include  external/tinyalsa/include/  libcore/include \
 	$(LOCAL_PATH)/../lib/src
 LOCAL_STATIC_LIBRARIES += libutils liblog libcutils libtinyalsa libtinyxml
 LOCAL_WHOLE_STATIC_LIBRARIES := libcts_audio_quality
 LOCAL_CFLAGS:= -g -fno-exceptions
 LOCAL_LDFLAGS:= -g -lrt -ldl -lstdc++ -lm -fno-exceptions -lpthread
+LOCAL_MODULE_HOST_OS := linux
 LOCAL_MODULE:= cts_audio_quality
 include $(BUILD_HOST_EXECUTABLE)
-
-endif # linux

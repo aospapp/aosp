@@ -20,6 +20,8 @@
 #include <cutils/klog.h>
 #include <fs_mgr.h>
 
+__BEGIN_DECLS
+
 #define INFO(x...)    KLOG_INFO("fs_mgr", x)
 #define WARNING(x...) KLOG_WARNING("fs_mgr", x)
 #define ERROR(x...)   KLOG_ERROR("fs_mgr", x)
@@ -79,9 +81,15 @@
 #define MF_NOTRIM       0x1000
 #define MF_FILEENCRYPTION 0x2000
 #define MF_FORMATTABLE  0x4000
+#define MF_SLOTSELECT   0x8000
+#define MF_FORCEFDEORFBE 0x10000
+#define MF_NOFAIL       0x40000
 
 #define DM_BUF_SIZE 4096
 
 int fs_mgr_set_blk_ro(const char *blockdev);
+int fs_mgr_update_for_slotselect(struct fstab *fstab);
+
+__END_DECLS
 
 #endif /* __CORE_FS_MGR_PRIV_H */

@@ -122,7 +122,8 @@ void MipsInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
   }
 }
 
-static void printExpr(const MCExpr *Expr, raw_ostream &OS) {
+static void printExpr(const MCExpr *Expr, const MCAsmInfo *MAI,
+                      raw_ostream &OS) {
   int Offset = 0;
   const MCSymbolRefExpr *SRE;
 
@@ -132,7 +133,7 @@ static void printExpr(const MCExpr *Expr, raw_ostream &OS) {
     assert(SRE && CE && "Binary expression must be sym+const.");
     Offset = CE->getValue();
   } else if (const MipsMCExpr *ME = dyn_cast<MipsMCExpr>(Expr)) {
-    ME->print(OS);
+    ME->print(OS, MAI);
     return;
   } else
     SRE = cast<MCSymbolRefExpr>(Expr);
@@ -170,7 +171,7 @@ static void printExpr(const MCExpr *Expr, raw_ostream &OS) {
   case MCSymbolRefExpr::VK_Mips_PCREL_LO16: OS << "%pcrel_lo("; break;
   }
 
-  OS << SRE->getSymbol();
+  SRE->getSymbol().print(OS, MAI);
 
   if (Offset) {
     if (Offset > 0)
@@ -199,7 +200,7 @@ void MipsInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
   }
 
   assert(Op.isExpr() && "unknown operand kind in printOperand");
-  printExpr(Op.getExpr(), O);
+  printExpr(Op.getExpr(), &MAI, O);
 }
 
 void MipsInstPrinter::printUnsignedImm(const MCInst *MI, int opNum,
@@ -234,7 +235,9 @@ printMemOperand(const MCInst *MI, int opNum, raw_ostream &O) {
   case Mips::SWM32_MM:
   case Mips::LWM32_MM:
   case Mips::SWM16_MM:
+  case Mips::SWM16_MMR6:
   case Mips::LWM16_MM:
+  case Mips::LWM16_MMR6:
     opNum = MI->getNumOperands() - 2;
     break;
   }

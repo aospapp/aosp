@@ -29,7 +29,7 @@
 #if defined(BTA_GATT_INCLUDED) && (BTA_GATT_INCLUDED == TRUE)
 
 #include "utl.h"
-#include "gki.h"
+#include "bt_common.h"
 #include "bta_sys.h"
 #include "bta_gatts_int.h"
 #include "bta_gatts_co.h"
@@ -182,7 +182,6 @@ void bta_gatts_api_disable(tBTA_GATTS_CB *p_cb)
 *******************************************************************************/
 void bta_gatts_register(tBTA_GATTS_CB *p_cb, tBTA_GATTS_DATA *p_msg)
 {
-    tBTA_GATTS_INT_START_IF  *p_buf;
     tBTA_GATTS               cb_data;
     tBTA_GATT_STATUS         status = BTA_GATT_OK;
     UINT8                    i, first_unuse = 0xff;
@@ -217,9 +216,7 @@ void bta_gatts_register(tBTA_GATTS_CB *p_cb, tBTA_GATTS_DATA *p_msg)
         }
 
         cb_data.reg_oper.server_if = BTA_GATTS_INVALID_IF;
-// btla-specific ++
         memcpy(&cb_data.reg_oper.uuid, &p_msg->api_reg.app_uuid, sizeof(tBT_UUID));
-// btla-specific --
         if (first_unuse != 0xff)
         {
             APPL_TRACE_ERROR("register application first_unuse rcb_idx = %d", first_unuse);
@@ -230,29 +227,17 @@ void bta_gatts_register(tBTA_GATTS_CB *p_cb, tBTA_GATTS_DATA *p_msg)
             cb_data.reg_oper.server_if      =
             p_cb->rcb[first_unuse].gatt_if  =
             GATT_Register(&p_msg->api_reg.app_uuid, &bta_gatts_cback);
-            if ( !p_cb->rcb[first_unuse].gatt_if)
-            {
+            if ( !p_cb->rcb[first_unuse].gatt_if) {
                 status = BTA_GATT_NO_RESOURCES;
-            }
-            else
-            {
-                if ((p_buf =
-                  (tBTA_GATTS_INT_START_IF *) GKI_getbuf(sizeof(tBTA_GATTS_INT_START_IF))) != NULL)
-                {
-                    p_buf->hdr.event    = BTA_GATTS_INT_START_IF_EVT;
-                    p_buf->server_if    = p_cb->rcb[first_unuse].gatt_if;
+            } else {
+              tBTA_GATTS_INT_START_IF *p_buf =
+                  (tBTA_GATTS_INT_START_IF *)osi_malloc(sizeof(tBTA_GATTS_INT_START_IF));
+                p_buf->hdr.event = BTA_GATTS_INT_START_IF_EVT;
+                p_buf->server_if = p_cb->rcb[first_unuse].gatt_if;
 
-                    bta_sys_sendmsg(p_buf);
-                }
-                else
-                {
-                    status = BTA_GATT_NO_RESOURCES;
-                    memset( &p_cb->rcb[first_unuse], 0 , sizeof(tBTA_GATTS_RCB));
-                }
+                bta_sys_sendmsg(p_buf);
             }
-        }
-        else
-        {
+        } else {
             status = BTA_GATT_NO_RESOURCES;
         }
 
@@ -374,9 +359,7 @@ void bta_gatts_create_srvc(tBTA_GATTS_CB *p_cb, tBTA_GATTS_DATA * p_msg)
 
                 cb_data.create.status      = BTA_GATT_OK;
                 cb_data.create.service_id  = service_id;
-// btla-specific ++
                 cb_data.create.is_primary  = p_msg->api_create_svc.is_pri;
-// btla-specific --
                 cb_data.create.server_if   = p_cb->rcb[rcb_idx].gatt_if;
             }
             else
@@ -385,10 +368,8 @@ void bta_gatts_create_srvc(tBTA_GATTS_CB *p_cb, tBTA_GATTS_DATA * p_msg)
                 memset(&p_cb->srvc_cb[srvc_idx], 0, sizeof(tBTA_GATTS_SRVC_CB));
                 APPL_TRACE_ERROR("service creation failed.");
             }
-// btla-specific ++
             memcpy(&cb_data.create.uuid, &p_msg->api_create_svc.service_uuid, sizeof(tBT_UUID));
             cb_data.create.svc_instance= p_msg->api_create_svc.inst;
-// btla-specific --
         }
         if (p_cb->rcb[rcb_idx].p_cback)
             (* p_cb->rcb[rcb_idx].p_cback)(BTA_GATTS_CREATE_EVT, &cb_data);
@@ -454,9 +435,7 @@ void bta_gatts_add_char(tBTA_GATTS_SRVC_CB *p_srvc_cb, tBTA_GATTS_DATA * p_msg)
     cb_data.add_result.server_if = p_rcb->gatt_if;
     cb_data.add_result.service_id = p_msg->api_add_incl_srvc.hdr.layer_specific;
     cb_data.add_result.attr_id = attr_id;
-// btla-specific ++
     memcpy(&cb_data.add_result.char_uuid, &p_msg->api_add_char.char_uuid, sizeof(tBT_UUID));
-// btla-specific --
 
     if (attr_id)
     {
@@ -492,9 +471,7 @@ void bta_gatts_add_char_descr(tBTA_GATTS_SRVC_CB *p_srvc_cb, tBTA_GATTS_DATA * p
     cb_data.add_result.server_if = p_rcb->gatt_if;
     cb_data.add_result.service_id = p_msg->api_add_incl_srvc.hdr.layer_specific;
     cb_data.add_result.attr_id = attr_id;
-// btla-specific ++
     memcpy(&cb_data.add_result.char_uuid, &p_msg->api_add_char_descr.descr_uuid, sizeof(tBT_UUID));
-// btla-specific --
 
     if (attr_id)
     {

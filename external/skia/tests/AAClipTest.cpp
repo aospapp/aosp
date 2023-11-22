@@ -10,6 +10,7 @@
 #include "SkMask.h"
 #include "SkPath.h"
 #include "SkRandom.h"
+#include "SkRRect.h"
 #include "Test.h"
 
 static bool operator==(const SkMask& a, const SkMask& b) {
@@ -61,7 +62,7 @@ static void copyToMask(const SkRegion& rgn, SkMask* mask) {
     if (rgn.isEmpty()) {
         mask->fBounds.setEmpty();
         mask->fRowBytes = 0;
-        mask->fImage = NULL;
+        mask->fImage = nullptr;
         return;
     }
 
@@ -184,7 +185,7 @@ static void test_path_bounds(skiatest::Reporter* reporter) {
 
     path.addOval(SkRect::MakeWH(sheight, sheight));
     REPORTER_ASSERT(reporter, sheight == path.getBounds().height());
-    clip.setPath(path, NULL, true);
+    clip.setPath(path, nullptr, true);
     REPORTER_ASSERT(reporter, height == clip.getBounds().height());
 
     // this is the trimmed height of this cubic (with aa). The critical thing
@@ -198,7 +199,7 @@ static void test_path_bounds(skiatest::Reporter* reporter) {
     imoveTo(path, 0, 20);
     icubicTo(path, 40, 40, 40, 0, 0, 20);
     REPORTER_ASSERT(reporter, sheight == path.getBounds().height());
-    clip.setPath(path, NULL, true);
+    clip.setPath(path, nullptr, true);
     REPORTER_ASSERT(reporter, teardrop_height == clip.getBounds().height());
 }
 
@@ -227,9 +228,8 @@ static void test_empty(skiatest::Reporter* reporter) {
     REPORTER_ASSERT(reporter, clip1 == clip0);
 
     SkMask mask;
-    mask.fImage = NULL;
     clip0.copyToMask(&mask);
-    REPORTER_ASSERT(reporter, NULL == mask.fImage);
+    REPORTER_ASSERT(reporter, nullptr == mask.fImage);
     REPORTER_ASSERT(reporter, mask.fBounds.isEmpty());
 }
 
@@ -262,17 +262,18 @@ static void test_irect(skiatest::Reporter* reporter) {
             bool nonEmptyAA = clip2.op(clip0, clip1, op);
             bool nonEmptyBW = rgn2.op(rgn0, rgn1, op);
             if (nonEmptyAA != nonEmptyBW || clip2.getBounds() != rgn2.getBounds()) {
-                SkDebugf("[%d %d %d %d] %s [%d %d %d %d] = BW:[%d %d %d %d] AA:[%d %d %d %d]\n",
-                         r0.fLeft, r0.fTop, r0.right(), r0.bottom(),
-                         gRgnOpNames[j],
-                         r1.fLeft, r1.fTop, r1.right(), r1.bottom(),
-                         rgn2.getBounds().fLeft, rgn2.getBounds().fTop,
-                         rgn2.getBounds().right(), rgn2.getBounds().bottom(),
-                         clip2.getBounds().fLeft, clip2.getBounds().fTop,
-                         clip2.getBounds().right(), clip2.getBounds().bottom());
+                ERRORF(reporter, "%s %s "
+                       "[%d %d %d %d] %s [%d %d %d %d] = BW:[%d %d %d %d] AA:[%d %d %d %d]\n",
+                       nonEmptyAA == nonEmptyBW ? "true" : "false",
+                       clip2.getBounds() == rgn2.getBounds() ? "true" : "false",
+                       r0.fLeft, r0.fTop, r0.right(), r0.bottom(),
+                       gRgnOpNames[j],
+                       r1.fLeft, r1.fTop, r1.right(), r1.bottom(),
+                       rgn2.getBounds().fLeft, rgn2.getBounds().fTop,
+                       rgn2.getBounds().right(), rgn2.getBounds().bottom(),
+                       clip2.getBounds().fLeft, clip2.getBounds().fTop,
+                       clip2.getBounds().right(), clip2.getBounds().bottom());
             }
-            REPORTER_ASSERT(reporter, nonEmptyAA == nonEmptyBW);
-            REPORTER_ASSERT(reporter, clip2.getBounds() == rgn2.getBounds());
 
             SkMask maskBW, maskAA;
             copyToMask(rgn2, &maskBW);
@@ -307,7 +308,7 @@ static void test_path_with_hole(skiatest::Reporter* reporter) {
 
     for (int i = 0; i < 2; ++i) {
         SkAAClip clip;
-        clip.setPath(path, NULL, 1 == i);
+        clip.setPath(path, nullptr, 1 == i);
 
         SkMask mask;
         clip.copyToMask(&mask);
@@ -370,7 +371,7 @@ static bool operator==(const SkRasterClip& a, const SkRasterClip& b) {
 
 static void did_dx_affect(skiatest::Reporter* reporter, const SkScalar dx[],
                           size_t count, bool changed) {
-    const SkISize baseSize = SkISize::Make(10, 10);
+    const SkIRect baseBounds = SkIRect::MakeXYWH(0, 0, 10, 10);
     SkIRect ir = { 0, 0, 10, 10 };
 
     for (size_t i = 0; i < count; ++i) {
@@ -381,11 +382,11 @@ static void did_dx_affect(skiatest::Reporter* reporter, const SkScalar dx[],
         SkRasterClip rc1(ir);
         SkRasterClip rc2(ir);
 
-        rc0.op(r, baseSize, SkRegion::kIntersect_Op, false);
+        rc0.op(r, baseBounds, SkRegion::kIntersect_Op, false);
         r.offset(dx[i], 0);
-        rc1.op(r, baseSize, SkRegion::kIntersect_Op, true);
+        rc1.op(r, baseBounds, SkRegion::kIntersect_Op, true);
         r.offset(-2*dx[i], 0);
-        rc2.op(r, baseSize, SkRegion::kIntersect_Op, true);
+        rc2.op(r, baseBounds, SkRegion::kIntersect_Op, true);
 
         REPORTER_ASSERT(reporter, changed != (rc0 == rc1));
         REPORTER_ASSERT(reporter, changed != (rc0 == rc2));
@@ -431,7 +432,7 @@ static void test_crbug_422693(skiatest::Reporter* reporter) {
     SkRasterClip rc(SkIRect::MakeLTRB(-25000, -25000, 25000, 25000));
     SkPath path;
     path.addCircle(50, 50, 50);
-    rc.op(path, rc.getBounds().size(), SkRegion::kIntersect_Op, true);
+    rc.op(path, rc.getBounds(), SkRegion::kIntersect_Op, true);
 }
 
 DEF_TEST(AAClip, reporter) {

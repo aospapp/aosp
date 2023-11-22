@@ -16,9 +16,6 @@
 
 include $(CLEAR_VARS)
 
-LOCAL_CLANG_arm64 := false
-LOCAL_CLANG_mips := false
-
 LOCAL_MODULE := $(test_name)
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_NATIVE_TESTS)/$(test_path)

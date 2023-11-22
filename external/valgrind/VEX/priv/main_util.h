@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2004-2013 OpenWorks LLP
+   Copyright (C) 2004-2015 OpenWorks LLP
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -162,6 +162,14 @@ static inline void* LibVEX_Alloc_inline ( SizeT nbytes )
    return curr;
 #endif
 }
+
+/* Misaligned memory access support. */
+
+extern UInt  read_misaligned_UInt_LE  ( void* addr );
+extern ULong read_misaligned_ULong_LE ( void* addr );
+
+extern void  write_misaligned_UInt_LE  ( void* addr, UInt  w );
+extern void  write_misaligned_ULong_LE ( void* addr, ULong w );
 
 #endif /* ndef __VEX_MAIN_UTIL_H */
 

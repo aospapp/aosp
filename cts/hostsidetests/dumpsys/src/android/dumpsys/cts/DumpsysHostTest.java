@@ -16,7 +16,7 @@
 
 package android.dumpsys.cts;
 
-import com.android.cts.tradefed.build.CtsBuildHelper;
+import com.android.cts.migration.MigrationHelper;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceTestCase;
@@ -30,7 +30,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Test to check the format of the dumps of various services (currently only procstats is tested).
+ * Test to check the format of the dumps of various services.
+ * Currently procstats and batterystats are tested.
  */
 public class DumpsysHostTest extends DeviceTestCase implements IBuildReceiver {
     private static final String TAG = "DumpsysHostTest";
@@ -127,11 +128,15 @@ public class DumpsysHostTest extends DeviceTestCase implements IBuildReceiver {
     }
 
     private void checkPeriod(String[] parts) {
-        assertEquals(5, parts.length);
+        assertTrue("Expected 5 or 6, found: " + parts.length,
+                parts.length == 5 || parts.length == 6);
         assertNotNull(parts[1]); // date
         assertInteger(parts[2]); // start time (msec)
         assertInteger(parts[3]); // end time (msec)
         assertNotNull(parts[4]); // status
+        if (parts.length == 6) {
+            assertNotNull(parts[5]); // swapped-out-pss
+        }
     }
 
     private void checkPkgProc(String[] parts, int version) {
@@ -486,6 +491,8 @@ public class DumpsysHostTest extends DeviceTestCase implements IBuildReceiver {
                     case "ctr":
                         checkChargeTimeRemain(parts);
                         break;
+                    case "cpu":
+                        checkUidCpuUsage(parts);
                     default:
                         break;
                 }
@@ -515,12 +522,15 @@ public class DumpsysHostTest extends DeviceTestCase implements IBuildReceiver {
 
     private void checkApk(String[] parts) {
         assertEquals(10, parts.length);
-        assertInteger(parts[4]); // wakeups
+        long wakeup_count = assertInteger(parts[4]); // wakeups
         assertNotNull(parts[5]); // apk
         assertNotNull(parts[6]); // service
         assertInteger(parts[7]); // startTime
         assertInteger(parts[8]); // starts
         assertInteger(parts[9]); // launches
+
+        // Sanity check.
+        assertTrue("wakeup count must be >= 0", wakeup_count >= 0);
     }
 
     private void checkProcess(String[] parts) {
@@ -563,13 +573,18 @@ public class DumpsysHostTest extends DeviceTestCase implements IBuildReceiver {
         assertNotNull(parts[4]);      // wakelock
         assertInteger(parts[5]);      // full totalTime
         assertEquals("f", parts[6]);  // full
-        assertInteger(parts[7]);      // full count
+        long full_count = assertInteger(parts[7]);      // full count
         assertInteger(parts[8]);      // partial totalTime
         assertEquals("p", parts[9]);  // partial
-        assertInteger(parts[10]);     // partial count
+        long partial_count = assertInteger(parts[10]);     // partial count
         assertInteger(parts[11]);     // window totalTime
         assertEquals("w", parts[12]); // window
-        assertInteger(parts[13]);     // window count
+        long window_count = assertInteger(parts[13]);     // window count
+
+        // Sanity checks.
+        assertTrue("full wakelock count must be >= 0", full_count >= 0);
+        assertTrue("partial wakelock count must be >= 0", partial_count >= 0);
+        assertTrue("window wakelock count must be >= 0", window_count >= 0);
     }
 
     private void checkSync(String[] parts) {
@@ -604,16 +619,26 @@ public class DumpsysHostTest extends DeviceTestCase implements IBuildReceiver {
 
     private void checkNetwork(String[] parts) {
         assertEquals(14, parts.length);
-        assertInteger(parts[4]);  // mobileBytesRx
-        assertInteger(parts[5]);  // mobileBytesTx
-        assertInteger(parts[6]);  // wifiBytesRx
-        assertInteger(parts[7]);  // wifiBytesTx
-        assertInteger(parts[8]);  // mobilePacketsRx
-        assertInteger(parts[9]);  // mobilePacketsTx
-        assertInteger(parts[10]); // wifiPacketsRx
-        assertInteger(parts[11]); // wifiPacketsTx
+        long mbRx = assertInteger(parts[4]);  // mobileBytesRx
+        long mbTx = assertInteger(parts[5]);  // mobileBytesTx
+        long wbRx = assertInteger(parts[6]);  // wifiBytesRx
+        long wbTx = assertInteger(parts[7]);  // wifiBytesTx
+        long mpRx = assertInteger(parts[8]);  // mobilePacketsRx
+        long mpTx = assertInteger(parts[9]);  // mobilePacketsTx
+        long wpRx = assertInteger(parts[10]); // wifiPacketsRx
+        long wpTx = assertInteger(parts[11]); // wifiPacketsTx
         assertInteger(parts[12]); // mobileActiveTime (usec)
         assertInteger(parts[13]); // mobileActiveCount
+
+        // Assuming each packet contains some bytes, bytes >= packets >= 0.
+        assertTrue("mobileBytesRx must be >= mobilePacketsRx", mbRx >= mpRx);
+        assertTrue("mobilePacketsRx must be >= 0", mpRx >= 0);
+        assertTrue("mobileBytesTx must be >= mobilePacketsTx", mbTx >= mpTx);
+        assertTrue("mobilePacketsTx must be >= 0", mpTx >= 0);
+        assertTrue("wifiBytesRx must be >= wifiPacketsRx", wbRx >= wpRx);
+        assertTrue("wifiPacketsRx must be >= 0", wpRx >= 0);
+        assertTrue("wifiBytesTx must be >= wifiPacketsTx", wbTx >= wpTx);
+        assertTrue("wifiPacketsTx must be >= 0", wpTx >= 0);
     }
 
     private void checkUserActivity(String[] parts) {
@@ -628,13 +653,27 @@ public class DumpsysHostTest extends DeviceTestCase implements IBuildReceiver {
         if (!parts[4].equals("N/A")) {
             assertInteger(parts[4]);  // startCount
         }
-        assertInteger(parts[5]);  // batteryRealtime
-        assertInteger(parts[6]);  // batteryUptime
-        assertInteger(parts[7]);  // totalRealtime
-        assertInteger(parts[8]);  // totalUptime
+        long bReal = assertInteger(parts[5]);  // batteryRealtime
+        long bUp = assertInteger(parts[6]);  // batteryUptime
+        long tReal = assertInteger(parts[7]);  // totalRealtime
+        long tUp = assertInteger(parts[8]);  // totalUptime
         assertInteger(parts[9]);  // startClockTime
-        assertInteger(parts[10]); // batteryScreenOffRealtime
-        assertInteger(parts[11]); // batteryScreenOffUptime
+        long bOffReal = assertInteger(parts[10]); // batteryScreenOffRealtime
+        long bOffUp = assertInteger(parts[11]); // batteryScreenOffUptime
+
+        // The device cannot be up more than there are real-world seconds.
+        assertTrue("batteryRealtime must be >= batteryUptime", bReal >= bUp);
+        assertTrue("totalRealtime must be >= totalUptime", tReal >= tUp);
+        assertTrue("batteryScreenOffRealtime must be >= batteryScreenOffUptime",
+                bOffReal >= bOffUp);
+
+        // total >= battery >= battery screen-off >= 0
+        assertTrue("totalRealtime must be >= batteryRealtime", tReal >= bReal);
+        assertTrue("batteryRealtime must be >= batteryScreenOffRealtime", bReal >= bOffReal);
+        assertTrue("batteryScreenOffRealtime must be >= 0", bOffReal >= 0);
+        assertTrue("totalUptime must be >= batteryUptime", tUp >= bUp);
+        assertTrue("batteryUptime must be >= batteryScreenOffUptime", bUp >= bOffUp);
+        assertTrue("batteryScreenOffUptime must be >= 0", bOffUp >= 0);
     }
 
     private void checkBatteryDischarge(String[] parts) {
@@ -790,7 +829,11 @@ public class DumpsysHostTest extends DeviceTestCase implements IBuildReceiver {
     private void checkPowerUseItem(String[] parts) {
         assertEquals(6, parts.length);
         assertNotNull(parts[4]); // label
-        assertDouble(parts[5]);  // mAh
+        double mAH = assertDouble(parts[5]);  // mAh
+
+        assertTrue("powerUseItem mAH must be >= 0", mAH >= 0);
+        // Largest current Android battery is ~5K. 100K shouldn't get made for a while.
+        assertTrue("powerUseItem mAH is expected to be <= 100000", mAH <= 100000);
     }
 
     private void checkChargeDischargeStep(String[] parts) {
@@ -814,6 +857,12 @@ public class DumpsysHostTest extends DeviceTestCase implements IBuildReceiver {
         assertInteger(parts[4]); // chargeTimeRemaining
     }
 
+    private void checkUidCpuUsage(String[] parts) {
+        assertTrue(parts.length >= 6);
+        assertInteger(parts[4]); // user time
+        assertInteger(parts[5]); // system time
+    }
+
     /**
      * Tests the output of "dumpsys gfxinfo framestats".
      *
@@ -827,7 +876,7 @@ public class DumpsysHostTest extends DeviceTestCase implements IBuildReceiver {
             getDevice().uninstallPackage(TEST_PKG);
 
             // install the test app
-            File testAppFile = mCtsBuild.getTestApp(TEST_APK);
+            File testAppFile = MigrationHelper.getTestFile(mCtsBuild, TEST_APK);
             String installResult = getDevice().installPackage(testAppFile, false);
             assertNull(
                     String.format("failed to install atrace test app. Reason: %s", installResult),
@@ -899,14 +948,14 @@ public class DumpsysHostTest extends DeviceTestCase implements IBuildReceiver {
         assertTrue(foundAtLeastOneRow);
     }
 
-    private CtsBuildHelper mCtsBuild;
+    private IBuildInfo mCtsBuild;
 
     /**
      * {@inheritDoc}
      */
     @Override
     public void setBuild(IBuildInfo buildInfo) {
-        mCtsBuild = CtsBuildHelper.createBuildHelper(buildInfo);
+        mCtsBuild = buildInfo;
     }
 
     private static long assertInteger(String input) {
@@ -919,11 +968,12 @@ public class DumpsysHostTest extends DeviceTestCase implements IBuildReceiver {
         }
     }
 
-    private static void assertDouble(String input) {
+    private static double assertDouble(String input) {
         try {
-            Double.parseDouble(input);
+            return Double.parseDouble(input);
         } catch (NumberFormatException e) {
             fail("Expected a double but found \"" + input + "\"");
+            return -1;
         }
     }
 

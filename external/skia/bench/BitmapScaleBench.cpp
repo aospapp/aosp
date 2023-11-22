@@ -32,7 +32,7 @@ protected:
     SkBitmap fInputBitmap, fOutputBitmap;
     SkMatrix fMatrix;
 
-    virtual const char* onGetName() {
+    const char* onGetName() override {
         return fName.c_str();
     }
 
@@ -56,7 +56,7 @@ protected:
         fName.printf( "bitmap_scale_%s_%d_%d", name, fInputSize, fOutputSize );
     }
 
-    virtual void onPreDraw() {
+    void onDelayedSetup() override {
         fInputBitmap.allocN32Pixels(fInputSize, fInputSize, true);
         fInputBitmap.eraseColor(SK_ColorWHITE);
 
@@ -65,7 +65,7 @@ protected:
         fMatrix.setScale( scale(), scale() );
     }
 
-    virtual void onDraw(const int loops, SkCanvas*) {
+    void onDraw(int loops, SkCanvas*) override {
         SkPaint paint;
         this->setupPaint(&paint);
 
@@ -110,3 +110,52 @@ DEF_BENCH(return new BitmapFilterScaleBench(90, 30);)
 DEF_BENCH(return new BitmapFilterScaleBench(90, 10);)
 DEF_BENCH(return new BitmapFilterScaleBench(256, 64);)
 DEF_BENCH(return new BitmapFilterScaleBench(64, 256);)
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+#include "SkBitmapScaler.h"
+
+class PixmapScalerBench: public Benchmark {
+    SkBitmapScaler::ResizeMethod    fMethod;
+    SkString                        fName;
+    SkBitmap                        fSrc, fDst;
+
+public:
+    PixmapScalerBench(SkBitmapScaler::ResizeMethod method, const char suffix[]) : fMethod(method) {
+        fName.printf("pixmapscaler_%s", suffix);
+    }
+
+protected:
+    const char* onGetName() override {
+        return fName.c_str();
+    }
+
+    SkIPoint onGetSize() override { return{ 100, 100 }; }
+
+    bool isSuitableFor(Backend backend) override {
+        return backend == kNonRendering_Backend;
+    }
+
+    void onDelayedSetup() override {
+        fSrc.allocN32Pixels(640, 480);
+        fSrc.eraseColor(SK_ColorWHITE);
+        fDst.allocN32Pixels(300, 250);
+    }
+
+    void onDraw(int loops, SkCanvas*) override {
+        SkPixmap src, dst;
+        fSrc.peekPixels(&src);
+        fDst.peekPixels(&dst);
+        for (int i = 0; i < loops * 16; i++) {
+            SkBitmapScaler::Resize(dst, src, fMethod);
+        }
+    }
+
+private:
+    typedef Benchmark INHERITED;
+};
+DEF_BENCH( return new PixmapScalerBench(SkBitmapScaler::RESIZE_LANCZOS3, "lanczos");  )
+DEF_BENCH( return new PixmapScalerBench(SkBitmapScaler::RESIZE_MITCHELL, "mitchell"); )
+DEF_BENCH( return new PixmapScalerBench(SkBitmapScaler::RESIZE_HAMMING,  "hamming");  )
+DEF_BENCH( return new PixmapScalerBench(SkBitmapScaler::RESIZE_TRIANGLE, "triangle"); )
+DEF_BENCH( return new PixmapScalerBench(SkBitmapScaler::RESIZE_BOX,      "box");      )

@@ -23,8 +23,6 @@
 #include <sys/types.h>
 #include <limits.h>
 
-#include <common_time/cc_helper.h>
-
 #include <cutils/compiler.h>
 
 #include <media/IAudioFlinger.h>
@@ -59,6 +57,7 @@
 #include "AudioStreamOut.h"
 #include "SpdifStreamOut.h"
 #include "AudioHwDevice.h"
+#include "LinearMap.h"
 
 #include <powermanager/IPowerManager.h>
 
@@ -78,15 +77,13 @@ class ServerProxy;
 
 // ----------------------------------------------------------------------------
 
-// The macro FCC_2 highlights some (but not all) places where there are are 2-channel assumptions.
-// This is typically due to legacy implementation of stereo input or output.
-// Search also for "2", "left", "right", "[0]", "[1]", ">> 16", "<< 16", etc.
-#define FCC_2 2     // FCC_2 = Fixed Channel Count 2
-// The macro FCC_8 highlights places where there are 8-channel assumptions.
-// This is typically due to audio mixer and resampler limitations.
-#define FCC_8 8     // FCC_8 = Fixed Channel Count 8
-
 static const nsecs_t kDefaultStandbyTimeInNsecs = seconds(3);
+
+
+// Max shared memory size for audio tracks and audio records per client process
+static const size_t kClientSharedHeapSizeBytes = 1024*1024;
+// Shared memory size multiplier for non low ram devices
+static const size_t kClientSharedHeapSizeMultiplier = 4;
 
 #define INCLUDING_FROM_AUDIOFLINGER_H
 
@@ -110,8 +107,9 @@ public:
                                 IAudioFlinger::track_flags_t *flags,
                                 const sp<IMemory>& sharedBuffer,
                                 audio_io_handle_t output,
+                                pid_t pid,
                                 pid_t tid,
-                                int *sessionId,
+                                audio_session_t *sessionId,
                                 int clientUid,
                                 status_t *status /*non-NULL*/);
 
@@ -123,17 +121,19 @@ public:
                                 const String16& opPackageName,
                                 size_t *pFrameCount,
                                 IAudioFlinger::track_flags_t *flags,
+                                pid_t pid,
                                 pid_t tid,
                                 int clientUid,
-                                int *sessionId,
+                                audio_session_t *sessionId,
                                 size_t *notificationFrames,
                                 sp<IMemory>& cblk,
                                 sp<IMemory>& buffers,
                                 status_t *status /*non-NULL*/);
 
-    virtual     uint32_t    sampleRate(audio_io_handle_t output) const;
+    virtual     uint32_t    sampleRate(audio_io_handle_t ioHandle) const;
     virtual     audio_format_t format(audio_io_handle_t output) const;
-    virtual     size_t      frameCount(audio_io_handle_t output) const;
+    virtual     size_t      frameCount(audio_io_handle_t ioHandle) const;
+    virtual     size_t      frameCountHAL(audio_io_handle_t ioHandle) const;
     virtual     uint32_t    latency(audio_io_handle_t output) const;
 
     virtual     status_t    setMasterVolume(float value);
@@ -199,11 +199,12 @@ public:
 
     virtual uint32_t getInputFramesLost(audio_io_handle_t ioHandle) const;
 
-    virtual audio_unique_id_t newAudioUniqueId();
+    // This is the binder API.  For the internal API see nextUniqueId().
+    virtual audio_unique_id_t newAudioUniqueId(audio_unique_id_use_t use);
 
-    virtual void acquireAudioSessionId(int audioSession, pid_t pid);
+    virtual void acquireAudioSessionId(audio_session_t audioSession, pid_t pid);
 
-    virtual void releaseAudioSessionId(int audioSession, pid_t pid);
+    virtual void releaseAudioSessionId(audio_session_t audioSession, pid_t pid);
 
     virtual status_t queryNumberEffects(uint32_t *numEffects) const;
 
@@ -217,13 +218,13 @@ public:
                         const sp<IEffectClient>& effectClient,
                         int32_t priority,
                         audio_io_handle_t io,
-                        int sessionId,
+                        audio_session_t sessionId,
                         const String16& opPackageName,
                         status_t *status /*non-NULL*/,
                         int *id,
                         int *enabled);
 
-    virtual status_t moveEffects(int sessionId, audio_io_handle_t srcOutput,
+    virtual status_t moveEffects(audio_session_t sessionId, audio_io_handle_t srcOutput,
                         audio_io_handle_t dstOutput);
 
     virtual audio_module_handle_t loadHwModule(const char *name);
@@ -286,8 +287,8 @@ public:
     class SyncEvent : public RefBase {
     public:
         SyncEvent(AudioSystem::sync_event_t type,
-                  int triggerSession,
-                  int listenerSession,
+                  audio_session_t triggerSession,
+                  audio_session_t listenerSession,
                   sync_event_callback_t callBack,
                   wp<RefBase> cookie)
         : mType(type), mTriggerSession(triggerSession), mListenerSession(listenerSession),
@@ -300,22 +301,22 @@ public:
         bool isCancelled() const { Mutex::Autolock _l(mLock); return (mCallback == NULL); }
         void cancel() { Mutex::Autolock _l(mLock); mCallback = NULL; }
         AudioSystem::sync_event_t type() const { return mType; }
-        int triggerSession() const { return mTriggerSession; }
-        int listenerSession() const { return mListenerSession; }
+        audio_session_t triggerSession() const { return mTriggerSession; }
+        audio_session_t listenerSession() const { return mListenerSession; }
         wp<RefBase> cookie() const { return mCookie; }
 
     private:
           const AudioSystem::sync_event_t mType;
-          const int mTriggerSession;
-          const int mListenerSession;
+          const audio_session_t mTriggerSession;
+          const audio_session_t mListenerSession;
           sync_event_callback_t mCallback;
           const wp<RefBase> mCookie;
           mutable Mutex mLock;
     };
 
     sp<SyncEvent> createSyncEvent(AudioSystem::sync_event_t type,
-                                        int triggerSession,
-                                        int listenerSession,
+                                        audio_session_t triggerSession,
+                                        audio_session_t listenerSession,
                                         sync_event_callback_t callBack,
                                         wp<RefBase> cookie);
 
@@ -416,18 +417,12 @@ private:
         pid_t               pid() const { return mPid; }
         sp<AudioFlinger>    audioFlinger() const { return mAudioFlinger; }
 
-        bool reserveTimedTrack();
-        void releaseTimedTrack();
-
     private:
                             Client(const Client&);
                             Client& operator = (const Client&);
         const sp<AudioFlinger> mAudioFlinger;
-        const sp<MemoryDealer> mMemoryDealer;
+              sp<MemoryDealer> mMemoryDealer;
         const pid_t         mPid;
-
-        Mutex               mTimedTrackLock;
-        int                 mTimedTrackCount;
     };
 
     // --- Notification Client ---
@@ -498,12 +493,6 @@ private:
         virtual void        flush();
         virtual void        pause();
         virtual status_t    attachAuxEffect(int effectId);
-        virtual status_t    allocateTimedBuffer(size_t size,
-                                                sp<IMemory>* buffer);
-        virtual status_t    queueTimedBuffer(const sp<IMemory>& buffer,
-                                             int64_t pts);
-        virtual status_t    setMediaTimeTransform(const LinearTransform& xform,
-                                                  int target);
         virtual status_t    setParameters(const String8& keyValuePairs);
         virtual status_t    getTimestamp(AudioTimestamp& timestamp);
         virtual void        signal(); // signal playback thread for a change in control block
@@ -520,7 +509,8 @@ private:
     public:
         RecordHandle(const sp<RecordThread::RecordTrack>& recordTrack);
         virtual             ~RecordHandle();
-        virtual status_t    start(int /*AudioSystem::sync_event_t*/ event, int triggerSession);
+        virtual status_t    start(int /*AudioSystem::sync_event_t*/ event,
+                audio_session_t triggerSession);
         virtual void        stop();
         virtual status_t onTransact(
             uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags);
@@ -532,6 +522,7 @@ private:
     };
 
 
+              ThreadBase *checkThread_l(audio_io_handle_t ioHandle) const;
               PlaybackThread *checkPlaybackThread_l(audio_io_handle_t output) const;
               MixerThread *checkMixerThread_l(audio_io_handle_t output) const;
               RecordThread *checkRecordThread_l(audio_io_handle_t input) const;
@@ -562,25 +553,29 @@ private:
                                    const sp<AudioIoDescriptor>& ioDesc,
                                    pid_t pid = 0);
 
-              // Allocate an audio_io_handle_t, session ID, effect ID, or audio_module_handle_t.
+              // Allocate an audio_unique_id_t.
+              // Specific types are audio_io_handle_t, audio_session_t, effect ID (int),
+              // audio_module_handle_t, and audio_patch_handle_t.
               // They all share the same ID space, but the namespaces are actually independent
               // because there are separate KeyedVectors for each kind of ID.
-              // The return value is uint32_t, but is cast to signed for some IDs.
+              // The return value is cast to the specific type depending on how the ID will be used.
               // FIXME This API does not handle rollover to zero (for unsigned IDs),
               //       or from positive to negative (for signed IDs).
               //       Thus it may fail by returning an ID of the wrong sign,
               //       or by returning a non-unique ID.
-              uint32_t nextUniqueId();
+              // This is the internal API.  For the binder API see newAudioUniqueId().
+              audio_unique_id_t nextUniqueId(audio_unique_id_use_t use);
 
-              status_t moveEffectChain_l(int sessionId,
+              status_t moveEffectChain_l(audio_session_t sessionId,
                                      PlaybackThread *srcThread,
                                      PlaybackThread *dstThread,
                                      bool reRegister);
+
               // return thread associated with primary hardware device, or NULL
               PlaybackThread *primaryPlaybackThread_l() const;
               audio_devices_t primaryOutputDevice_l() const;
 
-              sp<PlaybackThread> getEffectThread_l(int sessionId, int EffectId);
+              sp<PlaybackThread> getEffectThread_l(audio_session_t sessionId, int EffectId);
 
 
                 void        removeClient_l(pid_t pid);
@@ -623,9 +618,9 @@ private:
 
     // for mAudioSessionRefs only
     struct AudioSessionRef {
-        AudioSessionRef(int sessionid, pid_t pid) :
+        AudioSessionRef(audio_session_t sessionid, pid_t pid) :
             mSessionid(sessionid), mPid(pid), mCnt(1) {}
-        const int   mSessionid;
+        const audio_session_t mSessionid;
         const pid_t mPid;
         int         mCnt;
     };
@@ -687,9 +682,8 @@ private:
                 // protected by mClientLock
                 DefaultKeyedVector< pid_t, sp<NotificationClient> >    mNotificationClients;
 
-                volatile int32_t                    mNextUniqueId;  // updated by android_atomic_inc
-                // nextUniqueId() returns uint32_t, but this is declared int32_t
-                // because the atomic operations require an int32_t
+                // updated by atomic_fetch_add_explicit
+                volatile atomic_uint_fast32_t       mNextUniqueIds[AUDIO_UNIQUE_ID_USE_MAX];
 
                 audio_mode_t                        mMode;
                 bool                                mBtNrecIsOff;

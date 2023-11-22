@@ -15,38 +15,38 @@
  */
 package android.transition.cts;
 
-import com.android.cts.transition.R;
-
 import android.transition.ChangeScroll;
-import android.transition.Transition;
 import android.transition.TransitionManager;
 import android.view.View;
 
 public class ChangeScrollTest extends BaseTransitionTest {
+    ChangeScroll mChangeScroll;
 
     public ChangeScrollTest() {
     }
 
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp();
+        mChangeScroll = new ChangeScroll();
+        mTransition = mChangeScroll;
+        resetListener();
+    }
+
     public void testChangeScroll() throws Throwable {
         enterScene(R.layout.scene5);
-        final Transition transition = new ChangeScroll();
-        transition.setDuration(100);
-        SimpleTransitionListener listener = new SimpleTransitionListener();
-        transition.addListener(listener);
         runTestOnUiThread(new Runnable() {
             @Override
             public void run() {
                 final View view = mActivity.findViewById(R.id.text);
-                final int scrollX = view.getScrollX();
-                final int scrollY = view.getScrollY();
-                assertEquals(0, scrollX);
-                assertEquals(0, scrollY);
-                TransitionManager.beginDelayedTransition(mSceneRoot, transition);
+                assertEquals(0, view.getScrollX());
+                assertEquals(0, view.getScrollY());
+                TransitionManager.beginDelayedTransition(mSceneRoot, mChangeScroll);
                 view.scrollTo(150, 300);
             }
         });
-        waitForStart(listener);
-        waitForAnimationFrame();
+        waitForStart();
+        Thread.sleep(150);
         runTestOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -59,15 +59,13 @@ public class ChangeScrollTest extends BaseTransitionTest {
                 assertTrue(scrollY < 300);
             }
         });
-        waitForEnd(listener, 100);
+        waitForEnd(400);
         runTestOnUiThread(new Runnable() {
             @Override
             public void run() {
                 final View view = mActivity.findViewById(R.id.text);
-                final int scrollX = view.getScrollX();
-                final int scrollY = view.getScrollY();
-                assertEquals(150, scrollX);
-                assertEquals(300, scrollY);
+                assertEquals(150, view.getScrollX());
+                assertEquals(300, view.getScrollY());
             }
         });
     }

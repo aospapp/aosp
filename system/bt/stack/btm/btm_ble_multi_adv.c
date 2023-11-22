@@ -51,6 +51,7 @@ tBTM_BLE_MULTI_ADV_INST_IDX_Q btm_multi_adv_idx_q;
 /************************************************************************************
 **  Externs
 ************************************************************************************/
+extern fixed_queue_t *btu_general_alarm_queue;
 extern void btm_ble_update_dmt_flag_bits(UINT8 *flag_value,
                                                const UINT16 connect_mode, const UINT16 disc_mode);
 
@@ -311,12 +312,11 @@ tBTM_STATUS btm_ble_multi_adv_set_params (tBTM_BLE_MULTI_ADV_INST *p_inst,
         p_inst->adv_evt = p_params->adv_type;
 
 #if (defined BLE_PRIVACY_SPT && BLE_PRIVACY_SPT == TRUE)
-        if (btm_cb.ble_ctr_cb.privacy_mode != BTM_PRIVACY_NONE)
-        {
-            /* start timer */
-            p_inst->raddr_timer_ent.param = (TIMER_PARAM_TYPE) p_inst;
-            btu_start_timer_oneshot(&p_inst->raddr_timer_ent, BTU_TTYPE_BLE_RANDOM_ADDR,
-                             BTM_BLE_PRIVATE_ADDR_INT);
+        if (btm_cb.ble_ctr_cb.privacy_mode != BTM_PRIVACY_NONE) {
+            alarm_set_on_queue(p_inst->adv_raddr_timer,
+                               BTM_BLE_PRIVATE_ADDR_INT_MS,
+                               btm_ble_adv_raddr_timer_timeout, p_inst,
+                               btu_general_alarm_queue);
         }
 #endif
         btm_ble_multi_adv_enq_op_q(BTM_BLE_MULTI_ADV_SET_PARAM, p_inst->inst_id, cb_evt);
@@ -357,12 +357,13 @@ tBTM_STATUS btm_ble_multi_adv_write_rpa (tBTM_BLE_MULTI_ADV_INST *p_inst, BD_ADD
                                     btm_ble_multi_adv_vsc_cmpl_cback)) == BTM_CMD_STARTED)
     {
         /* start a periodical timer to refresh random addr */
-        btu_stop_timer_oneshot(&p_inst->raddr_timer_ent);
-        p_inst->raddr_timer_ent.param = (TIMER_PARAM_TYPE) p_inst;
-        btu_start_timer_oneshot(&p_inst->raddr_timer_ent, BTU_TTYPE_BLE_RANDOM_ADDR,
-                         BTM_BLE_PRIVATE_ADDR_INT);
-
-        btm_ble_multi_adv_enq_op_q(BTM_BLE_MULTI_ADV_SET_RANDOM_ADDR, p_inst->inst_id, 0);
+        /* TODO: is the above comment correct - is the timer periodical? */
+        alarm_set_on_queue(p_inst->adv_raddr_timer,
+                           BTM_BLE_PRIVATE_ADDR_INT_MS,
+                           btm_ble_adv_raddr_timer_timeout, p_inst,
+                           btu_general_alarm_queue);
+        btm_ble_multi_adv_enq_op_q(BTM_BLE_MULTI_ADV_SET_RANDOM_ADDR,
+                                   p_inst->inst_id, 0);
     }
     return rt;
 }
@@ -520,9 +521,9 @@ void btm_ble_multi_adv_enb_privacy(BOOLEAN enable)
     {
         p_inst->in_use = FALSE;
         if (enable)
-            btm_ble_multi_adv_configure_rpa (p_inst);
+            btm_ble_multi_adv_configure_rpa(p_inst);
         else
-            btu_stop_timer_oneshot(&p_inst->raddr_timer_ent);
+            alarm_cancel(p_inst->adv_raddr_timer);
     }
 }
 
@@ -734,9 +735,9 @@ tBTM_STATUS BTM_BleDisableAdvInstance (UINT8 inst_id)
          if ((rt = btm_ble_enable_multi_adv(FALSE, inst_id, BTM_BLE_MULTI_ADV_DISABLE_EVT))
             == BTM_CMD_STARTED)
          {
-            btm_ble_multi_adv_configure_rpa(&btm_multi_adv_cb.p_adv_inst[inst_id-1]);
-            btu_stop_timer_oneshot(&btm_multi_adv_cb.p_adv_inst[inst_id-1].raddr_timer_ent);
-            btm_multi_adv_cb.p_adv_inst[inst_id-1].in_use = FALSE;
+            btm_ble_multi_adv_configure_rpa(&btm_multi_adv_cb.p_adv_inst[inst_id - 1]);
+            alarm_cancel(btm_multi_adv_cb.p_adv_inst[inst_id - 1].adv_raddr_timer);
+            btm_multi_adv_cb.p_adv_inst[inst_id - 1].in_use = FALSE;
          }
      }
     return rt;
@@ -816,28 +817,23 @@ void btm_ble_multi_adv_init()
     btm_multi_adv_idx_q.front = -1;
     btm_multi_adv_idx_q.rear = -1;
 
-    if (btm_cb.cmn_ble_vsc_cb.adv_inst_max > 0)
-    {
-        btm_multi_adv_cb.p_adv_inst = GKI_getbuf( sizeof(tBTM_BLE_MULTI_ADV_INST)*
+    if (btm_cb.cmn_ble_vsc_cb.adv_inst_max > 0) {
+        btm_multi_adv_cb.p_adv_inst = osi_calloc(sizeof(tBTM_BLE_MULTI_ADV_INST) *
                                                  (btm_cb.cmn_ble_vsc_cb.adv_inst_max));
-        memset(btm_multi_adv_cb.p_adv_inst, 0, sizeof(tBTM_BLE_MULTI_ADV_INST)*
-                                               (btm_cb.cmn_ble_vsc_cb.adv_inst_max));
 
-        btm_multi_adv_cb.op_q.p_sub_code = GKI_getbuf( sizeof(UINT8) *
+        btm_multi_adv_cb.op_q.p_sub_code = osi_calloc(sizeof(UINT8) *
                                                       (btm_cb.cmn_ble_vsc_cb.adv_inst_max));
-        memset(btm_multi_adv_cb.op_q.p_sub_code, 0,
-               sizeof(UINT8)*(btm_cb.cmn_ble_vsc_cb.adv_inst_max));
 
-        btm_multi_adv_cb.op_q.p_inst_id = GKI_getbuf( sizeof(UINT8) *
-                                          (btm_cb.cmn_ble_vsc_cb.adv_inst_max));
-        memset(btm_multi_adv_cb.op_q.p_inst_id, 0,
-               sizeof(UINT8)*(btm_cb.cmn_ble_vsc_cb.adv_inst_max));
+        btm_multi_adv_cb.op_q.p_inst_id = osi_calloc(sizeof(UINT8) *
+                                                     (btm_cb.cmn_ble_vsc_cb.adv_inst_max));
     }
 
     /* Initialize adv instance indices and IDs. */
     for (i = 0; i < btm_cb.cmn_ble_vsc_cb.adv_inst_max; i++) {
         btm_multi_adv_cb.p_adv_inst[i].index = i;
         btm_multi_adv_cb.p_adv_inst[i].inst_id = i + 1;
+        btm_multi_adv_cb.p_adv_inst[i].adv_raddr_timer =
+            alarm_new("btm_ble.adv_raddr_timer");
     }
 
     BTM_RegisterForVSEvents(btm_ble_multi_adv_vse_cback, TRUE);
@@ -855,15 +851,15 @@ void btm_ble_multi_adv_init()
 *******************************************************************************/
 void btm_ble_multi_adv_cleanup(void)
 {
-    if (btm_multi_adv_cb.p_adv_inst)
-        GKI_freebuf(btm_multi_adv_cb.p_adv_inst);
+    if (btm_multi_adv_cb.p_adv_inst) {
+        for (size_t i = 0; i < btm_cb.cmn_ble_vsc_cb.adv_inst_max; i++) {
+            alarm_free(btm_multi_adv_cb.p_adv_inst[i].adv_raddr_timer);
+        }
+        osi_free_and_reset((void **)&btm_multi_adv_cb.p_adv_inst);
+    }
 
-    if (btm_multi_adv_cb.op_q.p_sub_code)
-         GKI_freebuf(btm_multi_adv_cb.op_q.p_sub_code);
-
-    if (btm_multi_adv_cb.op_q.p_inst_id)
-        GKI_freebuf(btm_multi_adv_cb.op_q.p_inst_id);
-
+    osi_free_and_reset((void **)&btm_multi_adv_cb.op_q.p_sub_code);
+    osi_free_and_reset((void **)&btm_multi_adv_cb.op_q.p_inst_id);
 }
 
 /*******************************************************************************

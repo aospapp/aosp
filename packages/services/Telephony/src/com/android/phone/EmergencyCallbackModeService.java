@@ -35,7 +35,6 @@ import android.os.Message;
 import android.os.SystemProperties;
 import android.util.Log;
 
-import com.android.internal.telephony.cdma.CDMAPhone;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.PhoneFactory;
@@ -74,12 +73,13 @@ public class EmergencyCallbackModeService extends Service {
 
     @Override
     public void onCreate() {
+         Phone phoneInEcm = PhoneGlobals.getInstance().getPhoneInEcm();
         // Check if it is CDMA phone
-        if ((PhoneFactory.getDefaultPhone().getPhoneType() != PhoneConstants.PHONE_TYPE_CDMA)
-                && (PhoneFactory.getDefaultPhone().getImsPhone() == null)) {
-            Log.e(LOG_TAG, "Error! Emergency Callback Mode not supported for " +
-                    PhoneFactory.getDefaultPhone().getPhoneName() + " phones");
+        if (phoneInEcm == null || ((phoneInEcm.getPhoneType() != PhoneConstants.PHONE_TYPE_CDMA)
+                && (phoneInEcm.getImsPhone() == null))) {
+            Log.e(LOG_TAG, "Error! Emergency Callback Mode not supported for " + phoneInEcm);
             stopSelf();
+            return;
         }
 
         // Register receiver for intents
@@ -91,7 +91,7 @@ public class EmergencyCallbackModeService extends Service {
         mNotificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
 
         // Register ECM timer reset notfication
-        mPhone = PhoneFactory.getDefaultPhone();
+        mPhone = phoneInEcm;
         mPhone.registerForEcmTimerReset(mHandler, ECM_TIMER_RESET, null);
 
         startTimerNotification();
@@ -99,14 +99,16 @@ public class EmergencyCallbackModeService extends Service {
 
     @Override
     public void onDestroy() {
-        // Unregister receiver
-        unregisterReceiver(mEcmReceiver);
-        // Unregister ECM timer reset notification
-        mPhone.unregisterForEcmTimerReset(mHandler);
+        if (mPhone != null) {
+            // Unregister receiver
+            unregisterReceiver(mEcmReceiver);
+            // Unregister ECM timer reset notification
+            mPhone.unregisterForEcmTimerReset(mHandler);
 
-        // Cancel the notification and timer
-        mNotificationManager.cancel(R.string.phone_in_ecm_notification_title);
-        mTimer.cancel();
+            // Cancel the notification and timer
+            mNotificationManager.cancel(R.string.phone_in_ecm_notification_title);
+            mTimer.cancel();
+        }
     }
 
     /**

@@ -188,6 +188,8 @@ int main(int argc, char **argv) {
     sleep(timeout_in_sec);
   }
 
+  const int app_uid = 0;
+
   if (sco_listen) {
     CALL_AND_WAIT(bt_interface->enable(), adapter_state_changed);
     fprintf(stdout, "BT adapter is up\n");
@@ -199,14 +201,14 @@ int main(int argc, char **argv) {
     const btsock_interface_t *sock = bt_interface->get_profile_interface(BT_PROFILE_SOCKETS_ID);
 
     int rfcomm_fd = INVALID_FD;
-    int error = sock->listen(BTSOCK_RFCOMM, "meow", (const uint8_t *)&HFP_AG_UUID, 0, &rfcomm_fd, 0);
+    int error = sock->listen(BTSOCK_RFCOMM, "meow", (const uint8_t *)&HFP_AG_UUID, 0, &rfcomm_fd, 0, app_uid);
     if (error != BT_STATUS_SUCCESS) {
       fprintf(stderr, "Unable to listen for incoming RFCOMM socket: %d\n", error);
       exit(1);
     }
 
     int sock_fd = INVALID_FD;
-    error = sock->listen(BTSOCK_SCO, NULL, NULL, 5, &sock_fd, 0);
+    error = sock->listen(BTSOCK_SCO, NULL, NULL, 5, &sock_fd, 0, app_uid);
     if (error != BT_STATUS_SUCCESS) {
       fprintf(stderr, "Unable to listen for incoming SCO sockets: %d\n", error);
       exit(1);
@@ -227,7 +229,7 @@ int main(int argc, char **argv) {
     const btsock_interface_t *sock = bt_interface->get_profile_interface(BT_PROFILE_SOCKETS_ID);
 
     int rfcomm_fd = INVALID_FD;
-    int error = sock->connect(&bt_remote_bdaddr, BTSOCK_RFCOMM, (const uint8_t *)&HFP_AG_UUID, 0, &rfcomm_fd, 0);
+    int error = sock->connect(&bt_remote_bdaddr, BTSOCK_RFCOMM, (const uint8_t *)&HFP_AG_UUID, 0, &rfcomm_fd, 0, app_uid);
     if (error != BT_STATUS_SUCCESS) {
       fprintf(stderr, "Unable to connect to RFCOMM socket: %d.\n", error);
       exit(1);
@@ -238,7 +240,7 @@ int main(int argc, char **argv) {
     fprintf(stdout, "Establishing SCO connection...\n");
 
     int sock_fd = INVALID_FD;
-    error = sock->connect(&bt_remote_bdaddr, BTSOCK_SCO, NULL, 5, &sock_fd, 0);
+    error = sock->connect(&bt_remote_bdaddr, BTSOCK_SCO, NULL, 5, &sock_fd, 0, app_uid);
     if (error != BT_STATUS_SUCCESS) {
       fprintf(stderr, "Unable to connect to SCO socket: %d.\n", error);
       exit(1);

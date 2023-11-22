@@ -18,27 +18,38 @@ package vogar;
 
 import com.google.common.collect.ImmutableList;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import vogar.commands.Command;
+import vogar.commands.Mkdir;
+import vogar.commands.Rm;
 
 /**
  * Run tests on the host machine.
  */
 public final class LocalTarget extends Target {
-    private final Run run;
 
-    public LocalTarget(Run run) {
-        this.run = run;
+    private static final ImmutableList<String> TARGET_PROCESS_PREFIX = ImmutableList.of("sh", "-c");
+
+    private final Log log;
+
+    private final Mkdir mkdir;
+
+    private final Rm rm;
+
+    public LocalTarget(Log log, Mkdir mkdir, Rm rm) {
+        this.mkdir = mkdir;
+        this.rm = rm;
+        this.log = log;
     }
 
-    @Override public File defaultDeviceDir() {
+    public static File defaultDeviceDir() {
         return new File("/tmp/vogar");
     }
 
-    @Override public List<String> targetProcessPrefix() {
-        return ImmutableList.of("sh", "-c");
+    @Override protected ImmutableList<String> targetProcessPrefix() {
+        return TARGET_PROCESS_PREFIX;
     }
 
     @Override public String getDeviceUserName() {
@@ -49,15 +60,19 @@ public final class LocalTarget extends Target {
     }
 
     @Override public void rm(File file) {
-        run.rm.file(file);
+        rm.file(file);
     }
 
-    @Override public List<File> ls(File directory) {
-        return Arrays.asList(directory.listFiles());
+    @Override public List<File> ls(File directory) throws FileNotFoundException {
+        File[] files = directory.listFiles();
+        if (files == null) {
+            throw new FileNotFoundException(directory + " not found.");
+        }
+        return Arrays.asList(files);
     }
 
     @Override public void mkdirs(File file) {
-        run.mkdir.mkdirs(file);
+        mkdir.mkdirs(file);
     }
 
     @Override public void forwardTcp(int port) {
@@ -72,10 +87,10 @@ public final class LocalTarget extends Target {
         if (remote.exists()) {
             throw new IllegalStateException();
         }
-        new Command(run.log, "cp", "-r", local.toString(), remote.toString()).execute();
+        new Command(log, "cp", "-r", local.toString(), remote.toString()).execute();
     }
 
     @Override public void pull(File remote, File local) {
-        new Command(run.log, "cp", remote.getPath(), local.getPath()).execute();
+        new Command(log, "cp", remote.getPath(), local.getPath()).execute();
     }
 }

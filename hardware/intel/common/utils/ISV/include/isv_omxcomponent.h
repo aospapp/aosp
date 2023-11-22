@@ -274,6 +274,11 @@ private:
     int32_t mNumISVBuffers;
     int32_t mNumDecoderBuffers;
     int32_t mNumDecoderBuffersBak;
+    /* To speed up the start up output decoder buffer directly
+     * for certain frames. ISV worker pipeline set up is hide by (in parallel with)
+     * display these output frames.
+     */
+    int32_t mOutputDecoderBufferNum;
     uint32_t mWidth;
     uint32_t mHeight;
     uint32_t mUseAndroidNativeBufferIndex;
@@ -297,6 +302,7 @@ private:
     // protect create mProcThread instance
     bool mOwnProcessor;
     static pthread_mutex_t ProcThreadInstanceLock;
+    Mutex mDecoderBufLock;
 };
 
 #endif  // #define ISV_OMXCOMPONENT_H_

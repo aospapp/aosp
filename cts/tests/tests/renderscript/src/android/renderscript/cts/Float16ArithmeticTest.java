@@ -25,6 +25,7 @@ import java.lang.Short;
 import android.content.Context;
 import android.content.res.Resources;
 import android.renderscript.Allocation;
+import android.renderscript.cts.Float16Utils;
 import android.renderscript.Element;
 import android.renderscript.RenderScript;
 import android.renderscript.RSRuntimeException;
@@ -43,74 +44,6 @@ public class Float16ArithmeticTest extends RSBaseCompute {
     // A numInputs * numInputs length 1-D array with data copied from
     // mU16Matrix
     private short[] output = new short[numInputs * numInputs];
-
-    // 16-bit masks for extracting sign, exponent and mantissa bits
-    private static short SIGN_MASK     = (short) 0x8000;
-    private static short EXPONENT_MASK = (short) 0x7C00;
-    private static short MANTISSA_MASK = (short) 0x03FF;
-
-    // NaN has all exponent bits set to 1 and a non-zero mantissa
-    private boolean isFloat16NaN(short val) {
-        return (val & EXPONENT_MASK) == EXPONENT_MASK &&
-               (val & MANTISSA_MASK) != 0;
-    }
-
-    // Infinity has all exponent bits set to 1 and zeroes in mantissa
-    private boolean isFloat16Infinite(short val) {
-        return (val & EXPONENT_MASK) == EXPONENT_MASK &&
-               (val & MANTISSA_MASK) == 0;
-    }
-
-    // Subnormal numbers have exponent bits set to 0 and a non-zero mantissa
-    private boolean isFloat16SubNormal(short val) {
-        return (val & EXPONENT_MASK) == 0 && (val & MANTISSA_MASK) != 0;
-    }
-
-    // Zero has all but the sign bit set to zero
-    private boolean isFloat16Zero(short val) {
-        return (val & ~SIGN_MASK) == 0;
-    }
-
-    // Negativity test checks the sign bit
-    private boolean isFloat16Negative(short val) {
-        return (val & SIGN_MASK) != 0;
-    }
-
-    // Check if this is a finite, non-zero FP16 value
-    private boolean isFloat16FiniteNonZero(short val) {
-        return !isFloat16NaN(val) && !isFloat16Infinite(val) && !isFloat16Zero(val);
-    }
-
-    // Convert FP16 value to float
-    private float convertFloat16ToFloat(short val) {
-        // Extract sign, exponent and mantissa
-        int sign = val & SIGN_MASK;
-        int exponent = (val & EXPONENT_MASK) >> 10;
-        int mantissa = val & MANTISSA_MASK;
-
-        // 0.<mantissa> = <mantissa> * 2^-10
-        float mantissaAsFloat = Math.scalb(mantissa, -10);
-
-        float result;
-        if (isFloat16Zero(val))
-            result = 0.0f;
-        else if (isFloat16Infinite(val))
-            result = java.lang.Float.POSITIVE_INFINITY;
-        else if (isFloat16NaN(val))
-            result = java.lang.Float.NaN;
-        else if (isFloat16SubNormal(val)) {
-            // value is 2^-14 * mantissaAsFloat
-            result = Math.scalb(1, -14) * mantissaAsFloat;
-        }
-        else {
-            // value is 2^(exponent - 15) * 1.<mantissa>
-            result = Math.scalb(1, exponent - 15) * (1 + mantissaAsFloat);
-        }
-
-        if (sign != 0)
-            result = -result;
-        return result;
-    }
 
     // Create input, intermediate, and output allocations.  Copy input data to
     // the input allocation
@@ -143,21 +76,23 @@ public class Float16ArithmeticTest extends RSBaseCompute {
 
         // Do exact match if the reference value is a special case (Nan, zero
         // infinity or their negative equivalents).
-        if (isFloat16Infinite(lb))
+        if (Float16Utils.isFloat16Infinite(lb))
             return lb == out;
         // NaN can have any non-zero mantissa.  Do not use equality check
-        if (isFloat16NaN(lb))
-            return isFloat16NaN(out);
+        if (Float16Utils.isFloat16NaN(lb))
+            return Float16Utils.isFloat16NaN(out);
         // If reference output is zero, test for exact equivalence if at least
         // one of the input values is a special-case FP16 value.
-        if (isFloat16Zero(lb)) {
-            if (!isFloat16FiniteNonZero(in1) || !isFloat16FiniteNonZero(in2))
+        if (Float16Utils.isFloat16Zero(lb)) {
+            if (!Float16Utils.isFloat16FiniteNonZero(in1) ||
+                !Float16Utils.isFloat16FiniteNonZero(in2)) {
                 return lb == out;
+            }
         }
 
-        float floatLB = convertFloat16ToFloat(lb);
-        float floatUB = convertFloat16ToFloat(ub);
-        float floatOut = convertFloat16ToFloat(out);
+        float floatLB = Float16Utils.convertFloat16ToFloat(lb);
+        float floatUB = Float16Utils.convertFloat16ToFloat(ub);
+        float floatOut = Float16Utils.convertFloat16ToFloat(out);
 
         if (floatOut < floatLB || floatOut > floatUB) {
             StringBuilder message = new StringBuilder();

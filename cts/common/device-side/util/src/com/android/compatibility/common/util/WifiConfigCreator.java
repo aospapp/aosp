@@ -16,13 +16,21 @@
 
 package com.android.compatibility.common.util;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
 import android.text.TextUtils;
 import android.util.Log;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.List;
+
+import static android.net.wifi.WifiManager.EXTRA_WIFI_STATE;
+import static android.net.wifi.WifiManager.WIFI_STATE_ENABLED;
 
 /**
  * A simple activity to create and manage wifi configurations.
@@ -45,9 +53,13 @@ public class WifiConfigCreator {
 
     private static final String TAG = "WifiConfigCreator";
 
+    private static final long ENABLE_WIFI_WAIT_SEC = 10L;
+
+    private final Context mContext;
     private final WifiManager mWifiManager;
 
     public WifiConfigCreator(Context context) {
+        mContext = context;
         mWifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
     }
 
@@ -56,10 +68,8 @@ public class WifiConfigCreator {
      * @return network id or -1 in case of error
      */
     public int addNetwork(String ssid, boolean hidden, int securityType,
-            String password) throws SecurityException {
-        if (!mWifiManager.isWifiEnabled()) {
-            mWifiManager.setWifiEnabled(true);
-        }
+            String password) throws InterruptedException, SecurityException {
+        checkAndEnableWifi();
 
         WifiConfiguration wifiConf = createConfig(ssid, hidden, securityType, password);
 
@@ -78,10 +88,8 @@ public class WifiConfigCreator {
      * @return network id (may differ from original) or -1 in case of error
      */
     public int updateNetwork(WifiConfiguration wifiConf, String ssid, boolean hidden,
-            int securityType, String password) throws SecurityException {
-        if (!mWifiManager.isWifiEnabled()) {
-            mWifiManager.setWifiEnabled(true);
-        }
+            int securityType, String password) throws InterruptedException, SecurityException {
+        checkAndEnableWifi();
         if (wifiConf == null) {
             return -1;
         }
@@ -105,10 +113,8 @@ public class WifiConfigCreator {
      * @return network id (may differ from original) or -1 in case of error
      */
     public int updateNetwork(int netId, String ssid, boolean hidden,
-            int securityType, String password) throws SecurityException {
-        if (!mWifiManager.isWifiEnabled()) {
-            mWifiManager.setWifiEnabled(true);
-        }
+            int securityType, String password) throws InterruptedException, SecurityException {
+        checkAndEnableWifi();
 
         WifiConfiguration wifiConf = null;
         List<WifiConfiguration> configs = mWifiManager.getConfiguredNetworks();
@@ -176,6 +182,31 @@ public class WifiConfigCreator {
                 wifiConf.wepKeys[0] = '"' + password + '"';
             }
             wifiConf.wepTxKeyIndex = 0;
+        }
+    }
+
+    private void checkAndEnableWifi() throws InterruptedException {
+        final CountDownLatch enabledLatch = new CountDownLatch(1);
+
+        // Register a change receiver first to pick up events between isEnabled and setEnabled
+        final BroadcastReceiver watcher = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (intent.getIntExtra(EXTRA_WIFI_STATE, -1) == WIFI_STATE_ENABLED) {
+                    enabledLatch.countDown();
+                }
+            }
+        };
+
+        mContext.registerReceiver(watcher, new IntentFilter(WifiManager.WIFI_STATE_CHANGED_ACTION));
+        try {
+            // In case wifi is not already enabled, wait for it to come up
+            if (!mWifiManager.isWifiEnabled()) {
+                mWifiManager.setWifiEnabled(true);
+                enabledLatch.await(ENABLE_WIFI_WAIT_SEC, TimeUnit.SECONDS);
+            }
+        } finally {
+            mContext.unregisterReceiver(watcher);
         }
     }
 }

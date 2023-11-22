@@ -21,7 +21,9 @@ extern rs_element __attribute__((overloadable))
         return nullElem;
     }
     rs_element returnElem = {element->mHal.state.fields[index]};
-    return returnElem;
+    rs_element rs_retval = {0};
+    rsSetObject(&rs_retval, returnElem);
+    return rs_retval;
 }
 
 extern uint32_t __attribute__((overloadable))

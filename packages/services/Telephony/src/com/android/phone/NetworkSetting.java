@@ -34,6 +34,8 @@ import android.preference.Preference;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceGroup;
 import android.preference.PreferenceScreen;
+import android.telephony.ServiceState;
+import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
 import android.telephony.SubscriptionManager;
@@ -204,7 +206,7 @@ public class NetworkSetting extends PreferenceActivity
             Message msg = mHandler.obtainMessage(EVENT_NETWORK_SELECTION_DONE);
             Phone phone = PhoneFactory.getPhone(mPhoneId);
             if (phone != null) {
-                phone.selectNetworkManually(mNetworkMap.get(selectedCarrier), msg);
+                phone.selectNetworkManually(mNetworkMap.get(selectedCarrier), true, msg);
                 displayNetworkSeletionInProgress(networkStr);
                 handled = true;
             } else {
@@ -270,8 +272,9 @@ public class NetworkSetting extends PreferenceActivity
         // we want this service to just stay in the background until it is killed, we
         // don't bother stopping it from our end.
         startService (new Intent(this, NetworkQueryService.class));
-        bindService (new Intent(this, NetworkQueryService.class), mNetworkQueryServiceConnection,
-                Context.BIND_AUTO_CREATE);
+        bindService (new Intent(this, NetworkQueryService.class).setAction(
+                NetworkQueryService.ACTION_LOCAL_BINDER),
+                mNetworkQueryServiceConnection, Context.BIND_AUTO_CREATE);
     }
 
     @Override
@@ -387,6 +390,15 @@ public class NetworkSetting extends PreferenceActivity
         final PhoneGlobals app = PhoneGlobals.getInstance();
         app.notificationMgr.postTransientNotification(
                 NotificationMgr.NETWORK_SELECTION_NOTIFICATION, status);
+
+        TelephonyManager tm = (TelephonyManager) app.getSystemService(Context.TELEPHONY_SERVICE);
+        Phone phone = PhoneFactory.getPhone(mPhoneId);
+        if (phone != null) {
+            ServiceState ss = tm.getServiceStateForSubscriber(phone.getSubId());
+            if (ss != null) {
+                app.notificationMgr.updateNetworkSelection(ss.getState());
+            }
+        }
     }
 
     private void displayNetworkSelectionSucceeded() {

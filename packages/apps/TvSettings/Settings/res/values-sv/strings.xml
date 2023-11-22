@@ -24,30 +24,35 @@
     <string name="header_category_preferences" msgid="175105555164713972">"Inställningar"</string>
     <string name="header_category_accessories" msgid="823295909353025991">"Fjärrkontroll och tillbehör"</string>
     <string name="header_category_personal" msgid="8893959635328775096">"Personligt"</string>
+    <string name="accounts_category_title" msgid="7591072907146317425">"Konton"</string>
     <string name="add_account" msgid="4098060223200619258">"Lägg till konto"</string>
-    <string name="account_header_sync" msgid="2679585471372319471">"Synkronisera"</string>
     <string name="account_header_remove_account" msgid="3288957118207682685">"Ta bort konto"</string>
     <string name="account_sync" msgid="773808124331714965">"Välj synkroniserade appar"</string>
     <string name="sync_now" msgid="8732244492880016471">"Synkronisera nu"</string>
-    <string name="sync_cancel" msgid="5839264070098894371">"Avbryt synkronisering"</string>
     <string name="sync_in_progress" msgid="1330721038775646022">"Synkroniseras ..."</string>
     <string name="last_synced" msgid="6178494892357077274">"Synkroniserades senast: <xliff:g id="TIME">%1s</xliff:g>"</string>
     <string name="sync_disabled" msgid="3089360175872892781">"Inaktiverad"</string>
-    <string name="sync_is_failing" msgid="8229476000384257186">"Det går inte att synkronisera just nu. Synkroniseringen fungerar snart igen."</string>
     <string name="account_remove" msgid="4313580520737295272">"Ta bort konto"</string>
     <string name="account_remove_failed" msgid="980654375770693544">"Det går inte att ta bort kontot"</string>
+    <!-- no translation found for sync_item_title (2716687595867726981) -->
+    <skip />
+    <string name="sync_one_time_sync" msgid="3575080833667908804">"Synkronisera nu<xliff:g id="LAST_SYNC_TIME">
+%1$s</xliff:g>"</string>
+    <string name="sync_failed" msgid="5514824149810480551">"Det gick inte att synkronisera"</string>
+    <string name="sync_active" msgid="6891115263481154378">"Synkronisering är aktiverad"</string>
     <string name="connectivity_network" msgid="8321537111272398501">"Nätverk"</string>
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Nätverkssökning alltid tillgänglig"</string>
     <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Tillåt att Googles platstjänst och andra appar söker efter nätverk, även när Wi-Fi inte har aktiverats"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
-    <string name="device_daydream" msgid="4933581408059561077">"Dagdrömmar"</string>
+    <string name="device_daydream" msgid="3354366974209179614">"Skärmsläckare"</string>
     <string name="device_display" msgid="101455384386372747">"Visning"</string>
+    <string name="device_sound" msgid="9214182566287657481">"Ljud"</string>
+    <string name="device_surround_sound" msgid="6272196310566546860">"Surroundljud"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"Systemljud"</string>
     <string name="device_apps" msgid="9180435229638772838">"Appar"</string>
     <string name="device_storage_reset" msgid="1425978936501134425">"Lagring och återställning"</string>
-    <string name="device_storage" msgid="5536683600091277826">"Lagring"</string>
     <string name="device_backup_restore" msgid="5627523987587511884">"Säkerhetskopiera och återställ"</string>
     <string name="device_reset" msgid="2827002349560023125">"Återställ standardinställningar"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Kalibrering"</string>
@@ -57,14 +62,12 @@
     <string name="apps_system" msgid="2499191125802829425">"Systemappar"</string>
     <string name="apps_running" msgid="6430310491739956228">"Aktiva appar"</string>
     <string name="accessories_add" msgid="1347802656349218830">"Lägg till tillbehör"</string>
-    <string name="accessories_wifi_display" msgid="1107690327150126038">"Wi-Fi-skärm"</string>
     <string name="accessory_state_pairing" msgid="7501989679637780963">"Kopplas …"</string>
     <string name="accessory_state_connecting" msgid="8777884957977608529">"Ansluter …"</string>
     <string name="accessory_state_error" msgid="4529815543328841909">"Det gick inte att koppla enheterna"</string>
     <string name="accessory_state_canceled" msgid="4419328837733619447">"Avbruten"</string>
     <string name="accessory_state_paired" msgid="1959238931866401476">"Kopplad"</string>
     <string name="accessory_options" msgid="4799658564005710297">"Tillbehör"</string>
-    <string name="accessory_rename" msgid="3250766501262581206">"Byt namn"</string>
     <string name="accessory_unpair" msgid="8242725516604465355">"Ta bort kopplingen"</string>
     <string name="accessory_battery" msgid="7021788232835772126">"Batteri <xliff:g id="PERCENTAGE">%1$d</xliff:g> %%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Kopplingen tas bort ..."</string>
@@ -72,9 +75,6 @@
     <string name="accessories_add_title" msgid="6940361421891873321">"Söker efter tillbehör …"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Innan du kopplar ihop dina Bluetooth-enheter kontrollerar du att de är i kopplingsläge"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"En enhet hittades och kopplas automatiskt om <xliff:g id="COUNTDOWN">%1$s</xliff:g> sekunder"</string>
-    <string name="accessories_add_title_multiple" msgid="8455249961819802466">"Flera enheter hittades"</string>
-    <string name="accessories_add_multiple" msgid="3900633668371061399">"Om du vill välja en annan enhet trycker du på kopplingsknappen på den enheten"</string>
-    <string name="accessories_add_multiple_select" msgid="3696794187001405647">"Om du vill koppla ihop med den markerade enheten trycker du på den enhetens kopplingsknapp i fem sekunder"</string>
     <string name="error_action_not_supported" msgid="300552308104354666">"Åtgärden stöds inte"</string>
     <string name="bluetooth_pairing_request" msgid="4523088117471287665">"Begäran om Bluetooth-koppling"</string>
     <string name="bluetooth_confirm_passkey_msg" msgid="7031117992819855434">"Om du vill koppla ihop med: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt; kontrollerar du att den här nyckeln visas: &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt;"</string>
@@ -97,6 +97,7 @@
     <string name="system_accessibility" msgid="6215431399759498005">"Tillgänglighet"</string>
     <string name="system_developer_options" msgid="3237985523474863638">"Utvecklaralternativ"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Inga"</string>
+    <string name="system_diagnostic" msgid="7269638365915225701">"Användning och diagnostik"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Systemuppdatering"</string>
     <string name="about_preference" msgid="4131396784531360434">"Om"</string>
     <string name="device_name" msgid="2670488158531273028">"Enhetens namn"</string>
@@ -116,6 +117,36 @@
     <string name="about_ads" msgid="3364786994943748337">"Annonser"</string>
     <string name="show_dev_on" msgid="8997172736024819952">"Nu är du en utvecklare!"</string>
     <string name="show_dev_already" msgid="7525967300421794483">"Det behövs inte. Du är redan utvecklare."</string>
+    <string name="device_info_default" msgid="4519181343309136050">"Okänt"</string>
+    <string name="selinux_status" msgid="8000422283341040360">"SELinux-status"</string>
+    <string name="selinux_status_disabled" msgid="4925733135520787807">"Inaktiverade"</string>
+    <string name="selinux_status_permissive" msgid="4806219236988993826">"Tillåtande"</string>
+    <string name="selinux_status_enforcing" msgid="8839484208185347776">"Genomdrivande"</string>
+    <string name="additional_system_update_settings_list_item_title" msgid="6285273598178967613">"Ytterligare systemuppdateringar"</string>
+    <string name="device_status" msgid="4379924151946190768">"Status"</string>
+    <string name="device_status_summary" msgid="180586140242936323">"Nätverk, serienummer och andra uppgifter"</string>
+    <string name="manual" msgid="4957388668881541669">"Handbok"</string>
+    <string name="regulatory_information" msgid="5448865708097003189">"Föreskrifter"</string>
+    <string name="device_feedback" msgid="209146642122579479">"Skicka feedback om den här enheten"</string>
+    <string name="fcc_equipment_id" msgid="8295142996591094301">"Utrustnings-id"</string>
+    <string name="baseband_version" msgid="2229081246529676107">"Basbandsversion"</string>
+    <string name="kernel_version" msgid="2418845475938044903">"Kernel-version"</string>
+    <string name="status_unavailable" msgid="831018565485085059">"Inte tillgängliga"</string>
+    <string name="device_status_title" msgid="1629253652287243543">"Status"</string>
+    <string name="battery_status_title" msgid="2557264957661087826">"Batteristatus"</string>
+    <string name="battery_level_title" msgid="100046129713781009">"Batterinivå"</string>
+    <string name="sim_status_title" msgid="498929467188844611">"Status för SIM-kort"</string>
+    <string name="imei_information_title" msgid="5208860549282877136">"Information om IMEI-kod"</string>
+    <string name="status_bt_address" msgid="1571721865060122393">"Bluetooth-adress"</string>
+    <string name="status_up_time" msgid="1674116490191446110">"Tid sedan systemstart"</string>
+    <string name="status_wimax_mac_address" msgid="1102907383444152052">"4G Mac-adress"</string>
+    <string name="legal_information" msgid="2346024659831852038">"Juridisk information"</string>
+    <string name="copyright_title" msgid="5564228453228549353">"Upphovsrätt"</string>
+    <string name="license_title" msgid="4482927105870812604">"Licens"</string>
+    <string name="terms_title" msgid="8480859222932736291">"Användarvillkor"</string>
+    <string name="webview_license_title" msgid="8843666223583780825">"Systemet WebView-licens"</string>
+    <string name="wallpaper_attributions" msgid="8622098625739634898">"Bakgrundsbilder"</string>
+    <string name="wallpaper_attributions_values" msgid="1565931506291182879">"Satellitbildsleverantörer:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"Dålig"</item>
     <item msgid="5986166866411161790">"Medel"</item>
@@ -129,10 +160,10 @@
     <string name="title_internet_connection" msgid="8710084774588697646">"Internetanslutning"</string>
     <string name="connected" msgid="7563100162902079938">"Ansluten"</string>
     <string name="not_connected" msgid="6858480380326923017">"Inte ansluten"</string>
-    <string name="wifi_setting_header_available_networks" msgid="6244107218643835636">"Wi-Fi"</string>
-    <string name="wifi_setting_header_other_options" msgid="1530334691232749342">"ANDRA ALTERNATIV"</string>
+    <string name="wifi_setting_header_other_options" msgid="3638677601577777216">"Övriga alternativ"</string>
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"Visa alla"</string>
-    <string name="wifi_setting_available_networks" msgid="1244646604369133314">"TILLGÄNGLIGA NÄTVERK"</string>
+    <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"Visa färre"</string>
+    <string name="wifi_setting_available_networks" msgid="6713791371350513043">"Tillgängliga nätverk"</string>
     <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"Anslut via WPS"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"Lägg till nytt nätverk"</string>
     <string name="security_type" msgid="524443802004143058">"Typ av säkerhet"</string>
@@ -185,20 +216,20 @@
     <string name="wifi_ip_settings_invalid_gateway" msgid="3292444764474145026">"Ange en giltig gateway-adress"</string>
     <string name="wifi_ip_settings_invalid_dns" msgid="6172189835428184828">"Ange en giltig DNS-adress"</string>
     <string name="wifi_ip_settings_invalid_network_prefix_length" msgid="6209978918929182270">"Ange en nätverksprefixlängd mellan 0 och 32"</string>
-    <string name="wifi_ip_address_hint" msgid="1895267564692073689">"Ange en giltig IP-adress.\nExempel: 192.168.1.128"</string>
-    <string name="wifi_dns1_hint" msgid="214345156394229347">"Ange en giltig IP-adress eller lämna tomt.\nExempel: 8.8.8.8"</string>
-    <string name="wifi_dns2_hint" msgid="1075709328208368894">"Ange en giltig IP-adress eller lämna tomt.\nExempel: 8.8.4.4"</string>
-    <string name="wifi_gateway_hint" msgid="7687219682024189028">"Ange en giltig IP-adress eller lämna tomt.\nExempel: 192.168.1.1"</string>
-    <string name="wifi_network_prefix_length_hint" msgid="332915798888599682">"Ange en giltig nätverksprefixlängd.\nExempel: 24"</string>
+    <string name="wifi_ip_address_description" msgid="6548838784556001283">"Ange en giltig IP-adress.\nExempel: <xliff:g id="ID_1">192.168.1.128</xliff:g>"</string>
+    <string name="wifi_dns1_description" msgid="2463500547232077393">"Ange en giltig IP-adress eller lämna fältet tomt.\nExempel: <xliff:g id="ID_1">8.8.8.8</xliff:g>"</string>
+    <string name="wifi_dns2_description" msgid="8005473174044015359">"Ange en giltig IP-adress eller lämna fältet tomt.\nExempel: <xliff:g id="ID_1">8.8.4.4</xliff:g>"</string>
+    <string name="wifi_gateway_description" msgid="4773751224452216231">"Ange en giltig IP-adress eller lämna fältet tomt.\nExempel: <xliff:g id="ID_1">192.168.1.1</xliff:g>"</string>
+    <string name="wifi_network_prefix_length_description" msgid="4849589333293194414">"Ange en giltig längd på nätverksprefixet.\nExempel: <xliff:g id="ID_1">24</xliff:g>"</string>
     <string name="proxy_error_invalid_host" msgid="3660415920668138953">"Värdnamnet är inte giltigt"</string>
     <string name="proxy_error_invalid_exclusion_list" msgid="4921547051724987804">"Listan över undantag är inte giltig. Ange en kommaavgränsad lista över uteslutna domäner."</string>
     <string name="proxy_error_empty_port" msgid="6835658067776408062">"Portfältet får inte vara tomt"</string>
     <string name="proxy_error_empty_host_set_port" msgid="4428793978424303244">"Om värdfältet är tomt lämnar du även portfältet tomt"</string>
     <string name="proxy_error_invalid_port" msgid="1434922103959603993">"Porten är inte giltig"</string>
     <string name="proxy_warning_limited_support" msgid="6160239282535986523">"HTTP-proxy används av webbläsaren men får inte användas av andra appar"</string>
-    <string name="proxy_port_hint" msgid="8532733797275927007">"Ange en giltig port.\nExempel: 8080"</string>
-    <string name="proxy_exclusionlist_hint" msgid="86175095050438325">"Ange en kommaavgränsad lista över uteslutna domäner eller lämna tomt.\nExempel: example.com,mycomp.test.com,localhost"</string>
-    <string name="proxy_hostname_hint" msgid="3719688422767210803">"Ange ett giltigt värdnamn.\nExempel: proxy.example.com"</string>
+    <string name="proxy_port_description" msgid="6791098212244367568">"Ange en giltig port.\nExempel: <xliff:g id="ID_1">8080</xliff:g>"</string>
+    <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"Ange en lista över exkluderade domäner (avgränsade med kommatecken) eller lämna fältet tomt.\nExempel: <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>"</string>
+    <string name="proxy_hostname_description" msgid="5824391500254472447">"Ange ett giltigt värdnamn.\nExempel: <xliff:g id="ID_1">proxy.example.com</xliff:g>"</string>
     <string name="wifi_summary_title_connected" msgid="8329216588732277139">"Nätverket är anslutet"</string>
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"Nätverket är inte anslutet"</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"Du är redan ansluten till <xliff:g id="SSID">%1$s</xliff:g>. Vill du ansluta till ett annat nätverk?"</string>
@@ -217,27 +248,33 @@
     <string name="storage_media_cache_usage" msgid="5906737163212649904">"Cachelagrade data"</string>
     <string name="storage_eject" msgid="113476702798691558">"Mata ut"</string>
     <string name="storage_format" msgid="3759273736493279595">"Radera och formatera"</string>
+    <string name="storage_format_as_private" msgid="4169495230765116075">"Radera och formatera som enhetslagring"</string>
+    <string name="storage_format_as_public" msgid="8568317076021814054">"Radera och formatera som flyttbar lagringsenhet"</string>
     <string name="storage_format_for_private" msgid="7095270113028182032">"Formatera som enhetslagring"</string>
     <string name="storage_not_connected" msgid="6378589497819596096">"Inte ansluten"</string>
-    <string name="storage_migrate" msgid="658894157418304023">"Migrera data"</string>
-    <string name="storage_forget" msgid="8541387048014779836">"Glöm det här internminnet"</string>
+    <string name="storage_migrate" msgid="1304058078948715456">"Migrera data till den här lagringsenheten"</string>
+    <string name="storage_migrate_away" msgid="3410590501311323877">"Migrera data till annat lagringsutrymme"</string>
+    <string name="storage_no_apps" msgid="579118619398668670">"Inga appar att säkerhetskopiera"</string>
+    <string name="storage_forget" msgid="8731986045697320463">"Glöm den här lagringsenheten"</string>
     <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"Om du vill använda appar eller data på enheten kopplar du in den igen. Om enheten inte är tillgänglig kan du istället ange att lagringsenheten ska glömmas bort.\n\nOm du väljer att den ska glömmas bort raderas all data på enheten och den kan inte återskapas.\n\nDu kan installera apparna igen senare men den data som fanns på enheten har raderats permanent."</string>
     <string name="storage_device_storage_section" msgid="7797805634316822741">"Lagring på enhet"</string>
     <string name="storage_removable_storage_section" msgid="3264955106565590076">"Flyttbara lagringsenheter"</string>
     <string name="storage_reset_section" msgid="7324235036547192861">"Återställ"</string>
     <string name="storage_mount_success" msgid="4624254886950093443">"<xliff:g id="NAME">%1$s</xliff:g> har monterats"</string>
     <string name="storage_mount_failure" msgid="2469026716895846633">"Det gick inte att montera <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_mount_adopted" msgid="3360994581083675640">"USB-lagringsenheten har anslutits igen"</string>
     <string name="storage_unmount_success" msgid="7921627277443856151">"<xliff:g id="NAME">%1$s</xliff:g> har matats ut på ett säkert sätt"</string>
     <string name="storage_unmount_failure" msgid="6322048355281833871">"Det gick inte att mata ut <xliff:g id="NAME">%1$s</xliff:g> på ett säkert sätt"</string>
     <string name="storage_unmount_failure_cant_find" msgid="240731723168567217">"Hittade ingen enhet att mata ut"</string>
     <string name="storage_format_success" msgid="6252068844653804319">"<xliff:g id="NAME">%1$s</xliff:g> har formaterats"</string>
     <string name="storage_format_failure" msgid="7336977074523932399">"Det gick inte att formatera <xliff:g id="NAME">%1$s</xliff:g>"</string>
-    <string name="storage_wizard_format_as_private_title" msgid="1433086533563409114">"Formatera som internminne"</string>
+    <string name="storage_wizard_format_as_private_title" msgid="1887035626526247913">"Formatera som lagringsenhet"</string>
     <string name="storage_wizard_format_as_private_description" msgid="5814513630861655168">"USB-minnet måste formateras för att det ska vara säkert. När lagringsenheten har formaterats på ett säkert sätt fungerar den bara med den här enheten. Vid formateringen raderas all data som finns lagrad på enheten. Säkerhetskopiera uppgifterna så att du inte förlorar dem."</string>
     <string name="storage_wizard_format_as_public_title" msgid="977475385015522171">"Radera och formatera"</string>
-    <string name="storage_wizard_format_as_public_description" msgid="8591201523650249337">"Efter formateringen kan du använda det här USB-minnet på andra enheter. All data raderas. Säkerhetskopiera din data först genom att flytta apparna till ett annat internminne."</string>
+    <string name="storage_wizard_format_as_public_description" msgid="184405877453834449">"Efter formateringen kan du använda det här USB-minnet på andra enheter. All data raderas. Säkerhetskopiera din data först genom att flytta apparna till en annan enhet."</string>
     <string name="storage_wizard_format_progress_title" msgid="143911640282435570">"Formaterar USB-minnet ..."</string>
     <string name="storage_wizard_format_progress_description" msgid="5320980721352781920">"Det här kan ta en stund. Ta inte bort enheten."</string>
+    <string name="storage_wizard_migrate_choose_title" msgid="4247584708563925746">"Välj lagringsutrymme som data ska migreras till"</string>
     <string name="storage_wizard_migrate_confirm_title" msgid="369820166257265495">"Flytta data till <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_wizard_migrate_confirm_description" msgid="2916497196106413598">"Flytta foton, filer och appdata till <xliff:g id="NAME">%1$s</xliff:g>. Detta kan ta några minuter. Vissa appar fungerar inte under flytten."</string>
     <string name="storage_wizard_migrate_confirm_action_move_now" msgid="512504294066473542">"Flytta nu"</string>
@@ -253,18 +290,18 @@
     <string name="storage_wizard_back_up_apps_title" msgid="452805102278225533">"Appar som lagras i <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_wizard_back_up_apps_and_data_title" msgid="1738767666148200795">"Appar och data som lagras i <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_wizard_back_up_apps_space_available" msgid="7209210725057470544">"<xliff:g id="SIZE">%1$s</xliff:g> tillgängligt"</string>
-    <string name="storage_wizard_eject_internal_title" msgid="3717872796166039893">"Mata ut internminnet"</string>
-    <string name="storage_wizard_eject_internal_description" msgid="6107781224687080575">"Apparna som lagras i enhetens minne slutar att fungera när minnet matas ut. USB-minnet har formaterats för att endast fungera på den här enheten. Det fungerar inte på andra enheter."</string>
-    <string name="sotrage_wizard_eject_progress_title" msgid="8034235439954334978">"<xliff:g id="NAME">%1$s</xliff:g> matas ut …"</string>
+    <string name="storage_wizard_eject_private_title" msgid="2844023177159233031">"Mata ut lagringsenheten"</string>
+    <string name="storage_wizard_eject_private_description" msgid="8966427719795472538">"Apparna på lagringsenheten slutar att fungera när den matas ut. USB-minnet har formaterats för att endast fungera på den här enheten. Det fungerar inte på andra enheter."</string>
+    <string name="storage_wizard_eject_progress_title" msgid="8823133087157003820">"<xliff:g id="NAME">%1$s</xliff:g> matas ut …"</string>
     <string name="storage_wizard_move_app_title" msgid="37057801779891287">"Lagringsutrymme som används"</string>
     <string name="storage_wizard_move_app_progress_title" msgid="7807062446517628864">"Flyttar <xliff:g id="NAME">%1$s</xliff:g> …"</string>
     <string name="storage_wizard_move_app_progress_description" msgid="3693104566187904724">"Ta inte bort enheten under flytten.\nAppen <xliff:g id="APPNAME">%1$s</xliff:g> kan inte användas på enheten förrän flytten är genomförd."</string>
-    <string name="storage_wizard_forget_confirm_title" msgid="1183642893909026951">"Vill du att det här internminnet ska glömmas bort?"</string>
+    <string name="storage_wizard_forget_confirm_title" msgid="4321200084208420221">"Vill du glömma lagringsenheten?"</string>
     <string name="storage_wizard_forget_confirm_description" msgid="4264263982217111372">"All data som du har lagrat på den här enheten kommer att raderas permanent om du trycker på Glöm, Vill du fortsätta?"</string>
     <string name="storage_wizard_forget_action" msgid="2532812620271112355">"Glöm"</string>
     <string name="storage_new_title" msgid="3098495209500607438">"Ett USB-minne har anslutits"</string>
     <string name="storage_new_action_browse" msgid="9041125660441839453">"Bläddra"</string>
-    <string name="storage_new_action_adopt" msgid="1903427557119380415">"Konfigurera som intern lagringsenhet"</string>
+    <string name="storage_new_action_adopt" msgid="880224317112988974">"Konfigurera som lagringsenhet"</string>
     <string name="storage_new_action_format_public" msgid="5604328981214071670">"Konfigurera som extern lagringsenhet"</string>
     <string name="storage_new_action_eject" msgid="4069294152676217949">"Mata ut"</string>
     <string name="storage_missing_title" msgid="2803464623922381858">"<xliff:g id="NAME">%1$s</xliff:g> har tagits bort"</string>
@@ -274,6 +311,7 @@
     <string name="app_forward_locked" msgid="6078781450044847966">"Appen är kopieringsskyddad."</string>
     <string name="invalid_location" msgid="5269044848535157307">"Installationsplatsen är inte giltig."</string>
     <string name="system_package" msgid="9200255718634512790">"Det går inte att installera systemuppdateringar på externa media."</string>
+    <string name="move_error_device_admin" msgid="2060627704270836951">"Det går inte att installera enhetsadministratören på externa lagringsmedier."</string>
     <string name="learn_more_action" msgid="7015991954404958779">"Läs mer"</string>
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"Försök igen"</string>
     <string name="wifi_wps_title" msgid="1872305810119408482">"Söker efter WPS-router ..."</string>
@@ -293,7 +331,15 @@
     <string name="system_set_time_format" msgid="4447882066895090612">"Använd 24-timmarsformat"</string>
     <string name="desc_set_time_format" msgid="3131006238681763219">"<xliff:g id="STATE">%1$s</xliff:g> (<xliff:g id="SAMPLE">%2$s</xliff:g>)"</string>
     <string name="system_auto_date_time" msgid="3629668599205033272">"Automatiskt datum och tid"</string>
-    <string name="desc_auto_date_time" msgid="6997571927680580633">"Använd nätverkets tid"</string>
+  <string-array name="auto_date_time_entries">
+    <item msgid="4590792581242018007">"Använd nätverkets tid"</item>
+    <item msgid="3807025813081244357">"Av"</item>
+  </string-array>
+  <string-array name="auto_date_time_ts_entries">
+    <item msgid="8463479794795616025">"Använd nätverkets tid"</item>
+    <item msgid="2475903014233987786">"Använd tid från transportström"</item>
+    <item msgid="150957081326946463">"Av"</item>
+  </string-array>
     <string name="system_location" msgid="502463575930545806">"Plats"</string>
     <string name="system_desc_location" msgid="4243551425631207495">"Ge appar som har bett om tillstånd möjlighet att använda din platsinformation"</string>
     <string name="system_network_location_confirm" msgid="8435144328428634060">"Platsmedgivande"</string>
@@ -317,6 +363,7 @@
     <string name="delete_location_history_desc" msgid="4142806827237093397">"All platshistorik från enheten som sparats i kontot tas bort. Åtgärden går inte att ångra. Vissa appar, som Google Nu, slutar fungera."</string>
     <string name="system_services" msgid="7230571820151215779">"Tjänster"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Tjänstinställningar"</string>
+    <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Text med hög kontrast"</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Textning"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Inställningar för textning i video"</string>
     <string name="captions_display" msgid="735692527287125548">"Skärm"</string>
@@ -324,7 +371,7 @@
     <string name="captions_display_off" msgid="496953007835201523">"Av"</string>
     <string name="display_options" msgid="5504549024985225774">"Visningsalternativ"</string>
     <string name="captions_configure" msgid="5537548915977371014">"Konfigurera"</string>
-    <string name="captions_lanaguage" msgid="3291057448460880449">"Språk"</string>
+    <string name="captions_language" msgid="2835554055388996343">"Språk"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"Textstorlek"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"Textstil"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"Anpassade alternativ"</string>
@@ -332,12 +379,19 @@
     <string name="captions_textcolor" msgid="3233568269335050287">"Textfärg"</string>
     <string name="captions_edgetype" msgid="841331274533086103">"Typ av kant"</string>
     <string name="captions_edgecolor" msgid="845125757332620884">"Kantfärg"</string>
+    <string name="captions_backgroundshow" msgid="9177987321551275698">"Visa bakgrund"</string>
     <string name="captions_backgroundcolor" msgid="448518890988125453">"Bakgrundsfärg"</string>
     <string name="captions_backgroundopacity" msgid="2643722493273126220">"Genomskinlighet för bakgrunden"</string>
     <string name="captioning_preview_text" msgid="72080729155950127">"Textstilen kommer att se ut så här"</string>
     <string name="captions_textopacity" msgid="5536765490446288641">"Textgenomskinlighet"</string>
+    <string name="captions_windowshow" msgid="5716898740522196707">"Visa fönster"</string>
     <string name="captions_windowcolor" msgid="8986165172260903279">"Fönstrets färg"</string>
     <string name="captions_windowopacity" msgid="2784473496224936703">"Fönstrets genomskinlighet"</string>
+    <string name="captions_style_0" msgid="2068865433439146533">"Vitt på svart"</string>
+    <string name="captions_style_1" msgid="8878565905353923498">"Svart på vitt"</string>
+    <string name="captions_style_2" msgid="1486695984924671199">"Gult på svart"</string>
+    <string name="captions_style_3" msgid="3217829874170162074">"Gult på blått"</string>
+    <string name="captions_style_custom" msgid="3645114505000714364">"Anpassad"</string>
     <string name="color_white" msgid="65537523012024751">"Vit"</string>
     <string name="color_black" msgid="8804213372565106403">"Svart"</string>
     <string name="color_red" msgid="5630553203246525989">"Röd"</string>
@@ -346,13 +400,14 @@
     <string name="color_cyan" msgid="796226330055745">"Cyan"</string>
     <string name="color_yellow" msgid="1023390829879874964">"Gul"</string>
     <string name="color_magenta" msgid="6395786485839439122">"Magenta"</string>
-    <string name="system_accessibility_status" msgid="4389074529913575327">"Delstat"</string>
+    <string name="system_accessibility_status" msgid="6150600992901856367">"Aktivera"</string>
     <string name="system_accessibility_config" msgid="3216531917536720277">"Konfiguration"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="8200707259067035823">"Vill du använda <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
     <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"<xliff:g id="SERVICE">%1$s</xliff:g> kan samla in all text som du skriver, förutom lösenord. Det gäller till exempel personliga uppgifter som kreditkortsnummer."</string>
     <string name="system_accessibility_service_off_confirm_title" msgid="963297812889694832">"Vill du avbryta <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
     <string name="system_accessibility_service_off_confirm_desc" msgid="6714782635926048678">"Om du väljer OK avbryts <xliff:g id="SERVICE">%1$s</xliff:g>."</string>
     <string name="system_accessibility_tts_output" msgid="8905477795536714590">"Text-till-tal"</string>
+    <string name="system_accessibility_tts_engine_config" msgid="5331139536083054552">"Motorkonfiguration"</string>
     <string name="system_speak_passwords" msgid="5264650214879185873">"Läs upp lösenord"</string>
     <string name="system_preferred_engine" msgid="8258210139854655567">"Prioriterad sökmotor"</string>
     <string name="system_speech_rate" msgid="8099856582088545576">"Talhastighet"</string>
@@ -421,6 +476,7 @@
     <string name="disagree" msgid="9170636026862400981">"Godkänn inte"</string>
     <string name="security_unknown_sources_title" msgid="769762478057744545">"Okända källor"</string>
     <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Tillåt installation av appar från andra källor än Play Butik"</string>
+    <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"Tillåt okända källor"</string>
     <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"Enheten och dina personliga uppgifter är mer sårbara för angrepp från appar från okända källor. Du samtycker till att du ensam kan hållas ansvarig för eventuella skador på enheten eller förlust av data som kan uppstå till följd av att du använder de här apparna."</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"Verifiera appar"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"Tillåt inte installation av appar som kan orsaka skada eller varna innan"</string>
@@ -479,26 +535,27 @@
     <string name="inputs_game" msgid="1114086481110094757">"Spelkonsol"</string>
     <string name="inputs_aux" msgid="5704676433978730340">"Aux"</string>
     <string name="inputs_custom_name" msgid="5584925321693432362">"Anpassat namn"</string>
+    <string name="inputs_custom_name_description_fmt" msgid="7123031859468901866">"Ange ett namn för ingångskällan <xliff:g id="INPUT">%1$s</xliff:g>."</string>
     <string name="inputs_hide" msgid="1575971556150395486">"Dold"</string>
-    <string name="inputs_hide_desc" msgid="8172670556559886526">"Visas inte när du byter ingång"</string>
-    <string name="inputs_custom_title" msgid="374036983231176581">"Anpassat namn:"</string>
+    <string name="inputs_show" msgid="5069718540369447778">"Visa ingångskällan"</string>
+    <string name="input_header_names" msgid="6958427658951236078">"Namn"</string>
     <string name="inputs_hdmi_control" msgid="2462240356665628563">"HDMI-styrning"</string>
     <string name="inputs_hdmi_control_desc" msgid="2300590479729796132">"Tillåt att tv:n styr HDMI-enheter"</string>
     <string name="inputs_device_auto_off" msgid="7510049770946999285">"Stänga av enheten automatiskt"</string>
     <string name="inputs_device_auto_off_desc" msgid="2679638131351116942">"Stänga av HDMI-enheter med tv:n"</string>
     <string name="inputs_tv_auto_on" msgid="2627932269256793797">"Slå på tv:n automatiskt"</string>
     <string name="inputs_tv_auto_on_desc" msgid="7658625130577708249">"Slå på tv:n med en HDMI-enhet"</string>
-    <plurals name="inputs_header_connected_input" formatted="false" msgid="4694899943180976672">
-      <item quantity="other">ANSLUTNA INGÅNGSKÄLLOR</item>
-      <item quantity="one">ANSLUTEN INGÅNGSKÄLLA</item>
+    <plurals name="inputs_header_connected_input" formatted="false" msgid="3158173055262045630">
+      <item quantity="other">Anslutna ingångskällor</item>
+      <item quantity="one">Ansluten ingångskälla</item>
     </plurals>
-    <plurals name="inputs_header_standby_input" formatted="false" msgid="1903575597797993135">
-      <item quantity="other">STANDBY-INGÅNGSKÄLLOR</item>
-      <item quantity="one">STANDBY-INGÅNGSKÄLLA</item>
+    <plurals name="inputs_header_standby_input" formatted="false" msgid="8614849472167217134">
+      <item quantity="other">Standby-ingångskällor</item>
+      <item quantity="one">Standby-ingångskälla</item>
     </plurals>
-    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="2979766871256996256">
-      <item quantity="other">EJ ANSLUTNA INGÅNGSKÄLLOR</item>
-      <item quantity="one">EJ ANSLUTEN INGÅNGSKÄLLA</item>
+    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="1092697966171944243">
+      <item quantity="other">Ej anslutna ingångskällor</item>
+      <item quantity="one">Ej ansluten ingångskälla</item>
     </plurals>
     <string name="user_add_profile_item_summary" msgid="2946168478936086933">"Begränsa åtkomst till appar och annat innehåll i kontot"</string>
     <string name="user_new_profile_name" msgid="336521054830056189">"Begränsad profil"</string>
@@ -510,6 +567,7 @@
     <string name="restricted_profile_switch_to" msgid="1926433350907032138">"Byt till begränsad profil"</string>
     <string name="restricted_profile_switch_out" msgid="1893784095623209495">"Avsluta begränsad profil"</string>
     <string name="restricted_profile_delete_title" msgid="3445944923018324707">"Radera begränsad profil"</string>
+    <string name="restricted_profile_create_title" msgid="1392190365829029390">"Skapa en begränsad profil"</string>
     <string name="restricted_profile_configure_title" msgid="4684188123147519620">"Inställningar"</string>
     <string name="restricted_profile_configure_apps_title" msgid="11507255932348492">"Tillåtna appar"</string>
     <plurals name="restricted_profile_configure_apps_description" formatted="false" msgid="1138147479259808487">
@@ -522,6 +580,7 @@
     <string name="restricted_profile_configure_apps_description_loading" msgid="5269477581791409700">"Ett ögonblick ..."</string>
     <string name="restricted_profile_change_password_title" msgid="2848537651211816659">"Ändra pinkoden"</string>
     <string name="restriction_description" msgid="3104855945910233028">"<xliff:g id="DESCRIPTION">%1$s</xliff:g>\n<xliff:g id="VALUE">%2$s</xliff:g>"</string>
+    <string name="app_sees_restricted_accounts_and_controlled_by" msgid="6677671440081319908">"Den här appen har inte åtkomst till dina konton. Styrs av <xliff:g id="APP">%1$s</xliff:g>"</string>
     <string name="pin_enter_unlock_channel" msgid="5980400420298506069">"Ange pinkoden för att titta på den här kanalen"</string>
     <string name="pin_enter_unlock_program" msgid="52453773316071511">"Ange pinkoden för att titta på det här programmet"</string>
     <string name="pin_enter_pin" msgid="821552376577935497">"Ange pinkod"</string>
@@ -532,9 +591,9 @@
     <string name="pin_toast_wrong" msgid="4628358195224633248">"Fel pinkod. Försök igen"</string>
     <string name="pin_toast_not_match" msgid="5886041789737632996">"Försök igen. Pinkoden stämmer inte"</string>
     <string name="wifi_setup_input_password" msgid="1596168874369038536">"Ange lösenordet för <xliff:g id="SSID">%1$s</xliff:g>"</string>
-    <string name="wifi_setup_connection_success" msgid="6262755735033937164">"Ansluten."</string>
-    <string name="wifi_setup_save_success" msgid="4829154865874318015">"Sparad."</string>
-    <string name="device_apps_app_management_version" msgid="1004679024556315208">"version <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
+    <string name="wifi_setup_connection_success" msgid="3846993789166071184">"Ansluten"</string>
+    <string name="wifi_setup_save_success" msgid="4785799603638549254">"Konfigurationen har sparats"</string>
+    <string name="device_apps_app_management_version" msgid="2267065043941006486">"Version <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
     <string name="device_apps_app_management_open" msgid="8009823973422120839">"Tillgängligt"</string>
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Tvingad avslutning"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Om du tvingar appen att avslutas kanske den inte fungerar som den ska."</string>
@@ -560,13 +619,13 @@
     <string name="settings_cancel" msgid="304280412158061225">"Avbryt"</string>
     <string name="settings_on" msgid="6892236264945435013">"På"</string>
     <string name="settings_off" msgid="449272161738237637">"Av"</string>
-    <string name="device_daydreams_none" msgid="7364189761517824834">"Ingen"</string>
-    <string name="device_daydreams_select" msgid="3691552535056569158">"Dagdrömmar"</string>
+    <string name="device_daydreams_none" msgid="2767107052779579259">"Stäng av skärmen"</string>
+    <string name="device_daydreams_select" msgid="2112338101206187695">"Skärmsläckare"</string>
     <string name="device_daydreams_test" msgid="9038920213402659591">"Starta nu"</string>
-    <string name="device_daydreams_sleep" msgid="8766795993034660366">"Då ska dagdrömmar aktiveras"</string>
-    <string name="device_daydreams_sleep_description" msgid="5269460120567642259">"Dagdrömmen startas när du har varit inaktiv så här länge. Om du inte har valt någon tid för dagdrömmen stängs skärmen av."</string>
+    <string name="device_daydreams_sleep" msgid="7676938708373592766">"Aktivera viloläge efter"</string>
+    <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"Skärmsläckaren startas när du har varit inaktiv så här länge. Om du inte har valt någon skärmsläckare stängs skärmen av."</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"Efter att ha varit inaktiv i <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>"</string>
-    <string name="device_daydreams_screen_off" msgid="5002473979169042970">"Då ska viloläget aktiveras"</string>
+    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Aktivera viloläge på enheten"</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"Skärmen stängs av när den varit inaktiv under så här lång tid."</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"Säkerhetskopierade uppgifter lagras för tillfället inte i något konto"</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
@@ -578,8 +637,8 @@
     <string name="factory_reset_description" msgid="5381170999141355891">"Alla uppgifter i enhetens internminne raderas, inklusive ditt Google-konto, system- och appdata, systeminställningar, appinställningar och hämtade appar."</string>
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Vill du radera alla personliga uppgifter och alla hämtade appar? Åtgärden kan inte ångras."</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Radera allt"</string>
-    <string name="select_title" msgid="3905067953686121845">"Välj ett namn på din ^1"</string>
-    <string name="select_description" msgid="4070142015460337658">"Ett namn hjälper dig att identifiera din ^1 när du behöver få åtkomst till den via andra enheter som mobilen, surfplattan eller datorn."</string>
+    <string name="select_device_name_title" msgid="5165800500130943604">"Välj ett namn på din <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
+    <string name="select_device_name_description" msgid="2697127827643821315">"Ett namn hjälper dig att identifiera din <xliff:g id="DEVICEMODEL">%1$s</xliff:g> när du behöver få åtkomst till den via andra enheter, t.ex. mobilen, surfplattan eller datorn."</string>
   <string-array name="rooms">
     <item msgid="7085399612393981553">"Vardagsrum"</item>
     <item msgid="3722089849939477581">"Medierum"</item>
@@ -590,12 +649,18 @@
     <item msgid="8120010459866284578">"Kök"</item>
   </string-array>
     <string name="custom_room" msgid="8991561978321502549">"Ange eget namn …"</string>
-    <string name="settings_status_title" msgid="3890412726442124167">"Denna ^1 har ett namn"</string>
-    <string name="settings_status_description" msgid="3600745966132434139">"Denna ^2 har namnet ^1. Vill du ändra det?"</string>
+    <string name="device_rename_title" msgid="2629557295786267185">"Byt namn på <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
+    <string name="device_rename_description" msgid="2461752788563877107">"Din <xliff:g id="DEVICEMODEL">%1$s</xliff:g> har för närvarande namnet <xliff:g id="DEVICENAME">%2$s</xliff:g>"</string>
     <string name="change_setting" msgid="2047402388786162246">"Ändra"</string>
     <string name="keep_settings" msgid="6798327196645732517">"Ändra inte"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"Behörigheter"</string>
     <string name="device_apps_permissions" msgid="2966387603529725982">"Appens behörigheter"</string>
     <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%d</xliff:g> av <xliff:g id="COUNT_1">%d</xliff:g> appar tillåts"</string>
+    <string name="bluetooth_permission_request" msgid="6649813878683015301">"Begäran om Bluetooth-behörighet"</string>
     <string name="security_patch" msgid="2131617390189164481">"Nivå av säkerhetskorrigering för Android"</string>
+    <string name="choose_application" msgid="5662960665577780353">"Välj app"</string>
+    <string name="experimental_preference" msgid="1137673985823581797">"(experimentellt)"</string>
+    <string name="reboot_safemode_action" msgid="8129550438717110406">"Starta om i felsäkert läge"</string>
+    <string name="reboot_safemode_confirm" msgid="3329475617645192086">"Vill du starta om enheten i felsäkert läge?"</string>
+    <string name="reboot_safemode_desc" msgid="5031024337104679492">"Det här alternativet inaktiverar alla appar från tredje part som du har installerat. Apparna återställs när du startar om enheten igen."</string>
 </resources>

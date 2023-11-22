@@ -25,6 +25,7 @@ libbacktrace_common_conlyflags := \
 
 libbacktrace_common_cppflags := \
 	-std=gnu++11 \
+	-I external/libunwind/include/tdep \
 
 # The latest clang (r230699) does not allow SP/PC to be declared in inline asm lists.
 libbacktrace_common_clang_cflags += \
@@ -36,6 +37,9 @@ ifeq ($(HOST_ARCH),$(filter $(HOST_ARCH),x86 x86_64))
 build_host := true
 endif
 endif
+
+LLVM_ROOT_PATH := external/llvm
+include $(LLVM_ROOT_PATH)/llvm.mk
 
 #-------------------------------------------------------------------------
 # The libbacktrace library.
@@ -51,22 +55,13 @@ libbacktrace_src_files := \
 	UnwindMap.cpp \
 	UnwindPtrace.cpp \
 
-libbacktrace_shared_libraries_target := \
-	libcutils \
-
 libbacktrace_shared_libraries := \
 	libbase \
+	liblog \
 	libunwind \
 
-libbacktrace_shared_libraries_host := \
-	liblog \
-
-libbacktrace_static_libraries_host := \
-	libcutils \
-
-libbacktrace_ldlibs_host := \
-	-lpthread \
-	-lrt \
+libbacktrace_static_libraries := \
+	libcutils
 
 module := libbacktrace
 module_tag := optional
@@ -75,6 +70,58 @@ build_target := SHARED_LIBRARY
 include $(LOCAL_PATH)/Android.build.mk
 build_type := host
 libbacktrace_multilib := both
+include $(LOCAL_PATH)/Android.build.mk
+libbacktrace_static_libraries := \
+	libbase \
+	liblog \
+	libunwind \
+
+build_target := STATIC_LIBRARY
+include $(LOCAL_PATH)/Android.build.mk
+libbacktrace_static_libraries :=
+
+#-------------------------------------------------------------------------
+# The libbacktrace_offline shared library.
+#-------------------------------------------------------------------------
+libbacktrace_offline_src_files := \
+	BacktraceOffline.cpp \
+
+# Use shared llvm library on device to save space.
+libbacktrace_offline_shared_libraries_target := \
+	libbacktrace \
+	libbase \
+	liblog \
+	libunwind \
+	libutils \
+	libLLVM \
+
+libbacktrace_offline_static_libraries_target := \
+	libziparchive \
+	libz \
+
+# Use static llvm libraries on host to remove dependency on 32-bit llvm shared library
+# which is not included in the prebuilt.
+libbacktrace_offline_static_libraries_host := \
+	libbacktrace \
+	libunwind \
+	libziparchive-host \
+	libz \
+	libbase \
+	liblog \
+	libutils \
+	libLLVMObject \
+	libLLVMBitReader \
+	libLLVMMC \
+	libLLVMMCParser \
+	libLLVMCore \
+	libLLVMSupport \
+
+module := libbacktrace_offline
+build_type := target
+build_target := STATIC_LIBRARY
+libbacktrace_offline_multilib := both
+include $(LOCAL_PATH)/Android.build.mk
+build_type := host
 include $(LOCAL_PATH)/Android.build.mk
 
 #-------------------------------------------------------------------------
@@ -85,6 +132,8 @@ libbacktrace_test_cflags := \
 
 libbacktrace_test_src_files := \
 	backtrace_testlib.c \
+
+libbacktrace_test_strip_module := false
 
 module := libbacktrace_test
 module_tag := debug
@@ -107,6 +156,7 @@ backtrace_test_cflags_target := \
 	-DENABLE_PSS_TESTS \
 
 backtrace_test_src_files := \
+	backtrace_offline_test.cpp \
 	backtrace_test.cpp \
 	GetPss.cpp \
 	thread_utils.c \
@@ -120,12 +170,36 @@ backtrace_test_shared_libraries := \
 	libbacktrace \
 	libbase \
 	libcutils \
+	liblog \
+	libunwind \
 
 backtrace_test_shared_libraries_target += \
 	libdl \
+	libutils \
+	libLLVM \
+
+backtrace_test_static_libraries := \
+	libbacktrace_offline \
+
+backtrace_test_static_libraries_target := \
+	libziparchive \
+	libz \
+
+backtrace_test_static_libraries_host := \
+	libziparchive-host \
+	libz \
+	libutils \
+	libLLVMObject \
+	libLLVMBitReader \
+	libLLVMMC \
+	libLLVMMCParser \
+	libLLVMCore \
+	libLLVMSupport \
 
 backtrace_test_ldlibs_host += \
 	-ldl \
+
+backtrace_test_strip_module := false
 
 module := backtrace_test
 module_tag := debug

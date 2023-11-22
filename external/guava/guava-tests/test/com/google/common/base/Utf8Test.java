@@ -21,7 +21,6 @@ import com.google.common.annotations.GwtIncompatible;
 
 import junit.framework.TestCase;
 
-import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Random;
@@ -310,14 +309,9 @@ public class Utf8Test extends TestCase {
       }
       boolean isRoundTrippable = Utf8.isWellFormed(bytes);
       assertEquals(isRoundTrippable, Utf8.isWellFormed(bytes, 0, numBytes));
-      boolean bytesEqual;
-      try {
-        String s = new String(bytes, Charsets.UTF_8.name());
-        byte[] bytesReencoded = s.getBytes(Charsets.UTF_8.name());
-        bytesEqual = Arrays.equals(bytes, bytesReencoded);
-      } catch (UnsupportedEncodingException e) {
-        throw new AssertionError(e);
-      }
+      String s = new String(bytes, Charsets.UTF_8);
+      byte[] bytesReencoded = s.getBytes(Charsets.UTF_8);
+      boolean bytesEqual = Arrays.equals(bytes, bytesReencoded);
 
       if (bytesEqual != isRoundTrippable) {
         fail();

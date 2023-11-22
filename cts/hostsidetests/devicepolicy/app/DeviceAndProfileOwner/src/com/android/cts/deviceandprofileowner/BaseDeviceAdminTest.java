@@ -19,6 +19,9 @@ import android.app.admin.DeviceAdminReceiver;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.os.UserManager;
 import android.test.InstrumentationTestCase;
 
 /**
@@ -37,6 +40,7 @@ public class BaseDeviceAdminTest extends InstrumentationTestCase {
             PACKAGE_NAME, BasicAdminReceiver.class.getName());
 
     protected DevicePolicyManager mDevicePolicyManager;
+    protected UserManager mUserManager;
     protected Context mContext;
 
     @Override
@@ -44,13 +48,21 @@ public class BaseDeviceAdminTest extends InstrumentationTestCase {
         super.setUp();
         mContext = getInstrumentation().getContext();
 
-        mDevicePolicyManager = (DevicePolicyManager)
-            mContext.getSystemService(Context.DEVICE_POLICY_SERVICE);
+        mDevicePolicyManager = mContext.getSystemService(DevicePolicyManager.class);
         assertNotNull(mDevicePolicyManager);
+
+        mUserManager = mContext.getSystemService(UserManager.class);
+        assertNotNull(mUserManager);
 
         assertTrue(mDevicePolicyManager.isAdminActive(ADMIN_RECEIVER_COMPONENT));
         assertTrue("App is neither device nor profile owner",
                 mDevicePolicyManager.isProfileOwnerApp(PACKAGE_NAME) ||
                 mDevicePolicyManager.isDeviceOwnerApp(PACKAGE_NAME));
+    }
+
+    protected int getTargetApiLevel() throws Exception {
+        final PackageManager pm = mContext.getPackageManager();
+        final PackageInfo pi = pm.getPackageInfo(mContext.getPackageName(), /* flags =*/ 0);
+        return pi.applicationInfo.targetSdkVersion;
     }
 }

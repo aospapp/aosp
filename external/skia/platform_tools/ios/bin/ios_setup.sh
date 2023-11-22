@@ -18,19 +18,16 @@ IOS_DOCS_DIR="Documents"
 # Temporary location to assemble the app into an .ipa package.
 IOS_PCKG_DIR="/tmp/ios_pckg"
 
-# Bundle id of the app that runs the tests.
-TEST_RUNNER_BUNDLE_ID="com.google.iOSShell"
-
 # Directory with the Skia source.
 SKIA_SRC_DIR=$(cd "${SCRIPT_DIR}/../../.."; pwd)
 
 # Provisioning profile - this needs to be set up on the local machine.
-PROVISIONING_PROFILE="9e88090d-abed-4e89-b106-3eff3512d31f"
+PROVISIONING_PROFILE=""
 
 # Code Signing identity - this needs to be set up on the local machine.
-CODE_SIGN_IDENTITY="iPhone Developer: Google Development (3F4Y5873JF)"
+CODE_SIGN_IDENTITY="iPhone Developer"
 
-IOS_BUNDLE_ID="com.google.iOSShell"
+IOS_BUNDLE_ID="com.google.iOSShell.`hostname | md5`"
 
 IOS_RESULTS_DIR="results"
 
@@ -38,6 +35,11 @@ IOS_RESULTS_DIR="results"
 if [[ -z "$BUILDTYPE" ]]; then
   BUILDTYPE="Debug"
 fi
+
+# Out dir is $SKIA_SRC_DIR/out by default. 
+if [[ -z "$SKIA_OUT" ]]; then 
+  SKIA_OUT="$SKIA_SRC_DIR/out"
+fi 
 
 ios_uninstall_app() {
   ideviceinstaller -U "$IOS_BUNDLE_ID"
@@ -82,14 +84,14 @@ ios_mount() {
   # If this is already mounted we unmount it.
   if $(mount | grep --quiet "$IOS_MOUNT_POINT"); then
     >&2 echo "Device already mounted at: $IOS_MOUNT_POINT - Unmounting."
-    ios_umount
+    ios_umount || true   
   fi
 
   # Ensure there is a mount directory.
   if [[ ! -d "$IOS_MOUNT_POINT" ]]; then
     mkdir -p $IOS_MOUNT_POINT
   fi
-  ifuse --container $TEST_RUNNER_BUNDLE_ID $IOS_MOUNT_POINT
+  ifuse --container $IOS_BUNDLE_ID $IOS_MOUNT_POINT
   sleep 1
   >&2 echo "Successfully mounted device."
 }
@@ -102,6 +104,7 @@ ios_umount() {
 
 # ios_restart: restarts the iOS device.
 ios_restart() {
+  ios_umount || true 
   idevicediagnostics restart
 }
 

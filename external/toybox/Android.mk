@@ -25,8 +25,9 @@ LOCAL_PATH := $(call my-dir)
 #  git merge toybox/master
 #  mm -j32
 #  # (Make any necessary Android.mk changes and test the new toybox.)
+#  repo upload .
+#  git push aosp HEAD:refs/for/master  # Push to gerrit for review.
 #  git push aosp HEAD:master  # Push directly, avoiding gerrit.
-#  git push aosp HEAD:refs/for/master  # Push to gerrit.
 #
 #  # Now commit any necessary Android.mk changes like normal:
 #  repo start post-sync .
@@ -53,6 +54,7 @@ LOCAL_SRC_FILES := \
     lib/help.c \
     lib/interestingtimes.c \
     lib/lib.c \
+    lib/linestack.c \
     lib/llist.c \
     lib/net.c \
     lib/portability.c \
@@ -86,13 +88,16 @@ LOCAL_SRC_FILES := \
     toys/other/clear.c \
     toys/other/dos2unix.c \
     toys/other/fallocate.c \
+    toys/other/flock.c \
     toys/other/free.c \
     toys/other/freeramdisk.c \
     toys/other/fsfreeze.c \
     toys/other/help.c \
+    toys/other/hwclock.c \
     toys/other/ifconfig.c \
     toys/other/inotifyd.c \
     toys/other/insmod.c \
+    toys/other/ionice.c \
     toys/other/losetup.c \
     toys/other/lsattr.c \
     toys/other/lsmod.c \
@@ -123,20 +128,20 @@ LOCAL_SRC_FILES := \
     toys/other/taskset.c \
     toys/other/timeout.c \
     toys/other/truncate.c \
+    toys/other/uptime.c \
     toys/other/usleep.c \
     toys/other/vconfig.c \
     toys/other/vmstat.c \
     toys/other/which.c \
+    toys/other/xxd.c \
     toys/other/yes.c \
     toys/pending/dd.c \
     toys/pending/expr.c \
-    toys/pending/hwclock.c \
+    toys/pending/lsof.c \
     toys/pending/more.c \
-    toys/pending/pgrep.c \
     toys/pending/netstat.c \
     toys/pending/route.c \
     toys/pending/tar.c \
-    toys/pending/top.c \
     toys/pending/tr.c \
     toys/pending/traceroute.c \
     toys/posix/basename.c \
@@ -174,6 +179,7 @@ LOCAL_SRC_FILES := \
     toys/posix/paste.c \
     toys/posix/patch.c \
     toys/posix/printf.c \
+    toys/posix/ps.c \
     toys/posix/pwd.c \
     toys/posix/renice.c \
     toys/posix/rm.c \
@@ -189,6 +195,7 @@ LOCAL_SRC_FILES := \
     toys/posix/touch.c \
     toys/posix/true.c \
     toys/posix/tty.c \
+    toys/posix/ulimit.c \
     toys/posix/uname.c \
     toys/posix/uniq.c \
     toys/posix/wc.c \
@@ -206,23 +213,31 @@ LOCAL_CFLAGS += \
     -ffunction-sections -fdata-sections \
     -fno-asynchronous-unwind-tables \
 
-toybox_version := $(shell git -C $(LOCAL_PATH) rev-parse --short=12 HEAD 2>/dev/null)-android
+toybox_upstream_version := $(shell awk 'match($$0, /TOYBOX_VERSION.*"(.*)"/, ary) {print ary[1]}' $(LOCAL_PATH)/main.c)
+toybox_sha := $(shell git -C $(LOCAL_PATH) rev-parse --short=12 HEAD 2>/dev/null)
+
+toybox_version := $(toybox_upstream_version)-$(toybox_sha)-android
 LOCAL_CFLAGS += -DTOYBOX_VERSION='"$(toybox_version)"'
 
 LOCAL_CLANG := true
 
 LOCAL_SHARED_LIBRARIES := libcutils libselinux
 
+# This doesn't actually prevent us from dragging in libc++ at runtime
+# because libnetd_client.so is C++.
+LOCAL_CXX_STL := none
+
 LOCAL_MODULE := toybox
 
-# dupes: dd df du ls mount renice
+# dupes: dd
 # useless?: freeramdisk fsfreeze install makedevs mkfifo nbd-client
-#           partprobe pivot_root pwdx rev rfkill switch_root tty vconfig
+#           partprobe pivot_root pwdx rev rfkill switch_root vconfig
 # prefer BSD netcat instead?: nc netcat
 # prefer efs2progs instead?: blkid chattr lsattr
 
 ALL_TOOLS := \
     acpi \
+    base64 \
     basename \
     blockdev \
     bzcat \
@@ -241,9 +256,11 @@ ALL_TOOLS := \
     cpio \
     cut \
     date \
+    df \
     dirname \
     dmesg \
     dos2unix \
+    du \
     echo \
     env \
     expand \
@@ -251,6 +268,7 @@ ALL_TOOLS := \
     fallocate \
     false \
     find \
+    flock \
     free \
     getenforce \
     getprop \
@@ -262,12 +280,17 @@ ALL_TOOLS := \
     ifconfig \
     inotifyd \
     insmod \
+    ionice \
+    iorenice \
     kill \
+    killall \
     load_policy \
     ln \
     logname \
     losetup \
+    ls \
     lsmod \
+    lsof \
     lsusb \
     md5sum \
     mkdir \
@@ -276,6 +299,7 @@ ALL_TOOLS := \
     mktemp \
     modinfo \
     more \
+    mount \
     mountpoint \
     mv \
     netstat \
@@ -294,6 +318,7 @@ ALL_TOOLS := \
     pwd \
     readlink \
     realpath \
+    renice \
     restorecon \
     rm \
     rmdir \
@@ -326,16 +351,20 @@ ALL_TOOLS := \
     tr \
     true \
     truncate \
+    tty \
+    ulimit \
     umount \
     uname \
     uniq \
     unix2dos \
+    uptime \
     usleep \
     vmstat \
     wc \
     which \
     whoami \
     xargs \
+    xxd \
     yes \
 
 # Install the symlinks.

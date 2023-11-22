@@ -91,11 +91,19 @@ uint64_t nanoTime() {
   return static_cast<uint64_t>(t.tv_sec) * NS_PER_SEC + t.tv_nsec;
 }
 
+// Static analyzer warns about potential memory leak of orig_ptr
+// in getAlignedMemory. That is true and the callers in this program
+// do not free orig_ptr. But, we don't care about that in this
+// going-obsolete test program. So, here is a hack to trick the
+// static analyzer.
+static void *saved_orig_ptr;
+
 // Allocate memory with a specific alignment and return that pointer.
 // This function assumes an alignment value that is a power of 2.
 // If the alignment is 0, then use the pointer returned by malloc.
 uint8_t *getAlignedMemory(uint8_t *orig_ptr, int alignment, int or_mask) {
   uint64_t ptr = reinterpret_cast<uint64_t>(orig_ptr);
+  saved_orig_ptr = orig_ptr;
   if (alignment > 0) {
       // When setting the alignment, set it to exactly the alignment chosen.
       // The pointer returned will be guaranteed not to be aligned to anything
@@ -382,20 +390,6 @@ int benchmarkSleep(const char* /*name*/, const command_data_t &cmd_data, void_fu
     return 0;
 }
 
-int benchmarkCpu(const char* /*name*/, const command_data_t &cmd_data, void_func_t /*func*/) {
-    // Use volatile so that the loop is not optimized away by the compiler.
-    volatile int cpu_foo;
-
-    MAINLOOP(cmd_data,
-             for (cpu_foo = 0; cpu_foo < 100000000; cpu_foo++),
-             (double)time_ns/NS_PER_SEC,
-             printf("cpu took %.06f seconds\n", avg),
-             printf("  cpu average %.06f seconds std dev %f min %0.6f seconds max %0.6f seconds\n", \
-                    running_avg, computeStdDev(square_avg, running_avg), min, max));
-
-    return 0;
-}
-
 int benchmarkMemset(const char *name, const command_data_t &cmd_data, void_func_t func) {
     memset_func_t memset_func = reinterpret_cast<memset_func_t>(func);
     BENCH_ONE_BUF(name, cmd_data, ;, memset_func(buf, i, size));
@@ -461,6 +455,7 @@ int benchmarkMemread(const char *name, const command_data_t &cmd_data, void_func
     size_t k;
     MAINLOOP_DATA(name, cmd_data, size,
                   for (k = 0; k < size/sizeof(uint32_t); k++) foo = src[k]);
+    free(src);
 
     return 0;
 }
@@ -591,7 +586,6 @@ int benchmarkStrcpyCold(const char *name, const command_data_t &cmd_data, void_f
 
 // Create the mapping structure.
 function_t function_table[] = {
-    { "cpu", benchmarkCpu, NULL },
     { "memcpy", benchmarkMemcpy, reinterpret_cast<void_func_t>(memcpy) },
     { "memcpy_cold", benchmarkMemcpyCold, reinterpret_cast<void_func_t>(memcpy) },
     { "memmove_forward", benchmarkMemcpy, reinterpret_cast<void_func_t>(memmove) },

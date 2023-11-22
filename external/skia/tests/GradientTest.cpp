@@ -9,6 +9,7 @@
 #include "SkColorShader.h"
 #include "SkGradientShader.h"
 #include "SkShader.h"
+#include "SkSurface.h"
 #include "SkTemplates.h"
 #include "Test.h"
 
@@ -18,7 +19,7 @@
 static void test_big_grad(skiatest::Reporter* reporter) {
     const SkColor colors[] = { SK_ColorRED, SK_ColorBLUE };
     const SkPoint pts[] = {{ 15, 14.7112684f }, { 0.709064007f, 12.6108112f }};
-    SkShader* s = SkGradientShader::CreateLinear(pts, colors, NULL, 2, SkShader::kClamp_TileMode);
+    SkShader* s = SkGradientShader::CreateLinear(pts, colors, nullptr, 2, SkShader::kClamp_TileMode);
     SkPaint paint;
     paint.setShader(s)->unref();
 
@@ -67,15 +68,15 @@ struct GradRec {
 
 static void none_gradproc(skiatest::Reporter* reporter, const GradRec&) {
     SkAutoTUnref<SkShader> s(SkShader::CreateEmptyShader());
-    REPORTER_ASSERT(reporter, SkShader::kNone_GradientType == s->asAGradient(NULL));
+    REPORTER_ASSERT(reporter, SkShader::kNone_GradientType == s->asAGradient(nullptr));
 }
 
 static void color_gradproc(skiatest::Reporter* reporter, const GradRec& rec) {
     SkAutoTUnref<SkShader> s(new SkColorShader(rec.fColors[0]));
-    REPORTER_ASSERT(reporter, SkShader::kColor_GradientType == s->asAGradient(NULL));
+    REPORTER_ASSERT(reporter, SkShader::kColor_GradientType == s->asAGradient(nullptr));
 
     SkShader::GradientInfo info;
-    info.fColors = NULL;
+    info.fColors = nullptr;
     info.fColorCount = 0;
     s->asAGradient(&info);
     REPORTER_ASSERT(reporter, 1 == info.fColorCount);
@@ -196,8 +197,46 @@ static void TestGradientShaders(skiatest::Reporter* reporter) {
     }
 }
 
+static void test_nearly_vertical(skiatest::Reporter* reporter) {
+    SkAutoTUnref<SkSurface> surface(SkSurface::NewRasterN32Premul(200, 200));
+
+    const SkPoint pts[] = {{ 100, 50 }, { 100.0001f, 50000 }};
+    const SkColor colors[] = { SK_ColorBLACK, SK_ColorWHITE };
+    const SkScalar pos[] = { 0, 1 };
+    SkAutoTUnref<SkShader> gradient(
+        SkGradientShader::CreateLinear(pts, colors, pos, 2, SkShader::kClamp_TileMode));
+
+    SkPaint paint;
+    paint.setShader(gradient);
+
+    surface->getCanvas()->drawPaint(paint);
+}
+
+// A linear gradient interval can, due to numerical imprecision (likely in the divide)
+// finish an interval with the final fx not landing outside of [p0...p1].
+// The old code had an assert which this test triggered.
+// We now explicitly clamp the resulting fx value.
+static void test_linear_fuzz(skiatest::Reporter* reporter) {
+    SkAutoTUnref<SkSurface> surface(SkSurface::NewRasterN32Premul(1300, 630));
+
+    const SkPoint pts[] = {{ 179.5f, -179.5f }, { 1074.5f, 715.5f }};
+    const SkColor colors[] = { SK_ColorBLACK, SK_ColorWHITE, SK_ColorBLACK, SK_ColorWHITE };
+    const SkScalar pos[] = {0, 0.200000003f, 0.800000012f, 1 };
+
+
+    SkAutoTUnref<SkShader> gradient(
+                   SkGradientShader::CreateLinear(pts, colors, pos, 4, SkShader::kClamp_TileMode));
+
+    SkPaint paint;
+    paint.setShader(gradient);
+    SkRect r = {0, 83, 1254, 620};
+    surface->getCanvas()->drawRect(r, paint);
+}
+
 DEF_TEST(Gradient, reporter) {
     TestGradientShaders(reporter);
     TestConstantGradient(reporter);
     test_big_grad(reporter);
+    test_nearly_vertical(reporter);
+    test_linear_fuzz(reporter);
 }

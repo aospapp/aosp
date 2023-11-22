@@ -26,13 +26,16 @@
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 
 #include "llvm/Option/OptTable.h"
+#include "llvm/Support/Allocator.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Signals.h"
+#include "llvm/Support/StringSaver.h"
 #include "llvm/Target/TargetMachine.h"
 
+#include "os_sep.h"
 #include "rs_cc_options.h"
 #include "slang.h"
 #include "slang_assert.h"
@@ -44,14 +47,19 @@
 #include <string>
 
 namespace {
-class StringSet : public llvm::cl::StringSaver {
+class StringSet {
 public:
-  const char *SaveString(const char *Str) override {
-    return Strings.insert(Str).first->c_str();
+  const char *save(const char *Str) {
+    return Strings.save(Str);
   }
 
+  StringSet() : Strings(A), A() {}
+
+  llvm::StringSaver & getStringSaver() { return Strings; }
+
 private:
-  std::set<std::string> Strings;
+  llvm::StringSaver Strings;
+  llvm::BumpPtrAllocator A;
 };
 }
 
@@ -111,7 +119,7 @@ static const char *DetermineOutputFile(const std::string &OutputDir,
     }
   }
 
-  return SavedStrings->SaveString(OutputFile.c_str());
+  return SavedStrings->save(OutputFile.c_str());
 }
 
 typedef std::list<std::pair<const char*, const char*> > NamePairList;
@@ -224,7 +232,7 @@ int main(int argc, const char **argv) {
   llvm::IntrusiveRefCntPtr<clang::DiagnosticOptions> DiagOpts =
       new clang::DiagnosticOptions();
   if (!slang::ParseArguments(llvm::makeArrayRef(argv, argc), Inputs, Opts,
-                             *DiagOpts, SavedStrings)) {
+                             *DiagOpts, SavedStrings.getStringSaver())) {
     // Exits when there's any error occurred during parsing the arguments
     return 1;
   }

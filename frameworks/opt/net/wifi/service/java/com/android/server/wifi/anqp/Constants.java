@@ -4,7 +4,10 @@ import java.net.ProtocolException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.Charset;
+import java.util.Collection;
+import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -19,10 +22,13 @@ public class Constants {
     public static final int BYTES_IN_SHORT = 2;
     public static final int BYTES_IN_INT = 4;
     public static final int BYTES_IN_EUI48 = 6;
+    public static final long MILLIS_IN_A_SEC = 1000L;
 
     public static final int HS20_PREFIX = 0x119a6f50;   // Note that this is represented as a LE int
     public static final int HS20_FRAME_PREFIX = 0x109a6f50;
     public static final int UTF8_INDICATOR = 1;
+
+    public static final int LANG_CODE_LENGTH = 3;
 
     public static final int ANQP_QUERY_LIST = 256;
     public static final int ANQP_CAPABILITY_LIST = 257;
@@ -85,10 +91,12 @@ public class Constants {
         HSIconFile
     }
 
-    private static final Map<Integer, ANQPElementType> sAnqpMap = new HashMap<Integer, ANQPElementType>();
-    private static final Map<Integer, ANQPElementType> sHs20Map = new HashMap<Integer, ANQPElementType>();
-    private static final Map<ANQPElementType, Integer> sRevAnqpmap = new HashMap<ANQPElementType, Integer>();
-    private static final Map<ANQPElementType, Integer> sRevHs20map = new HashMap<ANQPElementType, Integer>();
+    private static final Map<Integer, ANQPElementType> sAnqpMap = new HashMap<>();
+    private static final Map<Integer, ANQPElementType> sHs20Map = new HashMap<>();
+    private static final Map<ANQPElementType, Integer> sRevAnqpmap =
+            new EnumMap<>(ANQPElementType.class);
+    private static final Map<ANQPElementType, Integer> sRevHs20map =
+            new EnumMap<>(ANQPElementType.class);
 
     static {
         sAnqpMap.put(ANQP_QUERY_LIST, ANQPElementType.ANQPQueryList);
@@ -145,6 +153,22 @@ public class Constants {
         return sRevHs20map.get(elementType);
     }
 
+    public static boolean hasBaseANQPElements(Collection<ANQPElementType> elements) {
+        if (elements == null) {
+            return false;
+        }
+        for (ANQPElementType element : elements) {
+            if (sRevAnqpmap.containsKey(element)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean hasR2Elements(List<ANQPElementType> elements) {
+        return elements.contains(ANQPElementType.HSOSUProviders);
+    }
+
     public static long getInteger(ByteBuffer payload, ByteOrder bo, int size) {
         byte[] octets = new byte[size];
         payload.get(octets);
@@ -174,6 +198,19 @@ public class Constants {
         }
         return getString(payload, (int) getInteger(payload, ByteOrder.LITTLE_ENDIAN,
                 lengthLength), charset, useNull);
+    }
+
+    public static String getTrimmedString(ByteBuffer payload, int length, Charset charset)
+            throws ProtocolException {
+        String s = getString(payload, length, charset, false);
+        int zero = length - 1;
+        while (zero >= 0) {
+            if (s.charAt(zero) != 0) {
+                break;
+            }
+            zero--;
+        }
+        return zero < length - 1 ? s.substring(0, zero + 1) : s;
     }
 
     public static String getString(ByteBuffer payload, int length, Charset charset)

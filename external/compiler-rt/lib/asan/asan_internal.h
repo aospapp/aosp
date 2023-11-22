@@ -21,8 +21,6 @@
 #include "sanitizer_common/sanitizer_stacktrace.h"
 #include "sanitizer_common/sanitizer_libc.h"
 
-#define ASAN_DEFAULT_FAILURE_EXITCODE 1
-
 #if __has_feature(address_sanitizer) || defined(__SANITIZE_ADDRESS__)
 # error "The AddressSanitizer run-time should not be"
         " instrumented by AddressSanitizer"
@@ -75,12 +73,9 @@ void *AsanDoesNotSupportStaticLinkage();
 void AsanCheckDynamicRTPrereqs();
 void AsanCheckIncompatibleRT();
 
-void AsanOnSIGSEGV(int, void *siginfo, void *context);
+void AsanOnDeadlySignal(int, void *siginfo, void *context);
 
-void DisableReexec();
-void MaybeReexec();
 void ReadContextStack(void *context, uptr *stack, uptr *ssize);
-void AsanPlatformThreadInit();
 void StopInitOrderChecking();
 
 // Wrapper for TLS/TSD.
@@ -93,7 +88,7 @@ void AppendToErrorMessageBuffer(const char *buffer);
 
 void *AsanDlSymNext(const char *sym);
 
-void ReserveShadowMemoryRange(uptr beg, uptr end);
+void ReserveShadowMemoryRange(uptr beg, uptr end, const char *name);
 
 // Platform-specific options.
 #if SANITIZER_MAC

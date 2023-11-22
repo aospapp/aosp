@@ -16,6 +16,7 @@
 
 package com.android.contacts.editor;
 
+import com.android.contacts.R;
 import android.content.ContentValues;
 import android.content.Context;
 import android.os.Parcel;
@@ -23,9 +24,14 @@ import android.os.Parcelable;
 import android.provider.ContactsContract.CommonDataKinds.StructuredName;
 import android.text.TextUtils;
 import android.util.AttributeSet;
+import android.view.View;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import com.android.contacts.common.model.RawContactDelta;
 import com.android.contacts.common.model.ValuesDelta;
+import com.android.contacts.common.model.account.AccountType;
 import com.android.contacts.common.model.dataitem.DataItem;
 import com.android.contacts.common.model.dataitem.DataKind;
 import com.android.contacts.common.util.NameConverter;
@@ -73,6 +79,18 @@ public class StructuredNameEditorView extends TextFieldsEditorView {
             mChanged = false;
         }
         updateEmptiness();
+    }
+
+    /**
+     * Displays the icon and name for the given account under the name name input fields.
+     */
+    public void setAccountType(AccountType accountType) {
+        final LinearLayout layout = (LinearLayout) findViewById(R.id.account_type);
+        layout.setVisibility(View.VISIBLE);
+        final ImageView imageView = (ImageView) layout.findViewById(R.id.account_type_icon);
+        imageView.setImageDrawable(accountType.getDisplayIcon(getContext()));
+        final TextView textView = (TextView) layout.findViewById(R.id.account_type_name);
+        textView.setText(accountType.getDisplayLabel(getContext()));
     }
 
     @Override
@@ -203,8 +221,13 @@ public class StructuredNameEditorView extends TextFieldsEditorView {
      */
     public void setDisplayName(String name) {
         // For now, assume the first text field is the name.
-        // TODO: Find a better way to get a hold of the name field.
+        // TODO: Find a better way to get a hold of the name field,
+        // including given_name and family_name.
         super.setValue(0, name);
+        getValues().setDisplayName(name);
+        rebuildStructuredName(getValues());
+        super.setValue(1, getValues().getAsString(StructuredName.GIVEN_NAME));
+        super.setValue(3, getValues().getAsString(StructuredName.FAMILY_NAME));
     }
 
     /**
@@ -212,27 +235,16 @@ public class StructuredNameEditorView extends TextFieldsEditorView {
      */
     public String getDisplayName() {
         final ValuesDelta valuesDelta = getValues();
-        if (hasShortAndLongForms()) {
-            if (areOptionalFieldsVisible()) {
-                final Map<String, String> structuredNameMap = valuesToStructuredNameMap(valuesDelta);
-                final String displayName = NameConverter.structuredNameToDisplayName(
-                        getContext(), structuredNameMap);
-                if (!TextUtils.isEmpty(displayName)) {
-                    return displayName;
-                }
-            } else {
-                final String displayName = valuesDelta.getDisplayName();
-                if (!TextUtils.isEmpty(displayName)) {
-                    return displayName;
-                }
+        rebuildFullName(valuesDelta);
+        if (hasShortAndLongForms() && areOptionalFieldsVisible()) {
+            final Map<String, String> structuredNameMap = valuesToStructuredNameMap(valuesDelta);
+            final String displayName = NameConverter.structuredNameToDisplayName(
+                    getContext(), structuredNameMap);
+            if (!TextUtils.isEmpty(displayName)) {
+                return displayName;
             }
         }
         return valuesDelta.getDisplayName();
-    }
-
-    @Override
-    public boolean isEmpty() {
-        return TextUtils.isEmpty(getDisplayName());
     }
 
     @Override

@@ -16,168 +16,139 @@
 
 package android.uirendering.cts.testclasses;
 
-import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.drawable.NinePatchDrawable;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.test.suitebuilder.annotation.MediumTest;
 import android.uirendering.cts.bitmapcomparers.BitmapComparer;
 import android.uirendering.cts.bitmapcomparers.ExactComparer;
 import android.uirendering.cts.bitmapverifiers.BitmapVerifier;
 import android.uirendering.cts.bitmapverifiers.RectVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
-import android.uirendering.cts.testinfrastructure.CanvasClient;
-import com.android.cts.uirendering.R;
+import android.uirendering.cts.R;
+import org.junit.Test;
 
+@MediumTest
 public class ExactCanvasTests extends ActivityTestBase {
     private final BitmapComparer mExactComparer = new ExactComparer();
 
-    @SmallTest
+    @Test
     public void testBlueRect() {
         final Rect rect = new Rect(10, 10, 80, 80);
         createTest()
-                .addCanvasClient(new CanvasClient() {
-                    @Override
-                    public void draw(Canvas canvas, int width, int height) {
-                        Paint p = new Paint();
-                        p.setAntiAlias(false);
-                        p.setColor(Color.BLUE);
-                        canvas.drawRect(rect, p);
-                    }
+                .addCanvasClient((canvas, width, height) -> {
+                    Paint p = new Paint();
+                    p.setAntiAlias(false);
+                    p.setColor(Color.BLUE);
+                    canvas.drawRect(rect, p);
                 })
                 .runWithVerifier(new RectVerifier(Color.WHITE, Color.BLUE, rect));
     }
 
-    @SmallTest
+    @Test
     public void testPoints() {
         createTest()
-                .addCanvasClient(new CanvasClient() {
-                    @Override
-                    public void draw(Canvas canvas, int width, int height) {
-                        Paint p = new Paint();
-                        p.setAntiAlias(false);
-                        p.setStrokeWidth(1f);
-                        p.setColor(Color.BLACK);
-                        for (int i = 0; i < 10; i++) {
-                            canvas.drawPoint(i * 10, i * 10, p);
-                        }
+                .addCanvasClient((canvas, width, height) -> {
+                    Paint p = new Paint();
+                    p.setAntiAlias(false);
+                    p.setStrokeWidth(1f);
+                    p.setColor(Color.BLACK);
+                    for (int i = 0; i < 10; i++) {
+                        canvas.drawPoint(i * 10, i * 10, p);
                     }
                 })
                 .runWithComparer(mExactComparer);
     }
 
-    @SmallTest
+    @Test
     public void testBlackRectWithStroke() {
         createTest()
-                .addCanvasClient(new CanvasClient() {
-                    @Override
-                    public void draw(Canvas canvas, int width, int height) {
-                        Paint p = new Paint();
-                        p.setColor(Color.RED);
-                        canvas.drawRect(0, 0, ActivityTestBase.TEST_WIDTH,
-                                ActivityTestBase.TEST_HEIGHT, p);
-                        p.setColor(Color.BLACK);
-                        p.setStrokeWidth(5);
-                        canvas.drawRect(10, 10, 80, 80, p);
-                    }
+                .addCanvasClient((canvas, width, height) -> {
+                    Paint p = new Paint();
+                    p.setColor(Color.RED);
+                    canvas.drawRect(0, 0, ActivityTestBase.TEST_WIDTH,
+                            ActivityTestBase.TEST_HEIGHT, p);
+                    p.setColor(Color.BLACK);
+                    p.setStrokeWidth(5);
+                    canvas.drawRect(10, 10, 80, 80, p);
                 })
                 .runWithComparer(mExactComparer);
     }
 
-    @SmallTest
+    @Test
     public void testBlackLineOnGreenBack() {
         createTest()
-                .addCanvasClient(new CanvasClient() {
-                    @Override
-                    public void draw(Canvas canvas, int width, int height) {
-                        canvas.drawColor(Color.GREEN);
-                        Paint p = new Paint();
-                        p.setColor(Color.BLACK);
-                        p.setStrokeWidth(10);
-                        canvas.drawLine(0, 0, 50, 0, p);
-                    }
+                .addCanvasClient((canvas, width, height) -> {
+                    canvas.drawColor(Color.GREEN);
+                    Paint p = new Paint();
+                    p.setColor(Color.BLACK);
+                    p.setStrokeWidth(10);
+                    canvas.drawLine(0, 0, 50, 0, p);
                 })
                 .runWithComparer(mExactComparer);
     }
 
-    @SmallTest
+    @Test
     public void testDrawRedRectOnBlueBack() {
         createTest()
-                .addCanvasClient(new CanvasClient() {
-                    @Override
-                    public void draw(Canvas canvas, int width, int height) {
-                        canvas.drawColor(Color.BLUE);
-                        Paint p = new Paint();
-                        p.setColor(Color.RED);
-                        canvas.drawRect(10, 10, 40, 40, p);
-                    }
+                .addCanvasClient((canvas, width, height) -> {
+                    canvas.drawColor(Color.BLUE);
+                    Paint p = new Paint();
+                    p.setColor(Color.RED);
+                    canvas.drawRect(10, 10, 40, 40, p);
                 })
                 .runWithComparer(mExactComparer);
     }
 
-    @SmallTest
+    @Test
     public void testDrawLine() {
         createTest()
-                .addCanvasClient(new CanvasClient() {
-                    @Override
-                    public void draw(Canvas canvas, int width, int height) {
-                        Paint p = new Paint();
-                        canvas.drawColor(Color.WHITE);
-                        p.setColor(Color.BLACK);
-                        float[] pts = {
-                                0, 0, 80, 80, 80, 0, 0, 80, 40, 50, 60, 50
-                        };
-                        canvas.drawLines(pts, p);
-                    }
+                .addCanvasClient((canvas, width, height) -> {
+                    Paint p = new Paint();
+                    canvas.drawColor(Color.WHITE);
+                    p.setColor(Color.BLACK);
+                    float[] pts = {
+                            0, 0, 80, 80, 80, 0, 0, 80, 40, 50, 60, 50
+                    };
+                    canvas.drawLines(pts, p);
                 })
                 .runWithComparer(mExactComparer);
     }
 
-    @SmallTest
+    @Test
     public void testDrawWhiteScreen() {
         createTest()
-                .addCanvasClient(new CanvasClient() {
-                    @Override
-                    public void draw(Canvas canvas, int width, int height) {
-                        canvas.drawColor(Color.WHITE);
-                    }
-                })
+                .addCanvasClient((canvas, width, height) -> canvas.drawColor(Color.WHITE))
                 .runWithComparer(mExactComparer);
     }
 
-    @SmallTest
+    @Test
     public void testBasicText() {
         final String testString = "THIS IS A TEST";
         createTest()
-                .addCanvasClient(new CanvasClient() {
-                    @Override
-                    public void draw(Canvas canvas, int width, int height) {
-                        Paint p = new Paint();
-                        canvas.drawColor(Color.BLACK);
-                        p.setColor(Color.WHITE);
-                        p.setStrokeWidth(5);
-                        canvas.drawText(testString, 30, 50, p);
-                    }
+                .addCanvasClient((canvas, width, height) -> {
+                    Paint p = new Paint();
+                    canvas.drawColor(Color.BLACK);
+                    p.setColor(Color.WHITE);
+                    p.setStrokeWidth(5);
+                    canvas.drawText(testString, 30, 50, p);
                 })
                 .runWithComparer(mExactComparer);
     }
 
-    @SmallTest
+    @Test
     public void testBasicColorXfermode() {
         createTest()
-                .addCanvasClient(new CanvasClient() {
-                    @Override
-                    public void draw(Canvas canvas, int width, int height) {
-                        canvas.drawColor(Color.GRAY);
-                        canvas.drawColor(Color.BLUE, PorterDuff.Mode.MULTIPLY);
-                    }
+                .addCanvasClient((canvas, width, height) -> {
+                    canvas.drawColor(Color.GRAY);
+                    canvas.drawColor(Color.BLUE, PorterDuff.Mode.MULTIPLY);
                 })
                 .runWithComparer(mExactComparer);
     }
 
-    @SmallTest
+    @Test
     public void testBluePaddedSquare() {
         final NinePatchDrawable ninePatchDrawable = (NinePatchDrawable)
             getActivity().getResources().getDrawable(R.drawable.blue_padded_square);
@@ -187,22 +158,28 @@ public class ExactCanvasTests extends ActivityTestBase {
                 new Rect(10, 10, 80, 80));
 
         createTest()
-                .addCanvasClient(new CanvasClient() {
-                    @Override
-                    public void draw(Canvas canvas, int width, int height) {
-                        canvas.drawColor(Color.WHITE);
-                        Paint p = new Paint();
-                        p.setColor(Color.BLUE);
-                        canvas.drawRect(10, 10, 80, 80, p);
-                    }
+                .addCanvasClient((canvas, width, height) -> {
+                    canvas.drawColor(Color.WHITE);
+                    Paint p = new Paint();
+                    p.setColor(Color.BLUE);
+                    canvas.drawRect(10, 10, 80, 80, p);
                 })
-                .addCanvasClient(new CanvasClient() {
-                    @Override
-                    public void draw(Canvas canvas, int width, int height) {
-                        ninePatchDrawable.draw(canvas);
-                    }
-                })
+                .addCanvasClient((canvas, width, height) -> ninePatchDrawable.draw(canvas))
                 .addLayout(R.layout.blue_padded_square, null)
                 .runWithVerifier(verifier);
     }
+
+    @Test
+    public void testEmptyLayer() {
+        createTest()
+                .addCanvasClient((canvas, width, height) -> {
+                    canvas.drawColor(Color.CYAN);
+                    Paint p = new Paint();
+                    p.setColor(Color.BLACK);
+                    canvas.saveLayer(10, 10, 80, 80, p);
+                    canvas.restore();
+                })
+                .runWithComparer(mExactComparer);
+    }
+
 }

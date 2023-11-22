@@ -12,6 +12,7 @@
 
 #include "SkRect.h"
 
+struct SkRSXform;
 class SkString;
 
 /** \class SkMatrix
@@ -21,6 +22,7 @@ class SkString;
     using either reset() - to construct an identity matrix, or one of the set
     functions (e.g. setTranslate, setRotate, etc.).
 */
+SK_BEGIN_REQUIRE_DENSE
 class SK_API SkMatrix {
 public:
     static SkMatrix SK_WARN_UNUSED_RESULT MakeScale(SkScalar sx, SkScalar sy) {
@@ -28,13 +30,13 @@ public:
         m.setScale(sx, sy);
         return m;
     }
-    
+
     static SkMatrix SK_WARN_UNUSED_RESULT MakeScale(SkScalar scale) {
         SkMatrix m;
         m.setScale(scale, scale);
         return m;
     }
-    
+
     static SkMatrix SK_WARN_UNUSED_RESULT MakeTrans(SkScalar dx, SkScalar dy) {
         SkMatrix m;
         m.setTranslate(dx, dy);
@@ -244,6 +246,9 @@ public:
     /** Set the matrix to rotate by the specified sine and cosine values.
     */
     void setSinCos(SkScalar sinValue, SkScalar cosValue);
+
+    SkMatrix& setRSXform(const SkRSXform&);
+
     /** Set the matrix to skew by sx and sy, with a pivot point at (px, py).
         The pivot point is the coordinate that should remain unchanged by the
         specified transformation.
@@ -365,6 +370,11 @@ public:
         @return true if the matrix can be represented by the rectangle mapping.
     */
     bool setRectToRect(const SkRect& src, const SkRect& dst, ScaleToFit stf);
+    static SkMatrix MakeRectToRect(const SkRect& src, const SkRect& dst, ScaleToFit stf) {
+        SkMatrix m;
+        m.setRectToRect(src, dst, stf);
+        return m;
+    }
 
     /** Set the matrix such that the specified src points would map to the
         specified dst points. count must be within [0..4].
@@ -581,11 +591,16 @@ public:
         return GetMapPtsProc(this->getType());
     }
 
-    /** If the matrix can be stepped in X (not complex perspective)
-        then return true and if step[XY] is not null, return the step[XY] value.
-        If it cannot, return false and ignore step.
+    /** Returns true if the matrix can be stepped in X (not complex
+        perspective).
     */
-    bool fixedStepInX(SkScalar y, SkFixed* stepX, SkFixed* stepY) const;
+    bool isFixedStepInX() const;
+
+    /** If the matrix can be stepped in X (not complex perspective)
+        then return the step value.
+        If it cannot, behavior is undefined.
+    */
+    SkVector fixedStepInX(SkScalar y) const;
 
     /** Efficient comparison of two matrices. It distinguishes between zero and
      *  negative zero. It will return false when the sign of zero values is the
@@ -625,15 +640,17 @@ public:
 
     /**
      * Calculates the minimum scaling factor of the matrix as computed from the SVD of the upper
-     * left 2x2. If the matrix has perspective -1 is returned.
+     * left 2x2. If the max scale factor cannot be computed (for example overflow or perspective)
+     * -1 is returned.
      *
-     * @return minumum scale factor
+     * @return minimum scale factor
      */
     SkScalar getMinScale() const;
 
     /**
      * Calculates the maximum scaling factor of the matrix as computed from the SVD of the upper
-     * left 2x2. If the matrix has perspective -1 is returned.
+     * left 2x2. If the max scale factor cannot be computed (for example overflow or perspective)
+     * -1 is returned.
      *
      * @return maximum scale factor
      */
@@ -641,10 +658,10 @@ public:
 
     /**
      * Gets both the min and max scale factors. The min scale factor is scaleFactors[0] and the max
-     * is scaleFactors[1]. If the matrix has perspective false will be returned and scaleFactors
-     * will be unchanged.
+     * is scaleFactors[1]. If the min/max scale factors cannot be computed false is returned and the
+     * values of scaleFactors[] are undefined.
      */
-    bool getMinMaxScales(SkScalar scaleFactors[2]) const;
+    bool SK_WARN_UNUSED_RESULT getMinMaxScales(SkScalar scaleFactors[2]) const;
 
     /**
      *  Attempt to decompose this matrix into a scale-only component and whatever remains, where
@@ -718,6 +735,12 @@ private:
 
     SkScalar         fMat[9];
     mutable uint32_t fTypeMask;
+
+    /** Are all elements of the matrix finite?
+     */
+    bool isFinite() const { return SkScalarsAreFinite(fMat, 9); }
+
+    static void ComputeInv(SkScalar dst[9], const SkScalar src[9], double invDet, bool isPersp);
 
     void setScaleTranslate(SkScalar sx, SkScalar sy, SkScalar tx, SkScalar ty) {
         fMat[kMScaleX] = sx;
@@ -811,5 +834,6 @@ private:
 
     friend class SkPerspIter;
 };
+SK_END_REQUIRE_DENSE
 
 #endif

@@ -15,10 +15,10 @@
 #include "SkTableColorFilter.h"
 #include "SkWriteBuffer.h"
 
-SkColorFilterImageFilter* SkColorFilterImageFilter::Create(SkColorFilter* cf,
-        SkImageFilter* input, const CropRect* cropRect) {
-    if (NULL == cf) {
-        return NULL;
+SkImageFilter* SkColorFilterImageFilter::Create(SkColorFilter* cf, SkImageFilter* input,
+                                                const CropRect* cropRect) {
+    if (nullptr == cf) {
+        return nullptr;
     }
 
     SkColorFilter* inputCF;
@@ -28,11 +28,11 @@ SkColorFilterImageFilter* SkColorFilterImageFilter::Create(SkColorFilter* cf,
         SkAutoUnref autoUnref(inputCF);
         SkAutoTUnref<SkColorFilter> newCF(SkColorFilter::CreateComposeFilter(cf, inputCF));
         if (newCF) {
-            return SkNEW_ARGS(SkColorFilterImageFilter, (newCF, input->getInput(0), cropRect));
+            return new SkColorFilterImageFilter(newCF, input->getInput(0), cropRect);
         }
     }
 
-    return SkNEW_ARGS(SkColorFilterImageFilter, (cf, input, cropRect));
+    return new SkColorFilterImageFilter(cf, input, cropRect);
 }
 
 SkColorFilterImageFilter::SkColorFilterImageFilter(SkColorFilter* cf,
@@ -55,23 +55,25 @@ SkColorFilterImageFilter::~SkColorFilterImageFilter() {
     fColorFilter->unref();
 }
 
-bool SkColorFilterImageFilter::onFilterImage(Proxy* proxy, const SkBitmap& source,
-                                             const Context& ctx,
-                                             SkBitmap* result,
-                                             SkIPoint* offset) const {
+bool SkColorFilterImageFilter::onFilterImageDeprecated(Proxy* proxy, const SkBitmap& source,
+                                                       const Context& ctx,
+                                                       SkBitmap* result,
+                                                       SkIPoint* offset) const {
     SkBitmap src = source;
     SkIPoint srcOffset = SkIPoint::Make(0, 0);
-    if (getInput(0) && !getInput(0)->filterImage(proxy, source, ctx, &src, &srcOffset)) {
+    if (!this->filterInputDeprecated(0, proxy, source, ctx, &src, &srcOffset)) {
         return false;
     }
 
     SkIRect bounds;
-    if (!this->applyCropRect(ctx, src, srcOffset, &bounds)) {
+    SkIRect srcBounds = src.bounds();
+    srcBounds.offset(srcOffset);
+    if (!this->applyCropRect(ctx, srcBounds, &bounds)) {
         return false;
     }
 
     SkAutoTUnref<SkBaseDevice> device(proxy->createDevice(bounds.width(), bounds.height()));
-    if (NULL == device.get()) {
+    if (nullptr == device.get()) {
         return false;
     }
     SkCanvas canvas(device.get());
@@ -79,7 +81,8 @@ bool SkColorFilterImageFilter::onFilterImage(Proxy* proxy, const SkBitmap& sourc
 
     paint.setXfermodeMode(SkXfermode::kSrc_Mode);
     paint.setColorFilter(fColorFilter);
-    canvas.drawSprite(src, srcOffset.fX - bounds.fLeft, srcOffset.fY - bounds.fTop, &paint);
+    canvas.drawBitmap(src, SkIntToScalar(srcOffset.fX - bounds.fLeft),
+                           SkIntToScalar(srcOffset.fY - bounds.fTop), &paint);
 
     *result = device.get()->accessBitmap(false);
     offset->fX = bounds.fLeft;
@@ -96,6 +99,13 @@ bool SkColorFilterImageFilter::onIsColorFilterNode(SkColorFilter** filter) const
         return true;
     }
     return false;
+}
+
+bool SkColorFilterImageFilter::canComputeFastBounds() const {
+    if (fColorFilter->affectsTransparentBlack()) {
+        return false;
+    }
+    return INHERITED::canComputeFastBounds();
 }
 
 #ifndef SK_IGNORE_TO_STRING

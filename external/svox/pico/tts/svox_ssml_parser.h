@@ -17,7 +17,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <libexpat/expat.h>
+#include <expat.h>
 
 #ifndef _SVOX_SSML_PARSER_H_
 #define _SVOX_SSML_PARSER_H_

@@ -355,7 +355,11 @@ status_t PlaylistFetcher::decryptBuffer(
     if (!n) {
         return OK;
     }
-    CHECK(n % 16 == 0);
+
+    if (n < 16 || n % 16) {
+        ALOGE("not enough or trailing bytes (%zu) in encrypted buffer", n);
+        return ERROR_MALFORMED;
+    }
 
     if (first) {
         // If decrypting the first block in a file, read the iv from the manifest
@@ -364,9 +368,13 @@ status_t PlaylistFetcher::decryptBuffer(
         AString iv;
         if (itemMeta->findString("cipher-iv", &iv)) {
             if ((!iv.startsWith("0x") && !iv.startsWith("0X"))
-                    || iv.size() != 16 * 2 + 2) {
+                    || iv.size() > 16 * 2 + 2) {
                 ALOGE("malformed cipher IV '%s'.", iv.c_str());
                 return ERROR_MALFORMED;
+            }
+
+            while (iv.size() < 16 * 2 + 2) {
+                iv.insert("0", 1, 2);
             }
 
             memset(mAESInitVec, 0, sizeof(mAESInitVec));
@@ -1084,6 +1092,13 @@ bool PlaylistFetcher::initDownloadState(
             // fall through
         } else {
             if (mPlaylist != NULL) {
+                if (mSeqNumber >= firstSeqNumberInPlaylist + (int32_t)mPlaylist->size()
+                        && !mPlaylist->isComplete()) {
+                    // Live playlists
+                    ALOGW("sequence number %d not yet available", mSeqNumber);
+                    postMonitorQueue(delayUsToRefreshPlaylist());
+                    return false;
+                }
                 ALOGE("Cannot find sequence number %d in playlist "
                      "(contains %d - %d)",
                      mSeqNumber, firstSeqNumberInPlaylist,
@@ -1176,8 +1191,7 @@ bool PlaylistFetcher::initDownloadState(
         // Signal a format discontinuity to ATSParser to clear partial data
         // from previous streams. Not doing this causes bitstream corruption.
         if (mTSParser != NULL) {
-            mTSParser->signalDiscontinuity(
-                    ATSParser::DISCONTINUITY_FORMATCHANGE, NULL /* extra */);
+            mTSParser.clear();
         }
 
         queueDiscontinuity(
@@ -1628,7 +1642,8 @@ status_t PlaylistFetcher::extractAndQueueAccessUnitsFromTs(const sp<ABuffer> &bu
 
     if (mSegmentFirstPTS < 0ll) {
         // get the smallest first PTS from all streams present in this parser
-        for (size_t i = mPacketSources.size(); i-- > 0;) {
+        for (size_t i = mPacketSources.size(); i > 0;) {
+            i--;
             const LiveSession::StreamType stream = mPacketSources.keyAt(i);
             if (stream == LiveSession::STREAMTYPE_SUBTITLES) {
                 ALOGE("MPEG2 Transport streams do not contain subtitles.");
@@ -1683,7 +1698,8 @@ status_t PlaylistFetcher::extractAndQueueAccessUnitsFromTs(const sp<ABuffer> &bu
     }
 
     status_t err = OK;
-    for (size_t i = mPacketSources.size(); i-- > 0;) {
+    for (size_t i = mPacketSources.size(); i > 0;) {
+        i--;
         sp<AnotherPacketSource> packetSource = mPacketSources.valueAt(i);
 
         const LiveSession::StreamType stream = mPacketSources.keyAt(i);
@@ -1807,7 +1823,8 @@ status_t PlaylistFetcher::extractAndQueueAccessUnitsFromTs(const sp<ABuffer> &bu
     }
 
     if (err != OK) {
-        for (size_t i = mPacketSources.size(); i-- > 0;) {
+        for (size_t i = mPacketSources.size(); i > 0;) {
+            i--;
             sp<AnotherPacketSource> packetSource = mPacketSources.valueAt(i);
             packetSource->clear();
         }
@@ -1902,6 +1919,9 @@ status_t PlaylistFetcher::extractAndQueueAccessUnits(
             while (!it.done()) {
                 size_t length;
                 const uint8_t *data = it.getData(&length);
+                if (!data) {
+                    return ERROR_MALFORMED;
+                }
 
                 static const char *kMatchName =
                     "com.apple.streaming.transportStreamTimestamp";

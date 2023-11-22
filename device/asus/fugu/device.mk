@@ -78,7 +78,9 @@ PRODUCT_PACKAGES += \
     libtinyalsa \
     audio.primary.fugu \
     audio.usb.default \
-    audio.a2dp.default
+    audio.a2dp.default \
+    audio.r_submix.default \
+    libaudio-resampler
 
 # http://b/15193147
 # TODO(danalbert): Remove this once stlport is dead and gone.
@@ -92,6 +94,12 @@ PRODUCT_COPY_FILES += \
 
 # Hdmi CEC: Fugu works as a playback device (4).
 PRODUCT_PROPERTY_OVERRIDES += ro.hdmi.device_type=4
+
+# Hdmi CEC: Disable 'Set Menu Language' feature.
+PRODUCT_PROPERTY_OVERRIDES += ro.hdmi.set_menu_language=false
+
+# Keep secure decoders in mediaserver process
+PRODUCT_PROPERTY_OVERRIDES += media.stagefright.less-secure=true
 
 # Boot Animation
 PRODUCT_COPY_FILES += \
@@ -114,10 +122,10 @@ PRODUCT_COPY_FILES += \
     device/asus/fugu/media_profiles.xml:system/etc/media_profiles.xml \
     device/asus/fugu/wrs_omxil_components.list:system/etc/wrs_omxil_components.list \
     frameworks/av/media/libstagefright/data/media_codecs_google_audio.xml:system/etc/media_codecs_google_audio.xml \
+    frameworks/av/media/libstagefright/data/media_codecs_google_tv.xml:system/etc/media_codecs_google_tv.xml \
     frameworks/av/media/libstagefright/data/media_codecs_google_video.xml:system/etc/media_codecs_google_video.xml \
     device/asus/fugu/media_codecs.xml:system/etc/media_codecs.xml \
     device/asus/fugu/media_codecs_performance.xml:system/etc/media_codecs_performance.xml \
-    device/asus/fugu/vp9_interpredict.binary:system/etc/vp9_interpredict.binary \
     device/asus/fugu/mfx_omxil_core.conf:system/etc/mfx_omxil_core.conf \
     device/asus/fugu/video_isv_profile.xml:system/etc/video_isv_profile.xml \
     device/asus/fugu/codec_resources_limitation.xml:system/etc/codec_resources_limitation.xml
@@ -209,7 +217,6 @@ PRODUCT_PACKAGES += \
     libwpa_client \
     lib_driver_cmd_bcmdhd \
     hostapd \
-    dhcpcd.conf \
     wpa_supplicant \
     bcmdhd.cal \
     bcmdhd_sr2.cal
@@ -222,7 +229,6 @@ PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.hardware.wifi.direct.xml:system/etc/permissions/android.hardware.wifi.direct.xml \
     frameworks/native/data/etc/android.hardware.bluetooth_le.xml:system/etc/permissions/android.hardware.bluetooth_le.xml \
     frameworks/native/data/etc/android.hardware.bluetooth.xml:system/etc/permissions/android.hardware.bluetooth.xml \
-    frameworks/native/data/etc/android.hardware.usb.accessory.xml:system/etc/permissions/android.hardware.usb.accessory.xml \
     frameworks/native/data/etc/android.hardware.usb.host.xml:system/etc/permissions/android.hardware.usb.host.xml \
     frameworks/native/data/etc/android.hardware.hdmi.cec.xml:system/etc/permissions/android.hardware.hdmi.cec.xml \
     frameworks/native/data/etc/android.software.midi.xml:system/etc/permissions/android.software.midi.xml
@@ -238,7 +244,9 @@ PRODUCT_COPY_FILES += \
 
 #GFX Config
 PRODUCT_COPY_FILES += \
-    device/asus/fugu/powervr.ini:system/etc/powervr.ini
+    device/asus/fugu/powervr.ini:system/etc/powervr.ini \
+    frameworks/native/data/etc/android.hardware.vulkan.level-0.xml:system/etc/permissions/android.hardware.vulkan.level-0.xml \
+    frameworks/native/data/etc/android.hardware.vulkan.version-1_0_3.xml:system/etc/permissions/android.hardware.vulkan.version-1_0_3.xml
 
 # Thermal itux
 ENABLE_ITUXD := true
@@ -255,6 +263,18 @@ PRODUCT_COPY_FILES += \
     device/asus/fugu/init.fugu.diag.rc.userdebug:root/init.fugu.diag.rc
 endif
 
+# In userdebug, add minidebug info the the boot image and the system server to support
+# diagnosing native crashes.
+ifneq (,$(filter userdebug, $(TARGET_BUILD_VARIANT)))
+    # Boot image.
+    PRODUCT_DEX_PREOPT_BOOT_FLAGS += --generate-mini-debug-info
+    # System server and some of its services. This is just here for completeness and consistency,
+    # as we currently only compile the boot image.
+    # Note: we cannot use PRODUCT_SYSTEM_SERVER_JARS, as it has not been expanded at this point.
+    $(call add-product-dex-preopt-module-config,services,--generate-mini-debug-info)
+    $(call add-product-dex-preopt-module-config,wifi-service,--generate-mini-debug-info)
+endif
+
 $(call inherit-product-if-exists, vendor/asus/fugu/device-vendor.mk)
 $(call inherit-product-if-exists, vendor/intel/PRIVATE/fugu/device-vendor.mk)
 $(call inherit-product-if-exists, vendor/intel/moorefield/prebuilts/houdini/houdini.mk)
@@ -266,7 +286,39 @@ $(call inherit-product-if-exists, hardware/broadcom/wlan/bcmdhd/firmware/bcm4354
 PRODUCT_COPY_FILES += \
     device/asus/fugu/sep_policy.conf:system/etc/security/sep_policy.conf
 
-# Without this filter, we get very close to the limit.
-PRODUCT_DEX_PREOPT_DEFAULT_FLAGS += --compiler-filter=space
-
 #PRODUCT_CHARACTERISTICS := tablet
+
+# Wifi country code
+PRODUCT_COPY_FILES += \
+    device/asus/fugu/init.fugu.countrycode.sh:system/bin/init.fugu.countrycode.sh
+
+# Get rid of dex preoptimization to save space for the system.img
+# Sorted by *.odex size
+FUGU_DONT_DEXPREOPT_MODULES := \
+    NoTouchAuthDelegate \
+    ConfigUpdater \
+    SecondScreenSetup \
+    SecondScreenSetupAuthBridge \
+    TvSettings \
+    SetupWraith \
+    GooglePackageInstaller \
+    GoogleContactsSyncAdapter \
+    BugReportSender \
+    ContactsProvider \
+    PrintSpooler \
+    CalendarProvider \
+    CanvasPackageInstaller \
+    SettingsProvider \
+    ituxd \
+    StatementService \
+    ExternalStorageProvider \
+    FrameworkPackageStubs \
+    CertInstaller \
+    KeyChain \
+    UserDictionaryProvider
+$(call add-product-dex-preopt-module-config,$(FUGU_DONT_DEXPREOPT_MODULES),disable)
+
+# Some CTS tests will be skipped based on what the initial API level that
+# shipped on device was.
+PRODUCT_PROPERTY_OVERRIDES += \
+    ro.product.first_api_level=21

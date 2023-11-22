@@ -9,11 +9,12 @@
 #ifndef SkPathRef_DEFINED
 #define SkPathRef_DEFINED
 
+#include "../private/SkTDArray.h"
 #include "SkMatrix.h"
 #include "SkPoint.h"
+#include "SkRRect.h"
 #include "SkRect.h"
 #include "SkRefCnt.h"
-#include "SkTDArray.h"
 #include <stddef.h> // ptrdiff_t
 
 class SkRBuffer;
@@ -36,8 +37,6 @@ class SkWBuffer;
 
 class SK_API SkPathRef : public ::SkRefCnt {
 public:
-    SK_DECLARE_INST_COUNT(SkPathRef);
-
     class Editor {
     public:
         Editor(SkAutoTUnref<SkPathRef>* pathRef,
@@ -102,10 +101,38 @@ public:
 
         void setIsOval(bool isOval) { fPathRef->setIsOval(isOval); }
 
+        void setIsRRect(bool isRRect) { fPathRef->setIsRRect(isRRect); }
+
         void setBounds(const SkRect& rect) { fPathRef->setBounds(rect); }
 
     private:
         SkPathRef* fPathRef;
+    };
+
+    class SK_API Iter {
+    public:
+        Iter();
+        Iter(const SkPathRef&);
+
+        void setPathRef(const SkPathRef&);
+
+        /** Return the next verb in this iteration of the path. When all
+            segments have been visited, return kDone_Verb.
+
+            @param  pts The points representing the current verb and/or segment
+                        This must not be NULL.
+            @return The verb for the current segment
+        */
+        uint8_t next(SkPoint pts[4]);
+        uint8_t peek() const;
+
+        SkScalar conicWeight() const { return *fConicWeights; }
+
+    private:
+        const SkPoint*  fPts;
+        const uint8_t*  fVerbs;
+        const uint8_t*  fVerbStop;
+        const SkScalar* fConicWeights;
     };
 
 public:
@@ -144,11 +171,19 @@ public:
      */
     bool isOval(SkRect* rect) const {
         if (fIsOval && rect) {
-            *rect = getBounds();
+            *rect = this->getBounds();
         }
 
         return SkToBool(fIsOval);
     }
+
+    bool isRRect(SkRRect* rrect) const {
+        if (fIsRRect && rrect) {
+            *rrect = this->getRRect();
+        }
+        return SkToBool(fIsRRect);
+    }
+
 
     bool hasComputedBounds() const {
         return !fBoundsIsDirty;
@@ -166,6 +201,8 @@ public:
         return fBounds;
     }
 
+    SkRRect getRRect() const;
+
     /**
      * Transforms a path ref by a matrix, allocating a new one only if necessary.
      */
@@ -182,19 +219,7 @@ public:
      */
     static void Rewind(SkAutoTUnref<SkPathRef>* pathRef);
 
-    virtual ~SkPathRef() {
-        SkDEBUGCODE(this->validate();)
-        sk_free(fPoints);
-
-        SkDEBUGCODE(fPoints = NULL;)
-        SkDEBUGCODE(fVerbs = NULL;)
-        SkDEBUGCODE(fVerbCnt = 0x9999999;)
-        SkDEBUGCODE(fPointCnt = 0xAAAAAAA;)
-        SkDEBUGCODE(fPointCnt = 0xBBBBBBB;)
-        SkDEBUGCODE(fGenerationID = 0xEEEEEEEE;)
-        SkDEBUGCODE(fEditorsAttached = 0x7777777;)
-    }
-
+    virtual ~SkPathRef();
     int countPoints() const { SkDEBUGCODE(this->validate();) return fPointCnt; }
     int countVerbs() const { SkDEBUGCODE(this->validate();) return fVerbCnt; }
     int countWeights() const { SkDEBUGCODE(this->validate();) return fConicWeights.count(); }
@@ -246,6 +271,8 @@ public:
      */
     uint32_t writeSize() const;
 
+    void interpolate(const SkPathRef& ending, SkScalar weight, SkPathRef* out) const;
+
     /**
      * Gets an ID that uniquely identifies the contents of the path ref. If two path refs have the
      * same ID then they have the same verbs and points. However, two path refs may have the same
@@ -253,10 +280,18 @@ public:
      */
     uint32_t genID() const;
 
+    struct GenIDChangeListener {
+        virtual ~GenIDChangeListener() {}
+        virtual void onChange() = 0;
+    };
+
+    void addGenIDChangeListener(GenIDChangeListener* listener);
+
     SkDEBUGCODE(void validate() const;)
 
 private:
     enum SerializationOffsets {
+        kIsRRect_SerializationShift = 26,   // requires 1 bit
         kIsFinite_SerializationShift = 25,  // requires 1 bit
         kIsOval_SerializationShift = 24,    // requires 1 bit
         kSegmentMask_SerializationShift = 0 // requires 4 bits
@@ -272,6 +307,7 @@ private:
         fGenerationID = kEmptyGenID;
         fSegmentMask = 0;
         fIsOval = false;
+        fIsRRect = false;
         SkDEBUGCODE(fEditorsAttached = 0;)
         SkDEBUGCODE(this->validate();)
     }
@@ -280,13 +316,7 @@ private:
 
     // Return true if the computed bounds are finite.
     static bool ComputePtBounds(SkRect* bounds, const SkPathRef& ref) {
-        int count = ref.countPoints();
-        if (count <= 1) {  // we ignore just 1 point (moveto)
-            bounds->setEmpty();
-            return count ? ref.points()->isFinite() : true;
-        } else {
-            return bounds->setBoundsCheck(ref.points(), count);
-        }
+        return bounds->setBoundsCheck(ref.points(), ref.countPoints());
     }
 
     // called, if dirty, by getBounds()
@@ -325,6 +355,7 @@ private:
 
         fSegmentMask = 0;
         fIsOval = false;
+        fIsRRect = false;
 
         size_t newSize = sizeof(uint8_t) * verbCount + sizeof(SkPoint) * pointCount;
         size_t newReserve = sizeof(uint8_t) * reserveVerbs + sizeof(SkPoint) * reservePoints;
@@ -424,22 +455,28 @@ private:
 
     void setIsOval(bool isOval) { fIsOval = isOval; }
 
+    void setIsRRect(bool isRRect) { fIsRRect = isRRect; }
+
+    // called only by the editor. Note that this is not a const function.
     SkPoint* getPoints() {
         SkDEBUGCODE(this->validate();)
         fIsOval = false;
+        fIsRRect = false;
         return fPoints;
     }
+
+    const SkPoint* getPoints() const {
+        SkDEBUGCODE(this->validate();)
+        return fPoints;
+    }
+
+    void callGenIDChangeListeners();
 
     enum {
         kMinSize = 256,
     };
 
     mutable SkRect   fBounds;
-    mutable uint8_t  fBoundsIsDirty;
-    mutable SkBool8  fIsFinite;    // only meaningful if bounds are valid
-
-    SkBool8  fIsOval;
-    uint8_t  fSegmentMask;
 
     SkPoint*            fPoints; // points to begining of the allocation
     uint8_t*            fVerbs; // points just past the end of the allocation (verbs grow backwards)
@@ -454,7 +491,17 @@ private:
     mutable uint32_t    fGenerationID;
     SkDEBUGCODE(int32_t fEditorsAttached;) // assert that only one editor in use at any time.
 
+    SkTDArray<GenIDChangeListener*> fGenIDChangeListeners;  // pointers are owned
+
+    mutable uint8_t  fBoundsIsDirty;
+    mutable SkBool8  fIsFinite;    // only meaningful if bounds are valid
+
+    SkBool8  fIsOval;
+    SkBool8  fIsRRect;
+    uint8_t  fSegmentMask;
+
     friend class PathRefTest_Private;
+    friend class ForceIsRRect_Private; // unit test isRRect
     typedef SkRefCnt INHERITED;
 };
 

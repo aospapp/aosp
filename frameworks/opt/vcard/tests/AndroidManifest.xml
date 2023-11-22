@@ -14,6 +14,10 @@
      limitations under the License.
 -->
 
+<!--
+  Run test with:
+  adb shell am instrument -w com.android.vcard.tests/android.test.InstrumentationTestRunner
+-->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
         package="com.android.vcard.tests"
         android:sharedUserId="com.android.uid.test">
@@ -21,10 +25,6 @@
     <application>
         <uses-library android:name="android.test.runner" />
     </application>
-
-    <instrumentation android:name=".VCardTestRunner"
-            android:targetPackage="com.android.vcard.tests"
-            android:label="TestRunner running all Android vCard Library Tests" />
 
     <instrumentation android:name="android.test.InstrumentationTestRunner"
             android:targetPackage="com.android.vcard.tests"

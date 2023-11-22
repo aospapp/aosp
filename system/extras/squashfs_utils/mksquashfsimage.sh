@@ -5,7 +5,7 @@
 function usage() {
 cat<<EOT
 Usage:
-${0##*/} SRC_DIR OUTPUT_FILE [-s] [-m MOUNT_POINT] [-d PRODUCT_OUT] [-c FILE_CONTEXTS] [-b BLOCK_SIZE] [-z COMPRESSOR] [-zo COMPRESSOR_OPT]
+${0##*/} SRC_DIR OUTPUT_FILE [-s] [-m MOUNT_POINT] [-d PRODUCT_OUT] [-C FS_CONFIG ] [-c FILE_CONTEXTS] [-B BLOCK_MAP_FILE] [-b BLOCK_SIZE] [-z COMPRESSOR] [-zo COMPRESSOR_OPT] [-a ]
 EOT
 }
 
@@ -42,9 +42,21 @@ if [[ "$1" == "-d" ]]; then
     shift; shift
 fi
 
+FS_CONFIG=
+if [[ "$1" == "-C" ]]; then
+    FS_CONFIG=$2
+    shift; shift
+fi
+
 FILE_CONTEXTS=
 if [[ "$1" == "-c" ]]; then
     FILE_CONTEXTS=$2
+    shift; shift
+fi
+
+BLOCK_MAP_FILE=
+if [[ "$1" == "-B" ]]; then
+    BLOCK_MAP_FILE=$2
     shift; shift
 fi
 
@@ -67,6 +79,12 @@ if [[ "$1" == "-zo" ]]; then
     shift; shift
 fi
 
+DISABLE_4K_ALIGN=false
+if [[ "$1" == "-a" ]]; then
+    DISABLE_4K_ALIGN=true
+    shift;
+fi
+
 OPT=""
 if [ -n "$MOUNT_POINT" ]; then
   OPT="$OPT -mount-point $MOUNT_POINT"
@@ -74,14 +92,23 @@ fi
 if [ -n "$PRODUCT_OUT" ]; then
   OPT="$OPT -product-out $PRODUCT_OUT"
 fi
+if [ -n "$FS_CONFIG" ]; then
+  OPT="$OPT -fs-config-file $FS_CONFIG"
+fi
 if [ -n "$FILE_CONTEXTS" ]; then
   OPT="$OPT -context-file $FILE_CONTEXTS"
+fi
+if [ -n "$BLOCK_MAP_FILE" ]; then
+  OPT="$OPT -block-map $BLOCK_MAP_FILE"
 fi
 if [ -n "$BLOCK_SIZE" ]; then
   OPT="$OPT -b $BLOCK_SIZE"
 fi
+if [ "$DISABLE_4K_ALIGN" = true ]; then
+  OPT="$OPT -disable-4k-align"
+fi
 
-MAKE_SQUASHFS_CMD="mksquashfs $SRC_DIR/ $OUTPUT_FILE -no-progress -comp $COMPRESSOR $COMPRESSOR_OPT -no-exports -noappend -no-recovery -android-fs-config $OPT"
+MAKE_SQUASHFS_CMD="mksquashfs $SRC_DIR/ $OUTPUT_FILE -no-progress -comp $COMPRESSOR $COMPRESSOR_OPT -no-exports -noappend -no-recovery -no-fragments -no-duplicates -android-fs-config $OPT"
 echo $MAKE_SQUASHFS_CMD
 $MAKE_SQUASHFS_CMD
 

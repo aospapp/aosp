@@ -22,14 +22,14 @@ necessary to display a compatible Action Bar on devices running Android v2.1+.
 Pre-requisites
 --------------
 
-- Android SDK v23
-- Android Build Tools v23.0.0
+- Android SDK 23
+- Android Build Tools v23.0.3
 - Android Support Repository
 
 Screenshots
 -------------
 
-<img src="screenshots/1-gridview.png" height="400" alt="Screenshot"/> <img src="screenshots/2-detail.png" height="400" alt="Screenshot"/> 
+<img src="screenshots/1-image.png" height="400" alt="Screenshot"/> <img src="screenshots/2-text.png" height="400" alt="Screenshot"/> 
 
 Getting Started
 ---------------
@@ -52,7 +52,7 @@ submitting a pull request through GitHub. Please see CONTRIBUTING.md for more de
 License
 -------
 
-Copyright 2014 The Android Open Source Project, Inc.
+Copyright 2016 The Android Open Source Project, Inc.
 
 Licensed to the Apache Software Foundation (ASF) under one or more contributor
 license agreements.  See the NOTICE file distributed with this work for

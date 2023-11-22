@@ -18,7 +18,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
 
-LOCAL_SDK_VERSION := current
+LOCAL_SDK_VERSION := $(SUPPORT_CURRENT_SDK_VERSION)
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
@@ -34,8 +34,8 @@ LOCAL_AAPT_FLAGS := \
 LOCAL_STATIC_JAVA_LIBRARIES := \
         android-support-v4 \
         android-support-v7-recyclerview \
-        android-support-v17-leanback
-LOCAL_JAVA_LIBRARIES := android.test.runner
+        android-support-v17-leanback \
+        android-support-test
 
 LOCAL_PACKAGE_NAME := AndroidLeanbackTests
 

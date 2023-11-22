@@ -31,6 +31,12 @@ def main():
         cam.do_3a()
 
         req = its.objects.auto_capture_request()
+        max_dng_size = \
+                its.objects.get_available_output_sizes("raw", props)[0]
+        w,h = its.objects.get_available_output_sizes(
+                "yuv", props, (1920, 1080), max_dng_size)[0]
+        out_surfaces = [{"format":"dng"},
+                        {"format":"yuv", "width":w, "height":h}]
         cap_dng, cap_yuv = cam.do_capture(req, cam.CAP_DNG_YUV)
 
         img = its.image.convert_capture_to_rgb_image(cap_yuv)

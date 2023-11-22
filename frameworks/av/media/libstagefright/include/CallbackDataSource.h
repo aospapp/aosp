@@ -36,10 +36,18 @@ public:
     virtual status_t initCheck() const;
     virtual ssize_t readAt(off64_t offset, void *data, size_t size);
     virtual status_t getSize(off64_t *size);
+    virtual uint32_t flags();
+    virtual void close();
+    virtual String8 toString() {
+        return mName;
+    }
+    virtual sp<DecryptHandle> DrmInitialization(const char *mime = NULL);
 
 private:
     sp<IDataSource> mIDataSource;
     sp<IMemory> mMemory;
+    bool mIsClosed;
+    String8 mName;
 
     DISALLOW_EVIL_CONSTRUCTORS(CallbackDataSource);
 };
@@ -57,6 +65,11 @@ public:
     virtual ssize_t readAt(off64_t offset, void* data, size_t size);
     virtual status_t getSize(off64_t* size);
     virtual uint32_t flags();
+    virtual void close() { mSource->close(); }
+    virtual String8 toString() {
+        return mName;
+    }
+    virtual sp<DecryptHandle> DrmInitialization(const char *mime = NULL);
 
 private:
     // 2kb comes from experimenting with the time-to-first-frame from a MediaPlayer
@@ -70,6 +83,7 @@ private:
     uint8_t mCache[kCacheSize];
     off64_t mCachedOffset;
     size_t mCachedSize;
+    String8 mName;
 
     DISALLOW_EVIL_CONSTRUCTORS(TinyCacheSource);
 };

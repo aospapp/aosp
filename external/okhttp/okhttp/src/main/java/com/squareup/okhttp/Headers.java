@@ -21,6 +21,7 @@ import com.squareup.okhttp.internal.http.HttpDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -130,6 +131,20 @@ public final class Headers {
     return result.toString();
   }
 
+  public Map<String, List<String>> toMultimap() {
+    Map<String, List<String>> result = new LinkedHashMap<String, List<String>>();
+    for (int i = 0, size = size(); i < size; i++) {
+      String name = name(i);
+      List<String> values = result.get(name);
+      if (values == null) {
+        values = new ArrayList<>(2);
+        result.put(name, values);
+      }
+      values.add(value(i));
+    }
+    return result;
+  }
+
   private static String get(String[] namesAndValues, String name) {
     for (int i = namesAndValues.length - 2; i >= 0; i -= 2) {
       if (name.equalsIgnoreCase(namesAndValues[i])) {
@@ -227,11 +242,7 @@ public final class Headers {
 
     /** Add a field with the specified value. */
     public Builder add(String name, String value) {
-      if (name == null) throw new IllegalArgumentException("name == null");
-      if (value == null) throw new IllegalArgumentException("value == null");
-      if (name.length() == 0 || name.indexOf('\0') != -1 || value.indexOf('\0') != -1) {
-        throw new IllegalArgumentException("Unexpected header: " + name + ": " + value);
-      }
+      checkNameAndValue(name, value);
       return addLenient(name, value);
     }
 
@@ -261,9 +272,48 @@ public final class Headers {
      * added. If the field is found, the existing values are replaced.
      */
     public Builder set(String name, String value) {
+      checkNameAndValue(name, value);
       removeAll(name);
-      add(name, value);
+      addLenient(name, value);
       return this;
+    }
+
+    private void checkNameAndValue(String name, String value) {
+      if (name == null) throw new IllegalArgumentException("name == null");
+      if (name.isEmpty()) throw new IllegalArgumentException("name is empty");
+      for (int i = 0, length = name.length(); i < length; i++) {
+        char c = name.charAt(i);
+        if (c <= '\u001f' || c >= '\u007f') {
+          throw new IllegalArgumentException(String.format(
+              "Unexpected char %#04x at %d in header name: %s", (int) c, i, name));
+        }
+      }
+      if (value == null) throw new IllegalArgumentException("value == null");
+
+      // Workaround for applications that set trailing "\r", "\n" or "\r\n" on header values.
+      // http://b/26422335, http://b/26889631 Android used to allow anything except '\0'.
+      int valueLen = value.length();
+      if (valueLen >= 2 && value.charAt(valueLen - 2) == '\r' && value.charAt(valueLen - 1) == '\n') {
+        value = value.substring(0, value.length() - 2);
+      } else if (valueLen > 0
+              && (value.charAt(valueLen - 1) == '\n'
+                      || value.charAt(valueLen - 1) == '\r')) {
+        value = value.substring(0, valueLen - 1);
+      }
+      // End of workaround.
+
+      for (int i = 0, length = value.length(); i < length; i++) {
+        char c = value.charAt(i);
+        // ANDROID-BEGIN
+        // http://b/28867041 - keep things working for apps that rely on Android's (out of spec)
+        // UTF-8 header encoding behavior.
+        // if (c <= '\u001f' || c >= '\u007f') {
+        if (c <= '\u001f' || c == '\u007f') {
+        // ANDROID-END
+          throw new IllegalArgumentException(String.format(
+              "Unexpected char %#04x at %d in header value: %s", (int) c, i, value));
+        }
+      }
     }
 
     /** Equivalent to {@code build().get(name)}, but potentially faster. */

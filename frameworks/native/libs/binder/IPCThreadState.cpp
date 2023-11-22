@@ -24,12 +24,14 @@
 
 #include <cutils/sched_policy.h>
 #include <utils/Log.h>
+#include <utils/SystemClock.h>
 #include <utils/threads.h>
 
 #include <private/binder/binder_module.h>
 #include <private/binder/Static.h>
 
 #include <errno.h>
+#include <inttypes.h>
 #include <pthread.h>
 #include <sched.h>
 #include <signal.h>
@@ -287,12 +289,18 @@ restart:
         return new IPCThreadState;
     }
     
-    if (gShutdown) return NULL;
+    if (gShutdown) {
+        ALOGW("Calling IPCThreadState::self() during shutdown is dangerous, expect a crash.\n");
+        return NULL;
+    }
     
     pthread_mutex_lock(&gTLSMutex);
     if (!gHaveTLS) {
-        if (pthread_key_create(&gTLS, threadDestructor) != 0) {
+        int key_create_value = pthread_key_create(&gTLS, threadDestructor);
+        if (key_create_value != 0) {
             pthread_mutex_unlock(&gTLSMutex);
+            ALOGW("IPCThreadState::self() unable to create TLS key, expect a crash: %s\n",
+                    strerror(key_create_value));
             return NULL;
         }
         gHaveTLS = true;
@@ -428,12 +436,25 @@ status_t IPCThreadState::getAndExecuteCommand()
 
         pthread_mutex_lock(&mProcess->mThreadCountLock);
         mProcess->mExecutingThreadsCount++;
+        if (mProcess->mExecutingThreadsCount >= mProcess->mMaxThreads &&
+                mProcess->mStarvationStartTimeMs == 0) {
+            mProcess->mStarvationStartTimeMs = uptimeMillis();
+        }
         pthread_mutex_unlock(&mProcess->mThreadCountLock);
 
         result = executeCommand(cmd);
 
         pthread_mutex_lock(&mProcess->mThreadCountLock);
         mProcess->mExecutingThreadsCount--;
+        if (mProcess->mExecutingThreadsCount < mProcess->mMaxThreads &&
+                mProcess->mStarvationStartTimeMs != 0) {
+            int64_t starvationTimeMs = uptimeMillis() - mProcess->mStarvationStartTimeMs;
+            if (starvationTimeMs > 100) {
+                ALOGE("binder thread pool (%zu threads) starved for %" PRId64 " ms",
+                      mProcess->mMaxThreads, starvationTimeMs);
+            }
+            mProcess->mStarvationStartTimeMs = 0;
+        }
         pthread_cond_broadcast(&mProcess->mThreadCountDecrement);
         pthread_mutex_unlock(&mProcess->mThreadCountLock);
 
@@ -852,7 +873,7 @@ status_t IPCThreadState::talkWithDriver(bool doReceive)
         IF_LOG_COMMANDS() {
             alog << "About to read/write, write size = " << mOut.dataSize() << endl;
         }
-#if defined(HAVE_ANDROID_OS)
+#if defined(__ANDROID__)
         if (ioctl(mProcess->mDriverFD, BINDER_WRITE_READ, &bwr) >= 0)
             err = NO_ERROR;
         else
@@ -1083,8 +1104,16 @@ status_t IPCThreadState::executeCommand(int32_t cmd)
                     << reinterpret_cast<const size_t*>(tr.data.ptr.offsets) << endl;
             }
             if (tr.target.ptr) {
-                sp<BBinder> b((BBinder*)tr.cookie);
-                error = b->transact(tr.code, buffer, &reply, tr.flags);
+                // We only have a weak reference on the target object, so we must first try to
+                // safely acquire a strong reference before doing anything else with it.
+                if (reinterpret_cast<RefBase::weakref_type*>(
+                        tr.target.ptr)->attemptIncStrong(this)) {
+                    error = reinterpret_cast<BBinder*>(tr.cookie)->transact(tr.code, buffer,
+                            &reply, tr.flags);
+                    reinterpret_cast<BBinder*>(tr.cookie)->decStrong(this);
+                } else {
+                    error = UNKNOWN_TRANSACTION;
+                }
 
             } else {
                 error = the_context_object->transact(tr.code, buffer, &reply, tr.flags);
@@ -1158,7 +1187,7 @@ void IPCThreadState::threadDestructor(void *st)
         IPCThreadState* const self = static_cast<IPCThreadState*>(st);
         if (self) {
                 self->flushCommands();
-#if defined(HAVE_ANDROID_OS)
+#if defined(__ANDROID__)
         if (self->mProcess->mDriverFD > 0) {
             ioctl(self->mProcess->mDriverFD, BINDER_THREAD_EXIT, 0);
         }

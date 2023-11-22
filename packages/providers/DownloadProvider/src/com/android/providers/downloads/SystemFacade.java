@@ -16,9 +16,14 @@
 
 package com.android.providers.downloads;
 
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.net.Network;
 import android.net.NetworkInfo;
+
+import java.security.GeneralSecurityException;
+import javax.net.ssl.SSLContext;
 
 interface SystemFacade {
     /**
@@ -26,31 +31,22 @@ interface SystemFacade {
      */
     public long currentTimeMillis();
 
-    /**
-     * @return Currently active network, or null if there's no active
-     *         connection.
-     */
-    public NetworkInfo getActiveNetworkInfo(int uid);
+    public Network getActiveNetwork(int uid, boolean ignoreBlocked);
 
-    public boolean isActiveNetworkMetered();
-
-    /**
-     * @see android.telephony.TelephonyManager#isNetworkRoaming
-     */
-    public boolean isNetworkRoaming();
+    public NetworkInfo getNetworkInfo(Network network, int uid, boolean ignoreBlocked);
 
     /**
      * @return maximum size, in bytes, of downloads that may go over a mobile connection; or null if
      * there's no limit
      */
-    public Long getMaxBytesOverMobile();
+    public long getMaxBytesOverMobile();
 
     /**
      * @return recommended maximum size, in bytes, of downloads that may go over a mobile
      * connection; or null if there's no recommended limit.  The user will have the option to bypass
      * this limit.
      */
-    public Long getRecommendedMaxBytesOverMobile();
+    public long getRecommendedMaxBytesOverMobile();
 
     /**
      * Send a broadcast intent.
@@ -66,4 +62,10 @@ interface SystemFacade {
      * Returns true if cleartext network traffic is permitted for the specified UID.
      */
     public boolean isCleartextTrafficPermitted(int uid);
+
+    /**
+     * Return a {@link SSLContext} configured using the specified package's configuration.
+     */
+    public SSLContext getSSLContextForPackage(Context context, String pckg)
+            throws GeneralSecurityException;
 }

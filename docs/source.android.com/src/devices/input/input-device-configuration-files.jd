@@ -2,7 +2,7 @@ page.title=Input Device Configuration Files
 @jd:body
 
 <!--
-    Copyright 2013 The Android Open Source Project
+    Copyright 2015 The Android Open Source Project
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -16,6 +16,14 @@ page.title=Input Device Configuration Files
     See the License for the specific language governing permissions and
     limitations under the License.
 -->
+<div id="qv-wrapper">
+  <div id="qv">
+    <h2>In this document</h2>
+    <ol id="auto-toc">
+    </ol>
+  </div>
+</div>
+
 <p>Input device configuration files (<code>.idc</code> files) contain device-specific
 configuration properties that affect the behavior of input devices.</p>
 <p>Input device configuration files are typically not necessary for standard

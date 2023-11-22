@@ -256,11 +256,12 @@ OMX_ERRORTYPE OMXVideoDecoderVP9HWR::ProcessorInit(void)
 
     int surfaceWidth = mGraphicBufferParam.graphicBufferWidth;
     int surfaceHeight = mGraphicBufferParam.graphicBufferHeight;
-    int surfaceStride = mGraphicBufferParam.graphicBufferStride;
-    extNativeBufferSize = mGraphicBufferParam.graphicBufferStride *
-                          mGraphicBufferParam.graphicBufferHeight * 1.5;
-    extActualBufferStride = surfaceStride;
-    extActualBufferHeightStride = surfaceHeight;
+    int surfaceHStride = mGraphicBufferParam.graphicBufferHStride;
+    int surfaceVStride = mGraphicBufferParam.graphicBufferVStride;
+    extNativeBufferSize = mGraphicBufferParam.graphicBufferHStride *
+                          mGraphicBufferParam.graphicBufferVStride * 1.5;
+    extActualBufferStride = surfaceHStride;
+    extActualBufferHeightStride = surfaceVStride;
 
     for (i = 0; i < mOMXBufferHeaderTypePtrNum; i++) {
         OMX_BUFFERHEADERTYPE *buf_hdr = mOMXBufferHeaderTypePtrArray[i];
@@ -280,14 +281,14 @@ OMX_ERRORTYPE OMXVideoDecoderVP9HWR::ProcessorInit(void)
         surfExtBuf->pixel_format = VA_FOURCC_NV12;
         surfExtBuf->width = surfaceWidth;
         surfExtBuf->height = surfaceHeight;
-        surfExtBuf->data_size = surfaceStride * surfaceHeight * 1.5;
+        surfExtBuf->data_size = surfaceHStride * surfaceVStride * 1.5;
         surfExtBuf->num_planes = 2;
-        surfExtBuf->pitches[0] = surfaceStride;
-        surfExtBuf->pitches[1] = surfaceStride;
+        surfExtBuf->pitches[0] = surfaceHStride;
+        surfExtBuf->pitches[1] = surfaceHStride;
         surfExtBuf->pitches[2] = 0;
         surfExtBuf->pitches[3] = 0;
         surfExtBuf->offsets[0] = 0;
-        surfExtBuf->offsets[1] = surfaceStride * surfaceHeight;
+        surfExtBuf->offsets[1] = surfaceHStride * surfaceVStride;
         surfExtBuf->offsets[2] = 0;
         surfExtBuf->offsets[3] = 0;
         surfExtBuf->flags = VA_SURFACE_ATTRIB_MEM_TYPE_ANDROID_GRALLOC;

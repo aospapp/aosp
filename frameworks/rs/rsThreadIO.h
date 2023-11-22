@@ -37,9 +37,6 @@ public:
     size_t getMaxInlineSize() {
         return mMaxInlineSize;
     }
-    bool isPureFifo() {
-        return mPureFifo;
-    }
 
     // Plays back commands from the client.
     // Returns true if any commands were processed.
@@ -80,7 +77,6 @@ protected:
     ClientCmdHeader mLastClientHeader;
 
     bool mRunning;
-    bool mPureFifo;
     size_t mMaxInlineSize;
 
     FifoSocket mToClient;

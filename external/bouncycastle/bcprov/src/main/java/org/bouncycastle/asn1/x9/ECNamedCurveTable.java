@@ -4,6 +4,10 @@ import java.util.Enumeration;
 import java.util.Vector;
 
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
+// BEGIN android-removed
+// import org.bouncycastle.asn1.anssi.ANSSINamedCurves;
+// import org.bouncycastle.asn1.cryptopro.ECGOST3410NamedCurves;
+// END android-removed
 import org.bouncycastle.asn1.nist.NISTNamedCurves;
 import org.bouncycastle.asn1.sec.SECNamedCurves;
 // BEGIN android-removed
@@ -32,17 +36,22 @@ public class ECNamedCurveTable
             ecP = SECNamedCurves.getByName(name);
         }
 
+        if (ecP == null)
+        {
+            ecP = NISTNamedCurves.getByName(name);
+        }
+
         // BEGIN android-removed
         // if (ecP == null)
         // {
         //     ecP = TeleTrusTNamedCurves.getByName(name);
         // }
+        //
+        // if (ecP == null)
+        // {
+        //     ecP = ANSSINamedCurves.getByName(name);
+        // }
         // END android-removed
-
-        if (ecP == null)
-        {
-            ecP = NISTNamedCurves.getByName(name);
-        }
 
         return ecP;
     }
@@ -63,19 +72,63 @@ public class ECNamedCurveTable
             oid = SECNamedCurves.getOID(name);
         }
 
-        // BEGIN android-removed
-        // if (oid == null)
-        // {
-        //     oid = TeleTrusTNamedCurves.getOID(name);
-        // }
-        // END android-removed
-
         if (oid == null)
         {
             oid = NISTNamedCurves.getOID(name);
         }
 
+        // BEGIN android-removed
+        // if (oid == null)
+        // {
+        //     oid = TeleTrusTNamedCurves.getOID(name);
+        // }
+        //
+        // if (oid == null)
+        // {
+        //     oid = ANSSINamedCurves.getOID(name);
+        // }
+        // END android-removed
+
         return oid;
+    }
+
+    /**
+     * return a X9ECParameters object representing the passed in named
+     * curve.
+     *
+     * @param oid the object id of the curve requested
+     * @return a standard name for the curve.
+     */
+    public static String getName(
+        ASN1ObjectIdentifier oid)
+    {
+        String name = NISTNamedCurves.getName(oid);
+
+        if (name == null)
+        {
+            name = SECNamedCurves.getName(oid);
+        }
+
+        // BEGIN android-removed
+        // if (name == null)
+        // {
+        //     name = TeleTrusTNamedCurves.getName(oid);
+        // }
+        // END android-removed
+
+        if (name == null)
+        {
+            name = X962NamedCurves.getName(oid);
+        }
+
+        // BEGIN android-removed
+        // if (name == null)
+        // {
+        //    name = ECGOST3410NamedCurves.getName(oid);
+        // }
+        // END android-removed
+
+        return name;
     }
 
     /**
@@ -95,14 +148,19 @@ public class ECNamedCurveTable
             ecP = SECNamedCurves.getByOID(oid);
         }
 
+        // NOTE: All the NIST curves are currently from SEC, so no point in redundant OID lookup
+
         // BEGIN android-removed
         // if (ecP == null)
         // {
         //     ecP = TeleTrusTNamedCurves.getByOID(oid);
         // }
+        //
+        // if (ecP == null)
+        // {
+        //     ecP = ANSSINamedCurves.getByOID(oid);
+        // }
         // END android-removed
-
-        // NOTE: All the NIST curves are currently from SEC, so no point in redundant OID lookup
 
         return ecP;
     }
@@ -121,6 +179,7 @@ public class ECNamedCurveTable
         addEnumeration(v, NISTNamedCurves.getNames());
         // BEGIN android-removed
         // addEnumeration(v, TeleTrusTNamedCurves.getNames());
+        // addEnumeration(v, ANSSINamedCurves.getNames());
         // END android-removed
 
         return v.elements();

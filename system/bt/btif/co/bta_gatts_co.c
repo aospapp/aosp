@@ -23,7 +23,7 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include "gki.h"
+#include "bt_common.h"
 #include "bta_gatts_co.h"
 #include "btif_util.h"
 

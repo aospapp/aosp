@@ -1497,21 +1497,42 @@ public class RegionTest extends AndroidTestCase {
         Rect oriRect = new Rect(0, 0, 10, 10);
         mRegion = new Region();
 
+        // test reading/writing an empty parcel
         Parcel p = Parcel.obtain();
         mRegion.writeToParcel(p, flags);
-        assertEquals(8, p.dataSize());
-
-        p = Parcel.obtain();
-        mRegion.set(oriRect);
-        mRegion.writeToParcel(p, flags);
-        assertEquals(24, p.dataSize());
 
         p.setDataPosition(0);
         Region dst = Region.CREATOR.createFromParcel(p);
+        assertTrue(dst.isEmpty());
+
+        // test reading/writing a single rect parcel
+        p = Parcel.obtain();
+        mRegion.set(oriRect);
+        mRegion.writeToParcel(p, flags);
+
+        p.setDataPosition(0);
+        dst = Region.CREATOR.createFromParcel(p);
         assertEquals(oriRect.top, dst.getBounds().top);
         assertEquals(oriRect.left, dst.getBounds().left);
         assertEquals(oriRect.bottom, dst.getBounds().bottom);
         assertEquals(oriRect.right, dst.getBounds().right);
+
+        // test reading/writing a multiple rect parcel
+        p = Parcel.obtain();
+        mRegion.op(5, 5, 15, 15, Region.Op.UNION);
+        mRegion.writeToParcel(p, flags);
+
+        p.setDataPosition(0);
+        dst = Region.CREATOR.createFromParcel(p);
+        assertTrue(dst.contains(2,2));
+        assertTrue(dst.contains(7,7));
+        assertTrue(dst.contains(12,12));
+        assertFalse(dst.contains(2,12));
+        assertFalse(dst.contains(12,2));
+        assertEquals(0, dst.getBounds().top);
+        assertEquals(0, dst.getBounds().left);
+        assertEquals(15, dst.getBounds().bottom);
+        assertEquals(15, dst.getBounds().right);
     }
 
     public void testDescribeContents() {

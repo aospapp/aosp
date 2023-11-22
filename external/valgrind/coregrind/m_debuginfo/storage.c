@@ -9,7 +9,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2000-2013 Julian Seward 
+   Copyright (C) 2000-2015 Julian Seward 
       jseward@acm.org
 
    This program is free software; you can redistribute it and/or
@@ -32,7 +32,7 @@
 
 /* This file manages the data structures built by the debuginfo
    system.  These are: the top level SegInfo list.  For each SegInfo,
-   there are tables for for address-to-symbol mappings,
+   there are tables for address-to-symbol mappings,
    address-to-src-file/line mappings, and address-to-CFI-info
    mappings.
 */
@@ -98,7 +98,7 @@ void ML_(ppSym) ( Int idx, const DiSym* sym )
    vg_assert(sym->pri_name);
    if (sec_names)
       vg_assert(sec_names);
-   VG_(printf)( "%5d:  %c%c %#8lx .. %#8lx (%d)      %s%s",
+   VG_(printf)( "%5d:  %c%c %#8lx .. %#8lx (%u)      %s%s",
                 idx,
                 sym->isText ? 'T' : '-',
                 sym->isIFunc ? 'I' : '-',
@@ -142,8 +142,11 @@ void ML_(ppDiCfSI) ( const XArray* /* of CfiExpr */ exprs,
          }                                       \
       } while (0)
 
-   VG_(printf)("[%#lx .. %#lx]: ", base,
-                                   base + (UWord)len - 1);
+   if (base != 0 || len != 0)
+      VG_(printf)("[%#lx .. %#lx]: ", base, base + len - 1);
+   else
+      VG_(printf)("[]: ");
+
    switch (si_m->cfa_how) {
       case CFIC_IA_SPREL: 
          VG_(printf)("let cfa=oldSP+%d", si_m->cfa_off); 
@@ -534,7 +537,18 @@ void ML_(addLineInfo) ( struct _DebugInfo* di,
        return;
    }
 
-   vg_assert(lineno >= 0);
+   if (lineno < 0) {
+      static Bool complained = False;
+      if (!complained) {
+         complained = True;
+         VG_(message)(Vg_UserMsg, 
+                      "warning: ignoring line info entry with "
+                      "negative line number (%d)\n", lineno);
+         VG_(message)(Vg_UserMsg, 
+                      "(Nb: this message is only shown once)\n");
+      }
+      return;
+   }
    if (lineno > MAX_LINENO) {
       static Bool complained = False;
       if (!complained) {
@@ -654,7 +668,7 @@ void ML_(addInlInfo) ( struct _DebugInfo* di,
    if (0) VG_(message)
              (Vg_DebugMsg, 
               "addInlInfo: fn %s inlined as addr_lo %#lx,addr_hi %#lx,"
-              "caller fndn_ix %d %s:%d\n",
+              "caller fndn_ix %u %s:%d\n",
               inlinedfn, addr_lo, addr_hi, fndn_ix,
               ML_(fndn_ix2filename) (di, fndn_ix), lineno);
 
@@ -1000,7 +1014,7 @@ void show_scope ( OSet* /* of DiAddrRange */ scope, const HChar* who )
    while (True) {
       range = VG_(OSetGen_Next)( scope );
       if (!range) break;
-      VG_(printf)("   %#lx .. %#lx: %lu vars\n", range->aMin, range->aMax,
+      VG_(printf)("   %#lx .. %#lx: %ld vars\n", range->aMin, range->aMax,
                   range->vars ? VG_(sizeXA)(range->vars) : 0);
    }
    VG_(printf)("}\n");
@@ -1453,7 +1467,7 @@ Bool preferName ( const DebugInfo* di,
    vlena = VG_(strlen)(a_name);
    vlenb = VG_(strlen)(b_name);
 
-#  if defined(VGO_linux)
+#  if defined(VGO_linux) || defined(VGO_solaris)
 #    define VERSION_CHAR '@'
 #  elif defined(VGO_darwin)
 #    define VERSION_CHAR '$'
@@ -2015,7 +2029,7 @@ static void canonicaliseLoctab ( struct _DebugInfo* di )
    /* Ensure relevant postconditions hold. */
    for (i = 0; i < ((Word)di->loctab_used)-1; i++) {
       if (0)
-         VG_(printf)("%lu  0x%p  lno:%d sz:%d fndn_ix:%d  i+1 0x%p\n", 
+         VG_(printf)("%ld  0x%p  lno:%d sz:%d fndn_ix:%u  i+1 0x%p\n", 
                      i,
                      (void*)di->loctab[i].addr,
                      di->loctab[i].lineno, 
@@ -2147,9 +2161,9 @@ void ML_(canonicaliseCFI) ( struct _DebugInfo* di )
    }
 
    if (di->trace_cfi)
-      VG_(printf)("canonicaliseCfiSI: %ld entries, %#lx .. %#lx\n",
+      VG_(printf)("canonicaliseCfiSI: %lu entries, %#lx .. %#lx\n",
                   di->cfsi_used,
-	          di->cfsi_minavma, di->cfsi_maxavma);
+                  di->cfsi_minavma, di->cfsi_maxavma);
 
    /* Sort the cfsi_rd array by base address. */
    VG_(ssort)(di->cfsi_rd, di->cfsi_used, sizeof(*di->cfsi_rd), compare_DiCfSI);

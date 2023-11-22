@@ -110,7 +110,7 @@ tgt_size</i>, <i>patch1_sha1</i>, <i>patch1_blob</i>, [...])</code></dt>
 </i>. <i>tgt_sha1</i> and <i>tgt_size</i> are the expected final SHA1 hash and
 size of the target file. The remaining arguments must come in pairs: a SHA1
 hash (a 40-character hex string) and a blob. The blob is the patch to be
-applied whe the source file's current contents have the given SHA1.
+applied when the source file's current contents have the given SHA1.
 <p>The patching is done in a safe manner that guarantees the target file
 either has the desired SHA1 hash and size, or it is untouched—it will not be
 left in an unrecoverable intermediate state. If the process is interrupted

@@ -167,7 +167,6 @@ jdwp_tests_target_dependencies :=
 run-jdwp-tests-ri: $(HOST_OUT_JAVA_LIBRARIES)/apache-harmony-jdwp-tests-host.jar $(HOST_OUT_JAVA_LIBRARIES)/junit.jar
 	$(hide) java -cp $(HOST_OUT_JAVA_LIBRARIES)/apache-harmony-jdwp-tests-host.jar:$(HOST_OUT_JAVA_LIBRARIES)/junit.jar \
           -Djpda.settings.verbose=true \
-          -Djpda.settings.syncPort=34016 \
           -Djpda.settings.debuggeeJavaPath=java \
           $(jdwp_test_suite_class_name)
 

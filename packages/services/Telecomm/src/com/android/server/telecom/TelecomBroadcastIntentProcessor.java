@@ -33,6 +33,8 @@ public final class TelecomBroadcastIntentProcessor {
     public static final String ACTION_CLEAR_MISSED_CALLS =
             "com.android.server.telecom.ACTION_CLEAR_MISSED_CALLS";
 
+    public static final String EXTRA_USERHANDLE = "userhandle";
+
     private final Context mContext;
     private final CallsManager mCallsManager;
 
@@ -45,6 +47,11 @@ public final class TelecomBroadcastIntentProcessor {
         String action = intent.getAction();
 
         Log.v(this, "Action received: %s.", action);
+        UserHandle userHandle = intent.getParcelableExtra(EXTRA_USERHANDLE);
+        if (userHandle == null) {
+            Log.d(this, "user handle can't be null, not processing the broadcast");
+            return;
+        }
 
         MissedCallNotifier missedCallNotifier = mCallsManager.getMissedCallNotifier();
 
@@ -52,26 +59,26 @@ public final class TelecomBroadcastIntentProcessor {
         if (ACTION_SEND_SMS_FROM_NOTIFICATION.equals(action)) {
             // Close the notification shade and the notification itself.
             closeSystemDialogs(mContext);
-            missedCallNotifier.clearMissedCalls();
+            missedCallNotifier.clearMissedCalls(userHandle);
 
             Intent callIntent = new Intent(Intent.ACTION_SENDTO, intent.getData());
             callIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            mContext.startActivityAsUser(callIntent, UserHandle.CURRENT);
+            mContext.startActivityAsUser(callIntent, userHandle);
 
         // Call back recent caller from the missed call notification.
         } else if (ACTION_CALL_BACK_FROM_NOTIFICATION.equals(action)) {
             // Close the notification shade and the notification itself.
             closeSystemDialogs(mContext);
-            missedCallNotifier.clearMissedCalls();
+            missedCallNotifier.clearMissedCalls(userHandle);
 
-            Intent callIntent = new Intent(Intent.ACTION_CALL_PRIVILEGED, intent.getData());
+            Intent callIntent = new Intent(Intent.ACTION_CALL, intent.getData());
             callIntent.setFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
-            mContext.startActivityAsUser(callIntent, UserHandle.CURRENT);
+            mContext.startActivityAsUser(callIntent, userHandle);
 
         // Clear the missed call notification and call log entries.
         } else if (ACTION_CLEAR_MISSED_CALLS.equals(action)) {
-            missedCallNotifier.clearMissedCalls();
+            missedCallNotifier.clearMissedCalls(userHandle);
         }
     }
 

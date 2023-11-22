@@ -7,7 +7,7 @@
 #include "AllocationTestHarness.h"
 
 extern "C" {
-#include "reactor.h"
+#include "osi/include/reactor.h"
 }
 
 class ReactorTest : public AllocationTestHarness {};

@@ -2,7 +2,7 @@ page.title=Frequently Asked Questions
 @jd:body
 
 <!--
-    Copyright 2013 The Android Open Source Project
+    Copyright 2015 The Android Open Source Project
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -44,11 +44,11 @@ open platform available for carriers, OEMs, and developers to use to make
 their innovative ideas a reality. We also wanted to make sure there was no
 central point of failure, so no single industry player could restrict or control
 the innovations of any other.  The single most important goal of the Android
-Open Source Project (AOSP) is to make sure that the open-source Android
+Open Source Project (AOSP) is to make sure that the open source Android
 software is implemented as widely and compatibly as possible, to everyone's
 benefit.</p>
-<h3 id="what-kind-of-open-source-project-is-android">What kind of open-source project is Android?</h3>
-<p>Google oversees the development of the core Android open-source platform
+<h3 id="what-kind-of-open-source-project-is-android">What kind of open source project is Android?</h3>
+<p>Google oversees the development of the core Android open source platform
 and works to create robust developer and user communities. For the most part,
 the Android source code is licensed under the permissive Apache Software
 License 2.0, rather than a "copyleft" license. The main reason for this is
@@ -66,7 +66,7 @@ Google treats the Android project as a full-scale product development
 operation and strikes the business deals necessary to make sure great
 devices running Android actually make it to market.</p>
 <p>By making sure Android is a success with users, we help ensure the
-vitality of Android as a platform and as an open-source project. After all,
+vitality of Android as a platform and as an open source project. After all,
 who wants the source code to an unsuccessful product?</p>
 <p>Google's goal is to ensure a successful ecosystem around Android. Of course, no
 one is required to participate. We opened the Android source code
@@ -84,7 +84,7 @@ new features. In this way, we make sure the Android platform evolves
 according to the actual needs of real-world devices.</p>
 <h3 id="how-is-the-android-software-developed">How is the Android software developed?</h3>
 <p>Each platform version of Android (such as 1.5, 1.6, and so on) has a
-corresponding branch in the open-source tree. At any given moment, the most
+corresponding branch in the open source tree. At any given moment, the most
 recent such branch will be considered the "current stable" branch version.
 This current stable branch is the one that manufacturers port to their
 devices. This branch is kept suitable for release at all times.</p>
@@ -148,7 +148,7 @@ usually takes around a month. This often places source code releases
 around the same time the devices reach users.</p>
 <h3 id="how-does-the-aosp-relate-to-the-android-compatibility-program">How does the AOSP relate to the Android Compatibility Program?</h3>
 <p>The Android Open Source Project maintains the Android software, and
-develops new versions. Since it's open-source, this software can be used for
+develops new versions. Since it's open source, this software can be used for
 any purpose, including to develop devices that are not compatible with other
 devices based on the same source.</p>
 <p>The function of the Android Compatibility Program is to define a baseline
@@ -172,7 +172,7 @@ decline that contribution, since Android encourages applications to be run
 in the ART runtime. Similarly, we won't accept contributions such as GPL
 or LGPL libraries that are incompatible with our licensing goals.</p>
 <p>We encourage those interested in contributing source code to contact us
-via the channels listed on the <a href="{@docRoot}source/community/index.html">
+via the channels listed on the <a href="{@docRoot}source/community.html">
 Android Community</a> page prior to beginning any work. You can find more
 information on this topic from the <a href="{@docRoot}source/contributing.html">
 Contributing</a> page.</p>
@@ -187,7 +187,7 @@ contributions.</p>
 Approvers are typically Google employees, but the same approvers are
 responsible for all submissions, regardless of origin.</p>
 <p>You can find more information on this topic at the <a href="submit-patches.html">Submitting Patches</a> page.</p>
-<a href="#top">Back to top</a>  
+<a href="#top">Back to top</a>
 <h2 id="compatibility">Compatibility</h2>
 <h3 id="what-does-compatibility-mean">What does "compatibility" mean?</h3>
 <p>We define an "Android-compatible device" as one that can run any
@@ -250,7 +250,7 @@ wish to use the Android name with their products, or want access to Google Play,
 they must first demonstrate their devices are compatible.</p>
 <h3 id="how-much-does-compatibility-certification-cost">How much does compatibility certification cost?</h3>
 <p>There is no cost to obtain Android compatibility for a device. The
-Compatibility Test Suite is open-source and available to anyone for device testing.</p>
+Compatibility Test Suite is open source and available to anyone for device testing.</p>
 <h3 id="how-long-does-compatibility-take">How long does compatibility take?</h3>
 <p>The process is automated. The Compatibility Test Suite generates a report
 that can be provided to Google to verify compatibility. Eventually we intend
@@ -261,7 +261,7 @@ platform and product, Google maintains the Compatibility Definition Document
 for each release. We draft the CDD for a new Android version in consultation
 with various OEMs who provide input on its contents.</p>
 <h3 id="how-long-will-each-android-version-be-supported-for-new-devices">How long will each Android version be supported for new devices?</h3>
-<p>Since Android's code is open-source, we can't prevent someone from using an
+<p>Since Android's code is open source, we can't prevent someone from using an
 old version to launch a device. Instead, Google chooses not to license the
 Google Play client software for use on versions that are considered
 obsolete. This allows anyone to continue to ship old versions of Android,

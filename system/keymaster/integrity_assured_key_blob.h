@@ -37,6 +37,11 @@ keymaster_error_t DeserializeIntegrityAssuredBlob(const KeymasterKeyBlob& key_bl
                                                   AuthorizationSet* hw_enforced,
                                                   AuthorizationSet* sw_enforced);
 
+keymaster_error_t DeserializeIntegrityAssuredBlob_NoHmacCheck(const KeymasterKeyBlob& key_blob,
+                                                              KeymasterKeyBlob* key_material,
+                                                              AuthorizationSet* hw_enforced,
+                                                              AuthorizationSet* sw_enforced);
+
 }  // namespace keymaster;
 
 #endif  // SYSTEM_KEYMASTER_INTEGRITY_ASSURED_KEY_BLOB_

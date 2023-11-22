@@ -16,16 +16,18 @@
 
 /* implement the "debug-ports" and "track-debug-ports" device services */
 
-#define TRACE_TAG TRACE_JDWP
+#define TRACE_TAG JDWP
 
 #include "sysdeps.h"
 
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "adb.h"
+#include "adb_utils.h"
 
 /* here's how these things work.
 
@@ -217,7 +219,7 @@ jdwp_process_alloc( int  socket )
         calloc(1, sizeof(*proc)));
 
     if (proc == NULL) {
-        D("not enough memory to create new JDWP process\n");
+        D("not enough memory to create new JDWP process");
         return NULL;
     }
 
@@ -228,7 +230,7 @@ jdwp_process_alloc( int  socket )
 
     proc->fde = fdevent_create( socket, jdwp_process_event, proc );
     if (proc->fde == NULL) {
-        D("could not create fdevent for new JDWP process\n" );
+        D("could not create fdevent for new JDWP process" );
         free(proc);
         return NULL;
     }
@@ -270,13 +272,13 @@ jdwp_process_event( int  socket, unsigned  events, void*  _proc )
                     if (errno == EAGAIN)
                         return;
                     /* this can fail here if the JDWP process crashes very fast */
-                    D("weird unknown JDWP process failure: %s\n",
+                    D("weird unknown JDWP process failure: %s",
                       strerror(errno));
 
                     goto CloseProcess;
                 }
                 if (len == 0) {  /* end of stream ? */
-                    D("weird end-of-stream from unknown JDWP process\n");
+                    D("weird end-of-stream from unknown JDWP process");
                     goto CloseProcess;
                 }
                 p            += len;
@@ -288,12 +290,12 @@ jdwp_process_event( int  socket, unsigned  events, void*  _proc )
             temp[4] = 0;
 
             if (sscanf( temp, "%04x", &proc->pid ) != 1) {
-                D("could not decode JDWP %p PID number: '%s'\n", proc, temp);
+                D("could not decode JDWP %p PID number: '%s'", proc, temp);
                 goto CloseProcess;
             }
 
             /* all is well, keep reading to detect connection closure */
-            D("Adding pid %d to jdwp process list\n", proc->pid);
+            D("Adding pid %d to jdwp process list", proc->pid);
             jdwp_process_list_updated();
         }
         else
@@ -311,27 +313,28 @@ jdwp_process_event( int  socket, unsigned  events, void*  _proc )
                     if (len < 0 && errno == EAGAIN)
                         return;
                     else {
-                        D("terminating JDWP %d connection: %s\n", proc->pid,
+                        D("terminating JDWP %d connection: %s", proc->pid,
                           strerror(errno));
                         break;
                     }
                 }
                 else {
-                    D( "ignoring unexpected JDWP %d control socket activity (%d bytes)\n",
+                    D( "ignoring unexpected JDWP %d control socket activity (%d bytes)",
                        proc->pid, len );
                 }
             }
 
         CloseProcess:
-            if (proc->pid >= 0)
-                D( "remove pid %d to jdwp process list\n", proc->pid );
+            if (proc->pid >= 0) {
+                D( "remove pid %d to jdwp process list", proc->pid );
+            }
             jdwp_process_free(proc);
             return;
         }
     }
 
     if (events & FDE_WRITE) {
-        D("trying to write to JDWP pid controli (count=%d first=%d) %d\n",
+        D("trying to write to JDWP pid controli (count=%d first=%d) %d",
           proc->pid, proc->out_count, proc->out_fds[0]);
         if (proc->out_count > 0) {
             int  fd = proc->out_fds[0];
@@ -341,7 +344,6 @@ jdwp_process_event( int  socket, unsigned  events, void*  _proc )
             struct iovec     iov;
             char             dummy = '!';
             char             buffer[sizeof(struct cmsghdr) + sizeof(int)];
-            int flags;
 
             iov.iov_base       = &dummy;
             iov.iov_len        = 1;
@@ -359,18 +361,8 @@ jdwp_process_event( int  socket, unsigned  events, void*  _proc )
             cmsg->cmsg_type  = SCM_RIGHTS;
             ((int*)CMSG_DATA(cmsg))[0] = fd;
 
-            flags = fcntl(proc->socket,F_GETFL,0);
-
-            if (flags == -1) {
-                D("failed to get cntl flags for socket %d: %s\n",
-                  proc->pid, strerror(errno));
-                goto CloseProcess;
-
-            }
-
-            if (fcntl(proc->socket, F_SETFL, flags & ~O_NONBLOCK) == -1) {
-                D("failed to remove O_NONBLOCK flag for socket %d: %s\n",
-                  proc->pid, strerror(errno));
+            if (!set_file_block_mode(proc->socket, true)) {
+                VLOG(JDWP) << "failed to set blocking mode for fd " << proc->socket;
                 goto CloseProcess;
             }
 
@@ -382,20 +374,19 @@ jdwp_process_event( int  socket, unsigned  events, void*  _proc )
                 }
                 if (errno == EINTR)
                     continue;
-                D("sending new file descriptor to JDWP %d failed: %s\n",
+                D("sending new file descriptor to JDWP %d failed: %s",
                   proc->pid, strerror(errno));
                 goto CloseProcess;
             }
 
-            D("sent file descriptor %d to JDWP process %d\n",
+            D("sent file descriptor %d to JDWP process %d",
               fd, proc->pid);
 
             for (n = 1; n < proc->out_count; n++)
                 proc->out_fds[n-1] = proc->out_fds[n];
 
-            if (fcntl(proc->socket, F_SETFL, flags) == -1) {
-                D("failed to set O_NONBLOCK flag for socket %d: %s\n",
-                  proc->pid, strerror(errno));
+            if (!set_file_block_mode(proc->socket, false)) {
+                VLOG(JDWP) << "failed to set non-blocking mode for fd " << proc->socket;
                 goto CloseProcess;
             }
 
@@ -411,13 +402,13 @@ create_jdwp_connection_fd(int  pid)
 {
     JdwpProcess*  proc = _jdwp_list.next;
 
-    D("looking for pid %d in JDWP process list\n", pid);
+    D("looking for pid %d in JDWP process list", pid);
     for ( ; proc != &_jdwp_list; proc = proc->next ) {
         if (proc->pid == pid) {
             goto FoundIt;
         }
     }
-    D("search failed !!\n");
+    D("search failed !!");
     return -1;
 
 FoundIt:
@@ -425,13 +416,13 @@ FoundIt:
         int  fds[2];
 
         if (proc->out_count >= MAX_OUT_FDS) {
-            D("%s: too many pending JDWP connection for pid %d\n",
+            D("%s: too many pending JDWP connection for pid %d",
               __FUNCTION__, pid);
             return -1;
         }
 
         if (adb_socketpair(fds) < 0) {
-            D("%s: socket pair creation failed: %s\n",
+            D("%s: socket pair creation failed: %s",
               __FUNCTION__, strerror(errno));
             return -1;
         }
@@ -469,14 +460,14 @@ jdwp_control_init( JdwpControl*  control,
                    const char*   sockname,
                    int           socknamelen )
 {
-    struct sockaddr_un   addr;
-    socklen_t            addrlen;
-    int                  s;
-    int                  maxpath = sizeof(addr.sun_path);
-    int                  pathlen = socknamelen;
+    sockaddr_un   addr;
+    socklen_t     addrlen;
+    int           s;
+    int           maxpath = sizeof(addr.sun_path);
+    int           pathlen = socknamelen;
 
     if (pathlen >= maxpath) {
-        D( "vm debug control socket name too long (%d extra chars)\n",
+        D( "vm debug control socket name too long (%d extra chars)",
            pathlen+1-maxpath );
         return -1;
     }
@@ -487,22 +478,22 @@ jdwp_control_init( JdwpControl*  control,
 
     s = socket( AF_UNIX, SOCK_STREAM, 0 );
     if (s < 0) {
-        D( "could not create vm debug control socket. %d: %s\n",
+        D( "could not create vm debug control socket. %d: %s",
            errno, strerror(errno));
         return -1;
     }
 
     addrlen = (pathlen + sizeof(addr.sun_family));
 
-    if (bind(s, (struct sockaddr*)&addr, addrlen) < 0) {
-        D( "could not bind vm debug control socket: %d: %s\n",
+    if (bind(s, reinterpret_cast<sockaddr*>(&addr), addrlen) < 0) {
+        D( "could not bind vm debug control socket: %d: %s",
            errno, strerror(errno) );
         adb_close(s);
         return -1;
     }
 
     if ( listen(s, 4) < 0 ) {
-        D("listen failed in jdwp control socket: %d: %s\n",
+        D("listen failed in jdwp control socket: %d: %s",
           errno, strerror(errno));
         adb_close(s);
         return -1;
@@ -512,7 +503,7 @@ jdwp_control_init( JdwpControl*  control,
 
     control->fde = fdevent_create(s, jdwp_control_event, control);
     if (control->fde == NULL) {
-        D( "could not create fdevent for jdwp control socket\n" );
+        D( "could not create fdevent for jdwp control socket" );
         adb_close(s);
         return -1;
     }
@@ -521,7 +512,7 @@ jdwp_control_init( JdwpControl*  control,
     fdevent_add(control->fde, FDE_READ);
     close_on_exec(s);
 
-    D("jdwp control socket started (%d)\n", control->listen_socket);
+    D("jdwp control socket started (%d)", control->listen_socket);
     return 0;
 }
 
@@ -532,23 +523,24 @@ jdwp_control_event( int  s, unsigned  events, void*  _control )
     JdwpControl*  control = (JdwpControl*) _control;
 
     if (events & FDE_READ) {
-        struct sockaddr   addr;
-        socklen_t         addrlen = sizeof(addr);
-        int               s = -1;
-        JdwpProcess*      proc;
+        sockaddr_storage   ss;
+        sockaddr*          addrp = reinterpret_cast<sockaddr*>(&ss);
+        socklen_t          addrlen = sizeof(ss);
+        int                s = -1;
+        JdwpProcess*       proc;
 
         do {
-            s = adb_socket_accept( control->listen_socket, &addr, &addrlen );
+            s = adb_socket_accept(control->listen_socket, addrp, &addrlen);
             if (s < 0) {
                 if (errno == EINTR)
                     continue;
                 if (errno == ECONNABORTED) {
                     /* oops, the JDWP process died really quick */
-                    D("oops, the JDWP process died really quick\n");
+                    D("oops, the JDWP process died really quick");
                     return;
                 }
                 /* the socket is probably closed ? */
-                D( "weird accept() failed on jdwp control socket: %s\n",
+                D( "weird accept() failed on jdwp control socket: %s",
                    strerror(errno) );
                 return;
             }
@@ -608,7 +600,7 @@ jdwp_socket_ready( asocket*  s )
     */
     if (jdwp->pass == 0) {
         apacket*  p = get_apacket();
-        p->len = jdwp_process_list((char*)p->data, MAX_PAYLOAD);
+        p->len = jdwp_process_list((char*)p->data, s->get_max_payload());
         peer->enqueue(peer, p);
         jdwp->pass = 1;
     }
@@ -695,7 +687,7 @@ jdwp_tracker_ready( asocket*  s )
     if (t->need_update) {
         apacket*  p = get_apacket();
         t->need_update = 0;
-        p->len = jdwp_process_list_msg((char*)p->data, sizeof(p->data));
+        p->len = jdwp_process_list_msg((char*)p->data, s->get_max_payload());
         s->peer->enqueue(s->peer, p);
     }
 }

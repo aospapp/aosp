@@ -34,8 +34,7 @@
     <string name="password_empty_error" msgid="591713406761723025">"گذرواژه را تایپ کنید."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"نامی تایپ کنید."</string>
     <string name="name_char_error" msgid="3176618568784938968">"نامی را که فقط شامل عدد و نویسه باشد تایپ کنید."</string>
-    <string name="storage_error" msgid="8306802455802770779">"گواهی‌نامه ذخیره نشد. برای سعی مجدد \"تأیید\" را لمس کنید."</string>
-    <string name="unable_to_save_cert" msgid="9178604087335389686">"گواهی‌نامه ذخیره نشد. محل ذخیره اطلاعات کاربری فعال نیست یا به درستی راه‌اندازی نشده است."</string>
+    <string name="unable_to_save_cert" msgid="9178604087335389686">"گواهی‌نامه ذخیره نشد. حافظه اطلاعات کاربری فعال نیست یا به‌درستی راه‌اندازی نشده است."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"گواهی نصب نشده است."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"هیچ گواهی برای نصب موجود نیست."</string>
     <string name="invalid_cert" msgid="7704228670980743590">"مجوز نامعتبر است."</string>
@@ -68,10 +67,10 @@
     <string name="wifi_trust_config_text" msgid="5916047381475747783">"‏گواهی قابل اعتماد:\n%s\n"</string>
     <string name="install_done_title" msgid="4822989918460334497">"اعتبارنامه‌ها نصب شد"</string>
     <string name="install_done" msgid="1522718684172097080">"‏اعتبارنامه‌های <xliff:g id="NAME">%1$s</xliff:g> به شبکه‌های ذخیره شده Wi-Fi اضافه شد."</string>
-    <string name="done_label" msgid="5597425930652904250">"انجام شد"</string>
+    <string name="done_label" msgid="5597425930652904250">"تمام"</string>
     <string name="wifi_installer_detail" msgid="63879632832701669">"‏اعتبارنامه‌های Wi-Fi را نصب کنید تا به شبکه‌هایی که از طریق <xliff:g id="NAME">%1$s</xliff:g> در دسترسند متصل شوید."</string>
-    <string name="wifi_installer_download_error" msgid="5429453090956277692">"فایل دانلود شده مشکل دارد و نمی‌تواند نصب شود. مطمئن شوید که فایل را از منبع درستی دانلود کرده‌اید."</string>
-    <string name="wifi_installer_fail" msgid="894483173306576331">"‏نصب اعتبارنامه‌های Wi-Fi انجام نشد. دوباره فایل را دانلود کنید."</string>
+    <string name="wifi_installer_download_error" msgid="5429453090956277692">"فایل بارگیری شده مشکل دارد و نمی‌تواند نصب شود. مطمئن شوید که فایل را از منبع درستی بارگیری کرده‌اید."</string>
+    <string name="wifi_installer_fail" msgid="894483173306576331">"‏نصب اعتبارنامه‌های Wi-Fi انجام نشد. دوباره فایل را بارگیری کنید."</string>
     <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"نصب لغو شد"</string>
     <string name="wifi_installer_fail_title" msgid="5547079779067835479">"نصب ممکن نیست"</string>
     <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"‏Wi-Fi را روشن کنید و دوباره امتحان کنید."</string>

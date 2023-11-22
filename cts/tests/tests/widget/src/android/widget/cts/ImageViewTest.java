@@ -25,6 +25,11 @@ import java.io.OutputStream;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 
+import android.graphics.drawable.ColorDrawable;
+import android.test.suitebuilder.annotation.SmallTest;
+import android.widget.cts.util.TestUtils;
+import android.widget.cts.util.ViewTestUtils;
+import org.junit.Assert;
 import org.xmlpull.v1.XmlPullParser;
 
 import android.app.Activity;
@@ -49,18 +54,22 @@ import android.util.Xml;
 import android.widget.ImageView;
 import android.widget.ImageView.ScaleType;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
+
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.*;
 
 
 /**
  * Test {@link ImageView}.
  */
+@SmallTest
 public class ImageViewTest extends ActivityInstrumentationTestCase<ImageViewCtsActivity> {
     private ImageView mImageView;
     private Activity mActivity;
 
     public ImageViewTest() {
-        super("com.android.cts.widget", ImageViewCtsActivity.class);
+        super("android.widget.cts", ImageViewCtsActivity.class);
     }
 
     /**
@@ -95,7 +104,7 @@ public class ImageViewTest extends ActivityInstrumentationTestCase<ImageViewCtsA
                 if (target != null) {
                     target.close();
                 }
-            } catch (IOException _) {
+            } catch (IOException ignored) {
                 // Ignore the IOException.
             }
         }
@@ -114,6 +123,8 @@ public class ImageViewTest extends ActivityInstrumentationTestCase<ImageViewCtsA
         new ImageView(mActivity, null);
 
         new ImageView(mActivity, null, 0);
+
+        new ImageView(mActivity, null, 0, 0);
 
         XmlPullParser parser = mActivity.getResources().getXml(R.layout.imageview_layout);
         AttributeSet attrs = Xml.asAttributeSet(parser);
@@ -143,9 +154,11 @@ public class ImageViewTest extends ActivityInstrumentationTestCase<ImageViewCtsA
         imageView.setScaleType(ScaleType.FIT_XY);
 
         imageView.setAdjustViewBounds(false);
+        assertFalse(imageView.getAdjustViewBounds());
         assertEquals(ScaleType.FIT_XY, imageView.getScaleType());
 
         imageView.setAdjustViewBounds(true);
+        assertTrue(imageView.getAdjustViewBounds());
         assertEquals(ScaleType.FIT_CENTER, imageView.getScaleType());
     }
 
@@ -240,7 +253,7 @@ public class ImageViewTest extends ActivityInstrumentationTestCase<ImageViewCtsA
         mImageView.setImageDrawable(null);
         assertNull(mImageView.getDrawable());
 
-        final Drawable drawable = mActivity.getResources().getDrawable(R.drawable.testimage);
+        final Drawable drawable = mActivity.getDrawable(R.drawable.testimage);
         mImageView.setImageDrawable(drawable);
         assertTrue(mImageView.isLayoutRequested());
         assertNotNull(mImageView.getDrawable());
@@ -336,68 +349,91 @@ public class ImageViewTest extends ActivityInstrumentationTestCase<ImageViewCtsA
         assertEquals(matrix, imageView.getImageMatrix());
     }
 
-    public void testGetBaseline() {
-        final ImageView imageView = new ImageView(mActivity);
-        assertEquals(-1, imageView.getBaseline());
+    @UiThreadTest
+    public void testAccessBaseline() {
+        mImageView = findImageViewById(R.id.imageview);
+
+        mImageView.setImageDrawable(null);
+        assertNull(mImageView.getDrawable());
+
+        final Drawable drawable = mActivity.getDrawable(R.drawable.testimage);
+        mImageView.setImageDrawable(drawable);
+
+        assertEquals(-1, mImageView.getBaseline());
+
+        mImageView.setBaseline(50);
+        assertEquals(50, mImageView.getBaseline());
+
+        mImageView.setBaselineAlignBottom(true);
+        assertTrue(mImageView.getBaselineAlignBottom());
+        assertEquals(mImageView.getMeasuredHeight(), mImageView.getBaseline());
+
+        mImageView.setBaselineAlignBottom(false);
+        assertFalse(mImageView.getBaselineAlignBottom());
+        assertEquals(50, mImageView.getBaseline());
     }
 
+    @UiThreadTest
     public void testSetColorFilter1() {
-        MockDrawable drawable = new MockDrawable();
+        mImageView = findImageViewById(R.id.imageview);
 
-        ImageView imageView = new ImageView(mActivity);
-        imageView.setImageDrawable(drawable);
-        imageView.setColorFilter(null);
+        final Drawable drawable = mActivity.getDrawable(R.drawable.testimage);
+        mImageView.setImageDrawable(drawable);
+
+        mImageView.setColorFilter(null);
         assertNull(drawable.getColorFilter());
 
-        imageView.setColorFilter(0, PorterDuff.Mode.CLEAR);
+        mImageView.setColorFilter(0, PorterDuff.Mode.CLEAR);
         assertNotNull(drawable.getColorFilter());
+        assertNotNull(mImageView.getColorFilter());
     }
 
+    @UiThreadTest
     public void testClearColorFilter() {
-        MockDrawable drawable = new MockDrawable();
+        mImageView = findImageViewById(R.id.imageview);
+
+        final Drawable drawable = mActivity.getDrawable(R.drawable.testimage);
+        mImageView.setImageDrawable(drawable);
+
         ColorFilter cf = new ColorFilter();
+        mImageView.setColorFilter(cf);
 
-        ImageView imageView = new ImageView(mActivity);
-        imageView.setImageDrawable(drawable);
-        imageView.setColorFilter(cf);
-
-        imageView.clearColorFilter();
+        mImageView.clearColorFilter();
         assertNull(drawable.getColorFilter());
+        assertNull(mImageView.getColorFilter());
     }
 
+    @UiThreadTest
     public void testSetColorFilter2() {
-        MockDrawable drawable = new MockDrawable();
+        mImageView = findImageViewById(R.id.imageview);
 
-        ImageView imageView = new ImageView(mActivity);
-        imageView.setImageDrawable(drawable);
-        imageView.setColorFilter(null);
+        final Drawable drawable = mActivity.getDrawable(R.drawable.testimage);
+        mImageView.setImageDrawable(drawable);
+
+        mImageView.setColorFilter(null);
         assertNull(drawable.getColorFilter());
+        assertNull(mImageView.getColorFilter());
 
         ColorFilter cf = new ColorFilter();
-        imageView.setColorFilter(cf);
+        mImageView.setColorFilter(cf);
         assertSame(cf, drawable.getColorFilter());
-    }
-
-    public void testSetAlpha() {
-        MockDrawable drawable = new MockDrawable();
-
-        ImageView imageView = new ImageView(mActivity);
-        imageView.setImageDrawable(drawable);
-        imageView.setAlpha(0);
-        assertEquals(0, drawable.getAlpha());
-
-        imageView.setAlpha(255);
-        assertEquals(255, drawable.getAlpha());
+        assertSame(cf, mImageView.getColorFilter());
     }
 
     public void testDrawableStateChanged() {
-        MockImageView mockImageView = new MockImageView(mActivity);
-        MockDrawable drawable = new MockDrawable();
+        MockImageView imageView = spy(new MockImageView(mActivity));
+        Drawable selectorDrawable = mActivity.getDrawable(R.drawable.statelistdrawable);
+        imageView.setImageDrawable(selectorDrawable);
 
-        assertSame(StateSet.WILD_CARD, drawable.getState());
-        mockImageView.setImageDrawable(drawable);
-        mockImageView.drawableStateChanged();
-        assertSame(mockImageView.getDrawableState(), drawable.getState());
+        // We shouldn't have been called on state change yet
+        verify(imageView, never()).drawableStateChanged();
+        // Mark image view as selected. Since our selector drawable has an "entry" for selected
+        // state, that should cause a call to drawableStateChanged()
+        imageView.setSelected(true);
+        // Test that our image view has indeed called its own drawableStateChanged()
+        verify(imageView, times(1)).drawableStateChanged();
+        // And verify that image view's state matches that of our drawable
+        Assert.assertArrayEquals(imageView.getDrawableState(), selectorDrawable.getState());
     }
 
     public void testOnCreateDrawableState() {
@@ -419,10 +455,11 @@ public class ImageViewTest extends ActivityInstrumentationTestCase<ImageViewCtsA
 
     public void testOnDraw() {
         MockImageView mockImageView = new MockImageView(mActivity);
-        MockDrawable drawable = new MockDrawable();
+        Drawable drawable = spy(mActivity.getDrawable(R.drawable.icon_red));
         mockImageView.setImageDrawable(drawable);
         mockImageView.onDraw(new Canvas());
-        assertTrue(drawable.hasDrawCalled());
+
+        verify(drawable, atLeastOnce()).draw(any(Canvas.class));
     }
 
     public void testOnMeasure() {
@@ -433,68 +470,139 @@ public class ImageViewTest extends ActivityInstrumentationTestCase<ImageViewCtsA
     }
 
     public void testSetFrame() {
-        MockImageView mockImageView = new MockImageView(mActivity);
-        assertFalse(mockImageView.hasOnSizeChangedCalled());
+        MockImageView mockImageView = spy(new MockImageView(mActivity));
+        verify(mockImageView, never()).onSizeChanged(anyInt(), anyInt(), anyInt(), anyInt());
+
         assertTrue(mockImageView.setFrame(5, 10, 100, 200));
         assertEquals(5, mockImageView.getLeft());
         assertEquals(10, mockImageView.getTop());
         assertEquals(100, mockImageView.getRight());
         assertEquals(200, mockImageView.getBottom());
-        assertTrue(mockImageView.hasOnSizeChangedCalled());
+        verify(mockImageView, times(1)).onSizeChanged(95, 190, 0, 0);
 
-        mockImageView.reset();
         assertFalse(mockImageView.setFrame(5, 10, 100, 200));
-        assertFalse(mockImageView.hasOnSizeChangedCalled());
+        // Verify that there were no more calls to onSizeChanged (since the new frame is the
+        // same frame as we had before).
+        verify(mockImageView, times(1)).onSizeChanged(anyInt(), anyInt(), anyInt(), anyInt());
     }
 
     public void testVerifyDrawable() {
         MockImageView mockImageView = new MockImageView(mActivity);
-        MockDrawable drawable = new MockDrawable();
+        Drawable drawable = new ColorDrawable(0xFFFF0000);
         mockImageView.setImageDrawable(drawable);
-        MockDrawable bgdrawable = new MockDrawable();
-        mockImageView.setBackgroundDrawable(bgdrawable);
+        Drawable backgroundDrawable = new ColorDrawable(0xFF0000FF);
+        mockImageView.setBackgroundDrawable(backgroundDrawable);
+
         assertFalse(mockImageView.verifyDrawable(null));
-        assertFalse(mockImageView.verifyDrawable(new MockDrawable()));
+        assertFalse(mockImageView.verifyDrawable(new ColorDrawable(0xFF00FF00)));
         assertTrue(mockImageView.verifyDrawable(drawable));
-        assertTrue(mockImageView.verifyDrawable(bgdrawable));
+        assertTrue(mockImageView.verifyDrawable(backgroundDrawable));
     }
 
-    public void testImageTint() {
-        ImageView inflatedView = (ImageView) mActivity.findViewById(R.id.image_tint);
+    @UiThreadTest
+    public void testImageTintBasics() {
+        mImageView = findImageViewById(R.id.image_tint);
 
         assertEquals("Image tint inflated correctly",
-                Color.WHITE, inflatedView.getImageTintList().getDefaultColor());
+                Color.WHITE, mImageView.getImageTintList().getDefaultColor());
         assertEquals("Image tint mode inflated correctly",
-                PorterDuff.Mode.SRC_OVER, inflatedView.getImageTintMode());
+                PorterDuff.Mode.SRC_OVER, mImageView.getImageTintMode());
 
-        MockDrawable image = new MockDrawable();
-        ImageView view = new ImageView(mActivity);
-
-        view.setImageDrawable(image);
-        assertFalse("No image tint applied by default", image.hasCalledSetTint());
-
-        view.setImageTintList(ColorStateList.valueOf(Color.WHITE));
-        assertTrue("Image tint applied when setImageTintList() called after set()",
-                image.hasCalledSetTint());
-
-        image.reset();
-        view.setImageDrawable(null);
-        view.setImageDrawable(image);
-        assertTrue("Image tint applied when setImageTintList() called before set()",
-                image.hasCalledSetTint());
+        mImageView.setImageTintMode(PorterDuff.Mode.SRC_IN);
+        assertEquals(PorterDuff.Mode.SRC_IN, mImageView.getImageTintMode());
     }
 
-    private static class MockImageView extends ImageView {
-        private boolean mOnSizeChangedCalled = false;
+    public void testImageTintDrawableUpdates() {
+        Drawable drawable = spy(mActivity.getDrawable(R.drawable.icon_red));
 
-        public boolean hasOnSizeChangedCalled() {
-            return mOnSizeChangedCalled;
-        }
+        ImageView view = new ImageView(mActivity);
+        view.setImageDrawable(drawable);
+        // No image tint applied by default
+        verify(drawable, never()).setTintList(any(ColorStateList.class));
 
-        public void reset() {
-            mOnSizeChangedCalled = false;
-        }
+        view.setImageTintList(ColorStateList.valueOf(Color.WHITE));
+        // Image tint applied when setImageTintList() called after setImageDrawable()
+        verify(drawable, times(1)).setTintList(any(ColorStateList.class));
 
+        view.setImageDrawable(null);
+        view.setImageDrawable(drawable);
+        // Image tint applied when setImageTintList() called before setImageDrawable()
+        verify(drawable, times(2)).setTintList(any(ColorStateList.class));
+    }
+
+    @UiThreadTest
+    public void testImageTintVisuals() {
+        mImageView = findImageViewById(R.id.image_tint_with_source);
+        TestUtils.assertAllPixelsOfColor("All pixels should be white", mImageView,
+                0xFFFFFFFF, 1, false);
+
+        // Use translucent white tint. Together with SRC_OVER mode (defined in XML) the end
+        // result should be a fully opaque image view with solid fill color in between red
+        // and white.
+        mImageView.setImageTintList(ColorStateList.valueOf(0x80FFFFFF));
+        TestUtils.assertAllPixelsOfColor("All pixels should be light red", mImageView,
+                0xFFFF8080, 1, false);
+
+        // Switch to SRC_IN mode. This should completely ignore the original drawable set on
+        // the image view and use the last set tint color (50% alpha white).
+        mImageView.setImageTintMode(PorterDuff.Mode.SRC_IN);
+        TestUtils.assertAllPixelsOfColor("All pixels should be 50% alpha white", mImageView,
+                0x80FFFFFF, 1, false);
+
+        // Switch to DST mode. This should completely ignore the last set tint color and use the
+        // the original drawable set on the image view.
+        mImageView.setImageTintMode(PorterDuff.Mode.DST);
+        TestUtils.assertAllPixelsOfColor("All pixels should be red", mImageView,
+                0xFFFF0000, 1, false);
+    }
+
+    @UiThreadTest
+    public void testAlpha() {
+        mImageView = findImageViewById(R.id.imageview);
+        mImageView.setImageResource(R.drawable.blue_fill);
+
+        TestUtils.assertAllPixelsOfColor("All pixels should be blue", mImageView,
+                0xFF0000FF, 1, false);
+
+        mImageView.setAlpha(128);
+        TestUtils.assertAllPixelsOfColor("All pixels should be 50% alpha blue", mImageView,
+                0x800000FF, 1, false);
+
+        mImageView.setAlpha(0);
+        TestUtils.assertAllPixelsOfColor("All pixels should be transparent", mImageView,
+                0x00000000, 1, false);
+
+        mImageView.setAlpha(255);
+        TestUtils.assertAllPixelsOfColor("All pixels should be blue", mImageView,
+                0xFF0000FF, 1, false);
+    }
+
+    @UiThreadTest
+    public void testImageAlpha() {
+        mImageView = findImageViewById(R.id.imageview);
+        mImageView.setImageResource(R.drawable.blue_fill);
+
+        assertEquals(255, mImageView.getImageAlpha());
+        TestUtils.assertAllPixelsOfColor("All pixels should be blue", mImageView,
+                0xFF0000FF, 1, false);
+
+        mImageView.setImageAlpha(128);
+        assertEquals(128, mImageView.getImageAlpha());
+        TestUtils.assertAllPixelsOfColor("All pixels should be 50% alpha blue", mImageView,
+                0x800000FF, 1, false);
+
+        mImageView.setImageAlpha(0);
+        assertEquals(0, mImageView.getImageAlpha());
+        TestUtils.assertAllPixelsOfColor("All pixels should be transparent", mImageView,
+                0x00000000, 1, false);
+
+        mImageView.setImageAlpha(255);
+        assertEquals(255, mImageView.getImageAlpha());
+        TestUtils.assertAllPixelsOfColor("All pixels should be blue", mImageView,
+                0xFF0000FF, 1, false);
+    }
+
+    protected static class MockImageView extends ImageView {
         public MockImageView(Context context) {
             super(context);
         }
@@ -540,64 +648,7 @@ public class ImageViewTest extends ActivityInstrumentationTestCase<ImageViewCtsA
         }
 
         protected void onSizeChanged(int w, int h, int oldw, int oldh) {
-            mOnSizeChangedCalled = true;
-        }
-    }
-
-    private class MockDrawable extends Drawable {
-        private ColorFilter mColorFilter;
-        private boolean mDrawCalled = false;
-        private boolean mCalledSetTint = false;
-        private int mAlpha;
-
-        public boolean hasDrawCalled() {
-            return mDrawCalled;
-        }
-
-        public ColorFilter getColorFilter() {
-            return mColorFilter;
-        }
-
-        @Override
-        public void draw(Canvas canvas) {
-            mDrawCalled = true;
-        }
-
-        @Override
-        public void setAlpha(int alpha) {
-            mAlpha = alpha;
-        }
-
-        public int getAlpha() {
-            return mAlpha;
-        }
-
-        @Override
-        public void setColorFilter(ColorFilter cf) {
-            mColorFilter = cf;
-        }
-
-        @Override
-        public int getOpacity() {
-            return 0;
-        }
-
-        public boolean isStateful() {
-            return true;
-        }
-
-        @Override
-        public void setTintList(ColorStateList tint) {
-            super.setTintList(tint);
-            mCalledSetTint = true;
-        }
-
-        public boolean hasCalledSetTint() {
-            return mCalledSetTint;
-        }
-
-        public void reset() {
-            mCalledSetTint = false;
+            super.onSizeChanged(w, h, oldw, oldh);
         }
     }
 }

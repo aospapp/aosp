@@ -15,28 +15,27 @@
  */
 package android.net.cts;
 
+import junit.framework.TestCase;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import android.net.LocalServerSocket;
 import android.net.LocalSocket;
 import android.net.LocalSocketAddress;
-import android.test.AndroidTestCase;
 
-public class LocalServerSocketTest extends AndroidTestCase {
+public class LocalServerSocketTest extends TestCase {
 
     public void testLocalServerSocket() throws IOException {
-        LocalServerSocket localServerSocket = new LocalServerSocket(LocalSocketTest.mSockAddr);
+        String address = "com.android.net.LocalServerSocketTest_testLocalServerSocket";
+        LocalServerSocket localServerSocket = new LocalServerSocket(address);
         assertNotNull(localServerSocket.getLocalSocketAddress());
-        commonFunctions(localServerSocket);
-    }
 
-    public void commonFunctions(LocalServerSocket localServerSocket) throws IOException {
         // create client socket
         LocalSocket clientSocket = new LocalSocket();
 
         // establish connection between client and server
-        clientSocket.connect(new LocalSocketAddress(LocalSocketTest.mSockAddr));
+        clientSocket.connect(new LocalSocketAddress(address));
         LocalSocket serverSocket = localServerSocket.accept();
 
         // send data from client to server

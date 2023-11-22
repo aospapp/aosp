@@ -123,7 +123,7 @@ END(rsdIntrinsicResize_oscctl_K)
  * For the most part the vertical pass (the outer loop) is the same for all
  * versions.  Exceptions are handled in-line with conditional assembly.
  */
-.irep comp, 1, 2, 4
+.irp comp, 1, 2, 4
 .if \comp == 1
 .set COMPONENT_SHIFT, 0
 .elseif \comp == 2
@@ -205,7 +205,7 @@ ENTRY(rsdIntrinsicResizeB\comp\()_K)
              * match.
              */
             mov         v3.8b, v4.8b  /* make y coeffs available for vert4 and vert8 macros */
-            sub         x14, x12, x13, LSL #COMPONENT_SHIFT + 1
+            sub         x14, x12, x13, LSL #(COMPONENT_SHIFT + 1)
             add         x15, x12, #(2 * CHUNKSIZE - 4) * COMPONENT_COUNT * 2
             add         x14, x14, #4 * COMPONENT_COUNT * 2
 .if \comp == 1
@@ -238,10 +238,10 @@ ENTRY(rsdIntrinsicResizeB\comp\()_K)
              * were read unconditionally, but some may have been discarded by
              * xclip, so we rewind the pointers to compensate.
              */
-            sub         x4, x4, x13, LSL #COMPONENT_SHIFT
-            sub         x5, x5, x13, LSL #COMPONENT_SHIFT
-            sub         x6, x6, x13, LSL #COMPONENT_SHIFT
-            sub         x7, x7, x13, LSL #COMPONENT_SHIFT
+            sub         x4, x4, x13, LSL #(COMPONENT_SHIFT)
+            sub         x5, x5, x13, LSL #(COMPONENT_SHIFT)
+            sub         x6, x6, x13, LSL #(COMPONENT_SHIFT)
+            sub         x7, x7, x13, LSL #(COMPONENT_SHIFT)
 
             /* First tap starts where we just pre-filled, at the end of the
              * buffer.
@@ -292,12 +292,12 @@ ENTRY(rsdIntrinsicResizeB\comp\()_K)
             sub         x5, x5, #8
             sub         x6, x6, #8
             sub         x7, x7, #8
-            add         x4, x4, x11, LSL #COMPONENT_SHIFT
-            add         x5, x5, x11, LSL #COMPONENT_SHIFT
-            add         x6, x6, x11, LSL #COMPONENT_SHIFT
-            add         x7, x7, x11, LSL #COMPONENT_SHIFT
+            add         x4, x4, x11, LSL #(COMPONENT_SHIFT)
+            add         x5, x5, x11, LSL #(COMPONENT_SHIFT)
+            add         x6, x6, x11, LSL #(COMPONENT_SHIFT)
+            add         x7, x7, x11, LSL #(COMPONENT_SHIFT)
             vert8
-            sub         x11, sp, x11, LSL #COMPONENT_SHIFT + 1
+            sub         x11, sp, x11, LSL #(COMPONENT_SHIFT + 1)
             sub         sp, sp, #32
             sub         x11, x11, #16
 .if \comp == 1

@@ -85,18 +85,6 @@ void UIPC_Close(tUIPC_CH_ID ch_id);
 
 /*******************************************************************************
 **
-** Function         UIPC_SendBuf
-**
-** Description      Called to transmit a message over UIPC.
-**                  Message buffer will be freed by UIPC_SendBuf.
-**
-** Returns          void
-**
-*******************************************************************************/
-BOOLEAN UIPC_SendBuf(tUIPC_CH_ID ch_id, BT_HDR *p_msg);
-
-/*******************************************************************************
-**
 ** Function         UIPC_Send
 **
 ** Description      Called to transmit a message over UIPC.

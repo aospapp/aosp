@@ -70,15 +70,15 @@ TEMP_FILES=$(mktemp --tmpdir generated-nist-files.XXXXXXXXX)
 
 ${PDFTOTEXT} -layout -nopgbrk -eol unix "${PDF}" "${TEMP_TEXT}"
 
-"$(dirname $0)/extract-pkits-tests.pl" "${TEMP_TEXT}" "${TEMP_JAVA}" "${TEMP_FILES}"
+"$(dirname "$0")/extract-pkits-tests.pl" "${TEMP_TEXT}" "${TEMP_JAVA}" "${TEMP_FILES}"
 sed -i '/DO NOT MANUALLY EDIT -- BEGIN AUTOMATICALLY GENERATED TESTS/,/DO NOT MANUALLY EDIT -- END AUTOMATICALLY GENERATED TESTS/{//!d}' "${TARGET}"
 sed -i '/DO NOT MANUALLY EDIT -- BEGIN AUTOMATICALLY GENERATED TESTS/r '"${TEMP_JAVA}" "${TARGET}"
 
-pushd "$(dirname $0)"
+pushd "$(dirname "$0")"
 mkdir -p "${STORAGE_DIR}"
 while IFS= read -r -d $'\n' file; do
     unzip -q -o -d "${STORAGE_DIR}" "${ZIP}" "${file}"
-done < ${TEMP_FILES}
+done < "${TEMP_FILES}"
 popd
 
 shasum_file() {

@@ -16,17 +16,16 @@
 
 package android.graphics.drawable.shapes.cts;
 
+import junit.framework.TestCase;
 
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Paint;
-import android.graphics.RectF;
 import android.graphics.Bitmap.Config;
+import android.graphics.Canvas;
+import android.graphics.Outline;
+import android.graphics.Paint;
 import android.graphics.Paint.Style;
-import android.graphics.drawable.shapes.RoundRectShape;
 import android.graphics.drawable.shapes.Shape;
-
-import junit.framework.TestCase;
+import android.test.suitebuilder.annotation.SmallTest;
 
 public class ShapeTest extends TestCase {
     private static final int TEST_WIDTH  = 100;
@@ -35,6 +34,7 @@ public class ShapeTest extends TestCase {
     private static final int TEST_COLOR_1 = 0xFF00FF00;
     private static final int TEST_COLOR_2 = 0xFFFF0000;
 
+    @SmallTest
     public void testSize() {
         MockShape mockShape = new MockShape();
         assertFalse(mockShape.hasCalledOnResize());
@@ -57,6 +57,7 @@ public class ShapeTest extends TestCase {
         assertEquals(0f, mockShape.getHeight());
     }
 
+    @SmallTest
     public void testOnResize() {
         MockShape mockShape = new MockShape();
         assertFalse(mockShape.hasCalledOnResize());
@@ -75,6 +76,7 @@ public class ShapeTest extends TestCase {
         assertTrue(mockShape.hasCalledOnResize());
     }
 
+    @SmallTest
     public void testClone() throws CloneNotSupportedException {
         Shape shape = new MockShape();
         shape.resize(100f, 200f);
@@ -87,11 +89,13 @@ public class ShapeTest extends TestCase {
         assertEquals(shape.getHeight(), clonedShape.getHeight());
     }
 
+    @SmallTest
     public void testHasAlpha() {
         Shape shape = new MockShape();
         assertTrue(shape.hasAlpha());
     }
 
+    @SmallTest
     public void testDraw() {
         Shape shape = new MockShape();
         Bitmap bitmap = Bitmap.createBitmap(TEST_WIDTH, TEST_HEIGHT, Config.ARGB_8888);
@@ -107,6 +111,15 @@ public class ShapeTest extends TestCase {
         paint.setColor(TEST_COLOR_2);
         shape.draw(canvas, paint);
         assertEquals(0, bitmap.getPixel(0, 0));
+    }
+
+    @SmallTest
+    public void testGetOutline() {
+        Shape shape = new MockShape();
+        Outline outline = new Outline();
+
+        // This is a no-op. Just make sure it doesn't crash.
+        shape.getOutline(outline);
     }
 
     private static class MockShape extends Shape {

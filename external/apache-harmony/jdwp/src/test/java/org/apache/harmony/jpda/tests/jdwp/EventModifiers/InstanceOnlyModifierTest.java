@@ -68,11 +68,6 @@ public class InstanceOnlyModifierTest extends JDWPEventModifierTestCase {
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        if (!checkCanUseInstanceFilterCapability()) {
-            synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
-            return;
-        }
-
         byte typeTag = JDWPConstants.TypeTag.CLASS;
         Breakpoint breakpoint = new Breakpoint(TEST_CLASS_SIGNATURE,
                 METHOD_NAME, 0);
@@ -99,11 +94,6 @@ public class InstanceOnlyModifierTest extends JDWPEventModifierTestCase {
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        if (!checkCanUseInstanceFilterCapability()) {
-            synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
-            return;
-        }
-
         EventBuilder builder = createMethodEntryEventBuilder(TEST_CLASS_NAME);
         testEventWithInstanceOnlyModifier(builder);
 
@@ -126,11 +116,6 @@ public class InstanceOnlyModifierTest extends JDWPEventModifierTestCase {
         logWriter.println("testMethodExit started");
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
-
-        if (!checkCanUseInstanceFilterCapability()) {
-            synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
-            return;
-        }
 
         EventBuilder builder = createMethodExitEventBuilder(TEST_CLASS_NAME);
         testEventWithInstanceOnlyModifier(builder);
@@ -157,11 +142,6 @@ public class InstanceOnlyModifierTest extends JDWPEventModifierTestCase {
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        if (!checkCanUseInstanceFilterCapability()) {
-            synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
-            return;
-        }
-
         EventBuilder builder = createMethodExitWithReturnValueEventBuilder(TEST_CLASS_NAME);
         testEventWithInstanceOnlyModifier(builder);
 
@@ -183,11 +163,6 @@ public class InstanceOnlyModifierTest extends JDWPEventModifierTestCase {
         logWriter.println("testException started");
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
-
-        if (!checkCanUseInstanceFilterCapability()) {
-            synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
-            return;
-        }
 
         String exceptionClassSignature =
                 "Lorg/apache/harmony/jpda/tests/jdwp/EventModifiers/InstanceOnlyModifierDebuggee$TestException;";
@@ -214,16 +189,6 @@ public class InstanceOnlyModifierTest extends JDWPEventModifierTestCase {
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        if (!checkCanUseInstanceFilterCapability()) {
-            synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
-            return;
-        }
-
-        if (!canWatchFieldAccessCapability()) {
-            synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
-            return;
-        }
-
         EventBuilder builder = createFieldAccessEventBuilder(
                 JDWPConstants.TypeTag.CLASS, TEST_CLASS_SIGNATURE,
                 WATCHED_FIELD_NAME);
@@ -249,31 +214,12 @@ public class InstanceOnlyModifierTest extends JDWPEventModifierTestCase {
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        if (!checkCanUseInstanceFilterCapability()) {
-            synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
-            return;
-        }
-
-        if (!canWatchFieldModificationCapability()) {
-            synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
-            return;
-        }
-
         EventBuilder builder = createFieldModificationEventBuilder(
                 JDWPConstants.TypeTag.CLASS, TEST_CLASS_SIGNATURE,
                 WATCHED_FIELD_NAME);
         testEventWithInstanceOnlyModifier(builder);
 
         logWriter.println("testFieldModification done");
-    }
-
-    private boolean checkCanUseInstanceFilterCapability() {
-        logWriter.println("Checking canUseInstanceFilters capability");
-        boolean result = debuggeeWrapper.vmMirror.canUseInstanceFilters();
-        if (!result) {
-            logCapabilityWarning("canUseInstanceFilters");
-        }
-        return result;
     }
 
     private long getInstanceObjectId() {

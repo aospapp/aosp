@@ -16,21 +16,17 @@ public:
 
     size_t read(void* buffer, size_t size) override;
 
-    bool peek(void* buffer, size_t size) const override;
+    size_t peek(void* buffer, size_t size) const override;
 
     bool isAtEnd() const override;
 
     bool rewind() override;
 
-    bool hasPosition() const override { return true; }
-
-    size_t getPosition() const override { return fOffset; }
-
     bool hasLength() const override { return fHasLength; }
 
     size_t getLength() const override { return fLength; }
 
-    SkStreamRewindable* duplicate() const override { return NULL; }
+    SkStreamRewindable* duplicate() const override { return nullptr; }
 
 private:
     SkAutoTDelete<SkStream> fStream;
@@ -44,21 +40,21 @@ private:
     // Total size of the buffer.
     const size_t            fBufferSize;
     // FIXME: SkAutoTMalloc throws on failure. Instead, Create should return a
-    // NULL stream.
+    // nullptr stream.
     SkAutoTMalloc<char>     fBuffer;
 
     // Read up to size bytes from already buffered data, and copy to
-    // dst, if non-NULL. Updates fOffset. Assumes that fOffset is less
+    // dst, if non-nullptr. Updates fOffset. Assumes that fOffset is less
     // than fBufferedSoFar.
     size_t readFromBuffer(char* dst, size_t size);
 
     // Buffer up to size bytes from the stream, and copy to dst if non-
-    // NULL. Updates fOffset and fBufferedSoFar. Assumes that fOffset is
+    // nullptr. Updates fOffset and fBufferedSoFar. Assumes that fOffset is
     // less than fBufferedSoFar, and size is greater than 0.
     size_t bufferAndWriteTo(char* dst, size_t size);
 
     // Read up to size bytes directly from the stream and into dst if non-
-    // NULL. Updates fOffset. Assumes fOffset is at or beyond the buffered
+    // nullptr. Updates fOffset. Assumes fOffset is at or beyond the buffered
     // data, and size is greater than 0.
     size_t readDirectlyFromStream(char* dst, size_t size);
 
@@ -66,10 +62,10 @@ private:
 };
 
 SkStreamRewindable* SkFrontBufferedStream::Create(SkStream* stream, size_t bufferSize) {
-    if (NULL == stream) {
-        return NULL;
+    if (nullptr == stream) {
+        return nullptr;
     }
-    return SkNEW_ARGS(FrontBufferedStream, (stream, bufferSize));
+    return new FrontBufferedStream(stream, bufferSize);
 }
 
 FrontBufferedStream::FrontBufferedStream(SkStream* stream, size_t bufferSize)
@@ -106,7 +102,7 @@ size_t FrontBufferedStream::readFromBuffer(char* dst, size_t size) {
     // lesser of the size requested and the remainder of the buffered
     // data.
     const size_t bytesToCopy = SkTMin(size, fBufferedSoFar - fOffset);
-    if (dst != NULL) {
+    if (dst != nullptr) {
         memcpy(dst, fBuffer + fOffset, bytesToCopy);
     }
 
@@ -133,7 +129,7 @@ size_t FrontBufferedStream::bufferAndWriteTo(char* dst, size_t size) {
     SkASSERT(fBufferedSoFar <= fBufferSize);
 
     // Copy the buffer to the destination buffer and update the amount read.
-    if (dst != NULL) {
+    if (dst != nullptr) {
         memcpy(dst, buffer, buffered);
     }
 
@@ -157,18 +153,20 @@ size_t FrontBufferedStream::readDirectlyFromStream(char* dst, size_t size) {
     return bytesReadDirectly;
 }
 
-bool FrontBufferedStream::peek(void* dst, size_t size) const {
+size_t FrontBufferedStream::peek(void* dst, size_t size) const {
     // Keep track of the offset so we can return to it.
     const size_t start = fOffset;
-    if (start + size > fBufferSize) {
-        // This stream is not able to buffer enough.
-        return false;
+
+    if (start >= fBufferSize) {
+        // This stream is not able to buffer.
+        return 0;
     }
+
+    size = SkTMin(size, fBufferSize - start);
     FrontBufferedStream* nonConstThis = const_cast<FrontBufferedStream*>(this);
-    SkDEBUGCODE(const size_t bytesRead =) nonConstThis->read(dst, size);
-    SkASSERT(bytesRead == size);
+    const size_t bytesRead = nonConstThis->read(dst, size);
     nonConstThis->fOffset = start;
-    return true;
+    return bytesRead;
 }
 
 size_t FrontBufferedStream::read(void* voidDst, size_t size) {
@@ -185,7 +183,7 @@ size_t FrontBufferedStream::read(void* voidDst, size_t size) {
         // and the destination buffer.
         size -= bytesCopied;
         SkASSERT(size + (fOffset - start) == totalSize);
-        if (dst != NULL) {
+        if (dst != nullptr) {
             dst += bytesCopied;
         }
     }
@@ -199,7 +197,7 @@ size_t FrontBufferedStream::read(void* voidDst, size_t size) {
         // and the destination buffer.
         size -= buffered;
         SkASSERT(size + (fOffset - start) == totalSize);
-        if (dst != NULL) {
+        if (dst != nullptr) {
             dst += buffered;
         }
     }

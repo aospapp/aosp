@@ -17,30 +17,29 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE_RELATIVE_PATH := hw
-LOCAL_CFLAGS += -fno-short-enums -DQEMU_HARDWARE
-LOCAL_CFLAGS += -Wno-unused-parameter -Wno-missing-field-initializers
-LOCAL_CLANG_CFLAGS += -Wno-c++11-narrowing
-LOCAL_SHARED_LIBRARIES:= \
+# Emulator camera module########################################################
+
+emulator_camera_module_relative_path := hw
+emulator_camera_cflags := -fno-short-enums -DQEMU_HARDWARE
+emulator_camera_cflags += -Wno-unused-parameter -Wno-missing-field-initializers
+emulator_camera_clang_flags := -Wno-c++11-narrowing
+emulator_camera_shared_libraries := \
     libbinder \
     liblog \
     libutils \
     libcutils \
     libcamera_client \
     libui \
-    libdl
-
-# JPEG conversion libraries and includes.
-LOCAL_SHARED_LIBRARIES += \
+    libdl \
 	libjpeg \
 	libcamera_metadata
 
-LOCAL_C_INCLUDES += external/jpeg \
+emulator_camera_c_includes := external/jpeg \
 	frameworks/native/include/media/hardware \
 	$(LOCAL_PATH)/../opengl/system/OpenglSystemCommon \
 	$(call include-path-for, camera)
 
-LOCAL_SRC_FILES := \
+emulator_camera_src := \
 	EmulatedCameraHal.cpp \
 	EmulatedCameraFactory.cpp \
 	EmulatedCameraHotplugThread.cpp \
@@ -65,6 +64,16 @@ LOCAL_SRC_FILES := \
 	EmulatedCamera3.cpp \
 		EmulatedFakeCamera3.cpp
 
+# Emulated camera - goldfish / vbox_x86 build###################################
+
+LOCAL_MODULE_RELATIVE_PATH := ${emulator_camera_module_relative_path}
+LOCAL_CFLAGS := ${emulator_camera_cflags}
+LOCAL_CLANG_CFLAGS += ${emulator_camera_clang_flags}
+
+LOCAL_SHARED_LIBRARIES := ${emulator_camera_shared_libraries}
+LOCAL_C_INCLUDES += ${emulator_camera_c_includes}
+LOCAL_SRC_FILES := ${emulator_camera_src}
+
 ifeq ($(TARGET_PRODUCT),vbox_x86)
 LOCAL_MODULE := camera.vbox_x86
 else
@@ -73,29 +82,70 @@ endif
 
 include $(BUILD_SHARED_LIBRARY)
 
-#################################################################
+# Emulator camera - ranchu build################################################
+
+include ${CLEAR_VARS}
+
+LOCAL_MODULE_RELATIVE_PATH := ${emulator_camera_module_relative_path}
+LOCAL_CFLAGS := ${emulator_camera_cflags}
+LOCAL_CLANG_CFLAGS += ${emulator_camera_clang_flags}
+
+LOCAL_SHARED_LIBRARIES := ${emulator_camera_shared_libraries}
+LOCAL_C_INCLUDES += ${emulator_camera_c_includes}
+LOCAL_SRC_FILES := ${emulator_camera_src}
+
+LOCAL_MODULE := camera.ranchu
+
+include $(BUILD_SHARED_LIBRARY)
+
+# JPEG stub#####################################################################
+
 ifneq ($(TARGET_BUILD_PDK),true)
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE_RELATIVE_PATH := hw
-LOCAL_CFLAGS += -fno-short-enums -DQEMU_HARDWARE
-LOCAL_CFLAGS += -Wno-unused-parameter
-LOCAL_CLANG_CFLAGS += -Wno-c++11-narrowing
-LOCAL_SHARED_LIBRARIES:= \
+jpeg_module_relative_path := hw
+jpeg_cflags := -fno-short-enums -DQEMU_HARDWARE
+jpeg_cflags += -Wno-unused-parameter
+jpeg_clang_flags += -Wno-c++11-narrowing
+jpeg_shared_libraries := \
     libcutils \
     liblog \
     libskia \
     libandroid_runtime
+jpeg_c_includes := external/libjpeg-turbo \
+                   external/skia/include/core/ \
+                   frameworks/base/core/jni/android/graphics \
+                   frameworks/native/include
+jpeg_src := JpegStub.cpp
 
-LOCAL_C_INCLUDES += external/jpeg \
-                    external/skia/include/core/ \
-                    frameworks/base/core/jni/android/graphics \
-                    frameworks/native/include
+# JPEG stub - goldfish build####################################################
 
-LOCAL_SRC_FILES := JpegStub.cpp
+LOCAL_MODULE_RELATIVE_PATH := ${jpeg_module_relative_path}
+LOCAL_CFLAGS += ${jpeg_cflags}
+LOCAL_CLANG_CFLAGS += ${jpeg_clangflags}
+
+LOCAL_SHARED_LIBRARIES := ${jpeg_shared_libraries}
+LOCAL_C_INCLUDES += ${jpeg_c_includes}
+LOCAL_SRC_FILES := ${jpeg_src}
 
 LOCAL_MODULE := camera.goldfish.jpeg
+
+include $(BUILD_SHARED_LIBRARY)
+
+# JPEG stub - ranchu build######################################################
+
+include ${CLEAR_VARS}
+
+LOCAL_MODULE := camera.ranchu.jpeg
+
+LOCAL_MODULE_RELATIVE_PATH := ${jpeg_module_relative_path}
+LOCAL_CFLAGS += ${jpeg_cflags}
+LOCAL_CLANG_CFLAGS += ${jpeg_clangflags}
+
+LOCAL_SHARED_LIBRARIES := ${jpeg_shared_libraries}
+LOCAL_C_INCLUDES += ${jpeg_c_includes}
+LOCAL_SRC_FILES := ${jpeg_src}
 
 include $(BUILD_SHARED_LIBRARY)
 

@@ -16,23 +16,27 @@
 
 package android.text.cts;
 
+import android.graphics.Typeface;
 import android.test.AndroidTestCase;
 import android.text.Editable;
-import android.text.GetChars;
-import android.text.GraphicsOperations;
+import android.text.Layout;
 import android.text.Layout.Alignment;
-import android.text.TextUtils.TruncateAt;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
+import android.text.Spanned;
 import android.text.SpannedString;
 import android.text.StaticLayout;
 import android.text.TextDirectionHeuristics;
 import android.text.TextPaint;
 import android.text.TextUtils;
+import android.text.TextUtils.TruncateAt;
+import android.text.method.cts.EditorState;
+import android.text.style.StyleSpan;
 
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class StaticLayoutTest extends AndroidTestCase {
     private static final float SPACE_MULTI = 1.0f;
@@ -58,6 +62,10 @@ public class StaticLayoutTest extends AndroidTestCase {
 
     private StaticLayout mDefaultLayout;
     private TextPaint mDefaultPaint;
+
+    private class TestingTextPaint extends TextPaint {
+        // need to have a subclass to insure measurement happens in Java and not C++
+    }
 
     @Override
     protected void setUp() throws Exception {
@@ -974,5 +982,243 @@ public class StaticLayoutTest extends AndroidTestCase {
             assertEquals(testLabel, 5, layout.getOffsetToRightOf(6));
             assertEquals(testLabel, 6, layout.getOffsetToRightOf(7));
         }
+    }
+
+    private void moveCursorToRightCursorableOffset(EditorState state) {
+        assertEquals("The editor has selection", state.mSelectionStart, state.mSelectionEnd);
+        StaticLayout layout = StaticLayout.Builder.obtain(state.mText, 0, state.mText.length(),
+                mDefaultPaint, DEFAULT_OUTER_WIDTH).build();
+        final int newOffset = layout.getOffsetToRightOf(state.mSelectionStart);
+        state.mSelectionStart = state.mSelectionEnd = newOffset;
+    }
+
+    private void moveCursorToLeftCursorableOffset(EditorState state) {
+        assertEquals("The editor has selection", state.mSelectionStart, state.mSelectionEnd);
+        StaticLayout layout = StaticLayout.Builder.obtain(state.mText, 0, state.mText.length(),
+                mDefaultPaint, DEFAULT_OUTER_WIDTH).build();
+        final int newOffset = layout.getOffsetToLeftOf(state.mSelectionStart);
+        state.mSelectionStart = state.mSelectionEnd = newOffset;
+    }
+
+    public void testGetOffset_Emoji() {
+        EditorState state = new EditorState();
+
+        // Emojis
+        // U+00A9 is COPYRIGHT SIGN.
+        state.setByString("| U+00A9 U+00A9 U+00A9");
+        moveCursorToRightCursorableOffset(state);
+        state.assertEquals("U+00A9 | U+00A9 U+00A9");
+        moveCursorToRightCursorableOffset(state);
+        state.assertEquals("U+00A9 U+00A9 | U+00A9");
+        moveCursorToRightCursorableOffset(state);
+        state.assertEquals("U+00A9 U+00A9 U+00A9 |");
+        moveCursorToRightCursorableOffset(state);
+        state.assertEquals("U+00A9 U+00A9 U+00A9 |");
+        moveCursorToLeftCursorableOffset(state);
+        state.assertEquals("U+00A9 U+00A9 | U+00A9");
+        moveCursorToLeftCursorableOffset(state);
+        state.assertEquals("U+00A9 | U+00A9 U+00A9");
+        moveCursorToLeftCursorableOffset(state);
+        state.assertEquals("| U+00A9 U+00A9 U+00A9");
+        moveCursorToLeftCursorableOffset(state);
+        state.assertEquals("| U+00A9 U+00A9 U+00A9");
+
+        // Surrogate pairs
+        // U+1F468 is MAN.
+        state.setByString("| U+1F468 U+1F468 U+1F468");
+        moveCursorToRightCursorableOffset(state);
+        state.assertEquals("U+1F468 | U+1F468 U+1F468");
+        moveCursorToRightCursorableOffset(state);
+        state.assertEquals("U+1F468 U+1F468 | U+1F468");
+        moveCursorToRightCursorableOffset(state);
+        state.assertEquals("U+1F468 U+1F468 U+1F468 |");
+        moveCursorToRightCursorableOffset(state);
+        state.assertEquals("U+1F468 U+1F468 U+1F468 |");
+        moveCursorToLeftCursorableOffset(state);
+        state.assertEquals("U+1F468 U+1F468 | U+1F468");
+        moveCursorToLeftCursorableOffset(state);
+        state.assertEquals("U+1F468 | U+1F468 U+1F468");
+        moveCursorToLeftCursorableOffset(state);
+        state.assertEquals("| U+1F468 U+1F468 U+1F468");
+        moveCursorToLeftCursorableOffset(state);
+        state.assertEquals("| U+1F468 U+1F468 U+1F468");
+
+        // Keycaps
+        // U+20E3 is COMBINING ENCLOSING KEYCAP.
+        state.setByString("| '1' U+20E3 '1' U+20E3 '1' U+20E3");
+        moveCursorToRightCursorableOffset(state);
+        state.assertEquals("'1' U+20E3 | '1' U+20E3 '1' U+20E3");
+        moveCursorToRightCursorableOffset(state);
+        state.assertEquals("'1' U+20E3 '1' U+20E3 | '1' U+20E3");
+        moveCursorToRightCursorableOffset(state);
+        state.assertEquals("'1' U+20E3 '1' U+20E3 '1' U+20E3 |");
+        moveCursorToRightCursorableOffset(state);
+        state.assertEquals("'1' U+20E3 '1' U+20E3 '1' U+20E3 |");
+        moveCursorToLeftCursorableOffset(state);
+        state.assertEquals("'1' U+20E3 '1' U+20E3 | '1' U+20E3");
+        moveCursorToLeftCursorableOffset(state);
+        state.assertEquals("'1' U+20E3 | '1' U+20E3 '1' U+20E3");
+        moveCursorToLeftCursorableOffset(state);
+        state.assertEquals("| '1' U+20E3 '1' U+20E3 '1' U+20E3");
+        moveCursorToLeftCursorableOffset(state);
+        state.assertEquals("| '1' U+20E3 '1' U+20E3 '1' U+20E3");
+
+        // Variation selectors
+        // U+00A9 is COPYRIGHT SIGN, U+FE0E is VARIATION SELECTOR-15. U+FE0F is VARIATION
+        // SELECTOR-16.
+        state.setByString("| U+00A9 U+FE0E U+00A9 U+FE0F U+00A9 U+FE0E");
+        moveCursorToRightCursorableOffset(state);
+        state.assertEquals("U+00A9 U+FE0E | U+00A9 U+FE0F U+00A9 U+FE0E");
+        moveCursorToRightCursorableOffset(state);
+        state.assertEquals("U+00A9 U+FE0E U+00A9 U+FE0F | U+00A9 U+FE0E");
+        moveCursorToRightCursorableOffset(state);
+        state.assertEquals("U+00A9 U+FE0E U+00A9 U+FE0F U+00A9 U+FE0E |");
+        moveCursorToRightCursorableOffset(state);
+        state.assertEquals("U+00A9 U+FE0E U+00A9 U+FE0F U+00A9 U+FE0E |");
+        moveCursorToLeftCursorableOffset(state);
+        state.assertEquals("U+00A9 U+FE0E U+00A9 U+FE0F | U+00A9 U+FE0E");
+        moveCursorToLeftCursorableOffset(state);
+        state.assertEquals("U+00A9 U+FE0E | U+00A9 U+FE0F U+00A9 U+FE0E");
+        moveCursorToLeftCursorableOffset(state);
+        state.assertEquals("| U+00A9 U+FE0E U+00A9 U+FE0F U+00A9 U+FE0E");
+        moveCursorToLeftCursorableOffset(state);
+        state.assertEquals("| U+00A9 U+FE0E U+00A9 U+FE0F U+00A9 U+FE0E");
+
+        // Keycap + variation selector
+        state.setByString("| '1' U+FE0E U+20E3 '1' U+FE0E U+20E3 '1' U+FE0E U+20E3");
+        moveCursorToRightCursorableOffset(state);
+        state.assertEquals("'1' U+FE0E U+20E3 | '1' U+FE0E U+20E3 '1' U+FE0E U+20E3");
+        moveCursorToRightCursorableOffset(state);
+        state.assertEquals("'1' U+FE0E U+20E3 '1' U+FE0E U+20E3 | '1' U+FE0E U+20E3");
+        moveCursorToRightCursorableOffset(state);
+        state.assertEquals("'1' U+FE0E U+20E3 '1' U+FE0E U+20E3 '1' U+FE0E U+20E3 |");
+        moveCursorToRightCursorableOffset(state);
+        state.assertEquals("'1' U+FE0E U+20E3 '1' U+FE0E U+20E3 '1' U+FE0E U+20E3 |");
+        moveCursorToLeftCursorableOffset(state);
+        state.assertEquals("'1' U+FE0E U+20E3 '1' U+FE0E U+20E3 | '1' U+FE0E U+20E3");
+        moveCursorToLeftCursorableOffset(state);
+        state.assertEquals("'1' U+FE0E U+20E3 | '1' U+FE0E U+20E3 '1' U+FE0E U+20E3");
+        moveCursorToLeftCursorableOffset(state);
+        state.assertEquals("| '1' U+FE0E U+20E3 '1' U+FE0E U+20E3 '1' U+FE0E U+20E3");
+        moveCursorToLeftCursorableOffset(state);
+        state.assertEquals("| '1' U+FE0E U+20E3 '1' U+FE0E U+20E3 '1' U+FE0E U+20E3");
+
+        // Flags
+        // U+1F1E6 U+1F1E8 is Ascension Island flag.
+        state.setByString("| U+1F1E6 U+1F1E8 U+1F1E6 U+1F1E8 U+1F1E6 U+1F1E8");
+        moveCursorToRightCursorableOffset(state);
+        state.assertEquals("U+1F1E6 U+1F1E8 | U+1F1E6 U+1F1E8 U+1F1E6 U+1F1E8");
+        moveCursorToRightCursorableOffset(state);
+        state.assertEquals("U+1F1E6 U+1F1E8 U+1F1E6 U+1F1E8 | U+1F1E6 U+1F1E8");
+        moveCursorToRightCursorableOffset(state);
+        state.assertEquals("U+1F1E6 U+1F1E8 U+1F1E6 U+1F1E8 U+1F1E6 U+1F1E8 |");
+        moveCursorToRightCursorableOffset(state);
+        state.assertEquals("U+1F1E6 U+1F1E8 U+1F1E6 U+1F1E8 U+1F1E6 U+1F1E8 |");
+        moveCursorToLeftCursorableOffset(state);
+        state.assertEquals("U+1F1E6 U+1F1E8 U+1F1E6 U+1F1E8 | U+1F1E6 U+1F1E8");
+        moveCursorToLeftCursorableOffset(state);
+        state.assertEquals("U+1F1E6 U+1F1E8 | U+1F1E6 U+1F1E8 U+1F1E6 U+1F1E8");
+        moveCursorToLeftCursorableOffset(state);
+        state.assertEquals("| U+1F1E6 U+1F1E8 U+1F1E6 U+1F1E8 U+1F1E6 U+1F1E8");
+        moveCursorToLeftCursorableOffset(state);
+        state.assertEquals("| U+1F1E6 U+1F1E8 U+1F1E6 U+1F1E8 U+1F1E6 U+1F1E8");
+    }
+
+    public void testGetOffsetForHorizontal_Multilines() {
+        // Emoticons for surrogate pairs tests.
+        String testString = "\uD83D\uDE00\uD83D\uDE01\uD83D\uDE02\uD83D\uDE03\uD83D\uDE04";
+        final float width = mDefaultPaint.measureText(testString, 0, 6);
+        StaticLayout layout = new StaticLayout(testString, mDefaultPaint, (int)width,
+                DEFAULT_ALIGN, SPACE_MULTI, SPACE_ADD, true);
+        // We expect the line break to be after the third emoticon, but we allow flexibility of the
+        // line break algorithm as long as the break is within the string. These other cases might
+        // happen if for example the font has kerning between emoticons.
+        final int lineBreakOffset = layout.getOffsetForHorizontal(1, 0.0f);
+        assertEquals(0, layout.getLineForOffset(lineBreakOffset - 1));
+
+        assertEquals(0, layout.getOffsetForHorizontal(0, 0.0f));
+        assertEquals(lineBreakOffset - 2, layout.getOffsetForHorizontal(0, width));
+        assertEquals(lineBreakOffset - 2, layout.getOffsetForHorizontal(0, width * 2));
+
+        final int lineCount = layout.getLineCount();
+        assertEquals(testString.length(), layout.getOffsetForHorizontal(lineCount - 1, width));
+        assertEquals(testString.length(), layout.getOffsetForHorizontal(lineCount - 1, width * 2));
+    }
+
+    public void testIsRtlCharAt() {
+        {
+            String testString = "ab(\u0623\u0624)c\u0625";
+            StaticLayout layout = new StaticLayout(testString, mDefaultPaint,
+                    DEFAULT_OUTER_WIDTH, DEFAULT_ALIGN, SPACE_MULTI, SPACE_ADD, true);
+
+            assertFalse(layout.isRtlCharAt(0));
+            assertFalse(layout.isRtlCharAt(1));
+            assertFalse(layout.isRtlCharAt(2));
+            assertTrue(layout.isRtlCharAt(3));
+            assertTrue(layout.isRtlCharAt(4));
+            assertFalse(layout.isRtlCharAt(5));
+            assertFalse(layout.isRtlCharAt(6));
+            assertTrue(layout.isRtlCharAt(7));
+        }
+        {
+            String testString = "\u0623\u0624(ab)\u0625c";
+            StaticLayout layout = new StaticLayout(testString, mDefaultPaint,
+                    DEFAULT_OUTER_WIDTH, DEFAULT_ALIGN, SPACE_MULTI, SPACE_ADD, true);
+
+            assertTrue(layout.isRtlCharAt(0));
+            assertTrue(layout.isRtlCharAt(1));
+            assertTrue(layout.isRtlCharAt(2));
+            assertFalse(layout.isRtlCharAt(3));
+            assertFalse(layout.isRtlCharAt(4));
+            assertTrue(layout.isRtlCharAt(5));
+            assertTrue(layout.isRtlCharAt(6));
+            assertFalse(layout.isRtlCharAt(7));
+            assertFalse(layout.isRtlCharAt(8));
+        }
+    }
+
+    public void testGetHorizontal() {
+        String testString = "abc\u0623\u0624\u0625def";
+        StaticLayout layout = new StaticLayout(testString, mDefaultPaint,
+                DEFAULT_OUTER_WIDTH, DEFAULT_ALIGN, SPACE_MULTI, SPACE_ADD, true);
+
+        assertEquals(layout.getPrimaryHorizontal(0), layout.getSecondaryHorizontal(0));
+        assertTrue(layout.getPrimaryHorizontal(0) < layout.getPrimaryHorizontal(3));
+        assertTrue(layout.getPrimaryHorizontal(3) < layout.getSecondaryHorizontal(3));
+        assertTrue(layout.getPrimaryHorizontal(4) < layout.getSecondaryHorizontal(3));
+        assertEquals(layout.getPrimaryHorizontal(4), layout.getSecondaryHorizontal(4));
+        assertEquals(layout.getPrimaryHorizontal(3), layout.getSecondaryHorizontal(6));
+        assertEquals(layout.getPrimaryHorizontal(6), layout.getSecondaryHorizontal(3));
+        assertEquals(layout.getPrimaryHorizontal(7), layout.getSecondaryHorizontal(7));
+    }
+
+    public void testVeryLargeString() {
+        final int MAX_COUNT = 1 << 21;
+        final int WORD_SIZE = 32;
+        char[] longText = new char[MAX_COUNT];
+        for (int n = 0; n < MAX_COUNT; n++) {
+            longText[n] = (n % WORD_SIZE) == 0 ? ' ' : 'm';
+        }
+        String longTextString = new String(longText);
+        TextPaint paint = new TestingTextPaint();
+        StaticLayout layout = new StaticLayout(longTextString, paint, DEFAULT_OUTER_WIDTH,
+                DEFAULT_ALIGN, SPACE_MULTI, SPACE_ADD, true);
+        assertNotNull(layout);
+    }
+
+    public void testDoesntCrashWhenWordStyleOverlap() {
+       // test case where word boundary overlaps multiple style spans
+       SpannableStringBuilder text = new SpannableStringBuilder("word boundaries, overlap style");
+       // span covers "boundaries"
+       text.setSpan(new StyleSpan(Typeface.BOLD),
+                   "word ".length(), "word boundaries".length(),
+                   Spanned.SPAN_INCLUSIVE_INCLUSIVE);
+       mDefaultPaint.setTextLocale(Locale.US);
+       StaticLayout layout = StaticLayout.Builder.obtain(text, 0, text.length(),
+               mDefaultPaint, DEFAULT_OUTER_WIDTH)
+               .setBreakStrategy(Layout.BREAK_STRATEGY_HIGH_QUALITY)  // enable hyphenation
+               .setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NORMAL)
+               .build();
+       assertNotNull(layout);
     }
 }

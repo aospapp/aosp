@@ -14,6 +14,11 @@
 # limitations under the License.
 #
 
+# If you actually want to use ltrace, let android-bionic@ know.
+# One of its dependencies (libelf) won't build with clang,
+# and we want to know whether anyone actually cares...
+ifeq (true,false)
+
 LOCAL_PATH := $(call my-dir)
 
 # -------------------------------------------------------------------------
@@ -186,3 +191,5 @@ LOCAL_MODULE_TARGET_ARCH := arm arm64 x86 x86_64
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 
 include $(BUILD_EXECUTABLE)
+
+endif

@@ -55,13 +55,13 @@ inline ObjectArray<T>* ObjectArray<T>::Alloc(Thread* self, Class* object_array_c
                Runtime::Current()->GetHeap()->GetCurrentAllocator());
 }
 
-template<class T>
+template<class T> template<VerifyObjectFlags kVerifyFlags, ReadBarrierOption kReadBarrierOption>
 inline T* ObjectArray<T>::Get(int32_t i) {
   if (!CheckIsValidIndex(i)) {
     DCHECK(Thread::Current()->IsExceptionPending());
     return nullptr;
   }
-  return GetFieldObject<T>(OffsetOfElement(i));
+  return GetFieldObject<T, kVerifyFlags, kReadBarrierOption>(OffsetOfElement(i));
 }
 
 template<class T> template<VerifyObjectFlags kVerifyFlags>
@@ -129,7 +129,8 @@ inline void ObjectArray<T>::AssignableMemmove(int32_t dst_pos, ObjectArray<T>* s
     }
   }
   // Perform the memmove using int memmove then perform the write barrier.
-  CHECK_EQ(sizeof(HeapReference<T>), sizeof(uint32_t));
+  static_assert(sizeof(HeapReference<T>) == sizeof(uint32_t),
+                "art::mirror::HeapReference<T> and uint32_t have different sizes.");
   IntArray* dstAsIntArray = reinterpret_cast<IntArray*>(this);
   IntArray* srcAsIntArray = reinterpret_cast<IntArray*>(src);
   if (kUseReadBarrier) {
@@ -172,7 +173,8 @@ inline void ObjectArray<T>::AssignableMemcpy(int32_t dst_pos, ObjectArray<T>* sr
     }
   }
   // Perform the memmove using int memcpy then perform the write barrier.
-  CHECK_EQ(sizeof(HeapReference<T>), sizeof(uint32_t));
+  static_assert(sizeof(HeapReference<T>) == sizeof(uint32_t),
+                "art::mirror::HeapReference<T> and uint32_t have different sizes.");
   IntArray* dstAsIntArray = reinterpret_cast<IntArray*>(this);
   IntArray* srcAsIntArray = reinterpret_cast<IntArray*>(src);
   if (kUseReadBarrier) {
@@ -195,6 +197,7 @@ inline void ObjectArray<T>::AssignableMemcpy(int32_t dst_pos, ObjectArray<T>* sr
 }
 
 template<class T>
+template<bool kTransactionActive>
 inline void ObjectArray<T>::AssignableCheckingMemcpy(int32_t dst_pos, ObjectArray<T>* src,
                                                      int32_t src_pos, int32_t count,
                                                      bool throw_exception) {
@@ -213,15 +216,15 @@ inline void ObjectArray<T>::AssignableCheckingMemcpy(int32_t dst_pos, ObjectArra
     o = src->GetWithoutChecks(src_pos + i);
     if (o == nullptr) {
       // Null is always assignable.
-      SetWithoutChecks<false>(dst_pos + i, nullptr);
+      SetWithoutChecks<kTransactionActive>(dst_pos + i, nullptr);
     } else {
       // TODO: use the underlying class reference to avoid uncompression when not necessary.
       Class* o_class = o->GetClass();
       if (LIKELY(lastAssignableElementClass == o_class)) {
-        SetWithoutChecks<false>(dst_pos + i, o);
+        SetWithoutChecks<kTransactionActive>(dst_pos + i, o);
       } else if (LIKELY(dst_class->IsAssignableFrom(o_class))) {
         lastAssignableElementClass = o_class;
-        SetWithoutChecks<false>(dst_pos + i, o);
+        SetWithoutChecks<kTransactionActive>(dst_pos + i, o);
       } else {
         // Can't put this element into the array, break to perform write-barrier and throw
         // exception.
@@ -267,11 +270,8 @@ inline MemberOffset ObjectArray<T>::OffsetOfElement(int32_t i) {
                       (i * sizeof(HeapReference<Object>)));
 }
 
-template<class T> template<const bool kVisitClass, typename Visitor>
-void ObjectArray<T>::VisitReferences(const Visitor& visitor) {
-  if (kVisitClass) {
-    visitor(this, ClassOffset(), false);
-  }
+template<class T> template<typename Visitor>
+inline void ObjectArray<T>::VisitReferences(const Visitor& visitor) {
   const size_t length = static_cast<size_t>(GetLength());
   for (size_t i = 0; i < length; ++i) {
     visitor(this, OffsetOfElement(i), false);

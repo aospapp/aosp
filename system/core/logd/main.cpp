@@ -33,12 +33,14 @@
 #include <syslog.h>
 #include <unistd.h>
 
+#include <cstdbool>
 #include <memory>
 
 #include <cutils/properties.h>
 #include <cutils/sched_policy.h>
 #include <cutils/sockets.h>
 #include <log/event_tag_map.h>
+#include <packagelistparser/packagelistparser.h>
 #include <private/android_filesystem_config.h>
 #include <utils/threads.h>
 
@@ -47,6 +49,7 @@
 #include "LogListener.h"
 #include "LogAudit.h"
 #include "LogKlog.h"
+#include "LogUtils.h"
 
 #define KMSG_PRIORITY(PRI)                            \
     '<',                                              \
@@ -103,7 +106,9 @@ static int drop_privs() {
         return -1;
     }
 
-    if (setgroups(0, NULL) == -1) {
+    gid_t groups[] = { AID_READPROC };
+
+    if (setgroups(sizeof(groups) / sizeof(groups[0]), groups) == -1) {
         return -1;
     }
 
@@ -138,18 +143,72 @@ static int drop_privs() {
 }
 
 // Property helper
-static bool property_get_bool(const char *key, bool def) {
-    char property[PROPERTY_VALUE_MAX];
-    property_get(key, property, "");
-
-    if (!strcasecmp(property, "true")) {
-        return true;
-    }
-    if (!strcasecmp(property, "false")) {
+static bool check_flag(const char *prop, const char *flag) {
+    const char *cp = strcasestr(prop, flag);
+    if (!cp) {
         return false;
     }
+    // We only will document comma (,)
+    static const char sep[] = ",:;|+ \t\f";
+    if ((cp != prop) && !strchr(sep, cp[-1])) {
+        return false;
+    }
+    cp += strlen(flag);
+    return !*cp || !!strchr(sep, *cp);
+}
 
-    return def;
+bool property_get_bool(const char *key, int flag) {
+    char def[PROPERTY_VALUE_MAX];
+    char property[PROPERTY_VALUE_MAX];
+    def[0] = '\0';
+    if (flag & BOOL_DEFAULT_FLAG_PERSIST) {
+        char newkey[PROPERTY_KEY_MAX];
+        snprintf(newkey, sizeof(newkey), "ro.%s", key);
+        property_get(newkey, property, "");
+        // persist properties set by /data require inoculation with
+        // logd-reinit. They may be set in init.rc early and function, but
+        // otherwise are defunct unless reset. Do not rely on persist
+        // properties for startup-only keys unless you are willing to restart
+        // logd daemon (not advised).
+        snprintf(newkey, sizeof(newkey), "persist.%s", key);
+        property_get(newkey, def, property);
+    }
+
+    property_get(key, property, def);
+
+    if (check_flag(property, "true")) {
+        return true;
+    }
+    if (check_flag(property, "false")) {
+        return false;
+    }
+    if (check_flag(property, "eng")) {
+       flag |= BOOL_DEFAULT_FLAG_ENG;
+    }
+    // this is really a "not" flag
+    if (check_flag(property, "svelte")) {
+       flag |= BOOL_DEFAULT_FLAG_SVELTE;
+    }
+
+    // Sanity Check
+    if (flag & (BOOL_DEFAULT_FLAG_SVELTE | BOOL_DEFAULT_FLAG_ENG)) {
+        flag &= ~BOOL_DEFAULT_FLAG_TRUE_FALSE;
+        flag |= BOOL_DEFAULT_TRUE;
+    }
+
+    if ((flag & BOOL_DEFAULT_FLAG_SVELTE)
+            && property_get_bool("ro.config.low_ram",
+                                 BOOL_DEFAULT_FALSE)) {
+        return false;
+    }
+    if (flag & BOOL_DEFAULT_FLAG_ENG) {
+        property_get("ro.build.type", property, "");
+        if (!strcmp(property, "user")) {
+            return false;
+        }
+    }
+
+    return (flag & BOOL_DEFAULT_FLAG_TRUE_FALSE) != BOOL_DEFAULT_FALSE;
 }
 
 // Remove the static, and use this variable
@@ -165,13 +224,29 @@ static sem_t reinit;
 static bool reinit_running = false;
 static LogBuffer *logBuf = NULL;
 
+static bool package_list_parser_cb(pkg_info *info, void * /* userdata */) {
+
+    bool rc = true;
+    if (info->uid == uid) {
+        name = strdup(info->name);
+        // false to stop processing
+        rc = false;
+    }
+
+    packagelist_free(info);
+    return rc;
+}
+
 static void *reinit_thread_start(void * /*obj*/) {
     prctl(PR_SET_NAME, "logd.daemon");
     set_sched_policy(0, SP_BACKGROUND);
     setpriority(PRIO_PROCESS, 0, ANDROID_PRIORITY_BACKGROUND);
 
-    setgid(AID_SYSTEM);
-    setuid(AID_SYSTEM);
+    // If we are AID_ROOT, we should drop to AID_SYSTEM, if we are anything
+    // else, we have even lesser privileges and accept our fate. Not worth
+    // checking for error returns setting this thread's privileges.
+    (void)setgid(AID_SYSTEM);
+    (void)setuid(AID_SYSTEM);
 
     while (reinit_running && !sem_wait(&reinit) && reinit_running) {
 
@@ -179,31 +254,8 @@ static void *reinit_thread_start(void * /*obj*/) {
         if (uid) {
             name = NULL;
 
-            FILE *fp = fopen("/data/system/packages.list", "r");
-            if (fp) {
-                // This simple parser is sensitive to format changes in
-                // frameworks/base/services/core/java/com/android/server/pm/Settings.java
-                // A dependency note has been added to that file to correct
-                // this parser.
+            packagelist_parse(package_list_parser_cb, NULL);
 
-                char *buffer = NULL;
-                size_t len;
-                while (getline(&buffer, &len, fp) > 0) {
-                    char *userId = strchr(buffer, ' ');
-                    if (!userId) {
-                        continue;
-                    }
-                    *userId = '\0';
-                    unsigned long value = strtoul(userId + 1, NULL, 10);
-                    if (value != uid) {
-                        continue;
-                    }
-                    name = strdup(buffer);
-                    break;
-                }
-                free(buffer);
-                fclose(fp);
-            }
             uid = 0;
             sem_post(&uidName);
             continue;
@@ -219,6 +271,7 @@ static void *reinit_thread_start(void * /*obj*/) {
         // Anything that reads persist.<property>
         if (logBuf) {
             logBuf->init();
+            logBuf->initPrune(NULL);
         }
     }
 
@@ -270,52 +323,42 @@ const char *android::tagToName(uint32_t tag) {
     return android_lookupEventTag(map, tag);
 }
 
-static bool property_get_bool_svelte(const char *key) {
-    bool not_user;
-    {
-        char property[PROPERTY_VALUE_MAX];
-        property_get("ro.build.type", property, "");
-        not_user = !!strcmp(property, "user");
-    }
-    return property_get_bool(key, not_user
-            && !property_get_bool("ro.config.low_ram", false));
-}
-
 static void readDmesg(LogAudit *al, LogKlog *kl) {
     if (!al && !kl) {
         return;
     }
 
-    int len = klogctl(KLOG_SIZE_BUFFER, NULL, 0);
-    if (len <= 0) {
-        return;
-    }
-
-    len += 1024; // Margin for additional input race or trailing nul
-    std::unique_ptr<char []> buf(new char[len]);
-
-    int rc = klogctl(KLOG_READ_ALL, buf.get(), len);
+    int rc = klogctl(KLOG_SIZE_BUFFER, NULL, 0);
     if (rc <= 0) {
         return;
     }
 
-    if (rc < len) {
+    size_t len = rc + 1024; // Margin for additional input race or trailing nul
+    std::unique_ptr<char []> buf(new char[len]);
+
+    rc = klogctl(KLOG_READ_ALL, buf.get(), len);
+    if (rc <= 0) {
+        return;
+    }
+
+    if ((size_t)rc < len) {
         len = rc + 1;
     }
-    buf[len - 1] = '\0';
+    buf[--len] = '\0';
 
-    if (kl) {
-        kl->synchronize(buf.get());
+    if (kl && kl->isMonotonic()) {
+        kl->synchronize(buf.get(), len);
     }
 
+    size_t sublen;
     for (char *ptr = NULL, *tok = buf.get();
-         (rc >= 0) && ((tok = log_strtok_r(tok, &ptr)));
+         (rc >= 0) && ((tok = log_strntok_r(tok, &len, &ptr, &sublen)));
          tok = NULL) {
         if (al) {
-            rc = al->log(tok);
+            rc = al->log(tok, sublen);
         }
         if (kl) {
-            rc = kl->log(tok);
+            rc = kl->log(tok, sublen);
         }
     }
 }
@@ -328,7 +371,11 @@ static void readDmesg(LogAudit *al, LogKlog *kl) {
 // transitory per-client threads are created for each reader.
 int main(int argc, char *argv[]) {
     int fdPmesg = -1;
-    bool klogd = property_get_bool_svelte("logd.klogd");
+    bool klogd = property_get_bool("logd.kernel",
+                                   BOOL_DEFAULT_TRUE |
+                                   BOOL_DEFAULT_FLAG_PERSIST |
+                                   BOOL_DEFAULT_FLAG_ENG |
+                                   BOOL_DEFAULT_FLAG_SVELTE);
     if (klogd) {
         fdPmesg = open("/proc/kmsg", O_RDONLY | O_NDELAY);
     }
@@ -352,7 +399,7 @@ int main(int argc, char *argv[]) {
         memset(&p, 0, sizeof(p));
         p.fd = sock;
         p.events = POLLIN;
-        ret = TEMP_FAILURE_RETRY(poll(&p, 1, 100));
+        ret = TEMP_FAILURE_RETRY(poll(&p, 1, 1000));
         if (ret < 0) {
             return -errno;
         }
@@ -408,7 +455,11 @@ int main(int argc, char *argv[]) {
 
     signal(SIGHUP, reinit_signal_handler);
 
-    if (property_get_bool_svelte("logd.statistics")) {
+    if (property_get_bool("logd.statistics",
+                          BOOL_DEFAULT_TRUE |
+                          BOOL_DEFAULT_FLAG_PERSIST |
+                          BOOL_DEFAULT_FLAG_ENG |
+                          BOOL_DEFAULT_FLAG_SVELTE)) {
         logBuf->enableStatistics();
     }
 
@@ -426,7 +477,7 @@ int main(int argc, char *argv[]) {
 
     LogListener *swl = new LogListener(logBuf, reader);
     // Backlog and /proc/sys/net/unix/max_dgram_qlen set to large value
-    if (swl->startListener(300)) {
+    if (swl->startListener(600)) {
         exit(1);
     }
 
@@ -442,12 +493,17 @@ int main(int argc, char *argv[]) {
     // initiated log messages. New log entries are added to LogBuffer
     // and LogReader is notified to send updates to connected clients.
 
-    bool auditd = property_get_bool("logd.auditd", true);
-
+    bool auditd = property_get_bool("logd.auditd",
+                                    BOOL_DEFAULT_TRUE |
+                                    BOOL_DEFAULT_FLAG_PERSIST);
     LogAudit *al = NULL;
     if (auditd) {
-        bool dmesg = property_get_bool("logd.auditd.dmesg", true);
-        al = new LogAudit(logBuf, reader, dmesg ? fdDmesg : -1);
+        al = new LogAudit(logBuf, reader,
+                          property_get_bool("logd.auditd.dmesg",
+                                            BOOL_DEFAULT_TRUE |
+                                            BOOL_DEFAULT_FLAG_PERSIST)
+                              ? fdDmesg
+                              : -1);
     }
 
     LogKlog *kl = NULL;

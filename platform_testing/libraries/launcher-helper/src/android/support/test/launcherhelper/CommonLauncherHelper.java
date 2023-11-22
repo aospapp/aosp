@@ -16,12 +16,13 @@
 package android.support.test.launcherhelper;
 
 import android.graphics.Rect;
+import android.os.RemoteException;
+import android.os.SystemClock;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
-import android.support.test.uiautomator.UiObjectNotFoundException;
 import android.support.test.uiautomator.Until;
 import android.util.Log;
 
@@ -59,10 +60,8 @@ public class CommonLauncherHelper {
      * Scrolls a container back to the beginning
      * @param container
      * @param backDirection
-     * @throws UiObjectNotFoundException
      */
-    public void scrollBackToBeginning(UiObject2 container, Direction backDirection)
-            throws UiObjectNotFoundException {
+    public void scrollBackToBeginning(UiObject2 container, Direction backDirection) {
         scrollBackToBeginning(container, backDirection, MAX_SCROLL_ATTEMPTS);
     }
 
@@ -71,16 +70,14 @@ public class CommonLauncherHelper {
      * @param container
      * @param backDirection
      * @param maxAttempts
-     * @throws UiObjectNotFoundException
      */
-    public void scrollBackToBeginning(UiObject2 container, Direction backDirection, int maxAttempts)
-            throws UiObjectNotFoundException {
+    public void scrollBackToBeginning(UiObject2 container, Direction backDirection, int maxAttempts) {
         int attempts = 0;
         while (container.fling(backDirection)) {
             attempts++;
             if (attempts > maxAttempts) {
                 throw new RuntimeException(
-                        "scrollBackToBeginning: exceeded max attampts: " + maxAttempts);
+                        "scrollBackToBeginning: exceeded max attempts: " + maxAttempts);
             }
         }
     }
@@ -91,10 +88,8 @@ public class CommonLauncherHelper {
      * @param app
      * @param container
      * @param dir
-     * @throws UiObjectNotFoundException
      */
-    private void ensureIconVisible(BySelector app, UiObject2 container, Direction dir)
-            throws UiObjectNotFoundException {
+    private void ensureIconVisible(BySelector app, UiObject2 container, Direction dir) {
         UiObject2 appIcon = mDevice.findObject(app);
         Rect appR = appIcon.getVisibleBounds();
         Rect containerR = container.getVisibleBounds();
@@ -125,10 +120,9 @@ public class CommonLauncherHelper {
      * @param app
      * @param packageName
      * @return
-     * @throws UiObjectNotFoundException
      */
-    public boolean launchApp(ILauncherStrategy launcherStrategy, BySelector app,
-            String packageName) throws UiObjectNotFoundException {
+    public long launchApp(ILauncherStrategy launcherStrategy, BySelector app,
+            String packageName) {
         return launchApp(launcherStrategy, app, packageName, MAX_SCROLL_ATTEMPTS);
     }
 
@@ -139,12 +133,19 @@ public class CommonLauncherHelper {
      * @param app
      * @param packageName
      * @param maxScrollAttempts
-     * @return
-     * @throws UiObjectNotFoundException
+     * @return the SystemClock#uptimeMillis timestamp just before launching the application.
      */
-    public boolean launchApp(ILauncherStrategy launcherStrategy, BySelector app,
-            String packageName, int maxScrollAttempts)
-                    throws UiObjectNotFoundException {
+    public long launchApp(ILauncherStrategy launcherStrategy, BySelector app,
+            String packageName, int maxScrollAttempts) {
+        unlockDeviceIfAsleep();
+
+        if (isAppOpen(packageName)) {
+            // Application is already open
+            return 0;
+        }
+
+        // Go to the home page
+        launcherStrategy.open();
         Direction dir = launcherStrategy.getAllAppsScrollDirection();
         // attempt to find the app icon if it's not already on the screen
         if (!mDevice.hasObject(app)) {
@@ -157,7 +158,7 @@ public class CommonLauncherHelper {
                     attempts++;
                     if (attempts > maxScrollAttempts) {
                         throw new RuntimeException(
-                                "launchApp: exceeded max attampts to locate app icon: "
+                                "launchApp: exceeded max attempts to locate app icon: "
                                         + maxScrollAttempts);
                     }
                 }
@@ -166,17 +167,43 @@ public class CommonLauncherHelper {
             ensureIconVisible(app, container, dir);
         }
 
+        long ready = SystemClock.uptimeMillis();
         if (!mDevice.findObject(app).clickAndWait(Until.newWindow(), APP_LAUNCH_TIMEOUT)) {
             Log.w(LOG_TAG, "no new window detected after app launch attempt.");
-            return false;
+            return ILauncherStrategy.LAUNCH_FAILED_TIMESTAMP;
         }
         mDevice.waitForIdle();
         if (packageName != null) {
             Log.w(LOG_TAG, String.format(
                     "No UI element with package name %s detected.", packageName));
-            return mDevice.wait(Until.hasObject(By.pkg(packageName).depth(0)), APP_LAUNCH_TIMEOUT);
+            boolean success = mDevice.wait(Until.hasObject(
+                    By.pkg(packageName).depth(0)), APP_LAUNCH_TIMEOUT);
+            if (success) {
+                return ready;
+            } else {
+                return ILauncherStrategy.LAUNCH_FAILED_TIMESTAMP;
+            }
         } else {
-            return true;
+            return ready;
+        }
+    }
+
+    private boolean isAppOpen (String appPackage) {
+        return mDevice.hasObject(By.pkg(appPackage).depth(0));
+    }
+
+    private void unlockDeviceIfAsleep () {
+        // Turn screen on if necessary
+        try {
+            if (!mDevice.isScreenOn()) {
+                mDevice.wakeUp();
+            }
+        } catch (RemoteException e) {
+            Log.e(LOG_TAG, "Failed to unlock the screen-off device.", e);
+        }
+        // Check for lock screen element
+        if (mDevice.hasObject(By.res("com.android.systemui", "keyguard_bottom_area"))) {
+            mDevice.pressMenu();
         }
     }
 }

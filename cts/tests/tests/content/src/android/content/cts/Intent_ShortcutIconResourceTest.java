@@ -29,7 +29,7 @@ public class Intent_ShortcutIconResourceTest extends AndroidTestCase {
 
     ShortcutIconResource mShortcutIconResource;
     Context mContext;
-    final int resourceId = com.android.cts.content.R.string.notify;
+    final int resourceId = android.content.cts.R.string.notify;
 
     @Override
     protected void setUp() throws Exception {
@@ -63,7 +63,7 @@ public class Intent_ShortcutIconResourceTest extends AndroidTestCase {
     public void testWriteToParcel() {
 
         mShortcutIconResource = ShortcutIconResource.fromContext(mContext,
-                com.android.cts.content.R.string.notify);
+                android.content.cts.R.string.notify);
         assertNotNull(mShortcutIconResource);
         Parcel parce = Parcel.obtain();
         mShortcutIconResource.writeToParcel(parce, 1);

@@ -19,6 +19,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <pthread.h>
 
 #include <sys/socket.h>
 #include <sys/select.h>
@@ -50,13 +51,15 @@
 #define ALOGW printf
 #endif
 
-#ifdef HAVE_ANDROID_OS
+#if defined(__ANDROID__)
 /* SIOCKILLADDR is an Android extension. */
 #define SIOCKILLADDR 0x8939
 #endif
 
 static int ifc_ctl_sock = -1;
 static int ifc_ctl_sock6 = -1;
+static pthread_mutex_t ifc_sock_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
+static pthread_mutex_t ifc_sock6_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 void printerr(char *fmt, ...);
 
 #define DBG 0
@@ -122,6 +125,8 @@ int string_to_ip(const char *string, struct sockaddr_storage *ss) {
 int ifc_init(void)
 {
     int ret;
+
+    pthread_mutex_lock(&ifc_sock_mutex);
     if (ifc_ctl_sock == -1) {
         ifc_ctl_sock = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
         if (ifc_ctl_sock < 0) {
@@ -136,6 +141,7 @@ int ifc_init(void)
 
 int ifc_init6(void)
 {
+    pthread_mutex_lock(&ifc_sock6_mutex);
     if (ifc_ctl_sock6 == -1) {
         ifc_ctl_sock6 = socket(AF_INET6, SOCK_DGRAM | SOCK_CLOEXEC, 0);
         if (ifc_ctl_sock6 < 0) {
@@ -152,6 +158,7 @@ void ifc_close(void)
         (void)close(ifc_ctl_sock);
         ifc_ctl_sock = -1;
     }
+    pthread_mutex_unlock(&ifc_sock_mutex);
 }
 
 void ifc_close6(void)
@@ -160,6 +167,7 @@ void ifc_close6(void)
         (void)close(ifc_ctl_sock6);
         ifc_ctl_sock6 = -1;
     }
+    pthread_mutex_unlock(&ifc_sock6_mutex);
 }
 
 static void ifc_init_ifr(const char *name, struct ifreq *ifr)
@@ -253,15 +261,18 @@ int ifc_act_on_address(int action, const char *name, const char *address,
                        int prefixlen) {
     int ifindex, s, len, ret;
     struct sockaddr_storage ss;
+    int saved_errno;
     void *addr;
     size_t addrlen;
     struct {
         struct nlmsghdr n;
         struct ifaddrmsg r;
-        // Allow for IPv6 address, headers, and padding.
+        // Allow for IPv6 address, headers, IPv4 broadcast addr and padding.
         char attrbuf[NLMSG_ALIGN(sizeof(struct nlmsghdr)) +
                      NLMSG_ALIGN(sizeof(struct rtattr)) +
-                     NLMSG_ALIGN(INET6_ADDRLEN)];
+                     NLMSG_ALIGN(INET6_ADDRLEN) +
+                     NLMSG_ALIGN(sizeof(struct rtattr)) +
+                     NLMSG_ALIGN(INET_ADDRLEN)];
     } req;
     struct rtattr *rta;
     struct nlmsghdr *nh;
@@ -316,16 +327,32 @@ int ifc_act_on_address(int action, const char *name, const char *address,
     req.n.nlmsg_len = NLMSG_ALIGN(req.n.nlmsg_len) + RTA_LENGTH(addrlen);
     memcpy(RTA_DATA(rta), addr, addrlen);
 
+    // Add an explicit IFA_BROADCAST for IPv4 RTM_NEWADDRs.
+    if (ss.ss_family == AF_INET && action == RTM_NEWADDR) {
+        rta = (struct rtattr *) (((char *) &req) + NLMSG_ALIGN(req.n.nlmsg_len));
+        rta->rta_type = IFA_BROADCAST;
+        rta->rta_len = RTA_LENGTH(addrlen);
+        req.n.nlmsg_len = NLMSG_ALIGN(req.n.nlmsg_len) + RTA_LENGTH(addrlen);
+        ((struct in_addr *)addr)->s_addr |= htonl((1<<(32-prefixlen))-1);
+        memcpy(RTA_DATA(rta), addr, addrlen);
+    }
+
     s = socket(PF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, NETLINK_ROUTE);
-    if (send(s, &req, req.n.nlmsg_len, 0) < 0) {
-        close(s);
+    if (s < 0) {
         return -errno;
     }
 
+    if (send(s, &req, req.n.nlmsg_len, 0) < 0) {
+        saved_errno = errno;
+        close(s);
+        return -saved_errno;
+    }
+
     len = recv(s, buf, sizeof(buf), 0);
+    saved_errno = errno;
     close(s);
     if (len < 0) {
-        return -errno;
+        return -saved_errno;
     }
 
     // Parse the acknowledgement to find the return code.
@@ -534,6 +561,7 @@ int ifc_act_on_ipv4_route(int action, const char *ifname, struct in_addr dst, in
     ifc_init();
 
     if (ifc_ctl_sock < 0) {
+        ifc_close();
         return -errno;
     }
 
@@ -596,7 +624,7 @@ int ifc_disable(const char *ifname)
 
 int ifc_reset_connections(const char *ifname, const int reset_mask)
 {
-#ifdef HAVE_ANDROID_OS
+#if defined(__ANDROID__)
     int result, success;
     in_addr_t myaddr = 0;
     struct ifreq ifr;

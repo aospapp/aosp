@@ -18,7 +18,7 @@
 <head>
   <!-- automatically generated from html.mako. do NOT edit directly -->
   <meta charset="utf-8" />
-  <title>Android Camera HAL3.2 Properties</title>
+  <title>Android Camera HAL3.4 Properties</title>
   <style type="text/css">
      body { background-color: #f7f7f7; font-family: Roboto, sans-serif;}
      h1 { color: #333333; }

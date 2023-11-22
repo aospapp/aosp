@@ -17,9 +17,12 @@
 package com.android.server.telecom;
 
 import android.os.Binder;
+import android.os.Bundle;
 import android.telecom.PhoneAccountHandle;
 
 import com.android.internal.telecom.IInCallAdapter;
+
+import java.util.List;
 
 /**
  * Receives call commands and updates from in-call app and passes them through to CallsManager.
@@ -30,22 +33,25 @@ class InCallAdapter extends IInCallAdapter.Stub {
     private final CallsManager mCallsManager;
     private final CallIdMapper mCallIdMapper;
     private final TelecomSystem.SyncRoot mLock;
+    private final String mOwnerComponentName;
 
     /** Persists the specified parameters. */
     public InCallAdapter(CallsManager callsManager, CallIdMapper callIdMapper,
-            TelecomSystem.SyncRoot lock) {
+            TelecomSystem.SyncRoot lock, String ownerComponentName) {
         mCallsManager = callsManager;
         mCallIdMapper = callIdMapper;
         mLock = lock;
+        mOwnerComponentName = ownerComponentName;
     }
 
     @Override
     public void answerCall(String callId, int videoState) {
-        long token = Binder.clearCallingIdentity();
         try {
-            synchronized (mLock) {
-                Log.d(this, "answerCall(%s,%d)", callId, videoState);
-                if (mCallIdMapper.isValidCallId(callId)) {
+            Log.startSession("ICA.aC", mOwnerComponentName);
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
+                    Log.d(this, "answerCall(%s,%d)", callId, videoState);
                     Call call = mCallIdMapper.getCall(callId);
                     if (call != null) {
                         mCallsManager.answerCall(call, videoState);
@@ -53,19 +59,22 @@ class InCallAdapter extends IInCallAdapter.Stub {
                         Log.w(this, "answerCall, unknown call id: %s", callId);
                     }
                 }
+            } finally {
+                Binder.restoreCallingIdentity(token);
             }
         } finally {
-            Binder.restoreCallingIdentity(token);
+            Log.endSession();
         }
     }
 
     @Override
     public void rejectCall(String callId, boolean rejectWithMessage, String textMessage) {
-        long token = Binder.clearCallingIdentity();
         try {
-            synchronized (mLock) {
-                Log.d(this, "rejectCall(%s,%b,%s)", callId, rejectWithMessage, textMessage);
-                if (mCallIdMapper.isValidCallId(callId)) {
+            Log.startSession("ICA.rC", mOwnerComponentName);
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
+                    Log.d(this, "rejectCall(%s,%b,%s)", callId, rejectWithMessage, textMessage);
                     Call call = mCallIdMapper.getCall(callId);
                     if (call != null) {
                         mCallsManager.rejectCall(call, rejectWithMessage, textMessage);
@@ -73,19 +82,22 @@ class InCallAdapter extends IInCallAdapter.Stub {
                         Log.w(this, "setRingback, unknown call id: %s", callId);
                     }
                 }
+            } finally {
+                Binder.restoreCallingIdentity(token);
             }
         } finally {
-            Binder.restoreCallingIdentity(token);
+            Log.endSession();
         }
     }
 
     @Override
     public void playDtmfTone(String callId, char digit) {
-        long token = Binder.clearCallingIdentity();
         try {
-            synchronized (mLock) {
-                Log.d(this, "playDtmfTone(%s,%c)", callId, digit);
-                if (mCallIdMapper.isValidCallId(callId)) {
+            Log.startSession("ICA.pDT", mOwnerComponentName);
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
+                    Log.d(this, "playDtmfTone(%s,%c)", callId, digit);
                     Call call = mCallIdMapper.getCall(callId);
                     if (call != null) {
                         mCallsManager.playDtmfTone(call, digit);
@@ -93,19 +105,22 @@ class InCallAdapter extends IInCallAdapter.Stub {
                         Log.w(this, "playDtmfTone, unknown call id: %s", callId);
                     }
                 }
+            } finally {
+                Binder.restoreCallingIdentity(token);
             }
         } finally {
-            Binder.restoreCallingIdentity(token);
+            Log.endSession();
         }
     }
 
     @Override
     public void stopDtmfTone(String callId) {
-        long token = Binder.clearCallingIdentity();
         try {
-            synchronized (mLock) {
-                Log.d(this, "stopDtmfTone(%s)", callId);
-                if (mCallIdMapper.isValidCallId(callId)) {
+            Log.startSession("ICA.sDT", mOwnerComponentName);
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
+                    Log.d(this, "stopDtmfTone(%s)", callId);
                     Call call = mCallIdMapper.getCall(callId);
                     if (call != null) {
                         mCallsManager.stopDtmfTone(call);
@@ -113,19 +128,22 @@ class InCallAdapter extends IInCallAdapter.Stub {
                         Log.w(this, "stopDtmfTone, unknown call id: %s", callId);
                     }
                 }
+            } finally {
+                Binder.restoreCallingIdentity(token);
             }
         } finally {
-            Binder.restoreCallingIdentity(token);
+            Log.endSession();
         }
     }
 
     @Override
     public void postDialContinue(String callId, boolean proceed) {
-        long token = Binder.clearCallingIdentity();
         try {
-            synchronized (mLock) {
-                Log.d(this, "postDialContinue(%s)", callId);
-                if (mCallIdMapper.isValidCallId(callId)) {
+            Log.startSession("ICA.pDC", mOwnerComponentName);
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
+                    Log.d(this, "postDialContinue(%s)", callId);
                     Call call = mCallIdMapper.getCall(callId);
                     if (call != null) {
                         mCallsManager.postDialContinue(call, proceed);
@@ -133,19 +151,22 @@ class InCallAdapter extends IInCallAdapter.Stub {
                         Log.w(this, "postDialContinue, unknown call id: %s", callId);
                     }
                 }
+            } finally {
+                Binder.restoreCallingIdentity(token);
             }
         } finally {
-            Binder.restoreCallingIdentity(token);
+            Log.endSession();
         }
     }
 
     @Override
     public void disconnectCall(String callId) {
-        long token = Binder.clearCallingIdentity();
         try {
-            synchronized (mLock) {
-                Log.v(this, "disconnectCall: %s", callId);
-                if (mCallIdMapper.isValidCallId(callId)) {
+            Log.startSession("ICA.dC", mOwnerComponentName);
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
+                    Log.v(this, "disconnectCall: %s", callId);
                     Call call = mCallIdMapper.getCall(callId);
                     if (call != null) {
                         mCallsManager.disconnectCall(call);
@@ -153,18 +174,21 @@ class InCallAdapter extends IInCallAdapter.Stub {
                         Log.w(this, "disconnectCall, unknown call id: %s", callId);
                     }
                 }
+            } finally {
+                Binder.restoreCallingIdentity(token);
             }
         } finally {
-            Binder.restoreCallingIdentity(token);
+            Log.endSession();
         }
     }
 
     @Override
     public void holdCall(String callId) {
-        long token = Binder.clearCallingIdentity();
         try {
-            synchronized (mLock) {
-                if (mCallIdMapper.isValidCallId(callId)) {
+            Log.startSession("ICA.hC", mOwnerComponentName);
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
                     Call call = mCallIdMapper.getCall(callId);
                     if (call != null) {
                         mCallsManager.holdCall(call);
@@ -172,18 +196,21 @@ class InCallAdapter extends IInCallAdapter.Stub {
                         Log.w(this, "holdCall, unknown call id: %s", callId);
                     }
                 }
+            } finally {
+                Binder.restoreCallingIdentity(token);
             }
         } finally {
-            Binder.restoreCallingIdentity(token);
+            Log.endSession();
         }
     }
 
     @Override
     public void unholdCall(String callId) {
-        long token = Binder.clearCallingIdentity();
         try {
-            synchronized (mLock) {
-                if (mCallIdMapper.isValidCallId(callId)) {
+            Log.startSession("ICA.uC", mOwnerComponentName);
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
                     Call call = mCallIdMapper.getCall(callId);
                     if (call != null) {
                         mCallsManager.unholdCall(call);
@@ -191,19 +218,22 @@ class InCallAdapter extends IInCallAdapter.Stub {
                         Log.w(this, "unholdCall, unknown call id: %s", callId);
                     }
                 }
+            } finally {
+                Binder.restoreCallingIdentity(token);
             }
         } finally {
-            Binder.restoreCallingIdentity(token);
+            Log.endSession();
         }
     }
 
     @Override
     public void phoneAccountSelected(String callId, PhoneAccountHandle accountHandle,
             boolean setDefault) {
-        long token = Binder.clearCallingIdentity();
         try {
-            synchronized (mLock) {
-                if (mCallIdMapper.isValidCallId(callId)) {
+            Log.startSession("ICA.pAS", mOwnerComponentName);
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
                     Call call = mCallIdMapper.getCall(callId);
                     if (call != null) {
                         mCallsManager.phoneAccountSelected(call, accountHandle, setDefault);
@@ -211,43 +241,55 @@ class InCallAdapter extends IInCallAdapter.Stub {
                         Log.w(this, "phoneAccountSelected, unknown call id: %s", callId);
                     }
                 }
+            } finally {
+                Binder.restoreCallingIdentity(token);
             }
         } finally {
-            Binder.restoreCallingIdentity(token);
+            Log.endSession();
         }
     }
 
     @Override
     public void mute(boolean shouldMute) {
-        long token = Binder.clearCallingIdentity();
         try {
-            synchronized (mLock) {
-                mCallsManager.mute(shouldMute);
+            Log.startSession("ICA.m", mOwnerComponentName);
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
+                    mCallsManager.mute(shouldMute);
+                }
+            } finally {
+                Binder.restoreCallingIdentity(token);
             }
         } finally {
-            Binder.restoreCallingIdentity(token);
+            Log.endSession();
         }
     }
 
     @Override
     public void setAudioRoute(int route) {
-        long token = Binder.clearCallingIdentity();
         try {
-            synchronized (mLock) {
-                mCallsManager.setAudioRoute(route);
+            Log.startSession("ICA.sAR", mOwnerComponentName);
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
+                    mCallsManager.setAudioRoute(route);
+                }
+            } finally {
+                Binder.restoreCallingIdentity(token);
             }
         } finally {
-            Binder.restoreCallingIdentity(token);
+            Log.endSession();
         }
     }
 
     @Override
     public void conference(String callId, String otherCallId) {
-        long token = Binder.clearCallingIdentity();
         try {
-            synchronized (mLock) {
-                if (mCallIdMapper.isValidCallId(callId) &&
-                        mCallIdMapper.isValidCallId(otherCallId)) {
+            Log.startSession("ICA.c", mOwnerComponentName);
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
                     Call call = mCallIdMapper.getCall(callId);
                     Call otherCall = mCallIdMapper.getCall(otherCallId);
                     if (call != null && otherCall != null) {
@@ -255,20 +297,22 @@ class InCallAdapter extends IInCallAdapter.Stub {
                     } else {
                         Log.w(this, "conference, unknown call id: %s or %s", callId, otherCallId);
                     }
-
                 }
+            } finally {
+                Binder.restoreCallingIdentity(token);
             }
         } finally {
-            Binder.restoreCallingIdentity(token);
+            Log.endSession();
         }
     }
 
     @Override
     public void splitFromConference(String callId) {
-        long token = Binder.clearCallingIdentity();
         try {
-            synchronized (mLock) {
-                if (mCallIdMapper.isValidCallId(callId)) {
+            Log.startSession("ICA.sFC", mOwnerComponentName);
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
                     Call call = mCallIdMapper.getCall(callId);
                     if (call != null) {
                         call.splitFromConference();
@@ -276,18 +320,21 @@ class InCallAdapter extends IInCallAdapter.Stub {
                         Log.w(this, "splitFromConference, unknown call id: %s", callId);
                     }
                 }
+            } finally {
+                Binder.restoreCallingIdentity(token);
             }
         } finally {
-            Binder.restoreCallingIdentity(token);
+            Log.endSession();
         }
     }
 
     @Override
     public void mergeConference(String callId) {
-        long token = Binder.clearCallingIdentity();
         try {
-            synchronized (mLock) {
-                if (mCallIdMapper.isValidCallId(callId)) {
+            Log.startSession("ICA.mC", mOwnerComponentName);
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
                     Call call = mCallIdMapper.getCall(callId);
                     if (call != null) {
                         call.mergeConference();
@@ -295,18 +342,21 @@ class InCallAdapter extends IInCallAdapter.Stub {
                         Log.w(this, "mergeConference, unknown call id: %s", callId);
                     }
                 }
+            } finally {
+                Binder.restoreCallingIdentity(token);
             }
         } finally {
-            Binder.restoreCallingIdentity(token);
+            Log.endSession();
         }
     }
 
     @Override
     public void swapConference(String callId) {
-        long token = Binder.clearCallingIdentity();
         try {
-            synchronized (mLock) {
-                if (mCallIdMapper.isValidCallId(callId)) {
+            Log.startSession("ICA.sC", mOwnerComponentName);
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
                     Call call = mCallIdMapper.getCall(callId);
                     if (call != null) {
                         call.swapConference();
@@ -314,33 +364,133 @@ class InCallAdapter extends IInCallAdapter.Stub {
                         Log.w(this, "swapConference, unknown call id: %s", callId);
                     }
                 }
+            } finally {
+                Binder.restoreCallingIdentity(token);
             }
         } finally {
-            Binder.restoreCallingIdentity(token);
+            Log.endSession();
+        }
+    }
+
+    @Override
+    public void pullExternalCall(String callId) {
+        try {
+            Log.startSession("ICA.pEC", mOwnerComponentName);
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
+                    Call call = mCallIdMapper.getCall(callId);
+                    if (call != null) {
+                        call.pullExternalCall();
+                    } else {
+                        Log.w(this, "pullExternalCall, unknown call id: %s", callId);
+                    }
+                }
+            } finally {
+                Binder.restoreCallingIdentity(token);
+            }
+        } finally {
+            Log.endSession();
+        }
+    }
+
+    @Override
+    public void sendCallEvent(String callId, String event, Bundle extras) {
+        try {
+            Log.startSession("ICA.sCE", mOwnerComponentName);
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
+                    Call call = mCallIdMapper.getCall(callId);
+                    if (call != null) {
+                        call.sendCallEvent(event, extras);
+                    } else {
+                        Log.w(this, "sendCallEvent, unknown call id: %s", callId);
+                    }
+                }
+            } finally {
+                Binder.restoreCallingIdentity(token);
+            }
+        } finally {
+            Log.endSession();
+        }
+    }
+
+    @Override
+    public void putExtras(String callId, Bundle extras) {
+        try {
+            Log.startSession("ICA.pE", mOwnerComponentName);
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
+                    Call call = mCallIdMapper.getCall(callId);
+                    if (call != null) {
+                        call.putExtras(Call.SOURCE_INCALL_SERVICE, extras);
+                    } else {
+                        Log.w(this, "putExtras, unknown call id: %s", callId);
+                    }
+                }
+            } finally {
+                Binder.restoreCallingIdentity(token);
+            }
+        } finally {
+            Log.endSession();
+        }
+    }
+
+    @Override
+    public void removeExtras(String callId, List<String> keys) {
+        try {
+            Log.startSession("ICA.rE", mOwnerComponentName);
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
+                    Call call = mCallIdMapper.getCall(callId);
+                    if (call != null) {
+                        call.removeExtras(Call.SOURCE_INCALL_SERVICE, keys);
+                    } else {
+                        Log.w(this, "removeExtra, unknown call id: %s", callId);
+                    }
+                }
+            } finally {
+                Binder.restoreCallingIdentity(token);
+            }
+        } finally {
+            Log.endSession();
         }
     }
 
     @Override
     public void turnOnProximitySensor() {
-        long token = Binder.clearCallingIdentity();
         try {
-            synchronized (mLock) {
-                mCallsManager.turnOnProximitySensor();
+            Log.startSession("ICA.tOnPS", mOwnerComponentName);
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
+                    mCallsManager.turnOnProximitySensor();
+                }
+            } finally {
+                Binder.restoreCallingIdentity(token);
             }
         } finally {
-            Binder.restoreCallingIdentity(token);
+            Log.endSession();
         }
     }
 
     @Override
     public void turnOffProximitySensor(boolean screenOnImmediately) {
-        long token = Binder.clearCallingIdentity();
         try {
-            synchronized (mLock) {
-                mCallsManager.turnOffProximitySensor(screenOnImmediately);
+            Log.startSession("ICA.tOffPS", mOwnerComponentName);
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
+                    mCallsManager.turnOffProximitySensor(screenOnImmediately);
+                }
+            } finally {
+                Binder.restoreCallingIdentity(token);
             }
         } finally {
-            Binder.restoreCallingIdentity(token);
+             Log.endSession();
         }
     }
 }

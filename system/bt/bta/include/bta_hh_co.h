@@ -31,8 +31,8 @@ typedef struct
     UINT16              rpt_uuid;
     UINT8               rpt_id;
     tBTA_HH_RPT_TYPE    rpt_type;
-    UINT8               inst_id;
-    UINT8               prop;
+    UINT8               srvc_inst_id;
+    UINT8               char_inst_id;
 }tBTA_HH_RPT_CACHE_ENTRY;
 
 /*******************************************************************************

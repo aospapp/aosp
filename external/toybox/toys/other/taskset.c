@@ -3,6 +3,17 @@
  * Copyright 2012 Elie De Brauwer <eliedebrauwer@gmail.com>
 
 USE_TASKSET(NEWTOY(taskset, "<1^pa", TOYFLAG_BIN|TOYFLAG_STAYROOT))
+USE_NPROC(NEWTOY(nproc, "(all)", TOYFLAG_USR|TOYFLAG_BIN))
+
+config NPROC
+  bool "nproc"
+  default y
+  help
+    usage: nproc [--all]
+
+    Print number of processors.
+
+    --all	Show all processors, not just ones this task can run on.
 
 config TASKSET
   bool "taskset"
@@ -103,4 +114,20 @@ void taskset_main(void)
       dirtree_read(buf, task_callback);
     } else do_taskset(pid, 0);
   }
+}
+
+void nproc_main(void)
+{
+  unsigned i, j, nproc = 0;
+
+  // This can only detect 32768 processors. Call getaffinity and count bits.
+  if (!toys.optflags && -1!=sched_getaffinity(getpid(), 4096, toybuf)) {
+    for (i = 0; i<4096; i++)
+      if (toybuf[i]) for (j=0; j<8; j++) if (toybuf[i]&(1<<j)) nproc++;
+  }
+
+  // If getaffinity failed or --all, count cpu entries in proc
+  if (!nproc) nproc = sysconf(_SC_NPROCESSORS_CONF);
+
+  xprintf("%u\n", nproc);
 }

@@ -17,8 +17,14 @@
 package android.text.cts;
 
 import android.test.AndroidTestCase;
+import android.test.suitebuilder.annotation.SmallTest;
 import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.style.LocaleSpan;
+import android.text.style.QuoteSpan;
 import android.text.style.UnderlineSpan;
+
+import java.util.Locale;
 
 public class SpannableStringTest extends AndroidTestCase {
 
@@ -123,4 +129,59 @@ public class SpannableStringTest extends AndroidTestCase {
         } catch (StringIndexOutOfBoundsException e) {
         }
     }
+
+    @SmallTest
+    public void testSubsequence_copiesSpans() {
+        SpannableString first = new SpannableString("t\nest data");
+        QuoteSpan quoteSpan = new QuoteSpan();
+        LocaleSpan localeSpan = new LocaleSpan(Locale.US);
+        UnderlineSpan underlineSpan = new UnderlineSpan();
+
+        first.setSpan(quoteSpan, 0, 2, Spanned.SPAN_PARAGRAPH);
+        first.setSpan(localeSpan, 2, 4, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        first.setSpan(underlineSpan, 0, first.length(), Spanned.SPAN_PRIORITY);
+
+        Spanned second = (Spanned) first.subSequence(2,4);
+        Object[] secondSpans = second.getSpans(0, second.length(), Object.class);
+        assertNotNull(secondSpans);
+        assertEquals(2, secondSpans.length);
+
+        //priority flag is first in the results
+        Object[][] expected = new Object[][] {
+                {underlineSpan, 0, second.length(), Spanned.SPAN_PRIORITY},
+                {localeSpan, 0, 2, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE}};
+
+        for (int i = 0; i < secondSpans.length; i++) {
+            Object secondSpan = secondSpans[i];
+            assertEquals(expected[i][0], secondSpan);
+            assertEquals(expected[i][1], second.getSpanStart(secondSpan));
+            assertEquals(expected[i][2], second.getSpanEnd(secondSpan));
+            assertEquals(expected[i][3], second.getSpanFlags(secondSpan));
+        }
+    }
+
+
+    @SmallTest
+    public void testCopyConstructor_copiesAllSpans() {
+        SpannableString first = new SpannableString("t\nest data");
+        first.setSpan(new QuoteSpan(), 0, 2, Spanned.SPAN_PARAGRAPH);
+        first.setSpan(new LocaleSpan(Locale.US), 2, 4, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        first.setSpan(new UnderlineSpan(), 0, first.length(), Spanned.SPAN_PRIORITY);
+        Object[] firstSpans = first.getSpans(0, first.length(), Object.class);
+        assertNotNull(firstSpans);
+
+        SpannableString second = new SpannableString(first);
+        Object[] secondSpans = second.getSpans(0, second.length(), Object.class);
+        assertNotNull(secondSpans);
+        assertEquals("Spans.length should be equal", firstSpans.length, secondSpans.length);
+        for (int i = 0; i < firstSpans.length; i++) {
+            Object firstSpan = firstSpans[i];
+            Object secondSpan = secondSpans[i];
+            assertSame(firstSpan, secondSpan);
+            assertEquals(first.getSpanStart(firstSpan), second.getSpanStart(secondSpan));
+            assertEquals(first.getSpanEnd(firstSpan), second.getSpanEnd(secondSpan));
+            assertEquals(first.getSpanFlags(firstSpan), second.getSpanFlags(secondSpan));
+        }
+    }
+
 }

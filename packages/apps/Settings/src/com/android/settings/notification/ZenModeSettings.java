@@ -16,27 +16,26 @@
 
 package com.android.settings.notification;
 
-import android.content.Context;
-import android.content.res.Resources;
+import android.app.NotificationManager;
+import android.app.NotificationManager.Policy;
 import android.os.Bundle;
-import android.preference.Preference;
-import android.preference.PreferenceScreen;
-import android.util.SparseArray;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.PreferenceScreen;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.R;
-import com.android.settings.search.BaseSearchIndexProvider;
-import com.android.settings.search.Indexable;
-import com.android.settings.search.SearchIndexableRaw;
+import com.android.settings.SettingsActivity;
 
-import java.util.ArrayList;
-import java.util.List;
-
-public class ZenModeSettings extends ZenModeSettingsBase implements Indexable {
+public class ZenModeSettings extends ZenModeSettingsBase {
     private static final String KEY_PRIORITY_SETTINGS = "priority_settings";
-    private static final String KEY_AUTOMATION_SETTINGS = "automation_settings";
+    private static final String KEY_VISUAL_SETTINGS = "visual_interruptions_settings";
 
     private Preference mPrioritySettings;
+    private Preference mVisualSettings;
+    private Policy mPolicy;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -46,20 +45,21 @@ public class ZenModeSettings extends ZenModeSettingsBase implements Indexable {
         final PreferenceScreen root = getPreferenceScreen();
 
         mPrioritySettings = root.findPreference(KEY_PRIORITY_SETTINGS);
-        if (!isScheduleSupported(mContext)) {
-            removePreference(KEY_AUTOMATION_SETTINGS);
-        }
+        mVisualSettings = root.findPreference(KEY_VISUAL_SETTINGS);
+        mPolicy = NotificationManager.from(mContext).getNotificationPolicy();
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        updateControls();
+        if (isUiRestricted()) {
+            return;
+        }
     }
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.NOTIFICATION_ZEN_MODE;
+        return MetricsEvent.NOTIFICATION_ZEN_MODE;
     }
 
     @Override
@@ -69,21 +69,59 @@ public class ZenModeSettings extends ZenModeSettingsBase implements Indexable {
 
     @Override
     protected void onZenModeConfigChanged() {
+        mPolicy = NotificationManager.from(mContext).getNotificationPolicy();
         updateControls();
     }
 
     private void updateControls() {
         updatePrioritySettingsSummary();
+        updateVisualSettingsSummary();
     }
 
     private void updatePrioritySettingsSummary() {
-        final boolean callers = mConfig.allowCalls || mConfig.allowRepeatCallers;
         String s = getResources().getString(R.string.zen_mode_alarms);
-        s = appendLowercase(s, mConfig.allowReminders, R.string.zen_mode_reminders);
-        s = appendLowercase(s, mConfig.allowEvents, R.string.zen_mode_events);
-        s = appendLowercase(s, callers, R.string.zen_mode_selected_callers);
-        s = appendLowercase(s, mConfig.allowMessages, R.string.zen_mode_selected_messages);
+        s = appendLowercase(s, isCategoryEnabled(mPolicy, Policy.PRIORITY_CATEGORY_REMINDERS),
+                R.string.zen_mode_reminders);
+        s = appendLowercase(s, isCategoryEnabled(mPolicy, Policy.PRIORITY_CATEGORY_EVENTS),
+                R.string.zen_mode_events);
+        if (isCategoryEnabled(mPolicy, Policy.PRIORITY_CATEGORY_MESSAGES)) {
+            if (mPolicy.priorityMessageSenders == Policy.PRIORITY_SENDERS_ANY) {
+                s = appendLowercase(s, true, R.string.zen_mode_all_messages);
+            } else {
+                s = appendLowercase(s, true, R.string.zen_mode_selected_messages);
+            }
+        }
+        if (isCategoryEnabled(mPolicy, Policy.PRIORITY_CATEGORY_CALLS)) {
+            if (mPolicy.priorityCallSenders == Policy.PRIORITY_SENDERS_ANY) {
+                s = appendLowercase(s, true, R.string.zen_mode_all_callers);
+            } else {
+                s = appendLowercase(s, true, R.string.zen_mode_selected_callers);
+            }
+        } else if (isCategoryEnabled(mPolicy, Policy.PRIORITY_CATEGORY_REPEAT_CALLERS)) {
+            s = appendLowercase(s, true, R.string.zen_mode_repeat_callers);
+        }
         mPrioritySettings.setSummary(s);
+    }
+
+    private void updateVisualSettingsSummary() {
+        String s = getString(R.string.zen_mode_all_visual_interruptions);
+        if (isEffectSuppressed(Policy.SUPPRESSED_EFFECT_SCREEN_ON)
+                && isEffectSuppressed(Policy.SUPPRESSED_EFFECT_SCREEN_OFF)) {
+            s = getString(R.string.zen_mode_no_visual_interruptions);
+        } else if (isEffectSuppressed(Policy.SUPPRESSED_EFFECT_SCREEN_ON)) {
+            s = getString(R.string.zen_mode_screen_on_visual_interruptions);
+        } else if (isEffectSuppressed(Policy.SUPPRESSED_EFFECT_SCREEN_OFF)) {
+            s = getString(R.string.zen_mode_screen_off_visual_interruptions);
+        }
+        mVisualSettings.setSummary(s);
+    }
+
+    private boolean isEffectSuppressed(int effect) {
+        return (mPolicy.suppressedVisualEffects & effect) != 0;
+    }
+
+    private boolean isCategoryEnabled(Policy policy, int categoryType) {
+        return (policy.priorityCategories & categoryType) != 0;
     }
 
     private String appendLowercase(String s, boolean condition, int resId) {
@@ -94,45 +132,8 @@ public class ZenModeSettings extends ZenModeSettingsBase implements Indexable {
         return s;
     }
 
-    private static SparseArray<String> allKeyTitles(Context context) {
-        final SparseArray<String> rt = new SparseArray<String>();
-        rt.put(R.string.zen_mode_priority_settings_title, KEY_PRIORITY_SETTINGS);
-        rt.put(R.string.zen_mode_automation_settings_title, KEY_AUTOMATION_SETTINGS);
-        return rt;
-    }
-
     @Override
     protected int getHelpResource() {
         return R.string.help_uri_interruptions;
     }
-
-    // Enable indexing of searchable data
-    public static final Indexable.SearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
-        new BaseSearchIndexProvider() {
-
-            @Override
-            public List<SearchIndexableRaw> getRawDataToIndex(Context context, boolean enabled) {
-                final SparseArray<String> keyTitles = allKeyTitles(context);
-                final int N = keyTitles.size();
-                final List<SearchIndexableRaw> result = new ArrayList<SearchIndexableRaw>(N);
-                final Resources res = context.getResources();
-                for (int i = 0; i < N; i++) {
-                    final SearchIndexableRaw data = new SearchIndexableRaw(context);
-                    data.key = keyTitles.valueAt(i);
-                    data.title = res.getString(keyTitles.keyAt(i));
-                    data.screenTitle = res.getString(R.string.zen_mode_settings_title);
-                    result.add(data);
-                }
-                return result;
-            }
-
-            @Override
-            public List<String> getNonIndexableKeys(Context context) {
-                final ArrayList<String> rt = new ArrayList<String>();
-                if (!isScheduleSupported(context)) {
-                    rt.add(KEY_AUTOMATION_SETTINGS);
-                }
-                return rt;
-            }
-        };
 }

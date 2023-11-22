@@ -24,6 +24,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.provider.ContactsContract;
 import android.test.mock.MockContentResolver;
+import com.android.providers.contacts.AccountWithDataSet;
 
 import java.util.List;
 
@@ -90,7 +91,18 @@ public class RawContactUtil {
             String... extras) {
         ContentValues values = new ContentValues();
         CommonDatabaseUtils.extrasVarArgsToValues(values, extras);
-        final Uri uri = TestUtil.maybeAddAccountQueryParameters(ContactsContract.RawContacts.CONTENT_URI, account);
+        final Uri uri = TestUtil.maybeAddAccountQueryParameters(
+                ContactsContract.RawContacts.CONTENT_URI, account);
+        Uri contactUri = resolver.insert(uri, values);
+        return ContentUris.parseId(contactUri);
+    }
+
+    public static long createRawContactWithAccountDataSet(ContentResolver resolver,
+            AccountWithDataSet accountWithDataSet, String... extras) {
+        ContentValues values = new ContentValues();
+        CommonDatabaseUtils.extrasVarArgsToValues(values, extras);
+        final Uri uri = TestUtil.maybeAddAccountWithDataSetQueryParameters(
+                ContactsContract.RawContacts.CONTENT_URI, accountWithDataSet);
         Uri contactUri = resolver.insert(uri, values);
         return ContentUris.parseId(contactUri);
     }
@@ -117,5 +129,20 @@ public class RawContactUtil {
 
     public static long createRawContact(ContentResolver resolver) {
         return createRawContact(resolver, null);
+    }
+
+    public static long createRawContactWithBackupId(ContentResolver resolver, String backupId,
+            Account account) {
+        ContentValues values = new ContentValues();
+        values.put(ContactsContract.RawContacts.BACKUP_ID, backupId);
+        final Uri uri = ContactsContract.RawContacts.CONTENT_URI
+                .buildUpon()
+                .appendQueryParameter(ContactsContract.RawContacts.ACCOUNT_NAME,
+                        account.name)
+                .appendQueryParameter(ContactsContract.RawContacts.ACCOUNT_TYPE,
+                        account.type)
+                .build();
+        Uri contactUri = resolver.insert(uri, values);
+        return ContentUris.parseId(contactUri);
     }
 }

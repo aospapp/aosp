@@ -29,13 +29,20 @@ import android.provider.Telephony;
 import android.service.carrier.CarrierMessagingService;
 import android.service.carrier.ICarrierMessagingService;
 import android.telephony.CarrierMessagingServiceManager;
+import android.telephony.PhoneNumberUtils;
 import android.telephony.SmsManager;
 import android.text.TextUtils;
 
+import com.android.internal.telephony.AsyncEmergencyContactNotifier;
+import com.android.internal.telephony.Phone;
+import com.android.internal.telephony.PhoneFactory;
 import com.android.internal.telephony.SmsApplication;
+import com.android.internal.telephony.SmsNumberUtils;
 import com.android.mms.service.exception.MmsHttpException;
 import com.google.android.mms.MmsException;
+import com.google.android.mms.pdu.EncodedStringValue;
 import com.google.android.mms.pdu.GenericPdu;
+import com.google.android.mms.pdu.PduComposer;
 import com.google.android.mms.pdu.PduHeaders;
 import com.google.android.mms.pdu.PduParser;
 import com.google.android.mms.pdu.PduPersister;
@@ -64,12 +71,15 @@ public class SendRequest extends MmsRequest {
     @Override
     protected byte[] doHttp(Context context, MmsNetworkManager netMgr, ApnSettings apn)
             throws MmsHttpException {
-        final String requestId = this.toString();
+        final String requestId = getRequestId();
         final MmsHttpClient mmsHttpClient = netMgr.getOrCreateHttpClient();
         if (mmsHttpClient == null) {
             LogUtil.e(requestId, "MMS network is not ready!");
             throw new MmsHttpException(0/*statusCode*/, "MMS network is not ready");
         }
+        final GenericPdu parsedPdu = parsePdu();
+        notifyIfEmergencyContactNoThrow(parsedPdu);
+        updateDestinationAddress(parsedPdu);
         return mmsHttpClient.execute(
                 mLocationUrl != null ? mLocationUrl : apn.getMmscUrl(),
                 mPduData,
@@ -80,6 +90,51 @@ public class SendRequest extends MmsRequest {
                 mMmsConfig,
                 mSubId,
                 requestId);
+    }
+
+    private GenericPdu parsePdu() {
+        final String requestId = getRequestId();
+        try {
+            if (mPduData == null) {
+                LogUtil.w(requestId, "Empty PDU raw data");
+                return null;
+            }
+            final boolean supportContentDisposition =
+                    mMmsConfig.getBoolean(SmsManager.MMS_CONFIG_SUPPORT_MMS_CONTENT_DISPOSITION);
+            return new PduParser(mPduData, supportContentDisposition).parse();
+        } catch (final Exception e) {
+            LogUtil.w(requestId, "Failed to parse PDU raw data");
+        }
+        return null;
+    }
+
+    /**
+     * If the MMS is being sent to an emergency number, the blocked number provider is notified
+     * so that it can disable number blocking.
+     */
+    private void notifyIfEmergencyContactNoThrow(final GenericPdu parsedPdu) {
+        try {
+            notifyIfEmergencyContact(parsedPdu);
+        } catch (Exception e) {
+            LogUtil.w(getRequestId(), "Error in notifyIfEmergencyContact", e);
+        }
+    }
+
+    private void notifyIfEmergencyContact(final GenericPdu parsedPdu) {
+        if (parsedPdu != null && parsedPdu.getMessageType() == PduHeaders.MESSAGE_TYPE_SEND_REQ) {
+            SendReq sendReq = (SendReq) parsedPdu;
+            for (EncodedStringValue encodedStringValue : sendReq.getTo()) {
+                if (isEmergencyNumber(encodedStringValue.getString())) {
+                    LogUtil.i(getRequestId(), "Notifying emergency contact");
+                    new AsyncEmergencyContactNotifier(mContext).execute();
+                    return;
+                }
+            }
+        }
+    }
+
+    private boolean isEmergencyNumber(String address) {
+        return !TextUtils.isEmpty(address) && PhoneNumberUtils.isEmergencyNumber(mSubId, address);
     }
 
     @Override
@@ -94,7 +149,7 @@ public class SendRequest extends MmsRequest {
 
     @Override
     protected Uri persistIfRequired(Context context, int result, byte[] response) {
-        final String requestId = this.toString();
+        final String requestId = getRequestId();
         if (!SmsApplication.shouldWriteMessageForPackage(mCreator, context)) {
             // Not required to persist
             return null;
@@ -173,6 +228,83 @@ public class SendRequest extends MmsRequest {
             Binder.restoreCallingIdentity(identity);
         }
         return null;
+    }
+
+    /**
+     * Update the destination Address of MO MMS before sending.
+     * This is special for VZW requirement. Follow the specificaitons of assisted dialing
+     * of MO MMS while traveling on VZW CDMA, international CDMA or GSM markets.
+     */
+    private void updateDestinationAddress(final GenericPdu pdu) {
+        final String requestId = getRequestId();
+        if (pdu == null) {
+            LogUtil.e(requestId, "updateDestinationAddress: can't parse input PDU");
+            return ;
+        }
+        if (!(pdu instanceof SendReq)) {
+            LogUtil.i(requestId, "updateDestinationAddress: not SendReq");
+            return;
+        }
+
+       boolean isUpdated = updateDestinationAddressPerType((SendReq)pdu, PduHeaders.TO);
+       isUpdated = updateDestinationAddressPerType((SendReq)pdu, PduHeaders.CC) || isUpdated;
+       isUpdated = updateDestinationAddressPerType((SendReq)pdu, PduHeaders.BCC) || isUpdated;
+
+       if (isUpdated) {
+           mPduData = new PduComposer(mContext, (SendReq)pdu).make();
+       }
+   }
+
+    private boolean updateDestinationAddressPerType(SendReq pdu, int type) {
+        boolean isUpdated = false;
+        EncodedStringValue[] recipientNumbers = null;
+
+        switch (type) {
+            case PduHeaders.TO:
+                recipientNumbers = pdu.getTo();
+                break;
+            case PduHeaders.CC:
+                recipientNumbers = pdu.getCc();
+                break;
+            case PduHeaders.BCC:
+                recipientNumbers = pdu.getBcc();
+                break;
+            default:
+                return false;
+        }
+
+        if (recipientNumbers != null) {
+            int nNumberCount = recipientNumbers.length;
+            if (nNumberCount > 0) {
+                Phone phone = PhoneFactory.getDefaultPhone();
+                EncodedStringValue[] newNumbers = new EncodedStringValue[nNumberCount];
+                String toNumber;
+                String newToNumber;
+                for (int i = 0; i < nNumberCount; i++) {
+                    toNumber = recipientNumbers[i].getString();
+                    newToNumber = SmsNumberUtils.filterDestAddr(phone, toNumber);
+                    if (!TextUtils.equals(toNumber, newToNumber)) {
+                        isUpdated = true;
+                        newNumbers[i] = new EncodedStringValue(newToNumber);
+                    } else {
+                        newNumbers[i] = recipientNumbers[i];
+                    }
+                }
+                switch (type) {
+                    case PduHeaders.TO:
+                        pdu.setTo(newNumbers);
+                        break;
+                    case PduHeaders.CC:
+                        pdu.setCc(newNumbers);
+                        break;
+                    case PduHeaders.BCC:
+                        pdu.setBcc(newNumbers);
+                        break;
+                }
+            }
+        }
+
+        return isUpdated;
     }
 
     /**

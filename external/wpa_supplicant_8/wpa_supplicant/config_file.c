@@ -747,10 +747,15 @@ static void wpa_config_write_network(FILE *f, struct wpa_ssid *ssid)
 	INT(no_auto_peer);
 	INT(frequency);
 	INT(fixed_freq);
+#ifdef CONFIG_ACS
+	INT(acs);
+#endif /* CONFIG_ACS */
 	write_int(f, "proactive_key_caching", ssid->proactive_key_caching, -1);
 	INT(disabled);
 	INT(peerkey);
 	INT(mixed_cell);
+	INT(max_oper_chwidth);
+	INT(pbss);
 #ifdef CONFIG_IEEE80211W
 	write_int(f, "ieee80211w", ssid->ieee80211w,
 		  MGMT_FRAME_PROTECTION_DEFAULT);
@@ -1133,6 +1138,25 @@ static void wpa_config_write_global(FILE *f, struct wpa_config *config)
 			config->p2p_ignore_shared_freq);
 	if (config->p2p_cli_probe)
 		fprintf(f, "p2p_cli_probe=%d\n", config->p2p_cli_probe);
+	if (config->p2p_go_freq_change_policy != DEFAULT_P2P_GO_FREQ_MOVE)
+		fprintf(f, "p2p_go_freq_change_policy=%u\n",
+			config->p2p_go_freq_change_policy);
+	if (WPA_GET_BE32(config->ip_addr_go))
+		fprintf(f, "ip_addr_go=%u.%u.%u.%u\n",
+			config->ip_addr_go[0], config->ip_addr_go[1],
+			config->ip_addr_go[2], config->ip_addr_go[3]);
+	if (WPA_GET_BE32(config->ip_addr_mask))
+		fprintf(f, "ip_addr_mask=%u.%u.%u.%u\n",
+			config->ip_addr_mask[0], config->ip_addr_mask[1],
+			config->ip_addr_mask[2], config->ip_addr_mask[3]);
+	if (WPA_GET_BE32(config->ip_addr_start))
+		fprintf(f, "ip_addr_start=%u.%u.%u.%u\n",
+			config->ip_addr_start[0], config->ip_addr_start[1],
+			config->ip_addr_start[2], config->ip_addr_start[3]);
+	if (WPA_GET_BE32(config->ip_addr_end))
+		fprintf(f, "ip_addr_end=%u.%u.%u.%u\n",
+			config->ip_addr_end[0], config->ip_addr_end[1],
+			config->ip_addr_end[2], config->ip_addr_end[3]);
 #endif /* CONFIG_P2P */
 	if (config->country[0] && config->country[1]) {
 		fprintf(f, "country=%c%c\n",
@@ -1282,6 +1306,11 @@ static void wpa_config_write_global(FILE *f, struct wpa_config *config)
 		fprintf(f, "mesh_max_inactivity=%d\n",
 			config->mesh_max_inactivity);
 
+	if (config->dot11RSNASAERetransPeriod !=
+	    DEFAULT_DOT11_RSNA_SAE_RETRANS_PERIOD)
+		fprintf(f, "dot11RSNASAERetransPeriod=%d\n",
+			config->dot11RSNASAERetransPeriod);
+
 	if (config->passive_scan)
 		fprintf(f, "passive_scan=%d\n", config->passive_scan);
 
@@ -1291,6 +1320,21 @@ static void wpa_config_write_global(FILE *f, struct wpa_config *config)
 
 	if (config->wps_priority)
 		fprintf(f, "wps_priority=%d\n", config->wps_priority);
+
+	if (config->wpa_rsc_relaxation != DEFAULT_WPA_RSC_RELAXATION)
+		fprintf(f, "wpa_rsc_relaxation=%d\n",
+			config->wpa_rsc_relaxation);
+
+	if (config->sched_scan_plans)
+		fprintf(f, "sched_scan_plans=%s\n", config->sched_scan_plans);
+
+#ifdef CONFIG_MBO
+	if (config->non_pref_chan)
+		fprintf(f, "non_pref_chan=%s\n", config->non_pref_chan);
+	if (config->mbo_cell_capa != DEFAULT_MBO_CELL_CAPA)
+		fprintf(f, "mbo_cell_capa=%u\n", config->mbo_cell_capa);
+#endif /* CONFIG_MBO */
+
 }
 
 #endif /* CONFIG_NO_CONFIG_WRITE */
@@ -1353,7 +1397,7 @@ int wpa_config_write(const char *name, struct wpa_config *config)
 	}
 #endif /* CONFIG_NO_CONFIG_BLOBS */
 
-	os_fsync(f);
+	os_fdatasync(f);
 
 	fclose(f);
 

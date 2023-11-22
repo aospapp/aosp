@@ -21,7 +21,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.service.voice.VoiceInteractionService;
 import android.util.Log;
-import common.src.android.voicesettings.common.Utils;
+import android.cts.util.BroadcastUtils;
 
 public class MainInteractionService extends VoiceInteractionService {
     static final String TAG = "MainInteractionService";
@@ -36,9 +36,9 @@ public class MainInteractionService extends VoiceInteractionService {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.i(TAG, "onStartCommand received");
         mIntent = intent;
-        Log.i(TAG, "received_testcasetype = " + mIntent.getStringExtra(Utils.TESTCASE_TYPE));
+        Log.i(TAG, "onStartCommand received_testcasetype = " + 
+              mIntent.getStringExtra(BroadcastUtils.TESTCASE_TYPE));
         maybeStart();
         return START_NOT_STICKY;
     }
@@ -51,8 +51,10 @@ public class MainInteractionService extends VoiceInteractionService {
             Log.i(TAG, "Yay! about to start MainInteractionSession");
             if (isActiveService(this, new ComponentName(this, getClass()))) {
                 Bundle args = new Bundle();
-                args.putString(Utils.TESTCASE_TYPE, mIntent.getStringExtra(Utils.TESTCASE_TYPE));
-                Log.i(TAG, "xferring_testcasetype = " + args.getString(Utils.TESTCASE_TYPE));
+                args.putString(BroadcastUtils.TESTCASE_TYPE,
+                               mIntent.getStringExtra(BroadcastUtils.TESTCASE_TYPE));
+                Log.i(TAG, "xferring_testcasetype = " +
+                      args.getString(BroadcastUtils.TESTCASE_TYPE));
                 showSession(args, 0);
             } else {
                 Log.wtf(TAG, "**** Not starting MainInteractionService because" +

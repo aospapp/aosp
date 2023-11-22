@@ -20,20 +20,20 @@ namespace {
 
 class BufferObj {
 public:
-    SK_DECLARE_INST_COUNT(BufferObj);
+    
 
-    BufferObj(GrGLuint id) : fID(id), fDataPtr(NULL), fSize(0), fMapped(false) {
+    BufferObj(GrGLuint id) : fID(id), fDataPtr(nullptr), fSize(0), fMapped(false) {
     }
-    ~BufferObj() { SkDELETE_ARRAY(fDataPtr); }
+    ~BufferObj() { delete[] fDataPtr; }
 
     void allocate(GrGLsizeiptr size, const GrGLchar* dataPtr) {
         if (fDataPtr) {
             SkASSERT(0 != fSize);
-            SkDELETE_ARRAY(fDataPtr);
+            delete[] fDataPtr;
         }
 
         fSize = size;
-        fDataPtr = SkNEW_ARRAY(char, size);
+        fDataPtr = new char[size];
     }
 
     GrGLuint id() const          { return fID; }
@@ -53,16 +53,16 @@ private:
 // This class maintains a sparsely populated array of buffer pointers.
 class BufferManager {
 public:
-    SK_DECLARE_INST_COUNT(BufferManager);
+    
 
     BufferManager() : fFreeListHead(kFreeListEnd) {}
 
     ~BufferManager() {
-        // NULL out the entries that are really free list links rather than ptrs before deleting.
+        // nullptr out the entries that are really free list links rather than ptrs before deleting.
         intptr_t curr = fFreeListHead;
         while (kFreeListEnd != curr) {
             intptr_t next = reinterpret_cast<intptr_t>(fBuffers[SkToS32(curr)]);
-            fBuffers[SkToS32(curr)] = NULL;
+            fBuffers[SkToS32(curr)] = nullptr;
             curr = next;
         }
 
@@ -82,14 +82,14 @@ public:
         if (kFreeListEnd == fFreeListHead) {
             // no free slots - create a new one
             id = fBuffers.count();
-            buffer = SkNEW_ARGS(BufferObj, (id));
+            buffer = new BufferObj(id);
             *fBuffers.append() = buffer;
         } else {
             // grab the head of the free list and advance the head to the next free slot.
             id = static_cast<GrGLuint>(fFreeListHead);
             fFreeListHead = reinterpret_cast<intptr_t>(fBuffers[id]);
 
-            buffer = SkNEW_ARGS(BufferObj, (id));
+            buffer = new BufferObj(id);
             fBuffers[id] = buffer;
         }
 
@@ -100,7 +100,7 @@ public:
         SkASSERT(fBuffers.count() > 0);
 
         GrGLuint id = buffer->id();
-        SkDELETE(buffer);
+        delete buffer;
 
         fBuffers[id] = reinterpret_cast<BufferObj*>(fFreeListHead);
         fFreeListHead = id;
@@ -122,7 +122,7 @@ private:
  */
 struct ThreadContext {
 public:
-    SK_DECLARE_INST_COUNT(ThreadContext);
+    
 
     BufferManager   fBufferManager;
     GrGLuint        fCurrArrayBuffer;
@@ -141,8 +141,8 @@ public:
         , fCurrShaderID(0) {}
 
 private:
-    static void* Create() { return SkNEW(ThreadContext ); }
-    static void Delete(void* context) { SkDELETE(reinterpret_cast<ThreadContext *>(context)); }
+    static void* Create() { return new ThreadContext; }
+    static void Delete(void* context) { delete reinterpret_cast<ThreadContext*>(context); }
 };
 
 // Functions not declared in GrGLBogusInterface.h (not common with the Debug GL interface).
@@ -260,7 +260,7 @@ GrGLvoid* GR_GL_FUNCTION_TYPE nullGLMapBufferRange(GrGLenum target, GrGLintptr o
         buffer->setMapped(true);
         return buffer->dataPtr();
     }
-    return NULL;
+    return nullptr;
 }
 
 GrGLvoid* GR_GL_FUNCTION_TYPE nullGLMapBuffer(GrGLenum target, GrGLenum access) {
@@ -283,7 +283,7 @@ GrGLvoid* GR_GL_FUNCTION_TYPE nullGLMapBuffer(GrGLenum target, GrGLenum access) 
     }
 
     SkASSERT(false);
-    return NULL;            // no buffer bound to target
+    return nullptr;            // no buffer bound to target
 }
 
 GrGLvoid GR_GL_FUNCTION_TYPE nullGLFlushMappedBufferRange(GrGLenum target,
@@ -343,7 +343,7 @@ GrGLvoid GR_GL_FUNCTION_TYPE nullGLGetBufferParameteriv(GrGLenum target, GrGLenu
 } // end anonymous namespace
 
 const GrGLInterface* GrGLCreateNullInterface() {
-    GrGLInterface* interface = SkNEW(GrGLInterface);
+    GrGLInterface* interface = new GrGLInterface;
 
     interface->fStandard = kGL_GrGLStandard;
 
@@ -382,9 +382,11 @@ const GrGLInterface* GrGLCreateNullInterface() {
     functions->fDisable = noOpGLDisable;
     functions->fDisableVertexAttribArray = noOpGLDisableVertexAttribArray;
     functions->fDrawArrays = noOpGLDrawArrays;
+    functions->fDrawArraysInstanced = noOpGLDrawArraysInstanced;
     functions->fDrawBuffer = noOpGLDrawBuffer;
     functions->fDrawBuffers = noOpGLDrawBuffers;
     functions->fDrawElements = noOpGLDrawElements;
+    functions->fDrawElementsInstanced = noOpGLDrawElementsInstanced;
     functions->fEnable = noOpGLEnable;
     functions->fEnableVertexAttribArray = noOpGLEnableVertexAttribArray;
     functions->fEndQuery = noOpGLEndQuery;
@@ -463,6 +465,8 @@ const GrGLInterface* GrGLCreateNullInterface() {
     functions->fVertexAttrib2fv = noOpGLVertexAttrib2fv;
     functions->fVertexAttrib3fv = noOpGLVertexAttrib3fv;
     functions->fVertexAttrib4fv = noOpGLVertexAttrib4fv;
+    functions->fVertexAttribDivisor = noOpGLVertexAttribDivisor;
+    functions->fVertexAttribIPointer = noOpGLVertexAttribIPointer;
     functions->fVertexAttribPointer = noOpGLVertexAttribPointer;
     functions->fViewport = nullGLViewport;
     functions->fBindFramebuffer = nullGLBindFramebuffer;
@@ -485,6 +489,6 @@ const GrGLInterface* GrGLCreateNullInterface() {
     functions->fBindFragDataLocationIndexed = noOpGLBindFragDataLocationIndexed;
 
     interface->fExtensions.init(kGL_GrGLStandard, functions->fGetString, functions->fGetStringi,
-                                functions->fGetIntegerv);
+                                functions->fGetIntegerv, nullptr, GR_EGL_NO_DISPLAY);
     return interface;
 }

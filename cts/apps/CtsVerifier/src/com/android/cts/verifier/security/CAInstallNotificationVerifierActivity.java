@@ -17,6 +17,7 @@
 package com.android.cts.verifier.security;
 
 import android.app.Service;
+import android.app.admin.DevicePolicyManager;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.os.Bundle;
@@ -60,6 +61,7 @@ implements Runnable {
 
     protected boolean doneInstallingCert = false;
     protected boolean doneCheckingInSettings = false;
+    protected boolean doneRemovingScreenLock = false;
     protected boolean doneCheckingNotification = false;
     protected boolean doneDismissingNotification = false;
 
@@ -112,6 +114,7 @@ implements Runnable {
     private void createTestItems() {
         createUserItem(R.string.cacert_install_cert, new InstallCert());
         createUserItem(R.string.cacert_check_cert_in_settings, new OpenTrustedCredentials());
+        createUserItem(R.string.cacert_remove_screen_lock, new RemoveScreenLock());
         createUserItem(R.string.cacert_check_notification,
                 new DoneCheckingNotification(), R.string.cacert_done);
         createUserItem(R.string.cacert_dismiss_notification,
@@ -179,10 +182,13 @@ implements Runnable {
                 testCheckedSettings(1);
                 break;
             case 2:
-                testCheckedNotification(2);
+                testRemovedScreenLock(2);
                 break;
             case 3:
-                testNotificationDismissed(3);
+                testCheckedNotification(3);
+                break;
+            case 4:
+                testNotificationDismissed(4);
                 break;
         }
     }
@@ -247,6 +253,18 @@ implements Runnable {
         }
     }
 
+    class RemoveScreenLock implements OnClickListener {
+        @Override
+        public void onClick(View v) {
+            try {
+                startActivity(new Intent(DevicePolicyManager.ACTION_SET_NEW_PASSWORD));
+            } catch (ActivityNotFoundException e) {
+                Log.w(TAG, "Activity not found for ACTION_SET_NEW_PASSWORD");
+            }
+            doneRemovingScreenLock = true;
+        }
+    }
+
     class DoneCheckingNotification implements OnClickListener {
         @Override
         public void onClick(View v) {
@@ -274,6 +292,15 @@ implements Runnable {
 
     private void testCheckedSettings(final int i) {
         if (doneCheckingInSettings) {
+            mStatus[i] = PASS;
+            next();
+        } else {
+            delay();
+        }
+    }
+
+    private void testRemovedScreenLock(final int i) {
+        if (doneRemovingScreenLock) {
             mStatus[i] = PASS;
             next();
         } else {

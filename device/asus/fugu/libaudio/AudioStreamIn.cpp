@@ -310,7 +310,7 @@ void AudioStreamIn::setRemoteControlMicEnabled(bool flag)
 status_t AudioStreamIn::startInputStream_l()
 {
 
-    ALOGI("AudioStreamIn::startInputStream_l, entry, built %s", __DATE__);
+    ALOGI("AudioStreamIn::startInputStream_l, entry");
 
     // Get the most appropriate device for the given input source, eg VOICE_RECOGNITION
     const AudioHotplugThread::DeviceInfo *deviceInfo = mOwnerHAL.getBestDevice(mInputSource);

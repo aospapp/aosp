@@ -62,6 +62,8 @@ extern "C" {
 #define NFC_TTYPE_RW_T4T_RESPONSE           107
 #define NFC_TTYPE_RW_I93_RESPONSE           108
 #define NFC_TTYPE_CE_T4T_UPDATE             109
+#define NFC_TTYPE_P2P_PRIO_RESPONSE         110  /* added for p2p prio logic timer */
+#define NFC_TTYPE_P2P_PRIO_LOGIC_CLEANUP    111  /* added for p2p prio logic clenaup */
 #define NFC_TTYPE_VS_BASE                   200
 
 
@@ -80,6 +82,13 @@ enum
     NFC_STATE_NFCC_POWER_OFF_SLEEP  /* NFCC is power-off sleep mode             */
 };
 typedef UINT8 tNFC_STATE;
+
+/* DM P2P Priority event type */
+enum
+{
+    NFA_DM_P2P_PRIO_RSP = 0x01,         /* P2P priority event from RSP   */
+    NFA_DM_P2P_PRIO_NTF          /* P2P priority event from NTF   */
+};
 
 /* NFC control block flags */
 #define NFC_FL_DEACTIVATING             0x0001  /* NFC_Deactivate () is called and the NCI cmd is not sent   */
@@ -249,6 +258,9 @@ NFC_API extern void nfc_ncif_proc_reset_rsp (UINT8 *p, BOOLEAN is_ntf);
 NFC_API extern void nfc_ncif_proc_init_rsp (BT_HDR *p_msg);
 NFC_API extern void nfc_ncif_proc_get_config_rsp (BT_HDR *p_msg);
 NFC_API extern void nfc_ncif_proc_data (BT_HDR *p_msg);
+NFC_API extern BOOLEAN nfa_dm_p2p_prio_logic(UINT8 event, UINT8 *p, UINT8 ntf_rsp);
+NFC_API extern void nfa_dm_p2p_timer_event ();
+NFC_API extern void nfa_dm_p2p_prio_logic_cleanup ();
 
 #if (NFC_RW_ONLY == FALSE)
 NFC_API extern void nfc_ncif_proc_rf_field_ntf (UINT8 rf_status);

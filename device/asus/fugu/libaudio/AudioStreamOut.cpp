@@ -97,7 +97,7 @@ status_t AudioStreamOut::set(
     if (pChannels) *pChannels = lChannels;
     if (pRate)     *pRate     = lRate;
 
-    if (!audio_is_linear_pcm(lFormat)) {
+    if (!audio_has_proportional_frames(lFormat)) {
         ALOGW("set: format 0x%08X needs to be wrapped in SPDIF data burst", lFormat);
         return BAD_VALUE;
     }

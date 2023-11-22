@@ -21,23 +21,19 @@
 #define BTIF_COMMON_H
 
 #include <stdlib.h>
+
 #include <hardware/bluetooth.h>
 
+#include "osi/include/osi.h"
+#include "osi/include/log.h"
 #include "bt_types.h"
 #include "bta_api.h"
-#include "osi.h"
-
-#ifndef LOG_TAG
-#error "LOG_TAG not defined, please add in .c file prior to including bt_common.h"
-#endif
-
-#include "osi/include/log.h"
 
 /*******************************************************************************
 **  Constants & Macros
 ********************************************************************************/
 
-#define ASSERTC(cond, msg, val) if (!(cond)) { LOG_ERROR( \
+#define ASSERTC(cond, msg, val) if (!(cond)) { LOG_ERROR(LOG_TAG, \
     "### ASSERT : %s line %d %s (%d) ###", __FILE__, __LINE__, msg, val);}
 
 /* Calculate start of event enumeration; id is top 8 bits of event */
@@ -46,6 +42,22 @@
 /* For upstream the MSB bit is always SET */
 #define BTIF_SIG_CB_BIT   (0x8000)
 #define BTIF_SIG_CB_START(id)    (((id) << 8) | BTIF_SIG_CB_BIT)
+
+/*
+ * A memcpy(3) wrapper when copying memory that might not be aligned.
+ *
+ * On certain architectures, if the memcpy(3) arguments appear to be
+ * pointing to aligned memory (e.g., struct pointers), the compiler might
+ * generate optimized memcpy(3) code. However, if the original memory was not
+ * aligned (e.g., because of incorrect "char *" to struct pointer casting),
+ * the result code might trigger SIGBUS crash.
+ *
+ * As a short-term solution, we use the help of the maybe_non_aligned_memcpy()
+ * macro to identify and fix such cases. In the future, we should fix the
+ * problematic "char *" to struct pointer casting, and this macro itself should
+ * be removed.
+ */
+#define maybe_non_aligned_memcpy(_a, _b, _c) memcpy((void *)(_a), (_b), (_c))
 
 /* BTIF sub-systems */
 #define BTIF_CORE           0
@@ -145,6 +157,16 @@ enum
 #define PERSIST_BDADDR_PROPERTY         "persist.service.bdroid.bdaddr"
 #endif
 
+/**
+ * FACTORY_BT_BDADDR_PROPERTY
+ * If there is no valid bdaddr available from PROPERTY_BT_BDADDR_PATH
+ * and there is no available persistent bdaddr available from
+ * PERSIST_BDADDR_PROPERTY use a factory set address
+ */
+#ifndef FACTORY_BT_ADDR_PROPERTY
+#define FACTORY_BT_ADDR_PROPERTY        "ro.boot.btmacaddr"
+#endif
+
 #define FACTORY_BT_BDADDR_STORAGE_LEN   17
 
 
@@ -168,7 +190,7 @@ typedef struct
 
     /* parameters passed to callback */
     UINT16               event;   /* message event id */
-    char                 p_param[0]; /* parameter area needs to be last */
+    char __attribute__ ((aligned)) p_param[]; /* parameter area needs to be last */
 } tBTIF_CONTEXT_SWITCH_CBACK;
 
 
@@ -193,6 +215,5 @@ void btif_remote_properties_evt(bt_status_t status, bt_bdaddr_t *remote_addr,
                                    uint32_t num_props, bt_property_t *p_props);
 
 void btif_init_ok(UNUSED_ATTR uint16_t event, UNUSED_ATTR char *p_param);
-void btif_init_fail(UNUSED_ATTR uint16_t event, UNUSED_ATTR char *p_param);
 
 #endif /* BTIF_COMMON_H */

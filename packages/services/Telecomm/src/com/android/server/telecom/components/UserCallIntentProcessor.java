@@ -20,6 +20,9 @@ import com.android.server.telecom.CallIntentProcessor;
 import com.android.server.telecom.Log;
 import com.android.server.telecom.R;
 import com.android.server.telecom.TelephonyUtil;
+import com.android.server.telecom.UserUtil;
+import com.android.settingslib.RestrictedLockUtils;
+import com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
 
 import android.app.AppOpsManager;
 import android.content.Context;
@@ -97,17 +100,29 @@ public class UserCallIntentProcessor {
                     PhoneAccount.SCHEME_SIP : PhoneAccount.SCHEME_TEL, uriString, null);
         }
 
-        final UserManager userManager =
-                (UserManager) mContext.getSystemService(Context.USER_SERVICE);
-        if (userManager.hasUserRestriction(UserManager.DISALLOW_OUTGOING_CALLS, mUserHandle)
-                && !TelephonyUtil.shouldProcessAsEmergency(mContext, handle)) {
+        // Check DISALLOW_OUTGOING_CALLS restriction. Note: We are skipping this check in a managed
+        // profile user because this check can always be bypassed by copying and pasting the phone
+        // number into the personal dialer.
+        if (!UserUtil.isManagedProfile(mContext, mUserHandle)) {
             // Only emergency calls are allowed for users with the DISALLOW_OUTGOING_CALLS
             // restriction.
-            showErrorDialogForRestrictedOutgoingCall(mContext,
-                    R.string.outgoing_call_not_allowed_user_restriction);
-            Log.w(this, "Rejecting non-emergency phone call due to DISALLOW_OUTGOING_CALLS "
-                    + "restriction");
-            return;
+            if (!TelephonyUtil.shouldProcessAsEmergency(mContext, handle)) {
+                final UserManager userManager = (UserManager) mContext.getSystemService(
+                        Context.USER_SERVICE);
+                if (userManager.hasBaseUserRestriction(UserManager.DISALLOW_OUTGOING_CALLS,
+                        mUserHandle)) {
+                    showErrorDialogForRestrictedOutgoingCall(mContext,
+                            R.string.outgoing_call_not_allowed_user_restriction);
+                    Log.w(this, "Rejecting non-emergency phone call due to DISALLOW_OUTGOING_CALLS "
+                            + "restriction");
+                    return;
+                } else if (userManager.hasUserRestriction(UserManager.DISALLOW_OUTGOING_CALLS,
+                        mUserHandle)) {
+                    RestrictedLockUtils.sendShowAdminSupportDetailsIntent(mContext,
+                            EnforcedAdmin.MULTIPLE_ENFORCED_ADMIN);
+                    return;
+                }
+            }
         }
 
         if (!canCallNonEmergency && !TelephonyUtil.shouldProcessAsEmergency(mContext, handle)) {
@@ -123,31 +138,13 @@ public class UserCallIntentProcessor {
                 VideoProfile.STATE_AUDIO_ONLY);
         Log.d(this, "processOutgoingCallIntent videoState = " + videoState);
 
-        if (VideoProfile.isVideo(videoState)
-                && TelephonyUtil.shouldProcessAsEmergency(mContext, handle)) {
-            Log.d(this, "Emergency call...Converting video call to voice...");
-            videoState = VideoProfile.STATE_AUDIO_ONLY;
-            intent.putExtra(TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE,
-                    videoState);
-        }
-
-        if (VideoProfile.isVideo(videoState) && isTtyModeEnabled()) {
-            Toast.makeText(mContext, mContext.getResources().getString(R.string.
-                    video_call_not_allowed_if_tty_enabled), Toast.LENGTH_SHORT).show();
-            Log.d(this, "Rejecting video calls as tty is enabled");
-            return;
-        }
-
         intent.putExtra(CallIntentProcessor.KEY_IS_PRIVILEGED_DIALER,
                 isDefaultOrSystemDialer(callingPackageName));
-        sendBroadcastToReceiver(intent);
-    }
 
-    private boolean isTtyModeEnabled() {
-        return (android.provider.Settings.Secure.getInt(
-                mContext.getContentResolver(),
-                android.provider.Settings.Secure.PREFERRED_TTY_MODE,
-                TelecomManager.TTY_MODE_OFF) != TelecomManager.TTY_MODE_OFF);
+        // Save the user handle of current user before forwarding the intent to primary user.
+        intent.putExtra(CallIntentProcessor.KEY_INITIATING_USER, mUserHandle);
+
+        sendBroadcastToReceiver(intent);
     }
 
     private boolean isDefaultOrSystemDialer(String callingPackageName) {
@@ -184,7 +181,7 @@ public class UserCallIntentProcessor {
         intent.setFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         intent.setClass(mContext, PrimaryCallReceiver.class);
         Log.d(this, "Sending broadcast as user to CallReceiver");
-        mContext.sendBroadcastAsUser(intent, UserHandle.OWNER);
+        mContext.sendBroadcastAsUser(intent, UserHandle.SYSTEM);
         return true;
     }
 

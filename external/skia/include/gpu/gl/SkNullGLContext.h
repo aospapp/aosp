@@ -13,15 +13,22 @@
 class SK_API SkNullGLContext : public SkGLContext {
 public:
     ~SkNullGLContext() override;
-    void makeCurrent() const override;
-    void swapBuffers() const override {};
 
-    static SkNullGLContext* Create(GrGLStandard);
+    static SkNullGLContext* Create();
+    // FIXME: remove once Chromium has been updated.
+    static SkNullGLContext* Create(GrGLStandard forcedAPI) {
+        SkASSERT(forcedAPI == kNone_GrGLStandard);
+        (void)forcedAPI;        return Create();
+    }
 
     class ContextState;
 
 private:
     SkNullGLContext();
+
+    void onPlatformMakeCurrent() const override;
+    void onPlatformSwapBuffers() const override {}
+    GrGLFuncPtr onPlatformGetProcAddress(const char*) const override { return NULL; }
 
     ContextState* fState;
 };

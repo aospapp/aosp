@@ -18,7 +18,7 @@ def:write_child_nodes(page,whitespace,isRoot) ?>
 <?cs var:whitespace ?>    path: <?cs var:child.link ?><?cs
     if:subcount(child.children) ?>
 <?cs var:whitespace ?>    section:<?cs
-    call:write_child_nodes(child) ?><?cs
+    call:write_child_nodes(child,"  ", 0) ?><?cs
     /if ?><?cs
     /each ?><?cs
 /def ?><?cs

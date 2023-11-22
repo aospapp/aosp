@@ -9,4 +9,6 @@ SOURCEFILE=$3
 
 FILECHECK_INPUTFILE=`basename $SOURCEFILE | sed 's/\.rs\$/.ll/'`
 
-$FILECHECK -input-file $OUTDIR/$FILECHECK_INPUTFILE $SOURCEFILE
+# This runs FileCheck on both the 32 bit and the 64 bit bitcode files.
+$FILECHECK -input-file $OUTDIR/bc32/$FILECHECK_INPUTFILE $SOURCEFILE
+$FILECHECK -input-file $OUTDIR/bc64/$FILECHECK_INPUTFILE $SOURCEFILE

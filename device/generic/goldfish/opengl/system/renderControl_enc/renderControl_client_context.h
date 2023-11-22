@@ -5,6 +5,8 @@
 
 #include "renderControl_client_proc.h"
 
+#include "renderControl_types.h"
+
 
 struct renderControl_client_context_t {
 
@@ -34,6 +36,9 @@ struct renderControl_client_context_t {
 	rcReadColorBuffer_client_proc_t rcReadColorBuffer;
 	rcUpdateColorBuffer_client_proc_t rcUpdateColorBuffer;
 	rcOpenColorBuffer2_client_proc_t rcOpenColorBuffer2;
+	rcCreateClientImage_client_proc_t rcCreateClientImage;
+	rcDestroyClientImage_client_proc_t rcDestroyClientImage;
+	rcSelectChecksumHelper_client_proc_t rcSelectChecksumHelper;
 	 virtual ~renderControl_client_context_t() {}
 
 	typedef renderControl_client_context_t *CONTEXT_ACCESSOR_TYPE(void);

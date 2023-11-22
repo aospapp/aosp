@@ -29,7 +29,7 @@
 
 #include "bt_types.h"
 #include "device/include/controller.h"
-#include "gki.h"
+#include "bt_common.h"
 #include "hcimsgs.h"
 #include "btu.h"
 #include "btm_api.h"
@@ -67,35 +67,27 @@ BOOLEAN BTM_SecAddDevice (BD_ADDR bd_addr, DEV_CLASS dev_class, BD_NAME bd_name,
     int               i, j;
     BOOLEAN           found = FALSE;
 
-    BTM_TRACE_API("%s, link key type:%x", __FUNCTION__,key_type);
+    BTM_TRACE_API("%s: link key type:%x", __func__, key_type);
     p_dev_rec = btm_find_dev (bd_addr);
     if (!p_dev_rec)
     {
-        /* There is no device record, allocate one.
-         * If we can not find an empty spot for this one, let it fail. */
-        for (i = 0; i < BTM_SEC_MAX_DEVICE_RECORDS; i++)
-        {
-            if (!(btm_cb.sec_dev_rec[i].sec_flags & BTM_SEC_IN_USE))
-            {
-                p_dev_rec = &btm_cb.sec_dev_rec[i];
-
-                /* Mark this record as in use and initialize */
-                memset (p_dev_rec, 0, sizeof (tBTM_SEC_DEV_REC));
-                p_dev_rec->sec_flags = BTM_SEC_IN_USE;
-                memcpy (p_dev_rec->bd_addr, bd_addr, BD_ADDR_LEN);
-                p_dev_rec->hci_handle = BTM_GetHCIConnHandle (bd_addr, BT_TRANSPORT_BR_EDR);
-
-#if BLE_INCLUDED == TRUE
-                /* use default value for background connection params */
-                /* update conn params, use default value for background connection params */
-                memset(&p_dev_rec->conn_params, 0xff, sizeof(tBTM_LE_CONN_PRAMS));
-#endif
-                break;
-            }
+        if (list_length(btm_cb.sec_dev_rec) > BTM_SEC_MAX_DEVICE_RECORDS) {
+            BTM_TRACE_DEBUG("%s: Max devices reached!", __func__);
+            return FALSE;
         }
 
-        if (!p_dev_rec)
-            return(FALSE);
+        BTM_TRACE_DEBUG ("%s: allocate a new dev rec", __func__);
+        p_dev_rec = osi_calloc(sizeof(tBTM_SEC_DEV_REC));
+        list_append(btm_cb.sec_dev_rec, p_dev_rec);
+
+        memcpy (p_dev_rec->bd_addr, bd_addr, BD_ADDR_LEN);
+        p_dev_rec->hci_handle = BTM_GetHCIConnHandle (bd_addr, BT_TRANSPORT_BR_EDR);
+
+#if BLE_INCLUDED == TRUE
+        /* use default value for background connection params */
+        /* update conn params, use default value for background connection params */
+        memset(&p_dev_rec->conn_params, 0xff, sizeof(tBTM_LE_CONN_PRAMS));
+#endif
     }
 
     p_dev_rec->bond_type = BOND_TYPE_UNKNOWN;           /* Default value */
@@ -109,8 +101,8 @@ BOOLEAN BTM_SecAddDevice (BD_ADDR bd_addr, DEV_CLASS dev_class, BD_NAME bd_name,
     if (bd_name && bd_name[0])
     {
         p_dev_rec->sec_flags |= BTM_SEC_NAME_KNOWN;
-        BCM_STRNCPY_S ((char *)p_dev_rec->sec_bd_name, sizeof (p_dev_rec->sec_bd_name),
-            (char *)bd_name, BTM_MAX_REM_BD_NAME_LEN);
+        strlcpy ((char *)p_dev_rec->sec_bd_name,
+                 (char *)bd_name, BTM_MAX_REM_BD_NAME_LEN);
     }
 
     p_dev_rec->num_read_pages = 0;
@@ -141,7 +133,7 @@ BOOLEAN BTM_SecAddDevice (BD_ADDR bd_addr, DEV_CLASS dev_class, BD_NAME bd_name,
 
     if (link_key)
     {
-        BTM_TRACE_EVENT ("BTM_SecAddDevice()  BDA: %02x:%02x:%02x:%02x:%02x:%02x",
+        BTM_TRACE_EVENT ("%s: BDA: %02x:%02x:%02x:%02x:%02x:%02x", __func__,
                           bd_addr[0], bd_addr[1], bd_addr[2],
                           bd_addr[3], bd_addr[4], bd_addr[5]);
         p_dev_rec->sec_flags |= BTM_SEC_LINK_KEY_KNOWN;
@@ -152,9 +144,9 @@ BOOLEAN BTM_SecAddDevice (BD_ADDR bd_addr, DEV_CLASS dev_class, BD_NAME bd_name,
         if (pin_length >= 16 ||
             key_type == BTM_LKEY_TYPE_AUTH_COMB ||
             key_type == BTM_LKEY_TYPE_AUTH_COMB_P_256) {
-            // Set the fiag if the link key was made by using either a 16 digit
+            // Set the flag if the link key was made by using either a 16 digit
             // pin or MITM.
-            p_dev_rec->sec_flags |= BTM_SEC_16_DIGIT_PIN_AUTHED;
+            p_dev_rec->sec_flags |= BTM_SEC_16_DIGIT_PIN_AUTHED | BTM_SEC_LINK_KEY_AUTHED;
         }
     }
 
@@ -225,6 +217,17 @@ char *BTM_SecReadDevName (BD_ADDR bd_addr)
     return(p_name);
 }
 
+bool is_bd_addr_equal(void *data, void *context)
+{
+    tBTM_SEC_DEV_REC *p_dev_rec = data;
+    BD_ADDR *bd_addr = context;
+
+    if (!memcmp(p_dev_rec->bd_addr, bd_addr, BD_ADDR_LEN))
+        return false;
+
+    return true;
+}
+
 /*******************************************************************************
 **
 ** Function         btm_sec_alloc_dev
@@ -239,54 +242,14 @@ tBTM_SEC_DEV_REC *btm_sec_alloc_dev (BD_ADDR bd_addr)
 {
     tBTM_SEC_DEV_REC *p_dev_rec = NULL;
     tBTM_INQ_INFO    *p_inq_info;
-    int               i;
-    DEV_CLASS         old_cod;
-    int               i_new_entry = BTM_SEC_MAX_DEVICE_RECORDS;
-    int               i_old_entry = BTM_SEC_MAX_DEVICE_RECORDS;
     BTM_TRACE_EVENT ("btm_sec_alloc_dev");
 
-    for (i = 0; i < BTM_SEC_MAX_DEVICE_RECORDS; i++)
-    {
-        /* look for old entry where device details are present */
-        if (!(btm_cb.sec_dev_rec[i].sec_flags & BTM_SEC_IN_USE) &&
-             (!memcmp (btm_cb.sec_dev_rec[i].bd_addr, bd_addr, BD_ADDR_LEN)))
-        {
-            i_old_entry = i;
-            BTM_TRACE_EVENT ("btm_sec_alloc_dev  old device found");
-            break;
-        }
-    }
-
-    for (i = 0; i < BTM_SEC_MAX_DEVICE_RECORDS; i++)
-    {
-        if (!(btm_cb.sec_dev_rec[i].sec_flags & BTM_SEC_IN_USE))
-        {
-            i_new_entry = i;
-            break;
-        }
-    }
-
-    if (i_new_entry == BTM_SEC_MAX_DEVICE_RECORDS) {
+    if (list_length(btm_cb.sec_dev_rec) > BTM_SEC_MAX_DEVICE_RECORDS) {
         p_dev_rec = btm_find_oldest_dev();
-    }
-    else {
-        /* if the old device entry not present go with
-            new entry */
-        if(i_old_entry == BTM_SEC_MAX_DEVICE_RECORDS) {
-            p_dev_rec = &btm_cb.sec_dev_rec[i_new_entry];
-        }
-        else {
-            p_dev_rec = &btm_cb.sec_dev_rec[i_old_entry];
-            memcpy (old_cod, p_dev_rec->dev_class, DEV_CLASS_LEN);
-        }
-    }
-    memset (p_dev_rec, 0, sizeof (tBTM_SEC_DEV_REC));
-
-    /* Retain the old COD for device */
-    if(i_old_entry != BTM_SEC_MAX_DEVICE_RECORDS) {
-        BTM_TRACE_EVENT ("btm_sec_alloc_dev restoring cod ");
-        memcpy (p_dev_rec->dev_class, old_cod, DEV_CLASS_LEN);
-
+    } else {
+        BTM_TRACE_DEBUG ("allocate a new dev rec");
+        p_dev_rec = osi_calloc(sizeof(tBTM_SEC_DEV_REC));
+        list_append(btm_cb.sec_dev_rec, p_dev_rec);
     }
 
     p_dev_rec->bond_type = BOND_TYPE_UNKNOWN;           /* Default value */
@@ -301,21 +264,15 @@ tBTM_SEC_DEV_REC *btm_sec_alloc_dev (BD_ADDR bd_addr)
 #if BLE_INCLUDED == TRUE
         p_dev_rec->device_type = p_inq_info->results.device_type;
         p_dev_rec->ble.ble_addr_type = p_inq_info->results.ble_addr_type;
-
-        /* update conn params, use default value for background connection params */
-        memset(&p_dev_rec->conn_params, 0xff, sizeof(tBTM_LE_CONN_PRAMS));
 #endif
     }
-    else
-    {
-#if BLE_INCLUDED == TRUE
-        /* update conn params, use default value for background connection params */
-        memset(&p_dev_rec->conn_params, 0xff, sizeof(tBTM_LE_CONN_PRAMS));
-#endif
-
-        if (!memcmp (bd_addr, btm_cb.connecting_bda, BD_ADDR_LEN))
+    else if (!memcmp (bd_addr, btm_cb.connecting_bda, BD_ADDR_LEN))
             memcpy (p_dev_rec->dev_class, btm_cb.connecting_dc, DEV_CLASS_LEN);
-    }
+
+#if BLE_INCLUDED == TRUE
+    /* update conn params, use default value for background connection params */
+    memset(&p_dev_rec->conn_params, 0xff, sizeof(tBTM_LE_CONN_PRAMS));
+#endif
 
     memcpy (p_dev_rec->bd_addr, bd_addr, BD_ADDR_LEN);
 
@@ -344,6 +301,8 @@ void btm_sec_free_dev (tBTM_SEC_DEV_REC *p_dev_rec)
 #if BLE_INCLUDED == TRUE
     /* Clear out any saved BLE keys */
     btm_sec_clear_ble_keys (p_dev_rec);
+    /* clear the ble block */
+    memset(&p_dev_rec->ble, 0, sizeof(tBTM_SEC_BLE));
 #endif
 
 
@@ -403,6 +362,21 @@ BOOLEAN btm_dev_support_switch (BD_ADDR bd_addr)
     return(FALSE);
 }
 
+bool is_handle_equal(void *data, void *context)
+{
+    tBTM_SEC_DEV_REC *p_dev_rec = data;
+    UINT16 *handle = context;
+
+    if (p_dev_rec->hci_handle == *handle
+#if BLE_INCLUDED == TRUE
+     || p_dev_rec->ble_hci_handle == *handle
+#endif
+     )
+        return false;
+
+    return true;
+}
+
 /*******************************************************************************
 **
 ** Function         btm_find_dev_by_handle
@@ -415,20 +389,29 @@ BOOLEAN btm_dev_support_switch (BD_ADDR bd_addr)
 *******************************************************************************/
 tBTM_SEC_DEV_REC *btm_find_dev_by_handle (UINT16 handle)
 {
-    tBTM_SEC_DEV_REC *p_dev_rec = &btm_cb.sec_dev_rec[0];
-    int i;
+    list_node_t *n = list_foreach(btm_cb.sec_dev_rec, is_handle_equal, &handle);
+    if (n)
+        return list_node(n);
 
-    for (i = 0; i < BTM_SEC_MAX_DEVICE_RECORDS; i++, p_dev_rec++)
-    {
-        if ((p_dev_rec->sec_flags & BTM_SEC_IN_USE)
-            && ((p_dev_rec->hci_handle == handle)
+    return NULL;
+}
+
+bool is_address_equal(void *data, void *context)
+{
+    tBTM_SEC_DEV_REC *p_dev_rec = data;
+    BD_ADDR *bd_addr = context;
+
+    if (!memcmp (p_dev_rec->bd_addr, *bd_addr, BD_ADDR_LEN))
+        return false;
 #if BLE_INCLUDED == TRUE
-            ||(p_dev_rec->ble_hci_handle == handle)
+    // If a LE random address is looking for device record
+    if (!memcmp(p_dev_rec->ble.pseudo_addr, *bd_addr, BD_ADDR_LEN))
+        return false;
+
+    if (btm_ble_addr_resolvable(*bd_addr, p_dev_rec))
+        return false;
 #endif
-                ))
-            return(p_dev_rec);
-    }
-    return(NULL);
+    return true;
 }
 
 /*******************************************************************************
@@ -443,35 +426,20 @@ tBTM_SEC_DEV_REC *btm_find_dev_by_handle (UINT16 handle)
 *******************************************************************************/
 tBTM_SEC_DEV_REC *btm_find_dev(BD_ADDR bd_addr)
 {
-    tBTM_SEC_DEV_REC *p_dev_rec = &btm_cb.sec_dev_rec[0];
+    if (!bd_addr)
+        return NULL;
 
-    if (bd_addr)
-    {
-        for (uint8_t i = 0; i < BTM_SEC_MAX_DEVICE_RECORDS; i++, p_dev_rec++)
-        {
-            if (p_dev_rec->sec_flags & BTM_SEC_IN_USE)
-            {
-                if (!memcmp (p_dev_rec->bd_addr, bd_addr, BD_ADDR_LEN))
-                    return(p_dev_rec);
+    list_node_t *n = list_foreach(btm_cb.sec_dev_rec, is_address_equal, bd_addr);
+    if (n)
+        return list_node(n);
 
-#if BLE_INCLUDED == TRUE
-                // If a LE random address is looking for device record
-                if (!memcmp(p_dev_rec->ble.pseudo_addr, bd_addr, BD_ADDR_LEN))
-                    return (p_dev_rec);
-
-                if (btm_ble_addr_resolvable(bd_addr, p_dev_rec))
-                    return(p_dev_rec);
-#endif
-            }
-        }
-    }
-    return(NULL);
+    return NULL;
 }
 
 /*******************************************************************************
 **
 ** Function         btm_consolidate_dev
-**
+5**
 ** Description      combine security records if identified as same peer
 **
 ** Returns          none
@@ -480,47 +448,52 @@ tBTM_SEC_DEV_REC *btm_find_dev(BD_ADDR bd_addr)
 void btm_consolidate_dev(tBTM_SEC_DEV_REC *p_target_rec)
 {
 #if BLE_INCLUDED == TRUE
-    tBTM_SEC_DEV_REC *p_dev_rec = &btm_cb.sec_dev_rec[0];
     tBTM_SEC_DEV_REC temp_rec = *p_target_rec;
-    BD_ADDR dummy_bda = {0};
 
     BTM_TRACE_DEBUG("%s", __func__);
 
-    for (uint8_t i = 0; i < BTM_SEC_MAX_DEVICE_RECORDS; i++, p_dev_rec++)
-    {
-        if (p_target_rec!= p_dev_rec && p_dev_rec->sec_flags & BTM_SEC_IN_USE)
+    list_node_t *end = list_end(btm_cb.sec_dev_rec);
+    for (list_node_t *node = list_begin(btm_cb.sec_dev_rec); node != end; node = list_next(node)) {
+        tBTM_SEC_DEV_REC *p_dev_rec = list_node(node);
+
+        if (p_target_rec == p_dev_rec)
+            continue;
+
+        if (!memcmp (p_dev_rec->bd_addr, p_target_rec->bd_addr, BD_ADDR_LEN))
         {
-            if (!memcmp (p_dev_rec->bd_addr, p_target_rec->bd_addr, BD_ADDR_LEN))
-            {
-                memcpy(p_target_rec, p_dev_rec, sizeof(tBTM_SEC_DEV_REC));
-                p_target_rec->ble = temp_rec.ble;
-                p_target_rec->ble_hci_handle = temp_rec.ble_hci_handle;
-                p_target_rec->enc_key_size = temp_rec.enc_key_size;
-                p_target_rec->conn_params = temp_rec.conn_params;
-                p_target_rec->device_type |= temp_rec.device_type;
-                p_target_rec->sec_flags |= temp_rec.sec_flags;
+            memcpy(p_target_rec, p_dev_rec, sizeof(tBTM_SEC_DEV_REC));
+            p_target_rec->ble = temp_rec.ble;
+            p_target_rec->ble_hci_handle = temp_rec.ble_hci_handle;
+            p_target_rec->enc_key_size = temp_rec.enc_key_size;
+            p_target_rec->conn_params = temp_rec.conn_params;
+            p_target_rec->device_type |= temp_rec.device_type;
+            p_target_rec->sec_flags |= temp_rec.sec_flags;
 
-                p_target_rec->new_encryption_key_is_p256 = temp_rec.new_encryption_key_is_p256;
-                p_target_rec->no_smp_on_br = temp_rec.no_smp_on_br;
-                p_target_rec->bond_type = temp_rec.bond_type;
-                /* mark the combined record as unused */
-                p_dev_rec->sec_flags &= ~BTM_SEC_IN_USE;
+            p_target_rec->new_encryption_key_is_p256 = temp_rec.new_encryption_key_is_p256;
+            p_target_rec->no_smp_on_br = temp_rec.no_smp_on_br;
+            p_target_rec->bond_type = temp_rec.bond_type;
+
+            /* remove the combined record */
+            list_remove(btm_cb.sec_dev_rec, p_dev_rec);
+
+            p_dev_rec->bond_type = BOND_TYPE_UNKNOWN;
+            break;
+        }
+
+        /* an RPA device entry is a duplicate of the target record */
+        if (btm_ble_addr_resolvable(p_dev_rec->bd_addr, p_target_rec))
+        {
+            if (memcmp(p_target_rec->ble.pseudo_addr, p_dev_rec->bd_addr, BD_ADDR_LEN) == 0)
+            {
+                p_target_rec->ble.ble_addr_type = p_dev_rec->ble.ble_addr_type;
+                p_target_rec->device_type |= p_dev_rec->device_type;
+
+                /* remove the combined record */
+                list_remove(btm_cb.sec_dev_rec, p_dev_rec);
+
                 p_dev_rec->bond_type = BOND_TYPE_UNKNOWN;
-                break;
             }
-
-            /* an RPA device entry is a duplicate of the target record */
-            if (btm_ble_addr_resolvable(p_dev_rec->bd_addr, p_target_rec))
-            {
-                if (memcmp(p_target_rec->ble.pseudo_addr, p_dev_rec->bd_addr, BD_ADDR_LEN) == 0)
-                {
-                    p_target_rec->ble.ble_addr_type = p_dev_rec->ble.ble_addr_type;
-                    p_target_rec->device_type |= p_dev_rec->device_type;
-                    p_dev_rec->sec_flags &= ~BTM_SEC_IN_USE;
-                    p_dev_rec->bond_type = BOND_TYPE_UNKNOWN;
-                }
-                break;
-            }
+            break;
         }
     }
 #endif
@@ -562,42 +535,37 @@ tBTM_SEC_DEV_REC *btm_find_or_alloc_dev (BD_ADDR bd_addr)
 *******************************************************************************/
 tBTM_SEC_DEV_REC *btm_find_oldest_dev (void)
 {
-    tBTM_SEC_DEV_REC *p_dev_rec = &btm_cb.sec_dev_rec[0];
-    tBTM_SEC_DEV_REC *p_oldest = p_dev_rec;
+    tBTM_SEC_DEV_REC *p_oldest = NULL;
     UINT32       ot = 0xFFFFFFFF;
-    int i;
+    tBTM_SEC_DEV_REC *p_oldest_paired = NULL;
+    UINT32       ot_paired = 0xFFFFFFFF;
 
     /* First look for the non-paired devices for the oldest entry */
-    for (i = 0; i < BTM_SEC_MAX_DEVICE_RECORDS; i++, p_dev_rec++)
-    {
-        if (((p_dev_rec->sec_flags & BTM_SEC_IN_USE) == 0)
-            || ((p_dev_rec->sec_flags & (BTM_SEC_LINK_KEY_KNOWN |BTM_SEC_LE_LINK_KEY_KNOWN)) != 0))
-            continue; /* Device is paired so skip it */
-
-        if (p_dev_rec->timestamp < ot)
-        {
-            p_oldest = p_dev_rec;
-            ot       = p_dev_rec->timestamp;
+    list_node_t *end = list_end(btm_cb.sec_dev_rec);
+    for (list_node_t *node = list_begin(btm_cb.sec_dev_rec); node != end; node = list_next(node)) {
+        tBTM_SEC_DEV_REC *p_dev_rec = list_node(node);
+        /* Device is not paired */
+        if ((p_dev_rec->sec_flags & (BTM_SEC_LINK_KEY_KNOWN |BTM_SEC_LE_LINK_KEY_KNOWN)) == 0) {
+            if (p_dev_rec->timestamp < ot) {
+                p_oldest = p_dev_rec;
+                ot       = p_dev_rec->timestamp;
+            }
+            continue;
         }
+
+        if (p_dev_rec->timestamp < ot_paired) {
+            p_oldest_paired = p_dev_rec;
+            ot_paired       = p_dev_rec->timestamp;
+        }
+
     }
 
+    /* if non-paired device return oldest */
     if (ot != 0xFFFFFFFF)
         return(p_oldest);
 
-    /* All devices are paired; find the oldest */
-    p_dev_rec = &btm_cb.sec_dev_rec[0];
-    for (i = 0; i < BTM_SEC_MAX_DEVICE_RECORDS; i++, p_dev_rec++)
-    {
-        if ((p_dev_rec->sec_flags & BTM_SEC_IN_USE) == 0)
-            continue;
-
-        if (p_dev_rec->timestamp < ot)
-        {
-            p_oldest = p_dev_rec;
-            ot       = p_dev_rec->timestamp;
-        }
-    }
-    return(p_oldest);
+    /* only paired devices present, return oldest */
+    return p_oldest_paired;
 }
 
 /*******************************************************************************

@@ -63,8 +63,8 @@ public abstract class WifiMultiPagedFormActivity extends MultiPagedForm
     }
 
     @Override
-    public boolean onPasswordInputComplete(String text) {
-        return mFormPageDisplayer.onPasswordInputComplete(text);
+    public boolean onPasswordInputComplete(String text, boolean obfuscate) {
+        return mFormPageDisplayer.onPasswordInputComplete(text, obfuscate);
     }
 
     @Override
@@ -89,7 +89,7 @@ public abstract class WifiMultiPagedFormActivity extends MultiPagedForm
 
     @Override
     public boolean choiceChosen(FormPage formPage, int choiceResourceId) {
-        return getString(choiceResourceId).toUpperCase().equals(formPage.getDataSummary());
+        return getString(choiceResourceId).equals(formPage.getDataSummary());
     }
 
     @Override
@@ -150,7 +150,11 @@ public abstract class WifiMultiPagedFormActivity extends MultiPagedForm
                 wifiConfiguration.wepKeys[0] = '"' + password + '"';
             }
         } else {
-            wifiConfiguration.preSharedKey = '"' + password + '"';
+            if (password.matches("[0-9A-Fa-f]{64}")) {
+                wifiConfiguration.preSharedKey = password;
+            } else {
+                wifiConfiguration.preSharedKey = '"' + password + '"';
+            }
         }
     }
 

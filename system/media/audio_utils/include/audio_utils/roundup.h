@@ -21,7 +21,7 @@
 extern "C" {
 #endif
 
-// Round up to the next highest power of 2
+/** Round up to the next highest power of 2 */
 unsigned roundup(unsigned v);
 
 #ifdef __cplusplus

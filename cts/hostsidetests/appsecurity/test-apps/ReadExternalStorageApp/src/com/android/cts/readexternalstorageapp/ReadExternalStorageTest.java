@@ -19,6 +19,7 @@ package com.android.cts.readexternalstorageapp;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertDirNoWriteAccess;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertDirReadOnlyAccess;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertDirReadWriteAccess;
+import static com.android.cts.externalstorageapp.CommonExternalStorageTest.buildCommonChildDirs;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.getAllPackageSpecificPaths;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.getMountPaths;
 
@@ -60,8 +61,13 @@ public class ReadExternalStorageTest extends AndroidTestCase {
             }
 
             // Keep walking up until we leave device
-            while (Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState(path))) {
-                assertDirReadOnlyAccess(path);
+            while (path != null) {
+                if (Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState(path))) {
+                    assertDirReadOnlyAccess(path);
+                } else {
+                    assertDirNoWriteAccess(path);
+                }
+                assertDirNoWriteAccess(buildCommonChildDirs(path));
                 path = path.getParentFile();
             }
         }
@@ -81,7 +87,9 @@ public class ReadExternalStorageTest extends AndroidTestCase {
                 final File userPath = new File(path, userId);
 
                 assertDirNoWriteAccess(path);
+                assertDirNoWriteAccess(buildCommonChildDirs(path));
                 assertDirNoWriteAccess(userPath);
+                assertDirNoWriteAccess(buildCommonChildDirs(userPath));
             }
         }
     }

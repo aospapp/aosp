@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,48 +30,26 @@
 #ifndef __MM_JPEG_DBG_H__
 #define __MM_JPEG_DBG_H__
 
-#define LOG_DEBUG 1
-#define MINIMUM_JPEG_LOG_LEVEL 1
-
-/* Choose debug log level. This will not affect the error logs
-   0: turns off CDBG and CDBG_HIGH logs
-   1: turns-on CDBG_HIGH logs
-   2: turns-on CDBG_HIGH and CDBG logs */
-extern volatile uint32_t gMmJpegIntfLogLevel;
-
-#ifndef LOG_DEBUG
-  #ifdef _ANDROID_
-    #undef LOG_NIDEBUG
-    #undef LOG_TAG
-    #define LOG_NIDEBUG 0
-    #define LOG_TAG "mm-jpeg-intf"
-    #include <utils/Log.h>
-  #else
-    #include <stdio.h>
-    #define ALOGE CDBG
-  #endif
-  #undef CDBG
-  #define CDBG(fmt, args...) do{}while(0)
-#else
-  #ifdef _ANDROID_
-    #undef LOG_NIDEBUG
-    #undef LOG_TAG
-    #define LOG_NIDEBUG 0
-    #define LOG_TAG "mm-jpeg-intf"
-    #include <utils/Log.h>
-    #define CDBG(fmt, args...) ALOGD_IF(gMmJpegIntfLogLevel >= 2, fmt, ##args)
-  #else
-    #include <stdio.h>
-    #define CDBG(fmt, args...) fprintf(stderr, fmt, ##args)
-    #define ALOGE(fmt, args...) fprintf(stderr, fmt, ##args)
-  #endif
+#ifdef QCAMERA_REDEFINE_LOG
+#define CAM_MODULE CAM_JPEG_MODULE
+#include "mm_camera_dbg.h"
 #endif
 
-#ifdef _ANDROID_
-  #define CDBG_HIGH(fmt, args...)   ALOGD_IF(gMmJpegIntfLogLevel >= 1, fmt, ##args)
-  #define CDBG_ERROR(fmt, args...)  ALOGE(fmt, ##args)
-#else
-  #define CDBG_HIGH(fmt, args...) fprintf(stderr, fmt, ##args)
-  #define CDBG_ERROR(fmt, args...) fprintf(stderr, fmt, ##args)
+extern volatile uint32_t gKpiDebugLevel;
+
+#ifndef KPI_DEBUG
+#define KPI_DEBUG
+#define ATRACE_TAG ATRACE_TAG_CAMERA
+#include <cutils/trace.h>
+
+#define KPI_APT 1
+#define KPI_DBG 2
+
+#define KPI_ATRACE_INT(name,val) ({\
+if (gKpiDebugLevel >= KPI_APT) { \
+     atrace_int(ATRACE_TAG, name, val); \
+}\
+})
+
 #endif
 #endif /* __MM_JPEG_DBG_H__ */

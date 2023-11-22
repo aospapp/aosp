@@ -16,6 +16,9 @@
 
 package android.support.v4.widget;
 
+import android.support.v4.view.GravityCompat;
+import android.support.v4.view.ViewCompat;
+import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.PopupWindow;
@@ -24,7 +27,7 @@ import android.widget.PopupWindow;
  * Helper for accessing features in PopupWindow introduced after API level 4
  * in a backwards compatible fashion.
  */
-public class PopupWindowCompat {
+public final class PopupWindowCompat {
     /**
      * Interface for the full API.
      */
@@ -43,6 +46,13 @@ public class PopupWindowCompat {
         @Override
         public void showAsDropDown(PopupWindow popup, View anchor, int xoff, int yoff,
                 int gravity) {
+            final int hgrav = GravityCompat.getAbsoluteGravity(gravity,
+                    ViewCompat.getLayoutDirection(anchor)) & Gravity.HORIZONTAL_GRAVITY_MASK;
+            if (hgrav == Gravity.RIGHT) {
+                // Flip the location to align the right sides of the popup and
+                // anchor instead of left.
+                xoff -= (popup.getWidth() - anchor.getWidth());
+            }
             popup.showAsDropDown(anchor, xoff, yoff);
         }
 

@@ -28,13 +28,12 @@
     <string name="p12_description" msgid="4128352087331630024">"Certificados del almacén de claves PKCS12"</string>
     <string name="one_userkey" msgid="3500697912370644881">"una clave de usuario"</string>
     <string name="one_usercrt" msgid="7690798336332403106">"un certificado de usuario"</string>
-    <string name="one_cacrt" msgid="2667950425420663146">"un certificado CA"</string>
+    <string name="one_cacrt" msgid="2667950425420663146">"un certificado de CA"</string>
     <string name="n_cacrts" msgid="2141498640685639208">"%d certificados de CA"</string>
     <string name="password_error" msgid="2042471639556516356">"Escribe la contraseña correcta."</string>
     <string name="password_empty_error" msgid="591713406761723025">"Escribe la contraseña."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"Escribe un nombre."</string>
     <string name="name_char_error" msgid="3176618568784938968">"Escribe un nombre que contenga solo letras y números."</string>
-    <string name="storage_error" msgid="8306802455802770779">"No se ha podido guardar el certificado. Toca Aceptar para volver a intentarlo."</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"No se ha podido guardar el certificado. El almacenamiento de credenciales no está habilitado o no se ha iniciado correctamente."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"No se ha instalado el certificado."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"No hay ningún certificado que instalar."</string>
@@ -59,7 +58,7 @@
     <string name="wifi_install_label" msgid="1449629407724323233">"Instalar"</string>
     <string name="wifi_installing_label" msgid="8387393993627129025">"Instalando"</string>
     <string name="wifi_cancel_label" msgid="1328748037608392134">"Cancelar"</string>
-    <string name="wifi_dismiss_label" msgid="1916684434873972698">"Aceptar"</string>
+    <string name="wifi_dismiss_label" msgid="1916684434873972698">"Descartar"</string>
     <string name="wifi_no_config" msgid="1835743123288916755">"Ninguna"</string>
     <string name="wifi_config_text" msgid="8259587306773310314">"Nombre: %1$s\nFQDN: %2$s\nConsorcios de itinerancia: %3$s\nDominio: %4$s\nMétodo de autenticación: EAP-%5$s\n"</string>
     <string name="wifi_ttls_config_text" msgid="2002413183253872168">"Nombre de usuario: %s\n"</string>

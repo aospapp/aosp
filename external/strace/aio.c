@@ -29,44 +29,26 @@
  */
 
 #include "defs.h"
-#ifdef HAVE_LIBAIO_H
-# include <libaio.h>
-#endif
-
-/* Not defined in libaio.h */
-#ifndef IOCB_RESFD
-# define IOCB_RESFD (1 << 0)
-#endif
+#include <linux/aio_abi.h>
 
 SYS_FUNC(io_setup)
 {
 	if (entering(tcp))
-		tprintf("%ld, ", tcp->u_arg[0]);
-	else {
-		if (syserror(tcp))
-			tprintf("0x%0lx", tcp->u_arg[1]);
-		else {
-			unsigned long user_id;
-			if (umove(tcp, tcp->u_arg[1], &user_id) == 0)
-				tprintf("{%lu}", user_id);
-			else
-				tprints("{...}");
-		}
-	}
+		tprintf("%u, ", (unsigned int) tcp->u_arg[0]);
+	else
+		printnum_ulong(tcp, tcp->u_arg[1]);
 	return 0;
 }
 
 SYS_FUNC(io_destroy)
 {
-	if (entering(tcp))
-		tprintf("%lu", tcp->u_arg[0]);
-	return 0;
+	tprintf("%lu", tcp->u_arg[0]);
+
+	return RVAL_DECODED;
 }
 
-#ifdef HAVE_LIBAIO_H
-
 enum iocb_sub {
-	SUB_NONE, SUB_COMMON, SUB_POLL, SUB_VECTOR
+	SUB_NONE, SUB_COMMON, SUB_VECTOR
 };
 
 static enum iocb_sub
@@ -80,8 +62,8 @@ tprint_lio_opcode(unsigned cmd)
 		{ "pwrite", SUB_COMMON },
 		{ "fsync", SUB_NONE },
 		{ "fdsync", SUB_NONE },
-		{ "op4", SUB_NONE },
-		{ "poll", SUB_POLL },
+		{ "preadx", SUB_NONE },
+		{ "poll", SUB_NONE },
 		{ "noop", SUB_NONE },
 		{ "preadv", SUB_VECTOR },
 		{ "pwritev", SUB_VECTOR },
@@ -96,134 +78,144 @@ tprint_lio_opcode(unsigned cmd)
 }
 
 static void
-print_common_flags(struct iocb *iocb)
+print_common_flags(const struct iocb *cb)
 {
-#if HAVE_STRUCT_IOCB_U_C_FLAGS
-	if (iocb->u.c.flags & IOCB_RESFD)
-		tprintf(", resfd=%d", iocb->u.c.resfd);
-	if (iocb->u.c.flags & ~IOCB_RESFD)
-		tprintf(", flags=%x", iocb->u.c.flags);
-#else
-# warning "libaio.h is too old => limited io_submit decoding"
+/* IOCB_FLAG_RESFD is available since v2.6.22-rc1~47 */
+#ifdef IOCB_FLAG_RESFD
+	if (cb->aio_flags & IOCB_FLAG_RESFD)
+		tprintf(", resfd=%d", cb->aio_resfd);
+	if (cb->aio_flags & ~IOCB_FLAG_RESFD)
+		tprintf(", flags=%x", cb->aio_flags);
 #endif
 }
 
-#endif /* HAVE_LIBAIO_H */
+static bool
+iocb_is_valid(const struct iocb *cb)
+{
+	return cb->aio_buf == (unsigned long) cb->aio_buf &&
+	       cb->aio_nbytes == (size_t) cb->aio_nbytes &&
+	       (ssize_t) cb->aio_nbytes >= 0;
+}
+
+static enum iocb_sub
+print_iocb_header(const struct iocb *cb)
+{
+	enum iocb_sub sub;
+
+	if (cb->aio_data)
+		tprintf("data=%#" PRIx64 ", ",
+			(uint64_t) cb->aio_data);
+
+	if (cb->aio_key)
+		tprintf("key=%u, ", cb->aio_key);
+
+	sub = tprint_lio_opcode(cb->aio_lio_opcode);
+	if (cb->aio_reqprio)
+		tprintf(", reqprio=%hd", cb->aio_reqprio);
+
+	tprintf(", fildes=%d", cb->aio_fildes);
+
+	return sub;
+}
+
+static void
+print_iocb(struct tcb *tcp, const struct iocb *cb)
+{
+	enum iocb_sub sub = print_iocb_header(cb);
+
+	switch (sub) {
+	case SUB_COMMON:
+		if (cb->aio_lio_opcode == 1 && iocb_is_valid(cb)) {
+			tprints(", str=");
+			printstr(tcp, (unsigned long) cb->aio_buf,
+				 (unsigned long) cb->aio_nbytes);
+		} else {
+			tprintf(", buf=%#" PRIx64, (uint64_t) cb->aio_buf);
+		}
+		tprintf(", nbytes=%" PRIu64 ", offset=%" PRId64,
+			(uint64_t) cb->aio_nbytes, (int64_t) cb->aio_offset);
+		print_common_flags(cb);
+		break;
+	case SUB_VECTOR:
+		if (iocb_is_valid(cb)) {
+			tprints(", iovec=");
+			tprint_iov(tcp, cb->aio_nbytes, cb->aio_buf,
+				   cb->aio_lio_opcode == 8);
+		} else {
+			tprintf(", buf=%#" PRIx64 ", nbytes=%" PRIu64,
+				(uint64_t) cb->aio_buf,
+				(uint64_t) cb->aio_nbytes);
+		}
+		tprintf(", offset=%" PRId64, (int64_t) cb->aio_offset);
+		print_common_flags(cb);
+		break;
+	case SUB_NONE:
+		break;
+	}
+}
 
 SYS_FUNC(io_submit)
 {
-	if (entering(tcp)) {
-#ifdef HAVE_LIBAIO_H
-		long nr = tcp->u_arg[1];
-		/* if nr <= 0, we end up printing just "{}" */
-		tprintf("%lu, %ld, {", tcp->u_arg[0], tcp->u_arg[1]);
-		{
-			long i;
-			struct iocb **iocbs = (void *)tcp->u_arg[2];
-//FIXME: decoding of 32-bit call by 64-bit strace
+	long nr = tcp->u_arg[1];
+	/* if nr <= 0, we end up printing just "[]" */
+	tprintf("%lu, %ld, [", tcp->u_arg[0], nr);
+	{
+		long i;
+		long iocbs = tcp->u_arg[2];
 
-			for (i = 0; i < nr; i++, iocbs++) {
-				enum iocb_sub sub;
-				struct iocb *iocbp;
-				struct iocb iocb;
-				if (i)
-					tprints(", ");
+		for (i = 0; i < nr; ++i, iocbs += current_wordsize) {
+			unsigned long iocbp;
+			struct iocb cb;
 
-				if (umove(tcp, (unsigned long)iocbs, &iocbp)) {
-					tprintf("%#lx", (unsigned long)iocbs);
-					/* No point in trying to read iocbs+1 etc */
-					/* (nr can be ridiculously large): */
-					break;
-				}
-				if (umove(tcp, (unsigned long)iocbp, &iocb)) {
-					tprintf("{%#lx}", (unsigned long)iocbp);
-					continue;
-				}
-				tprints("{");
-				if (iocb.data)
-					tprintf("data:%p, ", iocb.data);
-				if (iocb.key)
-					tprintf("key:%u, ", iocb.key);
-				sub = tprint_lio_opcode(iocb.aio_lio_opcode);
-				if (iocb.aio_reqprio)
-					tprintf(", reqprio:%d", iocb.aio_reqprio);
-				tprintf(", filedes:%d", iocb.aio_fildes);
-				switch (sub) {
-				case SUB_COMMON:
-#if HAVE_DECL_IO_CMD_PWRITE
-					if (iocb.aio_lio_opcode == IO_CMD_PWRITE) {
-						tprints(", str:");
-						printstr(tcp, (unsigned long)iocb.u.c.buf,
-							 iocb.u.c.nbytes);
-					} else
-#endif
-						tprintf(", buf:%p", iocb.u.c.buf);
-					tprintf(", nbytes:%lu, offset:%lld",
-						iocb.u.c.nbytes,
-						iocb.u.c.offset);
-					print_common_flags(&iocb);
-					break;
-				case SUB_VECTOR:
-					tprintf(", %lld", iocb.u.v.offset);
-					print_common_flags(&iocb);
-					tprints(", ");
-					tprint_iov(tcp, iocb.u.v.nr,
-						   (unsigned long)iocb.u.v.vec,
-#if HAVE_DECL_IO_CMD_PWRITEV
-						   iocb.aio_lio_opcode == IO_CMD_PWRITEV
-#else
-						   0
-#endif
-						  );
-					break;
-				case SUB_POLL:
-					tprintf(", %x", iocb.u.poll.events);
-					break;
-				case SUB_NONE:
-				        break;
-				}
-				tprints("}");
+			if (i)
+				tprints(", ");
+
+			if (umove_ulong_or_printaddr(tcp, iocbs, &iocbp)) {
+				/*
+				 * No point in trying to read the whole array
+				 * because nr can be ridiculously large.
+				 */
+				break;
 			}
+
+			tprints("{");
+			if (!umove_or_printaddr(tcp, iocbp, &cb))
+				print_iocb(tcp, &cb);
+			tprints("}");
 		}
-		tprints("}");
-#else
-# warning "libaio.h is not available => no io_submit decoding"
-		tprintf("%lu, %ld, %#lx", tcp->u_arg[0], tcp->u_arg[1], tcp->u_arg[2]);
-#endif
 	}
+	tprints("]");
+	return RVAL_DECODED;
+}
+
+static int
+print_io_event(struct tcb *tcp, const long addr)
+{
+	struct io_event event;
+
+	if (umove_or_printaddr(tcp, addr, &event))
+		return -1;
+	tprintf("{data=%#" PRIx64 ", obj=%#" PRIx64
+		", res=%" PRId64 ", res2=%" PRId64 "}",
+		(uint64_t) event.data, (uint64_t) event.obj,
+		(int64_t) event.res, (int64_t) event.res2);
 	return 0;
 }
 
 SYS_FUNC(io_cancel)
 {
 	if (entering(tcp)) {
-#ifdef HAVE_LIBAIO_H
-		struct iocb iocb;
-#endif
 		tprintf("%lu, ", tcp->u_arg[0]);
-#ifdef HAVE_LIBAIO_H
-		if (umove(tcp, tcp->u_arg[1], &iocb) == 0) {
-			tprintf("{%p, %u, %u, %u, %d}, ",
-				iocb.data, iocb.key,
-				(unsigned)iocb.aio_lio_opcode,
-				(unsigned)iocb.aio_reqprio, iocb.aio_fildes);
-		} else
-#endif
-			tprints("{...}, ");
-	} else {
-		if (tcp->u_rval < 0)
-			tprints("{...}");
-		else {
-#ifdef HAVE_LIBAIO_H
-			struct io_event event;
-			if (umove(tcp, tcp->u_arg[2], &event) == 0)
-				tprintf("{%p, %p, %ld, %ld}",
-					event.data, event.obj,
-					event.res, event.res2);
-			else
-#endif
-				tprints("{...}");
+		struct iocb cb;
+
+		if (!umove_or_printaddr(tcp, tcp->u_arg[1], &cb)) {
+			tprints("{");
+			print_iocb_header(&cb);
+			tprints("}");
 		}
+		tprints(", ");
+	} else {
+		print_io_event(tcp, tcp->u_arg[2]);
 	}
 	return 0;
 }
@@ -231,38 +223,35 @@ SYS_FUNC(io_cancel)
 SYS_FUNC(io_getevents)
 {
 	if (entering(tcp)) {
-		tprintf("%ld, %ld, %ld, ", tcp->u_arg[0], tcp->u_arg[1],
-			tcp->u_arg[2]);
+		tprintf("%lu, %ld, %ld, ",
+			tcp->u_arg[0], tcp->u_arg[1], tcp->u_arg[2]);
 	} else {
 		if (tcp->u_rval == 0) {
-			tprints("{}");
+			tprints("[]");
 		} else {
-#ifdef HAVE_LIBAIO_H
 			struct io_event *events = (void *)tcp->u_arg[3];
 			long i, nr = tcp->u_rval;
 
 			for (i = 0; i < nr; i++, events++) {
-				struct io_event event;
-
 				if (i == 0)
-					tprints("{");
+					tprints("[");
 				else
 					tprints(", ");
 
-				if (umove(tcp, (unsigned long)events, &event) != 0) {
-					tprints("{...}");
-					continue;
-				}
-				tprintf("{%p, %p, %ld, %ld}", event.data,
-					event.obj, event.res, event.res2);
+				if (print_io_event(tcp, (long)events))
+					break;
 			}
-			tprints("}, ");
-#else
-			tprints("{...}");
-#endif
+			tprints("], ");
 		}
 
+		/*
+		 * Since the timeout parameter is read by the kernel
+		 * on entering syscall, it has to be decoded the same way
+		 * whether the syscall has failed or not.
+		 */
+		temporarily_clear_syserror(tcp);
 		print_timespec(tcp, tcp->u_arg[4]);
+		restore_cleared_syserror(tcp);
 	}
 	return 0;
 }

@@ -18,13 +18,10 @@
 #define ART_COMPILER_JIT_JIT_COMPILER_H_
 
 #include "base/mutex.h"
-#include "compiler_callbacks.h"
 #include "compiled_method.h"
-#include "dex/verification_results.h"
 #include "dex/quick/dex_file_to_method_inliner_map.h"
 #include "driver/compiler_driver.h"
 #include "driver/compiler_options.h"
-#include "oat_file.h"
 
 namespace art {
 
@@ -37,33 +34,32 @@ class JitCompiler {
  public:
   static JitCompiler* Create();
   virtual ~JitCompiler();
-  bool CompileMethod(Thread* self, ArtMethod* method)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
-  // This is in the compiler since the runtime doesn't have access to the compiled method
-  // structures.
-  bool AddToCodeCache(ArtMethod* method, const CompiledMethod* compiled_method,
-                      OatFile::OatMethod* out_method) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
-  CompilerCallbacks* GetCompilerCallbacks() const;
-  size_t GetTotalCompileTime() const {
-    return total_time_;
+
+  // Compilation entrypoint. Returns whether the compilation succeeded.
+  bool CompileMethod(Thread* self, ArtMethod* method, bool osr)
+      SHARED_REQUIRES(Locks::mutator_lock_);
+
+  CompilerOptions* GetCompilerOptions() const {
+    return compiler_options_.get();
+  }
+  CompilerDriver* GetCompilerDriver() const {
+    return compiler_driver_.get();
   }
 
  private:
-  uint64_t total_time_;
   std::unique_ptr<CompilerOptions> compiler_options_;
   std::unique_ptr<CumulativeLogger> cumulative_logger_;
-  std::unique_ptr<VerificationResults> verification_results_;
   std::unique_ptr<DexFileToMethodInlinerMap> method_inliner_map_;
-  std::unique_ptr<CompilerCallbacks> callbacks_;
   std::unique_ptr<CompilerDriver> compiler_driver_;
   std::unique_ptr<const InstructionSetFeatures> instruction_set_features_;
+  std::unique_ptr<File> perf_file_;
 
-  explicit JitCompiler();
-  uint8_t* WriteMethodHeaderAndCode(
-      const CompiledMethod* compiled_method, uint8_t* reserve_begin, uint8_t* reserve_end,
-      const uint8_t* mapping_table, const uint8_t* vmap_table, const uint8_t* gc_map);
-  bool MakeExecutable(CompiledMethod* compiled_method, ArtMethod* method)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  JitCompiler();
+
+  // This is in the compiler since the runtime doesn't have access to the compiled method
+  // structures.
+  bool AddToCodeCache(ArtMethod* method, const CompiledMethod* compiled_method)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   DISALLOW_COPY_AND_ASSIGN(JitCompiler);
 };

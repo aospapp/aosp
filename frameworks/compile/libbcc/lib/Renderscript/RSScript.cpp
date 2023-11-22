@@ -19,6 +19,7 @@
 #include "bcc/Assert.h"
 #include "bcc/Source.h"
 #include "bcc/Support/Log.h"
+#include "bcc/Support/CompilerConfig.h"
 
 using namespace bcc;
 
@@ -53,6 +54,20 @@ RSScript::RSScript(Source &pSource)
     mOptimizationLevel(kOptLvl3), mLinkRuntimeCallback(nullptr),
     mEmbedInfo(false), mEmbedGlobalInfo(false),
     mEmbedGlobalInfoSkipConstant(false) { }
+
+RSScript::RSScript(Source &pSource, const CompilerConfig * pCompilerConfig): RSScript(pSource)
+{
+  switch (pCompilerConfig->getOptimizationLevel()) {
+    case llvm::CodeGenOpt::None:    mOptimizationLevel = kOptLvl0; break;
+    case llvm::CodeGenOpt::Less:    mOptimizationLevel = kOptLvl1; break;
+    case llvm::CodeGenOpt::Default: mOptimizationLevel = kOptLvl2; break;
+    case llvm::CodeGenOpt::Aggressive: //Intentional fallthrough
+    default: {
+      mOptimizationLevel = kOptLvl3;
+      break;
+    }
+  }
+}
 
 bool RSScript::doReset() {
   mCompilerVersion = 0;

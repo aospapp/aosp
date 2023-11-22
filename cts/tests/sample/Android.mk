@@ -16,19 +16,24 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 
-# Don't include this package in any target.
-LOCAL_MODULE_TAGS := optional
-
+# Don't include this package in any target
+LOCAL_MODULE_TAGS := tests
 # When built, explicitly put it in the data partition.
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctsdeviceutil ctstestrunner
+LOCAL_DEX_PREOPT := false
+
+LOCAL_PROGUARD_ENABLED := disabled
+
+LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util android-support-test
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-# Must match the package name in CtsTestCaseList.mk
+# Tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
+
 LOCAL_PACKAGE_NAME := CtsSampleDeviceTestCases
 
 LOCAL_SDK_VERSION := current
 
-include $(BUILD_CTS_PACKAGE)
+include $(BUILD_PACKAGE)

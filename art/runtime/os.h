@@ -35,8 +35,13 @@ class OS {
   // Open an existing file with read/write access.
   static File* OpenFileReadWrite(const char* name);
 
-  // Create an empty file with read/write access.
+  // Create an empty file with read/write access. This is a *new* file, that is, if the file
+  // already exists, it is *not* overwritten, but unlinked, and a new inode will be used.
   static File* CreateEmptyFile(const char* name);
+
+  // Create an empty file with write access. This is a *new* file, that is, if the file
+  // already exists, it is *not* overwritten, but unlinked, and a new inode will be used.
+  static File* CreateEmptyFileWriteOnly(const char* name);
 
   // Open a file with the specified open(2) flags.
   static File* OpenFileWithFlags(const char* name, int flags);

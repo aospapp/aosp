@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, 2016, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -27,10 +27,17 @@
  *
  */
 
-#include "mm_jpeg_ionbuf.h"
+// System dependencies
+#include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
 #include <linux/msm_ion.h>
+#define MMAN_H <SYSTEM_HEADER_PREFIX/mman.h>
+#include MMAN_H
+
+// JPEG dependencies
+#include "mm_jpeg_ionbuf.h"
 
 /** buffer_allocate:
  *
@@ -58,7 +65,7 @@ void *buffer_allocate(buffer_t *p_buffer, int cached)
 
    p_buffer->ion_fd = open("/dev/ion", O_RDONLY);
    if(p_buffer->ion_fd < 0) {
-    CDBG_ERROR("%s :Ion open failed", __func__);
+    LOGE("Ion open failed");
     goto ION_ALLOC_FAILED;
   }
 
@@ -66,7 +73,7 @@ void *buffer_allocate(buffer_t *p_buffer, int cached)
   p_buffer->alloc.len = (p_buffer->alloc.len + 4095U) & (~4095U);
   lrc = ioctl(p_buffer->ion_fd, ION_IOC_ALLOC, &p_buffer->alloc);
   if (lrc < 0) {
-    CDBG_ERROR("%s :ION allocation failed len %zu", __func__,
+    LOGE("ION allocation failed len %zu",
       p_buffer->alloc.len);
     goto ION_ALLOC_FAILED;
   }
@@ -75,7 +82,7 @@ void *buffer_allocate(buffer_t *p_buffer, int cached)
   lrc = ioctl(p_buffer->ion_fd, ION_IOC_SHARE,
     &p_buffer->ion_info_fd);
   if (lrc < 0) {
-    CDBG_ERROR("%s :ION map failed %s", __func__, strerror(errno));
+    LOGE("ION map failed %s", strerror(errno));
     goto ION_MAP_FAILED;
   }
 
@@ -85,7 +92,7 @@ void *buffer_allocate(buffer_t *p_buffer, int cached)
     MAP_SHARED,p_buffer->p_pmem_fd, 0);
 
   if (l_buffer == MAP_FAILED) {
-    CDBG_ERROR("%s :ION_MMAP_FAILED: %s (%d)", __func__,
+    LOGE("ION_MMAP_FAILED: %s (%d)",
       strerror(errno), errno);
     goto ION_MAP_FAILED;
   }
@@ -159,7 +166,7 @@ int buffer_invalidate(buffer_t *p_buffer)
 
   lrc = ioctl(p_buffer->ion_fd, ION_IOC_CUSTOM, &custom_data);
   if (lrc < 0)
-    CDBG_ERROR("%s: Cache Invalidate failed: %s\n", __func__, strerror(errno));
+    LOGW("Cache Invalidate failed: %s\n", strerror(errno));
 
   return lrc;
 }

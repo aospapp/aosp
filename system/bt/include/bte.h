@@ -109,8 +109,6 @@ typedef struct tBAUD_REG_tag {
     UINT8 ExplicitBaudRate3;
 } tBAUD_REG;
 
-#include "gki.h"
-
 extern const tBAUD_REG baud_rate_regs[];
 
 #endif  /* BTE_H */

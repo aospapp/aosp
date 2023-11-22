@@ -9,7 +9,7 @@
    This file is part of LibHB, a library for implementing and checking
    the happens-before relationship in concurrent programs.
 
-   Copyright (C) 2008-2013 OpenWorks Ltd
+   Copyright (C) 2008-2015 OpenWorks Ltd
       info@open-works.co.uk
 
    This program is free software; you can redistribute it and/or
@@ -143,7 +143,7 @@ typedef  ULong  SVal;
    a pair, (Thr*, ULong), but that takes 16 bytes on a 64-bit target.
    We pack it into 64 bits by representing the Thr* using a ThrID, a
    small integer (18 bits), and a 46 bit integer for the timestamp
-   number.  The 46/18 split is arbitary, but has the effect that
+   number.  The 46/18 split is arbitrary, but has the effect that
    Helgrind can only handle programs that create 2^18 or fewer threads
    over their entire lifetime, and have no more than 2^46 timestamp
    ticks (synchronisation operations on the same thread).
@@ -1503,7 +1503,7 @@ static __attribute__((noinline)) void cacheline_wback ( UWord wix )
    sequentialise_CacheLine( csvals, &csvalsUsed, 
                             N_LINE_ARANGE, cl );
    tl_assert(csvalsUsed >= 1 && csvalsUsed <= N_LINE_ARANGE);
-   if (0) VG_(printf)("%lu ", csvalsUsed);
+   if (0) VG_(printf)("%ld ", csvalsUsed);
 
    lineZ->dict[0] = lineZ->dict[1] 
                   = lineZ->dict[2] = lineZ->dict[3] = SVal_INVALID;
@@ -2625,7 +2625,7 @@ static void VTS__show ( const VTS* vts )
    n =  vts->usedTS;
    for (i = 0; i < n; i++) {
       const ScalarTS *st = &vts->ts[i];
-      VG_(printf)(i < n-1 ? "%u:%llu " : "%u:%llu", st->thrid, (ULong)st->tym);
+      VG_(printf)(i < n-1 ? "%d:%llu " : "%d:%llu", st->thrid, (ULong)st->tym);
    }
    VG_(printf)("]");
 }
@@ -3014,7 +3014,7 @@ static void vts_tab__do_GC ( Bool show_stats )
    /* Now figure out when the next GC should be.  We'll allow the
       number of VTSs to double before GCing again.  Except of course
       that since we can't (or, at least, don't) shrink vts_tab, we
-      can't set the threshhold value smaller than it. */
+      can't set the threshold value smaller than it. */
    tl_assert(nFreed <= nTab);
    nLive = nTab - nFreed;
    tl_assert(nLive >= 0 && nLive <= nTab);
@@ -4306,7 +4306,7 @@ static void ctxt__rcinc ( RCEC* ec )
 
 
 /* Find 'ec' in the RCEC list whose head pointer lives at 'headp' and
-   move it one step closer the the front of the list, so as to make
+   move it one step closer to the front of the list, so as to make
    subsequent searches for it cheaper. */
 static void move_RCEC_one_step_forward ( RCEC** headp, RCEC* ec )
 {
@@ -4354,7 +4354,7 @@ static void move_RCEC_one_step_forward ( RCEC** headp, RCEC* ec )
    return a pointer to the copy.  The caller can safely have 'example'
    on its stack, since we will always return a pointer to a copy of
    it, not to the original.  Note that the inserted node will have .rc
-   of zero and so the caller must immediatly increment it. */
+   of zero and so the caller must immediately increment it. */
 __attribute__((noinline))
 static RCEC* ctxt__find_or_add ( RCEC* example )
 {
@@ -5050,7 +5050,7 @@ static void record_race_info ( Thr* acc_thr,
                  (XACmpFn_t)cmp__ULong_n_EC__by_ULong
               );
       if (0) VG_(printf)("record_race_info %u %u %u  confThr %p "
-                         "confTym %llu found %d (%lu,%lu)\n", 
+                         "confTym %llu found %d (%ld,%ld)\n", 
                          Cfailed, Kfailed, Cw,
                          confThr, confTym, found, firstIx, lastIx);
       /* We can't indefinitely collect stack traces at VTS
@@ -5779,7 +5779,7 @@ static void zsm_sset_range ( Addr a, SizeT len, SVal svNew )
    stats__cache_make_New_arange += (ULong)len;
 
    if (0 && len > 500)
-      VG_(printf)("make New      ( %#lx, %ld )\n", a, len );
+      VG_(printf)("make New      ( %#lx, %lu )\n", a, len );
 
    if (0) {
       static UWord n_New_in_cache = 0;
@@ -6445,8 +6445,8 @@ void libhb_shutdown ( Bool show_stats )
                live++;
             hgthread = hgthread->admin;
          }
-         VG_(printf)("   libhb: threads live: %d exit_and_joinedwith %d"
-                     " exit %d joinedwith %d\n",
+         VG_(printf)("   libhb: threads live: %u exit_and_joinedwith %u"
+                     " exit %u joinedwith %u\n",
                      live, llexit_and_joinedwith_done,
                      llexit_done, joinedwith_done);
          VG_(printf)("   libhb: %d verydead_threads, "
@@ -6467,10 +6467,10 @@ void libhb_shutdown ( Bool show_stats )
       if (VG_(clo_verbosity) > 1)
          VG_(HT_print_stats) (oldrefHT, cmp_oldref_tsw);
       VG_(printf)( "   libhb: oldref bind tsw/rcec "
-                   "==/==:%lu ==/!=:%lu !=/!=:%lu\n",
+                   "==/==:%'lu ==/!=:%'lu !=/!=:%'lu\n",
                    stats__ctxt_eq_tsw_eq_rcec, stats__ctxt_eq_tsw_neq_rcec,
                    stats__ctxt_neq_tsw_neq_rcec);
-      VG_(printf)( "   libhb: ctxt__rcdec calls %lu. rcec gc discards %lu\n",
+      VG_(printf)( "   libhb: ctxt__rcdec calls %'lu. rcec gc discards %'lu\n",
                    stats__ctxt_rcdec_calls, stats__ctxt_rcec_gc_discards);
       VG_(printf)( "   libhb: contextTab: %lu slots,"
                    " %lu cur ents(ref'd %lu),"
@@ -6505,7 +6505,7 @@ void libhb_shutdown ( Bool show_stats )
                       / (Double)(non0chain ? non0chain : 1));
          for (i = 0; i <= MAXCHAIN; i++) {
             if (chains[i] != 0)
-                VG_(printf)( "[%d%s]=%d ",
+                VG_(printf)( "[%u%s]=%u ",
                              i, i == MAXCHAIN ? "+" : "",
                              chains[i]);
          }
@@ -6860,9 +6860,9 @@ static void zsm_sset_range_noaccess (Addr addr, SizeT len)
    PlenCONSUME(APC, ARE, 1,               APClen);
 
    if (0)
-      VG_(printf) ("addr %p[%ld] ARE %p"
-                   " BPC %p[%ld] BFC %p[%ld] FSM %p[%ld]"
-                   " AFC %p[%ld] APC %p[%ld]\n",
+      VG_(printf) ("addr %p[%lu] ARE %p"
+                   " BPC %p[%lu] BFC %p[%lu] FSM %p[%lu]"
+                   " AFC %p[%lu] APC %p[%lu]\n",
                    (void*)addr, len, (void*)ARE,
                    (void*)BPC, BPClen, (void*)BFC, BFClen, (void*)FSM, FSMlen,
                    (void*)AFC, AFClen, (void*)APC, APClen);
@@ -7067,7 +7067,7 @@ void libhb_maybe_GC ( void )
       do_RCEC_GC();
 
    /* If there are still no entries available (all the table entries are full),
-      and we hit the threshhold point, then do a GC */
+      and we hit the threshold point, then do a GC */
    Bool vts_tab_GC = vts_tab_freelist == VtsID_INVALID
       && VG_(sizeXA)( vts_tab ) >= vts_next_GC_at;
    if (UNLIKELY (vts_tab_GC))

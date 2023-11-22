@@ -1,6 +1,8 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT([Makefile.in])
 
+AC_CONFIG_AUX_DIR([build-aux])
+
 dnl ============================================================================
 dnl Custom macro definitions.
 
@@ -138,6 +140,7 @@ if test "x$CFLAGS" = "x" ; then
     fi
     JE_CFLAGS_APPEND([-Wall])
     JE_CFLAGS_APPEND([-Werror=declaration-after-statement])
+    JE_CFLAGS_APPEND([-Wshorten-64-to-32])
     JE_CFLAGS_APPEND([-pipe])
     JE_CFLAGS_APPEND([-g3])
   elif test "x$je_cv_msvc" = "xyes" ; then
@@ -164,13 +167,18 @@ if test "x${je_cv_msvc}" = "xyes" -a "x${ac_cv_header_inttypes_h}" = "xno"; then
   CPPFLAGS="$CPPFLAGS -I${srcdir}/include/msvc_compat/C99"
 fi
 
-AC_CHECK_SIZEOF([void *])
-if test "x${ac_cv_sizeof_void_p}" = "x8" ; then
-  LG_SIZEOF_PTR=3
-elif test "x${ac_cv_sizeof_void_p}" = "x4" ; then
-  LG_SIZEOF_PTR=2
+if test "x${je_cv_msvc}" = "xyes" ; then
+  LG_SIZEOF_PTR=LG_SIZEOF_PTR_WIN
+  AC_MSG_RESULT([Using a predefined value for sizeof(void *): 4 for 32-bit, 8 for 64-bit])
 else
-  AC_MSG_ERROR([Unsupported pointer size: ${ac_cv_sizeof_void_p}])
+  AC_CHECK_SIZEOF([void *])
+  if test "x${ac_cv_sizeof_void_p}" = "x8" ; then
+    LG_SIZEOF_PTR=3
+  elif test "x${ac_cv_sizeof_void_p}" = "x4" ; then
+    LG_SIZEOF_PTR=2
+  else
+    AC_MSG_ERROR([Unsupported pointer size: ${ac_cv_sizeof_void_p}])
+  fi
 fi
 AC_DEFINE_UNQUOTED([LG_SIZEOF_PTR], [$LG_SIZEOF_PTR])
 
@@ -194,6 +202,16 @@ else
 fi
 AC_DEFINE_UNQUOTED([LG_SIZEOF_LONG], [$LG_SIZEOF_LONG])
 
+AC_CHECK_SIZEOF([long long])
+if test "x${ac_cv_sizeof_long_long}" = "x8" ; then
+  LG_SIZEOF_LONG_LONG=3
+elif test "x${ac_cv_sizeof_long_long}" = "x4" ; then
+  LG_SIZEOF_LONG_LONG=2
+else
+  AC_MSG_ERROR([Unsupported long long size: ${ac_cv_sizeof_long_long}])
+fi
+AC_DEFINE_UNQUOTED([LG_SIZEOF_LONG_LONG], [$LG_SIZEOF_LONG_LONG])
+
 AC_CHECK_SIZEOF([intmax_t])
 if test "x${ac_cv_sizeof_intmax_t}" = "x16" ; then
   LG_SIZEOF_INTMAX_T=4
@@ -211,12 +229,22 @@ dnl CPU-specific settings.
 CPU_SPINWAIT=""
 case "${host_cpu}" in
   i686|x86_64)
-	AC_CACHE_VAL([je_cv_pause],
-	  [JE_COMPILABLE([pause instruction], [],
-	                [[__asm__ volatile("pause"); return 0;]],
-	                [je_cv_pause])])
-	if test "x${je_cv_pause}" = "xyes" ; then
-	    CPU_SPINWAIT='__asm__ volatile("pause")'
+	if test "x${je_cv_msvc}" = "xyes" ; then
+	    AC_CACHE_VAL([je_cv_pause_msvc],
+	      [JE_COMPILABLE([pause instruction MSVC], [],
+					[[_mm_pause(); return 0;]],
+					[je_cv_pause_msvc])])
+	    if test "x${je_cv_pause_msvc}" = "xyes" ; then
+		CPU_SPINWAIT='_mm_pause()'
+	    fi
+	else
+	    AC_CACHE_VAL([je_cv_pause],
+	      [JE_COMPILABLE([pause instruction], [],
+					[[__asm__ volatile("pause"); return 0;]],
+					[je_cv_pause])])
+	    if test "x${je_cv_pause}" = "xyes" ; then
+		CPU_SPINWAIT='__asm__ volatile("pause")'
+	    fi
 	fi
 	;;
   powerpc)
@@ -258,6 +286,7 @@ dnl Define cpp macros in CPPFLAGS, rather than doing AC_DEFINE(macro), since the
 dnl definitions need to be seen before any headers are included, which is a pain
 dnl to make happen otherwise.
 default_munmap="1"
+maps_coalesce="1"
 case "${host}" in
   *-*-darwin* | *-*-ios*)
 	CFLAGS="$CFLAGS"
@@ -295,6 +324,7 @@ case "${host}" in
 	AC_DEFINE([JEMALLOC_HAS_ALLOCA_H])
 	AC_DEFINE([JEMALLOC_PURGE_MADVISE_DONTNEED], [ ])
 	AC_DEFINE([JEMALLOC_THREADED_INIT], [ ])
+	AC_DEFINE([JEMALLOC_USE_CXX_THROW], [ ])
 	default_munmap="0"
 	;;
   *-*-netbsd*)
@@ -333,6 +363,8 @@ case "${host}" in
   *-*-mingw* | *-*-cygwin*)
 	abi="pecoff"
 	force_tls="0"
+	force_lazy_lock="1"
+	maps_coalesce="0"
 	RPATH=""
 	so="dll"
 	if test "x$je_cv_msvc" = "xyes" ; then
@@ -421,6 +453,36 @@ if test "x${je_cv_tls_model}" = "xyes" ; then
 else
   AC_DEFINE([JEMALLOC_TLS_MODEL], [ ])
 fi
+dnl Check for alloc_size attribute support.
+SAVED_CFLAGS="${CFLAGS}"
+JE_CFLAGS_APPEND([-Werror])
+JE_COMPILABLE([alloc_size attribute], [#include <stdlib.h>],
+              [void *foo(size_t size) __attribute__((alloc_size(1)));],
+              [je_cv_alloc_size])
+CFLAGS="${SAVED_CFLAGS}"
+if test "x${je_cv_alloc_size}" = "xyes" ; then
+  AC_DEFINE([JEMALLOC_HAVE_ATTR_ALLOC_SIZE], [ ])
+fi
+dnl Check for format(gnu_printf, ...) attribute support.
+SAVED_CFLAGS="${CFLAGS}"
+JE_CFLAGS_APPEND([-Werror])
+JE_COMPILABLE([format(gnu_printf, ...) attribute], [#include <stdlib.h>],
+              [void *foo(const char *format, ...) __attribute__((format(gnu_printf, 1, 2)));],
+              [je_cv_format_gnu_printf])
+CFLAGS="${SAVED_CFLAGS}"
+if test "x${je_cv_format_gnu_printf}" = "xyes" ; then
+  AC_DEFINE([JEMALLOC_HAVE_ATTR_FORMAT_GNU_PRINTF], [ ])
+fi
+dnl Check for format(printf, ...) attribute support.
+SAVED_CFLAGS="${CFLAGS}"
+JE_CFLAGS_APPEND([-Werror])
+JE_COMPILABLE([format(printf, ...) attribute], [#include <stdlib.h>],
+              [void *foo(const char *format, ...) __attribute__((format(printf, 1, 2)));],
+              [je_cv_format_printf])
+CFLAGS="${SAVED_CFLAGS}"
+if test "x${je_cv_format_printf}" = "xyes" ; then
+  AC_DEFINE([JEMALLOC_HAVE_ATTR_FORMAT_PRINTF], [ ])
+fi
 
 dnl Support optional additions to rpath.
 AC_ARG_WITH([rpath],
@@ -507,6 +569,7 @@ if test "x$JEMALLOC_PREFIX" != "x" ; then
   AC_DEFINE_UNQUOTED([JEMALLOC_PREFIX], ["$JEMALLOC_PREFIX"])
   AC_DEFINE_UNQUOTED([JEMALLOC_CPREFIX], ["$JEMALLOC_CPREFIX"])
 fi
+AC_SUBST([JEMALLOC_CPREFIX])
 
 AC_ARG_WITH([export],
   [AS_HELP_STRING([--without-export], [disable exporting jemalloc public APIs])],
@@ -533,6 +596,15 @@ AC_ARG_WITH([install_suffix],
 )
 install_suffix="$INSTALL_SUFFIX"
 AC_SUBST([install_suffix])
+
+dnl Specify default malloc_conf.
+AC_ARG_WITH([malloc_conf],
+  [AS_HELP_STRING([--with-malloc-conf=<malloc_conf>], [config.malloc_conf options string])],
+  [JEMALLOC_CONFIG_MALLOC_CONF="$with_malloc_conf"],
+  [JEMALLOC_CONFIG_MALLOC_CONF=""]
+)
+config_malloc_conf="$JEMALLOC_CONFIG_MALLOC_CONF"
+AC_DEFINE_UNQUOTED([JEMALLOC_CONFIG_MALLOC_CONF], ["$config_malloc_conf"])
 
 dnl Substitute @je_@ in jemalloc_protos.h.in, primarily to make generation of
 dnl jemalloc_protos_jet.h easy.
@@ -823,6 +895,12 @@ if test "x$enable_tcache" = "x1" ; then
 fi
 AC_SUBST([enable_tcache])
 
+dnl Indicate whether adjacent virtual memory mappings automatically coalesce
+dnl (and fragment on demand).
+if test "x${maps_coalesce}" = "x1" ; then
+  AC_DEFINE([JEMALLOC_MAPS_COALESCE], [ ])
+fi
+
 dnl Enable VM deallocation via munmap() by default.
 AC_ARG_ENABLE([munmap],
   [AS_HELP_STRING([--disable-munmap], [Disable VM deallocation via munmap(2)])],
@@ -967,7 +1045,7 @@ dnl ============================================================================
 dnl Check for  __builtin_ffsl(), then ffsl(3), and fail if neither are found.
 dnl One of those two functions should (theoretically) exist on all platforms
 dnl that jemalloc currently has a chance of functioning on without modification.
-dnl We additionally assume ffs() or __builtin_ffs() are defined if
+dnl We additionally assume ffs[ll]() or __builtin_ffs[ll]() are defined if
 dnl ffsl() or __builtin_ffsl() are defined, respectively.
 JE_COMPILABLE([a program using __builtin_ffsl], [
 #include <stdio.h>
@@ -980,6 +1058,7 @@ JE_COMPILABLE([a program using __builtin_ffsl], [
 	}
 ], [je_cv_gcc_builtin_ffsl])
 if test "x${je_cv_gcc_builtin_ffsl}" = "xyes" ; then
+  AC_DEFINE([JEMALLOC_INTERNAL_FFSLL], [__builtin_ffsll])
   AC_DEFINE([JEMALLOC_INTERNAL_FFSL], [__builtin_ffsl])
   AC_DEFINE([JEMALLOC_INTERNAL_FFS], [__builtin_ffs])
 else
@@ -994,6 +1073,7 @@ else
 	}
   ], [je_cv_function_ffsl])
   if test "x${je_cv_function_ffsl}" = "xyes" ; then
+    AC_DEFINE([JEMALLOC_INTERNAL_FFSLL], [ffsll])
     AC_DEFINE([JEMALLOC_INTERNAL_FFSL], [ffsl])
     AC_DEFINE([JEMALLOC_INTERNAL_FFS], [ffs])
   else
@@ -1053,7 +1133,7 @@ if test "x$LG_PAGE" = "xdetect"; then
     if (f == NULL) {
 	return 1;
     }
-    fprintf(f, "%d\n", result);
+    fprintf(f, "%d", result);
     fclose(f);
 
     return 0;
@@ -1143,6 +1223,14 @@ fi
 
 CPPFLAGS="$CPPFLAGS -D_REENTRANT"
 
+dnl Check whether clock_gettime(2) is in libc or librt.  This function is only
+dnl used in test code, so save the result to TESTLIBS to avoid poluting LIBS.
+SAVED_LIBS="${LIBS}"
+LIBS=
+AC_SEARCH_LIBS([clock_gettime], [rt], [TESTLIBS="${LIBS}"])
+AC_SUBST([TESTLIBS])
+LIBS="${SAVED_LIBS}"
+
 dnl Check if the GNU-specific secure_getenv function exists.
 AC_CHECK_FUNC([secure_getenv],
               [have_secure_getenv="1"],
@@ -1195,9 +1283,9 @@ else
   enable_lazy_lock="1"
 fi
 ],
-[enable_lazy_lock="0"]
+[enable_lazy_lock=""]
 )
-if test "x$enable_lazy_lock" = "x0" -a "x${force_lazy_lock}" = "x1" ; then
+if test "x$enable_lazy_lock" = "x" -a "x${force_lazy_lock}" = "x1" ; then
   AC_MSG_RESULT([Forcing lazy-lock to avoid allocator/threading bootstrap issues])
   enable_lazy_lock="1"
 fi
@@ -1210,6 +1298,8 @@ if test "x$enable_lazy_lock" = "x1" ; then
       ])
   fi
   AC_DEFINE([JEMALLOC_LAZY_LOCK], [ ])
+else
+  enable_lazy_lock="0"
 fi
 AC_SUBST([enable_lazy_lock])
 
@@ -1221,15 +1311,18 @@ else
   enable_tls="1"
 fi
 ,
-enable_tls="1"
+enable_tls=""
 )
-if test "x${enable_tls}" = "x0" -a "x${force_tls}" = "x1" ; then
-  AC_MSG_RESULT([Forcing TLS to avoid allocator/threading bootstrap issues])
-  enable_tls="1"
-fi
-if test "x${enable_tls}" = "x1" -a "x${force_tls}" = "x0" ; then
-  AC_MSG_RESULT([Forcing no TLS to avoid allocator/threading bootstrap issues])
-  enable_tls="0"
+if test "x${enable_tls}" = "x" ; then
+  if test "x${force_tls}" = "x1" ; then
+    AC_MSG_RESULT([Forcing TLS to avoid allocator/threading bootstrap issues])
+    enable_tls="1"
+  elif test "x${force_tls}" = "x0" ; then
+    AC_MSG_RESULT([Forcing no TLS to avoid allocator/threading bootstrap issues])
+    enable_tls="0"
+  else
+    enable_tls="1"
+  fi
 fi
 if test "x${enable_tls}" = "x1" ; then
 AC_MSG_CHECKING([for TLS])
@@ -1244,12 +1337,17 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
               AC_MSG_RESULT([yes]),
               AC_MSG_RESULT([no])
               enable_tls="0")
+else
+  enable_tls="0"
 fi
 AC_SUBST([enable_tls])
 if test "x${enable_tls}" = "x1" ; then
+  if test "x${force_tls}" = "x0" ; then
+    AC_MSG_WARN([TLS enabled despite being marked unusable on this platform])
+  fi
   AC_DEFINE_UNQUOTED([JEMALLOC_TLS], [ ])
 elif test "x${force_tls}" = "x1" ; then
-  AC_MSG_ERROR([Failed to configure TLS, which is mandatory for correct function])
+  AC_MSG_WARN([TLS disabled despite being marked critical on this platform])
 fi
 
 dnl ============================================================================
@@ -1564,8 +1662,9 @@ AC_CONFIG_COMMANDS([include/jemalloc/internal/public_unnamespace.h], [
 ])
 AC_CONFIG_COMMANDS([include/jemalloc/internal/size_classes.h], [
   mkdir -p "${objroot}include/jemalloc/internal"
-  "${srcdir}/include/jemalloc/internal/size_classes.sh" "${LG_QUANTA}" ${LG_TINY_MIN} "${LG_PAGE_SIZES}" ${LG_SIZE_CLASS_GROUP} > "${objroot}include/jemalloc/internal/size_classes.h"
+  "${SHELL}" "${srcdir}/include/jemalloc/internal/size_classes.sh" "${LG_QUANTA}" ${LG_TINY_MIN} "${LG_PAGE_SIZES}" ${LG_SIZE_CLASS_GROUP} > "${objroot}include/jemalloc/internal/size_classes.h"
 ], [
+  SHELL="${SHELL}"
   srcdir="${srcdir}"
   objroot="${objroot}"
   LG_QUANTA="${LG_QUANTA}"
@@ -1636,6 +1735,7 @@ AC_MSG_RESULT([CPPFLAGS           : ${CPPFLAGS}])
 AC_MSG_RESULT([LDFLAGS            : ${LDFLAGS}])
 AC_MSG_RESULT([EXTRA_LDFLAGS      : ${EXTRA_LDFLAGS}])
 AC_MSG_RESULT([LIBS               : ${LIBS}])
+AC_MSG_RESULT([TESTLIBS           : ${TESTLIBS}])
 AC_MSG_RESULT([RPATH_EXTRA        : ${RPATH_EXTRA}])
 AC_MSG_RESULT([])
 AC_MSG_RESULT([XSLTPROC           : ${XSLTPROC}])
@@ -1657,6 +1757,7 @@ AC_MSG_RESULT([JEMALLOC_PREFIX    : ${JEMALLOC_PREFIX}])
 AC_MSG_RESULT([JEMALLOC_PRIVATE_NAMESPACE])
 AC_MSG_RESULT([                   : ${JEMALLOC_PRIVATE_NAMESPACE}])
 AC_MSG_RESULT([install_suffix     : ${install_suffix}])
+AC_MSG_RESULT([malloc_conf        : ${config_malloc_conf}])
 AC_MSG_RESULT([autogen            : ${enable_autogen}])
 AC_MSG_RESULT([cc-silence         : ${enable_cc_silence}])
 AC_MSG_RESULT([debug              : ${enable_debug}])

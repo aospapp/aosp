@@ -18,10 +18,10 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
   <string-array name="sleep_timeout_entries">
     <item msgid="1213527366819650274">"5 நிமிடங்கள்"</item>
-    <item msgid="3695675702735844029">"10 நிமிடங்கள்"</item>
-    <item msgid="5742541267966746817">"15 நிமிடங்கள்"</item>
-    <item msgid="4333958225402992378">"30 நிமிடங்கள்"</item>
-    <item msgid="3103819305854192542">"1 மணிநேரம்"</item>
+    <item msgid="6561800022721381078">"15 நிமிடங்கள்"</item>
+    <item msgid="7718735533503035428">"30 நிமிடங்கள்"</item>
+    <item msgid="8784595382489738498">"1 மணிநேரம்"</item>
+    <item msgid="1529312035777735084">"2 மணிநேரம்"</item>
   </string-array>
   <string-array name="screen_off_timeout_entries">
     <item msgid="8244337465472020927">"30 நிமிடங்கள்"</item>
@@ -62,11 +62,9 @@
     <item msgid="1626485489418859846">"75%"</item>
     <item msgid="1811192455405034366">"100%"</item>
   </string-array>
-  <string-array name="captioning_preset_selector_titles">
-    <item msgid="7937747884375690010">"கருப்பில் வெண்மை"</item>
-    <item msgid="5187532965364561774">"வெண்மையில் கருப்பு"</item>
-    <item msgid="7275908232441066633">"கருப்பில் மஞ்சள்"</item>
-    <item msgid="3907210401785295669">"நீலத்தில் மஞ்சள்"</item>
-    <item msgid="7050475937183962123">"தனிப்பயன்"</item>
+  <string-array name="surround_sound_entries">
+    <item msgid="5639265918353416799">"தானியங்கு"</item>
+    <item msgid="5990497479384785807">"எப்போதும்"</item>
+    <item msgid="6178602073308944697">"ஒருபோதும் வேண்டாம்"</item>
   </string-array>
 </resources>

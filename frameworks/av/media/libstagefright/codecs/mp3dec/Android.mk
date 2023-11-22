@@ -28,19 +28,22 @@ LOCAL_SRC_FILES := \
  	src/pvmp3_stereo_proc.cpp \
  	src/pvmp3_reorder.cpp \
 
-ifeq ($(TARGET_ARCH),arm)
-LOCAL_SRC_FILES += \
+LOCAL_SRC_FILES_arm += \
 	src/asm/pvmp3_polyphase_filter_window_gcc.s \
  	src/asm/pvmp3_mdct_18_gcc.s \
  	src/asm/pvmp3_dct_9_gcc.s \
 	src/asm/pvmp3_dct_16_gcc.s
-else
-LOCAL_SRC_FILES += \
+LOCAL_SRC_FILES_other_archs := \
  	src/pvmp3_polyphase_filter_window.cpp \
  	src/pvmp3_mdct_18.cpp \
  	src/pvmp3_dct_9.cpp \
  	src/pvmp3_dct_16.cpp
-endif
+
+LOCAL_SRC_FILES_arm64  := $(LOCAL_SRC_FILES_other_archs)
+LOCAL_SRC_FILES_mips   := $(LOCAL_SRC_FILES_other_archs)
+LOCAL_SRC_FILES_mips64 := $(LOCAL_SRC_FILES_other_archs)
+LOCAL_SRC_FILES_x86    := $(LOCAL_SRC_FILES_other_archs)
+LOCAL_SRC_FILES_x86_64 := $(LOCAL_SRC_FILES_other_archs)
 
 LOCAL_C_INCLUDES := \
         frameworks/av/media/libstagefright/include \
@@ -51,6 +54,8 @@ LOCAL_CFLAGS := \
         -D"OSCL_UNUSED_ARG(x)=(void)(x)"
 
 LOCAL_CFLAGS += -Werror
+LOCAL_CLANG := true
+LOCAL_SANITIZE := signed-integer-overflow
 
 LOCAL_MODULE := libstagefright_mp3dec
 
@@ -72,6 +77,8 @@ LOCAL_C_INCLUDES := \
         $(LOCAL_PATH)/include
 
 LOCAL_CFLAGS += -Werror
+LOCAL_CLANG := true
+LOCAL_SANITIZE := signed-integer-overflow
 
 LOCAL_SHARED_LIBRARIES := \
         libstagefright libstagefright_omx libstagefright_foundation libutils liblog
@@ -83,3 +90,27 @@ LOCAL_MODULE := libstagefright_soft_mp3dec
 LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_SHARED_LIBRARY)
+
+################################################################################
+include $(CLEAR_VARS)
+LOCAL_SRC_FILES := \
+        test/mp3dec_test.cpp  \
+        test/mp3reader.cpp
+
+LOCAL_C_INCLUDES := \
+        $(LOCAL_PATH)/src \
+        $(LOCAL_PATH)/include \
+        $(LOCAL_PATH)/test/include \
+        $(call include-path-for, audio-utils)
+
+LOCAL_CLANG := true
+LOCAL_SANITIZE := signed-integer-overflow
+LOCAL_STATIC_LIBRARIES := \
+        libstagefright_mp3dec libsndfile
+
+LOCAL_SHARED_LIBRARIES := libaudioutils
+
+LOCAL_MODULE := libstagefright_mp3dec_test
+LOCAL_MODULE_TAGS := tests
+
+include $(BUILD_EXECUTABLE)

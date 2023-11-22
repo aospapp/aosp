@@ -27,7 +27,7 @@
 #include "bta_ag_api.h"
 #include "bta_ag_int.h"
 #include "bta_ag_ci.h"
-#include "gki.h"
+#include "bt_common.h"
 
 /******************************************************************************
 **
@@ -42,20 +42,18 @@
 ******************************************************************************/
 void bta_ag_ci_rx_write(UINT16 handle, char *p_data, UINT16 len)
 {
-    tBTA_AG_CI_RX_WRITE *p_buf;
     UINT16 len_remaining = len;
     char *p_data_area;
 
-    if (len > (RFCOMM_DATA_POOL_BUF_SIZE - sizeof(tBTA_AG_CI_RX_WRITE) - 1))
-        len = RFCOMM_DATA_POOL_BUF_SIZE - sizeof(tBTA_AG_CI_RX_WRITE) - 1;
+    if (len > (RFCOMM_DATA_BUF_SIZE - sizeof(tBTA_AG_CI_RX_WRITE) - 1))
+        len = RFCOMM_DATA_BUF_SIZE - sizeof(tBTA_AG_CI_RX_WRITE) - 1;
 
-    while (len_remaining)
-    {
+    while (len_remaining) {
         if (len_remaining < len)
             len = len_remaining;
 
-        if ((p_buf = (tBTA_AG_CI_RX_WRITE *) GKI_getbuf((UINT16)(sizeof(tBTA_AG_CI_RX_WRITE) + len + 1))) != NULL)
-    {
+        tBTA_AG_CI_RX_WRITE *p_buf =
+            (tBTA_AG_CI_RX_WRITE *)osi_malloc(sizeof(tBTA_AG_CI_RX_WRITE) + len + 1);
         p_buf->hdr.event = BTA_AG_CI_RX_WRITE_EVT;
         p_buf->hdr.layer_specific = handle;
 
@@ -64,13 +62,9 @@ void bta_ag_ci_rx_write(UINT16 handle, char *p_data, UINT16 len)
         p_data_area[len] = 0;
 
         bta_sys_sendmsg(p_buf);
-        } else {
-        APPL_TRACE_ERROR("ERROR: Unable to allocate buffer to hold AT response code. len=%i", len);
-            break;
-        }
 
-        len_remaining-=len;
-        p_data+=len;
+        len_remaining -= len;
+        p_data += len;
     }
 }
 
@@ -87,12 +81,10 @@ void bta_ag_ci_rx_write(UINT16 handle, char *p_data, UINT16 len)
 ******************************************************************************/
 void bta_ag_ci_slc_ready(UINT16 handle)
 {
-    tBTA_AG_DATA *p_buf;
+    tBTA_AG_DATA *p_buf = (tBTA_AG_DATA *)osi_malloc(sizeof(tBTA_AG_DATA));
 
-    if ((p_buf = (tBTA_AG_DATA *)GKI_getbuf(sizeof(tBTA_AG_DATA))) != NULL)
-    {
-        p_buf->hdr.event = BTA_AG_CI_SLC_READY_EVT;
-        p_buf->hdr.layer_specific = handle;
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->hdr.event = BTA_AG_CI_SLC_READY_EVT;
+    p_buf->hdr.layer_specific = handle;
+
+    bta_sys_sendmsg(p_buf);
 }

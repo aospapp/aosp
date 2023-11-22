@@ -28,15 +28,27 @@ package org.apache.harmony.jpda.tests.jdwp.VirtualMachine;
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.jdwp.share.JDWPTestCase;
+import org.apache.harmony.jpda.tests.jdwp.share.JDWPUnitDebuggeeWrapper;
 
 
 /**
  * JDWP Unit test for VirtualMachine.Exit command.
  */
 public class ExitTest extends JDWPTestCase {
+    /**
+     * The exit code for this test.
+     */
+    private static final int EXIT_CODE = 99;
 
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.share.debuggee.SimpleHelloWorld";
+    }
+
+    @Override
+    protected void beforeDebuggeeStart() {
+        // Indicate that we expect the debuggee to exit with a particular code.
+        debuggeeWrapper.setExpectedExitCode(EXIT_CODE);
+        super.beforeDebuggeeStart();
     }
 
     /**
@@ -50,7 +62,7 @@ public class ExitTest extends JDWPTestCase {
         CommandPacket packet = new CommandPacket(
                 JDWPCommands.VirtualMachineCommandSet.CommandSetID,
                 JDWPCommands.VirtualMachineCommandSet.ExitCommand);
-        packet.setNextValueAsInt(99);
+        packet.setNextValueAsInt(EXIT_CODE);
 
         debuggeeWrapper.vmMirror.performCommand(packet);
 

@@ -21,6 +21,7 @@
 #include <iterator>
 
 #include "base/bit_utils.h"
+#include "globals.h"
 
 namespace art {
 
@@ -109,6 +110,20 @@ class BitVector {
    private:
     const BitVector* const bit_vector_;
   };
+
+  // MoveConstructible but not MoveAssignable, CopyConstructible or CopyAssignable.
+
+  BitVector(const BitVector& other) = delete;
+  BitVector& operator=(const BitVector& other) = delete;
+
+  BitVector(BitVector&& other)
+      : storage_(other.storage_),
+        storage_size_(other.storage_size_),
+        allocator_(other.allocator_),
+        expandable_(other.expandable_) {
+    other.storage_ = nullptr;
+    other.storage_size_ = 0u;
+  }
 
   BitVector(uint32_t start_bits,
             bool expandable,
@@ -228,6 +243,11 @@ class BitVector {
    */
   int GetHighestBitSet() const;
 
+  // Minimum number of bits required to store this vector, 0 if none are set.
+  size_t GetNumberOfBits() const {
+    return GetHighestBitSet() + 1;
+  }
+
   // Is bit set in storage. (No range check.)
   static bool IsBitSet(const uint32_t* storage, uint32_t idx) {
     return (storage[WordIndex(idx)] & BitMask(idx)) != 0;
@@ -235,6 +255,19 @@ class BitVector {
 
   // Number of bits set in range [0, end) in storage. (No range check.)
   static uint32_t NumSetBits(const uint32_t* storage, uint32_t end);
+
+  // Fill given memory region with the contents of the vector and zero padding.
+  void CopyTo(void* dst, size_t len) const {
+    DCHECK_LE(static_cast<size_t>(GetHighestBitSet() + 1), len * kBitsPerByte);
+    size_t vec_len = GetSizeOf();
+    if (vec_len < len) {
+      void* dst_padding = reinterpret_cast<uint8_t*>(dst) + vec_len;
+      memcpy(dst, storage_, vec_len);
+      memset(dst_padding, 0, len - vec_len);
+    } else {
+      memcpy(dst, storage_, len);
+    }
+  }
 
   void Dump(std::ostream& os, const char* prefix) const;
 

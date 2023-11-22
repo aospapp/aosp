@@ -24,20 +24,13 @@ public:
     /** Construct a 2D transformation image filter.
      *  @param transform    The matrix to apply when drawing the src bitmap
      *  @param filterLevel  The quality of filtering to apply when scaling.
-     *  @param input        The input image filter.  If NULL, the src bitmap
+     *  @param input        The input image filter.  If nullptr, the src bitmap
      *                      passed to filterImage() is used instead.
      */
 
     static SkMatrixImageFilter* Create(const SkMatrix& transform,
                                        SkFilterQuality,
-                                       SkImageFilter* input = NULL);
-#ifdef SK_SUPPORT_LEGACY_FILTERLEVEL_ENUM
-    static SkMatrixImageFilter* Create(const SkMatrix& transform,
-                                       SkPaint::FilterLevel level,
-                                       SkImageFilter* input = NULL) {
-        return Create(transform, SkFilterQuality(level), input);
-    }
-#endif
+                                       SkImageFilter* input = nullptr);
     virtual ~SkMatrixImageFilter();
 
     void computeFastBounds(const SkRect&, SkRect*) const override;
@@ -51,10 +44,10 @@ protected:
                         SkImageFilter* input);
     void flatten(SkWriteBuffer&) const override;
 
-    virtual bool onFilterImage(Proxy*, const SkBitmap& src, const Context&,
-                               SkBitmap* result, SkIPoint* loc) const override;
-    virtual bool onFilterBounds(const SkIRect& src, const SkMatrix&,
-                                SkIRect* dst) const override;
+    bool onFilterImageDeprecated(Proxy*, const SkBitmap& src, const Context&,
+                                 SkBitmap* result, SkIPoint* loc) const override;
+    void onFilterNodeBounds(const SkIRect& src, const SkMatrix&,
+                            SkIRect* dst, MapDirection) const override;
 
 private:
     SkMatrix              fTransform;

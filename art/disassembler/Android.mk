@@ -59,12 +59,13 @@ define build-libart-disassembler
   LOCAL_SRC_FILES := $$(LIBART_DISASSEMBLER_SRC_FILES)
 
   ifeq ($$(art_target_or_host),target)
-  	$(call set-target-local-clang-vars)
-  	$(call set-target-local-cflags-vars,$(2))
+    $(call set-target-local-clang-vars)
+    $(call set-target-local-cflags-vars,$(2))
   else # host
     LOCAL_CLANG := $(ART_HOST_CLANG)
     LOCAL_LDLIBS := $(ART_HOST_LDLIBS)
     LOCAL_CFLAGS += $(ART_HOST_CFLAGS)
+    LOCAL_ASFLAGS += $(ART_HOST_ASFLAGS)
     ifeq ($$(art_ndebug_or_debug),debug)
       LOCAL_CFLAGS += $(ART_HOST_DEBUG_CFLAGS)
     else
@@ -88,7 +89,7 @@ define build-libart-disassembler
   LOCAL_NATIVE_COVERAGE := $(ART_COVERAGE)
   # For disassembler_arm64.
   ifeq ($$(art_ndebug_or_debug),debug)
-     LOCAL_SHARED_LIBRARIES += libvixld
+     LOCAL_SHARED_LIBRARIES += libvixl
   else
      LOCAL_SHARED_LIBRARIES += libvixl
   endif

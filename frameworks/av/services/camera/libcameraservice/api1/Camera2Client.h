@@ -24,7 +24,7 @@
 #include "api1/client2/FrameProcessor.h"
 //#include "api1/client2/StreamingProcessor.h"
 //#include "api1/client2/JpegProcessor.h"
-//#include "api1/client2/ZslProcessorInterface.h"
+//#include "api1/client2/ZslProcessor.h"
 //#include "api1/client2/CaptureSequencer.h"
 //#include "api1/client2/CallbackProcessor.h"
 
@@ -34,7 +34,7 @@ namespace camera2 {
 
 class StreamingProcessor;
 class JpegProcessor;
-class ZslProcessorInterface;
+class ZslProcessor;
 class CaptureSequencer;
 class CallbackProcessor;
 
@@ -43,7 +43,7 @@ class CallbackProcessor;
 class IMemory;
 /**
  * Interface between android.hardware.Camera API and Camera HAL device for versions
- * CAMERA_DEVICE_API_VERSION_2_0 and 3_0.
+ * CAMERA_DEVICE_API_VERSION_3_0 and above.
  */
 class Camera2Client :
         public Camera2ClientBase<CameraService::Client>
@@ -53,8 +53,8 @@ public:
      * ICamera interface (see ICamera for details)
      */
 
-    virtual void            disconnect();
-    virtual status_t        connect(const sp<ICameraClient>& client);
+    virtual binder::Status  disconnect();
+    virtual status_t        connect(const sp<hardware::ICameraClient>& client);
     virtual status_t        lock();
     virtual status_t        unlock();
     virtual status_t        setPreviewTarget(
@@ -66,26 +66,28 @@ public:
     virtual status_t        startPreview();
     virtual void            stopPreview();
     virtual bool            previewEnabled();
-    virtual status_t        storeMetaDataInBuffers(bool enabled);
+    virtual status_t        setVideoBufferMode(int32_t videoBufferMode);
     virtual status_t        startRecording();
     virtual void            stopRecording();
     virtual bool            recordingEnabled();
     virtual void            releaseRecordingFrame(const sp<IMemory>& mem);
+    virtual void            releaseRecordingFrameHandle(native_handle_t *handle);
     virtual status_t        autoFocus();
     virtual status_t        cancelAutoFocus();
     virtual status_t        takePicture(int msgType);
     virtual status_t        setParameters(const String8& params);
     virtual String8         getParameters() const;
     virtual status_t        sendCommand(int32_t cmd, int32_t arg1, int32_t arg2);
-    virtual void            notifyError(ICameraDeviceCallbacks::CameraErrorCode errorCode,
+    virtual void            notifyError(int32_t errorCode,
                                         const CaptureResultExtras& resultExtras);
+    virtual status_t        setVideoTarget(const sp<IGraphicBufferProducer>& bufferProducer);
 
     /**
      * Interface used by CameraService
      */
 
     Camera2Client(const sp<CameraService>& cameraService,
-            const sp<ICameraClient>& cameraClient,
+            const sp<hardware::ICameraClient>& cameraClient,
             const String16& clientPackageName,
             int cameraId,
             int cameraFacing,
@@ -99,6 +101,8 @@ public:
     status_t initialize(CameraModule *module);
 
     virtual status_t dump(int fd, const Vector<String16>& args);
+
+    virtual status_t dumpClient(int fd, const Vector<String16>& args);
 
     /**
      * Interface used by CameraDeviceBase
@@ -194,6 +198,7 @@ private:
     /* Preview/Recording related members */
 
     sp<IBinder> mPreviewSurface;
+    sp<IBinder> mVideoSurface;
     sp<camera2::StreamingProcessor> mStreamingProcessor;
 
     /** Preview callback related members */
@@ -204,12 +209,7 @@ private:
 
     sp<camera2::CaptureSequencer> mCaptureSequencer;
     sp<camera2::JpegProcessor> mJpegProcessor;
-    sp<camera2::ZslProcessorInterface> mZslProcessor;
-    sp<Thread> mZslProcessorThread;
-
-    /** Notification-related members */
-
-    bool mAfInMotion;
+    sp<camera2::ZslProcessor> mZslProcessor;
 
     /** Utility members */
     bool mLegacyMode;

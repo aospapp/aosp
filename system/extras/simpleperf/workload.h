@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-#include <base/macros.h>
+#include <android-base/macros.h>
 
 class Workload {
  private:
@@ -30,24 +30,14 @@ class Workload {
     NotYetCreateNewProcess,
     NotYetStartNewProcess,
     Started,
-    Finished,
   };
 
  public:
   static std::unique_ptr<Workload> CreateWorkload(const std::vector<std::string>& args);
 
-  ~Workload() {
-    if (start_signal_fd_ != -1) {
-      close(start_signal_fd_);
-    }
-    if (exec_child_fd_ != -1) {
-      close(exec_child_fd_);
-    }
-  }
+  ~Workload();
 
   bool Start();
-  bool IsFinished();
-  void WaitFinish();
   pid_t GetPid() {
     return work_pid_;
   }
@@ -62,7 +52,7 @@ class Workload {
   }
 
   bool CreateNewProcess();
-  void WaitChildProcess(bool no_hang);
+  bool WaitChildProcess(bool wait_forever);
 
   WorkState work_state_;
   std::vector<std::string> args_;

@@ -68,9 +68,12 @@ template<typename T> ART_FRIEND_TEST(test_set_name, individual_test)
   DISALLOW_COPY_AND_ASSIGN(TypeName)
 
 // A macro to disallow new and delete operators for a class. It goes in the private: declarations.
+// NOTE: Providing placement new (and matching delete) for constructing container elements.
 #define DISALLOW_ALLOCATION() \
   public: \
     NO_RETURN ALWAYS_INLINE void operator delete(void*, size_t) { UNREACHABLE(); } \
+    ALWAYS_INLINE void* operator new(size_t, void* ptr) noexcept { return ptr; } \
+    ALWAYS_INLINE void operator delete(void*, void*) noexcept { } \
   private: \
     void* operator new(size_t) = delete
 
@@ -135,10 +138,10 @@ char (&ArraySizeHelper(T (&array)[N]))[N];
 #define SIZEOF_MEMBER(t, f) sizeof((reinterpret_cast<t*>(4096))->f)
 
 #define OFFSETOF_MEMBER(t, f) \
-  (reinterpret_cast<const char*>(&reinterpret_cast<t*>(16)->f) - reinterpret_cast<const char*>(16)) // NOLINT
+  (reinterpret_cast<uintptr_t>(&reinterpret_cast<t*>(16)->f) - static_cast<uintptr_t>(16u)) // NOLINT
 
-#define OFFSETOF_VOLATILE_MEMBER(t, f) \
-  (reinterpret_cast<volatile char*>(&reinterpret_cast<t*>(16)->f) - reinterpret_cast<volatile char*>(16)) // NOLINT
+#define OFFSETOF_MEMBERPTR(t, f) \
+  (reinterpret_cast<uintptr_t>(&(reinterpret_cast<t*>(16)->*f)) - static_cast<uintptr_t>(16)) // NOLINT
 
 #define PACKED(x) __attribute__ ((__aligned__(x), __packed__))
 
@@ -244,18 +247,14 @@ template<typename... T> void UNUSED(const T&...) {}
 
 #define ACQUIRED_AFTER(...) THREAD_ANNOTATION_ATTRIBUTE__(acquired_after(__VA_ARGS__))
 #define ACQUIRED_BEFORE(...) THREAD_ANNOTATION_ATTRIBUTE__(acquired_before(__VA_ARGS__))
-#define EXCLUSIVE_LOCKS_REQUIRED(...) THREAD_ANNOTATION_ATTRIBUTE__(exclusive_locks_required(__VA_ARGS__))
 #define GUARDED_BY(x) THREAD_ANNOTATION_ATTRIBUTE__(guarded_by(x))
 #define GUARDED_VAR THREAD_ANNOTATION_ATTRIBUTE__(guarded)
-#define LOCKABLE THREAD_ANNOTATION_ATTRIBUTE__(lockable)
 #define LOCK_RETURNED(x) THREAD_ANNOTATION_ATTRIBUTE__(lock_returned(x))
-#define LOCKS_EXCLUDED(...) THREAD_ANNOTATION_ATTRIBUTE__(locks_excluded(__VA_ARGS__))
 #define NO_THREAD_SAFETY_ANALYSIS THREAD_ANNOTATION_ATTRIBUTE__(no_thread_safety_analysis)
 #define PT_GUARDED_BY(x)
 // THREAD_ANNOTATION_ATTRIBUTE__(point_to_guarded_by(x))
 #define PT_GUARDED_VAR THREAD_ANNOTATION_ATTRIBUTE__(point_to_guarded)
 #define SCOPED_LOCKABLE THREAD_ANNOTATION_ATTRIBUTE__(scoped_lockable)
-#define SHARED_LOCKS_REQUIRED(...) THREAD_ANNOTATION_ATTRIBUTE__(shared_locks_required(__VA_ARGS__))
 
 #if defined(__clang__)
 #define EXCLUSIVE_LOCK_FUNCTION(...) THREAD_ANNOTATION_ATTRIBUTE__(exclusive_lock_function(__VA_ARGS__))
@@ -263,12 +262,43 @@ template<typename... T> void UNUSED(const T&...) {}
 #define SHARED_LOCK_FUNCTION(...) THREAD_ANNOTATION_ATTRIBUTE__(shared_lock_function(__VA_ARGS__))
 #define SHARED_TRYLOCK_FUNCTION(...) THREAD_ANNOTATION_ATTRIBUTE__(shared_trylock_function(__VA_ARGS__))
 #define UNLOCK_FUNCTION(...) THREAD_ANNOTATION_ATTRIBUTE__(unlock_function(__VA_ARGS__))
+#define REQUIRES(...) THREAD_ANNOTATION_ATTRIBUTE__(requires_capability(__VA_ARGS__))
+#define SHARED_REQUIRES(...) THREAD_ANNOTATION_ATTRIBUTE__(requires_shared_capability(__VA_ARGS__))
+#define CAPABILITY(...) THREAD_ANNOTATION_ATTRIBUTE__(capability(__VA_ARGS__))
+#define SHARED_CAPABILITY(...) THREAD_ANNOTATION_ATTRIBUTE__(shared_capability(__VA_ARGS__))
+#define ASSERT_CAPABILITY(...) THREAD_ANNOTATION_ATTRIBUTE__(assert_capability(__VA_ARGS__))
+#define ASSERT_SHARED_CAPABILITY(...) THREAD_ANNOTATION_ATTRIBUTE__(assert_shared_capability(__VA_ARGS__))
+#define RETURN_CAPABILITY(...) THREAD_ANNOTATION_ATTRIBUTE__(lock_returned(__VA_ARGS__))
+#define TRY_ACQUIRE(...) THREAD_ANNOTATION_ATTRIBUTE__(try_acquire_capability(__VA_ARGS__))
+#define TRY_ACQUIRE_SHARED(...) THREAD_ANNOTATION_ATTRIBUTE__(try_acquire_shared_capability(__VA_ARGS__))
+#define ACQUIRE(...) THREAD_ANNOTATION_ATTRIBUTE__(acquire_capability(__VA_ARGS__))
+#define ACQUIRE_SHARED(...) THREAD_ANNOTATION_ATTRIBUTE__(acquire_shared_capability(__VA_ARGS__))
+#define RELEASE(...) THREAD_ANNOTATION_ATTRIBUTE__(release_capability(__VA_ARGS__))
+#define RELEASE_SHARED(...) THREAD_ANNOTATION_ATTRIBUTE__(release_shared_capability(__VA_ARGS__))
+#define SCOPED_CAPABILITY THREAD_ANNOTATION_ATTRIBUTE__(scoped_lockable)
 #else
 #define EXCLUSIVE_LOCK_FUNCTION(...) THREAD_ANNOTATION_ATTRIBUTE__(exclusive_lock(__VA_ARGS__))
 #define EXCLUSIVE_TRYLOCK_FUNCTION(...) THREAD_ANNOTATION_ATTRIBUTE__(exclusive_trylock(__VA_ARGS__))
 #define SHARED_LOCK_FUNCTION(...) THREAD_ANNOTATION_ATTRIBUTE__(shared_lock(__VA_ARGS__))
 #define SHARED_TRYLOCK_FUNCTION(...) THREAD_ANNOTATION_ATTRIBUTE__(shared_trylock(__VA_ARGS__))
 #define UNLOCK_FUNCTION(...) THREAD_ANNOTATION_ATTRIBUTE__(unlock(__VA_ARGS__))
+#define REQUIRES(...)
+#define SHARED_REQUIRES(...)
+#define CAPABILITY(...)
+#define SHARED_CAPABILITY(...)
+#define ASSERT_CAPABILITY(...)
+#define ASSERT_SHARED_CAPABILITY(...)
+#define RETURN_CAPABILITY(...)
+#define TRY_ACQUIRE(...)
+#define TRY_ACQUIRE_SHARED(...)
+#define ACQUIRE(...)
+#define ACQUIRE_SHARED(...)
+#define RELEASE(...)
+#define RELEASE_SHARED(...)
+#define SCOPED_CAPABILITY
 #endif
+
+#define LOCKABLE CAPABILITY("mutex")
+#define SHARED_LOCKABLE SHARED_CAPABILITY("mutex")
 
 #endif  // ART_RUNTIME_BASE_MACROS_H_

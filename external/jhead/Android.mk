@@ -19,7 +19,7 @@ LOCAL_PATH := $(my-dir)
 # non-jni part
 
 include $(CLEAR_VARS)
-
+LOCAL_CFLAGS := -Wno-unused-parameter
 LOCAL_SRC_FILES:= \
 	exif.c \
 	gpsinfo.c \
@@ -44,6 +44,7 @@ include $(BUILD_SHARED_LIBRARY)
 ifneq ($(TARGET_BUILD_JAVA_SUPPORT_LEVEL),)
 
 include $(CLEAR_VARS)
+LOCAL_CFLAGS := -Wno-unused-parameter
 
 LOCAL_MODULE_TAGS := optional
 

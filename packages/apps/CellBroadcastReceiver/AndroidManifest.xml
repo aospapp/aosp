@@ -33,7 +33,13 @@
 
     <application android:name="CellBroadcastReceiverApp"
             android:label="@string/app_label"
-            android:icon="@mipmap/ic_launcher_cell_broadcast">
+            android:icon="@mipmap/ic_launcher_cell_broadcast"
+            android:backupAgent="CellBroadcastBackupAgent"
+            android:defaultToDeviceProtectedStorage="true"
+            android:directBootAware="true">
+
+        <meta-data android:name="com.google.android.backup.api_key"
+            android:value="AEdPqrEAAAAI2_Lb4sDI0e0twL-kf6GIqXpZIfrR0OhnM1pNJQ" />
 
         <service android:name="CellBroadcastAlertAudio"
                  android:exported="false" />
@@ -106,18 +112,19 @@
             <intent-filter>
                 <action android:name="android.provider.Telephony.SMS_EMERGENCY_CB_RECEIVED" />
             </intent-filter>
-
             <intent-filter>
                 <action android:name="android.provider.Telephony.SMS_CB_RECEIVED" />
             </intent-filter>
-
+            <intent-filter>
+                <action android:name="android.cellbroadcastreceiver.START_CONFIG" />
+            </intent-filter>
             <intent-filter>
                 <action android:name="android.provider.Telephony.SMS_SERVICE_CATEGORY_PROGRAM_DATA_RECEIVED" />
             </intent-filter>
         </receiver>
 
         <!-- Require sender permission for querying latest area info broadcast -->
-        <receiver android:name="PrivilegedCellBroadcastReceiver"
+        <receiver android:name="CellBroadcastAreaInfoReceiver"
             android:permission="android.permission.READ_PHONE_STATE">
             <intent-filter>
                  <action android:name="android.cellbroadcastreceiver.GET_LATEST_CB_AREA_INFO" />
@@ -129,9 +136,8 @@
                  <action android:name="android.intent.action.SERVICE_STATE" />
             </intent-filter>
             <intent-filter>
-                <action android:name="android.intent.action.internal_sim_state_changed" />
+                <action android:name="android.intent.action.ACTION_DEFAULT_SMS_SUBSCRIPTION_CHANGED" />
             </intent-filter>
-
             <intent-filter>
                  <action android:name="android.intent.action.AIRPLANE_MODE" />
             </intent-filter>

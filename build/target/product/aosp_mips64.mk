@@ -13,6 +13,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-$(call inherit-product, $(SRC_TARGET_DIR)/product/full_mips64.mk)
 
+# This is a build configuration for a full-featured build of the
+# Open-Source part of the tree. It's geared toward a US-centric
+# mips64 build quite specifically for the emulator, and might not be
+# entirely appropriate to inherit from for on-device configurations.
+
+# This is for enabling ethernet support for ranchu.
+# Consider removing this after RIL support is provided in ranchu.
+PRODUCT_COPY_FILES += frameworks/native/data/etc/android.hardware.ethernet.xml:system/etc/permissions/android.hardware.ethernet.xml
+
+$(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit.mk)
+$(call inherit-product, $(SRC_TARGET_DIR)/product/aosp_base_telephony.mk)
+$(call inherit-product, $(SRC_TARGET_DIR)/board/generic_mips64/device.mk)
+
+include $(SRC_TARGET_DIR)/product/emulator.mk
+
+# Overrides
 PRODUCT_NAME := aosp_mips64
+PRODUCT_DEVICE := generic_mips64
+PRODUCT_BRAND := Android
+PRODUCT_MODEL := AOSP on MIPS64 Emulator

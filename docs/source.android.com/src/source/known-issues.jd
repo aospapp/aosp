@@ -96,7 +96,7 @@ compiler to not be a host compiler.</p>
 actions could have swapped the default compiler.</p>
 <h3 id="build-errors-caused-by-non-default-tool-settings">Build errors caused by non-default tool settings.</h3>
 <p><strong>Symptom</strong>: The build fails with various symptoms, possibly
-complinaing about missing files or files that have the
+complaining about missing files or files that have the
 wrong format. One such symptom is <code>member [...] in archive is not an object</code>.</p>
 <p><strong>Cause</strong>: The Android build system tends to use many host tools
 and to rely on their default behaviors. Some settings change
@@ -151,7 +151,7 @@ the process hangs or fails with a variety of possible symptoms.
 One such symptom is
 <code>DownloadError: HTTP 500 (Internal Server Error: Server got itself in trouble)</code>.</p>
 <p><strong>Cause</strong>: The default network behavior of VirtualBox is to use
-NAT (Network Addrss Translation) to connect the guest system to
+NAT (Network Address Translation) to connect the guest system to
 the network. The heavy network activity of repo sync triggers some
 corner cases in the NAT code.</p>
 <p><strong>Fix</strong>: Configure VirtualBox to use bridged network instead of NAT.</p>

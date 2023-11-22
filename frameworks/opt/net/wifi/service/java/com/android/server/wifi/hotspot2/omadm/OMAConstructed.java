@@ -5,25 +5,30 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
 public class OMAConstructed extends OMANode {
-    private final Map<String, OMANode> mChildren;
+    private final MultiValueMap<OMANode> mChildren;
 
-    public OMAConstructed(OMANode parent, String name, String context) {
-        super(parent, name, context);
-        mChildren = new HashMap<>();
+    public OMAConstructed(OMAConstructed parent, String name, String context, String ... avps) {
+        this(parent, name, context, new MultiValueMap<OMANode>(), buildAttributes(avps));
+    }
+
+    protected OMAConstructed(OMAConstructed parent, String name, String context,
+                           MultiValueMap<OMANode> children, Map<String, String> avps) {
+        super(parent, name, context, avps);
+        mChildren = children;
     }
 
     @Override
-    public OMANode addChild(String name, String context, String value, String pathString) throws IOException {
+    public OMANode addChild(String name, String context, String value, String pathString)
+            throws IOException {
         if (pathString == null) {
             OMANode child = value != null ?
                     new OMAScalar(this, name, context, value) :
                     new OMAConstructed(this, name, context);
-            mChildren.put(name.toLowerCase(), child);
+            mChildren.put(name, child);
             return child;
         } else {
             OMANode target = this;
@@ -41,12 +46,21 @@ public class OMAConstructed extends OMANode {
         }
     }
 
+    @Override
+    public OMAConstructed reparent(OMAConstructed parent) {
+        return new OMAConstructed(parent, getName(), getContext(), mChildren, getAttributes());
+    }
+
+    public void addChild(OMANode child) {
+        mChildren.put(child.getName(), child.reparent(this));
+    }
+
     public String getScalarValue(Iterator<String> path) throws OMAException {
         if (!path.hasNext()) {
             throw new OMAException("Path too short for " + getPathString());
         }
         String tag = path.next();
-        OMANode child = mChildren.get(tag.toLowerCase());
+        OMANode child = mChildren.get(tag);
         if (child != null) {
             return child.getScalarValue(path);
         } else {
@@ -55,16 +69,26 @@ public class OMAConstructed extends OMANode {
     }
 
     @Override
-    public OMAConstructed getListValue(Iterator<String> path) throws OMAException {
+    public OMANode getListValue(Iterator<String> path) throws OMAException {
         if (!path.hasNext()) {
-            return this;
+            return null;
         }
         String tag = path.next();
-        OMANode child = mChildren.get(tag.toLowerCase());
-        if (child != null) {
+        OMANode child;
+        if (tag.equals("?")) {
+            child = mChildren.getSingletonValue();
+        }
+        else {
+            child = mChildren.get(tag);
+        }
+
+        if (child == null) {
+            return null;
+        }
+        else if (path.hasNext()) {
             return child.getListValue(path);
         } else {
-            return null;
+            return child;
         }
     }
 
@@ -79,7 +103,20 @@ public class OMAConstructed extends OMANode {
     }
 
     public OMANode getChild(String name) {
-        return mChildren.get(name.toLowerCase());
+        return mChildren.get(name);
+    }
+
+    public OMANode replaceNode(OMANode oldNode, OMANode newNode) {
+        return mChildren.replace(oldNode.getName(), oldNode, newNode);
+    }
+
+    public OMANode removeNode(String key, OMANode node) {
+        if (key.equals("?")) {
+            return mChildren.remove(node);
+        }
+        else {
+            return mChildren.remove(key, node);
+        }
     }
 
     @Override
@@ -114,5 +151,22 @@ public class OMAConstructed extends OMANode {
         }
         OMAConstants.indent(level, out);
         out.write(".\n".getBytes(StandardCharsets.UTF_8));
+    }
+
+    @Override
+    public void fillPayload(StringBuilder sb) {
+        if (getContext() != null) {
+            sb.append('<').append(MOTree.RTPropTag).append(">\n");
+            sb.append('<').append(MOTree.TypeTag).append(">\n");
+            sb.append('<').append(MOTree.DDFNameTag).append(">");
+            sb.append(getContext());
+            sb.append("</").append(MOTree.DDFNameTag).append(">\n");
+            sb.append("</").append(MOTree.TypeTag).append(">\n");
+            sb.append("</").append(MOTree.RTPropTag).append(">\n");
+        }
+
+        for (OMANode child : getChildren()) {
+            child.toXml(sb);
+        }
     }
 }

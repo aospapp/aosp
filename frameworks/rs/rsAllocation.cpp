@@ -16,7 +16,6 @@
 
 #include "rsContext.h"
 #include "rsAllocation.h"
-#include "rsAdapter.h"
 #include "rs_hal.h"
 
 #if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB)
@@ -60,8 +59,9 @@ void Allocation::operator delete(void* ptr) {
     }
 }
 
-Allocation * Allocation::createAllocation(Context *rsc, const Type *type, uint32_t usages,
-                              RsAllocationMipmapControl mc, void * ptr) {
+Allocation * Allocation::createAllocationStrided(Context *rsc, const Type *type, uint32_t usages,
+                                                 RsAllocationMipmapControl mc, void * ptr,
+                                                 size_t requiredAlignment) {
     // Allocation objects must use allocator specified by the driver
     void* allocMem = rsc->mHal.funcs.allocRuntimeMem(sizeof(Allocation), 0);
 
@@ -80,6 +80,11 @@ Allocation * Allocation::createAllocation(Context *rsc, const Type *type, uint32
             rsc->setError(RS_ERROR_FATAL_DRIVER, "Allocation Init called with USAGE_OEM but driver does not support it");
             return nullptr;
         }
+#ifdef RS_COMPATIBILITY_LIB
+    } else if (usages & RS_ALLOCATION_USAGE_INCREMENTAL_SUPPORT){
+        a = new (allocMem) Allocation(rsc, type, usages, mc, ptr);
+        success = rsc->mHal.funcs.allocation.initStrided(rsc, a, type->getElement()->getHasReferences(), requiredAlignment);
+#endif
     } else {
         a = new (allocMem) Allocation(rsc, type, usages, mc, ptr);
         success = rsc->mHal.funcs.allocation.init(rsc, a, type->getElement()->getHasReferences());
@@ -92,6 +97,11 @@ Allocation * Allocation::createAllocation(Context *rsc, const Type *type, uint32
     }
 
     return a;
+}
+
+Allocation * Allocation::createAllocation(Context *rsc, const Type *type, uint32_t usages,
+                              RsAllocationMipmapControl mc, void * ptr) {
+    return Allocation::createAllocationStrided(rsc, type, usages, mc, ptr, kMinimumRSAlignment);
 }
 
 Allocation * Allocation::createAdapter(Context *rsc, const Allocation *alloc, const Type *type) {
@@ -144,7 +154,7 @@ void Allocation::updateCache() {
 Allocation::~Allocation() {
 #if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB)
     if (mGrallocConsumer.get()) {
-        mGrallocConsumer->unlockBuffer();
+        mGrallocConsumer->releaseIdx(mCurrentIdx);
         mGrallocConsumer = nullptr;
     }
 #endif
@@ -567,32 +577,82 @@ void Allocation::resize2D(Context *rsc, uint32_t dimX, uint32_t dimY) {
 }
 
 #ifndef RS_COMPATIBILITY_LIB
+Allocation::NewBufferListener::NewBufferListener(uint32_t numAlloc) {
+    alloc = new const Allocation *[numAlloc];
+    mNumAlloc = numAlloc;
+    for (uint32_t i = 0; i < numAlloc; i++) {
+        alloc[i] = nullptr;
+    }
+}
+
+Allocation::NewBufferListener::~NewBufferListener() {
+    delete[] alloc;
+}
+
 void Allocation::NewBufferListener::onFrameAvailable(const BufferItem& /* item */) {
-    intptr_t ip = (intptr_t)alloc;
-    rsc->sendMessageToClient(&ip, RS_MESSAGE_TO_CLIENT_NEW_BUFFER, 0, sizeof(ip), true);
+    for (uint32_t i = 0; i < mNumAlloc; i++) {
+        if (alloc[i] != nullptr) {
+            intptr_t ip = (intptr_t)alloc[i];
+            rsc->sendMessageToClient(&ip, RS_MESSAGE_TO_CLIENT_NEW_BUFFER, 0, sizeof(ip), true);
+        }
+    }
 }
 #endif
+
+void Allocation::setupGrallocConsumer(const Context *rsc, uint32_t numAlloc) {
+#ifndef RS_COMPATIBILITY_LIB
+    // Configure GrallocConsumer to be in asynchronous mode
+    if (numAlloc > MAX_NUM_ALLOC || numAlloc <= 0) {
+        rsc->setError(RS_ERROR_FATAL_DRIVER, "resize2d not implemented");
+        return;
+    }
+    sp<IGraphicBufferConsumer> bc;
+    BufferQueue::createBufferQueue(&mGraphicBufferProducer, &bc);
+    mGrallocConsumer = new GrallocConsumer(this, bc, mHal.drvState.grallocFlags, numAlloc);
+
+    mBufferListener = new NewBufferListener(numAlloc);
+    mBufferListener->rsc = rsc;
+    mBufferListener->alloc[0] = this;
+    mCurrentIdx = 0;
+    mBufferQueueInited = true;
+
+    mGrallocConsumer->setFrameAvailableListener(mBufferListener);
+#endif
+}
 
 void * Allocation::getSurface(const Context *rsc) {
 #ifndef RS_COMPATIBILITY_LIB
     // Configure GrallocConsumer to be in asynchronous mode
-    sp<IGraphicBufferProducer> bp;
-    sp<IGraphicBufferConsumer> bc;
-    BufferQueue::createBufferQueue(&bp, &bc);
-    mGrallocConsumer = new GrallocConsumer(this, bc, mHal.drvState.grallocFlags);
-    bp->incStrong(nullptr);
-
-    mBufferListener = new NewBufferListener();
-    mBufferListener->rsc = rsc;
-    mBufferListener->alloc = this;
-
-    mGrallocConsumer->setFrameAvailableListener(mBufferListener);
-    return bp.get();
+    if (!mBufferQueueInited) {
+        // This case is only used for single frame processing,
+        // since we will always call setupGrallocConsumer first in
+        // multi-frame case.
+        setupGrallocConsumer(rsc, 1);
+    }
+    mGraphicBufferProducer->incStrong(nullptr);
+    return mGraphicBufferProducer.get();
 #else
     return nullptr;
 #endif
     //return rsc->mHal.funcs.allocation.getSurface(rsc, this);
 }
+
+void Allocation::shareBufferQueue(const Context *rsc, const Allocation *alloc) {
+#ifndef RS_COMPATIBILITY_LIB
+    mGrallocConsumer = alloc->mGrallocConsumer;
+    mCurrentIdx = mGrallocConsumer->getNextAvailableIdx(this);
+    if (mCurrentIdx >= mGrallocConsumer->mNumAlloc) {
+        rsc->setError(RS_ERROR_DRIVER, "Maximum allocations attached to a BufferQueue");
+        return;
+    }
+
+    mGraphicBufferProducer = alloc->mGraphicBufferProducer;
+    mBufferListener = alloc->mBufferListener;
+    mBufferListener->alloc[mCurrentIdx] = this;
+    mBufferQueueInited = true;
+#endif
+}
+
 
 void Allocation::setSurface(const Context *rsc, RsNativeWindow sur) {
     ANativeWindow *nw = (ANativeWindow *)sur;
@@ -608,7 +668,7 @@ void Allocation::ioReceive(const Context *rsc) {
     size_t stride = 0;
 #ifndef RS_COMPATIBILITY_LIB
     if (mHal.state.usageFlags & RS_ALLOCATION_USAGE_SCRIPT) {
-        status_t ret = mGrallocConsumer->lockNextBuffer();
+        status_t ret = mGrallocConsumer->lockNextBuffer(mCurrentIdx);
 
         if (ret == OK) {
             rsc->mHal.funcs.allocation.ioReceive(rsc, this);
@@ -727,6 +787,19 @@ RsAllocation rsi_AllocationCreateTyped(Context *rsc, RsType vtype,
     return alloc;
 }
 
+RsAllocation rsi_AllocationCreateStrided(Context *rsc, RsType vtype,
+                                         RsAllocationMipmapControl mipmaps,
+                                         uint32_t usages, uintptr_t ptr,
+                                         size_t requiredAlignment) {
+    Allocation * alloc = Allocation::createAllocationStrided(rsc, static_cast<Type *>(vtype), usages, mipmaps,
+                                                             (void*)ptr, requiredAlignment);
+    if (!alloc) {
+        return nullptr;
+    }
+    alloc->incUserRef();
+    return alloc;
+}
+
 RsAllocation rsi_AllocationCreateFromBitmap(Context *rsc, RsType vtype,
                                             RsAllocationMipmapControl mipmaps,
                                             const void *data, size_t sizeBytes, uint32_t usages) {
@@ -819,11 +892,21 @@ void rsi_AllocationCopy3DRange(Context *rsc,
                                            src, srcXoff, srcYoff, srcZoff, srcMip);
 }
 
+void rsi_AllocationSetupBufferQueue(Context *rsc, RsAllocation valloc, uint32_t numAlloc) {
+    Allocation *alloc = static_cast<Allocation *>(valloc);
+    alloc->setupGrallocConsumer(rsc, numAlloc);
+}
 
 void * rsi_AllocationGetSurface(Context *rsc, RsAllocation valloc) {
     Allocation *alloc = static_cast<Allocation *>(valloc);
     void *s = alloc->getSurface(rsc);
     return s;
+}
+
+void rsi_AllocationShareBufferQueue(Context *rsc, RsAllocation valloc1, RsAllocation valloc2) {
+    Allocation *alloc1 = static_cast<Allocation *>(valloc1);
+    Allocation *alloc2 = static_cast<Allocation *>(valloc2);
+    alloc1->shareBufferQueue(rsc, alloc2);
 }
 
 void rsi_AllocationSetSurface(Context *rsc, RsAllocation valloc, RsNativeWindow sur) {
@@ -836,9 +919,10 @@ void rsi_AllocationIoSend(Context *rsc, RsAllocation valloc) {
     alloc->ioSend(rsc);
 }
 
-void rsi_AllocationIoReceive(Context *rsc, RsAllocation valloc) {
+int64_t rsi_AllocationIoReceive(Context *rsc, RsAllocation valloc) {
     Allocation *alloc = static_cast<Allocation *>(valloc);
     alloc->ioReceive(rsc);
+    return alloc->getTimeStamp();
 }
 
 void *rsi_AllocationGetPointer(Context *rsc, RsAllocation valloc,
@@ -896,11 +980,4 @@ void rsi_AllocationAdapterOffset(Context *rsc, RsAllocation va, const uint32_t *
 
 
 }
-}
-
-extern "C" const void * rsaAllocationGetType(RsContext con, RsAllocation va) {
-    Allocation *a = static_cast<Allocation *>(va);
-    a->getType()->incUserRef();
-
-    return a->getType();
 }

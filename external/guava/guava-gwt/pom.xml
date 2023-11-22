@@ -5,7 +5,7 @@
   <parent>
     <groupId>com.google.guava</groupId>
     <artifactId>guava-parent</artifactId>
-    <version>17.0-SNAPSHOT</version>
+    <version>18.0</version>
   </parent>
   <artifactId>guava-gwt</artifactId>
   <name>Guava GWT compatible libs</name>
@@ -17,7 +17,8 @@
     This project includes GWT-friendly sources.
   </description>
   <properties>
-    <gwt.version>2.5.0-rc1</gwt.version>
+    <gwt.test.include>**/GwtTestSuite.java</gwt.test.include>
+    <gwt.version>2.6.1</gwt.version>
   </properties>
   <dependencies>
     <!-- GWT requires a library's transitive dependencies to be present when
@@ -66,7 +67,7 @@
       <scope>provided</scope>
     </dependency>
     <dependency>
-      <groupId>org.truth0</groupId>
+      <groupId>com.google.truth</groupId>
       <artifactId>truth</artifactId>
       <version>${truth.version}</version>
       <classifier>gwt</classifier>
@@ -240,7 +241,7 @@
             <configuration>
               <module>com.google.common.GuavaTests</module>
               <strict>true</strict>
-              <includes>**/GwtTestSuite.java</includes>
+              <includes>${gwt.test.include}</includes>
               <mode>htmlunit</mode>
               <testTimeOut>600</testTimeOut>
               <extraJvmArgs>-Xms3500m -Xmx3500m -Xss1024k</extraJvmArgs>

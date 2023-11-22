@@ -26,16 +26,16 @@
 #include "garbage_collector.h"
 #include "gc_root.h"
 #include "gc/accounting/heap_bitmap.h"
-#include "immune_region.h"
+#include "immune_spaces.h"
 #include "object_callbacks.h"
 #include "offsets.h"
 
 namespace art {
 
 namespace mirror {
-  class Class;
-  class Object;
-  class Reference;
+class Class;
+class Object;
+class Reference;
 }  // namespace mirror
 
 class Thread;
@@ -46,27 +46,28 @@ namespace gc {
 class Heap;
 
 namespace accounting {
-  template<typename T> class AtomicStack;
-  typedef AtomicStack<mirror::Object> ObjectStack;
+template<typename T> class AtomicStack;
+typedef AtomicStack<mirror::Object> ObjectStack;
 }  // namespace accounting
 
 namespace collector {
 
 class MarkSweep : public GarbageCollector {
  public:
-  explicit MarkSweep(Heap* heap, bool is_concurrent, const std::string& name_prefix = "");
+  MarkSweep(Heap* heap, bool is_concurrent, const std::string& name_prefix = "");
 
   ~MarkSweep() {}
 
-  virtual void RunPhases() OVERRIDE NO_THREAD_SAFETY_ANALYSIS;
+  virtual void RunPhases() OVERRIDE REQUIRES(!mark_stack_lock_);
   void InitializePhase();
-  void MarkingPhase() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
-  void PausePhase() EXCLUSIVE_LOCKS_REQUIRED(Locks::mutator_lock_);
-  void ReclaimPhase() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
-  void FinishPhase() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  void MarkingPhase() REQUIRES(!mark_stack_lock_) SHARED_REQUIRES(Locks::mutator_lock_);
+  void PausePhase() REQUIRES(Locks::mutator_lock_) REQUIRES(!mark_stack_lock_);
+  void ReclaimPhase() REQUIRES(!mark_stack_lock_) SHARED_REQUIRES(Locks::mutator_lock_);
+  void FinishPhase();
   virtual void MarkReachableObjects()
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_);
+      REQUIRES(Locks::heap_bitmap_lock_)
+      REQUIRES(!mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   bool IsConcurrent() const {
     return is_concurrent_;
@@ -84,125 +85,140 @@ class MarkSweep : public GarbageCollector {
   void Init();
 
   // Find the default mark bitmap.
-  void FindDefaultSpaceBitmap();
+  void FindDefaultSpaceBitmap() SHARED_REQUIRES(Locks::mutator_lock_);
 
   // Marks all objects in the root set at the start of a garbage collection.
   void MarkRoots(Thread* self)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      REQUIRES(Locks::heap_bitmap_lock_)
+      REQUIRES(!mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   void MarkNonThreadRoots()
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      REQUIRES(Locks::heap_bitmap_lock_)
+      REQUIRES(!mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   void MarkConcurrentRoots(VisitRootFlags flags)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      REQUIRES(Locks::heap_bitmap_lock_)
+      REQUIRES(!mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   void MarkRootsCheckpoint(Thread* self, bool revoke_ros_alloc_thread_local_buffers_at_checkpoint)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      REQUIRES(Locks::heap_bitmap_lock_)
+      REQUIRES(!mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   // Builds a mark stack and recursively mark until it empties.
   void RecursiveMark()
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      REQUIRES(Locks::heap_bitmap_lock_)
+      REQUIRES(!mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   // Bind the live bits to the mark bits of bitmaps for spaces that are never collected, ie
   // the image. Mark that portion of the heap as immune.
-  virtual void BindBitmaps() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  virtual void BindBitmaps() SHARED_REQUIRES(Locks::mutator_lock_);
 
   // Builds a mark stack with objects on dirty cards and recursively mark until it empties.
   void RecursiveMarkDirtyObjects(bool paused, uint8_t minimum_age)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      REQUIRES(Locks::heap_bitmap_lock_)
+      REQUIRES(!mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   // Remarks the root set after completing the concurrent mark.
   void ReMarkRoots()
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      REQUIRES(Locks::heap_bitmap_lock_)
+      REQUIRES(!mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   void ProcessReferences(Thread* self)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      REQUIRES(!mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   // Update and mark references from immune spaces.
   void UpdateAndMarkModUnion()
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      REQUIRES(!mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   // Pre clean cards to reduce how much work is needed in the pause.
   void PreCleanCards()
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      REQUIRES(Locks::heap_bitmap_lock_)
+      REQUIRES(!mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   // Sweeps unmarked objects to complete the garbage collection. Virtual as by default it sweeps
   // all allocation spaces. Partial and sticky GCs want to just sweep a subset of the heap.
-  virtual void Sweep(bool swap_bitmaps) EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  virtual void Sweep(bool swap_bitmaps)
+      REQUIRES(Locks::heap_bitmap_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   // Sweeps unmarked objects to complete the garbage collection.
-  void SweepLargeObjects(bool swap_bitmaps) EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_);
+  void SweepLargeObjects(bool swap_bitmaps) REQUIRES(Locks::heap_bitmap_lock_);
 
   // Sweep only pointers within an array. WARNING: Trashes objects.
   void SweepArray(accounting::ObjectStack* allocation_stack_, bool swap_bitmaps)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_);
+      REQUIRES(Locks::heap_bitmap_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   // Blackens an object.
   void ScanObject(mirror::Object* obj)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      REQUIRES(Locks::heap_bitmap_lock_)
+      REQUIRES(!mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   // No thread safety analysis due to lambdas.
   template<typename MarkVisitor, typename ReferenceVisitor>
-  void ScanObjectVisit(mirror::Object* obj, const MarkVisitor& visitor,
+  void ScanObjectVisit(mirror::Object* obj,
+                       const MarkVisitor& visitor,
                        const ReferenceVisitor& ref_visitor)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-    EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_);
+      REQUIRES(Locks::heap_bitmap_lock_)
+      REQUIRES(!mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   void SweepSystemWeaks(Thread* self)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) LOCKS_EXCLUDED(Locks::heap_bitmap_lock_);
+      REQUIRES(!Locks::heap_bitmap_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   static mirror::Object* VerifySystemWeakIsLiveCallback(mirror::Object* obj, void* arg)
-      SHARED_LOCKS_REQUIRED(Locks::heap_bitmap_lock_, Locks::mutator_lock_);
+      SHARED_REQUIRES(Locks::heap_bitmap_lock_, Locks::mutator_lock_);
 
   void VerifySystemWeaks()
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_, Locks::heap_bitmap_lock_);
+      SHARED_REQUIRES(Locks::mutator_lock_, Locks::heap_bitmap_lock_);
 
   // Verify that an object is live, either in a live bitmap or in the allocation stack.
   void VerifyIsLive(const mirror::Object* obj)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      SHARED_LOCKS_REQUIRED(Locks::heap_bitmap_lock_);
+      SHARED_REQUIRES(Locks::mutator_lock_, Locks::heap_bitmap_lock_);
 
-  static mirror::Object* MarkObjectCallback(mirror::Object* obj, void* arg)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_);
-
-  static void MarkHeapReferenceCallback(mirror::HeapReference<mirror::Object>* ref, void* arg)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_);
-
-  static bool HeapReferenceMarkedCallback(mirror::HeapReference<mirror::Object>* ref, void* arg)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_);
+  virtual bool IsMarkedHeapReference(mirror::HeapReference<mirror::Object>* ref) OVERRIDE
+      REQUIRES(Locks::heap_bitmap_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   virtual void VisitRoots(mirror::Object*** roots, size_t count, const RootInfo& info) OVERRIDE
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_);
+      REQUIRES(Locks::heap_bitmap_lock_)
+      REQUIRES(!mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
-  virtual void VisitRoots(mirror::CompressedReference<mirror::Object>** roots, size_t count,
+  virtual void VisitRoots(mirror::CompressedReference<mirror::Object>** roots,
+                          size_t count,
                           const RootInfo& info) OVERRIDE
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_);
-
-  static void ProcessMarkStackCallback(void* arg)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      REQUIRES(Locks::heap_bitmap_lock_)
+      REQUIRES(!mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   // Marks an object.
-  void MarkObject(mirror::Object* obj, mirror::Object* holder = nullptr,
-                  MemberOffset offset = MemberOffset(0))
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_);
+  virtual mirror::Object* MarkObject(mirror::Object* obj) OVERRIDE
+      REQUIRES(Locks::heap_bitmap_lock_)
+      REQUIRES(!mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
+
+  void MarkObject(mirror::Object* obj, mirror::Object* holder, MemberOffset offset)
+      REQUIRES(Locks::heap_bitmap_lock_)
+      REQUIRES(!mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
+
+  virtual void MarkHeapReference(mirror::HeapReference<mirror::Object>* ref) OVERRIDE
+      REQUIRES(Locks::heap_bitmap_lock_)
+      REQUIRES(!mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   Barrier& GetBarrier() {
     return *gc_barrier_;
@@ -210,30 +226,27 @@ class MarkSweep : public GarbageCollector {
 
   // Schedules an unmarked object for reference processing.
   void DelayReferenceReferent(mirror::Class* klass, mirror::Reference* reference)
-      SHARED_LOCKS_REQUIRED(Locks::heap_bitmap_lock_, Locks::mutator_lock_);
+      SHARED_REQUIRES(Locks::heap_bitmap_lock_, Locks::mutator_lock_);
 
  protected:
-  // Returns true if the object has its bit set in the mark bitmap.
-  bool IsMarked(const mirror::Object* object) const
-      SHARED_LOCKS_REQUIRED(Locks::heap_bitmap_lock_);
+  // Returns object if the object is marked in the heap bitmap, otherwise null.
+  virtual mirror::Object* IsMarked(mirror::Object* object) OVERRIDE
+      SHARED_REQUIRES(Locks::heap_bitmap_lock_, Locks::mutator_lock_);
 
-  static mirror::Object* IsMarkedCallback(mirror::Object* object, void* arg)
-      SHARED_LOCKS_REQUIRED(Locks::heap_bitmap_lock_);
-
-  static void VerifyImageRootVisitor(mirror::Object* root, void* arg)
-      SHARED_LOCKS_REQUIRED(Locks::heap_bitmap_lock_, Locks::mutator_lock_);
-
-  void MarkObjectNonNull(mirror::Object* obj, mirror::Object* holder = nullptr,
+  void MarkObjectNonNull(mirror::Object* obj,
+                         mirror::Object* holder = nullptr,
                          MemberOffset offset = MemberOffset(0))
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_);
+      REQUIRES(Locks::heap_bitmap_lock_)
+      REQUIRES(!mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   // Marks an object atomically, safe to use from multiple threads.
   void MarkObjectNonNullParallel(mirror::Object* obj)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      REQUIRES(!mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   // Returns true if we need to add obj to a mark stack.
-  bool MarkObjectParallel(const mirror::Object* obj) NO_THREAD_SAFETY_ANALYSIS;
+  bool MarkObjectParallel(mirror::Object* obj) NO_THREAD_SAFETY_ANALYSIS;
 
   // Verify the roots of the heap and print out information related to any invalid roots.
   // Called in MarkObject, so may we may not hold the mutator lock.
@@ -241,31 +254,47 @@ class MarkSweep : public GarbageCollector {
       NO_THREAD_SAFETY_ANALYSIS;
 
   // Expand mark stack to 2x its current size.
-  void ExpandMarkStack() EXCLUSIVE_LOCKS_REQUIRED(mark_stack_lock_)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
-  void ResizeMarkStack(size_t new_size) EXCLUSIVE_LOCKS_REQUIRED(mark_stack_lock_)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  void ExpandMarkStack()
+      REQUIRES(mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
+
+  void ResizeMarkStack(size_t new_size)
+      REQUIRES(mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   // Returns how many threads we should use for the current GC phase based on if we are paused,
   // whether or not we care about pauses.
   size_t GetThreadCount(bool paused) const;
 
   // Push a single reference on a mark stack.
-  void PushOnMarkStack(mirror::Object* obj) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  void PushOnMarkStack(mirror::Object* obj)
+      REQUIRES(!mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   // Blackens objects grayed during a garbage collection.
   void ScanGrayObjects(bool paused, uint8_t minimum_age)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      REQUIRES(Locks::heap_bitmap_lock_)
+      REQUIRES(!mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
+
+  virtual void ProcessMarkStack()
+      OVERRIDE
+      REQUIRES(Locks::heap_bitmap_lock_)
+      REQUIRES(!mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_) {
+    ProcessMarkStack(false);
+  }
 
   // Recursively blackens objects on the mark stack.
   void ProcessMarkStack(bool paused)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      REQUIRES(Locks::heap_bitmap_lock_)
+      REQUIRES(!mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   void ProcessMarkStackParallel(size_t thread_count)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      REQUIRES(Locks::heap_bitmap_lock_)
+      REQUIRES(!mark_stack_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   // Used to Get around thread safety annotations. The call is from MarkingPhase and is guarded by
   // IsExclusiveHeld.
@@ -275,7 +304,7 @@ class MarkSweep : public GarbageCollector {
   void RevokeAllThreadLocalBuffers();
 
   // Whether or not we count how many of each type of object were scanned.
-  static const bool kCountScannedTypes = false;
+  static constexpr bool kCountScannedTypes = false;
 
   // Current space, we check this space first to avoid searching for the appropriate space for an
   // object.
@@ -285,23 +314,29 @@ class MarkSweep : public GarbageCollector {
 
   accounting::ObjectStack* mark_stack_;
 
-  // Immune region, every object inside the immune range is assumed to be marked.
-  ImmuneRegion immune_region_;
+  // Every object inside the immune spaces is assumed to be marked. Immune spaces that aren't in the
+  // immune region are handled by the normal marking logic.
+  ImmuneSpaces immune_spaces_;
 
   // Parallel finger.
   AtomicInteger atomic_finger_;
+
+  AtomicInteger no_reference_class_count_;
+  AtomicInteger normal_count_;
   // Number of classes scanned, if kCountScannedTypes.
   AtomicInteger class_count_;
-  // Number of arrays scanned, if kCountScannedTypes.
-  AtomicInteger array_count_;
+  // Number of object arrays scanned, if kCountScannedTypes.
+  AtomicInteger object_array_count_;
   // Number of non-class/arrays scanned, if kCountScannedTypes.
   AtomicInteger other_count_;
+  // Number of java.lang.ref.Reference instances.
+  AtomicInteger reference_count_;
+
   AtomicInteger large_object_test_;
   AtomicInteger large_object_mark_;
   AtomicInteger overhead_time_;
   AtomicInteger work_chunks_created_;
   AtomicInteger work_chunks_deleted_;
-  AtomicInteger reference_count_;
   AtomicInteger mark_null_count_;
   AtomicInteger mark_immune_count_;
   AtomicInteger mark_fastpath_count_;
@@ -318,23 +353,15 @@ class MarkSweep : public GarbageCollector {
   std::unique_ptr<MemMap> sweep_array_free_buffer_mem_map_;
 
  private:
-  friend class AddIfReachesAllocSpaceVisitor;  // Used by mod-union table.
   friend class CardScanTask;
   friend class CheckBitmapVisitor;
   friend class CheckReferenceVisitor;
   friend class CheckpointMarkThreadRoots;
-  friend class art::gc::Heap;
+  friend class Heap;
   friend class FifoMarkStackChunk;
   friend class MarkObjectVisitor;
   template<bool kUseFinger> friend class MarkStackTask;
   friend class MarkSweepMarkObjectSlowPath;
-  friend class ModUnionCheckReferences;
-  friend class ModUnionClearCardVisitor;
-  friend class ModUnionReferenceVisitor;
-  friend class ModUnionScanImageRootVisitor;
-  friend class ModUnionTableBitmap;
-  friend class ModUnionTableReferenceCache;
-  friend class ModUnionVisitor;
   friend class VerifyRootMarkedVisitor;
   friend class VerifyRootVisitor;
 

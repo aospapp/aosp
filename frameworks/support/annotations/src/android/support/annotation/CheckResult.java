@@ -15,6 +15,7 @@
  */
 package android.support.annotation;
 
+import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
@@ -29,12 +30,13 @@ import static java.lang.annotation.RetentionPolicy.CLASS;
  * <p>
  * Example:
  * <pre>{@code
- *  public &#64;CheckResult String trim(String s) { return s.trim(); }
+ *  public @CheckResult String trim(String s) { return s.trim(); }
  *  ...
  *  s.trim(); // this is probably an error
  *  s = s.trim(); // ok
  * }</pre>
  */
+@Documented
 @Retention(CLASS)
 @Target({METHOD})
 public @interface CheckResult {

@@ -19,6 +19,7 @@ package android.renderscript.cts;
 import android.renderscript.Allocation;
 import android.renderscript.Element;
 import android.renderscript.RenderScript;
+import android.renderscript.cts.Target;
 
 public class DoubleTest extends RSBaseCompute {
 
@@ -33,8 +34,8 @@ public class DoubleTest extends RSBaseCompute {
         float[] data = new float[big];
         out.copyTo(data);
 
-        Target t = new Target(true);
-        t.setPrecision(1, 1, false);
+        Target t = new Target(Target.FunctionType.NORMAL, Target.ReturnType.DOUBLE, true);
+        t.setPrecision(1, 1);
         double pi = 3.14159265359;
         Target.Floaty pi2 = t.new32((float) (pi * 2));
         for (int x = 0; x < data.length; x++) {

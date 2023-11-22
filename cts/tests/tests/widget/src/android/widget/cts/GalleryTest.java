@@ -16,7 +16,7 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -64,7 +64,7 @@ public class GalleryTest extends ActivityInstrumentationTestCase2<GalleryCtsActi
     private final static float DELTA = 0.01f;
 
     public GalleryTest() {
-        super("com.android.cts.widget", GalleryCtsActivity.class);
+        super("android.widget.cts", GalleryCtsActivity.class);
     }
 
     @Override

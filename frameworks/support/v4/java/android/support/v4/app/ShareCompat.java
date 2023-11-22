@@ -56,7 +56,7 @@ import java.util.ArrayList;
  * Social apps that enable sharing content are encouraged to use this information
  * to call out the app that the content was shared from.
  */
-public class ShareCompat {
+public final class ShareCompat {
     /**
      * Intent extra that stores the name of the calling package for an ACTION_SEND intent.
      * When an activity is started using startActivityForResult this is redundant info.
@@ -157,6 +157,8 @@ public class ShareCompat {
             IMPL = new ShareCompatImplBase();
         }
     }
+
+    private ShareCompat() {}
 
     /**
      * Retrieve the name of the package that launched calledActivity from a share intent.
@@ -485,7 +487,7 @@ public class ShareCompat {
          */
         public IntentBuilder addStream(Uri streamUri) {
             Uri currentStream = mIntent.getParcelableExtra(Intent.EXTRA_STREAM);
-            if (currentStream == null) {
+            if (mStreams == null && currentStream == null) {
                 return setStream(streamUri);
             }
             if (mStreams == null) {

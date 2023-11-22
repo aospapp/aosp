@@ -33,6 +33,7 @@
 
 #if defined(FORCE_BUILD_ARM)
   LLVM_ASM_PARSER(ARM)
+  LLVM_ASM_PARSER(AArch64)
 #endif
 
 #elif defined(__aarch64__)

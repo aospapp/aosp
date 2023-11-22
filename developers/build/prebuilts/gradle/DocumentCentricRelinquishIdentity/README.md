@@ -7,8 +7,8 @@ This sample shows how to relinquish identity to activities above it in the task 
 Pre-requisites
 --------------
 
-- Android SDK v23
-- Android Build Tools v23.0.0
+- Android SDK 23
+- Android Build Tools v23.0.3
 - Android Support Repository
 
 Getting Started
@@ -32,7 +32,7 @@ submitting a pull request through GitHub. Please see CONTRIBUTING.md for more de
 License
 -------
 
-Copyright 2014 The Android Open Source Project, Inc.
+Copyright 2016 The Android Open Source Project, Inc.
 
 Licensed to the Apache Software Foundation (ASF) under one or more contributor
 license agreements.  See the NOTICE file distributed with this work for

@@ -32,9 +32,14 @@ public class FormatterTest extends AndroidTestCase {
         BigDecimal bd = new BigDecimal((long) 1024, mc);
 
         // test different long values with various length
-        assertEquals("0.00 B", Formatter.formatFileSize(mContext, 0));
-
-        assertEquals("899 B", Formatter.formatFileSize(mContext, 899));
+        assertEquals("0 B", Formatter.formatFileSize(mContext, 0));
+        assertEquals("1 B", Formatter.formatFileSize(mContext, 1));
+        assertEquals("9 B", Formatter.formatFileSize(mContext, 9));
+        assertEquals("10 B", Formatter.formatFileSize(mContext, 10));
+        assertEquals("99 B", Formatter.formatFileSize(mContext, 99));
+        assertEquals("100 B", Formatter.formatFileSize(mContext, 100));
+        assertEquals("900 B", Formatter.formatFileSize(mContext, 900));
+        assertEquals("0.88 KB", Formatter.formatFileSize(mContext, 901));
 
         assertEquals("1.00 KB", Formatter.formatFileSize(mContext, bd.pow(1).longValue()));
 
@@ -49,7 +54,7 @@ public class FormatterTest extends AndroidTestCase {
         assertEquals("1024 PB", Formatter.formatFileSize(mContext, bd.pow(6).longValue()));
 
         // test Negative value
-        assertEquals("-1.00 B", Formatter.formatFileSize(mContext, -1));
+        assertEquals("-1 B", Formatter.formatFileSize(mContext, -1));
     }
 
     public void testFormatIpAddress() {

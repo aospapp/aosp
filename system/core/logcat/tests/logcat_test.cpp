@@ -15,10 +15,13 @@
  */
 
 #include <ctype.h>
+#include <dirent.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include <gtest/gtest.h>
 #include <log/log.h>
@@ -72,11 +75,29 @@ TEST(logcat, buckets) {
     EXPECT_EQ(4, count);
 }
 
-TEST(logcat, tail_3) {
+TEST(logcat, year) {
+
+    if (android_log_clockid() == CLOCK_MONOTONIC) {
+        fprintf(stderr, "Skipping test, logd is monotonic time\n");
+        return;
+    }
+
     FILE *fp;
 
+    char needle[32];
+    time_t now;
+    time(&now);
+    struct tm *ptm;
+#if !defined(_WIN32)
+    struct tm tmBuf;
+    ptm = localtime_r(&now, &tmBuf);
+#else
+    ptm = localtime(&&now);
+#endif
+    strftime(needle, sizeof(needle), "[ %Y-", ptm);
+
     ASSERT_TRUE(NULL != (fp = popen(
-      "logcat -v long -b radio -b events -b system -b main -t 3 2>/dev/null",
+      "logcat -v long -v year -b all -t 3 2>/dev/null",
       "r")));
 
     char buffer[5120];
@@ -84,9 +105,7 @@ TEST(logcat, tail_3) {
     int count = 0;
 
     while (fgets(buffer, sizeof(buffer), fp)) {
-        if ((buffer[0] == '[') && (buffer[1] == ' ')
-         && isdigit(buffer[2]) && isdigit(buffer[3])
-         && (buffer[4] == '-')) {
+        if (!strncmp(buffer, needle, strlen(needle))) {
             ++count;
         }
     }
@@ -96,76 +115,134 @@ TEST(logcat, tail_3) {
     ASSERT_EQ(3, count);
 }
 
-TEST(logcat, tail_10) {
+// Return a pointer to each null terminated -v long time field.
+char *fgetLongTime(char *buffer, size_t buflen, FILE *fp) {
+    while (fgets(buffer, buflen, fp)) {
+        char *cp = buffer;
+        if (*cp != '[') {
+            continue;
+        }
+        while (*++cp == ' ') {
+            ;
+        }
+        char *ep = cp;
+        while (isdigit(*ep)) {
+            ++ep;
+        }
+        if ((*ep != '-') && (*ep != '.')) {
+           continue;
+        }
+        // Find PID field
+        while (((ep = strchr(ep, ':'))) && (*++ep != ' ')) {
+            ;
+        }
+        if (!ep) {
+            continue;
+        }
+        ep -= 7;
+        *ep = '\0';
+        return cp;
+    }
+    return NULL;
+}
+
+TEST(logcat, tz) {
+
+    if (android_log_clockid() == CLOCK_MONOTONIC) {
+        fprintf(stderr, "Skipping test, logd is monotonic time\n");
+        return;
+    }
+
+    int tries = 3; // in case run too soon after system start or buffer clear
+    int count;
+
+    do {
+        FILE *fp;
+
+        ASSERT_TRUE(NULL != (fp = popen(
+          "logcat -v long -v America/Los_Angeles -b all -t 3 2>/dev/null",
+          "r")));
+
+        char buffer[5120];
+
+        count = 0;
+
+        while (fgetLongTime(buffer, sizeof(buffer), fp)) {
+            if (strstr(buffer, " -0700") || strstr(buffer, " -0800")) {
+                ++count;
+            }
+        }
+
+        pclose(fp);
+
+    } while ((count < 3) && --tries && (sleep(1), true));
+
+    ASSERT_EQ(3, count);
+}
+
+TEST(logcat, ntz) {
     FILE *fp;
 
     ASSERT_TRUE(NULL != (fp = popen(
-      "logcat -v long -b radio -b events -b system -b main -t 10 2>/dev/null",
+      "logcat -v long -v America/Los_Angeles -v zone -b all -t 3 2>/dev/null",
       "r")));
 
     char buffer[5120];
 
     int count = 0;
 
-    while (fgets(buffer, sizeof(buffer), fp)) {
-        if ((buffer[0] == '[') && (buffer[1] == ' ')
-         && isdigit(buffer[2]) && isdigit(buffer[3])
-         && (buffer[4] == '-')) {
+    while (fgetLongTime(buffer, sizeof(buffer), fp)) {
+        if (strstr(buffer, " -0700") || strstr(buffer, " -0800")) {
             ++count;
         }
     }
 
     pclose(fp);
 
-    ASSERT_EQ(10, count);
+    ASSERT_EQ(0, count);
+}
+
+void do_tail(int num) {
+    int tries = 3; // in case run too soon after system start or buffer clear
+    int count;
+
+    do {
+        char buffer[5120];
+
+        snprintf(buffer, sizeof(buffer),
+          "logcat -v long -b radio -b events -b system -b main -t %d 2>/dev/null",
+          num);
+
+        FILE *fp;
+        ASSERT_TRUE(NULL != (fp = popen(buffer, "r")));
+
+        count = 0;
+
+        while (fgetLongTime(buffer, sizeof(buffer), fp)) {
+            ++count;
+        }
+
+        pclose(fp);
+
+    } while ((count < num) && --tries && (sleep(1), true));
+
+    ASSERT_EQ(num, count);
+}
+
+TEST(logcat, tail_3) {
+    do_tail(3);
+}
+
+TEST(logcat, tail_10) {
+    do_tail(10);
 }
 
 TEST(logcat, tail_100) {
-    FILE *fp;
-
-    ASSERT_TRUE(NULL != (fp = popen(
-      "logcat -v long -b radio -b events -b system -b main -t 100 2>/dev/null",
-      "r")));
-
-    char buffer[5120];
-
-    int count = 0;
-
-    while (fgets(buffer, sizeof(buffer), fp)) {
-        if ((buffer[0] == '[') && (buffer[1] == ' ')
-         && isdigit(buffer[2]) && isdigit(buffer[3])
-         && (buffer[4] == '-')) {
-            ++count;
-        }
-    }
-
-    pclose(fp);
-
-    ASSERT_EQ(100, count);
+    do_tail(100);
 }
 
 TEST(logcat, tail_1000) {
-    FILE *fp;
-
-    ASSERT_TRUE(NULL != (fp = popen(
-      "logcat -v long -b radio -b events -b system -b main -t 1000 2>/dev/null",
-      "r")));
-
-    char buffer[5120];
-
-    int count = 0;
-
-    while (fgets(buffer, sizeof(buffer), fp)) {
-        if ((buffer[0] == '[') && (buffer[1] == ' ')
-         && isdigit(buffer[2]) && isdigit(buffer[3])
-         && (buffer[4] == '-')) {
-            ++count;
-        }
-    }
-
-    pclose(fp);
-
-    ASSERT_EQ(1000, count);
+    do_tail(1000);
 }
 
 TEST(logcat, tail_time) {
@@ -177,21 +254,15 @@ TEST(logcat, tail_time) {
     char *last_timestamp = NULL;
     char *first_timestamp = NULL;
     int count = 0;
-    const unsigned int time_length = 18;
-    const unsigned int time_offset = 2;
 
-    while (fgets(buffer, sizeof(buffer), fp)) {
-        if ((buffer[0] == '[') && (buffer[1] == ' ')
-         && isdigit(buffer[time_offset]) && isdigit(buffer[time_offset + 1])
-         && (buffer[time_offset + 2] == '-')) {
-            ++count;
-            buffer[time_length + time_offset] = '\0';
-            if (!first_timestamp) {
-                first_timestamp = strdup(buffer + time_offset);
-            }
-            free(last_timestamp);
-            last_timestamp = strdup(buffer + time_offset);
+    char *cp;
+    while ((cp = fgetLongTime(buffer, sizeof(buffer), fp))) {
+        ++count;
+        if (!first_timestamp) {
+            first_timestamp = strdup(cp);
         }
+        free(last_timestamp);
+        last_timestamp = strdup(cp);
     }
     pclose(fp);
 
@@ -206,28 +277,24 @@ TEST(logcat, tail_time) {
     int second_count = 0;
     int last_timestamp_count = -1;
 
-    while (fgets(buffer, sizeof(buffer), fp)) {
-        if ((buffer[0] == '[') && (buffer[1] == ' ')
-         && isdigit(buffer[time_offset]) && isdigit(buffer[time_offset + 1])
-         && (buffer[time_offset + 2] == '-')) {
-            ++second_count;
-            buffer[time_length + time_offset] = '\0';
-            if (first_timestamp) {
-                // we can get a transitory *extremely* rare failure if hidden
-                // underneath the time is *exactly* XX-XX XX:XX:XX.XXX000000
-                EXPECT_STREQ(buffer + time_offset, first_timestamp);
-                free(first_timestamp);
-                first_timestamp = NULL;
-            }
-            if (!strcmp(buffer + time_offset, last_timestamp)) {
-                last_timestamp_count = second_count;
-            }
+    while ((cp = fgetLongTime(buffer, sizeof(buffer), fp))) {
+        ++second_count;
+        if (first_timestamp) {
+            // we can get a transitory *extremely* rare failure if hidden
+            // underneath the time is *exactly* XX-XX XX:XX:XX.XXX000000
+            EXPECT_STREQ(cp, first_timestamp);
+            free(first_timestamp);
+            first_timestamp = NULL;
+        }
+        if (!strcmp(cp, last_timestamp)) {
+            last_timestamp_count = second_count;
         }
     }
     pclose(fp);
 
     free(last_timestamp);
     last_timestamp = NULL;
+    free(first_timestamp);
 
     EXPECT_TRUE(first_timestamp == NULL);
     EXPECT_LE(count, second_count);
@@ -284,7 +351,7 @@ TEST(logcat, get_size) {
 
     while (fgets(buffer, sizeof(buffer), fp)) {
         int size, consumed, max, payload;
-        char size_mult[2], consumed_mult[2];
+        char size_mult[3], consumed_mult[3];
         long full_size, full_consumed;
 
         size = consumed = max = payload = 0;
@@ -489,12 +556,12 @@ TEST(logcat, logrotate) {
     static const char comm[] = "logcat -b radio -b events -b system -b main"
                                      " -d -f %s/log.txt -n 7 -r 1";
     char command[sizeof(buf) + sizeof(comm)];
-    sprintf(command, comm, buf);
+    snprintf(command, sizeof(command), comm, buf);
 
     int ret;
     EXPECT_FALSE((ret = system(command)));
     if (!ret) {
-        sprintf(command, "ls -s %s 2>/dev/null", buf);
+        snprintf(command, sizeof(command), "ls -s %s 2>/dev/null", buf);
 
         FILE *fp;
         EXPECT_TRUE(NULL != (fp = popen(command, "r")));
@@ -503,26 +570,25 @@ TEST(logcat, logrotate) {
             int count = 0;
 
             while (fgets(buffer, sizeof(buffer), fp)) {
-                static const char match_1[] = "4 log.txt";
-                static const char match_2[] = "8 log.txt";
-                static const char match_3[] = "12 log.txt";
-                static const char match_4[] = "16 log.txt";
                 static const char total[] = "total ";
+                int num;
+                char c;
 
-                if (!strncmp(buffer, match_1, sizeof(match_1) - 1)
-                 || !strncmp(buffer, match_2, sizeof(match_2) - 1)
-                 || !strncmp(buffer, match_3, sizeof(match_3) - 1)
-                 || !strncmp(buffer, match_4, sizeof(match_4) - 1)) {
+                if ((2 == sscanf(buffer, "%d log.tx%c", &num, &c)) &&
+                        (num <= 40)) {
                     ++count;
                 } else if (strncmp(buffer, total, sizeof(total) - 1)) {
                     fprintf(stderr, "WARNING: Parse error: %s", buffer);
                 }
             }
             pclose(fp);
+            if ((count != 7) && (count != 8)) {
+                fprintf(stderr, "count=%d\n", count);
+            }
             EXPECT_TRUE(count == 7 || count == 8);
         }
     }
-    sprintf(command, "rm -rf %s", buf);
+    snprintf(command, sizeof(command), "rm -rf %s", buf);
     EXPECT_FALSE(system(command));
 }
 
@@ -534,12 +600,12 @@ TEST(logcat, logrotate_suffix) {
     static const char logcat_cmd[] = "logcat -b radio -b events -b system -b main"
                                      " -d -f %s/log.txt -n 10 -r 1";
     char command[sizeof(tmp_out_dir) + sizeof(logcat_cmd)];
-    sprintf(command, logcat_cmd, tmp_out_dir);
+    snprintf(command, sizeof(command), logcat_cmd, tmp_out_dir);
 
     int ret;
     EXPECT_FALSE((ret = system(command)));
     if (!ret) {
-        sprintf(command, "ls %s 2>/dev/null", tmp_out_dir);
+        snprintf(command, sizeof(command), "ls %s 2>/dev/null", tmp_out_dir);
 
         FILE *fp;
         EXPECT_TRUE(NULL != (fp = popen(command, "r")));
@@ -575,12 +641,125 @@ TEST(logcat, logrotate_suffix) {
         pclose(fp);
         EXPECT_EQ(11, log_file_count);
     }
-    sprintf(command, "rm -rf %s", tmp_out_dir);
+    snprintf(command, sizeof(command), "rm -rf %s", tmp_out_dir);
     EXPECT_FALSE(system(command));
 }
 
-static void caught_blocking_clear(int /*signum*/)
-{
+TEST(logcat, logrotate_continue) {
+    static const char tmp_out_dir_form[] = "/data/local/tmp/logcat.logrotate.XXXXXX";
+    char tmp_out_dir[sizeof(tmp_out_dir_form)];
+    ASSERT_TRUE(NULL != mkdtemp(strcpy(tmp_out_dir, tmp_out_dir_form)));
+
+    static const char log_filename[] = "log.txt";
+    static const char logcat_cmd[] = "logcat -b all -d -f %s/%s -n 256 -r 1024";
+    static const char cleanup_cmd[] = "rm -rf %s";
+    char command[sizeof(tmp_out_dir) + sizeof(logcat_cmd) + sizeof(log_filename)];
+    snprintf(command, sizeof(command), logcat_cmd, tmp_out_dir, log_filename);
+
+    int ret;
+    EXPECT_FALSE((ret = system(command)));
+    if (ret) {
+        snprintf(command, sizeof(command), cleanup_cmd, tmp_out_dir);
+        EXPECT_FALSE(system(command));
+        return;
+    }
+    FILE *fp;
+    snprintf(command, sizeof(command), "%s/%s", tmp_out_dir, log_filename);
+    EXPECT_TRUE(NULL != ((fp = fopen(command, "r"))));
+    if (!fp) {
+        snprintf(command, sizeof(command), cleanup_cmd, tmp_out_dir);
+        EXPECT_FALSE(system(command));
+        return;
+    }
+    char *line = NULL;
+    char *last_line = NULL; // this line is allowed to stutter, one-line overlap
+    char *second_last_line = NULL;
+    size_t len = 0;
+    while (getline(&line, &len, fp) != -1) {
+        free(second_last_line);
+        second_last_line = last_line;
+        last_line = line;
+        line = NULL;
+    }
+    fclose(fp);
+    free(line);
+    if (second_last_line == NULL) {
+        fprintf(stderr, "No second to last line, using last, test may fail\n");
+        second_last_line = last_line;
+        last_line = NULL;
+    }
+    free(last_line);
+    EXPECT_TRUE(NULL != second_last_line);
+    if (!second_last_line) {
+        snprintf(command, sizeof(command), cleanup_cmd, tmp_out_dir);
+        EXPECT_FALSE(system(command));
+        return;
+    }
+    // re-run the command, it should only add a few lines more content if it
+    // continues where it left off.
+    snprintf(command, sizeof(command), logcat_cmd, tmp_out_dir, log_filename);
+    EXPECT_FALSE((ret = system(command)));
+    if (ret) {
+        snprintf(command, sizeof(command), cleanup_cmd, tmp_out_dir);
+        EXPECT_FALSE(system(command));
+        return;
+    }
+    DIR *dir;
+    EXPECT_TRUE(NULL != (dir = opendir(tmp_out_dir)));
+    if (!dir) {
+        snprintf(command, sizeof(command), cleanup_cmd, tmp_out_dir);
+        EXPECT_FALSE(system(command));
+        return;
+    }
+    struct dirent *entry;
+    unsigned count = 0;
+    while ((entry = readdir(dir))) {
+        if (strncmp(entry->d_name, log_filename, sizeof(log_filename) - 1)) {
+            continue;
+        }
+        snprintf(command, sizeof(command), "%s/%s", tmp_out_dir, entry->d_name);
+        EXPECT_TRUE(NULL != ((fp = fopen(command, "r"))));
+        if (!fp) {
+            fprintf(stderr, "%s ?\n", command);
+            continue;
+        }
+        line = NULL;
+        size_t number = 0;
+        while (getline(&line, &len, fp) != -1) {
+            ++number;
+            if (!strcmp(line, second_last_line)) {
+                EXPECT_TRUE(++count <= 1);
+                fprintf(stderr, "%s(%zu):\n", entry->d_name, number);
+            }
+        }
+        fclose(fp);
+        free(line);
+        unlink(command);
+    }
+    closedir(dir);
+    if (count > 1) {
+        char *brk = strpbrk(second_last_line, "\r\n");
+        if (!brk) {
+            brk = second_last_line + strlen(second_last_line);
+        }
+        fprintf(stderr, "\"%.*s\" occured %u times\n",
+            (int)(brk - second_last_line), second_last_line, count);
+    }
+    free(second_last_line);
+
+    snprintf(command, sizeof(command), cleanup_cmd, tmp_out_dir);
+    EXPECT_FALSE(system(command));
+}
+
+TEST(logcat, logrotate_nodir) {
+    // expect logcat to error out on writing content and exit(1) for nodir
+    EXPECT_EQ(W_EXITCODE(1, 0),
+              system("logcat -b all -d"
+                     " -f /das/nein/gerfingerpoken/logcat/log.txt"
+                     " -n 256 -r 1024"));
+}
+
+static void caught_blocking_clear(int /*signum*/) {
     unsigned long long v = 0xDEADBEEFA55C0000ULL;
 
     v += getpid() & 0xFFFF;
@@ -750,4 +929,68 @@ TEST(logcat, white_black_adjust) {
 
     free(list);
     list = NULL;
+}
+
+TEST(logcat, regex) {
+    FILE *fp;
+    int count = 0;
+
+    char buffer[5120];
+
+    snprintf(buffer, sizeof(buffer), "logcat --pid %d -d -e logcat_test_a+b", getpid());
+
+    LOG_FAILURE_RETRY(__android_log_print(ANDROID_LOG_WARN, "logcat_test", "logcat_test_ab"));
+    LOG_FAILURE_RETRY(__android_log_print(ANDROID_LOG_WARN, "logcat_test", "logcat_test_b"));
+    LOG_FAILURE_RETRY(__android_log_print(ANDROID_LOG_WARN, "logcat_test", "logcat_test_aaaab"));
+    LOG_FAILURE_RETRY(__android_log_print(ANDROID_LOG_WARN, "logcat_test", "logcat_test_aaaa"));
+
+    // Let the logs settle
+    sleep(1);
+
+    ASSERT_TRUE(NULL != (fp = popen(buffer, "r")));
+
+    while (fgets(buffer, sizeof(buffer), fp)) {
+        if (!strncmp(begin, buffer, sizeof(begin) - 1)) {
+            continue;
+        }
+
+        EXPECT_TRUE(strstr(buffer, "logcat_test_") != NULL);
+
+        count++;
+    }
+
+    pclose(fp);
+
+    ASSERT_EQ(2, count);
+}
+
+TEST(logcat, maxcount) {
+    FILE *fp;
+    int count = 0;
+
+    char buffer[5120];
+
+    snprintf(buffer, sizeof(buffer), "logcat --pid %d -d --max-count 3", getpid());
+
+    LOG_FAILURE_RETRY(__android_log_print(ANDROID_LOG_WARN, "logcat_test", "logcat_test"));
+    LOG_FAILURE_RETRY(__android_log_print(ANDROID_LOG_WARN, "logcat_test", "logcat_test"));
+    LOG_FAILURE_RETRY(__android_log_print(ANDROID_LOG_WARN, "logcat_test", "logcat_test"));
+    LOG_FAILURE_RETRY(__android_log_print(ANDROID_LOG_WARN, "logcat_test", "logcat_test"));
+
+    // Let the logs settle
+    sleep(1);
+
+    ASSERT_TRUE(NULL != (fp = popen(buffer, "r")));
+
+    while (fgets(buffer, sizeof(buffer), fp)) {
+        if (!strncmp(begin, buffer, sizeof(begin) - 1)) {
+            continue;
+        }
+
+        count++;
+    }
+
+    pclose(fp);
+
+    ASSERT_EQ(3, count);
 }

@@ -23,11 +23,12 @@
     <string name="live_wallpaper_picker_title" msgid="4811278937634144675">"Избери раздвижен тапет"</string>
     <string name="live_wallpaper_picker_label" msgid="3218000114890071946">"Раздвижени тапети"</string>
     <string name="live_wallpaper_preview_title" msgid="1130080613611954763">"Преглед на раздвижен тапет"</string>
-    <string name="configure_wallpaper" msgid="7396598925806288258">"Подесувања..."</string>
-    <string name="wallpaper_instructions" msgid="4215640646180727542">"Подеси тапет"</string>
+    <string name="configure_wallpaper" msgid="7396598925806288258">"Поставки..."</string>
+    <string name="wallpaper_instructions" msgid="4215640646180727542">"Постави тапет"</string>
     <string name="live_wallpaper_empty" msgid="4278728108785853407">"Нема раздвижени тапети."</string>
-    <string name="set_live_wallpaper" msgid="2381437614949033266">"Подеси тапет"</string>
+    <string name="set_live_wallpaper" msgid="2381437614949033266">"Постави тапет"</string>
     <string name="wallpaper_title_and_author" msgid="8891734217843935304">"<xliff:g id="TITLE">%1$s</xliff:g> од <xliff:g id="AUTHOR">%2$s</xliff:g>"</string>
     <string name="live_wallpaper_loading" msgid="2488371303130330734">"Вчитување раздвижен тапет..."</string>
-    <string name="wallpaper_cancel" msgid="7340240618834119228">"Откажи"</string>
+    <string name="which_wallpaper_option_home_screen" msgid="6592329803583957023">"Почетен екран"</string>
+    <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="6170359719231147447">"Почетен и заклучен екран"</string>
 </resources>

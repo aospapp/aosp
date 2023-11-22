@@ -33,7 +33,10 @@ LOCAL_SRC_FILES := \
 	src/short_term.c \
 	src/table.c
 
-LOCAL_CFLAGS := -DSASR -DWAV49
+LOCAL_CFLAGS := \
+    -DSASR \
+    -DWAV49 \
+    -Wno-unused-parameter \
 
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/inc
 

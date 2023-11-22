@@ -16,18 +16,20 @@
 
 package com.android.server.wifi;
 
+import static android.net.NetworkInfo.DetailedState.CONNECTED;
+
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.NetworkInfo;
-import static android.net.NetworkInfo.DetailedState.CONNECTED;
 import android.net.TrafficStats;
 import android.net.wifi.WifiManager;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
-import android.os.Handler;
-import android.os.Message;
 import android.util.Log;
 
 import java.io.FileDescriptor;
@@ -42,7 +44,7 @@ final class WifiTrafficPoller {
     private boolean DBG = false;
     private boolean VDBG = false;
 
-    private final String TAG = "WifiTrafficPoller";
+    private static final String TAG = "WifiTrafficPoller";
     /**
      * Interval in milliseconds between polling for traffic
      * statistics
@@ -69,9 +71,9 @@ final class WifiTrafficPoller {
     private NetworkInfo mNetworkInfo;
     private final String mInterface;
 
-    WifiTrafficPoller(Context context, String iface) {
+    WifiTrafficPoller(Context context, Looper looper, String iface) {
         mInterface = iface;
-        mTrafficHandler = new TrafficHandler();
+        mTrafficHandler = new TrafficHandler(looper);
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
@@ -82,13 +84,16 @@ final class WifiTrafficPoller {
                 new BroadcastReceiver() {
                     @Override
                     public void onReceive(Context context, Intent intent) {
-                        if (intent.getAction().equals(
-                                WifiManager.NETWORK_STATE_CHANGED_ACTION)) {
+                        if (intent == null) {
+                            return;
+                        }
+                        if (WifiManager.NETWORK_STATE_CHANGED_ACTION.equals(
+                                intent.getAction())) {
                             mNetworkInfo = (NetworkInfo) intent.getParcelableExtra(
                                     WifiManager.EXTRA_NETWORK_INFO);
-                        } else if (intent.getAction().equals(Intent.ACTION_SCREEN_OFF)) {
+                        } else if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
                             mScreenOn.set(false);
-                        } else if (intent.getAction().equals(Intent.ACTION_SCREEN_ON)) {
+                        } else if (Intent.ACTION_SCREEN_ON.equals(intent.getAction())) {
                             mScreenOn.set(true);
                         }
                         evaluateTrafficStatsPolling();
@@ -113,6 +118,10 @@ final class WifiTrafficPoller {
     }
 
     private class TrafficHandler extends Handler {
+        public TrafficHandler(Looper looper) {
+            super(looper);
+        }
+
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case ENABLE_TRAFFIC_STATS_POLL:

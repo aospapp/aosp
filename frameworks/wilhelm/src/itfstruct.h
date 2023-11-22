@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
+#include "Configuration.h"
 #ifdef ANDROID
+#include <jni.h>
+
 #include "media/AudioEffect.h"
 #include "hardware/audio_effect.h"
 #endif
@@ -661,6 +664,8 @@ typedef struct {
 typedef struct {
     const struct SLAndroidConfigurationItf_ *mItf;
     IObject *mThis;
+    // only 1 each. When we support other Proxy types, we will need to get more clever about this.
+    jobject mRoutingProxy;
 } IAndroidConfiguration;
 
 typedef struct {

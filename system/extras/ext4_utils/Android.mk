@@ -22,31 +22,39 @@ libext4_utils_src_files := \
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(libext4_utils_src_files)
 LOCAL_MODULE := libext4_utils_host
+# Various instances of dereferencing a type-punned pointer in extent.c
+LOCAL_CFLAGS += -fno-strict-aliasing
 LOCAL_STATIC_LIBRARIES := \
     libsparse_host \
     libz
-ifneq ($(HOST_OS),windows)
-  LOCAL_STATIC_LIBRARIES += libselinux
-endif
+LOCAL_STATIC_LIBRARIES_darwin += libselinux
+LOCAL_STATIC_LIBRARIES_linux += libselinux
+LOCAL_MODULE_HOST_OS := darwin linux windows
 include $(BUILD_HOST_STATIC_LIBRARY)
 
 
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES := make_ext4fs_main.c canned_fs_config.c
+LOCAL_SRC_FILES := make_ext4fs_main.c
 LOCAL_MODULE := make_ext4fs
 LOCAL_SHARED_LIBRARIES += libcutils
 LOCAL_STATIC_LIBRARIES += \
     libext4_utils_host \
     libsparse_host \
     libz
-ifeq ($(HOST_OS),windows)
-  LOCAL_LDLIBS += -lws2_32
-else
-  LOCAL_SHARED_LIBRARIES += libselinux
-  LOCAL_CFLAGS := -DHOST
-endif
+LOCAL_LDLIBS_windows += -lws2_32
+LOCAL_SHARED_LIBRARIES_darwin += libselinux
+LOCAL_SHARED_LIBRARIES_linux += libselinux
+LOCAL_CFLAGS_darwin := -DHOST
+LOCAL_CFLAGS_linux := -DHOST
 include $(BUILD_HOST_EXECUTABLE)
 
+include $(CLEAR_VARS)
+LOCAL_SRC_FILES := blk_alloc_to_base_fs.c
+LOCAL_MODULE := blk_alloc_to_base_fs
+LOCAL_SHARED_LIBRARIES += libcutils
+LOCAL_CFLAGS_darwin := -DHOST
+LOCAL_CFLAGS_linux := -DHOST
+include $(BUILD_HOST_EXECUTABLE)
 
 #
 # -- All host/targets excluding windows
@@ -54,8 +62,7 @@ include $(BUILD_HOST_EXECUTABLE)
 
 libext4_utils_src_files += \
     key_control.cpp \
-    ext4_crypt.cpp \
-    unencrypted_properties.cpp
+    ext4_crypt.cpp
 
 ifneq ($(HOST_OS),windows)
 
@@ -63,7 +70,10 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(libext4_utils_src_files)
 LOCAL_MODULE := libext4_utils
 LOCAL_C_INCLUDES += system/core/logwrapper/include
+# Various instances of dereferencing a type-punned pointer in extent.c
+LOCAL_CFLAGS += -fno-strict-aliasing
 LOCAL_SHARED_LIBRARIES := \
+    libbase \
     libcutils \
     libext2_uuid \
     libselinux \
@@ -77,13 +87,19 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(libext4_utils_src_files) \
     ext4_crypt_init_extensions.cpp
 LOCAL_MODULE := libext4_utils_static
+# Various instances of dereferencing a type-punned pointer in extent.c
+LOCAL_CFLAGS += -fno-strict-aliasing
 LOCAL_STATIC_LIBRARIES := \
-    libsparse_static
+    libbase \
+    liblogwrap \
+    libsparse_static \
+    libselinux \
+    libbase
 include $(BUILD_STATIC_LIBRARY)
 
 
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES := make_ext4fs_main.c canned_fs_config.c
+LOCAL_SRC_FILES := make_ext4fs_main.c
 LOCAL_MODULE := make_ext4fs
 LOCAL_SHARED_LIBRARIES := \
     libcutils \

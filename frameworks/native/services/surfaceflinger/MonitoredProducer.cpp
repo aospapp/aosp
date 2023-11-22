@@ -56,13 +56,18 @@ status_t MonitoredProducer::requestBuffer(int slot, sp<GraphicBuffer>* buf) {
     return mProducer->requestBuffer(slot, buf);
 }
 
-status_t MonitoredProducer::setBufferCount(int bufferCount) {
-    return mProducer->setBufferCount(bufferCount);
+status_t MonitoredProducer::setMaxDequeuedBufferCount(
+        int maxDequeuedBuffers) {
+    return mProducer->setMaxDequeuedBufferCount(maxDequeuedBuffers);
+}
+
+status_t MonitoredProducer::setAsyncMode(bool async) {
+    return mProducer->setAsyncMode(async);
 }
 
 status_t MonitoredProducer::dequeueBuffer(int* slot, sp<Fence>* fence,
-        bool async, uint32_t w, uint32_t h, PixelFormat format, uint32_t usage) {
-    return mProducer->dequeueBuffer(slot, fence, async, w, h, format, usage);
+        uint32_t w, uint32_t h, PixelFormat format, uint32_t usage) {
+    return mProducer->dequeueBuffer(slot, fence, w, h, format, usage);
 }
 
 status_t MonitoredProducer::detachBuffer(int slot) {
@@ -84,8 +89,8 @@ status_t MonitoredProducer::queueBuffer(int slot, const QueueBufferInput& input,
     return mProducer->queueBuffer(slot, input, output);
 }
 
-void MonitoredProducer::cancelBuffer(int slot, const sp<Fence>& fence) {
-    mProducer->cancelBuffer(slot, fence);
+status_t MonitoredProducer::cancelBuffer(int slot, const sp<Fence>& fence) {
+    return mProducer->cancelBuffer(slot, fence);
 }
 
 int MonitoredProducer::query(int what, int* value) {
@@ -105,9 +110,9 @@ status_t MonitoredProducer::setSidebandStream(const sp<NativeHandle>& stream) {
     return mProducer->setSidebandStream(stream);
 }
 
-void MonitoredProducer::allocateBuffers(bool async, uint32_t width,
-        uint32_t height, PixelFormat format, uint32_t usage) {
-    mProducer->allocateBuffers(async, width, height, format, usage);
+void MonitoredProducer::allocateBuffers(uint32_t width, uint32_t height,
+        PixelFormat format, uint32_t usage) {
+    mProducer->allocateBuffers(width, height, format, usage);
 }
 
 status_t MonitoredProducer::allowAllocation(bool allow) {
@@ -120,6 +125,32 @@ status_t MonitoredProducer::setGenerationNumber(uint32_t generationNumber) {
 
 String8 MonitoredProducer::getConsumerName() const {
     return mProducer->getConsumerName();
+}
+
+uint64_t MonitoredProducer::getNextFrameNumber() const {
+    return mProducer->getNextFrameNumber();
+}
+
+status_t MonitoredProducer::setSharedBufferMode(bool sharedBufferMode) {
+    return mProducer->setSharedBufferMode(sharedBufferMode);
+}
+
+status_t MonitoredProducer::setAutoRefresh(bool autoRefresh) {
+    return mProducer->setAutoRefresh(autoRefresh);
+}
+
+status_t MonitoredProducer::setDequeueTimeout(nsecs_t timeout) {
+    return mProducer->setDequeueTimeout(timeout);
+}
+
+status_t MonitoredProducer::getLastQueuedBuffer(sp<GraphicBuffer>* outBuffer,
+        sp<Fence>* outFence, float outTransformMatrix[16]) {
+    return mProducer->getLastQueuedBuffer(outBuffer, outFence,
+            outTransformMatrix);
+}
+
+status_t MonitoredProducer::getUniqueId(uint64_t* outId) const {
+    return mProducer->getUniqueId(outId);
 }
 
 IBinder* MonitoredProducer::onAsBinder() {

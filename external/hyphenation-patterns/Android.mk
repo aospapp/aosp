@@ -12,44 +12,72 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-HYPHENS_DIR := $(call my-dir)
+#disable build in PDK
+ifneq ($(TARGET_BUILD_PDK),true)
+
+LOCAL_PATH := $(call my-dir)
 
 pattern_locales := \
+    as/as \
+    bn/bn \
+    cy/cy \
+    da/da \
+    de/de-1901 \
+    de/de-1996 \
+    de/de-ch-1901 \
+    en-GB/en-gb \
     en-US/en-us \
-    Ethi/und-ethi \
+    es/es \
+    et/et \
     eu/eu \
+    Ethi/und-ethi \
+    fr/fr \
+    ga/ga \
+    gu/gu \
+    hi/hi \
+    hr/hr \
     hu/hu \
     hy/hy \
+    kn/kn \
+    ml/ml \
+    mn/mn-cyrl \
+    mr/mr \
     nb/nb \
     nn/nn \
-    sa/sa
+    or/or \
+    pa/pa \
+    pt/pt \
+    sl/sl \
+    ta/ta \
+    te/te \
+    tk/tk
 
-pattern_src_files := \
-    $(foreach locale, $(pattern_locales), \
-        $(addprefix $(dir $(locale)), \
-            $(addprefix hyph-, $(addprefix $(notdir $(locale)), \
-                .chr.txt .hyp.txt .lic.txt .pat.txt))))
-pattern_locales :=
+# TODO: we have data for sa/sa, but it requires special case handling for case
+# folding and normalization, so don't build it until that's fixed.
 
-# We have to use BUILD_PREBUILT instead of PRODUCT_COPY_FILES,
-# to copy over the NOTICE file.
+BUILD_HYB := $(LOCAL_PATH)/build-hyb.mk
 
 #############################################################################
-# $(1): The source file name in LOCAL_PATH.
-#       It also serves as the module name and the dest file name.
+# $(1): The subdirectory where the source files live.
+$ $(2): The file name fragment.
+#       It is used to find source files, and also generate the resulting binary.
 #############################################################################
 define build-one-pattern-module
 $(eval include $(CLEAR_VARS))\
-$(eval LOCAL_PATH := $(abspath $(addprefix $(HYPHENS_DIR)/, $(dir $(1)))))\
-$(eval LOCAL_MODULE := $(notdir $(1)))\
-$(eval LOCAL_SRC_FILES := $(notdir $(1)))\
+$(eval LOCAL_MODULE := $(addprefix hyph-, $(2)))\
+$(eval LOCAL_SRC_FILES := $(addprefix $(1)/hyph-, $(addprefix $(2), .pat.txt .chr.txt .hyp.txt)))\
+$(eval include $(BUILD_HYB))\
+$(eval include $(CLEAR_VARS))\
+$(eval LOCAL_MODULE := $(addprefix $(addprefix hyph-, $(2)), .lic.txt))\
+$(eval LOCAL_SRC_FILES := $(addprefix $(1)/hyph-, $(addprefix $(2), .lic.txt)))\
 $(eval LOCAL_MODULE_CLASS := ETC)\
 $(eval LOCAL_MODULE_TAGS := optional)\
 $(eval LOCAL_MODULE_PATH := $(TARGET_OUT)/usr/hyphen-data)\
 $(eval include $(BUILD_PREBUILT))
 endef
 
-$(foreach f, $(pattern_src_files), $(call build-one-pattern-module, $(f)))
+$(foreach l, $(pattern_locales), $(call build-one-pattern-module, $(dir $(l)), $(notdir $l)))
 build-one-pattern-module :=
-pattern_src_files :=
-HYPHENS_DIR :=
+pattern_locales :=
+
+endif #TARGET_BUILD_PDK

@@ -17,6 +17,9 @@ LOCAL_PATH:= $(call my-dir)
 #apks signed cts-keyset-test-a
 include $(CLEAR_VARS)
 
+# tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
+
 LOCAL_MODULE_TAGS := tests
 LOCAL_SDK_VERSION := current
 LOCAL_STATIC_JAVA_LIBRARIES := android-support-test

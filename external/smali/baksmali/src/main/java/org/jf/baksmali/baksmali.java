@@ -44,19 +44,18 @@ import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
 import java.io.*;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.concurrent.*;
 
-import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
-import javax.xml.parsers.ParserConfigurationException;
-
 public class baksmali {
 
     public static boolean disassembleDexFile(DexFile dexFile, final baksmaliOptions options) {
-        if (options.registerInfo != 0 || options.deodex) {
+        if (options.registerInfo != 0 || options.deodex || options.normalizeVirtualMethods) {
             try {
                 Iterable<String> extraClassPathEntries;
                 if (options.extraClassPathEntries != null) {
@@ -67,7 +66,7 @@ public class baksmali {
 
                 options.classPath = ClassPath.fromClassPath(options.bootClassPathDirs,
                         Iterables.concat(options.bootClassPathEntries, extraClassPathEntries), dexFile,
-                        options.apiLevel, options.checkPackagePrivateAccess);
+                        options.apiLevel, options.checkPackagePrivateAccess, options.experimental);
 
                 if (options.customInlineDefinitions != null) {
                     options.inlineResolver = new CustomInlineMethodResolver(options.classPath,
@@ -136,7 +135,7 @@ public class baksmali {
         List<? extends ClassDef> classDefs = Ordering.natural().sortedCopy(dexFile.getClasses());
 
         if (!options.noAccessorComments) {
-            options.syntheticAccessorResolver = new SyntheticAccessorResolver(classDefs);
+            options.syntheticAccessorResolver = new SyntheticAccessorResolver(dexFile.getOpcodes(), classDefs);
         }
 
         final ClassFileNameHandler fileNameHandler = new ClassFileNameHandler(outputDirectoryFile, ".smali");

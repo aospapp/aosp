@@ -417,9 +417,7 @@ save_rmconf_flush()
 
 /* check exchange type to be acceptable */
 struct etypes *
-check_etypeok(rmconf, etype)
-	struct remoteconf *rmconf;
-	u_int8_t etype;
+check_etypeok( struct remoteconf *rmconf, u_int8_t etype)
 {
 	struct etypes *e;
 

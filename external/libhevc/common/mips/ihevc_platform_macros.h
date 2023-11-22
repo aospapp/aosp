@@ -58,10 +58,17 @@
 #define SHR_NEG(val,shift)  ((shift>0)?(val>>shift):(val<<(-shift)))
 #define SHL_NEG(val,shift)  ((shift<0)?(val>>(-shift)):(val<<shift))
 
-static inline UWORD32 CLZ(UWORD32 x)
+static inline UWORD32 CLZ(UWORD32 u4_word)
 {
-    asm("clz %0, %1" : "=r"(x) : "r"(x));
-    return x;
+    if(u4_word)
+        return (__builtin_clz(u4_word));
+    else
+        return 32;
+}
+
+static inline UWORD32 CLZNZ(UWORD32 u4_word)
+{
+   return (__builtin_clz(u4_word));
 }
 
 static inline UWORD32 CTZ(UWORD32 u4_word)
@@ -75,6 +82,8 @@ static inline UWORD32 CTZ(UWORD32 u4_word)
         return (UWORD32)index;
     }
 }
+
+#define POPCNT_U32(x)       __builtin_popcount(x)
 
 #define NOP(nop_cnt)    {UWORD32 nop_i; for (nop_i = 0; nop_i < nop_cnt; nop_i++);}
 

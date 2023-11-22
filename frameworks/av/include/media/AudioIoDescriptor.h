@@ -35,7 +35,7 @@ public:
     AudioIoDescriptor() :
         mIoHandle(AUDIO_IO_HANDLE_NONE),
         mSamplingRate(0), mFormat(AUDIO_FORMAT_DEFAULT), mChannelMask(AUDIO_CHANNEL_NONE),
-        mFrameCount(0), mLatency(0)
+        mFrameCount(0), mFrameCountHAL(0), mLatency(0)
     {
         memset(&mPatch, 0, sizeof(struct audio_patch));
     }
@@ -56,13 +56,14 @@ public:
         return AUDIO_PORT_HANDLE_NONE;
     }
 
-    audio_io_handle_t mIoHandle;
-    struct audio_patch mPatch;
-    uint32_t mSamplingRate;
-    audio_format_t mFormat;
-    audio_channel_mask_t mChannelMask;
-    size_t mFrameCount;
-    uint32_t mLatency;
+    audio_io_handle_t       mIoHandle;
+    struct audio_patch      mPatch;
+    uint32_t                mSamplingRate;
+    audio_format_t          mFormat;
+    audio_channel_mask_t    mChannelMask;
+    size_t                  mFrameCount;
+    size_t                  mFrameCountHAL;
+    uint32_t                mLatency;   // only valid for output
 };
 
 

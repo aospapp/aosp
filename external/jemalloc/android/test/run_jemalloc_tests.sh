@@ -20,6 +20,7 @@ UNIT_TESTS=( \
   "atomic" \
   "bitmap" \
   "ckh" \
+  "decay" \
   "hash" \
   "junk" \
   "junk_alloc" \
@@ -29,7 +30,10 @@ UNIT_TESTS=( \
   "math" \
   "mq" \
   "mtx" \
+  "nstime" \
+  "prng" \
   "prof_accum" \
+  "prof_active" \
   "prof_gdump" \
   "prof_idump" \
   "prof_reset" \
@@ -39,9 +43,12 @@ UNIT_TESTS=( \
   "quarantine" \
   "rb" \
   "rtree" \
+  "run_quantize" \
   "SFMT" \
   "size_classes" \
+  "smoothstep" \
   "stats" \
+  "ticker" \
   "tsd" \
   "util" \
   "zero" \
@@ -52,15 +59,16 @@ INTEGRATION_TEST_DIR="jemalloc_integrationtests"
 INTEGRATION_TESTS=( \
   "aligned_alloc" \
   "allocated" \
-  "sdallocx" \
-  "mallocx" \
+  "chunk" \
   "MALLOCX_ARENA" \
+  "mallocx" \
+  "overflow" \
   "posix_memalign" \
   "rallocx" \
+  "sdallocx" \
   "thread_arena" \
   "thread_tcache_enabled" \
   "xallocx" \
-  "chunk" \
 )
 
 TEST_DIRECTORIES=( "/data/nativetest" "/data/nativetest64" )

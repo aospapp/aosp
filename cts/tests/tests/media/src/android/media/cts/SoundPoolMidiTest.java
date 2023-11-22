@@ -16,7 +16,7 @@
 
 package android.media.cts;
 
-import com.android.cts.media.R;
+import android.media.cts.R;
 
 public class SoundPoolMidiTest extends SoundPoolTest {
 

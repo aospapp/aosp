@@ -22,7 +22,8 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := \
 	native-media-jni.cpp \
-	codec-utils-jni.cpp
+	codec-utils-jni.cpp  \
+	md5_utils.cpp
 
 LOCAL_C_INCLUDES := \
 	$(JNI_H_INCLUDE) \
@@ -30,6 +31,10 @@ LOCAL_C_INCLUDES := \
 
 LOCAL_C_INCLUDES += $(call include-path-for, mediandk)
 
-LOCAL_SHARED_LIBRARIES := libandroid libnativehelper liblog libmediandk
+LOCAL_SHARED_LIBRARIES := libandroid libnativehelper_compat_libc++ liblog libmediandk
+
+LOCAL_SDK_VERSION := 23
+
+LOCAL_CFLAGS := -Werror -Wall
 
 include $(BUILD_SHARED_LIBRARY)

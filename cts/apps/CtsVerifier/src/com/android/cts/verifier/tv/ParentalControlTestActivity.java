@@ -47,6 +47,8 @@ public class ParentalControlTestActivity extends TvAppVerifierActivity
     private View mBlockTvMaItem;
     private View mVerifyReceiveBroadcast2Item;
     private View mBlockUnblockItem;
+    private View mParantalControlsSwitchYesItem;
+    private View mParantalControlsSwitchNoItem;
 
     private Intent mTvAppIntent = null;
 
@@ -54,7 +56,25 @@ public class ParentalControlTestActivity extends TvAppVerifierActivity
     public void onClick(View v) {
         final View postTarget = getPostTarget();
 
-        if (containsButton(mTurnOnParentalControlItem, v)) {
+        if (containsButton(mParantalControlsSwitchYesItem, v)) {
+            setPassState(mParantalControlsSwitchYesItem, true);
+            setButtonEnabled(mParantalControlsSwitchNoItem, false);
+            mTurnOnParentalControlItem.setVisibility(View.VISIBLE);
+            mVerifyReceiveBroadcast1Item.setVisibility(View.VISIBLE);
+            mBlockTvMaItem.setVisibility(View.VISIBLE);
+            mVerifyReceiveBroadcast2Item.setVisibility(View.VISIBLE);
+            mBlockUnblockItem.setVisibility(View.VISIBLE);
+            setButtonEnabled(mTurnOnParentalControlItem, true);
+            return;
+        } else if (containsButton(mParantalControlsSwitchNoItem, v)){
+            setPassState(mParantalControlsSwitchYesItem, true);
+            setButtonEnabled(mParantalControlsSwitchNoItem, false);
+            mBlockTvMaItem.setVisibility(View.VISIBLE);
+            mVerifyReceiveBroadcast2Item.setVisibility(View.VISIBLE);
+            mBlockUnblockItem.setVisibility(View.VISIBLE);
+            setButtonEnabled(mBlockTvMaItem, true);
+            return;
+        } else if (containsButton(mTurnOnParentalControlItem, v)) {
             final Runnable failCallback = new Runnable() {
                 @Override
                 public void run() {
@@ -129,10 +149,16 @@ public class ParentalControlTestActivity extends TvAppVerifierActivity
 
     @Override
     protected void createTestItems() {
+        mParantalControlsSwitchYesItem = createUserItem(
+                R.string.tv_parental_control_test_check_parental_controls_switch,
+                R.string.tv_parental_control_turn_off_enabled, this);
+        setButtonEnabled(mParantalControlsSwitchYesItem, true);
+        mParantalControlsSwitchNoItem = createButtonItem(
+                R.string.tv_parental_control_turn_off_disabled, this);
+        setButtonEnabled(mParantalControlsSwitchNoItem, true);
         mTurnOnParentalControlItem = createUserItem(
                 R.string.tv_parental_control_test_turn_on_parental_control,
                 R.string.tv_launch_tv_app, this);
-        setButtonEnabled(mTurnOnParentalControlItem, true);
         mVerifyReceiveBroadcast1Item = createAutoItem(
                 R.string.tv_parental_control_test_verify_receive_broadcast1);
         mBlockTvMaItem = createUserItem(R.string.tv_parental_control_test_block_tv_ma,
@@ -141,6 +167,11 @@ public class ParentalControlTestActivity extends TvAppVerifierActivity
                 R.string.tv_parental_control_test_verify_receive_broadcast2);
         mBlockUnblockItem = createUserItem(R.string.tv_parental_control_test_block_unblock,
                 R.string.tv_launch_tv_app, this);
+        mTurnOnParentalControlItem.setVisibility(View.GONE);
+        mVerifyReceiveBroadcast1Item.setVisibility(View.GONE);
+        mBlockTvMaItem.setVisibility(View.GONE);
+        mVerifyReceiveBroadcast2Item.setVisibility(View.GONE);
+        mBlockUnblockItem.setVisibility(View.GONE);
     }
 
     @Override

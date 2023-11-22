@@ -4,14 +4,14 @@
 /*--- The address space manager: segment initialisation and        ---*/
 /*--- tracking, stack operations                                   ---*/
 /*---                                                              ---*/
-/*--- Implementation for Linux (and Darwin!)   m_aspacemgr-linux.c ---*/
+/*--- Implementation for Linux (and Darwin!)     aspacemgr-linux.c ---*/
 /*--------------------------------------------------------------------*/
 
 /*
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2000-2013 Julian Seward 
+   Copyright (C) 2000-2015 Julian Seward 
       jseward@acm.org
 
    This program is free software; you can redistribute it and/or
@@ -32,7 +32,7 @@
    The GNU General Public License is contained in the file COPYING.
 */
 
-#if defined(VGO_linux) || defined(VGO_darwin)
+#if defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_solaris)
 
 /* *************************************************************
    DO NOT INCLUDE ANY OTHER FILES HERE.
@@ -99,6 +99,15 @@
      middle, for the most part the client anonymous mappings will be
      clustered towards the start of available space, and Valgrind ones
      in the middle.
+
+     On Solaris, searches for client space start at (aspacem_vStart - 1)
+     and for Valgrind space start at (aspacem_maxAddr - 1) and go backwards.
+     This simulates what kernel does - brk limit grows from bottom and mmap'ed
+     objects from top. It is in contrary with Linux where data segment
+     and mmap'ed objects grow from bottom (leading to early data segment
+     exhaustion for tools which do not use m_replacemalloc). While Linux glibc
+     can cope with this problem by employing mmap, Solaris libc treats inability
+     to grow brk limit as a hard failure.
 
      The available space is delimited by aspacem_minAddr and
      aspacem_maxAddr.  aspacem is flexible and can operate with these
@@ -297,14 +306,17 @@ static Int      nsegments_used = 0;
 
 
 Addr VG_(clo_aspacem_minAddr)
-#if defined(VGO_darwin)
+#if defined(VGO_linux)
+   = (Addr) 0x04000000; // 64M
+#elif defined(VGO_darwin)
 # if VG_WORDSIZE == 4
    = (Addr) 0x00001000;
 # else
    = (Addr) 0x100000000;  // 4GB page zero
 # endif
+#elif defined(VGO_solaris)
+   = (Addr) 0x00100000; // 1MB
 #else
-   = (Addr) 0x04000000; // 64M
 #endif
 
 
@@ -430,10 +442,10 @@ static void show_nsegment_full ( Int logLevel, Int segNo, const NSegment* seg )
 
    VG_(debugLog)(
       logLevel, "aspacem",
-      "%3d: %s %010llx-%010llx %s %c%c%c%c%c %s "
-      "d=0x%03llx i=%-7lld o=%-7lld (%d,%d) %s\n",
+      "%3d: %s %010lx-%010lx %s %c%c%c%c%c %s "
+      "d=0x%03llx i=%-7llu o=%-7lld (%d,%d) %s\n",
       segNo, show_SegKind(seg->kind),
-      (ULong)seg->start, (ULong)seg->end, len_buf,
+      seg->start, seg->end, len_buf,
       seg->hasR ? 'r' : '-', seg->hasW ? 'w' : '-', 
       seg->hasX ? 'x' : '-', seg->hasT ? 'T' : '-',
       seg->isCH ? 'H' : '-',
@@ -457,18 +469,18 @@ static void show_nsegment ( Int logLevel, Int segNo, const NSegment* seg )
       case SkFree:
          VG_(debugLog)(
             logLevel, "aspacem",
-            "%3d: %s %010llx-%010llx %s\n",
+            "%3d: %s %010lx-%010lx %s\n",
             segNo, show_SegKind(seg->kind),
-            (ULong)seg->start, (ULong)seg->end, len_buf
+            seg->start, seg->end, len_buf
          );
          break;
 
       case SkAnonC: case SkAnonV: case SkShmC:
          VG_(debugLog)(
             logLevel, "aspacem",
-            "%3d: %s %010llx-%010llx %s %c%c%c%c%c\n",
+            "%3d: %s %010lx-%010lx %s %c%c%c%c%c\n",
             segNo, show_SegKind(seg->kind),
-            (ULong)seg->start, (ULong)seg->end, len_buf,
+            seg->start, seg->end, len_buf,
             seg->hasR ? 'r' : '-', seg->hasW ? 'w' : '-', 
             seg->hasX ? 'x' : '-', seg->hasT ? 'T' : '-',
             seg->isCH ? 'H' : '-'
@@ -478,10 +490,10 @@ static void show_nsegment ( Int logLevel, Int segNo, const NSegment* seg )
       case SkFileC: case SkFileV:
          VG_(debugLog)(
             logLevel, "aspacem",
-            "%3d: %s %010llx-%010llx %s %c%c%c%c%c d=0x%03llx "
-            "i=%-7lld o=%-7lld (%d,%d)\n",
+            "%3d: %s %010lx-%010lx %s %c%c%c%c%c d=0x%03llx "
+            "i=%-7llu o=%-7lld (%d,%d)\n",
             segNo, show_SegKind(seg->kind),
-            (ULong)seg->start, (ULong)seg->end, len_buf,
+            seg->start, seg->end, len_buf,
             seg->hasR ? 'r' : '-', seg->hasW ? 'w' : '-', 
             seg->hasX ? 'x' : '-', seg->hasT ? 'T' : '-', 
             seg->isCH ? 'H' : '-',
@@ -493,9 +505,9 @@ static void show_nsegment ( Int logLevel, Int segNo, const NSegment* seg )
       case SkResvn:
          VG_(debugLog)(
             logLevel, "aspacem",
-            "%3d: %s %010llx-%010llx %s %c%c%c%c%c %s\n",
+            "%3d: %s %010lx-%010lx %s %c%c%c%c%c %s\n",
             segNo, show_SegKind(seg->kind),
-            (ULong)seg->start, (ULong)seg->end, len_buf,
+            seg->start, seg->end, len_buf,
             seg->hasR ? 'r' : '-', seg->hasW ? 'w' : '-', 
             seg->hasX ? 'x' : '-', seg->hasT ? 'T' : '-', 
             seg->isCH ? 'H' : '-',
@@ -903,9 +915,9 @@ static void sync_check_mapping_callback ( Addr addr, SizeT len, UInt prot,
               "segment mismatch: V's seg 1st, kernel's 2nd:\n");
          show_nsegment_full( 0, i, &nsegments[i] );
          VG_(debugLog)(0,"aspacem", 
-            "...: .... %010llx-%010llx %s %c%c%c.. ....... "
-            "d=0x%03llx i=%-7lld o=%-7lld (.) m=. %s\n",
-            (ULong)start, (ULong)end, len_buf,
+            "...: .... %010lx-%010lx %s %c%c%c.. ....... "
+            "d=0x%03llx i=%-7llu o=%-7lld (.) m=. %s\n",
+            start, end, len_buf,
             prot & VKI_PROT_READ  ? 'r' : '-',
             prot & VKI_PROT_WRITE ? 'w' : '-',
             prot & VKI_PROT_EXEC  ? 'x' : '-',
@@ -970,8 +982,8 @@ static void sync_check_gap_callback ( Addr addr, SizeT len )
               "segment mismatch: V's gap 1st, kernel's 2nd:\n");
          show_nsegment_full( 0, i, &nsegments[i] );
          VG_(debugLog)(0,"aspacem", 
-            "   : .... %010llx-%010llx %s\n",
-            (ULong)start, (ULong)end, len_buf);
+            "   : .... %010lx-%010lx %s\n",
+            start, end, len_buf);
          return;
       }
    }
@@ -1122,6 +1134,18 @@ NSegment const * VG_(am_find_nsegment) ( Addr a )
       return &nsegments[i];
 }
 
+/* Finds an anonymous segment containing 'a'. Returned pointer is read only. */
+NSegment const *VG_(am_find_anon_segment) ( Addr a )
+{
+   Int i = find_nsegment_idx(a);
+   aspacem_assert(i >= 0 && i < nsegments_used);
+   aspacem_assert(nsegments[i].start <= a);
+   aspacem_assert(a <= nsegments[i].end);
+   if (nsegments[i].kind == SkAnonC || nsegments[i].kind == SkAnonV)
+      return &nsegments[i];
+   else
+      return NULL;
+}
 
 /* Map segment pointer to segment index. */
 static Int segAddr_to_index ( const NSegment* seg )
@@ -1241,6 +1265,15 @@ Bool VG_(am_is_valid_for_client_or_free_or_resvn)
    return is_valid_for(kinds, start, len, prot);
 }
 
+/* Checks if a piece of memory consists of either free or reservation
+   segments. */
+Bool VG_(am_is_free_or_resvn)( Addr start, SizeT len )
+{
+   const UInt kinds = SkFree | SkResvn;
+
+   return is_valid_for(kinds, start, len, 0);
+}
+
 
 Bool VG_(am_is_valid_for_valgrind) ( Addr start, SizeT len, UInt prot )
 {
@@ -1288,7 +1321,7 @@ Bool VG_(am_addr_is_in_extensible_client_stack)( Addr addr )
 
    case SkResvn: {
       if (seg->smode != SmUpper) return False;
-      /* If the the abutting segment towards higher addresses is an SkAnonC
+      /* If the abutting segment towards higher addresses is an SkAnonC
          segment, then ADDR is a future stack pointer. */
       const NSegment *next = VG_(am_next_nsegment)(seg, /*forward*/ True);
       if (next == NULL || next->kind != SkAnonC) return False;
@@ -1486,12 +1519,11 @@ static void read_maps_callback ( Addr addr, SizeT len, UInt prot,
    seg.hasX   = toBool(prot & VKI_PROT_EXEC);
    seg.hasT   = False;
 
-   /* Don't use the presence of a filename to decide if a segment in
-      the initial /proc/self/maps to decide if the segment is an AnonV
-      or FileV segment as some systems don't report the filename. Use
-      the device and inode numbers instead. Fixes bug #124528. */
+   /* A segment in the initial /proc/self/maps is considered a FileV
+      segment if either it has a file name associated with it or both its
+      device and inode numbers are != 0. See bug #124528. */
    seg.kind = SkAnonV;
-   if (dev != 0 && ino != 0) 
+   if (filename || (dev != 0 && ino != 0)) 
       seg.kind = SkFileV;
 
 #  if defined(VGO_darwin)
@@ -1593,14 +1625,103 @@ Addr VG_(am_startup) ( Addr sp_at_startup )
 
    suggested_clstack_end = -1; // ignored; Mach-O specifies its stack
 
-#else /* !defined(VGO_darwin) */
+#elif defined(VGO_solaris)
+#  if VG_WORDSIZE == 4
+   /*
+      Intended address space partitioning:
+
+      ,--------------------------------, 0x00000000
+      |                                |
+      |--------------------------------|
+      | initial stack given to V by OS |
+      |--------------------------------| 0x08000000
+      |          client text           |
+      |--------------------------------|
+      |                                |
+      |                                |
+      |--------------------------------|
+      |          client stack          |
+      |--------------------------------| 0x38000000
+      |            V's text            |
+      |--------------------------------|
+      |                                |
+      |                                |
+      |--------------------------------|
+      |     dynamic shared objects     |
+      '--------------------------------' 0xffffffff
+
+      */
+
+   /* Anonymous pages need to fit under user limit (USERLIMIT32)
+      which is 4KB + 16MB below the top of the 32-bit range. */
+#    ifdef ENABLE_INNER
+     aspacem_maxAddr = (Addr)0x4fffffff; // 1.25GB
+     aspacem_vStart  = (Addr)0x40000000; // 1GB
+#    else
+     aspacem_maxAddr = (Addr)0xfefff000 - 1; // 4GB - 16MB - 4KB
+     aspacem_vStart  = (Addr)0x50000000; // 1.25GB
+#    endif
+#  elif VG_WORDSIZE == 8
+   /*
+      Intended address space partitioning:
+
+      ,--------------------------------, 0x00000000_00000000
+      |                                |
+      |--------------------------------| 0x00000000_00400000
+      |          client text           |
+      |--------------------------------|
+      |                                |
+      |                                |
+      |--------------------------------|
+      |          client stack          |
+      |--------------------------------| 0x00000000_38000000
+      |            V's text            |
+      |--------------------------------|
+      |                                |
+      |--------------------------------|
+      |     dynamic shared objects     |
+      |--------------------------------| 0x0000000f_ffffffff
+      |                                |
+      |                                |
+      |--------------------------------|
+      | initial stack given to V by OS |
+      '--------------------------------' 0xffffffff_ffffffff
+
+      */
+
+   /* Kernel likes to place objects at the end of the address space.
+      However accessing memory beyond 64GB makes memcheck slow
+      (see memcheck/mc_main.c, internal representation). Therefore:
+      - mmapobj() syscall is emulated so that libraries are subject to
+        Valgrind's aspacemgr control
+      - Kernel shared pages (such as schedctl and hrt) are left as they are
+        because kernel cannot be told where they should be put */
+#    ifdef ENABLE_INNER
+     aspacem_maxAddr = (Addr) 0x00000007ffffffff; // 32GB
+     aspacem_vStart  = (Addr) 0x0000000400000000; // 16GB
+#    else
+     aspacem_maxAddr = (Addr) 0x0000000fffffffff; // 64GB
+     aspacem_vStart  = (Addr) 0x0000000800000000; // 32GB
+#    endif
+#  else
+#    error "Unknown word size"
+#  endif
+
+   aspacem_cStart = aspacem_minAddr;
+#  ifdef ENABLE_INNER
+   suggested_clstack_end = (Addr) 0x27ff0000 - 1; // 64kB below V's text
+#  else
+   suggested_clstack_end = (Addr) 0x37ff0000 - 1; // 64kB below V's text
+#  endif
+
+#else
 
    /* Establish address limits and block out unusable parts
       accordingly. */
 
    VG_(debugLog)(2, "aspacem", 
-                    "        sp_at_startup = 0x%010llx (supplied)\n", 
-                    (ULong)sp_at_startup );
+                    "        sp_at_startup = 0x%010lx (supplied)\n", 
+                    sp_at_startup );
 
 #  if VG_WORDSIZE == 8
      aspacem_maxAddr = (Addr)0x1000000000ULL - 1; // 64G
@@ -1624,7 +1745,7 @@ Addr VG_(am_startup) ( Addr sp_at_startup )
    suggested_clstack_end = aspacem_maxAddr - 16*1024*1024ULL
                                            + VKI_PAGE_SIZE;
 
-#endif /* #else of 'defined(VGO_darwin)' */
+#endif
 
    aspacem_assert(VG_IS_PAGE_ALIGNED(aspacem_minAddr));
    aspacem_assert(VG_IS_PAGE_ALIGNED(aspacem_maxAddr + 1));
@@ -1633,20 +1754,20 @@ Addr VG_(am_startup) ( Addr sp_at_startup )
    aspacem_assert(VG_IS_PAGE_ALIGNED(suggested_clstack_end + 1));
 
    VG_(debugLog)(2, "aspacem", 
-                    "              minAddr = 0x%010llx (computed)\n", 
-                    (ULong)aspacem_minAddr);
+                    "              minAddr = 0x%010lx (computed)\n", 
+                    aspacem_minAddr);
    VG_(debugLog)(2, "aspacem", 
-                    "              maxAddr = 0x%010llx (computed)\n", 
-                    (ULong)aspacem_maxAddr);
+                    "              maxAddr = 0x%010lx (computed)\n", 
+                    aspacem_maxAddr);
    VG_(debugLog)(2, "aspacem", 
-                    "               cStart = 0x%010llx (computed)\n", 
-                    (ULong)aspacem_cStart);
+                    "               cStart = 0x%010lx (computed)\n", 
+                    aspacem_cStart);
    VG_(debugLog)(2, "aspacem", 
-                    "               vStart = 0x%010llx (computed)\n", 
-                    (ULong)aspacem_vStart);
+                    "               vStart = 0x%010lx (computed)\n", 
+                    aspacem_vStart);
    VG_(debugLog)(2, "aspacem", 
-                    "suggested_clstack_end = 0x%010llx (computed)\n", 
-                    (ULong)suggested_clstack_end);
+                    "suggested_clstack_end = 0x%010lx (computed)\n", 
+                    suggested_clstack_end);
 
    if (aspacem_cStart > Addr_MIN) {
       init_resvn(&seg, Addr_MIN, aspacem_cStart-1);
@@ -1749,9 +1870,13 @@ Addr VG_(am_get_advisory) ( const MapRequest*  req,
    Addr holeStart, holeEnd, holeLen;
    Bool fixed_not_required;
 
+#if defined(VGO_solaris)
+   Addr startPoint = forClient ? aspacem_vStart - 1 : aspacem_maxAddr - 1;
+#else
    Addr startPoint = forClient ? aspacem_cStart : aspacem_vStart;
+#endif /* VGO_solaris */
 
-   Addr reqStart = req->rkind==MAny ? 0 : req->start;
+   Addr reqStart = req->rkind==MFixed || req->rkind==MHint ? req->start : 0;
    Addr reqEnd   = reqStart + req->len - 1;
    Addr reqLen   = req->len;
 
@@ -1764,8 +1889,8 @@ Addr VG_(am_get_advisory) ( const MapRequest*  req,
 
    if (0) {
       VG_(am_show_nsegments)(0,"getAdvisory");
-      VG_(debugLog)(0,"aspacem", "getAdvisory 0x%llx %lld\n", 
-                      (ULong)req->start, (ULong)req->len);
+      VG_(debugLog)(0,"aspacem", "getAdvisory 0x%lx %lu\n",
+                    req->start, req->len);
    }
 
    /* Reject zero-length requests */
@@ -1775,8 +1900,7 @@ Addr VG_(am_get_advisory) ( const MapRequest*  req,
    }
 
    /* Reject wraparounds */
-   if ((req->rkind==MFixed || req->rkind==MHint)
-       && req->start + req->len < req->start) {
+   if (req->start + req->len < req->start) {
       *ok = False;
       return 0;
    }
@@ -1835,9 +1959,31 @@ Addr VG_(am_get_advisory) ( const MapRequest*  req,
    /* ------ Implement the Default Policy ------ */
 
    /* Don't waste time looking for a fixed match if not requested to. */
-   fixed_not_required = req->rkind == MAny;
+   fixed_not_required = req->rkind == MAny || req->rkind == MAlign;
 
    i = find_nsegment_idx(startPoint);
+
+#if defined(VGO_solaris)
+#  define UPDATE_INDEX(index)                               \
+      (index)--;                                            \
+      if ((index) <= 0)                                     \
+         (index) = nsegments_used - 1;
+#  define ADVISE_ADDRESS(segment)                           \
+       VG_PGROUNDDN((segment)->end + 1 - reqLen)
+#  define ADVISE_ADDRESS_ALIGNED(segment)                   \
+        VG_ROUNDDN((segment)->end + 1 - reqLen, req->start)
+
+#else
+
+#  define UPDATE_INDEX(index)                               \
+      (index)++;                                            \
+      if ((index) >= nsegments_used)                        \
+         (index) = 0;
+#  define ADVISE_ADDRESS(segment)                           \
+      (segment)->start
+#  define ADVISE_ADDRESS_ALIGNED(segment)                   \
+      VG_ROUNDUP((segment)->start, req->start)
+#endif /* VGO_solaris */
 
    /* Examine holes from index i back round to i-1.  Record the
       index first fixed hole and the first floating hole which would
@@ -1845,8 +1991,7 @@ Addr VG_(am_get_advisory) ( const MapRequest*  req,
    for (j = 0; j < nsegments_used; j++) {
 
       if (nsegments[i].kind != SkFree) {
-         i++;
-         if (i >= nsegments_used) i = 0;
+         UPDATE_INDEX(i);
          continue;
       }
 
@@ -1857,6 +2002,15 @@ Addr VG_(am_get_advisory) ( const MapRequest*  req,
       aspacem_assert(holeStart <= holeEnd);
       aspacem_assert(aspacem_minAddr <= holeStart);
       aspacem_assert(holeEnd <= aspacem_maxAddr);
+
+      if (req->rkind == MAlign) {
+         holeStart = VG_ROUNDUP(holeStart, req->start);
+         if (holeStart >= holeEnd) {
+            /* This hole can't be used. */
+            UPDATE_INDEX(i);
+            continue;
+         }
+      }
 
       /* See if it's any use to us. */
       holeLen = holeEnd - holeStart + 1;
@@ -1871,8 +2025,7 @@ Addr VG_(am_get_advisory) ( const MapRequest*  req,
       if ((fixed_not_required || fixedIdx >= 0) && floatIdx >= 0)
          break;
 
-      i++;
-      if (i >= nsegments_used) i = 0;
+      UPDATE_INDEX(i);
    }
 
    aspacem_assert(fixedIdx >= -1 && fixedIdx < nsegments_used);
@@ -1903,14 +2056,21 @@ Addr VG_(am_get_advisory) ( const MapRequest*  req,
          }
          if (floatIdx >= 0) {
             *ok = True;
-            return nsegments[floatIdx].start;
+            return ADVISE_ADDRESS(&nsegments[floatIdx]);
          }
          *ok = False;
          return 0;
       case MAny:
          if (floatIdx >= 0) {
             *ok = True;
-            return nsegments[floatIdx].start;
+            return ADVISE_ADDRESS(&nsegments[floatIdx]);
+         }
+         *ok = False;
+         return 0;
+      case MAlign:
+         if (floatIdx >= 0) {
+            *ok = True;
+            return ADVISE_ADDRESS_ALIGNED(&nsegments[floatIdx]);
          }
          *ok = False;
          return 0;
@@ -1922,6 +2082,10 @@ Addr VG_(am_get_advisory) ( const MapRequest*  req,
    ML_(am_barf)("getAdvisory: unknown request kind");
    *ok = False;
    return 0;
+
+#undef UPDATE_INDEX
+#undef ADVISE_ADDRESS
+#undef ADVISE_ADDRESS_ALIGNED
 }
 
 /* Convenience wrapper for VG_(am_get_advisory) for client floating or
@@ -2159,11 +2323,29 @@ Bool VG_(am_notify_munmap)( Addr start, SizeT len )
 SysRes VG_(am_mmap_file_fixed_client)
      ( Addr start, SizeT length, UInt prot, Int fd, Off64T offset )
 {
-   return VG_(am_mmap_named_file_fixed_client)(start, length, prot, fd, offset, NULL);
+   UInt flags = VKI_MAP_FIXED | VKI_MAP_PRIVATE;
+   return VG_(am_mmap_named_file_fixed_client_flags)(start, length, prot, flags,
+                                                     fd, offset, NULL);
+}
+
+SysRes VG_(am_mmap_file_fixed_client_flags)
+     ( Addr start, SizeT length, UInt prot, UInt flags, Int fd, Off64T offset )
+{
+   return VG_(am_mmap_named_file_fixed_client_flags)(start, length, prot, flags,
+                                                     fd, offset, NULL);
 }
 
 SysRes VG_(am_mmap_named_file_fixed_client)
      ( Addr start, SizeT length, UInt prot, Int fd, Off64T offset, const HChar *name )
+{
+   UInt flags = VKI_MAP_FIXED | VKI_MAP_PRIVATE;
+   return VG_(am_mmap_named_file_fixed_client_flags)(start, length, prot, flags,
+                                                     fd, offset, name);
+}
+
+SysRes VG_(am_mmap_named_file_fixed_client_flags)
+     ( Addr start, SizeT length, UInt prot, UInt flags,
+       Int fd, Off64T offset, const HChar *name )
 {
    SysRes     sres;
    NSegment   seg;
@@ -2193,8 +2375,7 @@ SysRes VG_(am_mmap_named_file_fixed_client)
       any resulting failure immediately. */
    // DDD: #warning GrP fixme MAP_FIXED can clobber memory!
    sres = VG_(am_do_mmap_NO_NOTIFY)( 
-             start, length, prot, 
-             VKI_MAP_FIXED|VKI_MAP_PRIVATE, 
+             start, length, prot, flags,
              fd, offset 
           );
    if (sr_isError(sres))
@@ -3604,7 +3785,274 @@ Bool VG_(get_changed_segments)(
 
 /*------END-procmaps-parser-for-Darwin---------------------------*/
 
-#endif // defined(VGO_linux) || defined(VGO_darwin)
+/*------BEGIN-procmaps-parser-for-Solaris------------------------*/
+
+#if defined(VGO_solaris)
+
+/* Note: /proc/self/xmap contains extended information about already
+   materialized mappings whereas /proc/self/rmap contains information about
+   all mappings including reserved but yet-to-materialize mappings (mmap'ed
+   with MAP_NORESERVE flag, such as thread stacks). But /proc/self/rmap does
+   not contain extended information found in /proc/self/xmap. Therefore
+   information from both sources need to be combined.
+ */
+
+typedef struct
+{
+   Addr   addr;
+   SizeT  size;
+   UInt   prot;
+   ULong  dev;
+   ULong  ino;
+   Off64T foffset;
+   HChar  filename[VKI_PATH_MAX];
+} Mapping;
+
+static SizeT read_proc_file(const HChar *filename, HChar *buf,
+                            SizeT buf_size, const HChar *buf_size_name,
+                            SizeT entry_size)
+{
+   SysRes res = ML_(am_open)(filename, VKI_O_RDONLY, 0);
+   if (sr_isError(res)) {
+      HChar message[100];
+      ML_(am_sprintf)(message, "Cannot open %s.", filename);
+      ML_(am_barf)(message);
+   }
+   Int fd = sr_Res(res);
+
+   Int r = ML_(am_read)(fd, buf, buf_size);
+   ML_(am_close)(fd);
+   if (r < 0) {
+      HChar message[100];
+      ML_(am_sprintf)(message, "I/O error on %s.", filename);
+      ML_(am_barf)(message);
+   }
+
+   if (r >= buf_size)
+      ML_(am_barf_toolow)(buf_size_name);
+
+   if (r % entry_size != 0) {
+      HChar message[100];
+      ML_(am_sprintf)(message, "Bogus values read from %s.", filename);
+      ML_(am_barf)(message);
+   }
+
+   return r / entry_size;
+}
+
+static Mapping *next_xmap(const HChar *buffer, SizeT entries, SizeT *idx,
+                          Mapping *mapping)
+{
+   aspacem_assert(idx);
+   aspacem_assert(mapping);
+
+   if (*idx >= entries)
+      return NULL; /* No more entries */
+
+   const vki_prxmap_t *map = (const vki_prxmap_t *)buffer + *idx;
+
+   mapping->addr = map->pr_vaddr;
+   mapping->size = map->pr_size;
+
+   mapping->prot = 0;
+   if (map->pr_mflags & VKI_MA_READ)
+      mapping->prot |= VKI_PROT_READ;
+   if (map->pr_mflags & VKI_MA_WRITE)
+      mapping->prot |= VKI_PROT_WRITE;
+   if (map->pr_mflags & VKI_MA_EXEC)
+      mapping->prot |= VKI_PROT_EXEC;
+
+   if (map->pr_dev != VKI_PRNODEV) {
+      mapping->dev = map->pr_dev;
+      mapping->ino = map->pr_ino;
+      mapping->foffset = map->pr_offset;
+   }
+   else {
+      mapping->dev = 0;
+      mapping->ino = 0;
+      mapping->foffset = 0;
+   }
+
+   /* Try to get the filename. */
+   mapping->filename[0] = '\0';
+   if (map->pr_mapname[0] != '\0') {
+      ML_(am_sprintf)(mapping->filename, "/proc/self/path/%s",
+                      map->pr_mapname);
+      Int r = ML_(am_readlink)(mapping->filename, mapping->filename,
+                               sizeof(mapping->filename) - 1);
+      if (r == -1) {
+         /* If Valgrind is executed in a non-global zone and the link in
+            /proc/self/path/ represents a file that is available through lofs
+            from a global zone then the kernel may not be able to resolve the
+            link.
+
+            In such a case, return a corresponding /proc/self/object/ file to
+            allow Valgrind to read the file if it is necessary.
+
+            This can create some discrepancy for the sanity check. For
+            instance, if a client program mmaps some file then the address
+            space manager will have a correct zone-local name of that file,
+            but the sanity check will receive a different file name from this
+            code. This currently does not represent a problem because the
+            sanity check ignores the file names (it uses device and inode
+            numbers for the comparison).
+          */
+         ML_(am_sprintf)(mapping->filename, "/proc/self/object/%s",
+                         map->pr_mapname);
+      }
+      else {
+         aspacem_assert(r >= 0);
+         mapping->filename[r] = '\0';
+      }
+   }
+
+   *idx += 1;
+   return mapping;
+}
+
+static Mapping *next_rmap(const HChar *buffer, SizeT entries, SizeT *idx,
+                          Mapping *mapping)
+{
+   aspacem_assert(idx);
+   aspacem_assert(mapping);
+
+   if (*idx >= entries)
+      return NULL; /* No more entries */
+
+   const vki_prmap_t *map = (const vki_prmap_t *)buffer + *idx;
+
+   mapping->addr = map->pr_vaddr;
+   mapping->size = map->pr_size;
+
+   mapping->prot = 0;
+   if (map->pr_mflags & VKI_MA_READ)
+      mapping->prot |= VKI_PROT_READ;
+   if (map->pr_mflags & VKI_MA_WRITE)
+      mapping->prot |= VKI_PROT_WRITE;
+   if (map->pr_mflags & VKI_MA_EXEC)
+      mapping->prot |= VKI_PROT_EXEC;
+
+   mapping->dev = 0;
+   mapping->ino = 0;
+   mapping->foffset = 0;
+   mapping->filename[0] = '\0';
+
+   *idx += 1;
+   return mapping;
+}
+
+/* Used for two purposes:
+   1. Establish initial mappings upon the process startup
+   2. Check mappings during aspacemgr sanity check
+ */
+static void parse_procselfmaps (
+      void (*record_mapping)( Addr addr, SizeT len, UInt prot,
+                              ULong dev, ULong ino, Off64T offset,
+                              const HChar *filename ),
+      void (*record_gap)( Addr addr, SizeT len )
+   )
+{
+   Addr start = Addr_MIN;
+   Addr gap_start = Addr_MIN;
+
+#define M_XMAP_BUF (VG_N_SEGMENTS * sizeof(vki_prxmap_t))
+   /* Static to keep it out of stack frame... */
+   static HChar xmap_buf[M_XMAP_BUF];
+   const Mapping *xmap = NULL;
+   SizeT xmap_index = 0; /* Current entry */
+   SizeT xmap_entries;
+   Mapping xmap_mapping;
+   Bool advance_xmap;
+
+#define M_RMAP_BUF (VG_N_SEGMENTS * sizeof(vki_prmap_t))
+   static HChar rmap_buf[M_RMAP_BUF];
+   const Mapping *rmap = NULL;
+   SizeT rmap_index = 0; /* Current entry */
+   SizeT rmap_entries;
+   Mapping rmap_mapping;
+   Bool advance_rmap;
+
+   /* Read fully /proc/self/xmap and /proc/self/rmap. */
+   xmap_entries = read_proc_file("/proc/self/xmap", xmap_buf, M_XMAP_BUF,
+                                 "M_XMAP_BUF", sizeof(vki_prxmap_t));
+
+   rmap_entries = read_proc_file("/proc/self/rmap", rmap_buf, M_RMAP_BUF,
+                                 "M_RMAP_BUF", sizeof(vki_prmap_t));
+
+   /* Get the first xmap and rmap. */
+   advance_xmap = True;
+   advance_rmap = True;
+
+   while (1) {
+      /* Get next xmap or rmap if necessary. */
+      if (advance_xmap) {
+         xmap = next_xmap(xmap_buf, xmap_entries, &xmap_index, &xmap_mapping);
+         advance_xmap = False;
+      }
+      if (advance_rmap) {
+         rmap = next_rmap(rmap_buf, rmap_entries, &rmap_index, &rmap_mapping);
+         advance_rmap = False;
+      }
+
+      /* Check if the end has been reached. */
+      if (rmap == NULL)
+         break;
+
+      /* Invariants */
+      if (xmap != NULL) {
+         aspacem_assert(start <= xmap->addr);
+         aspacem_assert(rmap->addr <= xmap->addr);
+      }
+
+      if (xmap != NULL && start == xmap->addr) {
+         /* xmap mapping reached. */
+         aspacem_assert(xmap->addr >= rmap->addr &&
+                        xmap->addr + xmap->size <= rmap->addr + rmap->size);
+         aspacem_assert(xmap->prot == rmap->prot);
+
+         if (record_mapping != NULL)
+            (*record_mapping)(xmap->addr, xmap->size, xmap->prot, xmap->dev,
+                              xmap->ino, xmap->foffset,
+                              (xmap->filename[0] != '\0') ?
+                               xmap->filename : NULL);
+
+         start = xmap->addr + xmap->size;
+         advance_xmap = True;
+      }
+      else if (start >= rmap->addr) {
+         /* Reserved-only part. */
+         /* First calculate size until the end of this reserved mapping... */
+         SizeT size = rmap->addr + rmap->size - start;
+         /* ... but shrink it if some xmap is in a way. */
+         if (xmap != NULL && size > xmap->addr - start)
+            size = xmap->addr - start;
+
+         if (record_mapping != NULL)
+            (*record_mapping)(start, size, rmap->prot, 0, 0, 0, NULL);
+         start += size;
+      }
+      else {
+         /* Gap. */
+         if (record_gap != NULL && gap_start < start)
+            (*record_gap)(gap_start, start - gap_start);
+         start = rmap->addr;
+      }
+
+      if (rmap->addr + rmap->size <= start)
+         advance_rmap = True;
+
+      gap_start = start;
+   }
+
+   if (record_gap != NULL && gap_start < Addr_MAX)
+      (*record_gap)(gap_start, Addr_MAX - gap_start + 1);
+}
+
+#endif // defined(VGO_solaris)
+
+/*------END-procmaps-parser-for-Solaris--------------------------*/
+
+#endif // defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_solaris)
 
 /*--------------------------------------------------------------------*/
 /*--- end                                                          ---*/

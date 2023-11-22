@@ -163,6 +163,34 @@ struct drm_tegra_gem_get_flags {
 	__u32 flags;
 };
 
+enum request_type {
+	DRM_TEGRA_REQ_TYPE_CLK_KHZ = 0,
+	DRM_TEGRA_REQ_TYPE_BW_KBPS,
+};
+
+struct drm_tegra_get_clk_rate {
+	/* class ID*/
+	__u32 id;
+	/* request type: KBps or KHz */
+	__u32 type;
+	/* numeric value for type */
+	__u64 data;
+};
+
+struct drm_tegra_set_clk_rate {
+	/* class ID*/
+	__u32 id;
+	/* request type: KBps or KHz */
+	__u32 type;
+	/* numeric value for type */
+	__u64 data;
+};
+
+struct drm_tegra_keepon {
+	/* channel context (from opening a channel) */
+	__u64 context;
+};
+
 #define DRM_TEGRA_GEM_CREATE		0x00
 #define DRM_TEGRA_GEM_MMAP		0x01
 #define DRM_TEGRA_SYNCPT_READ		0x02
@@ -177,6 +205,10 @@ struct drm_tegra_gem_get_flags {
 #define DRM_TEGRA_GEM_GET_TILING	0x0b
 #define DRM_TEGRA_GEM_SET_FLAGS		0x0c
 #define DRM_TEGRA_GEM_GET_FLAGS		0x0d
+#define DRM_TEGRA_GET_CLK_RATE		0x0e
+#define DRM_TEGRA_SET_CLK_RATE		0x0f
+#define DRM_TEGRA_START_KEEPON		0x10
+#define DRM_TEGRA_STOP_KEEPON		0x11
 
 #define DRM_IOCTL_TEGRA_GEM_CREATE DRM_IOWR(DRM_COMMAND_BASE + DRM_TEGRA_GEM_CREATE, struct drm_tegra_gem_create)
 #define DRM_IOCTL_TEGRA_GEM_MMAP DRM_IOWR(DRM_COMMAND_BASE + DRM_TEGRA_GEM_MMAP, struct drm_tegra_gem_mmap)
@@ -192,5 +224,9 @@ struct drm_tegra_gem_get_flags {
 #define DRM_IOCTL_TEGRA_GEM_GET_TILING DRM_IOWR(DRM_COMMAND_BASE + DRM_TEGRA_GEM_GET_TILING, struct drm_tegra_gem_get_tiling)
 #define DRM_IOCTL_TEGRA_GEM_SET_FLAGS DRM_IOWR(DRM_COMMAND_BASE + DRM_TEGRA_GEM_SET_FLAGS, struct drm_tegra_gem_set_flags)
 #define DRM_IOCTL_TEGRA_GEM_GET_FLAGS DRM_IOWR(DRM_COMMAND_BASE + DRM_TEGRA_GEM_GET_FLAGS, struct drm_tegra_gem_get_flags)
+#define DRM_IOCTL_TEGRA_GET_CLK_RATE DRM_IOWR(DRM_COMMAND_BASE + DRM_TEGRA_GET_CLK_RATE, struct drm_tegra_get_clk_rate)
+#define DRM_IOCTL_TEGRA_SET_CLK_RATE DRM_IOWR(DRM_COMMAND_BASE + DRM_TEGRA_SET_CLK_RATE, struct drm_tegra_set_clk_rate)
+#define DRM_IOCTL_TEGRA_START_KEEPON DRM_IOWR(DRM_COMMAND_BASE + DRM_TEGRA_START_KEEPON, struct drm_tegra_keepon)
+#define DRM_IOCTL_TEGRA_STOP_KEEPON DRM_IOWR(DRM_COMMAND_BASE + DRM_TEGRA_STOP_KEEPON, struct drm_tegra_keepon)
 
 #endif

@@ -27,6 +27,7 @@
 #include "bt_target.h"
 #include <string.h>
 #include "btm_int.h"
+#include "stack_config.h"
 
 /* Global BTM control block structure
 */
@@ -50,6 +51,10 @@ void btm_init (void)
 {
     /* All fields are cleared; nonzero fields are reinitialized in appropriate function */
     memset(&btm_cb, 0, sizeof(tBTM_CB));
+    btm_cb.page_queue = fixed_queue_new(SIZE_MAX);
+    btm_cb.sec_pending_q = fixed_queue_new(SIZE_MAX);
+    btm_cb.sec_collision_timer = alarm_new("btm.sec_collision_timer");
+    btm_cb.pairing_timer = alarm_new("btm.pairing_timer");
 
 #if defined(BTM_INITIAL_TRACE_LEVEL)
     btm_cb.trace_level = BTM_INITIAL_TRACE_LEVEL;
@@ -59,10 +64,16 @@ void btm_init (void)
     /* Initialize BTM component structures */
     btm_inq_db_init();                  /* Inquiry Database and Structures */
     btm_acl_init();                     /* ACL Database and Structures */
-    btm_sec_init(BTM_SEC_MODE_SP);      /* Security Manager Database and Structures */
+    /* Security Manager Database and Structures */
+    if (stack_config_get_interface()->get_pts_secure_only_mode())
+        btm_sec_init(BTM_SEC_MODE_SC);
+    else
+        btm_sec_init(BTM_SEC_MODE_SP);
 #if BTM_SCO_INCLUDED == TRUE
     btm_sco_init();                     /* SCO Database and Structures (If included) */
 #endif
+
+    btm_cb.sec_dev_rec = list_new(osi_free);
 
     btm_dev_init();                     /* Device Manager Structures & HCI_Reset */
 }

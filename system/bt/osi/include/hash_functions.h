@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "hash_map.h"
+#include "osi/include/hash_map.h"
 
 hash_index_t hash_function_naive(const void *key);
 

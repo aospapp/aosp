@@ -16,6 +16,7 @@
 
 package android.os.cts;
 
+import android.content.pm.PackageManager;
 import android.os.StrictMode;
 import android.os.SystemClock;
 import android.test.AndroidTestCase;
@@ -48,6 +49,11 @@ public class StrictModeTest extends AndroidTestCase {
     }
 
     public void testCleartextNetwork() throws Exception {
+        if (!hasInternetConnection()) {
+            Log.i(TAG, "testCleartextNetwork() ignored on device without Internet");
+            return;
+        }
+
         StrictMode.setVmPolicy(new StrictMode.VmPolicy.Builder()
                 .detectCleartextNetwork()
                 .penaltyLog()
@@ -66,6 +72,11 @@ public class StrictModeTest extends AndroidTestCase {
     }
 
     public void testEncryptedNetwork() throws Exception {
+        if (!hasInternetConnection()) {
+            Log.i(TAG, "testEncryptedNetwork() ignored on device without Internet");
+            return;
+        }
+
         StrictMode.setVmPolicy(new StrictMode.VmPolicy.Builder()
                 .detectCleartextNetwork()
                 .penaltyLog()
@@ -94,5 +105,12 @@ public class StrictModeTest extends AndroidTestCase {
 
         Log.d(TAG, "Log output was " + buf.size() + " bytes, exit code " + res);
         return new String(buf.toByteArray());
+    }
+
+    private boolean hasInternetConnection() {
+        final PackageManager pm = getContext().getPackageManager();
+        return pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)
+                || pm.hasSystemFeature(PackageManager.FEATURE_WIFI)
+                || pm.hasSystemFeature(PackageManager.FEATURE_ETHERNET);
     }
 }

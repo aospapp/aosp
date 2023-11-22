@@ -16,6 +16,8 @@
 
 package android.databinding.tool.expr;
 
+import android.databinding.tool.writer.KCode;
+
 public class StaticIdentifierExpr extends IdentifierExpr {
 
     StaticIdentifierExpr(String name) {
@@ -30,5 +32,20 @@ public class StaticIdentifierExpr extends IdentifierExpr {
     @Override
     public boolean isDynamic() {
         return false;
+    }
+
+    @Override
+    public String getInvertibleError() {
+        return "Class " + getResolvedType().toJavaCode() +
+                " may not be the target of a two-way binding expression";
+    }
+
+    @Override
+    public KCode toInverseCode(KCode value) {
+        throw new IllegalStateException("StaticIdentifierExpr is not invertible.");
+    }
+    @Override
+    protected KCode generateCode(boolean expand) {
+        return new KCode(getResolvedType().toJavaCode());
     }
 }

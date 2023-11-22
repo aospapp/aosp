@@ -105,7 +105,7 @@ public final class DESede
             super(new CBCBlockCipherMac(new DESedeEngine(), 64, new ISO7816d4Padding()));
         }
     }
-    
+
     public static class CBCMAC
         extends BaseMac
     {
@@ -125,7 +125,7 @@ public final class DESede
     //     }
     // }
     // END android-removed
-    
+
     public static class Wrap
         extends BaseWrapCipher
     {
@@ -134,7 +134,7 @@ public final class DESede
             super(new DESedeWrapEngine());
         }
     }
-    
+
     // BEGIN android-removed
     // public static class RFC3211
     //     extends BaseWrapCipher
@@ -218,7 +218,7 @@ public final class DESede
     {
         public PBEWithSHAAndDES3Key()
         {
-            super(new CBCBlockCipher(new DESedeEngine()));
+            super(new CBCBlockCipher(new DESedeEngine()), PKCS12, SHA1, 192, 8);
         }
     }
 
@@ -230,7 +230,7 @@ public final class DESede
     {
         public PBEWithSHAAndDES2Key()
         {
-            super(new CBCBlockCipher(new DESedeEngine()));
+            super(new CBCBlockCipher(new DESedeEngine()), PKCS12, SHA1, 128, 8);
         }
     }
 
@@ -381,7 +381,7 @@ public final class DESede
         {
             provider.addAlgorithm("Cipher.DESEDE", PREFIX + "$ECB");
             // BEGIN android-removed
-            // provider.addAlgorithm("Cipher." + PKCSObjectIdentifiers.des_EDE3_CBC, PREFIX + "$CBC");
+            // provider.addAlgorithm("Cipher", PKCSObjectIdentifiers.des_EDE3_CBC, PREFIX + "$CBC");
             // END android-removed
             provider.addAlgorithm("Cipher.DESEDEWRAP", PREFIX + "$Wrap");
             // BEGIN android-changed
@@ -389,6 +389,7 @@ public final class DESede
             // END android-changed
             // BEGIN android-removed
             // provider.addAlgorithm("Cipher.DESEDERFC3211WRAP", PREFIX + "$RFC3211");
+            // provider.addAlgorithm("Alg.Alias.Cipher.DESEDERFC3217WRAP", "DESEDEWRAP");
             // END android-removed
 
             provider.addAlgorithm("Alg.Alias.Cipher.TDEA", "DESEDE");
@@ -411,11 +412,16 @@ public final class DESede
                 // BEGIN android-removed
                 // provider.addAlgorithm("Cipher.BROKENPBEWITHSHAAND2-KEYTRIPLEDES-CBC", PREFIX + "$BrokePBEWithSHAAndDES2Key");
                 // END android-removed
-                provider.addAlgorithm("Alg.Alias.Cipher." + PKCSObjectIdentifiers.pbeWithSHAAnd3_KeyTripleDES_CBC, "PBEWITHSHAAND3-KEYTRIPLEDES-CBC");
-                provider.addAlgorithm("Alg.Alias.Cipher." + PKCSObjectIdentifiers.pbeWithSHAAnd2_KeyTripleDES_CBC, "PBEWITHSHAAND2-KEYTRIPLEDES-CBC");
+                provider.addAlgorithm("Alg.Alias.Cipher", PKCSObjectIdentifiers.pbeWithSHAAnd3_KeyTripleDES_CBC, "PBEWITHSHAAND3-KEYTRIPLEDES-CBC");
+                provider.addAlgorithm("Alg.Alias.Cipher", PKCSObjectIdentifiers.pbeWithSHAAnd2_KeyTripleDES_CBC, "PBEWITHSHAAND2-KEYTRIPLEDES-CBC");
                 provider.addAlgorithm("Alg.Alias.Cipher.PBEWITHSHA1ANDDESEDE", "PBEWITHSHAAND3-KEYTRIPLEDES-CBC");
                 provider.addAlgorithm("Alg.Alias.Cipher.PBEWITHSHA1AND3-KEYTRIPLEDES-CBC", "PBEWITHSHAAND3-KEYTRIPLEDES-CBC");
                 provider.addAlgorithm("Alg.Alias.Cipher.PBEWITHSHA1AND2-KEYTRIPLEDES-CBC", "PBEWITHSHAAND2-KEYTRIPLEDES-CBC");
+                provider.addAlgorithm("Alg.Alias.Cipher.PBEWITHSHAAND3-KEYDESEDE-CBC", "PBEWITHSHAAND3-KEYTRIPLEDES-CBC");
+                provider.addAlgorithm("Alg.Alias.Cipher.PBEWITHSHAAND2-KEYDESEDE-CBC", "PBEWITHSHAAND2-KEYTRIPLEDES-CBC");
+                provider.addAlgorithm("Alg.Alias.Cipher.PBEWITHSHA1AND3-KEYDESEDE-CBC", "PBEWITHSHAAND3-KEYTRIPLEDES-CBC");
+                provider.addAlgorithm("Alg.Alias.Cipher.PBEWITHSHA1AND2-KEYDESEDE-CBC", "PBEWITHSHAAND2-KEYTRIPLEDES-CBC");
+                provider.addAlgorithm("Alg.Alias.Cipher.PBEWITHSHA1ANDDESEDE-CBC", "PBEWITHSHAAND3-KEYTRIPLEDES-CBC");
             }
 
             provider.addAlgorithm("KeyGenerator.DESEDE", PREFIX + "$KeyGenerator");

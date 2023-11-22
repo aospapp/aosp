@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,13 +30,13 @@
 
 // Opaque handle to a RenderScript object. Do not use this directly.
 #ifndef __LP64__
-#define _RS_HANDLE \
-struct {\
+#define _RS_OBJECT_DECL \
+{\
   const int* const p;\
 } __attribute__((packed, aligned(4)))
 #else
-#define _RS_HANDLE \
-struct {\
+#define _RS_OBJECT_DECL \
+{\
   const long* const p;\
   const long* const r;\
   const long* const v1;\
@@ -51,7 +51,7 @@ struct {\
  *
  * See android.renderscript.Element.
  */
-typedef _RS_HANDLE rs_element;
+typedef struct rs_element _RS_OBJECT_DECL rs_element;
 
 /*
  * rs_type: Handle to a Type
@@ -60,7 +60,7 @@ typedef _RS_HANDLE rs_element;
  *
  * See android.renderscript.Type.
  */
-typedef _RS_HANDLE rs_type;
+typedef struct rs_type _RS_OBJECT_DECL rs_type;
 
 /*
  * rs_allocation: Handle to an allocation
@@ -69,7 +69,7 @@ typedef _RS_HANDLE rs_type;
  *
  * See android.renderscript.Allocation.
  */
-typedef _RS_HANDLE rs_allocation;
+typedef struct rs_allocation _RS_OBJECT_DECL rs_allocation;
 
 /*
  * rs_sampler: Handle to a Sampler
@@ -78,7 +78,7 @@ typedef _RS_HANDLE rs_allocation;
  *
  * See android.renderscript.Sampler.
  */
-typedef _RS_HANDLE rs_sampler;
+typedef struct rs_sampler _RS_OBJECT_DECL rs_sampler;
 
 /*
  * rs_script: Handle to a Script
@@ -87,7 +87,7 @@ typedef _RS_HANDLE rs_sampler;
  *
  * See android.renderscript.ScriptC.
  */
-typedef _RS_HANDLE rs_script;
+typedef struct rs_script _RS_OBJECT_DECL rs_script;
 
 /*
  * rs_allocation_cubemap_face: Enum for selecting cube map faces
@@ -114,7 +114,7 @@ typedef enum {
 #if (defined(RS_VERSION) && (RS_VERSION >= 14))
 typedef enum {
     RS_ALLOCATION_USAGE_SCRIPT = 0x0001, // Allocation is bound to and accessed by scripts.
-    RS_ALLOCATION_USAGE_GRAPHICS_TEXTURE = 0x0002, // Deprecated.
+    RS_ALLOCATION_USAGE_GRAPHICS_TEXTURE = 0x0002, // Allocation is used as a texture source.
     RS_ALLOCATION_USAGE_GRAPHICS_VERTEX = 0x0004, // Deprecated.
     RS_ALLOCATION_USAGE_GRAPHICS_CONSTANTS = 0x0008, // Deprecated.
     RS_ALLOCATION_USAGE_GRAPHICS_RENDER_TARGET = 0x0010, // Deprecated.
@@ -136,7 +136,8 @@ typedef enum {
 #if (defined(RS_VERSION) && (RS_VERSION >= 16))
 typedef enum {
     RS_TYPE_NONE = 0, // Element is a complex type, i.e. a struct.
-    RS_TYPE_FLOAT_32 = 2, // A 32 bit float point value.
+    RS_TYPE_FLOAT_16 = 1, // A 16 bit floating point value.
+    RS_TYPE_FLOAT_32 = 2, // A 32 bit floating point value.
     RS_TYPE_FLOAT_64 = 3, // A 64 bit floating point value.
     RS_TYPE_SIGNED_8 = 4, // An 8 bit signed integer.
     RS_TYPE_SIGNED_16 = 5, // A 16 bit signed integer.
@@ -193,6 +194,22 @@ typedef enum {
     RS_KIND_PIXEL_YUV    = 13, // Luminance and chrominance.
     RS_KIND_INVALID      = 100
 } rs_data_kind;
+#endif
+
+/*
+ * rs_yuv_format: YUV format
+ *
+ *  Android YUV formats that can be associated with a RenderScript Type.
+ *
+ *  See android.graphics.ImageFormat for a description of each format.
+ */
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+typedef enum {
+    RS_YUV_NONE = 0,
+    RS_YUV_YV12 = 0x32315659,
+    RS_YUV_NV21 = 0x11,
+    RS_YUV_420_888 = 0x23
+} rs_yuv_format;
 #endif
 
 /*

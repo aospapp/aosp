@@ -16,7 +16,7 @@
 
 package android.preference2.cts;
 
-import com.android.cts.preference2.R;
+import android.preference2.cts.R;
 
 import android.app.Activity;
 import android.os.Bundle;

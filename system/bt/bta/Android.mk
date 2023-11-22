@@ -1,13 +1,8 @@
 LOCAL_PATH:= $(call my-dir)
 
+# BTA static library for target
+# ========================================================
 include $(CLEAR_VARS)
-
-ifeq ($(BOARD_HAVE_BLUETOOTH_BCM),true)
-LOCAL_CFLAGS += \
-	-DBOARD_HAVE_BLUETOOTH_BCM
-endif
-LOCAL_CFLAGS += -DBUILDCFG $(bdroid_CFLAGS) -std=c99
-LOCAL_CLANG_CFLAGS += -Wno-error=gnu-variable-sized-type-not-at-end
 
 LOCAL_SRC_FILES:= \
     ./dm/bta_dm_ci.c \
@@ -21,7 +16,6 @@ LOCAL_SRC_FILES:= \
     ./gatt/bta_gatts_act.c \
     ./gatt/bta_gatts_main.c \
     ./gatt/bta_gattc_utils.c \
-    ./gatt/bta_gattc_ci.c \
     ./gatt/bta_gatts_api.c \
     ./gatt/bta_gattc_main.c \
     ./gatt/bta_gattc_act.c \
@@ -82,11 +76,10 @@ LOCAL_SRC_FILES:= \
     ./jv/bta_jv_main.c \
     ./jv/bta_jv_api.c
 
-LOCAL_MODULE := libbt-brcm_bta
+LOCAL_MODULE := libbt-bta
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 LOCAL_MODULE_TAGS := optional
 LOCAL_SHARED_LIBRARIES := libcutils libc
-LOCAL_MULTILIB := 32
 
 LOCAL_C_INCLUDES+= . \
                    $(LOCAL_PATH)/include \
@@ -95,17 +88,17 @@ LOCAL_C_INCLUDES+= . \
                    $(LOCAL_PATH)/hh \
                    $(LOCAL_PATH)/../ \
                    $(LOCAL_PATH)/../btcore/include \
-                   $(LOCAL_PATH)/../gki/common \
-                   $(LOCAL_PATH)/../gki/ulinux \
                    $(LOCAL_PATH)/../hci/include \
                    $(LOCAL_PATH)/../include \
                    $(LOCAL_PATH)/../stack/include \
                    $(LOCAL_PATH)/../stack/btm \
-                   $(LOCAL_PATH)/../osi/include \
                    $(LOCAL_PATH)/../udrv/include \
                    $(LOCAL_PATH)/../vnd/include \
                    $(LOCAL_PATH)/../utils/include \
-                   $(bdroid_C_INCLUDES) \
+                   $(bluetooth_C_INCLUDES)
 
+LOCAL_CFLAGS += $(bluetooth_CFLAGS) -DBUILDCFG
+LOCAL_CONLYFLAGS += $(bluetooth_CONLYFLAGS)
+LOCAL_CPPFLAGS += $(bluetooth_CPPFLAGS)
 
 include $(BUILD_STATIC_LIBRARY)

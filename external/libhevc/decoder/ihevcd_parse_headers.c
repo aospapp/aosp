@@ -1263,16 +1263,6 @@ IHEVCD_ERROR_T ihevcd_parse_sps(codec_t *ps_codec)
     ps_sps->i2_pic_width_in_luma_samples = ALIGN8(ps_sps->i2_pic_width_in_luma_samples);
     ps_sps->i2_pic_height_in_luma_samples = ALIGN8(ps_sps->i2_pic_height_in_luma_samples);
 
-    if((ps_sps->i2_pic_width_in_luma_samples > ps_codec->i4_max_wd) ||
-       (ps_sps->i2_pic_width_in_luma_samples * ps_sps->i2_pic_height_in_luma_samples >
-                       ps_codec->i4_max_wd * ps_codec->i4_max_ht) ||
-       (ps_sps->i2_pic_height_in_luma_samples > MAX(ps_codec->i4_max_wd, ps_codec->i4_max_ht)))
-    {
-        ps_codec->i4_new_max_wd = ps_sps->i2_pic_width_in_luma_samples;
-        ps_codec->i4_new_max_ht = ps_sps->i2_pic_height_in_luma_samples;
-        return (IHEVCD_ERROR_T)IHEVCD_UNSUPPORTED_DIMENSIONS;
-    }
-
     BITS_PARSE("pic_cropping_flag", value, ps_bitstrm, 1);
     ps_sps->i1_pic_cropping_flag = value;
 
@@ -1917,10 +1907,13 @@ void ihevcd_copy_pps(codec_t *ps_codec, WORD32 pps_id, WORD32 pps_id_ref)
     WORD32 scaling_mat_size;
     tile_t *ps_tile_backup;
     WORD32 max_tile_cols, max_tile_rows;
+    WORD32 wd, ht;
+    wd = ALIGN64(ps_codec->i4_wd);
+    ht = ALIGN64(ps_codec->i4_ht);
 
     SCALING_MAT_SIZE(scaling_mat_size);
-    max_tile_cols = (ps_codec->i4_max_wd + MIN_TILE_WD - 1) / MIN_TILE_WD;
-    max_tile_rows = (ps_codec->i4_max_ht + MIN_TILE_HT - 1) / MIN_TILE_HT;
+    max_tile_cols = (wd + MIN_TILE_WD - 1) / MIN_TILE_WD;
+    max_tile_rows = (ht + MIN_TILE_HT - 1) / MIN_TILE_HT;
 
     ps_pps_ref = ps_codec->ps_pps_base + pps_id_ref;
     ps_pps = ps_codec->ps_pps_base + pps_id;

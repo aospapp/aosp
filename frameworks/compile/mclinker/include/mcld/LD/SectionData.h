@@ -61,6 +61,10 @@ class SectionData {
 
   bool empty() const { return m_Fragments.empty(); }
 
+  static FragmentListType SectionData::*getSublistAccess(Fragment *) {
+    return &SectionData::m_Fragments;
+  }
+
   reference front() { return m_Fragments.front(); }
   const_reference front() const { return m_Fragments.front(); }
   reference back() { return m_Fragments.back(); }

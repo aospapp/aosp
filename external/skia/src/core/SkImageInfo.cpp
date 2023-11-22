@@ -61,6 +61,7 @@ bool SkColorTypeValidateAlphaType(SkColorType colorType, SkAlphaType alphaType,
         case kARGB_4444_SkColorType:
         case kRGBA_8888_SkColorType:
         case kBGRA_8888_SkColorType:
+        case kRGBA_F16_SkColorType:
             if (kUnknown_SkAlphaType == alphaType) {
                 return false;
             }
@@ -90,7 +91,7 @@ bool SkReadPixelsRec::trim(int srcWidth, int srcHeight) {
         default:
             break;
     }
-    if (NULL == fPixels || fRowBytes < fInfo.minRowBytes()) {
+    if (nullptr == fPixels || fRowBytes < fInfo.minRowBytes()) {
         return false;
     }
     if (0 == fInfo.width() || 0 == fInfo.height()) {

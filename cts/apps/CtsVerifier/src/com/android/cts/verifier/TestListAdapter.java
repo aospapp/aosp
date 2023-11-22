@@ -163,7 +163,7 @@ public abstract class TestListAdapter extends BaseAdapter {
 
         TestResultContentObserver observer = new TestResultContentObserver();
         ContentResolver resolver = context.getContentResolver();
-        resolver.registerContentObserver(TestResultsProvider.RESULTS_CONTENT_URI, true, observer);
+        resolver.registerContentObserver(TestResultsProvider.getResultContentUri(context), true, observer);
     }
 
     public void loadTestResults() {
@@ -236,7 +236,7 @@ public abstract class TestListAdapter extends BaseAdapter {
         ContentResolver resolver = mContext.getContentResolver();
         Cursor cursor = null;
         try {
-            cursor = resolver.query(TestResultsProvider.RESULTS_CONTENT_URI, REFRESH_PROJECTION,
+            cursor = resolver.query(TestResultsProvider.getResultContentUri(mContext), REFRESH_PROJECTION,
                     null, null, null);
             if (cursor.moveToFirst()) {
                 do {
@@ -262,7 +262,7 @@ public abstract class TestListAdapter extends BaseAdapter {
         @Override
         protected Void doInBackground(Void... params) {
             ContentResolver resolver = mContext.getContentResolver();
-            resolver.delete(TestResultsProvider.RESULTS_CONTENT_URI, "1", null);
+            resolver.delete(TestResultsProvider.getResultContentUri(mContext), "1", null);
             return null;
         }
     }

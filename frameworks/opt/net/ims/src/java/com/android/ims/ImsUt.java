@@ -307,7 +307,7 @@ public class ImsUt implements ImsUtInterface {
      * Modifies the configuration of the call barring.
      */
     @Override
-    public void updateCallBarring(int cbType, boolean enable, Message result, String[] barrList) {
+    public void updateCallBarring(int cbType, int action, Message result, String[] barrList) {
         if (DBG) {
             if (barrList != null) {
                 String bList = new String();
@@ -315,17 +315,17 @@ public class ImsUt implements ImsUtInterface {
                     bList.concat(barrList[i] + " ");
                 }
                 log("updateCallBarring :: Ut=" + miUt + ", cbType=" + cbType
-                        + ", enable=" + enable + ", barrList=" + bList);
+                        + ", action=" + action + ", barrList=" + bList);
             }
             else {
                 log("updateCallBarring :: Ut=" + miUt + ", cbType=" + cbType
-                        + ", enable=" + enable);
+                        + ", action=" + action);
             }
         }
 
         synchronized(mLockObj) {
             try {
-                int id = miUt.updateCallBarring(cbType, enable, barrList);
+                int id = miUt.updateCallBarring(cbType, action, barrList);
 
                 if (id < 0) {
                     sendFailureReport(result,

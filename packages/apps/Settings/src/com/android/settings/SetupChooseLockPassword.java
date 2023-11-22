@@ -16,10 +16,6 @@
 
 package com.android.settings;
 
-import com.android.setupwizardlib.SetupWizardLayout;
-import com.android.setupwizardlib.util.SystemBarHelper;
-import com.android.setupwizardlib.view.NavigationBar;
-
 import android.app.Activity;
 import android.app.Fragment;
 import android.content.Context;
@@ -29,6 +25,11 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.LinearLayout;
+
+import com.android.setupwizardlib.SetupWizardLayout;
+import com.android.setupwizardlib.util.SystemBarHelper;
+import com.android.setupwizardlib.view.NavigationBar;
 
 /**
  * Setup Wizard's version of ChooseLockPassword screen. It inherits the logic and basic structure
@@ -78,6 +79,13 @@ public class SetupChooseLockPassword extends ChooseLockPassword {
     }
 
     @Override
+    protected void onCreate(Bundle savedInstance) {
+        super.onCreate(savedInstance);
+        LinearLayout layout = (LinearLayout) findViewById(R.id.content_parent);
+        layout.setFitsSystemWindows(false);
+    }
+
+    @Override
     protected void onApplyThemeResource(Resources.Theme theme, int resid, boolean first) {
         resid = SetupWizardUtils.getTheme(getIntent());
         super.onApplyThemeResource(theme, resid, first);
@@ -102,18 +110,14 @@ public class SetupChooseLockPassword extends ChooseLockPassword {
         @Override
         public void onViewCreated(View view, Bundle savedInstanceState) {
             super.onViewCreated(view, savedInstanceState);
-            SystemBarHelper.setImeInsetView(mLayout.findViewById(R.id.suw_bottom_scroll_view));
+            SystemBarHelper.setImeInsetView(mLayout);
             SetupWizardUtils.setImmersiveMode(getActivity());
             mLayout.setHeaderText(getActivity().getTitle());
         }
 
         @Override
         protected Intent getRedactionInterstitialIntent(Context context) {
-            Intent intent = SetupRedactionInterstitial.createStartIntent(context);
-            if (intent != null) {
-                SetupWizardUtils.copySetupExtras(getActivity().getIntent(), intent);
-            }
-            return intent;
+            return null;
         }
 
         @Override

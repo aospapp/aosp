@@ -141,7 +141,8 @@ public class RSYuvTest extends RSCppTest {
         syuv.forEach(aout);
 
         byte[] nativeByteAlloc = new byte[width * height * 4];
-        yuvTest(this.getContext().getCacheDir().toString(), width, height, tmp, nativeByteAlloc, 1);
+        yuvTest(this.getContext().getCacheDir().toString(), width, height, tmp, nativeByteAlloc,
+                android.graphics.ImageFormat.YV12);
         aref.copyFromUnchecked(nativeByteAlloc);
 
         mVerify.invoke_verify(aref, aout, ay);
@@ -177,7 +178,8 @@ public class RSYuvTest extends RSCppTest {
         syuv.forEach(aout);
 
         byte[] nativeByteAlloc = new byte[width * height * 4];
-        yuvTest(this.getContext().getCacheDir().toString(), width, height, tmp, nativeByteAlloc, 2);
+        yuvTest(this.getContext().getCacheDir().toString(), width, height, tmp, nativeByteAlloc,
+                android.graphics.ImageFormat.NV21);
         aref.copyFromUnchecked(nativeByteAlloc);
 
         mVerify.invoke_verify(aref, aout, ay);

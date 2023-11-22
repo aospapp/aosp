@@ -116,12 +116,19 @@ static __inline UWORD32 ITT_BIG_ENDIAN(UWORD32 x)
 
 #define INLINE inline
 
+#define POPCNT_U32(x)       __builtin_popcount(x)
+
 static INLINE UWORD32 CLZ(UWORD32 u4_word)
 {
     if(u4_word)
         return (__builtin_clz(u4_word));
     else
         return 32;
+}
+
+static INLINE UWORD32 CLZNZ(UWORD32 u4_word)
+{
+   return (__builtin_clz(u4_word));
 }
 
 static INLINE UWORD32 CTZ(UWORD32 u4_word)

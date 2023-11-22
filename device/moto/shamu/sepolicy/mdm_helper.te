@@ -1,5 +1,5 @@
 # Modem helper service. Spawns kickstart.
-type mdm_helper, domain;
+type mdm_helper, domain, domain_deprecated;
 type mdm_helper_exec, file_type, exec_type;
 
 init_daemon_domain(mdm_helper)
@@ -37,6 +37,7 @@ allow mdm_helper persist_modem_file:file create_file_perms;
 # Runs commands via sh.
 allow mdm_helper shell_exec:file rx_file_perms;
 # TODO remove once the modem team removes system() calls to toolbox functions
+allow mdm_helper toolbox_exec:file rx_file_perms;
 allow mdm_helper system_file:file x_file_perms;
 
 allow mdm_helper sysfs_xhci_msm_hsic:dir r_dir_perms;
@@ -45,6 +46,7 @@ allow mdm_helper sysfs_msm_hsic_host:file write;
 
 # host_ready not labeled correctly
 allow mdm_helper sysfs:file write;
+allow mdm_helper sysfs_usb:file write;
 
 wakelock_use(mdm_helper)
 
@@ -60,5 +62,4 @@ allow mdm_helper dropbox_data_file:dir rw_dir_perms;
 allow mdm_helper dropbox_data_file:file create_file_perms;
 
 # write radio properties
-unix_socket_connect(mdm_helper, property, init)
-allow mdm_helper radio_prop:property_service set;
+set_prop(mdm_helper, radio_prop)

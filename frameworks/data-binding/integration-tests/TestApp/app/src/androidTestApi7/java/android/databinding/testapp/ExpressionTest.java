@@ -16,10 +16,7 @@
 package android.databinding.testapp;
 
 import android.databinding.testapp.databinding.ExpressionTestBinding;
-import android.support.v4.util.ArrayMap;
 import android.test.UiThreadTest;
-
-import java.util.ArrayList;
 
 public class ExpressionTest extends BaseDataBinderTest<ExpressionTestBinding> {
     public ExpressionTest() {
@@ -157,5 +154,24 @@ public class ExpressionTest extends BaseDataBinderTest<ExpressionTestBinding> {
         String rain = getActivity().getResources().getString(R.string.rain);
         assertEquals(mBinder.getBool1() ? appName : mBinder.getBool2() ? rain : "",
                 mBinder.textView18.getText().toString());
+    }
+
+    @UiThreadTest
+    public void testBoundTag() throws Throwable {
+        mBinder.setBool1(false);
+        mBinder.executePendingBindings();
+        assertEquals("bar", mBinder.textView19.getTag());
+        mBinder.setBool1(true);
+        mBinder.executePendingBindings();
+        assertEquals("foo", mBinder.textView19.getTag());
+    }
+
+    @UiThreadTest
+    public void testConstantExpression() throws Throwable {
+        mBinder.setVar1(1000);
+        mBinder.setVar2(2000);
+        mBinder.executePendingBindings();
+        assertEquals("1000", mBinder.textView20.getText().toString());
+        assertEquals("2000", mBinder.textView21.getText().toString());
     }
 }

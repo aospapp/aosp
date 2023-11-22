@@ -18,7 +18,7 @@
 //#define LOG_NDEBUG 0
 #define LOG_TAG "MRM_Arbitrator"
 
-#include <libexpat/expat.h>
+#include <expat.h>
 #include <string.h>
 #include <stdio.h>
 #include <utils/Log.h>

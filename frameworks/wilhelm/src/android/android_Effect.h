@@ -17,7 +17,7 @@
 /**************************************************************************************************
  * Equalizer functions
  ****************************/
-extern void android_eq_init(int sessionId, IEqualizer* ieq);
+extern void android_eq_init(audio_session_t sessionId, IEqualizer* ieq);
 
 extern android::status_t android_eq_setParam(android::sp<android::AudioEffect> pFx,
         int32_t param, int32_t param2, void *pValue);
@@ -28,7 +28,7 @@ extern android::status_t android_eq_getParam(android::sp<android::AudioEffect> p
 /**************************************************************************************************
  * BassBoost functions
  ****************************/
-extern void android_bb_init(int sessionId, IBassBoost* ibb);
+extern void android_bb_init(audio_session_t sessionId, IBassBoost* ibb);
 
 extern android::status_t android_bb_setParam(android::sp<android::AudioEffect> pFx,
         int32_t param, void *pValue);
@@ -39,7 +39,7 @@ extern android::status_t android_bb_getParam(android::sp<android::AudioEffect> p
 /**************************************************************************************************
  * Virtualizer functions
  ****************************/
-extern void android_virt_init(int sessionId, IVirtualizer* ivi);
+extern void android_virt_init(audio_session_t sessionId, IVirtualizer* ivi);
 
 extern android::status_t android_virt_setParam(android::sp<android::AudioEffect> pFx,
         int32_t param, void *pValue);
@@ -77,7 +77,7 @@ extern SLresult android_genericFx_queryNumEffects(SLuint32 *pNumSupportedAudioEf
 extern SLresult android_genericFx_queryEffect(SLuint32 index, effect_descriptor_t* pDescriptor);
 
 extern SLresult android_genericFx_createEffect(IAndroidEffect* iae, SLInterfaceID pUuid,
-        int sessionId);
+        audio_session_t sessionId);
 
 extern SLresult android_genericFx_releaseEffect(IAndroidEffect* iae, SLInterfaceID pUuid);
 
@@ -129,7 +129,8 @@ extern android::status_t android_fx_getParam(android::sp<android::AudioEffect> p
 
 extern SLresult android_fx_statusToResult(android::status_t status);
 
-extern bool android_fx_initEffectObj(int sessionId, android::sp<android::AudioEffect>& effect,
+extern bool android_fx_initEffectObj(audio_session_t sessionId,
+        android::sp<android::AudioEffect>& effect,
         const effect_uuid_t *type);
 
 extern bool android_fx_initEffectDescriptor(const SLInterfaceID effectId,

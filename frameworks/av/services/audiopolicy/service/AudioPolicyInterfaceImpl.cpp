@@ -76,10 +76,14 @@ status_t AudioPolicyService::setPhoneState(audio_mode_t state)
 
     ALOGV("setPhoneState()");
 
+    // acquire lock before calling setMode() so that setMode() + setPhoneState() are an atomic
+    // operation from policy manager standpoint (no other operation (e.g track start or stop)
+    // can be interleaved).
+    Mutex::Autolock _l(mLock);
+
     // TODO: check if it is more appropriate to do it in platform specific policy manager
     AudioSystem::setMode(state);
 
-    Mutex::Autolock _l(mLock);
     mAudioPolicyManager->setPhoneState(state);
     mPhoneState = state;
     return NO_ERROR;
@@ -160,13 +164,11 @@ status_t AudioPolicyService::getOutputForAttr(const audio_attributes_t *attr,
     ALOGV("getOutput()");
     Mutex::Autolock _l(mLock);
 
-    // if the caller is us, trust the specified uid
-    if (IPCThreadState::self()->getCallingPid() != getpid_cached || uid == (uid_t)-1) {
-        uid_t newclientUid = IPCThreadState::self()->getCallingUid();
-        if (uid != (uid_t)-1 && uid != newclientUid) {
-            ALOGW("%s uid %d tried to pass itself off as %d", __FUNCTION__, newclientUid, uid);
-        }
-        uid = newclientUid;
+    const uid_t callingUid = IPCThreadState::self()->getCallingUid();
+    if (!isTrustedCallingUid(callingUid) || uid == (uid_t)-1) {
+        ALOGW_IF(uid != (uid_t)-1 && uid != callingUid,
+                "%s uid %d tried to pass itself off as %d", __FUNCTION__, callingUid, uid);
+        uid = callingUid;
     }
     return mAudioPolicyManager->getOutputForAttr(attr, output, session, stream, uid, samplingRate,
                                     format, channelMask, flags, selectedDeviceId, offloadInfo);
@@ -258,6 +260,7 @@ void AudioPolicyService::doReleaseOutput(audio_io_handle_t output,
 status_t AudioPolicyService::getInputForAttr(const audio_attributes_t *attr,
                                              audio_io_handle_t *input,
                                              audio_session_t session,
+                                             pid_t pid,
                                              uid_t uid,
                                              uint32_t samplingRate,
                                              audio_format_t format,
@@ -280,13 +283,22 @@ status_t AudioPolicyService::getInputForAttr(const audio_attributes_t *attr,
     sp<AudioPolicyEffects>audioPolicyEffects;
     status_t status;
     AudioPolicyInterface::input_type_t inputType;
-    // if the caller is us, trust the specified uid
-    if (IPCThreadState::self()->getCallingPid() != getpid_cached || uid == (uid_t)-1) {
-        uid_t newclientUid = IPCThreadState::self()->getCallingUid();
-        if (uid != (uid_t)-1 && uid != newclientUid) {
-            ALOGW("%s uid %d tried to pass itself off as %d", __FUNCTION__, newclientUid, uid);
-        }
-        uid = newclientUid;
+
+    bool updatePid = (pid == -1);
+    const uid_t callingUid = IPCThreadState::self()->getCallingUid();
+    if (!isTrustedCallingUid(callingUid)) {
+        ALOGW_IF(uid != (uid_t)-1 && uid != callingUid,
+                "%s uid %d tried to pass itself off as %d", __FUNCTION__, callingUid, uid);
+        uid = callingUid;
+        updatePid = true;
+    }
+
+    if (updatePid) {
+        const pid_t callingPid = IPCThreadState::self()->getCallingPid();
+        ALOGW_IF(pid != (pid_t)-1 && pid != callingPid,
+                 "%s uid %d pid %d tried to pass itself off as pid %d",
+                 __func__, callingUid, callingPid, pid);
+        pid = callingPid;
     }
 
     {
@@ -306,7 +318,7 @@ status_t AudioPolicyService::getInputForAttr(const audio_attributes_t *attr,
             case AudioPolicyInterface::API_INPUT_TELEPHONY_RX:
                 // FIXME: use the same permission as for remote submix for now.
             case AudioPolicyInterface::API_INPUT_MIX_CAPTURE:
-                if (!captureAudioOutputAllowed()) {
+                if (!captureAudioOutputAllowed(pid, uid)) {
                     ALOGE("getInputForAttr() permission denied: capture not allowed");
                     status = PERMISSION_DENIED;
                 }
@@ -459,6 +471,7 @@ audio_devices_t AudioPolicyService::getDevicesForStream(audio_stream_type_t stre
     if (mAudioPolicyManager == NULL) {
         return AUDIO_DEVICE_NONE;
     }
+    Mutex::Autolock _l(mLock);
     return mAudioPolicyManager->getDevicesForStream(stream);
 }
 
@@ -475,12 +488,13 @@ audio_io_handle_t AudioPolicyService::getOutputForEffect(const effect_descriptor
 status_t AudioPolicyService::registerEffect(const effect_descriptor_t *desc,
                                 audio_io_handle_t io,
                                 uint32_t strategy,
-                                int session,
+                                audio_session_t session,
                                 int id)
 {
     if (mAudioPolicyManager == NULL) {
         return NO_INIT;
     }
+    Mutex::Autolock _l(mEffectsLock);
     return mAudioPolicyManager->registerEffect(desc, io, strategy, session, id);
 }
 
@@ -489,6 +503,7 @@ status_t AudioPolicyService::unregisterEffect(int id)
     if (mAudioPolicyManager == NULL) {
         return NO_INIT;
     }
+    Mutex::Autolock _l(mEffectsLock);
     return mAudioPolicyManager->unregisterEffect(id);
 }
 
@@ -497,6 +512,7 @@ status_t AudioPolicyService::setEffectEnabled(int id, bool enabled)
     if (mAudioPolicyManager == NULL) {
         return NO_INIT;
     }
+    Mutex::Autolock _l(mEffectsLock);
     return mAudioPolicyManager->setEffectEnabled(id, enabled);
 }
 
@@ -533,7 +549,7 @@ bool AudioPolicyService::isSourceActive(audio_source_t source) const
     return mAudioPolicyManager->isSourceActive(source);
 }
 
-status_t AudioPolicyService::queryDefaultPreProcessing(int audioSession,
+status_t AudioPolicyService::queryDefaultPreProcessing(audio_session_t audioSession,
                                                        effect_descriptor_t *descriptors,
                                                        uint32_t *count)
 {
@@ -559,7 +575,9 @@ bool AudioPolicyService::isOffloadSupported(const audio_offload_info_t& info)
         ALOGV("mAudioPolicyManager == NULL");
         return false;
     }
-
+    Mutex::Autolock _l(mLock);
+    Mutex::Autolock _le(mEffectsLock); // isOffloadSupported queries for
+                                      // non-offloadable effects
     return mAudioPolicyManager->isOffloadSupported(info);
 }
 
@@ -685,7 +703,8 @@ status_t AudioPolicyService::startAudioSource(const struct audio_port_config *so
         return NO_INIT;
     }
 
-    return mAudioPolicyManager->startAudioSource(source, attributes, handle);
+    return mAudioPolicyManager->startAudioSource(source, attributes, handle,
+                                                 IPCThreadState::self()->getCallingUid());
 }
 
 status_t AudioPolicyService::stopAudioSource(audio_io_handle_t handle)
@@ -696,6 +715,27 @@ status_t AudioPolicyService::stopAudioSource(audio_io_handle_t handle)
     }
 
     return mAudioPolicyManager->stopAudioSource(handle);
+}
+
+status_t AudioPolicyService::setMasterMono(bool mono)
+{
+    if (mAudioPolicyManager == NULL) {
+        return NO_INIT;
+    }
+    if (!settingsAllowed()) {
+        return PERMISSION_DENIED;
+    }
+    Mutex::Autolock _l(mLock);
+    return mAudioPolicyManager->setMasterMono(mono);
+}
+
+status_t AudioPolicyService::getMasterMono(bool *mono)
+{
+    if (mAudioPolicyManager == NULL) {
+        return NO_INIT;
+    }
+    Mutex::Autolock _l(mLock);
+    return mAudioPolicyManager->getMasterMono(mono);
 }
 
 }; // namespace android

@@ -23,7 +23,6 @@
     <package>com.example.android.apprestrictionenforcer</package>
 
     <minSdk>21</minSdk>
-    <compileSdkVersion>21</compileSdkVersion>
 
     <strings>
         <intro>

@@ -18,15 +18,13 @@ package com.google.common.hash;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashTestUtils.RandomHasherAction;
-import com.google.common.jdk5backport.Arrays;
-
-import junit.framework.TestCase;
 
 import junit.framework.TestCase;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
@@ -139,11 +137,6 @@ public class AbstractNonStreamingHashFunctionTest extends TestCase {
     @Override
     public HashCode hashBytes(byte[] input, int off, int len) {
       return HashCode.fromBytes(Arrays.copyOfRange(input, off, off + len));
-    }
-
-    @Override
-    public HashCode hashString(CharSequence input) {
-      throw new UnsupportedOperationException();
     }
 
     @Override

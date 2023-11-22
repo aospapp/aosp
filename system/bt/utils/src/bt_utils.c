@@ -27,21 +27,23 @@
 
 #define LOG_TAG "bt_utils"
 
-#include <cutils/properties.h>
-#include <cutils/sched_policy.h>
+#include "bt_utils.h"
+
 #include <errno.h>
 #include <pthread.h>
-#include <sys/resource.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/resource.h>
 #include <unistd.h>
+
 #include <utils/ThreadDefs.h>
+#include <cutils/sched_policy.h>
 
 #include "bt_types.h"
-#include "bt_utils.h"
 #include "btcore/include/module.h"
 #include "osi/include/compat.h"
 #include "osi/include/log.h"
+#include "osi/include/properties.h"
 
 /*******************************************************************************
 **  Type definitions for callback functions
@@ -73,7 +75,7 @@ static future_t *clean_up(void) {
   return NULL;
 }
 
-const module_t bt_utils_module = {
+EXPORT_SYMBOL const module_t bt_utils_module = {
   .name = BT_UTILS_MODULE,
   .init = init,
   .start_up = NULL,
@@ -83,7 +85,6 @@ const module_t bt_utils_module = {
     NULL
   }
 };
-
 
 /*****************************************************************************
 **
@@ -96,7 +97,7 @@ const module_t bt_utils_module = {
 *******************************************************************************/
 static void check_do_scheduling_group(void) {
     char buf[PROPERTY_VALUE_MAX];
-    int len = property_get("debug.sys.noschedgroups", buf, "");
+    int len = osi_property_get("debug.sys.noschedgroups", buf, "");
     if (len > 0) {
         int temp;
         if (sscanf(buf, "%d", &temp) == 1) {
@@ -122,27 +123,33 @@ void raise_priority_a2dp(tHIGH_PRIORITY_TASK high_task) {
     pthread_mutex_lock(&gIdxLock);
     g_TaskIdx = high_task;
 
+    // TODO(armansito): Remove this conditional check once we find a solution
+    // for system/core on non-Android platforms.
+#if defined(OS_GENERIC)
+    rc = -1;
+#else  // !defined(OS_GENERIC)
     pthread_once(&g_DoSchedulingGroupOnce[g_TaskIdx], check_do_scheduling_group);
     if (g_DoSchedulingGroup[g_TaskIdx]) {
         // set_sched_policy does not support tid == 0
         rc = set_sched_policy(tid, SP_AUDIO_SYS);
     }
+#endif  // defined(OS_GENERIC)
+
     g_TaskIDs[high_task] = tid;
     pthread_mutex_unlock(&gIdxLock);
 
     if (rc) {
-        LOG_WARN("failed to change sched policy, tid %d, err: %d", tid, errno);
+        LOG_WARN(LOG_TAG, "failed to change sched policy, tid %d, err: %d", tid, errno);
     }
 
     // always use urgent priority for HCI worker thread until we can adjust
     // its prio individually. All other threads can be dynamically adjusted voa
     // adjust_priority_a2dp()
 
-    if (high_task == TASK_HIGH_HCI_WORKER)
-       priority = ANDROID_PRIORITY_URGENT_AUDIO;
+    priority = ANDROID_PRIORITY_URGENT_AUDIO;
 
     if (setpriority(PRIO_PROCESS, tid, priority) < 0) {
-        LOG_WARN("failed to change priority tid: %d to %d", tid, priority);
+        LOG_WARN(LOG_TAG, "failed to change priority tid: %d to %d", tid, priority);
     }
 }
 
@@ -169,7 +176,7 @@ void adjust_priority_a2dp(int start) {
         {
             if (setpriority(PRIO_PROCESS, tid, priority) < 0)
             {
-                LOG_WARN("failed to change priority tid: %d to %d", tid, priority);
+                LOG_WARN(LOG_TAG, "failed to change priority tid: %d to %d", tid, priority);
             }
         }
     }

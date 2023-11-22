@@ -27,18 +27,20 @@ import junit.framework.TestCase;
  */
 public class TvContentRatingTest extends TestCase {
 
-    public void testCreateRating() throws Exception {
-        final String DOMAIN = "android.media.tv";
-        final String RATING_SYSTEM = "US_TVPG";
-        final String MAIN_RATING = "US_TVPG_TV_MA";
-        final String SUB_RATING_1 = "US_TVPG_TV_S";
-        final String SUB_RATING_2 = "US_TVPG_TV_V";
+    private static final String DOMAIN = "android.media.tv";
+    private static final String RATING_SYSTEM = "US_TVPG";
+    private static final String MAIN_RATING_1 = "US_TVPG_TV_MA";
+    private static final String MAIN_RATING_2 = "US_TVPG_TV_14";
+    private static final String SUB_RATING_1 = "US_TVPG_TV_S";
+    private static final String SUB_RATING_2 = "US_TVPG_TV_V";
+    private static final String SUB_RATING_3 = "US_TVPG_TV_L";
 
-        TvContentRating rating = TvContentRating.createRating(DOMAIN, RATING_SYSTEM, MAIN_RATING,
+    public void testCreateRating() throws Exception {
+        TvContentRating rating = TvContentRating.createRating(DOMAIN, RATING_SYSTEM, MAIN_RATING_1,
                 SUB_RATING_1, SUB_RATING_2);
         assertEquals(DOMAIN, rating.getDomain());
         assertEquals(RATING_SYSTEM, rating.getRatingSystem());
-        assertEquals(MAIN_RATING, rating.getMainRating());
+        assertEquals(MAIN_RATING_1, rating.getMainRating());
         List<String> subRatings = rating.getSubRatings();
         assertEquals(2, subRatings.size());
         assertTrue("Sub-ratings does not contain " + SUB_RATING_1,
@@ -48,24 +50,36 @@ public class TvContentRatingTest extends TestCase {
     }
 
     public void testFlattenAndUnflatten() throws Exception {
-        final String DOMAIN = "android.media.tv";
-        final String RATING_SYSTEM = "US_TVPG";
-        final String MAIN_RATING = "US_TVPG_TV_MA";
-        final String SUB_RATING_1 = "US_TVPG_TV_S";
-        final String SUB_RATING_2 = "US_TVPG_TV_V";
-
-        String flattened = TvContentRating.createRating(DOMAIN, RATING_SYSTEM, MAIN_RATING,
+        String flattened = TvContentRating.createRating(DOMAIN, RATING_SYSTEM, MAIN_RATING_1,
                 SUB_RATING_1, SUB_RATING_2).flattenToString();
         TvContentRating rating = TvContentRating.unflattenFromString(flattened);
 
         assertEquals(DOMAIN, rating.getDomain());
         assertEquals(RATING_SYSTEM, rating.getRatingSystem());
-        assertEquals(MAIN_RATING, rating.getMainRating());
+        assertEquals(MAIN_RATING_1, rating.getMainRating());
         List<String> subRatings = rating.getSubRatings();
         assertEquals(2, subRatings.size());
         assertTrue("Sub-ratings does not contain " + SUB_RATING_1,
                 subRatings.contains(SUB_RATING_1));
         assertTrue("Sub-ratings does not contain " + SUB_RATING_2,
                 subRatings.contains(SUB_RATING_2));
+    }
+
+    public void testContains() throws Exception {
+        TvContentRating rating = TvContentRating.createRating(DOMAIN, RATING_SYSTEM, MAIN_RATING_1,
+                SUB_RATING_1, SUB_RATING_2);
+
+        assertTrue(rating.contains(TvContentRating.createRating(DOMAIN, RATING_SYSTEM,
+                MAIN_RATING_1, SUB_RATING_1, SUB_RATING_2)));
+        assertTrue(rating.contains(TvContentRating.createRating(DOMAIN, RATING_SYSTEM,
+                MAIN_RATING_1, SUB_RATING_1)));
+        assertFalse(rating.contains(TvContentRating.createRating(DOMAIN, RATING_SYSTEM,
+                MAIN_RATING_1, SUB_RATING_3)));
+        assertFalse(rating.contains(TvContentRating.createRating(DOMAIN, RATING_SYSTEM,
+                MAIN_RATING_2, SUB_RATING_1, SUB_RATING_2)));
+        assertFalse(rating.contains(TvContentRating.createRating(DOMAIN, RATING_SYSTEM,
+                MAIN_RATING_2, SUB_RATING_3)));
+        assertFalse(rating.contains(TvContentRating.createRating(DOMAIN, RATING_SYSTEM,
+                MAIN_RATING_2)));
     }
 }

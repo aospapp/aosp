@@ -36,7 +36,6 @@ void Script::forEach(uint32_t slot, sp<const Allocation> ain, sp<const Allocatio
     tryDispatch(mRS, RS::dispatch->ScriptForEach(mRS->getContext(), getID(), slot, in_id, out_id, usr, usrLen, nullptr, 0));
 }
 
-
 Script::Script(void *id, sp<RS> rs) : BaseObj(id, rs) {
 }
 
@@ -57,4 +56,3 @@ void Script::setVar(uint32_t index, const void *v, size_t len) const {
 void Script::FieldBase::init(sp<RS> rs, uint32_t dimx, uint32_t usages) {
     mAllocation = Allocation::createSized(rs, mElement, dimx, RS_ALLOCATION_USAGE_SCRIPT | usages);
 }
-

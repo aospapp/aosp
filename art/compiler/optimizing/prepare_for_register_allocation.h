@@ -32,14 +32,22 @@ class PrepareForRegisterAllocation : public HGraphDelegateVisitor {
 
   void Run();
 
+  static constexpr const char* kPrepareForRegisterAllocationPassName =
+      "prepare_for_register_allocation";
+
  private:
   void VisitNullCheck(HNullCheck* check) OVERRIDE;
   void VisitDivZeroCheck(HDivZeroCheck* check) OVERRIDE;
   void VisitBoundsCheck(HBoundsCheck* check) OVERRIDE;
   void VisitBoundType(HBoundType* bound_type) OVERRIDE;
+  void VisitArraySet(HArraySet* instruction) OVERRIDE;
   void VisitClinitCheck(HClinitCheck* check) OVERRIDE;
   void VisitCondition(HCondition* condition) OVERRIDE;
   void VisitInvokeStaticOrDirect(HInvokeStaticOrDirect* invoke) OVERRIDE;
+  void VisitNewInstance(HNewInstance* instruction) OVERRIDE;
+
+  bool CanMoveClinitCheck(HInstruction* input, HInstruction* user) const;
+  bool CanEmitConditionAt(HCondition* condition, HInstruction* user) const;
 
   DISALLOW_COPY_AND_ASSIGN(PrepareForRegisterAllocation);
 };

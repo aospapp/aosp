@@ -1,5 +1,22 @@
+/*
+ * Copyright (C) 2016 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #include <sys/cdefs.h>
 #include <stdbool.h>
+#include <cutils/multiuser.h>
 
 __BEGIN_DECLS
 
@@ -9,7 +26,6 @@ int e4crypt_install_keyring();
 int e4crypt_create_device_key(const char* path,
                               int ensure_dir_exists(const char* dir));
 int e4crypt_set_directory_policy(const char* path);
-bool e4crypt_non_default_key(const char* path);
-int do_policy_set(const char *directory, const char *policy, int policy_length);
+int e4crypt_do_init_user0();
 
 __END_DECLS

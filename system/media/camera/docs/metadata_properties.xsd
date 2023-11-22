@@ -194,9 +194,11 @@
         <attribute name="visibility">
             <simpleType>
                 <restriction base="string">
-                    <enumeration value="system" /> <!-- do not expose to java -->
-                    <enumeration value="hidden" /> <!-- java as @hide -->
-                    <enumeration value="public" /> <!-- java as public SDK -->
+                    <enumeration value="system" /> <!-- do not expose to java/NDK API -->
+                    <enumeration value="java_public" /> <!-- java as public SDK. Not included in NDK -->
+                    <enumeration value="ndk_public" /> <!-- public in NDK. @hide in java -->
+                    <enumeration value="hidden" /> <!-- java as @hide. Not included in NDK -->
+                    <enumeration value="public" /> <!-- public to both java and NDK -->
                 </restriction>
             </simpleType>
         </attribute>
@@ -277,6 +279,14 @@
             </simpleType>
         </attribute>
         <attribute name="hidden">
+            <simpleType>
+                <restriction base="string">
+                    <enumeration value="true"></enumeration>
+                    <enumeration value="false"></enumeration>
+                </restriction>
+            </simpleType>
+        </attribute>
+        <attribute name="ndk_hidden">
             <simpleType>
                 <restriction base="string">
                     <enumeration value="true"></enumeration>

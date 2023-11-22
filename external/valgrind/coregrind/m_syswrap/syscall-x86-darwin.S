@@ -7,7 +7,7 @@
   This file is part of Valgrind, a dynamic binary instrumentation
   framework.
 
-  Copyright (C) 2000-2013 Julian Seward 
+  Copyright (C) 2000-2015 Julian Seward 
      jseward@acm.org
 
   This program is free software; you can redistribute it and/or
@@ -28,9 +28,10 @@
   The GNU General Public License is contained in the file COPYING.
 */
 
+#include "pub_core_basics_asm.h"
+
 #if defined(VGP_x86_darwin)
 
-#include "pub_core_basics_asm.h"
 #include "pub_core_vkiscnums_asm.h"
 #include "libvex_guest_offsets.h"
 		
@@ -89,9 +90,9 @@
 	
 L_$0_1:	/* Even though we can't take a signal until the
            __pthread_sigmask completes, start the range early.
-	   If eip is in the range [1,2), the syscall hasn't been started yet */
+           If eip is in the range [1,2), the syscall hasn't been started yet */
 
-	/* Set the signal mask which should be current during the syscall. */
+        /* Set the signal mask which should be current during the syscall. */
         /* Set up for __pthread_sigmask(SIG_SETMASK, sysmask, postmask) */
         pushl   20(%ebp)
         pushl   16(%ebp)
@@ -248,7 +249,10 @@ ML_(blksys_committed_UNIX):	.long MK_L_SCCLASS_N(UNIX,4)
 ML_(blksys_finished_UNIX):	.long MK_L_SCCLASS_N(UNIX,5)
 
 #endif // defined(VGP_x86_darwin)
- 
+
+/* Let the linker know we don't need an executable stack */
+MARK_STACK_NO_EXEC
+
 /*--------------------------------------------------------------------*/
 /*--- end                                                          ---*/
 /*--------------------------------------------------------------------*/

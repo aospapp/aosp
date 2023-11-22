@@ -104,7 +104,7 @@ public class DataBinder {
     }
 
     public void writeComponent() {
-        ComponentWriter componentWriter = new ComponentWriter(mLayoutBinders);
+        ComponentWriter componentWriter = new ComponentWriter();
 
         writtenClasses.add(COMPONENT_CLASS);
         mFileWriter.writeToFile(COMPONENT_CLASS, componentWriter.createComponent());

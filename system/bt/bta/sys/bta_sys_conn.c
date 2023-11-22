@@ -26,7 +26,7 @@
 #include "bta_api.h"
 #include "bta_sys.h"
 #include "bta_sys_int.h"
-#include "gki.h"
+#include "bt_common.h"
 #include "utl.h"
 
 /*******************************************************************************
@@ -578,21 +578,3 @@ void bta_sys_remove_uuid(UINT16 uuid16)
     }
 }
 #endif
-
-/*******************************************************************************
-**
-** Function         bta_sys_vs_hdl
-**
-** Description      Called by BTA subsystems to execute a VS event handler function
-**
-** Returns          void
-**
-*******************************************************************************/
-BOOLEAN bta_sys_vs_hdl(UINT16 evt, void *p)
-{
-    if (bta_sys_cb.p_vs_evt_hdlr)
-        return (*bta_sys_cb.p_vs_evt_hdlr)(evt, p);
-
-    return FALSE;
-}
-

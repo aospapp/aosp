@@ -208,6 +208,81 @@ void KeyCharacteristics::writeToParcel(Parcel* out) const {
     }
 }
 
+KeymasterCertificateChain::KeymasterCertificateChain() {
+    memset(&chain, 0, sizeof(chain));
+}
+
+KeymasterCertificateChain::~KeymasterCertificateChain() {
+    keymaster_free_cert_chain(&chain);
+}
+
+static bool readKeymasterBlob(const Parcel& in, keymaster_blob_t* blob) {
+    if (in.readInt32() != 1) {
+        return false;
+    }
+
+    ssize_t length = in.readInt32();
+    if (length <= 0) {
+        return false;
+    }
+
+    blob->data = reinterpret_cast<const uint8_t*>(malloc(length));
+    if (!blob->data)
+        return false;
+
+    const void* buf = in.readInplace(length);
+    if (!buf)
+        return false;
+
+    blob->data_length = static_cast<size_t>(length);
+    memcpy(const_cast<uint8_t*>(blob->data), buf, length);
+
+    return true;
+}
+
+void KeymasterCertificateChain::readFromParcel(const Parcel& in) {
+    keymaster_free_cert_chain(&chain);
+
+    ssize_t count = in.readInt32();
+    size_t ucount = count;
+    if (count <= 0) {
+        return;
+    }
+
+    chain.entries = reinterpret_cast<keymaster_blob_t*>(malloc(sizeof(keymaster_blob_t) * ucount));
+    if (!chain.entries) {
+        ALOGE("Error allocating memory for certificate chain");
+        return;
+    }
+
+    memset(chain.entries, 0, sizeof(keymaster_blob_t) * ucount);
+    for (size_t i = 0; i < ucount; ++i) {
+        if (!readKeymasterBlob(in, &chain.entries[i])) {
+            ALOGE("Error reading certificate from parcel");
+            keymaster_free_cert_chain(&chain);
+            return;
+        }
+    }
+}
+
+void KeymasterCertificateChain::writeToParcel(Parcel* out) const {
+    out->writeInt32(chain.entry_count);
+    for (size_t i = 0; i < chain.entry_count; ++i) {
+        if (chain.entries[i].data) {
+            out->writeInt32(chain.entries[i].data_length);
+            void* buf = out->writeInplace(chain.entries[i].data_length);
+            if (buf) {
+                memcpy(buf, chain.entries[i].data, chain.entries[i].data_length);
+            } else {
+                ALOGE("Failed to writeInplace keymaster cert chain entry");
+            }
+        } else {
+            out->writeInt32(0); // Tell Java side this object is NULL.
+            ALOGE("Found NULL certificate chain entry");
+        }
+    }
+}
+
 void writeKeymasterArgumentToParcel(const keymaster_key_param_t& param, Parcel* out) {
     switch (keymaster_tag_get_type(param.tag)) {
         case KM_ENUM:
@@ -302,6 +377,7 @@ bool readKeymasterArgumentFromParcel(const Parcel& in, keymaster_key_param_t* ou
                 const void* buf = in.readInplace(ulength);
                 if (!buf || !data) {
                     ALOGE("Failed to allocate buffer for keymaster blob param");
+                    free(data);
                     return false;
                 }
                 memcpy(data, buf, ulength);
@@ -369,23 +445,9 @@ err:
 }
 
 static std::unique_ptr<keymaster_blob_t> readKeymasterBlob(const Parcel& in) {
-    std::unique_ptr<keymaster_blob_t> blob;
-    if (in.readInt32() != 1) {
-        blob.reset(NULL);
-        return blob;
-    }
-    ssize_t length = in.readInt32();
-    blob.reset(new keymaster_blob_t);
-    if (length > 0) {
-        blob->data = reinterpret_cast<const uint8_t*>(in.readInplace(length));
-        if (blob->data) {
-            blob->data_length = static_cast<size_t>(length);
-        } else {
-            blob->data_length = 0;
-        }
-    } else {
-        blob->data = NULL;
-        blob->data_length = 0;
+    std::unique_ptr<keymaster_blob_t> blob (new keymaster_blob_t);
+    if (!readKeymasterBlob(in, blob.get())) {
+        blob.reset();
     }
     return blob;
 }
@@ -418,11 +480,12 @@ public:
         return ret;
     }
 
-    virtual int32_t get(const String16& name, uint8_t** item, size_t* itemLength)
+    virtual int32_t get(const String16& name, int32_t uid, uint8_t** item, size_t* itemLength)
     {
         Parcel data, reply;
         data.writeInterfaceToken(IKeystoreService::getInterfaceDescriptor());
         data.writeString16(name);
+        data.writeInt32(uid);
         status_t status = remote()->transact(BnKeystoreService::GET, data, &reply);
         if (status != NO_ERROR) {
             ALOGD("get() could not contact remote: %d\n", status);
@@ -833,11 +896,12 @@ public:
         return ret;
     }
 
-    int64_t getmtime(const String16& name)
+    int64_t getmtime(const String16& name, int32_t uid)
     {
         Parcel data, reply;
         data.writeInterfaceToken(IKeystoreService::getInterfaceDescriptor());
         data.writeString16(name);
+        data.writeInt32(uid);
         status_t status = remote()->transact(BnKeystoreService::GETMTIME, data, &reply);
         if (status != NO_ERROR) {
             ALOGD("getmtime() could not contact remote: %d\n", status);
@@ -963,7 +1027,7 @@ public:
     virtual int32_t getKeyCharacteristics(const String16& name,
                                           const keymaster_blob_t* clientId,
                                           const keymaster_blob_t* appData,
-                                          KeyCharacteristics* outCharacteristics)
+                                          int32_t uid, KeyCharacteristics* outCharacteristics)
     {
         Parcel data, reply;
         data.writeInterfaceToken(IKeystoreService::getInterfaceDescriptor());
@@ -978,6 +1042,7 @@ public:
         } else {
             data.writeInt32(-1);
         }
+        data.writeInt32(uid);
         status_t status = remote()->transact(BnKeystoreService::GET_KEY_CHARACTERISTICS,
                                              data, &reply);
         if (status != NO_ERROR) {
@@ -1028,7 +1093,7 @@ public:
 
     virtual void exportKey(const String16& name, keymaster_key_format_t format,
                            const keymaster_blob_t* clientId,
-                           const keymaster_blob_t* appData, ExportResult* result)
+                           const keymaster_blob_t* appData, int32_t uid, ExportResult* result)
     {
         if (!result) {
             return;
@@ -1048,6 +1113,7 @@ public:
         } else {
             data.writeInt32(-1);
         }
+        data.writeInt32(uid);
         status_t status = remote()->transact(BnKeystoreService::EXPORT_KEY, data, &reply);
         if (status != NO_ERROR) {
             ALOGD("exportKey() could not contact remote: %d\n", status);
@@ -1068,7 +1134,7 @@ public:
     virtual void begin(const sp<IBinder>& appToken, const String16& name,
                        keymaster_purpose_t purpose, bool pruneable,
                        const KeymasterArguments& params, const uint8_t* entropy,
-                       size_t entropyLength, OperationResult* result)
+                       size_t entropyLength, int32_t uid, OperationResult* result)
     {
         if (!result) {
             return;
@@ -1082,6 +1148,7 @@ public:
         data.writeInt32(1);
         params.writeToParcel(&data);
         data.writeByteArray(entropyLength, entropy);
+        data.writeInt32(uid);
         status_t status = remote()->transact(BnKeystoreService::BEGIN, data, &reply);
         if (status != NO_ERROR) {
             ALOGD("begin() could not contact remote: %d\n", status);
@@ -1257,6 +1324,34 @@ public:
         return ret;
     }
 
+    virtual int32_t attestKey(const String16& name, const KeymasterArguments& params,
+                              KeymasterCertificateChain* outChain) {
+        if (!outChain)
+            return KM_ERROR_OUTPUT_PARAMETER_NULL;
+
+        Parcel data, reply;
+        data.writeInterfaceToken(IKeystoreService::getInterfaceDescriptor());
+        data.writeString16(name);
+        data.writeInt32(1);  // params is not NULL.
+        params.writeToParcel(&data);
+
+        status_t status = remote()->transact(BnKeystoreService::ATTEST_KEY, data, &reply);
+        if (status != NO_ERROR) {
+            ALOGD("attestkey() count not contact remote: %d\n", status);
+            return KM_ERROR_UNKNOWN_ERROR;
+        }
+        int32_t err = reply.readExceptionCode();
+        int32_t ret = reply.readInt32();
+        if (err < 0) {
+            ALOGD("attestKey() caught exception %d\n", err);
+            return KM_ERROR_UNKNOWN_ERROR;
+        }
+        if (reply.readInt32() != 0) {
+            outChain->readFromParcel(reply);
+        }
+        return ret;
+    }
+
 };
 
 IMPLEMENT_META_INTERFACE(KeystoreService, "android.security.IKeystoreService");
@@ -1278,9 +1373,10 @@ status_t BnKeystoreService::onTransact(
         case GET: {
             CHECK_INTERFACE(IKeystoreService, data, reply);
             String16 name = data.readString16();
+            int32_t uid = data.readInt32();
             void* out = NULL;
             size_t outSize = 0;
-            int32_t ret = get(name, (uint8_t**) &out, &outSize);
+            int32_t ret = get(name, uid, (uint8_t**) &out, &outSize);
             reply->writeNoException();
             if (ret == 1) {
                 reply->writeInt32(outSize);
@@ -1524,7 +1620,8 @@ status_t BnKeystoreService::onTransact(
         case GETMTIME: {
             CHECK_INTERFACE(IKeystoreService, data, reply);
             String16 name = data.readString16();
-            int64_t ret = getmtime(name);
+            int32_t uid = data.readInt32();
+            int64_t ret = getmtime(name, uid);
             reply->writeNoException();
             reply->writeInt64(ret);
             return NO_ERROR;
@@ -1592,8 +1689,9 @@ status_t BnKeystoreService::onTransact(
             String16 name = data.readString16();
             std::unique_ptr<keymaster_blob_t> clientId = readKeymasterBlob(data);
             std::unique_ptr<keymaster_blob_t> appData = readKeymasterBlob(data);
+            int32_t uid = data.readInt32();
             KeyCharacteristics outCharacteristics;
-            int ret = getKeyCharacteristics(name, clientId.get(), appData.get(),
+            int ret = getKeyCharacteristics(name, clientId.get(), appData.get(), uid,
                                             &outCharacteristics);
             reply->writeNoException();
             reply->writeInt32(ret);
@@ -1630,8 +1728,9 @@ status_t BnKeystoreService::onTransact(
             keymaster_key_format_t format = static_cast<keymaster_key_format_t>(data.readInt32());
             std::unique_ptr<keymaster_blob_t> clientId = readKeymasterBlob(data);
             std::unique_ptr<keymaster_blob_t> appData = readKeymasterBlob(data);
+            int32_t uid = data.readInt32();
             ExportResult result;
-            exportKey(name, format, clientId.get(), appData.get(), &result);
+            exportKey(name, format, clientId.get(), appData.get(), uid, &result);
             reply->writeNoException();
             reply->writeInt32(1);
             result.writeToParcel(reply);
@@ -1651,8 +1750,9 @@ status_t BnKeystoreService::onTransact(
             const uint8_t* entropy = NULL;
             size_t entropyLength = 0;
             readByteArray(data, &entropy, &entropyLength);
+            int32_t uid = data.readInt32();
             OperationResult result;
-            begin(token, name, purpose, pruneable, args, entropy, entropyLength, &result);
+            begin(token, name, purpose, pruneable, args, entropy, entropyLength, uid, &result);
             reply->writeNoException();
             reply->writeInt32(1);
             result.writeToParcel(reply);
@@ -1743,6 +1843,22 @@ status_t BnKeystoreService::onTransact(
             int32_t result = onUserRemoved(userId);
             reply->writeNoException();
             reply->writeInt32(result);
+
+            return NO_ERROR;
+        }
+        case ATTEST_KEY: {
+            CHECK_INTERFACE(IKeystoreService, data, reply);
+            String16 name = data.readString16();
+            KeymasterArguments params;
+            if (data.readInt32() != 0) {
+                params.readFromParcel(data);
+            }
+            KeymasterCertificateChain chain;
+            int ret = attestKey(name, params, &chain);
+            reply->writeNoException();
+            reply->writeInt32(ret);
+            reply->writeInt32(1);
+            chain.writeToParcel(reply);
 
             return NO_ERROR;
         }

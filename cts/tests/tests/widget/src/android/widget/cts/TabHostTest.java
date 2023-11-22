@@ -16,25 +16,26 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
-
-
 import android.app.Activity;
 import android.app.ActivityGroup;
 import android.content.Intent;
 import android.cts.util.WidgetTestUtils;
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.UiThreadTest;
+import android.test.suitebuilder.annotation.SmallTest;
 import android.view.View;
 import android.widget.ListView;
 import android.widget.TabHost;
-import android.widget.TextView;
 import android.widget.TabHost.OnTabChangeListener;
 import android.widget.TabHost.TabSpec;
+import android.widget.TextView;
+
+import static org.mockito.Mockito.*;
 
 /**
  * Test {@link TabHost}.
  */
+@SmallTest
 public class TabHostTest extends ActivityInstrumentationTestCase2<TabHostCtsActivity> {
     private static final String TAG_TAB1 = "tab 1";
     private static final String TAG_TAB2 = "tab 2";
@@ -43,7 +44,7 @@ public class TabHostTest extends ActivityInstrumentationTestCase2<TabHostCtsActi
     private TabHostCtsActivity mActivity;
 
     public TabHostTest() {
-        super("com.android.cts.widget", TabHostCtsActivity.class);
+        super("android.widget.cts", TabHostCtsActivity.class);
     }
 
     @Override
@@ -72,7 +73,7 @@ public class TabHostTest extends ActivityInstrumentationTestCase2<TabHostCtsActi
      * 2. no exception occurs when doing normal operation after setup().
      */
     public void testSetup1() throws Throwable {
-        final Activity activity = launchActivity("com.android.cts.widget", CtsActivity.class, null);
+        final Activity activity = launchActivity("android.widget.cts", CtsActivity.class, null);
 
         runTestOnUiThread(new Runnable() {
             public void run() {
@@ -103,7 +104,7 @@ public class TabHostTest extends ActivityInstrumentationTestCase2<TabHostCtsActi
      * 2. no exception occurs when uses TabSpec.setContent(android.content.Intent) after setup().
      */
     public void testSetup2() throws Throwable {
-        final ActivityGroup activity = launchActivity("com.android.cts.widget",
+        final ActivityGroup activity = launchActivity("android.widget.cts",
                 ActivityGroup.class, null);
 
 
@@ -182,18 +183,12 @@ public class TabHostTest extends ActivityInstrumentationTestCase2<TabHostCtsActi
         assertEquals(0, tabHost.getCurrentTab());
         assertNotNull(tabHost.getCurrentView());
 
-        /*
-        TODO: Uncomment after fixing clearAllTabs() issue.
-        The code below throws a NullPointerException in clearAllTabs(). The method throwing the
-        exception is TabWidget.onFocusChange().
-
         tabHost.clearAllTabs();
 
         assertEquals(0, tabHost.getTabWidget().getChildCount());
         assertEquals(0, tabHost.getTabContentView().getChildCount());
         assertEquals(-1, tabHost.getCurrentTab());
         assertNull(tabHost.getCurrentView());
-        */
     }
 
     public void testGetTabWidget() {
@@ -334,25 +329,23 @@ public class TabHostTest extends ActivityInstrumentationTestCase2<TabHostCtsActi
         TabHost tabHost = mActivity.getTabHost();
 
         // add a tab, and change current tab to the new tab
-        MockOnTabChangeListener listener = new MockOnTabChangeListener();
-        tabHost.setOnTabChangedListener(listener);
+        OnTabChangeListener mockTabChangeListener = mock(OnTabChangeListener.class);
+        tabHost.setOnTabChangedListener(mockTabChangeListener);
 
         TabSpec tabSpec = tabHost.newTabSpec(TAG_TAB2);
         tabSpec.setIndicator(TAG_TAB2);
         tabSpec.setContent(new MyTabContentFactoryList());
         tabHost.addTab(tabSpec);
         tabHost.setCurrentTab(1);
-        assertTrue(listener.hasCalledOnTabChanged());
+        verify(mockTabChangeListener, times(1)).onTabChanged(TAG_TAB2);
 
         // change current tab to the first one
-        listener.reset();
         tabHost.setCurrentTab(0);
-        assertTrue(listener.hasCalledOnTabChanged());
+        verify(mockTabChangeListener, times(1)).onTabChanged(TabHostCtsActivity.INITIAL_TAB_TAG);
 
         // set the same tab
-        listener.reset();
         tabHost.setCurrentTab(0);
-        assertFalse(listener.hasCalledOnTabChanged());
+        verifyNoMoreInteractions(mockTabChangeListener);
     }
 
     @UiThreadTest
@@ -387,21 +380,4 @@ public class TabHostTest extends ActivityInstrumentationTestCase2<TabHostCtsActi
             return lv;
         }
     }
-
-    private class MockOnTabChangeListener implements OnTabChangeListener {
-        private boolean mCalledOnTabChanged = false;
-
-        boolean hasCalledOnTabChanged() {
-            return mCalledOnTabChanged;
-        }
-
-        void reset() {
-            mCalledOnTabChanged = false;
-        }
-
-        public void onTabChanged(String tabId) {
-            mCalledOnTabChanged = true;
-        }
-    }
-
 }

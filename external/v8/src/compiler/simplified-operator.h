@@ -5,8 +5,11 @@
 #ifndef V8_COMPILER_SIMPLIFIED_OPERATOR_H_
 #define V8_COMPILER_SIMPLIFIED_OPERATOR_H_
 
-#include "src/compiler/machine-type.h"
+#include <iosfwd>
+
 #include "src/handles.h"
+#include "src/machine-type.h"
+#include "src/objects.h"
 
 namespace v8 {
 namespace internal {
@@ -23,12 +26,36 @@ namespace compiler {
 
 // Forward declarations.
 class Operator;
-struct SimplifiedOperatorBuilderImpl;
+struct SimplifiedOperatorGlobalCache;
 
 
 enum BaseTaggedness { kUntaggedBase, kTaggedBase };
 
-OStream& operator<<(OStream&, BaseTaggedness);
+std::ostream& operator<<(std::ostream&, BaseTaggedness);
+
+
+// An access descriptor for loads/stores of array buffers.
+class BufferAccess final {
+ public:
+  explicit BufferAccess(ExternalArrayType external_array_type)
+      : external_array_type_(external_array_type) {}
+
+  ExternalArrayType external_array_type() const { return external_array_type_; }
+  MachineType machine_type() const;
+
+ private:
+  ExternalArrayType const external_array_type_;
+};
+
+bool operator==(BufferAccess, BufferAccess);
+bool operator!=(BufferAccess, BufferAccess);
+
+size_t hash_value(BufferAccess);
+
+std::ostream& operator<<(std::ostream&, BufferAccess);
+
+BufferAccess const BufferAccessOf(const Operator* op) WARN_UNUSED_RESULT;
+
 
 // An access descriptor for loads/stores of fixed structures like field
 // accesses of heap objects. Accesses from either tagged or untagged base
@@ -36,12 +63,21 @@ OStream& operator<<(OStream&, BaseTaggedness);
 struct FieldAccess {
   BaseTaggedness base_is_tagged;  // specifies if the base pointer is tagged.
   int offset;                     // offset of the field, without tag.
-  Handle<Name> name;              // debugging only.
+  MaybeHandle<Name> name;         // debugging only.
   Type* type;                     // type of the field.
   MachineType machine_type;       // machine type of the field.
 
   int tag() const { return base_is_tagged == kTaggedBase ? kHeapObjectTag : 0; }
 };
+
+bool operator==(FieldAccess const&, FieldAccess const&);
+bool operator!=(FieldAccess const&, FieldAccess const&);
+
+size_t hash_value(FieldAccess const&);
+
+std::ostream& operator<<(std::ostream&, FieldAccess const&);
+
+FieldAccess const& FieldAccessOf(const Operator* op) WARN_UNUSED_RESULT;
 
 
 // An access descriptor for loads/stores of indexed structures like characters
@@ -57,18 +93,14 @@ struct ElementAccess {
   int tag() const { return base_is_tagged == kTaggedBase ? kHeapObjectTag : 0; }
 };
 
-bool operator==(ElementAccess const& lhs, ElementAccess const& rhs);
-bool operator!=(ElementAccess const& lhs, ElementAccess const& rhs);
+bool operator==(ElementAccess const&, ElementAccess const&);
+bool operator!=(ElementAccess const&, ElementAccess const&);
 
-OStream& operator<<(OStream&, ElementAccess const&);
+size_t hash_value(ElementAccess const&);
 
+std::ostream& operator<<(std::ostream&, ElementAccess const&);
 
-// If the accessed object is not a heap object, add this to the header_size.
-static const int kNonHeapObjectHeaderSize = kHeapObjectTag;
-
-
-const FieldAccess& FieldAccessOf(const Operator* op) WARN_UNUSED_RESULT;
-const ElementAccess& ElementAccessOf(const Operator* op) WARN_UNUSED_RESULT;
+ElementAccess const& ElementAccessOf(const Operator* op) WARN_UNUSED_RESULT;
 
 
 // Interface for building simplified operators, which represent the
@@ -93,7 +125,7 @@ const ElementAccess& ElementAccessOf(const Operator* op) WARN_UNUSED_RESULT;
 //   - Bool: a tagged pointer to either the canonical JS #false or
 //           the canonical JS #true object
 //   - Bit: an untagged integer 0 or 1, but word-sized
-class SimplifiedOperatorBuilder FINAL {
+class SimplifiedOperatorBuilder final : public ZoneObject {
  public:
   explicit SimplifiedOperatorBuilder(Zone* zone);
 
@@ -108,15 +140,23 @@ class SimplifiedOperatorBuilder FINAL {
   const Operator* NumberMultiply();
   const Operator* NumberDivide();
   const Operator* NumberModulus();
+  const Operator* NumberBitwiseOr();
+  const Operator* NumberBitwiseXor();
+  const Operator* NumberBitwiseAnd();
+  const Operator* NumberShiftLeft();
+  const Operator* NumberShiftRight();
+  const Operator* NumberShiftRightLogical();
   const Operator* NumberToInt32();
   const Operator* NumberToUint32();
+  const Operator* NumberIsHoleNaN();
+
+  const Operator* PlainPrimitiveToNumber();
 
   const Operator* ReferenceEqual(Type* type);
 
   const Operator* StringEqual();
   const Operator* StringLessThan();
   const Operator* StringLessThanOrEqual();
-  const Operator* StringAdd();
 
   const Operator* ChangeTaggedToInt32();
   const Operator* ChangeTaggedToUint32();
@@ -127,8 +167,19 @@ class SimplifiedOperatorBuilder FINAL {
   const Operator* ChangeBoolToBit();
   const Operator* ChangeBitToBool();
 
-  const Operator* LoadField(const FieldAccess&);
-  const Operator* StoreField(const FieldAccess&);
+  const Operator* ObjectIsNumber();
+  const Operator* ObjectIsSmi();
+
+  const Operator* Allocate(PretenureFlag pretenure = NOT_TENURED);
+
+  const Operator* LoadField(FieldAccess const&);
+  const Operator* StoreField(FieldAccess const&);
+
+  // load-buffer buffer, offset, length
+  const Operator* LoadBuffer(BufferAccess);
+
+  // store-buffer buffer, offset, length, value
+  const Operator* StoreBuffer(BufferAccess);
 
   // load-element [base + index], length
   const Operator* LoadElement(ElementAccess const&);
@@ -139,7 +190,7 @@ class SimplifiedOperatorBuilder FINAL {
  private:
   Zone* zone() const { return zone_; }
 
-  const SimplifiedOperatorBuilderImpl& impl_;
+  const SimplifiedOperatorGlobalCache& cache_;
   Zone* const zone_;
 
   DISALLOW_COPY_AND_ASSIGN(SimplifiedOperatorBuilder);

@@ -16,7 +16,7 @@
 
 package android.media.cts;
 
-import com.android.cts.media.R;
+import android.media.cts.R;
 
 import android.media.cts.CodecUtils;
 
@@ -32,6 +32,7 @@ import android.media.MediaCodecInfo.VideoCapabilities;
 import android.media.MediaCodecList;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
+import android.media.MediaMuxer;
 import android.net.Uri;
 import android.util.Log;
 import android.util.Pair;
@@ -39,9 +40,12 @@ import android.util.Range;
 import android.util.Size;
 import android.view.Surface;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -57,7 +61,7 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
     private static final long INIT_TIMEOUT_MS = 2000;
 
     private static final String SOURCE_URL =
-        "android.resource://com.android.cts.media/raw/video_480x360_mp4_h264_871kbps_30fps";
+        "android.resource://android.media.cts/raw/video_480x360_mp4_h264_871kbps_30fps";
 
     private final boolean DEBUG = false;
 
@@ -168,12 +172,24 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
     abstract class VideoProcessorBase extends MediaCodec.Callback {
         private static final String TAG = "VideoProcessorBase";
 
+        /*
+         * Set this to true to save the encoding results to /data/local/tmp
+         * You will need to make /data/local/tmp writeable, run "setenforce 0",
+         * and remove files left from a previous run.
+         */
+        private boolean mSaveResults = false;
+        private static final String FILE_DIR = "/data/local/tmp";
+        protected int mMuxIndex = -1;
+
+        protected String mProcessorName = "VideoProcessor";
         private MediaExtractor mExtractor;
+        protected MediaMuxer mMuxer;
         private ByteBuffer mBuffer = ByteBuffer.allocate(MAX_SAMPLE_SIZE);
-        private int mTrackIndex = -1;
+        protected int mTrackIndex = -1;
         private boolean mSignaledDecoderEOS;
 
         protected boolean mCompleted;
+        protected boolean mEncoderIsActive;
         protected boolean mEncodeOutputFormatUpdated;
         protected final Object mCondition = new Object();
 
@@ -183,6 +199,21 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
         private VideoStorage mEncodedStream;
         protected int mFrameRate = 0;
         protected int mBitRate = 0;
+
+        protected Function<MediaFormat, Boolean> mUpdateConfigFormatHook;
+        protected Function<MediaFormat, Boolean> mCheckOutputFormatHook;
+
+        public void setProcessorName(String name) {
+            mProcessorName = name;
+        }
+
+        public void setUpdateConfigHook(Function<MediaFormat, Boolean> hook) {
+            mUpdateConfigFormatHook = hook;
+        }
+
+        public void setCheckOutputFormatHook(Function<MediaFormat, Boolean> hook) {
+            mCheckOutputFormatHook = hook;
+        }
 
         protected void open(String path) throws IOException {
             mExtractor = new MediaExtractor();
@@ -208,8 +239,8 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
 
         // returns true if encoder supports the size
         protected boolean initCodecsAndConfigureEncoder(
-                String videoEncName, String outMime, int width, int height, int colorFormat)
-                        throws IOException {
+                String videoEncName, String outMime, int width, int height,
+                int colorFormat) throws IOException {
             mDecFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, colorFormat);
 
             MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
@@ -229,33 +260,41 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
             }
 
             MediaFormat outFmt = MediaFormat.createVideoFormat(outMime, width, height);
-
-            {
-                int maxWidth = encCaps.getSupportedWidths().getUpper();
-                int maxHeight = encCaps.getSupportedHeightsFor(maxWidth).getUpper();
-                int frameRate = mFrameRate;
-                if (frameRate <= 0) {
-                    int maxRate =
-                        encCaps.getSupportedFrameRatesFor(maxWidth, maxHeight)
-                        .getUpper().intValue();
-                    frameRate = Math.min(30, maxRate);
-                }
-                outFmt.setInteger(MediaFormat.KEY_FRAME_RATE, frameRate);
-
-                int bitRate = mBitRate;
-                if (bitRate <= 0) {
-                    bitRate = encCaps.getBitrateRange().clamp(
-                        (int)(encCaps.getBitrateRange().getUpper() /
-                                Math.sqrt((double)maxWidth * maxHeight / width / height)));
-                }
-                outFmt.setInteger(MediaFormat.KEY_BIT_RATE, bitRate);
-
-                Log.d(TAG, "frame rate = " + frameRate + ", bit rate = " + bitRate);
+            int bitRate = 0;
+            MediaUtils.setMaxEncoderFrameAndBitrates(encCaps, outFmt, 30);
+            if (mFrameRate > 0) {
+                outFmt.setInteger(MediaFormat.KEY_FRAME_RATE, mFrameRate);
+            }
+            if (mBitRate > 0) {
+                outFmt.setInteger(MediaFormat.KEY_BIT_RATE, mBitRate);
             }
             outFmt.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
             outFmt.setInteger(MediaFormat.KEY_COLOR_FORMAT, colorFormat);
+            // Some extra configure before starting the encoder.
+            if (mUpdateConfigFormatHook != null) {
+                if (!mUpdateConfigFormatHook.apply(outFmt)) {
+                    return false;
+                }
+            }
             mEncoder.configure(outFmt, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
             Log.i(TAG, "encoder input format " + mEncoder.getInputFormat() + " from " + outFmt);
+            if (mSaveResults) {
+                try {
+                    String outFileName =
+                            FILE_DIR + mProcessorName + "_" + bitRate + "bps";
+                    if (outMime.equals(MediaFormat.MIMETYPE_VIDEO_VP8) ||
+                            outMime.equals(MediaFormat.MIMETYPE_VIDEO_VP9)) {
+                        mMuxer = new MediaMuxer(
+                                outFileName + ".webm", MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM);
+                    } else {
+                        mMuxer = new MediaMuxer(
+                                outFileName + ".mp4", MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+                    }
+                    // The track can't be added until we have the codec specific data
+                } catch (Exception e) {
+                    Log.i(TAG, "couldn't create muxer: " + e);
+                }
+            }
             return true;
         }
 
@@ -271,6 +310,11 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
             if (mExtractor != null) {
                 mExtractor.release();
                 mExtractor = null;
+            }
+            if (mMuxer != null) {
+                mMuxer.stop();
+                mMuxer.release();
+                mMuxer = null;
             }
         }
 
@@ -313,7 +357,16 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
             if (DEBUG) Log.v(TAG, "encoder received output #" + ix
                      + " (sz=" + info.size + ", f=" + info.flags
                      + ", ts=" + info.presentationTimeUs + ")");
-            mEncodedStream.addBuffer(mEncoder.getOutputBuffer(ix), info);
+            ByteBuffer outputBuffer = mEncoder.getOutputBuffer(ix);
+            mEncodedStream.addBuffer(outputBuffer, info);
+
+            if (mMuxer != null) {
+                // reset position as addBuffer() modifies it
+                outputBuffer.position(info.offset);
+                outputBuffer.limit(info.offset + info.size);
+                mMuxer.writeSampleData(mMuxIndex, outputBuffer, info);
+            }
+
             if (!mCompleted) {
                 mEncoder.releaseOutputBuffer(ix, false);
                 if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
@@ -322,12 +375,25 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
                         mCompleted = true;
                         mCondition.notifyAll(); // condition is always satisfied
                     }
+                } else {
+                    synchronized(mCondition) {
+                        mEncoderIsActive = true;
+                    }
                 }
             }
         }
 
         protected void saveEncoderFormat(MediaFormat format) {
             mEncodedStream.setFormat(format);
+            if (mCheckOutputFormatHook != null) {
+                mCheckOutputFormatHook.apply(format);
+            }
+            if (mMuxer != null) {
+                if (mMuxIndex < 0) {
+                    mMuxIndex = mMuxer.addTrack(format);
+                    mMuxer.start();
+                }
+            }
         }
 
         public void playBack(Surface surface) {
@@ -395,6 +461,11 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
                             break;
                         }
                         if (!haveBuffers()) {
+                            if (mEncoderIsActive) {
+                                mEncoderIsActive = false;
+                                Log.d(TAG, "No more input but still getting output from encoder.");
+                                continue;
+                            }
                             fail("timed out after " + mBuffersToRender.size()
                                     + " decoder output and " + mEncInputBuffers.size()
                                     + " encoder input buffers");
@@ -557,7 +628,6 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
             implements SurfaceTexture.OnFrameAvailableListener {
         private static final String TAG = "SurfaceVideoProcessor";
         private boolean mFrameAvailable;
-        private boolean mEncoderIsActive;
         private boolean mGotDecoderEOS;
         private boolean mSignaledEncoderEOS;
 
@@ -761,7 +831,8 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
     class Encoder {
         final private String mName;
         final private String mMime;
-        final private VideoCapabilities mCaps;
+        final private CodecCapabilities mCaps;
+        final private VideoCapabilities mVideoCaps;
 
         final private Map<Size, Set<Size>> mMinMax;     // extreme sizes
         final private Map<Size, Set<Size>> mNearMinMax; // sizes near extreme
@@ -775,7 +846,8 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
         Encoder(String name, String mime, CodecCapabilities caps) {
             mName = name;
             mMime = mime;
-            mCaps = caps.getVideoCapabilities();
+            mCaps = caps;
+            mVideoCaps = caps.getVideoCapabilities();
 
             /* calculate min/max sizes */
             mMinMax = new HashMap<Size, Set<Size>>();
@@ -784,8 +856,8 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
             mArbitraryH = new HashSet<Size>();
             mSizes = new HashSet<Size>();
 
-            xAlign = mCaps.getWidthAlignment();
-            yAlign = mCaps.getHeightAlignment();
+            xAlign = mVideoCaps.getWidthAlignment();
+            yAlign = mVideoCaps.getHeightAlignment();
 
             initializeSizes();
         }
@@ -802,16 +874,16 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
                 int j = ((7 * i) % 11) + 1;
                 int width, height;
                 try {
-                    width = alignedPointInRange(i * 0.125, xAlign, mCaps.getSupportedWidths());
+                    width = alignedPointInRange(i * 0.125, xAlign, mVideoCaps.getSupportedWidths());
                     height = alignedPointInRange(
-                            j * 0.077, yAlign, mCaps.getSupportedHeightsFor(width));
+                            j * 0.077, yAlign, mVideoCaps.getSupportedHeightsFor(width));
                     mArbitraryW.add(new Size(width, height));
                 } catch (IllegalArgumentException e) {
                 }
 
                 try {
-                    height = alignedPointInRange(i * 0.125, yAlign, mCaps.getSupportedHeights());
-                    width = alignedPointInRange(j * 0.077, xAlign, mCaps.getSupportedWidthsFor(height));
+                    height = alignedPointInRange(i * 0.125, yAlign, mVideoCaps.getSupportedHeights());
+                    width = alignedPointInRange(j * 0.077, xAlign, mVideoCaps.getSupportedWidthsFor(height));
                     mArbitraryH.add(new Size(width, height));
                 } catch (IllegalArgumentException e) {
                 }
@@ -832,34 +904,34 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
                 for (int dy = 0; dy <= yAlign; dy += yAlign) {
                     Set<Size> bucket = (dx + dy == 0) ? minMax : nearMinMax;
                     try {
-                        int width = getExtreme(mCaps.getSupportedWidths(), x, dx);
-                        int height = getExtreme(mCaps.getSupportedHeightsFor(width), y, dy);
+                        int width = getExtreme(mVideoCaps.getSupportedWidths(), x, dx);
+                        int height = getExtreme(mVideoCaps.getSupportedHeightsFor(width), y, dy);
                         bucket.add(new Size(width, height));
 
                         // try max max with more reasonable ratio if too skewed
                         if (x + y == 2 && width >= 4 * height) {
                             Size wideScreen = getLargestSizeForRatio(16, 9);
                             width = getExtreme(
-                                    mCaps.getSupportedWidths()
+                                    mVideoCaps.getSupportedWidths()
                                             .intersect(0, wideScreen.getWidth()), x, dx);
-                            height = getExtreme(mCaps.getSupportedHeightsFor(width), y, 0);
+                            height = getExtreme(mVideoCaps.getSupportedHeightsFor(width), y, 0);
                             bucket.add(new Size(width, height));
                         }
                     } catch (IllegalArgumentException e) {
                     }
 
                     try {
-                        int height = getExtreme(mCaps.getSupportedHeights(), y, dy);
-                        int width = getExtreme(mCaps.getSupportedWidthsFor(height), x, dx);
+                        int height = getExtreme(mVideoCaps.getSupportedHeights(), y, dy);
+                        int width = getExtreme(mVideoCaps.getSupportedWidthsFor(height), x, dx);
                         bucket.add(new Size(width, height));
 
                         // try max max with more reasonable ratio if too skewed
                         if (x + y == 2 && height >= 4 * width) {
                             Size wideScreen = getLargestSizeForRatio(9, 16);
                             height = getExtreme(
-                                    mCaps.getSupportedHeights()
+                                    mVideoCaps.getSupportedHeights()
                                             .intersect(0, wideScreen.getHeight()), y, dy);
-                            width = getExtreme(mCaps.getSupportedWidthsFor(height), x, dx);
+                            width = getExtreme(mVideoCaps.getSupportedWidthsFor(height), x, dx);
                             bucket.add(new Size(width, height));
                         }
                     } catch (IllegalArgumentException e) {
@@ -898,17 +970,17 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
         }
 
         private Size getLargestSizeForRatio(int x, int y) {
-            Range<Integer> widthRange = mCaps.getSupportedWidths();
-            Range<Integer> heightRange = mCaps.getSupportedHeightsFor(widthRange.getUpper());
-            final int xAlign = mCaps.getWidthAlignment();
-            final int yAlign = mCaps.getHeightAlignment();
+            Range<Integer> widthRange = mVideoCaps.getSupportedWidths();
+            Range<Integer> heightRange = mVideoCaps.getSupportedHeightsFor(widthRange.getUpper());
+            final int xAlign = mVideoCaps.getWidthAlignment();
+            final int yAlign = mVideoCaps.getHeightAlignment();
 
             // scale by alignment
             int width = alignInRange(
                     Math.sqrt(widthRange.getUpper() * heightRange.getUpper() * (double)x / y),
                     xAlign, widthRange);
             int height = alignInRange(
-                    width * (double)y / x, yAlign, mCaps.getSupportedHeightsFor(width));
+                    width * (double)y / x, yAlign, mVideoCaps.getSupportedHeightsFor(width));
             return new Size(width, height);
         }
 
@@ -941,22 +1013,87 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
             return test(width, height, true /* optional */, flexYUV);
         }
 
+        public boolean testIntraRefresh(int width, int height) {
+            final int refreshPeriod = 10;
+            if (!mCaps.isFeatureSupported(CodecCapabilities.FEATURE_IntraRefresh)) {
+                return false;
+            }
+
+            Function<MediaFormat, Boolean> updateConfigFormatHook =
+                    new Function<MediaFormat, Boolean>() {
+                public Boolean apply(MediaFormat fmt) {
+                    // set i-frame-interval to 10000 so encoded video only has 1 i-frame.
+                    fmt.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 10000);
+                    fmt.setInteger(MediaFormat.KEY_INTRA_REFRESH_PERIOD, refreshPeriod);
+                    return true;
+                }
+            };
+
+            Function<MediaFormat, Boolean> checkOutputFormatHook =
+                    new Function<MediaFormat, Boolean>() {
+                public Boolean apply(MediaFormat fmt) {
+                    int intraPeriod = fmt.getInteger(MediaFormat.KEY_INTRA_REFRESH_PERIOD);
+                    // Make sure intra period is correct and carried in the output format.
+                    // intraPeriod must be larger than 0 and not larger than what has been set.
+                    if (intraPeriod > refreshPeriod) {
+                        throw new RuntimeException("Intra period mismatch");
+                    }
+                    return true;
+                }
+            };
+
+            String testName =
+                    mName + '_' + width + "x" + height + '_' + "flexYUV_intraRefresh";
+
+            Consumer<VideoProcessorBase> configureVideoProcessor =
+                    new Consumer<VideoProcessorBase>() {
+                public void accept(VideoProcessorBase processor) {
+                    processor.setProcessorName(testName);
+                    processor.setUpdateConfigHook(updateConfigFormatHook);
+                    processor.setCheckOutputFormatHook(checkOutputFormatHook);
+                }
+            };
+
+            return test(width, height, 0 /* frameRate */, 0 /* bitRate */, true /* optional */,
+                    true /* flex */, configureVideoProcessor);
+        }
+
         public boolean testDetailed(
                 int width, int height, int frameRate, int bitRate, boolean flexYUV) {
-            return test(width, height, frameRate, bitRate, true /* optional */, flexYUV);
+            String testName =
+                    mName + '_' + width + "x" + height + '_' + (flexYUV ? "flexYUV" : " surface");
+            Consumer<VideoProcessorBase> configureVideoProcessor =
+                    new Consumer<VideoProcessorBase>() {
+                public void accept(VideoProcessorBase processor) {
+                    processor.setProcessorName(testName);
+                }
+            };
+            return test(width, height, frameRate, bitRate, true /* optional */, flexYUV,
+                    configureVideoProcessor);
         }
 
         public boolean testSupport(int width, int height, int frameRate, int bitRate) {
-            return mCaps.areSizeAndRateSupported(width, height, frameRate) &&
-                    mCaps.getBitrateRange().contains(bitRate);
+            return mVideoCaps.areSizeAndRateSupported(width, height, frameRate) &&
+                    mVideoCaps.getBitrateRange().contains(bitRate);
         }
 
-        private boolean test(int width, int height, boolean optional, boolean flexYUV) {
-            return test(width, height, 0 /* frameRate */, 0 /* bitRate */, optional, flexYUV);
+        private boolean test(
+                int width, int height, boolean optional, boolean flexYUV) {
+            String testName =
+                    mName + '_' + width + "x" + height + '_' + (flexYUV ? "flexYUV" : " surface");
+            Consumer<VideoProcessorBase> configureVideoProcessor =
+                    new Consumer<VideoProcessorBase>() {
+                public void accept(VideoProcessorBase processor) {
+                    processor.setProcessorName(testName);
+                }
+            };
+            return test(width, height, 0 /* frameRate */, 0 /* bitRate */,
+                    optional, flexYUV, configureVideoProcessor);
         }
 
-        private boolean test(int width, int height, int frameRate, int bitRate,
-                boolean optional, boolean flexYUV) {
+        private boolean test(
+                int width, int height, int frameRate, int bitRate, boolean optional,
+                boolean flexYUV, Consumer<VideoProcessorBase> configureVideoProcessor) {
             Log.i(TAG, "testing " + mMime + " on " + mName + " for " + width + "x" + height
                     + (flexYUV ? " flexYUV" : " surface"));
 
@@ -964,6 +1101,7 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
                 flexYUV ? new VideoProcessor() : new SurfaceVideoProcessor();
 
             processor.setFrameAndBitRates(frameRate, bitRate);
+            configureVideoProcessor.accept(processor);
 
             // We are using a resource URL as an example
             boolean success = processor.processLoop(
@@ -1400,6 +1538,46 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
     public void testOtherVP9Flex1080p()   { specific(otherVP9(),   1920, 1080, true /* flex */); }
     public void testOtherVP9Surf1080p()   { specific(otherVP9(),   1920, 1080, false /* flex */); }
 
+    public void testGoogH265Flex360pWithIntraRefresh() {
+        intraRefresh(googH265(), 480, 360);
+    }
+
+    public void testGoogH264Flex360pWithIntraRefresh() {
+        intraRefresh(googH264(), 480, 360);
+    }
+
+    public void testGoogH263Flex360pWithIntraRefresh() {
+        intraRefresh(googH263(), 480, 360);
+    }
+
+    public void testGoogMpeg4Flex360pWithIntraRefresh() {
+        intraRefresh(googMpeg4(), 480, 360);
+    }
+
+    public void testGoogVP8Flex360pWithIntraRefresh() {
+        intraRefresh(googVP8(), 480, 360);
+    }
+
+    public void testOtherH265Flex360pWithIntraRefresh() {
+        intraRefresh(otherH265(), 480, 360);
+    }
+
+    public void testOtherH264Flex360pWithIntraRefresh() {
+        intraRefresh(otherH264(), 480, 360);
+    }
+
+    public void testOtherH263FlexQCIFWithIntraRefresh() {
+        intraRefresh(otherH263(), 176, 120);
+    }
+
+    public void testOtherMpeg4Flex360pWithIntraRefresh() {
+        intraRefresh(otherMpeg4(), 480, 360);
+    }
+
+    public void testOtherVP8Flex360pWithIntraRefresh() {
+        intraRefresh(otherVP8(), 480, 360);
+    }
+
     // Tests encoder profiles required by CDD.
     // H264
     public void testH264LowQualitySDSupport()   {
@@ -1569,6 +1747,23 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
         }
         if (skipped) {
             MediaUtils.skipTest("duplicate or unsupported resolution");
+        }
+    }
+
+    /* test intra refresh with flexYUV */
+    private void intraRefresh(Encoder[] encoders, int width, int height) {
+        boolean skipped = true;
+        if (encoders.length == 0) {
+            MediaUtils.skipTest("no such encoder present");
+            return;
+        }
+        for (Encoder encoder : encoders) {
+            if (encoder.testIntraRefresh(width, height)) {
+                skipped = false;
+            }
+        }
+        if (skipped) {
+            MediaUtils.skipTest("intra-refresh unsupported");
         }
     }
 

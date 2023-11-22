@@ -603,6 +603,18 @@ status_t M3UParser::parse(const void *_data, size_t size) {
                     return ERROR_MALFORMED;
                 }
                 err = parseMetaDataDuration(line, &itemMeta, "durationUs");
+            } else if (line.startsWith("#EXT-X-DISCONTINUITY-SEQUENCE")) {
+                if (mIsVariantPlaylist) {
+                    return ERROR_MALFORMED;
+                }
+                size_t seq;
+                err = parseDiscontinuitySequence(line, &seq);
+                if (err == OK) {
+                    mDiscontinuitySeq = seq;
+                    ALOGI("mDiscontinuitySeq %zu", mDiscontinuitySeq);
+                } else {
+                    ALOGI("Failed to parseDiscontinuitySequence %d", err);
+                }
             } else if (line.startsWith("#EXT-X-DISCONTINUITY")) {
                 if (mIsVariantPlaylist) {
                     return ERROR_MALFORMED;
@@ -638,15 +650,6 @@ status_t M3UParser::parse(const void *_data, size_t size) {
                 }
             } else if (line.startsWith("#EXT-X-MEDIA")) {
                 err = parseMedia(line);
-            } else if (line.startsWith("#EXT-X-DISCONTINUITY-SEQUENCE")) {
-                if (mIsVariantPlaylist) {
-                    return ERROR_MALFORMED;
-                }
-                size_t seq;
-                err = parseDiscontinuitySequence(line, &seq);
-                if (err == OK) {
-                    mDiscontinuitySeq = seq;
-                }
             }
 
             if (err != OK) {
@@ -696,6 +699,22 @@ status_t M3UParser::parse(const void *_data, size_t size) {
             mMeta->findInt32("media-sequence", &mFirstSeqNumber);
         }
         mLastSeqNumber = mFirstSeqNumber + mItems.size() - 1;
+    }
+
+    for (size_t i = 0; i < mItems.size(); ++i) {
+        sp<AMessage> meta = mItems.itemAt(i).mMeta;
+        const char *keys[] = {"audio", "video", "subtitles"};
+        for (size_t j = 0; j < sizeof(keys) / sizeof(const char *); ++j) {
+            AString groupID;
+            if (meta->findString(keys[j], &groupID)) {
+                ssize_t groupIndex = mMediaGroups.indexOfKey(groupID);
+                if (groupIndex < 0) {
+                    ALOGE("Undefined media group '%s' referenced in stream info.",
+                          groupID.c_str());
+                    return ERROR_MALFORMED;
+                }
+            }
+        }
     }
 
     return OK;
@@ -870,15 +889,6 @@ status_t M3UParser::parseStreamInf(
             }
 
             const AString &groupID = unquoteString(val);
-            ssize_t groupIndex = mMediaGroups.indexOfKey(groupID);
-
-            if (groupIndex < 0) {
-                ALOGE("Undefined media group '%s' referenced in stream info.",
-                      groupID.c_str());
-
-                return ERROR_MALFORMED;
-            }
-
             key.tolower();
             if (meta->get() == NULL) {
                 *meta = new AMessage;

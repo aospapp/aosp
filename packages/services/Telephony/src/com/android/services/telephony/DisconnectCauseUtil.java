@@ -92,6 +92,7 @@ public class DisconnectCauseUtil {
             case android.telephony.DisconnectCause.EMERGENCY_ONLY:
             case android.telephony.DisconnectCause.FDN_BLOCKED:
             case android.telephony.DisconnectCause.LIMIT_EXCEEDED:
+            case android.telephony.DisconnectCause.VIDEO_CALL_NOT_ALLOWED_WHILE_TTY_ENABLED:
                 return DisconnectCause.RESTRICTED;
 
             case android.telephony.DisconnectCause.CDMA_ACCESS_FAILURE:
@@ -120,6 +121,9 @@ public class DisconnectCauseUtil {
             case android.telephony.DisconnectCause.TIMED_OUT:
             case android.telephony.DisconnectCause.UNOBTAINABLE_NUMBER:
             case android.telephony.DisconnectCause.VOICEMAIL_NUMBER_MISSING:
+            case android.telephony.DisconnectCause.DIAL_MODIFIED_TO_USSD:
+            case android.telephony.DisconnectCause.DIAL_MODIFIED_TO_SS:
+            case android.telephony.DisconnectCause.DIAL_MODIFIED_TO_DIAL:
             case android.telephony.DisconnectCause.ERROR_UNSPECIFIED:
                 return DisconnectCause.ERROR;
 
@@ -251,6 +255,18 @@ public class DisconnectCauseUtil {
                 resourceId = R.string.callFailed_dsac_restricted_normal;
                 break;
 
+            case android.telephony.DisconnectCause.DIAL_MODIFIED_TO_USSD:
+                resourceId = R.string.callFailed_dialToUssd;
+                break;
+
+            case android.telephony.DisconnectCause.DIAL_MODIFIED_TO_SS:
+                resourceId = R.string.callFailed_dialToSs;
+                break;
+
+            case android.telephony.DisconnectCause.DIAL_MODIFIED_TO_DIAL:
+                resourceId = R.string.callFailed_dialToDial;
+                break;
+
             case android.telephony.DisconnectCause.OUTGOING_FAILURE:
                 // We couldn't successfully place the call; there was some
                 // failure in the telephony layer.
@@ -272,6 +288,11 @@ public class DisconnectCauseUtil {
                 } else {
                     resourceId = R.string.incall_error_power_off;
                 }
+                break;
+
+            case android.telephony.DisconnectCause.CDMA_NOT_EMERGENCY:
+                // Only emergency calls are allowed when in emergency callback mode.
+                resourceId = R.string.incall_error_ecm_emergency_only;
                 break;
 
             case android.telephony.DisconnectCause.EMERGENCY_ONLY:
@@ -302,6 +323,10 @@ public class DisconnectCauseUtil {
                 // TODO: Need to bring up the "Missing Voicemail Number" dialog, which
                 // will ultimately take us to the Call Settings.
                 resourceId = R.string.incall_error_missing_voicemail_number;
+                break;
+
+            case android.telephony.DisconnectCause.VIDEO_CALL_NOT_ALLOWED_WHILE_TTY_ENABLED:
+                resourceId = R.string.callFailed_video_call_tty_enabled;
                 break;
 
             case android.telephony.DisconnectCause.OUTGOING_CANCELED:
@@ -351,6 +376,7 @@ public class DisconnectCauseUtil {
             case android.telephony.DisconnectCause.ERROR_UNSPECIFIED:
             case android.telephony.DisconnectCause.LOCAL:
             case android.telephony.DisconnectCause.NORMAL:
+            case android.telephony.DisconnectCause.VIDEO_CALL_NOT_ALLOWED_WHILE_TTY_ENABLED:
                 return ToneGenerator.TONE_PROP_PROMPT;
 
             case android.telephony.DisconnectCause.IMS_MERGED_SUCCESSFULLY:

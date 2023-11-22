@@ -19,7 +19,7 @@
 #include "sync.h"
 
 #define LOG_TAG  "WifiHAL"
-//#define LOG_NDEBUG 1         //uncomment to enable verbose logging
+//#define LOG_NDEBUG 0         //uncomment to enable verbose logging
 
 #include <utils/Log.h>
 
@@ -56,7 +56,7 @@ typedef enum {
     GSCAN_ATTRIBUTE_AP_FLAGS,                           /* flags on significant change event */
     GSCAN_ATTRIBUTE_NUM_CHANNELS,
     GSCAN_ATTRIBUTE_CHANNEL_LIST,
-
+    GSCAN_ATTRIBUTE_CH_BUCKET_BITMASK,
     /* remaining reserved for additional attributes */
 
     GSCAN_ATTRIBUTE_SSID = 40,
@@ -132,6 +132,15 @@ typedef enum {
     GSCAN_ATTRIBUTE_BUCKET_STEP_COUNT = 120,
     GSCAN_ATTRIBUTE_BUCKET_MAX_PERIOD,
 
+    /* ePNO cfg */
+    GSCAN_ATTRIBUTE_EPNO_5G_RSSI_THR = 130,
+    GSCAN_ATTRIBUTE_EPNO_2G_RSSI_THR,
+    GSCAN_ATTRIBUTE_EPNO_INIT_SCORE_MAX,
+    GSCAN_ATTRIBUTE_EPNO_CUR_CONN_BONUS,
+    GSCAN_ATTRIBUTE_EPNO_SAME_NETWORK_BONUS,
+    GSCAN_ATTRIBUTE_EPNO_SECURE_BONUS,
+    GSCAN_ATTRIBUTE_EPNO_5G_BONUS,
+
     GSCAN_ATTRIBUTE_MAX
 
 } GSCAN_ATTRIBUTE;
@@ -141,7 +150,23 @@ typedef enum {
 wifi_error wifi_enable_full_scan_results(wifi_request_id id, wifi_interface_handle iface,
          wifi_scan_result_handler handler);
 wifi_error wifi_disable_full_scan_results(wifi_request_id id, wifi_interface_handle iface);
+int wifi_handle_full_scan_event(wifi_request_id id, WifiEvent& event,
+         wifi_scan_result_handler handler);
+void convert_to_hal_result(wifi_scan_result *to, wifi_gscan_result_t *from);
 
+
+void convert_to_hal_result(wifi_scan_result *to, wifi_gscan_result_t *from)
+{
+    to->ts = from->ts;
+    to->channel = from->channel;
+    to->rssi = from->rssi;
+    to->rtt = from->rtt;
+    to->rtt_sd = from->rtt_sd;
+    to->beacon_period = from->beacon_period;
+    to->capability = from->capability;
+    memcpy(to->ssid, from->ssid, (DOT11_MAX_SSID_LEN+1));
+    memcpy(&to->bssid, &from->bssid, sizeof(mac_addr));
+}
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -418,27 +443,7 @@ public:
 
     virtual int handleEvent(WifiEvent& event) {
         ALOGV("Full scan results:  Got an event");
-        //event.log();
-
-        nlattr *vendor_data = event.get_attribute(NL80211_ATTR_VENDOR_DATA);
-        unsigned int len = event.get_vendor_data_len();
-
-        if (vendor_data == NULL || len < sizeof(wifi_scan_result)) {
-            ALOGI("Full scan results: No scan results found");
-            return NL_SKIP;
-        }
-
-        wifi_scan_result *result = (wifi_scan_result *)event.get_vendor_data();
-
-        if(*mHandler.on_full_scan_result)
-            (*mHandler.on_full_scan_result)(id(), result);
-
-        ALOGV("Full scan result: %-32s %02x:%02x:%02x:%02x:%02x:%02x %d %d %lld %lld %lld\n",
-            result->ssid, result->bssid[0], result->bssid[1], result->bssid[2], result->bssid[3],
-            result->bssid[4], result->bssid[5], result->rssi, result->channel, result->ts,
-            result->rtt, result->rtt_sd);
-
-        return NL_SKIP;
+        return wifi_handle_full_scan_event(id(), event, mHandler);
     }
 
 };
@@ -448,13 +453,10 @@ class ScanCommand : public WifiCommand
 {
     wifi_scan_cmd_params *mParams;
     wifi_scan_result_handler mHandler;
-    static unsigned mGlobalFullScanBuckets;
-    bool mLocalFullScanBuckets;
 public:
     ScanCommand(wifi_interface_handle iface, int id, wifi_scan_cmd_params *params,
                 wifi_scan_result_handler handler)
-        : WifiCommand("ScanCommand", iface, id), mParams(params), mHandler(handler),
-          mLocalFullScanBuckets(0)
+        : WifiCommand("ScanCommand", iface, id), mParams(params), mHandler(handler)
     { }
 
     int createSetupRequest(WifiRequest& request) {
@@ -569,56 +571,6 @@ public:
         return createFeatureRequest(request, GSCAN_SUBCMD_ENABLE_GSCAN, 0);
     }
 
-    int enableFullScanResultsIfRequired() {
-        /* temporary workaround till we have full support for per bucket scans */
-
-        int nBuckets = 0;
-        for (int i = 0; i < mParams->num_buckets; i++) {
-            if (mParams->buckets[i].report_events == 2) {
-                nBuckets++;
-            }
-        }
-
-        ALOGV("enableFullScanResultsIfRequired num %u needed %u global %u",
-            mParams->num_buckets, nBuckets, mGlobalFullScanBuckets);
-
-        if (mGlobalFullScanBuckets == 0 && nBuckets != 0) {
-            int result = wifi_enable_full_scan_results(0x1000, ifaceHandle(), mHandler);
-            if (result != WIFI_SUCCESS) {
-                ALOGE("failed to enable full scan results");
-                return result;
-            } else {
-                ALOGV("successfully enabled full scan results");
-            }
-        } else {
-            ALOGV("mGlobalFullScanBuckets = %d, nBuckets = %d", mGlobalFullScanBuckets, nBuckets);
-        }
-
-        mLocalFullScanBuckets = nBuckets;
-        mGlobalFullScanBuckets += nBuckets;
-        return WIFI_SUCCESS;
-    }
-
-    int disableFullScanResultsIfRequired() {
-        /* temporary workaround till we have full support for per bucket scans */
-
-        if (mLocalFullScanBuckets == 0) {
-            return WIFI_SUCCESS;
-        }
-
-        mGlobalFullScanBuckets -= mLocalFullScanBuckets;
-        if (mGlobalFullScanBuckets == 0) {
-            int result = wifi_disable_full_scan_results(0x1000, ifaceHandle());
-            if (result != WIFI_SUCCESS) {
-                ALOGE("failed to disable full scan results");
-            } else {
-                ALOGV("successfully disable full scan results");
-            }
-        }
-
-        return WIFI_SUCCESS;
-    }
-
     int start() {
         ALOGV("GSCAN start");
         WifiRequest request(familyId(), ifaceId());
@@ -658,16 +610,16 @@ public:
 
         registerVendorHandler(GOOGLE_OUI, GSCAN_EVENT_SCAN_RESULTS_AVAILABLE);
         registerVendorHandler(GOOGLE_OUI, GSCAN_EVENT_COMPLETE_SCAN);
+        registerVendorHandler(GOOGLE_OUI, GSCAN_EVENT_FULL_SCAN_RESULTS);
 
         result = requestResponse(request);
         if (result != WIFI_SUCCESS) {
             ALOGE("failed to start scan; result = %d", result);
             unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_COMPLETE_SCAN);
             unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_SCAN_RESULTS_AVAILABLE);
+            unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_FULL_SCAN_RESULTS);
             return result;
         }
-
-        result = enableFullScanResultsIfRequired();
         return result;
     }
 
@@ -687,8 +639,7 @@ public:
 
         unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_COMPLETE_SCAN);
         unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_SCAN_RESULTS_AVAILABLE);
-        disableFullScanResultsIfRequired();
-
+        unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_FULL_SCAN_RESULTS);
         return WIFI_SUCCESS;
     }
 
@@ -705,34 +656,23 @@ public:
         int len = event.get_vendor_data_len();
         int event_id = event.get_vendor_subcmd();
 
-        if(event_id == GSCAN_EVENT_COMPLETE_SCAN) {
+        if ((event_id == GSCAN_EVENT_COMPLETE_SCAN) ||
+            (event_id == GSCAN_EVENT_SCAN_RESULTS_AVAILABLE)) {
             if (vendor_data == NULL || len != 4) {
-                ALOGI("Scan complete type not mentioned!");
+                ALOGI("Bad event data!");
                 return NL_SKIP;
             }
             wifi_scan_event evt_type;
-
             evt_type = (wifi_scan_event) event.get_u32(NL80211_ATTR_VENDOR_DATA);
-            ALOGV("Scan complete: Received event type %d", evt_type);
+            ALOGV("Received event type %d", evt_type);
             if(*mHandler.on_scan_event)
-                (*mHandler.on_scan_event)(evt_type, evt_type);
-        } else {
-
-            if (vendor_data == NULL || len != 4) {
-                ALOGI("No scan results found");
-                return NL_SKIP;
-            }
-
-            int num = event.get_u32(NL80211_ATTR_VENDOR_DATA);
-            ALOGV("Found %d scan results", num);
-            if(*mHandler.on_scan_results_available)
-                (*mHandler.on_scan_results_available)(id(), num);
+                (*mHandler.on_scan_event)(id(), evt_type);
+        } else if (event_id == GSCAN_EVENT_FULL_SCAN_RESULTS) {
+            wifi_handle_full_scan_event(id(), event, mHandler);
         }
         return NL_SKIP;
     }
 };
-
-unsigned ScanCommand::mGlobalFullScanBuckets = 0;
 
 wifi_error wifi_start_gscan(
         wifi_request_id id,
@@ -745,10 +685,17 @@ wifi_error wifi_start_gscan(
     ALOGV("Starting GScan, halHandle = %p", handle);
 
     ScanCommand *cmd = new ScanCommand(iface, id, &params, handler);
-    wifi_register_cmd(handle, id, cmd);
-    wifi_error result = (wifi_error)cmd->start();
+    NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+    wifi_error result = wifi_register_cmd(handle, id, cmd);
+    if (result != WIFI_SUCCESS) {
+        cmd->releaseRef();
+        return result;
+    }
+    result = (wifi_error)cmd->start();
     if (result != WIFI_SUCCESS) {
         wifi_unregister_cmd(handle, id);
+        cmd->releaseRef();
+        return result;
     }
     return result;
 }
@@ -765,6 +712,7 @@ wifi_error wifi_stop_gscan(wifi_request_id id, wifi_interface_handle iface)
         memset(&handler, 0, sizeof(handler));
 
         ScanCommand *cmd = new ScanCommand(iface, id, &dummy_params, handler);
+        NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
         cmd->cancel();
         cmd->releaseRef();
         return WIFI_SUCCESS;
@@ -772,7 +720,6 @@ wifi_error wifi_stop_gscan(wifi_request_id id, wifi_interface_handle iface)
 
     return wifi_cancel_cmd(id, iface);
 }
-
 
 wifi_error wifi_enable_full_scan_results(
         wifi_request_id id,
@@ -785,14 +732,64 @@ wifi_error wifi_enable_full_scan_results(
     ALOGV("Enabling full scan results, halHandle = %p", handle);
 
     FullScanResultsCommand *cmd = new FullScanResultsCommand(iface, id, &params_dummy, handler);
-    wifi_register_cmd(handle, id, cmd);
-
-    wifi_error result = (wifi_error)cmd->start();
+    NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+    wifi_error result = wifi_register_cmd(handle, id, cmd);
+    if (result != WIFI_SUCCESS) {
+        cmd->releaseRef();
+        return result;
+    }
+    result = (wifi_error)cmd->start();
     if (result != WIFI_SUCCESS) {
         wifi_unregister_cmd(handle, id);
+        cmd->releaseRef();
+        return result;
     }
     return result;
 }
+
+int wifi_handle_full_scan_event(
+        wifi_request_id id,
+        WifiEvent& event,
+        wifi_scan_result_handler handler)
+{
+    nlattr *vendor_data = event.get_attribute(NL80211_ATTR_VENDOR_DATA);
+    unsigned int len = event.get_vendor_data_len();
+
+    if (vendor_data == NULL || len < sizeof(wifi_gscan_full_result_t)) {
+        ALOGI("Full scan results: No scan results found");
+        return NL_SKIP;
+    }
+
+    wifi_gscan_full_result_t *drv_res = (wifi_gscan_full_result_t *)event.get_vendor_data();
+    /* To protect against corrupted data, put a ceiling */
+    int ie_len = min(MAX_PROBE_RESP_IE_LEN, drv_res->ie_length);
+    wifi_scan_result *full_scan_result;
+    wifi_gscan_result_t *fixed = &drv_res->fixed;
+
+    if ((ie_len + offsetof(wifi_gscan_full_result_t, ie_data)) > len) {
+        ALOGE("BAD event data, len %d ie_len %d fixed length %d!\n", len,
+            ie_len, offsetof(wifi_gscan_full_result_t, ie_data));
+        return NL_SKIP;
+    }
+    full_scan_result = (wifi_scan_result *) malloc((ie_len + offsetof(wifi_scan_result, ie_data)));
+    if (!full_scan_result) {
+        ALOGE("Full scan results: Can't malloc!\n");
+        return NL_SKIP;
+    }
+    convert_to_hal_result(full_scan_result, fixed);
+    full_scan_result->ie_length = ie_len;
+    memcpy(full_scan_result->ie_data, drv_res->ie_data, ie_len);
+    if(handler.on_full_scan_result)
+        handler.on_full_scan_result(id, full_scan_result, drv_res->scan_ch_bucket);
+
+    ALOGV("Full scan result: %-32s %02x:%02x:%02x:%02x:%02x:%02x %d %d %lld %lld %lld %x %d\n",
+        fixed->ssid, fixed->bssid[0], fixed->bssid[1], fixed->bssid[2], fixed->bssid[3],
+        fixed->bssid[4], fixed->bssid[5], fixed->rssi, fixed->channel, fixed->ts,
+        fixed->rtt, fixed->rtt_sd, drv_res->scan_ch_bucket, drv_res->ie_length);
+    free(full_scan_result);
+    return NL_SKIP;
+}
+
 
 wifi_error wifi_disable_full_scan_results(wifi_request_id id, wifi_interface_handle iface)
 {
@@ -806,6 +803,7 @@ wifi_error wifi_disable_full_scan_results(wifi_request_id id, wifi_interface_han
 
         memset(&handler, 0, sizeof(handler));
         FullScanResultsCommand *cmd = new FullScanResultsCommand(iface, 0, &params_dummy, handler);
+        NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
         cmd->cancel();
         cmd->releaseRef();
         return WIFI_SUCCESS;
@@ -824,14 +822,11 @@ class GetScanResultsCommand : public WifiCommand {
     int mRetrieved;
     byte mFlush;
     int mCompleted;
-    static const int MAX_RESULTS = 320;
-    wifi_scan_result mScanResults[MAX_RESULTS];
-    int mNextScanResult;
 public:
     GetScanResultsCommand(wifi_interface_handle iface, byte flush,
             wifi_cached_scan_results *results, int max, int *num)
         : WifiCommand("GetScanResultsCommand", iface, -1), mScans(results), mMax(max), mNum(num),
-                mRetrieved(0), mFlush(flush), mCompleted(0), mNextScanResult(0)
+                mRetrieved(0), mFlush(flush), mCompleted(0)
     { }
 
     int createRequest(WifiRequest& request, int num, byte flush) {
@@ -923,8 +918,8 @@ public:
                 mCompleted = it.get_u8();
                 ALOGV("retrieved mCompleted flag : %d", mCompleted);
             } else if (it.get_type() == GSCAN_ATTRIBUTE_SCAN_RESULTS || it.get_type() == 0) {
+                int scan_id = 0, flags = 0, num = 0, scan_ch_bucket_mask = 0;
                 for (nl_iterator it2(it.get()); it2.has_next(); it2.next()) {
-                    int scan_id = 0, flags = 0, num = 0;
                     if (it2.get_type() == GSCAN_ATTRIBUTE_SCAN_ID) {
                         scan_id = it2.get_u32();
                         ALOGV("retrieved scan_id : 0x%0x", scan_id);
@@ -934,16 +929,24 @@ public:
                     } else if (it2.get_type() == GSCAN_ATTRIBUTE_NUM_OF_RESULTS) {
                         num = it2.get_u32();
                         ALOGV("retrieved num_results: %d", num);
-                    } else if (it2.get_type() == GSCAN_ATTRIBUTE_SCAN_RESULTS) {
-                        num = it2.get_len() / sizeof(wifi_scan_result);
-                        num = min(MAX_RESULTS - mNextScanResult, num);
-                        num = min((int)MAX_AP_CACHE_PER_SCAN, num);
-                        memcpy(mScanResults + mNextScanResult, it2.get_data(),
-                                sizeof(wifi_scan_result) * num);
-                        ALOGV("Retrieved %d scan results", num);
-                        wifi_scan_result *results = (wifi_scan_result *)it2.get_data();
+                    } else if (it2.get_type() == GSCAN_ATTRIBUTE_CH_BUCKET_BITMASK) {
+                        scan_ch_bucket_mask = it2.get_u32();
+                        ALOGD("retrieved scan_ch_bucket_mask: %x", scan_ch_bucket_mask);
+                    } else if (it2.get_type() == GSCAN_ATTRIBUTE_SCAN_RESULTS && num) {
+                        if (mRetrieved >= mMax) {
+                            ALOGW("Stored %d scans, ignoring excess results", mRetrieved);
+                            break;
+                        }
+                        num = min(num, (int)(it2.get_len()/sizeof(wifi_scan_result)));
+                        num = min(num, (int)MAX_AP_CACHE_PER_SCAN);
+                        ALOGV("Copying %d scan results", num);
+                        wifi_gscan_result_t *results = (wifi_gscan_result_t *)it2.get_data();
+                        wifi_scan_result *mScanResults = mScans[mRetrieved].results;
+
                         for (int i = 0; i < num; i++) {
-                            wifi_scan_result *result = results + i;
+                            wifi_gscan_result_t *result = &results[i];
+                            convert_to_hal_result(&mScanResults[i], result);
+                            mScanResults[i].ie_length = 0;
                             ALOGV("%02d  %-32s  %02x:%02x:%02x:%02x:%02x:%02x  %04d", i,
                                 result->ssid, result->bssid[0], result->bssid[1], result->bssid[2],
                                 result->bssid[3], result->bssid[4], result->bssid[5],
@@ -952,13 +955,9 @@ public:
                         mScans[mRetrieved].scan_id = scan_id;
                         mScans[mRetrieved].flags = flags;
                         mScans[mRetrieved].num_results = num;
-                        memcpy(mScans[mRetrieved].results,
-                                &(mScanResults[mNextScanResult]), num * sizeof(wifi_scan_result));
-                        mNextScanResult += num;
+                        mScans[mRetrieved].buckets_scanned = scan_ch_bucket_mask;
+                        ALOGV("Setting result of scan_id : 0x%0x", mScans[mRetrieved].scan_id);
                         mRetrieved++;
-                        if (mRetrieved >= mMax && it.has_next()) {
-                            ALOGW("Ignoring attributes after this scan");
-                        }
                     } else {
                         ALOGW("Ignoring invalid attribute type = %d, size = %d",
                                 it.get_type(), it.get_len());
@@ -979,8 +978,9 @@ wifi_error wifi_get_cached_gscan_results(wifi_interface_handle iface, byte flush
     ALOGV("Getting cached scan results, iface handle = %p, num = %d", iface, *num);
 
     GetScanResultsCommand *cmd = new GetScanResultsCommand(iface, flush, results, max, num);
-    wifi_error err = (wifi_error) cmd->execute();
-    delete cmd;
+    NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+    wifi_error err = (wifi_error)cmd->execute();
+    cmd->releaseRef();
     return err;
 }
 
@@ -1136,9 +1136,12 @@ public:
 
         memset(mResults, 0, sizeof(wifi_scan_result) * MAX_RESULTS);
 
-        int num = len / sizeof(wifi_scan_result);
+        int num = len / sizeof(wifi_gscan_result_t);
+        wifi_gscan_result_t *inp = (wifi_gscan_result_t *)event.get_vendor_data();
         num = min(MAX_RESULTS, num);
-        memcpy(mResults, event.get_vendor_data(), num * sizeof(wifi_scan_result));
+        for (int i = 0; i < num; i++, inp++) {
+            convert_to_hal_result(&(mResults[i]), inp);
+        }
 
         if (event_id == GSCAN_EVENT_HOTLIST_RESULTS_FOUND) {
             ALOGI("FOUND %d hotlist APs", num);
@@ -1156,69 +1159,99 @@ public:
 class ePNOCommand : public WifiCommand
 {
 private:
-    wifi_epno_network *ssid_list;
-    int num_ssid;
+    wifi_epno_params epno_params;
     wifi_epno_handler mHandler;
-    static const int MAX_RESULTS = 32;
-    wifi_scan_result mResults[MAX_RESULTS];
+    wifi_scan_result mResults[MAX_EPNO_NETWORKS];
 public:
     ePNOCommand(wifi_interface_handle handle, int id,
-            int num_networks, wifi_epno_network *networks, wifi_epno_handler handler)
+            const wifi_epno_params *params, wifi_epno_handler handler)
         : WifiCommand("ePNOCommand", handle, id), mHandler(handler)
     {
-        ssid_list = networks;
-        num_ssid = num_networks;
+        if (params != NULL) {
+            memcpy(&epno_params, params, sizeof(wifi_epno_params));
+        } else {
+            memset(&epno_params, 0, sizeof(wifi_epno_params));
+        }
     }
-
     int createSetupRequest(WifiRequest& request) {
         int result = request.create(GOOGLE_OUI, GSCAN_SUBCMD_SET_EPNO_SSID);
         if (result < 0) {
             return result;
         }
-
         nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
         result = request.put_u8(GSCAN_ATTRIBUTE_EPNO_FLUSH, 1);
         if (result < 0) {
             return result;
         }
 
-        result = request.put_u8(GSCAN_ATTRIBUTE_EPNO_SSID_NUM, num_ssid);
+        result = request.put_u8(GSCAN_ATTRIBUTE_EPNO_5G_RSSI_THR,
+                            (u8)epno_params.min5GHz_rssi);
         if (result < 0) {
             return result;
         }
-
+        result = request.put_u8(GSCAN_ATTRIBUTE_EPNO_2G_RSSI_THR,
+                            (u8)epno_params.min24GHz_rssi);
+        if (result < 0) {
+            return result;
+        }
+        result = request.put_u16(GSCAN_ATTRIBUTE_EPNO_INIT_SCORE_MAX,
+                            epno_params.initial_score_max);
+        if (result < 0) {
+            return result;
+        }
+        result = request.put_u16(GSCAN_ATTRIBUTE_EPNO_CUR_CONN_BONUS,
+                            epno_params.current_connection_bonus);
+        if (result < 0) {
+            return result;
+        }
+        result = request.put_u16(GSCAN_ATTRIBUTE_EPNO_SAME_NETWORK_BONUS,
+                            epno_params.same_network_bonus);
+        if (result < 0) {
+            return result;
+        }
+        result = request.put_u16(GSCAN_ATTRIBUTE_EPNO_SECURE_BONUS,
+                            epno_params.secure_bonus);
+        if (result < 0) {
+            return result;
+        }
+        result = request.put_u16(GSCAN_ATTRIBUTE_EPNO_5G_BONUS,
+                            epno_params.band5GHz_bonus);
+        if (result < 0) {
+            return result;
+        }
+        result = request.put_u8(GSCAN_ATTRIBUTE_EPNO_SSID_NUM,
+                        epno_params.num_networks);
+        if (result < 0) {
+            return result;
+        }
         struct nlattr * attr = request.attr_start(GSCAN_ATTRIBUTE_EPNO_SSID_LIST);
-        for (int i = 0; i < num_ssid; i++) {
+        wifi_epno_network *ssid_list = epno_params.networks;
+        for (int i = 0; i < epno_params.num_networks; i++) {
             nlattr *attr2 = request.attr_start(i);
             if (attr2 == NULL) {
                 return WIFI_ERROR_OUT_OF_MEMORY;
             }
-            result = request.put(GSCAN_ATTRIBUTE_EPNO_SSID, ssid_list[i].ssid, 32);
-            ALOGI("PNO network: SSID %s rssi_thresh %d flags %d auth %d", ssid_list[i].ssid,
-                (signed char)ssid_list[i].rssi_threshold, ssid_list[i].flags,
+            result = request.put(GSCAN_ATTRIBUTE_EPNO_SSID, ssid_list[i].ssid, DOT11_MAX_SSID_LEN);
+            ALOGI("PNO network: SSID %s flags %x auth %x", ssid_list[i].ssid,
+                ssid_list[i].flags,
                 ssid_list[i].auth_bit_field);
             if (result < 0) {
                 return result;
             }
-            result = request.put_u8(GSCAN_ATTRIBUTE_EPNO_SSID_LEN, strlen(ssid_list[i].ssid));
+            result = request.put_u32(GSCAN_ATTRIBUTE_EPNO_SSID_LEN, strlen(ssid_list[i].ssid));
             if (result < 0) {
                 return result;
             }
-            result = request.put_u8(GSCAN_ATTRIBUTE_EPNO_RSSI, ssid_list[i].rssi_threshold);
+            result = request.put_u32(GSCAN_ATTRIBUTE_EPNO_FLAGS, ssid_list[i].flags);
             if (result < 0) {
                 return result;
             }
-            result = request.put_u8(GSCAN_ATTRIBUTE_EPNO_FLAGS, ssid_list[i].flags);
-            if (result < 0) {
-                return result;
-            }
-            result = request.put_u8(GSCAN_ATTRIBUTE_EPNO_AUTH, ssid_list[i].auth_bit_field);
+            result = request.put_u32(GSCAN_ATTRIBUTE_EPNO_AUTH, ssid_list[i].auth_bit_field);
             if (result < 0) {
                 return result;
             }
             request.attr_end(attr2);
         }
-
         request.attr_end(attr);
         request.attr_end(data);
         return result;
@@ -1240,7 +1273,7 @@ public:
     }
 
     int start() {
-        ALOGI("Executing ePNO setup request, num = %d", num_ssid);
+        ALOGI("Executing ePNO setup request, num = %d", epno_params.num_networks);
         WifiRequest request(familyId(), ifaceId());
         int result = createSetupRequest(request);
         if (result < 0) {
@@ -1254,7 +1287,7 @@ public:
             return result;
         }
 
-        ALOGI("Successfully set %d SSIDs for ePNO", num_ssid);
+        ALOGI("Successfully set %d SSIDs for ePNO", epno_params.num_networks);
         registerVendorHandler(GOOGLE_OUI, GSCAN_EVENT_EPNO_EVENT);
         ALOGI("successfully restarted the scan");
         return result;
@@ -1297,11 +1330,11 @@ public:
             return NL_SKIP;
         }
 
-        memset(mResults, 0, sizeof(wifi_scan_result) * MAX_RESULTS);
+        memset(mResults, 0, sizeof(wifi_scan_result) * MAX_EPNO_NETWORKS);
 
-        int num = len / sizeof(wifi_pno_result_t);
-        int i;
-        num = min(MAX_RESULTS, num);
+        unsigned int num = len / sizeof(wifi_pno_result_t);
+        unsigned int i;
+        num = min(MAX_EPNO_NETWORKS, num);
         wifi_pno_result_t *res = (wifi_pno_result_t *) event.get_vendor_data();
         for (i = 0; i < num; i++) {
             if (res[i].flags == PNO_SSID_FOUND) {
@@ -1325,10 +1358,17 @@ wifi_error wifi_set_bssid_hotlist(wifi_request_id id, wifi_interface_handle ifac
     wifi_handle handle = getWifiHandle(iface);
 
     BssidHotlistCommand *cmd = new BssidHotlistCommand(iface, id, params, handler);
-    wifi_register_cmd(handle, id, cmd);
-    wifi_error result = (wifi_error)cmd->start();
+    NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+    wifi_error result = wifi_register_cmd(handle, id, cmd);
+    if (result != WIFI_SUCCESS) {
+        cmd->releaseRef();
+        return result;
+    }
+    result = (wifi_error)cmd->start();
     if (result != WIFI_SUCCESS) {
         wifi_unregister_cmd(handle, id);
+        cmd->releaseRef();
+        return result;
     }
     return result;
 }
@@ -1540,10 +1580,17 @@ wifi_error wifi_set_significant_change_handler(wifi_request_id id, wifi_interfac
 
     SignificantWifiChangeCommand *cmd = new SignificantWifiChangeCommand(
             iface, id, params, handler);
-    wifi_register_cmd(handle, id, cmd);
-    wifi_error result = (wifi_error)cmd->start();
+    NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+    wifi_error result = wifi_register_cmd(handle, id, cmd);
+    if (result != WIFI_SUCCESS) {
+        cmd->releaseRef();
+        return result;
+    }
+    result = (wifi_error)cmd->start();
     if (result != WIFI_SUCCESS) {
         wifi_unregister_cmd(handle, id);
+        cmd->releaseRef();
+        return result;
     }
     return result;
 }
@@ -1555,270 +1602,37 @@ wifi_error wifi_reset_significant_change_handler(wifi_request_id id, wifi_interf
 
 wifi_error wifi_reset_epno_list(wifi_request_id id, wifi_interface_handle iface)
 {
+    if (id == -1) {
+        wifi_epno_handler handler;
+        wifi_handle handle = getWifiHandle(iface);
+
+        memset(&handler, 0, sizeof(handler));
+        ePNOCommand *cmd = new ePNOCommand(iface, id, NULL, handler);
+        NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+        cmd->cancel();
+        cmd->releaseRef();
+        return WIFI_SUCCESS;
+    }
     return wifi_cancel_cmd(id, iface);
 }
 
 wifi_error wifi_set_epno_list(wifi_request_id id, wifi_interface_handle iface,
-        int num_networks, wifi_epno_network *networks, wifi_epno_handler handler)
-{
-     wifi_handle handle = getWifiHandle(iface);
-
-     ePNOCommand *cmd = new ePNOCommand(iface, id, num_networks, networks, handler);
-     wifi_register_cmd(handle, id, cmd);
-     if (num_networks == 0 || networks == NULL) {
-         return wifi_reset_epno_list(id, iface);
-     }
-     wifi_error result = (wifi_error)cmd->start();
-     if (result != WIFI_SUCCESS) {
-         wifi_unregister_cmd(handle, id);
-     }
-     return result;
-}
-
-class SSIDWhitelistCommand : public WifiCommand
-{
-private:
-    int mNumNetworks;
-    wifi_ssid *mSSIDs;
-public:
-    SSIDWhitelistCommand(wifi_interface_handle handle, int id,
-            int num_networks, wifi_ssid *ssids)
-        : WifiCommand("SSIDWhitelistCommand", handle, id), mNumNetworks(num_networks), mSSIDs(ssids)
-    { }
-
-    int createRequest(WifiRequest& request) {
-        int result = request.create(GOOGLE_OUI, WIFI_SUBCMD_SET_SSID_WHITE_LIST);
-        if (result < 0) {
-            return result;
-        }
-
-        nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
-        result = request.put_u32(GSCAN_ATTRIBUTE_NUM_WL_SSID, mNumNetworks);
-        if (result < 0) {
-            return result;
-        }
-        if (!mNumNetworks) {
-            result = request.put_u32(GSCAN_ATTRIBUTE_WL_SSID_FLUSH, 1);
-            if (result < 0) {
-                return result;
-            }
-        }
-        for (int i = 0; i < mNumNetworks; i++) {
-            nlattr *attr = request.attr_start(GSCAN_ATTRIBUTE_WHITELIST_SSID_ELEM);
-            if (attr == NULL) {
-                return WIFI_ERROR_OUT_OF_MEMORY;
-            }
-            result = request.put_u32(GSCAN_ATTRIBUTE_WL_SSID_LEN, strlen(mSSIDs[i].ssid));
-            if (result < 0) {
-                return result;
-            }
-            result = request.put(GSCAN_ATTRIBUTE_WHITELIST_SSID, mSSIDs[i].ssid, 32);
-            if (result < 0) {
-                return result;
-            }
-            request.attr_end(attr);
-        }
-        request.attr_end(data);
-        return result;
-    }
-
-    int start() {
-        ALOGI("Executing whitelist ssid request, num = %d", mNumNetworks);
-        WifiRequest request(familyId(), ifaceId());
-        int result = createRequest(request);
-        if (result < 0) {
-            return result;
-        }
-
-        result = requestResponse(request);
-        if (result < 0) {
-            ALOGI("Failed to execute whitelist ssid request, result = %d", result);
-            return result;
-        }
-
-        ALOGI("Successfully whitlisted %d ssids", mNumNetworks);
-        if (result < 0) {
-            return result;
-        }
-        return result;
-    }
-
-
-    virtual int handleResponse(WifiEvent& reply) {
-        /* Nothing to do on response! */
-        return NL_SKIP;
-    }
-
-};
-
-wifi_error wifi_set_ssid_white_list(wifi_request_id id, wifi_interface_handle iface,
-        int num_networks, wifi_ssid *ssids)
+        const wifi_epno_params *params, wifi_epno_handler handler)
 {
     wifi_handle handle = getWifiHandle(iface);
 
-    SSIDWhitelistCommand *cmd = new SSIDWhitelistCommand(iface, id, num_networks, ssids);
-    wifi_register_cmd(handle, id, cmd);
-    wifi_error result = (wifi_error)cmd->start();
+    ePNOCommand *cmd = new ePNOCommand(iface, id, params, handler);
+    NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+    wifi_error result = wifi_register_cmd(handle, id, cmd);
+    if (result != WIFI_SUCCESS) {
+        cmd->releaseRef();
+        return result;
+    }
+    result = (wifi_error)cmd->start();
     if (result != WIFI_SUCCESS) {
         wifi_unregister_cmd(handle, id);
-    }
-    return result;
-}
-
-
-class RoamParamsCommand : public WifiCommand
-{
-private:
-    wifi_roam_params *mParams;
-public:
-    RoamParamsCommand(wifi_interface_handle handle, int id, wifi_roam_params *params)
-        : WifiCommand("RoamParamsCommand", handle, id), mParams(params)
-    { }
-
-    int createRequest(WifiRequest& request) {
-        int result = request.create(GOOGLE_OUI, WIFI_SUBCMD_SET_ROAM_PARAMS);
-        if (result < 0) {
-            return result;
-        }
-
-    nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
-
-    result = request.put_u32(GSCAN_ATTRIBUTE_A_BAND_BOOST_THRESHOLD, mParams->A_band_boost_threshold);
-    if (result < 0) {
+        cmd->releaseRef();
         return result;
-    }
-    result = request.put_u32(GSCAN_ATTRIBUTE_A_BAND_PENALTY_THRESHOLD, mParams->A_band_penalty_threshold);
-    if (result < 0) {
-        return result;
-    }
-    result = request.put_u32(GSCAN_ATTRIBUTE_A_BAND_BOOST_FACTOR, mParams->A_band_boost_factor);
-    if (result < 0) {
-        return result;
-    }
-    result = request.put_u32(GSCAN_ATTRIBUTE_A_BAND_PENALTY_FACTOR, mParams->A_band_penalty_factor);
-    if (result < 0) {
-        return result;
-    }
-    result = request.put_u32(GSCAN_ATTRIBUTE_A_BAND_MAX_BOOST, mParams->A_band_max_boost);
-    if (result < 0) {
-        return result;
-    }
-    result = request.put_u32(GSCAN_ATTRIBUTE_LAZY_ROAM_HYSTERESIS, mParams->lazy_roam_hysteresis);
-    if (result < 0) {
-        return result;
-    }
-    result = request.put_u32(GSCAN_ATTRIBUTE_ALERT_ROAM_RSSI_TRIGGER, mParams->alert_roam_rssi_trigger);
-    if (result < 0) {
-        return result;
-    }
-        request.attr_end(data);
-        return result;
-    }
-
-    int start() {
-        ALOGV("Executing roam params set request");
-        WifiRequest request(familyId(), ifaceId());
-        int result = createRequest(request);
-        if (result < 0) {
-            return result;
-        }
-
-        result = requestResponse(request);
-        if (result < 0) {
-            ALOGE("Failed to execute Roam params set request, result = %d", result);
-            return result;
-        }
-
-        ALOGI("Successfully set roam params");
-        if (result < 0) {
-            return result;
-        }
-        return result;
-    }
-
-
-    virtual int handleResponse(WifiEvent& reply) {
-        /* Nothing to do on response! */
-        return NL_SKIP;
-    }
-
-};
-
-wifi_error wifi_set_gscan_roam_params(wifi_request_id id, wifi_interface_handle iface,
-                                        wifi_roam_params * params)
-{
-    wifi_handle handle = getWifiHandle(iface);
-
-    RoamParamsCommand *cmd = new RoamParamsCommand(iface, id, params);
-    wifi_register_cmd(handle, id, cmd);
-    wifi_error result = (wifi_error)cmd->start();
-    if (result != WIFI_SUCCESS) {
-        wifi_unregister_cmd(handle, id);
-    }
-    return result;
-}
-
-class LazyRoamCommand : public WifiCommand
-{
-private:
-    int mEnable;
-public:
-    LazyRoamCommand(wifi_interface_handle handle, int id, int enable)
-        : WifiCommand("LazyRoamCommand", handle, id), mEnable(enable)
-    { }
-
-    int createRequest(WifiRequest& request) {
-        int result = request.create(GOOGLE_OUI, WIFI_SUBCMD_ENABLE_LAZY_ROAM);
-        if (result < 0) {
-            return result;
-        }
-
-        nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
-
-        result = request.put_u32(GSCAN_ATTRIBUTE_LAZY_ROAM_ENABLE, mEnable);
-        if (result < 0) {
-            return result;
-        }
-        request.attr_end(data);
-        return result;
-    }
-
-    int start() {
-        WifiRequest request(familyId(), ifaceId());
-        int result = createRequest(request);
-        if (result < 0) {
-            return result;
-        }
-
-        result = requestResponse(request);
-        if (result < 0) {
-            ALOGI("Failed to enable lazy roam, result = %d", result);
-            return result;
-        }
-
-        ALOGI("Successfully enabled lazy roam");
-        if (result < 0) {
-            return result;
-        }
-        return result;
-    }
-
-
-    virtual int handleResponse(WifiEvent& reply) {
-        /* Nothing to do on response! */
-        return NL_SKIP;
-    }
-
-};
-wifi_error wifi_enable_lazy_roam(wifi_request_id id, wifi_interface_handle iface, int enable)
-{
-    wifi_handle handle = getWifiHandle(iface);
-
-    LazyRoamCommand *cmd = new LazyRoamCommand(iface, id, enable);
-    wifi_register_cmd(handle, id, cmd);
-    wifi_error result = (wifi_error)cmd->start();
-    if (result != WIFI_SUCCESS) {
-        wifi_unregister_cmd(handle, id);
     }
     return result;
 }
@@ -1893,102 +1707,7 @@ wifi_error wifi_set_bssid_blacklist(wifi_request_id id, wifi_interface_handle if
     wifi_handle handle = getWifiHandle(iface);
 
     BssidBlacklistCommand *cmd = new BssidBlacklistCommand(iface, id, &params);
-    wifi_error result = (wifi_error)cmd->start();
-    //release the reference of command as well
-    cmd->releaseRef();
-    return result;
-}
-
-class BssidPreferenceCommand : public WifiCommand
-{
-private:
-    int mNumBssid;
-    wifi_bssid_preference *mPrefs;
-public:
-    BssidPreferenceCommand(wifi_interface_handle handle, int id,
-            int num_bssid, wifi_bssid_preference *prefs)
-        : WifiCommand("BssidPreferenceCommand", handle, id), mNumBssid(num_bssid), mPrefs(prefs)
-    { }
-
-    int createRequest(WifiRequest& request) {
-        int result = request.create(GOOGLE_OUI, WIFI_SUBCMD_SET_BSSID_PREF);
-        if (result < 0) {
-            return result;
-        }
-
-        nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
-
-        result = request.put_u32(GSCAN_ATTRIBUTE_NUM_BSSID, mNumBssid);
-        if (result < 0) {
-            return result;
-        }
-        if (!mNumBssid) {
-            result = request.put_u32(GSCAN_ATTRIBUTE_BSSID_PREF_FLUSH, 1);
-            if (result < 0) {
-                return result;
-            }
-        }
-       struct nlattr * attr = request.attr_start(GSCAN_ATTRIBUTE_BSSID_PREF_LIST);
-        if (attr == NULL) {
-            return WIFI_ERROR_OUT_OF_MEMORY;
-        }
-        for (int i = 0; i < mNumBssid; i++) {
-
-            nlattr *attr1 = request.attr_start(i);
-            if (attr == NULL) {
-                return WIFI_ERROR_OUT_OF_MEMORY;
-            }
-            result = request.put_addr(GSCAN_ATTRIBUTE_BSSID_PREF, mPrefs[i].bssid);
-            if (result < 0) {
-                return result;
-            }
-            result = request.put_u32(GSCAN_ATTRIBUTE_RSSI_MODIFIER, mPrefs[i].rssi_modifier);
-            if (result < 0) {
-                return result;
-            }
-            request.attr_end(attr1);
-        }
-        request.attr_end(attr);
-        request.attr_end(data);
-
-        return result;
-    }
-
-    int start() {
-        ALOGV("Executing bssid prefernce change request, num = %d", mNumBssid);
-        WifiRequest request(familyId(), ifaceId());
-        int result = createRequest(request);
-        if (result < 0) {
-            return result;
-        }
-
-        result = requestResponse(request);
-        if (result < 0) {
-            ALOGE("Failed to execute bssid preference change request, result = %d", result);
-            return result;
-        }
-
-        ALOGI("Successfully changed %d bssid preferences", mNumBssid);
-        if (result < 0) {
-            return result;
-        }
-        return result;
-    }
-
-
-    virtual int handleResponse(WifiEvent& reply) {
-        /* Nothing to do on response! */
-        return NL_SKIP;
-    }
-
-};
-
-wifi_error wifi_set_bssid_preference(wifi_request_id id, wifi_interface_handle iface,
-                                    int num_bssid, wifi_bssid_preference *prefs)
-{
-    wifi_handle handle = getWifiHandle(iface);
-
-    BssidPreferenceCommand *cmd = new BssidPreferenceCommand(iface, id, num_bssid, prefs);
+    NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
     wifi_error result = (wifi_error)cmd->start();
     //release the reference of command as well
     cmd->releaseRef();
@@ -2002,12 +1721,14 @@ class AnqpoConfigureCommand : public WifiCommand
     int num_hs;
     wifi_passpoint_network *mNetworks;
     wifi_passpoint_event_handler mHandler;
+    wifi_scan_result *mResult;
 public:
     AnqpoConfigureCommand(wifi_request_id id, wifi_interface_handle iface,
         int num, wifi_passpoint_network *hs_list, wifi_passpoint_event_handler handler)
         : WifiCommand("AnqpoConfigureCommand", iface, id), num_hs(num), mNetworks(hs_list),
             mHandler(handler)
     {
+        mResult = NULL;
     }
 
     int createRequest(WifiRequest& request, int val) {
@@ -2116,27 +1837,33 @@ public:
             ALOGI("No scan results found");
             return NL_SKIP;
         }
+        mResult = (wifi_scan_result *)malloc(sizeof(wifi_scan_result));
+        if (!mResult) {
+            return NL_SKIP;
+        }
+        wifi_gscan_full_result_t *drv_res = (wifi_gscan_full_result_t *)event.get_vendor_data();
+        wifi_gscan_result_t *fixed = &drv_res->fixed;
+        convert_to_hal_result(mResult, fixed);
 
-        wifi_scan_result *result = (wifi_scan_result *)event.get_vendor_data();
-        byte *anqp = (byte *)result + offsetof(wifi_scan_result, ie_data) + result->ie_length;
+        byte *anqp = (byte *)drv_res + offsetof(wifi_gscan_full_result_t, ie_data) + drv_res->ie_length;
         wifi_anqp_gas_resp *gas = (wifi_anqp_gas_resp *)anqp;
         int anqp_len = offsetof(wifi_anqp_gas_resp, data) + gas->data_len;
         int networkId = *(int *)((byte *)anqp + anqp_len);
 
-        ALOGI("%-32s\t", result->ssid);
+        ALOGI("%-32s\t", mResult->ssid);
 
-        ALOGI("%02x:%02x:%02x:%02x:%02x:%02x ", result->bssid[0], result->bssid[1],
-                result->bssid[2], result->bssid[3], result->bssid[4], result->bssid[5]);
+        ALOGI("%02x:%02x:%02x:%02x:%02x:%02x ", mResult->bssid[0], mResult->bssid[1],
+                mResult->bssid[2], mResult->bssid[3], mResult->bssid[4], mResult->bssid[5]);
 
-        ALOGI("%d\t", result->rssi);
-        ALOGI("%d\t", result->channel);
-        ALOGI("%lld\t", result->ts);
-        ALOGI("%lld\t", result->rtt);
-        ALOGI("%lld\n", result->rtt_sd);
+        ALOGI("%d\t", mResult->rssi);
+        ALOGI("%d\t", mResult->channel);
+        ALOGI("%lld\t", mResult->ts);
+        ALOGI("%lld\t", mResult->rtt);
+        ALOGI("%lld\n", mResult->rtt_sd);
 
         if(*mHandler.on_passpoint_network_found)
-            (*mHandler.on_passpoint_network_found)(id(), networkId, result, anqp_len, anqp);
-
+            (*mHandler.on_passpoint_network_found)(id(), networkId, mResult, anqp_len, anqp);
+        free(mResult);
         return NL_SKIP;
     }
 };
@@ -2147,10 +1874,17 @@ wifi_error wifi_set_passpoint_list(wifi_request_id id, wifi_interface_handle ifa
     wifi_handle handle = getWifiHandle(iface);
 
     AnqpoConfigureCommand *cmd = new AnqpoConfigureCommand(id, iface, num, networks, handler);
-    wifi_register_cmd(handle, id, cmd);
-    wifi_error result = (wifi_error)cmd->start();
+    NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+    wifi_error result = wifi_register_cmd(handle, id, cmd);
+    if (result != WIFI_SUCCESS) {
+        cmd->releaseRef();
+        return result;
+    }
+    result = (wifi_error)cmd->start();
     if (result != WIFI_SUCCESS) {
         wifi_unregister_cmd(handle, id);
+        cmd->releaseRef();
+        return result;
     }
     return result;
 }
@@ -2159,4 +1893,3 @@ wifi_error wifi_reset_passpoint_list(wifi_request_id id, wifi_interface_handle i
 {
     return wifi_cancel_cmd(id, iface);
 }
-

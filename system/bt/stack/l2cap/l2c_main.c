@@ -22,21 +22,25 @@
  *
  ******************************************************************************/
 
+#define LOG_TAG "bt_l2c_main"
+
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 
-#include "device/include/controller.h"
-#include "btcore/include/counter.h"
 #include "bt_target.h"
 #include "btm_int.h"
 #include "btu.h"
-#include "gki.h"
+#include "device/include/controller.h"
+#include "bt_common.h"
 #include "hcimsgs.h"
 #include "l2c_api.h"
 #include "l2c_int.h"
 #include "l2cdefs.h"
 #include "osi/include/log.h"
+
+
+extern fixed_queue_t *btu_general_alarm_queue;
 
 /********************************************************************************/
 /*              L O C A L    F U N C T I O N     P R O T O T Y P E S            */
@@ -49,65 +53,6 @@ static void process_l2cap_cmd (tL2C_LCB *p_lcb, UINT8 *p, UINT16 pkt_len);
 #if L2C_DYNAMIC_MEMORY == FALSE
 tL2C_CB l2cb;
 #endif
-
-/*******************************************************************************
-**
-** Function         l2c_bcst_msg
-**
-** Description
-**
-** Returns          void
-**
-*******************************************************************************/
-void l2c_bcst_msg( BT_HDR *p_buf, UINT16 psm )
-{
-    UINT8       *p;
-
-    /* Ensure we have enough space in the buffer for the L2CAP and HCI headers */
-    if (p_buf->offset < L2CAP_BCST_MIN_OFFSET)
-    {
-        L2CAP_TRACE_ERROR ("L2CAP - cannot send buffer, offset: %d", p_buf->offset);
-        GKI_freebuf (p_buf);
-        return;
-    }
-
-    /* Step back some bytes to add the headers */
-    p_buf->offset -= (HCI_DATA_PREAMBLE_SIZE + L2CAP_PKT_OVERHEAD + L2CAP_BCST_OVERHEAD);
-    p_buf->len    += L2CAP_PKT_OVERHEAD + L2CAP_BCST_OVERHEAD;
-
-    /* Set the pointer to the beginning of the data */
-    p = (UINT8 *)(p_buf + 1) + p_buf->offset;
-
-    /* First, the HCI transport header */
-    UINT16_TO_STREAM (p, 0x0050 | (L2CAP_PKT_START << 12) | (2 << 14));
-
-    uint16_t acl_data_size = controller_get_interface()->get_acl_data_size_classic();
-    /* The HCI transport will segment the buffers. */
-    if (p_buf->len > acl_data_size)
-    {
-        UINT16_TO_STREAM (p, acl_data_size);
-    }
-    else
-    {
-        UINT16_TO_STREAM (p, p_buf->len);
-    }
-
-    /* Now the L2CAP header */
-    UINT16_TO_STREAM (p, p_buf->len - L2CAP_PKT_OVERHEAD);
-    UINT16_TO_STREAM (p, L2CAP_CONNECTIONLESS_CID);
-    UINT16_TO_STREAM (p, psm);
-
-    p_buf->len += HCI_DATA_PREAMBLE_SIZE;
-
-    if (p_buf->len <= controller_get_interface()->get_acl_packet_size_classic())
-    {
-        counter_add("l2cap.ch2.tx.bytes", p_buf->len);
-        counter_add("l2cap.ch2.tx.pkts", 1);
-
-        bte_main_hci_send(p_buf, BT_EVT_TO_LM_HCI_ACL);
-    }
-}
-
 
 /*******************************************************************************
 **
@@ -127,6 +72,7 @@ void l2c_rcv_acl_data (BT_HDR *p_msg)
     tL2C_LCB    *p_lcb;
     tL2C_CCB    *p_ccb = NULL;
     UINT16      l2cap_len, rcv_cid, psm;
+    UINT16      credit;
 
     /* Extract the handle */
     STREAM_TO_UINT16 (handle, p);
@@ -158,8 +104,12 @@ void l2c_rcv_acl_data (BT_HDR *p_msg)
                 p_msg->layer_specific = 2;
                 list_append(l2cb.rcv_pending_q, p_msg);
 
-                if (list_length(l2cb.rcv_pending_q) == 1)
-                    btu_start_timer (&l2cb.rcv_hold_tle, BTU_TTYPE_L2CAP_HOLD, BT_1SEC_TIMEOUT);
+                if (list_length(l2cb.rcv_pending_q) == 1) {
+                    alarm_set_on_queue(l2cb.receive_hold_timer,
+                                       BT_1SEC_TIMEOUT_MS,
+                                       l2c_receive_hold_timer_timeout, NULL,
+                                       btu_general_alarm_queue);
+                }
 
                 return;
             } else {
@@ -167,14 +117,14 @@ void l2c_rcv_acl_data (BT_HDR *p_msg)
                         " opcode:%d cur count:%d", handle, p_msg->layer_specific, rcv_cid,
                         cmd_code, list_length(l2cb.rcv_pending_q));
             }
-            GKI_freebuf (p_msg);
+            osi_free(p_msg);
             return;
         }
     }
     else
     {
         L2CAP_TRACE_WARNING ("L2CAP - expected pkt start or complete, got: %d", pkt_type);
-        GKI_freebuf (p_msg);
+        osi_free(p_msg);
         return;
     }
 
@@ -199,7 +149,7 @@ void l2c_rcv_acl_data (BT_HDR *p_msg)
         if ((p_ccb = l2cu_find_ccb_by_cid (p_lcb, rcv_cid)) == NULL)
         {
             L2CAP_TRACE_WARNING ("L2CAP - unknown CID: 0x%04x", rcv_cid);
-            GKI_freebuf (p_msg);
+            osi_free(p_msg);
             return;
         }
     }
@@ -212,7 +162,7 @@ void l2c_rcv_acl_data (BT_HDR *p_msg)
     else
     {
         L2CAP_TRACE_WARNING ("L2CAP - got incorrect hci header" );
-        GKI_freebuf (p_msg);
+        osi_free(p_msg);
         return;
     }
 
@@ -221,22 +171,18 @@ void l2c_rcv_acl_data (BT_HDR *p_msg)
         L2CAP_TRACE_WARNING ("L2CAP - bad length in pkt. Exp: %d  Act: %d",
                               l2cap_len, p_msg->len);
 
-        GKI_freebuf (p_msg);
+        osi_free(p_msg);
         return;
     }
 
     /* Send the data through the channel state machine */
     if (rcv_cid == L2CAP_SIGNALLING_CID)
     {
-        counter_add("l2cap.sig.rx.bytes", l2cap_len);
-        counter_add("l2cap.sig.rx.pkts", 1);
         process_l2cap_cmd (p_lcb, p, l2cap_len);
-        GKI_freebuf (p_msg);
+        osi_free(p_msg);
     }
     else if (rcv_cid == L2CAP_CONNECTIONLESS_CID)
     {
-        counter_add("l2cap.ch2.rx.bytes", l2cap_len);
-        counter_add("l2cap.ch2.rx.pkts", 1);
         /* process_connectionless_data (p_lcb); */
         STREAM_TO_UINT16 (psm, p);
         L2CAP_TRACE_DEBUG( "GOT CONNECTIONLESS DATA PSM:%d", psm ) ;
@@ -249,23 +195,19 @@ void l2c_rcv_acl_data (BT_HDR *p_msg)
         }
         else
 #endif
-            GKI_freebuf (p_msg);
+            osi_free(p_msg);
     }
 #if (BLE_INCLUDED == TRUE)
     else if (rcv_cid == L2CAP_BLE_SIGNALLING_CID)
     {
-        counter_add("l2cap.ble.rx.bytes", l2cap_len);
-        counter_add("l2cap.ble.rx.pkts", 1);
         l2cble_process_sig_cmd (p_lcb, p, l2cap_len);
-        GKI_freebuf (p_msg);
+        osi_free(p_msg);
     }
 #endif
 #if (L2CAP_NUM_FIXED_CHNLS > 0)
     else if ((rcv_cid >= L2CAP_FIRST_FIXED_CHNL) && (rcv_cid <= L2CAP_LAST_FIXED_CHNL) &&
              (l2cb.fixed_reg[rcv_cid - L2CAP_FIRST_FIXED_CHNL].pL2CA_FixedData_Cb != NULL) )
     {
-        counter_add("l2cap.fix.rx.bytes", l2cap_len);
-        counter_add("l2cap.fix.rx.pkts", 1);
         /* If no CCB for this channel, allocate one */
         if (p_lcb &&
             /* only process fixed channel data when link is open or wait for data indication */
@@ -281,28 +223,36 @@ void l2c_rcv_acl_data (BT_HDR *p_msg)
                     (rcv_cid, p_lcb->remote_bd_addr, p_msg);
         }
         else
-            GKI_freebuf (p_msg);
+            osi_free(p_msg);
     }
 #endif
 
     else
     {
-        counter_add("l2cap.dyn.rx.bytes", l2cap_len);
-        counter_add("l2cap.dyn.rx.pkts", 1);
         if (p_ccb == NULL)
-            GKI_freebuf (p_msg);
+            osi_free(p_msg);
         else
         {
-            /* Basic mode packets go straight to the state machine */
-            if (p_ccb->peer_cfg.fcr.mode == L2CAP_FCR_BASIC_MODE)
-                l2c_csm_execute (p_ccb, L2CEVT_L2CAP_DATA, p_msg);
+            if (p_lcb->transport == BT_TRANSPORT_LE)
+            {
+               l2c_lcc_proc_pdu(p_ccb,p_msg);
+               // Got a pkt, valid send out credits to the peer device
+               credit = L2CAP_LE_DEFAULT_CREDIT;
+               l2c_csm_execute(p_ccb, L2CEVT_L2CA_SEND_FLOW_CONTROL_CREDIT, &credit);
+            }
             else
             {
-                /* eRTM or streaming mode, so we need to validate states first */
-                if ((p_ccb->chnl_state == CST_OPEN) || (p_ccb->chnl_state == CST_CONFIG))
-                    l2c_fcr_proc_pdu (p_ccb, p_msg);
+                /* Basic mode packets go straight to the state machine */
+                if (p_ccb->peer_cfg.fcr.mode == L2CAP_FCR_BASIC_MODE)
+                    l2c_csm_execute (p_ccb, L2CEVT_L2CAP_DATA, p_msg);
                 else
-                    GKI_freebuf (p_msg);
+                {
+                    /* eRTM or streaming mode, so we need to validate states first */
+                    if ((p_ccb->chnl_state == CST_OPEN) || (p_ccb->chnl_state == CST_CONFIG))
+                        l2c_fcr_proc_pdu (p_ccb, p_msg);
+                    else
+                        osi_free (p_msg);
+                }
             }
         }
     }
@@ -416,7 +366,7 @@ static void process_l2cap_cmd (tL2C_LCB *p_lcb, UINT8 *p, UINT16 pkt_len)
             /* SonyEricsson Info request Bug workaround (Continue connection) */
             else if (rej_reason == L2CAP_CMD_REJ_NOT_UNDERSTOOD && p_lcb->w4_info_rsp)
             {
-                btu_stop_timer (&p_lcb->info_timer_entry);
+                alarm_cancel(p_lcb->info_resp_timer);
 
                 p_lcb->w4_info_rsp = FALSE;
                 ci.status = HCI_SUCCESS;
@@ -678,7 +628,6 @@ static void process_l2cap_cmd (tL2C_LCB *p_lcb, UINT8 *p, UINT16 pkt_len)
             }
             break;
 
-
         case L2CAP_CMD_DISC_REQ:
             STREAM_TO_UINT16 (lcid, p);
             STREAM_TO_UINT16 (rcid, p);
@@ -734,7 +683,7 @@ static void process_l2cap_cmd (tL2C_LCB *p_lcb, UINT8 *p, UINT16 pkt_len)
             /* Stop the link connect timer if sent before L2CAP connection is up */
             if (p_lcb->w4_info_rsp)
             {
-                btu_stop_timer (&p_lcb->info_timer_entry);
+                alarm_cancel(p_lcb->info_resp_timer);
                 p_lcb->w4_info_rsp = FALSE;
             }
 
@@ -760,7 +709,6 @@ static void process_l2cap_cmd (tL2C_LCB *p_lcb, UINT8 *p, UINT16 pkt_len)
                 }
 #endif
             }
-
 
 #if (L2CAP_NUM_FIXED_CHNLS > 0)
             if (info_type == L2CAP_FIXED_CHANNELS_INFO_TYPE)
@@ -815,7 +763,7 @@ void l2c_process_held_packets(BOOLEAN timed_out) {
         return;
 
     if (!timed_out) {
-        btu_stop_timer(&l2cb.rcv_hold_tle);
+        alarm_cancel(l2cb.receive_hold_timer);
         L2CAP_TRACE_WARNING("L2CAP HOLD CONTINUE");
     } else {
         L2CAP_TRACE_WARNING("L2CAP HOLD TIMEOUT");
@@ -833,10 +781,12 @@ void l2c_process_held_packets(BOOLEAN timed_out) {
     }
 
     /* If anyone still in the queue, restart the timeout */
-    if (!list_is_empty(l2cb.rcv_pending_q))
-        btu_start_timer (&l2cb.rcv_hold_tle, BTU_TTYPE_L2CAP_HOLD, BT_1SEC_TIMEOUT);
+    if (!list_is_empty(l2cb.rcv_pending_q)) {
+        alarm_set_on_queue(l2cb.receive_hold_timer, BT_1SEC_TIMEOUT_MS,
+                           l2c_receive_hold_timer_timeout, NULL,
+                           btu_general_alarm_queue);
+    }
 }
-
 
 /*******************************************************************************
 **
@@ -866,7 +816,6 @@ void l2c_init (void)
     /* it will be set to L2CAP_PKT_START_NON_FLUSHABLE if controller supports */
     l2cb.non_flushable_pbf = L2CAP_PKT_START << L2CAP_PKT_TYPE_SHIFT;
 #endif
-
 
     l2cb.p_free_ccb_first = &l2cb.ccb_pool[0];
     l2cb.p_free_ccb_last  = &l2cb.ccb_pool[MAX_L2CAP_CHANNELS - 1];
@@ -903,48 +852,40 @@ void l2c_init (void)
 
     l2cb.rcv_pending_q = list_new(NULL);
     if (l2cb.rcv_pending_q == NULL)
-        LOG_ERROR("%s unable to allocate memory for link layer control block", __func__);
+        LOG_ERROR(LOG_TAG, "%s unable to allocate memory for link layer control block", __func__);
+    l2cb.receive_hold_timer = alarm_new("l2c.receive_hold_timer");
 }
 
 void l2c_free(void) {
     list_free(l2cb.rcv_pending_q);
+    l2cb.rcv_pending_q = NULL;
 }
 
-/*******************************************************************************
-**
-** Function         l2c_process_timeout
-**
-** Description      This function is called when an L2CAP-related timeout occurs
-**
-** Returns          void
-**
-*******************************************************************************/
-void l2c_process_timeout (TIMER_LIST_ENT *p_tle)
+void l2c_receive_hold_timer_timeout(UNUSED_ATTR void *data)
 {
-    /* What type of timeout ? */
-    switch (p_tle->event)
-    {
-    case BTU_TTYPE_L2CAP_LINK:
-        l2c_link_timeout ((tL2C_LCB *)p_tle->param);
-        break;
+    /* Update the timeouts in the hold queue */
+    l2c_process_held_packets(TRUE);
+}
 
-    case BTU_TTYPE_L2CAP_CHNL:
-        l2c_csm_execute (((tL2C_CCB *)p_tle->param), L2CEVT_TIMEOUT, NULL);
-        break;
+void l2c_ccb_timer_timeout(void *data)
+{
+    tL2C_CCB *p_ccb = (tL2C_CCB *)data;
 
-    case BTU_TTYPE_L2CAP_FCR_ACK:
-        l2c_csm_execute (((tL2C_CCB *)p_tle->param), L2CEVT_ACK_TIMEOUT, NULL);
-        break;
+    l2c_csm_execute(p_ccb, L2CEVT_TIMEOUT, NULL);
+}
 
-    case BTU_TTYPE_L2CAP_HOLD:
-        /* Update the timeouts in the hold queue */
-        l2c_process_held_packets(TRUE);
-        break;
+void l2c_fcrb_ack_timer_timeout(void *data)
+{
+    tL2C_CCB *p_ccb = (tL2C_CCB *)data;
 
-    case BTU_TTYPE_L2CAP_INFO:
-        l2c_info_timeout((tL2C_LCB *)p_tle->param);
-        break;
-    }
+    l2c_csm_execute(p_ccb, L2CEVT_ACK_TIMEOUT, NULL);
+}
+
+void l2c_lcb_timer_timeout(void *data)
+{
+    tL2C_LCB *p_lcb = (tL2C_LCB *)data;
+
+    l2c_link_timeout(p_lcb);
 }
 
 /*******************************************************************************
@@ -966,16 +907,23 @@ UINT8 l2c_data_write (UINT16 cid, BT_HDR *p_data, UINT16 flags)
     if ((p_ccb = l2cu_find_ccb_by_cid (NULL, cid)) == NULL)
     {
         L2CAP_TRACE_WARNING ("L2CAP - no CCB for L2CA_DataWrite, CID: %d", cid);
-        GKI_freebuf (p_data);
+        osi_free(p_data);
         return (L2CAP_DW_FAILED);
     }
 
 #ifndef TESTER /* Tester may send any amount of data. otherwise sending message
                   bigger than mtu size of peer is a violation of protocol */
-    if (p_data->len > p_ccb->peer_cfg.mtu)
+    UINT16 mtu;
+
+    if (p_ccb->p_lcb->transport == BT_TRANSPORT_LE)
+        mtu = p_ccb->peer_conn_cfg.mtu;
+    else
+        mtu = p_ccb->peer_cfg.mtu;
+
+    if (p_data->len > mtu)
     {
         L2CAP_TRACE_WARNING ("L2CAP - CID: 0x%04x  cannot send message bigger than peer's mtu size", cid);
-        GKI_freebuf (p_data);
+        osi_free(p_data);
         return (L2CAP_DW_FAILED);
     }
 #endif
@@ -987,14 +935,14 @@ UINT8 l2c_data_write (UINT16 cid, BT_HDR *p_data, UINT16 flags)
     if (p_ccb->cong_sent)
     {
         L2CAP_TRACE_ERROR ("L2CAP - CID: 0x%04x cannot send, already congested  xmit_hold_q.count: %u  buff_quota: %u",
-                            p_ccb->local_cid, GKI_queue_length(&p_ccb->xmit_hold_q), p_ccb->buff_quota);
+                           p_ccb->local_cid,
+                           fixed_queue_length(p_ccb->xmit_hold_q),
+                           p_ccb->buff_quota);
 
-        GKI_freebuf (p_data);
+        osi_free(p_data);
         return (L2CAP_DW_FAILED);
     }
 
-    counter_add("l2cap.dyn.tx.bytes", p_data->len);
-    counter_add("l2cap.dyn.tx.pkts", 1);
 
     l2c_csm_execute (p_ccb, L2CEVT_L2CA_DATA_WRITE, p_data);
 

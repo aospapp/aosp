@@ -24,13 +24,18 @@ PRODUCT_NAME := core
 
 PRODUCT_PACKAGES += \
     BackupRestoreConfirmation \
+    CtsShimPrebuilt \
+    CtsShimPrivPrebuilt \
     DownloadProvider \
+    ExtShared \
+    ExtServices \
     HTMLViewer \
     MediaProvider \
     PackageInstaller \
     SettingsProvider \
     Shell \
     StatementService \
+    WallpaperBackup \
     bcc \
     bu \
     com.android.future.usb.accessory \
@@ -63,7 +68,6 @@ PRODUCT_PACKAGES += \
     libfilterfw \
     libkeystore \
     libgatekeeper \
-    libsqlite_jni \
     libwilhelm \
     logd \
     make_ext4fs \
@@ -83,6 +87,7 @@ PRODUCT_COPY_FILES += \
 
 # The order of PRODUCT_BOOT_JARS matters.
 PRODUCT_BOOT_JARS := \
+    core-oj \
     core-libart \
     conscrypt \
     okhttp \
@@ -113,6 +118,34 @@ PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
     ro.zygote=zygote32
 PRODUCT_COPY_FILES += \
     system/core/rootdir/init.zygote32.rc:root/init.zygote32.rc
+
+PRODUCT_COPY_FILES += \
+    system/core/rootdir/etc/public.libraries.android.txt:system/etc/public.libraries.txt
+
+# Different dexopt types for different package update/install times.
+# On eng builds, make "boot" reasons do pure JIT for faster turnaround.
+ifeq (eng,$(TARGET_BUILD_VARIANT))
+    PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
+        pm.dexopt.first-boot=verify-at-runtime \
+        pm.dexopt.boot=verify-at-runtime
+else
+    PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
+        pm.dexopt.first-boot=interpret-only \
+        pm.dexopt.boot=verify-profile
+endif
+PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
+    pm.dexopt.install=interpret-only \
+    pm.dexopt.bg-dexopt=speed-profile \
+    pm.dexopt.ab-ota=speed-profile \
+    pm.dexopt.nsys-library=speed \
+    pm.dexopt.shared-apk=speed \
+    pm.dexopt.forced-dexopt=speed \
+    pm.dexopt.core-app=speed
+
+
+# Enable boot.oat filtering of compiled classes to reduce boot.oat size. b/28026683
+PRODUCT_COPY_FILES += $(call add-to-product-copy-files-if-exists,\
+    frameworks/base/compiled-classes-phone:system/etc/compiled-classes)
 
 $(call inherit-product, $(SRC_TARGET_DIR)/product/runtime_libart.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/base.mk)

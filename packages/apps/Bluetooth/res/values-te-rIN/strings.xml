@@ -36,9 +36,8 @@
     <string name="incoming_file_confirm_ok" msgid="281462442932231475">"అంగీకరిస్తున్నాను"</string>
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"సరే"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" పంపిన ఇన్‌కమింగ్ ఫైల్‌ను అంగీకరిస్తున్నప్పుడు గడువు సమయం ముగిసింది"</string>
-    <string name="incoming_file_confirm_Notification_title" msgid="2958227698135117210">"బ్లూటూత్ భాగస్వామ్యం: ఇన్‌కమింగ్ ఫైల్"</string>
-    <string name="incoming_file_confirm_Notification_caption" msgid="6671081128475981157">"మీరు ఈ ఫైల్‌ను స్వీకరించాలనుకుంటున్నారా?"</string>
-    <string name="incoming_file_toast_msg" msgid="1733710749992901811">"మరో పరికరం నుండి ఇన్‌కమింగ్ ఫైల్. మీరు ఈ ఫైల్‌ను స్వీకరించాలనుకుంటున్నట్లు నిర్ధారించండి."</string>
+    <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"ఫైల్ స్వీకరణ"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> <xliff:g id="FILE">%2$s</xliff:g> ఫైల్ పంపడానికి సిద్ధంగా ఉన్నారు"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"బ్లూటూత్ భాగస్వామ్యం: <xliff:g id="FILE">%1$s</xliff:g>ను స్వీకరిస్తోంది"</string>
     <string name="notification_received" msgid="3324588019186687985">"బ్లూటూత్ భాగస్వామ్యం: <xliff:g id="FILE">%1$s</xliff:g> స్వీకరించబడింది"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"బ్లూటూత్ భాగస్వామ్యం: <xliff:g id="FILE">%1$s</xliff:g> ఫైల్ స్వీకరించబడలేదు"</string>
@@ -124,9 +123,11 @@
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"క్లియర్ చేయి"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"సేవ్ చేయి"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"రద్దు చేయి"</string>
-    <string name="bluetooth_map_settings_intro" msgid="6793938602201480648">"మీరు బ్లూటూత్ ద్వారా భాగస్వామ్యం చేయాలనుకునే ఖాతాలను ఎంచుకోండి. మీరు ఇప్పటికీ కనెక్ట్ చేస్తున్నప్పుడు ఖాతాలకు అందించే ఏ ప్రాప్యతనైనా ఆమోదించాలి."</string>
+    <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"మీరు బ్లూటూత్ ద్వారా భాగస్వామ్యం చేయాలనుకునే ఖాతాలను ఎంచుకోండి. మీరు ఇప్పటికీ కనెక్ట్ చేస్తున్నప్పుడు ఖాతాలకు అందించే ఏ ప్రాప్యతనైనా ఆమోదించాల్సి ఉంటుంది."</string>
     <string name="bluetooth_map_settings_count" msgid="4557473074937024833">"మిగిలిన స్లాట్‌లు:"</string>
     <string name="bluetooth_map_settings_app_icon" msgid="7105805610929114707">"అనువర్తన చిహ్నం"</string>
     <string name="bluetooth_map_settings_title" msgid="7420332483392851321">"బ్లూటూత్ సందేశ భాగస్వామ్య సెట్టింగ్‌లు"</string>
     <string name="bluetooth_map_settings_no_account_slots_left" msgid="1796029082612965251">"ఖాతాను ఎంచుకోవడం సాధ్యపడదు. 0 స్లాట్‌లు మిగిలి ఉన్నాయి"</string>
+    <string name="bluetooth_connected" msgid="6718623220072656906">"బ్లూటూత్ ఆడియో కనెక్ట్ చేయబడింది"</string>
+    <string name="bluetooth_disconnected" msgid="3318303728981478873">"బ్లూటూత్ ఆడియో డిస్‌కనెక్ట్ చేయబడింది"</string>
 </resources>

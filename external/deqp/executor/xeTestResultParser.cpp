@@ -115,6 +115,7 @@ static const EnumMapEntry s_resultItemMap[] =
 	{ 0x6c1415d9,	"ComputeShader",		ri::TYPE_SHADER			},
 	{ 0x72863a54,	"ShaderProgram",		ri::TYPE_SHADERPROGRAM	},
 	{ 0xb4efc08d,	"ShaderSource",			ri::TYPE_SHADERSOURCE	},
+	{ 0xaee4380a,	"SpirVAssemblySource",	ri::TYPE_SPIRVSOURCE	},
 	{ 0xff265913,	"InfoLog",				ri::TYPE_INFOLOG		},
 	{ 0x84159b73,	"EglConfig",			ri::TYPE_EGLCONFIG		},
 	{ 0xdd34391f,	"EglConfigSet",			ri::TYPE_EGLCONFIGSET	},
@@ -164,7 +165,8 @@ static const EnumMapEntry s_logVersionMap[] =
 	{ 0x0b7db0d4,	"0.3.0",		TESTLOGVERSION_0_3_0	},
 	{ 0x0b7db0d5,	"0.3.1",		TESTLOGVERSION_0_3_1	},
 	{ 0x0b7db0d6,	"0.3.2",		TESTLOGVERSION_0_3_2	},
-	{ 0x0b7db0d7,	"0.3.3",		TESTLOGVERSION_0_3_3	}
+	{ 0x0b7db0d7,	"0.3.3",		TESTLOGVERSION_0_3_3	},
+	{ 0x0b7db0d8,	"0.3.4",		TESTLOGVERSION_0_3_4	}
 };
 
 static const EnumMapEntry s_sampleValueTagMap[] =
@@ -545,7 +547,7 @@ void TestResultParser::handleElementStart (void)
 			case ri::TYPE_SHADER:
 			{
 				if (parentType != ri::TYPE_SHADERPROGRAM)
-					throw TestResultParseError("<VertexShader> outside of <ShaderProgram>");
+					throw TestResultParseError(string("<") + elemName + "> outside of <ShaderProgram>");
 
 				ri::Shader* shader = curList->allocItem<ri::Shader>();
 
@@ -553,6 +555,14 @@ void TestResultParser::handleElementStart (void)
 				shader->compileStatus	= toBool(getAttribute("CompileStatus"));
 
 				item = shader;
+				break;
+			}
+
+			case ri::TYPE_SPIRVSOURCE:
+			{
+				if (parentType != ri::TYPE_SHADERPROGRAM)
+					throw TestResultParseError(string("<") + elemName + "> outside of <ShaderProgram>");
+				item = curList->allocItem<ri::SpirVSource>();
 				break;
 			}
 
@@ -776,6 +786,10 @@ void TestResultParser::handleData (void)
 			m_xmlParser.appendDataStr(static_cast<ri::ShaderSource*>(curItem)->source);
 			break;
 
+		case ri::TYPE_SPIRVSOURCE:
+			m_xmlParser.appendDataStr(static_cast<ri::SpirVSource*>(curItem)->source);
+			break;
+
 		case ri::TYPE_INFOLOG:
 			m_xmlParser.appendDataStr(static_cast<ri::InfoLog*>(curItem)->log);
 			break;
@@ -802,11 +816,11 @@ void TestResultParser::handleData (void)
 				deUint8		decodedBits	= 0;
 
 				if (de::inRange<deInt8>(byte, 'A', 'Z'))
-					decodedBits = byte - 'A';
+					decodedBits = (deUint8)(byte - 'A');
 				else if (de::inRange<deInt8>(byte, 'a', 'z'))
-					decodedBits = ('Z'-'A'+1) + (byte-'a');
+					decodedBits = (deUint8)(('Z'-'A'+1) + (byte-'a'));
 				else if (de::inRange<deInt8>(byte, '0', '9'))
-					decodedBits = ('Z'-'A'+1) + ('z'-'a'+1) + (byte-'0');
+					decodedBits = (deUint8)(('Z'-'A'+1) + ('z'-'a'+1) + (byte-'0'));
 				else if (byte == '+')
 					decodedBits = ('Z'-'A'+1) + ('z'-'a'+1) + ('9'-'0'+1);
 				else if (byte == '/')
@@ -833,10 +847,10 @@ void TestResultParser::handleData (void)
 
 				switch (phase)
 				{
-					case 0: outPtr[0] |= decodedBits<<2;											break;
-					case 1: outPtr[0] |= (decodedBits>>4);	outPtr[1] |= ((decodedBits&0xF)<<4);	break;
-					case 2: outPtr[1] |= (decodedBits>>2);	outPtr[2] |= ((decodedBits&0x3)<<6);	break;
-					case 3: outPtr[2] |= decodedBits;												break;
+					case 0: outPtr[0] |= (deUint8)(decodedBits<<2);													break;
+					case 1: outPtr[0] |= (deUint8)(decodedBits>>4);	outPtr[1] |= (deUint8)((decodedBits&0xF)<<4);	break;
+					case 2: outPtr[1] |= (deUint8)(decodedBits>>2);	outPtr[2] |= (deUint8)((decodedBits&0x3)<<6);	break;
+					case 3: outPtr[2] |= decodedBits;																break;
 					default:
 						DE_ASSERT(false);
 				}

@@ -41,7 +41,7 @@ static __inline  UWORD32 CLZ(UWORD32 u4_word)
 #define CLIP_S12(x) ((x) > 2047) ? (2047) : (((x) < -2048) ? (-2048) : (x))
 
 #define CLIP_U16(x) ((x) > 65535) ? (65535) : (((x) < 0) ? (0) : (x))
-#define CLIP_S16(x) ((x) > 65535) ? (65535) : (((x) < -65536) ? (-65536) : (x))
+#define CLIP_S16(x) ((x) > 32767) ? (32767) : (((x) < -32768) ? (-32768) : (x))
 
 #define INLINE
 #define PLD(x) __pld(x)

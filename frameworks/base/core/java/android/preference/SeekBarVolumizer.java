@@ -38,6 +38,8 @@ import android.util.Log;
 import android.widget.SeekBar;
 import android.widget.SeekBar.OnSeekBarChangeListener;
 
+import com.android.internal.annotations.GuardedBy;
+
 /**
  * Turns a {@link SeekBar} into a volume control.
  * @hide
@@ -67,6 +69,10 @@ public class SeekBarVolumizer implements OnSeekBarChangeListener, Handler.Callba
     private Observer mVolumeObserver;
     private int mOriginalStreamVolume;
     private int mLastAudibleStreamVolume;
+    // When the old handler is destroyed and a new one is created, there could be a situation where
+    // this is accessed at the same time in different handlers. So, access to this field needs to be
+    // synchronized.
+    @GuardedBy("this")
     private Ringtone mRingtone;
     private int mLastProgress = -1;
     private boolean mMuted;
@@ -174,9 +180,11 @@ public class SeekBarVolumizer implements OnSeekBarChangeListener, Handler.Callba
     }
 
     private void onInitSample() {
-        mRingtone = RingtoneManager.getRingtone(mContext, mDefaultUri);
-        if (mRingtone != null) {
-            mRingtone.setStreamType(mStreamType);
+        synchronized (this) {
+            mRingtone = RingtoneManager.getRingtone(mContext, mDefaultUri);
+            if (mRingtone != null) {
+                mRingtone.setStreamType(mStreamType);
+            }
         }
     }
 
@@ -192,16 +200,19 @@ public class SeekBarVolumizer implements OnSeekBarChangeListener, Handler.Callba
             if (mCallback != null) {
                 mCallback.onSampleStarting(this);
             }
-            if (mRingtone != null) {
-                try {
-                    mRingtone.setAudioAttributes(new AudioAttributes.Builder(mRingtone
-                            .getAudioAttributes())
-                            .setFlags(AudioAttributes.FLAG_BYPASS_INTERRUPTION_POLICY |
-                                    AudioAttributes.FLAG_BYPASS_MUTE)
-                            .build());
-                    mRingtone.play();
-                } catch (Throwable e) {
-                    Log.w(TAG, "Error playing ringtone, stream " + mStreamType, e);
+
+            synchronized (this) {
+                if (mRingtone != null) {
+                    try {
+                        mRingtone.setAudioAttributes(new AudioAttributes.Builder(mRingtone
+                                .getAudioAttributes())
+                                .setFlags(AudioAttributes.FLAG_BYPASS_INTERRUPTION_POLICY |
+                                        AudioAttributes.FLAG_BYPASS_MUTE)
+                                .build());
+                        mRingtone.play();
+                    } catch (Throwable e) {
+                        Log.w(TAG, "Error playing ringtone, stream " + mStreamType, e);
+                    }
                 }
             }
         }
@@ -216,8 +227,10 @@ public class SeekBarVolumizer implements OnSeekBarChangeListener, Handler.Callba
     }
 
     private void onStopSample() {
-        if (mRingtone != null) {
-            mRingtone.stop();
+        synchronized (this) {
+            if (mRingtone != null) {
+                mRingtone.stop();
+            }
         }
     }
 
@@ -274,7 +287,9 @@ public class SeekBarVolumizer implements OnSeekBarChangeListener, Handler.Callba
     }
 
     public boolean isSamplePlaying() {
-        return mRingtone != null && mRingtone.isPlaying();
+        synchronized (this) {
+            return mRingtone != null && mRingtone.isPlaying();
+        }
     }
 
     public void startSample() {
@@ -383,6 +398,7 @@ public class SeekBarVolumizer implements OnSeekBarChangeListener, Handler.Callba
                 final IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
                 filter.addAction(AudioManager.INTERNAL_RINGER_MODE_CHANGED_ACTION);
                 filter.addAction(NotificationManager.ACTION_INTERRUPTION_FILTER_CHANGED);
+                filter.addAction(AudioManager.STREAM_DEVICES_CHANGED_ACTION);
                 mContext.registerReceiver(this, filter);
             } else {
                 mContext.unregisterReceiver(this);
@@ -395,13 +411,7 @@ public class SeekBarVolumizer implements OnSeekBarChangeListener, Handler.Callba
             if (AudioManager.VOLUME_CHANGED_ACTION.equals(action)) {
                 int streamType = intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, -1);
                 int streamValue = intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, -1);
-                final boolean streamMatch = mNotificationOrRing ? isNotificationOrRing(streamType)
-                        : (streamType == mStreamType);
-                if (mSeekBar != null && streamMatch && streamValue != -1) {
-                    final boolean muted = mAudioManager.isStreamMute(mStreamType)
-                            || streamValue == 0;
-                    mUiHandler.postUpdateSlider(streamValue, mLastAudibleStreamVolume, muted);
-                }
+                updateVolumeSlider(streamType, streamValue);
             } else if (AudioManager.INTERNAL_RINGER_MODE_CHANGED_ACTION.equals(action)) {
                 if (mNotificationOrRing) {
                     mRingerMode = mAudioManager.getRingerModeInternal();
@@ -409,9 +419,23 @@ public class SeekBarVolumizer implements OnSeekBarChangeListener, Handler.Callba
                 if (mAffectedByRingerMode) {
                     updateSlider();
                 }
+            } else if (AudioManager.STREAM_DEVICES_CHANGED_ACTION.equals(action)) {
+                int streamType = intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, -1);
+                int streamVolume = mAudioManager.getStreamVolume(streamType);
+                updateVolumeSlider(streamType, streamVolume);
             } else if (NotificationManager.ACTION_INTERRUPTION_FILTER_CHANGED.equals(action)) {
                 mZenMode = mNotificationManager.getZenMode();
                 updateSlider();
+            }
+        }
+
+        private void updateVolumeSlider(int streamType, int streamValue) {
+            final boolean streamMatch = mNotificationOrRing ? isNotificationOrRing(streamType)
+                    : (streamType == mStreamType);
+            if (mSeekBar != null && streamMatch && streamValue != -1) {
+                final boolean muted = mAudioManager.isStreamMute(mStreamType)
+                        || streamValue == 0;
+                mUiHandler.postUpdateSlider(streamValue, mLastAudibleStreamVolume, muted);
             }
         }
     }

@@ -25,18 +25,20 @@
  *
  ***********************************************************************************/
 
-#include <hardware/bluetooth.h>
-#include <hardware/bt_hf.h>
+#define LOG_TAG "bt_btif_hf"
+
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
-#define LOG_TAG "bt_btif_hf"
-#include "btif_common.h"
-#include "btif_util.h"
-#include "btif_profile_queue.h"
+#include <hardware/bluetooth.h>
+#include <hardware/bt_hf.h>
 
-#include "btcore/include/bdaddr.h"
 #include "bta_ag_api.h"
+#include "btcore/include/bdaddr.h"
+#include "btif_common.h"
+#include "btif_profile_queue.h"
+#include "btif_util.h"
 
 /************************************************************************************
 **  Constants & Macros
@@ -162,7 +164,6 @@ typedef struct _btif_hf_cb
 } btif_hf_cb_t;
 
 static btif_hf_cb_t btif_hf_cb[BTIF_HF_NUM_CB];
-
 
 /************************************************************************************
 **  Static functions
@@ -374,7 +375,6 @@ static bt_status_t btif_hf_check_if_slc_connected()
 **   btif hf api functions (no context switch)
 **
 *****************************************************************************/
-
 
 /*******************************************************************************
 **
@@ -661,7 +661,6 @@ static void bte_hf_evt(tBTA_AG_EVT event, tBTA_AG *p_data)
     ASSERTC(status == BT_STATUS_SUCCESS, "context transfer failed", status);
 }
 
-
 /*******************************************************************************
 **
 ** Function         btif_in_hf_generic_evt
@@ -698,7 +697,6 @@ static void btif_in_hf_generic_evt(UINT16 event, char *p_param)
     }
 }
 
-
 /*******************************************************************************
 **
 ** Function         btif_hf_init
@@ -715,10 +713,6 @@ static bt_status_t init( bthf_callbacks_t* callbacks, int max_hf_clients)
 
     bt_hf_callbacks = callbacks;
     memset(&btif_hf_cb, 0, sizeof(btif_hf_cb));
-
-    memset(&btif_hf_cb, 0, sizeof(btif_hf_cb));
-    btif_max_hf_clients = max_hf_clients;
-    BTIF_TRACE_DEBUG("btif_max_hf_clients = %d", btif_max_hf_clients);
 
     /* Invoke the enable service API to the core to set the appropriate service_id
      * Internally, the HSP_SERVICE_ID shall also be enabled if HFP is enabled (phone)
@@ -1053,7 +1047,7 @@ static bt_status_t cops_response(const char *cops, bt_bdaddr_t *bd_addr)
         tBTA_AG_RES_DATA    ag_res;
 
         /* Format the response */
-        sprintf (ag_res.str, "0,0,\"%s\"", cops);
+        sprintf (ag_res.str, "0,0,\"%.16s\"", cops);
         ag_res.ok_flag = BTA_AG_OK_DONE;
 
         BTA_AgResult (btif_hf_cb[idx].handle, BTA_AG_COPS_RES, &ag_res);
@@ -1173,7 +1167,6 @@ static bt_status_t at_response(bthf_at_response_t response_code,
                         : BTA_AG_OK_ERROR, error_code, idx);
         return BT_STATUS_SUCCESS;
     }
-
 
     return BT_STATUS_FAIL;
 }

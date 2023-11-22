@@ -17,8 +17,9 @@ package com.google.common.cache;
 import static com.google.common.cache.CacheTesting.checkEmpty;
 import static com.google.common.cache.CacheTesting.checkValidState;
 import static com.google.common.cache.TestingCacheLoaders.identityLoader;
+import static com.google.common.truth.Truth.assertThat;
+import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.truth0.Truth.ASSERT;
 
 import com.google.common.base.Function;
 import com.google.common.cache.CacheBuilderFactory.DurationSpec;
@@ -30,8 +31,6 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.testing.EqualsTester;
-
-import junit.framework.TestCase;
 
 import junit.framework.TestCase;
 
@@ -196,9 +195,9 @@ public class PopulatedCachesTest extends TestCase {
       List<Entry<Object, Object>> warmed = warmUp(cache);
 
       Set<Object> expected = Maps.newHashMap(cache.asMap()).keySet();
-      ASSERT.that(keys).has().exactlyAs(expected);
-      ASSERT.that(keys.toArray()).has().exactlyAs(expected);
-      ASSERT.that(keys.toArray(new Object[0])).has().exactlyAs(expected);
+      assertThat(keys).has().exactlyAs(expected);
+      assertThat(keys.toArray()).asList().has().exactlyAs(expected);
+      assertThat(keys.toArray(new Object[0])).asList().has().exactlyAs(expected);
 
       new EqualsTester()
           .addEqualityGroup(cache.asMap().keySet(), keys)
@@ -223,9 +222,9 @@ public class PopulatedCachesTest extends TestCase {
       List<Entry<Object, Object>> warmed = warmUp(cache);
 
       Collection<Object> expected = Maps.newHashMap(cache.asMap()).values();
-      ASSERT.that(values).has().exactlyAs(expected);
-      ASSERT.that(values.toArray()).has().exactlyAs(expected);
-      ASSERT.that(values.toArray(new Object[0])).has().exactlyAs(expected);
+      assertThat(values).has().exactlyAs(expected);
+      assertThat(values.toArray()).asList().has().exactlyAs(expected);
+      assertThat(values.toArray(new Object[0])).asList().has().exactlyAs(expected);
 
       assertEquals(WARMUP_SIZE, values.size());
       for (int i = WARMUP_MIN; i < WARMUP_MAX; i++) {
@@ -248,9 +247,10 @@ public class PopulatedCachesTest extends TestCase {
       List<Entry<Object, Object>> warmed = warmUp(cache, WARMUP_MIN, WARMUP_MAX);
 
       Set<?> expected = Maps.newHashMap(cache.asMap()).entrySet();
-      ASSERT.that(entries).has().exactlyAs((Collection<Entry<Object, Object>>) expected);
-      ASSERT.that(entries.toArray()).has().exactlyAs((Collection<Object>) expected);
-      ASSERT.that(entries.toArray(new Entry[0])).has().exactlyAs((Collection<Entry>) expected);
+      assertThat(entries).has().exactlyAs((Collection<Entry<Object, Object>>) expected);
+      assertThat(entries.toArray()).asList().has().exactlyAs((Collection<Object>) expected);
+      assertThat(entries.toArray(new Entry[0])).asList()
+          .has().exactlyAs((Collection<Entry>) expected);
 
       new EqualsTester()
           .addEqualityGroup(cache.asMap().entrySet(), entries)
@@ -320,15 +320,15 @@ public class PopulatedCachesTest extends TestCase {
         .withExpireAfterWrites(ImmutableSet.of(
             // DurationSpec.of(500, MILLISECONDS),
             DurationSpec.of(1, SECONDS),
-            DurationSpec.of(24 * 60 * 60 * 1, SECONDS)))
+            DurationSpec.of(1, DAYS)))
         .withExpireAfterAccesses(ImmutableSet.of(
             // DurationSpec.of(500, MILLISECONDS),
             DurationSpec.of(1, SECONDS),
-            DurationSpec.of(24 * 60 * 60 * 1, SECONDS)))
+            DurationSpec.of(1, DAYS)))
         .withRefreshes(ImmutableSet.of(
             // DurationSpec.of(500, MILLISECONDS),
             DurationSpec.of(1, SECONDS),
-            DurationSpec.of(24 * 60 * 60 * 1, SECONDS)));
+            DurationSpec.of(1, DAYS)));
   }
 
   private List<Map.Entry<Object, Object>> warmUp(LoadingCache<Object, Object> cache) {

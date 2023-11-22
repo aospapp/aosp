@@ -24,30 +24,35 @@
     <string name="header_category_preferences" msgid="175105555164713972">"प्राथमिकताहरू"</string>
     <string name="header_category_accessories" msgid="823295909353025991">"रिमोट र amp; एसेसरिज"</string>
     <string name="header_category_personal" msgid="8893959635328775096">"व्यक्तिगत"</string>
+    <string name="accounts_category_title" msgid="7591072907146317425">"खाताहरू"</string>
     <string name="add_account" msgid="4098060223200619258">"खाता थप्नुहोस्"</string>
-    <string name="account_header_sync" msgid="2679585471372319471">"सिङक गर्नुहोस्"</string>
     <string name="account_header_remove_account" msgid="3288957118207682685">"खाता हटाउनुहोस्"</string>
     <string name="account_sync" msgid="773808124331714965">"सिंक गरिएको अनुप्रयोगहरू छनौट गर्नुहोस्"</string>
     <string name="sync_now" msgid="8732244492880016471">"अहिले सिंक्रोनाइजेसन गर्नुहोस्"</string>
-    <string name="sync_cancel" msgid="5839264070098894371">"सिङ्क रद्द गर्नुहोस्"</string>
     <string name="sync_in_progress" msgid="1330721038775646022">"सिंक्रोनाइजेसन गरिँदै..."</string>
-    <string name="last_synced" msgid="6178494892357077274">"अन्तिम सिङ्क भएको <xliff:g id="TIME">%1s</xliff:g>"</string>
+    <string name="last_synced" msgid="6178494892357077274">"अन्तिम सिंक भएको <xliff:g id="TIME">%1s</xliff:g>"</string>
     <string name="sync_disabled" msgid="3089360175872892781">"असक्षम गरियो"</string>
-    <string name="sync_is_failing" msgid="8229476000384257186">"सिङ्कले अहिले कार्य गरिरहेको छैन। यो पछि छिट्टै  हुनेछ।"</string>
     <string name="account_remove" msgid="4313580520737295272">"खाता हटाउनुहोस्"</string>
     <string name="account_remove_failed" msgid="980654375770693544">"खाता हटाउन सक्दैन"</string>
+    <!-- no translation found for sync_item_title (2716687595867726981) -->
+    <skip />
+    <string name="sync_one_time_sync" msgid="3575080833667908804">"अहिले सिंक गर्नुहोस् <xliff:g id="LAST_SYNC_TIME">
+%1$s</xliff:g>"</string>
+    <string name="sync_failed" msgid="5514824149810480551">"असफल सिंक"</string>
+    <string name="sync_active" msgid="6891115263481154378">"सक्रिय सिंक"</string>
     <string name="connectivity_network" msgid="8321537111272398501">"नेटवर्क"</string>
-    <string name="connectivity_wifi" msgid="489974791299647708">"वाइफाइ"</string>
+    <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"इथरनेट"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"स्क्यानिङ सधै उपलब्ध छ"</string>
     <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"wi-Fi बन्द भएपनि नेटवर्कहरूको लागि google को स्थान सेवा र अन्य एप्स स्क्यान गर्नुहोस्"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
-    <string name="device_daydream" msgid="4933581408059561077">"दिवास्वपना"</string>
+    <string name="device_daydream" msgid="3354366974209179614">"स्क्रिन सेभर"</string>
     <string name="device_display" msgid="101455384386372747">"प्रदर्शन गर्नुहोस्"</string>
+    <string name="device_sound" msgid="9214182566287657481">"ध्वनि"</string>
+    <string name="device_surround_sound" msgid="6272196310566546860">"सराउन्ड ध्वनि"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"प्रणाली ध्वनिहरु"</string>
     <string name="device_apps" msgid="9180435229638772838">"अनुप्रयोगहरू"</string>
     <string name="device_storage_reset" msgid="1425978936501134425">"भण्डारण र रिसेट"</string>
-    <string name="device_storage" msgid="5536683600091277826">"भण्डारण"</string>
     <string name="device_backup_restore" msgid="5627523987587511884">"ब्याकअप र पुनःस्थापना"</string>
     <string name="device_reset" msgid="2827002349560023125">"कारखाना डेटा रिसेट"</string>
     <string name="device_calibration" msgid="8632962533376605191">"क्यालिब्रेसन"</string>
@@ -57,14 +62,12 @@
     <string name="apps_system" msgid="2499191125802829425">"प्रणाली अनुप्रयोगहरू"</string>
     <string name="apps_running" msgid="6430310491739956228">"चालु अनुप्रयोगहरू"</string>
     <string name="accessories_add" msgid="1347802656349218830">"अतिरक्त सामानहरू थप्नुहोस्"</string>
-    <string name="accessories_wifi_display" msgid="1107690327150126038">"वाइफाइ प्रदर्शन"</string>
     <string name="accessory_state_pairing" msgid="7501989679637780963">"जोडा बाँध्दै..."</string>
     <string name="accessory_state_connecting" msgid="8777884957977608529">"जडान हुँदै..."</string>
     <string name="accessory_state_error" msgid="4529815543328841909">"पेयर हुन सकेन"</string>
     <string name="accessory_state_canceled" msgid="4419328837733619447">"रद्द गरियो"</string>
     <string name="accessory_state_paired" msgid="1959238931866401476">"युगल"</string>
     <string name="accessory_options" msgid="4799658564005710297">"अतिरिक्त समानहरू"</string>
-    <string name="accessory_rename" msgid="3250766501262581206">"पुनःनामाकरण गर्नुहोस्"</string>
     <string name="accessory_unpair" msgid="8242725516604465355">"जोडा हटाउनुहोस्"</string>
     <string name="accessory_battery" msgid="7021788232835772126">"ब्याट्री <xliff:g id="PERCENTAGE">%1$d</xliff:g> %%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"उपकरण पेयर विच्छेद गर्दै..."</string>
@@ -72,9 +75,6 @@
     <string name="accessories_add_title" msgid="6940361421891873321">"चीजहरूको लागि खोजी कार्य गर्दै..."</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"तपाईँको ब्लुटुथ उपकरण जोडी गर्नु अघि, तिनीहरूलाई पेयरीङ मोडमा बनाउन निश्चित गर्नुहोस्"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"उपकरण फेला परेको थिएन र स्वचालित रूपमा <xliff:g id="COUNTDOWN">%1$s</xliff:g> सेकेन्डमा पेयर हुने छ"</string>
-    <string name="accessories_add_title_multiple" msgid="8455249961819802466">"बहुविध उपकरणहरु फेला परे"</string>
-    <string name="accessories_add_multiple" msgid="3900633668371061399">"एउटा फरक उपकरण चयन गर्न यो उपकरणको पेयरीङ बटन प्रेस गर्नुहोस्"</string>
-    <string name="accessories_add_multiple_select" msgid="3696794187001405647">"चयन भएको उपकरणसँग जोडी गर्न, प्रेस गर्नुहोस् र यो उपकरणको पेयरीङ बटन ५ सेकेन्डको लागि होल्ड गर्नुहोस्"</string>
     <string name="error_action_not_supported" msgid="300552308104354666">"यो कार्य समर्थित छैन"</string>
     <string name="bluetooth_pairing_request" msgid="4523088117471287665">"ब्लुटुथ जोडा बाँध्ने अनुरोध"</string>
     <string name="bluetooth_confirm_passkey_msg" msgid="7031117992819855434">"यससँग जोडी गर्न: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;,यसले देखाइरहेको पास की निश्चित गर्नुहोस्: &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt;"</string>
@@ -95,8 +95,9 @@
     <string name="system_speech" msgid="8128688499687306982">"वाणी"</string>
     <string name="system_inputs" msgid="2413907183796651102">"इनपुट"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"पहुँच"</string>
-    <string name="system_developer_options" msgid="3237985523474863638">"विकासकर्ता विकल्पहरू"</string>
+    <string name="system_developer_options" msgid="3237985523474863638">"विकासकर्ताका विकल्पहरू"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"कुनै पनि होइन"</string>
+    <string name="system_diagnostic" msgid="7269638365915225701">"उपयोग र निदान"</string>
     <string name="about_system_update" msgid="7282772247661356586">"प्रणाली अद्यावधिक"</string>
     <string name="about_preference" msgid="4131396784531360434">"बारेमा"</string>
     <string name="device_name" msgid="2670488158531273028">"उपकरण नाम"</string>
@@ -114,8 +115,38 @@
       <item quantity="one">तपाईँ अहिले एउटा विकासकर्ता हुनबाट <xliff:g id="STEP_COUNT_0">%1$d</xliff:g> कदम टाढा हुनुहुन्छ</item>
     </plurals>
     <string name="about_ads" msgid="3364786994943748337">"विज्ञापनहरू"</string>
-    <string name="show_dev_on" msgid="8997172736024819952">"तपाईं अब एउटा विकासकर्ता हुनुहुन्छ!"</string>
+    <string name="show_dev_on" msgid="8997172736024819952">"तपाईँ अब एउटा विकासकर्ता हुनुहुन्छ!"</string>
     <string name="show_dev_already" msgid="7525967300421794483">"आवश्यकता छैन, तपाईँ पहिल्यै एउटा विकासकर्ता हुनुहुन्छ"</string>
+    <string name="device_info_default" msgid="4519181343309136050">"अज्ञात"</string>
+    <string name="selinux_status" msgid="8000422283341040360">"SELinux स्थिति"</string>
+    <string name="selinux_status_disabled" msgid="4925733135520787807">"असक्षम गरियो"</string>
+    <string name="selinux_status_permissive" msgid="4806219236988993826">"अनुमति दिने"</string>
+    <string name="selinux_status_enforcing" msgid="8839484208185347776">"सबल पार्दै"</string>
+    <string name="additional_system_update_settings_list_item_title" msgid="6285273598178967613">"थप प्रणाली अद्यावधिकहरू"</string>
+    <string name="device_status" msgid="4379924151946190768">"स्थिति"</string>
+    <string name="device_status_summary" msgid="180586140242936323">"नेटवर्क, सिरियल संख्या र अन्य जानकारी"</string>
+    <string name="manual" msgid="4957388668881541669">"म्यानुअल"</string>
+    <string name="regulatory_information" msgid="5448865708097003189">"नियामक जानकारी"</string>
+    <string name="device_feedback" msgid="209146642122579479">"यन्त्र बारेमा प्रतिक्रिया पठाउनुहोस्"</string>
+    <string name="fcc_equipment_id" msgid="8295142996591094301">"उपकरण ID"</string>
+    <string name="baseband_version" msgid="2229081246529676107">"बेसब्यान्ड संस्करण"</string>
+    <string name="kernel_version" msgid="2418845475938044903">"कर्नेल संस्करण"</string>
+    <string name="status_unavailable" msgid="831018565485085059">"अनुपलब्ध"</string>
+    <string name="device_status_title" msgid="1629253652287243543">"स्थिति"</string>
+    <string name="battery_status_title" msgid="2557264957661087826">"ब्याट्री स्थिति"</string>
+    <string name="battery_level_title" msgid="100046129713781009">"ब्याट्री स्तर"</string>
+    <string name="sim_status_title" msgid="498929467188844611">"SIM स्थिति"</string>
+    <string name="imei_information_title" msgid="5208860549282877136">"IMEI जानकारी"</string>
+    <string name="status_bt_address" msgid="1571721865060122393">"ब्लुटुथ ठेगाना"</string>
+    <string name="status_up_time" msgid="1674116490191446110">"सक्रिय समय"</string>
+    <string name="status_wimax_mac_address" msgid="1102907383444152052">"4G MAC ठेगाना"</string>
+    <string name="legal_information" msgid="2346024659831852038">"कानूनी जानकारी"</string>
+    <string name="copyright_title" msgid="5564228453228549353">"प्रतिलिपि अधिकार"</string>
+    <string name="license_title" msgid="4482927105870812604">"इजाजतपत्र"</string>
+    <string name="terms_title" msgid="8480859222932736291">"सेवा सर्तहरू"</string>
+    <string name="webview_license_title" msgid="8843666223583780825">"प्रणाली वेबभ्यु इजाजतपत्र"</string>
+    <string name="wallpaper_attributions" msgid="8622098625739634898">"वालपेपरहरु"</string>
+    <string name="wallpaper_attributions_values" msgid="1565931506291182879">"स्याटेलाइट इमेजरी प्रदायकहरू:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"कमजोर"</item>
     <item msgid="5986166866411161790">"उचित"</item>
@@ -129,10 +160,10 @@
     <string name="title_internet_connection" msgid="8710084774588697646">"इन्टरनेट जडान"</string>
     <string name="connected" msgid="7563100162902079938">"जोडिएको"</string>
     <string name="not_connected" msgid="6858480380326923017">"जडित छैन"</string>
-    <string name="wifi_setting_header_available_networks" msgid="6244107218643835636">"वाइफाइ"</string>
-    <string name="wifi_setting_header_other_options" msgid="1530334691232749342">"अन्य विकल्पहरू"</string>
+    <string name="wifi_setting_header_other_options" msgid="3638677601577777216">"अन्य विकल्पहरू"</string>
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"सबै हेर्नुहोस्"</string>
-    <string name="wifi_setting_available_networks" msgid="1244646604369133314">"उपलब्ध नेटवर्कहरू"</string>
+    <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"अझ थोरै हेर्नुहोस्"</string>
+    <string name="wifi_setting_available_networks" msgid="6713791371350513043">"उपलब्ध नेटवर्कहरू"</string>
     <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"WPS मार्फत जडान गर्नुहोस्"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"नयाँ नेटवर्क थप्नुहोस्"</string>
     <string name="security_type" msgid="524443802004143058">"सुरक्षाको प्रकार"</string>
@@ -170,13 +201,13 @@
     <string name="wifi_connect" msgid="8570424816865506077">"जडान गर्नुहोस्"</string>
     <string name="wifi_forget_network" msgid="7302755141573045803">"सञ्जाल बिर्सनुहोस्"</string>
     <string name="wifi_forget_network_description" msgid="3328285160018330334">"यसले यो नेटवर्कमा सुरक्षित भएका पासवर्ड सहित जडान गर्न प्रयोग हुने जानकरीलाई क्लियर गर्दछ।"</string>
-    <string name="wifi_action_ok" msgid="5932500664228395779">"ठिक छ"</string>
+    <string name="wifi_action_ok" msgid="5932500664228395779">"ठीक छ"</string>
     <string name="wifi_action_change_network" msgid="5196215981075986148">"परिवर्तन गर्नुहोस्"</string>
     <string name="wifi_action_dont_change_network" msgid="1449920958930251977">"परिवर्तन नगर्नुहोस्"</string>
-    <string name="wifi_action_advanced_yes" msgid="8586473568311558982">"ठिक छ"</string>
+    <string name="wifi_action_advanced_yes" msgid="8586473568311558982">"ठीक छ"</string>
     <string name="wifi_action_advanced_no" msgid="8165601242122651326">"होइन (सिफारिश गरिएको)"</string>
     <string name="wifi_action_proxy_none" msgid="4457231399674182650">"कुनै पनि होइन"</string>
-    <string name="wifi_action_proxy_manual" msgid="8402002777441261064">"म्यानुएल"</string>
+    <string name="wifi_action_proxy_manual" msgid="8402002777441261064">"म्यानुअल"</string>
     <string name="wifi_action_dhcp" msgid="6338911832360962268">"DHCP"</string>
     <string name="wifi_action_static" msgid="1025855501453321749">"स्थिर"</string>
     <string name="wifi_action_status_info" msgid="7664354971197839253">"स्थिति जानकारी"</string>
@@ -185,25 +216,25 @@
     <string name="wifi_ip_settings_invalid_gateway" msgid="3292444764474145026">"मान्य गेटवे ठेगाना प्रविष्टि गर्नुहोस्।"</string>
     <string name="wifi_ip_settings_invalid_dns" msgid="6172189835428184828">"मान्य DNS ठेगाना प्रविष्टि गर्नुहोस्।"</string>
     <string name="wifi_ip_settings_invalid_network_prefix_length" msgid="6209978918929182270">"० र ३२ बीचको नेटवर्क प्रिफिक्स लम्बाइ प्रविष्टि गर्नुहोस्।"</string>
-    <string name="wifi_ip_address_hint" msgid="1895267564692073689">"वैध IP ठेगाना प्रविष्ट गर्नुहोस्\n उदाहरण: १९२.१६८.१.१२८"</string>
-    <string name="wifi_dns1_hint" msgid="214345156394229347">"वैध IP ठेगाना प्रविष्ट गर्नुहोस् वा खाली छोड्नुहोस् \n उदाहरण: ८.८.८.८"</string>
-    <string name="wifi_dns2_hint" msgid="1075709328208368894">"वैध  IP ठेगाना प्रविष्ट गर्नुहोस् वा खाली छोड्नुहोस् \n उदाहरण: ८.८.४.४"</string>
-    <string name="wifi_gateway_hint" msgid="7687219682024189028">"मान्य IP ठेगाना प्रविष्टि गर्नुहोस् वा खाली छोड्नुहोस्।\nउदाहरण: १९२.१६८.१.१"</string>
-    <string name="wifi_network_prefix_length_hint" msgid="332915798888599682">"एक मान्य नेटवर्क उपसर्ग लम्बाइ प्रविष्ट गर्नुहोस् \n उदाहरण: 24"</string>
+    <string name="wifi_ip_address_description" msgid="6548838784556001283">"एउटा मान्य IP ठेगाना प्रविष्ट गर्नुहोस्।\nउदाहरण: <xliff:g id="ID_1">192.168.1.128</xliff:g>"</string>
+    <string name="wifi_dns1_description" msgid="2463500547232077393">"एउटा मान्य IP ठेगाना प्रविष्ट गर्नुहोस् वा खाली छोड्नुहोस्।\nउदाहरण: <xliff:g id="ID_1">8.8.8.8</xliff:g>"</string>
+    <string name="wifi_dns2_description" msgid="8005473174044015359">"एउटा मान्य IP ठेगाना प्रविष्ट गर्नुहोस् वा खाली छोड्नुहोस्।\nउदाहरण: <xliff:g id="ID_1">8.8.4.4</xliff:g>"</string>
+    <string name="wifi_gateway_description" msgid="4773751224452216231">"एउटा मान्य IP ठेगाना प्रविष्ट गर्नुहोस् वा खाली छोड्नुहोस्।\nउदाहरण: <xliff:g id="ID_1">192.168.1.1</xliff:g>"</string>
+    <string name="wifi_network_prefix_length_description" msgid="4849589333293194414">"नेटवर्क प्रिफिक्सको मान्य लम्बाइ प्रविष्ट गर्नुहोस्।\nउदाहरण: <xliff:g id="ID_1">24</xliff:g>"</string>
     <string name="proxy_error_invalid_host" msgid="3660415920668138953">"होस्टनाम मान्य छैन"</string>
     <string name="proxy_error_invalid_exclusion_list" msgid="4921547051724987804">"यो बहिष्करण सूची मान्य छैन। बहिष्कृत डोमेनको अल्पविराम-अलग सूची प्रविष्टि गर्नुहोस्।"</string>
     <string name="proxy_error_empty_port" msgid="6835658067776408062">"पोर्ट फिल्ड खाली हुन सक्दैन"</string>
     <string name="proxy_error_empty_host_set_port" msgid="4428793978424303244">"यदि होस्ट फिल्ड खाली छ भने पोर्ट फिल्ड छोड्नुहोस्"</string>
     <string name="proxy_error_invalid_port" msgid="1434922103959603993">"पोर्ट मान्य छैन"</string>
     <string name="proxy_warning_limited_support" msgid="6160239282535986523">"HTTP प्रोक्सी ब्राउजरद्वारा प्रयोग गरिएको छ तर अन्य अनुप्रयोगहरूद्वारा प्रयोग हुन सक्दैन"</string>
-    <string name="proxy_port_hint" msgid="8532733797275927007">"वैध पोर्ट प्रविष्ट गर्नुहोस् \nउदाहरण: ८०८०"</string>
-    <string name="proxy_exclusionlist_hint" msgid="86175095050438325">"डोमेनहरू बाहेकको अल्पबिराम-विच्चेदक सूची प्रविष्ट गर्नुहोस् वा खाली छोड्नुहोस्।\n उदाहरण: example.com, mycomp.test.com,localhost"</string>
-    <string name="proxy_hostname_hint" msgid="3719688422767210803">"वैध होस्टनाम प्रविष्ट गर्नुहोस् \n उदाहरण: proxy.example.com"</string>
+    <string name="proxy_port_description" msgid="6791098212244367568">"एउटा मान्य पोर्ट प्रविष्ट गर्नुहोस्।\nउदाहरण: <xliff:g id="ID_1">8080</xliff:g>"</string>
+    <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"समावेश नगरिएका डोमेनहरूको अल्पविरामले छुट्ट्याइएको सूची टाइप गर्नुहोस् वा खाली छोड्नुहोस्।\nउदाहरण: <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>"</string>
+    <string name="proxy_hostname_description" msgid="5824391500254472447">"एउटा मान्य होस्टनाम प्रविष्ट गर्नुहोस्।\nउदाहरण: <xliff:g id="ID_1">proxy.example.com</xliff:g>"</string>
     <string name="wifi_summary_title_connected" msgid="8329216588732277139">"नेटवर्क जडान भयो"</string>
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"नेटवर्क जडान भएको छैन"</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"<xliff:g id="SSID">%1$s</xliff:g> मा पहिल्यै जडान भयो। एउटा अर्को नेटवर्कसँग जडान गर्नुहुन्छ?"</string>
     <string name="wifi_summary_unknown_network" msgid="7903601448928422642">"अज्ञात नेटवर्क"</string>
-    <string name="title_ok" msgid="1021329453788761592">"ठिक छ"</string>
+    <string name="title_ok" msgid="1021329453788761592">"ठीक छ"</string>
     <string name="title_cancel" msgid="4846143417666038604">"रद्द गर्नुहोस्"</string>
     <string name="storage_title" msgid="2132026108559493394">"भण्डारण"</string>
     <string name="storage_available" msgid="1241005580092138871">"उपलब्ध"</string>
@@ -217,27 +248,33 @@
     <string name="storage_media_cache_usage" msgid="5906737163212649904">"क्यास गरेको डेटा"</string>
     <string name="storage_eject" msgid="113476702798691558">"निकाल्नुहोस्"</string>
     <string name="storage_format" msgid="3759273736493279595">"मेट्नुहोस् र फर्म्याट गर्नुहोस्"</string>
+    <string name="storage_format_as_private" msgid="4169495230765116075">"यन्त्र भण्डारणको रूपमा मेटाउनु र फर्म्याट गर्नु"</string>
+    <string name="storage_format_as_public" msgid="8568317076021814054">"हटाउन मिल्ने भण्डारणको रूपमा मेटाउनु र फर्म्याट गर्नु"</string>
     <string name="storage_format_for_private" msgid="7095270113028182032">"यन्त्र भण्डारणको रूपमा फर्म्याट गर्नुहोस्"</string>
     <string name="storage_not_connected" msgid="6378589497819596096">"जडित छैन"</string>
-    <string name="storage_migrate" msgid="658894157418304023">"डेटा प्रवास गर्नुहोस्"</string>
-    <string name="storage_forget" msgid="8541387048014779836">"यो आन्तरिक भण्डारण बिर्सनुहोस्"</string>
-    <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"यस ड्राइभमा भएका अनुप्रयोगहरू वा डेटा प्रयोग गर्न पुन: हाल्नुहोस्। अन्यथा, ड्राइभ नभए यस भण्डारणलाई बिर्सनको लागि रोज्नुहोस्।\n\nयदि बिर्सनको लागि रोज्नुहुन्छ भने यस ड्राइमा भएका सबै डेटा सधैंका लागि नष्ट हुनेछन्।\n\n पछि तपाईँ अनुप्रयोगहरू हाले पनि ड्राइभको भण्डारण भएका डेटा भेटाउनु सक्नुहुने छैन।"</string>
+    <string name="storage_migrate" msgid="1304058078948715456">"डेटालाई यस भण्डारणमा माइग्रेट गर्नुहोस्"</string>
+    <string name="storage_migrate_away" msgid="3410590501311323877">"डेटालाई फरक भण्डारणमा माइग्रेट गर्नुहोस्"</string>
+    <string name="storage_no_apps" msgid="579118619398668670">"ब्याकअप गर्नका लागि कुनै पनि अनुप्रयोगहरू छैनन्"</string>
+    <string name="storage_forget" msgid="8731986045697320463">"यस यन्त्रको भण्डारणलाई बिर्सनुहोस्"</string>
+    <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"यस ड्राइभमा भएका अनुप्रयोगहरू वा डेटाको प्रयोग गर्न पुन: हाल्नुहोस्। अन्यथा, ड्राइभ नभए यस भण्डारणलाई बिर्सनको लागि रोज्नुहोस्।\n\nयदि बिर्सनको लागि रोज्नुहुन्छ भने यस ड्राइमा भएका सबै डेटा सधैंका लागि नष्ट हुनेछन्।\n\n पछि तपाईँ अनुप्रयोगहरू हाले पनि ड्राइभको भण्डारण भएका डेटा भेटाउनु सक्नुहुने छैन।"</string>
     <string name="storage_device_storage_section" msgid="7797805634316822741">"यन्त्र भण्डारण"</string>
     <string name="storage_removable_storage_section" msgid="3264955106565590076">"हटाउन योग्य भण्डारण"</string>
     <string name="storage_reset_section" msgid="7324235036547192861">"रिसेट गर्नुहोस्"</string>
     <string name="storage_mount_success" msgid="4624254886950093443">"<xliff:g id="NAME">%1$s</xliff:g> माउन्ट गरियो"</string>
     <string name="storage_mount_failure" msgid="2469026716895846633">"<xliff:g id="NAME">%1$s</xliff:g> माउन्ट गर्न सकेन"</string>
+    <string name="storage_mount_adopted" msgid="3360994581083675640">"USB भण्डारण पुनः जडान गरियो"</string>
     <string name="storage_unmount_success" msgid="7921627277443856151">"<xliff:g id="NAME">%1$s</xliff:g> सुरक्षित तरिकाले निकालिएको छ"</string>
     <string name="storage_unmount_failure" msgid="6322048355281833871">"<xliff:g id="NAME">%1$s</xliff:g> सुरक्षित तरिकाले निकाल्न सकिएन"</string>
     <string name="storage_unmount_failure_cant_find" msgid="240731723168567217">"बाहिर निकाल्न कुनै ड्राइभ भेटिएन"</string>
     <string name="storage_format_success" msgid="6252068844653804319">"<xliff:g id="NAME">%1$s</xliff:g> फर्म्याट गरियो"</string>
     <string name="storage_format_failure" msgid="7336977074523932399">"<xliff:g id="NAME">%1$s</xliff:g> फर्म्याट गर्न सकिएन"</string>
-    <string name="storage_wizard_format_as_private_title" msgid="1433086533563409114">"आन्तरिक भण्डारणको रुपमा फर्म्याट गर्नुहोस्"</string>
+    <string name="storage_wizard_format_as_private_title" msgid="1887035626526247913">"यन्त्रको भण्डारणको रूपमा फर्म्याट गर्नुहोस्"</string>
     <string name="storage_wizard_format_as_private_description" msgid="5814513630861655168">"यो यसलाई सुरक्षित बनाउन USB ड्राइभ फर्म्याट गर्न आवश्यक छ। सुरक्षित तरिकाले फर्म्याट गरेपछि मात्र यो ड्राइभले यस यन्त्रसँग काम गर्छ। फर्म्याट गर्दा ड्राइभमा हाल भण्डारण गरिएका सबै डेटा मेटाउँछ। डेटा हराउनेबाट जोगिन, यसलाई ब्याक अप गर्ने विचार गर्नुहोस्।"</string>
     <string name="storage_wizard_format_as_public_title" msgid="977475385015522171">"मेट्नुहोस् र फर्म्याट गर्नुहोस्"</string>
-    <string name="storage_wizard_format_as_public_description" msgid="8591201523650249337">"फर्म्याट गरेपछि, तपाईं यो USB ड्राइभ अन्य यन्त्रहरूमा प्रयोग गर्न सक्नुहुन्छ। सबै डेटा मेटिनेछन्। पहिला अनुप्रयोगहरू अन्य भण्डारणमा सारेर ब्याक अप गर्ने विचार गर्नुहोस्।"</string>
+    <string name="storage_wizard_format_as_public_description" msgid="184405877453834449">"फर्म्याट गरेपछि, तपाईँ यो USB ड्राइभलाई अन्य यन्त्रहरूमा प्रयोग गर्न सक्नुहुन्छ। सबै डेटा मेटिनेछन्। पहिले अनुप्रयोगहरूलाई अन्य यन्त्रको भण्डारणमा सारेर ब्याक अप गर्ने बारे विचार गर्नुहोस्।"</string>
     <string name="storage_wizard_format_progress_title" msgid="143911640282435570">"USB ड्राइभ फर्म्याट गरिँदै..."</string>
     <string name="storage_wizard_format_progress_description" msgid="5320980721352781920">"यसलाई एक क्षण लाग्न सक्छ। कृपया ड्राइभ नहटाउनुहोस्।"</string>
+    <string name="storage_wizard_migrate_choose_title" msgid="4247584708563925746">"डेटालाई माइग्रेट गरिने भण्डारण छनोट गर्नुहोस्"</string>
     <string name="storage_wizard_migrate_confirm_title" msgid="369820166257265495">"डेटा <xliff:g id="NAME">%1$s</xliff:g> मा सार्नुहोस्"</string>
     <string name="storage_wizard_migrate_confirm_description" msgid="2916497196106413598">"तपाईँको तस्बिरहरू, फाइलहरू र अनुप्रयोग डेटा <xliff:g id="NAME">%1$s</xliff:g> मा सार्नुहोस्। यसलाई केही मिनेट लाग्‍न सक्छ। केही अनुप्रयोगहरू स्थानान्तरण गर्ने समयमा ठीक सँग काम नगर्न सक्छ।"</string>
     <string name="storage_wizard_migrate_confirm_action_move_now" msgid="512504294066473542">"अब सार्नुहोस्"</string>
@@ -247,24 +284,24 @@
     <string name="storage_wizard_migrate_progress_title" msgid="8063255124619498728">"डेटा <xliff:g id="NAME">%1$s</xliff:g> मा सार्दै..."</string>
     <string name="storage_wizard_migrate_progress_description" msgid="3337889465416363170">"यसलाई एक क्षण लाग्‍न सक्छ। कृपया ड्राइभ नहटाउनुहोस्।\nकेही अनुप्रयोगहरू स्थानान्तरण गर्ने समयमा ठीक सँग काम नगर्न सक्छ।"</string>
     <string name="storage_wizard_format_slow_title" msgid="2483634437996887661">"यो ड्राइभ सुस्त देखिन्छ।"</string>
-    <string name="storage_wizard_format_slow_summary" msgid="1949177940762639885">"तपाईं जारी राख्न सक्नुहुन्छ, तर यस स्थानमा सारिएका अनुप्रयोगहरू अड्किन सक्छ र डेटा स्थानान्तरणले लामो समय लिन सक्छ। राम्रो कार्यसम्पादनको लागि थप छिटो ड्राइभको प्रयोग गर्ने विचार गर्नुहोस्।"</string>
+    <string name="storage_wizard_format_slow_summary" msgid="1949177940762639885">"तपाईँ जारी राख्न सक्नुहुन्छ, तर यस स्थानमा सारिएका अनुप्रयोगहरू अड्किन सक्छ र डेटा स्थानान्तरणले लामो समय लिन सक्छ। राम्रो कार्यसम्पादनको लागि थप छिटो ड्राइभको प्रयोग गर्ने विचार गर्नुहोस्।"</string>
     <string name="storage_wizard_format_action" msgid="3986485572528374905">"फर्म्याट गर्नुहोस्"</string>
     <string name="storage_wizard_backup_apps_action" msgid="7246092320517630760">"अनुप्रयोगहरू ब्याक अप गर्नुहोस्"</string>
     <string name="storage_wizard_back_up_apps_title" msgid="452805102278225533">"अनुप्रयोगहरु <xliff:g id="NAME">%1$s</xliff:g> मा भण्डारण गरियो"</string>
     <string name="storage_wizard_back_up_apps_and_data_title" msgid="1738767666148200795">"अनुप्रयोगहरु र डेटा <xliff:g id="NAME">%1$s</xliff:g> मा भण्डारण गरियो"</string>
     <string name="storage_wizard_back_up_apps_space_available" msgid="7209210725057470544">"<xliff:g id="SIZE">%1$s</xliff:g> उपलब्ध"</string>
-    <string name="storage_wizard_eject_internal_title" msgid="3717872796166039893">"आन्तरिक भण्डारण निकाल्नुहोस्"</string>
-    <string name="storage_wizard_eject_internal_description" msgid="6107781224687080575">"यस यन्त्र भण्डारणका अनुप्रयोगहरूले यसलाई निकालेपछि काम गर्न छोड्छ। यो USB ड्राइभ यो यन्त्रमा काम गर्नको लागि फर्म्याट गरियो। यसले अन्य कुनैमा काम गर्दैन।"</string>
-    <string name="sotrage_wizard_eject_progress_title" msgid="8034235439954334978">"निकाल्दै <xliff:g id="NAME">%1$s</xliff:g> ..."</string>
+    <string name="storage_wizard_eject_private_title" msgid="2844023177159233031">"यन्त्रको भण्डारण निकाल्नुहोस्"</string>
+    <string name="storage_wizard_eject_private_description" msgid="8966427719795472538">"यस यन्त्रका भण्डारणका अनुप्रयोगहरूले यसलाई निकालेपछि काम गर्न छोड्छन्। यो USB ड्राइभलाई यस यन्त्रमा मात्र कार्य गर्न फर्म्याट गरियो। यो अन्य कुनैमा चल्ने छैन।"</string>
+    <string name="storage_wizard_eject_progress_title" msgid="8823133087157003820">"<xliff:g id="NAME">%1$s</xliff:g> लाई निकाल्दै…"</string>
     <string name="storage_wizard_move_app_title" msgid="37057801779891287">"प्रयोग भएको भण्डारण"</string>
     <string name="storage_wizard_move_app_progress_title" msgid="7807062446517628864">"<xliff:g id="NAME">%1$s</xliff:g> सार्दै"</string>
     <string name="storage_wizard_move_app_progress_description" msgid="3693104566187904724">"सारिएको बेलामा ड्राइभ नहटाउनुहोस्। \n सार्ने काम नसकिएसम्म यस यन्त्रमा <xliff:g id="APPNAME">%1$s</xliff:g> अनुप्रयोग उपलब्ध हुने छैन।"</string>
-    <string name="storage_wizard_forget_confirm_title" msgid="1183642893909026951">"आन्तरिक भण्डारण बिर्सनुभयो?"</string>
+    <string name="storage_wizard_forget_confirm_title" msgid="4321200084208420221">"यन्त्रको भण्डारण बिर्सने हो?"</string>
     <string name="storage_wizard_forget_confirm_description" msgid="4264263982217111372">"यस ड्राइमा भएका सबै डेटा \'बिर्सनु\' को साथ सधैंका लागि नष्ट हुनेछन्। के तपाईँ अगाडि बढ्न चाहनुहुन्छ?"</string>
     <string name="storage_wizard_forget_action" msgid="2532812620271112355">"बिर्सनुहोस्"</string>
     <string name="storage_new_title" msgid="3098495209500607438">"USB ड्राइभ जडान गरियो"</string>
     <string name="storage_new_action_browse" msgid="9041125660441839453">"ब्राउज गर्नुहोस्"</string>
-    <string name="storage_new_action_adopt" msgid="1903427557119380415">"आन्तरिक भण्डारणका रूपमा सेट अप गर्नुहोस्"</string>
+    <string name="storage_new_action_adopt" msgid="880224317112988974">"यन्त्रको भण्डारणको रूपमा सेट अप गर्नुहोस्"</string>
     <string name="storage_new_action_format_public" msgid="5604328981214071670">"हटाउन सकिने भण्डारणका रूपमा सेट अप गर्नुहोस्"</string>
     <string name="storage_new_action_eject" msgid="4069294152676217949">"निकाल्नुहोस्"</string>
     <string name="storage_missing_title" msgid="2803464623922381858">"<xliff:g id="NAME">%1$s</xliff:g> हटाइयो"</string>
@@ -274,6 +311,7 @@
     <string name="app_forward_locked" msgid="6078781450044847966">"अनुप्रयोग प्रतिलिपि-सुरक्षित छ।"</string>
     <string name="invalid_location" msgid="5269044848535157307">"स्थापना स्थान मान्य छैन।"</string>
     <string name="system_package" msgid="9200255718634512790">"प्रणाली अद्यावधिकहरू बाह्य मिडियामा स्थापित गर्न सकिँदैन।"</string>
+    <string name="move_error_device_admin" msgid="2060627704270836951">"बाह्य मिडियामा यन्त्र प्रशासकलाई स्थापना गर्न सकिँदैन"</string>
     <string name="learn_more_action" msgid="7015991954404958779">"थप सिक्नुहोस्"</string>
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"पुनःप्रयास गर्नुहोस्"</string>
     <string name="wifi_wps_title" msgid="1872305810119408482">"WPS राउटर खोज्दै..."</string>
@@ -292,8 +330,16 @@
     <string name="desc_set_time_zone" msgid="2948629174438460709">"<xliff:g id="OFFSET">%1$s</xliff:g>, <xliff:g id="NAME">%2$s</xliff:g>"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"२४-घण्टे ढाँचा प्रयोग गर्नुहोस्"</string>
     <string name="desc_set_time_format" msgid="3131006238681763219">"<xliff:g id="STATE">%1$s</xliff:g> (<xliff:g id="SAMPLE">%2$s</xliff:g>)"</string>
-    <string name="system_auto_date_time" msgid="3629668599205033272">"स्वचालित मिति र समय"</string>
-    <string name="desc_auto_date_time" msgid="6997571927680580633">"सञ्जालद्वारा उपलब्ध गराइएको समय प्रयोग गर्नुहोस्"</string>
+    <string name="system_auto_date_time" msgid="3629668599205033272">"स्वत: मिति र समय"</string>
+  <string-array name="auto_date_time_entries">
+    <item msgid="4590792581242018007">"नेटवर्कद्वारा उपलब्ध गराइएको समय प्रयोग गर्नुहोस्"</item>
+    <item msgid="3807025813081244357">"निष्क्रिय"</item>
+  </string-array>
+  <string-array name="auto_date_time_ts_entries">
+    <item msgid="8463479794795616025">"नेटवर्कद्वारा उपलब्ध गराइएको समय प्रयोग गर्नुहोस्"</item>
+    <item msgid="2475903014233987786">"ट्रान्सपोर्ट स्ट्रिमद्वारा उपलब्ध गराइएको समय प्रयोग गर्नुहोस्"</item>
+    <item msgid="150957081326946463">"निष्क्रिय"</item>
+  </string-array>
     <string name="system_location" msgid="502463575930545806">"स्थान"</string>
     <string name="system_desc_location" msgid="4243551425631207495">"तपाईंको अनुमतिबाट अनुप्रयोगहरूलाई तपाईंको स्थान जानकारीको उपयोग गर्न दिनुहोस्।"</string>
     <string name="system_network_location_confirm" msgid="8435144328428634060">"स्थान सहमति"</string>
@@ -311,12 +357,13 @@
     <string name="third_party_location_services_title" msgid="4089136801976399147">"तेस्रो पक्ष स्थान सेवाहरू"</string>
     <string name="location_reporting" msgid="3054236612250063073">"स्थान रिपोर्ट गर्दै"</string>
     <string name="location_history" msgid="2946680949724247804">"स्थान इतिहास"</string>
-    <string name="location_reporting_desc" msgid="6256424995139430823">"Google ले उत्पादनहरूमा यो सुविधा प्रयोग गर्दछ जस्तै Google Now र Google Maps । स्थान रिपोर्टिङ खोल्दै यो सुविधा स्टोर प्रयोग गर्ने तपाईंको  Google  खाता सन्दर्भमा आफ्नो उपकरणको सबै भन्दा भर्खरैको स्थान डेटा प्रयोग गर्ने कुनै पनि Google उत्पादनले दिन्छ।"</string>
+    <string name="location_reporting_desc" msgid="6256424995139430823">"Google ले उत्पादनहरूमा यो सुविधा प्रयोग गर्दछ जस्तै Google Now र Google Maps । स्थान रिपोर्टिङ खोल्दै यो सुविधा स्टोर प्रयोग गर्ने तपाईंको  Google  खाता सन्दर्भमा आफ्नो उपकरणको सबै भन्दा भर्खरैको स्थान डेटाको प्रयोग गर्ने कुनै पनि Google उत्पादनले दिन्छ।"</string>
     <string name="location_history_desc" msgid="3861249867748294369">"स्थान इतिहास यो खाताको लागि बन्द हुँदा Google ले तपाईंको अनुप्रयोगहरूद्वारा प्रयोगको लागि तपाईँको उपकरणको स्थान डेटा भण्डारण गर्न सक्छ। \n\n उदाहरणका लागि, Google Maps ले तपाईँलाई निर्देशन दिन सक्छ, र Google Now ले तपाईँलाई कम्युट ट्राफिकको बारेमा सूचित गर्न सक्छ। \n\n तपाईँ कुनै पनि समयमा स्थान इतिहास बन्द गर्न सक्नुहुन्छ, तर यसले कार्य गर्दछ त्यसैले यसलाई मेट्नु हुँदैन।आफ्नो स्थान इतिहास हेर्न र  व्यवस्थित गर्न, maps.google.com/locationhistory को भ्रमण गर्नुहोस्।"</string>
     <string name="delete_location_history_title" msgid="5804802702252280549">"स्थान इतिहास मेटाउनुहोस्"</string>
-    <string name="delete_location_history_desc" msgid="4142806827237093397">"यसले यो Google खाताको लागि स्टोर भएको सबै स्थान इतिहास यो उपकरणबाट मेटाउने छ। तपाईं यो मेटाउने प्रकृया पूर्ववत गर्न सक्नुहुन्न। Google Now सहित केही अनुप्रयोगहरूले, कार्य गर्न बन्द गर्ने छ।"</string>
+    <string name="delete_location_history_desc" msgid="4142806827237093397">"यसले यो Google खाताको लागि स्टोर भएको सबै स्थान इतिहास यो उपकरणबाट मेटाउने छ। तपाईँ यो मेटाउने प्रकृया पूर्ववत गर्न सक्नुहुन्न। Google Now सहित केही अनुप्रयोगहरूले, कार्य गर्न बन्द गर्ने छ।"</string>
     <string name="system_services" msgid="7230571820151215779">"सेवाहरू"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"सेवा सेटिङ्हरू"</string>
+    <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"उच्च कन्ट्रास्ट पाठ"</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"क्याप्सन"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"भिडियोमा मिलेका क्याप्सन पाठ ओभरलेका लागि सेटिङ्"</string>
     <string name="captions_display" msgid="735692527287125548">"प्रदर्शन गर्नुहोस्"</string>
@@ -324,7 +371,7 @@
     <string name="captions_display_off" msgid="496953007835201523">"बन्द गर्नुहोस्"</string>
     <string name="display_options" msgid="5504549024985225774">"विकल्पहरू प्रदर्शन गर्नुहोस्"</string>
     <string name="captions_configure" msgid="5537548915977371014">"कन्फिगर गर्नुहोस्"</string>
-    <string name="captions_lanaguage" msgid="3291057448460880449">"भाषा"</string>
+    <string name="captions_language" msgid="2835554055388996343">"भाषा"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"पाठ आकार"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"क्याप्सन शैली"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"अनुकूलन विकल्प"</string>
@@ -332,12 +379,19 @@
     <string name="captions_textcolor" msgid="3233568269335050287">"पाठ रङ्ग"</string>
     <string name="captions_edgetype" msgid="841331274533086103">"छेउको प्रकार"</string>
     <string name="captions_edgecolor" msgid="845125757332620884">"छेउको रङ्ग"</string>
+    <string name="captions_backgroundshow" msgid="9177987321551275698">"पृष्ठभूमि देखाउनुहोस्"</string>
     <string name="captions_backgroundcolor" msgid="448518890988125453">"पृष्ठभूमि रङ्ग"</string>
     <string name="captions_backgroundopacity" msgid="2643722493273126220">"पृष्ठभूमि अपारदर्शकता"</string>
     <string name="captioning_preview_text" msgid="72080729155950127">"क्याप्सन यस्तो देखिने छ"</string>
     <string name="captions_textopacity" msgid="5536765490446288641">"पाठ अपारदर्शिता"</string>
+    <string name="captions_windowshow" msgid="5716898740522196707">"विन्डो देखाउनुहोस्"</string>
     <string name="captions_windowcolor" msgid="8986165172260903279">"सञ्झ्याल रङ"</string>
     <string name="captions_windowopacity" msgid="2784473496224936703">"सञ्झ्याल अस्पष्टता"</string>
+    <string name="captions_style_0" msgid="2068865433439146533">"कालोमा सेतो"</string>
+    <string name="captions_style_1" msgid="8878565905353923498">"सेतोमा कालो"</string>
+    <string name="captions_style_2" msgid="1486695984924671199">"कालोमा पहेँलो"</string>
+    <string name="captions_style_3" msgid="3217829874170162074">"नीलोमा पहेँलो"</string>
+    <string name="captions_style_custom" msgid="3645114505000714364">"अनुकूलन"</string>
     <string name="color_white" msgid="65537523012024751">"सेतो"</string>
     <string name="color_black" msgid="8804213372565106403">"कालो"</string>
     <string name="color_red" msgid="5630553203246525989">"रातो"</string>
@@ -346,13 +400,14 @@
     <string name="color_cyan" msgid="796226330055745">"सायन"</string>
     <string name="color_yellow" msgid="1023390829879874964">"पहेंलो"</string>
     <string name="color_magenta" msgid="6395786485839439122">"म्याgeन्टा"</string>
-    <string name="system_accessibility_status" msgid="4389074529913575327">"स्थिति"</string>
+    <string name="system_accessibility_status" msgid="6150600992901856367">"सक्रिय गर्नुहोस्"</string>
     <string name="system_accessibility_config" msgid="3216531917536720277">"कन्फिगरेसन"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="8200707259067035823">"<xliff:g id="SERVICE">%1$s</xliff:g>प्रयोग गर्ने ?"</string>
     <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"<xliff:g id="SERVICE">%1$s</xliff:g> ले पासवर्ड बाहेक, तपाईँले टाइप गर्ने सबै पाठ संकलन गर्न सक्छ। यसले व्यक्तिगत डेटा समावेस गर्दछ जस्तै क्रेडिट कार्ड नम्बरहरू।"</string>
     <string name="system_accessibility_service_off_confirm_title" msgid="963297812889694832">"<xliff:g id="SERVICE">%1$s</xliff:g>बन्द गर्नुहुन्छ?"</string>
     <string name="system_accessibility_service_off_confirm_desc" msgid="6714782635926048678">"OK चयन गर्दा <xliff:g id="SERVICE">%1$s</xliff:g> बन्द हुनेछ ।"</string>
     <string name="system_accessibility_tts_output" msgid="8905477795536714590">"Text to speech"</string>
+    <string name="system_accessibility_tts_engine_config" msgid="5331139536083054552">"इन्जिन कन्फिगुरेसन"</string>
     <string name="system_speak_passwords" msgid="5264650214879185873">"पासवर्ड भन्नुहोस्"</string>
     <string name="system_preferred_engine" msgid="8258210139854655567">"रुचाइएको इन्जिन"</string>
     <string name="system_speech_rate" msgid="8099856582088545576">"वाणी दर"</string>
@@ -420,8 +475,9 @@
     <string name="agree" msgid="1235622082275451350">"सहमत"</string>
     <string name="disagree" msgid="9170636026862400981">"असहमत"</string>
     <string name="security_unknown_sources_title" msgid="769762478057744545">"अज्ञात स्रोतहरू"</string>
-    <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Play Store भन्दा अन्य स्रोतहरूबाट अनुप्रयोगहरूको स्थापनालाई अनुमति दिनुहोस्"</string>
-    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"तपाईंको उपकरण र व्यक्तिगत डेटा अज्ञात स्रोतको अनुप्रयोगहरूद्वारा आक्रमण गर्न बढि असुरक्षित छन्। तपाईंको उपकरणमा वा यी अनुप्रयोगहरू प्रयोगबाट डेटा हराउन परिणाम वा कुनै पनि नोक्सानीका लागि तपाईं आफैं जिम्मेदार हुनुहुन्छ भन्ने कुरामा सहमत हुनुहुन्छ।"</string>
+    <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Play स्टोर भन्दा अन्य स्रोतहरूबाट अनुप्रयोगहरूको स्थापनालाई अनुमति दिनुहोस्"</string>
+    <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"अज्ञात स्रोतहरूलाई अनुमति दिनुहोस्"</string>
+    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"तपाईँको उपकरण र व्यक्तिगत डेटा अज्ञात स्रोतको अनुप्रयोगहरूद्वारा आक्रमण गर्न बढि असुरक्षित छन्। तपाईँको उपकरणमा वा यी अनुप्रयोगहरू प्रयोगबाट डेटा हराउन परिणाम वा कुनै पनि नोक्सानीका लागि तपाईँ आफैं जिम्मेदार हुनुहुन्छ भन्ने कुरामा सहमत हुनुहुन्छ।"</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"अनुप्रयोगहरू रुजु गर्नुहोस्"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"हानी गर्न सक्ने अनुप्रयोगहरूका स्थापना गर्नुअघि चेतावनी दिनुहोस् वा अनुमति नै नदिनुहोस्"</string>
     <string name="system_hdcp_checking_never" msgid="1758043078676276985">"कहिले पनि होइन"</string>
@@ -462,7 +518,7 @@
     <string name="computing_size" msgid="2955133568424704042">"कम्प्युटिङ ..."</string>
     <string name="title_select_wifi_network" msgid="1038871400014761952">"तपाईँको Wi-Fi नेटवर्क चयन गर्नुहोस्"</string>
     <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"पुनःनामाकरण गर्नुहोस्"</string>
-    <string name="accessories_wifi_display_enable" msgid="4779506305656453262">"वाइफाइ प्रदर्शन"</string>
+    <string name="accessories_wifi_display_enable" msgid="4779506305656453262">"Wi-Fi प्रदर्शन"</string>
     <string name="accessories_wifi_display_pin_required" msgid="3242645267864813273">"PIN आवश्यक"</string>
     <string name="whichApplication" msgid="8382179653567099571">"प्रयोग गरेर कारबाही पुरा गर्नुहोस्"</string>
     <string name="alwaysUseQuestion" msgid="7128459989232213727">"यो कार्यको लागि यो विकल्प संधैं प्रयोग गर्ने?"</string>
@@ -479,24 +535,25 @@
     <string name="inputs_game" msgid="1114086481110094757">"खेल कन्सोल"</string>
     <string name="inputs_aux" msgid="5704676433978730340">"Aux"</string>
     <string name="inputs_custom_name" msgid="5584925321693432362">"अनुकूल नाम"</string>
+    <string name="inputs_custom_name_description_fmt" msgid="7123031859468901866">"<xliff:g id="INPUT">%1$s</xliff:g> इनपुटका लागि नाम प्रविष्ट गर्नुहोस् ।"</string>
     <string name="inputs_hide" msgid="1575971556150395486">"लुकेको"</string>
-    <string name="inputs_hide_desc" msgid="8172670556559886526">"इनपुट स्विच गर्दा देखाइएको छैन"</string>
-    <string name="inputs_custom_title" msgid="374036983231176581">"अनुकुल नामः"</string>
+    <string name="inputs_show" msgid="5069718540369447778">"यो इनपुट देखाउनुहोस्"</string>
+    <string name="input_header_names" msgid="6958427658951236078">"नाम"</string>
     <string name="inputs_hdmi_control" msgid="2462240356665628563">"HDMI नियन्त्रण"</string>
     <string name="inputs_hdmi_control_desc" msgid="2300590479729796132">"HDMI उपकरणहरू नियन्त्रण गर्न टिभीलाई अनुमति दिनुहोस्"</string>
     <string name="inputs_device_auto_off" msgid="7510049770946999285">"उपकरण स्वतः पावर बन्द"</string>
     <string name="inputs_device_auto_off_desc" msgid="2679638131351116942">"टिभीसँग HDMI उपकरणहरू पावर बन्द गर्नुहोस्"</string>
     <string name="inputs_tv_auto_on" msgid="2627932269256793797">"टिभी ओटो पावर खुला"</string>
     <string name="inputs_tv_auto_on_desc" msgid="7658625130577708249">"HDMI उपकरणसँग टिभी पावर खोल्नुहोस्"</string>
-    <plurals name="inputs_header_connected_input" formatted="false" msgid="4694899943180976672">
+    <plurals name="inputs_header_connected_input" formatted="false" msgid="3158173055262045630">
       <item quantity="other">जडान गरिएका इनपुटहरू</item>
       <item quantity="one">जडान गरिएको इनपुट</item>
     </plurals>
-    <plurals name="inputs_header_standby_input" formatted="false" msgid="1903575597797993135">
-      <item quantity="other">स्यान्डबाइ इनपुटहरू</item>
+    <plurals name="inputs_header_standby_input" formatted="false" msgid="8614849472167217134">
+      <item quantity="other">स्ट्यान्डबाइ इनपुटहरू</item>
       <item quantity="one">स्ट्यान्डबाइ इनपुट</item>
     </plurals>
-    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="2979766871256996256">
+    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="1092697966171944243">
       <item quantity="other">जडान नगरिएका इनपुटहरू</item>
       <item quantity="one">जडान नगरिएको इनपुट</item>
     </plurals>
@@ -510,6 +567,7 @@
     <string name="restricted_profile_switch_to" msgid="1926433350907032138">"प्रतिबन्धित प्रोफाइल प्रविष्ट गर्नुहोस्"</string>
     <string name="restricted_profile_switch_out" msgid="1893784095623209495">"प्रतिबन्धित प्रोफाइलबाट निस्कनुहोस्"</string>
     <string name="restricted_profile_delete_title" msgid="3445944923018324707">"प्रतिबन्धित प्रोफाइल मेट्नुहोस्"</string>
+    <string name="restricted_profile_create_title" msgid="1392190365829029390">"सीमित प्रोफाइल सिर्जना गर्नुहोस्"</string>
     <string name="restricted_profile_configure_title" msgid="4684188123147519620">"सेटिङहरू"</string>
     <string name="restricted_profile_configure_apps_title" msgid="11507255932348492">"अनुमति दिएका अनुप्रयोगहरू"</string>
     <plurals name="restricted_profile_configure_apps_description" formatted="false" msgid="1138147479259808487">
@@ -522,6 +580,7 @@
     <string name="restricted_profile_configure_apps_description_loading" msgid="5269477581791409700">"एकक्षण ..."</string>
     <string name="restricted_profile_change_password_title" msgid="2848537651211816659">"PIN परिवर्तन गर्नुहोस्"</string>
     <string name="restriction_description" msgid="3104855945910233028">"<xliff:g id="DESCRIPTION">%1$s</xliff:g>\n<xliff:g id="VALUE">%2$s</xliff:g>"</string>
+    <string name="app_sees_restricted_accounts_and_controlled_by" msgid="6677671440081319908">"यस अनुप्रयोगले तपाईंको खाताहरूमा पहुँच गर्न सक्छ। <xliff:g id="APP">%1$s</xliff:g> द्वारा नियन्त्रित।"</string>
     <string name="pin_enter_unlock_channel" msgid="5980400420298506069">"यो च्यानल हेर्ने पिन प्रविष्ट गर्नुहोस्"</string>
     <string name="pin_enter_unlock_program" msgid="52453773316071511">"यो कार्यक्रम हेर्न पिन प्रविष्ट गर्नुहोस्"</string>
     <string name="pin_enter_pin" msgid="821552376577935497">"PIN प्रविष्टि गर्नुहोस्"</string>
@@ -532,20 +591,20 @@
     <string name="pin_toast_wrong" msgid="4628358195224633248">"गलत पिन, पुनः प्रयास गर्नुहोस्"</string>
     <string name="pin_toast_not_match" msgid="5886041789737632996">"पुनः प्रयास गर्नुहोस्, PIN मेल खाँदैन"</string>
     <string name="wifi_setup_input_password" msgid="1596168874369038536">"<xliff:g id="SSID">%1$s</xliff:g> को लागि पासवर्ड प्रविष्ट गर्नुहोस्"</string>
-    <string name="wifi_setup_connection_success" msgid="6262755735033937164">"सफलतापूर्वक जडान भयो।"</string>
-    <string name="wifi_setup_save_success" msgid="4829154865874318015">"सफलतापूर्वक सुरक्षित गरियो।"</string>
-    <string name="device_apps_app_management_version" msgid="1004679024556315208">"<xliff:g id="APP_VERSION">%1$s</xliff:g> संस्करण"</string>
+    <string name="wifi_setup_connection_success" msgid="3846993789166071184">"सफलतापूर्वक जडान गरियो"</string>
+    <string name="wifi_setup_save_success" msgid="4785799603638549254">"सफलतापूर्वक सुरक्षित गरियो"</string>
+    <string name="device_apps_app_management_version" msgid="2267065043941006486">"संस्करण <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
     <string name="device_apps_app_management_open" msgid="8009823973422120839">"खोल्नुहोस्"</string>
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"दबाब रोक्नुहोस्"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"तपाईंले अनुप्रयोग बन्द गर्न बल गर्नुभयो भने, यसले चाहेअनुसार काम नगर्न सक्छ।"</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"स्थापना हटाउनुहोस्"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"तपाईं यो अनुप्रयोग स्थापना रद्द गर्न चाहनुहुन्छ?"</string>
+    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"तपाईँ यो अनुप्रयोग स्थापना रद्द गर्न चाहनुहुन्छ?"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"अद्यावधिकहरूको स्थापना रद्द गर्नुहोस्"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"यस Android प्रणाली अनुप्रयोगमा भएका सम्पूर्ण अद्यावधिकहरूको स्थापना हटाइनेछ।"</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"अक्षम गर्नुहोस्"</string>
-    <string name="device_apps_app_management_disable_desc" msgid="1295507373252301108">"तपाईं यो अनुप्रयोग अक्षम गर्न चाहनुहुन्छ?"</string>
+    <string name="device_apps_app_management_disable_desc" msgid="1295507373252301108">"तपाईँ यो अनुप्रयोग अक्षम गर्न चाहनुहुन्छ?"</string>
     <string name="device_apps_app_management_enable" msgid="3246823119203444608">"सक्षम गर्नुहोस्"</string>
-    <string name="device_apps_app_management_enable_desc" msgid="7490219375247065314">"तपाईं यो अनुप्रयोग सक्षम गर्न चाहनुहुन्छ?"</string>
+    <string name="device_apps_app_management_enable_desc" msgid="7490219375247065314">"तपाईँ यो अनुप्रयोग सक्षम गर्न चाहनुहुन्छ?"</string>
     <string name="device_apps_app_management_storage_used" msgid="4611351576179140634">"प्रयोग भएको भण्डारण"</string>
     <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"<xliff:g id="VOLUME">%2$s</xliff:g> मा प्रयोग <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"डाटा खाली गर्नुहोस्"</string>
@@ -560,13 +619,13 @@
     <string name="settings_cancel" msgid="304280412158061225">"रद्द गर्नुहोस्"</string>
     <string name="settings_on" msgid="6892236264945435013">"अन गर्नुहोस्"</string>
     <string name="settings_off" msgid="449272161738237637">"बन्द गर्नुहोस्"</string>
-    <string name="device_daydreams_none" msgid="7364189761517824834">"कुनैपनि होइन"</string>
-    <string name="device_daydreams_select" msgid="3691552535056569158">"दिवासपना"</string>
+    <string name="device_daydreams_none" msgid="2767107052779579259">"स्क्रिनलाई निष्क्रिय पार्नुहोस्"</string>
+    <string name="device_daydreams_select" msgid="2112338101206187695">"स्क्रिन सेभर"</string>
     <string name="device_daydreams_test" msgid="9038920213402659591">"अब सुरु"</string>
-    <string name="device_daydreams_sleep" msgid="8766795993034660366">"कहिले दिवास्वप्न देख्ने"</string>
-    <string name="device_daydreams_sleep_description" msgid="5269460120567642259">"यो निष्क्रिय अवधि पछि डेड्रिम सुरु हुन्छ। यदि कुनै पनि डेड्रिम चयन गरिएको छैन भने, प्रदर्शन बन्द हुन्छ।"</string>
+    <string name="device_daydreams_sleep" msgid="7676938708373592766">"सुरु गर्ने समय"</string>
+    <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"यस निष्क्रियताको अवधि पछि स्क्रिन सेभर सुरु हुन्छ। यदि कुनै पनि स्क्रिन सेभरलाई चयन गरिएको छैन भने प्रदर्शन अफ हुन्छ।"</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"<xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> को निष्क्रियता पछि"</string>
-    <string name="device_daydreams_screen_off" msgid="5002473979169042970">"कहिले सुुत्ने"</string>
+    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"यन्त्रलाई शयन अवस्थामा राख्नुहोस्"</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"यो अवधिको निष्क्रियताले स्क्रिन बन्द हुन्छ।"</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"कुनैपनि खाताले ब्याकअप गरेको डाटा भण्डार गरेको छैन"</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
@@ -578,8 +637,8 @@
     <string name="factory_reset_description" msgid="5381170999141355891">"यसले तपाईंको उपकरणको आन्तरिक भण्डारण र निम्न अनुसारका सबै डेटा भण्डारणहरू मेटाउने छ: तपाईंको Google खाता, प्रणाली र अनुप्रयोग डेटा र सेटिङहरू, र डाउनलोड भएका अनुप्रयोगहरू"</string>
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"तपाईंका सबै व्यक्गित जानकारी र डाउनलोड गरिएका एप्स मेटाउने हो? तपाईंले यो कार्यलाई उल्टाउन सक्नुहुन्न!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"सबै मेटाउनुहोस्"</string>
-    <string name="select_title" msgid="3905067953686121845">"तपाईँको ^1 को लागि एउटा नाम छनौट गर्नुहोस्"</string>
-    <string name="select_description" msgid="4070142015460337658">"नामले अन्य उपकरणहरूबाट यसलाई पहुँच गर्दा तपाईँको पहिचान ^1 गर्न मद्दत गर्दछ जस्तै तपाईँको फोन, ट्याबलेट वा कम्प्यूटर।"</string>
+    <string name="select_device_name_title" msgid="5165800500130943604">"आफ्नो <xliff:g id="DEVICEMODEL">%1$s</xliff:g> को लागि नाम छनौट गर्नुहोस्"</string>
+    <string name="select_device_name_description" msgid="2697127827643821315">"नामले तपाईँको फोन, ट्याब्लेट, वा कम्प्युटर जस्ता अन्य यन्त्रहरूबाट पहुँच गर्ने बेलामा तपाईँको <xliff:g id="DEVICEMODEL">%1$s</xliff:g> लाई पहिचान गर्न मद्दत गर्नेछ।"</string>
   <string-array name="rooms">
     <item msgid="7085399612393981553">"बैठक कक्ष"</item>
     <item msgid="3722089849939477581">"मिडिया कक्ष"</item>
@@ -590,12 +649,18 @@
     <item msgid="8120010459866284578">"भान्सा"</item>
   </string-array>
     <string name="custom_room" msgid="8991561978321502549">"अनुकूल नाम प्रविष्ट गर्नुहोस्..."</string>
-    <string name="settings_status_title" msgid="3890412726442124167">"यसको ^1 नाम भयो"</string>
-    <string name="settings_status_description" msgid="3600745966132434139">"^2 को नाम \"^1\" हो। तपाईँ यसलाई परिवर्तन गर्न चाहनुहुन्छ?"</string>
+    <string name="device_rename_title" msgid="2629557295786267185">"यस <xliff:g id="DEVICEMODEL">%1$s</xliff:g> को पुनः नामाकरण गर्नुहोस्"</string>
+    <string name="device_rename_description" msgid="2461752788563877107">"यो <xliff:g id="DEVICEMODEL">%1$s</xliff:g> को हालको नाम \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\" छ"</string>
     <string name="change_setting" msgid="2047402388786162246">"परिवर्तन गर्नुहोस्"</string>
     <string name="keep_settings" msgid="6798327196645732517">"परिवर्तन नगर्नुहोस्"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"अनुमतिहरू"</string>
     <string name="device_apps_permissions" msgid="2966387603529725982">"अनुप्रयोग अनुमतिहरू"</string>
     <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_1">%d</xliff:g> को <xliff:g id="COUNT_0">%d</xliff:g> अनुप्रयोगहरूलाई अनुमति छ"</string>
+    <string name="bluetooth_permission_request" msgid="6649813878683015301">"ब्लुटुथ अनुमति अनुरोध"</string>
     <string name="security_patch" msgid="2131617390189164481">"Android सुरक्षा प्याच चरण"</string>
+    <string name="choose_application" msgid="5662960665577780353">"अनुप्रयोग छनोट गर्नुहोस्"</string>
+    <string name="experimental_preference" msgid="1137673985823581797">"(प्रयोगात्मक)"</string>
+    <string name="reboot_safemode_action" msgid="8129550438717110406">"सुरक्षित मोडमा पुनःबुट गर्नुहोस्"</string>
+    <string name="reboot_safemode_confirm" msgid="3329475617645192086">"तपाईँ सुरक्षित मोडमा पुनःबुट गर्न चाहनुहुन्छ?"</string>
+    <string name="reboot_safemode_desc" msgid="5031024337104679492">"यसले तपाईँले स्थापना गरेका सबै तेस्रो पक्षीय अनुप्रयोगहरूलाई असक्षम गर्नेछ। तपाईँले पुनःबुट गरेप‍छि तिनीहरूलाई पुनर्स्थापित गरिनेछ।"</string>
 </resources>

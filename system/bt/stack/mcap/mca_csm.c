@@ -166,11 +166,7 @@ static const char * const mca_ccb_st_str[] = {
 *******************************************************************************/
 void mca_stop_timer(tMCA_CCB *p_ccb)
 {
-    if (p_ccb->timer_entry.event == BTU_TTYPE_MCA_CCB_RSP)
-    {
-        btu_stop_timer(&p_ccb->timer_entry);
-        p_ccb->timer_entry.event = 0;
-    }
+    alarm_cancel(p_ccb->mca_ccb_timer);
 }
 
 /*******************************************************************************
@@ -270,6 +266,7 @@ tMCA_CCB *mca_ccb_alloc(tMCA_HANDLE handle, BD_ADDR bd_addr)
             if (p_ccb_tmp->state == MCA_CCB_NULL_ST)
             {
                 p_ccb_tmp->p_rcb = p_rcb;
+                p_ccb_tmp->mca_ccb_timer = alarm_new("mca.mca_ccb_timer");
                 p_ccb_tmp->state = MCA_CCB_OPENING_ST;
                 p_ccb_tmp->cong  = TRUE;
                 memcpy(p_ccb_tmp->peer_addr, bd_addr, BD_ADDR_LEN);
@@ -305,8 +302,8 @@ void mca_ccb_dealloc(tMCA_CCB *p_ccb, tMCA_CCB_EVT *p_data)
     {
         L2CA_Deregister (p_ccb->data_vpsm);
     }
-    mca_free_buf ((void **)&p_ccb->p_rx_msg);
-    mca_free_buf ((void **)&p_ccb->p_tx_req);
+    osi_free_and_reset((void **)&p_ccb->p_rx_msg);
+    osi_free_and_reset((void **)&p_ccb->p_tx_req);
     mca_stop_timer(p_ccb);
 
     if (p_data)
@@ -317,7 +314,8 @@ void mca_ccb_dealloc(tMCA_CCB *p_ccb, tMCA_CCB_EVT *p_data)
         mca_ccb_report_event(p_ccb, MCA_DISCONNECT_IND_EVT, &evt_data);
     }
     mca_free_tc_tbl_by_lcid (p_ccb->lcid);
-    memset (p_ccb, 0, sizeof (tMCA_CCB));
+    alarm_free(p_ccb->mca_ccb_timer);
+    memset(p_ccb, 0, sizeof(tMCA_CCB));
 }
 
 /*******************************************************************************

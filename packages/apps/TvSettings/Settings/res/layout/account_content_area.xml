@@ -17,26 +17,25 @@
      This is the template to be used for the content are of a setup fragment
      which has a standard description and action.
 -->
-<com.android.tv.settings.widget.NonOverlappingRelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<android.support.v17.leanback.widget.NonOverlappingRelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent" >
 
     <FrameLayout
         android:id="@+id/description"
-        android:layout_width="@dimen/width_description"
+        android:layout_width="@dimen/setup_description_width"
         android:layout_height="match_parent"
-        android:layout_alignParentStart="true"
-        android:layout_centerVertical="true"
-        android:layout_marginStart="@dimen/pad_start_unsafe_description"
-        android:gravity="center" />
+        android:layout_alignParentTop="true"
+        android:clipToPadding="false"
+        android:clipChildren="false"
+        android:layout_marginStart="@dimen/setup_description_margin_start" />
 
     <FrameLayout
         android:id="@+id/action"
-        android:layout_width="@dimen/width_action"
+        android:layout_width="@dimen/setup_scroll_list_width"
         android:layout_height="match_parent"
         android:layout_centerVertical="true"
-        android:layout_marginStart="@dimen/pad_start_unsafe_action"
-        android:layout_toEndOf="@id/description"
-        android:paddingEnd="@dimen/pad_end_unsafe_action" />
+        android:layout_marginStart="@dimen/setup_action_margin_start"
+        android:layout_toEndOf="@id/description" />
 
-</com.android.tv.settings.widget.NonOverlappingRelativeLayout>
+</android.support.v17.leanback.widget.NonOverlappingRelativeLayout>

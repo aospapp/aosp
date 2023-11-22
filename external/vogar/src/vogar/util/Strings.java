@@ -39,6 +39,10 @@ public class Strings {
     private static final Pattern XML_INVALID_CHARS
             = Pattern.compile("[^\\u0009\\u000A\\u000D\\u0020-\\uD7FF\\uE000-\\uFFFD]+");
 
+    public static boolean isNullOrEmpty(String in) {
+        return com.google.common.base.Strings.isNullOrEmpty(in);
+    }
+
     public static String readStream(Reader reader) throws IOException {
         StringBuilder result = new StringBuilder();
         BufferedReader in = new BufferedReader(reader);

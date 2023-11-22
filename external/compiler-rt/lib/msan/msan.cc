@@ -26,6 +26,8 @@
 #include "sanitizer_common/sanitizer_stacktrace.h"
 #include "sanitizer_common/sanitizer_symbolizer.h"
 #include "sanitizer_common/sanitizer_stackdepot.h"
+#include "ubsan/ubsan_flags.h"
+#include "ubsan/ubsan_init.h"
 
 // ACHTUNG! No system header includes in this file.
 
@@ -53,7 +55,7 @@ SANITIZER_INTERFACE_ATTRIBUTE
 THREADLOCAL u32 __msan_retval_origin_tls;
 
 SANITIZER_INTERFACE_ATTRIBUTE
-THREADLOCAL u64 __msan_va_arg_tls[kMsanParamTlsSize / sizeof(u64)];
+ALIGNED(16) THREADLOCAL u64 __msan_va_arg_tls[kMsanParamTlsSize / sizeof(u64)];
 
 SANITIZER_INTERFACE_ATTRIBUTE
 THREADLOCAL u64 __msan_va_arg_overflow_size_tls;
@@ -87,8 +89,6 @@ int msan_inited = 0;
 bool msan_init_is_running;
 
 int msan_report_count = 0;
-
-void (*death_callback)(void);
 
 // Array of stack origins.
 // FIXME: make it resizable.
@@ -133,11 +133,6 @@ static void RegisterMsanFlags(FlagParser *parser, Flags *f) {
 }
 
 static void InitializeFlags() {
-  Flags *f = flags();
-  FlagParser parser;
-  RegisterMsanFlags(&parser, f);
-  RegisterCommonFlags(&parser);
-
   SetCommonFlagsDefaults();
   {
     CommonFlags cf;
@@ -148,17 +143,39 @@ static void InitializeFlags() {
     // FIXME: test and enable.
     cf.check_printf = false;
     cf.intercept_tls_get_addr = true;
+    cf.exitcode = 77;
     OverrideCommonFlags(cf);
   }
 
+  Flags *f = flags();
   f->SetDefaults();
+
+  FlagParser parser;
+  RegisterMsanFlags(&parser, f);
+  RegisterCommonFlags(&parser);
+
+#if MSAN_CONTAINS_UBSAN
+  __ubsan::Flags *uf = __ubsan::flags();
+  uf->SetDefaults();
+
+  FlagParser ubsan_parser;
+  __ubsan::RegisterUbsanFlags(&ubsan_parser, uf);
+  RegisterCommonFlags(&ubsan_parser);
+#endif
 
   // Override from user-specified string.
   if (__msan_default_options)
     parser.ParseString(__msan_default_options());
+#if MSAN_CONTAINS_UBSAN
+  const char *ubsan_default_options = __ubsan::MaybeCallUbsanDefaultOptions();
+  ubsan_parser.ParseString(ubsan_default_options);
+#endif
 
   const char *msan_options = GetEnv("MSAN_OPTIONS");
   parser.ParseString(msan_options);
+#if MSAN_CONTAINS_UBSAN
+  ubsan_parser.ParseString(GetEnv("UBSAN_OPTIONS"));
+#endif
   VPrintf(1, "MSAN_OPTIONS: %s\n", msan_options ? msan_options : "<empty>");
 
   SetVerbosity(common_flags()->verbosity);
@@ -167,11 +184,18 @@ static void InitializeFlags() {
 
   if (common_flags()->help) parser.PrintFlagDescriptions();
 
-  // Check flag values:
-  if (f->exit_code < 0 || f->exit_code > 127) {
-    Printf("Exit code not in [0, 128) range: %d\n", f->exit_code);
-    Die();
+  // Check if deprecated exit_code MSan flag is set.
+  if (f->exit_code != -1) {
+    if (Verbosity())
+      Printf("MSAN_OPTIONS=exit_code is deprecated! "
+             "Please use MSAN_OPTIONS=exitcode instead.\n");
+    CommonFlags cf;
+    cf.CopyFrom(*common_flags());
+    cf.exitcode = f->exit_code;
+    OverrideCommonFlags(cf);
   }
+
+  // Check flag values:
   if (f->origin_history_size < 0 ||
       f->origin_history_size > Origin::kMaxDepth) {
     Printf(
@@ -199,9 +223,9 @@ void GetStackTrace(BufferedStackTrace *stack, uptr max_s, uptr pc, uptr bp,
   if (!t || !StackTrace::WillUseFastUnwind(request_fast_unwind)) {
     // Block reports from our interceptors during _Unwind_Backtrace.
     SymbolizerScope sym_scope;
-    return stack->Unwind(max_s, pc, bp, 0, 0, 0, request_fast_unwind);
+    return stack->Unwind(max_s, pc, bp, nullptr, 0, 0, request_fast_unwind);
   }
-  stack->Unwind(max_s, pc, bp, 0, t->stack_top(), t->stack_bottom(),
+  stack->Unwind(max_s, pc, bp, nullptr, t->stack_top(), t->stack_bottom(),
                 request_fast_unwind);
 }
 
@@ -281,7 +305,7 @@ u32 ChainOrigin(u32 id, StackTrace *stack) {
   return chained.raw_id();
 }
 
-}  // namespace __msan
+} // namespace __msan
 
 // Interface.
 
@@ -351,17 +375,16 @@ void __msan_init() {
   msan_init_is_running = 1;
   SanitizerToolName = "MemorySanitizer";
 
-  SetDieCallback(MsanDie);
   InitTlsSize();
 
+  CacheBinaryName();
   InitializeFlags();
+
   __sanitizer_set_report_path(common_flags()->log_path);
 
   InitializeInterceptors();
   InstallAtExitHandler(); // Needs __cxa_atexit interceptor.
 
-  if (MSAN_REPLACE_OPERATORS_NEW_AND_DELETE)
-    ReplaceOperatorsNewAndDelete();
   DisableCoreDumperIfNecessary();
   if (StackSizeIsUnlimited()) {
     VPrintf(1, "Unlimited stack, doing reexec\n");
@@ -374,7 +397,7 @@ void __msan_init() {
   __msan_clear_on_return();
   if (__msan_get_track_origins())
     VPrintf(1, "msan_track_origins\n");
-  if (!InitShadow(/* map_shadow */ true, __msan_get_track_origins())) {
+  if (!InitShadow(__msan_get_track_origins())) {
     Printf("FATAL: MemorySanitizer can not mmap the shadow memory.\n");
     Printf("FATAL: Make sure to compile with -fPIE and to link with -pie.\n");
     Printf("FATAL: Disabling ASLR is known to cause this error.\n");
@@ -390,18 +413,20 @@ void __msan_init() {
 
   MsanTSDInit(MsanTSDDtor);
 
-  MsanThread *main_thread = MsanThread::Create(0, 0);
+  MsanAllocatorInit();
+
+  MsanThread *main_thread = MsanThread::Create(nullptr, nullptr);
   SetCurrentThread(main_thread);
   main_thread->ThreadStart();
+
+#if MSAN_CONTAINS_UBSAN
+  __ubsan::InitAsPlugin();
+#endif
 
   VPrintf(1, "MemorySanitizer init done\n");
 
   msan_init_is_running = 0;
   msan_inited = 1;
-}
-
-void __msan_set_exit_code(int exit_code) {
-  flags()->exit_code = exit_code;
 }
 
 void __msan_set_keep_going(int keep_going) {
@@ -490,7 +515,7 @@ void __msan_partial_poison(const void* data, void* shadow, uptr size) {
   internal_memcpy((void*)MEM_TO_SHADOW((uptr)data), shadow, size);
 }
 
-void __msan_load_unpoisoned(void *src, uptr size, void *dst) {
+void __msan_load_unpoisoned(const void *src, uptr size, void *dst) {
   internal_memcpy(dst, src, size);
   __msan_unpoison(dst, size);
 }
@@ -598,7 +623,7 @@ void __sanitizer_unaligned_store64(uu64 *p, u64 x) {
 }
 
 void __msan_set_death_callback(void (*callback)(void)) {
-  death_callback = callback;
+  SetUserDieCallback(callback);
 }
 
 #if !SANITIZER_SUPPORTS_WEAK_HOOKS
@@ -614,4 +639,4 @@ void __sanitizer_print_stack_trace() {
   GET_FATAL_STACK_TRACE_PC_BP(StackTrace::GetCurrentPc(), GET_CURRENT_FRAME());
   stack.Print();
 }
-}  // extern "C"
+} // extern "C"

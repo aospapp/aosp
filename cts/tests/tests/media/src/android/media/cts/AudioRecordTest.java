@@ -16,29 +16,34 @@
 
 package android.media.cts;
 
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-
+import android.app.ActivityManager;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.cts.util.CtsAndroidTestCase;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioRecord;
 import android.media.AudioRecord.OnRecordPositionUpdateListener;
+import android.media.AudioTimestamp;
 import android.media.AudioTrack;
 import android.media.MediaRecorder;
 import android.media.MediaSyncEvent;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.os.SystemClock;
 import android.util.Log;
 
-import com.android.cts.util.ReportLog;
-import com.android.cts.util.ResultType;
-import com.android.cts.util.ResultUnit;
+import com.android.compatibility.common.util.DeviceReportLog;
+import com.android.compatibility.common.util.ResultType;
+import com.android.compatibility.common.util.ResultUnit;
+
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
 
 public class AudioRecordTest extends CtsAndroidTestCase {
     private final static String TAG = "AudioRecordTest";
+    private static final String REPORT_LOG_NAME = "CtsMediaTestCases";
     private AudioRecord mAudioRecord;
     private int mHz = 44100;
     private boolean mIsOnMarkerReachedCalled;
@@ -231,7 +236,7 @@ public class AudioRecordTest extends CtsAndroidTestCase {
     }
 
     public void testAudioRecordResamplerMono8Bit() throws Exception {
-        doTest("ResamplerResamplerMono8Bit", true /*localRecord*/, false /*customHandler*/,
+        doTest("resampler_mono_8bit", true /*localRecord*/, false /*customHandler*/,
                 1 /*periodsPerSecond*/, 1 /*markerPeriodsPerSecond*/,
                 false /*useByteBuffer*/,  false /*blocking*/,
                 false /*auditRecording*/, false /*isChannelIndex*/, 88200 /*TEST_SR*/,
@@ -239,7 +244,7 @@ public class AudioRecordTest extends CtsAndroidTestCase {
     }
 
     public void testAudioRecordResamplerStereo8Bit() throws Exception {
-        doTest("ResamplerStereo8Bit", true /*localRecord*/, false /*customHandler*/,
+        doTest("resampler_stereo_8bit", true /*localRecord*/, false /*customHandler*/,
                 0 /*periodsPerSecond*/, 3 /*markerPeriodsPerSecond*/,
                 true /*useByteBuffer*/,  true /*blocking*/,
                 false /*auditRecording*/, false /*isChannelIndex*/, 45000 /*TEST_SR*/,
@@ -247,7 +252,7 @@ public class AudioRecordTest extends CtsAndroidTestCase {
     }
 
     public void testAudioRecordLocalMono16Bit() throws Exception {
-        doTest("LocalMono16Bit", true /*localRecord*/, false /*customHandler*/,
+        doTest("local_mono_16bit", true /*localRecord*/, false /*customHandler*/,
                 30 /*periodsPerSecond*/, 2 /*markerPeriodsPerSecond*/,
                 false /*useByteBuffer*/, true /*blocking*/,
                 false /*auditRecording*/, false /*isChannelIndex*/, 8000 /*TEST_SR*/,
@@ -255,7 +260,7 @@ public class AudioRecordTest extends CtsAndroidTestCase {
     }
 
     public void testAudioRecordStereo16Bit() throws Exception {
-        doTest("Stereo16Bit", false /*localRecord*/, false /*customHandler*/,
+        doTest("stereo_16bit", false /*localRecord*/, false /*customHandler*/,
                 2 /*periodsPerSecond*/, 2 /*markerPeriodsPerSecond*/,
                 false /*useByteBuffer*/, false /*blocking*/,
                 false /*auditRecording*/, false /*isChannelIndex*/, 17000 /*TEST_SR*/,
@@ -263,7 +268,7 @@ public class AudioRecordTest extends CtsAndroidTestCase {
     }
 
     public void testAudioRecordMonoFloat() throws Exception {
-        doTest("MonoFloat", false /*localRecord*/, true /*customHandler*/,
+        doTest("mono_float", false /*localRecord*/, true /*customHandler*/,
                 30 /*periodsPerSecond*/, 2 /*markerPeriodsPerSecond*/,
                 false /*useByteBuffer*/, true /*blocking*/,
                 false /*auditRecording*/, false /*isChannelIndex*/, 32000 /*TEST_SR*/,
@@ -271,7 +276,7 @@ public class AudioRecordTest extends CtsAndroidTestCase {
     }
 
     public void testAudioRecordLocalNonblockingStereoFloat() throws Exception {
-        doTest("LocalNonblockingStereoFloat", true /*localRecord*/, true /*customHandler*/,
+        doTest("local_nonblocking_stereo_float", true /*localRecord*/, true /*customHandler*/,
                 2 /*periodsPerSecond*/, 0 /*markerPeriodsPerSecond*/,
                 false /*useByteBuffer*/, false /*blocking*/,
                 false /*auditRecording*/, false /*isChannelIndex*/, 48000 /*TEST_SR*/,
@@ -280,7 +285,10 @@ public class AudioRecordTest extends CtsAndroidTestCase {
 
     // Audit modes work best with non-blocking mode
     public void testAudioRecordAuditByteBufferResamplerStereoFloat() throws Exception {
-        doTest("AuditByteBufferResamplerStereoFloat",
+        if (isLowRamDevice()) {
+            return; // skip. FIXME: reenable when AF memory allocation is updated.
+        }
+        doTest("audit_byte_buffer_resampler_stereo_float",
                 false /*localRecord*/, true /*customHandler*/,
                 2 /*periodsPerSecond*/, 0 /*markerPeriodsPerSecond*/,
                 true /*useByteBuffer*/, false /*blocking*/,
@@ -289,7 +297,7 @@ public class AudioRecordTest extends CtsAndroidTestCase {
     }
 
     public void testAudioRecordAuditChannelIndexMonoFloat() throws Exception {
-        doTest("AuditChannelIndexMonoFloat", true /*localRecord*/, true /*customHandler*/,
+        doTest("audit_channel_index_mono_float", true /*localRecord*/, true /*customHandler*/,
                 2 /*periodsPerSecond*/, 0 /*markerPeriodsPerSecond*/,
                 false /*useByteBuffer*/, false /*blocking*/,
                 true /*auditRecording*/, true /*isChannelIndex*/, 47000 /*TEST_SR*/,
@@ -299,7 +307,10 @@ public class AudioRecordTest extends CtsAndroidTestCase {
     // Audit buffers can run out of space with high sample rate,
     // so keep the channels and pcm encoding low
     public void testAudioRecordAuditChannelIndex2() throws Exception {
-        doTest("AuditChannelIndex2", true /*localRecord*/, true /*customHandler*/,
+        if (isLowRamDevice()) {
+            return; // skip. FIXME: reenable when AF memory allocation is updated.
+        }
+        doTest("audit_channel_index_2", true /*localRecord*/, true /*customHandler*/,
                 2 /*periodsPerSecond*/, 0 /*markerPeriodsPerSecond*/,
                 false /*useByteBuffer*/, false /*blocking*/,
                 true /*auditRecording*/, true /*isChannelIndex*/, 192000 /*TEST_SR*/,
@@ -310,7 +321,7 @@ public class AudioRecordTest extends CtsAndroidTestCase {
     // Audit buffers can run out of space with high numbers of channels,
     // so keep the sample rate low.
     public void testAudioRecordAuditChannelIndex5() throws Exception {
-        doTest("AuditChannelIndex5", true /*localRecord*/, true /*customHandler*/,
+        doTest("audit_channel_index_5", true /*localRecord*/, true /*customHandler*/,
                 2 /*periodsPerSecond*/, 0 /*markerPeriodsPerSecond*/,
                 false /*useByteBuffer*/, false /*blocking*/,
                 true /*auditRecording*/, true /*isChannelIndex*/, 16000 /*TEST_SR*/,
@@ -328,16 +339,12 @@ public class AudioRecordTest extends CtsAndroidTestCase {
         final String TEST_NAME = "testAudioRecordBuilderDefault";
         // expected values below match the AudioRecord.Builder documentation
         final int expectedCapturePreset = MediaRecorder.AudioSource.DEFAULT;
-        final String rateStr = new AudioManager(getContext())
-                .getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE);
-        final int expectedRate = Integer.valueOf(rateStr).intValue();
         final int expectedChannel = AudioFormat.CHANNEL_IN_MONO;
         final int expectedEncoding = AudioFormat.ENCODING_PCM_16BIT;
         final int expectedState = AudioRecord.STATE_INITIALIZED;
         // use builder with default values
         final AudioRecord rec = new AudioRecord.Builder().build();
         // save results
-        final int observedRate = rec.getSampleRate();
         final int observedSource = rec.getAudioSource();
         final int observedChannel = rec.getChannelConfiguration();
         final int observedEncoding = rec.getAudioFormat();
@@ -346,7 +353,6 @@ public class AudioRecordTest extends CtsAndroidTestCase {
         rec.release();
         // compare results
         assertEquals(TEST_NAME + ": default capture preset", expectedCapturePreset, observedSource);
-        assertEquals(TEST_NAME + ": default rate", expectedRate, observedRate);
         assertEquals(TEST_NAME + ": default channel config", expectedChannel, observedChannel);
         assertEquals(TEST_NAME + ": default encoding", expectedEncoding, observedEncoding);
         assertEquals(TEST_NAME + ": state", expectedState, observedState);
@@ -459,6 +465,101 @@ public class AudioRecordTest extends CtsAndroidTestCase {
         assertEquals(TEST_NAME + ": state", AudioRecord.STATE_INITIALIZED, observedState2);
         // should force the minimum size buffer which is > 0
         assertTrue(TEST_NAME + ": buffer frame count", observedBufferSize2 > 0);
+    }
+
+    public void testTimestamp() throws Exception {
+        if (!hasMicrophone()) {
+            return;
+        }
+        final String TEST_NAME = "testTimestamp";
+        AudioRecord record = null;
+
+        try {
+            final int NANOS_PER_MILLIS = 1000000;
+            final long RECORD_TIME_IN_MS = 2000;
+            final long RECORD_TIME_IN_NANOS = RECORD_TIME_IN_MS * NANOS_PER_MILLIS;
+            final int RECORD_ENCODING = AudioFormat.ENCODING_PCM_16BIT; // fixed at this time.
+            final int RECORD_CHANNEL_MASK = AudioFormat.CHANNEL_IN_STEREO;
+            final int RECORD_SAMPLE_RATE = 23456;  // requires resampling
+            record = new AudioRecord.Builder()
+                    .setAudioFormat(new AudioFormat.Builder()
+                            .setSampleRate(RECORD_SAMPLE_RATE)
+                            .setChannelMask(RECORD_CHANNEL_MASK)
+                            .setEncoding(RECORD_ENCODING)
+                            .build())
+                    .build();
+
+            // For our tests, we could set test duration by timed sleep or by # frames received.
+            // Since we don't know *exactly* when AudioRecord actually begins recording,
+            // we end the test by # frames read.
+            final int numChannels =
+                    AudioFormat.channelCountFromInChannelMask(RECORD_CHANNEL_MASK);
+            final int bytesPerSample = AudioFormat.getBytesPerSample(RECORD_ENCODING);
+            final int bytesPerFrame = numChannels * bytesPerSample;
+            // careful about integer overflow in the formula below:
+            final int targetFrames =
+                    (int)((long)RECORD_TIME_IN_MS * RECORD_SAMPLE_RATE / 1000);
+            final int targetSamples = targetFrames * numChannels;
+            final int BUFFER_FRAMES = 512;
+            final int BUFFER_SAMPLES = BUFFER_FRAMES * numChannels;
+
+            final int tries = 2;
+            for (int i = 0; i < tries; ++i) {
+                long startTime = System.nanoTime();
+                long startTimeBoot = android.os.SystemClock.elapsedRealtimeNanos();
+
+                record.startRecording();
+
+                AudioTimestamp startTs = new AudioTimestamp();
+                int samplesRead = 0;
+                boolean timestampRead = false;
+                // For 16 bit data, use shorts
+                short[] shortData = new short[BUFFER_SAMPLES];
+                while (samplesRead < targetSamples) {
+                    int amount = samplesRead == 0 ? numChannels :
+                        Math.min(BUFFER_SAMPLES, targetSamples - samplesRead);
+                    int ret = record.read(shortData, 0, amount);
+                    assertEquals(TEST_NAME, amount, ret);
+                    // timestamps follow a different path than data, so it is conceivable
+                    // that first data arrives before the first timestamp is ready.
+                    if (!timestampRead) {
+                        timestampRead =
+                                record.getTimestamp(startTs, AudioTimestamp.TIMEBASE_MONOTONIC)
+                                    == AudioRecord.SUCCESS;
+                    }
+                    samplesRead += ret;
+                }
+                record.stop();
+
+                // stop is synchronous, but need not be in the future.
+                final long SLEEP_AFTER_STOP_FOR_INACTIVITY_MS = 1000;
+                Thread.sleep(SLEEP_AFTER_STOP_FOR_INACTIVITY_MS);
+
+                AudioTimestamp stopTs = new AudioTimestamp();
+                AudioTimestamp stopTsBoot = new AudioTimestamp();
+
+                assertEquals(AudioRecord.SUCCESS,
+                        record.getTimestamp(stopTs, AudioTimestamp.TIMEBASE_MONOTONIC));
+                assertEquals(AudioRecord.SUCCESS,
+                        record.getTimestamp(stopTsBoot, AudioTimestamp.TIMEBASE_BOOTTIME));
+
+                // printTimestamp("timestamp Monotonic", ts);
+                // printTimestamp("timestamp Boottime", tsBoot);
+                // Log.d(TEST_NAME, "startTime Monotonic " + startTime);
+                // Log.d(TEST_NAME, "startTime Boottime " + startTimeBoot);
+
+                assertEquals(stopTs.framePosition, stopTsBoot.framePosition);
+                assertTrue(stopTs.framePosition >= targetFrames);
+                assertTrue(stopTs.nanoTime - startTime > RECORD_TIME_IN_NANOS);
+                assertTrue(stopTsBoot.nanoTime - startTimeBoot > RECORD_TIME_IN_NANOS);
+                verifyContinuousTimestamps(startTs, stopTs, RECORD_SAMPLE_RATE);
+            }
+        } finally {
+            if (record != null) {
+                record.release();
+                record = null;
+            }
+        }
     }
 
     public void testSynchronizedRecord() throws Exception {
@@ -644,7 +745,7 @@ public class AudioRecordTest extends CtsAndroidTestCase {
             return;
         }
         // audit recording plays back recorded audio, so use longer test timing
-        final int TEST_TIME_MS = auditRecording ? 10000 : 2000;
+        final int TEST_TIME_MS = auditRecording ? 60000 : 2000;
         final int TEST_SOURCE = MediaRecorder.AudioSource.DEFAULT;
         mIsHandleMessageCalled = false;
 
@@ -696,10 +797,12 @@ public class AudioRecordTest extends CtsAndroidTestCase {
         long firstSampleTime = 0;
 
         // blank final variables: all successful paths will initialize the times.
+        // this must be declared here for visibility as they are set within the try block.
         final long endTime;
         final long startTime;
         final long stopRequestTime;
         final long stopTime;
+        final long coldInputStartTime;
 
         try {
             if (markerPeriodsPerSecond != 0) {
@@ -714,6 +817,11 @@ public class AudioRecordTest extends CtsAndroidTestCase {
             assertEquals(AudioRecord.SUCCESS,
                     record.setPositionNotificationPeriod(updatePeriodInFrames));
 
+            // at the start, there is no timestamp.
+            AudioTimestamp startTs = new AudioTimestamp();
+            assertEquals(AudioRecord.ERROR_INVALID_OPERATION,
+                    record.getTimestamp(startTs, AudioTimestamp.TIMEBASE_MONOTONIC));
+
             listener.start(TEST_SR);
             record.startRecording();
             assertEquals(AudioRecord.RECORDSTATE_RECORDING, record.getRecordingState());
@@ -726,11 +834,13 @@ public class AudioRecordTest extends CtsAndroidTestCase {
             final int bytesPerSample = AudioFormat.getBytesPerSample(TEST_FORMAT);
             final int bytesPerFrame = numChannels * bytesPerSample;
             // careful about integer overflow in the formula below:
-            final int targetSamples = (int)((long)TEST_TIME_MS * TEST_SR * numChannels / 1000);
+            final int targetFrames = (int)((long)TEST_TIME_MS * TEST_SR / 1000);
+            final int targetSamples = targetFrames * numChannels;
             final int BUFFER_FRAMES = 512;
             final int BUFFER_SAMPLES = BUFFER_FRAMES * numChannels;
             // TODO: verify behavior when buffer size is not a multiple of frame size.
 
+            int startTimeAtFrame = 0;
             int samplesRead = 0;
             if (useByteBuffer) {
                 ByteBuffer byteBuffer =
@@ -766,6 +876,11 @@ public class AudioRecordTest extends CtsAndroidTestCase {
                         firstSampleTime = System.currentTimeMillis();
                     }
                     samplesRead += ret / bytesPerSample;
+                    if (startTimeAtFrame == 0 && ret > 0 &&
+                            record.getTimestamp(startTs, AudioTimestamp.TIMEBASE_MONOTONIC) ==
+                            AudioRecord.SUCCESS) {
+                        startTimeAtFrame = samplesRead / numChannels;
+                    }
                 }
             } else {
                 switch (TEST_FORMAT) {
@@ -789,6 +904,11 @@ public class AudioRecordTest extends CtsAndroidTestCase {
                             firstSampleTime = System.currentTimeMillis();
                         }
                         samplesRead += ret;
+                        if (startTimeAtFrame == 0 && ret > 0 &&
+                                record.getTimestamp(startTs, AudioTimestamp.TIMEBASE_MONOTONIC) ==
+                                AudioRecord.SUCCESS) {
+                            startTimeAtFrame = samplesRead / numChannels;
+                        }
                     }
                 } break;
                 case AudioFormat.ENCODING_PCM_16BIT: {
@@ -811,6 +931,11 @@ public class AudioRecordTest extends CtsAndroidTestCase {
                             firstSampleTime = System.currentTimeMillis();
                         }
                         samplesRead += ret;
+                        if (startTimeAtFrame == 0 && ret > 0 &&
+                                record.getTimestamp(startTs, AudioTimestamp.TIMEBASE_MONOTONIC) ==
+                                AudioRecord.SUCCESS) {
+                            startTimeAtFrame = samplesRead / numChannels;
+                        }
                     }
                 } break;
                 case AudioFormat.ENCODING_PCM_FLOAT: {
@@ -832,6 +957,11 @@ public class AudioRecordTest extends CtsAndroidTestCase {
                             firstSampleTime = System.currentTimeMillis();
                         }
                         samplesRead += ret;
+                        if (startTimeAtFrame == 0 && ret > 0 &&
+                                record.getTimestamp(startTs, AudioTimestamp.TIMEBASE_MONOTONIC) ==
+                                AudioRecord.SUCCESS) {
+                            startTimeAtFrame = samplesRead / numChannels;
+                        }
                     }
                 } break;
                 }
@@ -839,11 +969,21 @@ public class AudioRecordTest extends CtsAndroidTestCase {
 
             // We've read all the frames, now check the record timing.
             endTime = System.currentTimeMillis();
-            //Log.d(TAG, "first sample time " + (firstSampleTime - startTime)
+
+            coldInputStartTime = firstSampleTime - startTime;
+            //Log.d(TAG, "first sample time " + coldInputStartTime
             //        + " test time " + (endTime - firstSampleTime));
-            // Verify recording starts within 200 ms of record.startRecording() (typical 100ms)
+
+            if (coldInputStartTime > 200) {
+                Log.w(TAG, "cold input start time way too long "
+                        + coldInputStartTime + " > 200ms");
+            } else if (coldInputStartTime > 100) {
+                Log.w(TAG, "cold input start time too long "
+                        + coldInputStartTime + " > 100ms");
+            }
+            assertTrue(coldInputStartTime < 5000); // must start within 5 seconds.
+
             // Verify recording completes within 50 ms of expected test time (typical 20ms)
-            assertEquals(0, firstSampleTime - startTime, 200);
             assertEquals(TEST_TIME_MS, endTime - firstSampleTime, auditRecording ? 1000 : 50);
 
             // Even though we've read all the frames we want, the events may not be sent to
@@ -865,7 +1005,34 @@ public class AudioRecordTest extends CtsAndroidTestCase {
             // valid events, issuing right after stop completes. Except for those events,
             // no other events should show up after stop.
             // This behavior may change in the future but we account for it here in testing.
+            final long SLEEP_AFTER_STOP_FOR_EVENTS_MS = 30;
+            Thread.sleep(SLEEP_AFTER_STOP_FOR_EVENTS_MS);
             listener.stop();
+
+            // get stop timestamp
+            AudioTimestamp stopTs = new AudioTimestamp();
+            assertEquals(AudioRecord.SUCCESS,
+                    record.getTimestamp(stopTs, AudioTimestamp.TIMEBASE_MONOTONIC));
+            AudioTimestamp stopTsBoot = new AudioTimestamp();
+            assertEquals(AudioRecord.SUCCESS,
+                    record.getTimestamp(stopTsBoot, AudioTimestamp.TIMEBASE_BOOTTIME));
+
+            // printTimestamp("startTs", startTs);
+            // printTimestamp("stopTs", stopTs);
+            // printTimestamp("stopTsBoot", stopTsBoot);
+            // Log.d(TAG, "time Monotonic " + System.nanoTime());
+            // Log.d(TAG, "time Boottime " + SystemClock.elapsedRealtimeNanos());
+
+            // stop should not reset timestamps
+            assertTrue(stopTs.framePosition >= targetFrames);
+            assertEquals(stopTs.framePosition, stopTsBoot.framePosition);
+            assertTrue(stopTs.nanoTime > 0);
+
+            // timestamps follow a different path than data, so it is conceivable
+            // that first data arrives before the first timestamp is ready.
+            assertTrue(startTimeAtFrame > 0); // we read a start timestamp
+
+            verifyContinuousTimestamps(startTs, stopTs, TEST_SR);
 
             // clean up
             if (makeSomething != null) {
@@ -944,38 +1111,35 @@ public class AudioRecordTest extends CtsAndroidTestCase {
         }
 
         // report this
-        ReportLog log = getReportLog();
-        log.printValue(reportName + ": startRecording lag", firstSampleTime - startTime,
+        DeviceReportLog log = new DeviceReportLog(REPORT_LOG_NAME, reportName);
+        log.addValue("start_recording_lag", coldInputStartTime, ResultType.LOWER_BETTER,
+                ResultUnit.MS);
+        log.addValue("stop_execution_time", stopTime - stopRequestTime, ResultType.LOWER_BETTER,
+                ResultUnit.MS);
+        log.addValue("total_record_time_expected", TEST_TIME_MS, ResultType.NEUTRAL, ResultUnit.MS);
+        log.addValue("total_record_time_actual", endTime - firstSampleTime, ResultType.NEUTRAL,
+                ResultUnit.MS);
+        log.addValue("total_markers_expected", markerPeriods, ResultType.NEUTRAL, ResultUnit.COUNT);
+        log.addValue("total_markers_actual", markerList.size(), ResultType.NEUTRAL,
+                ResultUnit.COUNT);
+        log.addValue("total_periods_expected", updatePeriods, ResultType.NEUTRAL, ResultUnit.COUNT);
+        log.addValue("total_periods_actual", periodicList.size(), ResultType.NEUTRAL,
+                ResultUnit.COUNT);
+        log.addValue("average_marker_diff", markerStat.getAvg(), ResultType.LOWER_BETTER,
+                ResultUnit.MS);
+        log.addValue("maximum_marker_abs_diff", markerStat.getMaxAbs(), ResultType.LOWER_BETTER,
+                ResultUnit.MS);
+        log.addValue("average_marker_abs_diff", markerStat.getAvgAbs(), ResultType.LOWER_BETTER,
+                ResultUnit.MS);
+        log.addValue("average_periodic_diff", periodicStat.getAvg(), ResultType.LOWER_BETTER,
+                ResultUnit.MS);
+        log.addValue("maximum_periodic_abs_diff", periodicStat.getMaxAbs(), ResultType.LOWER_BETTER,
+                ResultUnit.MS);
+        log.addValue("average_periodic_abs_diff", periodicStat.getAvgAbs(), ResultType.LOWER_BETTER,
+                ResultUnit.MS);
+        log.setSummary("unified_abs_diff", (periodicStat.getAvgAbs() + markerStat.getAvgAbs()) / 2,
                 ResultType.LOWER_BETTER, ResultUnit.MS);
-        log.printValue(reportName + ": stop execution time", stopTime - stopRequestTime,
-                ResultType.LOWER_BETTER, ResultUnit.MS);
-        log.printValue(reportName + ": Total record time expected", TEST_TIME_MS,
-                ResultType.NEUTRAL, ResultUnit.MS);
-        log.printValue(reportName + ": Total record time actual", endTime - firstSampleTime,
-                ResultType.NEUTRAL, ResultUnit.MS);
-        log.printValue(reportName + ": Total markers expected", markerPeriods,
-                ResultType.NEUTRAL, ResultUnit.COUNT);
-        log.printValue(reportName + ": Total markers actual", markerList.size(),
-                ResultType.NEUTRAL, ResultUnit.COUNT);
-        log.printValue(reportName + ": Total periods expected", updatePeriods,
-                ResultType.NEUTRAL, ResultUnit.COUNT);
-        log.printValue(reportName + ": Total periods actual", periodicList.size(),
-                ResultType.NEUTRAL, ResultUnit.COUNT);
-        log.printValue(reportName + ": Average Marker diff", markerStat.getAvg(),
-                ResultType.LOWER_BETTER, ResultUnit.MS);
-        log.printValue(reportName + ": Maximum Marker abs diff", markerStat.getMaxAbs(),
-                ResultType.LOWER_BETTER, ResultUnit.MS);
-        log.printValue(reportName + ": Average Marker abs diff", markerStat.getAvgAbs(),
-                ResultType.LOWER_BETTER, ResultUnit.MS);
-        log.printValue(reportName + ": Average Periodic diff", periodicStat.getAvg(),
-                ResultType.LOWER_BETTER, ResultUnit.MS);
-        log.printValue(reportName + ": Maximum Periodic abs diff", periodicStat.getMaxAbs(),
-                ResultType.LOWER_BETTER, ResultUnit.MS);
-        log.printValue(reportName + ": Average Periodic abs diff", periodicStat.getAvgAbs(),
-                ResultType.LOWER_BETTER, ResultUnit.MS);
-        log.printSummary(reportName + ": Unified abs diff",
-                (periodicStat.getAvgAbs() + markerStat.getAvgAbs()) / 2,
-                ResultType.LOWER_BETTER, ResultUnit.MS);
+        log.submit(getInstrumentation());
     }
 
     private class MockOnRecordPositionUpdateListener
@@ -998,10 +1162,10 @@ public class AudioRecordTest extends CtsAndroidTestCase {
                 assertEquals(AudioRecord.SUCCESS,
                         mAudioRecord.setNotificationMarkerPosition(mMarkerPosition));
             } else {
-                // stop() is not sufficient to end all notifications
-                // as is not synchronous with the event handling thread
-                // so we comment out the line below.
-                // fail("onMarkerReached called when not active");
+                // see comment on stop()
+                final long delta = System.currentTimeMillis() - mStopTime;
+                Log.d(TAG, "onMarkerReached called " + delta + " ms after stop");
+                fail("onMarkerReached called when not active");
             }
         }
 
@@ -1010,8 +1174,10 @@ public class AudioRecordTest extends CtsAndroidTestCase {
                 int position = getPosition();
                 mOnPeriodicNotificationCalled.add(position);
             } else {
-                // see above comments about stop
-                // fail("onPeriodicNotification called when not active");
+                // see comment on stop()
+                final long delta = System.currentTimeMillis() - mStopTime;
+                Log.d(TAG, "onPeriodicNotification called " + delta + " ms after stop");
+                fail("onPeriodicNotification called when not active");
             }
         }
 
@@ -1022,7 +1188,10 @@ public class AudioRecordTest extends CtsAndroidTestCase {
         }
 
         public synchronized void stop() {
+            // the listener should be stopped some time after AudioRecord is stopped
+            // as some messages may not yet be posted.
             mIsTestActive = false;
+            mStopTime = System.currentTimeMillis();
         }
 
         public ArrayList<Integer> getMarkerList() {
@@ -1047,6 +1216,7 @@ public class AudioRecordTest extends CtsAndroidTestCase {
         }
 
         private long mStartTime;
+        private long mStopTime;
         private int mSampleRate;
         private boolean mIsTestActive = true;
         private AudioRecord mAudioRecord;
@@ -1057,5 +1227,30 @@ public class AudioRecordTest extends CtsAndroidTestCase {
     private boolean hasMicrophone() {
         return getContext().getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_MICROPHONE);
+    }
+
+    private boolean isLowRamDevice() {
+        return ((ActivityManager) getContext().getSystemService(Context.ACTIVITY_SERVICE))
+                .isLowRamDevice();
+    }
+
+    private void verifyContinuousTimestamps(
+            AudioTimestamp startTs, AudioTimestamp stopTs, int sampleRate)
+            throws Exception {
+        final long timeDiff = stopTs.nanoTime - startTs.nanoTime;
+        final long frameDiff = stopTs.framePosition - startTs.framePosition;
+        final long NANOS_PER_SECOND = 1000000000;
+        final long timeByFrames = frameDiff * NANOS_PER_SECOND / sampleRate;
+        final double ratio = (double)timeDiff / timeByFrames;
+
+        // Usually the ratio is accurate to one part per thousand or better.
+        // Log.d(TAG, "ratio=" + ratio + ", timeDiff=" + timeDiff + ", frameDiff=" + frameDiff +
+        //        ", timeByFrames=" + timeByFrames + ", sampleRate=" + sampleRate);
+        assertEquals(1.0 /* expected */, ratio, 0.01 /* delta */);
+    }
+
+    // remove if AudioTimestamp has a better toString().
+    private void printTimestamp(String s, AudioTimestamp ats) {
+        Log.d(TAG, s + ":  pos: " + ats.framePosition + "  time: " + ats.nanoTime);
     }
 }

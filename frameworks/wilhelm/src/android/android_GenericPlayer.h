@@ -46,14 +46,14 @@ class GenericPlayer : public AHandler
 public:
 
     enum {
-        kEventPrepared                = 'prep',
-        kEventHasVideoSize            = 'vsiz',
-        kEventPrefetchStatusChange    = 'pfsc',
-        kEventPrefetchFillLevelUpdate = 'pflu',
-        kEventEndOfStream             = 'eos',
-        kEventChannelCount            = 'ccnt',
-        kEventPlay                    = 'play', // SL_PLAYEVENT_*
-        kEventErrorAfterPrepare       = 'easp', // error after successful prepare
+        kEventPrepared                = 0,
+        kEventHasVideoSize            = 1,
+        kEventPrefetchStatusChange    = 2,
+        kEventPrefetchFillLevelUpdate = 3,
+        kEventEndOfStream             = 4,
+        kEventChannelCount            = 5,
+        kEventPlay                    = 6, // SL_PLAYEVENT_*
+        kEventErrorAfterPrepare       = 7, // error after successful prepare
     };
 
 
@@ -101,20 +101,20 @@ protected:
     // Constants used to identify the messages in this player's AHandler message loop
     //   in onMessageReceived()
     enum {
-        kWhatPrepare         = 'prep',  // start preparation
-        kWhatNotif           = 'noti',  // send a notification to client
-        kWhatPlay            = 'play',  // start player
-        kWhatPause           = 'paus',  // pause or stop player
-        kWhatSeek            = 'seek',  // request a seek to specified position
-        kWhatSeekComplete    = 'skcp',  // seek request has completed
-        kWhatLoop            = 'loop',  // set the player's looping status
-        kWhatVolumeUpdate    = 'volu',  // set the channel gains to specified values
-        kWhatBufferingUpdate = 'bufu',
-        kWhatBuffUpdateThres = 'buut',
-        kWhatAttachAuxEffect = 'aaux',
-        kWhatSetAuxEffectSendLevel = 'saux',
-        kWhatSetPlayEvents   = 'spev',  // process new IPlay settings related to SL_PLAYEVENT_*
-        kWhatOneShot         = 'ones',  // deferred (non-0 timeout) handler for SL_PLAYEVENT_*
+        kWhatPrepare         = 0,  // start preparation
+        kWhatNotif           = 1,  // send a notification to client
+        kWhatPlay            = 2,  // start player
+        kWhatPause           = 3,  // pause or stop player
+        kWhatSeek            = 4,  // request a seek to specified position
+        kWhatSeekComplete    = 5,  // seek request has completed
+        kWhatLoop            = 6,  // set the player's looping status
+        kWhatVolumeUpdate    = 7,  // set the channel gains to specified values
+        kWhatBufferingUpdate = 8,
+        kWhatBuffUpdateThres = 9,
+        kWhatAttachAuxEffect = 10,
+        kWhatSetAuxEffectSendLevel = 11,
+        kWhatSetPlayEvents   = 12,  // process new IPlay settings related to SL_PLAYEVENT_*
+        kWhatOneShot         = 13,  // deferred (non-0 timeout) handler for SL_PLAYEVENT_*
         // As used here, "one-shot" is the software equivalent of a "retriggerable monostable
         // multivibrator" from electronics.  Briefly, a one-shot is a timer that can be triggered
         // to fire at some point in the future.  It is "retriggerable" because while the timer

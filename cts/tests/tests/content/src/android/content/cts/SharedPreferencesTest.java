@@ -18,8 +18,9 @@ package android.content.cts;
 
 import android.app.QueuedWork;
 import android.content.Context;
-import android.content.ContextWrapper;
 import android.content.SharedPreferences;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.os.StrictMode;
 import android.preference.PreferenceManager;
 import android.test.AndroidTestCase;
@@ -39,7 +40,6 @@ public class SharedPreferencesTest extends AndroidTestCase {
     private static final String TAG = "SharedPreferencesTest";
 
     private Context mContext;
-    private ContextWrapper mContextWrapper;
 
     private File mPrefsFile;
 
@@ -47,15 +47,17 @@ public class SharedPreferencesTest extends AndroidTestCase {
     protected void setUp() throws Exception {
         super.setUp();
         mContext = getContext();
-        mContextWrapper = new ContextWrapper(mContext);
 
         SharedPreferences prefs = getPrefs();
         prefs.edit().clear().commit();
-
-        // Duplicated from ContextImpl.java.  Not ideal, but there wasn't a better
-        // way to reach into Context{Wrapper,Impl} to ask where this file lives.
-        mPrefsFile = new File("/data/data/com.android.cts.content/shared_prefs",
-                              "com.android.cts.content_preferences.xml");
+        try {
+            ApplicationInfo applicationInfo = mContext.getPackageManager().getApplicationInfo(
+                    mContext.getPackageName(), 0);
+            mPrefsFile = new File(applicationInfo.dataDir,
+                    "shared_prefs/android.content.cts_preferences.xml");
+        } catch (PackageManager.NameNotFoundException e) {
+            throw new IllegalStateException(e);
+        }
         mPrefsFile.delete();
     }
 

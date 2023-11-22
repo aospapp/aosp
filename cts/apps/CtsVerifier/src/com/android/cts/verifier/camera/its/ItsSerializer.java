@@ -711,11 +711,11 @@ public class ItsSerializer {
 
     @SuppressWarnings("unchecked")
     public static List<CaptureRequest.Builder> deserializeRequestList(
-            CameraDevice device, JSONObject jsonObjTop)
+            CameraDevice device, JSONObject jsonObjTop, String requestKey)
             throws ItsException {
         try {
             List<CaptureRequest.Builder> requests = null;
-            JSONArray jsonReqs = jsonObjTop.getJSONArray("captureRequests");
+            JSONArray jsonReqs = jsonObjTop.getJSONArray(requestKey);
             requests = new LinkedList<CaptureRequest.Builder>();
             for (int i = 0; i < jsonReqs.length(); i++) {
                 CaptureRequest.Builder templateReq = device.createCaptureRequest(

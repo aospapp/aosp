@@ -43,7 +43,7 @@ E.g. <a href='rs_value_types.html#android_rs:float4'>float4</a>, <a href='rs_val
 </p>
 
 <p> To create vector literals, use the vector type followed by the values enclosed
-between parentheses, e.g. <code>(float3)(1.0f, 2.0f, 3.0f)</code>.
+between curly braces, e.g. <code>(float3){1.0f, 2.0f, 3.0f}</code>.
 </p>
 
 <p> Entries of a vector can be accessed using different naming styles.
@@ -611,7 +611,7 @@ elements, and scripts.  Most of these object are created using the Java RenderSc
   </tr>
 </tbody></table>
 <h2>Conversion Functions</h2>
-<p> The functions below convert from a numerical vector type to another, of from one color
+<p> The functions below convert from a numerical vector type to another, or from one color
 representation to another.
 </p>
 <table class='jd-sumtable'><tbody>

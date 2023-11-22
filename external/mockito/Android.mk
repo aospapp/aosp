@@ -29,6 +29,7 @@ LOCAL_SRC_FILES := \
 LOCAL_JAVA_LIBRARIES := junit objenesis-host ant
 LOCAL_MODULE := mockito-host
 LOCAL_MODULE_TAGS := optional
+LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 include $(BUILD_HOST_JAVA_LIBRARY)
 
 
@@ -76,11 +77,41 @@ include $(BUILD_STATIC_JAVA_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := mockito-target
-LOCAL_STATIC_JAVA_LIBRARIES := mockito-api dexmaker dexmaker-mockmaker \
-    objenesis-target junit4-target
+LOCAL_STATIC_JAVA_LIBRARIES := mockito-target-minus-junit4 junit4-target
 LOCAL_SDK_VERSION := 10
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_STATIC_JAVA_LIBRARY)
+
+# A mockito target that doesn't pull in junit4-target. This is used to work around
+# issues caused by multiple copies of junit4 in the classpath, usually when a test
+# using mockito is run using android.test.runner.
+include $(CLEAR_VARS)
+LOCAL_MODULE := mockito-target-minus-junit4
+LOCAL_STATIC_JAVA_LIBRARIES := mockito-api dexmaker dexmaker-mockmaker objenesis-target
+LOCAL_JAVA_LIBRARIES := junit4-target
+LOCAL_SDK_VERSION := 10
+LOCAL_MODULE_TAGS := optional
+include $(BUILD_STATIC_JAVA_LIBRARY)
+
+
+###################################################################
+# Host build
+###################################################################
+
+# Builds the Mockito source code, but does not include any run-time
+# dependencies. Since host modules are not compiled against the SDK,
+# an explicit inclusion of core-junit-hostdex is needed in contrast
+# with the target module above.
+ifeq ($(HOST_OS),linux)
+include $(CLEAR_VARS)
+LOCAL_SRC_FILES := $(target_src_files)
+LOCAL_JAVA_LIBRARIES := core-junit-hostdex junit4-target-hostdex \
+    objenesis-hostdex
+LOCAL_MODULE := mockito-api-hostdex
+LOCAL_MODULE_TAGS := optional
+include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
+endif # HOST_OS == linux
+
 
 ###################################################
 # Clean up temp vars

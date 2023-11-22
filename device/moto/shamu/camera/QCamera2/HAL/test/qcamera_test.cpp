@@ -46,7 +46,6 @@
 #include <system/camera.h>
 
 #include <camera/Camera.h>
-#include <camera/ICamera.h>
 #include <camera/CameraParameters.h>
 #include <media/mediarecorder.h>
 
@@ -953,6 +952,12 @@ void CameraContext::postDataTimestamp(nsecs_t timestamp,
                                       const sp<IMemory>& dataPtr)
 {
     printf("Recording cb: %d %lld %p\n", msgType, timestamp, dataPtr.get());
+}
+
+void CameraContext::postRecordingFrameHandleTimestamp(nsecs_t, native_handle_t*) {
+}
+
+void CameraContext::recordingFrameHandleCallbackTimestamp(nsecs_t, native_handle_t*) {
 }
 
 /*===========================================================================

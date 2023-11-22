@@ -26,6 +26,8 @@
 
 #include "bt_target.h"
 #include "bt_utils.h"
+#include "stack_config.h"
+
 #if SMP_INCLUDED == TRUE
     #include "smp_int.h"
     #include "smp_api.h"
@@ -49,6 +51,7 @@
 void SMP_Init(void)
 {
     memset(&smp_cb, 0, sizeof(tSMP_CB));
+    smp_cb.smp_rsp_timer_ent = alarm_new("smp.smp_rsp_timer_ent");
 
 #if defined(SMP_INITIAL_TRACE_LEVEL)
     smp_cb.trace_level = SMP_INITIAL_TRACE_LEVEL;
@@ -60,6 +63,11 @@ void SMP_Init(void)
     smp_l2cap_if_init();
     /* initialization of P-256 parameters */
     p_256_init_curve(KEY_LENGTH_DWORDS_P256);
+
+    /* Initialize failure case for certification */
+    smp_cb.cert_failure = stack_config_get_interface()->get_pts_smp_failure_case();
+    if (smp_cb.cert_failure)
+        SMP_TRACE_ERROR ("%s PTS FAILURE MODE IN EFFECT (CASE %d)", __func__, smp_cb.cert_failure);
 }
 
 
@@ -217,6 +225,12 @@ BOOLEAN SMP_PairCancel (BD_ADDR bd_addr)
     tSMP_CB   *p_cb = &smp_cb;
     UINT8     err_code = SMP_PAIR_FAIL_UNKNOWN;
     BOOLEAN   status = FALSE;
+
+    // PTS SMP failure test cases
+    if (p_cb->cert_failure == 7)
+        err_code = SMP_PASSKEY_ENTRY_FAIL;
+    else if (p_cb->cert_failure == 8)
+        err_code = SMP_NUMERIC_COMPAR_FAIL;
 
     BTM_TRACE_EVENT ("SMP_CancelPair state=%d flag=0x%x ", p_cb->state, p_cb->flags);
     if ( (p_cb->state != SMP_STATE_IDLE)  &&

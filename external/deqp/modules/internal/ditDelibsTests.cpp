@@ -44,6 +44,8 @@
 // debase
 #include "deInt32.h"
 #include "deMath.h"
+#include "deSha1.h"
+#include "deMemory.h"
 
 // decpp
 #include "deBlockBuffer.hpp"
@@ -59,6 +61,7 @@
 #include "deStringUtil.hpp"
 #include "deSpinBarrier.hpp"
 #include "deSTLUtil.hpp"
+#include "deAppendList.hpp"
 
 namespace dit
 {
@@ -158,6 +161,8 @@ public:
 	{
 		addChild(new SelfCheckCase(m_testCtx, "int32",	"deInt32_selfTest()",	deInt32_selfTest));
 		addChild(new SelfCheckCase(m_testCtx, "math",	"deMath_selfTest()",	deMath_selfTest));
+		addChild(new SelfCheckCase(m_testCtx, "sha1",	"deSha1_selfTest()",	deSha1_selfTest));
+		addChild(new SelfCheckCase(m_testCtx, "memory",	"deMemory_selfTest()",	deMemory_selfTest));
 	}
 };
 
@@ -184,6 +189,7 @@ public:
 		addChild(new SelfCheckCase(m_testCtx, "string_util",				"de::StringUtil_selfTest()",			de::StringUtil_selfTest));
 		addChild(new SelfCheckCase(m_testCtx, "spin_barrier",				"de::SpinBarrier_selfTest()",			de::SpinBarrier_selfTest));
 		addChild(new SelfCheckCase(m_testCtx, "stl_util",					"de::STLUtil_selfTest()",				de::STLUtil_selfTest));
+		addChild(new SelfCheckCase(m_testCtx, "append_list",				"de::AppendList_selfTest()",			de::AppendList_selfTest));
 	}
 };
 

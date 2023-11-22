@@ -18,9 +18,6 @@
     <declare-styleable name="CanvasSettings">
         <attr name="preference" format="reference" />
     </declare-styleable>
-    <declare-styleable name="WifiEncryptionState">
-        <attr name="state_encrypted" format="boolean" />
-    </declare-styleable>
 
     <declare-styleable name="FrameLayoutWithShadows">
         <!-- default shadow drawable -->
@@ -137,7 +134,8 @@
 
     </declare-styleable>
 
-    <declare-styleable name="RefcountImageView">
-        <attr name="autoUnrefOnDetach" format="boolean" />
+    <declare-styleable name="RadioPreference">
+        <attr name="radioGroup" format="string" />
     </declare-styleable>
+
 </resources>

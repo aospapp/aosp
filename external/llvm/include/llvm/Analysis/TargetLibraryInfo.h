@@ -19,14 +19,14 @@
 #include "llvm/Pass.h"
 
 // BEGIN ANDROID-SPECIFIC
-#ifdef WIN32
+#ifdef _WIN32
 #ifdef fseeko
 #undef fseeko
 #endif
 #ifdef ftello
 #undef ftello
 #endif
-#endif  // WIN32
+#endif  // _WIN32
 // END ANDROID-SPECIFIC
 
 namespace llvm {
@@ -53,7 +53,7 @@ class PreservedAnalyses;
 ///
 /// This class constructs tables that hold the target library information and
 /// make it available. However, it is somewhat expensive to compute and only
-/// depends on the triple. So users typicaly interact with the \c
+/// depends on the triple. So users typically interact with the \c
 /// TargetLibraryInfo wrapper below.
 class TargetLibraryInfoImpl {
   friend class TargetLibraryInfo;
@@ -212,13 +212,13 @@ public:
   }
   bool isFunctionVectorizable(StringRef F, unsigned VF) const {
     return Impl->isFunctionVectorizable(F, VF);
-  };
+  }
   bool isFunctionVectorizable(StringRef F) const {
     return Impl->isFunctionVectorizable(F);
-  };
+  }
   StringRef getVectorizedFunction(StringRef F, unsigned VF) const {
     return Impl->getVectorizedFunction(F, VF);
-  };
+  }
 
   /// \brief Tests if the function is both available and a candidate for
   /// optimized code generation.

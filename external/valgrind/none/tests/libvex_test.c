@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
-# if !defined(VGO_darwin)
+# if defined(VGO_linux)
 #include <endian.h>
-# else
+# elif defined(VGO_darwin)
 #include <machine/endian.h>
 # endif
 #include "../../VEX/pub/libvex.h"
@@ -220,6 +220,10 @@ int main(int argc, char **argv)
 
    // Use some values that makes AMD64 happy.
    vta.abiinfo_both.guest_stack_redzone_size = 128;
+
+   // Use some values that makes ARM64 happy.
+   vta.archinfo_guest.arm64_dMinLine_lg2_szB = 6;
+   vta.archinfo_guest.arm64_iMinLine_lg2_szB = 6;
 
    // Prepare first for a translation where guest == host
    // We will translate the get_guest_arch function

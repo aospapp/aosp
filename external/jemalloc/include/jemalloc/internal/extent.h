@@ -25,6 +25,13 @@ struct extent_node_s {
 	bool			en_zeroed;
 
 	/*
+	 * True if physical memory is committed to the extent, whether
+	 * explicitly or implicitly as on a system that overcommits and
+	 * satisfies physical memory needs on demand via soft page faults.
+	 */
+	bool			en_committed;
+
+	/*
 	 * The achunk flag is used to validate that huge allocation lookups
 	 * don't return arena chunks.
 	 */
@@ -67,16 +74,18 @@ arena_t	*extent_node_arena_get(const extent_node_t *node);
 void	*extent_node_addr_get(const extent_node_t *node);
 size_t	extent_node_size_get(const extent_node_t *node);
 bool	extent_node_zeroed_get(const extent_node_t *node);
+bool	extent_node_committed_get(const extent_node_t *node);
 bool	extent_node_achunk_get(const extent_node_t *node);
 prof_tctx_t	*extent_node_prof_tctx_get(const extent_node_t *node);
 void	extent_node_arena_set(extent_node_t *node, arena_t *arena);
 void	extent_node_addr_set(extent_node_t *node, void *addr);
 void	extent_node_size_set(extent_node_t *node, size_t size);
 void	extent_node_zeroed_set(extent_node_t *node, bool zeroed);
+void	extent_node_committed_set(extent_node_t *node, bool committed);
 void	extent_node_achunk_set(extent_node_t *node, bool achunk);
 void	extent_node_prof_tctx_set(extent_node_t *node, prof_tctx_t *tctx);
 void	extent_node_init(extent_node_t *node, arena_t *arena, void *addr,
-    size_t size, bool zeroed);
+    size_t size, bool zeroed, bool committed);
 void	extent_node_dirty_linkage_init(extent_node_t *node);
 void	extent_node_dirty_insert(extent_node_t *node,
     arena_runs_dirty_link_t *runs_dirty, extent_node_t *chunks_dirty);
@@ -110,6 +119,14 @@ extent_node_zeroed_get(const extent_node_t *node)
 {
 
 	return (node->en_zeroed);
+}
+
+JEMALLOC_INLINE bool
+extent_node_committed_get(const extent_node_t *node)
+{
+
+	assert(!node->en_achunk);
+	return (node->en_committed);
 }
 
 JEMALLOC_INLINE bool
@@ -155,6 +172,13 @@ extent_node_zeroed_set(extent_node_t *node, bool zeroed)
 }
 
 JEMALLOC_INLINE void
+extent_node_committed_set(extent_node_t *node, bool committed)
+{
+
+	node->en_committed = committed;
+}
+
+JEMALLOC_INLINE void
 extent_node_achunk_set(extent_node_t *node, bool achunk)
 {
 
@@ -170,13 +194,14 @@ extent_node_prof_tctx_set(extent_node_t *node, prof_tctx_t *tctx)
 
 JEMALLOC_INLINE void
 extent_node_init(extent_node_t *node, arena_t *arena, void *addr, size_t size,
-    bool zeroed)
+    bool zeroed, bool committed)
 {
 
 	extent_node_arena_set(node, arena);
 	extent_node_addr_set(node, addr);
 	extent_node_size_set(node, size);
 	extent_node_zeroed_set(node, zeroed);
+	extent_node_committed_set(node, committed);
 	extent_node_achunk_set(node, false);
 	if (config_prof)
 		extent_node_prof_tctx_set(node, NULL);

@@ -37,7 +37,6 @@ import org.xmlpull.v1.XmlPullParserException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 
 public class InputMethodInfoTest extends AndroidTestCase {
@@ -202,10 +201,9 @@ public class InputMethodInfoTest extends AndroidTestCase {
             return;
         }
 
-        final InputMethodManager imm = (InputMethodManager) mContext
-                .getSystemService(Context.INPUT_METHOD_SERVICE);
+        final InputMethodManager imm = mContext.getSystemService(InputMethodManager.class);
         final List<InputMethodInfo> imis = imm.getInputMethodList();
-        final ArrayList<String> localeList = new ArrayList<String>(Arrays.asList(
+        final ArrayList<String> localeList = new ArrayList<>(Arrays.asList(
                 Resources.getSystem().getAssets().getLocales()));
         boolean foundEnabledSystemImeSubtypeWithValidLanguage = false;
         for (InputMethodInfo imi : imis) {
@@ -237,6 +235,32 @@ public class InputMethodInfoTest extends AndroidTestCase {
             }
         }
         assertTrue(foundEnabledSystemImeSubtypeWithValidLanguage);
+    }
+
+    public void testAtLeastOneEncryptionAwareInputMethodIsAvailable() {
+        if (!getContext().getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_INPUT_METHODS)) {
+            return;
+        }
+
+        final InputMethodManager imm = mContext.getSystemService(InputMethodManager.class);
+        final List<InputMethodInfo> imis = imm.getInputMethodList();
+        boolean hasEncryptionAwareInputMethod = false;
+        for (final InputMethodInfo imi : imis) {
+            final ServiceInfo serviceInfo = imi.getServiceInfo();
+            if (serviceInfo == null) {
+                continue;
+            }
+            if ((serviceInfo.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) !=
+                    ApplicationInfo.FLAG_SYSTEM) {
+                continue;
+            }
+            if (serviceInfo.encryptionAware) {
+                hasEncryptionAwareInputMethod = true;
+                break;
+            }
+        }
+        assertTrue(hasEncryptionAwareInputMethod);
     }
 
     class MockPrinter implements Printer {

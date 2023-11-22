@@ -16,26 +16,31 @@
 
 package android.net.cts;
 
-import java.io.FileDescriptor;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import junit.framework.TestCase;
+
 import android.net.Credentials;
 import android.net.LocalServerSocket;
 import android.net.LocalSocket;
 import android.net.LocalSocketAddress;
-import android.test.AndroidTestCase;
 
-public class LocalSocketTest extends AndroidTestCase{
-    public final static String mSockAddr = "com.android.net.LocalSocketTest";
+import java.io.FileDescriptor;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
-    public void testLocalConnections() throws IOException{
+public class LocalSocketTest extends TestCase {
+    private final static String ADDRESS_PREFIX = "com.android.net.LocalSocketTest";
+
+    public void testLocalConnections() throws IOException {
+        String address = ADDRESS_PREFIX + "_testLocalConnections";
         // create client and server socket
-        LocalServerSocket localServerSocket = new LocalServerSocket(mSockAddr);
+        LocalServerSocket localServerSocket = new LocalServerSocket(address);
         LocalSocket clientSocket = new LocalSocket();
 
         // establish connection between client and server
-        LocalSocketAddress locSockAddr = new LocalSocketAddress(mSockAddr);
+        LocalSocketAddress locSockAddr = new LocalSocketAddress(address);
         assertFalse(clientSocket.isConnected());
         clientSocket.connect(locSockAddr);
         assertTrue(clientSocket.isConnected());
@@ -111,9 +116,10 @@ public class LocalSocketTest extends AndroidTestCase{
         }
     }
 
-    public void testAccessors() throws IOException{
+    public void testAccessors() throws IOException {
+        String address = ADDRESS_PREFIX + "_testAccessors";
         LocalSocket socket = new LocalSocket();
-        LocalSocketAddress addr = new LocalSocketAddress("secondary");
+        LocalSocketAddress addr = new LocalSocketAddress(address);
 
         assertFalse(socket.isBound());
         socket.bind(addr);
@@ -129,9 +135,9 @@ public class LocalSocketTest extends AndroidTestCase{
         socket.setSendBufferSize(3998);
         assertEquals(3998 << 1, socket.getSendBufferSize());
 
-        // Timeout is not support at present, so set is ignored
-        socket.setSoTimeout(1996);
         assertEquals(0, socket.getSoTimeout());
+        socket.setSoTimeout(1996);
+        assertTrue(socket.getSoTimeout() > 0);
 
         try {
             socket.getRemoteSocketAddress();
@@ -166,6 +172,128 @@ public class LocalSocketTest extends AndroidTestCase{
             fail("testLocalSocketSecondary shouldn't come to here");
         } catch (UnsupportedOperationException e) {
             // expected
+        }
+
+        socket.close();
+    }
+
+    public void testAvailable() throws Exception {
+        String address = ADDRESS_PREFIX + "_testAvailable";
+        LocalServerSocket localServerSocket = new LocalServerSocket(address);
+        LocalSocket clientSocket = new LocalSocket();
+
+        // establish connection between client and server
+        LocalSocketAddress locSockAddr = new LocalSocketAddress(address);
+        clientSocket.connect(locSockAddr);
+        assertTrue(clientSocket.isConnected());
+        LocalSocket serverSocket = localServerSocket.accept();
+
+        OutputStream clientOutputStream = clientSocket.getOutputStream();
+        InputStream serverInputStream = serverSocket.getInputStream();
+        assertEquals(0, serverInputStream.available());
+
+        byte[] buffer = new byte[50];
+        clientOutputStream.write(buffer);
+        assertEquals(50, serverInputStream.available());
+
+        InputStream clientInputStream = clientSocket.getInputStream();
+        OutputStream serverOutputStream = serverSocket.getOutputStream();
+        assertEquals(0, clientInputStream.available());
+        serverOutputStream.write(buffer);
+        assertEquals(50, serverInputStream.available());
+
+        clientSocket.close();
+        serverSocket.close();
+        localServerSocket.close();
+    }
+
+    public void testFlush() throws Exception {
+        String address = ADDRESS_PREFIX + "_testFlush";
+        LocalServerSocket localServerSocket = new LocalServerSocket(address);
+        LocalSocket clientSocket = new LocalSocket();
+
+        // establish connection between client and server
+        LocalSocketAddress locSockAddr = new LocalSocketAddress(address);
+        clientSocket.connect(locSockAddr);
+        assertTrue(clientSocket.isConnected());
+        LocalSocket serverSocket = localServerSocket.accept();
+
+        OutputStream clientOutputStream = clientSocket.getOutputStream();
+        InputStream serverInputStream = serverSocket.getInputStream();
+        testFlushWorks(clientOutputStream, serverInputStream);
+
+        OutputStream serverOutputStream = serverSocket.getOutputStream();
+        InputStream clientInputStream = clientSocket.getInputStream();
+        testFlushWorks(serverOutputStream, clientInputStream);
+
+        clientSocket.close();
+        serverSocket.close();
+        localServerSocket.close();
+    }
+
+    private void testFlushWorks(OutputStream outputStream, InputStream inputStream)
+            throws Exception {
+        final int bytesToTransfer = 50;
+        StreamReader inputStreamReader = new StreamReader(inputStream, bytesToTransfer);
+
+        byte[] buffer = new byte[bytesToTransfer];
+        outputStream.write(buffer);
+        assertEquals(bytesToTransfer, inputStream.available());
+
+        // Start consuming the data.
+        inputStreamReader.start();
+
+        // This doesn't actually flush any buffers, it just polls until the reader has read all the
+        // bytes.
+        outputStream.flush();
+
+        inputStreamReader.waitForCompletion(5000);
+        inputStreamReader.assertBytesRead(bytesToTransfer);
+        assertEquals(0, inputStream.available());
+    }
+
+    private static class StreamReader extends Thread {
+        private final InputStream is;
+        private final int expectedByteCount;
+        private final CountDownLatch completeLatch = new CountDownLatch(1);
+
+        private volatile Exception exception;
+        private int bytesRead;
+
+        private StreamReader(InputStream is, int expectedByteCount) {
+            this.is = is;
+            this.expectedByteCount = expectedByteCount;
+        }
+
+        @Override
+        public void run() {
+            try {
+                byte[] buffer = new byte[10];
+                int readCount;
+                while ((readCount = is.read(buffer)) >= 0) {
+                    bytesRead += readCount;
+                    if (bytesRead >= expectedByteCount) {
+                        break;
+                    }
+                }
+            } catch (IOException e) {
+                exception = e;
+            } finally {
+                completeLatch.countDown();
+            }
+        }
+
+        public void waitForCompletion(long waitMillis) throws Exception {
+            if (!completeLatch.await(waitMillis, TimeUnit.MILLISECONDS)) {
+                fail("Timeout waiting for completion");
+            }
+            if (exception != null) {
+                throw new Exception("Read failed", exception);
+            }
+        }
+
+        public void assertBytesRead(int expected) {
+            assertEquals(expected, bytesRead);
         }
     }
 }

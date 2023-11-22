@@ -6,6 +6,10 @@ CLEANFILES =
 DISTCLEANFILES =
 MAINTAINERCLEANFILES =
 
+# Convenience targets:
+lib:
+	@$(MAKE) $(AM_MAKEFLAGS) -C $(top_builddir)/src lib
+
 if HAVE_GLIB
 AM_CPPFLAGS = -DSRCDIR="\"$(srcdir)\"" -I$(top_srcdir)/src/ -I$(top_builddir)/src/ $(GLIB_CFLAGS)
 LDADD = $(top_builddir)/src/libharfbuzz.la $(GLIB_LIBS)
@@ -34,7 +38,7 @@ test_unicode_CPPFLAGS += $(GLIB_CFLAGS)
 endif
 if HAVE_ICU
 test_unicode_CPPFLAGS += $(ICU_CFLAGS)
-test_unicode_LDADD += $(top_builddir)/src/libharfbuzz-icu.la
+test_unicode_LDADD += $(top_builddir)/src/libharfbuzz-icu.la $(ICU_LIBS)
 endif
 
 

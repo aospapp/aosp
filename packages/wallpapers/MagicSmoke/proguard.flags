@@ -1,7 +1,0 @@
--keep class com.android.magicsmoke.**$WorldState {
-  public <fields>;
-}
-
--keepclassmembers class com.android.magicsmoke.MagicSmokeSelector {
-  public void setLiveWallpaper(android.view.View);
-}

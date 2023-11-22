@@ -16,7 +16,7 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 
 import org.xmlpull.v1.XmlPullParser;
@@ -170,7 +170,7 @@ public class ImageSwitcherTest extends AndroidTestCase {
                 if (target != null) {
                     target.close();
                 }
-            } catch (IOException _) {
+            } catch (IOException ignored) {
                 // Ignore the IOException.
             }
         }

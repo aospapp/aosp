@@ -26,8 +26,6 @@ import android.security.cts.OpenSSLHeartbleedTest.TrustAllX509TrustManager;
 import android.test.InstrumentationTestCase;
 import android.util.Log;
 
-import com.android.cts.security.R;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;

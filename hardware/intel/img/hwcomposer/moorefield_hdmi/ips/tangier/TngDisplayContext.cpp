@@ -42,17 +42,17 @@ bool TngDisplayContext::initialize()
     CTRACE();
 
     // open frame buffer device
-    hw_module_t const* module;
-    int err = hw_get_module(GRALLOC_HARDWARE_MODULE_ID, &module);
+    gralloc_module_t const* module;
+    int err = hw_get_module(GRALLOC_HARDWARE_MODULE_ID, (hw_module_t const**)&module);
     if (err) {
         ELOGTRACE("failed to load gralloc module, error = %d", err);
         return false;
     }
 
     // init IMG display device
-    mIMGDisplayDevice = (IMG_display_device_public_t *)(((IMG_gralloc_module_t *)module)->GetDisplayDevice((IMG_gralloc_module_t *)module));
-    if (!mIMGDisplayDevice) {
-        ELOGTRACE("failed to get display device");
+    err = module->perform(module, GRALLOC_MODULE_GET_DISPLAY_DEVICE_IMG, (void **)&mIMGDisplayDevice);
+    if (err) {
+        ELOGTRACE("failed to get display device, error = %d", err);
         return false;
     }
 

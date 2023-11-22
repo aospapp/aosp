@@ -20,12 +20,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#if !defined(RS_SERVER) && defined(HAVE_ANDROID_OS)
+#if !defined(RS_SERVER) && defined(__ANDROID__)
 #include <cutils/properties.h>
 #endif
 
 static inline uint32_t getProperty(const char *str) {
-#if !defined(RS_SERVER) && defined(HAVE_ANDROID_OS)
+#if !defined(RS_SERVER) && defined(__ANDROID__)
     char buf[PROPERTY_VALUE_MAX];
     property_get(str, buf, "0");
     return atoi(buf);

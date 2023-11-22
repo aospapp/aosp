@@ -14,16 +14,18 @@
 
 #include "InstCombineInternal.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/PatternMatch.h"
 using namespace llvm;
 using namespace PatternMatch;
 
 #define DEBUG_TYPE "instcombine"
 
-/// CheapToScalarize - Return true if the value is cheaper to scalarize than it
-/// is to leave as a vector operation.  isConstant indicates whether we're
-/// extracting one known element.  If false we're extracting a variable index.
-static bool CheapToScalarize(Value *V, bool isConstant) {
+/// Return true if the value is cheaper to scalarize than it is to leave as a
+/// vector operation. isConstant indicates whether we're extracting one known
+/// element. If false we're extracting a variable index.
+static bool cheapToScalarize(Value *V, bool isConstant) {
   if (Constant *C = dyn_cast<Constant>(V)) {
     if (isConstant) return true;
 
@@ -48,66 +50,16 @@ static bool CheapToScalarize(Value *V, bool isConstant) {
     return true;
   if (BinaryOperator *BO = dyn_cast<BinaryOperator>(I))
     if (BO->hasOneUse() &&
-        (CheapToScalarize(BO->getOperand(0), isConstant) ||
-         CheapToScalarize(BO->getOperand(1), isConstant)))
+        (cheapToScalarize(BO->getOperand(0), isConstant) ||
+         cheapToScalarize(BO->getOperand(1), isConstant)))
       return true;
   if (CmpInst *CI = dyn_cast<CmpInst>(I))
     if (CI->hasOneUse() &&
-        (CheapToScalarize(CI->getOperand(0), isConstant) ||
-         CheapToScalarize(CI->getOperand(1), isConstant)))
+        (cheapToScalarize(CI->getOperand(0), isConstant) ||
+         cheapToScalarize(CI->getOperand(1), isConstant)))
       return true;
 
   return false;
-}
-
-/// FindScalarElement - Given a vector and an element number, see if the scalar
-/// value is already around as a register, for example if it were inserted then
-/// extracted from the vector.
-static Value *FindScalarElement(Value *V, unsigned EltNo) {
-  assert(V->getType()->isVectorTy() && "Not looking at a vector?");
-  VectorType *VTy = cast<VectorType>(V->getType());
-  unsigned Width = VTy->getNumElements();
-  if (EltNo >= Width)  // Out of range access.
-    return UndefValue::get(VTy->getElementType());
-
-  if (Constant *C = dyn_cast<Constant>(V))
-    return C->getAggregateElement(EltNo);
-
-  if (InsertElementInst *III = dyn_cast<InsertElementInst>(V)) {
-    // If this is an insert to a variable element, we don't know what it is.
-    if (!isa<ConstantInt>(III->getOperand(2)))
-      return nullptr;
-    unsigned IIElt = cast<ConstantInt>(III->getOperand(2))->getZExtValue();
-
-    // If this is an insert to the element we are looking for, return the
-    // inserted value.
-    if (EltNo == IIElt)
-      return III->getOperand(1);
-
-    // Otherwise, the insertelement doesn't modify the value, recurse on its
-    // vector input.
-    return FindScalarElement(III->getOperand(0), EltNo);
-  }
-
-  if (ShuffleVectorInst *SVI = dyn_cast<ShuffleVectorInst>(V)) {
-    unsigned LHSWidth = SVI->getOperand(0)->getType()->getVectorNumElements();
-    int InEl = SVI->getMaskValue(EltNo);
-    if (InEl < 0)
-      return UndefValue::get(VTy->getElementType());
-    if (InEl < (int)LHSWidth)
-      return FindScalarElement(SVI->getOperand(0), InEl);
-    return FindScalarElement(SVI->getOperand(1), InEl - LHSWidth);
-  }
-
-  // Extract a value from a vector add operation with a constant zero.
-  Value *Val = nullptr; Constant *Con = nullptr;
-  if (match(V, m_Add(m_Value(Val), m_Constant(Con)))) {
-    if (Con->getAggregateElement(EltNo)->isNullValue())
-      return FindScalarElement(Val, EltNo);
-  }
-
-  // Otherwise, we don't know.
-  return nullptr;
 }
 
 // If we have a PHI node with a vector type that has only 2 uses: feed
@@ -130,7 +82,7 @@ Instruction *InstCombiner::scalarizePHI(ExtractElementInst &EI, PHINode *PN) {
   // and that it is a binary operation which is cheap to scalarize.
   // otherwise return NULL.
   if (!PHIUser->hasOneUse() || !(PHIUser->user_back() == PN) ||
-      !(isa<BinaryOperator>(PHIUser)) || !CheapToScalarize(PHIUser, true))
+      !(isa<BinaryOperator>(PHIUser)) || !cheapToScalarize(PHIUser, true))
     return nullptr;
 
   // Create a scalar PHI node that will replace the vector PHI node
@@ -163,8 +115,7 @@ Instruction *InstCombiner::scalarizePHI(ExtractElementInst &EI, PHINode *PN) {
       Instruction *pos = dyn_cast<Instruction>(PHIInVal);
       BasicBlock::iterator InsertPos;
       if (pos && !isa<PHINode>(pos)) {
-        InsertPos = pos;
-        ++InsertPos;
+        InsertPos = ++pos->getIterator();
       } else {
         InsertPos = inBB->getFirstInsertionPt();
       }
@@ -178,10 +129,14 @@ Instruction *InstCombiner::scalarizePHI(ExtractElementInst &EI, PHINode *PN) {
 }
 
 Instruction *InstCombiner::visitExtractElementInst(ExtractElementInst &EI) {
+  if (Value *V = SimplifyExtractElementInst(
+          EI.getVectorOperand(), EI.getIndexOperand(), DL, TLI, DT, AC))
+    return ReplaceInstUsesWith(EI, V);
+
   // If vector val is constant with all elements the same, replace EI with
   // that element.  We handle a known element # below.
   if (Constant *C = dyn_cast<Constant>(EI.getOperand(0)))
-    if (CheapToScalarize(C, false))
+    if (cheapToScalarize(C, false))
       return ReplaceInstUsesWith(EI, C->getAggregateElement(0U));
 
   // If extracting a specified index from the vector, see if we can recursively
@@ -190,10 +145,8 @@ Instruction *InstCombiner::visitExtractElementInst(ExtractElementInst &EI) {
     unsigned IndexVal = IdxC->getZExtValue();
     unsigned VectorWidth = EI.getVectorOperandType()->getNumElements();
 
-    // If this is extracting an invalid index, turn this into undef, to avoid
-    // crashing the code below.
-    if (IndexVal >= VectorWidth)
-      return ReplaceInstUsesWith(EI, UndefValue::get(EI.getType()));
+    // InstSimplify handles cases where the index is invalid.
+    assert(IndexVal < VectorWidth);
 
     // This instruction only demands the single element from the input vector.
     // If the input vector has a single use, simplify it based on this use
@@ -209,16 +162,13 @@ Instruction *InstCombiner::visitExtractElementInst(ExtractElementInst &EI) {
       }
     }
 
-    if (Value *Elt = FindScalarElement(EI.getOperand(0), IndexVal))
-      return ReplaceInstUsesWith(EI, Elt);
-
-    // If the this extractelement is directly using a bitcast from a vector of
+    // If this extractelement is directly using a bitcast from a vector of
     // the same number of elements, see if we can find the source element from
     // it.  In this case, we will end up needing to bitcast the scalars.
     if (BitCastInst *BCI = dyn_cast<BitCastInst>(EI.getOperand(0))) {
       if (VectorType *VT = dyn_cast<VectorType>(BCI->getOperand(0)->getType()))
         if (VT->getNumElements() == VectorWidth)
-          if (Value *Elt = FindScalarElement(BCI->getOperand(0), IndexVal))
+          if (Value *Elt = findScalarElement(BCI->getOperand(0), IndexVal))
             return new BitCastInst(Elt, EI.getType());
     }
 
@@ -233,10 +183,10 @@ Instruction *InstCombiner::visitExtractElementInst(ExtractElementInst &EI) {
 
   if (Instruction *I = dyn_cast<Instruction>(EI.getOperand(0))) {
     // Push extractelement into predecessor operation if legal and
-    // profitable to do so
+    // profitable to do so.
     if (BinaryOperator *BO = dyn_cast<BinaryOperator>(I)) {
       if (I->hasOneUse() &&
-          CheapToScalarize(BO, isa<ConstantInt>(EI.getOperand(1)))) {
+          cheapToScalarize(BO, isa<ConstantInt>(EI.getOperand(1)))) {
         Value *newEI0 =
           Builder->CreateExtractElement(BO->getOperand(0), EI.getOperand(1),
                                         EI.getName()+".lhs");
@@ -279,8 +229,9 @@ Instruction *InstCombiner::visitExtractElementInst(ExtractElementInst &EI) {
                                                            SrcIdx, false));
       }
     } else if (CastInst *CI = dyn_cast<CastInst>(I)) {
-      // Canonicalize extractelement(cast) -> cast(extractelement)
-      // bitcasts can change the number of vector elements and they cost nothing
+      // Canonicalize extractelement(cast) -> cast(extractelement).
+      // Bitcasts can change the number of vector elements, and they cost
+      // nothing.
       if (CI->hasOneUse() && (CI->getOpcode() != Instruction::BitCast)) {
         Value *EE = Builder->CreateExtractElement(CI->getOperand(0),
                                                   EI.getIndexOperand());
@@ -294,7 +245,8 @@ Instruction *InstCombiner::visitExtractElementInst(ExtractElementInst &EI) {
         // fight the vectorizer.
 
         // If we are extracting an element from a vector select or a select on
-        // vectors, a select on the scalars extracted from the vector arguments.
+        // vectors, create a select on the scalars extracted from the vector
+        // arguments.
         Value *TrueVal = SI->getTrueValue();
         Value *FalseVal = SI->getFalseValue();
 
@@ -324,10 +276,9 @@ Instruction *InstCombiner::visitExtractElementInst(ExtractElementInst &EI) {
   return nullptr;
 }
 
-/// CollectSingleShuffleElements - If V is a shuffle of values that ONLY returns
-/// elements from either LHS or RHS, return the shuffle mask and true.
-/// Otherwise, return false.
-static bool CollectSingleShuffleElements(Value *V, Value *LHS, Value *RHS,
+/// If V is a shuffle of values that ONLY returns elements from either LHS or
+/// RHS, return the shuffle mask and true. Otherwise, return false.
+static bool collectSingleShuffleElements(Value *V, Value *LHS, Value *RHS,
                                          SmallVectorImpl<Constant*> &Mask) {
   assert(LHS->getType() == RHS->getType() &&
          "Invalid CollectSingleShuffleElements");
@@ -364,7 +315,7 @@ static bool CollectSingleShuffleElements(Value *V, Value *LHS, Value *RHS,
     if (isa<UndefValue>(ScalarOp)) {  // inserting undef into vector.
       // We can handle this if the vector we are inserting into is
       // transitively ok.
-      if (CollectSingleShuffleElements(VecOp, LHS, RHS, Mask)) {
+      if (collectSingleShuffleElements(VecOp, LHS, RHS, Mask)) {
         // If so, update the mask to reflect the inserted undef.
         Mask[InsertedIdx] = UndefValue::get(Type::getInt32Ty(V->getContext()));
         return true;
@@ -379,7 +330,7 @@ static bool CollectSingleShuffleElements(Value *V, Value *LHS, Value *RHS,
         if (EI->getOperand(0) == LHS || EI->getOperand(0) == RHS) {
           // We can handle this if the vector we are inserting into is
           // transitively ok.
-          if (CollectSingleShuffleElements(VecOp, LHS, RHS, Mask)) {
+          if (collectSingleShuffleElements(VecOp, LHS, RHS, Mask)) {
             // If so, update the mask to reflect the inserted value.
             if (EI->getOperand(0) == LHS) {
               Mask[InsertedIdx % NumElts] =
@@ -412,7 +363,7 @@ static bool CollectSingleShuffleElements(Value *V, Value *LHS, Value *RHS,
 /// often been chosen carefully to be efficiently implementable on the target.
 typedef std::pair<Value *, Value *> ShuffleOps;
 
-static ShuffleOps CollectShuffleElements(Value *V,
+static ShuffleOps collectShuffleElements(Value *V,
                                          SmallVectorImpl<Constant *> &Mask,
                                          Value *PermittedRHS) {
   assert(V->getType()->isVectorTy() && "Invalid shuffle!");
@@ -445,7 +396,7 @@ static ShuffleOps CollectShuffleElements(Value *V,
         // otherwise we'd end up with a shuffle of three inputs.
         if (EI->getOperand(0) == PermittedRHS || PermittedRHS == nullptr) {
           Value *RHS = EI->getOperand(0);
-          ShuffleOps LR = CollectShuffleElements(VecOp, Mask, RHS);
+          ShuffleOps LR = collectShuffleElements(VecOp, Mask, RHS);
           assert(LR.second == nullptr || LR.second == RHS);
 
           if (LR.first->getType() != RHS->getType()) {
@@ -478,14 +429,14 @@ static ShuffleOps CollectShuffleElements(Value *V,
         // If this insertelement is a chain that comes from exactly these two
         // vectors, return the vector and the effective shuffle.
         if (EI->getOperand(0)->getType() == PermittedRHS->getType() &&
-            CollectSingleShuffleElements(IEI, EI->getOperand(0), PermittedRHS,
+            collectSingleShuffleElements(IEI, EI->getOperand(0), PermittedRHS,
                                          Mask))
           return std::make_pair(EI->getOperand(0), PermittedRHS);
       }
     }
   }
 
-  // Otherwise, can't do anything fancy.  Return an identity vector.
+  // Otherwise, we can't do anything fancy. Return an identity vector.
   for (unsigned i = 0; i != NumElts; ++i)
     Mask.push_back(ConstantInt::get(Type::getInt32Ty(V->getContext()), i));
   return std::make_pair(V, nullptr);
@@ -561,7 +512,7 @@ Instruction *InstCombiner::visitInsertElementInst(InsertElementInst &IE) {
       // (and any insertelements it points to), into one big shuffle.
       if (!IE.hasOneUse() || !isa<InsertElementInst>(IE.user_back())) {
         SmallVector<Constant*, 16> Mask;
-        ShuffleOps LR = CollectShuffleElements(&IE, Mask, nullptr);
+        ShuffleOps LR = collectShuffleElements(&IE, Mask, nullptr);
 
         // The proposed shuffle may be trivial, in which case we shouldn't
         // perform the combine.
@@ -637,8 +588,8 @@ static bool CanEvaluateShuffled(Value *V, ArrayRef<int> Mask,
     case Instruction::FPTrunc:
     case Instruction::FPExt:
     case Instruction::GetElementPtr: {
-      for (int i = 0, e = I->getNumOperands(); i != e; ++i) {
-        if (!CanEvaluateShuffled(I->getOperand(i), Mask, Depth-1))
+      for (Value *Operand : I->operands()) {
+        if (!CanEvaluateShuffled(Operand, Mask, Depth-1))
           return false;
       }
       return true;
@@ -666,7 +617,7 @@ static bool CanEvaluateShuffled(Value *V, ArrayRef<int> Mask,
 
 /// Rebuild a new instruction just like 'I' but with the new operands given.
 /// In the event of type mismatch, the type of the operands is correct.
-static Value *BuildNew(Instruction *I, ArrayRef<Value*> NewOps) {
+static Value *buildNew(Instruction *I, ArrayRef<Value*> NewOps) {
   // We don't want to use the IRBuilder here because we want the replacement
   // instructions to appear next to 'I', not the builder's insertion point.
   switch (I->getOpcode()) {
@@ -809,7 +760,7 @@ InstCombiner::EvaluateInDifferentElementOrder(Value *V, ArrayRef<int> Mask) {
         NeedsRebuild |= (V != I->getOperand(i));
       }
       if (NeedsRebuild) {
-        return BuildNew(I, NewOps);
+        return buildNew(I, NewOps);
       }
       return I;
     }
@@ -841,7 +792,7 @@ InstCombiner::EvaluateInDifferentElementOrder(Value *V, ArrayRef<int> Mask) {
   llvm_unreachable("failed to reorder elements of vector instruction!");
 }
 
-static void RecognizeIdentityMask(const SmallVectorImpl<int> &Mask,
+static void recognizeIdentityMask(const SmallVectorImpl<int> &Mask,
                                   bool &isLHSID, bool &isRHSID) {
   isLHSID = isRHSID = true;
 
@@ -940,7 +891,7 @@ Instruction *InstCombiner::visitShuffleVectorInst(ShuffleVectorInst &SVI) {
   if (VWidth == LHSWidth) {
     // Analyze the shuffle, are the LHS or RHS and identity shuffles?
     bool isLHSID, isRHSID;
-    RecognizeIdentityMask(Mask, isLHSID, isRHSID);
+    recognizeIdentityMask(Mask, isLHSID, isRHSID);
 
     // Eliminate identity shuffles.
     if (isLHSID) return ReplaceInstUsesWith(SVI, LHS);
@@ -1226,7 +1177,7 @@ Instruction *InstCombiner::visitShuffleVectorInst(ShuffleVectorInst &SVI) {
   // If the result mask is an identity, replace uses of this instruction with
   // corresponding argument.
   bool isLHSID, isRHSID;
-  RecognizeIdentityMask(newMask, isLHSID, isRHSID);
+  recognizeIdentityMask(newMask, isLHSID, isRHSID);
   if (isLHSID && VWidth == LHSOp0Width) return ReplaceInstUsesWith(SVI, newLHS);
   if (isRHSID && VWidth == RHSOp0Width) return ReplaceInstUsesWith(SVI, newRHS);
 

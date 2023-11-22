@@ -33,23 +33,30 @@ ip-neighbour \- neighbour/arp tables management.
 
 
 .SH DESCRIPTION
-The 
+The
 .B ip neigh
-command manipulates 
+command manipulates
 .I neighbour
 objects that establish bindings between protocol addresses and
 link layer addresses for hosts sharing the same link.
 Neighbour entries are organized into tables. The IPv4 neighbour table
-is known by another name - the ARP table.
+is also known by another name - the ARP table.
 
 .P
 The corresponding commands display neighbour bindings
 and their properties, add new neighbour entries and delete old ones.
 
-.SS ip neighbour add - add a new neighbour entry
-.SS ip neighbour change - change an existing entry
-.SS ip neighbour replace - add a new entry or change an existing one
-
+.TP
+ip neighbour add
+add a new neighbour entry
+.TP
+ip neighbour change
+change an existing entry
+.TP
+ip neighbour replace
+add a new entry or change an existing one
+.RS
+.PP
 These commands create new neighbour records or update existing ones.
 
 .TP
@@ -74,33 +81,31 @@ the state of the neighbour entry.
 is an abbreviation for 'Neighbour Unreachability Detection'.
 The state can take one of the following values:
 
-.in +8
+.TP
 .B permanent
-- the neighbour entry is valid forever and can be only
+the neighbour entry is valid forever and can be only
 be removed administratively.
-.sp
-
+.TP
 .B noarp
-- the neighbour entry is valid. No attempts to validate
+the neighbour entry is valid. No attempts to validate
 this entry will be made but it can be removed when its lifetime expires.
-.sp
-
+.TP
 .B reachable
-- the neighbour entry is valid until the reachability
+the neighbour entry is valid until the reachability
 timeout expires.
-.sp
-
+.TP
 .B stale
-- the neighbour entry is valid but suspicious.
+the neighbour entry is valid but suspicious.
 This option to
 .B ip neigh
 does not change the neighbour state if it was valid and the address
 is not changed by this command.
-.in -8
+.RE
 
-.SS ip neighbour delete - delete a neighbour entry
-This command invalidates a neighbour entry.
-
+.TP
+ip neighbour delete
+delete a neighbour entry
+.RS
 .PP
 The arguments are the same as with
 .BR "ip neigh add" ,
@@ -119,11 +124,12 @@ Particularly, the kernel may try to resolve this address even
 on a
 .B NOARP
 interface or if the address is multicast or broadcast.
+.RE
 
-.SS ip neighbour show - list neighbour entries
-
-This commands displays neighbour tables.
-
+.TP
+ip neighbour show
+list neighbour entries
+.RS
 .TP
 .BI to " ADDRESS " (default)
 the prefix selecting the neighbours to list.
@@ -146,19 +152,19 @@ only list neighbour entries in this state.
 .I NUD_STATE
 takes values listed below or the special value
 .B all
-which means all states.  This option may occur more than once.
+which means all states. This option may occur more than once.
 If this option is absent,
 .B ip
 lists all entries except for
 .B none
 and
 .BR "noarp" .
+.RE
 
-.SS ip neighbour flush - flush neighbour entries
-This command flushes neighbour tables, selecting
-entries to flush by some criteria.
-
-.PP
+.TP
+ip neighbour flush
+flush neighbour entries
+.RS
 This command has the same arguments as
 .B show.
 The differences are that it does not run when no arguments are given,
@@ -170,12 +176,13 @@ and
 .PP
 With the
 .B -statistics
-option, the command becomes verbose.  It prints out the number of
+option, the command becomes verbose. It prints out the number of
 deleted neighbours and the number of rounds made to flush the
-neighbour table.  If the option is given
+neighbour table. If the option is given
 twice,
 .B ip neigh flush
 also dumps all the deleted neighbours.
+.RE
 
 .SH EXAMPLES
 .PP

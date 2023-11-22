@@ -51,11 +51,7 @@ IHEVCD_ERROR_T ihevcd_get_tile_pos(pps_t *ps_pps,
                                    WORD32 *pi4_ctb_tile_y,
                                    WORD32 *pi4_tile_idx);
 IHEVCD_ERROR_T ihevcd_parse_pic_init(codec_t *ps_codec);
-WORD32 ihevcd_get_total_pic_buf_size(WORD32 pic_size,
-                                     WORD32 level,
-                                     WORD32 horz_pad,
-                                     WORD32 vert_pad,
-                                     WORD32 init_num_bufs,
-                                     WORD32 init_extra_bufs,
-                                     WORD32 chroma_only);
+WORD32 ihevcd_get_total_pic_buf_size(codec_t *ps_codec,
+                                     WORD32 wd,
+                                     WORD32 ht);
 #endif /* _IHEVCD_UTILS_H_ */

@@ -88,6 +88,13 @@ public class Test_invoke_virtual_range extends DxTestCase {
     }
 
     /**
+     * @title invoke default interface method
+     */
+    public void testN8() {
+        loadAndRun("dot.junit.opcodes.invoke_virtual_range.d.T_invoke_virtual_range_28", null);
+    }
+
+    /**
      * @title expected NullPointerException
      */
     public void testE1() {
@@ -109,6 +116,22 @@ public class Test_invoke_virtual_range extends DxTestCase {
     public void testE4() {
         //@uses dot.junit.opcodes.invoke_virtual_range.ATest
         loadAndRun("dot.junit.opcodes.invoke_virtual_range.d.T_invoke_virtual_range_6",
+                   AbstractMethodError.class);
+    }
+
+    /**
+     * @title Attempt to invoke conflict method
+     */
+    public void testE5() {
+        loadAndRun("dot.junit.opcodes.invoke_virtual_range.d.T_invoke_virtual_range_26",
+                   IncompatibleClassChangeError.class);
+    }
+
+    /**
+     * @title Attempt to invoke abstract method
+     */
+    public void testE6() {
+        loadAndRun("dot.junit.opcodes.invoke_virtual_range.d.T_invoke_virtual_range_27",
                    AbstractMethodError.class);
     }
 

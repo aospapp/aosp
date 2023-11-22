@@ -16,7 +16,7 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 
 import org.xmlpull.v1.XmlPullParser;
@@ -44,7 +44,7 @@ public class MultiAutoCompleteTextViewTest extends ActivityInstrumentationTestCa
     private Activity mActivity;
 
     public MultiAutoCompleteTextViewTest() {
-        super("com.android.cts.widget", MultiAutoCompleteTextViewCtsActivity.class);
+        super("android.widget.cts", MultiAutoCompleteTextViewCtsActivity.class);
     }
 
     @Override

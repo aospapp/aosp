@@ -17,22 +17,40 @@ package android.uirendering.cts.testclasses;
 
 import android.graphics.Color;
 import android.graphics.Point;
+import android.test.suitebuilder.annotation.MediumTest;
 import android.uirendering.cts.bitmapverifiers.SamplePointVerifier;
 
-import com.android.cts.uirendering.R;
+import android.uirendering.cts.R;
 
-import android.test.suitebuilder.annotation.SmallTest;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
+import android.uirendering.cts.util.CompareUtils;
+import org.junit.Test;
 
+@MediumTest
 public class ShadowTests extends ActivityTestBase {
-    @SmallTest
+
+    private class GrayScaleVerifier extends SamplePointVerifier {
+        public GrayScaleVerifier(Point[] testPoints, int[] expectedColors, int tolerance) {
+            super(testPoints, expectedColors, tolerance) ;
+        }
+
+        @Override
+        protected boolean verifyPixel(int color, int expectedColor) {
+            return super.verifyPixel(color, expectedColor)
+                    && CompareUtils.verifyPixelGrayScale(color, 1);
+        }
+    }
+
+    @Test
     public void testShadowLayout() {
         int shadowColorValue = 0xDB;
         // Android TV theme overrides shadow opacity to be darker.
         if (getActivity().getOnTv()) {
             shadowColorValue = 0xBB;
         }
-        SamplePointVerifier verifier = new SamplePointVerifier(
+
+        // Use a higher threshold than default value (20), since we also double check gray scale;
+        GrayScaleVerifier verifier = new GrayScaleVerifier(
                 new Point[] {
                         // view area
                         new Point(25, 64),
@@ -46,7 +64,9 @@ public class ShadowTests extends ActivityTestBase {
                         Color.WHITE,
                         Color.rgb(shadowColorValue, shadowColorValue, shadowColorValue),
                         Color.rgb(shadowColorValue, shadowColorValue, shadowColorValue),
-                });
+                },
+                48);
+
         createTest()
                 .addLayout(R.layout.simple_shadow_layout, null, true/* HW only */)
                 .runWithVerifier(verifier);

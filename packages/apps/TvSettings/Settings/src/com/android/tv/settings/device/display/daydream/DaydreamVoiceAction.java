@@ -21,6 +21,8 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.view.View;
 
+import com.android.settingslib.dream.DreamBackend;
+
 /**
  * Activity that handles a SLEEP voice action (putting the device to sleep).
  * Intent is launched by search activity.
@@ -29,8 +31,6 @@ public class DaydreamVoiceAction extends Activity {
 
     private static final String SLEEP_ACTION = "com.google.android.pano.action.SLEEP";
 
-    private DreamBackend mDreamBackend;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -38,8 +38,7 @@ public class DaydreamVoiceAction extends Activity {
         view.setBackgroundColor(Color.BLACK);
         setContentView(view);
         if (getIntent().getAction().equals(SLEEP_ACTION)) {
-            mDreamBackend = new DreamBackend(this);
-            mDreamBackend.startDreaming();
+            new DreamBackend(this).startDreaming();
         }
         finish();
     }

@@ -13,7 +13,6 @@ harmony_jdwp_test_src_files := \
 jdwp_test_timeout_ms := 10000 # 10s.
 jdwp_test_target_runtime_common_args :=  \
 	-Djpda.settings.verbose=true \
-	-Djpda.settings.syncPort=34016 \
 	-Djpda.settings.timeout=$(jdwp_test_timeout_ms) \
 	-Djpda.settings.waitingTime=$(jdwp_test_timeout_ms)
 
@@ -36,6 +35,7 @@ LOCAL_NO_EMMA_INSTRUMENT := true
 LOCAL_NO_EMMA_COMPILE := true
 LOCAL_CTS_TEST_PACKAGE := android.jdwp
 LOCAL_CTS_TARGET_RUNTIME_ARGS := $(cts_jdwp_test_target_runtime_args)
+LOCAL_JAVA_LANGUAGE_VERSION := 1.8
 include $(BUILD_CTS_TARGET_JAVA_LIBRARY)
 
 include $(CLEAR_VARS)
@@ -46,12 +46,14 @@ LOCAL_MODULE := apache-harmony-jdwp-tests
 LOCAL_NO_EMMA_INSTRUMENT := true
 LOCAL_NO_EMMA_COMPILE := true
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/jdwp
+LOCAL_JAVA_LANGUAGE_VERSION := 1.8
 include $(BUILD_JAVA_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(harmony_jdwp_test_src_files)
 LOCAL_JAVA_LIBRARIES := junit
 LOCAL_MODULE := apache-harmony-jdwp-tests-host
+LOCAL_JAVA_LANGUAGE_VERSION := 1.8
 include $(BUILD_HOST_JAVA_LIBRARY)
 
 ifeq ($(HOST_OS),linux)
@@ -59,6 +61,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(harmony_jdwp_test_src_files)
 LOCAL_JAVA_LIBRARIES := junit-hostdex
 LOCAL_MODULE := apache-harmony-jdwp-tests-hostdex
+LOCAL_JAVA_LANGUAGE_VERSION := 1.8
 include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
 endif  # HOST_OS == linux
 

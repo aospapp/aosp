@@ -87,6 +87,9 @@ public final class HttpsHandler extends HttpHandler {
         // The HTTPS OkHttpClient is an HTTP OkHttpClient with extra configuration.
         OkUrlFactory okUrlFactory = HttpHandler.createHttpOkUrlFactory(proxy);
 
+        // All HTTPS requests are allowed.
+        okUrlFactory.setUrlFilter(null);
+
         OkHttpClient okHttpClient = okUrlFactory.client();
 
         // Only enable HTTP/1.1 (implies HTTP/1.0). Disable SPDY / HTTP/2.0.

@@ -8,6 +8,7 @@
 #define SkOpSpan_DEFINED
 
 #include "SkPathOpsDebug.h"
+#include "SkPathOpsTypes.h"
 #include "SkPoint.h"
 
 class SkChunkAlloc;
@@ -47,6 +48,9 @@ public:
     }
 
     bool alias() const;
+    bool collapsed(const SkOpPtT* ) const;
+    bool contains(const SkOpPtT* ) const;
+    SkOpPtT* contains(const SkOpSegment* );
     SkOpContour* contour() const;
 
     int debugID() const {
@@ -54,18 +58,21 @@ public:
     }
 
     const SkOpAngle* debugAngle(int id) const;
+    bool debugContains(const SkOpPtT* ) const;
+    const SkOpPtT* debugContains(const SkOpSegment* check) const;
     SkOpContour* debugContour(int id);
     int debugLoopLimit(bool report) const;
     bool debugMatchID(int id) const;
     const SkOpPtT* debugPtT(int id) const;
     const SkOpSegment* debugSegment(int id) const;
     const SkOpSpanBase* debugSpan(int id) const;
-    SkOpGlobalState* globalState() const;
     void debugValidate() const;
 
     bool deleted() const {
         return fDeleted;
     }
+
+    SkOpPtT* doppelganger();
 
     bool duplicate() const {
         return fDuplicatePt;
@@ -75,6 +82,8 @@ public:
     void dumpAll() const;
     void dumpBase() const;
 
+    SkOpPtT* find(SkOpSegment* );
+    SkOpGlobalState* globalState() const;
     void init(SkOpSpanBase* , double t, const SkPoint& , bool dup);
 
     void insert(SkOpPtT* span) {
@@ -92,6 +101,25 @@ public:
     }
 
     bool onEnd() const;
+
+    static bool Overlaps(SkOpPtT* s1, SkOpPtT* e1, SkOpPtT* s2, SkOpPtT* e2,
+            SkOpPtT** sOut, SkOpPtT** eOut) {
+        SkOpPtT* start1 = s1->fT < e1->fT ? s1 : e1;
+        SkOpPtT* start2 = s2->fT < e2->fT ? s2 : e2;
+        *sOut = between(s1->fT, start2->fT, e1->fT) ? start2
+                : between(s2->fT, start1->fT, e2->fT) ? start1 : nullptr;
+        SkOpPtT* end1 = s1->fT < e1->fT ? e1 : s1;
+        SkOpPtT* end2 = s2->fT < e2->fT ? e2 : s2;
+        *eOut = between(s1->fT, end2->fT, e1->fT) ? end2
+                : between(s2->fT, end1->fT, e2->fT) ? end1 : nullptr;
+        if (*sOut == *eOut) {
+            SkASSERT(start1->fT >= end2->fT || start2->fT >= end1->fT);
+            return false;
+        }
+        SkASSERT(!*sOut || *sOut != *eOut);
+        return *sOut && *eOut;
+    }
+
     SkOpPtT* prev();
     SkOpPtT* remove();
     void removeNext(SkOpPtT* kept);
@@ -110,6 +138,10 @@ public:
 
     SkOpSpanBase* span() {
         return fSpan;
+    }
+
+    const SkOpPtT* starter(const SkOpPtT* end) const {
+        return fT < end->fT ? this : end;
     }
 
     double fT; 
@@ -174,12 +206,16 @@ public:
         return SkDEBUGRELEASE(fID, -1);
     }
 
+    bool debugAlignedEnd(double t, const SkPoint& pt) const;
+    bool debugAlignedInner() const;
     const SkOpAngle* debugAngle(int id) const;
     bool debugCoinEndLoopCheck() const;
+    bool debugContains(const SkOpSegment* ) const;
     SkOpContour* debugContour(int id);
     const SkOpPtT* debugPtT(int id) const;
     const SkOpSegment* debugSegment(int id) const;
     const SkOpSpanBase* debugSpan(int id) const;
+    const SkOpSpan* debugStarter(SkOpSpanBase const** endPtr) const;
     SkOpGlobalState* globalState() const;
     void debugValidate() const;
 
@@ -235,6 +271,10 @@ public:
 
     SkOpSegment* segment() const {
         return fSegment;
+    }
+
+    void setAligned() {
+        fAligned = true;
     }
 
     void setChased(bool chased) {
@@ -307,11 +347,11 @@ public:
     }
 
     SkOpSpan* upCastable() {
-        return final() ? NULL : upCast();
+        return final() ? nullptr : upCast();
     }
 
     const SkOpSpan* upCastable() const {
-        return final() ? NULL : upCast();
+        return final() ? nullptr : upCast();
     }
 
 private:
@@ -332,6 +372,14 @@ protected:  // no direct access to internals to avoid treating a span base as a 
 
 class SkOpSpan : public SkOpSpanBase {
 public:
+    bool alreadyAdded() const {
+        if (fAlreadyAdded) {
+            return true;
+        }
+        fAlreadyAdded = true;
+        return false;
+    }
+
     bool clearCoincident() {
         SkASSERT(!final());
         if (fCoincident == this) {
@@ -466,6 +514,7 @@ private:  // no direct access to internals to avoid treating a span base as a sp
     int fOppValue;  // normally 0 -- when binary coincident edges combine, opp value goes here
     int fTopTTry; // specifies direction and t value to try next
     bool fDone;  // if set, this span to next higher T has been processed
+    mutable bool fAlreadyAdded;
 };
 
 #endif

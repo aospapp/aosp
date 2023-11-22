@@ -29,6 +29,7 @@ public class JavacBuildStep extends SourceBuildStep {
     private final String classPath;
     private final Set<String> sourceFiles = new HashSet<String>();
     public JavacBuildStep(String destPath, String classPath) {
+        super(new File(destPath));
         this.destPath = destPath;
         this.classPath = classPath;
     }
@@ -54,12 +55,16 @@ public class JavacBuildStep extends SourceBuildStep {
                 System.err.println("failed to create destination dir");
                 return false;
             }
-            int args = 4;
+            int args = 8;
             String[] commandLine = new String[sourceFiles.size()+args];
             commandLine[0] = "-classpath";
             commandLine[1] = classPath;
             commandLine[2] = "-d";
             commandLine[3] = destPath;
+            commandLine[4] = "-source";
+            commandLine[5] = "1.7";
+            commandLine[6] = "-target";
+            commandLine[7] = "1.7";
 
             String[] files = new String[sourceFiles.size()];
             sourceFiles.toArray(files);

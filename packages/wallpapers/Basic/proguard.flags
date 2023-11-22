@@ -1,3 +1,0 @@
--keep class com.android.wallpaper.**$* {
-  public <fields>;
-}

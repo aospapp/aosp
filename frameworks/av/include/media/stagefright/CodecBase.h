@@ -19,16 +19,25 @@
 #define CODEC_BASE_H_
 
 #include <stdint.h>
-#include <media/IOMX.h>
 
+#define STRINGIFY_ENUMS
+
+#include <media/IOMX.h>
+#include <media/MediaCodecInfo.h>
 #include <media/stagefright/foundation/AHandler.h>
+#include <media/stagefright/foundation/ColorUtils.h>
+#include <media/hardware/HardwareAPI.h>
+
+#include <utils/NativeHandle.h>
+
+#include <system/graphics.h>
 
 namespace android {
 
 struct ABuffer;
 struct PersistentSurface;
 
-struct CodecBase : public AHandler {
+struct CodecBase : public AHandler, /* static */ ColorUtils {
     enum {
         kWhatFillThisBuffer      = 'fill',
         kWhatDrainThisBuffer     = 'drai',
@@ -46,6 +55,10 @@ struct CodecBase : public AHandler {
         kWhatOutputFramesRendered = 'outR',
     };
 
+    enum {
+        kMaxCodecBufferSize = 8192 * 4096 * 4, // 8K RGBA
+    };
+
     virtual void setNotificationMessage(const sp<AMessage> &msg) = 0;
 
     virtual void initiateAllocateComponent(const sp<AMessage> &msg) = 0;
@@ -58,6 +71,10 @@ struct CodecBase : public AHandler {
 
     // require an explicit message handler
     virtual void onMessageReceived(const sp<AMessage> &msg) = 0;
+
+    virtual status_t queryCapabilities(
+            const AString &name, const AString &mime, bool isEncoder,
+            sp<MediaCodecInfo::Capabilities> *caps /* nonnull */) { return INVALID_OPERATION; }
 
     virtual status_t setSurface(const sp<Surface> &surface) { return INVALID_OPERATION; }
 
@@ -72,6 +89,8 @@ struct CodecBase : public AHandler {
         virtual size_t countBuffers() = 0;
         virtual IOMX::buffer_id bufferIDAt(size_t index) const = 0;
         virtual sp<ABuffer> bufferAt(size_t index) const = 0;
+        virtual sp<NativeHandle> handleAt(size_t index) const { return NULL; };
+        virtual sp<RefBase> memRefAt(size_t index) const { return NULL; }
 
     protected:
         PortDescription();
@@ -80,6 +99,10 @@ struct CodecBase : public AHandler {
     private:
         DISALLOW_EVIL_CONSTRUCTORS(PortDescription);
     };
+
+    /*
+     * Codec-related defines
+     */
 
 protected:
     CodecBase();

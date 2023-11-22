@@ -58,8 +58,9 @@ public class MockTvInputService extends TvInputService {
     private static final String SELECT_TRACK_ID = "id";
     private static final String CAPTION_ENABLED = "enabled";
     private static final String PAUSE_CALLED = "pause_called";
+    private static final float DISPLAY_RATIO_EPSILON = 0.01f;
 
-    private static Object sLock = new Object();
+    private static final Object sLock = new Object();
     private static Callback sTuneCallback = null;
     private static Callback sOverlayViewCallback = null;
     private static Callback sBroadcastCallback = null;
@@ -73,6 +74,7 @@ public class MockTvInputService extends TvInputService {
     private static Callback sFastForwardCallback = null;
     private static Callback sSeekToPreviousCallback = null;
     private static Callback sSeekToNextCallback = null;
+    private static Callback sOverlayViewSizeChangedCallback = null;
 
     private static TvContentRating sRating = null;
 
@@ -95,6 +97,15 @@ public class MockTvInputService extends TvInputService {
     static final TvTrackInfo sKorSubtitleTrack =
             new TvTrackInfo.Builder(TvTrackInfo.TYPE_SUBTITLE, "subtitle_kor")
             .setLanguage("kor")
+            .build();
+    // These parameters make the display aspect ratio of sDummyVideoTrack be 4:3,
+    // which is one of common standards.
+    static final TvTrackInfo sDummyVideoTrack =
+            new TvTrackInfo.Builder(TvTrackInfo.TYPE_VIDEO, "video_dummy")
+            .setVideoWidth(704)
+            .setVideoHeight(480)
+            .setVideoPixelAspectRatio(0.909f)
+            .setVideoFrameRate(60)
             .build();
 
     private final BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
@@ -196,6 +207,12 @@ public class MockTvInputService extends TvInputService {
         }
     }
 
+    static void expectedVideoAspectRatio(View postTarget, Runnable successCallback) {
+        synchronized (sLock) {
+            sOverlayViewSizeChangedCallback = new Callback(postTarget, successCallback);
+        }
+    }
+
     static String getInputId(Context context) {
         return TvContract.buildInputId(new ComponentName(context,
                         MockTvInputService.class.getName()));
@@ -270,6 +287,7 @@ public class MockTvInputService extends TvInputService {
             mTracks.add(sSpaAudioTrack);
             mTracks.add(sEngSubtitleTrack);
             mTracks.add(sKorSubtitleTrack);
+            mTracks.add(sDummyVideoTrack);
         }
 
         @Override
@@ -324,7 +342,9 @@ public class MockTvInputService extends TvInputService {
         @Override
         public boolean onSetSurface(Surface surface) {
             mSurface = surface;
-            draw();
+            if (surface != null) {
+                draw();
+            }
             return true;
         }
 
@@ -350,6 +370,8 @@ public class MockTvInputService extends TvInputService {
             notifyTracksChanged(mTracks);
             notifyTrackSelected(TvTrackInfo.TYPE_AUDIO, sEngAudioTrack.getId());
             notifyTrackSelected(TvTrackInfo.TYPE_SUBTITLE, null);
+            notifyTrackSelected(TvTrackInfo.TYPE_VIDEO, sDummyVideoTrack.getId());
+
             notifyTimeShiftStatusChanged(TvInputManager.TIME_SHIFT_STATUS_AVAILABLE);
             mRecordStartTimeMs = mCurrentPositionMs = mLastCurrentPositionUpdateTimeMs
                     = System.currentTimeMillis();
@@ -479,6 +501,30 @@ public class MockTvInputService extends TvInputService {
                 }
             }
             mSpeed = params.getSpeed();
+        }
+
+        @Override
+        public void onOverlayViewSizeChanged(int width, int height) {
+            synchronized(sLock) {
+                draw();
+                if (sOverlayViewSizeChangedCallback != null) {
+                    if (sDummyVideoTrack.getVideoHeight() <= 0
+                            || sDummyVideoTrack.getVideoWidth() <= 0) {
+                        Log.w(TAG,
+                                "The width or height of the selected video track is invalid.");
+                    } else if (height <= 0 || width <= 0) {
+                        Log.w(TAG, "The width or height of the OverlayView is incorrect.");
+                    } else if (Math.abs((float)width / height
+                            - (float)sDummyVideoTrack.getVideoWidth()
+                            * sDummyVideoTrack.getVideoPixelAspectRatio()
+                            / sDummyVideoTrack.getVideoHeight()) < DISPLAY_RATIO_EPSILON) {
+                        // Verify the video display aspect ratio is correct
+                        // and setVideoPixelAspectRatio() works for the view size.
+                        sOverlayViewSizeChangedCallback.post();
+                        sOverlayViewSizeChangedCallback = null;
+                    }
+                }
+            }
         }
     }
 

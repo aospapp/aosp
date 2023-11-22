@@ -1,6 +1,40 @@
 Change Log
 ==========
 
+## Version 1.6.0
+
+_2015-08-25_
+
+ * New: `BufferedSource.indexOf(ByteString)` searches a source for the next
+   occurrence of a byte string.
+ * Fix: Recover from unexpected `AssertionError` thrown on Android 4.2.2 and
+   earlier when asynchronously closing a socket.
+
+## Version 1.5.0
+
+_2015-06-19_
+
+ * Sockets streams now throw `SocketTimeoutException`. This builds on new
+   extension point in `AsyncTimeout` to customize the exception when a timeout
+   occurs.
+ * New: `ByteString` now implements `Comparable`. The comparison sorts bytes as
+   unsigned: {@code ff} sorts after {@code 00}.
+
+## Version 1.4.0
+
+_2015-05-16_
+
+ * **Timeout exception changed.** Previously `Timeout.throwIfReached()` would
+   throw `InterruptedIOException` on thread interruption, and `IOException` if
+   the deadline was reached. Now it throws `InterruptedIOException` in both
+   cases.
+ * Fix: throw `EOFException` when attempting to read digits from an empty
+   source. Previously this would crash with an unchecked exception.
+ * New: APIs to read and write UTF-8 code points without allocating strings.
+ * New: `BufferedSink` can now write substrings directly, potentially saving an
+   allocation for some callers.
+ * New: `ForwardingTimeout` class.
+
 ## Version 1.3.0
 
 _2015-03-16_
@@ -37,6 +71,7 @@ _2014-12-30_
 ## Version 1.1.0
 
 _2014-12-11_
+
  * Do UTF-8 encoding natively for a performance increase, particularly on Android.
  * New APIs: `BufferedSink.emit()`, `BufferedSource.request()` and `BufferedSink.indexOfElement()`.
  * Fixed a performance bug in `Buffer.indexOf()`

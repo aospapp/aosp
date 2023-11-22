@@ -17,11 +17,11 @@
 #ifndef ART_COMPILER_OPTIMIZING_LOCATIONS_H_
 #define ART_COMPILER_OPTIMIZING_LOCATIONS_H_
 
+#include "base/arena_containers.h"
 #include "base/arena_object.h"
 #include "base/bit_field.h"
 #include "base/bit_vector.h"
 #include "base/value_object.h"
-#include "utils/growable_array.h"
 
 namespace art {
 
@@ -69,7 +69,7 @@ class Location : public ValueObject {
     kUnallocated = 10,
   };
 
-  Location() : value_(kInvalid) {
+  Location() : ValueObject(), value_(kInvalid) {
     // Verify that non-constant location kinds do not interfere with kConstant.
     static_assert((kInvalid & kLocationConstantMask) != kConstant, "TagError");
     static_assert((kUnallocated & kLocationConstantMask) != kConstant, "TagError");
@@ -84,7 +84,7 @@ class Location : public ValueObject {
     DCHECK(!IsValid());
   }
 
-  Location(const Location& other) : ValueObject(), value_(other.value_) {}
+  Location(const Location& other) : value_(other.value_) {}
 
   Location& operator=(const Location& other) {
     value_ = other.value_;
@@ -354,8 +354,10 @@ class Location : public ValueObject {
   }
 
   static Location RegisterOrConstant(HInstruction* instruction);
-  static Location RegisterOrInt32LongConstant(HInstruction* instruction);
+  static Location RegisterOrInt32Constant(HInstruction* instruction);
   static Location ByteRegisterOrConstant(int reg, HInstruction* instruction);
+  static Location FpuRegisterOrConstant(HInstruction* instruction);
+  static Location FpuRegisterOrInt32Constant(HInstruction* instruction);
 
   // The location of the first input to the instruction will be
   // used to replace this unallocated location.
@@ -427,11 +429,11 @@ class RegisterSet : public ValueObject {
     }
   }
 
-  bool ContainsCoreRegister(uint32_t id) {
+  bool ContainsCoreRegister(uint32_t id) const {
     return Contains(core_registers_, id);
   }
 
-  bool ContainsFloatingPointRegister(uint32_t id) {
+  bool ContainsFloatingPointRegister(uint32_t id) const {
     return Contains(floating_point_registers_, id);
   }
 
@@ -468,7 +470,7 @@ static constexpr bool kIntrinsified = true;
  * The intent is to have the code for generating the instruction independent of
  * register allocation. A register allocator just has to provide a LocationSummary.
  */
-class LocationSummary : public ArenaObject<kArenaAllocMisc> {
+class LocationSummary : public ArenaObject<kArenaAllocLocationSummary> {
  public:
   enum CallKind {
     kNoCall,
@@ -481,16 +483,15 @@ class LocationSummary : public ArenaObject<kArenaAllocMisc> {
                   bool intrinsified = false);
 
   void SetInAt(uint32_t at, Location location) {
-    DCHECK(inputs_.Get(at).IsUnallocated() || inputs_.Get(at).IsInvalid());
-    inputs_.Put(at, location);
+    inputs_[at] = location;
   }
 
   Location InAt(uint32_t at) const {
-    return inputs_.Get(at);
+    return inputs_[at];
   }
 
   size_t GetInputCount() const {
-    return inputs_.Size();
+    return inputs_.size();
   }
 
   void SetOut(Location location, Location::OutputOverlap overlaps = Location::kOutputOverlap) {
@@ -509,21 +510,23 @@ class LocationSummary : public ArenaObject<kArenaAllocMisc> {
   }
 
   void AddTemp(Location location) {
-    temps_.Add(location);
+    temps_.push_back(location);
   }
 
   Location GetTemp(uint32_t at) const {
-    return temps_.Get(at);
+    return temps_[at];
   }
 
   void SetTempAt(uint32_t at, Location location) {
-    DCHECK(temps_.Get(at).IsUnallocated() || temps_.Get(at).IsInvalid());
-    temps_.Put(at, location);
+    DCHECK(temps_[at].IsUnallocated() || temps_[at].IsInvalid());
+    temps_[at] = location;
   }
 
   size_t GetTempCount() const {
-    return temps_.Size();
+    return temps_.size();
   }
+
+  bool HasTemps() const { return !temps_.empty(); }
 
   Location Out() const { return output_; }
 
@@ -575,7 +578,7 @@ class LocationSummary : public ArenaObject<kArenaAllocMisc> {
   }
 
   bool IsFixedInput(uint32_t input_index) const {
-    Location input = inputs_.Get(input_index);
+    Location input = inputs_[input_index];
     return input.IsRegister()
         || input.IsFpuRegister()
         || input.IsPair()
@@ -591,9 +594,13 @@ class LocationSummary : public ArenaObject<kArenaAllocMisc> {
     return intrinsified_;
   }
 
+  void SetIntrinsified(bool intrinsified) {
+    intrinsified_ = intrinsified;
+  }
+
  private:
-  GrowableArray<Location> inputs_;
-  GrowableArray<Location> temps_;
+  ArenaVector<Location> inputs_;
+  ArenaVector<Location> temps_;
   // Whether the output overlaps with any of the inputs. If it overlaps, then it cannot
   // share the same register as the inputs.
   Location::OutputOverlap output_overlaps_;
@@ -610,7 +617,7 @@ class LocationSummary : public ArenaObject<kArenaAllocMisc> {
   RegisterSet live_registers_;
 
   // Whether these are locations for an intrinsified call.
-  const bool intrinsified_;
+  bool intrinsified_;
 
   ART_FRIEND_TEST(RegisterAllocatorTest, ExpectedInRegisterHint);
   ART_FRIEND_TEST(RegisterAllocatorTest, SameAsFirstInputHint);

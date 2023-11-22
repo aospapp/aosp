@@ -60,7 +60,6 @@ extern void bta_ag_ci_rx_write(UINT16 handle, char *p_data, UINT16 len);
 ******************************************************************************/
 extern void bta_ag_ci_slc_ready(UINT16 handle);
 
-// btla-specific ++
 /******************************************************************************
 **
 ** Function         bta_ag_ci_wbs_command
@@ -72,7 +71,6 @@ extern void bta_ag_ci_slc_ready(UINT16 handle);
 **
 ******************************************************************************/
 extern void bta_ag_ci_wbs_command (UINT16 handle, char *p_data, UINT16 len);
-// btla-specific --
 
 #ifdef __cplusplus
 }

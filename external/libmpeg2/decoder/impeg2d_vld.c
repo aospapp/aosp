@@ -789,13 +789,13 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_decode(
                 u4_nz_cols |= 1 << (u4_pos & 0x7);
                 u4_nz_rows |= 1 << (u4_pos >> 0x3);
 
+                if (u4_numCoeffs > 64)
+                {
+                    return IMPEG2D_MB_TEX_DECODE_ERR;
+                }
 
             }
             IBITS_GET(u4_buf,u4_buf_nxt,u4_offset,u4_bits,pu4_buf_aligned,u4_sym_len)
-            if (u4_numCoeffs > 64)
-            {
-                return IMPEG2D_MB_TEX_DECODE_ERR;
-            }
         }
         else
         {
@@ -957,10 +957,11 @@ IMPEG2D_ERROR_CODES_T impeg2d_vld_decode(
 
                 u4_nz_cols |= 1 << (u4_pos & 0x7);
                 u4_nz_rows |= 1 << (u4_pos >> 0x3);
-            }
-            if (u4_numCoeffs > 64)
-            {
-                return IMPEG2D_MB_TEX_DECODE_ERR;
+                if (u4_numCoeffs > 64)
+                {
+                    return IMPEG2D_MB_TEX_DECODE_ERR;
+                }
+
             }
 
             IBITS_GET(u4_buf,u4_buf_nxt,u4_offset,u4_bits,pu4_buf_aligned,u4_sym_len)

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm -g -triple x86_64-apple-darwin -fstandalone-debug %s -o - | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -debug-info-kind=standalone -triple x86_64-apple-darwin %s -o - | FileCheck %s
 
 class Test
 {
@@ -19,6 +19,6 @@ protected:
 
 Test t;
 
-// CHECK: !MDDerivedType(tag: DW_TAG_pointer_type
-// CHECK: !MDCompositeType(tag: DW_TAG_structure_type, name: "data"
-// CHECK-NOT: !MDCompositeType(tag: DW_TAG_structure_type, name: "data"
+// CHECK: !DIDerivedType(tag: DW_TAG_pointer_type
+// CHECK: !DICompositeType(tag: DW_TAG_structure_type, name: "data"
+// CHECK-NOT: !DICompositeType(tag: DW_TAG_structure_type, name: "data"

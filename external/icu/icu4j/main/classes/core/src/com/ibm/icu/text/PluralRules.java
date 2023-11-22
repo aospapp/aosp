@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (C) 2007-2014, International Business Machines Corporation and
+ * Copyright (C) 2007-2016, International Business Machines Corporation and
  * others. All Rights Reserved.
  *******************************************************************************
  */
@@ -15,7 +15,6 @@ import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.text.ParseException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -249,7 +248,7 @@ public class PluralRules implements Serializable {
 
         /**
          * Returns the 'functionally equivalent' locale with respect to plural rules. Calling PluralRules.forLocale with
-         * the functionally equivalent locale, and with the provided locale, returns rules that behave the same. <br/>
+         * the functionally equivalent locale, and with the provided locale, returns rules that behave the same. <br>
          * All locales with the same functionally equivalent locale have plural rules that behave the same. This is not
          * exaustive; there may be other locales whose plural rules behave the same that do not have the same equivalent
          * locale.
@@ -257,7 +256,7 @@ public class PluralRules implements Serializable {
          * @param locale
          *            the locale to check
          * @param isAvailable
-         *            if not null and of length > 0, this will hold 'true' at index 0 if locale is directly defined
+         *            if not null and of length &gt; 0, this will hold 'true' at index 0 if locale is directly defined
          *            (without fallback) as having plural rules
          * @return the functionally-equivalent locale
          * @internal
@@ -1781,73 +1780,6 @@ public class PluralRules implements Serializable {
         }
     }
 
-    /**
-     * @internal
-     * @deprecated This API is ICU internal only.
-     */
-    @Deprecated
-    public enum StandardPluralCategories {
-        /**
-         * @internal
-         * @deprecated This API is ICU internal only.
-         */
-        @Deprecated
-        zero,
-        /**
-         * @internal
-         * @deprecated This API is ICU internal only.
-         */
-        @Deprecated
-        one,
-        /**
-         * @internal
-         * @deprecated This API is ICU internal only.
-         */
-        @Deprecated
-        two,
-        /**
-         * @internal
-         * @deprecated This API is ICU internal only.
-         */
-        @Deprecated
-        few,
-        /**
-         * @internal
-         * @deprecated This API is ICU internal only.
-         */
-        @Deprecated
-        many,
-        /**
-         * @internal
-         * @deprecated This API is ICU internal only.
-         */
-        @Deprecated
-        other;
-        /**
-         * @internal
-         * @deprecated This API is ICU internal only.
-         */
-        @Deprecated
-        public static final List<StandardPluralCategories> VALUES 
-        = Collections.unmodifiableList(Arrays.asList(values()));
-        /**
-         * @internal
-         * @deprecated This API is ICU internal only.
-         */
-        @Deprecated
-        public static final int COUNT = values().length;
-
-        static StandardPluralCategories forString(String s) {
-            StandardPluralCategories a;
-            try {
-                a = valueOf(s);
-            } catch (Exception e) {
-                return null;
-            }
-            return a;
-        }
-    }
-
     @SuppressWarnings("unused")
     private boolean addConditional(Set<FixedDecimal> toAddTo, Set<FixedDecimal> others, double trial) {
         boolean added;
@@ -1891,22 +1823,21 @@ public class PluralRules implements Serializable {
 
     /**
      * Provides access to the predefined cardinal-number <code>PluralRules</code> for a given
-     * JDK locale.
+     * {@link java.util.Locale}.
      * Same as forLocale(locale, PluralType.CARDINAL).
      *
      * <p>ICU defines plural rules for many locales based on CLDR <i>Language Plural Rules</i>.
      * For these predefined rules, see CLDR page at
      * http://unicode.org/repos/cldr-tmp/trunk/diff/supplemental/language_plural_rules.html
      *
-     * @param locale The JDK locale for which a <code>PluralRules</code> object is
+     * @param locale The locale for which a <code>PluralRules</code> object is
      *   returned.
      * @return The predefined <code>PluralRules</code> object for this locale.
      *   If there's no predefined rules for this locale, the rules
      *   for the closest parent in the locale hierarchy that has one will
      *   be returned.  The final fallback always returns the default
      *   rules.
-     * @draft ICU 54
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 54
      */
     public static PluralRules forLocale(Locale locale) {
         return forLocale(ULocale.forLocale(locale));
@@ -1936,13 +1867,13 @@ public class PluralRules implements Serializable {
 
     /**
      * Provides access to the predefined <code>PluralRules</code> for a given
-     * JDK locale and the plural type.
+     * {@link java.util.Locale} and the plural type.
      *
      * <p>ICU defines plural rules for many locales based on CLDR <i>Language Plural Rules</i>.
      * For these predefined rules, see CLDR page at
      * http://unicode.org/repos/cldr-tmp/trunk/diff/supplemental/language_plural_rules.html
      *
-     * @param locale The JDK locale for which a <code>PluralRules</code> object is
+     * @param locale The locale for which a <code>PluralRules</code> object is
      *   returned.
      * @param type The plural type (e.g., cardinal or ordinal).
      * @return The predefined <code>PluralRules</code> object for this locale.
@@ -1950,8 +1881,7 @@ public class PluralRules implements Serializable {
      *   for the closest parent in the locale hierarchy that has one will
      *   be returned.  The final fallback always returns the default
      *   rules.
-     * @draft ICU 54
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 54
      */
     public static PluralRules forLocale(Locale locale, PluralType type) {
         return forLocale(ULocale.forLocale(locale), type);
@@ -2014,16 +1944,15 @@ public class PluralRules implements Serializable {
      * Given a number information, returns the keyword of the first rule that applies to
      * the number.
      *
-     * @param sample The number information for which the rule has to be determined.
+     * @param number The number information for which the rule has to be determined.
      * @return The keyword of the selected rule.
      * @internal
      * @deprecated This API is ICU internal only.
      */
     @Deprecated
-    public String select(FixedDecimal sample) {
-        return rules.select(sample);
+    public String select(FixedDecimal number) {
+        return rules.select(number);
     }
-
 
     /**
      * Given a number information, and keyword, return whether the keyword would match the number.
@@ -2212,14 +2141,14 @@ public class PluralRules implements Serializable {
      * Returns the 'functionally equivalent' locale with respect to
      * plural rules.  Calling PluralRules.forLocale with the functionally equivalent
      * locale, and with the provided locale, returns rules that behave the same.
-     * <br/>
+     * <br>
      * All locales with the same functionally equivalent locale have
      * plural rules that behave the same.  This is not exaustive;
      * there may be other locales whose plural rules behave the same
      * that do not have the same equivalent locale.
      *
      * @param locale the locale to check
-     * @param isAvailable if not null and of length > 0, this will hold 'true' at
+     * @param isAvailable if not null and of length &gt; 0, this will hold 'true' at
      * index 0 if locale is directly defined (without fallback) as having plural rules
      * @return the functionally-equivalent locale
      * @draft ICU 4.2 (retain)

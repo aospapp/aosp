@@ -63,6 +63,8 @@ struct VideoPayloadBuffer {
 
     uint32_t coded_width;
     uint32_t coded_height;
+    uint32_t initialized;
+
     uint32_t csc_mode;
     uint32_t video_range;
 };

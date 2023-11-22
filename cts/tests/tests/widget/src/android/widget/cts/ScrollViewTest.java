@@ -16,7 +16,12 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
+
+import android.widget.FrameLayout;
+import android.widget.cts.R;
 
 
 import org.xmlpull.v1.XmlPullParser;
@@ -34,7 +39,6 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.View.MeasureSpec;
-import android.view.ViewGroup.LayoutParams;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
@@ -61,7 +65,7 @@ public class ScrollViewTest extends ActivityInstrumentationTestCase2<ScrollViewC
     private Activity mActivity;
 
     public ScrollViewTest() {
-        super("com.android.cts.widget", ScrollViewCtsActivity.class);
+        super("android.widget.cts", ScrollViewCtsActivity.class);
     }
 
     @Override
@@ -349,6 +353,179 @@ public class ScrollViewTest extends ActivityInstrumentationTestCase2<ScrollViewC
 
         assertEquals(30, child.getMeasuredHeight());
         assertEquals(100, child.getMeasuredWidth());
+    }
+
+    public void testMeasureSpecs() {
+        MyView child = spy(new MyView(mActivity));
+        MyScrollView scrollView = new MyScrollView(mActivity);
+        scrollView.addView(child);
+
+        scrollView.measureChild(child, MeasureSpec.makeMeasureSpec(150, MeasureSpec.EXACTLY),
+                MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY));
+        verify(child).onMeasure(
+                eq(MeasureSpec.makeMeasureSpec(150, MeasureSpec.EXACTLY)),
+                eq(MeasureSpec.makeMeasureSpec(100, MeasureSpec.UNSPECIFIED)));
+    }
+
+    public void testMeasureSpecsWithPadding() {
+        MyView child = spy(new MyView(mActivity));
+        MyScrollView scrollView = new MyScrollView(mActivity);
+        scrollView.setPadding(3, 5, 7, 11);
+        scrollView.addView(child);
+
+        scrollView.measureChild(child, MeasureSpec.makeMeasureSpec(150, MeasureSpec.EXACTLY),
+                MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY));
+        verify(child).onMeasure(
+                eq(MeasureSpec.makeMeasureSpec(140, MeasureSpec.EXACTLY)),
+                eq(MeasureSpec.makeMeasureSpec(84, MeasureSpec.UNSPECIFIED)));
+    }
+
+    public void testMeasureSpecsWithMargins() {
+        MyView child = spy(new MyView(mActivity));
+        MyScrollView scrollView = new MyScrollView(mActivity);
+        scrollView.addView(child);
+
+        scrollView.measureChildWithMargins(child,
+                MeasureSpec.makeMeasureSpec(150, MeasureSpec.EXACTLY), 20,
+                MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY), 15);
+        verify(child).onMeasure(
+                eq(MeasureSpec.makeMeasureSpec(130, MeasureSpec.EXACTLY)),
+                eq(MeasureSpec.makeMeasureSpec(85, MeasureSpec.UNSPECIFIED)));
+    }
+
+    public void testMeasureSpecsWithMarginsAndPadding() {
+        MyView child = spy(new MyView(mActivity));
+        MyScrollView scrollView = new MyScrollView(mActivity);
+        scrollView.setPadding(3, 5, 7, 11);
+        scrollView.addView(child);
+
+        scrollView.measureChildWithMargins(child,
+                MeasureSpec.makeMeasureSpec(150, MeasureSpec.EXACTLY), 20,
+                MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY), 15);
+        verify(child).onMeasure(
+                eq(MeasureSpec.makeMeasureSpec(120, MeasureSpec.EXACTLY)),
+                eq(MeasureSpec.makeMeasureSpec(69, MeasureSpec.UNSPECIFIED)));
+    }
+
+    public void testMeasureSpecsWithMarginsAndNoHintWidth() {
+        MyView child = spy(new MyView(mActivity));
+        MyScrollView scrollView = new MyScrollView(mActivity);
+        scrollView.addView(child);
+
+        scrollView.measureChildWithMargins(child,
+                MeasureSpec.makeMeasureSpec(150, MeasureSpec.EXACTLY), 20,
+                MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED), 15);
+        verify(child).onMeasure(
+                eq(MeasureSpec.makeMeasureSpec(130, MeasureSpec.EXACTLY)),
+                eq(MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)));
+    }
+
+    public void testFillViewport() {
+        MyScrollView scrollView = new MyScrollView(mActivity);
+        scrollView.setFillViewport(true);
+
+        MyView child = new MyView(mActivity);
+        child.setLayoutParams(new ViewGroup.LayoutParams(100, 100));
+
+        scrollView.addView(child);
+        scrollView.measure(MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY),
+                MeasureSpec.makeMeasureSpec(150, MeasureSpec.EXACTLY));
+
+        assertEquals(150, child.getMeasuredHeight());
+        assertEquals(100, child.getMeasuredWidth());
+
+        scrollView.layout(0, 0, 100, 150);
+        assertEquals(0, child.getTop());
+    }
+
+    public void testFillViewportWithScrollViewPadding() {
+        MyScrollView scrollView = new MyScrollView(mActivity);
+        scrollView.setFillViewport(true);
+        scrollView.setPadding(3, 10, 5, 7);
+
+        MyView child = new MyView(mActivity);
+        child.setLayoutParams(new ViewGroup.LayoutParams(10,10));
+        child.setDesiredHeight(30);
+
+        scrollView.addView(child);
+        scrollView.measure(MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY),
+                MeasureSpec.makeMeasureSpec(150, MeasureSpec.EXACTLY));
+
+        assertEquals(133, child.getMeasuredHeight());
+        assertEquals(10, child.getMeasuredWidth());
+
+        scrollView.layout(0, 0, 100, 150);
+        assertEquals(10, child.getTop());
+    }
+
+    public void testFillViewportWithChildMargins() {
+        MyScrollView scrollView = new MyScrollView(mActivity);
+        scrollView.setFillViewport(true);
+
+        MyView child = new MyView(mActivity);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(10, 10);
+        lp.leftMargin = 3;
+        lp.topMargin = 10;
+        lp.rightMargin = 5;
+        lp.bottomMargin = 7;
+        child.setDesiredHeight(30);
+        child.setLayoutParams(lp);
+
+        scrollView.addView(child);
+        scrollView.measure(MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY),
+                MeasureSpec.makeMeasureSpec(150, MeasureSpec.EXACTLY));
+
+        assertEquals(133, child.getMeasuredHeight());
+        assertEquals(10, child.getMeasuredWidth());
+
+        scrollView.layout(0, 0, 100, 150);
+        assertEquals(10, child.getTop());
+    }
+
+    public void testFillViewportWithScrollViewPaddingAlreadyFills() {
+        MyScrollView scrollView = new MyScrollView(mActivity);
+        scrollView.setFillViewport(true);
+        scrollView.setPadding(3, 10, 5, 7);
+
+        MyView child = new MyView(mActivity);
+        child.setDesiredHeight(175);
+
+        scrollView.addView(child);
+        scrollView.measure(MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY),
+                MeasureSpec.makeMeasureSpec(150, MeasureSpec.EXACTLY));
+
+
+        assertEquals(92, child.getMeasuredWidth());
+        assertEquals(175, child.getMeasuredHeight());
+
+        scrollView.layout(0, 0, 100, 150);
+        assertEquals(10, child.getTop());
+    }
+
+    public void testFillViewportWithChildMarginsAlreadyFills() {
+        MyScrollView scrollView = new MyScrollView(mActivity);
+        scrollView.setFillViewport(true);
+        MyView child = new MyView(mActivity);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+
+        lp.leftMargin = 3;
+        lp.topMargin = 10;
+        lp.rightMargin = 5;
+        lp.bottomMargin = 7;
+        child.setLayoutParams(lp);
+        child.setDesiredHeight(175);
+
+        scrollView.addView(child);
+        scrollView.measure(MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY),
+                MeasureSpec.makeMeasureSpec(150, MeasureSpec.EXACTLY));
+
+        assertEquals(92, child.getMeasuredWidth());
+        assertEquals(175, child.getMeasuredHeight());
+
+        scrollView.layout(0, 0, 100, 150);
+        assertEquals(10, child.getTop());
     }
 
     @UiThreadTest
@@ -703,9 +880,31 @@ public class ScrollViewTest extends ActivityInstrumentationTestCase2<ScrollViewC
         }.run();
     }
 
-    private static class MyView extends View {
+    public static class MyView extends View {
+        // measure in this height if set
+        private Integer mDesiredHeight;
         public MyView(Context context) {
             super(context);
+        }
+
+        public void setDesiredHeight(Integer desiredHeight) {
+            mDesiredHeight = desiredHeight;
+        }
+
+        @Override
+        protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+            super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+            if (mDesiredHeight != null) {
+                int mode = MeasureSpec.getMode(heightMeasureSpec);
+                int size = MeasureSpec.getSize(heightMeasureSpec);
+                int newHeight = size;
+                if (mode == MeasureSpec.AT_MOST) {
+                    newHeight = Math.max(size, mDesiredHeight);
+                } else if (mode == MeasureSpec.UNSPECIFIED) {
+                    newHeight = mDesiredHeight;
+                }
+                setMeasuredDimension(getMeasuredWidth(), newHeight);
+            }
         }
     }
 }

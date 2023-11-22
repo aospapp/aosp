@@ -36,8 +36,14 @@ class RSReflectionCpp {
   bool reflect();
 
  private:
-  // List of of (type, name) pairs.
-  typedef std::vector<std::pair<std::string, std::string> > ArgumentList;
+  struct Argument {
+    std::string Type;
+    std::string Name;
+    std::string DefaultValue;
+    Argument(std::string Type, std::string Name, std::string DefaultValue = "")
+      : Type(Type), Name(Name), DefaultValue(DefaultValue) {}
+  };
+  typedef std::vector<Argument> ArgumentList;
 
   // Information coming from the compiler about the code we're reflecting.
   const RSContext *mRSContext;
@@ -86,14 +92,25 @@ class RSReflectionCpp {
 
   bool writeHeaderFile();
   bool writeImplementationFile();
+
+  // Write out signatures both in the header and implementation.
   void makeFunctionSignature(bool isDefinition, const RSExportFunc *ef);
+
   bool genEncodedBitCode();
   void genFieldsToStoreExportVariableValues();
   void genTypeInstancesUsedInForEach();
   void genFieldsForAllocationTypeVerification();
+
+  // Write out the code for the getters and setters.
   void genExportVariablesGetterAndSetter();
+
+  // Write out the code for the declaration of the kernel entry points.
   void genForEachDeclarations();
   void genExportFunctionDeclarations();
+
+  // Write out code for the definitions of the kernel entry points.
+  void genExportForEachBodies();
+  void genExportFunctionBodies();
 
   bool startScriptHeader();
 
@@ -128,7 +145,7 @@ class RSReflectionCpp {
   // Generate a runtime type check for VarName.
   void genTypeCheck(const RSExportType *ET, const char *VarName);
 
-  // Generate a type instance for a given forEach argument type.
+  // Generate a type instance for a given type.
   void genTypeInstanceFromPointer(const RSExportType *ET);
   void genTypeInstance(const RSExportType *ET);
 

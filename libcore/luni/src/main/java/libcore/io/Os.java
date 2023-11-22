@@ -41,7 +41,7 @@ import java.net.SocketException;
 import java.nio.ByteBuffer;
 
 public interface Os {
-    public FileDescriptor accept(FileDescriptor fd, InetSocketAddress peerAddress) throws ErrnoException, SocketException;
+    public FileDescriptor accept(FileDescriptor fd, SocketAddress peerAddress) throws ErrnoException, SocketException;
     public boolean access(String path, int mode) throws ErrnoException;
     public InetAddress[] android_getaddrinfo(String node, StructAddrinfo hints, int netId) throws GaiException;
     public void bind(FileDescriptor fd, InetAddress address, int port) throws ErrnoException, SocketException;
@@ -121,6 +121,7 @@ public interface Os {
     public int read(FileDescriptor fd, ByteBuffer buffer) throws ErrnoException, InterruptedIOException;
     public int read(FileDescriptor fd, byte[] bytes, int byteOffset, int byteCount) throws ErrnoException, InterruptedIOException;
     public String readlink(String path) throws ErrnoException;
+    public String realpath(String path) throws ErrnoException;
     public int readv(FileDescriptor fd, Object[] buffers, int[] offsets, int[] byteCounts) throws ErrnoException, InterruptedIOException;
     public int recvfrom(FileDescriptor fd, ByteBuffer buffer, int flags, InetSocketAddress srcAddress) throws ErrnoException, SocketException;
     public int recvfrom(FileDescriptor fd, byte[] bytes, int byteOffset, int byteCount, int flags, InetSocketAddress srcAddress) throws ErrnoException, SocketException;
@@ -162,6 +163,7 @@ public interface Os {
     public void tcsendbreak(FileDescriptor fd, int duration) throws ErrnoException;
     public int umask(int mask);
     public StructUtsname uname();
+    public void unlink(String pathname) throws ErrnoException;
     public void unsetenv(String name) throws ErrnoException;
     public int waitpid(int pid, MutableInt status, int options) throws ErrnoException;
     public int write(FileDescriptor fd, ByteBuffer buffer) throws ErrnoException, InterruptedIOException;

@@ -19,6 +19,7 @@ package com.android.cts.verifier.managedprovisioning;
 import android.app.admin.DevicePolicyManager;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
@@ -34,6 +35,7 @@ import com.android.cts.verifier.R;
 import com.android.cts.verifier.TestListActivity;
 import com.android.cts.verifier.TestListAdapter.TestListItem;
 import com.android.cts.verifier.TestResult;
+import com.android.cts.verifier.location.LocationListenerActivity;
 
 /**
  * CTS verifier test for BYOD managed provisioning flow.
@@ -69,17 +71,31 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
     private DialogTestListItem mWorkStatusBarToastTest;
     private DialogTestListItem mAppSettingsVisibleTest;
     private DialogTestListItem mLocationSettingsVisibleTest;
-    private DialogTestListItem mBatterySettingsVisibleTest;
-    private DialogTestListItem mDataUsageSettingsVisibleTest;
+    private DialogTestListItem mWiFiDataUsageSettingsVisibleTest;
+    private DialogTestListItem mCellularDataUsageSettingsVisibleTest;
     private DialogTestListItem mCredSettingsVisibleTest;
     private DialogTestListItem mPrintSettingsVisibleTest;
     private DialogTestListItem mIntentFiltersTest;
     private DialogTestListItem mPermissionLockdownTest;
     private DialogTestListItem mCrossProfileImageCaptureSupportTest;
-    private DialogTestListItem mCrossProfileVideoCaptureSupportTest;
+    private DialogTestListItem mCrossProfileVideoCaptureWithExtraOutputSupportTest;
+    private DialogTestListItem mCrossProfileVideoCaptureWithoutExtraOutputSupportTest;
     private DialogTestListItem mCrossProfileAudioCaptureSupportTest;
     private TestListItem mKeyguardDisabledFeaturesTest;
     private DialogTestListItem mDisableNfcBeamTest;
+    private TestListItem mAuthenticationBoundKeyTest;
+    private DialogTestListItem mEnableLocationModeTest;
+    private DialogTestListItem mDisableLocationModeThroughMainSwitchTest;
+    private DialogTestListItem mDisableLocationModeThroughWorkSwitchTest;
+    private DialogTestListItem mPrimaryLocationWhenWorkDisabledTest;
+    private DialogTestListItem mSelectWorkChallenge;
+    private DialogTestListItem mConfirmWorkCredentials;
+    private DialogTestListItem mParentProfilePassword;
+    private TestListItem mVpnTest;
+    private TestListItem mDisallowAppsControlTest;
+    private TestListItem mOrganizationInfoTest;
+    private TestListItem mPolicyTransparencyTest;
+    private TestListItem mTurnOffWorkFeaturesTest;
 
     public ByodFlowTestActivity() {
         super(R.layout.provisioning_byod,
@@ -92,7 +108,7 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
         super.onCreate(savedInstanceState);
         mAdminReceiverComponent = new ComponentName(this, DeviceAdminTestReceiver.class.getName());
 
-        disableComponent();
+        enableComponent(PackageManager.COMPONENT_ENABLED_STATE_DISABLED);
         mPrepareTestButton.setText(R.string.provisioning_byod_start);
         mPrepareTestButton.setOnClickListener(new OnClickListener() {
             @Override
@@ -154,7 +170,8 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
     public void finish() {
         // Pass and fail buttons are known to call finish() when clicked, and this is when we want to
         // clean up the provisioned profile.
-        requestDeleteProfileOwner();
+        Utils.requestDeleteManagedProfile(this);
+        enableComponent(PackageManager.COMPONENT_ENABLED_STATE_DEFAULT);
         super.finish();
     }
 
@@ -184,7 +201,7 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                 R.string.provisioning_byod_work_notification,
                 "BYOD_WorkNotificationBadgedTest",
                 R.string.provisioning_byod_work_notification_instruction,
-                new Intent(WorkNotificationTestActivity.ACTION_WORK_NOTIFICATION),
+                new Intent(ByodHelperActivity.ACTION_NOTIFICATION),
                 R.drawable.ic_corp_icon);
 
         Intent workStatusIcon = new Intent(WorkStatusTestActivity.ACTION_WORK_STATUS_ICON);
@@ -248,16 +265,16 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                 R.string.provisioning_byod_location_settings_instruction,
                 new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
 
-        mBatterySettingsVisibleTest = new DialogTestListItem(this,
-                R.string.provisioning_byod_battery_settings,
-                "BYOD_BatterySettingsVisibleTest",
-                R.string.provisioning_byod_battery_settings_instruction,
-                new Intent(Intent.ACTION_POWER_USAGE_SUMMARY));
+        mWiFiDataUsageSettingsVisibleTest = new DialogTestListItem(this,
+                R.string.provisioning_byod_wifi_data_usage_settings,
+                "BYOD_WiFiDataUsageSettingsVisibleTest",
+                R.string.provisioning_byod_wifi_data_usage_settings_instruction,
+                new Intent(Settings.ACTION_SETTINGS));
 
-        mDataUsageSettingsVisibleTest = new DialogTestListItem(this,
-                R.string.provisioning_byod_data_usage_settings,
-                "BYOD_DataUsageSettingsVisibleTest",
-                R.string.provisioning_byod_data_usage_settings_instruction,
+        mCellularDataUsageSettingsVisibleTest = new DialogTestListItem(this,
+                R.string.provisioning_byod_cellular_data_usage_settings,
+                "BYOD_CellularDataUsageSettingsVisibleTest",
+                R.string.provisioning_byod_cellular_data_usage_settings_instruction,
                 new Intent(Settings.ACTION_SETTINGS));
 
         mPrintSettingsVisibleTest = new DialogTestListItem(this,
@@ -293,6 +310,23 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                 KeyguardDisabledFeaturesActivity.class.getName(),
                 new Intent(this, KeyguardDisabledFeaturesActivity.class), null);
 
+        mAuthenticationBoundKeyTest = TestListItem.newTest(this,
+                R.string.provisioning_byod_auth_bound_key,
+                AuthenticationBoundKeyTestActivity.class.getName(),
+                new Intent(AuthenticationBoundKeyTestActivity.ACTION_AUTH_BOUND_KEY_TEST),
+                null);
+
+        mVpnTest = TestListItem.newTest(this,
+                R.string.provisioning_byod_vpn,
+                VpnTestActivity.class.getName(),
+                new Intent(VpnTestActivity.ACTION_VPN),
+                null);
+
+        mDisallowAppsControlTest = TestListItem.newTest(this,
+                R.string.provisioning_byod_disallow_apps_control,
+                DisallowAppsControlActivity.class.getName(),
+                new Intent(this, DisallowAppsControlActivity.class), null);
+
         // Test for checking if the required intent filters are set during managed provisioning.
         mIntentFiltersTest = new DialogTestListItem(this,
                 R.string.provisioning_byod_cross_profile_intent_filters,
@@ -302,7 +336,12 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                 checkIntentFilters();
             }
         };
-        
+
+        mTurnOffWorkFeaturesTest = TestListItem.newTest(this,
+                R.string.provisioning_byod_turn_off_work,
+                TurnOffWorkActivity.class.getName(),
+                new Intent(this, TurnOffWorkActivity.class), null);
+
         Intent permissionCheckIntent = new Intent(
                 PermissionLockdownTestActivity.ACTION_MANAGED_PROFILE_CHECK_PERMISSION_LOCKDOWN);
         mPermissionLockdownTest = new DialogTestListItem(this,
@@ -310,6 +349,41 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                 "BYOD_PermissionLockdownTest",
                 R.string.profile_owner_permission_lockdown_test_info,
                 permissionCheckIntent);
+
+        mSelectWorkChallenge = new DialogTestListItem(this,
+                R.string.provisioning_byod_select_work_challenge,
+                "BYOD_SelectWorkChallenge",
+                R.string.provisioning_byod_select_work_challenge_description,
+                new Intent(ByodHelperActivity.ACTION_TEST_SELECT_WORK_CHALLENGE));
+
+        mConfirmWorkCredentials = new DialogTestListItem(this,
+                R.string.provisioning_byod_confirm_work_credentials,
+                "BYOD_ConfirmWorkCredentials",
+                R.string.provisioning_byod_confirm_work_credentials_description,
+                new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME));
+
+        mOrganizationInfoTest = TestListItem.newTest(this,
+                R.string.provisioning_byod_organization_info,
+                OrganizationInfoTestActivity.class.getName(),
+                new Intent(this, OrganizationInfoTestActivity.class),
+                null);
+
+        mParentProfilePassword = new DialogTestListItem(this,
+                R.string.provisioning_byod_parent_profile_password,
+                "BYOD_ParentProfilePasswordTest",
+                R.string.provisioning_byod_parent_profile_password_description,
+                new Intent(ByodHelperActivity.ACTION_TEST_PARENT_PROFILE_PASSWORD));
+
+        final Intent policyTransparencyTestIntent = new Intent(this,
+                PolicyTransparencyTestListActivity.class);
+        policyTransparencyTestIntent.putExtra(
+                PolicyTransparencyTestListActivity.EXTRA_IS_DEVICE_OWNER, false);
+        policyTransparencyTestIntent.putExtra(
+                PolicyTransparencyTestActivity.EXTRA_TEST_ID, "BYOD_PolicyTransparency");
+        mPolicyTransparencyTest = TestListItem.newTest(this,
+                R.string.device_profile_owner_policy_transparency_test,
+                "BYOD_PolicyTransparency",
+                policyTransparencyTestIntent, null);
 
         adapter.add(mProfileOwnerInstalled);
 
@@ -325,8 +399,8 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
         adapter.add(mCredSettingsVisibleTest);
         adapter.add(mAppSettingsVisibleTest);
         adapter.add(mLocationSettingsVisibleTest);
-        adapter.add(mBatterySettingsVisibleTest);
-        adapter.add(mDataUsageSettingsVisibleTest);
+        adapter.add(mWiFiDataUsageSettingsVisibleTest);
+        adapter.add(mCellularDataUsageSettingsVisibleTest);
         adapter.add(mPrintSettingsVisibleTest);
 
         adapter.add(mCrossProfileIntentFiltersTestFromPersonal);
@@ -337,7 +411,22 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
         adapter.add(mIntentFiltersTest);
         adapter.add(mPermissionLockdownTest);
         adapter.add(mKeyguardDisabledFeaturesTest);
+        adapter.add(mAuthenticationBoundKeyTest);
+        adapter.add(mVpnTest);
+        adapter.add(mTurnOffWorkFeaturesTest);
+        adapter.add(mSelectWorkChallenge);
+        adapter.add(mConfirmWorkCredentials);
+        adapter.add(mOrganizationInfoTest);
+        adapter.add(mParentProfilePassword);
+        adapter.add(mPolicyTransparencyTest);
 
+        if (canResolveIntent(new Intent(Settings.ACTION_APPLICATION_SETTINGS))) {
+            adapter.add(mDisallowAppsControlTest);
+        }
+
+        /* If there is an application that handles ACTION_IMAGE_CAPTURE, test that it handles it
+         * well.
+         */
         if (canResolveIntent(ByodHelperActivity.getCaptureImageIntent())) {
             // Capture image intent can be resolved in primary profile, so test.
             mCrossProfileImageCaptureSupportTest = new DialogTestListItem(this,
@@ -353,14 +442,23 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                     .show();
         }
 
+        /* If there is an application that handles ACTION_VIDEO_CAPTURE, test that it handles it
+         * well.
+         */
         if (canResolveIntent(ByodHelperActivity.getCaptureVideoIntent())) {
             // Capture video intent can be resolved in primary profile, so test.
-            mCrossProfileVideoCaptureSupportTest = new DialogTestListItem(this,
-                    R.string.provisioning_byod_capture_video_support,
-                    "BYOD_CrossProfileVideoCaptureSupportTest",
+            mCrossProfileVideoCaptureWithExtraOutputSupportTest = new DialogTestListItem(this,
+                    R.string.provisioning_byod_capture_video_support_with_extra_output,
+                    "BYOD_CrossProfileVideoCaptureWithExtraOutputSupportTest",
                     R.string.provisioning_byod_capture_video_support_info,
-                    new Intent(ByodHelperActivity.ACTION_CAPTURE_AND_CHECK_VIDEO));
-            adapter.add(mCrossProfileVideoCaptureSupportTest);
+                    new Intent(ByodHelperActivity.ACTION_CAPTURE_AND_CHECK_VIDEO_WITH_EXTRA_OUTPUT));
+            adapter.add(mCrossProfileVideoCaptureWithExtraOutputSupportTest);
+            mCrossProfileVideoCaptureWithoutExtraOutputSupportTest = new DialogTestListItem(this,
+                    R.string.provisioning_byod_capture_video_support_without_extra_output,
+                    "BYOD_CrossProfileVideoCaptureWithoutExtraOutputSupportTest",
+                    R.string.provisioning_byod_capture_video_support_info,
+                    new Intent(ByodHelperActivity.ACTION_CAPTURE_AND_CHECK_VIDEO_WITHOUT_EXTRA_OUTPUT));
+            adapter.add(mCrossProfileVideoCaptureWithoutExtraOutputSupportTest);
         } else {
             // Capture video intent cannot be resolved in primary profile, so skip test.
             Toast.makeText(ByodFlowTestActivity.this,
@@ -400,7 +498,9 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
             adapter.add(mDisableNfcBeamTest);
         }
 
-        /* TODO: reinstate when bug b/20131958 is fixed
+        /* If there is an application that handles RECORD_SOUND_ACTION, test that it handles it
+         * well.
+         */
         if (canResolveIntent(ByodHelperActivity.getCaptureAudioIntent())) {
             // Capture audio intent can be resolved in primary profile, so test.
             mCrossProfileAudioCaptureSupportTest = new DialogTestListItem(this,
@@ -415,7 +515,38 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                     R.string.provisioning_byod_no_audio_capture_resolver, Toast.LENGTH_SHORT)
                     .show();
         }
-        */
+
+        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_LOCATION_GPS)) {
+            mEnableLocationModeTest = new DialogTestListItem(this,
+                    R.string.provisioning_byod_location_mode_enable,
+                    "BYOD_LocationModeEnableTest",
+                    R.string.provisioning_byod_location_mode_enable_instruction,
+                    new Intent(ByodHelperActivity.ACTION_BYOD_SET_LOCATION_AND_CHECK_UPDATES));
+            mDisableLocationModeThroughMainSwitchTest = new DialogTestListItem(this,
+                    R.string.provisioning_byod_location_mode_disable,
+                    "BYOD_LocationModeDisableMainTest",
+                    R.string.provisioning_byod_location_mode_disable_instruction,
+                    new Intent(ByodHelperActivity.ACTION_BYOD_SET_LOCATION_AND_CHECK_UPDATES));
+            mDisableLocationModeThroughWorkSwitchTest = new DialogTestListItem(this,
+                    R.string.provisioning_byod_work_location_mode_disable,
+                    "BYOD_LocationModeDisableWorkTest",
+                    R.string.provisioning_byod_work_location_mode_disable_instruction,
+                    new Intent(ByodHelperActivity.ACTION_BYOD_SET_LOCATION_AND_CHECK_UPDATES));
+            mPrimaryLocationWhenWorkDisabledTest = new DialogTestListItem(this,
+                    R.string.provisioning_byod_primary_location_when_work_disabled,
+                    "BYOD_PrimaryLocationWhenWorkDisabled",
+                    R.string.provisioning_byod_primary_location_when_work_disabled_instruction,
+                    new Intent(LocationListenerActivity.ACTION_SET_LOCATION_AND_CHECK_UPDATES));
+            adapter.add(mEnableLocationModeTest);
+            adapter.add(mDisableLocationModeThroughMainSwitchTest);
+            adapter.add(mDisableLocationModeThroughWorkSwitchTest);
+            adapter.add(mPrimaryLocationWhenWorkDisabledTest);
+        } else {
+            // The system does not support GPS feature, so skip test.
+            Toast.makeText(ByodFlowTestActivity.this,
+                    R.string.provisioning_byod_no_gps_location_feature, Toast.LENGTH_SHORT)
+                    .show();
+        }
     }
 
     // Return whether the intent can be resolved in the current profile
@@ -426,11 +557,11 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
     @Override
     protected void clearRemainingState(final DialogTestListItem test) {
         super.clearRemainingState(test);
-        if (WorkNotificationTestActivity.ACTION_WORK_NOTIFICATION.equals(
+        if (ByodHelperActivity.ACTION_NOTIFICATION.equals(
                 test.getManualTestIntent().getAction())) {
             try {
                 startActivity(new Intent(
-                        WorkNotificationTestActivity.ACTION_CLEAR_WORK_NOTIFICATION));
+                        ByodHelperActivity.ACTION_CLEAR_NOTIFICATION));
             } catch (ActivityNotFoundException e) {
                 // User shouldn't run this test before work profile is set up.
             }
@@ -443,8 +574,6 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                 mAdminReceiverComponent);
 
         if (sending.resolveActivity(getPackageManager()) != null) {
-            // ManagedProvisioning must be started with startActivityForResult, but we don't
-            // care about the result, so passing 0 as a requestCode
             startActivityForResult(sending, REQUEST_MANAGED_PROVISIONING);
         } else {
             showToast(R.string.provisioning_byod_disabled);
@@ -465,24 +594,17 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
         }
     }
 
-    private void requestDeleteProfileOwner() {
-        try {
-            Intent intent = new Intent(ByodHelperActivity.ACTION_REMOVE_PROFILE_OWNER);
-            startActivity(intent);
-            showToast(R.string.provisioning_byod_delete_profile);
-        }
-        catch (ActivityNotFoundException e) {
-            Log.d(TAG, "requestDeleteProfileOwner: ActivityNotFoundException", e);
-        }
-    }
-
     private void checkIntentFilters() {
         try {
+            // Enable component HandleIntentActivity before intent filters are checked.
+            setHandleIntentActivityEnabledSetting(PackageManager.COMPONENT_ENABLED_STATE_ENABLED);
             // We disable the ByodHelperActivity in the primary profile. So, this intent
             // will be handled by the ByodHelperActivity in the managed profile.
             Intent intent = new Intent(ByodHelperActivity.ACTION_CHECK_INTENT_FILTERS);
             startActivityForResult(intent, REQUEST_INTENT_FILTERS_STATUS);
         } catch (ActivityNotFoundException e) {
+            // Disable component HandleIntentActivity if intent filters check fails.
+            setHandleIntentActivityEnabledSetting(PackageManager.COMPONENT_ENABLED_STATE_DISABLED);
             Log.d(TAG, "checkIntentFilters: ActivityNotFoundException", e);
             setTestResult(mIntentFiltersTest, TestResult.TEST_RESULT_FAILED);
             showToast(R.string.provisioning_byod_no_activity);
@@ -490,6 +612,8 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
     }
 
     private void handleIntentFiltersStatus(int resultCode) {
+        // Disable component HandleIntentActivity after intent filters are checked.
+        setHandleIntentActivityEnabledSetting(PackageManager.COMPONENT_ENABLED_STATE_DISABLED);
         // we use the resultCode from ByodHelperActivity in the managed profile to know if certain
         // intents fired from the managed profile are forwarded.
         final boolean intentFiltersSetForManagedIntents = (resultCode == RESULT_OK);
@@ -505,19 +629,32 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                 intentFiltersSet ? TestResult.TEST_RESULT_PASSED : TestResult.TEST_RESULT_FAILED);
     }
 
-    private void disableComponent() {
-        // Disable app components in the current profile, so only the counterpart in the other profile
-        // can respond (via cross-profile intent filter)
+    /**
+     *  Disable or enable app components in the current profile. When they are disabled only the
+     * counterpart in the other profile can respond (via cross-profile intent filter).
+     * @param enabledState {@link PackageManager#COMPONENT_ENABLED_STATE_DISABLED} or
+     *                      {@link PackageManager#COMPONENT_ENABLED_STATE_DEFAULT}
+     */
+    private void enableComponent(final int enabledState) {
         final String[] components = {
             ByodHelperActivity.class.getName(),
-            WorkNotificationTestActivity.class.getName(),
             WorkStatusTestActivity.class.getName(),
-            PermissionLockdownTestActivity.ACTIVITY_ALIAS
+            PermissionLockdownTestActivity.ACTIVITY_ALIAS,
+            AuthenticationBoundKeyTestActivity.class.getName(),
+            VpnTestActivity.class.getName(),
+            CommandReceiverActivity.class.getName(),
+            SetSupportMessageActivity.class.getName()
         };
         for (String component : components) {
             getPackageManager().setComponentEnabledSetting(new ComponentName(this, component),
-                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-                    PackageManager.DONT_KILL_APP);
+                    enabledState, PackageManager.DONT_KILL_APP);
         }
     }
+
+    private void setHandleIntentActivityEnabledSetting(final int enableState) {
+        getPackageManager().setComponentEnabledSetting(
+            new ComponentName(ByodFlowTestActivity.this, HandleIntentActivity.class.getName()),
+            enableState, PackageManager.DONT_KILL_APP);
+    }
+
 }

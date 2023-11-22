@@ -1,5 +1,5 @@
 <?cs include:"macros.cs" ?>
-<html>
+<html<?cs if:devsite ?> devsite<?cs /if ?>>
 <style>
     .jd-hierarchy-spacer {
         width: 15px;
@@ -11,7 +11,7 @@
 </style>
 <?cs include:"head_tag.cs" ?>
 <?cs include:"header.cs" ?>
-
+<body>
 <div class="g-unit" id="doc-content">
 
 <div id="jd-header">
@@ -20,7 +20,7 @@
 
 <div id="jd-content">
 
-<div style="margin-left: 20px; margin-right: 20px;">
+<div<?cs if:!devsite ?> style="margin-left: 20px; margin-right: 20px;"<?cs /if ?>>
 
 <?cs def:hierarchy_list(classes) ?>
 <?cs each:cl = classes ?>
@@ -56,13 +56,16 @@
 </table>
 
 </div>
-
+<?cs if:!devsite ?>
 <?cs include:"footer.cs" ?>
+<?cs /if ?>
 </div><!-- end jd-content -->
 </div><!-- end doc-content -->
 
+<?cs if:!devsite ?>
 <?cs include:"trailer.cs" ?>
+<?cs /if ?>
+
 
 </body>
 </html>
-

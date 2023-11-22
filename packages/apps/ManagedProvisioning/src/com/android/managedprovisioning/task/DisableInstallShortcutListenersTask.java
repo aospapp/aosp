@@ -16,6 +16,7 @@
 
 package com.android.managedprovisioning.task;
 
+import android.app.AppGlobals;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -24,7 +25,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 
 import com.android.managedprovisioning.ProvisionLogger;
-import com.android.managedprovisioning.Utils;
+import com.android.managedprovisioning.common.Utils;
 
 import java.util.List;
 import java.util.Set;
@@ -37,6 +38,8 @@ public class DisableInstallShortcutListenersTask {
     private final PackageManager mPm;
     private final int mUserId;
 
+    private final Utils mUtils = new Utils();
+
     public DisableInstallShortcutListenersTask(Context context, int userId) {
         mUserId = userId;
         mPm = context.getPackageManager();
@@ -45,7 +48,8 @@ public class DisableInstallShortcutListenersTask {
     public void run() {
         ProvisionLogger.logd("Disabling install shortcut listeners.");
         Intent actionShortcut = new Intent("com.android.launcher.action.INSTALL_SHORTCUT");
-        Set<String> systemApps = Utils.getCurrentSystemApps(mUserId);
+        Set<String> systemApps = mUtils.getCurrentSystemApps(AppGlobals.getPackageManager(),
+                mUserId);
         for (String systemApp : systemApps) {
             actionShortcut.setPackage(systemApp);
             disableReceivers(actionShortcut);
@@ -56,7 +60,7 @@ public class DisableInstallShortcutListenersTask {
      * Disable all components that can handle the specified broadcast intent.
      */
     private void disableReceivers(Intent intent) {
-        List<ResolveInfo> receivers = mPm.queryBroadcastReceivers(intent, 0, mUserId);
+        List<ResolveInfo> receivers = mPm.queryBroadcastReceiversAsUser(intent, 0, mUserId);
         for (ResolveInfo ri : receivers) {
             // One of ri.activityInfo, ri.serviceInfo, ri.providerInfo is not null. Let's find which
             // one.
@@ -68,7 +72,7 @@ public class DisableInstallShortcutListenersTask {
             } else {
                 ci = ri.providerInfo;
             }
-            Utils.disableComponent(new ComponentName(ci.packageName, ci.name), mUserId);
+            mUtils.disableComponent(new ComponentName(ci.packageName, ci.name), mUserId);
         }
     }
 }

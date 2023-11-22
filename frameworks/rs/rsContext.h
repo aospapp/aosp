@@ -227,6 +227,8 @@ public:
         bool mLogShadersAttr;
         bool mLogShadersUniforms;
         bool mLogVisual;
+        uint32_t mLogReduce;
+        bool mDebugReduceSplitAccum;
         uint32_t mDebugMaxThreads;
     } props;
 
@@ -257,6 +259,9 @@ public:
     // which could take the process down.  Maximizes the chance
     // the process lives long enough to get the error to the developer
     bool hadFatalError() {return mFatalErrorOccured;}
+
+    uint32_t getOptLevel() const { return mOptLevel; }
+    void setOptLevel(uint32_t optLevel) { mOptLevel = optLevel; }
 
     Device *mDev;
 
@@ -311,6 +316,7 @@ protected:
     bool mForceCpu;
 
     RsContextType mContextType;
+    uint32_t mOptLevel;
 
     bool mRunning;
     bool mExit;

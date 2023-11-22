@@ -27,8 +27,6 @@ import java.util.HashMap;
  * Tests for {@link android.speech.tts.TextToSpeechService} using StubTextToSpeechService.
  */
 public class TextToSpeechServiceTest extends AndroidTestCase {
-
-    private static final String UTTERANCE_ID = "utterance";
     private static final String UTTERANCE = "text to speech cts test";
     private static final String SAMPLE_FILE_NAME = "mytts.wav";
 
@@ -57,22 +55,24 @@ public class TextToSpeechServiceTest extends AndroidTestCase {
         try {
             assertFalse(sampleFile.exists());
 
-            int result = getTts().synthesizeToFile(UTTERANCE, createParams(), sampleFile.getPath());
+            int result = getTts().synthesizeToFile(UTTERANCE, createParams("tofile"), sampleFile.getPath());
             assertEquals("synthesizeToFile() failed", TextToSpeech.SUCCESS, result);
 
-            assertTrue("synthesizeToFile() completion timeout", mTts.waitForComplete(UTTERANCE_ID));
+            assertTrue("synthesizeToFile() completion timeout", mTts.waitForComplete("tofile"));
             assertTrue("synthesizeToFile() didn't produce a file", sampleFile.exists());
             assertTrue("synthesizeToFile() produced a non-sound file",
                     TextToSpeechWrapper.isSoundFile(sampleFile.getPath()));
         } finally {
             sampleFile.delete();
         }
+        mTts.verify("tofile");
     }
 
     public void testSpeak() throws Exception {
-        int result = getTts().speak(UTTERANCE, TextToSpeech.QUEUE_FLUSH, createParams());
+        int result = getTts().speak(UTTERANCE, TextToSpeech.QUEUE_FLUSH, createParams("speak"));
         assertEquals("speak() failed", TextToSpeech.SUCCESS, result);
-        assertTrue("speak() completion timeout", waitForUtterance());
+        assertTrue("speak() completion timeout", waitForUtterance("speak"));
+        mTts.verify("speak");
     }
 
     public void testSpeakStop() throws Exception {
@@ -83,7 +83,7 @@ public class TextToSpeechServiceTest extends AndroidTestCase {
         final int iterations = 20;
         for (int i = 0; i < iterations; i++) {
             int result = getTts().speak(UTTERANCE, TextToSpeech.QUEUE_ADD, null,
-                    UTTERANCE_ID + Integer.toString(i));
+                    "stop_" + Integer.toString(i));
             assertEquals("speak() failed", TextToSpeech.SUCCESS, result);
         }
         getTts().stop();
@@ -95,7 +95,7 @@ public class TextToSpeechServiceTest extends AndroidTestCase {
 
         for (int i = 0; i < iterations; i++) {
             assertTrue("speak() stop callback timeout", mTts.waitForStop(
-                    UTTERANCE_ID + Integer.toString(i)));
+                    "stop_" + Integer.toString(i)));
         }
     }
 
@@ -113,14 +113,14 @@ public class TextToSpeechServiceTest extends AndroidTestCase {
         }
     }
 
-    private HashMap<String, String> createParams() {
-        HashMap<String, String> params = new HashMap<String,String>();
-        params.put(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, UTTERANCE_ID);
+    private HashMap<String, String> createParams(String utteranceId) {
+        HashMap<String, String> params = new HashMap<>();
+        params.put(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId);
         return params;
     }
 
-    private boolean waitForUtterance() throws InterruptedException {
-        return mTts.waitForComplete(UTTERANCE_ID);
+    private boolean waitForUtterance(String utteranceId) throws InterruptedException {
+        return mTts.waitForComplete(utteranceId);
     }
 
 }

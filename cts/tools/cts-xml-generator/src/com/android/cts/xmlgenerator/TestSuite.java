@@ -66,4 +66,15 @@ class TestSuite implements Comparable<TestSuite> {
     public int compareTo(TestSuite another) {
         return getName().compareTo(another.getName());
     }
+
+    public int countTests() {
+        int count = 0;
+        for (TestSuite suite : mSuites.values()) {
+            count += suite.countTests();
+        }
+        for (TestCase testCase : mCases) {
+            count += testCase.countTests();
+        }
+        return count;
+    }
 }

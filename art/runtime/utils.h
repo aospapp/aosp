@@ -18,18 +18,24 @@
 #define ART_RUNTIME_UTILS_H_
 
 #include <pthread.h>
+#include <stdlib.h>
 
 #include <limits>
 #include <memory>
+#include <random>
 #include <string>
 #include <type_traits>
 #include <vector>
 
 #include "arch/instruction_set.h"
+#include "base/casts.h"
 #include "base/logging.h"
 #include "base/mutex.h"
+#include "base/stringpiece.h"
 #include "globals.h"
 #include "primitive.h"
+
+class BacktraceMap;
 
 namespace art {
 
@@ -93,6 +99,23 @@ static inline bool NeedsEscaping(uint16_t ch) {
   return (ch < ' ' || ch > '~');
 }
 
+template <typename T> T SafeAbs(T value) {
+  // std::abs has undefined behavior on min limits.
+  DCHECK_NE(value, std::numeric_limits<T>::min());
+  return std::abs(value);
+}
+
+template <typename T> T AbsOrMin(T value) {
+  return (value == std::numeric_limits<T>::min())
+      ? value
+      : std::abs(value);
+}
+
+template <typename T>
+inline typename std::make_unsigned<T>::type MakeUnsigned(T x) {
+  return static_cast<typename std::make_unsigned<T>::type>(x);
+}
+
 std::string PrintableChar(uint16_t ch);
 
 // Returns an ASCII string corresponding to the given UTF-8 string.
@@ -111,22 +134,22 @@ bool EndsWith(const std::string& s, const char* suffix);
 // "[[I" would be "int[][]", "[Ljava/lang/String;" would be
 // "java.lang.String[]", and so forth.
 std::string PrettyDescriptor(mirror::String* descriptor)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+    SHARED_REQUIRES(Locks::mutator_lock_);
 std::string PrettyDescriptor(const char* descriptor);
 std::string PrettyDescriptor(mirror::Class* klass)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+    SHARED_REQUIRES(Locks::mutator_lock_);
 std::string PrettyDescriptor(Primitive::Type type);
 
 // Returns a human-readable signature for 'f'. Something like "a.b.C.f" or
 // "int a.b.C.f" (depending on the value of 'with_type').
 std::string PrettyField(ArtField* f, bool with_type = true)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+    SHARED_REQUIRES(Locks::mutator_lock_);
 std::string PrettyField(uint32_t field_idx, const DexFile& dex_file, bool with_type = true);
 
 // Returns a human-readable signature for 'm'. Something like "a.b.C.m" or
 // "a.b.C.m(II)V" (depending on the value of 'with_signature').
 std::string PrettyMethod(ArtMethod* m, bool with_signature = true)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+    SHARED_REQUIRES(Locks::mutator_lock_);
 std::string PrettyMethod(uint32_t method_idx, const DexFile& dex_file, bool with_signature = true);
 
 // Returns a human-readable form of the name of the *class* of the given object.
@@ -134,7 +157,7 @@ std::string PrettyMethod(uint32_t method_idx, const DexFile& dex_file, bool with
 // be "java.lang.String". Given an array of int, the output would be "int[]".
 // Given String.class, the output would be "java.lang.Class<java.lang.String>".
 std::string PrettyTypeOf(mirror::Object* obj)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+    SHARED_REQUIRES(Locks::mutator_lock_);
 
 // Returns a human-readable form of the type at an index in the specified dex file.
 // Example outputs: char[], java.lang.String.
@@ -143,11 +166,11 @@ std::string PrettyType(uint32_t type_idx, const DexFile& dex_file);
 // Returns a human-readable form of the name of the given class.
 // Given String.class, the output would be "java.lang.Class<java.lang.String>".
 std::string PrettyClass(mirror::Class* c)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+    SHARED_REQUIRES(Locks::mutator_lock_);
 
 // Returns a human-readable form of the name of the given class with its class loader.
 std::string PrettyClassAndClassLoader(mirror::Class* c)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+    SHARED_REQUIRES(Locks::mutator_lock_);
 
 // Returns a human-readable version of the Java part of the access flags, e.g., "private static "
 // (note the trailing whitespace).
@@ -182,10 +205,10 @@ bool IsValidMemberName(const char* s);
 
 // Returns the JNI native function name for the non-overloaded method 'm'.
 std::string JniShortName(ArtMethod* m)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+    SHARED_REQUIRES(Locks::mutator_lock_);
 // Returns the JNI native function name for the overloaded method 'm'.
 std::string JniLongName(ArtMethod* m)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+    SHARED_REQUIRES(Locks::mutator_lock_);
 
 bool ReadFileToString(const std::string& file_name, std::string* result);
 bool PrintFileToLog(const std::string& file_name, LogSeverity level);
@@ -220,12 +243,19 @@ std::string GetSchedulerGroupName(pid_t tid);
 void SetThreadName(const char* thread_name);
 
 // Dumps the native stack for thread 'tid' to 'os'.
-void DumpNativeStack(std::ostream& os, pid_t tid, const char* prefix = "",
-    ArtMethod* current_method = nullptr, void* ucontext = nullptr)
+void DumpNativeStack(std::ostream& os,
+                     pid_t tid,
+                     BacktraceMap* map = nullptr,
+                     const char* prefix = "",
+                     ArtMethod* current_method = nullptr,
+                     void* ucontext = nullptr)
     NO_THREAD_SAFETY_ANALYSIS;
 
 // Dumps the kernel stack for thread 'tid' to 'os'. Note that this is only available on linux-x86.
-void DumpKernelStack(std::ostream& os, pid_t tid, const char* prefix = "", bool include_count = true);
+void DumpKernelStack(std::ostream& os,
+                     pid_t tid,
+                     const char* prefix = "",
+                     bool include_count = true);
 
 // Find $ANDROID_ROOT, /system, or abort.
 const char* GetAndroidRoot();
@@ -260,60 +290,36 @@ std::string GetDalvikCacheFilenameOrDie(const char* file_location,
 // Returns the system location for an image
 std::string GetSystemImageFilename(const char* location, InstructionSet isa);
 
-// Check whether the given magic matches a known file type.
-bool IsZipMagic(uint32_t magic);
-bool IsDexMagic(uint32_t magic);
-bool IsOatMagic(uint32_t magic);
-
 // Wrapper on fork/execv to run a command in a subprocess.
 bool Exec(std::vector<std::string>& arg_vector, std::string* error_msg);
+int ExecAndReturnCode(std::vector<std::string>& arg_vector, std::string* error_msg);
+
+// Returns true if the file exists.
+bool FileExists(const std::string& filename);
+bool FileExistsAndNotEmpty(const std::string& filename);
 
 class VoidFunctor {
  public:
   template <typename A>
-  inline void operator() (A a) const {
-    UNUSED(a);
+  inline void operator() (A a ATTRIBUTE_UNUSED) const {
   }
 
   template <typename A, typename B>
-  inline void operator() (A a, B b) const {
-    UNUSED(a, b);
+  inline void operator() (A a ATTRIBUTE_UNUSED, B b ATTRIBUTE_UNUSED) const {
   }
 
   template <typename A, typename B, typename C>
-  inline void operator() (A a, B b, C c) const {
-    UNUSED(a, b, c);
+  inline void operator() (A a ATTRIBUTE_UNUSED, B b ATTRIBUTE_UNUSED, C c ATTRIBUTE_UNUSED) const {
   }
 };
 
-template <typename Alloc>
-void Push32(std::vector<uint8_t, Alloc>* buf, int32_t data) {
+template <typename Vector>
+void Push32(Vector* buf, int32_t data) {
+  static_assert(std::is_same<typename Vector::value_type, uint8_t>::value, "Invalid value type");
   buf->push_back(data & 0xff);
   buf->push_back((data >> 8) & 0xff);
   buf->push_back((data >> 16) & 0xff);
   buf->push_back((data >> 24) & 0xff);
-}
-
-void EncodeUnsignedLeb128(uint32_t data, std::vector<uint8_t>* buf);
-void EncodeSignedLeb128(int32_t data, std::vector<uint8_t>* buf);
-
-// Deleter using free() for use with std::unique_ptr<>. See also UniqueCPtr<> below.
-struct FreeDelete {
-  // NOTE: Deleting a const object is valid but free() takes a non-const pointer.
-  void operator()(const void* ptr) const {
-    free(const_cast<void*>(ptr));
-  }
-};
-
-// Alias for std::unique_ptr<> that uses the C function free() to delete objects.
-template <typename T>
-using UniqueCPtr = std::unique_ptr<T, FreeDelete>;
-
-// C++14 from-the-future import (std::make_unique)
-// Invoke the constructor of 'T' with the provided args, and wrap the result in a unique ptr.
-template <typename T, typename ... Args>
-std::unique_ptr<T> MakeUnique(Args&& ... args) {
-  return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
 }
 
 inline bool TestBitmap(size_t idx, const uint8_t* bitmap) {
@@ -322,6 +328,89 @@ inline bool TestBitmap(size_t idx, const uint8_t* bitmap) {
 
 static inline constexpr bool ValidPointerSize(size_t pointer_size) {
   return pointer_size == 4 || pointer_size == 8;
+}
+
+void DumpMethodCFG(ArtMethod* method, std::ostream& os) SHARED_REQUIRES(Locks::mutator_lock_);
+void DumpMethodCFG(const DexFile* dex_file, uint32_t dex_method_idx, std::ostream& os);
+
+static inline const void* EntryPointToCodePointer(const void* entry_point) {
+  uintptr_t code = reinterpret_cast<uintptr_t>(entry_point);
+  // TODO: Make this Thumb2 specific. It is benign on other architectures as code is always at
+  //       least 2 byte aligned.
+  code &= ~0x1;
+  return reinterpret_cast<const void*>(code);
+}
+
+using UsageFn = void (*)(const char*, ...);
+
+template <typename T>
+static void ParseUintOption(const StringPiece& option,
+                            const std::string& option_name,
+                            T* out,
+                            UsageFn Usage,
+                            bool is_long_option = true) {
+  std::string option_prefix = option_name + (is_long_option ? "=" : "");
+  DCHECK(option.starts_with(option_prefix)) << option << " " << option_prefix;
+  const char* value_string = option.substr(option_prefix.size()).data();
+  int64_t parsed_integer_value = 0;
+  if (!ParseInt(value_string, &parsed_integer_value)) {
+    Usage("Failed to parse %s '%s' as an integer", option_name.c_str(), value_string);
+  }
+  if (parsed_integer_value < 0) {
+    Usage("%s passed a negative value %d", option_name.c_str(), parsed_integer_value);
+  }
+  *out = dchecked_integral_cast<T>(parsed_integer_value);
+}
+
+void ParseDouble(const std::string& option,
+                 char after_char,
+                 double min,
+                 double max,
+                 double* parsed_value,
+                 UsageFn Usage);
+
+#if defined(__BIONIC__)
+struct Arc4RandomGenerator {
+  typedef uint32_t result_type;
+  static constexpr uint32_t min() { return std::numeric_limits<uint32_t>::min(); }
+  static constexpr uint32_t max() { return std::numeric_limits<uint32_t>::max(); }
+  uint32_t operator() () { return arc4random(); }
+};
+using RNG = Arc4RandomGenerator;
+#else
+using RNG = std::random_device;
+#endif
+
+template <typename T>
+T GetRandomNumber(T min, T max) {
+  CHECK_LT(min, max);
+  std::uniform_int_distribution<T> dist(min, max);
+  RNG rng;
+  return dist(rng);
+}
+
+// Return the file size in bytes or -1 if the file does not exists.
+int64_t GetFileSizeBytes(const std::string& filename);
+
+// Sleep forever and never come back.
+NO_RETURN void SleepForever();
+
+inline void FlushInstructionCache(char* begin, char* end) {
+  // Only use __builtin___clear_cache with Clang or with GCC >= 4.3.0
+  // (__builtin___clear_cache was introduced in GCC 4.3.0).
+#if defined(__clang__) || GCC_VERSION >= 40300
+  __builtin___clear_cache(begin, end);
+#else
+  // Only warn on non-Intel platforms, as x86 and x86-64 do not need
+  // cache flush instructions, as long as the "code uses the same
+  // linear address for modifying and fetching the instruction". See
+  // "Intel(R) 64 and IA-32 Architectures Software Developer's Manual
+  // Volume 3A: System Programming Guide, Part 1", section 11.6
+  // "Self-Modifying Code".
+#if !defined(__i386__) && !defined(__x86_64__)
+  UNIMPLEMENTED(WARNING) << "cache flush";
+#endif
+#endif
 }
 
 }  // namespace art

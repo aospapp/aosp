@@ -24,7 +24,7 @@ class Closure : public ObjectBase {
             Allocation* returnValue,
             const int numValues,
             const ScriptFieldID** fieldIDs,
-            const void** values,  // Allocations or primitive (numeric) types
+            const int64_t* values,  // Allocations or primitive (numeric) types
             const int* sizes,  // size for data type. -1 indicates an allocation.
             const Closure** depClosures,
             const ScriptFieldID** depFieldIDs);
@@ -34,7 +34,7 @@ class Closure : public ObjectBase {
             const size_t paramLength,
             const size_t numValues,
             const ScriptFieldID** fieldIDs,
-            const void** values,  // Allocations or primitive (numeric) types
+            const int64_t* values,  // Allocations or primitive (numeric) types
             const int* sizes);  // size for data type. -1 indicates an allocation.
 
     virtual ~Closure();
@@ -43,8 +43,10 @@ class Closure : public ObjectBase {
 
     virtual RsA3DClassID getClassId() const { return RS_A3D_CLASS_ID_CLOSURE; }
 
-    void setArg(const uint32_t index, const void* value, const size_t size);
-    void setGlobal(const ScriptFieldID* fieldID, const void* value,
+    // Set the value of an argument or a global.
+    // The special value -1 for the size indicates the value is an Allocation.
+    void setArg(const uint32_t index, const void* value, const int size);
+    void setGlobal(const ScriptFieldID* fieldID, const int64_t value,
                    const int size);
 
     Context* mContext;
@@ -62,7 +64,7 @@ class Closure : public ObjectBase {
     size_t mNumArg;
 
     // A global could be allocation or any primitive data type.
-    Map<const ScriptFieldID*, Pair<const void*, int>> mGlobals;
+    Map<const ScriptFieldID*, Pair<int64_t, int>> mGlobals;
 
     Allocation* mReturnValue;
 

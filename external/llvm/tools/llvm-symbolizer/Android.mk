@@ -4,7 +4,6 @@ LLVM_ROOT_PATH := $(LOCAL_PATH)/../..
 include $(LLVM_ROOT_PATH)/llvm.mk
 
 llvm_symbolizer_SRC_FILES := \
-  LLVMSymbolize.cpp \
   llvm-symbolizer.cpp
 
 include $(CLEAR_VARS)
@@ -16,6 +15,7 @@ LOCAL_SRC_FILES := $(llvm_symbolizer_SRC_FILES)
 LOCAL_LDLIBS += -lpthread -lm -ldl
 
 LOCAL_STATIC_LIBRARIES := \
+  libLLVMSymbolize \
   libLLVMDebugInfoDWARF \
   libLLVMDebugInfoPDB \
   libLLVMObject \
@@ -31,6 +31,7 @@ include $(BUILD_HOST_EXECUTABLE)
 
 include $(CLEAR_VARS)
 
+ifneq (true,$(DISABLE_LLVM_DEVICE_BUILDS))
 LOCAL_MODULE := llvm-symbolizer
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_SRC_FILES := $(llvm_symbolizer_SRC_FILES)
@@ -38,4 +39,4 @@ LOCAL_SHARED_LIBRARIES := libLLVM
 
 include $(LLVM_DEVICE_BUILD_MK)
 include $(BUILD_EXECUTABLE)
-
+endif

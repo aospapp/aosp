@@ -14,6 +14,7 @@
 
 # Asus blob(s) necessary for Fugu hardware
 PRODUCT_COPY_FILES := \
+    vendor/asus/fugu/proprietary/teeprov:system/bin/teeprov:asus \
     vendor/asus/fugu/proprietary/IT8566_CEC.BIN:system/etc/firmware/IT8566_CEC.BIN:asus \
     vendor/asus/fugu/proprietary/hdmi_cec.fugu.so:system/lib/hw/hdmi_cec.fugu.so:asus \
     vendor/asus/fugu/proprietary/libplayreadydrmplugin.so:system/vendor/lib/mediadrm/libplayreadydrmplugin.so:asus \

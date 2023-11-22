@@ -31,7 +31,7 @@ public class WebBackForwardListTest extends ActivityInstrumentationTestCase2<Web
     private WebViewOnUiThread mOnUiThread;
 
     public WebBackForwardListTest() {
-        super("com.android.cts.webkit", WebViewCtsActivity.class);
+        super("android.webkit.cts", WebViewCtsActivity.class);
     }
 
     @Override

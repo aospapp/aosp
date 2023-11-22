@@ -6,7 +6,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2011-2013 Philippe Waroquiers
+   Copyright (C) 2011-2015 Philippe Waroquiers
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License as
@@ -290,7 +290,7 @@ void *invoke_gdbserver_in_valgrind(void *v_pid)
                last invoke. */
             if (invoked_written != written_by_vgdb_before_sleep) {
                if (invoker_invoke_gdbserver(pid)) {
-                  /* If invoke succesful, no need to invoke again
+                  /* If invoke successful, no need to invoke again
                      for the same value of written_by_vgdb_before_sleep. */
                   invoked_written = written_by_vgdb_before_sleep;
                }

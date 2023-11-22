@@ -56,7 +56,7 @@ GENERAL OPTIONS
  Search for :file:`{NAME}.cfg` and :file:`{NAME}.site.cfg` when searching for
  test suites, instead of :file:`lit.cfg` and :file:`lit.site.cfg`.
 
-.. option:: --param NAME, --param NAME=VALUE
+.. option:: -D NAME, -D NAME=VALUE, --param NAME, --param NAME=VALUE
 
  Add a user defined parameter ``NAME`` with the given ``VALUE`` (or the empty
  string if not given).  The meaning and use of these parameters is test suite
@@ -79,6 +79,11 @@ OUTPUT OPTIONS
 
  Show more information on test failures, for example the entire test output
  instead of just the test result.
+
+.. option:: -a, --show-all
+
+ Show more information about all tests, for example the entire test
+ commandline and output.
 
 .. option:: --no-progress-bar
 
@@ -161,7 +166,7 @@ ADDITIONAL OPTIONS
 
 .. option:: --show-tests
 
- List all of the the discovered tests and exit.
+ List all of the discovered tests and exit.
 
 EXIT STATUS
 -----------

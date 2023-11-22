@@ -21,6 +21,7 @@ import android.content.Context;
 import android.os.UserHandle;
 import android.util.Pair;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.IndentingPrintWriter;
 
 import java.util.HashMap;
@@ -28,7 +29,8 @@ import java.util.HashMap;
 /**
  * Searches for and returns connection services.
  */
-final class ConnectionServiceRepository {
+@VisibleForTesting
+public class ConnectionServiceRepository {
     private final HashMap<Pair<ComponentName, UserHandle>, ConnectionServiceWrapper> mServiceCache =
             new HashMap<>();
     private final PhoneAccountRegistrar mPhoneAccountRegistrar;
@@ -57,7 +59,8 @@ final class ConnectionServiceRepository {
         mCallsManager = callsManager;
     }
 
-    ConnectionServiceWrapper getService(ComponentName componentName, UserHandle userHandle) {
+    @VisibleForTesting
+    public ConnectionServiceWrapper getService(ComponentName componentName, UserHandle userHandle) {
         Pair<ComponentName, UserHandle> cacheKey = Pair.create(componentName, userHandle);
         ConnectionServiceWrapper service = mServiceCache.get(cacheKey);
         if (service == null) {

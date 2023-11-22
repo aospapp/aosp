@@ -13,9 +13,8 @@
 #ifndef LLVM_CLANG_AST_ASTMUTATIONLISTENER_H
 #define LLVM_CLANG_AST_ASTMUTATIONLISTENER_H
 
-#include "clang/Basic/SourceLocation.h"
-
 namespace clang {
+  class Attr;
   class ClassTemplateDecl;
   class ClassTemplateSpecializationDecl;
   class CXXDestructorDecl;
@@ -24,12 +23,14 @@ namespace clang {
   class DeclContext;
   class FunctionDecl;
   class FunctionTemplateDecl;
+  class Module;
   class NamedDecl;
   class ObjCCategoryDecl;
   class ObjCContainerDecl;
   class ObjCInterfaceDecl;
   class ObjCPropertyDecl;
   class QualType;
+  class RecordDecl;
   class TagDecl;
   class VarDecl;
   class VarTemplateDecl;
@@ -91,18 +92,6 @@ public:
   virtual void AddedObjCCategoryToInterface(const ObjCCategoryDecl *CatD,
                                             const ObjCInterfaceDecl *IFD) {}
 
-  /// \brief A objc class extension redeclared or introduced a property.
-  ///
-  /// \param Prop the property in the class extension
-  ///
-  /// \param OrigProp the property from the original interface that was declared
-  /// or null if the property was introduced.
-  ///
-  /// \param ClassExt the class extension.
-  virtual void AddedObjCPropertyInClassExtension(const ObjCPropertyDecl *Prop,
-                                            const ObjCPropertyDecl *OrigProp,
-                                            const ObjCCategoryDecl *ClassExt) {}
-
   /// \brief A declaration is marked used which was not previously marked used.
   ///
   /// \param D the declaration marked used
@@ -117,8 +106,17 @@ public:
   /// \brief A definition has been made visible by being redefined locally.
   ///
   /// \param D The definition that was previously not visible.
-  virtual void RedefinedHiddenDefinition(const NamedDecl *D,
-                                         SourceLocation Loc) {}
+  /// \param M The containing module in which the definition was made visible,
+  ///        if any.
+  virtual void RedefinedHiddenDefinition(const NamedDecl *D, Module *M) {}
+  
+  /// \brief An attribute was added to a RecordDecl
+  ///
+  /// \param Attr The attribute that was added to the Record
+  ///
+  /// \param Record The RecordDecl that got a new attribute
+  virtual void AddedAttributeToRecord(const Attr *Attr, 
+                                      const RecordDecl *Record) {}
 
   // NOTE: If new methods are added they should also be added to
   // MultiplexASTMutationListener.

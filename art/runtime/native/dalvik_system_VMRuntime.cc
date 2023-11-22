@@ -16,7 +16,7 @@
 
 #include "dalvik_system_VMRuntime.h"
 
-#ifdef HAVE_ANDROID_OS
+#ifdef __ANDROID__
 extern "C" void android_set_application_target_sdk_version(uint32_t version);
 #endif
 #include <limits.h>
@@ -145,6 +145,10 @@ static jboolean VMRuntime_isDebuggerActive(JNIEnv*, jobject) {
   return Dbg::IsDebuggerActive();
 }
 
+static jboolean VMRuntime_isNativeDebuggable(JNIEnv*, jobject) {
+  return Runtime::Current()->IsNativeDebuggable();
+}
+
 static jobjectArray VMRuntime_properties(JNIEnv* env, jobject) {
   return toStringArray(env, Runtime::Current()->GetProperties());
 }
@@ -196,7 +200,7 @@ static void VMRuntime_setTargetSdkVersionNative(JNIEnv*, jobject, jint target_sd
   // Note that targetSdkVersion may be 0, meaning "current".
   Runtime::Current()->SetTargetSdkVersion(target_sdk_version);
 
-#ifdef HAVE_ANDROID_OS
+#ifdef __ANDROID__
   // This part is letting libc/dynamic linker know about current app's
   // target sdk version to enable compatibility workarounds.
   android_set_application_target_sdk_version(static_cast<uint32_t>(target_sdk_version));
@@ -212,6 +216,10 @@ static void VMRuntime_registerNativeAllocation(JNIEnv* env, jobject, jint bytes)
   Runtime::Current()->GetHeap()->RegisterNativeAllocation(env, static_cast<size_t>(bytes));
 }
 
+static void VMRuntime_registerSensitiveThread(JNIEnv*, jobject) {
+  Runtime::Current()->RegisterSensitiveThread();
+}
+
 static void VMRuntime_registerNativeFree(JNIEnv* env, jobject, jint bytes) {
   if (UNLIKELY(bytes < 0)) {
     ScopedObjectAccess soa(env);
@@ -223,8 +231,7 @@ static void VMRuntime_registerNativeFree(JNIEnv* env, jobject, jint bytes) {
 
 static void VMRuntime_updateProcessState(JNIEnv*, jobject, jint process_state) {
   Runtime* runtime = Runtime::Current();
-  runtime->GetHeap()->UpdateProcessState(static_cast<gc::ProcessState>(process_state));
-  runtime->UpdateProfilerState(process_state);
+  runtime->UpdateProcessState(static_cast<ProcessState>(process_state));
 }
 
 static void VMRuntime_trimHeap(JNIEnv* env, jobject) {
@@ -262,7 +269,7 @@ class PreloadDexCachesStringsVisitor : public SingleRootVisitor {
   explicit PreloadDexCachesStringsVisitor(StringTable* table) : table_(table) { }
 
   void VisitRoot(mirror::Object* root, const RootInfo& info ATTRIBUTE_UNUSED)
-      OVERRIDE SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      OVERRIDE SHARED_REQUIRES(Locks::mutator_lock_) {
     mirror::String* string = root->AsString();
     table_->operator[](string->ToModifiedUtf8()) = string;
   }
@@ -274,7 +281,7 @@ class PreloadDexCachesStringsVisitor : public SingleRootVisitor {
 // Based on ClassLinker::ResolveString.
 static void PreloadDexCachesResolveString(
     Handle<mirror::DexCache> dex_cache, uint32_t string_idx, StringTable& strings)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   mirror::String* string = dex_cache->GetResolvedString(string_idx);
   if (string != nullptr) {
     return;
@@ -292,7 +299,7 @@ static void PreloadDexCachesResolveString(
 // Based on ClassLinker::ResolveType.
 static void PreloadDexCachesResolveType(
     Thread* self, mirror::DexCache* dex_cache, uint32_t type_idx)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   mirror::Class* klass = dex_cache->GetResolvedType(type_idx);
   if (klass != nullptr) {
     return;
@@ -321,7 +328,7 @@ static void PreloadDexCachesResolveType(
 // Based on ClassLinker::ResolveField.
 static void PreloadDexCachesResolveField(Handle<mirror::DexCache> dex_cache, uint32_t field_idx,
                                          bool is_static)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   ArtField* field = dex_cache->GetResolvedField(field_idx, sizeof(void*));
   if (field != nullptr) {
     return;
@@ -349,7 +356,7 @@ static void PreloadDexCachesResolveField(Handle<mirror::DexCache> dex_cache, uin
 // Based on ClassLinker::ResolveMethod.
 static void PreloadDexCachesResolveMethod(Handle<mirror::DexCache> dex_cache, uint32_t method_idx,
                                           InvokeType invoke_type)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   ArtMethod* method = dex_cache->GetResolvedMethod(method_idx, sizeof(void*));
   if (method != nullptr) {
     return;
@@ -423,16 +430,19 @@ static void PreloadDexCachesStatsTotal(DexCacheStats* total) {
 }
 
 static void PreloadDexCachesStatsFilled(DexCacheStats* filled)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   if (!kPreloadDexCachesCollectStats) {
-      return;
+    return;
   }
-  ClassLinker* linker = Runtime::Current()->GetClassLinker();
-  const std::vector<const DexFile*>& boot_class_path = linker->GetBootClassPath();
-  for (size_t i = 0; i< boot_class_path.size(); i++) {
-    const DexFile* dex_file = boot_class_path[i];
+  ClassLinker* const class_linker = Runtime::Current()->GetClassLinker();
+  Thread* const self = Thread::Current();
+  for (const DexFile* dex_file : class_linker->GetBootClassPath()) {
     CHECK(dex_file != nullptr);
-    mirror::DexCache* dex_cache = linker->FindDexCache(*dex_file);
+    mirror::DexCache* const dex_cache = class_linker->FindDexCache(self, *dex_file, true);
+    // If dex cache was deallocated, just continue.
+    if (dex_cache == nullptr) {
+      continue;
+    }
     for (size_t j = 0; j < dex_cache->NumStrings(); j++) {
       mirror::String* string = dex_cache->GetResolvedString(j);
       if (string != nullptr) {
@@ -446,7 +456,7 @@ static void PreloadDexCachesStatsFilled(DexCacheStats* filled)
       }
     }
     for (size_t j = 0; j < dex_cache->NumResolvedFields(); j++) {
-      ArtField* field = linker->GetResolvedField(j, dex_cache);
+      ArtField* field = class_linker->GetResolvedField(j, dex_cache);
       if (field != nullptr) {
         filled->num_fields++;
       }
@@ -490,11 +500,11 @@ static void VMRuntime_preloadDexCaches(JNIEnv* env, jobject) {
   }
 
   const std::vector<const DexFile*>& boot_class_path = linker->GetBootClassPath();
-  for (size_t i = 0; i< boot_class_path.size(); i++) {
+  for (size_t i = 0; i < boot_class_path.size(); i++) {
     const DexFile* dex_file = boot_class_path[i];
     CHECK(dex_file != nullptr);
     StackHandleScope<1> hs(soa.Self());
-    Handle<mirror::DexCache> dex_cache(hs.NewHandle(linker->FindDexCache(*dex_file)));
+    Handle<mirror::DexCache> dex_cache(hs.NewHandle(linker->RegisterDexFile(*dex_file, nullptr)));
 
     if (kPreloadDexCachesStrings) {
       for (size_t j = 0; j < dex_cache->NumStrings(); j++) {
@@ -558,18 +568,43 @@ static void VMRuntime_preloadDexCaches(JNIEnv* env, jobject) {
 
 /*
  * This is called by the framework when it knows the application directory and
- * process name.  We use this information to start up the sampling profiler for
- * for ART.
+ * process name.
  */
-static void VMRuntime_registerAppInfo(JNIEnv* env, jclass, jstring pkgName,
-                                      jstring appDir ATTRIBUTE_UNUSED,
-                                      jstring procName ATTRIBUTE_UNUSED) {
-  const char *pkgNameChars = env->GetStringUTFChars(pkgName, nullptr);
-  std::string profileFile = StringPrintf("/data/dalvik-cache/profiles/%s", pkgNameChars);
+static void VMRuntime_registerAppInfo(JNIEnv* env,
+                                      jclass clazz ATTRIBUTE_UNUSED,
+                                      jstring profile_file,
+                                      jstring app_dir,
+                                      jobjectArray code_paths,
+                                      jstring foreign_dex_profile_path) {
+  std::vector<std::string> code_paths_vec;
+  int code_paths_length = env->GetArrayLength(code_paths);
+  for (int i = 0; i < code_paths_length; i++) {
+    jstring code_path = reinterpret_cast<jstring>(env->GetObjectArrayElement(code_paths, i));
+    const char* raw_code_path = env->GetStringUTFChars(code_path, nullptr);
+    code_paths_vec.push_back(raw_code_path);
+    env->ReleaseStringUTFChars(code_path, raw_code_path);
+  }
 
-  Runtime::Current()->StartProfiler(profileFile.c_str());
+  const char* raw_profile_file = env->GetStringUTFChars(profile_file, nullptr);
+  std::string profile_file_str(raw_profile_file);
+  env->ReleaseStringUTFChars(profile_file, raw_profile_file);
 
-  env->ReleaseStringUTFChars(pkgName, pkgNameChars);
+  std::string foreign_dex_profile_path_str = "";
+  if (foreign_dex_profile_path != nullptr) {
+    const char* raw_foreign_dex_profile_path =
+        env->GetStringUTFChars(foreign_dex_profile_path, nullptr);
+    foreign_dex_profile_path_str.assign(raw_foreign_dex_profile_path);
+    env->ReleaseStringUTFChars(foreign_dex_profile_path, raw_foreign_dex_profile_path);
+  }
+
+  const char* raw_app_dir = env->GetStringUTFChars(app_dir, nullptr);
+  std::string app_dir_str(raw_app_dir);
+  env->ReleaseStringUTFChars(app_dir, raw_app_dir);
+
+  Runtime::Current()->RegisterAppInfo(code_paths_vec,
+                                      profile_file_str,
+                                      foreign_dex_profile_path_str,
+                                      app_dir_str);
 }
 
 static jboolean VMRuntime_isBootClassPathOnDisk(JNIEnv* env, jclass, jstring java_instruction_set) {
@@ -594,6 +629,11 @@ static jstring VMRuntime_getCurrentInstructionSet(JNIEnv* env, jclass) {
   return env->NewStringUTF(GetInstructionSetString(kRuntimeISA));
 }
 
+static jboolean VMRuntime_didPruneDalvikCache(JNIEnv* env ATTRIBUTE_UNUSED,
+                                              jclass klass ATTRIBUTE_UNUSED) {
+  return Runtime::Current()->GetPrunedDalvikCache() ? JNI_TRUE : JNI_FALSE;
+}
+
 static JNINativeMethod gMethods[] = {
   NATIVE_METHOD(VMRuntime, addressOf, "!(Ljava/lang/Object;)J"),
   NATIVE_METHOD(VMRuntime, bootClassPath, "()Ljava/lang/String;"),
@@ -604,12 +644,14 @@ static JNINativeMethod gMethods[] = {
   NATIVE_METHOD(VMRuntime, disableJitCompilation, "()V"),
   NATIVE_METHOD(VMRuntime, getTargetHeapUtilization, "()F"),
   NATIVE_METHOD(VMRuntime, isDebuggerActive, "!()Z"),
+  NATIVE_METHOD(VMRuntime, isNativeDebuggable, "!()Z"),
   NATIVE_METHOD(VMRuntime, nativeSetTargetHeapUtilization, "(F)V"),
   NATIVE_METHOD(VMRuntime, newNonMovableArray, "!(Ljava/lang/Class;I)Ljava/lang/Object;"),
   NATIVE_METHOD(VMRuntime, newUnpaddedArray, "!(Ljava/lang/Class;I)Ljava/lang/Object;"),
   NATIVE_METHOD(VMRuntime, properties, "()[Ljava/lang/String;"),
   NATIVE_METHOD(VMRuntime, setTargetSdkVersionNative, "(I)V"),
   NATIVE_METHOD(VMRuntime, registerNativeAllocation, "(I)V"),
+  NATIVE_METHOD(VMRuntime, registerSensitiveThread, "()V"),
   NATIVE_METHOD(VMRuntime, registerNativeFree, "(I)V"),
   NATIVE_METHOD(VMRuntime, requestConcurrentGC, "()V"),
   NATIVE_METHOD(VMRuntime, requestHeapTrim, "()V"),
@@ -626,9 +668,10 @@ static JNINativeMethod gMethods[] = {
   NATIVE_METHOD(VMRuntime, isCheckJniEnabled, "!()Z"),
   NATIVE_METHOD(VMRuntime, preloadDexCaches, "()V"),
   NATIVE_METHOD(VMRuntime, registerAppInfo,
-                "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V"),
+                "(Ljava/lang/String;Ljava/lang/String;[Ljava/lang/String;Ljava/lang/String;)V"),
   NATIVE_METHOD(VMRuntime, isBootClassPathOnDisk, "(Ljava/lang/String;)Z"),
   NATIVE_METHOD(VMRuntime, getCurrentInstructionSet, "()Ljava/lang/String;"),
+  NATIVE_METHOD(VMRuntime, didPruneDalvikCache, "()Z"),
 };
 
 void register_dalvik_system_VMRuntime(JNIEnv* env) {

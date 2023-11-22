@@ -158,6 +158,16 @@ Only the three quirks included above are recognized at this point:
             <Feature name="adaptive-playback" />
             <Limit name="concurrent-instances" max="5" />
         </MediaCodec>
+        <MediaCodec name="OMX.Intel.sw_vd.h265.secure_L3" type="video/hevc">
+            <Limit name="size" min="16x16" max="1920x1088" />
+            <Limit name="alignment" value="2x2" />
+            <Limit name="block-size" value="16x16" />
+            <Limit name="blocks-per-second" range="1-244800" />
+            <Limit name="bitrate" range="1-8000000" />
+            <Feature name="adaptive-playback" />
+            <Feature name="secure-playback" required="true" />
+            <Limit name="concurrent-instances" max="5" />
+        </MediaCodec>
 
        <MediaCodec name="OMX.google.gsm.decoder" type="audio/gsm" />
        <MediaCodec name="OMX.Intel.alac.decoder" type="audio/alac" />
@@ -172,6 +182,7 @@ Only the three quirks included above are recognized at this point:
             <Limit name="frame-rate" range="1-60" />
             <Limit name="bitrate" range="1-50000000" />
             <Limit name="concurrent-instances" max="3" />
+            <Feature name="intra-refresh" optional="yes"/>
         </MediaCodec>
         <MediaCodec name="OMX.Intel.VideoEncoder.VP8" type="video/x-vnd.on2.vp8" >
             <Quirk name="requires-allocate-on-input-ports" />
@@ -181,8 +192,10 @@ Only the three quirks included above are recognized at this point:
             <Limit name="frame-rate" range="1-30" />
             <Limit name="bitrate" range="1-10000000" />
             <Limit name="concurrent-instances" max="3" />
+            <Feature name="intra-refresh" optional="yes"/>
         </MediaCodec>
     </Encoders>
 
+    <Include href="media_codecs_google_tv.xml" />
     <Include href="media_codecs_google_video.xml" />
 </MediaCodecs>

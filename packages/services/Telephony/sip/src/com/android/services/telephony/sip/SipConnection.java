@@ -17,15 +17,18 @@
 package com.android.services.telephony.sip;
 
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.telecom.AudioState;
 import android.telecom.Connection;
 import android.telecom.PhoneAccount;
+import android.telecom.TelecomManager;
 import android.util.Log;
 
 import com.android.internal.telephony.Call;
 import com.android.internal.telephony.CallStateException;
+import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.sip.SipPhone;
 import com.android.services.telephony.DisconnectCauseUtil;
 
@@ -64,6 +67,7 @@ final class SipConnection extends Connection {
                     null);
         }
         updateAddress();
+        setTechnologyTypeExtra();
         setInitialized();
     }
 
@@ -134,7 +138,14 @@ final class SipConnection extends Connection {
         try {
             if (getPhone() != null && getState() == STATE_ACTIVE
                     && getPhone().getRingingCall().getState() != Call.State.WAITING) {
-                getPhone().switchHoldingAndActive();
+                // Double check with the internal state since a discrepancy in states could mean
+                // that the transactions is already in progress from a previous request.
+                if (mOriginalConnection != null &&
+                        mOriginalConnection.getState() == Call.State.ACTIVE) {
+                    getPhone().switchHoldingAndActive();
+                } else {
+                    log("skipping switch from onHold due to internal state:");
+                }
             }
         } catch (CallStateException e) {
             log("onHold, exception: " + e);
@@ -145,8 +156,16 @@ final class SipConnection extends Connection {
     public void onUnhold() {
         if (VERBOSE) log("onUnhold");
         try {
-            if (getPhone() != null && getState() == STATE_HOLDING) {
-                getPhone().switchHoldingAndActive();
+            if (getPhone() != null && getState() == STATE_HOLDING &&
+                    getPhone().getForegroundCall().getState() != Call.State.DIALING) {
+                // Double check with the internal state since a discrepancy in states could mean
+                // that the transaction is already in progress from a previous request.
+                if (mOriginalConnection != null &&
+                        mOriginalConnection.getState() == Call.State.HOLDING) {
+                    getPhone().switchHoldingAndActive();
+                } else {
+                    log("skipping switch from onUnHold due to internal state.");
+                }
             }
         } catch (CallStateException e) {
             log("onUnhold, exception: " + e);
@@ -291,6 +310,17 @@ final class SipConnection extends Connection {
                         .v(this, "updateAddress, caller display name changed");
                 setCallerDisplayName(name, namePresentation);
             }
+        }
+    }
+
+    private void setTechnologyTypeExtra() {
+        int phoneType = PhoneConstants.PHONE_TYPE_SIP;
+        if (getExtras() == null) {
+            Bundle b = new Bundle();
+            b.putInt(TelecomManager.EXTRA_CALL_TECHNOLOGY_TYPE, phoneType);
+            setExtras(b);
+        } else {
+            getExtras().putInt(TelecomManager.EXTRA_CALL_TECHNOLOGY_TYPE, phoneType);
         }
     }
 

@@ -78,6 +78,8 @@ public class AppLinkTest extends InstrumentationTestCase {
         PackageManager pm = mContext.getPackageManager();
 
         Intent result = mActivity.getResult(getHttpIntent());
+        assertNotNull(result);
+
         // If it is received in the other profile, we cannot check the class from the ResolveInfo
         // returned by queryIntentActivities. So we rely on the receiver telling us its class.
         assertEquals(receiverClassName, result.getStringExtra(EXTRA_RECEIVER_CLASS));

@@ -18,6 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="applicationLabel" msgid="3906689777043645443">"Contactos"</string>
     <string name="launcherActivityLabel" msgid="6497230399032392417">"Contactos"</string>
+    <string name="quickContactActivityLabel" msgid="7985456650689347268">"Ver contacto"</string>
+    <string name="editContactActivityLabel" msgid="1129944572070802839">"Editar contacto"</string>
     <string name="contactsList" msgid="8661624236494819731">"Contactos"</string>
     <string name="shortcutContact" msgid="749243779392912958">"Contacto"</string>
     <string name="shortcutDialContact" msgid="746622101599186779">"Marcación directa"</string>
@@ -25,7 +27,7 @@
     <string name="shortcutActivityTitle" msgid="6642877210643565436">"Seleccionar un atallo para o contacto"</string>
     <string name="callShortcutActivityTitle" msgid="6065749861423648991">"Escolle un número ao que chamar"</string>
     <string name="messageShortcutActivityTitle" msgid="3084542316620335911">"Escolle un número ao que enviar unha mensaxe"</string>
-    <string name="contactInsertOrEditActivityTitle" msgid="6527505405325862674">"Engadir ao contacto"</string>
+    <string name="contactInsertOrEditActivityTitle" msgid="6527505405325862674">"Engadir a un contacto"</string>
     <string name="contactPickerActivityTitle" msgid="4301062192337417640">"Seleccionar un contacto"</string>
     <string name="header_entry_contact_list_adapter_header_title" msgid="2436981165830115659">"Crear novo contacto"</string>
     <string name="starredList" msgid="4817256136413959463">"Marcados con asterisco"</string>
@@ -50,56 +52,72 @@
     <string name="menu_create_contact_shortcut" msgid="1217971915748509640">"Colocar na pantalla de inicio"</string>
     <string name="menu_call" msgid="3992595586042260618">"Chamar ao contacto"</string>
     <string name="menu_sendSMS" msgid="5535886767547006515">"Enviar mensaxe ao contacto"</string>
-    <string name="menu_splitAggregate" msgid="8368636463748691868">"Separar"</string>
+    <string name="menu_splitAggregate" msgid="2627252205317945563">"Desligar"</string>
     <string name="menu_editGroup" msgid="5062005185370983720">"Editar"</string>
     <string name="menu_deleteGroup" msgid="3486380004411482874">"Eliminar"</string>
     <string name="menu_new_contact_action_bar" msgid="7263362129442119188">"Engadir contacto"</string>
     <string name="menu_new_group_action_bar" msgid="3520232877587377175">"Engadir grupo"</string>
-    <string name="splitConfirmation_title" msgid="633640935430370530">"Separar contacto?"</string>
-    <string name="splitConfirmation" msgid="740190210499587175">"Este contacto separarase en varios contactos."</string>
-    <string name="menu_joinAggregate" msgid="4050157483569357666">"Combinar"</string>
+    <string name="splitConfirmation" msgid="7342030840130187290">"Queres desligar este contacto en varios contactos?"</string>
+    <string name="splitConfirmation_positive_button" msgid="9129409098807939699">"Desligar"</string>
+    <string name="splitConfirmationWithPendingChanges" msgid="7719062163511895696">"Queres gardar os cambios que xa fixeches e desligar este contacto en varios contactos?"</string>
+    <string name="splitConfirmationWithPendingChanges_positive_button" msgid="9073444264887244032">"Gardar e desligar"</string>
+    <string name="joinConfirmation" msgid="8262614843581924365">"Queres gardar os cambios que xa fixeches e ligalos co contacto seleccionado?"</string>
+    <string name="joinConfirmation_positive_button" msgid="4573092849769149516">"Gardar e ligar"</string>
+    <string name="menu_joinAggregate" msgid="3599512127797513606">"Ligar"</string>
     <string name="menu_save" msgid="1727844363591825909">"Gardar"</string>
-    <string name="titleJoinContactDataWith" msgid="7684875775798635354">"Unir contactos"</string>
-    <string name="blurbJoinContactDataWith" msgid="8736488417422708236">"Escolle o contacto que queres unir con <xliff:g id="NAME">%s</xliff:g>:"</string>
+    <string name="titleJoinContactDataWith" msgid="6825255752748313944">"Ligar contactos"</string>
+    <string name="blurbJoinContactDataWith" msgid="5864256698061641841">"Selecciona o contacto que queres ligar con <xliff:g id="NAME">%s</xliff:g>:"</string>
     <string name="showAllContactsJoinItem" msgid="2189695051430392383">"Mostrar todos os contactos"</string>
     <string name="separatorJoinAggregateSuggestions" msgid="2831414448851313345">"Contactos suxeridos"</string>
     <string name="separatorJoinAggregateAll" msgid="7939932265026181043">"Todos os contactos"</string>
-    <string name="contactsJoinedMessage" msgid="656936718666768589">"Contactos combinados"</string>
-    <string name="contacts_deleted_toast" msgid="286851430992788215">"Contactos eliminados"</string>
+    <string name="contactsJoinedMessage" msgid="3343535986195643136">"Ligáronse os contactos"</string>
+    <plurals name="contacts_deleted_toast" formatted="false" msgid="1477708624197262295">
+      <item quantity="other">Elimináronse os contactos</item>
+      <item quantity="one">Eliminouse o contacto</item>
+    </plurals>
     <string name="menu_set_ring_tone" msgid="8728345772068064946">"Definir ton"</string>
-    <string name="menu_redirect_calls_to_vm" msgid="4181789196416396656">"Todas as chamadas a correo voz"</string>
-    <string name="readOnlyContactWarning" msgid="7808825687289848259">"Non podes eliminar contactos das contas de só lectura, pero podes ocultalos nas túas listas de contactos."</string>
-    <string name="readOnlyContactDeleteConfirmation" msgid="2137170726670196909">"Este contacto contén información de varias contas. A información das contas de só lectura ocultarase nas túas listas de contactos, non se eliminará."</string>
-    <string name="batch_merge_single_contact_warning" msgid="982585201970392110">"Necesitas seleccionar polo menos dous contactos para poder combinalos."</string>
-    <string name="batch_merge_confirmation" msgid="8551299480317422420">"Os contactos seleccionados combinaranse nun só."</string>
-    <string name="batch_delete_confirmation" msgid="2564172328268885394">"Eliminaranse os contactos seleccionados."</string>
-    <string name="batch_delete_read_only_contact_confirmation" msgid="6614878716815412523">"A información das contas de só lectura ocultarase nas túas listas de contactos, non se eliminará."</string>
-    <string name="batch_delete_multiple_accounts_confirmation" msgid="5189722181586680185">"Estes contactos conteñen información de varias contas. A información das contas de só lectura ocultarase nas túas listas de contactos, non se eliminará."</string>
-    <string name="multipleContactDeleteConfirmation" msgid="938900978442960800">"A eliminación deste contacto eliminará información de varias contas."</string>
-    <string name="deleteConfirmation" msgid="811706994761610640">"Eliminarase este contacto."</string>
+    <string name="menu_redirect_calls_to_vm" msgid="4181789196416396656">"Chamadas ao correo de voz"</string>
+    <string name="readOnlyContactWarning" msgid="5526727661978307833">"Non se poden eliminar os contactos das túas contas de só lectura, pero poden ocultarse."</string>
+    <string name="readOnlyContactWarning_positive_button" msgid="6541862607313811926">"Ocultar"</string>
+    <string name="readOnlyContactDeleteConfirmation" msgid="8782086424739664753">"O contacto que se vai eliminar contén detalles de varias contas. Ocultaranse os detalles das contas de só lectura, pero non se eliminarán."</string>
+    <string name="batch_link_single_contact_warning" msgid="1346058571502058767">"Necesitas seleccionar polo menos dous contactos para poder ligalos."</string>
+    <string name="batch_link_confirmation" msgid="5845237114309114908">"Queres ligar os contactos seleccionados?"</string>
+    <string name="batch_link_confirmation_positive_button" msgid="5018899675473363525">"Ligar"</string>
+    <string name="single_delete_confirmation" msgid="3106905986948679720">"Queres eliminar este contacto?"</string>
+    <string name="batch_delete_confirmation" msgid="3984346060324014108">"Queres eliminar os contactos seleccionados?"</string>
+    <string name="batch_delete_read_only_contact_confirmation" msgid="8411117621035639964">"Non se poden eliminar os contactos das túas contas de só lectura, pero poden ocultarse."</string>
+    <string name="batch_delete_multiple_accounts_confirmation" msgid="8207205649127030030">"Os contactos que se van eliminar teñen detalles de varias contas. Ocultaranse os detalles das contas de só lectura, pero non se eliminarán."</string>
+    <string name="multipleContactDeleteConfirmation" msgid="5235324124905653550">"A eliminación deste contacto eliminará detalles de varias contas."</string>
+    <string name="deleteConfirmation" msgid="3512271779086656043">"Queres eliminar este contacto?"</string>
+    <string name="deleteConfirmation_positive_button" msgid="7857888845028586365">"Eliminar"</string>
     <string name="menu_discard" msgid="6854657936970228164">"Descartar cambios"</string>
     <string name="invalidContactMessage" msgid="8215051456181842274">"O contacto non existe."</string>
-    <string name="createContactShortcutSuccessful" msgid="7874133287558150877">"Widget de contactos engadido á pantalla de inicio."</string>
+    <string name="createContactShortcutSuccessful_NoName" msgid="8831303345367275472">"Engadiuse o contacto á pantalla de inicio."</string>
+    <string name="createContactShortcutSuccessful" msgid="953651153238790069">"<xliff:g id="NAME">%s</xliff:g> engadiuse á pantalla de inicio."</string>
     <string name="pickerNewContactHeader" msgid="7750705279843568147">"Crear novo contacto"</string>
     <string name="pickerNewContactText" msgid="6166997164401048211">"Crear novo contacto"</string>
   <string-array name="otherLabels">
     <item msgid="8287841928119937597">"Organización"</item>
     <item msgid="7196592230748086755">"Nota"</item>
   </string-array>
-    <string name="photoPickerNotFoundText" product="tablet" msgid="6247290728908599701">"Non hai imaxes dispoñibles no tablet."</string>
+    <string name="photoPickerNotFoundText" product="tablet" msgid="6247290728908599701">"Non hai imaxes dispoñibles na tableta."</string>
     <string name="photoPickerNotFoundText" product="default" msgid="431331662154342581">"Non hai imaxes dispoñibles no teléfono."</string>
     <string name="attach_photo_dialog_title" msgid="5599827035558557169">"Foto de contacto"</string>
     <string name="customLabelPickerTitle" msgid="1081475101983255212">"Nome de etiqueta personalizada"</string>
     <string name="send_to_voicemail_checkbox" msgid="9001686764070676353">"Enviar chamadas directamente ao correo de voz"</string>
     <string name="removePhoto" msgid="4898105274130284565">"Eliminar foto"</string>
-    <string name="noContacts" msgid="8579310973261953559">"Ningún contacto"</string>
+    <string name="noContacts" msgid="4955659076981974652">"Non hai contactos"</string>
     <string name="noGroups" msgid="8614664663561385253">"Ningún grupo"</string>
     <string name="noAccounts" msgid="7768267764545265909">"Para crear grupos precisas unha conta."</string>
     <string name="emptyGroup" msgid="7502116218697177370">"Non hai ninguén neste grupo."</string>
     <string name="addPeopleToGroup" msgid="7879585947222263516">"Para engadir algo, edita o grupo."</string>
     <string name="savingContact" msgid="4075751076741924939">"Gardando contacto..."</string>
-    <string name="contactSavedToast" msgid="7152589189385441091">"Contacto gardado"</string>
+    <string name="contactSavedToast" msgid="9171862279493213075">"Gardouse o contacto"</string>
+    <string name="contactUnlinkedToast" msgid="7122823195786012553">"Desligáronse os contactos"</string>
     <string name="contactSavedErrorToast" msgid="3207250533172944892">"Non se puideron gardar os cambios nos contactos."</string>
+    <string name="contactUnlinkErrorToast" msgid="2758070702785994171">"Non foi posible desligarse do contacto."</string>
+    <string name="contactJoinErrorToast" msgid="3977932531264809035">"Non se puido ligar o contacto."</string>
+    <string name="contactGenericErrorToast" msgid="7774911165341591714">"Produciuse un erro ao gardar o contacto."</string>
     <string name="contactPhotoSavedErrorToast" msgid="4079032272022979114">"Non se puideron gardar os cambios na foto do contacto."</string>
     <string name="groupSavedToast" msgid="1168756874239833756">"Grupo gardado"</string>
     <string name="groupSavedErrorToast" msgid="7984466936615304740">"Non se puideron gardar os cambios no grupo."</string>
@@ -112,12 +130,12 @@
       <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> contactos encontrados</item>
       <item quantity="one">Un contacto encontrado</item>
     </plurals>
-    <string name="listFoundAllContactsZero" msgid="922980883593159444">"Sen contactos"</string>
+    <string name="listFoundAllContactsZero" msgid="922980883593159444">"Non hai contactos"</string>
     <plurals name="searchFoundContacts" formatted="false" msgid="7223023725334884618">
       <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> contactos encontrados</item>
       <item quantity="one">Un contacto encontrado</item>
     </plurals>
-    <string name="all_contacts_tab_label" msgid="6250372293594147703">"Contactos"</string>
+    <string name="all_contacts_tab_label" msgid="5948889261993124839">"Todos"</string>
     <string name="favorites_tab_label" msgid="1524869648904016414">"Favoritos"</string>
     <string name="callBack" msgid="5498224409038809224">"Devolver chamada"</string>
     <string name="callAgain" msgid="3197312117049874778">"Chamar de novo"</string>
@@ -166,11 +184,7 @@
     <string name="primary_photo" msgid="8517942231868516999">"Foto principal"</string>
     <string name="description_star" msgid="2605854427360036550">"favorito"</string>
     <string name="edit_contact" msgid="7529281274005689512">"Editar contacto"</string>
-    <plurals name="merge_info" formatted="false" msgid="2489323424994280962">
-      <item quantity="other">combinados de <xliff:g id="COUNT">%0$d</xliff:g> fontes</item>
-      <item quantity="one">non combinado</item>
-    </plurals>
-    <string name="aggregation_suggestion_join_dialog_message" msgid="3842757977671434836">"Queres unir o contacto actual coa conta seleccionada?"</string>
+    <string name="aggregation_suggestion_join_dialog_message" msgid="6786192560870357912">"Queres ligar o contacto actual co contacto seleccionado?"</string>
     <string name="aggregation_suggestion_edit_dialog_message" msgid="6549585283910518095">"Cambiar para editar o contacto seleccionado? Copiarase a información introducida ata o momento."</string>
     <string name="menu_copyContact" msgid="1573960845106822639">"Copiar en Os meus contactos"</string>
     <string name="add_to_my_contacts" msgid="1068274916793627723">"Engadir a Os meus contactos"</string>
@@ -178,7 +192,7 @@
     <string name="list_filter_custom" msgid="8910173055702057002">"Personalizados"</string>
     <string name="activity_title_settings" msgid="5464130076132770781">"Configuración"</string>
     <string name="menu_settings" msgid="377929915873428211">"Configuración"</string>
-    <string name="menu_help" msgid="1680178646764069976">"Axuda e opinión"</string>
+    <string name="menu_help" msgid="1680178646764069976">"Axuda e suxestións"</string>
     <string name="preference_displayOptions" msgid="1341720270148252393">"Opcións de visualización"</string>
     <string name="organization_company_and_title" msgid="6718207751363732025">"<xliff:g id="COMPANY_0">%2$s</xliff:g>, <xliff:g id="COMPANY_1">%1$s</xliff:g>"</string>
     <string name="non_phone_caption" msgid="1541655052330027380">"Número de teléfono"</string>
@@ -186,11 +200,11 @@
     <string name="activity_title_confirm_add_detail" msgid="4065089866210730616">"Engadir ao contacto"</string>
     <string name="non_phone_close" msgid="7608506439725515667">"Pechar"</string>
     <string name="widget_name_and_phonetic" msgid="8739586586600099979">"<xliff:g id="DISPLAY_NAME">%1$s</xliff:g> (<xliff:g id="PHONETIC_NAME">%2$s</xliff:g>)"</string>
-    <string name="date_year_toggle" msgid="7356532842767854606">"Indica un ano"</string>
+    <string name="date_year_toggle" msgid="7122002148518724139">"Incluír ano"</string>
     <string name="social_widget_label" msgid="6378905543028924592">"Contacto"</string>
     <string name="social_widget_loading" msgid="5327336597364074608">"Cargando..."</string>
     <string name="contacts_unavailable_create_contact" msgid="7014525713871959208">"Crear un contacto novo"</string>
-    <string name="contacts_unavailable_add_account" msgid="7911101713860139754">"Iniciar sesión nunha conta"</string>
+    <string name="contacts_unavailable_add_account" msgid="4347232421410561500">"Engadir conta"</string>
     <string name="contacts_unavailable_import_contacts" msgid="4957393255392437529">"Importar contactos"</string>
     <string name="create_group_dialog_title" msgid="6874527142828424475">"Crear novo grupo"</string>
     <string name="create_group_item_label" msgid="4411981763169654825">"Crear novo grupo"</string>
@@ -207,12 +221,14 @@
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> persoas</item>
       <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> persoa</item>
     </plurals>
-    <string name="toast_join_with_empty_contact" msgid="2238581529864542985">"Escribe o nome do contacto antes de unilo con outro."</string>
+    <string name="toast_join_with_empty_contact" msgid="1215465657839085613">"Escribe o nome do contacto antes de ligalo con outro."</string>
     <string name="copy_text" msgid="3257145021583508761">"Copiar no portapapeis"</string>
     <string name="set_default" msgid="4417505153468300351">"Definir como predeterminado"</string>
     <string name="clear_default" msgid="7193185801596678067">"Borrar valores predeterminados"</string>
     <string name="toast_text_copied" msgid="5143776250008541719">"Texto copiado"</string>
-    <string name="cancel_confirmation_dialog_message" msgid="5885724679874403115">"Descartar os cambios?"</string>
+    <string name="cancel_confirmation_dialog_message" msgid="5058226498605989285">"Queres descartar os teus cambios e deixar de editar?"</string>
+    <string name="cancel_confirmation_dialog_cancel_editing_button" msgid="3057023972074640671">"Descartar"</string>
+    <string name="cancel_confirmation_dialog_keep_editing_button" msgid="7737724111972855348">"Seguir editando"</string>
     <string name="call_type_and_date" msgid="747163730039311423">"<xliff:g id="CALL_TYPE">%1$s</xliff:g> <xliff:g id="CALL_SHORT_DATE">%2$s</xliff:g>"</string>
     <string name="profile_display_name" msgid="4127389543625918771">"Configurar o meu perfil"</string>
     <string name="enter_contact_name" msgid="1738391320566349924">"Escribe o nome da persoa"</string>
@@ -220,12 +236,11 @@
     <string name="local_profile_title" msgid="2021416826991393684">"O meu perfil local"</string>
     <string name="external_profile_title" msgid="8034998767621359438">"O meu perfil de <xliff:g id="EXTERNAL_SOURCE">%1$s</xliff:g>"</string>
     <string name="toast_displaying_all_contacts" msgid="2737388783898593875">"Mostrando todos os contactos"</string>
-    <string name="no_account_prompt" msgid="6424883302325061025">"A aplicación de Contactos funciona mellor cunha conta de Google.\n\n• Accede desde calquera navegador web.\n• Realiza copias de seguranza dos teus contactos de xeito seguro."</string>
     <string name="generic_no_account_prompt" msgid="7218827704367325460">"Mantén os teus contactos seguros aínda que perdas o teléfono: sincroniza cun servizo en liña."</string>
     <string name="generic_no_account_prompt_title" msgid="753783911899054860">"Engadir unha conta"</string>
     <string name="contact_editor_prompt_zero_accounts" msgid="1785345895691886499">"Non se creará unha copia de seguranza do teu novo contacto. Queres engadir unha conta que cree unha copia de seguranza dos contactos en liña?"</string>
-    <string name="contact_editor_prompt_one_account" msgid="8669032699767375976">"O teu novo contacto sincronizarase con <xliff:g id="ACCOUNT_NAME">%1$s</xliff:g>."</string>
-    <string name="contact_editor_prompt_multiple_accounts" msgid="611828200100438242">"Podes sincronizar o teu novo contacto cunha das seguintes contas. Cal queres usar?"</string>
+    <string name="contact_editor_prompt_one_account" msgid="3087691056345099310">"Os contactos novos gardaranse en <xliff:g id="ACCOUNT_NAME">%1$s</xliff:g>."</string>
+    <string name="contact_editor_prompt_multiple_accounts" msgid="8565761674283473549">"Escolle unha conta predeterminada para novos contactos:"</string>
     <string name="contact_editor_title_new_contact" msgid="7192223018128934940">"Engadir contacto"</string>
     <string name="contact_editor_title_existing_contact" msgid="4898475703683187798">"Editar contacto"</string>
     <string name="keep_local" msgid="1258761699192993322">"Gardar localmente"</string>
@@ -270,7 +285,47 @@
     <string name="content_description_recent_call" msgid="5183800406316723676">"chamada recente. <xliff:g id="CALL_TYPE">%s</xliff:g>. <xliff:g id="PHONE_NUMBER">%s</xliff:g>. <xliff:g id="DATE">%s</xliff:g>. fai clic para devolver a chamada"</string>
     <string name="message_from_you_prefix" msgid="7180706529908434482">"Ti: <xliff:g id="SMS_BODY">%s</xliff:g>"</string>
     <string name="contact_editor_hangouts_im_alert" msgid="114855385615225735">"Hangouts funciona mellor se introduces o identificador de Hangouts da persoa no campo do correo electrónico ou do teléfono."</string>
-    <string name="compact_editor_more_fields" msgid="2874181192382284115">"Máis campos"</string>
+    <string name="compact_editor_more_fields" msgid="5987638193568699600">"Máis campos"</string>
     <string name="compact_editor_change_photo_content_description" msgid="5495487714301211540">"Cambiar foto"</string>
+    <string name="compact_editor_failed_to_load" msgid="4557094426388044958">"Produciuse un erro ao abrir o editor."</string>
+    <string name="compact_editor_account_selector_title" msgid="5119592614151786601">"Gardando en"</string>
+    <string name="compact_editor_account_selector_description" msgid="2127184829759350507">"Gardando actualmente en <xliff:g id="ACCOUNT_NAME">%s</xliff:g>. Toca dúas veces para seleccionar unha conta diferente."</string>
+    <plurals name="compact_editor_linked_contacts_selector_title" formatted="false" msgid="9156207930915878316">
+      <item quantity="other">Ligáronse os contactos (<xliff:g id="COUNT">%d</xliff:g>)</item>
+      <item quantity="one">Ligouse o contacto</item>
+    </plurals>
+    <string name="quickcontact_contacts_number" msgid="6036916944287597682">"Ligáronse <xliff:g id="COUNT">%d</xliff:g> contactos"</string>
     <string name="quick_contact_display_name_with_phonetic" msgid="3692038078718876610">"<xliff:g id="DISPLAY_NAME">%s</xliff:g> (<xliff:g id="PHONETIC_NAME">%s</xliff:g>)"</string>
+    <string name="quickcontact_suggestion_link_button" msgid="3244619714781727946">"LIGAR CONTACTOS"</string>
+    <string name="quickcontact_suggestion_cancel_button" msgid="8236954313106630862">"CANCELAR"</string>
+    <plurals name="quickcontact_suggestion_card_title" formatted="false" msgid="2660005966628746406">
+      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> posibles duplicados</item>
+      <item quantity="one">1 posible duplicado</item>
+    </plurals>
+    <plurals name="quickcontact_suggestions_number" formatted="false" msgid="495992931510695330">
+      <item quantity="other">Ligáronse <xliff:g id="COUNT">%d</xliff:g> contactos</item>
+      <item quantity="one">Ligouse 1 contacto</item>
+    </plurals>
+    <plurals name="quickcontact_suggestion_account_type_number" formatted="false" msgid="3001681298924002373">
+      <item quantity="other">(<xliff:g id="COUNT">%d</xliff:g>)</item>
+      <item quantity="one"></item>
+    </plurals>
+    <string name="quickcontact_suggestion_account_type" msgid="5878263654735376962">"<xliff:g id="ACCOUNT_TYPE_0">%s</xliff:g><xliff:g id="ACCOUNT_TYPE_NUMBER">%s</xliff:g>"</string>
+    <string name="suggestion_card_this_contact_title" msgid="3039457405374454914">"Este contacto"</string>
+    <string name="suggestion_card_duplicates_title" msgid="9107788743178980902">"Posibles duplicados"</string>
+    <string name="suggestion_card_help_message" msgid="4474061044387181093">"Estes contactos poden referirse á mesma persoa. Podes ligalos nun contacto único."</string>
+    <string name="compact_editor_linked_contacts_title" msgid="4417919183651782674">"Contactos ligados"</string>
+    <string name="from_your_accounts" msgid="1746293107836889912">"Das túas contas"</string>
+    <string name="take_a_photo_button" msgid="6268693854069113488">"Tirar unha foto"</string>
+    <string name="all_photos_button" msgid="1943122929420111351">"Todas as fotos"</string>
+    <string name="photo_picker_title" msgid="5272832995550042801">"Escoller foto"</string>
+    <string name="contact_from_account_name" msgid="2078526819634079406">"De <xliff:g id="ACCOUNT_NAME">%s</xliff:g>"</string>
+    <string name="editor_delete_view_description" msgid="8583095381562991959">"Eliminar <xliff:g id="DATA_TYPE">%s </xliff:g><xliff:g id="DATA_KIND">%s</xliff:g>"</string>
+    <string name="editor_delete_view_description_short" msgid="7335518371270844912">"Eliminar <xliff:g id="DATA_KIND">%s</xliff:g>"</string>
+    <string name="photo_view_description_not_checked" msgid="8876314195990885177">"Non se seleccionou a foto de <xliff:g id="ACCOUNT_TYPE">%s </xliff:g><xliff:g id="USER_NAME">%s </xliff:g>"</string>
+    <string name="photo_view_description_checked" msgid="3906597168607472795">"Seleccionouse a foto de <xliff:g id="ACCOUNT_TYPE">%s </xliff:g><xliff:g id="USER_NAME">%s </xliff:g>"</string>
+    <string name="photo_view_description_not_checked_no_info" msgid="2749154927006406981">"Non se seleccionou a foto dunha conta descoñecida"</string>
+    <string name="photo_view_description_checked_no_info" msgid="4974335987092590591">"Seleccionouse a foto dunha conta descoñecida"</string>
+    <string name="locale_change_in_progress" msgid="1124266507671178413">"A lista de contactos estase actualizando para reflectir o cambio do idioma.\n\nAgarda..."</string>
+    <string name="menu_blocked_numbers" msgid="5272951629083025995">"Números bloqueados"</string>
 </resources>

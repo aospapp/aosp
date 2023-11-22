@@ -203,7 +203,7 @@ void CpuScriptGroupImpl::execute() {
 
     }
 
-    MTLaunchStruct mtls;
+    MTLaunchStructForEach mtls;
 
     if (fieldDep) {
         for (size_t ct=0; ct < ins.size(); ct++) {
@@ -230,7 +230,7 @@ void CpuScriptGroupImpl::execute() {
                           mtls.fep.usrLen, nullptr);
 
             if (launchOK) {
-                mCtx->launchThreads(ains, inLen, outs[ct], nullptr, &mtls);
+                mCtx->launchForEach(ains, inLen, outs[ct], nullptr, &mtls);
             }
 
             si->postLaunch(slot, ains, inLen, outs[ct], nullptr, 0, nullptr);
@@ -280,10 +280,10 @@ void CpuScriptGroupImpl::execute() {
         if (si->forEachMtlsSetup(ains, inLen, outs[0], nullptr, 0, nullptr, &mtls)) {
 
             mtls.script = nullptr;
-            mtls.kernel = (void (*)())&scriptGroupRoot;
+            mtls.kernel = &scriptGroupRoot;
             mtls.fep.usr = &sl;
 
-            mCtx->launchThreads(ains, inLen, outs[0], nullptr, &mtls);
+            mCtx->launchForEach(ains, inLen, outs[0], nullptr, &mtls);
         }
 
         for (size_t ct=0; ct < kernels.size(); ct++) {

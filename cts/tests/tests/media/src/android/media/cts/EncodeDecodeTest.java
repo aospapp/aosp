@@ -16,6 +16,7 @@
 
 package android.media.cts;
 
+import android.cts.util.MediaUtils;
 import android.graphics.ImageFormat;
 import android.media.Image;
 import android.media.MediaCodec;
@@ -284,6 +285,10 @@ public class EncodeDecodeTest extends AndroidTestCase {
 
         @Override
         public void run() {
+            if (mTest.shouldSkip()) {
+                return;
+            }
+
             InputSurface inputSurface = null;
             try {
                 if (!mUsePersistentInput) {
@@ -339,6 +344,22 @@ public class EncodeDecodeTest extends AndroidTestCase {
         mAllowBT709 = allowBT709;
     }
 
+    private boolean shouldSkip() {
+        if (!MediaUtils.hasEncoder(mMimeType)) {
+            return true;
+        }
+
+        MediaFormat format = MediaFormat.createVideoFormat(mMimeType, mWidth, mHeight);
+        format.setInteger(MediaFormat.KEY_BIT_RATE, mBitRate);
+        format.setInteger(MediaFormat.KEY_FRAME_RATE, FRAME_RATE);
+        format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL);
+        if (!MediaUtils.checkEncoderForFormat(format)) {
+            return true;
+        }
+
+        return false;
+    }
+
     /**
      * Tests encoding and subsequently decoding video from frames generated into a buffer.
      * <p>
@@ -348,6 +369,10 @@ public class EncodeDecodeTest extends AndroidTestCase {
      * See http://b.android.com/37769 for a discussion of input format pitfalls.
      */
     private void encodeDecodeVideoFromBuffer(boolean toSurface) throws Exception {
+        if (shouldSkip()) {
+            return;
+        }
+
         MediaCodec encoder = null;
         MediaCodec decoder = null;
 
@@ -365,6 +390,12 @@ public class EncodeDecodeTest extends AndroidTestCase {
                 return;
             }
             if (VERBOSE) Log.d(TAG, "found codec: " + codec);
+            
+            String codec_decoder = mcl.findDecoderForFormat(format);
+            if (codec_decoder == null) {
+                Log.e(TAG, "Unable to find an appropriate codec for " + format);
+                return;
+            }
 
             // Create a MediaCodec for the desired codec, then configure it as an encoder with
             // our desired properties.
@@ -386,7 +417,7 @@ public class EncodeDecodeTest extends AndroidTestCase {
 
             // Create a MediaCodec for the decoder, just based on the MIME type.  The various
             // format details will be passed through the csd-0 meta-data later on.
-            decoder = MediaCodec.createDecoderByType(mMimeType);
+            decoder = MediaCodec.createByCodecName(codec_decoder);
             if (VERBOSE) Log.d(TAG, "got decoder: " + decoder.getName());
 
             doEncodeDecodeVideoFromBuffer(encoder, colorFormat, decoder, toSurface);
@@ -447,7 +478,12 @@ public class EncodeDecodeTest extends AndroidTestCase {
 
             // Create a MediaCodec for the decoder, just based on the MIME type.  The various
             // format details will be passed through the csd-0 meta-data later on.
-            decoder = MediaCodec.createDecoderByType(mMimeType);
+            String codec_decoder = mcl.findDecoderForFormat(format);
+            if (codec_decoder == null) {
+                Log.e(TAG, "Unable to find an appropriate codec for " + format);
+                return;
+            }
+            decoder = MediaCodec.createByCodecName(codec_decoder);
             if (VERBOSE) Log.d(TAG, "got decoder: " + decoder.getName());
             decoder.configure(format, outputSurface.getSurface(), null, 0);
             decoder.start();
@@ -550,7 +586,8 @@ public class EncodeDecodeTest extends AndroidTestCase {
         ByteBuffer[] encoderOutputBuffers = encoder.getOutputBuffers();
         ByteBuffer[] decoderInputBuffers = null;
         ByteBuffer[] decoderOutputBuffers = null;
-        MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+        MediaCodec.BufferInfo decoderInfo = new MediaCodec.BufferInfo();
+        MediaCodec.BufferInfo encoderInfo = new MediaCodec.BufferInfo();
         MediaFormat decoderOutputFormat = null;
         int generateIndex = 0;
         int checkIndex = 0;
@@ -589,8 +626,10 @@ public class EncodeDecodeTest extends AndroidTestCase {
         boolean inputDone = false;
         boolean encoderDone = false;
         boolean outputDone = false;
+        int encoderStatus = -1;
         while (!outputDone) {
             if (VERBOSE) Log.d(TAG, "loop");
+
 
             // If we're not done submitting frames, generate a new one and submit it.  By
             // doing this on every loop we're working to ensure that the encoder always has
@@ -637,7 +676,10 @@ public class EncodeDecodeTest extends AndroidTestCase {
             //
             // Once we get EOS from the encoder, we don't need to do this anymore.
             if (!encoderDone) {
-                int encoderStatus = encoder.dequeueOutputBuffer(info, TIMEOUT_USEC);
+                MediaCodec.BufferInfo info = encoderInfo;
+                if (encoderStatus < 0) {
+                    encoderStatus = encoder.dequeueOutputBuffer(info, TIMEOUT_USEC);
+                }
                 if (encoderStatus == MediaCodec.INFO_TRY_AGAIN_LATER) {
                     // no output available yet
                     if (VERBOSE) Log.d(TAG, "no output from encoder available");
@@ -661,18 +703,7 @@ public class EncodeDecodeTest extends AndroidTestCase {
                     encodedData.position(info.offset);
                     encodedData.limit(info.offset + info.size);
 
-                    encodedSize += info.size;
-                    if (outputStream != null) {
-                        byte[] data = new byte[info.size];
-                        encodedData.get(data);
-                        encodedData.position(info.offset);
-                        try {
-                            outputStream.write(data);
-                        } catch (IOException ioe) {
-                            Log.w(TAG, "failed writing debug data to file");
-                            throw new RuntimeException(ioe);
-                        }
-                    }
+                    boolean releaseBuffer = false;
                     if (!decoderConfigured) {
                         // Codec config info.  Only expected on first packet.  One way to
                         // handle this is to manually stuff the data into the MediaFormat
@@ -694,21 +725,41 @@ public class EncodeDecodeTest extends AndroidTestCase {
                         if (VERBOSE) Log.d(TAG, "decoder configured (" + info.size + " bytes)");
                     }
                     if ((info.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0) {
-                        // Get a decoder input buffer, blocking until it's available.
+                        // Get a decoder input buffer
                         assertTrue(decoderConfigured);
-                        int inputBufIndex = decoder.dequeueInputBuffer(-1);
-                        ByteBuffer inputBuf = decoderInputBuffers[inputBufIndex];
-                        inputBuf.clear();
-                        inputBuf.put(encodedData);
-                        decoder.queueInputBuffer(inputBufIndex, 0, info.size,
-                                info.presentationTimeUs, info.flags);
+                        int inputBufIndex = decoder.dequeueInputBuffer(TIMEOUT_USEC);
+                        if (inputBufIndex >= 0) {
+                            ByteBuffer inputBuf = decoderInputBuffers[inputBufIndex];
+                            inputBuf.clear();
+                            inputBuf.put(encodedData);
+                            decoder.queueInputBuffer(inputBufIndex, 0, info.size,
+                                    info.presentationTimeUs, info.flags);
 
-                        encoderDone = (info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0;
-                        if (VERBOSE) Log.d(TAG, "passed " + info.size + " bytes to decoder"
-                                + (encoderDone ? " (EOS)" : ""));
+                            encoderDone = (info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0;
+                            if (VERBOSE) Log.d(TAG, "passed " + info.size + " bytes to decoder"
+                                    + (encoderDone ? " (EOS)" : ""));
+                            releaseBuffer = true;
+                        }
+                    } else {
+                        releaseBuffer = true;
+                    }
+                    if (releaseBuffer) {
+                        encodedSize += info.size;
+                        if (outputStream != null) {
+                            byte[] data = new byte[info.size];
+                            encodedData.position(info.offset);
+                            encodedData.get(data);
+                            try {
+                                outputStream.write(data);
+                            } catch (IOException ioe) {
+                                Log.w(TAG, "failed writing debug data to file");
+                                throw new RuntimeException(ioe);
+                            }
+                        }
+                        encoder.releaseOutputBuffer(encoderStatus, false);
+                        encoderStatus = -1;
                     }
 
-                    encoder.releaseOutputBuffer(encoderStatus, false);
                 }
             }
 
@@ -719,6 +770,7 @@ public class EncodeDecodeTest extends AndroidTestCase {
             // If we're decoding to a Surface, we'll get notified here as usual but the
             // ByteBuffer references will be null.  The data is sent to Surface instead.
             if (decoderConfigured) {
+                MediaCodec.BufferInfo info = decoderInfo;
                 int decoderStatus = decoder.dequeueOutputBuffer(info, TIMEOUT_USEC);
                 if (decoderStatus == MediaCodec.INFO_TRY_AGAIN_LATER) {
                     // no output available yet
@@ -1091,8 +1143,10 @@ public class EncodeDecodeTest extends AndroidTestCase {
 
         boolean frameFailed = false;
         boolean semiPlanar = isSemiPlanarYUV(colorFormat);
-        int width = format.getInteger(MediaFormat.KEY_WIDTH);
-        int height = format.getInteger(MediaFormat.KEY_HEIGHT);
+        int width = format.getInteger(MediaFormat.KEY_STRIDE,
+                format.getInteger(MediaFormat.KEY_WIDTH));
+        int height = format.getInteger(MediaFormat.KEY_SLICE_HEIGHT,
+                format.getInteger(MediaFormat.KEY_HEIGHT));
         int halfWidth = width / 2;
         int cropLeft = format.getInteger("crop-left");
         int cropRight = format.getInteger("crop-right");

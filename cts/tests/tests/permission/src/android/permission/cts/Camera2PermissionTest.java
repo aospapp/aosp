@@ -23,6 +23,7 @@ import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.platform.test.annotations.Presubmit;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
@@ -96,6 +97,7 @@ public class Camera2PermissionTest extends AndroidTestCase {
     /**
      * Add and remove availability listeners should work without permission.
      */
+    @Presubmit
     public void testAvailabilityCallback() throws Exception {
         DummyCameraListener availabilityListener = new DummyCameraListener();
         // Remove a not-registered listener is a no-op.

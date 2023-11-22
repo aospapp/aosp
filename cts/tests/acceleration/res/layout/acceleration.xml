@@ -18,25 +18,25 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         >
-    <android.acceleration.cts.AcceleratedView android:id="@+id/hardware_accelerated_view"
+    <android.acceleration.AcceleratedView android:id="@+id/hardware_accelerated_view"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layerType="hardware"
             />
-    <android.acceleration.cts.AcceleratedView android:id="@+id/software_accelerated_view"
+    <android.acceleration.AcceleratedView android:id="@+id/software_accelerated_view"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layerType="software"
             />
     <!-- Acceleration will be set via manual setLayerType calls from the activity. -->
-    <android.acceleration.cts.AcceleratedView android:id="@+id/manual_hardware_accelerated_view"
+    <android.acceleration.AcceleratedView android:id="@+id/manual_hardware_accelerated_view"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             />
-    <android.acceleration.cts.AcceleratedView android:id="@+id/manual_software_accelerated_view"
+    <android.acceleration.AcceleratedView android:id="@+id/manual_software_accelerated_view"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_weight="1"

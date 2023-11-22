@@ -18,63 +18,32 @@ package com.android.cts.documentclient;
 
 import android.content.ContentResolver;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.SystemClock;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
 import android.provider.DocumentsProvider;
-import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject;
 import android.support.test.uiautomator.UiObjectNotFoundException;
 import android.support.test.uiautomator.UiScrollable;
 import android.support.test.uiautomator.UiSelector;
-import android.test.InstrumentationTestCase;
 import android.test.MoreAsserts;
-import android.text.format.DateUtils;
 import android.util.Log;
 
 import com.android.cts.documentclient.MyActivity.Result;
-
-import java.io.ByteArrayOutputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 
 /**
  * Tests for {@link DocumentsProvider} and interaction with platform intents
  * like {@link Intent#ACTION_OPEN_DOCUMENT}.
  */
-public class DocumentsClientTest extends InstrumentationTestCase {
+public class DocumentsClientTest extends DocumentsClientTestCase {
     private static final String TAG = "DocumentsClientTest";
-
-    private UiDevice mDevice;
-    private MyActivity mActivity;
-
-    private static final long TIMEOUT = 30 * DateUtils.SECOND_IN_MILLIS;
-
-    @Override
-    public void setUp() throws Exception {
-        super.setUp();
-
-        mDevice = UiDevice.getInstance(getInstrumentation());
-        mActivity = launchActivity(getInstrumentation().getTargetContext().getPackageName(),
-                MyActivity.class, null);
-        mDevice.waitForIdle();
-    }
-
-    @Override
-    public void tearDown() throws Exception {
-        super.tearDown();
-        mActivity.finish();
-    }
 
     private UiObject findRoot(String label) throws UiObjectNotFoundException {
         final UiSelector rootsList = new UiSelector().resourceId(
                 "com.android.documentsui:id/container_roots").childSelector(
-                new UiSelector().resourceId("android:id/list"));
+                new UiSelector().resourceId("com.android.documentsui:id/roots_list"));
 
         // We might need to expand drawer if not visible
         if (!new UiObject(rootsList).waitForExists(TIMEOUT)) {
@@ -97,7 +66,7 @@ public class DocumentsClientTest extends InstrumentationTestCase {
     private UiObject findDocument(String label) throws UiObjectNotFoundException {
         final UiSelector docList = new UiSelector().resourceId(
                 "com.android.documentsui:id/container_directory").childSelector(
-                new UiSelector().resourceId("com.android.documentsui:id/list"));
+                new UiSelector().resourceId("com.android.documentsui:id/dir_list"));
 
         // Wait for the first list item to appear
         assertTrue("First list item",
@@ -126,7 +95,7 @@ public class DocumentsClientTest extends InstrumentationTestCase {
         final Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType("*/*");
-        mActivity.startActivityForResult(intent, 42);
+        mActivity.startActivityForResult(intent, REQUEST_CODE);
 
         // Ensure that we see both of our roots
         mDevice.waitForIdle();
@@ -134,15 +103,24 @@ public class DocumentsClientTest extends InstrumentationTestCase {
         assertTrue("CtsCreate root", findRoot("CtsCreate").exists());
         assertFalse("CtsGetContent root", findRoot("CtsGetContent").exists());
 
-        // Pick a specific file from our test provider
+        // Choose the local root.
         mDevice.waitForIdle();
         findRoot("CtsLocal").click();
 
+        // Try picking a virtual file. Virtual files must not be returned for CATEGORY_OPENABLE
+        // though, so the click should be ignored.
+        mDevice.waitForIdle();
+        findDocument("VIRTUAL_FILE").click();
+        mDevice.waitForIdle();
+
+        // Pick a regular file.
         mDevice.waitForIdle();
         findDocument("FILE1").click();
 
+        // Confirm that the returned file is a regular file caused by the second click.
         final Result result = mActivity.getResult();
         final Uri uri = result.data.getData();
+        assertEquals("doc:file1", DocumentsContract.getDocumentId(uri));
 
         // We should now have permission to read/write
         MoreAsserts.assertEquals("fileone".getBytes(), readFully(uri));
@@ -150,6 +128,43 @@ public class DocumentsClientTest extends InstrumentationTestCase {
         writeFully(uri, "replaced!".getBytes());
         SystemClock.sleep(500);
         MoreAsserts.assertEquals("replaced!".getBytes(), readFully(uri));
+    }
+
+    public void testOpenVirtual() throws Exception {
+        if (!supportedHardware()) return;
+
+        final Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.setType("*/*");
+        mActivity.startActivityForResult(intent, REQUEST_CODE);
+
+        // Pick a virtual file from the local root.
+        mDevice.waitForIdle();
+        findRoot("CtsLocal").click();
+
+        mDevice.waitForIdle();
+        findDocument("VIRTUAL_FILE").click();
+
+        // Confirm that the returned file is actually the selected one.
+        final Result result = mActivity.getResult();
+        final Uri uri = result.data.getData();
+        assertEquals("doc:virtual-file", DocumentsContract.getDocumentId(uri));
+
+        final ContentResolver resolver = getInstrumentation().getContext().getContentResolver();
+        final String streamTypes[] = resolver.getStreamTypes(uri, "*/*");
+        assertEquals(1, streamTypes.length);
+        assertEquals("text/plain", streamTypes[0]);
+
+        // Virtual files are not readable unless an alternative MIME type is specified.
+        try {
+            readFully(uri);
+            fail("Unexpected success in reading a virtual file. It should've failed.");
+        } catch (IllegalArgumentException e) {
+            // Expected.
+        }
+
+        // However, they are readable using an alternative MIME type from getStreamTypes().
+        MoreAsserts.assertEquals(
+                "Converted contents.".getBytes(), readTypedFully(uri, streamTypes[0]));
     }
 
     public void testCreateNew() throws Exception {
@@ -162,7 +177,7 @@ public class DocumentsClientTest extends InstrumentationTestCase {
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.putExtra(Intent.EXTRA_TITLE, DISPLAY_NAME);
         intent.setType(MIME_TYPE);
-        mActivity.startActivityForResult(intent, 42);
+        mActivity.startActivityForResult(intent, REQUEST_CODE);
 
         mDevice.waitForIdle();
         findRoot("CtsCreate").click();
@@ -186,7 +201,7 @@ public class DocumentsClientTest extends InstrumentationTestCase {
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.putExtra(Intent.EXTRA_TITLE, "NEVERUSED");
         intent.setType("mime2/file2");
-        mActivity.startActivityForResult(intent, 42);
+        mActivity.startActivityForResult(intent, REQUEST_CODE);
 
         mDevice.waitForIdle();
         findRoot("CtsCreate").click();
@@ -211,7 +226,7 @@ public class DocumentsClientTest extends InstrumentationTestCase {
         if (!supportedHardware()) return;
 
         final Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-        mActivity.startActivityForResult(intent, 42);
+        mActivity.startActivityForResult(intent, REQUEST_CODE);
 
         mDevice.waitForIdle();
         findRoot("CtsCreate").click();
@@ -237,7 +252,7 @@ public class DocumentsClientTest extends InstrumentationTestCase {
         Cursor cursor = resolver.query(children, new String[] {
                 Document.COLUMN_DISPLAY_NAME }, null, null, null);
         try {
-            assertEquals(1, cursor.getCount());
+            assertEquals(2, cursor.getCount());
             assertTrue(cursor.moveToFirst());
             assertEquals("FILE4", cursor.getString(0));
         } finally {
@@ -259,7 +274,7 @@ public class DocumentsClientTest extends InstrumentationTestCase {
         try {
             MoreAsserts.assertEquals("filefour".getBytes(), readFully(file4));
             fail("Expected file to be gone");
-        } catch (FileNotFoundException expected) {
+        } catch (SecurityException expected) {
         }
 
         // And rename something
@@ -285,7 +300,7 @@ public class DocumentsClientTest extends InstrumentationTestCase {
         final Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType("*/*");
-        mActivity.startActivityForResult(intent, 42);
+        mActivity.startActivityForResult(intent, REQUEST_CODE);
 
         // Look around, we should be able to see both DocumentsProviders and
         // other GET_CONTENT sources.
@@ -301,49 +316,116 @@ public class DocumentsClientTest extends InstrumentationTestCase {
         assertEquals("ReSuLt", result.data.getAction());
     }
 
-    private String getColumn(Uri uri, String column) {
-        final ContentResolver resolver = getInstrumentation().getContext().getContentResolver();
-        final Cursor cursor = resolver.query(uri, new String[] { column }, null, null, null);
+    public void testTransferDocument() throws Exception {
+        if (!supportedHardware()) return;
+
         try {
+            // Opening without permission should fail.
+            readFully(Uri.parse("content://com.android.cts.documentprovider/document/doc:file1"));
+            fail("Able to read data before opened!");
+        } catch (SecurityException expected) {
+        }
+
+        final Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        mActivity.startActivityForResult(intent, REQUEST_CODE);
+
+        mDevice.waitForIdle();
+        findRoot("CtsCreate").click();
+
+        findDocument("DIR2").click();
+        mDevice.waitForIdle();
+        findSaveButton().click();
+
+        final Result result = mActivity.getResult();
+        final Uri uri = result.data.getData();
+
+        // We should have selected DIR2.
+        final Uri docUri = DocumentsContract.buildDocumentUriUsingTree(uri,
+                DocumentsContract.getTreeDocumentId(uri));
+
+        assertEquals("DIR2", getColumn(docUri, Document.COLUMN_DISPLAY_NAME));
+
+        final ContentResolver resolver = getInstrumentation().getContext().getContentResolver();
+        final Cursor cursor = resolver.query(
+                DocumentsContract.buildChildDocumentsUriUsingTree(
+                        docUri, DocumentsContract.getDocumentId(docUri)),
+                new String[] { Document.COLUMN_DOCUMENT_ID, Document.COLUMN_DISPLAY_NAME,
+                        Document.COLUMN_FLAGS },
+                null, null, null);
+
+        Uri sourceFileUri = null;
+        Uri targetDirUri = null;
+
+        try {
+            assertEquals(2, cursor.getCount());
             assertTrue(cursor.moveToFirst());
-            return cursor.getString(0);
+            sourceFileUri = DocumentsContract.buildDocumentUriUsingTree(
+                    docUri, cursor.getString(0));
+            assertEquals("FILE4", cursor.getString(1));
+            assertEquals(Document.FLAG_SUPPORTS_WRITE |
+                    Document.FLAG_SUPPORTS_COPY |
+                    Document.FLAG_SUPPORTS_MOVE |
+                    Document.FLAG_SUPPORTS_REMOVE, cursor.getInt(2));
+
+            assertTrue(cursor.moveToNext());
+            targetDirUri = DocumentsContract.buildDocumentUriUsingTree(
+                    docUri, cursor.getString(0));
+            assertEquals("SUB_DIR2", cursor.getString(1));
         } finally {
             cursor.close();
         }
-    }
 
-    private byte[] readFully(Uri uri) throws IOException {
-        InputStream in = getInstrumentation().getContext().getContentResolver()
-                .openInputStream(uri);
+        // Move, copy then remove.
+        final Uri movedFileUri = DocumentsContract.moveDocument(
+                resolver, sourceFileUri, docUri, targetDirUri);
+        assertTrue(movedFileUri != null);
+        final Uri copiedFileUri = DocumentsContract.copyDocument(
+                resolver, movedFileUri, targetDirUri);
+        assertTrue(copiedFileUri != null);
+
+        // Confirm that the files are at the destinations.
+        Cursor cursorDst = resolver.query(
+                DocumentsContract.buildChildDocumentsUriUsingTree(
+                        targetDirUri, DocumentsContract.getDocumentId(targetDirUri)),
+                new String[] { Document.COLUMN_DOCUMENT_ID },
+                null, null, null);
         try {
-            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-            byte[] buffer = new byte[1024];
-            int count;
-            while ((count = in.read(buffer)) != -1) {
-                bytes.write(buffer, 0, count);
-            }
-            return bytes.toByteArray();
+            assertEquals(2, cursorDst.getCount());
+            assertTrue(cursorDst.moveToFirst());
+            assertEquals("doc:file4", cursorDst.getString(0));
+            assertTrue(cursorDst.moveToNext());
+            assertEquals("doc:file4_copy", cursorDst.getString(0));
         } finally {
-            in.close();
+            cursorDst.close();
         }
-    }
 
-    private void writeFully(Uri uri, byte[] data) throws IOException {
-        OutputStream out = getInstrumentation().getContext().getContentResolver()
-                .openOutputStream(uri);
+        // ... and gone from the source.
+        final Cursor cursorSrc = resolver.query(
+                DocumentsContract.buildChildDocumentsUriUsingTree(
+                        docUri, DocumentsContract.getDocumentId(docUri)),
+                new String[] { Document.COLUMN_DOCUMENT_ID },
+                null, null, null);
         try {
-            out.write(data);
+            assertEquals(1, cursorSrc.getCount());
+            assertTrue(cursorSrc.moveToFirst());
+            assertEquals("doc:sub_dir2", cursorSrc.getString(0));
         } finally {
-            out.close();
+            cursorSrc.close();
         }
-    }
 
-    private boolean supportedHardware() {
-        final PackageManager pm = getInstrumentation().getContext().getPackageManager();
-        if (pm.hasSystemFeature("android.hardware.type.television")
-                || pm.hasSystemFeature("android.hardware.type.watch")) {
-            return false;
+        assertTrue(DocumentsContract.removeDocument(resolver, movedFileUri, targetDirUri));
+        assertTrue(DocumentsContract.removeDocument(resolver, copiedFileUri, targetDirUri));
+
+        // Finally, confirm that removing actually removed the files from the destination.
+        cursorDst = resolver.query(
+                DocumentsContract.buildChildDocumentsUriUsingTree(
+                        targetDirUri, DocumentsContract.getDocumentId(targetDirUri)),
+                new String[] { Document.COLUMN_DOCUMENT_ID },
+                null, null, null);
+        try {
+            assertEquals(0, cursorDst.getCount());
+        } finally {
+            cursorDst.close();
         }
-        return true;
     }
 }

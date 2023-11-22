@@ -20,6 +20,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanResult;
+import android.content.pm.PackageManager;
 import android.os.Parcel;
 import android.os.ParcelUuid;
 import android.test.AndroidTestCase;
@@ -55,14 +56,24 @@ public class ScanFilterTest extends AndroidTestCase {
         };
 
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
-        BluetoothDevice device = adapter.getRemoteDevice(DEVICE_MAC);
-        mScanResult = new ScanResult(device, TestUtils.parseScanRecord(scanRecord),
-                -10, 1397545200000000L);
-        mFilterBuilder = new ScanFilter.Builder();
+        if (adapter == null) {
+            // Bluetooth is not supported
+            assertFalse(mContext.getPackageManager().
+                        hasSystemFeature(PackageManager.FEATURE_BLUETOOTH));
+        } else {
+            assertTrue(mContext.getPackageManager().
+                       hasSystemFeature(PackageManager.FEATURE_BLUETOOTH));
+            BluetoothDevice device = adapter.getRemoteDevice(DEVICE_MAC);
+            mScanResult = new ScanResult(device, TestUtils.parseScanRecord(scanRecord),
+                    -10, 1397545200000000L);
+            mFilterBuilder = new ScanFilter.Builder();
+        }
     }
 
     @SmallTest
     public void testsetNameFilter() {
+        if (mFilterBuilder == null) return;
+
         ScanFilter filter = mFilterBuilder.setDeviceName(LOCAL_NAME).build();
         assertEquals(LOCAL_NAME, filter.getDeviceName());
         assertTrue("setName filter fails", filter.matches(mScanResult));
@@ -73,6 +84,8 @@ public class ScanFilterTest extends AndroidTestCase {
 
     @SmallTest
     public void testDeviceAddressFilter() {
+        if (mFilterBuilder == null) return;
+
         ScanFilter filter = mFilterBuilder.setDeviceAddress(DEVICE_MAC).build();
         assertEquals(DEVICE_MAC, filter.getDeviceAddress());
         assertTrue("device filter fails", filter.matches(mScanResult));
@@ -83,6 +96,8 @@ public class ScanFilterTest extends AndroidTestCase {
 
     @SmallTest
     public void testsetServiceUuidFilter() {
+        if (mFilterBuilder == null) return;
+
         ScanFilter filter = mFilterBuilder.setServiceUuid(
                 ParcelUuid.fromString(UUID1)).build();
         assertEquals(UUID1, filter.getServiceUuid().toString());
@@ -104,6 +119,8 @@ public class ScanFilterTest extends AndroidTestCase {
 
     @SmallTest
     public void testsetServiceDataFilter() {
+        if (mFilterBuilder == null) return;
+
         byte[] setServiceData = new byte[] {
                 0x50, 0x64 };
         ParcelUuid serviceDataUuid = ParcelUuid.fromString(UUID2);
@@ -135,6 +152,8 @@ public class ScanFilterTest extends AndroidTestCase {
 
     @SmallTest
     public void testManufacturerSpecificData() {
+        if (mFilterBuilder == null) return;
+
         byte[] manufacturerData = new byte[] {
                 0x02, 0x15 };
         int manufacturerId = 0xE0;
@@ -170,6 +189,8 @@ public class ScanFilterTest extends AndroidTestCase {
 
     @SmallTest
     public void testReadWriteParcel() {
+        if (mFilterBuilder == null) return;
+
         ScanFilter filter = mFilterBuilder.build();
         testReadWriteParcelForFilter(filter);
 

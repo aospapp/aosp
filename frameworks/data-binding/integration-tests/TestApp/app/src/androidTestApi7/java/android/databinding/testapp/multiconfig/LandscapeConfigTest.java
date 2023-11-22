@@ -15,6 +15,7 @@ package android.databinding.testapp.multiconfig;
 
 import android.databinding.ViewDataBinding;
 import android.databinding.testapp.BaseLandDataBinderTest;
+import android.databinding.testapp.BR;
 import android.databinding.testapp.R;
 import android.databinding.testapp.databinding.BasicBindingBinding;
 import android.databinding.testapp.databinding.ConditionalBindingBinding;
@@ -23,6 +24,7 @@ import android.databinding.testapp.databinding.MultiResLayoutBinding;
 import android.databinding.testapp.vo.NotBindableVo;
 
 import android.content.pm.ActivityInfo;
+import android.test.UiThreadTest;
 import android.view.View;
 import android.widget.TextView;
 
@@ -48,5 +50,14 @@ public class LandscapeConfigTest extends BaseLandDataBinderTest<MultiResLayoutBi
         assertPublicField(BasicBindingBinding.class, "includedLayoutShared");
         assertPublicField(ConditionalBindingBinding.class, "includedLayoutPort");
         assertPublicField(ConditionalBindingBinding.class, "includedLayoutLand");
+    }
+
+    @UiThreadTest
+    public void testSetVariable() throws Throwable {
+        initBinder();
+        assertTrue(mBinder.setVariable(BR.objectInBoth, null));
+        assertTrue(mBinder.setVariable(BR.objectInDefault, null));
+        assertTrue(mBinder.setVariable(BR.objectInLand, null));
+        assertFalse(mBinder.setVariable(BR.obj, null));
     }
 }

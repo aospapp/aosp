@@ -83,12 +83,23 @@
         </condition>
     </fail>
 
+    <condition property="is.java7">
+            <contains string="${java.version}" substring="1.7."/>
+    </condition>
+
     <condition property="is.java7.plus">
         <or>
             <contains string="${java.version}" substring="1.7."/>
             <contains string="${java.version}" substring="1.8."/>
         </or>
     </condition>
+
+    <condition property="is.java8.plus">
+        <or>
+            <contains string="${java.version}" substring="1.8."/>
+            <contains string="${java.version}" substring="1.9."/>
+        </or>
+    </condition>    
 
     <!-- Build environment info -->
     <property name="env.COMPUTERNAME" value="${env.HOSTNAME}"/>
@@ -423,6 +434,7 @@
     <target name="_check_config_for_release">
         <condition property="release.build.config.ok">
             <and>
+                <isset property="is.java7"/>
                 <isset property="java5.bootclasspath"/>
                 <isset property="java6.bootclasspath"/>
                 <isset property="jcite.libs"/>
@@ -431,6 +443,9 @@
     </target>
 
     <target name="_verify_config_for_release" depends="_check_config_for_release" unless="release.build.config.ok">
+        <condition property="disp.is.java7" value="${java.version}" else="${java.version} - Must be 1.7!">
+            <isset property="is.java7"/>
+        </condition>
         <condition property="disp.java5.bootclasspath" value="${java5.bootclasspath}" else="Not Defined!">
             <isset property="java5.bootclasspath"/>
         </condition>
@@ -443,6 +458,7 @@
 
         <echo message="################################################################"/>
         <echo message="[WARNING] Insufficient Build Configuration for ICU4J Release"/>
+        <echo message="JDK Tools Version:              ${disp.is.java7}"/>
         <echo message="JRE 5 System Library Path:      ${disp.java5.bootclasspath}"/>
         <echo message="JRE 6 System Library Path:      ${disp.java6.bootclasspath}"/>
         <echo message="JCite Library Path:             ${disp.jcite.libs}"/>
@@ -759,6 +775,13 @@
     <!-- doc targets -->
     <target name="docs" depends="info, build-tools, _checkJCite, _docsWithJCite, _docsWithoutJCite" description="Build API documents"/>
 
+    <target name="docsStrict" description="Build API documents with all doclint check enabled">
+        <condition property="doclint.option" value="-Xdoclint:all">
+            <isset property="is.java8.plus"/>
+        </condition>
+        <antcall target="docs"/>
+    </target>
+
     <target name="_checkJCite" if="env.JCITE_DIR">
         <fileset dir="${env.JCITE_DIR}" id="jcite.files">
             <include name="build/*.jar"/>
@@ -780,7 +803,15 @@
         </condition>
     </target>
 
-    <target name="_docsWithJCite" depends="_docsStyleSheet" if="jcite.libs">
+    <target name="_docsLintOption" unless="doclint.options">
+        <!-- syntax check is disabled because JCite tag name "@.jcite" is invalidated -->
+        <condition property="doclint.option" value="-Xdoclint:all,-accessibility,-syntax" else="">
+            <isset property="is.java8.plus"/>
+        </condition>
+    </target>
+    
+    <target name="_docsWithJCite" depends="_docsStyleSheet, _docsLintOption" if="jcite.libs">
+        <echo message="Javadoc lint option:            ${doclint.option}"/>
         <echo message="JCite library path:             ${jcite.libs}"/>
         <echo message="JCite additional source path:   ${jcite.addl.src}"/>
         <echo message="Custom stylesheet:              ${docs.style.sheet}"/>
@@ -794,10 +825,11 @@
                 docencoding="UTF-8"
                 charset="UTF-8"
                 bottom="&lt;font size=-1&gt;Copyright (c) ${current.year} IBM Corporation and others.&lt;/font&gt;"
-                additionalparam="-breakiterator -use -tagletpath ${icu4j.build-tools.jar}${path.separator}${jcite.libs} -taglet com.ibm.icu.dev.tool.docs.ICUTaglet -taglet ch.arrenbrecht.jcite.JCiteTaglet -J-Djcitesourcepath=${jcite.addl.src} -J-Dfile.encoding=UTF-8"
+                additionalparam="${doclint.option} -breakiterator -use -tagletpath ${icu4j.build-tools.jar}${path.separator}${jcite.libs} -taglet com.ibm.icu.dev.tool.docs.ICUTaglet -taglet ch.arrenbrecht.jcite.JCiteTaglet -J-Djcitesourcepath=${jcite.addl.src} -J-Dfile.encoding=UTF-8"
                 link="${icu4j.api.doc.jdk.link}"
                 source="1.5"
-                stylesheetfile="${docs.style.sheet}">
+                stylesheetfile="${docs.style.sheet}"
+                failonerror="true">
             <packageset dir="${icu4j.core.dir}/src">
                 <include name="com/ibm/icu/lang/**"/>
                 <include name="com/ibm/icu/math/**"/>
@@ -816,7 +848,8 @@
         </javadoc>
     </target>
 
-    <target name="_docsWithoutJCite" unless="jcite.libs">
+    <target name="_docsWithoutJCite" depends="_docsStyleSheet, _docsLintOption" unless="jcite.libs">
+        <echo message="Javadoc lint option:            ${doclint.option}"/>
         <javadoc
                 destdir="${doc.dir}"
                 nodeprecatedlist="true"
@@ -827,9 +860,10 @@
                 docencoding="UTF-8"
                 charset="UTF-8"
                 bottom="&lt;font size=-1&gt;Copyright (c) ${current.year} IBM Corporation and others.&lt;/font&gt;"
-                additionalparam="-breakiterator -use -tagletpath ${icu4j.build-tools.jar} -taglet com.ibm.icu.dev.tool.docs.ICUTaglet"
+                additionalparam="${doclint.option} -breakiterator -use -tagletpath ${icu4j.build-tools.jar} -taglet com.ibm.icu.dev.tool.docs.ICUTaglet"
                 link="${icu4j.api.doc.jdk.link}"
-                source="1.5">
+                source="1.5"
+                failonerror="true">
             <packageset dir="${icu4j.core.dir}/src">
                 <include name="com/ibm/icu/lang/**"/>
                 <include name="com/ibm/icu/math/**"/>
@@ -1652,6 +1686,9 @@
 
         <copy file="${icu4j.core-tests.dir}/src/com/ibm/icu/dev/test/format/NumberFormatTestCases.txt"
                 todir="${module.tests.dir}/com/ibm/icu/dev/test/format"/>
+
+        <copy file="${icu4j.core-tests.dir}/src/com/ibm/icu/dev/data/numberformattestspecification.txt"
+                todir="${module.tests.dir}/com/ibm/icu/dev/data"/>
 
     </target>
 

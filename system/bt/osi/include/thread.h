@@ -51,6 +51,7 @@ void thread_join(thread_t *thread);
 // does not block unless there are an excessive number of functions posted to
 // |thread| that have not been dispatched yet. Neither |thread| nor |func| may
 // be NULL. |context| may be NULL.
+// Return true on success, otherwise false.
 bool thread_post(thread_t *thread, thread_fn func, void *context);
 
 // Requests |thread| to stop. Only |thread_free| and |thread_name| may be called
@@ -58,10 +59,16 @@ bool thread_post(thread_t *thread, thread_fn func, void *context);
 // |thread| may not be NULL.
 void thread_stop(thread_t *thread);
 
+// Attempts to sets the |priority| of a given |thread|.
+// The |thread| has to be running for this call to succeed.
+// Returns true on success.
+bool thread_set_priority(thread_t *thread, int priority);
+
 // Returns true if the current thread is the same as the one represented by |thread|.
 // |thread| may not be NULL.
 bool thread_is_self(const thread_t *thread);
 
+// Returns the reactor for the given |thread|. |thread| may not be NULL.
 reactor_t *thread_get_reactor(const thread_t *thread);
 
 // Returns the name of the given |thread|. |thread| may not be NULL.

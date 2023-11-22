@@ -35,6 +35,18 @@
         <item name="type16">Typed Value!</item>
     </style>
 
+    <style name="PopupWindow" parent="@android:style/Widget.Material.ListPopupWindow" />
+
+    <style name="PopupWindow.NullTransitions">
+        <item name="android:popupEnterTransition">@null</item>
+        <item name="android:popupExitTransition">@null</item>
+    </style>
+
+    <style name="PopupWindow.CustomTransitions">
+        <item name="android:popupEnterTransition">@transition/custom_transition</item>
+        <item name="android:popupExitTransition">@transition/custom_transition</item>
+    </style>
+
     <style name="TextViewWithoutColorAndAppearance">
         <item name="android:textSize">18sp</item>
     </style>
@@ -57,6 +69,18 @@
 
     <style name="TextAppearance.WithColor">
         <item name="android:textColor">#ffff0000</item>
+    </style>
+
+    <style name="TextAppearance.WithColorGreen">
+        <item name="android:textColor">#ff00ff00</item>
+    </style>
+
+    <style name="TextAppearance.WithColorBlue">
+        <item name="android:textColor">#ff0000ff</item>
+    </style>
+
+    <style name="TextAppearance.WithColorMagenta">
+        <item name="android:textColor">#ffff00ff</item>
     </style>
 
     <style name="TextAppearance.All">
@@ -169,4 +193,13 @@
         <item name="android:windowSwipeToDismiss">false</item>
     </style>
 
+    <style name="PopupEmptyStyle" />
+
+    <style name="TabWidgetCustomStyle" parent="android:Widget.TabWidget">
+        <item name="android:tabStripEnabled">false</item>
+        <item name="android:tabStripLeft">@drawable/icon_green</item>
+        <item name="android:tabStripRight">@drawable/icon_red</item>
+    </style>
+
+    <style name="ToolbarPopupTheme_Test" parent="@android:style/ThemeOverlay.Material.Light" />
 </resources>

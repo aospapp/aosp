@@ -15,14 +15,15 @@
  */
 #include <sys/cdefs.h>
 
-struct thread_local_dtor {
+#include "pthread_internal.h"
+
+class thread_local_dtor {
+ public:
   void (*func) (void *);
   void *arg;
   void *dso_handle; // unused...
   thread_local_dtor* next;
 };
-
-static __thread thread_local_dtor* thread_local_dtors = nullptr;
 
 extern "C" int __cxa_thread_atexit_impl(void (*func) (void *), void *arg, void *dso_handle) {
   thread_local_dtor* dtor = new thread_local_dtor();
@@ -30,17 +31,18 @@ extern "C" int __cxa_thread_atexit_impl(void (*func) (void *), void *arg, void *
   dtor->func = func;
   dtor->arg = arg;
   dtor->dso_handle = dso_handle;
-  dtor->next = thread_local_dtors;
 
-  thread_local_dtors = dtor;
-
+  pthread_internal_t* thread = __get_thread();
+  dtor->next = thread->thread_local_dtors;
+  thread->thread_local_dtors = dtor;
   return 0;
 }
 
 extern "C" __LIBC_HIDDEN__ void __cxa_thread_finalize() {
-  while (thread_local_dtors != nullptr) {
-    thread_local_dtor* current = thread_local_dtors;
-    thread_local_dtors = current->next;
+  pthread_internal_t* thread = __get_thread();
+  while (thread->thread_local_dtors != nullptr) {
+    thread_local_dtor* current = thread->thread_local_dtors;
+    thread->thread_local_dtors = current->next;
 
     current->func(current->arg);
     delete current;

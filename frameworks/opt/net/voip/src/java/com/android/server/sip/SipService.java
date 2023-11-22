@@ -54,6 +54,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executor;
+
 import javax.sip.SipException;
 
 /**
@@ -100,9 +101,11 @@ public final class SipService extends ISipService.Stub {
      */
     public static void start(Context context) {
         if (SipManager.isApiSupported(context)) {
-            ServiceManager.addService("sip", new SipService(context));
-            context.sendBroadcast(new Intent(SipManager.ACTION_SIP_SERVICE_UP));
-            if (DBG) slog("start:");
+            if (ServiceManager.getService("sip") == null) {
+                ServiceManager.addService("sip", new SipService(context));
+                context.sendBroadcast(new Intent(SipManager.ACTION_SIP_SERVICE_UP));
+                if (DBG) slog("start:");
+            }
         }
     }
 
@@ -167,7 +170,7 @@ public final class SipService extends ISipService.Stub {
                     + "the profile is not opened");
             return;
         }
-        if (DBG) log("open3: " + localProfile.getUriString() + ": "
+        if (DBG) log("open3: " + obfuscateSipUri(localProfile.getUriString()) + ": "
                 + incomingCallPendingIntent + ": " + listener);
         try {
             SipSessionGroupExt group = createGroup(localProfile,
@@ -526,13 +529,13 @@ public final class SipService extends ISipService.Stub {
             mIncomingCallPendingIntent = pIntent;
         }
 
-        public void openToReceiveCalls() throws SipException {
+        public void openToReceiveCalls() {
             mOpenedToReceiveCalls = true;
             if (mNetworkType != -1) {
                 mSipGroup.openToReceiveCalls(this);
                 mAutoRegistration.start(mSipGroup);
             }
-            if (SSGE_DBG) log("openToReceiveCalls: " + getUri() + ": "
+            if (SSGE_DBG) log("openToReceiveCalls: " + obfuscateSipUri(getUri()) + ": "
                     + mIncomingCallPendingIntent);
         }
 
@@ -540,7 +543,7 @@ public final class SipService extends ISipService.Stub {
                 throws SipException {
             if (SSGE_DBG) {
                 log("onConnectivityChanged: connected=" + connected + " uri="
-                    + getUri() + ": " + mIncomingCallPendingIntent);
+                    + obfuscateSipUri(getUri()) + ": " + mIncomingCallPendingIntent);
             }
             mSipGroup.onConnectivityChanged();
             if (connected) {
@@ -556,7 +559,8 @@ public final class SipService extends ISipService.Stub {
             mOpenedToReceiveCalls = false;
             mSipGroup.close();
             mAutoRegistration.stop();
-            if (SSGE_DBG) log("close: " + getUri() + ": " + mIncomingCallPendingIntent);
+            if (SSGE_DBG) log("close: " + obfuscateSipUri(getUri()) + ": "
+                    + mIncomingCallPendingIntent);
         }
 
         public ISipSession createSession(ISipSessionListener listener) {
@@ -824,7 +828,8 @@ public final class SipService extends ISipService.Stub {
                 // in registration to avoid adding duplicate entries to server
                 mMyWakeLock.acquire(mSession);
                 mSession.unregister();
-                SAR_TAG = "SipAutoReg:" + mSession.getLocalProfile().getUriString();
+                SAR_TAG = "SipAutoReg:" +
+                        obfuscateSipUri(mSession.getLocalProfile().getUriString());
                 if (SAR_DBG) log("start: group=" + group);
             }
         }
@@ -1280,5 +1285,41 @@ public final class SipService extends ISipService.Stub {
 
     private void loge(String s, Throwable e) {
         Rlog.e(TAG, s, e);
+    }
+
+    public static String obfuscateSipUri(String sipUri) {
+        StringBuilder sb = new StringBuilder();
+        int start = 0;
+        sipUri = sipUri.trim();
+        if (sipUri.startsWith("sip:")) {
+            start = 4;
+            sb.append("sip:");
+        }
+
+        char prevC = '\0';
+        int len = sipUri.length();
+        for (int i = start; i < len; i++) {
+            char c = sipUri.charAt(i);
+            char nextC = (i + 1 < len) ? sipUri.charAt(i + 1) : '\0';
+            char charToAppend = '*';
+
+            // This logic allows the first and last letter before an '@' sign to show up without
+            // obfuscation as well as the first and last letter an '@' sign.
+            // e.g.: brad@comment.it => b**d@c******.*t
+            if ((i - start < 1) ||
+                    (i + 1 == len) ||
+                    isAllowedCharacter(c) ||
+                    (prevC == '@') ||
+                    (nextC == '@')) {
+                charToAppend = c;
+            }
+            sb.append(charToAppend);
+            prevC = c;
+        }
+        return sb.toString();
+    }
+
+    private static boolean isAllowedCharacter(char c) {
+        return c == '@' || c == '.';
     }
 }

@@ -19,7 +19,7 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:1.2.3'
+        classpath 'com.android.tools.build:gradle:2.1.2'
     }
 }
 
@@ -37,18 +37,18 @@ repositories {
 dependencies {
 <#if !sample.auto_add_support_lib?has_content || sample.auto_add_support_lib == "true">
   <#if sample.minSdk?matches(r'^\d+$') && sample.minSdk?number < 7>
-    compile "com.android.support:support-v4:23.0.0"
-    compile "com.android.support:appcompat-v7:23.0.0"
+    compile "com.android.support:support-v4:24.0.0-beta1"
+    compile "com.android.support:appcompat-v7:24.0.0-beta1"
   <#elseif sample.minSdk?matches(r'^\d+$') && sample.minSdk?number < 13>
-    compile "com.android.support:support-v4:23.0.0"
-    compile "com.android.support:gridlayout-v7:23.0.0"
-    compile "com.android.support:cardview-v7:23.0.0"
-    compile "com.android.support:appcompat-v7:23.0.0"
+    compile "com.android.support:support-v4:24.0.0-beta1"
+    compile "com.android.support:gridlayout-v7:24.0.0-beta1"
+    compile "com.android.support:cardview-v7:24.0.0-beta1"
+    compile "com.android.support:appcompat-v7:24.0.0-beta1"
   <#else>
-    compile "com.android.support:support-v4:23.0.0"
-    compile "com.android.support:support-v13:23.0.0"
-    compile "com.android.support:cardview-v7:23.0.0"
-    compile "com.android.support:appcompat-v7:23.0.0"
+    compile "com.android.support:support-v4:24.0.0-beta1"
+    compile "com.android.support:support-v13:24.0.0-beta1"
+    compile "com.android.support:cardview-v7:24.0.0-beta1"
+    compile "com.android.support:appcompat-v7:24.0.0-beta1"
   </#if>
 </#if>
 <#list sample.dependency as dep>
@@ -122,20 +122,3 @@ android {
     }
 </#if>
 }
-// BEGIN_EXCLUDE
-// Tasks below this line will be hidden from release output
-
-task preflight (dependsOn: parent.preflight) {
-    project.afterEvaluate {
-        // Inject a preflight task into each variant so we have a place to hook tasks
-        // that need to run before any of the android build tasks.
-        //
-        android.applicationVariants.each { variant ->
-        <#noparse>
-            tasks.getByPath("prepare${variant.name.capitalize()}Dependencies").dependsOn preflight
-        </#noparse>
-        }
-    }
-}
-
-// END_EXCLUDE

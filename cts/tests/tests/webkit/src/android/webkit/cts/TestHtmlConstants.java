@@ -55,6 +55,8 @@ public class TestHtmlConstants {
     public static final String BLANK_PAGE_URL = "webkit/test_blankPage.html";
     public static final String ADD_JAVA_SCRIPT_INTERFACE_URL = "webkit/test_jsInterface.html";
 
+    public static final String LOGIN_FORM_URL = "webkit/test_loginForm.html";
+
     public static final String EXT_WEB_URL1 = "http://www.example.com/";
 
     public static final String LOCAL_FILESYSTEM_URL = "file:///etc/hosts";

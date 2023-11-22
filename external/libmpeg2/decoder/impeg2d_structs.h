@@ -20,6 +20,30 @@
 #ifndef __IMPEG2D_STRUCTS_H__
 #define __IMPEG2D_STRUCTS_H__
 
+/* Decoder needs at least 4 reference buffers in order to support format conversion in a thread and
+to support B pictures. Because of format conversion in a thread, codec delay is now 2 frames instead of 1.
+To reduce this delay, format conversion has to wait for MB status before converting for B pictures.
+To avoid this check the delay is increased to 2 and hence number of reference frames minimum is 4.
+Because of temporal dependency in deinterlacer one additional buffer is also needed */
+#define NUM_INT_FRAME_BUFFERS                     5
+
+
+#define MAX_WIDTH               4096
+#define MAX_HEIGHT              2160
+
+#define MIN_WIDTH               16
+#define MIN_HEIGHT              16
+
+
+#define MAX_FRM_SIZE            (MAX_WIDTH * MAX_HEIGHT * 2)  /* Supports only 420P and 422ILE */
+
+#define DEC_ORDER               0
+
+#define MAX_BITSTREAM_BUFFER_SIZE       2000 * 1024
+
+/* Flag to signal that buffer is held by deinterlacing */
+#define MPEG2_BUF_MGR_DEINT (BUF_MGR_DISP << 1)
+
 typedef enum
 {
     CMD_PROCESS,
@@ -338,6 +362,18 @@ typedef struct dec_state_struct_t
     IVD_SOC_T       e_processor_soc;
 
     WORD32          i4_frame_decoded;
+
+    /** Flag to enable deinterlace */
+    UWORD32          u4_deinterlace;
+
+    /** Deinterlacer context */
+    void            *pv_deinterlacer_ctxt;
+
+    /** Picture buffer held by deinterlacer */
+    pic_buf_t       *ps_deint_pic;
+
+    /** Buffer used after deinterlacer for format conversion */
+    UWORD8          *pu1_deint_fmt_buf;
 
 }dec_state_t;
 

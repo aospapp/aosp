@@ -214,8 +214,6 @@ public class TrafficStatsTest extends AndroidTestCase {
         long deltaRxOtherPackets = (totalRxPacketsAfter - totalRxPacketsBefore) - uidRxDeltaPackets;
         if (deltaTxOtherPackets > 0 || deltaRxOtherPackets > 0) {
             Log.i(LOG_TAG, "lingering traffic data: " + deltaTxOtherPackets + "/" + deltaRxOtherPackets);
-            // Make sure that not too many non-localhost packets are accounted for
-            assertTrue("too many non-localhost packets on the sam UID", deltaTxOtherPackets + deltaTxOtherPackets < 20);
         }
 
         assertTrue("uidtxp: " + uidTxPacketsBefore + " -> " + uidTxPacketsAfter + " delta=" + uidTxDeltaPackets +

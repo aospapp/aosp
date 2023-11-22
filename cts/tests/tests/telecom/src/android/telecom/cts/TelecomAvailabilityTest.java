@@ -25,6 +25,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
+import android.telecom.TelecomManager;
 import android.test.InstrumentationTestCase;
 import android.util.Log;
 
@@ -96,6 +97,24 @@ public class TelecomAvailabilityTest extends InstrumentationTestCase {
         assertTrue("Telecom APK must be registered to handle CALL intents", telecomMatches);
         assertFalse("Telephony APK must NOT be registered to handle CALL intents",
                 telephonyMatches);
+    }
+
+    public void testTelecomCanManageBlockedNumbers() {
+        if (!shouldTestTelecom(mContext)) {
+            return;
+        }
+
+        final TelecomManager telecomManager = mContext.getSystemService(TelecomManager.class);
+        final Intent intent = telecomManager.createManageBlockedNumbersIntent();
+        assertNotNull(intent);
+
+        final List<ResolveInfo> activities =
+                mPackageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY);
+        assertEquals(1, activities.size());
+        for (ResolveInfo resolveInfo : activities) {
+            assertNotNull(resolveInfo.activityInfo);
+            assertEquals(TELECOM_PACKAGE_NAME, resolveInfo.activityInfo.packageName);
+        }
     }
 
     /**

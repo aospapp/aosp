@@ -15,15 +15,16 @@
  */
 
 #define ATRACE_TAG ATRACE_TAG_GRAPHICS
-#define LOG_TAG "GLWorker"
+#define LOG_TAG "hwc-gl-worker"
 
+#include <algorithm>
 #include <string>
 #include <sstream>
+#include <unordered_set>
 
 #include <sys/resource.h>
 
-#include <sync/sync.h>
-#include <sw_sync.h>
+#include <cutils/properties.h>
 
 #include <hardware/hardware.h>
 #include <hardware/hwcomposer.h>
@@ -33,9 +34,9 @@
 
 #include <utils/Trace.h>
 
-#include "glworker.h"
+#include "drmdisplaycomposition.h"
 
-#include "seperate_rects.h"
+#include "glworker.h"
 
 // TODO(zachr): use hwc_drm_bo to turn buffer handles into textures
 #ifndef EGL_NATIVE_HANDLE_ANDROID_NVX
@@ -46,8 +47,16 @@
 
 namespace android {
 
-typedef seperate_rects::Rect<float> FRect;
-typedef seperate_rects::RectSet<uint64_t, float> FRectSet;
+// clang-format off
+// Column-major order:
+// float mat[4] = { 1, 2, 3, 4 } ===
+// [ 1 3 ]
+// [ 2 4 ]
+float kTextureTransformMatrices[] = {
+   1.0f,  0.0f,  0.0f,  1.0f, // identity matrix
+   0.0f,  1.0f,  1.0f,  0.0f, // swap x and y
+};
+// clang-format on
 
 static const char *GetGLError(void) {
   switch (glGetError()) {
@@ -140,13 +149,15 @@ static bool HasExtension(const char *extension, const char *extensions) {
 
 static AutoGLShader CompileAndCheckShader(GLenum type, unsigned source_count,
                                           const GLchar **sources,
-                                          std::string *shader_log) {
+                                          std::ostringstream *shader_log) {
   GLint status;
   AutoGLShader shader(glCreateShader(type));
   if (shader.get() == 0) {
-    *shader_log = "glCreateShader failed";
+    if (shader_log)
+      *shader_log << "Failed glCreateShader call";
     return 0;
   }
+
   glShaderSource(shader.get(), source_count, sources, NULL);
   glCompileShader(shader.get());
   glGetShaderiv(shader.get(), GL_COMPILE_STATUS, &status);
@@ -154,8 +165,14 @@ static AutoGLShader CompileAndCheckShader(GLenum type, unsigned source_count,
     if (shader_log) {
       GLint log_length;
       glGetShaderiv(shader.get(), GL_INFO_LOG_LENGTH, &log_length);
-      shader_log->resize(log_length);
-      glGetShaderInfoLog(shader.get(), log_length, NULL, &(*shader_log)[0]);
+      std::string info_log(log_length, ' ');
+      glGetShaderInfoLog(shader.get(), log_length, NULL, &info_log.front());
+      *shader_log << "Failed to compile shader:\n" << info_log.c_str()
+                  << "\nShader Source:\n";
+      for (unsigned i = 0; i < source_count; i++) {
+        *shader_log << sources[i];
+      }
+      *shader_log << "\n";
     }
     return 0;
   }
@@ -163,117 +180,116 @@ static AutoGLShader CompileAndCheckShader(GLenum type, unsigned source_count,
   return shader;
 }
 
-static int GenerateShaders(std::vector<AutoGLProgram> *blend_programs) {
-  // Limits: GL_MAX_VARYING_COMPONENTS, GL_MAX_TEXTURE_IMAGE_UNITS,
-  // GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS
-  // clang-format off
-  const GLchar *shader_preamble = "#version 300 es\n#define LAYER_COUNT ";
+static std::string GenerateVertexShader(int layer_count) {
+  std::ostringstream vertex_shader_stream;
+  vertex_shader_stream
+      << "#version 300 es\n"
+      << "#define LAYER_COUNT " << layer_count << "\n"
+      << "precision mediump int;\n"
+      << "uniform vec4 uViewport;\n"
+      << "uniform vec4 uLayerCrop[LAYER_COUNT];\n"
+      << "uniform mat2 uTexMatrix[LAYER_COUNT];\n"
+      << "in vec2 vPosition;\n"
+      << "in vec2 vTexCoords;\n"
+      << "out vec2 fTexCoords[LAYER_COUNT];\n"
+      << "void main() {\n"
+      << "  for (int i = 0; i < LAYER_COUNT; i++) {\n"
+      << "    vec2 tempCoords = vTexCoords * uTexMatrix[i];\n"
+      << "    fTexCoords[i] =\n"
+      << "        uLayerCrop[i].xy + tempCoords * uLayerCrop[i].zw;\n"
+      << "  }\n"
+      << "  vec2 scaledPosition = uViewport.xy + vPosition * uViewport.zw;\n"
+      << "  gl_Position =\n"
+      << "      vec4(scaledPosition * vec2(2.0) - vec2(1.0), 0.0, 1.0);\n"
+      << "}\n";
+  return vertex_shader_stream.str();
+}
 
-  const GLchar *vertex_shader_source =
-"\n"
-"precision mediump int;                                                     \n"
-"uniform vec4 uViewport;                                                    \n"
-"uniform sampler2D uLayerTextures[LAYER_COUNT];                             \n"
-"uniform vec4 uLayerCrop[LAYER_COUNT];                                      \n"
-"in vec2 vPosition;                                                         \n"
-"in vec2 vTexCoords;                                                        \n"
-"out vec2 fTexCoords[LAYER_COUNT];                                          \n"
-"void main() {                                                              \n"
-"  for (int i = 0; i < LAYER_COUNT; i++) {                                  \n"
-"    fTexCoords[i] = (uLayerCrop[i].xy + vTexCoords * uLayerCrop[i].zw) /   \n"
-"                     vec2(textureSize(uLayerTextures[i], 0));              \n"
-"  }                                                                        \n"
-"  vec2 scaledPosition = uViewport.xy + vPosition * uViewport.zw;           \n"
-"  gl_Position = vec4(scaledPosition * vec2(2.0) - vec2(1.0), 0.0, 1.0);    \n"
-"}                                                                          \n";
+static std::string GenerateFragmentShader(int layer_count) {
+  std::ostringstream fragment_shader_stream;
+  fragment_shader_stream << "#version 300 es\n"
+                         << "#define LAYER_COUNT " << layer_count << "\n"
+                         << "#extension GL_OES_EGL_image_external : require\n"
+                         << "precision mediump float;\n";
+  for (int i = 0; i < layer_count; ++i) {
+    fragment_shader_stream << "uniform samplerExternalOES uLayerTexture" << i
+                           << ";\n";
+  }
+  fragment_shader_stream << "uniform float uLayerAlpha[LAYER_COUNT];\n"
+                         << "uniform float uLayerPremult[LAYER_COUNT];\n"
+                         << "in vec2 fTexCoords[LAYER_COUNT];\n"
+                         << "out vec4 oFragColor;\n"
+                         << "void main() {\n"
+                         << "  vec3 color = vec3(0.0, 0.0, 0.0);\n"
+                         << "  float alphaCover = 1.0;\n"
+                         << "  vec4 texSample;\n"
+                         << "  vec3 multRgb;\n";
+  for (int i = 0; i < layer_count; ++i) {
+    if (i > 0)
+      fragment_shader_stream << "  if (alphaCover > 0.5/255.0) {\n";
+    // clang-format off
+    fragment_shader_stream
+        << "  texSample = texture2D(uLayerTexture" << i << ",\n"
+        << "                        fTexCoords[" << i << "]);\n"
+        << "  multRgb = texSample.rgb *\n"
+        << "            max(texSample.a, uLayerPremult[" << i << "]);\n"
+        << "  color += multRgb * uLayerAlpha[" << i << "] * alphaCover;\n"
+        << "  alphaCover *= 1.0 - texSample.a * uLayerAlpha[" << i << "];\n";
+    // clang-format on
+  }
+  for (int i = 0; i < layer_count - 1; ++i)
+    fragment_shader_stream << "  }\n";
+  fragment_shader_stream << "  oFragColor = vec4(color, 1.0 - alphaCover);\n"
+                         << "}\n";
+  return fragment_shader_stream.str();
+}
 
-  const GLchar *fragment_shader_source =
-"\n"
-"precision mediump float;                                                   \n"
-"uniform sampler2D uLayerTextures[LAYER_COUNT];                             \n"
-"uniform float uLayerAlpha[LAYER_COUNT];                                    \n"
-"in vec2 fTexCoords[LAYER_COUNT];                                           \n"
-"out vec4 oFragColor;                                                       \n"
-"void main() {                                                              \n"
-"  vec3 color = vec3(0.0, 0.0, 0.0);                                        \n"
-"  float alphaCover = 1.0;                                                  \n"
-"  for (int i = 0; i < LAYER_COUNT; i++) {                                  \n"
-"    vec4 texSample = texture(uLayerTextures[i], fTexCoords[i]);            \n"
-"    float a = texSample.a * uLayerAlpha[i];                                \n"
-"    color += a * alphaCover * texSample.rgb;                               \n"
-"    alphaCover *= 1.0 - a;                                                 \n"
-"    if (alphaCover <= 0.5/255.0)                                           \n"
-"      break;                                                               \n"
-"  }                                                                        \n"
-"  oFragColor = vec4(color, 1.0 - alphaCover);                              \n"
-"}                                                                          \n";
-  // clang-format on
+static AutoGLProgram GenerateProgram(unsigned num_textures,
+                                     std::ostringstream *shader_log) {
+  std::string vertex_shader_string = GenerateVertexShader(num_textures);
+  const GLchar *vertex_shader_source = vertex_shader_string.c_str();
+  AutoGLShader vertex_shader = CompileAndCheckShader(
+      GL_VERTEX_SHADER, 1, &vertex_shader_source, shader_log);
+  if (!vertex_shader.get())
+    return 0;
 
-  int i, ret = 1;
-  GLint max_texture_images, status;
-  AutoGLShader vertex_shader, fragment_shader;
-  AutoGLProgram program;
-  std::string shader_log;
+  std::string fragment_shader_string = GenerateFragmentShader(num_textures);
+  const GLchar *fragment_shader_source = fragment_shader_string.c_str();
+  AutoGLShader fragment_shader = CompileAndCheckShader(
+      GL_FRAGMENT_SHADER, 1, &fragment_shader_source, shader_log);
+  if (!fragment_shader.get())
+    return 0;
 
-  glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &max_texture_images);
-
-  for (i = 1; i <= max_texture_images; i++) {
-    std::ostringstream layer_count_formatter;
-    layer_count_formatter << i;
-    std::string layer_count(layer_count_formatter.str());
-    const GLchar *shader_sources[3] = {shader_preamble, layer_count.c_str(),
-                                       NULL};
-
-    shader_sources[2] = vertex_shader_source;
-    vertex_shader = CompileAndCheckShader(GL_VERTEX_SHADER, 3, shader_sources,
-                                          ret ? &shader_log : NULL);
-    if (!vertex_shader.get()) {
-      if (ret)
-        ALOGE("Failed to make vertex shader:\n%s", shader_log.c_str());
-      break;
-    }
-
-    shader_sources[2] = fragment_shader_source;
-    fragment_shader = CompileAndCheckShader(
-        GL_FRAGMENT_SHADER, 3, shader_sources, ret ? &shader_log : NULL);
-    if (!fragment_shader.get()) {
-      if (ret)
-        ALOGE("Failed to make fragment shader:\n%s", shader_log.c_str());
-      break;
-    }
-
-    program = AutoGLProgram(glCreateProgram());
-    if (!program.get()) {
-      if (ret)
-        ALOGE("Failed to create program %s", GetGLError());
-      break;
-    }
-
-    glAttachShader(program.get(), vertex_shader.get());
-    glAttachShader(program.get(), fragment_shader.get());
-    glBindAttribLocation(program.get(), 0, "vPosition");
-    glBindAttribLocation(program.get(), 1, "vTexCoords");
-    glLinkProgram(program.get());
-    glDetachShader(program.get(), vertex_shader.get());
-    glDetachShader(program.get(), fragment_shader.get());
-
-    glGetProgramiv(program.get(), GL_LINK_STATUS, &status);
-    if (!status) {
-      if (ret) {
-        GLint log_length;
-        glGetProgramiv(program.get(), GL_INFO_LOG_LENGTH, &log_length);
-        std::string program_log(log_length, ' ');
-        glGetProgramInfoLog(program.get(), log_length, NULL, &program_log[0]);
-        ALOGE("Failed to link program: \n%s", program_log.c_str());
-      }
-      break;
-    }
-
-    ret = 0;
-    blend_programs->emplace_back(std::move(program));
+  AutoGLProgram program(glCreateProgram());
+  if (!program.get()) {
+    if (shader_log)
+      *shader_log << "Failed to create program: " << GetGLError() << "\n";
+    return 0;
   }
 
-  return ret;
+  glAttachShader(program.get(), vertex_shader.get());
+  glAttachShader(program.get(), fragment_shader.get());
+  glBindAttribLocation(program.get(), 0, "vPosition");
+  glBindAttribLocation(program.get(), 1, "vTexCoords");
+  glLinkProgram(program.get());
+  glDetachShader(program.get(), vertex_shader.get());
+  glDetachShader(program.get(), fragment_shader.get());
+
+  GLint status;
+  glGetProgramiv(program.get(), GL_LINK_STATUS, &status);
+  if (!status) {
+    if (shader_log) {
+      GLint log_length;
+      glGetProgramiv(program.get(), GL_INFO_LOG_LENGTH, &log_length);
+      std::string program_log(log_length, ' ');
+      glGetProgramInfoLog(program.get(), log_length, NULL,
+                          &program_log.front());
+      *shader_log << "Failed to link program:\n" << program_log.c_str() << "\n";
+    }
+    return 0;
+  }
+
+  return program;
 }
 
 struct RenderingCommand {
@@ -281,78 +297,97 @@ struct RenderingCommand {
     unsigned texture_index;
     float crop_bounds[4];
     float alpha;
+    float premult;
+    float texture_matrix[4];
   };
 
   float bounds[4];
-  unsigned texture_count;
+  unsigned texture_count = 0;
   TextureSource textures[MAX_OVERLAPPING_LAYERS];
-
-  RenderingCommand() : texture_count(0) {
-  }
 };
 
-static void ConstructCommands(const hwc_layer_1 *layers, size_t num_layers,
-                              std::vector<RenderingCommand> *commands) {
-  std::vector<FRect> in_rects;
-  std::vector<FRectSet> out_rects;
-  int i;
+static void ConstructCommand(const DrmHwcLayer *layers,
+                             const DrmCompositionRegion &region,
+                             RenderingCommand &cmd) {
+  std::copy_n(region.frame.bounds, 4, cmd.bounds);
 
-  for (unsigned rect_index = 0; rect_index < num_layers; rect_index++) {
-    const hwc_layer_1 &layer = layers[rect_index];
-    FRect rect;
-    in_rects.push_back(FRect(layer.displayFrame.left, layer.displayFrame.top,
-                             layer.displayFrame.right,
-                             layer.displayFrame.bottom));
-  }
+  for (size_t texture_index : region.source_layers) {
+    const DrmHwcLayer &layer = layers[texture_index];
 
-  seperate_frects_64(in_rects, &out_rects);
+    DrmHwcRect<float> display_rect(layer.display_frame);
+    float display_size[2] = {display_rect.bounds[2] - display_rect.bounds[0],
+                             display_rect.bounds[3] - display_rect.bounds[1]};
 
-  for (unsigned rect_index = 0; rect_index < out_rects.size(); rect_index++) {
-    const FRectSet &out_rect = out_rects[rect_index];
-    commands->push_back(RenderingCommand());
-    RenderingCommand &cmd = commands->back();
+    float tex_width = layer.buffer->width;
+    float tex_height = layer.buffer->height;
+    DrmHwcRect<float> crop_rect(layer.source_crop.left / tex_width,
+                                layer.source_crop.top / tex_height,
+                                layer.source_crop.right / tex_width,
+                                layer.source_crop.bottom / tex_height);
 
-    memcpy(cmd.bounds, out_rect.rect.bounds, sizeof(cmd.bounds));
+    float crop_size[2] = {crop_rect.bounds[2] - crop_rect.bounds[0],
+                          crop_rect.bounds[3] - crop_rect.bounds[1]};
 
-    uint64_t tex_set = out_rect.id_set.getBits();
-    for (unsigned i = num_layers - 1; tex_set != 0x0; i--) {
-      if (tex_set & (0x1 << i)) {
-        tex_set &= ~(0x1 << i);
+    RenderingCommand::TextureSource &src = cmd.textures[cmd.texture_count];
+    cmd.texture_count++;
+    src.texture_index = texture_index;
 
-        const hwc_layer_1 &layer = layers[i];
+    bool swap_xy = false;
+    bool flip_xy[2] = { false, false };
 
-        FRect display_rect(layer.displayFrame.left, layer.displayFrame.top,
-                           layer.displayFrame.right, layer.displayFrame.bottom);
-        float display_size[2] = {
-            display_rect.bounds[2] - display_rect.bounds[0],
-            display_rect.bounds[3] - display_rect.bounds[1]};
+    if (layer.transform == DrmHwcTransform::kRotate180) {
+      swap_xy = false;
+      flip_xy[0] = true;
+      flip_xy[1] = true;
+    } else if (layer.transform == DrmHwcTransform::kRotate270) {
+      swap_xy = true;
+      flip_xy[0] = true;
+      flip_xy[1] = false;
+    } else if (layer.transform & DrmHwcTransform::kRotate90) {
+      swap_xy = true;
+      if (layer.transform & DrmHwcTransform::kFlipH) {
+        flip_xy[0] = true;
+        flip_xy[1] = true;
+      } else if (layer.transform & DrmHwcTransform::kFlipV) {
+        flip_xy[0] = false;
+        flip_xy[1] = false;
+      } else {
+        flip_xy[0] = false;
+        flip_xy[1] = true;
+      }
+    } else {
+      if (layer.transform & DrmHwcTransform::kFlipH)
+        flip_xy[0] = true;
+      if (layer.transform & DrmHwcTransform::kFlipV)
+        flip_xy[1] = true;
+    }
 
-        FRect crop_rect(layer.sourceCropf.left, layer.sourceCropf.top,
-                        layer.sourceCropf.right, layer.sourceCropf.bottom);
-        float crop_size[2] = {crop_rect.bounds[2] - crop_rect.bounds[0],
-                              crop_rect.bounds[3] - crop_rect.bounds[1]};
+    if (swap_xy)
+      std::copy_n(&kTextureTransformMatrices[4], 4, src.texture_matrix);
+    else
+      std::copy_n(&kTextureTransformMatrices[0], 4, src.texture_matrix);
 
-        RenderingCommand::TextureSource &src = cmd.textures[cmd.texture_count];
-        cmd.texture_count++;
-        src.texture_index = i;
-
-        for (int b = 0; b < 4; b++) {
-          float bound_percent = (cmd.bounds[b] - display_rect.bounds[b % 2]) /
-                                display_size[b % 2];
-          src.crop_bounds[b] =
-              crop_rect.bounds[b % 2] + bound_percent * crop_size[b % 2];
-        }
-
-        if (layer.blending == HWC_BLENDING_NONE) {
-          src.alpha = 1.0f;
-          // This layer is opaque. There is no point in using layers below this
-          // one.
-          break;
-        }
-
-        src.alpha = layer.planeAlpha / 255.0f;
+    for (int j = 0; j < 4; j++) {
+      int b = j ^ (swap_xy ? 1 : 0);
+      float bound_percent =
+          (cmd.bounds[b] - display_rect.bounds[b % 2]) / display_size[b % 2];
+      if (flip_xy[j % 2]) {
+        src.crop_bounds[j] =
+            crop_rect.bounds[j % 2 + 2] - bound_percent * crop_size[j % 2];
+      } else {
+        src.crop_bounds[j] =
+            crop_rect.bounds[j % 2] + bound_percent * crop_size[j % 2];
       }
     }
+
+    if (layer.blending == DrmHwcBlending::kNone) {
+      src.alpha = src.premult = 1.0f;
+      // This layer is opaque. There is no point in using layers below this one.
+      break;
+    }
+
+    src.alpha = layer.alpha / 255.0f;
+    src.premult = (layer.blending == DrmHwcBlending::kPreMult) ? 1.0f : 0.0f;
   }
 }
 
@@ -393,25 +428,25 @@ static int CreateTextureFromHandle(EGLDisplay egl_display,
 
   GLuint texture;
   glGenTextures(1, &texture);
-  glBindTexture(GL_TEXTURE_2D, texture);
-  glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, (GLeglImageOES)image);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glBindTexture(GL_TEXTURE_2D, 0);
+  glBindTexture(GL_TEXTURE_EXTERNAL_OES, texture);
+  glEGLImageTargetTexture2DOES(GL_TEXTURE_EXTERNAL_OES, (GLeglImageOES)image);
+  glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  glBindTexture(GL_TEXTURE_EXTERNAL_OES, 0);
 
-  out->image.reset(image);
+  out->image.reset(egl_display, image);
   out->texture.reset(texture);
 
   return 0;
 }
 
-GLWorker::Compositor::Compositor()
+GLWorkerCompositor::GLWorkerCompositor()
     : egl_display_(EGL_NO_DISPLAY), egl_ctx_(EGL_NO_CONTEXT) {
 }
 
-int GLWorker::Compositor::Init() {
+int GLWorkerCompositor::Init() {
   int ret = 0;
   const char *egl_extensions;
   const char *gl_extensions;
@@ -488,6 +523,9 @@ int GLWorker::Compositor::Init() {
   if (!HasExtension("GL_OES_EGL_image", gl_extensions))
     ALOGW("GL_OES_EGL_image extension not supported");
 
+  if (!HasExtension("GL_OES_EGL_image_external", gl_extensions))
+    ALOGW("GL_OES_EGL_image_external extension not supported");
+
   GLuint vertex_buffer;
   glGenBuffers(1, &vertex_buffer);
   glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
@@ -495,81 +533,67 @@ int GLWorker::Compositor::Init() {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   vertex_buffer_.reset(vertex_buffer);
 
-  if (GenerateShaders(&blend_programs_)) {
+  std::ostringstream shader_log;
+  blend_programs_.emplace_back(GenerateProgram(1, &shader_log));
+  if (blend_programs_.back().get() == 0) {
+    ALOGE("%s", shader_log.str().c_str());
     return 1;
   }
 
   return 0;
 }
 
-GLWorker::Compositor::~Compositor() {
+GLWorkerCompositor::~GLWorkerCompositor() {
   if (egl_display_ != EGL_NO_DISPLAY && egl_ctx_ != EGL_NO_CONTEXT)
     if (eglDestroyContext(egl_display_, egl_ctx_) == EGL_FALSE)
       ALOGE("Failed to destroy OpenGL ES Context: %s", GetEGLError());
 }
 
-int GLWorker::Compositor::Composite(hwc_layer_1 *layers, size_t num_layers,
-                                    sp<GraphicBuffer> framebuffer) {
+int GLWorkerCompositor::Composite(DrmHwcLayer *layers,
+                                  DrmCompositionRegion *regions,
+                                  size_t num_regions,
+                                  const sp<GraphicBuffer> &framebuffer) {
   ATRACE_CALL();
   int ret = 0;
-  size_t i;
   std::vector<AutoEGLImageAndGLTexture> layer_textures;
   std::vector<RenderingCommand> commands;
 
-  if (num_layers == 0) {
+  if (num_regions == 0) {
     return -EALREADY;
   }
 
   GLint frame_width = framebuffer->getWidth();
   GLint frame_height = framebuffer->getHeight();
-  EGLSyncKHR finished_sync;
-
-  AutoEGLImageKHR egl_fb_image(
-      eglCreateImageKHR(egl_display_, EGL_NO_CONTEXT, EGL_NATIVE_BUFFER_ANDROID,
-                        (EGLClientBuffer)framebuffer->getNativeBuffer(),
-                        NULL /* no attribs */),
-      EGLImageDeleter(egl_display_));
-
-  if (egl_fb_image.get() == EGL_NO_IMAGE_KHR) {
-    ALOGE("Failed to make image from target buffer: %s", GetEGLError());
+  CachedFramebuffer *cached_framebuffer =
+      PrepareAndCacheFramebuffer(framebuffer);
+  if (cached_framebuffer == NULL) {
+    ALOGE("Composite failed because of failed framebuffer");
     return -EINVAL;
   }
 
-  GLuint gl_fb_tex;
-  glGenTextures(1, &gl_fb_tex);
-  AutoGLTexture gl_fb_tex_auto(gl_fb_tex);
-  glBindTexture(GL_TEXTURE_2D, gl_fb_tex);
-  glEGLImageTargetTexture2DOES(GL_TEXTURE_2D,
-                               (GLeglImageOES)egl_fb_image.get());
-  glBindTexture(GL_TEXTURE_2D, 0);
-
-  GLuint gl_fb;
-  glGenFramebuffers(1, &gl_fb);
-  AutoGLFramebuffer gl_fb_auto(gl_fb);
-  glBindFramebuffer(GL_FRAMEBUFFER, gl_fb);
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-                         gl_fb_tex, 0);
-
-  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-    ALOGE("Failed framebuffer check for created target buffer: %s",
-          GetGLFramebufferError());
-    return -EINVAL;
+  std::unordered_set<size_t> layers_used_indices;
+  for (size_t region_index = 0; region_index < num_regions; region_index++) {
+    DrmCompositionRegion &region = regions[region_index];
+    layers_used_indices.insert(region.source_layers.begin(),
+                               region.source_layers.end());
+    commands.emplace_back();
+    ConstructCommand(layers, region, commands.back());
   }
 
-  for (i = 0; i < num_layers; i++) {
-    const struct hwc_layer_1 *layer = &layers[i];
+  for (size_t layer_index = 0; layer_index < MAX_OVERLAPPING_LAYERS;
+       layer_index++) {
+    DrmHwcLayer *layer = &layers[layer_index];
 
-    if (ret) {
-      if (layer->acquireFenceFd >= 0)
-        close(layer->acquireFenceFd);
+    layer_textures.emplace_back();
+
+    if (layers_used_indices.count(layer_index) == 0)
       continue;
-    }
 
-    layer_textures.emplace_back(egl_display_);
-    ret = CreateTextureFromHandle(egl_display_, layer->handle,
+    ret = CreateTextureFromHandle(egl_display_, layer->get_usable_handle(),
                                   &layer_textures.back());
+
     if (!ret) {
-      ret = EGLFenceWait(egl_display_, layer->acquireFenceFd);
+      ret = EGLFenceWait(egl_display_, layer->acquire_fence.Release());
     }
     if (ret) {
       layer_textures.pop_back();
@@ -579,8 +603,6 @@ int GLWorker::Compositor::Composite(hwc_layer_1 *layers, size_t num_layers,
 
   if (ret)
     return ret;
-
-  ConstructCommands(layers, num_layers, &commands);
 
   glViewport(0, 0, frame_width, frame_height);
 
@@ -596,39 +618,46 @@ int GLWorker::Compositor::Composite(hwc_layer_1 *layers, size_t num_layers,
   glEnable(GL_SCISSOR_TEST);
 
   for (const RenderingCommand &cmd : commands) {
-    if (cmd.texture_count <= 0) {
+    if (cmd.texture_count == 0)
       continue;
-    }
 
     // TODO(zachr): handle the case of too many overlapping textures for one
     // area by falling back to rendering as many layers as possible using
     // multiple blending passes.
-    if (cmd.texture_count > blend_programs_.size()) {
+    GLint program = PrepareAndCacheProgram(cmd.texture_count);
+    if (program == 0) {
       ALOGE("Too many layers to render in one area");
       continue;
     }
 
-    GLint program = blend_programs_[cmd.texture_count - 1].get();
     glUseProgram(program);
     GLint gl_viewport_loc = glGetUniformLocation(program, "uViewport");
-    GLint gl_tex_loc = glGetUniformLocation(program, "uLayerTextures");
     GLint gl_crop_loc = glGetUniformLocation(program, "uLayerCrop");
     GLint gl_alpha_loc = glGetUniformLocation(program, "uLayerAlpha");
+    GLint gl_premult_loc = glGetUniformLocation(program, "uLayerPremult");
+    GLint gl_tex_matrix_loc = glGetUniformLocation(program, "uTexMatrix");
     glUniform4f(gl_viewport_loc, cmd.bounds[0] / (float)frame_width,
                 cmd.bounds[1] / (float)frame_height,
                 (cmd.bounds[2] - cmd.bounds[0]) / (float)frame_width,
                 (cmd.bounds[3] - cmd.bounds[1]) / (float)frame_height);
 
     for (unsigned src_index = 0; src_index < cmd.texture_count; src_index++) {
+      std::ostringstream texture_name_formatter;
+      texture_name_formatter << "uLayerTexture" << src_index;
+      GLint gl_tex_loc =
+          glGetUniformLocation(program, texture_name_formatter.str().c_str());
+
       const RenderingCommand::TextureSource &src = cmd.textures[src_index];
       glUniform1f(gl_alpha_loc + src_index, src.alpha);
+      glUniform1f(gl_premult_loc + src_index, src.premult);
       glUniform4f(gl_crop_loc + src_index, src.crop_bounds[0],
                   src.crop_bounds[1], src.crop_bounds[2] - src.crop_bounds[0],
                   src.crop_bounds[3] - src.crop_bounds[1]);
-
-      glUniform1i(gl_tex_loc + src_index, src_index);
+      glUniform1i(gl_tex_loc, src_index);
+      glUniformMatrix2fv(gl_tex_matrix_loc + src_index, 1, GL_FALSE,
+                         src.texture_matrix);
       glActiveTexture(GL_TEXTURE0 + src_index);
-      glBindTexture(GL_TEXTURE_2D,
+      glBindTexture(GL_TEXTURE_EXTERNAL_OES,
                     layer_textures[src.texture_index].texture.get());
     }
 
@@ -638,7 +667,7 @@ int GLWorker::Compositor::Composite(hwc_layer_1 *layers, size_t num_layers,
 
     for (unsigned src_index = 0; src_index < cmd.texture_count; src_index++) {
       glActiveTexture(GL_TEXTURE0 + src_index);
-      glBindTexture(GL_TEXTURE_2D, 0);
+      glBindTexture(GL_TEXTURE_EXTERNAL_OES, 0);
     }
   }
 
@@ -654,193 +683,121 @@ int GLWorker::Compositor::Composite(hwc_layer_1 *layers, size_t num_layers,
   return ret;
 }
 
-int GLWorker::DoComposition(Compositor &compositor, Work *work) {
-  int ret =
-      compositor.Composite(work->layers, work->num_layers, work->framebuffer);
-
-  int timeline_fd = work->timeline_fd;
-  work->timeline_fd = -1;
-
-  if (ret) {
-    worker_ret_ = ret;
-    glFinish();
-    sw_sync_timeline_inc(timeline_fd, work->num_layers);
-    close(timeline_fd);
-    return pthread_cond_signal(&work_done_cond_);
-  }
-
-  unsigned timeline_count = work->num_layers + 1;
-  worker_ret_ = sw_sync_fence_create(timeline_fd, "GLComposition done fence",
-                                     timeline_count);
-  ret = pthread_cond_signal(&work_done_cond_);
-
+void GLWorkerCompositor::Finish() {
+  ATRACE_CALL();
   glFinish();
 
-  sw_sync_timeline_inc(timeline_fd, timeline_count);
-  close(timeline_fd);
+  char use_framebuffer_cache_opt[PROPERTY_VALUE_MAX];
+  property_get("hwc.drm.use_framebuffer_cache", use_framebuffer_cache_opt, "1");
+  bool use_framebuffer_cache = atoi(use_framebuffer_cache_opt);
 
-  return ret;
+  if (use_framebuffer_cache) {
+    for (auto &fb : cached_framebuffers_)
+      fb.strong_framebuffer.clear();
+  } else {
+    cached_framebuffers_.clear();
+  }
 }
 
-GLWorker::GLWorker() : initialized_(false) {
+GLWorkerCompositor::CachedFramebuffer::CachedFramebuffer(
+    const sp<GraphicBuffer> &gb, AutoEGLDisplayImage &&image,
+    AutoGLTexture &&tex, AutoGLFramebuffer &&fb)
+    : strong_framebuffer(gb),
+      weak_framebuffer(gb),
+      egl_fb_image(std::move(image)),
+      gl_fb_tex(std::move(tex)),
+      gl_fb(std::move(fb)) {
 }
 
-GLWorker::~GLWorker() {
-  if (!initialized_)
-    return;
-
-  if (SignalWorker(NULL, true) != 0 || pthread_join(thread_, NULL) != 0)
-    pthread_kill(thread_, SIGTERM);
-
-  pthread_cond_destroy(&work_ready_cond_);
-  pthread_cond_destroy(&work_done_cond_);
-  pthread_mutex_destroy(&lock_);
+bool GLWorkerCompositor::CachedFramebuffer::Promote() {
+  if (strong_framebuffer.get() != NULL)
+    return true;
+  strong_framebuffer = weak_framebuffer.promote();
+  return strong_framebuffer.get() != NULL;
 }
 
-#define TRY(x, n, g)                  \
-  ret = x;                            \
-  if (ret) {                          \
-    ALOGE("Failed to " n " %d", ret); \
-    g;                                \
-  }
-
-#define TRY_RETURN(x, n) TRY(x, n, return ret)
-
-int GLWorker::Init() {
-  int ret = 0;
-
-  worker_work_ = NULL;
-  worker_exit_ = false;
-  worker_ret_ = -1;
-
-  ret = pthread_cond_init(&work_ready_cond_, NULL);
-  if (ret) {
-    ALOGE("Failed to int GLThread condition %d", ret);
-    return ret;
-  }
-
-  ret = pthread_cond_init(&work_done_cond_, NULL);
-  if (ret) {
-    ALOGE("Failed to int GLThread condition %d", ret);
-    pthread_cond_destroy(&work_ready_cond_);
-    return ret;
-  }
-
-  ret = pthread_mutex_init(&lock_, NULL);
-  if (ret) {
-    ALOGE("Failed to init GLThread lock %d", ret);
-    pthread_cond_destroy(&work_ready_cond_);
-    pthread_cond_destroy(&work_done_cond_);
-    return ret;
-  }
-
-  ret = pthread_create(&thread_, NULL, StartRoutine, this);
-  if (ret) {
-    ALOGE("Failed to create GLThread %d", ret);
-    pthread_cond_destroy(&work_ready_cond_);
-    pthread_cond_destroy(&work_done_cond_);
-    pthread_mutex_destroy(&lock_);
-    return ret;
-  }
-
-  initialized_ = true;
-
-  TRY_RETURN(pthread_mutex_lock(&lock_), "lock GLThread");
-
-  while (!worker_exit_ && worker_ret_ != 0)
-    TRY(pthread_cond_wait(&work_done_cond_, &lock_), "wait on condition",
-        goto out_unlock);
-
-  ret = worker_ret_;
-
-out_unlock:
-  int unlock_ret = pthread_mutex_unlock(&lock_);
-  if (unlock_ret) {
-    ret = unlock_ret;
-    ALOGE("Failed to unlock GLThread %d", unlock_ret);
-  }
-  return ret;
-}
-
-int GLWorker::SignalWorker(Work *work, bool worker_exit) {
-  int ret = 0;
-  if (worker_exit_)
-    return -EINVAL;
-  TRY_RETURN(pthread_mutex_lock(&lock_), "lock GLThread");
-  worker_work_ = work;
-  worker_exit_ = worker_exit;
-  ret = pthread_cond_signal(&work_ready_cond_);
-  if (ret) {
-    ALOGE("Failed to signal GLThread caller %d", ret);
-    pthread_mutex_unlock(&lock_);
-    return ret;
-  }
-  ret = pthread_cond_wait(&work_done_cond_, &lock_);
-  if (ret) {
-    ALOGE("Failed to wait on GLThread %d", ret);
-    pthread_mutex_unlock(&lock_);
-    return ret;
-  }
-
-  ret = worker_ret_;
-  if (ret) {
-    pthread_mutex_unlock(&lock_);
-    return ret;
-  }
-  TRY_RETURN(pthread_mutex_unlock(&lock_), "unlock GLThread");
-  return ret;
-}
-
-int GLWorker::DoWork(Work *work) {
-  return SignalWorker(work, false);
-}
-
-void GLWorker::WorkerRoutine() {
-  int ret = 0;
-
-  TRY(pthread_mutex_lock(&lock_), "lock GLThread", return );
-
-  Compositor compositor;
-
-  TRY(compositor.Init(), "initialize GL", goto out_signal_done);
-
-  worker_ret_ = 0;
-  TRY(pthread_cond_signal(&work_done_cond_), "signal GLThread caller",
-      goto out_signal_done);
-
-  while (true) {
-    while (worker_work_ == NULL && !worker_exit_)
-      TRY(pthread_cond_wait(&work_ready_cond_, &lock_), "wait on condition",
-          goto out_signal_done);
-
-    if (worker_exit_) {
-      ret = 0;
-      break;
-    }
-
-    ret = DoComposition(compositor, worker_work_);
-
-    worker_work_ = NULL;
-    if (ret) {
-      break;
-    }
-  }
-
-out_signal_done:
-  worker_exit_ = true;
-  worker_ret_ = ret;
-  TRY(pthread_cond_signal(&work_done_cond_), "signal GLThread caller",
-      goto out_unlock);
-out_unlock:
-  TRY(pthread_mutex_unlock(&lock_), "unlock GLThread", return );
-}
-
-/* static */
-void *GLWorker::StartRoutine(void *arg) {
-  setpriority(PRIO_PROCESS, 0, HAL_PRIORITY_URGENT_DISPLAY);
-  GLWorker *worker = (GLWorker *)arg;
-  worker->WorkerRoutine();
+GLWorkerCompositor::CachedFramebuffer *
+GLWorkerCompositor::FindCachedFramebuffer(
+    const sp<GraphicBuffer> &framebuffer) {
+  for (auto &fb : cached_framebuffers_)
+    if (fb.weak_framebuffer == framebuffer)
+      return &fb;
   return NULL;
+}
+
+GLWorkerCompositor::CachedFramebuffer *
+GLWorkerCompositor::PrepareAndCacheFramebuffer(
+    const sp<GraphicBuffer> &framebuffer) {
+  CachedFramebuffer *cached_framebuffer = FindCachedFramebuffer(framebuffer);
+  if (cached_framebuffer != NULL) {
+    if (cached_framebuffer->Promote()) {
+      glBindFramebuffer(GL_FRAMEBUFFER, cached_framebuffer->gl_fb.get());
+      return cached_framebuffer;
+    }
+
+    for (auto it = cached_framebuffers_.begin();
+         it != cached_framebuffers_.end(); ++it) {
+      if (it->weak_framebuffer == framebuffer) {
+        cached_framebuffers_.erase(it);
+        break;
+      }
+    }
+  }
+
+  AutoEGLDisplayImage egl_fb_image(
+      egl_display_,
+      eglCreateImageKHR(egl_display_, EGL_NO_CONTEXT, EGL_NATIVE_BUFFER_ANDROID,
+                        (EGLClientBuffer)framebuffer->getNativeBuffer(),
+                        NULL /* no attribs */));
+
+  if (egl_fb_image.image() == EGL_NO_IMAGE_KHR) {
+    ALOGE("Failed to make image from target buffer: %s", GetEGLError());
+    return NULL;
+  }
+
+  GLuint gl_fb_tex;
+  glGenTextures(1, &gl_fb_tex);
+  AutoGLTexture gl_fb_tex_auto(gl_fb_tex);
+  glBindTexture(GL_TEXTURE_2D, gl_fb_tex);
+  glEGLImageTargetTexture2DOES(GL_TEXTURE_2D,
+                               (GLeglImageOES)egl_fb_image.image());
+  glBindTexture(GL_TEXTURE_2D, 0);
+
+  GLuint gl_fb;
+  glGenFramebuffers(1, &gl_fb);
+  AutoGLFramebuffer gl_fb_auto(gl_fb);
+  glBindFramebuffer(GL_FRAMEBUFFER, gl_fb);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                         gl_fb_tex, 0);
+
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+    ALOGE("Failed framebuffer check for created target buffer: %s",
+          GetGLFramebufferError());
+    return NULL;
+  }
+
+  cached_framebuffers_.emplace_back(framebuffer, std::move(egl_fb_image),
+                                    std::move(gl_fb_tex_auto),
+                                    std::move(gl_fb_auto));
+  return &cached_framebuffers_.back();
+}
+
+GLint GLWorkerCompositor::PrepareAndCacheProgram(unsigned texture_count) {
+  if (blend_programs_.size() >= texture_count) {
+    GLint program = blend_programs_[texture_count - 1].get();
+    if (program != 0)
+      return program;
+  }
+
+  AutoGLProgram program = GenerateProgram(texture_count, NULL);
+  if (program.get() != 0) {
+    if (blend_programs_.size() < texture_count)
+      blend_programs_.resize(texture_count);
+    blend_programs_[texture_count - 1] = std::move(program);
+    return blend_programs_[texture_count - 1].get();
+  }
+
+  return 0;
 }
 
 }  // namespace android

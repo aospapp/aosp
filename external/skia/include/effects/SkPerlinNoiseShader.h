@@ -72,7 +72,7 @@ public:
     }
 
 
-    size_t contextSize() const override;
+    size_t contextSize(const ContextRec&) const override;
 
     class PerlinNoiseShaderContext : public SkShader::Context {
     public:
@@ -80,7 +80,6 @@ public:
         virtual ~PerlinNoiseShaderContext();
 
         void shadeSpan(int x, int y, SkPMColor[], int count) override;
-        void shadeSpan16(int x, int y, uint16_t[], int count) override;
 
     private:
         SkPMColor shade(const SkPoint& point, StitchData& stitchData) const;
@@ -96,9 +95,10 @@ public:
         typedef SkShader::Context INHERITED;
     };
 
-    virtual bool asFragmentProcessor(GrContext* context, const SkPaint&, const SkMatrix& viewM,
-                                     const SkMatrix*, GrColor*,
-                                     GrFragmentProcessor**) const override;
+#if SK_SUPPORT_GPU
+    const GrFragmentProcessor* asFragmentProcessor(GrContext* context, const SkMatrix& viewM,
+                                                   const SkMatrix*, SkFilterQuality) const override;
+#endif
 
     SK_TO_STRING_OVERRIDE()
     SK_DECLARE_PUBLIC_FLATTENABLE_DESERIALIZATION_PROCS(SkPerlinNoiseShader)

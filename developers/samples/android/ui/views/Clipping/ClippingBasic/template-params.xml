@@ -22,10 +22,7 @@
     <group>UI</group>
     <package>com.example.android.clippingbasic</package>
 
-
     <minSdk>21</minSdk>
-    <compileSdkVersion>21</compileSdkVersion>
-
 
     <strings>
         <intro>

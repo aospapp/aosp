@@ -18,6 +18,7 @@ package com.android.settings.bluetooth;
 
 import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothUuid;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -25,12 +26,12 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
 import android.text.Editable;
-import android.text.Html;
 import android.text.InputFilter;
+import android.text.InputFilter.LengthFilter;
 import android.text.InputType;
 import android.text.TextWatcher;
-import android.text.InputFilter.LengthFilter;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -43,8 +44,7 @@ import com.android.internal.app.AlertController;
 import com.android.settings.R;
 import com.android.settingslib.bluetooth.CachedBluetoothDeviceManager;
 import com.android.settingslib.bluetooth.LocalBluetoothManager;
-
-import android.view.KeyEvent;
+import com.android.settingslib.bluetooth.LocalBluetoothProfile;
 
 import java.util.Locale;
 
@@ -66,6 +66,8 @@ public final class BluetoothPairingDialog extends AlertActivity implements
     private String mPairingKey;
     private EditText mPairingView;
     private Button mOkButton;
+    private LocalBluetoothProfile mPbapClientProfile;
+
 
     /**
      * Dismiss the dialog if the bond state changes to bonded or none,
@@ -111,6 +113,7 @@ public final class BluetoothPairingDialog extends AlertActivity implements
             return;
         }
         mCachedDeviceManager = mBluetoothManager.getCachedDeviceManager();
+        mPbapClientProfile = mBluetoothManager.getProfileManager().getPbapClientProfile();
 
         mDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
         mType = intent.getIntExtra(BluetoothDevice.EXTRA_PAIRING_VARIANT, BluetoothDevice.ERROR);
@@ -190,13 +193,22 @@ public final class BluetoothPairingDialog extends AlertActivity implements
                 R.id.phonebook_sharing_message_entry_pin);
         contactSharing.setText(getString(R.string.bluetooth_pairing_shares_phonebook,
                 mCachedDeviceManager.getName(mDevice)));
+        if (mPbapClientProfile != null && mPbapClientProfile.isProfileReady()) {
+            contactSharing.setVisibility(View.GONE);
+        }
         if (mDevice.getPhonebookAccessPermission() == BluetoothDevice.ACCESS_ALLOWED) {
             contactSharing.setChecked(true);
         } else if (mDevice.getPhonebookAccessPermission() == BluetoothDevice.ACCESS_REJECTED){
             contactSharing.setChecked(false);
         } else {
-            contactSharing.setChecked(true);
-            mDevice.setPhonebookAccessPermission(BluetoothDevice.ACCESS_ALLOWED);
+            if (mDevice.getBluetoothClass().getDeviceClass()
+                    == BluetoothClass.Device.AUDIO_VIDEO_HANDSFREE) {
+                contactSharing.setChecked(true);
+                mDevice.setPhonebookAccessPermission(BluetoothDevice.ACCESS_ALLOWED);
+            } else {
+                contactSharing.setChecked(false);
+                mDevice.setPhonebookAccessPermission(BluetoothDevice.ACCESS_REJECTED);
+            }
         }
 
         contactSharing.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
@@ -209,12 +221,7 @@ public final class BluetoothPairingDialog extends AlertActivity implements
                 }
             }
         });
-        if (mDevice.getBluetoothClass().getDeviceClass()
-                == BluetoothClass.Device.AUDIO_VIDEO_HANDSFREE) {
-            contactSharing.setVisibility(View.VISIBLE);
-        } else {
-            contactSharing.setVisibility(View.GONE);
-        }
+
         mPairingView = (EditText) view.findViewById(R.id.text);
         mPairingView.addTextChangedListener(this);
         alphanumericPin.setOnCheckedChangeListener(this);
@@ -262,13 +269,22 @@ public final class BluetoothPairingDialog extends AlertActivity implements
                 R.id.phonebook_sharing_message_confirm_pin);
         contactSharing.setText(getString(R.string.bluetooth_pairing_shares_phonebook,
                 mCachedDeviceManager.getName(mDevice)));
+        if (mPbapClientProfile != null && mPbapClientProfile.isProfileReady()) {
+            contactSharing.setVisibility(View.GONE);
+        }
         if (mDevice.getPhonebookAccessPermission() == BluetoothDevice.ACCESS_ALLOWED) {
             contactSharing.setChecked(true);
         } else if (mDevice.getPhonebookAccessPermission() == BluetoothDevice.ACCESS_REJECTED){
             contactSharing.setChecked(false);
         } else {
-            contactSharing.setChecked(true);
-            mDevice.setPhonebookAccessPermission(BluetoothDevice.ACCESS_ALLOWED);
+            if (mDevice.getBluetoothClass().getDeviceClass()
+                    == BluetoothClass.Device.AUDIO_VIDEO_HANDSFREE) {
+                contactSharing.setChecked(true);
+                mDevice.setPhonebookAccessPermission(BluetoothDevice.ACCESS_ALLOWED);
+            } else {
+                contactSharing.setChecked(false);
+                mDevice.setPhonebookAccessPermission(BluetoothDevice.ACCESS_REJECTED);
+            }
         }
 
         contactSharing.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
@@ -281,12 +297,6 @@ public final class BluetoothPairingDialog extends AlertActivity implements
                 }
             }
         });
-        if (mDevice.getBluetoothClass().getDeviceClass()
-                == BluetoothClass.Device.AUDIO_VIDEO_HANDSFREE) {
-            contactSharing.setVisibility(View.VISIBLE);
-        } else {
-            contactSharing.setVisibility(View.GONE);
-        }
 
         String messageCaption = null;
         String pairingContent = null;

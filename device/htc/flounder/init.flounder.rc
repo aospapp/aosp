@@ -1,24 +1,32 @@
 import init.flounder.usb.rc
 import init.flounder_svelte.rc
 
+on early-init
+    mount debugfs /sys/kernel/debug /sys/kernel/debug mode=755
+
 on init
     # Load persistent dm-verity state
     verity_load_state
 
     start watchdogd
 
-    # Support legacy paths
-    symlink /sdcard /mnt/sdcard
     symlink /sdcard /storage/sdcard0
 
+    write /sys/block/zram0/comp_algorithm lz4
+    write /sys/block/zram0/max_comp_streams 2
+
+    # Swap in only 1 page at a time
+    write /proc/sys/vm/page-cluster 0
+
 on post-fs
+    # turn off nvmap page pool b/29389829
+    write /sys/module/nvmap_pp/parameters/pool_size 0
+    write /sys/module/nvmap_pp/parameters/enable_page_pools 0
+
     write /sys/power/gpu_power_on 1
     write /sys/module/input_cfboost/parameters/gpu_wakeup 1
     # Turn on swap
     swapon_all /fstab.flounder
-
-    # Swap in only 1 page at a time
-    write /proc/sys/vm/page-cluster 0
 
 on post-fs-data
     # Now that are booted all the way and out of mount panics, ensure that we panic on later errors.
@@ -27,7 +35,12 @@ on post-fs-data
     # For a remount only the flags and the target mount point are relevant.
     mount dummy dummy /data remount nosuid nodev noatime rw seclabel,background_gc=on,user_xattr,acl,errors=panic
 
-    mkdir /data/nvcam 0700 media camera
+    # Previously files in /data/nvcam are owned by media, change the owner to cameraserver so it
+    # can be accessed by Camera HAL in cameraserver.
+    chown cameraserver camera /data/nvcam/factory_copy_0.bin
+    chown cameraserver camera /data/nvcam/nvcam_cache_0.bin
+    chown cameraserver camera /data/nvcam/nvcam_cache_1.bin
+    mkdir /data/nvcam 0700 cameraserver camera
 
     # NFC: create data/nfc for nv storage
     mkdir /data/nfc 0770 nfc nfc
@@ -54,11 +67,8 @@ on boot
     # power down interface
     write /sys/class/rfkill/rfkill0/state 0
 
-    mount debugfs /sys/kernel/debug /sys/kernel/debug mode=755
-
-    # Set up kernel tracing, but disable it by default
-    chmod 0222 /sys/kernel/debug/tracing/trace_marker
-    write /sys/kernel/debug/tracing/tracing_on 0
+    # keep verity metadata in cache a lot longer (tablet profile)
+    write /sys/module/dm_bufio/parameters/max_age_seconds 86400
 
     write /sys/module/tegra3_emc/parameters/emc_enable 0
     #write /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq 1000000
@@ -112,12 +122,6 @@ on boot
 
 on fs
     mount_all /fstab.flounder
-
-    # Adjust parameters for dm-verity devices
-    write /sys/block/dm-0/queue/read_ahead_kb 2048
-    write /sys/block/dm-1/queue/read_ahead_kb 2048
-    write /sys/module/dm_verity/parameters/prefetch_cluster 524288
-
     # Update dm-verity state and set partition.*.verified properties
     verity_update_state
 
@@ -192,8 +196,8 @@ on property:audio_hal.period_size=128
     write /sys/devices/system/cpu/cpufreq/interactive/rt_priority 1
 
 # bugreport is triggered by holding down volume down, volume up and power
-service bugreport /system/bin/dumpstate -d -p -B \
-        -o /data/data/com.android.shell/files/bugreports/bugreport
+service bugreport /system/bin/dumpstate -d -p -B -z \
+        -o /data/user_de/0/com.android.shell/files/bugreports/bugreport
     class late_start
     disabled
     oneshot
@@ -215,7 +219,7 @@ service gpsd /system/bin/glgps -c /system/etc/gpsconfig.xml
     disabled
     user gps
     socket gps seqpacket 0660 gps system
-    group system inet sdcard_rw sdcard_r
+    group system wakelock inet sdcard_rw sdcard_r
 
 service wpa_supplicant /system/bin/wpa_supplicant \
     -iwlan0 -Dnl80211 -c/data/misc/wifi/wpa_supplicant.conf \
@@ -226,58 +230,18 @@ service wpa_supplicant /system/bin/wpa_supplicant \
     disabled
     oneshot
 
-service dhcpcd_wlan0 /system/bin/dhcpcd -aABDKL
-    class main
-    disabled
-    oneshot
-
-service dhcpcd_p2p /system/bin/dhcpcd -aABKL
-    class main
-    disabled
-    oneshot
-
-service dhcpcd_bt-pan /system/bin/dhcpcd -aABDKL
-    class main
-    disabled
-    oneshot
-
-service dhcpcd_eth0 /system/bin/dhcpcd -aABDKL
-    class late_start
-    disabled
-    oneshot
-
-service iprenew_wlan0 /system/bin/dhcpcd -n
-    class main
-    disabled
-    oneshot
-
-service iprenew_eth0 /system/bin/dhcpcd -n
-    class late_start
-    disabled
-    oneshot
-
-service iprenew_p2p /system/bin/dhcpcd -n
-    class main
-    disabled
-    oneshot
-
-service iprenew_bt-pan /system/bin/dhcpcd -n
-    class main
-    disabled
-    oneshot
-
 service kickstart /vendor/bin/qcks -i /vendor/firmware/mdm/image/ -r /data/qcks/mdm/
     class late_start
     disabled
     user system
-    group system
+    group system wakelock
     oneshot
 
 service qmuxd /vendor/bin/qmuxd
     class late_start
     disabled
     user system
-    group system radio
+    group system wakelock radio
 
 service netmgrd /vendor/bin/netmgrd
     class late_start

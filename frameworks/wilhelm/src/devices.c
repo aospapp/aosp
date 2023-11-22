@@ -142,9 +142,6 @@ static const SLuint32 VideoCodecIds[] = {
 
 const SLuint32 * const VideoDecoderIds = VideoCodecIds;
 
-// for ANDROID, must == kNbVideoMimeTypes
-const XAuint32 kMaxVideoDecoders = sizeof(VideoCodecIds) / sizeof(VideoCodecIds[0]);
-
 static const SLmilliHertz SamplingRates_A[] = {
     SL_SAMPLINGRATE_8,
     SL_SAMPLINGRATE_11_025,

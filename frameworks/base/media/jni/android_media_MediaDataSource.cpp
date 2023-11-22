@@ -26,6 +26,7 @@
 #include "JNIHelp.h"
 
 #include <binder/MemoryDealer.h>
+#include <drm/drm_framework_common.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <nativehelper/ScopedLocalRef.h>
 
@@ -116,7 +117,8 @@ status_t JMediaDataSource::getSize(off64_t* size) {
         return UNKNOWN_ERROR;
     }
     if (mSizeIsCached) {
-        return mCachedSize;
+        *size = mCachedSize;
+        return OK;
     }
 
     JNIEnv* env = AndroidRuntime::getJNIEnv();
@@ -148,6 +150,18 @@ void JMediaDataSource::close() {
     env->CallVoidMethod(mMediaDataSourceObj, mCloseMethod);
     // The closed state is effectively the same as an error state.
     mJavaObjStatus = UNKNOWN_ERROR;
+}
+
+uint32_t JMediaDataSource::getFlags() {
+    return 0;
+}
+
+String8 JMediaDataSource::toString() {
+    return String8::format("JMediaDataSource(pid %d, uid %d)", getpid(), getuid());
+}
+
+sp<DecryptHandle> JMediaDataSource::DrmInitialization(const char * /* mime */) {
+    return NULL;
 }
 
 }  // namespace android

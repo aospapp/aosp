@@ -23,19 +23,26 @@ import java.net.ConnectException;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.net.ProxySelector;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.net.SocketImpl;
+import java.net.URI;
+import java.net.UnknownHostException;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.io.FileDescriptor;
+
 
 public class SocketTest extends junit.framework.TestCase {
     // See http://b/2980559.
@@ -386,6 +393,60 @@ public class SocketTest extends junit.framework.TestCase {
         assertTrue(connectUnblocked);
     }
 
+    // http://b/29092095
+    public void testSocketWithProxySet() throws Exception {
+        ProxySelector ps = ProxySelector.getDefault();
+        try {
+            ProxySelector.setDefault(new ProxySelector() {
+                @Override
+                public List<Proxy> select(URI uri) {
+                    fail("ProxySelector#select was called");
+                    return null; // unreachable.
+                }
+
+                @Override
+                public void connectFailed(URI uri, SocketAddress sa, IOException ioe) {
+                    fail("ProxySelector#connectFail was called");
+                }
+            });
+
+            ServerSocket server = new ServerSocket(0);
+
+            // We shouldn't ask the proxy selector to select() a proxy for us during
+            // connect().
+            Socket client = new Socket(InetAddress.getLocalHost(), server.getLocalPort());
+            client.close();
+        } finally {
+            ProxySelector.setDefault(ps);
+        }
+    }
+
+
+    // b/25805791 + b/26470377
+    public void testFileDescriptorStaysSame() throws Exception {
+        // SocketImplementation FileDescriptor object shouldn't change after calling
+        // bind (and many other methods).
+        Socket s = new Socket();
+
+        // There's an assumption that newly created
+        // socket has a non-null file-descriptor (b/26169052, b/26084000)
+        FileDescriptor fd1 = s.getFileDescriptor$();
+        assertNotNull(fd1);
+        int fd1Val = fd1.getInt$();
+        assertEquals(-1, fd1Val);
+
+        s.bind(new InetSocketAddress(InetAddress.getByName("0.0.0.0"), 0));
+        FileDescriptor fd2 = s.getFileDescriptor$();
+        assertSame(fd1, fd2);
+        int fd2Val = fd2.getInt$();
+        assertTrue(fd1Val != fd2Val); // The actual fd should be different
+
+        s.close();
+        FileDescriptor fd3 = s.getFileDescriptor$();
+        assertSame(fd1, fd3);
+        assertFalse(fd3.valid());
+    }
+
     static class MockServer {
         private ExecutorService executor;
         private ServerSocket serverSocket;
@@ -422,5 +483,63 @@ public class SocketTest extends junit.framework.TestCase {
             serverSocket.close();
             executor.shutdown();
         }
+    }
+
+    // b/26354315
+    public void testDoNotCallCloseFromSocketCtor() {
+        // Original openJdk7 Socket implementation may call Socket#close() inside a constructor.
+        // In this case, classes that extend Socket wont be fully constructed when they
+        // receive #close() call. This test makes sure this won't happen
+
+        // Extend Socket
+        class SocketThatFailOnClose extends Socket {
+            public SocketThatFailOnClose(String host, int port)
+                throws UnknownHostException, IOException {
+                super(host, port);
+            }
+            public SocketThatFailOnClose(InetAddress address, int port) throws IOException {
+                super(address, port);
+            }
+            public SocketThatFailOnClose(String host, int port, InetAddress localAddr,
+                                         int localPort) throws IOException {
+                super(host, port, localAddr, localPort);
+            }
+            public SocketThatFailOnClose(InetAddress address, int port, InetAddress localAddr,
+                                         int localPort) throws IOException {
+                super(address, port, localAddr, localPort);
+            }
+            public SocketThatFailOnClose(String host, int port, boolean stream) throws IOException {
+                super(host, port, stream);
+            }
+            public SocketThatFailOnClose(InetAddress host, int port, boolean stream)
+                throws IOException {
+                super(host, port, stream);
+            }
+
+            @Override
+            public void close() {
+                fail("Do not call close from the Socket constructor");
+            }
+        }
+
+        // Test all Socket ctors
+        try {
+            new SocketThatFailOnClose("localhost", 1);
+        } catch(IOException expected) {}
+        try {
+            new SocketThatFailOnClose(InetAddress.getLocalHost(), 1);
+        } catch(IOException expected) {}
+        try {
+            new SocketThatFailOnClose("localhost", 1, null, 0);
+        } catch(IOException expected) {}
+        try {
+            new SocketThatFailOnClose(InetAddress.getLocalHost(), 1, null, 0);
+        } catch(IOException expected) {}
+        try {
+            new SocketThatFailOnClose("localhost", 1, true);
+        } catch(IOException expected) {}
+        try {
+            new SocketThatFailOnClose(InetAddress.getLocalHost(), 1, true);
+        } catch(IOException expected) {}
     }
 }

@@ -214,6 +214,7 @@ static int q2mbl(int x)
     x = 50 + (x - 50) * 10 / 8;
     return x * x / 3;
 }
+
 void vp8_mbpost_proc_across_ip_c(unsigned char *src, int pitch, int rows, int cols, int flimit)
 {
     int r, c, i;
@@ -226,14 +227,14 @@ void vp8_mbpost_proc_across_ip_c(unsigned char *src, int pitch, int rows, int co
         int sumsq = 0;
         int sum   = 0;
 
-        for (i = -8; i<0; i++)
+        for (i = -8; i < 0; i++)
           s[i]=s[0];
 
         /* 17 avoids valgrind warning - we buffer values in c in d
          * and only write them when we've read 8 ahead...
          */
-        for (i = cols; i<cols+17; i++)
-          s[i]=s[cols-1];
+        for (i = 0; i < 17; i++)
+          s[i+cols]=s[cols-1];
 
         for (i = -8; i <= 6; i++)
         {
@@ -264,7 +265,6 @@ void vp8_mbpost_proc_across_ip_c(unsigned char *src, int pitch, int rows, int co
     }
 }
 
-
 void vp8_mbpost_proc_down_c(unsigned char *dst, int pitch, int rows, int cols, int flimit)
 {
     int r, c, i;
@@ -284,8 +284,8 @@ void vp8_mbpost_proc_down_c(unsigned char *dst, int pitch, int rows, int cols, i
         /* 17 avoids valgrind warning - we buffer values in c in d
          * and only write them when we've read 8 ahead...
          */
-        for (i = rows; i < rows+17; i++)
-          s[i*pitch]=s[(rows-1)*pitch];
+        for (i = 0; i < 17; i++)
+          s[(i+rows)*pitch]=s[(rows-1)*pitch];
 
         for (i = -8; i <= 6; i++)
         {
@@ -355,8 +355,8 @@ void vp8_deblock(VP8_COMMON                 *cm,
                 else
                     mb_ppl = (unsigned char)ppl;
 
-                vpx_memset(ylptr, mb_ppl, 16);
-                vpx_memset(uvlptr, mb_ppl, 8);
+                memset(ylptr, mb_ppl, 16);
+                memset(uvlptr, mb_ppl, 8);
 
                 ylptr += 16;
                 uvlptr += 8;
@@ -385,13 +385,13 @@ void vp8_deblock(VP8_COMMON                 *cm,
 }
 #endif
 
-#if !(CONFIG_TEMPORAL_DENOISING)
 void vp8_de_noise(VP8_COMMON                 *cm,
                   YV12_BUFFER_CONFIG         *source,
                   YV12_BUFFER_CONFIG         *post,
                   int                         q,
                   int                         low_var_thresh,
-                  int                         flag)
+                  int                         flag,
+                  int                         uvfilter)
 {
     int mbr;
     double level = 6.0e-05 * q * q * q - .0067 * q * q + .306 * q + .0065;
@@ -403,7 +403,7 @@ void vp8_de_noise(VP8_COMMON                 *cm,
     (void) low_var_thresh;
     (void) flag;
 
-    vpx_memset(limits, (unsigned char)ppl, 16 * mb_cols);
+    memset(limits, (unsigned char)ppl, 16 * mb_cols);
 
     /* TODO: The original code don't filter the 2 outer rows and columns. */
     for (mbr = 0; mbr < mb_rows; mbr++)
@@ -412,20 +412,22 @@ void vp8_de_noise(VP8_COMMON                 *cm,
             source->y_buffer + 16 * mbr * source->y_stride,
             source->y_buffer + 16 * mbr * source->y_stride,
             source->y_stride, source->y_stride, source->y_width, limits, 16);
-
-        vp8_post_proc_down_and_across_mb_row(
-            source->u_buffer + 8 * mbr * source->uv_stride,
-            source->u_buffer + 8 * mbr * source->uv_stride,
-            source->uv_stride, source->uv_stride, source->uv_width, limits, 8);
-        vp8_post_proc_down_and_across_mb_row(
-            source->v_buffer + 8 * mbr * source->uv_stride,
-            source->v_buffer + 8 * mbr * source->uv_stride,
-            source->uv_stride, source->uv_stride, source->uv_width, limits, 8);
+        if (uvfilter == 1) {
+          vp8_post_proc_down_and_across_mb_row(
+              source->u_buffer + 8 * mbr * source->uv_stride,
+              source->u_buffer + 8 * mbr * source->uv_stride,
+              source->uv_stride, source->uv_stride, source->uv_width, limits,
+              8);
+          vp8_post_proc_down_and_across_mb_row(
+              source->v_buffer + 8 * mbr * source->uv_stride,
+              source->v_buffer + 8 * mbr * source->uv_stride,
+              source->uv_stride, source->uv_stride, source->uv_width, limits,
+              8);
+        }
     }
 }
-#endif
 
-double vp8_gaussian(double sigma, double mu, double x)
+static double gaussian(double sigma, double mu, double x)
 {
     return 1 / (sigma * sqrt(2.0 * 3.14159265)) *
            (exp(-(x - mu) * (x - mu) / (2 * sigma * sigma)));
@@ -453,7 +455,7 @@ static void fillrd(struct postproc_state *state, int q, int a)
 
         for (i = -32; i < 32; i++)
         {
-            const int v = (int)(.5 + 256 * vp8_gaussian(sigma, 0, i));
+            const int v = (int)(.5 + 256 * gaussian(sigma, 0, i));
 
             if (v)
             {
@@ -516,6 +518,7 @@ void vp8_plane_add_noise_c(unsigned char *Start, char *noise,
                            unsigned int Width, unsigned int Height, int Pitch)
 {
     unsigned int i, j;
+    (void)bothclamp;
 
     for (i = 0; i < Height; i++)
     {
@@ -672,6 +675,7 @@ void vp8_blend_b_c (unsigned char *y, unsigned char *u, unsigned char *v,
     }
 }
 
+#if CONFIG_POSTPROC_VISUALIZER
 static void constrain_line (int x_0, int *x_1, int y_0, int *y_1, int width, int height)
 {
     int dx;
@@ -714,6 +718,7 @@ static void constrain_line (int x_0, int *x_1, int y_0, int *y_1, int width, int
             *x_1 = ((0-y_0)*dx)/dy + x_0;
     }
 }
+#endif  // CONFIG_POSTPROC_VISUALIZER
 
 #if CONFIG_POSTPROC
 int vp8_post_proc_frame(VP8_COMMON *oci, YV12_BUFFER_CONFIG *dest, vp8_ppflags_t *ppflags)
@@ -760,7 +765,7 @@ int vp8_post_proc_frame(VP8_COMMON *oci, YV12_BUFFER_CONFIG *dest, vp8_ppflags_t
             /* insure that postproc is set to all 0's so that post proc
              * doesn't pull random data in from edge
              */
-            vpx_memset((&oci->post_proc_buffer_int)->buffer_alloc,128,(&oci->post_proc_buffer)->frame_size);
+            memset((&oci->post_proc_buffer_int)->buffer_alloc,128,(&oci->post_proc_buffer)->frame_size);
 
         }
     }

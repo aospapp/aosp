@@ -78,7 +78,7 @@ public class FormatterTest extends TestCase {
 
         pattern = "pattern without 0 {1, number}";
         r.setMessage(pattern);
-        assertEquals(pattern, f.formatMessage(r));
+        assertEquals(MessageFormat.format(pattern, oa), f.formatMessage(r));
 
         pattern = null;
         r.setMessage(pattern);

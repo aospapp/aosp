@@ -25,22 +25,45 @@
         'tools.gyp:tools',
         'pathops_unittest.gyp:*',
         'pathops_skpclip.gyp:*',
-#       'pdfviewer.gyp:pdfviewer',
         'dm.gyp:dm',
+        'visualbench.gyp:visualbench',
+        'fuzz.gyp:fuzz',
+        'kilobench.gyp:kilobench',
       ],
       'conditions': [
+        [ 'skia_gpu == 0', {
+          'dependencies!': [
+            'visualbench.gyp:visualbench',
+            'kilobench.gyp:kilobench',
+          ]
+        }],
+        [ 'skia_os != "android" and skia_os != "linux"', {
+          'dependencies!': [
+            'kilobench.gyp:kilobench',
+          ],
+        }],
         [ 'skia_gpu == 0 or skia_os == "android"', {
           'dependencies!': [
             'example.gyp:HelloWorld',
           ],
         }],
         ['skia_os == "android"', {
-          'dependencies': [ 'android_system.gyp:SampleApp_APK' ],
+          'dependencies': [
+            'android_system.gyp:SampleApp_APK',
+          ],
+          'conditions': [
+            [ 'skia_gpu == 1', {
+              'dependencies': [
+                'android_system.gyp:VisualBench_APK',
+              ],
+            }],
+          ],
         }],
         ['skia_os == "ios"', {
           'dependencies!': [
             'example.gyp:HelloWorld',
             'SampleApp.gyp:SampleApp',
+            'visualbench.gyp:visualbench',
           ],
           'dependencies': ['iOSShell.gyp:iOSShell' ],
         }],
@@ -52,9 +75,16 @@
             'dependencies!': [
               'example.gyp:HelloWorld',
               'SampleApp.gyp:SampleApp',
+              'visualbench.gyp:visualbench',
             ]
           }
-        ]
+        ],
+        [ 'skia_build_server', {
+          'dependencies': [
+            'skiaserve.gyp:skiaserve',
+            'json.gyp:json',
+          ],
+        }],
       ],
     },
   ],

@@ -23,10 +23,15 @@
     <package>com.example.android.wearable.watchface</package>
 
     <minSdk>18</minSdk>
-    <targetSdkVersion>22</targetSdkVersion>
+    <targetSdkVersion>23</targetSdkVersion>
+    <targetSdkVersionWear>23</targetSdkVersionWear>
 
-    <dependency_wearable>com.android.support:palette-v7:21.0.0</dependency_wearable>
-    <dependency>com.google.android.support:wearable:1.3.0</dependency>
+    <dependency>com.google.android.support:wearable:1.4.0</dependency>
+    <dependency>com.google.android.gms:play-services-fitness</dependency>
+    <dependency_wearable>com.android.support:palette-v7:23.3.0</dependency_wearable>
+
+    <preview_wearable_support_dependency>com.google.android.support:wearable:2.0.0-alpha1</preview_wearable_support_dependency>
+    <dependency_wearable>com.google.android.gms:play-services-fitness</dependency_wearable>
 
     <wearable>
         <has_handheld_app>true</has_handheld_app>
@@ -37,8 +42,13 @@
             <![CDATA[
 This sample demonstrates how to create watch faces for android wear and includes a phone app
 and a wearable app. The wearable app has a variety of watch faces including analog, digital,
-opengl, calendar, interactive, etc. It also includes a watch-side configuration example.
+opengl, calendar, steps, interactive, etc. It also includes a watch-side configuration example.
 The phone app includes a phone-side configuration example.
+
+Additional note on Steps WatchFace Sample, if the user has not installed or setup the Google Fit app
+on their phone and their Wear device has not configured the Google Fit Wear App, then you may get
+zero steps until one of the two is setup. Please note, many Wear devices configure the Google Fit
+Wear App beforehand.
             ]]>
         </intro>
     </strings>

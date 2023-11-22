@@ -685,8 +685,8 @@ import java.util.Set;
             }
 
             ArrayList<String> propertyValueList = new ArrayList<String>();
-            String value = VCardUtils.convertStringCharset(
-                    maybeUnescapeText(propertyRawValue), sourceCharset, targetCharset);
+            String value = maybeUnescapeText(VCardUtils.convertStringCharset(
+                    propertyRawValue, sourceCharset, targetCharset));
             propertyValueList.add(value);
             property.setValues(propertyValueList);
             for (VCardInterpreter interpreter : mInterpreterList) {
@@ -720,12 +720,12 @@ import java.util.Set;
                 encodedValueList.add(encoded);
             }
         } else {
-            final String propertyValue = getPotentialMultiline(propertyRawValue);
-            final List<String> rawValueList =
+            final String propertyValue = VCardUtils.convertStringCharset(
+                    getPotentialMultiline(propertyRawValue), sourceCharset, targetCharset);
+            final List<String> valueList =
                     VCardUtils.constructListFromValue(propertyValue, getVersion());
-            for (String rawValue : rawValueList) {
-                encodedValueList.add(VCardUtils.convertStringCharset(
-                        rawValue, sourceCharset, targetCharset));
+            for (String value : valueList) {
+                encodedValueList.add(value);
             }
         }
 

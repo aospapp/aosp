@@ -25,7 +25,7 @@ import android.view.ViewGroup.LayoutParams;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 /**
  * A minimal application for AdapterView test.

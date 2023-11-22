@@ -24,10 +24,9 @@
     .extern artDeliverPendingException
 
     /*
-     * Macro that sets up the callee save frame to conform with
-     * Runtime::CreateCalleeSaveMethod(kSaveAll)
+     * Macro to spill the GPRs.
      */
-.macro SETUP_SAVE_ALL_CALLEE_SAVE_FRAME rTemp1, rTemp2
+.macro SPILL_ALL_CALLEE_SAVE_GPRS
     push {r4-r11, lr}                             @ 9 words (36 bytes) of callee saves.
     .cfi_adjust_cfa_offset 36
     .cfi_rel_offset r4, 0
@@ -39,12 +38,19 @@
     .cfi_rel_offset r10, 24
     .cfi_rel_offset r11, 28
     .cfi_rel_offset lr, 32
+.endm
+
+    /*
+     * Macro that sets up the callee save frame to conform with
+     * Runtime::CreateCalleeSaveMethod(kSaveAll)
+     */
+.macro SETUP_SAVE_ALL_CALLEE_SAVE_FRAME rTemp1, rTemp2
+    SPILL_ALL_CALLEE_SAVE_GPRS                    @ 9 words (36 bytes) of callee saves.
     vpush {s16-s31}                               @ 16 words (64 bytes) of floats.
     .cfi_adjust_cfa_offset 64
     sub sp, #12                                   @ 3 words of space, bottom word will hold Method*
     .cfi_adjust_cfa_offset 12
     RUNTIME_CURRENT1 \rTemp1, \rTemp2             @ Load Runtime::Current into rTemp1.
-    THIS_LOAD_REQUIRES_READ_BARRIER
     ldr \rTemp1, [\rTemp1, #RUNTIME_SAVE_ALL_CALLEE_SAVE_FRAME_OFFSET] @ rTemp1 is kSaveAll Method*.
     str \rTemp1, [sp, #0]                         @ Place Method* at bottom of stack.
     str sp, [r9, #THREAD_TOP_QUICK_FRAME_OFFSET]  @ Place sp in Thread::Current()->top_quick_frame.
@@ -72,8 +78,37 @@
     sub sp, #4                                    @ bottom word will hold Method*
     .cfi_adjust_cfa_offset 4
     RUNTIME_CURRENT2 \rTemp1, \rTemp2             @ Load Runtime::Current into rTemp1.
-    THIS_LOAD_REQUIRES_READ_BARRIER
     ldr \rTemp1, [\rTemp1, #RUNTIME_REFS_ONLY_CALLEE_SAVE_FRAME_OFFSET] @ rTemp1 is kRefsOnly Method*.
+    str \rTemp1, [sp, #0]                         @ Place Method* at bottom of stack.
+    str sp, [r9, #THREAD_TOP_QUICK_FRAME_OFFSET]  @ Place sp in Thread::Current()->top_quick_frame.
+
+    // Ugly compile-time check, but we only have the preprocessor.
+#if (FRAME_SIZE_REFS_ONLY_CALLEE_SAVE != 28 + 4)
+#error "REFS_ONLY_CALLEE_SAVE_FRAME(ARM) size not as expected."
+#endif
+.endm
+
+    /*
+     * Macro that sets up the callee save frame to conform with
+     * Runtime::CreateCalleeSaveMethod(kRefsOnly)
+     * and preserves the value of rTemp2 at entry.
+     */
+.macro SETUP_REFS_ONLY_CALLEE_SAVE_FRAME_PRESERVE_RTEMP2 rTemp1, rTemp2
+    push {r5-r8, r10-r11, lr}                     @ 7 words of callee saves
+    .cfi_adjust_cfa_offset 28
+    .cfi_rel_offset r5, 0
+    .cfi_rel_offset r6, 4
+    .cfi_rel_offset r7, 8
+    .cfi_rel_offset r8, 12
+    .cfi_rel_offset r10, 16
+    .cfi_rel_offset r11, 20
+    .cfi_rel_offset lr, 24
+    sub sp, #4                                    @ bottom word will hold Method*
+    .cfi_adjust_cfa_offset 4
+    str \rTemp2, [sp, #0]                         @ save rTemp2
+    RUNTIME_CURRENT2 \rTemp1, \rTemp2             @ Load Runtime::Current into rTemp1.
+    ldr \rTemp1, [\rTemp1, #RUNTIME_REFS_ONLY_CALLEE_SAVE_FRAME_OFFSET] @ rTemp1 is kRefsOnly Method*.
+    ldr \rTemp2, [sp, #0]                         @ restore rTemp2
     str \rTemp1, [sp, #0]                         @ Place Method* at bottom of stack.
     str sp, [r9, #THREAD_TOP_QUICK_FRAME_OFFSET]  @ Place sp in Thread::Current()->top_quick_frame.
 
@@ -132,7 +167,6 @@
 .macro SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME rTemp1, rTemp2
     SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME_REGISTERS_ONLY
     RUNTIME_CURRENT3 \rTemp1, \rTemp2  @ Load Runtime::Current into rTemp1.
-    THIS_LOAD_REQUIRES_READ_BARRIER
      @ rTemp1 is kRefsAndArgs Method*.
     ldr \rTemp1, [\rTemp1, #RUNTIME_REFS_AND_ARGS_CALLEE_SAVE_FRAME_OFFSET]
     str \rTemp1, [sp, #0]                         @ Place Method* at bottom of stack.
@@ -163,7 +197,6 @@
     .cfi_restore lr
     .cfi_adjust_cfa_offset -40
 .endm
-
 
 .macro RETURN_IF_RESULT_IS_ZERO
     cbnz   r0, 1f              @ result non-zero branch over
@@ -273,7 +306,7 @@ ENTRY \name
     bl     \entrypoint                   @ (field_idx, Object*, new_val, referrer, Thread*)
     add    sp, #16                       @ release out args
     .cfi_adjust_cfa_offset -16
-    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME   @ TODO: we can clearly save an add here
+    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME  @ TODO: we can clearly save an add here
     \return
 END \name
 .endm
@@ -313,8 +346,7 @@ ONE_ARG_RUNTIME_EXCEPTION art_quick_throw_no_such_method, artThrowNoSuchMethodFr
     /*
      * All generated callsites for interface invokes and invocation slow paths will load arguments
      * as usual - except instead of loading arg0/r0 with the target Method*, arg0/r0 will contain
-     * the method_idx.  This wrapper will save arg1-arg3, load the caller's Method*, align the
-     * stack and call the appropriate C helper.
+     * the method_idx.  This wrapper will save arg1-arg3, and call the appropriate C helper.
      * NOTE: "this" is first visible argument of the target, and so can be found in arg1/r1.
      *
      * The helper will attempt to locate the target and return a 64-bit result in r0/r1 consisting
@@ -326,28 +358,25 @@ ONE_ARG_RUNTIME_EXCEPTION art_quick_throw_no_such_method, artThrowNoSuchMethodFr
      * On success this wrapper will restore arguments and *jump* to the target, leaving the lr
      * pointing back to the original caller.
      */
-.macro INVOKE_TRAMPOLINE c_name, cxx_name
+.macro INVOKE_TRAMPOLINE_BODY cxx_name
     .extern \cxx_name
-ENTRY \c_name
     SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME r2, r3  @ save callee saves in case allocation triggers GC
-    ldr    r2, [sp, #FRAME_SIZE_REFS_AND_ARGS_CALLEE_SAVE]  @ pass caller Method*
-    mov    r3, r9                         @ pass Thread::Current
-    mov    r12, sp
-    str    r12, [sp, #-16]!               @ expand the frame and pass SP
-    .cfi_adjust_cfa_offset 16
-    bl     \cxx_name                      @ (method_idx, this, caller, Thread*, SP)
-    add    sp, #16                        @ strip the extra frame
-    .cfi_adjust_cfa_offset -16
+    mov    r2, r9                         @ pass Thread::Current
+    mov    r3, sp
+    bl     \cxx_name                      @ (method_idx, this, Thread*, SP)
     mov    r12, r1                        @ save Method*->code_
     RESTORE_REFS_AND_ARGS_CALLEE_SAVE_FRAME
     cbz    r0, 1f                         @ did we find the target? if not go to exception delivery
     bx     r12                            @ tail call to target
 1:
     DELIVER_PENDING_EXCEPTION
+.endm
+.macro INVOKE_TRAMPOLINE c_name, cxx_name
+ENTRY \c_name
+    INVOKE_TRAMPOLINE_BODY \cxx_name
 END \c_name
 .endm
 
-INVOKE_TRAMPOLINE art_quick_invoke_interface_trampoline, artInvokeInterfaceTrampoline
 INVOKE_TRAMPOLINE art_quick_invoke_interface_trampoline_with_access_check, artInvokeInterfaceTrampolineWithAccessCheck
 
 INVOKE_TRAMPOLINE art_quick_invoke_static_trampoline_with_access_check, artInvokeStaticTrampolineWithAccessCheck
@@ -384,17 +413,7 @@ INVOKE_TRAMPOLINE art_quick_invoke_virtual_trampoline_with_access_check, artInvo
      *  +-------------------------+
      */
 ENTRY art_quick_invoke_stub_internal
-    push   {r4, r5, r6, r7, r8, r9, r10, r11, lr}               @ spill regs
-    .cfi_adjust_cfa_offset 16
-    .cfi_rel_offset r4, 0
-    .cfi_rel_offset r5, 4
-    .cfi_rel_offset r6, 8
-    .cfi_rel_offset r7, 12
-    .cfi_rel_offset r8, 16
-    .cfi_rel_offset r9, 20
-    .cfi_rel_offset r10, 24
-    .cfi_rel_offset r11, 28
-    .cfi_rel_offset lr, 32
+    SPILL_ALL_CALLEE_SAVE_GPRS             @ spill regs (9)
     mov    r11, sp                         @ save the stack pointer
     .cfi_def_cfa_register r11
 
@@ -440,6 +459,56 @@ ENTRY art_quick_invoke_stub_internal
 END art_quick_invoke_stub_internal
 
     /*
+     * On stack replacement stub.
+     * On entry:
+     *   r0 = stack to copy
+     *   r1 = size of stack
+     *   r2 = pc to call
+     *   r3 = JValue* result
+     *   [sp] = shorty
+     *   [sp + 4] = thread
+     */
+ENTRY art_quick_osr_stub
+    SPILL_ALL_CALLEE_SAVE_GPRS             @ Spill regs (9)
+    mov    r11, sp                         @ Save the stack pointer
+    mov    r10, r1                         @ Save size of stack
+    ldr    r9, [r11, #40]                  @ Move managed thread pointer into r9
+    mov    r8, r2                          @ Save the pc to call
+    sub    r7, sp, #12                     @ Reserve space for stack pointer,
+                                           @    JValue* result, and ArtMethod* slot.
+    and    r7, #0xFFFFFFF0                 @ Align stack pointer
+    mov    sp, r7                          @ Update stack pointer
+    str    r11, [sp, #4]                   @ Save old stack pointer
+    str    r3, [sp, #8]                    @ Save JValue* result
+    mov    ip, #0
+    str    ip, [sp]                        @ Store null for ArtMethod* at bottom of frame
+    sub    sp, sp, r1                      @ Reserve space for callee stack
+    mov    r2, r1
+    mov    r1, r0
+    mov    r0, sp
+    bl     memcpy                          @ memcpy (dest r0, src r1, bytes r2)
+    bl     .Losr_entry                     @ Call the method
+    ldr    r10, [sp, #8]                   @ Restore JValue* result
+    ldr    sp, [sp, #4]                    @ Restore saved stack pointer
+    ldr    r4, [sp, #36]                   @ load shorty
+    ldrb   r4, [r4, #0]                    @ load return type
+    cmp    r4, #68                         @ Test if result type char == 'D'.
+    beq    .Losr_fp_result
+    cmp    r4, #70                         @ Test if result type char == 'F'.
+    beq    .Losr_fp_result
+    strd r0, [r10]                         @ Store r0/r1 into result pointer
+    b    .Losr_exit
+.Losr_fp_result:
+    vstr d0, [r10]                         @ Store s0-s1/d0 into result pointer
+.Losr_exit:
+    pop    {r4, r5, r6, r7, r8, r9, r10, r11, pc}
+.Losr_entry:
+    sub r10, r10, #4
+    str lr, [sp, r10]                     @ Store link register per the compiler ABI
+    bx r8
+END art_quick_osr_stub
+
+    /*
      * On entry r0 is uint32_t* gprs_ and r1 is uint32_t* fprs_
      */
 ARM_ENTRY art_quick_do_long_jump
@@ -448,8 +517,8 @@ ARM_ENTRY art_quick_do_long_jump
     ldr  r14, [r0, #56]   @ (LR from gprs_ 56=4*14)
     add  r0, r0, #12      @ increment r0 to skip gprs_[0..2] 12=4*3
     ldm  r0, {r3-r13}     @ load remaining gprs from argument gprs_
-    mov  r0, #0           @ clear result registers r0 and r1
-    mov  r1, #0
+    ldr  r0, [r0, #-12]   @ load r0 value
+    mov  r1, #0           @ clear result register r1
     bx   r2               @ do long jump
 END art_quick_do_long_jump
 
@@ -504,6 +573,15 @@ ENTRY art_quick_lock_object
     RETURN_IF_RESULT_IS_ZERO
     DELIVER_PENDING_EXCEPTION
 END art_quick_lock_object
+
+ENTRY art_quick_lock_object_no_inline
+    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME r1, r2  @ save callee saves in case we block
+    mov    r1, r9                     @ pass Thread::Current
+    bl     artLockObjectFromCode      @ (Object* obj, Thread*)
+    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME
+    RETURN_IF_RESULT_IS_ZERO
+    DELIVER_PENDING_EXCEPTION
+END art_quick_lock_object_no_inline
 
     /*
      * Entry from managed code that calls artUnlockObjectFromCode and delivers exception on failure.
@@ -562,6 +640,16 @@ ENTRY art_quick_unlock_object
     DELIVER_PENDING_EXCEPTION
 END art_quick_unlock_object
 
+ENTRY art_quick_unlock_object_no_inline
+    @ save callee saves in case exception allocation triggers GC
+    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME r1, r2
+    mov    r1, r9                     @ pass Thread::Current
+    bl     artUnlockObjectFromCode    @ (Object* obj, Thread*)
+    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME
+    RETURN_IF_RESULT_IS_ZERO
+    DELIVER_PENDING_EXCEPTION
+END art_quick_unlock_object_no_inline
+
     /*
      * Entry from managed code that calls artIsAssignableFromCode and on failure calls
      * artThrowClassCastException.
@@ -595,6 +683,59 @@ ENTRY art_quick_check_cast
     bkpt
 END art_quick_check_cast
 
+// Restore rReg's value from [sp, #offset] if rReg is not the same as rExclude.
+.macro POP_REG_NE rReg, offset, rExclude
+    .ifnc \rReg, \rExclude
+        ldr \rReg, [sp, #\offset]   @ restore rReg
+        .cfi_restore \rReg
+    .endif
+.endm
+
+    /*
+     * Macro to insert read barrier, only used in art_quick_aput_obj.
+     * rObj and rDest are registers, offset is a defined literal such as MIRROR_OBJECT_CLASS_OFFSET.
+     * TODO: When read barrier has a fast path, add heap unpoisoning support for the fast path.
+     */
+.macro READ_BARRIER rDest, rObj, offset
+#ifdef USE_READ_BARRIER
+    push {r0-r3, ip, lr}            @ 6 words for saved registers (used in art_quick_aput_obj)
+    .cfi_adjust_cfa_offset 24
+    .cfi_rel_offset r0, 0
+    .cfi_rel_offset r1, 4
+    .cfi_rel_offset r2, 8
+    .cfi_rel_offset r3, 12
+    .cfi_rel_offset ip, 16
+    .cfi_rel_offset lr, 20
+    sub sp, #8                      @ push padding
+    .cfi_adjust_cfa_offset 8
+    @ mov r0, \rRef                 @ pass ref in r0 (no-op for now since parameter ref is unused)
+    .ifnc \rObj, r1
+        mov r1, \rObj               @ pass rObj
+    .endif
+    mov r2, #\offset                @ pass offset
+    bl artReadBarrierSlow           @ artReadBarrierSlow(ref, rObj, offset)
+    @ No need to unpoison return value in r0, artReadBarrierSlow() would do the unpoisoning.
+    .ifnc \rDest, r0
+        mov \rDest, r0              @ save return value in rDest
+    .endif
+    add sp, #8                      @ pop padding
+    .cfi_adjust_cfa_offset -8
+    POP_REG_NE r0, 0, \rDest        @ conditionally restore saved registers
+    POP_REG_NE r1, 4, \rDest
+    POP_REG_NE r2, 8, \rDest
+    POP_REG_NE r3, 12, \rDest
+    POP_REG_NE ip, 16, \rDest
+    add sp, #20
+    .cfi_adjust_cfa_offset -20
+    pop {lr}                        @ restore lr
+    .cfi_adjust_cfa_offset -4
+    .cfi_restore lr
+#else
+    ldr \rDest, [\rObj, #\offset]
+    UNPOISON_HEAP_REF \rDest
+#endif  // USE_READ_BARRIER
+.endm
+
     /*
      * Entry from managed code for array put operations of objects where the value being stored
      * needs to be checked for compatibility.
@@ -616,16 +757,26 @@ ENTRY art_quick_aput_obj_with_bound_check
     b art_quick_throw_array_bounds
 END art_quick_aput_obj_with_bound_check
 
+#ifdef USE_READ_BARRIER
+    .extern artReadBarrierSlow
+#endif
     .hidden art_quick_aput_obj
 ENTRY art_quick_aput_obj
+#ifdef USE_READ_BARRIER
+    @ The offset to .Ldo_aput_null is too large to use cbz due to expansion from READ_BARRIER macro.
+    tst r2, r2
+    beq .Ldo_aput_null
+#else
     cbz r2, .Ldo_aput_null
-    ldr r3, [r0, #MIRROR_OBJECT_CLASS_OFFSET]
-    ldr ip, [r2, #MIRROR_OBJECT_CLASS_OFFSET]
-    ldr r3, [r3, #MIRROR_CLASS_COMPONENT_TYPE_OFFSET]
+#endif  // USE_READ_BARRIER
+    READ_BARRIER r3, r0, MIRROR_OBJECT_CLASS_OFFSET
+    READ_BARRIER ip, r2, MIRROR_OBJECT_CLASS_OFFSET
+    READ_BARRIER r3, r3, MIRROR_CLASS_COMPONENT_TYPE_OFFSET
     cmp r3, ip  @ value's type == array's component type - trivial assignability
     bne .Lcheck_assignability
 .Ldo_aput:
     add r3, r0, #MIRROR_OBJECT_ARRAY_DATA_OFFSET
+    POISON_HEAP_REF r2
     str r2, [r3, r1, lsl #2]
     ldr r3, [r9, #THREAD_CARD_TABLE_OFFSET]
     lsr r0, r0, #7
@@ -653,6 +804,7 @@ ENTRY art_quick_aput_obj
     .cfi_restore lr
     .cfi_adjust_cfa_offset -16
     add r3, r0, #MIRROR_OBJECT_ARRAY_DATA_OFFSET
+    POISON_HEAP_REF r2
     str r2, [r3, r1, lsl #2]
     ldr r3, [r9, #THREAD_CARD_TABLE_OFFSET]
     lsr r0, r0, #7
@@ -709,9 +861,8 @@ END \name
 .macro FOUR_ARG_DOWNCALL name, entrypoint, return
     .extern \entrypoint
 ENTRY \name
-    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME  r3, r12  @ save callee saves in case of GC
+    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME_PRESERVE_RTEMP2  r12, r3  @ save callee saves in case of GC
     str    r9, [sp, #-16]!            @ expand the frame and pass Thread::Current
-    .pad #16
     .cfi_adjust_cfa_offset 16
     bl     \entrypoint
     add    sp, #16                    @ strip the extra frame
@@ -786,13 +937,12 @@ TWO_ARG_REF_DOWNCALL art_quick_set32_static, artSet32StaticFromCode, RETURN_IF_R
 TWO_ARG_REF_DOWNCALL art_quick_set_obj_static, artSetObjStaticFromCode, RETURN_IF_RESULT_IS_ZERO_OR_DELIVER
     /*
      * Called by managed code to resolve a static field and store a 64-bit primitive value.
-     * On entry r0 holds field index, r1:r2 hold new_val
+     * On entry r0 holds field index, r2:r3 hold new_val
      */
     .extern artSet64StaticFromCode
 ENTRY art_quick_set64_static
-    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME r3, r12   @ save callee saves in case of GC
-    mov    r3, r2                        @ pass one half of wide argument
-    mov    r2, r1                        @ pass other half of wide argument
+    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME r1, r12   @ save callee saves in case of GC
+                                         @ r2:r3 contain the wide argument
     ldr    r1, [sp, #FRAME_SIZE_REFS_ONLY_CALLEE_SAVE]  @ pass referrer
     str    r9, [sp, #-16]!               @ expand the frame and pass Thread::Current
     .cfi_adjust_cfa_offset 16
@@ -817,6 +967,7 @@ THREE_ARG_REF_DOWNCALL art_quick_set_obj_instance, artSetObjInstanceFromCode, RE
     .extern artSet64InstanceFromCode
 ENTRY art_quick_set64_instance
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME r12, lr  @ save callee saves in case of GC
+                                         @ r2:r3 contain the wide argument
     ldr    r12, [sp, #FRAME_SIZE_REFS_ONLY_CALLEE_SAVE]  @ pass referrer
     str    r9, [sp, #-12]!               @ expand the frame and pass Thread::Current
     .cfi_adjust_cfa_offset 12
@@ -838,7 +989,230 @@ END art_quick_set64_instance
 ONE_ARG_DOWNCALL art_quick_resolve_string, artResolveStringFromCode, RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
 
 // Generate the allocation entrypoints for each allocator.
-GENERATE_ALL_ALLOC_ENTRYPOINTS
+GENERATE_ALLOC_ENTRYPOINTS_FOR_EACH_ALLOCATOR
+
+// A hand-written override for GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT(_rosalloc, RosAlloc).
+ENTRY art_quick_alloc_object_rosalloc
+    // Fast path rosalloc allocation.
+    // r0: type_idx/return value, r1: ArtMethod*, r9: Thread::Current
+    // r2, r3, r12: free.
+    ldr    r2, [r1, #ART_METHOD_DEX_CACHE_TYPES_OFFSET_32]    // Load dex cache resolved types array
+                                                              // Load the class (r2)
+    ldr    r2, [r2, r0, lsl #COMPRESSED_REFERENCE_SIZE_SHIFT]
+    cbz    r2, .Lart_quick_alloc_object_rosalloc_slow_path    // Check null class
+                                                              // Check class status.
+    ldr    r3, [r2, #MIRROR_CLASS_STATUS_OFFSET]
+    cmp    r3, #MIRROR_CLASS_STATUS_INITIALIZED
+    bne    .Lart_quick_alloc_object_rosalloc_slow_path
+                                                              // Add a fake dependence from the
+                                                              // following access flag and size
+                                                              // loads to the status load.
+                                                              // This is to prevent those loads
+                                                              // from being reordered above the
+                                                              // status load and reading wrong
+                                                              // values (an alternative is to use
+                                                              // a load-acquire for the status).
+    eor    r3, r3, r3
+    add    r2, r2, r3
+                                                              // Check access flags has
+                                                              // kAccClassIsFinalizable
+    ldr    r3, [r2, #MIRROR_CLASS_ACCESS_FLAGS_OFFSET]
+    tst    r3, #ACCESS_FLAGS_CLASS_IS_FINALIZABLE
+    bne    .Lart_quick_alloc_object_rosalloc_slow_path
+
+    ldr    r3, [r9, #THREAD_LOCAL_ALLOC_STACK_TOP_OFFSET]     // Check if the thread local
+                                                              // allocation stack has room.
+                                                              // TODO: consider using ldrd.
+    ldr    r12, [r9, #THREAD_LOCAL_ALLOC_STACK_END_OFFSET]
+    cmp    r3, r12
+    bhs    .Lart_quick_alloc_object_rosalloc_slow_path
+
+    ldr    r3, [r2, #MIRROR_CLASS_OBJECT_SIZE_OFFSET]         // Load the object size (r3)
+    cmp    r3, #ROSALLOC_MAX_THREAD_LOCAL_BRACKET_SIZE        // Check if the size is for a thread
+                                                              // local allocation
+    bhs    .Lart_quick_alloc_object_rosalloc_slow_path
+                                                              // Compute the rosalloc bracket index
+                                                              // from the size.
+                                                              // Align up the size by the rosalloc
+                                                              // bracket quantum size and divide
+                                                              // by the quantum size and subtract
+                                                              // by 1. This code is a shorter but
+                                                              // equivalent version.
+    sub    r3, r3, #1
+    lsr    r3, r3, #ROSALLOC_BRACKET_QUANTUM_SIZE_SHIFT
+                                                              // Load the rosalloc run (r12)
+    add    r12, r9, r3, lsl #POINTER_SIZE_SHIFT
+    ldr    r12, [r12, #THREAD_ROSALLOC_RUNS_OFFSET]
+                                                              // Load the free list head (r3). This
+                                                              // will be the return val.
+    ldr    r3, [r12, #(ROSALLOC_RUN_FREE_LIST_OFFSET + ROSALLOC_RUN_FREE_LIST_HEAD_OFFSET)]
+    cbz    r3, .Lart_quick_alloc_object_rosalloc_slow_path
+    // "Point of no slow path". Won't go to the slow path from here on. OK to clobber r0 and r1.
+    ldr    r1, [r3, #ROSALLOC_SLOT_NEXT_OFFSET]               // Load the next pointer of the head
+                                                              // and update the list head with the
+                                                              // next pointer.
+    str    r1, [r12, #(ROSALLOC_RUN_FREE_LIST_OFFSET + ROSALLOC_RUN_FREE_LIST_HEAD_OFFSET)]
+                                                              // Store the class pointer in the
+                                                              // header. This also overwrites the
+                                                              // next pointer. The offsets are
+                                                              // asserted to match.
+#if ROSALLOC_SLOT_NEXT_OFFSET != MIRROR_OBJECT_CLASS_OFFSET
+#error "Class pointer needs to overwrite next pointer."
+#endif
+    POISON_HEAP_REF r2
+    str    r2, [r3, #MIRROR_OBJECT_CLASS_OFFSET]
+                                                              // Push the new object onto the thread
+                                                              // local allocation stack and
+                                                              // increment the thread local
+                                                              // allocation stack top.
+    ldr    r1, [r9, #THREAD_LOCAL_ALLOC_STACK_TOP_OFFSET]
+    str    r3, [r1], #COMPRESSED_REFERENCE_SIZE               // (Increment r1 as a side effect.)
+    str    r1, [r9, #THREAD_LOCAL_ALLOC_STACK_TOP_OFFSET]
+                                                              // Decrement the size of the free list
+    ldr    r1, [r12, #(ROSALLOC_RUN_FREE_LIST_OFFSET + ROSALLOC_RUN_FREE_LIST_SIZE_OFFSET)]
+    sub    r1, #1
+                                                              // TODO: consider combining this store
+                                                              // and the list head store above using
+                                                              // strd.
+    str    r1, [r12, #(ROSALLOC_RUN_FREE_LIST_OFFSET + ROSALLOC_RUN_FREE_LIST_SIZE_OFFSET)]
+                                                              // Fence. This is "ish" not "ishst" so
+                                                              // that the code after this allocation
+                                                              // site will see the right values in
+                                                              // the fields of the class.
+                                                              // Alternatively we could use "ishst"
+                                                              // if we use load-acquire for the
+                                                              // class status load.)
+    dmb    ish
+    mov    r0, r3                                             // Set the return value and return.
+    bx     lr
+
+.Lart_quick_alloc_object_rosalloc_slow_path:
+    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME  r2, r3  @ save callee saves in case of GC
+    mov    r2, r9                     @ pass Thread::Current
+    bl     artAllocObjectFromCodeRosAlloc     @ (uint32_t type_idx, Method* method, Thread*)
+    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME
+    RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
+END art_quick_alloc_object_rosalloc
+
+// The common fast path code for art_quick_alloc_object_tlab and art_quick_alloc_object_region_tlab.
+//
+// r0: type_idx/return value, r1: ArtMethod*, r2: class, r9: Thread::Current, r3, r12: free.
+// Need to preserve r0 and r1 to the slow path.
+.macro ALLOC_OBJECT_TLAB_FAST_PATH slowPathLabel
+    cbz    r2, \slowPathLabel                                 // Check null class
+                                                              // Check class status.
+    ldr    r3, [r2, #MIRROR_CLASS_STATUS_OFFSET]
+    cmp    r3, #MIRROR_CLASS_STATUS_INITIALIZED
+    bne    \slowPathLabel
+                                                              // Add a fake dependence from the
+                                                              // following access flag and size
+                                                              // loads to the status load.
+                                                              // This is to prevent those loads
+                                                              // from being reordered above the
+                                                              // status load and reading wrong
+                                                              // values (an alternative is to use
+                                                              // a load-acquire for the status).
+    eor    r3, r3, r3
+    add    r2, r2, r3
+                                                              // Check access flags has
+                                                              // kAccClassIsFinalizable.
+    ldr    r3, [r2, #MIRROR_CLASS_ACCESS_FLAGS_OFFSET]
+    tst    r3, #ACCESS_FLAGS_CLASS_IS_FINALIZABLE
+    bne    \slowPathLabel
+                                                              // Load thread_local_pos (r12) and
+                                                              // thread_local_end (r3) with ldrd.
+                                                              // Check constraints for ldrd.
+#if !((THREAD_LOCAL_POS_OFFSET + 4 == THREAD_LOCAL_END_OFFSET) && (THREAD_LOCAL_POS_OFFSET % 8 == 0))
+#error "Thread::thread_local_pos/end must be consecutive and are 8 byte aligned for performance"
+#endif
+    ldrd   r12, r3, [r9, #THREAD_LOCAL_POS_OFFSET]
+    sub    r12, r3, r12                                       // Compute the remaining buf size.
+    ldr    r3, [r2, #MIRROR_CLASS_OBJECT_SIZE_OFFSET]         // Load the object size (r3).
+    cmp    r3, r12                                            // Check if it fits. OK to do this
+                                                              // before rounding up the object size
+                                                              // assuming the buf size alignment.
+    bhi    \slowPathLabel
+    // "Point of no slow path". Won't go to the slow path from here on. OK to clobber r0 and r1.
+                                                              // Round up the object size by the
+                                                              // object alignment. (addr + 7) & ~7.
+    add    r3, r3, #OBJECT_ALIGNMENT_MASK
+    and    r3, r3, #OBJECT_ALIGNMENT_MASK_TOGGLED
+                                                              // Reload old thread_local_pos (r0)
+                                                              // for the return value.
+    ldr    r0, [r9, #THREAD_LOCAL_POS_OFFSET]
+    add    r1, r0, r3
+    str    r1, [r9, #THREAD_LOCAL_POS_OFFSET]                 // Store new thread_local_pos.
+    ldr    r1, [r9, #THREAD_LOCAL_OBJECTS_OFFSET]             // Increment thread_local_objects.
+    add    r1, r1, #1
+    str    r1, [r9, #THREAD_LOCAL_OBJECTS_OFFSET]
+    POISON_HEAP_REF r2
+    str    r2, [r0, #MIRROR_OBJECT_CLASS_OFFSET]              // Store the class pointer.
+                                                              // Fence. This is "ish" not "ishst" so
+                                                              // that the code after this allocation
+                                                              // site will see the right values in
+                                                              // the fields of the class.
+                                                              // Alternatively we could use "ishst"
+                                                              // if we use load-acquire for the
+                                                              // class status load.)
+    dmb    ish
+    bx     lr
+.endm
+
+// A hand-written override for GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT(_tlab, TLAB).
+ENTRY art_quick_alloc_object_tlab
+    // Fast path tlab allocation.
+    // r0: type_idx/return value, r1: ArtMethod*, r9: Thread::Current
+    // r2, r3, r12: free.
+#if defined(USE_READ_BARRIER)
+    mvn    r0, #0                                             // Read barrier not supported here.
+    bx     lr                                                 // Return -1.
+#endif
+    ldr    r2, [r1, #ART_METHOD_DEX_CACHE_TYPES_OFFSET_32]    // Load dex cache resolved types array
+                                                              // Load the class (r2)
+    ldr    r2, [r2, r0, lsl #COMPRESSED_REFERENCE_SIZE_SHIFT]
+    ALLOC_OBJECT_TLAB_FAST_PATH .Lart_quick_alloc_object_tlab_slow_path
+.Lart_quick_alloc_object_tlab_slow_path:
+    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME  r2, r3                 // Save callee saves in case of GC.
+    mov    r2, r9                                             // Pass Thread::Current.
+    bl     artAllocObjectFromCodeTLAB    // (uint32_t type_idx, Method* method, Thread*)
+    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME
+    RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
+END art_quick_alloc_object_tlab
+
+// A hand-written override for GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT(_region_tlab, RegionTLAB)
+ENTRY art_quick_alloc_object_region_tlab
+    // Fast path tlab allocation.
+    // r0: type_idx/return value, r1: ArtMethod*, r9: Thread::Current, r2, r3, r12: free.
+#if !defined(USE_READ_BARRIER)
+    eor    r0, r0, r0                                         // Read barrier must be enabled here.
+    sub    r0, r0, #1                                         // Return -1.
+    bx     lr
+#endif
+    ldr    r2, [r1, #ART_METHOD_DEX_CACHE_TYPES_OFFSET_32]    // Load dex cache resolved types array
+                                                              // Load the class (r2)
+    ldr    r2, [r2, r0, lsl #COMPRESSED_REFERENCE_SIZE_SHIFT]
+                                                              // Read barrier for class load.
+    ldr    r3, [r9, #THREAD_IS_GC_MARKING_OFFSET]
+    cbnz   r3, .Lart_quick_alloc_object_region_tlab_class_load_read_barrier_slow_path
+.Lart_quick_alloc_object_region_tlab_class_load_read_barrier_slow_path_exit:
+    ALLOC_OBJECT_TLAB_FAST_PATH .Lart_quick_alloc_object_region_tlab_slow_path
+.Lart_quick_alloc_object_region_tlab_class_load_read_barrier_slow_path:
+                                                              // The read barrier slow path. Mark
+                                                              // the class.
+    push   {r0, r1, r3, lr}                                   // Save registers. r3 is pushed only
+                                                              // to align sp by 16 bytes.
+    mov    r0, r2                                             // Pass the class as the first param.
+    bl     artReadBarrierMark
+    mov    r2, r0                                             // Get the (marked) class back.
+    pop    {r0, r1, r3, lr}
+    b      .Lart_quick_alloc_object_region_tlab_class_load_read_barrier_slow_path_exit
+.Lart_quick_alloc_object_region_tlab_slow_path:
+    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME  r2, r3                 // Save callee saves in case of GC.
+    mov    r2, r9                                             // Pass Thread::Current.
+    bl     artAllocObjectFromCodeRegionTLAB    // (uint32_t type_idx, Method* method, Thread*)
+    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME
+    RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
+END art_quick_alloc_object_region_tlab
 
     /*
      * Called by managed code when the value in rSUSPEND has been decremented to 0.
@@ -890,15 +1264,36 @@ ENTRY art_quick_proxy_invoke_handler
 END art_quick_proxy_invoke_handler
 
     /*
-     * Called to resolve an imt conflict. r12 is a hidden argument that holds the target method's
-     * dex method index.
+     * Called to resolve an imt conflict.
+     * r0 is the conflict ArtMethod.
+     * r12 is a hidden argument that holds the target interface method's dex method index.
+     *
+     * Note that this stub writes to r0, r4, and r12.
      */
 ENTRY art_quick_imt_conflict_trampoline
-    ldr    r0, [sp, #0]            @ load caller Method*
-    ldr    r0, [r0, #ART_METHOD_DEX_CACHE_METHODS_OFFSET]  @ load dex_cache_resolved_methods
-    add    r0, #MIRROR_OBJECT_ARRAY_DATA_OFFSET  @ get starting address of data
-    ldr    r0, [r0, r12, lsl 2]    @ load the target method
-    b art_quick_invoke_interface_trampoline
+    ldr r4, [sp, #0]  // Load referrer
+    ldr r4, [r4, #ART_METHOD_DEX_CACHE_METHODS_OFFSET_32]   // Load dex cache methods array
+    ldr r12, [r4, r12, lsl #POINTER_SIZE_SHIFT]  // Load interface method
+    ldr r0, [r0, #ART_METHOD_JNI_OFFSET_32]  // Load ImtConflictTable
+    ldr r4, [r0]  // Load first entry in ImtConflictTable.
+.Limt_table_iterate:
+    cmp r4, r12
+    // Branch if found. Benchmarks have shown doing a branch here is better.
+    beq .Limt_table_found
+    // If the entry is null, the interface method is not in the ImtConflictTable.
+    cbz r4, .Lconflict_trampoline
+    // Iterate over the entries of the ImtConflictTable.
+    ldr r4, [r0, #(2 * __SIZEOF_POINTER__)]!
+    b .Limt_table_iterate
+.Limt_table_found:
+    // We successfully hit an entry in the table. Load the target method
+    // and jump to it.
+    ldr r0, [r0, #__SIZEOF_POINTER__]
+    ldr pc, [r0, #ART_METHOD_QUICK_CODE_OFFSET_32]
+.Lconflict_trampoline:
+    // Call the runtime stub to populate the ImtConflictTable and jump to the
+    // resolved method.
+    INVOKE_TRAMPOLINE_BODY artInvokeInterfaceTrampoline
 END art_quick_imt_conflict_trampoline
 
     .extern artQuickResolutionTrampoline
@@ -1089,6 +1484,17 @@ ENTRY art_quick_deoptimize
     mov    r0, r9         @ Set up args.
     blx    artDeoptimize  @ artDeoptimize(Thread*)
 END art_quick_deoptimize
+
+    /*
+     * Compiled code has requested that we deoptimize into the interpreter. The deoptimization
+     * will long jump to the interpreter bridge.
+     */
+    .extern artDeoptimizeFromCompiledCode
+ENTRY art_quick_deoptimize_from_compiled_code
+    SETUP_SAVE_ALL_CALLEE_SAVE_FRAME r0, r1
+    mov    r0, r9                         @ Set up args.
+    blx    artDeoptimizeFromCompiledCode  @ artDeoptimizeFromCompiledCode(Thread*)
+END art_quick_deoptimize_from_compiled_code
 
     /*
      * Signed 64-bit integer multiply.
@@ -1480,3 +1886,18 @@ ENTRY art_quick_f2l
     vmov  r0, s0
     b     art_f2l
 END art_quick_f2l
+
+    /* float art_l2f(int64_t l) */
+    .extern art_l2f
+ENTRY art_quick_l2f
+    push  {lr}
+    .cfi_adjust_cfa_offset 4
+    .cfi_rel_offset lr, 0
+    sub   sp, #4
+    .cfi_adjust_cfa_offset 4
+    bl    art_l2f
+    vmov  s0, r0
+    add   sp, #4
+    .cfi_adjust_cfa_offset -4
+    pop   {pc}
+END art_quick_l2f

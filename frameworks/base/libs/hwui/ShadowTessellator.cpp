@@ -14,13 +14,9 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "OpenGLRenderer"
-#define ATRACE_TAG ATRACE_TAG_VIEW
-
 #include <math.h>
 #include <utils/Log.h>
 #include <utils/Trace.h>
-#include <utils/Vector.h>
 #include <utils/MathUtils.h>
 
 #include "AmbientShadow.h"
@@ -77,9 +73,14 @@ void ShadowTessellator::tessellateSpotShadow(bool isCasterOpaque,
     }
 
 #if DEBUG_SHADOW
-    ALOGD("light center %f %f %f",
-            adjustedLightCenter.x, adjustedLightCenter.y, adjustedLightCenter.z);
+    ALOGD("light center %f %f %f %d",
+            adjustedLightCenter.x, adjustedLightCenter.y, adjustedLightCenter.z, lightRadius);
 #endif
+    if (isnan(adjustedLightCenter.x)
+            || isnan(adjustedLightCenter.y)
+            || isnan(adjustedLightCenter.z)) {
+        return;
+    }
 
     // light position (because it's in local space) needs to compensate for receiver transform
     // TODO: should apply to light orientation, not just position

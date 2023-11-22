@@ -49,7 +49,7 @@ static void testSimplifyQuadsMain(PathOpsThreadState* data)
                             SkIntToScalar(hx), SkIntToScalar(hy));
                     path.close();
                     if (progress) {
-                        static int quadTest = 65;
+                        static int quadTest = 66;
                         char* str = pathStr;
                         str += sprintf(str, "static void testQuads%d(skiatest::Reporter* reporter,"
                                 "const char* filename) {\n", quadTest);
@@ -86,8 +86,8 @@ DEF_TEST(PathOpsSimplifyQuadsThreaded, reporter) {
         for (int b = a ; b < 16; ++b) {
             for (int c = b ; c < 16; ++c) {
                 for (int d = c; d < 16; ++d) {
-                    *testRunner.fRunnables.append() = SkNEW_ARGS(PathOpsThreadedRunnable,
-                            (&testSimplifyQuadsMain, a, b, c, d, &testRunner));
+                    *testRunner.fRunnables.append() = new PathOpsThreadedRunnable(
+                            &testSimplifyQuadsMain, a, b, c, d, &testRunner);
                 }
                 if (!reporter->allowExtendedTest()) goto finish;
             }

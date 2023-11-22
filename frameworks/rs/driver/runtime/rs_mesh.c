@@ -33,7 +33,9 @@ extern rs_allocation __attribute__((overloadable))
         return nullAlloc;
     }
     rs_allocation returnAlloc = {mesh->mHal.state.vertexBuffers[index]};
-    return returnAlloc;
+    rs_allocation rs_retval = {0};
+    rsSetObject(&rs_retval, returnAlloc);
+    return rs_retval;
 }
 
 extern rs_allocation __attribute__((overloadable))
@@ -44,7 +46,9 @@ extern rs_allocation __attribute__((overloadable))
         return nullAlloc;
     }
     rs_allocation returnAlloc = {mesh->mHal.state.indexBuffers[index]};
-    return returnAlloc;
+    rs_allocation rs_retval = {0};
+    rsSetObject(&rs_retval, returnAlloc);
+    return rs_retval;
 }
 
 extern rs_primitive __attribute__((overloadable))

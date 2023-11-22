@@ -29,8 +29,15 @@ import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.SystemClock;
+import android.support.annotation.ColorInt;
+import android.support.annotation.DrawableRes;
+import android.support.annotation.Nullable;
 import android.support.design.R;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.graphics.drawable.DrawableCompat;
+import android.support.v4.os.ParcelableCompat;
+import android.support.v4.os.ParcelableCompatCreatorCallbacks;
+import android.support.v4.view.AbsSavedState;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.view.MotionEventCompat;
 import android.support.v4.view.NestedScrollingParent;
@@ -85,7 +92,12 @@ import java.util.Map;
  */
 public class CoordinatorLayout extends ViewGroup implements NestedScrollingParent {
     static final String TAG = "CoordinatorLayout";
-    static final String WIDGET_PACKAGE_NAME = CoordinatorLayout.class.getPackage().getName();
+    static final String WIDGET_PACKAGE_NAME;
+
+    static {
+        final Package pkg = CoordinatorLayout.class.getPackage();
+        WIDGET_PACKAGE_NAME = pkg != null ? pkg.getName() : null;
+    }
 
     private static final int TYPE_ON_INTERCEPT = 0;
     private static final int TYPE_ON_TOUCH = 1;
@@ -137,6 +149,8 @@ public class CoordinatorLayout extends ViewGroup implements NestedScrollingParen
     private final int[] mTempIntPair = new int[2];
     private Paint mScrimPaint;
 
+    private boolean mDisallowInterceptReset;
+
     private boolean mIsAttachedToWindow;
 
     private int[] mKeylines;
@@ -167,6 +181,8 @@ public class CoordinatorLayout extends ViewGroup implements NestedScrollingParen
 
     public CoordinatorLayout(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
+
+        ThemeUtils.checkAppCompatTheme(context);
 
         final TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.CoordinatorLayout,
                 defStyleAttr, R.style.Widget_Design_CoordinatorLayout);
@@ -233,9 +249,23 @@ public class CoordinatorLayout extends ViewGroup implements NestedScrollingParen
      *
      * @param bg Background drawable to draw behind the status bar
      */
-    public void setStatusBarBackground(Drawable bg) {
-        mStatusBarBackground = bg;
-        invalidate();
+    public void setStatusBarBackground(@Nullable final Drawable bg) {
+        if (mStatusBarBackground != bg) {
+            if (mStatusBarBackground != null) {
+                mStatusBarBackground.setCallback(null);
+            }
+            mStatusBarBackground = bg != null ? bg.mutate() : null;
+            if (mStatusBarBackground != null) {
+                if (mStatusBarBackground.isStateful()) {
+                    mStatusBarBackground.setState(getDrawableState());
+                }
+                DrawableCompat.setLayoutDirection(mStatusBarBackground,
+                        ViewCompat.getLayoutDirection(this));
+                mStatusBarBackground.setVisible(getVisibility() == VISIBLE, false);
+                mStatusBarBackground.setCallback(this);
+            }
+            ViewCompat.postInvalidateOnAnimation(this);
+        }
     }
 
     /**
@@ -243,8 +273,41 @@ public class CoordinatorLayout extends ViewGroup implements NestedScrollingParen
      *
      * @return The status bar background drawable, or null if none set
      */
+    @Nullable
     public Drawable getStatusBarBackground() {
         return mStatusBarBackground;
+    }
+
+    @Override
+    protected void drawableStateChanged() {
+        super.drawableStateChanged();
+
+        final int[] state = getDrawableState();
+        boolean changed = false;
+
+        Drawable d = mStatusBarBackground;
+        if (d != null && d.isStateful()) {
+            changed |= d.setState(state);
+        }
+
+        if (changed) {
+            invalidate();
+        }
+    }
+
+    @Override
+    protected boolean verifyDrawable(Drawable who) {
+        return super.verifyDrawable(who) || who == mStatusBarBackground;
+    }
+
+    @Override
+    public void setVisibility(int visibility) {
+        super.setVisibility(visibility);
+
+        final boolean visible = visibility == VISIBLE;
+        if (mStatusBarBackground != null && mStatusBarBackground.isVisible() != visible) {
+            mStatusBarBackground.setVisible(visible, false);
+        }
     }
 
     /**
@@ -253,7 +316,7 @@ public class CoordinatorLayout extends ViewGroup implements NestedScrollingParen
      *
      * @param resId Resource id of a background drawable to draw behind the status bar
      */
-    public void setStatusBarBackgroundResource(int resId) {
+    public void setStatusBarBackgroundResource(@DrawableRes int resId) {
         setStatusBarBackground(resId != 0 ? ContextCompat.getDrawable(getContext(), resId) : null);
     }
 
@@ -264,18 +327,25 @@ public class CoordinatorLayout extends ViewGroup implements NestedScrollingParen
      * @param color Color to use as a background drawable to draw behind the status bar
      *              in 0xAARRGGBB format.
      */
-    public void setStatusBarBackgroundColor(int color) {
+    public void setStatusBarBackgroundColor(@ColorInt int color) {
         setStatusBarBackground(new ColorDrawable(color));
     }
 
-    private void setWindowInsets(WindowInsetsCompat insets) {
+    private WindowInsetsCompat setWindowInsets(WindowInsetsCompat insets) {
         if (mLastInsets != insets) {
             mLastInsets = insets;
             mDrawStatusBarBackground = insets != null && insets.getSystemWindowInsetTop() > 0;
             setWillNotDraw(!mDrawStatusBarBackground && getBackground() == null);
-            dispatchChildApplyWindowInsets(insets);
+
+            // Now dispatch to the Behaviors
+            insets = dispatchApplyWindowInsetsToBehaviors(insets);
             requestLayout();
         }
+        return insets;
+    }
+
+    final WindowInsetsCompat getLastWindowInsets() {
+        return mLastInsets;
     }
 
     /**
@@ -303,6 +373,7 @@ public class CoordinatorLayout extends ViewGroup implements NestedScrollingParen
             final LayoutParams lp = (LayoutParams) child.getLayoutParams();
             lp.resetTouchBehaviorTracking();
         }
+        mDisallowInterceptReset = false;
     }
 
     /**
@@ -441,7 +512,7 @@ public class CoordinatorLayout extends ViewGroup implements NestedScrollingParen
         if (mBehaviorTouchView == null) {
             handled |= super.onTouchEvent(ev);
         } else if (cancelSuper) {
-            if (cancelEvent != null) {
+            if (cancelEvent == null) {
                 final long now = SystemClock.uptimeMillis();
                 cancelEvent = MotionEvent.obtain(now, now,
                         MotionEvent.ACTION_CANCEL, 0.0f, 0.0f, 0);
@@ -467,8 +538,9 @@ public class CoordinatorLayout extends ViewGroup implements NestedScrollingParen
     @Override
     public void requestDisallowInterceptTouchEvent(boolean disallowIntercept) {
         super.requestDisallowInterceptTouchEvent(disallowIntercept);
-        if (disallowIntercept) {
+        if (disallowIntercept && !mDisallowInterceptReset) {
             resetTouchBehaviors();
+            mDisallowInterceptReset = true;
         }
     }
 
@@ -499,8 +571,10 @@ public class CoordinatorLayout extends ViewGroup implements NestedScrollingParen
             // Fully qualified package name.
             fullName = name;
         } else {
-            // Assume stock behavior in this package.
-            fullName = WIDGET_PACKAGE_NAME + '.' + name;
+            // Assume stock behavior in this package (if we have one)
+            fullName = !TextUtils.isEmpty(WIDGET_PACKAGE_NAME)
+                    ? (WIDGET_PACKAGE_NAME + '.' + name)
+                    : name;
         }
 
         try {
@@ -546,26 +620,18 @@ public class CoordinatorLayout extends ViewGroup implements NestedScrollingParen
     }
 
     private void prepareChildren() {
-        final int childCount = getChildCount();
-
-        boolean resortRequired = mDependencySortedChildren.size() != childCount;
-
-        for (int i = 0; i < childCount; i++) {
+        mDependencySortedChildren.clear();
+        for (int i = 0, count = getChildCount(); i < count; i++) {
             final View child = getChildAt(i);
-            final LayoutParams lp = getResolvedLayoutParams(child);
-            if (!resortRequired && lp.isDirty(this, child)) {
-                resortRequired = true;
-            }
-            lp.findAnchorView(this, child);
-        }
 
-        if (resortRequired) {
-            mDependencySortedChildren.clear();
-            for (int i = 0; i < childCount; i++) {
-                mDependencySortedChildren.add(getChildAt(i));
-            }
-            Collections.sort(mDependencySortedChildren, mLayoutDependencyComparator);
+            final LayoutParams lp = getResolvedLayoutParams(child);
+            lp.findAnchorView(this, child);
+
+            mDependencySortedChildren.add(child);
         }
+        // We need to use a selection sort here to make sure that every item is compared
+        // against each other
+        selectionSort(mDependencySortedChildren, mLayoutDependencyComparator);
     }
 
     /**
@@ -691,9 +757,9 @@ public class CoordinatorLayout extends ViewGroup implements NestedScrollingParen
         setMeasuredDimension(width, height);
     }
 
-    private void dispatchChildApplyWindowInsets(WindowInsetsCompat insets) {
+    private WindowInsetsCompat dispatchApplyWindowInsetsToBehaviors(WindowInsetsCompat insets) {
         if (insets.isConsumed()) {
-            return;
+            return insets;
         }
 
         for (int i = 0, z = getChildCount(); i < z; i++) {
@@ -710,14 +776,10 @@ public class CoordinatorLayout extends ViewGroup implements NestedScrollingParen
                         break;
                     }
                 }
-
-                // Now let the view try and consume them
-                insets = ViewCompat.dispatchApplyWindowInsets(child, insets);
-                if (insets.isConsumed()) {
-                    break;
-                }
             }
         }
+
+        return insets;
     }
 
     /**
@@ -1143,15 +1205,23 @@ public class CoordinatorLayout extends ViewGroup implements NestedScrollingParen
         }
     }
 
-    void dispatchDependentViewRemoved(View removedChild) {
-        final int childCount = getChildCount();
+    void dispatchDependentViewRemoved(View view) {
+        final int childCount = mDependencySortedChildren.size();
+        boolean viewSeen = false;
         for (int i = 0; i < childCount; i++) {
-            final View child = getChildAt(i);
-            final LayoutParams lp = (LayoutParams) child.getLayoutParams();
-            final Behavior b = lp.getBehavior();
-
-            if (b != null && b.layoutDependsOn(this, child, removedChild)) {
-                b.onDependentViewRemoved(this, child, removedChild);
+            final View child = mDependencySortedChildren.get(i);
+            if (child == view) {
+                // We've seen our view, which means that any Views after this could be dependent
+                viewSeen = true;
+                continue;
+            }
+            if (viewSeen) {
+                CoordinatorLayout.LayoutParams lp = (CoordinatorLayout.LayoutParams)
+                        child.getLayoutParams();
+                CoordinatorLayout.Behavior b = lp.getBehavior();
+                if (b != null && lp.dependsOn(this, child, view)) {
+                    b.onDependentViewRemoved(this, child, view);
+                }
             }
         }
     }
@@ -1687,7 +1757,7 @@ public class CoordinatorLayout extends ViewGroup implements NestedScrollingParen
          *         {@link Color#BLACK}.
          * @see #getScrimOpacity(CoordinatorLayout, android.view.View)
          */
-        public final int getScrimColor(CoordinatorLayout parent, V child) {
+        public int getScrimColor(CoordinatorLayout parent, V child) {
             return Color.BLACK;
         }
 
@@ -1704,7 +1774,7 @@ public class CoordinatorLayout extends ViewGroup implements NestedScrollingParen
          * @param child the child view above the scrim
          * @return the desired scrim opacity from 0.0f to 1.0f. The default return value is 0.0f.
          */
-        public final float getScrimOpacity(CoordinatorLayout parent, V child) {
+        public float getScrimOpacity(CoordinatorLayout parent, V child) {
             return 0.f;
         }
 
@@ -1844,7 +1914,7 @@ public class CoordinatorLayout extends ViewGroup implements NestedScrollingParen
          * in place of the default child layout behavior. The Behavior's implementation can
          * delegate to the standard CoordinatorLayout measurement behavior by calling
          * {@link CoordinatorLayout#onLayoutChild(android.view.View, int)
-         * parent.onMeasureChild}.</p>
+         * parent.onLayoutChild}.</p>
          *
          * <p>If a Behavior implements
          * {@link #onDependentViewChanged(CoordinatorLayout, android.view.View, android.view.View)}
@@ -2207,25 +2277,25 @@ public class CoordinatorLayout extends ViewGroup implements NestedScrollingParen
             super(context, attrs);
 
             final TypedArray a = context.obtainStyledAttributes(attrs,
-                    R.styleable.CoordinatorLayout_LayoutParams);
+                    R.styleable.CoordinatorLayout_Layout);
 
             this.gravity = a.getInteger(
-                    R.styleable.CoordinatorLayout_LayoutParams_android_layout_gravity,
+                    R.styleable.CoordinatorLayout_Layout_android_layout_gravity,
                     Gravity.NO_GRAVITY);
-            mAnchorId = a.getResourceId(R.styleable.CoordinatorLayout_LayoutParams_layout_anchor,
+            mAnchorId = a.getResourceId(R.styleable.CoordinatorLayout_Layout_layout_anchor,
                     View.NO_ID);
             this.anchorGravity = a.getInteger(
-                    R.styleable.CoordinatorLayout_LayoutParams_layout_anchorGravity,
+                    R.styleable.CoordinatorLayout_Layout_layout_anchorGravity,
                     Gravity.NO_GRAVITY);
 
-            this.keyline = a.getInteger(R.styleable.CoordinatorLayout_LayoutParams_layout_keyline,
+            this.keyline = a.getInteger(R.styleable.CoordinatorLayout_Layout_layout_keyline,
                     -1);
 
             mBehaviorResolved = a.hasValue(
-                    R.styleable.CoordinatorLayout_LayoutParams_layout_behavior);
+                    R.styleable.CoordinatorLayout_Layout_layout_behavior);
             if (mBehaviorResolved) {
                 mBehavior = parseBehavior(context, attrs, a.getString(
-                        R.styleable.CoordinatorLayout_LayoutParams_layout_behavior));
+                        R.styleable.CoordinatorLayout_Layout_layout_behavior));
             }
 
             a.recycle();
@@ -2246,10 +2316,6 @@ public class CoordinatorLayout extends ViewGroup implements NestedScrollingParen
         /**
          * Get the id of this view's anchor.
          *
-         * <p>The view with this id must be a descendant of the CoordinatorLayout containing
-         * the child view this LayoutParams belongs to. It may not be the child view with
-         * this LayoutParams or a descendant of it.</p>
-         *
          * @return A {@link View#getId() view id} or {@link View#NO_ID} if there is no anchor
          */
         public int getAnchorId() {
@@ -2257,7 +2323,7 @@ public class CoordinatorLayout extends ViewGroup implements NestedScrollingParen
         }
 
         /**
-         * Get the id of this view's anchor.
+         * Set the id of this view's anchor.
          *
          * <p>The view with this id must be a descendant of the CoordinatorLayout containing
          * the child view this LayoutParams belongs to. It may not be the child view with
@@ -2454,9 +2520,18 @@ public class CoordinatorLayout extends ViewGroup implements NestedScrollingParen
          * Determine the anchor view for the child view this LayoutParams is assigned to.
          * Assumes mAnchorId is valid.
          */
-        private void resolveAnchorView(View forChild, CoordinatorLayout parent) {
+        private void resolveAnchorView(final View forChild, final CoordinatorLayout parent) {
             mAnchorView = parent.findViewById(mAnchorId);
             if (mAnchorView != null) {
+                if (mAnchorView == parent) {
+                    if (parent.isInEditMode()) {
+                        mAnchorView = mAnchorDirectChild = null;
+                        return;
+                    }
+                    throw new IllegalStateException(
+                            "View can not be anchored to the the parent CoordinatorLayout");
+                }
+
                 View directChild = mAnchorView;
                 for (ViewParent p = mAnchorView.getParent();
                         p != parent && p != null;
@@ -2512,15 +2587,15 @@ public class CoordinatorLayout extends ViewGroup implements NestedScrollingParen
         }
     }
 
-    final class ApplyInsetsListener implements android.support.v4.view.OnApplyWindowInsetsListener {
+    private class ApplyInsetsListener
+            implements android.support.v4.view.OnApplyWindowInsetsListener {
         @Override
         public WindowInsetsCompat onApplyWindowInsets(View v, WindowInsetsCompat insets) {
-            setWindowInsets(insets);
-            return insets.consumeSystemWindowInsets();
+            return setWindowInsets(insets);
         }
     }
 
-    final class HierarchyChangeListener implements OnHierarchyChangeListener {
+    private class HierarchyChangeListener implements OnHierarchyChangeListener {
         @Override
         public void onChildViewAdded(View parent, View child) {
             if (mOnHierarchyChangeListener != null) {
@@ -2540,6 +2615,11 @@ public class CoordinatorLayout extends ViewGroup implements NestedScrollingParen
 
     @Override
     protected void onRestoreInstanceState(Parcelable state) {
+        if (!(state instanceof SavedState)) {
+            super.onRestoreInstanceState(state);
+            return;
+        }
+
         final SavedState ss = (SavedState) state;
         super.onRestoreInstanceState(ss.getSuperState());
 
@@ -2583,19 +2663,18 @@ public class CoordinatorLayout extends ViewGroup implements NestedScrollingParen
         return ss;
     }
 
-    protected static class SavedState extends BaseSavedState {
+    protected static class SavedState extends AbsSavedState {
         SparseArray<Parcelable> behaviorStates;
 
-        public SavedState(Parcel source) {
-            super(source);
+        public SavedState(Parcel source, ClassLoader loader) {
+            super(source, loader);
 
             final int size = source.readInt();
 
             final int[] ids = new int[size];
             source.readIntArray(ids);
 
-            final Parcelable[] states = source.readParcelableArray(
-                    CoordinatorLayout.class.getClassLoader());
+            final Parcelable[] states = source.readParcelableArray(loader);
 
             behaviorStates = new SparseArray<>(size);
             for (int i = 0; i < size; i++) {
@@ -2626,17 +2705,50 @@ public class CoordinatorLayout extends ViewGroup implements NestedScrollingParen
 
         }
 
-        public static final Parcelable.Creator<SavedState> CREATOR =
-                new Parcelable.Creator<SavedState>() {
-                    @Override
-                    public SavedState createFromParcel(Parcel source) {
-                        return new SavedState(source);
-                    }
+        public static final Parcelable.Creator<SavedState> CREATOR
+                = ParcelableCompat.newCreator(new ParcelableCompatCreatorCallbacks<SavedState>() {
+            @Override
+            public SavedState createFromParcel(Parcel in, ClassLoader loader) {
+                return new SavedState(in, loader);
+            }
 
-                    @Override
-                    public SavedState[] newArray(int size) {
-                        return new SavedState[size];
-                    }
-                };
+            @Override
+            public SavedState[] newArray(int size) {
+                return new SavedState[size];
+            }
+        });
+    }
+
+    private static void selectionSort(final List<View> list, final Comparator<View> comparator) {
+        if (list == null || list.size() < 2) {
+            return;
+        }
+
+        final View[] array = new View[list.size()];
+        list.toArray(array);
+        final int count = array.length;
+
+        for (int i = 0; i < count; i++) {
+            int min = i;
+
+            for (int j = i + 1; j < count; j++) {
+                if (comparator.compare(array[j], array[min]) < 0) {
+                    min = j;
+                }
+            }
+
+            if (i != min) {
+                // We have a different min so swap the items
+                final View minItem = array[min];
+                array[min] = array[i];
+                array[i] = minItem;
+            }
+        }
+
+        // Finally add the array back into the collection
+        list.clear();
+        for (int i = 0; i < count; i++) {
+            list.add(array[i]);
+        }
     }
 }

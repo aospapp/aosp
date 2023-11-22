@@ -11,7 +11,7 @@
 
   <groupId>com.squareup.okhttp</groupId>
   <artifactId>parent</artifactId>
-  <version>2.4.0-SNAPSHOT</version>
+  <version>2.6.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>OkHttp (Parent)</name>
@@ -42,7 +42,7 @@
 
     <!-- Compilation -->
     <java.version>1.7</java.version>
-    <okio.version>1.4.0-SNAPSHOT</okio.version>
+    <okio.version>1.6.0</okio.version>
     <!-- ALPN library targeted to Java 7 -->
     <alpn.jdk7.version>7.1.2.v20141202</alpn.jdk7.version>
     <!-- ALPN library targeted to Java 8 update 25. -->

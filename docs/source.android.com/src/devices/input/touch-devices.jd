@@ -2,7 +2,7 @@ page.title=Touch Devices
 @jd:body
 
 <!--
-    Copyright 2013 The Android Open Source Project
+    Copyright 2015 The Android Open Source Project
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -16,6 +16,14 @@ page.title=Touch Devices
     See the License for the specific language governing permissions and
     limitations under the License.
 -->
+<div id="qv-wrapper">
+  <div id="qv">
+    <h2>In this document</h2>
+    <ol id="auto-toc">
+    </ol>
+  </div>
+</div>
+
 <p>Android supports a variety of touch screens and touch pads, including
 stylus-based digitizer tablets.</p>
 <p>Touch screens are touch devices that are associated with a display such that
@@ -418,7 +426,7 @@ finger touches.</p>
 <p>Reporting tilt information is <em>optional</em> but recommended for stylus devices.</p>
 </li>
 <li>
-<p>If the tool type is reported by <code>ABS_MT_TOOL_TYPE</code>, it will supercede any tool
+<p>If the tool type is reported by <code>ABS_MT_TOOL_TYPE</code>, it will supersede any tool
     type information reported by <code>BTN_TOOL_*</code>.
     If no tool type information is available at all, the tool type defaults to
     <code>MotionEvent.TOOL_TYPE_FINGER</code>.</p>

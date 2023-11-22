@@ -13,8 +13,72 @@ bool SkOpPtT::alias() const {
     return this->span()->ptT() != this;
 }
 
+bool SkOpPtT::collapsed(const SkOpPtT* check) const {
+    if (fPt != check->fPt) {
+        return false;
+    }
+    SkASSERT(this != check);
+    const SkOpSegment* segment = this->segment();
+    SkASSERT(segment == check->segment());
+    return segment->collapsed();
+}
+
+bool SkOpPtT::contains(const SkOpPtT* check) const {
+    SkASSERT(this != check);
+    const SkOpPtT* ptT = this;
+    const SkOpPtT* stopPtT = ptT;
+    while ((ptT = ptT->next()) != stopPtT) {
+        if (ptT == check) {
+            return true;
+        }
+    }
+    return false;
+}
+
+SkOpPtT* SkOpPtT::contains(const SkOpSegment* check) {
+    SkASSERT(this->segment() != check);
+    SkOpPtT* ptT = this;
+    const SkOpPtT* stopPtT = ptT;
+    while ((ptT = ptT->next()) != stopPtT) {
+        if (ptT->segment() == check) {
+            return ptT;
+        }
+    }
+    return nullptr;
+}
+
 SkOpContour* SkOpPtT::contour() const {
     return segment()->contour();
+}
+
+SkOpPtT* SkOpPtT::doppelganger() {
+    SkASSERT(fDeleted);
+    SkOpPtT* ptT = fNext;
+    while (ptT->fDeleted) {
+        ptT = ptT->fNext;
+    }
+    const SkOpPtT* stopPtT = ptT;
+    do {
+        if (ptT->fSpan == fSpan) {
+            return ptT;
+        }
+        ptT = ptT->fNext;
+    } while (stopPtT != ptT);
+    SkASSERT(0);
+    return nullptr;
+}
+
+SkOpPtT* SkOpPtT::find(SkOpSegment* segment) {
+    SkOpPtT* ptT = this;
+    const SkOpPtT* stopPtT = ptT;
+    do {
+        if (ptT->segment() == segment) {
+            return ptT;
+        }
+        ptT = ptT->fNext;
+    } while (stopPtT != ptT);
+    SkASSERT(0);
+    return nullptr;
 }
 
 SkOpGlobalState* SkOpPtT::globalState() const {
@@ -63,7 +127,7 @@ SkOpPtT* SkOpPtT::remove() {
         prev = next;
     } while (prev != this);
     SkASSERT(0);
-    return NULL;
+    return nullptr;
 }
 
 void SkOpPtT::removeNext(SkOpPtT* kept) {
@@ -188,7 +252,7 @@ SkOpPtT* SkOpSpanBase::contains(const SkOpSegment* segment) {
             return walk;
         }
     }
-    return NULL;
+    return nullptr;
 }
 
 bool SkOpSpanBase::containsCoinEnd(const SkOpSegment* segment) const {
@@ -214,7 +278,7 @@ void SkOpSpanBase::initBase(SkOpSegment* segment, SkOpSpan* prev, double t, cons
     fSegment = segment;
     fPtT.init(this, t, pt, false);
     fCoinEnd = this;
-    fFromAngle = NULL;
+    fFromAngle = nullptr;
     fPrev = prev;
     fSpanAdds = 0;
     fAligned = true;
@@ -279,7 +343,10 @@ void SkOpSpan::detach(SkOpPtT* kept) {
     prev->setNext(next);
     next->setPrev(prev);
     this->segment()->detach(this);
-    this->globalState()->coincidence()->fixUp(this->ptT(), kept);
+    SkOpCoincidence* coincidence = this->globalState()->coincidence();
+    if (coincidence) {
+        coincidence->fixUp(this->ptT(), kept);
+    }
     this->ptT()->setDeleted();
 }
 
@@ -287,13 +354,14 @@ void SkOpSpan::init(SkOpSegment* segment, SkOpSpan* prev, double t, const SkPoin
     SkASSERT(t != 1);
     initBase(segment, prev, t, pt);
     fCoincident = this;
-    fToAngle = NULL;
+    fToAngle = nullptr;
     fWindSum = fOppSum = SK_MinS32;
     fWindValue = 1;
     fOppValue = 0;
     fTopTTry = 0;
     fChased = fDone = false;
     segment->bumpCount();
+    fAlreadyAdded = false;
 }
 
 void SkOpSpan::setOppSum(int oppSum) {
@@ -302,7 +370,7 @@ void SkOpSpan::setOppSum(int oppSum) {
         this->globalState()->setWindingFailed();
         return;
     }
-    SkASSERT(!DEBUG_LIMIT_WIND_SUM || abs(oppSum) <= DEBUG_LIMIT_WIND_SUM);
+    SkASSERT(!DEBUG_LIMIT_WIND_SUM || SkTAbs(oppSum) <= DEBUG_LIMIT_WIND_SUM);
     fOppSum = oppSum;
 }
 
@@ -312,6 +380,6 @@ void SkOpSpan::setWindSum(int windSum) {
         this->globalState()->setWindingFailed();
         return;
     }
-    SkASSERT(!DEBUG_LIMIT_WIND_SUM || abs(windSum) <= DEBUG_LIMIT_WIND_SUM);
+    SkASSERT(!DEBUG_LIMIT_WIND_SUM || SkTAbs(windSum) <= DEBUG_LIMIT_WIND_SUM);
     fWindSum = windSum;
 }

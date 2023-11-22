@@ -16,7 +16,7 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 
 import android.app.Activity;
@@ -36,7 +36,7 @@ public class TwoLineListItemTest extends
     private Activity mActivity;
 
     public TwoLineListItemTest() {
-        super("com.android.cts.widget", TwoLineListItemCtsActivity.class);
+        super("android.widget.cts", TwoLineListItemCtsActivity.class);
     }
 
     @Override

@@ -154,7 +154,7 @@ void rsrClearObject(const Context *rsc, void *dst) {
     *odst = nullptr;
 }
 
-void rsrClearObject(const Context *rsc, rs_object_base *dst) {
+void rsrClearObject(rs_object_base *dst) {
     if (ObjectBase::gDebugReferences) {
         ALOGE("rsrClearObject  %p,%p", dst, dst->p);
     }
@@ -163,6 +163,11 @@ void rsrClearObject(const Context *rsc, rs_object_base *dst) {
         dst->p->decSysRef();
     }
     dst->p = nullptr;
+}
+
+// Legacy, remove when drivers are updated
+void rsrClearObject(const Context *rsc, rs_object_base *dst) {
+    rsrClearObject(dst);
 }
 
 // Legacy, remove when drivers are updated
@@ -236,20 +241,12 @@ void rsrAllocationIoReceive(Context *rsc, Allocation *src) {
 
 void rsrForEach(Context *rsc,
                 Script *target,
-                Allocation *in, Allocation *out,
+                uint32_t slot,
+                uint32_t numInputs,
+                Allocation **in, Allocation *out,
                 const void *usr, uint32_t usrBytes,
                 const RsScriptCall *call) {
-
-    if (in == nullptr) {
-        target->runForEach(rsc, /* root slot */ 0, nullptr, 0, out, usr,
-                           usrBytes, call);
-
-    } else {
-        const Allocation *ins[1] = {in};
-        target->runForEach(rsc, /* root slot */ 0, ins,
-                           sizeof(ins) / sizeof(RsAllocation), out, usr,
-                           usrBytes, call);
-    }
+    target->runForEach(rsc, slot, (const Allocation**)in, numInputs, out, usr, usrBytes, call);
 }
 
 void rsrAllocationSyncAll(Context *rsc, Allocation *a, RsAllocationUsageType usage) {
@@ -279,6 +276,22 @@ void rsrAllocationCopy2DRange(Context *rsc, Allocation *dstAlloc,
                               srcAlloc, srcXoff, srcYoff, srcMip, srcFace);
 }
 
+RsElement rsrElementCreate(Context *rsc, RsDataType dt, RsDataKind dk,
+                           bool norm, uint32_t vecSize) {
+    return rsi_ElementCreate(rsc, dt, dk, norm, vecSize);
+}
+
+RsType rsrTypeCreate(Context *rsc, const RsElement element, uint32_t dimX,
+                     uint32_t dimY, uint32_t dimZ, bool mipmaps, bool faces,
+                     uint32_t yuv) {
+    return rsi_TypeCreate(rsc, element, dimX, dimY, dimZ, mipmaps, faces, yuv);
+}
+
+RsAllocation rsrAllocationCreateTyped(Context *rsc, const RsType type,
+                                      RsAllocationMipmapControl mipmaps,
+                                      uint32_t usages, uintptr_t ptr) {
+    return rsi_AllocationCreateTyped(rsc, type, mipmaps, usages, ptr);
+}
 
 }
 }

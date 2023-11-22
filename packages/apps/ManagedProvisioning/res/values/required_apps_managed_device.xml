@@ -25,5 +25,6 @@
         <item>com.android.dialer</item>
         <item>com.android.providers.downloads</item>
         <item>com.android.providers.downloads.ui</item>
+        <item>com.android.documentsui</item>
     </string-array>
 </resources>

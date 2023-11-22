@@ -29,11 +29,6 @@
   bug: 2541757
 },
 {
-  description: "NaN character not found when deserializing DecimalFormatSymbols",
-  name: "libcore.java.text.OldDecimalFormatSymbolsTest#test_RIHarmony_compatible",
-  bug: 3056792
-},
-{
   description: "DecimalFormat is limited to 127 digits",
   name: "libcore.java.text.DecimalFormatTest#test_setMaximumIntegerDigits",
   bug: 2400429
@@ -721,7 +716,7 @@
   description: "ManagerFactoryParameters object is not supported and InvalidAlgorithmParameterException was
                 thrown.",
   bug: 3403706,
-  name: "tests.api.javax.net.ssl.TrustManagerFactory1Test#test_initLjavax_net_ssl_ManagerFactoryParameters"
+  name: "org.apache.harmony.tests.javax.net.ssl.TrustManagerFactory1Test#test_initLjavax_net_ssl_ManagerFactoryParameters"
 },
 {
   modes: [ "jvm" ],
@@ -1299,21 +1294,8 @@
   description: "Android's PKIX validation fails on many NIST PKIX tests",
   bug: 8030138,
   names: [
-    "libcore.java.security.cert.X509CertificateNistPkitsTest#testBasicCertificateRevocationTests_InvalidSeparateCertificateandCRLKeysTest20",
-    "libcore.java.security.cert.X509CertificateNistPkitsTest#testBasicCertificateRevocationTests_InvalidSeparateCertificateandCRLKeysTest21",
-    "libcore.java.security.cert.X509CertificateNistPkitsTest#testBasicCertificateRevocationTests_ValidSeparateCertificateandCRLKeysTest19",
     "libcore.java.security.cert.X509CertificateNistPkitsTest#testDeltaCRLs_InvaliddeltaCRLTest4",
-    "libcore.java.security.cert.X509CertificateNistPkitsTest#testDeltaCRLs_ValiddeltaCRLTest5",
-    "libcore.java.security.cert.X509CertificateNistPkitsTest#testDistributionPoints_ValidIDPwithindirectCRLTest24",
-    "libcore.java.security.cert.X509CertificateNistPkitsTest#testDistributionPoints_ValidIDPwithindirectCRLTest25",
-    "libcore.java.security.cert.X509CertificateNistPkitsTest#testDistributionPoints_ValidcRLIssuerTest28",
-    "libcore.java.security.cert.X509CertificateNistPkitsTest#testDistributionPoints_ValidcRLIssuerTest29",
-    "libcore.java.security.cert.X509CertificateNistPkitsTest#testDistributionPoints_ValidcRLIssuerTest30",
-    "libcore.java.security.cert.X509CertificateNistPkitsTest#testDistributionPoints_ValidcRLIssuerTest33",
-    "libcore.java.security.cert.X509CertificateNistPkitsTest#testKeyUsage_ValidSelfIssuedDNnameConstraintsTest19",
-    "libcore.java.security.cert.X509CertificateNistPkitsTest#testVerifyingNameChaining_ValidRFC3280OptionalAttributeTypesTest8",
-    "libcore.java.security.cert.X509CertificateNistPkitsTest#testVerifyingPathswithSelfIssuedCertificates_ValidBasicSelfIssuedCRLSigningKeyTest6",
-    "libcore.java.security.cert.X509CertificateNistPkitsTest#testVerifyingPathswithSelfIssuedCertificates_ValidBasicSelfIssuedNewWithOldTest4"
+    "libcore.java.security.cert.X509CertificateNistPkitsTest#testDeltaCRLs_ValiddeltaCRLTest5"
   ]
 },
 {
@@ -1429,6 +1411,7 @@
   names: [
     "com.android.org.apache.harmony.beans.tests.java.beans.PropertyChangeSupportTest#testSerialization",
     "com.android.org.apache.harmony.beans.tests.java.beans.PropertyChangeSupportTest#testGetPropertyChangeListener_String_Normal",
+    "com.android.org.apache.harmony.beans.tests.java.beans.PropertyChangeSupportTest#testAddPropertyChangeListener_PropertyChangeListener_String_Duplicate",
     "com.android.org.apache.harmony.beans.tests.java.beans.PropertyChangeSupportTest#testAddPropertyChangeListener_PropertyChangeListener_String_Normal",
     "com.android.org.apache.harmony.beans.tests.java.beans.PropertyChangeSupportTest#testAddPropertyChangeListener_PropertyChangeListener_Normal"
   ]
@@ -1465,8 +1448,8 @@
   description: "OkHttp tests that fail on Wear devices due to a lack of memory",
   bug: 20055487,
   names: [
-    "com.squareup.okhttp.internal.spdy.Http20Draft09Test#tooLargeDataFrame",
-    "com.squareup.okhttp.internal.spdy.Spdy3Test#tooLargeDataFrame"
+    "com.squareup.okhttp.internal.framed.Http2Test#tooLargeDataFrame",
+    "com.squareup.okhttp.internal.framed.Spdy3Test#tooLargeDataFrame"
   ]
 },
 {
@@ -1525,6 +1508,49 @@
   names: [
     "com.android.org.conscrypt.NativeCryptoTest#test_SSL_renegotiate",
     "com.android.org.conscrypt.NativeCryptoTest#test_SSL_do_handshake_clientCertificateRequested_throws_after_renegotiate"
+  ]
+},
+{
+  description: "Failures in OldSHA1PRNGSecureRandomTest",
+  result: EXEC_FAILED,
+  names: [
+    "org.apache.harmony.tests.javax.security.OldSHA1PRNGSecureRandomTest#testNextBytesbyteArray02",
+    "org.apache.harmony.tests.javax.security.OldSHA1PRNGSecureRandomTest#testNextBytesbyteArray04",
+    "org.apache.harmony.tests.javax.security.OldSHA1PRNGSecureRandomTest#testSetSeedbyteArray03"
+  ]
+},
+{
+  description: "libcore.java.util.concurrent.CopyOnWriteArrayListTest.testSubListAtomicAdds fails in openJdk",
+  bug: 27673247,
+  result: EXEC_FAILED,
+  names: [
+    "libcore.java.util.concurrent.CopyOnWriteArrayListTest#testSubListAtomicAdds"
+  ]
+},
+{
+  description: "Made for extending, shouldn't be run",
+  bug: 28503384,
+  result: EXEC_FAILED,
+  names: [
+    "jsr166.CollectionTest#testEmptyMeansEmpty",
+    "jsr166.Collection8Test#testForEach",
+    "jsr166.Collection8Test#testForEachConcurrentStressTest"
+  ]
+},
+{
+  description: "Tests must be run as root",
+  bug: 28536847,
+  result: EXEC_FAILED,
+  names: [
+    "com.android.org.apache.harmony.luni.tests.java.net.UnixNetworkInterfaceTest"
+  ]
+},
+{
+  description: "URLClassLoader doesn't work on Android for jar files",
+  bug: 28535349,
+  result: EXEC_FAILED,
+  names: [
+    "com.android.org.apache.harmony.luni.tests.java.net.URLClassLoaderImplTest#test_Constructor$Ljava_net_URLLjava_lang_ClassLoaderLjava_net_URLStreamHandlerFactory"
   ]
 }
 ]

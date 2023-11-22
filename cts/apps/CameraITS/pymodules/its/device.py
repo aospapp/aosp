@@ -58,6 +58,10 @@ class ItsSession(object):
 
     # Seconds timeout on each socket operation.
     SOCK_TIMEOUT = 10.0
+    # Additional timeout in seconds when ITS service is doing more complicated
+    # operations, for example: issuing warmup requests before actual capture.
+    EXTRA_SOCK_TIMEOUT = 5.0
+
     SEC_TO_NSEC = 1000*1000*1000.0
 
     PACKAGE = 'com.android.cts.verifier.camera.its'
@@ -83,6 +87,10 @@ class ItsSession(object):
     CAP_YUV_JPEG = [{"format":"yuv"}, {"format":"jpeg"}]
     CAP_RAW_YUV_JPEG = [{"format":"raw"}, {"format":"yuv"}, {"format":"jpeg"}]
     CAP_DNG_YUV_JPEG = [{"format":"dng"}, {"format":"yuv"}, {"format":"jpeg"}]
+
+    # Predefine camera props. Save props extracted from the function,
+    # "get_camera_properties".
+    props = None
 
     # Initialize the socket port for the host to forward requests to the device.
     # This method assumes localhost's LOCK_PORT is available and will try to
@@ -170,10 +178,15 @@ class ItsSession(object):
                 if len(s) > 7 and s[6] == "=":
                     duration = int(s[7:])
                 print "Rebooting device"
-                _run("%s reboot" % (self.adb));
+                _run("%s reboot" % (self.adb))
                 _run("%s wait-for-device" % (self.adb))
                 time.sleep(duration)
                 print "Reboot complete"
+
+        # Flush logcat so following code won't be misled by previous
+        # 'ItsService ready' log.
+        _run('%s logcat -c' % (self.adb))
+        time.sleep(1)
 
         # TODO: Figure out why "--user 0" is needed, and fix the problem.
         _run('%s shell am force-stop --user 0 %s' % (self.adb, self.PACKAGE))
@@ -318,9 +331,12 @@ class ItsSession(object):
         cmd = {}
         cmd["cmdName"] = "getSensorEvents"
         self.sock.send(json.dumps(cmd) + "\n")
+        timeout = self.SOCK_TIMEOUT + self.EXTRA_SOCK_TIMEOUT
+        self.sock.settimeout(timeout)
         data,_ = self.__read_response_from_socket()
         if data['tag'] != 'sensorEvents':
             raise its.error.Error('Invalid command response')
+        self.sock.settimeout(self.SOCK_TIMEOUT)
         return data['objValue']
 
     def get_camera_ids(self):
@@ -349,6 +365,7 @@ class ItsSession(object):
         data,_ = self.__read_response_from_socket()
         if data['tag'] != 'cameraProperties':
             raise its.error.Error('Invalid command response')
+        self.props = data['objValue']['cameraProperties']
         return data['objValue']['cameraProperties']
 
     def do_3a(self, regions_ae=[[0,0,1,1,1]],
@@ -439,17 +456,26 @@ class ItsSession(object):
             raise its.error.Error('3A failed to converge')
         return ae_sens, ae_exp, awb_gains, awb_transform, af_dist
 
-    def do_capture(self, cap_request, out_surfaces=None, reprocess_format=None):
+    def do_capture(self, cap_request,
+            out_surfaces=None, reprocess_format=None, repeat_request=None):
         """Issue capture request(s), and read back the image(s) and metadata.
 
         The main top-level function for capturing one or more images using the
         device. Captures a single image if cap_request is a single object, and
         captures a burst if it is a list of objects.
 
+        The optional repeat_request field can be used to assign a repeating
+        request list ran in background for 3 seconds to warm up the capturing
+        pipeline before start capturing. The repeat_requests will be ran on a
+        640x480 YUV surface without sending any data back. The caller needs to
+        make sure the stream configuration defined by out_surfaces and
+        repeat_request are valid or do_capture may fail because device does not
+        support such stream configuration.
+
         The out_surfaces field can specify the width(s), height(s), and
         format(s) of the captured image. The formats may be "yuv", "jpeg",
-        "dng", "raw", "raw10", or "raw12". The default is a YUV420 frame ("yuv")
-        corresponding to a full sensor frame.
+        "dng", "raw", "raw10", "raw12", or "rawStats". The default is a YUV420
+        frame ("yuv") corresponding to a full sensor frame.
 
         Note that one or more surfaces can be specified, allowing a capture to
         request images back in multiple formats (e.g.) raw+yuv, raw+jpeg,
@@ -536,6 +562,25 @@ class ItsSession(object):
             yuv_caps           = do_capture( [req1,req2], yuv_fmt           )
             yuv_caps, raw_caps = do_capture( [req1,req2], [yuv_fmt,raw_fmt] )
 
+        The "rawStats" format processes the raw image and returns a new image
+        of statistics from the raw image. The format takes additional keys,
+        "gridWidth" and "gridHeight" which are size of grid cells in a 2D grid
+        of the raw image. For each grid cell, the mean and variance of each raw
+        channel is computed, and the do_capture call returns two 4-element float
+        images of dimensions (rawWidth / gridWidth, rawHeight / gridHeight),
+        concatenated back-to-back, where the first iamge contains the 4-channel
+        means and the second contains the 4-channel variances.
+
+        For the rawStats format, if the gridWidth is not provided then the raw
+        image width is used as the default, and similarly for gridHeight. With
+        this, the following is an example of a output description that computes
+        the mean and variance across each image row:
+
+            {
+                "gridHeight": 1,
+                "format": "rawStats"
+            }
+
         Args:
             cap_request: The Python dict/list specifying the capture(s), which
                 will be converted to JSON and sent to the device.
@@ -550,7 +595,8 @@ class ItsSession(object):
             * data: the image data as a numpy array of bytes.
             * width: the width of the captured image.
             * height: the height of the captured image.
-            * format: image the format, in ["yuv","jpeg","raw","raw10","dng"].
+            * format: image the format, in [
+                        "yuv","jpeg","raw","raw10","raw12","rawStats","dng"].
             * metadata: the capture result object (Python dictionary).
         """
         cmd = {}
@@ -559,6 +605,17 @@ class ItsSession(object):
             cmd["reprocessFormat"] = reprocess_format
         else:
             cmd["cmdName"] = "doCapture"
+
+        if repeat_request is not None and reprocess_format is not None:
+            raise its.error.Error('repeating request + reprocessing is not supported')
+
+        if repeat_request is None:
+            cmd["repeatRequests"] = []
+        elif not isinstance(repeat_request, list):
+            cmd["repeatRequests"] = [repeat_request]
+        else:
+            cmd["repeatRequests"] = repeat_request
+
         if not isinstance(cap_request, list):
             cmd["captureRequests"] = [cap_request]
         else:
@@ -568,18 +625,51 @@ class ItsSession(object):
                 cmd["outputSurfaces"] = [out_surfaces]
             else:
                 cmd["outputSurfaces"] = out_surfaces
-            formats = [c["format"] if c.has_key("format") else "yuv"
+            formats = [c["format"] if "format" in c else "yuv"
                        for c in cmd["outputSurfaces"]]
             formats = [s if s != "jpg" else "jpeg" for s in formats]
         else:
+            max_yuv_size = its.objects.get_available_output_sizes(
+                    "yuv", self.props)[0]
             formats = ['yuv']
+            cmd["outputSurfaces"] = [{"format": "yuv",
+                                      "width" : max_yuv_size[0],
+                                      "height": max_yuv_size[1]}]
         ncap = len(cmd["captureRequests"])
         nsurf = 1 if out_surfaces is None else len(cmd["outputSurfaces"])
+        # Only allow yuv output to multiple targets
+        yuv_surfaces = [s for s in cmd["outputSurfaces"] if s["format"]=="yuv"]
+        n_yuv = len(yuv_surfaces)
+        # Compute the buffer size of YUV targets
+        yuv_maxsize_1d = 0
+        for s in yuv_surfaces:
+            if not ("width" in s and "height" in s):
+                if self.props is None:
+                    raise its.error.Error('Camera props are unavailable')
+                yuv_maxsize_2d = its.objects.get_available_output_sizes(
+                    "yuv", self.props)[0]
+                yuv_maxsize_1d = yuv_maxsize_2d[0] * yuv_maxsize_2d[1] * 3 / 2
+                break
+        yuv_sizes = [c["width"]*c["height"]*3/2
+                     if "width" in c and "height" in c
+                     else yuv_maxsize_1d
+                     for c in yuv_surfaces]
+        # Currently we don't pass enough metadta from ItsService to distinguish
+        # different yuv stream of same buffer size
+        if len(yuv_sizes) != len(set(yuv_sizes)):
+            raise its.error.Error(
+                    'ITS does not support yuv outputs of same buffer size')
         if len(formats) > len(set(formats)):
-            raise its.error.Error('Duplicate format requested')
-        if "dng" in formats and "raw" in formats or \
-                "dng" in formats and "raw10" in formats or \
-                "raw" in formats and "raw10" in formats:
+            if n_yuv != len(formats) - len(set(formats)) + 1:
+                raise its.error.Error('Duplicate format requested')
+
+        raw_formats = 0;
+        raw_formats += 1 if "dng" in formats else 0
+        raw_formats += 1 if "raw" in formats else 0
+        raw_formats += 1 if "raw10" in formats else 0
+        raw_formats += 1 if "raw12" in formats else 0
+        raw_formats += 1 if "rawStats" in formats else 0
+        if raw_formats > 1:
             raise its.error.Error('Different raw formats not supported')
 
         # Detect long exposure time and set timeout accordingly
@@ -591,6 +681,8 @@ class ItsSession(object):
 
         extended_timeout = longest_exp_time / self.SEC_TO_NSEC + \
                 self.SOCK_TIMEOUT
+        if repeat_request:
+            extended_timeout += self.EXTRA_SOCK_TIMEOUT
         self.sock.settimeout(extended_timeout)
 
         print "Capturing %d frame%s with %d format%s [%s]" % (
@@ -603,16 +695,23 @@ class ItsSession(object):
         # the burst, however individual images of different formats can come
         # out in any order for that capture.
         nbufs = 0
-        bufs = {"yuv":[], "raw":[], "raw10":[], "dng":[], "jpeg":[]}
+        bufs = {"raw":[], "raw10":[], "raw12":[],
+                "rawStats":[], "dng":[], "jpeg":[]}
+        yuv_bufs = {size:[] for size in yuv_sizes}
         mds = []
         widths = None
         heights = None
         while nbufs < ncap*nsurf or len(mds) < ncap:
             jsonObj,buf = self.__read_response_from_socket()
-            if jsonObj['tag'] in ['jpegImage', 'yuvImage', 'rawImage', \
-                    'raw10Image', 'dngImage'] and buf is not None:
+            if jsonObj['tag'] in ['jpegImage', 'rawImage', \
+                    'raw10Image', 'raw12Image', 'rawStatsImage', 'dngImage'] \
+                    and buf is not None:
                 fmt = jsonObj['tag'][:-5]
                 bufs[fmt].append(buf)
+                nbufs += 1
+            elif jsonObj['tag'] == 'yuvImage':
+                buf_size = numpy.product(buf.shape)
+                yuv_bufs[buf_size].append(buf)
                 nbufs += 1
             elif jsonObj['tag'] == 'captureResults':
                 mds.append(jsonObj['objValue']['captureResult'])
@@ -627,11 +726,15 @@ class ItsSession(object):
             objs = []
             for i in range(ncap):
                 obj = {}
-                obj["data"] = bufs[fmt][i]
                 obj["width"] = widths[j]
                 obj["height"] = heights[j]
                 obj["format"] = fmt
                 obj["metadata"] = mds[i]
+                if fmt == 'yuv':
+                    buf_size = widths[j] * heights[j] * 3 / 2
+                    obj["data"] = yuv_bufs[buf_size][i]
+                else:
+                    obj["data"] = bufs[fmt][i]
                 objs.append(obj)
             rets.append(objs if ncap>1 else objs[0])
         self.sock.settimeout(self.SOCK_TIMEOUT)

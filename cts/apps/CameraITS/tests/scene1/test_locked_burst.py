@@ -32,7 +32,7 @@ def main():
     NAME = os.path.basename(__file__).split(".")[0]
 
     BURST_LEN = 8
-    SPREAD_THRESH_MANUAL_SENSOR = 0.005
+    SPREAD_THRESH_MANUAL_SENSOR = 0.01
     SPREAD_THRESH = 0.03
     FPS_MAX_DIFF = 2.0
 

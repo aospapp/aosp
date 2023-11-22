@@ -149,50 +149,36 @@ void btm_update_scanner_filter_policy(tBTM_BLE_SFP scan_policy)
 BOOLEAN btm_add_dev_to_controller (BOOLEAN to_add, BD_ADDR bd_addr)
 {
     tBTM_SEC_DEV_REC    *p_dev_rec = btm_find_dev (bd_addr);
-    tBLE_ADDR_TYPE  addr_type = BLE_ADDR_PUBLIC;
     BOOLEAN             started = FALSE;
     BD_ADDR             dummy_bda = {0};
-    tBT_DEVICE_TYPE dev_type;
 
-    if (p_dev_rec != NULL &&
-        p_dev_rec->device_type & BT_DEVICE_TYPE_BLE)
-    {
-        if (to_add)
-        {
-            if (p_dev_rec->ble.ble_addr_type == BLE_ADDR_PUBLIC || !BTM_BLE_IS_RESOLVE_BDA(bd_addr))
-            {
-                started = btsnd_hcic_ble_add_white_list (p_dev_rec->ble.ble_addr_type, bd_addr);
+    if (p_dev_rec != NULL && p_dev_rec->device_type & BT_DEVICE_TYPE_BLE) {
+        if (to_add) {
+            if (p_dev_rec->ble.ble_addr_type == BLE_ADDR_PUBLIC || !BTM_BLE_IS_RESOLVE_BDA(bd_addr)) {
+                started = btsnd_hcic_ble_add_white_list(p_dev_rec->ble.ble_addr_type, bd_addr);
+                p_dev_rec->ble.in_controller_list |= BTM_WHITE_LIST_BIT;
+            } else if (memcmp(p_dev_rec->ble.static_addr, bd_addr, BD_ADDR_LEN) != 0 &&
+                memcmp(p_dev_rec->ble.static_addr, dummy_bda, BD_ADDR_LEN) != 0) {
+                started = btsnd_hcic_ble_add_white_list(p_dev_rec->ble.static_addr_type,
+                                                        p_dev_rec->ble.static_addr);
                 p_dev_rec->ble.in_controller_list |= BTM_WHITE_LIST_BIT;
             }
-            else if (memcmp(p_dev_rec->ble.static_addr, bd_addr, BD_ADDR_LEN) != 0 &&
-                memcmp(p_dev_rec->ble.static_addr, dummy_bda, BD_ADDR_LEN) != 0)
-            {
-                started = btsnd_hcic_ble_add_white_list (p_dev_rec->ble.static_addr_type,
-                                                         p_dev_rec->ble.static_addr);
-                p_dev_rec->ble.in_controller_list |= BTM_WHITE_LIST_BIT;
-            }
-        }
-        else
-        {
+        } else {
             if (p_dev_rec->ble.ble_addr_type == BLE_ADDR_PUBLIC || !BTM_BLE_IS_RESOLVE_BDA(bd_addr))
-            {
-                started = btsnd_hcic_ble_remove_from_white_list (p_dev_rec->ble.ble_addr_type, bd_addr);
-            }
+                started = btsnd_hcic_ble_remove_from_white_list(p_dev_rec->ble.ble_addr_type, bd_addr);
+
             if (memcmp(p_dev_rec->ble.static_addr, dummy_bda, BD_ADDR_LEN) != 0 &&
                 memcmp(p_dev_rec->ble.static_addr, bd_addr, BD_ADDR_LEN) != 0)
-            {
-                started = btsnd_hcic_ble_remove_from_white_list (p_dev_rec->ble.static_addr_type, p_dev_rec->ble.static_addr);
-            }
+                started = btsnd_hcic_ble_remove_from_white_list(p_dev_rec->ble.static_addr_type, p_dev_rec->ble.static_addr);
+
             p_dev_rec->ble.in_controller_list &= ~BTM_WHITE_LIST_BIT;
         }
-    }    /* if not a known device, shall we add it? */
-    else
-    {
-        BTM_ReadDevInfo(bd_addr, &dev_type, &addr_type);
-
-        started = btsnd_hcic_ble_remove_from_white_list (addr_type, bd_addr);
+    } else {
+        /* not a known device, i.e. attempt to connect to device never seen before */
+        UINT8 addr_type = BTM_IS_PUBLIC_BDA(bd_addr) ? BLE_ADDR_PUBLIC : BLE_ADDR_RANDOM;
+        started = btsnd_hcic_ble_remove_from_white_list(addr_type, bd_addr);
         if (to_add)
-            started = btsnd_hcic_ble_add_white_list (addr_type, bd_addr);
+            started = btsnd_hcic_ble_add_white_list(addr_type, bd_addr);
     }
 
     return started;
@@ -522,6 +508,7 @@ BOOLEAN btm_ble_start_select_conn(BOOLEAN start, tBTM_BLE_SEL_CBACK *p_select_cb
 #endif
                 if (!btsnd_hcic_ble_set_scan_enable(TRUE, TRUE)) /* duplicate filtering enabled */
                      return FALSE;
+
                  /* mark up inquiry status flag */
                  p_cb->scan_activity |= BTM_LE_SELECT_CONN_ACTIVE;
                  p_cb->wl_state |= BTM_BLE_WL_SCAN;
@@ -706,11 +693,11 @@ void btm_ble_set_conn_st(tBTM_BLE_CONN_ST new_st)
 *******************************************************************************/
 void btm_ble_enqueue_direct_conn_req(void *p_param)
 {
-    tBTM_BLE_CONN_REQ   *p = (tBTM_BLE_CONN_REQ *)GKI_getbuf(sizeof(tBTM_BLE_CONN_REQ));
+    tBTM_BLE_CONN_REQ *p = (tBTM_BLE_CONN_REQ *)osi_malloc(sizeof(tBTM_BLE_CONN_REQ));
 
     p->p_param = p_param;
 
-    GKI_enqueue (&btm_cb.ble_ctr_cb.conn_pending_q, p);
+    fixed_queue_enqueue(btm_cb.ble_ctr_cb.conn_pending_q, p);
 }
 /*******************************************************************************
 **
@@ -726,13 +713,13 @@ BOOLEAN btm_send_pending_direct_conn(void)
     tBTM_BLE_CONN_REQ *p_req;
     BOOLEAN     rt = FALSE;
 
-    if (!GKI_queue_is_empty(&btm_cb.ble_ctr_cb.conn_pending_q))
-    {
-        p_req = (tBTM_BLE_CONN_REQ*)GKI_dequeue (&btm_cb.ble_ctr_cb.conn_pending_q);
-
-        rt = l2cble_init_direct_conn((tL2C_LCB *)(p_req->p_param));
-
-        GKI_freebuf((void *)p_req);
+    p_req = (tBTM_BLE_CONN_REQ*)fixed_queue_try_dequeue(btm_cb.ble_ctr_cb.conn_pending_q);
+    if (p_req != NULL) {
+        tL2C_LCB *p_lcb = (tL2C_LCB *)(p_req->p_param);
+        /* Ignore entries that might have been released while queued. */
+        if (p_lcb->in_use)
+            rt = l2cble_init_direct_conn(p_lcb);
+        osi_free(p_req);
     }
 
     return rt;

@@ -21,9 +21,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.os.Bundle;
+import android.os.UserHandle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.LinearLayout;
 
 import com.android.settings.notification.RedactionInterstitial;
 import com.android.setupwizardlib.SetupWizardLayout;
@@ -38,27 +40,17 @@ import com.android.setupwizardlib.view.NavigationBar;
  */
 public class SetupRedactionInterstitial extends RedactionInterstitial {
 
-    public static Intent createStartIntent(Context ctx) {
-        Intent startIntent = RedactionInterstitial.createStartIntent(ctx);
-        if (startIntent != null) {
-            startIntent.setClass(ctx, SetupRedactionInterstitial.class);
-            startIntent.putExtra(EXTRA_PREFS_SHOW_BUTTON_BAR, false)
-                    .putExtra(EXTRA_SHOW_FRAGMENT_TITLE_RESID, -1);
-        }
-        return startIntent;
-    }
-
     @Override
     public Intent getIntent() {
         Intent modIntent = new Intent(super.getIntent());
         modIntent.putExtra(EXTRA_SHOW_FRAGMENT,
-                SetupEncryptionInterstitialFragment.class.getName());
+                SetupRedactionInterstitialFragment.class.getName());
         return modIntent;
     }
 
     @Override
     protected boolean isValidFragment(String fragmentName) {
-        return SetupEncryptionInterstitialFragment.class.getName().equals(fragmentName);
+        return SetupRedactionInterstitialFragment.class.getName().equals(fragmentName);
     }
 
     @Override
@@ -67,7 +59,14 @@ public class SetupRedactionInterstitial extends RedactionInterstitial {
         super.onApplyThemeResource(theme, resid, first);
     }
 
-    public static class SetupEncryptionInterstitialFragment extends RedactionInterstitialFragment
+    @Override
+    protected void onCreate(Bundle savedInstance) {
+        super.onCreate(savedInstance);
+        LinearLayout layout = (LinearLayout) findViewById(R.id.content_parent);
+        layout.setFitsSystemWindows(false);
+    }
+
+    public static class SetupRedactionInterstitialFragment extends RedactionInterstitialFragment
             implements NavigationBar.NavigationBarListener {
 
         @Override

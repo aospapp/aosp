@@ -45,17 +45,22 @@
   // Use specified object as this object when calling the function.
   var o = { value: 42 }
   a = [1,42,3,42,4];
-  assertArrayEquals([42,42], a.filter(function(n) { return this.value == n }, o))
+  assertArrayEquals([42,42],
+      a.filter(function(n) { return this.value == n }, o))
 
   // Modify original array.
   a = [1,42,3,42,4];
-  assertArrayEquals([42,42], a.filter(function(n, index, array) { array[index] = 43; return 42 == n; }));
+  assertArrayEquals([42,42],
+      a.filter(function(n, index, array) {
+          array[index] = 43; return 42 == n;
+      }));
   assertArrayEquals([43,43,43,43,43], a);
 
   // Only loop through initial part of array eventhough elements are
   // added.
   a = [1,1];
-  assertArrayEquals([], a.filter(function(n, index, array) { array.push(n+1); return n == 2; }));
+  assertArrayEquals([],
+      a.filter(function(n, index, array) { array.push(n+1); return n == 2; }));
   assertArrayEquals([1,1,2,2], a);
 
   // Respect holes.
@@ -67,6 +72,23 @@
   var a = a.filter(function(n) { count++; return n == 2; });
   assertEquals(3, count);
   for (var i in a) assertEquals(2, a[i]);
+
+  // Create a new object in each function call when receiver is a
+  // primitive value. See ECMA-262, Annex C.
+  a = [];
+  [1, 2].filter(function() { a.push(this) }, "");
+  assertTrue(a[0] !== a[1]);
+
+  // Do not create a new object otherwise.
+  a = [];
+  [1, 2].filter(function() { a.push(this) }, {});
+  assertEquals(a[0], a[1]);
+
+  // In strict mode primitive values should not be coerced to an object.
+  a = [];
+  [1, 2].filter(function() { 'use strict'; a.push(this); }, "");
+  assertEquals("", a[0]);
+  assertEquals(a[0], a[1]);
 
 })();
 
@@ -109,6 +131,23 @@
   a.forEach(function(n) { count++; });
   assertEquals(1, count);
 
+  // Create a new object in each function call when receiver is a
+  // primitive value. See ECMA-262, Annex C.
+  a = [];
+  [1, 2].forEach(function() { a.push(this) }, "");
+  assertTrue(a[0] !== a[1]);
+
+  // Do not create a new object otherwise.
+  a = [];
+  [1, 2].forEach(function() { a.push(this) }, {});
+  assertEquals(a[0], a[1]);
+
+  // In strict mode primitive values should not be coerced to an object.
+  a = [];
+  [1, 2].forEach(function() { 'use strict'; a.push(this); }, "");
+  assertEquals("", a[0]);
+  assertEquals(a[0], a[1]);
+
 })();
 
 
@@ -132,13 +171,19 @@
 
   // Modify original array.
   a = [0,1];
-  assertFalse(a.every(function(n, index, array) { array[index] = n + 1; return n == 1;}));
+  assertFalse(
+      a.every(function(n, index, array) {
+        array[index] = n + 1; return n == 1;
+      }));
   assertArrayEquals([1,1], a);
 
   // Only loop through initial part of array eventhough elements are
   // added.
   a = [1,1];
-  assertTrue(a.every(function(n, index, array) { array.push(n + 1); return n == 1;}));
+  assertTrue(
+      a.every(function(n, index, array) {
+        array.push(n + 1); return n == 1;
+      }));
   assertArrayEquals([1,1,2,2], a);
 
   // Respect holes.
@@ -148,6 +193,23 @@
   a[15] = 2;
   assertTrue(a.every(function(n) { count++; return n == 2; }));
   assertEquals(2, count);
+
+  // Create a new object in each function call when receiver is a
+  // primitive value. See ECMA-262, Annex C.
+  a = [];
+  [1, 2].every(function() { a.push(this); return true; }, "");
+  assertTrue(a[0] !== a[1]);
+
+  // Do not create a new object otherwise.
+  a = [];
+  [1, 2].every(function() { a.push(this); return true; }, {});
+  assertEquals(a[0], a[1]);
+
+  // In strict mode primitive values should not be coerced to an object.
+  a = [];
+  [1, 2].every(function() { 'use strict'; a.push(this); return true; }, "");
+  assertEquals("", a[0]);
+  assertEquals(a[0], a[1]);
 
 })();
 
@@ -170,14 +232,18 @@
   // Modify original array.
   a = [0,1,2,3,4];
   result = [1,2,3,4,5];
-  assertArrayEquals(result, a.map(function(n, index, array) { array[index] = n + 1; return n + 1;}));
+  assertArrayEquals(result,
+      a.map(function(n, index, array) {
+        array[index] = n + 1; return n + 1;
+      }));
   assertArrayEquals(result, a);
 
   // Only loop through initial part of array eventhough elements are
   // added.
   a = [0,1,2,3,4];
   result = [1,2,3,4,5];
-  assertArrayEquals(result, a.map(function(n, index, array) { array.push(n); return n + 1;}));
+  assertArrayEquals(result,
+      a.map(function(n, index, array) { array.push(n); return n + 1; }));
   assertArrayEquals([0,1,2,3,4,0,1,2,3,4], a);
 
   // Respect holes.
@@ -185,6 +251,23 @@
   a[15] = 2;
   a = a.map(function(n) { return 2*n; });
   for (var i in a) assertEquals(4, a[i]);
+
+  // Create a new object in each function call when receiver is a
+  // primitive value. See ECMA-262, Annex C.
+  a = [];
+  [1, 2].map(function() { a.push(this) }, "");
+  assertTrue(a[0] !== a[1]);
+
+  // Do not create a new object otherwise.
+  a = [];
+  [1, 2].map(function() { a.push(this) }, {});
+  assertEquals(a[0], a[1]);
+
+  // In strict mode primitive values should not be coerced to an object.
+  a = [];
+  [1, 2].map(function() { 'use strict'; a.push(this); }, "");
+  assertEquals("", a[0]);
+  assertEquals(a[0], a[1]);
 
 })();
 
@@ -207,12 +290,15 @@
 
   // Modify original array.
   a = [0,1,2,3];
-  assertTrue(a.some(function(n, index, array) { array[index] = n + 1; return n == 2; }));
+  assertTrue(
+      a.some(function(n, index, array) {
+        array[index] = n + 1; return n == 2; }));
   assertArrayEquals([1,2,3,3], a);
 
   // Only loop through initial part when elements are added.
   a = [0,1,2];
-  assertFalse(a.some(function(n, index, array) { array.push(42); return n == 42; }));
+  assertFalse(
+      a.some(function(n, index, array) { array.push(42); return n == 42; }));
   assertArrayEquals([0,1,2,42,42,42], a);
 
   // Respect holes.
@@ -223,5 +309,22 @@
   a[15] = 42;
   assertTrue(a.some(function(n) { count++; return n == 2; }));
   assertEquals(2, count);
+
+  // Create a new object in each function call when receiver is a
+  // primitive value. See ECMA-262, Annex C.
+  a = [];
+  [1, 2].some(function() { a.push(this) }, "");
+  assertTrue(a[0] !== a[1]);
+
+  // Do not create a new object otherwise.
+  a = [];
+  [1, 2].some(function() { a.push(this) }, {});
+  assertEquals(a[0], a[1]);
+
+  // In strict mode primitive values should not be coerced to an object.
+  a = [];
+  [1, 2].some(function() { 'use strict'; a.push(this); }, "");
+  assertEquals("", a[0]);
+  assertEquals(a[0], a[1]);
 
 })();

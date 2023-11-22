@@ -16,11 +16,11 @@
 
 package android.content.res.cts;
 
-import com.android.cts.content.R;
-
 import org.xmlpull.v1.XmlPullParserException;
 
+import android.content.cts.R;
 import android.content.cts.util.XmlUtils;
+import android.content.pm.ActivityInfo;
 import android.content.res.TypedArray;
 import android.content.res.XmlResourceParser;
 import android.test.AndroidTestCase;
@@ -30,12 +30,10 @@ import android.view.ContextThemeWrapper;
 
 import java.io.IOException;
 
-
-public class TypedArrayTest extends AndroidTestCase{
-    private TypedArray mTypedArray;
+public class TypedArrayTest extends AndroidTestCase {
     private static final int DEFINT = -1;
     private static final float DEFFLOAT = -1.0f;
-    private static final int EXPECTEDCLOLOR = 0xff0000ff;
+    private static final int EXPECTED_COLOR = 0xff0000ff;
     private static final int EXPECTED_COLOR_STATE = 0xff00ff00;
     private static final float EXPECTED_DIMENSION = 0.75f;
     private static final int EXPECTED_PIXEL_OFFSET = 10;
@@ -47,20 +45,23 @@ public class TypedArrayTest extends AndroidTestCase{
     private static final String EXPECTED_STRING = "Hello, Android!";
     private static final String EXPECTED_TEXT = "TypedArray Test!";
     private static final String[] EXPECTED_TEXT_ARRAY = {"Easy", "Medium", "Hard"};
-    private static final int EXPETED_INDEX = 15;
+    private static final int EXPECTED_INDEX = 15;
     private static final TypedValue DEF_VALUE = new TypedValue();
-    private static final int EXPECTED_INDEX_COUNT = 16;
+    private static final int EXPECTED_INDEX_COUNT = 17;
     private static final String EXPTECTED_POS_DESCRIP = "<internal>";
-    private static final int EXPECTED_LENGTH = 16;
+    private static final int EXPECTED_LENGTH = 19;
     private static final String EXPECTED_NON_RESOURCE_STRING = "testNonResourcesString";
     private static final String XML_BEGIN = "resources";
     private static final int EXPECTED_INT_ATT = 86400;
+    private static final int EXPECTED_CHANGING_CONFIG =
+            ActivityInfo.CONFIG_ORIENTATION | ActivityInfo.CONFIG_LOCALE;
+
+    private TypedArray mTypedArray;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        final int[] attrs = R.styleable.style1;
-        mTypedArray = getContext().getTheme().obtainStyledAttributes(R.style.Whatever, attrs);
+        mTypedArray = getContext().getTheme().obtainStyledAttributes(R.style.Whatever, R.styleable.style1);
     }
 
     @Override
@@ -69,85 +70,126 @@ public class TypedArrayTest extends AndroidTestCase{
         mTypedArray.recycle();
     }
 
-    /*
-     * Test all get attrs methods, all test value are in styles.xml and attrs.xml.
-     */
-    public void testAttrsMethod() {
-        // getBoolean test
-        assertTrue(mTypedArray.getBoolean(R.styleable.style1_type1, false));
-        assertFalse(mTypedArray.getBoolean(R.styleable.style1_type2, true));
+    public void testGetType() {
+        final TypedArray t = getContext().getTheme().obtainStyledAttributes(
+                R.style.Whatever, R.styleable.style1);
 
-        assertEquals(EXPECTEDCLOLOR, mTypedArray.getColor(R.styleable.style1_type3, DEFINT));
+        assertEquals(TypedValue.TYPE_INT_BOOLEAN, t.getType(R.styleable.style1_type1));
+        assertEquals(TypedValue.TYPE_INT_BOOLEAN, t.getType(R.styleable.style1_type2));
+        assertEquals(TypedValue.TYPE_INT_COLOR_ARGB8, t.getType(R.styleable.style1_type3));
+        assertEquals(TypedValue.TYPE_INT_COLOR_ARGB8, t.getType(R.styleable.style1_type4));
+        assertEquals(TypedValue.TYPE_DIMENSION, t.getType(R.styleable.style1_type5));
+        assertEquals(TypedValue.TYPE_DIMENSION, t.getType(R.styleable.style1_type6));
+        assertEquals(TypedValue.TYPE_DIMENSION, t.getType(R.styleable.style1_type7));
+        assertEquals(TypedValue.TYPE_STRING, t.getType(R.styleable.style1_type8));
+        assertEquals(TypedValue.TYPE_FLOAT, t.getType(R.styleable.style1_type9));
+        assertEquals(TypedValue.TYPE_FRACTION, t.getType(R.styleable.style1_type10));
+        assertEquals(TypedValue.TYPE_INT_DEC, t.getType(R.styleable.style1_type11));
+        assertEquals(TypedValue.TYPE_INT_DEC, t.getType(R.styleable.style1_type12));
+        assertEquals(TypedValue.TYPE_STRING, t.getType(R.styleable.style1_type13));
+        assertEquals(TypedValue.TYPE_STRING, t.getType(R.styleable.style1_type14));
+        assertEquals(TypedValue.TYPE_REFERENCE, t.getType(R.styleable.style1_type15));
+        assertEquals(TypedValue.TYPE_STRING, t.getType(R.styleable.style1_type16));
+        assertEquals(TypedValue.TYPE_NULL, t.getType(R.styleable.style1_typeEmpty));
+        assertEquals(TypedValue.TYPE_NULL, t.getType(R.styleable.style1_typeUndefined));
 
-        // getColorStateList test
-        final int[] set = new int[1];
-        set[0] = 0;
+        t.recycle();
+    }
+
+    public void testBasics() {
+        final TypedArray t = getContext().getTheme().obtainStyledAttributes(
+                R.style.Whatever, R.styleable.style1);
+
+        assertEquals(EXPECTED_CHANGING_CONFIG, t.getChangingConfigurations());
+        assertEquals(EXPECTED_INDEX_COUNT, t.getIndexCount());
+        assertEquals(EXPTECTED_POS_DESCRIP, t.getPositionDescription());
+        assertEquals(EXPECTED_LENGTH, t.length());
+        assertEquals(getContext().getResources(), t.getResources());
+        assertNotNull(t.toString());
+
+        t.recycle();
+    }
+
+    public void testGetAttributes() {
+        final TypedArray t = getContext().getTheme().obtainStyledAttributes(
+                R.style.Whatever, R.styleable.style1);
+
+        assertTrue(t.getBoolean(R.styleable.style1_type1, false));
+        assertFalse(t.getBoolean(R.styleable.style1_type2, true));
+
+        assertEquals(EXPECTED_COLOR,
+                t.getColor(R.styleable.style1_type3, DEFINT));
         assertEquals(EXPECTED_COLOR_STATE,
-                mTypedArray.getColorStateList(R.styleable.style1_type4).
-                getColorForState(set, DEFINT));
+                t.getColorStateList(R.styleable.style1_type4).getDefaultColor());
 
         // This get values equals attribute dimension value set in styles.xml
         // multiplied by the appropriate metric, the metric is unknown.
         assertEquals(EXPECTED_DIMENSION,
-                mTypedArray.getDimension(R.styleable.style1_type5, DEFFLOAT));
+                t.getDimension(R.styleable.style1_type5, DEFFLOAT));
+
         assertEquals(EXPECTED_PIXEL_OFFSET,
-                mTypedArray.getDimensionPixelOffset(R.styleable.style1_type6, DEFINT));
+                t.getDimensionPixelOffset(R.styleable.style1_type6, DEFINT));
         assertEquals(EXPECTED_LAYOUT_DIMENSION,
-                mTypedArray.getLayoutDimension(R.styleable.style1_type6, "type6"));
+                t.getLayoutDimension(R.styleable.style1_type6, "type6"));
         assertEquals(EXPECTED_LAYOUT_DIMENSION,
-                mTypedArray.getLayoutDimension(R.styleable.style1_type6, 0));
+                t.getLayoutDimension(R.styleable.style1_type6, 0));
+
         assertEquals(EXPECTED_PIXEL_SIZE,
-                mTypedArray.getDimensionPixelSize(R.styleable.style1_type7, DEFINT));
+                t.getDimensionPixelSize(R.styleable.style1_type7, DEFINT));
 
-        // getDrawable test
-        assertNotNull(mTypedArray.getDrawable(R.styleable.style1_type8));
-        // getResourceId test
-        assertEquals(R.drawable.pass,
-                mTypedArray.getResourceId(R.styleable.style1_type8, DEFINT));
+        assertNotNull(t.getDrawable(R.styleable.style1_type8));
+        assertEquals(R.drawable.pass, t.getResourceId(R.styleable.style1_type8, DEFINT));
 
-        assertEquals(EXPECTED_FLOAT, mTypedArray.getFloat(R.styleable.style1_type9, DEFFLOAT));
-
+        assertEquals(EXPECTED_FLOAT,
+                t.getFloat(R.styleable.style1_type9, DEFFLOAT));
         assertEquals(EXPECTED_FRACTION,
-                mTypedArray.getFraction(R.styleable.style1_type10, 10, 10, DEFFLOAT));
+                t.getFraction(R.styleable.style1_type10, 10, 10, DEFFLOAT));
+        assertEquals(EXPECTED_INT,
+                t.getInt(R.styleable.style1_type11, DEFINT));
+        assertEquals(EXPECTED_INT_ATT,
+                t.getInteger(R.styleable.style1_type12, DEFINT));
 
-        assertEquals(EXPECTED_INT, mTypedArray.getInt(R.styleable.style1_type11, DEFINT));
+        assertEquals(EXPECTED_STRING, t.getString(R.styleable.style1_type13));
+        assertNull(t.getNonResourceString(R.styleable.style1_type14));
+        assertEquals(EXPECTED_TEXT, t.getText(R.styleable.style1_type14));
 
-        assertEquals(EXPECTED_INT_ATT, mTypedArray.getInteger(R.styleable.style1_type12, DEFINT));
-
-        assertEquals(EXPECTED_STRING, mTypedArray.getString(R.styleable.style1_type13));
-
-        // getNonResourceString test
-        assertNull(mTypedArray.getNonResourceString(R.styleable.style1_type14));
-
-        assertEquals(EXPECTED_TEXT, mTypedArray.getText(R.styleable.style1_type14));
-
-        CharSequence[] textArray = mTypedArray.getTextArray(R.styleable.style1_type15);
+        final CharSequence[] textArray = t.getTextArray(R.styleable.style1_type15);
         assertEquals(EXPECTED_TEXT_ARRAY[0], textArray[0]);
         assertEquals(EXPECTED_TEXT_ARRAY[1], textArray[1]);
         assertEquals(EXPECTED_TEXT_ARRAY[2], textArray[2]);
 
-        // getIndex test
-        int index = mTypedArray.getIndex(R.styleable.style1_type16);
-        assertEquals(EXPETED_INDEX, index);
-        assertTrue(mTypedArray.getValue(index, DEF_VALUE));
-        // hasValue test
-        assertTrue(mTypedArray.hasValue(R.styleable.style1_type16));
+        final int index = t.getIndex(R.styleable.style1_type16);
+        assertEquals(EXPECTED_INDEX, index);
+        assertTrue(t.getValue(index, DEF_VALUE));
+    }
 
-        // peekValue test
-        assertNotNull(mTypedArray.peekValue(R.styleable.style1_type16));
+    public void testPeekValue() {
+        final TypedArray t = getContext().getTheme().obtainStyledAttributes(
+                R.style.Whatever, R.styleable.style1);
 
-        assertEquals(EXPECTED_INDEX_COUNT, mTypedArray.getIndexCount());
+        final TypedValue v = t.peekValue(R.styleable.style1_type11);
+        assertNotNull(v);
+        assertEquals(TypedValue.TYPE_INT_DEC, v.type);
+        assertEquals(EXPECTED_INT, v.data);
 
-        assertEquals(EXPTECTED_POS_DESCRIP,
-                mTypedArray.getPositionDescription());
+        t.recycle();
+    }
 
-        // getResources test
-        assertEquals(getContext().getResources(), mTypedArray.getResources());
+    public void testHasValue() {
+        final TypedArray t = getContext().getTheme().obtainStyledAttributes(
+                R.style.Whatever, R.styleable.style1);
 
-        assertEquals(EXPECTED_LENGTH, mTypedArray.length());
+        // hasValue()
+        assertTrue(t.hasValue(R.styleable.style1_type16));
+        assertFalse(t.hasValue(R.styleable.style1_typeEmpty));
+        assertFalse(t.hasValue(R.styleable.style1_typeUndefined));
 
-        // toString test
-        assertNotNull(mTypedArray.toString());
+        // hasValueOrEmpty()
+        assertTrue(t.hasValueOrEmpty(R.styleable.style1_type16));
+        assertTrue(t.hasValueOrEmpty(R.styleable.style1_typeEmpty));
+        assertFalse(t.hasValueOrEmpty(R.styleable.style1_typeUndefined));
+
+        t.recycle();
     }
 
     public void testRecycle() {

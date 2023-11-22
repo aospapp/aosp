@@ -30,7 +30,6 @@
 #define GUID_DISPLAY_LENGTH 35
 #define FX_NAME_LENGTH 64
 
-static int testMode;
 //-----------------------------------------------------------------
 /* Exits the application if an error is encountered */
 #define ExitOnError(x) ExitOnErrorFunc(x,__LINE__)
@@ -153,9 +152,6 @@ void TestGenericFxCapabilities(  )
 //-----------------------------------------------------------------
 int main(int argc __unused, char* const argv[])
 {
-    SLresult    result;
-    SLObjectItf sl;
-
     fprintf(stdout, "OpenSL ES test %s: exercises SLAndroidEffectCapabilitiesItf.\n", argv[0]);
 
     TestGenericFxCapabilities();

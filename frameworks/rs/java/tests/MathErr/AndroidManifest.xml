@@ -17,7 +17,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.android.rs.matherr">
 
-    <uses-sdk android:minSdkVersion="17" />
+    <uses-sdk android:minSdkVersion="19" />
     <application android:label="RS Math Err">
         <activity android:name="MathErrActivity">
             <intent-filter>

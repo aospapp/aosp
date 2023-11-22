@@ -26,15 +26,31 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/wait.h>
-#include <time.h>
 #include <unistd.h>
 
+#include <chrono>
 #include <string>
 #include <tuple>
 #include <utility>
 #include <vector>
 
-#include "BionicDeathTest.h" // For selftest.
+#ifndef TEMP_FAILURE_RETRY
+
+/* Used to retry syscalls that can return EINTR. */
+#define TEMP_FAILURE_RETRY(exp) ({         \
+    __typeof__(exp) _rc;                   \
+    do {                                   \
+        _rc = (exp);                       \
+    } while (_rc == -1 && errno == EINTR); \
+    _rc; })
+
+#endif
+
+static std::string g_executable_path;
+
+const std::string& get_executable_path() {
+  return g_executable_path;
+}
 
 namespace testing {
 namespace internal {
@@ -59,7 +75,7 @@ using testing::internal::COLOR_GREEN;
 using testing::internal::COLOR_YELLOW;
 using testing::internal::ColoredPrintf;
 
-constexpr int DEFAULT_GLOBAL_TEST_RUN_DEADLINE_MS = 60000;
+constexpr int DEFAULT_GLOBAL_TEST_RUN_DEADLINE_MS = 90000;
 constexpr int DEFAULT_GLOBAL_TEST_RUN_WARNLINE_MS = 2000;
 
 // The time each test can run before killed for the reason of timeout.
@@ -90,7 +106,7 @@ static void PrintHelpInfo() {
          "      Don't use isolation mode, run all tests in a single process.\n"
          "  --deadline=[TIME_IN_MS]\n"
          "      Run each test in no longer than [TIME_IN_MS] time.\n"
-         "      It takes effect only in isolation mode. Deafult deadline is 60000 ms.\n"
+         "      It takes effect only in isolation mode. Deafult deadline is 90000 ms.\n"
          "  --warnline=[TIME_IN_MS]\n"
          "      Test running longer than [TIME_IN_MS] will be warned.\n"
          "      It takes effect only in isolation mode. Default warnline is 2000 ms.\n"
@@ -221,10 +237,8 @@ void TestResultPrinter::OnTestPartResult(const testing::TestPartResult& result) 
 }
 
 static int64_t NanoTime() {
-  struct timespec t;
-  t.tv_sec = t.tv_nsec = 0;
-  clock_gettime(CLOCK_MONOTONIC, &t);
-  return static_cast<int64_t>(t.tv_sec) * 1000000000LL + t.tv_nsec;
+  std::chrono::nanoseconds duration(std::chrono::steady_clock::now().time_since_epoch());
+  return static_cast<int64_t>(duration.count());
 }
 
 static bool EnumerateTests(int argc, char** argv, std::vector<TestCase>& testcase_list) {
@@ -256,7 +270,7 @@ static bool EnumerateTests(int argc, char** argv, std::vector<TestCase>& testcas
     while (*p != '\0' && isspace(*p)) {
       ++p;
     }
-    if (*p != '\0') {
+    if (*p != '\0' && *p != '#') {
       // This is not we want, gtest must meet with some error when parsing the arguments.
       fprintf(stderr, "argument error, check with --help\n");
       return false;
@@ -434,6 +448,36 @@ static void OnTestIterationEndPrint(const std::vector<TestCase>& testcase_list, 
   fflush(stdout);
 }
 
+std::string XmlEscape(const std::string& xml) {
+  std::string escaped;
+  escaped.reserve(xml.size());
+
+  for (auto c : xml) {
+    switch (c) {
+    case '<':
+      escaped.append("&lt;");
+      break;
+    case '>':
+      escaped.append("&gt;");
+      break;
+    case '&':
+      escaped.append("&amp;");
+      break;
+    case '\'':
+      escaped.append("&apos;");
+      break;
+    case '"':
+      escaped.append("&quot;");
+      break;
+    default:
+      escaped.append(1, c);
+      break;
+    }
+  }
+
+  return escaped;
+}
+
 // Output xml file when --gtest_output is used, write this function as we can't reuse
 // gtest.cc:XmlUnitTestResultPrinter. The reason is XmlUnitTestResultPrinter is totally
 // defined in gtest.cc and not expose to outside. What's more, as we don't run gtest in
@@ -489,7 +533,8 @@ void OnTestIterationEndXmlPrint(const std::string& xml_output_filename,
       } else {
         fputs(">\n", fp);
         const std::string& test_output = testcase.GetTest(j).GetTestOutput();
-        fprintf(fp, "      <failure message=\"%s\" type=\"\">\n", test_output.c_str());
+        const std::string escaped_test_output = XmlEscape(test_output);
+        fprintf(fp, "      <failure message=\"%s\" type=\"\">\n", escaped_test_output.c_str());
         fputs("      </failure>\n", fp);
         fputs("    </testcase>\n", fp);
       }
@@ -499,6 +544,43 @@ void OnTestIterationEndXmlPrint(const std::string& xml_output_filename,
   }
   fputs("</testsuites>\n", fp);
   fclose(fp);
+}
+
+static bool sigint_flag;
+static bool sigquit_flag;
+
+static void signal_handler(int sig) {
+  if (sig == SIGINT) {
+    sigint_flag = true;
+  } else if (sig == SIGQUIT) {
+    sigquit_flag = true;
+  }
+}
+
+static bool RegisterSignalHandler() {
+  sigint_flag = false;
+  sigquit_flag = false;
+  sig_t ret = signal(SIGINT, signal_handler);
+  if (ret != SIG_ERR) {
+    ret = signal(SIGQUIT, signal_handler);
+  }
+  if (ret == SIG_ERR) {
+    perror("RegisterSignalHandler");
+    return false;
+  }
+  return true;
+}
+
+static bool UnregisterSignalHandler() {
+  sig_t ret = signal(SIGINT, SIG_DFL);
+  if (ret != SIG_ERR) {
+    ret = signal(SIGQUIT, SIG_DFL);
+  }
+  if (ret == SIG_ERR) {
+    perror("UnregisterSignalHandler");
+    return false;
+  }
+  return true;
 }
 
 struct ChildProcInfo {
@@ -531,11 +613,14 @@ static void ChildProcessFn(int argc, char** argv, const std::string& test_name) 
 }
 
 static ChildProcInfo RunChildProcess(const std::string& test_name, int testcase_id, int test_id,
-                                     sigset_t sigmask, int argc, char** argv) {
+                                     int argc, char** argv) {
   int pipefd[2];
-  int ret = pipe2(pipefd, O_NONBLOCK);
-  if (ret == -1) {
-    perror("pipe2 in RunTestInSeparateProc");
+  if (pipe(pipefd) == -1) {
+    perror("pipe in RunTestInSeparateProc");
+    exit(1);
+  }
+  if (fcntl(pipefd[0], F_SETFL, O_NONBLOCK) == -1) {
+    perror("fcntl in RunTestInSeparateProc");
     exit(1);
   }
   pid_t pid = fork();
@@ -550,8 +635,7 @@ static ChildProcInfo RunChildProcess(const std::string& test_name, int testcase_
     dup2(pipefd[1], STDOUT_FILENO);
     dup2(pipefd[1], STDERR_FILENO);
 
-    if (sigprocmask(SIG_SETMASK, &sigmask, NULL) == -1) {
-      perror("sigprocmask SIG_SETMASK");
+    if (!UnregisterSignalHandler()) {
       exit(1);
     }
     ChildProcessFn(argc, argv, test_name);
@@ -572,42 +656,29 @@ static ChildProcInfo RunChildProcess(const std::string& test_name, int testcase_
 
 static void HandleSignals(std::vector<TestCase>& testcase_list,
                             std::vector<ChildProcInfo>& child_proc_list) {
-  sigset_t waiting_mask;
-  sigemptyset(&waiting_mask);
-  sigaddset(&waiting_mask, SIGINT);
-  sigaddset(&waiting_mask, SIGQUIT);
-  timespec timeout;
-  timeout.tv_sec = timeout.tv_nsec = 0;
-  while (true) {
-    int signo = TEMP_FAILURE_RETRY(sigtimedwait(&waiting_mask, NULL, &timeout));
-    if (signo == -1) {
-      if (errno == EAGAIN) {
-        return; // Timeout, no pending signals.
+  if (sigquit_flag) {
+    sigquit_flag = false;
+    // Print current running tests.
+    printf("List of current running tests:\n");
+    for (const auto& child_proc : child_proc_list) {
+      if (child_proc.pid != 0) {
+        std::string test_name = testcase_list[child_proc.testcase_id].GetTestName(child_proc.test_id);
+        int64_t current_time_ns = NanoTime();
+        int64_t run_time_ms = (current_time_ns - child_proc.start_time_ns) / 1000000;
+        printf("  %s (%" PRId64 " ms)\n", test_name.c_str(), run_time_ms);
       }
-      perror("sigtimedwait");
-      exit(1);
-    } else if (signo == SIGQUIT) {
-      // Print current running tests.
-      printf("List of current running tests:\n");
-      for (auto& child_proc : child_proc_list) {
-        if (child_proc.pid != 0) {
-          std::string test_name = testcase_list[child_proc.testcase_id].GetTestName(child_proc.test_id);
-          int64_t current_time_ns = NanoTime();
-          int64_t run_time_ms = (current_time_ns - child_proc.start_time_ns) / 1000000;
-          printf("  %s (%" PRId64 " ms)\n", test_name.c_str(), run_time_ms);
-        }
-      }
-    } else if (signo == SIGINT) {
-      // Kill current running tests.
-      for (auto& child_proc : child_proc_list) {
-        if (child_proc.pid != 0) {
-          // Send SIGKILL to ensure the child process can be killed unconditionally.
-          kill(child_proc.pid, SIGKILL);
-        }
-      }
-      // SIGINT kills the parent process as well.
-      exit(1);
     }
+  } else if (sigint_flag) {
+    sigint_flag = false;
+    // Kill current running tests.
+    for (const auto& child_proc : child_proc_list) {
+      if (child_proc.pid != 0) {
+        // Send SIGKILL to ensure the child process can be killed unconditionally.
+        kill(child_proc.pid, SIGKILL);
+      }
+    }
+    // SIGINT kills the parent process as well.
+    exit(1);
   }
 }
 
@@ -639,6 +710,30 @@ static size_t CheckChildProcTimeout(std::vector<ChildProcInfo>& child_proc_list)
   return timeout_child_count;
 }
 
+static void ReadChildProcOutput(std::vector<TestCase>& testcase_list,
+                                std::vector<ChildProcInfo>& child_proc_list) {
+  for (const auto& child_proc : child_proc_list) {
+    TestCase& testcase = testcase_list[child_proc.testcase_id];
+    int test_id = child_proc.test_id;
+    while (true) {
+      char buf[1024];
+      ssize_t bytes_read = TEMP_FAILURE_RETRY(read(child_proc.child_read_fd, buf, sizeof(buf) - 1));
+      if (bytes_read > 0) {
+        buf[bytes_read] = '\0';
+        testcase.GetTest(test_id).AppendTestOutput(buf);
+      } else if (bytes_read == 0) {
+        break; // Read end.
+      } else {
+        if (errno == EAGAIN) {
+          break;
+        }
+        perror("failed to read child_read_fd");
+        exit(1);
+      }
+    }
+  }
+}
+
 static void WaitChildProcs(std::vector<TestCase>& testcase_list,
                            std::vector<ChildProcInfo>& child_proc_list) {
   size_t finished_child_count = 0;
@@ -663,6 +758,7 @@ static void WaitChildProcs(std::vector<TestCase>& testcase_list,
       finished_child_count += CheckChildProcTimeout(child_proc_list);
     }
 
+    ReadChildProcOutput(testcase_list, child_proc_list);
     if (finished_child_count > 0) {
       return;
     }
@@ -696,26 +792,6 @@ static void CollectChildTestResult(const ChildProcInfo& child_proc, TestCase& te
     kill(child_proc.pid, SIGKILL);
     WaitForOneChild(child_proc.pid);
   }
-
-  while (true) {
-    char buf[1024];
-    ssize_t bytes_read = TEMP_FAILURE_RETRY(read(child_proc.child_read_fd, buf, sizeof(buf) - 1));
-    if (bytes_read > 0) {
-      buf[bytes_read] = '\0';
-      testcase.GetTest(test_id).AppendTestOutput(buf);
-    } else if (bytes_read == 0) {
-      break; // Read end.
-    } else {
-      if (errno == EAGAIN) {
-        // No data is available. This rarely happens, only when the child process created other
-        // processes which have not exited so far. But the child process has already exited or
-        // been killed, so the test has finished, and we shouldn't wait further.
-        break;
-      }
-      perror("read child_read_fd in RunTestInSeparateProc");
-      exit(1);
-    }
-  }
   close(child_proc.child_read_fd);
 
   if (child_proc.timed_out) {
@@ -734,8 +810,14 @@ static void CollectChildTestResult(const ChildProcInfo& child_proc, TestCase& te
     testcase.GetTest(test_id).AppendTestOutput(buf);
 
   } else {
-    testcase.SetTestResult(test_id, WEXITSTATUS(child_proc.exit_status) == 0 ?
-                           TEST_SUCCESS : TEST_FAILED);
+    int exitcode = WEXITSTATUS(child_proc.exit_status);
+    testcase.SetTestResult(test_id, exitcode == 0 ? TEST_SUCCESS : TEST_FAILED);
+    if (exitcode != 0) {
+      char buf[1024];
+      snprintf(buf, sizeof(buf), "%s exited with exitcode %d.\n",
+               testcase.GetTestName(test_id).c_str(), exitcode);
+      testcase.GetTest(test_id).AppendTestOutput(buf);
+    }
   }
 }
 
@@ -750,13 +832,7 @@ static bool RunTestInSeparateProc(int argc, char** argv, std::vector<TestCase>& 
                         testing::UnitTest::GetInstance()->listeners().default_result_printer());
   testing::UnitTest::GetInstance()->listeners().Append(new TestResultPrinter);
 
-  // Signals are blocked here as we want to handle them in HandleSignals() later.
-  sigset_t block_mask, orig_mask;
-  sigemptyset(&block_mask);
-  sigaddset(&block_mask, SIGINT);
-  sigaddset(&block_mask, SIGQUIT);
-  if (sigprocmask(SIG_BLOCK, &block_mask, &orig_mask) == -1) {
-    perror("sigprocmask SIG_BLOCK");
+  if (!RegisterSignalHandler()) {
     exit(1);
   }
 
@@ -785,7 +861,7 @@ static bool RunTestInSeparateProc(int argc, char** argv, std::vector<TestCase>& 
       while (child_proc_list.size() < job_count && next_testcase_id < testcase_list.size()) {
         std::string test_name = testcase_list[next_testcase_id].GetTestName(next_test_id);
         ChildProcInfo child_proc = RunChildProcess(test_name, next_testcase_id, next_test_id,
-                                                   orig_mask, argc, argv);
+                                                   argc, argv);
         child_proc_list.push_back(child_proc);
         if (++next_test_id == testcase_list[next_testcase_id].TestCount()) {
           next_test_id = 0;
@@ -830,16 +906,14 @@ static bool RunTestInSeparateProc(int argc, char** argv, std::vector<TestCase>& 
     }
   }
 
-  // Restore signal mask.
-  if (sigprocmask(SIG_SETMASK, &orig_mask, NULL) == -1) {
-    perror("sigprocmask SIG_SETMASK");
+  if (!UnregisterSignalHandler()) {
     exit(1);
   }
 
   return all_tests_passed;
 }
 
-static size_t GetProcessorCount() {
+static size_t GetDefaultJobCount() {
   return static_cast<size_t>(sysconf(_SC_NPROCESSORS_ONLN));
 }
 
@@ -849,15 +923,8 @@ static void AddPathSeparatorInTestProgramPath(std::vector<char*>& args) {
   // The reason is that gtest uses clone() + execve() to run DeathTest in threadsafe mode,
   // and execve() doesn't read environment variable PATH, so execve() will not success
   // until we specify the absolute path or relative path of the test program directly.
-  if (strchr(args[0], '/') == NULL) {
-    char path[PATH_MAX];
-    ssize_t path_len = readlink("/proc/self/exe", path, sizeof(path));
-    if (path_len <= 0 || path_len >= static_cast<ssize_t>(sizeof(path))) {
-      perror("readlink");
-      exit(1);
-    }
-    path[path_len] = '\0';
-    args[0] = strdup(path);
+  if (strchr(args[0], '/') == nullptr) {
+    args[0] = strdup(g_executable_path.c_str());
   }
 }
 
@@ -950,7 +1017,7 @@ static bool PickOptions(std::vector<char*>& args, IsolationTestOptions& options)
   }
 
   // Init default isolation test options.
-  options.job_count = GetProcessorCount();
+  options.job_count = GetDefaultJobCount();
   options.test_deadline_ms = DEFAULT_GLOBAL_TEST_RUN_DEADLINE_MS;
   options.test_warnline_ms = DEFAULT_GLOBAL_TEST_RUN_WARNLINE_MS;
   options.gtest_color = testing::GTEST_FLAG(color);
@@ -1044,7 +1111,19 @@ static bool PickOptions(std::vector<char*>& args, IsolationTestOptions& options)
   return true;
 }
 
+static std::string get_proc_self_exe() {
+  char path[PATH_MAX];
+  ssize_t path_len = readlink("/proc/self/exe", path, sizeof(path));
+  if (path_len <= 0 || path_len >= static_cast<ssize_t>(sizeof(path))) {
+    perror("readlink");
+    exit(1);
+  }
+
+  return std::string(path, path_len);
+}
+
 int main(int argc, char** argv) {
+  g_executable_path = get_proc_self_exe();
   std::vector<char*> arg_list;
   for (int i = 0; i < argc; ++i) {
     arg_list.push_back(argv[i]);
@@ -1103,7 +1182,12 @@ TEST(bionic_selftest, test_signal_SEGV_terminated) {
   *p = 3;
 }
 
-class bionic_selftest_DeathTest : public BionicDeathTest {};
+class bionic_selftest_DeathTest : public ::testing::Test {
+ protected:
+  virtual void SetUp() {
+    ::testing::FLAGS_gtest_death_test_style = "threadsafe";
+  }
+};
 
 static void deathtest_helper_success() {
   ASSERT_EQ(1, 1);

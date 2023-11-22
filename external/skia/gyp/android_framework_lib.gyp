@@ -9,8 +9,10 @@
       'type': 'shared_library',
       'dependencies': [
         'codec.gyp:codec',
+        'codec_android.gyp:codec_android',
         'core.gyp:core',
         'effects.gyp:effects',
+        'gpu.gyp:skgpu',
         'images.gyp:images',
         'opts.gyp:opts',
         'pdf.gyp:pdf',

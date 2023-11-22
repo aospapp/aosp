@@ -18,15 +18,15 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_TAGS := tests
 
-# Must match the package name in CtsTestCaseList.mk
+# tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
+
 LOCAL_MODULE := CtsSampleHostTestCases
 
-LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed-prebuilt
+LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed-prebuilt compatibility-host-util
 
-LOCAL_CTS_TEST_PACKAGE := android.host.sample
-
-include $(BUILD_CTS_HOST_JAVA_LIBRARY)
+include $(BUILD_HOST_JAVA_LIBRARY)
 
 include $(call all-makefiles-under,$(LOCAL_PATH))

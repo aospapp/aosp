@@ -109,6 +109,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.NavigableMap;
+import java.util.NavigableSet;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.SortedSet;
@@ -543,6 +545,11 @@ class FreshValueGenerator {
 
   @Generates private static <E extends Comparable<? super E>> SortedSet<E>
       freshSortedSet(E freshElement) {
+    return freshNavigableSet(freshElement);
+  }
+
+  @Generates private static <E extends Comparable<? super E>> NavigableSet<E>
+      freshNavigableSet(E freshElement) {
     return freshTreeSet(freshElement);
   }
 
@@ -621,6 +628,11 @@ class FreshValueGenerator {
 
   @Generates private static <K extends Comparable<? super K>, V> SortedMap<K, V>
       freshSortedMap(K key, V value) {
+    return freshNavigableMap(key, value);
+  }
+
+  @Generates private static <K extends Comparable<? super K>, V> NavigableMap<K, V>
+      freshNavigableMap(K key, V value) {
     return freshTreeMap(key, value);
   }
 

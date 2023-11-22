@@ -69,8 +69,8 @@ static SLresult IVirtualizer_IsEnabled(SLVirtualizerItf self, SLboolean *pEnable
     } else {
         IVirtualizer *thiz = (IVirtualizer *) self;
         interface_lock_exclusive(thiz);
-        SLboolean enabled = thiz->mEnabled;
 #if !defined(ANDROID)
+        SLboolean enabled = thiz->mEnabled;
         *pEnabled = enabled;
         result = SL_RESULT_SUCCESS;
 #else

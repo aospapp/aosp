@@ -36,9 +36,8 @@
     <string name="incoming_file_confirm_ok" msgid="281462442932231475">"Nõustun"</string>
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"OK"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"Esines ajalõpp sissetuleva faili aktsepteerimisel saatjalt „<xliff:g id="SENDER">%1$s</xliff:g>”"</string>
-    <string name="incoming_file_confirm_Notification_title" msgid="2958227698135117210">"Bluetoothi jagamine: sissetulev fail"</string>
-    <string name="incoming_file_confirm_Notification_caption" msgid="6671081128475981157">"Kas soovite selle faili vastu võtta?"</string>
-    <string name="incoming_file_toast_msg" msgid="1733710749992901811">"Sissetulev fail teisest seadmest. Kinnitage, et soovite selle faili vastu võtta."</string>
+    <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"Sissetulev fail"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"Saatja <xliff:g id="SENDER">%1$s</xliff:g> on faili <xliff:g id="FILE">%2$s</xliff:g> saatmiseks valmis"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"Bluetoothi jagamine: faili <xliff:g id="FILE">%1$s</xliff:g> vastuvõtmine"</string>
     <string name="notification_received" msgid="3324588019186687985">"Bluetoothi jagamine: <xliff:g id="FILE">%1$s</xliff:g> vastu võetud"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"Bluetoothi jagamine: faili <xliff:g id="FILE">%1$s</xliff:g> pole saadud"</string>
@@ -124,9 +123,11 @@
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"Kustuta"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"Salvesta"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"Tühista"</string>
-    <string name="bluetooth_map_settings_intro" msgid="6793938602201480648">"Valige kontod, mida soovite Bluetoothi kaudu jagada. Ühendamisel peate ikka lubama mis tahes juurdepääsu kontodele."</string>
+    <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"Valige kontod, mida soovite Bluetoothi kaudu jagada. Ühendamisel peate ikka lubama mis tahes juurdepääsu kontodele."</string>
     <string name="bluetooth_map_settings_count" msgid="4557473074937024833">"Järelejäänud vabu kohti:"</string>
     <string name="bluetooth_map_settings_app_icon" msgid="7105805610929114707">"Rakenduse ikoon"</string>
     <string name="bluetooth_map_settings_title" msgid="7420332483392851321">"Bluetoothi sõnumi jagamise seaded"</string>
     <string name="bluetooth_map_settings_no_account_slots_left" msgid="1796029082612965251">"Kontot ei saa valida. Pole ühtegi vaba kohta"</string>
+    <string name="bluetooth_connected" msgid="6718623220072656906">"Bluetoothi heli on ühendatud"</string>
+    <string name="bluetooth_disconnected" msgid="3318303728981478873">"Bluetoothi heli ühendus on katkestatud"</string>
 </resources>

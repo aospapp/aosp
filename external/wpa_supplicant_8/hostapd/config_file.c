@@ -97,6 +97,8 @@ static int hostapd_config_read_vlan_file(struct hostapd_bss_config *bss,
 		}
 
 		vlan->vlan_id = vlan_id;
+		vlan->vlan_desc.untagged = vlan_id;
+		vlan->vlan_desc.notempty = !!vlan_id;
 		os_strlcpy(vlan->ifname, pos, sizeof(vlan->ifname));
 		vlan->next = bss->vlan;
 		bss->vlan = vlan;
@@ -197,7 +199,10 @@ static int hostapd_config_read_maclist(const char *fname,
 
 		*acl = newacl;
 		os_memcpy((*acl)[*num].addr, addr, ETH_ALEN);
-		(*acl)[*num].vlan_id = vlan_id;
+		os_memset(&(*acl)[*num].vlan_id, 0,
+			  sizeof((*acl)[*num].vlan_id));
+		(*acl)[*num].vlan_id.untagged = vlan_id;
+		(*acl)[*num].vlan_id.notempty = !!vlan_id;
 		(*num)++;
 	}
 
@@ -912,11 +917,11 @@ enum {
 	IEEE80211_TX_QUEUE_DATA3 = 3 /* used for EDCA AC_BK data */
 };
 
-static int hostapd_config_tx_queue(struct hostapd_config *conf, char *name,
-				   char *val)
+static int hostapd_config_tx_queue(struct hostapd_config *conf,
+				   const char *name, const char *val)
 {
 	int num;
-	char *pos;
+	const char *pos;
 	struct hostapd_tx_queue_params *queue;
 
 	/* skip 'tx_queue_' prefix */
@@ -1160,9 +1165,21 @@ static int hostapd_config_vht_capab(struct hostapd_config *conf,
 	if (os_strstr(capab, "[BF-ANTENNA-2]") &&
 	    (conf->vht_capab & VHT_CAP_SU_BEAMFORMEE_CAPABLE))
 		conf->vht_capab |= (1 << VHT_CAP_BEAMFORMEE_STS_OFFSET);
+	if (os_strstr(capab, "[BF-ANTENNA-3]") &&
+	    (conf->vht_capab & VHT_CAP_SU_BEAMFORMEE_CAPABLE))
+		conf->vht_capab |= (2 << VHT_CAP_BEAMFORMEE_STS_OFFSET);
+	if (os_strstr(capab, "[BF-ANTENNA-4]") &&
+	    (conf->vht_capab & VHT_CAP_SU_BEAMFORMEE_CAPABLE))
+		conf->vht_capab |= (3 << VHT_CAP_BEAMFORMEE_STS_OFFSET);
 	if (os_strstr(capab, "[SOUNDING-DIMENSION-2]") &&
 	    (conf->vht_capab & VHT_CAP_SU_BEAMFORMER_CAPABLE))
 		conf->vht_capab |= (1 << VHT_CAP_SOUNDING_DIMENSION_OFFSET);
+	if (os_strstr(capab, "[SOUNDING-DIMENSION-3]") &&
+	    (conf->vht_capab & VHT_CAP_SU_BEAMFORMER_CAPABLE))
+		conf->vht_capab |= (2 << VHT_CAP_SOUNDING_DIMENSION_OFFSET);
+	if (os_strstr(capab, "[SOUNDING-DIMENSION-4]") &&
+	    (conf->vht_capab & VHT_CAP_SU_BEAMFORMER_CAPABLE))
+		conf->vht_capab |= (3 << VHT_CAP_SOUNDING_DIMENSION_OFFSET);
 	if (os_strstr(capab, "[MU-BEAMFORMER]"))
 		conf->vht_capab |= VHT_CAP_MU_BEAMFORMER_CAPABLE;
 	if (os_strstr(capab, "[VHT-TXOP-PS]"))
@@ -1504,6 +1521,54 @@ static int parse_nai_realm(struct hostapd_bss_config *bss, char *buf, int line)
 fail:
 	wpa_printf(MSG_ERROR, "Line %d: invalid nai_realm '%s'", line, buf);
 	return -1;
+}
+
+
+static int parse_anqp_elem(struct hostapd_bss_config *bss, char *buf, int line)
+{
+	char *delim;
+	u16 infoid;
+	size_t len;
+	struct wpabuf *payload;
+	struct anqp_element *elem;
+
+	delim = os_strchr(buf, ':');
+	if (!delim)
+		return -1;
+	delim++;
+	infoid = atoi(buf);
+	len = os_strlen(delim);
+	if (len & 1)
+		return -1;
+	len /= 2;
+	payload = wpabuf_alloc(len);
+	if (!payload)
+		return -1;
+	if (hexstr2bin(delim, wpabuf_put(payload, len), len) < 0) {
+		wpabuf_free(payload);
+		return -1;
+	}
+
+	dl_list_for_each(elem, &bss->anqp_elem, struct anqp_element, list) {
+		if (elem->infoid == infoid) {
+			/* Update existing entry */
+			wpabuf_free(elem->payload);
+			elem->payload = payload;
+			return 0;
+		}
+	}
+
+	/* Add a new entry */
+	elem = os_zalloc(sizeof(*elem));
+	if (!elem) {
+		wpabuf_free(payload);
+		return -1;
+	}
+	elem->infoid = infoid;
+	elem->payload = payload;
+	dl_list_add(&bss->anqp_elem, &elem->list);
+
+	return 0;
 }
 
 
@@ -1924,7 +1989,7 @@ fail:
 
 static int hostapd_config_fill(struct hostapd_config *conf,
 			       struct hostapd_bss_config *bss,
-			       char *buf, char *pos, int line)
+			       const char *buf, char *pos, int line)
 {
 	if (os_strcmp(buf, "interface") == 0) {
 		os_strlcpy(conf->bss[0]->iface, pos,
@@ -2067,9 +2132,14 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 		bss->private_key_passwd = os_strdup(pos);
 	} else if (os_strcmp(buf, "check_crl") == 0) {
 		bss->check_crl = atoi(pos);
+	} else if (os_strcmp(buf, "tls_session_lifetime") == 0) {
+		bss->tls_session_lifetime = atoi(pos);
 	} else if (os_strcmp(buf, "ocsp_stapling_response") == 0) {
 		os_free(bss->ocsp_stapling_response);
 		bss->ocsp_stapling_response = os_strdup(pos);
+	} else if (os_strcmp(buf, "ocsp_stapling_response_multi") == 0) {
+		os_free(bss->ocsp_stapling_response_multi);
+		bss->ocsp_stapling_response_multi = os_strdup(pos);
 	} else if (os_strcmp(buf, "dh_file") == 0) {
 		os_free(bss->dh_file);
 		bss->dh_file = os_strdup(pos);
@@ -2125,6 +2195,8 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 	} else if (os_strcmp(buf, "eap_sim_db") == 0) {
 		os_free(bss->eap_sim_db);
 		bss->eap_sim_db = os_strdup(pos);
+	} else if (os_strcmp(buf, "eap_sim_db_timeout") == 0) {
+		bss->eap_sim_db_timeout = atoi(pos);
 	} else if (os_strcmp(buf, "eap_sim_aka_result_ind") == 0) {
 		bss->eap_sim_aka_result_ind = atoi(pos);
 #endif /* EAP_SERVER_SIM */
@@ -2630,7 +2702,7 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 		}
 	} else if (os_strcmp(buf, "rts_threshold") == 0) {
 		conf->rts_threshold = atoi(pos);
-		if (conf->rts_threshold < 0 || conf->rts_threshold > 2347) {
+		if (conf->rts_threshold < -1 || conf->rts_threshold > 65535) {
 			wpa_printf(MSG_ERROR,
 				   "Line %d: invalid rts_threshold %d",
 				   line, conf->rts_threshold);
@@ -2638,8 +2710,10 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 		}
 	} else if (os_strcmp(buf, "fragm_threshold") == 0) {
 		conf->fragm_threshold = atoi(pos);
-		if (conf->fragm_threshold < 256 ||
-		    conf->fragm_threshold > 2346) {
+		if (conf->fragm_threshold == -1) {
+			/* allow a value of -1 */
+		} else if (conf->fragm_threshold < 256 ||
+			   conf->fragm_threshold > 2346) {
 			wpa_printf(MSG_ERROR,
 				   "Line %d: invalid fragm_threshold %d",
 				   line, conf->fragm_threshold);
@@ -2672,6 +2746,8 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 			conf->preamble = LONG_PREAMBLE;
 	} else if (os_strcmp(buf, "ignore_broadcast_ssid") == 0) {
 		bss->ignore_broadcast_ssid = atoi(pos);
+	} else if (os_strcmp(buf, "no_probe_resp_if_max_sta") == 0) {
+		bss->no_probe_resp_if_max_sta = atoi(pos);
 	} else if (os_strcmp(buf, "wep_default_key") == 0) {
 		bss->ssid.wep.idx = atoi(pos);
 		if (bss->ssid.wep.idx > 3) {
@@ -2693,6 +2769,8 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 #ifndef CONFIG_NO_VLAN
 	} else if (os_strcmp(buf, "dynamic_vlan") == 0) {
 		bss->ssid.dynamic_vlan = atoi(pos);
+	} else if (os_strcmp(buf, "per_sta_vif") == 0) {
+		bss->ssid.per_sta_vif = atoi(pos);
 	} else if (os_strcmp(buf, "vlan_file") == 0) {
 		if (hostapd_config_read_vlan_file(bss, pos)) {
 			wpa_printf(MSG_ERROR, "Line %d: failed to read VLAN file '%s'",
@@ -2748,6 +2826,8 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 				   line);
 			return 1;
 		}
+	} else if (os_strcmp(buf, "use_driver_iface_addr") == 0) {
+		conf->use_driver_iface_addr = atoi(pos);
 #ifdef CONFIG_IEEE80211W
 	} else if (os_strcmp(buf, "ieee80211w") == 0) {
 		bss->ieee80211w = atoi(pos);
@@ -3122,6 +3202,9 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 	} else if (os_strcmp(buf, "nai_realm") == 0) {
 		if (parse_nai_realm(bss, pos, line) < 0)
 			return 1;
+	} else if (os_strcmp(buf, "anqp_elem") == 0) {
+		if (parse_anqp_elem(bss, pos, line) < 0)
+			return 1;
 	} else if (os_strcmp(buf, "gas_frag_limit") == 0) {
 		bss->gas_frag_limit = atoi(pos);
 	} else if (os_strcmp(buf, "gas_comeback_delay") == 0) {
@@ -3135,13 +3218,15 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 		os_free(bss->dump_msk_file);
 		bss->dump_msk_file = os_strdup(pos);
 #endif /* CONFIG_RADIUS_TEST */
+#ifdef CONFIG_PROXYARP
+	} else if (os_strcmp(buf, "proxy_arp") == 0) {
+		bss->proxy_arp = atoi(pos);
+#endif /* CONFIG_PROXYARP */
 #ifdef CONFIG_HS20
 	} else if (os_strcmp(buf, "hs20") == 0) {
 		bss->hs20 = atoi(pos);
 	} else if (os_strcmp(buf, "disable_dgaf") == 0) {
 		bss->disable_dgaf = atoi(pos);
-	} else if (os_strcmp(buf, "proxy_arp") == 0) {
-		bss->proxy_arp = atoi(pos);
 	} else if (os_strcmp(buf, "na_mcast_to_ucast") == 0) {
 		bss->na_mcast_to_ucast = atoi(pos);
 	} else if (os_strcmp(buf, "osen") == 0) {
@@ -3217,6 +3302,10 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 	} else if (os_strcmp(buf, "subscr_remediation_method") == 0) {
 		bss->subscr_remediation_method = atoi(pos);
 #endif /* CONFIG_HS20 */
+#ifdef CONFIG_MBO
+	} else if (os_strcmp(buf, "mbo") == 0) {
+		bss->mbo_enabled = atoi(pos);
+#endif /* CONFIG_MBO */
 #ifdef CONFIG_TESTING_OPTIONS
 #define PARSE_TEST_PROBABILITY(_val)				\
 	} else if (os_strcmp(buf, #_val) == 0) {		\
@@ -3235,6 +3324,8 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 	PARSE_TEST_PROBABILITY(ignore_assoc_probability)
 	PARSE_TEST_PROBABILITY(ignore_reassoc_probability)
 	PARSE_TEST_PROBABILITY(corrupt_gtk_rekey_mic_probability)
+	} else if (os_strcmp(buf, "ecsa_ie_only") == 0) {
+		conf->ecsa_ie_only = atoi(pos);
 	} else if (os_strcmp(buf, "bss_load_test") == 0) {
 		WPA_PUT_LE16(bss->bss_load_test, atoi(pos));
 		pos = os_strchr(pos, ':');
@@ -3256,6 +3347,24 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 		bss->bss_load_test_set = 1;
 	} else if (os_strcmp(buf, "radio_measurements") == 0) {
 		bss->radio_measurements = atoi(pos);
+	} else if (os_strcmp(buf, "own_ie_override") == 0) {
+		struct wpabuf *tmp;
+		size_t len = os_strlen(pos) / 2;
+
+		tmp = wpabuf_alloc(len);
+		if (!tmp)
+			return 1;
+
+		if (hexstr2bin(pos, wpabuf_put(tmp, len), len)) {
+			wpabuf_free(tmp);
+			wpa_printf(MSG_ERROR,
+				   "Line %d: Invalid own_ie_override '%s'",
+				   line, pos);
+			return 1;
+		}
+
+		wpabuf_free(bss->own_ie_override);
+		bss->own_ie_override = tmp;
 #endif /* CONFIG_TESTING_OPTIONS */
 	} else if (os_strcmp(buf, "vendor_elements") == 0) {
 		struct wpabuf *elems;
@@ -3309,6 +3418,75 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 	} else if (os_strcmp(buf, "wowlan_triggers") == 0) {
 		os_free(bss->wowlan_triggers);
 		bss->wowlan_triggers = os_strdup(pos);
+#ifdef CONFIG_FST
+	} else if (os_strcmp(buf, "fst_group_id") == 0) {
+		size_t len = os_strlen(pos);
+
+		if (!len || len >= sizeof(conf->fst_cfg.group_id)) {
+			wpa_printf(MSG_ERROR,
+				   "Line %d: Invalid fst_group_id value '%s'",
+				   line, pos);
+			return 1;
+		}
+
+		if (conf->fst_cfg.group_id[0]) {
+			wpa_printf(MSG_ERROR,
+				   "Line %d: Duplicate fst_group value '%s'",
+				   line, pos);
+			return 1;
+		}
+
+		os_strlcpy(conf->fst_cfg.group_id, pos,
+			   sizeof(conf->fst_cfg.group_id));
+	} else if (os_strcmp(buf, "fst_priority") == 0) {
+		char *endp;
+		long int val;
+
+		if (!*pos) {
+			wpa_printf(MSG_ERROR,
+				   "Line %d: fst_priority value not supplied (expected 1..%u)",
+				   line, FST_MAX_PRIO_VALUE);
+			return -1;
+		}
+
+		val = strtol(pos, &endp, 0);
+		if (*endp || val < 1 || val > FST_MAX_PRIO_VALUE) {
+			wpa_printf(MSG_ERROR,
+				   "Line %d: Invalid fst_priority %ld (%s) (expected 1..%u)",
+				   line, val, pos, FST_MAX_PRIO_VALUE);
+			return 1;
+		}
+		conf->fst_cfg.priority = (u8) val;
+	} else if (os_strcmp(buf, "fst_llt") == 0) {
+		char *endp;
+		long int val;
+
+		if (!*pos) {
+			wpa_printf(MSG_ERROR,
+				   "Line %d: fst_llt value not supplied (expected 1..%u)",
+				   line, FST_MAX_LLT_MS);
+			return -1;
+		}
+		val = strtol(pos, &endp, 0);
+		if (*endp || val < 1 ||
+		    (unsigned long int) val > FST_MAX_LLT_MS) {
+			wpa_printf(MSG_ERROR,
+				   "Line %d: Invalid fst_llt %ld (%s) (expected 1..%u)",
+				   line, val, pos, FST_MAX_LLT_MS);
+			return 1;
+		}
+		conf->fst_cfg.llt = (u32) val;
+#endif /* CONFIG_FST */
+	} else if (os_strcmp(buf, "track_sta_max_num") == 0) {
+		conf->track_sta_max_num = atoi(pos);
+	} else if (os_strcmp(buf, "track_sta_max_age") == 0) {
+		conf->track_sta_max_age = atoi(pos);
+	} else if (os_strcmp(buf, "no_probe_resp_if_seen_on") == 0) {
+		os_free(bss->no_probe_resp_if_seen_on);
+		bss->no_probe_resp_if_seen_on = os_strdup(pos);
+	} else if (os_strcmp(buf, "no_auth_if_seen_on") == 0) {
+		os_free(bss->no_auth_if_seen_on);
+		bss->no_auth_if_seen_on = os_strdup(pos);
 	} else {
 		wpa_printf(MSG_ERROR,
 			   "Line %d: unknown configuration item '%s'",
@@ -3329,7 +3507,7 @@ struct hostapd_config * hostapd_config_read(const char *fname)
 {
 	struct hostapd_config *conf;
 	FILE *f;
-	char buf[512], *pos;
+	char buf[4096], *pos;
 	int line = 0;
 	int errors = 0;
 	size_t i;
@@ -3411,7 +3589,8 @@ struct hostapd_config * hostapd_config_read(const char *fname)
 
 
 int hostapd_set_iface(struct hostapd_config *conf,
-		      struct hostapd_bss_config *bss, char *field, char *value)
+		      struct hostapd_bss_config *bss, const char *field,
+		      char *value)
 {
 	int errors;
 	size_t i;

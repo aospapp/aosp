@@ -150,13 +150,6 @@ public class HashingTest extends TestCase {
     HashTestUtils.assertInvariants(Hashing.goodFastHash(256));
   }
 
-  public void testPadToLong() {
-    assertEquals(0x1111111111111111L, Hashing.padToLong(HashCodes.fromLong(0x1111111111111111L)));
-    assertEquals(0x9999999999999999L, Hashing.padToLong(HashCodes.fromLong(0x9999999999999999L)));
-    assertEquals(0x0000000011111111L, Hashing.padToLong(HashCodes.fromInt(0x11111111)));
-    assertEquals(0x0000000099999999L, Hashing.padToLong(HashCodes.fromInt(0x99999999)));
-  }
-
   public void testConsistentHash_correctness() {
     long[] interestingValues = { -1, 0, 1, 2, Long.MAX_VALUE, Long.MIN_VALUE };
     for (long h : interestingValues) {
@@ -421,6 +414,9 @@ public class HashingTest extends TestCase {
           .put(Hashing.sipHash24(), EMPTY_STRING, "310e0edd47db6f72")
           .put(Hashing.sipHash24(), TQBFJOTLD, "e46f1fdc05612752")
           .put(Hashing.sipHash24(), TQBFJOTLDP, "9b602581fce4d4f8")
+          .put(Hashing.crc32c(), EMPTY_STRING, "00000000")
+          .put(Hashing.crc32c(), TQBFJOTLD, "04046222")
+          .put(Hashing.crc32c(), TQBFJOTLDP, "b3970019")
           .build();
 
   public void testAllHashFunctionsHaveKnownHashes() throws Exception {

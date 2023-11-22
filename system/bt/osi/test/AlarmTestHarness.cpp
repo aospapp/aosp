@@ -16,15 +16,18 @@
  *
  ******************************************************************************/
 
-#include <gtest/gtest.h>
-#include <hardware/bluetooth.h>
-#include <unistd.h>
-
 #include "AlarmTestHarness.h"
 
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <unistd.h>
+
+#include <hardware/bluetooth.h>
+
 extern "C" {
-#include "alarm.h"
-#include "allocation_tracker.h"
+#include "osi/include/alarm.h"
+#include "osi/include/allocation_tracker.h"
+#include "osi/include/wakelock.h"
 }
 
 static timer_t timer;
@@ -41,7 +44,6 @@ void AlarmTestHarness::SetUp() {
 
   current_harness = this;
   TIMER_INTERVAL_FOR_WAKELOCK_IN_MS = 100;
-  lock_count = 0;
 
   struct sigevent sigevent;
   memset(&sigevent, 0, sizeof(sigevent));
@@ -49,44 +51,77 @@ void AlarmTestHarness::SetUp() {
   sigevent.sigev_notify_function = (void (*)(union sigval))timer_callback;
   sigevent.sigev_value.sival_ptr = NULL;
   timer_create(CLOCK_BOOTTIME, &sigevent, &timer);
+
+  // TODO (jamuraa): maybe use base::CreateNewTempDirectory instead?
+#if defined(OS_GENERIC)
+  tmp_dir_ = "/tmp/btwlXXXXXX";
+#else  // !defined(OS_GENERIC)
+  tmp_dir_ = "/data/local/tmp/btwlXXXXXX";
+#endif  // !defined(OS_GENERIC)
+
+  char *buffer = const_cast<char *>(tmp_dir_.c_str());
+  char *dtemp = mkdtemp(buffer);
+  if (!dtemp) {
+    perror("Can't make wake lock test directory: ");
+    assert(false);
+  }
+
+  lock_path_ = tmp_dir_ + "/wake_lock";
+  unlock_path_ = tmp_dir_ + "/wake_unlock";
+
+  creat(lock_path_.c_str(), S_IRWXU);
+  creat(unlock_path_.c_str(), S_IRWXU);
+
+  wakelock_set_paths(lock_path_.c_str(), unlock_path_.c_str());
 }
 
 void AlarmTestHarness::TearDown() {
   alarm_cleanup();
+  wakelock_cleanup();
+
+  // clean up the temp wake lock directory
+  unlink(lock_path_.c_str());
+  unlink(unlock_path_.c_str());
+  rmdir(tmp_dir_.c_str());
+
   timer_delete(timer);
   AllocationTestHarness::TearDown();
 }
 
-static bool set_wake_alarm(uint64_t delay_millis, bool, alarm_cb cb, void *data) {
-  saved_callback = cb;
-  saved_data = data;
 
-  struct itimerspec wakeup_time;
-  memset(&wakeup_time, 0, sizeof(wakeup_time));
-  wakeup_time.it_value.tv_sec = (delay_millis / 1000);
-  wakeup_time.it_value.tv_nsec = (delay_millis % 1000) * 1000000LL;
-  timer_settime(timer, 0, &wakeup_time, NULL);
-  return true;
+bool AlarmTestHarness::WakeLockHeld() {
+  bool held = false;
+
+  int lock_fd = open(lock_path_.c_str(), O_RDONLY);
+  assert(lock_fd >= 0);
+
+  int unlock_fd = open(unlock_path_.c_str(), O_RDONLY);
+  assert(unlock_fd >= 0);
+
+  struct stat lock_stat, unlock_stat;
+  fstat(lock_fd, &lock_stat);
+  fstat(unlock_fd, &unlock_stat);
+
+  assert(lock_stat.st_size >= unlock_stat.st_size);
+
+  void *lock_file = mmap(nullptr, lock_stat.st_size, PROT_READ,
+                         MAP_PRIVATE, lock_fd, 0);
+
+  void *unlock_file = mmap(nullptr, unlock_stat.st_size, PROT_READ,
+                           MAP_PRIVATE, unlock_fd, 0);
+
+  if (memcmp(lock_file, unlock_file, unlock_stat.st_size) == 0) {
+    held = lock_stat.st_size > unlock_stat.st_size;
+  } else {
+    // these files should always either be with a lock that has more,
+    // or equal.
+    assert(false);
+  }
+
+  munmap(lock_file, lock_stat.st_size);
+  munmap(unlock_file, unlock_stat.st_size);
+  close(lock_fd);
+  close(unlock_fd);
+
+  return held;
 }
-
-static int acquire_wake_lock(const char *) {
-  if (!current_harness->lock_count)
-    current_harness->lock_count = 1;
-  return BT_STATUS_SUCCESS;
-}
-
-static int release_wake_lock(const char *) {
-  if (current_harness->lock_count)
-    current_harness->lock_count = 0;
-  return BT_STATUS_SUCCESS;
-}
-
-static bt_os_callouts_t stub = {
-  sizeof(bt_os_callouts_t),
-  set_wake_alarm,
-  acquire_wake_lock,
-  release_wake_lock,
-};
-
-bt_os_callouts_t *bt_os_callouts = &stub;
-

@@ -20,6 +20,8 @@ import com.android.ddmlib.Log.LogLevel;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
 
+import java.util.Collections;
+
 /**
  * Set of tests for LauncherApps attempting to access a non-profiles
  * apps.
@@ -27,7 +29,7 @@ import com.android.tradefed.log.LogUtil.CLog;
 public class LauncherAppsMultiUserTest extends BaseLauncherAppsTest {
 
     private int mSecondaryUserId;
-    private int mSecondaryUserSerialNumber;
+    private String mSecondaryUserSerialNumber;
 
     private boolean mMultiUserSupported;
 
@@ -43,7 +45,7 @@ public class LauncherAppsMultiUserTest extends BaseLauncherAppsTest {
             installTestApps();
             // Create a secondary user.
             mSecondaryUserId = createUser();
-            mSecondaryUserSerialNumber = getUserSerialNumber(mSecondaryUserId);
+            mSecondaryUserSerialNumber = Integer.toString(getUserSerialNumber(mSecondaryUserId));
             startUser(mSecondaryUserId);
         }
     }
@@ -61,15 +63,12 @@ public class LauncherAppsMultiUserTest extends BaseLauncherAppsTest {
         if (!mMultiUserSupported) {
             return;
         }
-        installApp(SIMPLE_APP_APK);
-        try {
-            assertTrue(runDeviceTests(LAUNCHER_TESTS_PKG,
-                    LAUNCHER_TESTS_CLASS,
-                    "testGetActivitiesForUserFails",
-                            0, "-e testUser " + mSecondaryUserSerialNumber));
-        } finally {
-            getDevice().uninstallPackage(SIMPLE_APP_PKG);
-        }
+        installAppAsUser(SIMPLE_APP_APK, mPrimaryUserId);
+        assertTrue(runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
+                LAUNCHER_TESTS_CLASS,
+                "testGetActivitiesForUserFails",
+                mPrimaryUserId,
+                Collections.singletonMap(PARAM_TEST_USER, mSecondaryUserSerialNumber)));
     }
 
     public void testNoLauncherCallbackPackageAddedSecondaryUser() throws Exception {
@@ -77,14 +76,11 @@ public class LauncherAppsMultiUserTest extends BaseLauncherAppsTest {
             return;
         }
         startCallbackService();
-        installApp(SIMPLE_APP_APK);
-        try {
-            assertTrue(runDeviceTests(LAUNCHER_TESTS_PKG,
-                    LAUNCHER_TESTS_CLASS,
-                            "testNoPackageAddedCallbackForUser",
-                            0, "-e testUser " + mSecondaryUserSerialNumber));
-        } finally {
-            getDevice().uninstallPackage(SIMPLE_APP_PKG);
-        }
+        installAppAsUser(SIMPLE_APP_APK, mPrimaryUserId);
+        assertTrue(runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
+                LAUNCHER_TESTS_CLASS,
+                "testNoPackageAddedCallbackForUser",
+                mPrimaryUserId,
+                Collections.singletonMap(PARAM_TEST_USER, mSecondaryUserSerialNumber)));
     }
 }

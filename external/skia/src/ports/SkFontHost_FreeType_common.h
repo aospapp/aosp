@@ -10,9 +10,12 @@
 #define SKFONTHOST_FREETYPE_COMMON_H_
 
 #include "SkGlyph.h"
+#include "SkMutex.h"
 #include "SkScalerContext.h"
 #include "SkTypeface.h"
 #include "SkTypes.h"
+
+#include "SkFontMgr.h"
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -43,9 +46,23 @@ public:
     public:
         Scanner();
         ~Scanner();
+        struct AxisDefinition {
+            SkFourByteTag fTag;
+            SkFixed fMinimum;
+            SkFixed fDefault;
+            SkFixed fMaximum;
+        };
+        using AxisDefinitions = SkSTArray<4, AxisDefinition, true>;
         bool recognizedFont(SkStream* stream, int* numFonts) const;
         bool scanFont(SkStream* stream, int ttcIndex,
-                      SkString* name, SkFontStyle* style, bool* isFixedPitch) const;
+                      SkString* name, SkFontStyle* style, bool* isFixedPitch,
+                      AxisDefinitions* axes) const;
+        static void computeAxisValues(
+            AxisDefinitions axisDefinitions,
+            const SkFontMgr::FontParameters::Axis* requestedAxis, int requestedAxisCount,
+            SkFixed* axisValues,
+            const SkString& name);
+
     private:
         FT_Face openFace(SkStream* stream, int ttcIndex, FT_Stream ftStream) const;
         FT_Library fLibrary;

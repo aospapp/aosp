@@ -49,10 +49,11 @@ public class OldNumberFormatTest extends TestCase {
 
         Locale arLocale = new Locale("ar", "AE");
         format = (DecimalFormat) NumberFormat.getIntegerInstance(arLocale);
-        assertEquals("#,##0", format.toPattern());
+        String variant = (format.toPattern().indexOf(';') > 0) ? "#,##0;-#,##0" : "#,##0";
+        assertEquals(variant, format.toPattern());
         assertEquals("\u0666\u0667", format.format(67));
 
-        assertEquals("\u200f-\u0666", format.format(-6));
+        assertEquals("-\u0666", format.format(-6));
         assertEquals(-36L, format.parse("-36"));
 
         // New Arabic formats do not support '-' to right of digits.
@@ -316,7 +317,7 @@ public class OldNumberFormatTest extends TestCase {
         format = NumberFormat.getCurrencyInstance(atLocale);
         // BEGIN android-changed: ICU uses non-breaking space after the euro sign; the RI uses ' '.
         assertEquals("\u20ac\u00a035,76", format.format(35.76));
-        assertEquals("\u20ac\u00a0123.456,79", format.format(123456.789));
+        assertEquals("\u20ac\u00a0123\u00a0456,79", format.format(123456.789));
         assertEquals("\u20ac\u00a00,10", format.format(0.1));
         assertEquals("\u20ac\u00a01,00", format.format(0.999));
         try {

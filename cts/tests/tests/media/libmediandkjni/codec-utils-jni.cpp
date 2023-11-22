@@ -29,6 +29,8 @@
 
 #include <math.h>
 
+#include "md5_utils.h"
+
 typedef ssize_t offs_t;
 
 struct NativeImage {
@@ -241,7 +243,7 @@ NativeImage *getNativeImage(JNIEnv *env, jobject image, jobject area = NULL) {
     return img;
 }
 
-extern "C" jint Java_android_media_cts_CodecUtils_getImageChecksum(JNIEnv *env,
+extern "C" jint Java_android_media_cts_CodecUtils_getImageChecksumAlder32(JNIEnv *env,
         jclass /*clazz*/, jobject image)
 {
     NativeImage *img = getNativeImage(env, image);
@@ -264,6 +266,47 @@ extern "C" jint Java_android_media_cts_CodecUtils_getImageChecksum(JNIEnv *env,
     }
     ALOGV("adler %zu/%u", adler.length(), adler.checksum());
     return adler.checksum();
+}
+
+extern "C" jstring Java_android_media_cts_CodecUtils_getImageChecksumMD5(JNIEnv *env,
+        jclass /*clazz*/, jobject image)
+{
+    NativeImage *img = getNativeImage(env, image);
+    if (img == NULL) {
+        return 0;
+    }
+
+    MD5Context md5;
+    char res[33];
+    MD5Init(&md5);
+
+    for (size_t ix = 0; ix < img->numPlanes; ++ix) {
+        const uint8_t *row = img->plane[ix].buffer + img->plane[ix].cropOffs;
+        for (size_t y = img->plane[ix].cropHeight; y > 0; --y) {
+            const uint8_t *col = row;
+            ssize_t colInc = img->plane[ix].colInc;
+            for (size_t x = img->plane[ix].cropWidth; x > 0; --x) {
+                MD5Update(&md5, col, 1);
+                col += colInc;
+            }
+            row += img->plane[ix].rowInc;
+        }
+    }
+
+    static const char hex[16] = {
+        '0', '1', '2', '3', '4', '5', '6', '7',
+        '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
+    };
+    uint8_t tmp[16];
+
+    MD5Final(tmp, &md5);
+    for (int i = 0; i < 16; i++) {
+        res[i * 2 + 0] = hex[tmp[i] >> 4];
+        res[i * 2 + 1] = hex[tmp[i] & 0xf];
+    }
+    res[32] = 0;
+
+    return env->NewStringUTF(res);
 }
 
 /* tiled copy that loops around source image boundary */

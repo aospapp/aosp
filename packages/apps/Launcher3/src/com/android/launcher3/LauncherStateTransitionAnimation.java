@@ -22,6 +22,7 @@ import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.PropertyValuesHolder;
 import android.animation.TimeInterpolator;
+import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.content.res.Resources;
 import android.util.Log;
@@ -79,20 +80,18 @@ import java.util.HashMap;
  */
 public class LauncherStateTransitionAnimation {
 
-    /**
-     * Callbacks made during the state transition
-     */
-    interface Callbacks {
-        public void onStateTransitionHideSearchBar();
-    }
+    private static final float FINAL_REVEAL_ALPHA_FOR_WIDGETS = 0.3f;
 
     /**
      * Private callbacks made during transition setup.
      */
-    static abstract class PrivateTransitionCallbacks {
-        float getMaterialRevealViewFinalAlpha(View revealView) {
-            return 0;
+    private static class PrivateTransitionCallbacks {
+        private final float materialRevealViewFinalAlpha;
+
+        PrivateTransitionCallbacks(float revealAlpha) {
+            materialRevealViewFinalAlpha = revealAlpha;
         }
+
         float getMaterialRevealViewStartFinalRadius() {
             return 0;
         }
@@ -103,7 +102,7 @@ public class LauncherStateTransitionAnimation {
         void onTransitionComplete() {}
     }
 
-    public static final String TAG = "LauncherStateTransitionAnimation";
+    public static final String TAG = "LSTAnimation";
 
     // Flags to determine how to set the layers on views before the transition animation
     public static final int BUILD_LAYER = 0;
@@ -111,12 +110,10 @@ public class LauncherStateTransitionAnimation {
     public static final int SINGLE_FRAME_DELAY = 16;
 
     @Thunk Launcher mLauncher;
-    @Thunk Callbacks mCb;
-    @Thunk AnimatorSet mStateAnimation;
+    @Thunk AnimatorSet mCurrentAnimation;
 
-    public LauncherStateTransitionAnimation(Launcher l, Callbacks cb) {
+    public LauncherStateTransitionAnimation(Launcher l) {
         mLauncher = l;
-        mCb = cb;
     }
 
     /**
@@ -125,15 +122,11 @@ public class LauncherStateTransitionAnimation {
      * @param startSearchAfterTransition Immediately starts app search after the transition to
      *                                   All Apps is completed.
      */
-    public void startAnimationToAllApps(final boolean animated,
-            final boolean startSearchAfterTransition) {
+    public void startAnimationToAllApps(final Workspace.State fromWorkspaceState,
+            final boolean animated, final boolean startSearchAfterTransition) {
         final AllAppsContainerView toView = mLauncher.getAppsView();
         final View buttonView = mLauncher.getAllAppsButton();
-        PrivateTransitionCallbacks cb = new PrivateTransitionCallbacks() {
-            @Override
-            public float getMaterialRevealViewFinalAlpha(View revealView) {
-                return 1f;
-            }
+        PrivateTransitionCallbacks cb = new PrivateTransitionCallbacks(1f) {
             @Override
             public float getMaterialRevealViewStartFinalRadius() {
                 int allAppsButtonSize = mLauncher.getDeviceProfile().allAppsButtonVisualSize;
@@ -159,35 +152,29 @@ public class LauncherStateTransitionAnimation {
             }
         };
         // Only animate the search bar if animating from spring loaded mode back to all apps
-        startAnimationToOverlay(Workspace.State.NORMAL_HIDDEN, buttonView, toView,
-                toView.getContentView(), toView.getRevealView(), toView.getSearchBarView(),
-                animated, true /* hideSearchBar */, cb);
+        mCurrentAnimation = startAnimationToOverlay(fromWorkspaceState,
+                Workspace.State.NORMAL_HIDDEN, buttonView, toView, animated, cb);
     }
 
     /**
      * Starts an animation to the widgets view.
      */
-    public void startAnimationToWidgets(final boolean animated) {
+    public void startAnimationToWidgets(final Workspace.State fromWorkspaceState,
+            final boolean animated) {
         final WidgetsContainerView toView = mLauncher.getWidgetsView();
         final View buttonView = mLauncher.getWidgetsButton();
 
-        PrivateTransitionCallbacks cb = new PrivateTransitionCallbacks() {
-            @Override
-            public float getMaterialRevealViewFinalAlpha(View revealView) {
-                return 0.3f;
-            }
-        };
-        startAnimationToOverlay(Workspace.State.OVERVIEW_HIDDEN, buttonView, toView,
-                toView.getContentView(), toView.getRevealView(), null, animated,
-                true /* hideSearchBar */, cb);
+        mCurrentAnimation = startAnimationToOverlay(fromWorkspaceState,
+                Workspace.State.OVERVIEW_HIDDEN, buttonView, toView, animated,
+                new PrivateTransitionCallbacks(FINAL_REVEAL_ALPHA_FOR_WIDGETS));
     }
 
     /**
      * Starts and animation to the workspace from the current overlay view.
      */
     public void startAnimationToWorkspace(final Launcher.State fromState,
-              final Workspace.State toWorkspaceState, final int toWorkspacePage,
-              final boolean animated, final Runnable onCompleteRunnable) {
+            final Workspace.State fromWorkspaceState, final Workspace.State toWorkspaceState,
+            final int toWorkspacePage, final boolean animated, final Runnable onCompleteRunnable) {
         if (toWorkspaceState != Workspace.State.NORMAL &&
                 toWorkspaceState != Workspace.State.SPRING_LOADED &&
                 toWorkspaceState != Workspace.State.OVERVIEW) {
@@ -195,10 +182,10 @@ public class LauncherStateTransitionAnimation {
         }
 
         if (fromState == Launcher.State.APPS || fromState == Launcher.State.APPS_SPRING_LOADED) {
-            startAnimationToWorkspaceFromAllApps(toWorkspaceState, toWorkspacePage,
+            startAnimationToWorkspaceFromAllApps(fromWorkspaceState, toWorkspaceState, toWorkspacePage,
                     animated, onCompleteRunnable);
         } else {
-            startAnimationToWorkspaceFromWidgets(toWorkspaceState, toWorkspacePage,
+            startAnimationToWorkspaceFromWidgets(fromWorkspaceState, toWorkspaceState, toWorkspacePage,
                     animated, onCompleteRunnable);
         }
     }
@@ -207,15 +194,15 @@ public class LauncherStateTransitionAnimation {
      * Creates and starts a new animation to a particular overlay view.
      */
     @SuppressLint("NewApi")
-    private void startAnimationToOverlay(final Workspace.State toWorkspaceState,
-            final View buttonView, final View toView, final View contentView, final View revealView,
-            final View overlaySearchBarView, final boolean animated, final boolean hideSearchBar,
-            final PrivateTransitionCallbacks pCb) {
+    private AnimatorSet startAnimationToOverlay(
+            final Workspace.State fromWorkspaceState, final Workspace.State toWorkspaceState,
+            final View buttonView, final BaseContainerView toView,
+            final boolean animated, final PrivateTransitionCallbacks pCb) {
+        final AnimatorSet animation = LauncherAnimUtils.createAnimatorSet();
         final Resources res = mLauncher.getResources();
-        final boolean material = Utilities.isLmpOrAbove();
+        final boolean material = Utilities.ATLEAST_LOLLIPOP;
         final int revealDuration = res.getInteger(R.integer.config_overlayRevealTime);
-        final int itemsAlphaStagger =
-                res.getInteger(R.integer.config_overlayItemsAlphaStagger);
+        final int itemsAlphaStagger = res.getInteger(R.integer.config_overlayItemsAlphaStagger);
 
         final View fromView = mLauncher.getWorkspace();
 
@@ -230,12 +217,20 @@ public class LauncherStateTransitionAnimation {
         // Create the workspace animation.
         // NOTE: this call apparently also sets the state for the workspace if !animated
         Animator workspaceAnim = mLauncher.startWorkspaceStateChangeAnimation(toWorkspaceState, -1,
-                animated, overlaySearchBarView != null /* hasOverlaySearchBar */, layerViews);
+                animated, layerViews);
+
+        // Animate the search bar
+        startWorkspaceSearchBarAnimation(
+                toWorkspaceState, animated ? revealDuration : 0, animation);
+
+        Animator updateTransitionStepAnim = dispatchOnLauncherTransitionStepAnim(fromView, toView);
+
+        final View contentView = toView.getContentView();
 
         if (animated && initialized) {
-            mStateAnimation = LauncherAnimUtils.createAnimatorSet();
-
             // Setup the reveal view animation
+            final View revealView = toView.getRevealView();
+
             int width = revealView.getMeasuredWidth();
             int height = revealView.getMeasuredHeight();
             float revealRadius = (float) Math.hypot(width / 2, height / 2);
@@ -249,9 +244,9 @@ public class LauncherStateTransitionAnimation {
             final float revealViewToXDrift;
             final float revealViewToYDrift;
             if (material) {
-                int[] buttonViewToPanelDelta = Utilities.getCenterDeltaInScreenSpace(revealView,
-                        buttonView, null);
-                revealViewToAlpha = pCb.getMaterialRevealViewFinalAlpha(revealView);
+                int[] buttonViewToPanelDelta = Utilities.getCenterDeltaInScreenSpace(
+                        revealView, buttonView, null);
+                revealViewToAlpha = pCb.materialRevealViewFinalAlpha;
                 revealViewToYDrift = buttonViewToPanelDelta[1];
                 revealViewToXDrift = buttonViewToPanelDelta[0];
             } else {
@@ -274,16 +269,7 @@ public class LauncherStateTransitionAnimation {
 
             // Play the animation
             layerViews.put(revealView, BUILD_AND_SET_LAYER);
-            mStateAnimation.play(panelAlphaAndDrift);
-
-            if (overlaySearchBarView != null) {
-                overlaySearchBarView.setAlpha(0f);
-                ObjectAnimator searchBarAlpha = ObjectAnimator.ofFloat(overlaySearchBarView, "alpha", 0f, 1f);
-                searchBarAlpha.setDuration(100);
-                searchBarAlpha.setInterpolator(new AccelerateInterpolator(1.5f));
-                layerViews.put(overlaySearchBarView, BUILD_AND_SET_LAYER);
-                mStateAnimation.play(searchBarAlpha);
-            }
+            animation.play(panelAlphaAndDrift);
 
             // Setup the animation for the content view
             contentView.setVisibility(View.VISIBLE);
@@ -297,13 +283,13 @@ public class LauncherStateTransitionAnimation {
             pageDrift.setDuration(revealDuration);
             pageDrift.setInterpolator(new LogDecelerateInterpolator(100, 0));
             pageDrift.setStartDelay(itemsAlphaStagger);
-            mStateAnimation.play(pageDrift);
+            animation.play(pageDrift);
 
             ObjectAnimator itemsAlpha = ObjectAnimator.ofFloat(contentView, "alpha", 0f, 1f);
             itemsAlpha.setDuration(revealDuration);
             itemsAlpha.setInterpolator(new AccelerateInterpolator(1.5f));
             itemsAlpha.setStartDelay(itemsAlphaStagger);
-            mStateAnimation.play(itemsAlpha);
+            animation.play(itemsAlpha);
 
             if (material) {
                 float startRadius = pCb.getMaterialRevealViewStartFinalRadius();
@@ -316,10 +302,10 @@ public class LauncherStateTransitionAnimation {
                 if (listener != null) {
                     reveal.addListener(listener);
                 }
-                mStateAnimation.play(reveal);
+                animation.play(reveal);
             }
 
-            mStateAnimation.addListener(new AnimatorListenerAdapter() {
+            animation.addListener(new AnimatorListenerAdapter() {
                 @Override
                 public void onAnimationEnd(Animator animation) {
                     dispatchOnLauncherTransitionEnd(fromView, animated, false);
@@ -335,12 +321,8 @@ public class LauncherStateTransitionAnimation {
                         }
                     }
 
-                    if (hideSearchBar) {
-                        mCb.onStateTransitionHideSearchBar();
-                    }
-
                     // This can hold unnecessary references to views.
-                    mStateAnimation = null;
+                    cleanupAnimation();
                     pCb.onTransitionComplete();
                 }
 
@@ -348,31 +330,31 @@ public class LauncherStateTransitionAnimation {
 
             // Play the workspace animation
             if (workspaceAnim != null) {
-                mStateAnimation.play(workspaceAnim);
+                animation.play(workspaceAnim);
             }
+
+            animation.play(updateTransitionStepAnim);
 
             // Dispatch the prepare transition signal
             dispatchOnLauncherTransitionPrepare(fromView, animated, false);
             dispatchOnLauncherTransitionPrepare(toView, animated, false);
 
-
-            final AnimatorSet stateAnimation = mStateAnimation;
+            final AnimatorSet stateAnimation = animation;
             final Runnable startAnimRunnable = new Runnable() {
                 public void run() {
-                    // Check that mStateAnimation hasn't changed while
+                    // Check that mCurrentAnimation hasn't changed while
                     // we waited for a layout/draw pass
-                    if (mStateAnimation != stateAnimation)
+                    if (mCurrentAnimation != stateAnimation)
                         return;
                     dispatchOnLauncherTransitionStart(fromView, animated, false);
                     dispatchOnLauncherTransitionStart(toView, animated, false);
 
                     // Enable all necessary layers
-                    boolean isLmpOrAbove = Utilities.isLmpOrAbove();
                     for (View v : layerViews.keySet()) {
                         if (layerViews.get(v) == BUILD_AND_SET_LAYER) {
                             v.setLayerType(View.LAYER_TYPE_HARDWARE, null);
                         }
-                        if (isLmpOrAbove && Utilities.isViewAttachedToWindow(v)) {
+                        if (Utilities.ATLEAST_LOLLIPOP && Utilities.isViewAttachedToWindow(v)) {
                             v.buildLayer();
                         }
                     }
@@ -380,12 +362,14 @@ public class LauncherStateTransitionAnimation {
                     // Focus the new view
                     toView.requestFocus();
 
-                    mStateAnimation.start();
+                    stateAnimation.start();
                 }
             };
             toView.bringToFront();
             toView.setVisibility(View.VISIBLE);
             toView.post(startAnimRunnable);
+
+            return animation;
         } else {
             toView.setTranslationX(0.0f);
             toView.setTranslationY(0.0f);
@@ -397,10 +381,6 @@ public class LauncherStateTransitionAnimation {
             // Show the content view
             contentView.setVisibility(View.VISIBLE);
 
-            if (hideSearchBar) {
-                mCb.onStateTransitionHideSearchBar();
-            }
-
             dispatchOnLauncherTransitionPrepare(fromView, animated, false);
             dispatchOnLauncherTransitionStart(fromView, animated, false);
             dispatchOnLauncherTransitionEnd(fromView, animated, false);
@@ -408,23 +388,38 @@ public class LauncherStateTransitionAnimation {
             dispatchOnLauncherTransitionStart(toView, animated, false);
             dispatchOnLauncherTransitionEnd(toView, animated, false);
             pCb.onTransitionComplete();
+
+            return null;
         }
+    }
+
+    /**
+     * Returns an Animator that calls {@link #dispatchOnLauncherTransitionStep(View, float)} on
+     * {@param fromView} and {@param toView} as the animation interpolates.
+     *
+     * This is a bit hacky: we create a dummy ValueAnimator just for the AnimatorUpdateListener.
+     */
+    private Animator dispatchOnLauncherTransitionStepAnim(final View fromView, final View toView) {
+        ValueAnimator updateAnimator = ValueAnimator.ofFloat(0, 1);
+        updateAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator animation) {
+                dispatchOnLauncherTransitionStep(fromView, animation.getAnimatedFraction());
+                dispatchOnLauncherTransitionStep(toView, animation.getAnimatedFraction());
+            }
+        });
+        return updateAnimator;
     }
 
     /**
      * Starts and animation to the workspace from the apps view.
      */
-    private void startAnimationToWorkspaceFromAllApps(final Workspace.State toWorkspaceState,
-            final int toWorkspacePage, final boolean animated, final Runnable onCompleteRunnable) {
+    private void startAnimationToWorkspaceFromAllApps(final Workspace.State fromWorkspaceState,
+            final Workspace.State toWorkspaceState, final int toWorkspacePage,
+            final boolean animated, final Runnable onCompleteRunnable) {
         AllAppsContainerView appsView = mLauncher.getAppsView();
-        PrivateTransitionCallbacks cb = new PrivateTransitionCallbacks() {
-            int[] mAllAppsToPanelDelta;
-
-            @Override
-            float getMaterialRevealViewFinalAlpha(View revealView) {
-                // No alpha anim from all apps
-                return 1f;
-            }
+        // No alpha anim from all apps
+        PrivateTransitionCallbacks cb = new PrivateTransitionCallbacks(1f) {
             @Override
             float getMaterialRevealViewStartFinalRadius() {
                 int allAppsButtonSize = mLauncher.getDeviceProfile().allAppsButtonVisualSize;
@@ -451,23 +446,20 @@ public class LauncherStateTransitionAnimation {
             }
         };
         // Only animate the search bar if animating to spring loaded mode from all apps
-        startAnimationToWorkspaceFromOverlay(toWorkspaceState, toWorkspacePage,
-                mLauncher.getAllAppsButton(), appsView, appsView.getContentView(),
-                appsView.getRevealView(), appsView.getSearchBarView(), animated,
-                onCompleteRunnable, cb);
+        mCurrentAnimation = startAnimationToWorkspaceFromOverlay(fromWorkspaceState, toWorkspaceState,
+                toWorkspacePage, mLauncher.getAllAppsButton(), appsView,
+                animated, onCompleteRunnable, cb);
     }
 
     /**
      * Starts and animation to the workspace from the widgets view.
      */
-    private void startAnimationToWorkspaceFromWidgets(final Workspace.State toWorkspaceState,
-              final int toWorkspacePage, final boolean animated, final Runnable onCompleteRunnable) {
+    private void startAnimationToWorkspaceFromWidgets(final Workspace.State fromWorkspaceState,
+            final Workspace.State toWorkspaceState, final int toWorkspacePage,
+            final boolean animated, final Runnable onCompleteRunnable) {
         final WidgetsContainerView widgetsView = mLauncher.getWidgetsView();
-        PrivateTransitionCallbacks cb = new PrivateTransitionCallbacks() {
-            @Override
-            float getMaterialRevealViewFinalAlpha(View revealView) {
-                return 0.3f;
-            }
+        PrivateTransitionCallbacks cb =
+                new PrivateTransitionCallbacks(FINAL_REVEAL_ALPHA_FOR_WIDGETS) {
             @Override
             public AnimatorListenerAdapter getMaterialRevealViewAnimatorListener(
                     final View revealView, final View widgetsButtonView) {
@@ -479,21 +471,24 @@ public class LauncherStateTransitionAnimation {
                 };
             }
         };
-        startAnimationToWorkspaceFromOverlay(toWorkspaceState, toWorkspacePage,
-                mLauncher.getWidgetsButton(), widgetsView, widgetsView.getContentView(),
-                widgetsView.getRevealView(), null, animated, onCompleteRunnable, cb);
+        mCurrentAnimation = startAnimationToWorkspaceFromOverlay(
+                fromWorkspaceState, toWorkspaceState,
+                toWorkspacePage, mLauncher.getWidgetsButton(), widgetsView,
+                animated, onCompleteRunnable, cb);
     }
 
     /**
      * Creates and starts a new animation to the workspace.
      */
-    private void startAnimationToWorkspaceFromOverlay(final Workspace.State toWorkspaceState,
-              final int toWorkspacePage, final View buttonView, final View fromView,
-              final View contentView, final View revealView, final View overlaySearchBarView,
-              final boolean animated, final Runnable onCompleteRunnable,
-              final PrivateTransitionCallbacks pCb) {
+    private AnimatorSet startAnimationToWorkspaceFromOverlay(
+            final Workspace.State fromWorkspaceState, final Workspace.State toWorkspaceState,
+            final int toWorkspacePage,
+            final View buttonView, final BaseContainerView fromView,
+            final boolean animated, final Runnable onCompleteRunnable,
+            final PrivateTransitionCallbacks pCb) {
+        final AnimatorSet animation = LauncherAnimUtils.createAnimatorSet();
         final Resources res = mLauncher.getResources();
-        final boolean material = Utilities.isLmpOrAbove();
+        final boolean material = Utilities.ATLEAST_LOLLIPOP;
         final int revealDuration = res.getInteger(R.integer.config_overlayRevealTime);
         final int itemsAlphaStagger =
                 res.getInteger(R.integer.config_overlayItemsAlphaStagger);
@@ -511,16 +506,23 @@ public class LauncherStateTransitionAnimation {
         // Create the workspace animation.
         // NOTE: this call apparently also sets the state for the workspace if !animated
         Animator workspaceAnim = mLauncher.startWorkspaceStateChangeAnimation(toWorkspaceState,
-                toWorkspacePage, animated, overlaySearchBarView != null /* hasOverlaySearchBar */,
-                layerViews);
+                toWorkspacePage, animated, layerViews);
+
+        // Animate the search bar
+        startWorkspaceSearchBarAnimation(
+                toWorkspaceState, animated ? revealDuration : 0, animation);
+
+        Animator updateTransitionStepAnim = dispatchOnLauncherTransitionStepAnim(fromView, toView);
 
         if (animated && initialized) {
-            mStateAnimation = LauncherAnimUtils.createAnimatorSet();
-
             // Play the workspace animation
             if (workspaceAnim != null) {
-                mStateAnimation.play(workspaceAnim);
+                animation.play(workspaceAnim);
             }
+
+            animation.play(updateTransitionStepAnim);
+            final View revealView = fromView.getRevealView();
+            final View contentView = fromView.getContentView();
 
             // hideAppsCustomizeHelper is called in some cases when it is already hidden
             // don't perform all these no-op animations. In particularly, this was causing
@@ -558,25 +560,25 @@ public class LauncherStateTransitionAnimation {
                 panelDriftY.setDuration(revealDuration - SINGLE_FRAME_DELAY);
                 panelDriftY.setStartDelay(itemsAlphaStagger + SINGLE_FRAME_DELAY);
                 panelDriftY.setInterpolator(decelerateInterpolator);
-                mStateAnimation.play(panelDriftY);
+                animation.play(panelDriftY);
 
                 ObjectAnimator panelDriftX = ObjectAnimator.ofFloat(revealView, "translationX",
                         0, revealViewToXDrift);
                 panelDriftX.setDuration(revealDuration - SINGLE_FRAME_DELAY);
                 panelDriftX.setStartDelay(itemsAlphaStagger + SINGLE_FRAME_DELAY);
                 panelDriftX.setInterpolator(decelerateInterpolator);
-                mStateAnimation.play(panelDriftX);
+                animation.play(panelDriftX);
 
                 // Setup animation for the reveal panel alpha
                 final float revealViewToAlpha = !material ? 0f :
-                        pCb.getMaterialRevealViewFinalAlpha(revealView);
+                        pCb.materialRevealViewFinalAlpha;
                 if (revealViewToAlpha != 1f) {
                     ObjectAnimator panelAlpha = ObjectAnimator.ofFloat(revealView, "alpha",
                             1f, revealViewToAlpha);
                     panelAlpha.setDuration(material ? revealDuration : 150);
                     panelAlpha.setStartDelay(material ? 0 : itemsAlphaStagger + SINGLE_FRAME_DELAY);
                     panelAlpha.setInterpolator(decelerateInterpolator);
-                    mStateAnimation.play(panelAlpha);
+                    animation.play(panelAlpha);
                 }
 
                 // Setup the animation for the content view
@@ -589,23 +591,13 @@ public class LauncherStateTransitionAnimation {
                 pageDrift.setDuration(revealDuration - SINGLE_FRAME_DELAY);
                 pageDrift.setInterpolator(decelerateInterpolator);
                 pageDrift.setStartDelay(itemsAlphaStagger + SINGLE_FRAME_DELAY);
-                mStateAnimation.play(pageDrift);
+                animation.play(pageDrift);
 
                 contentView.setAlpha(1f);
                 ObjectAnimator itemsAlpha = ObjectAnimator.ofFloat(contentView, "alpha", 1f, 0f);
                 itemsAlpha.setDuration(100);
                 itemsAlpha.setInterpolator(decelerateInterpolator);
-                mStateAnimation.play(itemsAlpha);
-
-                if (overlaySearchBarView != null) {
-                    overlaySearchBarView.setAlpha(1f);
-                    ObjectAnimator searchAlpha = ObjectAnimator.ofFloat(overlaySearchBarView, "alpha", 1f, 0f);
-                    searchAlpha.setDuration(material ? 100 : 150);
-                    searchAlpha.setInterpolator(decelerateInterpolator);
-                    searchAlpha.setStartDelay(material ? 0 : itemsAlphaStagger + SINGLE_FRAME_DELAY);
-                    layerViews.put(overlaySearchBarView, BUILD_AND_SET_LAYER);
-                    mStateAnimation.play(searchAlpha);
-                }
+                animation.play(itemsAlpha);
 
                 if (material) {
                     // Animate the all apps button
@@ -620,14 +612,14 @@ public class LauncherStateTransitionAnimation {
                     if (listener != null) {
                         reveal.addListener(listener);
                     }
-                    mStateAnimation.play(reveal);
+                    animation.play(reveal);
                 }
-
-                dispatchOnLauncherTransitionPrepare(fromView, animated, true);
-                dispatchOnLauncherTransitionPrepare(toView, animated, true);
             }
 
-            mStateAnimation.addListener(new AnimatorListenerAdapter() {
+            dispatchOnLauncherTransitionPrepare(fromView, animated, true);
+            dispatchOnLauncherTransitionPrepare(toView, animated, true);
+
+            animation.addListener(new AnimatorListenerAdapter() {
                 @Override
                 public void onAnimationEnd(Animator animation) {
                     fromView.setVisibility(View.GONE);
@@ -652,40 +644,39 @@ public class LauncherStateTransitionAnimation {
                         contentView.setTranslationY(0);
                         contentView.setAlpha(1);
                     }
-                    if (overlaySearchBarView != null) {
-                        overlaySearchBarView.setAlpha(1f);
-                    }
 
                     // This can hold unnecessary references to views.
-                    mStateAnimation = null;
+                    cleanupAnimation();
                     pCb.onTransitionComplete();
                 }
             });
 
-            final AnimatorSet stateAnimation = mStateAnimation;
+            final AnimatorSet stateAnimation = animation;
             final Runnable startAnimRunnable = new Runnable() {
                 public void run() {
-                    // Check that mStateAnimation hasn't changed while
+                    // Check that mCurrentAnimation hasn't changed while
                     // we waited for a layout/draw pass
-                    if (mStateAnimation != stateAnimation)
+                    if (mCurrentAnimation != stateAnimation)
                         return;
+
                     dispatchOnLauncherTransitionStart(fromView, animated, false);
                     dispatchOnLauncherTransitionStart(toView, animated, false);
 
                     // Enable all necessary layers
-                    boolean isLmpOrAbove = Utilities.isLmpOrAbove();
                     for (View v : layerViews.keySet()) {
                         if (layerViews.get(v) == BUILD_AND_SET_LAYER) {
                             v.setLayerType(View.LAYER_TYPE_HARDWARE, null);
                         }
-                        if (isLmpOrAbove && Utilities.isViewAttachedToWindow(v)) {
+                        if (Utilities.ATLEAST_LOLLIPOP && Utilities.isViewAttachedToWindow(v)) {
                             v.buildLayer();
                         }
                     }
-                    mStateAnimation.start();
+                    stateAnimation.start();
                 }
             };
             fromView.post(startAnimRunnable);
+
+            return animation;
         } else {
             fromView.setVisibility(View.GONE);
             dispatchOnLauncherTransitionPrepare(fromView, animated, true);
@@ -700,9 +691,20 @@ public class LauncherStateTransitionAnimation {
             if (onCompleteRunnable != null) {
                 onCompleteRunnable.run();
             }
+
+            return null;
         }
     }
 
+    /**
+     * Coordinates the workspace search bar animation along with the launcher state animation.
+     */
+    private void startWorkspaceSearchBarAnimation(
+            final Workspace.State toWorkspaceState, int duration, AnimatorSet animation) {
+        final SearchDropTargetBar.State toSearchBarState =
+                toWorkspaceState.searchDropTargetBarState;
+        mLauncher.getSearchDropTargetBar().animateToState(toSearchBarState, duration, animation);
+    }
 
     /**
      * Dispatches the prepare-transition event to suitable views.
@@ -753,10 +755,14 @@ public class LauncherStateTransitionAnimation {
      * Cancels the current animation.
      */
     private void cancelAnimation() {
-        if (mStateAnimation != null) {
-            mStateAnimation.setDuration(0);
-            mStateAnimation.cancel();
-            mStateAnimation = null;
+        if (mCurrentAnimation != null) {
+            mCurrentAnimation.setDuration(0);
+            mCurrentAnimation.cancel();
+            mCurrentAnimation = null;
         }
+    }
+
+    @Thunk void cleanupAnimation() {
+        mCurrentAnimation = null;
     }
 }

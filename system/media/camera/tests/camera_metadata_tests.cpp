@@ -300,7 +300,7 @@ TEST(camera_metadata, add_get_normal) {
     result = get_camera_metadata_entry(m,
             index, &entry);
     EXPECT_EQ(OK, result);
-    EXPECT_EQ(index, (int)entry.index);
+    EXPECT_EQ(index, entry.index);
     EXPECT_EQ(ANDROID_SENSOR_EXPOSURE_TIME, entry.tag);
     EXPECT_EQ(TYPE_INT64, entry.type);
     EXPECT_EQ((size_t)1, entry.count);
@@ -462,8 +462,6 @@ TEST(camera_metadata, copy_metadata) {
     const size_t entry_capacity = 50;
     const size_t data_capacity = 450;
 
-    int result;
-
     m = allocate_camera_metadata(entry_capacity, data_capacity);
 
     add_test_metadata(m, entry_capacity);
@@ -516,8 +514,6 @@ TEST(camera_metadata, copy_metadata_extraspace) {
     const size_t data_capacity = 100;
 
     const size_t extra_space = 10;
-
-    int result;
 
     m = allocate_camera_metadata(entry_capacity, data_capacity);
 
@@ -574,8 +570,6 @@ TEST(camera_metadata, copy_metadata_nospace) {
     camera_metadata_t *m = NULL;
     const size_t entry_capacity = 5;
     const size_t data_capacity = 50;
-
-    int result;
 
     m = allocate_camera_metadata(entry_capacity, data_capacity);
 
@@ -1780,7 +1774,7 @@ TEST(camera_metadata, memcpy) {
 
     EXPECT_EQ(OK, validate_camera_metadata_structure(m2, &m_size));
 
-    delete dst;
+    delete[] dst;
     FINISH_USING_CAMERA_METADATA(m);
 }
 

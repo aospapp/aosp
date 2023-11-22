@@ -45,8 +45,6 @@ wifi_error wifi_set_iface_event_handler(wifi_request_id id,
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
 
-    ALOGE("Setting iface event handler, halHandle = %p", wifiHandle);
-
     /* Check if a similar request to set iface event handler was made earlier.
      * Right now we don't differentiate between the case where (i) the new
      * Request Id is different from the current one vs (ii) both new and
@@ -88,7 +86,7 @@ wifi_error wifi_reset_iface_event_handler(wifi_request_id id,
     if (mwifiEventHandler)
     {
         if (id == mwifiEventHandler->get_request_id()) {
-            ALOGI("Delete Object mwifiEventHandler for id = %d", id);
+            ALOGV("Delete Object mwifiEventHandler for id = %d", id);
             delete mwifiEventHandler;
             mwifiEventHandler = NULL;
         } else {
@@ -97,7 +95,7 @@ wifi_error wifi_reset_iface_event_handler(wifi_request_id id,
             return WIFI_ERROR_NOT_SUPPORTED;
         }
     } else {
-        ALOGI("Object mwifiEventHandler for id = %d already Deleted", id);
+        ALOGV("Object mwifiEventHandler for id = %d already Deleted", id);
     }
 
 cleanup:
@@ -126,7 +124,7 @@ int IfaceEventHandlerCommand::handleEvent(WifiEvent &event)
             } else {
                 ALOGE("%s: NL80211_ATTR_REG_ALPHA2 not found", __func__);
             }
-            ALOGI("Country : %c%c", code[0], code[1]);
+            ALOGV("Country : %c%c", code[0], code[1]);
             if(mHandler.on_country_code_changed)
             {
                 mHandler.on_country_code_changed(code);
@@ -134,7 +132,7 @@ int IfaceEventHandlerCommand::handleEvent(WifiEvent &event)
         }
         break;
         default:
-            ALOGI("NL Event : %d Not supported", mSubcmd);
+            ALOGV("NL Event : %d Not supported", mSubcmd);
     }
 
     return NL_SKIP;
@@ -143,7 +141,7 @@ int IfaceEventHandlerCommand::handleEvent(WifiEvent &event)
 IfaceEventHandlerCommand::IfaceEventHandlerCommand(wifi_handle handle, int id, u32 subcmd)
         : wifiEventHandler(handle, id, subcmd)
 {
-    ALOGD("wifiEventHandler %p constructed", this);
+    ALOGV("wifiEventHandler %p constructed", this);
     registerHandler(mSubcmd);
     memset(&mHandler, 0, sizeof(wifi_event_handler));
     mEventData = NULL;
@@ -152,7 +150,7 @@ IfaceEventHandlerCommand::IfaceEventHandlerCommand(wifi_handle handle, int id, u
 
 IfaceEventHandlerCommand::~IfaceEventHandlerCommand()
 {
-    ALOGD("IfaceEventHandlerCommand %p destructor", this);
+    ALOGV("IfaceEventHandlerCommand %p destructor", this);
     unregisterHandler(mSubcmd);
 }
 
@@ -177,23 +175,22 @@ wifiEventHandler::wifiEventHandler(wifi_handle handle, int id, u32 subcmd)
     mRequestId = id;
     mSubcmd = subcmd;
     registerHandler(mSubcmd);
-    ALOGD("wifiEventHandler %p constructed", this);
+    ALOGV("wifiEventHandler %p constructed", this);
 }
 
 wifiEventHandler::~wifiEventHandler()
 {
-    ALOGD("wifiEventHandler %p destructor", this);
+    ALOGV("wifiEventHandler %p destructor", this);
     unregisterHandler(mSubcmd);
 }
 
 int wifiEventHandler::handleEvent(WifiEvent &event)
 {
-    ALOGI("wifiEventHandler::handleEvent");
     struct genlmsghdr *gnlh = event.header();
     mSubcmd = gnlh->cmd;
     nla_parse(tb, NL80211_ATTR_MAX, genlmsg_attrdata(gnlh, 0),
             genlmsg_attrlen(gnlh, 0), NULL);
-    ALOGI("Got NL Event : %d from the Driver.", gnlh->cmd);
+    ALOGV("Got NL Event : %d from the Driver.", gnlh->cmd);
 
     return NL_SKIP;
 }
@@ -202,17 +199,18 @@ WifihalGeneric::WifihalGeneric(wifi_handle handle, int id, u32 vendor_id,
                                   u32 subcmd)
         : WifiVendorCommand(handle, id, vendor_id, subcmd)
 {
-    ALOGD("WifihalGeneric %p constructed", this);
     /* Initialize the member data variables here */
     mSet = 0;
     mSetSizeMax = 0;
     mSetSizePtr = NULL;
     mConcurrencySet = 0;
+    filterVersion = 0;
+    filterLength = 0;
+    firmware_bus_max_size = 0;
 }
 
 WifihalGeneric::~WifihalGeneric()
 {
-    ALOGD("WifihalGeneric %p destructor", this);
 }
 
 int WifihalGeneric::requestResponse()
@@ -222,7 +220,7 @@ int WifihalGeneric::requestResponse()
 
 int WifihalGeneric::handleResponse(WifiEvent &reply)
 {
-    ALOGI("Got a Wi-Fi HAL module message from Driver");
+    ALOGV("Got a Wi-Fi HAL module message from Driver");
     int i = 0;
     u32 status;
     WifiVendorCommand::handleResponse(reply);
@@ -243,7 +241,7 @@ int WifihalGeneric::handleResponse(WifiEvent &reply)
                     return WIFI_ERROR_INVALID_ARGS;
                 }
                 mSet = nla_get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_FEATURE_SET]);
-                ALOGI("Supported feature set : %x", mSet);
+                ALOGV("Supported feature set : %x", mSet);
 
                 break;
             }
@@ -262,7 +260,7 @@ int WifihalGeneric::handleResponse(WifiEvent &reply)
                         tb_vendor[
                     QCA_WLAN_VENDOR_ATTR_GET_CONCURRENCY_MATRIX_RESULTS_SET_SIZE]);
 
-                    ALOGD("%s: Num of concurrency combinations: %d",
+                    ALOGV("%s: Num of concurrency combinations: %d",
                         __func__, val);
                     val = val > (unsigned int)mSetSizeMax ?
                           (unsigned int)mSetSizeMax : val;
@@ -278,17 +276,65 @@ int WifihalGeneric::handleResponse(WifiEvent &reply)
                             sizeof(feature_set) * (*mSetSizePtr));
                     }
 
-                    ALOGD("%s: Get concurrency matrix response received.",
+                    ALOGV("%s: Get concurrency matrix response received.",
                         __func__);
-                    ALOGD("%s: Num of concurrency combinations : %d",
+                    ALOGV("%s: Num of concurrency combinations : %d",
                         __func__, *mSetSizePtr);
-                    ALOGD("%s: List of valid concurrency combinations is: ",
+                    ALOGV("%s: List of valid concurrency combinations is: ",
                         __func__);
                     for(i = 0; i < *mSetSizePtr; i++)
                     {
-                        ALOGD("%x", *(mConcurrencySet + i));
+                        ALOGV("%x", *(mConcurrencySet + i));
                     }
                 }
+            }
+            break;
+        case QCA_NL80211_VENDOR_SUBCMD_PACKET_FILTER:
+            {
+                struct nlattr *tb_vendor[
+                        QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_MAX + 1];
+                nla_parse(tb_vendor, QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_MAX,
+                        (struct nlattr *)mVendorData,
+                        mDataLen, NULL);
+
+                if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_VERSION])
+                {
+                    ALOGE("%s: QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_VERSION"
+                          " not found", __FUNCTION__);
+                    return WIFI_ERROR_INVALID_ARGS;
+                }
+                filterVersion = nla_get_u32(
+                       tb_vendor[QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_VERSION]);
+                ALOGV("Current version : %u", filterVersion);
+
+                if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_TOTAL_LENGTH])
+                {
+                    ALOGE("%s: QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_TOTAL_LENGTH"
+                          " not found", __FUNCTION__);
+                    return WIFI_ERROR_INVALID_ARGS;
+                }
+                filterLength = nla_get_u32(
+                    tb_vendor[QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_TOTAL_LENGTH]);
+                ALOGV("Max filter length Supported : %u", filterLength);
+
+            }
+            break;
+        case QCA_NL80211_VENDOR_SUBCMD_GET_BUS_SIZE:
+            {
+                struct nlattr *tb_vendor[
+                        QCA_WLAN_VENDOR_ATTR_DRV_INFO_MAX + 1];
+                nla_parse(tb_vendor, QCA_WLAN_VENDOR_ATTR_DRV_INFO_MAX,
+                          (struct nlattr *)mVendorData, mDataLen, NULL);
+
+                if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_DRV_INFO_BUS_SIZE])
+                {
+                    ALOGE("%s: QCA_WLAN_VENDOR_ATTR_DRV_INFO_BUS_SIZE"
+                          " not found", __FUNCTION__);
+                    return WIFI_ERROR_INVALID_ARGS;
+                }
+                firmware_bus_max_size = nla_get_u32(
+                       tb_vendor[QCA_WLAN_VENDOR_ATTR_DRV_INFO_BUS_SIZE]);
+                ALOGV("Max BUS size Supported: %d", firmware_bus_max_size);
             }
             break;
         default :
@@ -312,4 +358,16 @@ void WifihalGeneric::setConcurrencySet(feature_set set[]) {
 
 void WifihalGeneric::setSizePtr(int *set_size) {
     mSetSizePtr = set_size;
+}
+
+int WifihalGeneric::getFilterVersion() {
+    return filterVersion;
+}
+
+int WifihalGeneric::getFilterLength() {
+    return filterLength;
+}
+
+int WifihalGeneric::getBusSize() {
+    return firmware_bus_max_size;
 }

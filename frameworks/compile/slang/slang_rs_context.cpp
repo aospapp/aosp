@@ -19,6 +19,7 @@
 #include <string>
 
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/Attr.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclBase.h"
 #include "clang/AST/Mangle.h"
@@ -32,13 +33,16 @@
 
 #include "slang.h"
 #include "slang_assert.h"
+#include "slang_backend.h"
 #include "slang_rs_export_foreach.h"
 #include "slang_rs_export_func.h"
+#include "slang_rs_export_reduce.h"
 #include "slang_rs_export_type.h"
 #include "slang_rs_export_var.h"
 #include "slang_rs_exportable.h"
 #include "slang_rs_pragma_handler.h"
 #include "slang_rs_reflection.h"
+#include "slang_rs_special_func.h"
 
 namespace slang {
 
@@ -59,18 +63,21 @@ RSContext::RSContext(clang::Preprocessor &PP,
       mRSPackageName("android.renderscript"),
       version(0),
       mMangleCtx(Ctx.createMangleContext()),
-      mIs64Bit(Target.getPointerWidth(0) == 64) {
+      mIs64Bit(Target.getPointerWidth(0) == 64),
+      mNextSlot(1) {
 
   AddPragmaHandlers(PP, this);
 
   // Prepare target data
-  mDataLayout = new llvm::DataLayout(Target.getTargetDescription());
+  mDataLayout = new llvm::DataLayout(Target.getDataLayoutString());
+
+  // Reserve slot 0 for the root kernel.
+  mExportForEach.push_back(nullptr);
+  mFirstOldStyleKernel = mExportForEach.end();
 }
 
 bool RSContext::processExportVar(const clang::VarDecl *VD) {
   slangAssert(!VD->getName().empty() && "Variable name should not be empty");
-
-  // TODO(zonr): some check on variable
 
   RSExportType *ET = RSExportType::CreateFromDecl(this, VD);
   if (!ET)
@@ -85,6 +92,19 @@ bool RSContext::processExportVar(const clang::VarDecl *VD) {
   return true;
 }
 
+int RSContext::getForEachSlotNumber(const clang::FunctionDecl* FD) {
+  const clang::StringRef& funcName = FD->getName();
+  return getForEachSlotNumber(funcName);
+}
+
+int RSContext::getForEachSlotNumber(const clang::StringRef& funcName) {
+  auto it = mExportForEachMap.find(funcName);
+  if (it == mExportForEachMap.end()) {
+    return -1;
+  }
+  return it->second;
+}
+
 bool RSContext::processExportFunc(const clang::FunctionDecl *FD) {
   slangAssert(!FD->getName().empty() && "Function name should not be empty");
 
@@ -92,33 +112,63 @@ bool RSContext::processExportFunc(const clang::FunctionDecl *FD) {
     return true;
   }
 
-  if (FD->getStorageClass() != clang::SC_None) {
-    fprintf(stderr, "RSContext::processExportFunc : cannot export extern or "
-                    "static function '%s'\n", FD->getName().str().c_str());
-    return false;
+  slangAssert(FD->getStorageClass() == clang::SC_None);
+
+  // Specialized function
+  if (RSSpecialFunc::isSpecialRSFunc(mTargetAPI, FD)) {
+    // Do not reflect specialized functions like init, dtor, or graphics root.
+    return RSSpecialFunc::validateSpecialFuncDecl(mTargetAPI, this, FD);
   }
 
-  if (RSExportForEach::isSpecialRSFunc(mTargetAPI, FD)) {
-    // Do not reflect specialized functions like init, dtor, or graphics root.
-    return RSExportForEach::validateSpecialFuncDecl(mTargetAPI, this, FD);
-  } else if (RSExportForEach::isRSForEachFunc(mTargetAPI, this, FD)) {
+  // Foreach kernel
+  if (RSExportForEach::isRSForEachFunc(mTargetAPI, FD)) {
     RSExportForEach *EFE = RSExportForEach::Create(this, FD);
-    if (EFE == nullptr)
+    if (EFE == nullptr) {
       return false;
-    else
-      mExportForEach.push_back(EFE);
+    }
+
+    // The root function should be at index 0 in the list
+    if (FD->getName().equals("root")) {
+      mExportForEach[0] = EFE;
+      return true;
+    }
+
+    // New-style kernels with attribute "kernel" should come first in the list
+    if (FD->hasAttr<clang::KernelAttr>()) {
+      mFirstOldStyleKernel = mExportForEach.insert(mFirstOldStyleKernel, EFE) + 1;
+      slangAssert((mTargetAPI < SLANG_FEATURE_SINGLE_SOURCE_API ||
+                   getForEachSlotNumber(FD->getName()) ==
+                   mFirstOldStyleKernel - mExportForEach.begin() - 1) &&
+                  "Inconsistent slot number assignment");
+      return true;
+    }
+
+    // Old-style kernels should appear in the end of the list
+    mFirstOldStyleKernel = mExportForEach.insert(mFirstOldStyleKernel, EFE);
     return true;
   }
 
-  RSExportFunc *EF = RSExportFunc::Create(this, FD);
-  if (EF == nullptr)
-    return false;
-  else
+  // Invokable
+  if (auto *EF = RSExportFunc::Create(this, FD)) {
     mExportFuncs.push_back(EF);
+    return true;
+  }
+
+  return false;
+}
+
+bool RSContext::addForEach(const clang::FunctionDecl* FD) {
+  const llvm::StringRef& funcName = FD->getName();
+
+  if (funcName.equals("root")) {
+    // The root kernel should always be in slot 0.
+    mExportForEachMap.insert(std::make_pair(funcName, 0));
+  } else {
+    mExportForEachMap.insert(std::make_pair(funcName, mNextSlot++));
+  }
 
   return true;
 }
-
 
 bool RSContext::processExportType(const llvm::StringRef &Name) {
   clang::TranslationUnitDecl *TUDecl = mCtx.getTranslationUnitDecl();
@@ -158,81 +208,83 @@ bool RSContext::processExportType(const llvm::StringRef &Name) {
     }
 
     if (T != nullptr)
-      ET = RSExportType::Create(this, T);
+      ET = RSExportType::Create(this, T, NotLegacyKernelArgument);
   }
 
   return (ET != nullptr);
 }
 
-
-// Possibly re-order ForEach exports (maybe generating a dummy "root" function).
-// We require "root" to be listed as slot 0 of our exported compute kernels,
-// so this only needs to be created if we have other non-root kernels.
-void RSContext::cleanupForEach() {
-  bool foundNonRoot = false;
-  ExportForEachList::iterator begin = mExportForEach.begin();
-
-  for (ExportForEachList::iterator I = begin, E = mExportForEach.end();
-       I != E;
-       I++) {
-    RSExportForEach *EFE = *I;
-    if (!EFE->getName().compare("root")) {
-      if (I == begin) {
-        // Nothing to do, since it is the first function
-        return;
-      }
-
-      mExportForEach.erase(I);
-      mExportForEach.push_front(EFE);
-      return;
-    } else {
-      foundNonRoot = true;
-    }
-  }
-
-  // If we found a non-root kernel, but no root() function, we need to add a
-  // dummy version (so that script->script calls of rsForEach don't behave
-  // erratically).
-  if (foundNonRoot) {
-    RSExportForEach *DummyRoot = RSExportForEach::CreateDummyRoot(this);
-    mExportForEach.push_front(DummyRoot);
-  }
+void RSContext::setAllocationType(const clang::TypeDecl* TD) {
+  mAllocationType = mCtx.getTypeDeclType(TD);
 }
 
+void RSContext::setScriptCallType(const clang::TypeDecl* TD) {
+  mScriptCallType = mCtx.getTypeDeclType(TD);
+}
 
-bool RSContext::processExport() {
+bool RSContext::processExports() {
   bool valid = true;
 
   if (getDiagnostics()->hasErrorOccurred()) {
     return false;
   }
 
-  // Export variable
   clang::TranslationUnitDecl *TUDecl = mCtx.getTranslationUnitDecl();
-  for (clang::DeclContext::decl_iterator DI = TUDecl->decls_begin(),
-           DE = TUDecl->decls_end();
-       DI != DE;
-       DI++) {
-    if (DI->getKind() == clang::Decl::Var) {
-      clang::VarDecl *VD = (clang::VarDecl*) (*DI);
+  for (auto I = TUDecl->decls_begin(), E = TUDecl->decls_end(); I != E; I++) {
+    clang::Decl* D = *I;
+    switch (D->getKind()) {
+    case clang::Decl::Var: {
+      clang::VarDecl* VD = llvm::dyn_cast<clang::VarDecl>(D);
+      bool ShouldExportVariable = true;
       if (VD->getFormalLinkage() == clang::ExternalLinkage) {
-        if (!processExportVar(VD)) {
+        clang::QualType QT = VD->getTypeSourceInfo()->getType();
+        if (QT.isConstQualified() && !VD->hasInit()) {
+          if (Slang::IsLocInRSHeaderFile(VD->getLocation(),
+                                         *getSourceManager())) {
+            // We don't export variables internal to the runtime's
+            // implementation.
+            ShouldExportVariable = false;
+          } else {
+            clang::DiagnosticsEngine *DiagEngine = getDiagnostics();
+            DiagEngine->Report(VD->getLocation(), DiagEngine->getCustomDiagID(
+                clang::DiagnosticsEngine::Error,
+                "invalid declaration of uninitialized constant variable '%0'"))
+              << VD->getName();
+            valid = false;
+          }
+        }
+        if (valid && ShouldExportVariable && isSyntheticName(VD->getName()))
+          ShouldExportVariable = false;
+        if (valid && ShouldExportVariable && !processExportVar(VD)) {
           valid = false;
         }
       }
-    } else if (DI->getKind() == clang::Decl::Function) {
-      // Export functions
-      clang::FunctionDecl *FD = (clang::FunctionDecl*) (*DI);
+      break;
+    }
+    case clang::Decl::Function: {
+      clang::FunctionDecl* FD = llvm::dyn_cast<clang::FunctionDecl>(D);
       if (FD->getFormalLinkage() == clang::ExternalLinkage) {
         if (!processExportFunc(FD)) {
           valid = false;
         }
       }
+      break;
+    }
+    default:
+      break;
     }
   }
 
-  if (valid) {
-    cleanupForEach();
+  // Create a dummy root in slot 0 if a root kernel is not seen
+  // and there exists a non-root kernel.
+  if (valid && mExportForEach[0] == nullptr) {
+    const size_t numExportedForEach = mExportForEach.size();
+    if (numExportedForEach > 1) {
+      mExportForEach[0] = RSExportForEach::CreateDummyRoot(this);
+    } else {
+      slangAssert(numExportedForEach == 1);
+      mExportForEach.pop_back();
+    }
   }
 
   // Finally, export type forcely set to be exported by user
@@ -248,6 +300,90 @@ bool RSContext::processExport() {
   return valid;
 }
 
+bool RSContext::processReducePragmas(Backend *BE) {
+  // This is needed to ensure that the dummy variable is emitted into
+  // the bitcode -- which in turn forces the function to be emitted
+  // into the bitcode.  We couldn't do this at
+  // markUsedByReducePragma() time because we had to wait until the
+  // Backend is available.
+  for (auto DummyVar : mUsedByReducePragmaDummyVars)
+    BE->HandleTopLevelDecl(clang::DeclGroupRef(DummyVar));
+
+  bool valid = true;
+  for (auto I = export_reduce_begin(), E = export_reduce_end(); I != E; ++I) {
+    if (! (*I)->analyzeTranslationUnit())
+      valid = false;
+  }
+  return valid;
+}
+
+void RSContext::markUsedByReducePragma(clang::FunctionDecl *FD, CheckName Check) {
+  if (mUsedByReducePragmaFns.find(FD) != mUsedByReducePragmaFns.end())
+    return;  // already marked used
+
+  if (Check == CheckNameYes) {
+    // This is an inefficient linear search.  If this turns out to be a
+    // problem in practice, then processReducePragmas() could build a
+    // set or hash table or something similar containing all function
+    // names mentioned in a reduce pragma and searchable in O(c) or
+    // O(log(n)) time rather than the currently-implemented O(n) search.
+    auto NameMatches = [this, FD]() {
+      for (auto I = export_reduce_begin(), E = export_reduce_end(); I != E; ++I) {
+        if ((*I)->matchName(FD->getName()))
+          return true;
+      }
+      return false;
+    };
+    if (!NameMatches())
+      return;
+  }
+
+  mUsedByReducePragmaFns.insert(FD);
+
+  // This is needed to prevent clang from warning that the function is
+  // unused (in the case where it is only referenced by #pragma rs
+  // reduce).
+  FD->setIsUsed();
+
+  // Each constituent function "f" of a reduction kernel gets a dummy variable generated for it:
+  //   void *.rs.reduce_fn.f = (void*)&f;
+  // This is a trick to ensure that clang will not delete "f" as unused.
+
+  // `-VarDecl 0x87cb558 <line:3:1, col:30> col:7 var 'void *' cinit
+  //     `-CStyleCastExpr 0x87cb630 <col:19, col:26> 'void *' <BitCast>
+  //       `-ImplicitCastExpr 0x87cb618 <col:26> 'void (*)(int *, float, double)' <FunctionToPointerDecay>
+  //         `-DeclRefExpr 0x87cb5b8 <col:26> 'void (int *, float, double)' Function 0x8784e10 'foo' 'void (int *, float, double)
+
+  const clang::QualType VoidPtrType = mCtx.getPointerType(mCtx.VoidTy);
+
+  clang::DeclContext *const DC = FD->getDeclContext();
+  const clang::SourceLocation Loc = FD->getLocation();
+
+  clang::VarDecl *const VD = clang::VarDecl::Create(
+      mCtx, DC, Loc, Loc,
+      &mCtx.Idents.get(std::string(".rs.reduce_fn.") + FD->getNameAsString()),
+      VoidPtrType,
+      mCtx.getTrivialTypeSourceInfo(VoidPtrType),
+      clang::SC_None);
+  VD->setLexicalDeclContext(DC);
+  DC->addDecl(VD);
+
+  clang::DeclRefExpr *const DRE = clang::DeclRefExpr::Create(mCtx,
+                                                             clang::NestedNameSpecifierLoc(),
+                                                             Loc,
+                                                             FD, false, Loc, FD->getType(),
+                                                             clang::VK_RValue);
+  clang::ImplicitCastExpr *const ICE = clang::ImplicitCastExpr::Create(mCtx, mCtx.getPointerType(FD->getType()),
+                                                                       clang::CK_FunctionToPointerDecay, DRE,
+                                                                       nullptr, clang::VK_RValue);
+  clang::CStyleCastExpr *const CSCE = clang::CStyleCastExpr::Create(mCtx, VoidPtrType, clang::VK_RValue, clang::CK_BitCast,
+                                                                    ICE, nullptr, nullptr,
+                                                                    Loc, Loc);
+  VD->setInit(CSCE);
+
+  mUsedByReducePragmaDummyVars.push_back(VD);
+}
+
 bool RSContext::insertExportType(const llvm::StringRef &TypeName,
                                  RSExportType *ET) {
   ExportTypeMap::value_type *NewItem =
@@ -258,7 +394,7 @@ bool RSContext::insertExportType(const llvm::StringRef &TypeName,
   if (mExportTypes.insert(NewItem)) {
     return true;
   } else {
-    free(NewItem);
+    NewItem->Destroy(mExportTypes.getAllocator());
     return false;
   }
 }

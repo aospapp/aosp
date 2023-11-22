@@ -431,6 +431,31 @@ void nfc_hal_dm_set_xtal_freq_index (void)
 
 /*******************************************************************************
 **
+** Function         nfc_hal_dm_set_power_level_zero
+**
+** Description      set power level to 0
+**
+** Returns          None
+**
+*******************************************************************************/
+void nfc_hal_dm_set_power_level_zero (void)
+{
+    UINT8 nci_brcm_set_pwr_level_cmd[NCI_MSG_HDR_SIZE + NCI_PARAM_LEN_POWER_LEVEL];
+    UINT8 *p;
+    UINT8 cmd_len = NCI_PARAM_LEN_POWER_LEVEL;
+
+    p = nci_brcm_set_pwr_level_cmd;
+    UINT8_TO_STREAM  (p, (NCI_MTS_CMD|NCI_GID_PROP));
+    UINT8_TO_STREAM  (p, NCI_MSG_POWER_LEVEL);
+    UINT8_TO_STREAM  (p, NCI_PARAM_LEN_POWER_LEVEL);
+    memset (p, 0, NCI_PARAM_LEN_POWER_LEVEL);
+
+    nfc_hal_dm_send_nci_cmd (nci_brcm_set_pwr_level_cmd, NCI_MSG_HDR_SIZE + cmd_len,
+                             nfc_hal_main_exit_op_done);
+}
+
+/*******************************************************************************
+**
 ** Function         nfc_hal_dm_send_get_build_info_cmd
 **
 ** Description      Send NCI_MSG_GET_BUILD_INFO CMD
@@ -562,6 +587,25 @@ BOOLEAN nfc_hal_dm_check_pre_set_mem (void)
 
 /*******************************************************************************
 **
+** Function         nfc_hal_dm_got_vs_rsp
+**
+** Description      Received VS RSP. Clean up control block to allow next NCI cmd
+**
+** Returns          void
+**
+*******************************************************************************/
+tNFC_HAL_NCI_CBACK * nfc_hal_dm_got_vs_rsp (void)
+{
+    tNFC_HAL_NCI_CBACK *p_cback = NULL;
+    nfc_hal_cb.ncit_cb.nci_wait_rsp = NFC_HAL_WAIT_RSP_NONE;
+    p_cback = (tNFC_HAL_NCI_CBACK *)nfc_hal_cb.ncit_cb.p_vsc_cback;
+    nfc_hal_cb.ncit_cb.p_vsc_cback  = NULL;
+    nfc_hal_main_stop_quick_timer (&nfc_hal_cb.ncit_cb.nci_wait_rsp_timer);
+    return p_cback;
+}
+
+/*******************************************************************************
+**
 ** Function         nfc_hal_dm_proc_msg_during_init
 **
 ** Description      Process NCI message while initializing NFCC
@@ -675,6 +719,13 @@ void nfc_hal_dm_proc_msg_during_init (NFC_HDR *p_msg)
 
             STREAM_TO_ARRAY (chipverstr, p, chipverlen);
 
+            /* If chip is not 20791 and 43341, set flag to send the "Disable" VSC */
+            if ( ((nfc_hal_cb.dev_cb.brcm_hw_id & BRCM_NFC_GEN_MASK) != BRCM_NFC_20791_GEN)
+                && ((nfc_hal_cb.dev_cb.brcm_hw_id & BRCM_NFC_GEN_MASK) != BRCM_NFC_43341_GEN) )
+            {
+                nfc_hal_cb.hal_flags |= NFC_HAL_FLAGS_NEED_DISABLE_VSC;
+            }
+
             nfc_hal_hci_handle_build_info (chipverlen, chipverstr);
             nfc_hal_cb.pre_set_mem_idx = 0;
             if (!nfc_hal_dm_check_pre_set_mem())
@@ -765,6 +816,67 @@ void nfc_hal_dm_proc_msg_during_init (NFC_HDR *p_msg)
                                                     (UINT8 *) (p_msg + 1) + p_msg->offset);
         }
     }
+}
+
+/*******************************************************************************
+**
+** Function         nfc_hal_dm_proc_msg_during_exit
+**
+** Description      Process NCI message while shutting down NFCC
+**
+** Returns          void
+**
+*******************************************************************************/
+void nfc_hal_dm_proc_msg_during_exit (NFC_HDR *p_msg)
+{
+    UINT8 *p;
+    UINT8 mt, pbf, gid, op_code;
+    UINT8 *p_old, old_gid, old_oid, old_mt;
+    UINT8 u8;
+    tNFC_HAL_NCI_CBACK *p_cback = NULL;
+
+    HAL_TRACE_DEBUG1 ("nfc_hal_dm_proc_msg_during_exit(): state:%d", nfc_hal_cb.dev_cb.initializing_state);
+
+    p = (UINT8 *) (p_msg + 1) + p_msg->offset;
+
+    NCI_MSG_PRS_HDR0 (p, mt, pbf, gid);
+    NCI_MSG_PRS_HDR1 (p, op_code);
+    u8  = *p;
+
+    /* check if waiting for this response */
+    if (  (nfc_hal_cb.ncit_cb.nci_wait_rsp == NFC_HAL_WAIT_RSP_CMD)
+        ||(nfc_hal_cb.ncit_cb.nci_wait_rsp == NFC_HAL_WAIT_RSP_VSC)  )
+    {
+        if (mt == NCI_MT_RSP)
+        {
+            p_old = nfc_hal_cb.ncit_cb.last_hdr;
+            NCI_MSG_PRS_HDR0 (p_old, old_mt, pbf, old_gid);
+            old_oid = ((*p_old) & NCI_OID_MASK);
+            /* make sure this is the RSP we are waiting for before updating the command window */
+            if ((old_gid == gid) && (old_oid == op_code))
+            {
+                p_cback = nfc_hal_dm_got_vs_rsp ();
+                if (p_cback)
+                {
+                    if (gid == NCI_GID_PROP)
+                    {
+                        if (mt == NCI_MT_NTF)
+                            op_code |= NCI_NTF_BIT;
+                        else
+                            op_code |= NCI_RSP_BIT;
+
+                        if (op_code == NFC_VS_POWER_LEVEL_RSP)
+                        {
+                            (*p_cback) ((tNFC_HAL_NCI_EVT) (op_code),
+                                        p_msg->len,
+                                        (UINT8 *) (p_msg + 1) + p_msg->offset);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
 }
 
 /*******************************************************************************

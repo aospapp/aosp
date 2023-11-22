@@ -19,7 +19,7 @@
 
 <alias xmlns:android="http://schemas.android.com/apk/res/android">
     <intent android:action="android.intent.action.MAIN"
-        android:targetPackage="com.android.cts.content"
+        android:targetPackage="android.content.cts"
         android:targetClass="android.content.cts.ChildActivity"
         android:data="http://www.google.com/">
     </intent>

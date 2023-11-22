@@ -64,7 +64,7 @@ private:
   typedef llvm::DenseMap<const llvm::Metadata *, unsigned> MetadataMapType;
   MetadataMapType MDValueMap;
   bool HasMDString;
-  bool HasMDLocation;
+  bool HasDILocation;
 
   typedef llvm::DenseMap<llvm::AttributeSet, unsigned> AttributeGroupMapType;
   AttributeGroupMapType AttributeGroupMap;
@@ -118,7 +118,7 @@ public:
   }
 
   bool hasMDString() const { return HasMDString; }
-  bool hasMDLocation() const { return HasMDLocation; }
+  bool hasDILocation() const { return HasDILocation; }
 
   unsigned getTypeID(llvm::Type *T) const {
     TypeMapType::const_iterator I = TypeMap.find(T);

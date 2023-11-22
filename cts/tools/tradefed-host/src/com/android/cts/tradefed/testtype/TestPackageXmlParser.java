@@ -15,7 +15,7 @@
  */
 package com.android.cts.tradefed.testtype;
 
-import com.android.cts.util.AbiUtils;
+import com.android.compatibility.common.util.AbiUtils;
 import com.android.ddmlib.Log;
 import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.util.xml.AbstractXmlParser;
@@ -87,7 +87,7 @@ public class TestPackageXmlParser extends AbstractXmlParser {
                 final String runTimeArgs = attributes.getValue("runtimeArgs");
                 final String testType = getTestType(attributes);
 
-                for (String abiName : AbiUtils.getAbisSupportedByCts()) {
+                for (String abiName : AbiUtils.getAbisSupportedByCompatibility()) {
                     Abi abi = new Abi(abiName, AbiUtils.getBitness(abiName));
                     TestPackageDef packageDef = new TestPackageDef();
                     packageDef.setAppPackageName(appPackageName);
@@ -154,7 +154,7 @@ public class TestPackageXmlParser extends AbstractXmlParser {
                         Set<String> abis = new HashSet<String>();
                         if (abiList == null) {
                             // If no specification, add all supported abis
-                            abis.addAll(AbiUtils.getAbisSupportedByCts());
+                            abis.addAll(AbiUtils.getAbisSupportedByCompatibility());
                         } else {
                             for (String abi : abiList.split(",")) {
                                 // Else only add the abi which are supported

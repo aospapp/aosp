@@ -16,14 +16,22 @@
 
 package android.graphics.drawable.cts;
 
+import android.graphics.Canvas;
+import android.graphics.drawable.Drawable;
+import junit.framework.Assert;
+
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+
+import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.content.res.XmlResourceParser;
+import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.util.AttributeSet;
 import android.util.Xml;
 
 import java.io.IOException;
-
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
 
 /**
  * The useful methods for graphics.drawable test.
@@ -84,5 +92,106 @@ public class DrawableTestUtils {
             }
         }
         return attrs;
+    }
+
+    public static XmlResourceParser getResourceParser(Resources res, int resId)
+            throws XmlPullParserException, IOException {
+        final XmlResourceParser parser = res.getXml(resId);
+        int type;
+        while ((type = parser.next()) != XmlPullParser.START_TAG
+                && type != XmlPullParser.END_DOCUMENT) {
+            // Empty loop
+        }
+        return parser;
+    }
+
+    public static void setResourcesDensity(Resources res, int densityDpi) {
+        final Configuration config = new Configuration();
+        config.setTo(res.getConfiguration());
+        config.densityDpi = densityDpi;
+        res.updateConfiguration(config, null);
+    }
+
+    /**
+     * Implements scaling as used by the Bitmap class. Resulting values are
+     * rounded up (as distinct from resource scaling, which truncates or rounds
+     * to the nearest pixel).
+     *
+     * @param size the pixel size to scale
+     * @param sdensity the source density that corresponds to the size
+     * @param tdensity the target density
+     * @return the pixel size scaled for the target density
+     */
+    public static int scaleBitmapFromDensity(int size, int sdensity, int tdensity) {
+        if (sdensity == 0 || tdensity == 0 || sdensity == tdensity) {
+            return size;
+        }
+
+        // Scale by tdensity / sdensity, rounding up.
+        return ((size * tdensity) + (sdensity >> 1)) / sdensity;
+    }
+
+    /**
+     * Asserts that two images are similar within the given thresholds.
+     *
+     * @param message Error message
+     * @param expected Expected bitmap
+     * @param actual Actual bitmap
+     * @param pixelThreshold The total difference threshold for a single pixel
+     * @param pixelCountThreshold The total different pixel count threshold
+     * @param pixelDiffTolerance The pixel value difference tolerance
+     *
+     */
+    public static void compareImages(String message, Bitmap expected, Bitmap actual,
+            float pixelThreshold, float pixelCountThreshold, int pixelDiffTolerance) {
+        int idealWidth = expected.getWidth();
+        int idealHeight = expected.getHeight();
+
+        Assert.assertTrue(idealWidth == actual.getWidth());
+        Assert.assertTrue(idealHeight == actual.getHeight());
+
+        int totalDiffPixelCount = 0;
+        float totalPixelCount = idealWidth * idealHeight;
+        for (int x = 0; x < idealWidth; x++) {
+            for (int y = 0; y < idealHeight; y++) {
+                int idealColor = expected.getPixel(x, y);
+                int givenColor = actual.getPixel(x, y);
+                if (idealColor == givenColor)
+                    continue;
+
+                float totalError = 0;
+                totalError += Math.abs(Color.red(idealColor) - Color.red(givenColor));
+                totalError += Math.abs(Color.green(idealColor) - Color.green(givenColor));
+                totalError += Math.abs(Color.blue(idealColor) - Color.blue(givenColor));
+                totalError += Math.abs(Color.alpha(idealColor) - Color.alpha(givenColor));
+
+                if ((totalError / 1024.0f) >= pixelThreshold) {
+                    Assert.fail((message + ": totalError is " + totalError));
+                }
+
+                if (totalError > pixelDiffTolerance) {
+                    totalDiffPixelCount++;
+                }
+            }
+        }
+        if ((totalDiffPixelCount / totalPixelCount) >= pixelCountThreshold) {
+            Assert.fail((message +": totalDiffPixelCount is " + totalDiffPixelCount));
+        }
+    }
+
+    /**
+     * Returns the {@link Color} at the specified location in the {@link Drawable}.
+     */
+    public static int getPixel(Drawable d, int x, int y) {
+        final int w = Math.max(d.getIntrinsicWidth(), x + 1);
+        final int h = Math.max(d.getIntrinsicHeight(), y + 1);
+        final Bitmap b = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        final Canvas c = new Canvas(b);
+        d.setBounds(0, 0, w, h);
+        d.draw(c);
+
+        final int pixel = b.getPixel(x, y);
+        b.recycle();
+        return pixel;
     }
 }

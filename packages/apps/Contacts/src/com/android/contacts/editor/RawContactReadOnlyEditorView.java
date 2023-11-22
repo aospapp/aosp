@@ -25,7 +25,6 @@ import android.provider.ContactsContract.CommonDataKinds.Phone;
 import android.provider.ContactsContract.CommonDataKinds.Photo;
 import android.provider.ContactsContract.CommonDataKinds.StructuredName;
 import android.provider.ContactsContract.RawContacts;
-import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Pair;
@@ -39,6 +38,7 @@ import android.widget.TextView;
 
 import com.android.contacts.R;
 import com.android.contacts.common.GeoUtil;
+import com.android.contacts.common.compat.PhoneNumberUtilsCompat;
 import com.android.contacts.common.model.RawContactModifier;
 import com.android.contacts.common.model.RawContactDelta;
 import com.android.contacts.common.model.ValuesDelta;
@@ -61,6 +61,7 @@ public class RawContactReadOnlyEditorView extends BaseRawContactEditorView
 
     private TextView mAccountHeaderTypeTextView;
     private TextView mAccountHeaderNameTextView;
+    private ImageView mAccountIconImageView;
 
     private String mAccountName;
     private String mAccountType;
@@ -91,6 +92,7 @@ public class RawContactReadOnlyEditorView extends BaseRawContactEditorView
 
         mAccountHeaderTypeTextView = (TextView) findViewById(R.id.account_type);
         mAccountHeaderNameTextView = (TextView) findViewById(R.id.account_name);
+        mAccountIconImageView = (ImageView) findViewById(android.R.id.icon);
     }
 
     /**
@@ -115,21 +117,21 @@ public class RawContactReadOnlyEditorView extends BaseRawContactEditorView
         mAccountType = state.getAccountType();
         mDataSet = state.getDataSet();
 
-        final Pair<String,String> accountInfo = EditorUiUtils.getAccountInfo(getContext(),
-                isProfile, state.getAccountName(), type);
-        if (accountInfo == null) {
+        final Pair<String,String> accountInfo = isProfile
+                ? EditorUiUtils.getLocalAccountInfo(getContext(), state.getAccountName(), type)
+                : EditorUiUtils.getAccountInfo(getContext(), state.getAccountName(), type);
+        if (accountInfo.first == null) {
             // Hide this view so the other text view will be centered vertically
             mAccountHeaderNameTextView.setVisibility(View.GONE);
         } else {
-            if (accountInfo.first == null) {
-                mAccountHeaderNameTextView.setVisibility(View.GONE);
-            } else {
-                mAccountHeaderNameTextView.setVisibility(View.VISIBLE);
-                mAccountHeaderNameTextView.setText(accountInfo.first);
-            }
-            mAccountHeaderTypeTextView.setText(accountInfo.second);
+            mAccountHeaderNameTextView.setVisibility(View.VISIBLE);
+            mAccountHeaderNameTextView.setText(accountInfo.first);
         }
+        mAccountHeaderTypeTextView.setText(accountInfo.second);
         updateAccountHeaderContentDescription();
+
+        mAccountIconImageView.setImageDrawable(state.getRawContactAccountType(getContext())
+                .getDisplayIcon(getContext()));
 
         // TODO: Expose data set in the UI somehow?
 
@@ -170,11 +172,11 @@ public class RawContactReadOnlyEditorView extends BaseRawContactEditorView
                 if (TextUtils.isEmpty(phoneNumber)) {
                     continue;
                 }
-                final String formattedNumber = PhoneNumberUtils.formatNumber(
+                final String formattedNumber = PhoneNumberUtilsCompat.formatNumber(
                         phoneNumber, phone.getPhoneNormalizedNumber(),
                         GeoUtil.getCurrentCountryIso(getContext()));
                 CharSequence phoneType = null;
-                if (phone.phoneHasType()) {
+                if (phone.hasPhoneType()) {
                     phoneType = Phone.getTypeLabel(
                             res, phone.getPhoneType(), phone.getPhoneLabel());
                 }
@@ -196,7 +198,7 @@ public class RawContactReadOnlyEditorView extends BaseRawContactEditorView
                     continue;
                 }
                 CharSequence emailType = null;
-                if (email.emailHasType()) {
+                if (email.hasEmailType()) {
                     emailType = Email.getTypeLabel(
                             res, email.getEmailType(), email.getEmailLabel());
                 }

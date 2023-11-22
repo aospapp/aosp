@@ -13,6 +13,10 @@
 
 #include "vp9/common/vp9_blockd.h"
 #include "vp9/common/vp9_common.h"
+#include "vp9/common/vp9_entropy.h"
+#if CONFIG_COEFFICIENT_RANGE_CHECKING
+#include "vp9/common/vp9_idct.h"
+#endif
 
 #include "vp9/decoder/vp9_detokenize.h"
 
@@ -30,60 +34,95 @@
 
 #define INCREMENT_COUNT(token)                              \
   do {                                                      \
-     if (!cm->frame_parallel_decoding_mode)                 \
+     if (counts)                                            \
        ++coef_counts[band][ctx][token];                     \
   } while (0)
 
-#define WRITE_COEF_CONTINUE(val, token)                  \
-  {                                                      \
-    v = (val * dqv) >> dq_shift;                         \
-    dqcoeff[scan[c]] = vp9_read_bit(r) ? -v : v;         \
-    token_cache[scan[c]] = vp9_pt_energy_class[token];   \
-    ++c;                                                 \
-    ctx = get_coef_context(nb, token_cache, c);          \
-    dqv = dq[1];                                         \
-    continue;                                            \
-  }
+static INLINE int read_coeff(const vpx_prob *probs, int n, vpx_reader *r) {
+  int i, val = 0;
+  for (i = 0; i < n; ++i)
+    val = (val << 1) | vpx_read(r, probs[i]);
+  return val;
+}
 
-#define ADJUST_COEF(prob, bits_count)                   \
-  do {                                                  \
-    val += (vp9_read(r, prob) << bits_count);           \
-  } while (0)
-
-static int decode_coefs(VP9_COMMON *cm, const MACROBLOCKD *xd, PLANE_TYPE type,
-                       int16_t *dqcoeff, TX_SIZE tx_size, const int16_t *dq,
-                       int ctx, const int16_t *scan, const int16_t *nb,
-                       vp9_reader *r) {
+static int decode_coefs(const MACROBLOCKD *xd,
+                        PLANE_TYPE type,
+                        tran_low_t *dqcoeff, TX_SIZE tx_size, const int16_t *dq,
+                        int ctx, const int16_t *scan, const int16_t *nb,
+                        vpx_reader *r) {
+  FRAME_COUNTS *counts = xd->counts;
   const int max_eob = 16 << (tx_size << 1);
-  const FRAME_CONTEXT *const fc = &cm->fc;
-  FRAME_COUNTS *const counts = &cm->counts;
+  const FRAME_CONTEXT *const fc = xd->fc;
   const int ref = is_inter_block(&xd->mi[0]->mbmi);
   int band, c = 0;
-  const vp9_prob (*coef_probs)[COEFF_CONTEXTS][UNCONSTRAINED_NODES] =
+  const vpx_prob (*coef_probs)[COEFF_CONTEXTS][UNCONSTRAINED_NODES] =
       fc->coef_probs[tx_size][type][ref];
-  const vp9_prob *prob;
-  unsigned int (*coef_counts)[COEFF_CONTEXTS][UNCONSTRAINED_NODES + 1] =
-      counts->coef[tx_size][type][ref];
-  unsigned int (*eob_branch_count)[COEFF_CONTEXTS] =
-      counts->eob_branch[tx_size][type][ref];
+  const vpx_prob *prob;
+  unsigned int (*coef_counts)[COEFF_CONTEXTS][UNCONSTRAINED_NODES + 1];
+  unsigned int (*eob_branch_count)[COEFF_CONTEXTS];
   uint8_t token_cache[32 * 32];
   const uint8_t *band_translate = get_band_translate(tx_size);
   const int dq_shift = (tx_size == TX_32X32);
-  int v;
+  int v, token;
   int16_t dqv = dq[0];
+  const uint8_t *cat1_prob;
+  const uint8_t *cat2_prob;
+  const uint8_t *cat3_prob;
+  const uint8_t *cat4_prob;
+  const uint8_t *cat5_prob;
+  const uint8_t *cat6_prob;
+
+  if (counts) {
+    coef_counts = counts->coef[tx_size][type][ref];
+    eob_branch_count = counts->eob_branch[tx_size][type][ref];
+  }
+
+#if CONFIG_VP9_HIGHBITDEPTH
+  if (xd->bd > VPX_BITS_8) {
+    if (xd->bd == VPX_BITS_10) {
+      cat1_prob = vp9_cat1_prob_high10;
+      cat2_prob = vp9_cat2_prob_high10;
+      cat3_prob = vp9_cat3_prob_high10;
+      cat4_prob = vp9_cat4_prob_high10;
+      cat5_prob = vp9_cat5_prob_high10;
+      cat6_prob = vp9_cat6_prob_high10;
+    } else {
+      cat1_prob = vp9_cat1_prob_high12;
+      cat2_prob = vp9_cat2_prob_high12;
+      cat3_prob = vp9_cat3_prob_high12;
+      cat4_prob = vp9_cat4_prob_high12;
+      cat5_prob = vp9_cat5_prob_high12;
+      cat6_prob = vp9_cat6_prob_high12;
+    }
+  } else {
+    cat1_prob = vp9_cat1_prob;
+    cat2_prob = vp9_cat2_prob;
+    cat3_prob = vp9_cat3_prob;
+    cat4_prob = vp9_cat4_prob;
+    cat5_prob = vp9_cat5_prob;
+    cat6_prob = vp9_cat6_prob;
+  }
+#else
+  cat1_prob = vp9_cat1_prob;
+  cat2_prob = vp9_cat2_prob;
+  cat3_prob = vp9_cat3_prob;
+  cat4_prob = vp9_cat4_prob;
+  cat5_prob = vp9_cat5_prob;
+  cat6_prob = vp9_cat6_prob;
+#endif
 
   while (c < max_eob) {
-    int val;
+    int val = -1;
     band = *band_translate++;
     prob = coef_probs[band][ctx];
-    if (!cm->frame_parallel_decoding_mode)
+    if (counts)
       ++eob_branch_count[band][ctx];
-    if (!vp9_read(r, prob[EOB_CONTEXT_NODE])) {
+    if (!vpx_read(r, prob[EOB_CONTEXT_NODE])) {
       INCREMENT_COUNT(EOB_MODEL_TOKEN);
       break;
     }
 
-    while (!vp9_read(r, prob[ZERO_CONTEXT_NODE])) {
+    while (!vpx_read(r, prob[ZERO_CONTEXT_NODE])) {
       INCREMENT_COUNT(ZERO_TOKEN);
       dqv = dq[1];
       token_cache[scan[c]] = 0;
@@ -95,97 +134,135 @@ static int decode_coefs(VP9_COMMON *cm, const MACROBLOCKD *xd, PLANE_TYPE type,
       prob = coef_probs[band][ctx];
     }
 
-    // ONE_CONTEXT_NODE_0_
-    if (!vp9_read(r, prob[ONE_CONTEXT_NODE])) {
+    if (!vpx_read(r, prob[ONE_CONTEXT_NODE])) {
       INCREMENT_COUNT(ONE_TOKEN);
-      WRITE_COEF_CONTINUE(1, ONE_TOKEN);
-    }
-
-    INCREMENT_COUNT(TWO_TOKEN);
-
-    prob = vp9_pareto8_full[prob[PIVOT_NODE] - 1];
-
-    if (!vp9_read(r, prob[LOW_VAL_CONTEXT_NODE])) {
-      if (!vp9_read(r, prob[TWO_CONTEXT_NODE])) {
-        WRITE_COEF_CONTINUE(2, TWO_TOKEN);
+      token = ONE_TOKEN;
+      val = 1;
+    } else {
+      INCREMENT_COUNT(TWO_TOKEN);
+      token = vpx_read_tree(r, vp9_coef_con_tree,
+                            vp9_pareto8_full[prob[PIVOT_NODE] - 1]);
+      switch (token) {
+        case TWO_TOKEN:
+        case THREE_TOKEN:
+        case FOUR_TOKEN:
+          val = token;
+          break;
+        case CATEGORY1_TOKEN:
+          val = CAT1_MIN_VAL + read_coeff(cat1_prob, 1, r);
+          break;
+        case CATEGORY2_TOKEN:
+          val = CAT2_MIN_VAL + read_coeff(cat2_prob, 2, r);
+          break;
+        case CATEGORY3_TOKEN:
+          val = CAT3_MIN_VAL + read_coeff(cat3_prob, 3, r);
+          break;
+        case CATEGORY4_TOKEN:
+          val = CAT4_MIN_VAL + read_coeff(cat4_prob, 4, r);
+          break;
+        case CATEGORY5_TOKEN:
+          val = CAT5_MIN_VAL + read_coeff(cat5_prob, 5, r);
+          break;
+        case CATEGORY6_TOKEN:
+#if CONFIG_VP9_HIGHBITDEPTH
+          switch (xd->bd) {
+            case VPX_BITS_8:
+              val = CAT6_MIN_VAL + read_coeff(cat6_prob, 14, r);
+              break;
+            case VPX_BITS_10:
+              val = CAT6_MIN_VAL + read_coeff(cat6_prob, 16, r);
+              break;
+            case VPX_BITS_12:
+              val = CAT6_MIN_VAL + read_coeff(cat6_prob, 18, r);
+              break;
+            default:
+              assert(0);
+              return -1;
+          }
+#else
+          val = CAT6_MIN_VAL + read_coeff(cat6_prob, 14, r);
+#endif
+          break;
       }
-      if (!vp9_read(r, prob[THREE_CONTEXT_NODE])) {
-        WRITE_COEF_CONTINUE(3, THREE_TOKEN);
-      }
-      WRITE_COEF_CONTINUE(4, FOUR_TOKEN);
     }
-
-    if (!vp9_read(r, prob[HIGH_LOW_CONTEXT_NODE])) {
-      if (!vp9_read(r, prob[CAT_ONE_CONTEXT_NODE])) {
-        val = CAT1_MIN_VAL;
-        ADJUST_COEF(vp9_cat1_prob[0], 0);
-        WRITE_COEF_CONTINUE(val, CATEGORY1_TOKEN);
-      }
-      val = CAT2_MIN_VAL;
-      ADJUST_COEF(vp9_cat2_prob[0], 1);
-      ADJUST_COEF(vp9_cat2_prob[1], 0);
-      WRITE_COEF_CONTINUE(val, CATEGORY2_TOKEN);
-    }
-
-    if (!vp9_read(r, prob[CAT_THREEFOUR_CONTEXT_NODE])) {
-      if (!vp9_read(r, prob[CAT_THREE_CONTEXT_NODE])) {
-        val = CAT3_MIN_VAL;
-        ADJUST_COEF(vp9_cat3_prob[0], 2);
-        ADJUST_COEF(vp9_cat3_prob[1], 1);
-        ADJUST_COEF(vp9_cat3_prob[2], 0);
-        WRITE_COEF_CONTINUE(val, CATEGORY3_TOKEN);
-      }
-      val = CAT4_MIN_VAL;
-      ADJUST_COEF(vp9_cat4_prob[0], 3);
-      ADJUST_COEF(vp9_cat4_prob[1], 2);
-      ADJUST_COEF(vp9_cat4_prob[2], 1);
-      ADJUST_COEF(vp9_cat4_prob[3], 0);
-      WRITE_COEF_CONTINUE(val, CATEGORY4_TOKEN);
-    }
-
-    if (!vp9_read(r, prob[CAT_FIVE_CONTEXT_NODE])) {
-      val = CAT5_MIN_VAL;
-      ADJUST_COEF(vp9_cat5_prob[0], 4);
-      ADJUST_COEF(vp9_cat5_prob[1], 3);
-      ADJUST_COEF(vp9_cat5_prob[2], 2);
-      ADJUST_COEF(vp9_cat5_prob[3], 1);
-      ADJUST_COEF(vp9_cat5_prob[4], 0);
-      WRITE_COEF_CONTINUE(val, CATEGORY5_TOKEN);
-    }
-    val = 0;
-    val = (val << 1) | vp9_read(r, vp9_cat6_prob[0]);
-    val = (val << 1) | vp9_read(r, vp9_cat6_prob[1]);
-    val = (val << 1) | vp9_read(r, vp9_cat6_prob[2]);
-    val = (val << 1) | vp9_read(r, vp9_cat6_prob[3]);
-    val = (val << 1) | vp9_read(r, vp9_cat6_prob[4]);
-    val = (val << 1) | vp9_read(r, vp9_cat6_prob[5]);
-    val = (val << 1) | vp9_read(r, vp9_cat6_prob[6]);
-    val = (val << 1) | vp9_read(r, vp9_cat6_prob[7]);
-    val = (val << 1) | vp9_read(r, vp9_cat6_prob[8]);
-    val = (val << 1) | vp9_read(r, vp9_cat6_prob[9]);
-    val = (val << 1) | vp9_read(r, vp9_cat6_prob[10]);
-    val = (val << 1) | vp9_read(r, vp9_cat6_prob[11]);
-    val = (val << 1) | vp9_read(r, vp9_cat6_prob[12]);
-    val = (val << 1) | vp9_read(r, vp9_cat6_prob[13]);
-    val += CAT6_MIN_VAL;
-
-    WRITE_COEF_CONTINUE(val, CATEGORY6_TOKEN);
+    v = (val * dqv) >> dq_shift;
+#if CONFIG_COEFFICIENT_RANGE_CHECKING
+#if CONFIG_VP9_HIGHBITDEPTH
+    dqcoeff[scan[c]] = highbd_check_range((vpx_read_bit(r) ? -v : v),
+                                          xd->bd);
+#else
+    dqcoeff[scan[c]] = check_range(vpx_read_bit(r) ? -v : v);
+#endif  // CONFIG_VP9_HIGHBITDEPTH
+#else
+    dqcoeff[scan[c]] = vpx_read_bit(r) ? -v : v;
+#endif  // CONFIG_COEFFICIENT_RANGE_CHECKING
+    token_cache[scan[c]] = vp9_pt_energy_class[token];
+    ++c;
+    ctx = get_coef_context(nb, token_cache, c);
+    dqv = dq[1];
   }
 
   return c;
 }
 
-int vp9_decode_block_tokens(VP9_COMMON *cm, MACROBLOCKD *xd,
-                            int plane, int block, BLOCK_SIZE plane_bsize,
-                            int x, int y, TX_SIZE tx_size, vp9_reader *r) {
+// TODO(slavarnway): Decode version of vp9_set_context.  Modify vp9_set_context
+// after testing is complete, then delete this version.
+static
+void dec_set_contexts(const MACROBLOCKD *xd, struct macroblockd_plane *pd,
+                      TX_SIZE tx_size, int has_eob,
+                      int aoff, int loff) {
+  ENTROPY_CONTEXT *const a = pd->above_context + aoff;
+  ENTROPY_CONTEXT *const l = pd->left_context + loff;
+  const int tx_size_in_blocks = 1 << tx_size;
+
+  // above
+  if (has_eob && xd->mb_to_right_edge < 0) {
+    int i;
+    const int blocks_wide = pd->n4_w +
+                            (xd->mb_to_right_edge >> (5 + pd->subsampling_x));
+    int above_contexts = tx_size_in_blocks;
+    if (above_contexts + aoff > blocks_wide)
+      above_contexts = blocks_wide - aoff;
+
+    for (i = 0; i < above_contexts; ++i)
+      a[i] = has_eob;
+    for (i = above_contexts; i < tx_size_in_blocks; ++i)
+      a[i] = 0;
+  } else {
+    memset(a, has_eob, sizeof(ENTROPY_CONTEXT) * tx_size_in_blocks);
+  }
+
+  // left
+  if (has_eob && xd->mb_to_bottom_edge < 0) {
+    int i;
+    const int blocks_high = pd->n4_h +
+                            (xd->mb_to_bottom_edge >> (5 + pd->subsampling_y));
+    int left_contexts = tx_size_in_blocks;
+    if (left_contexts + loff > blocks_high)
+      left_contexts = blocks_high - loff;
+
+    for (i = 0; i < left_contexts; ++i)
+      l[i] = has_eob;
+    for (i = left_contexts; i < tx_size_in_blocks; ++i)
+      l[i] = 0;
+  } else {
+    memset(l, has_eob, sizeof(ENTROPY_CONTEXT) * tx_size_in_blocks);
+  }
+}
+
+int vp9_decode_block_tokens(MACROBLOCKD *xd,
+                            int plane, const scan_order *sc,
+                            int x, int y,
+                            TX_SIZE tx_size, vpx_reader *r,
+                            int seg_id) {
   struct macroblockd_plane *const pd = &xd->plane[plane];
+  const int16_t *const dequant = pd->seg_dequant[seg_id];
   const int ctx = get_entropy_context(tx_size, pd->above_context + x,
                                                pd->left_context + y);
-  const scan_order *so = get_scan(xd, tx_size, pd->plane_type, block);
-  const int eob = decode_coefs(cm, xd, pd->plane_type,
-                               BLOCK_OFFSET(pd->dqcoeff, block), tx_size,
-                               pd->dequant, ctx, so->scan, so->neighbors, r);
-  vp9_set_contexts(xd, pd, plane_bsize, tx_size, eob > 0, x, y);
+  const int eob = decode_coefs(xd, get_plane_type(plane),
+                               pd->dqcoeff, tx_size,
+                               dequant, ctx, sc->scan, sc->neighbors, r);
+  dec_set_contexts(xd, pd, tx_size, eob > 0, x, y);
   return eob;
 }
 

@@ -14,7 +14,7 @@
      limitations under the License.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.dreams">
+    package="android.dreams.cts">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <application>
@@ -23,7 +23,7 @@
 
     <!-- This is a self-instrumenting test package. -->
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.dreams"
+                     android:targetPackage="android.dreams.cts"
                      android:label="CTS tests for the android.service.dreams package">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

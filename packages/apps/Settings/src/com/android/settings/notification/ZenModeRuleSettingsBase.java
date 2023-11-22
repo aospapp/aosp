@@ -17,29 +17,30 @@
 package com.android.settings.notification;
 
 import android.app.AlertDialog;
+import android.app.AutomaticZenRule;
+import android.app.NotificationManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.preference.Preference;
-import android.preference.Preference.OnPreferenceClickListener;
-import android.preference.PreferenceScreen;
-import android.provider.Settings.Global;
-import android.service.notification.ZenModeConfig;
-import android.service.notification.ZenModeConfig.ZenRule;
+import android.service.notification.ConditionProviderService;
+import android.support.v7.preference.DropDownPreference;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.Preference.OnPreferenceChangeListener;
+import android.support.v7.preference.Preference.OnPreferenceClickListener;
+import android.support.v7.preference.PreferenceScreen;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Switch;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import com.android.internal.logging.MetricsLogger;
-import com.android.settings.DropDownPreference;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.R;
 import com.android.settings.SettingsActivity;
 import com.android.settings.widget.SwitchBar;
@@ -49,15 +50,14 @@ public abstract class ZenModeRuleSettingsBase extends ZenModeSettingsBase
     protected static final String TAG = ZenModeSettingsBase.TAG;
     protected static final boolean DEBUG = ZenModeSettingsBase.DEBUG;
 
-    public static final String EXTRA_RULE_ID = "rule_id";
     private static final String KEY_RULE_NAME = "rule_name";
     private static final String KEY_ZEN_MODE = "zen_mode";
 
     protected Context mContext;
     protected boolean mDisableListeners;
-    protected ZenRule mRule;
+    protected AutomaticZenRule mRule;
+    protected String mId;
 
-    private String mRuleId;
     private boolean mDeleting;
     private Preference mRuleName;
     private SwitchBar mSwitchBar;
@@ -65,7 +65,7 @@ public abstract class ZenModeRuleSettingsBase extends ZenModeSettingsBase
     private Toast mEnabledToast;
 
     abstract protected void onCreateInternal();
-    abstract protected boolean setRule(ZenRule rule);
+    abstract protected boolean setRule(AutomaticZenRule rule);
     abstract protected String getZenModeDependency();
     abstract protected void updateControlsInternal();
     abstract protected int getEnabledToastText();
@@ -84,8 +84,8 @@ public abstract class ZenModeRuleSettingsBase extends ZenModeSettingsBase
             return;
         }
 
-        mRuleId = intent.getStringExtra(EXTRA_RULE_ID);
-        if (DEBUG) Log.d(TAG, "mRuleId=" + mRuleId);
+        mId = intent.getStringExtra(ConditionProviderService.EXTRA_RULE_ID);
+        if (DEBUG) Log.d(TAG, "mId=" + mId);
         if (refreshRuleOrFinish()) {
             return;
         }
@@ -105,20 +105,25 @@ public abstract class ZenModeRuleSettingsBase extends ZenModeSettingsBase
         });
 
         mZenMode = (DropDownPreference) root.findPreference(KEY_ZEN_MODE);
-        mZenMode.addItem(R.string.zen_mode_option_important_interruptions,
-                Global.ZEN_MODE_IMPORTANT_INTERRUPTIONS);
-        mZenMode.addItem(R.string.zen_mode_option_alarms, Global.ZEN_MODE_ALARMS);
-        mZenMode.addItem(R.string.zen_mode_option_no_interruptions,
-                Global.ZEN_MODE_NO_INTERRUPTIONS);
-        mZenMode.setCallback(new DropDownPreference.Callback() {
+        mZenMode.setEntries(new CharSequence[] {
+                getString(R.string.zen_mode_option_important_interruptions),
+                getString(R.string.zen_mode_option_alarms),
+                getString(R.string.zen_mode_option_no_interruptions),
+        });
+        mZenMode.setEntryValues(new CharSequence[] {
+                Integer.toString(NotificationManager.INTERRUPTION_FILTER_PRIORITY),
+                Integer.toString(NotificationManager.INTERRUPTION_FILTER_ALARMS),
+                Integer.toString(NotificationManager.INTERRUPTION_FILTER_NONE),
+        });
+        mZenMode.setOnPreferenceChangeListener(new OnPreferenceChangeListener() {
             @Override
-            public boolean onItemSelected(int pos, Object value) {
-                if (mDisableListeners) return true;
-                final int zenMode = (Integer) value;
-                if (zenMode == mRule.zenMode) return true;
+            public boolean onPreferenceChange(Preference preference, Object newValue) {
+                if (mDisableListeners) return false;
+                final int zenMode = Integer.parseInt((String) newValue);
+                if (zenMode == mRule.getInterruptionFilter()) return false;
                 if (DEBUG) Log.d(TAG, "onPrefChange zenMode=" + zenMode);
-                mRule.zenMode = zenMode;
-                setZenModeConfig(mConfig);
+                mRule.setInterruptionFilter(zenMode);
+                setZenRule(mId, mRule);
                 return true;
             }
         });
@@ -129,6 +134,9 @@ public abstract class ZenModeRuleSettingsBase extends ZenModeSettingsBase
     @Override
     public void onResume() {
         super.onResume();
+        if (isUiRestricted()) {
+            return;
+        }
         updateControls();
     }
 
@@ -154,12 +162,11 @@ public abstract class ZenModeRuleSettingsBase extends ZenModeSettingsBase
         if (DEBUG) Log.d(TAG, "onSwitchChanged " + isChecked);
         if (mDisableListeners) return;
         final boolean enabled = isChecked;
-        if (enabled == mRule.enabled) return;
-        MetricsLogger.action(mContext, MetricsLogger.ACTION_ZEN_ENABLE_RULE, enabled);
+        if (enabled == mRule.isEnabled()) return;
+        MetricsLogger.action(mContext, MetricsEvent.ACTION_ZEN_ENABLE_RULE, enabled);
         if (DEBUG) Log.d(TAG, "onSwitchChanged enabled=" + enabled);
-        mRule.enabled = enabled;
-        mRule.snoozing = false;
-        setZenModeConfig(mConfig);
+        mRule.setEnabled(enabled);
+        setZenRule(mId, mRule);
         if (enabled) {
             final int toastText = getEnabledToastText();
             if (toastText != 0) {
@@ -174,10 +181,8 @@ public abstract class ZenModeRuleSettingsBase extends ZenModeSettingsBase
     }
 
     protected void updateRule(Uri newConditionId) {
-        mRule.conditionId = newConditionId;
-        mRule.condition = null;
-        mRule.snoozing = false;
-        setZenModeConfig(mConfig);
+        mRule.setConditionId(newConditionId);
+        setZenRule(mId, mRule);
     }
 
     @Override
@@ -202,7 +207,7 @@ public abstract class ZenModeRuleSettingsBase extends ZenModeSettingsBase
     public boolean onOptionsItemSelected(MenuItem item) {
         if (DEBUG) Log.d(TAG, "onOptionsItemSelected " + item.getItemId());
         if (item.getItemId() == R.id.delete) {
-            MetricsLogger.action(mContext, MetricsLogger.ACTION_ZEN_DELETE_RULE);
+            MetricsLogger.action(mContext, MetricsEvent.ACTION_ZEN_DELETE_RULE);
             showDeleteRuleDialog();
             return true;
         }
@@ -210,20 +215,17 @@ public abstract class ZenModeRuleSettingsBase extends ZenModeSettingsBase
     }
 
     private void showRuleNameDialog() {
-        new ZenRuleNameDialog(mContext, null, mRule.name, mConfig.getAutomaticRuleNames()) {
+        new ZenRuleNameDialog(mContext, mRule.getName()) {
             @Override
-            public void onOk(String ruleName, RuleInfo type) {
-                final ZenModeConfig newConfig = mConfig.copy();
-                final ZenRule rule = newConfig.automaticRules.get(mRuleId);
-                if (rule == null) return;
-                rule.name = ruleName;
-                setZenModeConfig(newConfig);
+            public void onOk(String ruleName) {
+                mRule.setName(ruleName);
+                setZenRule(mId, mRule);
             }
         }.show();
     }
 
     private boolean refreshRuleOrFinish() {
-        mRule = mConfig.automaticRules.get(mRuleId);
+        mRule = getZenRule();
         if (DEBUG) Log.d(TAG, "mRule=" + mRule);
         if (!setRule(mRule)) {
             toastAndFinish();
@@ -234,15 +236,14 @@ public abstract class ZenModeRuleSettingsBase extends ZenModeSettingsBase
 
     private void showDeleteRuleDialog() {
         final AlertDialog dialog = new AlertDialog.Builder(mContext)
-                .setMessage(getString(R.string.zen_mode_delete_rule_confirmation, mRule.name))
+                .setMessage(getString(R.string.zen_mode_delete_rule_confirmation, mRule.getName()))
                 .setNegativeButton(R.string.cancel, null)
                 .setPositiveButton(R.string.zen_mode_delete_rule_button, new OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        MetricsLogger.action(mContext, MetricsLogger.ACTION_ZEN_DELETE_RULE_OK);
+                        MetricsLogger.action(mContext, MetricsEvent.ACTION_ZEN_DELETE_RULE_OK);
                         mDeleting = true;
-                        mConfig.automaticRules.remove(mRuleId);
-                        setZenModeConfig(mConfig);
+                        removeZenRule(mId);
                     }
                 })
                 .show();
@@ -261,17 +262,21 @@ public abstract class ZenModeRuleSettingsBase extends ZenModeSettingsBase
     }
 
     private void updateRuleName() {
-        getActivity().setTitle(mRule.name);
-        mRuleName.setSummary(mRule.name);
+        getActivity().setTitle(mRule.getName());
+        mRuleName.setSummary(mRule.getName());
+    }
+
+    private AutomaticZenRule getZenRule() {
+        return NotificationManager.from(mContext).getAutomaticZenRule(mId);
     }
 
     private void updateControls() {
         mDisableListeners = true;
         updateRuleName();
         updateControlsInternal();
-        mZenMode.setSelectedValue(mRule.zenMode);
+        mZenMode.setValue(Integer.toString(mRule.getInterruptionFilter()));
         if (mSwitchBar != null) {
-            mSwitchBar.setChecked(mRule.enabled);
+            mSwitchBar.setChecked(mRule.isEnabled());
         }
         mDisableListeners = false;
     }

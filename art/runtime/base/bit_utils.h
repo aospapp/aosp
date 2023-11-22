@@ -23,29 +23,38 @@
 
 #include "base/logging.h"
 #include "base/iteration_range.h"
+#include "base/stl_util.h"
 
 namespace art {
 
 template<typename T>
 static constexpr int CLZ(T x) {
   static_assert(std::is_integral<T>::value, "T must be integral");
-  // TODO: assert unsigned. There is currently many uses with signed values.
+  static_assert(std::is_unsigned<T>::value, "T must be unsigned");
   static_assert(sizeof(T) <= sizeof(long long),  // NOLINT [runtime/int] [4]
                 "T too large, must be smaller than long long");
-  return (sizeof(T) == sizeof(uint32_t))
-      ? __builtin_clz(x)  // TODO: __builtin_clz[ll] has undefined behavior for x=0
-      : __builtin_clzll(x);
+  return
+      DCHECK_CONSTEXPR(x != 0, "x must not be zero", T(0))
+      (sizeof(T) == sizeof(uint32_t))
+          ? __builtin_clz(x)
+          : __builtin_clzll(x);
 }
 
 template<typename T>
 static constexpr int CTZ(T x) {
   static_assert(std::is_integral<T>::value, "T must be integral");
-  // TODO: assert unsigned. There is currently many uses with signed values.
-  return (sizeof(T) == sizeof(uint32_t))
-      ? __builtin_ctz(x)
-      : __builtin_ctzll(x);
+  // It is not unreasonable to ask for trailing zeros in a negative number. As such, do not check
+  // that T is an unsigned type.
+  static_assert(sizeof(T) <= sizeof(long long),  // NOLINT [runtime/int] [4]
+                "T too large, must be smaller than long long");
+  return
+      DCHECK_CONSTEXPR(x != 0, "x must not be zero", T(0))
+      (sizeof(T) == sizeof(uint32_t))
+          ? __builtin_ctz(x)
+          : __builtin_ctzll(x);
 }
 
+// Return the number of 1-bits in `x`.
 template<typename T>
 static constexpr int POPCOUNT(T x) {
   return (sizeof(T) == sizeof(uint32_t))
@@ -100,12 +109,12 @@ static inline int WhichPowerOf2(T x) {
 }
 
 // For rounding integers.
-// NOTE: In the absence of std::omit_from_type_deduction<T> or std::identity<T>, use std::decay<T>.
+// Note: Omit the `n` from T type deduction, deduce only from the `x` argument.
 template<typename T>
-static constexpr T RoundDown(T x, typename std::decay<T>::type n) WARN_UNUSED;
+static constexpr T RoundDown(T x, typename Identity<T>::type n) WARN_UNUSED;
 
 template<typename T>
-static constexpr T RoundDown(T x, typename std::decay<T>::type n) {
+static constexpr T RoundDown(T x, typename Identity<T>::type n) {
   return
       DCHECK_CONSTEXPR(IsPowerOfTwo(n), , T(0))
       (x & -n);
@@ -137,7 +146,7 @@ static inline T* AlignUp(T* x, uintptr_t n) {
 }
 
 template<int n, typename T>
-static inline bool IsAligned(T x) {
+static constexpr bool IsAligned(T x) {
   static_assert((n & (n - 1)) == 0, "n is not a power of two");
   return (x & (n - 1)) == 0;
 }
@@ -157,6 +166,9 @@ static inline bool IsAlignedParam(T x, int n) {
 
 #define DCHECK_ALIGNED(value, alignment) \
   DCHECK(::art::IsAligned<alignment>(value)) << reinterpret_cast<const void*>(value)
+
+#define CHECK_ALIGNED_PARAM(value, alignment) \
+  CHECK(::art::IsAlignedParam(value, alignment)) << reinterpret_cast<const void*>(value)
 
 #define DCHECK_ALIGNED_PARAM(value, alignment) \
   DCHECK(::art::IsAlignedParam(value, alignment)) << reinterpret_cast<const void*>(value)
@@ -251,6 +263,33 @@ static constexpr bool IsAbsoluteUint(T value) {
       : IsUint<kBits>(value < 0
                       ? static_cast<unsigned_type>(-1 - value) + 1u  // Avoid overflow.
                       : static_cast<unsigned_type>(value));
+}
+
+// Generate maximum/minimum values for signed/unsigned n-bit integers
+template <typename T>
+static constexpr T MaxInt(size_t bits) {
+  return
+      DCHECK_CONSTEXPR(std::is_unsigned<T>::value || bits > 0, "bits cannot be zero for signed", 0)
+      DCHECK_CONSTEXPR(bits <= BitSizeOf<T>(), "kBits must be < max.", 0)
+      bits == BitSizeOf<T>()
+          ? std::numeric_limits<T>::max()
+          : std::is_signed<T>::value
+                ? (bits == 1
+                       ? 0
+                       : static_cast<T>(MaxInt<typename std::make_unsigned<T>::type>(bits - 1)))
+                : static_cast<T>(UINT64_C(1) << bits) - static_cast<T>(1);
+}
+
+template <typename T>
+static constexpr T MinInt(size_t bits) {
+  return
+      DCHECK_CONSTEXPR(std::is_unsigned<T>::value || bits > 0, "bits cannot be zero for signed", 0)
+      DCHECK_CONSTEXPR(bits <= BitSizeOf<T>(), "kBits must be < max.", 0)
+      bits == BitSizeOf<T>()
+          ? std::numeric_limits<T>::min()
+          : std::is_signed<T>::value
+                ? (bits == 1 ? -1 : static_cast<T>(-1) - MaxInt<T>(bits))
+                : static_cast<T>(0);
 }
 
 // Using the Curiously Recurring Template Pattern to implement everything shared

@@ -23,27 +23,6 @@
 
 #include <assert.h>
 
-/* Decoder needs at least 4 reference buffers in order to support format conversion in a thread and
-to support B pictures. Because of format conversion in a thread, codec delay is now 2 frames instead of 1.
-To reduce this delay, format conversion has to wait for MB status before converting for B pictures.
-To avoid this check the delay is increased to 2 and hence number of reference frames minimum is 4 */
-#define NUM_INT_FRAME_BUFFERS                     4
-
-
-#define MAX_WIDTH               4096
-#define MAX_HEIGHT              2160
-
-#define MIN_WIDTH               16
-#define MIN_HEIGHT              16
-
-
-#define MAX_FRM_SIZE            (MAX_WIDTH * MAX_HEIGHT * 2)  /* Supports only 420P and 422ILE */
-
-#define DEC_ORDER               0
-
-#define MAX_BITSTREAM_BUFFER_SIZE       2000 * 1024
-
-
 /******************************************************************************
 * MPEG2 Start code and other code definitions
 *******************************************************************************/

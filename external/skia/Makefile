@@ -41,12 +41,14 @@ CWD := $(shell pwd)
 # world.
 VALID_TARGETS := \
                  nanobench \
+                 visualbench \
                  debugger \
                  dm \
                  everything \
+                 lua_app \
+                 lua_pictures \
                  most \
                  pathops_unittest \
-                 pdfviewer \
                  SampleApp \
                  SampleApp_APK \
                  skhello \

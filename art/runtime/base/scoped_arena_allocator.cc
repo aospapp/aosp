@@ -17,11 +17,11 @@
 #include "scoped_arena_allocator.h"
 
 #include "arena_allocator.h"
-#include <memcheck/memcheck.h>
+#include "base/memory_tool.h"
 
 namespace art {
 
-static constexpr size_t kValgrindRedZoneBytes = 8;
+static constexpr size_t kMemoryToolRedZoneBytes = 8;
 
 ArenaStack::ArenaStack(ArenaPool* arena_pool)
   : DebugStackRefCounter(),
@@ -29,8 +29,7 @@ ArenaStack::ArenaStack(ArenaPool* arena_pool)
     bottom_arena_(nullptr),
     top_arena_(nullptr),
     top_ptr_(nullptr),
-    top_end_(nullptr),
-    running_on_valgrind_(RUNNING_ON_VALGRIND > 0) {
+    top_end_(nullptr) {
 }
 
 ArenaStack::~ArenaStack() {
@@ -91,17 +90,20 @@ void ArenaStack::UpdateBytesAllocated() {
   }
 }
 
-void* ArenaStack::AllocValgrind(size_t bytes, ArenaAllocKind kind) {
-  size_t rounded_bytes = RoundUp(bytes + kValgrindRedZoneBytes, 8);
+void* ArenaStack::AllocWithMemoryTool(size_t bytes, ArenaAllocKind kind) {
+  // We mark all memory for a newly retrieved arena as inaccessible and then
+  // mark only the actually allocated memory as defined. That leaves red zones
+  // and padding between allocations marked as inaccessible.
+  size_t rounded_bytes = RoundUp(bytes + kMemoryToolRedZoneBytes, 8);
   uint8_t* ptr = top_ptr_;
   if (UNLIKELY(static_cast<size_t>(top_end_ - ptr) < rounded_bytes)) {
     ptr = AllocateFromNextArena(rounded_bytes);
     CHECK(ptr != nullptr) << "Failed to allocate memory";
+    MEMORY_TOOL_MAKE_NOACCESS(ptr, top_end_ - ptr);
   }
   CurrentStats()->RecordAlloc(bytes, kind);
   top_ptr_ = ptr + rounded_bytes;
-  VALGRIND_MAKE_MEM_UNDEFINED(ptr, bytes);
-  VALGRIND_MAKE_MEM_NOACCESS(ptr + bytes, rounded_bytes - bytes);
+  MEMORY_TOOL_MAKE_UNDEFINED(ptr, bytes);
   return ptr;
 }
 

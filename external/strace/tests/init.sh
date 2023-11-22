@@ -1,4 +1,29 @@
 #!/bin/sh
+#
+# Copyright (c) 2011-2015 Dmitry V. Levin <ldv@altlinux.org>
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+# 3. The name of the author may not be used to endorse or promote products
+#    derived from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+# IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+# OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+# IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+# NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+# THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ME_="${0##*/}"
 
@@ -72,10 +97,8 @@ check_gawk()
 }
 
 # Usage: [FILE_TO_CHECK [AWK_PROGRAM [ERROR_MESSAGE [EXTRA_AWK_OPTIONS...]]]]
-# Check whether all patterns listed in AWK_PROGRAM
-# match FILE_TO_CHECK using egrep.
-# If at least one of these patterns does not match,
-# dump both files and fail with ERROR_MESSAGE.
+# Check whether AWK_PROGRAM matches FILE_TO_CHECK using gawk.
+# If it doesn't, dump FILE_TO_CHECK and fail with ERROR_MESSAGE.
 match_awk()
 {
 	local output program error
@@ -138,7 +161,7 @@ match_diff()
 # dump both files and fail with ERROR_MESSAGE.
 match_grep()
 {
-	local output patterns error expected matched
+	local output patterns error pattern failed=
 	if [ $# -eq 0 ]; then
 		output="$LOG"
 	else
@@ -158,11 +181,16 @@ match_grep()
 	check_prog wc
 	check_prog grep
 
-	expected=$(wc -l < "$patterns") &&
-	matched=$(LC_ALL=C grep -c -E -x -f "$patterns" < "$output") &&
-	test "$expected" -eq "$matched" || {
-		echo 'Patterns of expected output:'
-		cat < "$patterns"
+	while read -r pattern; do
+		LC_ALL=C grep -E -x -e "$pattern" < "$output" > /dev/null || {
+			test -n "$failed" || {
+				echo 'Failed patterns of expected output:'
+				failed=1
+			}
+			printf '%s\n' "$pattern"
+		}
+	done < "$patterns"
+	test -z "$failed" || {
 		echo 'Actual output:'
 		cat < "$output"
 		fail_ "$error"
@@ -178,3 +206,6 @@ rm -f "$LOG"
 : "${STRACE:=../strace}"
 : "${TIMEOUT_DURATION:=60}"
 : "${SLEEP_A_BIT:=sleep 1}"
+
+[ -z "${VERBOSE-}" ] ||
+	set -x

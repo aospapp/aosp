@@ -8,9 +8,17 @@
 // get tools/base version
 apply from: "../../tools/buildSrc/base/version.gradle"
 
+ext.outPath = System.env.OUT_DIR
+if (outPath != null) {
+    ext.outFile = new File(outPath)
+} else {
+    outPath = '../../out'
+    ext.outFile = new File(projectDir, outPath)
+}
+
 repositories {
     maven { url '../../prebuilts/tools/common/m2/repository' }
-    maven { url '../../out/repo' }
+    maven { url outPath + '/repo' }
 }
 
 ext {
@@ -132,7 +140,7 @@ task copydeps << {
 
 // unzip eclipse prebuilts into the out folder to create a target platform for the build
 task unzipTargetPlatform << {
-    File targetDir = new File(projectDir, "../../out/host/maven/target").getCanonicalFile()
+    File targetDir = new File(outFile, "/host/maven/target").getCanonicalFile()
     targetDir.mkdirs()
 
     project.targetComponents.each { String k, File v ->
@@ -144,7 +152,7 @@ task unzipTargetPlatform << {
 
 task buildEclipse(type: Exec, dependsOn: unzipTargetPlatform) {
     def maven = new File(projectDir, "../../prebuilts/eclipse/maven/apache-maven-3.2.1/bin/mvn").getCanonicalFile()
-    def androidOut = new File(projectDir, "../../out").getCanonicalPath()
+    def androidOut = outFile.getCanonicalPath()
     environment("M2_HOME", maven.getParentFile().getParentFile().getCanonicalPath())
     workingDir projectDir
     commandLine maven.getCanonicalPath(), "-s", "settings.xml", "-DforceContextQualifier=$project.buildNumber", "-DANDROID_OUT=$androidOut", "package"

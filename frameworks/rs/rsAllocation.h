@@ -48,6 +48,10 @@ class Allocation : public ObjectBase {
 
 public:
     const static int MAX_LOD = 16;
+    // The mininum alignment requirement for RenderScript. Must be power of 2 and larger than 0.
+    const static size_t kMinimumRSAlignment = 16;
+    // The maximun number of Allocations that can share a single BufferQueue;
+    const static uint32_t MAX_NUM_ALLOC = 16;
 
     struct Hal {
         void * drv;
@@ -111,6 +115,9 @@ public:
     static Allocation * createAllocation(Context *rsc, const Type *, uint32_t usages,
                                          RsAllocationMipmapControl mc = RS_ALLOCATION_MIPMAP_NONE,
                                          void *ptr = 0);
+    static Allocation * createAllocationStrided(Context *rsc, const Type *, uint32_t usages,
+                                                RsAllocationMipmapControl mc = RS_ALLOCATION_MIPMAP_NONE,
+                                                void *ptr = 0, size_t byteAligned = 16);
     static Allocation * createAdapter(Context *rsc, const Allocation *alloc, const Type *type);
 
 
@@ -175,10 +182,13 @@ public:
         return mHal.state.mipmapControl != RS_ALLOCATION_MIPMAP_NONE;
     }
 
+    void setupGrallocConsumer(const Context *rsc, uint32_t numAlloc);
+    void shareBufferQueue(const Context *rsc, const Allocation *alloc);
     void * getSurface(const Context *rsc);
     void setSurface(const Context *rsc, RsNativeWindow sur);
     void ioSend(const Context *rsc);
     void ioReceive(const Context *rsc);
+    int64_t getTimeStamp() {return mHal.state.timestamp;}
 
     void adapterOffset(Context *rsc, const uint32_t *offsets, size_t len);
 
@@ -213,14 +223,21 @@ protected:
 #if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB)
     class NewBufferListener : public android::ConsumerBase::FrameAvailableListener {
     public:
+        NewBufferListener(uint32_t numAlloc);
+        virtual ~NewBufferListener();
         const android::renderscript::Context *rsc;
-        const android::renderscript::Allocation *alloc;
+        const android::renderscript::Allocation **alloc;
 
         virtual void onFrameAvailable(const BufferItem& item);
+    private:
+        uint32_t mNumAlloc;
     };
 
     sp<NewBufferListener> mBufferListener;
     sp< GrallocConsumer > mGrallocConsumer;
+    sp<IGraphicBufferProducer> mGraphicBufferProducer;
+    bool mBufferQueueInited = false;
+    uint32_t mCurrentIdx;
 #endif
 
 

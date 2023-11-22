@@ -138,6 +138,11 @@
     <bool name="config_prefer_2g" translatable="false">true</bool>
     <!-- Show enabled lte option for lte device -->
     <bool name="config_enabled_lte" translatable="false">false</bool>
+    <!-- Show enabled tdscdma option for device -->
+    <bool name="config_support_tdscdma" translatable="false">false</bool>
+    <!-- Show enabled tdscdma option for device when connect roaming network -->
+    <string-array name="config_support_tdscdma_roaming_on_networks" translatable="false">
+    </string-array>
     <!-- Show cdma auto network mode in (glabal) roaming -->
     <!-- DEPRECATED: Use CarrierConfigManager#KEY_SHOW_CDMA_CHOICES_BOOL -->
     <bool name="config_show_cdma" translatable="false">false</bool>
@@ -147,6 +152,11 @@
 
     <!-- Class name for the default main Dialer activity [DO NOT TRANSLATE] -->
     <string name="dialer_default_class" translatable="false">com.android.dialer.DialtactsActivity</string>
+
+    <!-- Package name for the network operator settings [DO NOT TRANSLATE] -->
+    <string name="network_operator_settings_package" translatable="false">com.android.phone</string>
+    <!-- Class name for the network operator settings activity [DO NOT TRANSLATE] -->
+    <string name="network_operator_settings_class" translatable="false">com.android.phone.NetworkSetting</string>
 
     <!-- CDMA activation goes through HFA -->
     <!-- DEPRECATED: Use CarrierConfigManager#KEY_USE_HFA_FOR_PROVISIONING_BOOL -->
@@ -186,4 +196,26 @@
     <!-- Disables dialing "*228" (OTASP provisioning) on CDMA carriers where it is not supported or
          is potentially harmful by locking the SIM to 3G. -->
     <string name="config_disable_cdma_activation_code" translatable="false">false</string>
+
+    <!-- Flag indicating if SIM state should be checked before making an outgoing call. -->
+    <bool name="config_checkSimStateBeforeOutgoingCall">false</bool>
+    <!-- Package name for the SIM unlock dialog.[DO NOT TRANSLATE] -->
+    <string name="config_simUnlockUiPackage" translatable="false">@null</string>
+    <!-- Class name for the SIM unlock dialog.[DO NOT TRANSLATE] -->
+    <string name="config_simUnlockUiClass" translatable="false">@null</string>
+
+    <!-- Flag indicating whether to allow visual voicemail if available on the device.[DO NOT TRANSLATE] -->
+    <bool name="allow_visual_voicemail">true</bool>
+
+    <!-- Component for custom voicemail notification handling. [DO NOT TRANSLATE] -->
+    <string name="config_customVoicemailComponent">@null</string>
+
+    <!-- Flag indicating whether to allow pstn phone accounts [DO NOT TRANSLATE] -->
+    <bool name="config_pstn_phone_accounts_enabled">true</bool>
+
+    <!-- Flag indicating whether the the emergency phone account should be emergency calls only -->
+    <bool name="config_emergency_account_emergency_calls_only">false</bool>
+
+    <!-- Whether the emergency only account can make emergency calls -->
+    <bool name="config_pstnCanPlaceEmergencyCalls">true</bool>
 </resources>

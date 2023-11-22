@@ -16,14 +16,17 @@
 
 package com.android.cts.writeexternalstorageapp;
 
+import static android.test.MoreAsserts.assertNotEqual;
+
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.PACKAGE_NONE;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.TAG;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertDirNoWriteAccess;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertDirReadOnlyAccess;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertDirReadWriteAccess;
+import static com.android.cts.externalstorageapp.CommonExternalStorageTest.buildCommonChildDirs;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.buildProbeFile;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.deleteContents;
-import static com.android.cts.externalstorageapp.CommonExternalStorageTest.getAllPackageSpecificPaths;
+import static com.android.cts.externalstorageapp.CommonExternalStorageTest.getAllPackageSpecificPathsExceptMedia;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.getMountPaths;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.getPrimaryPackageSpecificPaths;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.getSecondaryPackageSpecificPaths;
@@ -31,7 +34,10 @@ import static com.android.cts.externalstorageapp.CommonExternalStorageTest.readI
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.writeInt;
 
 import android.os.Environment;
+import android.os.SystemClock;
+import android.system.Os;
 import android.test.AndroidTestCase;
+import android.text.format.DateUtils;
 import android.util.Log;
 
 import com.android.cts.externalstorageapp.CommonExternalStorageTest;
@@ -154,11 +160,10 @@ public class WriteExternalStorageTest extends AndroidTestCase {
      * storage.
      */
     public void testPrimaryOtherPackageWriteAccess() throws Exception {
-        deleteContents(Environment.getExternalStorageDirectory());
-
         final File ourCache = getContext().getExternalCacheDir();
         final File otherCache = new File(ourCache.getAbsolutePath()
                 .replace(getContext().getPackageName(), PACKAGE_NONE));
+        deleteContents(otherCache);
 
         assertTrue(otherCache.mkdirs());
         assertDirReadWriteAccess(otherCache);
@@ -225,9 +230,14 @@ public class WriteExternalStorageTest extends AndroidTestCase {
                 path = path.getParentFile();
             }
 
-            // Keep walking up until we leave device
-            while (Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState(path))) {
-                assertDirReadOnlyAccess(path);
+            // Walk all the way up to root
+            while (path != null) {
+                if (Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState(path))) {
+                    assertDirReadOnlyAccess(path);
+                } else {
+                    assertDirNoWriteAccess(path);
+                }
+                assertDirNoWriteAccess(buildCommonChildDirs(path));
                 path = path.getParentFile();
             }
         }
@@ -237,9 +247,10 @@ public class WriteExternalStorageTest extends AndroidTestCase {
      * Verify that .nomedia is created correctly.
      */
     public void testVerifyNoMediaCreated() throws Exception {
-        deleteContents(Environment.getExternalStorageDirectory());
-
-        final List<File> paths = getAllPackageSpecificPaths(getContext());
+        for (File file : getAllPackageSpecificPathsExceptMedia(getContext())) {
+            deleteContents(file);
+        }
+        final List<File> paths = getAllPackageSpecificPathsExceptMedia(getContext());
 
         // Require that .nomedia was created somewhere above each dir
         for (File path : paths) {
@@ -296,5 +307,30 @@ public class WriteExternalStorageTest extends AndroidTestCase {
                 assertDirNoWriteAccess(userPath);
             }
         }
+    }
+
+    /**
+     * Verify that moving around package-specific directories causes permissions
+     * to be updated.
+     */
+    public void testMovePackageSpecificPaths() throws Exception {
+        final File before = getContext().getExternalCacheDir();
+        final File beforeFile = new File(before, "test.probe");
+        assertTrue(beforeFile.createNewFile());
+        assertEquals(Os.getuid(), Os.stat(before.getAbsolutePath()).st_uid);
+        assertEquals(Os.getuid(), Os.stat(beforeFile.getAbsolutePath()).st_uid);
+
+        final File after = new File(before.getAbsolutePath()
+                .replace(getContext().getPackageName(), "com.example.does.not.exist"));
+        after.getParentFile().mkdirs();
+
+        Os.rename(before.getAbsolutePath(), after.getAbsolutePath());
+
+        // Sit around long enough for VFS cache to expire
+        SystemClock.sleep(15 * DateUtils.SECOND_IN_MILLIS);
+
+        final File afterFile = new File(after, "test.probe");
+        assertNotEqual(Os.getuid(), Os.stat(after.getAbsolutePath()).st_uid);
+        assertNotEqual(Os.getuid(), Os.stat(afterFile.getAbsolutePath()).st_uid);
     }
 }

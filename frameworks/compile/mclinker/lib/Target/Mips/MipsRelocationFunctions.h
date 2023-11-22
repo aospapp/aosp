@@ -21,6 +21,7 @@
   DECL_MIPS_APPLY_RELOC_FUNC(lo16)    \
   DECL_MIPS_APPLY_RELOC_FUNC(gprel16) \
   DECL_MIPS_APPLY_RELOC_FUNC(got16)   \
+  DECL_MIPS_APPLY_RELOC_FUNC(pc16)    \
   DECL_MIPS_APPLY_RELOC_FUNC(call16)  \
   DECL_MIPS_APPLY_RELOC_FUNC(gprel32) \
   DECL_MIPS_APPLY_RELOC_FUNC(abs64)   \
@@ -30,10 +31,16 @@
   DECL_MIPS_APPLY_RELOC_FUNC(gotlo16) \
   DECL_MIPS_APPLY_RELOC_FUNC(sub)     \
   DECL_MIPS_APPLY_RELOC_FUNC(jalr)    \
-  DECL_MIPS_APPLY_RELOC_FUNC(la25lui) \
-  DECL_MIPS_APPLY_RELOC_FUNC(la25j)   \
-  DECL_MIPS_APPLY_RELOC_FUNC(la25add) \
   DECL_MIPS_APPLY_RELOC_FUNC(pc32)    \
+  DECL_MIPS_APPLY_RELOC_FUNC(pc18_s3) \
+  DECL_MIPS_APPLY_RELOC_FUNC(pc21_s2) \
+  DECL_MIPS_APPLY_RELOC_FUNC(pc19_s2) \
+  DECL_MIPS_APPLY_RELOC_FUNC(pc26_s2) \
+  DECL_MIPS_APPLY_RELOC_FUNC(pchi16) \
+  DECL_MIPS_APPLY_RELOC_FUNC(pclo16) \
+  DECL_MIPS_APPLY_RELOC_FUNC(tlshi16) \
+  DECL_MIPS_APPLY_RELOC_FUNC(tlslo16) \
+  DECL_MIPS_APPLY_RELOC_FUNC(tlsgot)  \
   DECL_MIPS_APPLY_RELOC_FUNC(unsupported)
 
 #define DECL_MIPS_APPLY_RELOC_FUNC_PTRS \
@@ -47,7 +54,7 @@
   { &gprel16,       7, "R_MIPS_GPREL16",              16}, \
   { &unsupported,   8, "R_MIPS_LITERAL",              16}, \
   { &got16,         9, "R_MIPS_GOT16",                16}, \
-  { &unsupported,  10, "R_MIPS_PC16",                 16}, \
+  { &pc16,         10, "R_MIPS_PC16",                 16}, \
   { &call16,       11, "R_MIPS_CALL16",               16}, \
   { &gprel32,      12, "R_MIPS_GPREL32",              32}, \
   { &none,         13, "R_MIPS_UNUSED1",               0}, \
@@ -79,15 +86,15 @@
   { &unsupported,  39, "R_MIPS_TLS_DTPREL32",         32}, \
   { &unsupported,  40, "R_MIPS_TLS_DTPMOD64",          0}, \
   { &unsupported,  41, "R_MIPS_TLS_DTPREL64",          0}, \
-  { &unsupported,  42, "R_MIPS_TLS_GD",               16}, \
-  { &unsupported,  43, "R_MIPS_TLS_LDM",              16}, \
-  { &unsupported,  44, "R_MIPS_TLS_DTPREL_HI16",      16}, \
-  { &unsupported,  45, "R_MIPS_TLS_DTPREL_LO16",      16}, \
-  { &unsupported,  46, "R_MIPS_TLS_GOTTPREL",         16}, \
+  { &tlsgot,       42, "R_MIPS_TLS_GD",               16}, \
+  { &tlsgot,       43, "R_MIPS_TLS_LDM",              16}, \
+  { &tlshi16,      44, "R_MIPS_TLS_DTPREL_HI16",      16}, \
+  { &tlslo16,      45, "R_MIPS_TLS_DTPREL_LO16",      16}, \
+  { &tlsgot,       46, "R_MIPS_TLS_GOTTPREL",         16}, \
   { &unsupported,  47, "R_MIPS_TLS_TPREL32",          32}, \
   { &unsupported,  48, "R_MIPS_TLS_TPREL64",           0}, \
-  { &unsupported,  49, "R_MIPS_TLS_TPREL_HI16",       16}, \
-  { &unsupported,  50, "R_MIPS_TLS_TPREL_LO16",       16}, \
+  { &tlshi16,      49, "R_MIPS_TLS_TPREL_HI16",       16}, \
+  { &tlslo16,      50, "R_MIPS_TLS_TPREL_LO16",       16}, \
   { &unsupported,  51, "R_MIPS_GLOB_DAT",              0}, \
   { &unsupported,  52, "",                             0}, \
   { &unsupported,  53, "",                             0}, \
@@ -97,12 +104,12 @@
   { &unsupported,  57, "",                             0}, \
   { &unsupported,  58, "",                             0}, \
   { &unsupported,  59, "",                             0}, \
-  { &unsupported,  60, "",                             0}, \
-  { &unsupported,  61, "",                             0}, \
-  { &unsupported,  62, "",                             0}, \
-  { &unsupported,  63, "",                             0}, \
-  { &unsupported,  64, "",                             0}, \
-  { &unsupported,  65, "",                             0}, \
+  { &pc21_s2,      60, "R_MIPS_PC21_S2",              21}, \
+  { &pc26_s2,      61, "R_MIPS_PC26_S2",              26}, \
+  { &pc18_s3,      62, "R_MIPS_PC18_S3",              18}, \
+  { &pc19_s2,      63, "R_MIPS_PC19_S2",              19}, \
+  { &pchi16,       64, "R_MIPS_PCHI16",               16}, \
+  { &pclo16,       65, "R_MIPS_PCLO16",               16}, \
   { &unsupported,  66, "",                             0}, \
   { &unsupported,  67, "",                             0}, \
   { &unsupported,  68, "",                             0}, \
@@ -237,9 +244,9 @@
   { &unsupported, 197, "",                             0}, \
   { &unsupported, 198, "",                             0}, \
   { &unsupported, 199, "",                             0}, \
-  { &la25lui,     200, "R_MIPS_LA25_LUI",             16}, \
-  { &la25j,       201, "R_MIPS_LA25_J",               26}, \
-  { &la25add,     202, "R_MIPS_LA25_ADD",             16}, \
+  { &unsupported, 200, "",                             0}, \
+  { &unsupported, 201, "",                             0}, \
+  { &unsupported, 202, "",                             0}, \
   { &unsupported, 203, "",                             0}, \
   { &unsupported, 204, "",                             0}, \
   { &unsupported, 205, "",                             0}, \
@@ -285,7 +292,7 @@
   { &unsupported, 245, "",                             0}, \
   { &unsupported, 246, "",                             0}, \
   { &unsupported, 247, "",                             0}, \
-  { &pc32,        248, "R_MIPS_PC32",                  0}, \
+  { &pc32,        248, "R_MIPS_PC32",                 32}, \
   { &unsupported, 249, "",                             0}, \
   { &unsupported, 250, "R_MIPS_GNU_REL16_S2",          0}, \
   { &unsupported, 251, "",                             0}, \

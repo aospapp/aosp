@@ -157,7 +157,7 @@ public class RunActionTask extends Task implements HostMonitor.Handler {
                 .vmArgs(run.additionalVmArgs)
                 .mainClass(TestRunner.class.getName())
                 .args(run.targetArgs)
-                .build();
+                .build(run.target);
     }
 
     /**

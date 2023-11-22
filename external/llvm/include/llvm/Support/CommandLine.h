@@ -33,6 +33,8 @@
 
 namespace llvm {
 
+class StringSaver;
+
 /// cl Namespace - This namespace contains all of the command line option
 /// processing machinery.  It is intentionally a short name to make qualified
 /// usage concise.
@@ -203,9 +205,9 @@ class Option {
   unsigned AdditionalVals; // Greater than 0 for multi-valued option.
 
 public:
-  const char *ArgStr;   // The argument string itself (ex: "help", "o")
-  const char *HelpStr;  // The descriptive text message for -help
-  const char *ValueStr; // String describing what the value of this option is
+  StringRef ArgStr;   // The argument string itself (ex: "help", "o")
+  StringRef HelpStr;  // The descriptive text message for -help
+  StringRef ValueStr; // String describing what the value of this option is
   OptionCategory *Category; // The Category this option belongs to
   bool FullyInitialized;    // Has addArguemnt been called?
 
@@ -226,14 +228,14 @@ public:
   inline unsigned getNumAdditionalVals() const { return AdditionalVals; }
 
   // hasArgStr - Return true if the argstr != ""
-  bool hasArgStr() const { return ArgStr[0] != 0; }
+  bool hasArgStr() const { return !ArgStr.empty(); }
 
   //-------------------------------------------------------------------------===
   // Accessor functions set by OptionModifiers
   //
-  void setArgStr(const char *S);
-  void setDescription(const char *S) { HelpStr = S; }
-  void setValueStr(const char *S) { ValueStr = S; }
+  void setArgStr(StringRef S);
+  void setDescription(StringRef S) { HelpStr = S; }
+  void setValueStr(StringRef S) { ValueStr = S; }
   void setNumOccurrencesFlag(enum NumOccurrencesFlag Val) { Occurrences = Val; }
   void setValueExpectedFlag(enum ValueExpected Val) { Value = Val; }
   void setHiddenFlag(enum OptionHidden Val) { HiddenFlag = Val; }
@@ -273,7 +275,7 @@ public:
 
   virtual void printOptionValue(size_t GlobalWidth, bool Force) const = 0;
 
-  virtual void getExtraOptionNames(SmallVectorImpl<const char *> &) {}
+  virtual void getExtraOptionNames(SmallVectorImpl<StringRef> &) {}
 
   // addOccurrence - Wrapper around handleOccurrence that enforces Flags.
   //
@@ -603,7 +605,7 @@ public:
 
   void initialize() {}
 
-  void getExtraOptionNames(SmallVectorImpl<const char *> &OptionNames) {
+  void getExtraOptionNames(SmallVectorImpl<StringRef> &OptionNames) {
     // If there has been no argstr specified, that means that we need to add an
     // argument for every possible option.  This ensures that our options are
     // vectored to us.
@@ -712,14 +714,14 @@ public:
 //
 class basic_parser_impl { // non-template implementation of basic_parser<t>
 public:
-  basic_parser_impl(Option &O) {}
+  basic_parser_impl(Option &) {}
 
 
   enum ValueExpected getValueExpectedFlagDefault() const {
     return ValueRequired;
   }
 
-  void getExtraOptionNames(SmallVectorImpl<const char *> &) {}
+  void getExtraOptionNames(SmallVectorImpl<StringRef> &) {}
 
   void initialize() {}
 
@@ -787,7 +789,7 @@ public:
   void anchor() override;
 };
 
-EXTERN_TEMPLATE_INSTANTIATION(class basic_parser<bool>);
+extern template class basic_parser<bool>;
 
 //--------------------------------------------------
 // parser<boolOrDefault>
@@ -813,7 +815,7 @@ public:
   void anchor() override;
 };
 
-EXTERN_TEMPLATE_INSTANTIATION(class basic_parser<boolOrDefault>);
+extern template class basic_parser<boolOrDefault>;
 
 //--------------------------------------------------
 // parser<int>
@@ -835,7 +837,7 @@ public:
   void anchor() override;
 };
 
-EXTERN_TEMPLATE_INSTANTIATION(class basic_parser<int>);
+extern template class basic_parser<int>;
 
 //--------------------------------------------------
 // parser<unsigned>
@@ -857,7 +859,7 @@ public:
   void anchor() override;
 };
 
-EXTERN_TEMPLATE_INSTANTIATION(class basic_parser<unsigned>);
+extern template class basic_parser<unsigned>;
 
 //--------------------------------------------------
 // parser<unsigned long long>
@@ -882,7 +884,7 @@ public:
   void anchor() override;
 };
 
-EXTERN_TEMPLATE_INSTANTIATION(class basic_parser<unsigned long long>);
+extern template class basic_parser<unsigned long long>;
 
 //--------------------------------------------------
 // parser<double>
@@ -904,7 +906,7 @@ public:
   void anchor() override;
 };
 
-EXTERN_TEMPLATE_INSTANTIATION(class basic_parser<double>);
+extern template class basic_parser<double>;
 
 //--------------------------------------------------
 // parser<float>
@@ -926,7 +928,7 @@ public:
   void anchor() override;
 };
 
-EXTERN_TEMPLATE_INSTANTIATION(class basic_parser<float>);
+extern template class basic_parser<float>;
 
 //--------------------------------------------------
 // parser<std::string>
@@ -951,7 +953,7 @@ public:
   void anchor() override;
 };
 
-EXTERN_TEMPLATE_INSTANTIATION(class basic_parser<std::string>);
+extern template class basic_parser<std::string>;
 
 //--------------------------------------------------
 // parser<char>
@@ -976,7 +978,7 @@ public:
   void anchor() override;
 };
 
-EXTERN_TEMPLATE_INSTANTIATION(class basic_parser<char>);
+extern template class basic_parser<char>;
 
 //--------------------------------------------------
 // PrintOptionDiff
@@ -1203,8 +1205,7 @@ class opt : public Option,
   enum ValueExpected getValueExpectedFlagDefault() const override {
     return Parser.getValueExpectedFlagDefault();
   }
-  void
-  getExtraOptionNames(SmallVectorImpl<const char *> &OptionNames) override {
+  void getExtraOptionNames(SmallVectorImpl<StringRef> &OptionNames) override {
     return Parser.getExtraOptionNames(OptionNames);
   }
 
@@ -1251,11 +1252,11 @@ public:
   }
 };
 
-EXTERN_TEMPLATE_INSTANTIATION(class opt<unsigned>);
-EXTERN_TEMPLATE_INSTANTIATION(class opt<int>);
-EXTERN_TEMPLATE_INSTANTIATION(class opt<std::string>);
-EXTERN_TEMPLATE_INSTANTIATION(class opt<char>);
-EXTERN_TEMPLATE_INSTANTIATION(class opt<bool>);
+extern template class opt<unsigned>;
+extern template class opt<int>;
+extern template class opt<std::string>;
+extern template class opt<char>;
+extern template class opt<bool>;
 
 //===----------------------------------------------------------------------===//
 // list_storage class
@@ -1284,32 +1285,88 @@ public:
   }
 };
 
-// Define how to hold a class type object, such as a string.  Since we can
-// inherit from a class, we do so.  This makes us exactly compatible with the
-// object in all cases that it is used.
+// Define how to hold a class type object, such as a string.
+// Originally this code inherited from std::vector. In transitioning to a new
+// API for command line options we should change this. The new implementation
+// of this list_storage specialization implements the minimum subset of the
+// std::vector API required for all the current clients.
 //
-template <class DataType>
-class list_storage<DataType, bool> : public std::vector<DataType> {
+// FIXME: Reduce this API to a more narrow subset of std::vector
+//
+template <class DataType> class list_storage<DataType, bool> {
+  std::vector<DataType> Storage;
+
 public:
-  template <class T> void addValue(const T &V) {
-    std::vector<DataType>::push_back(V);
+  typedef typename std::vector<DataType>::iterator iterator;
+
+  iterator begin() { return Storage.begin(); }
+  iterator end() { return Storage.end(); }
+
+  typedef typename std::vector<DataType>::const_iterator const_iterator;
+  const_iterator begin() const { return Storage.begin(); }
+  const_iterator end() const { return Storage.end(); }
+
+  typedef typename std::vector<DataType>::size_type size_type;
+  size_type size() const { return Storage.size(); }
+
+  bool empty() const { return Storage.empty(); }
+
+  void push_back(const DataType &value) { Storage.push_back(value); }
+  void push_back(DataType &&value) { Storage.push_back(value); }
+
+  typedef typename std::vector<DataType>::reference reference;
+  typedef typename std::vector<DataType>::const_reference const_reference;
+  reference operator[](size_type pos) { return Storage[pos]; }
+  const_reference operator[](size_type pos) const { return Storage[pos]; }
+
+  iterator erase(const_iterator pos) { return Storage.erase(pos); }
+  iterator erase(const_iterator first, const_iterator last) {
+    return Storage.erase(first, last);
   }
+
+  iterator erase(iterator pos) { return Storage.erase(pos); }
+  iterator erase(iterator first, iterator last) {
+    return Storage.erase(first, last);
+  }
+
+  iterator insert(const_iterator pos, const DataType &value) {
+    return Storage.insert(pos, value);
+  }
+  iterator insert(const_iterator pos, DataType &&value) {
+    return Storage.insert(pos, value);
+  }
+
+  iterator insert(iterator pos, const DataType &value) {
+    return Storage.insert(pos, value);
+  }
+  iterator insert(iterator pos, DataType &&value) {
+    return Storage.insert(pos, value);
+  }
+
+  reference front() { return Storage.front(); }
+  const_reference front() const { return Storage.front(); }
+
+  operator std::vector<DataType>&() { return Storage; }
+  operator ArrayRef<DataType>() { return Storage; }
+  std::vector<DataType> *operator&() { return &Storage; }
+  const std::vector<DataType> *operator&() const { return &Storage; }
+
+  template <class T> void addValue(const T &V) { Storage.push_back(V); }
 };
 
 //===----------------------------------------------------------------------===//
 // list - A list of command line options.
 //
-template <class DataType, class Storage = bool,
+template <class DataType, class StorageClass = bool,
           class ParserClass = parser<DataType>>
-class list : public Option, public list_storage<DataType, Storage> {
+class list : public Option, public list_storage<DataType, StorageClass> {
   std::vector<unsigned> Positions;
   ParserClass Parser;
 
   enum ValueExpected getValueExpectedFlagDefault() const override {
     return Parser.getValueExpectedFlagDefault();
   }
-  void
-  getExtraOptionNames(SmallVectorImpl<const char *> &OptionNames) override {
+  void getExtraOptionNames(SmallVectorImpl<StringRef> &OptionNames) override {
     return Parser.getExtraOptionNames(OptionNames);
   }
 
@@ -1319,7 +1376,7 @@ class list : public Option, public list_storage<DataType, Storage> {
         typename ParserClass::parser_data_type();
     if (Parser.parse(*this, ArgName, Arg, Val))
       return true; // Parse Error!
-    list_storage<DataType, Storage>::addValue(Val);
+    list_storage<DataType, StorageClass>::addValue(Val);
     setPosition(pos);
     Positions.push_back(pos);
     return false;
@@ -1448,8 +1505,7 @@ class bits : public Option, public bits_storage<DataType, Storage> {
   enum ValueExpected getValueExpectedFlagDefault() const override {
     return Parser.getValueExpectedFlagDefault();
   }
-  void
-  getExtraOptionNames(SmallVectorImpl<const char *> &OptionNames) override {
+  void getExtraOptionNames(SmallVectorImpl<StringRef> &OptionNames) override {
     return Parser.getExtraOptionNames(OptionNames);
   }
 
@@ -1618,16 +1674,6 @@ StringMap<Option *> &getRegisteredOptions();
 //===----------------------------------------------------------------------===//
 // Standalone command line processing utilities.
 //
-
-/// \brief Saves strings in the inheritor's stable storage and returns a stable
-/// raw character pointer.
-class StringSaver {
-  virtual void anchor();
-
-public:
-  virtual const char *SaveString(const char *Str) = 0;
-  virtual ~StringSaver(){}; // Pacify -Wnon-virtual-dtor.
-};
 
 /// \brief Tokenizes a command line that can contain escapes and quotes.
 //

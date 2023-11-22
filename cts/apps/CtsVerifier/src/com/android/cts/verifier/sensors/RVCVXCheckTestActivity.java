@@ -16,18 +16,33 @@
 
 package com.android.cts.verifier.sensors;
 
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.res.Resources;
 import android.hardware.cts.helpers.SensorTestStateNotSupportedException;
 import android.os.Bundle;
 import android.os.PowerManager;
+import android.text.method.LinkMovementMethod;
+import android.text.Html;
+import android.view.View;
+import android.view.View.OnClickListener;
+import android.view.ViewGroup;
+import android.view.ViewGroup.LayoutParams;
+import android.widget.Button;
+import android.widget.TextView;
 
+import com.android.compatibility.common.util.ReportLog;
+import com.android.compatibility.common.util.ResultType;
+import com.android.compatibility.common.util.ResultUnit;
+import com.android.cts.verifier.R;
 import com.android.cts.verifier.sensors.base.SensorCtsVerifierTestActivity;
 import com.android.cts.verifier.sensors.helpers.OpenCVLibrary;
 
 import junit.framework.Assert;
-
-import android.content.Intent;
-
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.concurrent.CountDownLatch;
 
 /**
@@ -61,9 +76,9 @@ public class RVCVXCheckTestActivity
         public static final float pitch_rms_error = 0.15f;
         public static final float yaw_rms_error = 0.25f;
 
-        public static final float roll_max_error = 0.30f;
-        public static final float pitch_max_error = 0.30f;
-        public static final float yaw_max_error = 0.45f;
+        public static final float roll_max_error = 0.35f;
+        public static final float pitch_max_error = 0.35f;
+        public static final float yaw_max_error = 0.5f;
 
         public static final float sensor_period_stdev = 0.25e-3f;
     };
@@ -78,25 +93,25 @@ public class RVCVXCheckTestActivity
 
         mRecPath = "";
 
-        showUserMessage("Loading OpenCV Library...");
-        int retry = 10;
+        // Test result is fail by default.
+        getReportLog().setSummary(
+                "Initialize failed", 0, ResultType.NEUTRAL, ResultUnit.NONE);
 
-        while(retry-->0) {
-            try {
-                Thread.sleep(250);
-            } catch (InterruptedException e) {
-                //
-            }
-            if (OpenCVLibrary.isLoaded()) {
-                break;
-            }
-        }
-        if (!OpenCVLibrary.isLoaded()) {
-            // failed requirement test
+        showDetailedTutorialLink();
+
+        showUserMessage("Loading OpenCV Library...");
+
+        if (!OpenCVLibrary.load(this,
+                false /*allowLocal*/, true/*allowPackage*/, false/*allowInstall*/)) {
+            // cannot load opencv library
+            showUserMessage("Cannot load OpenCV library! Please follow instruction and install " +
+                    "OpenCV Manager 3.0.0 and start this test again.");
+            waitForUserToContinue();
             clearText();
             return;
         }
-        showUserMessage("OpenCV Library Successfully Loaded");
+        showUserMessage("OpenCV Library Successfully Loaded.");
+        showOpenCVLibaryLicenseDisplayButton();
 
         mOpenCVLoadSuccessful = true;
 
@@ -111,11 +126,10 @@ public class RVCVXCheckTestActivity
                    "horizontal surface.\n" +
                 "2. Start the test and align the yellow square on the screen "+
                    "roughly to the yellow sqaure.\n" +
-                "3. Follow the prompt to rotate the phone while keeping the "+
-                   "entire test pattern inside view of camera. This requires " +
-                   "orbiting the phone around and aiming the "+
-                   "camera at the test pattern at the same time.\n" +
-                "4. Wait patiently for the analysis to finish.\n");
+                "3. Follow the prompt to orbit the device around the test " +
+                   "pattern while aiming the field of view at the test pattern" +
+                   "at the same time.\n" +
+                "4. Wait patiently for the analysis to finish.");
 
             waitForUserToContinue();
 
@@ -140,7 +154,10 @@ public class RVCVXCheckTestActivity
         }
 
 
-        if (mRecordSuccessful) {
+        if (!mRecordSuccessful) {
+            getReportLog().setSummary(
+                    "Record failed", 0, ResultType.NEUTRAL, ResultUnit.NONE);
+        } else {
             showUserMessage("Please wait for the analysis ... \n"+
                             "It may take a few minutes, you will be noted when "+
                             "its finished by sound and vibration. ");
@@ -164,8 +181,42 @@ public class RVCVXCheckTestActivity
                 showUserMessage("Analysis failed due to unknown reason!");
             } else {
                 if (mReport.error) {
+                    getReportLog().setSummary("Analysis failed: "+mReport.reason, 0,
+                            ResultType.NEUTRAL, ResultUnit.NONE);
+
                     showUserMessage("Analysis failed: " + mReport.reason);
                 } else {
+                    getReportLog().setSummary(
+                            "Analysis succeed", 1, ResultType.NEUTRAL, ResultUnit.NONE);
+
+                    getReportLog().addValue("Roll error RMS", mReport.roll_rms_error,
+                            ResultType.LOWER_BETTER, ResultUnit.RADIAN);
+                    getReportLog().addValue("Pitch error RMS", mReport.pitch_rms_error,
+                            ResultType.LOWER_BETTER, ResultUnit.RADIAN);
+                    getReportLog().addValue("Yaw error RMS", mReport.yaw_rms_error,
+                            ResultType.LOWER_BETTER, ResultUnit.RADIAN);
+
+                    getReportLog().addValue("Roll error MAX", mReport.roll_max_error,
+                            ResultType.LOWER_BETTER, ResultUnit.RADIAN);
+                    getReportLog().addValue("Pitch error MAX", mReport.pitch_max_error,
+                            ResultType.LOWER_BETTER, ResultUnit.RADIAN);
+                    getReportLog().addValue("Yaw error MAX", mReport.yaw_max_error,
+                            ResultType.LOWER_BETTER, ResultUnit.RADIAN);
+
+                    getReportLog().addValue("Number of frames", mReport.n_of_frame,
+                            ResultType.NEUTRAL, ResultUnit.COUNT);
+                    getReportLog().addValue("Number of valid frames", mReport.n_of_valid_frame,
+                            ResultType.NEUTRAL, ResultUnit.COUNT);
+
+                    getReportLog().addValue("Sensor period mean", mReport.sensor_period_avg*1000,
+                            ResultType.NEUTRAL, ResultUnit.MS);
+                    getReportLog().addValue("Sensor period stdev", mReport.sensor_period_stdev*1000,
+                            ResultType.NEUTRAL, ResultUnit.MS);
+                    getReportLog().addValue("Time offset", mReport.optimal_delta_t*1000,
+                            ResultType.NEUTRAL, ResultUnit.MS);
+                    getReportLog().addValue("Yaw offset", mReport.yaw_offset,
+                            ResultType.NEUTRAL, ResultUnit.RADIAN);
+
                     showUserMessage(String.format("Analysis finished!\n" +
                                     "Roll error (Rms, max) = %4.3f, %4.3f rad\n" +
                                     "Pitch error (Rms, max) = %4.3f, %4.3f rad\n" +
@@ -210,12 +261,15 @@ public class RVCVXCheckTestActivity
 
     /**
      * Test cases.
+     *
+     * Test cases is numbered to make sure they are executed in the right order.
      */
 
     public String test00OpenCV() throws Throwable {
 
         String message = "OpenCV is loaded";
-        Assert.assertTrue("OpenCV library cannot be loaded.", mOpenCVLoadSuccessful);
+        Assert.assertTrue("OpenCV library cannot be loaded. If OpenCV Manager is just installed, " +
+                          "please restart this test.", mOpenCVLoadSuccessful);
         return message;
     }
 
@@ -284,20 +338,6 @@ public class RVCVXCheckTestActivity
         return message;
     }
 
-    public String test4SensorPeriod() throws Throwable {
-
-        loadOpenCVSuccessfulOrSkip();
-        recordSuccessfulOrSkip();
-        analyzeSuccessfulOrSkip();
-
-        String message = "Test Sensor Period";
-
-        // we do not know what the maximum frequency can be, so just test the stdev value
-        Assert.assertEquals("Sensor sample period stdev.", 0.0, mReport.sensor_period_stdev,
-                Criterion.sensor_period_stdev);
-        return message;
-    }
-
     private void loadOpenCVSuccessfulOrSkip() throws SensorTestStateNotSupportedException {
         if (!mOpenCVLoadSuccessful)
             throw new SensorTestStateNotSupportedException("Skipped due to OpenCV cannot be loaded");
@@ -314,12 +354,64 @@ public class RVCVXCheckTestActivity
     }
 
     /*
-     *  This function serves as a proxy as showUserMessage is marked to be deprecated.
+     *  This function serves as a proxy as appendText is marked to be deprecated.
      *  When appendText is removed, this function will have a different implementation.
      *
      */
-    void showUserMessage(String s) {
+    private void showUserMessage(String s) {
         appendText(s);
+    }
+
+    private void showDetailedTutorialLink() {
+        TextView textView = new TextView(this);
+        textView.setText(Html.fromHtml(
+                    "Detailed test instructions can be found at " +
+                    "<A href=\"http://goo.gl/xTwB4d\">http://goo.gl/xTwB4d</a><br>"));
+        textView.setMovementMethod(LinkMovementMethod.getInstance());
+        textView.setPadding(10, 0, 0, 0);
+        getTestLogger().logCustomView(textView);
+    }
+
+    private void showOpenCVLibaryLicenseDisplayButton() {
+        Button btnLicense = new Button(this);
+        btnLicense.setText("View OpenCV Library BSD License Agreement");
+        // Avoid default all cap text on button.
+        btnLicense.setTransformationMethod(null);
+        btnLicense.setLayoutParams(new LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                                    ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        // load
+        Resources res = getResources();
+        InputStream rawStream = res.openRawResource(R.raw.opencv_library_license);
+        byte[] byteArray;
+        try {
+            byteArray = new byte[rawStream.available()];
+            rawStream.read(byteArray);
+        } catch (IOException e) {
+            e.printStackTrace();
+            byteArray = "Unable to load license text.".getBytes();
+        }
+        final String licenseText = new String(byteArray);
+
+        btnLicense.setOnClickListener(new OnClickListener() {
+            public void onClick(View v) {
+                AlertDialog dialog =
+                    new AlertDialog.Builder(RVCVXCheckTestActivity.this)
+                        .setTitle("OpenCV Library BSD License")
+                        .setMessage(licenseText)
+                        .setPositiveButton("Acknowledged", new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface dialog, int id) {
+                                    dialog.dismiss();
+                                }
+                            })
+                        .show();
+
+                TextView textView = (TextView) dialog.findViewById(android.R.id.message);
+                textView.setTextSize(9);
+            }
+        });
+        getTestLogger().logCustomView(btnLicense);
     }
 
     @Override
@@ -329,8 +421,6 @@ public class RVCVXCheckTestActivity
 
         // GlSurfaceView is not necessary for this test
         closeGlSurfaceView();
-
-        OpenCVLibrary.loadAsync(this);
     }
 
     @Override

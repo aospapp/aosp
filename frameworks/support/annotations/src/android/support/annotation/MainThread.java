@@ -15,6 +15,7 @@
  */
 package android.support.annotation;
 
+import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
@@ -29,11 +30,12 @@ import static java.lang.annotation.RetentionPolicy.CLASS;
  * on the main thread.
  * <p>
  * Example:
- * <pre>{@code
+ * <pre><code>
  *  &#64;MainThread
  *  public void deliverResult(D data) { ... }
- * }</pre>
+ * </code></pre>
  */
+@Documented
 @Retention(CLASS)
 @Target({METHOD,CONSTRUCTOR,TYPE})
 public @interface MainThread {

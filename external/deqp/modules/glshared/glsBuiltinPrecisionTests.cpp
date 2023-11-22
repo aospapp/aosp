@@ -63,6 +63,15 @@
 // set this to true to dump even passing results
 #define GLS_LOG_ALL_RESULTS false
 
+enum
+{
+	// Computing reference intervals can take a non-trivial amount of time, especially on
+	// platforms where toggling floating-point rounding mode is slow (emulated arm on x86).
+	// As a workaround watchdog is kept happy by touching it periodically during reference
+	// interval computation.
+	TOUCH_WATCHDOG_VALUE_FREQUENCY	= 4096
+};
+
 namespace deqp
 {
 namespace gls
@@ -168,7 +177,7 @@ const char* dataTypeNameOf (void)
 template <>
 const char* dataTypeNameOf<Void> (void)
 {
-	DE_ASSERT(!"Impossible");
+	DE_FATAL("Impossible");
 	return DE_NULL;
 }
 
@@ -182,7 +191,7 @@ VarType getVarTypeOf (Precision prec = glu::PRECISION_LAST)
 template <>
 VarType getVarTypeOf<Void> (Precision)
 {
-	DE_ASSERT(!"Impossible");
+	DE_FATAL("Impossible");
 	return VarType();
 }
 
@@ -340,7 +349,7 @@ struct Traits<bool> : ScalarTraits<bool>
 										 const float&		value,
 										 ostream&			os)
 	{
-		os << (value ? "true" : "false");
+		os << (value != 0.0f ? "true" : "false");
 	}
 
 	static void			doPrintIVal		(const FloatFormat&,
@@ -2090,7 +2099,7 @@ protected:
 			case glu::PRECISION_LOWP:
 				return ctx.format.ulp(ret, 2.0);
 			default:
-				DE_ASSERT(!"Impossible");
+				DE_FATAL("Impossible");
 		}
 		return 0;
 	}
@@ -2128,7 +2137,7 @@ protected:
 			case glu::PRECISION_LOWP:
 				return ctx.format.ulp(ret, 2.0);
 			default:
-				DE_ASSERT(!"Impossible");
+				DE_FATAL("Impossible");
 		}
 
 		return 0;
@@ -2473,8 +2482,8 @@ DEFINE_DERIVED_FLOAT1(Tanh, tanh, x, sinh(x) / cosh(x));
 // These are not defined as derived forms in the GLSL ES spec, but
 // that gives us a reasonable precision.
 DEFINE_DERIVED_FLOAT1(ASinh, asinh, x, log(x + sqrt(x * x + constant(1.0f))));
-DEFINE_DERIVED_FLOAT1(ACosh, acosh, x, log(x + sqrt((x + constant(1.0f)) *
-													(x - constant(1.0f)))));
+DEFINE_DERIVED_FLOAT1(ACosh, acosh, x, log(x + sqrt(alternatives((x + constant(1.0f)) * (x - constant(1.0f)),
+																 (x*x - constant(1.0f))))));
 DEFINE_DERIVED_FLOAT1(ATanh, atanh, x, constant(0.5f) * log((constant(1.0f) + x) /
 															(constant(1.0f) - x)));
 
@@ -3064,6 +3073,33 @@ protected:
 	}
 };
 
+template<int Size, typename Ret, typename Arg0, typename Arg1>
+struct ApplyReflect
+{
+	static ExprP<Ret> apply	(ExpandContext&		ctx,
+							 const ExprP<Arg0>&	i,
+							 const ExprP<Arg1>&	n)
+	{
+		const ExprP<float>	dotNI	= bindExpression("dotNI", ctx, dot(n, i));
+
+		return i - alternatives((n * dotNI) * constant(2.0f),
+								n * (dotNI * constant(2.0f)));
+	};
+};
+
+template<typename Ret, typename Arg0, typename Arg1>
+struct ApplyReflect<1, Ret, Arg0, Arg1>
+{
+	static ExprP<Ret> apply	(ExpandContext&,
+							 const ExprP<Arg0>&	i,
+							 const ExprP<Arg1>&	n)
+	{
+		return i - alternatives(alternatives((n * (n*i)) * constant(2.0f),
+											n * ((n*i) * constant(2.0f))),
+											(n * n) * (i * constant(2.0f)));
+	};
+};
+
 template <int Size>
 class Reflect : public DerivedFunc<
 	Signature<typename ContainerOf<float, Size>::Container,
@@ -3086,10 +3122,8 @@ protected:
 	{
 		const ExprP<Arg0>&	i		= args.a;
 		const ExprP<Arg1>&	n		= args.b;
-		const ExprP<float>	dotNI	= bindExpression("dotNI", ctx, dot(n, i));
 
-		return i - alternatives((n * dotNI) * constant(2.0f),
-								n * (dotNI * constant(2.0f)));
+		return ApplyReflect<Size, Ret, Arg0, Arg1>::apply(ctx, i, n);
 	}
 };
 
@@ -3118,8 +3152,13 @@ protected:
 		const ExprP<Arg1>&	n		= args.b;
 		const ExprP<float>&	eta		= args.c;
 		const ExprP<float>	dotNI	= bindExpression("dotNI", ctx, dot(n, i));
-		const ExprP<float>	k		= bindExpression("k", ctx, constant(1.0f) - eta * eta *
-												 (constant(1.0f) - dotNI * dotNI));
+		const ExprP<float>	k1		= bindExpression("k1", ctx, constant(1.0f) - eta * eta *
+												(constant(1.0f) - dotNI * dotNI));
+
+		const ExprP<float>	k2		= bindExpression("k2", ctx,
+												(((dotNI * (-dotNI)) + constant(1.0f)) * eta)
+												* (-eta) + constant(1.0f));
+		const ExprP<float>	k		= bindExpression("k", ctx, alternatives(k1, k2));
 
 		return cond(k < constant(0.0f),
 					genXType<float, Size>(constant(0.0f)),
@@ -4032,7 +4071,7 @@ public:
 		const int	exp		= rnd.getInt(0, getNumBits(prec)-2);
 		const int	sign	= rnd.getBool() ? -1 : 1;
 
-		return sign * rnd.getInt(0, 1L << exp);
+		return sign * rnd.getInt(0, (deInt32)1 << exp);
 	}
 
 	void	genFixeds	(const FloatFormat&, vector<int>& dst) const
@@ -4152,26 +4191,26 @@ void DefaultSampling<float>::genFixeds (const FloatFormat& format, vector<float>
 	for (int sign = -1; sign <= 1; sign += 2)
 	{
 		// Smallest subnormal
-		dst.push_back(sign * minQuantum);
+		dst.push_back((float)sign * minQuantum);
 
 		// Largest subnormal
-		dst.push_back(sign * (minNormalized - minQuantum));
+		dst.push_back((float)sign * (minNormalized - minQuantum));
 
 		// Smallest normalized
-		dst.push_back(sign * minNormalized);
+		dst.push_back((float)sign * minNormalized);
 
 		// Next smallest normalized
-		dst.push_back(sign * (minNormalized + minQuantum));
+		dst.push_back((float)sign * (minNormalized + minQuantum));
 
-		dst.push_back(sign * 0.5f);
-		dst.push_back(sign * 1.0f);
-		dst.push_back(sign * 2.0f);
+		dst.push_back((float)sign * 0.5f);
+		dst.push_back((float)sign * 1.0f);
+		dst.push_back((float)sign * 2.0f);
 
 		// Largest number
-		dst.push_back(sign * (deFloatLdExp(1.0f, maxExp) +
-							  (deFloatLdExp(1.0f, maxExp) - maxQuantum)));
+		dst.push_back((float)sign * (deFloatLdExp(1.0f, maxExp) +
+									(deFloatLdExp(1.0f, maxExp) - maxQuantum)));
 
-		dst.push_back(sign * TCU_INFINITY);
+		dst.push_back((float)sign * TCU_INFINITY);
 	}
 }
 
@@ -4552,6 +4591,9 @@ void PrecisionCase::testStatement (const Variables<In, Out>&	variables,
 		bool						result		= true;
 		typename Traits<Out0>::IVal	reference0;
 		typename Traits<Out1>::IVal	reference1;
+
+		if (valueNdx % (size_t)TOUCH_WATCHDOG_VALUE_FREQUENCY == 0)
+			m_testCtx.touchWatchdog();
 
 		env.lookup(*variables.in0) = convert<In0>(fmt, round(fmt, inputs.in0[valueNdx]));
 		env.lookup(*variables.in1) = convert<In1>(fmt, round(fmt, inputs.in1[valueNdx]));
@@ -4962,7 +5004,7 @@ PrecisionCase* createFuncCase (const Context&	context,
 		case 1:
 			return new InOutFuncCase<Sig>(context, name, func);
 		default:
-			DE_ASSERT(!"Impossible");
+			DE_FATAL("Impossible");
 	}
 	return DE_NULL;
 }

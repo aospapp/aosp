@@ -28,6 +28,7 @@
  * Google Author(s): Behdad Esfahbod
  */
 
+#include "hb-open-type-private.hh"
 #include "hb-ot-layout-private.hh"
 
 #include "hb-ot-layout-gdef-table.hh"
@@ -58,6 +59,35 @@ _hb_ot_layout_create (hb_face_t *face)
 
   layout->gpos_blob = OT::Sanitizer<OT::GPOS>::sanitize (face->reference_table (HB_OT_TAG_GPOS));
   layout->gpos = OT::Sanitizer<OT::GPOS>::lock_instance (layout->gpos_blob);
+
+  {
+    /*
+     * The ugly business of blacklisting individual fonts' tables happen here!
+     * See this thread for why we finally had to bend in and do this:
+     * https://lists.freedesktop.org/archives/harfbuzz/2016-February/005489.html
+     */
+    unsigned int gdef_len = hb_blob_get_length (layout->gdef_blob);
+    unsigned int gsub_len = hb_blob_get_length (layout->gsub_blob);
+    unsigned int gpos_len = hb_blob_get_length (layout->gpos_blob);
+    if (0
+      || (442 == gdef_len && 42038 == gpos_len && 2874 == gsub_len) /* Windows 7 timesi.ttf */
+      || (430 == gdef_len && 40662 == gpos_len && 2874 == gsub_len) /* Windows 7 timesbi.ttf */
+      || (442 == gdef_len && 39116 == gpos_len && 2874 == gsub_len) /* Windows ??? timesi.ttf */
+      || (430 == gdef_len && 39374 == gpos_len && 2874 == gsub_len) /* Windows ??? timesbi.ttf */
+      || (490 == gdef_len && 41638 == gpos_len && 3046 == gsub_len) /* OS X 10.11.3 Times New Roman Italic.ttf */
+      || (478 == gdef_len && 41902 == gpos_len && 3046 == gsub_len) /* OS X 10.11.3 Times New Roman Bold Italic.ttf */
+    )
+    {
+      /* In certain versions of Times New Roman Italic and Bold Italic,
+       * ASCII double quotation mark U+0022, mapped to glyph 5, has wrong
+       * glyph class 3 (mark) in GDEF.  Nuke the GDEF to avoid zero-width
+       * double-quote.  See:
+       * https://lists.freedesktop.org/archives/harfbuzz/2016-February/005489.html
+       */
+     if (3 == layout->gdef->get_glyph_class (5))
+       layout->gdef = &OT::Null(OT::GDEF);
+    }
+  }
 
   layout->gsub_lookup_count = layout->gsub->get_lookup_count ();
   layout->gpos_lookup_count = layout->gpos->get_lookup_count ();
@@ -128,6 +158,11 @@ hb_ot_layout_has_glyph_classes (hb_face_t *face)
   return _get_gdef (face).has_glyph_classes ();
 }
 
+/**
+ * hb_ot_layout_get_glyph_class:
+ *
+ * Since: 0.9.7
+ **/
 hb_ot_layout_glyph_class_t
 hb_ot_layout_get_glyph_class (hb_face_t      *face,
 			      hb_codepoint_t  glyph)
@@ -135,6 +170,11 @@ hb_ot_layout_get_glyph_class (hb_face_t      *face,
   return (hb_ot_layout_glyph_class_t) _get_gdef (face).get_glyph_class (glyph);
 }
 
+/**
+ * hb_ot_layout_get_glyphs_in_class:
+ *
+ * Since: 0.9.7
+ **/
 void
 hb_ot_layout_get_glyphs_in_class (hb_face_t                  *face,
 				  hb_ot_layout_glyph_class_t  klass,
@@ -285,6 +325,28 @@ hb_ot_layout_table_get_feature_tags (hb_face_t    *face,
   return g.get_feature_tags (start_offset, feature_count, feature_tags);
 }
 
+hb_bool_t
+hb_ot_layout_table_find_feature (hb_face_t    *face,
+				 hb_tag_t      table_tag,
+				 hb_tag_t      feature_tag,
+				 unsigned int *feature_index)
+{
+  ASSERT_STATIC (OT::Index::NOT_FOUND_INDEX == HB_OT_LAYOUT_NO_FEATURE_INDEX);
+  const OT::GSUBGPOS &g = get_gsubgpos_table (face, table_tag);
+
+  unsigned int num_features = g.get_feature_count ();
+  for (unsigned int i = 0; i < num_features; i++)
+  {
+    if (feature_tag == g.get_feature_tag (i)) {
+      if (feature_index) *feature_index = i;
+      return true;
+    }
+  }
+
+  if (feature_index) *feature_index = HB_OT_LAYOUT_NO_FEATURE_INDEX;
+  return false;
+}
+
 
 unsigned int
 hb_ot_layout_script_get_language_tags (hb_face_t    *face,
@@ -335,6 +397,11 @@ hb_ot_layout_language_get_required_feature_index (hb_face_t    *face,
 						     NULL);
 }
 
+/**
+ * hb_ot_layout_language_get_required_feature:
+ *
+ * Since: 0.9.30
+ **/
 hb_bool_t
 hb_ot_layout_language_get_required_feature (hb_face_t    *face,
 					    hb_tag_t      table_tag,
@@ -419,6 +486,11 @@ hb_ot_layout_language_find_feature (hb_face_t    *face,
   return false;
 }
 
+/**
+ * hb_ot_layout_feature_get_lookups:
+ *
+ * Since: 0.9.7
+ **/
 unsigned int
 hb_ot_layout_feature_get_lookups (hb_face_t    *face,
 				  hb_tag_t      table_tag,
@@ -433,6 +505,11 @@ hb_ot_layout_feature_get_lookups (hb_face_t    *face,
   return f.get_lookup_indexes (start_offset, lookup_count, lookup_indexes);
 }
 
+/**
+ * hb_ot_layout_table_get_lookup_count:
+ *
+ * Since: 0.9.22
+ **/
 unsigned int
 hb_ot_layout_table_get_lookup_count (hb_face_t    *face,
 				     hb_tag_t      table_tag)
@@ -590,6 +667,11 @@ _hb_ot_layout_collect_lookups_languages (hb_face_t      *face,
   }
 }
 
+/**
+ * hb_ot_layout_collect_lookups:
+ *
+ * Since: 0.9.8
+ **/
 void
 hb_ot_layout_collect_lookups (hb_face_t      *face,
 			      hb_tag_t        table_tag,
@@ -631,6 +713,11 @@ hb_ot_layout_collect_lookups (hb_face_t      *face,
   }
 }
 
+/**
+ * hb_ot_layout_lookup_collect_glyphs:
+ *
+ * Since: 0.9.7
+ **/
 void
 hb_ot_layout_lookup_collect_glyphs (hb_face_t    *face,
 				    hb_tag_t      table_tag,
@@ -676,6 +763,11 @@ hb_ot_layout_has_substitution (hb_face_t *face)
   return &_get_gsub (face) != &OT::Null(OT::GSUB);
 }
 
+/**
+ * hb_ot_layout_lookup_would_substitute:
+ *
+ * Since: 0.9.7
+ **/
 hb_bool_t
 hb_ot_layout_lookup_would_substitute (hb_face_t            *face,
 				      unsigned int          lookup_index,
@@ -695,11 +787,11 @@ hb_ot_layout_lookup_would_substitute_fast (hb_face_t            *face,
 					   hb_bool_t             zero_context)
 {
   if (unlikely (lookup_index >= hb_ot_layout_from_face (face)->gsub_lookup_count)) return false;
-  OT::hb_would_apply_context_t c (face, glyphs, glyphs_length, zero_context);
+  OT::hb_would_apply_context_t c (face, glyphs, glyphs_length, (bool) zero_context);
 
   const OT::SubstLookup& l = hb_ot_layout_from_face (face)->gsub->get_lookup (lookup_index);
 
-  return l.would_apply (&c, &hb_ot_layout_from_face (face)->gsub_accels[lookup_index].digest);
+  return l.would_apply (&c, &hb_ot_layout_from_face (face)->gsub_accels[lookup_index]);
 }
 
 void
@@ -708,12 +800,11 @@ hb_ot_layout_substitute_start (hb_font_t *font, hb_buffer_t *buffer)
   OT::GSUB::substitute_start (font, buffer);
 }
 
-void
-hb_ot_layout_substitute_finish (hb_font_t *font, hb_buffer_t *buffer)
-{
-  OT::GSUB::substitute_finish (font, buffer);
-}
-
+/**
+ * hb_ot_layout_lookup_substitute_closure:
+ *
+ * Since: 0.9.7
+ **/
 void
 hb_ot_layout_lookup_substitute_closure (hb_face_t    *face,
 				        unsigned int  lookup_index,
@@ -743,11 +834,22 @@ hb_ot_layout_position_start (hb_font_t *font, hb_buffer_t *buffer)
 }
 
 void
-hb_ot_layout_position_finish (hb_font_t *font, hb_buffer_t *buffer)
+hb_ot_layout_position_finish_advances (hb_font_t *font, hb_buffer_t *buffer)
 {
-  OT::GPOS::position_finish (font, buffer);
+  OT::GPOS::position_finish_advances (font, buffer);
 }
 
+void
+hb_ot_layout_position_finish_offsets (hb_font_t *font, hb_buffer_t *buffer)
+{
+  OT::GPOS::position_finish_offsets (font, buffer);
+}
+
+/**
+ * hb_ot_layout_get_size_params:
+ *
+ * Since: 0.9.10
+ **/
 hb_bool_t
 hb_ot_layout_get_size_params (hb_face_t    *face,
 			      unsigned int *design_size,       /* OUT.  May be NULL */
@@ -829,28 +931,130 @@ struct GPOSProxy
 };
 
 
-template <typename Lookup>
-static inline bool apply_once (OT::hb_apply_context_t *c,
-			       const Lookup &lookup)
+struct hb_get_subtables_context_t :
+       OT::hb_dispatch_context_t<hb_get_subtables_context_t, hb_void_t, HB_DEBUG_APPLY>
 {
-  if (!c->check_glyph_property (&c->buffer->cur(), c->lookup_props))
-    return false;
-  return lookup.dispatch (c);
+  template <typename Type>
+  static inline bool apply_to (const void *obj, OT::hb_apply_context_t *c)
+  {
+    const Type *typed_obj = (const Type *) obj;
+    return typed_obj->apply (c);
+  }
+
+  typedef bool (*hb_apply_func_t) (const void *obj, OT::hb_apply_context_t *c);
+
+  struct hb_applicable_t
+  {
+    inline void init (const void *obj_, hb_apply_func_t apply_func_)
+    {
+      obj = obj_;
+      apply_func = apply_func_;
+    }
+
+    inline bool apply (OT::hb_apply_context_t *c) const { return apply_func (obj, c); }
+
+    private:
+    const void *obj;
+    hb_apply_func_t apply_func;
+  };
+
+  typedef hb_auto_array_t<hb_applicable_t> array_t;
+
+  /* Dispatch interface. */
+  inline const char *get_name (void) { return "GET_SUBTABLES"; }
+  template <typename T>
+  inline return_t dispatch (const T &obj)
+  {
+    hb_applicable_t *entry = array.push();
+    if (likely (entry))
+      entry->init (&obj, apply_to<T>);
+    return HB_VOID;
+  }
+  static return_t default_return_value (void) { return HB_VOID; }
+  bool stop_sublookup_iteration (return_t r HB_UNUSED) const { return false; }
+
+  hb_get_subtables_context_t (array_t &array_) :
+			      array (array_),
+			      debug_depth (0) {}
+
+  array_t &array;
+  unsigned int debug_depth;
+};
+
+static inline bool
+apply_forward (OT::hb_apply_context_t *c,
+	       const hb_ot_layout_lookup_accelerator_t &accel,
+	       const hb_get_subtables_context_t::array_t &subtables)
+{
+  bool ret = false;
+  hb_buffer_t *buffer = c->buffer;
+  while (buffer->idx < buffer->len && !buffer->in_error)
+  {
+    bool applied = false;
+    if (accel.may_have (buffer->cur().codepoint) &&
+	(buffer->cur().mask & c->lookup_mask) &&
+	c->check_glyph_property (&buffer->cur(), c->lookup_props))
+     {
+       for (unsigned int i = 0; i < subtables.len; i++)
+         if (subtables[i].apply (c))
+	 {
+	   applied = true;
+	   break;
+	 }
+     }
+
+    if (applied)
+      ret = true;
+    else
+      buffer->next_glyph ();
+  }
+  return ret;
+}
+
+static inline bool
+apply_backward (OT::hb_apply_context_t *c,
+	       const hb_ot_layout_lookup_accelerator_t &accel,
+	       const hb_get_subtables_context_t::array_t &subtables)
+{
+  bool ret = false;
+  hb_buffer_t *buffer = c->buffer;
+  do
+  {
+    if (accel.may_have (buffer->cur().codepoint) &&
+	(buffer->cur().mask & c->lookup_mask) &&
+	c->check_glyph_property (&buffer->cur(), c->lookup_props))
+    {
+     for (unsigned int i = 0; i < subtables.len; i++)
+       if (subtables[i].apply (c))
+       {
+	 ret = true;
+	 break;
+       }
+    }
+    /* The reverse lookup doesn't "advance" cursor (for good reason). */
+    buffer->idx--;
+
+  }
+  while ((int) buffer->idx >= 0);
+  return ret;
 }
 
 template <typename Proxy>
-static inline bool
+static inline void
 apply_string (OT::hb_apply_context_t *c,
 	      const typename Proxy::Lookup &lookup,
 	      const hb_ot_layout_lookup_accelerator_t &accel)
 {
-  bool ret = false;
   hb_buffer_t *buffer = c->buffer;
 
   if (unlikely (!buffer->len || !c->lookup_mask))
-    return false;
+    return;
 
-  c->set_lookup (lookup);
+  c->set_lookup_props (lookup.get_props ());
+
+  hb_get_subtables_context_t::array_t subtables;
+  hb_get_subtables_context_t c_get_subtables (subtables);
+  lookup.dispatch (&c_get_subtables);
 
   if (likely (!lookup.is_reverse ()))
   {
@@ -859,21 +1063,14 @@ apply_string (OT::hb_apply_context_t *c,
       buffer->clear_output ();
     buffer->idx = 0;
 
-    while (buffer->idx < buffer->len)
-    {
-      if (accel.digest.may_have (buffer->cur().codepoint) &&
-	  (buffer->cur().mask & c->lookup_mask) &&
-	  apply_once (c, lookup))
-	ret = true;
-      else
-	buffer->next_glyph ();
-    }
+    bool ret;
+    ret = apply_forward (c, accel, subtables);
     if (ret)
     {
       if (!Proxy::inplace)
 	buffer->swap_buffers ();
       else
-        assert (!buffer->has_separate_output ());
+	assert (!buffer->has_separate_output ());
     }
   }
   else
@@ -882,20 +1079,9 @@ apply_string (OT::hb_apply_context_t *c,
     if (Proxy::table_index == 0)
       buffer->remove_output ();
     buffer->idx = buffer->len - 1;
-    do
-    {
-      if (accel.digest.may_have (buffer->cur().codepoint) &&
-	  (buffer->cur().mask & c->lookup_mask) &&
-	  apply_once (c, lookup))
-	ret = true;
-      /* The reverse lookup doesn't "advance" cursor (for good reason). */
-      buffer->idx--;
 
-    }
-    while ((int) buffer->idx >= 0);
+    apply_backward (c, accel, subtables);
   }
-
-  return ret;
 }
 
 template <typename Proxy>
@@ -914,11 +1100,14 @@ inline void hb_ot_map_t::apply (const Proxy &proxy,
     for (; i < stage->last_lookup; i++)
     {
       unsigned int lookup_index = lookups[table_index][i].index;
+      if (!buffer->message (font, "start lookup %d", lookup_index)) continue;
+      c.set_lookup_index (lookup_index);
       c.set_lookup_mask (lookups[table_index][i].mask);
       c.set_auto_zwj (lookups[table_index][i].auto_zwj);
       apply_string<Proxy> (&c,
 			   proxy.table.get_lookup (lookup_index),
 			   proxy.accels[lookup_index]);
+      (void) buffer->message (font, "end lookup %d", lookup_index);
     }
 
     if (stage->pause_func)

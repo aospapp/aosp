@@ -33,6 +33,7 @@
 
 #if defined(FORCE_BUILD_ARM)
   LLVM_DISASSEMBLER(ARM)
+  LLVM_DISASSEMBLER(AArch64)
 #endif
 
 #elif defined(__aarch64__)

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "base/strings.h"
+#include "android-base/strings.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -79,25 +79,12 @@ std::string Trim(const std::string& s) {
   return s.substr(start_index, end_index - start_index + 1);
 }
 
-template <typename StringT>
-std::string Join(const std::vector<StringT>& strings, char separator) {
-  if (strings.empty()) {
-    return "";
-  }
-
-  std::string result(strings[0]);
-  for (size_t i = 1; i < strings.size(); ++i) {
-    result += separator;
-    result += strings[i];
-  }
-  return result;
-}
-
-// Explicit instantiations.
-template std::string Join<std::string>(const std::vector<std::string>& strings,
-                                       char separator);
-template std::string Join<const char*>(const std::vector<const char*>& strings,
-                                       char separator);
+// These cases are probably the norm, so we mark them extern in the header to
+// aid compile time and binary size.
+template std::string Join(const std::vector<std::string>&, char);
+template std::string Join(const std::vector<const char*>&, char);
+template std::string Join(const std::vector<std::string>&, const std::string&);
+template std::string Join(const std::vector<const char*>&, const std::string&);
 
 bool StartsWith(const std::string& s, const char* prefix) {
   return s.compare(0, strlen(prefix), prefix) == 0;

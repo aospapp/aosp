@@ -19,9 +19,6 @@
     <group>UI</group>
     <package>com.example.android.actionbarcompat.shareactionprovider</package>
 
-    <dependency>com.android.support:appcompat-v7:21.0.2</dependency>
-
-    <!-- change minSdk if needed-->
     <minSdk>7</minSdk>
 
     <strings>
@@ -44,8 +41,8 @@
         <level>ADVANCED</level>
         <icon>screenshots/icon-web.png</icon>
         <screenshots>
-            <img>screenshots/1-gridview.png</img>
-            <img>screenshots/2-detail.png</img>
+            <img>screenshots/1-image.png</img>
+            <img>screenshots/2-text.png</img>
         </screenshots>
         <api_refs>
             <android>android.support.v7.widget.ShareActionProvider</android>

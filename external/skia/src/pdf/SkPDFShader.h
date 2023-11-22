@@ -29,7 +29,7 @@ public:
     class State;
 
     /** Get the PDF shader for the passed SkShader. If the SkShader is
-     *  invalid in some way, returns NULL. The reference count of
+     *  invalid in some way, returns nullptr. The reference count of
      *  the object is incremented and it is the caller's responsibility to
      *  unreference it when done.  This is needed to accommodate the weak
      *  reference pattern used when the returned object is new and has no
@@ -50,8 +50,8 @@ public:
                                      SkScalar rasterScale);
 };
 
-class SkPDFFunctionShader : public SkPDFDict {
-    SK_DECLARE_INST_COUNT(SkPDFFunctionShader);
+class SkPDFFunctionShader final : public SkPDFDict {
+    
 
 public:
     static SkPDFFunctionShader* Create(SkPDFCanon*,
@@ -70,7 +70,7 @@ private:
  * inside a tiling pattern while providing a common pattern interface.
  * The encapsulation allows the use of a SMask for transparency gradients.
  */
-class SkPDFAlphaFunctionShader : public SkPDFStream {
+class SkPDFAlphaFunctionShader final : public SkPDFStream {
 public:
     static SkPDFAlphaFunctionShader* Create(SkPDFCanon*,
                                             SkScalar dpi,
@@ -84,7 +84,7 @@ private:
     typedef SkPDFStream INHERITED;
 };
 
-class SkPDFImageShader : public SkPDFStream {
+class SkPDFImageShader final : public SkPDFStream {
 public:
     static SkPDFImageShader* Create(SkPDFCanon*,
                                     SkScalar dpi,

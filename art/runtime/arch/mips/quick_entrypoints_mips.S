@@ -79,7 +79,6 @@
 
     lw $t0, %got(_ZN3art7Runtime9instance_E)($gp)
     lw $t0, 0($t0)
-    THIS_LOAD_REQUIRES_READ_BARRIER
     lw $t0, RUNTIME_SAVE_ALL_CALLEE_SAVE_FRAME_OFFSET($t0)
     sw $t0, 0($sp)                                # Place Method* at bottom of stack.
     sw $sp, THREAD_TOP_QUICK_FRAME_OFFSET(rSELF)  # Place sp in Thread::Current()->top_quick_frame.
@@ -127,7 +126,6 @@
 
     lw $t0, %got(_ZN3art7Runtime9instance_E)($gp)
     lw $t0, 0($t0)
-    THIS_LOAD_REQUIRES_READ_BARRIER
     lw $t0, RUNTIME_REFS_ONLY_CALLEE_SAVE_FRAME_OFFSET($t0)
     sw $t0, 0($sp)                                # Place Method* at bottom of stack.
     sw $sp, THREAD_TOP_QUICK_FRAME_OFFSET(rSELF)  # Place sp in Thread::Current()->top_quick_frame.
@@ -172,45 +170,47 @@
      * callee-save: $a1-$a3, $s2-$s8 + $gp + $ra, 12 total + 3 words padding + method*
      */
 .macro SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME_REGISTERS_ONLY
-    addiu  $sp, $sp, -64
-    .cfi_adjust_cfa_offset 64
+    addiu  $sp, $sp, -80
+    .cfi_adjust_cfa_offset 80
 
     // Ugly compile-time check, but we only have the preprocessor.
-#if (FRAME_SIZE_REFS_AND_ARGS_CALLEE_SAVE != 64)
+#if (FRAME_SIZE_REFS_AND_ARGS_CALLEE_SAVE != 80)
 #error "REFS_AND_ARGS_CALLEE_SAVE_FRAME(MIPS) size not as expected."
 #endif
 
-    sw     $ra, 60($sp)
-    .cfi_rel_offset 31, 60
-    sw     $s8, 56($sp)
-    .cfi_rel_offset 30, 56
-    sw     $gp, 52($sp)
-    .cfi_rel_offset 28, 52
-    sw     $s7, 48($sp)
-    .cfi_rel_offset 23, 48
-    sw     $s6, 44($sp)
-    .cfi_rel_offset 22, 44
-    sw     $s5, 40($sp)
-    .cfi_rel_offset 21, 40
-    sw     $s4, 36($sp)
-    .cfi_rel_offset 20, 36
-    sw     $s3, 32($sp)
-    .cfi_rel_offset 19, 32
-    sw     $s2, 28($sp)
-    .cfi_rel_offset 18, 28
-    sw     $a3, 24($sp)
-    .cfi_rel_offset 7, 24
-    sw     $a2, 20($sp)
-    .cfi_rel_offset 6, 20
-    sw     $a1, 16($sp)
-    .cfi_rel_offset 5, 16
+    sw     $ra, 76($sp)
+    .cfi_rel_offset 31, 76
+    sw     $s8, 72($sp)
+    .cfi_rel_offset 30, 72
+    sw     $gp, 68($sp)
+    .cfi_rel_offset 28, 68
+    sw     $s7, 64($sp)
+    .cfi_rel_offset 23, 64
+    sw     $s6, 60($sp)
+    .cfi_rel_offset 22, 60
+    sw     $s5, 56($sp)
+    .cfi_rel_offset 21, 56
+    sw     $s4, 52($sp)
+    .cfi_rel_offset 20, 52
+    sw     $s3, 48($sp)
+    .cfi_rel_offset 19, 48
+    sw     $s2, 44($sp)
+    .cfi_rel_offset 18, 44
+    sw     $a3, 40($sp)
+    .cfi_rel_offset 7, 40
+    sw     $a2, 36($sp)
+    .cfi_rel_offset 6, 36
+    sw     $a1, 32($sp)
+    .cfi_rel_offset 5, 32
+    SDu $f14, $f15, 24, $sp, $t0
+    SDu $f12, $f13, 16, $sp, $t0
     # bottom will hold Method*
 .endm
 
     /*
      * Macro that sets up the callee save frame to conform with
      * Runtime::CreateCalleeSaveMethod(kRefsAndArgs). Restoration assumes non-moving GC.
-     * callee-save: $a1-$a3, $s2-$s8 + $gp + $ra, 12 total + 3 words padding + method*
+     * callee-save: $a1-$a3, $f12-$f15, $s2-$s8 + $gp + $ra, 12 total + 3 words padding + method*
      * Clobbers $t0 and $sp
      * Allocates ARG_SLOT_SIZE bytes at the bottom of the stack for arg slots.
      * Reserves FRAME_SIZE_REFS_AND_ARGS_CALLEE_SAVE + ARG_SLOT_SIZE bytes on the stack
@@ -219,7 +219,6 @@
     SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME_REGISTERS_ONLY
     lw $t0, %got(_ZN3art7Runtime9instance_E)($gp)
     lw $t0, 0($t0)
-    THIS_LOAD_REQUIRES_READ_BARRIER
     lw $t0, RUNTIME_REFS_AND_ARGS_CALLEE_SAVE_FRAME_OFFSET($t0)
     sw $t0, 0($sp)                                # Place Method* at bottom of stack.
     sw $sp, THREAD_TOP_QUICK_FRAME_OFFSET(rSELF)  # Place sp in Thread::Current()->top_quick_frame.
@@ -230,7 +229,7 @@
     /*
      * Macro that sets up the callee save frame to conform with
      * Runtime::CreateCalleeSaveMethod(kRefsAndArgs). Restoration assumes non-moving GC.
-     * callee-save: $a1-$a3, $s2-$s8 + $gp + $ra, 12 total + 3 words padding + method*
+     * callee-save: $a1-$a3, $f12-$f15, $s2-$s8 + $gp + $ra, 12 total + 3 words padding + method*
      * Clobbers $sp
      * Use $a0 as the Method* and loads it into bottom of stack.
      * Allocates ARG_SLOT_SIZE bytes at the bottom of the stack for arg slots.
@@ -247,32 +246,34 @@
 .macro RESTORE_REFS_AND_ARGS_CALLEE_SAVE_FRAME
     addiu  $sp, $sp, ARG_SLOT_SIZE                # remove argument slots on the stack
     .cfi_adjust_cfa_offset -ARG_SLOT_SIZE
-    lw     $ra, 60($sp)
+    lw     $ra, 76($sp)
     .cfi_restore 31
-    lw     $s8, 56($sp)
+    lw     $s8, 72($sp)
     .cfi_restore 30
-    lw     $gp, 52($sp)
+    lw     $gp, 68($sp)
     .cfi_restore 28
-    lw     $s7, 48($sp)
+    lw     $s7, 64($sp)
     .cfi_restore 23
-    lw     $s6, 44($sp)
+    lw     $s6, 60($sp)
     .cfi_restore 22
-    lw     $s5, 40($sp)
+    lw     $s5, 56($sp)
     .cfi_restore 21
-    lw     $s4, 36($sp)
+    lw     $s4, 52($sp)
     .cfi_restore 20
-    lw     $s3, 32($sp)
+    lw     $s3, 48($sp)
     .cfi_restore 19
-    lw     $s2, 28($sp)
+    lw     $s2, 44($sp)
     .cfi_restore 18
-    lw     $a3, 24($sp)
+    lw     $a3, 40($sp)
     .cfi_restore 7
-    lw     $a2, 20($sp)
+    lw     $a2, 36($sp)
     .cfi_restore 6
-    lw     $a1, 16($sp)
+    lw     $a1, 32($sp)
     .cfi_restore 5
-    addiu  $sp, $sp, 64           # pop frame
-    .cfi_adjust_cfa_offset -64
+    LDu $f14, $f15, 24, $sp, $t1
+    LDu $f12, $f13, 16, $sp, $t1
+    addiu  $sp, $sp, 80           # pop frame
+    .cfi_adjust_cfa_offset -80
 .endm
 
     /*
@@ -316,6 +317,111 @@
 1:
     DELIVER_PENDING_EXCEPTION
 .endm
+
+    /*
+     * On stack replacement stub.
+     * On entry:
+     *   a0 = stack to copy
+     *   a1 = size of stack
+     *   a2 = pc to call
+     *   a3 = JValue* result
+     *   [sp + 16] = shorty
+     *   [sp + 20] = thread
+     */
+ENTRY art_quick_osr_stub
+    // Save callee general purpose registers, RA and GP.
+    addiu  $sp, $sp, -48
+    .cfi_adjust_cfa_offset 48
+    sw     $ra, 44($sp)
+    .cfi_rel_offset 31, 44
+    sw     $s8, 40($sp)
+    .cfi_rel_offset 30, 40
+    sw     $gp, 36($sp)
+    .cfi_rel_offset 28, 36
+    sw     $s7, 32($sp)
+    .cfi_rel_offset 23, 32
+    sw     $s6, 28($sp)
+    .cfi_rel_offset 22, 28
+    sw     $s5, 24($sp)
+    .cfi_rel_offset 21, 24
+    sw     $s4, 20($sp)
+    .cfi_rel_offset 20, 20
+    sw     $s3, 16($sp)
+    .cfi_rel_offset 19, 16
+    sw     $s2, 12($sp)
+    .cfi_rel_offset 18, 12
+    sw     $s1, 8($sp)
+    .cfi_rel_offset 17, 8
+    sw     $s0, 4($sp)
+    .cfi_rel_offset 16, 4
+
+    move   $s8, $sp                        # Save the stack pointer
+    move   $s7, $a1                        # Save size of stack
+    move   $s6, $a2                        # Save the pc to call
+    lw     rSELF, 48+20($sp)               # Save managed thread pointer into rSELF
+    addiu  $t0, $sp, -12                   # Reserve space for stack pointer,
+                                           #    JValue* result, and ArtMethod* slot.
+    srl    $t0, $t0, 4                     # Align stack pointer to 16 bytes
+    sll    $sp, $t0, 4                     # Update stack pointer
+    sw     $s8, 4($sp)                     # Save old stack pointer
+    sw     $a3, 8($sp)                     # Save JValue* result
+    sw     $zero, 0($sp)                   # Store null for ArtMethod* at bottom of frame
+    subu   $sp, $a1                        # Reserve space for callee stack
+    move   $a2, $a1
+    move   $a1, $a0
+    move   $a0, $sp
+    la     $t9, memcpy
+    jalr   $t9                             # memcpy (dest a0, src a1, bytes a2)
+    addiu  $sp, $sp, -16                   # make space for argument slots for memcpy
+    bal    .Losr_entry                     # Call the method
+    addiu  $sp, $sp, 16                    # restore stack after memcpy
+    lw     $a2, 8($sp)                     # Restore JValue* result
+    lw     $sp, 4($sp)                     # Restore saved stack pointer
+    lw     $a0, 48+16($sp)                 # load shorty
+    lbu    $a0, 0($a0)                     # load return type
+    li     $a1, 'D'                        # put char 'D' into a1
+    beq    $a0, $a1, .Losr_fp_result       # Test if result type char == 'D'
+    li     $a1, 'F'                        # put char 'F' into a1
+    beq    $a0, $a1, .Losr_fp_result       # Test if result type char == 'F'
+    nop
+    sw     $v0, 0($a2)
+    b      .Losr_exit
+    sw     $v1, 4($a2)                     # store v0/v1 into result
+.Losr_fp_result:
+    SDu    $f0, $f1, 0, $a2, $t0           # store f0/f1 into result
+.Losr_exit:
+    lw     $ra, 44($sp)
+    .cfi_restore 31
+    lw     $s8, 40($sp)
+    .cfi_restore 30
+    lw     $gp, 36($sp)
+    .cfi_restore 28
+    lw     $s7, 32($sp)
+    .cfi_restore 23
+    lw     $s6, 28($sp)
+    .cfi_restore 22
+    lw     $s5, 24($sp)
+    .cfi_restore 21
+    lw     $s4, 20($sp)
+    .cfi_restore 20
+    lw     $s3, 16($sp)
+    .cfi_restore 19
+    lw     $s2, 12($sp)
+    .cfi_restore 18
+    lw     $s1, 8($sp)
+    .cfi_restore 17
+    lw     $s0, 4($sp)
+    .cfi_restore 16
+    jalr   $zero, $ra
+    addiu  $sp, $sp, 48
+    .cfi_adjust_cfa_offset -48
+.Losr_entry:
+    addiu  $s7, $s7, -4
+    addu   $t0, $s7, $sp
+    move   $t9, $s6
+    jalr   $zero, $t9
+    sw     $ra, 0($t0)                     # Store RA per the compiler ABI
+END art_quick_osr_stub
 
     /*
      * On entry $a0 is uint32_t* gprs_ and $a1 is uint32_t* fprs_
@@ -372,8 +478,8 @@ ENTRY art_quick_do_long_jump
     lw      $fp, 120($a0)
     lw      $ra, 124($a0)
     lw      $a0, 16($a0)
-    move    $v0, $zero          # clear result registers r0 and r1
-    jalr    $zero, $ra          # do long jump
+    move    $v0, $zero          # clear result registers v0 and v1 (in branch delay slot)
+    jalr    $zero, $t9          # do long jump
     move    $v1, $zero
 END art_quick_do_long_jump
 
@@ -447,8 +553,7 @@ END art_quick_throw_no_such_method
     /*
      * All generated callsites for interface invokes and invocation slow paths will load arguments
      * as usual - except instead of loading arg0/$a0 with the target Method*, arg0/$a0 will contain
-     * the method_idx.  This wrapper will save arg1-arg3, load the caller's Method*, align the
-     * stack and call the appropriate C helper.
+     * the method_idx.  This wrapper will save arg1-arg3, and call the appropriate C helper.
      * NOTE: "this" is first visable argument of the target, and so can be found in arg1/$a1.
      *
      * The helper will attempt to locate the target and return a 64-bit result in $v0/$v1 consisting
@@ -460,33 +565,62 @@ END art_quick_throw_no_such_method
      * On success this wrapper will restore arguments and *jump* to the target, leaving the lr
      * pointing back to the original caller.
      */
-.macro INVOKE_TRAMPOLINE c_name, cxx_name
+.macro INVOKE_TRAMPOLINE_BODY cxx_name
     .extern \cxx_name
-ENTRY \c_name
     SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME  # save callee saves in case allocation triggers GC
-    lw    $a2, FRAME_SIZE_REFS_AND_ARGS_CALLEE_SAVE+ARG_SLOT_SIZE($sp)    # pass caller Method*
-    addiu $t0, $sp, ARG_SLOT_SIZE         # save $sp (remove arg slots)
-    move  $a3, rSELF                      # pass Thread::Current
-    jal   \cxx_name                       # (method_idx, this, caller, Thread*, $sp)
-    sw    $t0, 16($sp)                    # pass $sp
-    move  $a0, $v0                        # save target Method*
+    move  $a2, rSELF                       # pass Thread::Current
+    la    $t9, \cxx_name
+    jalr  $t9                              # (method_idx, this, Thread*, $sp)
+    addiu $a3, $sp, ARG_SLOT_SIZE          # pass $sp (remove arg slots)
+    move  $a0, $v0                         # save target Method*
     RESTORE_REFS_AND_ARGS_CALLEE_SAVE_FRAME
     beqz  $v0, 1f
-    move  $t9, $v1                        # save $v0->code_
+    move  $t9, $v1                         # save $v0->code_
     jalr  $zero, $t9
     nop
 1:
     DELIVER_PENDING_EXCEPTION
+.endm
+.macro INVOKE_TRAMPOLINE c_name, cxx_name
+ENTRY \c_name
+    INVOKE_TRAMPOLINE_BODY \cxx_name
 END \c_name
 .endm
 
-INVOKE_TRAMPOLINE art_quick_invoke_interface_trampoline, artInvokeInterfaceTrampoline
 INVOKE_TRAMPOLINE art_quick_invoke_interface_trampoline_with_access_check, artInvokeInterfaceTrampolineWithAccessCheck
 
 INVOKE_TRAMPOLINE art_quick_invoke_static_trampoline_with_access_check, artInvokeStaticTrampolineWithAccessCheck
 INVOKE_TRAMPOLINE art_quick_invoke_direct_trampoline_with_access_check, artInvokeDirectTrampolineWithAccessCheck
 INVOKE_TRAMPOLINE art_quick_invoke_super_trampoline_with_access_check, artInvokeSuperTrampolineWithAccessCheck
 INVOKE_TRAMPOLINE art_quick_invoke_virtual_trampoline_with_access_check, artInvokeVirtualTrampolineWithAccessCheck
+
+.macro LOAD_WORD_TO_REG reg, next_arg, index, label
+    lw    $\reg, -4($\next_arg)   # next_arg points to argument after the current one (offset is 4)
+    b     \label
+    addiu $\index, 1
+.endm
+
+.macro LOAD_LONG_TO_REG reg1, reg2, next_arg, index, label
+    lw    $\reg1, -8($\next_arg)  # next_arg points to argument after the current one (offset is 8)
+    lw    $\reg2, -4($\next_arg)
+    b     \label
+    li    $\index, 4              # long can be loaded only to a2_a3 pair so index will be always 4
+.endm
+
+.macro LOAD_FLOAT_TO_REG reg, next_arg, index, label
+    lwc1  $\reg, -4($\next_arg)   # next_arg points to argument after the current one (offset is 4)
+    b     \label
+    addiu $\index, 1
+.endm
+
+.macro LOAD_DOUBLE_TO_REG reg1, reg2, next_arg, index, tmp, label
+    LDu  $\reg1, $\reg2, -8, $\next_arg, $\tmp  # next_arg points to argument after the current one
+                                                # (offset is 8)
+    b     \label
+    addiu $\index, 1
+.endm
+
+#define SPILL_SIZE    32
 
     /*
      * Invocation stub for quick code.
@@ -500,8 +634,9 @@ INVOKE_TRAMPOLINE art_quick_invoke_virtual_trampoline_with_access_check, artInvo
      */
 ENTRY art_quick_invoke_stub
     sw    $a0, 0($sp)           # save out a0
-    addiu $sp, $sp, -16         # spill s0, s1, fp, ra
-    .cfi_adjust_cfa_offset 16
+    addiu $sp, $sp, -SPILL_SIZE # spill s0, s1, fp, ra and gp
+    .cfi_adjust_cfa_offset SPILL_SIZE
+    sw    $gp, 16($sp)
     sw    $ra, 12($sp)
     .cfi_rel_offset 31, 12
     sw    $fp, 8($sp)
@@ -514,21 +649,78 @@ ENTRY art_quick_invoke_stub
     .cfi_def_cfa_register 30
     move  $s1, $a3              # move managed thread pointer into s1
     addiu $s0, $zero, SUSPEND_CHECK_INTERVAL  # reset s0 to suspend check interval
-    addiu $t0, $a2, 4           # create space for method pointer in frame.
+    addiu $t0, $a2, 4           # create space for ArtMethod* in frame.
     subu  $t0, $sp, $t0         # reserve & align *stack* to 16 bytes:
-    srl   $t0, $t0, 4           # native calling convention only aligns to 8B,
-    sll   $sp, $t0, 4           # so we have to ensure ART 16B alignment ourselves.
-    addiu $a0, $sp, 4           # pass stack pointer + method ptr as dest for memcpy
-    jal   memcpy                # (dest, src, bytes)
+    srl   $t0, $t0, 4           #   native calling convention only aligns to 8B,
+    sll   $sp, $t0, 4           #   so we have to ensure ART 16B alignment ourselves.
+    addiu $a0, $sp, 4           # pass stack pointer + ArtMethod* as dest for memcpy
+    la    $t9, memcpy
+    jalr  $t9                   # (dest, src, bytes)
     addiu $sp, $sp, -16         # make space for argument slots for memcpy
     addiu $sp, $sp, 16          # restore stack after memcpy
-    lw    $a0, 16($fp)          # restore method*
-    lw    $a1, 4($sp)           # copy arg value for a1
-    lw    $a2, 8($sp)           # copy arg value for a2
-    lw    $a3, 12($sp)          # copy arg value for a3
+    lw    $gp, 16($fp)          # restore $gp
+    lw    $a0, SPILL_SIZE($fp)  # restore ArtMethod*
+    lw    $a1, 4($sp)           # a1 = this*
+    addiu $t0, $sp, 8           # t0 = pointer to the current argument (skip ArtMethod* and this*)
+    li    $t3, 2                # t3 = gpr_index = 2 (skip A0 and A1)
+    move  $t4, $zero            # t4 = fp_index = 0
+    lw    $t1, 20 + SPILL_SIZE($fp)  # get shorty (20 is offset from the $sp on entry + SPILL_SIZE
+                                # as the $fp is SPILL_SIZE bytes below the $sp on entry)
+    addiu $t1, 1                # t1 = shorty + 1 (skip 1 for return type)
+loop:
+    lbu   $t2, 0($t1)           # t2 = shorty[i]
+    beqz  $t2, loopEnd          # finish getting args when shorty[i] == '\0'
+    addiu $t1, 1
+
+    li    $t9, 'J'              # put char 'J' into t9
+    beq   $t9, $t2, isLong      # branch if result type char == 'J'
+    li    $t9, 'D'              # put char 'D' into t9
+    beq   $t9, $t2, isDouble    # branch if result type char == 'D'
+    li    $t9, 'F'              # put char 'F' into t9
+    beq   $t9, $t2, isSingle    # branch if result type char == 'F'
+    addiu $t0, 4                # next_arg = curr_arg + 4 (in branch delay slot,
+                                # for both, int and single)
+
+    li    $t5, 2                                   # skip a0 and a1 (ArtMethod* and this*)
+    bne   $t5, $t3, 1f                             # if (gpr_index == 2)
+    addiu $t5, 1
+    LOAD_WORD_TO_REG a2, t0, t3, loop              #   a2 = current argument, gpr_index++
+1:  bne   $t5, $t3, loop                           # else if (gpr_index == 3)
+    nop
+    LOAD_WORD_TO_REG a3, t0, t3, loop              #   a3 = current argument, gpr_index++
+
+isLong:
+    addiu $t0, 8                                   # next_arg = curr_arg + 8
+    slti  $t5, $t3, 3
+    beqz  $t5, 2f                                  # if (gpr_index < 3)
+    nop
+    LOAD_LONG_TO_REG a2, a3, t0, t3, loop          #   a2_a3 = curr_arg, gpr_index = 4
+2:  b     loop                                     # else
+    li    $t3, 4                                   #   gpr_index = 4
+
+isDouble:
+    addiu $t0, 8                                   # next_arg = curr_arg + 8
+    li    $t5, 0
+    bne   $t5, $t4, 3f                             # if (fp_index == 0)
+    addiu $t5, 1
+    LOAD_DOUBLE_TO_REG f12, f13, t0, t4, t9, loop  #   f12_f13 = curr_arg, fp_index++
+3:  bne   $t5, $t4, loop                           # else if (fp_index == 1)
+    nop
+    LOAD_DOUBLE_TO_REG f14, f15, t0, t4, t9, loop  #   f14_f15 = curr_arg, fp_index++
+
+isSingle:
+    li    $t5, 0
+    bne   $t5, $t4, 4f                             # if (fp_index == 0)
+    addiu $t5, 1
+    LOAD_FLOAT_TO_REG f12, t0, t4, loop            #   f12 = curr_arg, fp_index++
+4:  bne   $t5, $t4, loop                           # else if (fp_index == 1)
+    nop
+    LOAD_FLOAT_TO_REG f14, t0, t4, loop            #   f14 = curr_arg, fp_index++
+
+loopEnd:
     lw    $t9, ART_METHOD_QUICK_CODE_OFFSET_32($a0)  # get pointer to the code
     jalr  $t9                   # call the method
-    sw    $zero, 0($sp)         # store null for method* at bottom of frame
+    sw    $zero, 0($sp)         # store null for ArtMethod* at bottom of frame
     move  $sp, $fp              # restore the stack
     lw    $s0, 0($sp)
     .cfi_restore 16
@@ -538,23 +730,153 @@ ENTRY art_quick_invoke_stub
     .cfi_restore 30
     lw    $ra, 12($sp)
     .cfi_restore 31
-    addiu $sp, $sp, 16
-    .cfi_adjust_cfa_offset -16
+    addiu $sp, $sp, SPILL_SIZE
+    .cfi_adjust_cfa_offset -SPILL_SIZE
     lw    $t0, 16($sp)          # get result pointer
     lw    $t1, 20($sp)          # get shorty
     lb    $t1, 0($t1)           # get result type char
-    li    $t2, 68               # put char 'D' into t2
-    beq   $t1, $t2, 1f          # branch if result type char == 'D'
-    li    $t3, 70               # put char 'F' into t3
-    beq   $t1, $t3, 1f          # branch if result type char == 'F'
+    li    $t2, 'D'              # put char 'D' into t2
+    beq   $t1, $t2, 5f          # branch if result type char == 'D'
+    li    $t3, 'F'              # put char 'F' into t3
+    beq   $t1, $t3, 5f          # branch if result type char == 'F'
     sw    $v0, 0($t0)           # store the result
     jalr  $zero, $ra
     sw    $v1, 4($t0)           # store the other half of the result
-1:
+5:
     SDu   $f0, $f1, 0, $t0, $t1 # store floating point result
     jalr  $zero, $ra
     nop
 END art_quick_invoke_stub
+
+    /*
+     * Invocation static stub for quick code.
+     * On entry:
+     *   a0 = method pointer
+     *   a1 = argument array or null for no argument methods
+     *   a2 = size of argument array in bytes
+     *   a3 = (managed) thread pointer
+     *   [sp + 16] = JValue* result
+     *   [sp + 20] = shorty
+     */
+ENTRY art_quick_invoke_static_stub
+    sw    $a0, 0($sp)           # save out a0
+    addiu $sp, $sp, -SPILL_SIZE # spill s0, s1, fp, ra and gp
+    .cfi_adjust_cfa_offset SPILL_SIZE
+    sw    $gp, 16($sp)
+    sw    $ra, 12($sp)
+    .cfi_rel_offset 31, 12
+    sw    $fp, 8($sp)
+    .cfi_rel_offset 30, 8
+    sw    $s1, 4($sp)
+    .cfi_rel_offset 17, 4
+    sw    $s0, 0($sp)
+    .cfi_rel_offset 16, 0
+    move  $fp, $sp              # save sp in fp
+    .cfi_def_cfa_register 30
+    move  $s1, $a3              # move managed thread pointer into s1
+    addiu $s0, $zero, SUSPEND_CHECK_INTERVAL  # reset s0 to suspend check interval
+    addiu $t0, $a2, 4           # create space for ArtMethod* in frame.
+    subu  $t0, $sp, $t0         # reserve & align *stack* to 16 bytes:
+    srl   $t0, $t0, 4           #   native calling convention only aligns to 8B,
+    sll   $sp, $t0, 4           #   so we have to ensure ART 16B alignment ourselves.
+    addiu $a0, $sp, 4           # pass stack pointer + ArtMethod* as dest for memcpy
+    la    $t9, memcpy
+    jalr  $t9                   # (dest, src, bytes)
+    addiu $sp, $sp, -16         # make space for argument slots for memcpy
+    addiu $sp, $sp, 16          # restore stack after memcpy
+    lw    $gp, 16($fp)          # restore $gp
+    lw    $a0, SPILL_SIZE($fp)  # restore ArtMethod*
+    addiu $t0, $sp, 4           # t0 = pointer to the current argument (skip ArtMethod*)
+    li    $t3, 1                # t3 = gpr_index = 1 (skip A0)
+    move  $t4, $zero            # t4 = fp_index = 0
+    lw    $t1, 20 + SPILL_SIZE($fp)  # get shorty (20 is offset from the $sp on entry + SPILL_SIZE
+                                # as the $fp is SPILL_SIZE bytes below the $sp on entry)
+    addiu $t1, 1                # t1 = shorty + 1 (skip 1 for return type)
+loopS:
+    lbu   $t2, 0($t1)           # t2 = shorty[i]
+    beqz  $t2, loopEndS         # finish getting args when shorty[i] == '\0'
+    addiu $t1, 1
+
+    li    $t9, 'J'              # put char 'J' into t9
+    beq   $t9, $t2, isLongS     # branch if result type char == 'J'
+    li    $t9, 'D'              # put char 'D' into t9
+    beq   $t9, $t2, isDoubleS   # branch if result type char == 'D'
+    li    $t9, 'F'              # put char 'F' into t9
+    beq   $t9, $t2, isSingleS   # branch if result type char == 'F'
+    addiu $t0, 4                # next_arg = curr_arg + 4 (in branch delay slot,
+                                # for both, int and single)
+
+    li    $t5, 1                                    # skip a0 (ArtMethod*)
+    bne   $t5, $t3, 1f                              # if (gpr_index == 1)
+    addiu $t5, 1
+    LOAD_WORD_TO_REG a1, t0, t3, loopS              #   a1 = current argument, gpr_index++
+1:  bne   $t5, $t3, 2f                              # else if (gpr_index == 2)
+    addiu $t5, 1
+    LOAD_WORD_TO_REG a2, t0, t3, loopS              #   a2 = current argument, gpr_index++
+2:  bne   $t5, $t3, loopS                           # else if (gpr_index == 3)
+    nop
+    LOAD_WORD_TO_REG a3, t0, t3, loopS              #   a3 = current argument, gpr_index++
+
+isLongS:
+    addiu $t0, 8                                    # next_arg = curr_arg + 8
+    slti  $t5, $t3, 3
+    beqz  $t5, 3f                                   # if (gpr_index < 3)
+    nop
+    LOAD_LONG_TO_REG a2, a3, t0, t3, loopS          #   a2_a3 = curr_arg, gpr_index = 4
+3:  b     loopS                                     # else
+    li    $t3, 4                                    #   gpr_index = 4
+
+isDoubleS:
+    addiu $t0, 8                                    # next_arg = curr_arg + 8
+    li    $t5, 0
+    bne   $t5, $t4, 4f                              # if (fp_index == 0)
+    addiu $t5, 1
+    LOAD_DOUBLE_TO_REG f12, f13, t0, t4, t9, loopS  #   f12_f13 = curr_arg, fp_index++
+4:  bne   $t5, $t4, loopS                           # else if (fp_index == 1)
+    nop
+    LOAD_DOUBLE_TO_REG f14, f15, t0, t4, t9, loopS  #   f14_f15 = curr_arg, fp_index++
+
+isSingleS:
+    li    $t5, 0
+    bne   $t5, $t4, 5f                              # if (fp_index == 0)
+    addiu $t5, 1
+    LOAD_FLOAT_TO_REG f12, t0, t4, loopS            #   f12 = curr_arg, fp_index++
+5:  bne   $t5, $t4, loopS                           # else if (fp_index == 1)
+    nop
+    LOAD_FLOAT_TO_REG f14, t0, t4, loopS            #   f14 = curr_arg, fp_index++
+
+loopEndS:
+    lw    $t9, ART_METHOD_QUICK_CODE_OFFSET_32($a0)  # get pointer to the code
+    jalr  $t9                   # call the method
+    sw    $zero, 0($sp)         # store null for ArtMethod* at bottom of frame
+    move  $sp, $fp              # restore the stack
+    lw    $s0, 0($sp)
+    .cfi_restore 16
+    lw    $s1, 4($sp)
+    .cfi_restore 17
+    lw    $fp, 8($sp)
+    .cfi_restore 30
+    lw    $ra, 12($sp)
+    .cfi_restore 31
+    addiu $sp, $sp, SPILL_SIZE
+    .cfi_adjust_cfa_offset -SPILL_SIZE
+    lw    $t0, 16($sp)          # get result pointer
+    lw    $t1, 20($sp)          # get shorty
+    lb    $t1, 0($t1)           # get result type char
+    li    $t2, 'D'              # put char 'D' into t2
+    beq   $t1, $t2, 6f          # branch if result type char == 'D'
+    li    $t3, 'F'              # put char 'F' into t3
+    beq   $t1, $t3, 6f          # branch if result type char == 'F'
+    sw    $v0, 0($t0)           # store the result
+    jalr  $zero, $ra
+    sw    $v1, 4($t0)           # store the other half of the result
+6:
+    SDu   $f0, $f1, 0, $t0, $t1 # store floating point result
+    jalr  $zero, $ra
+    nop
+END art_quick_invoke_static_stub
+
+#undef SPILL_SIZE
 
     /*
      * Entry from managed code that calls artHandleFillArrayDataFromCode and delivers exception on
@@ -564,7 +886,8 @@ END art_quick_invoke_stub
 ENTRY art_quick_handle_fill_data
     lw     $a2, 0($sp)                    # pass referrer's Method*
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME     # save callee saves in case exception allocation triggers GC
-    jal    artHandleFillArrayDataFromCode # (payload offset, Array*, method, Thread*)
+    la     $t9, artHandleFillArrayDataFromCode
+    jalr   $t9                            # (payload offset, Array*, method, Thread*)
     move   $a3, rSELF                     # pass Thread::Current
     RETURN_IF_ZERO
 END art_quick_handle_fill_data
@@ -577,10 +900,21 @@ ENTRY art_quick_lock_object
     beqz    $a0, .Lart_quick_throw_null_pointer_exception_gp_set
     nop
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME     # save callee saves in case we block
-    jal     artLockObjectFromCode         # (Object* obj, Thread*)
+    la      $t9, artLockObjectFromCode
+    jalr    $t9                           # (Object* obj, Thread*)
     move    $a1, rSELF                    # pass Thread::Current
     RETURN_IF_ZERO
 END art_quick_lock_object
+
+ENTRY art_quick_lock_object_no_inline
+    beqz    $a0, .Lart_quick_throw_null_pointer_exception_gp_set
+    nop
+    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME     # save callee saves in case we block
+    la      $t9, artLockObjectFromCode
+    jalr    $t9                           # (Object* obj, Thread*)
+    move    $a1, rSELF                    # pass Thread::Current
+    RETURN_IF_ZERO
+END art_quick_lock_object_no_inline
 
     /*
      * Entry from managed code that calls artUnlockObjectFromCode and delivers exception on failure.
@@ -590,42 +924,127 @@ ENTRY art_quick_unlock_object
     beqz    $a0, .Lart_quick_throw_null_pointer_exception_gp_set
     nop
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME # save callee saves in case exception allocation triggers GC
-    jal     artUnlockObjectFromCode   # (Object* obj, Thread*)
+    la      $t9, artUnlockObjectFromCode
+    jalr    $t9                       # (Object* obj, Thread*)
     move    $a1, rSELF                # pass Thread::Current
     RETURN_IF_ZERO
 END art_quick_unlock_object
+
+ENTRY art_quick_unlock_object_no_inline
+    beqz    $a0, .Lart_quick_throw_null_pointer_exception_gp_set
+    nop
+    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME # save callee saves in case exception allocation triggers GC
+    la      $t9, artUnlockObjectFromCode
+    jalr    $t9                       # (Object* obj, Thread*)
+    move    $a1, rSELF                # pass Thread::Current
+    RETURN_IF_ZERO
+END art_quick_unlock_object_no_inline
 
     /*
      * Entry from managed code that calls artCheckCastFromCode and delivers exception on failure.
      */
     .extern artThrowClassCastException
 ENTRY art_quick_check_cast
-    addiu  $sp, $sp, -16
-    .cfi_adjust_cfa_offset 16
+    addiu  $sp, $sp, -32
+    .cfi_adjust_cfa_offset 32
+    sw     $gp, 16($sp)
     sw     $ra, 12($sp)
     .cfi_rel_offset 31, 12
     sw     $t9, 8($sp)
     sw     $a1, 4($sp)
     sw     $a0, 0($sp)
-    jal    artIsAssignableFromCode
+    la     $t9, artIsAssignableFromCode
+    jalr   $t9
     addiu  $sp, $sp, -16             # reserve argument slots on the stack
     addiu  $sp, $sp, 16
+    lw     $gp, 16($sp)
     beqz   $v0, .Lthrow_class_cast_exception
     lw     $ra, 12($sp)
     jalr   $zero, $ra
-    addiu  $sp, $sp, 16
-    .cfi_adjust_cfa_offset -16
+    addiu  $sp, $sp, 32
+    .cfi_adjust_cfa_offset -32
 .Lthrow_class_cast_exception:
     lw     $t9, 8($sp)
     lw     $a1, 4($sp)
     lw     $a0, 0($sp)
-    addiu  $sp, $sp, 16
-    .cfi_adjust_cfa_offset -16
+    addiu  $sp, $sp, 32
+    .cfi_adjust_cfa_offset -32
     SETUP_SAVE_ALL_CALLEE_SAVE_FRAME
     la   $t9, artThrowClassCastException
     jalr $zero, $t9                 # artThrowClassCastException (Class*, Class*, Thread*)
     move $a2, rSELF                 # pass Thread::Current
 END art_quick_check_cast
+
+    /*
+     * Restore rReg's value from offset($sp) if rReg is not the same as rExclude.
+     * nReg is the register number for rReg.
+     */
+.macro POP_REG_NE rReg, nReg, offset, rExclude
+    .ifnc \rReg, \rExclude
+        lw \rReg, \offset($sp)      # restore rReg
+        .cfi_restore \nReg
+    .endif
+.endm
+
+    /*
+     * Macro to insert read barrier, only used in art_quick_aput_obj.
+     * rObj and rDest are registers, offset is a defined literal such as MIRROR_OBJECT_CLASS_OFFSET.
+     * TODO: When read barrier has a fast path, add heap unpoisoning support for the fast path.
+     */
+.macro READ_BARRIER rDest, rObj, offset
+#ifdef USE_READ_BARRIER
+    # saved registers used in art_quick_aput_obj: a0-a2, t0-t1, t9, ra. 8 words for 16B alignment.
+    addiu  $sp, $sp, -32
+    .cfi_adjust_cfa_offset 32
+    sw     $ra, 28($sp)
+    .cfi_rel_offset 31, 28
+    sw     $t9, 24($sp)
+    .cfi_rel_offset 25, 24
+    sw     $t1, 20($sp)
+    .cfi_rel_offset 9, 20
+    sw     $t0, 16($sp)
+    .cfi_rel_offset 8, 16
+    sw     $a2, 8($sp)              # padding slot at offset 12 (padding can be any slot in the 32B)
+    .cfi_rel_offset 6, 8
+    sw     $a1, 4($sp)
+    .cfi_rel_offset 5, 4
+    sw     $a0, 0($sp)
+    .cfi_rel_offset 4, 0
+
+    # move $a0, \rRef               # pass ref in a0 (no-op for now since parameter ref is unused)
+    .ifnc \rObj, $a1
+        move $a1, \rObj             # pass rObj
+    .endif
+    addiu  $a2, $zero, \offset      # pass offset
+    la     $t9, artReadBarrierSlow
+    jalr   $t9                      # artReadBarrierSlow(ref, rObj, offset)
+    addiu  $sp, $sp, -16            # Use branch delay slot to reserve argument slots on the stack
+                                    # before the call to artReadBarrierSlow.
+    addiu  $sp, $sp, 16             # restore stack after call to artReadBarrierSlow
+    # No need to unpoison return value in v0, artReadBarrierSlow() would do the unpoisoning.
+    move \rDest, $v0                # save return value in rDest
+                                    # (rDest cannot be v0 in art_quick_aput_obj)
+
+    lw     $a0, 0($sp)              # restore registers except rDest
+                                    # (rDest can only be t0 or t1 in art_quick_aput_obj)
+    .cfi_restore 4
+    lw     $a1, 4($sp)
+    .cfi_restore 5
+    lw     $a2, 8($sp)
+    .cfi_restore 6
+    POP_REG_NE $t0, 8, 16, \rDest
+    POP_REG_NE $t1, 9, 20, \rDest
+    lw     $t9, 24($sp)
+    .cfi_restore 25
+    lw     $ra, 28($sp)             # restore $ra
+    .cfi_restore 31
+    addiu  $sp, $sp, 32
+    .cfi_adjust_cfa_offset -32
+#else
+    lw     \rDest, \offset(\rObj)
+    UNPOISON_HEAP_REF \rDest
+#endif  // USE_READ_BARRIER
+.endm
 
     /*
      * Entry from managed code for array put operations of objects where the value being stored
@@ -649,17 +1068,21 @@ ENTRY art_quick_aput_obj_with_bound_check
     move $a1, $t0
 END art_quick_aput_obj_with_bound_check
 
+#ifdef USE_READ_BARRIER
+    .extern artReadBarrierSlow
+#endif
 ENTRY art_quick_aput_obj
     beqz $a2, .Ldo_aput_null
     nop
-    lw $t0, MIRROR_OBJECT_CLASS_OFFSET($a0)
-    lw $t1, MIRROR_OBJECT_CLASS_OFFSET($a2)
-    lw $t0, MIRROR_CLASS_COMPONENT_TYPE_OFFSET($t0)
+    READ_BARRIER $t0, $a0, MIRROR_OBJECT_CLASS_OFFSET
+    READ_BARRIER $t1, $a2, MIRROR_OBJECT_CLASS_OFFSET
+    READ_BARRIER $t0, $t0, MIRROR_CLASS_COMPONENT_TYPE_OFFSET
     bne $t1, $t0, .Lcheck_assignability  # value's type == array's component type - trivial assignability
     nop
 .Ldo_aput:
     sll $a1, $a1, 2
     add $t0, $a0, $a1
+    POISON_HEAP_REF $a2
     sw  $a2, MIRROR_OBJECT_ARRAY_DATA_OFFSET($t0)
     lw  $t0, THREAD_CARD_TABLE_OFFSET(rSELF)
     srl $t1, $a0, 7
@@ -678,16 +1101,19 @@ ENTRY art_quick_aput_obj
     .cfi_adjust_cfa_offset 32
     sw     $ra, 28($sp)
     .cfi_rel_offset 31, 28
+    sw     $gp, 16($sp)
     sw     $t9, 12($sp)
     sw     $a2, 8($sp)
     sw     $a1, 4($sp)
     sw     $a0, 0($sp)
     move   $a1, $t1
     move   $a0, $t0
-    jal    artIsAssignableFromCode  # (Class*, Class*)
-    addiu $sp, $sp, -16     # reserve argument slots on the stack
-    addiu $sp, $sp, 16
+    la     $t9, artIsAssignableFromCode
+    jalr   $t9               # (Class*, Class*)
+    addiu  $sp, $sp, -16     # reserve argument slots on the stack
+    addiu  $sp, $sp, 16
     lw     $ra, 28($sp)
+    lw     $gp, 16($sp)
     lw     $t9, 12($sp)
     lw     $a2, 8($sp)
     lw     $a1, 4($sp)
@@ -710,7 +1136,8 @@ END art_quick_aput_obj
 ENTRY art_quick_get_boolean_static
     lw     $a1, 0($sp)                   # pass referrer's Method*
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    # save callee saves in case of GC
-    jal    artGetBooleanStaticFromCode   # (uint32_t field_idx, const Method* referrer, Thread*)
+    la     $t9, artGetBooleanStaticFromCode
+    jalr   $t9                           # (uint32_t field_idx, const Method* referrer, Thread*)
     move   $a2, rSELF                    # pass Thread::Current
     RETURN_IF_NO_EXCEPTION
 END art_quick_get_boolean_static
@@ -721,7 +1148,8 @@ END art_quick_get_boolean_static
 ENTRY art_quick_get_byte_static
     lw     $a1, 0($sp)                   # pass referrer's Method*
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    # save callee saves in case of GC
-    jal    artGetByteStaticFromCode      # (uint32_t field_idx, const Method* referrer, Thread*)
+    la     $t9, artGetByteStaticFromCode
+    jalr   $t9                           # (uint32_t field_idx, const Method* referrer, Thread*)
     move   $a2, rSELF                    # pass Thread::Current
     RETURN_IF_NO_EXCEPTION
 END art_quick_get_byte_static
@@ -733,7 +1161,8 @@ END art_quick_get_byte_static
 ENTRY art_quick_get_char_static
     lw     $a1, 0($sp)                   # pass referrer's Method*
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    # save callee saves in case of GC
-    jal    artGetCharStaticFromCode      # (uint32_t field_idx, const Method* referrer, Thread*)
+    la     $t9, artGetCharStaticFromCode
+    jalr   $t9                           # (uint32_t field_idx, const Method* referrer, Thread*)
     move   $a2, rSELF                    # pass Thread::Current
     RETURN_IF_NO_EXCEPTION
 END art_quick_get_char_static
@@ -744,7 +1173,8 @@ END art_quick_get_char_static
 ENTRY art_quick_get_short_static
     lw     $a1, 0($sp)                   # pass referrer's Method*
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    # save callee saves in case of GC
-    jal    artGetShortStaticFromCode     # (uint32_t field_idx, const Method* referrer, Thread*)
+    la     $t9, artGetShortStaticFromCode
+    jalr   $t9                           # (uint32_t field_idx, const Method* referrer, Thread*)
     move   $a2, rSELF                    # pass Thread::Current
     RETURN_IF_NO_EXCEPTION
 END art_quick_get_short_static
@@ -756,7 +1186,8 @@ END art_quick_get_short_static
 ENTRY art_quick_get32_static
     lw     $a1, 0($sp)                   # pass referrer's Method*
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    # save callee saves in case of GC
-    jal    artGet32StaticFromCode        # (uint32_t field_idx, const Method* referrer, Thread*)
+    la     $t9, artGet32StaticFromCode
+    jalr   $t9                           # (uint32_t field_idx, const Method* referrer, Thread*)
     move   $a2, rSELF                    # pass Thread::Current
     RETURN_IF_NO_EXCEPTION
 END art_quick_get32_static
@@ -768,7 +1199,8 @@ END art_quick_get32_static
 ENTRY art_quick_get64_static
     lw     $a1, 0($sp)                   # pass referrer's Method*
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    # save callee saves in case of GC
-    jal    artGet64StaticFromCode        # (uint32_t field_idx, const Method* referrer, Thread*)
+    la     $t9, artGet64StaticFromCode
+    jalr   $t9                           # (uint32_t field_idx, const Method* referrer, Thread*)
     move   $a2, rSELF                    # pass Thread::Current
     RETURN_IF_NO_EXCEPTION
 END art_quick_get64_static
@@ -780,7 +1212,8 @@ END art_quick_get64_static
 ENTRY art_quick_get_obj_static
     lw     $a1, 0($sp)                   # pass referrer's Method*
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    # save callee saves in case of GC
-    jal    artGetObjStaticFromCode       # (uint32_t field_idx, const Method* referrer, Thread*)
+    la     $t9, artGetObjStaticFromCode
+    jalr   $t9                           # (uint32_t field_idx, const Method* referrer, Thread*)
     move   $a2, rSELF                    # pass Thread::Current
     RETURN_IF_NO_EXCEPTION
 END art_quick_get_obj_static
@@ -792,7 +1225,8 @@ END art_quick_get_obj_static
 ENTRY art_quick_get_boolean_instance
     lw     $a2, 0($sp)                   # pass referrer's Method*
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    # save callee saves in case of GC
-    jal    artGetBooleanInstanceFromCode # (field_idx, Object*, referrer, Thread*)
+    la     $t9, artGetBooleanInstanceFromCode
+    jalr   $t9                           # (field_idx, Object*, referrer, Thread*)
     move   $a3, rSELF                    # pass Thread::Current
     RETURN_IF_NO_EXCEPTION
 END art_quick_get_boolean_instance
@@ -803,7 +1237,8 @@ END art_quick_get_boolean_instance
 ENTRY art_quick_get_byte_instance
     lw     $a2, 0($sp)                   # pass referrer's Method*
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    # save callee saves in case of GC
-    jal    artGetByteInstanceFromCode    # (field_idx, Object*, referrer, Thread*)
+    la     $t9, artGetByteInstanceFromCode
+    jalr   $t9                           # (field_idx, Object*, referrer, Thread*)
     move   $a3, rSELF                    # pass Thread::Current
     RETURN_IF_NO_EXCEPTION
 END art_quick_get_byte_instance
@@ -815,7 +1250,8 @@ END art_quick_get_byte_instance
 ENTRY art_quick_get_char_instance
     lw     $a2, 0($sp)                   # pass referrer's Method*
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    # save callee saves in case of GC
-    jal    artGetCharInstanceFromCode    # (field_idx, Object*, referrer, Thread*)
+    la     $t9, artGetCharInstanceFromCode
+    jalr   $t9                           # (field_idx, Object*, referrer, Thread*)
     move   $a3, rSELF                    # pass Thread::Current
     RETURN_IF_NO_EXCEPTION
 END art_quick_get_char_instance
@@ -826,7 +1262,8 @@ END art_quick_get_char_instance
 ENTRY art_quick_get_short_instance
     lw     $a2, 0($sp)                   # pass referrer's Method*
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    # save callee saves in case of GC
-    jal    artGetShortInstanceFromCode   # (field_idx, Object*, referrer, Thread*)
+    la     $t9, artGetShortInstanceFromCode
+    jalr   $t9                           # (field_idx, Object*, referrer, Thread*)
     move   $a3, rSELF                    # pass Thread::Current
     RETURN_IF_NO_EXCEPTION
 END art_quick_get_short_instance
@@ -838,7 +1275,8 @@ END art_quick_get_short_instance
 ENTRY art_quick_get32_instance
     lw     $a2, 0($sp)                   # pass referrer's Method*
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    # save callee saves in case of GC
-    jal    artGet32InstanceFromCode      # (field_idx, Object*, referrer, Thread*)
+    la     $t9, artGet32InstanceFromCode
+    jalr   $t9                           # (field_idx, Object*, referrer, Thread*)
     move   $a3, rSELF                    # pass Thread::Current
     RETURN_IF_NO_EXCEPTION
 END art_quick_get32_instance
@@ -850,7 +1288,8 @@ END art_quick_get32_instance
 ENTRY art_quick_get64_instance
     lw     $a2, 0($sp)                   # pass referrer's Method*
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    # save callee saves in case of GC
-    jal    artGet64InstanceFromCode      # (field_idx, Object*, referrer, Thread*)
+    la     $t9, artGet64InstanceFromCode
+    jalr   $t9                           # (field_idx, Object*, referrer, Thread*)
     move   $a3, rSELF                    # pass Thread::Current
     RETURN_IF_NO_EXCEPTION
 END art_quick_get64_instance
@@ -862,7 +1301,8 @@ END art_quick_get64_instance
 ENTRY art_quick_get_obj_instance
     lw     $a2, 0($sp)                   # pass referrer's Method*
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    # save callee saves in case of GC
-    jal    artGetObjInstanceFromCode     # (field_idx, Object*, referrer, Thread*)
+    la     $t9, artGetObjInstanceFromCode
+    jalr   $t9                           # (field_idx, Object*, referrer, Thread*)
     move   $a3, rSELF                    # pass Thread::Current
     RETURN_IF_NO_EXCEPTION
 END art_quick_get_obj_instance
@@ -874,7 +1314,8 @@ END art_quick_get_obj_instance
 ENTRY art_quick_set8_static
     lw     $a2, 0($sp)                   # pass referrer's Method*
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    # save callee saves in case of GC
-    jal    artSet8StaticFromCode         # (field_idx, new_val, referrer, Thread*)
+    la     $t9, artSet8StaticFromCode
+    jalr   $t9                           # (field_idx, new_val, referrer, Thread*)
     move   $a3, rSELF                    # pass Thread::Current
     RETURN_IF_ZERO
 END art_quick_set8_static
@@ -886,7 +1327,8 @@ END art_quick_set8_static
 ENTRY art_quick_set16_static
     lw     $a2, 0($sp)                   # pass referrer's Method*
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    # save callee saves in case of GC
-    jal    artSet16StaticFromCode        # (field_idx, new_val, referrer, Thread*, $sp)
+    la     $t9, artSet16StaticFromCode
+    jalr   $t9                           # (field_idx, new_val, referrer, Thread*, $sp)
     move   $a3, rSELF                    # pass Thread::Current
     RETURN_IF_ZERO
 END art_quick_set16_static
@@ -898,7 +1340,8 @@ END art_quick_set16_static
 ENTRY art_quick_set32_static
     lw     $a2, 0($sp)                   # pass referrer's Method*
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    # save callee saves in case of GC
-    jal    artSet32StaticFromCode        # (field_idx, new_val, referrer, Thread*)
+    la     $t9, artSet32StaticFromCode
+    jalr   $t9                           # (field_idx, new_val, referrer, Thread*)
     move   $a3, rSELF                    # pass Thread::Current
     RETURN_IF_ZERO
 END art_quick_set32_static
@@ -911,7 +1354,8 @@ ENTRY art_quick_set64_static
     lw     $a1, 0($sp)                   # pass referrer's Method*
                                          # 64 bit new_val is in a2:a3 pair
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    # save callee saves in case of GC
-    jal    artSet64StaticFromCode        # (field_idx, referrer, new_val, Thread*)
+    la     $t9, artSet64StaticFromCode
+    jalr   $t9                           # (field_idx, referrer, new_val, Thread*)
     sw     rSELF, 16($sp)                # pass Thread::Current
     RETURN_IF_ZERO
 END art_quick_set64_static
@@ -923,8 +1367,9 @@ END art_quick_set64_static
 ENTRY art_quick_set_obj_static
     lw     $a2, 0($sp)                   # pass referrer's Method*
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    # save callee saves in case of GC
+    la     $t9, artSetObjStaticFromCode
+    jalr   $t9                           # (field_idx, new_val, referrer, Thread*)
     move   $a3, rSELF                    # pass Thread::Current
-    jal    artSetObjStaticFromCode       # (field_idx, new_val, referrer, Thread*)
     RETURN_IF_ZERO
 END art_quick_set_obj_static
 
@@ -935,7 +1380,8 @@ END art_quick_set_obj_static
 ENTRY art_quick_set8_instance
     lw     $a3, 0($sp)                   # pass referrer's Method*
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    # save callee saves in case of GC
-    jal    artSet8InstanceFromCode       # (field_idx, Object*, new_val, referrer, Thread*)
+    la     $t9, artSet8InstanceFromCode
+    jalr   $t9                           # (field_idx, Object*, new_val, referrer, Thread*)
     sw     rSELF, 16($sp)                # pass Thread::Current
     RETURN_IF_ZERO
 END art_quick_set8_instance
@@ -947,7 +1393,8 @@ END art_quick_set8_instance
 ENTRY art_quick_set16_instance
     lw     $a3, 0($sp)                   # pass referrer's Method*
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    # save callee saves in case of GC
-    jal    artSet16InstanceFromCode      # (field_idx, Object*, new_val, referrer, Thread*)
+    la     $t9, artSet16InstanceFromCode
+    jalr   $t9                           # (field_idx, Object*, new_val, referrer, Thread*)
     sw     rSELF, 16($sp)                # pass Thread::Current
     RETURN_IF_ZERO
 END art_quick_set16_instance
@@ -959,7 +1406,8 @@ END art_quick_set16_instance
 ENTRY art_quick_set32_instance
     lw     $a3, 0($sp)                   # pass referrer's Method*
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    # save callee saves in case of GC
-    jal    artSet32InstanceFromCode      # (field_idx, Object*, new_val, referrer, Thread*)
+    la     $t9, artSet32InstanceFromCode
+    jalr   $t9                           # (field_idx, Object*, new_val, referrer, Thread*)
     sw     rSELF, 16($sp)                # pass Thread::Current
     RETURN_IF_ZERO
 END art_quick_set32_instance
@@ -973,7 +1421,8 @@ ENTRY art_quick_set64_instance
                                          # 64 bit new_val is in a2:a3 pair
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    # save callee saves in case of GC
     sw     rSELF, 20($sp)                # pass Thread::Current
-    jal    artSet64InstanceFromCode      # (field_idx, Object*, new_val, referrer, Thread*)
+    la     $t9, artSet64InstanceFromCode
+    jalr   $t9                           # (field_idx, Object*, new_val, referrer, Thread*)
     sw     $t1, 16($sp)                  # pass referrer's Method*
     RETURN_IF_ZERO
 END art_quick_set64_instance
@@ -985,7 +1434,8 @@ END art_quick_set64_instance
 ENTRY art_quick_set_obj_instance
     lw     $a3, 0($sp)                   # pass referrer's Method*
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    # save callee saves in case of GC
-    jal    artSetObjInstanceFromCode     # (field_idx, Object*, new_val, referrer, Thread*)
+    la     $t9, artSetObjInstanceFromCode
+    jalr   $t9                           # (field_idx, Object*, new_val, referrer, Thread*)
     sw     rSELF, 16($sp)                # pass Thread::Current
     RETURN_IF_ZERO
 END art_quick_set_obj_instance
@@ -995,7 +1445,8 @@ END art_quick_set_obj_instance
     .extern \entrypoint
 ENTRY \name
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME # save callee saves in case of GC
-    jal     \entrypoint
+    la      $t9, \entrypoint
+    jalr    $t9
     move    $a1, rSELF                # pass Thread::Current
     \return
 END \name
@@ -1005,7 +1456,8 @@ END \name
     .extern \entrypoint
 ENTRY \name
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME # save callee saves in case of GC
-    jal     \entrypoint
+    la      $t9, \entrypoint
+    jalr    $t9
     move    $a2, rSELF                # pass Thread::Current
     \return
 END \name
@@ -1015,7 +1467,8 @@ END \name
     .extern \entrypoint
 ENTRY \name
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME # save callee saves in case of GC
-    jal     \entrypoint
+    la      $t9, \entrypoint
+    jalr    $t9
     move    $a3, rSELF                # pass Thread::Current
     \return
 END \name
@@ -1025,14 +1478,126 @@ END \name
     .extern \entrypoint
 ENTRY \name
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME # save callee saves in case of GC
-    jal     \entrypoint
+    la      $t9, \entrypoint
+    jalr    $t9
     sw      rSELF, 16($sp)            # pass Thread::Current
     \return
 END \name
 .endm
 
 // Generate the allocation entrypoints for each allocator.
-GENERATE_ALL_ALLOC_ENTRYPOINTS
+GENERATE_ALLOC_ENTRYPOINTS_FOR_EACH_ALLOCATOR
+
+// A hand-written override for GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT(_rosalloc, RosAlloc).
+ENTRY art_quick_alloc_object_rosalloc
+
+    # Fast path rosalloc allocation
+    # a0: type_idx
+    # a1: ArtMethod*
+    # s1: Thread::Current
+    # -----------------------------
+    # t0: class
+    # t1: object size
+    # t2: rosalloc run
+    # t3: thread stack top offset
+    # t4: thread stack bottom offset
+    # v0: free list head
+    #
+    # t5, t6 : temps
+
+    lw    $t0, ART_METHOD_DEX_CACHE_TYPES_OFFSET_32($a1)       # Load dex cache resolved types
+                                                               # array.
+
+    sll   $t5, $a0, COMPRESSED_REFERENCE_SIZE_SHIFT            # Shift the value.
+    addu  $t5, $t0, $t5                                        # Compute the index.
+    lw    $t0, 0($t5)                                          # Load class (t0).
+    beqz  $t0, .Lart_quick_alloc_object_rosalloc_slow_path
+
+    li    $t6, MIRROR_CLASS_STATUS_INITIALIZED
+    lw    $t5, MIRROR_CLASS_STATUS_OFFSET($t0)                 # Check class status.
+    bne   $t5, $t6, .Lart_quick_alloc_object_rosalloc_slow_path
+
+    # Add a fake dependence from the following access flag and size loads to the status load. This
+    # is to prevent those loads from being reordered above the status load and reading wrong values.
+    xor   $t5, $t5, $t5
+    addu  $t0, $t0, $t5
+
+    lw    $t5, MIRROR_CLASS_ACCESS_FLAGS_OFFSET($t0)           # Check if access flags has
+    li    $t6, ACCESS_FLAGS_CLASS_IS_FINALIZABLE               # kAccClassIsFinalizable.
+    and   $t6, $t5, $t6
+    bnez  $t6, .Lart_quick_alloc_object_rosalloc_slow_path
+
+    lw    $t3, THREAD_LOCAL_ALLOC_STACK_TOP_OFFSET($s1)        # Check if thread local allocation
+    lw    $t4, THREAD_LOCAL_ALLOC_STACK_END_OFFSET($s1)        # stack has any room left.
+    bgeu  $t3, $t4, .Lart_quick_alloc_object_rosalloc_slow_path
+
+    lw    $t1, MIRROR_CLASS_OBJECT_SIZE_OFFSET($t0)            # Load object size (t1).
+    li    $t5, ROSALLOC_MAX_THREAD_LOCAL_BRACKET_SIZE          # Check if size is for a thread local
+                                                               # allocation.
+    bgtu  $t1, $t5, .Lart_quick_alloc_object_rosalloc_slow_path
+
+    # Compute the rosalloc bracket index from the size. Allign up the size by the rosalloc bracket
+    # quantum size and divide by the quantum size and subtract by 1.
+
+    addiu $t1, $t1, -1                                         # Decrease obj size and shift right
+    srl   $t1, $t1, ROSALLOC_BRACKET_QUANTUM_SIZE_SHIFT        # by quantum.
+
+    sll   $t2, $t1, POINTER_SIZE_SHIFT
+    addu  $t2, $t2, $s1
+    lw    $t2, THREAD_ROSALLOC_RUNS_OFFSET($t2)                # Load rosalloc run (t2).
+
+    # Load the free list head (v0).
+    # NOTE: this will be the return val.
+
+    lw    $v0, (ROSALLOC_RUN_FREE_LIST_OFFSET + ROSALLOC_RUN_FREE_LIST_HEAD_OFFSET)($t2)
+    beqz  $v0, .Lart_quick_alloc_object_rosalloc_slow_path
+    nop
+
+    # Load the next pointer of the head and update the list head with the next pointer.
+
+    lw    $t5, ROSALLOC_SLOT_NEXT_OFFSET($v0)
+    sw    $t5, (ROSALLOC_RUN_FREE_LIST_OFFSET + ROSALLOC_RUN_FREE_LIST_HEAD_OFFSET)($t2)
+
+    # Store the class pointer in the header. This also overwrites the first pointer. The offsets are
+    # asserted to match.
+
+#if ROSALLOC_SLOT_NEXT_OFFSET != MIRROR_OBJECT_CLASS_OFFSET
+#error "Class pointer needs to overwrite next pointer."
+#endif
+
+    POISON_HEAP_REF $t0
+    sw    $t0, MIRROR_OBJECT_CLASS_OFFSET($v0)
+
+    # Push the new object onto the thread local allocation stack and increment the thread local
+    # allocation stack top.
+
+    sw    $v0, 0($t3)
+    addiu $t3, $t3, COMPRESSED_REFERENCE_SIZE
+    sw    $t3, THREAD_LOCAL_ALLOC_STACK_TOP_OFFSET($s1)
+
+    # Decrement the size of the free list.
+
+    lw    $t5, (ROSALLOC_RUN_FREE_LIST_OFFSET + ROSALLOC_RUN_FREE_LIST_SIZE_OFFSET)($t2)
+    addiu $t5, $t5, -1
+    sw    $t5, (ROSALLOC_RUN_FREE_LIST_OFFSET + ROSALLOC_RUN_FREE_LIST_SIZE_OFFSET)($t2)
+
+    sync                                                          # Fence.
+
+    jalr  $zero, $ra
+    nop
+
+  .Lart_quick_alloc_object_rosalloc_slow_path:
+
+    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME
+    la    $t9, artAllocObjectFromCodeRosAlloc
+    jalr  $t9
+    move  $a2, $s1                                                # Pass self as argument.
+    RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
+
+END art_quick_alloc_object_rosalloc
+
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT(_tlab, TLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT(_region_tlab, RegionTLAB)
 
     /*
      * Entry from managed code to resolve a string, this stub will allocate a String and deliver an
@@ -1071,20 +1636,22 @@ ENTRY art_quick_test_suspend
     nop
 1:
     SETUP_REFS_ONLY_CALLEE_SAVE_FRAME          # save callee saves for stack crawl
-    jal    artTestSuspendFromCode              # (Thread*)
+    la     $t9, artTestSuspendFromCode
+    jalr   $t9                                 # (Thread*)
     move   $a0, rSELF
     RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME_AND_RETURN
 END art_quick_test_suspend
 
     /*
      * Called by managed code that is attempting to call a method on a proxy class. On entry
-     * r0 holds the proxy method; r1, r2 and r3 may contain arguments.
+     * a0 holds the proxy method; a1, a2 and a3 may contain arguments.
      */
     .extern artQuickProxyInvokeHandler
 ENTRY art_quick_proxy_invoke_handler
     SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME_WITH_METHOD_IN_A0
     move    $a2, rSELF                  # pass Thread::Current
-    jal     artQuickProxyInvokeHandler  # (Method* proxy method, receiver, Thread*, SP)
+    la      $t9, artQuickProxyInvokeHandler
+    jalr    $t9                         # (Method* proxy method, receiver, Thread*, SP)
     addiu   $a3, $sp, ARG_SLOT_SIZE     # pass $sp (remove arg slots)
     lw      $t0, THREAD_EXCEPTION_OFFSET(rSELF) # load Thread::Current()->exception_
     RESTORE_REFS_AND_ARGS_CALLEE_SAVE_FRAME
@@ -1098,24 +1665,50 @@ ENTRY art_quick_proxy_invoke_handler
 END art_quick_proxy_invoke_handler
 
     /*
-     * Called to resolve an imt conflict. t0 is a hidden argument that holds the target method's
-     * dex method index.
+     * Called to resolve an imt conflict.
+     * a0 is the conflict ArtMethod.
+     * t0 is a hidden argument that holds the target interface method's dex method index.
+     *
+     * Note that this stub writes to a0, t0 and t1.
      */
 ENTRY art_quick_imt_conflict_trampoline
-    lw      $a0, 0($sp)            # load caller Method*
-    lw      $a0, ART_METHOD_DEX_CACHE_METHODS_OFFSET($a0)  # load dex_cache_resolved_methods
-    sll     $t0, 2                 # convert target method offset to bytes
-    add     $a0, $t0               # get address of target method
-    lw      $a0, MIRROR_OBJECT_ARRAY_DATA_OFFSET($a0)  # load the target method
-    la      $t9, art_quick_invoke_interface_trampoline
-    jalr    $zero, $t9
+    lw      $t1, 0($sp)                                      # Load referrer.
+    lw      $t1, ART_METHOD_DEX_CACHE_METHODS_OFFSET_32($t1) # Load dex cache methods array.
+    sll     $t0, $t0, POINTER_SIZE_SHIFT                     # Calculate offset.
+    addu    $t0, $t1, $t0                                    # Add offset to base.
+    lw      $t0, 0($t0)                                      # Load interface method.
+    lw      $a0, ART_METHOD_JNI_OFFSET_32($a0)               # Load ImtConflictTable.
+
+.Limt_table_iterate:
+    lw      $t1, 0($a0)                                      # Load next entry in ImtConflictTable.
+    # Branch if found.
+    beq     $t1, $t0, .Limt_table_found
+    nop
+    # If the entry is null, the interface method is not in the ImtConflictTable.
+    beqz    $t1, .Lconflict_trampoline
+    nop
+    # Iterate over the entries of the ImtConflictTable.
+    b       .Limt_table_iterate
+    addiu   $a0, $a0, 2 * __SIZEOF_POINTER__                 # Iterate to the next entry.
+
+.Limt_table_found:
+    # We successfully hit an entry in the table. Load the target method and jump to it.
+    lw      $a0, __SIZEOF_POINTER__($a0)
+    lw      $t9, ART_METHOD_QUICK_CODE_OFFSET_32($a0)
+    jr      $t9
+    nop
+
+.Lconflict_trampoline:
+    # Call the runtime stub to populate the ImtConflictTable and jump to the resolved method.
+    INVOKE_TRAMPOLINE_BODY artInvokeInterfaceTrampoline
 END art_quick_imt_conflict_trampoline
 
     .extern artQuickResolutionTrampoline
 ENTRY art_quick_resolution_trampoline
     SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME
     move    $a2, rSELF                    # pass Thread::Current
-    jal     artQuickResolutionTrampoline  # (Method* called, receiver, Thread*, SP)
+    la      $t9, artQuickResolutionTrampoline
+    jalr    $t9                           # (Method* called, receiver, Thread*, SP)
     addiu   $a3, $sp, ARG_SLOT_SIZE       # pass $sp (remove arg slots)
     beqz    $v0, 1f
     lw      $a0, ARG_SLOT_SIZE($sp)       # load resolved method to $a0
@@ -1138,7 +1731,8 @@ ENTRY art_quick_generic_jni_trampoline
     # prepare for call to artQuickGenericJniTrampoline(Thread*, SP)
     move    $a0, rSELF                     # pass Thread::Current
     addiu   $a1, $sp, ARG_SLOT_SIZE        # save $sp (remove arg slots)
-    jal     artQuickGenericJniTrampoline   # (Thread*, SP)
+    la      $t9, artQuickGenericJniTrampoline
+    jalr    $t9                            # (Thread*, SP)
     addiu   $sp, $sp, -5120                # reserve space on the stack
 
     # The C call will have registered the complete save-frame on success.
@@ -1167,7 +1761,8 @@ ENTRY art_quick_generic_jni_trampoline
     move    $a2, $v0               # pass result
     move    $a3, $v1
     addiu   $sp, $sp, -24          # reserve arg slots
-    jal     artQuickGenericJniEndTrampoline
+    la      $t9, artQuickGenericJniEndTrampoline
+    jalr    $t9
     s.d     $f0, 16($sp)           # pass result_f
 
     lw      $t0, THREAD_EXCEPTION_OFFSET(rSELF) # load Thread::Current()->exception_
@@ -1192,7 +1787,8 @@ END art_quick_generic_jni_trampoline
 ENTRY art_quick_to_interpreter_bridge
     SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME
     move    $a1, rSELF                          # pass Thread::Current
-    jal     artQuickToInterpreterBridge         # (Method* method, Thread*, SP)
+    la      $t9, artQuickToInterpreterBridge
+    jalr    $t9                                 # (Method* method, Thread*, SP)
     addiu   $a2, $sp, ARG_SLOT_SIZE             # pass $sp (remove arg slots)
     lw      $t0, THREAD_EXCEPTION_OFFSET(rSELF) # load Thread::Current()->exception_
     RESTORE_REFS_AND_ARGS_CALLEE_SAVE_FRAME
@@ -1214,7 +1810,8 @@ ENTRY art_quick_instrumentation_entry
     SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME
     sw       $a0, 28($sp)   # save arg0 in free arg slot
     move     $a3, $ra       # pass $ra
-    jal      artInstrumentationMethodEntryFromCode  # (Method*, Object*, Thread*, LR)
+    la       $t9, artInstrumentationMethodEntryFromCode
+    jalr     $t9            # (Method*, Object*, Thread*, LR)
     move     $a2, rSELF     # pass Thread::Current
     move     $t9, $v0       # $t9 holds reference to code
     lw       $a0, 28($sp)   # restore arg0 from free arg slot
@@ -1242,7 +1839,8 @@ art_quick_instrumentation_exit:
     move     $a2, $v0       # pass gpr result
     move     $a3, $v1
     addiu    $a1, $sp, ARG_SLOT_SIZE+16   # pass $sp (remove arg slots and temp storage)
-    jal      artInstrumentationMethodExitFromCode  # (Thread*, SP, gpr_res, fpr_res)
+    la       $t9, artInstrumentationMethodExitFromCode
+    jalr     $t9            # (Thread*, SP, gpr_res, fpr_res)
     move     $a0, rSELF     # pass Thread::Current
     move     $t9, $v0       # set aside returned link register
     move     $ra, $v1       # set link register for deoptimization
@@ -1250,7 +1848,7 @@ art_quick_instrumentation_exit:
     lw       $v1, ARG_SLOT_SIZE+8($sp)
     l.d      $f0, ARG_SLOT_SIZE($sp)
     jalr     $zero, $t9     # return
-    addiu    $sp, $sp, ARG_SLOT_SIZE+FRAME_SIZE_REFS_ONLY_CALLEE_SAVE+16  # restore stack 
+    addiu    $sp, $sp, ARG_SLOT_SIZE+FRAME_SIZE_REFS_ONLY_CALLEE_SAVE+16  # restore stack
     .cfi_adjust_cfa_offset -(ARG_SLOT_SIZE+FRAME_SIZE_REFS_ONLY_CALLEE_SAVE+16)
 END art_quick_instrumentation_exit
 
@@ -1261,10 +1859,24 @@ END art_quick_instrumentation_exit
     .extern artDeoptimize
 ENTRY art_quick_deoptimize
     SETUP_SAVE_ALL_CALLEE_SAVE_FRAME
-    jal      artDeoptimize  # artDeoptimize(Thread*)
+    la       $t9, artDeoptimize
+    jalr     $t9            # artDeoptimize(Thread*)
                             # Returns caller method's frame size.
     move     $a0, rSELF     # pass Thread::current
 END art_quick_deoptimize
+
+    /*
+     * Compiled code has requested that we deoptimize into the interpreter. The deoptimization
+     * will long jump to the upcall with a special exception of -1.
+     */
+    .extern artDeoptimizeFromCompiledCode
+ENTRY art_quick_deoptimize_from_compiled_code
+    SETUP_SAVE_ALL_CALLEE_SAVE_FRAME
+    la       $t9, artDeoptimizeFromCompiledCode
+    jalr     $t9                            # artDeoptimizeFromCompiledCode(Thread*)
+                                            # Returns caller method's frame size.
+    move     $a0, rSELF                     # pass Thread::current
+END art_quick_deoptimize_from_compiled_code
 
     /*
      * Long integer shift.  This is different from the generic 32/64-bit
@@ -1328,9 +1940,9 @@ END art_quick_shr_long
      * distance) is 32-bit.  Also, Dalvik requires us to ignore all but the low
      * 6 bits.
      * On entry:
-     *   r0: low word
-     *   r1: high word
-     *   r2: shift count
+     *   $a0: low word
+     *   $a1: high word
+     *   $a2: shift count
      */
     /* ushr-long vAA, vBB, vCC */
 ENTRY_NO_GP art_quick_ushr_long
@@ -1350,5 +1962,70 @@ ENTRY_NO_GP art_quick_ushr_long
     nop
 END art_quick_ushr_long
 
-UNIMPLEMENTED art_quick_indexof
-UNIMPLEMENTED art_quick_string_compareto
+/* java.lang.String.indexOf(int ch, int fromIndex=0) */
+ENTRY_NO_GP art_quick_indexof
+/* $a0 holds address of "this" */
+/* $a1 holds "ch" */
+/* $a2 holds "fromIndex" */
+  lw    $t0, MIRROR_STRING_COUNT_OFFSET($a0)    # this.length()
+  slt   $t1, $a2, $zero # if fromIndex < 0
+#if defined(_MIPS_ARCH_MIPS32R6) || defined(_MIPS_ARCH_MIPS64R6)
+  seleqz $a2, $a2, $t1  #     fromIndex = 0;
+#else
+  movn   $a2, $zero, $t1 #    fromIndex = 0;
+#endif
+  subu  $t0, $t0, $a2   # this.length() - fromIndex
+  blez  $t0, 6f         # if this.length()-fromIndex <= 0
+  li    $v0, -1         #     return -1;
+
+  sll   $v0, $a2, 1     # $a0 += $a2 * 2
+  addu  $a0, $a0, $v0   #  "  "   "  " "
+  move  $v0, $a2        # Set i to fromIndex.
+
+1:
+  lhu   $t3, MIRROR_STRING_VALUE_OFFSET($a0)    # if this.charAt(i) == ch
+  beq   $t3, $a1, 6f                            #     return i;
+  addu  $a0, $a0, 2     # i++
+  subu  $t0, $t0, 1     # this.length() - i
+  bnez  $t0, 1b         # while this.length() - i > 0
+  addu  $v0, $v0, 1     # i++
+
+  li    $v0, -1         # if this.length() - i <= 0
+                        #     return -1;
+
+6:
+  j     $ra
+  nop
+END art_quick_indexof
+
+/* java.lang.String.compareTo(String anotherString) */
+ENTRY_NO_GP art_quick_string_compareto
+/* $a0 holds address of "this" */
+/* $a1 holds address of "anotherString" */
+  beq    $a0, $a1, 9f   # this and anotherString are the same object
+  move   $v0, $zero
+
+  lw     $a2, MIRROR_STRING_COUNT_OFFSET($a0)   # this.length()
+  lw     $a3, MIRROR_STRING_COUNT_OFFSET($a1)   # anotherString.length()
+  MINu   $t2, $a2, $a3
+# $t2 now holds min(this.length(),anotherString.length())
+
+  beqz   $t2, 9f        # while min(this.length(),anotherString.length())-i != 0
+  subu   $v0, $a2, $a3  # if $t2==0 return
+                        #     (this.length() - anotherString.length())
+1:
+  lhu    $t0, MIRROR_STRING_VALUE_OFFSET($a0)   # while this.charAt(i) == anotherString.charAt(i)
+  lhu    $t1, MIRROR_STRING_VALUE_OFFSET($a1)
+  bne    $t0, $t1, 9f   # if this.charAt(i) != anotherString.charAt(i)
+  subu   $v0, $t0, $t1  #     return (this.charAt(i) - anotherString.charAt(i))
+  addiu  $a0, $a0, 2    # point at this.charAt(i++)
+  subu   $t2, $t2, 1    # new value of
+                        # min(this.length(),anotherString.length())-i
+  bnez   $t2, 1b
+  addiu  $a1, $a1, 2    # point at anotherString.charAt(i++)
+  subu   $v0, $a2, $a3
+
+9:
+  j      $ra
+  nop
+END art_quick_string_compareto

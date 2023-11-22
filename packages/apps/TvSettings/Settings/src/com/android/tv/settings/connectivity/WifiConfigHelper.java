@@ -16,17 +16,17 @@
 
 package com.android.tv.settings.connectivity;
 
-import com.android.tv.settings.R;
-
 import android.content.Context;
-import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
-import android.net.wifi.WifiInfo;
-import android.net.wifi.WifiManager;
 import android.net.wifi.WifiConfiguration.AuthAlgorithm;
 import android.net.wifi.WifiConfiguration.KeyMgmt;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.text.TextUtils;
 import android.util.Log;
+
+import com.android.settingslib.wifi.AccessPoint;
+import com.android.tv.settings.R;
 
 import java.util.List;
 import java.util.regex.Matcher;
@@ -64,16 +64,10 @@ public final class WifiConfigHelper {
     public static void setConfigSsid(WifiConfiguration config, String ssid) {
         // if this looks like a BSSID, don't quote it
         if (!Pattern.matches(REGEX_HEX_BSSID, ssid)) {
-            config.SSID = enquoteSsid(ssid);
+            config.SSID = AccessPoint.convertToQuotedString(ssid);
         } else {
             config.SSID = ssid;
         }
-    }
-
-    public static void setConfigSsid(WifiConfiguration config, ScanResult scanResult) {
-        // just enquote the SSID, if taken from a scan result, we assume that
-        // there is no possibility this is a BSSID in disguise.
-        config.SSID = enquoteSsid(scanResult.SSID);
     }
 
     public static void setConfigKeyManagementBySecurity(
@@ -97,39 +91,6 @@ public final class WifiConfigHelper {
                 config.allowedKeyManagement.set(KeyMgmt.IEEE8021X);
                 break;
         }
-    }
-
-    public static boolean areSameNetwork(WifiManager wifiManager, ScanResult scanResult,
-            WifiInfo wifiInfo) {
-        if (scanResult == null || wifiInfo == null) {
-            return false;
-        }
-        if (scanResult.SSID == null || wifiInfo.getSSID() == null) {
-            return false;
-        }
-        if (scanResult.BSSID == null || wifiInfo.getBSSID() == null) {
-            return false;
-        }
-        String wifiInfoSSID = WifiInfo.removeDoubleQuotes(wifiInfo.getSSID());
-        String wifiInfoBSSID = wifiInfo.getBSSID();
-        WifiSecurity scanResultSecurity = WifiSecurity.getSecurity(scanResult);
-        WifiSecurity wifiInfoSecurity = getCurrentConnectionSecurity(wifiManager, wifiInfo);
-
-        return (TextUtils.equals(scanResult.SSID, wifiInfoSSID) &&
-                TextUtils.equals(scanResult.BSSID, wifiInfoBSSID) &&
-                scanResultSecurity.equals(wifiInfoSecurity));
-    }
-
-    public static WifiSecurity getCurrentConnectionSecurity(WifiManager wifiManager,
-            WifiInfo currentWifiInfo) {
-        if (currentWifiInfo != null) {
-            WifiConfiguration wifiConfiguration = getWifiConfiguration(wifiManager,
-                    currentWifiInfo.getNetworkId());
-            if (wifiConfiguration != null) {
-                return WifiSecurity.getSecurity(wifiConfiguration);
-            }
-        }
-        return WifiSecurity.NONE;
     }
 
     /**
@@ -185,21 +146,6 @@ public final class WifiConfigHelper {
      */
     public static boolean isNetworkSaved(WifiConfiguration config) {
         return config != null && config.networkId > -1;
-    }
-
-    /**
-     * Return the configured network that matches the ScanResult, or create one.
-     */
-    public static WifiConfiguration getConfigurationForNetwork(Context context,
-            ScanResult network) {
-        WifiConfiguration config = getFromConfiguredNetworks(context, network.SSID,
-                WifiSecurity.getSecurity(network));
-        if (config == null) {
-            config = new WifiConfiguration();
-            setConfigSsid(config, network);
-            setConfigKeyManagementBySecurity(config, WifiSecurity.getSecurity(network));
-        }
-        return config;
     }
 
     /**
@@ -283,10 +229,6 @@ public final class WifiConfigHelper {
                 mWifiManager.forget(networkId, null);
             }
         }
-    }
-
-    private static String enquoteSsid(String ssid) {
-        return "\"".concat(ssid.replace("\"", "\\\"")).concat("\"");
     }
 
     /**

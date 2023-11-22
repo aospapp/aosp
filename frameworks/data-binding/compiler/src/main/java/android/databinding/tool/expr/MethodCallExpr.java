@@ -16,6 +16,9 @@
 
 package android.databinding.tool.expr;
 
+import static android.databinding.tool.reflection.Callable.DYNAMIC;
+import static android.databinding.tool.reflection.Callable.STATIC;
+
 import android.databinding.tool.processing.Scope;
 import android.databinding.tool.reflection.Callable;
 import android.databinding.tool.reflection.Callable.Type;
@@ -23,13 +26,10 @@ import android.databinding.tool.reflection.ModelAnalyzer;
 import android.databinding.tool.reflection.ModelClass;
 import android.databinding.tool.reflection.ModelMethod;
 import android.databinding.tool.util.L;
+import android.databinding.tool.writer.KCode;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import static android.databinding.tool.reflection.Callable.STATIC;
-import static android.databinding.tool.reflection.Callable.DYNAMIC;
-import static android.databinding.tool.reflection.Callable.CAN_BE_INVALIDATED;
 
 
 public class MethodCallExpr extends Expr {
@@ -38,7 +38,7 @@ public class MethodCallExpr extends Expr {
     Callable mGetter;
 
     static List<Expr> concat(Expr e, List<Expr> list) {
-        List<Expr> merged = new ArrayList<>();
+        List<Expr> merged = new ArrayList<Expr>();
         merged.add(e);
         merged.addAll(list);
         return merged;
@@ -58,6 +58,26 @@ public class MethodCallExpr extends Expr {
         } finally {
             Scope.exit();
         }
+    }
+
+    @Override
+    protected KCode generateCode(boolean expand) {
+        KCode code = new KCode()
+        .app("", getTarget().toCode(expand))
+        .app(".")
+        .app(getGetter().name)
+        .app("(");
+        boolean first = true;
+        for (Expr arg : getArgs()) {
+            if (first) {
+                first = false;
+            } else {
+                code.app(", ");
+            }
+            code.app("", arg.toCode(expand));
+        }
+        code.app(")");
+        return code;
     }
 
     @Override
@@ -94,7 +114,8 @@ public class MethodCallExpr extends Expr {
             if (method.isStatic()) {
                 flags |= STATIC;
             }
-            mGetter = new Callable(Type.METHOD, method.getName(), method.getReturnType(args), flags);
+            mGetter = new Callable(Type.METHOD, method.getName(), null, method.getReturnType(args),
+                    method.getParameterTypes().length, flags);
         }
         return mGetter.resolvedType;
     }
@@ -130,5 +151,10 @@ public class MethodCallExpr extends Expr {
 
     public Callable getGetter() {
         return mGetter;
+    }
+
+    @Override
+    public String getInvertibleError() {
+        return "Method calls may not be used in two-way expressions";
     }
 }

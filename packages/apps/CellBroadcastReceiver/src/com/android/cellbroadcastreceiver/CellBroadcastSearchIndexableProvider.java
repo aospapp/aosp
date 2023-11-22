@@ -23,6 +23,7 @@ import android.database.MatrixCursor;
 import android.provider.SearchIndexableResource;
 import android.provider.SearchIndexablesProvider;
 import android.provider.Settings;
+import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 
 import static android.provider.SearchIndexablesContract.COLUMN_INDEX_NON_INDEXABLE_KEYS_KEY_VALUE;
@@ -134,8 +135,13 @@ public class CellBroadcastSearchIndexableProvider extends SearchIndexablesProvid
         TelephonyManager tm = (TelephonyManager) getContext().getSystemService(
                 Context.TELEPHONY_SERVICE);
 
+        int subId = SubscriptionManager.getDefaultSmsSubscriptionId();
+        if (subId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+            subId = SubscriptionManager.getDefaultSubscriptionId();
+        }
+
         boolean enableChannel50Support = res.getBoolean(R.bool.show_brazil_settings) ||
-                "br".equals(tm.getSimCountryIso());
+                "br".equals(tm.getSimCountryIso(subId));
 
         if (!enableChannel50Support) {
             ref = new Object[1];

@@ -31,7 +31,7 @@ using namespace llvm;
 //
 //===----------------------------------------------------------------------===//
 
-unsigned SystemZTTIImpl::getIntImmCost(const APInt &Imm, Type *Ty) {
+int SystemZTTIImpl::getIntImmCost(const APInt &Imm, Type *Ty) {
   assert(Ty->isIntegerTy());
 
   unsigned BitSize = Ty->getPrimitiveSizeInBits();
@@ -63,8 +63,8 @@ unsigned SystemZTTIImpl::getIntImmCost(const APInt &Imm, Type *Ty) {
   return 4 * TTI::TCC_Basic;
 }
 
-unsigned SystemZTTIImpl::getIntImmCost(unsigned Opcode, unsigned Idx,
-                                       const APInt &Imm, Type *Ty) {
+int SystemZTTIImpl::getIntImmCost(unsigned Opcode, unsigned Idx,
+                                  const APInt &Imm, Type *Ty) {
   assert(Ty->isIntegerTy());
 
   unsigned BitSize = Ty->getPrimitiveSizeInBits();
@@ -181,8 +181,8 @@ unsigned SystemZTTIImpl::getIntImmCost(unsigned Opcode, unsigned Idx,
   return SystemZTTIImpl::getIntImmCost(Imm, Ty);
 }
 
-unsigned SystemZTTIImpl::getIntImmCost(Intrinsic::ID IID, unsigned Idx,
-                                       const APInt &Imm, Type *Ty) {
+int SystemZTTIImpl::getIntImmCost(Intrinsic::ID IID, unsigned Idx,
+                                  const APInt &Imm, Type *Ty) {
   assert(Ty->isIntegerTy());
 
   unsigned BitSize = Ty->getPrimitiveSizeInBits();
@@ -236,5 +236,23 @@ SystemZTTIImpl::getPopcntSupport(unsigned TyWidth) {
   if (ST->hasPopulationCount() && TyWidth <= 64)
     return TTI::PSK_FastHardware;
   return TTI::PSK_Software;
+}
+
+unsigned SystemZTTIImpl::getNumberOfRegisters(bool Vector) {
+  if (!Vector)
+    // Discount the stack pointer.  Also leave out %r0, since it can't
+    // be used in an address.
+    return 14;
+  if (ST->hasVector())
+    return 32;
+  return 0;
+}
+
+unsigned SystemZTTIImpl::getRegisterBitWidth(bool Vector) {
+  if (!Vector)
+    return 64;
+  if (ST->hasVector())
+    return 128;
+  return 0;
 }
 

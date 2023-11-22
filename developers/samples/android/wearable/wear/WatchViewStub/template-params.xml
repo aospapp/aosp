@@ -19,8 +19,7 @@
     <group>Wearable</group>
     <package>com.example.android.google.wearable.watchviewstub</package>
 
-    <minSdk>18</minSdk>
-    <targetSdkVersion>22</targetSdkVersion>
+    <targetSdkVersionWear>22</targetSdkVersionWear>
 
     <strings>
         <intro>

@@ -61,7 +61,7 @@ $(clang_2nd_arch_prefix)CLANG_TARGET_GLOBAL_LDFLAGS := \
   $(call $(clang_2nd_arch_prefix)convert-to-clang-flags,$($(clang_2nd_arch_prefix)TARGET_GLOBAL_LDFLAGS)) \
   $(CLANG_CONFIG_arm_TARGET_EXTRA_LDFLAGS)
 
-$(clang_2nd_arch_prefix)RS_TRIPLE := armv7-none-linux-gnueabi
+$(clang_2nd_arch_prefix)RS_TRIPLE := armv7-linux-androideabi
 $(clang_2nd_arch_prefix)RS_TRIPLE_CFLAGS :=
 $(clang_2nd_arch_prefix)RS_COMPAT_TRIPLE := armv7-none-linux-gnueabi
 
@@ -69,4 +69,4 @@ $(clang_2nd_arch_prefix)TARGET_LIBPROFILE_RT := $(LLVM_RTLIB_PATH)/libclang_rt.p
 
 # Address sanitizer clang config
 $(clang_2nd_arch_prefix)ADDRESS_SANITIZER_RUNTIME_LIBRARY := libclang_rt.asan-arm-android
-$(clang_2nd_arch_prefix)ADDRESS_SANITIZER_RPATH := /system/lib/asan
+$(clang_2nd_arch_prefix)ADDRESS_SANITIZER_LINKER := /system/bin/linker_asan

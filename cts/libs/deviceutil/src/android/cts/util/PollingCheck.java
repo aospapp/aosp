@@ -24,6 +24,10 @@ public abstract class PollingCheck {
     private static final long TIME_SLICE = 50;
     private long mTimeout = 3000;
 
+    public static interface PollingCheckCondition {
+        boolean canProceed();
+    }
+
     public PollingCheck() {
     }
 
@@ -68,5 +72,14 @@ public abstract class PollingCheck {
         }
 
         Assert.fail(message.toString());
+    }
+
+    public static void waitFor(final PollingCheckCondition condition) {
+        new PollingCheck() {
+            @Override
+            protected boolean check() {
+                return condition.canProceed();
+            }
+        }.run();
     }
 }

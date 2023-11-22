@@ -16,6 +16,7 @@
 
 package com.android.cts.verifier.admin;
 
+import com.android.cts.verifier.managedprovisioning.DeviceAdminTestReceiver;
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 
@@ -72,7 +73,7 @@ public class ScreenLockTestActivity extends PassFailButtons.Activity {
     private void sendAddDeviceAdminIntent() {
         Intent intent = new Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN);
         intent.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN,
-                TestDeviceAdminReceiver.getComponent(this));
+                DeviceAdminTestReceiver.getReceiverComponentName());
         startActivityForResult(intent, ADD_DEVICE_ADMIN_REQUEST_CODE);
     }
 

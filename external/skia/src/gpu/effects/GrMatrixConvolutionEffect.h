@@ -27,15 +27,8 @@ public:
                                        const SkIPoint& kernelOffset,
                                        GrTextureDomain::Mode tileMode,
                                        bool convolveAlpha) {
-        return SkNEW_ARGS(GrMatrixConvolutionEffect, (texture,
-                                                      bounds,
-                                                      kernelSize,
-                                                      kernel,
-                                                      gain,
-                                                      bias,
-                                                      kernelOffset,
-                                                      tileMode,
-                                                      convolveAlpha));
+        return new GrMatrixConvolutionEffect(texture, bounds, kernelSize, kernel, gain, bias,
+                                             kernelOffset, tileMode, convolveAlpha);
     }
 
     static GrFragmentProcessor* CreateGaussian(GrTexture* texture,
@@ -49,8 +42,6 @@ public:
                                                SkScalar sigmaX,
                                                SkScalar sigmaY);
 
-    virtual ~GrMatrixConvolutionEffect();
-
     const SkIRect& bounds() const { return fBounds; }
     const SkISize& kernelSize() const { return fKernelSize; }
     const float* kernelOffset() const { return fKernelOffset; }
@@ -62,10 +53,6 @@ public:
 
     const char* name() const override { return "MatrixConvolution"; }
 
-    void getGLProcessorKey(const GrGLSLCaps&, GrProcessorKeyBuilder*) const override;
-
-    GrGLFragmentProcessor* createGLInstance() const override;
-
 private:
     GrMatrixConvolutionEffect(GrTexture*,
                               const SkIRect& bounds,
@@ -76,6 +63,10 @@ private:
                               const SkIPoint& kernelOffset,
                               GrTextureDomain::Mode tileMode,
                               bool convolveAlpha);
+
+    GrGLSLFragmentProcessor* onCreateGLSLInstance() const override;
+
+    void onGetGLSLProcessorKey(const GrGLSLCaps&, GrProcessorKeyBuilder*) const override;
 
     bool onIsEqual(const GrFragmentProcessor&) const override;
 

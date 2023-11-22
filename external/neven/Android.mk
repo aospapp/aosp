@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+#disable build in PDK
+ifneq ($(TARGET_BUILD_PDK),true)
+
 LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
@@ -132,3 +135,5 @@ $(TARGET_OUT)/usr/share/bmd/RFFstd_501.bmd : $(LOCAL_PATH)/Embedded/common/data/
 
 
 include $(BUILD_SHARED_LIBRARY)
+
+endif #TARGET_BUILD_PDK

@@ -11,6 +11,7 @@ llvm_readobj_SRC_FILES := \
   ARMAttributeParser.cpp \
   ARMWinEHPrinter.cpp \
   COFFDumper.cpp \
+  COFFImportDumper.cpp \
   ELFDumper.cpp \
   Error.cpp \
   llvm-readobj.cpp \

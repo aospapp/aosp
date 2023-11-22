@@ -3,7 +3,9 @@
  * Copyright 2012 Ranjan Kumar <ranjankumar.bth@gmail.com>
  * Copyright 2012 Kyungwan Han <asura321@gmail.com>
  *
- * http://pubs.opengroup.org/onlinepubs/9699919799/utilities/cut.html 
+ * http://pubs.opengroup.org/onlinepubs/9699919799/utilities/cut.html
+ *
+ * TODO: cleanup
 
 USE_CUT(NEWTOY(cut, "b:|c:|f:|d:sn[!cbf]", TOYFLAG_USR|TOYFLAG_BIN))
 
@@ -111,7 +113,7 @@ static void get_data(void)
       else {
         int fd = open(*argv, O_RDONLY, 0);
         if(fd < 0) {//if file not present then continue with other files.
-          perror_msg("%s", *argv);
+          perror_msg_raw(*argv);
           continue;
         }
         TT.do_cut(fd);

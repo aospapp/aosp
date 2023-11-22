@@ -3,8 +3,8 @@
 
 #include "SkCamera.h"
 
-#include "Canvas.h"
 #include "GraphicsJNI.h"
+#include <hwui/Canvas.h>
 
 static jfieldID gNativeInstanceFieldID;
 
@@ -115,7 +115,7 @@ static jfloat Camera_dotWithNormal(JNIEnv* env, jobject obj,
 /*
  * JNI registration.
  */
-static JNINativeMethod gCameraMethods[] = {
+static const JNINativeMethod gCameraMethods[] = {
     /* name, signature, funcPtr */
 
     { "nativeConstructor",   "()V",    (void*)Camera_constructor   },

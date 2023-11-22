@@ -65,8 +65,8 @@ private:
   typedef DenseMap<const Metadata *, unsigned> MetadataMapType;
   MetadataMapType MDValueMap;
   bool HasMDString;
-  bool HasMDLocation;
-  bool HasGenericDebugNode;
+  bool HasDILocation;
+  bool HasGenericDINode;
   bool ShouldPreserveUseListOrder;
 
   typedef DenseMap<AttributeSet, unsigned> AttributeGroupMapType;
@@ -119,10 +119,11 @@ public:
   unsigned getMetadataOrNullID(const Metadata *MD) const {
     return MDValueMap.lookup(MD);
   }
+  unsigned numMDs() const { return MDs.size(); }
 
   bool hasMDString() const { return HasMDString; }
-  bool hasMDLocation() const { return HasMDLocation; }
-  bool hasGenericDebugNode() const { return HasGenericDebugNode; }
+  bool hasDILocation() const { return HasDILocation; }
+  bool hasGenericDINode() const { return HasGenericDINode; }
 
   bool shouldPreserveUseListOrder() const { return ShouldPreserveUseListOrder; }
 

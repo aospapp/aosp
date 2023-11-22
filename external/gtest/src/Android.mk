@@ -36,6 +36,9 @@ libgtest_host_includes := \
   $(LOCAL_PATH)/.. \
   $(LOCAL_PATH)/../include \
 
+libgtest_export_include_dirs := \
+  $(LOCAL_PATH)/../include
+
 libgtest_cflags := \
   -Wno-missing-field-initializers \
 
@@ -53,6 +56,7 @@ LOCAL_SRC_FILES := gtest-all.cc
 LOCAL_C_INCLUDES := $(libgtest_target_includes)
 LOCAL_CPPFLAGS := -std=gnu++98
 LOCAL_CFLAGS += $(libgtest_cflags)
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(libgtest_export_include_dirs)
 LOCAL_MODULE := libgtest_ndk
 
 include $(BUILD_STATIC_LIBRARY)
@@ -71,27 +75,26 @@ LOCAL_SRC_FILES := gtest_main.cc
 LOCAL_C_INCLUDES := $(libgtest_target_includes)
 LOCAL_CPPFLAGS := -std=gnu++98
 LOCAL_CFLAGS += $(libgtest_cflags)
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(libgtest_export_include_dirs)
 LOCAL_MODULE := libgtest_main_ndk
 
 include $(BUILD_STATIC_LIBRARY)
 
 #######################################################################
-# libc++
-
-#######################################################################
 # gtest lib host
 
 include $(CLEAR_VARS)
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 
-LOCAL_CLANG := true
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := gtest-all.cc
 LOCAL_C_INCLUDES := $(libgtest_host_includes)
 LOCAL_CFLAGS += $(libgtest_cflags)
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(libgtest_export_include_dirs)
 LOCAL_MODULE := libgtest_host
+LOCAL_MODULE_HOST_OS := darwin linux windows
 LOCAL_MULTILIB := both
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
+LOCAL_RTTI_FLAG := -frtti
 
 include $(BUILD_HOST_STATIC_LIBRARY)
 
@@ -99,16 +102,16 @@ include $(BUILD_HOST_STATIC_LIBRARY)
 # gtest_main lib host
 
 include $(CLEAR_VARS)
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 
-LOCAL_CLANG := true
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := gtest_main.cc
 LOCAL_C_INCLUDES := $(libgtest_host_includes)
 LOCAL_CFLAGS += $(libgtest_cflags)
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(libgtest_export_include_dirs)
 LOCAL_MODULE := libgtest_main_host
+LOCAL_MODULE_HOST_OS := darwin linux windows
 LOCAL_MULTILIB := both
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 
 include $(BUILD_HOST_STATIC_LIBRARY)
 
@@ -118,15 +121,16 @@ ifeq (,$(TARGET_BUILD_APPS))
 # gtest lib target
 
 include $(CLEAR_VARS)
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 
 LOCAL_CLANG := true
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := gtest-all.cc
 LOCAL_C_INCLUDES := $(libgtest_target_includes)
 LOCAL_CFLAGS += $(libgtest_cflags)
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(libgtest_export_include_dirs)
 LOCAL_MODULE := libgtest
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
+LOCAL_RTTI_FLAG := -frtti
 
 include $(BUILD_STATIC_LIBRARY)
 
@@ -134,15 +138,15 @@ include $(BUILD_STATIC_LIBRARY)
 # gtest_main lib target
 
 include $(CLEAR_VARS)
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 
 LOCAL_CLANG := true
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := gtest_main.cc
 LOCAL_C_INCLUDES := $(libgtest_target_includes)
 LOCAL_CFLAGS += $(libgtest_cflags)
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(libgtest_export_include_dirs)
 LOCAL_MODULE := libgtest_main
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 
 include $(BUILD_STATIC_LIBRARY)
 endif

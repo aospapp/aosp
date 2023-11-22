@@ -16,7 +16,7 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.view">
+    package="android.view.cts">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <application android:label="Android TestCase"
@@ -139,6 +139,22 @@
             </intent-filter>
         </activity>
 
+        <activity android:name="android.view.cts.TextureViewCtsActivity"
+            android:label="TextureViewCtsActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.view.cts.PixelCopyVideoSourceActivity"
+            android:label="PixelCopyVideoSourceActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
         <activity android:name="android.view.cts.FocusFinderCtsActivity"
             android:label="FocusFinderCtsActivity">
             <intent-filter>
@@ -168,7 +184,23 @@
         </activity>
 
         <activity android:name="android.view.cts.ViewGroupCtsActivity"
-            android:label="WidgetViewGroupCtsActivity">
+                  android:label="WidgetViewGroupCtsActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.view.cts.ViewOverlayCtsActivity"
+                  android:label="ViewOverlayCtsActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.view.cts.ViewGroupOverlayCtsActivity"
+                  android:label="ViewGroupOverlayCtsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
@@ -191,10 +223,26 @@
             </intent-filter>
         </activity>
 
+        <activity android:name="android.view.cts.ContentPaneCtsActivity"
+                  android:label="ContentPaneCtsActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.view.cts.LongPressBackActivity"
+                  android:label="LongPressBackActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.view"
+                     android:targetPackage="android.view.cts"
                      android:label="CTS tests of android.view">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

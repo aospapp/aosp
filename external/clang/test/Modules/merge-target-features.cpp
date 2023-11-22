@@ -1,9 +1,9 @@
 // RUN: rm -rf %t
 // RUN: cd %S
-//
+// REQUIRES: x86-registered-target
 // RUN: %clang_cc1 -fmodules -x c++ -fmodules-cache-path=%t \
 // RUN:   -iquote Inputs/merge-target-features \
-// RUN:   -fno-implicit-modules -fno-modules-implicit-maps \
+// RUN:   -fno-implicit-modules \
 // RUN:   -fmodule-map-file-home-is-cwd \
 // RUN:   -emit-module -fmodule-name=foo -o %t/foo.pcm \
 // RUN:   -triple i386-unknown-unknown \
@@ -12,7 +12,7 @@
 //
 // RUN: not %clang_cc1 -fmodules -x c++ -fmodules-cache-path=%t \
 // RUN:   -iquote Inputs/merge-target-features \
-// RUN:   -fno-implicit-modules -fno-modules-implicit-maps \
+// RUN:   -fno-implicit-modules \
 // RUN:   -fmodule-map-file-home-is-cwd \
 // RUN:   -fmodule-map-file=Inputs/merge-target-features/module.modulemap \
 // RUN:   -fmodule-file=%t/foo.pcm \
@@ -20,11 +20,13 @@
 // RUN:   -target-cpu i386 \
 // RUN:   -fsyntax-only merge-target-features.cpp 2>&1 \
 // RUN:   | FileCheck --check-prefix=SUBSET %s
-// SUBSET: AST file was compiled with the target feature'+sse2' but the current translation unit is not
+// SUBSET-NOT: error:
+// SUBSET: error: {{.*}} configuration mismatch
+// SUBSET-NOT: error:
 //
 // RUN: %clang_cc1 -fmodules -x c++ -fmodules-cache-path=%t \
 // RUN:   -iquote Inputs/merge-target-features \
-// RUN:   -fno-implicit-modules -fno-modules-implicit-maps \
+// RUN:   -fno-implicit-modules \
 // RUN:   -fmodule-map-file-home-is-cwd \
 // RUN:   -fmodule-map-file=Inputs/merge-target-features/module.modulemap \
 // RUN:   -fmodule-file=%t/foo.pcm \
@@ -36,7 +38,7 @@
 //
 // RUN: %clang_cc1 -fmodules -x c++ -fmodules-cache-path=%t \
 // RUN:   -iquote Inputs/merge-target-features \
-// RUN:   -fno-implicit-modules -fno-modules-implicit-maps \
+// RUN:   -fno-implicit-modules \
 // RUN:   -fmodule-map-file-home-is-cwd \
 // RUN:   -fmodule-map-file=Inputs/merge-target-features/module.modulemap \
 // RUN:   -fmodule-file=%t/foo.pcm \
@@ -48,7 +50,7 @@
 //
 // RUN: not %clang_cc1 -fmodules -x c++ -fmodules-cache-path=%t \
 // RUN:   -iquote Inputs/merge-target-features \
-// RUN:   -fno-implicit-modules -fno-modules-implicit-maps \
+// RUN:   -fno-implicit-modules \
 // RUN:   -fmodule-map-file-home-is-cwd \
 // RUN:   -fmodule-map-file=Inputs/merge-target-features/module.modulemap \
 // RUN:   -fmodule-file=%t/foo.pcm \
@@ -56,8 +58,9 @@
 // RUN:   -target-cpu i386 -target-feature +cx16 \
 // RUN:   -fsyntax-only merge-target-features.cpp 2>&1 \
 // RUN:   | FileCheck --check-prefix=MISMATCH %s
-// MISMATCH: AST file was compiled with the target feature'+sse2' but the current translation unit is not
-// MISMATCH: current translation unit was compiled with the target feature'+cx16' but the AST file was not
+// MISMATCH-NOT: error:
+// MISMATCH: error: {{.*}} configuration mismatch
+// MISMATCH-NOT: error:
 
 #include "foo.h"
 

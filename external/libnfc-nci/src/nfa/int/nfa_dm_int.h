@@ -463,6 +463,8 @@ typedef struct
     UINT8 atr_req_gen_bytes_len;
     UINT8 atr_res_gen_bytes[NCI_MAX_GEN_BYTES_LEN];
     UINT8 atr_res_gen_bytes_len;
+
+    UINT8 pf_rc[NCI_PARAM_LEN_PF_RC];
 } tNFA_DM_PARAMS;
 
 /*
@@ -539,6 +541,7 @@ extern UINT8 *p_nfa_dm_gen_cfg;
 extern UINT8 nfa_ee_max_ee_cfg;
 extern tNCI_DISCOVER_MAPS *p_nfa_dm_interface_mapping;
 extern UINT8 nfa_dm_num_dm_interface_mapping;
+extern BOOLEAN nfa_poll_bail_out_mode;
 
 /* NFA device manager control block */
 #if NFA_DYNAMIC_MEMORY == FALSE
@@ -597,6 +600,7 @@ BOOLEAN nfa_dm_ndef_dereg_hdlr (tNFA_DM_MSG *p_data);
 BOOLEAN nfa_dm_tout (tNFA_DM_MSG *p_data);
 BOOLEAN nfa_dm_act_reg_vsc (tNFA_DM_MSG *p_data);
 BOOLEAN nfa_dm_act_send_vsc (tNFA_DM_MSG *p_data);
+UINT16 nfa_dm_act_get_rf_disc_duration ();
 BOOLEAN nfa_dm_act_disable_timeout (tNFA_DM_MSG *p_data);
 BOOLEAN nfa_dm_act_nfc_cback_data (tNFA_DM_MSG *p_data);
 

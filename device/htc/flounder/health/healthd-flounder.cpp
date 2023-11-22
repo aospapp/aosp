@@ -15,7 +15,7 @@
  */
 
 #define LOG_TAG "healthd-flounder"
-#include <healthd.h>
+#include <healthd/healthd.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <cutils/klog.h>

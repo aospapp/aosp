@@ -18,17 +18,14 @@ package com.android.settings.fingerprint;
 
 import android.content.Context;
 import android.content.Intent;
-import android.hardware.fingerprint.Fingerprint;
 import android.hardware.fingerprint.FingerprintManager;
 import android.os.Bundle;
-import android.preference.Preference;
+import android.os.UserHandle;
 import android.view.View;
 import android.widget.Button;
 
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.R;
-import com.android.settings.fingerprint.FingerprintSettings.FingerprintPreference;
-
-import java.util.List;
 
 /**
  * Activity which concludes fingerprint enrollment.
@@ -43,7 +40,7 @@ public class FingerprintEnrollFinish extends FingerprintEnrollBase {
         Button addButton = (Button) findViewById(R.id.add_another_button);
 
         FingerprintManager fpm = (FingerprintManager) getSystemService(Context.FINGERPRINT_SERVICE);
-        int enrolled = fpm.getEnrolledFingerprints().size();
+        int enrolled = fpm.getEnrolledFingerprints(mUserId).size();
         int max = getResources().getInteger(
                 com.android.internal.R.integer.config_fingerprintMaxTemplatesPerUser);
         if (enrolled >= max) {
@@ -69,5 +66,10 @@ public class FingerprintEnrollFinish extends FingerprintEnrollBase {
             finish();
         }
         super.onClick(v);
+    }
+
+    @Override
+    protected int getMetricsCategory() {
+        return MetricsEvent.FINGERPRINT_ENROLL_FINISH;
     }
 }

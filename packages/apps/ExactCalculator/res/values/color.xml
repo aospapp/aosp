@@ -18,10 +18,10 @@
 <resources>
 
     <!-- Default background color for the status bar. -->
-    <color name="calculator_accent_color">#00BCD4</color>
+    <color name="calculator_accent_color">#0097A7</color>
 
     <!-- Color to indicate an error has occured. -->
-    <color name="calculator_error_color">#F40056</color>
+    <color name="calculator_error_color">#C2185B</color>
 
     <!-- Background color of the calculator display. -->
     <color name="display_background_color">#FFF</color>

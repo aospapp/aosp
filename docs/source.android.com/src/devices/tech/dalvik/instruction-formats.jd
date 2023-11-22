@@ -66,7 +66,7 @@ the format.</p>
 <p>Most format IDs consist of three characters, two digits followed by a
 letter. The first digit indicates the number of 16-bit code units in the
 format. The second digit indicates the maximum number of registers that the
-format contains (maximum, since some formats can accomodate a variable
+format contains (maximum, since some formats can accommodate a variable
 number of registers), with the special designation "<code>r</code>" indicating
 that a range of registers is encoded. The final letter semi-mnemonically
 indicates the type of any extra data encoded by the format. For example,
@@ -200,7 +200,7 @@ indices. There are two types of suggested prelinked value: vtable offsets
 (indicated as "<code>vtaboff</code>") and field offsets (indicated as
 "<code>fieldoff</code>").</p>
 
-<p>In the cases where a format value isn't explictly part of the syntax
+<p>In the cases where a format value isn't explicitly part of the syntax
 but instead picks a variant, each variant is listed with the prefix
 "<code>[<i>X</i>=<i>N</i>]</code>" (e.g., "<code>[A=2]</code>") to indicate
 the correspondence.</p>

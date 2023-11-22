@@ -16,13 +16,10 @@
 
 package com.android.settings;
 
-import android.app.AppOpsManager;
-
-import org.xmlpull.v1.XmlPullParserException;
-
 import android.app.Activity;
 import android.app.ActivityManagerNative;
 import android.app.AlertDialog;
+import android.app.AppOpsManager;
 import android.app.Dialog;
 import android.app.admin.DeviceAdminInfo;
 import android.app.admin.DeviceAdminReceiver;
@@ -37,12 +34,17 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.ResolveInfo;
+import android.content.pm.UserInfo;
 import android.content.res.Resources;
+import android.net.Uri;
+import android.os.Binder;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.RemoteCallback;
 import android.os.RemoteException;
 import android.os.UserHandle;
+import android.os.UserManager;
+import android.text.TextUtils;
 import android.text.TextUtils.TruncateAt;
 import android.util.EventLog;
 import android.util.Log;
@@ -56,6 +58,10 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.android.settings.users.UserDialogs;
+
+import org.xmlpull.v1.XmlPullParserException;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -68,6 +74,16 @@ public class DeviceAdminAdd extends Activity {
     private static final int MAX_ADD_MSG_LINES_PORTRAIT = 5;
     private static final int MAX_ADD_MSG_LINES_LANDSCAPE = 2;
     private static final int MAX_ADD_MSG_LINES = 15;
+
+    /**
+     * Optional key to map to the package name of the Device Admin.
+     * Currently only used when uninstalling an active device admin.
+     */
+    public static final String EXTRA_DEVICE_ADMIN_PACKAGE_NAME =
+            "android.app.extra.DEVICE_ADMIN_PACKAGE_NAME";
+
+    public static final String EXTRA_CALLED_FROM_SUPPORT_DIALOG =
+            "android.app.extra.CALLED_FROM_SUPPORT_DIALOG";
 
     Handler mHandler;
 
@@ -85,10 +101,13 @@ public class DeviceAdminAdd extends Activity {
     ImageView mAddMsgExpander;
     boolean mAddMsgEllipsized = true;
     TextView mAdminWarning;
+    TextView mSupportMessage;
     ViewGroup mAdminPolicies;
     Button mActionButton;
+    Button mUninstallButton;
     Button mCancelButton;
 
+    boolean mUninstalling = false;
     boolean mAdding;
     boolean mRefreshing;
     boolean mWaitingForRemoveMsg;
@@ -96,6 +115,8 @@ public class DeviceAdminAdd extends Activity {
     boolean mAdminPoliciesInitialized;
     int mCurSysAppOpMode;
     int mCurToastAppOpMode;
+
+    boolean mIsCalledFromSupportDialog = false;
 
     @Override
     protected void onCreate(Bundle icicle) {
@@ -113,13 +134,26 @@ public class DeviceAdminAdd extends Activity {
             return;
         }
 
+        mIsCalledFromSupportDialog = getIntent().getBooleanExtra(
+                EXTRA_CALLED_FROM_SUPPORT_DIALOG, false);
+
         String action = getIntent().getAction();
         ComponentName who = (ComponentName)getIntent().getParcelableExtra(
                 DevicePolicyManager.EXTRA_DEVICE_ADMIN);
         if (who == null) {
-            Log.w(TAG, "No component specified in " + action);
-            finish();
-            return;
+            String packageName = getIntent().getStringExtra(EXTRA_DEVICE_ADMIN_PACKAGE_NAME);
+            for (ComponentName component : mDPM.getActiveAdmins()) {
+                if (component.getPackageName().equals(packageName)) {
+                    who = component;
+                    mUninstalling = true;
+                    break;
+                }
+            }
+            if (who == null) {
+                Log.w(TAG, "No component specified in " + action);
+                finish();
+                return;
+            }
         }
 
         if (action != null && action.equals(DevicePolicyManager.ACTION_SET_PROFILE_OWNER)) {
@@ -211,6 +245,12 @@ public class DeviceAdminAdd extends Activity {
         if (DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN.equals(getIntent().getAction())) {
             mRefreshing = false;
             if (mDPM.isAdminActive(who)) {
+                if (mDPM.isRemovingAdmin(who, android.os.Process.myUserHandle().getIdentifier())) {
+                    Log.w(TAG, "Requested admin is already being removed: " + who);
+                    finish();
+                    return;
+                }
+
                 ArrayList<DeviceAdminInfo.PolicyInfo> newPolicies = mDeviceAdmin.getUsedPolicies();
                 for (int i = 0; i < newPolicies.size(); i++) {
                     DeviceAdminInfo.PolicyInfo pi = newPolicies.get(i);
@@ -278,6 +318,8 @@ public class DeviceAdminAdd extends Activity {
 
         mAdminWarning = (TextView) findViewById(R.id.admin_warning);
         mAdminPolicies = (ViewGroup) findViewById(R.id.admin_policies);
+        mSupportMessage = (TextView) findViewById(R.id.admin_support_message);
+
         mCancelButton = (Button) findViewById(R.id.cancel_button);
         mCancelButton.setFilterTouchesWhenObscured(true);
         mCancelButton.setOnClickListener(new View.OnClickListener() {
@@ -287,12 +329,40 @@ public class DeviceAdminAdd extends Activity {
                 finish();
             }
         });
+
+        mUninstallButton = (Button) findViewById(R.id.uninstall_button);
+        mUninstallButton.setFilterTouchesWhenObscured(true);
+        mUninstallButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                EventLog.writeEvent(EventLogTags.EXP_DET_DEVICE_ADMIN_UNINSTALLED_BY_USER,
+                        mDeviceAdmin.getActivityInfo().applicationInfo.uid);
+                mDPM.uninstallPackageWithActiveAdmins(mDeviceAdmin.getPackageName());
+                finish();
+            }
+        });
+
         mActionButton = (Button) findViewById(R.id.action_button);
         mActionButton.setFilterTouchesWhenObscured(true);
         mActionButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 if (mAdding) {
                     addAndFinish();
+                } else if (isManagedProfile(mDeviceAdmin)
+                        && mDeviceAdmin.getComponent().equals(mDPM.getProfileOwner())) {
+                    final int userId = UserHandle.myUserId();
+                    UserDialogs.createRemoveDialog(DeviceAdminAdd.this, userId,
+                            new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    UserManager um = UserManager.get(DeviceAdminAdd.this);
+                                    um.removeUser(userId);
+                                    finish();
+                                }
+                            }
+                            ).show();
+                } else if (mUninstalling) {
+                    mDPM.uninstallPackageWithActiveAdmins(mDeviceAdmin.getPackageName());
+                    finish();
                 } else if (!mWaitingForRemoveMsg) {
                     try {
                         // Don't allow the admin to put a dialog up in front
@@ -302,16 +372,16 @@ public class DeviceAdminAdd extends Activity {
                     }
                     mWaitingForRemoveMsg = true;
                     mDPM.getRemoveWarning(mDeviceAdmin.getComponent(),
-                            new RemoteCallback(mHandler) {
-                        @Override
-                        protected void onResult(Bundle bundle) {
-                            CharSequence msg = bundle != null
-                                    ? bundle.getCharSequence(
+                            new RemoteCallback(new RemoteCallback.OnResultListener() {
+                                @Override
+                                public void onResult(Bundle result) {
+                                    CharSequence msg = result != null
+                                            ? result.getCharSequence(
                                             DeviceAdminReceiver.EXTRA_DISABLE_WARNING)
-                                    : null;
-                            continueRemoveAction(msg);
-                        }
-                    });
+                                            : null;
+                                    continueRemoveAction(msg);
+                                }
+                            }, mHandler));
                     // Don't want to wait too long.
                     getWindow().getDecorView().getHandler().postDelayed(new Runnable() {
                         @Override public void run() {
@@ -402,6 +472,18 @@ public class DeviceAdminAdd extends Activity {
     }
 
     @Override
+    protected void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        // In case this is triggered from support dialog, finish this activity once the user leaves
+        // so that this won't appear as a background next time support dialog is triggered. This
+        // is because the support dialog activity and this belong to the same task and we can't
+        // start this in new activity since we need to know the calling package in this activity.
+        if (mIsCalledFromSupportDialog) {
+            finish();
+        }
+    }
+
+    @Override
     protected Dialog onCreateDialog(int id, Bundle args) {
         switch (id) {
             case DIALOG_WARNING: {
@@ -450,12 +532,46 @@ public class DeviceAdminAdd extends Activity {
         }
         if (!mRefreshing && !mAddingProfileOwner
                 && mDPM.isAdminActive(mDeviceAdmin.getComponent())) {
-            addDeviceAdminPolicies(false /* showDescription */);
-            mAdminWarning.setText(getString(R.string.device_admin_status,
-                    mDeviceAdmin.getActivityInfo().applicationInfo.loadLabel(getPackageManager())));
-            setTitle(getText(R.string.active_device_admin_msg));
-            mActionButton.setText(getText(R.string.remove_device_admin));
             mAdding = false;
+            final boolean isProfileOwner =
+                    mDeviceAdmin.getComponent().equals(mDPM.getProfileOwner());
+            final boolean isManagedProfile = isManagedProfile(mDeviceAdmin);
+            if (isProfileOwner && isManagedProfile) {
+                // Profile owner in a managed profile, user can remove profile to disable admin.
+                mAdminWarning.setText(R.string.admin_profile_owner_message);
+                mActionButton.setText(R.string.remove_managed_profile_label);
+            } else if (isProfileOwner || mDeviceAdmin.getComponent().equals(
+                            mDPM.getDeviceOwnerComponentOnCallingUser())) {
+                // Profile owner in a user or device owner, user can't disable admin.
+                if (isProfileOwner) {
+                    // Show profile owner in a user description.
+                    mAdminWarning.setText(R.string.admin_profile_owner_user_message);
+                } else {
+                    // Show device owner description.
+                    mAdminWarning.setText(R.string.admin_device_owner_message);
+                }
+                mActionButton.setText(R.string.remove_device_admin);
+                mActionButton.setEnabled(false);
+            } else {
+                addDeviceAdminPolicies(false /* showDescription */);
+                mAdminWarning.setText(getString(R.string.device_admin_status,
+                        mDeviceAdmin.getActivityInfo().applicationInfo.loadLabel(
+                        getPackageManager())));
+                setTitle(R.string.active_device_admin_msg);
+                if (mUninstalling) {
+                    mActionButton.setText(R.string.remove_and_uninstall_device_admin);
+                } else {
+                    mActionButton.setText(R.string.remove_device_admin);
+                }
+            }
+            CharSequence supportMessage = mDPM.getLongSupportMessageForUser(
+                    mDeviceAdmin.getComponent(), UserHandle.myUserId());
+            if (!TextUtils.isEmpty(supportMessage)) {
+                mSupportMessage.setText(supportMessage);
+                mSupportMessage.setVisibility(View.VISIBLE);
+            } else {
+                mSupportMessage.setVisibility(View.GONE);
+            }
         } else {
             addDeviceAdminPolicies(true /* showDescription */);
             mAdminWarning.setText(getString(R.string.device_admin_warning,
@@ -466,16 +582,20 @@ public class DeviceAdminAdd extends Activity {
                 setTitle(getText(R.string.add_device_admin_msg));
             }
             mActionButton.setText(getText(R.string.add_device_admin));
+            if (isAdminUninstallable()) {
+                mUninstallButton.setVisibility(View.VISIBLE);
+            }
+            mSupportMessage.setVisibility(View.GONE);
             mAdding = true;
         }
     }
 
     private void addDeviceAdminPolicies(boolean showDescription) {
         if (!mAdminPoliciesInitialized) {
-            boolean isOwner = UserHandle.getCallingUserHandle().isOwner();
+            boolean isAdminUser = UserManager.get(this).isAdminUser();
             for (DeviceAdminInfo.PolicyInfo pi : mDeviceAdmin.getUsedPolicies()) {
-                int descriptionId = isOwner ? pi.description : pi.descriptionForSecondaryUsers;
-                int labelId = isOwner ? pi.label : pi.labelForSecondaryUsers;
+                int descriptionId = isAdminUser ? pi.description : pi.descriptionForSecondaryUsers;
+                int labelId = isAdminUser ? pi.label : pi.labelForSecondaryUsers;
                 View view = AppSecurityPermissions.getPermissionItemView(this, getText(labelId),
                         showDescription ? getText(descriptionId) : "", true);
                 mAdminPolicies.addView(view);
@@ -504,4 +624,18 @@ public class DeviceAdminAdd extends Activity {
             MAX_ADD_MSG_LINES_PORTRAIT : MAX_ADD_MSG_LINES_LANDSCAPE;
     }
 
+    /**
+     * @return true if adminInfo is running in a managed profile.
+     */
+    private boolean isManagedProfile(DeviceAdminInfo adminInfo) {
+        UserManager um = UserManager.get(this);
+        UserInfo info = um.getUserInfo(
+                UserHandle.getUserId(adminInfo.getActivityInfo().applicationInfo.uid));
+        return info != null ? info.isManagedProfile() : false;
+    }
+
+    private boolean isAdminUninstallable() {
+        // System apps can't be uninstalled.
+        return !mDeviceAdmin.getActivityInfo().applicationInfo.isSystemApp();
+    }
 }

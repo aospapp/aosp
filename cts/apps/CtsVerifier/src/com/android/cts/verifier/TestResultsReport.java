@@ -16,16 +16,16 @@
 
 package com.android.cts.verifier;
 
+import android.content.Context;
+import android.os.Build;
+import android.text.TextUtils;
+import android.util.Xml;
+
 import com.android.compatibility.common.util.MetricsXmlSerializer;
 import com.android.compatibility.common.util.ReportLog;
 import com.android.cts.verifier.TestListAdapter.TestListItem;
 
 import org.xmlpull.v1.XmlSerializer;
-
-import android.content.Context;
-import android.os.Build;
-import android.text.TextUtils;
-import android.util.Xml;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -96,7 +96,6 @@ class TestResultsReport {
         xml.startTag(null, VERIFIER_INFO_TAG);
         xml.attribute(null, "version-name", Version.getVersionName(mContext));
         xml.attribute(null, "version-code", Integer.toString(Version.getVersionCode(mContext)));
-        xml.attribute(null, "build", Version.getBuildNumber(mContext));
         xml.endTag(null, VERIFIER_INFO_TAG);
 
         xml.startTag(null, DEVICE_INFO_TAG);
@@ -131,6 +130,7 @@ class TestResultsReport {
                     xml.endTag(null, TEST_DETAILS_TAG);
                 }
 
+                // TODO(stuartscott): For v2: ReportLog.serialize(xml, mAdapter.getReportLog(i));
                 ReportLog reportLog = mAdapter.getReportLog(i);
                 if (reportLog != null) {
                     MetricsXmlSerializer metricsXmlSerializer = new MetricsXmlSerializer(xml);

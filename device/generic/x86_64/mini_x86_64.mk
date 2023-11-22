@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+$(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit.mk)
 $(call inherit-product, device/generic/armv7-a-neon/mini_common.mk)
 
 PRODUCT_NAME := mini_x86_64

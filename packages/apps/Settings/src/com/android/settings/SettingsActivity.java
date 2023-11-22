@@ -16,10 +16,7 @@
 
 package com.android.settings;
 
-import static com.android.settings.dashboard.DashboardTile.TILE_ID_UNDEFINED;
-
 import android.app.ActionBar;
-import android.app.Activity;
 import android.app.Fragment;
 import android.app.FragmentManager;
 import android.app.FragmentTransaction;
@@ -32,28 +29,18 @@ import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
-import android.content.pm.ResolveInfo;
 import android.content.res.Configuration;
-import android.content.res.TypedArray;
-import android.content.res.XmlResourceParser;
 import android.nfc.NfcAdapter;
+import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Message;
 import android.os.UserHandle;
 import android.os.UserManager;
-import android.preference.Preference;
-import android.preference.PreferenceFragment;
-import android.preference.PreferenceManager;
-import android.preference.PreferenceScreen;
+import android.support.v14.preference.PreferenceFragment;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.PreferenceManager;
 import android.text.TextUtils;
 import android.transition.TransitionManager;
-import android.util.ArrayMap;
-import android.util.AttributeSet;
 import android.util.Log;
-import android.util.Pair;
-import android.util.TypedValue;
-import android.util.Xml;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -62,56 +49,67 @@ import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.SearchView;
-
-import com.android.internal.logging.MetricsLogger;
 import com.android.internal.util.ArrayUtils;
-import com.android.internal.util.XmlUtils;
+import com.android.settings.Settings.WifiSettingsActivity;
 import com.android.settings.accessibility.AccessibilitySettings;
+import com.android.settings.accessibility.AccessibilitySettingsForSetupWizard;
 import com.android.settings.accessibility.CaptionPropertiesFragment;
 import com.android.settings.accounts.AccountSettings;
 import com.android.settings.accounts.AccountSyncSettings;
+import com.android.settings.accounts.ChooseAccountActivity;
+import com.android.settings.accounts.ManagedProfileSettings;
+import com.android.settings.applications.AdvancedAppSettings;
 import com.android.settings.applications.DrawOverlayDetails;
 import com.android.settings.applications.InstalledAppDetails;
 import com.android.settings.applications.ManageApplications;
 import com.android.settings.applications.ManageAssist;
+import com.android.settings.applications.NotificationApps;
 import com.android.settings.applications.ProcessStatsSummary;
 import com.android.settings.applications.ProcessStatsUi;
 import com.android.settings.applications.UsageAccessDetails;
 import com.android.settings.applications.WriteSettingsDetails;
+import com.android.settings.applications.VrListenerSettings;
 import com.android.settings.bluetooth.BluetoothSettings;
-import com.android.settings.dashboard.DashboardCategory;
 import com.android.settings.dashboard.DashboardSummary;
-import com.android.settings.dashboard.DashboardTile;
-import com.android.settings.dashboard.NoHomeDialogFragment;
 import com.android.settings.dashboard.SearchResultsSummary;
+import com.android.settings.datausage.DataUsageSummary;
+import com.android.settings.deviceinfo.ImeiInformation;
 import com.android.settings.deviceinfo.PrivateVolumeForget;
 import com.android.settings.deviceinfo.PrivateVolumeSettings;
 import com.android.settings.deviceinfo.PublicVolumeSettings;
+import com.android.settings.deviceinfo.SimStatus;
+import com.android.settings.deviceinfo.Status;
 import com.android.settings.deviceinfo.StorageSettings;
 import com.android.settings.fuelgauge.BatterySaverSettings;
 import com.android.settings.fuelgauge.PowerUsageDetail;
 import com.android.settings.fuelgauge.PowerUsageSummary;
+import com.android.settings.inputmethod.AvailableVirtualKeyboardFragment;
 import com.android.settings.inputmethod.InputMethodAndLanguageSettings;
 import com.android.settings.inputmethod.KeyboardLayoutPickerFragment;
+import com.android.settings.inputmethod.KeyboardLayoutPickerFragment2;
+import com.android.settings.inputmethod.PhysicalKeyboardFragment;
 import com.android.settings.inputmethod.SpellCheckersSettings;
 import com.android.settings.inputmethod.UserDictionaryList;
+import com.android.settings.localepicker.LocaleListEditor;
 import com.android.settings.location.LocationSettings;
 import com.android.settings.nfc.AndroidBeam;
 import com.android.settings.nfc.PaymentSettings;
 import com.android.settings.notification.AppNotificationSettings;
+import com.android.settings.notification.ConfigureNotificationSettings;
 import com.android.settings.notification.NotificationAccessSettings;
-import com.android.settings.notification.NotificationSettings;
 import com.android.settings.notification.NotificationStation;
 import com.android.settings.notification.OtherSoundSettings;
+import com.android.settings.notification.SoundSettings;
 import com.android.settings.notification.ZenAccessSettings;
 import com.android.settings.notification.ZenModeAutomationSettings;
 import com.android.settings.notification.ZenModeEventRuleSettings;
-import com.android.settings.notification.ZenModeExternalRuleSettings;
 import com.android.settings.notification.ZenModePrioritySettings;
-import com.android.settings.notification.ZenModeSettings;
 import com.android.settings.notification.ZenModeScheduleRuleSettings;
+import com.android.settings.notification.ZenModeSettings;
+import com.android.settings.notification.ZenModeVisualInterruptionSettings;
 import com.android.settings.print.PrintJobSettingsFragment;
 import com.android.settings.print.PrintSettingsFragment;
+import com.android.settings.qstile.DevelopmentTiles;
 import com.android.settings.search.DynamicIndexableContentMonitor;
 import com.android.settings.search.Index;
 import com.android.settings.sim.SimSettings;
@@ -122,19 +120,19 @@ import com.android.settings.wfd.WifiDisplaySettings;
 import com.android.settings.widget.SwitchBar;
 import com.android.settings.wifi.AdvancedWifiSettings;
 import com.android.settings.wifi.SavedAccessPointsWifiSettings;
+import com.android.settings.wifi.WifiAPITest;
+import com.android.settings.wifi.WifiInfo;
 import com.android.settings.wifi.WifiSettings;
 import com.android.settings.wifi.p2p.WifiP2pSettings;
+import com.android.settingslib.drawer.DashboardCategory;
+import com.android.settingslib.drawer.SettingsDrawerActivity;
+import com.android.settingslib.drawer.Tile;
 
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
-
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
-public class SettingsActivity extends Activity
+public class SettingsActivity extends SettingsDrawerActivity
         implements PreferenceManager.OnPreferenceTreeClickListener,
         PreferenceFragment.OnPreferenceStartFragmentCallback,
         ButtonBarHandler, FragmentManager.OnBackStackChangedListener,
@@ -142,6 +140,8 @@ public class SettingsActivity extends Activity
         MenuItem.OnActionExpandListener {
 
     private static final String LOG_TAG = "Settings";
+
+    private static final int LOADER_ID_INDEXABLE_CONTENT_MONITOR = 1;
 
     // Constants for state save/restore
     private static final String SAVE_KEY_CATEGORIES = ":settings:categories";
@@ -208,43 +208,16 @@ public class SettingsActivity extends Activity
     public static final String EXTRA_SHOW_FRAGMENT_AS_SUBSETTING =
             ":settings:show_fragment_as_subsetting";
 
-    private static final String META_DATA_KEY_FRAGMENT_CLASS =
+    public static final String EXTRA_HIDE_DRAWER = ":settings:hide_drawer";
+
+    public static final String META_DATA_KEY_FRAGMENT_CLASS =
         "com.android.settings.FRAGMENT_CLASS";
 
     private static final String EXTRA_UI_OPTIONS = "settings:ui_options";
 
     private static final String EMPTY_QUERY = "";
 
-    /**
-     * Settings will search for system activities of this action and add them as a top level
-     * settings tile using the following parameters.
-     *
-     * <p>A category must be specified in the meta-data for the activity named
-     * {@link #EXTRA_CATEGORY_KEY}
-     *
-     * <p>The title may be defined by meta-data named {@link Utils#META_DATA_PREFERENCE_TITLE}
-     * otherwise the label for the activity will be used.
-     *
-     * <p>The icon may be defined by meta-data named {@link Utils#META_DATA_PREFERENCE_ICON}
-     * otherwise the icon for the activity will be used.
-     *
-     * <p>A summary my be defined by meta-data named {@link Utils#META_DATA_PREFERENCE_SUMMARY}
-     */
-    private static final String EXTRA_SETTINGS_ACTION =
-            "com.android.settings.action.EXTRA_SETTINGS";
-
-    /**
-     * The key used to get the category from metadata of activities of action
-     * {@link #EXTRA_SETTINGS_ACTION}
-     * The value must be one of:
-     * <li>com.android.settings.category.wireless</li>
-     * <li>com.android.settings.category.device</li>
-     * <li>com.android.settings.category.personal</li>
-     * <li>com.android.settings.category.system</li>
-     */
-    private static final String EXTRA_CATEGORY_KEY = "com.android.settings.category";
-
-    private static boolean sShowNoHomeNotice = false;
+    private static final int REQUEST_SUGGESTION = 42;
 
     private String mFragmentClass;
 
@@ -252,33 +225,32 @@ public class SettingsActivity extends Activity
     private int mInitialTitleResId;
 
     // Show only these settings for restricted users
-    private int[] SETTINGS_FOR_RESTRICTED = {
-            R.id.wireless_section,
-            R.id.wifi_settings,
-            R.id.bluetooth_settings,
-            R.id.data_usage_settings,
-            R.id.sim_settings,
-            R.id.wireless_settings,
-            R.id.device_section,
-            R.id.notification_settings,
-            R.id.display_settings,
-            R.id.storage_settings,
-            R.id.application_settings,
-            R.id.battery_settings,
-            R.id.personal_section,
-            R.id.location_settings,
-            R.id.security_settings,
-            R.id.language_settings,
-            R.id.user_settings,
-            R.id.account_settings,
-            R.id.system_section,
-            R.id.date_time_settings,
-            R.id.about_settings,
-            R.id.accessibility_settings,
-            R.id.print_settings,
-            R.id.nfc_payment_settings,
-            R.id.home_settings,
-            R.id.dashboard
+    private String[] SETTINGS_FOR_RESTRICTED = {
+            //wireless_section
+            WifiSettingsActivity.class.getName(),
+            Settings.BluetoothSettingsActivity.class.getName(),
+            Settings.DataUsageSummaryActivity.class.getName(),
+            Settings.SimSettingsActivity.class.getName(),
+            Settings.WirelessSettingsActivity.class.getName(),
+            //device_section
+            Settings.HomeSettingsActivity.class.getName(),
+            Settings.SoundSettingsActivity.class.getName(),
+            Settings.DisplaySettingsActivity.class.getName(),
+            Settings.StorageSettingsActivity.class.getName(),
+            Settings.ManageApplicationsActivity.class.getName(),
+            Settings.PowerUsageSummaryActivity.class.getName(),
+            //personal_section
+            Settings.LocationSettingsActivity.class.getName(),
+            Settings.SecuritySettingsActivity.class.getName(),
+            Settings.InputMethodAndLanguageSettingsActivity.class.getName(),
+            Settings.UserSettingsActivity.class.getName(),
+            Settings.AccountSettingsActivity.class.getName(),
+            //system_section
+            Settings.DateTimeSettingsActivity.class.getName(),
+            Settings.DeviceInfoSettingsActivity.class.getName(),
+            Settings.AccessibilitySettingsActivity.class.getName(),
+            Settings.PrintSettingsActivity.class.getName(),
+            Settings.PaymentSettingsActivity.class.getName(),
     };
 
     private static final String[] ENTRY_FRAGMENTS = {
@@ -292,8 +264,9 @@ public class SettingsActivity extends Activity
             WifiP2pSettings.class.getName(),
             VpnSettings.class.getName(),
             DateTimeSettings.class.getName(),
-            LocalePicker.class.getName(),
+            LocaleListEditor.class.getName(),
             InputMethodAndLanguageSettings.class.getName(),
+            AvailableVirtualKeyboardFragment.class.getName(),
             SpellCheckersSettings.class.getName(),
             UserDictionaryList.class.getName(),
             UserDictionarySettings.class.getName(),
@@ -301,6 +274,7 @@ public class SettingsActivity extends Activity
             DisplaySettings.class.getName(),
             DeviceInfoSettings.class.getName(),
             ManageApplications.class.getName(),
+            NotificationApps.class.getName(),
             ManageAssist.class.getName(),
             ProcessStatsUi.class.getName(),
             NotificationStation.class.getName(),
@@ -310,6 +284,7 @@ public class SettingsActivity extends Activity
             PrivacySettings.class.getName(),
             DeviceAdminSettings.class.getName(),
             AccessibilitySettings.class.getName(),
+            AccessibilitySettingsForSetupWizard.class.getName(),
             CaptionPropertiesFragment.class.getName(),
             com.android.settings.accessibility.ToggleDaltonizerPreferenceFragment.class.getName(),
             TextToSpeechSettings.class.getName(),
@@ -334,8 +309,11 @@ public class SettingsActivity extends Activity
             TrustedCredentialsSettings.class.getName(),
             PaymentSettings.class.getName(),
             KeyboardLayoutPickerFragment.class.getName(),
+            KeyboardLayoutPickerFragment2.class.getName(),
+            PhysicalKeyboardFragment.class.getName(),
             ZenModeSettings.class.getName(),
-            NotificationSettings.class.getName(),
+            SoundSettings.class.getName(),
+            ConfigureNotificationSettings.class.getName(),
             ChooseLockPassword.ChooseLockPasswordFragment.class.getName(),
             ChooseLockPattern.ChooseLockPatternFragment.class.getName(),
             InstalledAppDetails.class.getName(),
@@ -343,17 +321,30 @@ public class SettingsActivity extends Activity
             AppNotificationSettings.class.getName(),
             OtherSoundSettings.class.getName(),
             ApnSettings.class.getName(),
+            ApnEditor.class.getName(),
             WifiCallingSettings.class.getName(),
             ZenModePrioritySettings.class.getName(),
             ZenModeAutomationSettings.class.getName(),
             ZenModeScheduleRuleSettings.class.getName(),
             ZenModeEventRuleSettings.class.getName(),
-            ZenModeExternalRuleSettings.class.getName(),
+            ZenModeVisualInterruptionSettings.class.getName(),
             ProcessStatsUi.class.getName(),
             PowerUsageDetail.class.getName(),
             ProcessStatsSummary.class.getName(),
             DrawOverlayDetails.class.getName(),
             WriteSettingsDetails.class.getName(),
+            AdvancedAppSettings.class.getName(),
+            WallpaperTypeSettings.class.getName(),
+            VrListenerSettings.class.getName(),
+            ManagedProfileSettings.class.getName(),
+            ChooseAccountActivity.class.getName(),
+            IccLockSettings.class.getName(),
+            ImeiInformation.class.getName(),
+            SimStatus.class.getName(),
+            Status.class.getName(),
+            TestingSettings.class.getName(),
+            WifiAPITest.class.getName(),
+            WifiInfo.class.getName(),
     };
 
 
@@ -374,8 +365,19 @@ public class SettingsActivity extends Activity
 
                 if (mBatteryPresent != batteryPresent) {
                     mBatteryPresent = batteryPresent;
-                    invalidateCategories(true);
+                    updateTilesList();
                 }
+            }
+        }
+    };
+
+    private final BroadcastReceiver mUserAddRemoveReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (action.equals(Intent.ACTION_USER_ADDED)
+                    || action.equals(Intent.ACTION_USER_REMOVED)) {
+                Index.getInstance(getApplicationContext()).update();
             }
         }
     };
@@ -394,6 +396,7 @@ public class SettingsActivity extends Activity
     private boolean mIsShowingDashboard;
     private boolean mIsShortcut;
 
+    private int mMainContentId = R.id.main_content;
     private ViewGroup mContent;
 
     private SearchView mSearchView;
@@ -406,82 +409,37 @@ public class SettingsActivity extends Activity
     private ArrayList<DashboardCategory> mCategories = new ArrayList<DashboardCategory>();
 
     private static final String MSG_DATA_FORCE_REFRESH = "msg_data_force_refresh";
-    private static final int MSG_BUILD_CATEGORIES = 1;
-    private Handler mHandler = new Handler() {
-        @Override
-        public void handleMessage(Message msg) {
-            switch (msg.what) {
-                case MSG_BUILD_CATEGORIES: {
-                    final boolean forceRefresh = msg.getData().getBoolean(MSG_DATA_FORCE_REFRESH);
-                    if (forceRefresh) {
-                        buildDashboardCategories(mCategories);
-                    }
-                } break;
-            }
-        }
-    };
 
     private boolean mNeedToRevertToInitialFragment = false;
-    private int mHomeActivitiesCount = 1;
 
     private Intent mResultIntentData;
+    private ComponentName mCurrentSuggestion;
 
     public SwitchBar getSwitchBar() {
         return mSwitchBar;
     }
 
-    public List<DashboardCategory> getDashboardCategories(boolean forceRefresh) {
-        if (forceRefresh || mCategories.size() == 0) {
-            buildDashboardCategories(mCategories);
-        }
-        return mCategories;
-    }
-
     @Override
     public boolean onPreferenceStartFragment(PreferenceFragment caller, Preference pref) {
         // Override the fragment title for Wallpaper settings
-        int titleRes = pref.getTitleRes();
+        CharSequence title = pref.getTitle();
         if (pref.getFragment().equals(WallpaperTypeSettings.class.getName())) {
-            titleRes = R.string.wallpaper_settings_fragment_title;
-        } else if (pref.getFragment().equals(OwnerInfoSettings.class.getName())
-                && UserHandle.myUserId() != UserHandle.USER_OWNER) {
-            if (UserManager.get(this).isLinkedUser()) {
-                titleRes = R.string.profile_info_settings_title;
-            } else {
-                titleRes = R.string.user_info_settings_title;
-            }
+            title = getString(R.string.wallpaper_settings_fragment_title);
         }
-        startPreferencePanel(pref.getFragment(), pref.getExtras(), titleRes, pref.getTitle(),
+        startPreferencePanel(pref.getFragment(), pref.getExtras(), -1, title,
                 null, 0);
         return true;
     }
 
     @Override
-    public boolean onPreferenceTreeClick(PreferenceScreen preferenceScreen, Preference preference) {
+    public boolean onPreferenceTreeClick(Preference preference) {
         return false;
-    }
-
-    private void invalidateCategories(boolean forceRefresh) {
-        if (!mHandler.hasMessages(MSG_BUILD_CATEGORIES)) {
-            Message msg = new Message();
-            msg.what = MSG_BUILD_CATEGORIES;
-            msg.getData().putBoolean(MSG_DATA_FORCE_REFRESH, forceRefresh);
-        }
     }
 
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         Index.getInstance(this).update();
-    }
-
-    @Override
-    protected void onStart() {
-        super.onStart();
-
-        if (mNeedToRevertToInitialFragment) {
-            revertToInitialFragment();
-        }
     }
 
     @Override
@@ -519,6 +477,25 @@ public class SettingsActivity extends Activity
         return true;
     }
 
+    @Override
+    public SharedPreferences getSharedPreferences(String name, int mode) {
+        if (name.equals(getPackageName() + "_preferences")) {
+            return new SharedPreferencesLogger(this, getMetricsTag());
+        }
+        return super.getSharedPreferences(name, mode);
+    }
+
+    private String getMetricsTag() {
+        String tag = getClass().getName();
+        if (getIntent() != null && getIntent().hasExtra(EXTRA_SHOW_FRAGMENT)) {
+            tag = getIntent().getStringExtra(EXTRA_SHOW_FRAGMENT);
+        }
+        if (tag.startsWith("com.android.settings.")) {
+            tag = tag.replace("com.android.settings.", "");
+        }
+        return tag;
+    }
+
     private static boolean isShortCutIntent(final Intent intent) {
         Set<String> categories = intent.getCategories();
         return (categories != null) && categories.contains("com.android.settings.SHORTCUT");
@@ -538,6 +515,7 @@ public class SettingsActivity extends Activity
     @Override
     protected void onCreate(Bundle savedState) {
         super.onCreate(savedState);
+        long startTime = System.currentTimeMillis();
 
         // Should happen before any call to getIntent()
         getMetaData();
@@ -545,6 +523,9 @@ public class SettingsActivity extends Activity
         final Intent intent = getIntent();
         if (intent.hasExtra(EXTRA_UI_OPTIONS)) {
             getWindow().setUiOptions(intent.getIntExtra(EXTRA_UI_OPTIONS, 0));
+        }
+        if (intent.getBooleanExtra(EXTRA_HIDE_DRAWER, false)) {
+            setIsDrawerPresent(false);
         }
 
         mDevelopmentPreferences = getSharedPreferences(DevelopmentSettings.PREF_FILE,
@@ -559,7 +540,11 @@ public class SettingsActivity extends Activity
         final ComponentName cn = intent.getComponent();
         final String className = cn.getClassName();
 
-        mIsShowingDashboard = className.equals(Settings.class.getName());
+        mIsShowingDashboard = className.equals(Settings.class.getName())
+                || className.equals(Settings.WirelessSettings.class.getName())
+                || className.equals(Settings.DeviceSettings.class.getName())
+                || className.equals(Settings.PersonalSettings.class.getName())
+                || className.equals(Settings.WirelessSettings.class.getName());
 
         // This is a "Sub Settings" when:
         // - this is a real SubSettings
@@ -580,14 +565,17 @@ public class SettingsActivity extends Activity
         setContentView(mIsShowingDashboard ?
                 R.layout.settings_main_dashboard : R.layout.settings_main_prefs);
 
-        mContent = (ViewGroup) findViewById(R.id.main_content);
+        mContent = (ViewGroup) findViewById(mMainContentId);
 
         getFragmentManager().addOnBackStackChangedListener(this);
 
         if (mIsShowingDashboard) {
             // Run the Index update only if we have some space
             if (!Utils.isLowStorage(this)) {
+                long indexStartTime = System.currentTimeMillis();
                 Index.getInstance(getApplicationContext()).update();
+                if (DEBUG_TIMING) Log.d(LOG_TAG, "Index.update() took "
+                        + (System.currentTimeMillis() - indexStartTime) + " ms");
             } else {
                 Log.w(LOG_TAG, "Cannot update the Indexer as we are running low on storage space!");
             }
@@ -611,8 +599,6 @@ public class SettingsActivity extends Activity
 
             mDisplayHomeAsUpEnabled = savedState.getBoolean(SAVE_KEY_SHOW_HOME_AS_UP);
             mDisplaySearch = savedState.getBoolean(SAVE_KEY_SHOW_SEARCH);
-            mHomeActivitiesCount = savedState.getInt(SAVE_KEY_HOME_ACTIVITIES_COUNT,
-                    1 /* one home activity by default */);
         } else {
             if (!mIsShowingDashboard) {
                 mDisplaySearch = false;
@@ -646,6 +632,9 @@ public class SettingsActivity extends Activity
             mActionBar.setHomeButtonEnabled(mDisplayHomeAsUpEnabled);
         }
         mSwitchBar = (SwitchBar) findViewById(R.id.switch_bar);
+        if (mSwitchBar != null) {
+            mSwitchBar.setMetricsTag(getMetricsTag());
+        }
 
         // see if we should show Back/Next buttons
         if (intent.getBooleanExtra(EXTRA_PREFS_SHOW_BUTTON_BAR, false)) {
@@ -701,13 +690,16 @@ public class SettingsActivity extends Activity
             }
         }
 
-        mHomeActivitiesCount = getHomeActivitiesCount();
+        if (DEBUG_TIMING) Log.d(LOG_TAG, "onCreate took " + (System.currentTimeMillis() - startTime)
+                + " ms");
     }
 
-    private int getHomeActivitiesCount() {
-        final ArrayList<ResolveInfo> homeApps = new ArrayList<ResolveInfo>();
-        getPackageManager().getHomeActivities(homeApps);
-        return homeApps.size();
+    /**
+     * Sets the id of the view continaing the main content. Should be called before calling super's
+     * onCreate.
+     */
+    protected void setMainContentId(int contentId) {
+        mMainContentId = contentId;
     }
 
     private void setTitleFromIntent(Intent intent) {
@@ -799,48 +791,42 @@ public class SettingsActivity extends Activity
             String query = (mSearchView != null) ? mSearchView.getQuery().toString() : EMPTY_QUERY;
             outState.putString(SAVE_KEY_SEARCH_QUERY, query);
         }
-
-        outState.putInt(SAVE_KEY_HOME_ACTIVITIES_COUNT, mHomeActivitiesCount);
     }
 
     @Override
-    public void onResume() {
-        super.onResume();
-        if (mIsShowingDashboard) {
-            MetricsLogger.visible(this, MetricsLogger.MAIN_SETTINGS);
-        }
+    protected void onStart() {
+        super.onStart();
 
-        final int newHomeActivityCount = getHomeActivitiesCount();
-        if (newHomeActivityCount != mHomeActivitiesCount) {
-            mHomeActivitiesCount = newHomeActivityCount;
-            invalidateCategories(true);
+        if (mNeedToRevertToInitialFragment) {
+            revertToInitialFragment();
         }
 
         mDevelopmentPreferencesListener = new SharedPreferences.OnSharedPreferenceChangeListener() {
             @Override
             public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
-                invalidateCategories(true);
+                updateTilesList();
             }
         };
         mDevelopmentPreferences.registerOnSharedPreferenceChangeListener(
                 mDevelopmentPreferencesListener);
 
         registerReceiver(mBatteryInfoReceiver, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        registerReceiver(mUserAddRemoveReceiver, new IntentFilter(Intent.ACTION_USER_ADDED));
+        registerReceiver(mUserAddRemoveReceiver, new IntentFilter(Intent.ACTION_USER_REMOVED));
 
-        mDynamicIndexableContentMonitor.register(this);
+        mDynamicIndexableContentMonitor.register(this, LOADER_ID_INDEXABLE_CONTENT_MONITOR);
 
         if(mDisplaySearch && !TextUtils.isEmpty(mSearchQuery)) {
             onQueryTextSubmit(mSearchQuery);
         }
+        updateTilesList();
     }
 
     @Override
-    public void onPause() {
-        super.onPause();
-        if (mIsShowingDashboard) {
-            MetricsLogger.hidden(this, MetricsLogger.MAIN_SETTINGS);
-        }
+    protected void onStop() {
+        super.onStop();
         unregisterReceiver(mBatteryInfoReceiver);
+        unregisterReceiver(mUserAddRemoveReceiver);
         mDynamicIndexableContentMonitor.unregister();
     }
 
@@ -1002,7 +988,7 @@ public class SettingsActivity extends Activity
      */
     public void startPreferenceFragment(Fragment fragment, boolean push) {
         FragmentTransaction transaction = getFragmentManager().beginTransaction();
-        transaction.replace(R.id.main_content, fragment);
+        transaction.replace(mMainContentId, fragment);
         if (push) {
             transaction.setTransition(FragmentTransaction.TRANSIT_FRAGMENT_OPEN);
             transaction.addToBackStack(BACK_STACK_PREFS);
@@ -1023,7 +1009,7 @@ public class SettingsActivity extends Activity
         }
         Fragment f = Fragment.instantiate(this, fragmentName, args);
         FragmentTransaction transaction = getFragmentManager().beginTransaction();
-        transaction.replace(R.id.main_content, f);
+        transaction.replace(mMainContentId, f);
         if (withTransition) {
             TransitionManager.beginDelayedTransition(mContent);
         }
@@ -1040,382 +1026,91 @@ public class SettingsActivity extends Activity
         return f;
     }
 
-    /**
-     * Called when the activity needs its list of categories/tiles built.
-     *
-     * @param categories The list in which to place the tiles categories.
-     */
-    private void buildDashboardCategories(List<DashboardCategory> categories) {
-        categories.clear();
-        loadCategoriesFromResource(R.xml.dashboard_categories, categories, this);
-        updateTilesList(categories);
+    private void updateTilesList() {
+        // Generally the items that are will be changing from these updates will
+        // not be in the top list of tiles, so run it in the background and the
+        // SettingsDrawerActivity will pick up on the updates automatically.
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                doUpdateTilesList();
+            }
+        });
     }
 
-    /**
-     * Parse the given XML file as a categories description, adding each
-     * parsed categories and tiles into the target list.
-     *
-     * @param resid The XML resource to load and parse.
-     * @param target The list in which the parsed categories and tiles should be placed.
-     */
-    public static void loadCategoriesFromResource(int resid, List<DashboardCategory> target,
-            Context context) {
-        XmlResourceParser parser = null;
-        try {
-            parser = context.getResources().getXml(resid);
-            AttributeSet attrs = Xml.asAttributeSet(parser);
-
-            int type;
-            while ((type=parser.next()) != XmlPullParser.END_DOCUMENT
-                    && type != XmlPullParser.START_TAG) {
-                // Parse next until start tag is found
-            }
-
-            String nodeName = parser.getName();
-            if (!"dashboard-categories".equals(nodeName)) {
-                throw new RuntimeException(
-                        "XML document must start with <preference-categories> tag; found"
-                                + nodeName + " at " + parser.getPositionDescription());
-            }
-
-            Bundle curBundle = null;
-
-            final int outerDepth = parser.getDepth();
-            while ((type=parser.next()) != XmlPullParser.END_DOCUMENT
-                    && (type != XmlPullParser.END_TAG || parser.getDepth() > outerDepth)) {
-                if (type == XmlPullParser.END_TAG || type == XmlPullParser.TEXT) {
-                    continue;
-                }
-
-                nodeName = parser.getName();
-                if ("dashboard-category".equals(nodeName)) {
-                    DashboardCategory category = new DashboardCategory();
-
-                    TypedArray sa = context.obtainStyledAttributes(
-                            attrs, com.android.internal.R.styleable.PreferenceHeader);
-                    category.id = sa.getResourceId(
-                            com.android.internal.R.styleable.PreferenceHeader_id,
-                            (int)DashboardCategory.CAT_ID_UNDEFINED);
-
-                    TypedValue tv = sa.peekValue(
-                            com.android.internal.R.styleable.PreferenceHeader_title);
-                    if (tv != null && tv.type == TypedValue.TYPE_STRING) {
-                        if (tv.resourceId != 0) {
-                            category.titleRes = tv.resourceId;
-                        } else {
-                            category.title = tv.string;
-                        }
-                    }
-                    sa.recycle();
-                    sa = context.obtainStyledAttributes(attrs,
-                            com.android.internal.R.styleable.Preference);
-                    tv = sa.peekValue(
-                            com.android.internal.R.styleable.Preference_key);
-                    if (tv != null && tv.type == TypedValue.TYPE_STRING) {
-                        if (tv.resourceId != 0) {
-                            category.key = context.getString(tv.resourceId);
-                        } else {
-                            category.key = tv.string.toString();
-                        }
-                    }
-                    sa.recycle();
-
-                    final int innerDepth = parser.getDepth();
-                    while ((type=parser.next()) != XmlPullParser.END_DOCUMENT
-                            && (type != XmlPullParser.END_TAG || parser.getDepth() > innerDepth)) {
-                        if (type == XmlPullParser.END_TAG || type == XmlPullParser.TEXT) {
-                            continue;
-                        }
-
-                        String innerNodeName = parser.getName();
-                        if (innerNodeName.equals("dashboard-tile")) {
-                            DashboardTile tile = new DashboardTile();
-
-                            sa = context.obtainStyledAttributes(
-                                    attrs, com.android.internal.R.styleable.PreferenceHeader);
-                            tile.id = sa.getResourceId(
-                                    com.android.internal.R.styleable.PreferenceHeader_id,
-                                    (int)TILE_ID_UNDEFINED);
-                            tv = sa.peekValue(
-                                    com.android.internal.R.styleable.PreferenceHeader_title);
-                            if (tv != null && tv.type == TypedValue.TYPE_STRING) {
-                                if (tv.resourceId != 0) {
-                                    tile.titleRes = tv.resourceId;
-                                } else {
-                                    tile.title = tv.string;
-                                }
-                            }
-                            tv = sa.peekValue(
-                                    com.android.internal.R.styleable.PreferenceHeader_summary);
-                            if (tv != null && tv.type == TypedValue.TYPE_STRING) {
-                                if (tv.resourceId != 0) {
-                                    tile.summaryRes = tv.resourceId;
-                                } else {
-                                    tile.summary = tv.string;
-                                }
-                            }
-                            tile.iconRes = sa.getResourceId(
-                                    com.android.internal.R.styleable.PreferenceHeader_icon, 0);
-                            tile.fragment = sa.getString(
-                                    com.android.internal.R.styleable.PreferenceHeader_fragment);
-                            sa.recycle();
-
-                            if (curBundle == null) {
-                                curBundle = new Bundle();
-                            }
-
-                            final int innerDepth2 = parser.getDepth();
-                            while ((type=parser.next()) != XmlPullParser.END_DOCUMENT
-                                    && (type != XmlPullParser.END_TAG || parser.getDepth() > innerDepth2)) {
-                                if (type == XmlPullParser.END_TAG || type == XmlPullParser.TEXT) {
-                                    continue;
-                                }
-
-                                String innerNodeName2 = parser.getName();
-                                if (innerNodeName2.equals("extra")) {
-                                    context.getResources().parseBundleExtra("extra", attrs,
-                                            curBundle);
-                                    XmlUtils.skipCurrentTag(parser);
-
-                                } else if (innerNodeName2.equals("intent")) {
-                                    tile.intent = Intent.parseIntent(context.getResources(), parser,
-                                            attrs);
-
-                                } else {
-                                    XmlUtils.skipCurrentTag(parser);
-                                }
-                            }
-
-                            if (curBundle.size() > 0) {
-                                tile.fragmentArguments = curBundle;
-                                curBundle = null;
-                            }
-
-                            // Show the SIM Cards setting if there are more than 2 SIMs installed.
-                            if(tile.id != R.id.sim_settings || Utils.showSimCardTile(context)){
-                                category.addTile(tile);
-                            }
-
-                        } else if (innerNodeName.equals("external-tiles")) {
-                            category.externalIndex = category.getTilesCount();
-                        } else {
-                            XmlUtils.skipCurrentTag(parser);
-                        }
-                    }
-
-                    target.add(category);
-                } else {
-                    XmlUtils.skipCurrentTag(parser);
-                }
-            }
-
-        } catch (XmlPullParserException e) {
-            throw new RuntimeException("Error parsing categories", e);
-        } catch (IOException e) {
-            throw new RuntimeException("Error parsing categories", e);
-        } finally {
-            if (parser != null) parser.close();
-        }
-    }
-
-    private void updateTilesList(List<DashboardCategory> target) {
-        final boolean showDev = mDevelopmentPreferences.getBoolean(
-                DevelopmentSettings.PREF_SHOW,
-                android.os.Build.TYPE.equals("eng"));
-
-        final UserManager um = (UserManager) getSystemService(Context.USER_SERVICE);
-
-        final int size = target.size();
-        for (int i = 0; i < size; i++) {
-
-            DashboardCategory category = target.get(i);
-
-            // Ids are integers, so downcasting is ok
-            int id = (int) category.id;
-            int n = category.getTilesCount() - 1;
-            while (n >= 0) {
-
-                DashboardTile tile = category.getTile(n);
-                boolean removeTile = false;
-                id = (int) tile.id;
-                if (id == R.id.operator_settings || id == R.id.manufacturer_settings) {
-                    if (!Utils.updateTileToSpecificActivityFromMetaDataOrRemove(this, tile)) {
-                        removeTile = true;
-                    }
-                } else if (id == R.id.wifi_settings) {
-                    // Remove WiFi Settings if WiFi service is not available.
-                    if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_WIFI)) {
-                        removeTile = true;
-                    }
-                } else if (id == R.id.bluetooth_settings) {
-                    // Remove Bluetooth Settings if Bluetooth service is not available.
-                    if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)) {
-                        removeTile = true;
-                    }
-                } else if (id == R.id.data_usage_settings) {
-                    // Remove data usage when kernel module not enabled
-                    if (!Utils.isBandwidthControlEnabled()) {
-                        removeTile = true;
-                    }
-                } else if (id == R.id.battery_settings) {
-                    // Remove battery settings when battery is not available. (e.g. TV)
-
-                    if (!mBatteryPresent) {
-                        removeTile = true;
-                    }
-                } else if (id == R.id.home_settings) {
-                    if (!updateHomeSettingTiles(tile)) {
-                        removeTile = true;
-                    }
-                } else if (id == R.id.user_settings) {
-                    boolean hasMultipleUsers =
-                            ((UserManager) getSystemService(Context.USER_SERVICE))
-                                    .getUserCount() > 1;
-                    if (!UserHandle.MU_ENABLED
-                            || !UserManager.supportsMultipleUsers()
-                            || Utils.isMonkeyRunning()) {
-                        removeTile = true;
-                    }
-                } else if (id == R.id.nfc_payment_settings) {
-                    if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_NFC)) {
-                        removeTile = true;
-                    } else {
-                        // Only show if NFC is on and we have the HCE feature
-                        NfcAdapter adapter = NfcAdapter.getDefaultAdapter(this);
-                        if (adapter == null || !adapter.isEnabled() ||
-                                !getPackageManager().hasSystemFeature(
-                                        PackageManager.FEATURE_NFC_HOST_CARD_EMULATION)) {
-                            removeTile = true;
-                        }
-                    }
-                } else if (id == R.id.print_settings) {
-                    boolean hasPrintingSupport = getPackageManager().hasSystemFeature(
-                            PackageManager.FEATURE_PRINTING);
-                    if (!hasPrintingSupport) {
-                        removeTile = true;
-                    }
-                } else if (id == R.id.development_settings) {
-                    if (!showDev || um.hasUserRestriction(
-                            UserManager.DISALLOW_DEBUGGING_FEATURES)) {
-                        removeTile = true;
-                    }
-                }
-
-                if (UserHandle.MU_ENABLED && UserHandle.myUserId() != 0
-                        && !ArrayUtils.contains(SETTINGS_FOR_RESTRICTED, id)) {
-                    removeTile = true;
-                }
-
-                if (removeTile && n < category.getTilesCount()) {
-                    category.removeTile(n);
-                }
-                n--;
-            }
-        }
-        addExternalTiles(target);
-    }
-
-    private void addExternalTiles(List<DashboardCategory> target) {
-        Map<Pair<String, String>, DashboardTile> addedCache =
-                new ArrayMap<Pair<String, String>, DashboardTile>();
-        UserManager userManager = UserManager.get(this);
-        for (UserHandle user : userManager.getUserProfiles()) {
-            addExternalTiles(target, user, addedCache);
-        }
-    }
-
-    private void addExternalTiles(List<DashboardCategory> target, UserHandle user,
-            Map<Pair<String, String>, DashboardTile> addedCache) {
+    private void doUpdateTilesList() {
         PackageManager pm = getPackageManager();
-        Intent intent = new Intent(EXTRA_SETTINGS_ACTION);
-        List<ResolveInfo> results = pm.queryIntentActivitiesAsUser(intent,
-                PackageManager.GET_META_DATA, user.getIdentifier());
-        for (ResolveInfo resolved : results) {
-            if (!resolved.system) {
-                // Do not allow any app to add to settings, only system ones.
-                continue;
-            }
-            ActivityInfo activityInfo = resolved.activityInfo;
-            Bundle metaData = activityInfo.metaData;
-            if ((metaData == null) || !metaData.containsKey(EXTRA_CATEGORY_KEY)) {
-                Log.w(LOG_TAG, "Found " + resolved.activityInfo.name + " for action "
-                        + EXTRA_SETTINGS_ACTION + " missing metadata " +
-                        (metaData == null ? "" : EXTRA_CATEGORY_KEY));
-                continue;
-            }
-            String categoryKey = metaData.getString(EXTRA_CATEGORY_KEY);
-            DashboardCategory category = getCategory(target, categoryKey);
-            if (category == null) {
-                Log.w(LOG_TAG, "Activity " + resolved.activityInfo.name + " has unknown "
-                        + "category key " + categoryKey);
-                continue;
-            }
-            Pair<String, String> key = new Pair<String, String>(activityInfo.packageName,
-                    activityInfo.name);
-            DashboardTile tile = addedCache.get(key);
-            if (tile == null) {
-                tile = new DashboardTile();
-                tile.intent = new Intent().setClassName(
-                        activityInfo.packageName, activityInfo.name);
-                Utils.updateTileToSpecificActivityFromMetaDataOrRemove(this, tile);
+        final UserManager um = UserManager.get(this);
+        final boolean isAdmin = um.isAdminUser();
 
-                if (category.externalIndex == -1) {
-                    // If no location for external tiles has been specified for this category,
-                    // then just put them at the end.
-                    category.addTile(tile);
-                } else {
-                    category.addTile(category.externalIndex, tile);
+        String packageName = getPackageName();
+        setTileEnabled(new ComponentName(packageName, WifiSettingsActivity.class.getName()),
+                pm.hasSystemFeature(PackageManager.FEATURE_WIFI), isAdmin, pm);
+
+        setTileEnabled(new ComponentName(packageName,
+                Settings.BluetoothSettingsActivity.class.getName()),
+                pm.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH), isAdmin, pm);
+
+        setTileEnabled(new ComponentName(packageName,
+                Settings.DataUsageSummaryActivity.class.getName()),
+                Utils.isBandwidthControlEnabled(), isAdmin, pm);
+
+        setTileEnabled(new ComponentName(packageName,
+                Settings.SimSettingsActivity.class.getName()),
+                Utils.showSimCardTile(this), isAdmin, pm);
+
+        setTileEnabled(new ComponentName(packageName,
+                Settings.PowerUsageSummaryActivity.class.getName()),
+                mBatteryPresent, isAdmin, pm);
+
+        setTileEnabled(new ComponentName(packageName,
+                Settings.UserSettingsActivity.class.getName()),
+                UserHandle.MU_ENABLED && UserManager.supportsMultipleUsers()
+                && !Utils.isMonkeyRunning(), isAdmin, pm);
+
+        NfcAdapter adapter = NfcAdapter.getDefaultAdapter(this);
+        setTileEnabled(new ComponentName(packageName,
+                        Settings.PaymentSettingsActivity.class.getName()),
+                pm.hasSystemFeature(PackageManager.FEATURE_NFC)
+                        && pm.hasSystemFeature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION)
+                        && adapter != null && adapter.isEnabled(), isAdmin, pm);
+
+        setTileEnabled(new ComponentName(packageName,
+                Settings.PrintSettingsActivity.class.getName()),
+                pm.hasSystemFeature(PackageManager.FEATURE_PRINTING), isAdmin, pm);
+
+        final boolean showDev = mDevelopmentPreferences.getBoolean(
+                    DevelopmentSettings.PREF_SHOW, android.os.Build.TYPE.equals("eng"))
+                && !um.hasUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES);
+        setTileEnabled(new ComponentName(packageName,
+                        Settings.DevelopmentSettingsActivity.class.getName()),
+                showDev, isAdmin, pm);
+
+        // Reveal development-only quick settings tiles
+        DevelopmentTiles.setTilesEnabled(this, showDev);
+
+        if (UserHandle.MU_ENABLED && !isAdmin) {
+            // When on restricted users, disable all extra categories (but only the settings ones).
+            List<DashboardCategory> categories = getDashboardCategories();
+            for (DashboardCategory category : categories) {
+                for (Tile tile : category.tiles) {
+                    ComponentName component = tile.intent.getComponent();
+                    if (packageName.equals(component.getPackageName()) && !ArrayUtils.contains(
+                            SETTINGS_FOR_RESTRICTED, component.getClassName())) {
+                        setTileEnabled(component, false, isAdmin, pm);
+                    }
                 }
-                addedCache.put(key, tile);
             }
-            tile.userHandle.add(user);
         }
     }
 
-    private DashboardCategory getCategory(List<DashboardCategory> target, String categoryKey) {
-        for (DashboardCategory category : target) {
-            if (categoryKey.equals(category.key)) {
-                return category;
-            }
+    private void setTileEnabled(ComponentName component, boolean enabled, boolean isAdmin,
+                                PackageManager pm) {
+        if (UserHandle.MU_ENABLED && !isAdmin && getPackageName().equals(component.getPackageName())
+                && !ArrayUtils.contains(SETTINGS_FOR_RESTRICTED, component.getClassName())) {
+            enabled = false;
         }
-        return null;
-    }
-
-    private boolean updateHomeSettingTiles(DashboardTile tile) {
-        // Once we decide to show Home settings, keep showing it forever
-        SharedPreferences sp = getSharedPreferences(HomeSettings.HOME_PREFS, Context.MODE_PRIVATE);
-        if (sp.getBoolean(HomeSettings.HOME_PREFS_DO_SHOW, false)) {
-            return true;
-        }
-
-        try {
-            mHomeActivitiesCount = getHomeActivitiesCount();
-            if (mHomeActivitiesCount < 2) {
-                // When there's only one available home app, omit this settings
-                // category entirely at the top level UI.  If the user just
-                // uninstalled the penultimate home app candidiate, we also
-                // now tell them about why they aren't seeing 'Home' in the list.
-                if (sShowNoHomeNotice) {
-                    sShowNoHomeNotice = false;
-                    NoHomeDialogFragment.show(this);
-                }
-                return false;
-            } else {
-                // Okay, we're allowing the Home settings category.  Tell it, when
-                // invoked via this front door, that we'll need to be told about the
-                // case when the user uninstalls all but one home app.
-                if (tile.fragmentArguments == null) {
-                    tile.fragmentArguments = new Bundle();
-                }
-                tile.fragmentArguments.putBoolean(HomeSettings.HOME_SHOW_NOTICE, true);
-            }
-        } catch (Exception e) {
-            // Can't look up the home activity; bail on configuring the icon
-            Log.w(LOG_TAG, "Problem looking up home activity!", e);
-        }
-
-        sp.edit().putBoolean(HomeSettings.HOME_PREFS_DO_SHOW, true).apply();
-        return true;
+        setTileEnabled(component, enabled);
     }
 
     private void getMetaData() {
@@ -1442,10 +1137,6 @@ public class SettingsActivity extends Activity
     @Override
     public boolean shouldUpRecreateTask(Intent targetIntent) {
         return super.shouldUpRecreateTask(new Intent(this, SettingsActivity.class));
-    }
-
-    public static void requestHomeNotice() {
-        sShowNoHomeNotice = true;
     }
 
     @Override
@@ -1487,11 +1178,28 @@ public class SettingsActivity extends Activity
         return true;
     }
 
+    @Override
+    protected void onTileClicked(Tile tile) {
+        if (mIsShowingDashboard) {
+            // If on dashboard, don't finish so the back comes back to here.
+            openTile(tile);
+        } else {
+            super.onTileClicked(tile);
+        }
+    }
+
+    @Override
+    public void onProfileTileOpen() {
+        if (!mIsShowingDashboard) {
+            finish();
+        }
+    }
+
     private void switchToSearchResultsFragmentIfNeeded() {
         if (mSearchResultsFragment != null) {
             return;
         }
-        Fragment current = getFragmentManager().findFragmentById(R.id.main_content);
+        Fragment current = getFragmentManager().findFragmentById(mMainContentId);
         if (current != null && current instanceof SearchResultsSummary) {
             mSearchResultsFragment = (SearchResultsSummary) current;
         } else {
@@ -1525,4 +1233,20 @@ public class SettingsActivity extends Activity
     public void setResultIntentData(Intent resultIntentData) {
         mResultIntentData = resultIntentData;
     }
+
+    public void startSuggestion(Intent intent) {
+        mCurrentSuggestion = intent.getComponent();
+        startActivityForResult(intent, REQUEST_SUGGESTION);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQUEST_SUGGESTION && mCurrentSuggestion != null
+                && resultCode != RESULT_CANCELED) {
+            getPackageManager().setComponentEnabledSetting(mCurrentSuggestion,
+                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
+        }
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+
 }

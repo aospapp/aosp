@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="7559008249836700599">"Cell Broadcasts"</string>
+    <string name="app_label" msgid="7559008249836700599">"Сповіщення оператора"</string>
     <string name="sms_cb_settings" msgid="971917159442705371">"Налаштування Cell Broadcast"</string>
     <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"Налаштування широкомовних інформаційних повідомлень недоступні для цього користувача"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"OK"</string>

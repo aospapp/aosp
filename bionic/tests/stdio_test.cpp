@@ -31,14 +31,20 @@
 
 #include "TemporaryFile.h"
 
-TEST(stdio, flockfile_18208568_stderr) {
+#if defined(NOFORTIFY)
+#define STDIO_TEST stdio_nofortify
+#else
+#define STDIO_TEST stdio
+#endif
+
+TEST(STDIO_TEST, flockfile_18208568_stderr) {
   // Check that we have a _recursive_ mutex for flockfile.
   flockfile(stderr);
   feof(stderr); // We don't care about the result, but this needs to take the lock.
   funlockfile(stderr);
 }
 
-TEST(stdio, flockfile_18208568_regular) {
+TEST(STDIO_TEST, flockfile_18208568_regular) {
   // We never had a bug for streams other than stdin/stdout/stderr, but test anyway.
   FILE* fp = fopen("/dev/null", "w");
   ASSERT_TRUE(fp != NULL);
@@ -48,7 +54,7 @@ TEST(stdio, flockfile_18208568_regular) {
   fclose(fp);
 }
 
-TEST(stdio, tmpfile_fileno_fprintf_rewind_fgets) {
+TEST(STDIO_TEST, tmpfile_fileno_fprintf_rewind_fgets) {
   FILE* fp = tmpfile();
   ASSERT_TRUE(fp != NULL);
 
@@ -73,7 +79,13 @@ TEST(stdio, tmpfile_fileno_fprintf_rewind_fgets) {
   fclose(fp);
 }
 
-TEST(stdio, dprintf) {
+TEST(STDIO_TEST, tmpfile64) {
+  FILE* fp = tmpfile64();
+  ASSERT_TRUE(fp != nullptr);
+  fclose(fp);
+}
+
+TEST(STDIO_TEST, dprintf) {
   TemporaryFile tf;
 
   int rc = dprintf(tf.fd, "hello\n");
@@ -91,7 +103,7 @@ TEST(stdio, dprintf) {
   fclose(tfile);
 }
 
-TEST(stdio, getdelim) {
+TEST(STDIO_TEST, getdelim) {
   FILE* fp = tmpfile();
   ASSERT_TRUE(fp != NULL);
 
@@ -126,7 +138,7 @@ TEST(stdio, getdelim) {
   fclose(fp);
 }
 
-TEST(stdio, getdelim_invalid) {
+TEST(STDIO_TEST, getdelim_invalid) {
   FILE* fp = tmpfile();
   ASSERT_TRUE(fp != NULL);
 
@@ -151,7 +163,7 @@ TEST(stdio, getdelim_invalid) {
   fclose(fp);
 }
 
-TEST(stdio, getdelim_directory) {
+TEST(STDIO_TEST, getdelim_directory) {
   FILE* fp = fopen("/proc", "r");
   ASSERT_TRUE(fp != NULL);
   char* word_read;
@@ -160,7 +172,7 @@ TEST(stdio, getdelim_directory) {
   fclose(fp);
 }
 
-TEST(stdio, getline) {
+TEST(STDIO_TEST, getline) {
   FILE* fp = tmpfile();
   ASSERT_TRUE(fp != NULL);
 
@@ -202,7 +214,7 @@ TEST(stdio, getline) {
   fclose(fp);
 }
 
-TEST(stdio, getline_invalid) {
+TEST(STDIO_TEST, getline_invalid) {
   FILE* fp = tmpfile();
   ASSERT_TRUE(fp != NULL);
 
@@ -227,7 +239,7 @@ TEST(stdio, getline_invalid) {
   fclose(fp);
 }
 
-TEST(stdio, printf_ssize_t) {
+TEST(STDIO_TEST, printf_ssize_t) {
   // http://b/8253769
   ASSERT_EQ(sizeof(ssize_t), sizeof(long int));
   ASSERT_EQ(sizeof(ssize_t), sizeof(size_t));
@@ -240,20 +252,20 @@ TEST(stdio, printf_ssize_t) {
 }
 
 // https://code.google.com/p/android/issues/detail?id=64886
-TEST(stdio, snprintf_a) {
+TEST(STDIO_TEST, snprintf_a) {
   char buf[BUFSIZ];
   EXPECT_EQ(23, snprintf(buf, sizeof(buf), "<%a>", 9990.235));
   EXPECT_STREQ("<0x1.3831e147ae148p+13>", buf);
 }
 
-TEST(stdio, snprintf_lc) {
+TEST(STDIO_TEST, snprintf_lc) {
   char buf[BUFSIZ];
   wint_t wc = L'a';
   EXPECT_EQ(3, snprintf(buf, sizeof(buf), "<%lc>", wc));
   EXPECT_STREQ("<a>", buf);
 }
 
-TEST(stdio, snprintf_ls) {
+TEST(STDIO_TEST, snprintf_ls) {
   char buf[BUFSIZ];
   wchar_t* ws = NULL;
   EXPECT_EQ(8, snprintf(buf, sizeof(buf), "<%ls>", ws));
@@ -265,7 +277,7 @@ TEST(stdio, snprintf_ls) {
   EXPECT_STREQ("<hi>", buf);
 }
 
-TEST(stdio, snprintf_n) {
+TEST(STDIO_TEST, snprintf_n) {
 #if defined(__BIONIC__)
   // http://b/14492135
   char buf[32];
@@ -274,11 +286,11 @@ TEST(stdio, snprintf_n) {
   EXPECT_EQ(1234, i);
   EXPECT_STREQ("a n b", buf);
 #else
-  GTEST_LOG_(INFO) << "This test does nothing.\n";
+  GTEST_LOG_(INFO) << "This test does nothing on glibc.\n";
 #endif
 }
 
-TEST(stdio, snprintf_smoke) {
+TEST(STDIO_TEST, snprintf_smoke) {
   char buf[BUFSIZ];
 
   snprintf(buf, sizeof(buf), "a");
@@ -401,7 +413,7 @@ void CheckInfNan(int snprintf_fn(T*, size_t, const T*, ...),
   EXPECT_STREQ(minus_inf, buf) << fmt_plus;
 }
 
-TEST(stdio, snprintf_inf_nan) {
+TEST(STDIO_TEST, snprintf_inf_nan) {
   CheckInfNan(snprintf, "%a", "%+a", "-inf", "inf", "+inf", "-nan", "nan", "+nan");
   CheckInfNan(snprintf, "%A", "%+A", "-INF", "INF", "+INF", "-NAN", "NAN", "+NAN");
   CheckInfNan(snprintf, "%e", "%+e", "-inf", "inf", "+inf", "-nan", "nan", "+nan");
@@ -412,7 +424,7 @@ TEST(stdio, snprintf_inf_nan) {
   CheckInfNan(snprintf, "%G", "%+G", "-INF", "INF", "+INF", "-NAN", "NAN", "+NAN");
 }
 
-TEST(stdio, wsprintf_inf_nan) {
+TEST(STDIO_TEST, wsprintf_inf_nan) {
   CheckInfNan(swprintf, L"%a", L"%+a", L"-inf", L"inf", L"+inf", L"-nan", L"nan", L"+nan");
   CheckInfNan(swprintf, L"%A", L"%+A", L"-INF", L"INF", L"+INF", L"-NAN", L"NAN", L"+NAN");
   CheckInfNan(swprintf, L"%e", L"%+e", L"-inf", L"inf", L"+inf", L"-nan", L"nan", L"+nan");
@@ -423,19 +435,19 @@ TEST(stdio, wsprintf_inf_nan) {
   CheckInfNan(swprintf, L"%G", L"%+G", L"-INF", L"INF", L"+INF", L"-NAN", L"NAN", L"+NAN");
 }
 
-TEST(stdio, snprintf_d_INT_MAX) {
+TEST(STDIO_TEST, snprintf_d_INT_MAX) {
   char buf[BUFSIZ];
   snprintf(buf, sizeof(buf), "%d", INT_MAX);
   EXPECT_STREQ("2147483647", buf);
 }
 
-TEST(stdio, snprintf_d_INT_MIN) {
+TEST(STDIO_TEST, snprintf_d_INT_MIN) {
   char buf[BUFSIZ];
   snprintf(buf, sizeof(buf), "%d", INT_MIN);
   EXPECT_STREQ("-2147483648", buf);
 }
 
-TEST(stdio, snprintf_ld_LONG_MAX) {
+TEST(STDIO_TEST, snprintf_ld_LONG_MAX) {
   char buf[BUFSIZ];
   snprintf(buf, sizeof(buf), "%ld", LONG_MAX);
 #if __LP64__
@@ -445,7 +457,7 @@ TEST(stdio, snprintf_ld_LONG_MAX) {
 #endif
 }
 
-TEST(stdio, snprintf_ld_LONG_MIN) {
+TEST(STDIO_TEST, snprintf_ld_LONG_MIN) {
   char buf[BUFSIZ];
   snprintf(buf, sizeof(buf), "%ld", LONG_MIN);
 #if __LP64__
@@ -455,19 +467,19 @@ TEST(stdio, snprintf_ld_LONG_MIN) {
 #endif
 }
 
-TEST(stdio, snprintf_lld_LLONG_MAX) {
+TEST(STDIO_TEST, snprintf_lld_LLONG_MAX) {
   char buf[BUFSIZ];
   snprintf(buf, sizeof(buf), "%lld", LLONG_MAX);
   EXPECT_STREQ("9223372036854775807", buf);
 }
 
-TEST(stdio, snprintf_lld_LLONG_MIN) {
+TEST(STDIO_TEST, snprintf_lld_LLONG_MIN) {
   char buf[BUFSIZ];
   snprintf(buf, sizeof(buf), "%lld", LLONG_MIN);
   EXPECT_STREQ("-9223372036854775808", buf);
 }
 
-TEST(stdio, snprintf_e) {
+TEST(STDIO_TEST, snprintf_e) {
   char buf[BUFSIZ];
 
   snprintf(buf, sizeof(buf), "%e", 1.5);
@@ -477,7 +489,7 @@ TEST(stdio, snprintf_e) {
   EXPECT_STREQ("1.500000e+00", buf);
 }
 
-TEST(stdio, snprintf_negative_zero_5084292) {
+TEST(STDIO_TEST, snprintf_negative_zero_5084292) {
   char buf[BUFSIZ];
 
   snprintf(buf, sizeof(buf), "%e", -0.0);
@@ -498,7 +510,7 @@ TEST(stdio, snprintf_negative_zero_5084292) {
   EXPECT_STREQ("-0X0P+0", buf);
 }
 
-TEST(stdio, snprintf_utf8_15439554) {
+TEST(STDIO_TEST, snprintf_utf8_15439554) {
   locale_t cloc = newlocale(LC_ALL, "C.UTF-8", 0);
   locale_t old_locale = uselocale(cloc);
 
@@ -522,7 +534,41 @@ TEST(stdio, snprintf_utf8_15439554) {
   freelocale(cloc);
 }
 
-TEST(stdio, fprintf_failures_7229520) {
+static void* snprintf_small_stack_fn(void*) {
+  // Make life (realistically) hard for ourselves by allocating our own buffer for the result.
+  char buf[PATH_MAX];
+  snprintf(buf, sizeof(buf), "/proc/%d", getpid());
+  return nullptr;
+}
+
+TEST(STDIO_TEST, snprintf_small_stack) {
+  // Is it safe to call snprintf on a thread with a small stack?
+  // (The snprintf implementation puts some pretty large buffers on the stack.)
+  pthread_attr_t a;
+  ASSERT_EQ(0, pthread_attr_init(&a));
+  ASSERT_EQ(0, pthread_attr_setstacksize(&a, PTHREAD_STACK_MIN));
+
+  pthread_t t;
+  ASSERT_EQ(0, pthread_create(&t, &a, snprintf_small_stack_fn, nullptr));
+  ASSERT_EQ(0, pthread_join(t, nullptr));
+}
+
+TEST(STDIO_TEST, snprintf_asterisk_overflow) {
+  char buf[128];
+  ASSERT_EQ(5, snprintf(buf, sizeof(buf), "%.*s%c", 4, "hello world", '!'));
+  ASSERT_EQ(12, snprintf(buf, sizeof(buf), "%.*s%c", INT_MAX/2, "hello world", '!'));
+  ASSERT_EQ(12, snprintf(buf, sizeof(buf), "%.*s%c", INT_MAX-1, "hello world", '!'));
+  ASSERT_EQ(12, snprintf(buf, sizeof(buf), "%.*s%c", INT_MAX, "hello world", '!'));
+  ASSERT_EQ(12, snprintf(buf, sizeof(buf), "%.*s%c", -1, "hello world", '!'));
+
+  // INT_MAX-1, INT_MAX, INT_MAX+1.
+  ASSERT_EQ(12, snprintf(buf, sizeof(buf), "%.2147483646s%c", "hello world", '!'));
+  ASSERT_EQ(12, snprintf(buf, sizeof(buf), "%.2147483647s%c", "hello world", '!'));
+  ASSERT_EQ(-1, snprintf(buf, sizeof(buf), "%.2147483648s%c", "hello world", '!'));
+  ASSERT_EQ(ENOMEM, errno);
+}
+
+TEST(STDIO_TEST, fprintf_failures_7229520) {
   // http://b/7229520
   FILE* fp;
 
@@ -545,7 +591,7 @@ TEST(stdio, fprintf_failures_7229520) {
   ASSERT_EQ(-1, fclose(fp));
 }
 
-TEST(stdio, popen) {
+TEST(STDIO_TEST, popen) {
   FILE* fp = popen("cat /proc/version", "r");
   ASSERT_TRUE(fp != NULL);
 
@@ -557,7 +603,7 @@ TEST(stdio, popen) {
   ASSERT_EQ(0, pclose(fp));
 }
 
-TEST(stdio, getc) {
+TEST(STDIO_TEST, getc) {
   FILE* fp = fopen("/proc/version", "r");
   ASSERT_TRUE(fp != NULL);
   ASSERT_EQ('L', getc(fp));
@@ -568,14 +614,14 @@ TEST(stdio, getc) {
   fclose(fp);
 }
 
-TEST(stdio, putc) {
+TEST(STDIO_TEST, putc) {
   FILE* fp = fopen("/proc/version", "r");
   ASSERT_TRUE(fp != NULL);
   ASSERT_EQ(EOF, putc('x', fp));
   fclose(fp);
 }
 
-TEST(stdio, sscanf) {
+TEST(STDIO_TEST, sscanf) {
   char s1[123];
   int i1;
   double d1;
@@ -586,7 +632,7 @@ TEST(stdio, sscanf) {
   ASSERT_DOUBLE_EQ(1.23, d1);
 }
 
-TEST(stdio, cantwrite_EBADF) {
+TEST(STDIO_TEST, cantwrite_EBADF) {
   // If we open a file read-only...
   FILE* fp = fopen("/proc/version", "r");
 
@@ -626,7 +672,7 @@ TEST(stdio, cantwrite_EBADF) {
 
 // Tests that we can only have a consistent and correct fpos_t when using
 // f*pos functions (i.e. fpos doesn't get inside a multi byte character).
-TEST(stdio, consistent_fpos_t) {
+TEST(STDIO_TEST, consistent_fpos_t) {
   ASSERT_STREQ("C.UTF-8", setlocale(LC_CTYPE, "C.UTF-8"));
   uselocale(LC_GLOBAL_LOCALE);
 
@@ -690,7 +736,7 @@ TEST(stdio, consistent_fpos_t) {
 }
 
 // Exercise the interaction between fpos and seek.
-TEST(stdio, fpos_t_and_seek) {
+TEST(STDIO_TEST, fpos_t_and_seek) {
   ASSERT_STREQ("C.UTF-8", setlocale(LC_CTYPE, "C.UTF-8"));
   uselocale(LC_GLOBAL_LOCALE);
 
@@ -750,7 +796,7 @@ TEST(stdio, fpos_t_and_seek) {
   fclose(fp);
 }
 
-TEST(stdio, fmemopen) {
+TEST(STDIO_TEST, fmemopen) {
   char buf[16];
   memset(buf, 0, sizeof(buf));
   FILE* fp = fmemopen(buf, sizeof(buf), "r+");
@@ -770,7 +816,7 @@ TEST(stdio, fmemopen) {
   fclose(fp);
 }
 
-TEST(stdio, fmemopen_NULL) {
+TEST(STDIO_TEST, fmemopen_NULL) {
   FILE* fp = fmemopen(nullptr, 128, "r+");
   ASSERT_NE(EOF, fputs("xyz\n", fp));
 
@@ -784,7 +830,7 @@ TEST(stdio, fmemopen_NULL) {
   fclose(fp);
 }
 
-TEST(stdio, fmemopen_EINVAL) {
+TEST(STDIO_TEST, fmemopen_EINVAL) {
   char buf[16];
 
   // Invalid size.
@@ -798,7 +844,7 @@ TEST(stdio, fmemopen_EINVAL) {
   ASSERT_EQ(EINVAL, errno);
 }
 
-TEST(stdio, open_memstream) {
+TEST(STDIO_TEST, open_memstream) {
   char* p = nullptr;
   size_t size = 0;
   FILE* fp = open_memstream(&p, &size);
@@ -810,7 +856,7 @@ TEST(stdio, open_memstream) {
   free(p);
 }
 
-TEST(stdio, open_memstream_EINVAL) {
+TEST(STDIO_TEST, open_memstream_EINVAL) {
 #if defined(__BIONIC__)
   char* p;
   size_t size;
@@ -825,11 +871,11 @@ TEST(stdio, open_memstream_EINVAL) {
   ASSERT_EQ(nullptr, open_memstream(&p, nullptr));
   ASSERT_EQ(EINVAL, errno);
 #else
-  GTEST_LOG_(INFO) << "This test does nothing.\n";
+  GTEST_LOG_(INFO) << "This test does nothing on glibc.\n";
 #endif
 }
 
-TEST(stdio, fdopen_CLOEXEC) {
+TEST(STDIO_TEST, fdopen_CLOEXEC) {
   int fd = open("/proc/version", O_RDONLY);
   ASSERT_TRUE(fd != -1);
 
@@ -850,7 +896,7 @@ TEST(stdio, fdopen_CLOEXEC) {
   close(fd);
 }
 
-TEST(stdio, freopen_CLOEXEC) {
+TEST(STDIO_TEST, freopen_CLOEXEC) {
   FILE* fp = fopen("/proc/version", "r");
   ASSERT_TRUE(fp != NULL);
 
@@ -869,9 +915,17 @@ TEST(stdio, freopen_CLOEXEC) {
   fclose(fp);
 }
 
+TEST(STDIO_TEST, fopen64_freopen64) {
+  FILE* fp = fopen64("/proc/version", "r");
+  ASSERT_TRUE(fp != nullptr);
+  fp = freopen64("/proc/version", "re", fp);
+  ASSERT_TRUE(fp != nullptr);
+  fclose(fp);
+}
+
 // https://code.google.com/p/android/issues/detail?id=81155
 // http://b/18556607
-TEST(stdio, fread_unbuffered_pathological_performance) {
+TEST(STDIO_TEST, fread_unbuffered_pathological_performance) {
   FILE* fp = fopen("/dev/zero", "r");
   ASSERT_TRUE(fp != NULL);
 
@@ -900,7 +954,7 @@ TEST(stdio, fread_unbuffered_pathological_performance) {
   }
 }
 
-TEST(stdio, fread_EOF) {
+TEST(STDIO_TEST, fread_EOF) {
   std::string digits("0123456789");
   FILE* fp = fmemopen(&digits[0], digits.size(), "r");
 
@@ -934,11 +988,11 @@ static void test_fread_from_write_only_stream(size_t n) {
   fclose(fp);
 }
 
-TEST(stdio, fread_from_write_only_stream_slow_path) {
+TEST(STDIO_TEST, fread_from_write_only_stream_slow_path) {
   test_fread_from_write_only_stream(1);
 }
 
-TEST(stdio, fread_from_write_only_stream_fast_path) {
+TEST(STDIO_TEST, fread_from_write_only_stream_fast_path) {
   test_fread_from_write_only_stream(64*1024);
 }
 
@@ -956,7 +1010,7 @@ static void test_fwrite_after_fread(size_t n) {
 
   // But hitting EOF doesn't prevent us from writing...
   errno = 0;
-  ASSERT_EQ(1U, fwrite("2", 1, 1, fp)) << errno;
+  ASSERT_EQ(1U, fwrite("2", 1, 1, fp)) << strerror(errno);
 
   // And if we rewind, everything's there.
   rewind(fp);
@@ -967,16 +1021,16 @@ static void test_fwrite_after_fread(size_t n) {
   fclose(fp);
 }
 
-TEST(stdio, fwrite_after_fread_slow_path) {
+TEST(STDIO_TEST, fwrite_after_fread_slow_path) {
   test_fwrite_after_fread(16);
 }
 
-TEST(stdio, fwrite_after_fread_fast_path) {
+TEST(STDIO_TEST, fwrite_after_fread_fast_path) {
   test_fwrite_after_fread(64*1024);
 }
 
 // http://b/19172514
-TEST(stdio, fread_after_fseek) {
+TEST(STDIO_TEST, fread_after_fseek) {
   TemporaryFile tf;
 
   FILE* fp = fopen(tf.filename, "w+");
@@ -1005,10 +1059,241 @@ TEST(stdio, fread_after_fseek) {
   ASSERT_EQ(memcmp(file_data+cur_location, buffer, 8192), 0);
 
   // Small backwards seek to verify fseek does not reuse the internal buffer.
-  ASSERT_EQ(0, fseek(fp, -22, SEEK_CUR));
+  ASSERT_EQ(0, fseek(fp, -22, SEEK_CUR)) << strerror(errno);
   cur_location = static_cast<size_t>(ftell(fp));
   ASSERT_EQ(22U, fread(buffer, 1, 22, fp));
   ASSERT_EQ(memcmp(file_data+cur_location, buffer, 22), 0);
+
+  fclose(fp);
+}
+
+// https://code.google.com/p/android/issues/detail?id=184847
+TEST(STDIO_TEST, fread_EOF_184847) {
+  TemporaryFile tf;
+  char buf[6] = {0};
+
+  FILE* fw = fopen(tf.filename, "w");
+  ASSERT_TRUE(fw != nullptr);
+
+  FILE* fr = fopen(tf.filename, "r");
+  ASSERT_TRUE(fr != nullptr);
+
+  fwrite("a", 1, 1, fw);
+  fflush(fw);
+  ASSERT_EQ(1U, fread(buf, 1, 1, fr));
+  ASSERT_STREQ("a", buf);
+
+  // 'fr' is now at EOF.
+  ASSERT_EQ(0U, fread(buf, 1, 1, fr));
+  ASSERT_TRUE(feof(fr));
+
+  // Write some more...
+  fwrite("z", 1, 1, fw);
+  fflush(fw);
+
+  // ...and check that we can read it back.
+  // (BSD thinks that once a stream has hit EOF, it must always return EOF. SysV disagrees.)
+  ASSERT_EQ(1U, fread(buf, 1, 1, fr));
+  ASSERT_STREQ("z", buf);
+
+  // But now we're done.
+  ASSERT_EQ(0U, fread(buf, 1, 1, fr));
+
+  fclose(fr);
+  fclose(fw);
+}
+
+TEST(STDIO_TEST, fclose_invalidates_fd) {
+  // The typical error we're trying to help people catch involves accessing
+  // memory after it's been freed. But we know that stdin/stdout/stderr are
+  // special and don't get deallocated, so this test uses stdin.
+  ASSERT_EQ(0, fclose(stdin));
+
+  // Even though using a FILE* after close is undefined behavior, I've closed
+  // this bug as "WAI" too many times. We shouldn't hand out stale fds,
+  // especially because they might actually correspond to a real stream.
+  errno = 0;
+  ASSERT_EQ(-1, fileno(stdin));
+  ASSERT_EQ(EBADF, errno);
+}
+
+TEST(STDIO_TEST, fseek_ftell_unseekable) {
+#if defined(__BIONIC__) // glibc has fopencookie instead.
+  auto read_fn = [](void*, char*, int) { return -1; };
+  FILE* fp = funopen(nullptr, read_fn, nullptr, nullptr, nullptr);
+  ASSERT_TRUE(fp != nullptr);
+
+  // Check that ftell balks on an unseekable FILE*.
+  errno = 0;
+  ASSERT_EQ(-1, ftell(fp));
+  ASSERT_EQ(ESPIPE, errno);
+
+  // SEEK_CUR is rewritten as SEEK_SET internally...
+  errno = 0;
+  ASSERT_EQ(-1, fseek(fp, 0, SEEK_CUR));
+  ASSERT_EQ(ESPIPE, errno);
+
+  // ...so it's worth testing the direct seek path too.
+  errno = 0;
+  ASSERT_EQ(-1, fseek(fp, 0, SEEK_SET));
+  ASSERT_EQ(ESPIPE, errno);
+
+  fclose(fp);
+#else
+  GTEST_LOG_(INFO) << "glibc uses fopencookie instead.\n";
+#endif
+}
+
+TEST(STDIO_TEST, funopen_EINVAL) {
+#if defined(__BIONIC__)
+  errno = 0;
+  ASSERT_EQ(nullptr, funopen(nullptr, nullptr, nullptr, nullptr, nullptr));
+  ASSERT_EQ(EINVAL, errno);
+#else
+  GTEST_LOG_(INFO) << "glibc uses fopencookie instead.\n";
+#endif
+}
+
+TEST(STDIO_TEST, funopen_seek) {
+#if defined(__BIONIC__)
+  auto read_fn = [](void*, char*, int) { return -1; };
+
+  auto seek_fn = [](void*, fpos_t, int) -> fpos_t { return 0xfedcba12; };
+  auto seek64_fn = [](void*, fpos64_t, int) -> fpos64_t { return 0xfedcba12345678; };
+
+  FILE* fp = funopen(nullptr, read_fn, nullptr, seek_fn, nullptr);
+  ASSERT_TRUE(fp != nullptr);
+  fpos_t pos;
+#if defined(__LP64__)
+  EXPECT_EQ(0, fgetpos(fp, &pos)) << strerror(errno);
+  EXPECT_EQ(0xfedcba12LL, pos);
+#else
+  EXPECT_EQ(-1, fgetpos(fp, &pos)) << strerror(errno);
+  EXPECT_EQ(EOVERFLOW, errno);
+#endif
+
+  FILE* fp64 = funopen64(nullptr, read_fn, nullptr, seek64_fn, nullptr);
+  ASSERT_TRUE(fp64 != nullptr);
+  fpos64_t pos64;
+  EXPECT_EQ(0, fgetpos64(fp64, &pos64)) << strerror(errno);
+  EXPECT_EQ(0xfedcba12345678, pos64);
+#else
+  GTEST_LOG_(INFO) << "glibc uses fopencookie instead.\n";
+#endif
+}
+
+TEST(STDIO_TEST, lots_of_concurrent_files) {
+  std::vector<TemporaryFile*> tfs;
+  std::vector<FILE*> fps;
+
+  for (size_t i = 0; i < 256; ++i) {
+    TemporaryFile* tf = new TemporaryFile;
+    tfs.push_back(tf);
+    FILE* fp = fopen(tf->filename, "w+");
+    fps.push_back(fp);
+    fprintf(fp, "hello %zu!\n", i);
+    fflush(fp);
+  }
+
+  for (size_t i = 0; i < 256; ++i) {
+    rewind(fps[i]);
+
+    char buf[BUFSIZ];
+    ASSERT_TRUE(fgets(buf, sizeof(buf), fps[i]) != nullptr);
+
+    char expected[BUFSIZ];
+    snprintf(expected, sizeof(expected), "hello %zu!\n", i);
+    ASSERT_STREQ(expected, buf);
+
+    fclose(fps[i]);
+    delete tfs[i];
+  }
+}
+
+static void AssertFileOffsetAt(FILE* fp, off64_t offset) {
+  EXPECT_EQ(offset, ftell(fp));
+  EXPECT_EQ(offset, ftello(fp));
+  EXPECT_EQ(offset, ftello64(fp));
+  fpos_t pos;
+  fpos64_t pos64;
+  EXPECT_EQ(0, fgetpos(fp, &pos));
+  EXPECT_EQ(0, fgetpos64(fp, &pos64));
+#if defined(__BIONIC__)
+  EXPECT_EQ(offset, static_cast<off64_t>(pos));
+  EXPECT_EQ(offset, static_cast<off64_t>(pos64));
+#else
+  GTEST_LOG_(INFO) << "glibc's fpos_t is opaque.\n";
+#endif
+}
+
+TEST(STDIO_TEST, seek_tell_family_smoke) {
+  TemporaryFile tf;
+  FILE* fp = fdopen(tf.fd, "w+");
+
+  // Initially we should be at 0.
+  AssertFileOffsetAt(fp, 0);
+
+  // Seek to offset 8192.
+  ASSERT_EQ(0, fseek(fp, 8192, SEEK_SET));
+  AssertFileOffsetAt(fp, 8192);
+  fpos_t eight_k_pos;
+  ASSERT_EQ(0, fgetpos(fp, &eight_k_pos));
+
+  // Seek forward another 8192...
+  ASSERT_EQ(0, fseek(fp, 8192, SEEK_CUR));
+  AssertFileOffsetAt(fp, 8192 + 8192);
+  fpos64_t sixteen_k_pos64;
+  ASSERT_EQ(0, fgetpos64(fp, &sixteen_k_pos64));
+
+  // Seek back 8192...
+  ASSERT_EQ(0, fseek(fp, -8192, SEEK_CUR));
+  AssertFileOffsetAt(fp, 8192);
+
+  // Since we haven't written anything, the end is also at 0.
+  ASSERT_EQ(0, fseek(fp, 0, SEEK_END));
+  AssertFileOffsetAt(fp, 0);
+
+  // Check that our fpos64_t from 16KiB works...
+  ASSERT_EQ(0, fsetpos64(fp, &sixteen_k_pos64));
+  AssertFileOffsetAt(fp, 8192 + 8192);
+  // ...as does our fpos_t from 8192.
+  ASSERT_EQ(0, fsetpos(fp, &eight_k_pos));
+  AssertFileOffsetAt(fp, 8192);
+
+  // Do fseeko and fseeko64 work too?
+  ASSERT_EQ(0, fseeko(fp, 1234, SEEK_SET));
+  AssertFileOffsetAt(fp, 1234);
+  ASSERT_EQ(0, fseeko64(fp, 5678, SEEK_SET));
+  AssertFileOffsetAt(fp, 5678);
+
+  fclose(fp);
+}
+
+TEST(STDIO_TEST, fseek_fseeko_EINVAL) {
+  TemporaryFile tf;
+  FILE* fp = fdopen(tf.fd, "w+");
+
+  // Bad whence.
+  errno = 0;
+  ASSERT_EQ(-1, fseek(fp, 0, 123));
+  ASSERT_EQ(EINVAL, errno);
+  errno = 0;
+  ASSERT_EQ(-1, fseeko(fp, 0, 123));
+  ASSERT_EQ(EINVAL, errno);
+  errno = 0;
+  ASSERT_EQ(-1, fseeko64(fp, 0, 123));
+  ASSERT_EQ(EINVAL, errno);
+
+  // Bad offset.
+  errno = 0;
+  ASSERT_EQ(-1, fseek(fp, -1, SEEK_SET));
+  ASSERT_EQ(EINVAL, errno);
+  errno = 0;
+  ASSERT_EQ(-1, fseeko(fp, -1, SEEK_SET));
+  ASSERT_EQ(EINVAL, errno);
+  errno = 0;
+  ASSERT_EQ(-1, fseeko64(fp, -1, SEEK_SET));
+  ASSERT_EQ(EINVAL, errno);
 
   fclose(fp);
 }

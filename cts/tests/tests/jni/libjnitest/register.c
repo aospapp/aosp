@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-#include <cutils/log.h>
+#include <android/log.h>
 #include <jni.h>
 #include <stdlib.h>
+
+#define LOG_TAG "Cts-JniTest"
 
 /*
  * This function is called automatically by the system when this
@@ -32,25 +34,25 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved) {
 
     extern int register_InstanceNonce(JNIEnv *);
     if (register_InstanceNonce(env)) {
-        ALOGE("failed to register InstanceNonce");
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "failed to register InstanceNonce");
         return JNI_ERR;
     }
 
     extern int register_StaticNonce(JNIEnv *);
     if (register_StaticNonce(env)) {
-        ALOGE("failed to register StaticNonce");
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "failed to register StaticNonce");
         return JNI_ERR;
     }
 
     extern int register_JniCTest(JNIEnv *);
     if (register_JniCTest(env)) {
-        ALOGE("failed to register JniCTest");
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "failed to register JniCTest");
         return JNI_ERR;
     }
 
     extern int register_JniCppTest(JNIEnv *);
     if (register_JniCppTest(env)) {
-        ALOGE("failed to register JniCppTest");
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "failed to register JniCppTest");
         return JNI_ERR;
     }
 

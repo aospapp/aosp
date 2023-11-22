@@ -16,11 +16,6 @@
 
 package com.android.contacts.common;
 
-import static android.content.ContentProviderOperation.TYPE_ASSERT;
-import static android.content.ContentProviderOperation.TYPE_DELETE;
-import static android.content.ContentProviderOperation.TYPE_INSERT;
-import static android.content.ContentProviderOperation.TYPE_UPDATE;
-
 import android.content.ContentProviderOperation;
 import android.content.ContentValues;
 import android.content.Context;
@@ -35,6 +30,8 @@ import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.LargeTest;
 
 import com.android.contacts.common.RawContactModifierTests.MockContactsSource;
+import com.android.contacts.common.compat.CompatUtils;
+import com.android.contacts.common.model.CPOWrapper;
 import com.android.contacts.common.model.RawContact;
 import com.android.contacts.common.model.RawContactDelta;
 import com.android.contacts.common.model.ValuesDelta;
@@ -55,6 +52,12 @@ import java.util.Collections;
 @LargeTest
 public class RawContactDeltaListTests extends AndroidTestCase {
     public static final String TAG = RawContactDeltaListTests.class.getSimpleName();
+
+    // From android.content.ContentProviderOperation
+    public static final int TYPE_INSERT = 1;
+    public static final int TYPE_UPDATE = 2;
+    public static final int TYPE_DELETE = 3;
+    public static final int TYPE_ASSERT = 4;
 
     private static final long CONTACT_FIRST = 1;
     private static final long CONTACT_SECOND = 2;
@@ -175,35 +178,35 @@ public class RawContactDeltaListTests extends AndroidTestCase {
         return match.getEntry(dataId);
     }
 
-    static void assertDiffPattern(RawContactDelta delta, ContentProviderOperation... pattern) {
-        final ArrayList<ContentProviderOperation> diff = Lists.newArrayList();
-        delta.buildAssert(diff);
-        delta.buildDiff(diff);
+    static void assertDiffPattern(RawContactDelta delta, CPOWrapper... pattern) {
+        final ArrayList<CPOWrapper> diff = Lists.newArrayList();
+        delta.buildAssertWrapper(diff);
+        delta.buildDiffWrapper(diff);
         assertDiffPattern(diff, pattern);
     }
 
-    static void assertDiffPattern(RawContactDeltaList set, ContentProviderOperation... pattern) {
-        assertDiffPattern(set.buildDiff(), pattern);
+    static void assertDiffPattern(RawContactDeltaList set, CPOWrapper... pattern) {
+        assertDiffPattern(set.buildDiffWrapper(), pattern);
     }
 
-    static void assertDiffPattern(ArrayList<ContentProviderOperation> diff,
-            ContentProviderOperation... pattern) {
+    static void assertDiffPattern(ArrayList<CPOWrapper> diff, CPOWrapper... pattern) {
         assertEquals("Unexpected operations", pattern.length, diff.size());
         for (int i = 0; i < pattern.length; i++) {
-            final ContentProviderOperation expected = pattern[i];
-            final ContentProviderOperation found = diff.get(i);
+            final CPOWrapper expected = pattern[i];
+            final CPOWrapper found = diff.get(i);
 
-            assertEquals("Unexpected uri", expected.getUri(), found.getUri());
+            assertEquals("Unexpected uri",
+                    expected.getOperation().getUri(), found.getOperation().getUri());
 
-            final String expectedType = getStringForType(expected.getType());
-            final String foundType = getStringForType(found.getType());
+            final String expectedType = getTypeString(expected);
+            final String foundType = getTypeString(found);
             assertEquals("Unexpected type", expectedType, foundType);
 
-            if (expected.getType() == TYPE_DELETE) continue;
+            if (CompatUtils.isDeleteCompat(expected)) continue;
 
             try {
-                final ContentValues expectedValues = getValues(expected);
-                final ContentValues foundValues = getValues(found);
+                final ContentValues expectedValues = getValues(expected.getOperation());
+                final ContentValues foundValues = getValues(found.getOperation());
 
                 expectedValues.remove(BaseColumns._ID);
                 foundValues.remove(BaseColumns._ID);
@@ -217,41 +220,44 @@ public class RawContactDeltaListTests extends AndroidTestCase {
         }
     }
 
-    static String getStringForType(int type) {
-        switch (type) {
-            case TYPE_ASSERT: return "TYPE_ASSERT";
-            case TYPE_INSERT: return "TYPE_INSERT";
-            case TYPE_UPDATE: return "TYPE_UPDATE";
-            case TYPE_DELETE: return "TYPE_DELETE";
-            default: return Integer.toString(type);
+    static String getTypeString(CPOWrapper cpoWrapper) {
+        if (CompatUtils.isAssertQueryCompat(cpoWrapper)) {
+            return "TYPE_ASSERT";
+        } else if (CompatUtils.isInsertCompat(cpoWrapper)) {
+            return "TYPE_INSERT";
+        } else if (CompatUtils.isUpdateCompat(cpoWrapper)) {
+            return "TYPE_UPDATE";
+        } else if (CompatUtils.isDeleteCompat(cpoWrapper)) {
+            return "TYPE_DELETE";
         }
+        return "TYPE_UNKNOWN";
     }
 
-    static ContentProviderOperation buildAssertVersion(long version) {
+    static CPOWrapper buildAssertVersion(long version) {
         final ContentValues values = new ContentValues();
         values.put(RawContacts.VERSION, version);
-        return buildOper(RawContacts.CONTENT_URI, TYPE_ASSERT, values);
+        return buildCPOWrapper(RawContacts.CONTENT_URI, TYPE_ASSERT, values);
     }
 
-    static ContentProviderOperation buildAggregationModeUpdate(int mode) {
+    static CPOWrapper buildAggregationModeUpdate(int mode) {
         final ContentValues values = new ContentValues();
         values.put(RawContacts.AGGREGATION_MODE, mode);
-        return buildOper(RawContacts.CONTENT_URI, TYPE_UPDATE, values);
+        return buildCPOWrapper(RawContacts.CONTENT_URI, TYPE_UPDATE, values);
     }
 
-    static ContentProviderOperation buildUpdateAggregationSuspended() {
+    static CPOWrapper buildUpdateAggregationSuspended() {
         return buildAggregationModeUpdate(RawContacts.AGGREGATION_MODE_SUSPENDED);
     }
 
-    static ContentProviderOperation buildUpdateAggregationDefault() {
+    static CPOWrapper buildUpdateAggregationDefault() {
         return buildAggregationModeUpdate(RawContacts.AGGREGATION_MODE_DEFAULT);
     }
 
-    static ContentProviderOperation buildUpdateAggregationKeepTogether(long rawContactId) {
+    static CPOWrapper buildUpdateAggregationKeepTogether(long rawContactId) {
         final ContentValues values = new ContentValues();
         values.put(AggregationExceptions.RAW_CONTACT_ID1, rawContactId);
         values.put(AggregationExceptions.TYPE, AggregationExceptions.TYPE_KEEP_TOGETHER);
-        return buildOper(AggregationExceptions.CONTENT_URI, TYPE_UPDATE, values);
+        return buildCPOWrapper(AggregationExceptions.CONTENT_URI, TYPE_UPDATE, values);
     }
 
     static ContentValues buildDataInsert(ValuesDelta values, long rawContactId) {
@@ -260,8 +266,8 @@ public class RawContactDeltaListTests extends AndroidTestCase {
         return insertValues;
     }
 
-    static ContentProviderOperation buildDelete(Uri uri) {
-        return buildOper(uri, TYPE_DELETE, (ContentValues)null);
+    static CPOWrapper buildDelete(Uri uri) {
+        return buildCPOWrapper(uri, TYPE_DELETE, (ContentValues) null);
     }
 
     static ContentProviderOperation buildOper(Uri uri, int type, ValuesDelta values) {
@@ -282,19 +288,28 @@ public class RawContactDeltaListTests extends AndroidTestCase {
         return null;
     }
 
+    static CPOWrapper buildCPOWrapper(Uri uri, int type, ContentValues values) {
+        if (type == TYPE_ASSERT || type == TYPE_INSERT || type == TYPE_UPDATE
+                || type == TYPE_DELETE) {
+            return new CPOWrapper(buildOper(uri, type, values), type);
+        }
+        return null;
+    }
+
     static Long getVersion(RawContactDeltaList set, Long rawContactId) {
         return set.getByRawContactId(rawContactId).getValues().getAsLong(RawContacts.VERSION);
     }
 
     /**
      * Count number of {@link AggregationExceptions} updates contained in the
-     * given list of {@link ContentProviderOperation}.
+     * given list of {@link CPOWrapper}.
      */
-    static int countExceptionUpdates(ArrayList<ContentProviderOperation> diff) {
+    static int countExceptionUpdates(ArrayList<CPOWrapper> diff) {
         int updateCount = 0;
-        for (ContentProviderOperation oper : diff) {
+        for (CPOWrapper cpoWrapper : diff) {
+            final ContentProviderOperation oper = cpoWrapper.getOperation();
             if (AggregationExceptions.CONTENT_URI.equals(oper.getUri())
-                    && oper.getType() == ContentProviderOperation.TYPE_UPDATE) {
+                    && CompatUtils.isUpdateCompat(cpoWrapper)) {
                 updateCount++;
             }
         }
@@ -306,7 +321,7 @@ public class RawContactDeltaListTests extends AndroidTestCase {
         final RawContactDeltaList set = buildSet(insert);
 
         // Inserting single shouldn't create rules
-        final ArrayList<ContentProviderOperation> diff = set.buildDiff();
+        final ArrayList<CPOWrapper> diff = set.buildDiffWrapper();
         final int exceptionCount = countExceptionUpdates(diff);
         assertEquals("Unexpected exception updates", 0, exceptionCount);
     }
@@ -317,7 +332,7 @@ public class RawContactDeltaListTests extends AndroidTestCase {
         final RawContactDeltaList set = buildSet(updateFirst, updateSecond);
 
         // Updating two existing shouldn't create rules
-        final ArrayList<ContentProviderOperation> diff = set.buildDiff();
+        final ArrayList<CPOWrapper> diff = set.buildDiffWrapper();
         final int exceptionCount = countExceptionUpdates(diff);
         assertEquals("Unexpected exception updates", 0, exceptionCount);
     }
@@ -328,7 +343,7 @@ public class RawContactDeltaListTests extends AndroidTestCase {
         final RawContactDeltaList set = buildSet(update, insert);
 
         // New insert should only create one rule
-        final ArrayList<ContentProviderOperation> diff = set.buildDiff();
+        final ArrayList<CPOWrapper> diff = set.buildDiffWrapper();
         final int exceptionCount = countExceptionUpdates(diff);
         assertEquals("Unexpected exception updates", 1, exceptionCount);
     }
@@ -340,7 +355,7 @@ public class RawContactDeltaListTests extends AndroidTestCase {
         final RawContactDeltaList set = buildSet(insertFirst, update, insertSecond);
 
         // Two inserts should create two rules to bind against single existing
-        final ArrayList<ContentProviderOperation> diff = set.buildDiff();
+        final ArrayList<CPOWrapper> diff = set.buildDiffWrapper();
         final int exceptionCount = countExceptionUpdates(diff);
         assertEquals("Unexpected exception updates", 2, exceptionCount);
     }
@@ -352,7 +367,7 @@ public class RawContactDeltaListTests extends AndroidTestCase {
         final RawContactDeltaList set = buildSet(insertFirst, insertSecond, insertThird);
 
         // Three new inserts should create only two binding rules
-        final ArrayList<ContentProviderOperation> diff = set.buildDiff();
+        final ArrayList<CPOWrapper> diff = set.buildDiffWrapper();
         final int exceptionCount = countExceptionUpdates(diff);
         assertEquals("Unexpected exception updates", 2, exceptionCount);
     }
@@ -381,7 +396,7 @@ public class RawContactDeltaListTests extends AndroidTestCase {
         assertDiffPattern(first,
                 buildAssertVersion(VER_FIRST),
                 buildUpdateAggregationSuspended(),
-                buildOper(Data.CONTENT_URI, TYPE_UPDATE, phone.getAfter()),
+                buildCPOWrapper(Data.CONTENT_URI, TYPE_UPDATE, phone.getAfter()),
                 buildUpdateAggregationDefault());
 
         // Merge in the second version, verify diff matches
@@ -389,7 +404,7 @@ public class RawContactDeltaListTests extends AndroidTestCase {
         assertDiffPattern(merged,
                 buildAssertVersion(VER_SECOND),
                 buildUpdateAggregationSuspended(),
-                buildOper(Data.CONTENT_URI, TYPE_UPDATE, phone.getAfter()),
+                buildCPOWrapper(Data.CONTENT_URI, TYPE_UPDATE, phone.getAfter()),
                 buildUpdateAggregationDefault());
     }
 
@@ -406,7 +421,7 @@ public class RawContactDeltaListTests extends AndroidTestCase {
         assertDiffPattern(first,
                 buildAssertVersion(VER_FIRST),
                 buildUpdateAggregationSuspended(),
-                buildOper(Data.CONTENT_URI, TYPE_UPDATE, phone.getAfter()),
+                buildCPOWrapper(Data.CONTENT_URI, TYPE_UPDATE, phone.getAfter()),
                 buildUpdateAggregationDefault());
 
         // Merge in the second version, verify that our update changed to
@@ -415,7 +430,7 @@ public class RawContactDeltaListTests extends AndroidTestCase {
         assertDiffPattern(merged,
                 buildAssertVersion(VER_SECOND),
                 buildUpdateAggregationSuspended(),
-                buildOper(Data.CONTENT_URI, TYPE_INSERT, buildDataInsert(phone, CONTACT_BOB)),
+                buildCPOWrapper(Data.CONTENT_URI, TYPE_INSERT, buildDataInsert(phone, CONTACT_BOB)),
                 buildUpdateAggregationDefault());
     }
 
@@ -456,7 +471,7 @@ public class RawContactDeltaListTests extends AndroidTestCase {
         assertDiffPattern(first,
                 buildAssertVersion(VER_FIRST),
                 buildUpdateAggregationSuspended(),
-                buildOper(Data.CONTENT_URI, TYPE_INSERT, buildDataInsert(bluePhone, CONTACT_BOB)),
+                buildCPOWrapper(Data.CONTENT_URI, TYPE_INSERT, buildDataInsert(bluePhone, CONTACT_BOB)),
                 buildUpdateAggregationDefault());
 
         // Merge in the second version, verify that our insert remains
@@ -464,7 +479,7 @@ public class RawContactDeltaListTests extends AndroidTestCase {
         assertDiffPattern(merged,
                 buildAssertVersion(VER_SECOND),
                 buildUpdateAggregationSuspended(),
-                buildOper(Data.CONTENT_URI, TYPE_INSERT, buildDataInsert(bluePhone, CONTACT_BOB)),
+                buildCPOWrapper(Data.CONTENT_URI, TYPE_INSERT, buildDataInsert(bluePhone, CONTACT_BOB)),
                 buildUpdateAggregationDefault());
     }
 
@@ -483,8 +498,8 @@ public class RawContactDeltaListTests extends AndroidTestCase {
         first.add(joeContact);
         assertDiffPattern(first,
                 buildAssertVersion(VER_FIRST),
-                buildOper(RawContacts.CONTENT_URI, TYPE_INSERT, joeContactInsert),
-                buildOper(Data.CONTENT_URI, TYPE_INSERT, joePhoneInsert),
+                buildCPOWrapper(RawContacts.CONTENT_URI, TYPE_INSERT, joeContactInsert),
+                buildCPOWrapper(Data.CONTENT_URI, TYPE_INSERT, joePhoneInsert),
                 buildAggregationModeUpdate(RawContacts.AGGREGATION_MODE_DEFAULT),
                 buildUpdateAggregationKeepTogether(CONTACT_BOB));
 
@@ -493,8 +508,8 @@ public class RawContactDeltaListTests extends AndroidTestCase {
         assertDiffPattern(merged,
                 buildAssertVersion(VER_SECOND),
                 buildAssertVersion(VER_SECOND),
-                buildOper(RawContacts.CONTENT_URI, TYPE_INSERT, joeContactInsert),
-                buildOper(Data.CONTENT_URI, TYPE_INSERT, joePhoneInsert),
+                buildCPOWrapper(RawContacts.CONTENT_URI, TYPE_INSERT, joeContactInsert),
+                buildCPOWrapper(Data.CONTENT_URI, TYPE_INSERT, joePhoneInsert),
                 buildAggregationModeUpdate(RawContacts.AGGREGATION_MODE_DEFAULT),
                 buildUpdateAggregationKeepTogether(CONTACT_BOB));
     }
@@ -532,7 +547,7 @@ public class RawContactDeltaListTests extends AndroidTestCase {
                 buildAssertVersion(VER_FIRST),
                 buildAssertVersion(VER_FIRST),
                 buildUpdateAggregationSuspended(),
-                buildOper(Data.CONTENT_URI, TYPE_UPDATE, phone.getAfter()),
+                buildCPOWrapper(Data.CONTENT_URI, TYPE_UPDATE, phone.getAfter()),
                 buildUpdateAggregationDefault());
 
         final ContentValues phoneInsert = phone.getCompleteValues();
@@ -544,8 +559,8 @@ public class RawContactDeltaListTests extends AndroidTestCase {
         final RawContactDeltaList merged = RawContactDeltaList.mergeAfter(second, first);
         assertDiffPattern(merged,
                 buildAssertVersion(VER_SECOND),
-                buildOper(RawContacts.CONTENT_URI, TYPE_INSERT, contactInsert),
-                buildOper(Data.CONTENT_URI, TYPE_INSERT, phoneInsert),
+                buildCPOWrapper(RawContacts.CONTENT_URI, TYPE_INSERT, contactInsert),
+                buildCPOWrapper(Data.CONTENT_URI, TYPE_INSERT, phoneInsert),
                 buildAggregationModeUpdate(RawContacts.AGGREGATION_MODE_DEFAULT),
                 buildUpdateAggregationKeepTogether(CONTACT_BOB));
     }
@@ -579,7 +594,7 @@ public class RawContactDeltaListTests extends AndroidTestCase {
         assertDiffPattern(first,
                 buildAssertVersion(VER_FIRST),
                 buildUpdateAggregationSuspended(),
-                buildOper(Data.CONTENT_URI, TYPE_INSERT, buildDataInsert(bobPhone, CONTACT_BOB)),
+                buildCPOWrapper(Data.CONTENT_URI, TYPE_INSERT, buildDataInsert(bobPhone, CONTACT_BOB)),
                 buildUpdateAggregationDefault());
 
         // Trim values and ensure that we don't insert things

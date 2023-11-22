@@ -5,7 +5,7 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 ; CHECK: @.memset_pattern = private unnamed_addr constant [4 x i32] [i32 1, i32 1, i32 1, i32 1]
 
 ; For @test13_pattern
-; CHECK: @.memset_pattern1 = private unnamed_addr constant [2 x i32*] [i32* @G, i32* @G]
+; CHECK: @.memset_pattern.1 = private unnamed_addr constant [2 x i32*] [i32* @G, i32* @G]
 
 target triple = "x86_64-apple-darwin10.0.0"
 
@@ -69,7 +69,7 @@ for.end:                                          ; preds = %for.body, %entry
   ret void
 ; CHECK-LABEL: @test2(
 ; CHECK: br i1 %cmp10,
-; CHECK: %0 = mul i64 %Size, 4
+; CHECK: %0 = shl i64 %Size, 2
 ; CHECK: call void @llvm.memset.p0i8.i64(i8* %Base1, i8 1, i64 %0, i32 4, i1 false)
 ; CHECK-NOT: store
 }
@@ -423,4 +423,111 @@ while.body:
 exit:
   ret void
 ; CHECK: ret void
+}
+
+; Recognize loops with a negative stride.
+define void @test15(i32* nocapture %f) {
+entry:
+  br label %for.body
+
+for.body:
+  %indvars.iv = phi i64 [ 65536, %entry ], [ %indvars.iv.next, %for.body ]
+  %arrayidx = getelementptr inbounds i32, i32* %f, i64 %indvars.iv
+  store i32 0, i32* %arrayidx, align 4
+  %indvars.iv.next = add nsw i64 %indvars.iv, -1
+  %cmp = icmp sgt i64 %indvars.iv, 0
+  br i1 %cmp, label %for.body, label %for.cond.cleanup
+
+for.cond.cleanup:
+  ret void
+; CHECK-LABEL: @test15(
+; CHECK: call void @llvm.memset.p0i8.i64(i8* %f1, i8 0, i64 262148, i32 4, i1 false)
+; CHECK-NOT: store
+; CHECK: ret void
+}
+
+; Loop with a negative stride.  Verify an aliasing write to f[65536] prevents
+; the creation of a memset.
+define void @test16(i32* nocapture %f) {
+entry:
+  %arrayidx1 = getelementptr inbounds i32, i32* %f, i64 65536
+  br label %for.body
+
+for.body:                                         ; preds = %entry, %for.body
+  %indvars.iv = phi i64 [ 65536, %entry ], [ %indvars.iv.next, %for.body ]
+  %arrayidx = getelementptr inbounds i32, i32* %f, i64 %indvars.iv
+  store i32 0, i32* %arrayidx, align 4
+  store i32 1, i32* %arrayidx1, align 4
+  %indvars.iv.next = add nsw i64 %indvars.iv, -1
+  %cmp = icmp sgt i64 %indvars.iv, 0
+  br i1 %cmp, label %for.body, label %for.cond.cleanup
+
+for.cond.cleanup:                                 ; preds = %for.body
+  ret void
+; CHECK-LABEL: @test16(
+; CHECK-NOT: call void @llvm.memset.p0i8.i64
+; CHECK: ret void
+}
+
+; Handle memcpy-able loops with negative stride.
+define noalias i32* @test17(i32* nocapture readonly %a, i32 %c) {
+entry:
+  %conv = sext i32 %c to i64
+  %mul = shl nsw i64 %conv, 2
+  %call = tail call noalias i8* @malloc(i64 %mul)
+  %0 = bitcast i8* %call to i32*
+  %tobool.9 = icmp eq i32 %c, 0
+  br i1 %tobool.9, label %while.end, label %while.body.preheader
+
+while.body.preheader:                             ; preds = %entry
+  br label %while.body
+
+while.body:                                       ; preds = %while.body.preheader, %while.body
+  %dec10.in = phi i32 [ %dec10, %while.body ], [ %c, %while.body.preheader ]
+  %dec10 = add nsw i32 %dec10.in, -1
+  %idxprom = sext i32 %dec10 to i64
+  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %idxprom
+  %1 = load i32, i32* %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds i32, i32* %0, i64 %idxprom
+  store i32 %1, i32* %arrayidx2, align 4
+  %tobool = icmp eq i32 %dec10, 0
+  br i1 %tobool, label %while.end.loopexit, label %while.body
+
+while.end.loopexit:                               ; preds = %while.body
+  br label %while.end
+
+while.end:                                        ; preds = %while.end.loopexit, %entry
+  ret i32* %0
+; CHECK-LABEL: @test17(
+; CHECK: call void @llvm.memcpy
+; CHECK: ret i32*
+}
+
+declare noalias i8* @malloc(i64)
+
+; Handle memcpy-able loops with negative stride.
+; void test18(unsigned *__restrict__ a, unsigned *__restrict__ b) {
+;   for (int i = 2047; i >= 0; --i) {
+;     a[i] = b[i];
+;   }
+; }
+define void @test18(i32* noalias nocapture %a, i32* noalias nocapture readonly %b) #0 {
+entry:
+  br label %for.body
+
+for.body:                                         ; preds = %entry, %for.body
+  %indvars.iv = phi i64 [ 2047, %entry ], [ %indvars.iv.next, %for.body ]
+  %arrayidx = getelementptr inbounds i32, i32* %b, i64 %indvars.iv
+  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
+  store i32 %0, i32* %arrayidx2, align 4
+  %indvars.iv.next = add nsw i64 %indvars.iv, -1
+  %cmp = icmp sgt i64 %indvars.iv, 0
+  br i1 %cmp, label %for.body, label %for.cond.cleanup
+
+for.cond.cleanup:                                 ; preds = %for.body
+  ret void
+; CHECK-LABEL: @test18(
+; CHECK: call void @llvm.memcpy
+; CHECK: ret
 }

@@ -44,4 +44,12 @@
     <bool name="config_hasPermanentDpad">true</bool>
 
     <bool name="config_defaultInTouchMode">false</bool>
+
+    <!-- Launcher customization requires AppWidgetService, but otherwise
+         home screen widgets are not supported on TV -->
+    <bool name="config_enableAppWidgetService">true</bool>
+
+    <!-- Package of the unbundled tv remote service which can connect to tv remote provider -->
+    <string translatable="false" name="config_tvRemoteServicePackage">com.google.android.tv.remote.service</string>
+
 </resources>

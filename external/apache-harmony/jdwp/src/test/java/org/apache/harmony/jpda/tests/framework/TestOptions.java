@@ -60,7 +60,7 @@ import java.util.HashMap;
  * <li><code>jpda.settings.connectorKind</code>
  *   - type of JDWP connection (attach or listen)
  * <li><code>jpda.settings.syncPort</code>
- *   - port number for sync connection
+ *   - port number for sync connection (chosen by the OS if not set or set to 0)
  * <li><code>jpda.settings.timeout</code>
  *   - timeout used in JPDA tests
  * <li><code>jpda.settings.waitingTime</code>
@@ -104,7 +104,7 @@ public class TestOptions {
     private long timeout = -1;
 
     // internally set property values
-    private HashMap internalProperties = new HashMap();
+    private HashMap<String, String> internalProperties = new HashMap<>();
 
     /**
      * Constructs an instance of this class.
@@ -372,8 +372,8 @@ public class TestOptions {
 
     /**
      * Returns TCP/IP port for synchronization channel.
-     * 
-     * @return string with port number or null
+     *
+     * @return port number if it is set, or DEFAULT_SYNC_PORT otherwise.
      */
     public int getSyncPortNumber() {
         String buf = getSyncPortString();

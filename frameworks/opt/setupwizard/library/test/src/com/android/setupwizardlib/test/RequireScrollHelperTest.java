@@ -34,7 +34,7 @@ public class RequireScrollHelperTest extends AndroidTestCase {
     protected void setUp() throws Exception {
         super.setUp();
         mScrollView = new TestBottomScrollView(getContext());
-        mNavigationBar = new NavigationBar(getContext());
+        mNavigationBar = new TestNavigationBar(getContext());
     }
 
     @SmallTest
@@ -99,6 +99,19 @@ public class RequireScrollHelperTest extends AndroidTestCase {
                 page--;
             }
             return super.pageScroll(direction);
+        }
+    }
+
+    private static class TestNavigationBar extends NavigationBar {
+
+        public TestNavigationBar(Context context) {
+            super(context);
+        }
+
+        @Override
+        public boolean post(Runnable action) {
+            action.run();
+            return true;
         }
     }
 }

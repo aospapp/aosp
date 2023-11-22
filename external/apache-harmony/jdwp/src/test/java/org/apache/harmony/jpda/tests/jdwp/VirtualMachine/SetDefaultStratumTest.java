@@ -59,9 +59,7 @@ public class SetDefaultStratumTest extends JDWPSyncTestCase {
 
         //check capability, relevant for this test
         logWriter.println("=> Check capability: canSetDefaultStratum");
-        debuggeeWrapper.vmMirror.capabilities();
-        boolean isCapability = debuggeeWrapper.vmMirror.targetVMCapabilities.canSetDefaultStratum;
-        if (!isCapability) {
+        if (!debuggeeWrapper.vmMirror.canSetDefaultStratum()) {
             logWriter.println("##WARNING: this VM dosn't possess capability: canSetDefaultStratum");
             return;
         }

@@ -62,7 +62,8 @@ public class DnsTest extends AndroidTestCase {
         try {
             addrs = InetAddress.getAllByName("www.google.com");
         } catch (UnknownHostException e) {}
-        assertTrue(addrs.length != 0);
+        assertTrue("[RERUN] DNS could not resolve www.google.com. Check internet connection",
+                addrs.length != 0);
         boolean foundV4 = false, foundV6 = false;
         for (InetAddress addr : addrs) {
             if (addr instanceof Inet4Address) foundV4 = true;
@@ -70,11 +71,8 @@ public class DnsTest extends AndroidTestCase {
             if (DBG) Log.e(TAG, "www.google.com gave " + addr.toString());
         }
 
-        // assertTrue(foundV4);
-        // assertTrue(foundV6);
-
         // We should have at least one of the addresses to connect!
-        assertTrue(foundV4 || foundV6);
+        assertTrue("www.google.com must have IPv4 and/or IPv6 address", foundV4 || foundV6);
 
         // Skip the rest of the test if the active network for watch is PROXY.
         // TODO: Check NetworkInfo type in addition to type name once ag/601257 is merged.
@@ -84,20 +82,22 @@ public class DnsTest extends AndroidTestCase {
             return;
         }
 
+        // Clear test state so we don't get confused with the previous results.
+        addrs = new InetAddress[0];
+        foundV4 = foundV6 = false;
         try {
             addrs = InetAddress.getAllByName("ipv6.google.com");
         } catch (UnknownHostException e) {}
-        assertTrue(addrs.length != 0);
-        foundV4 = false;
-        foundV6 = false;
+        assertTrue("[RERUN] DNS could not resolve ipv6.google.com, check the network supports IPv6",
+                addrs.length != 0);
         for (InetAddress addr : addrs) {
-            if (addr instanceof Inet4Address) foundV4 = true;
-            else if (addr instanceof Inet6Address) foundV6 = true;
+            assertFalse ("[RERUN] ipv6.google.com returned IPv4 address: " + addr.getHostAddress() +
+                    ", check your network's DNS server", addr instanceof Inet4Address);
+            foundV6 |= (addr instanceof Inet6Address);
             if (DBG) Log.e(TAG, "ipv6.google.com gave " + addr.toString());
         }
 
-        assertTrue(foundV4 == false);
-        assertTrue(foundV6 == true);
+        assertTrue(foundV6);
 
         assertTrue(testNativeDns());
     }

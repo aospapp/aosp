@@ -53,22 +53,28 @@ def test_edge_mode(cam, edge_mode, sensitivity, exp, fd, out_surface,
     """
 
     NAME = os.path.basename(__file__).split(".")[0]
+    NUM_SAMPLES = 4
 
     req = its.objects.manual_capture_request(sensitivity, exp)
     req["android.lens.focusDistance"] = fd
     req["android.edge.mode"] = edge_mode
     if (reprocess_format != None):
         req["android.reprocess.effectiveExposureFactor"] = 1.0
-    cap = cam.do_capture(req, out_surface, reprocess_format)
 
-    img = its.image.decompress_jpeg_to_rgb_image(cap["data"])
-    its.image.write_image(img, "%s_edge=%d_reprocess_fmt_%s.jpg" %
-        (NAME, edge_mode, reprocess_format))
-    tile = its.image.get_image_patch(img, 0.45, 0.45, 0.1, 0.1)
+    sharpness_list = []
+    for n in range(NUM_SAMPLES):
+        cap = cam.do_capture(req, out_surface, reprocess_format)
+        img = its.image.convert_capture_to_rgb_image(cap)
+        if n == 0:
+            its.image.write_image(img, "%s_reprocess_fmt_%s_edge=%d.jpg" %
+                (NAME, reprocess_format, edge_mode))
+            res_edge_mode = cap["metadata"]["android.edge.mode"]
+        tile = its.image.get_image_patch(img, 0.45, 0.45, 0.1, 0.1)
+        sharpness_list.append(its.image.compute_image_sharpness(tile))
 
     ret = {}
-    ret["edge_mode"] = cap["metadata"]["android.edge.mode"]
-    ret["sharpness"] = its.image.compute_image_sharpness(tile)
+    ret["edge_mode"] = res_edge_mode
+    ret["sharpness"] = numpy.mean(sharpness_list)
 
     return ret
 

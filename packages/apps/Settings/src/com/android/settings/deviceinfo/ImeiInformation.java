@@ -15,23 +15,22 @@
  */
 package com.android.settings.deviceinfo;
 
-import com.android.internal.logging.MetricsLogger;
-import com.android.internal.telephony.Phone;
-import com.android.internal.telephony.PhoneConstants;
-import com.android.internal.telephony.PhoneFactory;
-
 import android.content.Context;
 import android.os.Bundle;
-import android.preference.Preference;
-import android.preference.PreferenceActivity;
-import android.preference.PreferenceScreen;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.PreferenceScreen;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
-import com.android.settings.InstrumentedPreferenceActivity;
-import com.android.settings.R;
 
-public class ImeiInformation extends InstrumentedPreferenceActivity {
+import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.telephony.Phone;
+import com.android.internal.telephony.PhoneConstants;
+import com.android.internal.telephony.PhoneFactory;
+import com.android.settings.R;
+import com.android.settings.SettingsPreferenceFragment;
+
+public class ImeiInformation extends SettingsPreferenceFragment {
 
     private static final String KEY_PRL_VERSION = "prl_version";
     private static final String KEY_MIN_NUMBER = "min_number";
@@ -44,9 +43,9 @@ public class ImeiInformation extends InstrumentedPreferenceActivity {
     private boolean isMultiSIM = false;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        mSubscriptionManager = SubscriptionManager.from(this);
+        mSubscriptionManager = SubscriptionManager.from(getContext());
         final TelephonyManager telephonyManager =
             (TelephonyManager)getSystemService(Context.TELEPHONY_SERVICE);
         initPreferenceScreen(telephonyManager.getSimCount());
@@ -153,6 +152,6 @@ public class ImeiInformation extends InstrumentedPreferenceActivity {
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.DEVICEINFO_IMEI_INFORMATION;
+        return MetricsEvent.DEVICEINFO_IMEI_INFORMATION;
     }
 }

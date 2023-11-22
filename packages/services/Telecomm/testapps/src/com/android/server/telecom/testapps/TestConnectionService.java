@@ -36,6 +36,7 @@ import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.android.server.telecom.testapps.R;
 
@@ -50,10 +51,9 @@ import java.util.Random;
  */
 public class TestConnectionService extends ConnectionService {
     /**
-     * Intent extra used to pass along whether a call is video or audio based on the user's choice
-     * in the notification.
+     * Intent extra used to pass along the video state for a new test call.
      */
-    public static final String EXTRA_IS_VIDEO_CALL = "extra_is_video_call";
+    public static final String EXTRA_START_VIDEO_STATE = "extra_start_video_state";
 
     public static final String EXTRA_HANDLE = "extra_handle";
 
@@ -299,6 +299,13 @@ public class TestConnectionService extends ConnectionService {
         String gatewayPackage = extras.getString(TelecomManager.GATEWAY_PROVIDER_PACKAGE);
         Uri originalHandle = extras.getParcelable(TelecomManager.GATEWAY_ORIGINAL_ADDRESS);
 
+        if (extras.containsKey(TelecomManager.EXTRA_CALL_SUBJECT)) {
+            String callSubject = extras.getString(TelecomManager.EXTRA_CALL_SUBJECT);
+            log("Got subject: " + callSubject);
+            Toast.makeText(getApplicationContext(), "Got subject :" + callSubject,
+                    Toast.LENGTH_SHORT).show();
+        }
+
         log("gateway package [" + gatewayPackage + "], original handle [" +
                 originalHandle + "]");
 
@@ -342,18 +349,33 @@ public class TestConnectionService extends ConnectionService {
             final TestConnection connection = new TestConnection(true);
             // Get the stashed intent extra that determines if this is a video call or audio call.
             Bundle extras = request.getExtras();
-            boolean isVideoCall = extras.getBoolean(EXTRA_IS_VIDEO_CALL);
+            int videoState = extras.getInt(EXTRA_START_VIDEO_STATE, VideoProfile.STATE_AUDIO_ONLY);
             Uri providedHandle = extras.getParcelable(EXTRA_HANDLE);
 
             // Use dummy number for testing incoming calls.
             Uri address = providedHandle == null ?
-                    Uri.fromParts(PhoneAccount.SCHEME_TEL, getDummyNumber(isVideoCall), null)
+                    Uri.fromParts(PhoneAccount.SCHEME_TEL, getDummyNumber(
+                            VideoProfile.isVideo(videoState)), null)
                     : providedHandle;
-
-            int videoState = isVideoCall ?
-                    VideoProfile.STATE_BIDIRECTIONAL :
-                    VideoProfile.STATE_AUDIO_ONLY;
             connection.setVideoState(videoState);
+
+            Bundle connectionExtras = connection.getExtras();
+            if (connectionExtras == null) {
+                connectionExtras = new Bundle();
+            }
+
+            // Randomly choose a varying length call subject.
+            int subjectFormat = mRandom.nextInt(3);
+            if (subjectFormat == 0) {
+                connectionExtras.putString(Connection.EXTRA_CALL_SUBJECT,
+                        "This is a test of call subject lines. Subjects for a call can be long " +
+                                " and can go even longer.");
+            } else if (subjectFormat == 1) {
+                connectionExtras.putString(Connection.EXTRA_CALL_SUBJECT,
+                        "This is a test of call subject lines.");
+            }
+            connection.putExtras(connectionExtras);
+
             setAddress(connection, address);
 
             addVideoProvider(connection);

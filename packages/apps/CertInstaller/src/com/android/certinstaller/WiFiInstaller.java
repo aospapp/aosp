@@ -59,16 +59,6 @@ public class WiFiInstaller extends Activity {
             doNotInstall = (enterpriseConfig.getEapMethod() == WifiEnterpriseConfig.Eap.TTLS
                     || enterpriseConfig.getEapMethod() == WifiEnterpriseConfig.Eap.TLS)
                     && enterpriseConfig.getCaCertificate() == null;
-            if (!doNotInstall && (enterpriseConfig.getClientCertificate() != null
-                    || enterpriseConfig.getCaCertificate() != null)) {
-                if (!KeyStore.getInstance().isUnlocked()) {
-                    try {
-                        startActivity(new Intent(Credentials.UNLOCK_ACTION));
-                    } catch (ActivityNotFoundException e) {
-                        Log.w(TAG, e);
-                    }
-                }
-            }
         } else {
             Log.w(TAG, "failed to build wifi configuration");
             doNotInstall = true;

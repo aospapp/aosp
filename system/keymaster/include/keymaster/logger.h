@@ -59,23 +59,8 @@ class Logger {
 #define STRINGIFY(x) STR(x)
 #define FILE_LINE __FILE__ ", Line " STRINGIFY(__LINE__) ": "
 
-#ifdef DEBUG
-#define DEBUG_LOGS 1
-#else
-#define DEBUG_LOGS 0
-#endif
-
-#define LOG_D(fmt, ...)                                                                            \
-    do {                                                                                           \
-        if (DEBUG_LOGS)                                                                            \
-            Logger::Debug(FILE_LINE fmt, __VA_ARGS__);                                             \
-    } while (0)
-#define LOG_I(fmt, ...)                                                                            \
-    do {                                                                                           \
-        if (DEBUG_LOGS)                                                                            \
-            Logger::Info(FILE_LINE fmt, __VA_ARGS__);                                              \
-    } while (0)
-
+#define LOG_D(fmt, ...) Logger::Debug(FILE_LINE fmt, __VA_ARGS__)
+#define LOG_I(fmt, ...) Logger::Info(FILE_LINE fmt, __VA_ARGS__)
 #define LOG_W(fmt, ...) Logger::Warning(FILE_LINE fmt, __VA_ARGS__)
 #define LOG_E(fmt, ...) Logger::Error(FILE_LINE fmt, __VA_ARGS__)
 #define LOG_S(fmt, ...) Logger::Severe(FILE_LINE fmt, __VA_ARGS__)

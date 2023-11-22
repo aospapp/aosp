@@ -16,11 +16,9 @@
 #include "SkShader.h"
 #include "SkUtils.h"
 #include "SkXfermode.h"
-#include "SkComposeShader.h"
 #include "SkColorPriv.h"
 #include "SkColorFilter.h"
 #include "SkTime.h"
-#include "SkTransparentShader.h"
 #include "SkTypeface.h"
 
 static SkShader* make_bitmapfade(const SkBitmap& bm)
@@ -32,14 +30,14 @@ static SkShader* make_bitmapfade(const SkBitmap& bm)
     pts[1].set(0, SkIntToScalar(bm.height()));
     colors[0] = SK_ColorBLACK;
     colors[1] = SkColorSetARGB(0, 0, 0, 0);
-    SkShader* shaderA = SkGradientShader::CreateLinear(pts, colors, NULL, 2, SkShader::kClamp_TileMode);
+    SkShader* shaderA = SkGradientShader::CreateLinear(pts, colors, nullptr, 2, SkShader::kClamp_TileMode);
 
     SkShader* shaderB = SkShader::CreateBitmapShader(bm,
                         SkShader::kClamp_TileMode, SkShader::kClamp_TileMode);
 
     SkXfermode* mode = SkXfermode::Create(SkXfermode::kDstIn_Mode);
 
-    SkShader* shader = new SkComposeShader(shaderB, shaderA, mode);
+    SkShader* shader = SkShader::CreateComposeShader(shaderB, shaderA, mode);
     shaderA->unref();
     shaderB->unref();
     mode->unref();
@@ -62,17 +60,17 @@ public:
         pts[1].set(SkIntToScalar(100), 0);
         colors[0] = SK_ColorRED;
         colors[1] = SK_ColorBLUE;
-        SkShader* shaderA = SkGradientShader::CreateLinear(pts, colors, NULL, 2, SkShader::kClamp_TileMode);
+        SkShader* shaderA = SkGradientShader::CreateLinear(pts, colors, nullptr, 2, SkShader::kClamp_TileMode);
 
         pts[0].set(0, 0);
         pts[1].set(0, SkIntToScalar(100));
         colors[0] = SK_ColorBLACK;
         colors[1] = SkColorSetARGB(0x80, 0, 0, 0);
-        SkShader* shaderB = SkGradientShader::CreateLinear(pts, colors, NULL, 2, SkShader::kClamp_TileMode);
+        SkShader* shaderB = SkGradientShader::CreateLinear(pts, colors, nullptr, 2, SkShader::kClamp_TileMode);
 
         SkXfermode* mode = SkXfermode::Create(SkXfermode::kDstIn_Mode);
 
-        fShader = new SkComposeShader(shaderA, shaderB, mode);
+        fShader = SkShader::CreateComposeShader(shaderA, shaderB, mode);
         shaderA->unref();
         shaderB->unref();
         mode->unref();
@@ -112,18 +110,14 @@ protected:
         h = 80;
         r.set(0, 0, SkIntToScalar(w), SkIntToScalar(h));
 
-        paint.setShader(NULL);
+        paint.setShader(nullptr);
         canvas->drawRect(r, paint);
         paint.setShader(make_bitmapfade(fBitmap))->unref();
         canvas->drawRect(r, paint);
-
-        paint.setShader(new SkTransparentShader)->unref();
-        canvas->drawRect(r, paint);
     }
 
-    virtual SkView::Click* onFindClickHandler(SkScalar x, SkScalar y,
-                                              unsigned modi) override {
-        this->inval(NULL);
+    SkView::Click* onFindClickHandler(SkScalar x, SkScalar y, unsigned modi) override {
+        this->inval(nullptr);
         return this->INHERITED::onFindClickHandler(x, y, modi);
     }
 

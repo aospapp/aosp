@@ -19,6 +19,8 @@ import static com.android.providers.contacts.util.DbQueryUtils.checkForSupported
 import static com.android.providers.contacts.util.DbQueryUtils.concatenateClauses;
 import static com.android.providers.contacts.util.DbQueryUtils.getEqualityClause;
 
+import com.google.common.collect.ImmutableSet;
+
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
@@ -34,12 +36,9 @@ import android.provider.OpenableColumns;
 import android.provider.VoicemailContract.Voicemails;
 import android.util.Log;
 
-import com.google.common.collect.ImmutableSet;
-
 import com.android.common.content.ProjectionMap;
 import com.android.providers.contacts.VoicemailContentProvider.UriData;
 import com.android.providers.contacts.util.CloseUtils;
-import com.google.common.collect.ImmutableSet;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -73,17 +72,18 @@ public class VoicemailContentTable implements VoicemailTable.Delegate {
             .add(Voicemails.MIME_TYPE)
             .add(Voicemails.DIRTY)
             .add(Voicemails.DELETED)
+            .add(Voicemails.LAST_MODIFIED)
             .add(OpenableColumns.DISPLAY_NAME)
             .add(OpenableColumns.SIZE)
             .build();
 
     private final String mTableName;
-    private final SQLiteOpenHelper mDbHelper;
+    private final CallLogDatabaseHelper mDbHelper;
     private final Context mContext;
     private final VoicemailTable.DelegateHelper mDelegateHelper;
     private final CallLogInsertionHelper mCallLogInsertionHelper;
 
-    public VoicemailContentTable(String tableName, Context context, SQLiteOpenHelper dbHelper,
+    public VoicemailContentTable(String tableName, Context context, CallLogDatabaseHelper dbHelper,
             VoicemailTable.DelegateHelper contentProviderHelper,
             CallLogInsertionHelper callLogInsertionHelper) {
         mTableName = tableName;
@@ -107,6 +107,7 @@ public class VoicemailContentTable implements VoicemailTable.Delegate {
                 .add(Voicemails.PHONE_ACCOUNT_ID)
                 .add(Voicemails.DIRTY)
                 .add(Voicemails.DELETED)
+                .add(Voicemails.LAST_MODIFIED)
                 .add(OpenableColumns.DISPLAY_NAME, createDisplayName(context))
                 .add(OpenableColumns.SIZE, "NULL")
                 .build();

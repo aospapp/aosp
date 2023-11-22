@@ -59,9 +59,7 @@ public class SourceDebugExtensionTest extends JDWPSyncTestCase {
 
         //check capability, relevant for this test
         logWriter.println("=> Check capability: canGetSourceDebugExtension");
-        debuggeeWrapper.vmMirror.capabilities();
-        boolean isCapability = debuggeeWrapper.vmMirror.targetVMCapabilities.canGetSourceDebugExtension;
-        if (!isCapability) {
+        if (!debuggeeWrapper.vmMirror.canGetSourceDebugExtension()) {
             logWriter.println("##WARNING: this VM doesn't possess capability: canGetSourceDebugExtension");
             return;
         }

@@ -48,15 +48,6 @@ public class ReferringObjectsTest extends JDWPSyncTestCase {
         return "org.apache.harmony.jpda.tests.jdwp.ObjectReference.ReferringObjectsDebuggee";
     }
 
-    // ReferringObjects need canGetInstanceInfo VM capability support
-    private boolean isCapability() {
-        // check capability, relevant for this test
-        logWriter.println("=> Check capability: canGetInstanceInfo");
-        debuggeeWrapper.vmMirror.capabilities();
-        boolean isCapability = debuggeeWrapper.vmMirror.targetVMCapabilities.canGetInstanceInfo;
-        return isCapability;
-    }
-
     /**
      * This testcase exercises ObjectReference.ReferringObjects command.
      * <BR>The test starts ReferringObjectsDebuggee class, requests referree objectID,
@@ -100,12 +91,7 @@ public class ReferringObjectsTest extends JDWPSyncTestCase {
      * command and checks that returned instances are equal to the expected referrer objects.
      */
     public void DoTestReferringObjects() {
-        String thisTestName = "testReferringObjects_Normal";
-
-        if (!isCapability()) {
-            logWriter.println("##WARNING: this VM dosn't possess capability: canGetInstanceInfo");
-            return;
-        }
+        String thisTestName = getName();
 
         logWriter.println("==> " + thisTestName + " for " + thisCommandName + ": START...");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
@@ -197,11 +183,6 @@ public class ReferringObjectsTest extends JDWPSyncTestCase {
      */
     public void testReferringObjects_IllegalArgument() {
         String thisTestName = "testReferringObjects_IllegalArgument";
-
-        if (!isCapability()) {
-            logWriter.println("##WARNING: this VM dosn't possess capability: canGetInstanceInfo");
-            return;
-        }
 
         int maxReferrers = -1;
 

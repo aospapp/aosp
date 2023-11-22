@@ -56,29 +56,55 @@ struct AbsoluteAxisInfo {
  */
 class InputDeviceNode {
 public:
+    /** Get the Linux device path for the node. */
     virtual const std::string& getPath() const = 0;
 
+    /** Get the name of the device returned by the driver. */
     virtual const std::string& getName() const = 0;
+    /** Get the location of the device returned by the driver. */
     virtual const std::string& getLocation() const = 0;
+    /** Get the unique id of the device returned by the driver. */
     virtual const std::string& getUniqueId() const = 0;
 
+    /** Get the bus type of the device returned by the driver. */
     virtual uint16_t getBusType() const = 0;
+    /** Get the vendor id of the device returned by the driver. */
     virtual uint16_t getVendorId() const = 0;
+    /** Get the product id of the device returned by the driver. */
     virtual uint16_t getProductId() const = 0;
+    /** Get the version of the device driver. */
     virtual uint16_t getVersion() const = 0;
 
+    /** Returns true if the device has the key. */
     virtual bool hasKey(int32_t key) const = 0;
-    virtual bool hasRelativeAxis(int axis) const = 0;
-    virtual const AbsoluteAxisInfo* getAbsoluteAxisInfo(int32_t axis) const = 0;
+    /** Returns true if the device has a key in the range [startKey, endKey). */
+    virtual bool hasKeyInRange(int32_t startKey, int32_t endKey) const = 0;
+    /** Returns true if the device has the relative axis. */
+    virtual bool hasRelativeAxis(int32_t axis) const = 0;
+    /** Returns true if the device has the absolute axis. */
+    virtual bool hasAbsoluteAxis(int32_t axis) const = 0;
+    /** Returns true if the device has the switch. */
+    virtual bool hasSwitch(int32_t sw) const = 0;
+    /** Returns true if the device has the force feedback method. */
+    virtual bool hasForceFeedback(int32_t ff) const = 0;
+    /** Returns true if the device has the input property. */
     virtual bool hasInputProperty(int property) const = 0;
 
+    /** Returns the state of the key. */
     virtual int32_t getKeyState(int32_t key) const = 0;
+    /** Returns the state of the switch. */
     virtual int32_t getSwitchState(int32_t sw) const = 0;
+    /** Returns information about the absolute axis. */
+    virtual const AbsoluteAxisInfo* getAbsoluteAxisInfo(int32_t axis) const = 0;
+    /** Returns the value of the absolute axis. */
     virtual status_t getAbsoluteAxisValue(int32_t axis, int32_t* outValue) const = 0;
 
+    /** Vibrate the device for duration ns. */
     virtual void vibrate(nsecs_t duration) = 0;
-    virtual void cancelVibrate(int32_t deviceId) = 0;
+    /** Stop vibration on the device. */
+    virtual void cancelVibrate() = 0;
 
+    /** Disable key repeat for the device in the driver. */
     virtual void disableDriverKeyRepeat() = 0;
 
 protected:
@@ -89,10 +115,10 @@ protected:
 /** Callback interface for receiving input events, including device changes. */
 class InputCallbackInterface {
 public:
-    virtual void onInputEvent(std::shared_ptr<InputDeviceNode> node, InputEvent& event,
+    virtual void onInputEvent(const std::shared_ptr<InputDeviceNode>& node, InputEvent& event,
             nsecs_t event_time) = 0;
-    virtual void onDeviceAdded(std::shared_ptr<InputDeviceNode> node) = 0;
-    virtual void onDeviceRemoved(std::shared_ptr<InputDeviceNode> node) = 0;
+    virtual void onDeviceAdded(const std::shared_ptr<InputDeviceNode>& node) = 0;
+    virtual void onDeviceRemoved(const std::shared_ptr<InputDeviceNode>& node) = 0;
 
 protected:
     InputCallbackInterface() = default;
@@ -129,7 +155,7 @@ protected:
  */
 class InputHub : public InputHubInterface {
 public:
-    explicit InputHub(std::shared_ptr<InputCallbackInterface> cb);
+    explicit InputHub(const std::shared_ptr<InputCallbackInterface>& cb);
     virtual ~InputHub() override;
 
     virtual status_t registerDevicePath(const std::string& path) override;
@@ -143,8 +169,8 @@ public:
 private:
     status_t readNotify();
     status_t scanDir(const std::string& path);
-    status_t openNode(const std::string& path, std::shared_ptr<InputDeviceNode>* outNode);
-    status_t closeNode(const std::shared_ptr<InputDeviceNode>& node);
+    std::shared_ptr<InputDeviceNode> openNode(const std::string& path);
+    status_t closeNode(const InputDeviceNode* node);
     status_t closeNodeByFd(int fd);
     std::shared_ptr<InputDeviceNode> findNodeByPath(const std::string& path);
 

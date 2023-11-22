@@ -17,7 +17,7 @@ include $(CLEAR_VARS)
 
 LOCAL_C_INCLUDES := frameworks/native/cmds/dumpstate
 
-LOCAL_SRC_FILES := dumpstate.c
+LOCAL_SRC_FILES := dumpstate.cpp
 
 ifneq ($(wildcard vendor/htc/flounder/uidcheck/Android.mk),)
 LOCAL_CFLAGS += -DHAS_DENVER_UID_CHECK

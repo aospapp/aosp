@@ -24,6 +24,8 @@ ifeq ($(TARGET_OS),linux)
 	LOCAL_CFLAGS += -DXP_UNIX
 endif
 
+LOCAL_CFLAGS := -Werror -Wall
+
 LOCAL_MODULE:= slesTest_recBuffQueue
 
 include $(BUILD_EXECUTABLE)
@@ -48,6 +50,8 @@ ifeq ($(TARGET_OS),linux)
 endif
 
 LOCAL_MODULE:= slesTest_playFdPath
+
+LOCAL_CFLAGS := -Werror -Wall
 
 include $(BUILD_EXECUTABLE)
 
@@ -76,6 +80,7 @@ ifeq ($(TARGET_OS),linux)
 	#LOCAL_SHARED_LIBRARIES += librt
 endif
 
+LOCAL_CFLAGS := -Werror -Wall
 LOCAL_CFLAGS += -UNDEBUG
 
 LOCAL_MODULE:= slesTest_feedback
@@ -104,6 +109,8 @@ endif
 
 LOCAL_MODULE:= slesTest_sawtoothBufferQueue
 
+LOCAL_CFLAGS := -Werror -Wall
+
 include $(BUILD_EXECUTABLE)
 
 # slesTest_eqFdPath
@@ -126,6 +133,8 @@ ifeq ($(TARGET_OS),linux)
 endif
 
 LOCAL_MODULE:= slesTest_eqFdPath
+
+LOCAL_CFLAGS := -Werror -Wall
 
 include $(BUILD_EXECUTABLE)
 
@@ -150,6 +159,8 @@ endif
 
 LOCAL_MODULE:= slesTest_eqOutputPath
 
+LOCAL_CFLAGS := -Werror -Wall
+
 include $(BUILD_EXECUTABLE)
 
 # slesTest_bassboostPath
@@ -172,6 +183,8 @@ ifeq ($(TARGET_OS),linux)
 endif
 
 LOCAL_MODULE:= slesTest_bassboostPath
+
+LOCAL_CFLAGS := -Werror -Wall
 
 include $(BUILD_EXECUTABLE)
 
@@ -196,6 +209,8 @@ endif
 
 LOCAL_MODULE:= slesTest_virtualizer
 
+LOCAL_CFLAGS := -Werror -Wall
+
 include $(BUILD_EXECUTABLE)
 
 # slesTest_effectCapabilities
@@ -218,6 +233,8 @@ ifeq ($(TARGET_OS),linux)
 endif
 
 LOCAL_MODULE:= slesTest_effectCapabilities
+
+LOCAL_CFLAGS := -Werror -Wall
 
 include $(BUILD_EXECUTABLE)
 
@@ -242,6 +259,8 @@ endif
 
 LOCAL_MODULE:= slesTest_sendToPresetReverb
 
+LOCAL_CFLAGS := -Werror -Wall
+
 include $(BUILD_EXECUTABLE)
 
 # slesTest_decodeToBuffQueue
@@ -264,6 +283,8 @@ ifeq ($(TARGET_OS),linux)
 endif
 
 LOCAL_MODULE:= slesTest_decodeToBuffQueue
+
+LOCAL_CFLAGS := -Werror -Wall
 
 include $(BUILD_EXECUTABLE)
 
@@ -289,6 +310,7 @@ ifeq ($(TARGET_OS),linux)
 	LOCAL_CFLAGS += -DXP_UNIX
 endif
 
+LOCAL_CFLAGS := -Werror -Wall
 LOCAL_CFLAGS += -UNDEBUG
 
 LOCAL_MODULE:= slesTest_decodeAac
@@ -318,5 +340,7 @@ ifeq ($(TARGET_OS),linux)
 endif
 
 LOCAL_MODULE:= xaVideoDecoderCapabilities
+
+LOCAL_CFLAGS := -Werror -Wall
 
 include $(BUILD_EXECUTABLE)

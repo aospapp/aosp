@@ -29,7 +29,7 @@
 #include "bt_target.h"
 #if defined(HL_INCLUDED) && (HL_INCLUDED == TRUE)
 
-#include "gki.h"
+#include "bt_common.h"
 #include "bta_hl_api.h"
 #include "bta_hl_int.h"
 
@@ -59,17 +59,16 @@ static const tBTA_SYS_REG bta_hl_reg =
 *******************************************************************************/
 void BTA_HlEnable(tBTA_HL_CTRL_CBACK *p_ctrl_cback)
 {
-    tBTA_HL_API_ENABLE *p_buf;
+    tBTA_HL_API_ENABLE *p_buf =
+        (tBTA_HL_API_ENABLE *)osi_malloc(sizeof(tBTA_HL_API_ENABLE));
 
     /* register with BTA system manager */
     bta_sys_register(BTA_ID_HL, &bta_hl_reg);
 
-    if ((p_buf = (tBTA_HL_API_ENABLE *)GKI_getbuf(sizeof(tBTA_HL_API_ENABLE))) != NULL)
-    {
-        p_buf->hdr.event    = BTA_HL_API_ENABLE_EVT;
-        p_buf->p_cback      = p_ctrl_cback;
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->hdr.event = BTA_HL_API_ENABLE_EVT;
+    p_buf->p_cback = p_ctrl_cback;
+
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -83,14 +82,12 @@ void BTA_HlEnable(tBTA_HL_CTRL_CBACK *p_ctrl_cback)
 *******************************************************************************/
 void BTA_HlDisable(void)
 {
-    BT_HDR  *p_buf;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
 
     bta_sys_deregister(BTA_ID_HL);
-    if ((p_buf = (BT_HDR *)GKI_getbuf(sizeof(BT_HDR))) != NULL)
-    {
-        p_buf->event = BTA_HL_API_DISABLE_EVT;
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->event = BTA_HL_API_DISABLE_EVT;
+
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -107,64 +104,38 @@ void BTA_HlDisable(void)
 ** Returns          void
 **
 *******************************************************************************/
-void BTA_HlUpdate(UINT8  app_id,
-                    tBTA_HL_REG_PARAM *p_reg_param, BOOLEAN is_register,
-                    tBTA_HL_CBACK *p_cback)
+void BTA_HlUpdate(UINT8 app_id, tBTA_HL_REG_PARAM *p_reg_param,
+                  BOOLEAN is_register, tBTA_HL_CBACK *p_cback)
 {
-    tBTA_HL_API_UPDATE *p_buf;
+    tBTA_HL_API_UPDATE *p_buf =
+        (tBTA_HL_API_UPDATE *)osi_malloc(sizeof(tBTA_HL_API_UPDATE));
 
-    APPL_TRACE_DEBUG("BTA_HlUpdate");
-    if (is_register)
-    {
+    APPL_TRACE_DEBUG("%s", __func__);
 
-        if ((p_buf = (tBTA_HL_API_UPDATE *)GKI_getbuf((UINT16)sizeof(tBTA_HL_API_UPDATE))) != NULL)
-        {
-            p_buf->hdr.event    = BTA_HL_API_UPDATE_EVT;
-            p_buf->app_id       = app_id;
-            p_buf->sec_mask     = (p_reg_param->sec_mask | BTA_SEC_AUTHENTICATE | BTA_SEC_ENCRYPT);
-            p_buf->p_cback = p_cback;
-            p_buf->is_register = is_register;
-            if (p_reg_param->p_srv_name)
-            {
-                BCM_STRNCPY_S(p_buf->srv_name, sizeof(p_buf->srv_name),
-                              p_reg_param->p_srv_name, BTA_SERVICE_NAME_LEN);
-                p_buf->srv_name[BTA_SERVICE_NAME_LEN] = '\0';
-            }
-            else
-                p_buf->srv_name[0]= '\0';
+    p_buf->hdr.event = BTA_HL_API_UPDATE_EVT;
+    p_buf->app_id = app_id;
+    p_buf->is_register = is_register;
 
-            if (p_reg_param->p_srv_desp)
-            {
-                BCM_STRNCPY_S(p_buf->srv_desp, sizeof(p_buf->srv_desp),
-                              p_reg_param->p_srv_desp, BTA_SERVICE_DESP_LEN);
-                p_buf->srv_desp[BTA_SERVICE_DESP_LEN]= '\0';
-            }
-            else
-                p_buf->srv_desp[0]= '\0';
+    if (is_register) {
+        p_buf->sec_mask = (p_reg_param->sec_mask | BTA_SEC_AUTHENTICATE | BTA_SEC_ENCRYPT);
+        p_buf->p_cback = p_cback;
+        if (p_reg_param->p_srv_name)
+            strlcpy(p_buf->srv_name, p_reg_param->p_srv_name, BTA_SERVICE_NAME_LEN);
+        else
+            p_buf->srv_name[0] = 0;
 
-            if (p_reg_param->p_provider_name)
-            {
-                BCM_STRNCPY_S(p_buf->provider_name, sizeof(p_buf->provider_name),
-                              p_reg_param->p_provider_name, BTA_PROVIDER_NAME_LEN);
-                p_buf->provider_name[BTA_PROVIDER_NAME_LEN]= '\0';
-            }
-            else
-                p_buf->provider_name[0]= '\0';
+        if (p_reg_param->p_srv_desp)
+            strlcpy(p_buf->srv_desp, p_reg_param->p_srv_desp, BTA_SERVICE_DESP_LEN);
+        else
+            p_buf->srv_desp[0] = 0;
 
-            bta_sys_sendmsg(p_buf);
-        }
+        if (p_reg_param->p_provider_name)
+            strlcpy(p_buf->provider_name, p_reg_param->p_provider_name, BTA_PROVIDER_NAME_LEN);
+        else
+            p_buf->provider_name[0] = 0;
     }
-    else
-    {
-        if ((p_buf = (tBTA_HL_API_UPDATE *)GKI_getbuf((UINT16)sizeof(tBTA_HL_API_UPDATE))) != NULL)
-        {
-            p_buf->hdr.event    = BTA_HL_API_UPDATE_EVT;
-            p_buf->app_id       = app_id;
-            p_buf->is_register = is_register;
-            bta_sys_sendmsg(p_buf);
-        }
 
-    }
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -185,43 +156,30 @@ void BTA_HlRegister(UINT8  app_id,
                     tBTA_HL_REG_PARAM *p_reg_param,
                     tBTA_HL_CBACK *p_cback)
 {
-    tBTA_HL_API_REGISTER *p_buf;
+    tBTA_HL_API_REGISTER *p_buf =
+        (tBTA_HL_API_REGISTER *)osi_malloc(sizeof(tBTA_HL_API_REGISTER));
 
-    if ((p_buf = (tBTA_HL_API_REGISTER *)GKI_getbuf((UINT16)sizeof(tBTA_HL_API_REGISTER))) != NULL)
-    {
-        p_buf->hdr.event    = BTA_HL_API_REGISTER_EVT;
-        p_buf->app_id       = app_id;
-        p_buf->sec_mask     = (p_reg_param->sec_mask | BTA_SEC_AUTHENTICATE | BTA_SEC_ENCRYPT);
-        p_buf->p_cback = p_cback;
-        if (p_reg_param->p_srv_name)
-        {
-            BCM_STRNCPY_S(p_buf->srv_name, sizeof(p_buf->srv_name),
-                          p_reg_param->p_srv_name, BTA_SERVICE_NAME_LEN);
-            p_buf->srv_name[BTA_SERVICE_NAME_LEN] = '\0';
-        }
-        else
-            p_buf->srv_name[0]= '\0';
+    p_buf->hdr.event    = BTA_HL_API_REGISTER_EVT;
+    p_buf->app_id       = app_id;
+    p_buf->sec_mask     = (p_reg_param->sec_mask | BTA_SEC_AUTHENTICATE | BTA_SEC_ENCRYPT);
+    p_buf->p_cback = p_cback;
 
-        if (p_reg_param->p_srv_desp)
-        {
-            BCM_STRNCPY_S(p_buf->srv_desp, sizeof(p_buf->srv_desp),
-                          p_reg_param->p_srv_desp, BTA_SERVICE_DESP_LEN);
-            p_buf->srv_desp[BTA_SERVICE_DESP_LEN]= '\0';
-        }
-        else
-            p_buf->srv_desp[0]= '\0';
+    if (p_reg_param->p_srv_name)
+        strlcpy(p_buf->srv_name, p_reg_param->p_srv_name, BTA_SERVICE_NAME_LEN);
+    else
+        p_buf->srv_name[0] = 0;
 
-        if (p_reg_param->p_provider_name)
-        {
-            BCM_STRNCPY_S(p_buf->provider_name, sizeof(p_buf->provider_name),
-                          p_reg_param->p_provider_name, BTA_PROVIDER_NAME_LEN);
-            p_buf->provider_name[BTA_PROVIDER_NAME_LEN]= '\0';
-        }
-        else
-            p_buf->provider_name[0]= '\0';
+    if (p_reg_param->p_srv_desp)
+        strlcpy(p_buf->srv_desp, p_reg_param->p_srv_desp, BTA_SERVICE_DESP_LEN);
+    else
+        p_buf->srv_desp[0] = 0;
 
-        bta_sys_sendmsg(p_buf);
-    }
+    if (p_reg_param->p_provider_name)
+        strlcpy(p_buf->provider_name, p_reg_param->p_provider_name, BTA_PROVIDER_NAME_LEN);
+    else
+        p_buf->provider_name[0] = 0;
+
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -237,16 +195,16 @@ void BTA_HlRegister(UINT8  app_id,
 *******************************************************************************/
 void BTA_HlDeregister(UINT8 app_id,tBTA_HL_APP_HANDLE app_handle)
 {
-    tBTA_HL_API_DEREGISTER  *p_buf;
+    tBTA_HL_API_DEREGISTER *p_buf =
+        (tBTA_HL_API_DEREGISTER *)osi_malloc(sizeof(tBTA_HL_API_DEREGISTER));
 
-    if ((p_buf = (tBTA_HL_API_DEREGISTER *)GKI_getbuf((UINT16)(sizeof(tBTA_HL_API_DEREGISTER)))) != NULL)
-    {
-        p_buf->hdr.event   = BTA_HL_API_DEREGISTER_EVT;
-        p_buf->app_id      = app_id;
-        p_buf->app_handle  = app_handle;
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->hdr.event   = BTA_HL_API_DEREGISTER_EVT;
+    p_buf->app_id      = app_id;
+    p_buf->app_handle  = app_handle;
+
+    bta_sys_sendmsg(p_buf);
 }
+
 /*******************************************************************************
 **
 ** Function         BTA_HlCchOpen
@@ -266,18 +224,17 @@ void BTA_HlDeregister(UINT8 app_id,tBTA_HL_APP_HANDLE app_handle)
 void BTA_HlCchOpen(UINT8 app_id, tBTA_HL_APP_HANDLE app_handle,
                    tBTA_HL_CCH_OPEN_PARAM *p_open_param)
 {
-    tBTA_HL_API_CCH_OPEN *p_buf;
+    tBTA_HL_API_CCH_OPEN *p_buf =
+        (tBTA_HL_API_CCH_OPEN *)osi_malloc(sizeof(tBTA_HL_API_CCH_OPEN));
 
-    if ((p_buf = (tBTA_HL_API_CCH_OPEN *)GKI_getbuf((UINT16)(sizeof(tBTA_HL_API_CCH_OPEN)))) != NULL)
-    {
-        p_buf->hdr.event        = BTA_HL_API_CCH_OPEN_EVT;
-        p_buf->app_id           = app_id;
-        p_buf->app_handle       = app_handle;
-        p_buf->sec_mask = (p_open_param->sec_mask | BTA_SEC_AUTHENTICATE | BTA_SEC_ENCRYPT);
-        bdcpy(p_buf->bd_addr, p_open_param->bd_addr);
-        p_buf->ctrl_psm       = p_open_param->ctrl_psm;
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->hdr.event = BTA_HL_API_CCH_OPEN_EVT;
+    p_buf->app_id = app_id;
+    p_buf->app_handle = app_handle;
+    p_buf->sec_mask = (p_open_param->sec_mask | BTA_SEC_AUTHENTICATE | BTA_SEC_ENCRYPT);
+    bdcpy(p_buf->bd_addr, p_open_param->bd_addr);
+    p_buf->ctrl_psm = p_open_param->ctrl_psm;
+
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -294,14 +251,13 @@ void BTA_HlCchOpen(UINT8 app_id, tBTA_HL_APP_HANDLE app_handle,
 *******************************************************************************/
 void BTA_HlCchClose(tBTA_HL_MCL_HANDLE mcl_handle)
 {
-    tBTA_HL_API_CCH_CLOSE *p_buf;
+    tBTA_HL_API_CCH_CLOSE *p_buf =
+        (tBTA_HL_API_CCH_CLOSE *)osi_malloc(sizeof(tBTA_HL_API_CCH_CLOSE));
 
-    if ((p_buf = (tBTA_HL_API_CCH_CLOSE *)GKI_getbuf((UINT16)(sizeof(tBTA_HL_API_CCH_CLOSE)))) != NULL)
-    {
-        p_buf->hdr.event        = BTA_HL_API_CCH_CLOSE_EVT;
-        p_buf->mcl_handle       = mcl_handle;
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->hdr.event = BTA_HL_API_CCH_CLOSE_EVT;
+    p_buf->mcl_handle = mcl_handle;
+
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -319,19 +275,18 @@ void BTA_HlCchClose(tBTA_HL_MCL_HANDLE mcl_handle)
 void BTA_HlDchOpen(tBTA_HL_MCL_HANDLE mcl_handle,
                    tBTA_HL_DCH_OPEN_PARAM *p_open_param)
 {
-    tBTA_HL_API_DCH_OPEN *p_buf;
+    tBTA_HL_API_DCH_OPEN *p_buf =
+        (tBTA_HL_API_DCH_OPEN *)osi_malloc(sizeof(tBTA_HL_API_DCH_OPEN));
 
-    if ((p_buf = (tBTA_HL_API_DCH_OPEN *)GKI_getbuf((UINT16)(sizeof(tBTA_HL_API_DCH_OPEN)))) != NULL)
-    {
-        p_buf->hdr.event            = BTA_HL_API_DCH_OPEN_EVT;
-        p_buf->mcl_handle           = mcl_handle;
-        p_buf->ctrl_psm             = p_open_param->ctrl_psm;
-        p_buf->local_mdep_id        = p_open_param->local_mdep_id;
-        p_buf->peer_mdep_id         = p_open_param->peer_mdep_id;
-        p_buf->local_cfg            = p_open_param->local_cfg;
-        p_buf->sec_mask             = (p_open_param->sec_mask | BTA_SEC_AUTHENTICATE | BTA_SEC_ENCRYPT);
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->hdr.event = BTA_HL_API_DCH_OPEN_EVT;
+    p_buf->mcl_handle = mcl_handle;
+    p_buf->ctrl_psm = p_open_param->ctrl_psm;
+    p_buf->local_mdep_id = p_open_param->local_mdep_id;
+    p_buf->peer_mdep_id = p_open_param->peer_mdep_id;
+    p_buf->local_cfg = p_open_param->local_cfg;
+    p_buf->sec_mask = (p_open_param->sec_mask | BTA_SEC_AUTHENTICATE | BTA_SEC_ENCRYPT);
+
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -349,16 +304,15 @@ void BTA_HlDchOpen(tBTA_HL_MCL_HANDLE mcl_handle,
 void BTA_HlDchReconnect(tBTA_HL_MCL_HANDLE mcl_handle,
                         tBTA_HL_DCH_RECONNECT_PARAM *p_recon_param)
 {
-    tBTA_HL_API_DCH_RECONNECT *p_buf;
+    tBTA_HL_API_DCH_RECONNECT *p_buf =
+        (tBTA_HL_API_DCH_RECONNECT *)osi_malloc(sizeof(tBTA_HL_API_DCH_RECONNECT));
 
-    if ((p_buf = (tBTA_HL_API_DCH_RECONNECT *)GKI_getbuf((UINT16)(sizeof(tBTA_HL_API_DCH_RECONNECT)))) != NULL)
-    {
-        p_buf->hdr.event        = BTA_HL_API_DCH_RECONNECT_EVT;
-        p_buf->mcl_handle       = mcl_handle;
-        p_buf->ctrl_psm         = p_recon_param->ctrl_psm;
-        p_buf->mdl_id           = p_recon_param->mdl_id;
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->hdr.event = BTA_HL_API_DCH_RECONNECT_EVT;
+    p_buf->mcl_handle = mcl_handle;
+    p_buf->ctrl_psm = p_recon_param->ctrl_psm;
+    p_buf->mdl_id = p_recon_param->mdl_id;
+
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -374,14 +328,13 @@ void BTA_HlDchReconnect(tBTA_HL_MCL_HANDLE mcl_handle,
 *******************************************************************************/
 void BTA_HlDchClose(tBTA_HL_MDL_HANDLE mdl_handle)
 {
-    tBTA_HL_API_DCH_CLOSE *p_buf;
+    tBTA_HL_API_DCH_CLOSE *p_buf =
+        (tBTA_HL_API_DCH_CLOSE *)osi_malloc(sizeof(tBTA_HL_API_DCH_CLOSE));
 
-    if ((p_buf = (tBTA_HL_API_DCH_CLOSE *)GKI_getbuf((UINT16)(sizeof(tBTA_HL_API_DCH_CLOSE)))) != NULL)
-    {
-        p_buf->hdr.event    = BTA_HL_API_DCH_CLOSE_EVT;
-        p_buf->mdl_handle   = mdl_handle;
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->hdr.event = BTA_HL_API_DCH_CLOSE_EVT;
+    p_buf->mdl_handle = mdl_handle;
+
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -399,14 +352,13 @@ void BTA_HlDchClose(tBTA_HL_MDL_HANDLE mdl_handle)
 *******************************************************************************/
 void BTA_HlDchAbort(tBTA_HL_MCL_HANDLE mcl_handle)
 {
-    tBTA_HL_API_DCH_ABORT *p_buf;
+    tBTA_HL_API_DCH_ABORT *p_buf =
+        (tBTA_HL_API_DCH_ABORT *)osi_malloc(sizeof(tBTA_HL_API_DCH_ABORT));
 
-    if ((p_buf = (tBTA_HL_API_DCH_ABORT *)GKI_getbuf((UINT16)(sizeof(tBTA_HL_API_DCH_ABORT)))) != NULL)
-    {
-        p_buf->hdr.event        = BTA_HL_API_DCH_ABORT_EVT;
-        p_buf->mcl_handle       = mcl_handle;
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->hdr.event = BTA_HL_API_DCH_ABORT_EVT;
+    p_buf->mcl_handle = mcl_handle;
+
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -424,16 +376,14 @@ void BTA_HlDchAbort(tBTA_HL_MCL_HANDLE mcl_handle)
 void BTA_HlSendData(tBTA_HL_MDL_HANDLE mdl_handle,
                     UINT16           pkt_size)
 {
-    tBTA_HL_API_SEND_DATA *p_buf = NULL;
+    tBTA_HL_API_SEND_DATA *p_buf =
+        (tBTA_HL_API_SEND_DATA *)osi_malloc(sizeof(tBTA_HL_API_SEND_DATA));
 
-    if ((p_buf = (tBTA_HL_API_SEND_DATA *)GKI_getbuf((UINT16)(sizeof(tBTA_HL_API_SEND_DATA)))) != NULL)
-    {
-        p_buf->hdr.event        = BTA_HL_API_SEND_DATA_EVT;
-        p_buf->mdl_handle       = mdl_handle;
-        p_buf->pkt_size         = pkt_size;
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->hdr.event = BTA_HL_API_SEND_DATA_EVT;
+    p_buf->mdl_handle = mdl_handle;
+    p_buf->pkt_size = pkt_size;
 
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -455,15 +405,14 @@ void BTA_HlSendData(tBTA_HL_MDL_HANDLE mdl_handle,
 void BTA_HlDeleteMdl(tBTA_HL_MCL_HANDLE mcl_handle,
                      tBTA_HL_MDL_ID mdl_id )
 {
-    tBTA_HL_API_DELETE_MDL *p_buf;
+    tBTA_HL_API_DELETE_MDL *p_buf =
+        (tBTA_HL_API_DELETE_MDL *)osi_malloc(sizeof(tBTA_HL_API_DELETE_MDL));
 
-    if ((p_buf = (tBTA_HL_API_DELETE_MDL *)GKI_getbuf((UINT16)(sizeof(tBTA_HL_API_DELETE_MDL)))) != NULL)
-    {
-        p_buf->hdr.event        = BTA_HL_API_DELETE_MDL_EVT;
-        p_buf->mcl_handle       = mcl_handle;
-        p_buf->mdl_id           = mdl_id;
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->hdr.event = BTA_HL_API_DELETE_MDL_EVT;
+    p_buf->mcl_handle = mcl_handle;
+    p_buf->mdl_id = mdl_id;
+
+    bta_sys_sendmsg(p_buf);
 }
 
 /*******************************************************************************
@@ -481,19 +430,17 @@ void BTA_HlDeleteMdl(tBTA_HL_MCL_HANDLE mcl_handle,
 void BTA_HlDchEchoTest( tBTA_HL_MCL_HANDLE  mcl_handle,
                         tBTA_HL_DCH_ECHO_TEST_PARAM *p_echo_test_param)
 {
-    tBTA_HL_API_DCH_ECHO_TEST   *p_buf;
+    tBTA_HL_API_DCH_ECHO_TEST *p_buf =
+        (tBTA_HL_API_DCH_ECHO_TEST *)osi_malloc(sizeof(tBTA_HL_API_DCH_ECHO_TEST));
 
-    if ((p_buf = (tBTA_HL_API_DCH_ECHO_TEST *)GKI_getbuf((UINT16)(sizeof(tBTA_HL_API_DCH_ECHO_TEST)))) != NULL)
-    {
-        p_buf->hdr.event     = BTA_HL_API_DCH_ECHO_TEST_EVT;
-        p_buf->mcl_handle    = mcl_handle;
-        p_buf->ctrl_psm      = p_echo_test_param->ctrl_psm;
-        p_buf->local_cfg     = p_echo_test_param->local_cfg;
-        p_buf->pkt_size      = p_echo_test_param->pkt_size;
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->hdr.event = BTA_HL_API_DCH_ECHO_TEST_EVT;
+    p_buf->mcl_handle = mcl_handle;
+    p_buf->ctrl_psm = p_echo_test_param->ctrl_psm;
+    p_buf->local_cfg = p_echo_test_param->local_cfg;
+    p_buf->pkt_size = p_echo_test_param->pkt_size;
+
+    bta_sys_sendmsg(p_buf);
 }
-
 
 /*******************************************************************************
 **
@@ -510,18 +457,16 @@ void BTA_HlDchEchoTest( tBTA_HL_MCL_HANDLE  mcl_handle,
 void BTA_HlSdpQuery(UINT8  app_id,tBTA_HL_APP_HANDLE app_handle,
                     BD_ADDR bd_addr)
 {
-    tBTA_HL_API_SDP_QUERY *p_buf;
+    tBTA_HL_API_SDP_QUERY *p_buf =
+        (tBTA_HL_API_SDP_QUERY *)osi_malloc(sizeof(tBTA_HL_API_SDP_QUERY));
 
-    if ((p_buf = (tBTA_HL_API_SDP_QUERY *)GKI_getbuf((UINT16)(sizeof(tBTA_HL_API_SDP_QUERY)))) != NULL)
-    {
-        p_buf->hdr.event        = BTA_HL_API_SDP_QUERY_EVT;
-        p_buf->app_id           = app_id;
-        p_buf->app_handle       = app_handle;
-        bdcpy(p_buf->bd_addr, bd_addr);
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->hdr.event = BTA_HL_API_SDP_QUERY_EVT;
+    p_buf->app_id = app_id;
+    p_buf->app_handle = app_handle;
+    bdcpy(p_buf->bd_addr, bd_addr);
+
+    bta_sys_sendmsg(p_buf);
 }
-
 
 /*******************************************************************************
 **
@@ -542,18 +487,17 @@ void BTA_HlSdpQuery(UINT8  app_id,tBTA_HL_APP_HANDLE app_handle,
 void BTA_HlDchCreateRsp(tBTA_HL_MCL_HANDLE mcl_handle,
                         tBTA_HL_DCH_CREATE_RSP_PARAM *p_rsp_param)
 {
-    tBTA_HL_API_DCH_CREATE_RSP *p_buf;
+    tBTA_HL_API_DCH_CREATE_RSP *p_buf =
+        (tBTA_HL_API_DCH_CREATE_RSP *)osi_malloc(sizeof(tBTA_HL_API_DCH_CREATE_RSP));
 
-    if ((p_buf = (tBTA_HL_API_DCH_CREATE_RSP *)GKI_getbuf((UINT16)(sizeof(tBTA_HL_API_DCH_CREATE_RSP)))) != NULL)
-    {
-        p_buf->hdr.event        = BTA_HL_API_DCH_CREATE_RSP_EVT;
-        p_buf->mcl_handle       = mcl_handle;
-        p_buf->mdl_id           = p_rsp_param->mdl_id;
-        p_buf->local_mdep_id    = p_rsp_param->local_mdep_id;
-        p_buf->rsp_code         = p_rsp_param->rsp_code;
-        p_buf->cfg_rsp          = p_rsp_param->cfg_rsp;
-        bta_sys_sendmsg(p_buf);
-    }
+    p_buf->hdr.event = BTA_HL_API_DCH_CREATE_RSP_EVT;
+    p_buf->mcl_handle = mcl_handle;
+    p_buf->mdl_id = p_rsp_param->mdl_id;
+    p_buf->local_mdep_id = p_rsp_param->local_mdep_id;
+    p_buf->rsp_code = p_rsp_param->rsp_code;
+    p_buf->cfg_rsp = p_rsp_param->cfg_rsp;
+
+    bta_sys_sendmsg(p_buf);
 }
 
 #endif /* HL_INCLUDED */

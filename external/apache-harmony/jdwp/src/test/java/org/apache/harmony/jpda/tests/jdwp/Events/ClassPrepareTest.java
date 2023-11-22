@@ -82,8 +82,7 @@ public class ClassPrepareTest extends JDWPEventTestCase {
      * expectedSourceNamePattern is used to assign the source name's pattern
      */
     public void testClassPrepareEventWithoutSourceDebugExtension(String expectedSourceNamePattern){
-        debuggeeWrapper.vmMirror.capabilities();
-        if (!debuggeeWrapper.vmMirror.targetVMCapabilities.canUseSourceNameFilters) {
+        if (!debuggeeWrapper.vmMirror.canUseSourceNameFilters()) {
             logWriter.println("##WARNING: this VM doesn't possess capability: canUseSourceNameFilters");
             return;
         }
@@ -145,8 +144,7 @@ public class ClassPrepareTest extends JDWPEventTestCase {
      * expectedSourceNamePattern is used to assign the source name's pattern
      */
     private void testClassPrepareEventWithSourceDebugExtension(String expectedSourceNamePattern){
-        debuggeeWrapper.vmMirror.capabilities();
-        if (!debuggeeWrapper.vmMirror.targetVMCapabilities.canUseSourceNameFilters) {
+        if (!debuggeeWrapper.vmMirror.canUseSourceNameFilters()) {
             logWriter.println("##WARNING: this VM doesn't possess capability: canUseSourceNameFilters");
             return;
         }

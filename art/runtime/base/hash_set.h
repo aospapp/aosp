@@ -18,6 +18,7 @@
 #define ART_RUNTIME_BASE_HASH_SET_H_
 
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <stdint.h>
 #include <utility>
@@ -45,7 +46,7 @@ class DefaultEmptyFn<T*> {
   void MakeEmpty(T*& item) const {
     item = nullptr;
   }
-  bool IsEmpty(const T*& item) const {
+  bool IsEmpty(T* const& item) const {
     return item == nullptr;
   }
 };
@@ -59,7 +60,7 @@ template <class T, class EmptyFn = DefaultEmptyFn<T>, class HashFn = std::hash<T
     class Pred = std::equal_to<T>, class Alloc = std::allocator<T>>
 class HashSet {
   template <class Elem, class HashSetType>
-  class BaseIterator {
+  class BaseIterator : std::iterator<std::forward_iterator_tag, Elem> {
    public:
     BaseIterator(const BaseIterator&) = default;
     BaseIterator(BaseIterator&&) = default;
@@ -82,7 +83,7 @@ class HashSet {
     }
 
     BaseIterator operator++(int) {
-      Iterator temp = *this;
+      BaseIterator temp = *this;
       this->index_ = this->NextNonEmptySlot(this->index_, hash_set_);
       return temp;
     }
@@ -96,7 +97,7 @@ class HashSet {
       return &**this;
     }
 
-    // TODO: Operator -- --(int)
+    // TODO: Operator -- --(int)  (and use std::bidirectional_iterator_tag)
 
    private:
     size_t index_;
@@ -115,40 +116,99 @@ class HashSet {
   };
 
  public:
-  static constexpr double kDefaultMinLoadFactor = 0.5;
-  static constexpr double kDefaultMaxLoadFactor = 0.9;
-  static constexpr size_t kMinBuckets = 1000;
+  using value_type = T;
+  using allocator_type = Alloc;
+  using reference = T&;
+  using const_reference = const T&;
+  using pointer = T*;
+  using const_pointer = const T*;
+  using iterator = BaseIterator<T, HashSet>;
+  using const_iterator = BaseIterator<const T, const HashSet>;
+  using size_type = size_t;
+  using difference_type = ptrdiff_t;
 
-  typedef BaseIterator<T, HashSet> Iterator;
-  typedef BaseIterator<const T, const HashSet> ConstIterator;
+  static constexpr double kDefaultMinLoadFactor = 0.4;
+  static constexpr double kDefaultMaxLoadFactor = 0.7;
+  static constexpr size_t kMinBuckets = 1000;
 
   // If we don't own the data, this will create a new array which owns the data.
   void Clear() {
     DeallocateStorage();
-    AllocateStorage(1);
     num_elements_ = 0;
     elements_until_expand_ = 0;
   }
 
-  HashSet() : num_elements_(0), num_buckets_(0), owns_data_(false), data_(nullptr),
-      min_load_factor_(kDefaultMinLoadFactor), max_load_factor_(kDefaultMaxLoadFactor) {
-    Clear();
+  HashSet() : HashSet(kDefaultMinLoadFactor, kDefaultMaxLoadFactor) {}
+
+  HashSet(double min_load_factor, double max_load_factor) noexcept
+      : num_elements_(0u),
+        num_buckets_(0u),
+        elements_until_expand_(0u),
+        owns_data_(false),
+        data_(nullptr),
+        min_load_factor_(min_load_factor),
+        max_load_factor_(max_load_factor) {
+    DCHECK_GT(min_load_factor, 0.0);
+    DCHECK_LT(max_load_factor, 1.0);
   }
 
-  HashSet(const HashSet& other) : num_elements_(0), num_buckets_(0), owns_data_(false),
-      data_(nullptr) {
-    *this = other;
+  explicit HashSet(const allocator_type& alloc) noexcept
+      : allocfn_(alloc),
+        hashfn_(),
+        emptyfn_(),
+        pred_(),
+        num_elements_(0u),
+        num_buckets_(0u),
+        elements_until_expand_(0u),
+        owns_data_(false),
+        data_(nullptr),
+        min_load_factor_(kDefaultMinLoadFactor),
+        max_load_factor_(kDefaultMaxLoadFactor) {
   }
 
-  HashSet(HashSet&& other) : num_elements_(0), num_buckets_(0), owns_data_(false),
-      data_(nullptr) {
-    *this = std::move(other);
+  HashSet(const HashSet& other) noexcept
+      : allocfn_(other.allocfn_),
+        hashfn_(other.hashfn_),
+        emptyfn_(other.emptyfn_),
+        pred_(other.pred_),
+        num_elements_(other.num_elements_),
+        num_buckets_(0),
+        elements_until_expand_(other.elements_until_expand_),
+        owns_data_(false),
+        data_(nullptr),
+        min_load_factor_(other.min_load_factor_),
+        max_load_factor_(other.max_load_factor_) {
+    AllocateStorage(other.NumBuckets());
+    for (size_t i = 0; i < num_buckets_; ++i) {
+      ElementForIndex(i) = other.data_[i];
+    }
+  }
+
+  // noexcept required so that the move constructor is used instead of copy constructor.
+  // b/27860101
+  HashSet(HashSet&& other) noexcept
+      : allocfn_(std::move(other.allocfn_)),
+        hashfn_(std::move(other.hashfn_)),
+        emptyfn_(std::move(other.emptyfn_)),
+        pred_(std::move(other.pred_)),
+        num_elements_(other.num_elements_),
+        num_buckets_(other.num_buckets_),
+        elements_until_expand_(other.elements_until_expand_),
+        owns_data_(other.owns_data_),
+        data_(other.data_),
+        min_load_factor_(other.min_load_factor_),
+        max_load_factor_(other.max_load_factor_) {
+    other.num_elements_ = 0u;
+    other.num_buckets_ = 0u;
+    other.elements_until_expand_ = 0u;
+    other.owns_data_ = false;
+    other.data_ = nullptr;
   }
 
   // Construct from existing data.
   // Read from a block of memory, if make_copy_of_data is false, then data_ points to within the
   // passed in ptr_.
-  HashSet(const uint8_t* ptr, bool make_copy_of_data, size_t* read_count) {
+  HashSet(const uint8_t* ptr, bool make_copy_of_data, size_t* read_count) noexcept {
     uint64_t temp;
     size_t offset = 0;
     offset = ReadFromBytes(ptr, offset, &temp);
@@ -178,7 +238,7 @@ class HashSet {
 
   // Returns how large the table is after being written. If target is null, then no writing happens
   // but the size is still returned. Target must be 8 byte aligned.
-  size_t WriteToMemory(uint8_t* ptr) {
+  size_t WriteToMemory(uint8_t* ptr) const {
     size_t offset = 0;
     offset = WriteToBytes(ptr, offset, static_cast<uint64_t>(num_elements_));
     offset = WriteToBytes(ptr, offset, static_cast<uint64_t>(num_buckets_));
@@ -198,33 +258,28 @@ class HashSet {
     DeallocateStorage();
   }
 
-  HashSet& operator=(HashSet&& other) {
-    std::swap(data_, other.data_);
-    std::swap(num_buckets_, other.num_buckets_);
-    std::swap(num_elements_, other.num_elements_);
-    std::swap(elements_until_expand_, other.elements_until_expand_);
-    std::swap(min_load_factor_, other.min_load_factor_);
-    std::swap(max_load_factor_, other.max_load_factor_);
-    std::swap(owns_data_, other.owns_data_);
+  HashSet& operator=(HashSet&& other) noexcept {
+    HashSet(std::move(other)).swap(*this);
     return *this;
   }
 
-  HashSet& operator=(const HashSet& other) {
-    DeallocateStorage();
-    AllocateStorage(other.NumBuckets());
-    for (size_t i = 0; i < num_buckets_; ++i) {
-      ElementForIndex(i) = other.data_[i];
-    }
-    num_elements_ = other.num_elements_;
-    elements_until_expand_ = other.elements_until_expand_;
-    min_load_factor_ = other.min_load_factor_;
-    max_load_factor_ = other.max_load_factor_;
+  HashSet& operator=(const HashSet& other) noexcept {
+    HashSet(other).swap(*this);  // NOLINT(runtime/explicit) - a case of lint gone mad.
     return *this;
   }
 
   // Lower case for c++11 for each.
-  Iterator begin() {
-    Iterator ret(this, 0);
+  iterator begin() {
+    iterator ret(this, 0);
+    if (num_buckets_ != 0 && IsFreeSlot(ret.index_)) {
+      ++ret;  // Skip all the empty slots.
+    }
+    return ret;
+  }
+
+  // Lower case for c++11 for each. const version.
+  const_iterator begin() const {
+    const_iterator ret(this, 0);
     if (num_buckets_ != 0 && IsFreeSlot(ret.index_)) {
       ++ret;  // Skip all the empty slots.
     }
@@ -232,23 +287,33 @@ class HashSet {
   }
 
   // Lower case for c++11 for each.
-  Iterator end() {
-    return Iterator(this, NumBuckets());
+  iterator end() {
+    return iterator(this, NumBuckets());
+  }
+
+  // Lower case for c++11 for each. const version.
+  const_iterator end() const {
+    return const_iterator(this, NumBuckets());
   }
 
   bool Empty() {
     return Size() == 0;
   }
 
+  // Return true if the hash set has ownership of the underlying data.
+  bool OwnsData() const {
+    return owns_data_;
+  }
+
   // Erase algorithm:
   // Make an empty slot where the iterator is pointing.
-  // Scan fowards until we hit another empty slot.
-  // If an element inbetween doesn't rehash to the range from the current empty slot to the
+  // Scan forwards until we hit another empty slot.
+  // If an element in between doesn't rehash to the range from the current empty slot to the
   // iterator. It must be before the empty slot, in that case we can move it to the empty slot
   // and set the empty slot to be the location we just moved from.
   // Relies on maintaining the invariant that there's no empty slots from the 'ideal' index of an
   // element to its actual location/index.
-  Iterator Erase(Iterator it) {
+  iterator Erase(iterator it) {
     // empty_index is the index that will become empty.
     size_t empty_index = it.index_;
     DCHECK(!IsFreeSlot(empty_index));
@@ -299,23 +364,23 @@ class HashSet {
   // Set of Class* sorted by name, want to find a class with a name but can't allocate a dummy
   // object in the heap for performance solution.
   template <typename K>
-  Iterator Find(const K& element) {
-    return FindWithHash(element, hashfn_(element));
+  iterator Find(const K& key) {
+    return FindWithHash(key, hashfn_(key));
   }
 
   template <typename K>
-  ConstIterator Find(const K& element) const {
-    return FindWithHash(element, hashfn_(element));
+  const_iterator Find(const K& key) const {
+    return FindWithHash(key, hashfn_(key));
   }
 
   template <typename K>
-  Iterator FindWithHash(const K& element, size_t hash) {
-    return Iterator(this, FindIndex(element, hash));
+  iterator FindWithHash(const K& key, size_t hash) {
+    return iterator(this, FindIndex(key, hash));
   }
 
   template <typename K>
-  ConstIterator FindWithHash(const K& element, size_t hash) const {
-    return ConstIterator(this, FindIndex(element, hash));
+  const_iterator FindWithHash(const K& key, size_t hash) const {
+    return const_iterator(this, FindIndex(key, hash));
   }
 
   // Insert an element, allows duplicates.
@@ -338,8 +403,41 @@ class HashSet {
     return num_elements_;
   }
 
+  void swap(HashSet& other) {
+    // Use argument-dependent lookup with fall-back to std::swap() for function objects.
+    using std::swap;
+    swap(allocfn_, other.allocfn_);
+    swap(hashfn_, other.hashfn_);
+    swap(emptyfn_, other.emptyfn_);
+    swap(pred_, other.pred_);
+    std::swap(data_, other.data_);
+    std::swap(num_buckets_, other.num_buckets_);
+    std::swap(num_elements_, other.num_elements_);
+    std::swap(elements_until_expand_, other.elements_until_expand_);
+    std::swap(min_load_factor_, other.min_load_factor_);
+    std::swap(max_load_factor_, other.max_load_factor_);
+    std::swap(owns_data_, other.owns_data_);
+  }
+
+  allocator_type get_allocator() const {
+    return allocfn_;
+  }
+
   void ShrinkToMaximumLoad() {
     Resize(Size() / max_load_factor_);
+  }
+
+  // Reserve enough room to insert until Size() == num_elements without requiring to grow the hash
+  // set. No-op if the hash set is already large enough to do this.
+  void Reserve(size_t num_elements) {
+    size_t num_buckets = num_elements / max_load_factor_;
+    // Deal with rounding errors. Add one for rounding.
+    while (static_cast<size_t>(num_buckets * max_load_factor_) <= num_elements + 1u) {
+      ++num_buckets;
+    }
+    if (num_buckets > NumBuckets()) {
+      Resize(num_buckets);
+    }
   }
 
   // To distance that inserted elements were probed. Used for measuring how good hash functions
@@ -366,7 +464,7 @@ class HashSet {
   }
 
   // Make sure that everything reinserts in the right spot. Returns the number of errors.
-  size_t Verify() {
+  size_t Verify() NO_THREAD_SAFETY_ANALYSIS {
     size_t errors = 0;
     for (size_t i = 0; i < num_buckets_; ++i) {
       T& element = data_[i];
@@ -385,6 +483,40 @@ class HashSet {
     return errors;
   }
 
+  double GetMinLoadFactor() const {
+    return min_load_factor_;
+  }
+
+  double GetMaxLoadFactor() const {
+    return max_load_factor_;
+  }
+
+  // Change the load factor of the hash set. If the current load factor is greater than the max
+  // specified, then we resize the hash table storage.
+  void SetLoadFactor(double min_load_factor, double max_load_factor) {
+    DCHECK_LT(min_load_factor, max_load_factor);
+    DCHECK_GT(min_load_factor, 0.0);
+    DCHECK_LT(max_load_factor, 1.0);
+    min_load_factor_ = min_load_factor;
+    max_load_factor_ = max_load_factor;
+    elements_until_expand_ = NumBuckets() * max_load_factor_;
+    // If the current load factor isn't in the range, then resize to the mean of the minimum and
+    // maximum load factor.
+    const double load_factor = CalculateLoadFactor();
+    if (load_factor > max_load_factor_) {
+      Resize(Size() / ((min_load_factor_ + max_load_factor_) * 0.5));
+    }
+  }
+
+  // The hash set expands when Size() reaches ElementsUntilExpand().
+  size_t ElementsUntilExpand() const {
+    return elements_until_expand_;
+  }
+
+  size_t NumBuckets() const {
+    return num_buckets_;
+  }
+
  private:
   T& ElementForIndex(size_t index) {
     DCHECK_LT(index, NumBuckets());
@@ -399,6 +531,10 @@ class HashSet {
   }
 
   size_t IndexForHash(size_t hash) const {
+    // Protect against undefined behavior (division by zero).
+    if (UNLIKELY(num_buckets_ == 0)) {
+      return 0;
+    }
     return hash % num_buckets_;
   }
 
@@ -411,9 +547,13 @@ class HashSet {
   }
 
   // Find the hash table slot for an element, or return NumBuckets() if not found.
-  // This value for not found is important so that Iterator(this, FindIndex(...)) == end().
+  // This value for not found is important so that iterator(this, FindIndex(...)) == end().
   template <typename K>
   size_t FindIndex(const K& element, size_t hash) const {
+    // Guard against failing to get an element for a non-existing index.
+    if (UNLIKELY(NumBuckets() == 0)) {
+      return 0;
+    }
     DCHECK_EQ(hashfn_(element), hash);
     size_t index = IndexForHash(hash);
     while (true) {
@@ -432,10 +572,6 @@ class HashSet {
     return emptyfn_.IsEmpty(ElementForIndex(index));
   }
 
-  size_t NumBuckets() const {
-    return num_buckets_;
-  }
-
   // Allocate a number of buckets.
   void AllocateStorage(size_t num_buckets) {
     num_buckets_ = num_buckets;
@@ -448,33 +584,31 @@ class HashSet {
   }
 
   void DeallocateStorage() {
-    if (num_buckets_ != 0) {
-      if (owns_data_) {
-        for (size_t i = 0; i < NumBuckets(); ++i) {
-          allocfn_.destroy(allocfn_.address(data_[i]));
-        }
-        allocfn_.deallocate(data_, NumBuckets());
-        owns_data_ = false;
+    if (owns_data_) {
+      for (size_t i = 0; i < NumBuckets(); ++i) {
+        allocfn_.destroy(allocfn_.address(data_[i]));
       }
-      data_ = nullptr;
-      num_buckets_ = 0;
+      if (data_ != nullptr) {
+        allocfn_.deallocate(data_, NumBuckets());
+      }
+      owns_data_ = false;
     }
+    data_ = nullptr;
+    num_buckets_ = 0;
   }
 
   // Expand the set based on the load factors.
   void Expand() {
     size_t min_index = static_cast<size_t>(Size() / min_load_factor_);
-    if (min_index < kMinBuckets) {
-      min_index = kMinBuckets;
-    }
     // Resize based on the minimum load factor.
     Resize(min_index);
-    // When we hit elements_until_expand_, we are at the max load factor and must expand again.
-    elements_until_expand_ = NumBuckets() * max_load_factor_;
   }
 
   // Expand / shrink the table to the new specified size.
   void Resize(size_t new_size) {
+    if (new_size < kMinBuckets) {
+      new_size = kMinBuckets;
+    }
     DCHECK_GE(new_size, Size());
     T* const old_data = data_;
     size_t old_num_buckets = num_buckets_;
@@ -493,11 +627,18 @@ class HashSet {
     if (owned_data) {
       allocfn_.deallocate(old_data, old_num_buckets);
     }
+
+    // When we hit elements_until_expand_, we are at the max load factor and must expand again.
+    elements_until_expand_ = NumBuckets() * max_load_factor_;
   }
 
   ALWAYS_INLINE size_t FirstAvailableSlot(size_t index) const {
+    DCHECK_LT(index, NumBuckets());  // Don't try to get a slot out of range.
+    size_t non_empty_count = 0;
     while (!emptyfn_.IsEmpty(data_[index])) {
       index = NextIndex(index);
+      non_empty_count++;
+      DCHECK_LE(non_empty_count, NumBuckets());  // Don't loop forever.
     }
     return index;
   }
@@ -526,12 +667,18 @@ class HashSet {
   Pred pred_;  // Equals function.
   size_t num_elements_;  // Number of inserted elements.
   size_t num_buckets_;  // Number of hash table buckets.
-  size_t elements_until_expand_;  // Maxmimum number of elements until we expand the table.
+  size_t elements_until_expand_;  // Maximum number of elements until we expand the table.
   bool owns_data_;  // If we own data_ and are responsible for freeing it.
   T* data_;  // Backing storage.
   double min_load_factor_;
   double max_load_factor_;
 };
+
+template <class T, class EmptyFn, class HashFn, class Pred, class Alloc>
+void swap(HashSet<T, EmptyFn, HashFn, Pred, Alloc>& lhs,
+          HashSet<T, EmptyFn, HashFn, Pred, Alloc>& rhs) {
+  lhs.swap(rhs);
+}
 
 }  // namespace art
 

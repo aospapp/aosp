@@ -20,6 +20,7 @@
 #include <cutils/log.h>
 #include "GLEncoder.h"
 #include "GL2Encoder.h"
+#include <memory>
 
 #define STREAM_BUFFER_SIZE  4*1024*1024
 #define STREAM_PORT_NUM     22468
@@ -31,7 +32,8 @@ HostConnection::HostConnection() :
     m_stream(NULL),
     m_glEnc(NULL),
     m_gl2Enc(NULL),
-    m_rcEnc(NULL)
+    m_rcEnc(NULL),
+    m_checksumHelper()
 {
 }
 
@@ -109,7 +111,7 @@ HostConnection *HostConnection::get()
 GLEncoder *HostConnection::glEncoder()
 {
     if (!m_glEnc) {
-        m_glEnc = new GLEncoder(m_stream);
+        m_glEnc = new GLEncoder(m_stream, checksumHelper());
         DBG("HostConnection::glEncoder new encoder %p, tid %d", m_glEnc, gettid());
         m_glEnc->setContextAccessor(s_getGLContext);
     }
@@ -119,7 +121,7 @@ GLEncoder *HostConnection::glEncoder()
 GL2Encoder *HostConnection::gl2Encoder()
 {
     if (!m_gl2Enc) {
-        m_gl2Enc = new GL2Encoder(m_stream);
+        m_gl2Enc = new GL2Encoder(m_stream, checksumHelper());
         DBG("HostConnection::gl2Encoder new encoder %p, tid %d", m_gl2Enc, gettid());
         m_gl2Enc->setContextAccessor(s_getGL2Context);
     }
@@ -129,7 +131,10 @@ GL2Encoder *HostConnection::gl2Encoder()
 renderControl_encoder_context_t *HostConnection::rcEncoder()
 {
     if (!m_rcEnc) {
-        m_rcEnc = new renderControl_encoder_context_t(m_stream);
+        m_rcEnc = new renderControl_encoder_context_t(m_stream, checksumHelper());
+        // TODO: disable checksum as a workaround in a glTexSubImage2D problem
+        // Uncomment the following line when the root cause is solved
+        //setChecksumHelper(m_rcEnc);
     }
     return m_rcEnc;
 }
@@ -150,4 +155,32 @@ gl2_client_context_t *HostConnection::s_getGL2Context()
         return ti->hostConn->m_gl2Enc;
     }
     return NULL;
+}
+
+void HostConnection::setChecksumHelper(renderControl_encoder_context_t *rcEnc) {
+    std::unique_ptr<char[]> glExtensions;
+    int extensionSize = rcEnc->rcGetGLString(rcEnc, GL_EXTENSIONS, NULL, 0);
+    if (extensionSize < 0) {
+        glExtensions = std::unique_ptr<char[]>(new char[-extensionSize]);
+        extensionSize = rcEnc->rcGetGLString(rcEnc, GL_EXTENSIONS, glExtensions.get(), -extensionSize);
+        if (extensionSize <= 0) {
+            glExtensions.reset();
+        }
+    }
+    // check the host supported version
+    uint32_t checksumVersion = 0;
+    const char* checksumPrefix = ChecksumCalculator::getMaxVersionStrPrefix();
+    const char* glProtocolStr = glExtensions.get() ?
+            strstr(glExtensions.get(), checksumPrefix) : NULL;
+    if (glProtocolStr) {
+        uint32_t maxVersion = ChecksumCalculator::getMaxVersion();
+        sscanf(glProtocolStr+strlen(checksumPrefix), "%d", &checksumVersion);
+        if (maxVersion < checksumVersion) {
+            checksumVersion = maxVersion;
+        }
+        // The ordering of the following two commands matters!
+        // Must tell the host first before setting it in the guest
+        rcEnc->rcSelectChecksumHelper(rcEnc, checksumVersion, 0);
+        m_checksumHelper.setVersion(checksumVersion);
+    }
 }

@@ -282,7 +282,6 @@ void AudioResamplerDyn<TC, TI, TO>::setSampleRate(int32_t inSampleRate)
         return;
     }
     int32_t oldSampleRate = mInSampleRate;
-    int32_t oldHalfNumCoefs = mConstants.mHalfNumCoefs;
     uint32_t oldPhaseWrapLimit = mConstants.mL << mConstants.mShift;
     bool useS32 = false;
 
@@ -527,8 +526,7 @@ size_t AudioResamplerDyn<TC, TI, TO>::resample(TO* out, size_t outFrameCount,
         // We may not fetch a new buffer if the existing data is sufficient.
         while (mBuffer.frameCount == 0 && inFrameCount > 0) {
             mBuffer.frameCount = inFrameCount;
-            provider->getNextBuffer(&mBuffer,
-                    calculateOutputPTS(outputIndex / OUTPUT_CHANNELS));
+            provider->getNextBuffer(&mBuffer);
             if (mBuffer.raw == NULL) {
                 goto resample_exit;
             }

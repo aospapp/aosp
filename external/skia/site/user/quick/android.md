@@ -4,27 +4,25 @@ Android
 Prerequisites
 -------------
 
-_Currently we only support building Skia for Android on a Linux or Mac host!_
+_Currently we only support building Skia for Android on a Linux or Mac host! In addition,
+ we only use the Mac build for local development. All shipping variants are compiled on
+ Linux for performance reasons._
 
 The following libraries/utilities are required in addition to those needed for a standard skia checkout:
 
-  * Apache Ant
   * The Android SDK: http://developer.android.com/sdk/
-
-~~~~
-$ sudo apt-get install ant git
-~~~~
 
 Check out the source code
 -------------------------
 
-Follow the instructions [here](../download) for downloading the Skia source. Modify .gclient to add the following line to
-the bottom, and then run gclient sync again:
-
-    target_os = ["android"]
+Follow the instructions [here](../download) for downloading the Skia source. 
 
 Inside your Skia checkout, `platform_tools/android` contains the Android setup
 scripts, Android specific dependencies, and the Android Sample App.
+
+You may need to [install other dependencies](./linux#prerequisites):
+
+    tools/install_dependencies.sh
 
 Setup the Android SDK
 ---------------------
@@ -61,6 +59,7 @@ the -d option plus any of the options or arguments you would normally pass to
 ninja (see descriptions of some of the other flags here).
 
     export ANDROID_SDK_ROOT=/path/to/android/sdk
+    export ANDROID_HOME=/path/to/android/sdk
     export PATH=$PATH:/path/to/depot_tools
 
     cd skia
@@ -74,18 +73,19 @@ advantage of specific device optimizations (e.g. NEON instructions).
 Generate build file from GYP
 ----------------------------
 
-We use the open-source gyp tool to generate build files from our multiplatform
-"gyp" files. While most other platforms enable you to regenerate these files
-using `./gyp_skia` it is recommend that you do NOT do this for Android.  Instead
-you can rely on it being run automatically by android_ninja.
+We use the open-source gyp tool to generate build files from our
+multi-platform "gyp" files. While most other platforms enable you to
+regenerate these files using `./gyp_skia` or `bin/sync-and-gyp` it is
+recommended that you do NOT do this for Android.  Instead you can rely
+on it being run automatically by android_ninja.
 
 Faster rebuilds
 ---------------
 
 You can use ccache to improve the speed of rebuilding:
 
-  # You may want to add this export to your shell's .bash_profile or .profile
-  export ANDROID_MAKE_CCACHE=[ccache]
+    # You may want to add this export to your shell's .bash_profile or .profile
+    export ANDROID_MAKE_CCACHE=[ccache]
 
 Build and run executables on the device
 ---------------------------------------
@@ -133,7 +133,7 @@ Build and run SampleApp
 
 The SampleApp on Android provides a simple UI for viewing sample slides and gm images.
 
-    BUILDTYPE=Debug ./platform_tools/android/bin/android_ninja -d $TARGET_DEVICE
+    BUILDTYPE=Debug ./platform_tools/android/bin/android_ninja -d $TARGET_DEVICE SampleApp_APK
 
 Then, install the app onto the device:
 
@@ -142,16 +142,38 @@ Then, install the app onto the device:
 Finally to run the application you can either navigate to the Skia Samples
 application using the application launcher on your device or from the command
 line.  The command line option allows you to pass additional details to the
-application (similiar to other operating system) that specify where to find
+application (similar to other operating system) that specify where to find
 skp files and other resources.
 
     ./platform_tools/android/bin/android_launch_app --resourcePath /data/local/tmp/resources
 
 By default if no additional parameters are specified the app will use the default
-params...
+parameters...
 
     --resourcePath /data/local/tmp/skia_resoures 
     --pictureDir /data/local/tmp/skia_skp
+
+
+Android Studio Support
+-----------------------
+
+You can also build and run SampleApp (and some other experimental apps) using Android
+Studio.  To create the project either select "import project" from the quickstart
+screen or use File -> Open.  In both cases you'll need to select ./platform_tools/android/apps
+as the root directory of your project.
+
+Finally to be able to build within Android studio it needs to know the path to 
+ninja so you will need to add a properties file and populate it with the path
+to depot_tools.  The syntax and location of that file is...
+ 
+    # 
+    # file location: ./platform_tools/android/apps/gradle.properties
+    #
+    depot_tools.dir=<path_to_depot_tools>
+    
+That should be all the setup you need.  You should now be able to build and deploy
+SampleApp on ARM, Intel, and MIPS devices.
+
 
 Build tools
 -----------
@@ -179,8 +201,7 @@ Note: The debugging scripts do not build the app - you'll have to do that first.
     
     # SAMPLE APP
     # make sure you've installed the app on the device first
-    ./platform_tools/android/bin/android_gdb_app
+    ./platform_tools/android/bin/android_gdb_app [-d device_id]
 
 When the gdb client is ready, insert a breakpoint, and continue to let the
 program resume execution.
-

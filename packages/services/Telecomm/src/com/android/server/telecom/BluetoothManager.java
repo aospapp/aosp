@@ -16,7 +16,6 @@
 
 package com.android.server.telecom;
 
-import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothProfile;
@@ -24,8 +23,11 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.SystemClock;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.IndentingPrintWriter;
 
 import java.util.List;
@@ -35,21 +37,45 @@ import java.util.List;
  * overall audio state. Also provides method for connecting the bluetooth headset to the phone call.
  */
 public class BluetoothManager {
+    public static final int BLUETOOTH_UNINITIALIZED = 0;
+    public static final int BLUETOOTH_DISCONNECTED = 1;
+    public static final int BLUETOOTH_DEVICE_CONNECTED = 2;
+    public static final int BLUETOOTH_AUDIO_PENDING = 3;
+    public static final int BLUETOOTH_AUDIO_CONNECTED = 4;
+
+    public interface BluetoothStateListener {
+        void onBluetoothStateChange(int oldState, int newState);
+    }
 
     private final BluetoothProfile.ServiceListener mBluetoothProfileServiceListener =
             new BluetoothProfile.ServiceListener() {
                 @Override
                 public void onServiceConnected(int profile, BluetoothProfile proxy) {
-                    mBluetoothHeadset = (BluetoothHeadset) proxy;
-                    Log.v(this, "- Got BluetoothHeadset: " + mBluetoothHeadset);
-                    updateBluetoothState();
+                    Log.startSession("BMSL.oSC");
+                    try {
+                        if (profile == BluetoothProfile.HEADSET) {
+                            mBluetoothHeadset = new BluetoothHeadsetProxy((BluetoothHeadset) proxy);
+                            Log.v(this, "- Got BluetoothHeadset: " + mBluetoothHeadset);
+                        } else {
+                            Log.w(this, "Connected to non-headset bluetooth service. Not changing" +
+                                    " bluetooth headset.");
+                        }
+                        updateListenerOfBluetoothState(true);
+                    } finally {
+                        Log.endSession();
+                    }
                 }
 
                 @Override
                 public void onServiceDisconnected(int profile) {
-                    mBluetoothHeadset = null;
-                    Log.v(this, "Lost BluetoothHeadset: " + mBluetoothHeadset);
-                    updateBluetoothState();
+                    Log.startSession("BMSL.oSD");
+                    try {
+                        mBluetoothHeadset = null;
+                        Log.v(this, "Lost BluetoothHeadset: " + mBluetoothHeadset);
+                        updateListenerOfBluetoothState(false);
+                    } finally {
+                        Log.endSession();
+                    }
                 }
            };
 
@@ -59,36 +85,71 @@ public class BluetoothManager {
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
+            Log.startSession("BM.oR");
+            try {
+                String action = intent.getAction();
 
-            if (action.equals(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED)) {
-                int bluetoothHeadsetState = intent.getIntExtra(BluetoothHeadset.EXTRA_STATE,
-                                                          BluetoothHeadset.STATE_DISCONNECTED);
-                Log.d(this, "mReceiver: HEADSET_STATE_CHANGED_ACTION");
-                Log.d(this, "==> new state: %s ", bluetoothHeadsetState);
-                updateBluetoothState();
-            } else if (action.equals(BluetoothHeadset.ACTION_AUDIO_STATE_CHANGED)) {
-                int bluetoothHeadsetAudioState =
-                        intent.getIntExtra(BluetoothHeadset.EXTRA_STATE,
-                                           BluetoothHeadset.STATE_AUDIO_DISCONNECTED);
-                Log.d(this, "mReceiver: HEADSET_AUDIO_STATE_CHANGED_ACTION");
-                Log.d(this, "==> new state: %s", bluetoothHeadsetAudioState);
-                updateBluetoothState();
+                if (action.equals(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED)) {
+                    int bluetoothHeadsetState = intent.getIntExtra(BluetoothHeadset.EXTRA_STATE,
+                            BluetoothHeadset.STATE_DISCONNECTED);
+                    Log.i(this, "mReceiver: HEADSET_STATE_CHANGED_ACTION");
+                    Log.i(this, "==> new state: %s ", bluetoothHeadsetState);
+                    updateListenerOfBluetoothState(
+                            bluetoothHeadsetState == BluetoothHeadset.STATE_CONNECTING);
+                } else if (action.equals(BluetoothHeadset.ACTION_AUDIO_STATE_CHANGED)) {
+                    int bluetoothHeadsetAudioState =
+                            intent.getIntExtra(BluetoothHeadset.EXTRA_STATE,
+                                    BluetoothHeadset.STATE_AUDIO_DISCONNECTED);
+                    Log.i(this, "mReceiver: HEADSET_AUDIO_STATE_CHANGED_ACTION");
+                    Log.i(this, "==> new state: %s", bluetoothHeadsetAudioState);
+                    updateListenerOfBluetoothState(
+                            bluetoothHeadsetAudioState ==
+                                    BluetoothHeadset.STATE_AUDIO_CONNECTING
+                            || bluetoothHeadsetAudioState ==
+                                    BluetoothHeadset.STATE_AUDIO_CONNECTED);
+                }
+            } finally {
+                Log.endSession();
             }
         }
     };
 
-    private final BluetoothAdapter mBluetoothAdapter;
-    private final CallAudioManager mCallAudioManager;
+    private final Handler mHandler = new Handler(Looper.getMainLooper());
 
-    private BluetoothHeadset mBluetoothHeadset;
-    private boolean mBluetoothConnectionPending = false;
+    private final BluetoothAdapterProxy mBluetoothAdapter;
+    private BluetoothStateListener mBluetoothStateListener;
+
+    private BluetoothHeadsetProxy mBluetoothHeadset;
     private long mBluetoothConnectionRequestTime;
+    private final Runnable mBluetoothConnectionTimeout = new Runnable("BM.cBA") {
+        @Override
+        public void loggedRun() {
+            if (!isBluetoothAudioConnected()) {
+                Log.v(this, "Bluetooth audio inexplicably disconnected within 5 seconds of " +
+                        "connection. Updating UI.");
+            }
+            updateListenerOfBluetoothState(false);
+        }
+    };
 
+    private final Runnable mRetryConnectAudio = new Runnable("BM.rCA") {
+        @Override
+        public void loggedRun() {
+            Log.i(this, "Retrying connecting to bluetooth audio.");
+            if (!mBluetoothHeadset.connectAudio()) {
+                Log.w(this, "Retry of bluetooth audio connection failed. Giving up.");
+            } else {
+                setBluetoothStatePending();
+            }
+        }
+    };
 
-    public BluetoothManager(Context context, CallAudioManager callAudioManager) {
-        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        mCallAudioManager = callAudioManager;
+    private final Context mContext;
+    private int mBluetoothState = BLUETOOTH_UNINITIALIZED;
+
+    public BluetoothManager(Context context, BluetoothAdapterProxy bluetoothAdapterProxy) {
+        mBluetoothAdapter = bluetoothAdapterProxy;
+        mContext = context;
 
         if (mBluetoothAdapter != null) {
             mBluetoothAdapter.getProfileProxy(context, mBluetoothProfileServiceListener,
@@ -100,6 +161,10 @@ public class BluetoothManager {
                 new IntentFilter(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED);
         intentFilter.addAction(BluetoothHeadset.ACTION_AUDIO_STATE_CHANGED);
         context.registerReceiver(mReceiver, intentFilter);
+    }
+
+    public void setBluetoothStateListener(BluetoothStateListener bluetoothStateListener) {
+        mBluetoothStateListener = bluetoothStateListener;
     }
 
     //
@@ -121,7 +186,8 @@ public class BluetoothManager {
      *         available to the user (i.e. if the device is BT-capable
      *         and a headset is connected.)
      */
-    boolean isBluetoothAvailable() {
+    @VisibleForTesting
+    public boolean isBluetoothAvailable() {
         Log.v(this, "isBluetoothAvailable()...");
 
         // There's no need to ask the Bluetooth system service if BT is enabled:
@@ -160,7 +226,8 @@ public class BluetoothManager {
     /**
      * @return true if a BT Headset is available, and its audio is currently connected.
      */
-    boolean isBluetoothAudioConnected() {
+    @VisibleForTesting
+    public boolean isBluetoothAudioConnected() {
         if (mBluetoothHeadset == null) {
             Log.v(this, "isBluetoothAudioConnected: ==> FALSE (null mBluetoothHeadset)");
             return false;
@@ -191,7 +258,8 @@ public class BluetoothManager {
      *              that the BT audio connection is currently being set
      *              up, and will be connected soon.)
      */
-    /* package */ boolean isBluetoothAudioConnectedOrPending() {
+    @VisibleForTesting
+    public boolean isBluetoothAudioConnectedOrPending() {
         if (isBluetoothAudioConnected()) {
             Log.v(this, "isBluetoothAudioConnectedOrPending: ==> TRUE (really connected)");
             return true;
@@ -200,53 +268,82 @@ public class BluetoothManager {
         // If we issued a connectAudio() call "recently enough", even
         // if BT isn't actually connected yet, let's still pretend BT is
         // on.  This makes the onscreen indication more responsive.
-        if (mBluetoothConnectionPending) {
+        if (isBluetoothAudioPending()) {
             long timeSinceRequest =
                     SystemClock.elapsedRealtime() - mBluetoothConnectionRequestTime;
-            if (timeSinceRequest < 5000 /* 5 seconds */) {
-                Log.v(this, "isBluetoothAudioConnectedOrPending: ==> TRUE (requested "
-                             + timeSinceRequest + " msec ago)");
-                return true;
-            } else {
-                Log.v(this, "isBluetoothAudioConnectedOrPending: ==> FALSE (request too old: "
-                             + timeSinceRequest + " msec ago)");
-                mBluetoothConnectionPending = false;
-                return false;
-            }
+            Log.v(this, "isBluetoothAudioConnectedOrPending: ==> TRUE (requested "
+                    + timeSinceRequest + " msec ago)");
+            return true;
         }
 
         Log.v(this, "isBluetoothAudioConnectedOrPending: ==> FALSE");
         return false;
     }
 
+    private boolean isBluetoothAudioPending() {
+        return mBluetoothState == BLUETOOTH_AUDIO_PENDING;
+    }
+
     /**
      * Notified audio manager of a change to the bluetooth state.
      */
-    void updateBluetoothState() {
-        mCallAudioManager.onBluetoothStateChange(this);
+    private void updateListenerOfBluetoothState(boolean canBePending) {
+        int newState;
+        if (isBluetoothAudioConnected()) {
+            newState = BLUETOOTH_AUDIO_CONNECTED;
+        } else if (canBePending && isBluetoothAudioPending()) {
+            newState = BLUETOOTH_AUDIO_PENDING;
+        } else if (isBluetoothAvailable()) {
+            newState = BLUETOOTH_DEVICE_CONNECTED;
+        } else {
+            newState = BLUETOOTH_DISCONNECTED;
+        }
+        if (mBluetoothState != newState) {
+            mBluetoothStateListener.onBluetoothStateChange(mBluetoothState, newState);
+            mBluetoothState = newState;
+        }
     }
 
-    void connectBluetoothAudio() {
+    @VisibleForTesting
+    public void connectBluetoothAudio() {
         Log.v(this, "connectBluetoothAudio()...");
         if (mBluetoothHeadset != null) {
-            mBluetoothHeadset.connectAudio();
+            if (!mBluetoothHeadset.connectAudio()) {
+                mHandler.postDelayed(mRetryConnectAudio.prepare(),
+                        Timeouts.getRetryBluetoothConnectAudioBackoffMillis(
+                                mContext.getContentResolver()));
+            }
         }
-
-        // Watch out: The bluetooth connection doesn't happen instantly;
-        // the connectAudio() call returns instantly but does its real
-        // work in another thread.  The mBluetoothConnectionPending flag
-        // is just a little trickery to ensure that the onscreen UI updates
-        // instantly. (See isBluetoothAudioConnectedOrPending() above.)
-        mBluetoothConnectionPending = true;
-        mBluetoothConnectionRequestTime = SystemClock.elapsedRealtime();
+        // The call to connectAudio is asynchronous and may take some time to complete. However,
+        // if connectAudio() returns false, we know that it has failed and therefore will
+        // schedule a retry to happen some time later. We set bluetooth state to pending now and
+        // show bluetooth as connected in the UI, but confirmation that we are connected will
+        // arrive through mReceiver.
+        setBluetoothStatePending();
     }
 
-    void disconnectBluetoothAudio() {
+    private void setBluetoothStatePending() {
+        mBluetoothState = BLUETOOTH_AUDIO_PENDING;
+        mBluetoothConnectionRequestTime = SystemClock.elapsedRealtime();
+        mHandler.removeCallbacks(mBluetoothConnectionTimeout.getRunnableToCancel());
+        mBluetoothConnectionTimeout.cancel();
+        // If the mBluetoothConnectionTimeout runnable has run, the session had been cleared...
+        // Create a new Session before putting it back in the queue to possibly run again.
+        mHandler.postDelayed(mBluetoothConnectionTimeout.prepare(),
+                Timeouts.getBluetoothPendingTimeoutMillis(mContext.getContentResolver()));
+    }
+
+    @VisibleForTesting
+    public void disconnectBluetoothAudio() {
         Log.v(this, "disconnectBluetoothAudio()...");
         if (mBluetoothHeadset != null) {
+            mBluetoothState = BLUETOOTH_DEVICE_CONNECTED;
             mBluetoothHeadset.disconnectAudio();
+        } else {
+            mBluetoothState = BLUETOOTH_DISCONNECTED;
         }
-        mBluetoothConnectionPending = false;
+        mHandler.removeCallbacks(mBluetoothConnectionTimeout.getRunnableToCancel());
+        mBluetoothConnectionTimeout.cancel();
     }
 
     /**
@@ -277,5 +374,23 @@ public class BluetoothManager {
         } else {
             pw.println("mBluetoothAdapter is null; device is not BT capable");
         }
+    }
+
+    /**
+     * Set the bluetooth headset proxy for testing purposes.
+     * @param bluetoothHeadsetProxy
+     */
+    @VisibleForTesting
+    public void setBluetoothHeadsetForTesting(BluetoothHeadsetProxy bluetoothHeadsetProxy) {
+        mBluetoothHeadset = bluetoothHeadsetProxy;
+    }
+
+    /**
+     * Set mBluetoothState for testing.
+     * @param state
+     */
+    @VisibleForTesting
+    public void setInternalBluetoothState(int state) {
+        mBluetoothState = state;
     }
 }

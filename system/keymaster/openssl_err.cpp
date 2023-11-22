@@ -48,8 +48,23 @@ keymaster_error_t TranslateLastOpenSslError(bool log_message) {
     }
 
     int reason = ERR_GET_REASON(error);
-    switch (ERR_GET_LIB(error)) {
 
+    /* Handle global error reasons */
+    switch (reason) {
+    case ERR_R_MALLOC_FAILURE:
+        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+    case ERR_R_SHOULD_NOT_HAVE_BEEN_CALLED:
+    case ERR_R_PASSED_NULL_PARAMETER:
+    case ERR_R_INTERNAL_ERROR:
+    case ERR_R_OVERFLOW:
+        return KM_ERROR_UNKNOWN_ERROR;
+    default:
+        break;
+    }
+
+    switch (ERR_GET_LIB(error)) {
+    case ERR_LIB_USER:
+        return static_cast<keymaster_error_t>(reason);
     case ERR_LIB_EVP:
         return TranslateEvpError(reason);
 #if defined(OPENSSL_IS_BORINGSSL)

@@ -20,4 +20,4 @@
 # In particular, you can add lunch options with the add_lunch_combo
 # function: add_lunch_combo generic-eng
 
-add_lunch_combo mini_emulator_mips-userdebug
+add_lunch_combo m_e_mips-userdebug

@@ -40,11 +40,14 @@ class ArenaObject {
     LOG(FATAL) << "UNREACHABLE";
     UNREACHABLE();
   }
+
+  // NOTE: Providing placement new (and matching delete) for constructing container elements.
+  ALWAYS_INLINE void* operator new(size_t, void* ptr) noexcept { return ptr; }
+  ALWAYS_INLINE void operator delete(void*, void*) noexcept { }
 };
 
 
 // Parent for arena allocated objects that get deleted, gives appropriate new and delete operators.
-// Currently this is used by the quick compiler for debug reference counting arena allocations.
 template<enum ArenaAllocKind kAllocKind>
 class DeletableArenaObject {
  public:

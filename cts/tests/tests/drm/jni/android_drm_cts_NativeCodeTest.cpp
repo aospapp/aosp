@@ -15,11 +15,11 @@
  */
 
 #include <jni.h>
-#include <sys/types.h>
+#include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 #include <sys/syscall.h>
-#include <utils/Log.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 /*
  * Returns true iff this device may be vulnerable to installation of rogue drm

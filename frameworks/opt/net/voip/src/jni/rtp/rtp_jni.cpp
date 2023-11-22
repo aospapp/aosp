@@ -21,7 +21,7 @@
 extern int registerRtpStream(JNIEnv *env);
 extern int registerAudioGroup(JNIEnv *env);
 
-__attribute__((visibility("default"))) jint JNI_OnLoad(JavaVM *vm, void *unused)
+__attribute__((visibility("default"))) jint JNI_OnLoad(JavaVM *vm, void *)
 {
     JNIEnv *env = NULL;
     if (vm->GetEnv((void **)&env, JNI_VERSION_1_4) != JNI_OK ||

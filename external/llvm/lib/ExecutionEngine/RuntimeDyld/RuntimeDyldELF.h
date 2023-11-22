@@ -25,7 +25,7 @@ class RuntimeDyldELF : public RuntimeDyldImpl {
 
   void resolveRelocation(const SectionEntry &Section, uint64_t Offset,
                          uint64_t Value, uint32_t Type, int64_t Addend,
-                         uint64_t SymOffset = 0);
+                         uint64_t SymOffset = 0, SID SectionID = 0);
 
   void resolveX86_64Relocation(const SectionEntry &Section, uint64_t Offset,
                                uint64_t Value, uint32_t Type, int64_t Addend,
@@ -43,18 +43,33 @@ class RuntimeDyldELF : public RuntimeDyldImpl {
   void resolveMIPSRelocation(const SectionEntry &Section, uint64_t Offset,
                              uint32_t Value, uint32_t Type, int32_t Addend);
 
+  void resolvePPC32Relocation(const SectionEntry &Section, uint64_t Offset,
+                              uint64_t Value, uint32_t Type, int64_t Addend);
+
   void resolvePPC64Relocation(const SectionEntry &Section, uint64_t Offset,
                               uint64_t Value, uint32_t Type, int64_t Addend);
 
   void resolveSystemZRelocation(const SectionEntry &Section, uint64_t Offset,
                                 uint64_t Value, uint32_t Type, int64_t Addend);
 
+  void resolveMIPS64Relocation(const SectionEntry &Section, uint64_t Offset,
+                               uint64_t Value, uint32_t Type, int64_t Addend,
+                               uint64_t SymOffset, SID SectionID);
+
+  int64_t evaluateMIPS64Relocation(const SectionEntry &Section,
+                                   uint64_t Offset, uint64_t Value,
+                                   uint32_t Type,  int64_t Addend,
+                                   uint64_t SymOffset, SID SectionID);
+
+  void applyMIPS64Relocation(uint8_t *TargetPtr, int64_t CalculatedValue,
+                             uint32_t Type);
+
   unsigned getMaxStubSize() override {
     if (Arch == Triple::aarch64 || Arch == Triple::aarch64_be)
       return 20; // movz; movk; movk; movk; br
     if (Arch == Triple::arm || Arch == Triple::thumb)
       return 8; // 32-bit instruction and 32-bit address
-    else if (Arch == Triple::mipsel || Arch == Triple::mips)
+    else if (IsMipsO32ABI)
       return 16;
     else if (Arch == Triple::ppc64 || Arch == Triple::ppc64le)
       return 44;
@@ -73,10 +88,12 @@ class RuntimeDyldELF : public RuntimeDyldImpl {
       return 1;
   }
 
-  void findPPC64TOCSection(const ObjectFile &Obj,
+  void setMipsABI(const ObjectFile &Obj) override;
+
+  void findPPC64TOCSection(const ELFObjectFileBase &Obj,
                            ObjSectionToIDMap &LocalSections,
                            RelocationValueRef &Rel);
-  void findOPDEntrySection(const ObjectFile &Obj,
+  void findOPDEntrySection(const ELFObjectFileBase &Obj,
                            ObjSectionToIDMap &LocalSections,
                            RelocationValueRef &Rel);
 
@@ -99,6 +116,17 @@ class RuntimeDyldELF : public RuntimeDyldImpl {
                                      uint64_t SymbolOffset,
                                      unsigned Type);
 
+  // Compute the address in memory where we can find the placeholder
+  void *computePlaceholderAddress(unsigned SectionID, uint64_t Offset) const;
+
+  // Split out common case for createing the RelocationEntry for when the relocation requires
+  // no particular advanced processing.
+  void processSimpleRelocation(unsigned SectionID, uint64_t Offset, unsigned RelType, RelocationValueRef Value);
+
+  // Return matching *LO16 relocation (Mips specific)
+  uint32_t getMatchingLoRelocation(uint32_t RelType,
+                                   bool IsLocal = false) const;
+
   // The tentative ID for the GOT section
   unsigned GOTSectionID;
 
@@ -107,11 +135,24 @@ class RuntimeDyldELF : public RuntimeDyldImpl {
   // that consume more than one slot)
   unsigned CurrentGOTIndex;
 
+  // A map from section to a GOT section that has entries for section's GOT
+  // relocations. (Mips64 specific)
+  DenseMap<SID, SID> SectionToGOTMap;
+
+  // A map to avoid duplicate got entries (Mips64 specific)
+  StringMap<uint64_t> GOTSymbolOffsets;
+
+  // *HI16 relocations will be added for resolving when we find matching
+  // *LO16 part. (Mips specific)
+  SmallVector<std::pair<RelocationValueRef, RelocationEntry>, 8> PendingRelocs;
+
   // When a module is loaded we save the SectionID of the EH frame section
   // in a table until we receive a request to register all unregistered
   // EH frame sections with the memory manager.
   SmallVector<SID, 2> UnregisteredEHFrameSections;
   SmallVector<SID, 2> RegisteredEHFrameSections;
+
+  bool relocationNeedsStub(const RelocationRef &R) const override;
 
 public:
   RuntimeDyldELF(RuntimeDyld::MemoryManager &MemMgr,

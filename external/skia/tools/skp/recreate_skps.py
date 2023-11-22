@@ -36,8 +36,9 @@ def _get_skp_version():
     new_version += 1
 
 
-def main(chrome_src_path, browser_executable):
+def main(chrome_src_path, browser_executable, dry_run):
   browser_executable = os.path.realpath(browser_executable)
+  dry_run = (dry_run == 'True')
   skp_version = _get_skp_version()
   print 'SKP_VERSION=%d' % skp_version
 
@@ -61,36 +62,10 @@ def main(chrome_src_path, browser_executable):
     '--alternate_upload_dir', upload_dir,
     '--chrome_src_path', chrome_src_path,
   ]
+  if not dry_run:
+    webpages_playback_cmd.append('--upload_to_partner_bucket')
 
   try:
-    shell_utils.run(webpages_playback_cmd)
-
-    # Temporary change to enable Slimming Paint runs. See skia:3763.
-    skia_page_sets_path = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), 'page_sets')
-    sp_skia_page_sets = [
-        os.path.join(skia_page_sets_path, 'skia_carsvg_desktop.py'),
-        os.path.join(skia_page_sets_path, 'skia_chalkboard_desktop.py'),
-        os.path.join(skia_page_sets_path, 'skia_css3gradients_desktop.py'),
-        os.path.join(skia_page_sets_path, 'skia_espn_desktop.py'),
-        os.path.join(skia_page_sets_path, 'skia_gmailthread_desktop.py'),
-        os.path.join(skia_page_sets_path, 'skia_googlehome_desktop.py'),
-        os.path.join(skia_page_sets_path, 'skia_googlespreadsheet_desktop.py'),
-        os.path.join(skia_page_sets_path, 'skia_jsfiddlebigcar_desktop.py'),
-        os.path.join(skia_page_sets_path, 'skia_mapsvg_desktop.py'),
-        os.path.join(skia_page_sets_path, 'skia_nytimes_desktop.py'),
-        os.path.join(skia_page_sets_path, 'skia_samoasvg_desktop.py'),
-        os.path.join(skia_page_sets_path, 'skia_tigersvg_desktop.py'),
-        os.path.join(skia_page_sets_path, 'skia_ugamsolutions_desktop.py'),
-        os.path.join(skia_page_sets_path, 'skia_digg_nexus10.py'),
-        os.path.join(skia_page_sets_path, 'skia_gmail_nexus10.py'),
-        os.path.join(skia_page_sets_path, 'skia_pravda_nexus10.py'),
-    ]
-    webpages_playback_cmd.extend([
-        '--skp_prefix', 'sp_',
-        '--browser_extra_args', '--enable-slimming-paint',
-        '--page_sets', '%s' % ','.join(sp_skia_page_sets),
-    ])
     shell_utils.run(webpages_playback_cmd)
   finally:
     # Clean up any leftover browser instances. This can happen if there are
@@ -114,7 +89,8 @@ def main(chrome_src_path, browser_executable):
 
 
 if '__main__' == __name__:
-  if len(sys.argv) != 3:
-    print >> sys.stderr, 'USAGE: %s <chrome src path> <browser executable>'
+  if len(sys.argv) != 4:
+    print >> sys.stderr, ('USAGE: %s <chrome src path> <browser executable> '
+                          '<dry run>')
     sys.exit(1)
   main(*sys.argv[1:])

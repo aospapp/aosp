@@ -77,73 +77,107 @@ class JavaVMExt : public JavaVM {
   // such as NewByteArray.
   // If -verbose:third-party-jni is on, we want to log any JNI function calls
   // made by a third-party native method.
-  bool ShouldTrace(ArtMethod* method) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  bool ShouldTrace(ArtMethod* method) SHARED_REQUIRES(Locks::mutator_lock_);
 
   /**
    * Loads the given shared library. 'path' is an absolute pathname.
    *
-   * Returns 'true' on success. On failure, sets 'detail' to a
+   * Returns 'true' on success. On failure, sets 'error_msg' to a
    * human-readable description of the error.
    */
-  bool LoadNativeLibrary(JNIEnv* env, const std::string& path, jobject javaLoader,
+  bool LoadNativeLibrary(JNIEnv* env,
+                         const std::string& path,
+                         jobject class_loader,
+                         jstring library_path,
                          std::string* error_msg);
+
+  // Unload native libraries with cleared class loaders.
+  void UnloadNativeLibraries()
+      REQUIRES(!Locks::jni_libraries_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   /**
    * Returns a pointer to the code for the native method 'm', found
    * using dlsym(3) on every native library that's been loaded so far.
    */
   void* FindCodeForNativeMethod(ArtMethod* m)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   void DumpForSigQuit(std::ostream& os)
-      LOCKS_EXCLUDED(Locks::jni_libraries_lock_, globals_lock_, weak_globals_lock_);
+      REQUIRES(!Locks::jni_libraries_lock_, !globals_lock_, !weak_globals_lock_);
 
   void DumpReferenceTables(std::ostream& os)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(!globals_lock_, !weak_globals_lock_);
 
   bool SetCheckJniEnabled(bool enabled);
 
-  void VisitRoots(RootVisitor* visitor) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  void VisitRoots(RootVisitor* visitor) SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES(!globals_lock_);
 
-  void DisallowNewWeakGlobals() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
-  void AllowNewWeakGlobals() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
-  void EnsureNewWeakGlobalsDisallowed() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  void DisallowNewWeakGlobals() SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(!weak_globals_lock_);
+  void AllowNewWeakGlobals() SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(!weak_globals_lock_);
+  void BroadcastForNewWeakGlobals() SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES(!weak_globals_lock_);
 
   jobject AddGlobalRef(Thread* self, mirror::Object* obj)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(!globals_lock_);
 
   jweak AddWeakGlobalRef(Thread* self, mirror::Object* obj)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+    SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(!weak_globals_lock_);
 
-  void DeleteGlobalRef(Thread* self, jobject obj);
+  void DeleteGlobalRef(Thread* self, jobject obj) REQUIRES(!globals_lock_);
 
-  void DeleteWeakGlobalRef(Thread* self, jweak obj);
+  void DeleteWeakGlobalRef(Thread* self, jweak obj) REQUIRES(!weak_globals_lock_);
 
-  void SweepJniWeakGlobals(IsMarkedCallback* callback, void* arg)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  void SweepJniWeakGlobals(IsMarkedVisitor* visitor)
+      SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(!weak_globals_lock_);
 
-  mirror::Object* DecodeGlobal(Thread* self, IndirectRef ref)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  mirror::Object* DecodeGlobal(IndirectRef ref)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   void UpdateGlobal(Thread* self, IndirectRef ref, mirror::Object* result)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      LOCKS_EXCLUDED(globals_lock_);
+      SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(!globals_lock_);
 
   mirror::Object* DecodeWeakGlobal(Thread* self, IndirectRef ref)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES(!weak_globals_lock_);
+
+  mirror::Object* DecodeWeakGlobalLocked(Thread* self, IndirectRef ref)
+      SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES(weak_globals_lock_);
+
+  // Like DecodeWeakGlobal() but to be used only during a runtime shutdown where self may be
+  // null.
+  mirror::Object* DecodeWeakGlobalDuringShutdown(Thread* self, IndirectRef ref)
+      SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES(!weak_globals_lock_);
+
+  // Checks if the weak global ref has been cleared by the GC without decode (read barrier.)
+  bool IsWeakGlobalCleared(Thread* self, IndirectRef ref)
+      SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES(!weak_globals_lock_);
+
+  Mutex& WeakGlobalsLock() RETURN_CAPABILITY(weak_globals_lock_) {
+    return weak_globals_lock_;
+  }
 
   void UpdateWeakGlobal(Thread* self, IndirectRef ref, mirror::Object* result)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      LOCKS_EXCLUDED(weak_globals_lock_);
+      SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(!weak_globals_lock_);
 
   const JNIInvokeInterface* GetUncheckedFunctions() const {
     return unchecked_functions_;
   }
 
-  void TrimGlobals() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      LOCKS_EXCLUDED(globals_lock_);
+  void TrimGlobals() SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES(!globals_lock_);
 
  private:
+  // Return true if self can currently access weak globals.
+  bool MayAccessWeakGlobalsUnlocked(Thread* self) const SHARED_REQUIRES(Locks::mutator_lock_);
+  bool MayAccessWeakGlobals(Thread* self) const
+      SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES(weak_globals_lock_);
+
   Runtime* const runtime_;
 
   // Used for testing. By default, we'll LOG(FATAL) the reason.
@@ -163,7 +197,9 @@ class JavaVMExt : public JavaVM {
   // Not guarded by globals_lock since we sometimes use SynchronizedGet in Thread::DecodeJObject.
   IndirectReferenceTable globals_;
 
-  std::unique_ptr<Libraries> libraries_ GUARDED_BY(Locks::jni_libraries_lock_);
+  // No lock annotation since UnloadNativeLibraries is called on libraries_ but locks the
+  // jni_libraries_lock_ internally.
+  std::unique_ptr<Libraries> libraries_;
 
   // Used by -Xcheck:jni.
   const JNIInvokeInterface* const unchecked_functions_;
@@ -173,8 +209,10 @@ class JavaVMExt : public JavaVM {
   // Since weak_globals_ contain weak roots, be careful not to
   // directly access the object references in it. Use Get() with the
   // read barrier enabled.
-  IndirectReferenceTable weak_globals_ GUARDED_BY(weak_globals_lock_);
-  bool allow_new_weak_globals_ GUARDED_BY(weak_globals_lock_);
+  // Not guarded by weak_globals_lock since we may use SynchronizedGet in DecodeWeakGlobal.
+  IndirectReferenceTable weak_globals_;
+  // Not guarded by weak_globals_lock since we may use SynchronizedGet in DecodeWeakGlobal.
+  Atomic<bool> allow_accessing_weak_globals_;
   ConditionVariable weak_globals_add_condition_ GUARDED_BY(weak_globals_lock_);
 
   DISALLOW_COPY_AND_ASSIGN(JavaVMExt);

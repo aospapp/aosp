@@ -17,10 +17,12 @@
 package android.support.customtabs;
 
 import android.content.ComponentName;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
+import android.support.annotation.NonNull;
 
 import java.util.List;
 
@@ -60,6 +62,42 @@ public final class CustomTabsSession {
     public boolean mayLaunchUrl(Uri url, Bundle extras, List<Bundle> otherLikelyBundles) {
         try {
             return mService.mayLaunchUrl(mCallback, url, extras, otherLikelyBundles);
+        } catch (RemoteException e) {
+            return false;
+        }
+    }
+
+    /**
+     * This sets the action button on the toolbar with ID
+     * {@link CustomTabsIntent#TOOLBAR_ACTION_BUTTON_ID}.
+     *
+     * @param icon          The new icon of the action button.
+     * @param description   Content description of the action button.
+     *
+     * @see {@link CustomTabsSession#setToolbarItem(int, Bitmap, String)}
+     */
+    public boolean setActionButton(@NonNull Bitmap icon, @NonNull String description) {
+        return setToolbarItem(CustomTabsIntent.TOOLBAR_ACTION_BUTTON_ID, icon, description);
+    }
+
+    /**
+     * Updates the visuals for toolbar items. Will only succeed if a custom tab created using this
+     * session is in the foreground in browser and the given id is valid.
+     * @param id            The id for the item to update.
+     * @param icon          The new icon of the toolbar item.
+     * @param description   Content description of the toolbar item.
+     * @return              Whether the update succeeded.
+     */
+    public boolean setToolbarItem(int id, @NonNull Bitmap icon, @NonNull String description) {
+        Bundle bundle = new Bundle();
+        bundle.putInt(CustomTabsIntent.KEY_ID, id);
+        bundle.putParcelable(CustomTabsIntent.KEY_ICON, icon);
+        bundle.putString(CustomTabsIntent.KEY_DESCRIPTION, description);
+
+        Bundle metaBundle = new Bundle();
+        metaBundle.putBundle(CustomTabsIntent.EXTRA_ACTION_BUTTON_BUNDLE, bundle);
+        try {
+            return mService.updateVisuals(mCallback, metaBundle);
         } catch (RemoteException e) {
             return false;
         }

@@ -7,6 +7,7 @@
 
 #include "GrGLTexture.h"
 #include "GrGLGpu.h"
+#include "SkTraceMemoryDump.h"
 
 #define GPUGL static_cast<GrGLGpu*>(this->getGpu())
 #define GL_CALL(X) GR_GL_CALL(GPUGL->glInterface(), X)
@@ -26,30 +27,47 @@ GrGLTexture::GrGLTexture(GrGLGpu* gpu, const GrSurfaceDesc& desc, const IDDesc& 
 }
 
 void GrGLTexture::init(const GrSurfaceDesc& desc, const IDDesc& idDesc) {
-    SkASSERT(0 != idDesc.fTextureID);
+    SkASSERT(0 != idDesc.fInfo.fID);
     fTexParams.invalidate();
     fTexParamsTimestamp = GrGpu::kExpiredTimestamp;
-    fTextureID = idDesc.fTextureID;
-    fIsWrapped = kWrapped_LifeCycle == idDesc.fLifeCycle;
+    fInfo = idDesc.fInfo;
+    fTextureIDLifecycle = idDesc.fLifeCycle;
 }
 
 void GrGLTexture::onRelease() {
-    if (fTextureID) {
-        if (!fIsWrapped) {
-            GL_CALL(DeleteTextures(1, &fTextureID));
+    if (fInfo.fID) {
+        if (GrGpuResource::kBorrowed_LifeCycle != fTextureIDLifecycle) {
+            if (this->desc().fTextureStorageAllocator.fDeallocateTextureStorage) {
+                this->desc().fTextureStorageAllocator.fDeallocateTextureStorage(
+                        this->desc().fTextureStorageAllocator.fCtx,
+                        reinterpret_cast<GrBackendObject>(&fInfo));
+            } else {
+                GL_CALL(DeleteTextures(1, &fInfo.fID));
+            }
         }
-        fTextureID = 0;
-        fIsWrapped = false;
+        fInfo.fID = 0;
     }
     INHERITED::onRelease();
 }
 
 void GrGLTexture::onAbandon() {
-    fTextureID = 0;
-    fIsWrapped = false;
+    fInfo.fTarget = 0;
+    fInfo.fID = 0;
     INHERITED::onAbandon();
 }
 
 GrBackendObject GrGLTexture::getTextureHandle() const {
+#ifdef SK_IGNORE_GL_TEXTURE_TARGET
     return static_cast<GrBackendObject>(this->textureID());
+#else
+    return reinterpret_cast<GrBackendObject>(&fInfo);
+#endif
+}
+
+void GrGLTexture::setMemoryBacking(SkTraceMemoryDump* traceMemoryDump,
+                                   const SkString& dumpName) const {
+    SkString texture_id;
+    texture_id.appendU32(this->textureID());
+    traceMemoryDump->setMemoryBacking(dumpName.c_str(), "gl_texture",
+                                      texture_id.c_str());
 }

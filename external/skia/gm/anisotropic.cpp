@@ -13,7 +13,7 @@ namespace skiagm {
 class AnisotropicGM : public GM {
 public:
     AnisotropicGM() : fFilterQuality(kHigh_SkFilterQuality) {
-        this->setBGColor(0xFFCCCCCC);
+        this->setBGColor(sk_tool_utils::color_to_565(0xFFCCCCCC));
     }
 
 protected:
@@ -109,6 +109,5 @@ private:
 
 //////////////////////////////////////////////////////////////////////////////
 
-DEF_GM( return SkNEW(AnisotropicGM); )
-
+DEF_GM(return new AnisotropicGM;)
 }

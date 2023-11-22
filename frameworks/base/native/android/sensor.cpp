@@ -38,10 +38,6 @@ using android::String8;
 using android::String16;
 
 /*****************************************************************************/
-
-android::Mutex android::SensorManager::sLock;
-std::map<String16, SensorManager*> android::SensorManager::sPackageInstances;
-
 ASensorManager* ASensorManager_getInstance()
 {
     return ASensorManager_getInstanceForPackage(NULL);
@@ -108,6 +104,14 @@ int ASensorManager_destroyEventQueue(ASensorManager* manager,
 }
 
 /*****************************************************************************/
+
+int ASensorEventQueue_registerSensor(ASensorEventQueue* queue, ASensor const* sensor,
+        int32_t samplingPeriodUs, int maxBatchReportLatencyUs)
+{
+    return static_cast<SensorEventQueue*>(queue)->enableSensor(
+            static_cast<Sensor const*>(sensor)->getHandle(), samplingPeriodUs,
+                    maxBatchReportLatencyUs, 0);
+}
 
 int ASensorEventQueue_enableSensor(ASensorEventQueue* queue, ASensor const* sensor)
 {

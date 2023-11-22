@@ -15,41 +15,26 @@
  */
 package com.android.compatibility.common.deviceinfo;
 
-import android.app.Activity;
-import android.app.Instrumentation;
-import android.content.Context;
-import android.content.Intent;
-import android.content.pm.FeatureInfo;
-import android.content.pm.PackageManager;
-import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.SystemProperties;
 import android.os.UserManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
-import android.util.DisplayMetrics;
-import android.util.Log;
-import android.view.Display;
-import android.view.WindowManager;
 
-import java.io.IOException;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Scanner;
-import java.util.Set;
+import java.lang.Integer;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
 
-import com.android.compatibility.common.deviceinfo.DeviceInfoActivity;
+import com.android.compatibility.common.deviceinfo.DeviceInfo;
+import com.android.compatibility.common.util.DeviceInfoStore;
 
 /**
  * Generic device info collector.
  */
-public class GenericDeviceInfo extends DeviceInfoActivity {
+public class GenericDeviceInfo extends DeviceInfo {
 
     public static final String BUILD_ID = "build_id";
     public static final String BUILD_PRODUCT = "build_product";
@@ -68,30 +53,49 @@ public class GenericDeviceInfo extends DeviceInfoActivity {
     public static final String BUILD_SERIAL = "build_serial";
     public static final String BUILD_VERSION_RELEASE = "build_version_release";
     public static final String BUILD_VERSION_SDK = "build_version_sdk";
+    public static final String BUILD_VERSION_SDK_INT = "build_version_sdk_int";
+    public static final String BUILD_VERSION_BASE_OS = "build_version_base_os";
+    public static final String BUILD_VERSION_SECURITY_PATCH = "build_version_security_patch";
+    public static final String BUILD_REFERENCE_FINGERPRINT = "build_reference_fingerprint";
+
+    private final Map<String, String> mDeviceInfo = new HashMap<>();
 
     @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-    }
+    protected void collectDeviceInfo(DeviceInfoStore store) throws Exception {
+        store.addResult(BUILD_ID, Build.ID);
+        store.addResult(BUILD_PRODUCT, Build.PRODUCT);
+        store.addResult(BUILD_DEVICE, Build.DEVICE);
+        store.addResult(BUILD_BOARD, Build.BOARD);
+        store.addResult(BUILD_MANUFACTURER, Build.MANUFACTURER);
+        store.addResult(BUILD_BRAND, Build.BRAND);
+        store.addResult(BUILD_MODEL, Build.MODEL);
+        store.addResult(BUILD_TYPE, Build.TYPE);
+        store.addResult(BUILD_FINGERPRINT, Build.FINGERPRINT);
+        store.addResult(BUILD_ABI, Build.CPU_ABI);
+        store.addResult(BUILD_ABI2, Build.CPU_ABI2);
+        store.addResult(BUILD_SERIAL, Build.SERIAL);
+        store.addResult(BUILD_VERSION_RELEASE, Build.VERSION.RELEASE);
+        store.addResult(BUILD_VERSION_SDK, Build.VERSION.SDK);
+        store.addResult(BUILD_REFERENCE_FINGERPRINT,
+                SystemProperties.get("ro.build.reference.fingerprint", ""));
 
-    @Override
-    protected void collectDeviceInfo() {
-        addResult(BUILD_ID, Build.ID);
-        addResult(BUILD_PRODUCT, Build.PRODUCT);
-        addResult(BUILD_DEVICE, Build.DEVICE);
-        addResult(BUILD_BOARD, Build.BOARD);
-        addResult(BUILD_MANUFACTURER, Build.MANUFACTURER);
-        addResult(BUILD_BRAND, Build.BRAND);
-        addResult(BUILD_MODEL, Build.MODEL);
-        addResult(BUILD_TYPE, Build.TYPE);
-        addResult(BUILD_FINGERPRINT, Build.FINGERPRINT);
-        addResult(BUILD_ABI, Build.CPU_ABI);
-        addResult(BUILD_ABI2, Build.CPU_ABI2);
-        addResult(BUILD_ABIS, TextUtils.join(",", Build.SUPPORTED_ABIS));
-        addResult(BUILD_ABIS_32, TextUtils.join(",", Build.SUPPORTED_32_BIT_ABIS));
-        addResult(BUILD_ABIS_64, TextUtils.join(",", Build.SUPPORTED_64_BIT_ABIS));
-        addResult(BUILD_SERIAL, Build.SERIAL);
-        addResult(BUILD_VERSION_RELEASE, Build.VERSION.RELEASE);
-        addResult(BUILD_VERSION_SDK, Build.VERSION.SDK);
+        // Collect build fields available in API level 21
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            store.addResult(BUILD_ABIS, TextUtils.join(",", Build.SUPPORTED_ABIS));
+            store.addResult(BUILD_ABIS_32, TextUtils.join(",", Build.SUPPORTED_32_BIT_ABIS));
+            store.addResult(BUILD_ABIS_64, TextUtils.join(",", Build.SUPPORTED_64_BIT_ABIS));
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            store.addResult(BUILD_VERSION_BASE_OS, Build.VERSION.BASE_OS);
+            store.addResult(BUILD_VERSION_SECURITY_PATCH, Build.VERSION.SECURITY_PATCH);
+        } else {
+            // Access system properties directly because Build.Version.BASE_OS and
+            // Build.Version.SECURITY_PATCH are not defined pre-M.
+            store.addResult(BUILD_VERSION_BASE_OS,
+                    SystemProperties.get("ro.build.version.base_os", ""));
+            store.addResult(BUILD_VERSION_SECURITY_PATCH,
+                    SystemProperties.get("ro.build.version.security_patch", ""));
+        }
     }
 }

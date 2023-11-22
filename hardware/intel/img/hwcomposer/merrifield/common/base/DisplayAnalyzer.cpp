@@ -24,9 +24,7 @@
 #include <cutils/properties.h>
 #include <GraphicBuffer.h>
 #include <ExternalDevice.h>
-#ifdef INTEL_WIDI_MERRIFIELD
 #include <VirtualDevice.h>
-#endif
 
 namespace android {
 namespace intel {
@@ -136,19 +134,12 @@ void DisplayAnalyzer::checkVideoExtMode()
     Hwcomposer *hwc = &Hwcomposer::getInstance();
 
     ExternalDevice *eDev = static_cast<ExternalDevice *>(hwc->getDisplayDevice(IDisplayDevice::DEVICE_EXTERNAL));
-#ifdef INTEL_WIDI_MERRIFIELD
     VirtualDevice  *vDev = static_cast<VirtualDevice  *>(hwc->getDisplayDevice(IDisplayDevice::DEVICE_VIRTUAL));
 
     if ((!eDev || !eDev->isConnected()) && (!vDev || !vDev->isFrameServerActive())) {
         mVideoExtModeEligible = false;
         return;
     }
-#else
-    if (!eDev || !eDev->isConnected()) {
-        mVideoExtModeEligible = false;
-        return;
-    }
-#endif /*INTEL_WIDI_MERRIFIELD*/
 
     bool geometryChanged = false;
     int activeDisplays = 0;

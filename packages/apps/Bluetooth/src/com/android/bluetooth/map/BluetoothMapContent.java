@@ -117,7 +117,7 @@ public class BluetoothMapContent {
     // MAP specification states that the default value for parameter mask are
     // the #REQUIRED attributes in the DTD, and not all enabled
     public static final long PARAMETER_MASK_ALL_ENABLED = 0xFFFFFFFFL;
-    public static final long PARAMETER_MASK_DEFAULT = 0x5E3L;
+    public static final long PARAMETER_MASK_DEFAULT = 0x5EBL;
     public static final long CONVO_PARAMETER_MASK_ALL_ENABLED = 0xFFFFFFFFL;
     public static final long CONVO_PARAMETER_MASK_DEFAULT =
             CONVO_PARAM_MASK_CONVO_NAME |
@@ -138,6 +138,15 @@ public class BluetoothMapContent {
     public static final int MMS_TO      = 0x97;
     public static final int MMS_BCC     = 0x81;
     public static final int MMS_CC      = 0x82;
+
+    /* OMA-TS-MMS-ENC defined many types in X-Mms-Message-Type.
+       Only m-send-req (128) m-retrieve-conf (132), m-notification-ind (130)
+       are interested by user */
+    private static final String INTERESTED_MESSAGE_TYPE_CLAUSE = String
+            .format("( %s = %d OR %s = %d OR %s = %d )", Mms.MESSAGE_TYPE,
+            PduHeaders.MESSAGE_TYPE_SEND_REQ, Mms.MESSAGE_TYPE,
+            PduHeaders.MESSAGE_TYPE_RETRIEVE_CONF, Mms.MESSAGE_TYPE,
+            PduHeaders.MESSAGE_TYPE_NOTIFICATION_IND );
 
     public static final String INSERT_ADDRES_TOKEN = "insert-address-token";
 
@@ -1240,6 +1249,8 @@ public class BluetoothMapContent {
             }
             if (subject != null && subject.length() > subLength) {
                 subject = subject.substring(0, subLength);
+            } else if (subject == null ) {
+                subject = "";
             }
             if (V) Log.d(TAG, "setSubject: " + subject);
             e.setSubject(subject);
@@ -2119,6 +2130,7 @@ public class BluetoothMapContent {
                 }
                 fi.mMsgType = FilterInfo.TYPE_MMS;
                 String where = setWhereFilter(folderElement, fi, ap);
+                where += " AND " + INTERESTED_MESSAGE_TYPE_CLAUSE;
                 if(!where.isEmpty()) {
                     if (D) Log.d(TAG, "msgType: " + fi.mMsgType + " where: " + where);
                     mmsCursor = mResolver.query(Mms.CONTENT_URI,

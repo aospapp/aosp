@@ -8,17 +8,19 @@
 #ifndef SkFontMgr_indirect_DEFINED
 #define SkFontMgr_indirect_DEFINED
 
+#include "../private/SkMutex.h"
+#include "../private/SkTArray.h"
 #include "SkDataTable.h"
 #include "SkFontMgr.h"
-#include "SkFontStyle.h"
+#include "SkRefCnt.h"
 #include "SkRemotableFontMgr.h"
-#include "SkTArray.h"
 #include "SkTypeface.h"
+#include "SkTypes.h"
 
 class SkData;
-class SkStream;
+class SkFontStyle;
+class SkStreamAsset;
 class SkString;
-class SkTypeface;
 
 class SK_API SkFontMgr_Indirect : public SkFontMgr {
 public:
@@ -68,8 +70,7 @@ private:
 
         DataEntry() { }
 
-        // This is a move!!!
-        DataEntry(DataEntry& that)
+        DataEntry(DataEntry&& that)
             : fDataId(that.fDataId)
             , fTtcIndex(that.fTtcIndex)
             , fTypeface(that.fTypeface)

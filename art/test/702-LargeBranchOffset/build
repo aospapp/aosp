@@ -17,11 +17,7 @@
 # Stop if something fails.
 set -e
 
-# Write out a bunch of source files.
+# Write out the source file.
 cpp -P src/Main.java.in src/Main.java
 
-mkdir classes
-${JAVAC} -d classes src/*.java
-
-${DX} --debug --dex --output=classes.dex classes
-zip $TEST_NAME.jar classes.dex
+./default-build

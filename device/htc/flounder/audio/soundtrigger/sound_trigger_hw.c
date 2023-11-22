@@ -306,11 +306,17 @@ static void *callback_thread_loop(void *context)
                     event = (struct sound_trigger_phrase_recognition_event *)
                             sound_trigger_event_alloc(stdev);
                     if (event) {
+                        recognition_callback_t callback = stdev->recognition_callback;
+                        void *cookie = stdev->recognition_cookie;
+
                         stdev->is_streaming = 1;
                         ALOGI("%s send callback model %d", __func__,
                               stdev->model_handle);
-                        stdev->recognition_callback(&event->common,
-                                                    stdev->recognition_cookie);
+                        pthread_mutex_unlock(&stdev->lock);
+                        if (callback != NULL) {
+                            callback(&event->common, cookie);
+                        }
+                        pthread_mutex_lock(&stdev->lock);
                         free(event);
                         // Start reading data from the DSP while the upper levels do their thing.
                         if (stdev->config && stdev->config->capture_requested) {

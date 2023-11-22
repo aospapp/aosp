@@ -45,6 +45,9 @@ typedef enum {
     BTIF_AV_STOP_STREAM_REQ_EVT,
     BTIF_AV_SUSPEND_STREAM_REQ_EVT,
     BTIF_AV_SINK_CONFIG_REQ_EVT,
+    BTIF_AV_OFFLOAD_START_REQ_EVT,
+    BTIF_AV_SINK_FOCUS_REQ_EVT,
+    BTIF_AV_CLEANUP_REQ_EVT,
 } btif_av_sm_event_t;
 
 
@@ -63,6 +66,29 @@ typedef enum {
 *******************************************************************************/
 
 btif_sm_handle_t btif_av_get_sm_handle(void);
+
+/*******************************************************************************
+**
+** Function         btif_av_get_addr
+**
+** Description      Fetches current AV BD address
+**
+** Returns          BD address
+**
+*******************************************************************************/
+
+bt_bdaddr_t btif_av_get_addr(void);
+
+/*******************************************************************************
+** Function         btif_av_is_sink_enabled
+**
+** Description      Checks if A2DP Sink is enabled or not
+**
+** Returns          TRUE if A2DP Sink is enabled, false otherwise
+**
+*******************************************************************************/
+
+BOOLEAN btif_av_is_sink_enabled(void);
 
 /*******************************************************************************
 **
@@ -111,7 +137,7 @@ void btif_dispatch_sm_event(btif_av_sm_event_t event, void *p_data, int len);
 **
 *******************************************************************************/
 
-bt_status_t btif_av_init(void);
+bt_status_t btif_av_init(int service_id);
 
 /*******************************************************************************
 **
@@ -141,6 +167,31 @@ BOOLEAN btif_av_is_connected(void);
 
 BOOLEAN btif_av_is_peer_edr(void);
 
+#ifdef USE_AUDIO_TRACK
+/*******************************************************************************
+**
+** Function         audio_focus_status
+**
+** Description      Update Audio Focus State
+**
+** Returns          None
+**
+*******************************************************************************/
+void audio_focus_status(int state);
+
+/*******************************************************************************
+**
+** Function         btif_queue_focus_request
+**
+** Description      This is used to move context to btif and
+**                  queue audio_focus_request
+**
+** Returns          none
+**
+*******************************************************************************/
+void btif_queue_focus_request(void);
+#endif
+
 /******************************************************************************
 **
 ** Function         btif_av_clear_remote_suspend_flag
@@ -150,5 +201,18 @@ BOOLEAN btif_av_is_peer_edr(void);
 ** Returns          Void
 ********************************************************************************/
 void btif_av_clear_remote_suspend_flag(void);
+
+/*******************************************************************************
+**
+** Function         btif_av_peer_supports_3mbps
+**
+** Description      Check if the connected A2DP device supports
+**                  3 Mbps EDR. This function will only work while connected.
+**                  If not connected it will always return false.
+**
+** Returns          TRUE if remote device is EDR and supports 3 Mbps
+**
+*******************************************************************************/
+BOOLEAN btif_av_peer_supports_3mbps(void);
 
 #endif /* BTIF_AV_H */

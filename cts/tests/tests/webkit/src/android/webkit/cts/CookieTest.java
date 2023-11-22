@@ -17,6 +17,7 @@
 package android.webkit.cts;
 
 import android.cts.util.NullWebViewUtils;
+import android.platform.test.annotations.Presubmit;
 import android.test.ActivityInstrumentationTestCase2;
 import android.webkit.CookieManager;
 import android.webkit.CookieSyncManager;
@@ -30,7 +31,7 @@ public class CookieTest extends ActivityInstrumentationTestCase2<CookieSyncManag
     private static final long WAIT_TIME = 50;
 
     public CookieTest() {
-        super("com.android.cts.webkit", CookieSyncManagerCtsActivity.class);
+        super("android.webkit.cts", CookieSyncManagerCtsActivity.class);
     }
 
     @Override
@@ -56,6 +57,7 @@ public class CookieTest extends ActivityInstrumentationTestCase2<CookieSyncManag
         assertFalse(mCookieManager.hasCookies());
     }
 
+    @Presubmit
     public void testDomain() {
         if (!NullWebViewUtils.isWebViewAvailable()) {
             return;

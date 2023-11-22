@@ -66,8 +66,7 @@ The host communicates with
 <a href="http://en.wikipedia.org/wiki/Peripheral">peripherals</a> via the bus.
 </p>
 
-<p>
-<b>Note:</b> the terms <i>device</i> or <i>accessory</i> are common synonyms for
+<p class="note"><strong>Note:</strong> The terms <i>device</i> and <i>accessory</i> are common synonyms for
 <i>peripheral</i>.  We avoid those terms here, as they could be confused with
 Android <a href="http://en.wikipedia.org/wiki/Mobile_device">device</a>
 or the Android-specific concept called
@@ -191,7 +190,7 @@ Accessory mode was extended with additional features in Android 4.1,
 in particular audio described below.
 </p>
 
-<h2 id="audioClass">USB audio</h2>
+<h2 id="usbAudio">USB audio</h2>
 
 <h3 id="class">USB classes</h3>
 
@@ -310,7 +309,7 @@ of the host.
 
 <p>
 In asynchronous (also called implicit feedback) sub-mode,
-the sink or source determines the sample rate, and the host accomodates.
+the sink or source determines the sample rate, and the host accommodates.
 The primary theoretical advantage of asynchronous sub-mode is that the source
 or sink USB clock is physically and electrically closer to (and indeed may
 be the same as, or derived from) the clock that drives the DAC or ADC.
@@ -333,8 +332,8 @@ The table below summarizes the isochronous sub-modes:
 <table>
 <tr>
   <th>Sub-mode</th>
-  <th>Byte count<br \>per packet</th>
-  <th>Sample rate<br \>determined by</th>
+  <th>Byte count<br />per packet</th>
+  <th>Sample rate<br />determined by</th>
   <th>Used for audio</th>
 </tr>
 <tr>
@@ -429,7 +428,7 @@ As the name indicates, the USB digital audio signal is represented
 by a <a href="http://en.wikipedia.org/wiki/Digital_data">digital</a> data stream
 rather than the <a href="http://en.wikipedia.org/wiki/Analog_signal">analog</a>
 signal used by the common TRS mini
-<a href=" http://en.wikipedia.org/wiki/Phone_connector_(audio)">headset connector</a>.
+<a href="http://en.wikipedia.org/wiki/Phone_connector_(audio)">headset connector</a>.
 Eventually any digital signal must be converted to analog before it can be heard.
 There are tradeoffs in choosing where to place that conversion.
 </p>
@@ -452,7 +451,8 @@ also with headphones.
 <p>
 Which design is better?  The answer depends on your needs.
 Each has advantages and disadvantages.
-<b>Note:</b> this is an artificial comparison, since
+</p>
+<p class="note"><strong>Note:</strong> This is an artificial comparison, since
 a real Android device would probably have both options available.
 </p>
 
@@ -538,7 +538,7 @@ In order to inter-operate with Android devices, audio peripheral vendors should:
 <ul>
 <li>design for audio class compliance;
 currently Android targets class 1, but it is wise to plan for class 2</li>
-<li>avoid <a href="http://en.wiktionary.org/wiki/quirk">quirks</a>
+<li>avoid <a href="http://en.wiktionary.org/wiki/quirk">quirks</a></li>
 <li>test for inter-operability with reference and popular Android devices</li>
 <li>clearly document supported features, audio class compliance, power requirements, etc.
 so that consumers can make informed decisions</li>
@@ -572,7 +572,9 @@ and recent kernels have workarounds for such quirks
 To enable USB audio, add an entry to the
 audio policy configuration file.  This is typically
 located here:
+</p>
 <pre>device/oem/codename/audio_policy.conf</pre>
+<p>
 The pathname component "oem" should be replaced by the name
 of the OEM who manufactures the Android device,
 and "codename" should be replaced by the device code name.
@@ -618,7 +620,9 @@ audio_hw_modules {
 <p>
 The audio Hardware Abstraction Layer (HAL)
 implementation for USB audio is located here:
+</p>
 <pre>hardware/libhardware/modules/usbaudio/</pre>
+<p>
 The USB audio HAL relies heavily on
 <i>tinyalsa</i>, described at <a href="terminology.html">Audio Terminology</a>.
 Though USB audio relies on isochronous transfers,

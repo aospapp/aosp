@@ -43,7 +43,7 @@ static int testResultSeverity (qpTestResult testResult)
 		case QP_TEST_RESULT_RESOURCE_ERROR:			return 110;
 		case QP_TEST_RESULT_INTERNAL_ERROR:			return 120;
 		case QP_TEST_RESULT_CRASH:					return 150;
-		default:									DE_ASSERT(!"Impossible case");
+		default:									DE_FATAL("Impossible case");
 	}
 	return 0;
 }
@@ -62,6 +62,14 @@ ResultCollector::ResultCollector (TestLog& log, const std::string& prefix)
 	, m_result	(QP_TEST_RESULT_LAST)
 	, m_message ("Pass")
 {
+}
+
+qpTestResult ResultCollector::getResult (void) const
+{
+	if (m_result == QP_TEST_RESULT_LAST)
+		return QP_TEST_RESULT_PASS;
+	else
+		return m_result;
 }
 
 void ResultCollector::addResult (qpTestResult result, const std::string& msg)
@@ -95,10 +103,7 @@ bool ResultCollector::check (bool condition, const std::string& msg)
 
 void ResultCollector::setTestContextResult (TestContext& testCtx)
 {
-	if (m_result == QP_TEST_RESULT_LAST)
-		testCtx.setTestResult(QP_TEST_RESULT_PASS, m_message.c_str());
-	else
-		testCtx.setTestResult(m_result, m_message.c_str());
+	testCtx.setTestResult(getResult(), getMessage().c_str());
 }
 
 } // tcu

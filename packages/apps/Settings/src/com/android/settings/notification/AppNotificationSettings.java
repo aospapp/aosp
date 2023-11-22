@@ -17,274 +17,130 @@
 package com.android.settings.notification;
 
 import android.app.Notification;
-import android.content.Context;
+import android.app.NotificationManager;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageInfo;
-import android.content.pm.PackageManager;
-import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.ResolveInfo;
+import android.content.pm.UserInfo;
 import android.os.Bundle;
 import android.os.UserHandle;
-import android.preference.Preference;
-import android.preference.Preference.OnPreferenceChangeListener;
-import android.preference.Preference.OnPreferenceClickListener;
-import android.preference.SwitchPreference;
-import android.provider.Settings;
-import android.text.TextUtils;
+import android.service.notification.NotificationListenerService.Ranking;
 import android.util.ArrayMap;
 import android.util.Log;
-import android.widget.Toast;
 
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.internal.widget.LockPatternUtils;
 import com.android.settings.AppHeader;
 import com.android.settings.R;
-import com.android.settings.SettingsPreferenceFragment;
-import com.android.settings.Utils;
-import com.android.settings.applications.AppInfoBase;
-import com.android.settings.applications.AppInfoWithHeader;
+import com.android.settings.applications.LayoutPreference;
 import com.android.settings.notification.NotificationBackend.AppRow;
+import com.android.settingslib.RestrictedSwitchPreference;
+import com.android.settingslib.RestrictedPreference;
+
 
 import java.util.List;
 
 /** These settings are per app, so should not be returned in global search results. */
-public class AppNotificationSettings extends SettingsPreferenceFragment {
+public class AppNotificationSettings extends NotificationSettingsBase {
     private static final String TAG = "AppNotificationSettings";
     private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
-
-    private static final String KEY_BLOCK = "block";
-    private static final String KEY_PRIORITY = "priority";
-    private static final String KEY_PEEKABLE = "peekable";
-    private static final String KEY_SENSITIVE = "sensitive";
-    private static final String KEY_APP_SETTINGS = "app_settings";
 
     private static final Intent APP_NOTIFICATION_PREFS_CATEGORY_INTENT
             = new Intent(Intent.ACTION_MAIN)
                 .addCategory(Notification.INTENT_CATEGORY_NOTIFICATION_PREFERENCES);
 
-    private final NotificationBackend mBackend = new NotificationBackend();
-
-    private Context mContext;
-    private SwitchPreference mBlock;
-    private SwitchPreference mPriority;
-    private SwitchPreference mPeekable;
-    private SwitchPreference mSensitive;
     private AppRow mAppRow;
-    private boolean mCreated;
-    private boolean mIsSystemPackage;
-    private int mUid;
+    private boolean mDndVisualEffectsSuppressed;
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
-        if (DEBUG) Log.d(TAG, "onActivityCreated mCreated=" + mCreated);
-        if (mCreated) {
-            Log.w(TAG, "onActivityCreated: ignoring duplicate call");
-            return;
-        }
-        mCreated = true;
         if (mAppRow == null) return;
-        AppHeader.createAppHeader(this, mAppRow.icon, mAppRow.label,
-                AppInfoWithHeader.getInfoIntent(this, mAppRow.pkg));
+        AppHeader.createAppHeader(this, mAppRow.icon, mAppRow.label, mAppRow.pkg, mAppRow.uid,
+                mAppRow.settingsIntent);
     }
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.NOTIFICATION_APP_NOTIFICATION;
+        return MetricsEvent.NOTIFICATION_APP_NOTIFICATION;
     }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        mContext = getActivity();
-        Intent intent = getActivity().getIntent();
-        Bundle args = getArguments();
-        if (DEBUG) Log.d(TAG, "onCreate getIntent()=" + intent);
-        if (intent == null && args == null) {
-            Log.w(TAG, "No intent");
-            toastAndFinish();
-            return;
-        }
-
-        final String pkg = args != null && args.containsKey(AppInfoBase.ARG_PACKAGE_NAME)
-                ? args.getString(AppInfoBase.ARG_PACKAGE_NAME)
-                : intent.getStringExtra(Settings.EXTRA_APP_PACKAGE);
-        mUid = args != null && args.containsKey(AppInfoBase.ARG_PACKAGE_UID)
-                ? args.getInt(AppInfoBase.ARG_PACKAGE_UID)
-                : intent.getIntExtra(Settings.EXTRA_APP_UID, -1);
-        if (mUid == -1 || TextUtils.isEmpty(pkg)) {
-            Log.w(TAG, "Missing extras: " + Settings.EXTRA_APP_PACKAGE + " was " + pkg + ", "
-                    + Settings.EXTRA_APP_UID + " was " + mUid);
-            toastAndFinish();
-            return;
-        }
-
-        if (DEBUG) Log.d(TAG, "Load details for pkg=" + pkg + " uid=" + mUid);
-        final PackageManager pm = getPackageManager();
-        final PackageInfo info = findPackageInfo(pm, pkg, mUid);
-        if (info == null) {
-            Log.w(TAG, "Failed to find package info: " + Settings.EXTRA_APP_PACKAGE + " was " + pkg
-                    + ", " + Settings.EXTRA_APP_UID + " was " + mUid);
-            toastAndFinish();
-            return;
-        }
-        mIsSystemPackage = Utils.isSystemPackage(pm, info);
 
         addPreferencesFromResource(R.xml.app_notification_settings);
-        mBlock = (SwitchPreference) findPreference(KEY_BLOCK);
-        mPriority = (SwitchPreference) findPreference(KEY_PRIORITY);
-        mPeekable = (SwitchPreference) findPreference(KEY_PEEKABLE);
-        mSensitive = (SwitchPreference) findPreference(KEY_SENSITIVE);
+        mImportance = (ImportanceSeekBarPreference) findPreference(KEY_IMPORTANCE);
+        mPriority =
+                (RestrictedSwitchPreference) getPreferenceScreen().findPreference(KEY_BYPASS_DND);
+        mVisibilityOverride =
+                (RestrictedDropDownPreference) getPreferenceScreen().findPreference(
+                        KEY_VISIBILITY_OVERRIDE);
+        mBlock = (RestrictedSwitchPreference) getPreferenceScreen().findPreference(KEY_BLOCK);
+        mSilent = (RestrictedSwitchPreference) getPreferenceScreen().findPreference(KEY_SILENT);
 
-        mAppRow = mBackend.loadAppRow(pm, info.applicationInfo);
+        if (mPkgInfo != null) {
+            mAppRow = mBackend.loadAppRow(mContext, mPm, mPkgInfo);
 
-        // load settings intent
-        ArrayMap<String, AppRow> rows = new ArrayMap<String, AppRow>();
-        rows.put(mAppRow.pkg, mAppRow);
-        collectConfigActivities(getPackageManager(), rows);
+            NotificationManager.Policy policy =
+                    NotificationManager.from(mContext).getNotificationPolicy();
+            mDndVisualEffectsSuppressed = policy == null ? false : policy.suppressedVisualEffects != 0;
 
-        mBlock.setChecked(mAppRow.banned);
-        updateDependents(mAppRow.banned);
-        mPriority.setChecked(mAppRow.priority);
-        mPeekable.setChecked(mAppRow.peekable);
-        mSensitive.setChecked(mAppRow.sensitive);
+            // load settings intent
+            ArrayMap<String, AppRow> rows = new ArrayMap<String, AppRow>();
+            rows.put(mAppRow.pkg, mAppRow);
+            collectConfigActivities(rows);
 
-        mBlock.setOnPreferenceChangeListener(new OnPreferenceChangeListener() {
-            @Override
-            public boolean onPreferenceChange(Preference preference, Object newValue) {
-                final boolean banned = (Boolean) newValue;
-                if (banned) {
-                    MetricsLogger.action(getActivity(), MetricsLogger.ACTION_BAN_APP_NOTES, pkg);
-                }
-                final boolean success =  mBackend.setNotificationsBanned(pkg, mUid, banned);
-                if (success) {
-                    updateDependents(banned);
-                }
-                return success;
-            }
-        });
-
-        mPriority.setOnPreferenceChangeListener(new OnPreferenceChangeListener() {
-            @Override
-            public boolean onPreferenceChange(Preference preference, Object newValue) {
-                final boolean priority = (Boolean) newValue;
-                return mBackend.setHighPriority(pkg, mUid, priority);
-            }
-        });
-
-        mPeekable.setOnPreferenceChangeListener(new OnPreferenceChangeListener() {
-            @Override
-            public boolean onPreferenceChange(Preference preference, Object newValue) {
-                final boolean peekable = (Boolean) newValue;
-                return mBackend.setPeekable(pkg, mUid, peekable);
-            }
-        });
-
-        mSensitive.setOnPreferenceChangeListener(new OnPreferenceChangeListener() {
-            @Override
-            public boolean onPreferenceChange(Preference preference, Object newValue) {
-                final boolean sensitive = (Boolean) newValue;
-                return mBackend.setSensitive(pkg, mUid, sensitive);
-            }
-        });
-
-        if (mAppRow.settingsIntent != null) {
-            findPreference(KEY_APP_SETTINGS).setOnPreferenceClickListener(
-                    new OnPreferenceClickListener() {
-                @Override
-                public boolean onPreferenceClick(Preference preference) {
-                    mContext.startActivity(mAppRow.settingsIntent);
-                    return true;
-                }
-            });
-        } else {
-            removePreference(KEY_APP_SETTINGS);
+            setupImportancePrefs(mAppRow.systemApp, mAppRow.appImportance, mAppRow.banned);
+            setupPriorityPref(mAppRow.appBypassDnd);
+            setupVisOverridePref(mAppRow.appVisOverride);
+            updateDependents(mAppRow.appImportance);
         }
     }
 
     @Override
-    public void onResume() {
-        super.onResume();
-        if (mUid != -1 && getPackageManager().getPackagesForUid(mUid) == null) {
-            // App isn't around anymore, must have been removed.
-            finish();
+    protected void updateDependents(int importance) {
+        LockPatternUtils utils = new LockPatternUtils(getActivity());
+        boolean lockscreenSecure = utils.isSecure(UserHandle.myUserId());
+        UserInfo parentUser = mUm.getProfileParent(UserHandle.myUserId());
+        if (parentUser != null){
+            lockscreenSecure |= utils.isSecure(parentUser.id);
         }
-    }
 
-    private void updateDependents(boolean banned) {
-        final boolean lockscreenSecure = new LockPatternUtils(getActivity()).isSecure(
-                UserHandle.myUserId());
-        final boolean lockscreenNotificationsEnabled = getLockscreenNotificationsEnabled();
-        final boolean allowPrivate = getLockscreenAllowPrivateNotifications();
-
-        setVisible(mBlock, !mIsSystemPackage);
-        setVisible(mPriority, mIsSystemPackage || !banned);
-        setVisible(mPeekable, mIsSystemPackage || !banned);
-        setVisible(mSensitive, mIsSystemPackage || !banned && lockscreenSecure
-                && lockscreenNotificationsEnabled && allowPrivate);
-    }
-
-    private void setVisible(Preference p, boolean visible) {
-        final boolean isVisible = getPreferenceScreen().findPreference(p.getKey()) != null;
-        if (isVisible == visible) return;
-        if (visible) {
-            getPreferenceScreen().addPreference(p);
-        } else {
-            getPreferenceScreen().removePreference(p);
+        if (getPreferenceScreen().findPreference(mBlock.getKey()) != null) {
+            setVisible(mSilent, checkCanBeVisible(Ranking.IMPORTANCE_MIN, importance));
+            mSilent.setChecked(importance == Ranking.IMPORTANCE_LOW);
         }
+        setVisible(mPriority, checkCanBeVisible(Ranking.IMPORTANCE_DEFAULT, importance)
+                && !mDndVisualEffectsSuppressed);
+        setVisible(mVisibilityOverride,
+                checkCanBeVisible(Ranking.IMPORTANCE_MIN, importance) && lockscreenSecure);
     }
 
-    private boolean getLockscreenNotificationsEnabled() {
-        return Settings.Secure.getInt(getContentResolver(),
-                Settings.Secure.LOCK_SCREEN_SHOW_NOTIFICATIONS, 0) != 0;
-    }
-
-    private boolean getLockscreenAllowPrivateNotifications() {
-        return Settings.Secure.getInt(getContentResolver(),
-                Settings.Secure.LOCK_SCREEN_ALLOW_PRIVATE_NOTIFICATIONS, 0) != 0;
-    }
-
-    private void toastAndFinish() {
-        Toast.makeText(mContext, R.string.app_not_found_dlg_text, Toast.LENGTH_SHORT).show();
-        getActivity().finish();
-    }
-
-    private static PackageInfo findPackageInfo(PackageManager pm, String pkg, int uid) {
-        final String[] packages = pm.getPackagesForUid(uid);
-        if (packages != null && pkg != null) {
-            final int N = packages.length;
-            for (int i = 0; i < N; i++) {
-                final String p = packages[i];
-                if (pkg.equals(p)) {
-                    try {
-                        return pm.getPackageInfo(pkg, PackageManager.GET_SIGNATURES);
-                    } catch (NameNotFoundException e) {
-                        Log.w(TAG, "Failed to load package " + pkg, e);
-                    }
-                }
-            }
+    protected boolean checkCanBeVisible(int minImportanceVisible, int importance) {
+        if (importance == Ranking.IMPORTANCE_UNSPECIFIED) {
+            return true;
         }
-        return null;
+        return importance >= minImportanceVisible;
     }
 
-    public static List<ResolveInfo> queryNotificationConfigActivities(PackageManager pm) {
+    private List<ResolveInfo> queryNotificationConfigActivities() {
         if (DEBUG) Log.d(TAG, "APP_NOTIFICATION_PREFS_CATEGORY_INTENT is "
                 + APP_NOTIFICATION_PREFS_CATEGORY_INTENT);
-        final List<ResolveInfo> resolveInfos = pm.queryIntentActivities(
+        final List<ResolveInfo> resolveInfos = mPm.queryIntentActivities(
                 APP_NOTIFICATION_PREFS_CATEGORY_INTENT,
                 0 //PackageManager.MATCH_DEFAULT_ONLY
         );
         return resolveInfos;
     }
 
-    public static void collectConfigActivities(PackageManager pm, ArrayMap<String, AppRow> rows) {
-        final List<ResolveInfo> resolveInfos = queryNotificationConfigActivities(pm);
-        applyConfigActivities(pm, rows, resolveInfos);
+    private void collectConfigActivities(ArrayMap<String, AppRow> rows) {
+        final List<ResolveInfo> resolveInfos = queryNotificationConfigActivities();
+        applyConfigActivities(rows, resolveInfos);
     }
 
-    public static void applyConfigActivities(PackageManager pm, ArrayMap<String, AppRow> rows,
+    private void applyConfigActivities(ArrayMap<String, AppRow> rows,
             List<ResolveInfo> resolveInfos) {
         if (DEBUG) Log.d(TAG, "Found " + resolveInfos.size() + " preference activities"
                 + (resolveInfos.size() == 0 ? " ;_;" : ""));

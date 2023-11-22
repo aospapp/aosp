@@ -6,10 +6,12 @@ LOCAL_SRC_FILES := MediaLogService.cpp
 
 LOCAL_SHARED_LIBRARIES := libmedia libbinder libutils liblog libnbaio
 
+LOCAL_MULTILIB := $(AUDIOSERVER_MULTILIB)
+
 LOCAL_MODULE:= libmedialogservice
 
-LOCAL_32_BIT_ONLY := true
-
 LOCAL_C_INCLUDES := $(call include-path-for, audio-utils)
+
+LOCAL_CFLAGS := -Werror -Wall
 
 include $(BUILD_SHARED_LIBRARY)

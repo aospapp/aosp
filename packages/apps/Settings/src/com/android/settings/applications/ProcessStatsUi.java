@@ -19,17 +19,16 @@ package com.android.settings.applications;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.preference.Preference;
-import android.preference.PreferenceGroup;
-import android.preference.PreferenceScreen;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.PreferenceGroup;
 import android.util.Log;
 import android.util.TimeUtils;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 
-import com.android.internal.app.ProcessStats;
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.app.procstats.ProcessStats;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.R;
 import com.android.settings.SettingsActivity;
 import com.android.settings.applications.ProcStatsData.MemInfo;
@@ -93,7 +92,7 @@ public class ProcessStatsUi extends ProcessStatsBase {
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.APPLICATIONS_PROCESS_STATS_UI;
+        return MetricsEvent.APPLICATIONS_PROCESS_STATS_UI;
     }
 
     @Override
@@ -102,15 +101,15 @@ public class ProcessStatsUi extends ProcessStatsBase {
     }
 
     @Override
-    public boolean onPreferenceTreeClick(PreferenceScreen preferenceScreen, Preference preference) {
+    public boolean onPreferenceTreeClick(Preference preference) {
         if (!(preference instanceof ProcessStatsPreference)) {
             return false;
         }
         ProcessStatsPreference pgp = (ProcessStatsPreference) preference;
         MemInfo memInfo = mStatsManager.getMemInfo();
-        launchMemoryDetail((SettingsActivity) getActivity(), memInfo, pgp.getEntry());
+        launchMemoryDetail((SettingsActivity) getActivity(), memInfo, pgp.getEntry(), true);
 
-        return super.onPreferenceTreeClick(preferenceScreen, preference);
+        return super.onPreferenceTreeClick(preference);
     }
 
     /**
@@ -172,7 +171,7 @@ public class ProcessStatsUi extends ProcessStatsBase {
                 : memInfo.usedWeight * memInfo.weightToRam;
         for (int i = 0; i < pkgEntries.size(); i++) {
             ProcStatsPackageEntry pkg = pkgEntries.get(i);
-            ProcessStatsPreference pref = new ProcessStatsPreference(context);
+            ProcessStatsPreference pref = new ProcessStatsPreference(getPrefContext());
             pkg.retrieveUiData(context, mPm);
             pref.init(pkg, mPm, maxMemory, memInfo.weightToRam,
                     memInfo.totalScale, !mShowMax);

@@ -17,6 +17,7 @@
 #include "reference_processor.h"
 
 #include "base/time_utils.h"
+#include "collector/garbage_collector.h"
 #include "mirror/class-inl.h"
 #include "mirror/object-inl.h"
 #include "mirror/reference-inl.h"
@@ -34,7 +35,7 @@ namespace gc {
 static constexpr bool kAsyncReferenceQueueAdd = false;
 
 ReferenceProcessor::ReferenceProcessor()
-    : process_references_args_(nullptr, nullptr, nullptr),
+    : collector_(nullptr),
       preserving_references_(false),
       condition_("reference processor condition", *Locks::reference_processor_lock_) ,
       soft_reference_queue_(Locks::reference_queue_soft_references_lock_),
@@ -53,15 +54,27 @@ void ReferenceProcessor::DisableSlowPath(Thread* self) {
   condition_.Broadcast(self);
 }
 
+void ReferenceProcessor::BroadcastForSlowPath(Thread* self) {
+  CHECK(kUseReadBarrier);
+  MutexLock mu(self, *Locks::reference_processor_lock_);
+  condition_.Broadcast(self);
+}
+
 mirror::Object* ReferenceProcessor::GetReferent(Thread* self, mirror::Reference* reference) {
-  mirror::Object* const referent = reference->GetReferent();
-  // If the referent is null then it is already cleared, we can just return null since there is no
-  // scenario where it becomes non-null during the reference processing phase.
-  if (UNLIKELY(!SlowPathEnabled()) || referent == nullptr) {
-    return referent;
+  if (!kUseReadBarrier || self->GetWeakRefAccessEnabled()) {
+    // Under read barrier / concurrent copying collector, it's not safe to call GetReferent() when
+    // weak ref access is disabled as the call includes a read barrier which may push a ref onto the
+    // mark stack and interfere with termination of marking.
+    mirror::Object* const referent = reference->GetReferent();
+    // If the referent is null then it is already cleared, we can just return null since there is no
+    // scenario where it becomes non-null during the reference processing phase.
+    if (UNLIKELY(!SlowPathEnabled()) || referent == nullptr) {
+      return referent;
+    }
   }
   MutexLock mu(self, *Locks::reference_processor_lock_);
-  while (SlowPathEnabled()) {
+  while ((!kUseReadBarrier && SlowPathEnabled()) ||
+         (kUseReadBarrier && !self->GetWeakRefAccessEnabled())) {
     mirror::HeapReference<mirror::Object>* const referent_addr =
         reference->GetReferentReferenceAddr();
     // If the referent became cleared, return it. Don't need barrier since thread roots can't get
@@ -71,18 +84,16 @@ mirror::Object* ReferenceProcessor::GetReferent(Thread* self, mirror::Reference*
     }
     // Try to see if the referent is already marked by using the is_marked_callback. We can return
     // it to the mutator as long as the GC is not preserving references.
-    IsHeapReferenceMarkedCallback* const is_marked_callback =
-        process_references_args_.is_marked_callback_;
-    if (LIKELY(is_marked_callback != nullptr)) {
+    if (LIKELY(collector_ != nullptr)) {
       // If it's null it means not marked, but it could become marked if the referent is reachable
-      // by finalizer referents. So we can not return in this case and must block. Otherwise, we
+      // by finalizer referents. So we cannot return in this case and must block. Otherwise, we
       // can return it to the mutator as long as the GC is not preserving references, in which
       // case only black nodes can be safely returned. If the GC is preserving references, the
       // mutator could take a white field from a grey or white node and move it somewhere else
       // in the heap causing corruption since this field would get swept.
-      if (is_marked_callback(referent_addr, process_references_args_.arg_)) {
+      if (collector_->IsMarkedHeapReference(referent_addr)) {
         if (!preserving_references_ ||
-           (LIKELY(!reference->IsFinalizerReferenceInstance()) && !reference->IsEnqueued())) {
+           (LIKELY(!reference->IsFinalizerReferenceInstance()) && reference->IsUnprocessed())) {
           return referent_addr->AsMirrorPtr();
         }
       }
@@ -90,16 +101,6 @@ mirror::Object* ReferenceProcessor::GetReferent(Thread* self, mirror::Reference*
     condition_.WaitHoldingLocks(self);
   }
   return reference->GetReferent();
-}
-
-bool ReferenceProcessor::PreserveSoftReferenceCallback(mirror::HeapReference<mirror::Object>* obj,
-                                                       void* arg) {
-  auto* const args = reinterpret_cast<ProcessReferencesArgs*>(arg);
-  // TODO: Add smarter logic for preserving soft references.
-  mirror::Object* new_obj = args->mark_callback_(obj->AsMirrorPtr(), args->arg_);
-  DCHECK(new_obj != nullptr);
-  obj->Assign(new_obj);
-  return true;
 }
 
 void ReferenceProcessor::StartPreservingReferences(Thread* self) {
@@ -117,18 +118,18 @@ void ReferenceProcessor::StopPreservingReferences(Thread* self) {
 // Process reference class instances and schedule finalizations.
 void ReferenceProcessor::ProcessReferences(bool concurrent, TimingLogger* timings,
                                            bool clear_soft_references,
-                                           IsHeapReferenceMarkedCallback* is_marked_callback,
-                                           MarkObjectCallback* mark_object_callback,
-                                           ProcessMarkStackCallback* process_mark_stack_callback,
-                                           void* arg) {
+                                           collector::GarbageCollector* collector) {
   TimingLogger::ScopedTiming t(concurrent ? __FUNCTION__ : "(Paused)ProcessReferences", timings);
   Thread* self = Thread::Current();
   {
     MutexLock mu(self, *Locks::reference_processor_lock_);
-    process_references_args_.is_marked_callback_ = is_marked_callback;
-    process_references_args_.mark_callback_ = mark_object_callback;
-    process_references_args_.arg_ = arg;
-    CHECK_EQ(SlowPathEnabled(), concurrent) << "Slow path must be enabled iff concurrent";
+    collector_ = collector;
+    if (!kUseReadBarrier) {
+      CHECK_EQ(SlowPathEnabled(), concurrent) << "Slow path must be enabled iff concurrent";
+    } else {
+      // Weak ref access is enabled at Zygote compaction by SemiSpace (concurrent == false).
+      CHECK_EQ(!self->GetWeakRefAccessEnabled(), concurrent);
+    }
   }
   // Unless required to clear soft references with white references, preserve some white referents.
   if (!clear_soft_references) {
@@ -137,16 +138,17 @@ void ReferenceProcessor::ProcessReferences(bool concurrent, TimingLogger* timing
     if (concurrent) {
       StartPreservingReferences(self);
     }
-    soft_reference_queue_.ForwardSoftReferences(&PreserveSoftReferenceCallback,
-                                                &process_references_args_);
-    process_mark_stack_callback(arg);
+    // TODO: Add smarter logic for preserving soft references. The behavior should be a conditional
+    // mark if the SoftReference is supposed to be preserved.
+    soft_reference_queue_.ForwardSoftReferences(collector);
+    collector->ProcessMarkStack();
     if (concurrent) {
       StopPreservingReferences(self);
     }
   }
   // Clear all remaining soft and weak references with white referents.
-  soft_reference_queue_.ClearWhiteReferences(&cleared_references_, is_marked_callback, arg);
-  weak_reference_queue_.ClearWhiteReferences(&cleared_references_, is_marked_callback, arg);
+  soft_reference_queue_.ClearWhiteReferences(&cleared_references_, collector);
+  weak_reference_queue_.ClearWhiteReferences(&cleared_references_, collector);
   {
     TimingLogger::ScopedTiming t2(concurrent ? "EnqueueFinalizerReferences" :
         "(Paused)EnqueueFinalizerReferences", timings);
@@ -154,18 +156,17 @@ void ReferenceProcessor::ProcessReferences(bool concurrent, TimingLogger* timing
       StartPreservingReferences(self);
     }
     // Preserve all white objects with finalize methods and schedule them for finalization.
-    finalizer_reference_queue_.EnqueueFinalizerReferences(&cleared_references_, is_marked_callback,
-                                                          mark_object_callback, arg);
-    process_mark_stack_callback(arg);
+    finalizer_reference_queue_.EnqueueFinalizerReferences(&cleared_references_, collector);
+    collector->ProcessMarkStack();
     if (concurrent) {
       StopPreservingReferences(self);
     }
   }
   // Clear all finalizer referent reachable soft and weak references with white referents.
-  soft_reference_queue_.ClearWhiteReferences(&cleared_references_, is_marked_callback, arg);
-  weak_reference_queue_.ClearWhiteReferences(&cleared_references_, is_marked_callback, arg);
+  soft_reference_queue_.ClearWhiteReferences(&cleared_references_, collector);
+  weak_reference_queue_.ClearWhiteReferences(&cleared_references_, collector);
   // Clear all phantom references with white referents.
-  phantom_reference_queue_.ClearWhiteReferences(&cleared_references_, is_marked_callback, arg);
+  phantom_reference_queue_.ClearWhiteReferences(&cleared_references_, collector);
   // At this point all reference queues other than the cleared references should be empty.
   DCHECK(soft_reference_queue_.IsEmpty());
   DCHECK(weak_reference_queue_.IsEmpty());
@@ -177,8 +178,8 @@ void ReferenceProcessor::ProcessReferences(bool concurrent, TimingLogger* timing
     // could result in a stale is_marked_callback_ being called before the reference processing
     // starts since there is a small window of time where slow_path_enabled_ is enabled but the
     // callback isn't yet set.
-    process_references_args_.is_marked_callback_ = nullptr;
-    if (concurrent) {
+    collector_ = nullptr;
+    if (!kUseReadBarrier && concurrent) {
       // Done processing, disable the slow path and broadcast to the waiters.
       DisableSlowPath(self);
     }
@@ -188,13 +189,12 @@ void ReferenceProcessor::ProcessReferences(bool concurrent, TimingLogger* timing
 // Process the "referent" field in a java.lang.ref.Reference.  If the referent has not yet been
 // marked, put it on the appropriate list in the heap for later processing.
 void ReferenceProcessor::DelayReferenceReferent(mirror::Class* klass, mirror::Reference* ref,
-                                                IsHeapReferenceMarkedCallback* is_marked_callback,
-                                                void* arg) {
+                                                collector::GarbageCollector* collector) {
   // klass can be the class of the old object if the visitor already updated the class of ref.
   DCHECK(klass != nullptr);
   DCHECK(klass->IsTypeOfReferenceClass());
   mirror::HeapReference<mirror::Object>* referent = ref->GetReferentReferenceAddr();
-  if (referent->AsMirrorPtr() != nullptr && !is_marked_callback(referent, arg)) {
+  if (referent->AsMirrorPtr() != nullptr && !collector->IsMarkedHeapReference(referent)) {
     Thread* self = Thread::Current();
     // TODO: Remove these locks, and use atomic stacks for storing references?
     // We need to check that the references haven't already been enqueued since we can end up
@@ -214,8 +214,8 @@ void ReferenceProcessor::DelayReferenceReferent(mirror::Class* klass, mirror::Re
   }
 }
 
-void ReferenceProcessor::UpdateRoots(IsMarkedCallback* callback, void* arg) {
-  cleared_references_.UpdateRoots(callback, arg);
+void ReferenceProcessor::UpdateRoots(IsMarkedVisitor* visitor) {
+  cleared_references_.UpdateRoots(visitor);
 }
 
 class ClearedReferenceTask : public HeapTask {
@@ -264,7 +264,8 @@ bool ReferenceProcessor::MakeCircularListIfUnenqueued(mirror::FinalizerReference
   Thread* self = Thread::Current();
   MutexLock mu(self, *Locks::reference_processor_lock_);
   // Wait untul we are done processing reference.
-  while (SlowPathEnabled()) {
+  while ((!kUseReadBarrier && SlowPathEnabled()) ||
+         (kUseReadBarrier && !self->GetWeakRefAccessEnabled())) {
     condition_.WaitHoldingLocks(self);
   }
   // At this point, since the sentinel of the reference is live, it is guaranteed to not be
@@ -274,13 +275,9 @@ bool ReferenceProcessor::MakeCircularListIfUnenqueued(mirror::FinalizerReference
   // GC queues, but since we hold the lock finalizer_reference_queue_ lock it also prevents this
   // race.
   MutexLock mu2(self, *Locks::reference_queue_finalizer_references_lock_);
-  if (!reference->IsEnqueued()) {
+  if (reference->IsUnprocessed()) {
     CHECK(reference->IsFinalizerReferenceInstance());
-    if (Runtime::Current()->IsActiveTransaction()) {
-      reference->SetPendingNext<true>(reference);
-    } else {
-      reference->SetPendingNext<false>(reference);
-    }
+    reference->SetPendingNext(reference);
     return true;
   }
   return false;

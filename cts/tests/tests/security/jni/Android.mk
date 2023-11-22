@@ -26,16 +26,42 @@ LOCAL_SRC_FILES := \
 		android_security_cts_CharDeviceTest.cpp \
 		android_security_cts_KernelSettingsTest.cpp \
 		android_security_cts_LinuxRngTest.cpp \
-		android_security_cts_LoadEffectLibraryTest.cpp \
 		android_security_cts_NativeCodeTest.cpp \
 		android_security_cts_SELinuxTest.cpp \
 		android_security_cts_MMapExecutableTest.cpp \
-		android_security_cts_AudioPolicyBinderTest.cpp \
-		android_security_cts_EncryptionTest.cpp
+		android_security_cts_EncryptionTest.cpp \
 
-LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
+LOCAL_C_INCLUDES := $(JNI_H_INCLUDE) \
+										$(TOP)/frameworks/native/include/media/openmax
 
-LOCAL_SHARED_LIBRARIES := libnativehelper liblog libbinder libutils libmedia libselinux libdl libcutils libcrypto
+LOCAL_SHARED_LIBRARIES := libnativehelper \
+		liblog \
+		libutils \
+		libmedia \
+		libselinux \
+		libdl \
+		libcutils \
+		libcrypto \
+		libc++ \
+		libbacktrace \
+		libui \
+		libsonivox \
+		libexpat \
+		libcamera_client \
+		libgui \
+		libaudioutils \
+		libnbaio \
+		libpcre \
+		libpackagelistparser \
+		libpowermanager \
+		libbase \
+		libunwind \
+		libhardware \
+		libsync \
+		libcamera_metadata \
+		libspeexresampler \
+		liblzma \
+		libstagefright_foundation
 
 LOCAL_C_INCLUDES += ndk/sources/cpufeatures
 LOCAL_STATIC_LIBRARIES := cpufeatures

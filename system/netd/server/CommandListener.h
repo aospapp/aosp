@@ -18,8 +18,10 @@
 #define _COMMANDLISTENER_H__
 
 #include <sysutils/FrameworkListener.h>
+#include "utils/RWLock.h"
 
 #include "NetdCommand.h"
+#include "NetdConstants.h"
 #include "NetworkController.h"
 #include "TetherController.h"
 #include "NatController.h"
@@ -34,25 +36,15 @@
 #include "StrictController.h"
 
 class CommandListener : public FrameworkListener {
-    static TetherController *sTetherCtrl;
-    static NatController *sNatCtrl;
-    static PppController *sPppCtrl;
-    static SoftapController *sSoftapCtrl;
-    static BandwidthController *sBandwidthCtrl;
-    static IdletimerController *sIdletimerCtrl;
-    static InterfaceController *sInterfaceCtrl;
-    static ResolverController *sResolverCtrl;
-    static FirewallController *sFirewallCtrl;
-    static ClatdController *sClatdCtrl;
-    static StrictController *sStrictCtrl;
-
 public:
-    static NetworkController *sNetCtrl;
-
     CommandListener();
     virtual ~CommandListener() {}
 
 private:
+    void registerLockingCmd(FrameworkCommand *cmd, android::RWLock& lock);
+    void registerLockingCmd(FrameworkCommand *cmd) {
+        registerLockingCmd(cmd, android::net::gBigNetdLock);
+    }
 
     class SoftapCmd : public NetdCommand {
     public:
@@ -126,6 +118,9 @@ private:
         ResolverCmd();
         virtual ~ResolverCmd() {}
         int runCommand(SocketClient *c, int argc, char ** argv);
+
+    private:
+        bool parseAndExecuteSetNetDns(int netId, int argc, const char** argv);
     };
 
     class FirewallCmd: public NetdCommand {

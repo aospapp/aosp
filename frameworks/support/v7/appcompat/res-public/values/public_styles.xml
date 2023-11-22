@@ -56,11 +56,19 @@
     <public type="style" name="TextAppearance.AppCompat.Widget.Button"/>
     <public type="style" name="TextAppearance.AppCompat.Widget.Button.Inverse"/>
     <public type="style" name="TextAppearance.AppCompat.Widget.DropDownItem"/>
+    <public type="style" name="TextAppearance.AppCompat.Widget.PopupMenu.Header"/>
     <public type="style" name="TextAppearance.AppCompat.Widget.PopupMenu.Large"/>
     <public type="style" name="TextAppearance.AppCompat.Widget.PopupMenu.Small"/>
     <public type="style" name="TextAppearance.AppCompat.Widget.Switch"/>
     <public type="style" name="TextAppearance.AppCompat.Widget.TextView.SpinnerItem"/>
     <public type="style" name="Theme.AppCompat"/>
+    <public type="style" name="Theme.AppCompat.DayNight"/>
+    <public type="style" name="Theme.AppCompat.DayNight.DarkActionBar"/>
+    <public type="style" name="Theme.AppCompat.DayNight.Dialog"/>
+    <public type="style" name="Theme.AppCompat.DayNight.Dialog.Alert"/>
+    <public type="style" name="Theme.AppCompat.DayNight.Dialog.MinWidth"/>
+    <public type="style" name="Theme.AppCompat.DayNight.DialogWhenLarge"/>
+    <public type="style" name="Theme.AppCompat.DayNight.NoActionBar"/>
     <public type="style" name="Theme.AppCompat.Dialog"/>
     <public type="style" name="Theme.AppCompat.Dialog.Alert"/>
     <public type="style" name="Theme.AppCompat.Dialog.MinWidth"/>
@@ -77,6 +85,8 @@
     <public type="style" name="ThemeOverlay.AppCompat.ActionBar"/>
     <public type="style" name="ThemeOverlay.AppCompat.Dark"/>
     <public type="style" name="ThemeOverlay.AppCompat.Dark.ActionBar"/>
+    <public type="style" name="ThemeOverlay.AppCompat.Dialog"/>
+    <public type="style" name="ThemeOverlay.AppCompat.Dialog.Alert"/>
     <public type="style" name="ThemeOverlay.AppCompat.Light"/>
     <public type="style" name="Widget.AppCompat.ActionBar"/>
     <public type="style" name="Widget.AppCompat.ActionBar.Solid"/>
@@ -102,6 +112,7 @@
     <public type="style" name="Widget.AppCompat.DrawerArrowToggle"/>
     <public type="style" name="Widget.AppCompat.DropDownItem.Spinner"/>
     <public type="style" name="Widget.AppCompat.EditText"/>
+    <public type="style" name="Widget.AppCompat.ImageButton"/>
     <public type="style" name="Widget.AppCompat.Light.ActionBar"/>
     <public type="style" name="Widget.AppCompat.Light.ActionBar.Solid"/>
     <public type="style" name="Widget.AppCompat.Light.ActionBar.Solid.Inverse"/>
@@ -133,8 +144,12 @@
     <public type="style" name="Widget.AppCompat.ProgressBar"/>
     <public type="style" name="Widget.AppCompat.ProgressBar.Horizontal"/>
     <public type="style" name="Widget.AppCompat.RatingBar"/>
+    <public type="style" name="Widget.AppCompat.RatingBar.Indicator"/>
+    <public type="style" name="Widget.AppCompat.RatingBar.Small"/>
     <public type="style" name="Widget.AppCompat.SearchView"/>
     <public type="style" name="Widget.AppCompat.SearchView.ActionBar"/>
+    <public type="style" name="Widget.AppCompat.SeekBar"/>
+    <public type="style" name="Widget.AppCompat.SeekBar.Discrete"/>
     <public type="style" name="Widget.AppCompat.Spinner"/>
     <public type="style" name="Widget.AppCompat.Spinner.DropDown"/>
     <public type="style" name="Widget.AppCompat.Spinner.DropDown.ActionBar"/>

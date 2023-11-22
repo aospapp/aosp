@@ -23,6 +23,7 @@ void wpas_notify_state_changed(struct wpa_supplicant *wpa_s,
 			       enum wpa_states new_state,
 			       enum wpa_states old_state);
 void wpas_notify_disconnect_reason(struct wpa_supplicant *wpa_s);
+void wpas_notify_assoc_status_code(struct wpa_supplicant *wpa_s);
 void wpas_notify_network_changed(struct wpa_supplicant *wpa_s);
 void wpas_notify_ap_scan_changed(struct wpa_supplicant *wpa_s);
 void wpas_notify_bssid_changed(struct wpa_supplicant *wpa_s);
@@ -114,6 +115,8 @@ void wpas_notify_p2p_provision_discovery(struct wpa_supplicant *wpa_s,
 void wpas_notify_p2p_group_started(struct wpa_supplicant *wpa_s,
 				   struct wpa_ssid *ssid, int network_id,
 				   int client);
+void wpas_notify_p2p_group_formation_failure(struct wpa_supplicant *wpa_s,
+					     const char *reason);
 void wpas_notify_persistent_group_added(struct wpa_supplicant *wpa_s,
 					struct wpa_ssid *ssid);
 void wpas_notify_persistent_group_removed(struct wpa_supplicant *wpa_s,
@@ -135,5 +138,8 @@ void wpas_notify_network_bssid_set_changed(struct wpa_supplicant *wpa_s,
 					   struct wpa_ssid *ssid);
 void wpas_notify_network_type_changed(struct wpa_supplicant *wpa_s,
 				      struct wpa_ssid *ssid);
+void wpas_notify_p2p_invitation_received(struct wpa_supplicant *wpa_s,
+					 const u8 *sa, const u8 *go_dev_addr,
+					 const u8 *bssid, int id, int op_freq);
 
 #endif /* NOTIFY_H */

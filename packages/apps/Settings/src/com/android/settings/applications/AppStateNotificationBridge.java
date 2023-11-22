@@ -15,8 +15,13 @@
  */
 package com.android.settings.applications;
 
+import android.app.Notification;
+import android.content.Context;
 import android.content.pm.PackageManager;
+import android.os.UserHandle;
+import android.service.notification.NotificationListenerService;
 
+import com.android.internal.widget.LockPatternUtils;
 import com.android.settings.notification.NotificationBackend;
 import com.android.settings.notification.NotificationBackend.AppRow;
 import com.android.settingslib.applications.ApplicationsState;
@@ -33,11 +38,13 @@ public class AppStateNotificationBridge extends AppStateBaseBridge {
 
     private final NotificationBackend mNotifBackend;
     private final PackageManager mPm;
+    private final Context mContext;
 
-    public AppStateNotificationBridge(PackageManager pm, ApplicationsState appState,
+    public AppStateNotificationBridge(Context context, ApplicationsState appState,
             Callback callback, NotificationBackend notifBackend) {
         super(appState, callback);
-        mPm = pm;
+        mContext = context;
+        mPm = mContext.getPackageManager();
         mNotifBackend = notifBackend;
     }
 
@@ -47,13 +54,13 @@ public class AppStateNotificationBridge extends AppStateBaseBridge {
         final int N = apps.size();
         for (int i = 0; i < N; i++) {
             AppEntry app = apps.get(i);
-            app.extraInfo = mNotifBackend.loadAppRow(mPm, app.info);
+            app.extraInfo = mNotifBackend.loadAppRow(mContext, mPm, app.info);
         }
     }
 
     @Override
     protected void updateExtraInfo(AppEntry app, String pkg, int uid) {
-        app.extraInfo = mNotifBackend.loadAppRow(mPm, app.info);
+        app.extraInfo = mNotifBackend.loadAppRow(mContext, mPm, app.info);
     }
 
     public static final AppFilter FILTER_APP_NOTIFICATION_BLOCKED = new AppFilter() {
@@ -63,7 +70,30 @@ public class AppStateNotificationBridge extends AppStateBaseBridge {
 
         @Override
         public boolean filterApp(AppEntry info) {
-            return info.extraInfo != null && ((AppRow) info.extraInfo).banned;
+            if (info == null || info.extraInfo == null) {
+                return false;
+            }
+            if (info.extraInfo instanceof AppRow) {
+                AppRow row = (AppRow) info.extraInfo;
+                return row.banned;
+            }
+            return false;
+        }
+    };
+
+    public static final AppFilter FILTER_APP_NOTIFICATION_SILENCED = new AppFilter() {
+        @Override
+        public void init() {
+        }
+
+        @Override
+        public boolean filterApp(AppEntry info) {
+            if (info == null || info.extraInfo == null) {
+                return false;
+            }
+            AppRow row = (AppRow) info.extraInfo;
+            return row.appImportance > NotificationListenerService.Ranking.IMPORTANCE_NONE
+                    && row.appImportance < NotificationListenerService.Ranking.IMPORTANCE_DEFAULT;
         }
     };
 
@@ -74,29 +104,40 @@ public class AppStateNotificationBridge extends AppStateBaseBridge {
 
         @Override
         public boolean filterApp(AppEntry info) {
-            return info.extraInfo != null && ((AppRow) info.extraInfo).priority;
+            if (info == null || info.extraInfo == null) {
+                return false;
+            }
+            return ((AppRow) info.extraInfo).appBypassDnd;
         }
     };
 
-    public static final AppFilter FILTER_APP_NOTIFICATION_SENSITIVE = new AppFilter() {
+    public static final AppFilter FILTER_APP_NOTIFICATION_HIDE_SENSITIVE = new AppFilter() {
         @Override
         public void init() {
         }
 
         @Override
         public boolean filterApp(AppEntry info) {
-            return info.extraInfo != null && ((AppRow) info.extraInfo).sensitive;
+            if (info == null || info.extraInfo == null) {
+                return false;
+            }
+            return ((AppRow) info.extraInfo).lockScreenSecure
+                    && ((AppRow) info.extraInfo).appVisOverride == Notification.VISIBILITY_PRIVATE;
         }
     };
 
-    public static final AppFilter FILTER_APP_NOTIFICATION_NO_PEEK = new AppFilter() {
+    public static final AppFilter FILTER_APP_NOTIFICATION_HIDE_ALL = new AppFilter() {
         @Override
         public void init() {
         }
 
         @Override
         public boolean filterApp(AppEntry info) {
-            return info.extraInfo != null && !((AppRow) info.extraInfo).peekable;
+            if (info == null || info.extraInfo == null) {
+                return false;
+            }
+            return ((AppRow) info.extraInfo).lockScreenSecure
+                    && ((AppRow) info.extraInfo).appVisOverride == Notification.VISIBILITY_SECRET;
         }
     };
 }

@@ -123,7 +123,8 @@ static const vendor_tag_ops_t fakevendor_ops = {
     get_fakevendor_tags,
     get_fakevendor_section_name,
     get_fakevendor_tag_name,
-    get_fakevendor_tag_type
+    get_fakevendor_tag_type,
+    {NULL}
 };
 
 const char *get_fakevendor_section_name(const vendor_tag_ops_t *v,

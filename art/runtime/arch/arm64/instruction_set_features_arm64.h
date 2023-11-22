@@ -66,14 +66,6 @@ class Arm64InstructionSetFeatures FINAL : public InstructionSetFeatures {
       return fix_cortex_a53_843419_;
   }
 
-  // NOTE: This flag can be tunned on a CPU basis. In general all ARMv8 CPUs
-  // should prefer the Acquire-Release semantics over the explicit DMBs when
-  // handling load/store-volatile. For a specific use case see the ARM64
-  // Optimizing backend.
-  bool PreferAcquireRelease() const {
-    return true;
-  }
-
   virtual ~Arm64InstructionSetFeatures() {}
 
  protected:
@@ -83,9 +75,7 @@ class Arm64InstructionSetFeatures FINAL : public InstructionSetFeatures {
                                  std::string* error_msg) const OVERRIDE;
 
  private:
-  explicit Arm64InstructionSetFeatures(bool smp,
-                                       bool needs_a53_835769_fix,
-                                       bool needs_a53_843419_fix)
+  Arm64InstructionSetFeatures(bool smp, bool needs_a53_835769_fix, bool needs_a53_843419_fix)
       : InstructionSetFeatures(smp),
         fix_cortex_a53_835769_(needs_a53_835769_fix),
         fix_cortex_a53_843419_(needs_a53_843419_fix) {

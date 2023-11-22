@@ -19,7 +19,7 @@
 
 #include <stdint.h>
 
-#if HAVE_ANDROID_OS
+#ifdef __ANDROID__
 #include <binder/IBinder.h>
 #endif
 
@@ -30,6 +30,9 @@
 #include <utils/String8.h>
 #include <utils/Unicode.h>
 #include <utils/RefBase.h>
+
+// Maximum number of keys supported by KeyCharacterMaps
+#define MAX_KEYS 8192
 
 namespace android {
 
@@ -124,7 +127,12 @@ public:
      * the mapping in some way. */
     status_t mapKey(int32_t scanCode, int32_t usageCode, int32_t* outKeyCode) const;
 
-#if HAVE_ANDROID_OS
+    /* Tries to find a replacement key code for a given key code and meta state
+     * in character map. */
+    void tryRemapKey(int32_t scanCode, int32_t metaState,
+            int32_t* outKeyCode, int32_t* outMetaState) const;
+
+#ifdef __ANDROID__
     /* Reads a key map from a parcel. */
     static sp<KeyCharacterMap> readFromParcel(Parcel* parcel);
 
@@ -151,6 +159,9 @@ private:
 
         /* The fallback keycode if the key is not handled. */
         int32_t fallbackKeyCode;
+
+        /* The replacement keycode if the key has to be replaced outright. */
+        int32_t replacementKeyCode;
     };
 
     struct Key {

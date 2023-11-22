@@ -90,16 +90,24 @@ static inline float adjustPitch(float pitch)
 // TODO: Move to a common library
 static size_t calculateMinFrameCount(
         uint32_t afLatencyMs, uint32_t afFrameCount, uint32_t afSampleRate,
-        uint32_t sampleRate, float speed)
+        uint32_t sampleRate, float speed /*, uint32_t notificationsPerBufferReq*/)
 {
     // Ensure that buffer depth covers at least audio hardware latency
     uint32_t minBufCount = afLatencyMs / ((1000 * afFrameCount) / afSampleRate);
     if (minBufCount < 2) {
         minBufCount = 2;
     }
+#if 0
+    // The notificationsPerBufferReq parameter is not yet used for non-fast tracks,
+    // but keeping the code here to make it easier to add later.
+    if (minBufCount < notificationsPerBufferReq) {
+        minBufCount = notificationsPerBufferReq;
+    }
+#endif
     ALOGV("calculateMinFrameCount afLatency %u  afFrameCount %u  afSampleRate %u  "
-            "sampleRate %u  speed %f  minBufCount: %u",
-            afLatencyMs, afFrameCount, afSampleRate, sampleRate, speed, minBufCount);
+            "sampleRate %u  speed %f  minBufCount: %u" /*"  notificationsPerBufferReq %u"*/,
+            afLatencyMs, afFrameCount, afSampleRate, sampleRate, speed, minBufCount
+            /*, notificationsPerBufferReq*/);
     return minBufCount * sourceFramesNeededWithTimestretch(
             sampleRate, afFrameCount, afSampleRate, speed);
 }
@@ -144,7 +152,8 @@ status_t AudioTrack::getMinFrameCount(
 
     // When called from createTrack, speed is 1.0f (normal speed).
     // This is rechecked again on setting playback rate (TODO: on setting sample rate, too).
-    *frameCount = calculateMinFrameCount(afLatency, afFrameCount, afSampleRate, sampleRate, 1.0f);
+    *frameCount = calculateMinFrameCount(afLatency, afFrameCount, afSampleRate, sampleRate, 1.0f
+            /*, 0 notificationsPerBufferReq*/);
 
     // The formula above should always produce a non-zero value under normal circumstances:
     // AudioTrack.SAMPLE_RATE_HZ_MIN <= sampleRate <= AudioTrack.SAMPLE_RATE_HZ_MAX.
@@ -163,7 +172,7 @@ status_t AudioTrack::getMinFrameCount(
 
 AudioTrack::AudioTrack()
     : mStatus(NO_INIT),
-      mIsTimed(false),
+      mState(STATE_STOPPED),
       mPreviousPriority(ANDROID_PRIORITY_NORMAL),
       mPreviousSchedulingGroup(SP_DEFAULT),
       mPausedPosition(0),
@@ -184,16 +193,17 @@ AudioTrack::AudioTrack(
         audio_output_flags_t flags,
         callback_t cbf,
         void* user,
-        uint32_t notificationFrames,
-        int sessionId,
+        int32_t notificationFrames,
+        audio_session_t sessionId,
         transfer_type transferType,
         const audio_offload_info_t *offloadInfo,
         int uid,
         pid_t pid,
         const audio_attributes_t* pAttributes,
-        bool doNotReconnect)
+        bool doNotReconnect,
+        float maxRequiredSpeed)
     : mStatus(NO_INIT),
-      mIsTimed(false),
+      mState(STATE_STOPPED),
       mPreviousPriority(ANDROID_PRIORITY_NORMAL),
       mPreviousSchedulingGroup(SP_DEFAULT),
       mPausedPosition(0),
@@ -202,7 +212,7 @@ AudioTrack::AudioTrack(
     mStatus = set(streamType, sampleRate, format, channelMask,
             frameCount, flags, cbf, user, notificationFrames,
             0 /*sharedBuffer*/, false /*threadCanCallJava*/, sessionId, transferType,
-            offloadInfo, uid, pid, pAttributes, doNotReconnect);
+            offloadInfo, uid, pid, pAttributes, doNotReconnect, maxRequiredSpeed);
 }
 
 AudioTrack::AudioTrack(
@@ -214,16 +224,17 @@ AudioTrack::AudioTrack(
         audio_output_flags_t flags,
         callback_t cbf,
         void* user,
-        uint32_t notificationFrames,
-        int sessionId,
+        int32_t notificationFrames,
+        audio_session_t sessionId,
         transfer_type transferType,
         const audio_offload_info_t *offloadInfo,
         int uid,
         pid_t pid,
         const audio_attributes_t* pAttributes,
-        bool doNotReconnect)
+        bool doNotReconnect,
+        float maxRequiredSpeed)
     : mStatus(NO_INIT),
-      mIsTimed(false),
+      mState(STATE_STOPPED),
       mPreviousPriority(ANDROID_PRIORITY_NORMAL),
       mPreviousSchedulingGroup(SP_DEFAULT),
       mPausedPosition(0),
@@ -232,7 +243,7 @@ AudioTrack::AudioTrack(
     mStatus = set(streamType, sampleRate, format, channelMask,
             0 /*frameCount*/, flags, cbf, user, notificationFrames,
             sharedBuffer, false /*threadCanCallJava*/, sessionId, transferType, offloadInfo,
-            uid, pid, pAttributes, doNotReconnect);
+            uid, pid, pAttributes, doNotReconnect, maxRequiredSpeed);
 }
 
 AudioTrack::~AudioTrack()
@@ -272,21 +283,24 @@ status_t AudioTrack::set(
         audio_output_flags_t flags,
         callback_t cbf,
         void* user,
-        uint32_t notificationFrames,
+        int32_t notificationFrames,
         const sp<IMemory>& sharedBuffer,
         bool threadCanCallJava,
-        int sessionId,
+        audio_session_t sessionId,
         transfer_type transferType,
         const audio_offload_info_t *offloadInfo,
         int uid,
         pid_t pid,
         const audio_attributes_t* pAttributes,
-        bool doNotReconnect)
+        bool doNotReconnect,
+        float maxRequiredSpeed)
 {
     ALOGV("set(): streamType %d, sampleRate %u, format %#x, channelMask %#x, frameCount %zu, "
-          "flags #%x, notificationFrames %u, sessionId %d, transferType %d, uid %d, pid %d",
+          "flags #%x, notificationFrames %d, sessionId %d, transferType %d, uid %d, pid %d",
           streamType, sampleRate, format, channelMask, frameCount, flags, notificationFrames,
           sessionId, transferType, uid, pid);
+
+    mThreadCanCallJava = threadCanCallJava;
 
     switch (transferType) {
     case TRANSFER_DEFAULT:
@@ -356,11 +370,16 @@ status_t AudioTrack::set(
         if ((mAttributes.flags & AUDIO_FLAG_HW_AV_SYNC) != 0) {
             flags = (audio_output_flags_t)(flags | AUDIO_OUTPUT_FLAG_HW_AV_SYNC);
         }
+        if ((mAttributes.flags & AUDIO_FLAG_LOW_LATENCY) != 0) {
+            flags = (audio_output_flags_t) (flags | AUDIO_OUTPUT_FLAG_FAST);
+        }
     }
 
     // these below should probably come from the audioFlinger too...
     if (format == AUDIO_FORMAT_DEFAULT) {
         format = AUDIO_FORMAT_PCM_16_BIT;
+    } else if (format == AUDIO_FORMAT_IEC61937) { // HDMI pass-through?
+        mAttributes.flags |= AUDIO_OUTPUT_FLAG_IEC958_NONAUDIO;
     }
 
     // validate parameters
@@ -396,13 +415,13 @@ status_t AudioTrack::set(
     }
 
     if (flags & AUDIO_OUTPUT_FLAG_DIRECT) {
-        if (audio_is_linear_pcm(format)) {
+        if (audio_has_proportional_frames(format)) {
             mFrameSize = channelCount * audio_bytes_per_sample(format);
         } else {
             mFrameSize = sizeof(uint8_t);
         }
     } else {
-        ALOG_ASSERT(audio_is_linear_pcm(format));
+        ALOG_ASSERT(audio_has_proportional_frames(format));
         mFrameSize = channelCount * audio_bytes_per_sample(format);
         // createTrack will return an error if PCM format is not supported by server,
         // so no need to check for specific PCM formats here
@@ -415,6 +434,8 @@ status_t AudioTrack::set(
     mSampleRate = sampleRate;
     mOriginalSampleRate = sampleRate;
     mPlaybackRate = AUDIO_PLAYBACK_RATE_DEFAULT;
+    // 1.0 <= mMaxRequiredSpeed <= AUDIO_TIMESTRETCH_SPEED_MAX
+    mMaxRequiredSpeed = min(max(maxRequiredSpeed, 1.0f), AUDIO_TIMESTRETCH_SPEED_MAX);
 
     // Make copy of input parameter offloadInfo so that in the future:
     //  (a) createTrack_l doesn't need it as an input parameter
@@ -431,10 +452,32 @@ status_t AudioTrack::set(
     mSendLevel = 0.0f;
     // mFrameCount is initialized in createTrack_l
     mReqFrameCount = frameCount;
-    mNotificationFramesReq = notificationFrames;
+    if (notificationFrames >= 0) {
+        mNotificationFramesReq = notificationFrames;
+        mNotificationsPerBufferReq = 0;
+    } else {
+        if (!(flags & AUDIO_OUTPUT_FLAG_FAST)) {
+            ALOGE("notificationFrames=%d not permitted for non-fast track",
+                    notificationFrames);
+            return BAD_VALUE;
+        }
+        if (frameCount > 0) {
+            ALOGE("notificationFrames=%d not permitted with non-zero frameCount=%zu",
+                    notificationFrames, frameCount);
+            return BAD_VALUE;
+        }
+        mNotificationFramesReq = 0;
+        const uint32_t minNotificationsPerBuffer = 1;
+        const uint32_t maxNotificationsPerBuffer = 8;
+        mNotificationsPerBufferReq = min(maxNotificationsPerBuffer,
+                max((uint32_t) -notificationFrames, minNotificationsPerBuffer));
+        ALOGW_IF(mNotificationsPerBufferReq != (uint32_t) -notificationFrames,
+                "notificationFrames=%d clamped to the range -%u to -%u",
+                notificationFrames, minNotificationsPerBuffer, maxNotificationsPerBuffer);
+    }
     mNotificationFramesAct = 0;
     if (sessionId == AUDIO_SESSION_ALLOCATE) {
-        mSessionId = AudioSystem::newAudioUniqueId();
+        mSessionId = (audio_session_t) AudioSystem::newAudioUniqueId(AUDIO_UNIQUE_ID_USE_SESSION);
     } else {
         mSessionId = sessionId;
     }
@@ -451,7 +494,7 @@ status_t AudioTrack::set(
         mClientPid = pid;
     }
     mAuxEffectId = 0;
-    mFlags = flags;
+    mOrigFlags = mFlags = flags;
     mCbf = cbf;
 
     if (cbf != NULL) {
@@ -473,7 +516,6 @@ status_t AudioTrack::set(
     }
 
     mStatus = NO_ERROR;
-    mState = STATE_STOPPED;
     mUserData = user;
     mLoopCount = 0;
     mLoopStart = 0;
@@ -493,6 +535,10 @@ status_t AudioTrack::set(
     mPreviousTimestampValid = false;
     mTimestampStartupGlitchReported = false;
     mRetrogradeMotionReported = false;
+    mPreviousLocation = ExtendedTimestamp::LOCATION_INVALID;
+    mUnderrunCountOffset = 0;
+    mFramesWritten = 0;
+    mFramesWrittenServerOffset = 0;
 
     return NO_ERROR;
 }
@@ -522,6 +568,25 @@ status_t AudioTrack::start()
         mPreviousTimestampValid = false;
         mTimestampStartupGlitchReported = false;
         mRetrogradeMotionReported = false;
+        mPreviousLocation = ExtendedTimestamp::LOCATION_INVALID;
+
+        // read last server side position change via timestamp.
+        ExtendedTimestamp ets;
+        if (mProxy->getTimestamp(&ets) == OK &&
+                ets.mTimeNs[ExtendedTimestamp::LOCATION_SERVER] > 0) {
+            // Server side has consumed something, but is it finished consuming?
+            // It is possible since flush and stop are asynchronous that the server
+            // is still active at this point.
+            ALOGV("start: server read:%lld  cumulative flushed:%lld  client written:%lld",
+                    (long long)(mFramesWrittenServerOffset
+                            + ets.mPosition[ExtendedTimestamp::LOCATION_SERVER]),
+                    (long long)ets.mFlushed,
+                    (long long)mFramesWritten);
+            mFramesWrittenServerOffset = -ets.mPosition[ExtendedTimestamp::LOCATION_SERVER];
+        }
+        mFramesWritten = 0;
+        mProxy->clearTimestamp(); // need new server push for valid timestamp
+        mMarkerReached = false;
 
         // For offloaded tracks, we don't know if the hardware counters are really zero here,
         // since the flush is asynchronous and stop may not fully drain.
@@ -536,19 +601,6 @@ status_t AudioTrack::start()
     mNewPosition = mPosition + mUpdatePeriod;
     int32_t flags = android_atomic_and(~CBLK_DISABLED, &mCblk->mFlags);
 
-    sp<AudioTrackThread> t = mAudioTrackThread;
-    if (t != 0) {
-        if (previousState == STATE_STOPPING) {
-            mProxy->interrupt();
-        } else {
-            t->resume();
-        }
-    } else {
-        mPreviousPriority = getpriority(PRIO_PROCESS, 0);
-        get_sched_policy(0, &mPreviousSchedulingGroup);
-        androidSetThreadPriority(0, ANDROID_PRIORITY_AUDIO);
-    }
-
     status_t status = NO_ERROR;
     if (!(flags & CBLK_INVALID)) {
         status = mAudioTrack->start();
@@ -560,7 +612,21 @@ status_t AudioTrack::start()
         status = restoreTrack_l("start");
     }
 
-    if (status != NO_ERROR) {
+    // resume or pause the callback thread as needed.
+    sp<AudioTrackThread> t = mAudioTrackThread;
+    if (status == NO_ERROR) {
+        if (t != 0) {
+            if (previousState == STATE_STOPPING) {
+                mProxy->interrupt();
+            } else {
+                t->resume();
+            }
+        } else {
+            mPreviousPriority = getpriority(PRIO_PROCESS, 0);
+            get_sched_policy(0, &mPreviousSchedulingGroup);
+            androidSetThreadPriority(0, ANDROID_PRIORITY_AUDIO);
+        }
+    } else {
         ALOGE("start() status %d", status);
         mState = previousState;
         if (t != 0) {
@@ -592,9 +658,9 @@ void AudioTrack::stop()
 
     mProxy->interrupt();
     mAudioTrack->stop();
-    // the playback head position will reset to 0, so if a marker is set, we need
-    // to activate it again
-    mMarkerReached = false;
+
+    // Note: legacy handling - stop does not clear playback marker
+    // and periodic update counter, but flush does for streaming tracks.
 
     if (mSharedBuffer != 0) {
         // clear buffer position and loop count.
@@ -735,7 +801,7 @@ status_t AudioTrack::setSampleRate(uint32_t rate)
     if (rate == mSampleRate) {
         return NO_ERROR;
     }
-    if (mIsTimed || isOffloadedOrDirect_l() || (mFlags & AUDIO_OUTPUT_FLAG_FAST)) {
+    if (isOffloadedOrDirect_l() || (mFlags & AUDIO_OUTPUT_FLAG_FAST)) {
         return INVALID_OPERATION;
     }
     if (mOutput == AUDIO_IO_HANDLE_NONE) {
@@ -762,10 +828,6 @@ status_t AudioTrack::setSampleRate(uint32_t rate)
 
 uint32_t AudioTrack::getSampleRate() const
 {
-    if (mIsTimed) {
-        return 0;
-    }
-
     AutoMutex lock(mLock);
 
     // sample rate can be updated during playback by the offloaded decoder so we need to
@@ -785,10 +847,6 @@ uint32_t AudioTrack::getSampleRate() const
 
 uint32_t AudioTrack::getOriginalSampleRate() const
 {
-    if (mIsTimed) {
-        return 0;
-    }
-
     return mOriginalSampleRate;
 }
 
@@ -798,12 +856,15 @@ status_t AudioTrack::setPlaybackRate(const AudioPlaybackRate &playbackRate)
     if (isAudioPlaybackRateEqual(playbackRate, mPlaybackRate)) {
         return NO_ERROR;
     }
-    if (mIsTimed || isOffloadedOrDirect_l()) {
+    if (isOffloadedOrDirect_l()) {
         return INVALID_OPERATION;
     }
     if (mFlags & AUDIO_OUTPUT_FLAG_FAST) {
         return INVALID_OPERATION;
     }
+
+    ALOGV("setPlaybackRate (input): mSampleRate:%u  mSpeed:%f  mPitch:%f",
+            mSampleRate, playbackRate.mSpeed, playbackRate.mPitch);
     // pitch is emulated by adjusting speed and sampleRate
     const uint32_t effectiveRate = adjustSampleRate(mSampleRate, playbackRate.mPitch);
     const float effectiveSpeed = adjustSpeed(playbackRate.mSpeed, playbackRate.mPitch);
@@ -812,23 +873,29 @@ status_t AudioTrack::setPlaybackRate(const AudioPlaybackRate &playbackRate)
     playbackRateTemp.mSpeed = effectiveSpeed;
     playbackRateTemp.mPitch = effectivePitch;
 
+    ALOGV("setPlaybackRate (effective): mSampleRate:%u  mSpeed:%f  mPitch:%f",
+            effectiveRate, effectiveSpeed, effectivePitch);
+
     if (!isAudioPlaybackRateValid(playbackRateTemp)) {
+        ALOGV("setPlaybackRate(%f, %f) failed (effective rate out of bounds)",
+                playbackRate.mSpeed, playbackRate.mPitch);
         return BAD_VALUE;
     }
     // Check if the buffer size is compatible.
     if (!isSampleRateSpeedAllowed_l(effectiveRate, effectiveSpeed)) {
-        ALOGV("setPlaybackRate(%f, %f) failed", playbackRate.mSpeed, playbackRate.mPitch);
+        ALOGV("setPlaybackRate(%f, %f) failed (buffer size)",
+                playbackRate.mSpeed, playbackRate.mPitch);
         return BAD_VALUE;
     }
 
     // Check resampler ratios are within bounds
-    if (effectiveRate > mSampleRate * AUDIO_RESAMPLER_DOWN_RATIO_MAX) {
+    if ((uint64_t)effectiveRate > (uint64_t)mSampleRate * (uint64_t)AUDIO_RESAMPLER_DOWN_RATIO_MAX) {
         ALOGV("setPlaybackRate(%f, %f) failed. Resample rate exceeds max accepted value",
                 playbackRate.mSpeed, playbackRate.mPitch);
         return BAD_VALUE;
     }
 
-    if (effectiveRate * AUDIO_RESAMPLER_UP_RATIO_MAX < mSampleRate) {
+    if ((uint64_t)effectiveRate * (uint64_t)AUDIO_RESAMPLER_UP_RATIO_MAX < (uint64_t)mSampleRate) {
         ALOGV("setPlaybackRate(%f, %f) failed. Resample rate below min accepted value",
                         playbackRate.mSpeed, playbackRate.mPitch);
         return BAD_VALUE;
@@ -846,9 +913,49 @@ const AudioPlaybackRate& AudioTrack::getPlaybackRate() const
     return mPlaybackRate;
 }
 
+ssize_t AudioTrack::getBufferSizeInFrames()
+{
+    AutoMutex lock(mLock);
+    if (mOutput == AUDIO_IO_HANDLE_NONE || mProxy.get() == 0) {
+        return NO_INIT;
+    }
+    return (ssize_t) mProxy->getBufferSizeInFrames();
+}
+
+status_t AudioTrack::getBufferDurationInUs(int64_t *duration)
+{
+    if (duration == nullptr) {
+        return BAD_VALUE;
+    }
+    AutoMutex lock(mLock);
+    if (mOutput == AUDIO_IO_HANDLE_NONE || mProxy.get() == 0) {
+        return NO_INIT;
+    }
+    ssize_t bufferSizeInFrames = (ssize_t) mProxy->getBufferSizeInFrames();
+    if (bufferSizeInFrames < 0) {
+        return (status_t)bufferSizeInFrames;
+    }
+    *duration = (int64_t)((double)bufferSizeInFrames * 1000000
+            / ((double)mSampleRate * mPlaybackRate.mSpeed));
+    return NO_ERROR;
+}
+
+ssize_t AudioTrack::setBufferSizeInFrames(size_t bufferSizeInFrames)
+{
+    AutoMutex lock(mLock);
+    if (mOutput == AUDIO_IO_HANDLE_NONE || mProxy.get() == 0) {
+        return NO_INIT;
+    }
+    // Reject if timed track or compressed audio.
+    if (!audio_is_linear_pcm(mFormat)) {
+        return INVALID_OPERATION;
+    }
+    return (ssize_t) mProxy->setBufferSizeInFrames((uint32_t) bufferSizeInFrames);
+}
+
 status_t AudioTrack::setLoop(uint32_t loopStart, uint32_t loopEnd, int loopCount)
 {
-    if (mSharedBuffer == 0 || mIsTimed || isOffloadedOrDirect()) {
+    if (mSharedBuffer == 0 || isOffloadedOrDirect()) {
         return INVALID_OPERATION;
     }
 
@@ -911,7 +1018,7 @@ status_t AudioTrack::getMarkerPosition(uint32_t *marker) const
     }
 
     AutoMutex lock(mLock);
-    *marker = mMarkerPosition;
+    mMarkerPosition.getValue(marker);
 
     return NO_ERROR;
 }
@@ -951,7 +1058,7 @@ status_t AudioTrack::getPositionUpdatePeriod(uint32_t *updatePeriod) const
 
 status_t AudioTrack::setPosition(uint32_t position)
 {
-    if (mSharedBuffer == 0 || mIsTimed || isOffloadedOrDirect()) {
+    if (mSharedBuffer == 0 || isOffloadedOrDirect()) {
         return INVALID_OPERATION;
     }
     if (position > mFrameCount) {
@@ -983,7 +1090,11 @@ status_t AudioTrack::getPosition(uint32_t *position)
     }
 
     AutoMutex lock(mLock);
-    if (isOffloadedOrDirect_l()) {
+    // FIXME: offloaded and direct tracks call into the HAL for render positions
+    // for compressed/synced data; however, we use proxy position for pure linear pcm data
+    // as we do not know the capability of the HAL for pcm position support and standby.
+    // There may be some latency differences between the HAL position and the proxy position.
+    if (isOffloadedOrDirect_l() && !isPurePcmData_l()) {
         uint32_t dspFrames = 0;
 
         if (isOffloaded_l() && ((mState == STATE_PAUSED) || (mState == STATE_PAUSED_STOPPING))) {
@@ -1009,14 +1120,14 @@ status_t AudioTrack::getPosition(uint32_t *position)
 
         // IAudioTrack::stop() isn't synchronous; we don't know when presentation completes
         *position = (mState == STATE_STOPPED || mState == STATE_FLUSHED) ?
-                0 : updateAndGetPosition_l();
+                0 : updateAndGetPosition_l().value();
     }
     return NO_ERROR;
 }
 
 status_t AudioTrack::getBufferPosition(uint32_t *position)
 {
-    if (mSharedBuffer == 0 || mIsTimed) {
+    if (mSharedBuffer == 0) {
         return INVALID_OPERATION;
     }
     if (position == NULL) {
@@ -1030,7 +1141,7 @@ status_t AudioTrack::getBufferPosition(uint32_t *position)
 
 status_t AudioTrack::reload()
 {
-    if (mSharedBuffer == 0 || mIsTimed || isOffloadedOrDirect()) {
+    if (mSharedBuffer == 0 || isOffloadedOrDirect()) {
         return INVALID_OPERATION;
     }
 
@@ -1120,9 +1231,12 @@ status_t AudioTrack::createTrack_l()
     audio_stream_type_t streamType = mStreamType;
     audio_attributes_t *attr = (mStreamType == AUDIO_STREAM_DEFAULT) ? &mAttributes : NULL;
 
+    // mFlags (not mOrigFlags) is modified depending on whether fast request is accepted.
+    // After fast request is denied, we will request again if IAudioTrack is re-created.
+
     status_t status;
     status = AudioSystem::getOutputForAttr(attr, &output,
-                                           (audio_session_t)mSessionId, &streamType, mClientUid,
+                                           mSessionId, &streamType, mClientUid,
                                            mSampleRate, mFormat, mChannelMask,
                                            mFlags, mSelectedDeviceId, mOffloadInfo);
 
@@ -1150,6 +1264,15 @@ status_t AudioTrack::createTrack_l()
         goto release;
     }
 
+    // TODO consider making this a member variable if there are other uses for it later
+    size_t afFrameCountHAL;
+    status = AudioSystem::getFrameCountHAL(output, &afFrameCountHAL);
+    if (status != NO_ERROR) {
+        ALOGE("getFrameCountHAL(output=%d) status %d", output, status);
+        goto release;
+    }
+    ALOG_ASSERT(afFrameCountHAL > 0);
+
     status = AudioSystem::getSamplingRate(output, &mAfSampleRate);
     if (status != NO_ERROR) {
         ALOGE("getSamplingRate(output=%d) status %d", output, status);
@@ -1159,35 +1282,33 @@ status_t AudioTrack::createTrack_l()
         mSampleRate = mAfSampleRate;
         mOriginalSampleRate = mAfSampleRate;
     }
-    // Client decides whether the track is TIMED (see below), but can only express a preference
-    // for FAST.  Server will perform additional tests.
-    if ((mFlags & AUDIO_OUTPUT_FLAG_FAST) && !((
+
+    // Client can only express a preference for FAST.  Server will perform additional tests.
+    if (mFlags & AUDIO_OUTPUT_FLAG_FAST) {
+        bool useCaseAllowed =
             // either of these use cases:
             // use case 1: shared buffer
             (mSharedBuffer != 0) ||
             // use case 2: callback transfer mode
             (mTransfer == TRANSFER_CALLBACK) ||
             // use case 3: obtain/release mode
-            (mTransfer == TRANSFER_OBTAIN)) &&
-            // matching sample rate
-            (mSampleRate == mAfSampleRate))) {
-        ALOGW("AUDIO_OUTPUT_FLAG_FAST denied by client; transfer %d, track %u Hz, output %u Hz",
+            (mTransfer == TRANSFER_OBTAIN) ||
+            // use case 4: synchronous write
+            ((mTransfer == TRANSFER_SYNC) && mThreadCanCallJava);
+        // sample rates must also match
+        bool fastAllowed = useCaseAllowed && (mSampleRate == mAfSampleRate);
+        if (!fastAllowed) {
+            ALOGW("AUDIO_OUTPUT_FLAG_FAST denied by client; transfer %d, "
+                "track %u Hz, output %u Hz",
                 mTransfer, mSampleRate, mAfSampleRate);
-        // once denied, do not request again if IAudioTrack is re-created
-        mFlags = (audio_output_flags_t) (mFlags & ~AUDIO_OUTPUT_FLAG_FAST);
+            mFlags = (audio_output_flags_t) (mFlags & ~AUDIO_OUTPUT_FLAG_FAST);
+        }
     }
-
-    // The client's AudioTrack buffer is divided into n parts for purpose of wakeup by server, where
-    //  n = 1   fast track with single buffering; nBuffering is ignored
-    //  n = 2   fast track with double buffering
-    //  n = 2   normal track, (including those with sample rate conversion)
-    //  n >= 3  very high latency or very small notification interval (unused).
-    const uint32_t nBuffering = 2;
 
     mNotificationFramesAct = mNotificationFramesReq;
 
     size_t frameCount = mReqFrameCount;
-    if (!audio_is_linear_pcm(mFormat)) {
+    if (!audio_has_proportional_frames(mFormat)) {
 
         if (mSharedBuffer != 0) {
             // Same comment as below about ignoring frameCount parameter for set()
@@ -1224,28 +1345,39 @@ status_t AudioTrack::createTrack_l()
         // there _is_ a frameCount parameter.  We silently ignore it.
         frameCount = mSharedBuffer->size() / mFrameSize;
     } else {
-        // For fast tracks the frame count calculations and checks are done by server
-
-        if ((mFlags & AUDIO_OUTPUT_FLAG_FAST) == 0) {
-            // for normal tracks precompute the frame count based on speed.
-            const size_t minFrameCount = calculateMinFrameCount(
-                    mAfLatency, mAfFrameCount, mAfSampleRate, mSampleRate,
-                    mPlaybackRate.mSpeed);
-            if (frameCount < minFrameCount) {
-                frameCount = minFrameCount;
+        size_t minFrameCount = 0;
+        // For fast tracks the frame count calculations and checks are mostly done by server,
+        // but we try to respect the application's request for notifications per buffer.
+        if (mFlags & AUDIO_OUTPUT_FLAG_FAST) {
+            if (mNotificationsPerBufferReq > 0) {
+                // Avoid possible arithmetic overflow during multiplication.
+                // mNotificationsPerBuffer is clamped to a small integer earlier, so it is unlikely.
+                if (mNotificationsPerBufferReq > SIZE_MAX / afFrameCountHAL) {
+                    ALOGE("Requested notificationPerBuffer=%u ignored for HAL frameCount=%zu",
+                            mNotificationsPerBufferReq, afFrameCountHAL);
+                } else {
+                    minFrameCount = afFrameCountHAL * mNotificationsPerBufferReq;
+                }
             }
+        } else {
+            // for normal tracks precompute the frame count based on speed.
+            const float speed = !isPurePcmData_l() || isOffloadedOrDirect_l() ? 1.0f :
+                            max(mMaxRequiredSpeed, mPlaybackRate.mSpeed);
+            minFrameCount = calculateMinFrameCount(
+                    mAfLatency, mAfFrameCount, mAfSampleRate, mSampleRate,
+                    speed /*, 0 mNotificationsPerBufferReq*/);
+        }
+        if (frameCount < minFrameCount) {
+            frameCount = minFrameCount;
         }
     }
 
     IAudioFlinger::track_flags_t trackFlags = IAudioFlinger::TRACK_DEFAULT;
-    if (mIsTimed) {
-        trackFlags |= IAudioFlinger::TRACK_TIMED;
-    }
 
     pid_t tid = -1;
     if (mFlags & AUDIO_OUTPUT_FLAG_FAST) {
         trackFlags |= IAudioFlinger::TRACK_FAST;
-        if (mAudioTrackThread != 0) {
+        if (mAudioTrackThread != 0 && !mThreadCanCallJava) {
             tid = mAudioTrackThread->getTid();
         }
     }
@@ -1260,7 +1392,7 @@ status_t AudioTrack::createTrack_l()
 
     size_t temp = frameCount;   // temp may be replaced by a revised value of frameCount,
                                 // but we will still need the original value also
-    int originalSessionId = mSessionId;
+    audio_session_t originalSessionId = mSessionId;
     sp<IAudioTrack> track = audioFlinger->createTrack(streamType,
                                                       mSampleRate,
                                                       mFormat,
@@ -1269,6 +1401,7 @@ status_t AudioTrack::createTrack_l()
                                                       &trackFlags,
                                                       mSharedBuffer,
                                                       output,
+                                                      mClientPid,
                                                       tid,
                                                       &mSessionId,
                                                       mClientUid,
@@ -1285,6 +1418,7 @@ status_t AudioTrack::createTrack_l()
     // AudioFlinger now owns the reference to the I/O handle,
     // so we are no longer responsible for releasing it.
 
+    // FIXME compare to AudioRecord
     sp<IMemory> iMem = track->getCblk();
     if (iMem == 0) {
         ALOGE("Could not get control block");
@@ -1319,41 +1453,38 @@ status_t AudioTrack::createTrack_l()
     if (mFlags & AUDIO_OUTPUT_FLAG_FAST) {
         if (trackFlags & IAudioFlinger::TRACK_FAST) {
             ALOGV("AUDIO_OUTPUT_FLAG_FAST successful; frameCount %zu", frameCount);
-            mAwaitBoost = true;
+            if (!mThreadCanCallJava) {
+                mAwaitBoost = true;
+            }
         } else {
-            ALOGV("AUDIO_OUTPUT_FLAG_FAST denied by server; frameCount %zu", frameCount);
-            // once denied, do not request again if IAudioTrack is re-created
+            ALOGW("AUDIO_OUTPUT_FLAG_FAST denied by server; frameCount %zu", frameCount);
             mFlags = (audio_output_flags_t) (mFlags & ~AUDIO_OUTPUT_FLAG_FAST);
         }
     }
-    if (mFlags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) {
-        if (trackFlags & IAudioFlinger::TRACK_OFFLOAD) {
-            ALOGV("AUDIO_OUTPUT_FLAG_OFFLOAD successful");
-        } else {
-            ALOGW("AUDIO_OUTPUT_FLAG_OFFLOAD denied by server");
-            mFlags = (audio_output_flags_t) (mFlags & ~AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD);
-            // FIXME This is a warning, not an error, so don't return error status
-            //return NO_INIT;
-        }
-    }
-    if (mFlags & AUDIO_OUTPUT_FLAG_DIRECT) {
-        if (trackFlags & IAudioFlinger::TRACK_DIRECT) {
-            ALOGV("AUDIO_OUTPUT_FLAG_DIRECT successful");
-        } else {
-            ALOGW("AUDIO_OUTPUT_FLAG_DIRECT denied by server");
-            mFlags = (audio_output_flags_t) (mFlags & ~AUDIO_OUTPUT_FLAG_DIRECT);
-            // FIXME This is a warning, not an error, so don't return error status
-            //return NO_INIT;
-        }
-    }
-    // Make sure that application is notified with sufficient margin before underrun
+
+    // Make sure that application is notified with sufficient margin before underrun.
+    // The client can divide the AudioTrack buffer into sub-buffers,
+    // and expresses its desire to server as the notification frame count.
     if (mSharedBuffer == 0 && audio_is_linear_pcm(mFormat)) {
-        // Theoretically double-buffering is not required for fast tracks,
-        // due to tighter scheduling.  But in practice, to accommodate kernels with
-        // scheduling jitter, and apps with computation jitter, we use double-buffering
-        // for fast tracks just like normal streaming tracks.
-        if (mNotificationFramesAct == 0 || mNotificationFramesAct > frameCount / nBuffering) {
-            mNotificationFramesAct = frameCount / nBuffering;
+        size_t maxNotificationFrames;
+        if (trackFlags & IAudioFlinger::TRACK_FAST) {
+            // notify every HAL buffer, regardless of the size of the track buffer
+            maxNotificationFrames = afFrameCountHAL;
+        } else {
+            // For normal tracks, use at least double-buffering if no sample rate conversion,
+            // or at least triple-buffering if there is sample rate conversion
+            const int nBuffering = mOriginalSampleRate == mAfSampleRate ? 2 : 3;
+            maxNotificationFrames = frameCount / nBuffering;
+        }
+        if (mNotificationFramesAct == 0 || mNotificationFramesAct > maxNotificationFrames) {
+            if (mNotificationFramesAct == 0) {
+                ALOGD("Client defaulted notificationFrames to %zu for frameCount %zu",
+                    maxNotificationFrames, frameCount);
+            } else {
+                ALOGW("Client adjusted notificationFrames from %u to %zu for frameCount %zu",
+                    mNotificationFramesAct, maxNotificationFrames, frameCount);
+            }
+            mNotificationFramesAct = (uint32_t) maxNotificationFrames;
         }
     }
 
@@ -1427,7 +1558,7 @@ status_t AudioTrack::createTrack_l()
     }
 
 release:
-    AudioSystem::releaseOutput(output, streamType, (audio_session_t)mSessionId);
+    AudioSystem::releaseOutput(output, streamType, mSessionId);
     if (status == NO_ERROR) {
         status = NO_INIT;
     }
@@ -1508,6 +1639,10 @@ status_t AudioTrack::obtainBuffer(Buffer* audioBuffer, const struct timespec *re
             }
             oldSequence = newSequence;
 
+            if (status == NOT_ENOUGH_DATA) {
+                restartIfDisabled();
+            }
+
             // Keep the extra references
             proxy = mProxy;
             iMem = mCblkMemory;
@@ -1530,8 +1665,7 @@ status_t AudioTrack::obtainBuffer(Buffer* audioBuffer, const struct timespec *re
         buffer.mFrameCount = audioBuffer->frameCount;
         // FIXME starts the requested timeout and elapsed over from scratch
         status = proxy->obtainBuffer(&buffer, requested, elapsed);
-
-    } while ((status == DEAD_OBJECT) && (tryCounter-- > 0));
+    } while (((status == DEAD_OBJECT) || (status == NOT_ENOUGH_DATA)) && (tryCounter-- > 0));
 
     audioBuffer->frameCount = buffer.mFrameCount;
     audioBuffer->size = buffer.mFrameCount * mFrameSize;
@@ -1564,13 +1698,16 @@ void AudioTrack::releaseBuffer(const Buffer* audioBuffer)
     mProxy->releaseBuffer(&buffer);
 
     // restart track if it was disabled by audioflinger due to previous underrun
-    if (mState == STATE_ACTIVE) {
-        audio_track_cblk_t* cblk = mCblk;
-        if (android_atomic_and(~CBLK_DISABLED, &cblk->mFlags) & CBLK_DISABLED) {
-            ALOGW("releaseBuffer() track %p disabled due to previous underrun, restarting", this);
-            // FIXME ignoring status
-            mAudioTrack->start();
-        }
+    restartIfDisabled();
+}
+
+void AudioTrack::restartIfDisabled()
+{
+    int32_t flags = android_atomic_and(~CBLK_DISABLED, &mCblk->mFlags);
+    if ((mState == STATE_ACTIVE) && (flags & CBLK_DISABLED)) {
+        ALOGW("releaseBuffer() track %p disabled due to previous underrun, restarting", this);
+        // FIXME ignoring status
+        mAudioTrack->start();
     }
 }
 
@@ -1578,7 +1715,7 @@ void AudioTrack::releaseBuffer(const Buffer* audioBuffer)
 
 ssize_t AudioTrack::write(const void* buffer, size_t userSize, bool blocking)
 {
-    if (mTransfer != TRANSFER_SYNC || mIsTimed) {
+    if (mTransfer != TRANSFER_SYNC) {
         return INVALID_OPERATION;
     }
 
@@ -1623,74 +1760,10 @@ ssize_t AudioTrack::write(const void* buffer, size_t userSize, bool blocking)
         releaseBuffer(&audioBuffer);
     }
 
+    if (written > 0) {
+        mFramesWritten += written / mFrameSize;
+    }
     return written;
-}
-
-// -------------------------------------------------------------------------
-
-TimedAudioTrack::TimedAudioTrack() {
-    mIsTimed = true;
-}
-
-status_t TimedAudioTrack::allocateTimedBuffer(size_t size, sp<IMemory>* buffer)
-{
-    AutoMutex lock(mLock);
-    status_t result = UNKNOWN_ERROR;
-
-#if 1
-    // acquire a strong reference on the IMemory and IAudioTrack so that they cannot be destroyed
-    // while we are accessing the cblk
-    sp<IAudioTrack> audioTrack = mAudioTrack;
-    sp<IMemory> iMem = mCblkMemory;
-#endif
-
-    // If the track is not invalid already, try to allocate a buffer.  alloc
-    // fails indicating that the server is dead, flag the track as invalid so
-    // we can attempt to restore in just a bit.
-    audio_track_cblk_t* cblk = mCblk;
-    if (!(cblk->mFlags & CBLK_INVALID)) {
-        result = mAudioTrack->allocateTimedBuffer(size, buffer);
-        if (result == DEAD_OBJECT) {
-            android_atomic_or(CBLK_INVALID, &cblk->mFlags);
-        }
-    }
-
-    // If the track is invalid at this point, attempt to restore it. and try the
-    // allocation one more time.
-    if (cblk->mFlags & CBLK_INVALID) {
-        result = restoreTrack_l("allocateTimedBuffer");
-
-        if (result == NO_ERROR) {
-            result = mAudioTrack->allocateTimedBuffer(size, buffer);
-        }
-    }
-
-    return result;
-}
-
-status_t TimedAudioTrack::queueTimedBuffer(const sp<IMemory>& buffer,
-                                           int64_t pts)
-{
-    status_t status = mAudioTrack->queueTimedBuffer(buffer, pts);
-    {
-        AutoMutex lock(mLock);
-        audio_track_cblk_t* cblk = mCblk;
-        // restart track if it was disabled by audioflinger due to previous underrun
-        if (buffer->size() != 0 && status == NO_ERROR &&
-                (mState == STATE_ACTIVE) && (cblk->mFlags & CBLK_DISABLED)) {
-            android_atomic_and(~CBLK_DISABLED, &cblk->mFlags);
-            ALOGW("queueTimedBuffer() track %p disabled, restarting", this);
-            // FIXME ignoring status
-            mAudioTrack->start();
-        }
-    }
-    return status;
-}
-
-status_t TimedAudioTrack::setMediaTimeTransform(const LinearTransform& xform,
-                                                TargetTimeline target)
-{
-    return mAudioTrack->setMediaTimeTransform(xform, target);
 }
 
 // -------------------------------------------------------------------------
@@ -1765,23 +1838,23 @@ nsecs_t AudioTrack::processAudioBuffer()
     }
 
     // Get current position of server
-    size_t position = updateAndGetPosition_l();
+    Modulo<uint32_t> position(updateAndGetPosition_l());
 
     // Manage marker callback
     bool markerReached = false;
-    size_t markerPosition = mMarkerPosition;
-    // FIXME fails for wraparound, need 64 bits
-    if (!mMarkerReached && (markerPosition > 0) && (position >= markerPosition)) {
+    Modulo<uint32_t> markerPosition(mMarkerPosition);
+    // uses 32 bit wraparound for comparison with position.
+    if (!mMarkerReached && markerPosition.value() > 0 && position >= markerPosition) {
         mMarkerReached = markerReached = true;
     }
 
     // Determine number of new position callback(s) that will be needed, while locked
     size_t newPosCount = 0;
-    size_t newPosition = mNewPosition;
-    size_t updatePeriod = mUpdatePeriod;
+    Modulo<uint32_t> newPosition(mNewPosition);
+    uint32_t updatePeriod = mUpdatePeriod;
     // FIXME fails for wraparound, need 64 bits
     if (updatePeriod > 0 && position >= newPosition) {
-        newPosCount = ((position - newPosition) / updatePeriod) + 1;
+        newPosCount = ((position - newPosition).value() / updatePeriod) + 1;
         mNewPosition += updatePeriod * newPosCount;
     }
 
@@ -1843,7 +1916,11 @@ nsecs_t AudioTrack::processAudioBuffer()
         case NO_ERROR:
         case DEAD_OBJECT:
         case TIMED_OUT:
-            mCbf(EVENT_STREAM_END, mUserData, NULL);
+            if (status != DEAD_OBJECT) {
+                // for DEAD_OBJECT, we do not send a EVENT_STREAM_END after stop();
+                // instead, the application should handle the EVENT_NEW_IAUDIOTRACK.
+                mCbf(EVENT_STREAM_END, mUserData, NULL);
+            }
             {
                 AutoMutex lock(mLock);
                 // The previously assigned value of waitStreamEnd is no longer valid,
@@ -1878,7 +1955,7 @@ nsecs_t AudioTrack::processAudioBuffer()
         mCbf(EVENT_MARKER, mUserData, &markerPosition);
     }
     while (newPosCount > 0) {
-        size_t temp = newPosition;
+        size_t temp = newPosition.value(); // FIXME size_t != uint32_t
         mCbf(EVENT_NEW_POS, mUserData, &temp);
         newPosition += updatePeriod;
         newPosCount--;
@@ -1902,14 +1979,14 @@ nsecs_t AudioTrack::processAudioBuffer()
     // FIXME only for non-compressed audio
     uint32_t minFrames = ~0;
     if (!markerReached && position < markerPosition) {
-        minFrames = markerPosition - position;
+        minFrames = (markerPosition - position).value();
     }
     if (loopPeriod > 0 && loopPeriod < minFrames) {
         // loopPeriod is already adjusted for actual position.
         minFrames = loopPeriod;
     }
     if (updatePeriod > 0) {
-        minFrames = min(minFrames, uint32_t(newPosition - position));
+        minFrames = min(minFrames, (newPosition - position).value());
     }
 
     // If > 0, poll periodically to recover from a stuck server.  A good value is 2.
@@ -1952,6 +2029,7 @@ nsecs_t AudioTrack::processAudioBuffer()
         requested = &timeout;
     }
 
+    size_t writtenFrames = 0;
     while (mRemainingFrames > 0) {
 
         Buffer audioBuffer;
@@ -1967,13 +2045,14 @@ nsecs_t AudioTrack::processAudioBuffer()
         if (err != NO_ERROR) {
             if (err == TIMED_OUT || err == WOULD_BLOCK || err == -EINTR ||
                     (isOffloaded() && (err == DEAD_OBJECT))) {
-                return 0;
+                // FIXME bug 25195759
+                return 1000000;
             }
             ALOGE("Error %d obtaining an audio buffer, giving up.", err);
             return NS_NEVER;
         }
 
-        if (mRetryOnPartialBuffer && audio_is_linear_pcm(mFormat)) {
+        if (mRetryOnPartialBuffer && audio_has_proportional_frames(mFormat)) {
             mRetryOnPartialBuffer = false;
             if (avail < mRemainingFrames) {
                 if (ns > 0) { // account for obtain time
@@ -2019,11 +2098,12 @@ nsecs_t AudioTrack::processAudioBuffer()
             // buffer size and skip the loop entirely.
 
             nsecs_t myns;
-            if (audio_is_linear_pcm(mFormat)) {
+            if (audio_has_proportional_frames(mFormat)) {
                 // time to wait based on buffer occupancy
                 const nsecs_t datans = mRemainingFrames <= avail ? 0 :
                         framesToNanoseconds(mRemainingFrames - avail, sampleRate, speed);
                 // audio flinger thread buffer size (TODO: adjust for fast tracks)
+                // FIXME: use mAfFrameCountHAL instead of mAfFrameCount below for fast tracks.
                 const nsecs_t afns = framesToNanoseconds(mAfFrameCount, mAfSampleRate, speed);
                 // add a half the AudioFlinger buffer time to avoid soaking CPU if datans is 0.
                 myns = datans + (afns / 2);
@@ -2052,6 +2132,7 @@ nsecs_t AudioTrack::processAudioBuffer()
         }
 
         releaseBuffer(&audioBuffer);
+        writtenFrames += releasedFrames;
 
         // FIXME here is where we would repeat EVENT_MORE_DATA again on same advanced buffer
         // if callback doesn't like to accept the full chunk
@@ -2074,6 +2155,10 @@ nsecs_t AudioTrack::processAudioBuffer()
         }
 #endif
 
+    }
+    if (writtenFrames > 0) {
+        AutoMutex lock(mLock);
+        mFramesWritten += writtenFrames;
     }
     mRemainingFrames = notificationFrames;
     mRetryOnPartialBuffer = true;
@@ -2098,12 +2183,17 @@ status_t AudioTrack::restoreTrack_l(const char *from)
         return DEAD_OBJECT;
     }
 
+    // Save so we can return count since creation.
+    mUnderrunCountOffset = getUnderrunCount_l();
+
     // save the old static buffer position
     size_t bufferPosition = 0;
     int loopCount = 0;
     if (mStaticProxy != 0) {
         mStaticProxy->getBufferPositionAndLoopCount(&bufferPosition, &loopCount);
     }
+
+    mFlags = mOrigFlags;
 
     // If a new IAudioTrack is successfully created, createTrack_l() will modify the
     // following member variables: mAudioTrack, mCblkMemory and mCblk.
@@ -2132,6 +2222,7 @@ status_t AudioTrack::restoreTrack_l(const char *from)
         }
         if (mState == STATE_ACTIVE) {
             result = mAudioTrack->start();
+            mFramesWrittenServerOffset = mFramesWritten; // server resets to zero so we offset
         }
     }
     if (result != NO_ERROR) {
@@ -2143,12 +2234,11 @@ status_t AudioTrack::restoreTrack_l(const char *from)
     return result;
 }
 
-uint32_t AudioTrack::updateAndGetPosition_l()
+Modulo<uint32_t> AudioTrack::updateAndGetPosition_l()
 {
     // This is the sole place to read server consumed frames
-    uint32_t newServer = mProxy->getPosition();
-    int32_t delta = newServer - mServer;
-    mServer = newServer;
+    Modulo<uint32_t> newServer(mProxy->getPosition());
+    const int32_t delta = (newServer - mServer).signedValue();
     // TODO There is controversy about whether there can be "negative jitter" in server position.
     //      This should be investigated further, and if possible, it should be addressed.
     //      A more definite failure mode is infrequent polling by client.
@@ -2157,11 +2247,14 @@ uint32_t AudioTrack::updateAndGetPosition_l()
     //      That should ensure delta never goes negative for infrequent polling
     //      unless the server has more than 2^31 frames in its buffer,
     //      in which case the use of uint32_t for these counters has bigger issues.
-    if (delta < 0) {
-        ALOGE("detected illegal retrograde motion by the server: mServer advanced by %d", delta);
-        delta = 0;
+    ALOGE_IF(delta < 0,
+            "detected illegal retrograde motion by the server: mServer advanced by %d",
+            delta);
+    mServer = newServer;
+    if (delta > 0) { // avoid retrograde
+        mPosition += delta;
     }
-    return mPosition += (uint32_t) delta;
+    return mPosition;
 }
 
 bool AudioTrack::isSampleRateSpeedAllowed_l(uint32_t sampleRate, float speed) const
@@ -2171,7 +2264,8 @@ bool AudioTrack::isSampleRateSpeedAllowed_l(uint32_t sampleRate, float speed) co
         return true; // static tracks do not have issues with buffer sizing.
     }
     const size_t minFrameCount =
-            calculateMinFrameCount(mAfLatency, mAfFrameCount, mAfSampleRate, sampleRate, speed);
+            calculateMinFrameCount(mAfLatency, mAfFrameCount, mAfSampleRate, sampleRate, speed
+                /*, 0 mNotificationsPerBufferReq*/);
     ALOGV("isSampleRateSpeedAllowed_l mFrameCount %zu  minFrameCount %zu",
             mFrameCount, minFrameCount);
     return mFrameCount >= minFrameCount;
@@ -2183,6 +2277,47 @@ status_t AudioTrack::setParameters(const String8& keyValuePairs)
     return mAudioTrack->setParameters(keyValuePairs);
 }
 
+status_t AudioTrack::getTimestamp(ExtendedTimestamp *timestamp)
+{
+    if (timestamp == nullptr) {
+        return BAD_VALUE;
+    }
+    AutoMutex lock(mLock);
+    return getTimestamp_l(timestamp);
+}
+
+status_t AudioTrack::getTimestamp_l(ExtendedTimestamp *timestamp)
+{
+    if (mCblk->mFlags & CBLK_INVALID) {
+        const status_t status = restoreTrack_l("getTimestampExtended");
+        if (status != OK) {
+            // per getTimestamp() API doc in header, we return DEAD_OBJECT here,
+            // recommending that the track be recreated.
+            return DEAD_OBJECT;
+        }
+    }
+    // check for offloaded/direct here in case restoring somehow changed those flags.
+    if (isOffloadedOrDirect_l()) {
+        return INVALID_OPERATION; // not supported
+    }
+    status_t status = mProxy->getTimestamp(timestamp);
+    LOG_ALWAYS_FATAL_IF(status != OK, "status %d not allowed from proxy getTimestamp", status);
+    bool found = false;
+    timestamp->mPosition[ExtendedTimestamp::LOCATION_CLIENT] = mFramesWritten;
+    timestamp->mTimeNs[ExtendedTimestamp::LOCATION_CLIENT] = 0;
+    // server side frame offset in case AudioTrack has been restored.
+    for (int i = ExtendedTimestamp::LOCATION_SERVER;
+            i < ExtendedTimestamp::LOCATION_MAX; ++i) {
+        if (timestamp->mTimeNs[i] >= 0) {
+            // apply server offset (frames flushed is ignored
+            // so we don't report the jump when the flush occurs).
+            timestamp->mPosition[i] += mFramesWrittenServerOffset;
+            found = true;
+        }
+    }
+    return found ? OK : WOULD_BLOCK;
+}
+
 status_t AudioTrack::getTimestamp(AudioTimestamp& timestamp)
 {
     AutoMutex lock(mLock);
@@ -2190,11 +2325,6 @@ status_t AudioTrack::getTimestamp(AudioTimestamp& timestamp)
     bool previousTimestampValid = mPreviousTimestampValid;
     // Set false here to cover all the error return cases.
     mPreviousTimestampValid = false;
-
-    // FIXME not implemented for fast tracks; should use proxy and SSQ
-    if (mFlags & AUDIO_OUTPUT_FLAG_FAST) {
-        return INVALID_OPERATION;
-    }
 
     switch (mState) {
     case STATE_ACTIVE:
@@ -2225,7 +2355,60 @@ status_t AudioTrack::getTimestamp(AudioTimestamp& timestamp)
 
     // The presented frame count must always lag behind the consumed frame count.
     // To avoid a race, read the presented frames first.  This ensures that presented <= consumed.
-    status_t status = mAudioTrack->getTimestamp(timestamp);
+
+    status_t status;
+    if (isOffloadedOrDirect_l()) {
+        // use Binder to get timestamp
+        status = mAudioTrack->getTimestamp(timestamp);
+    } else {
+        // read timestamp from shared memory
+        ExtendedTimestamp ets;
+        status = mProxy->getTimestamp(&ets);
+        if (status == OK) {
+            ExtendedTimestamp::Location location;
+            status = ets.getBestTimestamp(&timestamp, &location);
+
+            if (status == OK) {
+                // It is possible that the best location has moved from the kernel to the server.
+                // In this case we adjust the position from the previous computed latency.
+                if (location == ExtendedTimestamp::LOCATION_SERVER) {
+                    ALOGW_IF(mPreviousLocation == ExtendedTimestamp::LOCATION_KERNEL,
+                            "getTimestamp() location moved from kernel to server");
+                    // check that the last kernel OK time info exists and the positions
+                    // are valid (if they predate the current track, the positions may
+                    // be zero or negative).
+                    const int64_t frames =
+                            (ets.mTimeNs[ExtendedTimestamp::LOCATION_SERVER_LASTKERNELOK] < 0 ||
+                            ets.mTimeNs[ExtendedTimestamp::LOCATION_KERNEL_LASTKERNELOK] < 0 ||
+                            ets.mPosition[ExtendedTimestamp::LOCATION_SERVER_LASTKERNELOK] <= 0 ||
+                            ets.mPosition[ExtendedTimestamp::LOCATION_KERNEL_LASTKERNELOK] <= 0)
+                            ?
+                            int64_t((double)mAfLatency * mSampleRate * mPlaybackRate.mSpeed
+                                    / 1000)
+                            :
+                            (ets.mPosition[ExtendedTimestamp::LOCATION_SERVER_LASTKERNELOK]
+                            - ets.mPosition[ExtendedTimestamp::LOCATION_KERNEL_LASTKERNELOK]);
+                    ALOGV("frame adjustment:%lld  timestamp:%s",
+                            (long long)frames, ets.toString().c_str());
+                    if (frames >= ets.mPosition[location]) {
+                        timestamp.mPosition = 0;
+                    } else {
+                        timestamp.mPosition = (uint32_t)(ets.mPosition[location] - frames);
+                    }
+                } else if (location == ExtendedTimestamp::LOCATION_KERNEL) {
+                    ALOGV_IF(mPreviousLocation == ExtendedTimestamp::LOCATION_SERVER,
+                            "getTimestamp() location moved from server to kernel");
+                }
+                mPreviousLocation = location;
+            } else {
+                // right after AudioTrack is started, one may not find a timestamp
+                ALOGV("getBestTimestamp did not find timestamp");
+            }
+        }
+        if (status == INVALID_OPERATION) {
+            status = WOULD_BLOCK;
+        }
+    }
     if (status != NO_ERROR) {
         ALOGV_IF(status != WOULD_BLOCK, "getTimestamp error:%#x", status);
         return status;
@@ -2295,15 +2478,19 @@ status_t AudioTrack::getTimestamp(AudioTimestamp& timestamp)
         // If this delta between these is greater than the client position, it means that
         // actually presented is still stuck at the starting line (figuratively speaking),
         // waiting for the first frame to go by.  So we can't report a valid timestamp yet.
-        if ((uint32_t) (mServer - timestamp.mPosition) > mPosition) {
+        // Note: We explicitly use non-Modulo comparison here - potential wrap issue when
+        // mPosition exceeds 32 bits.
+        // TODO Remove when timestamp is updated to contain pipeline status info.
+        const int32_t pipelineDepthInFrames = (mServer - timestamp.mPosition).signedValue();
+        if (pipelineDepthInFrames > 0 /* should be true, but we check anyways */
+                && (uint32_t)pipelineDepthInFrames > mPosition.value()) {
             return INVALID_OPERATION;
         }
         // Convert timestamp position from server time base to client time base.
         // TODO The following code should work OK now because timestamp.mPosition is 32-bit.
         // But if we change it to 64-bit then this could fail.
-        // If (mPosition - mServer) can be negative then should use:
-        //   (int32_t)(mPosition - mServer)
-        timestamp.mPosition += mPosition - mServer;
+        // Use Modulo computation here.
+        timestamp.mPosition = (mPosition - mServer + timestamp.mPosition).value();
         // Immediately after a call to getPosition_l(), mPosition and
         // mServer both represent the same frame position.  mPosition is
         // in client's point of view, and mServer is in server's point of
@@ -2317,9 +2504,9 @@ status_t AudioTrack::getTimestamp(AudioTimestamp& timestamp)
     // This is sometimes caused by erratic reports of the available space in the ALSA drivers.
     if (status == NO_ERROR) {
         if (previousTimestampValid) {
-#define TIME_TO_NANOS(time) ((uint64_t)time.tv_sec * 1000000000 + time.tv_nsec)
-            const uint64_t previousTimeNanos = TIME_TO_NANOS(mPreviousTimestamp.mTime);
-            const uint64_t currentTimeNanos = TIME_TO_NANOS(timestamp.mTime);
+#define TIME_TO_NANOS(time) ((int64_t)time.tv_sec * 1000000000 + time.tv_nsec)
+            const int64_t previousTimeNanos = TIME_TO_NANOS(mPreviousTimestamp.mTime);
+            const int64_t currentTimeNanos = TIME_TO_NANOS(timestamp.mTime);
 #undef TIME_TO_NANOS
             if (currentTimeNanos < previousTimeNanos) {
                 ALOGW("retrograde timestamp time");
@@ -2328,8 +2515,8 @@ status_t AudioTrack::getTimestamp(AudioTimestamp& timestamp)
 
             // Looking at signed delta will work even when the timestamps
             // are wrapping around.
-            int32_t deltaPosition = static_cast<int32_t>(timestamp.mPosition
-                    - mPreviousTimestamp.mPosition);
+            int32_t deltaPosition = (Modulo<uint32_t>(timestamp.mPosition)
+                    - mPreviousTimestamp.mPosition).signedValue();
             // position can bobble slightly as an artifact; this hides the bobble
             static const int32_t MINIMUM_POSITION_DELTA = 8;
             if (deltaPosition < 0) {
@@ -2407,6 +2594,17 @@ status_t AudioTrack::dump(int fd, const Vector<String16>& args __unused) const
     return NO_ERROR;
 }
 
+uint32_t AudioTrack::getUnderrunCount() const
+{
+    AutoMutex lock(mLock);
+    return getUnderrunCount_l();
+}
+
+uint32_t AudioTrack::getUnderrunCount_l() const
+{
+    return mProxy->getUnderrunCount() + mUnderrunCountOffset;
+}
+
 uint32_t AudioTrack::getUnderrunFrames() const
 {
     AutoMutex lock(mLock);
@@ -2452,6 +2650,56 @@ status_t AudioTrack::removeAudioDeviceCallback(
         AudioSystem::removeAudioDeviceCallback(mDeviceCallback, mOutput);
     }
     mDeviceCallback = 0;
+    return NO_ERROR;
+}
+
+status_t AudioTrack::pendingDuration(int32_t *msec, ExtendedTimestamp::Location location)
+{
+    if (msec == nullptr ||
+            (location != ExtendedTimestamp::LOCATION_SERVER
+                    && location != ExtendedTimestamp::LOCATION_KERNEL)) {
+        return BAD_VALUE;
+    }
+    AutoMutex lock(mLock);
+    // inclusive of offloaded and direct tracks.
+    //
+    // It is possible, but not enabled, to allow duration computation for non-pcm
+    // audio_has_proportional_frames() formats because currently they have
+    // the drain rate equivalent to the pcm sample rate * framesize.
+    if (!isPurePcmData_l()) {
+        return INVALID_OPERATION;
+    }
+    ExtendedTimestamp ets;
+    if (getTimestamp_l(&ets) == OK
+            && ets.mTimeNs[location] > 0) {
+        int64_t diff = ets.mPosition[ExtendedTimestamp::LOCATION_CLIENT]
+                - ets.mPosition[location];
+        if (diff < 0) {
+            *msec = 0;
+        } else {
+            // ms is the playback time by frames
+            int64_t ms = (int64_t)((double)diff * 1000 /
+                    ((double)mSampleRate * mPlaybackRate.mSpeed));
+            // clockdiff is the timestamp age (negative)
+            int64_t clockdiff = (mState != STATE_ACTIVE) ? 0 :
+                    ets.mTimeNs[location]
+                    + ets.mTimebaseOffset[ExtendedTimestamp::TIMEBASE_MONOTONIC]
+                    - systemTime(SYSTEM_TIME_MONOTONIC);
+
+            //ALOGV("ms: %lld  clockdiff: %lld", (long long)ms, (long long)clockdiff);
+            static const int NANOS_PER_MILLIS = 1000000;
+            *msec = (int32_t)(ms + clockdiff / NANOS_PER_MILLIS);
+        }
+        return NO_ERROR;
+    }
+    if (location != ExtendedTimestamp::LOCATION_SERVER) {
+        return INVALID_OPERATION; // LOCATION_KERNEL is not available
+    }
+    // use server position directly (offloaded and direct arrive here)
+    updateAndGetPosition_l();
+    int32_t diff = (Modulo<uint32_t>(mFramesWritten) - mPosition).signedValue();
+    *msec = (diff <= 0) ? 0
+            : (int32_t)((double)diff * 1000 / ((double)mSampleRate * mPlaybackRate.mSpeed));
     return NO_ERROR;
 }
 

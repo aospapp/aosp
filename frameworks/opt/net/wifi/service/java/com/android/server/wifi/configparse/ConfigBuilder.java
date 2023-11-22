@@ -4,8 +4,7 @@ import android.content.Context;
 import android.net.Uri;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiEnterpriseConfig;
-import android.telephony.SubscriptionManager;
-import android.telephony.TelephonyManager;
+import android.provider.DocumentsContract;
 import android.util.Base64;
 import android.util.Log;
 
@@ -14,7 +13,7 @@ import com.android.server.wifi.anqp.eap.AuthParam;
 import com.android.server.wifi.anqp.eap.EAP;
 import com.android.server.wifi.anqp.eap.EAPMethod;
 import com.android.server.wifi.anqp.eap.NonEAPInnerAuth;
-import com.android.server.wifi.hotspot2.omadm.MOManager;
+import com.android.server.wifi.hotspot2.omadm.PasspointManagementObjectManager;
 import com.android.server.wifi.hotspot2.pps.Credential;
 import com.android.server.wifi.hotspot2.pps.HomeSP;
 
@@ -77,14 +76,18 @@ public class ConfigBuilder {
         else {
             inner = mimeContainer;
         }
-        return parse(inner, context);
+        return parse(inner);
     }
 
     private static void dropFile(Uri uri, Context context) {
-        context.getContentResolver().delete(uri, null, null);
+        if (DocumentsContract.isDocumentUri(context, uri)) {
+            DocumentsContract.deleteDocument(context.getContentResolver(), uri);
+        } else {
+            context.getContentResolver().delete(uri, null, null);
+        }
     }
 
-    private static WifiConfiguration parse(MIMEContainer root, Context context)
+    private static WifiConfiguration parse(MIMEContainer root)
             throws IOException, GeneralSecurityException, SAXException {
 
         if (root.getMimeContainers() == null) {
@@ -161,15 +164,15 @@ public class ConfigBuilder {
             throw new IOException("Missing profile");
         }
 
-        return buildConfig(moText, caCert, clientChain, clientKey, context);
+        HomeSP homeSP = PasspointManagementObjectManager.buildSP(moText);
+
+        return buildConfig(homeSP, caCert, clientChain, clientKey);
     }
 
-    private static WifiConfiguration buildConfig(String text, X509Certificate caCert,
-                                                 List<X509Certificate> clientChain, PrivateKey key,
-                                                 Context context)
-            throws IOException, SAXException, GeneralSecurityException {
+    private static WifiConfiguration buildConfig(HomeSP homeSP, X509Certificate caCert,
+                                                 List<X509Certificate> clientChain, PrivateKey key)
+            throws IOException, GeneralSecurityException {
 
-        HomeSP homeSP = MOManager.buildSP(text);
         Credential credential = homeSP.getCredential();
 
         WifiConfiguration config;
@@ -192,7 +195,7 @@ public class ConfigBuilder {
                     Log.i(TAG, "Client/CA cert and/or key included with " +
                             eapMethodID + " profile");
                 }
-                config = buildSIMConfig(homeSP, context);
+                config = buildSIMConfig(homeSP);
                 break;
             default:
                 throw new IOException("Unsupported EAP Method: " + eapMethodID);
@@ -202,7 +205,6 @@ public class ConfigBuilder {
 
         enterpriseConfig.setCaCertificate(caCert);
         enterpriseConfig.setAnonymousIdentity("anonymous@" + credential.getRealm());
-        enterpriseConfig.setRealm(credential.getRealm());
 
         return config;
     }
@@ -298,7 +300,7 @@ public class ConfigBuilder {
         return config;
     }
 
-    private static WifiConfiguration buildSIMConfig(HomeSP homeSP, Context context)
+    private static WifiConfiguration buildSIMConfig(HomeSP homeSP)
             throws IOException {
 
         Credential credential = homeSP.getCredential();
@@ -351,6 +353,8 @@ public class ConfigBuilder {
         enterpriseConfig.setEapMethod(remapEAPMethod(eapMethodID));
         enterpriseConfig.setRealm(homeSP.getCredential().getRealm());
         config.enterpriseConfig = enterpriseConfig;
+        // The framework based config builder only ever builds r1 configs:
+        config.updateIdentifier = null;
 
         return config;
     }

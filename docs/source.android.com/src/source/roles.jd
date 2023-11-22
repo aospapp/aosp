@@ -51,8 +51,8 @@ a separate role in the AOSP per se.</p>
 <h2 id="verifier">Verifier</h2>
 <p>"Verifiers" are responsible for testing change requests. After individuals
 have submitted a significant amount of high-quality code to the project, the
-project leads might invite them to become verifiers. <em>Note: at this
-time, verifiers act similarly to approvers.</em></p>
+project leads might invite them to become verifiers.</p>
+<p class="note"><strong>Note:</strong> At this time, verifiers act similarly to approvers.</p>
 <h2 id="approver">Approver</h2>
 <p>"Approvers" are experienced members of the project who have demonstrated their
 design skills and have made significant technical contributions to the

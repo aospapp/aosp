@@ -24,30 +24,31 @@
  *
  *****************************************************************************/
 
+#define LOG_TAG "bt_a2dp_hw"
+
 #include <errno.h>
+#include <fcntl.h>
 #include <inttypes.h>
 #include <pthread.h>
 #include <stdint.h>
-#include <sys/time.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <sys/poll.h>
 #include <sys/errno.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/un.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <cutils/str_parms.h>
-#include <cutils/sockets.h>
 
-#include <system/audio.h>
 #include <hardware/audio.h>
-
 #include <hardware/hardware.h>
+#include <system/audio.h>
+
 #include "audio_a2dp_hw.h"
 #include "bt_utils.h"
-
-#define LOG_TAG "bt_a2dp_hw"
+#include "osi/include/hash_map.h"
+#include "osi/include/hash_map_utils.h"
 #include "osi/include/log.h"
+#include "osi/include/osi.h"
+#include "osi/include/socket_utils/sockets.h"
 
 /*****************************************************************************
 **  Constants & Macros
@@ -55,13 +56,19 @@
 
 #define CTRL_CHAN_RETRY_COUNT 3
 #define USEC_PER_SEC 1000000L
+#define SOCK_SEND_TIMEOUT_MS 2000  /* Timeout for sending */
+#define SOCK_RECV_TIMEOUT_MS 5000  /* Timeout for receiving */
+
+// set WRITE_POLL_MS to 0 for blocking sockets, nonzero for polled non-blocking sockets
+#define WRITE_POLL_MS 20
 
 #define CASE_RETURN_STR(const) case const: return #const;
 
-#define FNLOG()             LOG_VERBOSE("%s", __FUNCTION__);
-#define DEBUG(fmt, ...)     LOG_VERBOSE("%s: " fmt,__FUNCTION__, ## __VA_ARGS__)
-#define INFO(fmt, ...)      LOG_INFO("%s: " fmt,__FUNCTION__, ## __VA_ARGS__)
-#define ERROR(fmt, ...)     LOG_ERROR("%s: " fmt,__FUNCTION__, ## __VA_ARGS__)
+#define FNLOG()             LOG_VERBOSE(LOG_TAG, "%s", __FUNCTION__);
+#define DEBUG(fmt, ...)     LOG_VERBOSE(LOG_TAG, "%s: " fmt,__FUNCTION__, ## __VA_ARGS__)
+#define INFO(fmt, ...)      LOG_INFO(LOG_TAG, "%s: " fmt,__FUNCTION__, ## __VA_ARGS__)
+#define WARN(fmt, ...)      LOG_WARN(LOG_TAG, "%s: " fmt,__FUNCTION__, ## __VA_ARGS__)
+#define ERROR(fmt, ...)     LOG_ERROR(LOG_TAG, "%s: " fmt,__FUNCTION__, ## __VA_ARGS__)
 
 #define ASSERTC(cond, msg, val) if (!(cond)) {ERROR("### ASSERT : %s line %d %s (%d) ###", __FILE__, __LINE__, msg, val);}
 
@@ -107,6 +114,8 @@ struct a2dp_stream_common {
 struct a2dp_stream_out {
     struct audio_stream_out stream;
     struct a2dp_stream_common common;
+    uint64_t frames_presented; // frames written, never reset
+    uint64_t frames_rendered;  // frames written, reset on standby
 };
 
 struct a2dp_stream_in {
@@ -131,6 +140,9 @@ static size_t out_get_buffer_size(const struct audio_stream *stream);
 /*****************************************************************************
 **  Functions
 ******************************************************************************/
+/* Function used only in debug mode */
+static const char* dump_a2dp_ctrl_event(char event) __attribute__ ((unused));
+static void a2dp_open_ctrl_path(struct a2dp_stream_common *common);
 
 /*****************************************************************************
 **   Miscellaneous helper functions
@@ -186,7 +198,7 @@ static int calc_audiotime(struct a2dp_config cfg, int bytes)
     ASSERTC(cfg.format == AUDIO_FORMAT_PCM_16_BIT,
             "unsupported sample sz", cfg.format);
 
-    return bytes*(1000000/(chan_count*2))/cfg.rate;
+    return (int)(((int64_t)bytes * (1000000 / (chan_count * 2))) / cfg.rate);
 }
 
 /*****************************************************************************
@@ -199,14 +211,13 @@ static int skt_connect(char *path, size_t buffer_sz)
 {
     int ret;
     int skt_fd;
-    struct sockaddr_un remote;
     int len;
 
     INFO("connect to %s (sz %zu)", path, buffer_sz);
 
     skt_fd = socket(AF_LOCAL, SOCK_STREAM, 0);
 
-    if(socket_local_client_connect(skt_fd, path,
+    if(osi_socket_local_client_connect(skt_fd, path,
             ANDROID_SOCKET_NAMESPACE_ABSTRACT, SOCK_STREAM) < 0)
     {
         ERROR("failed to connect (%s)", strerror(errno));
@@ -216,14 +227,26 @@ static int skt_connect(char *path, size_t buffer_sz)
 
     len = buffer_sz;
     ret = setsockopt(skt_fd, SOL_SOCKET, SO_SNDBUF, (char*)&len, (int)sizeof(len));
-
-    /* only issue warning if failed */
     if (ret < 0)
         ERROR("setsockopt failed (%s)", strerror(errno));
 
     ret = setsockopt(skt_fd, SOL_SOCKET, SO_RCVBUF, (char*)&len, (int)sizeof(len));
+    if (ret < 0)
+        ERROR("setsockopt failed (%s)", strerror(errno));
 
-    /* only issue warning if failed */
+    /* Socket send/receive timeout value */
+    struct timeval tv;
+    tv.tv_sec = SOCK_SEND_TIMEOUT_MS / 1000;
+    tv.tv_usec = (SOCK_SEND_TIMEOUT_MS % 1000) * 1000;
+
+    ret = setsockopt(skt_fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+    if (ret < 0)
+        ERROR("setsockopt failed (%s)", strerror(errno));
+
+    tv.tv_sec = SOCK_RECV_TIMEOUT_MS / 1000;
+    tv.tv_usec = (SOCK_RECV_TIMEOUT_MS % 1000) * 1000;
+
+    ret = setsockopt(skt_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
     if (ret < 0)
         ERROR("setsockopt failed (%s)", strerror(errno));
 
@@ -234,48 +257,57 @@ static int skt_connect(char *path, size_t buffer_sz)
 
 static int skt_read(int fd, void *p, size_t len)
 {
-    int read;
-    struct pollfd pfd;
-    struct timespec ts;
+    ssize_t read;
 
     FNLOG();
 
     ts_log("skt_read recv", len, NULL);
 
-    if ((read = recv(fd, p, len, MSG_NOSIGNAL)) == -1)
-    {
-        ERROR("write failed with errno=%d\n", errno);
-        return -1;
-    }
+    OSI_NO_INTR(read = recv(fd, p, len, MSG_NOSIGNAL));
+    if (read == -1)
+        ERROR("read failed with errno=%d\n", errno);
 
-    return read;
+    return (int)read;
 }
 
 static int skt_write(int fd, const void *p, size_t len)
 {
-    int sent;
-    struct pollfd pfd;
-
+    ssize_t sent;
     FNLOG();
-
-    pfd.fd = fd;
-    pfd.events = POLLOUT;
-
-    /* poll for 500 ms */
-
-    /* send time out */
-    if (poll(&pfd, 1, 500) == 0)
-        return 0;
 
     ts_log("skt_write", len, NULL);
 
-    if ((sent = send(fd, p, len, MSG_NOSIGNAL)) == -1)
-    {
-        ERROR("write failed with errno=%d\n", errno);
-        return -1;
+    if (WRITE_POLL_MS == 0) {
+        // do not poll, use blocking send
+        OSI_NO_INTR(sent = send(fd, p, len, MSG_NOSIGNAL));
+        if (sent == -1)
+            ERROR("write failed with error(%s)", strerror(errno));
+
+        return (int)sent;
     }
 
-    return sent;
+    // use non-blocking send, poll
+    int ms_timeout = SOCK_SEND_TIMEOUT_MS;
+    size_t count = 0;
+    while (count < len) {
+        OSI_NO_INTR(sent = send(fd, p, len - count, MSG_NOSIGNAL | MSG_DONTWAIT));
+        if (sent == -1) {
+            if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                ERROR("write failed with error(%s)", strerror(errno));
+                return -1;
+            }
+            if (ms_timeout >= WRITE_POLL_MS) {
+                usleep(WRITE_POLL_MS * 1000);
+                ms_timeout -= WRITE_POLL_MS;
+                continue;
+            }
+            WARN("write timeout exceeded, sent %zu bytes", count);
+            return -1;
+        }
+        count += sent;
+        p = (const uint8_t *)p + sent;
+    }
+    return (int)count;
 }
 
 static int skt_disconnect(int fd)
@@ -300,29 +332,31 @@ static int skt_disconnect(int fd)
 
 static int a2dp_ctrl_receive(struct a2dp_stream_common *common, void* buffer, int length)
 {
-    int ret = recv(common->ctrl_fd, buffer, length, MSG_NOSIGNAL);
-    if (ret < 0)
-    {
-        ERROR("ack failed (%s)", strerror(errno));
-        if (errno == EINTR)
-        {
-            /* retry again */
-            ret = recv(common->ctrl_fd, buffer, length, MSG_NOSIGNAL);
-            if (ret < 0)
-            {
-               ERROR("ack failed (%s)", strerror(errno));
-               skt_disconnect(common->ctrl_fd);
-               common->ctrl_fd = AUDIO_SKT_DISCONNECTED;
-               return -1;
-            }
-        }
-        else
-        {
-               skt_disconnect(common->ctrl_fd);
-               common->ctrl_fd = AUDIO_SKT_DISCONNECTED;
-               return -1;
+    ssize_t ret;
+    int i;
 
+    for (i = 0;; i++) {
+        OSI_NO_INTR(ret = recv(common->ctrl_fd, buffer, length, MSG_NOSIGNAL));
+        if (ret > 0) {
+            break;
         }
+        if (ret == 0) {
+            ERROR("ack failed: peer closed");
+            break;
+        }
+        if (errno != EWOULDBLOCK && errno != EAGAIN) {
+            ERROR("ack failed: error(%s)", strerror(errno));
+            break;
+        }
+        if (i == (CTRL_CHAN_RETRY_COUNT - 1)) {
+            ERROR("ack failed: max retry count");
+            break;
+        }
+        INFO("ack failed (%s), retrying", strerror(errno));
+    }
+    if (ret <= 0) {
+        skt_disconnect(common->ctrl_fd);
+        common->ctrl_fd = AUDIO_SKT_DISCONNECTED;
     }
     return ret;
 }
@@ -333,8 +367,19 @@ static int a2dp_command(struct a2dp_stream_common *common, char cmd)
 
     DEBUG("A2DP COMMAND %s", dump_a2dp_ctrl_event(cmd));
 
+    if (common->ctrl_fd == AUDIO_SKT_DISCONNECTED) {
+        INFO("recovering from previous error");
+        a2dp_open_ctrl_path(common);
+        if (common->ctrl_fd == AUDIO_SKT_DISCONNECTED) {
+            ERROR("failure to open ctrl path");
+            return -1;
+        }
+    }
+
     /* send command */
-    if (send(common->ctrl_fd, &cmd, 1, MSG_NOSIGNAL) == -1)
+    ssize_t sent;
+    OSI_NO_INTR(sent = send(common->ctrl_fd, &cmd, 1, MSG_NOSIGNAL));
+    if (sent == -1)
     {
         ERROR("cmd failed (%s)", strerror(errno));
         skt_disconnect(common->ctrl_fd);
@@ -343,15 +388,19 @@ static int a2dp_command(struct a2dp_stream_common *common, char cmd)
     }
 
     /* wait for ack byte */
-    if (a2dp_ctrl_receive(common, &ack, 1) < 0)
+    if (a2dp_ctrl_receive(common, &ack, 1) < 0) {
+        ERROR("A2DP COMMAND %s: no ACK", dump_a2dp_ctrl_event(cmd));
         return -1;
+    }
 
     DEBUG("A2DP COMMAND %s DONE STATUS %d", dump_a2dp_ctrl_event(cmd), ack);
 
     if (ack == A2DP_CTRL_ACK_INCALL_FAILURE)
         return ack;
-    if (ack != A2DP_CTRL_ACK_SUCCESS)
+    if (ack != A2DP_CTRL_ACK_SUCCESS) {
+        ERROR("A2DP COMMAND %s error %d", dump_a2dp_ctrl_event(cmd), ack);
         return -1;
+    }
 
     return 0;
 }
@@ -368,7 +417,6 @@ static int check_a2dp_ready(struct a2dp_stream_common *common)
 
 static int a2dp_read_audio_config(struct a2dp_stream_common *common)
 {
-    char cmd = A2DP_CTRL_GET_AUDIO_CONFIG;
     uint32_t sample_rate;
     uint8_t channel_count;
 
@@ -445,27 +493,19 @@ static int start_audio_datapath(struct a2dp_stream_common *common)
 {
     INFO("state %d", common->state);
 
-    if (common->ctrl_fd == AUDIO_SKT_DISCONNECTED) {
-        INFO("%s AUDIO_SKT_DISCONNECTED", __func__);
-        return -1;
-    }
-
     int oldstate = common->state;
     common->state = AUDIO_A2DP_STATE_STARTING;
 
     int a2dp_status = a2dp_command(common, A2DP_CTRL_CMD_START);
     if (a2dp_status < 0)
     {
-        ERROR("%s Audiopath start failed (status %d)", __func__, a2dp_status);
-
-        common->state = oldstate;
-        return -1;
+        ERROR("Audiopath start failed (status %d)", a2dp_status);
+        goto error;
     }
     else if (a2dp_status == A2DP_CTRL_ACK_INCALL_FAILURE)
     {
-        ERROR("%s Audiopath start failed - in call, move to suspended", __func__);
-        common->state = oldstate;
-        return -1;
+        ERROR("Audiopath start failed - in call, move to suspended");
+        goto error;
     }
 
     /* connect socket if not yet connected */
@@ -474,14 +514,16 @@ static int start_audio_datapath(struct a2dp_stream_common *common)
         common->audio_fd = skt_connect(A2DP_DATA_PATH, common->buffer_sz);
         if (common->audio_fd < 0)
         {
-            common->state = oldstate;
-            return -1;
+            ERROR("Audiopath start failed - error opening data socket");
+            goto error;
         }
-
-        common->state = AUDIO_A2DP_STATE_STARTED;
     }
-
+    common->state = AUDIO_A2DP_STATE_STARTED;
     return 0;
+
+error:
+    common->state = oldstate;
+    return -1;
 }
 
 static int stop_audio_datapath(struct a2dp_stream_common *common)
@@ -489,9 +531,6 @@ static int stop_audio_datapath(struct a2dp_stream_common *common)
     int oldstate = common->state;
 
     INFO("state %d", common->state);
-
-    if (common->ctrl_fd == AUDIO_SKT_DISCONNECTED)
-         return -1;
 
     /* prevent any stray output writes from autostarting the stream
        while stopping audiopath */
@@ -516,9 +555,6 @@ static int stop_audio_datapath(struct a2dp_stream_common *common)
 static int suspend_audio_datapath(struct a2dp_stream_common *common, bool standby)
 {
     INFO("state %d", common->state);
-
-    if (common->ctrl_fd == AUDIO_SKT_DISCONNECTED)
-         return -1;
 
     if (common->state == AUDIO_A2DP_STATE_STOPPING)
         return -1;
@@ -551,16 +587,15 @@ static ssize_t out_write(struct audio_stream_out *stream, const void* buffer,
 {
     struct a2dp_stream_out *out = (struct a2dp_stream_out *)stream;
     int sent;
+    int us_delay;
 
     DEBUG("write %zu bytes (fd %d)", bytes, out->common.audio_fd);
 
     pthread_mutex_lock(&out->common.lock);
-
-    if (out->common.state == AUDIO_A2DP_STATE_SUSPENDED)
-    {
-        DEBUG("stream suspended");
-        pthread_mutex_unlock(&out->common.lock);
-        return -1;
+    if (out->common.state == AUDIO_A2DP_STATE_SUSPENDED ||
+            out->common.state == AUDIO_A2DP_STATE_STOPPING) {
+        DEBUG("stream suspended or closing");
+        goto error;
     }
 
     /* only allow autostarting if we are in stopped or standby */
@@ -569,40 +604,45 @@ static ssize_t out_write(struct audio_stream_out *stream, const void* buffer,
     {
         if (start_audio_datapath(&out->common) < 0)
         {
-            /* emulate time this write represents to avoid very fast write
-               failures during transition periods or remote suspend */
-
-            int us_delay = calc_audiotime(out->common.cfg, bytes);
-
-            DEBUG("emulate a2dp write delay (%d us)", us_delay);
-
-            usleep(us_delay);
-            pthread_mutex_unlock(&out->common.lock);
-            return -1;
+            goto error;
         }
     }
     else if (out->common.state != AUDIO_A2DP_STATE_STARTED)
     {
         ERROR("stream not in stopped or standby");
-        pthread_mutex_unlock(&out->common.lock);
-        return -1;
+        goto error;
     }
 
     pthread_mutex_unlock(&out->common.lock);
     sent = skt_write(out->common.audio_fd, buffer,  bytes);
+    pthread_mutex_lock(&out->common.lock);
 
-    if (sent == -1)
-    {
+    if (sent == -1) {
         skt_disconnect(out->common.audio_fd);
         out->common.audio_fd = AUDIO_SKT_DISCONNECTED;
-        if (out->common.state != AUDIO_A2DP_STATE_SUSPENDED)
+        if ((out->common.state != AUDIO_A2DP_STATE_SUSPENDED) &&
+                (out->common.state != AUDIO_A2DP_STATE_STOPPING)) {
             out->common.state = AUDIO_A2DP_STATE_STOPPED;
-        else
+        } else {
             ERROR("write failed : stream suspended, avoid resetting state");
+        }
+        goto error;
     }
 
-    DEBUG("wrote %d bytes out of %zu bytes", sent, bytes);
-    return sent;
+    const size_t frames = bytes / audio_stream_out_frame_size(stream);
+    out->frames_rendered += frames;
+    out->frames_presented += frames;
+    pthread_mutex_unlock(&out->common.lock);
+    return bytes;
+
+error:
+    pthread_mutex_unlock(&out->common.lock);
+    us_delay = calc_audiotime(out->common.cfg, bytes);
+
+    DEBUG("emulate a2dp write delay (%d us)", us_delay);
+
+    usleep(us_delay);
+    return bytes;
 }
 
 
@@ -635,10 +675,16 @@ static int out_set_sample_rate(struct audio_stream *stream, uint32_t rate)
 static size_t out_get_buffer_size(const struct audio_stream *stream)
 {
     struct a2dp_stream_out *out = (struct a2dp_stream_out *)stream;
+    // period_size is the AudioFlinger mixer buffer size.
+    const size_t period_size = out->common.buffer_sz / AUDIO_STREAM_OUTPUT_BUFFER_PERIODS;
+    const size_t mixer_unit_size = 16 /* frames */ * 4 /* framesize */;
 
-    DEBUG("buffer_size : %zu", out->common.buffer_sz);
+    DEBUG("socket buffer size: %zu  period size: %zu", out->common.buffer_sz, period_size);
+    if (period_size % mixer_unit_size != 0) {
+        ERROR("period size %zu not a multiple of %zu", period_size, mixer_unit_size);
+    }
 
-    return out->common.buffer_sz;
+    return period_size;
 }
 
 static uint32_t out_get_channels(const struct audio_stream *stream)
@@ -659,8 +705,8 @@ static audio_format_t out_get_format(const struct audio_stream *stream)
 
 static int out_set_format(struct audio_stream *stream, audio_format_t format)
 {
+    UNUSED(stream);
     UNUSED(format);
-    struct a2dp_stream_out *out = (struct a2dp_stream_out *)stream;
     DEBUG("setting format not yet supported (0x%x)", format);
     return -ENOSYS;
 }
@@ -676,6 +722,7 @@ static int out_standby(struct audio_stream *stream)
     // Do nothing in SUSPENDED state.
     if (out->common.state != AUDIO_A2DP_STATE_SUSPENDED)
         retVal = suspend_audio_datapath(&out->common, true);
+    out->frames_rendered = 0; // rendered is reset, presented is not
     pthread_mutex_unlock (&out->common.lock);
 
     return retVal;
@@ -683,8 +730,8 @@ static int out_standby(struct audio_stream *stream)
 
 static int out_dump(const struct audio_stream *stream, int fd)
 {
+    UNUSED(stream);
     UNUSED(fd);
-    struct a2dp_stream_out *out = (struct a2dp_stream_out *)stream;
     FNLOG();
     return 0;
 }
@@ -692,63 +739,55 @@ static int out_dump(const struct audio_stream *stream, int fd)
 static int out_set_parameters(struct audio_stream *stream, const char *kvpairs)
 {
     struct a2dp_stream_out *out = (struct a2dp_stream_out *)stream;
-    struct str_parms *parms;
-    char keyval[16];
-    int retval;
-    int status = 0;
 
     INFO("state %d", out->common.state);
 
-    parms = str_parms_create_str(kvpairs);
+    hash_map_t *params = hash_map_utils_new_from_string_params(kvpairs);
+    int status = 0;
+
+    if (!params)
+      return status;
+
+    pthread_mutex_lock(&out->common.lock);
 
     /* dump params */
-    str_parms_dump(parms);
+    hash_map_utils_dump_string_keys_string_values(params);
 
-    retval = str_parms_get_str(parms, "closing", keyval, sizeof(keyval));
+    char *keyval = (char *)hash_map_get(params, "closing");
 
-    if (retval >= 0)
+    if (keyval && strcmp(keyval, "true") == 0)
     {
-        if (strcmp(keyval, "true") == 0)
-        {
-            DEBUG("stream closing, disallow any writes");
-            pthread_mutex_lock(&out->common.lock);
-            out->common.state = AUDIO_A2DP_STATE_STOPPING;
-            pthread_mutex_unlock(&out->common.lock);
-        }
+        DEBUG("stream closing, disallow any writes");
+        out->common.state = AUDIO_A2DP_STATE_STOPPING;
     }
 
-    retval = str_parms_get_str(parms, "A2dpSuspended", keyval, sizeof(keyval));
+    keyval = (char *)hash_map_get(params, "A2dpSuspended");
 
-    if (retval >= 0)
+    if (keyval && strcmp(keyval, "true") == 0)
     {
-        pthread_mutex_lock(&out->common.lock);
-        if (strcmp(keyval, "true") == 0)
-        {
-            if (out->common.state == AUDIO_A2DP_STATE_STARTED)
-                status = suspend_audio_datapath(&out->common, false);
-        }
-        else
-        {
-            /* Do not start the streaming automatically. If the phone was streaming
-             * prior to being suspended, the next out_write shall trigger the
-             * AVDTP start procedure */
-            if (out->common.state == AUDIO_A2DP_STATE_SUSPENDED)
-                out->common.state = AUDIO_A2DP_STATE_STANDBY;
-            /* Irrespective of the state, return 0 */
-        }
-        pthread_mutex_unlock(&out->common.lock);
+        if (out->common.state == AUDIO_A2DP_STATE_STARTED)
+            status = suspend_audio_datapath(&out->common, false);
+    }
+    else
+    {
+        /* Do not start the streaming automatically. If the phone was streaming
+         * prior to being suspended, the next out_write shall trigger the
+         * AVDTP start procedure */
+        if (out->common.state == AUDIO_A2DP_STATE_SUSPENDED)
+            out->common.state = AUDIO_A2DP_STATE_STANDBY;
+        /* Irrespective of the state, return 0 */
     }
 
-    str_parms_destroy(parms);
+    pthread_mutex_unlock(&out->common.lock);
+    hash_map_free(params);
 
     return status;
 }
 
 static char * out_get_parameters(const struct audio_stream *stream, const char *keys)
 {
+    UNUSED(stream);
     UNUSED(keys);
-    struct a2dp_stream_out *out = (struct a2dp_stream_out *)stream;
-
     FNLOG();
 
     /* add populating param here */
@@ -786,16 +825,45 @@ static int out_set_volume(struct audio_stream_out *stream, float left,
     return -ENOSYS;
 }
 
+static int out_get_presentation_position(const struct audio_stream_out *stream,
+                                         uint64_t *frames, struct timespec *timestamp)
+{
+    struct a2dp_stream_out *out = (struct a2dp_stream_out *)stream;
 
+    FNLOG();
+    if (stream == NULL || frames == NULL || timestamp == NULL)
+        return -EINVAL;
+
+    int ret = -EWOULDBLOCK;
+    pthread_mutex_lock(&out->common.lock);
+    uint64_t latency_frames = (uint64_t)out_get_latency(stream) * out->common.cfg.rate / 1000;
+    if (out->frames_presented >= latency_frames) {
+        *frames = out->frames_presented - latency_frames;
+        clock_gettime(CLOCK_MONOTONIC, timestamp); // could also be associated with out_write().
+        ret = 0;
+    }
+    pthread_mutex_unlock(&out->common.lock);
+    return ret;
+}
 
 static int out_get_render_position(const struct audio_stream_out *stream,
                                    uint32_t *dsp_frames)
 {
-    UNUSED(stream);
-    UNUSED(dsp_frames);
+    struct a2dp_stream_out *out = (struct a2dp_stream_out *)stream;
 
     FNLOG();
-    return -EINVAL;
+    if (stream == NULL || dsp_frames == NULL)
+        return -EINVAL;
+
+    pthread_mutex_lock(&out->common.lock);
+    uint64_t latency_frames = (uint64_t)out_get_latency(stream) * out->common.cfg.rate / 1000;
+    if (out->frames_rendered >= latency_frames) {
+        *dsp_frames = (uint32_t)(out->frames_rendered - latency_frames);
+    } else {
+        *dsp_frames = 0;
+    }
+    pthread_mutex_unlock(&out->common.lock);
+    return 0;
 }
 
 static int out_add_audio_effect(const struct audio_stream *stream, effect_handle_t effect)
@@ -926,58 +994,65 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer,
 {
     struct a2dp_stream_in *in = (struct a2dp_stream_in *)stream;
     int read;
+    int us_delay;
 
     DEBUG("read %zu bytes, state: %d", bytes, in->common.state);
 
-    if (in->common.state == AUDIO_A2DP_STATE_SUSPENDED)
+    pthread_mutex_lock(&in->common.lock);
+    if (in->common.state == AUDIO_A2DP_STATE_SUSPENDED ||
+            in->common.state == AUDIO_A2DP_STATE_STOPPING)
     {
         DEBUG("stream suspended");
-        return -1;
+        goto error;
     }
 
     /* only allow autostarting if we are in stopped or standby */
     if ((in->common.state == AUDIO_A2DP_STATE_STOPPED) ||
         (in->common.state == AUDIO_A2DP_STATE_STANDBY))
     {
-        pthread_mutex_lock(&in->common.lock);
-
         if (start_audio_datapath(&in->common) < 0)
         {
-            /* emulate time this write represents to avoid very fast write
-               failures during transition periods or remote suspend */
-
-            int us_delay = calc_audiotime(in->common.cfg, bytes);
-
-            DEBUG("emulate a2dp read delay (%d us)", us_delay);
-
-            usleep(us_delay);
-            pthread_mutex_unlock(&in->common.lock);
-            return -1;
+            goto error;
         }
-
-        pthread_mutex_unlock(&in->common.lock);
     }
     else if (in->common.state != AUDIO_A2DP_STATE_STARTED)
     {
         ERROR("stream not in stopped or standby");
-        return -1;
+        goto error;
     }
 
+    pthread_mutex_unlock(&in->common.lock);
     read = skt_read(in->common.audio_fd, buffer, bytes);
-
+    pthread_mutex_lock(&in->common.lock);
     if (read == -1)
     {
         skt_disconnect(in->common.audio_fd);
         in->common.audio_fd = AUDIO_SKT_DISCONNECTED;
-        in->common.state = AUDIO_A2DP_STATE_STOPPED;
+        if ((in->common.state != AUDIO_A2DP_STATE_SUSPENDED) &&
+                (in->common.state != AUDIO_A2DP_STATE_STOPPING)) {
+            in->common.state = AUDIO_A2DP_STATE_STOPPED;
+        } else {
+            ERROR("read failed : stream suspended, avoid resetting state");
+        }
+        goto error;
     } else if (read == 0) {
         DEBUG("read time out - return zeros");
         memset(buffer, 0, bytes);
         read = bytes;
     }
+    pthread_mutex_unlock(&in->common.lock);
 
     DEBUG("read %d bytes out of %zu bytes", read, bytes);
     return read;
+
+error:
+    pthread_mutex_unlock(&in->common.lock);
+    memset(buffer, 0, bytes);
+    us_delay = calc_audiotime(in->common.cfg, bytes);
+    DEBUG("emulate a2dp read delay (%d us)", us_delay);
+
+    usleep(us_delay);
+    return bytes;
 }
 
 static uint32_t in_get_input_frames_lost(struct audio_stream_in *stream)
@@ -1019,7 +1094,6 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     struct a2dp_audio_device *a2dp_dev = (struct a2dp_audio_device *)dev;
     struct a2dp_stream_out *out;
     int ret = 0;
-    int i;
     UNUSED(address);
     UNUSED(handle);
     UNUSED(devices);
@@ -1048,6 +1122,8 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->stream.set_volume = out_set_volume;
     out->stream.write = out_write;
     out->stream.get_render_position = out_get_render_position;
+    out->stream.get_presentation_position = out_get_presentation_position;
+
 
     /* initialize a2dp specifics */
     a2dp_stream_common_init(&out->common);
@@ -1097,10 +1173,13 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     INFO("closing output (state %d)", out->common.state);
 
     pthread_mutex_lock(&out->common.lock);
-    if ((out->common.state == AUDIO_A2DP_STATE_STARTED) || (out->common.state == AUDIO_A2DP_STATE_STOPPING))
+    if ((out->common.state == AUDIO_A2DP_STATE_STARTED) ||
+            (out->common.state == AUDIO_A2DP_STATE_STOPPING)) {
         stop_audio_datapath(&out->common);
+    }
 
     skt_disconnect(out->common.ctrl_fd);
+    out->common.ctrl_fd = AUDIO_SKT_DISCONNECTED;
     free(stream);
     a2dp_dev->output = NULL;
     pthread_mutex_unlock(&out->common.lock);
@@ -1127,24 +1206,20 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
 static char * adev_get_parameters(const struct audio_hw_device *dev,
                                   const char *keys)
 {
-    struct str_parms *parms;
     UNUSED(dev);
 
     FNLOG();
 
-    parms = str_parms_create_str(keys);
-
-    str_parms_dump(parms);
-
-    str_parms_destroy(parms);
+    hash_map_t *params = hash_map_utils_new_from_string_params(keys);
+    hash_map_utils_dump_string_keys_string_values(params);
+    hash_map_free(params);
 
     return strdup("");
 }
 
 static int adev_init_check(const struct audio_hw_device *dev)
 {
-    struct a2dp_audio_device *a2dp_dev = (struct a2dp_audio_device*)dev;
-
+    UNUSED(dev);
     FNLOG();
 
     return 0;
@@ -1297,6 +1372,7 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
         stop_audio_datapath(&in->common);
 
     skt_disconnect(in->common.ctrl_fd);
+    in->common.ctrl_fd = AUDIO_SKT_DISCONNECTED;
     free(stream);
     a2dp_dev->input = NULL;
 
@@ -1325,7 +1401,6 @@ static int adev_open(const hw_module_t* module, const char* name,
                      hw_device_t** device)
 {
     struct a2dp_audio_device *adev;
-    int ret;
 
     INFO(" adev_open in A2dp_hw module");
     FNLOG();
@@ -1373,6 +1448,7 @@ static struct hw_module_methods_t hal_module_methods = {
     .open = adev_open,
 };
 
+__attribute__ ((visibility ("default")))
 struct audio_module HAL_MODULE_INFO_SYM = {
     .common = {
         .tag = HARDWARE_MODULE_TAG,

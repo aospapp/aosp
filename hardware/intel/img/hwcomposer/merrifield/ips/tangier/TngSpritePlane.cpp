@@ -64,7 +64,11 @@ bool TngSpritePlane::setDataBuffer(BufferMapper& mapper)
     srcX = mapper.getCrop().x;
     srcY = mapper.getCrop().y;
     stride = mapper.getStride().rgb.stride;
+#ifdef ENABLE_ROTATION_180
+    linoff = (mapper.getCrop().h + srcY - 1) * stride + (srcX + mapper.getCrop().w - 1) * bpp;
+#else
     linoff = srcY * stride + srcX * bpp;
+#endif
 
     // setup plane alpha
     if ((mBlending == HWC_BLENDING_PREMULT) && (mPlaneAlpha == 0)) {
@@ -99,7 +103,9 @@ bool TngSpritePlane::setDataBuffer(BufferMapper& mapper)
     mContext.ctx.sp_ctx.contalpa = planeAlpha;
     mContext.ctx.sp_ctx.update_mask = SPRITE_UPDATE_ALL;
     mContext.gtt_key = (uint64_t)mapper.getCpuAddress(0);
-
+#ifdef ENABLE_ROTATION_180
+    mContext.ctx.sp_ctx.cntr |= 1 << 15;
+#endif
     VTRACE("cntr = %#x, linoff = %#x, stride = %#x,"
           "surf = %#x, pos = %#x, size = %#x, contalpa = %#x",
           mContext.ctx.sp_ctx.cntr,

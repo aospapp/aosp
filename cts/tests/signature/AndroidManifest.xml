@@ -16,7 +16,7 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="android.signature">
+          package="android.signature.cts">
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
 
     <application>
@@ -24,7 +24,7 @@
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="android.signature"
+                     android:targetPackage="android.signature.cts"
                      android:label="API Signature Test"/>
 
 </manifest>

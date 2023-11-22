@@ -24,8 +24,6 @@ import android.support.annotation.DrawableRes;
 import android.support.annotation.Nullable;
 import android.support.v4.view.TintableBackgroundView;
 import android.support.v7.appcompat.R;
-import android.support.v7.internal.text.AllCapsTransformationMethod;
-import android.support.v7.internal.widget.TintManager;
 import android.util.AttributeSet;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
@@ -48,7 +46,7 @@ import android.widget.Button;
  */
 public class AppCompatButton extends Button implements TintableBackgroundView {
 
-    private final TintManager mTintManager;
+    private final AppCompatDrawableManager mDrawableManager;
     private final AppCompatBackgroundHelper mBackgroundTintHelper;
     private final AppCompatTextHelper mTextHelper;
 
@@ -61,14 +59,15 @@ public class AppCompatButton extends Button implements TintableBackgroundView {
     }
 
     public AppCompatButton(Context context, AttributeSet attrs, int defStyleAttr) {
-        super(context, attrs, defStyleAttr);
+        super(TintContextWrapper.wrap(context), attrs, defStyleAttr);
 
-        mTintManager = TintManager.get(getContext());
-        mBackgroundTintHelper = new AppCompatBackgroundHelper(this, mTintManager);
+        mDrawableManager = AppCompatDrawableManager.get();
+        mBackgroundTintHelper = new AppCompatBackgroundHelper(this, mDrawableManager);
         mBackgroundTintHelper.loadFromAttributes(attrs, defStyleAttr);
 
-        mTextHelper = new AppCompatTextHelper(this);
+        mTextHelper = AppCompatTextHelper.create(this);
         mTextHelper.loadFromAttributes(attrs, defStyleAttr);
+        mTextHelper.applyCompoundDrawablesTints();
     }
 
     @Override
@@ -144,6 +143,9 @@ public class AppCompatButton extends Button implements TintableBackgroundView {
         super.drawableStateChanged();
         if (mBackgroundTintHelper != null) {
             mBackgroundTintHelper.applySupportBackgroundTint();
+        }
+        if (mTextHelper != null) {
+            mTextHelper.applyCompoundDrawablesTints();
         }
     }
 

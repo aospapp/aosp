@@ -13,34 +13,37 @@
 # limitations under the License.
 
 LOCAL_PATH := $(call my-dir)
-include $(CLEAR_VARS)
 
+bzip_cflags := \
+    -O3 \
+    -DUSE_MMAP \
+    -Wno-unused-parameter \
+
+bzlib_files := \
+    blocksort.c \
+    bzlib.c \
+    compress.c \
+    crctable.c \
+    decompress.c \
+    huffman.c \
+    randtable.c \
+
+include $(CLEAR_VARS)
 # measurements show that the ARM version of ZLib is about x1.17 faster
 # than the thumb one...
 LOCAL_ARM_MODE := arm
-
-bzlib_files := \
-	blocksort.c \
-	huffman.c \
-	crctable.c \
-	randtable.c \
-	compress.c \
-	decompress.c \
-	bzlib.c
-
-LOCAL_SRC_FILES := $(bzlib_files)
 LOCAL_MODULE := libbz
-LOCAL_CFLAGS += -O3 -DUSE_MMAP
+LOCAL_CFLAGS += $(bzip_cflags)
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
 ifeq ($(TARGET_ARCH),arm)
   LOCAL_SDK_VERSION := 9
 endif
-LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
+LOCAL_SRC_FILES := $(bzlib_files)
 include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
-
-LOCAL_SRC_FILES := $(bzlib_files)
-LOCAL_MODULE := libbz
-LOCAL_CFLAGS += -O3 -DUSE_MMAP
+LOCAL_CFLAGS += $(bzip_cflags)
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
+LOCAL_MODULE := libbz
+LOCAL_SRC_FILES := $(bzlib_files)
 include $(BUILD_HOST_STATIC_LIBRARY)

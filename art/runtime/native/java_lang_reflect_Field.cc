@@ -32,7 +32,7 @@ namespace art {
 template<bool kIsSet>
 ALWAYS_INLINE inline static bool VerifyFieldAccess(Thread* self, mirror::Field* field,
                                                    mirror::Object* obj)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   if (kIsSet && field->IsFinal()) {
     ThrowIllegalAccessException(
             StringPrintf("Cannot set %s field %s of class %s",
@@ -60,7 +60,7 @@ ALWAYS_INLINE inline static bool VerifyFieldAccess(Thread* self, mirror::Field* 
 template<bool kAllowReferences>
 ALWAYS_INLINE inline static bool GetFieldValue(mirror::Object* o, mirror::Field* f,
                                                Primitive::Type field_type, JValue* value)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   DCHECK_EQ(value->GetJ(), INT64_C(0));
   MemberOffset offset(f->GetOffset());
   const bool is_volatile = f->IsVolatile();
@@ -105,7 +105,7 @@ ALWAYS_INLINE inline static bool GetFieldValue(mirror::Object* o, mirror::Field*
 ALWAYS_INLINE inline static bool CheckReceiver(const ScopedFastNativeObjectAccess& soa,
                                                jobject j_rcvr, mirror::Field** f,
                                                mirror::Object** class_or_rcvr)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   soa.Self()->AssertThreadSuspensionIsAllowable();
   mirror::Class* declaringClass = (*f)->GetDeclaringClass();
   if ((*f)->IsStatic()) {
@@ -232,7 +232,7 @@ static jshort Field_getShort(JNIEnv* env, jobject javaField, jobject javaObj) {
 ALWAYS_INLINE inline static void SetFieldValue(mirror::Object* o, mirror::Field* f,
                                                Primitive::Type field_type, bool allow_references,
                                                const JValue& new_value)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   DCHECK(f->GetDeclaringClass()->IsInitialized());
   MemberOffset offset(f->GetOffset());
   const bool is_volatile = f->IsVolatile();
@@ -415,16 +415,68 @@ static void Field_setShort(JNIEnv* env, jobject javaField, jobject javaObj, jsho
   SetPrimitiveField<Primitive::kPrimShort>(env, javaField, javaObj, value);
 }
 
+static jobject Field_getAnnotationNative(JNIEnv* env, jobject javaField, jclass annotationType) {
+  ScopedFastNativeObjectAccess soa(env);
+  StackHandleScope<1> hs(soa.Self());
+  ArtField* field = soa.Decode<mirror::Field*>(javaField)->GetArtField();
+  if (field->GetDeclaringClass()->IsProxyClass()) {
+    return nullptr;
+  }
+  Handle<mirror::Class> klass(hs.NewHandle(soa.Decode<mirror::Class*>(annotationType)));
+  return soa.AddLocalReference<jobject>(field->GetDexFile()->GetAnnotationForField(field, klass));
+}
+
+static jobjectArray Field_getDeclaredAnnotations(JNIEnv* env, jobject javaField) {
+  ScopedFastNativeObjectAccess soa(env);
+  ArtField* field = soa.Decode<mirror::Field*>(javaField)->GetArtField();
+  if (field->GetDeclaringClass()->IsProxyClass()) {
+    // Return an empty array instead of a null pointer.
+    mirror::Class* annotation_array_class =
+        soa.Decode<mirror::Class*>(WellKnownClasses::java_lang_annotation_Annotation__array);
+    mirror::ObjectArray<mirror::Object>* empty_array =
+        mirror::ObjectArray<mirror::Object>::Alloc(soa.Self(), annotation_array_class, 0);
+    return soa.AddLocalReference<jobjectArray>(empty_array);
+  }
+  return soa.AddLocalReference<jobjectArray>(field->GetDexFile()->GetAnnotationsForField(field));
+}
+
+static jobjectArray Field_getSignatureAnnotation(JNIEnv* env, jobject javaField) {
+  ScopedFastNativeObjectAccess soa(env);
+  ArtField* field = soa.Decode<mirror::Field*>(javaField)->GetArtField();
+  if (field->GetDeclaringClass()->IsProxyClass()) {
+    return nullptr;
+  }
+  return soa.AddLocalReference<jobjectArray>(
+      field->GetDexFile()->GetSignatureAnnotationForField(field));
+}
+
+static jboolean Field_isAnnotationPresentNative(JNIEnv* env, jobject javaField,
+                                                jclass annotationType) {
+  ScopedFastNativeObjectAccess soa(env);
+  StackHandleScope<1> hs(soa.Self());
+  ArtField* field = soa.Decode<mirror::Field*>(javaField)->GetArtField();
+  if (field->GetDeclaringClass()->IsProxyClass()) {
+    return false;
+  }
+  Handle<mirror::Class> klass(hs.NewHandle(soa.Decode<mirror::Class*>(annotationType)));
+  return field->GetDexFile()->IsFieldAnnotationPresent(field, klass);
+}
+
 static JNINativeMethod gMethods[] = {
   NATIVE_METHOD(Field, get,        "!(Ljava/lang/Object;)Ljava/lang/Object;"),
   NATIVE_METHOD(Field, getBoolean, "!(Ljava/lang/Object;)Z"),
   NATIVE_METHOD(Field, getByte,    "!(Ljava/lang/Object;)B"),
   NATIVE_METHOD(Field, getChar,    "!(Ljava/lang/Object;)C"),
+  NATIVE_METHOD(Field, getAnnotationNative,
+                "!(Ljava/lang/Class;)Ljava/lang/annotation/Annotation;"),
+  NATIVE_METHOD(Field, getDeclaredAnnotations, "!()[Ljava/lang/annotation/Annotation;"),
+  NATIVE_METHOD(Field, getSignatureAnnotation, "!()[Ljava/lang/String;"),
   NATIVE_METHOD(Field, getDouble,  "!(Ljava/lang/Object;)D"),
   NATIVE_METHOD(Field, getFloat,   "!(Ljava/lang/Object;)F"),
   NATIVE_METHOD(Field, getInt,     "!(Ljava/lang/Object;)I"),
   NATIVE_METHOD(Field, getLong,    "!(Ljava/lang/Object;)J"),
   NATIVE_METHOD(Field, getShort,   "!(Ljava/lang/Object;)S"),
+  NATIVE_METHOD(Field, isAnnotationPresentNative, "!(Ljava/lang/Class;)Z"),
   NATIVE_METHOD(Field, set,        "!(Ljava/lang/Object;Ljava/lang/Object;)V"),
   NATIVE_METHOD(Field, setBoolean, "!(Ljava/lang/Object;Z)V"),
   NATIVE_METHOD(Field, setByte,    "!(Ljava/lang/Object;B)V"),

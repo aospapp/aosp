@@ -16,7 +16,7 @@
 
 package android.media.cts;
 
-import com.android.cts.media.R;
+import android.media.cts.R;
 
 import android.content.Context;
 import android.media.audiofx.AudioEffect;
@@ -46,6 +46,9 @@ public class LoudnessEnhancerTest extends PostProcTestBase {
 
     //Test case 0.0: test constructor and release
     public void test0_0ConstructorAndRelease() throws Exception {
+        if (!hasAudioOutput()) {
+            return;
+        }
         AudioManager am = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
         assertNotNull("null AudioManager", am);
         getLoudnessEnhancer(0);
@@ -63,6 +66,9 @@ public class LoudnessEnhancerTest extends PostProcTestBase {
 
     //Test case 1.0: test set/get target gain
     public void test1_0TargetGain() throws Exception {
+        if (!hasAudioOutput()) {
+            return;
+        }
         getLoudnessEnhancer(0);
         try {
             mLE.setTargetGain(0);
@@ -80,8 +86,52 @@ public class LoudnessEnhancerTest extends PostProcTestBase {
         }
     }
 
-  //Test case 2.0: test loudness gain change in audio
-    public void test2_0MeasureGainChange() throws Exception {
+    //-----------------------------------------------------------------
+    // 2 - Effect enable/disable
+    //----------------------------------
+
+    //Test case 2.0: test setEnabled() and getEnabled() in valid state
+    public void test2_0SetEnabledGetEnabled() throws Exception {
+        if (!hasAudioOutput()) {
+            return;
+        }
+        getLoudnessEnhancer(getSessionId());
+        try {
+            mLE.setEnabled(true);
+            assertTrue("invalid state from getEnabled", mLE.getEnabled());
+            mLE.setEnabled(false);
+            assertFalse("invalid state to getEnabled", mLE.getEnabled());
+            // test passed
+        } catch (IllegalStateException e) {
+            fail("setEnabled() in wrong state");
+        } finally {
+            releaseLoudnessEnhancer();
+        }
+    }
+
+    //Test case 2.1: test setEnabled() throws exception after release
+    public void test2_1SetEnabledAfterRelease() throws Exception {
+        if (!hasAudioOutput()) {
+            return;
+        }
+        getLoudnessEnhancer(getSessionId());
+        mLE.release();
+        try {
+            mLE.setEnabled(true);
+            fail("setEnabled() processed after release()");
+        } catch (IllegalStateException e) {
+            // test passed
+        } finally {
+            releaseLoudnessEnhancer();
+        }
+    }
+
+    //-----------------------------------------------------------------
+    // 3 - check effect using visualizer effect
+    //----------------------------------
+
+    //Test case 3.0: test loudness gain change in audio
+    public void test3_0MeasureGainChange() throws Exception {
         if (!hasAudioOutput()) {
             return;
         }
@@ -122,6 +172,7 @@ public class LoudnessEnhancerTest extends PostProcTestBase {
             assertTrue("visualizer not enabled", visualizer.getEnabled());
             Thread.sleep(100);
             int status = visualizer.setMeasurementMode(Visualizer.MEASUREMENT_MODE_PEAK_RMS);
+            Thread.sleep(500);
             assertEquals("setMeasurementMode() for PEAK_RMS doesn't report success",
                     Visualizer.SUCCESS, status);
             // make sure we're playing long enough so the measurement is valid
@@ -137,6 +188,7 @@ public class LoudnessEnhancerTest extends PostProcTestBase {
 
             MeasurementPeakRms measurement = new MeasurementPeakRms();
             status = visualizer.getMeasurementPeakRms(measurement);
+            assertEquals("getMeasurementPeakRms() reports failure", Visualizer.SUCCESS, status);
 
             //run for a new set of 3 seconds, get new measurement
             mLE.setTargetGain(LOUDNESS_GAIN);
@@ -146,23 +198,18 @@ public class LoudnessEnhancerTest extends PostProcTestBase {
             mLE.setEnabled(true);
 
             visualizer.setMeasurementMode(Visualizer.MEASUREMENT_MODE_PEAK_RMS);
-            currentPosition = mp.getCurrentPosition();
-            maxTry = 5;
-            tryCount = 0;
-            while (tryCount < maxTry) {
-                Thread.sleep(50);
-                tryCount++;
-            }
+            Thread.sleep(500);
 
             MeasurementPeakRms measurement2 = new MeasurementPeakRms();
             status = visualizer.getMeasurementPeakRms(measurement2);
+            assertEquals("getMeasurementPeakRms() reports failure", Visualizer.SUCCESS, status);
 
             //compare both measurements
             am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0);
             assertEquals("getMeasurementPeakRms() reports failure",
                     Visualizer.SUCCESS, status);
-            Log.i("VisTest", "peak="+measurement.mPeak+"  rms="+measurement.mRms);
-            Log.i("VisTest", "peak2="+measurement2.mPeak+"  rms2="+measurement2.mRms);
+            Log.i("LETest", "peak="+measurement.mPeak+"  rms="+measurement.mRms);
+            Log.i("LETest", "peak2="+measurement2.mPeak+"  rms2="+measurement2.mRms);
 
             int deltaPeak = Math.abs(measurement2.mPeak - (measurement.mPeak + LOUDNESS_GAIN) );
             assertTrue("peak deviation in mB = "+deltaPeak, deltaPeak < MAX_MEASUREMENT_ERROR_MB);

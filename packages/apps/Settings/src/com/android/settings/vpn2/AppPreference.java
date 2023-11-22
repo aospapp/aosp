@@ -16,43 +16,64 @@
 
 package com.android.settings.vpn2;
 
-import android.app.AppGlobals;
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
-import android.os.RemoteException;
 import android.os.UserHandle;
-import android.preference.Preference;
-import android.view.View.OnClickListener;
+import android.support.v7.preference.Preference;
 
 import com.android.internal.net.LegacyVpnInfo;
 import com.android.internal.net.VpnConfig;
-import com.android.settings.R;
 
 /**
- * {@link android.preference.Preference} containing information about a VPN
+ * {@link android.support.v7.preference.Preference} containing information about a VPN
  * application. Tracks the package name and connection state.
  */
 public class AppPreference extends ManageablePreference {
     public static final int STATE_CONNECTED = LegacyVpnInfo.STATE_CONNECTED;
-    public static final int STATE_DISCONNECTED = LegacyVpnInfo.STATE_DISCONNECTED;
+    public static final int STATE_DISCONNECTED = STATE_NONE;
 
-    private int mState = STATE_DISCONNECTED;
-    private String mPackageName;
-    private String mName;
-    private int mUid;
+    private final String mPackageName;
+    private final String mName;
 
-    public AppPreference(Context context, OnClickListener onManage, final String packageName,
-            int uid) {
-        super(context, null /* attrs */, onManage);
+    public AppPreference(Context context, int userId, String packageName) {
+        super(context, null /* attrs */);
+        super.setUserId(userId);
+
         mPackageName = packageName;
-        mUid = uid;
-        update();
+
+        // Fetch icon and VPN label
+        String label = packageName;
+        Drawable icon = null;
+        try {
+            // Make all calls to the package manager as the appropriate user.
+            Context userContext = getUserContext();
+            PackageManager pm = userContext.getPackageManager();
+            // The nested catch block is for the case that the app doesn't exist, so we can fall
+            // back to the default activity icon.
+            try {
+                PackageInfo pkgInfo = pm.getPackageInfo(mPackageName, 0 /* flags */);
+                if (pkgInfo != null) {
+                    icon = pkgInfo.applicationInfo.loadIcon(pm);
+                    label = VpnConfig.getVpnLabel(userContext, mPackageName).toString();
+                }
+            } catch (PackageManager.NameNotFoundException pkgNotFound) {
+                // Use default app label and icon as fallback
+            }
+            if (icon == null) {
+                icon = pm.getDefaultActivityIcon();
+            }
+        } catch (PackageManager.NameNotFoundException userNotFound) {
+            // No user, no useful information to obtain. Quietly fail.
+        }
+        mName = label;
+
+        setTitle(mName);
+        setIcon(icon);
     }
 
     public PackageInfo getPackageInfo() {
-        UserHandle user = new UserHandle(UserHandle.getUserId(mUid));
         try {
             PackageManager pm = getUserContext().getPackageManager();
             return pm.getPackageInfo(mPackageName, 0 /* flags */);
@@ -69,56 +90,8 @@ public class AppPreference extends ManageablePreference {
         return mPackageName;
     }
 
-    public int getUid() {
-        return mUid;
-    }
-
-    public int getState() {
-        return mState;
-    }
-
-    public void setState(int state) {
-        mState = state;
-        update();
-    }
-
-    private void update() {
-        final String[] states = getContext().getResources().getStringArray(R.array.vpn_states);
-        setSummary(mState != STATE_DISCONNECTED ? states[mState] : "");
-
-        mName = mPackageName;
-        Drawable icon = null;
-
-        try {
-            // Make all calls to the package manager as the appropriate user.
-            Context userContext = getUserContext();
-            PackageManager pm = userContext.getPackageManager();
-            // Fetch icon and VPN label- the nested catch block is for the case that the app doesn't
-            // exist, in which case we can fall back to the default activity icon for an activity in
-            // that user.
-            try {
-                PackageInfo pkgInfo = pm.getPackageInfo(mPackageName, 0 /* flags */);
-                if (pkgInfo != null) {
-                    icon = pkgInfo.applicationInfo.loadIcon(pm);
-                    mName = VpnConfig.getVpnLabel(userContext, mPackageName).toString();
-                }
-            } catch (PackageManager.NameNotFoundException pkgNotFound) {
-                // Use default app label and icon as fallback
-            }
-            if (icon == null) {
-                icon = pm.getDefaultActivityIcon();
-            }
-        } catch (PackageManager.NameNotFoundException userNotFound) {
-            // No user, no useful information to obtain. Quietly fail.
-        }
-        setTitle(mName);
-        setIcon(icon);
-
-        notifyHierarchyChanged();
-    }
-
     private Context getUserContext() throws PackageManager.NameNotFoundException {
-        UserHandle user = new UserHandle(UserHandle.getUserId(mUid));
+        UserHandle user = UserHandle.of(mUserId);
         return getContext().createPackageContextAsUser(
                 getContext().getPackageName(), 0 /* flags */, user);
     }
@@ -130,12 +103,12 @@ public class AppPreference extends ManageablePreference {
             if ((result = another.mState - mState) == 0 &&
                     (result = mName.compareToIgnoreCase(another.mName)) == 0 &&
                     (result = mPackageName.compareTo(another.mPackageName)) == 0) {
-                result = mUid - another.mUid;
+                result = mUserId - another.mUserId;
             }
             return result;
-        } else if (preference instanceof ConfigPreference) {
+        } else if (preference instanceof LegacyVpnPreference) {
             // Use comparator from ConfigPreference
-            ConfigPreference another = (ConfigPreference) preference;
+            LegacyVpnPreference another = (LegacyVpnPreference) preference;
             return -another.compareTo(this);
         } else {
             return super.compareTo(preference);

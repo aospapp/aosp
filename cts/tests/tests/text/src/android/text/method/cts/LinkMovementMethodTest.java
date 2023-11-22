@@ -27,6 +27,7 @@ import android.text.Spanned;
 import android.text.method.LinkMovementMethod;
 import android.text.method.MovementMethod;
 import android.text.style.ClickableSpan;
+import android.util.TypedValue;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
@@ -56,7 +57,7 @@ public class LinkMovementMethodTest extends
     private MockClickableSpan mClickable1;
 
     public LinkMovementMethodTest() {
-        super("com.android.cts.text", CtsActivity.class);
+        super("android.text.cts", CtsActivity.class);
     }
 
     @Override
@@ -65,7 +66,8 @@ public class LinkMovementMethodTest extends
         mMethod = new LinkMovementMethod();
 
         // Set the content view with a text view which contains 3 lines,
-        mView = new TextView(getActivity());
+        mView = new TextViewNoIme(getActivity());
+        mView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
         mView.setText(CONTENT, BufferType.SPANNABLE);
         getInstrumentation().runOnMainSync(new Runnable() {
             public void run() {
@@ -129,7 +131,7 @@ public class LinkMovementMethodTest extends
 
         // null parameters
         try {
-            method.onTakeFocus(new TextView(getActivity()), null, View.FOCUS_RIGHT);
+            method.onTakeFocus(new TextViewNoIme(getActivity()), null, View.FOCUS_RIGHT);
             fail("The method did not throw NullPointerException when param spannable is null.");
         } catch (NullPointerException e) {
             // expected
@@ -228,7 +230,7 @@ public class LinkMovementMethodTest extends
         LinkMovementMethod method = new LinkMovementMethod();
         // always returns false
         assertFalse(method.onKeyUp(null, null, 0, null));
-        assertFalse(method.onKeyUp(new TextView(getActivity()), null, 0, null));
+        assertFalse(method.onKeyUp(new TextViewNoIme(getActivity()), null, 0, null));
         assertFalse(method.onKeyUp(null, new SpannableString("blahblah"), 0, null));
         assertFalse(method.onKeyUp(null, null, KeyEvent.KEYCODE_0,
                 new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_0)));

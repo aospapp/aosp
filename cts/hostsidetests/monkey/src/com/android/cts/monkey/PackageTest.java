@@ -20,6 +20,7 @@ import java.util.regex.Pattern;
 
 public class PackageTest extends AbstractMonkeyTest {
 
+    private static final int MAX_ERROR_LENGTH = 256;
     private static final Pattern ALLOW_MONKEY =
             Pattern.compile("^.*Allowing.*cmp=com\\.android\\.cts\\.monkey/\\.MonkeyActivity.*$",
                     Pattern.MULTILINE);
@@ -30,18 +31,25 @@ public class PackageTest extends AbstractMonkeyTest {
 
     public void testSinglePackage() throws Exception {
         String out = mDevice.executeShellCommand(MONKEY_CMD + " -v -p " + PKGS[0] + " 5000");
-        assertTrue(out, ALLOW_MONKEY.matcher(out).find());
-        assertFalse(out, ALLOW_CHIMP.matcher(out).find());
+        String error = truncateError(out);
+        assertTrue("Monkey not found in: " + error, ALLOW_MONKEY.matcher(out).find());
+        assertFalse("Chimp found in: " + error, ALLOW_CHIMP.matcher(out).find());
 
         out = mDevice.executeShellCommand(MONKEY_CMD + " -v -p " + PKGS[1] + " 5000");
-        assertFalse(out, ALLOW_MONKEY.matcher(out).find());
-        assertTrue(out, ALLOW_CHIMP.matcher(out).find());
+        error = truncateError(out);
+        assertFalse("Monkey found in: " + error, ALLOW_MONKEY.matcher(out).find());
+        assertTrue("Chimp not found in: " + error, ALLOW_CHIMP.matcher(out).find());
     }
 
     public void testMultiplePackages() throws Exception {
         String out = mDevice.executeShellCommand(MONKEY_CMD + " -v -p " + PKGS[0]
                 + " -p " + PKGS[1] + " 5000");
-        assertTrue(out, ALLOW_MONKEY.matcher(out).find());
-        assertTrue(out, ALLOW_CHIMP.matcher(out).find());
+        String error = truncateError(out);
+        assertTrue("Monkey not found in: " + error, ALLOW_MONKEY.matcher(out).find());
+        assertTrue("Chimp not found in: " + error, ALLOW_CHIMP.matcher(out).find());
+    }
+
+    private static final String truncateError(String input) {
+        return input.substring(0, Math.min(input.length(), MAX_ERROR_LENGTH));
     }
 }

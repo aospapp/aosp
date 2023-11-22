@@ -38,5 +38,10 @@
                 android:id="@+id/view3"
                 android:src="@{uriString}"
                 />
+        <ImageView
+                android:layout_width="match_parent" android:layout_height="match_parent"
+                android:id="@+id/view4"
+                android:src="@{obj == null ? @drawable/ic_launcher : null}"
+                />
     </LinearLayout>
 </layout>

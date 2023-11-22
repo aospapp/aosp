@@ -20,13 +20,15 @@
 #include "gc/accounting/card_table.h"
 #include "gc/accounting/space_bitmap-inl.h"
 #include "gc/heap.h"
+#include "jit/jit.h"
+#include "jit/jit_code_cache.h"
+#include "memory_tool_malloc_space-inl.h"
 #include "mirror/class-inl.h"
 #include "mirror/object-inl.h"
 #include "runtime.h"
 #include "thread.h"
 #include "thread_list.h"
 #include "utils.h"
-#include "valgrind_malloc_space-inl.h"
 
 namespace art {
 namespace gc {
@@ -62,8 +64,8 @@ DlMallocSpace* DlMallocSpace::CreateFromMemMap(MemMap* mem_map, const std::strin
 
   // Everything is set so record in immutable structure and leave
   uint8_t* begin = mem_map->Begin();
-  if (Runtime::Current()->RunningOnValgrind()) {
-    return new ValgrindMallocSpace<DlMallocSpace, kDefaultValgrindRedZoneBytes, true, false>(
+  if (Runtime::Current()->IsRunningOnMemoryTool()) {
+    return new MemoryToolMallocSpace<DlMallocSpace, kDefaultMemoryToolRedZoneBytes, true, false>(
         mem_map, initial_size, name, mspace, begin, end, begin + capacity, growth_limit,
         can_move_objects, starting_size);
   } else {
@@ -152,8 +154,8 @@ MallocSpace* DlMallocSpace::CreateInstance(MemMap* mem_map, const std::string& n
                                            void* allocator, uint8_t* begin, uint8_t* end,
                                            uint8_t* limit, size_t growth_limit,
                                            bool can_move_objects) {
-  if (Runtime::Current()->RunningOnValgrind()) {
-    return new ValgrindMallocSpace<DlMallocSpace, kDefaultValgrindRedZoneBytes, true, false>(
+  if (Runtime::Current()->IsRunningOnMemoryTool()) {
+    return new MemoryToolMallocSpace<DlMallocSpace, kDefaultMemoryToolRedZoneBytes, true, false>(
         mem_map, initial_size_, name, allocator, begin, end, limit, growth_limit,
         can_move_objects, starting_size_);
   } else {
@@ -298,18 +300,16 @@ static void MSpaceChunkCallback(void* start, void* end, size_t used_bytes, void*
   }
 }
 
-void DlMallocSpace::LogFragmentationAllocFailure(std::ostream& os, size_t failed_alloc_bytes) {
-  UNUSED(failed_alloc_bytes);
-  Thread* self = Thread::Current();
+void DlMallocSpace::LogFragmentationAllocFailure(std::ostream& os,
+                                                 size_t failed_alloc_bytes ATTRIBUTE_UNUSED) {
+  Thread* const self = Thread::Current();
   size_t max_contiguous_allocation = 0;
   // To allow the Walk/InspectAll() to exclusively-lock the mutator
   // lock, temporarily release the shared access to the mutator
   // lock here by transitioning to the suspended state.
   Locks::mutator_lock_->AssertSharedHeld(self);
-  self->TransitionFromRunnableToSuspended(kSuspended);
+  ScopedThreadSuspension sts(self, kSuspended);
   Walk(MSpaceChunkCallback, &max_contiguous_allocation);
-  self->TransitionFromSuspendedToRunnable();
-  Locks::mutator_lock_->AssertSharedHeld(self);
   os << "; failed due to fragmentation (largest possible contiguous allocation "
      <<  max_contiguous_allocation << " bytes)";
 }
@@ -319,11 +319,18 @@ void DlMallocSpace::LogFragmentationAllocFailure(std::ostream& os, size_t failed
 namespace allocator {
 
 // Implement the dlmalloc morecore callback.
-void* ArtDlMallocMoreCore(void* mspace, intptr_t increment) {
-  Heap* heap = Runtime::Current()->GetHeap();
+void* ArtDlMallocMoreCore(void* mspace, intptr_t increment) SHARED_REQUIRES(Locks::mutator_lock_) {
+  Runtime* runtime = Runtime::Current();
+  Heap* heap = runtime->GetHeap();
   ::art::gc::space::DlMallocSpace* dlmalloc_space = heap->GetDlMallocSpace();
   // Support for multiple DlMalloc provided by a slow path.
   if (UNLIKELY(dlmalloc_space == nullptr || dlmalloc_space->GetMspace() != mspace)) {
+    if (LIKELY(runtime->GetJit() != nullptr)) {
+      jit::JitCodeCache* code_cache = runtime->GetJit()->GetCodeCache();
+      if (code_cache->OwnsSpace(mspace)) {
+        return code_cache->MoreCore(mspace, increment);
+      }
+    }
     dlmalloc_space = nullptr;
     for (space::ContinuousSpace* space : heap->GetContinuousSpaces()) {
       if (space->IsDlMallocSpace()) {

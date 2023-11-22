@@ -19,9 +19,10 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" msgid="1756503303878374382">"Calculadora"</string>
     <string name="dec_point" msgid="8920102493070918054">","</string>
-    <string name="mode_deg" msgid="1146123354434332479">"grad"</string>
+    <string name="mode_deg" msgid="1146123354434332479">"deg"</string>
     <string name="mode_rad" msgid="1434228830085760996">"rad"</string>
     <string name="clr" msgid="6730945431543327337">"bor"</string>
+    <string name="cleared" msgid="3952521190281880880">"borrados"</string>
     <string name="del" msgid="5878069000864178910">"ce"</string>
     <string name="desc_const_e" msgid="1889187337970539507">"número de Euler"</string>
     <string name="desc_const_pi" msgid="5430918714009441655">"pi"</string>
@@ -56,7 +57,7 @@
     <string name="desc_del" msgid="7879515781929311432">"eliminar"</string>
     <string name="desc_inv_off" msgid="3672218250519616068">"muestra las funciones inversas"</string>
     <string name="desc_inv_on" msgid="2515675590767677178">"oculta las funciones inversas"</string>
-    <string name="error_nan" msgid="5674077944929888710">"No es número"</string>
+    <string name="error_nan" msgid="5674077944929888710">"No es un número"</string>
     <string name="error_syntax" msgid="4786987111228645602">"Expresión incorrecta"</string>
     <string name="error_aborted" msgid="3402238176316342537">"Cancelado"</string>
     <string name="error_overflow" msgid="7800547394563434764">"¿Infinito?"</string>
@@ -65,7 +66,7 @@
     <string name="cancelled" msgid="1618889609742874632">"Cálculo cancelado"</string>
     <string name="timeout" msgid="802690170415591535">"Tiempo de espera agotado. Es posible que el valor sea infinito o no esté definido."</string>
     <string name="ok_remove_timeout" msgid="8344529153919268011">"Utilizar tiempos de espera más largos"</string>
-    <string name="dismiss" msgid="7872443888515066216">"Aceptar"</string>
+    <string name="dismiss" msgid="7872443888515066216">"Descartar"</string>
     <string name="exact" msgid="2597237880041789948">"(exacto)"</string>
     <string name="approximate" msgid="7117143366610670836">"(±1 en el último dígito)"</string>
     <string name="menu_leading" msgid="2338520833272667740">"Responder con dígitos iniciales"</string>

@@ -18,6 +18,7 @@ package com.squareup.okhttp.internal.huc;
 
 import com.squareup.okhttp.Handshake;
 import com.squareup.okhttp.OkHttpClient;
+import com.squareup.okhttp.internal.URLFilter;
 import java.net.URL;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLSocketFactory;
@@ -27,6 +28,10 @@ public final class HttpsURLConnectionImpl extends DelegatingHttpsURLConnection {
 
   public HttpsURLConnectionImpl(URL url, OkHttpClient client) {
     this(new HttpURLConnectionImpl(url, client));
+  }
+
+  public HttpsURLConnectionImpl(URL url, OkHttpClient client, URLFilter filter) {
+    this(new HttpURLConnectionImpl(url, client, filter));
   }
 
   public HttpsURLConnectionImpl(HttpURLConnectionImpl delegate) {

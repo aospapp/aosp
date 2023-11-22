@@ -79,6 +79,13 @@ public class Test_invoke_super_range extends DxTestCase {
     }
 
     /**
+     * @title invoke-super in conflict class
+     */
+    public void testN7() {
+        loadAndRun("dot.junit.opcodes.invoke_super_range.d.T_invoke_super_range_26", null);
+    }
+
+    /**
      * @title obj ref is null
      */
     public void testE1() {
@@ -104,6 +111,22 @@ public class Test_invoke_super_range extends DxTestCase {
         loadAndRun("dot.junit.opcodes.invoke_super_range.d.T_invoke_super_range_6",
                    AbstractMethodError.class);
     }
+
+    /**
+     * @title Attempt to invoke abstract interface method
+     */
+    public void testE5() {
+        loadAndRun("dot.junit.opcodes.invoke_super_range.d.T_invoke_super_range_27", AbstractMethodError.class);
+    }
+
+    /**
+     * @title Attempt to invoke abstract interface method
+     */
+    public void testE6() {
+        loadAndRun("dot.junit.opcodes.invoke_super_range.d.T_invoke_super_range_28",
+                   IncompatibleClassChangeError.class);
+    }
+
 
     /**
      * @constraint A14
@@ -243,7 +266,7 @@ public class Test_invoke_super_range extends DxTestCase {
     public void testVFE18() {
         //@uses dot.junit.opcodes.invoke_super_range.d.T_invoke_super_range_24
         loadAndRun("dot.junit.opcodes.invoke_super_range.d.T_invoke_super_range_24",
-                   IncompatibleClassChangeError.class);
+                   AbstractMethodError.class);
     }
 
     /**

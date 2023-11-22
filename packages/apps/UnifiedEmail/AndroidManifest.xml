@@ -19,7 +19,6 @@
     android:versionCode="1"
     android:versionName="1.0" >
 
-    <uses-permission android:name="android.permission.GET_ACCOUNTS" />
     <!-- Allows mail to access the user's contacts, for email address auto-completion -->
     <uses-permission android:name="android.permission.READ_CONTACTS"/>
     <!-- Allows access to EmailProvider (EAS/IMAP/POP3) -->

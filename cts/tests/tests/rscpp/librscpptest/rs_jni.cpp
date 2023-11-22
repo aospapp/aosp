@@ -459,7 +459,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_android_cts_rscpp_RSYuvTest_yuvTest(J
     sp<RS> mRS = new RS();
     mRS->init(path);
 
-    RSYuvFormat mYuvFormat = (RSYuvFormat)yuvFormat;
+    RsYuvFormat mYuvFormat = (RsYuvFormat)yuvFormat;
     sp<ScriptIntrinsicYuvToRGB> syuv = ScriptIntrinsicYuvToRGB::create(mRS, Element::U8_4(mRS));;
     sp<Allocation> inputAlloc = nullptr;
 
@@ -492,4 +492,3 @@ extern "C" JNIEXPORT jboolean JNICALL Java_android_cts_rscpp_RSYuvTest_yuvTest(J
     return (mRS->getError() == RS_SUCCESS);
 
 }
-

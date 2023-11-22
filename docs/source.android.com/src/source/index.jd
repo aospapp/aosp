@@ -17,7 +17,7 @@ page.title=The Android Source Code
     limitations under the License.
 -->
 <p>
-Android is an open-source software stack created for a wide array of devices
+Android is an open source software stack created for a wide array of devices
 with different form factors. The primary purposes of Android are to create an
 open software platform available for carriers, OEMs, and developers to make
 their innovative ideas a reality and to introduce a successful,
@@ -47,7 +47,7 @@ devices to market.
 </p>
 <p>The companies that have invested in Android have done so on its merits
 because we believe an open platform is necessary. Android is
-intentionally and explicitly an open-source -- as opposed to a free software --
+intentionally and explicitly an open source -- as opposed to a free software --
 effort; a group of organizations with shared needs has pooled
 resources to collaborate on a single implementation of a shared product.
 The Android philosophy is pragmatic, first and foremost. The objective is

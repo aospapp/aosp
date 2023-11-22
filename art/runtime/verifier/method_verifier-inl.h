@@ -38,12 +38,20 @@ inline const InstructionFlags& MethodVerifier::GetInstructionFlags(size_t index)
   return insn_flags_[index];
 }
 
+inline InstructionFlags& MethodVerifier::GetInstructionFlags(size_t index) {
+  return insn_flags_[index];
+}
+
 inline mirror::ClassLoader* MethodVerifier::GetClassLoader() {
   return class_loader_.Get();
 }
 
 inline mirror::DexCache* MethodVerifier::GetDexCache() {
   return dex_cache_.Get();
+}
+
+inline ArtMethod* MethodVerifier::GetMethod() const {
+  return mirror_method_;
 }
 
 inline MethodReference MethodVerifier::GetMethodReference() const {

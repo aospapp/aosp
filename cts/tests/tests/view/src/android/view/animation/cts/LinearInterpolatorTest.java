@@ -26,7 +26,7 @@ import android.view.animation.Interpolator;
 import android.view.animation.LinearInterpolator;
 import android.view.animation.Transformation;
 
-import com.android.cts.view.R;
+import android.view.cts.R;
 
 
 /**
@@ -42,7 +42,7 @@ public class LinearInterpolatorTest extends ActivityInstrumentationTestCase2<Ani
     private static final long LINEAR_ALPHA_TIME_STEP = LINEAR_ALPHA_DURATION / 5;
 
     public LinearInterpolatorTest() {
-        super("com.android.cts.view", AnimationTestCtsActivity.class);
+        super("android.view.cts", AnimationTestCtsActivity.class);
     }
 
     @Override

@@ -30,6 +30,19 @@ MAJOR_VERSION :=$(shell echo $(PLATFORM_VERSION) | cut -f1 -d.)
 MINOR_VERSION :=$(shell echo $(PLATFORM_VERSION) | cut -f2 -d.)
 VERSION_KK :=$(shell test $(MAJOR_VERSION) -eq 4 -a $(MINOR_VERSION) -gt 3 && echo true)
 VERSION_L  :=$(shell test $(MAJOR_VERSION) -eq 5 -a $(MINOR_VERSION) -eq 0 && echo true)
+
+#
+# Invensense uses the OS version to determine whether to include batch support,
+# but implemented it in a way that requires modifying the code each time we move
+# to a newer OS version.  I will fix this problem in a subsequent change, but for now,
+# hardcode to saying we're ANDROID_L so we can isolate this checkin to being
+# only changes coming from Invensense.
+#
+# Setting ANDROID_L to true is perfectly safe even on ANDROID_M because the code
+# just requires "ANDROID_L or newer"
+#
+VERSION_L :=true
+
 $(info YD>>ANDRIOD VERSION=$(MAJOR_VERSION).$(MINOR_VERSION))
 $(info YD>>VERSION_L=$(VERSION_L), VERSION_KK=$(VERSION_KK))
 #ANDROID version check END

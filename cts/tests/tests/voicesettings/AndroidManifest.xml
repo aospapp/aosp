@@ -23,7 +23,7 @@
     <application>
         <uses-library android:name="android.test.runner" />
 
-        <activity android:name="TestStartActivity"
+        <activity android:name="android.cts.util.BroadcastTestStartActivity"
                   android:label="The Target Activity for VoiceSettings CTS Test">
             <intent-filter>
                 <action android:name="android.intent.action.TEST_START_ACTIVITY_ZEN_MODE" />

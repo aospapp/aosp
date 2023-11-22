@@ -15,18 +15,19 @@
  */
 package com.android.phone.common.mail.store;
 
+import android.annotation.Nullable;
 import android.content.Context;
+import android.content.SharedPreferences;
+import android.preference.PreferenceManager;
+import android.provider.VoicemailContract;
+import android.provider.VoicemailContract.Status;
+import android.telecom.Voicemail;
 import android.text.TextUtils;
 import android.util.Base64DataException;
+import android.util.Log;
 
-import com.android.phone.common.mail.store.ImapStore.ImapException;
-import com.android.phone.common.mail.store.ImapStore.ImapMessage;
-import com.android.phone.common.mail.store.imap.ImapConstants;
-import com.android.phone.common.mail.store.imap.ImapElement;
-import com.android.phone.common.mail.store.imap.ImapList;
-import com.android.phone.common.mail.store.imap.ImapResponse;
-import com.android.phone.common.mail.store.imap.ImapString;
-import com.android.phone.common.mail.store.imap.ImapUtility;
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.phone.common.R;
 import com.android.phone.common.mail.AuthenticationFailedException;
 import com.android.phone.common.mail.Body;
 import com.android.phone.common.mail.FetchProfile;
@@ -39,30 +40,25 @@ import com.android.phone.common.mail.internet.MimeBodyPart;
 import com.android.phone.common.mail.internet.MimeHeader;
 import com.android.phone.common.mail.internet.MimeMultipart;
 import com.android.phone.common.mail.internet.MimeUtility;
-import com.android.phone.common.mail.utility.CountingOutputStream;
-import com.android.phone.common.mail.utility.EOLConvertingOutputStream;
-import com.android.phone.common.mail.utils.Utility;
+import com.android.phone.common.mail.store.ImapStore.ImapException;
+import com.android.phone.common.mail.store.ImapStore.ImapMessage;
+import com.android.phone.common.mail.store.imap.ImapConstants;
+import com.android.phone.common.mail.store.imap.ImapElement;
+import com.android.phone.common.mail.store.imap.ImapList;
+import com.android.phone.common.mail.store.imap.ImapResponse;
+import com.android.phone.common.mail.store.imap.ImapString;
 import com.android.phone.common.mail.utils.LogUtils;
-import com.android.internal.annotations.VisibleForTesting;
-import com.android.phone.common.R;
+import com.android.phone.common.mail.utils.Utility;
 
-import org.apache.commons.io.IOUtils;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.TimeZone;
 
 public class ImapFolder {
     private static final String TAG = "ImapFolder";
@@ -218,7 +214,7 @@ public class ImapFolder {
         }
     }
 
-
+    @Nullable
     public Message getMessage(String uid) throws MessagingException {
         checkOpen();
 
@@ -228,6 +224,7 @@ public class ImapFolder {
                 return new ImapMessage(uid, this);
             }
         }
+        LogUtils.e(TAG, "UID " + uid + " not found on server");
         return null;
     }
 
@@ -329,7 +326,7 @@ public class ImapFolder {
             mConnection.sendCommand(String.format(Locale.US,
                     ImapConstants.UID_FETCH + " %s (%s)", ImapStore.joinMessageUids(messages),
                     Utility.combine(fetchFields.toArray(new String[fetchFields.size()]), ' ')
-                    ), false);
+            ), false);
             ImapResponse response;
             do {
                 response = null;
@@ -416,7 +413,7 @@ public class ImapFolder {
                             // decodeBody creates BinaryTempFileBody, but we could avoid this
                             // if we implement ImapStringBody.
                             // (We'll need to share a temp file.  Protect it with a ref-count.)
-                            fetchPart.setBody(decodeBody(mStore.getContext(), bodyStream,
+                            message.setBody(decodeBody(mStore.getContext(), bodyStream,
                                     contentTransferEncoding, fetchPart.getSize(), listener));
                         } catch(Exception e) {
                             // TODO: Figure out what kinds of exceptions might actually be thrown
@@ -734,6 +731,7 @@ public class ImapFolder {
                     mMode = MODE_READ_WRITE;
                 }
             } else if (response.isTagged()) { // Not OK
+                mStore.getImapHelper().setDataChannelState(Status.DATA_CHANNEL_STATE_SERVER_ERROR);
                 throw new MessagingException("Can't open mailbox: "
                         + response.getStatusResponseTextOrEmpty());
             }
@@ -743,6 +741,44 @@ public class ImapFolder {
         }
         mMessageCount = messageCount;
         mExists = true;
+    }
+
+    public class Quota {
+
+        public final int occupied;
+        public final int total;
+
+        public Quota(int occupied, int total) {
+            this.occupied = occupied;
+            this.total = total;
+        }
+    }
+
+    public Quota getQuota() throws MessagingException {
+        try {
+            final List<ImapResponse> responses = mConnection.executeSimpleCommand(
+                    String.format(Locale.US, ImapConstants.GETQUOTAROOT + " \"%s\"", mName));
+
+            for (ImapResponse response : responses) {
+                if (!response.isDataResponse(0, ImapConstants.QUOTA)) {
+                    continue;
+                }
+                ImapList list = response.getListOrEmpty(2);
+                for (int i = 0; i < list.size(); i += 3) {
+                    if (!list.getStringOrEmpty(i).is("voice")) {
+                        continue;
+                    }
+                    return new Quota(
+                            list.getStringOrEmpty(i + 1).getNumber(-1),
+                            list.getStringOrEmpty(i + 2).getNumber(-1));
+                }
+            }
+        } catch (IOException ioe) {
+            throw ioExceptionHandler(mConnection, ioe);
+        } finally {
+            destroyResponses();
+        }
+        return null;
     }
 
     private void checkOpen() throws MessagingException {
@@ -758,6 +794,7 @@ public class ImapFolder {
             mConnection = null; // To prevent close() from returning the connection to the pool.
             close(false);
         }
+        mStore.getImapHelper().setDataChannelState(Status.DATA_CHANNEL_STATE_COMMUNICATION_ERROR);
         return new MessagingException(MessagingException.IOERROR, "IO Error", ioe);
     }
 

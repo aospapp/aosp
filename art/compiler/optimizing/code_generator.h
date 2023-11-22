@@ -19,13 +19,19 @@
 
 #include "arch/instruction_set.h"
 #include "arch/instruction_set_features.h"
+#include "base/arena_containers.h"
+#include "base/arena_object.h"
 #include "base/bit_field.h"
+#include "compiled_method.h"
 #include "driver/compiler_options.h"
 #include "globals.h"
+#include "graph_visualizer.h"
 #include "locations.h"
 #include "memory_region.h"
 #include "nodes.h"
+#include "optimizing_compiler_stats.h"
 #include "stack_map_stream.h"
+#include "utils/label.h"
 
 namespace art {
 
@@ -34,19 +40,21 @@ static int64_t constexpr k2Pow32EncodingForDouble = INT64_C(0x41F0000000000000);
 // Binary encoding of 2^31 for type double.
 static int64_t constexpr k2Pow31EncodingForDouble = INT64_C(0x41E0000000000000);
 
+// Minimum value for a primitive integer.
+static int32_t constexpr kPrimIntMin = 0x80000000;
+// Minimum value for a primitive long.
+static int64_t constexpr kPrimLongMin = INT64_C(0x8000000000000000);
+
 // Maximum value for a primitive integer.
 static int32_t constexpr kPrimIntMax = 0x7fffffff;
 // Maximum value for a primitive long.
-static int64_t constexpr kPrimLongMax = 0x7fffffffffffffff;
+static int64_t constexpr kPrimLongMax = INT64_C(0x7fffffffffffffff);
 
 class Assembler;
 class CodeGenerator;
-class DexCompilationUnit;
+class CompilerDriver;
+class LinkerPatch;
 class ParallelMoveResolver;
-class SrcMapElem;
-template <class Alloc>
-class SrcMap;
-using DefaultSrcMap = SrcMap<std::allocator<SrcMapElem>>;
 
 class CodeAllocator {
  public:
@@ -59,14 +67,9 @@ class CodeAllocator {
   DISALLOW_COPY_AND_ASSIGN(CodeAllocator);
 };
 
-struct PcInfo {
-  uint32_t dex_pc;
-  uintptr_t native_pc;
-};
-
-class SlowPathCode : public ArenaObject<kArenaAllocSlowPaths> {
+class SlowPathCode : public DeletableArenaObject<kArenaAllocSlowPaths> {
  public:
-  SlowPathCode() {
+  explicit SlowPathCode(HInstruction* instruction) : instruction_(instruction) {
     for (size_t i = 0; i < kMaximumNumberOfExpectedRegisters; ++i) {
       saved_core_stack_offsets_[i] = kRegisterNotSaved;
       saved_fpu_stack_offsets_[i] = kRegisterNotSaved;
@@ -77,9 +80,8 @@ class SlowPathCode : public ArenaObject<kArenaAllocSlowPaths> {
 
   virtual void EmitNativeCode(CodeGenerator* codegen) = 0;
 
-  void SaveLiveRegisters(CodeGenerator* codegen, LocationSummary* locations);
-  void RestoreLiveRegisters(CodeGenerator* codegen, LocationSummary* locations);
-  void RecordPcInfo(CodeGenerator* codegen, HInstruction* instruction, uint32_t dex_pc);
+  virtual void SaveLiveRegisters(CodeGenerator* codegen, LocationSummary* locations);
+  virtual void RestoreLiveRegisters(CodeGenerator* codegen, LocationSummary* locations);
 
   bool IsCoreRegisterSaved(int reg) const {
     return saved_core_stack_offsets_[reg] != kRegisterNotSaved;
@@ -97,17 +99,41 @@ class SlowPathCode : public ArenaObject<kArenaAllocSlowPaths> {
     return saved_fpu_stack_offsets_[reg];
   }
 
- private:
+  virtual bool IsFatal() const { return false; }
+
+  virtual const char* GetDescription() const = 0;
+
+  Label* GetEntryLabel() { return &entry_label_; }
+  Label* GetExitLabel() { return &exit_label_; }
+
+  HInstruction* GetInstruction() const {
+    return instruction_;
+  }
+
+  uint32_t GetDexPc() const {
+    return instruction_ != nullptr ? instruction_->GetDexPc() : kNoDexPc;
+  }
+
+ protected:
   static constexpr size_t kMaximumNumberOfExpectedRegisters = 32;
   static constexpr uint32_t kRegisterNotSaved = -1;
+  // The instruction where this slow path is happening.
+  HInstruction* instruction_;
   uint32_t saved_core_stack_offsets_[kMaximumNumberOfExpectedRegisters];
   uint32_t saved_fpu_stack_offsets_[kMaximumNumberOfExpectedRegisters];
+
+ private:
+  Label entry_label_;
+  Label exit_label_;
+
   DISALLOW_COPY_AND_ASSIGN(SlowPathCode);
 };
 
 class InvokeDexCallingConventionVisitor {
  public:
   virtual Location GetNextLocation(Primitive::Type type) = 0;
+  virtual Location GetReturnLocation(Primitive::Type type) const = 0;
+  virtual Location GetMethodLocation() const = 0;
 
  protected:
   InvokeDexCallingConventionVisitor() {}
@@ -124,18 +150,34 @@ class InvokeDexCallingConventionVisitor {
   DISALLOW_COPY_AND_ASSIGN(InvokeDexCallingConventionVisitor);
 };
 
-class CodeGenerator {
+class FieldAccessCallingConvention {
  public:
-  // Compiles the graph to executable instructions. Returns whether the compilation
-  // succeeded.
-  void CompileBaseline(CodeAllocator* allocator, bool is_leaf = false);
-  void CompileOptimized(CodeAllocator* allocator);
-  static CodeGenerator* Create(HGraph* graph,
-                               InstructionSet instruction_set,
-                               const InstructionSetFeatures& isa_features,
-                               const CompilerOptions& compiler_options);
+  virtual Location GetObjectLocation() const = 0;
+  virtual Location GetFieldIndexLocation() const = 0;
+  virtual Location GetReturnLocation(Primitive::Type type) const = 0;
+  virtual Location GetSetValueLocation(Primitive::Type type, bool is_instance) const = 0;
+  virtual Location GetFpuLocation(Primitive::Type type) const = 0;
+  virtual ~FieldAccessCallingConvention() {}
+
+ protected:
+  FieldAccessCallingConvention() {}
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(FieldAccessCallingConvention);
+};
+
+class CodeGenerator : public DeletableArenaObject<kArenaAllocCodeGenerator> {
+ public:
+  // Compiles the graph to executable instructions.
+  void Compile(CodeAllocator* allocator);
+  static std::unique_ptr<CodeGenerator> Create(HGraph* graph,
+                                               InstructionSet instruction_set,
+                                               const InstructionSetFeatures& isa_features,
+                                               const CompilerOptions& compiler_options,
+                                               OptimizingCompilerStats* stats = nullptr);
   virtual ~CodeGenerator() {}
 
+  // Get the graph. This is the outermost graph, never the graph of a method being inlined.
   HGraph* GetGraph() const { return graph_; }
 
   HBasicBlock* GetNextBlockToEmit() const;
@@ -151,21 +193,24 @@ class CodeGenerator {
 
   virtual void Initialize() = 0;
   virtual void Finalize(CodeAllocator* allocator);
+  virtual void EmitLinkerPatches(ArenaVector<LinkerPatch>* linker_patches);
   virtual void GenerateFrameEntry() = 0;
   virtual void GenerateFrameExit() = 0;
   virtual void Bind(HBasicBlock* block) = 0;
-  virtual void Move(HInstruction* instruction, Location location, HInstruction* move_for) = 0;
+  virtual void MoveConstant(Location destination, int32_t value) = 0;
+  virtual void MoveLocation(Location dst, Location src, Primitive::Type dst_type) = 0;
+  virtual void AddLocationAsTemp(Location location, LocationSummary* locations) = 0;
+
   virtual Assembler* GetAssembler() = 0;
+  virtual const Assembler& GetAssembler() const = 0;
   virtual size_t GetWordSize() const = 0;
   virtual size_t GetFloatingPointSpillSlotSize() const = 0;
-  virtual uintptr_t GetAddressOf(HBasicBlock* block) const = 0;
+  virtual uintptr_t GetAddressOf(HBasicBlock* block) = 0;
   void InitializeCodeGeneration(size_t number_of_spill_slots,
                                 size_t maximum_number_of_live_core_registers,
-                                size_t maximum_number_of_live_fp_registers,
+                                size_t maximum_number_of_live_fpu_registers,
                                 size_t number_of_out_slots,
-                                const GrowableArray<HBasicBlock*>& block_order);
-  int32_t GetStackSlot(HLocal* local) const;
-  Location GetTemporaryLocation(HTemporary* temp) const;
+                                const ArenaVector<HBasicBlock*>& block_order);
 
   uint32_t GetFrameSize() const { return frame_size_; }
   void SetFrameSize(uint32_t size) { frame_size_ = size; }
@@ -174,7 +219,7 @@ class CodeGenerator {
 
   size_t GetNumberOfCoreRegisters() const { return number_of_core_registers_; }
   size_t GetNumberOfFloatingPointRegisters() const { return number_of_fpu_registers_; }
-  virtual void SetupBlockedRegisters(bool is_baseline) const = 0;
+  virtual void SetupBlockedRegisters() const = 0;
 
   virtual void ComputeSpillMask() {
     core_spill_mask_ = allocated_registers_.GetCoreRegisters() & core_callee_save_mask_;
@@ -196,6 +241,8 @@ class CodeGenerator {
 
   const CompilerOptions& GetCompilerOptions() const { return compiler_options_; }
 
+  void MaybeRecordStat(MethodCompilationStat compilation_stat, size_t count = 1) const;
+
   // Saves the register in the stack. Returns the size taken on stack.
   virtual size_t SaveCoreRegister(size_t stack_index, uint32_t reg_id) = 0;
   // Restores the register from the stack. Returns the size taken on stack.
@@ -208,6 +255,15 @@ class CodeGenerator {
   // Returns whether we should split long moves in parallel moves.
   virtual bool ShouldSplitLongMoves() const { return false; }
 
+  size_t GetNumberOfCoreCalleeSaveRegisters() const {
+    return POPCOUNT(core_callee_save_mask_);
+  }
+
+  size_t GetNumberOfCoreCallerSaveRegisters() const {
+    DCHECK_GE(GetNumberOfCoreRegisters(), GetNumberOfCoreCalleeSaveRegisters());
+    return GetNumberOfCoreRegisters() - GetNumberOfCoreCalleeSaveRegisters();
+  }
+
   bool IsCoreCalleeSaveRegister(int reg) const {
     return (core_callee_save_mask_ & (1 << reg)) != 0;
   }
@@ -216,24 +272,39 @@ class CodeGenerator {
     return (fpu_callee_save_mask_ & (1 << reg)) != 0;
   }
 
+  // Record native to dex mapping for a suspend point.  Required by runtime.
   void RecordPcInfo(HInstruction* instruction, uint32_t dex_pc, SlowPathCode* slow_path = nullptr);
+  // Check whether we have already recorded mapping at this PC.
+  bool HasStackMapAtCurrentPc();
+  // Record extra stack maps if we support native debugging.
+  void MaybeRecordNativeDebugInfo(HInstruction* instruction,
+                                  uint32_t dex_pc,
+                                  SlowPathCode* slow_path = nullptr);
+
   bool CanMoveNullCheckToUser(HNullCheck* null_check);
   void MaybeRecordImplicitNullCheck(HInstruction* instruction);
+  void GenerateNullCheck(HNullCheck* null_check);
+  virtual void GenerateImplicitNullCheck(HNullCheck* null_check) = 0;
+  virtual void GenerateExplicitNullCheck(HNullCheck* null_check) = 0;
 
+  // Records a stack map which the runtime might use to set catch phi values
+  // during exception delivery.
+  // TODO: Replace with a catch-entering instruction that records the environment.
+  void RecordCatchBlockInfo();
+
+  // Returns true if implicit null checks are allowed in the compiler options
+  // and if the null check is not inside a try block. We currently cannot do
+  // implicit null checks in that case because we need the NullCheckSlowPath to
+  // save live registers, which may be needed by the runtime to set catch phis.
+  bool IsImplicitNullCheckAllowed(HNullCheck* null_check) const;
+
+  // TODO: Avoid creating the `std::unique_ptr` here.
   void AddSlowPath(SlowPathCode* slow_path) {
-    slow_paths_.Add(slow_path);
+    slow_paths_.push_back(std::unique_ptr<SlowPathCode>(slow_path));
   }
 
-  void BuildSourceMap(DefaultSrcMap* src_map) const;
-  void BuildMappingTable(std::vector<uint8_t>* vector) const;
-  void BuildVMapTable(std::vector<uint8_t>* vector) const;
-  void BuildNativeGCMap(
-      std::vector<uint8_t>* vector, const DexCompilationUnit& dex_compilation_unit) const;
-  void BuildStackMaps(std::vector<uint8_t>* vector);
-
-  bool IsBaseline() const {
-    return is_baseline_;
-  }
+  void BuildStackMaps(MemoryRegion region, const DexFile::CodeItem& code_item);
+  size_t ComputeStackMapsSize();
 
   bool IsLeafMethod() const {
     return is_leaf_;
@@ -282,8 +353,16 @@ class CodeGenerator {
     return type == Primitive::kPrimNot && !value->IsNullConstant();
   }
 
+  void ValidateInvokeRuntime(HInstruction* instruction, SlowPathCode* slow_path);
+
   void AddAllocatedRegister(Location location) {
     allocated_registers_.Add(location);
+  }
+
+  bool HasAllocatedRegister(bool is_core, int reg) const {
+    return is_core
+        ? allocated_registers_.ContainsCoreRegister(reg)
+        : allocated_registers_.ContainsFloatingPointRegister(reg);
   }
 
   void AllocateLocations(HInstruction* instruction);
@@ -331,47 +410,120 @@ class CodeGenerator {
 
   virtual ParallelMoveResolver* GetMoveResolver() = 0;
 
+  static void CreateCommonInvokeLocationSummary(
+      HInvoke* invoke, InvokeDexCallingConventionVisitor* visitor);
+
+  void GenerateInvokeUnresolvedRuntimeCall(HInvokeUnresolved* invoke);
+
+  void CreateUnresolvedFieldLocationSummary(
+      HInstruction* field_access,
+      Primitive::Type field_type,
+      const FieldAccessCallingConvention& calling_convention);
+
+  void GenerateUnresolvedFieldAccess(
+      HInstruction* field_access,
+      Primitive::Type field_type,
+      uint32_t field_index,
+      uint32_t dex_pc,
+      const FieldAccessCallingConvention& calling_convention);
+
+  // TODO: This overlaps a bit with MoveFromReturnRegister. Refactor for a better design.
+  static void CreateLoadClassLocationSummary(HLoadClass* cls,
+                                             Location runtime_type_index_location,
+                                             Location runtime_return_location,
+                                             bool code_generator_supports_read_barrier = false);
+
+  static void CreateSystemArrayCopyLocationSummary(HInvoke* invoke);
+
+  void SetDisassemblyInformation(DisassemblyInformation* info) { disasm_info_ = info; }
+  DisassemblyInformation* GetDisassemblyInformation() const { return disasm_info_; }
+
+  virtual void InvokeRuntime(QuickEntrypointEnum entrypoint,
+                             HInstruction* instruction,
+                             uint32_t dex_pc,
+                             SlowPathCode* slow_path) = 0;
+
+  // Check if the desired_string_load_kind is supported. If it is, return it,
+  // otherwise return a fall-back info that should be used instead.
+  virtual HLoadString::LoadKind GetSupportedLoadStringKind(
+      HLoadString::LoadKind desired_string_load_kind) = 0;
+
+  // Check if the desired_dispatch_info is supported. If it is, return it,
+  // otherwise return a fall-back info that should be used instead.
+  virtual HInvokeStaticOrDirect::DispatchInfo GetSupportedInvokeStaticOrDirectDispatch(
+      const HInvokeStaticOrDirect::DispatchInfo& desired_dispatch_info,
+      MethodReference target_method) = 0;
+
+  // Generate a call to a static or direct method.
+  virtual void GenerateStaticOrDirectCall(HInvokeStaticOrDirect* invoke, Location temp) = 0;
+  // Generate a call to a virtual method.
+  virtual void GenerateVirtualCall(HInvokeVirtual* invoke, Location temp) = 0;
+
+  // Copy the result of a call into the given target.
+  virtual void MoveFromReturnRegister(Location trg, Primitive::Type type) = 0;
+
+  virtual void GenerateNop() = 0;
+
  protected:
+  // Method patch info used for recording locations of required linker patches and
+  // target methods. The target method can be used for various purposes, whether for
+  // patching the address of the method or the code pointer or a PC-relative call.
+  template <typename LabelType>
+  struct MethodPatchInfo {
+    explicit MethodPatchInfo(MethodReference m) : target_method(m), label() { }
+
+    MethodReference target_method;
+    LabelType label;
+  };
+
+  // String patch info used for recording locations of required linker patches and
+  // target strings. The actual string address can be absolute or PC-relative.
+  template <typename LabelType>
+  struct StringPatchInfo {
+    StringPatchInfo(const DexFile& df, uint32_t index)
+        : dex_file(df), string_index(index), label() { }
+
+    const DexFile& dex_file;
+    uint32_t string_index;
+    LabelType label;
+  };
+
   CodeGenerator(HGraph* graph,
                 size_t number_of_core_registers,
                 size_t number_of_fpu_registers,
                 size_t number_of_register_pairs,
                 uint32_t core_callee_save_mask,
                 uint32_t fpu_callee_save_mask,
-                const CompilerOptions& compiler_options)
+                const CompilerOptions& compiler_options,
+                OptimizingCompilerStats* stats)
       : frame_size_(0),
         core_spill_mask_(0),
         fpu_spill_mask_(0),
         first_register_slot_in_slow_path_(0),
-        blocked_core_registers_(graph->GetArena()->AllocArray<bool>(number_of_core_registers)),
-        blocked_fpu_registers_(graph->GetArena()->AllocArray<bool>(number_of_fpu_registers)),
-        blocked_register_pairs_(graph->GetArena()->AllocArray<bool>(number_of_register_pairs)),
+        blocked_core_registers_(graph->GetArena()->AllocArray<bool>(number_of_core_registers,
+                                                                    kArenaAllocCodeGenerator)),
+        blocked_fpu_registers_(graph->GetArena()->AllocArray<bool>(number_of_fpu_registers,
+                                                                   kArenaAllocCodeGenerator)),
+        blocked_register_pairs_(graph->GetArena()->AllocArray<bool>(number_of_register_pairs,
+                                                                    kArenaAllocCodeGenerator)),
         number_of_core_registers_(number_of_core_registers),
         number_of_fpu_registers_(number_of_fpu_registers),
         number_of_register_pairs_(number_of_register_pairs),
         core_callee_save_mask_(core_callee_save_mask),
         fpu_callee_save_mask_(fpu_callee_save_mask),
-        is_baseline_(false),
+        stack_map_stream_(graph->GetArena()),
+        block_order_(nullptr),
+        disasm_info_(nullptr),
+        stats_(stats),
         graph_(graph),
         compiler_options_(compiler_options),
-        pc_infos_(graph->GetArena(), 32),
-        slow_paths_(graph->GetArena(), 8),
-        block_order_(nullptr),
+        slow_paths_(graph->GetArena()->Adapter(kArenaAllocCodeGenerator)),
+        current_slow_path_(nullptr),
         current_block_index_(0),
         is_leaf_(true),
-        requires_current_method_(false),
-        stack_map_stream_(graph->GetArena()) {}
-
-  // Register allocation logic.
-  void AllocateRegistersLocally(HInstruction* instruction) const;
-
-  // Backend specific implementation for allocating a register.
-  virtual Location AllocateFreeRegister(Primitive::Type type) const = 0;
-
-  static size_t FindFreeEntry(bool* array, size_t length);
-  static size_t FindTwoFreeConsecutiveAlignedEntries(bool* array, size_t length);
-
-  virtual Location GetStackLocation(HLoadLocal* load) const = 0;
+        requires_current_method_(false) {
+    slow_paths_.reserve(8);
+  }
 
   virtual HGraphVisitor* GetLocationBuilder() = 0;
   virtual HGraphVisitor* GetInstructionVisitor() = 0;
@@ -401,12 +553,30 @@ class CodeGenerator {
     return instruction_set == kX86 || instruction_set == kX86_64;
   }
 
-  // Arm64 has its own type for a label, so we need to templatize this method
+  // Arm64 has its own type for a label, so we need to templatize these methods
   // to share the logic.
-  template <typename T>
-  T* CommonGetLabelOf(T* raw_pointer_to_labels_array, HBasicBlock* block) const {
+
+  template <typename LabelType>
+  LabelType* CommonInitializeLabels() {
+    // We use raw array allocations instead of ArenaVector<> because Labels are
+    // non-constructible and non-movable and as such cannot be held in a vector.
+    size_t size = GetGraph()->GetBlocks().size();
+    LabelType* labels = GetGraph()->GetArena()->AllocArray<LabelType>(size,
+                                                                      kArenaAllocCodeGenerator);
+    for (size_t i = 0; i != size; ++i) {
+      new(labels + i) LabelType();
+    }
+    return labels;
+  }
+
+  template <typename LabelType>
+  LabelType* CommonGetLabelOf(LabelType* raw_pointer_to_labels_array, HBasicBlock* block) const {
     block = FirstNonEmptyBlock(block);
     return raw_pointer_to_labels_array + block->GetBlockId();
+  }
+
+  SlowPathCode* GetCurrentSlowPath() {
+    return current_slow_path_;
   }
 
   // Frame size required for this method.
@@ -430,23 +600,28 @@ class CodeGenerator {
   const uint32_t core_callee_save_mask_;
   const uint32_t fpu_callee_save_mask_;
 
-  // Whether we are using baseline.
-  bool is_baseline_;
+  StackMapStream stack_map_stream_;
+
+  // The order to use for code generation.
+  const ArenaVector<HBasicBlock*>* block_order_;
+
+  DisassemblyInformation* disasm_info_;
 
  private:
-  void InitLocationsBaseline(HInstruction* instruction);
   size_t GetStackOffsetOfSavedRegister(size_t index);
-  void CompileInternal(CodeAllocator* allocator, bool is_baseline);
+  void GenerateSlowPaths();
   void BlockIfInRegister(Location location, bool is_out = false) const;
+  void EmitEnvironment(HEnvironment* environment, SlowPathCode* slow_path);
+
+  OptimizingCompilerStats* stats_;
 
   HGraph* const graph_;
   const CompilerOptions& compiler_options_;
 
-  GrowableArray<PcInfo> pc_infos_;
-  GrowableArray<SlowPathCode*> slow_paths_;
+  ArenaVector<std::unique_ptr<SlowPathCode>> slow_paths_;
 
-  // The order to use for code generation.
-  const GrowableArray<HBasicBlock*>* block_order_;
+  // The current slow-path that we're generating code for.
+  SlowPathCode* current_slow_path_;
 
   // The current block index in `block_order_` of the block
   // we are generating code for.
@@ -457,8 +632,6 @@ class CodeGenerator {
 
   // Whether an instruction in the graph accesses the current method.
   bool requires_current_method_;
-
-  StackMapStream stack_map_stream_;
 
   friend class OptimizingCFITest;
 
@@ -506,6 +679,122 @@ class CallingConvention {
   const size_t pointer_size_;
 
   DISALLOW_COPY_AND_ASSIGN(CallingConvention);
+};
+
+/**
+ * A templated class SlowPathGenerator with a templated method NewSlowPath()
+ * that can be used by any code generator to share equivalent slow-paths with
+ * the objective of reducing generated code size.
+ *
+ * InstructionType:  instruction that requires SlowPathCodeType
+ * SlowPathCodeType: subclass of SlowPathCode, with constructor SlowPathCodeType(InstructionType *)
+ */
+template <typename InstructionType>
+class SlowPathGenerator {
+  static_assert(std::is_base_of<HInstruction, InstructionType>::value,
+                "InstructionType is not a subclass of art::HInstruction");
+
+ public:
+  SlowPathGenerator(HGraph* graph, CodeGenerator* codegen)
+      : graph_(graph),
+        codegen_(codegen),
+        slow_path_map_(std::less<uint32_t>(), graph->GetArena()->Adapter(kArenaAllocSlowPaths)) {}
+
+  // Creates and adds a new slow-path, if needed, or returns existing one otherwise.
+  // Templating the method (rather than the whole class) on the slow-path type enables
+  // keeping this code at a generic, non architecture-specific place.
+  //
+  // NOTE: This approach assumes each InstructionType only generates one SlowPathCodeType.
+  //       To relax this requirement, we would need some RTTI on the stored slow-paths,
+  //       or template the class as a whole on SlowPathType.
+  template <typename SlowPathCodeType>
+  SlowPathCodeType* NewSlowPath(InstructionType* instruction) {
+    static_assert(std::is_base_of<SlowPathCode, SlowPathCodeType>::value,
+                  "SlowPathCodeType is not a subclass of art::SlowPathCode");
+    static_assert(std::is_constructible<SlowPathCodeType, InstructionType*>::value,
+                  "SlowPathCodeType is not constructible from InstructionType*");
+    // Iterate over potential candidates for sharing. Currently, only same-typed
+    // slow-paths with exactly the same dex-pc are viable candidates.
+    // TODO: pass dex-pc/slow-path-type to run-time to allow even more sharing?
+    const uint32_t dex_pc = instruction->GetDexPc();
+    auto iter = slow_path_map_.find(dex_pc);
+    if (iter != slow_path_map_.end()) {
+      auto candidates = iter->second;
+      for (const auto& it : candidates) {
+        InstructionType* other_instruction = it.first;
+        SlowPathCodeType* other_slow_path = down_cast<SlowPathCodeType*>(it.second);
+        // Determine if the instructions allow for slow-path sharing.
+        if (HaveSameLiveRegisters(instruction, other_instruction) &&
+            HaveSameStackMap(instruction, other_instruction)) {
+          // Can share: reuse existing one.
+          return other_slow_path;
+        }
+      }
+    } else {
+      // First time this dex-pc is seen.
+      iter = slow_path_map_.Put(dex_pc, {{}, {graph_->GetArena()->Adapter(kArenaAllocSlowPaths)}});
+    }
+    // Cannot share: create and add new slow-path for this particular dex-pc.
+    SlowPathCodeType* slow_path = new (graph_->GetArena()) SlowPathCodeType(instruction);
+    iter->second.emplace_back(std::make_pair(instruction, slow_path));
+    codegen_->AddSlowPath(slow_path);
+    return slow_path;
+  }
+
+ private:
+  // Tests if both instructions have same set of live physical registers. This ensures
+  // the slow-path has exactly the same preamble on saving these registers to stack.
+  bool HaveSameLiveRegisters(const InstructionType* i1, const InstructionType* i2) const {
+    const uint32_t core_spill = ~codegen_->GetCoreSpillMask();
+    const uint32_t fpu_spill = ~codegen_->GetFpuSpillMask();
+    RegisterSet* live1 = i1->GetLocations()->GetLiveRegisters();
+    RegisterSet* live2 = i2->GetLocations()->GetLiveRegisters();
+    return (((live1->GetCoreRegisters() & core_spill) ==
+             (live2->GetCoreRegisters() & core_spill)) &&
+            ((live1->GetFloatingPointRegisters() & fpu_spill) ==
+             (live2->GetFloatingPointRegisters() & fpu_spill)));
+  }
+
+  // Tests if both instructions have the same stack map. This ensures the interpreter
+  // will find exactly the same dex-registers at the same entries.
+  bool HaveSameStackMap(const InstructionType* i1, const InstructionType* i2) const {
+    DCHECK(i1->HasEnvironment());
+    DCHECK(i2->HasEnvironment());
+    // We conservatively test if the two instructions find exactly the same instructions
+    // and location in each dex-register. This guarantees they will have the same stack map.
+    HEnvironment* e1 = i1->GetEnvironment();
+    HEnvironment* e2 = i2->GetEnvironment();
+    if (e1->GetParent() != e2->GetParent() || e1->Size() != e2->Size()) {
+      return false;
+    }
+    for (size_t i = 0, sz = e1->Size(); i < sz; ++i) {
+      if (e1->GetInstructionAt(i) != e2->GetInstructionAt(i) ||
+          !e1->GetLocationAt(i).Equals(e2->GetLocationAt(i))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  HGraph* const graph_;
+  CodeGenerator* const codegen_;
+
+  // Map from dex-pc to vector of already existing instruction/slow-path pairs.
+  ArenaSafeMap<uint32_t, ArenaVector<std::pair<InstructionType*, SlowPathCode*>>> slow_path_map_;
+
+  DISALLOW_COPY_AND_ASSIGN(SlowPathGenerator);
+};
+
+class InstructionCodeGenerator : public HGraphVisitor {
+ public:
+  InstructionCodeGenerator(HGraph* graph, CodeGenerator* codegen)
+      : HGraphVisitor(graph),
+        deopt_slow_paths_(graph, codegen) {}
+
+ protected:
+  // Add slow-path generator for each instruction/slow-path combination that desires sharing.
+  // TODO: under current regime, only deopt sharing make sense; extend later.
+  SlowPathGenerator<HDeoptimize> deopt_slow_paths_;
 };
 
 }  // namespace art

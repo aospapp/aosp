@@ -16,12 +16,14 @@
 
 #include "bcc/Renderscript/RSCompilerDriver.h"
 
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include <llvm/IR/Module.h>
 #include "llvm/Linker/Linker.h"
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/Path.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/Target/TargetMachine.h>
 
 #include "bcinfo/BitcodeWrapper.h"
 #include "bcc/Assert.h"
@@ -42,7 +44,7 @@
 #include <sstream>
 #include <string>
 
-#ifdef HAVE_ANDROID_OS
+#ifdef __ANDROID__
 #include <cutils/properties.h>
 #endif
 #include <utils/StopWatch.h>
@@ -96,7 +98,7 @@ bool RSCompilerDriver::setupConfig(const RSScript &pScript) {
 #if defined(PROVIDE_ARM_CODEGEN)
   bcinfo::MetadataExtractor me(&pScript.getSource().getModule());
   if (!me.extract()) {
-    assert("Could not extract RS pragma metadata for module!");
+    bccAssert("Could not extract RS pragma metadata for module!");
   }
 
   bool script_full_prec = (me.getRSFloatPrecision() == bcinfo::RS_FP_Full);
@@ -123,6 +125,19 @@ Compiler::ErrorCode RSCompilerDriver::compileScript(RSScript& pScript, const cha
   // functions.  Fail if verification returns an error.
   if (mCompiler.screenGlobalFunctions(pScript) != Compiler::kSuccess) {
     return Compiler::kErrInvalidSource;
+  }
+
+  // For (32-bit) x86, translate GEPs on structs or arrays of structs to GEPs on
+  // int8* with byte offsets.  This is to ensure that layout of structs with
+  // 64-bit scalar fields matches frontend-generated code that adheres to ARM
+  // data layout.
+  //
+  // The translation is done before RenderScript runtime library is linked
+  // (during LinkRuntime below) to ensure that RenderScript-driver-provided
+  // structs (like Allocation_t) don't get forced into using the ARM layout
+  // rules.
+  if (mCompiler.getTargetMachine().getTargetTriple().getArch() == llvm::Triple::x86) {
+    mCompiler.translateGEPs(pScript);
   }
 
   //===--------------------------------------------------------------------===//
@@ -249,7 +264,7 @@ bool RSCompilerDriver::build(BCCContext &pContext,
     return false;
   }
 
-  RSScript script(*source);
+  RSScript script(*source, getConfig());
   if (pLinkRuntimeCallback) {
     setLinkRuntimeCallback(pLinkRuntimeCallback);
   }
@@ -264,6 +279,20 @@ bool RSCompilerDriver::build(BCCContext &pContext,
   script.setCompilerVersion(wrapper.getCompilerVersion());
   script.setOptimizationLevel(static_cast<RSScript::OptimizationLevel>(
                               wrapper.getOptimizationLevel()));
+
+// Assertion-enabled builds can't compile legacy bitcode (due to the use of
+// getName() with anonymous structure definitions).
+#ifdef FORCE_BUILD_LLVM_DISABLE_NDEBUG
+  static const uint32_t kSlangMinimumFixedStructureNames = 2310;
+  uint32_t version = wrapper.getCompilerVersion();
+  if (version < kSlangMinimumFixedStructureNames) {
+    ALOGE("Found invalid legacy bitcode compiled with a version %u llvm-rs-cc "
+          "used with an assertion build", version);
+    ALOGE("Please recompile this apk with a more recent llvm-rs-cc "
+          "(at least %u)", kSlangMinimumFixedStructureNames);
+    return false;
+  }
+#endif
 
   //===--------------------------------------------------------------------===//
   // Compile the script
@@ -285,6 +314,16 @@ bool RSCompilerDriver::buildScriptGroup(
     const std::list<std::string>& fused,
     const std::list<std::list<std::pair<int, int>>>& invokes,
     const std::list<std::string>& invokeBatchNames) {
+
+  // Read and store metadata before linking the modules together
+  std::vector<bcinfo::MetadataExtractor*> metadata;
+  for (Source* source : sources) {
+    if (!source->extractMetadata()) {
+      ALOGE("Cannot extract metadata from module");
+      return false;
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Link all input modules into a single module
   // ---------------------------------------------------------------------------
@@ -292,12 +331,15 @@ bool RSCompilerDriver::buildScriptGroup(
   llvm::LLVMContext& context = Context.getLLVMContext();
   llvm::Module module("Merged Script Group", context);
 
-  llvm::Linker linker(&module);
+  llvm::Linker linker(module);
   for (Source* source : sources) {
-    if (linker.linkInModule(&source->getModule())) {
+    std::unique_ptr<llvm::Module> sourceModule(&source->getModule());
+    if (linker.linkInModule(std::move(sourceModule))) {
       ALOGE("Linking for module in source failed.");
       return false;
     }
+    // source->getModule() is destroyed after linking.
+    source->markModuleDestroyed();
   }
 
   // ---------------------------------------------------------------------------

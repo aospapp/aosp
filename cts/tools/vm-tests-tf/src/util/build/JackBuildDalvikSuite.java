@@ -20,9 +20,23 @@ import java.io.IOException;
 
 public class JackBuildDalvikSuite {
 
+    public static String JACK;
+
     public static void main(String[] args) throws IOException {
 
-        BuildDalvikSuite.parseArgs(args);
+        String[] remainingArgs;
+        if (args.length > 0) {
+            JACK = args[0];
+            remainingArgs = new String[args.length - 1];
+            System.arraycopy(args, 1, remainingArgs, 0, remainingArgs.length);
+        } else {
+            remainingArgs = args;
+        }
+
+        if (!BuildDalvikSuite.parseArgs(remainingArgs)) {
+            printUsage();
+            System.exit(-1);
+        }
 
         long start = System.currentTimeMillis();
         BuildDalvikSuite cat = new BuildDalvikSuite(true);
@@ -30,5 +44,12 @@ public class JackBuildDalvikSuite {
         long end = System.currentTimeMillis();
 
         System.out.println("elapsed seconds: " + (end - start) / 1000);
+    }
+
+
+    private static void printUsage() {
+        System.out.println("usage: java-src-folder output-folder classpath " +
+                           "generated-main-files compiled_output generated-main-files " +
+                           "[restrict-to-opcode]");
     }
 }

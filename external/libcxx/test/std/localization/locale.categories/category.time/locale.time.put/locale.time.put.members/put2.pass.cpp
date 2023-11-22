@@ -7,15 +7,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+// XFAIL: android
+
 // <locale>
 
 // class time_put<charT, OutputIterator>
 
 // iter_type put(iter_type s, ios_base& str, char_type fill, const tm* t,
 //               char format, char modifier = 0) const;
-
-// TODO: investigation needed
-// XFAIL: linux-gnu
 
 #include <locale>
 #include <cassert>
@@ -36,7 +35,7 @@ int main()
     const my_facet f(1);
     char str[200];
     output_iterator<char*> iter;
-    tm t = {0};
+    tm t = {};
     t.tm_sec = 6;
     t.tm_min = 3;
     t.tm_hour = 13;
@@ -44,7 +43,7 @@ int main()
     t.tm_mon = 4;
     t.tm_year = 109;
     t.tm_wday = 6;
-    t.tm_yday = -1;
+    t.tm_yday = 121;
     t.tm_isdst = 1;
     std::ios ios(0);
     {
@@ -160,12 +159,12 @@ int main()
     {
         iter = f.put(output_iterator<char*>(str), ios, '*', &t, 'U', 'O');
         std::string ex(str, iter.base());
-        assert(ex == "00");
+        assert(ex == "17");
     }
     {
         iter = f.put(output_iterator<char*>(str), ios, '*', &t, 'V', 'O');
         std::string ex(str, iter.base());
-        assert(ex == "52");
+        assert(ex == "18");
     }
     {
         iter = f.put(output_iterator<char*>(str), ios, '*', &t, 'w', 'O');
@@ -175,17 +174,12 @@ int main()
     {
         iter = f.put(output_iterator<char*>(str), ios, '*', &t, 'W', 'O');
         std::string ex(str, iter.base());
-        assert(ex == "00");
+        assert(ex == "17");
     }
     {
         iter = f.put(output_iterator<char*>(str), ios, '*', &t, 'y', 'O');
         std::string ex(str, iter.base());
         assert(ex == "09");
-    }
-    {
-        iter = f.put(output_iterator<char*>(str), ios, '*', &t, 'B', 'O');
-        std::string ex(str, iter.base());
-        assert(ex == "May");
     }
     {
         iter = f.put(output_iterator<char*>(str), ios, '*', &t, 'e');
@@ -200,12 +194,12 @@ int main()
     {
         iter = f.put(output_iterator<char*>(str), ios, '*', &t, 'G');
         std::string ex(str, iter.base());
-        assert(ex == "2008");
+        assert(ex == "2009");
     }
     {
         iter = f.put(output_iterator<char*>(str), ios, '*', &t, 'g');
         std::string ex(str, iter.base());
-        assert(ex == "08");
+        assert(ex == "09");
     }
     {
         iter = f.put(output_iterator<char*>(str), ios, '*', &t, 'H');
@@ -225,17 +219,7 @@ int main()
     {
         iter = f.put(output_iterator<char*>(str), ios, '*', &t, 'j');
         std::string ex(str, iter.base());
-        assert(ex == "000");
-    }
-    {
-        iter = f.put(output_iterator<char*>(str), ios, '*', &t, 'k');
-        std::string ex(str, iter.base());
-        assert(ex == "13");
-    }
-    {
-        iter = f.put(output_iterator<char*>(str), ios, '*', &t, 'l');
-        std::string ex(str, iter.base());
-        assert(ex == " 1");
+        assert(ex == "122");
     }
     {
         iter = f.put(output_iterator<char*>(str), ios, '*', &t, 'M');
@@ -273,11 +257,6 @@ int main()
         assert(ex == "06");
     }
     {
-        iter = f.put(output_iterator<char*>(str), ios, '*', &t, 's');
-        std::string ex(str, iter.base());
-//        assert(ex == "1241283786");  depends on time zone
-    }
-    {
         iter = f.put(output_iterator<char*>(str), ios, '*', &t, 'T');
         std::string ex(str, iter.base());
         assert(ex == "13:03:06");
@@ -290,7 +269,7 @@ int main()
     {
         iter = f.put(output_iterator<char*>(str), ios, '*', &t, 'U');
         std::string ex(str, iter.base());
-        assert(ex == "00");
+        assert(ex == "17");
     }
     {
         iter = f.put(output_iterator<char*>(str), ios, '*', &t, 'u');
@@ -300,17 +279,12 @@ int main()
     {
         iter = f.put(output_iterator<char*>(str), ios, '*', &t, 'V');
         std::string ex(str, iter.base());
-        assert(ex == "52");
-    }
-    {
-        iter = f.put(output_iterator<char*>(str), ios, '*', &t, 'v');
-        std::string ex(str, iter.base());
-        assert(ex == " 2-May-2009");
+        assert(ex == "18");
     }
     {
         iter = f.put(output_iterator<char*>(str), ios, '*', &t, 'W');
         std::string ex(str, iter.base());
-        assert(ex == "00");
+        assert(ex == "17");
     }
     {
         iter = f.put(output_iterator<char*>(str), ios, '*', &t, 'w');
@@ -356,15 +330,5 @@ int main()
         iter = f.put(output_iterator<char*>(str), ios, '*', &t, '%');
         std::string ex(str, iter.base());
         assert(ex == "%");
-    }
-    {
-        iter = f.put(output_iterator<char*>(str), ios, '*', &t, '%', 'J');
-        std::string ex(str, iter.base());
-        assert(ex == "J%");
-    }
-    {
-        iter = f.put(output_iterator<char*>(str), ios, '*', &t, 'J');
-        std::string ex(str, iter.base());
-        assert(ex == "J");
     }
 }

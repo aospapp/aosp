@@ -24,13 +24,13 @@ import android.test.ActivityInstrumentationTestCase2;
 public class CompressedTextureTest extends ActivityInstrumentationTestCase2<CompressedTextureCtsActivity> {
 
     public CompressedTextureTest() {
-        super("com.android.cts.graphics", CompressedTextureCtsActivity.class);
+        super("android.graphics.cts", CompressedTextureCtsActivity.class);
     }
 
     private void launchTest(String format) throws Exception {
         Bundle extras = new Bundle();
         extras.putString("TextureFormat", format);
-        CompressedTextureCtsActivity activity = launchActivity("com.android.cts.graphics",
+        CompressedTextureCtsActivity activity = launchActivity("android.graphics.cts",
                 CompressedTextureCtsActivity.class, extras);
         activity.finish();
         assertTrue(activity.getPassed());

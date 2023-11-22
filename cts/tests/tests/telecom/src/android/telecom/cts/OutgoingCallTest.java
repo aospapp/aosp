@@ -18,6 +18,8 @@ package android.telecom.cts;
 
 import static android.telecom.cts.TestUtils.shouldTestTelecom;
 
+import android.content.Context;
+import android.media.AudioManager;
 import android.os.Bundle;
 import android.telecom.CallAudioState;
 import android.telecom.TelecomManager;
@@ -70,7 +72,7 @@ public class OutgoingCallTest extends BaseTelecomTestWithMockServices {
         extras.putBoolean(TelecomManager.EXTRA_START_CALL_WITH_SPEAKERPHONE, false);
         placeAndVerifyCall(extras);
         verifyConnectionForOutgoingCall();
-        assertAudioRoute(mInCallCallbacks.getService(), CallAudioState.ROUTE_EARPIECE);
+        assertNotAudioRoute(mInCallCallbacks.getService(), CallAudioState.ROUTE_SPEAKER);
     }
 
     public void testStartCallWithSpeakerphoneNotProvided_SpeakerphoneOffByDefault() {
@@ -78,8 +80,10 @@ public class OutgoingCallTest extends BaseTelecomTestWithMockServices {
             return;
         }
 
+        AudioManager am = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
+
         placeAndVerifyCall();
         verifyConnectionForOutgoingCall();
-        assertAudioRoute(mInCallCallbacks.getService(), CallAudioState.ROUTE_EARPIECE);
+        assertNotAudioRoute(mInCallCallbacks.getService(), CallAudioState.ROUTE_SPEAKER);
     }
 }

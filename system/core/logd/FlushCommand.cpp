@@ -16,24 +16,30 @@
 
 #include <stdlib.h>
 
+#include <private/android_filesystem_config.h>
+
 #include "FlushCommand.h"
+#include "LogBuffer.h"
 #include "LogBufferElement.h"
 #include "LogCommand.h"
 #include "LogReader.h"
 #include "LogTimes.h"
+#include "LogUtils.h"
 
 FlushCommand::FlushCommand(LogReader &reader,
                            bool nonBlock,
                            unsigned long tail,
                            unsigned int logMask,
                            pid_t pid,
-                           uint64_t start) :
+                           uint64_t start,
+                           uint64_t timeout) :
         mReader(reader),
         mNonBlock(nonBlock),
         mTail(tail),
         mLogMask(logMask),
         mPid(pid),
-        mStart(start) {
+        mStart(start),
+        mTimeout((start > 1) ? timeout : 0) {
 }
 
 // runSocketCommand is called once for every open client on the
@@ -54,6 +60,10 @@ void FlushCommand::runSocketCommand(SocketClient *client) {
     while(it != times.end()) {
         entry = (*it);
         if (entry->mClient == client) {
+            if (entry->mTimeout.tv_sec || entry->mTimeout.tv_nsec) {
+                LogTimeEntry::unlock();
+                return;
+            }
             entry->triggerReader_Locked();
             if (entry->runningReader_Locked()) {
                 LogTimeEntry::unlock();
@@ -71,8 +81,9 @@ void FlushCommand::runSocketCommand(SocketClient *client) {
             LogTimeEntry::unlock();
             return;
         }
-        entry = new LogTimeEntry(mReader, client, mNonBlock, mTail, mLogMask, mPid, mStart);
-        times.push_back(entry);
+        entry = new LogTimeEntry(mReader, client, mNonBlock, mTail, mLogMask,
+                                 mPid, mStart, mTimeout);
+        times.push_front(entry);
     }
 
     client->incRef();
@@ -84,4 +95,12 @@ void FlushCommand::runSocketCommand(SocketClient *client) {
 
 bool FlushCommand::hasReadLogs(SocketClient *client) {
     return clientHasLogCredentials(client);
+}
+
+static bool clientHasSecurityCredentials(SocketClient *client) {
+    return (client->getUid() == AID_SYSTEM) || (client->getGid() == AID_SYSTEM);
+}
+
+bool FlushCommand::hasSecurityLogs(SocketClient *client) {
+    return clientHasSecurityCredentials(client);
 }

@@ -16,7 +16,8 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
+import android.os.Parcelable;
+import android.widget.cts.R;
 
 
 import android.app.Activity;
@@ -44,7 +45,7 @@ public class CheckedTextViewTest extends
     private Instrumentation mInstrumentation;
 
     public CheckedTextViewTest() {
-        super("com.android.cts.widget", CheckedTextViewCtsActivity.class);
+        super("android.widget.cts", CheckedTextViewCtsActivity.class);
     }
 
     @Override
@@ -264,6 +265,35 @@ public class CheckedTextViewTest extends
         checkedTextView.setCheckMarkDrawable(0);
         assertEquals(basePaddingRight, checkedTextView.getPaddingRight());
         assertFalse(checkedTextView.isLayoutRequested());
+    }
+
+    public void testSetCheckMarkByMixedTypes() {
+        CheckedTextView checkedTextView = new MockCheckedTextView(mActivity);
+        cleanUpForceLayoutFlags(checkedTextView);
+
+        // Specifically test for b/22626247 (AOSP issue 180455).
+        checkedTextView.setCheckMarkDrawable(R.drawable.scenery);
+        checkedTextView.setCheckMarkDrawable(null);
+        checkedTextView.setCheckMarkDrawable(R.drawable.scenery);
+        assertNotNull(checkedTextView.getCheckMarkDrawable());
+    }
+
+    public void testAccessInstanceState() {
+        CheckedTextView checkedTextView = new MockCheckedTextView(mActivity);
+        Parcelable state;
+
+        assertFalse(checkedTextView.isChecked());
+        assertFalse(checkedTextView.getFreezesText());
+
+        state = checkedTextView.onSaveInstanceState();
+        assertNotNull(state);
+        assertFalse(checkedTextView.getFreezesText());
+
+        checkedTextView.setChecked(true);
+
+        checkedTextView.onRestoreInstanceState(state);
+        assertFalse(checkedTextView.isChecked());
+        assertTrue(checkedTextView.isLayoutRequested());
     }
 
     public void testOnDraw() {

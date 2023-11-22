@@ -17,21 +17,23 @@ package android.uirendering.cts.testclasses;
 
 import android.graphics.Color;
 import android.graphics.Rect;
+import android.test.suitebuilder.annotation.MediumTest;
 import android.uirendering.cts.bitmapverifiers.ColorVerifier;
 import android.uirendering.cts.bitmapverifiers.RectVerifier;
-import com.android.cts.uirendering.R;
+import android.uirendering.cts.R;
 
-import android.test.suitebuilder.annotation.SmallTest;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
+import org.junit.Test;
 
+@MediumTest
 public class LayoutTests extends ActivityTestBase {
-    @SmallTest
+    @Test
     public void testSimpleRedLayout() {
         createTest().addLayout(R.layout.simple_red_layout, null, false).runWithVerifier(
                 new ColorVerifier(Color.RED));
     }
 
-    @SmallTest
+    @Test
     public void testSimpleRectLayout() {
         createTest().addLayout(R.layout.simple_rect_layout, null, false).runWithVerifier(
                 new RectVerifier(Color.WHITE, Color.BLUE, new Rect(5, 5, 85, 85)));

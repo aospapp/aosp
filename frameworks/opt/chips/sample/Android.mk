@@ -27,7 +27,7 @@ LOCAL_PACKAGE_NAME := libChipsSample
 
 LOCAL_STATIC_JAVA_LIBRARIES += libchips
 
-LOCAL_SDK_VERSION := 18
+LOCAL_SDK_VERSION := current
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src) \
         $(call all-logtags-files-under, $(src_dirs))

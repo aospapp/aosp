@@ -17,10 +17,14 @@
 package android.bluetooth.client.map;
 
 import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Looper;
+import android.os.Message;
 import android.os.Process;
 import android.util.Log;
 
 import java.io.IOException;
+import java.lang.ref.WeakReference;
 
 import javax.obex.ClientSession;
 import javax.obex.HeaderSet;
@@ -35,97 +39,120 @@ class BluetoothMasObexClientSession {
             0x08, 0x00, 0x20, 0x0c, (byte) 0x9a, 0x66
     };
 
+    private boolean DBG = true;
+
     static final int MSG_OBEX_CONNECTED = 100;
     static final int MSG_OBEX_DISCONNECTED = 101;
     static final int MSG_REQUEST_COMPLETED = 102;
+
+    private static final int CONNECT = 0;
+    private static final int DISCONNECT = 1;
+    private static final int REQUEST = 2;
 
     private final ObexTransport mTransport;
 
     private final Handler mSessionHandler;
 
-    private ClientThread mClientThread;
+    private ClientSession mSession;
 
-    private volatile boolean mInterrupted;
+    private HandlerThread mThread;
+    private Handler mHandler;
 
-    private class ClientThread extends Thread {
-        private final ObexTransport mTransport;
+    private boolean mConnected;
 
-        private ClientSession mSession;
+    private static class ObexClientHandler extends Handler {
+       WeakReference<BluetoothMasObexClientSession> mInst;
 
-        private BluetoothMasRequest mRequest;
+       ObexClientHandler(Looper looper, BluetoothMasObexClientSession inst) {
+          super(looper);
+          mInst = new WeakReference<BluetoothMasObexClientSession>(inst);
+       }
 
-        private boolean mConnected;
+       @Override
+       public void handleMessage(Message msg) {
+          BluetoothMasObexClientSession inst = mInst.get();
+          if (!inst.connected() && msg.what != CONNECT) {
+              Log.w(TAG, "Cannot execute " + msg + " when not CONNECTED.");
+              return;
+          }
 
-        public ClientThread(ObexTransport transport) {
-            super("MAS ClientThread");
+          switch (msg.what) {
+              case CONNECT:
+                  inst.connect();
+                  break;
 
-            mTransport = transport;
-            mConnected = false;
+              case DISCONNECT:
+                  inst.disconnect();
+                  break;
+
+              case REQUEST:
+                  inst.executeRequest((BluetoothMasRequest) msg.obj);
+                  break;
+          }
+       }
+    }
+
+    public BluetoothMasObexClientSession(ObexTransport transport, Handler handler) {
+        mTransport = transport;
+        mSessionHandler = handler;
+    }
+
+    public void start() {
+        if (DBG) Log.d(TAG, "start called.");
+        if (mConnected) {
+            if (DBG) Log.d(TAG, "Already connected, nothing to do.");
+            return;
         }
 
-        @Override
-        public void run() {
-            Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
+        // Start a thread to handle messages here.
+        mThread = new HandlerThread("BluetoothMasObexClientSessionThread");
+        mThread.start();
+        mHandler = new ObexClientHandler(mThread.getLooper(), this);
 
-            connect();
+        // Connect it to the target device via OBEX.
+        mHandler.obtainMessage(CONNECT).sendToTarget();
+    }
 
-            if (mConnected) {
+    public boolean makeRequest(BluetoothMasRequest request) {
+        if (DBG) Log.d(TAG, "makeRequest called with: " + request);
+
+        boolean status = mHandler.sendMessage(mHandler.obtainMessage(REQUEST, request));
+        if (!status) {
+            Log.e(TAG, "Adding messages failed, state: " + mConnected);
+            return false;
+        }
+        return true;
+    }
+
+    public void stop() {
+        if (DBG) Log.d(TAG, "stop called...");
+
+        mThread.quit();
+        disconnect();
+    }
+
+    private void connect() {
+        try {
+            mSession = new ClientSession(mTransport);
+
+            HeaderSet headerset = new HeaderSet();
+            headerset.setHeader(HeaderSet.TARGET, MAS_TARGET);
+
+            headerset = mSession.connect(headerset);
+
+            if (headerset.getResponseCode() == ResponseCodes.OBEX_HTTP_OK) {
+                mConnected = true;
                 mSessionHandler.obtainMessage(MSG_OBEX_CONNECTED).sendToTarget();
             } else {
-                mSessionHandler.obtainMessage(MSG_OBEX_DISCONNECTED).sendToTarget();
-                return;
+                disconnect();
             }
-
-            while (!mInterrupted) {
-                synchronized (this) {
-                    if (mRequest == null) {
-                        try {
-                            this.wait();
-                        } catch (InterruptedException e) {
-                            mInterrupted = true;
-                        }
-                    }
-                }
-
-                if (!mInterrupted && mRequest != null) {
-                    try {
-                        mRequest.execute(mSession);
-                    } catch (IOException e) {
-                        // this will "disconnect" to cleanup
-                        mInterrupted = true;
-                    }
-
-                    BluetoothMasRequest oldReq = mRequest;
-                    mRequest = null;
-
-                    mSessionHandler.obtainMessage(MSG_REQUEST_COMPLETED, oldReq).sendToTarget();
-                }
-            }
-
+        } catch (IOException e) {
             disconnect();
-
-            mSessionHandler.obtainMessage(MSG_OBEX_DISCONNECTED).sendToTarget();
         }
+    }
 
-        private void connect() {
-            try {
-                mSession = new ClientSession(mTransport);
-
-                HeaderSet headerset = new HeaderSet();
-                headerset.setHeader(HeaderSet.TARGET, MAS_TARGET);
-
-                headerset = mSession.connect(headerset);
-
-                if (headerset.getResponseCode() == ResponseCodes.OBEX_HTTP_OK) {
-                    mConnected = true;
-                } else {
-                    disconnect();
-                }
-            } catch (IOException e) {
-            }
-        }
-
-        private void disconnect() {
+    private void disconnect() {
+        if (mSession != null) {
             try {
                 mSession.disconnect(null);
             } catch (IOException e) {
@@ -135,58 +162,26 @@ class BluetoothMasObexClientSession {
                 mSession.close();
             } catch (IOException e) {
             }
-
-            mConnected = false;
         }
 
-        public synchronized boolean schedule(BluetoothMasRequest request) {
-            if (mRequest != null) {
-                return false;
-            }
+        mConnected = false;
+        mSessionHandler.obtainMessage(MSG_OBEX_DISCONNECTED).sendToTarget();
+    }
 
-            mRequest = request;
-            notify();
+    private void executeRequest(BluetoothMasRequest request) {
+        try {
+            request.execute(mSession);
+            mSessionHandler.obtainMessage(MSG_REQUEST_COMPLETED, request).sendToTarget();
+        } catch (IOException e) {
+            if (DBG) Log.d(TAG, "Request failed: " + request);
 
-            return true;
+            // Disconnect to cleanup.
+            disconnect();
         }
     }
 
-    public BluetoothMasObexClientSession(ObexTransport transport, Handler handler) {
-        mTransport = transport;
-        mSessionHandler = handler;
-    }
 
-    public void start() {
-        if (mClientThread == null) {
-            mClientThread = new ClientThread(mTransport);
-            mClientThread.start();
-        }
-
-    }
-
-    public void stop() {
-        if (mClientThread != null) {
-            mClientThread.interrupt();
-
-            (new Thread() {
-                @Override
-                public void run() {
-                    try {
-                        mClientThread.join();
-                        mClientThread = null;
-                    } catch (InterruptedException e) {
-                        Log.w(TAG, "Interrupted while waiting for thread to join");
-                    }
-                }
-            }).run();
-        }
-    }
-
-    public boolean makeRequest(BluetoothMasRequest request) {
-        if (mClientThread == null) {
-            return false;
-        }
-
-        return mClientThread.schedule(request);
+    private boolean connected() {
+        return mConnected;
     }
 }

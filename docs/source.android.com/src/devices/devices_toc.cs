@@ -22,6 +22,56 @@
       </a>
     </div>
     <ul>
+  <li class="nav-section">
+  <div class="nav-section-header">
+      <a href="<?cs var:toroot ?>devices/accessories/index.html">
+        <span class="en">Accessories</span>
+      </a>
+    </div>
+    <ul>
+      <li class="nav-section">
+        <div class="nav-section-header">
+          <a href="<?cs var:toroot ?>devices/accessories/audio.html">
+            <span class="en">Audio Accessories</span>
+          </a>
+        </div>
+        <ul>
+      <li class="nav-section">
+        <div class="nav-section-header">
+          <a href="<?cs var:toroot ?>devices/accessories/headset/index.html">
+            <span class="en">Headset</span>
+          </a>
+        </div>
+        <ul>
+          <li><a href="<?cs var:toroot ?>devices/accessories/headset/specification.html">Specification</a></li>
+          <li><a href="<?cs var:toroot ?>devices/accessories/headset/requirements.html">Requirements</a></li>
+          <li><a href="<?cs var:toroot ?>devices/accessories/headset/testing.html">Testing</a></li>
+        </ul>
+      </li>
+        </ul>
+      </li>
+  <li class="nav-section">
+  <div class="nav-section-header">
+      <a href="<?cs var:toroot ?>devices/accessories/custom.html">
+        <span class="en">Custom Accessories</span>
+      </a>
+    </div>
+    <ul>
+      <li class="nav-section">
+        <div class="nav-section-header"><a href="<?cs var:toroot ?>devices/accessories/protocol.html"><span class="en">AOA</span>
+        </a>
+        </div>
+        <ul>
+          <li><a href="<?cs var:toroot ?>devices/accessories/aoa2.html">AOA 2.0</a></li>
+          <li><a href="<?cs var:toroot ?>devices/accessories/aoa.html">AOA 1.0</a></li>
+        </ul>
+        </li>
+        <div class="nav-section-header"><a href="<?cs var:toroot ?>devices/accessories/stylus.html"><span class="en">Stylus</span>
+        </a>
+        </div>
+       </ul>
+     </li>
+    </ul>
       <li class="nav-section">
       <div class="nav-section-header">
         <a href="<?cs var:toroot ?>devices/audio/index.html">
@@ -31,6 +81,7 @@
         <ul>
           <li><a href="<?cs var:toroot ?>devices/audio/terminology.html">Terminology</a></li>
           <li><a href="<?cs var:toroot ?>devices/audio/implement.html">Implementation</a></li>
+          <li><a href="<?cs var:toroot ?>devices/audio/data_formats.html">Data Formats</a></li>
           <li><a href="<?cs var:toroot ?>devices/audio/attributes.html">Attributes</a></li>
           <li><a href="<?cs var:toroot ?>devices/audio/warmup.html">Warmup</a></li>
           <li class="nav-section">
@@ -46,11 +97,22 @@
               <li><a href="<?cs var:toroot ?>devices/audio/testing_circuit.html">Light Testing Circuit</a></li>
               <li><a href="<?cs var:toroot ?>devices/audio/loopback.html">Audio Loopback Dongle</a></li>
               <li><a href="<?cs var:toroot ?>devices/audio/latency_measurements.html">Measurements</a></li>
+              <li><a href="<?cs var:toroot ?>devices/audio/latency_app.html">Applications</a></li>
             </ul>
           </li>
           <li><a href="<?cs var:toroot ?>devices/audio/avoiding_pi.html">Priority Inversion</a></li>
           <li><a href="<?cs var:toroot ?>devices/audio/src.html">Sample Rate Conversion</a></li>
           <li><a href="<?cs var:toroot ?>devices/audio/debugging.html">Debugging</a></li>
+          <li class="nav-section">
+            <div class="nav-section-header">
+              <a href="<?cs var:toroot ?>devices/audio/midi.html">
+                <span class="em">MIDI</span>
+              </a>
+            </div>
+            <ul>
+              <li><a href="<?cs var:toroot ?>devices/audio/midi_arch.html">MIDI Architecture</a></li>
+              <li><a href="<?cs var:toroot ?>devices/audio/midi_test.html">MIDI Test Procedure</a></li>
+            </ul>
           <li><a href="<?cs var:toroot ?>devices/audio/usb.html">USB Digital Audio</a></li>
           <li><a href="<?cs var:toroot ?>devices/audio/tv.html">TV Audio</a></li>
         </ul>
@@ -75,17 +137,6 @@
       </li>
 
       <li><a href="<?cs var:toroot ?>devices/drm.html">DRM</a></li>
-      <li class="nav-section">
-        <div class="nav-section-header">
-          <a href="<?cs var:toroot ?>devices/storage/index.html">
-            <span class="en">External Storage</span>
-          </a>
-        </div>
-        <ul>
-          <li><a href="<?cs var:toroot ?>devices/storage/config.html">Device Specific Configuration</a></li>
-          <li><a href="<?cs var:toroot ?>devices/storage/config-example.html">Typical Configuration Examples</a></li>
-        </ul>
-      </li>
       <li class="nav-section">
         <div class="nav-section-header">
           <a href="<?cs var:toroot ?>devices/graphics/index.html">
@@ -130,7 +181,17 @@
           <li><a href="<?cs var:toroot ?>devices/input/validate-keymaps.html">Validate Keymaps</a></li>
         </ul>
       </li>
-      <li><a href="<?cs var:toroot ?>devices/media.html">Media</a></li>
+      <li class="nav-section">
+        <div class="nav-section-header">
+          <a href="<?cs var:toroot ?>devices/media/index.html">
+            <span class="en">Media</span>
+          </a>
+        </div>
+        <ul>
+          <li><a href="<?cs var:toroot ?>devices/media/soc.html">SoC Dependencies</a></li>
+          <li><a href="<?cs var:toroot ?>devices/media/oem.html">OEM Dependencies</a></li>
+        </ul>
+      </li>
       <li class="nav-section">
         <div class="nav-section-header">
           <a href="<?cs var:toroot ?>devices/sensors/index.html">
@@ -147,6 +208,19 @@
           <li><a href="<?cs var:toroot ?>devices/sensors/batching.html">Batching</a></li>
           <li><a href="<?cs var:toroot ?>devices/sensors/sensor-types.html">Sensor types</a></li>
           <li><a href="<?cs var:toroot ?>devices/sensors/versioning.html">Version deprecation</a></li>
+        </ul>
+      </li>
+      <li class="nav-section">
+        <div class="nav-section-header">
+          <a href="<?cs var:toroot ?>devices/storage/index.html">
+            <span class="en">Storage</span>
+          </a>
+        </div>
+        <ul>
+          <li><a href="<?cs var:toroot ?>devices/storage/traditional.html">Traditional Storage</a></li>
+          <li><a href="<?cs var:toroot ?>devices/storage/adoptable.html">Adoptable Storage</a></li>
+          <li><a href="<?cs var:toroot ?>devices/storage/config.html">Device Configuration</a></li>
+          <li><a href="<?cs var:toroot ?>devices/storage/config-example.html">Configuration Examples</a></li>
         </ul>
       </li>
       <li class="nav-section">
@@ -182,6 +256,26 @@
           <li><a href="<?cs var:toroot ?>devices/tech/dalvik/instruction-formats.html">Instruction Formats</a></li>
           <li><a href="<?cs var:toroot ?>devices/tech/dalvik/constraints.html">Constraints</a></li>
           <li><a href="<?cs var:toroot ?>devices/tech/dalvik/configure.html">Configuration</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/dalvik/gc-debug.html">Garbage Collection</a></li>
+        </ul>
+      </li>
+
+      <li class="nav-section">
+        <div class="nav-section-header">
+            <a href="<?cs var:toroot ?>devices/tech/config/index.html">
+              <span class="en">Configuration</span>
+            </a>
+        </div>
+        <ul>
+          <li><a href="<?cs var:toroot ?>devices/tech/config/carrier.html">Carrier Customization</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/config/filesystem.html">File System</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/config/kernel.html">Kernel Configuration</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/config/kernel_network_tests.html">Kernel Network Tests</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/config/low-ram.html">Low RAM</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/config/renderer.html">OpenGLRenderer</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/config/runtime_perms.html">Runtime Permissions</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/config/uicc.html">UICC</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/config/voicemail.html">Visual Voicemail</a></li>
         </ul>
       </li>
 
@@ -201,16 +295,34 @@
           <li><a href="<?cs var:toroot ?>devices/tech/datausage/kernel-changes.html">Kernel Changes</a></li>
         </ul>
       </li>
+
       <li class="nav-section">
         <div class="nav-section-header">
           <a href="<?cs var:toroot ?>devices/tech/debug/index.html">
-            <span class="en">Debugging and Tuning</span>
+            <span class="en">Debugging</span>
           </a>
         </div>
         <ul>
-          <li><a href="<?cs var:toroot ?>devices/tech/debug/tuning.html">Performance Tuning</a></li>
-          <li><a href="<?cs var:toroot ?>devices/tech/debug/native-memory.html">Native Memory Usage</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/debug/asan.html">AddressSanitizer</a></li>
           <li><a href="<?cs var:toroot ?>devices/tech/debug/dumpsys.html">Dumpsys</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/debug/native-memory.html">Native Memory Use</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/debug/netstats.html">Network Use</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/debug/procstats.html">RAM Use</a></li>
+        </ul>
+      </li>
+
+      <li class="nav-section">
+        <div class="nav-section-header">
+          <a href="<?cs var:toroot ?>devices/tech/admin/index.html">
+          <span class="en">Device Administration</span></a>
+        </div>
+        <ul>
+          <li><a href="<?cs var:toroot ?>devices/tech/admin/implement.html">Implementation</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/admin/multi-user.html">Multiple Users</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/admin/managed-profiles.html">Managed Profiles</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/admin/provision.html">Provisioning</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/admin/multiuser-apps.html">Multiuser Apps</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/admin/testing-setup.html">Testing Setup</a></li>
         </ul>
       </li>
 
@@ -236,108 +348,22 @@
           <li><a href="<?cs var:toroot ?>devices/tech/ota/sign_builds.html">Signing Builds for Release</a></li>
         </ul>
       </li>
+
       <li class="nav-section">
         <div class="nav-section-header">
           <a href="<?cs var:toroot ?>devices/tech/power/index.html"><span class="en">Power</span></a>
         </div>
         <ul>
-          <li><a href="<?cs var:toroot ?>devices/tech/power/batterystats.html">Battery Usage Data</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/power/mgmt.html">Power Management</a>
+          </li>
+          <li><a href="<?cs var:toroot ?>devices/tech/power/component.html">Component Power</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/power/device.html">Device Power</a>
+          </li>
+          <li><a href="<?cs var:toroot ?>devices/tech/power/values.html">Power Values</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/power/batterystats.html">Battery Use</a>
+          </li>
         </ul>
       </li>
-
-      <li class="nav-section">
-        <div class="nav-section-header">
-            <a href="<?cs var:toroot ?>devices/tech/security/index.html">
-              <span class="en">Security</span>
-            </a>
-        </div>
-        <ul>
-          <li class="nav-section">
-            <div class="nav-section-header">
-              <a href="<?cs var:toroot ?>devices/tech/security/overview/index.html">
-                <span class="en">Overview</span>
-              </a>
-            </div>
-            <ul>
-              <li><a href="<?cs var:toroot ?>devices/tech/security/overview/kernel-security.html">Kernel security</a></li>
-              <li><a href="<?cs var:toroot ?>devices/tech/security/overview/app-security.html">App security</a></li>
-              <li><a href="<?cs var:toroot ?>devices/tech/security/overview/updates-resources.html">Updates and resources</a></li>
-              <li class="nav-section">
-                <div class="nav-section-header">
-                  <a href="<?cs var:toroot ?>devices/tech/security/enhancements/index.html">
-                    <span class="en">Enhancements</span>
-                  </a>
-                </div>
-                <ul>
-                  <li><a href="<?cs var:toroot ?>devices/tech/security/enhancements/enhancements50.html">Android 5.0</a></li>
-                  <li><a href="<?cs var:toroot ?>devices/tech/security/enhancements/enhancements44.html">Android 4.4</a></li>
-                  <li><a href="<?cs var:toroot ?>devices/tech/security/enhancements/enhancements43.html">Android 4.3</a></li>
-                  <li><a href="<?cs var:toroot ?>devices/tech/security/enhancements/enhancements42.html">Android 4.2</a></li>
-                  <li><a href="<?cs var:toroot ?>devices/tech/security/enhancements/enhancements41.html">Android 4.1</a></li>
-                </ul>
-              </li>
-              <li><a href="<?cs var:toroot ?>devices/tech/security/overview/acknowledgements.html">Acknowledgements</a></li>
-            </ul>
-          </li>
-          <li class="nav-section">
-            <div class="nav-section-header">
-              <a href="<?cs var:toroot ?>devices/tech/security/implement.html">
-                <span class="en">Implementation</span>
-              </a>
-            </div>
-            <ul>
-              <li><a href="<?cs var:toroot ?>devices/tech/security/encryption/index.html">Encryption</a></li>
-              <li class="nav-section">
-                <div class="nav-section-header">
-                  <a href="<?cs var:toroot ?>devices/tech/security/verifiedboot/index.html">
-                    <span class="en">Verified Boot</span>
-                  </a>
-                </div>
-                <ul>
-                  <li><a href="<?cs var:toroot ?>devices/tech/security/verifiedboot/verified-boot.html">Verifying boot</a></li>
-                  <li><a href="<?cs var:toroot ?>devices/tech/security/verifiedboot/dm-verity.html">Implementing dm-verity</a></li>
-                </ul>
-              </li>
-            <li class="nav-section">
-              <div class="nav-section-header">
-                <a href="<?cs var:toroot ?>devices/tech/security/selinux/index.html">
-                  <span class="en">Security-Enhanced Linux</span>
-                </a>
-              </div>
-              <ul>
-                <li><a href="<?cs var:toroot ?>devices/tech/security/selinux/concepts.html">Concepts</a></li>
-                <li><a href="<?cs var:toroot ?>devices/tech/security/selinux/implement.html">Implementation</a></li>
-                <li><a href="<?cs var:toroot ?>devices/tech/security/selinux/customize.html">Customization</a></li>
-                <li><a href="<?cs var:toroot ?>devices/tech/security/selinux/validate.html">Validation</a></li>
-              </ul>
-            </li>
-          </ul>
-        </li>
-      </ul>
-
-      <li class="nav-section">
-        <div class="nav-section-header">
-            <a href="<?cs var:toroot ?>devices/tech/resources.html">
-              <span class="en">System Resources</span>
-            </a>
-        </div>
-        <ul>
-          <li><a href="<?cs var:toroot ?>devices/tech/filesystem-config.html">File System Configuration</a></li>
-          <li><a href="<?cs var:toroot ?>devices/tech/kernel.html">Kernel Configuration</a></li>
-          <li><a href="<?cs var:toroot ?>devices/tech/netstats.html">Network Usage Data</a></li>
-          <li class="nav-section">
-            <div class="nav-section-header">
-                <a href="<?cs var:toroot ?>devices/tech/ram/index.html">
-                  <span class="en">RAM</span>
-                </a>
-            </div>
-            <ul>
-              <li><a href="<?cs var:toroot ?>devices/tech/ram/low-ram.html">Low RAM Configuration</a></li>
-              <li><a href="<?cs var:toroot ?>devices/tech/ram/procstats.html">RAM Usage Data</a></li>
-            </ul>
-          </li>
-        </ul>
-
       <li class="nav-section">
         <div class="nav-section-header">
           <a href="<?cs var:toroot ?>devices/tech/test_infra/tradefed/index.html">

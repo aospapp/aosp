@@ -110,15 +110,15 @@
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"لا"</string>
   <string-array name="alert_sound_duration_entries">
     <item msgid="5353482200312892037">"ثانيتان"</item>
-    <item msgid="5656092384277009212">"4 ثوانٍ"</item>
-    <item msgid="253564899252909788">"6 ثوانٍ"</item>
-    <item msgid="7514102744524534421">"8 ثوانٍ"</item>
-    <item msgid="6062562309271376642">"10 ثوانٍ"</item>
+    <item msgid="5656092384277009212">"٤ ثوانٍ"</item>
+    <item msgid="253564899252909788">"٦ ثوانٍ"</item>
+    <item msgid="7514102744524534421">"۸ ثوانٍ"</item>
+    <item msgid="6062562309271376642">"۱۰ ثوانٍ"</item>
   </string-array>
   <string-array name="alert_reminder_interval_entries">
     <item msgid="6595211083588795160">"مرة واحدة"</item>
     <item msgid="9097229303902157183">"كل دقيقتين"</item>
-    <item msgid="5676933700148002666">"كل 15 دقيقة"</item>
+    <item msgid="5676933700148002666">"كل ۱۵ دقيقة"</item>
     <item msgid="694355015442188708">"إيقاف"</item>
   </string-array>
 </resources>

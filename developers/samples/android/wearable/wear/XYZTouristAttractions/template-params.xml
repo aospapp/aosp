@@ -19,7 +19,8 @@
     <group>Wearable</group>
     <package>com.example.android.xyztouristattractions</package>
     <minSdk>18</minSdk>
-    <targetSdkVersion>22</targetSdkVersion>
+    <targetSdkVersion>23</targetSdkVersion>
+    <targetSdkVersionWear>22</targetSdkVersionWear>
 
     <wearable>
         <has_handheld_app>true</has_handheld_app>
@@ -27,11 +28,12 @@
 
     <dependency>com.google.android.gms:play-services-location</dependency>
     <dependency>com.google.maps.android:android-maps-utils:0.3.4</dependency>
-    <dependency>com.github.bumptech.glide:glide:3.6.0</dependency>
-    <dependency>com.android.support:appcompat-v7:22.2.0</dependency>
-    <dependency>com.android.support:recyclerview-v7:22.2.0</dependency>
-    <dependency>com.android.support:design:22.2.0</dependency>
+    <dependency>com.github.bumptech.glide:glide:3.6.1</dependency>
+    <dependency>com.android.support:appcompat-v7:24.0.0</dependency>
+    <dependency>com.android.support:recyclerview-v7:24.0.0</dependency>
+    <dependency>com.android.support:design:24.0.0</dependency>
     <dependency_wearable>com.google.android.gms:play-services-location</dependency_wearable>
+    <dependency_shared>com.android.support:support-v13:23.0.0</dependency_shared>
     <dependency_shared>com.google.android.gms:play-services-wearable</dependency_shared>
     <dependency_shared>com.google.android.gms:play-services-location</dependency_shared>
     <dependency_shared>com.google.maps.android:android-maps-utils:0.3.4</dependency_shared>
@@ -83,6 +85,8 @@ attractions in a GridViewPager UI component.
             <android>android.support.v7.appcompat</android>
             <android>android.support.v7.widget.RecyclerView</android>
             <android>android.support.v7.widget.GridLayoutManager</android>
+            <android>android.support.v4.content.ContextCompat</android>
+            <android>android.support.v4.app.ActivityCompat</android>
             <android>android.support.design.widget.FloatingActionButton</android>
             <android>android.support.design.widget.CoordinatorLayout</android>
             <android>com.google.android.gms.common.api.GoogleApiClient</android>

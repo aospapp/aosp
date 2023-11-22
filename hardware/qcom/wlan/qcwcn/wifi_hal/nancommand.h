@@ -15,11 +15,11 @@
  */
 
 #ifndef __WIFI_HAL_NAN_COMMAND_H__
-#define __WIFH_HAL_NAN_COMMAND_H__
+#define __WIFI_HAL_NAN_COMMAND_H__
 
 #include "common.h"
 #include "cpp_bindings.h"
-#include "nan.h"
+#include "wifi_hal.h"
 
 class NanCommand : public WifiVendorCommand
 {
@@ -28,7 +28,6 @@ private:
     char *mNanVendorEvent;
     u32 mNanDataLen;
     NanStaParameter *mStaParam;
-    void *mUserData;
 
     //Function to check the initial few bytes of data to
     //determine whether NanResponse or NanEvent
@@ -37,8 +36,7 @@ private:
     int handleNanResponse();
     //Function which will parse the mVendorData and gets
     // the rsp_data appropriately.
-    int getNanResponse(NanResponseMsg *pRsp);
-
+    int getNanResponse(transaction_id *id, NanResponseMsg *pRsp);
     //Function which will return the Nan Indication type based on
     //the initial few bytes of mVendorData
     NanIndicationType getIndicationType();
@@ -46,19 +44,17 @@ private:
     //based on the indication type
     int handleNanIndication();
     //Various Functions to get the appropriate indications
-    int getNanPublishReplied(NanPublishRepliedInd *event);
     int getNanPublishTerminated(NanPublishTerminatedInd *event);
     int getNanMatch(NanMatchInd *event);
-    int getNanUnMatch(NanUnmatchInd *event);
+    int getNanMatchExpired(NanMatchExpiredInd *event);
     int getNanSubscribeTerminated(NanSubscribeTerminatedInd *event);
     int getNanFollowup(NanFollowupInd *event);
     int getNanDiscEngEvent(NanDiscEngEventInd *event);
     int getNanDisabled(NanDisabledInd *event);
     int getNanTca(NanTCAInd *event);
     int getNanBeaconSdfPayload(NanBeaconSdfPayloadInd *event);
-
-    //Making the constructor private since this class is a singleton
-    NanCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd);
+    //Internal cleanup function
+    void cleanup();
 
     static NanCommand *mNanCommandInstance;
 
@@ -87,9 +83,14 @@ private:
                                       NanReceivePostDiscovery *pRxDisc);
     int getNanFurtherAvailabilityMap(const u8 *pInValue,
                                      u32 length,
-                                     NanFurtherAvailabilityMap *pFam);
+                                     u8* num_chans,
+                                     NanFurtherAvailabilityChannel *pFac);
+    void handleNanStatsResponse(NanStatsType stats_type,
+                                char* rspBuf,
+                                NanStatsResponse *pRsp);
 
 public:
+    NanCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd);
     static NanCommand* instance(wifi_handle handle);
     virtual ~NanCommand();
 
@@ -97,28 +98,25 @@ public:
     // based on  the request type
     virtual int create();
     virtual int requestEvent();
-    virtual int handleResponse(WifiEvent reply);
+    virtual int handleResponse(WifiEvent &reply);
     virtual int handleEvent(WifiEvent &event);
-    int setCallbackHandler(NanCallbackHandler nHandler,
-                           void *pUserData);
+    int setCallbackHandler(NanCallbackHandler nHandler);
 
 
     //Functions to fill the vendor data appropriately
-    int putNanEnable(const NanEnableRequest *pReq);
-    int putNanDisable(const NanDisableRequest *pReq);
-    int putNanPublish(const NanPublishRequest *pReq);
-    int putNanPublishCancel(const NanPublishCancelRequest *pReq);
-    int putNanSubscribe(const NanSubscribeRequest *pReq);
-    int putNanSubscribeCancel(const NanSubscribeCancelRequest *pReq);
-    int putNanTransmitFollowup(const NanTransmitFollowupRequest *pReq);
-    int putNanStats(const NanStatsRequest *pReq);
-    int putNanConfig(const NanConfigRequest *pReq);
-    int putNanTCA(const NanTCARequest *pReq);
-    int putNanBeaconSdfPayload(const NanBeaconSdfPayloadRequest *pReq);
-    int getNanStaParameter(NanStaParameter *pRsp);
-
-    //Set the Id of the request
-    void setId(int nId);
+    int putNanEnable(transaction_id id, const NanEnableRequest *pReq);
+    int putNanDisable(transaction_id id);
+    int putNanPublish(transaction_id id, const NanPublishRequest *pReq);
+    int putNanPublishCancel(transaction_id id, const NanPublishCancelRequest *pReq);
+    int putNanSubscribe(transaction_id id, const NanSubscribeRequest *pReq);
+    int putNanSubscribeCancel(transaction_id id, const NanSubscribeCancelRequest *pReq);
+    int putNanTransmitFollowup(transaction_id id, const NanTransmitFollowupRequest *pReq);
+    int putNanStats(transaction_id id, const NanStatsRequest *pReq);
+    int putNanConfig(transaction_id id, const NanConfigRequest *pReq);
+    int putNanTCA(transaction_id id, const NanTCARequest *pReq);
+    int putNanBeaconSdfPayload(transaction_id id, const NanBeaconSdfPayloadRequest *pReq);
+    int getNanStaParameter(wifi_interface_handle iface, NanStaParameter *pRsp);
+    int putNanCapabilities(transaction_id id);
 };
-#endif /* __WIFH_HAL_NAN_COMMAND_H__ */
+#endif /* __WIFI_HAL_NAN_COMMAND_H__ */
 

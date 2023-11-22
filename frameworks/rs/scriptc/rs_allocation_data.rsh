@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,6 +50,10 @@
  * This function should only be called between 1D allocations.  Calling it
  * on other allocations is undefined.
  *
+ * This function should not be called from inside a kernel, or from any function
+ * that may be called directly or indirectly from a kernel. Doing so would cause a
+ * runtime error.
+ *
  * Parameters:
  *   dstAlloc: Allocation to copy cells into.
  *   dstOff: Offset in the destination of the first cell to be copied into.
@@ -79,6 +83,10 @@ extern void __attribute__((overloadable))
  *
  * This function should only be called between 2D allocations.  Calling it
  * on other allocations is undefined.
+ *
+ * This function should not be called from inside a kernel, or from any function
+ * that may be called directly or indirectly from a kernel. Doing so would cause a
+ * runtime error.
  *
  * Parameters:
  *   dstAlloc: Allocation to copy cells into.
@@ -600,7 +608,7 @@ extern ulong4 __attribute__((overloadable))
  * mono dimensional allocations.
  *
  * For efficiency, this function does not validate the inputs.  Trying to wrap the
- * X index, exceeding the size of the allocation, or using indexes incompatible
+ * X index, exceeding the size of the allocation, or using indices incompatible
  * with the dimensionality of the allocation yiels undefined results.
  *
  * See also rsAllocationVLoadX().

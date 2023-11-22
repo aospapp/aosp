@@ -38,13 +38,8 @@ namespace {
 
 const Function* getInvokeFunction(const Source& source, const int slot,
                                   Module* newModule) {
-  Module* module = const_cast<Module*>(&source.getModule());
-  bcinfo::MetadataExtractor metadata(module);
-  if (!metadata.extract()) {
-    ALOGE("Kernel fusion (module %s slot %d): failed to extract metadata",
-          source.getName().c_str(), slot);
-    return nullptr;
-  }
+
+  bcinfo::MetadataExtractor &metadata = *source.getMetadata();
   const char* functionName = metadata.getExportFuncNameList()[slot];
   Function* func = newModule->getFunction(functionName);
   // Materialize the function so that later the caller can inspect its argument
@@ -56,9 +51,8 @@ const Function* getInvokeFunction(const Source& source, const int slot,
 const Function*
 getFunction(Module* mergedModule, const Source* source, const int slot,
             uint32_t* signature) {
-  bcinfo::MetadataExtractor metadata(&source->getModule());
-  metadata.extract();
 
+  bcinfo::MetadataExtractor &metadata = *source->getMetadata();
   const char* functionName = metadata.getExportForEachNameList()[slot];
   if (functionName == nullptr || !functionName[0]) {
     ALOGE("Kernel fusion (module %s slot %d): failed to find kernel function",
@@ -103,8 +97,7 @@ int getFusedFuncSig(const std::vector<Source*>& sources,
   auto slotIter = slots.begin();
   for (const Source* source : sources) {
     const int slot = *slotIter++;
-    bcinfo::MetadataExtractor metadata(&source->getModule());
-    metadata.extract();
+    bcinfo::MetadataExtractor &metadata = *source->getMetadata();
 
     if (metadata.getExportForEachInputCountList()[slot] > 1) {
       ALOGE("Kernel fusion (module %s slot %d): cannot handle multiple inputs",
@@ -208,25 +201,25 @@ bool fuseKernels(bcc::BCCContext& Context,
 
   llvm::Value* dataElement = nullptr;
   if (bcinfo::MetadataExtractor::hasForEachSignatureIn(fusedFunctionSignature)) {
-    dataElement = argIter++;
+    dataElement = &*(argIter++);
     dataElement->setName("DataIn");
   }
 
   llvm::Value* X = nullptr;
   if (bcinfo::MetadataExtractor::hasForEachSignatureX(fusedFunctionSignature)) {
-    X = argIter++;
+    X = &*(argIter++);
     X->setName("x");
   }
 
   llvm::Value* Y = nullptr;
   if (bcinfo::MetadataExtractor::hasForEachSignatureY(fusedFunctionSignature)) {
-    Y = argIter++;
+    Y = &*(argIter++);
     Y->setName("y");
   }
 
   llvm::Value* Z = nullptr;
   if (bcinfo::MetadataExtractor::hasForEachSignatureZ(fusedFunctionSignature)) {
-    Z = argIter++;
+    Z = &*(argIter++);
     Z->setName("z");
   }
 
@@ -345,7 +338,7 @@ bool renameInvoke(BCCContext& Context, const Source* source, const int slot,
   llvm::IRBuilder<> builder(block);
 
   llvm::Function::arg_iterator argIter = newF->arg_begin();
-  llvm::Value* arg1 = argIter++;
+  llvm::Value* arg1 = &*(argIter++);
   builder.CreateCall((llvm::Value*)F, arg1);
 
   builder.CreateRetVoid();

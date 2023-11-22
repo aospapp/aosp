@@ -31,6 +31,8 @@ public class ScreenPinningTestActivity extends PassFailButtons.Activity {
 
     private static final String TAG = "ScreenPinningTestActivity";
     private static final String KEY_CURRENT_TEST = "keyCurrentTest";
+    private static final long TASK_MODE_CHECK_DELAY = 200;
+    private static final int MAX_TASK_MODE_CHECK_COUNT = 5;
 
     private Test[] mTests;
     private int mTestIndex;
@@ -203,10 +205,18 @@ public class ScreenPinningTestActivity extends PassFailButtons.Activity {
                 return;
             }
             stopLockTask();
-            if (!mActivityManager.isInLockTaskMode()) {
-                succeed();
-            } else {
-                error(R.string.error_screen_pinning_couldnt_exit);
+            for (int retry = MAX_TASK_MODE_CHECK_COUNT; retry > 0; retry--) {
+                try {
+                    Thread.sleep(TASK_MODE_CHECK_DELAY);
+                } catch (InterruptedException e) {
+                }
+                Log.d(TAG, "Check unpin ... " + retry);
+                if (!mActivityManager.isInLockTaskMode()) {
+                    succeed();
+                    break;
+                } else if (retry == 1) {
+                    error(R.string.error_screen_pinning_couldnt_exit);
+                }
             }
         };
     };

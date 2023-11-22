@@ -26,6 +26,7 @@ def main():
     out_path = ""
     scene_name = ""
     scene_desc = "No requirement"
+    do_af = True
     for s in sys.argv[1:]:
         if s[:7] == "camera=" and len(s) > 7:
             camera_id = s[7:]
@@ -33,6 +34,8 @@ def main():
             out_path = s[4:]
         elif s[:6] == "scene=" and len(s) > 6:
             scene_desc = s[6:]
+        elif s[:5] == "doAF=" and len(s) > 5:
+            do_af = s[5:] == "True"
 
     if out_path != "":
         scene_name = re.split("/|\.", out_path)[-2]
@@ -46,7 +49,7 @@ def main():
                 " to frame the test scene: " + scene_name +
                 "\nThe scene setup should be: " + scene_desc )
         # Converge 3A prior to capture.
-        cam.do_3a(do_af=True, lock_ae=True, lock_awb=True)
+        cam.do_3a(do_af=do_af, lock_ae=True, lock_awb=True)
         props = cam.get_camera_properties()
         req = its.objects.fastest_auto_capture_request(props)
         if its.caps.ae_lock(props):

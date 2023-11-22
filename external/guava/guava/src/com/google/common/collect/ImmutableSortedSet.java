@@ -31,6 +31,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
+import java.util.NavigableSet;
 import java.util.SortedSet;
 
 import javax.annotation.Nullable;
@@ -91,7 +92,7 @@ import javax.annotation.Nullable;
 @GwtCompatible(serializable = true, emulated = true)
 @SuppressWarnings("serial") // we're overriding default serialization
 public abstract class ImmutableSortedSet<E> extends ImmutableSortedSetFauxverideShim<E>
-    implements SortedSet<E>, SortedIterable<E> {
+    implements NavigableSet<E>, SortedIterable<E> {
 
   private static final Comparator<Comparable> NATURAL_ORDER =
       Ordering.natural();
@@ -619,6 +620,7 @@ public abstract class ImmutableSortedSet<E> extends ImmutableSortedSetFauxveride
    * @since 12.0
    */
   @GwtIncompatible("NavigableSet")
+  @Override
   public ImmutableSortedSet<E> headSet(E toElement, boolean inclusive) {
     return headSetImpl(checkNotNull(toElement), inclusive);
   }
@@ -645,6 +647,7 @@ public abstract class ImmutableSortedSet<E> extends ImmutableSortedSetFauxveride
    * @since 12.0
    */
   @GwtIncompatible("NavigableSet")
+  @Override
   public ImmutableSortedSet<E> subSet(
       E fromElement, boolean fromInclusive, E toElement, boolean toInclusive) {
     checkNotNull(fromElement);
@@ -673,6 +676,7 @@ public abstract class ImmutableSortedSet<E> extends ImmutableSortedSetFauxveride
    * @since 12.0
    */
   @GwtIncompatible("NavigableSet")
+  @Override
   public ImmutableSortedSet<E> tailSet(E fromElement, boolean inclusive) {
     return tailSetImpl(checkNotNull(fromElement), inclusive);
   }
@@ -692,6 +696,7 @@ public abstract class ImmutableSortedSet<E> extends ImmutableSortedSetFauxveride
    * @since 12.0
    */
   @GwtIncompatible("NavigableSet")
+  @Override
   public E lower(E e) {
     return Iterators.getNext(headSet(e, false).descendingIterator(), null);
   }
@@ -700,6 +705,7 @@ public abstract class ImmutableSortedSet<E> extends ImmutableSortedSetFauxveride
    * @since 12.0
    */
   @GwtIncompatible("NavigableSet")
+  @Override
   public E floor(E e) {
     return Iterators.getNext(headSet(e, true).descendingIterator(), null);
   }
@@ -708,6 +714,7 @@ public abstract class ImmutableSortedSet<E> extends ImmutableSortedSetFauxveride
    * @since 12.0
    */
   @GwtIncompatible("NavigableSet")
+  @Override
   public E ceiling(E e) {
     return Iterables.getFirst(tailSet(e, true), null);
   }
@@ -716,6 +723,7 @@ public abstract class ImmutableSortedSet<E> extends ImmutableSortedSetFauxveride
    * @since 12.0
    */
   @GwtIncompatible("NavigableSet")
+  @Override
   public E higher(E e) {
     return Iterables.getFirst(tailSet(e, false), null);
   }
@@ -739,6 +747,7 @@ public abstract class ImmutableSortedSet<E> extends ImmutableSortedSetFauxveride
    */
   @Deprecated
   @GwtIncompatible("NavigableSet")
+  @Override
   public final E pollFirst() {
     throw new UnsupportedOperationException();
   }
@@ -752,6 +761,7 @@ public abstract class ImmutableSortedSet<E> extends ImmutableSortedSetFauxveride
    */
   @Deprecated
   @GwtIncompatible("NavigableSet")
+  @Override
   public final E pollLast() {
     throw new UnsupportedOperationException();
   }
@@ -763,6 +773,7 @@ public abstract class ImmutableSortedSet<E> extends ImmutableSortedSetFauxveride
    * @since 12.0
    */
   @GwtIncompatible("NavigableSet")
+  @Override
   public ImmutableSortedSet<E> descendingSet() {
     // racy single-check idiom
     ImmutableSortedSet<E> result = descendingSet;
@@ -782,6 +793,7 @@ public abstract class ImmutableSortedSet<E> extends ImmutableSortedSetFauxveride
    * @since 12.0
    */
   @GwtIncompatible("NavigableSet")
+  @Override
   public abstract UnmodifiableIterator<E> descendingIterator();
 
   /**

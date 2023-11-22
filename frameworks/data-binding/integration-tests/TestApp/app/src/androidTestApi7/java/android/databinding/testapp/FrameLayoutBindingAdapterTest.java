@@ -19,6 +19,7 @@ import android.databinding.testapp.databinding.FrameLayoutAdapterTestBinding;
 import android.databinding.testapp.vo.FrameLayoutBindingObject;
 
 import android.os.Build;
+import android.test.UiThreadTest;
 import android.widget.FrameLayout;
 
 public class FrameLayoutBindingAdapterTest
@@ -37,6 +38,7 @@ public class FrameLayoutBindingAdapterTest
         mView = mBinder.view;
     }
 
+    @UiThreadTest
     public void testTint() throws Throwable {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             assertEquals(mBindingObject.getForegroundTint(),

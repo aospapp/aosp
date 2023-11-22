@@ -46,10 +46,6 @@ using llvm::sys::windows::UTF8ToUTF16;
 using llvm::sys::windows::UTF16ToUTF8;
 using llvm::sys::path::widenPath;
 
-static std::error_code windows_error(DWORD E) {
-  return mapWindowsError(E);
-}
-
 static bool is_separator(const wchar_t value) {
   switch (value) {
   case L'\\':
@@ -83,7 +79,7 @@ std::error_code widenPath(const Twine &Path8,
   else {
     CurPathLen = ::GetCurrentDirectoryW(0, NULL);
     if (CurPathLen == 0)
-      return windows_error(::GetLastError());
+      return mapWindowsError(::GetLastError());
   }
 
   // Would the absolute path be longer than our limit?
@@ -174,7 +170,7 @@ std::error_code current_path(SmallVectorImpl<char> &result) {
 
     // A zero return value indicates a failure other than insufficient space.
     if (len == 0)
-      return windows_error(::GetLastError());
+      return mapWindowsError(::GetLastError());
 
     // If there's insufficient space, the len returned is larger than the len
     // given.
@@ -186,7 +182,8 @@ std::error_code current_path(SmallVectorImpl<char> &result) {
   return UTF16ToUTF8(cur_path.begin(), cur_path.size(), result);
 }
 
-std::error_code create_directory(const Twine &path, bool IgnoreExisting) {
+std::error_code create_directory(const Twine &path, bool IgnoreExisting,
+                                 perms Perms) {
   SmallVector<wchar_t, 128> path_utf16;
 
   if (std::error_code ec = widenPath(path, path_utf16))
@@ -195,7 +192,7 @@ std::error_code create_directory(const Twine &path, bool IgnoreExisting) {
   if (!::CreateDirectoryW(path_utf16.begin(), NULL)) {
     DWORD LastError = ::GetLastError();
     if (LastError != ERROR_ALREADY_EXISTS || !IgnoreExisting)
-      return windows_error(LastError);
+      return mapWindowsError(LastError);
   }
 
   return std::error_code();
@@ -212,7 +209,7 @@ std::error_code create_link(const Twine &to, const Twine &from) {
     return ec;
 
   if (!::CreateHardLinkW(wide_from.begin(), wide_to.begin(), NULL))
-    return windows_error(::GetLastError());
+    return mapWindowsError(::GetLastError());
 
   return std::error_code();
 }
@@ -232,14 +229,14 @@ std::error_code remove(const Twine &path, bool IgnoreNonExisting) {
 
   if (ST.type() == file_type::directory_file) {
     if (!::RemoveDirectoryW(c_str(path_utf16))) {
-      std::error_code EC = windows_error(::GetLastError());
+      std::error_code EC = mapWindowsError(::GetLastError());
       if (EC != errc::no_such_file_or_directory || !IgnoreNonExisting)
         return EC;
     }
     return std::error_code();
   }
   if (!::DeleteFileW(c_str(path_utf16))) {
-    std::error_code EC = windows_error(::GetLastError());
+    std::error_code EC = mapWindowsError(::GetLastError());
     if (EC != errc::no_such_file_or_directory || !IgnoreNonExisting)
       return EC;
   }
@@ -256,17 +253,34 @@ std::error_code rename(const Twine &from, const Twine &to) {
     return ec;
 
   std::error_code ec = std::error_code();
+
+  // Retry while we see ERROR_ACCESS_DENIED.
+  // System scanners (eg. indexer) might open the source file when it is written
+  // and closed.
+
   for (int i = 0; i < 2000; i++) {
+    // Try ReplaceFile first, as it is able to associate a new data stream with
+    // the destination even if the destination file is currently open.
+    if (::ReplaceFileW(wide_to.begin(), wide_from.begin(), NULL, 0, NULL, NULL))
+      return std::error_code();
+
+    // We get ERROR_FILE_NOT_FOUND if the destination file is missing.
+    // MoveFileEx can handle this case.
+    DWORD ReplaceError = ::GetLastError();
+    ec = mapWindowsError(ReplaceError);
+    if (ReplaceError != ERROR_ACCESS_DENIED &&
+        ReplaceError != ERROR_FILE_NOT_FOUND &&
+        ReplaceError != ERROR_SHARING_VIOLATION)
+      break;
+
     if (::MoveFileExW(wide_from.begin(), wide_to.begin(),
                       MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING))
       return std::error_code();
-    DWORD LastError = ::GetLastError();
-    ec = windows_error(LastError);
-    if (LastError != ERROR_ACCESS_DENIED)
-      break;
-    // Retry MoveFile() at ACCESS_DENIED.
-    // System scanners (eg. indexer) might open the source file when
-    // It is written and closed.
+
+    DWORD MoveError = ::GetLastError();
+    ec = mapWindowsError(MoveError);
+    if (MoveError != ERROR_ACCESS_DENIED) break;
+
     ::Sleep(1);
   }
 
@@ -295,7 +309,7 @@ std::error_code access(const Twine &Path, AccessMode Mode) {
     DWORD LastError = ::GetLastError();
     if (LastError != ERROR_FILE_NOT_FOUND &&
         LastError != ERROR_PATH_NOT_FOUND)
-      return windows_error(LastError);
+      return mapWindowsError(LastError);
     return errc::no_such_file_or_directory;
   }
 
@@ -303,6 +317,11 @@ std::error_code access(const Twine &Path, AccessMode Mode) {
     return errc::permission_denied;
 
   return std::error_code();
+}
+
+bool can_execute(const Twine &Path) {
+  return !access(Path, AccessMode::Execute) ||
+         !access(Path + ".exe", AccessMode::Execute);
 }
 
 bool equivalent(file_status A, file_status B) {
@@ -329,10 +348,12 @@ std::error_code equivalent(const Twine &A, const Twine &B, bool &result) {
 static bool isReservedName(StringRef path) {
   // This list of reserved names comes from MSDN, at:
   // http://msdn.microsoft.com/en-us/library/aa365247%28v=vs.85%29.aspx
-  static const char *sReservedNames[] = { "nul", "con", "prn", "aux",
-                              "com1", "com2", "com3", "com4", "com5", "com6",
-                              "com7", "com8", "com9", "lpt1", "lpt2", "lpt3",
-                              "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9" };
+  static const char *const sReservedNames[] = { "nul", "con", "prn", "aux",
+                                                "com1", "com2", "com3", "com4",
+                                                "com5", "com6", "com7", "com8",
+                                                "com9", "lpt1", "lpt2", "lpt3",
+                                                "lpt4", "lpt5", "lpt6", "lpt7",
+                                                "lpt8", "lpt9" };
 
   // First, check to see if this is a device namespace, which always
   // starts with \\.\, since device namespaces are not legal file paths.
@@ -359,7 +380,7 @@ static std::error_code getStatus(HANDLE FileHandle, file_status &Result) {
   case FILE_TYPE_UNKNOWN: {
     DWORD Err = ::GetLastError();
     if (Err != NO_ERROR)
-      return windows_error(Err);
+      return mapWindowsError(Err);
     Result = file_status(file_type::type_unknown);
     return std::error_code();
   }
@@ -398,7 +419,7 @@ handle_status_error:
     Result = file_status(file_type::type_unknown);
   else
     Result = file_status(file_type::status_error);
-  return windows_error(LastError);
+  return mapWindowsError(LastError);
 }
 
 std::error_code status(const Twine &path, file_status &result) {
@@ -455,7 +476,7 @@ std::error_code setLastModificationAndAccessTime(int FD, TimeValue Time) {
   FT.dwHighDateTime = UI.HighPart;
   HANDLE FileHandle = reinterpret_cast<HANDLE>(_get_osfhandle(FD));
   if (!SetFileTime(FileHandle, NULL, &FT, &FT))
-    return windows_error(::GetLastError());
+    return mapWindowsError(::GetLastError());
   return std::error_code();
 }
 
@@ -482,7 +503,7 @@ std::error_code mapped_file_region::init(int FD, uint64_t Offset,
                            (Offset + Size) & 0xffffffff,
                            0);
   if (FileMappingHandle == NULL) {
-    std::error_code ec = windows_error(GetLastError());
+    std::error_code ec = mapWindowsError(GetLastError());
     return ec;
   }
 
@@ -498,7 +519,7 @@ std::error_code mapped_file_region::init(int FD, uint64_t Offset,
                             Offset & 0xffffffff,
                             Size);
   if (Mapping == NULL) {
-    std::error_code ec = windows_error(GetLastError());
+    std::error_code ec = mapWindowsError(GetLastError());
     ::CloseHandle(FileMappingHandle);
     return ec;
   }
@@ -507,7 +528,7 @@ std::error_code mapped_file_region::init(int FD, uint64_t Offset,
     MEMORY_BASIC_INFORMATION mbi;
     SIZE_T Result = VirtualQuery(Mapping, &mbi, sizeof(mbi));
     if (Result == 0) {
-      std::error_code ec = windows_error(GetLastError());
+      std::error_code ec = mapWindowsError(GetLastError());
       ::UnmapViewOfFile(Mapping);
       ::CloseHandle(FileMappingHandle);
       return ec;
@@ -576,7 +597,7 @@ std::error_code detail::directory_iterator_construct(detail::DirIterState &it,
   WIN32_FIND_DATAW FirstFind;
   ScopedFindHandle FindHandle(::FindFirstFileW(c_str(path_utf16), &FirstFind));
   if (!FindHandle)
-    return windows_error(::GetLastError());
+    return mapWindowsError(::GetLastError());
 
   size_t FilenameLen = ::wcslen(FirstFind.cFileName);
   while ((FilenameLen == 1 && FirstFind.cFileName[0] == L'.') ||
@@ -587,7 +608,7 @@ std::error_code detail::directory_iterator_construct(detail::DirIterState &it,
       // Check for end.
       if (LastError == ERROR_NO_MORE_FILES)
         return detail::directory_iterator_destruct(it);
-      return windows_error(LastError);
+      return mapWindowsError(LastError);
     } else
       FilenameLen = ::wcslen(FirstFind.cFileName);
 
@@ -622,7 +643,7 @@ std::error_code detail::directory_iterator_increment(detail::DirIterState &it) {
     // Check for end.
     if (LastError == ERROR_NO_MORE_FILES)
       return detail::directory_iterator_destruct(it);
-    return windows_error(LastError);
+    return mapWindowsError(LastError);
   }
 
   size_t FilenameLen = ::wcslen(FindData.cFileName);
@@ -647,12 +668,13 @@ std::error_code openFileForRead(const Twine &Name, int &ResultFD) {
   if (std::error_code EC = widenPath(Name, PathUTF16))
     return EC;
 
-  HANDLE H = ::CreateFileW(PathUTF16.begin(), GENERIC_READ,
-                           FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                           OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+  HANDLE H =
+      ::CreateFileW(PathUTF16.begin(), GENERIC_READ,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                    NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
   if (H == INVALID_HANDLE_VALUE) {
     DWORD LastError = ::GetLastError();
-    std::error_code EC = windows_error(LastError);
+    std::error_code EC = mapWindowsError(LastError);
     // Provide a better error message when trying to open directories.
     // This only runs if we failed to open the file, so there is probably
     // no performances issues.
@@ -666,7 +688,7 @@ std::error_code openFileForRead(const Twine &Name, int &ResultFD) {
   int FD = ::_open_osfhandle(intptr_t(H), 0);
   if (FD == -1) {
     ::CloseHandle(H);
-    return windows_error(ERROR_INVALID_HANDLE);
+    return mapWindowsError(ERROR_INVALID_HANDLE);
   }
 
   ResultFD = FD;
@@ -702,7 +724,7 @@ std::error_code openFileForWrite(const Twine &Name, int &ResultFD,
 
   if (H == INVALID_HANDLE_VALUE) {
     DWORD LastError = ::GetLastError();
-    std::error_code EC = windows_error(LastError);
+    std::error_code EC = mapWindowsError(LastError);
     // Provide a better error message when trying to open directories.
     // This only runs if we failed to open the file, so there is probably
     // no performances issues.
@@ -723,7 +745,7 @@ std::error_code openFileForWrite(const Twine &Name, int &ResultFD,
   int FD = ::_open_osfhandle(intptr_t(H), OpenFlags);
   if (FD == -1) {
     ::CloseHandle(H);
-    return windows_error(ERROR_INVALID_HANDLE);
+    return mapWindowsError(ERROR_INVALID_HANDLE);
   }
 
   ResultFD = FD;
@@ -732,30 +754,43 @@ std::error_code openFileForWrite(const Twine &Name, int &ResultFD,
 } // end namespace fs
 
 namespace path {
-
-bool home_directory(SmallVectorImpl<char> &result) {
-  wchar_t Path[MAX_PATH];
-  if (::SHGetFolderPathW(0, CSIDL_APPDATA | CSIDL_FLAG_CREATE, 0,
-                         /*SHGFP_TYPE_CURRENT*/0, Path) != S_OK)
+static bool getKnownFolderPath(KNOWNFOLDERID folderId,
+                               SmallVectorImpl<char> &result) {
+#if 0
+  wchar_t *path = nullptr;
+  if (::SHGetKnownFolderPath(folderId, KF_FLAG_CREATE, nullptr, &path) != S_OK)
     return false;
 
-  if (UTF16ToUTF8(Path, ::wcslen(Path), result))
-    return false;
-
-  return true;
+  bool ok = !UTF16ToUTF8(path, ::wcslen(path), result);
+  ::CoTaskMemFree(path);
+  return ok;
+#else
+  // ANDROID needs updated mingw to build this.
+  // BUG: http://b/26523949
+  return false;
+#endif
 }
 
-static bool getTempDirEnvVar(const char *Var, SmallVectorImpl<char> &Res) {
-  SmallVector<wchar_t, 128> NameUTF16;
-  if (windows::UTF8ToUTF16(Var, NameUTF16))
-    return false;
+bool getUserCacheDir(SmallVectorImpl<char> &Result) {
+#if 0
+  return getKnownFolderPath(FOLDERID_LocalAppData, Result);
+#else
+  // ANDROID needs updated mingw to build this.
+  // BUG: http://b/26523949
+  return false;
+#endif
+}
 
+bool home_directory(SmallVectorImpl<char> &result) {
+  return getKnownFolderPath(FOLDERID_Profile, result);
+}
+
+static bool getTempDirEnvVar(const wchar_t *Var, SmallVectorImpl<char> &Res) {
   SmallVector<wchar_t, 1024> Buf;
   size_t Size = 1024;
   do {
     Buf.reserve(Size);
-    Size =
-        GetEnvironmentVariableW(NameUTF16.data(), Buf.data(), Buf.capacity());
+    Size = GetEnvironmentVariableW(Var, Buf.data(), Buf.capacity());
     if (Size == 0)
       return false;
 
@@ -763,14 +798,12 @@ static bool getTempDirEnvVar(const char *Var, SmallVectorImpl<char> &Res) {
   } while (Size > Buf.capacity());
   Buf.set_size(Size);
 
-  if (windows::UTF16ToUTF8(Buf.data(), Size, Res))
-    return false;
-  return true;
+  return !windows::UTF16ToUTF8(Buf.data(), Size, Res);
 }
 
 static bool getTempDirEnvVar(SmallVectorImpl<char> &Res) {
-  const char *EnvironmentVariables[] = {"TMP", "TEMP", "USERPROFILE"};
-  for (const char *Env : EnvironmentVariables) {
+  const wchar_t *EnvironmentVariables[] = {L"TMP", L"TEMP", L"USERPROFILE"};
+  for (auto *Env : EnvironmentVariables) {
     if (getTempDirEnvVar(Env, Res))
       return true;
   }
@@ -781,13 +814,19 @@ void system_temp_directory(bool ErasedOnReboot, SmallVectorImpl<char> &Result) {
   (void)ErasedOnReboot;
   Result.clear();
 
-  // Check whether the temporary directory is specified by an environment
-  // variable.
-  if (getTempDirEnvVar(Result))
+  // Check whether the temporary directory is specified by an environment var.
+  // This matches GetTempPath logic to some degree. GetTempPath is not used
+  // directly as it cannot handle evn var longer than 130 chars on Windows 7
+  // (fixed on Windows 8).
+  if (getTempDirEnvVar(Result)) {
+    assert(!Result.empty() && "Unexpected empty path");
+    native(Result); // Some Unix-like shells use Unix path separator in $TMP.
+    fs::make_absolute(Result); // Make it absolute if not already.
     return;
+  }
 
   // Fall back to a system default.
-  const char *DefaultResult = "C:\\TEMP";
+  const char *DefaultResult = "C:\\Temp";
   Result.append(DefaultResult, DefaultResult + strlen(DefaultResult));
 }
 } // end namespace path
@@ -800,7 +839,7 @@ std::error_code UTF8ToUTF16(llvm::StringRef utf8,
                                     utf8.size(), utf16.begin(), 0);
 
     if (len == 0)
-      return windows_error(::GetLastError());
+      return mapWindowsError(::GetLastError());
 
     utf16.reserve(len + 1);
     utf16.set_size(len);
@@ -809,7 +848,7 @@ std::error_code UTF8ToUTF16(llvm::StringRef utf8,
                                 utf8.size(), utf16.begin(), utf16.size());
 
     if (len == 0)
-      return windows_error(::GetLastError());
+      return mapWindowsError(::GetLastError());
   }
 
   // Make utf16 null terminated.
@@ -829,7 +868,7 @@ std::error_code UTF16ToCodePage(unsigned codepage, const wchar_t *utf16,
                                     0, NULL, NULL);
 
     if (len == 0)
-      return windows_error(::GetLastError());
+      return mapWindowsError(::GetLastError());
 
     utf8.reserve(len);
     utf8.set_size(len);
@@ -839,7 +878,7 @@ std::error_code UTF16ToCodePage(unsigned codepage, const wchar_t *utf16,
                                 utf8.size(), NULL, NULL);
 
     if (len == 0)
-      return windows_error(::GetLastError());
+      return mapWindowsError(::GetLastError());
   }
 
   // Make utf8 null terminated.

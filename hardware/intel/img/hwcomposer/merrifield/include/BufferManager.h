@@ -62,12 +62,10 @@ public:
     virtual bool blit(buffer_handle_t srcHandle, buffer_handle_t destHandle,
                       const crop_t& destRect, bool filter, bool async) = 0;
 protected:
-    virtual DataBuffer* createDataBuffer(gralloc_module_t *module,
-                                             buffer_handle_t handle) = 0;
-    virtual BufferMapper* createBufferMapper(gralloc_module_t *module,
-                                                 DataBuffer& buffer) = 0;
+    virtual DataBuffer* createDataBuffer(buffer_handle_t handle) = 0;
+    virtual BufferMapper* createBufferMapper(DataBuffer& buffer) = 0;
 
-    gralloc_module_t *mGrallocModule;
+    gralloc_module_t const* mGrallocModule;
 private:
     enum {
         // make the buffer pool large enough

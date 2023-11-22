@@ -30,8 +30,9 @@ LOCAL_MODULE:= libspeex
 
 
 
-LOCAL_CFLAGS+= -DEXPORT= -DFLOATING_POINT -DUSE_SMALLFT -DVAR_ARRAYS
-LOCAL_CFLAGS+= -O3 -fstrict-aliasing -fprefetch-loop-arrays
+LOCAL_CFLAGS += -DEXPORT= -DFLOATING_POINT -DUSE_SMALLFT -DVAR_ARRAYS
+LOCAL_CFLAGS += -O3 -fstrict-aliasing -fprefetch-loop-arrays
+LOCAL_CFLAGS += -Wno-unused-parameter
 
 LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH)/include

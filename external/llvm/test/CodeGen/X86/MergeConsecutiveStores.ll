@@ -1,13 +1,10 @@
-; RUN: llc -march=x86-64 -mcpu=corei7 -mattr=+avx < %s | FileCheck %s
-; RUN: llc -march=x86-64 -mcpu=corei7 -mattr=+avx -addr-sink-using-gep=1 < %s | FileCheck %s
-
-target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64-S128"
-target triple = "x86_64-apple-macosx10.8.0"
+; RUN: llc -mtriple=x86_64-unknown-unknown -mattr=+avx < %s | FileCheck %s
+; RUN: llc -mtriple=x86_64-unknown-unknown -mattr=+avx -addr-sink-using-gep=1 < %s | FileCheck %s
 
 %struct.A = type { i8, i8, i8, i8, i8, i8, i8, i8 }
 %struct.B = type { i32, i32, i32, i32, i32, i32, i32, i32 }
 
-; CHECK: merge_const_store
+; CHECK-LABEL: merge_const_store:
 ; save 1,2,3 ... as one big integer.
 ; CHECK: movabsq $578437695752307201
 ; CHECK: ret
@@ -42,7 +39,7 @@ define void @merge_const_store(i32 %count, %struct.A* nocapture %p) nounwind uwt
 }
 
 ; No vectors because we use noimplicitfloat
-; CHECK: merge_const_store_no_vec
+; CHECK-LABEL: merge_const_store_no_vec:
 ; CHECK-NOT: vmovups
 ; CHECK: ret
 define void @merge_const_store_no_vec(i32 %count, %struct.B* nocapture %p) noimplicitfloat{
@@ -76,7 +73,7 @@ define void @merge_const_store_no_vec(i32 %count, %struct.B* nocapture %p) noimp
 }
 
 ; Move the constants using a single vector store.
-; CHECK: merge_const_store_vec
+; CHECK-LABEL: merge_const_store_vec:
 ; CHECK: vmovups
 ; CHECK: ret
 define void @merge_const_store_vec(i32 %count, %struct.B* nocapture %p) nounwind uwtable noinline ssp {
@@ -110,7 +107,7 @@ define void @merge_const_store_vec(i32 %count, %struct.B* nocapture %p) nounwind
 }
 
 ; Move the first 4 constants as a single vector. Move the rest as scalars.
-; CHECK: merge_nonconst_store
+; CHECK-LABEL: merge_nonconst_store:
 ; CHECK: movl $67305985
 ; CHECK: movb
 ; CHECK: movb
@@ -291,17 +288,16 @@ block4:                                       ; preds = %4, %.lr.ph
   ret void
 }
 
+;; On x86, even unaligned copies should be merged to vector ops.
+;; TODO: however, this cannot happen at the moment, due to brokenness
+;; in MergeConsecutiveStores. See UseAA FIXME in DAGCombiner.cpp
+;; visitSTORE.
+
 ; CHECK-LABEL: merge_loads_no_align:
 ;  load:
-; CHECK: movl
-; CHECK: movl
-; CHECK: movl
-; CHECK: movl
+; CHECK-NOT: vmovups ;; TODO
 ;  store:
-; CHECK: movl
-; CHECK: movl
-; CHECK: movl
-; CHECK: movl
+; CHECK-NOT: vmovups ;; TODO
 ; CHECK: ret
 define void @merge_loads_no_align(i32 %count, %struct.B* noalias nocapture %q, %struct.B* noalias nocapture %p) nounwind uwtable noinline ssp {
   %a1 = icmp sgt i32 %count, 0
@@ -340,7 +336,7 @@ block4:                                       ; preds = %4, %.lr.ph
 
 ; Make sure that we merge the consecutive load/store sequence below and use a
 ; word (16 bit) instead of a byte copy.
-; CHECK: MergeLoadStoreBaseIndexOffset
+; CHECK-LABEL: MergeLoadStoreBaseIndexOffset:
 ; CHECK: movw    (%{{.*}},%{{.*}}), [[REG:%[a-z]+]]
 ; CHECK: movw    [[REG]], (%{{.*}})
 define void @MergeLoadStoreBaseIndexOffset(i64* %a, i8* %b, i8* %c, i32 %n) {
@@ -372,7 +368,7 @@ define void @MergeLoadStoreBaseIndexOffset(i64* %a, i8* %b, i8* %c, i32 %n) {
 ; Make sure that we merge the consecutive load/store sequence below and use a
 ; word (16 bit) instead of a byte copy even if there are intermediate sign
 ; extensions.
-; CHECK: MergeLoadStoreBaseIndexOffsetSext
+; CHECK-LABEL: MergeLoadStoreBaseIndexOffsetSext:
 ; CHECK: movw    (%{{.*}},%{{.*}}), [[REG:%[a-z]+]]
 ; CHECK: movw    [[REG]], (%{{.*}})
 define void @MergeLoadStoreBaseIndexOffsetSext(i8* %a, i8* %b, i8* %c, i32 %n) {
@@ -404,7 +400,7 @@ define void @MergeLoadStoreBaseIndexOffsetSext(i8* %a, i8* %b, i8* %c, i32 %n) {
 
 ; However, we can only merge ignore sign extensions when they are on all memory
 ; computations;
-; CHECK: loadStoreBaseIndexOffsetSextNoSex
+; CHECK-LABEL: loadStoreBaseIndexOffsetSextNoSex:
 ; CHECK-NOT: movw    (%{{.*}},%{{.*}}), [[REG:%[a-z]+]]
 ; CHECK-NOT: movw    [[REG]], (%{{.*}})
 define void @loadStoreBaseIndexOffsetSextNoSex(i8* %a, i8* %b, i8* %c, i32 %n) {
@@ -465,6 +461,65 @@ define void @merge_vec_element_store(<8 x float> %v, float* %ptr) {
 ; CHECK-LABEL: merge_vec_element_store
 ; CHECK: vmovups
 ; CHECK-NEXT: vzeroupper
+; CHECK-NEXT: retq
+}
+
+; PR21711 - Merge vector stores into wider vector stores.
+; These should be merged into 32-byte stores.
+define void @merge_vec_extract_stores(<8 x float> %v1, <8 x float> %v2, <4 x float>* %ptr) {
+  %idx0 = getelementptr inbounds <4 x float>, <4 x float>* %ptr, i64 3
+  %idx1 = getelementptr inbounds <4 x float>, <4 x float>* %ptr, i64 4
+  %idx2 = getelementptr inbounds <4 x float>, <4 x float>* %ptr, i64 5
+  %idx3 = getelementptr inbounds <4 x float>, <4 x float>* %ptr, i64 6
+  %shuffle0 = shufflevector <8 x float> %v1, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %shuffle1 = shufflevector <8 x float> %v1, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  %shuffle2 = shufflevector <8 x float> %v2, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %shuffle3 = shufflevector <8 x float> %v2, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  store <4 x float> %shuffle0, <4 x float>* %idx0, align 16
+  store <4 x float> %shuffle1, <4 x float>* %idx1, align 16
+  store <4 x float> %shuffle2, <4 x float>* %idx2, align 16
+  store <4 x float> %shuffle3, <4 x float>* %idx3, align 16
+  ret void
+
+; CHECK-LABEL: merge_vec_extract_stores
+; CHECK:      vmovups %ymm0, 48(%rdi)
+; CHECK-NEXT: vmovups %ymm1, 80(%rdi)
+; CHECK-NEXT: vzeroupper
+; CHECK-NEXT: retq
+}
+
+; Merging vector stores when sourced from vector loads is not currently handled.
+define void @merge_vec_stores_from_loads(<4 x float>* %v, <4 x float>* %ptr) {
+  %load_idx0 = getelementptr inbounds <4 x float>, <4 x float>* %v, i64 0
+  %load_idx1 = getelementptr inbounds <4 x float>, <4 x float>* %v, i64 1
+  %v0 = load <4 x float>, <4 x float>* %load_idx0
+  %v1 = load <4 x float>, <4 x float>* %load_idx1
+  %store_idx0 = getelementptr inbounds <4 x float>, <4 x float>* %ptr, i64 0
+  %store_idx1 = getelementptr inbounds <4 x float>, <4 x float>* %ptr, i64 1
+  store <4 x float> %v0, <4 x float>* %store_idx0, align 16
+  store <4 x float> %v1, <4 x float>* %store_idx1, align 16
+  ret void
+
+; CHECK-LABEL: merge_vec_stores_from_loads
+; CHECK:      vmovaps
+; CHECK-NEXT: vmovaps
+; CHECK-NEXT: vmovaps
+; CHECK-NEXT: vmovaps
+; CHECK-NEXT: retq
+}
+
+; Merging vector stores when sourced from a constant vector is not currently handled. 
+define void @merge_vec_stores_of_constants(<4 x i32>* %ptr) {
+  %idx0 = getelementptr inbounds <4 x i32>, <4 x i32>* %ptr, i64 3
+  %idx1 = getelementptr inbounds <4 x i32>, <4 x i32>* %ptr, i64 4
+  store <4 x i32> <i32 0, i32 0, i32 0, i32 0>, <4 x i32>* %idx0, align 16
+  store <4 x i32> <i32 0, i32 0, i32 0, i32 0>, <4 x i32>* %idx1, align 16
+  ret void
+
+; CHECK-LABEL: merge_vec_stores_of_constants
+; CHECK:      vxorps
+; CHECK-NEXT: vmovaps
+; CHECK-NEXT: vmovaps
 ; CHECK-NEXT: retq
 }
 

@@ -11,11 +11,13 @@ fi
 # shell, but not functions (like gettop), so we need to source envsetup in here
 # as well.
 source $ANDROID_BUILD_TOP/build/envsetup.sh
+echo
 
 function adb_get_product_device() {
-  local candidate=`adb shell getprop ro.product.device | tr -d '\r\n'`
-  if [ -z $candidate ]; then
-    candidate=`adb shell getprop ro.hardware | tr -d '\r\n'`
+  local candidate=`adb shell getprop ro.hardware | tr -d '\r\n'`
+  if [[ "$candidate" =~ ^(goldfish|ranchu)$ ]]; then
+    # Emulator builds use product.device for OUT folder
+    candidate=`adb shell getprop ro.product.device | tr -d '\r\n'`
   fi
   echo $candidate
 }
@@ -63,7 +65,8 @@ function gdbclient() {
     ROOT=`realpath .`
   fi
 
-  local OUT_ROOT="$ROOT/out/target/product/$DEVICE"
+  local SYS_OUT_ROOT=$(get_build_var OUT_DIR)
+  local OUT_ROOT="${SYS_OUT_ROOT:-${OUT_DIR:-$ROOT/out}}/target/product/$DEVICE"
   local SYMBOLS_DIR="$OUT_ROOT/symbols"
   local IS_TAPAS_USER="$(get_build_var TARGET_BUILD_APPS)"
   local TAPAS_SYMBOLS_DIR=
@@ -95,10 +98,15 @@ function gdbclient() {
     fi
   fi
 
-  local EXE=`adb shell readlink /proc/$PID/exe | tr -d '\r\n'`
+  local ID=`adb shell id -u`
+  if [ "$ID" != "0" ]; then
+    echo "Error: gdbclient only works if you've run 'adb root'"
+    return -4
+  fi
 
+  local EXE=`adb shell readlink /proc/$PID/exe | tr -d '\r\n'`
   if [ -z "$EXE" ]; then
-    echo "Error: no such pid=$PID - is process still alive?"
+    echo "Error: couldn't find executable for pid $PID --- is the process still alive?"
     return -4
   fi
 
@@ -124,33 +132,23 @@ function gdbclient() {
     adb pull /system/bin/linker$USE64BIT $SYMBOLS_DIR/system/bin/linker$USE64BIT
   fi
 
-  local GDB=
-  local GDB64=
+  local GDB
+  case $(uname -s) in
+    Darwin)
+      GDB=$ANDROID_BUILD_TOP/prebuilts/gdb/darwin-x86/bin/gdb
+      ;;
+
+    Linux)
+      GDB=$ANDROID_BUILD_TOP/prebuilts/gdb/linux-x86/bin/gdb
+      ;;
+
+    *)
+      echo "Error: Unknown platform '$(uname -s)'"
+      return 1
+      ;;
+  esac
+
   local CPU_ABI=`adb shell getprop ro.product.cpu.abilist | tr -d '\r\n'`
-  # TODO: Derive this differently to correctly support multi-arch. We could try to parse
-  #       /proc/pid/exe. Right now, we prefer 64bit by checking those entries first.
-  # TODO: Correctly support native bridge, which makes parsing abilist very brittle.
-  # Note: Do NOT sort the entries alphabetically because of this. Fugu's abilist is
-  #       "x86,armeabi-v7a,armeabi", and we need to grab the "x86".
-  # TODO: we assume these are available via $PATH
-  if [[ $CPU_ABI =~ (^|,)arm64 ]]; then
-    GDB=arm-linux-androideabi-gdb
-    GDB64=aarch64-linux-android-gdb
-  elif [[ $CPU_ABI =~ (^|,)x86_64 ]]; then
-    GDB=x86_64-linux-android-gdb
-  elif [[ $CPU_ABI =~ (^|,)mips64 ]]; then
-    GDB=mipsel-linux-android-gdb
-    GDB64=mips64el-linux-android-gdb
-  elif [[ $CPU_ABI =~ (^|,)x86 ]]; then    # See note above for order.
-    GDB=x86_64-linux-android-gdb
-  elif [[ $CPU_ABI =~ (^|,)arm ]]; then
-    GDB=arm-linux-androideabi-gdb
-  elif [[ $CPU_ABI =~ (^|,)mips ]]; then
-    GDB=mipsel-linux-android-gdb
-  else
-    echo "Error: unrecognized cpu.abilist: $CPU_ABI"
-    return -6
-  fi
 
   # TODO: check if tracing process is gdbserver and not some random strace...
   if [ "$(adb_get_traced_by $PID)" -eq 0 ]; then
@@ -199,13 +197,7 @@ function gdbclient() {
 
   echo >>"$OUT_ROOT/gdbclient.cmds" ""
 
-  local WHICH_GDB=$GDB
-
-  if [ -n "$USE64BIT" -a -n "$GDB64" ]; then
-    WHICH_GDB=$GDB64
-  fi
-
-  gdbwrapper $WHICH_GDB "$OUT_ROOT/gdbclient.cmds" "$LOCAL_EXE_PATH"
+  gdbwrapper $GDB "$OUT_ROOT/gdbclient.cmds" "$LOCAL_EXE_PATH"
 }
 
 gdbclient $*

@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (C) 1996-2015, International Business Machines Corporation and
+ * Copyright (C) 1996-2016, International Business Machines Corporation and
  * others. All Rights Reserved.
  *******************************************************************************
  */
@@ -20,6 +20,7 @@ import com.ibm.icu.impl.Norm2AllModes;
 import com.ibm.icu.impl.PatternProps;
 import com.ibm.icu.impl.RuleCharacterIterator;
 import com.ibm.icu.impl.SortedSetRelation;
+import com.ibm.icu.impl.StringRange;
 import com.ibm.icu.impl.UBiDiProps;
 import com.ibm.icu.impl.UCaseProps;
 import com.ibm.icu.impl.UCharacterProperty;
@@ -88,33 +89,33 @@ import com.ibm.icu.util.VersionInfo;
  *
  * <blockquote>
  *   <table>
- *     <tr align="top">
- *       <td nowrap valign="top" align="left"><code>[]</code></td>
- *       <td valign="top">No characters</td>
- *     </tr><tr align="top">
- *       <td nowrap valign="top" align="left"><code>[a]</code></td>
- *       <td valign="top">The character 'a'</td>
- *     </tr><tr align="top">
- *       <td nowrap valign="top" align="left"><code>[ae]</code></td>
- *       <td valign="top">The characters 'a' and 'e'</td>
+ *     <tr style="vertical-align: top">
+ *       <td style="white-space: nowrap; vertical-align: top; horizontal-align: left;"><code>[]</code></td>
+ *       <td style="vertical-align: top;">No characters</td>
+ *     </tr><tr style="vertical-align: top">
+ *       <td style="white-space: nowrap; vertical-align: top; horizontal-align: left;"><code>[a]</code></td>
+ *       <td style="vertical-align: top;">The character 'a'</td>
+ *     </tr><tr style="vertical-align: top">
+ *       <td style="white-space: nowrap; vertical-align: top; horizontal-align: left;"><code>[ae]</code></td>
+ *       <td style="vertical-align: top;">The characters 'a' and 'e'</td>
  *     </tr>
  *     <tr>
- *       <td nowrap valign="top" align="left"><code>[a-e]</code></td>
- *       <td valign="top">The characters 'a' through 'e' inclusive, in Unicode code
+ *       <td style="white-space: nowrap; vertical-align: top; horizontal-align: left;"><code>[a-e]</code></td>
+ *       <td style="vertical-align: top;">The characters 'a' through 'e' inclusive, in Unicode code
  *       point order</td>
  *     </tr>
  *     <tr>
- *       <td nowrap valign="top" align="left"><code>[\\u4E01]</code></td>
- *       <td valign="top">The character U+4E01</td>
+ *       <td style="white-space: nowrap; vertical-align: top; horizontal-align: left;"><code>[\\u4E01]</code></td>
+ *       <td style="vertical-align: top;">The character U+4E01</td>
  *     </tr>
  *     <tr>
- *       <td nowrap valign="top" align="left"><code>[a{ab}{ac}]</code></td>
- *       <td valign="top">The character 'a' and the multicharacter strings &quot;ab&quot; and
+ *       <td style="white-space: nowrap; vertical-align: top; horizontal-align: left;"><code>[a{ab}{ac}]</code></td>
+ *       <td style="vertical-align: top;">The character 'a' and the multicharacter strings &quot;ab&quot; and
  *       &quot;ac&quot;</td>
  *     </tr>
  *     <tr>
- *       <td nowrap valign="top" align="left"><code>[\p{Lu}]</code></td>
- *       <td valign="top">All characters in the general category Uppercase Letter</td>
+ *       <td style="white-space: nowrap; vertical-align: top; horizontal-align: left;"><code>[\p{Lu}]</code></td>
+ *       <td style="vertical-align: top;">All characters in the general category Uppercase Letter</td>
  *     </tr>
  *   </table>
  * </blockquote>
@@ -150,34 +151,34 @@ import com.ibm.icu.util.VersionInfo;
  * literal.  Thus "[a\\-b]", "[-ab]", and "[ab-]" all indicate the same
  * set of three characters, 'a', 'b', and '-'.
  *
- * <p>Sets may be intersected using the '&' operator or the asymmetric
+ * <p>Sets may be intersected using the '&amp;' operator or the asymmetric
  * set difference may be taken using the '-' operator, for example,
- * "[[:L:]&[\\u0000-\\u0FFF]]" indicates the set of all Unicode letters
- * with values less than 4096.  Operators ('&' and '|') have equal
+ * "[[:L:]&amp;[\\u0000-\\u0FFF]]" indicates the set of all Unicode letters
+ * with values less than 4096.  Operators ('&amp;' and '|') have equal
  * precedence and bind left-to-right.  Thus
  * "[[:L:]-[a-z]-[\\u0100-\\u01FF]]" is equivalent to
  * "[[[:L:]-[a-z]]-[\\u0100-\\u01FF]]".  This only really matters for
  * difference; intersection is commutative.
  *
  * <table>
- * <tr valign=top><td nowrap><code>[a]</code><td>The set containing 'a'
- * <tr valign=top><td nowrap><code>[a-z]</code><td>The set containing 'a'
+ * <tr style="vertical-align: top;"><td style="white-space: nowrap;"><code>[a]</code><td>The set containing 'a'
+ * <tr style="vertical-align: top;"><td style="white-space: nowrap;"><code>[a-z]</code><td>The set containing 'a'
  * through 'z' and all letters in between, in Unicode order
- * <tr valign=top><td nowrap><code>[^a-z]</code><td>The set containing
+ * <tr style="vertical-align: top;"><td style="white-space: nowrap;"><code>[^a-z]</code><td>The set containing
  * all characters but 'a' through 'z',
  * that is, U+0000 through 'a'-1 and 'z'+1 through U+10FFFF
- * <tr valign=top><td nowrap><code>[[<em>pat1</em>][<em>pat2</em>]]</code>
+ * <tr style="vertical-align: top;"><td style="white-space: nowrap;"><code>[[<em>pat1</em>][<em>pat2</em>]]</code>
  * <td>The union of sets specified by <em>pat1</em> and <em>pat2</em>
- * <tr valign=top><td nowrap><code>[[<em>pat1</em>]&[<em>pat2</em>]]</code>
+ * <tr style="vertical-align: top;"><td style="white-space: nowrap;"><code>[[<em>pat1</em>]&amp;[<em>pat2</em>]]</code>
  * <td>The intersection of sets specified by <em>pat1</em> and <em>pat2</em>
- * <tr valign=top><td nowrap><code>[[<em>pat1</em>]-[<em>pat2</em>]]</code>
+ * <tr style="vertical-align: top;"><td style="white-space: nowrap;"><code>[[<em>pat1</em>]-[<em>pat2</em>]]</code>
  * <td>The asymmetric difference of sets specified by <em>pat1</em> and
  * <em>pat2</em>
- * <tr valign=top><td nowrap><code>[:Lu:] or \p{Lu}</code>
+ * <tr style="vertical-align: top;"><td style="white-space: nowrap;"><code>[:Lu:] or \p{Lu}</code>
  * <td>The set of characters having the specified
  * Unicode property; in
  * this case, Unicode uppercase letters
- * <tr valign=top><td nowrap><code>[:^Lu:] or \P{Lu}</code>
+ * <tr style="vertical-align: top;"><td style="white-space: nowrap;"><code>[:^Lu:] or \P{Lu}</code>
  * <td>The set of characters <em>not</em> having the given
  * Unicode property
  * </table>
@@ -188,48 +189,48 @@ import com.ibm.icu.util.VersionInfo;
  *
  * <blockquote>
  *   <table>
- *     <tr align="top">
- *       <td nowrap valign="top" align="right"><code>pattern :=&nbsp; </code></td>
- *       <td valign="top"><code>('[' '^'? item* ']') |
+ *     <tr style="vertical-align: top">
+ *       <td style="white-space: nowrap; vertical-align: top;" align="right"><code>pattern :=&nbsp; </code></td>
+ *       <td style="vertical-align: top;"><code>('[' '^'? item* ']') |
  *       property</code></td>
  *     </tr>
- *     <tr align="top">
- *       <td nowrap valign="top" align="right"><code>item :=&nbsp; </code></td>
- *       <td valign="top"><code>char | (char '-' char) | pattern-expr<br>
+ *     <tr style="vertical-align: top">
+ *       <td style="white-space: nowrap; vertical-align: top;" align="right"><code>item :=&nbsp; </code></td>
+ *       <td style="vertical-align: top;"><code>char | (char '-' char) | pattern-expr<br>
  *       </code></td>
  *     </tr>
- *     <tr align="top">
- *       <td nowrap valign="top" align="right"><code>pattern-expr :=&nbsp; </code></td>
- *       <td valign="top"><code>pattern | pattern-expr pattern |
+ *     <tr style="vertical-align: top">
+ *       <td style="white-space: nowrap; vertical-align: top;" align="right"><code>pattern-expr :=&nbsp; </code></td>
+ *       <td style="vertical-align: top;"><code>pattern | pattern-expr pattern |
  *       pattern-expr op pattern<br>
  *       </code></td>
  *     </tr>
- *     <tr align="top">
- *       <td nowrap valign="top" align="right"><code>op :=&nbsp; </code></td>
- *       <td valign="top"><code>'&amp;' | '-'<br>
+ *     <tr style="vertical-align: top">
+ *       <td style="white-space: nowrap; vertical-align: top;" align="right"><code>op :=&nbsp; </code></td>
+ *       <td style="vertical-align: top;"><code>'&amp;' | '-'<br>
  *       </code></td>
  *     </tr>
- *     <tr align="top">
- *       <td nowrap valign="top" align="right"><code>special :=&nbsp; </code></td>
- *       <td valign="top"><code>'[' | ']' | '-'<br>
+ *     <tr style="vertical-align: top">
+ *       <td style="white-space: nowrap; vertical-align: top;" align="right"><code>special :=&nbsp; </code></td>
+ *       <td style="vertical-align: top;"><code>'[' | ']' | '-'<br>
  *       </code></td>
  *     </tr>
- *     <tr align="top">
- *       <td nowrap valign="top" align="right"><code>char :=&nbsp; </code></td>
- *       <td valign="top"><em>any character that is not</em><code> special<br>
+ *     <tr style="vertical-align: top">
+ *       <td style="white-space: nowrap; vertical-align: top;" align="right"><code>char :=&nbsp; </code></td>
+ *       <td style="vertical-align: top;"><em>any character that is not</em><code> special<br>
  *       | ('\\' </code><em>any character</em><code>)<br>
  *       | ('&#92;u' hex hex hex hex)<br>
  *       </code></td>
  *     </tr>
- *     <tr align="top">
- *       <td nowrap valign="top" align="right"><code>hex :=&nbsp; </code></td>
- *       <td valign="top"><em>any character for which
+ *     <tr style="vertical-align: top">
+ *       <td style="white-space: nowrap; vertical-align: top;" align="right"><code>hex :=&nbsp; </code></td>
+ *       <td style="vertical-align: top;"><em>any character for which
  *       </em><code>Character.digit(c, 16)</code><em>
  *       returns a non-negative result</em></td>
  *     </tr>
  *     <tr>
- *       <td nowrap valign="top" align="right"><code>property :=&nbsp; </code></td>
- *       <td valign="top"><em>a Unicode property set pattern</td>
+ *       <td style="white-space: nowrap; vertical-align: top;" align="right"><code>property :=&nbsp; </code></td>
+ *       <td style="vertical-align: top;"><em>a Unicode property set pattern</em></td>
  *     </tr>
  *   </table>
  *   <br>
@@ -237,32 +238,32 @@ import com.ibm.icu.util.VersionInfo;
  *     <tr>
  *       <td>Legend: <table>
  *         <tr>
- *           <td nowrap valign="top"><code>a := b</code></td>
- *           <td width="20" valign="top">&nbsp; </td>
- *           <td valign="top"><code>a</code> may be replaced by <code>b</code> </td>
+ *           <td style="white-space: nowrap; vertical-align: top;"><code>a := b</code></td>
+ *           <td style="width: 20; vertical-align: top;">&nbsp; </td>
+ *           <td style="vertical-align: top;"><code>a</code> may be replaced by <code>b</code> </td>
  *         </tr>
  *         <tr>
- *           <td nowrap valign="top"><code>a?</code></td>
- *           <td valign="top"></td>
- *           <td valign="top">zero or one instance of <code>a</code><br>
+ *           <td style="white-space: nowrap; vertical-align: top;"><code>a?</code></td>
+ *           <td style="vertical-align: top;"></td>
+ *           <td style="vertical-align: top;">zero or one instance of <code>a</code><br>
  *           </td>
  *         </tr>
  *         <tr>
- *           <td nowrap valign="top"><code>a*</code></td>
- *           <td valign="top"></td>
- *           <td valign="top">one or more instances of <code>a</code><br>
+ *           <td style="white-space: nowrap; vertical-align: top;"><code>a*</code></td>
+ *           <td style="vertical-align: top;"></td>
+ *           <td style="vertical-align: top;">one or more instances of <code>a</code><br>
  *           </td>
  *         </tr>
  *         <tr>
- *           <td nowrap valign="top"><code>a | b</code></td>
- *           <td valign="top"></td>
- *           <td valign="top">either <code>a</code> or <code>b</code><br>
+ *           <td style="white-space: nowrap; vertical-align: top;"><code>a | b</code></td>
+ *           <td style="vertical-align: top;"></td>
+ *           <td style="vertical-align: top;">either <code>a</code> or <code>b</code><br>
  *           </td>
  *         </tr>
  *         <tr>
- *           <td nowrap valign="top"><code>'a'</code></td>
- *           <td valign="top"></td>
- *           <td valign="top">the literal string between the quotes </td>
+ *           <td style="white-space: nowrap; vertical-align: top;"><code>'a'</code></td>
+ *           <td style="vertical-align: top;"></td>
+ *           <td style="vertical-align: top;">the literal string between the quotes </td>
  *         </tr>
  *       </table>
  *       </td>
@@ -375,7 +376,7 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
     }
 
     /**
-     * Constructs a set containing the given range. If <code>end >
+     * Constructs a set containing the given range. If <code>end &gt;
      * start</code> then an empty set is created.
      *
      * @param start first character, inclusive, of range
@@ -388,11 +389,11 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
     }
 
     /**
-     * Quickly constructs a set from a set of ranges <s0, e0, s1, e1, s2, e2, ..., sn, en>.
+     * Quickly constructs a set from a set of ranges &lt;s0, e0, s1, e1, s2, e2, ..., sn, en&gt;.
      * There must be an even number of integers, and they must be all greater than zero,
      * all less than or equal to Character.MAX_CODE_POINT.
-     * In each pair (..., si, ei, ...) it must be true that si <= ei
-     * Between adjacent pairs (...ei, sj...), it must be true that ei+1 < sj
+     * In each pair (..., si, ei, ...) it must be true that si &lt;= ei
+     * Between adjacent pairs (...ei, sj...), it must be true that ei+1 &lt; sj
      * @param pairs pairs of character representing ranges
      * @stable ICU 4.4
      */
@@ -516,7 +517,7 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
 
     /**
      * Make this object represent the range <code>start - end</code>.
-     * If <code>end > start</code> then this object is set to an
+     * If <code>end &gt; start</code> then this object is set to an
      * an empty range.
      *
      * @param start first character in the set, inclusive
@@ -772,19 +773,19 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
             T result, boolean escapeUnprintable, boolean includeStrings) {
         try {
             result.append('[');
-    
+
             int count = getRangeCount();
-    
+
             // If the set contains at least 2 intervals and includes both
             // MIN_VALUE and MAX_VALUE, then the inverse representation will
             // be more economical.
             if (count > 1 &&
                     getRangeStart(0) == MIN_VALUE &&
                     getRangeEnd(count-1) == MAX_VALUE) {
-    
+
                 // Emit the inverse
                 result.append('^');
-    
+
                 for (int i = 1; i < count; ++i) {
                     int start = getRangeEnd(i-1)+1;
                     int end = getRangeStart(i)-1;
@@ -797,7 +798,7 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
                     }
                 }
             }
-    
+
             // Default; emit the ranges as pairs
             else {
                 for (int i = 0; i < count; ++i) {
@@ -812,7 +813,7 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
                     }
                 }
             }
-    
+
             if (includeStrings && strings.size() > 0) {
                 for (String s : strings) {
                     result.append('{');
@@ -1156,7 +1157,7 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
     /**
      * Adds the specified range to this set if it is not already
      * present.  If this set already contains the specified range,
-     * the call leaves this set unchanged.  If <code>end > start</code>
+     * the call leaves this set unchanged.  If <code>end &gt; start</code>
      * then an empty range is added, leaving the set unchanged.
      *
      * @param start first character, inclusive, of range to be added
@@ -1320,7 +1321,7 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
      * Adds the specified multicharacter to this set if it is not already
      * present.  If this set already contains the multicharacter,
      * the call leaves this set unchanged.
-     * Thus "ch" => {"ch"}
+     * Thus "ch" =&gt; {"ch"}
      * <br><b>Warning: you cannot add an empty string ("") to a UnicodeSet.</b>
      * @param s the source string
      * @return this object, for chaining
@@ -1361,7 +1362,7 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
     }
 
     /**
-     * Adds each of the characters in this string to the set. Thus "ch" => {"c", "h"}
+     * Adds each of the characters in this string to the set. Thus "ch" =&gt; {"c", "h"}
      * If this set already any particular character, it has no effect on that character.
      * @param s the source string
      * @return this object, for chaining
@@ -1425,7 +1426,7 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
     }
 
     /**
-     * Makes a set from a multicharacter string. Thus "ch" => {"ch"}
+     * Makes a set from a multicharacter string. Thus "ch" =&gt; {"ch"}
      * <br><b>Warning: you cannot add an empty string ("") to a UnicodeSet.</b>
      * @param s the source string
      * @return a newly created set containing the given string
@@ -1437,7 +1438,7 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
 
 
     /**
-     * Makes a set from each of the characters in the string. Thus "ch" => {"c", "h"}
+     * Makes a set from each of the characters in the string. Thus "ch" =&gt; {"c", "h"}
      * @param s the source string
      * @return a newly created set containing the given characters
      * @stable ICU 2.0
@@ -1449,7 +1450,7 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
 
     /**
      * Retain only the elements in this set that are contained in the
-     * specified range.  If <code>end > start</code> then an empty range is
+     * specified range.  If <code>end &gt; start</code> then an empty range is
      * retained, leaving the set empty.
      *
      * @param start first character, inclusive, of range to be retained
@@ -1515,7 +1516,7 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
     /**
      * Removes the specified range from this set if it is present.
      * The set will not contain the specified range once the call
-     * returns.  If <code>end > start</code> then an empty range is
+     * returns.  If <code>end &gt; start</code> then an empty range is
      * removed, leaving the set unchanged.
      *
      * @param start first character, inclusive, of range to be removed
@@ -1572,7 +1573,7 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
     /**
      * Complements the specified range in this set.  Any character in
      * the range will be removed if it is in this set, or will be
-     * added if it is not in this set.  If <code>end > start</code>
+     * added if it is not in this set.  If <code>end &gt; start</code>
      * then an empty range is complemented, leaving the set unchanged.
      *
      * @param start first character, inclusive, of range to be removed
@@ -2431,6 +2432,21 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
         return this;
     }
 
+    // Add constants to make the applyPattern() code easier to follow.
+
+    private static final int LAST0_START = 0, 
+            LAST1_RANGE = 1, 
+            LAST2_SET = 2;
+
+    private static final int MODE0_NONE = 0, 
+            MODE1_INBRACKET = 1, 
+            MODE2_OUTBRACKET = 2;
+
+    private static final int SETMODE0_NONE = 0, 
+            SETMODE1_UNICODESET = 1, 
+            SETMODE2_PROPERTYPAT = 2, 
+            SETMODE3_PREPARSED = 3;
+
     /**
      * Parse the pattern from the given RuleCharacterIterator.  The
      * iterator is advanced over the parsed pattern.
@@ -2465,14 +2481,15 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
 
         // mode: 0=before [, 1=between [...], 2=after ]
         // lastItem: 0=none, 1=char, 2=set
-        int lastItem = 0, lastChar = 0, mode = 0;
+        int lastItem = LAST0_START, lastChar = 0, mode = MODE0_NONE;
         char op = 0;
 
         boolean invert = false;
 
         clear();
+        String lastString = null;
 
-        while (mode != 2 && !chars.atEnd()) {
+        while (mode != MODE2_OUTBRACKET && !chars.atEnd()) {
             //Eclipse stated the following is "dead code"
             /*
             if (false) {
@@ -2491,9 +2508,9 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
             // -------- Check for property pattern
 
             // setMode: 0=none, 1=unicodeset, 2=propertypat, 3=preparsed
-            int setMode = 0;
+            int setMode = SETMODE0_NONE;
             if (resemblesPropertyPattern(chars, opts)) {
-                setMode = 2;
+                setMode = SETMODE2_PROPERTYPAT;
             }
 
             // -------- Parse '[' of opening delimiter OR nested set.
@@ -2511,12 +2528,12 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
                 literal = chars.isEscaped();
 
                 if (c == '[' && !literal) {
-                    if (mode == 1) {
+                    if (mode == MODE1_INBRACKET) {
                         chars.setPos(backup); // backup
-                        setMode = 1;
+                        setMode = SETMODE1_UNICODESET;
                     } else {
                         // Handle opening '[' delimiter
-                        mode = 1;
+                        mode = MODE1_INBRACKET;
                         patBuf.append('[');
                         backup = chars.getPos(backup); // prepare to backup
                         c = chars.next(opts);
@@ -2543,7 +2560,7 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
                     if (m != null) {
                         try {
                             nested = (UnicodeSet) m;
-                            setMode = 3;
+                            setMode = SETMODE3_PREPARSED;
                         } catch (ClassCastException e) {
                             syntaxError(chars, "Syntax error");
                         }
@@ -2556,14 +2573,15 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
             // previously been parsed and was looked up in the symbol
             // table.
 
-            if (setMode != 0) {
-                if (lastItem == 1) {
+            if (setMode != SETMODE0_NONE) {
+                if (lastItem == LAST1_RANGE) {
                     if (op != 0) {
                         syntaxError(chars, "Char expected after operator");
                     }
                     add_unchecked(lastChar, lastChar);
                     _appendToPat(patBuf, lastChar, false);
-                    lastItem = op = 0;
+                    lastItem = LAST0_START;
+                    op = 0;
                 }
 
                 if (op == '-' || op == '&') {
@@ -2575,24 +2593,24 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
                     nested = scratch;
                 }
                 switch (setMode) {
-                case 1:
+                case SETMODE1_UNICODESET:
                     nested.applyPattern(chars, symbols, patBuf, options);
                     break;
-                case 2:
+                case SETMODE2_PROPERTYPAT:
                     chars.skipIgnored(opts);
                     nested.applyPropertyPattern(chars, patBuf, symbols);
                     break;
-                case 3: // `nested' already parsed
+                case SETMODE3_PREPARSED: // `nested' already parsed
                     nested._toPattern(patBuf, false);
                     break;
                 }
 
                 usePat = true;
 
-                if (mode == 0) {
+                if (mode == MODE0_NONE) {
                     // Entire pattern is a category; leave parse loop
                     set(nested);
-                    mode = 2;
+                    mode = MODE2_OUTBRACKET;
                     break;
                 }
 
@@ -2609,12 +2627,12 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
                 }
 
                 op = 0;
-                lastItem = 2;
+                lastItem = LAST2_SET;
 
                 continue;
             }
 
-            if (mode == 0) {
+            if (mode == MODE0_NONE) {
                 syntaxError(chars, "Missing '['");
             }
 
@@ -2625,7 +2643,7 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
             if (!literal) {
                 switch (c) {
                 case ']':
-                    if (lastItem == 1) {
+                    if (lastItem == LAST1_RANGE) {
                         add_unchecked(lastChar, lastChar);
                         _appendToPat(patBuf, lastChar, false);
                     }
@@ -2637,11 +2655,14 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
                         syntaxError(chars, "Trailing '&'");
                     }
                     patBuf.append(']');
-                    mode = 2;
+                    mode = MODE2_OUTBRACKET;
                     continue;
                 case '-':
                     if (op == 0) {
-                        if (lastItem != 0) {
+                        if (lastItem != LAST0_START) {
+                            op = (char) c;
+                            continue;
+                        } else if (lastString != null) {
                             op = (char) c;
                             continue;
                         } else {
@@ -2651,15 +2672,15 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
                             literal = chars.isEscaped();
                             if (c == ']' && !literal) {
                                 patBuf.append("-]");
-                                mode = 2;
+                                mode = MODE2_OUTBRACKET;
                                 continue;
                             }
                         }
                     }
-                    syntaxError(chars, "'-' not after char or set");
+                    syntaxError(chars, "'-' not after char, string, or set");
                     break;
                 case '&':
-                    if (lastItem == 2 && op == 0) {
+                    if (lastItem == LAST2_SET && op == 0) {
                         op = (char) c;
                         continue;
                     }
@@ -2669,14 +2690,14 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
                     syntaxError(chars, "'^' not after '['");
                     break;
                 case '{':
-                    if (op != 0) {
+                    if (op != 0 && op != '-') {
                         syntaxError(chars, "Missing operand after operator");
                     }
-                    if (lastItem == 1) {
+                    if (lastItem == LAST1_RANGE) {
                         add_unchecked(lastChar, lastChar);
                         _appendToPat(patBuf, lastChar, false);
                     }
-                    lastItem = 0;
+                    lastItem = LAST0_START;
                     if (buf == null) {
                         buf = new StringBuilder();
                     } else {
@@ -2698,9 +2719,27 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
                     // We have new string. Add it to set and continue;
                     // we don't need to drop through to the further
                     // processing
-                    add(buf.toString());
+                    String curString = buf.toString();
+                    if (op == '-') {
+                        int lastSingle = CharSequences.getSingleCodePoint(lastString == null ? "" : lastString);
+                        int curSingle = CharSequences.getSingleCodePoint(curString);
+                        if (lastSingle != Integer.MAX_VALUE && curSingle != Integer.MAX_VALUE) {
+                            add(lastSingle,curSingle);
+                        } else {
+                            try {
+                                StringRange.expand(lastString, curString, true, strings);
+                            } catch (Exception e) {
+                                syntaxError(chars, e.getMessage());
+                            }
+                        }
+                        lastString = null;
+                        op = 0;
+                    } else {
+                        add(curString);
+                        lastString = curString;
+                    }
                     patBuf.append('{');
-                    _appendToPat(patBuf, buf.toString(), false);
+                    _appendToPat(patBuf, curString, false);
                     patBuf.append('}');
                     continue;
                 case SymbolTable.SYMBOL_REF:
@@ -2720,14 +2759,14 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
                         break; // literal '$'
                     }
                     if (anchor && op == 0) {
-                        if (lastItem == 1) {
+                        if (lastItem == LAST1_RANGE) {
                             add_unchecked(lastChar, lastChar);
                             _appendToPat(patBuf, lastChar, false);
                         }
                         add_unchecked(UnicodeMatcher.ETHER);
                         usePat = true;
                         patBuf.append(SymbolTable.SYMBOL_REF).append(']');
-                        mode = 2;
+                        mode = MODE2_OUTBRACKET;
                         continue;
                     }
                     syntaxError(chars, "Unquoted '$'");
@@ -2742,12 +2781,19 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
             // ("a").
 
             switch (lastItem) {
-            case 0:
-                lastItem = 1;
+            case LAST0_START:
+                if (op == '-' && lastString != null) {
+                    syntaxError(chars, "Invalid range");
+                }
+                lastItem = LAST1_RANGE;
                 lastChar = c;
+                lastString = null;
                 break;
-            case 1:
+            case LAST1_RANGE:
                 if (op == '-') {
+                    if (lastString != null) {
+                        syntaxError(chars, "Invalid range");
+                    }
                     if (lastChar >= c) {
                         // Don't allow redundant (a-a) or empty (b-a) ranges;
                         // these are most likely typos.
@@ -2757,24 +2803,25 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
                     _appendToPat(patBuf, lastChar, false);
                     patBuf.append(op);
                     _appendToPat(patBuf, c, false);
-                    lastItem = op = 0;
+                    lastItem = LAST0_START;
+                    op = 0;
                 } else {
                     add_unchecked(lastChar, lastChar);
                     _appendToPat(patBuf, lastChar, false);
                     lastChar = c;
                 }
                 break;
-            case 2:
+            case LAST2_SET:
                 if (op != 0) {
                     syntaxError(chars, "Set expected after operator");
                 }
                 lastChar = c;
-                lastItem = 1;
+                lastItem = LAST1_RANGE;
                 break;
             }
         }
 
-        if (mode != 2) {
+        if (mode != MODE2_OUTBRACKET) {
             syntaxError(chars, "Missing ']'");
         }
 
@@ -3312,7 +3359,7 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
      * UCharacter.getIntPropertyMaxValue(prop), with one exception.
      * If prop is UProperty.GENERAL_CATEGORY_MASK, then value should not be
      * a UCharacter.getType() result, but rather a mask value produced
-     * by logically ORing (1 << UCharacter.getType()) values together.
+     * by logically ORing (1 &lt;&lt; UCharacter.getType()) values together.
      * This allows grouped categories such as [:L:] to be represented.
      *
      * @return a reference to this set
@@ -3774,7 +3821,7 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
      * 2. For each string 'e' in the resulting set, if e !=
      * foldCase(e), 'e' will be removed.
      *
-     * Example: [aq\u00DF{Bc}{bC}{Fi}] => [aAqQ\u00DF\uFB01{ss}{bc}{fi}]
+     * Example: [aq\u00DF{Bc}{bC}{Fi}] =&gt; [aAqQ\u00DF\uFB01{ss}{bc}{fi}]
      *
      * (Here foldCase(x) refers to the operation
      * UCharacter.foldCase(x, true), and a == b actually denotes
@@ -4162,22 +4209,19 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
      * A struct-like class used for iteration through ranges, for faster iteration than by String.
      * Read about the restrictions on usage in {@link UnicodeSet#ranges()}.
      * 
-     * @draft ICU 54
-     * @provisional This is a draft API and might change in a future release of ICU.
+     * @stable ICU 54
      */
     public static class EntryRange {
         /**
          * The starting code point of the range.
          * 
-         * @draft ICU 54
-         * @provisional This is a draft API and might change in a future release of ICU.
+         * @stable ICU 54
          */
         public int codepoint;
         /**
          * The ending code point of the range
          * 
-         * @draft ICU 54
-         * @provisional This is a draft API and might change in a future release of ICU.
+         * @stable ICU 54
          */
         public int codepointEnd;
 
@@ -4187,8 +4231,7 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
         /**
          * {@inheritDoc}
          * 
-         * @draft ICU 54
-         * @provisional This is a draft API and might change in a future release of ICU.
+         * @stable ICU 54
          */
         @Override
         public String toString() {
@@ -4220,8 +4263,7 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
      * }
      * </pre>
      * 
-     * @draft ICU 54
-     * @provisional This is a draft API and might change in a future release of ICU.
+     * @stable ICU 54
      */
     public Iterable<EntryRange> ranges() {
         return new EntryRangeIterable();

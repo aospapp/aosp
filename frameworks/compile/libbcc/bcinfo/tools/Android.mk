@@ -17,12 +17,14 @@
 LOCAL_PATH := $(call my-dir)
 
 LLVM_ROOT_PATH := external/llvm
+include $(LLVM_ROOT_PATH)/llvm.mk
 
 # Executable for host
 # ========================================================
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := bcinfo
+LOCAL_MODULE_CLASS := EXECUTABLES
 
 LOCAL_SRC_FILES := \
   main.cpp
@@ -43,6 +45,7 @@ LOCAL_C_INCLUDES := \
 
 LOCAL_LDLIBS = -ldl -lpthread
 
-include $(LLVM_ROOT_PATH)/llvm-host-build.mk
+include $(LLVM_HOST_BUILD_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
 include $(BUILD_HOST_EXECUTABLE)
 

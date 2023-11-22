@@ -27,6 +27,7 @@
 */
 
 #include <tinyalsa/asoundlib.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -127,6 +128,9 @@ static void tinymix_detail_control(struct mixer *mixer, const char *control,
     unsigned int num_values;
     unsigned int i;
     int min, max;
+    int ret;
+    char *buf = NULL;
+    size_t len;
 
     if (isdigit(control[0]))
         ctl = mixer_get_ctl(mixer, atoi(control));
@@ -140,6 +144,23 @@ static void tinymix_detail_control(struct mixer *mixer, const char *control,
 
     type = mixer_ctl_get_type(ctl);
     num_values = mixer_ctl_get_num_values(ctl);
+
+    if (type == MIXER_CTL_TYPE_BYTE) {
+
+        buf = calloc(1, num_values);
+        if (buf == NULL) {
+            fprintf(stderr, "Failed to alloc mem for bytes %d\n", num_values);
+            return;
+        }
+
+        len = num_values;
+        ret = mixer_ctl_get_array(ctl, buf, len);
+        if (ret < 0) {
+            fprintf(stderr, "Failed to mixer_ctl_get_array\n");
+            free(buf);
+            return;
+        }
+    }
 
     if (print_all)
         printf("%s:", mixer_ctl_get_name(ctl));
@@ -156,8 +177,8 @@ static void tinymix_detail_control(struct mixer *mixer, const char *control,
         case MIXER_CTL_TYPE_ENUM:
             tinymix_print_enum(ctl, print_all);
             break;
-         case MIXER_CTL_TYPE_BYTE:
-            printf(" 0x%02x", mixer_ctl_get_value(ctl, i));
+        case MIXER_CTL_TYPE_BYTE:
+            printf("%02x", buf[i]);
             break;
         default:
             printf(" unknown");
@@ -172,7 +193,59 @@ static void tinymix_detail_control(struct mixer *mixer, const char *control,
             printf(" (range %d->%d)", min, max);
         }
     }
+
+    free(buf);
+
     printf("\n");
+}
+
+static void tinymix_set_byte_ctl(struct mixer_ctl *ctl,
+    char **values, unsigned int num_values)
+{
+    int ret;
+    char *buf;
+    char *end;
+    unsigned int i;
+    long n;
+
+    buf = calloc(1, num_values);
+    if (buf == NULL) {
+        fprintf(stderr, "set_byte_ctl: Failed to alloc mem for bytes %d\n", num_values);
+        exit(EXIT_FAILURE);
+    }
+
+    for (i = 0; i < num_values; i++) {
+        errno = 0;
+        n = strtol(values[i], &end, 0);
+        if (*end) {
+            fprintf(stderr, "%s not an integer\n", values[i]);
+            goto fail;
+        }
+        if (errno) {
+            fprintf(stderr, "strtol: %s: %s\n", values[i],
+                strerror(errno));
+            goto fail;
+        }
+        if (n < 0 || n > 0xff) {
+            fprintf(stderr, "%s should be between [0, 0xff]\n",
+                values[i]);
+            goto fail;
+        }
+        buf[i] = n;
+    }
+
+    ret = mixer_ctl_set_array(ctl, buf, num_values);
+    if (ret < 0) {
+        fprintf(stderr, "Failed to set binary control\n");
+        goto fail;
+    }
+
+    free(buf);
+    return;
+
+fail:
+    free(buf);
+    exit(EXIT_FAILURE);
 }
 
 static void tinymix_set_value(struct mixer *mixer, const char *control,
@@ -195,6 +268,11 @@ static void tinymix_set_value(struct mixer *mixer, const char *control,
 
     type = mixer_ctl_get_type(ctl);
     num_ctl_values = mixer_ctl_get_num_values(ctl);
+
+    if (type == MIXER_CTL_TYPE_BYTE) {
+        tinymix_set_byte_ctl(ctl, values, num_values);
+        return;
+    }
 
     if (isdigit(values[0][0])) {
         if (num_values == 1) {

@@ -45,14 +45,16 @@ namespace android {
             GET_TLS(r12)                                        \
             "ldr   r12, [r12, %[tls]] \n"                       \
             "cmp   r12, #0            \n"                       \
-            "ldrne r12, [r12, %[api]] \n"                       \
+            "addne r12, %[api]        \n"                       \
+            "ldrne r12, [r12, %[ext]] \n"                       \
             "cmpne r12, #0            \n"                       \
             "bxne  r12                \n"                       \
             "bx    lr                 \n"                       \
             :                                                   \
             : [tls] "J"(TLS_SLOT_OPENGL_API*4),                 \
-              [api] "J"(__builtin_offsetof(gl_hooks_t,          \
-                                      ext.extensions[_api]))    \
+              [ext] "J"(__builtin_offsetof(gl_hooks_t,          \
+                                      ext.extensions[0])),      \
+              [api] "J"(_api*sizeof(void*))                     \
             : "r12"                                             \
             );
 

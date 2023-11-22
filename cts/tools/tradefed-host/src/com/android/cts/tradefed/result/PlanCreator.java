@@ -22,7 +22,6 @@ import com.android.cts.tradefed.testtype.ITestPackageRepo;
 import com.android.cts.tradefed.testtype.ITestPlan;
 import com.android.cts.tradefed.testtype.TestPackageRepo;
 import com.android.cts.tradefed.testtype.TestPlan;
-import com.android.cts.util.AbiUtils;
 import com.android.ddmlib.Log;
 import com.android.ddmlib.Log.LogLevel;
 import com.android.ddmlib.testrunner.TestIdentifier;

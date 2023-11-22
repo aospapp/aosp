@@ -44,8 +44,8 @@ namespace OT {
 
 struct LongMetric
 {
-  USHORT	advance; /* Advance width/height. */
-  SHORT		lsb; /* Leading (left/top) side bearing. */
+  UFWORD	advance; /* Advance width/height. */
+  FWORD		lsb; /* Leading (left/top) side bearing. */
   public:
   DEFINE_SIZE_STATIC (4);
 };
@@ -57,11 +57,12 @@ struct _mtx
   static const hb_tag_t hmtxTag	= HB_OT_TAG_hmtx;
   static const hb_tag_t vmtxTag	= HB_OT_TAG_vmtx;
 
-  inline bool sanitize (hb_sanitize_context_t *c) {
+  inline bool sanitize (hb_sanitize_context_t *c) const
+  {
     TRACE_SANITIZE (this);
     /* We don't check for anything specific here.  The users of the
      * struct do all the hard work... */
-    return TRACE_RETURN (true);
+    return_trace (true);
   }
 
   public:
@@ -73,7 +74,7 @@ struct _mtx
 					 * be in the array, but that entry is
 					 * required. The last entry applies to
 					 * all subsequent glyphs. */
-  SHORT		leadingBearingX[VAR];	/* Here the advance is assumed
+  FWORD		leadingBearingX[VAR];	/* Here the advance is assumed
 					 * to be the same as the advance
 					 * for the last entry above. The
 					 * number of entries in this array is

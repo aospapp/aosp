@@ -18,6 +18,8 @@
 
 #define LOG_TAG "bt_osi_reactor"
 
+#include "osi/include/reactor.h"
+
 #include <assert.h>
 #include <errno.h>
 #include <pthread.h>
@@ -25,11 +27,11 @@
 #include <string.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
+#include <unistd.h>
 
 #include "osi/include/allocator.h"
 #include "osi/include/list.h"
 #include "osi/include/log.h"
-#include "osi/include/reactor.h"
 
 #if !defined(EFD_SEMAPHORE)
 #  define EFD_SEMAPHORE (1 << 0)
@@ -62,28 +64,26 @@ static const eventfd_t EVENT_REACTOR_STOP = 1;
 
 reactor_t *reactor_new(void) {
   reactor_t *ret = (reactor_t *)osi_calloc(sizeof(reactor_t));
-  if (!ret)
-    return NULL;
 
   ret->epoll_fd = INVALID_FD;
   ret->event_fd = INVALID_FD;
 
   ret->epoll_fd = epoll_create(MAX_EVENTS);
   if (ret->epoll_fd == INVALID_FD) {
-    LOG_ERROR("%s unable to create epoll instance: %s", __func__, strerror(errno));
+    LOG_ERROR(LOG_TAG, "%s unable to create epoll instance: %s", __func__, strerror(errno));
     goto error;
   }
 
   ret->event_fd = eventfd(0, 0);
   if (ret->event_fd == INVALID_FD) {
-    LOG_ERROR("%s unable to create eventfd: %s", __func__, strerror(errno));
+    LOG_ERROR(LOG_TAG, "%s unable to create eventfd: %s", __func__, strerror(errno));
     goto error;
   }
 
   pthread_mutex_init(&ret->list_lock, NULL);
   ret->invalidation_list = list_new(NULL);
   if (!ret->invalidation_list) {
-    LOG_ERROR("%s unable to allocate object invalidation list.", __func__);
+    LOG_ERROR(LOG_TAG, "%s unable to allocate object invalidation list.", __func__);
     goto error;
   }
 
@@ -92,7 +92,7 @@ reactor_t *reactor_new(void) {
   event.events = EPOLLIN;
   event.data.ptr = NULL;
   if (epoll_ctl(ret->epoll_fd, EPOLL_CTL_ADD, ret->event_fd, &event) == -1) {
-    LOG_ERROR("%s unable to register eventfd with epoll set: %s", __func__, strerror(errno));
+    LOG_ERROR(LOG_TAG, "%s unable to register eventfd with epoll set: %s", __func__, strerror(errno));
     goto error;
   }
 
@@ -136,11 +136,8 @@ reactor_object_t *reactor_register(reactor_t *reactor,
   assert(reactor != NULL);
   assert(fd != INVALID_FD);
 
-  reactor_object_t *object = (reactor_object_t *)osi_calloc(sizeof(reactor_object_t));
-  if (!object) {
-    LOG_ERROR("%s unable to allocate reactor object: %s", __func__, strerror(errno));
-    return NULL;
-  }
+  reactor_object_t *object =
+      (reactor_object_t *)osi_calloc(sizeof(reactor_object_t));
 
   object->reactor = reactor;
   object->fd = fd;
@@ -158,7 +155,7 @@ reactor_object_t *reactor_register(reactor_t *reactor,
   event.data.ptr = object;
 
   if (epoll_ctl(reactor->epoll_fd, EPOLL_CTL_ADD, fd, &event) == -1) {
-    LOG_ERROR("%s unable to register fd %d to epoll set: %s", __func__, fd, strerror(errno));
+    LOG_ERROR(LOG_TAG, "%s unable to register fd %d to epoll set: %s", __func__, fd, strerror(errno));
     pthread_mutex_destroy(&object->lock);
     osi_free(object);
     return NULL;
@@ -181,7 +178,7 @@ bool reactor_change_registration(reactor_object_t *object,
   event.data.ptr = object;
 
   if (epoll_ctl(object->reactor->epoll_fd, EPOLL_CTL_MOD, object->fd, &event) == -1) {
-    LOG_ERROR("%s unable to modify interest set for fd %d: %s", __func__, object->fd, strerror(errno));
+    LOG_ERROR(LOG_TAG, "%s unable to modify interest set for fd %d: %s", __func__, object->fd, strerror(errno));
     return false;
   }
 
@@ -199,7 +196,7 @@ void reactor_unregister(reactor_object_t *obj) {
   reactor_t *reactor = obj->reactor;
 
   if (epoll_ctl(reactor->epoll_fd, EPOLL_CTL_DEL, obj->fd, NULL) == -1)
-    LOG_ERROR("%s unable to unregister fd %d from epoll set: %s", __func__, obj->fd, strerror(errno));
+    LOG_ERROR(LOG_TAG, "%s unable to unregister fd %d from epoll set: %s", __func__, obj->fd, strerror(errno));
 
   if (reactor->is_running && pthread_equal(pthread_self(), reactor->run_thread)) {
     reactor->object_removed = true;
@@ -240,12 +237,9 @@ static reactor_status_t run_reactor(reactor_t *reactor, int iterations) {
     pthread_mutex_unlock(&reactor->list_lock);
 
     int ret;
-    do {
-      ret = epoll_wait(reactor->epoll_fd, events, MAX_EVENTS, -1);
-    } while (ret == -1 && errno == EINTR);
-
+    OSI_NO_INTR(ret = epoll_wait(reactor->epoll_fd, events, MAX_EVENTS, -1));
     if (ret == -1) {
-      LOG_ERROR("%s error in epoll_wait: %s", __func__, strerror(errno));
+      LOG_ERROR(LOG_TAG, "%s error in epoll_wait: %s", __func__, strerror(errno));
       reactor->is_running = false;
       return REACTOR_STATUS_ERROR;
     }

@@ -32,7 +32,8 @@
 
 namespace android {
 
-status_t MediaRecorder::setCamera(const sp<ICamera>& camera, const sp<ICameraRecordingProxy>& proxy)
+status_t MediaRecorder::setCamera(const sp<hardware::ICamera>& camera,
+        const sp<ICameraRecordingProxy>& proxy)
 {
     ALOGV("setCamera(%p,%p)", camera.get(), proxy.get());
     if (mMediaRecorder == NULL) {
@@ -561,6 +562,50 @@ status_t MediaRecorder::reset()
     return ret;
 }
 
+status_t MediaRecorder::pause()
+{
+    ALOGV("pause");
+    if (mMediaRecorder == NULL) {
+        ALOGE("media recorder is not initialized yet");
+        return INVALID_OPERATION;
+    }
+    if (!(mCurrentState & MEDIA_RECORDER_RECORDING)) {
+        ALOGE("stop called in an invalid state: %d", mCurrentState);
+        return INVALID_OPERATION;
+    }
+
+    status_t ret = mMediaRecorder->pause();
+    if (OK != ret) {
+        ALOGE("pause failed: %d", ret);
+        mCurrentState = MEDIA_RECORDER_ERROR;
+        return ret;
+    }
+
+    return ret;
+}
+
+status_t MediaRecorder::resume()
+{
+    ALOGV("resume");
+    if (mMediaRecorder == NULL) {
+        ALOGE("media recorder is not initialized yet");
+        return INVALID_OPERATION;
+    }
+    if (!(mCurrentState & MEDIA_RECORDER_RECORDING)) {
+        ALOGE("resume called in an invalid state: %d", mCurrentState);
+        return INVALID_OPERATION;
+    }
+
+    status_t ret = mMediaRecorder->resume();
+    if (OK != ret) {
+        ALOGE("resume failed: %d", ret);
+        mCurrentState = MEDIA_RECORDER_ERROR;
+        return ret;
+    }
+
+    return ret;
+}
+
 status_t MediaRecorder::close()
 {
     ALOGV("close");
@@ -617,7 +662,7 @@ MediaRecorder::MediaRecorder(const String16& opPackageName) : mSurfaceMediaSourc
 {
     ALOGV("constructor");
 
-    const sp<IMediaPlayerService>& service(getMediaPlayerService());
+    const sp<IMediaPlayerService> service(getMediaPlayerService());
     if (service != NULL) {
         mMediaRecorder = service->createMediaRecorder(opPackageName);
     }

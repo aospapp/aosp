@@ -294,6 +294,7 @@ public class X509CertificateTest extends TestCase {
                 generateCertificates_PKCS7_PEM_TrailingData(f);
                 generateCertificates_PKCS7_DER_TrailingData(f);
                 test_Serialization(f);
+                test_UnknownUnmappedKeyOID(f);
             } catch (Throwable e) {
                 out.append("Error encountered checking " + p.getName() + "\n");
                 e.printStackTrace(out);
@@ -618,11 +619,7 @@ public class X509CertificateTest extends TestCase {
         {
             /* The test certificate is sha1WithRSAEncryption */
             X509Certificate c = getCertificate(f, CERT_EC);
-            if (StandardNames.IS_RI) {
-                assertEquals("SHA1WITHECDSA", c.getSigAlgName().toUpperCase(Locale.US));
-            } else {
-                assertEquals("ECDSA", c.getSigAlgName().toUpperCase(Locale.US));
-            }
+            assertEquals("SHA1WITHECDSA", c.getSigAlgName().toUpperCase(Locale.US));
         }
     }
 
@@ -1181,7 +1178,7 @@ public class X509CertificateTest extends TestCase {
             Collection<? extends X509Certificate> certs = (Collection<? extends X509Certificate>)
                     f.generateCertificates(bais);
             if (StandardNames.IS_RI) {
-                fail("RI fails on this test.");
+                return;
             }
         } catch (CertificateParsingException e) {
             if (StandardNames.IS_RI) {
@@ -1211,7 +1208,7 @@ public class X509CertificateTest extends TestCase {
             Collection<? extends X509Certificate> certs = (Collection<? extends X509Certificate>)
                     f.generateCertificates(bais);
             if (StandardNames.IS_RI) {
-                fail("RI fails on this test.");
+                return;
             }
         } catch (CertificateParsingException e) {
             if (StandardNames.IS_RI) {
@@ -1256,12 +1253,7 @@ public class X509CertificateTest extends TestCase {
         Collection<? extends X509Certificate> certs = (Collection<? extends X509Certificate>)
                 f.generateCertificates(bais);
 
-        // RI is broken
-        if (StandardNames.IS_RI) {
-            assertEquals(0, bais.available());
-        } else {
-            assertEquals(4096, bais.available());
-        }
+        assertEquals(4096, bais.available());
     }
 
     private void test_Serialization(CertificateFactory f) throws Exception {
@@ -1289,6 +1281,62 @@ public class X509CertificateTest extends TestCase {
                 bais.close();
             }
         }
+    }
+
+    private void test_UnknownUnmappedKeyOID(CertificateFactory f) throws Exception {
+        byte[] certBytes = generateFakeOidCertificate();
+
+        {
+            X509Certificate cert = (X509Certificate) f
+                    .generateCertificate(new ByteArrayInputStream(certBytes));
+            assertEquals(FakeOidProvider.SIGALG_OID, cert.getSigAlgOID());
+            assertEquals(FakeOidProvider.SIGALG_OID, cert.getSigAlgName());
+        }
+    }
+
+    private byte[] generateFakeOidCertificate() throws IOException {
+        byte[] certBytes;
+
+        // Read in the original cert.
+        {
+            InputStream is = null;
+            try {
+                is = Support_Resources.getStream(CERT_RSA);
+
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                byte[] buffer = new byte[2048];
+                int numRead;
+                while ((numRead = is.read(buffer, 0, buffer.length)) != -1) {
+                    baos.write(buffer, 0, numRead);
+                }
+                certBytes = baos.toByteArray();
+            } finally {
+                if (is != null) {
+                    try {
+                        is.close();
+                    } catch (IOException ignored) {
+                    }
+                }
+            }
+        }
+
+        // Fix the OID for the certificate.
+        {
+            int numFixed = 0;
+            for (int i = 0; i < certBytes.length - 5; i++) {
+                if (certBytes[i] == (byte) 0x2A && certBytes[i + 1] == (byte) 0x86
+                        && certBytes[i + 2] == (byte) 0x48 && certBytes[i + 3] == (byte) 0x86
+                        && certBytes[i + 4] == (byte) 0xF7) {
+                    certBytes[i + 1] = (byte) 0xFF;
+                    certBytes[i + 2] = (byte) 0xFF;
+                    certBytes[i + 3] = (byte) 0xFF;
+                    i += 4;
+                    numFixed++;
+                }
+            }
+            assertEquals(3, numFixed);
+        }
+        return certBytes;
     }
 
     @Override

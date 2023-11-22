@@ -17,36 +17,37 @@
 package com.android.settings.search;
 
 import android.provider.SearchIndexableResource;
-
-import com.android.settings.DataUsageSummary;
 import com.android.settings.DateTimeSettings;
 import com.android.settings.DevelopmentSettings;
 import com.android.settings.DeviceInfoSettings;
 import com.android.settings.DisplaySettings;
-import com.android.settings.HomeSettings;
 import com.android.settings.LegalSettings;
 import com.android.settings.PrivacySettings;
 import com.android.settings.R;
 import com.android.settings.ScreenPinningSettings;
 import com.android.settings.SecuritySettings;
 import com.android.settings.WallpaperTypeSettings;
-import com.android.settings.WifiCallingSettings;
 import com.android.settings.WirelessSettings;
 import com.android.settings.accessibility.AccessibilitySettings;
+import com.android.settings.accounts.AccountSettings;
 import com.android.settings.applications.AdvancedAppSettings;
-import com.android.settings.applications.ManageDefaultApps;
+import com.android.settings.applications.SpecialAccessSettings;
 import com.android.settings.bluetooth.BluetoothSettings;
+import com.android.settings.datausage.DataUsageMeteredSettings;
+import com.android.settings.datausage.DataUsageSummary;
 import com.android.settings.deviceinfo.StorageSettings;
+import com.android.settings.display.ScreenZoomSettings;
 import com.android.settings.fuelgauge.BatterySaverSettings;
 import com.android.settings.fuelgauge.PowerUsageSummary;
 import com.android.settings.inputmethod.InputMethodAndLanguageSettings;
 import com.android.settings.location.LocationSettings;
 import com.android.settings.location.ScanningSettings;
-import com.android.settings.net.DataUsageMeteredSettings;
-import com.android.settings.notification.NotificationSettings;
+import com.android.settings.notification.ConfigureNotificationSettings;
 import com.android.settings.notification.OtherSoundSettings;
+import com.android.settings.notification.SoundSettings;
 import com.android.settings.notification.ZenModePrioritySettings;
 import com.android.settings.notification.ZenModeSettings;
+import com.android.settings.notification.ZenModeVisualInterruptionSettings;
 import com.android.settings.print.PrintSettingsFragment;
 import com.android.settings.sim.SimSettings;
 import com.android.settings.users.UserSettings;
@@ -121,12 +122,12 @@ public final class SearchIndexableResources {
                         WirelessSettings.class.getName(),
                         R.drawable.ic_settings_more));
 
-        sResMap.put(HomeSettings.class.getName(),
+        sResMap.put(ScreenZoomSettings.class.getName(),
                 new SearchIndexableResource(
-                        Ranking.getRankForClassName(HomeSettings.class.getName()),
+                        Ranking.getRankForClassName(ScreenZoomSettings.class.getName()),
                         NO_DATA_RES_ID,
-                        HomeSettings.class.getName(),
-                        R.drawable.ic_settings_home));
+                        ScreenZoomSettings.class.getName(),
+                        R.drawable.ic_settings_display));
 
         sResMap.put(DisplaySettings.class.getName(),
                 new SearchIndexableResource(
@@ -142,24 +143,31 @@ public final class SearchIndexableResources {
                         WallpaperTypeSettings.class.getName(),
                         R.drawable.ic_settings_display));
 
-        sResMap.put(NotificationSettings.class.getName(),
+        sResMap.put(ConfigureNotificationSettings.class.getName(),
                 new SearchIndexableResource(
-                        Ranking.getRankForClassName(NotificationSettings.class.getName()),
-                        NO_DATA_RES_ID,
-                        NotificationSettings.class.getName(),
+                        Ranking.getRankForClassName(ConfigureNotificationSettings.class.getName()),
+                        R.xml.configure_notification_settings,
+                        ConfigureNotificationSettings.class.getName(),
                         R.drawable.ic_settings_notifications));
+
+        sResMap.put(SoundSettings.class.getName(),
+                new SearchIndexableResource(
+                        Ranking.getRankForClassName(SoundSettings.class.getName()),
+                        NO_DATA_RES_ID,
+                        SoundSettings.class.getName(),
+                        R.drawable.ic_settings_sound));
 
         sResMap.put(OtherSoundSettings.class.getName(),
                 new SearchIndexableResource(
                         Ranking.getRankForClassName(OtherSoundSettings.class.getName()),
                         NO_DATA_RES_ID,
                         OtherSoundSettings.class.getName(),
-                        R.drawable.ic_settings_notifications));
+                        R.drawable.ic_settings_sound));
 
         sResMap.put(ZenModeSettings.class.getName(),
                 new SearchIndexableResource(
                         Ranking.getRankForClassName(ZenModeSettings.class.getName()),
-                        NO_DATA_RES_ID,
+                        R.xml.zen_mode_settings,
                         ZenModeSettings.class.getName(),
                         R.drawable.ic_settings_notifications));
 
@@ -194,15 +202,15 @@ public final class SearchIndexableResources {
         sResMap.put(AdvancedAppSettings.class.getName(),
                 new SearchIndexableResource(
                         Ranking.getRankForClassName(AdvancedAppSettings.class.getName()),
-                        R.xml.advanced_apps,
+                        NO_DATA_RES_ID,
                         AdvancedAppSettings.class.getName(),
                         R.drawable.ic_settings_applications));
 
-        sResMap.put(ManageDefaultApps.class.getName(),
+        sResMap.put(SpecialAccessSettings.class.getName(),
                 new SearchIndexableResource(
-                        Ranking.getRankForClassName(ManageDefaultApps.class.getName()),
-                        NO_DATA_RES_ID,
-                        ManageDefaultApps.class.getName(),
+                        Ranking.getRankForClassName(SpecialAccessSettings.class.getName()),
+                        R.xml.special_access,
+                        SpecialAccessSettings.class.getName(),
                         R.drawable.ic_settings_applications));
 
         sResMap.put(UserSettings.class.getName(),
@@ -239,6 +247,13 @@ public final class SearchIndexableResources {
                         NO_DATA_RES_ID,
                         ScreenPinningSettings.class.getName(),
                         R.drawable.ic_settings_security));
+
+        sResMap.put(AccountSettings.class.getName(),
+                new SearchIndexableResource(
+                        Ranking.getRankForClassName(AccountSettings.class.getName()),
+                        NO_DATA_RES_ID,
+                        AccountSettings.class.getName(),
+                        R.drawable.ic_settings_accounts));
 
         sResMap.put(InputMethodAndLanguageSettings.class.getName(),
                 new SearchIndexableResource(
@@ -296,12 +311,13 @@ public final class SearchIndexableResources {
                         LegalSettings.class.getName(),
                         R.drawable.ic_settings_about));
 
-        sResMap.put(WifiCallingSettings.class.getName(),
+        sResMap.put(ZenModeVisualInterruptionSettings.class.getName(),
                 new SearchIndexableResource(
-                        Ranking.getRankForClassName(WifiCallingSettings.class.getName()),
-                        R.xml.wifi_calling_settings,
-                        WifiCallingSettings.class.getName(),
-                        R.drawable.ic_settings_wireless));
+                        Ranking.getRankForClassName(
+                                ZenModeVisualInterruptionSettings.class.getName()),
+                        R.xml.zen_mode_visual_interruptions_settings,
+                        ZenModeVisualInterruptionSettings.class.getName(),
+                        R.drawable.ic_settings_notifications));
     }
 
     private SearchIndexableResources() {

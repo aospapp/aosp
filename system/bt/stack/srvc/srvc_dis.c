@@ -16,15 +16,15 @@
  *
  ******************************************************************************/
 
+#define LOG_TAG "bt_srvc"
+
 #include "bt_target.h"
 #include "bt_utils.h"
 #include "gatt_api.h"
 #include "gatt_int.h"
-#include "srvc_eng_int.h"
-#include "srvc_dis_int.h"
-
-#define LOG_TAG "bt_srvc"
 #include "osi/include/log.h"
+#include "srvc_dis_int.h"
+#include "srvc_eng_int.h"
 
 #if BLE_INCLUDED == TRUE
 
@@ -41,8 +41,6 @@
 
 #define STREAM_TO_UINT64(u64, p) {u64 = (((UINT64)(*(p))) + ((((UINT64)(*((p) + 1)))) << 8) + ((((UINT64)(*((p) + 2)))) << 16) + ((((UINT64)(*((p) + 3)))) << 24) \
                                   + ((((UINT64)(*((p) + 4)))) << 32) + ((((UINT64)(*((p) + 5)))) << 40) + ((((UINT64)(*((p) + 6)))) << 48) + ((((UINT64)(*((p) + 7)))) << 56)); (p) += 8;}
-
-
 
 static const UINT16  dis_attr_uuid[DIS_MAX_CHAR_NUM] =
 {
@@ -169,7 +167,6 @@ UINT8 dis_read_attr_value (UINT8 clcb_idx, UINT16 handle, tGATT_VALUE *p_value,
                     }
                     break;
 
-
                 case GATT_UUID_SYSTEM_ID:
                     UINT64_TO_STREAM(p, dis_cb.dis_value.system_id); /* int_min */
                     p_value->len = DIS_SYSTEM_ID_SIZE;
@@ -210,7 +207,7 @@ static void dis_gatt_c_read_dis_value_cmpl(UINT16 conn_id)
 
     if (dis_cb.p_read_dis_cback && p_clcb)
     {
-        LOG_INFO("%s conn_id:%d attr_mask = 0x%04x", __func__, conn_id,
+        LOG_INFO(LOG_TAG, "%s conn_id:%d attr_mask = 0x%04x", __func__, conn_id,
                 p_clcb->dis_value.attr_mask);
 
         (*dis_cb.p_read_dis_cback)(p_clcb->bda, &p_clcb->dis_value);
@@ -316,15 +313,12 @@ void dis_c_cmpl_cback (tSRVC_CLCB *p_clcb, tGATTC_OPTYPE op,
             case GATT_UUID_MANU_NAME:
             case GATT_UUID_IEEE_DATA:
                 p_str = p_clcb->dis_value.data_string[read_type - GATT_UUID_MODEL_NUMBER_STR];
-                if (p_str != NULL)
-                    GKI_freebuf(p_str);
-                if ((p_str = (UINT8 *)GKI_getbuf((UINT16)(p_data->att_value.len + 1))) != NULL)
-                {
-                    p_clcb->dis_value.attr_mask |= dis_uuid_to_attr(read_type);
-                    memcpy(p_str, p_data->att_value.value, p_data->att_value.len);
-                    p_str[p_data->att_value.len] = 0;
-                    p_clcb->dis_value.data_string[read_type - GATT_UUID_MODEL_NUMBER_STR] = p_str;
-                }
+                osi_free(p_str);
+                p_str = (UINT8 *)osi_malloc(p_data->att_value.len + 1);
+                p_clcb->dis_value.attr_mask |= dis_uuid_to_attr(read_type);
+                memcpy(p_str, p_data->att_value.value, p_data->att_value.len);
+                p_str[p_data->att_value.len] = 0;
+                p_clcb->dis_value.data_string[read_type - GATT_UUID_MODEL_NUMBER_STR] = p_str;
                 break;
 
             default:
@@ -338,7 +332,6 @@ void dis_c_cmpl_cback (tSRVC_CLCB *p_clcb, tGATTC_OPTYPE op,
 
     dis_gatt_c_read_dis_req(conn_id);
 }
-
 
 /*******************************************************************************
 **
@@ -422,21 +415,15 @@ tDIS_STATUS DIS_SrUpdate(tDIS_ATTR_BIT dis_attr_bit, tDIS_ATTR *p_info)
         {
             if (dis_attr_bit & (UINT16)(1 << i))
             {
-                if (dis_cb.dis_value.data_string[i - 1] != NULL)
-                    GKI_freebuf(dis_cb.dis_value.data_string[i - 1]);
+                osi_free(dis_cb.dis_value.data_string[i - 1]);
 /* coverity[OVERRUN-STATIC] False-positive : when i = 8, (1 << i) == DIS_ATTR_PNP_ID_BIT, and it will never come down here
 CID 49902: Out-of-bounds read (OVERRUN_STATIC)
 Overrunning static array "dis_cb.dis_value.data_string", with 7 elements, at position 7 with index variable "i".
 */
-                if ((dis_cb.dis_value.data_string[i - 1] = (UINT8 *)GKI_getbuf((UINT16)(p_info->data_str.len + 1))) != NULL)
-                {
-
-                    memcpy(dis_cb.dis_value.data_string[i - 1], p_info->data_str.p_data, p_info->data_str.len);
-                    dis_cb.dis_value.data_string[i - 1][p_info->data_str.len] = 0; /* make sure null terminate */
-                    st = DIS_SUCCESS;
-                }
-                else
-                    st = DIS_NO_RESOURCES;
+                dis_cb.dis_value.data_string[i - 1] = (UINT8 *)osi_malloc(p_info->data_str.len + 1);
+                memcpy(dis_cb.dis_value.data_string[i - 1], p_info->data_str.p_data, p_info->data_str.len);
+                dis_cb.dis_value.data_string[i - 1][p_info->data_str.len] = 0; /* make sure null terminate */
+                st = DIS_SUCCESS;
 
                 break;
             }
@@ -478,7 +465,6 @@ BOOLEAN DIS_ReadDISInfo(BD_ADDR peer_bda, tDIS_READ_CBACK *p_cback, tDIS_ATTR_MA
                       (peer_bda[0]<<24)+(peer_bda[1]<<16)+(peer_bda[2]<<8)+peer_bda[3],
                       (peer_bda[4]<<8)+peer_bda[5], dis_attr_uuid[dis_cb.dis_read_uuid_idx]);
 
-
     GATT_GetConnIdIfConnected(srvc_eng_cb.gatt_if, peer_bda, &conn_id, BT_TRANSPORT_LE);
 
     /* need to enhance it as multiple service is needed */
@@ -493,5 +479,4 @@ BOOLEAN DIS_ReadDISInfo(BD_ADDR peer_bda, tDIS_READ_CBACK *p_cback, tDIS_ATTR_MA
 
 }
 #endif  /* BLE_INCLUDED */
-
 

@@ -22,6 +22,7 @@
     <dimen name="live_wallpaper_thumbnail_text_offset">12dip</dimen>
     <dimen name="live_wallpaper_thumbnail_width">75dip</dimen>
     <dimen name="live_wallpaper_thumbnail_height">75dip</dimen>
-    <dimen name="dialog_content_inset">0dip</dimen>
-    <dimen name="live_wallpaper_preview_button_width">160dip</dimen>
+
+    <dimen name="screen_margin_sides">0dip</dimen>
+
 </resources>

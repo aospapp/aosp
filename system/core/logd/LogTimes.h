@@ -20,11 +20,14 @@
 #include <pthread.h>
 #include <time.h>
 #include <sys/types.h>
+
+#include <list>
+
 #include <sysutils/SocketClient.h>
-#include <utils/List.h>
 #include <log/log.h>
 
 class LogReader;
+class LogBufferElement;
 
 class LogTimeEntry {
     static pthread_mutex_t timesLock;
@@ -48,10 +51,11 @@ class LogTimeEntry {
 public:
     LogTimeEntry(LogReader &reader, SocketClient *client, bool nonBlock,
                  unsigned long tail, unsigned int logMask, pid_t pid,
-                 uint64_t start);
+                 uint64_t start, uint64_t timeout);
 
     SocketClient *mClient;
     uint64_t mStart;
+    struct timespec mTimeout;
     const bool mNonBlock;
     const uint64_t mEnd; // only relevant if mNonBlock
 
@@ -71,7 +75,13 @@ public:
     void triggerSkip_Locked(log_id_t id, unsigned int skip) { skipAhead[id] = skip; }
     void cleanSkip_Locked(void);
 
-    // Called after LogTimeEntry removed from list, lock implicitly held
+    // These called after LogTimeEntry removed from list, lock implicitly held
+    void release_nodelete_Locked(void) {
+        mRelease = true;
+        pthread_cond_signal(&threadTriggeredCondition);
+        // assumes caller code path will call decRef_Locked()
+    }
+
     void release_Locked(void) {
         mRelease = true;
         pthread_cond_signal(&threadTriggeredCondition);
@@ -107,6 +117,6 @@ public:
     static int FilterSecondPass(const LogBufferElement *element, void *me);
 };
 
-typedef android::List<LogTimeEntry *> LastLogTimes;
+typedef std::list<LogTimeEntry *> LastLogTimes;
 
-#endif
+#endif // _LOGD_LOG_TIMES_H__

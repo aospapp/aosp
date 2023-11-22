@@ -154,6 +154,7 @@
    <string name="search_label">Android CTS</string>
    <string name="tag1">tag 1</string>
    <string name="tag2">tag 2</string>
+   <string name="prompt">prompt</string>
 
    <string name="button">Button</string>
    <string name="holo_test">Holo Test</string>
@@ -176,4 +177,20 @@ with no fading. I have made this string longer to fix this case. If you are corr
 text, I would love to see the kind of devices you guys now use! Guys, maybe some devices need longer string!
 I think so, so how about double this string, like copy and paste! </string>
     <string name="rectangle200">"M 0,0 l 200,0 l 0, 200 l -200, 0 z"</string>
+
+    <string name="popup_show">Show popup</string>
+    <string name="popup_menu_highlight">Highlight</string>
+    <string name="popup_menu_edit">Edit</string>
+    <string name="popup_menu_delete">Delete</string>
+    <string name="popup_menu_ignore">Ignore</string>
+    <string name="popup_menu_share">Share</string>
+    <string name="popup_menu_share_email">Via email</string>
+    <string name="popup_menu_share_circles">To my circles</string>
+    <string name="popup_menu_print">Print</string>
+    <string name="popup_menu_search">Search</string>
+
+    <string name="toolbar_title">Toolbar title</string>
+    <string name="toolbar_subtitle">Toolbar subtitle</string>
+    <string name="toolbar_navigation">Toolbar navigation</string>
+    <string name="toolbar_logo">Toolbar logo</string>
 </resources>

@@ -35,8 +35,8 @@
 
 #include <openssl/md5.h>
 
-#include <base/logging.h>
-#include <base/stringprintf.h>
+#include <android-base/logging.h>
+#include <android-base/stringprintf.h>
 #include <cutils/fs.h>
 #include <cutils/log.h>
 
@@ -91,6 +91,8 @@ const char *VolumeManager::LOOPDIR           = "/mnt/obb";
 static const char* kUserMountPath = "/mnt/user";
 
 static const unsigned int kMajorBlockMmc = 179;
+static const unsigned int kMajorBlockExperimentalMin = 240;
+static const unsigned int kMajorBlockExperimentalMax = 254;
 
 /* writes superblock at end of file or device given by name */
 static int writeSuperBlock(const char* name, struct asec_superblock *sb, unsigned int numImgSectors) {
@@ -115,21 +117,21 @@ static int writeSuperBlock(const char* name, struct asec_superblock *sb, unsigne
     return 0;
 }
 
-static int adjustSectorNumExt4(unsigned numSectors) {
+static unsigned long adjustSectorNumExt4(unsigned long numSectors) {
     // Ext4 started to reserve 2% or 4096 clusters, whichever is smaller for
     // preventing costly operations or unexpected ENOSPC error.
     // Ext4::format() uses default block size without clustering.
-    unsigned clusterSectors = 4096 / 512;
-    unsigned reservedSectors = (numSectors * 2)/100 + (numSectors % 50 > 0);
+    unsigned long clusterSectors = 4096 / 512;
+    unsigned long reservedSectors = (numSectors * 2)/100 + (numSectors % 50 > 0);
     numSectors += reservedSectors > (4096 * clusterSectors) ? (4096 * clusterSectors) : reservedSectors;
     return ROUND_UP_POWER_OF_2(numSectors, 3);
 }
 
-static int adjustSectorNumFAT(unsigned numSectors) {
+static unsigned long adjustSectorNumFAT(unsigned long numSectors) {
     /*
     * Add some headroom
     */
-    unsigned fatSize = (((numSectors * 4) / 512) + 1) * 2;
+    unsigned long fatSize = (((numSectors * 4) / 512) + 1) * 2;
     numSectors += fatSize + 2;
     /*
     * FAT is aligned to 32 kb with 512b sectors.
@@ -154,7 +156,7 @@ static int setupLoopDevice(char* buffer, size_t len, const char* asecFileName, c
     return 0;
 }
 
-static int setupDevMapperDevice(char* buffer, size_t len, const char* loopDevice, const char* asecFileName, const char* key, const char* idHash , int numImgSectors, bool* createdDMDevice, bool debug) {
+static int setupDevMapperDevice(char* buffer, size_t len, const char* loopDevice, const char* asecFileName, const char* key, const char* idHash , unsigned long numImgSectors, bool* createdDMDevice, bool debug) {
     if (strcmp(key, "none")) {
         if (Devmapper::lookupActive(idHash, buffer, len)) {
             if (Devmapper::create(idHash, loopDevice, key, numImgSectors,
@@ -283,8 +285,8 @@ void VolumeManager::handleBlockEvent(NetlinkEvent *evt) {
         evt->dump();
     }
 
-    std::string eventPath(evt->findParam("DEVPATH"));
-    std::string devType(evt->findParam("DEVTYPE"));
+    std::string eventPath(evt->findParam("DEVPATH")?evt->findParam("DEVPATH"):"");
+    std::string devType(evt->findParam("DEVTYPE")?evt->findParam("DEVTYPE"):"");
 
     if (devType != "disk") return;
 
@@ -296,10 +298,14 @@ void VolumeManager::handleBlockEvent(NetlinkEvent *evt) {
     case NetlinkEvent::Action::kAdd: {
         for (auto source : mDiskSources) {
             if (source->matches(eventPath)) {
-                // For now, assume that MMC devices are SD, and that
-                // everything else is USB
+                // For now, assume that MMC and virtio-blk (the latter is
+                // emulator-specific; see Disk.cpp for details) devices are SD,
+                // and that everything else is USB
                 int flags = source->getFlags();
-                if (major == kMajorBlockMmc) {
+                if (major == kMajorBlockMmc
+                    || (android::vold::IsRunningInEmulator()
+                    && major >= (int) kMajorBlockExperimentalMin
+                    && major <= (int) kMajorBlockExperimentalMax)) {
                     flags |= android::vold::Disk::Flags::kSd;
                 } else {
                     flags |= android::vold::Disk::Flags::kUsb;
@@ -471,18 +477,6 @@ int VolumeManager::setPrimary(const std::shared_ptr<android::vold::VolumeBase>& 
     return 0;
 }
 
-static int sane_readlinkat(int dirfd, const char* path, char* buf, size_t bufsiz) {
-    ssize_t len = readlinkat(dirfd, path, buf, bufsiz);
-    if (len < 0) {
-        return -1;
-    } else if (len == (ssize_t) bufsiz) {
-        return -1;
-    } else {
-        buf[len] = '\0';
-        return 0;
-    }
-}
-
 static int unmount_tree(const char* path) {
     size_t path_len = strlen(path);
 
@@ -529,7 +523,7 @@ int VolumeManager::remountUid(uid_t uid, const std::string& mode) {
     }
 
     // Figure out root namespace to compare against below
-    if (sane_readlinkat(dirfd(dir), "1/ns/mnt", rootName, PATH_MAX) == -1) {
+    if (android::vold::SaneReadLinkAt(dirfd(dir), "1/ns/mnt", rootName, PATH_MAX) == -1) {
         PLOG(ERROR) << "Failed to readlink";
         closedir(dir);
         return -1;
@@ -554,7 +548,7 @@ int VolumeManager::remountUid(uid_t uid, const std::string& mode) {
 
         // Matches so far, but refuse to touch if in root namespace
         LOG(DEBUG) << "Found matching PID " << de->d_name;
-        if (sane_readlinkat(pidFd, "ns/mnt", pidName, PATH_MAX) == -1) {
+        if (android::vold::SaneReadLinkAt(pidFd, "ns/mnt", pidName, PATH_MAX) == -1) {
             PLOG(WARNING) << "Failed to read namespace for " << de->d_name;
             goto next;
         }
@@ -767,7 +761,7 @@ int VolumeManager::getAsecFilesystemPath(const char *id, char *buffer, int maxle
     return 0;
 }
 
-int VolumeManager::createAsec(const char *id, unsigned int numSectors, const char *fstype,
+int VolumeManager::createAsec(const char *id, unsigned long numSectors, const char *fstype,
         const char *key, const int ownerUid, bool isExternal) {
     struct asec_superblock sb;
     memset(&sb, 0, sizeof(sb));
@@ -795,7 +789,7 @@ int VolumeManager::createAsec(const char *id, unsigned int numSectors, const cha
     sb.ver = ASEC_SB_VER;
 
     if (numSectors < ((1024*1024)/512)) {
-        SLOGE("Invalid container size specified (%d sectors)", numSectors);
+        SLOGE("Invalid container size specified (%lu sectors)", numSectors);
         errno = EINVAL;
         return -1;
     }
@@ -824,7 +818,7 @@ int VolumeManager::createAsec(const char *id, unsigned int numSectors, const cha
         return -1;
     }
 
-    unsigned numImgSectors;
+    unsigned long numImgSectors;
     if (usingExt4)
         numImgSectors = adjustSectorNumExt4(numSectors);
     else
@@ -961,7 +955,7 @@ int VolumeManager::createAsec(const char *id, unsigned int numSectors, const cha
     return 0;
 }
 
-int VolumeManager::resizeAsec(const char *id, unsigned numSectors, const char *key) {
+int VolumeManager::resizeAsec(const char *id, unsigned long numSectors, const char *key) {
     char asecFileName[255];
     char mountPoint[255];
     bool cleanupDm = false;
@@ -991,7 +985,7 @@ int VolumeManager::resizeAsec(const char *id, unsigned numSectors, const char *k
 
     struct asec_superblock sb;
     int fd;
-    unsigned int oldNumSec = 0;
+    unsigned long oldNumSec = 0;
 
     if ((fd = open(asecFileName, O_RDONLY | O_CLOEXEC)) < 0) {
         SLOGE("Failed to open ASEC file (%s)", strerror(errno));
@@ -1007,7 +1001,7 @@ int VolumeManager::resizeAsec(const char *id, unsigned numSectors, const char *k
 
     oldNumSec = info.st_size / 512;
 
-    unsigned numImgSectors;
+    unsigned long numImgSectors;
     if (sb.c_opts & ASEC_SB_C_OPTS_EXT4)
         numImgSectors = adjustSectorNumExt4(numSectors);
     else
@@ -1015,7 +1009,7 @@ int VolumeManager::resizeAsec(const char *id, unsigned numSectors, const char *k
     /*
      *  add one block for the superblock
      */
-    SLOGD("Resizing from %d sectors to %d sectors", oldNumSec, numImgSectors + 1);
+    SLOGD("Resizing from %lu sectors to %lu sectors", oldNumSec, numImgSectors + 1);
     if (oldNumSec == numImgSectors + 1) {
         SLOGW("Size unchanged; ignoring resize request");
         return 0;

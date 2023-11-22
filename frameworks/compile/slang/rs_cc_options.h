@@ -75,6 +75,10 @@ class RSCCOptions {
   // Emit output dependency file for each input file.
   bool mEmitDependency;
 
+  // Emit phony targets for each header dependency, which can avoid make errors
+  // when the header gets deleted. See -MP option of cc.
+  bool mEmitPhonyDependency;
+
   // The output directory for writing dependency files
   // (i.e. out/target/common/obj/APPS/.../src/renderscript).
   std::string mDependencyOutputDir;
@@ -98,6 +102,9 @@ class RSCCOptions {
   // Display verbose information about the compilation on stdout.
   bool mVerbose;
 
+  // Display AST.
+  bool mASTPrint;
+
   // Emit both 32-bit and 64-bit bitcode (embedded in the reflected sources).
   bool mEmit3264;
 
@@ -106,13 +113,15 @@ class RSCCOptions {
     mBitWidth = 32;
     mBitcodeStorage = slang::BCST_APK_RESOURCE;
     mEmitDependency = 0;
+    mEmitPhonyDependency = 0;
     mShowHelp = 0;
     mShowVersion = 0;
     mTargetAPI = RS_VERSION;
     mDebugEmission = 0;
     mOptimizationLevel = llvm::CodeGenOpt::Aggressive;
     mVerbose = false;
-    mEmit3264 = false;
+    mASTPrint = false;
+    mEmit3264 = true;
   }
 };
 
@@ -132,7 +141,7 @@ llvm::opt::OptTable *createRSCCOptTable();
 bool ParseArguments(const llvm::ArrayRef<const char *> &ArgsIn,
                     llvm::SmallVectorImpl<const char *> &Inputs,
                     RSCCOptions &Opts, clang::DiagnosticOptions &DiagOpts,
-                    llvm::cl::StringSaver &StringSaver);
+                    llvm::StringSaver &StringSaver);
 
 } // namespace slang
 

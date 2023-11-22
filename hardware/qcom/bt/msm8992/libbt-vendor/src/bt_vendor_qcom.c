@@ -37,7 +37,9 @@
 #include <sys/socket.h>
 #include <cutils/sockets.h>
 #include <linux/un.h>
+#ifdef BT_NV_SUPPORT
 #include "bt_vendor_persist.h"
+#endif
 #include "hw_rome.h"
 
 #define WAIT_TIMEOUT 200000
@@ -53,6 +55,7 @@ extern int rome_soc_init(int fd, char *bdaddr);
 extern int check_embedded_mode(int fd);
 extern int rome_get_addon_feature_list(int fd);
 extern int rome_ver;
+extern int enable_controller_log(int fd);
 /******************************************************************************
 **  Variables
 ******************************************************************************/
@@ -628,6 +631,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
     uint8_t local_bd_addr_from_prop[6];
     char* tok;
 #endif
+    bool skip_init = true;
 
     ALOGV("bt-vendor : op for %d", opcode);
 
@@ -660,7 +664,12 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                     case BT_SOC_ROME:
                     case BT_SOC_AR3K:
                         /* BT Chipset Power Control through Device Tree Node */
+                        if(nState == BT_VND_PWR_ON && property_get_bool("wc_transport.vnd_power", 0)) {
+                                bt_powerup(BT_VND_PWR_OFF);
+                        }
                         retval = bt_powerup(nState);
+                        if(retval == 0)
+                            property_set("wc_transport.vnd_power", nState == BT_VND_PWR_ON ? "1" : "0");
                     default:
                         break;
                 }
@@ -699,7 +708,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
         case BT_VND_OP_USERIAL_OPEN:
             {
                 int (*fd_array)[] = (int (*)[]) param;
-                int idx, fd;
+                int fd = -1, fd_filter = -1;
                 ALOGI("bt-vendor : BT_VND_OP_USERIAL_OPEN");
                 switch(btSocType)
                 {
@@ -722,11 +731,12 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                         break;
                     case BT_SOC_AR3K:
                         {
+                            int idx;
                             fd = userial_vendor_open((tUSERIAL_CFG *) &userial_init_cfg);
                             if (fd != -1) {
                                 for (idx=0; idx < CH_MAX; idx++)
                                     (*fd_array)[idx] = fd;
-                                     retval = 1;
+                                retval = 1;
                             }
                             else {
                                 retval = -1;
@@ -743,6 +753,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                         break;
                     case BT_SOC_ROME:
                         {
+                            int idx;
                             property_get("persist.BT3_2.version", bt_version, false);
                             if (!is_soc_initialized()) {
                                 fd = userial_vendor_open((tUSERIAL_CFG *) &userial_init_cfg);
@@ -798,21 +809,20 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                         ignore_boot_prop = TRUE;
                                     }
 #endif //READ_BT_ADDR_FROM_PROP
+#ifdef BT_NV_SUPPORT
                                     /* Always read BD address from NV file */
                                     if(ignore_boot_prop && !bt_vendor_nv_read(1, vnd_local_bd_addr))
                                     {
                                        /* Since the BD address is configured in boot time We should not be here */
                                        ALOGI("Failed to read BD address. Use the one from bluedroid stack/ftm");
                                     }
+#endif //BT_NV_SUPPORT
                                     if(rome_soc_init(fd,vnd_local_bd_addr)<0) {
                                         retval = -1;
-                                        userial_clock_operation(fd, USERIAL_OP_CLK_OFF);
                                     } else {
                                         ALOGV("rome_soc_init is completed");
                                         property_set("wc_transport.soc_initialized", "1");
-                                        userial_clock_operation(fd, USERIAL_OP_CLK_OFF);
-                                        /*Close the UART port*/
-                                        close(fd);
+                                        skip_init = false;
                                     }
                                 }
                             }
@@ -823,35 +833,44 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                  start_hci_filter();
                                  if (is_ant_req) {
                                      ALOGV("connect to ant channel");
-                                     ant_fd = fd = connect_to_local_socket("ant_sock");
+                                     ant_fd = fd_filter = connect_to_local_socket("ant_sock");
                                  }
                                  else
 #endif
                                  {
                                      ALOGV("connect to bt channel");
-                                     vnd_userial.fd = fd = connect_to_local_socket("bt_sock");
+                                     vnd_userial.fd = fd_filter = connect_to_local_socket("bt_sock");
                                  }
 
-                                 if (fd != -1) {
+                                 if (fd_filter != -1) {
                                      ALOGV("%s: received the socket fd: %d is_ant_req: %d\n",
-                                                                 __func__, fd, is_ant_req);
+                                                                 __func__, fd_filter, is_ant_req);
                                      if((strcmp(bt_version, "true") == 0) && !is_ant_req) {
                                          if (rome_ver >= ROME_VER_3_0) {
                                              /*  get rome supported feature request */
                                              ALOGE("%s: %x08 %0x", __FUNCTION__,rome_ver, ROME_VER_3_0);
-                                             rome_get_addon_feature_list(fd);
+                                             rome_get_addon_feature_list(fd_filter);
                                          }
                                      }
-                                     for (idx=0; idx < CH_MAX; idx++)
-                                          (*fd_array)[idx] = fd;
-                                          retval = 1;
+
+                                     if (!skip_init) {
+                                         /* skip if already sent */
+                                         enable_controller_log(fd_filter);
+                                         skip_init = true;
                                      }
+
+                                     for (idx=0; idx < CH_MAX; idx++)
+                                         (*fd_array)[idx] = fd_filter;
+                                     retval = 1;
+                                 }
                                  else {
                                      retval = -1;
                                  }
-                             } else {
-                               if (fd >= 0)
-                                  close(fd);
+                             }
+
+                             if (fd >= 0) {
+                                 userial_clock_operation(fd, USERIAL_OP_CLK_OFF);
+                                 close(fd);
                              }
                         }
                         break;
@@ -898,7 +917,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
             break;
 
         case BT_VND_OP_GET_LPM_IDLE_TIMEOUT:
-            if (btSocType ==  BT_SOC_AR3K) {
+            {
                 uint32_t *timeout_ms = (uint32_t *) param;
                 *timeout_ms = 1000;
             }
@@ -1027,7 +1046,7 @@ static void ssr_cleanup(void) {
 
     if ((btSocType = get_bt_soc_type()) < 0) {
         ALOGE("%s: Failed to detect BT SOC Type", __FUNCTION__);
-        return -1;
+        return;
     }
 
     if (btSocType == BT_SOC_ROME) {

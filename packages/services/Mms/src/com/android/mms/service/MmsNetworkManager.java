@@ -185,7 +185,18 @@ public class MmsNetworkManager {
     private void releaseRequestLocked(ConnectivityManager.NetworkCallback callback) {
         if (callback != null) {
             final ConnectivityManager connectivityManager = getConnectivityManager();
-            connectivityManager.unregisterNetworkCallback(callback);
+            try {
+                connectivityManager.unregisterNetworkCallback(callback);
+            } catch (IllegalArgumentException e) {
+                // It is possible ConnectivityManager.requestNetwork may fail silently due
+                // to RemoteException. When that happens, we may get an invalid
+                // NetworkCallback, which causes an IllegalArgumentexception when we try to
+                // unregisterNetworkCallback. This exception in turn causes
+                // MmsNetworkManager to skip resetLocked() in the below. Thus MMS service
+                // would get stuck in the bad state until the device restarts. This fix
+                // catches the exception so that state clean up can be executed.
+                LogUtil.w("Unregister network callback exception", e);
+            }
         }
         resetLocked();
     }
@@ -218,7 +229,7 @@ public class MmsNetworkManager {
             if (mMmsHttpClient == null) {
                 if (mNetwork != null) {
                     // Create new MmsHttpClient for the current Network
-                    mMmsHttpClient = new MmsHttpClient(mContext, mNetwork);
+                    mMmsHttpClient = new MmsHttpClient(mContext, mNetwork, mConnectivityManager);
                 }
             }
             return mMmsHttpClient;

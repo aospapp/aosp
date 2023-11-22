@@ -17,10 +17,14 @@
 #ifndef ART_COMPILER_UTILS_ARM_ASSEMBLER_ARM_H_
 #define ART_COMPILER_UTILS_ARM_ASSEMBLER_ARM_H_
 
+#include <type_traits>
 #include <vector>
 
+#include "base/arena_allocator.h"
+#include "base/arena_containers.h"
 #include "base/bit_utils.h"
 #include "base/logging.h"
+#include "base/stl_util.h"
 #include "base/value_object.h"
 #include "constants_arm.h"
 #include "utils/arm/managed_register_arm.h"
@@ -32,6 +36,88 @@ namespace arm {
 
 class Arm32Assembler;
 class Thumb2Assembler;
+
+// Assembler literal is a value embedded in code, retrieved using a PC-relative load.
+class Literal {
+ public:
+  static constexpr size_t kMaxSize = 8;
+
+  Literal(uint32_t size, const uint8_t* data)
+      : label_(), size_(size) {
+    DCHECK_LE(size, Literal::kMaxSize);
+    memcpy(data_, data, size);
+  }
+
+  template <typename T>
+  T GetValue() const {
+    DCHECK_EQ(size_, sizeof(T));
+    T value;
+    memcpy(&value, data_, sizeof(T));
+    return value;
+  }
+
+  uint32_t GetSize() const {
+    return size_;
+  }
+
+  const uint8_t* GetData() const {
+    return data_;
+  }
+
+  Label* GetLabel() {
+    return &label_;
+  }
+
+  const Label* GetLabel() const {
+    return &label_;
+  }
+
+ private:
+  Label label_;
+  const uint32_t size_;
+  uint8_t data_[kMaxSize];
+
+  DISALLOW_COPY_AND_ASSIGN(Literal);
+};
+
+// Jump table: table of labels emitted after the literals. Similar to literals.
+class JumpTable {
+ public:
+  explicit JumpTable(std::vector<Label*>&& labels)
+      : label_(), anchor_label_(), labels_(std::move(labels)) {
+  }
+
+  uint32_t GetSize() const {
+    return static_cast<uint32_t>(labels_.size()) * sizeof(uint32_t);
+  }
+
+  const std::vector<Label*>& GetData() const {
+    return labels_;
+  }
+
+  Label* GetLabel() {
+    return &label_;
+  }
+
+  const Label* GetLabel() const {
+    return &label_;
+  }
+
+  Label* GetAnchorLabel() {
+    return &anchor_label_;
+  }
+
+  const Label* GetAnchorLabel() const {
+    return &anchor_label_;
+  }
+
+ private:
+  Label label_;
+  Label anchor_label_;
+  std::vector<Label*> labels_;
+
+  DISALLOW_COPY_AND_ASSIGN(JumpTable);
+};
 
 class ShifterOperand {
  public:
@@ -331,6 +417,13 @@ enum ItState {
   kItE = kItElse
 };
 
+// Set condition codes request.
+enum SetCc {
+  kCcDontCare,  // Allows prioritizing 16-bit instructions on Thumb2 whether they set CCs or not.
+  kCcSet,
+  kCcKeep,
+};
+
 constexpr uint32_t kNoItCondition = 3;
 constexpr uint32_t kInvalidModifiedImmediate = -1;
 
@@ -348,25 +441,61 @@ class ArmAssembler : public Assembler {
   virtual bool IsThumb() const = 0;
 
   // Data-processing instructions.
-  virtual void and_(Register rd, Register rn, const ShifterOperand& so, Condition cond = AL) = 0;
+  virtual void and_(Register rd, Register rn, const ShifterOperand& so,
+                    Condition cond = AL, SetCc set_cc = kCcDontCare) = 0;
 
-  virtual void eor(Register rd, Register rn, const ShifterOperand& so, Condition cond = AL) = 0;
+  virtual void ands(Register rd, Register rn, const ShifterOperand& so, Condition cond = AL) {
+    and_(rd, rn, so, cond, kCcSet);
+  }
 
-  virtual void sub(Register rd, Register rn, const ShifterOperand& so, Condition cond = AL) = 0;
-  virtual void subs(Register rd, Register rn, const ShifterOperand& so, Condition cond = AL) = 0;
+  virtual void eor(Register rd, Register rn, const ShifterOperand& so,
+                   Condition cond = AL, SetCc set_cc = kCcDontCare) = 0;
 
-  virtual void rsb(Register rd, Register rn, const ShifterOperand& so, Condition cond = AL) = 0;
-  virtual void rsbs(Register rd, Register rn, const ShifterOperand& so, Condition cond = AL) = 0;
+  virtual void eors(Register rd, Register rn, const ShifterOperand& so, Condition cond = AL) {
+    eor(rd, rn, so, cond, kCcSet);
+  }
 
-  virtual void add(Register rd, Register rn, const ShifterOperand& so, Condition cond = AL) = 0;
+  virtual void sub(Register rd, Register rn, const ShifterOperand& so,
+                   Condition cond = AL, SetCc set_cc = kCcDontCare) = 0;
 
-  virtual void adds(Register rd, Register rn, const ShifterOperand& so, Condition cond = AL) = 0;
+  virtual void subs(Register rd, Register rn, const ShifterOperand& so, Condition cond = AL) {
+    sub(rd, rn, so, cond, kCcSet);
+  }
 
-  virtual void adc(Register rd, Register rn, const ShifterOperand& so, Condition cond = AL) = 0;
+  virtual void rsb(Register rd, Register rn, const ShifterOperand& so,
+                   Condition cond = AL, SetCc set_cc = kCcDontCare) = 0;
 
-  virtual void sbc(Register rd, Register rn, const ShifterOperand& so, Condition cond = AL) = 0;
+  virtual void rsbs(Register rd, Register rn, const ShifterOperand& so, Condition cond = AL) {
+    rsb(rd, rn, so, cond, kCcSet);
+  }
 
-  virtual void rsc(Register rd, Register rn, const ShifterOperand& so, Condition cond = AL) = 0;
+  virtual void add(Register rd, Register rn, const ShifterOperand& so,
+                   Condition cond = AL, SetCc set_cc = kCcDontCare) = 0;
+
+  virtual void adds(Register rd, Register rn, const ShifterOperand& so, Condition cond = AL) {
+    add(rd, rn, so, cond, kCcSet);
+  }
+
+  virtual void adc(Register rd, Register rn, const ShifterOperand& so,
+                   Condition cond = AL, SetCc set_cc = kCcDontCare) = 0;
+
+  virtual void adcs(Register rd, Register rn, const ShifterOperand& so, Condition cond = AL) {
+    adc(rd, rn, so, cond, kCcSet);
+  }
+
+  virtual void sbc(Register rd, Register rn, const ShifterOperand& so,
+                   Condition cond = AL, SetCc set_cc = kCcDontCare) = 0;
+
+  virtual void sbcs(Register rd, Register rn, const ShifterOperand& so, Condition cond = AL) {
+    sbc(rd, rn, so, cond, kCcSet);
+  }
+
+  virtual void rsc(Register rd, Register rn, const ShifterOperand& so,
+                   Condition cond = AL, SetCc set_cc = kCcDontCare) = 0;
+
+  virtual void rscs(Register rd, Register rn, const ShifterOperand& so, Condition cond = AL) {
+    rsc(rd, rn, so, cond, kCcSet);
+  }
 
   virtual void tst(Register rn, const ShifterOperand& so, Condition cond = AL) = 0;
 
@@ -374,23 +503,53 @@ class ArmAssembler : public Assembler {
 
   virtual void cmp(Register rn, const ShifterOperand& so, Condition cond = AL) = 0;
 
+  // Note: CMN updates flags based on addition of its operands. Do not confuse
+  // the "N" suffix with bitwise inversion performed by MVN.
   virtual void cmn(Register rn, const ShifterOperand& so, Condition cond = AL) = 0;
 
-  virtual void orr(Register rd, Register rn, const ShifterOperand& so, Condition cond = AL) = 0;
-  virtual void orrs(Register rd, Register rn, const ShifterOperand& so, Condition cond = AL) = 0;
+  virtual void orr(Register rd, Register rn, const ShifterOperand& so,
+                   Condition cond = AL, SetCc set_cc = kCcDontCare) = 0;
 
-  virtual void mov(Register rd, const ShifterOperand& so, Condition cond = AL) = 0;
-  virtual void movs(Register rd, const ShifterOperand& so, Condition cond = AL) = 0;
+  virtual void orrs(Register rd, Register rn, const ShifterOperand& so, Condition cond = AL) {
+    orr(rd, rn, so, cond, kCcSet);
+  }
 
-  virtual void bic(Register rd, Register rn, const ShifterOperand& so, Condition cond = AL) = 0;
+  virtual void orn(Register rd, Register rn, const ShifterOperand& so,
+                   Condition cond = AL, SetCc set_cc = kCcDontCare) = 0;
 
-  virtual void mvn(Register rd, const ShifterOperand& so, Condition cond = AL) = 0;
-  virtual void mvns(Register rd, const ShifterOperand& so, Condition cond = AL) = 0;
+  virtual void orns(Register rd, Register rn, const ShifterOperand& so, Condition cond = AL) {
+    orn(rd, rn, so, cond, kCcSet);
+  }
+
+  virtual void mov(Register rd, const ShifterOperand& so,
+                   Condition cond = AL, SetCc set_cc = kCcDontCare) = 0;
+
+  virtual void movs(Register rd, const ShifterOperand& so, Condition cond = AL) {
+    mov(rd, so, cond, kCcSet);
+  }
+
+  virtual void bic(Register rd, Register rn, const ShifterOperand& so,
+                   Condition cond = AL, SetCc set_cc = kCcDontCare) = 0;
+
+  virtual void bics(Register rd, Register rn, const ShifterOperand& so, Condition cond = AL) {
+    bic(rd, rn, so, cond, kCcSet);
+  }
+
+  virtual void mvn(Register rd, const ShifterOperand& so,
+                   Condition cond = AL, SetCc set_cc = kCcDontCare) = 0;
+
+  virtual void mvns(Register rd, const ShifterOperand& so, Condition cond = AL) {
+    mvn(rd, so, cond, kCcSet);
+  }
 
   // Miscellaneous data-processing instructions.
   virtual void clz(Register rd, Register rm, Condition cond = AL) = 0;
   virtual void movw(Register rd, uint16_t imm16, Condition cond = AL) = 0;
   virtual void movt(Register rd, uint16_t imm16, Condition cond = AL) = 0;
+  virtual void rbit(Register rd, Register rm, Condition cond = AL) = 0;
+  virtual void rev(Register rd, Register rm, Condition cond = AL) = 0;
+  virtual void rev16(Register rd, Register rm, Condition cond = AL) = 0;
+  virtual void revsh(Register rd, Register rm, Condition cond = AL) = 0;
 
   // Multiply instructions.
   virtual void mul(Register rd, Register rn, Register rm, Condition cond = AL) = 0;
@@ -398,6 +557,8 @@ class ArmAssembler : public Assembler {
                    Condition cond = AL) = 0;
   virtual void mls(Register rd, Register rn, Register rm, Register ra,
                    Condition cond = AL) = 0;
+  virtual void smull(Register rd_lo, Register rd_hi, Register rn, Register rm,
+                     Condition cond = AL) = 0;
   virtual void umull(Register rd_lo, Register rd_hi, Register rn, Register rm,
                      Condition cond = AL) = 0;
 
@@ -526,15 +687,51 @@ class ArmAssembler : public Assembler {
 
   void Pad(uint32_t bytes);
 
+  // Adjust label position.
+  void AdjustLabelPosition(Label* label) {
+    DCHECK(label->IsBound());
+    uint32_t old_position = static_cast<uint32_t>(label->Position());
+    uint32_t new_position = GetAdjustedPosition(old_position);
+    label->Reinitialize();
+    DCHECK_GE(static_cast<int>(new_position), 0);
+    label->BindTo(static_cast<int>(new_position));
+  }
+
+  // Get the final position of a label after local fixup based on the old position
+  // recorded before FinalizeCode().
+  virtual uint32_t GetAdjustedPosition(uint32_t old_position) = 0;
+
   // Macros.
   // Most of these are pure virtual as they need to be implemented per instruction set.
 
+  // Create a new literal with a given value.
+  // NOTE: Force the template parameter to be explicitly specified.
+  template <typename T>
+  Literal* NewLiteral(typename Identity<T>::type value) {
+    static_assert(std::is_integral<T>::value, "T must be an integral type.");
+    return NewLiteral(sizeof(value), reinterpret_cast<const uint8_t*>(&value));
+  }
+
+  // Create a new literal with the given data.
+  virtual Literal* NewLiteral(size_t size, const uint8_t* data) = 0;
+
+  // Load literal.
+  virtual void LoadLiteral(Register rt, Literal* literal) = 0;
+  virtual void LoadLiteral(Register rt, Register rt2, Literal* literal) = 0;
+  virtual void LoadLiteral(SRegister sd, Literal* literal) = 0;
+  virtual void LoadLiteral(DRegister dd, Literal* literal) = 0;
+
   // Add signed constant value to rd. May clobber IP.
-  virtual void AddConstant(Register rd, int32_t value, Condition cond = AL) = 0;
   virtual void AddConstant(Register rd, Register rn, int32_t value,
-                           Condition cond = AL) = 0;
-  virtual void AddConstantSetFlags(Register rd, Register rn, int32_t value,
-                                   Condition cond = AL) = 0;
+                           Condition cond = AL, SetCc set_cc = kCcDontCare) = 0;
+  void AddConstantSetFlags(Register rd, Register rn, int32_t value, Condition cond = AL) {
+    AddConstant(rd, rn, value, cond, kCcSet);
+  }
+  void AddConstant(Register rd, int32_t value, Condition cond = AL, SetCc set_cc = kCcDontCare) {
+    AddConstant(rd, rd, value, cond, set_cc);
+  }
+
+  virtual void CmpConstant(Register rn, int32_t value, Condition cond = AL) = 0;
 
   // Load and Store. May clobber IP.
   virtual void LoadImmediate(Register rd, int32_t value, Condition cond = AL) = 0;
@@ -619,25 +816,68 @@ class ArmAssembler : public Assembler {
 
   // Convenience shift instructions. Use mov instruction with shifter operand
   // for variants setting the status flags or using a register shift count.
-  virtual void Lsl(Register rd, Register rm, uint32_t shift_imm, bool setcc = false,
-                   Condition cond = AL) = 0;
-  virtual void Lsr(Register rd, Register rm, uint32_t shift_imm, bool setcc = false,
-                   Condition cond = AL) = 0;
-  virtual void Asr(Register rd, Register rm, uint32_t shift_imm, bool setcc = false,
-                   Condition cond = AL) = 0;
-  virtual void Ror(Register rd, Register rm, uint32_t shift_imm, bool setcc = false,
-                   Condition cond = AL) = 0;
-  virtual void Rrx(Register rd, Register rm, bool setcc = false,
-                   Condition cond = AL) = 0;
+  virtual void Lsl(Register rd, Register rm, uint32_t shift_imm,
+                   Condition cond = AL, SetCc set_cc = kCcDontCare) = 0;
 
-  virtual void Lsl(Register rd, Register rm, Register rn, bool setcc = false,
-                   Condition cond = AL) = 0;
-  virtual void Lsr(Register rd, Register rm, Register rn, bool setcc = false,
-                   Condition cond = AL) = 0;
-  virtual void Asr(Register rd, Register rm, Register rn, bool setcc = false,
-                   Condition cond = AL) = 0;
-  virtual void Ror(Register rd, Register rm, Register rn, bool setcc = false,
-                   Condition cond = AL) = 0;
+  void Lsls(Register rd, Register rm, uint32_t shift_imm, Condition cond = AL) {
+    Lsl(rd, rm, shift_imm, cond, kCcSet);
+  }
+
+  virtual void Lsr(Register rd, Register rm, uint32_t shift_imm,
+                   Condition cond = AL, SetCc set_cc = kCcDontCare) = 0;
+
+  void Lsrs(Register rd, Register rm, uint32_t shift_imm, Condition cond = AL) {
+    Lsr(rd, rm, shift_imm, cond, kCcSet);
+  }
+
+  virtual void Asr(Register rd, Register rm, uint32_t shift_imm,
+                   Condition cond = AL, SetCc set_cc = kCcDontCare) = 0;
+
+  void Asrs(Register rd, Register rm, uint32_t shift_imm, Condition cond = AL) {
+    Asr(rd, rm, shift_imm, cond, kCcSet);
+  }
+
+  virtual void Ror(Register rd, Register rm, uint32_t shift_imm,
+                   Condition cond = AL, SetCc set_cc = kCcDontCare) = 0;
+
+  void Rors(Register rd, Register rm, uint32_t shift_imm, Condition cond = AL) {
+    Ror(rd, rm, shift_imm, cond, kCcSet);
+  }
+
+  virtual void Rrx(Register rd, Register rm,
+                   Condition cond = AL, SetCc set_cc = kCcDontCare) = 0;
+
+  void Rrxs(Register rd, Register rm, Condition cond = AL) {
+    Rrx(rd, rm, cond, kCcSet);
+  }
+
+  virtual void Lsl(Register rd, Register rm, Register rn,
+                   Condition cond = AL, SetCc set_cc = kCcDontCare) = 0;
+
+  void Lsls(Register rd, Register rm, Register rn, Condition cond = AL) {
+    Lsl(rd, rm, rn, cond, kCcSet);
+  }
+
+  virtual void Lsr(Register rd, Register rm, Register rn,
+                   Condition cond = AL, SetCc set_cc = kCcDontCare) = 0;
+
+  void Lsrs(Register rd, Register rm, Register rn, Condition cond = AL) {
+    Lsr(rd, rm, rn, cond, kCcSet);
+  }
+
+  virtual void Asr(Register rd, Register rm, Register rn,
+                   Condition cond = AL, SetCc set_cc = kCcDontCare) = 0;
+
+  void Asrs(Register rd, Register rm, Register rn, Condition cond = AL) {
+    Asr(rd, rm, rn, cond, kCcSet);
+  }
+
+  virtual void Ror(Register rd, Register rm, Register rn,
+                   Condition cond = AL, SetCc set_cc = kCcDontCare) = 0;
+
+  void Rors(Register rd, Register rm, Register rn, Condition cond = AL) {
+    Ror(rd, rm, rn, cond, kCcSet);
+  }
 
   // Returns whether the `immediate` can fit in a `ShifterOperand`. If yes,
   // `shifter_op` contains the operand.
@@ -645,11 +885,19 @@ class ArmAssembler : public Assembler {
                                      Register rn,
                                      Opcode opcode,
                                      uint32_t immediate,
+                                     SetCc set_cc,
                                      ShifterOperand* shifter_op) = 0;
+  bool ShifterOperandCanHold(Register rd,
+                             Register rn,
+                             Opcode opcode,
+                             uint32_t immediate,
+                             ShifterOperand* shifter_op) {
+    return ShifterOperandCanHold(rd, rn, opcode, immediate, kCcDontCare, shifter_op);
+  }
+
+  virtual bool ShifterOperandCanAlwaysHold(uint32_t immediate) = 0;
 
   static bool IsInstructionForExceptionHandling(uintptr_t pc);
-
-  virtual void Bind(Label* label) = 0;
 
   virtual void CompareAndBranchIfZero(Register r, Label* label) = 0;
   virtual void CompareAndBranchIfNonZero(Register r, Label* label) = 0;
@@ -696,7 +944,7 @@ class ArmAssembler : public Assembler {
   void LoadRef(ManagedRegister dest, FrameOffset src) OVERRIDE;
 
   void LoadRef(ManagedRegister dest, ManagedRegister base, MemberOffset offs,
-               bool poison_reference) OVERRIDE;
+               bool unpoison_reference) OVERRIDE;
 
   void LoadRawPtr(ManagedRegister dest, ManagedRegister base, Offset offs) OVERRIDE;
 
@@ -779,17 +1027,77 @@ class ArmAssembler : public Assembler {
      return r >= R8;
   }
 
+  //
+  // Heap poisoning.
+  //
+
+  // Poison a heap reference contained in `reg`.
+  void PoisonHeapReference(Register reg) {
+    // reg = -reg.
+    rsb(reg, reg, ShifterOperand(0));
+  }
+  // Unpoison a heap reference contained in `reg`.
+  void UnpoisonHeapReference(Register reg) {
+    // reg = -reg.
+    rsb(reg, reg, ShifterOperand(0));
+  }
+  // Unpoison a heap reference contained in `reg` if heap poisoning is enabled.
+  void MaybeUnpoisonHeapReference(Register reg) {
+    if (kPoisonHeapReferences) {
+      UnpoisonHeapReference(reg);
+    }
+  }
+
+  void Jump(Label* label) OVERRIDE {
+    b(label);
+  }
+
+  // Jump table support. This is split into three functions:
+  //
+  // * CreateJumpTable creates the internal metadata to track the jump targets, and emits code to
+  // load the base address of the jump table.
+  //
+  // * EmitJumpTableDispatch emits the code to actually jump, assuming that the right table value
+  // has been loaded into a register already.
+  //
+  // * FinalizeTables emits the jump table into the literal pool. This can only be called after the
+  // labels for the jump targets have been finalized.
+
+  // Create a jump table for the given labels that will be emitted when finalizing. Create a load
+  // sequence (or placeholder) that stores the base address into the given register. When the table
+  // is emitted, offsets will be relative to the location EmitJumpTableDispatch was called on (the
+  // anchor).
+  virtual JumpTable* CreateJumpTable(std::vector<Label*>&& labels, Register base_reg) = 0;
+
+  // Emit the jump-table jump, assuming that the right value was loaded into displacement_reg.
+  virtual void EmitJumpTableDispatch(JumpTable* jump_table, Register displacement_reg) = 0;
+
+  // Bind a Label that needs to be updated by the assembler in FinalizeCode() if its position
+  // changes due to branch/literal fixup.
+  void BindTrackedLabel(Label* label) {
+    Bind(label);
+    tracked_labels_.push_back(label);
+  }
+
  protected:
+  explicit ArmAssembler(ArenaAllocator* arena)
+      : Assembler(arena), tracked_labels_(arena->Adapter(kArenaAllocAssembler)) {}
+
   // Returns whether or not the given register is used for passing parameters.
   static int RegisterCompare(const Register* reg1, const Register* reg2) {
     return *reg1 - *reg2;
   }
+
+  void FinalizeTrackedLabels();
+
+  // Tracked labels. Use a vector, as we need to sort before adjusting.
+  ArenaVector<Label*> tracked_labels_;
 };
 
 // Slowpath entered when Thread::Current()->_exception is non-null
 class ArmExceptionSlowPath FINAL : public SlowPath {
  public:
-  explicit ArmExceptionSlowPath(ArmManagedRegister scratch, size_t stack_adjust)
+  ArmExceptionSlowPath(ArmManagedRegister scratch, size_t stack_adjust)
       : scratch_(scratch), stack_adjust_(stack_adjust) {
   }
   void Emit(Assembler *sp_asm) OVERRIDE;

@@ -30,19 +30,24 @@ namespace verifier {
 class MethodVerifierTest : public CommonRuntimeTest {
  protected:
   void VerifyClass(const std::string& descriptor)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     ASSERT_TRUE(descriptor != nullptr);
     Thread* self = Thread::Current();
     mirror::Class* klass = class_linker_->FindSystemClass(self, descriptor.c_str());
 
     // Verify the class
     std::string error_msg;
-    ASSERT_TRUE(MethodVerifier::VerifyClass(self, klass, true, &error_msg) == MethodVerifier::kNoFailure)
-        << error_msg;
+    MethodVerifier::FailureKind failure = MethodVerifier::VerifyClass(self,
+                                                                      klass,
+                                                                      nullptr,
+                                                                      true,
+                                                                      LogSeverity::WARNING,
+                                                                      &error_msg);
+    ASSERT_TRUE(failure == MethodVerifier::kNoFailure) << error_msg;
   }
 
   void VerifyDexFile(const DexFile& dex)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     // Verify all the classes defined in this file
     for (size_t i = 0; i < dex.NumClassDefs(); i++) {
       const DexFile::ClassDef& class_def = dex.GetClassDef(i);

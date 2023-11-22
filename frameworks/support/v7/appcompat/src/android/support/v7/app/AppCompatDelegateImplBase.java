@@ -22,11 +22,12 @@ import android.content.res.TypedArray;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.support.v7.appcompat.R;
-import android.support.v7.internal.view.SupportMenuInflater;
-import android.support.v7.internal.view.WindowCallbackWrapper;
-import android.support.v7.internal.view.menu.MenuBuilder;
-import android.support.v7.internal.widget.TintTypedArray;
 import android.support.v7.view.ActionMode;
+import android.support.v7.view.SupportMenuInflater;
+import android.support.v7.view.WindowCallbackWrapper;
+import android.support.v7.view.menu.MenuBuilder;
+import android.support.v7.widget.AppCompatDrawableManager;
+import android.support.v7.widget.TintTypedArray;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -34,6 +35,8 @@ import android.view.View;
 import android.view.Window;
 
 abstract class AppCompatDelegateImplBase extends AppCompatDelegate {
+
+    private static final int[] sWindowBackgroundStyleable = {android.R.attr.windowBackground};
 
     final Context mContext;
     final Window mWindow;
@@ -54,6 +57,8 @@ abstract class AppCompatDelegateImplBase extends AppCompatDelegate {
     boolean mIsFloating;
     // true if this activity has no title
     boolean mWindowNoTitle;
+    // true if the theme has been read
+    boolean mThemeRead;
 
     private CharSequence mTitle;
 
@@ -72,6 +77,14 @@ abstract class AppCompatDelegateImplBase extends AppCompatDelegate {
         mAppCompatWindowCallback = wrapWindowCallback(mOriginalWindowCallback);
         // Now install the new callback
         mWindow.setCallback(mAppCompatWindowCallback);
+
+        final TintTypedArray a = TintTypedArray.obtainStyledAttributes(
+                context, null, sWindowBackgroundStyleable);
+        final Drawable winBg = a.getDrawableIfKnown(0);
+        if (winBg != null) {
+            mWindow.setBackgroundDrawable(winBg);
+        }
+        a.recycle();
     }
 
     abstract void initWindowDecorActionBar();
@@ -111,6 +124,11 @@ abstract class AppCompatDelegateImplBase extends AppCompatDelegate {
     abstract boolean dispatchKeyEvent(KeyEvent event);
 
     abstract boolean onKeyShortcut(int keyCode, KeyEvent event);
+
+    @Override
+    public void setLocalNightMode(@NightMode int mode) {
+        // no-op
+    }
 
     @Override
     public final ActionBarDrawerToggle.Delegate getDrawerToggleDelegate() {
@@ -174,7 +192,7 @@ abstract class AppCompatDelegateImplBase extends AppCompatDelegate {
     abstract ActionMode startSupportActionModeFromWindow(ActionMode.Callback callback);
 
     @Override
-    public final void onDestroy() {
+    public void onDestroy() {
         mIsDestroyed = true;
     }
 
@@ -186,6 +204,12 @@ abstract class AppCompatDelegateImplBase extends AppCompatDelegate {
     @Override
     public boolean isHandleNativeActionModesEnabled() {
         // Always false pre-v14
+        return false;
+    }
+
+    @Override
+    public boolean applyDayNight() {
+        // no-op on v7
         return false;
     }
 
@@ -201,6 +225,11 @@ abstract class AppCompatDelegateImplBase extends AppCompatDelegate {
     public final void setTitle(CharSequence title) {
         mTitle = title;
         onTitleChanged(title);
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        // no-op
     }
 
     abstract void onTitleChanged(CharSequence title);
@@ -276,8 +305,9 @@ abstract class AppCompatDelegateImplBase extends AppCompatDelegate {
 
         @Override
         public boolean onMenuOpened(int featureId, Menu menu) {
-            return super.onMenuOpened(featureId, menu)
-                    || AppCompatDelegateImplBase.this.onMenuOpened(featureId, menu);
+            super.onMenuOpened(featureId, menu);
+            AppCompatDelegateImplBase.this.onMenuOpened(featureId, menu);
+            return true;
         }
 
         @Override

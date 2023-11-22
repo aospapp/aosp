@@ -169,12 +169,6 @@ libcompiler_rt_common_SRC_FILES := \
   lib/builtins/umodsi3.c \
   lib/builtins/umodti3.c
 
-# Only build enable_execute_stack.c on non-Windows hosts.
-ifneq ($(HOST_OS),windows)
-libcompiler_rt_common_SRC_FILES += \
-  lib/builtins/enable_execute_stack.c
-endif
-
 # ARM-specific runtimes
 libcompiler_rt_arm_SRC_FILES := \
   lib/builtins/arm/aeabi_dcmp.S \
@@ -295,29 +289,10 @@ define filter-libcompiler-rt-common-source-files
                           $(filter lib/builtins/$(strip $(2))/%.c,$(1))),$(1))
 endef
 
-define get-libcompiler-rt-arm-common-source-files
+define get-libcompiler-rt-arm-source-files
   $(call filter-libcompiler-rt-common-source-files,
       $(libcompiler_rt_common_SRC_FILES) \
       $(libcompiler_rt_arm_SRC_FILES), arm)
-endef
-
-# $(1): common runtime list
-#
-# Add ARM runtimes implemented in VFP
-define add-libcompiler-rt-arm-vfp-source-files
-  $(filter-out $(addprefix lib/builtins/,adddf3.c addsf3.c comparedf2.c comparesf2.c         \
-                                         arm/comparesf2.S divdf3.c divsf3.c extendsfdf2.c    \
-                                         fixdfsi.c fixsfsi.c fixunsdfsi.c fixunssfsi.c       \
-                                         floatsidf.c floatsisf.c floatunsidf.c floatunsisf.c \
-                                         muldf3.c mulsf3.c negdf2.c negsf2.c subdf3.c        \
-                                         subsf3.c truncdfsf2.c),$(1))
-endef
-
-define get-libcompiler-rt-arm-source-files
-  $(if $(findstring $(ARCH_ARM_HAVE_VFP),true),
-      $(call add-libcompiler-rt-arm-vfp-source-files,
-          $(call get-libcompiler-rt-arm-common-source-files)),
-      $(call get-libcompiler-rt-arm-common-source-files))
 endef
 
 define get-libcompiler-rt-arm64-source-files
@@ -350,6 +325,10 @@ define get-libcompiler-rt-x86_64-source-files
       $(libcompiler_rt_x86_64_SRC_FILES),x86_64)
 endef
 
+libcompiler_rt_common_CFLAGS := \
+  -Wno-unused-parameter \
+  -Werror
+
 #=====================================================================
 # Device Static Library: libcompiler_rt-extras
 #=====================================================================
@@ -359,10 +338,13 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libcompiler_rt-extras
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
+LOCAL_CFLAGS := $(libcompiler_rt_common_CFLAGS)
 LOCAL_CLANG := true
 LOCAL_SRC_FILES := $(libcompiler_rt_extras_SRC_FILES)
+LOCAL_SRC_FILES_mips += lib/builtins/clear_cache.c
+LOCAL_SRC_FILES_mips64 += lib/builtins/clear_cache.c
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_CXX_STL := none
 
 include $(BUILD_STATIC_LIBRARY)
@@ -374,11 +356,13 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libcompiler_rt-extras
+LOCAL_CFLAGS := $(libcompiler_rt_common_CFLAGS)
 LOCAL_CLANG := true
 LOCAL_SRC_FILES := $(libcompiler_rt_extras_SRC_FILES)
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_MULTILIB := both
 LOCAL_CXX_STL := none
+LOCAL_MODULE_HOST_OS := darwin linux windows
 
 include $(BUILD_HOST_STATIC_LIBRARY)
 
@@ -392,10 +376,12 @@ ifneq ($(WITHOUT_TARGET_CLANG), true)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libcompiler_rt
+LOCAL_CFLAGS := $(libcompiler_rt_common_CFLAGS)
 LOCAL_CFLAGS_arm += -D__ARM_EABI__
-LOCAL_CFLAGS_mips64 += -DCRT_HAS_128BIT -DCRT_LDBL_128BIT
+LOCAL_CFLAGS_mips64 += -DCRT_HAS_128BIT
 LOCAL_ASFLAGS := -integrated-as
 LOCAL_CLANG := true
+LOCAL_SRC_FILES := lib/builtins/enable_execute_stack.c
 LOCAL_SRC_FILES_arm := $(call get-libcompiler-rt-source-files,arm)
 LOCAL_SRC_FILES_arm64 := $(call get-libcompiler-rt-source-files,arm64)
 LOCAL_SRC_FILES_mips := $(call get-libcompiler-rt-source-files,mips)
@@ -405,8 +391,15 @@ LOCAL_SRC_FILES_x86_64 := $(call get-libcompiler-rt-source-files,x86_64)
 LOCAL_SRC_FILES_x86_64 += lib/builtins/ppc/floatditf.c
 LOCAL_MODULE_TARGET_ARCH := arm arm64 mips mips64 x86 x86_64
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_CXX_STL := none
+
+# These don't actually link, but are required to get exported headers
+LOCAL_STATIC_LIBRARIES_arm64 := libunwindbacktrace
+LOCAL_STATIC_LIBRARIES_mips := libunwindbacktrace
+LOCAL_STATIC_LIBRARIES_mips64 := libunwindbacktrace
+LOCAL_STATIC_LIBRARIES_x86 := libunwindbacktrace
+LOCAL_STATIC_LIBRARIES_x86_64 := libunwindbacktrace
 
 include $(BUILD_STATIC_LIBRARY)
 
@@ -417,44 +410,23 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libcompiler_rt
+LOCAL_CFLAGS := $(libcompiler_rt_common_CFLAGS)
 LOCAL_ASFLAGS := -integrated-as
 LOCAL_CLANG := true
 LOCAL_SRC_FILES := $(call get-libcompiler-rt-source-files,x86_64)
-LOCAL_ADDRESS_SANITIZER := false
+# Only build enable_execute_stack.c on non-Windows hosts.
+LOCAL_SRC_FILES_darwin := lib/builtins/enable_execute_stack.c
+LOCAL_SRC_FILES_linux := lib/builtins/enable_execute_stack.c
+LOCAL_SANITIZE := never
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_MULTILIB := both
 LOCAL_CXX_STL := none
 
-include $(BUILD_HOST_STATIC_LIBRARY)
-
-#=====================================================================
-# Host Static Library: libprofile_rt
-#=====================================================================
-
-include $(CLEAR_VARS)
-
-LOCAL_MODULE = libprofile_rt
-LOCAL_SRC_FILES = lib/profile/GCDAProfiling.c
-LOCAL_ADDRESS_SANITIZER := false
-LOCAL_MULTILIB := both
-LOCAL_CXX_STL := none
+# These don't actually link, but are required to get exported headers
+LOCAL_STATIC_LIBRARIES_linux := libunwindbacktrace
+LOCAL_STATIC_LIBRARIES_windows := libunwindbacktrace
 
 include $(BUILD_HOST_STATIC_LIBRARY)
-
-#=====================================================================
-# Device Static Library: libprofile_rt
-#=====================================================================
-
-include $(CLEAR_VARS)
-
-LOCAL_MODULE = libprofile_rt
-LOCAL_CLANG := true
-LOCAL_SRC_FILES = lib/profile/GCDAProfiling.c
-LOCAL_ADDRESS_SANITIZER := false
-LOCAL_MULTILIB := both
-LOCAL_CXX_STL := none
-
-include $(BUILD_STATIC_LIBRARY)
 
 #=====================================================================
 # Device Shared Library: libcompiler_rt
@@ -465,15 +437,22 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libcompiler_rt
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_WHOLE_STATIC_LIBRARIES := libcompiler_rt
-LOCAL_SHARED_LIBRARIES := libdl
+LOCAL_SHARED_LIBRARIES := libdl liblog
+LOCAL_STATIC_LIBRARIES := liblzma
 LOCAL_STATIC_LIBRARIES_arm := libunwind_llvm
 LOCAL_STATIC_LIBRARIES_arm64 := libunwindbacktrace
 LOCAL_STATIC_LIBRARIES_mips := libunwindbacktrace
 LOCAL_STATIC_LIBRARIES_mips64 := libunwindbacktrace
 LOCAL_STATIC_LIBRARIES_x86 := libunwindbacktrace
 LOCAL_STATIC_LIBRARIES_x86_64 := libunwindbacktrace
+LOCAL_LDFLAGS_arm := -Wl,--exclude-libs,libunwind_llvm.a
+LOCAL_LDFLAGS_arm64 := -Wl,--exclude-libs,libunwindbacktrace.a
+LOCAL_LDFLAGS_mips := -Wl,--exclude-libs,libunwindbacktrace.a
+LOCAL_LDFLAGS_mips64 := -Wl,--exclude-libs,libunwindbacktrace.a
+LOCAL_LDFLAGS_x86 := -Wl,--exclude-libs,libunwindbacktrace.a
+LOCAL_LDFLAGS_x86_64 := -Wl,--exclude-libs,libunwindbacktrace.a
 LOCAL_MODULE_TARGET_ARCH := arm arm64 mips mips64 x86 x86_64
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_CXX_STL := none
 LOCAL_NO_LIBGCC := true
 
@@ -488,16 +467,15 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libcompiler_rt
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_WHOLE_STATIC_LIBRARIES := libcompiler_rt
-ifneq ($(HOST_OS),darwin)
-LOCAL_STATIC_LIBRARIES := libunwindbacktrace
-endif
+LOCAL_STATIC_LIBRARIES_linux := libunwindbacktrace
+LOCAL_STATIC_LIBRARIES_windows := libunwindbacktrace
 LOCAL_CPPFLAGS := -nostdinc++
-ifneq ($(HOST_OS),windows)
-LOCAL_LDFLAGS := -nodefaultlibs
-LOCAL_LDLIBS := -lpthread -lc -lm
-endif
+LOCAL_LDFLAGS_darwin := -nodefaultlibs
+LOCAL_LDFLAGS_linux := -nodefaultlibs
+LOCAL_LDLIBS_darwin := -lpthread -lc -lm
+LOCAL_LDLIBS_linux := -lpthread -lc -lm
 LOCAL_MULTILIB := both
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_CXX_STL := none
 LOCAL_NO_LIBGCC := true
 

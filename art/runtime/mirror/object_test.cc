@@ -48,7 +48,7 @@ class ObjectTest : public CommonRuntimeTest {
                     const char* utf8_in,
                     const char* utf16_expected_le,
                     int32_t expected_hash)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     std::unique_ptr<uint16_t[]> utf16_expected(new uint16_t[expected_utf16_length]);
     for (int32_t i = 0; i < expected_utf16_length; i++) {
       uint16_t ch = (((utf16_expected_le[i*2 + 0] & 0xff) << 8) |
@@ -307,10 +307,7 @@ TEST_F(ObjectTest, CheckAndAllocArrayFromCode) {
   ScopedObjectAccess soa(Thread::Current());
   Class* java_util_Arrays = class_linker_->FindSystemClass(soa.Self(), "Ljava/util/Arrays;");
   ArtMethod* sort = java_util_Arrays->FindDirectMethod("sort", "([I)V", sizeof(void*));
-  const DexFile::StringId* string_id = java_lang_dex_file_->FindStringId("[I");
-  ASSERT_TRUE(string_id != nullptr);
-  const DexFile::TypeId* type_id = java_lang_dex_file_->FindTypeId(
-      java_lang_dex_file_->GetIndexForStringId(*string_id));
+  const DexFile::TypeId* type_id = java_lang_dex_file_->FindTypeId("[I");
   ASSERT_TRUE(type_id != nullptr);
   uint32_t type_idx = java_lang_dex_file_->GetIndexForTypeId(*type_id);
   Object* array = CheckAndAllocArrayFromCodeInstrumented(
@@ -367,16 +364,10 @@ TEST_F(ObjectTest, StaticFieldFromCode) {
   Handle<mirror::ClassLoader> loader(hs.NewHandle(soa.Decode<ClassLoader*>(class_loader)));
   Class* klass = class_linker_->FindClass(soa.Self(), "LStaticsFromCode;", loader);
   ArtMethod* clinit = klass->FindClassInitializer(sizeof(void*));
-  const DexFile::StringId* klass_string_id = dex_file->FindStringId("LStaticsFromCode;");
-  ASSERT_TRUE(klass_string_id != nullptr);
-  const DexFile::TypeId* klass_type_id = dex_file->FindTypeId(
-      dex_file->GetIndexForStringId(*klass_string_id));
+  const DexFile::TypeId* klass_type_id = dex_file->FindTypeId("LStaticsFromCode;");
   ASSERT_TRUE(klass_type_id != nullptr);
 
-  const DexFile::StringId* type_string_id = dex_file->FindStringId("Ljava/lang/Object;");
-  ASSERT_TRUE(type_string_id != nullptr);
-  const DexFile::TypeId* type_type_id = dex_file->FindTypeId(
-      dex_file->GetIndexForStringId(*type_string_id));
+  const DexFile::TypeId* type_type_id = dex_file->FindTypeId("Ljava/lang/Object;");
   ASSERT_TRUE(type_type_id != nullptr);
 
   const DexFile::StringId* name_str_id = dex_file->FindStringId("s0");

@@ -16,15 +16,16 @@
 
 package android.graphics.drawable.shapes.cts;
 
+import junit.framework.TestCase;
 
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Paint;
 import android.graphics.Bitmap.Config;
+import android.graphics.Canvas;
+import android.graphics.Outline;
+import android.graphics.Paint;
 import android.graphics.Paint.Style;
 import android.graphics.drawable.shapes.ArcShape;
-
-import junit.framework.TestCase;
+import android.test.suitebuilder.annotation.SmallTest;
 
 public class ArcShapeTest extends TestCase {
     private static final int TEST_WIDTH  = 100;
@@ -35,6 +36,7 @@ public class ArcShapeTest extends TestCase {
 
     private static final int TOLERANCE = 4; // tolerance in pixels
 
+    @SmallTest
     public void testConstructor() {
         new ArcShape(1f, 5f);
 
@@ -43,6 +45,7 @@ public class ArcShapeTest extends TestCase {
         new ArcShape(-1f, -1f);
     }
 
+    @SmallTest
     public void testDraw() {
         // draw completely.
         ArcShape arcShape = new ArcShape(0.0f, 360.0f);
@@ -70,5 +73,17 @@ public class ArcShapeTest extends TestCase {
             }
         }
         assertEquals((double)SQUARE / 2 / Math.sqrt(2), count, TOLERANCE);
+    }
+
+    @SmallTest
+    public void testGetOutline() {
+        Outline outline = new Outline();
+        ArcShape shape;
+
+        // This is a no-op. Just make sure it doesn't crash.
+        outline.setEmpty();
+        shape = new ArcShape(0.0f, 360.0f);
+        shape.getOutline(outline);
+        assertTrue(outline.isEmpty());
     }
 }

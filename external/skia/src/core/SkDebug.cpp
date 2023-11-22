@@ -56,9 +56,10 @@ size_t SkToSizeT(uintmax_t x) {
     return (size_t)x;
 }
 
-off_t SkToOffT(intmax_t x) {
-    SkASSERT((off_t)x == x);
-    return (off_t)x;
-}
+#endif
 
+#if defined(GOOGLE3)
+void SkDebugfForDumpStackTrace(const char* data, void* unused) {
+    SkDebugf("%s", data);
+}
 #endif

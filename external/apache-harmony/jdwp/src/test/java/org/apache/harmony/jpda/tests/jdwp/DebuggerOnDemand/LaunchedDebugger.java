@@ -52,14 +52,14 @@ public abstract class LaunchedDebugger extends JDWPTestCase {
      * It forces to use attaching connector and fixed transport address.
      */
 /*
-    protected void beforeDebuggeeStart(JDWPOnDemandDebuggeeWrapper debugeeWrapper) {
+    protected void beforeConnectionSetUp() {
     	settings.setAttachConnectorKind();
         if (settings.getTransportAddress() == null) {
             settings.setTransportAddress(JPDADebuggerOnDemandOptions.DEFAULT_ATTACHING_ADDRESS);
         }
         logWriter.println("DEBUGGER: Use ATTACH connector kind");
        
-        super.beforeDebuggeeStart(debuggeeWrapper);
+        super.beforeConnectionSetUp();
     }
  */
     	

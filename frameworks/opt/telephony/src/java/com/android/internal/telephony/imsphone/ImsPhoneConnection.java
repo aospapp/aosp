@@ -19,16 +19,20 @@ package com.android.internal.telephony.imsphone;
 import android.content.Context;
 import android.net.Uri;
 import android.os.AsyncResult;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.os.PersistableBundle;
 import android.os.PowerManager;
 import android.os.Registrant;
 import android.os.SystemClock;
 import android.telecom.Log;
+import android.telephony.CarrierConfigManager;
 import android.telephony.DisconnectCause;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.Rlog;
+import android.telephony.ServiceState;
 import android.text.TextUtils;
 
 import com.android.ims.ImsException;
@@ -42,6 +46,8 @@ import com.android.internal.telephony.UUSInfo;
 import com.android.ims.ImsCall;
 import com.android.ims.ImsCallProfile;
 
+import java.util.Objects;
+
 /**
  * {@hide}
  */
@@ -54,8 +60,8 @@ public class ImsPhoneConnection extends Connection {
     private ImsPhoneCallTracker mOwner;
     private ImsPhoneCall mParent;
     private ImsCall mImsCall;
+    private Bundle mExtras = new Bundle();
 
-    private String mPostDialString;      // outgoing calls only
     private boolean mDisconnected;
 
     /*
@@ -69,10 +75,6 @@ public class ImsPhoneConnection extends Connection {
      */
     private long mDisconnectTime;
 
-    private int mNextPostDialChar;       // index into postDialString
-
-    private int mCause = DisconnectCause.NOT_DISCONNECTED;
-    private PostDialState mPostDialState = PostDialState.NOT_STARTED;
     private UUSInfo mUusInfo;
     private Handler mHandler;
 
@@ -81,11 +83,27 @@ public class ImsPhoneConnection extends Connection {
     // The cached connect time of the connection when it turns into a conference.
     private long mConferenceConnectTime = 0;
 
+    // The cached delay to be used between DTMF tones fetched from carrier config.
+    private int mDtmfToneDelay = 0;
+
+    private boolean mIsEmergency = false;
+
+    /**
+     * Used to indicate whether the wifi state is based on
+     * {@link com.android.ims.ImsConnectionStateListener#
+     *      onFeatureCapabilityChanged(int, int[], int[])} callbacks, or values received via the
+     * {@link ImsCallProfile#EXTRA_CALL_RAT_TYPE} extra.  Util we receive a value via the extras,
+     * we will use the wifi state based on the {@code onFeatureCapabilityChanged}.  Once a value
+     * is received via the extras, we will prefer those values going forward.
+     */
+    private boolean mIsWifiStateFromExtras = false;
+
     //***** Event Constants
     private static final int EVENT_DTMF_DONE = 1;
     private static final int EVENT_PAUSE_DONE = 2;
     private static final int EVENT_NEXT_POST_DIAL = 3;
     private static final int EVENT_WAKE_LOCK_TIMEOUT = 4;
+    private static final int EVENT_DTMF_DELAY_DONE = 5;
 
     //***** Constants
     private static final int PAUSE_DELAY_MILLIS = 3 * 1000;
@@ -102,12 +120,18 @@ public class ImsPhoneConnection extends Connection {
 
             switch (msg.what) {
                 case EVENT_NEXT_POST_DIAL:
-                case EVENT_DTMF_DONE:
+                case EVENT_DTMF_DELAY_DONE:
                 case EVENT_PAUSE_DONE:
                     processNextPostDialChar();
                     break;
                 case EVENT_WAKE_LOCK_TIMEOUT:
                     releaseWakeLock();
+                    break;
+                case EVENT_DTMF_DONE:
+                    // We may need to add a delay specified by carrier between DTMF tones that are
+                    // sent out.
+                    mHandler.sendMessageDelayed(mHandler.obtainMessage(EVENT_DTMF_DELAY_DONE),
+                            mDtmfToneDelay);
                     break;
             }
         }
@@ -116,10 +140,10 @@ public class ImsPhoneConnection extends Connection {
     //***** Constructors
 
     /** This is probably an MT call */
-    /*package*/
-    ImsPhoneConnection(Context context, ImsCall imsCall, ImsPhoneCallTracker ct,
-            ImsPhoneCall parent) {
-        createWakeLock(context);
+    public ImsPhoneConnection(Phone phone, ImsCall imsCall, ImsPhoneCallTracker ct,
+           ImsPhoneCall parent, boolean isUnknown) {
+        super(PhoneConstants.PHONE_TYPE_IMS);
+        createWakeLock(phone.getContext());
         acquireWakeLock();
 
         mOwner = ct;
@@ -139,23 +163,29 @@ public class ImsPhoneConnection extends Connection {
             mCnapNamePresentation = PhoneConstants.PRESENTATION_UNKNOWN;
         }
 
-        mIsIncoming = true;
+        mIsIncoming = !isUnknown;
         mCreateTime = System.currentTimeMillis();
         mUusInfo = null;
 
-        //mIndex = index;
-
         updateWifiState();
 
+        // Ensure any extras set on the ImsCallProfile at the start of the call are cached locally
+        // in the ImsPhoneConnection.  This isn't going to inform any listeners (since the original
+        // connection is not likely to be associated with a TelephonyConnection yet).
+        updateExtras(imsCall);
+
         mParent = parent;
-        mParent.attach(this, ImsPhoneCall.State.INCOMING);
+        mParent.attach(this,
+                (mIsIncoming? ImsPhoneCall.State.INCOMING: ImsPhoneCall.State.DIALING));
+
+        fetchDtmfToneDelay(phone);
     }
 
     /** This is an MO call, created when dialing */
-    /*package*/
-    ImsPhoneConnection(Context context, String dialString, ImsPhoneCallTracker ct,
-            ImsPhoneCall parent) {
-        createWakeLock(context);
+    public ImsPhoneConnection(Phone phone, String dialString, ImsPhoneCallTracker ct,
+            ImsPhoneCall parent, boolean isEmergency) {
+        super(PhoneConstants.PHONE_TYPE_IMS);
+        createWakeLock(phone.getContext());
         acquireWakeLock();
 
         mOwner = ct;
@@ -176,6 +206,10 @@ public class ImsPhoneConnection extends Connection {
 
         mParent = parent;
         parent.attachFake(this, ImsPhoneCall.State.DIALING);
+
+        mIsEmergency = isEmergency;
+
+        fetchDtmfToneDelay(phone);
     }
 
     public void dispose() {
@@ -184,6 +218,44 @@ public class ImsPhoneConnection extends Connection {
     static boolean
     equalsHandlesNulls (Object a, Object b) {
         return (a == null) ? (b == null) : a.equals (b);
+    }
+
+    private static int applyLocalCallCapabilities(ImsCallProfile localProfile, int capabilities) {
+        capabilities = removeCapability(capabilities,
+                Connection.Capability.SUPPORTS_VT_LOCAL_BIDIRECTIONAL
+                | Connection.Capability.SUPPORTS_DOWNGRADE_TO_VOICE_LOCAL);
+
+        switch (localProfile.mCallType) {
+            case ImsCallProfile.CALL_TYPE_VT:
+                capabilities = addCapability(capabilities,
+                        Connection.Capability.SUPPORTS_VT_LOCAL_BIDIRECTIONAL);
+                break;
+            case ImsCallProfile.CALL_TYPE_VIDEO_N_VOICE:
+                capabilities = addCapability(capabilities,
+                        Connection.Capability.SUPPORTS_VT_LOCAL_BIDIRECTIONAL
+                        | Connection.Capability.SUPPORTS_DOWNGRADE_TO_VOICE_LOCAL);
+                break;
+        }
+        return capabilities;
+    }
+
+    private static int applyRemoteCallCapabilities(ImsCallProfile remoteProfile, int capabilities) {
+        capabilities = removeCapability(capabilities,
+                Connection.Capability.SUPPORTS_VT_REMOTE_BIDIRECTIONAL
+                | Connection.Capability.SUPPORTS_DOWNGRADE_TO_VOICE_REMOTE);
+
+        switch (remoteProfile.mCallType) {
+            case ImsCallProfile.CALL_TYPE_VT:
+                capabilities = addCapability(capabilities,
+                        Connection.Capability.SUPPORTS_VT_REMOTE_BIDIRECTIONAL);
+                break;
+            case ImsCallProfile.CALL_TYPE_VIDEO_N_VOICE:
+                capabilities = addCapability(capabilities,
+                        Connection.Capability.SUPPORTS_VT_REMOTE_BIDIRECTIONAL
+                        | Connection.Capability.SUPPORTS_DOWNGRADE_TO_VOICE_REMOTE);
+                break;
+        }
+        return capabilities;
     }
 
     @Override
@@ -214,11 +286,6 @@ public class ImsPhoneConnection extends Connection {
         } else {
             return SystemClock.elapsedRealtime() - mHoldingStartTime;
         }
-    }
-
-    @Override
-    public int getDisconnectCause() {
-        return mCause;
     }
 
     public void setDisconnectCause(int cause) {
@@ -255,11 +322,6 @@ public class ImsPhoneConnection extends Connection {
     @Override
     public void separate() throws CallStateException {
         throw new CallStateException ("not supported");
-    }
-
-    @Override
-    public PostDialState getPostDialState() {
-        return mPostDialState;
     }
 
     @Override
@@ -314,15 +376,14 @@ public class ImsPhoneConnection extends Connection {
     }
 
     /** Called when the connection has been disconnected */
-    public boolean
-    onDisconnect(int cause) {
+    @Override
+    public boolean onDisconnect(int cause) {
         Rlog.d(LOG_TAG, "onDisconnect: cause=" + cause);
         if (mCause != DisconnectCause.LOCAL) mCause = cause;
         return onDisconnect();
     }
 
-    /*package*/ boolean
-    onDisconnect() {
+    public boolean onDisconnect() {
         boolean changed = false;
 
         if (!mDisconnected) {
@@ -406,22 +467,7 @@ public class ImsPhoneConnection extends Connection {
     }
 
     @Override
-    public String
-    getRemainingPostDialString() {
-        if (mPostDialState == PostDialState.CANCELLED
-            || mPostDialState == PostDialState.COMPLETE
-            || mPostDialString == null
-            || mPostDialString.length() <= mNextPostDialChar
-        ) {
-            return "";
-        }
-
-        return mPostDialString.substring(mNextPostDialChar);
-    }
-
-    @Override
-    protected void finalize()
-    {
+    protected void finalize() {
         releaseWakeLock();
     }
 
@@ -461,7 +507,7 @@ public class ImsPhoneConnection extends Connection {
         notifyPostDialListenersNextChar(c);
 
         // TODO: remove the following code since the handler no longer executes anything.
-        postDialHandler = mOwner.mPhone.mPostDialHandler;
+        postDialHandler = mOwner.mPhone.getPostDialHandler();
 
         Message notifyMessage;
 
@@ -525,6 +571,15 @@ public class ImsPhoneConnection extends Connection {
         }
     }
 
+    private void fetchDtmfToneDelay(Phone phone) {
+        CarrierConfigManager configMgr = (CarrierConfigManager)
+                phone.getContext().getSystemService(Context.CARRIER_CONFIG_SERVICE);
+        PersistableBundle b = configMgr.getConfigForSubId(phone.getSubId());
+        if (b != null) {
+            mDtmfToneDelay = b.getInt(CarrierConfigManager.KEY_IMS_DTMF_TONE_DELAY_INT);
+        }
+    }
+
     @Override
     public int getNumberPresentation() {
         return mNumberPresentation;
@@ -553,6 +608,7 @@ public class ImsPhoneConnection extends Connection {
      * @return {@code true} if this call is the origin of the conference call it is a member of,
      *      {@code false} otherwise.
      */
+    @Override
     public boolean isConferenceHost() {
         if (mImsCall == null) {
             return false;
@@ -560,15 +616,20 @@ public class ImsPhoneConnection extends Connection {
         return mImsCall.isConferenceHost();
     }
 
-    /*package*/ ImsCall getImsCall() {
+    @Override
+    public boolean isMemberOfPeerConference() {
+        return !isConferenceHost();
+    }
+
+    public ImsCall getImsCall() {
         return mImsCall;
     }
 
-    /*package*/ void setImsCall(ImsCall imsCall) {
+    public void setImsCall(ImsCall imsCall) {
         mImsCall = imsCall;
     }
 
-    /*package*/ void changeParent(ImsPhoneCall parent) {
+    public void changeParent(ImsPhoneCall parent) {
         mParent = parent;
     }
 
@@ -576,7 +637,7 @@ public class ImsPhoneConnection extends Connection {
      * @return {@code true} if the {@link ImsPhoneConnection} or its media capabilities have been
      *     changed, and {@code false} otherwise.
      */
-    /*package*/ boolean update(ImsCall imsCall, ImsPhoneCall.State state) {
+    public boolean update(ImsCall imsCall, ImsPhoneCall.State state) {
         if (state == ImsPhoneCall.State.ACTIVE) {
             // If the state of the call is active, but there is a pending request to the RIL to hold
             // the call, we will skip this update.  This is really a signalling delay or failure
@@ -607,8 +668,11 @@ public class ImsPhoneConnection extends Connection {
         boolean updateParent = mParent.update(this, imsCall, state);
         boolean updateWifiState = updateWifiState();
         boolean updateAddressDisplay = updateAddressDisplay(imsCall);
+        boolean updateMediaCapabilities = updateMediaCapabilities(imsCall);
+        boolean updateExtras = updateExtras(imsCall);
 
-        return updateParent || updateWifiState || updateAddressDisplay;
+        return updateParent || updateWifiState || updateAddressDisplay || updateMediaCapabilities
+                || updateExtras;
     }
 
     @Override
@@ -661,7 +725,7 @@ public class ImsPhoneConnection extends Connection {
      * @param imsCall The call to check for changes in address display fields.
      * @return Whether the address display fields have been changed.
      */
-    private boolean updateAddressDisplay(ImsCall imsCall) {
+    public boolean updateAddressDisplay(ImsCall imsCall) {
         if (imsCall == null) {
             return false;
         }
@@ -721,10 +785,6 @@ public class ImsPhoneConnection extends Connection {
         try {
             // The actual call profile (negotiated between local and peer).
             ImsCallProfile negotiatedCallProfile = imsCall.getCallProfile();
-            // The capabilities of the local device.
-            ImsCallProfile localCallProfile = imsCall.getLocalCallProfile();
-            // The capabilities of the peer device.
-            ImsCallProfile remoteCallProfile = imsCall.getRemoteCallProfile();
 
             if (negotiatedCallProfile != null) {
                 int oldVideoState = getVideoState();
@@ -737,24 +797,25 @@ public class ImsPhoneConnection extends Connection {
                 }
             }
 
+            // Check for a change in the capabilities for the call and update
+            // {@link ImsPhoneConnection} with this information.
+            int capabilities = getConnectionCapabilities();
+            // Get the current local call capabilities which might be voice or video or both.
+            ImsCallProfile localCallProfile = imsCall.getLocalCallProfile();
+            Rlog.v(LOG_TAG, "update localCallProfile=" + localCallProfile);
             if (localCallProfile != null) {
-                int callType = localCallProfile.mCallType;
-
-                boolean newLocalVideoCapable = callType == ImsCallProfile.CALL_TYPE_VT;
-                if (isLocalVideoCapable() != newLocalVideoCapable) {
-                    setLocalVideoCapable(newLocalVideoCapable);
-                    changed = true;
-                }
+                capabilities = applyLocalCallCapabilities(localCallProfile, capabilities);
             }
 
+            // Get the current remote call capabilities which might be voice or video or both.
+            ImsCallProfile remoteCallProfile = imsCall.getRemoteCallProfile();
+            Rlog.v(LOG_TAG, "update remoteCallProfile=" + remoteCallProfile);
             if (remoteCallProfile != null) {
-                    boolean newRemoteVideoCapable = remoteCallProfile.mCallType
-                            == ImsCallProfile.CALL_TYPE_VT;
-
-                    if (isRemoteVideoCapable() != newRemoteVideoCapable) {
-                        setRemoteVideoCapable(newRemoteVideoCapable);
-                        changed = true;
-                    }
+                capabilities = applyRemoteCallCapabilities(remoteCallProfile, capabilities);
+            }
+            if (getConnectionCapabilities() != capabilities) {
+                setConnectionCapabilities(capabilities);
+                changed = true;
             }
 
             int newAudioQuality =
@@ -777,12 +838,101 @@ public class ImsPhoneConnection extends Connection {
      * @return Whether the ImsPhoneCallTracker's usage of wifi has been changed.
      */
     public boolean updateWifiState() {
+        // If we've received the wifi state via the ImsCallProfile.EXTRA_CALL_RAT_TYPE extra, we
+        // will no longer use state updates which are based on the onFeatureCapabilityChanged
+        // callback.
+        if (mIsWifiStateFromExtras) {
+            return false;
+        }
+
         Rlog.d(LOG_TAG, "updateWifiState: " + mOwner.isVowifiEnabled());
         if (isWifi() != mOwner.isVowifiEnabled()) {
             setWifi(mOwner.isVowifiEnabled());
             return true;
         }
         return false;
+    }
+
+    /**
+     * Updates the wifi state based on the {@link ImsCallProfile#EXTRA_CALL_RAT_TYPE}.
+     * The call is considered to be a WIFI call if the extra value is
+     * {@link ServiceState#RIL_RADIO_TECHNOLOGY_IWLAN}.
+     *
+     * @param extras The ImsCallProfile extras.
+     */
+    private void updateWifiStateFromExtras(Bundle extras) {
+        if (extras.containsKey(ImsCallProfile.EXTRA_CALL_RAT_TYPE)) {
+            // The RIL (sadly) sends us the EXTRA_CALL_RAT_TYPE as a string extra, rather than an
+            // integer extra, so we need to parse it.
+            int radioTechnology;
+            try {
+                radioTechnology = Integer.parseInt(extras.getString(
+                        ImsCallProfile.EXTRA_CALL_RAT_TYPE));
+            } catch (NumberFormatException nfe) {
+                radioTechnology = ServiceState.RIL_RADIO_TECHNOLOGY_UNKNOWN;
+            }
+
+            // We've received the extra indicating the radio technology, so we will continue to
+            // prefer the radio technology received via this extra going forward.
+            mIsWifiStateFromExtras = true;
+
+            boolean isWifi = radioTechnology == ServiceState.RIL_RADIO_TECHNOLOGY_IWLAN;
+
+            // Report any changes
+            if (isWifi() != isWifi) {
+                setWifi(isWifi);
+            }
+        }
+    }
+
+    /**
+     * Check for a change in call extras of {@link ImsCall}, and
+     * update the {@link ImsPhoneConnection} accordingly.
+     *
+     * @param imsCall The call to check for changes in extras.
+     * @return Whether the extras fields have been changed.
+     */
+     boolean updateExtras(ImsCall imsCall) {
+        if (imsCall == null) {
+            return false;
+        }
+
+        final ImsCallProfile callProfile = imsCall.getCallProfile();
+        final Bundle extras = callProfile != null ? callProfile.mCallExtras : null;
+        if (extras == null && DBG) {
+            Rlog.d(LOG_TAG, "Call profile extras are null.");
+        }
+
+        final boolean changed = !areBundlesEqual(extras, mExtras);
+        if (changed) {
+            updateWifiStateFromExtras(extras);
+
+            mExtras.clear();
+            mExtras.putAll(extras);
+            setConnectionExtras(mExtras);
+        }
+        return changed;
+    }
+
+    private static boolean areBundlesEqual(Bundle extras, Bundle newExtras) {
+        if (extras == null || newExtras == null) {
+            return extras == newExtras;
+        }
+
+        if (extras.size() != newExtras.size()) {
+            return false;
+        }
+
+        for(String key : extras.keySet()) {
+            if (key != null) {
+                final Object value = extras.get(key);
+                final Object newValue = newExtras.get(key);
+                if (!Objects.equals(value, newValue)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     /**
@@ -820,9 +970,11 @@ public class ImsPhoneConnection extends Connection {
         StringBuilder sb = new StringBuilder();
         sb.append("[ImsPhoneConnection objId: ");
         sb.append(System.identityHashCode(this));
-        sb.append(" address:");
+        sb.append(" telecomCallID: ");
+        sb.append(getTelecomCallId());
+        sb.append(" address: ");
         sb.append(Log.pii(getAddress()));
-        sb.append(" ImsCall:");
+        sb.append(" ImsCall: ");
         if (mImsCall == null) {
             sb.append("null");
         } else {
@@ -830,6 +982,14 @@ public class ImsPhoneConnection extends Connection {
         }
         sb.append("]");
         return sb.toString();
+    }
+
+    /**
+     * Indicates whether current phone connection is emergency or not
+     * @return boolean: true if emergency, false otherwise
+     */
+    protected boolean isEmergency() {
+        return mIsEmergency;
     }
 }
 

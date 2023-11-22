@@ -27,9 +27,10 @@
 #include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <unistd.h>
 
-#include "osi/include/osi.h"
 #include "osi/include/log.h"
+#include "osi/include/osi.h"
 
 static void safe_close_(int *fd);
 static void *listen_fn_(void *context);
@@ -45,15 +46,23 @@ static int listen_socket_ = -1;
 static int client_socket_ = -1;
 
 void btsnoop_net_open() {
+#if (!defined(BT_NET_DEBUG) || (BT_NET_DEBUG != TRUE))
+  return;               // Disable using network sockets for security reasons
+#endif
+
   listen_thread_valid_ = (pthread_create(&listen_thread_, NULL, listen_fn_, NULL) == 0);
   if (!listen_thread_valid_) {
-    LOG_ERROR("%s pthread_create failed: %s", __func__, strerror(errno));
+    LOG_ERROR(LOG_TAG, "%s pthread_create failed: %s", __func__, strerror(errno));
   } else {
-    LOG_DEBUG("initialized");
+    LOG_DEBUG(LOG_TAG, "initialized");
   }
 }
 
 void btsnoop_net_close() {
+#if (!defined(BT_NET_DEBUG) || (BT_NET_DEBUG != TRUE))
+  return;               // Disable using network sockets for security reasons
+#endif
+
   if (listen_thread_valid_) {
     shutdown(listen_socket_, SHUT_RDWR);
     pthread_join(listen_thread_, NULL);
@@ -63,9 +72,16 @@ void btsnoop_net_close() {
 }
 
 void btsnoop_net_write(const void *data, size_t length) {
+#if (!defined(BT_NET_DEBUG) || (BT_NET_DEBUG != TRUE))
+  return;               // Disable using network sockets for security reasons
+#endif
+
   pthread_mutex_lock(&client_socket_lock_);
   if (client_socket_ != -1) {
-    if (send(client_socket_, data, length, 0) == -1 && errno == ECONNRESET) {
+    ssize_t ret;
+    OSI_NO_INTR(ret = send(client_socket_, data, length, 0));
+
+    if (ret == -1 && errno == ECONNRESET) {
       safe_close_(&client_socket_);
     }
   }
@@ -78,13 +94,13 @@ static void *listen_fn_(UNUSED_ATTR void *context) {
 
   listen_socket_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (listen_socket_ == -1) {
-    LOG_ERROR("%s socket creation failed: %s", __func__, strerror(errno));
+    LOG_ERROR(LOG_TAG, "%s socket creation failed: %s", __func__, strerror(errno));
     goto cleanup;
   }
 
   int enable = 1;
   if (setsockopt(listen_socket_, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)) == -1) {
-    LOG_ERROR("%s unable to set SO_REUSEADDR: %s", __func__, strerror(errno));
+    LOG_ERROR(LOG_TAG, "%s unable to set SO_REUSEADDR: %s", __func__, strerror(errno));
     goto cleanup;
   }
 
@@ -93,22 +109,23 @@ static void *listen_fn_(UNUSED_ATTR void *context) {
   addr.sin_addr.s_addr = htonl(LOCALHOST_);
   addr.sin_port = htons(LISTEN_PORT_);
   if (bind(listen_socket_, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
-    LOG_ERROR("%s unable to bind listen socket: %s", __func__, strerror(errno));
+    LOG_ERROR(LOG_TAG, "%s unable to bind listen socket: %s", __func__, strerror(errno));
     goto cleanup;
   }
 
   if (listen(listen_socket_, 10) == -1) {
-    LOG_ERROR("%s unable to listen: %s", __func__, strerror(errno));
+    LOG_ERROR(LOG_TAG, "%s unable to listen: %s", __func__, strerror(errno));
     goto cleanup;
   }
 
   for (;;) {
-    int client_socket = accept(listen_socket_, NULL, NULL);
+    int client_socket;
+    OSI_NO_INTR(client_socket = accept(listen_socket_, NULL, NULL));
     if (client_socket == -1) {
       if (errno == EINVAL || errno == EBADF) {
         break;
       }
-      LOG_WARN("%s error accepting socket: %s", __func__, strerror(errno));
+      LOG_WARN(LOG_TAG, "%s error accepting socket: %s", __func__, strerror(errno));
       continue;
     }
 
@@ -117,7 +134,8 @@ static void *listen_fn_(UNUSED_ATTR void *context) {
     pthread_mutex_lock(&client_socket_lock_);
     safe_close_(&client_socket_);
     client_socket_ = client_socket;
-    send(client_socket_, "btsnoop\0\0\0\0\1\0\0\x3\xea", 16, 0);
+
+    OSI_NO_INTR(send(client_socket_, "btsnoop\0\0\0\0\1\0\0\x3\xea", 16, 0));
     pthread_mutex_unlock(&client_socket_lock_);
   }
 

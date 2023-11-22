@@ -16,9 +16,9 @@ libext2fs_src_files := \
 	block.c \
 	bmap.c \
 	check_desc.c \
+	closefs.c \
 	crc16.c \
 	csum.c \
-	closefs.c \
 	dblist.c \
 	dblist_dir.c \
 	dirblock.c \
@@ -48,26 +48,29 @@ libext2fs_src_files := \
 	link.c \
 	llseek.c \
 	lookup.c \
-	mmp.c \
 	mkdir.c \
 	mkjournal.c \
+	mmp.c \
+	namei.c \
 	native.c \
 	newdir.c \
 	openfs.c \
 	progress.c \
 	punch.c \
-	rbtree.c \
+	qcow2.c \
 	read_bb.c \
 	read_bb_file.c \
 	res_gdt.c \
 	rw_bitmaps.c \
 	swapfs.c \
+	symlink.c \
 	tdb.c \
 	undo_io.c \
 	unix_io.c \
 	unlink.c \
 	valid_blk.c \
-	version.c
+	version.c \
+	rbtree.c
 
 # get rid of this?!
 libext2fs_src_files += test_io.c
@@ -124,6 +127,7 @@ LOCAL_SRC_FILES := $(libext2fs_src_files)
 LOCAL_SYSTEM_SHARED_LIBRARIES := $(libext2fs_system_shared_libraries)
 LOCAL_SHARED_LIBRARIES := $(libext2fs_shared_libraries)
 LOCAL_C_INCLUDES := $(libext2fs_c_includes)
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(libext2fs_c_includes)
 LOCAL_CFLAGS := $(libext2fs_cflags) $(libext2fs_cflags_linux)
 LOCAL_MODULE := libext2fs
 LOCAL_MODULE_TAGS := optional
@@ -135,6 +139,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(libext2fs_src_files)
 LOCAL_STATIC_LIBRARIES := $(libext2fs_static_libraries) $(libext2fs_system_static_libraries)
 LOCAL_C_INCLUDES := $(libext2fs_c_includes)
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(libext2fs_c_includes)
 LOCAL_CFLAGS := $(libext2fs_cflags) $(libext2fs_cflags_linux)
 LOCAL_MODULE := libext2fs
 LOCAL_MODULE_TAGS := optional
@@ -144,14 +149,15 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := $(libext2fs_src_files)
-LOCAL_SHARED_LIBRARIES := $(addsuffix _host, $(libext2fs_shared_libraries))
+LOCAL_SHARED_LIBRARIES := $(addsuffix -host, $(libext2fs_shared_libraries))
 LOCAL_C_INCLUDES := $(libext2fs_c_includes)
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(libext2fs_c_includes)
 ifeq ($(HOST_OS),linux)
 LOCAL_CFLAGS := $(libext2fs_cflags) $(libext2fs_cflags_linux)
 else
 LOCAL_CFLAGS := $(libext2fs_cflags)
 endif
-LOCAL_MODULE := libext2fs_host
+LOCAL_MODULE := libext2fs-host
 LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_HOST_SHARED_LIBRARY)

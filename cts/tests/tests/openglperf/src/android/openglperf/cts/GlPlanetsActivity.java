@@ -71,7 +71,9 @@ public class GlPlanetsActivity extends Activity implements
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+                | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         Intent intent = getIntent();
         PlanetsRenderingParam param = new PlanetsRenderingParam();
         param.mNumPlanets = intent.getIntExtra(INTENT_EXTRA_NUM_PLANETS, param.mNumPlanets);

@@ -41,5 +41,5 @@
     <string name="button_gsm_ucs2_with_language_umts_type" msgid="1080788762601688380">"UMTS UCS-2 ભાષા સાથે મોકલો"</string>
     <string name="button_delay_broadcast" msgid="5138650276363839541">"મોકલતા પહેલા 5 સેકંડનો વિલંબ"</string>
     <string name="message_id_label" msgid="4365322663037110887">"સંદેશ ID:"</string>
-    <string name="category_id_label" msgid="8472814003810180738">"કેટેગરી:"</string>
+    <string name="category_id_label" msgid="8472814003810180738">"કૅટેગરી:"</string>
 </resources>

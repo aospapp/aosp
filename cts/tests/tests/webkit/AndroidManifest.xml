@@ -16,7 +16,7 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.webkit">
+    package="android.webkit.cts">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.ACCESS_LOCATION_EXTRA_COMMANDS"/>
@@ -59,7 +59,7 @@
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.webkit"
+                     android:targetPackage="android.webkit.cts"
                      android:label="CTS tests of android.webkit">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

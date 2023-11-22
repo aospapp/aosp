@@ -36,10 +36,10 @@ AudioPort).</li>
 
 <p>The TIF then uses AudioPort information for the audio routing API.</p>
 
-<p><img src="images/ape_audio_tv_tif.png" alt="Android TV Input Framework (TIF)" />
+<p><img src="images/ape_audio_tv_tif.png" alt="Android TV Input Framework (TIF)" /></p>
 <p class="img-caption"><strong>Figure 1.</strong> TV Input Framework (TIF)</p>
 
-<h2 id="Requirements">Requirements</h2>
+<h2 id="requirements">Requirements</h2>
 
 <p>A SoC must implement the audio HAL with the following audio routing API support:</p>
 
@@ -70,7 +70,7 @@ of all the TV output (11Khz, 16bit mono or 48Khz, 16bit mono). Used only for aud
 </table>
 
 
-<h2 id="Audio Devices">TV audio devices</h2>
+<h2 id="audioDevices">TV audio devices</h2>
 
 <p>Android supports the following audio devices for TV audio input/output.</p>
 
@@ -98,7 +98,7 @@ AUDIO_DEVICE_IN_LOOPBACK    = AUDIO_DEVICE_BIT_IN | 0x40000,
 </pre>
 
 
-<h2 id="HAL extension">Audio HAL extension</h2>
+<h2 id="halExtension">Audio HAL extension</h2>
 
 <p>The Audio HAL extension for the audio routing API is defined by following:</p>
 
@@ -182,7 +182,7 @@ struct audio_hw_device {
                          const struct audio_port_config *config);
 </pre>
 
-<h2 id="Testing">Testing DEVICE_IN_LOOPBACK</h2>
+<h2 id="testing">Testing DEVICE_IN_LOOPBACK</h2>
 
 <p>To test DEVICE_IN_LOOPBACK for TV monitoring, use the following testing code. After running the
 test, the captured audio saves to <code>/sdcard/record_loopback.raw</code>, where you can listen to
@@ -208,8 +208,8 @@ it using <code>ffmeg</code>.</p>
        AudioPortConfig sinkPortConfig = null;
        for (AudioPort audioPort : audioPorts) {
            if (srcPortConfig == null
-                   && audioPort.role() == AudioPort.ROLE_SOURCE
-                   && audioPort instanceof AudioDevicePort) {
+                   &amp;&amp; audioPort.role() == AudioPort.ROLE_SOURCE
+                   &amp;&amp; audioPort instanceof AudioDevicePort) {
                AudioDevicePort audioDevicePort = (AudioDevicePort) audioPort;
                if (audioDevicePort.type() == AudioManager.DEVICE_IN_LOOPBACK) {
                    srcPortConfig = audioPort.buildConfig(48000, AudioFormat.CHANNEL_IN_DEFAULT,
@@ -218,14 +218,14 @@ it using <code>ffmeg</code>.</p>
                }
            }
            else if (sinkPortConfig == null
-                   && audioPort.role() == AudioPort.ROLE_SINK
-                   && audioPort instanceof AudioMixPort) {
+                   &amp;&amp; audioPort.role() == AudioPort.ROLE_SINK
+                   &amp;&amp; audioPort instanceof AudioMixPort) {
                sinkPortConfig = audioPort.buildConfig(48000, AudioFormat.CHANNEL_OUT_DEFAULT,
                        AudioFormat.ENCODING_DEFAULT, null);
                Log.d(LOG_TAG, "Found recorder audio mix port : " + audioPort);
            }
        }
-       if (srcPortConfig != null && sinkPortConfig != null) {
+       if (srcPortConfig != null &amp;&amp; sinkPortConfig != null) {
            AudioPatch[] patches = new AudioPatch[] { null };
            int status = am.createAudioPatch(
                    patches,
@@ -276,7 +276,7 @@ ffmpeg -f s16le -ar 48k -ac 1 -i record_loopback.raw record_loopback.wav
 ffplay record_loopback.wav
 </pre>
 
-<h2 id="Use cases">Use cases</h2>
+<h2 id="useCases">Use cases</h2>
 
 <p>This section includes common use cases for TV audio.</p>
 
@@ -286,7 +286,7 @@ ffplay record_loopback.wav
 and the default output (e.g. the speaker). The tuner output does not require decoding, but final
 audio output is mixed with software output_stream.</p>
 
-<p><img src="images/ape_audio_tv_tuner.png" alt="Android TV Tuner Audio Patch" />
+<img src="images/ape_audio_tv_tuner.png" alt="Android TV Tuner Audio Patch" />
 <p class="img-caption">
 <strong>Figure 2.</strong> Audio Patch for TV tuner with speaker output.</p>
 
@@ -297,6 +297,6 @@ audio output is mixed with software output_stream.</p>
 . The output device of all output_streams changes to the HDMI_OUT port, and the TIF manager changes
 the sink port of the existing tuner audio patch to the HDMI_OUT port.</p>
 
-<p><p><img src="images/ape_audio_tv_hdmi_tuner.png" alt="Android TV HDMI-OUT Audio Patch" />
+<img src="images/ape_audio_tv_hdmi_tuner.png" alt="Android TV HDMI-OUT Audio Patch" />
 <p class="img-caption">
 <strong>Figure 3.</strong> Audio Patch for HDMI OUT from live TV.</p>

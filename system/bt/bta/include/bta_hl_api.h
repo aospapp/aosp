@@ -102,7 +102,6 @@
 #define BTA_HL_NUM_TIMERS               7
 
 #define BTA_HL_CCH_RSP_TOUT             2000
-#define BTA_HL_LRG_POOL_ID              GKI_POOL_ID_7
 #define BTA_HL_MAX_TIME                 255
 #define BTA_HL_MIN_TIME                 1
 #define BTA_HL_INVALID_APP_HANDLE       0xFF

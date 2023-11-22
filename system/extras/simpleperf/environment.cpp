@@ -19,16 +19,51 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include <limits>
+#include <set>
 #include <unordered_map>
 #include <vector>
 
-#include <base/file.h>
-#include <base/logging.h>
-#include <base/strings.h>
-#include <base/stringprintf.h>
+#include <android-base/file.h>
+#include <android-base/logging.h>
+#include <android-base/parseint.h>
+#include <android-base/strings.h>
+#include <android-base/stringprintf.h>
+
+#if defined(__ANDROID__)
+#include <sys/system_properties.h>
+#endif
 
 #include "read_elf.h"
 #include "utils.h"
+
+class LineReader {
+ public:
+  LineReader(FILE* fp) : fp_(fp), buf_(nullptr), bufsize_(0) {
+  }
+
+  ~LineReader() {
+    free(buf_);
+    fclose(fp_);
+  }
+
+  char* ReadLine() {
+    if (getline(&buf_, &bufsize_, fp_) != -1) {
+      return buf_;
+    }
+    return nullptr;
+  }
+
+  size_t MaxLineSize() {
+    return bufsize_;
+  }
+
+ private:
+  FILE* fp_;
+  char* buf_;
+  size_t bufsize_;
+};
 
 std::vector<int> GetOnlineCpus() {
   std::vector<int> result;
@@ -41,27 +76,29 @@ std::vector<int> GetOnlineCpus() {
   LineReader reader(fp);
   char* line;
   if ((line = reader.ReadLine()) != nullptr) {
-    result = GetOnlineCpusFromString(line);
+    result = GetCpusFromString(line);
   }
   CHECK(!result.empty()) << "can't get online cpu information";
   return result;
 }
 
-std::vector<int> GetOnlineCpusFromString(const std::string& s) {
-  std::vector<int> result;
+std::vector<int> GetCpusFromString(const std::string& s) {
+  std::set<int> cpu_set;
   bool have_dash = false;
   const char* p = s.c_str();
   char* endp;
+  int last_cpu;
   long cpu;
   // Parse line like: 0,1-3, 5, 7-8
   while ((cpu = strtol(p, &endp, 10)) != 0 || endp != p) {
-    if (have_dash && result.size() > 0) {
-      for (int t = result.back() + 1; t < cpu; ++t) {
-        result.push_back(t);
+    if (have_dash && !cpu_set.empty()) {
+      for (int t = last_cpu + 1; t < cpu; ++t) {
+        cpu_set.insert(t);
       }
     }
     have_dash = false;
-    result.push_back(cpu);
+    cpu_set.insert(cpu);
+    last_cpu = cpu;
     p = endp;
     while (!isdigit(*p) && *p != '\0') {
       if (*p == '-') {
@@ -70,7 +107,7 @@ std::vector<int> GetOnlineCpusFromString(const std::string& s) {
       ++p;
     }
   }
-  return result;
+  return std::vector<int>(cpu_set.begin(), cpu_set.end());
 }
 
 bool ProcessKernelSymbols(const std::string& symbol_file,
@@ -108,37 +145,8 @@ bool ProcessKernelSymbols(const std::string& symbol_file,
   return false;
 }
 
-static bool FindStartOfKernelSymbolCallback(const KernelSymbol& symbol, uint64_t* start_addr) {
-  if (symbol.module == nullptr) {
-    *start_addr = symbol.addr;
-    return true;
-  }
-  return false;
-}
-
-static bool FindStartOfKernelSymbol(const std::string& symbol_file, uint64_t* start_addr) {
-  return ProcessKernelSymbols(
-      symbol_file, std::bind(&FindStartOfKernelSymbolCallback, std::placeholders::_1, start_addr));
-}
-
-static bool FindKernelFunctionSymbolCallback(const KernelSymbol& symbol, const std::string& name,
-                                             uint64_t* addr) {
-  if ((symbol.type == 'T' || symbol.type == 'W' || symbol.type == 'A') &&
-      symbol.module == nullptr && name == symbol.name) {
-    *addr = symbol.addr;
-    return true;
-  }
-  return false;
-}
-
-static bool FindKernelFunctionSymbol(const std::string& symbol_file, const std::string& name,
-                                     uint64_t* addr) {
-  return ProcessKernelSymbols(
-      symbol_file, std::bind(&FindKernelFunctionSymbolCallback, std::placeholders::_1, name, addr));
-}
-
-std::vector<ModuleMmap> GetLoadedModules() {
-  std::vector<ModuleMmap> result;
+static std::vector<KernelMmap> GetLoadedModules() {
+  std::vector<KernelMmap> result;
   FILE* fp = fopen("/proc/modules", "re");
   if (fp == nullptr) {
     // There is no /proc/modules on Android devices, so we don't print error if failed to open it.
@@ -152,7 +160,7 @@ std::vector<ModuleMmap> GetLoadedModules() {
     char name[reader.MaxLineSize()];
     uint64_t addr;
     if (sscanf(line, "%s%*lu%*u%*s%*s 0x%" PRIx64, name, &addr) == 2) {
-      ModuleMmap map;
+      KernelMmap map;
       map.name = name;
       map.start_addr = addr;
       result.push_back(map);
@@ -182,7 +190,7 @@ static void GetAllModuleFiles(const std::string& path,
     if (android::base::EndsWith(name, ".ko")) {
       std::string module_name = name.substr(0, name.size() - 3);
       std::replace(module_name.begin(), module_name.end(), '-', '_');
-      module_file_map->insert(std::make_pair(module_name, path + name));
+      module_file_map->insert(std::make_pair(module_name, path + "/" + name));
     }
   }
   for (auto& name : subdirs) {
@@ -190,9 +198,9 @@ static void GetAllModuleFiles(const std::string& path,
   }
 }
 
-static std::vector<ModuleMmap> GetModulesInUse() {
+static std::vector<KernelMmap> GetModulesInUse() {
   // TODO: There is no /proc/modules or /lib/modules on Android, find methods work on it.
-  std::vector<ModuleMmap> module_mmaps = GetLoadedModules();
+  std::vector<KernelMmap> module_mmaps = GetLoadedModules();
   std::string linux_version = GetLinuxVersion();
   std::string module_dirpath = "/lib/modules/" + linux_version + "/kernel";
   std::unordered_map<std::string, std::string> module_file_map;
@@ -206,24 +214,23 @@ static std::vector<ModuleMmap> GetModulesInUse() {
   return module_mmaps;
 }
 
-bool GetKernelAndModuleMmaps(KernelMmap* kernel_mmap, std::vector<ModuleMmap>* module_mmaps) {
-  if (!FindStartOfKernelSymbol("/proc/kallsyms", &kernel_mmap->start_addr)) {
-    LOG(DEBUG) << "call FindStartOfKernelSymbol() failed";
-    return false;
-  }
-  if (!FindKernelFunctionSymbol("/proc/kallsyms", "_text", &kernel_mmap->pgoff)) {
-    LOG(DEBUG) << "call FindKernelFunctionSymbol() failed";
-    return false;
-  }
+void GetKernelAndModuleMmaps(KernelMmap* kernel_mmap, std::vector<KernelMmap>* module_mmaps) {
   kernel_mmap->name = DEFAULT_KERNEL_MMAP_NAME;
+  kernel_mmap->start_addr = 0;
+  kernel_mmap->filepath = kernel_mmap->name;
   *module_mmaps = GetModulesInUse();
+  for (auto& map : *module_mmaps) {
+    if (map.filepath.empty()) {
+      map.filepath = "[" + map.name + "]";
+    }
+  }
+
   if (module_mmaps->size() == 0) {
-    kernel_mmap->len = ULLONG_MAX - kernel_mmap->start_addr;
+    kernel_mmap->len = std::numeric_limits<unsigned long long>::max() - kernel_mmap->start_addr;
   } else {
     std::sort(
         module_mmaps->begin(), module_mmaps->end(),
-        [](const ModuleMmap& m1, const ModuleMmap& m2) { return m1.start_addr < m2.start_addr; });
-    CHECK_LE(kernel_mmap->start_addr, (*module_mmaps)[0].start_addr);
+        [](const KernelMmap& m1, const KernelMmap& m2) { return m1.start_addr < m2.start_addr; });
     // When not having enough privilege, all addresses are read as 0.
     if (kernel_mmap->start_addr == (*module_mmaps)[0].start_addr) {
       kernel_mmap->len = 0;
@@ -238,15 +245,9 @@ bool GetKernelAndModuleMmaps(KernelMmap* kernel_mmap, std::vector<ModuleMmap>* m
             (*module_mmaps)[i + 1].start_addr - (*module_mmaps)[i].start_addr - 1;
       }
     }
-    module_mmaps->back().len = ULLONG_MAX - module_mmaps->back().start_addr;
+    module_mmaps->back().len =
+        std::numeric_limits<unsigned long long>::max() - module_mmaps->back().start_addr;
   }
-  return true;
-}
-
-static bool StringToPid(const std::string& s, pid_t* pid) {
-  char* endptr;
-  *pid = static_cast<pid_t>(strtol(s.c_str(), &endptr, 10));
-  return *endptr == '\0';
 }
 
 static bool ReadThreadNameAndTgid(const std::string& status_file, std::string* comm, pid_t* tgid) {
@@ -273,26 +274,36 @@ static bool ReadThreadNameAndTgid(const std::string& status_file, std::string* c
   return false;
 }
 
-static bool GetThreadComm(pid_t pid, std::vector<ThreadComm>* thread_comms) {
+static std::vector<pid_t> GetThreadsInProcess(pid_t pid) {
+  std::vector<pid_t> result;
   std::string task_dirname = android::base::StringPrintf("/proc/%d/task", pid);
   std::vector<std::string> subdirs;
   GetEntriesInDir(task_dirname, nullptr, &subdirs);
-  for (auto& name : subdirs) {
-    pid_t tid;
-    if (!StringToPid(name, &tid)) {
+  for (const auto& name : subdirs) {
+    int tid;
+    if (!android::base::ParseInt(name.c_str(), &tid, 0)) {
       continue;
     }
-    std::string status_file = task_dirname + "/" + name + "/status";
+    result.push_back(tid);
+  }
+  return result;
+}
+
+static bool GetThreadComm(pid_t pid, std::vector<ThreadComm>* thread_comms) {
+  std::vector<pid_t> tids = GetThreadsInProcess(pid);
+  for (auto& tid : tids) {
+    std::string status_file = android::base::StringPrintf("/proc/%d/task/%d/status", pid, tid);
     std::string comm;
     pid_t tgid;
+    // It is possible that the process or thread exited before we can read its status.
     if (!ReadThreadNameAndTgid(status_file, &comm, &tgid)) {
-      return false;
+      continue;
     }
+    CHECK_EQ(pid, tgid);
     ThreadComm thread;
     thread.tid = tid;
-    thread.tgid = tgid;
+    thread.pid = pid;
     thread.comm = comm;
-    thread.is_process = (tid == pid);
     thread_comms->push_back(thread);
   }
   return true;
@@ -303,8 +314,8 @@ bool GetThreadComms(std::vector<ThreadComm>* thread_comms) {
   std::vector<std::string> subdirs;
   GetEntriesInDir("/proc", nullptr, &subdirs);
   for (auto& name : subdirs) {
-    pid_t pid;
-    if (!StringToPid(name, &pid)) {
+    int pid;
+    if (!android::base::ParseInt(name.c_str(), &pid, 0)) {
       continue;
     }
     if (!GetThreadComm(pid, thread_comms)) {
@@ -355,4 +366,114 @@ bool GetKernelBuildId(BuildId* build_id) {
 bool GetModuleBuildId(const std::string& module_name, BuildId* build_id) {
   std::string notefile = "/sys/module/" + module_name + "/notes/.note.gnu.build-id";
   return GetBuildIdFromNoteFile(notefile, build_id);
+}
+
+bool GetValidThreadsFromProcessString(const std::string& pid_str, std::set<pid_t>* tid_set) {
+  std::vector<std::string> strs = android::base::Split(pid_str, ",");
+  for (const auto& s : strs) {
+    int pid;
+    if (!android::base::ParseInt(s.c_str(), &pid, 0)) {
+      LOG(ERROR) << "Invalid pid '" << s << "'";
+      return false;
+    }
+    std::vector<pid_t> tids = GetThreadsInProcess(pid);
+    if (tids.empty()) {
+      LOG(ERROR) << "Non existing process '" << pid << "'";
+      return false;
+    }
+    tid_set->insert(tids.begin(), tids.end());
+  }
+  return true;
+}
+
+bool GetValidThreadsFromThreadString(const std::string& tid_str, std::set<pid_t>* tid_set) {
+  std::vector<std::string> strs = android::base::Split(tid_str, ",");
+  for (const auto& s : strs) {
+    int tid;
+    if (!android::base::ParseInt(s.c_str(), &tid, 0)) {
+      LOG(ERROR) << "Invalid tid '" << s << "'";
+      return false;
+    }
+    if (!IsDir(android::base::StringPrintf("/proc/%d", tid))) {
+      LOG(ERROR) << "Non existing thread '" << tid << "'";
+      return false;
+    }
+    tid_set->insert(tid);
+  }
+  return true;
+}
+
+bool GetExecPath(std::string* exec_path) {
+  char path[PATH_MAX];
+  ssize_t path_len = readlink("/proc/self/exe", path, sizeof(path));
+  if (path_len <= 0 || path_len >= static_cast<ssize_t>(sizeof(path))) {
+    PLOG(ERROR) << "readlink failed";
+    return false;
+  }
+  path[path_len] = '\0';
+  *exec_path = path;
+  return true;
+}
+
+/*
+ * perf event paranoia level:
+ *  -1 - not paranoid at all
+ *   0 - disallow raw tracepoint access for unpriv
+ *   1 - disallow cpu events for unpriv
+ *   2 - disallow kernel profiling for unpriv
+ *   3 - disallow user profiling for unpriv
+ */
+static bool ReadPerfEventParanoid(int* value) {
+  std::string s;
+  if (!android::base::ReadFileToString("/proc/sys/kernel/perf_event_paranoid", &s)) {
+    PLOG(ERROR) << "failed to read /proc/sys/kernel/perf_event_paranoid";
+    return false;
+  }
+  s = android::base::Trim(s);
+  if (!android::base::ParseInt(s.c_str(), value)) {
+    PLOG(ERROR) << "failed to parse /proc/sys/kernel/perf_event_paranoid: " << s;
+    return false;
+  }
+  return true;
+}
+
+static const char* GetLimitLevelDescription(int limit_level) {
+  switch (limit_level) {
+    case -1: return "unlimited";
+    case 0: return "disallowing raw tracepoint access for unpriv";
+    case 1: return "disallowing cpu events for unpriv";
+    case 2: return "disallowing kernel profiling for unpriv";
+    case 3: return "disallowing user profiling for unpriv";
+    default: return "unknown level";
+  }
+}
+
+bool CheckPerfEventLimit() {
+  // root is not limited by /proc/sys/kernel/perf_event_paranoid.
+  if (IsRoot()) {
+    return true;
+  }
+  int limit_level;
+  if (!ReadPerfEventParanoid(&limit_level)) {
+    return false;
+  }
+  if (limit_level <= 1) {
+    return true;
+  }
+#if defined(__ANDROID__)
+  // Try to enable perf_event_paranoid by setprop security.perf_harden=0.
+  if (__system_property_set("security.perf_harden", "0") == 0) {
+    sleep(1);
+    if (ReadPerfEventParanoid(&limit_level) && limit_level <= 1) {
+      return true;
+    }
+  }
+  LOG(WARNING) << "/proc/sys/kernel/perf_event_paranoid is " << limit_level
+      << ", " << GetLimitLevelDescription(limit_level) << ".";
+  LOG(WARNING) << "Try using `adb shell setprop security.perf_harden 0` to allow profiling.";
+#else
+  LOG(WARNING) << "/proc/sys/kernel/perf_event_paranoid is " << limit_level
+      << ", " << GetLimitLevelDescription(limit_level) << ".";
+#endif
+  return true;
 }

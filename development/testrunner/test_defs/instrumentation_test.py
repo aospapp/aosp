@@ -154,7 +154,8 @@ class InstrumentationTestSuite(test_suite.AbstractTestSuite):
             package_name=self.GetPackageName(),
             runner_name=self.GetRunnerName(),
             timeout_time=60*60,
-            instrumentation_args=instrumentation_args)
+            instrumentation_args=instrumentation_args,
+            user=options.user)
       except errors.InstrumentationError, errors.DeviceUnresponsiveError:
         return
       self._PrintTestResults(test_results)
@@ -175,7 +176,8 @@ class InstrumentationTestSuite(test_suite.AbstractTestSuite):
                                         runner_name=self.GetRunnerName(),
                                         raw_mode=options.raw_mode,
                                         instrumentation_args=
-                                        instrumentation_args)
+                                        instrumentation_args,
+                                        user=options.user)
 
   def _CheckInstrumentationInstalled(self, adb):
     if not adb.IsInstrumentationInstalled(self.GetPackageName(),
@@ -271,12 +273,6 @@ class InstrumentationTestFactory(test_suite.AbstractTestFactory):
       suite.SetName(pkg_name)
       suite.SetClassName(class_name_arg)
       suite.SetJavaPackageFilter(java_package_name)
-      # this is a bit of a hack, assume if 'com.android.cts' is in
-      # package name, this is a cts test
-      # this logic can be removed altogether when cts tests no longer require
-      # custom build steps
-      if suite.GetPackageName().startswith('com.android.cts'):
-        suite.SetSuite('cts')
       tests.append(suite)
       return tests
 

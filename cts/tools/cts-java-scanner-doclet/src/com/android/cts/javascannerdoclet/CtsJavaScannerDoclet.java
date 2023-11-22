@@ -57,13 +57,15 @@ import com.sun.javadoc.AnnotationTypeElementDoc;
  * suite:android.holo.cts
  * case:HoloTest
  * test:testHolo
- * test:testHoloDialog[:timeout_value]
+ * test:testHoloDialog
  */
 public class CtsJavaScannerDoclet extends Doclet {
 
     private static final String JUNIT4_TEST_ANNOTATION = "org.junit.Test";
 
     static final String JUNIT_TEST_CASE_CLASS_NAME = "junit.framework.testcase";
+    private static final String SUPPRESS_ANNOTATION =
+            "android.test.suitebuilder.annotation.Suppress";
 
     public static boolean start(RootDoc root) {
         ClassDoc[] classes = root.classes();
@@ -93,19 +95,16 @@ public class CtsJavaScannerDoclet extends Doclet {
                             continue;
                         }
 
+                        boolean suppressed = false;
                         AnnotationDesc[] annotations = method.annotations();
                         for (AnnotationDesc annot : annotations) {
                             String atype = annot.annotationType().toString();
-                            if (atype.equals("com.android.cts.util.TimeoutReq")) {
-                                ElementValuePair[] cpairs = annot.elementValues();
-                                for (ElementValuePair pair : cpairs) {
-                                    AnnotationTypeElementDoc elem = pair.element();
-                                    AnnotationValue value = pair.value();
-                                    if (elem.name().equals("minutes")) {
-                                        timeout = ((Integer) value.value());
-                                    }
-                                }
+                            if (atype.equals(SUPPRESS_ANNOTATION)) {
+                                suppressed = true;
                             }
+                        }
+                        if (suppressed) {
+                            continue;
                         }
                     } else {
                         /* JUnit4 */

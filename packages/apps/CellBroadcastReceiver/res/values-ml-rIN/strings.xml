@@ -21,10 +21,10 @@
     <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"ഈ ഉപയോക്താവിനായി സെൽ പ്രക്ഷേപണ ക്രമീകരണങ്ങൾ ലഭ്യമല്ല"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"ശരി"</string>
     <string name="no_cell_broadcasts" msgid="5409324337492758562">"നിങ്ങളുടെ ഏരിയയിൽ സജീവ അലേർട്ടുകളൊന്നുമില്ല. ക്രമീകരണങ്ങളുടെ മെനു ഓപ്‌ഷൻ ഉപയോഗിച്ച് അലേർട്ട് ക്രമീകരണങ്ങൾ നിങ്ങൾക്ക് മാറ്റാനാകും."</string>
-    <string name="menu_preferences" msgid="3596514894131599202">"ക്രമീകരണങ്ങൾ"</string>
+    <string name="menu_preferences" msgid="3596514894131599202">"ക്രമീകരണം"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"പ്രക്ഷേപണങ്ങൾ ഇല്ലാതാക്കുക"</string>
     <string name="message_options" msgid="3178489901903589574">"സന്ദേശ ഓപ്‌ഷനുകൾ"</string>
-    <string name="menu_view_details" msgid="1040989019045280975">"വിശദാംശങ്ങള്‍ കാണുക"</string>
+    <string name="menu_view_details" msgid="1040989019045280975">"വിശദാംശങ്ങൾ കാണുക"</string>
     <string name="menu_delete" msgid="128380070910799366">"പ്രക്ഷേപണം ഇല്ലാതാക്കുക"</string>
     <string name="view_details_title" msgid="1780427629491781473">"അലേർട്ട് വിശദാംശങ്ങൾ"</string>
     <string name="confirm_delete_broadcast" msgid="2540199303730232322">"ഈ പ്രക്ഷേപണം ഇല്ലാതാക്കണോ?"</string>
@@ -68,7 +68,7 @@
     <string name="category_brazil_settings_title" msgid="6343130548572319922">"ബ്രസീലിനുള്ള ക്രമീകരണങ്ങൾ"</string>
     <string name="enable_channel_50_alerts_title" msgid="2818924064446974167">"ചാനൽ 50 പ്രക്ഷേപണങ്ങൾ കാണിക്കുക"</string>
     <string name="enable_channel_50_alerts_summary" msgid="7507770011325273009">"ഏരിയ അപ്‌ഡേറ്റുചെയ്യൽ വിവരത്തിന് ബ്രസീലിൽ ചാനൽ 50 ഉപയോഗിക്കുന്നു"</string>
-    <string name="category_dev_settings_title" msgid="6194393458398329994">"ഡവലപ്പർ ഓ‌പ്ഷനുകൾ"</string>
+    <string name="category_dev_settings_title" msgid="6194393458398329994">"ഡെവലപ്പർ ഓ‌പ്ഷനുകൾ"</string>
     <string name="cmas_category_heading" msgid="3923503130776640717">"അലേർട്ട് വിഭാഗം:"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"ജിയോഫിസിക്കൽ"</string>
     <string name="cmas_category_met" msgid="7563732573851773537">"കാലാവസ്ഥാപഠനം"</string>

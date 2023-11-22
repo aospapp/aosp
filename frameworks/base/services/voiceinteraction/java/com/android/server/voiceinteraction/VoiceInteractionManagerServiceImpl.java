@@ -17,6 +17,7 @@
 package com.android.server.voiceinteraction;
 
 import android.app.ActivityManager;
+import android.app.ActivityManagerInternal;
 import android.app.ActivityManagerNative;
 import android.app.IActivityManager;
 import android.content.BroadcastReceiver;
@@ -36,14 +37,17 @@ import android.service.voice.IVoiceInteractionService;
 import android.service.voice.IVoiceInteractionSession;
 import android.service.voice.VoiceInteractionService;
 import android.service.voice.VoiceInteractionServiceInfo;
+import android.util.PrintWriterPrinter;
 import android.util.Slog;
 import android.view.IWindowManager;
 
 import com.android.internal.app.IVoiceInteractionSessionShowCallback;
 import com.android.internal.app.IVoiceInteractor;
+import com.android.server.LocalServices;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
+import java.util.List;
 
 class VoiceInteractionManagerServiceImpl implements VoiceInteractionSessionConnection.Callback {
     final static String TAG = "VoiceInteractionServiceManager";
@@ -114,9 +118,9 @@ class VoiceInteractionManagerServiceImpl implements VoiceInteractionSessionConne
         mAm = ActivityManagerNative.getDefault();
         VoiceInteractionServiceInfo info;
         try {
-            info = new VoiceInteractionServiceInfo(context.getPackageManager(), service);
+            info = new VoiceInteractionServiceInfo(context.getPackageManager(), service, mUser);
         } catch (PackageManager.NameNotFoundException e) {
-            Slog.w(TAG, "Voice interaction service not found: " + service);
+            Slog.w(TAG, "Voice interaction service not found: " + service, e);
             mInfo = null;
             mSessionComponentName = null;
             mIWindowManager = null;
@@ -147,8 +151,14 @@ class VoiceInteractionManagerServiceImpl implements VoiceInteractionSessionConne
             mActiveSession = new VoiceInteractionSessionConnection(mLock, mSessionComponentName,
                     mUser, mContext, this, mInfo.getServiceInfo().applicationInfo.uid, mHandler);
         }
+        List<IBinder> activityTokens = null;
+        if (activityToken == null) {
+            // Let's get top activities from all visible stacks
+            activityTokens = LocalServices.getService(ActivityManagerInternal.class)
+                    .getTopVisibleActivities();
+        }
         return mActiveSession.showLocked(args, flags, mDisabledShowContext, showCallback,
-                activityToken);
+                activityToken, activityTokens);
     }
 
     public boolean hideSessionLocked() {
@@ -173,11 +183,11 @@ class VoiceInteractionManagerServiceImpl implements VoiceInteractionSessionConne
         try {
             if (mActiveSession == null || token != mActiveSession.mToken) {
                 Slog.w(TAG, "startVoiceActivity does not match active session");
-                return ActivityManager.START_CANCELED;
+                return ActivityManager.START_VOICE_NOT_ACTIVE_SESSION;
             }
             if (!mActiveSession.mShown) {
                 Slog.w(TAG, "startVoiceActivity not allowed on hidden session");
-                return ActivityManager.START_CANCELED;
+                return ActivityManager.START_VOICE_HIDDEN_SESSION;
             }
             intent = new Intent(intent);
             intent.addCategory(Intent.CATEGORY_VOICE);
@@ -214,12 +224,12 @@ class VoiceInteractionManagerServiceImpl implements VoiceInteractionSessionConne
         }
     }
 
-    public void finishLocked(IBinder token) {
-        if (mActiveSession == null || token != mActiveSession.mToken) {
+    public void finishLocked(IBinder token, boolean finishTask) {
+        if (mActiveSession == null || (!finishTask && token != mActiveSession.mToken)) {
             Slog.w(TAG, "finish does not match active session");
             return;
         }
-        mActiveSession.cancelLocked();
+        mActiveSession.cancelLocked(finishTask);
         mActiveSession = null;
     }
 
@@ -250,6 +260,10 @@ class VoiceInteractionManagerServiceImpl implements VoiceInteractionSessionConne
         return mActiveSession != null ? mActiveSession.getUserDisabledShowContextLocked() : 0;
     }
 
+    public boolean supportsLocalVoiceInteraction() {
+        return mInfo.getSupportsLocalInteraction();
+    }
+
     public void dumpLocked(FileDescriptor fd, PrintWriter pw, String[] args) {
         if (!mValid) {
             pw.print("  NOT VALID: ");
@@ -260,9 +274,16 @@ class VoiceInteractionManagerServiceImpl implements VoiceInteractionSessionConne
             }
             return;
         }
+        pw.print("  mUser="); pw.println(mUser);
         pw.print("  mComponent="); pw.println(mComponent.flattenToShortString());
         pw.print("  Session service="); pw.println(mInfo.getSessionService());
+        pw.println("  Service info:");
+        mInfo.getServiceInfo().dump(new PrintWriterPrinter(pw), "    ");
+        pw.print("  Recognition service="); pw.println(mInfo.getRecognitionService());
         pw.print("  Settings activity="); pw.println(mInfo.getSettingsActivity());
+        pw.print("  Supports assist="); pw.println(mInfo.getSupportsAssist());
+        pw.print("  Supports launch from keyguard=");
+        pw.println(mInfo.getSupportsLaunchFromKeyguard());
         if (mDisabledShowContext != 0) {
             pw.print("  mDisabledShowContext=");
             pw.println(Integer.toHexString(mDisabledShowContext));
@@ -300,7 +321,7 @@ class VoiceInteractionManagerServiceImpl implements VoiceInteractionSessionConne
         // If there is an active session, cancel it to allow it to clean up its window and other
         // state.
         if (mActiveSession != null) {
-            mActiveSession.cancelLocked();
+            mActiveSession.cancelLocked(false);
             mActiveSession = null;
         }
         try {
@@ -335,7 +356,7 @@ class VoiceInteractionManagerServiceImpl implements VoiceInteractionSessionConne
     @Override
     public void sessionConnectionGone(VoiceInteractionSessionConnection connection) {
         synchronized (mLock) {
-            finishLocked(connection.mToken);
+            finishLocked(connection.mToken, false);
         }
     }
 }

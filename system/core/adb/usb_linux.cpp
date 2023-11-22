@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define TRACE_TAG TRACE_USB
+#define TRACE_TAG USB
 
 #include "sysdeps.h"
 
@@ -22,6 +22,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/usb/ch9.h>
 #include <linux/usbdevice_fs.h>
 #include <linux/version.h>
 #include <stdio.h>
@@ -31,119 +32,106 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <linux/usb/ch9.h>
 
-#include <base/file.h>
-#include <base/stringprintf.h>
-#include <base/strings.h>
+#include <chrono>
+#include <condition_variable>
+#include <list>
+#include <mutex>
+#include <string>
+
+#include <android-base/file.h>
+#include <android-base/stringprintf.h>
+#include <android-base/strings.h>
 
 #include "adb.h"
 #include "transport.h"
 
+using namespace std::literals;
+
 /* usb scan debugging is waaaay too verbose */
 #define DBGX(x...)
 
-ADB_MUTEX_DEFINE( usb_lock );
+struct usb_handle {
+    ~usb_handle() {
+      if (fd != -1) unix_close(fd);
+    }
 
-struct usb_handle
-{
-    usb_handle *prev;
-    usb_handle *next;
-
-    char fname[64];
-    int desc;
+    std::string path;
+    int fd = -1;
     unsigned char ep_in;
     unsigned char ep_out;
 
     unsigned zero_mask;
-    unsigned writeable;
+    unsigned writeable = 1;
 
-    struct usbdevfs_urb urb_in;
-    struct usbdevfs_urb urb_out;
+    usbdevfs_urb urb_in;
+    usbdevfs_urb urb_out;
 
-    int urb_in_busy;
-    int urb_out_busy;
-    int dead;
+    bool urb_in_busy = false;
+    bool urb_out_busy = false;
+    bool dead = false;
 
-    adb_cond_t notify;
-    adb_mutex_t lock;
+    std::condition_variable cv;
+    std::mutex mutex;
 
     // for garbage collecting disconnected devices
-    int mark;
+    bool mark;
 
     // ID of thread currently in REAPURB
-    pthread_t reaper_thread;
+    pthread_t reaper_thread = 0;
 };
 
-static usb_handle handle_list = {
-    .prev = &handle_list,
-    .next = &handle_list,
-};
+static auto& g_usb_handles_mutex = *new std::mutex();
+static auto& g_usb_handles = *new std::list<usb_handle*>();
 
-static int known_device(const char *dev_name)
-{
-    usb_handle *usb;
-
-    adb_mutex_lock(&usb_lock);
-    for(usb = handle_list.next; usb != &handle_list; usb = usb->next){
-        if(!strcmp(usb->fname, dev_name)) {
+static int is_known_device(const char* dev_name) {
+    std::lock_guard<std::mutex> lock(g_usb_handles_mutex);
+    for (usb_handle* usb : g_usb_handles) {
+        if (usb->path == dev_name) {
             // set mark flag to indicate this device is still alive
-            usb->mark = 1;
-            adb_mutex_unlock(&usb_lock);
+            usb->mark = true;
             return 1;
         }
     }
-    adb_mutex_unlock(&usb_lock);
     return 0;
 }
 
-static void kick_disconnected_devices()
-{
-    usb_handle *usb;
-
-    adb_mutex_lock(&usb_lock);
+static void kick_disconnected_devices() {
+    std::lock_guard<std::mutex> lock(g_usb_handles_mutex);
     // kick any devices in the device list that were not found in the device scan
-    for(usb = handle_list.next; usb != &handle_list; usb = usb->next){
-        if (usb->mark == 0) {
+    for (usb_handle* usb : g_usb_handles) {
+        if (!usb->mark) {
             usb_kick(usb);
         } else {
-            usb->mark = 0;
+            usb->mark = false;
         }
     }
-    adb_mutex_unlock(&usb_lock);
-
 }
 
-static inline int badname(const char *name)
-{
-    while(*name) {
-        if(!isdigit(*name++)) return 1;
+static inline bool contains_non_digit(const char* name) {
+    while (*name) {
+        if (!isdigit(*name++)) return true;
     }
-    return 0;
+    return false;
 }
 
-static void find_usb_device(const char *base,
+static void find_usb_device(const std::string& base,
         void (*register_device_callback)
-                (const char *, const char *, unsigned char, unsigned char, int, int, unsigned))
+                (const char*, const char*, unsigned char, unsigned char, int, int, unsigned))
 {
-    char busname[32], devname[32];
-    unsigned char local_ep_in, local_ep_out;
-    DIR *busdir , *devdir ;
-    struct dirent *de;
-    int fd ;
+    std::unique_ptr<DIR, int(*)(DIR*)> bus_dir(opendir(base.c_str()), closedir);
+    if (!bus_dir) return;
 
-    busdir = opendir(base);
-    if(busdir == 0) return;
+    dirent* de;
+    while ((de = readdir(bus_dir.get())) != 0) {
+        if (contains_non_digit(de->d_name)) continue;
 
-    while((de = readdir(busdir)) != 0) {
-        if(badname(de->d_name)) continue;
+        std::string bus_name = base + "/" + de->d_name;
 
-        snprintf(busname, sizeof busname, "%s/%s", base, de->d_name);
-        devdir = opendir(busname);
-        if(devdir == 0) continue;
+        std::unique_ptr<DIR, int(*)(DIR*)> dev_dir(opendir(bus_name.c_str()), closedir);
+        if (!dev_dir) continue;
 
-//        DBGX("[ scanning %s ]\n", busname);
-        while((de = readdir(devdir))) {
+        while ((de = readdir(dev_dir.get()))) {
             unsigned char devdesc[4096];
             unsigned char* bufptr = devdesc;
             unsigned char* bufend;
@@ -153,28 +141,26 @@ static void find_usb_device(const char *base,
             struct usb_endpoint_descriptor *ep1, *ep2;
             unsigned zero_mask = 0;
             unsigned vid, pid;
-            size_t desclength;
 
-            if(badname(de->d_name)) continue;
-            snprintf(devname, sizeof devname, "%s/%s", busname, de->d_name);
+            if (contains_non_digit(de->d_name)) continue;
 
-            if(known_device(devname)) {
-                DBGX("skipping %s\n", devname);
+            std::string dev_name = bus_name + "/" + de->d_name;
+            if (is_known_device(dev_name.c_str())) {
                 continue;
             }
 
-//            DBGX("[ scanning %s ]\n", devname);
-            if((fd = unix_open(devname, O_RDONLY | O_CLOEXEC)) < 0) {
+            int fd = unix_open(dev_name.c_str(), O_RDONLY | O_CLOEXEC);
+            if (fd == -1) {
                 continue;
             }
 
-            desclength = adb_read(fd, devdesc, sizeof(devdesc));
+            size_t desclength = unix_read(fd, devdesc, sizeof(devdesc));
             bufend = bufptr + desclength;
 
                 // should have device and configuration descriptors, and atleast two endpoints
             if (desclength < USB_DT_DEVICE_SIZE + USB_DT_CONFIG_SIZE) {
-                D("desclength %zu is too small\n", desclength);
-                adb_close(fd);
+                D("desclength %zu is too small", desclength);
+                unix_close(fd);
                 continue;
             }
 
@@ -182,20 +168,20 @@ static void find_usb_device(const char *base,
             bufptr += USB_DT_DEVICE_SIZE;
 
             if((device->bLength != USB_DT_DEVICE_SIZE) || (device->bDescriptorType != USB_DT_DEVICE)) {
-                adb_close(fd);
+                unix_close(fd);
                 continue;
             }
 
             vid = device->idVendor;
             pid = device->idProduct;
-            DBGX("[ %s is V:%04x P:%04x ]\n", devname, vid, pid);
+            DBGX("[ %s is V:%04x P:%04x ]\n", dev_name.c_str(), vid, pid);
 
                 // should have config descriptor next
             config = (struct usb_config_descriptor *)bufptr;
             bufptr += USB_DT_CONFIG_SIZE;
             if (config->bLength != USB_DT_CONFIG_SIZE || config->bDescriptorType != USB_DT_CONFIG) {
-                D("usb_config_descriptor not found\n");
-                adb_close(fd);
+                D("usb_config_descriptor not found");
+                unix_close(fd);
                 continue;
             }
 
@@ -209,7 +195,7 @@ static void find_usb_device(const char *base,
                     bufptr += length;
 
                     if (length != USB_DT_INTERFACE_SIZE) {
-                        D("interface descriptor has wrong size\n");
+                        D("interface descriptor has wrong size");
                         break;
                     }
 
@@ -225,7 +211,7 @@ static void find_usb_device(const char *base,
                         struct stat st;
                         char pathbuf[128];
                         char link[256];
-                        char *devpath = NULL;
+                        char *devpath = nullptr;
 
                         DBGX("looking for bulk endpoints\n");
                             // looks like ADB...
@@ -251,14 +237,14 @@ static void find_usb_device(const char *base,
                             ep1->bDescriptorType != USB_DT_ENDPOINT ||
                             ep2->bLength != USB_DT_ENDPOINT_SIZE ||
                             ep2->bDescriptorType != USB_DT_ENDPOINT) {
-                            D("endpoints not found\n");
+                            D("endpoints not found");
                             break;
                         }
 
                             // both endpoints should be bulk
                         if (ep1->bmAttributes != USB_ENDPOINT_XFER_BULK ||
                             ep2->bmAttributes != USB_ENDPOINT_XFER_BULK) {
-                            D("bulk endpoints not found\n");
+                            D("bulk endpoints not found");
                             continue;
                         }
                             /* aproto 01 needs 0 termination */
@@ -267,6 +253,7 @@ static void find_usb_device(const char *base,
                         }
 
                             // we have a match.  now we just need to figure out which is in and which is out.
+                        unsigned char local_ep_in, local_ep_out;
                         if (ep1->bEndpointAddress & USB_ENDPOINT_DIR_MASK) {
                             local_ep_in = ep1->bEndpointAddress;
                             local_ep_out = ep2->bEndpointAddress;
@@ -277,14 +264,12 @@ static void find_usb_device(const char *base,
 
                             // Determine the device path
                         if (!fstat(fd, &st) && S_ISCHR(st.st_mode)) {
-                            char *slash;
-                            ssize_t link_len;
                             snprintf(pathbuf, sizeof(pathbuf), "/sys/dev/char/%d:%d",
                                      major(st.st_rdev), minor(st.st_rdev));
-                            link_len = readlink(pathbuf, link, sizeof(link) - 1);
+                            ssize_t link_len = readlink(pathbuf, link, sizeof(link) - 1);
                             if (link_len > 0) {
                                 link[link_len] = '\0';
-                                slash = strrchr(link, '/');
+                                const char* slash = strrchr(link, '/');
                                 if (slash) {
                                     snprintf(pathbuf, sizeof(pathbuf),
                                              "usb:%s", slash + 1);
@@ -293,7 +278,7 @@ static void find_usb_device(const char *base,
                             }
                         }
 
-                        register_device_callback(devname, devpath,
+                        register_device_callback(dev_name.c_str(), devpath,
                                 local_ep_in, local_ep_out,
                                 interface->bInterfaceNumber, device->iSerialNumber, zero_mask);
                         break;
@@ -303,77 +288,55 @@ static void find_usb_device(const char *base,
                 }
             } // end of while
 
-            adb_close(fd);
-        } // end of devdir while
-        closedir(devdir);
-    } //end of busdir while
-    closedir(busdir);
+            unix_close(fd);
+        }
+    }
 }
 
-void usb_cleanup()
-{
-}
+static int usb_bulk_write(usb_handle* h, const void* data, int len) {
+    std::unique_lock<std::mutex> lock(h->mutex);
+    D("++ usb_bulk_write ++");
 
-static int usb_bulk_write(usb_handle *h, const void *data, int len)
-{
-    struct usbdevfs_urb *urb = &h->urb_out;
-    int res;
-    struct timeval tv;
-    struct timespec ts;
-
+    usbdevfs_urb* urb = &h->urb_out;
     memset(urb, 0, sizeof(*urb));
     urb->type = USBDEVFS_URB_TYPE_BULK;
     urb->endpoint = h->ep_out;
     urb->status = -1;
-    urb->buffer = (void*) data;
+    urb->buffer = const_cast<void*>(data);
     urb->buffer_length = len;
 
-    D("++ write ++\n");
-
-    adb_mutex_lock(&h->lock);
-    if(h->dead) {
-        res = -1;
-        goto fail;
-    }
-    do {
-        res = ioctl(h->desc, USBDEVFS_SUBMITURB, urb);
-    } while((res < 0) && (errno == EINTR));
-
-    if(res < 0) {
-        goto fail;
+    if (h->dead) {
+        errno = EINVAL;
+        return -1;
     }
 
-    res = -1;
-    h->urb_out_busy = 1;
-    for(;;) {
-        /* time out after five seconds */
-        gettimeofday(&tv, NULL);
-        ts.tv_sec = tv.tv_sec + 5;
-        ts.tv_nsec = tv.tv_usec * 1000L;
-        res = pthread_cond_timedwait(&h->notify, &h->lock, &ts);
-        if(res < 0 || h->dead) {
-            break;
+    if (TEMP_FAILURE_RETRY(ioctl(h->fd, USBDEVFS_SUBMITURB, urb)) == -1) {
+        return -1;
+    }
+
+    h->urb_out_busy = true;
+    while (true) {
+        auto now = std::chrono::system_clock::now();
+        if (h->cv.wait_until(lock, now + 5s) == std::cv_status::timeout || h->dead) {
+            // TODO: call USBDEVFS_DISCARDURB?
+            errno = ETIMEDOUT;
+            return -1;
         }
-        if(h->urb_out_busy == 0) {
-            if(urb->status == 0) {
-                res = urb->actual_length;
+        if (!h->urb_out_busy) {
+            if (urb->status != 0) {
+                errno = -urb->status;
+                return -1;
             }
-            break;
+            return urb->actual_length;
         }
     }
-fail:
-    adb_mutex_unlock(&h->lock);
-    D("-- write --\n");
-    return res;
 }
 
-static int usb_bulk_read(usb_handle *h, void *data, int len)
-{
-    struct usbdevfs_urb *urb = &h->urb_in;
-    struct usbdevfs_urb *out = NULL;
-    int res;
+static int usb_bulk_read(usb_handle* h, void* data, int len) {
+    std::unique_lock<std::mutex> lock(h->mutex);
+    D("++ usb_bulk_read ++");
 
-    D("++ usb_bulk_read ++\n");
+    usbdevfs_urb* urb = &h->urb_in;
     memset(urb, 0, sizeof(*urb));
     urb->type = USBDEVFS_URB_TYPE_BULK;
     urb->endpoint = h->ep_in;
@@ -381,103 +344,79 @@ static int usb_bulk_read(usb_handle *h, void *data, int len)
     urb->buffer = data;
     urb->buffer_length = len;
 
-
-    adb_mutex_lock(&h->lock);
-    if(h->dead) {
-        res = -1;
-        goto fail;
-    }
-    do {
-        res = ioctl(h->desc, USBDEVFS_SUBMITURB, urb);
-    } while((res < 0) && (errno == EINTR));
-
-    if(res < 0) {
-        goto fail;
+    if (h->dead) {
+        errno = EINVAL;
+        return -1;
     }
 
-    h->urb_in_busy = 1;
-    for(;;) {
-        D("[ reap urb - wait ]\n");
+    if (TEMP_FAILURE_RETRY(ioctl(h->fd, USBDEVFS_SUBMITURB, urb)) == -1) {
+        return -1;
+    }
+
+    h->urb_in_busy = true;
+    while (true) {
+        D("[ reap urb - wait ]");
         h->reaper_thread = pthread_self();
-        adb_mutex_unlock(&h->lock);
-        res = ioctl(h->desc, USBDEVFS_REAPURB, &out);
+        int fd = h->fd;
+        lock.unlock();
+
+        // This ioctl must not have TEMP_FAILURE_RETRY because we send SIGALRM to break out.
+        usbdevfs_urb* out = nullptr;
+        int res = ioctl(fd, USBDEVFS_REAPURB, &out);
         int saved_errno = errno;
-        adb_mutex_lock(&h->lock);
+
+        lock.lock();
         h->reaper_thread = 0;
-        if(h->dead) {
-            res = -1;
-            break;
+        if (h->dead) {
+            errno = EINVAL;
+            return -1;
         }
-        if(res < 0) {
-            if(saved_errno == EINTR) {
+        if (res < 0) {
+            if (saved_errno == EINTR) {
                 continue;
             }
-            D("[ reap urb - error ]\n");
-            break;
+            D("[ reap urb - error ]");
+            errno = saved_errno;
+            return -1;
         }
-        D("[ urb @%p status = %d, actual = %d ]\n",
-            out, out->status, out->actual_length);
+        D("[ urb @%p status = %d, actual = %d ]", out, out->status, out->actual_length);
 
-        if(out == &h->urb_in) {
-            D("[ reap urb - IN complete ]\n");
-            h->urb_in_busy = 0;
-            if(urb->status == 0) {
-                res = urb->actual_length;
-            } else {
-                res = -1;
+        if (out == &h->urb_in) {
+            D("[ reap urb - IN complete ]");
+            h->urb_in_busy = false;
+            if (urb->status != 0) {
+                errno = -urb->status;
+                return -1;
             }
-            break;
+            return urb->actual_length;
         }
-        if(out == &h->urb_out) {
-            D("[ reap urb - OUT compelete ]\n");
-            h->urb_out_busy = 0;
-            adb_cond_broadcast(&h->notify);
+        if (out == &h->urb_out) {
+            D("[ reap urb - OUT compelete ]");
+            h->urb_out_busy = false;
+            h->cv.notify_all();
         }
     }
-fail:
-    adb_mutex_unlock(&h->lock);
-    D("-- usb_bulk_read --\n");
-    return res;
 }
 
 
 int usb_write(usb_handle *h, const void *_data, int len)
 {
+    D("++ usb_write ++");
+
     unsigned char *data = (unsigned char*) _data;
-    int n;
-    int need_zero = 0;
-
-    D("++ usb_write ++\n");
-    if(h->zero_mask) {
-            /* if we need 0-markers and our transfer
-            ** is an even multiple of the packet size,
-            ** we make note of it
-            */
-        if(!(len & h->zero_mask)) {
-            need_zero = 1;
-        }
+    int n = usb_bulk_write(h, data, len);
+    if (n != len) {
+        D("ERROR: n = %d, errno = %d (%s)", n, errno, strerror(errno));
+        return -1;
     }
 
-    while(len > 0) {
-        int xfer = (len > 4096) ? 4096 : len;
-
-        n = usb_bulk_write(h, data, xfer);
-        if(n != xfer) {
-            D("ERROR: n = %d, errno = %d (%s)\n",
-                n, errno, strerror(errno));
-            return -1;
-        }
-
-        len -= xfer;
-        data += xfer;
+    if (h->zero_mask && !(len & h->zero_mask)) {
+        // If we need 0-markers and our transfer is an even multiple of the packet size,
+        // then send a zero marker.
+        return usb_bulk_write(h, _data, 0);
     }
 
-    if(need_zero){
-        n = usb_bulk_write(h, _data, 0);
-        return n;
-    }
-
-    D("-- usb_write --\n");
+    D("-- usb_write --");
     return 0;
 }
 
@@ -486,23 +425,23 @@ int usb_read(usb_handle *h, void *_data, int len)
     unsigned char *data = (unsigned char*) _data;
     int n;
 
-    D("++ usb_read ++\n");
+    D("++ usb_read ++");
     while(len > 0) {
-        int xfer = (len > 4096) ? 4096 : len;
+        int xfer = len;
 
-        D("[ usb read %d fd = %d], fname=%s\n", xfer, h->desc, h->fname);
+        D("[ usb read %d fd = %d], path=%s", xfer, h->fd, h->path.c_str());
         n = usb_bulk_read(h, data, xfer);
-        D("[ usb read %d ] = %d, fname=%s\n", xfer, n, h->fname);
+        D("[ usb read %d ] = %d, path=%s", xfer, n, h->path.c_str());
         if(n != xfer) {
-            if((errno == ETIMEDOUT) && (h->desc != -1)) {
-                D("[ timeout ]\n");
+            if((errno == ETIMEDOUT) && (h->fd != -1)) {
+                D("[ timeout ]");
                 if(n > 0){
                     data += n;
                     len -= n;
                 }
                 continue;
             }
-            D("ERROR: n = %d, errno = %d (%s)\n",
+            D("ERROR: n = %d, errno = %d (%s)",
                 n, errno, strerror(errno));
             return -1;
         }
@@ -511,16 +450,15 @@ int usb_read(usb_handle *h, void *_data, int len)
         data += xfer;
     }
 
-    D("-- usb_read --\n");
+    D("-- usb_read --");
     return 0;
 }
 
-void usb_kick(usb_handle *h)
-{
-    D("[ kicking %p (fd = %d) ]\n", h, h->desc);
-    adb_mutex_lock(&h->lock);
-    if(h->dead == 0) {
-        h->dead = 1;
+void usb_kick(usb_handle* h) {
+    std::lock_guard<std::mutex> lock(h->mutex);
+    D("[ kicking %p (fd = %d) ]", h, h->fd);
+    if (!h->dead) {
+        h->dead = true;
 
         if (h->writeable) {
             /* HACK ALERT!
@@ -536,34 +474,27 @@ void usb_kick(usb_handle *h)
             ** but this ensures that a reader blocked on REAPURB
             ** will get unblocked
             */
-            ioctl(h->desc, USBDEVFS_DISCARDURB, &h->urb_in);
-            ioctl(h->desc, USBDEVFS_DISCARDURB, &h->urb_out);
+            ioctl(h->fd, USBDEVFS_DISCARDURB, &h->urb_in);
+            ioctl(h->fd, USBDEVFS_DISCARDURB, &h->urb_out);
             h->urb_in.status = -ENODEV;
             h->urb_out.status = -ENODEV;
-            h->urb_in_busy = 0;
-            h->urb_out_busy = 0;
-            adb_cond_broadcast(&h->notify);
+            h->urb_in_busy = false;
+            h->urb_out_busy = false;
+            h->cv.notify_all();
         } else {
             unregister_usb_transport(h);
         }
     }
-    adb_mutex_unlock(&h->lock);
 }
 
-int usb_close(usb_handle *h)
-{
-    D("++ usb close ++\n");
-    adb_mutex_lock(&usb_lock);
-    h->next->prev = h->prev;
-    h->prev->next = h->next;
-    h->prev = 0;
-    h->next = 0;
+int usb_close(usb_handle* h) {
+    std::lock_guard<std::mutex> lock(g_usb_handles_mutex);
+    g_usb_handles.remove(h);
 
-    adb_close(h->desc);
-    D("-- usb closed %p (fd = %d) --\n", h, h->desc);
-    adb_mutex_unlock(&usb_lock);
+    D("-- usb close %p (fd = %d) --", h, h->fd);
 
-    free(h);
+    delete h;
+
     return 0;
 }
 
@@ -576,54 +507,44 @@ static void register_device(const char* dev_name, const char* dev_path,
     // from the list when we're finally closed and everything will work out
     // fine.
     //
-    // If we have a usb_handle on the list 'o handles with a matching name, we
+    // If we have a usb_handle on the list of handles with a matching name, we
     // have no further work to do.
-    adb_mutex_lock(&usb_lock);
-    for (usb_handle* usb = handle_list.next; usb != &handle_list; usb = usb->next) {
-        if (!strcmp(usb->fname, dev_name)) {
-            adb_mutex_unlock(&usb_lock);
-            return;
+    {
+        std::lock_guard<std::mutex> lock(g_usb_handles_mutex);
+        for (usb_handle* usb: g_usb_handles) {
+            if (usb->path == dev_name) {
+                return;
+            }
         }
     }
-    adb_mutex_unlock(&usb_lock);
 
-    D("[ usb located new device %s (%d/%d/%d) ]\n", dev_name, ep_in, ep_out, interface);
-    usb_handle* usb = reinterpret_cast<usb_handle*>(calloc(1, sizeof(usb_handle)));
-    if (usb == nullptr) fatal("couldn't allocate usb_handle");
-    strcpy(usb->fname, dev_name);
+    D("[ usb located new device %s (%d/%d/%d) ]", dev_name, ep_in, ep_out, interface);
+    std::unique_ptr<usb_handle> usb(new usb_handle);
+    usb->path = dev_name;
     usb->ep_in = ep_in;
     usb->ep_out = ep_out;
     usb->zero_mask = zero_mask;
-    usb->writeable = 1;
 
-    adb_cond_init(&usb->notify, 0);
-    adb_mutex_init(&usb->lock, 0);
-    // Initialize mark to 1 so we don't get garbage collected after the device
-    // scan.
-    usb->mark = 1;
-    usb->reaper_thread = 0;
+    // Initialize mark so we don't get garbage collected after the device scan.
+    usb->mark = true;
 
-    usb->desc = unix_open(usb->fname, O_RDWR | O_CLOEXEC);
-    if (usb->desc == -1) {
+    usb->fd = unix_open(usb->path.c_str(), O_RDWR | O_CLOEXEC);
+    if (usb->fd == -1) {
         // Opening RW failed, so see if we have RO access.
-        usb->desc = unix_open(usb->fname, O_RDONLY | O_CLOEXEC);
-        if (usb->desc == -1) {
-            D("[ usb open %s failed: %s]\n", usb->fname, strerror(errno));
-            free(usb);
+        usb->fd = unix_open(usb->path.c_str(), O_RDONLY | O_CLOEXEC);
+        if (usb->fd == -1) {
+            D("[ usb open %s failed: %s]", usb->path.c_str(), strerror(errno));
             return;
         }
         usb->writeable = 0;
     }
 
-    D("[ usb opened %s%s, fd=%d]\n", usb->fname,
-      (usb->writeable ? "" : " (read-only)"), usb->desc);
+    D("[ usb opened %s%s, fd=%d]",
+      usb->path.c_str(), (usb->writeable ? "" : " (read-only)"), usb->fd);
 
     if (usb->writeable) {
-        if (ioctl(usb->desc, USBDEVFS_CLAIMINTERFACE, &interface) != 0) {
-            D("[ usb ioctl(%d, USBDEVFS_CLAIMINTERFACE) failed: %s]\n",
-              usb->desc, strerror(errno));
-            adb_close(usb->desc);
-            free(usb);
+        if (ioctl(usb->fd, USBDEVFS_CLAIMINTERFACE, &interface) != 0) {
+            D("[ usb ioctl(%d, USBDEVFS_CLAIMINTERFACE) failed: %s]", usb->fd, strerror(errno));
             return;
         }
     }
@@ -633,7 +554,7 @@ static void register_device(const char* dev_name, const char* dev_path,
         "/sys/bus/usb/devices/%s/serial", dev_path + 4);
     std::string serial;
     if (!android::base::ReadFileToString(serial_path, &serial)) {
-        D("[ usb read %s failed: %s ]\n", serial_path.c_str(), strerror(errno));
+        D("[ usb read %s failed: %s ]", serial_path.c_str(), strerror(errno));
         // We don't actually want to treat an unknown serial as an error because
         // devices aren't able to communicate a serial number in early bringup.
         // http://b/20883914
@@ -642,43 +563,34 @@ static void register_device(const char* dev_name, const char* dev_path,
     serial = android::base::Trim(serial);
 
     // Add to the end of the active handles.
-    adb_mutex_lock(&usb_lock);
-    usb->next = &handle_list;
-    usb->prev = handle_list.prev;
-    usb->prev->next = usb;
-    usb->next->prev = usb;
-    adb_mutex_unlock(&usb_lock);
-
-    register_usb_transport(usb, serial.c_str(), dev_path, usb->writeable);
+    usb_handle* done_usb = usb.release();
+    {
+        std::lock_guard<std::mutex> lock(g_usb_handles_mutex);
+        g_usb_handles.push_back(done_usb);
+    }
+    register_usb_transport(done_usb, serial.c_str(), dev_path, done_usb->writeable);
 }
 
-static void* device_poll_thread(void* unused) {
-    D("Created device thread\n");
+static void device_poll_thread(void*) {
+    adb_thread_setname("device poll");
+    D("Created device thread");
     while (true) {
         // TODO: Use inotify.
         find_usb_device("/dev/bus/usb", register_device);
         kick_disconnected_devices();
         sleep(1);
     }
-    return nullptr;
 }
 
-static void sigalrm_handler(int signo) {
-    // don't need to do anything here
-}
-
-void usb_init()
-{
-    adb_thread_t tid;
-    struct sigaction    actions;
-
+void usb_init() {
+    struct sigaction actions;
     memset(&actions, 0, sizeof(actions));
     sigemptyset(&actions.sa_mask);
     actions.sa_flags = 0;
-    actions.sa_handler = sigalrm_handler;
-    sigaction(SIGALRM,& actions, NULL);
+    actions.sa_handler = [](int) {};
+    sigaction(SIGALRM, &actions, nullptr);
 
-    if(adb_thread_create(&tid, device_poll_thread, NULL)){
-        fatal_errno("cannot create input thread");
+    if (!adb_thread_create(device_poll_thread, nullptr)) {
+        fatal_errno("cannot create device_poll thread");
     }
 }

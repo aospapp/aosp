@@ -44,9 +44,6 @@ import android.text.style.URLSpan;
 import android.util.Log;
 import android.util.StringBuilderPrinter;
 
-import dalvik.annotation.TestLevel;
-import dalvik.annotation.TestTargetNew;
-
 import java.util.ArrayList;
 import java.util.Locale;
 import java.util.regex.Pattern;
@@ -1333,10 +1330,19 @@ public class TextUtilsTest extends AndroidTestCase {
     }
 
     public void testIsDigitsOnly() {
+        assertTrue(TextUtils.isDigitsOnly(""));
         assertFalse(TextUtils.isDigitsOnly("no digit"));
         assertFalse(TextUtils.isDigitsOnly("character and 56 digits"));
         assertTrue(TextUtils.isDigitsOnly("0123456789"));
         assertFalse(TextUtils.isDigitsOnly("1234 56789"));
+
+        // U+104A0 OSMANYA DIGIT ZERO
+        assertTrue(TextUtils.isDigitsOnly(new String(Character.toChars(0x104A0))));
+        // U+10858 IMPERIAL ARAMAIC NUMBER ONE
+        assertFalse(TextUtils.isDigitsOnly(new String(Character.toChars(0x10858))));
+
+        assertFalse(TextUtils.isDigitsOnly("\uD801")); // lonely lead surrogate
+        assertFalse(TextUtils.isDigitsOnly("\uDCA0")); // lonely trailing surrogate
 
         try {
             TextUtils.isDigitsOnly(null);
@@ -1355,7 +1361,7 @@ public class TextUtilsTest extends AndroidTestCase {
 
     public void testIsGraphicChar() {
         assertTrue(TextUtils.isGraphic('a'));
-        assertTrue(TextUtils.isGraphic("\uBA00"));
+        assertTrue(TextUtils.isGraphic('\uBA00'));
 
         // LINE_SEPARATOR
         assertFalse(TextUtils.isGraphic('\u2028'));
@@ -1389,6 +1395,11 @@ public class TextUtilsTest extends AndroidTestCase {
         assertFalse(TextUtils.isGraphic("\u2028\u2029\u0085\u0D00\uD800\u0020"));
 
         assertTrue(TextUtils.isGraphic("a\u2028\u2029\u0085\u0D00\uD800\u0020"));
+
+        assertTrue(TextUtils.isGraphic("\uD83D\uDC0C")); // U+1F40C SNAIL
+        assertFalse(TextUtils.isGraphic("\uDB40\uDC01")); // U+E0000 (unassigned)
+        assertFalse(TextUtils.isGraphic("\uDB3D")); // unpaired high surrogate
+        assertFalse(TextUtils.isGraphic("\uDC0C")); // unpaired low surrogate
 
         try {
             TextUtils.isGraphic(null);
@@ -2033,11 +2044,6 @@ public class TextUtilsTest extends AndroidTestCase {
         assertTrue(builder.length() > 0);
     }
 
-    @TestTargetNew(
-            level = TestLevel.COMPLETE,
-            method = "getLayoutDirectionFromLocale",
-            args = {Locale.class}
-    )
     public void testGetLayoutDirectionFromLocale() {
         assertEquals(LAYOUT_DIRECTION_LTR,
                 TextUtils.getLayoutDirectionFromLocale(null));

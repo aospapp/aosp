@@ -26,6 +26,21 @@
 #include "common.h"
 #include "cpp_bindings.h"
 
+/* Internal radio statistics structure in the driver */
+typedef struct {
+	wifi_radio radio;
+	uint32_t on_time;
+	uint32_t tx_time;
+	uint32_t rx_time;
+	uint32_t on_time_scan;
+	uint32_t on_time_nbd;
+	uint32_t on_time_gscan;
+	uint32_t on_time_roam_scan;
+	uint32_t on_time_pno_scan;
+	uint32_t on_time_hs20;
+	uint32_t num_channels;
+	wifi_channel_stat channels[];
+} wifi_radio_stat_internal;
 
 enum {
     LSTATS_SUBCMD_GET_INFO = ANDROID_NL80211_SUBCMD_LSTATS_RANGE_START,
@@ -68,27 +83,63 @@ protected:
 
         void *data = reply.get_vendor_data();
         int len = reply.get_vendor_data_len();
-	unsigned int num_chan = ((wifi_radio_stat *)data)->num_channels;
-        if (num_chan > 11) {
-           ALOGE("Incorrect number of channels = %d", num_chan);
-           // dump data before num_channels
-           ALOGE("radio: = %d", ((wifi_radio_stat *)data)->radio);
-           ALOGE("on_time: = %d", ((wifi_radio_stat *)data)->on_time);
-           ALOGE("tx_time: = %d", ((wifi_radio_stat *)data)->tx_time);
-           ALOGE("rx_time: = %d", ((wifi_radio_stat *)data)->rx_time);
-           ALOGE("on_time_scan: = %d", ((wifi_radio_stat *)data)->on_time_scan);
-           ALOGE("on_time_nbd: = %d", ((wifi_radio_stat *)data)->on_time_nbd);
-           ALOGE("on_time_gscan: = %d", ((wifi_radio_stat *)data)->on_time_gscan);
-           ALOGE("on_time_pno_scan: = %d", ((wifi_radio_stat *)data)->on_time_pno_scan);
-           ALOGE("on_time_hs20: = %d", ((wifi_radio_stat *)data)->on_time_hs20);
-           return NL_SKIP;
+        wifi_radio_stat *radio_stat =
+            convertToExternalRadioStatStructure((wifi_radio_stat_internal *)data);
+        if (!radio_stat) {
+            ALOGE("Invalid stats pointer received");
+            return NL_SKIP;
         }
-	(*mHandler.on_link_stats_results)(id,
-		(wifi_iface_stat *)((char *)&((wifi_radio_stat *)data)->channels
-		+ num_chan*sizeof(wifi_channel_stat)),
-		1, (wifi_radio_stat *)data);
-
+        if (radio_stat->num_channels > 11) {
+            ALOGE("Incorrect number of channels = %d", radio_stat->num_channels);
+            // dump data before num_channels
+            ALOGE("radio: = %d", radio_stat->radio);
+            ALOGE("on_time: = %d", radio_stat->on_time);
+            ALOGE("tx_time: = %d", radio_stat->tx_time);
+            ALOGE("rx_time: = %d", radio_stat->rx_time);
+            ALOGE("on_time_scan: = %d", radio_stat->on_time_scan);
+            ALOGE("on_time_nbd: = %d", radio_stat->on_time_nbd);
+            ALOGE("on_time_gscan: = %d", radio_stat->on_time_gscan);
+            ALOGE("on_time_pno_scan: = %d", radio_stat->on_time_pno_scan);
+            ALOGE("on_time_hs20: = %d", radio_stat->on_time_hs20);
+            free(radio_stat);
+            return NL_SKIP;
+        }
+        wifi_iface_stat *iface_stat =
+            (wifi_iface_stat *)((char *)&((wifi_radio_stat_internal *)data)->channels
+                + radio_stat->num_channels * sizeof(wifi_channel_stat));
+        (*mHandler.on_link_stats_results)(id, iface_stat, 1, radio_stat);
+        free(radio_stat);
         return NL_OK;
+    }
+
+private:
+    wifi_radio_stat *convertToExternalRadioStatStructure(wifi_radio_stat_internal *internal_stat_ptr) {
+        wifi_radio_stat *external_stat_ptr = NULL;
+        if (internal_stat_ptr) {
+            uint32_t channel_size = internal_stat_ptr->num_channels * sizeof(wifi_channel_stat);
+            uint32_t total_size = sizeof(wifi_radio_stat) + channel_size;
+            external_stat_ptr = (wifi_radio_stat *)malloc(total_size);
+            if (external_stat_ptr) {
+                external_stat_ptr->radio = internal_stat_ptr->radio;
+                external_stat_ptr->on_time = internal_stat_ptr->on_time;
+                external_stat_ptr->tx_time = internal_stat_ptr->tx_time;
+                external_stat_ptr->rx_time = internal_stat_ptr->rx_time;
+                external_stat_ptr->tx_time_per_levels = NULL;
+                external_stat_ptr->num_tx_levels = 0;
+                external_stat_ptr->on_time_scan = internal_stat_ptr->on_time_scan;
+                external_stat_ptr->on_time_nbd = internal_stat_ptr->on_time_nbd;
+                external_stat_ptr->on_time_gscan = internal_stat_ptr->on_time_gscan;
+                external_stat_ptr->on_time_roam_scan = internal_stat_ptr->on_time_roam_scan;
+                external_stat_ptr->on_time_pno_scan = internal_stat_ptr->on_time_pno_scan;
+                external_stat_ptr->on_time_hs20 = internal_stat_ptr->on_time_hs20;
+                external_stat_ptr->num_channels = internal_stat_ptr->num_channels;
+                if (internal_stat_ptr->num_channels) {
+                    memcpy(&(external_stat_ptr->channels), &(internal_stat_ptr->channels),
+                        channel_size);
+                }
+            }
+        }
+        return external_stat_ptr;
     }
 };
 

@@ -19,11 +19,11 @@ package com.android.tv.settings.connectivity;
 import android.app.Fragment;
 import android.content.Context;
 import android.content.Intent;
-import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 import android.os.Bundle;
 import android.text.TextUtils;
 
+import com.android.settingslib.wifi.AccessPoint;
 import com.android.tv.settings.R;
 import com.android.tv.settings.form.FormPage;
 import com.android.tv.settings.form.FormPageResultListener;
@@ -36,17 +36,23 @@ public class WifiConnectionActivity extends WifiMultiPagedFormActivity
 
     private static final String EXTRA_WIFI_SSID = "wifi_ssid";
     private static final String EXTRA_WIFI_SECURITY_NAME = "wifi_security_name";
-    private static final String EXTRA_WIFI_SCAN_RESULT = "scan_result";
 
-    public static Intent createIntent(Context context, String wifiSsid, WifiSecurity wifiSecurity) {
+    public static Intent createIntent(Context context, AccessPoint result, WifiSecurity security) {
         return new Intent(context, WifiConnectionActivity.class)
-                .putExtra(EXTRA_WIFI_SSID, wifiSsid)
-                .putExtra(EXTRA_WIFI_SECURITY_NAME, wifiSecurity.name());
+                .putExtra(EXTRA_WIFI_SSID, result.getSsidStr())
+                .putExtra(EXTRA_WIFI_SECURITY_NAME, security.name());
     }
 
-    public static Intent createIntent(Context context, ScanResult result, WifiSecurity security) {
+    public static Intent createIntent(Context context, AccessPoint result) {
+        final WifiSecurity security = WifiSecurity.getSecurity(result);
+        return createIntent(context, result, security);
+    }
+
+    public static Intent createIntent(Context context, WifiConfiguration configuration) {
+        final WifiSecurity security = WifiSecurity.getSecurity(configuration);
+        final String ssid = configuration.getPrintableSsid();
         return new Intent(context, WifiConnectionActivity.class)
-                .putExtra(EXTRA_WIFI_SCAN_RESULT, result)
+                .putExtra(EXTRA_WIFI_SSID, ssid)
                 .putExtra(EXTRA_WIFI_SECURITY_NAME, security.name());
     }
 
@@ -61,14 +67,8 @@ public class WifiConnectionActivity extends WifiMultiPagedFormActivity
     protected void onCreate(Bundle savedInstanceState) {
         mWifiSecurity = WifiSecurity.valueOf(getIntent().getStringExtra(EXTRA_WIFI_SECURITY_NAME));
 
-        Bundle extras = getIntent().getExtras();
-        if (extras.containsKey(EXTRA_WIFI_SCAN_RESULT)) {
-            mConfiguration = WifiConfigHelper.getConfigurationForNetwork(
-                    this, (ScanResult) extras.getParcelable(EXTRA_WIFI_SCAN_RESULT));
-        } else {
-            mConfiguration = WifiConfigHelper.getConfiguration(
-                    this, getIntent().getStringExtra(EXTRA_WIFI_SSID), mWifiSecurity);
-        }
+        mConfiguration = WifiConfigHelper.getConfiguration(
+                this, getIntent().getStringExtra(EXTRA_WIFI_SSID), mWifiSecurity);
 
         if (WifiConfigHelper.isNetworkSaved(mConfiguration)) {
             addPage(WifiFormPageType.KNOWN_NETWORK);
@@ -192,16 +192,14 @@ public class WifiConnectionActivity extends WifiMultiPagedFormActivity
         } else {
             displayPage(formPageType, mConfiguration.getPrintableSsid(), null, null,
                     getPreviousPage(formPageType), null, formPageType != WifiFormPageType.SUCCESS,
-                    formPage, listener, forward, (mAdvancedWifiOptionsFlow != null) ?
-                            mAdvancedWifiOptionsFlow.isEmptyTextAllowed(formPageType) : false);
+                    formPage, listener, forward, (mAdvancedWifiOptionsFlow != null) &&
+                            mAdvancedWifiOptionsFlow.isEmptyTextAllowed(formPageType));
         }
     }
 
     private FormPage getPreviousPage(WifiFormPageType formPageType) {
         switch (formPageType) {
             case ENTER_PASSWORD:
-                if (mPasswordPage != null)
-                    mPasswordPage.clearData();
                 return mPasswordPage;
             default:
                 return (mAdvancedWifiOptionsFlow != null) ? mAdvancedWifiOptionsFlow

@@ -34,7 +34,6 @@
     <string name="password_empty_error" msgid="591713406761723025">"പാസ്‌വേഡ് ടൈപ്പുചെയ്യുക."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"ഒരു പേര് ടൈപ്പുചെയ്യുക."</string>
     <string name="name_char_error" msgid="3176618568784938968">"അക്ഷരങ്ങളും അക്കങ്ങളും മാത്രമടങ്ങിയ ഒരു പേര് ടൈപ്പുചെയ്യുക."</string>
-    <string name="storage_error" msgid="8306802455802770779">"സർട്ടിഫിക്കറ്റ് സംരക്ഷിക്കാനായില്ല. വീണ്ടും ശ്രമിക്കാൻ സ്‌പർശിക്കുക."</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"സർട്ടിഫിക്കറ്റ് സംരക്ഷിക്കാനായില്ല. ക്രെഡൻഷ്യൽ സ്റ്റോറേജ്  പ്രവർത്തനക്ഷമമാക്കിയിട്ടില്ല അല്ലെങ്കിൽ ശരിയായി സമാരംഭിച്ചിട്ടില്ല."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"സർട്ടിഫിക്കറ്റ് ഇൻസ്‌റ്റാൾ ചെയ്‌തില്ല."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"ഇൻസ്‌റ്റാൾ ചെയ്യുന്നതിന് സർട്ടിഫിക്കറ്റ് ഒന്നുമില്ല."</string>
@@ -55,7 +54,7 @@
   </string-array>
     <string name="wifi_title" msgid="8475811746333426489">"വൈഫൈ പ്രൊഫൈൽ"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"%s എന്നതിനായുള്ള വിശദാംശങ്ങൾ"</string>
-    <string name="wifi_detail_label" msgid="3032151019356747583">"വിശദാംശങ്ങള്‍‌"</string>
+    <string name="wifi_detail_label" msgid="3032151019356747583">"വിശദാംശങ്ങൾ‌"</string>
     <string name="wifi_install_label" msgid="1449629407724323233">"ഇന്‍സ്റ്റാള്‍ ചെയ്യുക"</string>
     <string name="wifi_installing_label" msgid="8387393993627129025">"ഇൻസ്‌റ്റാൾ ചെയ്യുന്നു"</string>
     <string name="wifi_cancel_label" msgid="1328748037608392134">"റദ്ദാക്കുക"</string>

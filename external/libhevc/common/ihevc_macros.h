@@ -49,6 +49,7 @@
 #define ALIGN32(x)  ((((x) + 31) >> 5) << 5)
 #define ALIGN16(x)  ((((x) + 15) >> 4) << 4)
 #define ALIGN8(x)   ((((x) + 7) >> 3) << 3)
+#define ALIGN4(x)   ((((x) + 3) >> 2) << 2)
 
 #define ALIGN_POW2(ptr,align) ((((WORD32)ptr)+align-1)&(~(align-1)))
 

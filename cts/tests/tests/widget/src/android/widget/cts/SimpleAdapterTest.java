@@ -92,7 +92,7 @@ public class SimpleAdapterTest extends InstrumentationTestCase {
         mContext = getInstrumentation().getTargetContext();
         mInflater = (LayoutInflater) mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
         mAdapterHost = (LinearLayout) mInflater.inflate(
-                com.android.cts.widget.R.layout.cursoradapter_host, null);
+                android.widget.cts.R.layout.cursoradapter_host, null);
 
         // new the SimpleAdapter instance
         mSimpleAdapter = new SimpleAdapter(mContext,
@@ -289,9 +289,9 @@ public class SimpleAdapterTest extends InstrumentationTestCase {
         // String represents resId
         ImageView view = new ImageView(mContext);
         assertNull(view.getDrawable());
-        mSimpleAdapter.setViewImage(view, String.valueOf(com.android.cts.widget.R.drawable.scenery));
+        mSimpleAdapter.setViewImage(view, String.valueOf(android.widget.cts.R.drawable.scenery));
         BitmapDrawable d = (BitmapDrawable) mContext.getResources().getDrawable(
-                com.android.cts.widget.R.drawable.scenery);
+                android.widget.cts.R.drawable.scenery);
         WidgetTestUtils.assertEquals(d.getBitmap(),
                 ((BitmapDrawable) view.getDrawable()).getBitmap());
 
@@ -314,9 +314,9 @@ public class SimpleAdapterTest extends InstrumentationTestCase {
         // resId
         view = new ImageView(mContext);
         assertNull(view.getDrawable());
-        mSimpleAdapter.setViewImage(view, com.android.cts.widget.R.drawable.scenery);
+        mSimpleAdapter.setViewImage(view, android.widget.cts.R.drawable.scenery);
         d = (BitmapDrawable) mContext.getResources()
-                .getDrawable(com.android.cts.widget.R.drawable.scenery);
+                .getDrawable(android.widget.cts.R.drawable.scenery);
         WidgetTestUtils.assertEquals(d.getBitmap(),
                 ((BitmapDrawable) view.getDrawable()).getBitmap());
 
@@ -331,11 +331,11 @@ public class SimpleAdapterTest extends InstrumentationTestCase {
         assertNull(view.getDrawable());
         try {
             mSimpleAdapter.setViewImage(view, SimpleCursorAdapterTest.createTestImage(mContext,
-                    "testimage", com.android.cts.widget.R.raw.testimage));
+                    "testimage", android.widget.cts.R.raw.testimage));
             assertNotNull(view.getDrawable());
             Bitmap actualBitmap = ((BitmapDrawable) view.getDrawable()).getBitmap();
             Bitmap testBitmap = WidgetTestUtils.getUnscaledAndDitheredBitmap(mContext.getResources(),
-                    com.android.cts.widget.R.raw.testimage, actualBitmap.getConfig());
+                    android.widget.cts.R.raw.testimage, actualBitmap.getConfig());
             WidgetTestUtils.assertEquals(testBitmap, actualBitmap);
         } finally {
             SimpleCursorAdapterTest.destroyTestImage(mContext,"testimage");

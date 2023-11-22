@@ -77,7 +77,6 @@ int prlimit64(pid_t, int, struct rlimit64*, const struct rlimit64*)  arm,mips,x8
 int     setgroups:setgroups32(int, const gid_t*)   arm,x86
 int     setgroups:setgroups(int, const gid_t*)     arm64,mips,mips64,x86_64
 int     setpgid(pid_t, pid_t)  all
-pid_t   vfork(void)  arm
 int     setregid:setregid32(gid_t, gid_t)  arm,x86
 int     setregid:setregid(gid_t, gid_t)    arm64,mips,mips64,x86_64
 int     chroot(const char*)  all
@@ -95,10 +94,20 @@ ssize_t     pread64(int, void*, size_t, off64_t) arm,mips,x86
 ssize_t     pread64|pread(int, void*, size_t, off_t) arm64,mips64,x86_64
 ssize_t     pwrite64(int, void*, size_t, off64_t) arm,mips,x86
 ssize_t     pwrite64|pwrite(int, void*, size_t, off_t) arm64,mips64,x86_64
+
+# On LP32, preadv/pwritev don't use off64_t --- they use pairs of 32-bit
+# arguments to avoid problems on architectures like ARM where 64-bit arguments
+# must be in a register pair starting with an even-numbered register.
+# See linux/fs/read_write.c and https://lwn.net/Articles/311630/.
+ssize_t     __preadv64:preadv(int, const struct iovec*, int, long, long) arm,mips,x86
+ssize_t     preadv|preadv64(int, const struct iovec*, int, off_t) arm64,mips64,x86_64
+ssize_t     __pwritev64:pwritev(int, const struct iovec*, int, long, long) arm,mips,x86
+ssize_t     pwritev|pwritev64(int, const struct iovec*, int, off_t) arm64,mips64,x86_64
+
 int         ___close:close(int)  all
 pid_t       __getpid:getpid()  all
 int         munmap(void*, size_t)  all
-void*       mremap(void*, size_t, size_t, unsigned long)  all
+void*       ___mremap:mremap(void*, size_t, size_t, int, void*)  all
 int         msync(const void*, size_t, int)    all
 int         mprotect(const void*, size_t, int)  all
 int         madvise(void*, size_t, int)  all
@@ -124,7 +133,7 @@ int         fchown:fchown(int, uid_t, gid_t)    arm64,mips,mips64,x86_64
 void        sync(void)  all
 int         ___fsetxattr:fsetxattr(int, const char*, const void*, size_t, int) all
 ssize_t     ___fgetxattr:fgetxattr(int, const char*, void*, size_t) all
-ssize_t     flistxattr(int, char*, size_t) all
+ssize_t     ___flistxattr:flistxattr(int, char*, size_t) all
 int         fremovexattr(int, const char*) all
 
 int __getdents64:getdents64(unsigned int, struct dirent*, unsigned int)   arm,arm64,mips,mips64,x86,x86_64
@@ -214,6 +223,8 @@ int           __timer_delete:timer_delete(__kernel_timer_t)                     
 int           timerfd_create(clockid_t, int)   all
 int           timerfd_settime(int, int, const struct itimerspec*, struct itimerspec*)   all
 int           timerfd_gettime(int, struct itimerspec*)   all
+int           adjtimex(struct timex*)   all
+int           clock_adjtime(clockid_t, struct timex*)   all
 
 # signals
 int     __sigaction:sigaction(int, const struct sigaction*, struct sigaction*)  arm,mips,x86
@@ -333,7 +344,7 @@ int     __set_tls:set_thread_area(void*) mips,mips64
 int     __set_thread_area:set_thread_area(void*) x86
 
 # vdso stuff.
-int clock_gettime(clockid_t, timespec*)                 arm,mips,mips64,x86
-int __clock_gettime:clock_gettime(clockid_t, timespec*) arm64,x86_64
-int gettimeofday(timeval*, timezone*)                   arm,mips,mips64,x86
-int __gettimeofday:gettimeofday(timeval*, timezone*)    arm64,x86_64
+int clock_gettime(clockid_t, timespec*)                 arm,mips,mips64
+int __clock_gettime:clock_gettime(clockid_t, timespec*) arm64,x86,x86_64
+int gettimeofday(timeval*, timezone*)                   arm,mips,mips64
+int __gettimeofday:gettimeofday(timeval*, timezone*)    arm64,x86,x86_64

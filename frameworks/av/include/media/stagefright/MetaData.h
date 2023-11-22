@@ -22,6 +22,7 @@
 
 #include <stdint.h>
 
+#include <binder/Parcel.h>
 #include <utils/RefBase.h>
 #include <utils/KeyedVector.h>
 #include <utils/String8.h>
@@ -48,8 +49,11 @@ enum {
     kKeyChannelCount      = '#chn',  // int32_t
     kKeyChannelMask       = 'chnm',  // int32_t
     kKeySampleRate        = 'srte',  // int32_t (audio sampling rate Hz)
+    kKeyPcmEncoding       = 'PCMe',  // int32_t (audio encoding enum)
     kKeyFrameRate         = 'frmR',  // int32_t (video frame rate fps)
     kKeyBitRate           = 'brte',  // int32_t (bps)
+    kKeyMaxBitRate        = 'mxBr',  // int32_t (bps)
+    kKeyStreamHeader      = 'stHd',  // raw data
     kKeyESDS              = 'esds',  // raw data
     kKeyAACProfile        = 'aacp',  // int32_t
     kKeyAVCC              = 'avcc',  // raw data
@@ -60,6 +64,7 @@ enum {
     kKeyOpusHeader        = 'ohdr',  // raw data
     kKeyOpusCodecDelay    = 'ocod',  // uint64_t (codec delay in ns)
     kKeyOpusSeekPreRoll   = 'ospr',  // uint64_t (seek preroll in ns)
+    kKeyVp9CodecPrivate   = 'vp9p',  // raw data (vp9 csd information)
     kKeyWantsNALFragments = 'NALf',
     kKeyIsSyncFrame       = 'sync',  // int32_t (bool)
     kKeyIsCodecConfig     = 'conf',  // int32_t (bool)
@@ -181,6 +186,24 @@ enum {
 
     // H264 supplemental enhancement information offsets/sizes
     kKeySEI               = 'sei ', // raw data
+
+    // MPEG user data offsets
+    kKeyMpegUserData      = 'mpud', // size_t[]
+
+    // Size of NALU length in mkv/mp4
+    kKeyNalLengthSize     = 'nals', // int32_t
+
+    // HDR related
+    kKeyHdrStaticInfo    = 'hdrS', // HDRStaticInfo
+
+    // color aspects
+    kKeyColorRange       = 'cRng', // int32_t, color range, value defined by ColorAspects.Range
+    kKeyColorPrimaries   = 'cPrm', // int32_t,
+                                   // color Primaries, value defined by ColorAspects.Primaries
+    kKeyTransferFunction = 'tFun', // int32_t,
+                                   // transfer Function, value defined by ColorAspects.Transfer.
+    kKeyColorMatrix      = 'cMtx', // int32_t,
+                                   // color Matrix, value defined by ColorAspects.MatrixCoeffs.
 };
 
 enum {
@@ -237,7 +260,12 @@ public:
 
     bool hasData(uint32_t key) const;
 
+    String8 toString() const;
     void dumpToLog() const;
+
+    status_t writeToParcel(Parcel &parcel);
+    status_t updateFromParcel(const Parcel &parcel);
+    static sp<MetaData> createFromParcel(const Parcel &parcel);
 
 protected:
     virtual ~MetaData();
@@ -253,7 +281,8 @@ private:
         void clear();
         void setData(uint32_t type, const void *data, size_t size);
         void getData(uint32_t *type, const void **data, size_t *size) const;
-        String8 asString() const;
+        // may include hexdump of binary data if verbose=true
+        String8 asString(bool verbose) const;
 
     private:
         uint32_t mType;

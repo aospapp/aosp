@@ -331,4 +331,23 @@ uint32_t drm_wv_mod_query_key_control(const uint32_t session_id,
                                       uint8_t *key_control_block,
                                       uint32_t *key_control_block_length);
 
+/*! Version 11 specific APIs */
+uint32_t drm_wv_mod_security_patch_level(uint32_t *security_patch_level);
+
+uint32_t drm_wv_mod_api_version(uint32_t *api_version);
+
+uint32_t drm_wv_mod_decrypt_cenc(uint32_t session_id,
+                                 const uint8_t *inp_data_buffer,
+                                 uint32_t inp_data_size,
+                                 uint8_t *out_data_buffer,
+                                 uint32_t out_data_size,
+                                 const uint8_t *iv,
+                                 uint8_t flags);
+
+uint32_t drm_wv_mod_glue_block(uint32_t       session_id,
+                               uint8_t        *encrypted,
+                               const uint8_t  *cleartext,
+                               uint32_t       cleartext_length,
+                               const uint8_t  *iv);
+
 #endif /* __WV_MOD_DRM_API_H_ */

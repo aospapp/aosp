@@ -300,7 +300,8 @@ extern void
     IObject_deinit(void *),
     IPresetReverb_deinit(void *),
     IThreadSync_deinit(void *),
-    IVirtualizer_deinit(void *);
+    IVirtualizer_deinit(void *),
+    IAndroidConfiguration_deinit(void *);
 
 extern bool
     IAndroidAcousticEchoCancellation_Expose(void *),
@@ -366,6 +367,7 @@ extern bool
 
 #ifndef ANDROID
 #define IAndroidConfiguration_init        NULL
+#define IAndroidConfiguration_deinit      NULL
 #define IAndroidEffect_init               NULL
 #define IAndroidEffectCapabilities_init   NULL
 #define IAndroidEffectSend_init           NULL
@@ -440,7 +442,8 @@ extern bool
     { /* MPH_ANDROIDEFFECTCAPABILITIES */ IAndroidEffectCapabilities_init, NULL,
         IAndroidEffectCapabilities_deinit, IAndroidEffectCapabilities_Expose, NULL },
     { /* MPH_ANDROIDEFFECTSEND */ IAndroidEffectSend_init, NULL, NULL, NULL, NULL },
-    { /* MPH_ANDROIDCONFIGURATION */ IAndroidConfiguration_init, NULL, NULL, NULL, NULL },
+    { /* MPH_ANDROIDCONFIGURATION */ IAndroidConfiguration_init, NULL, IAndroidConfiguration_deinit,
+            NULL, NULL },
     { /* MPH_ANDROIDSIMPLEBUFFERQUEUE */ IBufferQueue_init /* alias */, NULL, NULL, NULL, NULL },
 // Android API level 10 extended interfaces
     { /* MPH_ANDROIDBUFFERQUEUESOURCE */ IAndroidBufferQueue_init, NULL, IAndroidBufferQueue_deinit,

@@ -25,7 +25,7 @@
 #include <dlfcn.h>
 #include <unistd.h>
 
-#if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB) && defined(HAVE_ANDROID_OS)
+#if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB) && defined(__ANDROID__)
 #include <cutils/properties.h>
 #else
 #include "rsCompatibilityLib.h"
@@ -42,7 +42,6 @@ dispatchTable* RS::dispatch = nullptr;
 static int gInitError = 0;
 
 RS::RS() {
-    mDev = nullptr;
     mContext = nullptr;
     mErrorFunc = nullptr;
     mMessageFunc = nullptr;
@@ -59,6 +58,7 @@ RS::~RS() {
         mMessageRun = false;
 
         if (mContext) {
+            finish();
             RS::dispatch->ContextDeinitToClient(mContext);
 
             void *res = nullptr;
@@ -67,19 +67,15 @@ RS::~RS() {
             RS::dispatch->ContextDestroy(mContext);
             mContext = nullptr;
         }
-        if (mDev) {
-            RS::dispatch->DeviceDestroy(mDev);
-            mDev = nullptr;
-        }
     }
 }
 
 bool RS::init(const char * name, uint32_t flags) {
-    return RS::init(name, RS_VERSION, flags);
+    return RS::init(name, flags, 0);
 }
 
-// this will only open API 19+ libRS
-// because that's when we changed libRS to extern "C" entry points
+// This will only open API 19+ libRS, because that's when
+// we changed libRS to extern "C" entry points.
 static bool loadSO(const char* filename, int targetApi) {
     void* handle = dlopen(filename, RTLD_LAZY | RTLD_LOCAL);
     if (handle == nullptr) {
@@ -91,12 +87,11 @@ static bool loadSO(const char* filename, int targetApi) {
         ALOGV("%s init failed!", filename);
         return false;
     }
-    //ALOGE("Successfully loaded %s", filename);
     return true;
 }
 
 static uint32_t getProp(const char *str) {
-#if !defined(__LP64__) && !defined(RS_SERVER) && defined(HAVE_ANDROID_OS)
+#if !defined(__LP64__) && !defined(RS_SERVER) && defined(__ANDROID__)
     char buf[256];
     property_get(str, buf, "0");
     return atoi(buf);
@@ -116,8 +111,8 @@ bool RS::initDispatch(int targetApi) {
 
     RS::dispatch = new dispatchTable;
 
-    // attempt to load libRS, load libRSSupport on failure
-    // if property is set, proceed directly to libRSSupport
+    // Attempt to load libRS, load libRSSupport on failure.
+    // If property is set, proceed directly to libRSSupport.
     if (getProp("debug.rs.forcecompat") == 0) {
         usingNative = loadSO("libRS.so", targetApi);
     }
@@ -139,9 +134,14 @@ bool RS::initDispatch(int targetApi) {
     return false;
 }
 
-bool RS::init(const char * name, int targetApi, uint32_t flags) {
+bool RS::init(const char * name, uint32_t flags, int targetApi) {
     if (mInit) {
         return true;
+    }
+    // When using default value 0, set targetApi to RS_VERSION,
+    // to preserve the behavior of existing apps.
+    if (targetApi == 0) {
+        targetApi = RS_VERSION;
     }
 
     if (initDispatch(targetApi) == false) {
@@ -155,11 +155,12 @@ bool RS::init(const char * name, int targetApi, uint32_t flags) {
         return false;
     }
     memcpy(mCacheDir, name, nameLen);
-    mCacheDir[nameLen] = 0; //add the null character even if the user does not.
+    // Add the null character even if the user does not.
+    mCacheDir[nameLen] = 0;
     mCacheDirLen = nameLen + 1;
 
-    mDev = RS::dispatch->DeviceCreate();
-    if (mDev == 0) {
+    RsDevice device = RS::dispatch->DeviceCreate();
+    if (device == 0) {
         ALOGE("Device creation failed");
         return false;
     }
@@ -170,7 +171,7 @@ bool RS::init(const char * name, int targetApi, uint32_t flags) {
         return false;
     }
 
-    mContext = RS::dispatch->ContextCreate(mDev, 0, targetApi, RS_CONTEXT_TYPE_NORMAL, flags);
+    mContext = RS::dispatch->ContextCreate(device, 0, targetApi, RS_CONTEXT_TYPE_NORMAL, flags);
     if (mContext == 0) {
         ALOGE("Context creation failed");
         return false;
@@ -245,10 +246,12 @@ void * RS::threadProc(void *vrsc) {
         case RS_MESSAGE_TO_CLIENT_NONE:
         case RS_MESSAGE_TO_CLIENT_EXCEPTION:
         case RS_MESSAGE_TO_CLIENT_RESIZE:
-            // teardown. But we want to avoid starving other threads during
-            // teardown by yielding until the next line in the destructor can
-            // execute to set mRun = false. Note that the FIFO sends an
-            // empty NONE message when it reaches its destructor.
+            /*
+             * Teardown. We want to avoid starving other threads during
+             * teardown by yielding until the next line in the destructor can
+             * execute to set mRun = false. Note that the FIFO sends an
+             * empty NONE message when it reaches its destructor.
+             */
             usleep(1000);
             break;
         case RS_MESSAGE_TO_CLIENT_USER:

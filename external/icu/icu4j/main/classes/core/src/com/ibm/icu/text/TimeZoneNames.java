@@ -1,7 +1,7 @@
 /*
  *******************************************************************************
- * Copyright (C) 2011-2014, International Business Machines Corporation and    *
- * others. All Rights Reserved.                                                *
+ * Copyright (C) 2011-2016, International Business Machines Corporation and
+ * others. All Rights Reserved.
  *******************************************************************************
  */
 package com.ibm.icu.text;
@@ -174,13 +174,13 @@ public abstract class TimeZoneNames implements Serializable {
     }
 
     /**
-     * Returns an instance of <code>TimeZoneNames</code> for the specified JDK locale.
+     * Returns an instance of <code>TimeZoneNames</code> for the specified
+     * {@link java.util.Locale}.
      * 
      * @param locale
-     *            The JDK locale.
+     *            The {@link java.util.Locale}.
      * @return An instance of <code>TimeZoneDisplayNames</code>
-     * @draft ICU 54
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 54
      */
     public static TimeZoneNames getInstance(Locale locale) {
         return getInstance(ULocale.forLocale(locale));
@@ -195,8 +195,7 @@ public abstract class TimeZoneNames implements Serializable {
      * as Israel Standard Time for Israel, while it is parsed as India Standard Time for
      * all other regions). The zone names returned by this instance are not localized.
      * 
-     * @draft ICU 54
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 54
      */
     public static TimeZoneNames getTZDBInstance(ULocale locale) {
         return new TZDBTimeZoneNames(locale);
@@ -437,6 +436,37 @@ public abstract class TimeZoneNames implements Serializable {
          */
         public int matchLength() {
             return _matchLength;
+        }
+    }
+
+    /**
+     * @internal For specific users only until proposed publicly.
+     * @deprecated This API is ICU internal only.
+     */
+    @Deprecated
+    public void loadAllDisplayNames() {}
+
+    /**
+     * @internal For specific users only until proposed publicly.
+     * @deprecated This API is ICU internal only.
+     */
+    @Deprecated
+    public void getDisplayNames(String tzID, NameType[] types, long date,
+            String[] dest, int destOffset) {
+        if (tzID == null || tzID.length() == 0) {
+            return;
+        }
+        String mzID = null;
+        for (int i = 0; i < types.length; ++i) {
+            NameType type = types[i];
+            String name = getTimeZoneDisplayName(tzID, type);
+            if (name == null) {
+                if (mzID == null) {
+                    mzID = getMetaZoneID(tzID, date);
+                }
+                name = getMetaZoneDisplayName(mzID, type);
+            }
+            dest[destOffset + i] = name;
         }
     }
 

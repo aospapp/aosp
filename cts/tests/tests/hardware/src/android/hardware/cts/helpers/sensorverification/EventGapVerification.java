@@ -28,15 +28,16 @@ public class EventGapVerification extends AbstractSensorVerification {
     // Number of events to truncate (discard) from the initial events received
     private static final int TRUNCATE_EVENTS_COUNT = 1;
 
-    // Number of event gaps to tolerate is the minimum of 1% of total events received or 10.
-    private static final int EVENT_GAP_TOLERANCE_COUNT = 10;
-    private static final double EVENT_GAP_TOLERANCE_PERCENT = 0.01;
+    // Number of event gaps to tolerate is 2% of total number of events received rounded up to next
+    // integer or 20, whichever is smaller.
+    private static final int EVENT_GAP_THRESHOLD_MAX = 20;
+    private static final double EVENT_GAP_TOLERANCE = 0.02;
 
     private final int mExpectedDelayUs;
 
     private final List<IndexedEventPair> mEventGaps = new LinkedList<IndexedEventPair>();
     private TestSensorEvent mPreviousEvent = null;
-    private int mIndex = 0;
+    private int mEventCount = 0;
 
     /**
      * Construct a {@link EventGapVerification}
@@ -72,14 +73,16 @@ public class EventGapVerification extends AbstractSensorVerification {
         }
 
         final int count = mEventGaps.size();
-        // Ensure that eventGapTolerance is at least 1.
-        int eventGapTolerance = (int)Math.max(1, Math.min(EVENT_GAP_TOLERANCE_COUNT,
-                    EVENT_GAP_TOLERANCE_PERCENT * mIndex));
-        stats.addValue(PASSED_KEY, count <= eventGapTolerance);
+        // Ensure the threshold is rounded up.
+        double eventGapThreshold =
+                Math.ceil(Math.min(EVENT_GAP_THRESHOLD_MAX, mEventCount * EVENT_GAP_TOLERANCE));
+        boolean pass = count <= eventGapThreshold;
+
+        stats.addValue(PASSED_KEY, pass);
         stats.addValue(SensorStats.EVENT_GAP_COUNT_KEY, count);
         stats.addValue(SensorStats.EVENT_GAP_POSITIONS_KEY, getIndexArray(mEventGaps));
 
-        if (count > eventGapTolerance) {
+        if (!pass) {
             StringBuilder sb = new StringBuilder();
             sb.append(count).append(" events gaps: ");
             for (int i = 0; i < Math.min(count, TRUNCATE_MESSAGE_LENGTH); i++) {
@@ -109,16 +112,16 @@ public class EventGapVerification extends AbstractSensorVerification {
      */
     @Override
     protected void addSensorEventInternal(TestSensorEvent event) {
-        if (mIndex >= TRUNCATE_EVENTS_COUNT) {
+        if (mEventCount >= TRUNCATE_EVENTS_COUNT) {
             if (mPreviousEvent != null) {
                 long deltaNs = event.timestamp - mPreviousEvent.timestamp;
                 long deltaUs = TimeUnit.MICROSECONDS.convert(deltaNs, TimeUnit.NANOSECONDS);
                 if (deltaUs > mExpectedDelayUs * THRESHOLD) {
-                    mEventGaps.add(new IndexedEventPair(mIndex, event, mPreviousEvent));
+                    mEventGaps.add(new IndexedEventPair(mEventCount, event, mPreviousEvent));
                 }
             }
             mPreviousEvent = event;
         }
-        mIndex++;
+        mEventCount++;
     }
 }

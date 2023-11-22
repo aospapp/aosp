@@ -86,6 +86,23 @@
   V(CmpgFloat, int32_t, float, float) \
   V(CmplDouble, int32_t, double, double) \
   V(CmplFloat, int32_t, float, float) \
+  V(Cos, double, double) \
+  V(Sin, double, double) \
+  V(Acos, double, double) \
+  V(Asin, double, double) \
+  V(Atan, double, double) \
+  V(Atan2, double, double, double) \
+  V(Cbrt, double, double) \
+  V(Cosh, double, double) \
+  V(Exp, double, double) \
+  V(Expm1, double, double) \
+  V(Hypot, double, double, double) \
+  V(Log, double, double) \
+  V(Log10, double, double) \
+  V(NextAfter, double, double, double) \
+  V(Sinh, double, double) \
+  V(Tan, double, double) \
+  V(Tanh, double, double) \
   V(Fmod, double, double, double) \
   V(L2d, double, int64_t) \
   V(Fmodf, float, float, float) \
@@ -102,7 +119,7 @@
   V(ShrLong, uint64_t, uint64_t, uint32_t) \
   V(UshrLong, uint64_t, uint64_t, uint32_t) \
 \
-  V(IndexOf, int32_t, void*, uint32_t, uint32_t, uint32_t) \
+  V(IndexOf, int32_t, void*, uint32_t, uint32_t) \
   V(StringCompareTo, int32_t, void*, void*) \
   V(Memcpy, void*, void*, const void*, size_t) \
 \
@@ -145,7 +162,10 @@
   V(NewStringFromStringBuffer, void) \
   V(NewStringFromStringBuilder, void) \
 \
-  V(ReadBarrierJni, void, mirror::CompressedReference<mirror::Object>*, Thread*)
+  V(ReadBarrierJni, void, mirror::CompressedReference<mirror::Object>*, Thread*) \
+  V(ReadBarrierMark, mirror::Object*, mirror::Object*) \
+  V(ReadBarrierSlow, mirror::Object*, mirror::Object*, mirror::Object*, uint32_t) \
+  V(ReadBarrierForRootSlow, mirror::Object*, GcRoot<mirror::Object>*)
 
 #endif  // ART_RUNTIME_ENTRYPOINTS_QUICK_QUICK_ENTRYPOINTS_LIST_H_
 #undef ART_RUNTIME_ENTRYPOINTS_QUICK_QUICK_ENTRYPOINTS_LIST_H_   // #define is only for lint.

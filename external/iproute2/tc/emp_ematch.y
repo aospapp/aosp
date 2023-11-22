@@ -9,7 +9,7 @@
 %locations
 %token-table
 %error-verbose
-%name-prefix="ematch_"
+%name-prefix "ematch_"
 
 %union {
 	unsigned int i;
@@ -98,4 +98,3 @@ invert:
  {
 	 ematch_err = strdup(s);
  }
-

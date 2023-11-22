@@ -16,21 +16,19 @@
  *
  ******************************************************************************/
 
-
 #ifndef BTIF_GATT_UTIL_H
 #define BTIF_GATT_UTIL_H
 
-#include "bta_api.h"
+#include <hardware/bluetooth.h>
+#include <hardware/bt_gatt.h>
+
+#include "bta/include/bta_gatt_api.h"
 
 void btif_to_bta_uuid(tBT_UUID *p_dest, bt_uuid_t *p_src);
-void btif_to_bta_gatt_id(tBTA_GATT_ID *p_dest, btgatt_gatt_id_t *p_src);
-void btif_to_bta_srvc_id(tBTA_GATT_SRVC_ID *p_dest, btgatt_srvc_id_t *p_src);
 void btif_to_bta_response(tBTA_GATTS_RSP *p_dest, btgatt_response_t* p_src);
 void btif_to_bta_uuid_mask(tBTA_DM_BLE_PF_COND_MASK *p_mask, bt_uuid_t *p_src);
 
 void bta_to_btif_uuid(bt_uuid_t *p_dest, tBT_UUID *p_src);
-void bta_to_btif_srvc_id(btgatt_srvc_id_t *p_dest, tBTA_GATT_SRVC_ID *p_src);
-void bta_to_btif_gatt_id(btgatt_gatt_id_t *p_dest, tBTA_GATT_ID *p_src);
 
 uint16_t set_read_value(btgatt_read_params_t *p_dest, tBTA_GATTC_READ *p_src);
 uint16_t get_uuid16(tBT_UUID *p_uuid);

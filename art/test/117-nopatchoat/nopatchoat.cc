@@ -16,7 +16,10 @@
 
 #include "class_linker.h"
 #include "dex_file-inl.h"
+#include "gc/heap.h"
+#include "gc/space/image_space.h"
 #include "mirror/class-inl.h"
+#include "runtime.h"
 #include "scoped_thread_state_change.h"
 #include "thread.h"
 
@@ -31,13 +34,19 @@ class NoPatchoatTest {
     return dex_file.GetOatDexFile();
   }
 
+  static bool isRelocationDeltaZero() {
+    std::vector<gc::space::ImageSpace*> spaces =
+        Runtime::Current()->GetHeap()->GetBootImageSpaces();
+    return !spaces.empty() && spaces[0]->GetImageHeader().GetPatchDelta() == 0;
+  }
+
   static bool hasExecutableOat(jclass cls) {
     const OatFile::OatDexFile* oat_dex_file = getOatDexFile(cls);
 
     return oat_dex_file != nullptr && oat_dex_file->GetOatFile()->IsExecutable();
   }
 
-  static bool isPic(jclass cls) {
+  static bool needsRelocation(jclass cls) {
     const OatFile::OatDexFile* oat_dex_file = getOatDexFile(cls);
 
     if (oat_dex_file == nullptr) {
@@ -45,16 +54,21 @@ class NoPatchoatTest {
     }
 
     const OatFile* oat_file = oat_dex_file->GetOatFile();
-    return oat_file->IsPic();
+    return !oat_file->IsPic()
+        && CompilerFilter::IsBytecodeCompilationEnabled(oat_file->GetCompilerFilter());
   }
 };
+
+extern "C" JNIEXPORT jboolean JNICALL Java_Main_isRelocationDeltaZero(JNIEnv*, jclass) {
+  return NoPatchoatTest::isRelocationDeltaZero();
+}
 
 extern "C" JNIEXPORT jboolean JNICALL Java_Main_hasExecutableOat(JNIEnv*, jclass cls) {
   return NoPatchoatTest::hasExecutableOat(cls);
 }
 
-extern "C" JNIEXPORT jboolean JNICALL Java_Main_isPic(JNIEnv*, jclass cls) {
-  return NoPatchoatTest::isPic(cls);
+extern "C" JNIEXPORT jboolean JNICALL Java_Main_needsRelocation(JNIEnv*, jclass cls) {
+  return NoPatchoatTest::needsRelocation(cls);
 }
 
 }  // namespace art

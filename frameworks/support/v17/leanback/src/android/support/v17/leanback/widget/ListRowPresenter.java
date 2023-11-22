@@ -17,11 +17,12 @@ import android.content.Context;
 import android.content.res.TypedArray;
 import android.support.v17.leanback.R;
 import android.support.v17.leanback.system.Settings;
+import android.support.v17.leanback.transition.TransitionHelper;
+import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewGroup.LayoutParams;
 
 import java.util.HashMap;
 
@@ -75,16 +76,138 @@ public class ListRowPresenter extends RowPresenter {
             mPaddingRight = mGridView.getPaddingRight();
         }
 
+        /**
+         * Gets ListRowPresenter that creates this ViewHolder.
+         * @return ListRowPresenter that creates this ViewHolder.
+         */
         public final ListRowPresenter getListRowPresenter() {
             return mListRowPresenter;
         }
 
+        /**
+         * Gets HorizontalGridView that shows a list of items.
+         * @return HorizontalGridView that shows a list of items.
+         */
         public final HorizontalGridView getGridView() {
             return mGridView;
         }
 
+        /**
+         * Gets ItemBridgeAdapter that creates the list of items.
+         * @return ItemBridgeAdapter that creates the list of items.
+         */
         public final ItemBridgeAdapter getBridgeAdapter() {
             return mItemBridgeAdapter;
+        }
+
+        /**
+         * Gets selected item position in adapter.
+         * @return Selected item position in adapter.
+         */
+        public int getSelectedPosition() {
+            return mGridView.getSelectedPosition();
+        }
+
+        /**
+         * Gets ViewHolder at a position in adapter.  Returns null if the item does not exist
+         * or the item is not bound to a view.
+         * @param position Position of the item in adapter.
+         * @return ViewHolder bounds to the item.
+         */
+        public Presenter.ViewHolder getItemViewHolder(int position) {
+            ItemBridgeAdapter.ViewHolder ibvh = (ItemBridgeAdapter.ViewHolder) mGridView
+                    .findViewHolderForAdapterPosition(position);
+            if (ibvh == null) {
+                return null;
+            }
+            return ibvh.getViewHolder();
+        }
+    }
+
+    /**
+     * A task on the ListRowPresenter.ViewHolder that can select an item by position in the
+     * HorizontalGridView and perform an optional item task on it.
+     */
+    public static class SelectItemViewHolderTask extends Presenter.ViewHolderTask {
+
+        private int mItemPosition;
+        private boolean mSmoothScroll = true;
+        private Presenter.ViewHolderTask mItemTask;
+
+        public SelectItemViewHolderTask(int itemPosition) {
+            setItemPosition(itemPosition);
+        }
+
+        /**
+         * Sets the adapter position of item to select.
+         * @param itemPosition Position of the item in adapter.
+         */
+        public void setItemPosition(int itemPosition) {
+            mItemPosition = itemPosition;
+        }
+
+        /**
+         * Returns the adapter position of item to select.
+         * @return The adapter position of item to select.
+         */
+        public int getItemPosition() {
+            return mItemPosition;
+        }
+
+        /**
+         * Sets smooth scrolling to the item or jump to the item without scrolling.  By default it is
+         * true.
+         * @param smoothScroll True for smooth scrolling to the item, false otherwise.
+         */
+        public void setSmoothScroll(boolean smoothScroll) {
+            mSmoothScroll = smoothScroll;
+        }
+
+        /**
+         * Returns true if smooth scrolling to the item false otherwise.  By default it is true.
+         * @return True for smooth scrolling to the item, false otherwise.
+         */
+        public boolean isSmoothScroll() {
+            return mSmoothScroll;
+        }
+
+        /**
+         * Returns optional task to run when the item is selected, null for no task.
+         * @return Optional task to run when the item is selected, null for no task.
+         */
+        public Presenter.ViewHolderTask getItemTask() {
+            return mItemTask;
+        }
+
+        /**
+         * Sets task to run when the item is selected, null for no task.
+         * @param itemTask Optional task to run when the item is selected, null for no task.
+         */
+        public void setItemTask(Presenter.ViewHolderTask itemTask) {
+            mItemTask = itemTask;
+        }
+
+        @Override
+        public void run(Presenter.ViewHolder holder) {
+            if (holder instanceof ListRowPresenter.ViewHolder) {
+                HorizontalGridView gridView = ((ListRowPresenter.ViewHolder) holder).getGridView();
+                android.support.v17.leanback.widget.ViewHolderTask task = null;
+                if (mItemTask != null) {
+                    task = new android.support.v17.leanback.widget.ViewHolderTask() {
+                        final Presenter.ViewHolderTask itemTask = mItemTask;
+                        @Override
+                        public void run(RecyclerView.ViewHolder rvh) {
+                            ItemBridgeAdapter.ViewHolder ibvh = (ItemBridgeAdapter.ViewHolder) rvh;
+                            itemTask.run(ibvh.getViewHolder());
+                        }
+                    };
+                }
+                if (isSmoothScroll()) {
+                    gridView.setSelectedPositionSmooth(mItemPosition, task);
+                } else {
+                    gridView.setSelectedPosition(mItemPosition, task);
+                }
+            }
         }
     }
 
@@ -93,6 +216,16 @@ public class ListRowPresenter extends RowPresenter {
 
         ListRowPresenterItemBridgeAdapter(ListRowPresenter.ViewHolder rowViewHolder) {
             mRowViewHolder = rowViewHolder;
+        }
+
+        @Override
+        protected void onCreate(ItemBridgeAdapter.ViewHolder viewHolder) {
+            if (viewHolder.itemView instanceof ViewGroup) {
+                TransitionHelper.setTransitionGroup((ViewGroup) viewHolder.itemView, true);
+            }
+            if (mShadowOverlayHelper != null) {
+                mShadowOverlayHelper.onViewCreated(viewHolder.itemView);
+            }
         }
 
         @Override
@@ -122,9 +255,9 @@ public class ListRowPresenter extends RowPresenter {
 
         @Override
         public void onAttachedToWindow(ItemBridgeAdapter.ViewHolder viewHolder) {
-            if (needsDefaultListSelectEffect()) {
+            if (mShadowOverlayHelper != null && mShadowOverlayHelper.needsOverlay()) {
                 int dimmedColor = mRowViewHolder.mColorDimmer.getPaint().getColor();
-                ((ShadowOverlayContainer) viewHolder.itemView).setOverlayColor(dimmedColor);
+                mShadowOverlayHelper.setOverlayColor(viewHolder.itemView, dimmedColor);
             }
             mRowViewHolder.syncActivatedStatus(viewHolder.itemView);
         }
@@ -136,6 +269,7 @@ public class ListRowPresenter extends RowPresenter {
         }
     }
 
+    private int mNumRows = 1;
     private int mRowHeight;
     private int mExpandedRowHeight;
     private PresenterSelector mHoverCardPresenterSelector;
@@ -144,7 +278,10 @@ public class ListRowPresenter extends RowPresenter {
     private boolean mShadowEnabled = true;
     private int mBrowseRowsFadingEdgeLength = -1;
     private boolean mRoundedCornersEnabled = true;
+    private boolean mKeepChildForeground = true;
     private HashMap<Presenter, Integer> mRecycledPoolSize = new HashMap<Presenter, Integer>();
+    private ShadowOverlayHelper mShadowOverlayHelper;
+    private ItemBridgeAdapter.Wrapper mShadowOverlayWrapper;
 
     private static int sSelectedRowTopPadding;
     private static int sExpandedSelectedRowTopPadding;
@@ -253,44 +390,42 @@ public class ListRowPresenter extends RowPresenter {
         return mUseFocusDimmer;
     }
 
-    private ItemBridgeAdapter.Wrapper mCardWrapper = new ItemBridgeAdapter.Wrapper() {
-        @Override
-        public View createWrapper(View root) {
-            ShadowOverlayContainer wrapper = new ShadowOverlayContainer(root.getContext());
-            wrapper.setLayoutParams(
-                    new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
-            if (isUsingZOrder(root.getContext())) {
-                wrapper.useDynamicShadow();
-            } else {
-                wrapper.useStaticShadow();
-            }
-            wrapper.initialize(needsDefaultShadow(),
-                    needsDefaultListSelectEffect(),
-                    areChildRoundedCornersEnabled());
-            return wrapper;
-        }
-        @Override
-        public void wrap(View wrapper, View wrapped) {
-            ((ShadowOverlayContainer) wrapper).wrap(wrapped);
-        }
-    };
+    /**
+     * Sets the numbers of rows for rendering the list of items. By default, it is
+     * set to 1.
+     */
+    public void setNumRows(int numRows) {
+        this.mNumRows = numRows;
+    }
 
     @Override
     protected void initializeRowViewHolder(RowPresenter.ViewHolder holder) {
         super.initializeRowViewHolder(holder);
         final ViewHolder rowViewHolder = (ViewHolder) holder;
+        Context context = holder.view.getContext();
+        if (mShadowOverlayHelper == null) {
+            mShadowOverlayHelper = new ShadowOverlayHelper.Builder()
+                    .needsOverlay(needsDefaultListSelectEffect())
+                    .needsShadow(needsDefaultShadow())
+                    .needsRoundedCorner(areChildRoundedCornersEnabled())
+                    .preferZOrder(isUsingZOrder(context))
+                    .keepForegroundDrawable(mKeepChildForeground)
+                    .options(createShadowOverlayOptions())
+                    .build(context);
+            if (mShadowOverlayHelper.needsWrapper()) {
+                mShadowOverlayWrapper = new ItemBridgeAdapterShadowOverlayWrapper(
+                        mShadowOverlayHelper);
+            }
+        }
         rowViewHolder.mItemBridgeAdapter = new ListRowPresenterItemBridgeAdapter(rowViewHolder);
-        if (needsDefaultListSelectEffect() || needsDefaultShadow()
-                || areChildRoundedCornersEnabled()) {
-            rowViewHolder.mItemBridgeAdapter.setWrapper(mCardWrapper);
-        }
-        if (needsDefaultShadow()) {
-            ShadowOverlayContainer.prepareParentForShadow(rowViewHolder.mGridView);
-        }
+        // set wrapper if needed
+        rowViewHolder.mItemBridgeAdapter.setWrapper(mShadowOverlayWrapper);
+        mShadowOverlayHelper.prepareParentForShadow(rowViewHolder.mGridView);
+
         FocusHighlightHelper.setupBrowseItemFocusHighlight(rowViewHolder.mItemBridgeAdapter,
                 mFocusZoomFactor, mUseFocusDimmer);
-        rowViewHolder.mGridView.setFocusDrawingOrderEnabled(
-                !isUsingZOrder(rowViewHolder.getGridView().getContext()));
+        rowViewHolder.mGridView.setFocusDrawingOrderEnabled(mShadowOverlayHelper.getShadowType()
+                == ShadowOverlayHelper.SHADOW_STATIC);
         rowViewHolder.mGridView.setOnChildSelectedListener(
                 new OnChildSelectedListener() {
             @Override
@@ -310,6 +445,7 @@ public class ListRowPresenter extends RowPresenter {
                 return false;
             }
         });
+        rowViewHolder.mGridView.setNumRows(mNumRows);
     }
 
     final boolean needsDefaultListSelectEffect() {
@@ -350,7 +486,7 @@ public class ListRowPresenter extends RowPresenter {
      */
     private void selectChildView(ViewHolder rowViewHolder, View view, boolean fireEvent) {
         if (view != null) {
-            if (rowViewHolder.mExpanded && rowViewHolder.mSelected) {
+            if (rowViewHolder.mSelected) {
                 ItemBridgeAdapter.ViewHolder ibh = (ItemBridgeAdapter.ViewHolder)
                         rowViewHolder.mGridView.getChildViewHolder(view);
 
@@ -510,6 +646,7 @@ public class ListRowPresenter extends RowPresenter {
         ListRow rowItem = (ListRow) item;
         vh.mItemBridgeAdapter.setAdapter(rowItem.getAdapter());
         vh.mGridView.setAdapter(vh.mItemBridgeAdapter);
+        vh.mGridView.setContentDescription(rowItem.getContentDescription());
     }
 
     @Override
@@ -545,7 +682,7 @@ public class ListRowPresenter extends RowPresenter {
      * Subclass may return false to disable.
      */
     public boolean isUsingDefaultShadow() {
-        return ShadowOverlayContainer.supportsShadow();
+        return ShadowOverlayHelper.supportsShadow();
     }
 
     /**
@@ -554,8 +691,7 @@ public class ListRowPresenter extends RowPresenter {
      * and does not use Z-shadow on SDK >= L, it should override isUsingZOrder() return false.
      */
     public boolean isUsingZOrder(Context context) {
-        return ShadowOverlayContainer.supportsDynamicShadow() &&
-                !Settings.getInstance(context).preferStaticShadows();
+        return !Settings.getInstance(context).preferStaticShadows();
     }
 
     /**
@@ -595,9 +731,41 @@ public class ListRowPresenter extends RowPresenter {
         return isUsingDefaultShadow() && getShadowEnabled();
     }
 
-    @Override
-    public boolean canDrawOutOfBounds() {
-        return needsDefaultShadow();
+    /**
+     * When ListRowPresenter applies overlay color on the child,  it may change child's foreground
+     * Drawable.  If application uses child's foreground for other purposes such as ripple effect,
+     * it needs tell ListRowPresenter to keep the child's foreground.  The default value is true.
+     *
+     * @param keep true if keep foreground of child of this row, false ListRowPresenter might change
+     *             the foreground of the child.
+     */
+    public final void setKeepChildForeground(boolean keep) {
+        mKeepChildForeground = keep;
+    }
+
+    /**
+     * Returns true if keeps foreground of child of this row, false otherwise.  When
+     * ListRowPresenter applies overlay color on the child,  it may change child's foreground
+     * Drawable.  If application uses child's foreground for other purposes such as ripple effect,
+     * it needs tell ListRowPresenter to keep the child's foreground.  The default value is true.
+     *
+     * @return true if keeps foreground of child of this row, false otherwise.
+     */
+    public final boolean isKeepChildForeground() {
+        return mKeepChildForeground;
+    }
+
+    /**
+     * Create ShadowOverlayHelper Options.  Subclass may override.
+     * e.g.
+     * <code>
+     * return new ShadowOverlayHelper.Options().roundedCornerRadius(10);
+     * </code>
+     *
+     * @return The options to be used for shadow, overlay and rouded corner.
+     */
+    protected ShadowOverlayHelper.Options createShadowOverlayOptions() {
+        return ShadowOverlayHelper.Options.DEFAULT;
     }
 
     /**
@@ -615,12 +783,11 @@ public class ListRowPresenter extends RowPresenter {
     @Override
     protected void onSelectLevelChanged(RowPresenter.ViewHolder holder) {
         super.onSelectLevelChanged(holder);
-        if (needsDefaultListSelectEffect()) {
+        if (mShadowOverlayHelper != null && mShadowOverlayHelper.needsOverlay()) {
             ViewHolder vh = (ViewHolder) holder;
             int dimmedColor = vh.mColorDimmer.getPaint().getColor();
             for (int i = 0, count = vh.mGridView.getChildCount(); i < count; i++) {
-                ShadowOverlayContainer wrapper = (ShadowOverlayContainer) vh.mGridView.getChildAt(i);
-                wrapper.setOverlayColor(dimmedColor);
+                mShadowOverlayHelper.setOverlayColor(vh.mGridView.getChildAt(i), dimmedColor);
             }
             if (vh.mGridView.getFadingLeftEdge()) {
                 vh.mGridView.invalidate();

@@ -106,6 +106,7 @@ private:
     bool mChangingResolution;
     bool mFlushNeeded;
     bool mWaitForI;
+    size_t mStride;
 
     status_t initDecoder();
     status_t deInitDecoder();
@@ -117,7 +118,7 @@ private:
     status_t resetPlugin();
     status_t reInitDecoder();
 
-    void setDecodeArgs(
+    bool setDecodeArgs(
             ivd_video_decode_ip_t *ps_dec_ip,
             ivd_video_decode_op_t *ps_dec_op,
             OMX_BUFFERHEADERTYPE *inHeader,

@@ -16,7 +16,7 @@
 
 package android.view.inputmethod.cts;
 
-import com.android.cts.view.R;
+import android.view.cts.R;
 
 import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;

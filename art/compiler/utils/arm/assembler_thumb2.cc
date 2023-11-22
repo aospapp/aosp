@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <type_traits>
+
 #include "assembler_thumb2.h"
 
 #include "base/bit_utils.h"
@@ -25,10 +27,494 @@
 namespace art {
 namespace arm {
 
+template <typename Function>
+void Thumb2Assembler::Fixup::ForExpandableDependencies(Thumb2Assembler* assembler, Function fn) {
+  static_assert(
+      std::is_same<typename std::result_of<Function(FixupId, FixupId)>::type, void>::value,
+      "Incorrect signature for argument `fn`: expected (FixupId, FixupId) -> void");
+  Fixup* fixups = assembler->fixups_.data();
+  for (FixupId fixup_id = 0u, end_id = assembler->fixups_.size(); fixup_id != end_id; ++fixup_id) {
+    uint32_t target = fixups[fixup_id].target_;
+    if (target > fixups[fixup_id].location_) {
+      for (FixupId id = fixup_id + 1u; id != end_id && fixups[id].location_ < target; ++id) {
+        if (fixups[id].CanExpand()) {
+          fn(id, fixup_id);
+        }
+      }
+    } else {
+      for (FixupId id = fixup_id; id != 0u && fixups[id - 1u].location_ >= target; --id) {
+        if (fixups[id - 1u].CanExpand()) {
+          fn(id - 1u, fixup_id);
+        }
+      }
+    }
+  }
+}
+
+void Thumb2Assembler::Fixup::PrepareDependents(Thumb2Assembler* assembler) {
+  // For each Fixup, it's easy to find the Fixups that it depends on as they are either
+  // the following or the preceding Fixups until we find the target. However, for fixup
+  // adjustment we need the reverse lookup, i.e. what Fixups depend on a given Fixup.
+  // This function creates a compact representation of this relationship, where we have
+  // all the dependents in a single array and Fixups reference their ranges by start
+  // index and count. (Instead of having a per-fixup vector.)
+
+  // Count the number of dependents of each Fixup.
+  Fixup* fixups = assembler->fixups_.data();
+  ForExpandableDependencies(
+      assembler,
+      [fixups](FixupId dependency, FixupId dependent ATTRIBUTE_UNUSED) {
+        fixups[dependency].dependents_count_ += 1u;
+      });
+  // Assign index ranges in fixup_dependents_ to individual fixups. Record the end of the
+  // range in dependents_start_, we shall later decrement it as we fill in fixup_dependents_.
+  uint32_t number_of_dependents = 0u;
+  for (FixupId fixup_id = 0u, end_id = assembler->fixups_.size(); fixup_id != end_id; ++fixup_id) {
+    number_of_dependents += fixups[fixup_id].dependents_count_;
+    fixups[fixup_id].dependents_start_ = number_of_dependents;
+  }
+  if (number_of_dependents == 0u) {
+    return;
+  }
+  // Create and fill in the fixup_dependents_.
+  assembler->fixup_dependents_.resize(number_of_dependents);
+  FixupId* dependents = assembler->fixup_dependents_.data();
+  ForExpandableDependencies(
+      assembler,
+      [fixups, dependents](FixupId dependency, FixupId dependent) {
+        fixups[dependency].dependents_start_ -= 1u;
+        dependents[fixups[dependency].dependents_start_] = dependent;
+      });
+}
+
+void Thumb2Assembler::BindLabel(Label* label, uint32_t bound_pc) {
+  CHECK(!label->IsBound());
+
+  while (label->IsLinked()) {
+    FixupId fixup_id = label->Position();                     // The id for linked Fixup.
+    Fixup* fixup = GetFixup(fixup_id);                        // Get the Fixup at this id.
+    fixup->Resolve(bound_pc);                                 // Fixup can be resolved now.
+    uint32_t fixup_location = fixup->GetLocation();
+    uint16_t next = buffer_.Load<uint16_t>(fixup_location);   // Get next in chain.
+    buffer_.Store<int16_t>(fixup_location, 0);
+    label->position_ = next;                                  // Move to next.
+  }
+  label->BindTo(bound_pc);
+}
+
+uint32_t Thumb2Assembler::BindLiterals() {
+  // We don't add the padding here, that's done only after adjusting the Fixup sizes.
+  uint32_t code_size = buffer_.Size();
+  for (Literal& lit : literals_) {
+    Label* label = lit.GetLabel();
+    BindLabel(label, code_size);
+    code_size += lit.GetSize();
+  }
+  return code_size;
+}
+
+void Thumb2Assembler::BindJumpTables(uint32_t code_size) {
+  for (JumpTable& table : jump_tables_) {
+    Label* label = table.GetLabel();
+    BindLabel(label, code_size);
+    code_size += table.GetSize();
+  }
+}
+
+void Thumb2Assembler::AdjustFixupIfNeeded(Fixup* fixup, uint32_t* current_code_size,
+                                          std::deque<FixupId>* fixups_to_recalculate) {
+  uint32_t adjustment = fixup->AdjustSizeIfNeeded(*current_code_size);
+  if (adjustment != 0u) {
+    DCHECK(fixup->CanExpand());
+    *current_code_size += adjustment;
+    for (FixupId dependent_id : fixup->Dependents(*this)) {
+      Fixup* dependent = GetFixup(dependent_id);
+      dependent->IncreaseAdjustment(adjustment);
+      if (buffer_.Load<int16_t>(dependent->GetLocation()) == 0) {
+        buffer_.Store<int16_t>(dependent->GetLocation(), 1);
+        fixups_to_recalculate->push_back(dependent_id);
+      }
+    }
+  }
+}
+
+uint32_t Thumb2Assembler::AdjustFixups() {
+  Fixup::PrepareDependents(this);
+  uint32_t current_code_size = buffer_.Size();
+  std::deque<FixupId> fixups_to_recalculate;
+  if (kIsDebugBuild) {
+    // We will use the placeholders in the buffer_ to mark whether the fixup has
+    // been added to the fixups_to_recalculate. Make sure we start with zeros.
+    for (Fixup& fixup : fixups_) {
+      CHECK_EQ(buffer_.Load<int16_t>(fixup.GetLocation()), 0);
+    }
+  }
+  for (Fixup& fixup : fixups_) {
+    AdjustFixupIfNeeded(&fixup, &current_code_size, &fixups_to_recalculate);
+  }
+  while (!fixups_to_recalculate.empty()) {
+    do {
+      // Pop the fixup.
+      FixupId fixup_id = fixups_to_recalculate.front();
+      fixups_to_recalculate.pop_front();
+      Fixup* fixup = GetFixup(fixup_id);
+      DCHECK_NE(buffer_.Load<int16_t>(fixup->GetLocation()), 0);
+      buffer_.Store<int16_t>(fixup->GetLocation(), 0);
+      // See if it needs adjustment.
+      AdjustFixupIfNeeded(fixup, &current_code_size, &fixups_to_recalculate);
+    } while (!fixups_to_recalculate.empty());
+
+    if ((current_code_size & 2) != 0 && (!literals_.empty() || !jump_tables_.empty())) {
+      // If we need to add padding before literals, this may just push some out of range,
+      // so recalculate all load literals. This makes up for the fact that we don't mark
+      // load literal as a dependency of all previous Fixups even though it actually is.
+      for (Fixup& fixup : fixups_) {
+        if (fixup.IsLoadLiteral()) {
+          AdjustFixupIfNeeded(&fixup, &current_code_size, &fixups_to_recalculate);
+        }
+      }
+    }
+  }
+  if (kIsDebugBuild) {
+    // Check that no fixup is marked as being in fixups_to_recalculate anymore.
+    for (Fixup& fixup : fixups_) {
+      CHECK_EQ(buffer_.Load<int16_t>(fixup.GetLocation()), 0);
+    }
+  }
+
+  // Adjust literal pool labels for padding.
+  DCHECK_ALIGNED(current_code_size, 2);
+  uint32_t literals_adjustment = current_code_size + (current_code_size & 2) - buffer_.Size();
+  if (literals_adjustment != 0u) {
+    for (Literal& literal : literals_) {
+      Label* label = literal.GetLabel();
+      DCHECK(label->IsBound());
+      int old_position = label->Position();
+      label->Reinitialize();
+      label->BindTo(old_position + literals_adjustment);
+    }
+    for (JumpTable& table : jump_tables_) {
+      Label* label = table.GetLabel();
+      DCHECK(label->IsBound());
+      int old_position = label->Position();
+      label->Reinitialize();
+      label->BindTo(old_position + literals_adjustment);
+    }
+  }
+
+  return current_code_size;
+}
+
+void Thumb2Assembler::EmitFixups(uint32_t adjusted_code_size) {
+  // Move non-fixup code to its final place and emit fixups.
+  // Process fixups in reverse order so that we don't repeatedly move the same data.
+  size_t src_end = buffer_.Size();
+  size_t dest_end = adjusted_code_size;
+  buffer_.Resize(dest_end);
+  DCHECK_GE(dest_end, src_end);
+  for (auto i = fixups_.rbegin(), end = fixups_.rend(); i != end; ++i) {
+    Fixup* fixup = &*i;
+    if (fixup->GetOriginalSize() == fixup->GetSize()) {
+      // The size of this Fixup didn't change. To avoid moving the data
+      // in small chunks, emit the code to its original position.
+      fixup->Emit(&buffer_, adjusted_code_size);
+      fixup->Finalize(dest_end - src_end);
+    } else {
+      // Move the data between the end of the fixup and src_end to its final location.
+      size_t old_fixup_location = fixup->GetLocation();
+      size_t src_begin = old_fixup_location + fixup->GetOriginalSizeInBytes();
+      size_t data_size = src_end - src_begin;
+      size_t dest_begin  = dest_end - data_size;
+      buffer_.Move(dest_begin, src_begin, data_size);
+      src_end = old_fixup_location;
+      dest_end = dest_begin - fixup->GetSizeInBytes();
+      // Finalize the Fixup and emit the data to the new location.
+      fixup->Finalize(dest_end - src_end);
+      fixup->Emit(&buffer_, adjusted_code_size);
+    }
+  }
+  CHECK_EQ(src_end, dest_end);
+}
+
+void Thumb2Assembler::EmitLiterals() {
+  if (!literals_.empty()) {
+    // Load literal instructions (LDR, LDRD, VLDR) require 4-byte alignment.
+    // We don't support byte and half-word literals.
+    uint32_t code_size = buffer_.Size();
+    DCHECK_ALIGNED(code_size, 2);
+    if ((code_size & 2u) != 0u) {
+      Emit16(0);
+    }
+    for (Literal& literal : literals_) {
+      AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+      DCHECK_EQ(static_cast<size_t>(literal.GetLabel()->Position()), buffer_.Size());
+      DCHECK(literal.GetSize() == 4u || literal.GetSize() == 8u);
+      for (size_t i = 0, size = literal.GetSize(); i != size; ++i) {
+        buffer_.Emit<uint8_t>(literal.GetData()[i]);
+      }
+    }
+  }
+}
+
+void Thumb2Assembler::EmitJumpTables() {
+  if (!jump_tables_.empty()) {
+    // Jump tables require 4 byte alignment. (We don't support byte and half-word jump tables.)
+    uint32_t code_size = buffer_.Size();
+    DCHECK_ALIGNED(code_size, 2);
+    if ((code_size & 2u) != 0u) {
+      Emit16(0);
+    }
+    for (JumpTable& table : jump_tables_) {
+      // Bulk ensure capacity, as this may be large.
+      size_t orig_size = buffer_.Size();
+      size_t required_capacity = orig_size + table.GetSize();
+      if (required_capacity > buffer_.Capacity()) {
+        buffer_.ExtendCapacity(required_capacity);
+      }
+#ifndef NDEBUG
+      buffer_.has_ensured_capacity_ = true;
+#endif
+
+      DCHECK_EQ(static_cast<size_t>(table.GetLabel()->Position()), buffer_.Size());
+      int32_t anchor_position = table.GetAnchorLabel()->Position() + 4;
+
+      for (Label* target : table.GetData()) {
+        // Ensure that the label was tracked, so that it will have the right position.
+        DCHECK(std::find(tracked_labels_.begin(), tracked_labels_.end(), target) !=
+                   tracked_labels_.end());
+
+        int32_t offset = target->Position() - anchor_position;
+        buffer_.Emit<int32_t>(offset);
+      }
+
+#ifndef NDEBUG
+      buffer_.has_ensured_capacity_ = false;
+#endif
+      size_t new_size = buffer_.Size();
+      DCHECK_LE(new_size - orig_size, table.GetSize());
+    }
+  }
+}
+
+void Thumb2Assembler::PatchCFI() {
+  if (cfi().NumberOfDelayedAdvancePCs() == 0u) {
+    return;
+  }
+
+  typedef DebugFrameOpCodeWriterForAssembler::DelayedAdvancePC DelayedAdvancePC;
+  const auto data = cfi().ReleaseStreamAndPrepareForDelayedAdvancePC();
+  const std::vector<uint8_t>& old_stream = data.first;
+  const std::vector<DelayedAdvancePC>& advances = data.second;
+
+  // Refill our data buffer with patched opcodes.
+  cfi().ReserveCFIStream(old_stream.size() + advances.size() + 16);
+  size_t stream_pos = 0;
+  for (const DelayedAdvancePC& advance : advances) {
+    DCHECK_GE(advance.stream_pos, stream_pos);
+    // Copy old data up to the point where advance was issued.
+    cfi().AppendRawData(old_stream, stream_pos, advance.stream_pos);
+    stream_pos = advance.stream_pos;
+    // Insert the advance command with its final offset.
+    size_t final_pc = GetAdjustedPosition(advance.pc);
+    cfi().AdvancePC(final_pc);
+  }
+  // Copy the final segment if any.
+  cfi().AppendRawData(old_stream, stream_pos, old_stream.size());
+}
+
+inline int16_t Thumb2Assembler::BEncoding16(int32_t offset, Condition cond) {
+  DCHECK_ALIGNED(offset, 2);
+  int16_t encoding = B15 | B14;
+  if (cond != AL) {
+    DCHECK(IsInt<9>(offset));
+    encoding |= B12 |  (static_cast<int32_t>(cond) << 8) | ((offset >> 1) & 0xff);
+  } else {
+    DCHECK(IsInt<12>(offset));
+    encoding |= B13 | ((offset >> 1) & 0x7ff);
+  }
+  return encoding;
+}
+
+inline int32_t Thumb2Assembler::BEncoding32(int32_t offset, Condition cond) {
+  DCHECK_ALIGNED(offset, 2);
+  int32_t s = (offset >> 31) & 1;   // Sign bit.
+  int32_t encoding = B31 | B30 | B29 | B28 | B15 |
+      (s << 26) |                   // Sign bit goes to bit 26.
+      ((offset >> 1) & 0x7ff);      // imm11 goes to bits 0-10.
+  if (cond != AL) {
+    DCHECK(IsInt<21>(offset));
+    // Encode cond, move imm6 from bits 12-17 to bits 16-21 and move J1 and J2.
+    encoding |= (static_cast<int32_t>(cond) << 22) | ((offset & 0x3f000) << (16 - 12)) |
+        ((offset & (1 << 19)) >> (19 - 13)) |   // Extract J1 from bit 19 to bit 13.
+        ((offset & (1 << 18)) >> (18 - 11));    // Extract J2 from bit 18 to bit 11.
+  } else {
+    DCHECK(IsInt<25>(offset));
+    int32_t j1 = ((offset >> 23) ^ s ^ 1) & 1;  // Calculate J1 from I1 extracted from bit 23.
+    int32_t j2 = ((offset >> 22)^ s ^ 1) & 1;   // Calculate J2 from I2 extracted from bit 22.
+    // Move imm10 from bits 12-21 to bits 16-25 and add J1 and J2.
+    encoding |= B12 | ((offset & 0x3ff000) << (16 - 12)) |
+        (j1 << 13) | (j2 << 11);
+  }
+  return encoding;
+}
+
+inline int16_t Thumb2Assembler::CbxzEncoding16(Register rn, int32_t offset, Condition cond) {
+  DCHECK(!IsHighRegister(rn));
+  DCHECK_ALIGNED(offset, 2);
+  DCHECK(IsUint<7>(offset));
+  DCHECK(cond == EQ || cond == NE);
+  return B15 | B13 | B12 | B8 | (cond == NE ? B11 : 0) | static_cast<int32_t>(rn) |
+      ((offset & 0x3e) << (3 - 1)) |    // Move imm5 from bits 1-5 to bits 3-7.
+      ((offset & 0x40) << (9 - 6));     // Move i from bit 6 to bit 11
+}
+
+inline int16_t Thumb2Assembler::CmpRnImm8Encoding16(Register rn, int32_t value) {
+  DCHECK(!IsHighRegister(rn));
+  DCHECK(IsUint<8>(value));
+  return B13 | B11 | (rn << 8) | value;
+}
+
+inline int16_t Thumb2Assembler::AddRdnRmEncoding16(Register rdn, Register rm) {
+  // The high bit of rn is moved across 4-bit rm.
+  return B14 | B10 | (static_cast<int32_t>(rm) << 3) |
+      (static_cast<int32_t>(rdn) & 7) | ((static_cast<int32_t>(rdn) & 8) << 4);
+}
+
+inline int32_t Thumb2Assembler::MovwEncoding32(Register rd, int32_t value) {
+  DCHECK(IsUint<16>(value));
+  return B31 | B30 | B29 | B28 | B25 | B22 |
+      (static_cast<int32_t>(rd) << 8) |
+      ((value & 0xf000) << (16 - 12)) |   // Move imm4 from bits 12-15 to bits 16-19.
+      ((value & 0x0800) << (26 - 11)) |   // Move i from bit 11 to bit 26.
+      ((value & 0x0700) << (12 - 8)) |    // Move imm3 from bits 8-10 to bits 12-14.
+      (value & 0xff);                     // Keep imm8 in bits 0-7.
+}
+
+inline int32_t Thumb2Assembler::MovtEncoding32(Register rd, int32_t value) {
+  DCHECK_EQ(value & 0xffff, 0);
+  int32_t movw_encoding = MovwEncoding32(rd, (value >> 16) & 0xffff);
+  return movw_encoding | B25 | B23;
+}
+
+inline int32_t Thumb2Assembler::MovModImmEncoding32(Register rd, int32_t value) {
+  uint32_t mod_imm = ModifiedImmediate(value);
+  DCHECK_NE(mod_imm, kInvalidModifiedImmediate);
+  return B31 | B30 | B29 | B28 | B22 | B19 | B18 | B17 | B16 |
+      (static_cast<int32_t>(rd) << 8) | static_cast<int32_t>(mod_imm);
+}
+
+inline int16_t Thumb2Assembler::LdrLitEncoding16(Register rt, int32_t offset) {
+  DCHECK(!IsHighRegister(rt));
+  DCHECK_ALIGNED(offset, 4);
+  DCHECK(IsUint<10>(offset));
+  return B14 | B11 | (static_cast<int32_t>(rt) << 8) | (offset >> 2);
+}
+
+inline int32_t Thumb2Assembler::LdrLitEncoding32(Register rt, int32_t offset) {
+  // NOTE: We don't support negative offset, i.e. U=0 (B23).
+  return LdrRtRnImm12Encoding(rt, PC, offset);
+}
+
+inline int32_t Thumb2Assembler::LdrdEncoding32(Register rt, Register rt2, Register rn, int32_t offset) {
+  DCHECK_ALIGNED(offset, 4);
+  CHECK(IsUint<10>(offset));
+  return B31 | B30 | B29 | B27 |
+      B24 /* P = 1 */ | B23 /* U = 1 */ | B22 | 0 /* W = 0 */ | B20 |
+      (static_cast<int32_t>(rn) << 16) | (static_cast<int32_t>(rt) << 12) |
+      (static_cast<int32_t>(rt2) << 8) | (offset >> 2);
+}
+
+inline int32_t Thumb2Assembler::VldrsEncoding32(SRegister sd, Register rn, int32_t offset) {
+  DCHECK_ALIGNED(offset, 4);
+  CHECK(IsUint<10>(offset));
+  return B31 | B30 | B29 | B27 | B26 | B24 |
+      B23 /* U = 1 */ | B20 | B11 | B9 |
+      (static_cast<int32_t>(rn) << 16) |
+      ((static_cast<int32_t>(sd) & 0x01) << (22 - 0)) |   // Move D from bit 0 to bit 22.
+      ((static_cast<int32_t>(sd) & 0x1e) << (12 - 1)) |   // Move Vd from bits 1-4 to bits 12-15.
+      (offset >> 2);
+}
+
+inline int32_t Thumb2Assembler::VldrdEncoding32(DRegister dd, Register rn, int32_t offset) {
+  DCHECK_ALIGNED(offset, 4);
+  CHECK(IsUint<10>(offset));
+  return B31 | B30 | B29 | B27 | B26 | B24 |
+      B23 /* U = 1 */ | B20 | B11 | B9 | B8 |
+      (rn << 16) |
+      ((static_cast<int32_t>(dd) & 0x10) << (22 - 4)) |   // Move D from bit 4 to bit 22.
+      ((static_cast<int32_t>(dd) & 0x0f) << (12 - 0)) |   // Move Vd from bits 0-3 to bits 12-15.
+      (offset >> 2);
+}
+
+inline int16_t Thumb2Assembler::LdrRtRnImm5Encoding16(Register rt, Register rn, int32_t offset) {
+  DCHECK(!IsHighRegister(rt));
+  DCHECK(!IsHighRegister(rn));
+  DCHECK_ALIGNED(offset, 4);
+  DCHECK(IsUint<7>(offset));
+  return B14 | B13 | B11 |
+      (static_cast<int32_t>(rn) << 3) | static_cast<int32_t>(rt) |
+      (offset << (6 - 2));                // Move imm5 from bits 2-6 to bits 6-10.
+}
+
+int32_t Thumb2Assembler::Fixup::LoadWideOrFpEncoding(Register rbase, int32_t offset) const {
+  switch (type_) {
+    case kLoadLiteralWide:
+      return LdrdEncoding32(rn_, rt2_, rbase, offset);
+    case kLoadFPLiteralSingle:
+      return VldrsEncoding32(sd_, rbase, offset);
+    case kLoadFPLiteralDouble:
+      return VldrdEncoding32(dd_, rbase, offset);
+    default:
+      LOG(FATAL) << "Unexpected type: " << static_cast<int>(type_);
+      UNREACHABLE();
+  }
+}
+
+inline int32_t Thumb2Assembler::LdrRtRnImm12Encoding(Register rt, Register rn, int32_t offset) {
+  DCHECK(IsUint<12>(offset));
+  return B31 | B30 | B29 | B28 | B27 | B23 | B22 | B20 | (rn << 16) | (rt << 12) | offset;
+}
+
+inline int16_t Thumb2Assembler::AdrEncoding16(Register rd, int32_t offset) {
+  DCHECK(IsUint<10>(offset));
+  DCHECK(IsAligned<4>(offset));
+  DCHECK(!IsHighRegister(rd));
+  return B15 | B13 | (rd << 8) | (offset >> 2);
+}
+
+inline int32_t Thumb2Assembler::AdrEncoding32(Register rd, int32_t offset) {
+  DCHECK(IsUint<12>(offset));
+  // Bit     26: offset[11]
+  // Bits 14-12: offset[10-8]
+  // Bits   7-0: offset[7-0]
+  int32_t immediate_mask =
+      ((offset & (1 << 11)) << (26 - 11)) |
+      ((offset & (7 << 8)) << (12 - 8)) |
+      (offset & 0xFF);
+  return B31 | B30 | B29 | B28 | B25 | B19 | B18 | B17 | B16 | (rd << 8) | immediate_mask;
+}
+
+void Thumb2Assembler::FinalizeCode() {
+  ArmAssembler::FinalizeCode();
+  uint32_t size_after_literals = BindLiterals();
+  BindJumpTables(size_after_literals);
+  uint32_t adjusted_code_size = AdjustFixups();
+  EmitFixups(adjusted_code_size);
+  EmitLiterals();
+  FinalizeTrackedLabels();
+  EmitJumpTables();
+  PatchCFI();
+}
+
+bool Thumb2Assembler::ShifterOperandCanAlwaysHold(uint32_t immediate) {
+  return ArmAssembler::ModifiedImmediate(immediate) != kInvalidModifiedImmediate;
+}
+
 bool Thumb2Assembler::ShifterOperandCanHold(Register rd ATTRIBUTE_UNUSED,
                                             Register rn ATTRIBUTE_UNUSED,
                                             Opcode opcode,
                                             uint32_t immediate,
+                                            SetCc set_cc,
                                             ShifterOperand* shifter_op) {
   shifter_op->type_ = ShifterOperand::kImmediate;
   shifter_op->immed_ = immediate;
@@ -37,7 +523,8 @@ bool Thumb2Assembler::ShifterOperandCanHold(Register rd ATTRIBUTE_UNUSED,
   switch (opcode) {
     case ADD:
     case SUB:
-      if (immediate < (1 << 12)) {    // Less than (or equal to) 12 bits can always be done.
+      // Less than (or equal to) 12 bits can be done if we don't need to set condition codes.
+      if (immediate < (1 << 12) && set_cc != kCcSet) {
         return true;
       }
       return ArmAssembler::ModifiedImmediate(immediate) != kInvalidModifiedImmediate;
@@ -45,6 +532,7 @@ bool Thumb2Assembler::ShifterOperandCanHold(Register rd ATTRIBUTE_UNUSED,
     case MOV:
       // TODO: Support less than or equal to 12bits.
       return ArmAssembler::ModifiedImmediate(immediate) != kInvalidModifiedImmediate;
+
     case MVN:
     default:
       return ArmAssembler::ModifiedImmediate(immediate) != kInvalidModifiedImmediate;
@@ -52,128 +540,102 @@ bool Thumb2Assembler::ShifterOperandCanHold(Register rd ATTRIBUTE_UNUSED,
 }
 
 void Thumb2Assembler::and_(Register rd, Register rn, const ShifterOperand& so,
-                           Condition cond) {
-  EmitDataProcessing(cond, AND, 0, rn, rd, so);
+                           Condition cond, SetCc set_cc) {
+  EmitDataProcessing(cond, AND, set_cc, rn, rd, so);
 }
 
 
 void Thumb2Assembler::eor(Register rd, Register rn, const ShifterOperand& so,
-                          Condition cond) {
-  EmitDataProcessing(cond, EOR, 0, rn, rd, so);
+                          Condition cond, SetCc set_cc) {
+  EmitDataProcessing(cond, EOR, set_cc, rn, rd, so);
 }
 
 
 void Thumb2Assembler::sub(Register rd, Register rn, const ShifterOperand& so,
-                          Condition cond) {
-  EmitDataProcessing(cond, SUB, 0, rn, rd, so);
+                          Condition cond, SetCc set_cc) {
+  EmitDataProcessing(cond, SUB, set_cc, rn, rd, so);
 }
 
 
 void Thumb2Assembler::rsb(Register rd, Register rn, const ShifterOperand& so,
-                          Condition cond) {
-  EmitDataProcessing(cond, RSB, 0, rn, rd, so);
-}
-
-
-void Thumb2Assembler::rsbs(Register rd, Register rn, const ShifterOperand& so,
-                           Condition cond) {
-  EmitDataProcessing(cond, RSB, 1, rn, rd, so);
+                          Condition cond, SetCc set_cc) {
+  EmitDataProcessing(cond, RSB, set_cc, rn, rd, so);
 }
 
 
 void Thumb2Assembler::add(Register rd, Register rn, const ShifterOperand& so,
-                          Condition cond) {
-  EmitDataProcessing(cond, ADD, 0, rn, rd, so);
-}
-
-
-void Thumb2Assembler::adds(Register rd, Register rn, const ShifterOperand& so,
-                           Condition cond) {
-  EmitDataProcessing(cond, ADD, 1, rn, rd, so);
-}
-
-
-void Thumb2Assembler::subs(Register rd, Register rn, const ShifterOperand& so,
-                           Condition cond) {
-  EmitDataProcessing(cond, SUB, 1, rn, rd, so);
+                          Condition cond, SetCc set_cc) {
+  EmitDataProcessing(cond, ADD, set_cc, rn, rd, so);
 }
 
 
 void Thumb2Assembler::adc(Register rd, Register rn, const ShifterOperand& so,
-                          Condition cond) {
-  EmitDataProcessing(cond, ADC, 0, rn, rd, so);
+                          Condition cond, SetCc set_cc) {
+  EmitDataProcessing(cond, ADC, set_cc, rn, rd, so);
 }
 
 
 void Thumb2Assembler::sbc(Register rd, Register rn, const ShifterOperand& so,
-                          Condition cond) {
-  EmitDataProcessing(cond, SBC, 0, rn, rd, so);
+                          Condition cond, SetCc set_cc) {
+  EmitDataProcessing(cond, SBC, set_cc, rn, rd, so);
 }
 
 
 void Thumb2Assembler::rsc(Register rd, Register rn, const ShifterOperand& so,
-                          Condition cond) {
-  EmitDataProcessing(cond, RSC, 0, rn, rd, so);
+                          Condition cond, SetCc set_cc) {
+  EmitDataProcessing(cond, RSC, set_cc, rn, rd, so);
 }
 
 
 void Thumb2Assembler::tst(Register rn, const ShifterOperand& so, Condition cond) {
   CHECK_NE(rn, PC);  // Reserve tst pc instruction for exception handler marker.
-  EmitDataProcessing(cond, TST, 1, rn, R0, so);
+  EmitDataProcessing(cond, TST, kCcSet, rn, R0, so);
 }
 
 
 void Thumb2Assembler::teq(Register rn, const ShifterOperand& so, Condition cond) {
   CHECK_NE(rn, PC);  // Reserve teq pc instruction for exception handler marker.
-  EmitDataProcessing(cond, TEQ, 1, rn, R0, so);
+  EmitDataProcessing(cond, TEQ, kCcSet, rn, R0, so);
 }
 
 
 void Thumb2Assembler::cmp(Register rn, const ShifterOperand& so, Condition cond) {
-  EmitDataProcessing(cond, CMP, 1, rn, R0, so);
+  EmitDataProcessing(cond, CMP, kCcSet, rn, R0, so);
 }
 
 
 void Thumb2Assembler::cmn(Register rn, const ShifterOperand& so, Condition cond) {
-  EmitDataProcessing(cond, CMN, 1, rn, R0, so);
+  EmitDataProcessing(cond, CMN, kCcSet, rn, R0, so);
 }
 
 
-void Thumb2Assembler::orr(Register rd, Register rn,
-                          const ShifterOperand& so, Condition cond) {
-  EmitDataProcessing(cond, ORR, 0, rn, rd, so);
+void Thumb2Assembler::orr(Register rd, Register rn, const ShifterOperand& so,
+                          Condition cond, SetCc set_cc) {
+  EmitDataProcessing(cond, ORR, set_cc, rn, rd, so);
 }
 
 
-void Thumb2Assembler::orrs(Register rd, Register rn,
-                           const ShifterOperand& so, Condition cond) {
-  EmitDataProcessing(cond, ORR, 1, rn, rd, so);
+void Thumb2Assembler::orn(Register rd, Register rn, const ShifterOperand& so,
+                          Condition cond, SetCc set_cc) {
+  EmitDataProcessing(cond, ORN, set_cc, rn, rd, so);
 }
 
 
-void Thumb2Assembler::mov(Register rd, const ShifterOperand& so, Condition cond) {
-  EmitDataProcessing(cond, MOV, 0, R0, rd, so);
-}
-
-
-void Thumb2Assembler::movs(Register rd, const ShifterOperand& so, Condition cond) {
-  EmitDataProcessing(cond, MOV, 1, R0, rd, so);
+void Thumb2Assembler::mov(Register rd, const ShifterOperand& so,
+                          Condition cond, SetCc set_cc) {
+  EmitDataProcessing(cond, MOV, set_cc, R0, rd, so);
 }
 
 
 void Thumb2Assembler::bic(Register rd, Register rn, const ShifterOperand& so,
-                       Condition cond) {
-  EmitDataProcessing(cond, BIC, 0, rn, rd, so);
+                          Condition cond, SetCc set_cc) {
+  EmitDataProcessing(cond, BIC, set_cc, rn, rd, so);
 }
 
 
-void Thumb2Assembler::mvn(Register rd, const ShifterOperand& so, Condition cond) {
-  EmitDataProcessing(cond, MVN, 0, R0, rd, so);
-}
-
-
-void Thumb2Assembler::mvns(Register rd, const ShifterOperand& so, Condition cond) {
-  EmitDataProcessing(cond, MVN, 1, R0, rd, so);
+void Thumb2Assembler::mvn(Register rd, const ShifterOperand& so,
+                          Condition cond, SetCc set_cc) {
+  EmitDataProcessing(cond, MVN, set_cc, R0, rd, so);
 }
 
 
@@ -231,6 +693,24 @@ void Thumb2Assembler::mls(Register rd, Register rn, Register rm, Register ra,
       op2 << 4 |
       static_cast<uint32_t>(rd) << 8 |
       static_cast<uint32_t>(ra) << 12 |
+      static_cast<uint32_t>(rn) << 16 |
+      static_cast<uint32_t>(rm);
+
+  Emit32(encoding);
+}
+
+
+void Thumb2Assembler::smull(Register rd_lo, Register rd_hi, Register rn,
+                            Register rm, Condition cond) {
+  CheckCondition(cond);
+
+  uint32_t op1 = 0U /* 0b000; */;
+  uint32_t op2 = 0U /* 0b0000 */;
+  int32_t encoding = B31 | B30 | B29 | B28 | B27 | B25 | B24 | B23 |
+      op1 << 20 |
+      op2 << 4 |
+      static_cast<uint32_t>(rd_lo) << 12 |
+      static_cast<uint32_t>(rd_hi) << 8 |
       static_cast<uint32_t>(rn) << 16 |
       static_cast<uint32_t>(rm);
 
@@ -654,6 +1134,7 @@ void Thumb2Assembler::vcmpdz(DRegister dd, Condition cond) {
 }
 
 void Thumb2Assembler::b(Label* label, Condition cond) {
+  DCHECK_EQ(next_condition_, AL);
   EmitBranch(cond, label, false, false);
 }
 
@@ -670,7 +1151,7 @@ void Thumb2Assembler::blx(Label* label) {
 
 
 void Thumb2Assembler::MarkExceptionHandler(Label* label) {
-  EmitDataProcessing(AL, TST, 1, PC, R0, ShifterOperand(0));
+  EmitDataProcessing(AL, TST, kCcSet, PC, R0, ShifterOperand(0));
   Label l;
   b(&l);
   EmitBranch(AL, label, false, false);
@@ -691,9 +1172,9 @@ void Thumb2Assembler::Emit16(int16_t value) {
 }
 
 
-bool Thumb2Assembler::Is32BitDataProcessing(Condition cond ATTRIBUTE_UNUSED,
+bool Thumb2Assembler::Is32BitDataProcessing(Condition cond,
                                             Opcode opcode,
-                                            bool set_cc,
+                                            SetCc set_cc,
                                             Register rn,
                                             Register rd,
                                             const ShifterOperand& so) {
@@ -702,7 +1183,7 @@ bool Thumb2Assembler::Is32BitDataProcessing(Condition cond ATTRIBUTE_UNUSED,
   }
 
   // Check special case for SP relative ADD and SUB immediate.
-  if ((opcode == ADD || opcode == SUB) && rn == SP && so.IsImmediate()) {
+  if ((opcode == ADD || opcode == SUB) && rn == SP && so.IsImmediate() && set_cc != kCcSet) {
     // If the immediate is in range, use 16 bit.
     if (rd == SP) {
       if (so.GetImmediate() < (1 << 9)) {    // 9 bit immediate.
@@ -715,8 +1196,10 @@ bool Thumb2Assembler::Is32BitDataProcessing(Condition cond ATTRIBUTE_UNUSED,
     }
   }
 
-  bool can_contain_high_register = (opcode == MOV)
-      || ((opcode == ADD) && (rn == rd) && !set_cc);
+  bool can_contain_high_register =
+      (opcode == CMP) ||
+      (opcode == MOV && set_cc != kCcSet) ||
+      ((opcode == ADD) && (rn == rd) && set_cc != kCcSet);
 
   if (IsHighRegister(rd) || IsHighRegister(rn)) {
     if (!can_contain_high_register) {
@@ -740,13 +1223,6 @@ bool Thumb2Assembler::Is32BitDataProcessing(Condition cond ATTRIBUTE_UNUSED,
     return true;
   }
 
-  // Check for MOV with an ROR.
-  if (opcode == MOV && so.IsRegister() && so.IsShift() && so.GetShift() == ROR) {
-    if (so.GetImmediate() != 0) {
-      return true;
-    }
-  }
-
   bool rn_is_valid = true;
 
   // Check for single operand instructions and ADD/SUB.
@@ -758,6 +1234,7 @@ bool Thumb2Assembler::Is32BitDataProcessing(Condition cond ATTRIBUTE_UNUSED,
       rn_is_valid = false;      // There is no Rn for these instructions.
       break;
     case TEQ:
+    case ORN:
       return true;
     case ADD:
     case SUB:
@@ -769,25 +1246,86 @@ bool Thumb2Assembler::Is32BitDataProcessing(Condition cond ATTRIBUTE_UNUSED,
   }
 
   if (so.IsImmediate()) {
-    if (rn_is_valid && rn != rd) {
-      // The only thumb1 instruction with a register and an immediate are ADD and SUB.  The
-      // immediate must be 3 bits.
-      if (opcode != ADD && opcode != SUB) {
+    if (opcode == RSB) {
+      DCHECK(rn_is_valid);
+      if (so.GetImmediate() != 0u) {
         return true;
-      } else {
-        // Check that the immediate is 3 bits for ADD and SUB.
-        if (so.GetImmediate() >= 8) {
+      }
+    } else if (rn_is_valid && rn != rd) {
+      // The only thumb1 instructions with a register and an immediate are ADD and SUB
+      // with a 3-bit immediate, and RSB with zero immediate.
+      if (opcode == ADD || opcode == SUB) {
+        if ((cond == AL) ? set_cc == kCcKeep : set_cc == kCcSet) {
+          return true;  // Cannot match "setflags".
+        }
+        if (!IsUint<3>(so.GetImmediate()) && !IsUint<3>(-so.GetImmediate())) {
           return true;
         }
+      } else {
+        return true;
       }
     } else {
       // ADD, SUB, CMP and MOV may be thumb1 only if the immediate is 8 bits.
       if (!(opcode == ADD || opcode == SUB || opcode == MOV || opcode == CMP)) {
         return true;
+      } else if (opcode != CMP && ((cond == AL) ? set_cc == kCcKeep : set_cc == kCcSet)) {
+        return true;  // Cannot match "setflags" for ADD, SUB or MOV.
       } else {
-        if (so.GetImmediate() > 255) {
+        // For ADD and SUB allow also negative 8-bit immediate as we will emit the oposite opcode.
+        if (!IsUint<8>(so.GetImmediate()) &&
+            (opcode == MOV || opcode == CMP || !IsUint<8>(-so.GetImmediate()))) {
           return true;
         }
+      }
+    }
+  } else {
+    DCHECK(so.IsRegister());
+    if (so.IsShift()) {
+      // Shift operand - check if it is a MOV convertible to a 16-bit shift instruction.
+      if (opcode != MOV) {
+        return true;
+      }
+      // Check for MOV with an ROR/RRX. There is no 16-bit ROR immediate and no 16-bit RRX.
+      if (so.GetShift() == ROR || so.GetShift() == RRX) {
+        return true;
+      }
+      // 16-bit shifts set condition codes if and only if outside IT block,
+      // i.e. if and only if cond == AL.
+      if ((cond == AL) ? set_cc == kCcKeep : set_cc == kCcSet) {
+        return true;
+      }
+    } else {
+      // Register operand without shift.
+      switch (opcode) {
+        case ADD:
+          // The 16-bit ADD that cannot contain high registers can set condition codes
+          // if and only if outside IT block, i.e. if and only if cond == AL.
+          if (!can_contain_high_register &&
+              ((cond == AL) ? set_cc == kCcKeep : set_cc == kCcSet)) {
+            return true;
+          }
+          break;
+        case AND:
+        case BIC:
+        case EOR:
+        case ORR:
+        case MVN:
+        case ADC:
+        case SUB:
+        case SBC:
+          // These 16-bit opcodes set condition codes if and only if outside IT block,
+          // i.e. if and only if cond == AL.
+          if ((cond == AL) ? set_cc == kCcKeep : set_cc == kCcSet) {
+            return true;
+          }
+          break;
+        case RSB:
+        case RSC:
+          // No 16-bit RSB/RSC Rd, Rm, Rn. It would be equivalent to SUB/SBC Rd, Rn, Rm.
+          return true;
+        case CMP:
+        default:
+          break;
       }
     }
   }
@@ -799,7 +1337,7 @@ bool Thumb2Assembler::Is32BitDataProcessing(Condition cond ATTRIBUTE_UNUSED,
 
 void Thumb2Assembler::Emit32BitDataProcessing(Condition cond ATTRIBUTE_UNUSED,
                                               Opcode opcode,
-                                              bool set_cc,
+                                              SetCc set_cc,
                                               Register rn,
                                               Register rd,
                                               const ShifterOperand& so) {
@@ -813,14 +1351,15 @@ void Thumb2Assembler::Emit32BitDataProcessing(Condition cond ATTRIBUTE_UNUSED,
     case ADC: thumb_opcode = 10U /* 0b1010 */; break;
     case SBC: thumb_opcode = 11U /* 0b1011 */; break;
     case RSC: break;
-    case TST: thumb_opcode =  0U /* 0b0000 */; set_cc = true; rd = PC; break;
-    case TEQ: thumb_opcode =  4U /* 0b0100 */; set_cc = true; rd = PC; break;
-    case CMP: thumb_opcode = 13U /* 0b1101 */; set_cc = true; rd = PC; break;
-    case CMN: thumb_opcode =  8U /* 0b1000 */; set_cc = true; rd = PC; break;
+    case TST: thumb_opcode =  0U /* 0b0000 */; DCHECK(set_cc == kCcSet); rd = PC; break;
+    case TEQ: thumb_opcode =  4U /* 0b0100 */; DCHECK(set_cc == kCcSet); rd = PC; break;
+    case CMP: thumb_opcode = 13U /* 0b1101 */; DCHECK(set_cc == kCcSet); rd = PC; break;
+    case CMN: thumb_opcode =  8U /* 0b1000 */; DCHECK(set_cc == kCcSet); rd = PC; break;
     case ORR: thumb_opcode =  2U /* 0b0010 */; break;
     case MOV: thumb_opcode =  2U /* 0b0010 */; rn = PC; break;
     case BIC: thumb_opcode =  1U /* 0b0001 */; break;
     case MVN: thumb_opcode =  3U /* 0b0011 */; rn = PC; break;
+    case ORN: thumb_opcode =  3U /* 0b0011 */; break;
     default:
       break;
   }
@@ -833,8 +1372,9 @@ void Thumb2Assembler::Emit32BitDataProcessing(Condition cond ATTRIBUTE_UNUSED,
   int32_t encoding = 0;
   if (so.IsImmediate()) {
     // Check special cases.
-    if ((opcode == SUB || opcode == ADD) && (so.GetImmediate() < (1u << 12))) {
-      if (!set_cc) {
+    if ((opcode == SUB || opcode == ADD) && (so.GetImmediate() < (1u << 12)) &&
+        /* Prefer T3 encoding to T4. */ !ShifterOperandCanAlwaysHold(so.GetImmediate())) {
+      if (set_cc != kCcSet) {
         if (opcode == SUB) {
           thumb_opcode = 5U;
         } else if (opcode == ADD) {
@@ -848,7 +1388,7 @@ void Thumb2Assembler::Emit32BitDataProcessing(Condition cond ATTRIBUTE_UNUSED,
       uint32_t imm8 = imm & 0xff;
 
       encoding = B31 | B30 | B29 | B28 |
-          (set_cc ? B20 : B25) |
+          (set_cc == kCcSet ? B20 : B25) |
           thumb_opcode << 21 |
           rn << 16 |
           rd << 8 |
@@ -864,7 +1404,7 @@ void Thumb2Assembler::Emit32BitDataProcessing(Condition cond ATTRIBUTE_UNUSED,
       }
       encoding = B31 | B30 | B29 | B28 |
           thumb_opcode << 21 |
-          (set_cc ? B20 : 0) |
+          (set_cc == kCcSet ? B20 : 0) |
           rn << 16 |
           rd << 8 |
           imm;
@@ -873,7 +1413,7 @@ void Thumb2Assembler::Emit32BitDataProcessing(Condition cond ATTRIBUTE_UNUSED,
     // Register (possibly shifted)
     encoding = B31 | B30 | B29 | B27 | B25 |
         thumb_opcode << 21 |
-        (set_cc ? B20 : 0) |
+        (set_cc == kCcSet ? B20 : 0) |
         rn << 16 |
         rd << 8 |
         so.encodingThumb();
@@ -884,7 +1424,7 @@ void Thumb2Assembler::Emit32BitDataProcessing(Condition cond ATTRIBUTE_UNUSED,
 
 void Thumb2Assembler::Emit16BitDataProcessing(Condition cond,
                                               Opcode opcode,
-                                              bool set_cc,
+                                              SetCc set_cc,
                                               Register rn,
                                               Register rd,
                                               const ShifterOperand& so) {
@@ -914,19 +1454,25 @@ void Thumb2Assembler::Emit16BitDataProcessing(Condition cond,
     rn = so.GetRegister();
 
     switch (so.GetShift()) {
-    case LSL: thumb_opcode = 0U /* 0b00 */; break;
-    case LSR: thumb_opcode = 1U /* 0b01 */; break;
-    case ASR: thumb_opcode = 2U /* 0b10 */; break;
-    case ROR:
-      // ROR doesn't allow immediates.
-      thumb_opcode = 7U /* 0b111 */;
-      dp_opcode = 1U /* 0b01 */;
-      opcode_shift = 6;
-      use_immediate = false;
+    case LSL:
+      DCHECK_LE(immediate, 31u);
+      thumb_opcode = 0U /* 0b00 */;
       break;
-    case RRX: break;
+    case LSR:
+      DCHECK(1 <= immediate && immediate <= 32);
+      immediate &= 31;  // 32 is encoded as 0.
+      thumb_opcode = 1U /* 0b01 */;
+      break;
+    case ASR:
+      DCHECK(1 <= immediate && immediate <= 32);
+      immediate &= 31;  // 32 is encoded as 0.
+      thumb_opcode = 2U /* 0b10 */;
+      break;
+    case ROR:  // No 16-bit ROR immediate.
+    case RRX:  // No 16-bit RRX.
     default:
-     break;
+      LOG(FATAL) << "Unexpected shift: " << so.GetShift();
+      UNREACHABLE();
     }
   } else {
     if (so.IsImmediate()) {
@@ -944,6 +1490,9 @@ void Thumb2Assembler::Emit16BitDataProcessing(Condition cond,
         case ADC:
         case SBC:
         case BIC: {
+          // Sets condition codes if and only if outside IT block,
+          // check that it complies with set_cc.
+          DCHECK((cond == AL) ? set_cc != kCcKeep : set_cc != kCcSet);
           if (rn == rd) {
             rn = so.GetRegister();
           } else {
@@ -958,9 +1507,17 @@ void Thumb2Assembler::Emit16BitDataProcessing(Condition cond,
           rn = so.GetRegister();
           break;
         }
-        case TST:
-        case TEQ:
         case MVN: {
+          // Sets condition codes if and only if outside IT block,
+          // check that it complies with set_cc.
+          DCHECK((cond == AL) ? set_cc != kCcKeep : set_cc != kCcSet);
+          CHECK_EQ(rn, 0);
+          rn = so.GetRegister();
+          break;
+        }
+        case TST:
+        case TEQ: {
+          DCHECK(set_cc == kCcSet);
           CHECK_EQ(rn, 0);
           rn = so.GetRegister();
           break;
@@ -981,6 +1538,7 @@ void Thumb2Assembler::Emit16BitDataProcessing(Condition cond,
       case TST: thumb_opcode = 8U /* 0b1000 */; CHECK(!use_immediate); break;
       case MVN: thumb_opcode = 15U /* 0b1111 */; CHECK(!use_immediate); break;
       case CMP: {
+        DCHECK(set_cc == kCcSet);
         if (use_immediate) {
           // T2 encoding.
           dp_opcode = 0;
@@ -988,6 +1546,13 @@ void Thumb2Assembler::Emit16BitDataProcessing(Condition cond,
           thumb_opcode = 5U /* 0b101 */;
           rd_shift = 8;
           rn_shift = 8;
+        } else if (IsHighRegister(rd) || IsHighRegister(rn)) {
+          // Special cmp for high registers.
+          dp_opcode = 1U /* 0b01 */;
+          opcode_shift = 7;
+          // Put the top bit of rd into the bottom bit of the opcode.
+          thumb_opcode = 10U /* 0b0001010 */ | static_cast<uint32_t>(rd) >> 3;
+          rd = static_cast<Register>(static_cast<uint32_t>(rd) & 7U /* 0b111 */);
         } else {
           thumb_opcode = 10U /* 0b1010 */;
         }
@@ -1009,7 +1574,7 @@ void Thumb2Assembler::Emit16BitDataProcessing(Condition cond,
           rn_shift = 8;
         } else {
           rn = so.GetRegister();
-          if (IsHighRegister(rn) || IsHighRegister(rd)) {
+          if (set_cc != kCcSet) {
             // Special mov for high registers.
             dp_opcode = 1U /* 0b01 */;
             opcode_shift = 7;
@@ -1017,6 +1582,8 @@ void Thumb2Assembler::Emit16BitDataProcessing(Condition cond,
             thumb_opcode = 12U /* 0b0001100 */ | static_cast<uint32_t>(rd) >> 3;
             rd = static_cast<Register>(static_cast<uint32_t>(rd) & 7U /* 0b111 */);
           } else {
+            DCHECK(!IsHighRegister(rn));
+            DCHECK(!IsHighRegister(rd));
             thumb_opcode = 0;
           }
         }
@@ -1046,9 +1613,9 @@ void Thumb2Assembler::Emit16BitDataProcessing(Condition cond,
 
 
 // ADD and SUB are complex enough to warrant their own emitter.
-void Thumb2Assembler::Emit16BitAddSub(Condition cond ATTRIBUTE_UNUSED,
+void Thumb2Assembler::Emit16BitAddSub(Condition cond,
                                       Opcode opcode,
-                                      bool set_cc,
+                                      SetCc set_cc,
                                       Register rn,
                                       Register rd,
                                       const ShifterOperand& so) {
@@ -1058,19 +1625,25 @@ void Thumb2Assembler::Emit16BitAddSub(Condition cond ATTRIBUTE_UNUSED,
   uint8_t rn_shift = 3;
   uint8_t immediate_shift = 0;
   bool use_immediate = false;
-  uint32_t immediate = 0;  // Should be at most 9 bits but keep the full immediate for CHECKs.
-  uint8_t thumb_opcode;;
+  uint32_t immediate = 0;  // Should be at most 10 bits but keep the full immediate for CHECKs.
+  uint8_t thumb_opcode;
 
   if (so.IsImmediate()) {
     use_immediate = true;
     immediate = so.GetImmediate();
+    if (!IsUint<10>(immediate)) {
+      // Flip ADD/SUB.
+      opcode = (opcode == ADD) ? SUB : ADD;
+      immediate = -immediate;
+      DCHECK(IsUint<10>(immediate));  // More stringent checks below.
+    }
   }
 
   switch (opcode) {
     case ADD:
       if (so.IsRegister()) {
         Register rm = so.GetRegister();
-        if (rn == rd && !set_cc) {
+        if (rn == rd && set_cc != kCcSet) {
           // Can use T2 encoding (allows 4 bit registers)
           dp_opcode = 1U /* 0b01 */;
           opcode_shift = 10;
@@ -1081,6 +1654,12 @@ void Thumb2Assembler::Emit16BitAddSub(Condition cond ATTRIBUTE_UNUSED,
           rd = static_cast<Register>(static_cast<uint32_t>(rd) & 7U /* 0b111 */);
         } else {
           // T1.
+          DCHECK(!IsHighRegister(rd));
+          DCHECK(!IsHighRegister(rn));
+          DCHECK(!IsHighRegister(rm));
+          // Sets condition codes if and only if outside IT block,
+          // check that it complies with set_cc.
+          DCHECK((cond == AL) ? set_cc != kCcKeep : set_cc != kCcSet);
           opcode_shift = 9;
           thumb_opcode = 12U /* 0b01100 */;
           immediate = static_cast<uint32_t>(so.GetRegister());
@@ -1094,8 +1673,8 @@ void Thumb2Assembler::Emit16BitAddSub(Condition cond ATTRIBUTE_UNUSED,
           dp_opcode = 2U /* 0b10 */;
           thumb_opcode = 3U /* 0b11 */;
           opcode_shift = 12;
-          CHECK_LT(immediate, (1u << 9));
-          CHECK_EQ((immediate & 3u /* 0b11 */), 0u);
+          CHECK(IsUint<9>(immediate));
+          CHECK_ALIGNED(immediate, 4);
 
           // Remove rd and rn from instruction by orring it with immed and clearing bits.
           rn = R0;
@@ -1108,8 +1687,8 @@ void Thumb2Assembler::Emit16BitAddSub(Condition cond ATTRIBUTE_UNUSED,
           dp_opcode = 2U /* 0b10 */;
           thumb_opcode = 5U /* 0b101 */;
           opcode_shift = 11;
-          CHECK_LT(immediate, (1u << 10));
-          CHECK_EQ((immediate & 3u /* 0b11 */), 0u);
+          CHECK(IsUint<10>(immediate));
+          CHECK_ALIGNED(immediate, 4);
 
           // Remove rn from instruction.
           rn = R0;
@@ -1118,11 +1697,13 @@ void Thumb2Assembler::Emit16BitAddSub(Condition cond ATTRIBUTE_UNUSED,
           immediate >>= 2;
         } else if (rn != rd) {
           // Must use T1.
+          CHECK(IsUint<3>(immediate));
           opcode_shift = 9;
           thumb_opcode = 14U /* 0b01110 */;
           immediate_shift = 6;
         } else {
           // T2 encoding.
+          CHECK(IsUint<8>(immediate));
           opcode_shift = 11;
           thumb_opcode = 6U /* 0b110 */;
           rd_shift = 8;
@@ -1133,40 +1714,49 @@ void Thumb2Assembler::Emit16BitAddSub(Condition cond ATTRIBUTE_UNUSED,
 
     case SUB:
       if (so.IsRegister()) {
-         // T1.
-         opcode_shift = 9;
-         thumb_opcode = 13U /* 0b01101 */;
-         immediate = static_cast<uint32_t>(so.GetRegister());
-         use_immediate = true;
-         immediate_shift = 6;
-       } else {
-         if (rd == SP && rn == SP) {
-           // SUB sp, sp, #imm
-           dp_opcode = 2U /* 0b10 */;
-           thumb_opcode = 0x61 /* 0b1100001 */;
-           opcode_shift = 7;
-           CHECK_LT(immediate, (1u << 9));
-           CHECK_EQ((immediate & 3u /* 0b11 */), 0u);
+        // T1.
+        Register rm = so.GetRegister();
+        DCHECK(!IsHighRegister(rd));
+        DCHECK(!IsHighRegister(rn));
+        DCHECK(!IsHighRegister(rm));
+        // Sets condition codes if and only if outside IT block,
+        // check that it complies with set_cc.
+        DCHECK((cond == AL) ? set_cc != kCcKeep : set_cc != kCcSet);
+        opcode_shift = 9;
+        thumb_opcode = 13U /* 0b01101 */;
+        immediate = static_cast<uint32_t>(rm);
+        use_immediate = true;
+        immediate_shift = 6;
+      } else {
+        if (rd == SP && rn == SP) {
+          // SUB sp, sp, #imm
+          dp_opcode = 2U /* 0b10 */;
+          thumb_opcode = 0x61 /* 0b1100001 */;
+          opcode_shift = 7;
+          CHECK(IsUint<9>(immediate));
+          CHECK_ALIGNED(immediate, 4);
 
-           // Remove rd and rn from instruction by orring it with immed and clearing bits.
-           rn = R0;
-           rd = R0;
-           rd_shift = 0;
-           rn_shift = 0;
-           immediate >>= 2;
-         } else if (rn != rd) {
-           // Must use T1.
-           opcode_shift = 9;
-           thumb_opcode = 15U /* 0b01111 */;
-           immediate_shift = 6;
-         } else {
-           // T2 encoding.
-           opcode_shift = 11;
-           thumb_opcode = 7U /* 0b111 */;
-           rd_shift = 8;
-           rn_shift = 8;
-         }
-       }
+          // Remove rd and rn from instruction by orring it with immed and clearing bits.
+          rn = R0;
+          rd = R0;
+          rd_shift = 0;
+          rn_shift = 0;
+          immediate >>= 2;
+        } else if (rn != rd) {
+          // Must use T1.
+          CHECK(IsUint<3>(immediate));
+          opcode_shift = 9;
+          thumb_opcode = 15U /* 0b01111 */;
+          immediate_shift = 6;
+        } else {
+          // T2 encoding.
+          CHECK(IsUint<8>(immediate));
+          opcode_shift = 11;
+          thumb_opcode = 7U /* 0b111 */;
+          rd_shift = 8;
+          rn_shift = 8;
+        }
+      }
       break;
     default:
       LOG(FATAL) << "This opcode is not an ADD or SUB: " << opcode;
@@ -1185,7 +1775,7 @@ void Thumb2Assembler::Emit16BitAddSub(Condition cond ATTRIBUTE_UNUSED,
 
 void Thumb2Assembler::EmitDataProcessing(Condition cond,
                                          Opcode opcode,
-                                         bool set_cc,
+                                         SetCc set_cc,
                                          Register rn,
                                          Register rd,
                                          const ShifterOperand& so) {
@@ -1199,9 +1789,15 @@ void Thumb2Assembler::EmitDataProcessing(Condition cond,
   }
 }
 
-void Thumb2Assembler::EmitShift(Register rd, Register rm, Shift shift, uint8_t amount, bool setcc) {
+void Thumb2Assembler::EmitShift(Register rd,
+                                Register rm,
+                                Shift shift,
+                                uint8_t amount,
+                                Condition cond,
+                                SetCc set_cc) {
   CHECK_LT(amount, (1 << 5));
-  if (IsHighRegister(rd) || IsHighRegister(rm) || shift == ROR || shift == RRX) {
+  if ((IsHighRegister(rd) || IsHighRegister(rm) || shift == ROR || shift == RRX) ||
+      ((cond == AL) ? set_cc == kCcKeep : set_cc == kCcSet)) {
     uint16_t opcode = 0;
     switch (shift) {
       case LSL: opcode = 0U /* 0b00 */; break;
@@ -1215,7 +1811,7 @@ void Thumb2Assembler::EmitShift(Register rd, Register rm, Shift shift, uint8_t a
     }
     // 32 bit.
     int32_t encoding = B31 | B30 | B29 | B27 | B25 | B22 |
-        0xf << 16 | (setcc ? B20 : 0);
+        0xf << 16 | (set_cc == kCcSet ? B20 : 0);
     uint32_t imm3 = amount >> 2;
     uint32_t imm2 = amount & 3U /* 0b11 */;
     encoding |= imm3 << 12 | imm2 << 6 | static_cast<int16_t>(rm) |
@@ -1238,10 +1834,16 @@ void Thumb2Assembler::EmitShift(Register rd, Register rm, Shift shift, uint8_t a
   }
 }
 
-void Thumb2Assembler::EmitShift(Register rd, Register rn, Shift shift, Register rm, bool setcc) {
+void Thumb2Assembler::EmitShift(Register rd,
+                                Register rn,
+                                Shift shift,
+                                Register rm,
+                                Condition cond,
+                                SetCc set_cc) {
   CHECK_NE(shift, RRX);
   bool must_be_32bit = false;
-  if (IsHighRegister(rd) || IsHighRegister(rm) || IsHighRegister(rn) || rd != rn) {
+  if (IsHighRegister(rd) || IsHighRegister(rm) || IsHighRegister(rn) || rd != rn ||
+      ((cond == AL) ? set_cc == kCcKeep : set_cc == kCcSet)) {
     must_be_32bit = true;
   }
 
@@ -1258,7 +1860,7 @@ void Thumb2Assembler::EmitShift(Register rd, Register rn, Shift shift, Register 
      }
      // 32 bit.
      int32_t encoding = B31 | B30 | B29 | B28 | B27 | B25 |
-         0xf << 12 | (setcc ? B20 : 0);
+         0xf << 12 | (set_cc == kCcSet ? B20 : 0);
      encoding |= static_cast<int16_t>(rn) << 16 | static_cast<int16_t>(rm) |
          static_cast<int16_t>(rd) << 8 | opcode << 21;
      Emit32(encoding);
@@ -1268,6 +1870,7 @@ void Thumb2Assembler::EmitShift(Register rd, Register rn, Shift shift, Register 
       case LSL: opcode = 2U /* 0b0010 */; break;
       case LSR: opcode = 3U /* 0b0011 */; break;
       case ASR: opcode = 4U /* 0b0100 */; break;
+      case ROR: opcode = 7U /* 0b0111 */; break;
       default:
         LOG(FATAL) << "Unsupported thumb2 shift opcode";
         UNREACHABLE();
@@ -1278,79 +1881,431 @@ void Thumb2Assembler::EmitShift(Register rd, Register rn, Shift shift, Register 
   }
 }
 
+inline size_t Thumb2Assembler::Fixup::SizeInBytes(Size size) {
+  switch (size) {
+    case kBranch16Bit:
+      return 2u;
+    case kBranch32Bit:
+      return 4u;
 
+    case kCbxz16Bit:
+      return 2u;
+    case kCbxz32Bit:
+      return 4u;
+    case kCbxz48Bit:
+      return 6u;
 
-void Thumb2Assembler::Branch::Emit(AssemblerBuffer* buffer) const {
-  bool link = type_ == kUnconditionalLinkX || type_ == kUnconditionalLink;
-  bool x = type_ == kUnconditionalX || type_ == kUnconditionalLinkX;
-  int32_t offset = target_ - location_;
+    case kLiteral1KiB:
+      return 2u;
+    case kLiteral4KiB:
+      return 4u;
+    case kLiteral64KiB:
+      return 8u;
+    case kLiteral1MiB:
+      return 10u;
+    case kLiteralFar:
+      return 14u;
 
-  if (size_ == k32Bit) {
-    int32_t encoding = B31 | B30 | B29 | B28 | B15;
-    if (link) {
-      // BL or BLX immediate.
-      encoding |= B14;
-      if (!x) {
-        encoding |= B12;
-      } else {
-        // Bottom bit of offset must be 0.
-        CHECK_EQ((offset & 1), 0);
-      }
-    } else {
-      if (x) {
-        LOG(FATAL) << "Invalid use of BX";
-        UNREACHABLE();
-      } else {
-        if (cond_ == AL) {
-          // Can use the T4 encoding allowing a 24 bit offset.
-          if (!x) {
-            encoding |= B12;
-          }
-        } else {
-          // Must be T3 encoding with a 20 bit offset.
-          encoding |= cond_ << 22;
-        }
-      }
-    }
-    encoding = Thumb2Assembler::EncodeBranchOffset(offset, encoding);
-    buffer->Store<int16_t>(location_, static_cast<int16_t>(encoding >> 16));
-    buffer->Store<int16_t>(location_+2, static_cast<int16_t>(encoding & 0xffff));
+    case kLiteralAddr1KiB:
+      return 2u;
+    case kLiteralAddr4KiB:
+      return 4u;
+    case kLiteralAddr64KiB:
+      return 6u;
+    case kLiteralAddrFar:
+      return 10u;
+
+    case kLongOrFPLiteral1KiB:
+      return 4u;
+    case kLongOrFPLiteral256KiB:
+      return 10u;
+    case kLongOrFPLiteralFar:
+      return 14u;
+  }
+  LOG(FATAL) << "Unexpected size: " << static_cast<int>(size);
+  UNREACHABLE();
+}
+
+inline uint32_t Thumb2Assembler::Fixup::GetOriginalSizeInBytes() const {
+  return SizeInBytes(original_size_);
+}
+
+inline uint32_t Thumb2Assembler::Fixup::GetSizeInBytes() const {
+  return SizeInBytes(size_);
+}
+
+inline size_t Thumb2Assembler::Fixup::LiteralPoolPaddingSize(uint32_t current_code_size) {
+  // The code size must be a multiple of 2.
+  DCHECK_ALIGNED(current_code_size, 2);
+  // If it isn't a multiple of 4, we need to add a 2-byte padding before the literal pool.
+  return current_code_size & 2;
+}
+
+inline int32_t Thumb2Assembler::Fixup::GetOffset(uint32_t current_code_size) const {
+  static constexpr int32_t int32_min = std::numeric_limits<int32_t>::min();
+  static constexpr int32_t int32_max = std::numeric_limits<int32_t>::max();
+  DCHECK_LE(target_, static_cast<uint32_t>(int32_max));
+  DCHECK_LE(location_, static_cast<uint32_t>(int32_max));
+  DCHECK_LE(adjustment_, static_cast<uint32_t>(int32_max));
+  int32_t diff = static_cast<int32_t>(target_) - static_cast<int32_t>(location_);
+  if (target_ > location_) {
+    DCHECK_LE(adjustment_, static_cast<uint32_t>(int32_max - diff));
+    diff += static_cast<int32_t>(adjustment_);
   } else {
-    if (IsCompareAndBranch()) {
-      offset -= 4;
-      uint16_t i = (offset >> 6) & 1;
-      uint16_t imm5 = (offset >> 1) & 31U /* 0b11111 */;
-      int16_t encoding = B15 | B13 | B12 |
-            (type_ ==  kCompareAndBranchNonZero ? B11 : 0) |
-            static_cast<uint32_t>(rn_) |
-            B8 |
-            i << 9 |
-            imm5 << 3;
-      buffer->Store<int16_t>(location_, encoding);
-    } else {
-      offset -= 4;    // Account for PC offset.
-      int16_t encoding;
-      // 16 bit.
-      if (cond_ == AL) {
-        encoding = B15 | B14 | B13 |
-            ((offset >> 1) & 0x7ff);
-      } else {
-        encoding = B15 | B14 | B12 |
-            cond_ << 8 | ((offset >> 1) & 0xff);
+    DCHECK_LE(int32_min + static_cast<int32_t>(adjustment_), diff);
+    diff -= static_cast<int32_t>(adjustment_);
+  }
+  // The default PC adjustment for Thumb2 is 4 bytes.
+  DCHECK_GE(diff, int32_min + 4);
+  diff -= 4;
+  // Add additional adjustment for instructions preceding the PC usage, padding
+  // before the literal pool and rounding down the PC for literal loads.
+  switch (GetSize()) {
+    case kBranch16Bit:
+    case kBranch32Bit:
+      break;
+
+    case kCbxz16Bit:
+      break;
+    case kCbxz32Bit:
+    case kCbxz48Bit:
+      DCHECK_GE(diff, int32_min + 2);
+      diff -= 2;        // Extra CMP Rn, #0, 16-bit.
+      break;
+
+    case kLiteral1KiB:
+    case kLiteral4KiB:
+    case kLongOrFPLiteral1KiB:
+    case kLiteralAddr1KiB:
+    case kLiteralAddr4KiB:
+      DCHECK(diff >= 0 || (GetSize() == kLiteral1KiB && diff == -2));
+      diff += LiteralPoolPaddingSize(current_code_size);
+      // Load literal instructions round down the PC+4 to a multiple of 4, so if the PC
+      // isn't a multiple of 2, we need to adjust. Since we already adjusted for the target
+      // being aligned, current PC alignment can be inferred from diff.
+      DCHECK_ALIGNED(diff, 2);
+      diff = diff + (diff & 2);
+      DCHECK_GE(diff, 0);
+      break;
+    case kLiteral1MiB:
+    case kLiteral64KiB:
+    case kLongOrFPLiteral256KiB:
+    case kLiteralAddr64KiB:
+      DCHECK_GE(diff, 4);  // The target must be at least 4 bytes after the ADD rX, PC.
+      diff -= 4;        // One extra 32-bit MOV.
+      diff += LiteralPoolPaddingSize(current_code_size);
+      break;
+    case kLiteralFar:
+    case kLongOrFPLiteralFar:
+    case kLiteralAddrFar:
+      DCHECK_GE(diff, 8);  // The target must be at least 4 bytes after the ADD rX, PC.
+      diff -= 8;        // Extra MOVW+MOVT; both 32-bit.
+      diff += LiteralPoolPaddingSize(current_code_size);
+      break;
+  }
+  return diff;
+}
+
+inline size_t Thumb2Assembler::Fixup::IncreaseSize(Size new_size) {
+  DCHECK_NE(target_, kUnresolved);
+  Size old_size = size_;
+  size_ = new_size;
+  DCHECK_GT(SizeInBytes(new_size), SizeInBytes(old_size));
+  size_t adjustment = SizeInBytes(new_size) - SizeInBytes(old_size);
+  if (target_ > location_) {
+    adjustment_ += adjustment;
+  }
+  return adjustment;
+}
+
+uint32_t Thumb2Assembler::Fixup::AdjustSizeIfNeeded(uint32_t current_code_size) {
+  uint32_t old_code_size = current_code_size;
+  switch (GetSize()) {
+    case kBranch16Bit:
+      if (IsInt(cond_ != AL ? 9 : 12, GetOffset(current_code_size))) {
+        break;
       }
+      current_code_size += IncreaseSize(kBranch32Bit);
+      FALLTHROUGH_INTENDED;
+    case kBranch32Bit:
+      // We don't support conditional branches beyond +-1MiB
+      // or unconditional branches beyond +-16MiB.
+      break;
+
+    case kCbxz16Bit:
+      if (IsUint<7>(GetOffset(current_code_size))) {
+        break;
+      }
+      current_code_size += IncreaseSize(kCbxz32Bit);
+      FALLTHROUGH_INTENDED;
+    case kCbxz32Bit:
+      if (IsInt<9>(GetOffset(current_code_size))) {
+        break;
+      }
+      current_code_size += IncreaseSize(kCbxz48Bit);
+      FALLTHROUGH_INTENDED;
+    case kCbxz48Bit:
+      // We don't support conditional branches beyond +-1MiB.
+      break;
+
+    case kLiteral1KiB:
+      DCHECK(!IsHighRegister(rn_));
+      if (IsUint<10>(GetOffset(current_code_size))) {
+        break;
+      }
+      current_code_size += IncreaseSize(kLiteral4KiB);
+      FALLTHROUGH_INTENDED;
+    case kLiteral4KiB:
+      if (IsUint<12>(GetOffset(current_code_size))) {
+        break;
+      }
+      current_code_size += IncreaseSize(kLiteral64KiB);
+      FALLTHROUGH_INTENDED;
+    case kLiteral64KiB:
+      // Can't handle high register which we can encounter by fall-through from kLiteral4KiB.
+      if (!IsHighRegister(rn_) && IsUint<16>(GetOffset(current_code_size))) {
+        break;
+      }
+      current_code_size += IncreaseSize(kLiteral1MiB);
+      FALLTHROUGH_INTENDED;
+    case kLiteral1MiB:
+      if (IsUint<20>(GetOffset(current_code_size))) {
+        break;
+      }
+      current_code_size += IncreaseSize(kLiteralFar);
+      FALLTHROUGH_INTENDED;
+    case kLiteralFar:
+      // This encoding can reach any target.
+      break;
+
+    case kLiteralAddr1KiB:
+      DCHECK(!IsHighRegister(rn_));
+      if (IsUint<10>(GetOffset(current_code_size))) {
+        break;
+      }
+      current_code_size += IncreaseSize(kLiteralAddr4KiB);
+      FALLTHROUGH_INTENDED;
+    case kLiteralAddr4KiB:
+      if (IsUint<12>(GetOffset(current_code_size))) {
+        break;
+      }
+      current_code_size += IncreaseSize(kLiteralAddr64KiB);
+      FALLTHROUGH_INTENDED;
+    case kLiteralAddr64KiB:
+      if (IsUint<16>(GetOffset(current_code_size))) {
+        break;
+      }
+      current_code_size += IncreaseSize(kLiteralAddrFar);
+      FALLTHROUGH_INTENDED;
+    case kLiteralAddrFar:
+      // This encoding can reach any target.
+      break;
+
+    case kLongOrFPLiteral1KiB:
+      if (IsUint<10>(GetOffset(current_code_size))) {
+        break;
+      }
+      current_code_size += IncreaseSize(kLongOrFPLiteral256KiB);
+      FALLTHROUGH_INTENDED;
+    case kLongOrFPLiteral256KiB:
+      if (IsUint<18>(GetOffset(current_code_size))) {
+        break;
+      }
+      current_code_size += IncreaseSize(kLongOrFPLiteralFar);
+      FALLTHROUGH_INTENDED;
+    case kLongOrFPLiteralFar:
+      // This encoding can reach any target.
+      break;
+  }
+  return current_code_size - old_code_size;
+}
+
+void Thumb2Assembler::Fixup::Emit(AssemblerBuffer* buffer, uint32_t code_size) const {
+  switch (GetSize()) {
+    case kBranch16Bit: {
+      DCHECK(type_ == kUnconditional || type_ == kConditional);
+      DCHECK_EQ(type_ == kConditional, cond_ != AL);
+      int16_t encoding = BEncoding16(GetOffset(code_size), cond_);
       buffer->Store<int16_t>(location_, encoding);
+      break;
+    }
+    case kBranch32Bit: {
+      DCHECK(type_ == kConditional || type_ == kUnconditional ||
+             type_ == kUnconditionalLink || type_ == kUnconditionalLinkX);
+      DCHECK_EQ(type_ == kConditional, cond_ != AL);
+      int32_t encoding = BEncoding32(GetOffset(code_size), cond_);
+      if (type_ == kUnconditionalLink) {
+        DCHECK_NE(encoding & B12, 0);
+        encoding |= B14;
+      } else if (type_ == kUnconditionalLinkX) {
+        DCHECK_NE(encoding & B12, 0);
+        encoding ^= B14 | B12;
+      }
+      buffer->Store<int16_t>(location_, encoding >> 16);
+      buffer->Store<int16_t>(location_ + 2u, static_cast<int16_t>(encoding & 0xffff));
+      break;
+    }
+
+    case kCbxz16Bit: {
+      DCHECK(type_ == kCompareAndBranchXZero);
+      int16_t encoding = CbxzEncoding16(rn_, GetOffset(code_size), cond_);
+      buffer->Store<int16_t>(location_, encoding);
+      break;
+    }
+    case kCbxz32Bit: {
+      DCHECK(type_ == kCompareAndBranchXZero);
+      DCHECK(cond_ == EQ || cond_ == NE);
+      int16_t cmp_encoding = CmpRnImm8Encoding16(rn_, 0);
+      int16_t b_encoding = BEncoding16(GetOffset(code_size), cond_);
+      buffer->Store<int16_t>(location_, cmp_encoding);
+      buffer->Store<int16_t>(location_ + 2, b_encoding);
+      break;
+    }
+    case kCbxz48Bit: {
+      DCHECK(type_ == kCompareAndBranchXZero);
+      DCHECK(cond_ == EQ || cond_ == NE);
+      int16_t cmp_encoding = CmpRnImm8Encoding16(rn_, 0);
+      int32_t b_encoding = BEncoding32(GetOffset(code_size), cond_);
+      buffer->Store<int16_t>(location_, cmp_encoding);
+      buffer->Store<int16_t>(location_ + 2u, b_encoding >> 16);
+      buffer->Store<int16_t>(location_ + 4u, static_cast<int16_t>(b_encoding & 0xffff));
+      break;
+    }
+
+    case kLiteral1KiB: {
+      DCHECK(type_ == kLoadLiteralNarrow);
+      int16_t encoding = LdrLitEncoding16(rn_, GetOffset(code_size));
+      buffer->Store<int16_t>(location_, encoding);
+      break;
+    }
+    case kLiteral4KiB: {
+      DCHECK(type_ == kLoadLiteralNarrow);
+      // GetOffset() uses PC+4 but load literal uses AlignDown(PC+4, 4). Adjust offset accordingly.
+      int32_t encoding = LdrLitEncoding32(rn_, GetOffset(code_size));
+      buffer->Store<int16_t>(location_, encoding >> 16);
+      buffer->Store<int16_t>(location_ + 2u, static_cast<int16_t>(encoding & 0xffff));
+      break;
+    }
+    case kLiteral64KiB: {
+      DCHECK(type_ == kLoadLiteralNarrow);
+      int32_t mov_encoding = MovwEncoding32(rn_, GetOffset(code_size));
+      int16_t add_pc_encoding = AddRdnRmEncoding16(rn_, PC);
+      int16_t ldr_encoding = LdrRtRnImm5Encoding16(rn_, rn_, 0);
+      buffer->Store<int16_t>(location_, mov_encoding >> 16);
+      buffer->Store<int16_t>(location_ + 2u, static_cast<int16_t>(mov_encoding & 0xffff));
+      buffer->Store<int16_t>(location_ + 4u, add_pc_encoding);
+      buffer->Store<int16_t>(location_ + 6u, ldr_encoding);
+      break;
+    }
+    case kLiteral1MiB: {
+      DCHECK(type_ == kLoadLiteralNarrow);
+      int32_t offset = GetOffset(code_size);
+      int32_t mov_encoding = MovModImmEncoding32(rn_, offset & ~0xfff);
+      int16_t add_pc_encoding = AddRdnRmEncoding16(rn_, PC);
+      int32_t ldr_encoding = LdrRtRnImm12Encoding(rn_, rn_, offset & 0xfff);
+      buffer->Store<int16_t>(location_, mov_encoding >> 16);
+      buffer->Store<int16_t>(location_ + 2u, static_cast<int16_t>(mov_encoding & 0xffff));
+      buffer->Store<int16_t>(location_ + 4u, add_pc_encoding);
+      buffer->Store<int16_t>(location_ + 6u, ldr_encoding >> 16);
+      buffer->Store<int16_t>(location_ + 8u, static_cast<int16_t>(ldr_encoding & 0xffff));
+      break;
+    }
+    case kLiteralFar: {
+      DCHECK(type_ == kLoadLiteralNarrow);
+      int32_t offset = GetOffset(code_size);
+      int32_t movw_encoding = MovwEncoding32(rn_, offset & 0xffff);
+      int32_t movt_encoding = MovtEncoding32(rn_, offset & ~0xffff);
+      int16_t add_pc_encoding = AddRdnRmEncoding16(rn_, PC);
+      int32_t ldr_encoding = LdrRtRnImm12Encoding(rn_, rn_, 0);
+      buffer->Store<int16_t>(location_, movw_encoding >> 16);
+      buffer->Store<int16_t>(location_ + 2u, static_cast<int16_t>(movw_encoding & 0xffff));
+      buffer->Store<int16_t>(location_ + 4u, movt_encoding >> 16);
+      buffer->Store<int16_t>(location_ + 6u, static_cast<int16_t>(movt_encoding & 0xffff));
+      buffer->Store<int16_t>(location_ + 8u, add_pc_encoding);
+      buffer->Store<int16_t>(location_ + 10u, ldr_encoding >> 16);
+      buffer->Store<int16_t>(location_ + 12u, static_cast<int16_t>(ldr_encoding & 0xffff));
+      break;
+    }
+
+    case kLiteralAddr1KiB: {
+      DCHECK(type_ == kLoadLiteralAddr);
+      int16_t encoding = AdrEncoding16(rn_, GetOffset(code_size));
+      buffer->Store<int16_t>(location_, encoding);
+      break;
+    }
+    case kLiteralAddr4KiB: {
+      DCHECK(type_ == kLoadLiteralAddr);
+      int32_t encoding = AdrEncoding32(rn_, GetOffset(code_size));
+      buffer->Store<int16_t>(location_, encoding >> 16);
+      buffer->Store<int16_t>(location_ + 2u, static_cast<int16_t>(encoding & 0xffff));
+      break;
+    }
+    case kLiteralAddr64KiB: {
+      DCHECK(type_ == kLoadLiteralAddr);
+      int32_t mov_encoding = MovwEncoding32(rn_, GetOffset(code_size));
+      int16_t add_pc_encoding = AddRdnRmEncoding16(rn_, PC);
+      buffer->Store<int16_t>(location_, mov_encoding >> 16);
+      buffer->Store<int16_t>(location_ + 2u, static_cast<int16_t>(mov_encoding & 0xffff));
+      buffer->Store<int16_t>(location_ + 4u, add_pc_encoding);
+      break;
+    }
+    case kLiteralAddrFar: {
+      DCHECK(type_ == kLoadLiteralAddr);
+      int32_t offset = GetOffset(code_size);
+      int32_t movw_encoding = MovwEncoding32(rn_, offset & 0xffff);
+      int32_t movt_encoding = MovtEncoding32(rn_, offset & ~0xffff);
+      int16_t add_pc_encoding = AddRdnRmEncoding16(rn_, PC);
+      buffer->Store<int16_t>(location_, movw_encoding >> 16);
+      buffer->Store<int16_t>(location_ + 2u, static_cast<int16_t>(movw_encoding & 0xffff));
+      buffer->Store<int16_t>(location_ + 4u, movt_encoding >> 16);
+      buffer->Store<int16_t>(location_ + 6u, static_cast<int16_t>(movt_encoding & 0xffff));
+      buffer->Store<int16_t>(location_ + 8u, add_pc_encoding);
+      break;
+    }
+
+    case kLongOrFPLiteral1KiB: {
+      int32_t encoding = LoadWideOrFpEncoding(PC, GetOffset(code_size));  // DCHECKs type_.
+      buffer->Store<int16_t>(location_, encoding >> 16);
+      buffer->Store<int16_t>(location_ + 2u, static_cast<int16_t>(encoding & 0xffff));
+      break;
+    }
+    case kLongOrFPLiteral256KiB: {
+      int32_t offset = GetOffset(code_size);
+      int32_t mov_encoding = MovModImmEncoding32(IP, offset & ~0x3ff);
+      int16_t add_pc_encoding = AddRdnRmEncoding16(IP, PC);
+      int32_t ldr_encoding = LoadWideOrFpEncoding(IP, offset & 0x3ff);    // DCHECKs type_.
+      buffer->Store<int16_t>(location_, mov_encoding >> 16);
+      buffer->Store<int16_t>(location_ + 2u, static_cast<int16_t>(mov_encoding & 0xffff));
+      buffer->Store<int16_t>(location_ + 4u, add_pc_encoding);
+      buffer->Store<int16_t>(location_ + 6u, ldr_encoding >> 16);
+      buffer->Store<int16_t>(location_ + 8u, static_cast<int16_t>(ldr_encoding & 0xffff));
+      break;
+    }
+    case kLongOrFPLiteralFar: {
+      int32_t offset = GetOffset(code_size);
+      int32_t movw_encoding = MovwEncoding32(IP, offset & 0xffff);
+      int32_t movt_encoding = MovtEncoding32(IP, offset & ~0xffff);
+      int16_t add_pc_encoding = AddRdnRmEncoding16(IP, PC);
+      int32_t ldr_encoding = LoadWideOrFpEncoding(IP, 0);                 // DCHECKs type_.
+      buffer->Store<int16_t>(location_, movw_encoding >> 16);
+      buffer->Store<int16_t>(location_ + 2u, static_cast<int16_t>(movw_encoding & 0xffff));
+      buffer->Store<int16_t>(location_ + 4u, movt_encoding >> 16);
+      buffer->Store<int16_t>(location_ + 6u, static_cast<int16_t>(movt_encoding & 0xffff));
+      buffer->Store<int16_t>(location_ + 8u, add_pc_encoding);
+      buffer->Store<int16_t>(location_ + 10u, ldr_encoding >> 16);
+      buffer->Store<int16_t>(location_ + 12u, static_cast<int16_t>(ldr_encoding & 0xffff));
+      break;
     }
   }
 }
 
-
 uint16_t Thumb2Assembler::EmitCompareAndBranch(Register rn, uint16_t prev, bool n) {
+  CHECK(IsLowRegister(rn));
   uint32_t location = buffer_.Size();
 
   // This is always unresolved as it must be a forward branch.
   Emit16(prev);      // Previous link.
-  return AddBranch(n ? Branch::kCompareAndBranchNonZero : Branch::kCompareAndBranchZero,
-      location, rn);
+  return AddFixup(Fixup::CompareAndBranch(location, rn, n ? NE : EQ));
 }
 
 
@@ -1437,7 +2392,7 @@ void Thumb2Assembler::EmitLoadStore(Condition cond,
       if (sp_relative) {
         // SP relative, 10 bit offset.
         CHECK_LT(offset, (1 << 10));
-        CHECK_EQ((offset & 3 /* 0b11 */), 0);
+        CHECK_ALIGNED(offset, 4);
         encoding |= rd << 8 | offset >> 2;
       } else {
         // No SP relative.  The offset is shifted right depending on
@@ -1450,12 +2405,12 @@ void Thumb2Assembler::EmitLoadStore(Condition cond,
         } else if (half) {
           // 6 bit offset, shifted by 1.
           CHECK_LT(offset, (1 << 6));
-          CHECK_EQ((offset & 1 /* 0b1 */), 0);
+          CHECK_ALIGNED(offset, 2);
           offset >>= 1;
         } else {
           // 7 bit offset, shifted by 2.
           CHECK_LT(offset, (1 << 7));
-          CHECK_EQ((offset & 3 /* 0b11 */), 0);
+          CHECK_ALIGNED(offset, 4);
           offset >>= 2;
         }
         encoding |= rn << 3 | offset  << 6;
@@ -1588,50 +2543,74 @@ void Thumb2Assembler::EmitMultiMemOp(Condition cond,
   }
 }
 
-
 void Thumb2Assembler::EmitBranch(Condition cond, Label* label, bool link, bool x) {
+  bool use32bit = IsForced32Bit() || !CanRelocateBranches();
   uint32_t pc = buffer_.Size();
-  Branch::Type branch_type;
+  Fixup::Type branch_type;
   if (cond == AL) {
     if (link) {
+      use32bit = true;
       if (x) {
-        branch_type = Branch::kUnconditionalLinkX;      // BLX.
+        branch_type = Fixup::kUnconditionalLinkX;      // BLX.
       } else {
-        branch_type = Branch::kUnconditionalLink;       // BX.
+        branch_type = Fixup::kUnconditionalLink;       // BX.
       }
     } else {
-      branch_type = Branch::kUnconditional;             // B.
+      branch_type = Fixup::kUnconditional;             // B.
+      // The T2 encoding offset is `SignExtend(imm11:'0', 32)` and there is a PC adjustment of 4.
+      static constexpr size_t kMaxT2BackwardDistance = (1u << 11) - 4u;
+      if (!use32bit && label->IsBound() && pc - label->Position() > kMaxT2BackwardDistance) {
+        use32bit = true;
+      }
     }
   } else {
-    branch_type = Branch::kConditional;                 // B<cond>.
+    branch_type = Fixup::kConditional;                 // B<cond>.
+    // The T1 encoding offset is `SignExtend(imm8:'0', 32)` and there is a PC adjustment of 4.
+    static constexpr size_t kMaxT1BackwardDistance = (1u << 8) - 4u;
+    if (!use32bit && label->IsBound() && pc - label->Position() > kMaxT1BackwardDistance) {
+      use32bit = true;
+    }
   }
+
+  Fixup::Size size = use32bit ? Fixup::kBranch32Bit : Fixup::kBranch16Bit;
+  FixupId branch_id = AddFixup(Fixup::Branch(pc, branch_type, size, cond));
 
   if (label->IsBound()) {
-    Branch::Size size = AddBranch(branch_type, pc, label->Position(), cond);  // Resolved branch.
-
-    // The branch is to a bound label which means that it's a backwards branch.  We know the
-    // current size of it so we can emit the appropriate space.  Note that if it's a 16 bit
-    // branch the size may change if it so happens that other branches change size that change
-    // the distance to the target and that distance puts this branch over the limit for 16 bits.
-    if (size == Branch::k16Bit) {
-      DCHECK(!force_32bit_branches_);
-      Emit16(0);          // Space for a 16 bit branch.
-    } else {
-      Emit32(0);            // Space for a 32 bit branch.
-    }
+    // The branch is to a bound label which means that it's a backwards branch.
+    GetFixup(branch_id)->Resolve(label->Position());
+    Emit16(0);
   } else {
-    // Branch is to an unbound label.  Emit space for it.
-    uint16_t branch_id = AddBranch(branch_type, pc, cond);    // Unresolved branch.
-    if (force_32bit_branches_ || force_32bit_) {
-      Emit16(static_cast<uint16_t>(label->position_));    // Emit current label link.
-      Emit16(0);                   // another 16 bits.
-    } else {
-      Emit16(static_cast<uint16_t>(label->position_));    // Emit current label link.
-    }
-    label->LinkTo(branch_id);           // Link to the branch ID.
+    // Branch target is an unbound label. Add it to a singly-linked list maintained within
+    // the code with the label serving as the head.
+    Emit16(static_cast<uint16_t>(label->position_));
+    label->LinkTo(branch_id);
   }
+
+  if (use32bit) {
+    Emit16(0);
+  }
+  DCHECK_EQ(buffer_.Size() - pc, GetFixup(branch_id)->GetSizeInBytes());
 }
 
+
+void Thumb2Assembler::Emit32Miscellaneous(uint8_t op1,
+                                          uint8_t op2,
+                                          uint32_t rest_encoding) {
+  int32_t encoding = B31 | B30 | B29 | B28 | B27 | B25 | B23 |
+      op1 << 20 |
+      0xf << 12 |
+      B7 |
+      op2 << 4 |
+      rest_encoding;
+  Emit32(encoding);
+}
+
+
+void Thumb2Assembler::Emit16Miscellaneous(uint32_t rest_encoding) {
+  int16_t encoding = B15 | B13 | B12 |
+      rest_encoding;
+  Emit16(encoding);
+}
 
 void Thumb2Assembler::clz(Register rd, Register rm, Condition cond) {
   CHECK_NE(rd, kNoRegister);
@@ -1639,43 +2618,29 @@ void Thumb2Assembler::clz(Register rd, Register rm, Condition cond) {
   CheckCondition(cond);
   CHECK_NE(rd, PC);
   CHECK_NE(rm, PC);
-  int32_t encoding = B31 | B30 | B29 | B28 | B27 |
-      B25 | B23 | B21 | B20 |
+  int32_t encoding =
       static_cast<uint32_t>(rm) << 16 |
-      0xf << 12 |
       static_cast<uint32_t>(rd) << 8 |
-      B7 |
       static_cast<uint32_t>(rm);
-  Emit32(encoding);
+  Emit32Miscellaneous(0b11, 0b00, encoding);
 }
 
 
 void Thumb2Assembler::movw(Register rd, uint16_t imm16, Condition cond) {
   CheckCondition(cond);
-  bool must_be_32bit = force_32bit_;
-  if (IsHighRegister(rd)|| imm16 >= 256u) {
-    must_be_32bit = true;
-  }
-
-  if (must_be_32bit) {
-    // Use encoding T3.
-    uint32_t imm4 = (imm16 >> 12) & 15U /* 0b1111 */;
-    uint32_t i = (imm16 >> 11) & 1U /* 0b1 */;
-    uint32_t imm3 = (imm16 >> 8) & 7U /* 0b111 */;
-    uint32_t imm8 = imm16 & 0xff;
-    int32_t encoding = B31 | B30 | B29 | B28 |
-                    B25 | B22 |
-                    static_cast<uint32_t>(rd) << 8 |
-                    i << 26 |
-                    imm4 << 16 |
-                    imm3 << 12 |
-                    imm8;
-    Emit32(encoding);
-  } else {
-    int16_t encoding = B13 | static_cast<uint16_t>(rd) << 8 |
-                imm16;
-    Emit16(encoding);
-  }
+  // Always 32 bits, encoding T3. (Other encondings are called MOV, not MOVW.)
+  uint32_t imm4 = (imm16 >> 12) & 15U /* 0b1111 */;
+  uint32_t i = (imm16 >> 11) & 1U /* 0b1 */;
+  uint32_t imm3 = (imm16 >> 8) & 7U /* 0b111 */;
+  uint32_t imm8 = imm16 & 0xff;
+  int32_t encoding = B31 | B30 | B29 | B28 |
+                  B25 | B22 |
+                  static_cast<uint32_t>(rd) << 8 |
+                  i << 26 |
+                  imm4 << 16 |
+                  imm3 << 12 |
+                  imm8;
+  Emit32(encoding);
 }
 
 
@@ -1694,6 +2659,66 @@ void Thumb2Assembler::movt(Register rd, uint16_t imm16, Condition cond) {
                   imm3 << 12 |
                   imm8;
   Emit32(encoding);
+}
+
+
+void Thumb2Assembler::rbit(Register rd, Register rm, Condition cond) {
+  CHECK_NE(rd, kNoRegister);
+  CHECK_NE(rm, kNoRegister);
+  CheckCondition(cond);
+  CHECK_NE(rd, PC);
+  CHECK_NE(rm, PC);
+  CHECK_NE(rd, SP);
+  CHECK_NE(rm, SP);
+  int32_t encoding =
+      static_cast<uint32_t>(rm) << 16 |
+      static_cast<uint32_t>(rd) << 8 |
+      static_cast<uint32_t>(rm);
+
+  Emit32Miscellaneous(0b01, 0b10, encoding);
+}
+
+
+void Thumb2Assembler::EmitReverseBytes(Register rd, Register rm,
+                                       uint32_t op) {
+  CHECK_NE(rd, kNoRegister);
+  CHECK_NE(rm, kNoRegister);
+  CHECK_NE(rd, PC);
+  CHECK_NE(rm, PC);
+  CHECK_NE(rd, SP);
+  CHECK_NE(rm, SP);
+
+  if (!IsHighRegister(rd) && !IsHighRegister(rm) && !force_32bit_) {
+    uint16_t t1_op = B11 | B9 | (op << 6);
+    int16_t encoding = t1_op |
+        static_cast<uint16_t>(rm) << 3 |
+        static_cast<uint16_t>(rd);
+    Emit16Miscellaneous(encoding);
+  } else {
+    int32_t encoding =
+        static_cast<uint32_t>(rm) << 16 |
+        static_cast<uint32_t>(rd) << 8 |
+        static_cast<uint32_t>(rm);
+    Emit32Miscellaneous(0b01, op, encoding);
+  }
+}
+
+
+void Thumb2Assembler::rev(Register rd, Register rm, Condition cond) {
+  CheckCondition(cond);
+  EmitReverseBytes(rd, rm, 0b00);
+}
+
+
+void Thumb2Assembler::rev16(Register rd, Register rm, Condition cond) {
+  CheckCondition(cond);
+  EmitReverseBytes(rd, rm, 0b01);
+}
+
+
+void Thumb2Assembler::revsh(Register rd, Register rm, Condition cond) {
+  CheckCondition(cond);
+  EmitReverseBytes(rd, rm, 0b11);
 }
 
 
@@ -2176,6 +3201,9 @@ void Thumb2Assembler::cbz(Register rn, Label* label) {
   if (label->IsBound()) {
     LOG(FATAL) << "cbz can only be used to branch forwards";
     UNREACHABLE();
+  } else if (IsHighRegister(rn)) {
+    LOG(FATAL) << "cbz can only be used with low registers";
+    UNREACHABLE();
   } else {
     uint16_t branchid = EmitCompareAndBranch(rn, static_cast<uint16_t>(label->position_), false);
     label->LinkTo(branchid);
@@ -2187,6 +3215,9 @@ void Thumb2Assembler::cbnz(Register rn, Label* label) {
   CheckCondition(AL);
   if (label->IsBound()) {
     LOG(FATAL) << "cbnz can only be used to branch forwards";
+    UNREACHABLE();
+  } else if (IsHighRegister(rn)) {
+    LOG(FATAL) << "cbnz can only be used with low registers";
     UNREACHABLE();
   } else {
     uint16_t branchid = EmitCompareAndBranch(rn, static_cast<uint16_t>(label->position_), true);
@@ -2238,150 +3269,76 @@ void Thumb2Assembler::Mov(Register rd, Register rm, Condition cond) {
 }
 
 
-// A branch has changed size.  Make a hole for it.
-void Thumb2Assembler::MakeHoleForBranch(uint32_t location, uint32_t delta) {
-  // Move the contents of the buffer using: Move(newposition, oldposition)
-  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
-  buffer_.Move(location + delta, location);
-}
-
-
 void Thumb2Assembler::Bind(Label* label) {
-  CHECK(!label->IsBound());
-  uint32_t bound_pc = buffer_.Size();
-  std::vector<Branch*> changed_branches;
-
-  while (label->IsLinked()) {
-    uint16_t position = label->Position();                  // Branch id for linked branch.
-    Branch* branch = GetBranch(position);                   // Get the branch at this id.
-    bool changed = branch->Resolve(bound_pc);               // Branch can be resolved now.
-    uint32_t branch_location = branch->GetLocation();
-    uint16_t next = buffer_.Load<uint16_t>(branch_location);       // Get next in chain.
-    if (changed) {
-      DCHECK(!force_32bit_branches_);
-      MakeHoleForBranch(branch->GetLocation(), 2);
-      if (branch->IsCompareAndBranch()) {
-        // A cbz/cbnz instruction has changed size.  There is no valid encoding for
-        // a 32 bit cbz/cbnz so we need to change this to an instruction pair:
-        // cmp rn, #0
-        // b<eq|ne> target
-        bool n = branch->GetType() == Branch::kCompareAndBranchNonZero;
-        Condition cond = n ? NE : EQ;
-        branch->Move(2);      // Move the branch forward by 2 bytes.
-        branch->ResetTypeAndCondition(Branch::kConditional, cond);
-        branch->ResetSize(Branch::k16Bit);
-
-        // Now add a compare instruction in the place the branch was.
-        buffer_.Store<int16_t>(branch_location,
-                               B13 | B11 | static_cast<int16_t>(branch->GetRegister()) << 8);
-
-        // Since have moved made a hole in the code we need to reload the
-        // current pc.
-        bound_pc = buffer_.Size();
-
-        // Now resolve the newly added branch.
-        changed = branch->Resolve(bound_pc);
-        if (changed) {
-          MakeHoleForBranch(branch->GetLocation(), 2);
-          changed_branches.push_back(branch);
-        }
-      } else {
-        changed_branches.push_back(branch);
-      }
-    }
-    label->position_ = next;                                // Move to next.
-  }
-  label->BindTo(bound_pc);
-
-  // Now relocate any changed branches.  Do this until there are no more changes.
-  std::vector<Branch*> branches_to_process = changed_branches;
-  while (branches_to_process.size() != 0) {
-    changed_branches.clear();
-    for (auto& changed_branch : branches_to_process) {
-      for (auto& branch : branches_) {
-        bool changed = branch->Relocate(changed_branch->GetLocation(), 2);
-        if (changed) {
-          changed_branches.push_back(branch);
-        }
-      }
-      branches_to_process = changed_branches;
-    }
-  }
-}
-
-
-void Thumb2Assembler::EmitBranches() {
-  for (auto& branch : branches_) {
-    branch->Emit(&buffer_);
-  }
+  BindLabel(label, buffer_.Size());
 }
 
 
 void Thumb2Assembler::Lsl(Register rd, Register rm, uint32_t shift_imm,
-                          bool setcc, Condition cond) {
+                          Condition cond, SetCc set_cc) {
   CHECK_LE(shift_imm, 31u);
   CheckCondition(cond);
-  EmitShift(rd, rm, LSL, shift_imm, setcc);
+  EmitShift(rd, rm, LSL, shift_imm, cond, set_cc);
 }
 
 
 void Thumb2Assembler::Lsr(Register rd, Register rm, uint32_t shift_imm,
-                          bool setcc, Condition cond) {
+                          Condition cond, SetCc set_cc) {
   CHECK(1u <= shift_imm && shift_imm <= 32u);
   if (shift_imm == 32) shift_imm = 0;  // Comply to UAL syntax.
   CheckCondition(cond);
-  EmitShift(rd, rm, LSR, shift_imm, setcc);
+  EmitShift(rd, rm, LSR, shift_imm, cond, set_cc);
 }
 
 
 void Thumb2Assembler::Asr(Register rd, Register rm, uint32_t shift_imm,
-                          bool setcc, Condition cond) {
+                          Condition cond, SetCc set_cc) {
   CHECK(1u <= shift_imm && shift_imm <= 32u);
   if (shift_imm == 32) shift_imm = 0;  // Comply to UAL syntax.
   CheckCondition(cond);
-  EmitShift(rd, rm, ASR, shift_imm, setcc);
+  EmitShift(rd, rm, ASR, shift_imm, cond, set_cc);
 }
 
 
 void Thumb2Assembler::Ror(Register rd, Register rm, uint32_t shift_imm,
-                          bool setcc, Condition cond) {
+                          Condition cond, SetCc set_cc) {
   CHECK(1u <= shift_imm && shift_imm <= 31u);
   CheckCondition(cond);
-  EmitShift(rd, rm, ROR, shift_imm, setcc);
+  EmitShift(rd, rm, ROR, shift_imm, cond, set_cc);
 }
 
 
-void Thumb2Assembler::Rrx(Register rd, Register rm, bool setcc, Condition cond) {
+void Thumb2Assembler::Rrx(Register rd, Register rm, Condition cond, SetCc set_cc) {
   CheckCondition(cond);
-  EmitShift(rd, rm, RRX, rm, setcc);
+  EmitShift(rd, rm, RRX, 0, cond, set_cc);
 }
 
 
 void Thumb2Assembler::Lsl(Register rd, Register rm, Register rn,
-                          bool setcc, Condition cond) {
+                          Condition cond, SetCc set_cc) {
   CheckCondition(cond);
-  EmitShift(rd, rm, LSL, rn, setcc);
+  EmitShift(rd, rm, LSL, rn, cond, set_cc);
 }
 
 
 void Thumb2Assembler::Lsr(Register rd, Register rm, Register rn,
-                          bool setcc, Condition cond) {
+                          Condition cond, SetCc set_cc) {
   CheckCondition(cond);
-  EmitShift(rd, rm, LSR, rn, setcc);
+  EmitShift(rd, rm, LSR, rn, cond, set_cc);
 }
 
 
 void Thumb2Assembler::Asr(Register rd, Register rm, Register rn,
-                          bool setcc, Condition cond) {
+                          Condition cond, SetCc set_cc) {
   CheckCondition(cond);
-  EmitShift(rd, rm, ASR, rn, setcc);
+  EmitShift(rd, rm, ASR, rn, cond, set_cc);
 }
 
 
 void Thumb2Assembler::Ror(Register rd, Register rm, Register rn,
-                          bool setcc, Condition cond) {
+                          Condition cond, SetCc set_cc) {
   CheckCondition(cond);
-  EmitShift(rd, rm, ROR, rn, setcc);
+  EmitShift(rd, rm, ROR, rn, cond, set_cc);
 }
 
 
@@ -2451,15 +3408,90 @@ int Thumb2Assembler::DecodeBranchOffset(int32_t instr) {
   return imm32;
 }
 
+uint32_t Thumb2Assembler::GetAdjustedPosition(uint32_t old_position) {
+  // We can reconstruct the adjustment by going through all the fixups from the beginning
+  // up to the old_position. Since we expect AdjustedPosition() to be called in a loop
+  // with increasing old_position, we can use the data from last AdjustedPosition() to
+  // continue where we left off and the whole loop should be O(m+n) where m is the number
+  // of positions to adjust and n is the number of fixups.
+  if (old_position < last_old_position_) {
+    last_position_adjustment_ = 0u;
+    last_old_position_ = 0u;
+    last_fixup_id_ = 0u;
+  }
+  while (last_fixup_id_ != fixups_.size()) {
+    Fixup* fixup = GetFixup(last_fixup_id_);
+    if (fixup->GetLocation() >= old_position + last_position_adjustment_) {
+      break;
+    }
+    if (fixup->GetSize() != fixup->GetOriginalSize()) {
+      last_position_adjustment_ += fixup->GetSizeInBytes() - fixup->GetOriginalSizeInBytes();
+    }
+     ++last_fixup_id_;
+  }
+  last_old_position_ = old_position;
+  return old_position + last_position_adjustment_;
+}
 
-void Thumb2Assembler::AddConstant(Register rd, int32_t value, Condition cond) {
-  AddConstant(rd, rd, value, cond);
+Literal* Thumb2Assembler::NewLiteral(size_t size, const uint8_t* data)  {
+  DCHECK(size == 4u || size == 8u) << size;
+  literals_.emplace_back(size, data);
+  return &literals_.back();
+}
+
+void Thumb2Assembler::LoadLiteral(Register rt, Literal* literal)  {
+  DCHECK_EQ(literal->GetSize(), 4u);
+  DCHECK(!literal->GetLabel()->IsBound());
+  bool use32bit = IsForced32Bit() || IsHighRegister(rt);
+  uint32_t location = buffer_.Size();
+  Fixup::Size size = use32bit ? Fixup::kLiteral4KiB : Fixup::kLiteral1KiB;
+  FixupId fixup_id = AddFixup(Fixup::LoadNarrowLiteral(location, rt, size));
+  Emit16(static_cast<uint16_t>(literal->GetLabel()->position_));
+  literal->GetLabel()->LinkTo(fixup_id);
+  if (use32bit) {
+    Emit16(0);
+  }
+  DCHECK_EQ(location + GetFixup(fixup_id)->GetSizeInBytes(), buffer_.Size());
+}
+
+void Thumb2Assembler::LoadLiteral(Register rt, Register rt2, Literal* literal)  {
+  DCHECK_EQ(literal->GetSize(), 8u);
+  DCHECK(!literal->GetLabel()->IsBound());
+  uint32_t location = buffer_.Size();
+  FixupId fixup_id =
+      AddFixup(Fixup::LoadWideLiteral(location, rt, rt2, Fixup::kLongOrFPLiteral1KiB));
+  Emit16(static_cast<uint16_t>(literal->GetLabel()->position_));
+  literal->GetLabel()->LinkTo(fixup_id);
+  Emit16(0);
+  DCHECK_EQ(location + GetFixup(fixup_id)->GetSizeInBytes(), buffer_.Size());
+}
+
+void Thumb2Assembler::LoadLiteral(SRegister sd, Literal* literal)  {
+  DCHECK_EQ(literal->GetSize(), 4u);
+  DCHECK(!literal->GetLabel()->IsBound());
+  uint32_t location = buffer_.Size();
+  FixupId fixup_id = AddFixup(Fixup::LoadSingleLiteral(location, sd, Fixup::kLongOrFPLiteral1KiB));
+  Emit16(static_cast<uint16_t>(literal->GetLabel()->position_));
+  literal->GetLabel()->LinkTo(fixup_id);
+  Emit16(0);
+  DCHECK_EQ(location + GetFixup(fixup_id)->GetSizeInBytes(), buffer_.Size());
+}
+
+void Thumb2Assembler::LoadLiteral(DRegister dd, Literal* literal) {
+  DCHECK_EQ(literal->GetSize(), 8u);
+  DCHECK(!literal->GetLabel()->IsBound());
+  uint32_t location = buffer_.Size();
+  FixupId fixup_id = AddFixup(Fixup::LoadDoubleLiteral(location, dd, Fixup::kLongOrFPLiteral1KiB));
+  Emit16(static_cast<uint16_t>(literal->GetLabel()->position_));
+  literal->GetLabel()->LinkTo(fixup_id);
+  Emit16(0);
+  DCHECK_EQ(location + GetFixup(fixup_id)->GetSizeInBytes(), buffer_.Size());
 }
 
 
 void Thumb2Assembler::AddConstant(Register rd, Register rn, int32_t value,
-                                  Condition cond) {
-  if (value == 0) {
+                                  Condition cond, SetCc set_cc) {
+  if (value == 0 && set_cc != kCcSet) {
     if (rd != rn) {
       mov(rd, ShifterOperand(rn), cond);
     }
@@ -2469,56 +3501,63 @@ void Thumb2Assembler::AddConstant(Register rd, Register rn, int32_t value,
   // positive values and sub for negatives ones, which would slightly improve
   // the readability of generated code for some constants.
   ShifterOperand shifter_op;
-  if (ShifterOperandCanHold(rd, rn, ADD, value, &shifter_op)) {
-    add(rd, rn, shifter_op, cond);
-  } else if (ShifterOperandCanHold(rd, rn, SUB, -value, &shifter_op)) {
-    sub(rd, rn, shifter_op, cond);
+  if (ShifterOperandCanHold(rd, rn, ADD, value, set_cc, &shifter_op)) {
+    add(rd, rn, shifter_op, cond, set_cc);
+  } else if (ShifterOperandCanHold(rd, rn, SUB, -value, set_cc, &shifter_op)) {
+    sub(rd, rn, shifter_op, cond, set_cc);
   } else {
     CHECK(rn != IP);
-    if (ShifterOperandCanHold(rd, rn, MVN, ~value, &shifter_op)) {
-      mvn(IP, shifter_op, cond);
-      add(rd, rn, ShifterOperand(IP), cond);
-    } else if (ShifterOperandCanHold(rd, rn, MVN, ~(-value), &shifter_op)) {
-      mvn(IP, shifter_op, cond);
-      sub(rd, rn, ShifterOperand(IP), cond);
+    // If rd != rn, use rd as temp. This alows 16-bit ADD/SUB in more situations than using IP.
+    Register temp = (rd != rn) ? rd : IP;
+    if (ShifterOperandCanHold(temp, kNoRegister, MVN, ~value, kCcKeep, &shifter_op)) {
+      mvn(temp, shifter_op, cond, kCcKeep);
+      add(rd, rn, ShifterOperand(temp), cond, set_cc);
+    } else if (ShifterOperandCanHold(temp, kNoRegister, MVN, ~(-value), kCcKeep, &shifter_op)) {
+      mvn(temp, shifter_op, cond, kCcKeep);
+      sub(rd, rn, ShifterOperand(temp), cond, set_cc);
+    } else if (High16Bits(-value) == 0) {
+      movw(temp, Low16Bits(-value), cond);
+      sub(rd, rn, ShifterOperand(temp), cond, set_cc);
     } else {
-      movw(IP, Low16Bits(value), cond);
+      movw(temp, Low16Bits(value), cond);
       uint16_t value_high = High16Bits(value);
       if (value_high != 0) {
-        movt(IP, value_high, cond);
+        movt(temp, value_high, cond);
       }
-      add(rd, rn, ShifterOperand(IP), cond);
+      add(rd, rn, ShifterOperand(temp), cond, set_cc);
     }
   }
 }
 
-
-void Thumb2Assembler::AddConstantSetFlags(Register rd, Register rn, int32_t value,
-                                          Condition cond) {
+void Thumb2Assembler::CmpConstant(Register rn, int32_t value, Condition cond) {
+  // We prefer to select the shorter code sequence rather than using plain cmp and cmn
+  // which would slightly improve the readability of generated code for some constants.
   ShifterOperand shifter_op;
-  if (ShifterOperandCanHold(rd, rn, ADD, value, &shifter_op)) {
-    adds(rd, rn, shifter_op, cond);
-  } else if (ShifterOperandCanHold(rd, rn, ADD, -value, &shifter_op)) {
-    subs(rd, rn, shifter_op, cond);
+  if (ShifterOperandCanHold(kNoRegister, rn, CMP, value, kCcSet, &shifter_op)) {
+    cmp(rn, shifter_op, cond);
+  } else if (ShifterOperandCanHold(kNoRegister, rn, CMN, -value, kCcSet, &shifter_op)) {
+    cmn(rn, shifter_op, cond);
   } else {
     CHECK(rn != IP);
-    if (ShifterOperandCanHold(rd, rn, MVN, ~value, &shifter_op)) {
-      mvn(IP, shifter_op, cond);
-      adds(rd, rn, ShifterOperand(IP), cond);
-    } else if (ShifterOperandCanHold(rd, rn, MVN, ~(-value), &shifter_op)) {
-      mvn(IP, shifter_op, cond);
-      subs(rd, rn, ShifterOperand(IP), cond);
+    if (ShifterOperandCanHold(IP, kNoRegister, MVN, ~value, kCcKeep, &shifter_op)) {
+      mvn(IP, shifter_op, cond, kCcKeep);
+      cmp(rn, ShifterOperand(IP), cond);
+    } else if (ShifterOperandCanHold(IP, kNoRegister, MVN, ~(-value), kCcKeep, &shifter_op)) {
+      mvn(IP, shifter_op, cond, kCcKeep);
+      cmn(rn, ShifterOperand(IP), cond);
+    } else if (High16Bits(-value) == 0) {
+      movw(IP, Low16Bits(-value), cond);
+      cmn(rn, ShifterOperand(IP), cond);
     } else {
       movw(IP, Low16Bits(value), cond);
       uint16_t value_high = High16Bits(value);
       if (value_high != 0) {
         movt(IP, value_high, cond);
       }
-      adds(rd, rn, ShifterOperand(IP), cond);
+      cmp(rn, ShifterOperand(IP), cond);
     }
   }
 }
-
 
 void Thumb2Assembler::LoadImmediate(Register rd, int32_t value, Condition cond) {
   ShifterOperand shifter_op;
@@ -2535,6 +3574,73 @@ void Thumb2Assembler::LoadImmediate(Register rd, int32_t value, Condition cond) 
   }
 }
 
+int32_t Thumb2Assembler::GetAllowedLoadOffsetBits(LoadOperandType type) {
+  switch (type) {
+    case kLoadSignedByte:
+    case kLoadSignedHalfword:
+    case kLoadUnsignedHalfword:
+    case kLoadUnsignedByte:
+    case kLoadWord:
+      // We can encode imm12 offset.
+      return 0xfffu;
+    case kLoadSWord:
+    case kLoadDWord:
+    case kLoadWordPair:
+      // We can encode imm8:'00' offset.
+      return 0xff << 2;
+    default:
+      LOG(FATAL) << "UNREACHABLE";
+      UNREACHABLE();
+  }
+}
+
+int32_t Thumb2Assembler::GetAllowedStoreOffsetBits(StoreOperandType type) {
+  switch (type) {
+    case kStoreHalfword:
+    case kStoreByte:
+    case kStoreWord:
+      // We can encode imm12 offset.
+      return 0xfff;
+    case kStoreSWord:
+    case kStoreDWord:
+    case kStoreWordPair:
+      // We can encode imm8:'00' offset.
+      return 0xff << 2;
+    default:
+      LOG(FATAL) << "UNREACHABLE";
+      UNREACHABLE();
+  }
+}
+
+bool Thumb2Assembler::CanSplitLoadStoreOffset(int32_t allowed_offset_bits,
+                                              int32_t offset,
+                                              /*out*/ int32_t* add_to_base,
+                                              /*out*/ int32_t* offset_for_load_store) {
+  int32_t other_bits = offset & ~allowed_offset_bits;
+  if (ShifterOperandCanAlwaysHold(other_bits) || ShifterOperandCanAlwaysHold(-other_bits)) {
+    *add_to_base = offset & ~allowed_offset_bits;
+    *offset_for_load_store = offset & allowed_offset_bits;
+    return true;
+  }
+  return false;
+}
+
+int32_t Thumb2Assembler::AdjustLoadStoreOffset(int32_t allowed_offset_bits,
+                                               Register temp,
+                                               Register base,
+                                               int32_t offset,
+                                               Condition cond) {
+  DCHECK_NE(offset & ~allowed_offset_bits, 0);
+  int32_t add_to_base, offset_for_load;
+  if (CanSplitLoadStoreOffset(allowed_offset_bits, offset, &add_to_base, &offset_for_load)) {
+    AddConstant(temp, base, add_to_base, cond, kCcKeep);
+    return offset_for_load;
+  } else {
+    LoadImmediate(temp, offset, cond);
+    add(temp, temp, ShifterOperand(base), cond, kCcKeep);
+    return 0;
+  }
+}
 
 // Implementation note: this method must emit at most one instruction when
 // Address::CanHoldLoadOffsetThumb.
@@ -2545,12 +3651,26 @@ void Thumb2Assembler::LoadFromOffset(LoadOperandType type,
                                      Condition cond) {
   if (!Address::CanHoldLoadOffsetThumb(type, offset)) {
     CHECK_NE(base, IP);
-    LoadImmediate(IP, offset, cond);
-    add(IP, IP, ShifterOperand(base), cond);
-    base = IP;
-    offset = 0;
+    // Inlined AdjustLoadStoreOffset() allows us to pull a few more tricks.
+    int32_t allowed_offset_bits = GetAllowedLoadOffsetBits(type);
+    DCHECK_NE(offset & ~allowed_offset_bits, 0);
+    int32_t add_to_base, offset_for_load;
+    if (CanSplitLoadStoreOffset(allowed_offset_bits, offset, &add_to_base, &offset_for_load)) {
+      // Use reg for the adjusted base. If it's low reg, we may end up using 16-bit load.
+      AddConstant(reg, base, add_to_base, cond, kCcKeep);
+      base = reg;
+      offset = offset_for_load;
+    } else {
+      Register temp = (reg == base) ? IP : reg;
+      LoadImmediate(temp, offset, cond);
+      // TODO: Implement indexed load (not available for LDRD) and use it here to avoid the ADD.
+      // Use reg for the adjusted base. If it's low reg, we may end up using 16-bit load.
+      add(reg, reg, ShifterOperand((reg == base) ? IP : base), cond, kCcKeep);
+      base = reg;
+      offset = 0;
+    }
   }
-  CHECK(Address::CanHoldLoadOffsetThumb(type, offset));
+  DCHECK(Address::CanHoldLoadOffsetThumb(type, offset));
   switch (type) {
     case kLoadSignedByte:
       ldrsb(reg, Address(base, offset), cond);
@@ -2576,7 +3696,6 @@ void Thumb2Assembler::LoadFromOffset(LoadOperandType type,
   }
 }
 
-
 // Implementation note: this method must emit at most one instruction when
 // Address::CanHoldLoadOffsetThumb, as expected by JIT::GuardedLoadFromOffset.
 void Thumb2Assembler::LoadSFromOffset(SRegister reg,
@@ -2585,12 +3704,10 @@ void Thumb2Assembler::LoadSFromOffset(SRegister reg,
                                       Condition cond) {
   if (!Address::CanHoldLoadOffsetThumb(kLoadSWord, offset)) {
     CHECK_NE(base, IP);
-    LoadImmediate(IP, offset, cond);
-    add(IP, IP, ShifterOperand(base), cond);
+    offset = AdjustLoadStoreOffset(GetAllowedLoadOffsetBits(kLoadSWord), IP, base, offset, cond);
     base = IP;
-    offset = 0;
   }
-  CHECK(Address::CanHoldLoadOffsetThumb(kLoadSWord, offset));
+  DCHECK(Address::CanHoldLoadOffsetThumb(kLoadSWord, offset));
   vldrs(reg, Address(base, offset), cond);
 }
 
@@ -2603,12 +3720,10 @@ void Thumb2Assembler::LoadDFromOffset(DRegister reg,
                                       Condition cond) {
   if (!Address::CanHoldLoadOffsetThumb(kLoadDWord, offset)) {
     CHECK_NE(base, IP);
-    LoadImmediate(IP, offset, cond);
-    add(IP, IP, ShifterOperand(base), cond);
+    offset = AdjustLoadStoreOffset(GetAllowedLoadOffsetBits(kLoadDWord), IP, base, offset, cond);
     base = IP;
-    offset = 0;
   }
-  CHECK(Address::CanHoldLoadOffsetThumb(kLoadDWord, offset));
+  DCHECK(Address::CanHoldLoadOffsetThumb(kLoadDWord, offset));
   vldrd(reg, Address(base, offset), cond);
 }
 
@@ -2623,28 +3738,28 @@ void Thumb2Assembler::StoreToOffset(StoreOperandType type,
   Register tmp_reg = kNoRegister;
   if (!Address::CanHoldStoreOffsetThumb(type, offset)) {
     CHECK_NE(base, IP);
-    if (reg != IP &&
-        (type != kStoreWordPair || reg + 1 != IP)) {
+    if ((reg != IP) &&
+        ((type != kStoreWordPair) || (reg + 1 != IP))) {
       tmp_reg = IP;
     } else {
       // Be careful not to use IP twice (for `reg` (or `reg` + 1 in
-      // the case of a word-pair store)) and to build the Address
-      // object used by the store instruction(s) below).  Instead,
-      // save R5 on the stack (or R6 if R5 is not available), use it
-      // as secondary temporary register, and restore it after the
-      // store instruction has been emitted.
-      tmp_reg = base != R5 ? R5 : R6;
+      // the case of a word-pair store) and `base`) to build the
+      // Address object used by the store instruction(s) below.
+      // Instead, save R5 on the stack (or R6 if R5 is already used by
+      // `base`), use it as secondary temporary register, and restore
+      // it after the store instruction has been emitted.
+      tmp_reg = (base != R5) ? R5 : R6;
       Push(tmp_reg);
       if (base == SP) {
         offset += kRegisterSize;
       }
     }
-    LoadImmediate(tmp_reg, offset, cond);
-    add(tmp_reg, tmp_reg, ShifterOperand(base), cond);
+    // TODO: Implement indexed store (not available for STRD), inline AdjustLoadStoreOffset()
+    // and in the "unsplittable" path get rid of the "add" by using the store indexed instead.
+    offset = AdjustLoadStoreOffset(GetAllowedStoreOffsetBits(type), tmp_reg, base, offset, cond);
     base = tmp_reg;
-    offset = 0;
   }
-  CHECK(Address::CanHoldStoreOffsetThumb(type, offset));
+  DCHECK(Address::CanHoldStoreOffsetThumb(type, offset));
   switch (type) {
     case kStoreByte:
       strb(reg, Address(base, offset), cond);
@@ -2662,8 +3777,8 @@ void Thumb2Assembler::StoreToOffset(StoreOperandType type,
       LOG(FATAL) << "UNREACHABLE";
       UNREACHABLE();
   }
-  if (tmp_reg != kNoRegister && tmp_reg != IP) {
-    DCHECK(tmp_reg == R5 || tmp_reg == R6);
+  if ((tmp_reg != kNoRegister) && (tmp_reg != IP)) {
+    CHECK((tmp_reg == R5) || (tmp_reg == R6));
     Pop(tmp_reg);
   }
 }
@@ -2677,12 +3792,10 @@ void Thumb2Assembler::StoreSToOffset(SRegister reg,
                                      Condition cond) {
   if (!Address::CanHoldStoreOffsetThumb(kStoreSWord, offset)) {
     CHECK_NE(base, IP);
-    LoadImmediate(IP, offset, cond);
-    add(IP, IP, ShifterOperand(base), cond);
+    offset = AdjustLoadStoreOffset(GetAllowedStoreOffsetBits(kStoreSWord), IP, base, offset, cond);
     base = IP;
-    offset = 0;
   }
-  CHECK(Address::CanHoldStoreOffsetThumb(kStoreSWord, offset));
+  DCHECK(Address::CanHoldStoreOffsetThumb(kStoreSWord, offset));
   vstrs(reg, Address(base, offset), cond);
 }
 
@@ -2695,12 +3808,10 @@ void Thumb2Assembler::StoreDToOffset(DRegister reg,
                                      Condition cond) {
   if (!Address::CanHoldStoreOffsetThumb(kStoreDWord, offset)) {
     CHECK_NE(base, IP);
-    LoadImmediate(IP, offset, cond);
-    add(IP, IP, ShifterOperand(base), cond);
+    offset = AdjustLoadStoreOffset(GetAllowedStoreOffsetBits(kStoreDWord), IP, base, offset, cond);
     base = IP;
-    offset = 0;
   }
-  CHECK(Address::CanHoldStoreOffsetThumb(kStoreDWord, offset));
+  DCHECK(Address::CanHoldStoreOffsetThumb(kStoreDWord, offset));
   vstrd(reg, Address(base, offset), cond);
 }
 
@@ -2718,22 +3829,56 @@ void Thumb2Assembler::dmb(DmbOptions flavor) {
 
 
 void Thumb2Assembler::CompareAndBranchIfZero(Register r, Label* label) {
-  if (force_32bit_branches_) {
+  if (CanRelocateBranches() && IsLowRegister(r) && !label->IsBound()) {
+    cbz(r, label);
+  } else {
     cmp(r, ShifterOperand(0));
     b(label, EQ);
-  } else {
-    cbz(r, label);
   }
 }
 
 
 void Thumb2Assembler::CompareAndBranchIfNonZero(Register r, Label* label) {
-  if (force_32bit_branches_) {
+  if (CanRelocateBranches() && IsLowRegister(r) && !label->IsBound()) {
+    cbnz(r, label);
+  } else {
     cmp(r, ShifterOperand(0));
     b(label, NE);
-  } else {
-    cbnz(r, label);
   }
 }
+
+JumpTable* Thumb2Assembler::CreateJumpTable(std::vector<Label*>&& labels, Register base_reg) {
+  jump_tables_.emplace_back(std::move(labels));
+  JumpTable* table = &jump_tables_.back();
+  DCHECK(!table->GetLabel()->IsBound());
+
+  bool use32bit = IsForced32Bit() || IsHighRegister(base_reg);
+  uint32_t location = buffer_.Size();
+  Fixup::Size size = use32bit ? Fixup::kLiteralAddr4KiB : Fixup::kLiteralAddr1KiB;
+  FixupId fixup_id = AddFixup(Fixup::LoadLiteralAddress(location, base_reg, size));
+  Emit16(static_cast<uint16_t>(table->GetLabel()->position_));
+  table->GetLabel()->LinkTo(fixup_id);
+  if (use32bit) {
+    Emit16(0);
+  }
+  DCHECK_EQ(location + GetFixup(fixup_id)->GetSizeInBytes(), buffer_.Size());
+
+  return table;
+}
+
+void Thumb2Assembler::EmitJumpTableDispatch(JumpTable* jump_table, Register displacement_reg) {
+  CHECK(!IsForced32Bit()) << "Forced 32-bit dispatch not implemented yet";
+  // 32-bit ADD doesn't support PC as an input, so we need a two-instruction sequence:
+  //   SUB ip, ip, #0
+  //   ADD pc, ip, reg
+  // TODO: Implement.
+
+  // The anchor's position needs to be fixed up before we can compute offsets - so make it a tracked
+  // label.
+  BindTrackedLabel(jump_table->GetAnchorLabel());
+
+  add(PC, PC, ShifterOperand(displacement_reg));
+}
+
 }  // namespace arm
 }  // namespace art

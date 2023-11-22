@@ -20,16 +20,18 @@ import com.google.clearsilver.jsilver.data.Data;
 
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 
 public class ParameterInfo {
   public ParameterInfo(String name, String typeName, TypeInfo type, boolean isVarArg,
-      SourcePositionInfo position) {
+      SourcePositionInfo position, List<AnnotationInstanceInfo> annotationInstanceInfos) {
     mName = name;
     mTypeName = typeName;
     mType = type;
     mIsVarArg = isVarArg;
     mPosition = position;
+    mAnnotations = annotationInstanceInfos;
   }
 
   /**
@@ -37,7 +39,8 @@ public class ParameterInfo {
    */
   public ParameterInfo cloneWithTypeArguments(Map<String, TypeInfo> typeArgumentMapping) {
     return new ParameterInfo(
-        mName, mTypeName, mType.getTypeWithArguments(typeArgumentMapping), mIsVarArg, mPosition);
+        mName, mTypeName, mType.getTypeWithArguments(typeArgumentMapping),
+        mIsVarArg, mPosition, mAnnotations);
   }
 
   TypeInfo type() {
@@ -58,6 +61,10 @@ public class ParameterInfo {
 
   boolean isVarArg() {
     return mIsVarArg;
+  }
+
+  List<AnnotationInstanceInfo> annotations() {
+    return mAnnotations;
   }
 
   public void makeHDF(Data data, String base, boolean isLastVararg, HashSet<String> typeVariables) {
@@ -100,4 +107,5 @@ public class ParameterInfo {
   TypeInfo mType;
   boolean mIsVarArg;
   SourcePositionInfo mPosition;
+  List<AnnotationInstanceInfo> mAnnotations;
 }

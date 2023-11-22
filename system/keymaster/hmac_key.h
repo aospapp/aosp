@@ -28,6 +28,7 @@ class HmacKeyFactory : public SymmetricKeyFactory {
     HmacKeyFactory(const KeymasterContext* context) : SymmetricKeyFactory(context) {}
 
     keymaster_error_t LoadKey(const KeymasterKeyBlob& key_material,
+                              const AuthorizationSet& additional_params,
                               const AuthorizationSet& hw_enforced,
                               const AuthorizationSet& sw_enforced,
                               UniquePtr<Key>* key) const override;

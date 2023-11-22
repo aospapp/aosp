@@ -16,7 +16,7 @@
 
 package android.media.cts;
 
-import com.android.cts.media.R;
+import android.media.cts.R;
 
 
 import android.content.res.AssetFileDescriptor;
@@ -55,6 +55,10 @@ public class JetPlayerTest extends AndroidTestCase {
 
     @Override
     protected void tearDown() throws Exception {
+        // Prevent tests from failing with EAS_ERROR_FILE_ALREADY_OPEN
+        // after a previous test fails.
+        mJetPlayer.closeJetFile();
+
         File jetFile = new File(mJetFile);
         if (jetFile.exists()) {
             jetFile.delete();
@@ -63,31 +67,32 @@ public class JetPlayerTest extends AndroidTestCase {
     }
 
     public void testLoadJetFromPath() throws Throwable {
-        mJetPlayer.clearQueue();
+        assertTrue(mJetPlayer.clearQueue());
         prepareFile();
         mJetPlayer.setEventListener(mOnJetEventListener);
-        mJetPlayer.loadJetFile(mJetFile);
+        assertTrue(mJetPlayer.loadJetFile(mJetFile));
         runJet();
     }
 
     public void testLoadJetFromFd() throws Throwable {
-        mJetPlayer.clearQueue();
+        assertTrue(mJetPlayer.clearQueue());
         mJetPlayer.setEventListener(mOnJetEventListener, mHandler);
-        mJetPlayer.loadJetFile(mContext.getResources().openRawResourceFd(R.raw.test_jet));
+        assertTrue(mJetPlayer.loadJetFile(mContext.getResources().openRawResourceFd(R.raw.test_jet)));
         runJet();
     }
 
     public void testQueueJetSegmentMuteArray() throws Throwable {
-        mJetPlayer.clearQueue();
+        assertTrue(mJetPlayer.clearQueue());
         mJetPlayer.setEventListener(mOnJetEventListener, mHandler);
-        mJetPlayer.loadJetFile(mContext.getResources().openRawResourceFd(R.raw.test_jet));
+        assertTrue(mJetPlayer.loadJetFile(mContext.getResources().openRawResourceFd(R.raw.test_jet)));
         byte userID = 0;
         int segmentNum = 3;
         int libNum = -1;
         int repeatCount = 0;
         int transpose = 0;
         boolean[] muteFlags = new boolean[32];
-        assertTrue(mJetPlayer.queueJetSegmentMuteArray(segmentNum, libNum, repeatCount, transpose,
+        assertTrue(mJetPlayer.queueJetSegmentMuteArray(segmentNum, libNum,
+                repeatCount, transpose,
                 muteFlags, userID));
         assertTrue(mJetPlayer.play());
         for (int i = 0; i < muteFlags.length; i++) {
@@ -96,7 +101,8 @@ public class JetPlayerTest extends AndroidTestCase {
         muteFlags[8] = false;
         muteFlags[9] = false;
         muteFlags[10] = false;
-        assertTrue(mJetPlayer.queueJetSegmentMuteArray(segmentNum, libNum, repeatCount, transpose,
+        assertTrue(mJetPlayer.queueJetSegmentMuteArray(segmentNum, libNum,
+                repeatCount, transpose,
                 muteFlags, userID));
         Thread.sleep(20000);
         assertTrue(mJetPlayer.pause());
@@ -112,16 +118,19 @@ public class JetPlayerTest extends AndroidTestCase {
         int repeatCount = 1;
         int transpose = 0;
         int muteFlags = 0;
-        mJetPlayer.queueJetSegment(segmentNum, libNum, repeatCount, transpose, muteFlags, userID);
+        assertTrue(mJetPlayer.queueJetSegment(segmentNum, libNum, repeatCount,
+                transpose, muteFlags, userID));
 
         segmentNum = 6;
         repeatCount = 1;
         transpose = -1;
-        mJetPlayer.queueJetSegment(segmentNum, libNum, repeatCount, transpose, muteFlags, userID);
+        assertTrue(mJetPlayer.queueJetSegment(segmentNum, libNum, repeatCount,
+                transpose, muteFlags, userID));
 
         segmentNum = 7;
         transpose = 0;
-        mJetPlayer.queueJetSegment(segmentNum, libNum, repeatCount, transpose, muteFlags, userID);
+        assertTrue(mJetPlayer.queueJetSegment(segmentNum, libNum, repeatCount,
+                transpose, muteFlags, userID));
 
         for (int i = 0; i < 7; i++) {
             assertTrue(mJetPlayer.triggerClip(i));

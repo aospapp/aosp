@@ -43,6 +43,8 @@ import android.content.pm.ResolveInfo;
 import android.content.pm.ServiceInfo;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.location.Country;
+import android.location.CountryDetector;
 import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.Handler;
@@ -53,6 +55,8 @@ import android.telecom.CallAudioState;
 import android.telecom.ConnectionService;
 import android.telecom.InCallService;
 import android.telecom.PhoneAccount;
+import android.telecom.TelecomManager;
+import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.test.mock.MockContext;
@@ -60,6 +64,7 @@ import android.test.mock.MockContext;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -69,6 +74,7 @@ import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -87,6 +93,21 @@ public class ComponentContextFixture implements TestFixture<Context> {
         @Override
         public PackageManager getPackageManager() {
             return mPackageManager;
+        }
+
+        @Override
+        public String getPackageName() {
+            return "com.android.server.telecom.tests";
+        }
+
+        @Override
+        public String getPackageResourcePath() {
+            return "/tmp/i/dont/know";
+        }
+
+        @Override
+        public Context getApplicationContext() {
+            return mApplicationContextSpy;
         }
 
         @Override
@@ -153,9 +174,23 @@ public class ComponentContextFixture implements TestFixture<Context> {
                     return mUserManager;
                 case Context.TELEPHONY_SUBSCRIPTION_SERVICE:
                     return mSubscriptionManager;
+                case Context.TELECOM_SERVICE:
+                    return mTelecomManager;
+                case Context.CARRIER_CONFIG_SERVICE:
+                    return mCarrierConfigManager;
+                case Context.COUNTRY_DETECTOR:
+                    return mCountryDetector;
                 default:
                     return null;
             }
+        }
+
+        @Override
+        public String getSystemServiceName(Class<?> svcClass) {
+            if (svcClass == UserManager.class) {
+                return Context.USER_SERVICE;
+            }
+            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -170,7 +205,7 @@ public class ComponentContextFixture implements TestFixture<Context> {
 
         @Override
         public String getOpPackageName() {
-            return "test";
+            return "com.android.server.telecom.tests";
         }
 
         @Override
@@ -179,7 +214,7 @@ public class ComponentContextFixture implements TestFixture<Context> {
                 @Override
                 protected IContentProvider acquireProvider(Context c, String name) {
                     Log.i(this, "acquireProvider %s", name);
-                    return mock(IContentProvider.class);
+                    return getOrCreateProvider(name);
                 }
 
                 @Override
@@ -190,7 +225,14 @@ public class ComponentContextFixture implements TestFixture<Context> {
                 @Override
                 protected IContentProvider acquireUnstableProvider(Context c, String name) {
                     Log.i(this, "acquireUnstableProvider %s", name);
-                    return mock(IContentProvider.class);
+                    return getOrCreateProvider(name);
+                }
+
+                private IContentProvider getOrCreateProvider(String name) {
+                    if (!mIContentProviderByUri.containsKey(name)) {
+                        mIContentProviderByUri.put(name, mock(IContentProvider.class));
+                    }
+                    return mIContentProviderByUri.get(name);
                 }
 
                 @Override
@@ -211,12 +253,23 @@ public class ComponentContextFixture implements TestFixture<Context> {
         }
 
         @Override
+        public Intent registerReceiver(BroadcastReceiver receiver, IntentFilter filter,
+                String broadcastPermission, Handler scheduler) {
+            return null;
+        }
+
+        @Override
         public void sendBroadcast(Intent intent) {
             // TODO -- need to ensure this is captured
         }
 
         @Override
         public void sendBroadcast(Intent intent, String receiverPermission) {
+            // TODO -- need to ensure this is captured
+        }
+
+        @Override
+        public void sendBroadcastAsUser(Intent intent, UserHandle userHandle) {
             // TODO -- need to ensure this is captured
         }
 
@@ -238,13 +291,30 @@ public class ComponentContextFixture implements TestFixture<Context> {
                 throws PackageManager.NameNotFoundException {
             return this;
         }
-    };
+
+        @Override
+        public int checkCallingOrSelfPermission(String permission) {
+            return PackageManager.PERMISSION_GRANTED;
+        }
+
+        @Override
+        public void enforceCallingOrSelfPermission(String permission, String message) {
+            // Don't bother enforcing anything in mock.
+        }
+
+        @Override
+        public void startActivityAsUser(Intent intent, UserHandle userHandle) {
+            // For capturing
+        }
+    }
 
     public class FakeAudioManager extends AudioManager {
 
         private boolean mMute = false;
         private boolean mSpeakerphoneOn = false;
+        private int mAudioStreamValue = 1;
         private int mMode = AudioManager.MODE_NORMAL;
+        private int mRingerMode = AudioManager.RINGER_MODE_NORMAL;
 
         public FakeAudioManager(Context context) {
             super(context);
@@ -278,6 +348,26 @@ public class ComponentContextFixture implements TestFixture<Context> {
         @Override
         public int getMode() {
             return mMode;
+        }
+
+        @Override
+        public void setRingerModeInternal(int ringerMode) {
+            mRingerMode = ringerMode;
+        }
+
+        @Override
+        public int getRingerModeInternal() {
+            return mRingerMode;
+        }
+
+        @Override
+        public void setStreamVolume(int streamTypeUnused, int index, int flagsUnused){
+            mAudioStreamValue = index;
+        }
+
+        @Override
+        public int getStreamVolume(int streamValueUnused) {
+            return mAudioStreamValue;
         }
     }
 
@@ -317,7 +407,12 @@ public class ComponentContextFixture implements TestFixture<Context> {
     private final UserManager mUserManager = mock(UserManager.class);
     private final StatusBarManager mStatusBarManager = mock(StatusBarManager.class);
     private final SubscriptionManager mSubscriptionManager = mock(SubscriptionManager.class);
+    private final CarrierConfigManager mCarrierConfigManager = mock(CarrierConfigManager.class);
+    private final CountryDetector mCountryDetector = mock(CountryDetector.class);
+    private final Map<String, IContentProvider> mIContentProviderByUri = new HashMap<>();
     private final Configuration mResourceConfiguration = new Configuration();
+
+    private TelecomManager mTelecomManager = null;
 
     public ComponentContextFixture() {
         MockitoAnnotations.initMocks(this);
@@ -347,6 +442,8 @@ public class ComponentContextFixture implements TestFixture<Context> {
 
         when(mTelephonyManager.getSubIdForPhoneAccount((PhoneAccount) any())).thenReturn(1);
 
+        when(mTelephonyManager.getNetworkOperatorName()).thenReturn("label1");
+
         doAnswer(new Answer<Void>(){
             @Override
             public Void answer(InvocationOnMock invocation) throws Throwable {
@@ -357,6 +454,9 @@ public class ComponentContextFixture implements TestFixture<Context> {
         when(mNotificationManager.matchesCallFilter(any(Bundle.class))).thenReturn(true);
 
         when(mUserManager.getSerialNumberForUser(any(UserHandle.class))).thenReturn(-1L);
+
+        doReturn(null).when(mApplicationContextSpy).registerReceiver(any(BroadcastReceiver.class),
+                any(IntentFilter.class));
     }
 
     @Override
@@ -388,8 +488,24 @@ public class ComponentContextFixture implements TestFixture<Context> {
         mServiceInfoByComponentName.put(componentName, serviceInfo);
     }
 
-    public void putResource(int id, String value) {
+    public void putResource(int id, final String value) {
+        when(mResources.getText(eq(id))).thenReturn(value);
         when(mResources.getString(eq(id))).thenReturn(value);
+        when(mResources.getString(eq(id), any())).thenAnswer(new Answer<String>() {
+            @Override
+            public String answer(InvocationOnMock invocation) {
+                Object[] args = invocation.getArguments();
+                return String.format(value, Arrays.copyOfRange(args, 1, args.length));
+            }
+        });
+    }
+
+    public void putBooleanResource(int id, boolean value) {
+        when(mResources.getBoolean(eq(id))).thenReturn(value);
+    }
+
+    public void setTelecomManager(TelecomManager telecomManager) {
+        mTelecomManager = telecomManager;
     }
 
     private void addService(String action, ComponentName name, IInterface service) {

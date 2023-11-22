@@ -28,7 +28,7 @@
 #include "bta_sys.h"
 #include "bta_mce_api.h"
 #include "bta_mce_int.h"
-#include "gki.h"
+#include "bt_common.h"
 #include <string.h>
 #include "port_api.h"
 #include "sdp_api.h"
@@ -60,25 +60,26 @@ static const tBTA_SYS_REG bta_mce_reg =
 tBTA_MCE_STATUS BTA_MceEnable(tBTA_MCE_DM_CBACK *p_cback)
 {
     tBTA_MCE_STATUS status = BTA_MCE_FAILURE;
-    tBTA_MCE_API_ENABLE  *p_buf;
 
-    APPL_TRACE_API(__FUNCTION__);
-    if(p_cback && FALSE == bta_sys_is_register(BTA_ID_MCE))
-    {
+    APPL_TRACE_API("%", __func__);
+
+    if (p_cback && FALSE == bta_sys_is_register(BTA_ID_MCE)) {
         memset(&bta_mce_cb, 0, sizeof(tBTA_MCE_CB));
 
         /* register with BTA system manager */
         bta_sys_register(BTA_ID_MCE, &bta_mce_reg);
 
-        if (p_cback && (p_buf = (tBTA_MCE_API_ENABLE *) GKI_getbuf(sizeof(tBTA_MCE_API_ENABLE))) != NULL)
-        {
+        if (p_cback) {
+            tBTA_MCE_API_ENABLE *p_buf =
+                (tBTA_MCE_API_ENABLE *)osi_malloc(sizeof(tBTA_MCE_API_ENABLE));
             p_buf->hdr.event = BTA_MCE_API_ENABLE_EVT;
             p_buf->p_cback = p_cback;
             bta_sys_sendmsg(p_buf);
             status = BTA_MCE_SUCCESS;
         }
     }
-    return(status);
+
+    return status;
 }
 
 /*******************************************************************************
@@ -96,17 +97,15 @@ tBTA_MCE_STATUS BTA_MceEnable(tBTA_MCE_DM_CBACK *p_cback)
 *******************************************************************************/
 tBTA_MCE_STATUS BTA_MceGetRemoteMasInstances(BD_ADDR bd_addr)
 {
-    tBTA_MCE_STATUS ret = BTA_MCE_FAILURE;
-    tBTA_MCE_API_GET_REMOTE_MAS_INSTANCES *p_msg;
+    tBTA_MCE_API_GET_REMOTE_MAS_INSTANCES *p_msg =
+        (tBTA_MCE_API_GET_REMOTE_MAS_INSTANCES *)osi_malloc(sizeof(tBTA_MCE_API_GET_REMOTE_MAS_INSTANCES));
 
-    APPL_TRACE_API(__FUNCTION__);
-    if ((p_msg = (tBTA_MCE_API_GET_REMOTE_MAS_INSTANCES *)GKI_getbuf(sizeof(tBTA_MCE_API_GET_REMOTE_MAS_INSTANCES))) != NULL)
-    {
-        p_msg->hdr.event = BTA_MCE_API_GET_REMOTE_MAS_INSTANCES_EVT;
-        bdcpy(p_msg->bd_addr, bd_addr);
-        bta_sys_sendmsg(p_msg);
-        ret = BTA_MCE_SUCCESS;
-    }
+    APPL_TRACE_API("%s", __func__);
 
-    return(ret);
+    p_msg->hdr.event = BTA_MCE_API_GET_REMOTE_MAS_INSTANCES_EVT;
+    bdcpy(p_msg->bd_addr, bd_addr);
+
+    bta_sys_sendmsg(p_msg);
+
+    return BTA_MCE_SUCCESS;
 }

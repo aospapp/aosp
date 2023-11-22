@@ -22,6 +22,8 @@
     <string name="nothing_to_see">Service is disabled.  You must enabled it to see notifications.</string>
     <string name="launch_to_disable">Press to disable service</string>
     <string name="launch_to_enable">Press to enable service</string>
+    <string name="snooze">Press to snooze service</string>
+    <string name="unsnooze">Press to unsnooze service</string>
     <string name="explanation">This app demonstrates use of the Notification Listener Service API.
         You must enable the listener service in Security Settings to see it work.
     </string>

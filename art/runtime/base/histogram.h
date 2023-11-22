@@ -59,6 +59,7 @@ template <class Value> class Histogram {
   double Percentile(double per, const CumulativeData& data) const;
   void PrintConfidenceIntervals(std::ostream& os, double interval,
                                 const CumulativeData& data) const;
+  void PrintMemoryUse(std::ostream& os) const;
   void PrintBins(std::ostream& os, const CumulativeData& data) const;
   void DumpBins(std::ostream& os) const;
   Value GetRange(size_t bucket_idx) const;
@@ -82,6 +83,10 @@ template <class Value> class Histogram {
 
   Value Max() const {
     return max_value_added_;
+  }
+
+  Value BucketWidth() const {
+    return bucket_width_;
   }
 
   const std::string& Name() const {

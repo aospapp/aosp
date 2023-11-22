@@ -12,9 +12,11 @@
   ~ limitations under the License.
   -->
 
-<layout xmlns:android="http://schemas.android.com/apk/res/android">
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:app="http://schemas.android.com/apk/res-auto">
     <data>
         <variable name="obj" type="android.databinding.testapp.vo.ListenerBindingObject"/>
+        <variable name="obj2" type="android.databinding.testapp.vo.ListenerBindingObject.Inner"/>
         <import type="android.databinding.testapp.vo.ListenerBindingObject"/>
     </data>
     <LinearLayout
@@ -316,6 +318,24 @@
               android:layout_height="10dp"
               android:onFoo="@{obj.onFoo}"
               android:onFoo2="@{obj.onFoo}"
+                />
+        <View android:id="@+id/listener2"
+              android:layout_width="10dp"
+              android:layout_height="10dp"
+              android:onBar1="@{obj.onBar}"
+              android:onBar2="@{obj.onBar}"
+                />
+        <View android:id="@+id/click6"
+              android:layout_width="10dp"
+              android:layout_height="10dp"
+              android:onClick="@{obj2.onClick}"
+                />
+        <View android:id="@+id/click7"
+              android:layout_width="10dp"
+              android:layout_height="10dp"
+              app:fooId="@{1}"
+              app:barId="@{2}"
+              app:runnable="@{obj.runnableRun}"
                 />
     </LinearLayout>
 </layout>

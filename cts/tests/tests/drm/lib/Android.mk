@@ -16,6 +16,9 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 
+LOCAL_CFLAGS := $(libc_common_cflags) \
+    -Wno-unused-parameter \
+
 LOCAL_MODULE := libdrmtestplugin
 
 LOCAL_MODULE_TAGS := tests

@@ -115,6 +115,10 @@ public class AllocationTest extends RSBaseCompute {
          createTypedHelper(Element.RGB_565(mRS));
          createTypedHelper(Element.RGB_888(mRS));
          createTypedHelper(Element.RGBA_8888(mRS));
+         createTypedHelper(Element.F16(mRS));
+         createTypedHelper(Element.F16_2(mRS));
+         createTypedHelper(Element.F16_3(mRS));
+         createTypedHelper(Element.F16_4(mRS));
          createTypedHelper(Element.F32(mRS));
          createTypedHelper(Element.F32_2(mRS));
          createTypedHelper(Element.F32_3(mRS));
@@ -154,6 +158,10 @@ public class AllocationTest extends RSBaseCompute {
          createSizedHelper(Element.RGB_565(mRS));
          createSizedHelper(Element.RGB_888(mRS));
          createSizedHelper(Element.RGBA_8888(mRS));
+         createSizedHelper(Element.F16(mRS));
+         createSizedHelper(Element.F16_2(mRS));
+         createSizedHelper(Element.F16_3(mRS));
+         createSizedHelper(Element.F16_4(mRS));
          createSizedHelper(Element.F32(mRS));
          createSizedHelper(Element.F32_2(mRS));
          createSizedHelper(Element.F32_3(mRS));
@@ -333,8 +341,9 @@ public class AllocationTest extends RSBaseCompute {
         }
     }
 
-    void helperShortCopy(int nElems, int offset, int count, int copyMode) {
-        Allocation A = Allocation.createSized(mRS, Element.I16(mRS), nElems);
+    // Accept an Element parameter so this helper can test both I16 and F16 elements.
+    void helperShortCopy(Element element, int nElems, int offset, int count, int copyMode) {
+        Allocation A = Allocation.createSized(mRS, element, nElems);
 
         short src[], dst[];
         src = new short[nElems];
@@ -522,10 +531,11 @@ public class AllocationTest extends RSBaseCompute {
         }
     }
 
-    void helperShortCopy2D(int nElemsX, int nElemsY,
+    // Accept an Element parameter so this helper can test both I16 and F16 elements.
+    void helperShortCopy2D(Element element, int nElemsX, int nElemsY,
                            int xOffset, int yOffset,
                            int width, int height) {
-        Type.Builder b = new Type.Builder(mRS, Element.I16(mRS));
+        Type.Builder b = new Type.Builder(mRS, element);
         Allocation A = Allocation.createTyped(mRS, b.setX(nElemsX).setY(nElemsY).create());
 
         short src[], dst[];
@@ -635,7 +645,8 @@ public class AllocationTest extends RSBaseCompute {
             for (int mode = 0; mode <= 1; mode ++) {
                 helperFloatCopy(s, 0, s, mode);
                 helperByteCopy(s, 0, s, mode);
-                helperShortCopy(s, 0, s, mode);
+                helperShortCopy(Element.I16(mRS), s, 0, s, mode);
+                helperShortCopy(Element.F16(mRS), s, 0, s, mode);
                 helperIntCopy(s, 0, s, mode);
                 helperBaseObjCopy(s, 0, s, mode);
             }
@@ -646,7 +657,8 @@ public class AllocationTest extends RSBaseCompute {
                     for (int count = 1; count <= s - off; count ++) {
                         helperFloatCopy(s, off, count, mode);
                         helperByteCopy(s, off, count, mode);
-                        helperShortCopy(s, off, count, mode);
+                        helperShortCopy(Element.I16(mRS), s, off, count, mode);
+                        helperShortCopy(Element.F16(mRS), s, off, count, mode);
                         helperIntCopy(s, off, count, mode);
                         helperBaseObjCopy(s, off, count, mode);
                     }
@@ -673,7 +685,8 @@ public class AllocationTest extends RSBaseCompute {
                             for (int h = 1; h <= sY - offY; h += 3) {
                                 helperFloatCopy2D(sX, sY, offX, offY, w, h);
                                 helperByteCopy2D(sX, sY, offX, offY, w, h);
-                                helperShortCopy2D(sX, sY, offX, offY, w, h);
+                                helperShortCopy2D(Element.I16(mRS), sX, sY, offX, offY, w, h);
+                                helperShortCopy2D(Element.F16(mRS), sX, sY, offX, offY, w, h);
                                 helperIntCopy2D(sX, sY, offX, offY, w, h);
                                 helperFloatAllocationCopy2D(sX, sY, offX, offY, w, h);
                                 helperByteAllocationCopy2D(sX, sY, offX, offY, w, h);
@@ -779,6 +792,47 @@ public class AllocationTest extends RSBaseCompute {
         assertTrue(result[0] == 2);
     }
 
+  public void testDimReturnsZero() {
+    Allocation a;
+    a = Allocation.createSized(mRS, Element.F32(mRS), 100);
+    assertTrue(a.getType().getX() == 100);
+    assertTrue(a.getType().getY() == 0);
+    assertTrue(a.getType().getZ() == 0);
+    a.destroy();
+
+    Type.Builder b;
+    b = new Type.Builder(mRS, Element.F32(mRS));
+    a = Allocation.createTyped(mRS, b.create());
+
+    assertTrue(a.getType().getX() == 1);
+    assertTrue(a.getType().getY() == 0);
+    assertTrue(a.getType().getZ() == 0);
+
+    a.destroy();
+
+    b = new Type.Builder(mRS, Element.F32(mRS)).setX(102);
+    a = Allocation.createTyped(mRS, b.create());
+
+    assertTrue(a.getType().getX() == 102);
+    assertTrue(a.getType().getY() == 0);
+    assertTrue(a.getType().getZ() == 0);
+    a.destroy();
+    b = new Type.Builder(mRS, Element.F32(mRS)).setX(102).setY(123);
+    a = Allocation.createTyped(mRS, b.create());
+
+    assertTrue(a.getType().getX() == 102);
+    assertTrue(a.getType().getY() == 123);
+    assertTrue(a.getType().getZ() == 0);
+    a.destroy();
+    b = new Type.Builder(mRS, Element.F32(mRS)).setX(2).setY(33).setZ(23);
+    a = Allocation.createTyped(mRS, b.create());
+
+    assertTrue(a.getType().getX() == 2);
+    assertTrue(a.getType().getY() == 33);
+    assertTrue(a.getType().getZ() == 23);
+
+    a.destroy();
+   }
 }
 
 

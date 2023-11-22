@@ -25,7 +25,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// Flags: --harmony-scoping --allow-natives-syntax
+// Flags: --allow-natives-syntax --harmony-tostring
 
 // Test instantations of generators.
 
@@ -66,6 +66,9 @@ function TestGeneratorObject() {
   assertTrue(iter instanceof g);
   assertEquals("Generator", %_ClassOf(iter));
   assertEquals("[object Generator]", String(iter));
+  assertEquals("[object Generator]", Object.prototype.toString.call(iter));
+  var gf = iter.__proto__.constructor;
+  assertEquals("[object GeneratorFunction]", Object.prototype.toString.call(gf));
   assertEquals([], Object.getOwnPropertyNames(iter));
   assertTrue(iter !== new g());
 }
@@ -81,7 +84,6 @@ function TestGeneratorObjectMethods() {
     assertThrows(function() { iter.next.call(non_generator); }, TypeError);
     assertThrows(function() { iter.next.call(non_generator, 1); }, TypeError);
     assertThrows(function() { iter.throw.call(non_generator, 1); }, TypeError);
-    assertThrows(function() { iter.close.call(non_generator); }, TypeError);
   }
 
   TestNonGenerator(1);

@@ -46,7 +46,7 @@ static void convertToRsType(const string& name, string* dataType, char* vectorSi
 }
 
 // Returns true if any permutation of the function have tests to b
-static bool needTestFiles(const Function& function, int versionOfTestFiles) {
+static bool needTestFiles(const Function& function, unsigned int versionOfTestFiles) {
     for (auto spec : function.getSpecifications()) {
         if (spec->hasTests(versionOfTestFiles)) {
             return true;
@@ -127,6 +127,9 @@ private:
      * is a point in n-dimensional space.
      */
     void writeJavaVerifyVectorMethod() const;
+
+    // Generate the line that creates the Target.
+    void writeJavaCreateTarget() const;
 
     // Generate the method header of the verify function.
     void writeJavaVerifyMethodHeader() const;
@@ -248,16 +251,29 @@ void PermutationWriter::writeJavaArgumentClass(bool scalar,
         mJava->startBlock();
 
         for (auto p : mAllInputsAndOutputs) {
+            bool isFieldArray = !scalar && p->mVectorSize != "1";
+            bool isFloatyField = p->isOutParameter && p->isFloatType && mPermutation.getTest() != "custom";
+
             mJava->indent() << "public ";
-            if (p->isOutParameter && p->isFloatType && mPermutation.getTest() != "custom") {
+            if (isFloatyField) {
                 *mJava << "Target.Floaty";
             } else {
                 *mJava << p->javaBaseType;
             }
-            if (!scalar && p->mVectorSize != "1") {
+            if (isFieldArray) {
                 *mJava << "[]";
             }
             *mJava << " " << p->variableName << ";\n";
+
+            // For Float16 parameters, add an extra 'double' field in the class
+            // to hold the Double value converted from the input.
+            if (p->isFloat16Parameter() && !isFloatyField) {
+                mJava->indent() << "public double";
+                if (isFieldArray) {
+                    *mJava << "[]";
+                }
+                *mJava << " " + p->variableName << "Double;\n";
+            }
         }
         mJava->endBlock();
         *mJava << "\n";
@@ -417,6 +433,14 @@ void PermutationWriter::writeJavaVerifyScalarMethod(bool verifierValidates) cons
                 *mJava << " * " << p->vectorWidth << " + j";
             }
             *mJava << "];\n";
+
+            // Convert the Float16 parameter to double and store it in the appropriate field in the
+            // Arguments class.
+            if (p->isFloat16Parameter()) {
+                mJava->indent() << "args." << p->doubleVariableName
+                                << " = Float16Utils.convertFloat16ToDouble(args."
+                                << p->variableName << ");\n";
+            }
         }
     }
     const bool hasFloat = mPermutation.hasFloatAnswers();
@@ -426,11 +450,16 @@ void PermutationWriter::writeJavaVerifyScalarMethod(bool verifierValidates) cons
             if (p->isOutParameter) {
                 mJava->indent() << "args." << p->variableName << " = " << p->javaArrayName
                                 << "[i * " << p->vectorWidth << " + j];\n";
+                if (p->isFloat16Parameter()) {
+                    mJava->indent() << "args." << p->doubleVariableName
+                                    << " = Float16Utils.convertFloat16ToDouble(args."
+                                    << p->variableName << ");\n";
+                }
             }
         }
         mJava->indent() << "// Ask the CoreMathVerifier to validate.\n";
         if (hasFloat) {
-            mJava->indent() << "Target target = new Target(relaxed);\n";
+            writeJavaCreateTarget();
         }
         mJava->indent() << "String errorMessage = CoreMathVerifier."
                         << mJavaVerifierVerifyMethodName << "(args";
@@ -442,7 +471,7 @@ void PermutationWriter::writeJavaVerifyScalarMethod(bool verifierValidates) cons
     } else {
         mJava->indent() << "// Figure out what the outputs should have been.\n";
         if (hasFloat) {
-            mJava->indent() << "Target target = new Target(relaxed);\n";
+            writeJavaCreateTarget();
         }
         mJava->indent() << "CoreMathVerifier." << mJavaVerifierComputeMethodName << "(args";
         if (hasFloat) {
@@ -520,6 +549,10 @@ void PermutationWriter::writeJavaVerifyVectorMethod() const {
             }
             mJava->indent() << "args." << p->variableName << " = new " << type << "["
                             << p->mVectorSize << "];\n";
+            if (p->isFloat16Parameter() && !p->isOutParameter) {
+                mJava->indent() << "args." << p->variableName << "Double = new double["
+                                << p->mVectorSize << "];\n";
+            }
         }
     }
 
@@ -529,17 +562,32 @@ void PermutationWriter::writeJavaVerifyVectorMethod() const {
             if (p->mVectorSize == "1") {
                 mJava->indent() << "args." << p->variableName << " = " << p->javaArrayName << "[i]"
                                 << ";\n";
+                // Convert the Float16 parameter to double and store it in the appropriate field in
+                // the Arguments class.
+                if (p->isFloat16Parameter()) {
+                    mJava->indent() << "args." << p->doubleVariableName << " = "
+                                    << "Float16Utils.convertFloat16ToDouble(args."
+                                    << p->variableName << ");\n";
+                }
             } else {
                 mJava->indent() << "for (int j = 0; j < " << p->mVectorSize << " ; j++)";
                 mJava->startBlock();
                 mJava->indent() << "args." << p->variableName << "[j] = "
                                 << p->javaArrayName << "[i * " << p->vectorWidth << " + j]"
                                 << ";\n";
+
+                // Convert the Float16 parameter to double and store it in the appropriate field in
+                // the Arguments class.
+                if (p->isFloat16Parameter()) {
+                    mJava->indent() << "args." << p->doubleVariableName << "[j] = "
+                                    << "Float16Utils.convertFloat16ToDouble(args."
+                                    << p->variableName << "[j]);\n";
+                }
                 mJava->endBlock();
             }
         }
     }
-    mJava->indent() << "Target target = new Target(relaxed);\n";
+    writeJavaCreateTarget();
     mJava->indent() << "CoreMathVerifier." << mJavaVerifierComputeMethodName
                     << "(args, target);\n\n";
 
@@ -582,6 +630,39 @@ void PermutationWriter::writeJavaVerifyVectorMethod() const {
     *mJava << "\n";
 }
 
+
+void PermutationWriter::writeJavaCreateTarget() const {
+    string name = mPermutation.getName();
+
+    const char* functionType = "NORMAL";
+    size_t end = name.find('_');
+    if (end != string::npos) {
+        if (name.compare(0, end, "native") == 0) {
+            functionType = "NATIVE";
+        } else if (name.compare(0, end, "half") == 0) {
+            functionType = "HALF";
+        } else if (name.compare(0, end, "fast") == 0) {
+            functionType = "FAST";
+        }
+    }
+
+    string floatType = mReturnParam->specType;
+    const char* precisionStr = "";
+    if (floatType.compare("f16") == 0) {
+        precisionStr = "HALF";
+    } else if (floatType.compare("f32") == 0) {
+        precisionStr = "FLOAT";
+    } else if (floatType.compare("f64") == 0) {
+        precisionStr = "DOUBLE";
+    } else {
+        cerr << "Error. Unreachable.  Return type is not floating point\n";
+    }
+
+    mJava->indent() << "Target target = new Target(Target.FunctionType." <<
+                    functionType << ", Target.ReturnType." << precisionStr <<
+                    ", relaxed);\n";
+}
+
 void PermutationWriter::writeJavaVerifyMethodHeader() const {
     mJava->indent() << "private void " << mJavaVerifyMethodName << "(";
     for (auto p : mAllInputsAndOutputs) {
@@ -617,10 +698,17 @@ void PermutationWriter::writeJavaTestAndSetValid(const ParameterDefinition& p,
 
 void PermutationWriter::writeJavaTestOneValue(const ParameterDefinition& p, const string& argsIndex,
                                               const string& actualIndex) const {
+    string actualOut;
+    if (p.isFloat16Parameter()) {
+        // For Float16 values, the output needs to be converted to Double.
+        actualOut = "Float16Utils.convertFloat16ToDouble(" + p.javaArrayName + actualIndex + ")";
+    } else {
+        actualOut = p.javaArrayName + actualIndex;
+    }
+
     mJava->indent() << "if (";
     if (p.isFloatType) {
-        *mJava << "!args." << p.variableName << argsIndex << ".couldBe(" << p.javaArrayName
-               << actualIndex;
+        *mJava << "!args." << p.variableName << argsIndex << ".couldBe(" << actualOut;
         const string s = mPermutation.getPrecisionLimit();
         if (!s.empty()) {
             *mJava << ", " << s;
@@ -657,6 +745,14 @@ void PermutationWriter::writeJavaAppendOutputToMessage(const ParameterDefinition
         mJava->indent() << "appendVariableToMessage(message, args." << p.variableName << argsIndex
                         << ");\n";
         writeJavaAppendNewLineToMessage();
+        if (p.isFloat16Parameter()) {
+            writeJavaAppendNewLineToMessage();
+            mJava->indent() << "message.append(\"Output " << p.variableName
+                            << " (in double): \");\n";
+            mJava->indent() << "appendVariableToMessage(message, args." << p.doubleVariableName
+                            << ");\n";
+            writeJavaAppendNewLineToMessage();
+        }
     } else {
         mJava->indent() << "message.append(\"Expected output " << p.variableName << ": \");\n";
         mJava->indent() << "appendVariableToMessage(message, args." << p.variableName << argsIndex
@@ -666,6 +762,14 @@ void PermutationWriter::writeJavaAppendOutputToMessage(const ParameterDefinition
         mJava->indent() << "message.append(\"Actual   output " << p.variableName << ": \");\n";
         mJava->indent() << "appendVariableToMessage(message, " << p.javaArrayName << actualIndex
                         << ");\n";
+
+        if (p.isFloat16Parameter()) {
+            writeJavaAppendNewLineToMessage();
+            mJava->indent() << "message.append(\"Actual   output " << p.variableName
+                            << " (in double): \");\n";
+            mJava->indent() << "appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble("
+                            << p.javaArrayName << actualIndex << "));\n";
+        }
 
         writeJavaTestOneValue(p, argsIndex, actualIndex);
         mJava->startBlock();
@@ -903,7 +1007,8 @@ static bool startJavaFile(GeneratedFile* file, const Function& function, const s
 
     *file << "import android.renderscript.Allocation;\n";
     *file << "import android.renderscript.RSRuntimeException;\n";
-    *file << "import android.renderscript.Element;\n\n";
+    *file << "import android.renderscript.Element;\n";
+    *file << "import android.renderscript.cts.Target;\n\n";
     *file << "import java.util.Arrays;\n\n";
 
     *file << "public class " << testName << " extends RSBaseCompute";
@@ -974,7 +1079,7 @@ static bool writeRelaxedRsFile(const Function& function, const string& directory
  * to test.
  */
 static bool writeTestFilesForFunction(const Function& function, const string& directory,
-                                      int versionOfTestFiles) {
+                                      unsigned int versionOfTestFiles) {
     // Avoid creating empty files if we're not testing this function.
     if (!needTestFiles(function, versionOfTestFiles)) {
         return true;
@@ -1026,7 +1131,7 @@ static bool writeTestFilesForFunction(const Function& function, const string& di
     return true;
 }
 
-bool generateTestFiles(const string& directory, int versionOfTestFiles) {
+bool generateTestFiles(const string& directory, unsigned int versionOfTestFiles) {
     bool success = true;
     for (auto f : systemSpecification.getFunctions()) {
         if (!writeTestFilesForFunction(*f.second, directory, versionOfTestFiles)) {

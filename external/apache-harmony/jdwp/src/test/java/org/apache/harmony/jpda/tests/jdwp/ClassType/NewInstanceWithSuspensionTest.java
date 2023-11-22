@@ -54,10 +54,10 @@ public class NewInstanceWithSuspensionTest extends JDWPInvokeMethodWithSuspensio
 
     @Override
     protected void checkInvokeReply(ReplyPacket reply) {
-        // Check result is 'void'
+        // Check result is an object.
         TaggedObject invokeNewObject = reply.getNextValueAsTaggedObject();
         assertEquals(JDWPConstants.Tag.OBJECT_TAG, invokeNewObject.tag);
-        assertFalse("Invalid exception object id", invokeNewObject.objectID == 0);
+        assertTrue("Invalid exception object id", invokeNewObject.objectID != 0);
 
         // Check exception is null.
         TaggedObject invokeException = reply.getNextValueAsTaggedObject();
@@ -65,7 +65,6 @@ public class NewInstanceWithSuspensionTest extends JDWPInvokeMethodWithSuspensio
         assertEquals("Invalid exception object id", 0, invokeException.objectID);
 
         assertAllDataRead(reply);
-
     }
 
 }

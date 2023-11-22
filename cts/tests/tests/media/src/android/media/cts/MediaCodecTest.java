@@ -16,13 +16,15 @@
 
 package android.media.cts;
 
-import com.android.cts.media.R;
+import android.media.cts.R;
 
 import android.content.res.AssetFileDescriptor;
 import android.cts.util.MediaUtils;
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
 import android.media.MediaCodec.CodecException;
+import android.media.MediaCodec.CryptoInfo;
+import android.media.MediaCodec.CryptoInfo.Pattern;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.media.MediaExtractor;
@@ -467,22 +469,32 @@ public class MediaCodecTest extends AndroidTestCase {
     }
 
     public void testReleaseAfterFlush() throws IOException, InterruptedException {
+        String mimes[] = new String[] { MIME_TYPE, MIME_TYPE_AUDIO};
+        for (String mime : mimes) {
+            if (!MediaUtils.checkEncoder(mime)) {
+                continue;
+            }
+            testReleaseAfterFlush(mime);
+        }
+    }
+
+    private void testReleaseAfterFlush(String mime) throws IOException, InterruptedException {
         CountDownLatch buffersExhausted = null;
         CountDownLatch codecFlushed = null;
         AtomicInteger numBuffers = null;
 
         // sync flush from same thread
-        MediaCodec encoder = MediaCodec.createEncoderByType(MIME_TYPE);
-        runReleaseAfterFlush(encoder, buffersExhausted, codecFlushed, numBuffers);
+        MediaCodec encoder = MediaCodec.createEncoderByType(mime);
+        runReleaseAfterFlush(mime, encoder, buffersExhausted, codecFlushed, numBuffers);
 
         // sync flush from different thread
-        encoder = MediaCodec.createEncoderByType(MIME_TYPE);
+        encoder = MediaCodec.createEncoderByType(mime);
         buffersExhausted = new CountDownLatch(1);
         codecFlushed = new CountDownLatch(1);
         numBuffers = new AtomicInteger();
         Thread flushThread = new FlushThread(encoder, buffersExhausted, codecFlushed);
         flushThread.start();
-        runReleaseAfterFlush(encoder, buffersExhausted, codecFlushed, numBuffers);
+        runReleaseAfterFlush(mime, encoder, buffersExhausted, codecFlushed, numBuffers);
         flushThread.join();
 
         // async
@@ -495,19 +507,19 @@ public class MediaCodecTest extends AndroidTestCase {
         Handler handler = new Handler(callbackThread.getLooper());
 
         // async flush from same thread
-        encoder = MediaCodec.createEncoderByType(MIME_TYPE);
+        encoder = MediaCodec.createEncoderByType(mime);
         buffersExhausted = null;
         codecFlushed = null;
         ReleaseAfterFlushCallback callback =
-                new ReleaseAfterFlushCallback(encoder, buffersExhausted, codecFlushed, nBuffs);
+                new ReleaseAfterFlushCallback(mime, encoder, buffersExhausted, codecFlushed, nBuffs);
         encoder.setCallback(callback, handler); // setCallback before configure, which is called in run
         callback.run(); // drive input on main thread
 
         // async flush from different thread
-        encoder = MediaCodec.createEncoderByType(MIME_TYPE);
+        encoder = MediaCodec.createEncoderByType(mime);
         buffersExhausted = new CountDownLatch(1);
         codecFlushed = new CountDownLatch(1);
-        callback = new ReleaseAfterFlushCallback(encoder, buffersExhausted, codecFlushed, nBuffs);
+        callback = new ReleaseAfterFlushCallback(mime, encoder, buffersExhausted, codecFlushed, nBuffs);
         encoder.setCallback(callback, handler);
         flushThread = new FlushThread(encoder, buffersExhausted, codecFlushed);
         flushThread.start();
@@ -544,17 +556,21 @@ public class MediaCodecTest extends AndroidTestCase {
     }
 
     private static class ReleaseAfterFlushCallback extends MediaCodec.Callback implements Runnable {
+        final String mMime;
         final MediaCodec mEncoder;
         final CountDownLatch mBuffersExhausted, mCodecFlushed;
         final int mNumBuffersBeforeFlush;
 
         CountDownLatch mStopInput = new CountDownLatch(1);
+        List<Integer> mInputBufferIndices = new ArrayList<>();
         List<Integer> mOutputBufferIndices = new ArrayList<>();
 
-        ReleaseAfterFlushCallback(MediaCodec encoder,
+        ReleaseAfterFlushCallback(String mime,
+                MediaCodec encoder,
                 CountDownLatch buffersExhausted,
                 CountDownLatch codecFlushed,
                 int numBuffersBeforeFlush) {
+            mMime = mime;
             mEncoder = encoder;
             mBuffersExhausted = buffersExhausted;
             mCodecFlushed = codecFlushed;
@@ -563,7 +579,10 @@ public class MediaCodecTest extends AndroidTestCase {
 
         @Override
         public void onInputBufferAvailable(MediaCodec codec, int index) {
-            fail(codec + " onInputBufferAvailable " + index);
+            assertTrue("video onInputBufferAvailable " + index, mMime.startsWith("audio/"));
+            synchronized (mInputBufferIndices) {
+                mInputBufferIndices.add(index);
+            };
         }
 
         @Override
@@ -590,11 +609,20 @@ public class MediaCodecTest extends AndroidTestCase {
         public void run() {
             InputSurface inputSurface = null;
             try {
-                inputSurface = initCodecAndSurface(mEncoder);
+                inputSurface = initCodecAndSurface(mMime, mEncoder);
                 do {
-                    GLES20.glClearColor(0.0f, 0.5f, 0.0f, 1.0f);
-                    GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-                    inputSurface.swapBuffers();
+                    int inputIndex = -1;
+                    if (inputSurface == null) {
+                        // asynchronous audio codec
+                        synchronized (mInputBufferIndices) {
+                            if (mInputBufferIndices.isEmpty()) {
+                                continue;
+                            } else {
+                                inputIndex = mInputBufferIndices.remove(0);
+                            }
+                        }
+                    }
+                    feedEncoder(mEncoder, inputSurface, inputIndex);
                 } while (!mStopInput.await(TIMEOUT_USEC, TimeUnit.MICROSECONDS));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -606,13 +634,14 @@ public class MediaCodecTest extends AndroidTestCase {
     }
 
     private static void runReleaseAfterFlush(
+            String mime,
             MediaCodec encoder,
             CountDownLatch buffersExhausted,
             CountDownLatch codecFlushed,
             AtomicInteger numBuffers) {
         InputSurface inputSurface = null;
         try {
-            inputSurface = initCodecAndSurface(encoder);
+            inputSurface = initCodecAndSurface(mime, encoder);
             List<Integer> outputBufferIndices = getOutputBufferIndices(encoder, inputSurface);
             if (numBuffers != null) {
                 numBuffers.set(outputBufferIndices.size());
@@ -623,19 +652,29 @@ public class MediaCodecTest extends AndroidTestCase {
         }
     }
 
-    private static InputSurface initCodecAndSurface(MediaCodec encoder) {
-        InputSurface inputSurface;
-        CodecInfo info = getAvcSupportedFormatInfo();
-        MediaFormat format = MediaFormat.createVideoFormat(MIME_TYPE, info.mMaxW, info.mMaxH);
-        format.setInteger(MediaFormat.KEY_COLOR_FORMAT,
-                MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
-        format.setInteger(MediaFormat.KEY_BIT_RATE, info.mBitRate);
-        format.setInteger(MediaFormat.KEY_FRAME_RATE, info.mFps);
-        format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL);
-        OutputSurface outputSurface = new OutputSurface(1, 1);
-        encoder.configure(format, outputSurface.getSurface(), null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-        inputSurface = new InputSurface(encoder.createInputSurface());
-        inputSurface.makeCurrent();
+    private static InputSurface initCodecAndSurface(String mime, MediaCodec encoder) {
+        MediaFormat format;
+        InputSurface inputSurface = null;
+        if (mime.startsWith("audio/")) {
+            format = MediaFormat.createAudioFormat(mime, AUDIO_SAMPLE_RATE, AUDIO_CHANNEL_COUNT);
+            format.setInteger(MediaFormat.KEY_AAC_PROFILE, AUDIO_AAC_PROFILE);
+            format.setInteger(MediaFormat.KEY_BIT_RATE, AUDIO_BIT_RATE);
+            encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+        } else if (MIME_TYPE.equals(mime)) {
+            CodecInfo info = getAvcSupportedFormatInfo();
+            format = MediaFormat.createVideoFormat(mime, info.mMaxW, info.mMaxH);
+            format.setInteger(MediaFormat.KEY_COLOR_FORMAT,
+                    MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
+            format.setInteger(MediaFormat.KEY_BIT_RATE, info.mBitRate);
+            format.setInteger(MediaFormat.KEY_FRAME_RATE, info.mFps);
+            format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL);
+            OutputSurface outputSurface = new OutputSurface(1, 1);
+            encoder.configure(format, outputSurface.getSurface(), null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+            inputSurface = new InputSurface(encoder.createInputSurface());
+            inputSurface.makeCurrent();
+        } else {
+            throw new IllegalArgumentException("unsupported mime type: " + mime);
+        }
         encoder.start();
         return inputSurface;
     }
@@ -657,9 +696,7 @@ public class MediaCodecTest extends AndroidTestCase {
         List<Integer> indices = new ArrayList<>();
         do {
             feedMoreFrames = indices.isEmpty();
-            GLES20.glClearColor(0.0f, 0.5f, 0.0f, 1.0f);
-            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-            inputSurface.swapBuffers();
+            feedEncoder(encoder, inputSurface, -1);
             // dequeue buffers until not available
             int index = encoder.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC);
             while (index >= 0) {
@@ -670,6 +707,31 @@ public class MediaCodecTest extends AndroidTestCase {
         } while (feedMoreFrames);
         assertFalse(indices.isEmpty());
         return indices;
+    }
+
+    /**
+     * @param encoder audio/video encoder
+     * @param inputSurface null for and only for audio encoders
+     * @param inputIndex only used for audio; if -1 the function would attempt to dequeue from encoder;
+     * do not use -1 for asynchronous encoders
+     */
+    private static void feedEncoder(MediaCodec encoder, InputSurface inputSurface, int inputIndex) {
+        if (inputSurface == null) {
+            // audio
+            while (inputIndex == -1) {
+                inputIndex = encoder.dequeueInputBuffer(TIMEOUT_USEC);
+            }
+            ByteBuffer inputBuffer = encoder.getInputBuffer(inputIndex);;
+            for (int i = 0; i < inputBuffer.capacity() / 2; i++) {
+                inputBuffer.putShort((short)i);
+            }
+            encoder.queueInputBuffer(inputIndex, 0, inputBuffer.limit(), 0, 0);
+        } else {
+            // video
+            GLES20.glClearColor(0.0f, 0.5f, 0.0f, 1.0f);
+            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+            inputSurface.swapBuffers();
+        }
     }
 
     private static void releaseAfterFlush(
@@ -798,6 +860,11 @@ public class MediaCodecTest extends AndroidTestCase {
     }
 
     public void testDecodeAfterFlush() throws InterruptedException {
+        testDecodeAfterFlush(true /* audio */);
+        testDecodeAfterFlush(false /* audio */);
+    }
+
+    private void testDecodeAfterFlush(final boolean audio) throws InterruptedException {
         final int INPUT_RESOURCE_ID =
                 R.raw.video_480x360_mp4_h264_1350kbps_30fps_aac_stereo_192kbps_44100hz;
 
@@ -806,23 +873,27 @@ public class MediaCodecTest extends AndroidTestCase {
         final int DECODING_TIMEOUT_MS = 10000;
 
         final AtomicBoolean completed = new AtomicBoolean(false);
-        Thread videoDecodingThread = new Thread(new Runnable() {
+        Thread decodingThread = new Thread(new Runnable() {
             @Override
             public void run() {
                 OutputSurface outputSurface = null;
                 MediaExtractor mediaExtractor = null;
                 MediaCodec mediaCodec = null;
                 try {
-                    outputSurface = new OutputSurface(1, 1);
-                    mediaExtractor = getMediaExtractorForMimeType(INPUT_RESOURCE_ID, "video/");
+                    String mimeTypePrefix  = audio ? "audio/" : "video/";
+                    if (!audio) {
+                        outputSurface = new OutputSurface(1, 1);
+                    }
+                    mediaExtractor = getMediaExtractorForMimeType(INPUT_RESOURCE_ID, mimeTypePrefix);
                     MediaFormat mediaFormat =
                             mediaExtractor.getTrackFormat(mediaExtractor.getSampleTrackIndex());
                     if (!MediaUtils.checkDecoderForFormat(mediaFormat)) {
+                        completed.set(true);
                         return; // skip
                     }
                     String mimeType = mediaFormat.getString(MediaFormat.KEY_MIME);
                     mediaCodec = MediaCodec.createDecoderByType(mimeType);
-                    mediaCodec.configure(mediaFormat, outputSurface.getSurface(),
+                    mediaCodec.configure(mediaFormat, outputSurface == null ? null : outputSurface.getSurface(),
                             null /* crypto */, 0 /* flags */);
                     mediaCodec.start();
 
@@ -851,10 +922,10 @@ public class MediaCodecTest extends AndroidTestCase {
                 }
             }
         });
-        videoDecodingThread.start();
-        videoDecodingThread.join(DECODING_TIMEOUT_MS);
+        decodingThread.start();
+        decodingThread.join(DECODING_TIMEOUT_MS);
         // In case it's timed out, need to stop the thread and have all resources released.
-        videoDecodingThread.interrupt();
+        decodingThread.interrupt();
         if (!completed.get()) {
             throw new RuntimeException("timed out decoding to end-of-stream");
         }
@@ -1175,6 +1246,25 @@ public class MediaCodecTest extends AndroidTestCase {
         public int mFps;
         public int mBitRate;
     };
+
+    public void testCryptoInfoPattern() {
+        CryptoInfo info = new CryptoInfo();
+        Pattern pattern = new Pattern(1 /*blocksToEncrypt*/, 2 /*blocksToSkip*/);
+        if (pattern.getEncryptBlocks() != 1) {
+            fail("Incorrect number of encrypt blocks in pattern");
+        }
+        if (pattern.getSkipBlocks() != 2) {
+            fail("Incorrect number of skip blocks in pattern");
+        }
+        pattern.set(3 /*blocksToEncrypt*/, 4 /*blocksToSkip*/);
+        if (pattern.getEncryptBlocks() != 3) {
+            fail("Incorrect number of encrypt blocks in pattern");
+        }
+        if (pattern.getSkipBlocks() != 4) {
+            fail("Incorrect number of skip blocks in pattern");
+        }
+        info.setPattern(pattern);
+    }
 
     private static CodecInfo getAvcSupportedFormatInfo() {
         MediaCodecInfo mediaCodecInfo = selectCodec(MIME_TYPE);

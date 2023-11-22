@@ -19,7 +19,7 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.rs.livepreview">
-    <uses-sdk android:minSdkVersion="14" />
+    <uses-sdk android:minSdkVersion="19" />
     <uses-permission android:name="android.permission.CAMERA" />
     <application android:label="Preview FS"
                  android:hardwareAccelerated="true">

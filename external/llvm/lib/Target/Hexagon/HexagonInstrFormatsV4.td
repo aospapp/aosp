@@ -21,8 +21,6 @@ def TypeMEMOP    : IType<9>;
 def TypeNV       : IType<10>;
 def TypeDUPLEX   : IType<11>;
 def TypeCOMPOUND : IType<12>;
-def TypeAG_VX    : IType<28>;
-def TypeAG_VM    : IType<29>;
 def TypePREFIX   : IType<30>;
 
 //                      Duplex Instruction Class Declaration
@@ -145,6 +143,11 @@ let isCodeGenOnly = 1 in
 class EXTENDERInst<dag outs, dag ins, string asmstr, list<dag> pattern = []>
   : InstHexagon<outs, ins, asmstr, pattern, "", EXTENDER_tc_1_SLOT0123,
                 TypePREFIX>, OpcodeHexagon;
+
+class SUBInst<dag outs, dag ins, string asmstr, list<dag> pattern = [],
+              string cstr = "">
+  : InstHexagon<outs, ins, asmstr, pattern, "", PREFIX, TypeDUPLEX>,
+    OpcodeHexagon;
 
 class CJInst<dag outs, dag ins, string asmstr, list<dag> pattern = [],
               string cstr = "">

@@ -22,4 +22,4 @@
     android:fontFamily="sans-serif-light"
     android:textSize="14dp"
     android:freezesText="true"
-    android:background="#ff1f1f1f" />
+    android:background="#fff" />

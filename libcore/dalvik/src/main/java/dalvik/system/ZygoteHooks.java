@@ -28,6 +28,18 @@ public final class ZygoteHooks {
     private long token;
 
     /**
+     * Called by the zygote when starting up. It marks the point when any thread
+     * start should be an error, as only internal daemon threads are allowed there.
+     */
+    public static native void startZygoteNoThreadCreation();
+
+    /**
+     * Called by the zygote when startup is finished. It marks the point when it is
+     * conceivable that threads would be started again, e.g., restarting daemons.
+     */
+    public static native void stopZygoteNoThreadCreation();
+
+    /**
      * Called by the zygote prior to every fork. Each call to {@code preFork}
      * is followed by a matching call to {@link #postForkChild(int, String)} on the child
      * process and {@link #postForkCommon()} on both the parent and the child
@@ -45,8 +57,8 @@ public final class ZygoteHooks {
      * flags from {@code debugFlags} are applied to the child process. The string
      * {@code instructionSet} determines whether to use a native bridge.
      */
-    public void postForkChild(int debugFlags, String instructionSet) {
-        nativePostForkChild(token, debugFlags, instructionSet);
+    public void postForkChild(int debugFlags, boolean isSystemServer, String instructionSet) {
+        nativePostForkChild(token, debugFlags, isSystemServer, instructionSet);
 
         Math.setRandomSeedInternal(System.currentTimeMillis());
     }
@@ -62,7 +74,7 @@ public final class ZygoteHooks {
 
     private static native long nativePreFork();
     private static native void nativePostForkChild(long token, int debugFlags,
-                                                   String instructionSet);
+                                                   boolean isSystemServer, String instructionSet);
 
     /**
      * We must not fork until we're single-threaded again. Wait until /proc shows we're

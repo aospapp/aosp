@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -138,6 +138,26 @@ extern void __attribute__((overloadable))
 
 extern void __attribute__((overloadable))
     rsDebug(const char* message, float4 a);
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern void __attribute__((overloadable))
+    rsDebug(const char* message, half a);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern void __attribute__((overloadable))
+    rsDebug(const char* message, half2 a);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern void __attribute__((overloadable))
+    rsDebug(const char* message, half3 a);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern void __attribute__((overloadable))
+    rsDebug(const char* message, half4 a);
+#endif
 
 #if (defined(RS_VERSION) && (RS_VERSION >= 17))
 extern void __attribute__((overloadable))

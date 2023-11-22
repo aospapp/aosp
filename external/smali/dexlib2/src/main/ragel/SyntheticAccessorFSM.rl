@@ -34,6 +34,7 @@ package org.jf.dexlib2.util;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 import org.jf.dexlib2.iface.instruction.WideLiteralInstruction;
+import org.jf.dexlib2.Opcodes;
 
 import java.util.List;
 
@@ -63,7 +64,13 @@ public class SyntheticAccessorFSM {
     public static final int NEGATIVE_ONE = -1;
     public static final int OTHER = 0;
 
-    public static int test(List<? extends Instruction> instructions) {
+    @Nonnull private final Opcodes opcodes;
+
+    public SyntheticAccessorFSM(@Nonnull Opcodes opcodes) {
+        this.opcodes = opcodes;
+    }
+
+    public int test(List<? extends Instruction> instructions) {
         int accessorType = -1;
         int cs, p = 0;
         int pe = instructions.size();
@@ -85,7 +92,7 @@ public class SyntheticAccessorFSM {
         %%{
             import "Opcodes.rl";
             alphtype short;
-            getkey instructions.get(p).getOpcode().value;
+            getkey opcodes.getOpcodeValue(instructions.get(p).getOpcode());
 
             get = (0x52 .. 0x58) | (0x60 .. 0x66); # all igets/sgets
 

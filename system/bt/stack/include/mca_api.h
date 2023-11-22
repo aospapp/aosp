@@ -115,10 +115,10 @@ typedef UINT8 tMCA_FCS_OPT;
 /* This structure contains L2CAP configuration parameters for the channel. */
 typedef struct {
     tL2CAP_FCR_OPTS fcr_opt;
-    UINT8           user_rx_pool_id;
-    UINT8           user_tx_pool_id;
-    UINT8           fcr_rx_pool_id;
-    UINT8           fcr_tx_pool_id;
+    UINT16          user_rx_buf_size;
+    UINT16          user_tx_buf_size;
+    UINT16          fcr_rx_buf_size;
+    UINT16          fcr_tx_buf_size;
     tMCA_FCS_OPT    fcs;
     UINT16          data_mtu;   /* L2CAP MTU of the MCAP data channel */
 } tMCA_CHNL_CFG;

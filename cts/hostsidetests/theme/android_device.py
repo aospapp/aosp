@@ -31,7 +31,7 @@ class androidDevice(object):
     def runAdbCommand(self, cmd):
         self.waitForAdbDevice()
         adbCmd = "adb -s %s %s" %(self._adbDevice, cmd)
-        adbProcess = subprocess.Popen(adbCmd.split(" "), bufsize = -1, stdout = subprocess.PIPE)
+        adbProcess = subprocess.Popen(adbCmd.split(" "), bufsize = -1, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         return adbProcess.communicate()
 
     def runShellCommand(self, cmd):
@@ -58,12 +58,12 @@ class androidDevice(object):
 
     def installApk(self, apkPath):
         (out, err) = self.runAdbCommand("install -r -d -g " + apkPath)
-        result = out.split()
+        result = err.split()
         return (out, err, "Success" in result)
 
     def uninstallApk(self, package):
         (out, err) = self.runAdbCommand("uninstall " + package)
-        result = out.split()
+        result = err.split()
         return "Success" in result
 
     def runInstrumentationTest(self, option):

@@ -54,6 +54,12 @@
 #define ALOGV(...) \
     __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, __VA_ARGS__);
 
+#if defined(_WIN32)
+#define OS_PATH_SEPARATOR '\\'
+#else
+#define OS_PATH_SEPARATOR '/'
+#endif
+
 namespace android {
 
     // server has no Vector or String8 classes; implement on top of STL
@@ -112,7 +118,7 @@ namespace android {
         }
 
         const T* array() {
-            return (const T*)(this->begin());
+            return this->data();
         }
 
     };

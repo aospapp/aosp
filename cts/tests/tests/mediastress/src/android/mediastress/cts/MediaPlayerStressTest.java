@@ -19,7 +19,6 @@ package android.mediastress.cts;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Intent;
-import android.media.CamcorderProfile;
 import android.cts.util.MediaUtils;
 import android.media.MediaRecorder.AudioEncoder;
 import android.media.MediaRecorder.VideoEncoder;

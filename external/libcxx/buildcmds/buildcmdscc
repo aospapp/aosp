@@ -9,7 +9,7 @@ if [ $? -eq 0 ]; then
   echo $ARGS | perl -ne 's/\S+\.cpp\b/%SOURCE%/; print' \
              | perl -ne 's/\S+\.o\b/%OUT%/; print' > $DIR/cxx.cmds
 else
-  echo $ARGS | perl -ne 's/out\/target\/product\/\S+\/EXECUTABLES\/\S+\.o\b/%SOURCE%/; print' \
+  echo $ARGS | perl -ne 's/out\/\S+\/EXECUTABLES\/\S+\.o\b/%SOURCE%/; print' \
              | perl -ne 's/-o\s+\S+\b/-o %OUT%/; print' > $DIR/link.cmds
 fi
 

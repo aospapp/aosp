@@ -338,7 +338,7 @@ __cxa_end_cleanup_impl()
 }
 
 asm (
-    "	.pushsection	.text.__cxa_end_cleanup\n"
+    "	.pushsection	.text.__cxa_end_cleanup,\"ax\",%progbits\n"
     "	.globl	__cxa_end_cleanup\n"
     "	.type	__cxa_end_cleanup,%function\n"
     "__cxa_end_cleanup:\n"
@@ -710,13 +710,16 @@ __cxa_rethrow_primary_exception(void* thrown_object)
 }
 
 bool
-__cxa_uncaught_exception() throw()
+__cxa_uncaught_exception() throw() { return __cxa_uncaught_exceptions() != 0; }
+
+unsigned int
+__cxa_uncaught_exceptions() throw()
 {
     // This does not report foreign exceptions in flight
     __cxa_eh_globals* globals = __cxa_get_globals_fast();
     if (globals == 0)
-        return false;
-    return globals->uncaughtExceptions != 0;
+        return 0;
+    return globals->uncaughtExceptions;
 }
 
 }  // extern "C"

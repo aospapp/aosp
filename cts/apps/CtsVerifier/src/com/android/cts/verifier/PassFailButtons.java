@@ -59,7 +59,7 @@ public class PassFailButtons {
     private static final String INFO_DIALOG_MESSAGE_ID = "infoDialogMessageId";
 
     // Interface mostly for making documentation and refactoring easier...
-    private interface PassFailActivity {
+    public interface PassFailActivity {
 
         /**
          * Hooks up the pass and fail buttons to click listeners that will record the test results.
@@ -262,9 +262,13 @@ public class PassFailButtons {
 
         @Override
         public ReportLog getReportLog() { return reportLog; }
+
+        public void updatePassButton() {
+            getPassButton().setEnabled(mAdapter.allTestsPassed());
+        }
     }
 
-    private static <T extends android.app.Activity & PassFailActivity>
+    protected static <T extends android.app.Activity & PassFailActivity>
             void setPassFailClickListeners(final T activity) {
         View.OnClickListener clickListener = new View.OnClickListener() {
             @Override
@@ -295,7 +299,7 @@ public class PassFailButtons {
         });
     }
 
-    private static void setInfo(final android.app.Activity activity, final int titleId,
+    protected static void setInfo(final android.app.Activity activity, final int titleId,
             final int messageId, final int viewId) {
         // Show the middle "info" button and make it show the info dialog when clicked.
         View infoButton = activity.findViewById(R.id.info_button);
@@ -320,12 +324,11 @@ public class PassFailButtons {
         }
     }
 
-    private static boolean hasSeenInfoDialog(android.app.Activity activity) {
+    protected static boolean hasSeenInfoDialog(android.app.Activity activity) {
         ContentResolver resolver = activity.getContentResolver();
         Cursor cursor = null;
         try {
-            cursor = resolver.query(
-                    TestResultsProvider.getTestNameUri(activity.getClass().getName()),
+            cursor = resolver.query(TestResultsProvider.getTestNameUri(activity),
                     new String[] {TestResultsProvider.COLUMN_TEST_INFO_SEEN}, null, null, null);
             return cursor.moveToFirst() && cursor.getInt(0) > 0;
         } finally {
@@ -335,7 +338,7 @@ public class PassFailButtons {
         }
     }
 
-    private static void showInfoDialog(final android.app.Activity activity, int titleId,
+    protected static void showInfoDialog(final android.app.Activity activity, int titleId,
             int messageId, int viewId) {
         Bundle args = new Bundle();
         args.putInt(INFO_DIALOG_TITLE_ID, titleId);
@@ -344,7 +347,7 @@ public class PassFailButtons {
         activity.showDialog(INFO_DIALOG_ID, args);
     }
 
-    private static Dialog createDialog(final android.app.Activity activity, int id, Bundle args) {
+    protected static Dialog createDialog(final android.app.Activity activity, int id, Bundle args) {
         switch (id) {
             case INFO_DIALOG_ID:
                 return createInfoDialog(activity, id, args);
@@ -353,7 +356,7 @@ public class PassFailButtons {
         }
     }
 
-    private static Dialog createInfoDialog(final android.app.Activity activity, int id,
+    protected static Dialog createInfoDialog(final android.app.Activity activity, int id,
             Bundle args) {
         int viewId = args.getInt(INFO_DIALOG_VIEW_ID);
         int titleId = args.getInt(INFO_DIALOG_TITLE_ID);
@@ -382,38 +385,35 @@ public class PassFailButtons {
         return builder.create();
     }
 
-    private static void markSeenInfoDialog(android.app.Activity activity) {
+    protected static void markSeenInfoDialog(android.app.Activity activity) {
         ContentResolver resolver = activity.getContentResolver();
         ContentValues values = new ContentValues(2);
         values.put(TestResultsProvider.COLUMN_TEST_NAME, activity.getClass().getName());
         values.put(TestResultsProvider.COLUMN_TEST_INFO_SEEN, 1);
         int numUpdated = resolver.update(
-                TestResultsProvider.getTestNameUri(activity.getClass().getName()),
-                values, null, null);
+                TestResultsProvider.getTestNameUri(activity), values, null, null);
         if (numUpdated == 0) {
-            resolver.insert(TestResultsProvider.RESULTS_CONTENT_URI, values);
+            resolver.insert(TestResultsProvider.getResultContentUri(activity), values);
         }
     }
 
     /** Set the test result corresponding to the button clicked and finish the activity. */
-    private static void setTestResultAndFinish(android.app.Activity activity, String testId,
+    protected static void setTestResultAndFinish(android.app.Activity activity, String testId,
             String testDetails, ReportLog reportLog, View target) {
         boolean passed;
-        switch (target.getId()) {
-            case R.id.pass_button:
-                passed = true;
-                break;
-            case R.id.fail_button:
-                passed = false;
-                break;
-            default:
-                throw new IllegalArgumentException("Unknown id: " + target.getId());
+        if (target.getId() == R.id.pass_button) {
+            passed = true;
+        } else if (target.getId() == R.id.fail_button) {
+            passed = false;
+        } else {
+            throw new IllegalArgumentException("Unknown id: " + target.getId());
         }
+
         setTestResultAndFinishHelper(activity, testId, testDetails, passed, reportLog);
     }
 
     /** Set the test result and finish the activity. */
-    private static void setTestResultAndFinishHelper(android.app.Activity activity, String testId,
+    protected static void setTestResultAndFinishHelper(android.app.Activity activity, String testId,
             String testDetails, boolean passed, ReportLog reportLog) {
         if (passed) {
             TestResult.setPassedResult(activity, testId, testDetails, reportLog);
@@ -424,7 +424,7 @@ public class PassFailButtons {
         activity.finish();
     }
 
-    private static ImageButton getPassButtonView(android.app.Activity activity) {
+    protected static ImageButton getPassButtonView(android.app.Activity activity) {
         return (ImageButton) activity.findViewById(R.id.pass_button);
     }
 

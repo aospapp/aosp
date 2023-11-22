@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (C) 1996-2014, International Business Machines Corporation and
+ * Copyright (C) 1996-2016, International Business Machines Corporation and
  * others. All Rights Reserved.
  *******************************************************************************
  */
@@ -110,7 +110,7 @@ import com.ibm.icu.util.ULocale;
  * <p> 
  * Restriction: <br>
  * Currently there are no composite characters that consists of a
- * character with combining class > 0 before a character with combining
+ * character with combining class &gt; 0 before a character with combining
  * class == 0. However, if such a character exists in the future,
  * <tt>StringSearch</tt> does not guarantee the results for option 1.
  * <p>
@@ -141,6 +141,8 @@ public final class StringSearch extends SearchIterator {
     // utility collation element, used throughout program for temporary
     // iteration.
     private CollationElementIterator utilIter_;
+
+    private Normalizer2 nfd_;
 
     private int strength_;
     int ceMask_;
@@ -186,6 +188,8 @@ public final class StringSearch extends SearchIterator {
         ceMask_ = getMask(strength_);
         toShift_ = collator.isAlternateHandlingShifted();
         variableTop_ = collator.getVariableTop();
+
+        nfd_ = Normalizer2.getNFDInstance();
 
         pattern_ = new Pattern(pattern);
 
@@ -1156,6 +1160,32 @@ public final class StringSearch extends SearchIterator {
                 found = false;
             }
 
+            // Allow matches to end in the middle of a grapheme cluster if the following
+            // conditions are met; this is needed to make prefix search work properly in
+            // Indic, see #11750
+            // * the default breakIter is being used
+            // * the next collation element after this combining sequence
+            //   - has non-zero primary weight
+            //   - corresponds to a separate character following the one at end of the current match
+            //   (the second of these conditions, and perhaps both, may be redundant given the
+            //   subsequent check for normalization boundary; however they are likely much faster
+            //   tests in any case)
+            // * the match limit is a normalization boundary
+            boolean allowMidclusterMatch =
+                            breakIterator == null &&
+                            nextCEI != null && (((nextCEI.ce_) >>> 32) & 0xFFFF0000L) != 0 &&
+                            maxLimit >= lastCEI.highIndex_ && nextCEI.highIndex_ > maxLimit &&
+                            (nfd_.hasBoundaryBefore(codePointAt(targetText, maxLimit)) ||
+                                    nfd_.hasBoundaryAfter(codePointBefore(targetText, maxLimit)));
+
+            // If those conditions are met, then:
+            // * do NOT advance the candidate match limit (mLimit) to a break boundary; however
+            //   the match limit may be backed off to a previous break boundary. This handles
+            //   cases in which mLimit includes target characters that are ignorable with current
+            //   settings (such as space) and which extend beyond the pattern match.
+            // * do NOT require that end of the combining sequence not extend beyond the match in CE space
+            // * do NOT require that match limit be on a breakIter boundary
+
             // Advance the match end position to the first acceptable match boundary.
             // This advances the index over any combining characters.
             mLimit = maxLimit;
@@ -1170,20 +1200,25 @@ public final class StringSearch extends SearchIterator {
                     mLimit = minLimit;
                 } else {
                     int nba = nextBoundaryAfter(minLimit);
-                    if (nba >= lastCEI.highIndex_) {
+                    // Note that we can have nba < maxLimit && nba >= minLImit, in which
+                    // case we want to set mLimit to nba regardless of allowMidclusterMatch
+                    // (i.e. we back off mLimit to the previous breakIterator boundary).
+                    if (nba >= lastCEI.highIndex_ && (!allowMidclusterMatch || nba < maxLimit)) {
                         mLimit = nba;
                     }
                 }
             }
 
-            // If advancing to the end of a combining sequence in character indexing space
-            // advanced us beyond the end of the match in CE space, reject this match.
-            if (mLimit > maxLimit) {
-                found = false;
-            }
+            if (!allowMidclusterMatch) {
+                // If advancing to the end of a combining sequence in character indexing space
+                // advanced us beyond the end of the match in CE space, reject this match.
+                if (mLimit > maxLimit) {
+                    found = false;
+                }
 
-            if (!isBreakBoundary(mLimit)) {
-                found = false;
+                if (!isBreakBoundary(mLimit)) {
+                    found = false;
+                }
             }
 
             if (!checkIdentical(mStart, mLimit)) {
@@ -1208,6 +1243,35 @@ public final class StringSearch extends SearchIterator {
         }
 
         return found;
+    }
+
+    private static int codePointAt(CharacterIterator iter, int index) {
+        int currentIterIndex = iter.getIndex();
+        char codeUnit = iter.setIndex(index);
+        int cp = codeUnit;
+        if (Character.isHighSurrogate(codeUnit)) {
+            char nextUnit = iter.next();
+            if (Character.isLowSurrogate(nextUnit)) {
+                cp = Character.toCodePoint(codeUnit, nextUnit);
+            }
+        }
+        iter.setIndex(currentIterIndex);  // restore iter position
+        return cp;
+    }
+
+    private static int codePointBefore(CharacterIterator iter, int index) {
+        int currentIterIndex = iter.getIndex();
+        iter.setIndex(index);
+        char codeUnit = iter.previous();
+        int cp = codeUnit;
+        if (Character.isLowSurrogate(codeUnit)) {
+            char prevUnit = iter.previous();
+            if (Character.isHighSurrogate(prevUnit)) {
+                cp = Character.toCodePoint(prevUnit, codeUnit);
+            }
+        }
+        iter.setIndex(currentIterIndex);  // restore iter position
+        return cp;
     }
 
     private boolean searchBackwards(int startIdx, Match m) {
@@ -1356,25 +1420,55 @@ public final class StringSearch extends SearchIterator {
 
                 mLimit = maxLimit = nextCEI.lowIndex_;
 
+                // Allow matches to end in the middle of a grapheme cluster if the following
+                // conditions are met; this is needed to make prefix search work properly in
+                // Indic, see #11750
+                // * the default breakIter is being used
+                // * the next collation element after this combining sequence
+                //   - has non-zero primary weight
+                //   - corresponds to a separate character following the one at end of the current match
+                //   (the second of these conditions, and perhaps both, may be redundant given the
+                //   subsequent check for normalization boundary; however they are likely much faster
+                //   tests in any case)
+                // * the match limit is a normalization boundary
+                boolean allowMidclusterMatch =
+                                breakIterator == null &&
+                                nextCEI != null && (((nextCEI.ce_) >>> 32) & 0xFFFF0000L) != 0 &&
+                                maxLimit >= lastCEI.highIndex_ && nextCEI.highIndex_ > maxLimit &&
+                                (nfd_.hasBoundaryBefore(codePointAt(targetText, maxLimit)) ||
+                                        nfd_.hasBoundaryAfter(codePointBefore(targetText, maxLimit)));
+
+                // If those conditions are met, then:
+                // * do NOT advance the candidate match limit (mLimit) to a break boundary; however
+                //   the match limit may be backed off to a previous break boundary. This handles
+                //   cases in which mLimit includes target characters that are ignorable with current
+                //   settings (such as space) and which extend beyond the pattern match.
+                // * do NOT require that end of the combining sequence not extend beyond the match in CE space
+                // * do NOT require that match limit be on a breakIter boundary
+
                 // Advance the match end position to the first acceptable match boundary.
                 // This advances the index over any combining charcters.
                 if (minLimit < maxLimit) {
                     int nba = nextBoundaryAfter(minLimit);
-
-                    if (nba >= lastCEI.highIndex_) {
+                    // Note that we can have nba < maxLimit && nba >= minLImit, in which
+                    // case we want to set mLimit to nba regardless of allowMidclusterMatch
+                    // (i.e. we back off mLimit to the previous breakIterator boundary).
+                    if (nba >= lastCEI.highIndex_ && (!allowMidclusterMatch || nba < maxLimit)) {
                         mLimit = nba;
                     }
                 }
 
-                // If advancing to the end of a combining sequence in character indexing space
-                // advanced us beyond the end of the match in CE space, reject this match.
-                if (mLimit > maxLimit) {
-                    found = false;
-                }
+                if (!allowMidclusterMatch) {
+                    // If advancing to the end of a combining sequence in character indexing space
+                    // advanced us beyond the end of the match in CE space, reject this match.
+                    if (mLimit > maxLimit) {
+                        found = false;
+                    }
 
-                // Make sure the end of the match is on a break boundary
-                if (!isBreakBoundary(mLimit)) {
-                    found = false;
+                    // Make sure the end of the match is on a break boundary
+                    if (!isBreakBoundary(mLimit)) {
+                        found = false;
+                    }
                 }
 
             } else {

@@ -16,7 +16,7 @@
 package android.media.cts;
 
 
-import com.android.cts.media.R;
+import android.media.cts.R;
 
 import android.media.MediaRecorder;
 import android.media.MediaPlayer;
@@ -158,7 +158,7 @@ public class MediaRandomTest extends ActivityInstrumentationTestCase2<MediaStubA
     }
 
     public MediaRandomTest() {
-        super("com.android.cts.media", MediaStubActivity.class);
+        super("android.media.cts", MediaStubActivity.class);
     }
 
     private void loadSource(int resid) throws Exception {

@@ -43,14 +43,17 @@ public class GpsStatusTest extends AndroidTestCase {
         final int maxSatellites = mGpsStatus.getMaxSatellites();
         assertTrue(maxSatellites > 0);
 
-        Iterator<GpsSatellite> iterator = satellites.iterator();
-        // get the total of satellites
+        // check the total number of satellites
         int count = 0;
-        while (iterator.hasNext()) {
+        for (Iterator<GpsSatellite> iterator = satellites.iterator();
+             iterator.hasNext();
+             iterator.next()) {
             count++;
+            if (count > maxSatellites) {
+                // the real total could not be larger than maxSatellites
+                fail("Found more satellites than: " + maxSatellites);
+            }
         }
-        // the real total could not be larger than maxSatellites
-        assertTrue(count <= maxSatellites);
     }
 
     public void testGetTimeToFirstFix() {

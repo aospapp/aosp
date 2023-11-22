@@ -203,6 +203,46 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
     }
 
     @UiThreadTest
+    public void testCreatingWebViewWithDeviceEncrpytionFails() {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
+
+        Context deviceEncryptedContext = getActivity().createDeviceProtectedStorageContext();
+        try {
+            new WebView(deviceEncryptedContext);
+        } catch (IllegalArgumentException e) {
+            return;
+        }
+
+        Assert.fail("WebView should have thrown exception when creating with a device " +
+                "protected storage context");
+    }
+
+    @UiThreadTest
+    public void testCreatingWebViewWithMultipleEncryptionContext() {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
+
+        // Credential encrpytion is the default. Create one here for the sake of clarity.
+        Context credentialEncryptedContext = getActivity().createCredentialProtectedStorageContext();
+        Context deviceEncryptedContext = getActivity().createDeviceProtectedStorageContext();
+
+        // No exception should be thrown with credential encryption context.
+        new WebView(credentialEncryptedContext);
+
+        try {
+            new WebView(deviceEncryptedContext);
+        } catch (IllegalArgumentException e) {
+            return;
+        }
+
+        Assert.fail("WebView should have thrown exception when creating with a device " +
+                "protected storage context");
+    }
+
+    @UiThreadTest
     public void testCreatingWebViewCreatesCookieSyncManager() throws Exception {
         if (!NullWebViewUtils.isWebViewAvailable()) {
             return;
@@ -1126,6 +1166,40 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
         }.run();
     }
 
+    public void testClearFormData() throws Throwable {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
+        try {
+            startWebServer(false);
+            WebSettings settings = mOnUiThread.getSettings();
+            settings.setDatabaseEnabled(true);
+            settings.setJavaScriptEnabled(true);
+            WebViewDatabase webViewDatabase = WebViewDatabase.getInstance(getActivity());
+            webViewDatabase.clearFormData();
+            final String url = mWebServer.getAssetUrl(TestHtmlConstants.LOGIN_FORM_URL);
+            mOnUiThread.loadUrlAndWaitForCompletion(url);
+            new PollingCheck(TEST_TIMEOUT) {
+                @Override
+                public boolean check() {
+                    return !WebViewDatabase.getInstance(getActivity()).hasFormData();
+                }
+            }.run();
+
+            // Click submit (using JS, rather than simulated key presses, to avoid IME
+            // inconsistencies).
+            mOnUiThread.evaluateJavascript("document.getElementsByName('submit')[0].click()", null);
+            new PollingCheck(TEST_TIMEOUT) {
+                @Override
+                public boolean check() {
+                    return WebViewDatabase.getInstance(getActivity()).hasFormData();
+                }
+            }.run();
+        } finally {
+            WebViewDatabase.getInstance(getActivity()).clearFormData();
+        }
+    }
+
     @UiThreadTest
     public void testAccessHttpAuthUsernamePassword() {
         if (!NullWebViewUtils.isWebViewAvailable()) {
@@ -1592,7 +1666,7 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
         } while (mOnUiThread.pageDown(false));
 
         waitForFlingDone(mOnUiThread);
-        int bottomScrollY = mOnUiThread.getScrollY();
+        final int bottomScrollY = mOnUiThread.getScrollY();
 
         assertTrue(mOnUiThread.pageUp(false));
 
@@ -1601,17 +1675,25 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
         } while (mOnUiThread.pageUp(false));
 
         waitForFlingDone(mOnUiThread);
-        int topScrollY = mOnUiThread.getScrollY();
+        final int topScrollY = mOnUiThread.getScrollY();
 
         // jump to the bottom
         assertTrue(mOnUiThread.pageDown(true));
-        waitForFlingDone(mOnUiThread);
-        assertEquals(bottomScrollY, mOnUiThread.getScrollY());
+        new PollingCheck() {
+            @Override
+            protected boolean check() {
+                return bottomScrollY == mOnUiThread.getScrollY();
+            }
+        }.run();
 
         // jump to the top
         assertTrue(mOnUiThread.pageUp(true));
-        waitForFlingDone(mOnUiThread);
-        assertEquals(topScrollY, mOnUiThread.getScrollY());
+         new PollingCheck() {
+            @Override
+            protected boolean check() {
+                return topScrollY == mOnUiThread.getScrollY();
+            }
+        }.run();
     }
 
     public void testGetContentHeight() throws Throwable {
@@ -2105,6 +2187,10 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
         if (!NullWebViewUtils.isWebViewAvailable()) {
             return;
         }
+
+        // It is needed to make test pass on some devices.
+        mOnUiThread.setLayoutToMatchParent();
+
         DisplayMetrics metrics = mOnUiThread.getDisplayMetrics();
         final int dimension = 2 * Math.max(metrics.widthPixels, metrics.heightPixels);
         String p = "<p style=\"height:" + dimension + "px;width:" + dimension + "px\">&nbsp;</p>";

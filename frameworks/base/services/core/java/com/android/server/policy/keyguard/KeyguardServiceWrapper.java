@@ -27,6 +27,8 @@ import com.android.internal.policy.IKeyguardExitCallback;
 import com.android.internal.policy.IKeyguardService;
 import com.android.internal.policy.IKeyguardStateCallback;
 
+import java.io.PrintWriter;
+
 /**
  * A wrapper class for KeyguardService.  It implements IKeyguardService to ensure the interface
  * remains consistent.
@@ -115,9 +117,9 @@ public class KeyguardServiceWrapper implements IKeyguardService {
     }
 
     @Override
-    public void onFinishedGoingToSleep(int reason) {
+    public void onFinishedGoingToSleep(int reason, boolean cameraGestureTriggered) {
         try {
-            mService.onFinishedGoingToSleep(reason);
+            mService.onFinishedGoingToSleep(reason, cameraGestureTriggered);
         } catch (RemoteException e) {
             Slog.w(TAG , "Remote Exception", e);
         }
@@ -232,11 +234,15 @@ public class KeyguardServiceWrapper implements IKeyguardService {
         return mKeyguardStateMonitor.isShowing();
     }
 
-    public boolean isSecure() {
-        return mKeyguardStateMonitor.isSecure();
+    public boolean isSecure(int userId) {
+        return mKeyguardStateMonitor.isSecure(userId);
     }
 
     public boolean isInputRestricted() {
         return mKeyguardStateMonitor.isInputRestricted();
+    }
+
+    public void dump(String prefix, PrintWriter pw) {
+        mKeyguardStateMonitor.dump(prefix, pw);
     }
 }

@@ -31,18 +31,24 @@ class QuickTrampolineEntrypointsTest : public CommonRuntimeTest {
     options->push_back(std::make_pair("imageinstructionset", "x86_64"));
   }
 
+  // Do not do any of the finalization. We don't want to run any code, we don't need the heap
+  // prepared, it actually will be a problem with setting the instruction set to x86_64 in
+  // SetUpRuntimeOptions.
+  void FinalizeSetup() OVERRIDE {
+    ASSERT_EQ(InstructionSet::kX86_64, Runtime::Current()->GetInstructionSet());
+  }
+
   static ArtMethod* CreateCalleeSaveMethod(InstructionSet isa, Runtime::CalleeSaveType type)
       NO_THREAD_SAFETY_ANALYSIS {
     Runtime* r = Runtime::Current();
 
     Thread* t = Thread::Current();
-    t->TransitionFromSuspendedToRunnable();  // So we can create callee-save methods.
+
+    ScopedObjectAccess soa(t);
 
     r->SetInstructionSet(isa);
     ArtMethod* save_method = r->CreateCalleeSaveMethod();
     r->SetCalleeSaveMethod(save_method, type);
-
-    t->TransitionFromRunnableToSuspended(ThreadState::kNative);  // So we can shut down.
 
     return save_method;
   }
@@ -50,7 +56,7 @@ class QuickTrampolineEntrypointsTest : public CommonRuntimeTest {
   static void CheckFrameSize(InstructionSet isa, Runtime::CalleeSaveType type, uint32_t save_size)
       NO_THREAD_SAFETY_ANALYSIS {
     ArtMethod* save_method = CreateCalleeSaveMethod(isa, type);
-    QuickMethodFrameInfo frame_info = save_method->GetQuickFrameInfo();
+    QuickMethodFrameInfo frame_info = Runtime::Current()->GetRuntimeMethodFrameInfo(save_method);
     EXPECT_EQ(frame_info.FrameSizeInBytes(), save_size) << "Expected and real size differs for "
         << type << " core spills=" << std::hex << frame_info.CoreSpillMask() << " fp spills="
         << frame_info.FpSpillMask() << std::dec << " ISA " << isa;
@@ -59,8 +65,8 @@ class QuickTrampolineEntrypointsTest : public CommonRuntimeTest {
   static void CheckPCOffset(InstructionSet isa, Runtime::CalleeSaveType type, size_t pc_offset)
       NO_THREAD_SAFETY_ANALYSIS {
     ArtMethod* save_method = CreateCalleeSaveMethod(isa, type);
-    QuickMethodFrameInfo frame_info = save_method->GetQuickFrameInfo();
-    EXPECT_EQ(save_method->GetReturnPcOffset().SizeValue(), pc_offset)
+    QuickMethodFrameInfo frame_info = Runtime::Current()->GetRuntimeMethodFrameInfo(save_method);
+    EXPECT_EQ(frame_info.GetReturnPcOffset(), pc_offset)
         << "Expected and real pc offset differs for " << type
         << " core spills=" << std::hex << frame_info.CoreSpillMask()
         << " fp spills=" << frame_info.FpSpillMask() << std::dec << " ISA " << isa;

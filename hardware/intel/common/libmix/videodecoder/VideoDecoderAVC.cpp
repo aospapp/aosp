@@ -681,6 +681,15 @@ Decode_Status VideoDecoderAVC::startVA(vbp_data_h264 *data) {
     //Use high profile for all kinds of H.264 profiles (baseline, main and high) except for constrained baseline
     VAProfile vaProfile = VAProfileH264High;
 
+    if (mConfigBuffer.flag & WANT_ADAPTIVE_PLAYBACK) {
+        // When Adaptive playback is enabled, turn off low delay mode.
+        // Otherwise there may be a 240ms stuttering if the output mode is changed from LowDelay to Delay.
+        enableLowDelayMode(false);
+    } else {
+        // for baseline profile or constrained high profile, enable low delay mode automatically
+        enableLowDelayMode((data->codec_data->profile_idc == 66) || (data->codec_data->profile_idc == 100 && data->codec_data->constraint_set4_flag == 1 && data->codec_data->constraint_set5_flag == 1));
+    }
+
     // TODO: determine when to use VAProfileH264ConstrainedBaseline, set only if we are told to do so
     if ((data->codec_data->profile_idc == 66 || data->codec_data->constraint_set0_flag == 1) &&
         data->codec_data->constraint_set1_flag == 1) {
@@ -695,7 +704,7 @@ Decode_Status VideoDecoderAVC::startVA(vbp_data_h264 *data) {
    // for 1080p, limit the total surface to 19, according the hardware limitation
    // change the max surface number from 19->10 to workaround memory shortage
    // remove the workaround
-    if(mVideoFormatInfo.height == 1088 && DPBSize + AVC_EXTRA_SURFACE_NUMBER > 19) {
+    if(mVideoFormatInfo.surfaceHeight == 1088 && DPBSize + AVC_EXTRA_SURFACE_NUMBER > 19) {
         DPBSize = 19 - AVC_EXTRA_SURFACE_NUMBER;
     }
 
@@ -706,17 +715,21 @@ void VideoDecoderAVC::updateFormatInfo(vbp_data_h264 *data) {
     // new video size
     uint32_t width = (data->pic_data[0].pic_parms->picture_width_in_mbs_minus1 + 1) * 16;
     uint32_t height = (data->pic_data[0].pic_parms->picture_height_in_mbs_minus1 + 1) * 16;
+
+    if (data->codec_data->crop_top > 0)
+        height -= data->codec_data->crop_top;
+
+    if (data->codec_data->crop_bottom > 0)
+        height -= data->codec_data->crop_bottom;
+
+    if(data->codec_data->crop_left > 0)
+        width -= data->codec_data->crop_left;
+
+    if(data->codec_data->crop_right > 0)
+        width -= data->codec_data->crop_right;
+
     ITRACE("updateFormatInfo: current size: %d x %d, new size: %d x %d",
         mVideoFormatInfo.width, mVideoFormatInfo.height, width, height);
-
-    if (mConfigBuffer.flag & WANT_ADAPTIVE_PLAYBACK) {
-        // When Adaptive playback is enabled, turn off low delay mode.
-        // Otherwise there may be a 240ms stuttering if the output mode is changed from LowDelay to Delay.
-        enableLowDelayMode(false);
-    } else {
-        // for baseline profile or constrained high profile, enable low delay mode automatically
-        enableLowDelayMode((data->codec_data->profile_idc == 66) || (data->codec_data->profile_idc == 100 && data->codec_data->constraint_set4_flag == 1 && data->codec_data->constraint_set5_flag == 1));
-    }
 
     if ((mConfigBuffer.flag & USE_NATIVE_GRAPHIC_BUFFER) && mStoreMetaData) {
         pthread_mutex_lock(&mFormatLock);

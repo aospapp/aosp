@@ -15,6 +15,10 @@ LOCAL_SRC_FILES:=                 \
     AString.cpp                   \
     AStringUtils.cpp              \
     AWakeLock.cpp                 \
+    ColorUtils.cpp                \
+    MediaBuffer.cpp               \
+    MediaBufferGroup.cpp          \
+    MetaData.cpp                  \
     ParsedMessage.cpp             \
     base64.cpp                    \
     hexdump.cpp
@@ -31,6 +35,7 @@ LOCAL_SHARED_LIBRARIES := \
 
 LOCAL_CFLAGS += -Wno-multichar -Werror -Wall
 LOCAL_CLANG := true
+LOCAL_SANITIZE := unsigned-integer-overflow signed-integer-overflow
 
 LOCAL_MODULE:= libstagefright_foundation
 

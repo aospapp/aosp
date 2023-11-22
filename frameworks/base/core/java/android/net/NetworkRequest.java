@@ -188,7 +188,29 @@ public class NetworkRequest implements Parcelable {
          *                         networks.
          */
         public Builder setNetworkSpecifier(String networkSpecifier) {
+            if (NetworkCapabilities.MATCH_ALL_REQUESTS_NETWORK_SPECIFIER.equals(networkSpecifier)) {
+                throw new IllegalArgumentException("Invalid network specifier - must not be '"
+                        + NetworkCapabilities.MATCH_ALL_REQUESTS_NETWORK_SPECIFIER + "'");
+            }
             mNetworkCapabilities.setNetworkSpecifier(networkSpecifier);
+            return this;
+        }
+
+        /**
+         * Sets the signal strength. This is a signed integer, with higher values indicating a
+         * stronger signal. The exact units are bearer-dependent. For example, Wi-Fi uses the same
+         * RSSI units reported by WifiManager.
+         * <p>
+         * Note that when used to register a network callback, this specifies the minimum acceptable
+         * signal strength. When received as the state of an existing network it specifies the
+         * current value. A value of {@code SIGNAL_STRENGTH_UNSPECIFIED} means no value when
+         * received and has no effect when requesting a callback.
+         *
+         * @param signalStrength the bearer-specific signal strength.
+         * @hide
+         */
+        public Builder setSignalStrength(int signalStrength) {
+            mNetworkCapabilities.setSignalStrength(signalStrength);
             return this;
         }
     }

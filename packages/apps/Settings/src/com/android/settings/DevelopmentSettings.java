@@ -34,6 +34,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.IShortcutService;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.ResolveInfo;
@@ -52,31 +53,40 @@ import android.os.ServiceManager;
 import android.os.StrictMode;
 import android.os.SystemProperties;
 import android.os.UserHandle;
+import android.service.persistentdata.PersistentDataBlockManager;
 import android.os.UserManager;
-import android.preference.ListPreference;
-import android.preference.Preference;
-import android.preference.Preference.OnPreferenceChangeListener;
-import android.preference.PreferenceGroup;
-import android.preference.PreferenceScreen;
-import android.preference.SwitchPreference;
+import android.os.storage.IMountService;
 import android.provider.SearchIndexableResource;
 import android.provider.Settings;
+import android.support.v14.preference.SwitchPreference;
+import android.support.v7.preference.ListPreference;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.Preference.OnPreferenceChangeListener;
+import android.support.v7.preference.PreferenceGroup;
+import android.support.v7.preference.PreferenceScreen;
 import android.text.TextUtils;
 import android.util.Log;
-import android.view.HardwareRenderer;
+import android.view.ThreadedRenderer;
 import android.view.IWindowManager;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityManager;
+import android.webkit.IWebViewUpdateService;
+import android.webkit.WebViewProviderInfo;
 import android.widget.Switch;
-import android.widget.TextView;
+import android.widget.Toast;
 
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.app.LocalePicker;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.settings.applications.BackgroundCheckSummary;
 import com.android.settings.fuelgauge.InactiveApps;
 import com.android.settings.search.BaseSearchIndexProvider;
 import com.android.settings.search.Indexable;
 import com.android.settings.widget.SwitchBar;
+import com.android.settingslib.RestrictedLockUtils;
+import com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
+import com.android.settingslib.RestrictedSwitchPreference;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -86,7 +96,7 @@ import java.util.List;
 /*
  * Displays preferences for application developers.
  */
-public class DevelopmentSettings extends SettingsPreferenceFragment
+public class DevelopmentSettings extends RestrictedSettingsFragment
         implements DialogInterface.OnClickListener, DialogInterface.OnDismissListener,
                 OnPreferenceChangeListener, SwitchBar.OnSwitchChangeListener, Indexable {
     private static final String TAG = "DevelopmentSettings";
@@ -106,6 +116,8 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     private static final String ENABLE_TERMINAL = "enable_terminal";
     private static final String KEEP_SCREEN_ON = "keep_screen_on";
     private static final String BT_HCI_SNOOP_LOG = "bt_hci_snoop_log";
+    private static final String WEBVIEW_PROVIDER_KEY = "select_webview_provider";
+    private static final String WEBVIEW_MULTIPROCESS_KEY = "enable_webview_multiprocess";
     private static final String ENABLE_OEM_UNLOCK = "oem_unlock_enable";
     private static final String HDCP_CHECKING_KEY = "hdcp_checking";
     private static final String HDCP_CHECKING_PROPERTY = "persist.sys.hdcp_checking";
@@ -116,12 +128,14 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     private static final String BUGREPORT_IN_POWER_KEY = "bugreport_in_power";
     private static final String OPENGL_TRACES_PROPERTY = "debug.egl.trace";
     private static final String TUNER_UI_KEY = "tuner_ui";
+    private static final String COLOR_TEMPERATURE_PROPERTY = "persist.sys.debug.color_temp";
 
     private static final String DEBUG_APP_KEY = "debug_app";
     private static final String WAIT_FOR_DEBUGGER_KEY = "wait_for_debugger";
     private static final String MOCK_LOCATION_APP_KEY = "mock_location_app";
     private static final String VERIFY_APPS_OVER_USB_KEY = "verify_apps_over_usb";
     private static final String DEBUG_VIEW_ATTRIBUTES =  "debug_view_attributes";
+    private static final String FORCE_ALLOW_ON_EXTERNAL_KEY = "force_allow_on_external";
     private static final String STRICT_MODE_KEY = "strict_mode";
     private static final String POINTER_LOCATION_KEY = "pointer_location";
     private static final String SHOW_TOUCHES_KEY = "show_touches";
@@ -143,27 +157,43 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     private static final String TRANSITION_ANIMATION_SCALE_KEY = "transition_animation_scale";
     private static final String ANIMATOR_DURATION_SCALE_KEY = "animator_duration_scale";
     private static final String OVERLAY_DISPLAY_DEVICES_KEY = "overlay_display_devices";
-    private static final String ENABLE_MULTI_WINDOW_KEY = "enable_multi_window";
     private static final String DEBUG_DEBUGGING_CATEGORY_KEY = "debug_debugging_category";
     private static final String SELECT_LOGD_SIZE_KEY = "select_logd_size";
     private static final String SELECT_LOGD_SIZE_PROPERTY = "persist.logd.size";
+    private static final String SELECT_LOGD_TAG_PROPERTY = "persist.log.tag";
+    // Tricky, isLoggable only checks for first character, assumes silence
+    private static final String SELECT_LOGD_TAG_SILENCE = "Settings";
+    private static final String SELECT_LOGD_SNET_TAG_PROPERTY = "persist.log.tag.snet_event_log";
+    private static final String SELECT_LOGD_RUNTIME_SNET_TAG_PROPERTY = "log.tag.snet_event_log";
     private static final String SELECT_LOGD_DEFAULT_SIZE_PROPERTY = "ro.logd.size";
+    private static final String SELECT_LOGD_DEFAULT_SIZE_VALUE = "262144";
+    private static final String SELECT_LOGD_SVELTE_DEFAULT_SIZE_VALUE = "65536";
+    // 32768 is merely a menu marker, 64K is our lowest log buffer size we replace it with.
+    private static final String SELECT_LOGD_MINIMUM_SIZE_VALUE = "65536";
+    private static final String SELECT_LOGD_OFF_SIZE_MARKER_VALUE = "32768";
 
     private static final String WIFI_DISPLAY_CERTIFICATION_KEY = "wifi_display_certification";
     private static final String WIFI_VERBOSE_LOGGING_KEY = "wifi_verbose_logging";
     private static final String WIFI_AGGRESSIVE_HANDOVER_KEY = "wifi_aggressive_handover";
     private static final String WIFI_ALLOW_SCAN_WITH_TRAFFIC_KEY = "wifi_allow_scan_with_traffic";
     private static final String USB_CONFIGURATION_KEY = "select_usb_configuration";
-    private static final String WIFI_LEGACY_DHCP_CLIENT_KEY = "legacy_dhcp_client";
     private static final String MOBILE_DATA_ALWAYS_ON = "mobile_data_always_on";
+    private static final String KEY_COLOR_MODE = "color_mode";
+    private static final String FORCE_RESIZABLE_KEY = "force_resizable_activities";
+    private static final String COLOR_TEMPERATURE_KEY = "color_temperature";
+
+    private static final String BLUETOOTH_DISABLE_ABSOLUTE_VOLUME_KEY =
+                                    "bluetooth_disable_absolute_volume";
+    private static final String BLUETOOTH_DISABLE_ABSOLUTE_VOLUME_PROPERTY =
+                                    "persist.bluetooth.disableabsvol";
 
     private static final String INACTIVE_APPS_KEY = "inactive_apps";
-
-    private static final String OPENGL_TRACES_KEY = "enable_opengl_traces";
 
     private static final String IMMEDIATELY_DESTROY_ACTIVITIES_KEY
             = "immediately_destroy_activities";
     private static final String APP_PROCESS_LIMIT_KEY = "app_process_limit";
+
+    private static final String BACKGROUND_CHECK_KEY = "background_check";
 
     private static final String SHOW_ALL_ANRS_KEY = "show_all_anrs";
 
@@ -171,23 +201,29 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
 
     private static final String TERMINAL_APP_PACKAGE = "com.android.terminal";
 
+    private static final String KEY_CONVERT_FBE = "convert_to_file_encryption";
+
+    private static final String OTA_DISABLE_AUTOMATIC_UPDATE_KEY = "ota_disable_automatic_update";
+
     private static final int RESULT_DEBUG_APP = 1000;
     private static final int RESULT_MOCK_LOCATION_APP = 1001;
 
     private static final String PERSISTENT_DATA_BLOCK_PROP = "ro.frp.pst";
+    private static final String FLASH_LOCKED_PROP = "ro.boot.flash.locked";
+
+    private static final String SHORTCUT_MANAGER_RESET_KEY = "reset_shortcut_manager_throttling";
 
     private static final int REQUEST_CODE_ENABLE_OEM_UNLOCK = 0;
 
-    private static String DEFAULT_LOG_RING_BUFFER_SIZE_IN_BYTES = "262144"; // 256K
-
     private static final int[] MOCK_LOCATION_APP_OPS = new int[] {AppOpsManager.OP_MOCK_LOCATION};
 
-    private static final String MULTI_WINDOW_SYSTEM_PROPERTY = "persist.sys.debug.multi_window";
     private IWindowManager mWindowManager;
     private IBackupManager mBackupManager;
+    private IWebViewUpdateService mWebViewUpdateService;
     private DevicePolicyManager mDpm;
     private UserManager mUm;
     private WifiManager mWifiManager;
+    private PersistentDataBlockManager mOemUnlockManager;
 
     private SwitchBar mSwitchBar;
     private boolean mLastEnabledState;
@@ -199,10 +235,11 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     private SwitchPreference mEnableTerminal;
     private Preference mBugreport;
     private SwitchPreference mBugreportInPower;
-    private SwitchPreference mKeepScreenOn;
+    private RestrictedSwitchPreference mKeepScreenOn;
     private SwitchPreference mBtHciSnoopLog;
     private SwitchPreference mEnableOemUnlock;
     private SwitchPreference mDebugViewAttributes;
+    private SwitchPreference mForceAllowOnExternal;
 
     private PreferenceScreen mPassword;
     private String mDebugApp;
@@ -216,8 +253,9 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     private SwitchPreference mWifiDisplayCertification;
     private SwitchPreference mWifiVerboseLogging;
     private SwitchPreference mWifiAggressiveHandover;
-    private SwitchPreference mLegacyDhcpClient;
     private SwitchPreference mMobileDataAlwaysOn;
+    private SwitchPreference mBluetoothDisableAbsVolume;
+    private SwitchPreference mOtaDisableAutomaticUpdate;
 
     private SwitchPreference mWifiAllowScansWithTraffic;
     private SwitchPreference mStrictMode;
@@ -225,7 +263,6 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     private SwitchPreference mShowTouches;
     private SwitchPreference mShowScreenUpdates;
     private SwitchPreference mDisableOverlays;
-    private SwitchPreference mEnableMultiWindow;
     private SwitchPreference mShowCpuUsage;
     private SwitchPreference mForceHardwareUi;
     private SwitchPreference mForceMsaa;
@@ -242,7 +279,9 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     private ListPreference mTransitionAnimationScale;
     private ListPreference mAnimatorDurationScale;
     private ListPreference mOverlayDisplayDevices;
-    private ListPreference mOpenGLTraces;
+
+    private SwitchPreference mWebViewMultiprocess;
+    private ListPreference mWebViewProvider;
 
     private ListPreference mSimulateColorSpace;
 
@@ -252,6 +291,12 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     private ListPreference mAppProcessLimit;
 
     private SwitchPreference mShowAllANRs;
+
+    private ColorModePreference mColorModePreference;
+
+    private SwitchPreference mForceResizable;
+
+    private SwitchPreference mColorTemperaturePreference;
 
     private final ArrayList<Preference> mAllPrefs = new ArrayList<Preference>();
 
@@ -267,9 +312,13 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     private Dialog mAdbKeysDialog;
     private boolean mUnavailable;
 
+    public DevelopmentSettings() {
+        super(UserManager.DISALLOW_DEBUGGING_FEATURES);
+    }
+
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.DEVELOPMENT;
+        return MetricsEvent.DEVELOPMENT;
     }
 
     @Override
@@ -279,15 +328,22 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         mWindowManager = IWindowManager.Stub.asInterface(ServiceManager.getService("window"));
         mBackupManager = IBackupManager.Stub.asInterface(
                 ServiceManager.getService(Context.BACKUP_SERVICE));
+        mWebViewUpdateService  =
+            IWebViewUpdateService.Stub.asInterface(ServiceManager.getService("webviewupdate"));
+        mOemUnlockManager = (PersistentDataBlockManager)getActivity()
+                .getSystemService(Context.PERSISTENT_DATA_BLOCK_SERVICE);
+
         mDpm = (DevicePolicyManager)getActivity().getSystemService(Context.DEVICE_POLICY_SERVICE);
         mUm = (UserManager) getSystemService(Context.USER_SERVICE);
 
         mWifiManager = (WifiManager) getSystemService(Context.WIFI_SERVICE);
 
-        if (android.os.Process.myUserHandle().getIdentifier() != UserHandle.USER_OWNER
-                || mUm.hasUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES)) {
+        setIfOnlyAvailableForAdmins(true);
+        if (isUiRestricted() || !Utils.isDeviceProvisioned(getActivity())) {
+            // Block access to developer options if the user is not the owner, if user policy
+            // restricts it, or if the device has not been provisioned
             mUnavailable = true;
-            setPreferenceScreen(new PreferenceScreen(getActivity(), null));
+            setPreferenceScreen(new PreferenceScreen(getPrefContext(), null));
             return;
         }
 
@@ -311,7 +367,7 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
 
         mBugreport = findPreference(BUGREPORT);
         mBugreportInPower = findAndInitSwitchPref(BUGREPORT_IN_POWER_KEY);
-        mKeepScreenOn = findAndInitSwitchPref(KEEP_SCREEN_ON);
+        mKeepScreenOn = (RestrictedSwitchPreference) findAndInitSwitchPref(KEEP_SCREEN_ON);
         mBtHciSnoopLog = findAndInitSwitchPref(BT_HCI_SNOOP_LOG);
         mEnableOemUnlock = findAndInitSwitchPref(ENABLE_OEM_UNLOCK);
         if (!showEnableOemUnlockPreference()) {
@@ -320,11 +376,11 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         }
 
         mDebugViewAttributes = findAndInitSwitchPref(DEBUG_VIEW_ATTRIBUTES);
+        mForceAllowOnExternal = findAndInitSwitchPref(FORCE_ALLOW_ON_EXTERNAL_KEY);
         mPassword = (PreferenceScreen) findPreference(LOCAL_BACKUP_PASSWORD);
         mAllPrefs.add(mPassword);
 
-
-        if (!android.os.Process.myUserHandle().equals(UserHandle.OWNER)) {
+        if (!mUm.isAdminUser()) {
             disableForUser(mEnableAdb);
             disableForUser(mClearAdbKeys);
             disableForUser(mEnableTerminal);
@@ -365,30 +421,20 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         mWifiVerboseLogging = findAndInitSwitchPref(WIFI_VERBOSE_LOGGING_KEY);
         mWifiAggressiveHandover = findAndInitSwitchPref(WIFI_AGGRESSIVE_HANDOVER_KEY);
         mWifiAllowScansWithTraffic = findAndInitSwitchPref(WIFI_ALLOW_SCAN_WITH_TRAFFIC_KEY);
-        mLegacyDhcpClient = findAndInitSwitchPref(WIFI_LEGACY_DHCP_CLIENT_KEY);
         mMobileDataAlwaysOn = findAndInitSwitchPref(MOBILE_DATA_ALWAYS_ON);
         mLogdSize = addListPreference(SELECT_LOGD_SIZE_KEY);
         mUsbConfiguration = addListPreference(USB_CONFIGURATION_KEY);
+        mWebViewProvider = addListPreference(WEBVIEW_PROVIDER_KEY);
+        mWebViewMultiprocess = findAndInitSwitchPref(WEBVIEW_MULTIPROCESS_KEY);
+        mBluetoothDisableAbsVolume = findAndInitSwitchPref(BLUETOOTH_DISABLE_ABSOLUTE_VOLUME_KEY);
 
         mWindowAnimationScale = addListPreference(WINDOW_ANIMATION_SCALE_KEY);
         mTransitionAnimationScale = addListPreference(TRANSITION_ANIMATION_SCALE_KEY);
         mAnimatorDurationScale = addListPreference(ANIMATOR_DURATION_SCALE_KEY);
         mOverlayDisplayDevices = addListPreference(OVERLAY_DISPLAY_DEVICES_KEY);
-        mEnableMultiWindow = findAndInitSwitchPref(ENABLE_MULTI_WINDOW_KEY);
-        if (!showEnableMultiWindowPreference()) {
-            final PreferenceGroup drawingGroup =
-                    (PreferenceGroup)findPreference("debug_drawing_category");
-            if (drawingGroup != null) {
-                drawingGroup.removePreference(mEnableMultiWindow);
-            } else {
-                mEnableMultiWindow.setEnabled(false);
-            }
-            removePreference(mEnableMultiWindow);
-            mEnableMultiWindow = null;
-        }
-        mOpenGLTraces = addListPreference(OPENGL_TRACES_KEY);
         mSimulateColorSpace = addListPreference(SIMULATE_COLOR_SPACE);
         mUSBAudio = findAndInitSwitchPref(USB_AUDIO_KEY);
+        mForceResizable = findAndInitSwitchPref(FORCE_RESIZABLE_KEY);
 
         mImmediatelyDestroyActivities = (SwitchPreference) findPreference(
                 IMMEDIATELY_DESTROY_ACTIVITIES_KEY);
@@ -406,6 +452,42 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         if (hdcpChecking != null) {
             mAllPrefs.add(hdcpChecking);
             removePreferenceForProduction(hdcpChecking);
+        }
+
+        PreferenceScreen convertFbePreference =
+            (PreferenceScreen) findPreference(KEY_CONVERT_FBE);
+
+        try {
+            IBinder service = ServiceManager.getService("mount");
+            IMountService mountService = IMountService.Stub.asInterface(service);
+            if (!mountService.isConvertibleToFBE()) {
+                removePreference(KEY_CONVERT_FBE);
+            } else if ("file".equals(SystemProperties.get("ro.crypto.type", "none"))) {
+                convertFbePreference.setEnabled(false);
+                convertFbePreference.setSummary(getResources()
+                                   .getString(R.string.convert_to_file_encryption_done));
+            }
+        } catch(RemoteException e) {
+            removePreference(KEY_CONVERT_FBE);
+        }
+
+        mOtaDisableAutomaticUpdate = findAndInitSwitchPref(OTA_DISABLE_AUTOMATIC_UPDATE_KEY);
+
+        mColorModePreference = (ColorModePreference) findPreference(KEY_COLOR_MODE);
+        mColorModePreference.updateCurrentAndSupported();
+        if (mColorModePreference.getTransformsCount() < 2) {
+            removePreference(KEY_COLOR_MODE);
+            mColorModePreference = null;
+        }
+        updateWebViewProviderOptions();
+
+        mColorTemperaturePreference = (SwitchPreference) findPreference(COLOR_TEMPERATURE_KEY);
+        if (getResources().getBoolean(R.bool.config_enableColorTemperature)) {
+            mAllPrefs.add(mColorTemperaturePreference);
+            mResetSwitchPrefs.add(mColorTemperaturePreference);
+        } else {
+            removePreference(COLOR_TEMPERATURE_KEY);
+            mColorTemperaturePreference = null;
         }
     }
 
@@ -476,22 +558,24 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
 
         if (mUnavailable) {
             // Show error message
-            TextView emptyView = (TextView) getView().findViewById(android.R.id.empty);
-            getListView().setEmptyView(emptyView);
-            if (emptyView != null) {
-                emptyView.setText(R.string.development_settings_not_available);
+            if (!isUiRestrictedByOnlyAdmin()) {
+                getEmptyTextView().setText(R.string.development_settings_not_available);
             }
+            getPreferenceScreen().removeAll();
             return;
         }
 
-        if (mDpm.getMaximumTimeToLock(null) > 0) {
-            // A DeviceAdmin has specified a maximum time until the device
-            // will lock...  in this case we can't allow the user to turn
-            // on "stay awake when plugged in" because that would defeat the
-            // restriction.
-            mDisabledPrefs.add(mKeepScreenOn);
-        } else {
+        // A DeviceAdmin has specified a maximum time until the device
+        // will lock...  in this case we can't allow the user to turn
+        // on "stay awake when plugged in" because that would defeat the
+        // restriction.
+        final EnforcedAdmin admin = RestrictedLockUtils.checkIfMaximumTimeToLockIsSet(
+                getActivity());
+        mKeepScreenOn.setDisabledByAdmin(admin);
+        if (admin == null) {
             mDisabledPrefs.remove(mKeepScreenOn);
+        } else {
+            mDisabledPrefs.add(mKeepScreenOn);
         }
 
         final ContentResolver cr = getActivity().getContentResolver();
@@ -512,6 +596,19 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
             setPrefsEnabledState(mLastEnabledState);
         }
         mSwitchBar.show();
+
+        if (mColorModePreference != null) {
+            mColorModePreference.startListening();
+            mColorModePreference.updateCurrentAndSupported();
+        }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        if (mColorModePreference != null) {
+            mColorModePreference.stopListening();
+        }
     }
 
     @Override
@@ -519,7 +616,9 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
             Bundle savedInstanceState) {
         IntentFilter filter = new IntentFilter();
         filter.addAction(UsbManager.ACTION_USB_STATE);
-        getActivity().registerReceiver(mUsbReceiver, filter);
+        if (getActivity().registerReceiver(mUsbReceiver, filter) == null) {
+            updateUsbConfigurationValues();
+        }
         return super.onCreateView(inflater, container, savedInstanceState);
     }
 
@@ -552,7 +651,7 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
                             == PackageManager.COMPONENT_ENABLED_STATE_ENABLED);
         }
         updateSwitchPreference(mBugreportInPower, Settings.Secure.getInt(cr,
-                Settings.Secure.BUGREPORT_IN_POWER_MENU, 0) != 0);
+                Settings.Global.BUGREPORT_IN_POWER_MENU, 0) != 0);
         updateSwitchPreference(mKeepScreenOn, Settings.Global.getInt(cr,
                 Settings.Global.STAY_ON_WHILE_PLUGGED_IN, 0) != 0);
         updateSwitchPreference(mBtHciSnoopLog, Settings.Secure.getInt(cr,
@@ -562,6 +661,8 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         }
         updateSwitchPreference(mDebugViewAttributes, Settings.Global.getInt(cr,
                 Settings.Global.DEBUG_VIEW_ATTRIBUTES, 0) != 0);
+        updateSwitchPreference(mForceAllowOnExternal, Settings.Global.getInt(cr,
+                Settings.Global.FORCE_ALLOW_ON_EXTERNAL, 0) != 0);
         updateHdcpValues();
         updatePasswordSummary();
         updateDebuggerOptions();
@@ -581,15 +682,11 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         updateDebugLayoutOptions();
         updateAnimationScaleOptions();
         updateOverlayDisplayDevicesOptions();
-        if (mEnableMultiWindow != null) {
-            updateSwitchPreference(mEnableMultiWindow,
-                    SystemProperties.getBoolean(MULTI_WINDOW_SYSTEM_PROPERTY, false));
-        }
-        updateOpenGLTracesOptions();
         updateImmediatelyDestroyActivitiesOptions();
         updateAppProcessLimitOptions();
         updateShowAllANRsOptions();
         updateVerifyAppsOverUsbOptions();
+        updateOtaDisableAutomaticUpdateOptions();
         updateBugreportOptions();
         updateForceRtlOptions();
         updateLogdSizeValues();
@@ -597,10 +694,17 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         updateWifiVerboseLoggingOptions();
         updateWifiAggressiveHandoverOptions();
         updateWifiAllowScansWithTrafficOptions();
-        updateLegacyDhcpClientOptions();
         updateMobileDataAlwaysOnOptions();
         updateSimulateColorSpace();
         updateUSBAudioOptions();
+        updateForceResizableOptions();
+        updateWebViewMultiprocessOptions();
+        updateWebViewProviderOptions();
+        updateOemUnlockOptions();
+        if (mColorTemperaturePreference != null) {
+            updateColorTemperature();
+        }
+        updateBluetoothDisableAbsVolumeOptions();
     }
 
     private void resetDangerousOptions() {
@@ -609,7 +713,7 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
             SwitchPreference cb = mResetSwitchPrefs.get(i);
             if (cb.isChecked()) {
                 cb.setChecked(false);
-                onPreferenceTreeClick(null, cb);
+                onPreferenceTreeClick(cb);
             }
         }
         resetDebuggerOptions();
@@ -627,6 +731,58 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         updateAllOptions();
         mDontPokeProperties = false;
         pokeSystemProperties();
+    }
+
+    private void updateWebViewProviderOptions() {
+        try {
+            WebViewProviderInfo[] providers = mWebViewUpdateService.getValidWebViewPackages();
+            if (providers == null) {
+                Log.e(TAG, "No WebView providers available");
+                return;
+            }
+            ArrayList<String> options = new ArrayList<String>();
+            ArrayList<String> values = new ArrayList<String>();
+            for(int n = 0; n < providers.length; n++) {
+                if (Utils.isPackageEnabled(getActivity(), providers[n].packageName)) {
+                    options.add(providers[n].description);
+                    values.add(providers[n].packageName);
+                }
+            }
+            mWebViewProvider.setEntries(options.toArray(new String[options.size()]));
+            mWebViewProvider.setEntryValues(values.toArray(new String[values.size()]));
+
+            String value = mWebViewUpdateService.getCurrentWebViewPackageName();
+            if (value == null) {
+                value = "";
+            }
+
+            for (int i = 0; i < values.size(); i++) {
+                if (value.contentEquals(values.get(i))) {
+                    mWebViewProvider.setValueIndex(i);
+                    return;
+                }
+            }
+        } catch(RemoteException e) {
+        }
+    }
+
+    private void updateWebViewMultiprocessOptions() {
+        updateSwitchPreference(mWebViewMultiprocess,
+                Settings.Global.getInt(getActivity().getContentResolver(),
+                        Settings.Global.WEBVIEW_MULTIPROCESS, 0) != 0);
+    }
+
+    private void writeWebViewMultiprocessOptions() {
+        boolean value = mWebViewMultiprocess.isChecked();
+        Settings.Global.putInt(getActivity().getContentResolver(),
+                Settings.Global.WEBVIEW_MULTIPROCESS, value ? 1 : 0);
+
+        try {
+            String wv_package = mWebViewUpdateService.getCurrentWebViewPackageName();
+            ActivityManagerNative.getDefault().killPackageDependents(
+                    wv_package, UserHandle.USER_ALL);
+        } catch(RemoteException e) {
+        }
     }
 
     private void updateHdcpValues() {
@@ -666,6 +822,17 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         Settings.Secure.putInt(getActivity().getContentResolver(),
                 Settings.Secure.BLUETOOTH_HCI_LOG,
                 mBtHciSnoopLog.isChecked() ? 1 : 0);
+    }
+
+    private boolean writeWebViewProviderOptions(Object newValue) {
+        try {
+            String updatedProvider = mWebViewUpdateService.changeProviderAndSetting(
+                    newValue == null ? "" : newValue.toString());
+            updateWebViewProviderOptions();
+            return newValue != null && newValue.equals(updatedProvider);
+        } catch(RemoteException e) {
+        }
+        return false;
     }
 
     private void writeDebuggerOptions() {
@@ -784,7 +951,26 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
 
     private void writeVerifyAppsOverUsbOptions() {
         Settings.Global.putInt(getActivity().getContentResolver(),
-              Settings.Global.PACKAGE_VERIFIER_INCLUDE_ADB, mVerifyAppsOverUsb.isChecked() ? 1 : 0);
+                Settings.Global.PACKAGE_VERIFIER_INCLUDE_ADB,
+                mVerifyAppsOverUsb.isChecked() ? 1 : 0);
+    }
+
+    private void updateOtaDisableAutomaticUpdateOptions() {
+        // We use the "disabled status" in code, but show the opposite text
+        // "Automatic system updates" on screen. So a value 0 indicates the
+        // automatic update is enabled.
+        updateSwitchPreference(mOtaDisableAutomaticUpdate, Settings.Global.getInt(
+                getActivity().getContentResolver(),
+                Settings.Global.OTA_DISABLE_AUTOMATIC_UPDATE, 0) != 1);
+    }
+
+    private void writeOtaDisableAutomaticUpdateOptions() {
+        // We use the "disabled status" in code, but show the opposite text
+        // "Automatic system updates" on screen. So a value 0 indicates the
+        // automatic update is enabled.
+        Settings.Global.putInt(getActivity().getContentResolver(),
+                Settings.Global.OTA_DISABLE_AUTOMATIC_UPDATE,
+                mOtaDisableAutomaticUpdate.isChecked() ? 0 : 1);
     }
 
     private boolean enableVerifierSetting() {
@@ -816,44 +1002,35 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         return !SystemProperties.get(PERSISTENT_DATA_BLOCK_PROP).equals("");
     }
 
-    private static boolean showEnableMultiWindowPreference() {
-        return !"user".equals(Build.TYPE);
+    private boolean enableOemUnlockPreference() {
+        int flashLockState = PersistentDataBlockManager.FLASH_LOCK_UNKNOWN;
+        if (mOemUnlockManager != null) {
+            flashLockState = mOemUnlockManager.getFlashLockState();
+        }
+
+        return flashLockState != PersistentDataBlockManager.FLASH_LOCK_UNLOCKED;
     }
 
-    private void setEnableMultiWindow(boolean value) {
-        SystemProperties.set(MULTI_WINDOW_SYSTEM_PROPERTY, String.valueOf(value));
-        pokeSystemProperties();
+    private void updateOemUnlockOptions() {
+        if (mEnableOemUnlock != null) {
+            mEnableOemUnlock.setEnabled(enableOemUnlockPreference());
+        }
     }
 
     private void updateBugreportOptions() {
-        final ComponentName bugreportStorageProviderComponentName =
-                new ComponentName("com.android.shell",
-                        "com.android.shell.BugreportStorageProvider");
-        if ("user".equals(Build.TYPE)) {
-            final ContentResolver resolver = getActivity().getContentResolver();
-            final boolean adbEnabled = Settings.Global.getInt(
-                    resolver, Settings.Global.ADB_ENABLED, 0) != 0;
-            if (adbEnabled) {
-                mBugreport.setEnabled(true);
-                mBugreportInPower.setEnabled(true);
-                getPackageManager().setComponentEnabledSetting(
-                        bugreportStorageProviderComponentName,
-                        PackageManager.COMPONENT_ENABLED_STATE_ENABLED, 0);
-            } else {
-                mBugreport.setEnabled(false);
-                mBugreportInPower.setEnabled(false);
-                mBugreportInPower.setChecked(false);
-                Settings.Secure.putInt(resolver, Settings.Secure.BUGREPORT_IN_POWER_MENU, 0);
-                getPackageManager().setComponentEnabledSetting(
-                        bugreportStorageProviderComponentName,
-                        PackageManager.COMPONENT_ENABLED_STATE_DEFAULT, 0);
-            }
-        } else {
-            mBugreportInPower.setEnabled(true);
-            getPackageManager().setComponentEnabledSetting(
-                    bugreportStorageProviderComponentName,
-                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED, 0);
-        }
+        mBugreport.setEnabled(true);
+        mBugreportInPower.setEnabled(true);
+        setBugreportStorageProviderStatus();
+    }
+
+    private void setBugreportStorageProviderStatus() {
+        final ComponentName componentName = new ComponentName("com.android.shell",
+                "com.android.shell.BugreportStorageProvider");
+        final boolean enabled = mBugreportInPower.isChecked();
+        getPackageManager().setComponentEnabledSetting(componentName,
+                enabled ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                        : PackageManager.COMPONENT_ENABLED_STATE_DEFAULT,
+                0);
     }
 
     // Returns the current state of the system property that controls
@@ -889,7 +1066,7 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     private void updatePointerLocationOptions() {
         updateSwitchPreference(mPointerLocation,
                 Settings.System.getInt(getActivity().getContentResolver(),
-                Settings.System.POINTER_LOCATION, 0) != 0);
+                        Settings.System.POINTER_LOCATION, 0) != 0);
     }
 
     private void writeShowTouchesOptions() {
@@ -900,7 +1077,7 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     private void updateShowTouchesOptions() {
         updateSwitchPreference(mShowTouches,
                 Settings.System.getInt(getActivity().getContentResolver(),
-                Settings.System.SHOW_TOUCHES, 0) != 0);
+                        Settings.System.SHOW_TOUCHES, 0) != 0);
     }
 
     private void updateFlingerOptions() {
@@ -964,7 +1141,8 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     }
 
     private void updateHardwareUiOptions() {
-        updateSwitchPreference(mForceHardwareUi, SystemProperties.getBoolean(HARDWARE_UI_PROPERTY, false));
+        updateSwitchPreference(mForceHardwareUi,
+                SystemProperties.getBoolean(HARDWARE_UI_PROPERTY, false));
     }
 
     private void writeHardwareUiOptions() {
@@ -982,7 +1160,7 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     }
 
     private void updateTrackFrameTimeOptions() {
-        String value = SystemProperties.get(HardwareRenderer.PROFILE_PROPERTY);
+        String value = SystemProperties.get(ThreadedRenderer.PROFILE_PROPERTY);
         if (value == null) {
             value = "";
         }
@@ -1000,7 +1178,7 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     }
 
     private void writeTrackFrameTimeOptions(Object newValue) {
-        SystemProperties.set(HardwareRenderer.PROFILE_PROPERTY,
+        SystemProperties.set(ThreadedRenderer.PROFILE_PROPERTY,
                 newValue == null ? "" : newValue.toString());
         pokeSystemProperties();
         updateTrackFrameTimeOptions();
@@ -1008,7 +1186,7 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
 
     private void updateShowNonRectClipOptions() {
         String value = SystemProperties.get(
-                HardwareRenderer.DEBUG_SHOW_NON_RECTANGULAR_CLIP_PROPERTY);
+                ThreadedRenderer.DEBUG_SHOW_NON_RECTANGULAR_CLIP_PROPERTY);
         if (value == null) {
             value = "hide";
         }
@@ -1026,7 +1204,7 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     }
 
     private void writeShowNonRectClipOptions(Object newValue) {
-        SystemProperties.set(HardwareRenderer.DEBUG_SHOW_NON_RECTANGULAR_CLIP_PROPERTY,
+        SystemProperties.set(ThreadedRenderer.DEBUG_SHOW_NON_RECTANGULAR_CLIP_PROPERTY,
                 newValue == null ? "" : newValue.toString());
         pokeSystemProperties();
         updateShowNonRectClipOptions();
@@ -1034,28 +1212,28 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
 
     private void updateShowHwScreenUpdatesOptions() {
         updateSwitchPreference(mShowHwScreenUpdates,
-                SystemProperties.getBoolean(HardwareRenderer.DEBUG_DIRTY_REGIONS_PROPERTY, false));
+                SystemProperties.getBoolean(ThreadedRenderer.DEBUG_DIRTY_REGIONS_PROPERTY, false));
     }
 
     private void writeShowHwScreenUpdatesOptions() {
-        SystemProperties.set(HardwareRenderer.DEBUG_DIRTY_REGIONS_PROPERTY,
+        SystemProperties.set(ThreadedRenderer.DEBUG_DIRTY_REGIONS_PROPERTY,
                 mShowHwScreenUpdates.isChecked() ? "true" : null);
         pokeSystemProperties();
     }
 
     private void updateShowHwLayersUpdatesOptions() {
         updateSwitchPreference(mShowHwLayersUpdates, SystemProperties.getBoolean(
-                HardwareRenderer.DEBUG_SHOW_LAYERS_UPDATES_PROPERTY, false));
+                ThreadedRenderer.DEBUG_SHOW_LAYERS_UPDATES_PROPERTY, false));
     }
 
     private void writeShowHwLayersUpdatesOptions() {
-        SystemProperties.set(HardwareRenderer.DEBUG_SHOW_LAYERS_UPDATES_PROPERTY,
+        SystemProperties.set(ThreadedRenderer.DEBUG_SHOW_LAYERS_UPDATES_PROPERTY,
                 mShowHwLayersUpdates.isChecked() ? "true" : null);
         pokeSystemProperties();
     }
 
     private void updateDebugHwOverdrawOptions() {
-        String value = SystemProperties.get(HardwareRenderer.DEBUG_OVERDRAW_PROPERTY);
+        String value = SystemProperties.get(ThreadedRenderer.DEBUG_OVERDRAW_PROPERTY);
         if (value == null) {
             value = "";
         }
@@ -1073,7 +1251,7 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     }
 
     private void writeDebugHwOverdrawOptions(Object newValue) {
-        SystemProperties.set(HardwareRenderer.DEBUG_OVERDRAW_PROPERTY,
+        SystemProperties.set(ThreadedRenderer.DEBUG_OVERDRAW_PROPERTY,
                 newValue == null ? "" : newValue.toString());
         pokeSystemProperties();
         updateDebugHwOverdrawOptions();
@@ -1145,6 +1323,18 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         }
     }
 
+    private void updateColorTemperature() {
+        updateSwitchPreference(mColorTemperaturePreference,
+                SystemProperties.getBoolean(COLOR_TEMPERATURE_PROPERTY, false));
+    }
+
+    private void writeColorTemperature() {
+        SystemProperties.set(COLOR_TEMPERATURE_PROPERTY,
+                mColorTemperaturePreference.isChecked() ? "1" : "0");
+        pokeSystemProperties();
+        Toast.makeText(getActivity(), R.string.color_temperature_toast, Toast.LENGTH_LONG).show();
+    }
+
     private void updateUSBAudioOptions() {
         updateSwitchPreference(mUSBAudio, Settings.Secure.getInt(getContentResolver(),
                 Settings.Secure.USB_AUDIO_AUTOMATIC_ROUTING_DISABLED, 0) != 0);
@@ -1156,10 +1346,21 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
                 mUSBAudio.isChecked() ? 1 : 0);
     }
 
+    private void updateForceResizableOptions() {
+        updateSwitchPreference(mForceResizable, Settings.Global.getInt(getContentResolver(),
+                Settings.Global.DEVELOPMENT_FORCE_RESIZABLE_ACTIVITIES, 0) != 0);
+    }
+
+    private void writeForceResizableOptions() {
+        Settings.Global.putInt(getContentResolver(),
+                Settings.Global.DEVELOPMENT_FORCE_RESIZABLE_ACTIVITIES,
+                mForceResizable.isChecked() ? 1 : 0);
+    }
+
     private void updateForceRtlOptions() {
         updateSwitchPreference(mForceRtlLayout,
                 Settings.Global.getInt(getActivity().getContentResolver(),
-                Settings.Global.DEVELOPMENT_FORCE_RTL, 0) != 0);
+                        Settings.Global.DEVELOPMENT_FORCE_RTL, 0) != 0);
     }
 
     private void writeForceRtlOptions() {
@@ -1209,16 +1410,14 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         mWifiManager.setAllowScansWithTraffic(mWifiAllowScansWithTraffic.isChecked() ? 1 : 0);
     }
 
-    private void updateLegacyDhcpClientOptions() {
-        updateSwitchPreference(mLegacyDhcpClient, Settings.Global.getInt(
-                getActivity().getContentResolver(),
-                Settings.Global.LEGACY_DHCP_CLIENT, 0) != 0);
+    private void updateBluetoothDisableAbsVolumeOptions() {
+        updateSwitchPreference(mBluetoothDisableAbsVolume,
+                SystemProperties.getBoolean(BLUETOOTH_DISABLE_ABSOLUTE_VOLUME_PROPERTY, false));
     }
 
-    private void writeLegacyDhcpClientOptions() {
-        Settings.Global.putInt(getActivity().getContentResolver(),
-                Settings.Global.LEGACY_DHCP_CLIENT,
-                mLegacyDhcpClient.isChecked() ? 1 : 0);
+    private void writeBluetoothDisableAbsVolumeOptions() {
+        SystemProperties.set(BLUETOOTH_DISABLE_ABSOLUTE_VOLUME_PROPERTY,
+                mBluetoothDisableAbsVolume.isChecked() ? "true" : "false");
     }
 
     private void updateMobileDataAlwaysOnOptions() {
@@ -1233,23 +1432,37 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
                 mMobileDataAlwaysOn.isChecked() ? 1 : 0);
     }
 
+    private String defaultLogdSizeValue() {
+        String defaultValue = SystemProperties.get(SELECT_LOGD_DEFAULT_SIZE_PROPERTY);
+        if ((defaultValue == null) || (defaultValue.length() == 0)) {
+            if (SystemProperties.get("ro.config.low_ram").equals("true")) {
+                defaultValue = SELECT_LOGD_SVELTE_DEFAULT_SIZE_VALUE;
+            } else {
+                defaultValue = SELECT_LOGD_DEFAULT_SIZE_VALUE;
+            }
+        }
+        return defaultValue;
+    }
+
     private void updateLogdSizeValues() {
         if (mLogdSize != null) {
+            String currentTag = SystemProperties.get(SELECT_LOGD_TAG_PROPERTY);
             String currentValue = SystemProperties.get(SELECT_LOGD_SIZE_PROPERTY);
-            if (currentValue == null) {
-                currentValue = SystemProperties.get(SELECT_LOGD_DEFAULT_SIZE_PROPERTY);
-                if (currentValue == null) {
-                    currentValue = "256K";
-                }
+            if ((currentTag != null) && currentTag.startsWith(SELECT_LOGD_TAG_SILENCE)) {
+                currentValue = SELECT_LOGD_OFF_SIZE_MARKER_VALUE;
+            }
+            if ((currentValue == null) || (currentValue.length() == 0)) {
+                currentValue = defaultLogdSizeValue();
             }
             String[] values = getResources().getStringArray(R.array.select_logd_size_values);
             String[] titles = getResources().getStringArray(R.array.select_logd_size_titles);
+            int index = 2; // punt to second entry if not found
             if (SystemProperties.get("ro.config.low_ram").equals("true")) {
                 mLogdSize.setEntries(R.array.select_logd_size_lowram_titles);
                 titles = getResources().getStringArray(R.array.select_logd_size_lowram_titles);
+                index = 1;
             }
             String[] summaries = getResources().getStringArray(R.array.select_logd_size_summaries);
-            int index = 1; // punt to second entry if not found
             for (int i = 0; i < titles.length; i++) {
                 if (currentValue.equals(values[i])
                         || currentValue.equals(titles[i])) {
@@ -1264,21 +1477,44 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     }
 
     private void writeLogdSizeOption(Object newValue) {
-        String currentValue = SystemProperties.get(SELECT_LOGD_DEFAULT_SIZE_PROPERTY);
-        if (currentValue != null) {
-            DEFAULT_LOG_RING_BUFFER_SIZE_IN_BYTES = currentValue;
+        boolean disable = (newValue != null) &&
+            (newValue.toString().equals(SELECT_LOGD_OFF_SIZE_MARKER_VALUE));
+        String currentTag = SystemProperties.get(SELECT_LOGD_TAG_PROPERTY);
+        if (currentTag == null) {
+            currentTag = "";
         }
-        final String size = (newValue != null) ?
-                newValue.toString() : DEFAULT_LOG_RING_BUFFER_SIZE_IN_BYTES;
-        SystemProperties.set(SELECT_LOGD_SIZE_PROPERTY, size);
+        // filter clean and unstack all references to our setting
+        String newTag = currentTag.replaceAll(
+                ",+" + SELECT_LOGD_TAG_SILENCE, "").replaceFirst(
+                "^" + SELECT_LOGD_TAG_SILENCE + ",*", "").replaceAll(
+                ",+", ",").replaceFirst(
+                ",+$", "");
+        if (disable) {
+            newValue = SELECT_LOGD_MINIMUM_SIZE_VALUE;
+            // Make sure snet_event_log get through first, but do not override
+            String snetValue = SystemProperties.get(SELECT_LOGD_SNET_TAG_PROPERTY);
+            if ((snetValue == null) || (snetValue.length() == 0)) {
+                snetValue = SystemProperties.get(SELECT_LOGD_RUNTIME_SNET_TAG_PROPERTY);
+                if ((snetValue == null) || (snetValue.length() == 0)) {
+                    SystemProperties.set(SELECT_LOGD_SNET_TAG_PROPERTY, "I");
+                }
+            }
+            // Silence all log sources, security logs notwithstanding
+            if (newTag.length() != 0) {
+                newTag = "," + newTag;
+            }
+            // Stack settings, stack to help preserve original value
+            newTag = SELECT_LOGD_TAG_SILENCE + newTag;
+        }
+        if (!newTag.equals(currentTag)) {
+            SystemProperties.set(SELECT_LOGD_TAG_PROPERTY, newTag);
+        }
+        String defaultValue = defaultLogdSizeValue();
+        final String size = ((newValue != null) && (newValue.toString().length() != 0)) ?
+            newValue.toString() : defaultValue;
+        SystemProperties.set(SELECT_LOGD_SIZE_PROPERTY, defaultValue.equals(size) ? "" : size);
+        SystemProperties.set("ctl.start", "logd-reinit");
         pokeSystemProperties();
-        try {
-            Process p = Runtime.getRuntime().exec("logcat -b all -G " + size);
-            p.waitFor();
-            Log.i(TAG, "Logcat ring buffer sizes set to: " + size);
-        } catch (Exception e) {
-            Log.w(TAG, "Cannot set logcat ring buffer sizes", e);
-        }
         updateLogdSizeValues();
     }
 
@@ -1315,7 +1551,7 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     private void updateCpuUsageOptions() {
         updateSwitchPreference(mShowCpuUsage,
                 Settings.Global.getInt(getActivity().getContentResolver(),
-                Settings.Global.SHOW_PROCESSES, 0) != 0);
+                        Settings.Global.SHOW_PROCESSES, 0) != 0);
     }
 
     private void writeCpuUsageOptions() {
@@ -1401,32 +1637,8 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
 
     private void writeOverlayDisplayDevicesOptions(Object newValue) {
         Settings.Global.putString(getActivity().getContentResolver(),
-                Settings.Global.OVERLAY_DISPLAY_DEVICES, (String)newValue);
+                Settings.Global.OVERLAY_DISPLAY_DEVICES, (String) newValue);
         updateOverlayDisplayDevicesOptions();
-    }
-
-    private void updateOpenGLTracesOptions() {
-        String value = SystemProperties.get(OPENGL_TRACES_PROPERTY);
-        if (value == null) {
-            value = "";
-        }
-
-        CharSequence[] values = mOpenGLTraces.getEntryValues();
-        for (int i = 0; i < values.length; i++) {
-            if (value.contentEquals(values[i])) {
-                mOpenGLTraces.setValueIndex(i);
-                mOpenGLTraces.setSummary(mOpenGLTraces.getEntries()[i]);
-                return;
-            }
-        }
-        mOpenGLTraces.setValueIndex(0);
-        mOpenGLTraces.setSummary(mOpenGLTraces.getEntries()[0]);
-    }
-
-    private void writeOpenGLTracesOptions(Object newValue) {
-        SystemProperties.set(OPENGL_TRACES_PROPERTY, newValue == null ? "" : newValue.toString());
-        pokeSystemProperties();
-        updateOpenGLTracesOptions();
     }
 
     private void updateAppProcessLimitOptions() {
@@ -1471,10 +1683,21 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     }
 
     private void confirmEnableOemUnlock() {
-        DialogInterface.OnClickListener onConfirmListener = new DialogInterface.OnClickListener() {
+        DialogInterface.OnClickListener onClickListener = new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
-                Utils.setOemUnlockEnabled(getActivity(), true);
+                if (which == DialogInterface.BUTTON_POSITIVE) {
+                    Utils.setOemUnlockEnabled(getActivity(), true);
+                }
+            }
+        };
+
+        DialogInterface.OnDismissListener onDismissListener = new DialogInterface.OnDismissListener() {
+            @Override
+            public void onDismiss(DialogInterface dialog) {
+                if (getActivity() == null) {
+                    return;
+                }
                 updateAllOptions();
             }
         };
@@ -1482,26 +1705,9 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         new AlertDialog.Builder(getActivity())
                 .setTitle(R.string.confirm_enable_oem_unlock_title)
                 .setMessage(R.string.confirm_enable_oem_unlock_text)
-                .setPositiveButton(R.string.enable_text, onConfirmListener)
+                .setPositiveButton(R.string.enable_text, onClickListener)
                 .setNegativeButton(android.R.string.cancel, null)
-                .create()
-                .show();
-    }
-
-    private void confirmEnableMultiWindowMode() {
-        DialogInterface.OnClickListener onConfirmListener = new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                setEnableMultiWindow((which == DialogInterface.BUTTON_POSITIVE) ? true : false);
-                updateAllOptions();
-            }
-        };
-
-        new AlertDialog.Builder(getActivity())
-                .setTitle(R.string.confirm_enable_multi_window_title)
-                .setMessage(R.string.confirm_enable_multi_window_text)
-                .setPositiveButton(R.string.enable_text, onConfirmListener)
-                .setNegativeButton(android.R.string.cancel, onConfirmListener)
+                .setOnDismissListener(onDismissListener)
                 .create()
                 .show();
     }
@@ -1561,7 +1767,7 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     }
 
     @Override
-    public boolean onPreferenceTreeClick(PreferenceScreen preferenceScreen, Preference preference) {
+    public boolean onPreferenceTreeClick(Preference preference) {
         if (Utils.isMonkeyRunning()) {
             return false;
         }
@@ -1598,8 +1804,9 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
                             : PackageManager.COMPONENT_ENABLED_STATE_DEFAULT, 0);
         } else if (preference == mBugreportInPower) {
             Settings.Secure.putInt(getActivity().getContentResolver(),
-                    Settings.Secure.BUGREPORT_IN_POWER_MENU,
+                    Settings.Global.BUGREPORT_IN_POWER_MENU,
                     mBugreportInPower.isChecked() ? 1 : 0);
+            setBugreportStorageProviderStatus();
         } else if (preference == mKeepScreenOn) {
             Settings.Global.putInt(getActivity().getContentResolver(),
                     Settings.Global.STAY_ON_WHILE_PLUGGED_IN,
@@ -1607,13 +1814,13 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
                             (BatteryManager.BATTERY_PLUGGED_AC | BatteryManager.BATTERY_PLUGGED_USB) : 0);
         } else if (preference == mBtHciSnoopLog) {
             writeBtHciSnoopLogOptions();
-        } else if (preference == mEnableOemUnlock) {
-            if (!showKeyguardConfirmation(getResources(), REQUEST_CODE_ENABLE_OEM_UNLOCK)) {
-                if (mEnableOemUnlock.isChecked()) {
+        } else if (preference == mEnableOemUnlock && mEnableOemUnlock.isEnabled()) {
+            if (mEnableOemUnlock.isChecked()) {
+                if (!showKeyguardConfirmation(getResources(), REQUEST_CODE_ENABLE_OEM_UNLOCK)) {
                     confirmEnableOemUnlock();
-                } else {
-                    Utils.setOemUnlockEnabled(getActivity(), false);
                 }
+            } else {
+                Utils.setOemUnlockEnabled(getActivity(), false);
             }
         } else if (preference == mMockLocationAppPref) {
             Intent intent = new Intent(getActivity(), AppPicker.class);
@@ -1624,6 +1831,10 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
             Settings.Global.putInt(getActivity().getContentResolver(),
                     Settings.Global.DEBUG_VIEW_ATTRIBUTES,
                     mDebugViewAttributes.isChecked() ? 1 : 0);
+        } else if (preference == mForceAllowOnExternal) {
+            Settings.Global.putInt(getActivity().getContentResolver(),
+                    Settings.Global.FORCE_ALLOW_ON_EXTERNAL,
+                    mForceAllowOnExternal.isChecked() ? 1 : 0);
         } else if (preference == mDebugAppPref) {
             Intent intent = new Intent(getActivity(), AppPicker.class);
             intent.putExtra(AppPicker.EXTRA_DEBUGGABLE, true);
@@ -1632,6 +1843,8 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
             writeDebuggerOptions();
         } else if (preference == mVerifyAppsOverUsb) {
             writeVerifyAppsOverUsbOptions();
+        } else if (preference == mOtaDisableAutomaticUpdate) {
+            writeOtaDisableAutomaticUpdateOptions();
         } else if (preference == mStrictMode) {
             writeStrictModeVisualOptions();
         } else if (preference == mPointerLocation) {
@@ -1642,12 +1855,6 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
             writeShowUpdatesOption();
         } else if (preference == mDisableOverlays) {
             writeDisableOverlaysOption();
-        } else if (preference == mEnableMultiWindow) {
-            if (mEnableMultiWindow.isChecked()) {
-                confirmEnableMultiWindowMode();
-            } else {
-                setEnableMultiWindow(false);
-            }
         } else if (preference == mShowCpuUsage) {
             writeCpuUsageOptions();
         } else if (preference == mImmediatelyDestroyActivities) {
@@ -1674,16 +1881,26 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
             writeWifiAggressiveHandoverOptions();
         } else if (preference == mWifiAllowScansWithTraffic) {
             writeWifiAllowScansWithTrafficOptions();
-        } else if (preference == mLegacyDhcpClient) {
-            writeLegacyDhcpClientOptions();
         } else if (preference == mMobileDataAlwaysOn) {
             writeMobileDataAlwaysOnOptions();
+        } else if (preference == mColorTemperaturePreference) {
+            writeColorTemperature();
         } else if (preference == mUSBAudio) {
             writeUSBAudioOptions();
+        } else if (preference == mForceResizable) {
+            writeForceResizableOptions();
         } else if (INACTIVE_APPS_KEY.equals(preference.getKey())) {
             startInactiveAppsFragment();
+        } else if (BACKGROUND_CHECK_KEY.equals(preference.getKey())) {
+            startBackgroundCheckFragment();
+        } else if (preference == mBluetoothDisableAbsVolume) {
+            writeBluetoothDisableAbsVolumeOptions();
+        } else if (preference == mWebViewMultiprocess) {
+            writeWebViewMultiprocessOptions();
+        } else if (SHORTCUT_MANAGER_RESET_KEY.equals(preference.getKey())) {
+            confirmResetShortcutManagerThrottling();
         } else {
-            return super.onPreferenceTreeClick(preferenceScreen, preference);
+            return super.onPreferenceTreeClick(preference);
         }
 
         return false;
@@ -1693,6 +1910,12 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         ((SettingsActivity) getActivity()).startPreferencePanel(
                 InactiveApps.class.getName(),
                 null, R.string.inactive_apps_title, null, null, 0);
+    }
+
+    private void startBackgroundCheckFragment() {
+        ((SettingsActivity) getActivity()).startPreferencePanel(
+                BackgroundCheckSummary.class.getName(),
+                null, R.string.background_check_title, null, null, 0);
     }
 
     private boolean showKeyguardConfirmation(Resources resources, int requestCode) {
@@ -1707,6 +1930,21 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
             updateHdcpValues();
             pokeSystemProperties();
             return true;
+        } else if (preference == mWebViewProvider) {
+            if (newValue == null) {
+                Log.e(TAG, "Tried to set a null WebView provider");
+                return false;
+            }
+            if (writeWebViewProviderOptions(newValue)) {
+                return true;
+            } else {
+                // The user chose a package that became invalid since the list was last updated,
+                // show a Toast to explain the situation.
+                Toast toast = Toast.makeText(getActivity(),
+                        R.string.select_webview_provider_toast_text, Toast.LENGTH_SHORT);
+                toast.show();
+            }
+            return false;
         } else if (preference == mLogdSize) {
             writeLogdSizeOption(newValue);
             return true;
@@ -1724,9 +1962,6 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
             return true;
         } else if (preference == mOverlayDisplayDevices) {
             writeOverlayDisplayDevicesOptions(newValue);
-            return true;
-        } else if (preference == mOpenGLTraces) {
-            writeOpenGLTracesOptions(newValue);
             return true;
         } else if (preference == mTrackFrameTime) {
             writeTrackFrameTimeOptions(newValue);
@@ -1834,15 +2069,10 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         }
     };
 
-    static class SystemPropPoker extends AsyncTask<Void, Void, Void> {
+    public static class SystemPropPoker extends AsyncTask<Void, Void, Void> {
         @Override
         protected Void doInBackground(Void... params) {
-            String[] services;
-            try {
-                services = ServiceManager.listServices();
-            } catch (RemoteException e) {
-                return null;
-            }
+            String[] services = ServiceManager.listServices();
             for (String service : services) {
                 IBinder obj = ServiceManager.checkService(service);
                 if (obj != null) {
@@ -1868,6 +2098,7 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
             return false;
         }
     }
+
 
     /**
      * For Search.
@@ -1905,10 +2136,33 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
                     if (!showEnableOemUnlockPreference()) {
                         keys.add(ENABLE_OEM_UNLOCK);
                     }
-                    if (!showEnableMultiWindowPreference()) {
-                        keys.add(ENABLE_MULTI_WINDOW_KEY);
-                    }
                     return keys;
                 }
             };
+
+    private void confirmResetShortcutManagerThrottling() {
+        final IShortcutService service = IShortcutService.Stub.asInterface(
+                ServiceManager.getService(Context.SHORTCUT_SERVICE));
+
+        DialogInterface.OnClickListener onClickListener = new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                if (which == DialogInterface.BUTTON_POSITIVE) {
+                    try {
+                        service.resetThrottling();
+                    } catch (RemoteException e) {
+                    }
+                }
+            }
+        };
+
+        new AlertDialog.Builder(getActivity())
+                .setTitle(R.string.confirm_reset_shortcut_manager_throttling_title)
+                .setMessage(R.string.confirm_reset_shortcut_manager_throttling_message)
+                .setPositiveButton(R.string.okay, onClickListener)
+                .setNegativeButton(android.R.string.cancel, null)
+                .create()
+                .show();
+
+    }
 }

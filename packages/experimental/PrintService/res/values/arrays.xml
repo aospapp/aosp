@@ -25,6 +25,7 @@
         <item>@string/block_now</item>
         <item>@string/block_delayed</item>
         <item>@string/block_and_delayed_unblock</item>
+        <item>@string/print_slowly</item>
     </string-array>
 
     <string-array name="on_request_cancel_print_job_actions">

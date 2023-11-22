@@ -15,10 +15,9 @@
  */
 package android.databinding.tool.reflection;
 
-import org.apache.commons.lang3.StringUtils;
-
 import android.databinding.tool.reflection.Callable.Type;
 import android.databinding.tool.util.L;
+import android.databinding.tool.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -141,6 +140,11 @@ public abstract class ModelClass {
      * However, List&lt;String>, String is not a type variable.
      */
     public abstract boolean isTypeVar();
+
+    /**
+     * @return whether this is a wildcard type argument or not.
+     */
+    public abstract boolean isWildcard();
 
     /**
      * @return whether or not this ModelClass is java.lang.Object and not a primitive or subclass.
@@ -321,6 +325,19 @@ public abstract class ModelClass {
     }
 
     /**
+     * @return The class or interface name of this type or the primitive type if it isn't a
+     * reference type.
+     */
+    public String getSimpleName() {
+        final String canonicalName = getCanonicalName();
+        final int dotIndex = canonicalName.lastIndexOf('.');
+        if (dotIndex >= 0) {
+            return canonicalName.substring(dotIndex + 1);
+        }
+        return canonicalName;
+    }
+
+    /**
      * Returns this class type without any generic type arguments.
      * @return this class type without any generic type arguments.
      */
@@ -367,8 +384,8 @@ public abstract class ModelClass {
      */
     public Callable findGetterOrField(String name, boolean staticOnly) {
         if ("length".equals(name) && isArray()) {
-            return new Callable(Type.FIELD, name, ModelAnalyzer.getInstance().loadPrimitive("int"),
-                    0);
+            return new Callable(Type.FIELD, name, null,
+                    ModelAnalyzer.getInstance().loadPrimitive("int"), 0, 0);
         }
         String capitalized = StringUtils.capitalize(name);
         String[] methodNames = {
@@ -396,8 +413,11 @@ public abstract class ModelClass {
                             flags |= CAN_BE_INVALIDATED;
                         }
                     }
+                    final ModelMethod setterMethod = findSetter(method, name);
+                    final String setterName = setterMethod == null ? null : setterMethod.getName();
                     final Callable result = new Callable(Callable.Type.METHOD, methodName,
-                            method.getReturnType(null), flags);
+                            setterName, method.getReturnType(null), method.getParameterTypes().length,
+                            flags);
                     return result;
                 }
             }
@@ -420,16 +440,37 @@ public abstract class ModelClass {
         }
         ModelClass fieldType = publicField.getFieldType();
         int flags = 0;
+        String setterFieldName = name;
+        if (publicField.isStatic()) {
+            flags |= STATIC;
+        }
         if (!publicField.isFinal()) {
+            setterFieldName = null;
             flags |= DYNAMIC;
         }
         if (publicField.isBindable()) {
             flags |= CAN_BE_INVALIDATED;
         }
-        if (publicField.isStatic()) {
-            flags |= STATIC;
+        return new Callable(Callable.Type.FIELD, name, setterFieldName, fieldType, 0, flags);
+    }
+
+    public ModelMethod findInstanceGetter(String name) {
+        String capitalized = StringUtils.capitalize(name);
+        String[] methodNames = {
+                "get" + capitalized,
+                "is" + capitalized,
+                name
+        };
+        for (String methodName : methodNames) {
+            ModelMethod[] methods = getMethods(methodName, new ArrayList<ModelClass>(), false);
+            for (ModelMethod method : methods) {
+                if (method.isPublic() && !method.isStatic() &&
+                        !method.getReturnType(Arrays.asList(method.getParameterTypes())).isVoid()) {
+                    return method;
+                }
+            }
         }
-        return new Callable(Callable.Type.FIELD, name, fieldType, flags);
+        return null;
     }
 
     private ModelField getField(String name, boolean allowPrivate, boolean isStatic) {
@@ -440,6 +481,33 @@ public abstract class ModelClass {
             if (nameMatch && field.isStatic() == isStatic &&
                     (allowPrivate || field.isPublic())) {
                 return field;
+            }
+        }
+        return null;
+    }
+
+    private ModelMethod findSetter(ModelMethod getter, String originalName) {
+        final String capitalized = StringUtils.capitalize(originalName);
+        final String[] possibleNames;
+        if (originalName.equals(getter.getName())) {
+            possibleNames = new String[] { originalName, "set" + capitalized };
+        } else if (getter.getName().startsWith("is")){
+            possibleNames = new String[] { "set" + capitalized, "setIs" + capitalized };
+        } else {
+            possibleNames = new String[] { "set" + capitalized };
+        }
+        for (String name : possibleNames) {
+            List<ModelMethod> methods = findMethods(name, getter.isStatic());
+            if (methods != null) {
+                ModelClass param = getter.getReturnType(null);
+                for (ModelMethod method : methods) {
+                    ModelClass[] parameterTypes = method.getParameterTypes();
+                    if (parameterTypes != null && parameterTypes.length == 1 &&
+                            parameterTypes[0].equals(param) &&
+                            method.isStatic() == getter.isStatic()) {
+                        return method;
+                    }
+                }
             }
         }
         return null;
@@ -462,6 +530,21 @@ public abstract class ModelClass {
             return null;
         }
         return matching;
+    }
+
+    public boolean isIncomplete() {
+        if (isTypeVar() || isWildcard()) {
+            return true;
+        }
+        List<ModelClass> typeArgs = getTypeArguments();
+        if (typeArgs != null) {
+            for (ModelClass typeArg : typeArgs) {
+                if (typeArg.isIncomplete()) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     protected abstract ModelField[] getDeclaredFields();

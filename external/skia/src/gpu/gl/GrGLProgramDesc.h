@@ -52,17 +52,13 @@ public:
      *                        general draw information, as well as the specific color, geometry,
      *                        and coverage stages which will be used to generate the GL Program for
      *                        this optstate.
-     * @param GrGLGpu  A GL Gpu, the caps and Gpu object are used to output processor specific
-     *                 parts of the descriptor.
-     * @param GrDeviceCoordTexture  A dstCopy texture, which may be null if frame buffer fetch is
-     *                              supported
+     * @param GrGLSLCaps     Capabilities of the GLSL backend.
      * @param GrProgramDesc  The built and finalized descriptor
      **/
     static bool Build(GrProgramDesc*,
                       const GrPrimitiveProcessor&,
                       const GrPipeline&,
-                      const GrGLGpu*,
-                      const GrBatchTracker&);
+                      const GrGLSLCaps&);
 };
 
 #endif

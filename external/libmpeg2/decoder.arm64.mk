@@ -8,6 +8,12 @@ libmpeg2d_srcs_c_arm64    +=  decoder/arm/impeg2d_function_selector.c
 
 ifeq ($(ARCH_ARM_HAVE_NEON),true)
 libmpeg2d_srcs_c_arm64      +=  decoder/arm/impeg2d_function_selector_av8.c
+libmpeg2d_srcs_c_arm64      +=  common/arm/ideint_function_selector.c
+libmpeg2d_srcs_c_arm64      +=  common/arm/ideint_function_selector_av8.c
+libmpeg2d_srcs_asm_arm64    +=  common/armv8/icv_sad_av8.s
+libmpeg2d_srcs_asm_arm64    +=  common/armv8/icv_variance_av8.s
+libmpeg2d_srcs_asm_arm64    +=  common/armv8/ideint_spatial_filter_av8.s
+libmpeg2d_srcs_asm_arm64    +=  common/armv8/ideint_cac_av8.s
 
 libmpeg2d_srcs_asm_arm64    +=  common/armv8/impeg2_neon_macros.s
 libmpeg2d_srcs_asm_arm64    +=  common/armv8/impeg2_format_conv.s

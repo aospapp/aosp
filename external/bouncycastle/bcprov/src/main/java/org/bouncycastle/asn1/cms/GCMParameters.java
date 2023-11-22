@@ -16,7 +16,10 @@ import org.bouncycastle.util.Arrays;
  * <pre>
  GCMParameters ::= SEQUENCE {
    aes-nonce        OCTET STRING, -- recommended size is 12 octets
-   aes-ICVlen       AES-GCM-ICVlen DEFAULT 12 }
+   // BEGIN android-changed
+   // Was: aes-ICVlen       AES-GCM-ICVlen DEFAULT 12 }
+   aes-ICVlen       AES-GCM-ICVlen DEFAULT 16 }
+   // END android-changed
  * </pre>
  */
 public class GCMParameters
@@ -64,7 +67,10 @@ public class GCMParameters
         }
         else
         {
-            this.icvLen = 12;
+            // BEGIN android-changed
+            // Was: this.icvLen = 12;
+            this.icvLen = 16;
+            // END android-changed
         }
     }
 
@@ -92,7 +98,10 @@ public class GCMParameters
 
         v.add(new DEROctetString(nonce));
 
-        if (icvLen != 12)
+        // BEGIN android-changed
+        // Was: if (icvLen != 12)
+        if (icvLen != 16)
+        // END android-changed
         {
             v.add(new ASN1Integer(icvLen));
         }

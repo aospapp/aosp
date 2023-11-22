@@ -23,4 +23,14 @@
     <color name="testcolor1">#ff00ff00</color>
     <color name="testcolor2">#ffff0000</color>
     <color name="failColor">#ff0000ff</color>
+
+    <color name="calendarview_week_background">#40FF0000</color>
+    <color name="calendarview_focusedmonthdate">#9080A0FF</color>
+    <color name="calendarview_unfocusedmonthdate">#9070F080</color>
+
+    <color name="calendarview_week_background_new">#60808000</color>
+    <color name="calendarview_focusedmonthdate_new">#A0B020FF</color>
+    <color name="calendarview_unfocusedmonthdate_new">#4070F0F0</color>
+    <color name="calendarview_week_number_new">#9090FF</color>
+    <color name="calendarview_week_separatorline_new">#AFAF00</color>
 </resources>

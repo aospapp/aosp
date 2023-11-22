@@ -17,18 +17,23 @@ package com.android.contacts.list;
 
 import android.app.Fragment;
 import android.content.Context;
+import android.content.res.Configuration;
+import android.graphics.PorterDuff;
 import android.os.Bundle;
-import android.provider.ContactsContract.ProviderStatus;
+import android.support.v4.content.ContextCompat;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.android.contacts.R;
+import com.android.contacts.activities.ActionBarAdapter.TabState;
+import com.android.contacts.compat.ProviderStatusCompat;
 
 /**
  * Fragment shown when contacts are unavailable. It contains provider status
@@ -37,14 +42,14 @@ import com.android.contacts.R;
 public class ContactsUnavailableFragment extends Fragment implements OnClickListener {
 
     private View mView;
+    private ImageView mImageView;
     private TextView mMessageView;
-    private TextView mSecondaryMessageView;
-    private Button mCreateContactButton;
     private Button mAddAccountButton;
     private Button mImportContactsButton;
     private ProgressBar mProgress;
+    private View mButtonsContainer;
     private int mNoContactsMsgResId = -1;
-    private int mNSecNoContactsMsgResId = -1;
+    private int mLastTab = -1;
 
     private OnContactsUnavailableActionListener mListener;
 
@@ -59,15 +64,23 @@ public class ContactsUnavailableFragment extends Fragment implements OnClickList
     public View onCreateView(
             LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         mView = inflater.inflate(R.layout.contacts_unavailable_fragment, null);
+
+        mImageView = (ImageView) mView.findViewById(R.id.empty_image);
+
         mMessageView = (TextView) mView.findViewById(R.id.message);
-        mSecondaryMessageView = (TextView) mView.findViewById(R.id.secondary_message);
-        mCreateContactButton = (Button) mView.findViewById(R.id.create_contact_button);
-        mCreateContactButton.setOnClickListener(this);
         mAddAccountButton = (Button) mView.findViewById(R.id.add_account_button);
         mAddAccountButton.setOnClickListener(this);
+        mAddAccountButton.getBackground().setColorFilter(ContextCompat.getColor(getContext(), R
+                .color.primary_color), PorterDuff.Mode.SRC_ATOP);
         mImportContactsButton = (Button) mView.findViewById(R.id.import_contacts_button);
         mImportContactsButton.setOnClickListener(this);
+        mImportContactsButton.getBackground().setColorFilter(ContextCompat.getColor(getContext(),
+                R.color.primary_color), PorterDuff.Mode.SRC_ATOP);
         mProgress = (ProgressBar) mView.findViewById(R.id.progress);
+
+        if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            mButtonsContainer = mView.findViewById(R.id.buttons_container);
+        }
 
         if (mProviderStatus != null) {
             updateStatus(mProviderStatus);
@@ -87,24 +100,46 @@ public class ContactsUnavailableFragment extends Fragment implements OnClickList
             // The view hasn't been inflated yet.
             return;
         }
-        switch (providerStatus) {
-            case ProviderStatus.STATUS_EMPTY:
-                setMessageText(mNoContactsMsgResId, mNSecNoContactsMsgResId);
-                mCreateContactButton.setVisibility(View.VISIBLE);
-                mAddAccountButton.setVisibility(View.VISIBLE);
-                mImportContactsButton.setVisibility(View.VISIBLE);
-                mProgress.setVisibility(View.GONE);
-                break;
+        if (providerStatus == ProviderStatusCompat.STATUS_EMPTY) {
+            updateViewsForEmptyStatus();
+        } else if (providerStatus == ProviderStatusCompat.STATUS_BUSY) {
+            updateViewsForBusyStatus(R.string.upgrade_in_progress);
+        } else if (providerStatus == ProviderStatusCompat.STATUS_CHANGING_LOCALE) {
+            updateViewsForBusyStatus(R.string.locale_change_in_progress);
+        }
+    }
 
-            case ProviderStatus.STATUS_BUSY:
-                mMessageView.setText(R.string.upgrade_in_progress);
-                mMessageView.setGravity(Gravity.CENTER_HORIZONTAL);
-                mMessageView.setVisibility(View.VISIBLE);
-                mCreateContactButton.setVisibility(View.GONE);
-                mAddAccountButton.setVisibility(View.GONE);
-                mImportContactsButton.setVisibility(View.GONE);
-                mProgress.setVisibility(View.VISIBLE);
-                break;
+    /**
+     * Update views in the fragment when provider status is empty.
+     */
+    private void updateViewsForEmptyStatus() {
+        setTabInfo(mNoContactsMsgResId, mLastTab);
+        if (mLastTab == TabState.ALL) {
+            updateButtonVisibilty(View.VISIBLE);
+        }
+        mProgress.setVisibility(View.GONE);
+    }
+
+    /**
+     * Update views in the fragment when provider status is busy.
+     *
+     * @param resId resource ID of the string to show in mMessageView.
+     */
+    private void updateViewsForBusyStatus(int resId) {
+        mMessageView.setText(resId);
+        mMessageView.setGravity(Gravity.CENTER_HORIZONTAL);
+        mMessageView.setVisibility(View.VISIBLE);
+        updateButtonVisibilty(View.GONE);
+        mProgress.setVisibility(View.VISIBLE);
+        if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            final ViewGroup.MarginLayoutParams lp =
+                    (ViewGroup.MarginLayoutParams) mMessageView.getLayoutParams();
+            final int marginTop =
+                    (int) getResources().getDimension(R.dimen.update_contact_list_top_margin);
+            lp.setMargins(0, marginTop, 0, 0);
+            mImageView.setVisibility(View.GONE);
+        } else {
+            mImageView.setVisibility(View.INVISIBLE);
         }
     }
 
@@ -114,9 +149,6 @@ public class ContactsUnavailableFragment extends Fragment implements OnClickList
             return;
         }
         switch (v.getId()) {
-            case R.id.create_contact_button:
-                mListener.onCreateNewContactAction();
-                break;
             case R.id.add_account_button:
                 mListener.onAddAccountAction();
                 break;
@@ -125,31 +157,48 @@ public class ContactsUnavailableFragment extends Fragment implements OnClickList
                 break;
         }
     }
+
     /**
      * Set the message to be shown if no data is available for the selected tab
      *
      * @param resId - String resource ID of the message , -1 means view will not be visible
      */
-    public void setMessageText(int resId, int secResId) {
+    public void setTabInfo(int resId, int callerTab) {
         mNoContactsMsgResId = resId;
-        mNSecNoContactsMsgResId = secResId;
+        mLastTab = callerTab;
         if ((mMessageView != null) && (mProviderStatus != null) &&
-                (mProviderStatus.equals(ProviderStatus.STATUS_EMPTY))) {
+                mProviderStatus.equals(ProviderStatusCompat.STATUS_EMPTY)) {
             if (resId != -1) {
                 mMessageView.setText(mNoContactsMsgResId);
                 mMessageView.setGravity(Gravity.CENTER_HORIZONTAL);
                 mMessageView.setVisibility(View.VISIBLE);
-                if (secResId != -1) {
-                    mSecondaryMessageView.setText(mNSecNoContactsMsgResId);
-                    mSecondaryMessageView.setGravity(Gravity.CENTER_HORIZONTAL);
-                    mSecondaryMessageView.setVisibility(View.VISIBLE);
-                } else {
-                    mSecondaryMessageView.setVisibility(View.INVISIBLE);
+                if (callerTab == TabState.FAVORITES) {
+                    mImageView.setImageResource(R.drawable.ic_star_black_128dp);
+                    mProgress.setVisibility(View.GONE);
+                    updateButtonVisibilty(View.GONE);
+                } else if (callerTab == TabState.ALL) {
+                    mImageView.setImageResource(R.drawable.ic_person_black_128dp);
+                    updateButtonVisibilty(View.VISIBLE);
                 }
             } else {
-                mSecondaryMessageView.setVisibility(View.GONE);
                 mMessageView.setVisibility(View.GONE);
             }
         }
+    }
+
+    private void updateButtonVisibilty(int visibility) {
+        if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            mAddAccountButton.setVisibility(visibility);
+            mImportContactsButton.setVisibility(visibility);
+            mButtonsContainer.setVisibility(visibility);
+        } else {
+            mAddAccountButton.setVisibility(visibility);
+            mImportContactsButton.setVisibility(visibility);
+        }
+    }
+
+    @Override
+    public Context getContext() {
+        return getActivity();
     }
 }

@@ -25,39 +25,35 @@ import android.content.pm.PackageManager;
 import android.os.RemoteException;
 import android.os.UserHandle;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.managedprovisioning.ProvisionLogger;
-import com.android.managedprovisioning.Utils;
 
 /**
- * This tasks sets a given component as the owner of the device. If provided it also sets a given
- * component as the device initializer, which can perform additional setup steps at the end of
- * provisioning before setting the device as provisioned.
+ * This tasks sets a given component as the owner of the device.
  */
 public class SetDevicePolicyTask {
-    public static final int ERROR_PACKAGE_NOT_INSTALLED = 0;
-    public static final int ERROR_NO_RECEIVER = 1;
-    public static final int ERROR_OTHER = 2;
 
     private final Callback mCallback;
     private final Context mContext;
     private String mAdminPackage;
     private ComponentName mAdminComponent;
     private final String mOwnerName;
-    private ComponentName mInitializerComponent;
-    private String mInitializerPackageName;
+    private final int mUserId;
 
     private PackageManager mPackageManager;
     private DevicePolicyManager mDevicePolicyManager;
 
-    public SetDevicePolicyTask(Context context, String ownerName,
-            ComponentName initializerComponent, Callback callback) {
+    public SetDevicePolicyTask(Context context, String ownerName, Callback callback) {
+        this(context, ownerName, callback, UserHandle.myUserId());
+    }
+
+    @VisibleForTesting
+    /* package */ SetDevicePolicyTask(Context context, String ownerName, Callback callback,
+            int userId) {
         mCallback = callback;
         mContext = context;
         mOwnerName = ownerName;
-        mInitializerComponent = initializerComponent;
-        if (mInitializerComponent != null) {
-            mInitializerPackageName = initializerComponent.getPackageName();
-        }
+        mUserId = userId;
 
         mPackageManager = mContext.getPackageManager();
         mDevicePolicyManager = (DevicePolicyManager) mContext.
@@ -65,41 +61,25 @@ public class SetDevicePolicyTask {
     }
 
     public void run(ComponentName adminComponent) {
+        boolean success = true;
         try {
             mAdminComponent = adminComponent;
             mAdminPackage = mAdminComponent.getPackageName();
 
             enableDevicePolicyApp(mAdminPackage);
             setActiveAdmin(mAdminComponent);
-            setDeviceOwner(mAdminPackage, mOwnerName);
-
-            if (mInitializerComponent != null) {
-                // For secondary users, set device owner package as profile owner as well, in order
-                // to give it DO/PO privileges. This only applies if device initializer is present.
-                if (!Utils.isCurrentUserOwner() && !Utils.isManagedProfile(mContext)) {
-                    int userId = UserHandle.myUserId();
-                    if (!mDevicePolicyManager.setProfileOwner(mAdminComponent, mAdminPackage,
-                            userId)) {
-                        ProvisionLogger.loge("Fail to set profile owner for user " + userId);
-                        mCallback.onError(ERROR_OTHER);
-                        return;
-                    }
-                }
-                enableDevicePolicyApp(mInitializerPackageName);
-                setActiveAdmin(mInitializerComponent);
-                if (!setDeviceInitializer(mInitializerComponent)) {
-                    // error reported in setDeviceInitializer
-                    return;
-                }
-
-            }
+            success = setDeviceOwner(mAdminComponent, mOwnerName);
         } catch (Exception e) {
-            ProvisionLogger.loge("Failure setting device owner or initializer", e);
-            mCallback.onError(ERROR_OTHER);
+            ProvisionLogger.loge("Failure setting device or profile owner", e);
+            mCallback.onError();
             return;
         }
-
-        mCallback.onSuccess();
+        if (success) {
+            mCallback.onSuccess();
+        } else {
+            ProvisionLogger.loge("Error when setting device or profile owner.");
+            mCallback.onError();
+        }
     }
 
     private void enableDevicePolicyApp(String packageName) {
@@ -113,37 +93,21 @@ public class SetDevicePolicyTask {
         }
     }
 
-    public void setActiveAdmin(ComponentName component) {
+    private void setActiveAdmin(ComponentName component) {
         ProvisionLogger.logd("Setting " + component + " as active admin.");
-        mDevicePolicyManager.setActiveAdmin(component, true);
+        mDevicePolicyManager.setActiveAdmin(component, true, mUserId);
     }
 
-    public void setDeviceOwner(String packageName, String owner) {
-        ProvisionLogger.logd("Setting " + packageName + " as device owner " + owner + ".");
-        if (!mDevicePolicyManager.isDeviceOwner(packageName)) {
-            mDevicePolicyManager.setDeviceOwner(packageName, owner);
-        }
-    }
-
-    public boolean setDeviceInitializer(ComponentName component) {
-        ProvisionLogger.logd("Setting " + component + " as device initializer.");
-        if (!mDevicePolicyManager.isDeviceInitializerApp(component.getPackageName())) {
-            mDevicePolicyManager.setDeviceInitializer(null, component);
-        }
-        IPackageManager pm = AppGlobals.getPackageManager();
-        try {
-            pm.setBlockUninstallForUser(component.getPackageName(), true,
-                    UserHandle.getCallingUserId());
-        } catch (RemoteException e) {
-            ProvisionLogger.loge("Failed to block uninstall of device initializer app", e);
-            mCallback.onError(ERROR_OTHER);
-            return false;
+    private boolean setDeviceOwner(ComponentName component, String owner) {
+        ProvisionLogger.logd("Setting " + component + " as device owner " + owner + ".");
+        if (!component.equals(mDevicePolicyManager.getDeviceOwnerComponentOnCallingUser())) {
+            return mDevicePolicyManager.setDeviceOwner(component, owner, mUserId);
         }
         return true;
     }
 
     public abstract static class Callback {
         public abstract void onSuccess();
-        public abstract void onError(int errorCode);
+        public abstract void onError();
     }
 }

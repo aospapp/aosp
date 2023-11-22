@@ -1,7 +1,7 @@
 /* WARNING: This is auto-generated file. Do not modify, since changes will
  * be lost! Modify the generating script instead.
  *
- * Generated from Khronos GL API description (gl.xml) revision 30159.
+ * Generated from Khronos GL API description (gl.xml) revision 32093.
  */
 
 GLW_APICALL void GLW_APIENTRY glActiveShaderProgram (GLuint pipeline, GLuint program)
@@ -224,7 +224,7 @@ GLW_APICALL void GLW_APIENTRY glBindVertexBuffers (GLuint first, GLsizei count, 
 
 }
 
-GLW_APICALL void GLW_APIENTRY glBlendBarrierKHR (void)
+GLW_APICALL void GLW_APIENTRY glBlendBarrier (void)
 {
 
 }
@@ -1591,14 +1591,6 @@ GLW_APICALL void GLW_APIENTRY glGetAttachedShaders (GLuint program, GLsizei maxC
 
 }
 
-GLW_APICALL GLint GLW_APIENTRY glGetAttribLocation (GLuint program, const GLchar *name)
-{
-	DE_UNREF(program);
-	DE_UNREF(name);
-
-	return (GLint)0;
-}
-
 GLW_APICALL void GLW_APIENTRY glGetBooleani_v (GLenum target, GLuint index, GLboolean *data)
 {
 	DE_UNREF(target);
@@ -1772,16 +1764,6 @@ GLW_APICALL void GLW_APIENTRY glGetIntegeri_v (GLenum target, GLuint index, GLin
 }
 
 GLW_APICALL void GLW_APIENTRY glGetInternalformati64v (GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint64 *params)
-{
-	DE_UNREF(target);
-	DE_UNREF(internalformat);
-	DE_UNREF(pname);
-	DE_UNREF(bufSize);
-	DE_UNREF(params);
-
-}
-
-GLW_APICALL void GLW_APIENTRY glGetInternalformativ (GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint *params)
 {
 	DE_UNREF(target);
 	DE_UNREF(internalformat);
@@ -3057,7 +3039,7 @@ GLW_APICALL void GLW_APIENTRY glPopGroupMarkerEXT (void)
 
 }
 
-GLW_APICALL void GLW_APIENTRY glPrimitiveBoundingBoxEXT (GLfloat minX, GLfloat minY, GLfloat minZ, GLfloat minW, GLfloat maxX, GLfloat maxY, GLfloat maxZ, GLfloat maxW)
+GLW_APICALL void GLW_APIENTRY glPrimitiveBoundingBox (GLfloat minX, GLfloat minY, GLfloat minZ, GLfloat minW, GLfloat maxX, GLfloat maxY, GLfloat maxZ, GLfloat maxW)
 {
 	DE_UNREF(minX);
 	DE_UNREF(minY);

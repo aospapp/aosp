@@ -247,10 +247,6 @@ def ExcludeLibs : Separate<["--"], "exclude-libs">,
                   Group<OutputGroup>,
                   HelpText<"Allow linking together mismatched input files">;
 
-def BuildID : Flag<["--"], "build-id">,
-              Group<OutputGroup>,
-              HelpText<"Request creation of .note.gnu.build-id ELF note section">;
-
 //===----------------------------------------------------------------------===//
 // Positional
 //===----------------------------------------------------------------------===//
@@ -324,7 +320,7 @@ def EndGroupAlias : Flag<["-"], ")">,
 def PreferenceGroup : OptionGroup<"preference">,
                       HelpText<"PREFERENCE OPTIONS">;
 
-def Color : Joined<["--"], "colormc=">,
+def Color : Joined<["--"], "color=">,
             Group<PreferenceGroup>,
             HelpText<"Surround the result strings with the marker">;
 
@@ -435,10 +431,6 @@ def RPath : Joined<["-"], "rpath=">,
             Group<SearchpathGroup>,
             HelpText<"Add a directory to the runtime library search path">;
 
-def RPathLink : Joined<["-"], "rpath-link=">,
-                Group<SearchpathGroup>,
-                HelpText<"Add a directory to the link time library search path">;
-
 //===----------------------------------------------------------------------===//
 // Symbol
 //===----------------------------------------------------------------------===//
@@ -490,3 +482,15 @@ def CPU : Joined<["-"], "mcpu=">,
 def Emulation : Separate<["-"], "m">,
                 Group<TargetGroup>,
                 HelpText<"Set GNU linker emulation">;
+
+def StubGroupSize : Joined<["--"], "stub-group-size=">,
+                    Group<TargetGroup>,
+                    HelpText<"Set the group size to place stubs between sections">;
+
+def FixCA53Erratum835769 : Flag<["--"], "fix-cortex-a53-835769">,
+                           Group<TargetGroup>,
+                           HelpText<"Enable fix for cortex a53 erratum 835769">;
+
+def FixCA53Erratum843419 : Flag<["--"], "fix-cortex-a53-843419">,
+                           Group<TargetGroup>,
+                           HelpText<"Enable fix for cortex a53 erratum 843419">;

@@ -1,21 +1,22 @@
 package com.android.settings.backup;
 
 import android.app.AlertDialog;
-import android.app.backup.IBackupManager;
 import android.app.Dialog;
+import android.app.backup.IBackupManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.os.Bundle;
 import android.os.RemoteException;
 import android.os.ServiceManager;
-import android.preference.Preference;
-import android.preference.PreferenceScreen;
 import android.provider.Settings;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.PreferenceScreen;
+import android.support.v7.preference.PreferenceViewHolder;
 import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
 
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.R;
 import com.android.settings.SettingsActivity;
 import com.android.settings.SettingsPreferenceFragment;
@@ -58,10 +59,10 @@ public class ToggleBackupSettingFragment extends SettingsPreferenceFragment
         PreferenceScreen preferenceScreen = getPreferenceManager().createPreferenceScreen(
                 getActivity());
         setPreferenceScreen(preferenceScreen);
-        mSummaryPreference = new Preference(getActivity()) {
+        mSummaryPreference = new Preference(getPrefContext()) {
             @Override
-            protected void onBindView(View view) {
-                super.onBindView(view);
+            public void onBindViewHolder(PreferenceViewHolder view) {
+                super.onBindViewHolder(view);
                 final TextView summaryView = (TextView) view.findViewById(android.R.id.summary);
                 summaryView.setText(getSummary());
             }
@@ -192,7 +193,7 @@ public class ToggleBackupSettingFragment extends SettingsPreferenceFragment
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.PRIVACY;
+        return MetricsEvent.PRIVACY;
     }
 
     /**

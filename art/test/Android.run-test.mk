@@ -37,13 +37,13 @@ TEST_ART_RUN_TEST_DEPENDENCIES := \
   $(DX) \
   $(HOST_OUT_EXECUTABLES)/jasmin \
   $(HOST_OUT_EXECUTABLES)/smali \
-  $(HOST_OUT_EXECUTABLES)/dexmerger
+  $(HOST_OUT_EXECUTABLES)/dexmerger \
+  $(JACK)
 
-ifeq ($(ANDROID_COMPILE_WITH_JACK),true)
-  TEST_ART_RUN_TEST_DEPENDENCIES += \
-    $(JACK_JAR) \
-    $(JACK_LAUNCHER_JAR) \
-    $(JILL_JAR)
+TEST_ART_RUN_TEST_ORDERONLY_DEPENDENCIES := setup-jack-server
+
+ifeq ($(ART_TEST_DEBUG_GC),true)
+  ART_TEST_WITH_STRACE := true
 endif
 
 # Helper to create individual build targets for tests. Must be called with $(eval).
@@ -51,22 +51,19 @@ endif
 define define-build-art-run-test
   dmart_target := $(art_run_tests_dir)/art-run-tests/$(1)/touch
   run_test_options = --build-only
-  ifeq ($(ANDROID_COMPILE_WITH_JACK),true)
-    run_test_options += --build-with-jack
-  else
-    run_test_options += --build-with-javac-dx
+  ifeq ($(ART_TEST_QUIET),true)
+    run_test_options += --quiet
   endif
 $$(dmart_target): PRIVATE_RUN_TEST_OPTIONS := $$(run_test_options)
-$$(dmart_target): $(TEST_ART_RUN_TEST_DEPENDENCIES)
+$$(dmart_target): $(TEST_ART_RUN_TEST_DEPENDENCIES) $(TARGET_JACK_CLASSPATH_DEPENDENCIES) | $(TEST_ART_RUN_TEST_ORDERONLY_DEPENDENCIES)
 	$(hide) rm -rf $$(dir $$@) && mkdir -p $$(dir $$@)
 	$(hide) DX=$(abspath $(DX)) JASMIN=$(abspath $(HOST_OUT_EXECUTABLES)/jasmin) \
 	  SMALI=$(abspath $(HOST_OUT_EXECUTABLES)/smali) \
 	  DXMERGER=$(abspath $(HOST_OUT_EXECUTABLES)/dexmerger) \
+	  JACK_VERSION=$(JACK_DEFAULT_VERSION) \
 	  JACK=$(abspath $(JACK)) \
-	  JACK_VM_COMMAND="$(JACK_VM) $(DEFAULT_JACK_VM_ARGS) $(JAVA_TMPDIR_ARG) -jar $(abspath $(JACK_LAUNCHER_JAR)) " \
+	  JACK_VERSION=$(JACK_DEFAULT_VERSION) \
 	  JACK_CLASSPATH=$(TARGET_JACK_CLASSPATH) \
-	  JACK_JAR=$(abspath $(JACK_JAR)) \
-	  JILL_JAR=$(abspath $(JILL_JAR)) \
 	  $(LOCAL_PATH)/run-test $$(PRIVATE_RUN_TEST_OPTIONS) --output-path $$(abspath $$(dir $$@)) $(1)
 	$(hide) touch $$@
 
@@ -105,8 +102,8 @@ ifeq ($(ART_TEST_RUN_TEST_NO_DEX2OAT),true)
   PREBUILD_TYPES += no-dex2oat
 endif
 COMPILER_TYPES :=
-ifeq ($(ART_TEST_DEFAULT_COMPILER),true)
-  COMPILER_TYPES += default
+ifeq ($(ART_TEST_INTERPRETER_ACCESS_CHECKS),true)
+  COMPILER_TYPES += interp-ac
 endif
 ifeq ($(ART_TEST_INTERPRETER),true)
   COMPILER_TYPES += interpreter
@@ -146,8 +143,14 @@ IMAGE_TYPES := image
 ifeq ($(ART_TEST_RUN_TEST_NO_IMAGE),true)
   IMAGE_TYPES += no-image
 endif
+ifeq ($(ART_TEST_RUN_TEST_MULTI_IMAGE),true)
+  IMAGE_TYPES := multiimage
+endif
 ifeq ($(ART_TEST_PIC_IMAGE),true)
   IMAGE_TYPES += picimage
+  ifeq ($(ART_TEST_RUN_TEST_MULTI_IMAGE),true)
+    IMAGE_TYPES := multipicimage
+  endif
 endif
 PICTEST_TYPES := npictest
 ifeq ($(ART_TEST_PIC_TEST),true)
@@ -194,24 +197,77 @@ endef  # all-run-test-names
 # To generate a full list or tests:
 # $(call all-run-test-names,$(TARGET_TYPES),$(RUN_TYPES),$(PREBUILD_TYPES),$(COMPILER_TYPES), \
 #        $(RELOCATE_TYPES),$(TRACE_TYPES),$(GC_TYPES),$(JNI_TYPES),$(IMAGE_TYPES), \
-#        $(DEBUGGABLE_TYPES) $(TEST_ART_RUN_TESTS), $(ALL_ADDRESS_SIZES)
+#        $(PICTEST_TYPES),$(DEBUGGABLE_TYPES),$(TEST_ART_RUN_TESTS),$(ALL_ADDRESS_SIZES))
 
 # Convert's a rule name to the form used in variables, e.g. no-relocate to NO_RELOCATE
 define name-to-var
 $(shell echo $(1) | tr '[:lower:]' '[:upper:]' | tr '-' '_')
 endef  # name-to-var
 
+ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,$(TARGET_TYPES),$(RUN_TYPES),$(PREBUILD_TYPES), \
+        $(COMPILER_TYPES),$(RELOCATE_TYPES),$(TRACE_TYPES),$(GC_TYPES),$(JNI_TYPES), \
+        $(IMAGE_TYPES), $(PICTEST_TYPES), $(DEBUGGABLE_TYPES), $(ART_TEST_RUN_TEST_SKIP), $(ALL_ADDRESS_SIZES))
+
+
+# Disable 137-cfi (b/27391690).
+# Disable 577-profile-foreign-dex (b/27454772).
+TEST_ART_BROKEN_ALL_TARGET_TESTS := \
+  577-profile-foreign-dex \
+
+ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,$(TARGET_TYPES),$(RUN_TYPES),$(PREBUILD_TYPES), \
+    $(COMPILER_TYPES), $(RELOCATE_TYPES),$(TRACE_TYPES),$(GC_TYPES),$(JNI_TYPES), \
+    $(IMAGE_TYPES),$(PICTEST_TYPES),$(DEBUGGABLE_TYPES), $(TEST_ART_BROKEN_ALL_TARGET_TESTS), \
+    $(ALL_ADDRESS_SIZES))
+
+TEST_ART_BROKEN_ALL_TARGET_TESTS :=
+
 # Tests that are timing sensitive and flaky on heavily loaded systems.
 TEST_ART_TIMING_SENSITIVE_RUN_TESTS := \
+  002-sleep \
   053-wait-some \
   055-enum-performance \
   133-static-invoke-super
 
- # disable timing sensitive tests on "dist" builds.
+# disable timing sensitive tests on "dist" builds.
 ifdef dist_goal
   ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,$(TARGET_TYPES),$(RUN_TYPES),$(PREBUILD_TYPES), \
         $(COMPILER_TYPES),$(RELOCATE_TYPES),$(TRACE_TYPES),$(GC_TYPES),$(JNI_TYPES), \
         $(IMAGE_TYPES), $(PICTEST_TYPES), $(DEBUGGABLE_TYPES), $(TEST_ART_TIMING_SENSITIVE_RUN_TESTS), $(ALL_ADDRESS_SIZES))
+endif
+
+# 147-stripped-dex-fallback isn't supported on device because --strip-dex
+# requires the zip command.
+# 569-checker-pattern-replacement tests behaviour present only on host.
+TEST_ART_BROKEN_TARGET_TESTS := \
+  147-stripped-dex-fallback \
+  569-checker-pattern-replacement
+
+ifneq (,$(filter target,$(TARGET_TYPES)))
+  ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,target,$(RUN_TYPES),$(PREBUILD_TYPES), \
+      $(COMPILER_TYPES),$(RELOCATE_TYPES),$(TRACE_TYPES),$(GC_TYPES),$(JNI_TYPES), \
+      $(IMAGE_TYPES), $(PICTEST_TYPES), $(DEBUGGABLE_TYPES), $(TEST_ART_BROKEN_TARGET_TESTS), $(ALL_ADDRESS_SIZES))
+endif
+
+TEST_ART_BROKEN_TARGET_TESTS :=
+
+# Tests that require python3.
+TEST_ART_PYTHON3_DEPENDENCY_RUN_TESTS := \
+  960-default-smali \
+  961-default-iface-resolution-generated \
+  964-default-iface-init-generated \
+  968-default-partial-compile-generated \
+  969-iface-super \
+  970-iface-super-resolution-generated \
+  971-iface-super
+
+# Check if we have python3 to run our tests.
+ifeq ($(wildcard /usr/bin/python3),)
+  $(warning "No python3 found. Disabling tests: $(TEST_ART_PYTHON3_DEPENDENCY_RUN_TESTS)")
+
+  # Currently disable tests requiring python3 when it is not installed.
+  ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,$(TARGET_TYPES),$(RUN_TYPES),$(PREBUILD_TYPES), \
+        $(COMPILER_TYPES),$(RELOCATE_TYPES),$(TRACE_TYPES),$(GC_TYPES),$(JNI_TYPES), \
+        $(IMAGE_TYPES), $(PICTEST_TYPES), $(DEBUGGABLE_TYPES), $(TEST_ART_PYTHON3_DEPENDENCY_RUN_TESTS), $(ALL_ADDRESS_SIZES))
 endif
 
 TEST_ART_TIMING_SENSITIVE_RUN_TESTS :=
@@ -230,8 +286,15 @@ endif
 
 TEST_ART_BROKEN_PREBUILD_RUN_TESTS :=
 
+# 554-jit-profile-file is disabled because it needs a primary oat file to know what it should save.
+# 529 and 555: b/27784033
 TEST_ART_BROKEN_NO_PREBUILD_TESTS := \
-  117-nopatchoat
+  117-nopatchoat \
+  147-stripped-dex-fallback \
+  554-jit-profile-file \
+  529-checker-unresolved \
+  555-checker-regression-x86const \
+  608-checker-unresolved-lse
 
 ifneq (,$(filter no-prebuild,$(PREBUILD_TYPES)))
   ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,$(TARGET_TYPES),$(RUN_TYPES),no-prebuild, \
@@ -246,7 +309,8 @@ TEST_ART_BROKEN_NO_PREBUILD_TESTS :=
 TEST_ART_BROKEN_NO_RELOCATE_TESTS := \
   117-nopatchoat \
   118-noimage-dex2oat \
-  119-noimage-patchoat
+  119-noimage-patchoat \
+  554-jit-profile-file
 
 ifneq (,$(filter no-relocate,$(RELOCATE_TYPES)))
   ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,$(TARGET_TYPES),$(RUN_TYPES),$(PREBUILD_TYPES), \
@@ -256,13 +320,33 @@ endif
 
 TEST_ART_BROKEN_NO_RELOCATE_TESTS :=
 
+# Temporarily disable some broken tests when forcing access checks in interpreter b/22414682
+TEST_ART_BROKEN_INTERPRETER_ACCESS_CHECK_TESTS := \
+  137-cfi
+
+ifneq (,$(filter interp-ac,$(COMPILER_TYPES)))
+  ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,$(TARGET_TYPES),$(RUN_TYPES),$(PREBUILD_TYPES), \
+      interp-ac,$(RELOCATE_TYPES),$(TRACE_TYPES),$(GC_TYPES),$(JNI_TYPES), \
+      $(IMAGE_TYPES), $(PICTEST_TYPES), $(DEBUGGABLE_TYPES), $(TEST_ART_BROKEN_INTERPRETER_ACCESS_CHECK_TESTS), $(ALL_ADDRESS_SIZES))
+endif
+
+TEST_ART_BROKEN_INTERPRETER_ACCESS_CHECK_TESTS :=
+
 # Tests that are broken with GC stress.
-TEST_ART_BROKEN_GCSTRESS_RUN_TESTS :=
+# * 137-cfi needs to unwind a second forked process. We're using a primitive sleep to wait till we
+#   hope the second process got into the expected state. The slowness of gcstress makes this bad.
+# * 961-default-iface-resolution-generated and 964-default-iface-init-generated are very long tests
+#   that often will take more than the timeout to run when gcstress is enabled. This is because
+#   gcstress slows down allocations significantly which these tests do a lot.
+TEST_ART_BROKEN_GCSTRESS_RUN_TESTS := \
+  137-cfi \
+  961-default-iface-resolution-generated \
+  964-default-iface-init-generated
 
 ifneq (,$(filter gcstress,$(GC_TYPES)))
   ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,$(TARGET_TYPES),$(RUN_TYPES),$(PREBUILD_TYPES), \
       $(COMPILER_TYPES),$(RELOCATE_TYPES),$(TRACE_TYPES),gcstress,$(JNI_TYPES), \
-      $(IMAGE_TYPES), $(PICTEST_TYPES), $(DBEUGGABLE_TYPES), $(TEST_ART_BROKEN_GCSTRESS_RUN_TESTS), $(ALL_ADDRESS_SIZES))
+      $(IMAGE_TYPES), $(PICTEST_TYPES), $(DEBUGGABLE_TYPES), $(TEST_ART_BROKEN_GCSTRESS_RUN_TESTS), $(ALL_ADDRESS_SIZES))
 endif
 
 TEST_ART_BROKEN_GCSTRESS_RUN_TESTS :=
@@ -281,26 +365,32 @@ ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,target,$(RUN_TYPES),$(PREBUIL
     $(PICTEST_TYPES),$(DEBUGGABLE_TYPES),130-hprof,$(ALL_ADDRESS_SIZES))
 
 # 131 is an old test. The functionality has been implemented at an earlier stage and is checked
-# in tests 138.
-ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,$(TARGET_TYPES),$(RUN_TYPES),$(PREBUILD_TYPES), \
+# in tests 138. Blacklisted for debug builds since these builds have duplicate classes checks which
+# punt to interpreter.
+ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,$(TARGET_TYPES),debug,$(PREBUILD_TYPES), \
     $(COMPILER_TYPES),$(RELOCATE_TYPES),$(TRACE_TYPES),$(GC_TYPES),$(JNI_TYPES),$(IMAGE_TYPES), \
     $(PICTEST_TYPES),$(DEBUGGABLE_TYPES),131-structural-change,$(ALL_ADDRESS_SIZES))
 
-# 138-duplicate-classes-check. Turned off temporarily, b/21333911.
-ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,$(TARGET_TYPES),$(RUN_TYPES),$(PREBUILD_TYPES), \
+# 138-duplicate-classes-check. Turned on for debug builds since debug builds have duplicate classes
+# checks enabled, b/2133391.
+ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,$(TARGET_TYPES),ndebug,$(PREBUILD_TYPES), \
     $(COMPILER_TYPES),$(RELOCATE_TYPES),$(TRACE_TYPES),$(GC_TYPES),$(JNI_TYPES),$(IMAGE_TYPES), \
     $(PICTEST_TYPES),$(DEBUGGABLE_TYPES),138-duplicate-classes-check,$(ALL_ADDRESS_SIZES))
 
 # All these tests check that we have sane behavior if we don't have a patchoat or dex2oat.
 # Therefore we shouldn't run them in situations where we actually don't have these since they
 # explicitly test for them. These all also assume we have an image.
+# 147-stripped-dex-fallback is disabled because it requires --prebuild.
+# 554-jit-profile-file is disabled because it needs a primary oat file to know what it should save.
 TEST_ART_BROKEN_FALLBACK_RUN_TESTS := \
   116-nodex2oat \
   117-nopatchoat \
   118-noimage-dex2oat \
   119-noimage-patchoat \
   137-cfi \
-  138-duplicate-classes-check2
+  138-duplicate-classes-check2 \
+  147-stripped-dex-fallback \
+  554-jit-profile-file
 
 # This test fails without an image.
 TEST_ART_BROKEN_NO_IMAGE_RUN_TESTS := \
@@ -333,11 +423,14 @@ TEST_ART_BROKEN_FALLBACK_RUN_TESTS :=
 
 # 137:
 # This test unrolls and expects managed frames, but tracing means we run the interpreter.
-# 802:
+# 802 and 570-checker-osr:
 # This test dynamically enables tracing to force a deoptimization. This makes the test meaningless
 # when already tracing, and writes an error message that we do not want to check for.
 TEST_ART_BROKEN_TRACING_RUN_TESTS := \
+  087-gc-after-link \
   137-cfi \
+  141-class-unload \
+  570-checker-osr \
   802-deoptimization
 
 ifneq (,$(filter trace stream,$(TRACE_TYPES)))
@@ -346,44 +439,11 @@ ifneq (,$(filter trace stream,$(TRACE_TYPES)))
       $(PICTEST_TYPES),$(DEBUGGABLE_TYPES), $(TEST_ART_BROKEN_TRACING_RUN_TESTS),$(ALL_ADDRESS_SIZES))
 endif
 
-TEST_ART_BROKEN_TRACING_RUN_TESTS :=
-
-# The following tests use libarttest.so, which is linked against libartd.so, so will
-# not work when libart.so is the one loaded.
-# TODO: Find a way to run these tests in ndebug mode.
-TEST_ART_BROKEN_NDEBUG_TESTS := \
-  004-JniTest \
-  004-ReferenceMap \
-  004-SignalTest \
-  004-StackWalk \
-  004-UnsafeTest \
-  051-thread \
-  115-native-bridge \
-  116-nodex2oat \
-  117-nopatchoat \
-  118-noimage-dex2oat \
-  119-noimage-patchoat \
-  131-structural-change \
-  137-cfi \
-  139-register-natives \
-  454-get-vreg \
-  455-set-vreg \
-  457-regs \
-  461-get-reference-vreg \
-  466-get-live-vreg \
-
-ifneq (,$(filter ndebug,$(RUN_TYPES)))
-  ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,$(TARGET_TYPES),ndebug,$(PREBUILD_TYPES), \
-      $(COMPILER_TYPES), $(RELOCATE_TYPES),$(TRACE_TYPES),$(GC_TYPES),$(JNI_TYPES),$(IMAGE_TYPES), \
-      $(PICTEST_TYPES),$(DEBUGGABLE_TYPES),$(TEST_ART_BROKEN_NDEBUG_TESTS),$(ALL_ADDRESS_SIZES))
-endif
-
-TEST_ART_BROKEN_NDEBUG_TESTS :=
-
 # Known broken tests for the interpreter.
 # CFI unwinding expects managed frames.
 TEST_ART_BROKEN_INTERPRETER_RUN_TESTS := \
-  137-cfi
+  137-cfi \
+  554-jit-profile-file
 
 ifneq (,$(filter interpreter,$(COMPILER_TYPES)))
   ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,$(TARGET_TYPES),$(RUN_TYPES),$(PREBUILD_TYPES), \
@@ -407,75 +467,38 @@ endif
 
 TEST_ART_BROKEN_JIT_RUN_TESTS :=
 
-# Known broken tests for the default compiler (Quick).
-TEST_ART_BROKEN_DEFAULT_RUN_TESTS := \
-  457-regs
+# Known broken tests for the mips32 optimizing compiler backend.
+TEST_ART_BROKEN_OPTIMIZING_MIPS_RUN_TESTS := \
+    510-checker-try-catch \
 
-ifneq (,$(filter default,$(COMPILER_TYPES)))
-  ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,$(TARGET_TYPES),$(RUN_TYPES),$(PREBUILD_TYPES), \
-      default,$(RELOCATE_TYPES),$(TRACE_TYPES),$(GC_TYPES),$(JNI_TYPES), \
-      $(IMAGE_TYPES),$(PICTEST_TYPES),$(DEBUGGABLE_TYPES),$(TEST_ART_BROKEN_DEFAULT_RUN_TESTS),$(ALL_ADDRESS_SIZES))
-endif
-
-TEST_ART_BROKEN_DEFAULT_RUN_TESTS :=
-
-# Known broken tests for Quick's and Optimizing's ARM back ends.
-TEST_ART_BROKEN_ARM_RUN_TESTS := 477-long-to-float-conversion-precision  # b/20413424
-
-ifeq ($(TARGET_ARCH),arm)
-  ifneq (,$(filter 32,$(ALL_ADDRESS_SIZES)))
+ifeq (mips,$(TARGET_ARCH))
+  ifneq (,$(filter optimizing,$(COMPILER_TYPES)))
     ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,target,$(RUN_TYPES),$(PREBUILD_TYPES), \
-        $(COMPILER_TYPES),$(RELOCATE_TYPES),$(TRACE_TYPES),$(GC_TYPES),$(JNI_TYPES), \
-        $(IMAGE_TYPES),$(PICTEST_TYPES),$(DEBUGGABLE_TYPES),$(TEST_ART_BROKEN_ARM_RUN_TESTS),32)
+        optimizing,$(RELOCATE_TYPES),$(TRACE_TYPES),$(GC_TYPES),$(JNI_TYPES), \
+        $(IMAGE_TYPES),$(PICTEST_TYPES),$(DEBUGGABLE_TYPES), \
+        $(TEST_ART_BROKEN_OPTIMIZING_MIPS_RUN_TESTS),$(ALL_ADDRESS_SIZES))
   endif
 endif
 
-ifdef TARGET_2ND_ARCH
-  ifeq ($(TARGET_2ND_ARCH),arm)
-    ifneq (,$(filter 32,$(ALL_ADDRESS_SIZES)))
-      ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,target,$(RUN_TYPES),$(PREBUILD_TYPES), \
-          $(COMPILER_TYPES),$(RELOCATE_TYPES),$(TRACE_TYPES),$(GC_TYPES),$(JNI_TYPES), \
-          $(IMAGE_TYPES),$(PICTEST_TYPES),$(DEBUGGABLE_TYPES),$(TEST_ART_BROKEN_ARM_RUN_TESTS),32)
-    endif
+TEST_ART_BROKEN_OPTIMIZING_MIPS_RUN_TESTS :=
+
+# Known broken tests for the mips64 optimizing compiler backend.
+TEST_ART_BROKEN_OPTIMIZING_MIPS64_RUN_TESTS := \
+
+ifeq (mips64,$(TARGET_ARCH))
+  ifneq (,$(filter optimizing,$(COMPILER_TYPES)))
+    ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,target,$(RUN_TYPES),$(PREBUILD_TYPES), \
+        optimizing,$(RELOCATE_TYPES),$(TRACE_TYPES),$(GC_TYPES),$(JNI_TYPES), \
+        $(IMAGE_TYPES),$(PICTEST_TYPES),$(DEBUGGABLE_TYPES), \
+        $(TEST_ART_BROKEN_OPTIMIZING_MIPS64_RUN_TESTS),$(ALL_ADDRESS_SIZES))
   endif
 endif
 
-TEST_ART_BROKEN_ARM_RUN_TESTS :=
-
-# Known broken tests for the arm64 optimizing compiler backend.
-TEST_ART_BROKEN_OPTIMIZING_ARM64_RUN_TESTS :=
-
-ifneq (,$(filter optimizing,$(COMPILER_TYPES)))
-  ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,target,$(RUN_TYPES),$(PREBUILD_TYPES), \
-      optimizing,$(RELOCATE_TYPES),$(TRACE_TYPES),$(GC_TYPES),$(JNI_TYPES), \
-      $(IMAGE_TYPES),$(PICTEST_TYPES),$(DEBUGGABLE_TYPES),$(TEST_ART_BROKEN_OPTIMIZING_ARM64_RUN_TESTS),64)
-endif
-
-TEST_ART_BROKEN_OPTIMIZING_ARM64_RUN_TESTS :=
-
-# Known broken tests for the optimizing compiler.
-TEST_ART_BROKEN_OPTIMIZING_RUN_TESTS :=
-
-ifneq (,$(filter optimizing,$(COMPILER_TYPES)))
-  ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,$(TARGET_TYPES),$(RUN_TYPES),$(PREBUILD_TYPES), \
-      optimizing,$(RELOCATE_TYPES),$(TRACE_TYPES),$(GC_TYPES),$(JNI_TYPES), \
-      $(IMAGE_TYPES),$(PICTEST_TYPES),$(DEBUGGABLE_TYPES),$(TEST_ART_BROKEN_OPTIMIZING_RUN_TESTS),$(ALL_ADDRESS_SIZES))
-endif
-
-# If ART_USE_OPTIMIZING_COMPILER is set to true, then the default core.art has been
-# compiled with the optimizing compiler.
-ifeq ($(ART_USE_OPTIMIZING_COMPILER),true)
-  ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,$(TARGET_TYPES),$(RUN_TYPES),$(PREBUILD_TYPES), \
-      default,$(RELOCATE_TYPES),$(TRACE_TYPES),$(GC_TYPES),$(JNI_TYPES), \
-      $(IMAGE_TYPES),$(PICTEST_TYPES),$(DEBUGGABLE_TYPES),$(TEST_ART_BROKEN_OPTIMIZING_RUN_TESTS),$(ALL_ADDRESS_SIZES))
-endif
-
-TEST_ART_BROKEN_OPTIMIZING_RUN_TESTS :=
+TEST_ART_BROKEN_OPTIMIZING_MIPS64_RUN_TESTS :=
 
 # Tests that should fail when the optimizing compiler compiles them non-debuggable.
 TEST_ART_BROKEN_OPTIMIZING_NONDEBUGGABLE_RUN_TESTS := \
   454-get-vreg \
-  455-set-vreg \
   457-regs \
 
 ifneq (,$(filter optimizing,$(COMPILER_TYPES)))
@@ -497,33 +520,65 @@ endif
 
 TEST_ART_BROKEN_OPTIMIZING_DEBUGGABLE_RUN_TESTS :=
 
-# Tests that should fail in the read barrier configuration.
-# 098: b/20720510
-# 137: Read barrier forces interpreter. Cannot run this with the interpreter.
-TEST_ART_BROKEN_READ_BARRIER_RUN_TESTS := \
-  098-ddmc \
-  137-cfi \
+# Tests that should fail in the read barrier configuration with the interpreter.
+TEST_ART_BROKEN_INTERPRETER_READ_BARRIER_RUN_TESTS :=
+
+# Tests that should fail in the read barrier configuration with the Optimizing compiler (AOT).
+# 484: Baker's fast path based read barrier compiler instrumentation generates code containing
+#      more parallel moves on x86, thus some Checker assertions may fail.
+# 527: On ARM64, the read barrier instrumentation does not support the HArm64IntermediateAddress
+#      instruction yet (b/26601270).
+# 537: Expects an array copy to be intrinsified on x86-64, but calling-on-slowpath intrinsics are
+#      not yet handled in the read barrier configuration.
+TEST_ART_BROKEN_OPTIMIZING_READ_BARRIER_RUN_TESTS := \
+  484-checker-register-hints \
+  527-checker-array-access-split \
+  537-checker-arraycopy
+
+# Tests that should fail in the read barrier configuration with JIT (Optimizing compiler).
+TEST_ART_BROKEN_JIT_READ_BARRIER_RUN_TESTS :=
 
 ifeq ($(ART_USE_READ_BARRIER),true)
-  ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,$(TARGET_TYPES),$(RUN_TYPES),$(PREBUILD_TYPES), \
-      $(COMPILER_TYPES),$(RELOCATE_TYPES),$(TRACE_TYPES),$(GC_TYPES),$(JNI_TYPES), \
-      $(IMAGE_TYPES),$(PICTEST_TYPES),$(DEBUGGABLE_TYPES),$(TEST_ART_BROKEN_READ_BARRIER_RUN_TESTS),$(ALL_ADDRESS_SIZES))
+  ifneq (,$(filter interpreter,$(COMPILER_TYPES)))
+    ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,$(TARGET_TYPES),$(RUN_TYPES), \
+        $(PREBUILD_TYPES),interpreter,$(RELOCATE_TYPES),$(TRACE_TYPES),$(GC_TYPES), \
+        $(JNI_TYPES),$(IMAGE_TYPES),$(PICTEST_TYPES),$(DEBUGGABLE_TYPES), \
+        $(TEST_ART_BROKEN_INTERPRETER_READ_BARRIER_RUN_TESTS),$(ALL_ADDRESS_SIZES))
+  endif
+
+  ifneq (,$(filter optimizing,$(COMPILER_TYPES)))
+    ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,$(TARGET_TYPES),$(RUN_TYPES), \
+        $(PREBUILD_TYPES),optimizing,$(RELOCATE_TYPES),$(TRACE_TYPES),$(GC_TYPES), \
+        $(JNI_TYPES),$(IMAGE_TYPES),$(PICTEST_TYPES),$(DEBUGGABLE_TYPES), \
+        $(TEST_ART_BROKEN_OPTIMIZING_READ_BARRIER_RUN_TESTS),$(ALL_ADDRESS_SIZES))
+  endif
+
+  ifneq (,$(filter jit,$(COMPILER_TYPES)))
+    ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,$(TARGET_TYPES),$(RUN_TYPES), \
+        $(PREBUILD_TYPES),jit,$(RELOCATE_TYPES),$(TRACE_TYPES),$(GC_TYPES), \
+        $(JNI_TYPES),$(IMAGE_TYPES),$(PICTEST_TYPES),$(DEBUGGABLE_TYPES), \
+        $(TEST_ART_BROKEN_JIT_READ_BARRIER_RUN_TESTS),$(ALL_ADDRESS_SIZES))
+  endif
 endif
 
-TEST_ART_BROKEN_READ_BARRIER_RUN_TESTS :=
+TEST_ART_BROKEN_OPTIMIZING_READ_BARRIER_RUN_TESTS :=
+TEST_ART_BROKEN_JIT_READ_BARRIER_RUN_TESTS :=
 
-# Tests that should fail in the heap poisoning configuration.
-# 137: Heap poisoning forces interpreter. Cannot run this with the interpreter.
-TEST_ART_BROKEN_HEAP_POISONING_RUN_TESTS := \
-  137-cfi
+# Tests that should fail in the heap poisoning configuration with the Optimizing compiler.
+# 055: Exceeds run time limits due to heap poisoning instrumentation (on ARM and ARM64 devices).
+TEST_ART_BROKEN_OPTIMIZING_HEAP_POISONING_RUN_TESTS := \
+  055-enum-performance
 
 ifeq ($(ART_HEAP_POISONING),true)
-  ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,$(TARGET_TYPES),$(RUN_TYPES),$(PREBUILD_TYPES), \
-      $(COMPILER_TYPES),$(RELOCATE_TYPES),$(TRACE_TYPES),$(GC_TYPES),$(JNI_TYPES), \
-      $(IMAGE_TYPES),$(PICTEST_TYPES),$(DEBUGGABLE_TYPES),$(TEST_ART_BROKEN_HEAP_POISONING_RUN_TESTS),$(ALL_ADDRESS_SIZES))
+  ifneq (,$(filter optimizing,$(COMPILER_TYPES)))
+    ART_TEST_KNOWN_BROKEN += $(call all-run-test-names,$(TARGET_TYPES),$(RUN_TYPES), \
+        $(PREBUILD_TYPES),optimizing,$(RELOCATE_TYPES),$(TRACE_TYPES),$(GC_TYPES),$(JNI_TYPES), \
+        $(IMAGE_TYPES),$(PICTEST_TYPES),$(DEBUGGABLE_TYPES), \
+        $(TEST_ART_BROKEN_OPTIMIZING_HEAP_POISONING_RUN_TESTS),$(ALL_ADDRESS_SIZES))
+  endif
 endif
 
-TEST_ART_BROKEN_HEAP_POISONING_RUN_TESTS :=
+TEST_ART_BROKEN_OPTIMIZING_HEAP_POISONING_RUN_TESTS :=
 
 # Clear variables ahead of appending to them when defining tests.
 $(foreach target, $(TARGET_TYPES), $(eval ART_RUN_TEST_$(call name-to-var,$(target))_RULES :=))
@@ -567,8 +622,10 @@ TEST_ART_TARGET_SYNC_DEPS += $(ART_TARGET_EXECUTABLES) $(TARGET_CORE_IMG_OUTS)
 
 # Also need libarttest.
 TEST_ART_TARGET_SYNC_DEPS += $(ART_TARGET_TEST_OUT)/$(TARGET_ARCH)/libarttest.so
+TEST_ART_TARGET_SYNC_DEPS += $(ART_TARGET_TEST_OUT)/$(TARGET_ARCH)/libarttestd.so
 ifdef TARGET_2ND_ARCH
 TEST_ART_TARGET_SYNC_DEPS += $(ART_TARGET_TEST_OUT)/$(TARGET_2ND_ARCH)/libarttest.so
+TEST_ART_TARGET_SYNC_DEPS += $(ART_TARGET_TEST_OUT)/$(TARGET_2ND_ARCH)/libarttestd.so
 endif
 
 # Also need libnativebridgetest.
@@ -582,19 +639,26 @@ endif
 ART_TEST_HOST_RUN_TEST_DEPENDENCIES := \
   $(ART_HOST_EXECUTABLES) \
   $(ART_HOST_OUT_SHARED_LIBRARIES)/libarttest$(ART_HOST_SHLIB_EXTENSION) \
+  $(ART_HOST_OUT_SHARED_LIBRARIES)/libarttestd$(ART_HOST_SHLIB_EXTENSION) \
   $(ART_HOST_OUT_SHARED_LIBRARIES)/libnativebridgetest$(ART_HOST_SHLIB_EXTENSION) \
-  $(ART_HOST_OUT_SHARED_LIBRARIES)/libjavacore$(ART_HOST_SHLIB_EXTENSION)
+  $(ART_HOST_OUT_SHARED_LIBRARIES)/libjavacore$(ART_HOST_SHLIB_EXTENSION) \
+  $(ART_HOST_OUT_SHARED_LIBRARIES)/libopenjdk$(ART_HOST_SHLIB_EXTENSION) \
+  $(ART_HOST_OUT_SHARED_LIBRARIES)/libopenjdkd$(ART_HOST_SHLIB_EXTENSION)
 
 ifneq ($(HOST_PREFER_32_BIT),true)
 ART_TEST_HOST_RUN_TEST_DEPENDENCIES += \
   $(2ND_ART_HOST_OUT_SHARED_LIBRARIES)/libarttest$(ART_HOST_SHLIB_EXTENSION) \
+  $(2ND_ART_HOST_OUT_SHARED_LIBRARIES)/libarttestd$(ART_HOST_SHLIB_EXTENSION) \
   $(2ND_ART_HOST_OUT_SHARED_LIBRARIES)/libnativebridgetest$(ART_HOST_SHLIB_EXTENSION) \
-  $(2ND_ART_HOST_OUT_SHARED_LIBRARIES)/libjavacore$(ART_HOST_SHLIB_EXTENSION)
+  $(2ND_ART_HOST_OUT_SHARED_LIBRARIES)/libjavacore$(ART_HOST_SHLIB_EXTENSION) \
+  $(2ND_ART_HOST_OUT_SHARED_LIBRARIES)/libopenjdk$(ART_HOST_SHLIB_EXTENSION) \
+  $(2ND_ART_HOST_OUT_SHARED_LIBRARIES)/libopenjdkd$(ART_HOST_SHLIB_EXTENSION)
 endif
 
 # Create a rule to build and run a tests following the form:
 # test-art-{1: host or target}-run-test-{2: debug ndebug}-{3: prebuild no-prebuild no-dex2oat}-
-#    {4: interpreter default optimizing jit}-{5: relocate nrelocate relocate-npatchoat}-
+#    {4: interpreter optimizing jit interp-ac}-
+#    {5: relocate nrelocate relocate-npatchoat}-
 #    {6: trace or ntrace}-{7: gcstress gcverify cms}-{8: forcecopy checkjni jni}-
 #    {9: no-image image picimage}-{10: pictest npictest}-
 #    {11: ndebuggable debuggable}-{12: test name}{13: 32 or 64}
@@ -604,10 +668,8 @@ define define-test-art-run-test
   test_groups :=
   uc_host_or_target :=
   jack_classpath :=
-  ifeq ($(ANDROID_COMPILE_WITH_JACK),true)
-    run_test_options += --build-with-jack
-  else
-    run_test_options += --build-with-javac-dx
+  ifeq ($(ART_TEST_WITH_STRACE),true)
+    run_test_options += --strace
   endif
   ifeq ($(ART_TEST_RUN_TEST_ALWAYS_CLEAN),true)
     run_test_options += --always-clean
@@ -616,13 +678,13 @@ define define-test-art-run-test
     uc_host_or_target := HOST
     test_groups := ART_RUN_TEST_HOST_RULES
     run_test_options += --host
-    prereq_rule := $(ART_TEST_HOST_RUN_TEST_DEPENDENCIES)
+    prereq_rule := $(ART_TEST_HOST_RUN_TEST_DEPENDENCIES) $(HOST_JACK_CLASSPATH_DEPENDENCIES)
     jack_classpath := $(HOST_JACK_CLASSPATH)
   else
     ifeq ($(1),target)
       uc_host_or_target := TARGET
       test_groups := ART_RUN_TEST_TARGET_RULES
-      prereq_rule := test-art-target-sync
+      prereq_rule := test-art-target-sync $(TARGET_JACK_CLASSPATH_DEPENDENCIES)
       jack_classpath := $(TARGET_JACK_CLASSPATH)
     else
       $$(error found $(1) expected $(TARGET_TYPES))
@@ -661,17 +723,15 @@ define define-test-art-run-test
     ifeq ($(4),interpreter)
       test_groups += ART_RUN_TEST_$$(uc_host_or_target)_INTERPRETER_RULES
       run_test_options += --interpreter
+    else ifeq ($(4),interp-ac)
+      test_groups += ART_RUN_TEST_$$(uc_host_or_target)_INTERPRETER_ACCESS_CHECKS_RULES
+      run_test_options += --interpreter --verify-soft-fail
     else
-      ifeq ($(4),default)
-        test_groups += ART_RUN_TEST_$$(uc_host_or_target)_DEFAULT_RULES
-        run_test_options += --quick
+      ifeq ($(4),jit)
+        test_groups += ART_RUN_TEST_$$(uc_host_or_target)_JIT_RULES
+        run_test_options += --jit
       else
-        ifeq ($(4),jit)
-          test_groups += ART_RUN_TEST_$$(uc_host_or_target)_JIT_RULES
-          run_test_options += --jit
-        else
-          $$(error found $(4) expected $(COMPILER_TYPES))
-        endif
+        $$(error found $(4) expected $(COMPILER_TYPES))
       endif
     endif
   endif
@@ -741,12 +801,7 @@ define define-test-art-run-test
       endif
     endif
   endif
-  ifeq ($(4),jit)
-    # Use interpreter image for JIT.
-    image_suffix := interpreter
-  else
-    image_suffix := $(4)
-  endif
+  image_suffix := $(4)
   ifeq ($(9),no-image)
     test_groups += ART_RUN_TEST_$$(uc_host_or_target)_NO_IMAGE_RULES
     run_test_options += --no-image
@@ -775,7 +830,27 @@ define define-test-art-run-test
           prereq_rule += $$(TARGET_CORE_IMAGE_$$(image_suffix)_pic_$(13))
         endif
       else
-        $$(error found $(9) expected $(IMAGE_TYPES))
+        ifeq ($(9),multiimage)
+          test_groups += ART_RUN_TEST_$$(uc_host_or_target)_IMAGE_RULES
+          run_test_options += --multi-image
+                ifeq ($(1),host)
+                        prereq_rule += $$(HOST_CORE_IMAGE_$$(image_suffix)_no-pic_multi_$(13))
+                else
+                        prereq_rule += $$(TARGET_CORE_IMAGE_$$(image_suffix)_no-pic_multi_$(13))
+                endif
+        else
+          ifeq ($(9),multipicimage)
+            test_groups += ART_RUN_TEST_$$(uc_host_or_target)_PICIMAGE_RULES
+                        run_test_options += --pic-image --multi-image
+                        ifeq ($(1),host)
+                        prereq_rule += $$(HOST_CORE_IMAGE_$$(image_suffix)_pic_multi_$(13))
+                        else
+                        prereq_rule += $$(TARGET_CORE_IMAGE_$$(image_suffix)_pic_multi_$(13))
+                        endif
+          else
+            $$(error found $(9) expected $(IMAGE_TYPES))
+          endif
+        endif
       endif
     endif
   endif
@@ -811,26 +886,41 @@ define define-test-art-run-test
       $$(error found $(13) expected $(ALL_ADDRESS_SIZES))
     endif
   endif
+  # Override of host instruction-set-features. Required to test advanced x86 intrinsics. The
+  # conditionals aren't really correct, they will fail to do the right thing on a 32-bit only
+  # host. However, this isn't common enough to worry here and make the conditions complicated.
+  ifneq ($(DEX2OAT_HOST_INSTRUCTION_SET_FEATURES),)
+    ifeq ($(13),64)
+      run_test_options += --instruction-set-features $(DEX2OAT_HOST_INSTRUCTION_SET_FEATURES)
+    endif
+  endif
+  ifneq ($($(HOST_2ND_ARCH_VAR_PREFIX)DEX2OAT_HOST_INSTRUCTION_SET_FEATURES),)
+    ifeq ($(13),32)
+      run_test_options += --instruction-set-features $($(HOST_2ND_ARCH_VAR_PREFIX)DEX2OAT_HOST_INSTRUCTION_SET_FEATURES)
+    endif
+  endif
   run_test_rule_name := test-art-$(1)-run-test-$(2)-$(3)-$(4)-$(5)-$(6)-$(7)-$(8)-$(9)-$(10)-$(11)-$(12)$(13)
   run_test_options := --output-path $(ART_HOST_TEST_DIR)/run-test-output/$$(run_test_rule_name) \
       $$(run_test_options)
   ifneq ($(ART_TEST_ANDROID_ROOT),)
     run_test_options := --android-root $(ART_TEST_ANDROID_ROOT) $$(run_test_options)
   endif
+  ifeq ($(ART_TEST_QUIET),true)
+    run_test_options += --quiet
+  endif
 $$(run_test_rule_name): PRIVATE_RUN_TEST_OPTIONS := $$(run_test_options)
 $$(run_test_rule_name): PRIVATE_JACK_CLASSPATH := $$(jack_classpath)
 .PHONY: $$(run_test_rule_name)
-$$(run_test_rule_name): $(TEST_ART_RUN_TEST_DEPENDENCIES) $(HOST_OUT_EXECUTABLES)/hprof-conv $$(prereq_rule)
+$$(run_test_rule_name): $(TEST_ART_RUN_TEST_DEPENDENCIES) $(HOST_OUT_EXECUTABLES)/hprof-conv $$(prereq_rule) | $(TEST_ART_RUN_TEST_ORDERONLY_DEPENDENCIES)
 	$(hide) $$(call ART_TEST_SKIP,$$@) && \
 	  DX=$(abspath $(DX)) \
 	    JASMIN=$(abspath $(HOST_OUT_EXECUTABLES)/jasmin) \
 	    SMALI=$(abspath $(HOST_OUT_EXECUTABLES)/smali) \
 	    DXMERGER=$(abspath $(HOST_OUT_EXECUTABLES)/dexmerger) \
+	    JACK_VERSION=$(JACK_DEFAULT_VERSION) \
 	    JACK=$(abspath $(JACK)) \
-	    JACK_VM_COMMAND="$(JACK_VM) $(DEFAULT_JACK_VM_ARGS) $(JAVA_TMPDIR_ARG) -jar $(abspath $(JACK_LAUNCHER_JAR)) " \
+	    JACK_VERSION=$(JACK_DEFAULT_VERSION) \
 	    JACK_CLASSPATH=$$(PRIVATE_JACK_CLASSPATH) \
-	    JACK_JAR=$(abspath $(JACK_JAR)) \
-	    JILL_JAR=$(abspath $(JILL_JAR)) \
 	    art/test/run-test $$(PRIVATE_RUN_TEST_OPTIONS) $(12) \
 	      && $$(call ART_TEST_PASSED,$$@) || $$(call ART_TEST_FAILED,$$@)
 	$$(hide) (echo $(MAKECMDGOALS) | grep -q $$@ && \

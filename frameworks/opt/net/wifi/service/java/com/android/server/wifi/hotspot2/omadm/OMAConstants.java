@@ -5,48 +5,38 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
 
 public class OMAConstants {
     private OMAConstants() {
     }
 
+    public static final String MOVersion = "1.0";
+    public static final String PPS_URN = "urn:wfa:mo:hotspot2dot0-perprovidersubscription:1.0";
+    public static final String DevInfoURN = "urn:oma:mo:oma-dm-devinfo:1.0";
+    public static final String DevDetailURN = "urn:oma:mo:oma-dm-devdetail:1.0";
+    public static final String DevDetailXURN = "urn:wfa:mo-ext:hotspot2dot0-devdetail-ext:1.0";
+
+    public static final String[] SupportedMO_URNs = {
+            PPS_URN, DevInfoURN, DevDetailURN, DevDetailXURN
+    };
+
+    public static final String SppMOAttribute = "spp:moURN";
     public static final String TAG_PostDevData = "spp:sppPostDevData";
     public static final String TAG_SupportedVersions = "spp:supportedSPPVersions";
     public static final String TAG_SupportedMOs = "spp:supportedMOList";
+    public static final String TAG_UpdateResponse = "spp:sppUpdateResponse";
+    public static final String TAG_MOContainer = "spp:moContainer";
+    public static final String TAG_Version = "spp:sppVersion";
 
-    public static final String TAG_MO_Add = "spp:addMO";
-    public static final String TAG_MO_Container = "spp:moContainer";
-
-    public static final String ATTR_URN = "spp:moURN";
-
-    // Following strings excludes the trailing version number (e.g. :1.0)
-    public static final String LOC_PPS = "urn:wfa:mo:hotspot2dot0-perprovidersubscription";
-    public static final String LOC_DEVINFO =
-            "urn:oma:mo:oma-dm-devinfo:1.0 urn:oma:mo:oma-dm-devdetail";
-    public static final String LOC_DEVDETAIL = "urn:wfa:mo-ext:hotspot2dot0-devdetail-ext";
+    public static final String TAG_SessionID = "spp:sessionID";
+    public static final String TAG_Status = "spp:sppStatus";
+    public static final String TAG_Error = "spp:sppError";
 
     public static final String SyncMLVersionTag = "VerDTD";
-    public static final String RequiredSyncMLVersion = "1.2";
-
-    private static final Set<String> sMOContainers = new HashSet<String>();
-
-    static {
-        sMOContainers.add(TAG_MO_Add);
-        sMOContainers.add(TAG_MO_Container);
-    }
-
-    public static boolean isMOContainer(String tag) {
-        return sMOContainers.contains(tag);
-    }
+    public static final String OMAVersion = "1.2";
+    public static final String SyncML = "syncml:dmddf1.2";
 
     private static final byte[] INDENT = new byte[1024];
-
-    static {
-        Arrays.fill(INDENT, (byte) ' ');
-    }
 
     public static void serializeString(String s, OutputStream out) throws IOException {
         byte[] octets = s.getBytes(StandardCharsets.UTF_8);

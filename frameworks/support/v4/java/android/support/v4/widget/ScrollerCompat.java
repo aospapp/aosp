@@ -29,7 +29,7 @@ import android.widget.Scroller;
  * current device's preferred scroll physics and fling behavior. It offers a subset of
  * the APIs from Scroller or OverScroller.</p>
  */
-public class ScrollerCompat {
+public final class ScrollerCompat {
     private static final String TAG = "ScrollerCompat";
 
     Object mScroller;
@@ -54,6 +54,8 @@ public class ScrollerCompat {
         boolean isOverScrolled(Object scroller);
         int getFinalX(Object scroller);
         int getFinalY(Object scroller);
+        boolean springBack(Object scroller, int startX, int startY, int minX, int maxX,
+                int minY, int maxY);
     }
 
     static final int CHASE_FRAME_TIME = 16; // ms per target frame
@@ -145,6 +147,12 @@ public class ScrollerCompat {
         public int getFinalY(Object scroller) {
             return ((Scroller) scroller).getFinalY();
         }
+
+        @Override
+        public boolean springBack(Object scroller, int startX, int startY, int minX, int maxX,
+                int minY, int maxY) {
+            return false;
+        }
     }
 
     static class ScrollerCompatImplGingerbread implements ScrollerCompatImpl {
@@ -233,6 +241,13 @@ public class ScrollerCompat {
         public int getFinalY(Object scroller) {
             return ScrollerCompatGingerbread.getFinalY(scroller);
         }
+
+        @Override
+        public boolean springBack(Object scroller, int startX, int startY, int minX, int maxX,
+                int minY, int maxY) {
+            return ScrollerCompatGingerbread.springBack(scroller, startX, startY, minX, maxX,
+                    minY, maxY);
+        }
     }
 
     static class ScrollerCompatImplIcs extends ScrollerCompatImplGingerbread {
@@ -247,12 +262,7 @@ public class ScrollerCompat {
     }
 
     public static ScrollerCompat create(Context context, Interpolator interpolator) {
-        return new ScrollerCompat(context, interpolator);
-    }
-
-    ScrollerCompat(Context context, Interpolator interpolator) {
-        this(Build.VERSION.SDK_INT, context, interpolator);
-
+        return new ScrollerCompat(Build.VERSION.SDK_INT, context, interpolator);
     }
 
     /**
@@ -420,6 +430,22 @@ public class ScrollerCompat {
             int minX, int maxX, int minY, int maxY, int overX, int overY) {
         mImpl.fling(mScroller, startX, startY, velocityX, velocityY,
                 minX, maxX, minY, maxY, overX, overY);
+    }
+
+    /**
+     * Call this when you want to 'spring back' into a valid coordinate range.
+     *
+     * @param startX Starting X coordinate
+     * @param startY Starting Y coordinate
+     * @param minX Minimum valid X value
+     * @param maxX Maximum valid X value
+     * @param minY Minimum valid Y value
+     * @param maxY Maximum valid Y value
+     * @return true if a springback was initiated, false if startX and startY were
+     *          already within the valid range.
+     */
+    public boolean springBack(int startX, int startY, int minX, int maxX, int minY, int maxY) {
+        return mImpl.springBack(mScroller, startX, startY, minX, maxX, minY, maxY);
     }
 
     /**

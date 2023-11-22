@@ -77,6 +77,10 @@ public abstract class FragmentPagerAdapter extends PagerAdapter {
 
     @Override
     public void startUpdate(ViewGroup container) {
+        if (container.getId() == View.NO_ID) {
+            throw new IllegalStateException("ViewPager with adapter " + this
+                    + " requires a view id");
+        }
     }
 
     @Override
@@ -136,9 +140,8 @@ public abstract class FragmentPagerAdapter extends PagerAdapter {
     @Override
     public void finishUpdate(ViewGroup container) {
         if (mCurTransaction != null) {
-            mCurTransaction.commitAllowingStateLoss();
+            mCurTransaction.commitNowAllowingStateLoss();
             mCurTransaction = null;
-            mFragmentManager.executePendingTransactions();
         }
     }
 

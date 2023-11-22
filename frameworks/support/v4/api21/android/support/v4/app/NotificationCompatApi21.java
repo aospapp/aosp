@@ -55,6 +55,10 @@ class NotificationCompatApi21 {
     public static class Builder implements NotificationBuilderWithBuilderAccessor,
             NotificationBuilderWithActions {
         private Notification.Builder b;
+        private Bundle mExtras;
+        private RemoteViews mContentView;
+        private RemoteViews mBigContentView;
+        private RemoteViews mHeadsUpContentView;
 
         public Builder(Context context, Notification n,
                 CharSequence contentTitle, CharSequence contentText, CharSequence contentInfo,
@@ -64,7 +68,8 @@ class NotificationCompatApi21 {
                 boolean useChronometer, int priority, CharSequence subText, boolean localOnly,
                 String category, ArrayList<String> people, Bundle extras, int color,
                 int visibility, Notification publicVersion, String groupKey, boolean groupSummary,
-                String sortKey) {
+                String sortKey, RemoteViews contentView, RemoteViews bigContentView,
+                RemoteViews headsUpContentView) {
             b = new Notification.Builder(context)
                     .setWhen(n.when)
                     .setShowWhen(showWhen)
@@ -92,7 +97,6 @@ class NotificationCompatApi21 {
                     .setPriority(priority)
                     .setProgress(progressMax, progress, progressIndeterminate)
                     .setLocalOnly(localOnly)
-                    .setExtras(extras)
                     .setGroup(groupKey)
                     .setGroupSummary(groupSummary)
                     .setSortKey(sortKey)
@@ -100,9 +104,16 @@ class NotificationCompatApi21 {
                     .setColor(color)
                     .setVisibility(visibility)
                     .setPublicVersion(publicVersion);
+            mExtras = new Bundle();
+            if (extras != null) {
+                mExtras.putAll(extras);
+            }
             for (String person: people) {
                 b.addPerson(person);
             }
+            mContentView = contentView;
+            mBigContentView = bigContentView;
+            mHeadsUpContentView = headsUpContentView;
         }
 
         @Override
@@ -117,7 +128,18 @@ class NotificationCompatApi21 {
 
         @Override
         public Notification build() {
-            return b.build();
+            b.setExtras(mExtras);
+            Notification notification = b.build();
+            if (mContentView != null) {
+                notification.contentView = mContentView;
+            }
+            if (mBigContentView != null) {
+                notification.bigContentView = mBigContentView;
+            }
+            if (mHeadsUpContentView != null) {
+                notification.headsUpContentView = mHeadsUpContentView;
+            }
+            return notification;
         }
     }
 

@@ -30,6 +30,8 @@
 
 //#define LOG_API ALOG
 #define LOG_API(...)
+#define LOG_ERR(...) __android_log_print(ANDROID_LOG_ERROR, "RenderScript JNI", __VA_ARGS__);
+#define RS_JNI_VERSION 2301
 
 #define NELEM(m) (sizeof(m) / sizeof((m)[0]))
 
@@ -269,23 +271,31 @@ static dispatchTable dispatchTab;
 // Incremental Support lib
 static dispatchTable dispatchTabInc;
 
-static jboolean nLoadSO(JNIEnv *_env, jobject _this, jboolean useNative, jint targetApi) {
+static jboolean nLoadSO(JNIEnv *_env, jobject _this, jboolean useNative, jint targetApi, jstring libPath) {
     void* handle = NULL;
     if (useNative) {
         handle = dlopen("libRS.so", RTLD_LAZY | RTLD_LOCAL);
     } else {
-        handle = dlopen("libRSSupport.so", RTLD_LAZY | RTLD_LOCAL);
+        // For API 9+, dlopen the full path of libRSSupport.
+        if (libPath != NULL) {
+            const char * libPathJni = _env->GetStringUTFChars(libPath, JNI_FALSE);
+            handle = dlopen(libPathJni, RTLD_LAZY | RTLD_LOCAL);
+            _env->ReleaseStringUTFChars(libPath, libPathJni);
+        } else {
+            handle = dlopen("libRSSupport.so", RTLD_LAZY | RTLD_LOCAL);
+        }
     }
     if (handle == NULL) {
-        LOG_API("couldn't dlopen %s, %s", filename, dlerror());
+        LOG_ERR("couldn't dlopen %s; librsjni version: %d", dlerror(), RS_JNI_VERSION);
         return false;
     }
 
     if (loadSymbols(handle, dispatchTab, targetApi) == false) {
-        LOG_API("%s init failed!", filename);
+        LOG_ERR("Dispatch table init failed! librsjni version: %d", RS_JNI_VERSION);
+        dlclose(handle);
         return false;
     }
-    LOG_API("Successfully loaded %s", filename);
+    LOG_API("Successfully loaded runtime");
     return true;
 }
 
@@ -294,11 +304,11 @@ static jboolean nLoadIOSO(JNIEnv *_env, jobject _this) {
     void* handleIO = NULL;
     handleIO = dlopen("libRSSupportIO.so", RTLD_LAZY | RTLD_LOCAL);
     if (handleIO == NULL) {
-        LOG_API("Couldn't load libRSSupportIO.so");
+        LOG_ERR("Couldn't load libRSSupportIO.so, librsjni version: %d", RS_JNI_VERSION);
         return false;
     }
     if (loadIOSuppSyms(handleIO, ioDispatch) == false) {
-        LOG_API("libRSSupportIO init failed!");
+        LOG_ERR("libRSSupportIO init failed! librsjni version: %d", RS_JNI_VERSION);
         return false;
     }
     return true;
@@ -362,31 +372,30 @@ nClosureCreate(JNIEnv *_env, jobject _this, jlong con, jlong kernelID,
 
   size_t numValues, numDependencies;
   RsScriptFieldID* fieldIDs;
-  uintptr_t* values;
   RsClosure* depClosures;
   RsScriptFieldID* depFieldIDs;
 
   if (fieldIDs_length != values_length || values_length != sizes_length) {
-      LOG_API("Unmatched field IDs, values, and sizes in closure creation.");
+      LOG_ERR("Unmatched field IDs, values, and sizes in closure creation.");
       goto exit;
   }
 
   numValues = (size_t)fieldIDs_length;
 
   if (depClosures_length != depFieldIDs_length) {
-      LOG_API("Unmatched closures and field IDs for dependencies in closure creation.");
+      LOG_ERR("Unmatched closures and field IDs for dependencies in closure creation.");
       goto exit;
   }
 
   numDependencies = (size_t)depClosures_length;
 
   if (numDependencies > numValues) {
-      LOG_API("Unexpected number of dependencies in closure creation");
+      LOG_ERR("Unexpected number of dependencies in closure creation");
       goto exit;
   }
 
   if (numValues > RS_CLOSURE_MAX_NUMBER_ARGS_AND_BINDINGS) {
-      LOG_API("Too many arguments or globals in closure creation");
+      LOG_ERR("Too many arguments or globals in closure creation");
       goto exit;
   }
 
@@ -397,15 +406,6 @@ nClosureCreate(JNIEnv *_env, jobject _this, jlong con, jlong kernelID,
 
   for (size_t i = 0; i < numValues; i++) {
     fieldIDs[i] = (RsScriptFieldID)jFieldIDs[i];
-  }
-
-  values = (uintptr_t*)alloca(sizeof(uintptr_t) * numValues);
-  if (values == nullptr) {
-      goto exit;
-  }
-
-  for (size_t i = 0; i < numValues; i++) {
-    values[i] = (uintptr_t)jValues[i];
   }
 
   depClosures = (RsClosure*)alloca(sizeof(RsClosure) * numDependencies);
@@ -428,7 +428,7 @@ nClosureCreate(JNIEnv *_env, jobject _this, jlong con, jlong kernelID,
 
   ret = (jlong)(uintptr_t)dispatchTab.ClosureCreate(
       (RsContext)con, (RsScriptKernelID)kernelID, (RsAllocation)returnValue,
-      fieldIDs, numValues, values, numValues,
+      fieldIDs, numValues, jValues, numValues,
       (int*)jSizes, numValues,
       depClosures, numDependencies,
       depFieldIDs, numDependencies);
@@ -461,17 +461,16 @@ nInvokeClosureCreate(JNIEnv *_env, jobject _this, jlong con, jlong invokeID,
 
   size_t numValues;
   RsScriptFieldID* fieldIDs;
-  uintptr_t* values;
 
   if (fieldIDs_length != values_length || values_length != sizes_length) {
-      LOG_API("Unmatched field IDs, values, and sizes in closure creation.");
+      LOG_ERR("Unmatched field IDs, values, and sizes in closure creation.");
       goto exit;
   }
 
   numValues = (size_t) fieldIDs_length;
 
   if (numValues > RS_CLOSURE_MAX_NUMBER_ARGS_AND_BINDINGS) {
-      LOG_API("Too many arguments or globals in closure creation");
+      LOG_ERR("Too many arguments or globals in closure creation");
       goto exit;
   }
 
@@ -484,18 +483,9 @@ nInvokeClosureCreate(JNIEnv *_env, jobject _this, jlong con, jlong invokeID,
     fieldIDs[i] = (RsScriptFieldID)jFieldIDs[i];
   }
 
-  values = (uintptr_t*)alloca(sizeof(uintptr_t) * numValues);
-  if (values == nullptr) {
-      goto exit;
-  }
-
-  for (size_t i = 0; i < numValues; i++) {
-    values[i] = (uintptr_t)jValues[i];
-  }
-
   ret = (jlong)(uintptr_t)dispatchTab.InvokeClosureCreate(
       (RsContext)con, (RsScriptInvokeID)invokeID, jParams, jParamLength,
-      fieldIDs, numValues, values, numValues,
+      fieldIDs, numValues, jValues, numValues,
       (int*)jSizes, numValues);
 
 exit:
@@ -511,15 +501,17 @@ exit:
 static void
 nClosureSetArg(JNIEnv *_env, jobject _this, jlong con, jlong closureID,
                jint index, jlong value, jint size) {
+  // Size is signed with -1 indicating the values is an Allocation
   dispatchTab.ClosureSetArg((RsContext)con, (RsClosure)closureID, (uint32_t)index,
-                  (uintptr_t)value, (size_t)size);
+                  (uintptr_t)value, size);
 }
 
 static void
 nClosureSetGlobal(JNIEnv *_env, jobject _this, jlong con, jlong closureID,
                   jlong fieldID, jlong value, jint size) {
+  // Size is signed with -1 indicating the values is an Allocation
   dispatchTab.ClosureSetGlobal((RsContext)con, (RsClosure)closureID,
-                     (RsScriptFieldID)fieldID, (uintptr_t)value, (size_t)size);
+                     (RsScriptFieldID)fieldID, (int64_t)value, size);
 }
 
 static long
@@ -536,7 +528,7 @@ nScriptGroup2Create(JNIEnv *_env, jobject _this, jlong con, jstring name,
   RsClosure* closures;
 
   if (numClosures > (jsize) RS_SCRIPT_GROUP_MAX_NUMBER_CLOSURES) {
-    LOG_API("Too many closures in script group");
+    LOG_ERR("Too many closures in script group");
     goto exit;
   }
 
@@ -605,11 +597,11 @@ nScriptIntrinsicBLAS_Single(JNIEnv *_env, jobject _this, jlong con, jlong incCon
     if (mUseInc) {
         dispatchTab.ContextFinish((RsContext)con);
         dispatchTabInc.ScriptForEachMulti((RsContext)incCon, (RsScript)id, 0,
-                                          in_allocs, sizeof(in_allocs), nullptr,
+                                          in_allocs, NELEM(in_allocs), nullptr,
                                           &call, sizeof(call), nullptr, 0);
     } else {
         dispatchTab.ScriptForEachMulti((RsContext)con, (RsScript)id, 0,
-                                       in_allocs, sizeof(in_allocs), nullptr,
+                                       in_allocs, NELEM(in_allocs), nullptr,
                                        &call, sizeof(call), nullptr, 0);
     }
 }
@@ -645,11 +637,11 @@ nScriptIntrinsicBLAS_Double(JNIEnv *_env, jobject _this, jlong con, jlong incCon
     if (mUseInc) {
         dispatchTab.ContextFinish((RsContext)con);
         dispatchTabInc.ScriptForEachMulti((RsContext)incCon, (RsScript)id, 0,
-                                          in_allocs, sizeof(in_allocs), nullptr,
+                                          in_allocs, NELEM(in_allocs), nullptr,
                                           &call, sizeof(call), nullptr, 0);
     } else {
         dispatchTab.ScriptForEachMulti((RsContext)con, (RsScript)id, 0,
-                                        in_allocs, sizeof(in_allocs), nullptr,
+                                        in_allocs, NELEM(in_allocs), nullptr,
                                         &call, sizeof(call), nullptr, 0);
     }
 }
@@ -688,11 +680,11 @@ nScriptIntrinsicBLAS_Complex(JNIEnv *_env, jobject _this, jlong con, jlong incCo
     if (mUseInc) {
         dispatchTab.ContextFinish((RsContext)con);
         dispatchTabInc.ScriptForEachMulti((RsContext)incCon, (RsScript)id, 0,
-                                          in_allocs, sizeof(in_allocs), nullptr,
+                                          in_allocs, NELEM(in_allocs), nullptr,
                                           &call, sizeof(call), nullptr, 0);
     } else {
         dispatchTab.ScriptForEachMulti((RsContext)con, (RsScript)id, 0,
-                                       in_allocs, sizeof(in_allocs), nullptr,
+                                       in_allocs, NELEM(in_allocs), nullptr,
                                        &call, sizeof(call), nullptr, 0);
     }
 }
@@ -731,11 +723,11 @@ nScriptIntrinsicBLAS_Z(JNIEnv *_env, jobject _this, jlong con, jlong incCon, jlo
     if (mUseInc) {
         dispatchTab.ContextFinish((RsContext)con);
         dispatchTabInc.ScriptForEachMulti((RsContext)incCon, (RsScript)id, 0,
-                                          in_allocs, sizeof(in_allocs), nullptr,
+                                          in_allocs, NELEM(in_allocs), nullptr,
                                           &call, sizeof(call), nullptr, 0);
     } else {
         dispatchTab.ScriptForEachMulti((RsContext)con, (RsScript)id, 0,
-                                        in_allocs, sizeof(in_allocs), nullptr,
+                                        in_allocs, NELEM(in_allocs), nullptr,
                                         &call, sizeof(call), nullptr, 0);
     }
 }
@@ -764,11 +756,11 @@ nScriptIntrinsicBLAS_BNNM(JNIEnv *_env, jobject _this, jlong con, jlong incCon, 
     if (mUseInc) {
         dispatchTab.ContextFinish((RsContext)con);
         dispatchTabInc.ScriptForEachMulti((RsContext)incCon, (RsScript)id, 0,
-                                          in_allocs, sizeof(in_allocs), nullptr,
+                                          in_allocs, NELEM(in_allocs), nullptr,
                                           &call, sizeof(call), nullptr, 0);
     } else {
         dispatchTab.ScriptForEachMulti((RsContext)con, (RsScript)id, 0,
-                                        in_allocs, sizeof(in_allocs), nullptr,
+                                        in_allocs, NELEM(in_allocs), nullptr,
                                         &call, sizeof(call), nullptr, 0);
     }
 }
@@ -912,7 +904,7 @@ nContextSendMessage(JNIEnv *_env, jobject _this, jlong con, jint id, jintArray d
     jint len = 0;
     if (data) {
         len = _env->GetArrayLength(data);
-        jint *ptr = _env->GetIntArrayElements(data, NULL);
+        ptr = _env->GetIntArrayElements(data, NULL);
     }
     LOG_API("nContextSendMessage, con(%p), id(%i), len(%i)", (RsContext)con, id, len);
     dispatchTab.ContextSendMessage((RsContext)con, id, (const uint8_t *)ptr, len * sizeof(int));
@@ -1546,6 +1538,7 @@ nScriptForEach(JNIEnv *_env, jobject _this, jlong con, jlong incCon,
                                   NULL, 0, NULL, 0);
     }
 }
+
 static void
 nScriptForEachV(JNIEnv *_env, jobject _this, jlong con, jlong incCon,
                 jlong script, jint slot, jlong ain, jlong aout, jbyteArray params, jboolean mUseInc)
@@ -1583,6 +1576,12 @@ nScriptForEachClipped(JNIEnv *_env, jobject _this, jlong con, jlong incCon,
     sc.strategy = RS_FOR_EACH_STRATEGY_DONT_CARE;
     sc.arrayStart = 0;
     sc.arrayEnd = 0;
+    sc.array2Start = 0;
+    sc.array2End = 0;
+    sc.array3Start = 0;
+    sc.array3End = 0;
+    sc.array4Start = 0;
+    sc.array4End = 0;
     if (mUseInc) {
         dispatchTab.ContextFinish((RsContext)con);
         dispatchTabInc.ScriptForEach((RsContext)incCon, (RsScript)script, slot,
@@ -1614,6 +1613,12 @@ nScriptForEachClippedV(JNIEnv *_env, jobject _this, jlong con, jlong incCon,
     sc.strategy = RS_FOR_EACH_STRATEGY_DONT_CARE;
     sc.arrayStart = 0;
     sc.arrayEnd = 0;
+    sc.array2Start = 0;
+    sc.array2End = 0;
+    sc.array3Start = 0;
+    sc.array3End = 0;
+    sc.array4Start = 0;
+    sc.array4End = 0;
     if (mUseInc) {
         dispatchTab.ContextFinish((RsContext)con);
         dispatchTabInc.ScriptForEach((RsContext)incCon, (RsScript)script, slot,
@@ -1625,6 +1630,206 @@ nScriptForEachClippedV(JNIEnv *_env, jobject _this, jlong con, jlong incCon,
                                   ptr, len, &sc, sizeof(sc));
     }
     _env->ReleaseByteArrayElements(params, ptr, JNI_ABORT);
+}
+
+static void
+nScriptForEachMulti(JNIEnv *_env, jobject _this, jlong con, jlong script, jint slot,
+                    jlongArray ains, jlong aout, jbyteArray params,
+                    jintArray limits)
+{
+    LOG_API("nScriptForEach, con(%p), s(%p), slot(%i) ains(%p) aout(%" PRId64 ")", (RsContext)con, (void *)script, slot, ains, aout);
+
+    jint   in_len = 0;
+    jlong *in_ptr = nullptr;
+
+    RsAllocation *in_allocs = nullptr;
+
+    if (ains != nullptr) {
+        in_len = _env->GetArrayLength(ains);
+        if (in_len > (jint)RS_KERNEL_MAX_ARGUMENTS) {
+            LOG_ERR("Too many arguments in kernel launch.");
+            // TODO (b/20758983): Report back to Java and throw an exception
+            return;
+        }
+
+        // TODO (b/20760800): Check in_ptr is not null
+        in_ptr = _env->GetLongArrayElements(ains, nullptr);
+        if (sizeof(RsAllocation) == sizeof(jlong)) {
+            in_allocs = (RsAllocation*)in_ptr;
+
+        } else {
+            // Convert from 64-bit jlong types to the native pointer type.
+
+            in_allocs = (RsAllocation*)alloca(in_len * sizeof(RsAllocation));
+            if (in_allocs == nullptr) {
+                LOG_ERR("Failed launching kernel for lack of memory.");
+                _env->ReleaseLongArrayElements(ains, in_ptr, JNI_ABORT);
+                return;
+            }
+
+            for (int index = in_len; --index >= 0;) {
+                in_allocs[index] = (RsAllocation)in_ptr[index];
+            }
+        }
+    }
+
+    jint   param_len = 0;
+    jbyte *param_ptr = nullptr;
+
+    if (params != nullptr) {
+        param_len = _env->GetArrayLength(params);
+        param_ptr = _env->GetByteArrayElements(params, nullptr);
+    }
+
+    RsScriptCall sc, *sca = nullptr;
+    uint32_t sc_size = 0;
+
+    jint  limit_len = 0;
+    jint *limit_ptr = nullptr;
+
+    if (limits != nullptr) {
+        limit_len = _env->GetArrayLength(limits);
+        limit_ptr = _env->GetIntArrayElements(limits, nullptr);
+
+        if (limit_len != 6) {
+            LOG_ERR("LaunchOptions cannot be recognized.");
+            goto exit;
+        }
+
+        sc.xStart     = limit_ptr[0];
+        sc.xEnd       = limit_ptr[1];
+        sc.yStart     = limit_ptr[2];
+        sc.yEnd       = limit_ptr[3];
+        sc.zStart     = limit_ptr[4];
+        sc.zEnd       = limit_ptr[5];
+        sc.strategy   = RS_FOR_EACH_STRATEGY_DONT_CARE;
+        sc.arrayStart = 0;
+        sc.arrayEnd = 0;
+        sc.array2Start = 0;
+        sc.array2End = 0;
+        sc.array3Start = 0;
+        sc.array3End = 0;
+        sc.array4Start = 0;
+        sc.array4End = 0;
+
+        sca = &sc;
+    }
+
+    dispatchTabInc.ScriptForEachMulti((RsContext)con, (RsScript)script, slot,
+                                      in_allocs, in_len, (RsAllocation)aout,
+                                      param_ptr, param_len, sca, sc_size);
+
+exit:
+
+    if (ains != nullptr) {
+        _env->ReleaseLongArrayElements(ains, in_ptr, JNI_ABORT);
+    }
+
+    if (params != nullptr) {
+        _env->ReleaseByteArrayElements(params, param_ptr, JNI_ABORT);
+    }
+
+    if (limits != nullptr) {
+        _env->ReleaseIntArrayElements(limits, limit_ptr, JNI_ABORT);
+    }
+}
+
+static void
+nScriptReduce(JNIEnv *_env, jobject _this, jlong con, jlong script, jint slot,
+              jlongArray ains, jlong aout, jintArray limits)
+{
+    LOG_API("nScriptReduce, con(%p), s(%p), slot(%i) ains(%p) aout(%" PRId64 ")", (RsContext)con, (void *)script, slot, ains, aout);
+
+    if (ains == nullptr) {
+        LOG_ERR("At least one input required.");
+        // TODO (b/20758983): Report back to Java and throw an exception
+        return;
+    }
+    jint in_len = _env->GetArrayLength(ains);
+    if (in_len > (jint)RS_KERNEL_MAX_ARGUMENTS) {
+        LOG_ERR("Too many arguments in kernel launch.");
+        // TODO (b/20758983): Report back to Java and throw an exception
+        return;
+    }
+
+    jlong *in_ptr = _env->GetLongArrayElements(ains, nullptr);
+    if (in_ptr == nullptr) {
+        LOG_ERR("Failed to get Java array elements");
+        // TODO (b/20758983): Report back to Java and throw an exception
+        return;
+    }
+
+    RsAllocation *in_allocs = nullptr;
+    if (sizeof(RsAllocation) == sizeof(jlong)) {
+        in_allocs = (RsAllocation*)in_ptr;
+    } else {
+        // Convert from 64-bit jlong types to the native pointer type.
+
+        in_allocs = (RsAllocation*)alloca(in_len * sizeof(RsAllocation));
+        if (in_allocs == nullptr) {
+            LOG_ERR("Failed launching kernel for lack of memory.");
+            // TODO (b/20758983): Report back to Java and throw an exception
+            _env->ReleaseLongArrayElements(ains, in_ptr, JNI_ABORT);
+            return;
+        }
+
+        for (int index = in_len; --index >= 0;) {
+            in_allocs[index] = (RsAllocation)in_ptr[index];
+        }
+    }
+
+    RsScriptCall sc, *sca = nullptr;
+    uint32_t sc_size = 0;
+
+    jint  limit_len = 0;
+    jint *limit_ptr = nullptr;
+
+    if (limits != nullptr) {
+        limit_len = _env->GetArrayLength(limits);
+        limit_ptr = _env->GetIntArrayElements(limits, nullptr);
+        if (limit_ptr == nullptr) {
+            LOG_ERR("Failed to get Java array elements");
+            // TODO (b/20758983): Report back to Java and throw an exception
+            _env->ReleaseLongArrayElements(ains, in_ptr, JNI_ABORT);
+            return;
+        }
+
+        if (limit_len != 6) {
+            LOG_ERR("LaunchOptions cannot be recognized");
+            // TODO (b/20758983): Report back to Java and throw an exception
+            _env->ReleaseLongArrayElements(ains, in_ptr, JNI_ABORT);
+            return;
+        }
+
+        sc.xStart     = limit_ptr[0];
+        sc.xEnd       = limit_ptr[1];
+        sc.yStart     = limit_ptr[2];
+        sc.yEnd       = limit_ptr[3];
+        sc.zStart     = limit_ptr[4];
+        sc.zEnd       = limit_ptr[5];
+        sc.strategy   = RS_FOR_EACH_STRATEGY_DONT_CARE;
+        sc.arrayStart = 0;
+        sc.arrayEnd = 0;
+        sc.array2Start = 0;
+        sc.array2End = 0;
+        sc.array3Start = 0;
+        sc.array3End = 0;
+        sc.array4Start = 0;
+        sc.array4End = 0;
+
+        sca = &sc;
+        sc_size = sizeof(sc);
+    }
+
+    dispatchTab.ScriptReduce((RsContext)con, (RsScript)script, slot,
+                             in_allocs, in_len, (RsAllocation)aout,
+                             sca, sc_size);
+
+    _env->ReleaseLongArrayElements(ains, in_ptr, JNI_ABORT);
+
+    if (limits != nullptr) {
+        _env->ReleaseIntArrayElements(limits, limit_ptr, JNI_ABORT);
+    }
 }
 
 // -----------------------------------
@@ -1728,42 +1933,75 @@ nScriptGroupCreate(JNIEnv *_env, jobject _this, jlong con, jlongArray _kernels, 
 {
     LOG_API("nScriptGroupCreate, con(%p)", (RsContext)con);
 
+    jlong id = 0;
+
+    RsScriptKernelID* kernelsPtr;
     jint kernelsLen = _env->GetArrayLength(_kernels);
     jlong *jKernelsPtr = _env->GetLongArrayElements(_kernels, nullptr);
-    RsScriptKernelID* kernelsPtr = (RsScriptKernelID*) malloc(sizeof(RsScriptKernelID) * kernelsLen);
+
+    RsScriptKernelID* srcPtr;
+    jint srcLen = _env->GetArrayLength(_src);
+    jlong *jSrcPtr = _env->GetLongArrayElements(_src, nullptr);
+
+    RsScriptKernelID* dstkPtr;
+    jint dstkLen = _env->GetArrayLength(_dstk);
+    jlong *jDstkPtr = _env->GetLongArrayElements(_dstk, nullptr);
+
+    RsScriptKernelID* dstfPtr;
+    jint dstfLen = _env->GetArrayLength(_dstf);
+    jlong *jDstfPtr = _env->GetLongArrayElements(_dstf, nullptr);
+
+    RsType* typesPtr;
+    jint typesLen = _env->GetArrayLength(_types);
+    jlong *jTypesPtr = _env->GetLongArrayElements(_types, nullptr);
+
+    if (jKernelsPtr == nullptr) {
+        LOG_ERR("Failed to get Java array elements: kernels");
+        goto cleanup;
+    }
+    if (jSrcPtr == nullptr) {
+        LOG_ERR("Failed to get Java array elements: src");
+        goto cleanup;
+    }
+    if (jDstkPtr == nullptr) {
+        LOG_ERR("Failed to get Java array elements: dstk");
+        goto cleanup;
+    }
+    if (jDstfPtr == nullptr) {
+        LOG_ERR("Failed to get Java array elements: dstf");
+        goto cleanup;
+    }
+    if (jTypesPtr == nullptr) {
+        LOG_ERR("Failed to get Java array elements: types");
+        goto cleanup;
+    }
+
+    kernelsPtr = (RsScriptKernelID*) malloc(sizeof(RsScriptKernelID) * kernelsLen);
     for(int i = 0; i < kernelsLen; ++i) {
         kernelsPtr[i] = (RsScriptKernelID)jKernelsPtr[i];
     }
 
-    jint srcLen = _env->GetArrayLength(_src);
-    jlong *jSrcPtr = _env->GetLongArrayElements(_src, nullptr);
-    RsScriptKernelID* srcPtr = (RsScriptKernelID*) malloc(sizeof(RsScriptKernelID) * srcLen);
+    srcPtr = (RsScriptKernelID*) malloc(sizeof(RsScriptKernelID) * srcLen);
     for(int i = 0; i < srcLen; ++i) {
         srcPtr[i] = (RsScriptKernelID)jSrcPtr[i];
     }
 
-    jint dstkLen = _env->GetArrayLength(_dstk);
-    jlong *jDstkPtr = _env->GetLongArrayElements(_dstk, nullptr);
-    RsScriptKernelID* dstkPtr = (RsScriptKernelID*) malloc(sizeof(RsScriptKernelID) * dstkLen);
+    dstkPtr = (RsScriptKernelID*) malloc(sizeof(RsScriptKernelID) * dstkLen);
     for(int i = 0; i < dstkLen; ++i) {
         dstkPtr[i] = (RsScriptKernelID)jDstkPtr[i];
     }
 
-    jint dstfLen = _env->GetArrayLength(_dstf);
-    jlong *jDstfPtr = _env->GetLongArrayElements(_dstf, nullptr);
-    RsScriptKernelID* dstfPtr = (RsScriptKernelID*) malloc(sizeof(RsScriptKernelID) * dstfLen);
+    dstfPtr = (RsScriptKernelID*) malloc(sizeof(RsScriptKernelID) * dstfLen);
     for(int i = 0; i < dstfLen; ++i) {
         dstfPtr[i] = (RsScriptKernelID)jDstfPtr[i];
     }
 
-    jint typesLen = _env->GetArrayLength(_types);
-    jlong *jTypesPtr = _env->GetLongArrayElements(_types, nullptr);
-    RsType* typesPtr = (RsType*) malloc(sizeof(RsType) * typesLen);
+    typesPtr = (RsType*) malloc(sizeof(RsType) * typesLen);
     for(int i = 0; i < typesLen; ++i) {
         typesPtr[i] = (RsType)jTypesPtr[i];
     }
 
-    jlong id = (jlong)(uintptr_t) dispatchTab.ScriptGroupCreate((RsContext)con,
+    id = (jlong)(uintptr_t) dispatchTab.ScriptGroupCreate((RsContext)con,
                                (RsScriptKernelID *)kernelsPtr, kernelsLen * sizeof(RsScriptKernelID),
                                (RsScriptKernelID *)srcPtr, srcLen * sizeof(RsScriptKernelID),
                                (RsScriptKernelID *)dstkPtr, dstkLen * sizeof(RsScriptKernelID),
@@ -1775,11 +2013,24 @@ nScriptGroupCreate(JNIEnv *_env, jobject _this, jlong con, jlongArray _kernels, 
     free(dstkPtr);
     free(dstfPtr);
     free(typesPtr);
-    _env->ReleaseLongArrayElements(_kernels, jKernelsPtr, 0);
-    _env->ReleaseLongArrayElements(_src, jSrcPtr, 0);
-    _env->ReleaseLongArrayElements(_dstk, jDstkPtr, 0);
-    _env->ReleaseLongArrayElements(_dstf, jDstfPtr, 0);
-    _env->ReleaseLongArrayElements(_types, jTypesPtr, 0);
+
+cleanup:
+    if (jKernelsPtr != nullptr) {
+        _env->ReleaseLongArrayElements(_kernels, jKernelsPtr, 0);
+    }
+    if (jSrcPtr != nullptr) {
+        _env->ReleaseLongArrayElements(_src, jSrcPtr, 0);
+    }
+    if (jDstkPtr != nullptr) {
+        _env->ReleaseLongArrayElements(_dstk, jDstkPtr, 0);
+    }
+    if (jDstfPtr != nullptr) {
+        _env->ReleaseLongArrayElements(_dstf, jDstfPtr, 0);
+    }
+    if (jTypesPtr != nullptr) {
+        _env->ReleaseLongArrayElements(_types, jTypesPtr, 0);
+    }
+
     return id;
 }
 
@@ -1831,19 +2082,34 @@ nSystemGetPointerSize(JNIEnv *_env, jobject _this) {
 
 // ---------------------------------------------------------------------------
 // For Incremental Intrinsic Support
-static jboolean nIncLoadSO(JNIEnv *_env, jobject _this, jint deviceApi) {
+static jboolean nIncLoadSO(JNIEnv *_env, jobject _this, jint deviceApi, jstring libPath) {
     void* handle = NULL;
-    handle = dlopen("libRSSupport.so", RTLD_LAZY | RTLD_LOCAL);
+    // For API 9+, dlopen the full path of libRSSupport.
+    if (libPath != NULL) {
+        const char * libPathJni = _env->GetStringUTFChars(libPath, JNI_FALSE);
+        handle = dlopen(libPathJni, RTLD_LAZY | RTLD_LOCAL);
+        _env->ReleaseStringUTFChars(libPath, libPathJni);
+    } else {
+        handle = dlopen("libRSSupport.so", RTLD_LAZY | RTLD_LOCAL);
+    }
+
     if (handle == NULL) {
-        LOG_API("couldn't dlopen %s, %s", filename, dlerror());
+        LOG_ERR("couldn't dlopen %s;  librsjni version: %d", dlerror(), RS_JNI_VERSION);
         return false;
     }
 
     if (loadSymbols(handle, dispatchTabInc, deviceApi) == false) {
-        LOG_API("%s init failed!", filename);
+        LOG_ERR("Dispatch Table init failed! librsjni version: %d", RS_JNI_VERSION);
+        dlclose(handle);
         return false;
     }
-    LOG_API("Successfully loaded %s", filename);
+    dispatchTabInc.AllocationCreateStrided = (AllocationCreateStridedFnPtr)dlsym(handle, "rsAllocationCreateStrided");
+    if (dispatchTabInc.AllocationCreateStrided == NULL) {
+        LOG_ERR("Couldn't initialize dispatchTabInc.AllocationCreateStrided");
+        dlclose(handle);
+        return false;
+    }
+    LOG_API("Successfully loaded compat runtime");
     return true;
 }
 
@@ -1921,7 +2187,7 @@ nIncTypeCreate(JNIEnv *_env, jobject _this, jlong con, jlong eid,
 // -----------------------------------
 // Create Allocation from pointer
 static jlong
-nIncAllocationCreateTyped(JNIEnv *_env, jobject _this, jlong con, jlong incCon, jlong alloc, jlong type)
+nIncAllocationCreateTyped(JNIEnv *_env, jobject _this, jlong con, jlong incCon, jlong alloc, jlong type, jint xBytesSize)
 {
     LOG_API("nAllocationCreateTyped, con(%p), type(%p), mip(%i), usage(%i), ptr(%p)",
             incCon, (RsElement)type, mips, usage, (void *)pointer);
@@ -1932,12 +2198,68 @@ nIncAllocationCreateTyped(JNIEnv *_env, jobject _this, jlong con, jlong incCon, 
         pIn = dispatchTab.AllocationGetPointer((RsContext)con, (RsAllocation)alloc, 0,
                                                RS_ALLOCATION_CUBEMAP_FACE_POSITIVE_X, 0, 0,
                                                &strideIn, sizeof(size_t));
-        ainI = dispatchTabInc.AllocationCreateTyped((RsContext)incCon, (RsType)type,
-                                                    RS_ALLOCATION_MIPMAP_NONE,
-                                                    RS_ALLOCATION_USAGE_SCRIPT | RS_ALLOCATION_USAGE_SHARED,
-                                                    (uintptr_t)pIn);
+        /*
+         * By definition stride is a roundup of xBytesSize with requiredAlignment, so requiredAlignment must
+         * be strictly larger than the difference of (stride - xBytesSize).
+         *
+         * We can prove that as long as requiredAlignment satisfies the following two conditions, the
+         * memory layout will be identical :
+         * 1. Smaller or equal than stride;
+         * 2. Larger than minRequiredAlignment.
+         *
+         * In this case we can simply choose the first power of 2 that satisfies both conditions.
+         */
+        size_t requiredAlignment = 16;
+        size_t minRequiredAlignment = strideIn - xBytesSize;
+        while (requiredAlignment <= minRequiredAlignment) {
+            requiredAlignment <<= 1;
+        }
+        ainI = dispatchTabInc.AllocationCreateStrided((RsContext)incCon, (RsType)type,
+                                                      RS_ALLOCATION_MIPMAP_NONE,
+                                                      RS_ALLOCATION_USAGE_INCREMENTAL_SUPPORT | RS_ALLOCATION_USAGE_SHARED,
+                                                      (uintptr_t)pIn, requiredAlignment);
     }
     return (jlong)(uintptr_t) ainI;
+}
+
+static jobject
+nAllocationGetByteBuffer(JNIEnv *_env, jobject _this, jlong con, jlong alloc, jint xBytesSize, jint dimY, jint dimZ)
+{
+    LOG_API("nAllocationGetByteBuffer, con(%p), alloc(%p)", (RsContext)con, (RsAllocation)alloc);
+    size_t strideIn = xBytesSize;
+    void* ptr = NULL;
+    if (alloc != 0 && dispatchTab.AllocationGetPointer != nullptr) {
+        ptr = dispatchTab.AllocationGetPointer((RsContext)con, (RsAllocation)alloc, 0,
+                                               RS_ALLOCATION_CUBEMAP_FACE_POSITIVE_X, dimZ, 0,
+                                               &strideIn, sizeof(size_t));
+    }
+    if (ptr != NULL) {
+        size_t bufferSize = strideIn;
+        if (dimY > 0) {
+            bufferSize *= dimY;
+        }
+        if (dimZ > 0) {
+            bufferSize *= dimZ;
+        }
+        jobject byteBuffer = _env->NewDirectByteBuffer(ptr, (jlong) bufferSize);
+        return byteBuffer;
+    } else {
+        return NULL;
+    }
+}
+
+static jlong
+nAllocationGetStride(JNIEnv *_env, jobject _this, jlong con, jlong alloc)
+{
+    LOG_API("nAllocationGetStride, con(%p), alloc(%p)", (RsContext)con, (RsAllocation)alloc);
+    size_t strideIn;
+    void* ptr = NULL;
+    if (alloc != 0 && dispatchTab.AllocationGetPointer != nullptr) {
+        ptr = dispatchTab.AllocationGetPointer((RsContext)con, (RsAllocation)alloc, 0,
+                                               RS_ALLOCATION_CUBEMAP_FACE_POSITIVE_X, 0, 0,
+                                               &strideIn, sizeof(size_t));
+    }
+    return (jlong)strideIn;
 }
 
 // ---------------------------------------------------------------------------
@@ -1946,7 +2268,7 @@ nIncAllocationCreateTyped(JNIEnv *_env, jobject _this, jlong con, jlong incCon, 
 static const char *classPathName = "android/support/v8/renderscript/RenderScript";
 
 static JNINativeMethod methods[] = {
-{"nLoadSO",                        "(ZI)Z",                                   (bool*)nLoadSO },
+{"nLoadSO",                        "(ZILjava/lang/String;)Z",                 (bool*)nLoadSO },
 {"nLoadIOSO",                      "()Z",                                     (bool*)nLoadIOSO },
 {"nDeviceCreate",                  "()J",                                     (void*)nDeviceCreate },
 {"nDeviceDestroy",                 "(J)V",                                    (void*)nDeviceDestroy },
@@ -2010,8 +2332,10 @@ static JNINativeMethod methods[] = {
 {"rsnScriptInvokeV",                 "(JJI[BZ)V",                             (void*)nScriptInvokeV },
 {"rsnScriptForEach",                 "(JJJIJJZ)V",                            (void*)nScriptForEach },
 {"rsnScriptForEach",                 "(JJJIJJ[BZ)V",                          (void*)nScriptForEachV },
+{"rsnScriptForEach",                 "(JJI[JJ[B[I)V",                         (void*)nScriptForEachMulti },
 {"rsnScriptForEachClipped",          "(JJJIJJIIIIIIZ)V",                      (void*)nScriptForEachClipped },
 {"rsnScriptForEachClipped",          "(JJJIJJ[BIIIIIIZ)V",                    (void*)nScriptForEachClippedV },
+{"rsnScriptReduce",                  "(JJI[JJ[I)V",                           (void*)nScriptReduce },
 {"rsnScriptSetVarI",                 "(JJIIZ)V",                              (void*)nScriptSetVarI },
 {"rsnScriptSetVarJ",                 "(JJIJZ)V",                              (void*)nScriptSetVarJ },
 {"rsnScriptSetVarF",                 "(JJIFZ)V",                              (void*)nScriptSetVarF },
@@ -2044,7 +2368,7 @@ static JNINativeMethod methods[] = {
 {"rsnSystemGetPointerSize",          "()I",                                   (void*)nSystemGetPointerSize },
 
 // Entry points for Inc libRSSupport
-{"nIncLoadSO",                       "(I)Z",                                  (bool*)nIncLoadSO },
+{"nIncLoadSO",                       "(ILjava/lang/String;)Z",                (bool*)nIncLoadSO },
 {"nIncDeviceCreate",                 "()J",                                   (void*)nIncDeviceCreate },
 {"nIncDeviceDestroy",                "(J)V",                                  (void*)nIncDeviceDestroy },
 {"rsnIncContextCreate",              "(JIII)J",                               (void*)nIncContextCreate },
@@ -2053,7 +2377,9 @@ static JNINativeMethod methods[] = {
 {"rsnIncObjDestroy",                 "(JJ)V",                                 (void*)nIncObjDestroy },
 {"rsnIncElementCreate",              "(JJIZI)J",                              (void*)nIncElementCreate },
 {"rsnIncTypeCreate",                 "(JJIIIZZI)J",                           (void*)nIncTypeCreate },
-{"rsnIncAllocationCreateTyped",      "(JJJJ)J",                               (void*)nIncAllocationCreateTyped },
+{"rsnIncAllocationCreateTyped",      "(JJJJI)J",                              (void*)nIncAllocationCreateTyped },
+{"rsnAllocationGetByteBuffer",       "(JJIII)Ljava/nio/ByteBuffer;",          (void*)nAllocationGetByteBuffer },
+{"rsnAllocationGetStride",           "(JJ)J",                                 (void*)nAllocationGetStride },
 };
 
 // ---------------------------------------------------------------------------

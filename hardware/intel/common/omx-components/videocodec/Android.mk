@@ -66,6 +66,9 @@ ifeq ($(TARGET_BOARD_PLATFORM),baytrail)
 LOCAL_CFLAGS += -DUSE_GEN_HW
 endif
 
+# TODO: Fix this.
+LOCAL_CFLAGS += -Wno-error=unused-variable
+
 include $(BUILD_SHARED_LIBRARY)
 
 ################################################################################
@@ -134,6 +137,9 @@ ifeq ($(TARGET_BOARD_PLATFORM),baytrail)
 LOCAL_CFLAGS += -DUSE_X_TILE
 endif
 
+# TODO: Fix this.
+LOCAL_CFLAGS += -Wno-error=unused-variable
+
 include $(BUILD_SHARED_LIBRARY)
 endif
 
@@ -193,6 +199,10 @@ endif
 ifeq ($(TARGET_BOARD_PLATFORM),baytrail)
 LOCAL_CFLAGS += -DUSE_GEN_HW
 endif
+
+# TODO: Fix this.
+LOCAL_CFLAGS += -Wno-error=unused-variable
+
 include $(BUILD_SHARED_LIBRARY)
 
 # VP9 hybrid decoder and HW Render
@@ -218,6 +228,8 @@ LOCAL_C_INCLUDES := \
 
 ifeq ($(TARGET_BOARD_PLATFORM),baytrail)
     LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/ufo
+else
+    LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/pvr/hal
 endif
 
 LOCAL_SRC_FILES := \
@@ -244,6 +256,10 @@ endif
 ifeq ($(TARGET_BOARD_PLATFORM),baytrail)
 LOCAL_CFLAGS += -DUSE_GEN_HW
 endif
+
+# TODO: Fix this.
+LOCAL_CFLAGS += -Wno-error=unused-variable
+
 include $(BUILD_SHARED_LIBRARY)
 endif
 
@@ -300,6 +316,9 @@ endif
 ifeq ($(TARGET_BOARD_PLATFORM),baytrail)
 LOCAL_CFLAGS += -DUSE_GEN_HW
 endif
+
+# TODO: Fix this.
+LOCAL_CFLAGS += -Wno-error=unused-variable
 
 include $(BUILD_SHARED_LIBRARY)
 
@@ -358,6 +377,9 @@ endif
 ifeq ($(TARGET_BOARD_PLATFORM),baytrail)
 LOCAL_CFLAGS += -DUSE_GEN_HW
 endif
+
+# TODO: Fix this.
+LOCAL_CFLAGS += -Wno-error=unused-variable
 
 include $(BUILD_SHARED_LIBRARY)
 
@@ -420,6 +442,9 @@ ifeq ($(TARGET_BOARD_PLATFORM),baytrail)
 LOCAL_CFLAGS += -DUSE_GEN_HW
 endif
 
+# TODO: Fix this.
+LOCAL_CFLAGS += -Wno-error=unused-variable
+
 include $(BUILD_SHARED_LIBRARY)
 
 ################################################################################
@@ -438,7 +463,8 @@ LOCAL_SHARED_LIBRARIES := \
     libva_videodecoder \
     liblog \
     libva \
-    libva-android
+    libva-android \
+    libcutils
 
 LOCAL_C_INCLUDES := \
     $(TARGET_OUT_HEADERS)/wrs_omxil_core \
@@ -466,6 +492,9 @@ endif
 LOCAL_CFLAGS += -Werror
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := libOMXVideoDecoderAVCSecure
+
+# TODO: Fix this.
+LOCAL_CFLAGS += -Wno-error=unused-variable
 
 include $(BUILD_SHARED_LIBRARY)
 
@@ -516,6 +545,9 @@ ifeq ($(TARGET_BOARD_PLATFORM),moorefield)
 LOCAL_CFLAGS += -DVED_TILING
 LOCAL_CFLAGS += -DUSE_META_DATA
 endif
+
+# TODO: Fix this.
+LOCAL_CFLAGS += -Wno-error=unused-variable
 
 include $(BUILD_SHARED_LIBRARY)
 endif
@@ -681,6 +713,9 @@ endif
 ifeq ($(TARGET_BOARD_PLATFORM),moorefield)
 LOCAL_CFLAGS += -DVED_TILING
 endif
+
+# TODO: Fix this.
+LOCAL_CFLAGS += -Wno-error=unused-variable
 
 include $(BUILD_SHARED_LIBRARY)
 

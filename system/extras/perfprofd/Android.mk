@@ -29,6 +29,7 @@ LOCAL_SRC_FILES :=  \
 	quipper/perf_reader.cc \
 	quipper/perf_parser.cc \
 	perf_data_converter.cc \
+	configreader.cc \
 	cpuconfig.cc \
 	perfprofdcore.cc \
 
@@ -66,6 +67,7 @@ LOCAL_MODULE := perfprofd
 LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)
 LOCAL_MODULE_TAGS := debug
 LOCAL_SHARED_LIBRARIES += libcutils
+LOCAL_INIT_RC := perfprofd.rc
 include $(BUILD_EXECUTABLE)
 
 # Clean temp vars

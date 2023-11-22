@@ -26,50 +26,35 @@
  ***********************************************************************************/
 #define LOG_TAG "bt_btif_hl"
 
+#include "btif_hl.h"
+
 #include <assert.h>
 #include <ctype.h>
-#include <cutils/sockets.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <hardware/bluetooth.h>
-#include <hardware/bt_hl.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/poll.h>
+#include <sys/prctl.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
 #include <time.h>
 #include <unistd.h>
-#include <pthread.h>
-#include <signal.h>
-#include <ctype.h>
-#include <sys/select.h>
-#include <sys/poll.h>
-#include <sys/prctl.h>
-#include <cutils/sockets.h>
-#include <cutils/log.h>
 
-#include <hardware/bluetooth.h>
 #include <hardware/bt_hl.h>
 
-#include "btif_common.h"
-#include "btif_util.h"
-#include "gki.h"
 #include "bta_api.h"
-#include "bta_hl_api.h"
 #include "btif_common.h"
-#include "btif_hl.h"
 #include "btif_storage.h"
 #include "btif_util.h"
 #include "btu.h"
-#include "gki.h"
-#include "osi/include/list.h"
 #include "mca_api.h"
+#include "osi/include/list.h"
 #include "osi/include/log.h"
 
 #define MAX_DATATYPE_SUPPORTED 8
@@ -84,6 +69,8 @@ extern void btif_hl_soc_thread_init(void);
 extern void btif_hl_release_mcl_sockets(UINT8 app_idx, UINT8 mcl_idx);
 extern BOOLEAN btif_hl_create_socket(UINT8 app_idx, UINT8 mcl_idx, UINT8 mdl_idx);
 extern void btif_hl_release_socket(UINT8 app_idx, UINT8 mcl_idx, UINT8 mdl_idx);
+
+extern fixed_queue_t *btu_general_alarm_queue;
 
 btif_hl_cb_t btif_hl_cb;
 btif_hl_cb_t *p_btif_hl_cb = &btif_hl_cb;
@@ -128,7 +115,6 @@ static void btif_hl_proc_cb_evt(UINT16 event, char* p_param);
         ASSERTC(0, "Callback is NULL", 0);  \
     }
 
-
 #define BTIF_HL_CALL_CBACK(P_CB, P_CBACK, ...)\
      if((p_btif_hl_cb->state != BTIF_HL_STATE_DISABLING) &&\
          (p_btif_hl_cb->state != BTIF_HL_STATE_DISABLED))  \
@@ -141,7 +127,6 @@ static void btif_hl_proc_cb_evt(UINT16 event, char* p_param);
         }                                                  \
     }
 
-
 #define CHECK_BTHL_INIT() if (bt_hl_callbacks == NULL)\
     {\
         BTIF_TRACE_WARNING("BTHL: %s: BTHL not initialized", __FUNCTION__);\
@@ -151,7 +136,6 @@ static void btif_hl_proc_cb_evt(UINT16 event, char* p_param);
     {\
         BTIF_TRACE_EVENT("BTHL: %s", __FUNCTION__);\
     }
-
 
 static const btif_hl_data_type_cfg_t data_type_table[] = {
     /* Data Specilization                   Ntx     Nrx (from Bluetooth SIG's HDP whitepaper)*/
@@ -186,7 +170,8 @@ void btif_hl_display_calling_process_name(void)
     prctl(BTIF_IF_GET_NAME, name, 0, 0, 0);
     BTIF_TRACE_DEBUG("Process name (%s)", name);
 }
-#define BTIF_TIMEOUT_CCH_NO_DCH_SECS   30
+#define BTIF_TIMEOUT_CCH_NO_DCH_MS   (30 * 1000)
+
 /*******************************************************************************
 **
 ** Function      btif_hl_if_channel_setup_pending
@@ -280,43 +265,26 @@ UINT8 btif_hl_num_dchs_in_use(UINT8 mcl_handle){
 }
 /*******************************************************************************
 **
-** Function      btif_hl_tmr_hdlr
+** Function      btif_hl_timer_timeout
 **
 ** Description   Process timer timeout
 **
 ** Returns      void
 *******************************************************************************/
-void btif_hl_tmr_hdlr(TIMER_LIST_ENT *tle)
+void btif_hl_timer_timeout(void *data)
 {
-    btif_hl_mcl_cb_t    *p_mcb;
-    UINT8               i,j;
-    BTIF_TRACE_DEBUG("%s timer_in_use=%d",  __FUNCTION__, tle->in_use );
+    btif_hl_mcl_cb_t    *p_mcb = (btif_hl_mcl_cb_t *)data;
 
-    for (i=0; i < BTA_HL_NUM_APPS ; i ++)
-    {
-        for (j=0; j< BTA_HL_NUM_MCLS; j++)
-        {
-            p_mcb =BTIF_HL_GET_MCL_CB_PTR(i,j);
-
-            if (p_mcb->cch_timer_active)
-            {
-                BTIF_TRACE_DEBUG("%app_idx=%d, mcl_idx=%d mcl-connected=%d",
-                                  i, j,  p_mcb->is_connected);
-                p_mcb->cch_timer_active = FALSE;
-                if (p_mcb->is_connected)
-                {
-                    BTIF_TRACE_DEBUG("Idle timeout Close CCH app_idx=%d mcl_idx=%d mcl_handle=%d",
-                                      i ,j, p_mcb->mcl_handle);
-                    BTA_HlCchClose(p_mcb->mcl_handle);
-                }
-                else
-                {
-                    BTIF_TRACE_DEBUG("CCH idle timeout But CCH not connected app_idx=%d mcl_idx=%d ",i,j);
-                }
-            }
-        }
+    BTIF_TRACE_DEBUG("%s", __func__);
+    if (p_mcb->is_connected) {
+        BTIF_TRACE_DEBUG("Idle timeout Close CCH mcl_handle=%d",
+                         p_mcb->mcl_handle);
+        BTA_HlCchClose(p_mcb->mcl_handle);
+    } else {
+        BTIF_TRACE_DEBUG("CCH idle timeout But CCH not connected");
     }
 }
+
 /*******************************************************************************
 **
 ** Function      btif_hl_stop_cch_timer
@@ -328,16 +296,11 @@ void btif_hl_tmr_hdlr(TIMER_LIST_ENT *tle)
 void btif_hl_stop_cch_timer(UINT8 app_idx, UINT8 mcl_idx)
 {
     btif_hl_mcl_cb_t    *p_mcb = BTIF_HL_GET_MCL_CB_PTR(app_idx, mcl_idx);
-    BTIF_TRACE_DEBUG("%s app_idx=%d, mcl_idx=%d timer_in_use=%d",
-                      __FUNCTION__,app_idx, mcl_idx, p_mcb->cch_timer.in_use);
 
-    p_mcb->cch_timer_active = FALSE;
-    if (p_mcb->cch_timer.in_use)
-    {
-        BTIF_TRACE_DEBUG("stop CCH timer ");
-        btu_stop_timer(&p_mcb->cch_timer);
-    }
+    BTIF_TRACE_DEBUG("%s app_idx=%d, mcl_idx=%d", __func__, app_idx, mcl_idx);
+    alarm_cancel(p_mcb->cch_timer);
 }
+
 /*******************************************************************************
 **
 ** Function      btif_hl_start_cch_timer
@@ -349,28 +312,15 @@ void btif_hl_stop_cch_timer(UINT8 app_idx, UINT8 mcl_idx)
 void btif_hl_start_cch_timer(UINT8 app_idx, UINT8 mcl_idx)
 {
     btif_hl_mcl_cb_t    *p_mcb = BTIF_HL_GET_MCL_CB_PTR(app_idx, mcl_idx);
-    BTIF_TRACE_DEBUG("%s app_idx=%d, mcl_idx=%d  timer_active=%d timer_in_use=%d",
-                      __FUNCTION__,app_idx, mcl_idx,
-                      p_mcb->cch_timer_active, p_mcb->cch_timer.in_use);
+    BTIF_TRACE_DEBUG("%s app_idx=%d, mcl_idx=%d", __func__, app_idx, mcl_idx);
 
-    p_mcb->cch_timer_active = TRUE;
-    if (!p_mcb->cch_timer.in_use)
-    {
-        BTIF_TRACE_DEBUG("Start CCH timer ");
-        memset(&p_mcb->cch_timer, 0, sizeof(TIMER_LIST_ENT));
-        p_mcb->cch_timer.param = (UINT32)btif_hl_tmr_hdlr;
-        btu_start_timer(&p_mcb->cch_timer, BTU_TTYPE_USER_FUNC,
-                        BTIF_TIMEOUT_CCH_NO_DCH_SECS);
-    }
-    else
-    {
-        BTIF_TRACE_DEBUG("Restart CCH timer ");
-        btu_stop_timer(&p_mcb->cch_timer);
-        btu_start_timer(&p_mcb->cch_timer, BTU_TTYPE_USER_FUNC,
-                        BTIF_TIMEOUT_CCH_NO_DCH_SECS);
-    }
-
+    alarm_free(p_mcb->cch_timer);
+    p_mcb->cch_timer = alarm_new("btif_hl.mcl_cch_timer");
+    alarm_set_on_queue(p_mcb->cch_timer, BTIF_TIMEOUT_CCH_NO_DCH_MS,
+                       btif_hl_timer_timeout, p_mcb,
+                       btu_general_alarm_queue);
 }
+
 /*******************************************************************************
 **
 ** Function      btif_hl_find_mdl_idx
@@ -405,54 +355,6 @@ static BOOLEAN btif_hl_find_mdl_idx(UINT8 app_idx, UINT8 mcl_idx, UINT16 mdl_id,
     return found;
 }
 
-/*******************************************************************************
-**
-** Function      btif_hl_get_buf
-**
-** Description   get buffer
-**
-** Returns     void
-**
-*******************************************************************************/
-void * btif_hl_get_buf(UINT16 size)
-{
-    void *p_new;
-
-    BTIF_TRACE_DEBUG("%s", __FUNCTION__);
-    BTIF_TRACE_DEBUG("ret size=%d GKI_MAX_BUF_SIZE=%d",size, 6000);
-
-    if (size < 6000)
-    {
-        p_new = GKI_getbuf(size);
-    }
-    else
-    {
-        BTIF_TRACE_DEBUG("btif_hl_get_buf use HL large data pool");
-        p_new = GKI_getpoolbuf(4);
-    }
-
-    return p_new;
-}
-/*******************************************************************************
-**
-** Function      btif_hl_free_buf
-**
-** Description free buffer
-**
-** Return void
-**
-*******************************************************************************/
-void btif_hl_free_buf(void **p)
-{
-    if (*p != NULL)
-    {
-        BTIF_TRACE_DEBUG("%s OK", __FUNCTION__ );
-        GKI_freebuf(*p);
-        *p = NULL;
-    }
-    else
-        BTIF_TRACE_ERROR("%s NULL pointer",__FUNCTION__ );
-}
 /*******************************************************************************
 **
 ** Function      btif_hl_is_the_first_reliable_existed
@@ -512,7 +414,6 @@ static void btif_hl_clean_pcb(btif_hl_pending_chan_cb_t *p_pcb)
     memset(p_pcb, 0 , sizeof(btif_hl_pending_chan_cb_t));
 }
 
-
 /*******************************************************************************
 **
 ** Function      btif_hl_clean_mdl_cb
@@ -525,11 +426,10 @@ static void btif_hl_clean_pcb(btif_hl_pending_chan_cb_t *p_pcb)
 static void btif_hl_clean_mdl_cb(btif_hl_mdl_cb_t *p_dcb)
 {
     BTIF_TRACE_DEBUG("%s", __FUNCTION__ );
-    btif_hl_free_buf((void **) &p_dcb->p_rx_pkt);
-    btif_hl_free_buf((void **) &p_dcb->p_tx_pkt);
+    osi_free_and_reset((void **)&p_dcb->p_rx_pkt);
+    osi_free_and_reset((void **)&p_dcb->p_tx_pkt);
     memset(p_dcb, 0 , sizeof(btif_hl_mdl_cb_t));
 }
-
 
 /*******************************************************************************
 **
@@ -545,9 +445,9 @@ static void btif_hl_clean_mcl_cb(UINT8 app_idx, UINT8 mcl_idx)
     btif_hl_mcl_cb_t     *p_mcb;
     BTIF_TRACE_DEBUG("%s app_idx=%d, mcl_idx=%d", __FUNCTION__,app_idx, mcl_idx);
     p_mcb = BTIF_HL_GET_MCL_CB_PTR(app_idx, mcl_idx);
+    alarm_free(p_mcb->cch_timer);
     memset(p_mcb, 0, sizeof(btif_hl_mcl_cb_t));
 }
-
 
 /*******************************************************************************
 **
@@ -668,7 +568,6 @@ BOOLEAN btif_hl_is_reconnect_possible(UINT8 app_idx, UINT8 mcl_idx,  int mdep_cf
     UINT16               data_type = p_acb->sup_feature.mdep[mdep_cfg_idx].mdep_cfg.data_cfg[0].data_type;
     tBTA_HL_MDEP_ID      peer_mdep_id = p_dch_open_api->peer_mdep_id;
     UINT8                mdl_idx;
-
 
     BTIF_TRACE_DEBUG("%s app_idx=%d mcl_idx=%d mdep_cfg_idx=%d",
                       __FUNCTION__, app_idx, mcl_idx, mdep_cfg_idx  );
@@ -933,7 +832,8 @@ BOOLEAN btif_hl_cch_open(UINT8 app_id, BD_ADDR bd_addr, UINT16 ctrl_psm,
             if (btif_hl_find_avail_mcl_idx(app_idx, &mcl_idx))
             {
                 p_mcb = BTIF_HL_GET_MCL_CB_PTR(app_idx, mcl_idx);
-                memset(p_mcb,0, sizeof(btif_hl_mcl_cb_t));
+                alarm_free(p_mcb->cch_timer);
+                memset(p_mcb, 0, sizeof(btif_hl_mcl_cb_t));
                 p_mcb->in_use = TRUE;
                 bdcpy(p_mcb->bd_addr, bd_addr);
 
@@ -997,7 +897,6 @@ BOOLEAN btif_hl_cch_open(UINT8 app_id, BD_ADDR bd_addr, UINT16 ctrl_psm,
     }
     return status;
 }
-
 
 /*******************************************************************************
 **
@@ -1123,7 +1022,6 @@ BOOLEAN btif_hl_find_channel_id_using_mdl_id(UINT8 app_idx, tBTA_HL_MDL_ID mdl_i
     return found;
 }
 
-
 /*******************************************************************************
 **
 ** Function      btif_hl_find_mdl_idx_using_handle
@@ -1169,7 +1067,6 @@ BOOLEAN btif_hl_find_mdl_idx_using_handle(tBTA_HL_MDL_HANDLE mdl_handle,
         }
     }
 
-
     BTIF_TRACE_EVENT("%s found=%d app_idx=%d mcl_idx=%d mdl_idx=%d  ",
                       __FUNCTION__,found,i,j,k );
     return found;
@@ -1194,7 +1091,6 @@ static BOOLEAN btif_hl_find_peer_mdep_id(UINT8 app_id, BD_ADDR bd_addr,
     BOOLEAN             found = FALSE;
     tBTA_HL_MDEP_ROLE   peer_mdep_role;
 
-
     BTIF_TRACE_DEBUG("%s app_id=%d local_mdep_role=%d, data_type=%d",
                       __FUNCTION__, app_id, local_mdep_role, data_type);
 
@@ -1202,7 +1098,6 @@ static BOOLEAN btif_hl_find_peer_mdep_id(UINT8 app_id, BD_ADDR bd_addr,
                       bd_addr[0],  bd_addr[1],
                       bd_addr[2],  bd_addr[3],
                       bd_addr[4],  bd_addr[5]);
-
 
     BTIF_TRACE_DEBUG("local_mdep_role=%d", local_mdep_role);
     BTIF_TRACE_DEBUG("data_type=%d", data_type);
@@ -1214,10 +1109,9 @@ static BOOLEAN btif_hl_find_peer_mdep_id(UINT8 app_id, BD_ADDR bd_addr,
 
     if (btif_hl_find_app_idx(app_id, &app_idx) )
     {
-        BTIF_HL_GET_APP_CB_PTR(app_idx);
         if (btif_hl_find_mcl_idx(app_idx, bd_addr, &mcl_idx))
         {
-            p_mcb  =BTIF_HL_GET_MCL_CB_PTR(app_idx, mcl_idx);
+            p_mcb = BTIF_HL_GET_MCL_CB_PTR(app_idx, mcl_idx);
 
             BTIF_TRACE_DEBUG("app_idx=%d mcl_idx=%d",app_idx, mcl_idx);
             BTIF_TRACE_DEBUG("valid_spd_idx=%d sdp_idx=%d",p_mcb->valid_sdp_idx, p_mcb->sdp_idx);
@@ -1227,7 +1121,7 @@ static BOOLEAN btif_hl_find_peer_mdep_id(UINT8 app_id, BD_ADDR bd_addr,
                 num_mdeps = p_rec->num_mdeps;
                 BTIF_TRACE_DEBUG("num_mdeps=%d", num_mdeps);
 
-                for (i=0; i< num_mdeps; i++)
+                for (i = 0; i < num_mdeps; i++)
                 {
                     BTIF_TRACE_DEBUG("p_rec->mdep_cfg[%d].mdep_role=%d",i, p_rec->mdep_cfg[i].mdep_role);
                     BTIF_TRACE_DEBUG("p_rec->mdep_cfg[%d].data_type =%d",i, p_rec->mdep_cfg[i].data_type );
@@ -1281,8 +1175,6 @@ static  BOOLEAN btif_hl_find_mdep_cfg_idx(UINT8 app_idx,  tBTA_HL_MDEP_ID local_
     return found;
 }
 
-
-
 /*******************************************************************************
 **
 ** Function      btif_hl_find_mcl_idx
@@ -1309,7 +1201,6 @@ BOOLEAN btif_hl_find_mcl_idx(UINT8 app_idx, BD_ADDR p_bd_addr, UINT8 *p_mcl_idx)
             break;
         }
     }
-
 
     BTIF_TRACE_DEBUG("%s found=%d idx=%d",__FUNCTION__, found, i);
     return found;
@@ -1388,7 +1279,9 @@ static void btif_hl_free_app_idx(UINT8 app_idx){
     if ((app_idx < BTA_HL_NUM_APPS) && btif_hl_cb.acb[app_idx].in_use )
     {
         btif_hl_cb.acb[app_idx].in_use = FALSE;
-        memset (&btif_hl_cb.acb[app_idx], 0, sizeof(btif_hl_app_cb_t));
+        for (size_t i = 0; i < BTA_HL_NUM_MCLS; i++)
+            alarm_free(btif_hl_cb.acb[app_idx].mcb[i].cch_timer);
+        memset(&btif_hl_cb.acb[app_idx], 0, sizeof(btif_hl_app_cb_t));
     }
 }
 /*******************************************************************************
@@ -1484,14 +1377,12 @@ UINT16  btif_hl_get_max_tx_apdu_size(tBTA_HL_MDEP_ROLE mdep_role,
             max_tx_apdu_size = BTIF_HL_DEFAULT_SRC_RX_APDU_SIZE;
         }
 
-
     }
 
     BTIF_TRACE_DEBUG("%s mdep_role=%d data_type=0x%4x size=%d",
                       __FUNCTION__, mdep_role, data_type, max_tx_apdu_size);
     return max_tx_apdu_size;
 }
-
 
 /*******************************************************************************
 **
@@ -1530,7 +1421,6 @@ UINT16  btif_hl_get_max_rx_apdu_size(tBTA_HL_MDEP_ROLE mdep_role,
             max_rx_apdu_size = BTIF_HL_DEFAULT_SRC_TX_APDU_SIZE;
         }
     }
-
 
     BTIF_TRACE_DEBUG("%s mdep_role=%d data_type=0x%4x size=%d",
                       __FUNCTION__, mdep_role, data_type, max_rx_apdu_size);
@@ -1672,7 +1562,6 @@ static void btif_hl_init_next_app_id(void){
 static void btif_hl_init_next_channel_id(void){
     btif_hl_cb.next_channel_id = 1;
 }
-
 
 /*******************************************************************************
 **
@@ -2102,7 +1991,6 @@ static BOOLEAN btif_hl_find_avail_app_idx(UINT8 *p_idx){
     return found;
 }
 
-
 /*******************************************************************************
 **
 ** Function         btif_hl_proc_dereg_cfm
@@ -2130,7 +2018,9 @@ static void btif_hl_proc_dereg_cfm(tBTA_HL *p_data)
         if (p_data->dereg_cfm.status == BTA_HL_STATUS_OK)
         {
             btif_hl_clean_mdls_using_app_idx(app_idx);
-            memset(p_acb, 0,sizeof(btif_hl_app_cb_t));
+            for (size_t i = 0; i < BTA_HL_NUM_MCLS; i++)
+                alarm_free(p_acb->mcb[i].cch_timer);
+            memset(p_acb, 0, sizeof(btif_hl_app_cb_t));
         }
         else
             state = BTHL_APP_REG_STATE_DEREG_FAILED;
@@ -2198,7 +2088,6 @@ void btif_hl_set_chan_cb_state(UINT8 app_idx, UINT8 mcl_idx, btif_hl_chan_cb_sta
         p_pcb->cb_state = state;
         BTIF_TRACE_DEBUG("%s state %d--->%d",__FUNCTION__, cur_state, state);
     }
-
 
 }
 /*******************************************************************************
@@ -2447,7 +2336,6 @@ static BOOLEAN btif_hl_proc_sdp_query_cfm(tBTA_HL *p_data){
     return status;
 }
 
-
 /*******************************************************************************
 **
 ** Function         btif_hl_proc_cch_open_ind
@@ -2474,6 +2362,7 @@ static void btif_hl_proc_cch_open_ind(tBTA_HL *p_data)
                 if (btif_hl_find_avail_mcl_idx(i, &mcl_idx))
                 {
                     p_mcb = BTIF_HL_GET_MCL_CB_PTR(i, mcl_idx);
+                    alarm_free(p_mcb->cch_timer);
                     memset(p_mcb, 0, sizeof(btif_hl_mcl_cb_t));
                     p_mcb->in_use = TRUE;
                     p_mcb->is_connected = TRUE;
@@ -2592,8 +2481,6 @@ static BOOLEAN btif_hl_proc_cch_open_cfm(tBTA_HL *p_data)
         BTIF_TRACE_DEBUG("app_idx=%d", app_idx);
         if (btif_hl_find_mcl_idx(app_idx, p_data->cch_open_cfm.bd_addr, &mcl_idx))
         {
-            BTIF_HL_GET_APP_CB_PTR(app_idx);
-
             p_mcb = BTIF_HL_GET_MCL_CB_PTR(app_idx, mcl_idx);
             BTIF_TRACE_DEBUG("mcl_idx=%d, mcl_handle=%d", mcl_idx,p_data->cch_open_cfm.mcl_handle);
             p_mcb->mcl_handle = p_data->cch_open_cfm.mcl_handle;
@@ -2656,7 +2543,6 @@ static void btif_hl_proc_cch_close_ind(tBTA_HL *p_data)
 
     btif_hl_clean_mcb_using_handle(p_data->cch_close_ind.mcl_handle);
 }
-
 
 /*******************************************************************************
 **
@@ -2779,9 +2665,6 @@ static void btif_hl_proc_dch_open_ind(tBTA_HL *p_data)
 
     if (btif_hl_find_mcl_idx_using_app_idx(p_data->dch_open_ind.mcl_handle, orig_app_idx, &mcl_idx ))
     {
-        BTIF_HL_GET_APP_CB_PTR(orig_app_idx);
-        BTIF_HL_GET_MCL_CB_PTR(orig_app_idx, mcl_idx);
-
         if (btif_hl_find_avail_mdl_idx(orig_app_idx, mcl_idx, &mdl_idx))
         {
             p_dcb = BTIF_HL_GET_MDL_CB_PTR(orig_app_idx, mcl_idx, mdl_idx);
@@ -2858,8 +2741,6 @@ static BOOLEAN btif_hl_proc_dch_open_cfm(tBTA_HL *p_data)
 
     if (btif_hl_find_mcl_idx_using_app_idx(p_data->dch_open_cfm.mcl_handle, app_idx, &mcl_idx ))
     {
-        BTIF_HL_GET_APP_CB_PTR(app_idx);
-        BTIF_HL_GET_MCL_CB_PTR(app_idx, mcl_idx);
         p_pcb = BTIF_HL_GET_PCB_PTR(app_idx, mcl_idx);
 
         if (btif_hl_find_avail_mdl_idx(app_idx, mcl_idx, &mdl_idx))
@@ -2932,8 +2813,6 @@ static BOOLEAN btif_hl_proc_dch_reconnect_cfm(tBTA_HL *p_data)
 
     if (btif_hl_find_mcl_idx_using_app_idx(p_data->dch_reconnect_cfm.mcl_handle, app_idx, &mcl_idx ))
     {
-        BTIF_HL_GET_APP_CB_PTR(app_idx);
-        BTIF_HL_GET_MCL_CB_PTR(app_idx, mcl_idx);
         p_pcb = BTIF_HL_GET_PCB_PTR(app_idx, mcl_idx);
 
         if (btif_hl_find_avail_mdl_idx(app_idx, mcl_idx, &mdl_idx))
@@ -3011,7 +2890,6 @@ static void btif_hl_proc_dch_reconnect_ind(tBTA_HL *p_data)
         p_acb = BTIF_HL_GET_APP_CB_PTR(app_idx);
         BTIF_TRACE_DEBUG("btif_hl_proc_dch_reconnect_ind: app_idx = %d, mcl_idx = %d",
                                 app_idx, mcl_idx);
-        BTIF_HL_GET_MCL_CB_PTR(app_idx, mcl_idx);
 
         if (btif_hl_find_avail_mdl_idx(app_idx, mcl_idx, &mdl_idx))
         {
@@ -3119,7 +2997,6 @@ static void btif_hl_proc_dch_close_cfm(tBTA_HL *p_data)
     }
 }
 
-
 /*******************************************************************************
 **
 ** Function         btif_hl_proc_abort_ind
@@ -3205,9 +3082,10 @@ static void btif_hl_proc_send_data_cfm(tBTA_HL_MDL_HANDLE mdl_handle,
     if (btif_hl_find_mdl_idx_using_handle(mdl_handle,
                                           &app_idx, &mcl_idx, &mdl_idx ))
     {
-        p_dcb =BTIF_HL_GET_MDL_CB_PTR(app_idx, mcl_idx, mdl_idx);
-        btif_hl_free_buf((void **) &p_dcb->p_tx_pkt);
-        BTIF_TRACE_DEBUG("send success free p_tx_pkt tx_size=%d", p_dcb->tx_size);
+        p_dcb = BTIF_HL_GET_MDL_CB_PTR(app_idx, mcl_idx, mdl_idx);
+        osi_free_and_reset((void **)&p_dcb->p_tx_pkt);
+        BTIF_TRACE_DEBUG("send success free p_tx_pkt tx_size=%d",
+                         p_dcb->tx_size);
         p_dcb->tx_size = 0;
     }
 }
@@ -3228,7 +3106,6 @@ static void btif_hl_proc_dch_cong_ind(tBTA_HL *p_data)
     UINT8                   app_idx, mcl_idx, mdl_idx;
 
     BTIF_TRACE_DEBUG("btif_hl_proc_dch_cong_ind");
-
 
     if (btif_hl_find_mdl_idx_using_handle(p_data->dch_cong_ind.mdl_handle, &app_idx, &mcl_idx, &mdl_idx))
     {
@@ -3262,7 +3139,6 @@ static void btif_hl_proc_reg_request(UINT8 app_idx, UINT8  app_id,
         BTA_HlRegister(app_id, p_reg_param, btif_hl_cback);
 }
 
-
 /*******************************************************************************
 **
 ** Function         btif_hl_proc_cb_evt
@@ -3280,9 +3156,6 @@ static void btif_hl_proc_cb_evt(UINT16 event, char* p_param){
     BOOLEAN                         send_chan_cb=TRUE;
     tBTA_HL_REG_PARAM               reg_param;
     btif_hl_app_cb_t                *p_acb;
-    bthl_app_reg_state_t            reg_state = BTHL_APP_REG_STATE_REG_FAILED;
-    UINT8                           preg_idx;
-    bt_status_t                     bt_status;
 
     BTIF_TRACE_DEBUG("%s event %d", __FUNCTION__, event);
     btif_hl_display_calling_process_name();
@@ -3453,7 +3326,6 @@ static void btif_hl_upstreams_evt(UINT16 event, char* p_param){
 
             break;
 
-
         case BTA_HL_CCH_OPEN_CFM_EVT:
             BTIF_TRACE_DEBUG("Rcv BTA_HL_CCH_OPEN_CFM_EVT");
             BTIF_TRACE_DEBUG("app_id=%d,app_handle=%d mcl_handle=%d status =%d",
@@ -3542,7 +3414,6 @@ static void btif_hl_upstreams_evt(UINT16 event, char* p_param){
             }
             break;
 
-
         case BTA_HL_CCH_OPEN_IND_EVT:
             BTIF_TRACE_DEBUG("Rcv BTA_HL_CCH_OPEN_IND_EVT");
             BTIF_TRACE_DEBUG("app_handle=%d mcl_handle=%d",
@@ -3616,7 +3487,6 @@ static void btif_hl_upstreams_evt(UINT16 event, char* p_param){
                               p_data->dch_reconnect_cfm.dch_mode,
                               p_data->dch_reconnect_cfm.mdl_id,
                               p_data->dch_reconnect_cfm.mtu);
-
 
             if (p_data->dch_reconnect_cfm.status == BTA_HL_STATUS_OK)
             {
@@ -3696,7 +3566,6 @@ static void btif_hl_upstreams_evt(UINT16 event, char* p_param){
                               p_data->echo_test_cfm.status );
             /* not supported */
             break;
-
 
         case BTA_HL_DCH_RECONNECT_IND_EVT:
             BTIF_TRACE_DEBUG("Rcv BTA_HL_DCH_RECONNECT_IND_EVT");
@@ -3883,7 +3752,6 @@ static void btif_hl_upstreams_ctrl_evt(UINT16 event, char* p_param){
             {
                 btif_hl_set_state(BTIF_HL_STATE_ENABLED);
 
-
                 for (i=0; i < BTA_HL_NUM_APPS ; i ++)
                 {
                     p_acb = BTIF_HL_GET_APP_CB_PTR(i);
@@ -3910,6 +3778,11 @@ static void btif_hl_upstreams_ctrl_evt(UINT16 event, char* p_param){
 
             if (p_data->disable_cfm.status == BTA_HL_STATUS_OK)
             {
+                for (size_t i = 0; i < BTA_HL_NUM_APPS; i++) {
+                    for (size_t j = 0; j < BTA_HL_NUM_MCLS; j++) {
+                        alarm_free(p_btif_hl_cb->acb[i].mcb[j].cch_timer);
+                    }
+                }
                 memset(p_btif_hl_cb, 0, sizeof(btif_hl_cb_t));
                 btif_hl_set_state(BTIF_HL_STATE_DISABLED);
             }
@@ -3971,7 +3844,6 @@ static bt_status_t connect_channel(int app_id, bt_bdaddr_t *bd_addr, int mdep_cf
     CHECK_BTHL_INIT();
     BTIF_TRACE_EVENT("%s", __FUNCTION__);
     btif_hl_display_calling_process_name();
-
 
     for (i=0; i<6; i++)
     {
@@ -4071,7 +3943,6 @@ static bt_status_t destroy_channel(int channel_id){
     BTIF_TRACE_EVENT("%s channel_id=0x%08x", __FUNCTION__, channel_id);
     btif_hl_display_calling_process_name();
 
-
     if (btif_hl_if_channel_setup_pending(channel_id, &app_idx, &mcl_idx))
     {
         btif_hl_dch_abort(app_idx, mcl_idx);
@@ -4163,7 +4034,6 @@ static bt_status_t unregister_application(int app_id){
     if (btif_hl_find_app_idx(((UINT8)app_id), &app_idx))
     {
         evt_param.unreg.app_idx = app_idx;
-        BTIF_HL_GET_APP_CB_PTR(app_idx);
         reg_counter --;
         len = sizeof(btif_hl_unreg_t);
         status = btif_transfer_context (btif_hl_proc_cb_evt, BTIF_HL_UNREG_APP,
@@ -4217,7 +4087,6 @@ static bt_status_t register_application(bthl_reg_param_t *p_reg_param, int *app_
 
     p_acb = BTIF_HL_GET_APP_CB_PTR(app_idx);
     p_acb->in_use = TRUE;
-
 
     p_acb->app_id = btif_hl_get_next_app_id();
 
@@ -4393,9 +4262,6 @@ BOOLEAN  btif_hl_delete_mdl_cfg(UINT8 mdep_id, UINT8 item_idx){
 
     if(btif_hl_find_app_idx_using_mdepId(mdep_id,&app_idx))
     {
-
-        BTIF_HL_GET_APP_CB_PTR(app_idx);
-
         p_mdl = BTIF_HL_GET_MDL_CFG_PTR(app_idx, item_idx);
         if (p_mdl)
         {
@@ -4468,7 +4334,6 @@ static const bthl_interface_t bthlInterface = {
     destroy_channel,
     cleanup,
 };
-
 
 /*******************************************************************************
 **
@@ -4599,15 +4464,14 @@ void btif_hl_release_socket(UINT8 app_idx, UINT8 mcl_idx, UINT8 mdl_idx){
 BOOLEAN btif_hl_create_socket(UINT8 app_idx, UINT8 mcl_idx, UINT8 mdl_idx){
     btif_hl_mcl_cb_t      *p_mcb = BTIF_HL_GET_MCL_CB_PTR(app_idx, mcl_idx);
     btif_hl_mdl_cb_t      *p_dcb = BTIF_HL_GET_MDL_CB_PTR(app_idx, mcl_idx, mdl_idx);
-    btif_hl_soc_cb_t      *p_scb = NULL;
     BOOLEAN               status = FALSE;
 
     BTIF_TRACE_DEBUG("%s", __FUNCTION__);
 
-    if (p_dcb && ((p_scb = (btif_hl_soc_cb_t *)GKI_getbuf((UINT16)sizeof(btif_hl_soc_cb_t)))!=NULL))
-    {
-        if (socketpair(AF_UNIX, SOCK_STREAM, 0, p_scb->socket_id) >= 0)
-        {
+    if (p_dcb) {
+        btif_hl_soc_cb_t *p_scb =
+            (btif_hl_soc_cb_t *)osi_malloc(sizeof(btif_hl_soc_cb_t));
+        if (socketpair(AF_UNIX, SOCK_STREAM, 0, p_scb->socket_id) >= 0) {
             BTIF_TRACE_DEBUG("socket id[0]=%d id[1]=%d",p_scb->socket_id[0], p_scb->socket_id[1] );
             p_dcb->p_scb = p_scb;
             p_scb->app_idx = app_idx;
@@ -4621,11 +4485,8 @@ BOOLEAN btif_hl_create_socket(UINT8 app_idx, UINT8 mcl_idx, UINT8 mdl_idx){
             list_append(soc_queue, (void *)p_scb);
             btif_hl_select_wakeup();
             status = TRUE;
-        }
-        else
-        {
-
-            btif_hl_free_buf((void **)&p_scb);
+        } else {
+            osi_free_and_reset((void **)&p_scb);
         }
     }
 
@@ -4726,6 +4587,7 @@ void btif_hl_close_socket( fd_set *p_org_set){
         // We may mutate this list so we need keep track of
         // the current node and only remove items behind.
         btif_hl_soc_cb_t *p_scb = list_node(node);
+        BTIF_TRACE_DEBUG("p_scb=0x%x", p_scb);
         node = list_next(node);
         if (btif_hl_get_socket_state(p_scb) == BTIF_HL_SOC_STATE_IDLE) {
             btif_hl_mdl_cb_t *p_dcb = BTIF_HL_GET_MDL_CB_PTR(p_scb->app_idx,
@@ -4733,10 +4595,9 @@ void btif_hl_close_socket( fd_set *p_org_set){
             BTIF_TRACE_DEBUG("idle socket app_idx=%d mcl_id=%d, mdl_idx=%d p_dcb->in_use=%d",
                     p_scb->app_idx, p_scb->mcl_idx, p_scb->mdl_idx, p_dcb->in_use);
             list_remove(soc_queue, p_scb);
-            btif_hl_free_buf((void **)&p_scb);
+            osi_free(p_scb);
             p_dcb->p_scb = NULL;
         }
-        BTIF_TRACE_DEBUG("p_scb=0x%x", p_scb);
     }
     BTIF_TRACE_DEBUG("leaving %s",__FUNCTION__);
 }
@@ -4791,21 +4652,20 @@ void btif_hl_select_monitor_callback(fd_set *p_cur_set ,fd_set *p_org_set) {
                 if (p_dcb->p_tx_pkt) {
                     BTIF_TRACE_ERROR("Rcv new pkt but the last pkt is still not been"
                             "  sent tx_size=%d", p_dcb->tx_size);
-                    btif_hl_free_buf((void **) &p_dcb->p_tx_pkt);
+                    osi_free_and_reset((void **)&p_dcb->p_tx_pkt);
                 }
-                p_dcb->p_tx_pkt = btif_hl_get_buf (p_dcb->mtu);
-                if (p_dcb) {
-                    int r = (int)recv(p_scb->socket_id[1], p_dcb->p_tx_pkt,
-                            p_dcb->mtu, MSG_DONTWAIT);
-                    if (r > 0) {
-                        BTIF_TRACE_DEBUG("btif_hl_select_monitor_callback send data r =%d", r);
-                        p_dcb->tx_size = r;
-                        BTIF_TRACE_DEBUG("btif_hl_select_monitor_callback send data tx_size=%d", p_dcb->tx_size );
-                        BTA_HlSendData(p_dcb->mdl_handle, p_dcb->tx_size);
-                    } else {
-                        BTIF_TRACE_DEBUG("btif_hl_select_monitor_callback receive failed r=%d",r);
-                        BTA_HlDchClose(p_dcb->mdl_handle);
-                    }
+                p_dcb->p_tx_pkt = osi_malloc(p_dcb->mtu);
+                ssize_t r;
+                OSI_NO_INTR(r = recv(p_scb->socket_id[1], p_dcb->p_tx_pkt,
+                                     p_dcb->mtu, MSG_DONTWAIT));
+                if (r > 0) {
+                    BTIF_TRACE_DEBUG("btif_hl_select_monitor_callback send data r =%d", r);
+                    p_dcb->tx_size = r;
+                    BTIF_TRACE_DEBUG("btif_hl_select_monitor_callback send data tx_size=%d", p_dcb->tx_size );
+                    BTA_HlSendData(p_dcb->mdl_handle, p_dcb->tx_size);
+                } else {
+                    BTIF_TRACE_DEBUG("btif_hl_select_monitor_callback receive failed r=%d",r);
+                    BTA_HlDchClose(p_dcb->mdl_handle);
                 }
             }
         }
@@ -4851,8 +4711,13 @@ static inline int btif_hl_select_wakeup_init(fd_set* set){
 *******************************************************************************/
 static inline int btif_hl_select_wakeup(void){
     char sig_on = btif_hl_signal_select_wakeup;
-    BTIF_TRACE_DEBUG("btif_hl_select_wakeup");
-    return send(signal_fds[1], &sig_on, sizeof(sig_on), 0);
+
+    BTIF_TRACE_DEBUG("%s", __func__);
+
+    ssize_t ret;
+    OSI_NO_INTR(ret = send(signal_fds[1], &sig_on, sizeof(sig_on), 0));
+
+    return (int)ret;
 }
 
 /*******************************************************************************
@@ -4866,8 +4731,13 @@ static inline int btif_hl_select_wakeup(void){
 *******************************************************************************/
 static inline int btif_hl_select_close_connected(void){
     char sig_on = btif_hl_signal_select_close_connected;
-    BTIF_TRACE_DEBUG("btif_hl_select_close_connected");
-    return send(signal_fds[1], &sig_on, sizeof(sig_on), 0);
+
+    BTIF_TRACE_DEBUG("%s", __func__);
+
+    ssize_t ret;
+    OSI_NO_INTR(ret = send(signal_fds[1], &sig_on, sizeof(sig_on), 0));
+
+    return (int)ret;
 }
 
 /*******************************************************************************
@@ -4881,10 +4751,13 @@ static inline int btif_hl_select_close_connected(void){
 *******************************************************************************/
 static inline int btif_hl_close_select_thread(void)
 {
-    int result = 0;
+    ssize_t result = 0;
     char sig_on = btif_hl_signal_select_exit;
-    BTIF_TRACE_DEBUG("btif_hl_signal_select_exit");
-    result = send(signal_fds[1], &sig_on, sizeof(sig_on), 0);
+
+    BTIF_TRACE_DEBUG("%", __func__);
+
+    OSI_NO_INTR(result = send(signal_fds[1], &sig_on, sizeof(sig_on), 0));
+
     if (btif_is_enabled())
     {
         /* Wait for the select_thread_id to exit if BT is still enabled
@@ -4895,7 +4768,9 @@ static inline int btif_hl_close_select_thread(void)
         }
     }
     list_free(soc_queue);
-    return result;
+    soc_queue = NULL;
+
+    return (int)result;
 }
 
 /*******************************************************************************
@@ -4910,9 +4785,13 @@ static inline int btif_hl_close_select_thread(void)
 static inline int btif_hl_select_wake_reset(void){
     char sig_recv = 0;
 
-    BTIF_TRACE_DEBUG("btif_hl_select_wake_reset");
-    recv(signal_fds[0], &sig_recv, sizeof(sig_recv), MSG_WAITALL);
-    return(int)sig_recv;
+    BTIF_TRACE_DEBUG("%s", __func__);
+
+    ssize_t r;
+    OSI_NO_INTR(r = recv(signal_fds[0], &sig_recv, sizeof(sig_recv),
+                         MSG_WAITALL));
+
+    return (int)sig_recv;
 }
 /*******************************************************************************
 **
@@ -4976,6 +4855,8 @@ static void *btif_hl_select_thread(void *arg){
         BTIF_TRACE_DEBUG("select unblocked ret=%d", ret);
         if (ret == -1)
         {
+            if (errno == EINTR)
+                continue;
             BTIF_TRACE_DEBUG("select() ret -1, exit the thread");
             btif_hl_thread_cleanup();
             select_thread_id = -1;
@@ -5048,7 +4929,7 @@ void btif_hl_soc_thread_init(void){
     BTIF_TRACE_DEBUG("%s", __FUNCTION__);
     soc_queue = list_new(NULL);
     if (soc_queue == NULL)
-        LOG_ERROR("%s unable to allocate resources for thread", __func__);
+        LOG_ERROR(LOG_TAG, "%s unable to allocate resources for thread", __func__);
     select_thread_id = create_thread(btif_hl_select_thread, NULL);
 }
 /*******************************************************************************

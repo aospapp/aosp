@@ -80,6 +80,7 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
                 + ".443B81C1E8E6D64E4E1555F568BA46C206507D78"
                 + "&key=ik0&user=android-device-test", 176, 144);
     }
+
     public void testHTTP_H263_AMR_Video2() throws Exception {
         if (!MediaUtils.checkDecoder(MediaFormat.MIMETYPE_VIDEO_H263, MediaFormat.MIMETYPE_AUDIO_AMR_NB)) {
             return; // skip
@@ -105,6 +106,7 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
                 + ".7138CE5E36D718220726C1FC305497FF2D082249"
                 + "&key=ik0&user=android-device-test", 176, 144);
     }
+
     public void testHTTP_MPEG4SP_AAC_Video2() throws Exception {
         if (!MediaUtils.checkDecoder(MediaFormat.MIMETYPE_VIDEO_MPEG4)) {
             return; // skip
@@ -130,6 +132,7 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
                 + ".15F46C382C68A9F121BA17BF1F56BEDEB4B06091"
                 + "&key=ik0&user=android-device-test", 640, 360);
     }
+
     public void testHTTP_H264Base_AAC_Video2() throws Exception {
         if (!MediaUtils.checkDecoder(MediaFormat.MIMETYPE_VIDEO_AVC)) {
             return; // skip
@@ -312,6 +315,11 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
     }
 
     public void testPlayHlsStreamWithTimedId3() throws Throwable {
+        if (!MediaUtils.checkDecoder(MediaFormat.MIMETYPE_VIDEO_AVC)) {
+            Log.d(TAG, "Device doesn't have video codec, skipping test");
+            return;
+        }
+
         mServer = new CtsTestServer(mContext);
         try {
             // counter must be final if we want to access it inside onTimedMetaData;

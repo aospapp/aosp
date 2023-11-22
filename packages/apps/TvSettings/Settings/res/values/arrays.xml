@@ -18,10 +18,10 @@
     <!-- Display settings.  The delay in inactivity before the daydream starts. -->
     <string-array name="sleep_timeout_entries">
         <item>5 minutes</item>
-        <item>10 minutes</item>
         <item>15 minutes</item>
         <item>30 minutes</item>
         <item>1 hour</item>
+        <item>2 hours</item>
     </string-array>
 
     <!-- Do not translate. -->
@@ -30,13 +30,13 @@
         <!-- Do not translate. -->
         <item>300000</item>
         <!-- Do not translate. -->
-        <item>600000</item>
-        <!-- Do not translate. -->
         <item>900000</item>
         <!-- Do not translate. -->
         <item>1800000</item>
         <!-- Do not translate. -->
         <item>3600000</item>
+        <!-- Do not translate. -->
+        <item>7200000</item>
     </string-array>
 
     <!-- Display settings.  The delay after the daydream starts when the screen goes off. -->
@@ -81,7 +81,7 @@
 
     <!-- Values for captioning typeface preference. -->
     <string-array name="captioning_typeface_selector_values" translatable="false" >
-        <item></item>
+        <item>default</item>
         <item>sans-serif</item>
         <item>sans-serif-condensed</item>
         <item>sans-serif-monospace</item>
@@ -120,13 +120,13 @@
     </string-array>
 
     <!-- Values for captioning character edge type preference. -->
-    <integer-array name="captioning_edge_type_selector_values" translatable="false" >
+    <string-array name="captioning_edge_type_selector_values" translatable="false" >
         <item>0</item>
         <item>1</item>
         <item>2</item>
         <item>3</item>
         <item>4</item>
-    </integer-array>
+    </string-array>
 
     <!-- Titles for captioning color preference. -->
     <string-array name="captioning_color_selector_titles" translatable="false" >
@@ -218,29 +218,24 @@
     </string-array>
 
     <!-- Values for captioning opacity preference. -->
-    <integer-array name="captioning_opacity_selector_values" translatable="false" >
-        <item>0x40FFFFFF</item>
-        <item>0x80FFFFFF</item>
-        <item>0xC0FFFFFF</item>
-        <item>0xFFFFFFFF</item>
-    </integer-array>
-
-    <!-- Titles for captioning text style preset preference. [CHAR LIMIT=35] -->
-    <string-array name="captioning_preset_selector_titles" >
-        <item>White on black</item>
-        <item>Black on white</item>
-        <item>Yellow on black</item>
-        <item>Yellow on blue</item>
-        <item>Custom</item>
+    <string-array name="captioning_opacity_selector_values" translatable="false" >
+        <item>40FFFFFF</item>
+        <item>80FFFFFF</item>
+        <item>C0FFFFFF</item>
+        <item>FFFFFFFF</item>
     </string-array>
 
-    <!-- Values for captioning text style preset preference. -->
-    <integer-array name="captioning_preset_selector_values" translatable="false" >
-        <item>0</item>
-        <item>1</item>
-        <item>2</item>
-        <item>3</item>
-        <item>-1</item>
-    </integer-array>
+    <!-- List entries for controlling surround sound passthrough setting [CHAR LIMIT=50] -->
+    <string-array name="surround_sound_entries">
+        <item>Auto</item>
+        <item>Always</item>
+        <item>Never</item>
+    </string-array>
 
+    <!-- Entry values for surround sound preference -->
+    <string-array name="surround_sound_entry_values" translatable="false">
+        <item>auto</item>
+        <item>always</item>
+        <item>never</item>
+    </string-array>
 </resources>

@@ -25,8 +25,7 @@ namespace gc {
 namespace collector {
 
 StickyMarkSweep::StickyMarkSweep(Heap* heap, bool is_concurrent, const std::string& name_prefix)
-    : PartialMarkSweep(heap, is_concurrent,
-                       name_prefix.empty() ? "sticky " : name_prefix) {
+    : PartialMarkSweep(heap, is_concurrent, name_prefix.empty() ? "sticky " : name_prefix) {
   cumulative_timings_.SetName(GetName());
 }
 
@@ -57,8 +56,7 @@ void StickyMarkSweep::MarkReachableObjects() {
   RecursiveMarkDirtyObjects(false, accounting::CardTable::kCardDirty - 1);
 }
 
-void StickyMarkSweep::Sweep(bool swap_bitmaps) {
-  UNUSED(swap_bitmaps);
+void StickyMarkSweep::Sweep(bool swap_bitmaps ATTRIBUTE_UNUSED) {
   SweepArray(GetHeap()->GetLiveStack(), false);
 }
 

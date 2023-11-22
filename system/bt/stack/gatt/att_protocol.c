@@ -31,6 +31,8 @@
 
 #define GATT_HDR_FIND_TYPE_VALUE_LEN    21
 #define GATT_OP_CODE_SIZE   1
+#define GATT_START_END_HANDLE_SIZE    4
+
 /**********************************************************************
 **   ATT protocl message building utility                              *
 ***********************************************************************/
@@ -45,19 +47,17 @@
 *******************************************************************************/
 BT_HDR *attp_build_mtu_cmd(UINT8 op_code, UINT16 rx_mtu)
 {
-    BT_HDR      *p_buf = NULL;
-    UINT8       *p;
+    UINT8 *p;
+    BT_HDR *p_buf =
+        (BT_HDR *)osi_malloc(sizeof(BT_HDR) + GATT_HDR_SIZE + L2CAP_MIN_OFFSET);
 
-    if ((p_buf = (BT_HDR *)GKI_getbuf(sizeof(BT_HDR) + GATT_HDR_SIZE + L2CAP_MIN_OFFSET)) != NULL)
-    {
-        p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    UINT8_TO_STREAM(p, op_code);
+    UINT16_TO_STREAM(p, rx_mtu);
 
-        UINT8_TO_STREAM (p, op_code);
-        UINT16_TO_STREAM (p, rx_mtu);
+    p_buf->offset = L2CAP_MIN_OFFSET;
+    p_buf->len = GATT_HDR_SIZE; /* opcode + 2 bytes mtu */
 
-        p_buf->offset = L2CAP_MIN_OFFSET;
-        p_buf->len = GATT_HDR_SIZE; /* opcode + 2 bytes mtu */
-    }
     return p_buf;
 }
 /*******************************************************************************
@@ -71,25 +71,20 @@ BT_HDR *attp_build_mtu_cmd(UINT8 op_code, UINT16 rx_mtu)
 *******************************************************************************/
 BT_HDR *attp_build_exec_write_cmd (UINT8 op_code, UINT8 flag)
 {
-    BT_HDR      *p_buf = NULL;
+    BT_HDR      *p_buf = (BT_HDR *)osi_malloc(GATT_DATA_BUF_SIZE);
     UINT8       *p;
 
-    if ((p_buf = (BT_HDR *)GKI_getpoolbuf(GATT_BUF_POOL_ID)) != NULL)
-    {
-        p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
 
-        p_buf->offset = L2CAP_MIN_OFFSET;
-        p_buf->len = GATT_OP_CODE_SIZE;
+    p_buf->offset = L2CAP_MIN_OFFSET;
+    p_buf->len = GATT_OP_CODE_SIZE;
 
-        UINT8_TO_STREAM (p, op_code);
+    UINT8_TO_STREAM(p, op_code);
 
-        if (op_code == GATT_REQ_EXEC_WRITE)
-        {
-            flag &= GATT_PREP_WRITE_EXEC;
-            UINT8_TO_STREAM (p, flag);
-            p_buf->len += 1;
-        }
-
+    if (op_code == GATT_REQ_EXEC_WRITE) {
+        flag &= GATT_PREP_WRITE_EXEC;
+        UINT8_TO_STREAM (p, flag);
+        p_buf->len += 1;
     }
 
     return p_buf;
@@ -106,22 +101,19 @@ BT_HDR *attp_build_exec_write_cmd (UINT8 op_code, UINT8 flag)
 *******************************************************************************/
 BT_HDR *attp_build_err_cmd(UINT8 cmd_code, UINT16 err_handle, UINT8 reason)
 {
-    BT_HDR      *p_buf = NULL;
-    UINT8       *p;
+    UINT8 *p;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR) + L2CAP_MIN_OFFSET + 5);
 
-    if ((p_buf = (BT_HDR *)GKI_getbuf(sizeof(BT_HDR) + L2CAP_MIN_OFFSET + 5)) != NULL)
-    {
-        p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    UINT8_TO_STREAM(p, GATT_RSP_ERROR);
+    UINT8_TO_STREAM(p, cmd_code);
+    UINT16_TO_STREAM(p, err_handle);
+    UINT8_TO_STREAM(p, reason);
 
-        UINT8_TO_STREAM (p, GATT_RSP_ERROR);
-        UINT8_TO_STREAM (p, cmd_code);
-        UINT16_TO_STREAM(p, err_handle);
-        UINT8_TO_STREAM (p, reason);
+    p_buf->offset = L2CAP_MIN_OFFSET;
+    /* GATT_HDR_SIZE (1B ERR_RSP op code+ 2B handle) + 1B cmd_op_code  + 1B status */
+    p_buf->len = GATT_HDR_SIZE + 1 + 1;
 
-        p_buf->offset = L2CAP_MIN_OFFSET;
-        /* GATT_HDR_SIZE (1B ERR_RSP op code+ 2B handle) + 1B cmd_op_code  + 1B status */
-        p_buf->len = GATT_HDR_SIZE + 1 + 1;
-    }
     return p_buf;
 }
 /*******************************************************************************
@@ -135,24 +127,22 @@ BT_HDR *attp_build_err_cmd(UINT8 cmd_code, UINT16 err_handle, UINT8 reason)
 *******************************************************************************/
 BT_HDR *attp_build_browse_cmd(UINT8 op_code, UINT16 s_hdl, UINT16 e_hdl, tBT_UUID uuid)
 {
-    BT_HDR      *p_buf = NULL;
-    UINT8       *p;
+    const size_t payload_size = (GATT_OP_CODE_SIZE) + (GATT_START_END_HANDLE_SIZE) + (LEN_UUID_128);
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR) + payload_size + L2CAP_MIN_OFFSET);
 
-    if ((p_buf = (BT_HDR *)GKI_getbuf(sizeof(BT_HDR) + 8 + L2CAP_MIN_OFFSET)) != NULL)
-    {
-        p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
-        /* Describe the built message location and size */
-        p_buf->offset = L2CAP_MIN_OFFSET;
-        p_buf->len = GATT_OP_CODE_SIZE + 4;
+    UINT8 *p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    /* Describe the built message location and size */
+    p_buf->offset = L2CAP_MIN_OFFSET;
+    p_buf->len = GATT_OP_CODE_SIZE + 4;
 
-        UINT8_TO_STREAM (p, op_code);
-        UINT16_TO_STREAM (p, s_hdl);
-        UINT16_TO_STREAM (p, e_hdl);
-        p_buf->len += gatt_build_uuid_to_stream(&p, uuid);
-    }
+    UINT8_TO_STREAM(p, op_code);
+    UINT16_TO_STREAM(p, s_hdl);
+    UINT16_TO_STREAM(p, e_hdl);
+    p_buf->len += gatt_build_uuid_to_stream(&p, uuid);
 
     return p_buf;
 }
+
 /*******************************************************************************
 **
 ** Function         attp_build_read_handles_cmd
@@ -164,32 +154,30 @@ BT_HDR *attp_build_browse_cmd(UINT8 op_code, UINT16 s_hdl, UINT16 e_hdl, tBT_UUI
 *******************************************************************************/
 BT_HDR *attp_build_read_by_type_value_cmd (UINT16 payload_size, tGATT_FIND_TYPE_VALUE *p_value_type)
 {
-    BT_HDR      *p_buf = NULL;
-    UINT8       *p;
-    UINT16      len = p_value_type->value_len;
+    UINT8 *p;
+    UINT16 len = p_value_type->value_len;
+    BT_HDR *p_buf =
+        (BT_HDR *)osi_malloc(sizeof(BT_HDR) + payload_size + L2CAP_MIN_OFFSET);
 
-    if ((p_buf = (BT_HDR *)GKI_getbuf((UINT16)(sizeof(BT_HDR) + payload_size + L2CAP_MIN_OFFSET))) != NULL)
-    {
-        p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    p_buf->offset = L2CAP_MIN_OFFSET;
+    p_buf->len = 5; /* opcode + s_handle + e_handle */
 
-        p_buf->offset = L2CAP_MIN_OFFSET;
-        p_buf->len = 5; /* opcode + s_handle + e_handle */
+    UINT8_TO_STREAM(p, GATT_REQ_FIND_TYPE_VALUE);
+    UINT16_TO_STREAM(p, p_value_type->s_handle);
+    UINT16_TO_STREAM(p, p_value_type->e_handle);
 
-        UINT8_TO_STREAM  (p, GATT_REQ_FIND_TYPE_VALUE);
-        UINT16_TO_STREAM (p, p_value_type->s_handle);
-        UINT16_TO_STREAM (p, p_value_type->e_handle);
+    p_buf->len += gatt_build_uuid_to_stream(&p, p_value_type->uuid);
 
-        p_buf->len += gatt_build_uuid_to_stream(&p, p_value_type->uuid);
+    if (p_value_type->value_len +  p_buf->len > payload_size)
+        len = payload_size - p_buf->len;
 
-        if (p_value_type->value_len +  p_buf->len > payload_size )
-            len = payload_size - p_buf->len;
-
-        memcpy (p, p_value_type->value, len);
-        p_buf->len += len;
-    }
+    memcpy(p, p_value_type->value, len);
+    p_buf->len += len;
 
     return p_buf;
 }
+
 /*******************************************************************************
 **
 ** Function         attp_build_read_multi_cmd
@@ -201,23 +189,19 @@ BT_HDR *attp_build_read_by_type_value_cmd (UINT16 payload_size, tGATT_FIND_TYPE_
 *******************************************************************************/
 BT_HDR *attp_build_read_multi_cmd(UINT16 payload_size, UINT16 num_handle, UINT16 *p_handle)
 {
-    BT_HDR      *p_buf = NULL;
-    UINT8       *p, i = 0;
+    UINT8 *p, i = 0;
+    BT_HDR *p_buf =
+        (BT_HDR *)osi_malloc(sizeof(BT_HDR) + num_handle * 2 + 1 + L2CAP_MIN_OFFSET);
 
-    if ((p_buf = (BT_HDR *)GKI_getbuf((UINT16)(sizeof(BT_HDR) + num_handle * 2 + 1 + L2CAP_MIN_OFFSET))) != NULL)
-    {
-        p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    p_buf->offset = L2CAP_MIN_OFFSET;
+    p_buf->len = 1;
 
-        p_buf->offset = L2CAP_MIN_OFFSET;
-        p_buf->len = 1;
+    UINT8_TO_STREAM(p, GATT_REQ_READ_MULTI);
 
-        UINT8_TO_STREAM (p, GATT_REQ_READ_MULTI);
-
-        for (i = 0; i < num_handle && p_buf->len + 2 <= payload_size; i ++)
-        {
-            UINT16_TO_STREAM (p, *(p_handle + i));
-            p_buf->len += 2;
-        }
+    for (i = 0; i < num_handle && p_buf->len + 2 <= payload_size; i ++) {
+      UINT16_TO_STREAM (p, *(p_handle + i));
+      p_buf->len += 2;
     }
 
     return p_buf;
@@ -233,31 +217,27 @@ BT_HDR *attp_build_read_multi_cmd(UINT16 payload_size, UINT16 num_handle, UINT16
 *******************************************************************************/
 BT_HDR *attp_build_handle_cmd(UINT8 op_code, UINT16 handle, UINT16 offset)
 {
-    BT_HDR      *p_buf = NULL;
-    UINT8       *p;
+    UINT8 *p;
+    BT_HDR *p_buf =
+        (BT_HDR *)osi_malloc(sizeof(BT_HDR) + 5 + L2CAP_MIN_OFFSET);
 
-    if ((p_buf = (BT_HDR *)GKI_getbuf(sizeof(BT_HDR) + 5 + L2CAP_MIN_OFFSET)) != NULL)
-    {
-        p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    p_buf->offset = L2CAP_MIN_OFFSET;
 
-        p_buf->offset = L2CAP_MIN_OFFSET;
+    UINT8_TO_STREAM(p, op_code);
+    p_buf->len  = 1;
 
-        UINT8_TO_STREAM (p, op_code);
-        p_buf->len  = 1;
+    UINT16_TO_STREAM(p, handle);
+    p_buf->len += 2;
 
-        UINT16_TO_STREAM (p, handle);
+    if (op_code == GATT_REQ_READ_BLOB) {
+        UINT16_TO_STREAM (p, offset);
         p_buf->len += 2;
-
-        if (op_code == GATT_REQ_READ_BLOB)
-        {
-            UINT16_TO_STREAM (p, offset);
-            p_buf->len += 2;
-        }
-
     }
 
     return p_buf;
 }
+
 /*******************************************************************************
 **
 ** Function         attp_build_opcode_cmd
@@ -269,20 +249,19 @@ BT_HDR *attp_build_handle_cmd(UINT8 op_code, UINT16 handle, UINT16 offset)
 *******************************************************************************/
 BT_HDR *attp_build_opcode_cmd(UINT8 op_code)
 {
-    BT_HDR      *p_buf = NULL;
-    UINT8       *p;
+    UINT8 *p;
+    BT_HDR *p_buf =
+        (BT_HDR *)osi_malloc(sizeof(BT_HDR) + 1 + L2CAP_MIN_OFFSET);
 
-    if ((p_buf = (BT_HDR *)GKI_getbuf(sizeof(BT_HDR) + 1 + L2CAP_MIN_OFFSET)) != NULL)
-    {
-        p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
-        p_buf->offset = L2CAP_MIN_OFFSET;
+    p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    p_buf->offset = L2CAP_MIN_OFFSET;
 
-        UINT8_TO_STREAM (p, op_code);
-        p_buf->len  = 1;
-    }
+    UINT8_TO_STREAM(p, op_code);
+    p_buf->len  = 1;
 
     return p_buf;
 }
+
 /*******************************************************************************
 **
 ** Function         attp_build_value_cmd
@@ -295,53 +274,46 @@ BT_HDR *attp_build_opcode_cmd(UINT8 op_code)
 BT_HDR *attp_build_value_cmd (UINT16 payload_size, UINT8 op_code, UINT16 handle,
                               UINT16 offset, UINT16 len, UINT8 *p_data)
 {
-    BT_HDR      *p_buf = NULL;
-    UINT8       *p, *pp, pair_len, *p_pair_len;
+    UINT8 *p, *pp, pair_len, *p_pair_len;
+    BT_HDR *p_buf =
+        (BT_HDR *)osi_malloc(sizeof(BT_HDR) + payload_size + L2CAP_MIN_OFFSET);
 
-    if ((p_buf = (BT_HDR *)GKI_getbuf((UINT16)(sizeof(BT_HDR) + payload_size + L2CAP_MIN_OFFSET))) != NULL)
-    {
-        p = pp =(UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    p = pp = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    UINT8_TO_STREAM(p, op_code);
+    p_buf->offset = L2CAP_MIN_OFFSET;
+    p_buf->len = 1;
 
-        UINT8_TO_STREAM (p, op_code);
-        p_buf->offset = L2CAP_MIN_OFFSET;
-        p_buf->len = 1;
-
-        if (op_code == GATT_RSP_READ_BY_TYPE)
-        {
-            p_pair_len = p;
-            pair_len = len + 2;
-            UINT8_TO_STREAM (p, pair_len);
-            p_buf->len += 1;
-        }
-        if (op_code != GATT_RSP_READ_BLOB && op_code != GATT_RSP_READ)
-        {
-            UINT16_TO_STREAM (p, handle);
-            p_buf->len += 2;
-        }
-
-        if (op_code == GATT_REQ_PREPARE_WRITE ||op_code == GATT_RSP_PREPARE_WRITE )
-        {
-            UINT16_TO_STREAM (p, offset);
-            p_buf->len += 2;
-        }
-
-        if (len > 0 && p_data != NULL)
-        {
-            /* ensure data not exceed MTU size */
-            if (payload_size - p_buf->len < len)
-            {
-                len = payload_size - p_buf->len;
-                /* update handle value pair length */
-                if (op_code == GATT_RSP_READ_BY_TYPE)
-                    *p_pair_len = (len + 2);
-
-                GATT_TRACE_WARNING("attribute value too long, to be truncated to %d", len);
-            }
-
-            ARRAY_TO_STREAM (p, p_data, len);
-            p_buf->len += len;
-        }
+    if (op_code == GATT_RSP_READ_BY_TYPE) {
+        p_pair_len = p;
+        pair_len = len + 2;
+        UINT8_TO_STREAM (p, pair_len);
+        p_buf->len += 1;
     }
+    if (op_code != GATT_RSP_READ_BLOB && op_code != GATT_RSP_READ) {
+        UINT16_TO_STREAM (p, handle);
+        p_buf->len += 2;
+    }
+
+    if (op_code == GATT_REQ_PREPARE_WRITE ||op_code == GATT_RSP_PREPARE_WRITE) {
+        UINT16_TO_STREAM (p, offset);
+        p_buf->len += 2;
+    }
+
+    if (len > 0 && p_data != NULL) {
+        /* ensure data not exceed MTU size */
+        if (payload_size - p_buf->len < len) {
+            len = payload_size - p_buf->len;
+            /* update handle value pair length */
+            if (op_code == GATT_RSP_READ_BY_TYPE)
+                *p_pair_len = (len + 2);
+
+            GATT_TRACE_WARNING("attribute value too long, to be truncated to %d", len);
+        }
+
+        ARRAY_TO_STREAM(p, p_data, len);
+        p_buf->len += len;
+    }
+
     return p_buf;
 }
 

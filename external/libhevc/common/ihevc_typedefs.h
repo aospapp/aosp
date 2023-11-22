@@ -48,6 +48,7 @@ typedef char            CHAR;
 
 typedef double          DOUBLE;
 
+typedef char           STRWORD8;
 
 
 

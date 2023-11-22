@@ -63,7 +63,7 @@ inline mirror::Object* BumpPointerSpace::AllocThreadUnsafe(Thread* self, size_t 
 }
 
 inline mirror::Object* BumpPointerSpace::AllocNonvirtualWithoutAccounting(size_t num_bytes) {
-  DCHECK(IsAligned<kAlignment>(num_bytes));
+  DCHECK_ALIGNED(num_bytes, kAlignment);
   uint8_t* old_end;
   uint8_t* new_end;
   do {
@@ -87,7 +87,7 @@ inline mirror::Object* BumpPointerSpace::AllocNonvirtual(size_t num_bytes) {
 }
 
 inline size_t BumpPointerSpace::AllocationSizeNonvirtual(mirror::Object* obj, size_t* usable_size)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   size_t num_bytes = obj->SizeOf();
   if (usable_size != nullptr) {
     *usable_size = RoundUp(num_bytes, kAlignment);

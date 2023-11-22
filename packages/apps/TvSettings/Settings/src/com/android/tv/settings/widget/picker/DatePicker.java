@@ -31,9 +31,8 @@ public class DatePicker extends Picker {
     private static final String EXTRA_YEAR_RANGE = "year_range";
     private static final String EXTRA_DEFAULT_TO_CURRENT = "default_to_current";
     private static final String EXTRA_FORMAT = "date_format";
-    private static final int DEFAULT_YEAR_RANGE = 24;
-    private static final int DEFAULT_START_YEAR = Calendar.getInstance().get(Calendar.YEAR)
-            - DEFAULT_YEAR_RANGE / 2;
+    private static final int MAX_YEAR = 2037; // It's time to party like it's 1999
+    private static final int DEFAULT_YEAR_RANGE = 67;
 
     private PickerConstants.Date mConstant;
 
@@ -53,10 +52,6 @@ public class DatePicker extends Picker {
     private int mSelectedYear;
     private int mSelectedMonth;
 
-    public static DatePicker newInstance() {
-        return newInstance("");
-    }
-
     /**
      * Creates a new instance of DatePicker
      *
@@ -64,18 +59,7 @@ public class DatePicker extends Picker {
      *                       of the fields Year, Month and Day to be displayed in the DatePicker.
      */
     public static DatePicker newInstance(String format) {
-        return newInstance(format, DEFAULT_START_YEAR);
-    }
-
-    /**
-     * Creates a new instance of DatePicker
-     *
-     * @param format         String containing a permutation of Y, M and D, indicating the order
-     *                       of the fields Year, Month and Day to be displayed in the DatePicker.
-     * @param startYear      The lowest number to be displayed in the Year selector.
-     */
-    public static DatePicker newInstance(String format, int startYear) {
-        return newInstance(format, startYear, DEFAULT_YEAR_RANGE, true);
+        return newInstance(format, MAX_YEAR - DEFAULT_YEAR_RANGE, DEFAULT_YEAR_RANGE, true);
     }
 
     /**
@@ -117,8 +101,8 @@ public class DatePicker extends Picker {
         super.onCreate(savedInstanceState);
         mConstant = PickerConstants.getDateInstance(getResources());
 
-        mStartYear = getArguments().getInt(EXTRA_START_YEAR, DEFAULT_START_YEAR);
         mYearRange = getArguments().getInt(EXTRA_YEAR_RANGE, DEFAULT_YEAR_RANGE);
+        mStartYear = getArguments().getInt(EXTRA_START_YEAR, MAX_YEAR - mYearRange);
         boolean startOnToday = getArguments().getBoolean(EXTRA_DEFAULT_TO_CURRENT, false);
         initYearsArray(mStartYear, mYearRange);
 

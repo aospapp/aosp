@@ -19,7 +19,6 @@ import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
-import android.support.test.uiautomator.UiObjectNotFoundException;
 
 /**
  * Defines the common use cases a launcher UI automation helper should fulfill.
@@ -28,6 +27,7 @@ import android.support.test.uiautomator.UiObjectNotFoundException;
  * method.
  */
 public interface ILauncherStrategy {
+    public static final long LAUNCH_FAILED_TIMESTAMP = -1;
 
     /**
      * Returns the launcher application package that this {@link ILauncherStrategy} can automate
@@ -43,17 +43,15 @@ public interface ILauncherStrategy {
 
     /**
      * Shows the home screen of launcher
-     * @throws UiObjectNotFoundException
      */
-    public void open() throws UiObjectNotFoundException;
+    public void open();
 
     /**
      * Opens the all apps drawer of launcher
      * @param reset if the all apps drawer should be reset to the beginning
      * @return {@link UiObject2} representation of the all apps drawer
-     * @throws UiObjectNotFoundException
      */
-    public UiObject2 openAllApps(boolean reset) throws UiObjectNotFoundException;
+    public UiObject2 openAllApps(boolean reset);
 
     /**
      * Returns a {@link BySelector} describing the all apps drawer
@@ -71,9 +69,8 @@ public interface ILauncherStrategy {
      * Opens the all widgets drawer of launcher
      * @param reset if the all widgets drawer should be reset to the beginning
      * @return {@link UiObject2} representation of the all widgets drawer
-     * @throws UiObjectNotFoundException
      */
-    public UiObject2 openAllWidgets(boolean reset) throws UiObjectNotFoundException;
+    public UiObject2 openAllWidgets(boolean reset);
 
     /**
      * Returns a {@link BySelector} describing the all widgets drawer
@@ -94,6 +91,12 @@ public interface ILauncherStrategy {
     public BySelector getWorkspaceSelector();
 
     /**
+     * Returns a {@link BySelector} describing the home screen hot seat (app icons at the bottom)
+     * @return
+     */
+    public BySelector getHotSeatSelector();
+
+    /**
      * Retrieves the home screen workspace forward scroll direction as implemented by the launcher
      * @return
      */
@@ -107,7 +110,6 @@ public interface ILauncherStrategy {
      *                    performed.
      * @return <code>true</code> if application is verified to be in foreground after launch, or the
      *   verification is skipped; <code>false</code> otherwise.
-     * @throws UiObjectNotFoundException
      */
-    public boolean launch(String appName, String packageName) throws UiObjectNotFoundException;
+    public long launch(String appName, String packageName);
 }

@@ -18,6 +18,7 @@ package android.bluetooth;
 
 import android.bluetooth.le.AdvertiseSettings;
 import android.bluetooth.le.ScanResult;
+import android.bluetooth.BluetoothGattService;
 import android.os.ParcelUuid;
 import android.os.RemoteException;
 
@@ -48,41 +49,17 @@ public class BluetoothGattCallbackWrapper extends IBluetoothGattCallback.Stub {
     }
 
     @Override
-    public void onGetService(String address, int srvcType, int srvcInstId, ParcelUuid srvcUuid)
+    public void onSearchComplete(String address, List<BluetoothGattService> services,
+            int status) throws RemoteException {
+    }
+
+    @Override
+    public void onCharacteristicRead(String address, int status, int handle, byte[] value)
             throws RemoteException {
     }
 
     @Override
-    public void onGetIncludedService(String address, int srvcType, int srvcInstId,
-            ParcelUuid srvcUuid, int inclSrvcType, int inclSrvcInstId, ParcelUuid inclSrvcUuid)
-            throws RemoteException {
-    }
-
-    @Override
-    public void onGetCharacteristic(String address, int srvcType, int srvcInstId,
-            ParcelUuid srvcUuid, int charInstId, ParcelUuid charUuid, int charProps)
-            throws RemoteException {
-    }
-
-    @Override
-    public void onGetDescriptor(String address, int srvcType, int srvcInstId, ParcelUuid srvcUuid,
-            int charInstId, ParcelUuid charUuid, int descrInstId, ParcelUuid descrUuid)
-            throws RemoteException {
-    }
-
-    @Override
-    public void onSearchComplete(String address, int status) throws RemoteException {
-    }
-
-    @Override
-    public void onCharacteristicRead(String address, int status, int srvcType, int srvcInstId,
-            ParcelUuid srvcUuid, int charInstId, ParcelUuid charUuid, byte[] value)
-            throws RemoteException {
-    }
-
-    @Override
-    public void onCharacteristicWrite(String address, int status, int srvcType, int srvcInstId,
-            ParcelUuid srvcUuid, int charInstId, ParcelUuid charUuid) throws RemoteException {
+    public void onCharacteristicWrite(String address, int status, int handle) throws RemoteException {
     }
 
     @Override
@@ -90,20 +67,15 @@ public class BluetoothGattCallbackWrapper extends IBluetoothGattCallback.Stub {
     }
 
     @Override
-    public void onDescriptorRead(String address, int status, int srvcType, int srvcInstId,
-            ParcelUuid srvcUuid, int charInstId, ParcelUuid charUuid, int descrInstId,
-            ParcelUuid descrUuid, byte[] value) throws RemoteException {
+    public void onDescriptorRead(String address, int status, int handle, byte[] value) throws RemoteException {
     }
 
     @Override
-    public void onDescriptorWrite(String address, int status, int srvcType, int srvcInstId,
-            ParcelUuid srvcUuid, int charInstId, ParcelUuid charUuid, int descrInstId,
-            ParcelUuid descrUuid) throws RemoteException {
+    public void onDescriptorWrite(String address, int status, int handle) throws RemoteException {
     }
 
     @Override
-    public void onNotify(String address, int srvcType, int srvcInstId, ParcelUuid srvcUuid,
-            int charInstId, ParcelUuid charUuid, byte[] value) throws RemoteException {
+    public void onNotify(String address, int handle, byte[] value) throws RemoteException {
     }
 
     @Override

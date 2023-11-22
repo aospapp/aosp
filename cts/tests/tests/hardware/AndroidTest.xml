@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="utf-8"?>
 <!-- Copyright (C) 2015 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,10 +12,23 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<configuration description="Base config for Sensor CTS tests. Put SensorService in restricted mode">
-    <include name="common-config" />
+<configuration description="Config for CTS Hardware test cases">
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.LocationCheck" />
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.ApkInstaller">
+        <option name="cleanup-apks" value="true" />
+        <option name="test-file-name" value="CtsHardwareTestCases.apk" />
+    </target_preparer>
     <!-- Put SensorService in restricted mode so that only CTS tests will be able to get access to
     sensors -->
-    <option name="run-command:run-command" value="dumpsys sensorservice restrict .cts." />
-    <option name="run-command:teardown-command" value="dumpsys sensorservice enable" />
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="dumpsys sensorservice restrict .cts." />
+        <option name="teardown-command" value="dumpsys sensorservice enable" />
+    </target_preparer>
+    <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
+        <option name="package" value="android.hardware.cts" />
+        <option name="runtime-hint" value="47m28s" />
+        <!-- test-timeout unit is ms, value = 60 min -->
+        <option name="test-timeout" value="3600000" />
+    </test>
+
 </configuration>

@@ -174,7 +174,7 @@ enum wpa_states {
 	/**
 	 * WPA_INTERFACE_DISABLED - Interface disabled
 	 *
-	 * This stat eis entered if the network interface is disabled, e.g.,
+	 * This state is entered if the network interface is disabled, e.g.,
 	 * due to rfkill. wpa_supplicant refuses any new operations that would
 	 * use the radio until the interface has been enabled.
 	 */
@@ -312,6 +312,7 @@ enum wpa_ctrl_req_type {
 	WPA_CTRL_REQ_EAP_PASSPHRASE,
 	WPA_CTRL_REQ_SIM,
 	WPA_CTRL_REQ_PSK_PASSPHRASE,
+	WPA_CTRL_REQ_EXT_CERT_CHECK,
 	NUM_WPA_CTRL_REQS
 };
 
@@ -326,6 +327,18 @@ enum mesh_plink_state {
 	PLINK_ESTAB,
 	PLINK_HOLDING,
 	PLINK_BLOCKED,
+};
+
+enum set_band {
+	WPA_SETBAND_AUTO,
+	WPA_SETBAND_5G,
+	WPA_SETBAND_2G
+};
+
+enum wpa_radio_work_band {
+	BAND_2_4_GHZ = BIT(0),
+	BAND_5_GHZ = BIT(1),
+	BAND_60_GHZ = BIT(2),
 };
 
 #endif /* DEFS_H */

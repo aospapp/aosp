@@ -28,9 +28,6 @@
 #include "./tjutil.h"
 #include "./bmp.h"
 
-#define LOG_TAG "bmp.c"
-#include <cutils/log.h>
-
 #define byteswap(i) ( \
 	(((i) & 0xff000000) >> 24) | \
 	(((i) & 0x00ff0000) >>  8) | \
@@ -326,14 +323,14 @@ int savebmp(char *filename, unsigned char *buf, int w, int h,
 	dstpitch=((w*3)+3)&(~3);
 
 	bh.bfType=0x4d42;
-	bh.bfSize=BMPHDRSIZE+srcpitch*h;
+	bh.bfSize=BMPHDRSIZE+dstpitch*h;
 	bh.bfReserved1=0;  bh.bfReserved2=0;
 	bh.bfOffBits=BMPHDRSIZE;
 	bh.biSize=40;
 	bh.biWidth=w;  bh.biHeight=h;
-	bh.biPlanes=1;  bh.biBitCount=32;
+	bh.biPlanes=0;  bh.biBitCount=24;
 	bh.biCompression=BI_RGB;  bh.biSizeImage=0;
-	bh.biXPelsPerMeter=w;  bh.biYPelsPerMeter=h;
+	bh.biXPelsPerMeter=0;  bh.biYPelsPerMeter=0;
 	bh.biClrUsed=0;  bh.biClrImportant=0;
 
 	if(!littleendian())
@@ -371,7 +368,6 @@ int savebmp(char *filename, unsigned char *buf, int w, int h,
 	writeme(fd, &bh.biClrUsed, sizeof(unsigned int));
 	writeme(fd, &bh.biClrImportant, sizeof(unsigned int));
 
-#if 0
 	if((tempbuf=(unsigned char *)malloc(dstpitch*h))==NULL)
 		_throw("Memory allocation error");
 
@@ -380,11 +376,6 @@ int savebmp(char *filename, unsigned char *buf, int w, int h,
 
 	if((byteswritten=write(fd, tempbuf, dstpitch*h))!=dstpitch*h)
 		_throw(strerror(errno));
-#else
-        ALOGI("writting bitmap data (%u bytes), srcpitch = %d, h = %d", srcpitch*h, srcpitch, h);
-	if((byteswritten=write(fd, buf, srcpitch*h))!=srcpitch*h)
-		_throw(strerror(errno));
-#endif
 
 	finally:
 	if(tempbuf) free(tempbuf);

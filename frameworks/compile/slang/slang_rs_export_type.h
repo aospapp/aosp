@@ -82,6 +82,17 @@ enum DataTypeCategory {
     ObjectDataType
 };
 
+// Denote whether a particular export is intended for a legacy kernel argument.
+// NotLegacyKernelArgument - not a legacy kernel argument (might not even be a
+//                           kernel argument).
+// LegacyKernelArgument    - legacy pass-by-reference kernel argument using
+//                           pointers and no kernel attribute.
+enum ExportKind {
+   NotLegacyKernelArgument,
+   LegacyKernelArgument
+ };
+
+
 // From graphics/java/android/renderscript/Element.java: Element.DataType
 /* NOTE: The values of the enums are found compiled in the bit code (i.e. as
  * values, not symbolic.  When adding new types, you must add them to the end.
@@ -136,23 +147,37 @@ enum DataType {
 };
 
 typedef struct {
+    // The data type category
     DataTypeCategory category;
+    // "Common name" in script (C99)
+    const char * s_name;
+    // The element name in RenderScript
     const char * rs_type;
+    // The short element name in RenderScript
     const char * rs_short_type;
+    // The size of the type in bits
     uint32_t size_in_bits;
+    // The reflected name in C code
     const char * c_name;
+    // The reflected name in Java code
     const char * java_name;
+    // The array type that is compatible with Allocations of our type,
+    // for use with copyTo(), copyFrom()
+    const char * java_array_element_name;
+    // The prefix for C vector types
     const char * rs_c_vector_prefix;
+    // The prefix for Java vector types
     const char * rs_java_vector_prefix;
+    // Indicates an unsigned type undergoing Java promotion
     bool java_promotion;
 } RSReflectionType;
 
 
 typedef struct RSReflectionTypeData_rec {
     const RSReflectionType *type;
-    uint32_t vecSize;
+    uint32_t vecSize;   // number of elements; one if not a vector
     bool isPointer;
-    uint32_t arraySize;
+    uint32_t arraySize; // number of elements; zero if not an array
 
     // Subelements
     //std::vector<const struct RSReflectionTypeData_rec *> fields;
@@ -197,12 +222,15 @@ class RSExportType : public RSExportable {
   // function.
   //
   // @T was normalized by calling RSExportType::NormalizeType().
-  // @TypeName was retrieve from RSExportType::GetTypeName() before calling
+  // @TypeName was retrieved from RSExportType::GetTypeName() before calling
   //           this.
+  // @EK denotes whether this @T is being used for a legacy kernel argument or
+  //     something else.
   //
   static RSExportType *Create(RSContext *Context,
                               const clang::Type *T,
-                              const llvm::StringRef &TypeName);
+                              const llvm::StringRef &TypeName,
+                              ExportKind EK);
 
   static llvm::StringRef GetTypeName(const clang::Type *T);
 
@@ -229,13 +257,14 @@ class RSExportType : public RSExportable {
   static bool NormalizeType(const clang::Type *&T,
                             llvm::StringRef &TypeName,
                             RSContext *Context,
-                            const clang::VarDecl *VD);
+                            const clang::VarDecl *VD,
+                            ExportKind EK);
 
   // This function checks whether the specified type can be handled by RS/FS.
   // If it cannot, this function returns false. Otherwise it returns true.
   // Filterscript has additional restrictions on supported types.
   static bool ValidateType(slang::RSContext *Context, clang::ASTContext &C,
-                           clang::QualType QT, clang::NamedDecl *ND,
+                           clang::QualType QT, const clang::NamedDecl *ND,
                            clang::SourceLocation Loc, unsigned int TargetAPI,
                            bool IsFilterscript, bool IsExtern);
 
@@ -246,15 +275,16 @@ class RSExportType : public RSExportable {
                               unsigned int TargetAPI, bool IsFilterscript);
 
   // @T may not be normalized
-  static RSExportType *Create(RSContext *Context, const clang::Type *T);
+  static RSExportType *Create(RSContext *Context, const clang::Type *T,
+                              ExportKind EK,
+                              // T is type of VD or of subobject within VD
+                              const clang::VarDecl *VD = nullptr);
   static RSExportType *CreateFromDecl(RSContext *Context,
                                       const clang::VarDecl *VD);
 
   static const clang::Type *GetTypeOfDecl(const clang::DeclaratorDecl *DD);
 
   inline ExportClass getClass() const { return mClass; }
-
-  virtual unsigned getSize() const { return 1; }
 
   inline llvm::Type *getLLVMType() const {
     if (mLLVMType == nullptr)
@@ -338,7 +368,10 @@ class RSExportPrimitiveType : public RSExportType {
   // RS object type within it.
   static bool IsStructureTypeWithRSObject(const clang::Type *T);
 
-  static size_t GetSizeInBits(const RSExportPrimitiveType *EPT);
+  // For a primitive type, this is the size of the type.
+  // For a vector type (RSExportVectorType is derived from RSExportPrimitiveType),
+  // this is the size of a single vector element (component).
+  static size_t GetElementSizeInBits(const RSExportPrimitiveType *EPT);
 
   inline DataType getType() const { return mType; }
   inline bool isRSObjectType() const {
@@ -353,7 +386,8 @@ class RSExportPrimitiveType : public RSExportType {
     return getRSReflectionType(EPT->getType());
   }
 
-  virtual unsigned getSize() const { return (GetSizeInBits(this) >> 3); }
+  // For a vector type, this is the size of a single element.
+  unsigned getElementSizeInBytes() const { return (GetElementSizeInBits(this) >> 3); }
 
   std::string getElementName() const {
     return getRSReflectionType(this)->rs_short_type;
@@ -395,7 +429,7 @@ class RSExportVectorType : public RSExportPrimitiveType {
   friend class RSExportType;
   friend class RSExportElement;
  private:
-  unsigned mNumElement;   // number of element
+  unsigned mNumElement;   // number of elements (components)
 
   RSExportVectorType(RSContext *Context,
                      const llvm::StringRef &Name,
@@ -471,14 +505,14 @@ class RSExportConstantArrayType : public RSExportType {
   friend class RSExportType;
  private:
   const RSExportType *mElementType;  // Array element type
-  unsigned mSize;  // Array size
+  unsigned mNumElement;              // Array element count
 
   RSExportConstantArrayType(RSContext *Context,
                             const RSExportType *ElementType,
-                            unsigned Size)
+                            unsigned NumElement)
     : RSExportType(Context, ExportClassConstantArray, "<ConstantArray>"),
       mElementType(ElementType),
-      mSize(Size) {
+      mNumElement(NumElement) {
   }
 
   // @CAT was normalized by calling RSExportType::NormalizeType() before
@@ -489,8 +523,8 @@ class RSExportConstantArrayType : public RSExportType {
   virtual llvm::Type *convertToLLVMType() const;
 
  public:
-  virtual unsigned getSize() const { return mSize; }
-  inline const RSExportType *getElementType() const { return mElementType; }
+  unsigned getNumElement() const { return mNumElement; }
+  const RSExportType *getElementType() const { return mElementType; }
 
   std::string getElementName() const {
     return mElementType->getElementName();

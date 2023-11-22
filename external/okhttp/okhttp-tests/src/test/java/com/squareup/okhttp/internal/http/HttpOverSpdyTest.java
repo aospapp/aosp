@@ -17,6 +17,7 @@ package com.squareup.okhttp.internal.http;
 
 import com.squareup.okhttp.Cache;
 import com.squareup.okhttp.ConnectionPool;
+import com.squareup.okhttp.HttpUrl;
 import com.squareup.okhttp.OkHttpClient;
 import com.squareup.okhttp.OkUrlFactory;
 import com.squareup.okhttp.Protocol;
@@ -24,16 +25,16 @@ import com.squareup.okhttp.internal.RecordingAuthenticator;
 import com.squareup.okhttp.internal.SslContextBuilder;
 import com.squareup.okhttp.internal.Util;
 import com.squareup.okhttp.mockwebserver.MockResponse;
+import com.squareup.okhttp.mockwebserver.MockWebServer;
 import com.squareup.okhttp.mockwebserver.RecordedRequest;
 import com.squareup.okhttp.mockwebserver.SocketPolicy;
-import com.squareup.okhttp.mockwebserver.rule.MockWebServerRule;
+import com.squareup.okhttp.testing.RecordingHostnameVerifier;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.Authenticator;
 import java.net.CookieManager;
 import java.net.HttpURLConnection;
 import java.net.SocketTimeoutException;
-import java.net.URL;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -44,7 +45,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSession;
 import okio.Buffer;
 import okio.BufferedSink;
 import okio.GzipSink;
@@ -64,21 +64,15 @@ import static org.junit.Assert.fail;
 
 /** Test how SPDY interacts with HTTP features. */
 public abstract class HttpOverSpdyTest {
-  private static final SSLContext sslContext = SslContextBuilder.localhost();
-
-  private static final HostnameVerifier NULL_HOSTNAME_VERIFIER = new HostnameVerifier() {
-    public boolean verify(String hostname, SSLSession session) {
-      return true;
-    }
-  };
-
   @Rule public final TemporaryFolder tempDir = new TemporaryFolder();
-  @Rule public final MockWebServerRule server = new MockWebServerRule();
+  @Rule public final MockWebServer server = new MockWebServer();
 
   /** Protocol to test, for example {@link com.squareup.okhttp.Protocol#SPDY_3} */
   private final Protocol protocol;
   protected String hostHeader = ":host";
 
+  protected SSLContext sslContext = SslContextBuilder.localhost();
+  protected HostnameVerifier hostnameVerifier = new RecordingHostnameVerifier();
   protected final OkUrlFactory client = new OkUrlFactory(new OkHttpClient());
   protected HttpURLConnection connection;
   protected Cache cache;
@@ -88,10 +82,10 @@ public abstract class HttpOverSpdyTest {
   }
 
   @Before public void setUp() throws Exception {
-    server.get().useHttps(sslContext.getSocketFactory(), false);
+    server.useHttps(sslContext.getSocketFactory(), false);
     client.client().setProtocols(Arrays.asList(protocol, Protocol.HTTP_1_1));
     client.client().setSslSocketFactory(sslContext.getSocketFactory());
-    client.client().setHostnameVerifier(NULL_HOSTNAME_VERIFIER);
+    client.client().setHostnameVerifier(hostnameVerifier);
     cache = new Cache(tempDir.getRoot(), Integer.MAX_VALUE);
   }
 
@@ -160,8 +154,8 @@ public abstract class HttpOverSpdyTest {
     connection.setRequestProperty("Content-Length", String.valueOf(postBytes.length));
     connection.setDoOutput(true);
     connection.getOutputStream().write(postBytes); // push bytes into SpdyDataOutputStream.buffer
-    connection.getOutputStream().flush(); // SpdyConnection.writeData subject to write window
-    connection.getOutputStream().close(); // SpdyConnection.writeData empty frame
+    connection.getOutputStream().flush(); // FramedConnection.writeData subject to write window
+    connection.getOutputStream().close(); // FramedConnection.writeData empty frame
     assertContent("ABCDE", connection, Integer.MAX_VALUE);
 
     RecordedRequest request = server.takeRequest();
@@ -308,7 +302,7 @@ public abstract class HttpOverSpdyTest {
     try {
       readAscii(connection.getInputStream(), Integer.MAX_VALUE);
       fail("Should have timed out!");
-    } catch (SocketTimeoutException expected){
+    } catch (SocketTimeoutException expected) {
       assertEquals("timeout", expected.getMessage());
     }
   }
@@ -381,18 +375,18 @@ public abstract class HttpOverSpdyTest {
     client.client().setCookieHandler(cookieManager);
 
     server.enqueue(new MockResponse()
-        .addHeader("set-cookie: c=oreo; domain=" + server.get().getCookieDomain())
+        .addHeader("set-cookie: c=oreo; domain=" + server.getCookieDomain())
         .setBody("A"));
     server.enqueue(new MockResponse()
         .setBody("B"));
 
-    URL url = server.getUrl("/");
-    assertContent("A", client.open(url), Integer.MAX_VALUE);
+    HttpUrl url = server.url("/");
+    assertContent("A", client.open(url.url()), Integer.MAX_VALUE);
     Map<String, List<String>> requestHeaders = Collections.emptyMap();
     assertEquals(Collections.singletonMap("Cookie", Arrays.asList("c=oreo")),
-        cookieManager.get(url.toURI(), requestHeaders));
+        cookieManager.get(url.uri(), requestHeaders));
 
-    assertContent("B", client.open(url), Integer.MAX_VALUE);
+    assertContent("B", client.open(url.url()), Integer.MAX_VALUE);
     RecordedRequest requestA = server.takeRequest();
     assertNull(requestA.getHeader("Cookie"));
     RecordedRequest requestB = server.takeRequest();

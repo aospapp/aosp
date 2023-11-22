@@ -34,7 +34,6 @@
     <string name="password_empty_error" msgid="591713406761723025">"Kirjoita salasana."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"Kirjoita nimi."</string>
     <string name="name_char_error" msgid="3176618568784938968">"Kirjoita nimi, joka sisältää vain kirjaimia ja numeroita."</string>
-    <string name="storage_error" msgid="8306802455802770779">"Varmenteen tallentaminen epäonnistui. Yritä uudelleen koskettamalla OK."</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"Varmenteen tallentaminen epäonnistui. Tunnuksien tallennus ei ole käytössä tai sitä ei ole käynnistetty oikein."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"Varmennetta ei ole asennettu."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"Ei asennettavaa varmennetta."</string>

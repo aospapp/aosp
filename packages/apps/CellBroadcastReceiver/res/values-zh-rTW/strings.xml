@@ -36,7 +36,7 @@
     <string name="etws_earthquake_and_tsunami_warning" msgid="662449983177407681">"地震與海嘯警告"</string>
     <string name="etws_test_message" msgid="8447820262584381894">"ETWS 測試訊息"</string>
     <string name="etws_other_emergency_type" msgid="5233080551309721499">"緊急警告"</string>
-    <string name="cmas_presidential_level_alert" msgid="1209234030582361001">"總統級警示"</string>
+    <string name="cmas_presidential_level_alert" msgid="1209234030582361001">"國家級警示"</string>
     <string name="cmas_extreme_alert" msgid="2588720613319969289">"緊急警示：極嚴重"</string>
     <string name="cmas_severe_alert" msgid="4135809475315826913">"緊急警示：嚴重"</string>
     <string name="cmas_amber_alert" msgid="6154867710264778887">"兒童綁架 (安珀警示)"</string>
@@ -103,7 +103,7 @@
     <string name="delivery_time_heading" msgid="5980836543433619329">"接收時間："</string>
     <string name="notification_multiple" msgid="5121978148152124860">"<xliff:g id="COUNT">%s</xliff:g> 則未讀取警示。"</string>
     <string name="notification_multiple_title" msgid="1523638925739947855">"新警示"</string>
-    <string name="show_cmas_opt_out_summary" msgid="4370292554938680862">"第一次 CMAS 警示出現後顯示停用對話方塊 (總統級警示除外)。"</string>
+    <string name="show_cmas_opt_out_summary" msgid="4370292554938680862">"第一次 CMAS 警示出現後顯示停用對話方塊 (國家級警示除外)。"</string>
     <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"顯示停用對話方塊"</string>
     <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"您目前已設為接收緊急警示，是否要繼續接收？"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"是"</string>

@@ -47,7 +47,6 @@ public class SapService extends ProfileService {
     private static final String TAG = "SapService";
     public static final boolean DEBUG = false;
     public static final boolean VERBOSE = false;
-    public static final boolean PTS_TEST = false;
 
     /* Message ID's */
     private static final int START_LISTENER = 1;
@@ -60,6 +59,8 @@ public class SapService extends ProfileService {
 
     public static final int MSG_ACQUIRE_WAKE_LOCK = 5005;
     public static final int MSG_RELEASE_WAKE_LOCK = 5006;
+
+    public static final int MSG_CHANGE_STATE = 5007;
 
     /* Each time a transaction between the SIM and the BT Client is detected a wakelock is taken.
      * After an idle period of RELEASE_WAKE_LOCK_DELAY ms the wakelock is released.
@@ -91,6 +92,7 @@ public class SapService extends ProfileService {
     private boolean mRemoveTimeoutMsg = false;
 
     private boolean mIsWaitingAuthorization = false;
+    private boolean mIsRegistered = false;
 
     // package and class name to which we send intent to check message access access permission
     private static final String ACCESS_AUTHORITY_PACKAGE = "com.android.settings";
@@ -120,7 +122,14 @@ public class SapService extends ProfileService {
         }
     }
 
-
+    private void removeSdpRecord() {
+        if (mAdapter != null && mSdpHandle >= 0 &&
+                                SdpManager.getDefaultManager() != null) {
+            if(VERBOSE) Log.d(TAG, "Removing SDP record handle: " + mSdpHandle);
+            boolean status = SdpManager.getDefaultManager().removeSdpRecord(mSdpHandle);
+            mSdpHandle = -1;
+        }
+    }
 
     private void startRfcommSocketListener() {
         if (VERBOSE) Log.v(TAG, "Sap Service startRfcommSocketListener");
@@ -147,10 +156,7 @@ public class SapService extends ProfileService {
                 //       for multiple connections.
                 mServerSocket = mAdapter.listenUsingRfcommOn(
                         BluetoothAdapter.SOCKET_CHANNEL_AUTO_STATIC_NO_SDP, true, true);
-                if (mSdpHandle >= 0) {
-                    SdpManager.getDefaultManager().removeSdpRecord(mSdpHandle);
-                    if (VERBOSE) Log.d(TAG, "Removing SDP record");
-                }
+                removeSdpRecord();
                 mSdpHandle = SdpManager.getDefaultManager().createSapsRecord(SDP_SAP_SERVICE_NAME,
                         mServerSocket.getChannel(), SDP_SAP_VERSION);
             } catch (IOException e) {
@@ -176,11 +182,6 @@ public class SapService extends ProfileService {
             } else {
                 break;
             }
-        }
-        if (mInterrupted) {
-            initSocketOK = false;
-            // close server socket to avoid resource leakage
-            closeServerSocket();
         }
 
         if (initSocketOK) {
@@ -255,8 +256,6 @@ public class SapService extends ProfileService {
             mWakeLock.setReferenceCounted(false);
             mWakeLock.acquire();
         }
-
-        setState(BluetoothSap.STATE_CONNECTED);
 
         /* Start the SAP I/O thread and associate with message handler */
         mSapServer = new SapServer(mSessionStatusHandler, this, mConnSocket.getInputStream(), mConnSocket.getOutputStream());
@@ -441,6 +440,10 @@ public class SapService extends ProfileService {
                         if (DEBUG) Log.i(TAG, "  Released Wake Lock by message");
                     }
                     break;
+                case MSG_CHANGE_STATE:
+                    if (DEBUG) Log.d(TAG, "change state message: newState = " + msg.arg1);
+                    setState(msg.arg1);
+                    break;
                 case SHUTDOWN:
                     /* Ensure to call close from this handler to avoid starting new stuff
                        because of pending messages */
@@ -577,6 +580,7 @@ public class SapService extends ProfileService {
 
         try {
             registerReceiver(mSapReceiver, filter);
+            mIsRegistered = true;
         } catch (Exception e) {
             Log.w(TAG,"Unable to register sap receiver",e);
         }
@@ -591,7 +595,12 @@ public class SapService extends ProfileService {
     @Override
     protected boolean stop() {
         Log.v(TAG, "stop()");
+        if (!mIsRegistered){
+            Log.i(TAG, "Avoid unregister when receiver it is not registered");
+            return true;
+        }
         try {
+            mIsRegistered = false;
             unregisterReceiver(mSapReceiver);
         } catch (Exception e) {
             Log.w(TAG,"Unable to unregister sap receiver",e);
@@ -653,6 +662,7 @@ public class SapService extends ProfileService {
             mIsWaitingAuthorization = false;
             cancelUserTimeoutAlarm();
         }
+        removeSdpRecord();
         mSessionStatusHandler.removeCallbacksAndMessages(null);
         // Request release of all resources
         mSessionStatusHandler.obtainMessage(SHUTDOWN).sendToTarget();
@@ -742,13 +752,15 @@ public class SapService extends ProfileService {
 
                 if (DEBUG) Log.d(TAG,"ACL disconnected for " + device);
 
-                if (mRemoteDevice.equals(device) && mRemoveTimeoutMsg) {
-                    // Send any pending timeout now, as ACL got disconnected.
-                    cancelUserTimeoutAlarm();
-                    mSessionStatusHandler.removeMessages(USER_TIMEOUT);
-                    sendCancelUserConfirmationIntent(mRemoteDevice);
+                if (mRemoteDevice.equals(device)) {
+                    if (mRemoveTimeoutMsg) {
+                        // Send any pending timeout now, as ACL got disconnected.
+                        cancelUserTimeoutAlarm();
+                        mSessionStatusHandler.removeMessages(USER_TIMEOUT);
+                        sendCancelUserConfirmationIntent(mRemoteDevice);
+                    }
                     mIsWaitingAuthorization = false;
-                    mRemoveTimeoutMsg = false;
+                    setState(BluetoothSap.STATE_DISCONNECTED);
                     // Ensure proper cleanup, and prepare for new connect.
                     mSessionStatusHandler.sendEmptyMessage(MSG_SERVERSESSION_CLOSE);
                 }

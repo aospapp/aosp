@@ -1,4 +1,5 @@
-// RUN: %clang_cc1 -triple x86_64-apple-macos10.7.0 -verify -fopenmp=libiomp5 -ferror-limit 100 -emit-llvm -o - %s
+// RUN: %clang_cc1 -triple x86_64-apple-macos10.7.0 -verify -fopenmp -fnoopenmp-use-tls -ferror-limit 100 -emit-llvm -o - %s
+// RUN: %clang_cc1 -triple x86_64-apple-macos10.7.0 -verify -fopenmp -ferror-limit 100 -emit-llvm -o - %s
 
 #pragma omp threadprivate // expected-error {{expected '(' after 'threadprivate'}}
 #pragma omp threadprivate( // expected-error {{expected identifier}} expected-error {{expected ')'}} expected-note {{to match this '('}}
@@ -95,7 +96,10 @@ class TempClass {
 static __thread int t; // expected-note {{'t' defined here}}
 #pragma omp threadprivate (t) // expected-error {{variable 't' cannot be threadprivate because it is thread-local}}
 
-register int reg0 __asm__("0"); // expected-note {{'reg0' defined here}}
+// Register "0" is currently an invalid register for global register variables.
+// Use "esp" instead of "0".
+// register int reg0 __asm__("0");
+register int reg0 __asm__("esp"); // expected-note {{'reg0' defined here}}
 #pragma omp threadprivate (reg0) // expected-error {{variable 'reg0' cannot be threadprivate because it is a global named register variable}}
 
 int o; // expected-note {{candidate found by name lookup is 'o'}}

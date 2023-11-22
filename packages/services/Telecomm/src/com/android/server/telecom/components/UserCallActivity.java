@@ -52,18 +52,23 @@ public class UserCallActivity extends Activity implements TelecomSystem.Componen
     @Override
     protected void onCreate(Bundle bundle) {
         super.onCreate(bundle);
-        // TODO: Figure out if there is something to restore from bundle.
-        // See OutgoingCallBroadcaster in services/Telephony for more.
-        Intent intent = getIntent();
-        verifyCallAction(intent);
-        final UserManager userManager = (UserManager) getSystemService(Context.USER_SERVICE);
-        final UserHandle userHandle = new UserHandle(userManager.getUserHandle());
-        // Once control flow has passed to this activity, it is no longer guaranteed that we can
-        // accurately determine whether the calling package has the CALL_PHONE runtime permission.
-        // At this point in time we trust that the ActivityManager has already performed this
-        // validation before starting this activity.
-        new UserCallIntentProcessor(this, userHandle).processIntent(getIntent(),
-                getCallingPackage(), true /* hasCallAppOp*/);
+        Log.startSession("UCA.oC");
+        try {
+            // TODO: Figure out if there is something to restore from bundle.
+            // See OutgoingCallBroadcaster in services/Telephony for more.
+            Intent intent = getIntent();
+            verifyCallAction(intent);
+            final UserManager userManager = (UserManager) getSystemService(Context.USER_SERVICE);
+            final UserHandle userHandle = new UserHandle(userManager.getUserHandle());
+            // Once control flow has passed to this activity, it is no longer guaranteed that we can
+            // accurately determine whether the calling package has the CALL_PHONE runtime permission.
+            // At this point in time we trust that the ActivityManager has already performed this
+            // validation before starting this activity.
+            new UserCallIntentProcessor(this, userHandle).processIntent(getIntent(),
+                    getCallingPackage(), true /* hasCallAppOp*/);
+        } finally {
+            Log.endSession();
+        }
         finish();
     }
 

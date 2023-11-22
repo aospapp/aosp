@@ -19,24 +19,18 @@ package com.android.setupwizardlib.test;
 import android.annotation.SuppressLint;
 import android.app.Dialog;
 import android.content.Context;
-import android.content.res.Configuration;
-import android.graphics.drawable.Drawable;
-import android.net.Uri;
 import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
-import android.os.Bundle;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.SystemClock;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
-import android.view.InputQueue;
-import android.view.KeyEvent;
-import android.view.LayoutInflater;
-import android.view.MotionEvent;
-import android.view.SurfaceHolder.Callback2;
 import android.view.View;
-import android.view.ViewGroup.LayoutParams;
 import android.view.Window;
 import android.view.WindowManager;
 
+import com.android.setupwizardlib.test.util.MockWindow;
 import com.android.setupwizardlib.util.SystemBarHelper;
 
 public class SystemBarHelperTest extends AndroidTestCase {
@@ -109,6 +103,49 @@ public class SystemBarHelperTest extends AndroidTestCase {
                     "DEFAULT_IMMERSIVE_FLAGS should be added to decorView's systemUiVisibility",
                     DEFAULT_IMMERSIVE_FLAGS | 0x456,
                     window.getDecorView().getSystemUiVisibility());
+            assertEquals("Navigation bar should be transparent", window.getNavigationBarColor(), 0);
+            assertEquals("Status bar should be transparent", window.getStatusBarColor(), 0);
+        }
+    }
+
+    @SmallTest
+    public void testShowSystemBarsWindow() {
+        final Window window = createWindowWithSystemUiVisibility(0x456);
+        SystemBarHelper.showSystemBars(window, getContext());
+        if (VERSION.SDK_INT >= VERSION_CODES.LOLLIPOP) {
+            assertEquals(
+                    "DEFAULT_IMMERSIVE_FLAGS should be removed from window's systemUiVisibility",
+                    0x456 & ~DEFAULT_IMMERSIVE_FLAGS,
+                    window.getAttributes().systemUiVisibility);
+            assertEquals(
+                    "DEFAULT_IMMERSIVE_FLAGS should be removed from decorView's systemUiVisibility",
+                    0x456 & ~DEFAULT_IMMERSIVE_FLAGS,
+                    window.getDecorView().getSystemUiVisibility());
+            assertEquals("Navigation bar should not be transparent",
+                    window.getNavigationBarColor(), 0xff000000);
+            assertEquals("Status bar should not be transparent",
+                    window.getStatusBarColor(), 0xff000000);
+        }
+    }
+
+    @SmallTest
+    public void testHideSystemBarsNoInfiniteLoop() throws InterruptedException {
+        final TestWindow window = new TestWindow(getContext(), null);
+        final HandlerThread thread = new HandlerThread("SystemBarHelperTest");
+        thread.start();
+        final Handler handler = new Handler(thread.getLooper());
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                SystemBarHelper.hideSystemBars(window);
+            }
+        });
+        SystemClock.sleep(500);  // Wait for the looper to drain all the messages
+        thread.quit();
+        // Initial peek + 3 retries = 4 tries total
+        if (VERSION.SDK_INT >= VERSION_CODES.LOLLIPOP) {
+            assertEquals("Peek decor view should give up after 4 tries", 4,
+                    window.peekDecorViewCount);
         }
     }
 
@@ -167,173 +204,17 @@ public class SystemBarHelperTest extends AndroidTestCase {
         return window;
     }
 
-    private static class TestWindow extends Window {
+    private static class TestWindow extends MockWindow {
 
         private View mDecorView;
+        public int peekDecorViewCount = 0;
+
+        private int mNavigationBarColor = -1;
+        private int mStatusBarColor = -1;
 
         public TestWindow(Context context, View decorView) {
             super(context);
             mDecorView = decorView;
-        }
-
-        @Override
-        public void takeSurface(Callback2 callback2) {
-
-        }
-
-        @Override
-        public void takeInputQueue(InputQueue.Callback callback) {
-
-        }
-
-        @Override
-        public boolean isFloating() {
-            return false;
-        }
-
-        @Override
-        public void setContentView(int i) {
-
-        }
-
-        @Override
-        public void setContentView(View view) {
-
-        }
-
-        @Override
-        public void setContentView(View view, LayoutParams layoutParams) {
-
-        }
-
-        @Override
-        public void addContentView(View view, LayoutParams layoutParams) {
-
-        }
-
-        @Override
-        public View getCurrentFocus() {
-            return null;
-        }
-
-        @Override
-        public LayoutInflater getLayoutInflater() {
-            return LayoutInflater.from(getContext());
-        }
-
-        @Override
-        public void setTitle(CharSequence charSequence) {
-
-        }
-
-        @Override
-        public void setTitleColor(int i) {
-
-        }
-
-        @Override
-        public void openPanel(int i, KeyEvent keyEvent) {
-
-        }
-
-        @Override
-        public void closePanel(int i) {
-
-        }
-
-        @Override
-        public void togglePanel(int i, KeyEvent keyEvent) {
-
-        }
-
-        @Override
-        public void invalidatePanelMenu(int i) {
-
-        }
-
-        @Override
-        public boolean performPanelShortcut(int i, int i2, KeyEvent keyEvent, int i3) {
-            return false;
-        }
-
-        @Override
-        public boolean performPanelIdentifierAction(int i, int i2, int i3) {
-            return false;
-        }
-
-        @Override
-        public void closeAllPanels() {
-
-        }
-
-        @Override
-        public boolean performContextMenuIdentifierAction(int i, int i2) {
-            return false;
-        }
-
-        @Override
-        public void onConfigurationChanged(Configuration configuration) {
-
-        }
-
-        @Override
-        public void setBackgroundDrawable(Drawable drawable) {
-
-        }
-
-        @Override
-        public void setFeatureDrawableResource(int i, int i2) {
-
-        }
-
-        @Override
-        public void setFeatureDrawableUri(int i, Uri uri) {
-
-        }
-
-        @Override
-        public void setFeatureDrawable(int i, Drawable drawable) {
-
-        }
-
-        @Override
-        public void setFeatureDrawableAlpha(int i, int i2) {
-
-        }
-
-        @Override
-        public void setFeatureInt(int i, int i2) {
-
-        }
-
-        @Override
-        public void takeKeyEvents(boolean b) {
-
-        }
-
-        @Override
-        public boolean superDispatchKeyEvent(KeyEvent keyEvent) {
-            return false;
-        }
-
-        @Override
-        public boolean superDispatchKeyShortcutEvent(KeyEvent keyEvent) {
-            return false;
-        }
-
-        @Override
-        public boolean superDispatchTouchEvent(MotionEvent motionEvent) {
-            return false;
-        }
-
-        @Override
-        public boolean superDispatchTrackballEvent(MotionEvent motionEvent) {
-            return false;
-        }
-
-        @Override
-        public boolean superDispatchGenericMotionEvent(MotionEvent motionEvent) {
-            return false;
         }
 
         @Override
@@ -343,67 +224,28 @@ public class SystemBarHelperTest extends AndroidTestCase {
 
         @Override
         public View peekDecorView() {
+            peekDecorViewCount++;
             return mDecorView;
         }
 
         @Override
-        public Bundle saveHierarchyState() {
-            return null;
-        }
-
-        @Override
-        public void restoreHierarchyState(Bundle bundle) {
-
-        }
-
-        @Override
-        protected void onActive() {
-
-        }
-
-        @Override
-        public void setChildDrawable(int i, Drawable drawable) {
-
-        }
-
-        @Override
-        public void setChildInt(int i, int i2) {
-
-        }
-
-        @Override
-        public boolean isShortcutKey(int i, KeyEvent keyEvent) {
-            return false;
-        }
-
-        @Override
-        public void setVolumeControlStream(int i) {
-
-        }
-
-        @Override
-        public int getVolumeControlStream() {
-            return 0;
-        }
-
-        @Override
-        public int getStatusBarColor() {
-            return 0;
-        }
-
-        @Override
-        public void setStatusBarColor(int i) {
-
+        public void setNavigationBarColor(int i) {
+            mNavigationBarColor = i;
         }
 
         @Override
         public int getNavigationBarColor() {
-            return 0;
+            return mNavigationBarColor;
         }
 
         @Override
-        public void setNavigationBarColor(int i) {
+        public void setStatusBarColor(int i) {
+            mStatusBarColor = i;
+        }
 
+        @Override
+        public int getStatusBarColor() {
+            return mStatusBarColor;
         }
     }
 }

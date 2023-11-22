@@ -55,8 +55,16 @@
  *********************************************************************/
 
 #include "private/libc_logging.h"
+#include <unistd.h>
 
 __LIBC_HIDDEN__ extern int g_ld_debug_verbosity;
+
+#define CHECK(predicate) { \
+    if (!(predicate)) { \
+      __libc_fatal("%s:%d: %s CHECK '" #predicate "' failed", \
+          __FILE__, __LINE__, __FUNCTION__); \
+    } \
+  }
 
 #if LINKER_DEBUG_TO_LOG
 #define _PRINTVF(v, x...) \

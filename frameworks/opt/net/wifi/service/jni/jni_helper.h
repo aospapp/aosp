@@ -1,3 +1,18 @@
+/*
+ * Copyright 2016, The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 namespace android {
 
@@ -67,6 +82,7 @@ public :
     bool getStringFieldValue(jobject obj, const char *name, char *buf, int size);
     JNIObject<jobject> getObjectField(jobject obj, const char *name, const char *type);
     JNIObject<jobjectArray> getArrayField(jobject obj, const char *name, const char *type);
+    void getByteArrayField(jobject obj, const char *name, byte* buf, int size);
     jlong getLongArrayField(jobject obj, const char *name, int index);
     JNIObject<jobject> getObjectArrayField(
             jobject obj, const char *name, const char *type, int index);
@@ -80,8 +96,10 @@ public :
     jboolean setStringField(jobject obj, const char *name, const char *value);
     void reportEvent(jclass cls, const char *method, const char *signature, ...);
     JNIObject<jobject> createObject(const char *className);
+    JNIObject<jobject> createObjectWithArgs(const char *className, const char *signature, ...);
     JNIObject<jobjectArray> createObjectArray(const char *className, int size);
     void setObjectField(jobject obj, const char *name, const char *type, jobject value);
+    void callMethod(jobject obj, const char *method, const char *signature, ...);
 
     /* helpers to deal with static members */
     jlong getStaticLongField(jobject obj, const char *name);
@@ -103,9 +121,9 @@ public :
     JNIObject<jlongArray> newLongArray(int num);
     JNIObject<jstring> newStringUTF(const char *utf);
     void setObjectArrayElement(jobjectArray array, int index, jobject obj);
-    void setByteArrayRegion(jbyteArray array, int from, int to, jbyte *bytes);
-    void setIntArrayRegion(jintArray array, int from, int to, jint *ints);
-    void setLongArrayRegion(jlongArray array, int from, int to, jlong *longs);
+    void setByteArrayRegion(jbyteArray array, int from, int to, const jbyte *bytes);
+    void setIntArrayRegion(jintArray array, int from, int to, const jint *ints);
+    void setLongArrayRegion(jlongArray array, int from, int to, const jlong *longs);
 
     jobject newGlobalRef(jobject obj);
     void deleteGlobalRef(jobject obj);

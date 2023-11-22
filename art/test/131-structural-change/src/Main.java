@@ -23,6 +23,7 @@ import java.lang.reflect.Method;
  */
 public class Main {
     public static void main(String[] args) {
+        System.loadLibrary(args[0]);
         new Main().run();
     }
 
@@ -34,7 +35,7 @@ public class Main {
             e.printStackTrace(System.out);
         }
 
-        boolean haveOatFile = hasOat();
+        boolean haveOatFile = hasOatFile();
         boolean gotError = false;
         try {
             Class<?> bClass = getClass().getClassLoader().loadClass("B");
@@ -44,14 +45,10 @@ public class Main {
             e.printStackTrace(System.out);
         }
         if (haveOatFile ^ gotError) {
-            System.out.println("Did not get expected error.");
+            System.out.println("Did not get expected error. " + haveOatFile + " " + gotError);
         }
         System.out.println("Done.");
     }
 
-    static {
-        System.loadLibrary("arttest");
-    }
-
-    private native static boolean hasOat();
+    private native static boolean hasOatFile();
 }

@@ -26,7 +26,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "gki.h"
+#include "bt_common.h"
 #include "bt_types.h"
 #include "hiddefs.h"
 #include "hidh_api.h"
@@ -240,6 +240,11 @@ static void hidh_search_callback (UINT16 sdp_result)
 void HID_HostInit (void)
 {
     memset(&hh_cb, 0, sizeof(tHID_HOST_CTB));
+
+    for (size_t i = 0; i < HID_HOST_MAX_DEVICES; i++) {
+        hh_cb.devices[i].conn.process_repage_timer =
+          alarm_new("hid_devices_conn.process_repage_timer");
+    }
 
 #if defined(HID_INITIAL_TRACE_LEVEL)
     hh_cb.trace_level = HID_INITIAL_TRACE_LEVEL;
@@ -462,12 +467,9 @@ tHID_STATUS HID_HostWriteDev( UINT8 dev_handle, UINT8 t_type,
     }
 
     if (status != HID_SUCCESS)
-    {
-        if (pbuf)
-            GKI_freebuf ((void *)pbuf);
-    }
+        osi_free(pbuf);
     else
-        status = hidh_conn_snd_data( dev_handle, t_type, param, data, report_id, pbuf ) ;
+        status = hidh_conn_snd_data(dev_handle, t_type, param, data, report_id, pbuf);
 
     return status;
 }
@@ -489,12 +491,10 @@ tHID_STATUS HID_HostCloseDev( UINT8 dev_handle )
     if( (dev_handle >= HID_HOST_MAX_DEVICES) || (!hh_cb.devices[dev_handle].in_use) )
         return HID_ERR_INVALID_PARAM;
 
-    hh_cb.devices[dev_handle].conn_tries = HID_HOST_MAX_CONN_RETRY+1;
-    btu_stop_timer( &(hh_cb.devices[dev_handle].conn.timer_entry) ) ;
-
     if( hh_cb.devices[dev_handle].state != HID_DEV_CONNECTED )
         return HID_ERR_NO_CONNECTION;
 
+    alarm_cancel(hh_cb.devices[dev_handle].conn.process_repage_timer);
     hh_cb.devices[dev_handle].conn_tries = HID_HOST_MAX_CONN_RETRY+1;
     return hidh_conn_disconnect( dev_handle );
 }

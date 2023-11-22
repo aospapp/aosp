@@ -21,7 +21,7 @@ include $(CLEAR_VARS)
 LOCAL_C_INCLUDES:= \
         $(call include-path-for, wilhelm)
 
-LOCAL_CFLAGS += -Wno-override-init
+LOCAL_CFLAGS += -Wno-initializer-overrides
 # -Wno-missing-field-initializers
 # optional, see comments in MPH_to.c: -DUSE_DESIGNATED_INITIALIZERS -S
 # and also see ../tools/mphgen/Makefile
@@ -45,9 +45,7 @@ LOCAL_CFLAGS += -DUSE_PROFILES=0
 LOCAL_CFLAGS += -DUSE_TRACE
 # or -UUSE_TRACE to disable API logging
 
-# enable mutex deadlock detection
-LOCAL_CFLAGS += -DUSE_DEBUG
-# or -UUSE_DEBUG for no mutex deadlock detection
+# see Configuration.h for USE_DEBUG
 
 # enable assert() to do runtime checking
 LOCAL_CFLAGS += -UNDEBUG
@@ -172,7 +170,7 @@ LOCAL_C_INCLUDES:=                                                  \
 
 LOCAL_CFLAGS += -x c++ -std=gnu++11 -Wno-multichar -Wno-invalid-offsetof
 
-LOCAL_CFLAGS += -Wno-unused-parameter
+LOCAL_CFLAGS += -Wall -Wextra -Wno-unused-parameter -Werror
 
 LOCAL_STATIC_LIBRARIES += \
         libopensles_helper        \
@@ -185,13 +183,20 @@ LOCAL_SHARED_LIBRARIES :=         \
         libbinder                 \
         libstagefright            \
         libstagefright_foundation \
-        libstagefright_http_support \
         libcutils                 \
         libgui                    \
         libdl                     \
-        libeffects
+        libeffects                \
+        libandroid_runtime
 
-
+# For Brillo, we do not want this dependency as it significantly increases the
+# size of the checkout. Also, the library is dependent on Java (which is not
+# present in Brillo), so it doesn't really make sense to have it anyways. See
+# b/24507845 for more details.
+ifndef BRILLO
+LOCAL_SHARED_LIBRARIES += \
+        libstagefright_http_support
+endif
 
 LOCAL_MODULE := libwilhelm
 LOCAL_MODULE_TAGS := optional

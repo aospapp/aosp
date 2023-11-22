@@ -1,7 +1,7 @@
 /*
   This file is part of drd, a thread error detector.
 
-  Copyright (C) 2006-2013 Bart Van Assche <bvanassche@acm.org>.
+  Copyright (C) 2006-2015 Bart Van Assche <bvanassche@acm.org>.
 
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -614,6 +614,16 @@ static Bool handle_client_request(ThreadId vg_tid, UWord* arg, UWord* ret)
                                  &UICR);
       }
       break;
+
+#if defined(VGO_solaris)
+   case VG_USERREQ__RTLD_BIND_GUARD:
+      DRD_(thread_entering_rtld_bind_guard)(drd_tid, arg[1]);
+      break;
+
+   case VG_USERREQ__RTLD_BIND_CLEAR:
+      DRD_(thread_leaving_rtld_bind_clear)(drd_tid, arg[1]);
+      break;
+#endif /* VGO_solaris */
 
    default:
 #if 0

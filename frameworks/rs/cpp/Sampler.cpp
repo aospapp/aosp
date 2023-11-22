@@ -63,7 +63,7 @@ float Sampler::getAnisotropy() {
 
 sp<Sampler> Sampler::create(sp<RS> rs, RsSamplerValue min, RsSamplerValue mag,
                             RsSamplerValue wrapS, RsSamplerValue wrapT, float anisotropy) {
-    // we aren't supporting wrapR in C++ API atm, so always pass wrap for that
+    // We aren't supporting wrapR in C++ API atm, so always pass wrap for that.
     void* id = RS::dispatch->SamplerCreate(rs->getContext(), min, mag, wrapS, wrapT,
                                            RS_SAMPLER_WRAP, anisotropy);
     return new Sampler(rs, id, min, mag, wrapS, wrapT, anisotropy);

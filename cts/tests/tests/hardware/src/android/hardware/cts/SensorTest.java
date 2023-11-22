@@ -16,8 +16,6 @@
 
 package android.hardware.cts;
 
-import com.android.cts.util.TimeoutReq;
-
 import junit.framework.Assert;
 
 import android.content.Context;
@@ -44,6 +42,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.PowerManager;
 import android.os.SystemClock;
+import android.platform.test.annotations.Presubmit;
 import android.util.Log;
 
 import java.util.ArrayList;
@@ -88,7 +87,7 @@ public class SensorTest extends SensorTestCase {
     }
 
     @Override
-    protected void tearDown(){
+    protected void tearDown() {
         if (mSensorManager != null) {
             // SensorManager will check listener and status, so just unregister listener
             mSensorManager.unregisterListener(mNullSensorEventListener);
@@ -168,8 +167,8 @@ public class SensorTest extends SensorTestCase {
         }
 
         sensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
-        // orientation sensor is required if the device can physically implement it
-        if (hasCompass && hasAccelerometer) {
+        // Note: orientation sensor is deprecated.
+        if (sensor != null) {
             assertEquals(Sensor.TYPE_ORIENTATION, sensor.getType());
             assertSensorValues(sensor);
         }
@@ -200,6 +199,7 @@ public class SensorTest extends SensorTestCase {
 
     // Some sensors like proximity, significant motion etc. are defined as wake-up sensors by
     // default. Check if the wake-up flag is set correctly.
+    @Presubmit
     public void testWakeUpFlags() {
         final int TYPE_WAKE_GESTURE = 23;
         final int TYPE_GLANCE_GESTURE = 24;
@@ -241,6 +241,7 @@ public class SensorTest extends SensorTestCase {
         }
     }
 
+    @Presubmit
     public void testSensorStringTypes() {
         for (Sensor sensor : mSensorList) {
             if (sensor.getType() < MAX_OFFICIAL_ANDROID_SENSOR_TYPE &&
@@ -256,7 +257,8 @@ public class SensorTest extends SensorTestCase {
         if (mTriggerSensor == null) {
             throw new SensorNotSupportedException(Sensor.TYPE_ACCELEROMETER);
         }
-        boolean  result = mSensorManager.requestTriggerSensor(mNullTriggerEventListener, mTriggerSensor);
+        boolean  result =
+            mSensorManager.requestTriggerSensor(mNullTriggerEventListener, mTriggerSensor);
         assertFalse(result);
     }
 
@@ -265,7 +267,8 @@ public class SensorTest extends SensorTestCase {
         if (mTriggerSensor == null) {
             throw new SensorNotSupportedException(Sensor.TYPE_ACCELEROMETER);
         }
-        boolean result = mSensorManager.cancelTriggerSensor(mNullTriggerEventListener, mTriggerSensor);
+        boolean result =
+            mSensorManager.cancelTriggerSensor(mNullTriggerEventListener, mTriggerSensor);
         assertFalse(result);
     }
 
@@ -298,7 +301,6 @@ public class SensorTest extends SensorTestCase {
 
     // TODO: remove when parametized tests are supported and EventTimestampSynchronization
     //       verification is added to default verifications
-    @TimeoutReq(minutes=60)
     public void testSensorTimeStamps() throws Exception {
         ArrayList<Throwable> errorsFound = new ArrayList<>();
         for (Sensor sensor : mSensorList) {
@@ -310,12 +312,15 @@ public class SensorTest extends SensorTestCase {
     }
 
     // TODO: remove when parameterized tests are supported (see SensorBatchingTests.java)
-    @TimeoutReq(minutes=20)
     public void testBatchAndFlush() throws Exception {
+        // TODO - replace this constant once method to do so is made available
+        final int SENSOR_TYPE_DEVICE_PRIVATE_BASE = 0x10000;
         SensorCtsHelper.sleep(3, TimeUnit.SECONDS);
         ArrayList<Throwable> errorsFound = new ArrayList<>();
         for (Sensor sensor : mSensorList) {
-            verifyRegisterListenerCallFlush(sensor, null /* handler */, errorsFound);
+            if (sensor.getType() < SENSOR_TYPE_DEVICE_PRIVATE_BASE) {
+                verifyRegisterListenerCallFlush(sensor, null /* handler */, errorsFound);
+            }
         }
         assertOnErrors(errorsFound);
     }
@@ -323,7 +328,6 @@ public class SensorTest extends SensorTestCase {
     /**
      * Verifies that sensor events arrive in the given message queue (Handler).
      */
-    @TimeoutReq(minutes=10)
     public void testBatchAndFlushWithHandler() throws Exception {
         SensorCtsHelper.sleep(3, TimeUnit.SECONDS);
         Sensor sensor = null;
@@ -360,7 +364,6 @@ public class SensorTest extends SensorTestCase {
     /**
      *  Explicit testing the SensorManager.registerListener(SensorEventListener, Sensor, int, int).
      */
-    @TimeoutReq(minutes=10)
     public void testBatchAndFlushUseDefaultHandler() throws Exception {
         SensorCtsHelper.sleep(3, TimeUnit.SECONDS);
         Sensor sensor = null;

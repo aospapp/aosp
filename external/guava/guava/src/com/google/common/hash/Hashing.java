@@ -226,6 +226,20 @@ public final class Hashing {
   }
 
   /**
+   * Returns a hash function implementing the CRC32C checksum algorithm (32 hash bits) as described
+   * by RFC 3720, Section 12.1.
+   *
+   * @since 18.0
+   */
+  public static HashFunction crc32c() {
+    return Crc32cHolder.CRC_32_C;
+  }
+
+  private static final class Crc32cHolder {
+    static final HashFunction CRC_32_C = new Crc32cHashFunction();
+  }
+
+  /**
    * Returns a hash function implementing the CRC-32 checksum algorithm (32 hash bits) by delegating
    * to the {@link CRC32} {@link Checksum}.
    *
@@ -287,19 +301,6 @@ public final class Hashing {
 
     @Override
     public abstract Checksum get();
-  }
-
-  /**
-   * If {@code hashCode} has enough bits, returns {@code hashCode.asLong()}, otherwise
-   * returns a {@code long} value with {@code hashCode.asInt()} as the least-significant
-   * four bytes and {@code 0x00} as each of the most-significant four bytes.
-   *
-   * @deprecated Use {@code HashCode.padToLong()} instead. This method is scheduled to be
-   *     removed in Guava 15.0.
-   */
-  @Deprecated
-  public static long padToLong(HashCode hashCode) {
-    return hashCode.padToLong();
   }
 
   /**

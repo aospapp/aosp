@@ -22,6 +22,9 @@ config ONEIT
     Spawns a single child process (because PID 1 has signals blocked)
     in its own session, reaps zombies until the child exits, then
     reboots the system (or powers off with -p, or restarts the child with -r).
+
+    Responds to SIGUSR1 by halting the system, SIGUSR2 by powering off,
+    and SIGTERM or SIGINT reboot.
 */
 
 #define FOR_oneit
@@ -61,7 +64,10 @@ void oneit_main(void)
 {
   int i, pid, pipes[] = {SIGUSR1, SIGUSR2, SIGTERM, SIGINT};
 
-  if (FLAG_3) {
+  // Setup signal handlers for signals of interest
+  for (i = 0; i<ARRAY_LEN(pipes); i++) xsignal(pipes[i], oneit_signaled);
+
+  if (toys.optflags & FLAG_3) {
     // Ensure next available filehandle is #3
     while (open("/", 0) < 3);
     close(3);
@@ -69,9 +75,6 @@ void oneit_main(void)
     if (pipe(pipes)) perror_exit("pipe");
     fcntl(4, F_SETFD, FD_CLOEXEC);
   }
-
-  // Setup signal handlers for signals of interest
-  for (i = 0; i<ARRAY_LEN(pipes); i++) xsignal(pipes[i], oneit_signaled);
 
   while (!toys.signal) {
 
@@ -83,7 +86,7 @@ void oneit_main(void)
       // We ignore the return value of write (what would we do with it?)
       // but save it in a variable we never read to make fortify shut up.
       // (Real problem is if pid2 never reads, write() fills pipe and blocks.)
-      while (pid != wait(&i)) if (FLAG_3) i = write(4, &pid, 4);
+      while (pid != wait(&i)) if (toys.optflags & FLAG_3) i = write(4, &pid, 4);
       if (toys.optflags & FLAG_n) continue;
 
       oneit_signaled((toys.optflags & FLAG_p) ? SIGUSR2 : SIGTERM);

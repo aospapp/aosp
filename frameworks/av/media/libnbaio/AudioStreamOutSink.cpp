@@ -66,30 +66,20 @@ ssize_t AudioStreamOutSink::write(const void *buffer, size_t count)
     return ret;
 }
 
-status_t AudioStreamOutSink::getNextWriteTimestamp(int64_t *timestamp) {
-    ALOG_ASSERT(timestamp != NULL);
-
-    if (NULL == mStream)
-        return INVALID_OPERATION;
-
-    if (NULL == mStream->get_next_write_timestamp)
-        return INVALID_OPERATION;
-
-    return mStream->get_next_write_timestamp(mStream, timestamp);
-}
-
-status_t AudioStreamOutSink::getTimestamp(AudioTimestamp& timestamp)
+status_t AudioStreamOutSink::getTimestamp(ExtendedTimestamp &timestamp)
 {
     if (mStream->get_presentation_position == NULL) {
         return INVALID_OPERATION;
     }
-    // FIXME position64 won't be needed after AudioTimestamp.mPosition is changed to uint64_t
+
     uint64_t position64;
-    int ok = mStream->get_presentation_position(mStream, &position64, &timestamp.mTime);
-    if (ok != 0) {
+    struct timespec time;
+    if (mStream->get_presentation_position(mStream, &position64, &time) != OK) {
         return INVALID_OPERATION;
     }
-    timestamp.mPosition = position64;
+    timestamp.mPosition[ExtendedTimestamp::LOCATION_KERNEL] = position64;
+    timestamp.mTimeNs[ExtendedTimestamp::LOCATION_KERNEL] =
+            time.tv_sec * 1000000000LL + time.tv_nsec;
     return OK;
 }
 

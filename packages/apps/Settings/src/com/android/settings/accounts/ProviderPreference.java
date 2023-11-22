@@ -18,13 +18,18 @@ package com.android.settings.accounts;
 
 import android.content.Context;
 import android.graphics.drawable.Drawable;
-import android.preference.Preference;
+import android.support.v7.preference.Preference;
+
+import com.android.settingslib.RestrictedLockUtils;
+import com.android.settingslib.RestrictedPreference;
+
+import static com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
 
 /**
  * ProviderPreference is used to display an image to the left of a provider name.
  * The preference ultimately calls AccountManager.addAccount() for the account type.
  */
-public class ProviderPreference extends Preference {
+public class ProviderPreference extends RestrictedPreference {
     private String mAccountType;
 
     public ProviderPreference(
@@ -34,9 +39,16 @@ public class ProviderPreference extends Preference {
         setIcon(icon);
         setPersistent(false);
         setTitle(providerName);
+        useAdminDisabledSummary(true);
     }
 
     public String getAccountType() {
         return mAccountType;
+    }
+
+    public void checkAccountManagementAndSetDisabled(int userId) {
+        EnforcedAdmin admin = RestrictedLockUtils.checkIfAccountManagementDisabled(
+                getContext(), getAccountType(), userId);
+        setDisabledByAdmin(admin);
     }
 }

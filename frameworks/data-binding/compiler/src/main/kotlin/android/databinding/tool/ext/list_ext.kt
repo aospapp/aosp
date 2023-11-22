@@ -16,29 +16,14 @@
 
 package android.databinding.tool.ext
 
-import android.databinding.tool.ext.toCamelCase
-import android.databinding.tool.ext.toCamelCaseAsVar
-
-public fun List<String>.joinToCamelCase(): String = when(size()) {
+public fun List<String>.joinToCamelCase(): String = when(size) {
     0 -> throw IllegalArgumentException("invalid section size, cannot be zero")
-    1 -> this.get(0).toCamelCase()
+    1 -> this[0].toCamelCase()
     else -> this.map {it.toCamelCase()}.joinToString("")
 }
 
-public fun List<String>.joinToCamelCaseAsVar(): String = when(size()) {
+public fun List<String>.joinToCamelCaseAsVar(): String = when(size) {
     0 -> throw IllegalArgumentException("invalid section size, cannot be zero")
-    1 -> this.get(0).toCamelCaseAsVar()
-    else -> get(0).toCamelCaseAsVar() + drop(1).joinToCamelCase()
-}
-
-public fun Array<String>.joinToCamelCase(): String = when(size()) {
-    0 -> throw IllegalArgumentException("invalid section size, cannot be zero")
-    1 -> this.get(0).toCamelCase()
-    else -> this.map {it.toCamelCase()}.joinToString("")
-}
-
-public fun Array<String>.joinToCamelCaseAsVar(): String = when(size()) {
-    0 -> throw IllegalArgumentException("invalid section size, cannot be zero")
-    1 -> this.get(0).toCamelCaseAsVar()
+    1 -> this[0].toCamelCaseAsVar()
     else -> get(0).toCamelCaseAsVar() + drop(1).joinToCamelCase()
 }

@@ -19,6 +19,7 @@ package android.assist.cts;
 import android.assist.cts.TestStartActivity;
 import android.assist.common.Utils;
 
+import android.app.ActivityManager;
 import android.app.assist.AssistContent;
 import android.app.assist.AssistStructure;
 import android.app.assist.AssistStructure.ViewNode;
@@ -35,6 +36,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Point;
+import android.graphics.Rect;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.test.ActivityInstrumentationTestCase2;
@@ -44,14 +46,19 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
+import android.view.accessibility.AccessibilityNodeInfo;
+import android.webkit.WebView;
+import android.widget.EditText;
 import android.widget.TextView;
 
+import java.lang.Math;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 public class AssistTestBase extends ActivityInstrumentationTestCase2<TestStartActivity> {
     private static final String TAG = "AssistTestBase";
 
+    protected ActivityManager mActivityManager;
     protected TestStartActivity mTestActivity;
     protected AssistContent mAssistContent;
     protected AssistStructure mAssistStructure;
@@ -118,6 +125,7 @@ public class AssistTestBase extends ActivityInstrumentationTestCase2<TestStartAc
         intent.putExtra(Utils.TESTCASE_TYPE, testName);
         setActivityIntent(intent);
         mTestActivity = getActivity();
+        mActivityManager = (ActivityManager) mContext.getSystemService(Context.ACTIVITY_SERVICE);
     }
 
     /**
@@ -175,9 +183,9 @@ public class AssistTestBase extends ActivityInstrumentationTestCase2<TestStartAc
             mContext.unregisterReceiver(mReceiver);
         }
         mReceiver = new TestResultsReceiver();
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(Utils.BROADCAST_ASSIST_DATA_INTENT);
-        mContext.registerReceiver(mReceiver, filter);
+        mContext.registerReceiver(mReceiver,
+                new IntentFilter(Utils.BROADCAST_ASSIST_DATA_INTENT));
+
         if (!mLatch.await(Utils.getAssistDataTimeout(mTestName), TimeUnit.MILLISECONDS)) {
             fail("Fail to receive broadcast in " + Utils.getAssistDataTimeout(mTestName) + "msec");
         }
@@ -198,23 +206,40 @@ public class AssistTestBase extends ActivityInstrumentationTestCase2<TestStartAc
 
         if ((mAssistContent == null) != isContentNull) {
             fail(String.format("Should %s have been null - AssistContent: %s",
-                    isContentNull? "":"not", mAssistContent));
+                    isContentNull ? "" : "not", mAssistContent));
         }
 
         if ((mAssistStructure == null) != isStructureNull) {
             fail(String.format("Should %s have been null - AssistStructure: %s",
-                isStructureNull ? "" : "not", mAssistStructure));
+                    isStructureNull ? "" : "not", mAssistStructure));
         }
 
         if ((mAssistBundle == null) != isBundleNull) {
             fail(String.format("Should %s have been null - AssistBundle: %s",
-                    isBundleNull? "":"not", mAssistBundle));
+                    isBundleNull ? "" : "not", mAssistBundle));
         }
 
         if (mScreenshot == isScreenshotNull) {
             fail(String.format("Should %s have been null - Screenshot: %s",
-                    isScreenshotNull? "":"not", mScreenshot));
+                    isScreenshotNull ? "":"not", mScreenshot));
         }
+    }
+
+    /**
+     * Sends a broadcast with the specified scroll positions to the test app.
+     */
+    protected void scrollTestApp(int scrollX, int scrollY, boolean scrollTextView,
+            boolean scrollScrollView) {
+        mTestActivity.scrollText(scrollX, scrollY, scrollTextView, scrollScrollView);
+        Intent intent = null;
+        if (scrollTextView) {
+            intent = new Intent(Utils.SCROLL_TEXTVIEW_ACTION);
+        } else if (scrollScrollView) {
+            intent = new Intent(Utils.SCROLL_SCROLLVIEW_ACTION);
+        }
+        intent.putExtra(Utils.SCROLL_X_POSITION, scrollX);
+        intent.putExtra(Utils.SCROLL_Y_POSITION, scrollY);
+        mContext.sendBroadcast(intent);
     }
 
     /**
@@ -226,7 +251,7 @@ public class AssistTestBase extends ActivityInstrumentationTestCase2<TestStartAc
     protected void verifyAssistStructure(ComponentName backgroundApp, boolean isSecureWindow) {
         // Check component name matches
         assertEquals(backgroundApp.flattenToString(),
-            mAssistStructure.getActivityComponent().flattenToString());
+                mAssistStructure.getActivityComponent().flattenToString());
 
         Log.i(TAG, "Traversing down structure for: " + backgroundApp.flattenToString());
         mView = mTestActivity.findViewById(android.R.id.content).getRootView();
@@ -288,9 +313,10 @@ public class AssistTestBase extends ActivityInstrumentationTestCase2<TestStartAc
                         + ((ViewGroup) parentView).getChildAt(childInt).getClass().getName());
             }
         }
+        String parentViewId = null;
         if (parentView.getId() > 0) {
-            Log.i(TAG, "View ID: "
-                    + mTestActivity.getResources().getResourceEntryName(parentView.getId()));
+            parentViewId = mTestActivity.getResources().getResourceEntryName(parentView.getId());
+            Log.i(TAG, "View ID: " + parentViewId);
         }
 
         Log.i(TAG, "parentNode is of type: " + parentNode.getClassName());
@@ -299,7 +325,9 @@ public class AssistTestBase extends ActivityInstrumentationTestCase2<TestStartAc
                     "nodechild" + nodeInt + " is of type: "
                     + parentNode.getChildAt(nodeInt).getClassName());
         }
-            Log.i(TAG, "Node ID: " + parentNode.getIdEntry());
+        Log.i(TAG, "Node ID: " + parentNode.getIdEntry());
+
+        assertEquals("IDs do not match", parentViewId, parentNode.getIdEntry());
 
         int numViewChildren = 0;
         int numNodeChildren = 0;
@@ -309,28 +337,54 @@ public class AssistTestBase extends ActivityInstrumentationTestCase2<TestStartAc
         numNodeChildren = parentNode.getChildCount();
 
         if (isSecureWindow) {
+            assertTrue("ViewNode property isAssistBlocked is false", parentNode.isAssistBlocked());
             assertEquals("Secure window should only traverse root node.", 0, numNodeChildren);
             isSecureWindow = false;
-            return;
+        } else if (parentNode.getClassName().equals("android.webkit.WebView")) {
+            // WebView will also appear to have no children while the node does, traverse node
+            assertTrue("AssistStructure returned a WebView where the view wasn't one",
+                    parentView instanceof WebView);
+
+            boolean textInWebView = false;
+
+            for (int i = numNodeChildren - 1; i >= 0; i--) {
+               textInWebView |= traverseWebViewForText(parentNode.getChildAt(i));
+            }
+            assertTrue("Did not find expected strings inside WebView", textInWebView);
         } else {
             assertEquals("Number of children did not match.", numViewChildren, numNodeChildren);
-        }
 
-        verifyViewProperties(parentView, parentNode);
+            verifyViewProperties(parentView, parentNode);
 
-        if (parentView instanceof ViewGroup) {
-            parentGroup = (ViewGroup) parentView;
+            if (parentView instanceof ViewGroup) {
+                parentGroup = (ViewGroup) parentView;
 
-            // TODO: set a max recursion level
-            for (int i = numNodeChildren - 1; i >= 0; i--) {
-                View childView = parentGroup.getChildAt(i);
-                ViewNode childNode = parentNode.getChildAt(i);
+                // TODO: set a max recursion level
+                for (int i = numNodeChildren - 1; i >= 0; i--) {
+                    View childView = parentGroup.getChildAt(i);
+                    ViewNode childNode = parentNode.getChildAt(i);
 
-                // if isSecureWindow, should not have reached this point.
-                assertFalse(isSecureWindow);
-                traverseViewAndStructure(childView, childNode, isSecureWindow);
+                    // if isSecureWindow, should not have reached this point.
+                    assertFalse(isSecureWindow);
+                    traverseViewAndStructure(childView, childNode, isSecureWindow);
+                }
             }
         }
+    }
+
+    /** 
+     * Return true if the expected strings are found in the WebView, else fail.
+     */
+    private boolean traverseWebViewForText(ViewNode parentNode) {
+        boolean textFound = false;
+        if (parentNode.getText() != null 
+                && parentNode.getText().toString().equals(Utils.WEBVIEW_HTML_GREETING)) {
+            return true;
+        }
+        for (int i = parentNode.getChildCount() - 1; i >= 0; i--) {
+            textFound |= traverseWebViewForText(parentNode.getChildAt(i));
+        }
+        return textFound;
     }
 
     /**
@@ -357,21 +411,43 @@ public class AssistTestBase extends ActivityInstrumentationTestCase2<TestStartAc
             Log.i(TAG, "view text: " + ((TextView) parentView).getText());
         }
 
-        assertEquals("Scroll X does not match.",
-                parentView.getScrollX(), parentNode.getScrollX());
 
-        assertEquals("Scroll Y does not match.",
-                parentView.getScrollY(), parentNode.getScrollY());
-
-        assertEquals("Heights do not match.", parentView.getHeight(),
-                parentNode.getHeight());
-
+        assertEquals("Scroll X does not match.", parentView.getScrollX(), parentNode.getScrollX());
+        assertEquals("Scroll Y does not match.", parentView.getScrollY(), parentNode.getScrollY());
+        assertEquals("Heights do not match.", parentView.getHeight(), parentNode.getHeight());
         assertEquals("Widths do not match.", parentView.getWidth(), parentNode.getWidth());
 
-        // TODO: handle unicode/i18n
         if (parentView instanceof TextView) {
-            assertEquals("Text in TextView does not match.",
-                    ((TextView) parentView).getText().toString(), parentNode.getText());
+            if (parentView instanceof EditText) {
+                assertEquals("Text selection start does not match",
+                    ((EditText)parentView).getSelectionStart(), parentNode.getTextSelectionStart());
+                assertEquals("Text selection end does not match",
+                        ((EditText)parentView).getSelectionEnd(), parentNode.getTextSelectionEnd());
+            }
+            TextView textView = (TextView) parentView;
+            assertEquals(textView.getTextSize(), parentNode.getTextSize());
+            String viewString = textView.getText().toString();
+            String nodeString = parentNode.getText().toString();
+
+            if (parentNode.getScrollX() == 0 && parentNode.getScrollY() == 0) {
+                Log.i(TAG, "Verifying text within TextView at the beginning");
+                Log.i(TAG, "view string: " + viewString);
+                Log.i(TAG, "node string: " + nodeString);
+                assertTrue("String length is unexpected: original string - " + viewString.length() +
+                                ", string in AssistData - " + nodeString.length(),
+                        viewString.length() >= nodeString.length());
+                assertTrue("Expected a longer string to be shown. expected: "
+                                + Math.min(viewString.length(), 30) + " was: " + nodeString
+                                .length(),
+                        nodeString.length() >= Math.min(viewString.length(), 30));
+                for (int x = 0; x < parentNode.getText().length(); x++) {
+                    assertEquals("Char not equal at index: " + x,
+                            ((TextView) parentView).getText().toString().charAt(x),
+                            parentNode.getText().charAt(x));
+                }
+            } else if (parentNode.getScrollX() == parentView.getWidth()) {
+
+            }
         } else {
             assertNull(parentNode.getText());
         }

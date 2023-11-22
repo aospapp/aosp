@@ -46,6 +46,12 @@ class LocalizeDependenciesTask extends DefaultTask {
 
     private Set<String> fetchTestDependencies = new HashSet<>();
 
+    // force download these if they are seen as a dependency
+    private Set<String>  wildCard = new HashSet<>();
+    {
+        wildCard.add("kotlin-gradle-plugin-core")
+    }
+
     List<Artifact> artifactsToResolve = new LinkedList<>();
 
     Set<String> resolvedArtifacts = new HashSet<>();
@@ -64,9 +70,14 @@ class LocalizeDependenciesTask extends DefaultTask {
         LocalizePluginExtension extension = project.extensions.
                 getByName(MavenDependencyCollectorPlugin.EXTENSION_NAME)
         if (extension.localRepoDir == null || extension.otherRepoDirs == null) {
-            throw new IllegalArgumentException("you must configure " +
+
+            def msg = "you must configure " +
                     "${MavenDependencyCollectorPlugin.EXTENSION_NAME} with localRepoDir and" +
-                    " otherRepoDirs")
+                    " otherRepoDirs. localRepoDir: " + extension.localRepoDir +
+                    "\notherRepoDir:" + extension.otherRepoDirs;
+            println(msg)
+            println("skipping ${project}")
+            return
         }
         localRepoDir = extension.localRepoDir
         downloadAll(extension.localRepoDir, extension.otherRepoDirs)
@@ -205,10 +216,10 @@ class LocalizeDependenciesTask extends DefaultTask {
                 continue
             }
             if ("test".equals(dependency.scope)) {
-                if (fetchTestDependencies.contains(key)) {
+                if (wildCard.contains(dependency.artifact.getArtifactId()) || fetchTestDependencies.contains(key)) {
                     println("${dependency} is test scope but including because $key is in direct dependencies")
                 } else {
-                    println("skipping $dependency because test and not first level dependency")
+                    println("skipping $dependency because test and $key is not first level dependency. artifact id: ${dependency.artifact.getArtifactId()}")
                     continue
                 }
             }

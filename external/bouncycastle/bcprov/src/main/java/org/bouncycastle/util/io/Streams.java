@@ -10,7 +10,7 @@ import java.io.OutputStream;
  */
 public final class Streams
 {
-    private static int BUFFER_SIZE = 512;
+    private static int BUFFER_SIZE = 4096;
 
     /**
      * Read stream till EOF is encountered.
@@ -133,11 +133,11 @@ public final class Streams
         int numRead;
         while ((numRead = inStr.read(bs, 0, bs.length)) >= 0)
         {
-            total += numRead;
-            if (total > limit)
+            if ((limit - total) < numRead)
             {
                 throw new StreamOverflowException("Data Overflow");
             }
+            total += numRead;
             outStr.write(bs, 0, numRead);
         }
         return total;

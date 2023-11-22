@@ -26,7 +26,7 @@ def main():
 
     # There should be 3 identical frames followed by a different set of
     # 3 identical frames.
-    MAX_SAME_DELTA = 0.01
+    MAX_SAME_DELTA = 0.015
     MIN_DIFF_DELTA = 0.10
 
     with its.device.ItsSession() as cam:

@@ -23,19 +23,19 @@
 extern "C" {
 #include <stdint.h>
 
-#include "allocation_tracker.h"
-#include "allocator.h"
-#include "btsnoop.h"
 #include "device/include/controller.h"
+#include "osi/include/allocation_tracker.h"
+#include "osi/include/allocator.h"
+#include "osi/include/osi.h"
+#include "osi/include/semaphore.h"
+#include "btsnoop.h"
 #include "hcimsgs.h"
 #include "hci_hal.h"
 #include "hci_inject.h"
 #include "hci_layer.h"
 #include "low_power_manager.h"
 #include "module.h"
-#include "osi.h"
 #include "packet_fragmenter.h"
-#include "semaphore.h"
 #include "test_stubs.h"
 #include "vendor.h"
 
@@ -224,7 +224,7 @@ static size_t replay_data_to_receive(size_t max_size, uint8_t *buffer) {
   return 0;
 }
 
-STUB_FUNCTION(size_t, hal_read_data, (serial_data_type_t type, uint8_t *buffer, size_t max_size, UNUSED_ATTR bool block))
+STUB_FUNCTION(size_t, hal_read_data, (serial_data_type_t type, uint8_t *buffer, size_t max_size))
   DURING(receive_simple, ignoring_packets_following_packet) {
     EXPECT_EQ(DATA_TYPE_ACL, type);
     return replay_data_to_receive(max_size, buffer);
@@ -402,6 +402,13 @@ STUB_FUNCTION(void, vendor_set_callback, (vendor_async_opcode_t opcode, UNUSED_A
 
 STUB_FUNCTION(int, vendor_send_command, (vendor_opcode_t opcode, void *param))
   DURING(start_up_async) {
+#if (defined (BT_CLEAN_TURN_ON_DISABLED) && BT_CLEAN_TURN_ON_DISABLED == TRUE)
+    AT_CALL(0) {
+      EXPECT_EQ(VENDOR_CHIP_POWER_CONTROL, opcode);
+      EXPECT_EQ(BT_VND_PWR_ON, *(int *)param);
+      return 0;
+    }
+#else
     AT_CALL(0) {
       EXPECT_EQ(VENDOR_CHIP_POWER_CONTROL, opcode);
       EXPECT_EQ(BT_VND_PWR_OFF, *(int *)param);
@@ -412,6 +419,7 @@ STUB_FUNCTION(int, vendor_send_command, (vendor_opcode_t opcode, void *param))
       EXPECT_EQ(BT_VND_PWR_ON, *(int *)param);
       return 0;
     }
+#endif
   }
 
   DURING(shut_down) AT_CALL(0) {
@@ -520,6 +528,7 @@ class HciLayerTest : public AlarmTestHarness {
   protected:
     virtual void SetUp() {
       AlarmTestHarness::SetUp();
+      module_management_start();
 
       hci = hci_layer_get_test_interface(
         &buffer_allocator,
@@ -530,10 +539,6 @@ class HciLayerTest : public AlarmTestHarness {
         &vendor,
         &low_power_manager
       );
-
-      // Make sure the data dispatcher allocation isn't tracked
-      allocation_tracker_reset();
-      module_management_start();
 
       packet_index = 0;
       data_size_sum = 0;
@@ -584,6 +589,7 @@ class HciLayerTest : public AlarmTestHarness {
       EXPECT_CALL_COUNT(vendor_close, 1);
 
       semaphore_free(done);
+      hci_layer_cleanup_interface();
       module_management_stop();
       AlarmTestHarness::TearDown();
     }

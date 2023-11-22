@@ -23,20 +23,18 @@ import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.Region;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
+import android.support.annotation.Nullable;
 import android.support.v4.graphics.drawable.DrawableCompat;
 import android.support.v4.view.MotionEventCompat;
 import android.support.v4.view.ViewCompat;
 import android.support.v7.appcompat.R;
-import android.support.v7.internal.text.AllCapsTransformationMethod;
-import android.support.v7.internal.widget.DrawableUtils;
-import android.support.v7.internal.widget.TintManager;
-import android.support.v7.internal.widget.TintTypedArray;
-import android.support.v7.internal.widget.ViewUtils;
+import android.support.v7.text.AllCapsTransformationMethod;
 import android.text.Layout;
 import android.text.StaticLayout;
 import android.text.TextPaint;
@@ -68,7 +66,19 @@ import android.widget.CompoundButton;
  * {@link #setTextAppearance(android.content.Context, int) textAppearance} and the related
  * setTypeface() methods control the typeface and style of label text, whereas the
  * {@link #setSwitchTextAppearance(android.content.Context, int) switchTextAppearance} and
- * the related seSwitchTypeface() methods control that of the thumb.
+ * the related setSwitchTypeface() methods control that of the thumb.
+ *
+ * <p>See the <a href="{@docRoot}guide/topics/ui/controls/togglebutton.html">Toggle Buttons</a>
+ * guide.</p>
+ *
+ * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_android_textOn
+ * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_android_textOff
+ * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_switchMinWidth
+ * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_switchPadding
+ * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_switchTextAppearance
+ * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_android_thumb
+ * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_thumbTextPadding
+ * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_track
  */
 public class SwitchCompat extends CompoundButton {
     private static final int THUMB_ANIMATION_DURATION = 250;
@@ -87,7 +97,17 @@ public class SwitchCompat extends CompoundButton {
     private static final int MONOSPACE = 3;
 
     private Drawable mThumbDrawable;
+    private ColorStateList mThumbTintList = null;
+    private PorterDuff.Mode mThumbTintMode = null;
+    private boolean mHasThumbTint = false;
+    private boolean mHasThumbTintMode = false;
+
     private Drawable mTrackDrawable;
+    private ColorStateList mTrackTintList = null;
+    private PorterDuff.Mode mTrackTintMode = null;
+    private boolean mHasTrackTint = false;
+    private boolean mHasTrackTintMode = false;
+
     private int mThumbTextPadding;
     private int mSwitchMinWidth;
     private int mSwitchPadding;
@@ -145,7 +165,7 @@ public class SwitchCompat extends CompoundButton {
     @SuppressWarnings("hiding")
     private final Rect mTempRect = new Rect();
 
-    private final TintManager mTintManager;
+    private final AppCompatDrawableManager mDrawableManager;
 
     private static final int[] CHECKED_STATE_SET = {
             android.R.attr.state_checked
@@ -210,13 +230,43 @@ public class SwitchCompat extends CompoundButton {
                 R.styleable.SwitchCompat_switchPadding, 0);
         mSplitTrack = a.getBoolean(R.styleable.SwitchCompat_splitTrack, false);
 
+        ColorStateList thumbTintList = a.getColorStateList(R.styleable.SwitchCompat_thumbTint);
+        if (thumbTintList != null) {
+            mThumbTintList = thumbTintList;
+            mHasThumbTint = true;
+        }
+        PorterDuff.Mode thumbTintMode = DrawableUtils.parseTintMode(
+                a.getInt(R.styleable.SwitchCompat_thumbTintMode, -1), null);
+        if (mThumbTintMode != thumbTintMode) {
+            mThumbTintMode = thumbTintMode;
+            mHasThumbTintMode = true;
+        }
+        if (mHasThumbTint || mHasThumbTintMode) {
+            applyThumbTint();
+        }
+
+        ColorStateList trackTintList = a.getColorStateList(R.styleable.SwitchCompat_trackTint);
+        if (trackTintList != null) {
+            mTrackTintList = trackTintList;
+            mHasTrackTint = true;
+        }
+        PorterDuff.Mode trackTintMode = DrawableUtils.parseTintMode(
+                a.getInt(R.styleable.SwitchCompat_trackTintMode, -1), null);
+        if (mTrackTintMode != trackTintMode) {
+            mTrackTintMode = trackTintMode;
+            mHasTrackTintMode = true;
+        }
+        if (mHasTrackTint || mHasTrackTintMode) {
+            applyTrackTint();
+        }
+
         final int appearance = a.getResourceId(
                 R.styleable.SwitchCompat_switchTextAppearance, 0);
         if (appearance != 0) {
             setSwitchTextAppearance(context, appearance);
         }
 
-        mTintManager = a.getTintManager();
+        mDrawableManager = AppCompatDrawableManager.get();
 
         a.recycle();
 
@@ -232,6 +282,8 @@ public class SwitchCompat extends CompoundButton {
     /**
      * Sets the switch text color, size, style, hint color, and highlight color
      * from the specified TextAppearance resource.
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_switchTextAppearance
      */
     public void setSwitchTextAppearance(Context context, int resid) {
         TypedArray appearance = context.obtainStyledAttributes(resid, R.styleable.TextAppearance);
@@ -337,6 +389,8 @@ public class SwitchCompat extends CompoundButton {
      * Set the amount of horizontal padding between the switch and the associated text.
      *
      * @param pixels Amount of padding in pixels
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_switchPadding
      */
     public void setSwitchPadding(int pixels) {
         mSwitchPadding = pixels;
@@ -347,6 +401,8 @@ public class SwitchCompat extends CompoundButton {
      * Get the amount of horizontal padding between the switch and the associated text.
      *
      * @return Amount of padding in pixels
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_switchPadding
      */
     public int getSwitchPadding() {
         return mSwitchPadding;
@@ -357,6 +413,8 @@ public class SwitchCompat extends CompoundButton {
      * of this value and its measured width as determined by the switch drawables and text used.
      *
      * @param pixels Minimum width of the switch in pixels
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_switchMinWidth
      */
     public void setSwitchMinWidth(int pixels) {
         mSwitchMinWidth = pixels;
@@ -368,6 +426,8 @@ public class SwitchCompat extends CompoundButton {
      * of this value and its measured width as determined by the switch drawables and text used.
      *
      * @return Minimum width of the switch in pixels
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_switchMinWidth
      */
     public int getSwitchMinWidth() {
         return mSwitchMinWidth;
@@ -377,6 +437,8 @@ public class SwitchCompat extends CompoundButton {
      * Set the horizontal padding around the text drawn on the switch itself.
      *
      * @param pixels Horizontal padding for switch thumb text in pixels
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_thumbTextPadding
      */
     public void setThumbTextPadding(int pixels) {
         mThumbTextPadding = pixels;
@@ -387,6 +449,8 @@ public class SwitchCompat extends CompoundButton {
      * Get the horizontal padding around the text drawn on the switch itself.
      *
      * @return Horizontal padding for switch thumb text in pixels
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_thumbTextPadding
      */
     public int getThumbTextPadding() {
         return mThumbTextPadding;
@@ -396,9 +460,17 @@ public class SwitchCompat extends CompoundButton {
      * Set the drawable used for the track that the switch slides within.
      *
      * @param track Track drawable
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_track
      */
     public void setTrackDrawable(Drawable track) {
+        if (mTrackDrawable != null) {
+            mTrackDrawable.setCallback(null);
+        }
         mTrackDrawable = track;
+        if (track != null) {
+            track.setCallback(this);
+        }
         requestLayout();
     }
 
@@ -406,18 +478,100 @@ public class SwitchCompat extends CompoundButton {
      * Set the drawable used for the track that the switch slides within.
      *
      * @param resId Resource ID of a track drawable
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_track
      */
     public void setTrackResource(int resId) {
-        setTrackDrawable(mTintManager.getDrawable(resId));
+        setTrackDrawable(mDrawableManager.getDrawable(getContext(), resId));
     }
 
     /**
      * Get the drawable used for the track that the switch slides within.
      *
      * @return Track drawable
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_track
      */
     public Drawable getTrackDrawable() {
         return mTrackDrawable;
+    }
+
+    /**
+     * Applies a tint to the track drawable. Does not modify the current
+     * tint mode, which is {@link PorterDuff.Mode#SRC_IN} by default.
+     * <p>
+     * Subsequent calls to {@link #setTrackDrawable(Drawable)} will
+     * automatically mutate the drawable and apply the specified tint and tint
+     * mode using {@link DrawableCompat#setTintList(Drawable, ColorStateList)}.
+     *
+     * @param tint the tint to apply, may be {@code null} to clear tint
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_trackTint
+     * @see #getTrackTintList()
+     */
+    public void setTrackTintList(@Nullable ColorStateList tint) {
+        mTrackTintList = tint;
+        mHasTrackTint = true;
+
+        applyTrackTint();
+    }
+
+    /**
+     * @return the tint applied to the track drawable
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_trackTint
+     * @see #setTrackTintList(ColorStateList)
+     */
+    @Nullable
+    public ColorStateList getTrackTintList() {
+        return mTrackTintList;
+    }
+
+    /**
+     * Specifies the blending mode used to apply the tint specified by
+     * {@link #setTrackTintList(ColorStateList)}} to the track drawable.
+     * The default mode is {@link PorterDuff.Mode#SRC_IN}.
+     *
+     * @param tintMode the blending mode used to apply the tint, may be
+     *                 {@code null} to clear tint
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_trackTintMode
+     * @see #getTrackTintMode()
+     */
+    public void setTrackTintMode(@Nullable PorterDuff.Mode tintMode) {
+        mTrackTintMode = tintMode;
+        mHasTrackTintMode = true;
+
+        applyTrackTint();
+    }
+
+    /**
+     * @return the blending mode used to apply the tint to the track
+     *         drawable
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_trackTintMode
+     * @see #setTrackTintMode(PorterDuff.Mode)
+     */
+    @Nullable
+    public PorterDuff.Mode getTrackTintMode() {
+        return mTrackTintMode;
+    }
+
+    private void applyTrackTint() {
+        if (mTrackDrawable != null && (mHasTrackTint || mHasTrackTintMode)) {
+            mTrackDrawable = mTrackDrawable.mutate();
+
+            if (mHasTrackTint) {
+                DrawableCompat.setTintList(mTrackDrawable, mTrackTintList);
+            }
+
+            if (mHasTrackTintMode) {
+                DrawableCompat.setTintMode(mTrackDrawable, mTrackTintMode);
+            }
+
+            // The drawable (or one of its children) may not have been
+            // stateful before applying the tint, so let's try again.
+            if (mTrackDrawable.isStateful()) {
+                mTrackDrawable.setState(getDrawableState());
+            }
+        }
     }
 
     /**
@@ -425,9 +579,17 @@ public class SwitchCompat extends CompoundButton {
      * can physically touch and drag along the track.
      *
      * @param thumb Thumb drawable
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_android_thumb
      */
     public void setThumbDrawable(Drawable thumb) {
+        if (mThumbDrawable != null) {
+            mThumbDrawable.setCallback(null);
+        }
         mThumbDrawable = thumb;
+        if (thumb != null) {
+            thumb.setCallback(this);
+        }
         requestLayout();
     }
 
@@ -436,9 +598,11 @@ public class SwitchCompat extends CompoundButton {
      * can physically touch and drag along the track.
      *
      * @param resId Resource ID of a thumb drawable
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_android_thumb
      */
     public void setThumbResource(int resId) {
-        setThumbDrawable(mTintManager.getDrawable(resId));
+        setThumbDrawable(mDrawableManager.getDrawable(getContext(), resId));
     }
 
     /**
@@ -446,9 +610,91 @@ public class SwitchCompat extends CompoundButton {
      * can physically touch and drag along the track.
      *
      * @return Thumb drawable
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_android_thumb
      */
     public Drawable getThumbDrawable() {
         return mThumbDrawable;
+    }
+
+    /**
+     * Applies a tint to the thumb drawable. Does not modify the current
+     * tint mode, which is {@link PorterDuff.Mode#SRC_IN} by default.
+     * <p>
+     * Subsequent calls to {@link #setThumbDrawable(Drawable)} will
+     * automatically mutate the drawable and apply the specified tint and tint
+     * mode using {@link DrawableCompat#setTintList(Drawable, ColorStateList)}.
+     *
+     * @param tint the tint to apply, may be {@code null} to clear tint
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_thumbTint
+     * @see #getThumbTintList()
+     * @see Drawable#setTintList(ColorStateList)
+     */
+    public void setThumbTintList(@Nullable ColorStateList tint) {
+        mThumbTintList = tint;
+        mHasThumbTint = true;
+
+        applyThumbTint();
+    }
+
+    /**
+     * @return the tint applied to the thumb drawable
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_thumbTint
+     * @see #setThumbTintList(ColorStateList)
+     */
+    @Nullable
+    public ColorStateList getThumbTintList() {
+        return mThumbTintList;
+    }
+
+    /**
+     * Specifies the blending mode used to apply the tint specified by
+     * {@link #setThumbTintList(ColorStateList)}} to the thumb drawable.
+     * The default mode is {@link PorterDuff.Mode#SRC_IN}.
+     *
+     * @param tintMode the blending mode used to apply the tint, may be
+     *                 {@code null} to clear tint
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_thumbTintMode
+     * @see #getThumbTintMode()
+     * @see Drawable#setTintMode(PorterDuff.Mode)
+     */
+    public void setThumbTintMode(@Nullable PorterDuff.Mode tintMode) {
+        mThumbTintMode = tintMode;
+        mHasThumbTintMode = true;
+
+        applyThumbTint();
+    }
+
+    /**
+     * @return the blending mode used to apply the tint to the thumb
+     *         drawable
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_thumbTintMode
+     * @see #setThumbTintMode(PorterDuff.Mode)
+     */
+    @Nullable
+    public PorterDuff.Mode getThumbTintMode() {
+        return mThumbTintMode;
+    }
+
+    private void applyThumbTint() {
+        if (mThumbDrawable != null && (mHasThumbTint || mHasThumbTintMode)) {
+            mThumbDrawable = mThumbDrawable.mutate();
+
+            if (mHasThumbTint) {
+                DrawableCompat.setTintList(mThumbDrawable, mThumbTintList);
+            }
+
+            if (mHasThumbTintMode) {
+                DrawableCompat.setTintMode(mThumbDrawable, mThumbTintMode);
+            }
+
+            // The drawable (or one of its children) may not have been
+            // stateful before applying the tint, so let's try again.
+            if (mThumbDrawable.isStateful()) {
+                mThumbDrawable.setState(getDrawableState());
+            }
+        }
     }
 
     /**
@@ -457,6 +703,8 @@ public class SwitchCompat extends CompoundButton {
      * then the thumb will be drawn into the resulting gap.
      *
      * @param splitTrack Whether the track should be split by the thumb
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_splitTrack
      */
     public void setSplitTrack(boolean splitTrack) {
         mSplitTrack = splitTrack;
@@ -465,6 +713,8 @@ public class SwitchCompat extends CompoundButton {
 
     /**
      * Returns whether the track should be split by the thumb.
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_splitTrack
      */
     public boolean getSplitTrack() {
         return mSplitTrack;
@@ -472,6 +722,8 @@ public class SwitchCompat extends CompoundButton {
 
     /**
      * Returns the text displayed when the button is in the checked state.
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_android_textOn
      */
     public CharSequence getTextOn() {
         return mTextOn;
@@ -479,6 +731,8 @@ public class SwitchCompat extends CompoundButton {
 
     /**
      * Sets the text displayed when the button is in the checked state.
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_android_textOn
      */
     public void setTextOn(CharSequence textOn) {
         mTextOn = textOn;
@@ -487,6 +741,8 @@ public class SwitchCompat extends CompoundButton {
 
     /**
      * Returns the text displayed when the button is not in the checked state.
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_android_textOff
      */
     public CharSequence getTextOff() {
         return mTextOff;
@@ -494,6 +750,8 @@ public class SwitchCompat extends CompoundButton {
 
     /**
      * Sets the text displayed when the button is not in the checked state.
+     *
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_android_textOff
      */
     public void setTextOff(CharSequence textOff) {
         mTextOff = textOff;
@@ -504,6 +762,7 @@ public class SwitchCompat extends CompoundButton {
      * Sets whether the on/off text should be displayed.
      *
      * @param showText {@code true} to display on/off text
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_showText
      */
     public void setShowText(boolean showText) {
         if (mShowText != showText) {
@@ -514,6 +773,7 @@ public class SwitchCompat extends CompoundButton {
 
     /**
      * @return whether the on/off text should be displayed
+     * @attr ref android.support.v7.appcompat.R.styleable#SwitchCompat_showText
      */
     public boolean getShowText() {
         return mShowText;
@@ -742,14 +1002,36 @@ public class SwitchCompat extends CompoundButton {
 
         if (newState != oldState) {
             playSoundEffect(SoundEffectConstants.CLICK);
-            setChecked(newState);
         }
+        // Always call setChecked so that the thumb is moved back to the correct edge
+        setChecked(newState);
         cancelSuperTouch(ev);
     }
 
-    private void animateThumbToCheckedState(boolean newCheckedState) {
-        mPositionAnimator = new ThumbAnimation(mThumbPosition, newCheckedState ? 1 : 0);
+    private void animateThumbToCheckedState(final boolean newCheckedState) {
+        if (mPositionAnimator != null) {
+            // If there's a current animator running, cancel it
+            cancelPositionAnimator();
+        }
+
+        mPositionAnimator = new ThumbAnimation(mThumbPosition, newCheckedState ? 1f : 0f);
         mPositionAnimator.setDuration(THUMB_ANIMATION_DURATION);
+        mPositionAnimator.setAnimationListener(new Animation.AnimationListener() {
+            @Override
+            public void onAnimationStart(Animation animation) {}
+
+            @Override
+            public void onAnimationEnd(Animation animation) {
+                if (mPositionAnimator == animation) {
+                    // If we're still the active animation, ensure the final position
+                    setThumbPosition(newCheckedState ? 1f : 0f);
+                    mPositionAnimator = null;
+                }
+            }
+
+            @Override
+            public void onAnimationRepeat(Animation animation) {}
+        });
         startAnimation(mPositionAnimator);
     }
 
@@ -787,7 +1069,7 @@ public class SwitchCompat extends CompoundButton {
         // recursively with a different value, so load the REAL value...
         checked = isChecked();
 
-        if (getWindowToken() != null && ViewCompat.isLaidOut(this)) {
+        if (getWindowToken() != null && ViewCompat.isLaidOut(this) && isShown()) {
             animateThumbToCheckedState(checked);
         } else {
             // Immediately move the thumb to the new position.
@@ -881,7 +1163,7 @@ public class SwitchCompat extends CompoundButton {
             int trackTop = switchTop;
             int trackRight = switchRight;
             int trackBottom = switchBottom;
-            if (thumbInsets != null && !thumbInsets.isEmpty()) {
+            if (thumbInsets != null) {
                 if (thumbInsets.left > padding.left) {
                     trackLeft += thumbInsets.left - padding.left;
                 }
@@ -1054,17 +1336,22 @@ public class SwitchCompat extends CompoundButton {
     protected void drawableStateChanged() {
         super.drawableStateChanged();
 
-        final int[] myDrawableState = getDrawableState();
+        final int[] state = getDrawableState();
+        boolean changed = false;
 
-        if (mThumbDrawable != null) {
-            mThumbDrawable.setState(myDrawableState);
+        final Drawable thumbDrawable = mThumbDrawable;
+        if (thumbDrawable != null && thumbDrawable.isStateful()) {
+            changed |= thumbDrawable.setState(state);
         }
 
-        if (mTrackDrawable != null) {
-            mTrackDrawable.setState(myDrawableState);
+        final Drawable trackDrawable = mTrackDrawable;
+        if (trackDrawable != null && trackDrawable.isStateful()) {
+            changed |= trackDrawable.setState(state);
         }
 
-        invalidate();
+        if (changed) {
+            invalidate();
+        }
     }
 
     @Override
@@ -1100,12 +1387,8 @@ public class SwitchCompat extends CompoundButton {
                 mTrackDrawable.jumpToCurrentState();
             }
 
-            if (mPositionAnimator != null && !mPositionAnimator.hasEnded()) {
-                clearAnimation();
-                // Manually set our thumb position to the end state
-                setThumbPosition(mPositionAnimator.mEndPosition);
-                mPositionAnimator = null;
-            }
+            cancelPositionAnimator();
+            setThumbPosition(isChecked() ? 1 : 0);
         }
     }
 

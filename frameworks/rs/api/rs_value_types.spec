@@ -34,7 +34,7 @@ description:
  E.g. @float4, @int3, @double2, @ulong4.
 
  To create vector literals, use the vector type followed by the values enclosed
- between parentheses, e.g. <code>(float3)(1.0f, 2.0f, 3.0f)</code>.
+ between curly braces, e.g. <code>(float3){1.0f, 2.0f, 3.0f}</code>.
 
  Entries of a vector can be accessed using different naming styles.
 

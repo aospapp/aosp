@@ -37,6 +37,7 @@ public class SimpleReaderActivity extends PassFailButtons.Activity implements Re
     NfcAdapter mAdapter;
     CommandApdu[] mApdus;
     String[] mResponses;
+    String mLabel;
 
     TextView mTextView;
     Spinner mSpinner;
@@ -49,8 +50,8 @@ public class SimpleReaderActivity extends PassFailButtons.Activity implements Re
         setPassFailButtonClickListeners();
         getPassButton().setEnabled(false);
 
-        String label = getIntent().getStringExtra(EXTRA_LABEL);
-        setTitle(label);
+        mLabel = getIntent().getStringExtra(EXTRA_LABEL);
+        setTitle(mLabel);
 
         mAdapter = NfcAdapter.getDefaultAdapter(this);
         mTextView = (TextView) findViewById(R.id.text);
@@ -186,5 +187,10 @@ public class SimpleReaderActivity extends PassFailButtons.Activity implements Re
 
     @Override
     public void onNothingSelected(AdapterView<?> parent) {
+    }
+
+    @Override
+    public String getTestId() {
+        return mLabel;
     }
 }

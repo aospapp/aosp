@@ -44,7 +44,7 @@ public class WifiTest extends AndroidTestCase {
     private static final String NETWORK_SSID = "com.android.cts.xwde7ktvh8rmjuhr";
 
     // Time duration to allow before assuming that a WiFi operation failed and ceasing to wait.
-    private static final long UPDATE_TIMEOUT_MS = TimeUnit.SECONDS.toMillis(30);
+    private static final long UPDATE_TIMEOUT_MS = TimeUnit.MINUTES.toMillis(5);
     private static final long UPDATE_INTERVAL_MS = TimeUnit.SECONDS.toMillis(1);
 
     // Shared WifiManager instance.

@@ -116,6 +116,35 @@ enum {
     SENSOR_HAL_DATA_INJECTION_MODE      = 0x1
 };
 
+#define SENSOR_FLAG_MASK(nbit, shift)   (((1<<(nbit))-1)<<(shift))
+#define SENSOR_FLAG_MASK_1(shift)       SENSOR_FLAG_MASK(1, shift)
+
+/*
+ * Mask and shift for reporting mode sensor flags defined above.
+ */
+#define REPORTING_MODE_SHIFT            (1)
+#define REPORTING_MODE_NBIT             (3)
+#define REPORTING_MODE_MASK             SENSOR_FLAG_MASK(REPORTING_MODE_NBIT, REPORTING_MODE_SHIFT)
+                                        // 0xE
+
+/*
+ * Mask and shift for data_injection mode sensor flags defined above.
+ */
+#define DATA_INJECTION_SHIFT            (4)
+#define DATA_INJECTION_MASK             SENSOR_FLAG_MASK_1(DATA_INJECTION_SHIFT) //0x10
+
+/*
+ * Mask and shift for dynamic sensor flag.
+ */
+#define DYNAMIC_SENSOR_SHIFT            (5)
+#define DYNAMIC_SENSOR_MASK             SENSOR_FLAG_MASK_1(DYNAMIC_SENSOR_SHIFT) //0x20
+
+/*
+ * Mask and shift for sensor additional information support.
+ */
+#define ADDITIONAL_INFO_SHIFT           (6)
+#define ADDITIONAL_INFO_MASK            SENSOR_FLAG_MASK_1(ADDITIONAL_INFO_SHIFT) //0x40
+
 /*
  * Availability: SENSORS_DEVICE_API_VERSION_1_3
  * Sensor flags used in sensor_t.flags.
@@ -147,20 +176,21 @@ enum {
      * Counter sensors can be set with this flag and SensorService will inject accelerometer data
      * and read the corresponding step counts.
      */
-    SENSOR_FLAG_SUPPORTS_DATA_INJECTION = 0x8  // 1000
+    SENSOR_FLAG_SUPPORTS_DATA_INJECTION = DATA_INJECTION_MASK, // 1 0000
+
+    /*
+     * Set this flag if the sensor is a dynamically connected sensor. See
+     * dynamic_sensor_meta_event_t and SENSOR_TYPE_DYNAMIC_SENSOR_META for details.
+     */
+    SENSOR_FLAG_DYNAMIC_SENSOR = DYNAMIC_SENSOR_MASK,
+
+    /*
+     * Set this flag if sensor additional information is supported. See SENSOR_TYPE_ADDITIONAL_INFO
+     * and additional_info_event_t for details.
+     */
+    SENSOR_FLAG_ADDITIONAL_INFO = ADDITIONAL_INFO_MASK
 };
 
-/*
- * Mask and shift for reporting mode sensor flags defined above.
- */
-#define REPORTING_MODE_MASK              (0xE)
-#define REPORTING_MODE_SHIFT             (1)
-
-/*
- * Mask and shift for data_injection mode sensor flags defined above.
- */
-#define DATA_INJECTION_MASK              (0x10)
-#define DATA_INJECTION_SHIFT             (4)
 
 /*
  * Sensor type
@@ -657,6 +687,182 @@ enum {
 #define SENSOR_TYPE_WRIST_TILT_GESTURE                         (26)
 #define SENSOR_STRING_TYPE_WRIST_TILT_GESTURE                  "android.sensor.wrist_tilt_gesture"
 
+/*
+ * SENSOR_TYPE_DEVICE_ORIENTATION
+ * reporting-mode: on-change
+ *
+ * The current orientation of the device. The value should be reported in the
+ * first element of the 'data' member variable in sensors_event_t. The only
+ * values that can be reported are (please refer to Android Sensor Coordinate
+ * System to understand the X and Y axis direction with respect to default
+ * orientation):
+ *  - 0: device is in default orientation (Y axis is vertical and points up)
+ *  - 1: device is rotated 90 degrees counter-clockwise from default
+ *       orientation (X axis is vertical and points up)
+ *  - 2: device is rotated 180 degrees from default orientation (Y axis is
+ *       vertical and points down)
+ *  - 3: device is rotated 90 degrees clockwise from default orientation (X axis
+ *       is vertical and points down)
+ *
+ * Moving the device to an orientation where the Z axis is vertical (either up
+ * or down) should not cause a new event to be reported.
+ *
+ * To improve the user experience of this sensor, it is recommended to implement
+ * some physical (i.e., rotation angle) and temporal (i.e., delay) hysteresis.
+ * In other words, minor or transient rotations should not cause a new event to
+ * be reported.
+ *
+ * This sensor should only be implemented with the help of an accelerometer.
+ * This is a low power sensor that should reduce the number of interrupts of the
+ * AP. Do not emulate this sensor in the HAL.
+ *
+ * Both wake-up and non wake-up versions are useful.
+ */
+#define SENSOR_TYPE_DEVICE_ORIENTATION                 (27)
+#define SENSOR_STRING_TYPE_DEVICE_ORIENTATION          "android.sensor.device_orientation"
+
+/*
+ * SENSOR_TYPE_POSE_6DOF
+ * trigger-mode: continuous
+ *
+ * A sensor of this type returns the pose of the device.
+ * Pose of the device is defined as the orientation of the device from a
+ * Earth Centered Earth Fixed frame and the translation from an arbitrary
+ * point at subscription.
+ *
+ * This sensor can be high power. It can use any and all of the following
+ *           . Accelerometer
+ *           . Gyroscope
+ *           . Camera
+ *           . Depth Camera
+ *
+ */
+#define SENSOR_TYPE_POSE_6DOF                         (28)
+#define SENSOR_STRING_TYPE_POSE_6DOF                  "android.sensor.pose_6dof"
+
+/*
+ * SENSOR_TYPE_STATIONARY_DETECT
+ * trigger mode: one shot
+ *
+ * A sensor of this type returns an event if the device is still/stationary for
+ * a while. The period of time to monitor for statinarity should be greater than
+ * 5 seconds, and less than 10 seconds.
+ *
+ * Stationarity here refers to absolute stationarity. eg: device on desk.
+ *
+ * The only allowed value to return is 1.0.
+ */
+#define SENSOR_TYPE_STATIONARY_DETECT                   (29)
+#define SENSOR_STRING_TYPE_STATIONARY_DETECT            "android.sensor.stationary_detect"
+
+/*
+ * SENSOR_TYPE_MOTION_DETECT
+ * trigger mode: one shot
+ *
+ * A sensor of this type returns an event if the device is not still for
+ * a while. The period of time to monitor for statinarity should be greater than
+ * 5 seconds, and less than 10 seconds.
+ *
+ * Motion here refers to any mechanism in which the device is causes to be
+ * moved in its inertial frame. eg: Pickin up the device and walking with it
+ * to a nearby room may trigger motion wherewas keeping the device on a table
+ * on a smooth train moving at constant velocity may not trigger motion.
+ *
+ * The only allowed value to return is 1.0.
+ */
+#define SENSOR_TYPE_MOTION_DETECT                       (30)
+#define SENSOR_STRING_TYPE_MOTION_DETECT                "android.sensor.motion_detect"
+
+/*
+ * SENSOR_TYPE_HEART_BEAT
+ * trigger mode: continuous
+ *
+ * A sensor of this type returns an event everytime a hear beat peak is
+ * detected.
+ *
+ * Peak here ideally corresponds to the positive peak in the QRS complex of
+ * and ECG signal.
+ *
+ * The sensor is not expected to be optimized for latency. As a guide, a
+ * latency of up to 10 seconds is acceptable. However the timestamp attached
+ * to the event should be accurate and should correspond to the time the peak
+ * occured.
+ *
+ * The sensor event contains a parameter for the confidence in the detection
+ * of the peak where 0.0 represent no information at all, and 1.0 represents
+ * certainty.
+ */
+#define SENSOR_TYPE_HEART_BEAT                          (31)
+#define SENSOR_STRING_TYPE_HEART_BEAT                   "android.sensor.heart_beat"
+
+/**
+ * SENSOR_TYPE_DYNAMIC_SENSOR_META
+ * trigger-mode: special
+ *
+ * A sensor event of this type is received when a dynamic sensor is added to or removed from the
+ * system. At most one sensor of this type can be present in one sensor HAL implementation and
+ * presence of a sensor of this type in sensor HAL implementation indicates that this sensor HAL
+ * supports dynamic sensor feature. Operations, such as batch, activate and setDelay, to this
+ * special purpose sensor should be treated as no-op and return successful.
+ *
+ * A dynamic sensor connection indicates connection of a physical device or instantiation of a
+ * virtual sensor backed by algorithm; and a dynamic sensor disconnection indicates the the
+ * opposite. A sensor event of SENSOR_TYPE_DYNAMIC_SENSOR_META type should be delivered regardless
+ * of the activation status of the sensor in the event of dynamic sensor connection and
+ * disconnection. In the sensor event, besides the common data entries, "dynamic_sensor_meta", which
+ * includes fields for connection status, handle of the sensor involved, pointer to sensor_t
+ * structure and a uuid field, should be populated.
+ *
+ * At a dynamic sensor connection event, fields of sensor_t structure referenced by a pointer in
+ * dynamic_sensor_meta should be filled as if it was regular sensors. Sensor HAL is responsible for
+ * recovery of memory if the corresponding data is dynamicially allocated. However, the the pointer
+ * must be valid until the first activate call to the sensor reported in this connection event. At a
+ * dynamic sensor disconnection, the sensor_t pointer should be NULL.
+ *
+ * The sensor handle assigned to dynamic sensors should never be the same as that of any regular
+ * static sensors, and should be unique until next boot. In another word, if a handle h is used for
+ * a dynamic sensor A, that same number cannot be used for the same dynamic sensor A or another
+ * dynamic sensor B even after disconnection of A until reboot.
+ *
+ * The UUID field will be used for identifying the sensor in addition to name, vendor and version
+ * and type. For physical sensors of the same model, all sensors will have the same values in
+ * sensor_t, but the UUID should be unique and persistent for each individual unit. An all zero UUID
+ * indicates it is not possible to differentiate individual sensor unit.
+ *
+ */
+#define SENSOR_TYPE_DYNAMIC_SENSOR_META                         (32)
+#define SENSOR_STRING_TYPE_DYNAMIC_SENSOR_META                  "android.sensor.dynamic_sensor_meta"
+
+/**
+ * SENSOR_TYPE_ADDITIONAL_INFO
+ * reporting-mode: N/A
+ *
+ * This sensor type is for delivering additional sensor information aside from sensor event data.
+ * Additional information may include sensor front-end group delay, internal calibration parameters,
+ * noise level metrics, device internal temperature, etc.
+ *
+ * This type will never bind to a sensor. In other words, no sensor in the sensor list should be of
+ * the type SENSOR_TYPE_ADDITIONAL_INFO. If a sensor HAL supports sensor additional information
+ * feature, it reports sensor_event_t with "sensor" field set to handle of the reporting sensor and
+ * "type" field set to SENSOR_TYPE_ADDITIONAL_INFO. Delivery of additional information events is
+ * triggered under two conditions: an enable activate() call or a flush() call to the corresponding
+ * sensor.
+ *
+ * A single additional information report consists of multiple frames. Sequences of these frames are
+ * ordered using timestamps, which means the timestamps of sequential frames have to be at least 1
+ * nanosecond apart from each other. Each frame is a sensor_event_t delivered through the HAL
+ * interface, with related data stored in the "additional_info" field, which is of type
+ * additional_info_event_t.  The "type" field of additional_info_event_t denotes the nature of the
+ * payload data (see additional_info_type_t).  The "serial" field is used to keep the sequence of
+ * payload data that spans multiple frames. The first frame of the entire report is always of type
+ * AINFO_BEGIN, and the last frame is always AINFO_END.
+ *
+ * All additional information frames have to be delivered after flush complete event if flush() was
+ * triggering the report.
+ */
+#define SENSOR_TYPE_ADDITIONAL_INFO                       (33)
+#define SENSOR_STRING_TYPE_ADDITIONAL_INFO                "android.sensor.additional_info"
+
 /**
  * Values returned by the accelerometer in various locations in the universe.
  * all values are in SI units (m/s^2)
@@ -678,6 +884,9 @@ enum {
 #define SENSOR_STATUS_ACCURACY_LOW      1
 #define SENSOR_STATUS_ACCURACY_MEDIUM   2
 #define SENSOR_STATUS_ACCURACY_HIGH     3
+
+
+struct sensor_t;
 
 /**
  * sensor event data
@@ -731,6 +940,20 @@ typedef struct meta_data_event {
 } meta_data_event_t;
 
 /**
+ * Dynamic sensor meta event. See the description of SENSOR_TYPE_DYNAMIC_SENSOR_META type for
+ * details.
+ */
+typedef struct dynamic_sensor_meta_event {
+    int32_t  connected;
+    int32_t  handle;
+    const struct sensor_t * sensor; // should be NULL if connected == false
+    uint8_t uuid[16];               // UUID of a dynamic sensor (using RFC 4122 byte order)
+                                    // For UUID 12345678-90AB-CDEF-1122-334455667788 the uuid field
+                                    // should be initialized as:
+                                    // {0x12, 0x34, 0x56, 0x78, 0x90, 0xAB, 0xCD, 0xEF, 0x11, ...}
+} dynamic_sensor_meta_event_t;
+
+/**
  * Heart rate event data
  */
 typedef struct {
@@ -743,6 +966,85 @@ typedef struct {
   // for other sensors.
   int8_t status;
 } heart_rate_event_t;
+
+typedef struct {
+    int32_t type;                           // type of payload data, see additional_info_type_t
+    int32_t serial;                         // sequence number of this frame for this type
+    union {
+        // for each frame, a single data type, either int32_t or float, should be used.
+        int32_t data_int32[14];
+        float   data_float[14];
+    };
+} additional_info_event_t;
+
+typedef enum additional_info_type {
+    //
+    AINFO_BEGIN = 0x0,                      // Marks the beginning of additional information frames
+    AINFO_END   = 0x1,                      // Marks the end of additional information frames
+    // Basic information
+    AINFO_UNTRACKED_DELAY =  0x10000,       // Estimation of the delay that is not tracked by sensor
+                                            // timestamps. This includes delay introduced by
+                                            // sensor front-end filtering, data transport, etc.
+                                            // float[2]: delay in seconds
+                                            //           standard deviation of estimated value
+                                            //
+    AINFO_INTERNAL_TEMPERATURE,             // float: Celsius temperature.
+                                            //
+    AINFO_VEC3_CALIBRATION,                 // First three rows of a homogeneous matrix, which
+                                            // represents calibration to a three-element vector
+                                            // raw sensor reading.
+                                            // float[12]: 3x4 matrix in row major order
+                                            //
+    AINFO_SENSOR_PLACEMENT,                 // Location and orientation of sensor element in the
+                                            // device frame: origin is the geometric center of the
+                                            // mobile device screen surface; the axis definition
+                                            // corresponds to Android sensor definitions.
+                                            // float[12]: 3x4 matrix in row major order
+                                            //
+    AINFO_SAMPLING,                         // float[2]: raw sample period in seconds,
+                                            //           standard deviation of sampling period
+
+    // Sampling channel modeling information
+    AINFO_CHANNEL_NOISE = 0x20000,          // int32_t: noise type
+                                            // float[n]: parameters
+                                            //
+    AINFO_CHANNEL_SAMPLER,                  // float[3]: sample period
+                                            //           standard deviation of sample period,
+                                            //           quantization unit
+                                            //
+    AINFO_CHANNEL_FILTER,                   // Represents a filter:
+                                            //      \sum_j a_j y[n-j] == \sum_i b_i x[n-i]
+                                            //
+                                            // int32_t[3]: number of feedforward coefficients, M,
+                                            //             number of feedback coefficients, N, for
+                                            //               FIR filter, N=1.
+                                            //             bit mask that represents which element to
+                                            //               which the filter is applied, bit 0 == 1
+                                            //               means this filter applies to vector
+                                            //               element 0.
+                                            // float[M+N]: filter coefficients (b0, b1, ..., BM-1),
+                                            //             then (a0, a1, ..., aN-1), a0 is always 1.
+                                            //             Multiple frames may be needed for higher
+                                            //             number of taps.
+                                            //
+    AINFO_CHANNEL_LINEAR_TRANSFORM,         // int32_t[2]: size in (row, column) ... 1st frame
+                                            // float[n]: matrix element values in row major order.
+                                            //
+    AINFO_CHANNEL_NONLINEAR_MAP,            // int32_t[2]: extrapolate method
+                                            //             interpolate method
+                                            // float[n]: mapping key points in pairs, (in, out)...
+                                            //           (may be used to model saturation)
+                                            //
+    AINFO_CHANNEL_RESAMPLER,                // int32_t:  resample method (0-th order, 1st order...)
+                                            // float[1]: resample ratio (upsampling if < 1.0;
+                                            //           downsampling if > 1.0).
+                                            //
+
+    // Custom information
+    AINFO_CUSTOM_START =    0x10000000,     //
+    // Debugging
+    AINFO_DEBUGGING_START = 0x40000000,     //
+} additional_info_type_t;
 
 /**
  * Union of the various types of sensor data
@@ -809,6 +1111,15 @@ typedef struct sensors_event_t {
              * SENSOR_TYPE_META_DATA. The handle is ignored and must be zero.
              */
             meta_data_event_t meta_data;
+
+            /* dynamic sensor meta event. See SENSOR_TYPE_DYNAMIC_SENSOR_META type for details */
+            dynamic_sensor_meta_event_t dynamic_sensor_meta;
+
+            /*
+             * special additional sensor information frame, see
+             * SENSOR_TYPE_ADDITIONAL_INFO for details.
+             */
+            additional_info_event_t additional_info;
         };
 
         union {
@@ -830,8 +1141,6 @@ typedef struct sensors_event_t {
 typedef sensors_event_t sensors_meta_data_event_t;
 
 
-struct sensor_t;
-
 /**
  * Every hardware module must have a data structure named HAL_MODULE_INFO_SYM
  * and the fields of this data structure must begin with hw_module_t
@@ -851,7 +1160,7 @@ struct sensors_module_t {
      *  Place the module in a specific mode. The following modes are defined
      *
      *  0 - Normal operation. Default state of the module.
-     *  1 - Loopback mode. Data is injected for the the supported
+     *  1 - Loopback mode. Data is injected for the supported
      *      sensors by the sensor service in this mode.
      * @return 0 on success
      *         -EINVAL if requested mode is not supported

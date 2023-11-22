@@ -39,7 +39,7 @@
     <string name="cmas_presidential_level_alert" msgid="1209234030582361001">"პრეზიდენტის მიერ გამოცხადებული გაფრთხილება"</string>
     <string name="cmas_extreme_alert" msgid="2588720613319969289">"საგანგებო ვითარების შესახებ გაფრთხილება: ექსტრემალური"</string>
     <string name="cmas_severe_alert" msgid="4135809475315826913">"საგანგებო ვითარების შესახებ გაფრთხილება: სერიოზული"</string>
-    <string name="cmas_amber_alert" msgid="6154867710264778887">"ბავშვის გატაცება („ემბერ ელერთ“)"</string>
+    <string name="cmas_amber_alert" msgid="6154867710264778887">"ბავშვის გატაცება(amber alert)"</string>
     <string name="cmas_required_monthly_test" msgid="6464047268150108932">"საგანგებო ვითარების გაფრთხილების ყოველთვ.ტესტირება"</string>
     <string name="cmas_exercise_alert" msgid="2892255514938370321">"საგანგებო ვითარების შესახებ გაფრთხილება (ვარჯიში)"</string>
     <string name="cmas_operator_defined_alert" msgid="8755372450810011476">"საგანგებო ვითარების შესახებ გაფრთხილება (ოპერატორი)"</string>

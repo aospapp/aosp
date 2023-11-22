@@ -34,7 +34,8 @@
 #include "defs.h"
 #include <sys/param.h>
 #include <fcntl.h>
-#if HAVE_SYS_XATTR_H
+#include <stdarg.h>
+#ifdef HAVE_SYS_XATTR_H
 # include <sys/xattr.h>
 #endif
 #include <sys/uio.h>
@@ -207,14 +208,24 @@ next_set_bit(const void *bit_array, unsigned cur_bit, unsigned size_bits)
  * Print entry in struct xlat table, if there.
  */
 void
-printxval(const struct xlat *xlat, const unsigned int val, const char *dflt)
+printxvals(const unsigned int val, const char *dflt, const struct xlat *xlat, ...)
 {
-	const char *str = xlookup(xlat, val);
+	va_list args;
 
-	if (str)
-		tprints(str);
-	else
-		tprintf("%#x /* %s */", val, dflt);
+	va_start(args, xlat);
+	for (; xlat; xlat = va_arg(args, const struct xlat *)) {
+		const char *str = xlookup(xlat, val);
+
+		if (str) {
+			tprints(str);
+			va_end(args);
+			return;
+		}
+	}
+	/* No hits -- print raw # instead. */
+	tprintf("%#x /* %s */", val, dflt);
+
+	va_end(args);
 }
 
 /*
@@ -226,7 +237,11 @@ getllval(struct tcb *tcp, unsigned long long *val, int arg_no)
 {
 #if SIZEOF_LONG > 4 && SIZEOF_LONG == SIZEOF_LONG_LONG
 # if SUPPORTED_PERSONALITIES > 1
+#  ifdef X86_64
+	if (current_personality != 1) {
+#  else
 	if (current_wordsize > 4) {
+#  endif
 # endif
 		*val = tcp->u_arg[arg_no];
 		arg_no++;
@@ -315,8 +330,13 @@ sprintflags(const char *prefix, const struct xlat *xlat, int flags)
 
 	outptr = stpcpy(outstr, prefix);
 
+	if (flags == 0 && xlat->val == 0 && xlat->str) {
+		strcpy(outptr, xlat->str);
+		return outstr;
+	}
+
 	for (; xlat->str; xlat++) {
-		if ((flags & xlat->val) == xlat->val) {
+		if (xlat->val && (flags & xlat->val) == xlat->val) {
 			if (found)
 				*outptr++ = '|';
 			outptr = stpcpy(outptr, xlat->str);
@@ -341,7 +361,7 @@ printflags(const struct xlat *xlat, int flags, const char *dflt)
 	int n;
 	const char *sep;
 
-	if (flags == 0 && xlat->val == 0) {
+	if (flags == 0 && xlat->val == 0 && xlat->str) {
 		tprints(xlat->str);
 		return 1;
 	}
@@ -376,40 +396,60 @@ printflags(const struct xlat *xlat, int flags, const char *dflt)
 }
 
 void
-printnum_long(struct tcb *tcp, long addr, const char *fmt)
+printaddr(const long addr)
 {
-	long num;
-
-	if (!addr) {
+	if (!addr)
 		tprints("NULL");
-		return;
-	}
-	if (umove(tcp, addr, &num) < 0) {
+	else
 		tprintf("%#lx", addr);
-		return;
-	}
-	tprints("[");
-	tprintf(fmt, num);
-	tprints("]");
 }
 
-void
-printnum_int(struct tcb *tcp, long addr, const char *fmt)
-{
-	int num;
-
-	if (!addr) {
-		tprints("NULL");
-		return;
-	}
-	if (umove(tcp, addr, &num) < 0) {
-		tprintf("%#lx", addr);
-		return;
-	}
-	tprints("[");
-	tprintf(fmt, num);
-	tprints("]");
+#define DEF_PRINTNUM(name, type) \
+bool									\
+printnum_ ## name(struct tcb *tcp, const long addr, const char *fmt)	\
+{									\
+	type num;							\
+	if (umove_or_printaddr(tcp, addr, &num))			\
+		return false;						\
+	tprints("[");							\
+	tprintf(fmt, num);						\
+	tprints("]");							\
+	return true;							\
 }
+
+#define DEF_PRINTPAIR(name, type) \
+bool									\
+printpair_ ## name(struct tcb *tcp, const long addr, const char *fmt)	\
+{									\
+	type pair[2];							\
+	if (umove_or_printaddr(tcp, addr, &pair))			\
+		return false;						\
+	tprints("[");							\
+	tprintf(fmt, pair[0]);						\
+	tprints(", ");							\
+	tprintf(fmt, pair[1]);						\
+	tprints("]");							\
+	return true;							\
+}
+
+DEF_PRINTNUM(int, int)
+DEF_PRINTPAIR(int, int)
+DEF_PRINTNUM(short, short)
+DEF_PRINTNUM(int64, uint64_t)
+DEF_PRINTPAIR(int64, uint64_t)
+
+#if SUPPORTED_PERSONALITIES > 1 && SIZEOF_LONG > 4
+bool
+printnum_long_int(struct tcb *tcp, const long addr,
+		  const char *fmt_long, const char *fmt_int)
+{
+	if (current_wordsize > sizeof(int)) {
+		return printnum_int64(tcp, addr, fmt_long);
+	} else {
+		return printnum_int(tcp, addr, fmt_int);
+	}
+}
+#endif
 
 const char *
 sprinttime(time_t t)
@@ -435,7 +475,7 @@ sprinttime(time_t t)
 static char *
 getfdproto(struct tcb *tcp, int fd, char *buf, unsigned bufsize)
 {
-#if HAVE_SYS_XATTR_H
+#ifdef HAVE_SYS_XATTR_H
 	ssize_t r;
 	char path[sizeof("/proc/%u/fd/%u") + 2 * sizeof(int)*3];
 
@@ -763,12 +803,8 @@ printstr(struct tcb *tcp, long addr, long len)
 
 		if (outstr_size / 4 != max_strlen)
 			die_out_of_memory();
-		str = malloc(max_strlen + 1);
-		if (!str)
-			die_out_of_memory();
-		outstr = malloc(outstr_size);
-		if (!outstr)
-			die_out_of_memory();
+		str = xmalloc(max_strlen + 1);
+		outstr = xmalloc(outstr_size);
 	}
 
 	size = max_strlen;
@@ -832,7 +868,7 @@ dumpiov(struct tcb *tcp, int len, long addr)
 	/* Assuming no sane program has millions of iovs */
 	if ((unsigned)len > 1024*1024 /* insane or negative size? */
 	    || (iov = malloc(size)) == NULL) {
-		fprintf(stderr, "Out of memory\n");
+		error_msg("Out of memory");
 		return;
 	}
 	if (umoven(tcp, addr, size, iov) >= 0) {
@@ -875,7 +911,7 @@ dumpstr(struct tcb *tcp, long addr, int len)
 		str = malloc(len + 16);
 		if (!str) {
 			strsize = -1;
-			fprintf(stderr, "Out of memory\n");
+			error_msg("Out of memory");
 			return;
 		}
 		strsize = len + 16;
@@ -1087,6 +1123,53 @@ umoven(struct tcb *tcp, long addr, unsigned int len, void *our_addr)
 	}
 
 	return 0;
+}
+
+int
+umoven_or_printaddr(struct tcb *tcp, const long addr, const unsigned int len,
+		    void *our_addr)
+{
+	if (!addr) {
+		tprints("NULL");
+		return -1;
+	}
+	if (!verbose(tcp) || (exiting(tcp) && syserror(tcp)) ||
+	    umoven(tcp, addr, len, our_addr) < 0) {
+		tprintf("%#lx", addr);
+		return -1;
+	}
+	return 0;
+}
+
+int
+umove_ulong_or_printaddr(struct tcb *tcp, const long addr, unsigned long *ptr)
+{
+	if (current_wordsize < sizeof(*ptr)) {
+		uint32_t val32;
+		int r = umove_or_printaddr(tcp, addr, &val32);
+		if (!r)
+			*ptr = (unsigned long) val32;
+		return r;
+	}
+	return umove_or_printaddr(tcp, addr, ptr);
+}
+
+int
+umove_ulong_array_or_printaddr(struct tcb *tcp, const long addr,
+			       unsigned long *ptr, size_t n)
+{
+	if (current_wordsize < sizeof(*ptr)) {
+		uint32_t ptr32[n];
+		int r = umove_or_printaddr(tcp, addr, &ptr32);
+		if (!r) {
+			size_t i;
+
+			for (i = 0; i < n; ++i)
+				ptr[i] = (unsigned long) ptr32[i];
+		}
+		return r;
+	}
+	return umoven_or_printaddr(tcp, addr, n * sizeof(*ptr), ptr);
 }
 
 /*

@@ -30,6 +30,8 @@ public class Correlation {
     public double mEstimatedLatencyMs = 0;
     public double mEstimatedLatencyConfidence = 0.0;
 
+    private double mAmplitudeThreshold = 0.001;  // 0.001 = -60 dB noise
+
     public void init(int blockSize, int samplingRate) {
         mBlockSize = blockSize;
         mSamplingRate = samplingRate;
@@ -40,7 +42,7 @@ public class Correlation {
         log("Started Auto Correlation for data with " + data.length + " points");
         mSamplingRate = samplingRate;
 
-        downsampleData(data, mDataDownsampled);
+        downsampleData(data, mDataDownsampled, mAmplitudeThreshold);
 
         //correlation vector
         autocorrelation(mDataDownsampled, mDataAutocorrelated);
@@ -95,7 +97,7 @@ public class Correlation {
         return status;
     }
 
-    private boolean downsampleData(double [] data, double [] dataDownsampled) {
+    private boolean downsampleData(double [] data, double [] dataDownsampled, double threshold) {
 
         boolean status = false;
         // mDataDownsampled = new double[mBlockSize];
@@ -105,6 +107,8 @@ public class Correlation {
 
         int N = data.length; //all samples available
         double groupSize =  (double) N / mBlockSize;
+
+        int ignored = 0;
 
         int currentIndex = 0;
         double nextGroup = groupSize;
@@ -118,8 +122,17 @@ public class Correlation {
             if (currentIndex>=mBlockSize) {
                 break;
             }
-            dataDownsampled[currentIndex] += Math.abs(data[i]);
+
+            double value =  Math.abs(data[i]);
+            if (value >= threshold) {
+                dataDownsampled[currentIndex] += value;
+            } else {
+                ignored++;
+            }
         }
+
+        log(String.format(" Threshold: %.3f, ignored:%d/%d (%%.2f)", threshold, ignored, N,
+                (double) ignored/(double)N));
 
         status = true;
         return status;

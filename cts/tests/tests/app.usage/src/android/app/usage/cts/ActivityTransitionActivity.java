@@ -18,7 +18,6 @@ package android.app.usage.cts;
 
 import android.app.Activity;
 import android.app.SharedElementCallback;
-import android.app.usage.cts.R;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.ResultReceiver;
@@ -28,9 +27,11 @@ import android.transition.Explode;
 import android.transition.Fade;
 import android.transition.Transition;
 import android.transition.Transition.TransitionListener;
+import android.transition.Transition.TransitionListenerAdapter;
 import android.view.View;
 
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * A simple activity containing the start state for an Activity Transition
@@ -41,6 +42,10 @@ public class ActivityTransitionActivity extends Activity {
     public static final String LAYOUT_ID = "layoutId";
     public static final String TEST = "test";
     public static final String RESULT_RECEIVER = "resultReceiver";
+    public static final String PAUSE_ON_RESTART = "pauseOnRestart";
+    public static final String QUICK_FINISH = "quickFinish";
+    public static final String ALLOW_OVERLAP = "allowOverlap";
+    public static final String NO_RETURN_TRANSITION = "noReturnTransition";
 
     public static final int NO_TEST = 0;
     public static final int TEST_ARRIVE = 1;
@@ -53,6 +58,9 @@ public class ActivityTransitionActivity extends Activity {
     public static final String ARRIVE_RETURN_TIME_READY = "arriveReturnTimeReady";
     public static final String ARRIVE_RETURN_TIME = "arriveReturnTime";
 
+    public static final String ENTER_VISIBILITY = "enterVisibility";
+    public static final String RETURN_VISIBILITY = "returnVisibility";
+
     private int mLayoutId;
     private int mTest;
     private ResultReceiver mResultReceiver;
@@ -61,20 +69,29 @@ public class ActivityTransitionActivity extends Activity {
 
     public int resultCode = 0;
     public Bundle result = new Bundle();
+    public final OptionalVisibility exitVisibility = new OptionalVisibility();
+    public final OptionalVisibility reenterVisibility = new OptionalVisibility();
+
+    public boolean mPauseOnRestart;
+    public boolean mQuickFinish;
+    public boolean mAllowOverlap;
+    public boolean mNoReturnTransition;
+
+    public CountDownLatch returnLatch = new CountDownLatch(1);
+    public CountDownLatch reenterLatch = new CountDownLatch(1);
 
     @Override
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
-        getWindow().setSharedElementEnterTransition(new ChangeBounds().setDuration(DURATION));
-        getWindow().setSharedElementReturnTransition(new ChangeBounds().setDuration(DURATION));
-        getWindow().setEnterTransition(new Explode().setDuration(DURATION));
-        getWindow().setReturnTransition(new Explode().setDuration(DURATION));
-        getWindow().setExitTransition(new Fade().setDuration(DURATION));
         mLayoutId = 0;
         if (icicle != null) {
             mLayoutId =  icicle.getInt(LAYOUT_ID);
             mTest = icicle.getInt(TEST);
             mResultReceiver = icicle.getParcelable(RESULT_RECEIVER);
+            mPauseOnRestart = icicle.getBoolean(PAUSE_ON_RESTART);
+            mQuickFinish = icicle.getBoolean(QUICK_FINISH);
+            mAllowOverlap = icicle.getBoolean(ALLOW_OVERLAP, true);
+            mNoReturnTransition = icicle.getBoolean(NO_RETURN_TRANSITION);
         }
 
         if (mLayoutId == 0) {
@@ -82,11 +99,47 @@ public class ActivityTransitionActivity extends Activity {
             mLayoutId = intent.getIntExtra(LAYOUT_ID, R.layout.start);
             mTest = intent.getIntExtra(TEST, 0);
             mResultReceiver = intent.getParcelableExtra(RESULT_RECEIVER);
+            mPauseOnRestart = intent.getBooleanExtra(PAUSE_ON_RESTART, false);
+            mQuickFinish = intent.getBooleanExtra(QUICK_FINISH, false);
+            mAllowOverlap = intent.getBooleanExtra(ALLOW_OVERLAP, true);
+            mNoReturnTransition = intent.getBooleanExtra(NO_RETURN_TRANSITION, false);
         }
 
+        getWindow().setSharedElementEnterTransition(new ChangeBounds().setDuration(DURATION));
+        getWindow().setSharedElementReturnTransition(new ChangeBounds().setDuration(DURATION));
+        getWindow().setEnterTransition(createVisibilityTransition(true, ENTER_VISIBILITY));
+        getWindow().setReturnTransition(createVisibilityTransition(true, RETURN_VISIBILITY));
+        getWindow().setExitTransition(createVisibilityTransition(false, exitVisibility));
+        getWindow().setReenterTransition(createVisibilityTransition(false, reenterVisibility));
+        getWindow().getReenterTransition().addListener(new TransitionListenerAdapter() {
+            @Override
+            public void onTransitionEnd(Transition transition) {
+                reenterLatch.countDown();
+            }
+        });
+
         setContentView(mLayoutId);
+        getWindow().setAllowReturnTransitionOverlap(mAllowOverlap);
+        if (mNoReturnTransition) {
+            getWindow().setReturnTransition(null);
+            getWindow().setSharedElementReturnTransition(null);
+        }
 
         startTest();
+    }
+
+    private Transition createVisibilityTransition(boolean isExplode, OptionalVisibility visibility) {
+        final Transition transition = isExplode ? new Explode() : new Fade();
+        transition.setDuration(DURATION);
+        transition.addListener(new VisibilityCheck(R.id.redSquare, visibility));
+        return transition;
+    }
+
+    private Transition createVisibilityTransition(boolean isExplode, String propertyName) {
+        final Transition transition = isExplode ? new Explode() : new Fade();
+        transition.setDuration(DURATION);
+        transition.addListener(new VisibilityCheck(R.id.redSquare, propertyName));
+        return transition;
     }
 
     @Override
@@ -94,6 +147,7 @@ public class ActivityTransitionActivity extends Activity {
         outState.putInt(LAYOUT_ID, mLayoutId);
         outState.putInt(TEST, mTest);
         outState.putParcelable(RESULT_RECEIVER, mResultReceiver);
+        outState.putBoolean(PAUSE_ON_RESTART, mPauseOnRestart);
     }
 
     private void startTest() {
@@ -129,44 +183,107 @@ public class ActivityTransitionActivity extends Activity {
                     }, SHARED_ELEMENT_READY_DELAY);
                 }
             });
-            getWindow().getEnterTransition().addListener(new TransitionListener() {
-                @Override
-                public void onTransitionStart(Transition transition) {
-                }
-
-                @Override
-                public void onTransitionEnd(Transition transition) {
-                    mEntering = false;
-                    setResult(RESULT_OK);
-                    getWindow().getDecorView().post(new Runnable() {
-                        @Override
-                        public void run() {
-                            finishAfterTransition();
-                        }
-                    });
-                }
-
-                @Override
-                public void onTransitionCancel(Transition transition) {
-                }
-
-                @Override
-                public void onTransitionPause(Transition transition) {
-                }
-
-                @Override
-                public void onTransitionResume(Transition transition) {
-                }
-            });
         }
+        getWindow().getEnterTransition().addListener(new TransitionListener() {
+            @Override
+            public void onTransitionStart(Transition transition) {
+            }
+
+            @Override
+            public void onTransitionEnd(Transition transition) {
+                mEntering = false;
+                setResult(RESULT_OK);
+                getWindow().getDecorView().post(new Runnable() {
+                    @Override
+                    public void run() {
+                        finishAfterTransition();
+                        if (mQuickFinish) {
+                            finish();
+                        }
+                    }
+                });
+            }
+
+            @Override
+            public void onTransitionCancel(Transition transition) {
+            }
+
+            @Override
+            public void onTransitionPause(Transition transition) {
+            }
+
+            @Override
+            public void onTransitionResume(Transition transition) {
+            }
+        });
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        synchronized (this) {
-            super.onActivityResult(requestCode, resultCode, data);
-            this.resultCode = resultCode;
-            this.notifyAll();
+        super.onActivityResult(requestCode, resultCode, data);
+        this.resultCode = resultCode;
+        returnLatch.countDown();
+    }
+
+    @Override
+    protected void onRestart() {
+        super.onRestart();
+        if (mPauseOnRestart) {
+            postponeEnterTransition();
+            getWindow().getDecorView().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    startPostponedEnterTransition();
+                }
+            }, 500);
+        }
+    }
+
+    private class VisibilityCheck extends TransitionListenerAdapter {
+        private final int mViewId;
+        private final OptionalVisibility mVisibility;
+        private final String mPropertyName;
+
+        public VisibilityCheck(int viewId, OptionalVisibility visibility) {
+            mViewId = viewId;
+            mVisibility = visibility;
+            mPropertyName = null;
+        }
+
+        public VisibilityCheck(int viewId, String propertyName) {
+            mViewId = viewId;
+            mVisibility = null;
+            mPropertyName = propertyName;
+        }
+
+        @Override
+        public void onTransitionEnd(Transition transition) {
+            final View view = findViewById(mViewId);
+            if (mPropertyName != null) {
+                if (mResultReceiver != null) {
+                    Bundle data = new Bundle();
+                    data.putInt(mPropertyName, view.getVisibility());
+                    mResultReceiver.send(RESULT_OK, data);
+                }
+            } else {
+                mVisibility.set(view.getVisibility());
+            }
+        }
+    }
+
+    public static class OptionalVisibility {
+        private int mVisibility = -1;
+
+        public void set(int visibility) {
+            mVisibility = visibility;
+        }
+
+        public int get() {
+            return mVisibility;
+        }
+
+        public boolean isSet() {
+            return mVisibility != -1;
         }
     }
 }

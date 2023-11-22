@@ -20,7 +20,7 @@
 
     <ImageView
         android:id="@+id/icon"
-        android:src="@drawable/ic_settings_request"
+        android:src="@drawable/ic_error_132dp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_above="@id/title"

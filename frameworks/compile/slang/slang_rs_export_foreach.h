@@ -160,48 +160,11 @@ class RSExportForEach : public RSExportable {
     return mParamPacketType->fields_end();
   }
 
-  inline static bool isInitRSFunc(const clang::FunctionDecl *FD) {
-    if (!FD) {
-      return false;
-    }
-    const llvm::StringRef Name = FD->getName();
-    static llvm::StringRef FuncInit("init");
-    return Name.equals(FuncInit);
-  }
-
-  inline static bool isRootRSFunc(const clang::FunctionDecl *FD) {
-    if (!FD) {
-      return false;
-    }
-    const llvm::StringRef Name = FD->getName();
-    static llvm::StringRef FuncRoot("root");
-    return Name.equals(FuncRoot);
-  }
-
-  inline static bool isDtorRSFunc(const clang::FunctionDecl *FD) {
-    if (!FD) {
-      return false;
-    }
-    const llvm::StringRef Name = FD->getName();
-    static llvm::StringRef FuncDtor(".rs.dtor");
-    return Name.equals(FuncDtor);
-  }
-
-  static bool isGraphicsRootRSFunc(unsigned int targetAPI,
-                                   const clang::FunctionDecl *FD);
-
-  static bool isRSForEachFunc(unsigned int targetAPI, slang::RSContext *Context,
+  static bool isRSForEachFunc(unsigned int targetAPI,
                               const clang::FunctionDecl *FD);
 
-  inline static bool isSpecialRSFunc(unsigned int targetAPI,
-                                     const clang::FunctionDecl *FD) {
-    return isGraphicsRootRSFunc(targetAPI, FD) || isInitRSFunc(FD) ||
-           isDtorRSFunc(FD);
-  }
-
-  static bool validateSpecialFuncDecl(unsigned int targetAPI,
-                                      slang::RSContext *Context,
-                                      const clang::FunctionDecl *FD);
+  static unsigned getNumInputs(unsigned int targetAPI,
+                              const clang::FunctionDecl *FD);
 };  // RSExportForEach
 
 }  // namespace slang

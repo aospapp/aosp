@@ -42,6 +42,13 @@ repo sync [<em>&lt;/PATH/TO/PROJECT0&gt;</em> ... <em>&lt;/PATH/TO/PROJECTN&gt;<
 <pre><code>repo help <em>&lt;COMMAND&gt;</em>
 </code></pre>
 
+<p>For example, the following command yields a description and list of options
+for the <code>init</code> argument of Repo, which initializes Repo in the
+current directory. (See <a href="#init">init</a> for more details.)</p>
+<pre><code>repo help init
+</code></pre>
+
+
 <h2 id="init">init</h2>
 <pre><code>$ repo init -u <em>&lt;URL&gt;</em> [<em>&lt;OPTIONS&gt;</em>]
 </code></pre>
@@ -58,7 +65,7 @@ repo sync [<em>&lt;/PATH/TO/PROJECT0&gt;</em> ... <em>&lt;/PATH/TO/PROJECTN&gt;<
 <p><code>-b</code>: specify a revision, i.e., a particular manifest-branch.</p>
 </li>
 </ul>
-<p><em>Note: For all remaining Repo commands, the current working directory must either be the parent directory of <code>.repo/</code> or a subdirectory of the parent directory.</em></p>
+<p class="note"><strong>Note:</strong> For all remaining Repo commands, the current working directory must either be the parent directory of <code>.repo/</code> or a subdirectory of the parent directory.</p>
 <h2 id="sync">sync</h2>
 <pre><code>repo sync [<em>&lt;PROJECT_LIST&gt;</em>]
 </code></pre>
@@ -134,7 +141,7 @@ single commit, use git rebase -i before you run repo upload.</p>
 <pre><code>$ repo download platform/build 23823
 </code></pre>
 <p>A <code>repo sync</code> should effectively remove any commits retrieved via <code>repo download</code>. Or, you can check out the remote branch; e.g., <code>git checkout m/master</code>.</p>
-<p>*Note: There is a slight mirroring lag between when a change is visible on
+<p class="note"><strong>Note:</strong> There is a slight mirroring lag between when a change is visible on
 the web in <a href="https://android-review.googlesource.com/">Gerrit</a> and when
 <code>repo download</code> will be able to find it for all users, because of replication
 delays to all servers worldwide.</p>
@@ -181,7 +188,7 @@ delays to all servers worldwide.</p>
 <p>Begins a new branch for development, starting from the revision specified in the manifest.</p>
 <p>The <code><em>&lt;BRANCH_NAME&gt;</em></code> argument should provide a short description of the change you are trying to make to the projects.If you don't know, consider using the name default.</p>
 <p>The <code><em>&lt;PROJECT_LIST&gt;</em></code> specifies which projects will participate in this topic branch. </p>
-<p><em>Note: "." is a useful shorthand for the project in the current working directory.</em></p>
+<p class="note"><strong>Note:</strong> "." is a useful shorthand for the project in the current working directory.</p>
 <h2 id="status">status</h2>
 <pre><code>repo status [<em>&lt;PROJECT_LIST&gt;</em>]
 </code></pre>

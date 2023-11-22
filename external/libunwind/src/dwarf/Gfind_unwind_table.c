@@ -38,7 +38,7 @@ static bool get_dyn_gp(struct elf_image* ei, Elf_W(Off) dyn_phdr_offset, unw_wor
   GET_PHDR_FIELD(ei, dyn_phdr_offset, &phdr, p_offset);
   Elf_W(Dyn) dyn;
   Elf_W(Off) dyn_offset = phdr.p_offset;
-  unw_word_t map_size = ei->u.memory.map->end - ei->u.memory.map->start;
+  unw_word_t map_size = ei->u.memory.end - ei->u.memory.start;
   while (dyn_offset + sizeof(dyn) < map_size) {
     GET_DYN_FIELD(ei, dyn_offset, &dyn, d_tag);
     if (dyn.d_tag == DT_NULL) {
@@ -64,7 +64,7 @@ static bool get_eh_frame_info(
   unw_word_t hdr_offset = phdr.p_offset;
   struct dwarf_eh_frame_hdr hdr;
   // Read the entire hdr since we are going to use every value in the struct.
-  if (sizeof(hdr) != elf_w (memory_read) (ei, ei->u.memory.map->start +phdr.p_offset,
+  if (sizeof(hdr) != elf_w (memory_read) (ei, ei->u.memory.start + phdr.p_offset,
                             (uint8_t*) &hdr, sizeof(hdr), false)) {
     Debug(1, "Failed to read dwarf_eh_frame_hdr from in memory elf image.\n");
     return false;
@@ -85,7 +85,7 @@ static bool get_eh_frame_info(
 
   unw_accessors_t* a = unw_get_accessors (ei->u.memory.as);
   unw_word_t addr = (unw_word_t) (uintptr_t) (hdr_offset + sizeof(struct dwarf_eh_frame_hdr));
-  addr += ei->u.memory.map->start;
+  addr += ei->u.memory.start;
 
   unw_word_t eh_frame_start;
   if (dwarf_read_encoded_pointer (ei->u.memory.as, a, &addr, hdr.eh_frame_ptr_enc, &pi,
@@ -114,7 +114,7 @@ static bool get_eh_frame_info(
   GET_PHDR_FIELD(ei, phdr_offset, &phdr, p_vaddr);
   GET_PHDR_FIELD(ei, phdr_offset, &phdr, p_offset);
   di_cache->u.rti.table_data =
-      load_base + phdr.p_vaddr + addr - (uintptr_t) ei->u.memory.map->start - phdr.p_offset;
+      load_base + phdr.p_vaddr + addr - (uintptr_t) ei->u.memory.start - phdr.p_offset;
 
   // For the binary-search table in the eh_frame_hdr, data-relative
   // means relative to the start of that section...
@@ -130,7 +130,6 @@ static bool dwarf_find_unwind_table_memory (
   GET_EHDR_FIELD(ei, &ehdr, e_phoff, false);
   GET_EHDR_FIELD(ei, &ehdr, e_phnum, false);
 
-  Elf_W(Phdr) phdr;
   Elf_W(Off) offset = ehdr.e_phoff;
   Elf_W(Off) txt_phdr_offset = 0;
   Elf_W(Addr) txt_pvaddr = 0;
@@ -218,7 +217,7 @@ static bool dwarf_find_unwind_table_memory (
 #if UNW_TARGET_ARM
   // Verify that the map contains enough space for the arm unwind data.
   if (arm_exidx_phdr_offset &&
-    arm_exidx_phdr_offset + sizeof(phdr) < ei->u.memory.map->end - ei->u.memory.map->start) {
+    arm_exidx_phdr_offset + sizeof(Elf_W(Phdr)) < ei->u.memory.end - ei->u.memory.start) {
     Elf_W(Phdr) phdr;
     GET_PHDR_FIELD(ei, arm_exidx_phdr_offset, &phdr, p_vaddr);
     GET_PHDR_FIELD(ei, arm_exidx_phdr_offset, &phdr, p_memsz);

@@ -30,7 +30,9 @@
 #define TEST_MUTE 0
 #define TEST_SOLO 1
 
-static int testMode;
+#define PREFETCHEVENT_ERROR_CANDIDATE \
+            (SL_PREFETCHEVENT_STATUSCHANGE | SL_PREFETCHEVENT_FILLLEVELCHANGE)
+
 //-----------------------------------------------------------------
 /* Exits the application if an error is encountered */
 #define ExitOnError(x) ExitOnErrorFunc(x,__LINE__)
@@ -43,6 +45,25 @@ void ExitOnErrorFunc( SLresult result , int line)
     }
 }
 
+//-----------------------------------------------------------------
+bool prefetchError = false;
+
+/* Callback for "prefetch" events, here used to detect audio resource opening errors */
+void PrefetchEventCallback( SLPrefetchStatusItf caller,  void *pContext __unused, SLuint32 event)
+{
+    SLpermille level = 0;
+    SLresult result;
+    result = (*caller)->GetFillLevel(caller, &level);
+    ExitOnError(result);
+    SLuint32 status;
+    result = (*caller)->GetPrefetchStatus(caller, &status);
+    ExitOnError(result);
+    if ((PREFETCHEVENT_ERROR_CANDIDATE == (event & PREFETCHEVENT_ERROR_CANDIDATE))
+            && (level == 0) && (status == SL_PREFETCHSTATUS_UNDERFLOW)) {
+        fprintf(stdout, "PrefetchEventCallback: Error while prefetching data, exiting\n");
+        prefetchError = true;
+    }
+}
 
 //-----------------------------------------------------------------
 
@@ -142,6 +163,12 @@ void TestPlayPathFromFD( SLObjectItf sl, const char* path, SLAint64 offset, SLAi
     result = (*player)->GetInterface(player, SL_IID_PREFETCHSTATUS, (void*)&prefetchItf);
     ExitOnError(result);
 
+    /* Set up prefetching callback.*/
+    result = (*prefetchItf)->RegisterCallback(prefetchItf, PrefetchEventCallback, &prefetchItf);
+    ExitOnError(result);
+    result = (*prefetchItf)->SetCallbackEventsMask(prefetchItf, PREFETCHEVENT_ERROR_CANDIDATE);
+    ExitOnError(result);
+
     fprintf(stdout, "Player configured\n");
 
     /* ------------------------------------------------------ */
@@ -155,8 +182,12 @@ void TestPlayPathFromFD( SLObjectItf sl, const char* path, SLAint64 offset, SLAi
     SLuint32 prefetchStatus = SL_PREFETCHSTATUS_UNDERFLOW;
     while (prefetchStatus != SL_PREFETCHSTATUS_SUFFICIENTDATA) {
         usleep(100 * 1000);
-        (*prefetchItf)->GetPrefetchStatus(prefetchItf, &prefetchStatus);
+        result = (*prefetchItf)->GetPrefetchStatus(prefetchItf, &prefetchStatus);
         ExitOnError(result);
+        if (prefetchError) {
+            fprintf(stderr, "Failure to prefetch data, exiting\n");
+            ExitOnError(SL_RESULT_CONTENT_NOT_FOUND);
+        }
     }
 
     /* Get duration */

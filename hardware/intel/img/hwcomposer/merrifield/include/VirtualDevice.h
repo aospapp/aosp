@@ -22,9 +22,10 @@
 #include <utils/Condition.h>
 #include <utils/Mutex.h>
 #include <utils/Vector.h>
-
+#include <utils/List.h>
+#ifdef INTEL_WIDI
 #include "IFrameServer.h"
-
+#endif
 #include <va/va.h>
 #include <va/va_vpp.h>
 
@@ -36,7 +37,11 @@ class DisplayPlaneManager;
 class IVideoPayloadManager;
 class SoftVsyncObserver;
 
+#ifdef INTEL_WIDI
 class VirtualDevice : public IDisplayDevice, public BnFrameServer {
+#else
+class VirtualDevice : public IDisplayDevice, public RefBase{
+#endif
 protected:
     class VAMappedHandle;
     class VAMappedHandleObject;
@@ -54,6 +59,7 @@ protected:
         android::sp<VirtualDevice> vd;
         android::sp<CachedBuffer> cachedBuffer;
     };
+#ifdef INTEL_WIDI
     struct Configuration {
         sp<IFrameTypeChangeListener> typeChangeListener;
         sp<IFrameListener> frameListener;
@@ -63,6 +69,7 @@ protected:
         bool forceNotifyFrameType;
         bool forceNotifyBufferInfo;
     };
+#endif
     class BufferList {
     public:
         BufferList(VirtualDevice& vd, const char* name, uint32_t limit, uint32_t format, uint32_t usage);
@@ -91,8 +98,10 @@ protected:
     struct OnFrameReadyTask;
 
     Mutex mConfigLock;
+#ifdef INTEL_WIDI
     Configuration mCurrentConfig;
     Configuration mNextConfig;
+#endif
     ssize_t mRgbLayer;
     ssize_t mYuvLayer;
     bool mProtectedMode;
@@ -114,10 +123,10 @@ protected:
     int mSyncTimelineFd;
     unsigned mNextSyncPoint;
     bool mExpectAcquireFences;
-
+#ifdef INTEL_WIDI
     FrameInfo mLastInputFrameInfo;
     FrameInfo mLastOutputFrameInfo;
-
+#endif
     int32_t mVideoFramerate;
 
     android::KeyedVector<buffer_handle_t, android::sp<CachedBuffer> > mMappedBufferCache;
@@ -147,11 +156,12 @@ private:
     bool sendToWidi(hwc_display_contents_1_t *display);
     bool queueCompose(hwc_display_contents_1_t *display);
     bool queueColorConvert(hwc_display_contents_1_t *display);
+#ifdef INTEL_WIDI
     bool handleExtendedMode(hwc_display_contents_1_t *display);
 
     void queueFrameTypeInfo(const FrameInfo& inputFrameInfo);
     void queueBufferInfo(const FrameInfo& outputFrameInfo);
-
+#endif
     void colorSwap(buffer_handle_t src, buffer_handle_t dest, uint32_t pixelCount);
     void vspPrepare(uint32_t width, uint32_t height);
     void vspEnable(uint32_t width, uint32_t height);
@@ -189,13 +199,14 @@ public:
     virtual int getType() const;
     virtual void onVsync(int64_t timestamp);
     virtual void dump(Dump& d);
-
+#ifdef INTEL_WIDI
     // IFrameServer methods
     virtual android::status_t start(sp<IFrameTypeChangeListener> frameTypeChangeListener);
     virtual android::status_t stop(bool isConnected);
 	/* TODO: 64-bit - this handle of size 32-bit is a problem for 64-bit */
     virtual android::status_t notifyBufferReturned(int handle);
     virtual android::status_t setResolution(const FrameProcessingPolicy& policy, android::sp<IFrameListener> listener);
+#endif
     virtual bool setPowerMode(int mode);
     virtual int  getActiveConfig();
     virtual bool setActiveConfig(int index);

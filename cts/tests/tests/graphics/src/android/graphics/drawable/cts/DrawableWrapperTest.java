@@ -17,7 +17,7 @@
 package android.graphics.drawable.cts;
 
 import android.graphics.drawable.DrawableWrapper;
-import com.android.cts.graphics.R;
+import android.graphics.cts.R;
 
 
 import java.util.Arrays;
@@ -42,7 +42,7 @@ public class DrawableWrapperTest extends AndroidTestCase {
     @SuppressWarnings("deprecation")
     public void testConstructor() {
         Drawable d = new BitmapDrawable();
-        MyWrapper wrapper = new MyWrapper(d);
+        DrawableWrapper wrapper = new MyWrapper(d);
         assertSame(d, wrapper.getDrawable());
 
         new MyWrapper(null);
@@ -51,14 +51,14 @@ public class DrawableWrapperTest extends AndroidTestCase {
     @SuppressWarnings("deprecation")
     public void testGetDrawable() {
         Drawable d = new BitmapDrawable();
-        MyWrapper wrapper = new MyWrapper(d);
+        DrawableWrapper wrapper = new MyWrapper(d);
         assertSame(d, wrapper.getDrawable());
     }
 
     @SuppressWarnings("deprecation")
     public void testSetDrawable() {
         Drawable d = new BitmapDrawable();
-        MyWrapper wrapper = new MyWrapper(null);
+        DrawableWrapper wrapper = new MyWrapper(null);
         assertSame(null, wrapper.getDrawable());
 
         wrapper.setDrawable(d);
@@ -67,7 +67,7 @@ public class DrawableWrapperTest extends AndroidTestCase {
 
     @SuppressWarnings("deprecation")
     public void testInvalidateDrawable() {
-        MyWrapper wrapper = new MyWrapper(new BitmapDrawable());
+        DrawableWrapper wrapper = new MyWrapper(new BitmapDrawable());
 
         MockCallback cb = new MockCallback();
         wrapper.setCallback(cb);
@@ -86,7 +86,7 @@ public class DrawableWrapperTest extends AndroidTestCase {
 
     @SuppressWarnings("deprecation")
     public void testScheduleDrawable() {
-        MyWrapper wrapper = new MyWrapper(new BitmapDrawable());
+        DrawableWrapper wrapper = new MyWrapper(new BitmapDrawable());
 
         MockCallback cb = new MockCallback();
         wrapper.setCallback(cb);
@@ -108,7 +108,7 @@ public class DrawableWrapperTest extends AndroidTestCase {
 
     @SuppressWarnings("deprecation")
     public void testUnscheduleDrawable() {
-        MyWrapper wrapper = new MyWrapper(new BitmapDrawable());
+        DrawableWrapper wrapper = new MyWrapper(new BitmapDrawable());
 
         MockCallback cb = new MockCallback();
         wrapper.setCallback(cb);
@@ -170,7 +170,7 @@ public class DrawableWrapperTest extends AndroidTestCase {
 
     public void testDraw() {
         MockDrawable mockDrawable = new MockDrawable();
-        MyWrapper wrapper = new MyWrapper(mockDrawable);
+        DrawableWrapper wrapper = new MyWrapper(mockDrawable);
 
         wrapper.draw(new Canvas());
         assertTrue(mockDrawable.hasCalledDraw());
@@ -185,7 +185,7 @@ public class DrawableWrapperTest extends AndroidTestCase {
         final int CONTAINED_DRAWABLE_CONFIG = 2;
 
         MockDrawable mockDrawable = new MockDrawable();
-        MyWrapper wrapper = new MyWrapper(mockDrawable);
+        DrawableWrapper wrapper = new MyWrapper(mockDrawable);
 
         assertEquals(0, wrapper.getChangingConfigurations());
 
@@ -199,7 +199,7 @@ public class DrawableWrapperTest extends AndroidTestCase {
 
     public void testGetPadding() {
         MockDrawable mockDrawable = new MockDrawable();
-        MyWrapper wrapper = new MyWrapper(mockDrawable);
+        DrawableWrapper wrapper = new MyWrapper(mockDrawable);
 
         // this method will call contained drawable's getPadding method.
         wrapper.getPadding(new Rect());
@@ -215,7 +215,7 @@ public class DrawableWrapperTest extends AndroidTestCase {
 
     public void testSetVisible() {
         MockDrawable mockDrawable = new MockDrawable();
-        MyWrapper wrapper = new MyWrapper(mockDrawable);
+        DrawableWrapper wrapper = new MyWrapper(mockDrawable);
         assertTrue(wrapper.isVisible());
 
         assertTrue(wrapper.setVisible(false, false));
@@ -235,7 +235,7 @@ public class DrawableWrapperTest extends AndroidTestCase {
 
     public void testSetAlpha() {
         MockDrawable mockDrawable = new MockDrawable();
-        MyWrapper wrapper = new MyWrapper(mockDrawable);
+        DrawableWrapper wrapper = new MyWrapper(mockDrawable);
 
         // this method will call contained drawable's setAlpha method.
         wrapper.setAlpha(100);
@@ -252,7 +252,7 @@ public class DrawableWrapperTest extends AndroidTestCase {
 
     public void testSetColorFilter() {
         MockDrawable mockDrawable = new MockDrawable();
-        MyWrapper wrapper = new MyWrapper(mockDrawable);
+        DrawableWrapper wrapper = new MyWrapper(mockDrawable);
 
         // this method will call contained drawable's setColorFilter method.
         wrapper.setColorFilter(new ColorFilter());
@@ -265,7 +265,7 @@ public class DrawableWrapperTest extends AndroidTestCase {
 
     public void testGetOpacity() {
         MockDrawable mockDrawable = new MockDrawable();
-        MyWrapper wrapper = new MyWrapper(mockDrawable);
+        DrawableWrapper wrapper = new MyWrapper(mockDrawable);
 
         // This method will call contained drawable's getOpacity method.
         wrapper.setLevel(1);
@@ -275,7 +275,7 @@ public class DrawableWrapperTest extends AndroidTestCase {
 
     public void testIsStateful() {
         MockDrawable mockDrawable = new MockDrawable();
-        MyWrapper wrapper = new MyWrapper(mockDrawable);
+        DrawableWrapper wrapper = new MyWrapper(mockDrawable);
 
         // this method will call contained drawable's isStateful method.
         wrapper.isStateful();

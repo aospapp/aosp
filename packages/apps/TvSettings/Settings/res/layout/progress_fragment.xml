@@ -16,16 +16,16 @@
   -->
 
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
+    android:layout_width="@dimen/progress_fragment_content_width"
     android:layout_height="match_parent"
-    android:layout_marginStart="@dimen/progress_fragment_side_margin"
-    android:layout_marginEnd="@dimen/progress_fragment_side_margin">
+    android:layout_gravity="center">
 
     <ImageView
         android:id="@android:id/icon"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginEnd="24dp"
+        android:layout_centerVertical="true"
         android:maxHeight="80dp"
         android:maxWidth="80dp"
         android:visibility="gone"
@@ -37,20 +37,6 @@
         android:layout_height="wrap_content"
         android:layout_above="@android:id/progress"
         android:layout_toEndOf="@android:id/icon"
-        android:ellipsize="end"
-        android:maxLines="1"
-        style="@style/SettingsStyle.TextAppearanceLarge"
-        />
-
-    <TextView
-        android:id="@+id/title_end"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_above="@android:id/progress"
-        android:layout_alignEnd="@android:id/progress"
-        android:layout_toEndOf="@android:id/title"
-        android:maxLines="1"
-        android:visibility="gone"
         style="@style/SettingsStyle.TextAppearanceLarge"
         />
 
@@ -73,5 +59,15 @@
         android:layout_below="@android:id/progress"
         android:layout_toEndOf="@android:id/icon"
         style="@style/SettingsStyle.TextAppearanceMedium"
+        />
+
+    <TextView
+        android:id="@+id/extra"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@android:id/summary"
+        android:layout_toEndOf="@android:id/icon"
+        style="@style/SettingsStyle.TextAppearanceMedium"
+        android:visibility="gone"
         />
 </RelativeLayout>

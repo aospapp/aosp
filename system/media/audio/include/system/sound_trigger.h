@@ -36,6 +36,8 @@ typedef enum {
 #define RECOGNITION_MODE_USER_IDENTIFICATION 0x2 /* trigger only if one user in model identified */
 #define RECOGNITION_MODE_USER_AUTHENTICATION 0x4 /* trigger only if one user in mode
                                                     authenticated */
+#define RECOGNITION_MODE_GENERIC_TRIGGER 0x8     /* generic sound trigger */
+
 #define RECOGNITION_STATUS_SUCCESS 0
 #define RECOGNITION_STATUS_ABORT 1
 #define RECOGNITION_STATUS_FAILURE 2
@@ -44,7 +46,8 @@ typedef enum {
 
 typedef enum {
     SOUND_MODEL_TYPE_UNKNOWN = -1,    /* use for unspecified sound model type */
-    SOUND_MODEL_TYPE_KEYPHRASE = 0    /* use for key phrase sound models */
+    SOUND_MODEL_TYPE_KEYPHRASE = 0,    /* use for key phrase sound models */
+    SOUND_MODEL_TYPE_GENERIC = 1      /* use for all models other than keyphrase */
 } sound_trigger_sound_model_type_t;
 
 typedef struct sound_trigger_uuid_s {
@@ -92,7 +95,7 @@ struct sound_trigger_module_descriptor {
 typedef int sound_model_handle_t;
 
 /*
- * Generic sound model descriptor. This struct is the header of a larger block passed to
+ * Base sound model descriptor. This struct is the header of a larger block passed to
  * load_sound_model() and containing the binary data of the sound model.
  * Proprietary representation of users in binary data must match information indicated
  * by users field
@@ -127,6 +130,14 @@ struct sound_trigger_phrase_sound_model {
     struct sound_trigger_sound_model common;
     unsigned int                     num_phrases;   /* number of key phrases in model */
     struct sound_trigger_phrase      phrases[SOUND_TRIGGER_MAX_PHRASES];
+};
+
+
+/*
+ * Generic sound model, used for all cases except key phrase detection.
+ */
+struct sound_trigger_generic_sound_model {
+    struct sound_trigger_sound_model common;
 };
 
 
@@ -188,6 +199,10 @@ struct sound_trigger_phrase_recognition_event {
     struct sound_trigger_recognition_event common;
     unsigned int                           num_phrases;
     struct sound_trigger_phrase_recognition_extra phrase_extras[SOUND_TRIGGER_MAX_PHRASES];
+};
+
+struct sound_trigger_generic_recognition_event {
+    struct sound_trigger_recognition_event common;
 };
 
 /*

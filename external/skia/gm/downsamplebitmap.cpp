@@ -44,7 +44,7 @@ public:
     DownsampleBitmapGM(SkFilterQuality filterQuality)
         : fFilterQuality(filterQuality)
     {
-        this->setBGColor(0xFFDDDDDD);
+        this->setBGColor(sk_tool_utils::color_to_565(0xFFDDDDDD));
         fBitmapMade = false;
     }
 
@@ -126,13 +126,13 @@ class DownsampleBitmapTextGM: public DownsampleBitmapGM {
           paint.setSubpixelText(true);
           paint.setTextSize(fTextSize);
 
-          setTypeface(&paint, "Times", SkTypeface::kNormal);
+          setTypeface(&paint, "serif", SkTypeface::kNormal);
           canvas.drawText("Hamburgefons", 12, fTextSize/2, 1.2f*fTextSize, paint);
-          setTypeface(&paint, "Times", SkTypeface::kBold);
+          setTypeface(&paint, "serif", SkTypeface::kBold);
           canvas.drawText("Hamburgefons", 12, fTextSize/2, 2.4f*fTextSize, paint);
-          setTypeface(&paint, "Times", SkTypeface::kItalic);
+          setTypeface(&paint, "serif", SkTypeface::kItalic);
           canvas.drawText("Hamburgefons", 12, fTextSize/2, 3.6f*fTextSize, paint);
-          setTypeface(&paint, "Times", SkTypeface::kBoldItalic);
+          setTypeface(&paint, "serif", SkTypeface::kBoldItalic);
           canvas.drawText("Hamburgefons", 12, fTextSize/2, 4.8f*fTextSize, paint);
       }
   private:
@@ -171,7 +171,7 @@ class DownsampleBitmapImageGM: public DownsampleBitmapGM {
       int fSize;
 
       void make_bitmap() override {
-          SkImageDecoder* codec = NULL;
+          SkImageDecoder* codec = nullptr;
           SkString resourcePath = GetResourcePath(fFilename.c_str());
           SkFILEStream stream(resourcePath.c_str());
           if (stream.isValid()) {
@@ -180,7 +180,7 @@ class DownsampleBitmapImageGM: public DownsampleBitmapGM {
           if (codec) {
               stream.rewind();
               codec->decode(&stream, &fBM, kN32_SkColorType, SkImageDecoder::kDecodePixels_Mode);
-              SkDELETE(codec);
+              delete codec;
           } else {
               fBM.allocN32Pixels(1, 1);
               *(fBM.getAddr32(0,0)) = 0xFF0000FF; // red == bad
@@ -190,63 +190,6 @@ class DownsampleBitmapImageGM: public DownsampleBitmapGM {
   private:
       typedef DownsampleBitmapGM INHERITED;
 };
-
-#include "SkMipMap.h"
-
-static void release_mipmap(void*, void* context) {
-    ((SkMipMap*)context)->unref();
-}
-
-class ShowMipLevels : public skiagm::GM {
-public:
-    SkBitmap    fBM;
-
-    ShowMipLevels() {
-        this->setBGColor(0xFFDDDDDD);
-        make_checker(&fBM, 512, 256);
-    }
-
-protected:
-
-    SkString onShortName() override {
-        return SkString("showmiplevels");
-    }
-
-    SkISize onISize() override {
-        return SkISize::Make(fBM.width() + 8, 2 * fBM.height() + 80);
-    }
-
-    void onDraw(SkCanvas* canvas) override {
-        SkScalar x = 4;
-        SkScalar y = 4;
-        canvas->drawBitmap(fBM, x, y, NULL);
-        y += fBM.height() + 4;
-
-        SkAutoTUnref<SkMipMap> mm(SkMipMap::Build(fBM, NULL));
-
-        SkMipMap::Level level;
-        SkScalar scale = 0.5f;
-        while (mm->extractLevel(scale, &level)) {
-            SkImageInfo info = SkImageInfo::MakeN32Premul(level.fWidth, level.fHeight);
-            SkBitmap bm;
-            bm.installPixels(info, level.fPixels, level.fRowBytes, NULL,
-                             &release_mipmap, (void*)(SkRef(mm.get())));
-            bm.setImmutable();
-            canvas->drawBitmap(bm, x, y, NULL);
-            y += bm.height() + 4;
-            scale /= 2;
-            if (info.width() == 1 || info.height() == 1) {
-                break;
-            }
-        }
-    }
-
-private:
-    typedef skiagm::GM INHERITED;
-};
-DEF_GM( return new ShowMipLevels; )
-
-//////////////////////////////////////////////////////////////////////////////
 
 DEF_GM( return new DownsampleBitmapTextGM(72, kHigh_SkFilterQuality); )
 DEF_GM( return new DownsampleBitmapCheckerboardGM(512,256, kHigh_SkFilterQuality); )

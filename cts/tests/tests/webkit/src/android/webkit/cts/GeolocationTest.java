@@ -62,8 +62,9 @@ public class GeolocationTest extends ActivityInstrumentationTestCase2<WebViewCts
 
     // The URLs does not matter since the tests will intercept the load, but it has to be a real
     // url, and different domains.
-    private static final String URL_1 = "http://www.example.com";
-    private static final String URL_2 = "http://www.example.org";
+    private static final String URL_1 = "https://www.example.com";
+    private static final String URL_2 = "https://www.example.org";
+    private static final String URL_INSECURE = "http://www.example.org";
 
     private static final String JS_INTERFACE_NAME = "Android";
     private static final int POLLING_TIMEOUT = 60 * 1000;
@@ -110,7 +111,7 @@ public class GeolocationTest extends ActivityInstrumentationTestCase2<WebViewCts
     private List<String> mProviders;
 
     public GeolocationTest() throws Exception {
-        super("com.android.cts.webkit", WebViewCtsActivity.class);
+        super("android.webkit.cts", WebViewCtsActivity.class);
     }
 
     // Both this test and WebViewOnUiThread need to override some of the methods on WebViewClient,
@@ -169,6 +170,11 @@ public class GeolocationTest extends ActivityInstrumentationTestCase2<WebViewCts
                     break;
                 }
             }
+            if(mProviders.size() == 0)
+            {
+                addTestLocationProvider();
+                mAddedTestLocationProvider = true;
+            }
             mProviders.add(LocationManager.FUSED_PROVIDER);
             addTestProviders();
         }
@@ -185,6 +191,10 @@ public class GeolocationTest extends ActivityInstrumentationTestCase2<WebViewCts
                     mLocationManager.clearTestProviderEnabled(provider);
                     mLocationManager.removeTestProvider(provider);
                 } catch (IllegalArgumentException e) {} // Not much to do about this
+            }
+            if(mAddedTestLocationProvider)
+            {
+                removeTestLocationProvider();
             }
         }
         LocationUtils.registerMockLocationProvider(getInstrumentation(), false);
@@ -211,6 +221,29 @@ public class GeolocationTest extends ActivityInstrumentationTestCase2<WebViewCts
                     provider.getAccuracy()); // accuracy
             mLocationManager.setTestProviderEnabled(provider.getName(), true);
         }
+    }
+
+    private static final String TEST_PROVIDER_NAME = "location_provider_test";
+    private boolean mAddedTestLocationProvider = false;
+
+    private void addTestLocationProvider() {
+        mLocationManager.addTestProvider(
+                TEST_PROVIDER_NAME,
+                true,  // requiresNetwork,
+                false, // requiresSatellite,
+                false, // requiresCell,
+                false, // hasMonetaryCost,
+                true,  // supportsAltitude,
+                false, // supportsSpeed,
+                true,  // supportsBearing,
+                Criteria.POWER_MEDIUM,   // powerRequirement,
+                Criteria.ACCURACY_FINE); // accuracy
+        mLocationManager.setTestProviderEnabled(TEST_PROVIDER_NAME, true);
+    }
+
+    private void removeTestLocationProvider() {
+        mLocationManager.clearTestProviderEnabled(TEST_PROVIDER_NAME);
+        mLocationManager.removeTestProvider(TEST_PROVIDER_NAME);
     }
 
     private void startUpdateLocationThread() {
@@ -504,7 +537,7 @@ public class GeolocationTest extends ActivityInstrumentationTestCase2<WebViewCts
         originCheck.run();
     }
 
-    // Test loading pages and checks rejecting once and recjecting the domain forever
+    // Test loading pages and checks rejecting once and rejecting the domain forever
     public void testSimpleGeolocationRequestReject() throws Exception {
         if (!NullWebViewUtils.isWebViewAvailable()) {
             return;
@@ -557,6 +590,26 @@ public class GeolocationTest extends ActivityInstrumentationTestCase2<WebViewCts
         BooleanCheck falseCheck = new BooleanCheck(false);
         GeolocationPermissions.getInstance().getAllowed(URL_1, falseCheck);
         falseCheck.run();
+    }
+
+    // Test deny geolocation on insecure origins
+    public void testGeolocationRequestDeniedOnInsecureOrigin() throws Exception {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
+        final TestSimpleGeolocationRequestWebChromeClient chromeClientAcceptAlways =
+                new TestSimpleGeolocationRequestWebChromeClient(mOnUiThread, true, true);
+        mOnUiThread.setWebChromeClient(chromeClientAcceptAlways);
+        loadUrlAndUpdateLocation(URL_INSECURE);
+        Callable<Boolean> locationDenied = new Callable<Boolean>() {
+            @Override
+            public Boolean call() {
+                return mJavascriptStatusReceiver.mDenied;
+            }
+        };
+        PollingCheck.check("JS got position", POLLING_TIMEOUT, locationDenied);
+        // The geolocation permission prompt should not be called
+        assertFalse(chromeClientAcceptAlways.mReceivedRequest);
     }
 
     // Object added to the page via AddJavascriptInterface() that is used by the test Javascript to

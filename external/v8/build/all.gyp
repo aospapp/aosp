@@ -9,18 +9,32 @@
       'type': 'none',
       'dependencies': [
         '../samples/samples.gyp:*',
-        '../src/base/base.gyp:base-unittests',
-        '../src/compiler/compiler.gyp:compiler-unittests',
         '../src/d8.gyp:d8',
-        '../src/heap/heap.gyp:heap-unittests',
-        '../src/libplatform/libplatform.gyp:libplatform-unittests',
         '../test/cctest/cctest.gyp:*',
+        '../test/unittests/unittests.gyp:*',
       ],
       'conditions': [
         ['component!="shared_library"', {
           'dependencies': [
-            '../tools/lexer-shell.gyp:lexer-shell',
-            '../tools/lexer-shell.gyp:parser-shell',
+            '../tools/parser-shell.gyp:parser-shell',
+          ],
+        }],
+        ['test_isolation_mode != "noop"', {
+          'dependencies': [
+            '../test/bot_default.gyp:*',
+            '../test/benchmarks/benchmarks.gyp:*',
+            '../test/default.gyp:*',
+            '../test/ignition.gyp:*',
+            '../test/intl/intl.gyp:*',
+            '../test/message/message.gyp:*',
+            '../test/mjsunit/mjsunit.gyp:*',
+            '../test/mozilla/mozilla.gyp:*',
+            '../test/optimize_for_size.gyp:*',
+            '../test/preparser/preparser.gyp:*',
+            '../test/simdjs/simdjs.gyp:*',
+            '../test/test262/test262.gyp:*',
+            '../test/webkit/webkit.gyp:*',
+            '../tools/check-static-initializers.gyp:*',
           ],
         }],
       ]

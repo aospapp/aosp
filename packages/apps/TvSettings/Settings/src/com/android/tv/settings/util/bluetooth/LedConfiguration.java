@@ -79,7 +79,7 @@ public class LedConfiguration implements Parcelable {
 
     @Override
     public String toString() {
-        return String.format("LedConfiguration(" + getNameString() + ")");
+        return "LedConfiguration(" + getNameString() + ")";
     }
 
     public String getNameString() {

@@ -18,24 +18,31 @@
 -->
 
 <resources>
-    <style name="WallpaperTitle">
-        <item name="android:textSize">20dip</item>
-        <item name="android:shadowColor">#FF000000</item>
-        <item name="android:shadowRadius">2.5</item>
-        <item name="android:shadowDx">0</item>
-        <item name="android:shadowDy">0</item>
-        <item name="android:textColor">#FFFFFFFF</item>
-        <item name="android:gravity">left</item>
-    </style>
-    
-    <style name="Preview" parent="android:Theme.Holo">
-        <item name="android:windowNoTitle">true</item>
+
+    <style name="LivePickerTheme" parent="@android:style/Theme.DeviceDefault.Settings" />
+
+    <style name="Preview" parent="@android:style/Theme.DeviceDefault">
+        <item name="android:actionBarStyle">@style/PreviewActionBar</item>
+        <item name="android:windowAnimationStyle">@android:style/Animation.Activity</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowActionBarOverlay">true</item>
+        <item name="android:windowTranslucentNavigation">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:colorBackgroundCacheHint">@null</item>
-        <item name="android:windowAnimationStyle">@android:style/Animation.Activity</item>
     </style>
 
-    <style name="LivePickerTheme" parent="android:style/Theme.Holo">
-        <item name="android:windowNoTitle">true</item>
+    <style name="PreviewActionBar" parent="@android:style/Widget.DeviceDefault.ActionBar">
+        <item name="android:displayOptions">showCustom</item>
+        <item name="android:background">#88000000</item>
+        <item name="android:contentInsetEnd">0dp</item>
+        <item name="android:contentInsetLeft">0dp</item>
+        <item name="android:contentInsetRight">0dp</item>
+        <item name="android:contentInsetStart">0dp</item>
     </style>
+
+    <style name="ActionBarSetWallpaperStyle" parent="@android:style/Widget.DeviceDefault.ActionButton">
+        <item name="android:textColor">#ffffffff</item>
+        <item name="android:background">?android:attr/selectableItemBackgroundBorderless</item>
+    </style>
+
 </resources>

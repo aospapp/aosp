@@ -21,7 +21,7 @@ class DataBinderWriter(val pkg: String, val projectPackage: String, val classNam
         nl("package $pkg;")
         nl("import $projectPackage.BR;")
         nl("class $className {") {
-            tab("final static int TARGET_MIN_SDK = ${minSdk};")
+            tab("final static int TARGET_MIN_SDK = $minSdk;")
             nl("")
             tab("public $className() {") {
             }
@@ -29,14 +29,14 @@ class DataBinderWriter(val pkg: String, val projectPackage: String, val classNam
             nl("")
             tab("public android.databinding.ViewDataBinding getDataBinder(android.databinding.DataBindingComponent bindingComponent, android.view.View view, int layoutId) {") {
                 tab("switch(layoutId) {") {
-                    layoutBinders.groupBy{it.getLayoutname()}.forEach {
-                        val firstVal = it.value.get(0)
-                        tab("case ${firstVal.getModulePackage()}.R.layout.${firstVal.getLayoutname()}:") {
-                            if (it.value.size() == 1) {
-                                if (firstVal.isMerge()) {
-                                    tab("return new ${firstVal.getPackage()}.${firstVal.getImplementationName()}(bindingComponent, new android.view.View[]{view});")
+                    layoutBinders.groupBy{it.layoutname }.forEach {
+                        val firstVal = it.value[0]
+                        tab("case ${firstVal.modulePackage}.R.layout.${firstVal.layoutname}:") {
+                            if (it.value.size == 1) {
+                                if (firstVal.isMerge) {
+                                    tab("return new ${firstVal.`package`}.${firstVal.implementationName}(bindingComponent, new android.view.View[]{view});")
                                 } else {
-                                    tab("return ${firstVal.getPackage()}.${firstVal.getImplementationName()}.bind(view, bindingComponent);")
+                                    tab("return ${firstVal.`package`}.${firstVal.implementationName}.bind(view, bindingComponent);")
                                 }
                             } else {
                                 // we should check the tag to decide which layout we need to inflate
@@ -44,14 +44,15 @@ class DataBinderWriter(val pkg: String, val projectPackage: String, val classNam
                                     tab("final Object tag = view.getTag();")
                                     tab("if(tag == null) throw new java.lang.RuntimeException(\"view must have a tag\");")
                                     it.value.forEach {
-                                        tab("if (\"${it.getTag()}_0\".equals(tag)) {") {
-                                            if (it.isMerge()) {
-                                                tab("return new ${it.getPackage()}.${it.getImplementationName()}(bindingComponent, new android.view.View[]{view});")
+                                        tab("if (\"${it.tag}_0\".equals(tag)) {") {
+                                            if (it.isMerge) {
+                                                tab("return new ${it.`package`}.${it.implementationName}(bindingComponent, new android.view.View[]{view});")
                                             } else {
-                                                tab("return new ${it.getPackage()}.${it.getImplementationName()}(bindingComponent, view);")
+                                                tab("return new ${it.`package`}.${it.implementationName}(bindingComponent, view);")
                                             }
                                         } tab("}")
                                     }
+                                    tab("throw new java.lang.IllegalArgumentException(\"The tag for ${firstVal.layoutname} is invalid. Received: \" + tag);");
                                 }tab("}")
                             }
 
@@ -65,19 +66,19 @@ class DataBinderWriter(val pkg: String, val projectPackage: String, val classNam
 
             tab("android.databinding.ViewDataBinding getDataBinder(android.databinding.DataBindingComponent bindingComponent, android.view.View[] views, int layoutId) {") {
                 tab("switch(layoutId) {") {
-                    layoutBinders.filter{it.isMerge()}.groupBy{it.getLayoutname()}.forEach {
-                        val firstVal = it.value.get(0)
-                        tab("case ${firstVal.getModulePackage()}.R.layout.${firstVal.getLayoutname()}:") {
-                            if (it.value.size() == 1) {
-                                tab("return new ${firstVal.getPackage()}.${firstVal.getImplementationName()}(bindingComponent, views);")
+                    layoutBinders.filter{it.isMerge }.groupBy{it.layoutname }.forEach {
+                        val firstVal = it.value[0]
+                        tab("case ${firstVal.modulePackage}.R.layout.${firstVal.layoutname}:") {
+                            if (it.value.size == 1) {
+                                tab("return new ${firstVal.`package`}.${firstVal.implementationName}(bindingComponent, views);")
                             } else {
                                 // we should check the tag to decide which layout we need to inflate
                                 tab("{") {
                                     tab("final Object tag = views[0].getTag();")
                                     tab("if(tag == null) throw new java.lang.RuntimeException(\"view must have a tag\");")
                                     it.value.forEach {
-                                        tab("if (\"${it.getTag()}_0\".equals(tag)) {") {
-                                            tab("return new ${it.getPackage()}.${it.getImplementationName()}(bindingComponent, views);")
+                                        tab("if (\"${it.tag}_0\".equals(tag)) {") {
+                                            tab("return new ${it.`package`}.${it.implementationName}(bindingComponent, views);")
                                         } tab("}")
                                     }
                                 }tab("}")
@@ -98,11 +99,11 @@ class DataBinderWriter(val pkg: String, val projectPackage: String, val classNam
                 // String.hashCode is well defined in the API so we can rely on it being the same on the device and the host machine
                 tab("final int code = tag.hashCode();");
                 tab("switch(code) {") {
-                    layoutBinders.groupBy {"${it.getTag()}_0".hashCode()}.forEach {
+                    layoutBinders.groupBy {"${it.tag}_0".hashCode()}.forEach {
                         tab("case ${it.key}:") {
                             it.value.forEach {
-                                tab("if(tag.equals(\"${it.getTag()}_0\"))") {
-                                    tab("return ${it.getModulePackage()}.R.layout.${it.getLayoutname()};")
+                                tab("if(tag.equals(\"${it.tag}_0\"))") {
+                                    tab("return ${it.modulePackage}.R.layout.${it.layoutname};")
                                 }
                             }
                             tab("break;")

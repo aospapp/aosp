@@ -65,6 +65,11 @@ public final class InstallApkTask extends Task {
         File dex = run.localFile(action, "classes.dex");
         Classpath classesToDex = Classpath.of(actionJar);
         classesToDex.addAll(run.classpath);
+        if (run.useJack) {
+            // TODO Implement Jack support for mode=activity.
+            throw new UnsupportedOperationException(
+                    "Jack support for --mode=activity not yet implemented");
+        }
         run.androidSdk.dex(dex, classesToDex);
         return dex;
     }
@@ -75,7 +80,8 @@ public final class InstallApkTask extends Task {
             "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n" +
             "      package=\"" + packageName(action) + "\">\n" +
             "    <uses-permission android:name=\"android.permission.INTERNET\" />\n" +
-            "    <application>\n" +
+            "    <application" +
+                    ((run.debugging) ? " android:debuggable=\"true\"" : "") + ">\n" +
             "        <activity android:name=\"" + ACTIVITY_CLASS + "\">\n" +
             "            <intent-filter>\n" +
             "                <action android:name=\"android.intent.action.MAIN\" />\n" +

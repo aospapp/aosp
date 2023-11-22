@@ -566,8 +566,8 @@ public:
 			{
 				for (int xo = 0; xo < w; xo++)
 				{
-					const float			xf		= float(xo+0.5f) / float(w);
-					const float			yf		= float((h-yo-1)+0.5f) / float(h);
+					const float			xf		= (float(xo)+0.5f) / float(w);
+					const float			yf		= (float(h-yo-1)+0.5f) / float(h);
 					const tcu::Vec4		color	(xf, yf, 0.0f, 1.0f);
 					const int			dx		= x0+xo;
 					const int			dy		= y0+yo;
@@ -670,10 +670,10 @@ public:
 		for (int y = 0; y < refImg.getHeight(); y++)
 		{
 			for (int x = 0; x < refImg.getWidth()/2; x++)
-				refImg.setPixel(x, y, tcu::RGBA::green);
+				refImg.setPixel(x, y, tcu::RGBA::green());
 
 			for (int x = refImg.getWidth()/2; x < refImg.getWidth(); x++)
-				refImg.setPixel(x, y, tcu::RGBA::blue);
+				refImg.setPixel(x, y, tcu::RGBA::blue());
 		}
 
 		// Compare
@@ -831,8 +831,8 @@ void VertexIDCase::init (void)
 		const int	quadY		= quadNdx/maxQuadsX;
 		const int	quadX		= quadNdx%maxQuadsX;
 
-		const float	x0			= -1.0f + quadX*w;
-		const float	y0			= -1.0f + quadY*h;
+		const float	x0			= -1.0f + float(quadX)*w;
+		const float	y0			= -1.0f + float(quadY)*h;
 
 		if (triNdx%2 == 0)
 		{

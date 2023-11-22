@@ -16,7 +16,7 @@ $(built_dpi_apk): PRIVATE_ANDROID_MANIFEST := $(full_android_manifest)
 $(built_dpi_apk): PRIVATE_RESOURCE_DIR := $(LOCAL_RESOURCE_DIR)
 $(built_dpi_apk): PRIVATE_ASSET_DIR := $(LOCAL_ASSET_DIR)
 $(built_dpi_apk): PRIVATE_AAPT_INCLUDES := $(all_library_res_package_exports)
-ifneq (,$(filter-out current system_current, $(LOCAL_SDK_VERSION)))
+ifneq (,$(filter-out current system_current test_current, $(LOCAL_SDK_VERSION)))
 $(built_dpi_apk): PRIVATE_DEFAULT_APP_TARGET_SDK := $(LOCAL_SDK_VERSION)
 else
 $(built_dpi_apk): PRIVATE_DEFAULT_APP_TARGET_SDK := $(DEFAULT_APP_TARGET_SDK)
@@ -48,7 +48,7 @@ endif # full_classes_jar
 $(built_dpi_apk) : $(R_file_stamp)
 $(built_dpi_apk) : $(all_library_res_package_export_deps)
 $(built_dpi_apk) : $(private_key) $(certificate) $(SIGNAPK_JAR)
-$(built_dpi_apk) : $(AAPT) | $(ZIPALIGN)
+$(built_dpi_apk) : $(AAPT)
 $(built_dpi_apk) : $(all_res_assets) $(jni_shared_libraries) $(full_android_manifest)
 	@echo "target Package: $(PRIVATE_MODULE) ($@)"
 	$(if $(PRIVATE_SOURCE_ARCHIVE),\
@@ -68,7 +68,6 @@ ifdef LOCAL_JACK_ENABLED
 endif
 endif
 	$(sign-package)
-	$(align-package)
 
 # Set up global variables to register this apk to the higher-level dependency graph.
 ALL_MODULES += $(dpi_apk_name)

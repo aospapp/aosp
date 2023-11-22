@@ -20,6 +20,8 @@ import android.app.Dialog;
 import android.content.Context;
 import android.content.res.Resources;
 import android.os.Bundle;
+import android.provider.ContactsContract;
+import android.provider.ContactsContract.CommonDataKinds.Event;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.View;
@@ -82,9 +84,6 @@ public class EventFieldEditorView extends LabeledEditorView {
         mDateView.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (!isTypeVisible()) {
-                    showType();
-                }
                 showDialog(R.id.dialog_event_date_picker);
             }
         });
@@ -132,9 +131,6 @@ public class EventFieldEditorView extends LabeledEditorView {
             mDateView.setText(data);
             mDateView.setTextColor(mPrimaryTextColor);
             setDeleteButtonVisible(true);
-            if (!isTypeVisible()) {
-                showType();
-            }
         }
     }
 
@@ -267,5 +263,25 @@ public class EventFieldEditorView extends LabeledEditorView {
         // Update state
         final String column = getKind().fieldList.get(0).column;
         onFieldChanged(column, "");
+    }
+
+    /**
+     * Sets the typeColumn of entry as TYPE_BIRTHDAY and calls rebuildValues() to refresh the view.
+     */
+    public void restoreBirthday() {
+        saveValue(getKind().typeColumn, Integer.toString(Event.TYPE_BIRTHDAY));
+        rebuildValues();
+    }
+
+    /**
+     * EventEditType Birthday:
+     * rawValue=3 labelRes=17039911 secondary=false specificMax=1 customColumn=null
+     * mYearOptional=true
+     */
+    public boolean isBirthdayType(){
+        final EventEditType eventType = getType();
+        return eventType.rawValue == Event.TYPE_BIRTHDAY && !eventType.secondary
+                && eventType.specificMax == 1 && eventType.customColumn == null
+                && eventType.isYearOptional();
     }
 }

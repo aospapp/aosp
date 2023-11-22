@@ -18,13 +18,13 @@
 #define _TETHER_CONTROLLER_H
 
 #include <netinet/in.h>
+
+#include <list>
 #include <set>
 #include <string>
 
-#include "List.h"
-
-typedef android::netd::List<char *> InterfaceCollection;
-typedef android::netd::List<struct in_addr> NetAddressCollection;
+typedef std::list<char *> InterfaceCollection;
+typedef std::list<std::string> NetAddressCollection;
 
 class TetherController {
     InterfaceCollection  *mInterfaces;
@@ -44,7 +44,7 @@ public:
     bool disableForwarding(const char* requester);
     size_t forwardingRequestCount();
 
-    int startTethering(int num_addrs, struct in_addr* addrs);
+    int startTethering(int num_addrs, char **dhcp_ranges);
     int stopTethering();
     bool isTetheringStarted();
 

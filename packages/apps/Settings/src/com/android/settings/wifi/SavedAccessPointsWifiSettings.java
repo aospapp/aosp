@@ -18,22 +18,21 @@ package com.android.settings.wifi;
 
 import android.app.Dialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.res.Resources;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
-import android.preference.Preference;
-import android.preference.PreferenceScreen;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.PreferenceScreen;
 import android.util.Log;
 
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.R;
 import com.android.settings.SettingsPreferenceFragment;
 import com.android.settings.search.BaseSearchIndexProvider;
 import com.android.settings.search.Indexable;
 import com.android.settings.search.SearchIndexableRaw;
-import com.android.settings.wifi.AccessPointPreference.UserBadgeCache;
 import com.android.settingslib.wifi.AccessPoint;
+import com.android.settingslib.wifi.AccessPointPreference;
 import com.android.settingslib.wifi.WifiTracker;
 
 import java.util.ArrayList;
@@ -45,7 +44,7 @@ import java.util.List;
  * UI to manage saved networks/access points.
  */
 public class SavedAccessPointsWifiSettings extends SettingsPreferenceFragment
-        implements DialogInterface.OnClickListener, Indexable {
+        implements Indexable, WifiDialog.WifiDialogListener {
     private static final String TAG = "SavedAccessPointsWifiSettings";
 
     private WifiDialog mDialog;
@@ -54,21 +53,21 @@ public class SavedAccessPointsWifiSettings extends SettingsPreferenceFragment
     private Bundle mAccessPointSavedState;
     private AccessPoint mSelectedAccessPoint;
 
-    private UserBadgeCache mUserBadgeCache;
+    private AccessPointPreference.UserBadgeCache mUserBadgeCache;
 
     // Instance state key
     private static final String SAVE_DIALOG_ACCESS_POINT_STATE = "wifi_ap_state";
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.WIFI_SAVED_ACCESS_POINTS;
+        return MetricsEvent.WIFI_SAVED_ACCESS_POINTS;
     }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         addPreferencesFromResource(R.xml.wifi_display_saved_access_points);
-        mUserBadgeCache = new UserBadgeCache(getPackageManager());
+        mUserBadgeCache = new AccessPointPreference.UserBadgeCache(getPackageManager());
     }
 
     @Override
@@ -92,7 +91,7 @@ public class SavedAccessPointsWifiSettings extends SettingsPreferenceFragment
 
     private void initPreferences() {
         PreferenceScreen preferenceScreen = getPreferenceScreen();
-        final Context context = getActivity();
+        final Context context = getPrefContext();
 
         final List<AccessPoint> accessPoints = WifiTracker.getCurrentAccessPoints(context, true,
                 false, true);
@@ -109,8 +108,9 @@ public class SavedAccessPointsWifiSettings extends SettingsPreferenceFragment
 
         final int accessPointsSize = accessPoints.size();
         for (int i = 0; i < accessPointsSize; ++i){
-            AccessPointPreference preference = new AccessPointPreference(accessPoints.get(i),
-                    context, mUserBadgeCache, true);
+            LongPressAccessPointPreference preference =
+                    new LongPressAccessPointPreference(accessPoints.get(i), context,
+                            mUserBadgeCache, true, this);
             preference.setIcon(null);
             preferenceScreen.addPreference(preference);
         }
@@ -120,7 +120,7 @@ public class SavedAccessPointsWifiSettings extends SettingsPreferenceFragment
         }
     }
 
-    private void showDialog(AccessPointPreference accessPoint, boolean edit) {
+    private void showDialog(LongPressAccessPointPreference accessPoint, boolean edit) {
         if (mDialog != null) {
             removeDialog(WifiSettings.WIFI_DIALOG_ID);
             mDialog = null;
@@ -143,12 +143,8 @@ public class SavedAccessPointsWifiSettings extends SettingsPreferenceFragment
                 }
                 mSelectedAccessPoint = mDlgAccessPoint;
 
-                // Hide forget button if config editing is locked down
-                final boolean hideForgetButton = WifiSettings.isEditabilityLockedDown(getActivity(),
-                        mDlgAccessPoint.getConfig());
                 mDialog = new WifiDialog(getActivity(), this, mDlgAccessPoint,
-                        false /* not editting */, false, true /* hide the submit button */,
-                        hideForgetButton);
+                        WifiConfigUiBase.MODE_VIEW, true /* hide the submit button */);
                 return mDialog;
 
         }
@@ -170,8 +166,8 @@ public class SavedAccessPointsWifiSettings extends SettingsPreferenceFragment
     }
 
     @Override
-    public void onClick(DialogInterface dialogInterface, int button) {
-        if (button == WifiDialog.BUTTON_FORGET && mSelectedAccessPoint != null) {
+    public void onForget(WifiDialog dialog) {
+        if (mSelectedAccessPoint != null) {
             mWifiManager.forget(mSelectedAccessPoint.getConfig().networkId, null);
             getPreferenceScreen().removePreference((Preference) mSelectedAccessPoint.getTag());
             mSelectedAccessPoint = null;
@@ -179,12 +175,17 @@ public class SavedAccessPointsWifiSettings extends SettingsPreferenceFragment
     }
 
     @Override
-    public boolean onPreferenceTreeClick(PreferenceScreen screen, Preference preference) {
-        if (preference instanceof AccessPointPreference) {
-            showDialog((AccessPointPreference) preference, false);
+    public void onSubmit(WifiDialog dialog) {
+        // Ignored
+    }
+
+    @Override
+    public boolean onPreferenceTreeClick(Preference preference) {
+        if (preference instanceof LongPressAccessPointPreference) {
+            showDialog((LongPressAccessPointPreference) preference, false);
             return true;
         } else{
-            return super.onPreferenceTreeClick(screen, preference);
+            return super.onPreferenceTreeClick(preference);
         }
     }
 

@@ -93,9 +93,8 @@ public:
     return Values[N];
   }
 
-  SmallVectorImpl<const char*> &getValues() {
-    return Values;
-  }
+  SmallVectorImpl<const char *> &getValues() { return Values; }
+  const SmallVectorImpl<const char *> &getValues() const { return Values; }
 
   bool containsValue(StringRef Value) const {
     for (unsigned i = 0, e = getNumValues(); i != e; ++i)
@@ -114,6 +113,7 @@ public:
   /// when rendered as a input (e.g., Xlinker).
   void renderAsInput(const ArgList &Args, ArgStringList &Output) const;
 
+  void print(raw_ostream &O) const;
   void dump() const;
 
   /// \brief Return a formatted version of the argument and

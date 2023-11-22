@@ -34,6 +34,7 @@
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/foundation/AMessage.h>
 #include <media/stagefright/foundation/AUtils.h>
+#include <media/stagefright/foundation/ColorUtils.h>
 #include <media/stagefright/MediaBuffer.h>
 #include <media/stagefright/MediaBufferGroup.h>
 #include <media/stagefright/MediaDefs.h>
@@ -49,6 +50,11 @@
 #endif
 
 namespace android {
+
+enum {
+    // max track header chunk to return
+    kMaxTrackHeaderSize = 32,
+};
 
 class MPEG4Source : public MediaSource {
 public:
@@ -475,6 +481,22 @@ sp<MetaData> MPEG4Extractor::getTrackMetaData(
                             ((int64_t)sampleTime * 1000000) / track->timescale);
                 }
             }
+
+            // MPEG2 tracks do not provide CSD, so read the stream header
+            if (!strcmp(mime, MEDIA_MIMETYPE_VIDEO_MPEG2)) {
+                off64_t offset;
+                size_t size;
+                if (track->sampleTable->getMetaDataForSample(
+                            0 /* sampleIndex */, &offset, &size, NULL /* sampleTime */) == OK) {
+                    if (size > kMaxTrackHeaderSize) {
+                        size = kMaxTrackHeaderSize;
+                    }
+                    uint8_t header[kMaxTrackHeaderSize];
+                    if (mDataSource->readAt(offset, &header, size) == (ssize_t)size) {
+                        track->meta->setData(kKeyStreamHeader, 'mdat', header, size);
+                    }
+                }
+            }
         }
     }
 
@@ -535,6 +557,10 @@ status_t MPEG4Extractor::readMetaData() {
     }
     if (psshsize > 0 && psshsize <= UINT32_MAX) {
         char *buf = (char*)malloc(psshsize);
+        if (!buf) {
+            ALOGE("b/28471206");
+            return NO_MEMORY;
+        }
         char *ptr = buf;
         for (size_t i = 0; i < mPssh.size(); i++) {
             memcpy(ptr, mPssh[i].uuid, 20); // uuid + length
@@ -755,17 +781,31 @@ static bool underQTMetaPath(const Vector<uint32_t> &path, int32_t depth) {
 }
 
 // Given a time in seconds since Jan 1 1904, produce a human-readable string.
-static void convertTimeToDate(int64_t time_1904, String8 *s) {
-    time_t time_1970 = time_1904 - (((66 * 365 + 17) * 24) * 3600);
+static bool convertTimeToDate(int64_t time_1904, String8 *s) {
+    // delta between mpeg4 time and unix epoch time
+    static const int64_t delta = (((66 * 365 + 17) * 24) * 3600);
+    if (time_1904 < INT64_MIN + delta) {
+        return false;
+    }
+    time_t time_1970 = time_1904 - delta;
 
     char tmp[32];
-    strftime(tmp, sizeof(tmp), "%Y%m%dT%H%M%S.000Z", gmtime(&time_1970));
-
-    s->setTo(tmp);
+    struct tm* tm = gmtime(&time_1970);
+    if (tm != NULL &&
+            strftime(tmp, sizeof(tmp), "%Y%m%dT%H%M%S.000Z", tm) > 0) {
+        s->setTo(tmp);
+        return true;
+    }
+    return false;
 }
 
 status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
     ALOGV("entering parseChunk %lld/%d", (long long)*offset, depth);
+
+    if (*offset < 0) {
+        ALOGE("b/23540914");
+        return ERROR_MALFORMED;
+    }
     uint32_t hdr[2];
     if (mDataSource->readAt(*offset, hdr, 8) < 8) {
         return ERROR_IO;
@@ -831,7 +871,12 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
 
     PathAdder autoAdder(&mPath, chunk_type);
 
-    off64_t chunk_data_size = *offset + chunk_size - data_offset;
+    // (data_offset - *offset) is either 8 or 16
+    off64_t chunk_data_size = chunk_size - (data_offset - *offset);
+    if (chunk_data_size < 0) {
+        ALOGE("b/23540914");
+        return ERROR_MALFORMED;
+    }
 
     if (chunk_type != FOURCC('c', 'p', 'r', 't')
             && chunk_type != FOURCC('c', 'o', 'v', 'r')
@@ -929,6 +974,11 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
             }
 
             if (isTrack) {
+                int32_t trackId;
+                // There must be exact one track header per track.
+                if (!mLastTrack->meta->findInt32(kKeyTrackID, &trackId)) {
+                    mLastTrack->skipTrack = true;
+                }
                 if (mLastTrack->skipTrack) {
                     Track *cur = mFirstTrack;
 
@@ -1022,7 +1072,7 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
                     int64_t delay = (media_time  * samplerate + 500000) / 1000000;
                     mLastTrack->meta->setInt32(kKeyEncoderDelay, delay);
 
-                    int64_t paddingus = duration - (segment_duration + media_time);
+                    int64_t paddingus = duration - (int64_t)(segment_duration + media_time);
                     if (paddingus < 0) {
                         // track duration from media header (which is what kKeyDuration is) might
                         // be slightly shorter than the segment duration, which would make the
@@ -1516,8 +1566,9 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
 
                 const char *mime;
                 CHECK(mLastTrack->meta->findCString(kKeyMIMEType, &mime));
-                if (!strcmp(mime, MEDIA_MIMETYPE_VIDEO_AVC)) {
-                    // AVC requires compression ratio of at least 2, and uses
+                if (!strcmp(mime, MEDIA_MIMETYPE_VIDEO_AVC)
+                        || !strcmp(mime, MEDIA_MIMETYPE_VIDEO_HEVC)) {
+                    // AVC & HEVC requires compression ratio of at least 2, and uses
                     // macroblocks
                     max_size = ((width + 15) / 16) * ((height + 15) / 16) * 192;
                 } else {
@@ -1535,12 +1586,29 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
             // Calculate average frame rate.
             if (!strncasecmp("video/", mime, 6)) {
                 size_t nSamples = mLastTrack->sampleTable->countSamples();
-                int64_t durationUs;
-                if (mLastTrack->meta->findInt64(kKeyDuration, &durationUs)) {
-                    if (durationUs > 0) {
-                        int32_t frameRate = (nSamples * 1000000LL +
-                                    (durationUs >> 1)) / durationUs;
-                        mLastTrack->meta->setInt32(kKeyFrameRate, frameRate);
+                if (nSamples == 0) {
+                    int32_t trackId;
+                    if (mLastTrack->meta->findInt32(kKeyTrackID, &trackId)) {
+                        for (size_t i = 0; i < mTrex.size(); i++) {
+                            Trex *t = &mTrex.editItemAt(i);
+                            if (t->track_ID == (uint32_t) trackId) {
+                                if (t->default_sample_duration > 0) {
+                                    int32_t frameRate =
+                                            mLastTrack->timescale / t->default_sample_duration;
+                                    mLastTrack->meta->setInt32(kKeyFrameRate, frameRate);
+                                }
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    int64_t durationUs;
+                    if (mLastTrack->meta->findInt64(kKeyDuration, &durationUs)) {
+                        if (durationUs > 0) {
+                            int32_t frameRate = (nSamples * 1000000LL +
+                                        (durationUs >> 1)) / durationUs;
+                            mLastTrack->meta->setInt32(kKeyFrameRate, frameRate);
+                        }
                     }
                 }
             }
@@ -1696,11 +1764,41 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
             break;
         }
 
+        case FOURCC('b', 't', 'r', 't'):
+        {
+            *offset += chunk_size;
+
+            uint8_t buffer[12];
+            if (chunk_data_size != sizeof(buffer)) {
+                return ERROR_MALFORMED;
+            }
+
+            if (mDataSource->readAt(
+                    data_offset, buffer, chunk_data_size) < chunk_data_size) {
+                return ERROR_IO;
+            }
+
+            uint32_t maxBitrate = U32_AT(&buffer[4]);
+            uint32_t avgBitrate = U32_AT(&buffer[8]);
+            if (maxBitrate > 0 && maxBitrate < INT32_MAX) {
+                mLastTrack->meta->setInt32(kKeyMaxBitRate, (int32_t)maxBitrate);
+            }
+            if (avgBitrate > 0 && avgBitrate < INT32_MAX) {
+                mLastTrack->meta->setInt32(kKeyBitRate, (int32_t)avgBitrate);
+            }
+            break;
+        }
+
         case FOURCC('a', 'v', 'c', 'C'):
         {
             *offset += chunk_size;
 
             sp<ABuffer> buffer = new ABuffer(chunk_data_size);
+
+            if (buffer->data() == NULL) {
+                ALOGE("b/28471206");
+                return NO_MEMORY;
+            }
 
             if (mDataSource->readAt(
                         data_offset, buffer->data(), chunk_data_size) < chunk_data_size) {
@@ -1718,6 +1816,11 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
         case FOURCC('h', 'v', 'c', 'C'):
         {
             sp<ABuffer> buffer = new ABuffer(chunk_data_size);
+
+            if (buffer->data() == NULL) {
+                ALOGE("b/28471206");
+                return NO_MEMORY;
+            }
 
             if (mDataSource->readAt(
                         data_offset, buffer->data(), chunk_data_size) < chunk_data_size) {
@@ -1776,13 +1879,13 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
             if (!isParsingMetaKeys) {
                 uint8_t buffer[4];
                 if (chunk_data_size < (off64_t)sizeof(buffer)) {
-                    *offset += chunk_size;
+                    *offset = stop_offset;
                     return ERROR_MALFORMED;
                 }
 
                 if (mDataSource->readAt(
                             data_offset, buffer, 4) < 4) {
-                    *offset += chunk_size;
+                    *offset = stop_offset;
                     return ERROR_IO;
                 }
 
@@ -1793,7 +1896,7 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
                     // apparently malformed chunks that don't have flags
                     // and completely different semantics than what's
                     // in the MPEG4 specs and skip it.
-                    *offset += chunk_size;
+                    *offset = stop_offset;
                     return OK;
                 }
                 *offset +=  sizeof(buffer);
@@ -1864,14 +1967,15 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
                 }
                 duration = d32;
             }
-            if (duration != 0 && mHeaderTimescale != 0) {
+            if (duration != 0 && mHeaderTimescale != 0 && duration < UINT64_MAX / 1000000) {
                 mFileMetaData->setInt64(kKeyDuration, duration * 1000000 / mHeaderTimescale);
             }
 
             String8 s;
-            convertTimeToDate(creationTime, &s);
+            if (convertTimeToDate(creationTime, &s)) {
+                mFileMetaData->setCString(kKeyDate, s.string());
+            }
 
-            mFileMetaData->setCString(kKeyDate, s.string());
 
             break;
         }
@@ -2051,6 +2155,10 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
                     return ERROR_MALFORMED;
                 }
                 sp<ABuffer> buffer = new ABuffer(chunk_data_size + 1);
+                if (buffer->data() == NULL) {
+                    ALOGE("b/28471206");
+                    return NO_MEMORY;
+                }
                 if (mDataSource->readAt(
                     data_offset, buffer->data(), chunk_data_size) != (ssize_t)chunk_data_size) {
                     return ERROR_IO;
@@ -2063,6 +2171,21 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
                 mFileMetaData->setData(
                     kKeyAlbumArt, MetaData::TYPE_NONE,
                     buffer->data() + kSkipBytesOfDataBox, chunk_data_size - kSkipBytesOfDataBox);
+            }
+
+            break;
+        }
+
+        case FOURCC('c', 'o', 'l', 'r'):
+        {
+            *offset += chunk_size;
+            // this must be in a VisualSampleEntry box under the Sample Description Box ('stsd')
+            // ignore otherwise
+            if (depth >= 2 && mPath[depth - 2] == FOURCC('s', 't', 's', 'd')) {
+                status_t err = parseColorInfo(data_offset, chunk_data_size);
+                if (err != OK) {
+                    return err;
+                }
             }
 
             break;
@@ -2564,6 +2687,12 @@ status_t MPEG4Extractor::parseITunesMetaData(off64_t offset, size_t size) {
                     mLastCommentName.setTo((const char *)buffer + 4);
                     break;
                 case FOURCC('d', 'a', 't', 'a'):
+                    if (size < 8) {
+                        delete[] buffer;
+                        buffer = NULL;
+                        ALOGE("b/24346430");
+                        return ERROR_MALFORMED;
+                    }
                     mLastCommentData.setTo((const char *)buffer + 8);
                     break;
             }
@@ -2633,6 +2762,49 @@ status_t MPEG4Extractor::parseITunesMetaData(off64_t offset, size_t size) {
 
             mFileMetaData->setCString(
                     metadataKey, (const char *)buffer + 8);
+        }
+    }
+
+    delete[] buffer;
+    buffer = NULL;
+
+    return OK;
+}
+
+status_t MPEG4Extractor::parseColorInfo(off64_t offset, size_t size) {
+    if (size < 4 || size == SIZE_MAX || mLastTrack == NULL) {
+        return ERROR_MALFORMED;
+    }
+
+    uint8_t *buffer = new (std::nothrow) uint8_t[size + 1];
+    if (buffer == NULL) {
+        return ERROR_MALFORMED;
+    }
+    if (mDataSource->readAt(offset, buffer, size) != (ssize_t)size) {
+        delete[] buffer;
+        buffer = NULL;
+
+        return ERROR_IO;
+    }
+
+    int32_t type = U32_AT(&buffer[0]);
+    if ((type == FOURCC('n', 'c', 'l', 'x') && size >= 11)
+            || (type == FOURCC('n', 'c', 'l', 'c' && size >= 10))) {
+        int32_t primaries = U16_AT(&buffer[4]);
+        int32_t transfer = U16_AT(&buffer[6]);
+        int32_t coeffs = U16_AT(&buffer[8]);
+        bool fullRange = (type == FOURCC('n', 'c', 'l', 'x')) && (buffer[10] & 128);
+
+        ColorAspects aspects;
+        ColorUtils::convertIsoColorAspectsToCodecAspects(
+                primaries, transfer, coeffs, fullRange, aspects);
+
+        // only store the first color specification
+        if (!mLastTrack->meta->hasData(kKeyColorPrimaries)) {
+            mLastTrack->meta->setInt32(kKeyColorPrimaries, aspects.mPrimaries);
+            mLastTrack->meta->setInt32(kKeyTransferFunction, aspects.mTransfer);
+            mLastTrack->meta->setInt32(kKeyColorMatrix, aspects.mMatrixCoeffs);
+            mLastTrack->meta->setInt32(kKeyColorRange, aspects.mRange);
         }
     }
 
@@ -2814,7 +2986,7 @@ void MPEG4Extractor::parseID3v2MetaData(off64_t offset) {
     }
 }
 
-sp<MediaSource> MPEG4Extractor::getTrack(size_t index) {
+sp<IMediaSource> MPEG4Extractor::getTrack(size_t index) {
     status_t err;
     if ((err = readMetaData()) != OK) {
         return NULL;
@@ -2839,15 +3011,51 @@ sp<MediaSource> MPEG4Extractor::getTrack(size_t index) {
     int32_t trackId;
     if (track->meta->findInt32(kKeyTrackID, &trackId)) {
         for (size_t i = 0; i < mTrex.size(); i++) {
-            Trex *t = &mTrex.editItemAt(index);
+            Trex *t = &mTrex.editItemAt(i);
             if (t->track_ID == (uint32_t) trackId) {
                 trex = t;
                 break;
             }
         }
+    } else {
+        ALOGE("b/21657957");
+        return NULL;
     }
 
     ALOGV("getTrack called, pssh: %zu", mPssh.size());
+
+    const char *mime;
+    if (!track->meta->findCString(kKeyMIMEType, &mime)) {
+        return NULL;
+    }
+
+    if (!strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_AVC)) {
+        uint32_t type;
+        const void *data;
+        size_t size;
+        if (!track->meta->findData(kKeyAVCC, &type, &data, &size)) {
+            return NULL;
+        }
+
+        const uint8_t *ptr = (const uint8_t *)data;
+
+        if (size < 7 || ptr[0] != 1) {  // configurationVersion == 1
+            return NULL;
+        }
+    } else if (!strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_HEVC)) {
+        uint32_t type;
+        const void *data;
+        size_t size;
+        if (!track->meta->findData(kKeyHVCC, &type, &data, &size)) {
+            return NULL;
+        }
+
+        const uint8_t *ptr = (const uint8_t *)data;
+
+        if (size < 22 || ptr[0] != 1) {  // configurationVersion == 1
+            return NULL;
+        }
+    }
 
     return new MPEG4Source(this,
             track->meta, mDataSource, track->timescale, track->sampleTable,
@@ -3304,7 +3512,7 @@ MPEG4Source::MPEG4Source(
 
         const uint8_t *ptr = (const uint8_t *)data;
 
-        CHECK(size >= 7);
+        CHECK(size >= 22);
         CHECK_EQ((unsigned)ptr[0], 1u);  // configurationVersion == 1
 
         mNALLengthSize = 1 + (ptr[14 + 7] & 3);
@@ -4144,7 +4352,10 @@ status_t MPEG4Source::read(
             (const uint8_t *)mBuffer->data() + mBuffer->range_offset();
 
         size_t nal_size = parseNALSize(src);
-        if (mBuffer->range_length() < mNALLengthSize + nal_size) {
+        if (mNALLengthSize > SIZE_MAX - nal_size) {
+            ALOGE("b/24441553, b/24445122");
+        }
+        if (mBuffer->range_length() - mNALLengthSize < nal_size) {
             ALOGE("incomplete NAL unit.");
 
             mBuffer->release();
@@ -4219,7 +4430,15 @@ status_t MPEG4Source::read(
                     continue;
                 }
 
-                CHECK(dstOffset + 4 <= mBuffer->size());
+                if (dstOffset > SIZE_MAX - 4 ||
+                        dstOffset + 4 > SIZE_MAX - nalLength ||
+                        dstOffset + 4 + nalLength > mBuffer->size()) {
+                    ALOGE("b/27208621 : %zu %zu", dstOffset, mBuffer->size());
+                    android_errorWriteLog(0x534e4554, "27208621");
+                    mBuffer->release();
+                    mBuffer = NULL;
+                    return ERROR_MALFORMED;
+                }
 
                 dstData[dstOffset++] = 0;
                 dstData[dstOffset++] = 0;
@@ -4431,7 +4650,11 @@ status_t MPEG4Source::fragmentedRead(
             (const uint8_t *)mBuffer->data() + mBuffer->range_offset();
 
         size_t nal_size = parseNALSize(src);
-        if (mBuffer->range_length() < mNALLengthSize + nal_size) {
+        if (mNALLengthSize > SIZE_MAX - nal_size) {
+            ALOGE("b/24441553, b/24445122");
+        }
+
+        if (mBuffer->range_length() - mNALLengthSize < nal_size) {
             ALOGE("incomplete NAL unit.");
 
             mBuffer->release();
@@ -4532,7 +4755,15 @@ status_t MPEG4Source::fragmentedRead(
                     continue;
                 }
 
-                CHECK(dstOffset + 4 <= mBuffer->size());
+                if (dstOffset > SIZE_MAX - 4 ||
+                        dstOffset + 4 > SIZE_MAX - nalLength ||
+                        dstOffset + 4 + nalLength > mBuffer->size()) {
+                    ALOGE("b/26365349 : %zu %zu", dstOffset, mBuffer->size());
+                    android_errorWriteLog(0x534e4554, "26365349");
+                    mBuffer->release();
+                    mBuffer = NULL;
+                    return ERROR_MALFORMED;
+                }
 
                 dstData[dstOffset++] = 0;
                 dstData[dstOffset++] = 0;
@@ -4677,12 +4908,18 @@ static bool BetterSniffMPEG4(
                 // The smallest valid chunk is 16 bytes long in this case.
                 return false;
             }
+
         } else if (chunkSize < 8) {
             // The smallest valid chunk is 8 bytes long.
             return false;
         }
 
-        off64_t chunkDataSize = offset + chunkSize - chunkDataOffset;
+        // (data_offset - offset) is either 8 or 16
+        off64_t chunkDataSize = chunkSize - (chunkDataOffset - offset);
+        if (chunkDataSize < 0) {
+            ALOGE("b/23540914");
+            return ERROR_MALFORMED;
+        }
 
         char chunkstring[5];
         MakeFourCCString(chunkType, chunkstring);

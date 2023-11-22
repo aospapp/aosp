@@ -23,6 +23,7 @@ import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
+import android.support.v7.widget.SimpleItemAnimator;
 
 /**
  * An abstract base class for vertically and horizontally scrolling lists. The items come
@@ -201,7 +202,7 @@ abstract class BaseGridView extends RecyclerView {
         // Disable change animation by default on leanback.
         // Change animation will create a new view and cause undesired
         // focus animation between the old view and new view.
-        getItemAnimator().setSupportsChangeAnimations(false);
+        ((SimpleItemAnimator)getItemAnimator()).setSupportsChangeAnimations(false);
         super.setRecyclerListener(new RecyclerView.RecyclerListener() {
             @Override
             public void onViewRecycled(RecyclerView.ViewHolder holder) {
@@ -218,6 +219,9 @@ abstract class BaseGridView extends RecyclerView {
         boolean throughFront = a.getBoolean(R.styleable.lbBaseGridView_focusOutFront, false);
         boolean throughEnd = a.getBoolean(R.styleable.lbBaseGridView_focusOutEnd, false);
         mLayoutManager.setFocusOutAllowed(throughFront, throughEnd);
+        boolean throughSideStart = a.getBoolean(R.styleable.lbBaseGridView_focusOutSideStart, true);
+        boolean throughSideEnd = a.getBoolean(R.styleable.lbBaseGridView_focusOutSideEnd, true);
+        mLayoutManager.setFocusOutSideAllowed(throughSideStart, throughSideEnd);
         mLayoutManager.setVerticalMargin(
                 a.getDimensionPixelSize(R.styleable.lbBaseGridView_verticalMargin, 0));
         mLayoutManager.setHorizontalMargin(
@@ -486,6 +490,8 @@ abstract class BaseGridView extends RecyclerView {
      * been selected.  Note that the listener may be invoked when there is a
      * layout pending on the view, affording the listener an opportunity to
      * adjust the upcoming layout based on the selection state.
+     * This method will clear all existing listeners added by
+     * {@link #addOnChildViewHolderSelectedListener}.
      *
      * @param listener The listener to be invoked.
      */
@@ -494,17 +500,39 @@ abstract class BaseGridView extends RecyclerView {
     }
 
     /**
+     * Registers a callback to be invoked when an item in BaseGridView has
+     * been selected.  Note that the listener may be invoked when there is a
+     * layout pending on the view, affording the listener an opportunity to
+     * adjust the upcoming layout based on the selection state.
+     *
+     * @param listener The listener to be invoked.
+     */
+    public void addOnChildViewHolderSelectedListener(OnChildViewHolderSelectedListener listener) {
+        mLayoutManager.addOnChildViewHolderSelectedListener(listener);
+    }
+
+    /**
+     * Remove the callback invoked when an item in BaseGridView has been selected.
+     *
+     * @param listener The listener to be removed.
+     */
+    public void removeOnChildViewHolderSelectedListener(OnChildViewHolderSelectedListener listener)
+            {
+        mLayoutManager.removeOnChildViewHolderSelectedListener(listener);
+    }
+
+    /**
      * Changes the selected item immediately without animation.
      */
     public void setSelectedPosition(int position) {
-        mLayoutManager.setSelection(this, position, 0);
+        mLayoutManager.setSelection(position, 0);
     }
 
     /**
      * Changes the selected item and/or subposition immediately without animation.
      */
     public void setSelectedPositionWithSub(int position, int subposition) {
-        mLayoutManager.setSelectionWithSub(this, position, subposition, 0);
+        mLayoutManager.setSelectionWithSub(position, subposition, 0);
     }
 
     /**
@@ -513,7 +541,7 @@ abstract class BaseGridView extends RecyclerView {
      * another {@link #setSelectedPosition} or {@link #setSelectedPositionSmooth} call.
      */
     public void setSelectedPosition(int position, int scrollExtra) {
-        mLayoutManager.setSelection(this, position, scrollExtra);
+        mLayoutManager.setSelection(position, scrollExtra);
     }
 
     /**
@@ -522,7 +550,7 @@ abstract class BaseGridView extends RecyclerView {
      * another {@link #setSelectedPosition} or {@link #setSelectedPositionSmooth} call.
      */
     public void setSelectedPositionWithSub(int position, int subposition, int scrollExtra) {
-        mLayoutManager.setSelectionWithSub(this, position, subposition, scrollExtra);
+        mLayoutManager.setSelectionWithSub(position, subposition, scrollExtra);
     }
 
     /**
@@ -530,7 +558,7 @@ abstract class BaseGridView extends RecyclerView {
      * position.
      */
     public void setSelectedPositionSmooth(int position) {
-        mLayoutManager.setSelectionSmooth(this, position);
+        mLayoutManager.setSelectionSmooth(position);
     }
 
     /**
@@ -538,7 +566,57 @@ abstract class BaseGridView extends RecyclerView {
      * position.
      */
     public void setSelectedPositionSmoothWithSub(int position, int subposition) {
-        mLayoutManager.setSelectionSmoothWithSub(this, position, subposition);
+        mLayoutManager.setSelectionSmoothWithSub(position, subposition);
+    }
+
+    /**
+     * Perform a task on ViewHolder at given position after smooth scrolling to it.
+     * @param position Position of item in adapter.
+     * @param task Task to executed on the ViewHolder at a given position.
+     */
+    public void setSelectedPositionSmooth(final int position, final ViewHolderTask task) {
+        if (task != null) {
+            RecyclerView.ViewHolder vh = findViewHolderForPosition(position);
+            if (vh == null || hasPendingAdapterUpdates()) {
+                addOnChildViewHolderSelectedListener(new OnChildViewHolderSelectedListener() {
+                    public void onChildViewHolderSelected(RecyclerView parent,
+                            RecyclerView.ViewHolder child, int selectedPosition, int subposition) {
+                        if (selectedPosition == position) {
+                            removeOnChildViewHolderSelectedListener(this);
+                            task.run(child);
+                        }
+                    }
+                });
+            } else {
+                task.run(vh);
+            }
+        }
+        setSelectedPositionSmooth(position);
+    }
+
+    /**
+     * Perform a task on ViewHolder at given position after scroll to it.
+     * @param position Position of item in adapter.
+     * @param task Task to executed on the ViewHolder at a given position.
+     */
+    public void setSelectedPosition(final int position, final ViewHolderTask task) {
+        if (task != null) {
+            RecyclerView.ViewHolder vh = findViewHolderForPosition(position);
+            if (vh == null || hasPendingAdapterUpdates()) {
+                addOnChildViewHolderSelectedListener(new OnChildViewHolderSelectedListener() {
+                    public void onChildViewHolderSelected(RecyclerView parent,
+                            RecyclerView.ViewHolder child, int selectedPosition, int subposition) {
+                        if (selectedPosition == position) {
+                            removeOnChildViewHolderSelectedListener(this);
+                            task.run(child);
+                        }
+                    }
+                });
+            } else {
+                task.run(vh);
+            }
+        }
+        setSelectedPosition(position);
     }
 
     /**
@@ -864,4 +942,5 @@ abstract class BaseGridView extends RecyclerView {
     public int getExtraLayoutSpace() {
         return mLayoutManager.getExtraLayoutSpace();
     }
+
 }

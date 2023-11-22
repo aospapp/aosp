@@ -7,9 +7,9 @@
 
 #include "gm.h"
 #include "SkColorCubeFilter.h"
-#include "SkBitmapSource.h"
 #include "SkData.h"
 #include "SkGradientShader.h"
+#include "SkTemplates.h"
 
 namespace skiagm {
 
@@ -20,18 +20,18 @@ static SkShader* MakeLinear() {
         };
     static const SkColor colors[] = { SK_ColorYELLOW, SK_ColorBLUE };
     return SkGradientShader::CreateLinear(
-        pts, colors, NULL, 2, SkShader::kRepeat_TileMode, 0, &SkMatrix::I());
+        pts, colors, nullptr, 2, SkShader::kRepeat_TileMode, 0, &SkMatrix::I());
 }
 
 class ColorCubeGM : public GM {
 public:
     ColorCubeGM()
     : fInitialized(false)
-    , f3DLut4(NULL)
-    , f3DLut8(NULL)
-    , f3DLut16(NULL)
-    , f3DLut32(NULL)
-    , f3DLut64(NULL)
+    , f3DLut4(nullptr)
+    , f3DLut8(nullptr)
+    , f3DLut16(nullptr)
+    , f3DLut32(nullptr)
+    , f3DLut64(nullptr)
     {
         this->setBGColor(0xFF000000);
     }
@@ -73,10 +73,10 @@ protected:
     void make_3Dlut(SkData** data, int size, bool invR, bool invG, bool invB) {
         *data = SkData::NewUninitialized(sizeof(SkColor) * size * size * size);
         SkColor* pixels = (SkColor*)((*data)->writable_data());
-        SkAutoMalloc lutMemory(size);
-        SkAutoMalloc invLutMemory(size);
-        uint8_t* lut = (uint8_t*)lutMemory.get();
-        uint8_t* invLut = (uint8_t*)invLutMemory.get();
+        SkAutoTMalloc<uint8_t> lutMemory(size);
+        SkAutoTMalloc<uint8_t> invLutMemory(size);
+        uint8_t* lut = lutMemory.get();
+        uint8_t* invLut = invLutMemory.get();
         const int maxIndex = size - 1;
         for (int i = 0; i < size; i++) {
             lut[i] = (i * 255) / maxIndex;
@@ -85,10 +85,11 @@ protected:
         for (int r = 0; r < size; ++r) {
             for (int g = 0; g < size; ++g) {
                 for (int b = 0; b < size; ++b) {
-                    pixels[(size * ((size * b) + g)) + r] = SkColorSetARGB(0xFF,
+                    pixels[(size * ((size * b) + g)) + r] = sk_tool_utils::color_to_565(
+                            SkColorSetARGB(0xFF,
                             invR ? invLut[r] : lut[r],
                             invG ? invLut[g] : lut[g],
-                            invB ? invLut[b] : lut[b]);
+                            invB ? invLut[b] : lut[b]));
                 }
             }
         }

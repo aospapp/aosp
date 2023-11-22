@@ -16,12 +16,17 @@
 
 package com.android.providers.contacts;
 
+import android.content.ContentValues;
+import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.provider.ContactsContract;
+import android.provider.ContactsContract.RawContacts;
 import android.test.MoreAsserts;
 import android.test.suitebuilder.annotation.LargeTest;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.providers.contacts.ContactsDatabaseHelper.MimetypesColumns;
+import com.android.providers.contacts.ContactsDatabaseHelper.RawContactsColumns;
 import com.android.providers.contacts.ContactsDatabaseHelper.Tables;
 import com.google.android.collect.Sets;
 
@@ -248,6 +253,180 @@ public class ContactsDatabaseHelperTest extends BaseContactsProvider2Test {
                 threads[i].join();
             } catch (InterruptedException ignore) {
             }
+        }
+    }
+
+    public void testUpgradeHashId() {
+        // Create an account.
+        final long accountId = mDbHelper.getOrCreateAccountIdInTransaction(
+                AccountWithDataSet.LOCAL);
+        // Create a raw contact.
+        ContentValues rawContactValues = new ContentValues();
+        rawContactValues.put(ContactsDatabaseHelper.RawContactsColumns.ACCOUNT_ID, accountId);
+        final long rawContactId = mDb.insert(Tables.RAW_CONTACTS,null, rawContactValues);
+        assertTrue(rawContactId > 0);
+        // Create data for the raw contact Id.
+        final StringBuilder data1 = new StringBuilder();
+        for (int i = 0; i < 2048; i++) {
+            data1.append("L");
+        }
+        final String dataString = data1.toString();
+        final String hashId = mDbHelper.generateHashId(dataString, null);
+        final int mimeType = 1;
+        final ContentValues values = new ContentValues();
+        values.put(ContactsContract.Data.RAW_CONTACT_ID, rawContactId);
+        values.put(ContactsDatabaseHelper.DataColumns.MIMETYPE_ID, mimeType);
+        values.put(ContactsContract.Data.DATA1, dataString);
+        for (int i = 0; i < 2048; i++) {
+            assertTrue(mDb.insert(Tables.DATA, null, values) > 0);
+        }
+        mDbHelper.upgradeToVersion1101(mDb);
+        final Cursor c = mDb.query(Tables.DATA, new String[]{ContactsContract.Data.HASH_ID},
+                null, null, null, null, null);
+        try {
+            assertEquals(2048, c.getCount());
+            while (c.moveToNext()) {
+                final String expectedHashId = c.getString(0);
+                assertEquals(expectedHashId, hashId);
+            }
+        } finally {
+            c.close();
+        }
+    }
+
+    public void testUpgradeHashIdForPhoto() {
+        // Create an account.
+        final long accountId = mDbHelper.getOrCreateAccountIdInTransaction(
+                AccountWithDataSet.LOCAL);
+        // Create a raw contact.
+        ContentValues rawContactValues = new ContentValues();
+        rawContactValues.put(ContactsDatabaseHelper.RawContactsColumns.ACCOUNT_ID, accountId);
+        final long rawContactId = mDb.insert(Tables.RAW_CONTACTS,null, rawContactValues);
+        assertTrue(rawContactId > 0);
+
+        // Create data for the raw contact Id.
+        final long mimeType = mDbHelper.getMimeTypeId(
+                ContactsContract.CommonDataKinds.Photo.CONTENT_ITEM_TYPE);
+        final String photoHashId = mDbHelper.getPhotoHashId();
+        final ContentValues values = new ContentValues();
+        values.put(ContactsContract.Data.RAW_CONTACT_ID, rawContactId);
+        values.put(ContactsDatabaseHelper.DataColumns.MIMETYPE_ID, mimeType);
+        for (int i = 0; i < 2048; i++) {
+            assertTrue(mDb.insert(Tables.DATA, null, values) > 0);
+        }
+        mDbHelper.upgradeToVersion1110(mDb);
+        final Cursor c = mDb.query(Tables.DATA, new String[]{ContactsContract.Data.HASH_ID},
+                null, null, null, null, null);
+        try {
+            assertEquals(2048, c.getCount());
+            while (c.moveToNext()) {
+                final String actualHashId = c.getString(0);
+                assertEquals(photoHashId, actualHashId);
+            }
+        } finally {
+            c.close();
+        }
+    }
+
+    public void testUpgradeToVersion111_SetPrimaryPhonebookBucketToNumberBucket() {
+        // Zero primary phone book bucket and null primary sort key
+        final ContentValues contentValues = new ContentValues();
+        contentValues.put(RawContactsColumns.PHONEBOOK_BUCKET_PRIMARY, 0);
+        mDb.insert(Tables.RAW_CONTACTS, null, contentValues);
+
+        mDbHelper.upgradeToVersion1111(mDb);
+
+        // Assert that the primary phone book bucket/label has been set to the number bucket/label
+        final ContactLocaleUtils localeUtils = ContactLocaleUtils.getInstance();
+        final int numberBucket = localeUtils.getNumberBucketIndex();
+        final String numberLabel = localeUtils.getBucketLabel(numberBucket);
+        assertUpgradeToVersion1111(numberBucket, numberLabel,
+                RawContactsColumns.PHONEBOOK_BUCKET_PRIMARY,
+                RawContactsColumns.PHONEBOOK_LABEL_PRIMARY);
+    }
+
+    public void testUpgradeToVersion111_SetAltPhonebookBucketToNumberBucket() {
+        // Zero alt phone book bucket and null alt sort key
+        final ContentValues contentValues = new ContentValues();
+        contentValues.put(RawContactsColumns.PHONEBOOK_BUCKET_ALTERNATIVE, 0);
+        mDb.insert(Tables.RAW_CONTACTS, null, contentValues);
+
+        mDbHelper.upgradeToVersion1111(mDb);
+
+        // Assert that the alt phone book bucket/label has been set to the number bucket/label
+        final ContactLocaleUtils localeUtils = ContactLocaleUtils.getInstance();
+        final int numberBucket = localeUtils.getNumberBucketIndex();
+        final String numberLabel = localeUtils.getBucketLabel(numberBucket);
+        assertUpgradeToVersion1111(numberBucket, numberLabel,
+                RawContactsColumns.PHONEBOOK_BUCKET_ALTERNATIVE,
+                RawContactsColumns.PHONEBOOK_LABEL_ALTERNATIVE);
+    }
+
+    public void testUpgradeToVersion111_NonZeroPrimaryPhonebookBucket() {
+        // Non-zero primary phone book bucket
+        final int primaryBucket = 1;
+        final ContentValues contentValues = new ContentValues();
+        contentValues.put(RawContactsColumns.PHONEBOOK_BUCKET_PRIMARY, primaryBucket);
+        mDb.insert(Tables.RAW_CONTACTS, null, contentValues);
+
+        mDbHelper.upgradeToVersion1111(mDb);
+
+        // Assert that the primary phone book bucket/label is unchanged
+        assertUpgradeToVersion1111(primaryBucket, null, RawContactsColumns.PHONEBOOK_BUCKET_PRIMARY,
+                RawContactsColumns.PHONEBOOK_LABEL_PRIMARY);
+    }
+
+    public void testUpgradeToVersion111_NonNullPrimarySortKey() {
+        // Non-null primary sort key
+        final ContentValues contentValues = new ContentValues();
+        contentValues.put(RawContacts.SORT_KEY_PRIMARY, "sort_key_primary");
+        mDb.insert(Tables.RAW_CONTACTS, null, contentValues);
+
+        mDbHelper.upgradeToVersion1111(mDb);
+
+        // Assert that the primary phone book bucket/label is unchanged
+        assertUpgradeToVersion1111(0, null, RawContactsColumns.PHONEBOOK_BUCKET_PRIMARY,
+                RawContactsColumns.PHONEBOOK_LABEL_PRIMARY);
+    }
+
+    public void testUpgradeToVersion111_NonZeroAltPhonebookBucket() {
+        // Non-zero alt phone book bucket
+        final int altBucket = 1;
+        final ContentValues contentValues = new ContentValues();
+        contentValues.put(RawContactsColumns.PHONEBOOK_BUCKET_ALTERNATIVE, altBucket);
+        mDb.insert(Tables.RAW_CONTACTS, null, contentValues);
+
+        mDbHelper.upgradeToVersion1111(mDb);
+
+        // Assert that the alt phone book bucket/label is unchanged
+        assertUpgradeToVersion1111(altBucket, null, RawContactsColumns.PHONEBOOK_BUCKET_ALTERNATIVE,
+                RawContactsColumns.PHONEBOOK_LABEL_ALTERNATIVE);
+    }
+
+    public void testUpgradeToVersion111_NonNullAltSortKeyToNumber() {
+        // Non-null alt sort key
+        final ContentValues contentValues = new ContentValues();
+        contentValues.put(RawContacts.SORT_KEY_ALTERNATIVE, "sort_key_alt");
+        mDb.insert(Tables.RAW_CONTACTS, null, contentValues);
+
+        mDbHelper.upgradeToVersion1111(mDb);
+
+        // Assert that the alt phone book bucket/label is unchanged
+        assertUpgradeToVersion1111(0, null, RawContactsColumns.PHONEBOOK_BUCKET_ALTERNATIVE,
+                RawContactsColumns.PHONEBOOK_LABEL_ALTERNATIVE);
+    }
+
+    private void assertUpgradeToVersion1111(int expectedBucket, String expectedLabel,
+            String bucketColumn, String labelColumn) {
+        final Cursor cursor = mDb.query(Tables.RAW_CONTACTS,
+                new String[]{bucketColumn, labelColumn}, null, null, null, null, null);
+        try {
+            assertEquals(1, cursor.getCount());
+            assertTrue(cursor.moveToNext());
+            assertEquals(expectedBucket, cursor.getInt(0));
+            assertEquals(expectedLabel, cursor.getString(1));
+        } finally {
+            cursor.close();
         }
     }
 }

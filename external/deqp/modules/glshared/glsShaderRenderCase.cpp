@@ -64,22 +64,6 @@ static const int			MAX_RENDER_WIDTH		= 128;
 static const int			MAX_RENDER_HEIGHT		= 112;
 static const tcu::Vec4		DEFAULT_CLEAR_COLOR		= tcu::Vec4(0.125f, 0.25f, 0.5f, 1.0f);
 
-inline RGBA toRGBA (const Vec4& a)
-{
-	return RGBA(deClamp32(deRoundFloatToInt32(a.x() * 255.0f), 0, 255),
-				deClamp32(deRoundFloatToInt32(a.y() * 255.0f), 0, 255),
-				deClamp32(deRoundFloatToInt32(a.z() * 255.0f), 0, 255),
-				deClamp32(deRoundFloatToInt32(a.w() * 255.0f), 0, 255));
-}
-
-inline tcu::Vec4 toVec (const RGBA& c)
-{
-	return tcu::Vec4(c.getRed()		/ 255.0f,
-					 c.getGreen()	/ 255.0f,
-					 c.getBlue()	/ 255.0f,
-					 c.getAlpha()	/ 255.0f);
-}
-
 // TextureBinding
 
 TextureBinding::TextureBinding (const glu::Texture2D* tex2D, const tcu::Sampler& sampler)
@@ -214,8 +198,8 @@ QuadGrid::QuadGrid (int gridSize, int width, int height, const Vec4& constCoords
 	for (int y = 0; y < gridSize+1; y++)
 	for (int x = 0; x < gridSize+1; x++)
 	{
-		float				sx			= x / (float)gridSize;
-		float				sy			= y / (float)gridSize;
+		float				sx			= (float)x / (float)gridSize;
+		float				sy			= (float)y / (float)gridSize;
 		float				fx			= 2.0f * sx - 1.0f;
 		float				fy			= 2.0f * sy - 1.0f;
 		int					vtxNdx		= ((y * (gridSize+1)) + x);
@@ -242,13 +226,13 @@ QuadGrid::QuadGrid (int gridSize, int width, int height, const Vec4& constCoords
 		int v11 = ((y+1) * stride) + x + 1;
 
 		int baseNdx = ((y * gridSize) + x) * 6;
-		m_indices[baseNdx + 0] = v10;
-		m_indices[baseNdx + 1] = v00;
-		m_indices[baseNdx + 2] = v01;
+		m_indices[baseNdx + 0] = (deUint16)v10;
+		m_indices[baseNdx + 1] = (deUint16)v00;
+		m_indices[baseNdx + 2] = (deUint16)v01;
 
-		m_indices[baseNdx + 3] = v10;
-		m_indices[baseNdx + 4] = v01;
-		m_indices[baseNdx + 5] = v11;
+		m_indices[baseNdx + 3] = (deUint16)v10;
+		m_indices[baseNdx + 4] = (deUint16)v01;
+		m_indices[baseNdx + 5] = (deUint16)v11;
 	}
 }
 
@@ -663,8 +647,8 @@ void ShaderRenderCase::computeVertexReference (Surface& result, const QuadGrid& 
 	for (int y = 0; y < gridSize+1; y++)
 	for (int x = 0; x < gridSize+1; x++)
 	{
-		float				sx			= x / (float)gridSize;
-		float				sy			= y / (float)gridSize;
+		float				sx			= (float)x / (float)gridSize;
+		float				sy			= (float)y / (float)gridSize;
 		int					vtxNdx		= ((y * (gridSize+1)) + x);
 
 		evalCtx.reset(sx, sy);
@@ -682,10 +666,10 @@ void ShaderRenderCase::computeVertexReference (Surface& result, const QuadGrid& 
 	for (int y = 0; y < gridSize; y++)
 	for (int x = 0; x < gridSize; x++)
 	{
-		float x0 = x / (float)gridSize;
-		float x1 = (x + 1) / (float)gridSize;
-		float y0 = y / (float)gridSize;
-		float y1 = (y + 1) / (float)gridSize;
+		float x0 = (float)x       / (float)gridSize;
+		float x1 = (float)(x + 1) / (float)gridSize;
+		float y0 = (float)y       / (float)gridSize;
+		float y1 = (float)(y + 1) / (float)gridSize;
 
 		float sx0 = x0 * (float)width;
 		float sx1 = x1 * (float)width;
@@ -730,7 +714,7 @@ void ShaderRenderCase::computeVertexReference (Surface& result, const QuadGrid& 
 			const Vec4&	t2		= tri ? c10 : c01;
 			Vec4		color	= t0 + (t1-t0)*tx + (t2-t0)*ty;
 
-			result.setPixel(ix, iy, toRGBA(color));
+			result.setPixel(ix, iy, tcu::RGBA(color));
 		}
 	}
 }
@@ -758,7 +742,7 @@ void ShaderRenderCase::computeFragmentReference (Surface& result, const QuadGrid
 		if (!hasAlpha)
 			color.w() = 1.0f;
 
-		result.setPixel(x, y, toRGBA(color));
+		result.setPixel(x, y, tcu::RGBA(color));
 	}
 }
 

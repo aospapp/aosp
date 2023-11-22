@@ -14,31 +14,32 @@
  * limitations under the License.
  */
 apply plugin: 'java'
-apply plugin: "kotlin"
-apply plugin: 'com.android.databinding.bintray'
+apply plugin: 'kotlin'
 
+sourceCompatibility = dataBindingConfig.javaTargetCompatibility
+targetCompatibility = dataBindingConfig.javaSourceCompatibility
 
-sourceCompatibility = config.javaTargetCompatibility
-targetCompatibility = config.javaSourceCompatibility
+sourceSets {
+    main.java.srcDirs += 'src/main/kotlin'
+}
 
 buildscript {
+    // to make IJ happy
+    ext.kotlin_version = dataBindingConfig.kotlinVersion
     dependencies {
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${config.kotlinVersion}"
         classpath 'commons-io:commons-io:2.4'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
 
 dependencies {
-    compile project(":compilerCommon")
-    compile project(':baseLibrary')
-    compile 'org.apache.commons:commons-lang3:3.3.2'
+    compile project(':dataBinding:compilerCommon')
+    compile project(':dataBinding:baseLibrary')
+    compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
     compile 'commons-io:commons-io:2.4'
     compile 'commons-codec:commons-codec:1.10'
-    compile "org.jetbrains.kotlin:kotlin-stdlib:${config.kotlinVersion}"
-
     compile 'com.tunnelvisionlabs:antlr4:4.5'
-    testCompile files('../baseLibrary/src/main/java')
-    testCompile files('../library/src/main/java')
+    compile 'com.googlecode.juniversalchardet:juniversalchardet:1.0.3'
     testCompile 'junit:junit:4.12'
 }
 
@@ -49,9 +50,9 @@ uploadArchives {
             pom.project {
                 licenses {
                     license {
-                        name config.licenseName
-                        url config.licenseUrl
-                        distribution config.licenseDistribution
+                        name dataBindingConfig.licenseName
+                        url dataBindingConfig.licenseUrl
+                        distribution dataBindingConfig.licenseDistribution
                     }
                 }
             }
@@ -59,23 +60,10 @@ uploadArchives {
     }
 }
 
-project(':library').afterEvaluate { libProject ->
-    tasks['compileTestKotlin'].dependsOn libProject.tasks['uploadJarArchives']
-}
 
-task fatJar(type: Jar) {
-    baseName = project.name + '-all'
-    doFirst {
-        tasks.findByName("buildLicenseNoticeFor${project.name.capitalize()}").execute()
-    }
-    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
-    from new File(project.buildDir,'NOTICE.txt')
-    archiveName "databinding-studio-bundle.jar"
-    destinationDir = new File(config.prebuildFolder)
-    with jar
-}
 
-task prebuild() {
-    dependsOn fatJar
-}
-
+project.ext.pomName = 'Data Binding Annotation Processor'
+project.ext.pomDesc = 'The annotation processor for Data Binding. Generates binding classes for runtime.'
+enablePublishing(this, true)
+fullJar(project)
+test.enabled = !System.getProperty("java.version").startsWith("1.6")

@@ -104,6 +104,26 @@ bool selabel_partial_match(struct selabel_handle *handle, const char *key);
 int selabel_lookup_best_match(struct selabel_handle *rec, char **con,
 			      const char *key, const char **aliases, int type);
 
+enum selabel_cmp_result {
+	SELABEL_SUBSET,
+	SELABEL_EQUAL,
+	SELABEL_SUPERSET,
+	SELABEL_INCOMPARABLE
+};
+
+/**
+ * selabel_cmp - Compare two label configurations.
+ * @h1: handle for the first label configuration
+ * @h2: handle for the first label configuration
+ *
+ * Compare two label configurations.
+ * Return %SELABEL_SUBSET if @h1 is a subset of @h2, %SELABEL_EQUAL
+ * if @h1 is identical to @h2, %SELABEL_SUPERSET if @h1 is a superset
+ * of @h2, and %SELABEL_INCOMPARABLE if @h1 and @h2 are incomparable.
+ */
+enum selabel_cmp_result selabel_cmp(struct selabel_handle *h1,
+				    struct selabel_handle *h2);
+
 /**
  * selabel_stats - log labeling operation statistics.
  * @handle: specifies backend instance to query

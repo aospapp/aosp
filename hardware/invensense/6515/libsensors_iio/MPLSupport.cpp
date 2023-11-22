@@ -150,7 +150,7 @@ int read_sysfs_int(char *filename, int *var)
 
     sysfsfp = fopen(filename, "r");
     if (sysfsfp != NULL) {
-        if (fscanf(sysfsfp, "%d\n", var) < 0 || fclose(sysfsfp) < 0) {    
+        if (fscanf(sysfsfp, "%d\n", var) < 0 || fclose(sysfsfp) < 0) {
             res = errno;
             LOGE("HAL:ERR open file %s to read with error %d", filename, res);
         }
@@ -165,7 +165,7 @@ int read_sysfs_int64(char *filename, int64_t *var)
 
     sysfsfp = fopen(filename, "r");
     if (sysfsfp != NULL) {
-        if (fscanf(sysfsfp, "%lld\n", var) < 0 || fclose(sysfsfp) < 0) {    
+        if (fscanf(sysfsfp, "%lld\n", var) < 0 || fclose(sysfsfp) < 0) {
             res = errno;
             LOGE("HAL:ERR open file %s to read with error %d", filename, res);
         }
@@ -178,7 +178,7 @@ void convert_long_to_hex_char(long* quat, unsigned char* hex, int numElement)
     int bytePosition = 0;
     for (int index = 0; index < numElement; index++) {
         for (int i = 0; i < 4; i++) {
-            hex[bytePosition] = (int) ((quat[index] >> (4-1-i) * 8) & 0xFF);                                 
+            hex[bytePosition] = (int) ((quat[index] >> (4-1-i) * 8) & 0xFF);
             //LOGI("e%d quat[%d]: %x", index, bytePosition, hex[bytePosition]);
             bytePosition++;
         }
@@ -208,7 +208,7 @@ int write_sysfs_longlong(char *filename, int64_t var)
 
     sysfsfp = fopen(filename, "w");
     if (sysfsfp != NULL) {
-        if (fprintf(sysfsfp, "%lld\n", var) < 0 || fclose(sysfsfp) < 0) {   
+        if (fprintf(sysfsfp, "%lld\n", var) < 0 || fclose(sysfsfp) < 0) {
             res = errno;
             LOGE("HAL:ERR open file %s to write with error %d", filename, res);
         }
@@ -216,7 +216,7 @@ int write_sysfs_longlong(char *filename, int64_t var)
     return -res;
 }
 
-int fill_dev_full_name_by_prefix(const char* dev_prefix, 
+int fill_dev_full_name_by_prefix(const char* dev_prefix,
                                  char *dev_full_name, int len)
 {
     char cand_name[20];
@@ -226,34 +226,34 @@ int fill_dev_full_name_by_prefix(const char* dev_prefix,
     // try adding a number, 0-9
     for(int cand_postfix = 0; cand_postfix < 10; cand_postfix++) {
         snprintf(&cand_name[prefix_len],
-                 sizeof(cand_name) / sizeof(cand_name[0]), 
+                 sizeof(cand_name) / sizeof(cand_name[0]),
                  "%d", cand_postfix);
         int dev_num = find_type_by_name(cand_name, "iio:device");
         if (dev_num != -ENODEV) {
             strncpy(dev_full_name, cand_name, len);
-            return 0; 
+            return 0;
         }
     }
     // try adding a small letter, a-z
     for(char cand_postfix = 'a'; cand_postfix <= 'z'; cand_postfix++) {
-        snprintf(&cand_name[prefix_len], 
-                 sizeof(cand_name) / sizeof(cand_name[0]), 
+        snprintf(&cand_name[prefix_len],
+                 sizeof(cand_name) / sizeof(cand_name[0]),
                  "%c", cand_postfix);
         int dev_num = find_type_by_name(cand_name, "iio:device");
         if (dev_num != -ENODEV) {
             strncpy(dev_full_name, cand_name, len);
-            return 0; 
+            return 0;
         }
     }
     // try adding a capital letter, A-Z
     for(char cand_postfix = 'A'; cand_postfix <= 'Z'; cand_postfix++) {
         snprintf(&cand_name[prefix_len],
-                 sizeof(cand_name) / sizeof(cand_name[0]), 
+                 sizeof(cand_name) / sizeof(cand_name[0]),
                  "%c", cand_postfix);
         int dev_num = find_type_by_name(cand_name, "iio:device");
         if (dev_num != -ENODEV) {
             strncpy(dev_full_name, cand_name, len);
-            return 0; 
+            return 0;
         }
     }
     return 1;
@@ -286,10 +286,10 @@ int read_sysfs_dir(bool fileMode, char *sysfs_path)
     int fd;
     char buf[sizeof(long) *4];
     long data;
-  
+
     DIR *dp;
     struct dirent *ep;
-      
+
     dp = opendir (sysfs_path);
 
     if (dp != NULL)
@@ -316,7 +316,7 @@ int read_sysfs_dir(bool fileMode, char *sysfs_path)
                             LOGI("HAL DEBUG:sysfs:cat %s = %ld", full_path, data);
                     } else {
                          LOGV_IF(0,"HAL DEBUG: error reading %s", full_path);
-                    } 
+                    }
                 } else {
                     LOGV_IF(0,"HAL DEBUG: error opening %s", full_path);
                 }

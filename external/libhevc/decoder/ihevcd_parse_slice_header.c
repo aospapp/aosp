@@ -419,10 +419,13 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
             {
                 WORD32 numbits;
 
-                numbits = 32 - CLZ(ps_sps->i1_num_short_term_ref_pic_sets - 1);
-                BITS_PARSE("short_term_ref_pic_set_idx", value, ps_bitstrm, numbits);
-                ps_slice_hdr->i1_short_term_ref_pic_set_idx = value;
-                ps_slice_hdr->i1_short_term_ref_pic_set_idx = CLIP3(ps_slice_hdr->i1_short_term_ref_pic_set_idx, 0, MAX_STREF_PICS_SPS - 1);
+                ps_slice_hdr->i1_short_term_ref_pic_set_idx = 0;
+                if(ps_sps->i1_num_short_term_ref_pic_sets > 1)
+                {
+                    numbits = 32 - CLZ(ps_sps->i1_num_short_term_ref_pic_sets - 1);
+                    BITS_PARSE("short_term_ref_pic_set_idx", value, ps_bitstrm, numbits);
+                    ps_slice_hdr->i1_short_term_ref_pic_set_idx = value;
+                }
 
                 st_rps_idx = ps_slice_hdr->i1_short_term_ref_pic_set_idx;
                 num_neg_pics = ps_sps->as_stref_picset[st_rps_idx].i1_num_neg_pics;

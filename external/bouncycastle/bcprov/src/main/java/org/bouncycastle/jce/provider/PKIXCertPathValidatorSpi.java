@@ -25,6 +25,7 @@ import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
+import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.jcajce.PKIXExtendedBuilderParameters;
 import org.bouncycastle.jcajce.PKIXExtendedParameters;
 import org.bouncycastle.jcajce.util.BCJcaJceHelper;
@@ -56,12 +57,6 @@ public class PKIXCertPathValidatorSpi
             throws CertPathValidatorException,
             InvalidAlgorithmParameterException
     {
-        if (!(params instanceof CertPathParameters))
-        {
-            throw new InvalidAlgorithmParameterException("Parameters must be a " + PKIXParameters.class.getName()
-                    + " instance.");
-        }
-
         PKIXExtendedParameters paramsPKIX;
         if (params instanceof PKIXParameters)
         {
@@ -81,18 +76,14 @@ public class PKIXCertPathValidatorSpi
         {
             paramsPKIX = ((PKIXExtendedBuilderParameters)params).getBaseParameters();
         }
-        // BEGIN android-changed
-        // else
         else if (params instanceof PKIXExtendedParameters)
-        // END android-changed
         {
             paramsPKIX = (PKIXExtendedParameters)params;
         }
-        // BEGIN android-added
-        else {
-            throw new InvalidAlgorithmParameterException("Expecting PKIX algorithm parameters");
+        else
+        {
+            throw new InvalidAlgorithmParameterException("Parameters must be a " + PKIXParameters.class.getName() + " instance.");
         }
-        // END android-added
 
         if (paramsPKIX.getTrustAnchors() == null)
         {
@@ -112,7 +103,7 @@ public class PKIXCertPathValidatorSpi
 
         if (certs.isEmpty())
         {
-            throw new CertPathValidatorException("Certification path is empty.", null, certPath, 0);
+            throw new CertPathValidatorException("Certification path is empty.", null, certPath, -1);
         }
         // BEGIN android-added
         {
@@ -476,6 +467,7 @@ public class PKIXCertPathValidatorSpi
             criticalExtensions.remove(RFC3280CertPathUtilities.SUBJECT_ALTERNATIVE_NAME);
             criticalExtensions.remove(RFC3280CertPathUtilities.NAME_CONSTRAINTS);
             criticalExtensions.remove(RFC3280CertPathUtilities.CRL_DISTRIBUTION_POINTS);
+            criticalExtensions.remove(Extension.extendedKeyUsage.getId());
         }
         else
         {

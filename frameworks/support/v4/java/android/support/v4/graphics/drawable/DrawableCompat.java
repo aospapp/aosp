@@ -17,15 +17,25 @@
 package android.support.v4.graphics.drawable;
 
 import android.content.res.ColorStateList;
+import android.content.res.Resources;
+import android.graphics.ColorFilter;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
+import android.support.annotation.ColorInt;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v4.view.ViewCompat;
+import android.util.AttributeSet;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+
+import java.io.IOException;
 
 /**
  * Helper for accessing features in {@link android.graphics.drawable.Drawable}
  * introduced after API level 4 in a backwards compatible fashion.
  */
-public class DrawableCompat {
+public final class DrawableCompat {
     /**
      * Interface for the full API.
      */
@@ -39,8 +49,14 @@ public class DrawableCompat {
         void setTintList(Drawable drawable, ColorStateList tint);
         void setTintMode(Drawable drawable, PorterDuff.Mode tintMode);
         Drawable wrap(Drawable drawable);
-        void setLayoutDirection(Drawable drawable, int layoutDirection);
+        boolean setLayoutDirection(Drawable drawable, int layoutDirection);
         int getLayoutDirection(Drawable drawable);
+        int getAlpha(Drawable drawable);
+        void applyTheme(Drawable drawable, Resources.Theme t);
+        boolean canApplyTheme(Drawable drawable);
+        ColorFilter getColorFilter(Drawable drawable);
+        void inflate(Drawable drawable, Resources res, XmlPullParser parser, AttributeSet attrs,
+                     Resources.Theme t) throws IOException, XmlPullParserException;
     }
 
     /**
@@ -89,20 +105,57 @@ public class DrawableCompat {
         }
 
         @Override
-        public void setLayoutDirection(Drawable drawable, int layoutDirection) {
+        public boolean setLayoutDirection(Drawable drawable, int layoutDirection) {
             // No op for API < 23
+            return false;
         }
 
         @Override
         public int getLayoutDirection(Drawable drawable) {
             return ViewCompat.LAYOUT_DIRECTION_LTR;
         }
+
+        @Override
+        public int getAlpha(Drawable drawable) {
+            return 0;
+        }
+
+        @Override
+        public void applyTheme(Drawable drawable, Resources.Theme t) {
+        }
+
+        @Override
+        public boolean canApplyTheme(Drawable drawable) {
+            return false;
+        }
+
+        @Override
+        public ColorFilter getColorFilter(Drawable drawable) {
+            return null;
+        }
+
+        @Override
+        public void inflate(Drawable drawable, Resources res, XmlPullParser parser,
+                            AttributeSet attrs, Resources.Theme t)
+                throws IOException, XmlPullParserException {
+            DrawableCompatBase.inflate(drawable, res, parser, attrs, t);
+        }
+    }
+
+    /**
+     * Interface implementation for devices with at least v5 APIs.
+     */
+    static class EclairDrawableImpl extends BaseDrawableImpl {
+        @Override
+        public Drawable wrap(Drawable drawable) {
+            return DrawableCompatEclair.wrapForTinting(drawable);
+        }
     }
 
     /**
      * Interface implementation for devices with at least v11 APIs.
      */
-    static class HoneycombDrawableImpl extends BaseDrawableImpl {
+    static class HoneycombDrawableImpl extends EclairDrawableImpl {
         @Override
         public void jumpToCurrentState(Drawable drawable) {
             DrawableCompatHoneycomb.jumpToCurrentState(drawable);
@@ -116,14 +169,14 @@ public class DrawableCompat {
 
     static class JellybeanMr1DrawableImpl extends HoneycombDrawableImpl {
         @Override
-        public void setLayoutDirection(Drawable drawable, int layoutDirection) {
-            DrawableCompatJellybeanMr1.setLayoutDirection(drawable, layoutDirection);
+        public boolean setLayoutDirection(Drawable drawable, int layoutDirection) {
+            return DrawableCompatJellybeanMr1.setLayoutDirection(drawable, layoutDirection);
         }
 
         @Override
         public int getLayoutDirection(Drawable drawable) {
             final int dir = DrawableCompatJellybeanMr1.getLayoutDirection(drawable);
-            return dir < 0 ? dir : ViewCompat.LAYOUT_DIRECTION_LTR;
+            return dir >= 0 ? dir : ViewCompat.LAYOUT_DIRECTION_LTR;
         }
     }
 
@@ -144,6 +197,11 @@ public class DrawableCompat {
         @Override
         public Drawable wrap(Drawable drawable) {
             return DrawableCompatKitKat.wrapForTinting(drawable);
+        }
+
+        @Override
+        public int getAlpha(Drawable drawable) {
+            return DrawableCompatKitKat.getAlpha(drawable);
         }
     }
 
@@ -180,30 +238,48 @@ public class DrawableCompat {
         public Drawable wrap(Drawable drawable) {
             return DrawableCompatLollipop.wrapForTinting(drawable);
         }
-    }
 
-    /**
-     * Interface implementation for devices with at least L APIs.
-     */
-    static class LollipopMr1DrawableImpl extends LollipopDrawableImpl {
         @Override
-        public Drawable wrap(Drawable drawable) {
-            return DrawableCompatApi22.wrapForTinting(drawable);
+        public void applyTheme(Drawable drawable, Resources.Theme t) {
+            DrawableCompatLollipop.applyTheme(drawable, t);
+        }
+
+        @Override
+        public boolean canApplyTheme(Drawable drawable) {
+            return DrawableCompatLollipop.canApplyTheme(drawable);
+        }
+
+        @Override
+        public ColorFilter getColorFilter(Drawable drawable) {
+            return DrawableCompatLollipop.getColorFilter(drawable);
+        }
+
+        @Override
+        public void inflate(Drawable drawable, Resources res, XmlPullParser parser,
+                            AttributeSet attrs, Resources.Theme t)
+                throws IOException, XmlPullParserException {
+            DrawableCompatLollipop.inflate(drawable, res, parser, attrs, t);
         }
     }
 
     /**
      * Interface implementation for devices with at least M APIs.
      */
-    static class MDrawableImpl extends LollipopMr1DrawableImpl {
+    static class MDrawableImpl extends LollipopDrawableImpl {
         @Override
-        public void setLayoutDirection(Drawable drawable, int layoutDirection) {
-            DrawableCompatApi23.setLayoutDirection(drawable, layoutDirection);
+        public boolean setLayoutDirection(Drawable drawable, int layoutDirection) {
+            return DrawableCompatApi23.setLayoutDirection(drawable, layoutDirection);
         }
 
         @Override
         public int getLayoutDirection(Drawable drawable) {
             return DrawableCompatApi23.getLayoutDirection(drawable);
+        }
+
+        @Override
+        public Drawable wrap(Drawable drawable) {
+            // No need to wrap on M+
+            return drawable;
         }
     }
 
@@ -215,8 +291,6 @@ public class DrawableCompat {
         final int version = android.os.Build.VERSION.SDK_INT;
         if (version >= 23) {
             IMPL = new MDrawableImpl();
-        } else if (version >= 22) {
-            IMPL = new LollipopMr1DrawableImpl();
         } else if (version >= 21) {
             IMPL = new LollipopDrawableImpl();
         } else if (version >= 19) {
@@ -225,6 +299,8 @@ public class DrawableCompat {
             IMPL = new JellybeanMr1DrawableImpl();
         } else if (version >= 11) {
             IMPL = new HoneycombDrawableImpl();
+        } else if (version >= 5) {
+            IMPL = new EclairDrawableImpl();
         } else {
             IMPL = new BaseDrawableImpl();
         }
@@ -238,7 +314,7 @@ public class DrawableCompat {
      *
      * @param drawable The Drawable against which to invoke the method.
      */
-    public static void jumpToCurrentState(Drawable drawable) {
+    public static void jumpToCurrentState(@NonNull Drawable drawable) {
         IMPL.jumpToCurrentState(drawable);
     }
 
@@ -254,7 +330,7 @@ public class DrawableCompat {
      * @param mirrored Set to true if the Drawable should be mirrored, false if
      *            not.
      */
-    public static void setAutoMirrored(Drawable drawable, boolean mirrored) {
+    public static void setAutoMirrored(@NonNull Drawable drawable, boolean mirrored) {
         IMPL.setAutoMirrored(drawable, mirrored);
     }
 
@@ -269,7 +345,7 @@ public class DrawableCompat {
      * @return boolean Returns true if this Drawable will be automatically
      *         mirrored.
      */
-    public static boolean isAutoMirrored(Drawable drawable) {
+    public static boolean isAutoMirrored(@NonNull Drawable drawable) {
         return IMPL.isAutoMirrored(drawable);
     }
 
@@ -280,7 +356,7 @@ public class DrawableCompat {
      * @param x The X coordinate of the center of the hotspot
      * @param y The Y coordinate of the center of the hotspot
      */
-    public static void setHotspot(Drawable drawable, float x, float y) {
+    public static void setHotspot(@NonNull Drawable drawable, float x, float y) {
         IMPL.setHotspot(drawable, x, y);
     }
 
@@ -290,7 +366,7 @@ public class DrawableCompat {
      *
      * @param drawable The Drawable against which to invoke the method.
      */
-    public static void setHotspotBounds(Drawable drawable, int left, int top,
+    public static void setHotspotBounds(@NonNull Drawable drawable, int left, int top,
             int right, int bottom) {
         IMPL.setHotspotBounds(drawable, left, top, right, bottom);
     }
@@ -301,7 +377,7 @@ public class DrawableCompat {
      * @param drawable The Drawable against which to invoke the method.
      * @param tint     Color to use for tinting this drawable
      */
-    public static void setTint(Drawable drawable, int tint) {
+    public static void setTint(@NonNull Drawable drawable, @ColorInt int tint) {
         IMPL.setTint(drawable, tint);
     }
 
@@ -311,7 +387,7 @@ public class DrawableCompat {
      * @param drawable The Drawable against which to invoke the method.
      * @param tint     Color state list to use for tinting this drawable, or null to clear the tint
      */
-    public static void setTintList(Drawable drawable, ColorStateList tint) {
+    public static void setTintList(@NonNull Drawable drawable, @Nullable ColorStateList tint) {
         IMPL.setTintList(drawable, tint);
     }
 
@@ -321,16 +397,78 @@ public class DrawableCompat {
      * @param drawable The Drawable against which to invoke the method.
      * @param tintMode A Porter-Duff blending mode
      */
-    public static void setTintMode(Drawable drawable, PorterDuff.Mode tintMode) {
+    public static void setTintMode(@NonNull Drawable drawable, @Nullable PorterDuff.Mode tintMode) {
         IMPL.setTintMode(drawable, tintMode);
+    }
+
+    /**
+     * Get the alpha value of the {@code drawable}.
+     * 0 means fully transparent, 255 means fully opaque.
+     *
+     * @param drawable The Drawable against which to invoke the method.
+     */
+    public static int getAlpha(@NonNull Drawable drawable) {
+        return IMPL.getAlpha(drawable);
+    }
+
+    /**
+     * Applies the specified theme to this Drawable and its children.
+     */
+    public static void applyTheme(Drawable drawable, Resources.Theme t) {
+        IMPL.applyTheme(drawable, t);
+    }
+
+    /**
+     * Whether a theme can be applied to this Drawable and its children.
+     */
+    public static boolean canApplyTheme(Drawable drawable) {
+        return IMPL.canApplyTheme(drawable);
+    }
+
+    /**
+     * Returns the current color filter, or {@code null} if none set.
+     *
+     * @return the current color filter, or {@code null} if none set
+     */
+    public static ColorFilter getColorFilter(Drawable drawable) {
+        return IMPL.getColorFilter(drawable);
+    }
+
+    /**
+     * Inflate this Drawable from an XML resource optionally styled by a theme.
+     *
+     * @param res Resources used to resolve attribute values
+     * @param parser XML parser from which to inflate this Drawable
+     * @param attrs Base set of attribute values
+     * @param theme Theme to apply, may be null
+     * @throws XmlPullParserException
+     * @throws IOException
+     */
+    public static void inflate(Drawable drawable, Resources res, XmlPullParser parser,
+                               AttributeSet attrs, Resources.Theme theme)
+            throws XmlPullParserException, IOException {
+        IMPL.inflate(drawable, res, parser, attrs, theme);
     }
 
     /**
      * Potentially wrap {@code drawable} so that it may be used for tinting across the
      * different API levels, via the tinting methods in this class.
-     * <p>
-     * If you need to get hold of the original {@link android.graphics.drawable.Drawable} again,
-     * you can use the value returned from {@link #unwrap(Drawable)}.
+     *
+     * <p>You must use the result of this call. If the given drawable is being used by a view
+     * (as it's background for instance), you must replace the original drawable with
+     * the result of this call:</p>
+     *
+     * <pre>
+     * Drawable bg = DrawableCompat.wrap(view.getBackground());
+     * // Need to set the background with the wrapped drawable
+     * view.setBackground(bg);
+     *
+     * // You can now tint the drawable
+     * DrawableCompat.setTint(bg, ...);
+     * </pre>
+     *
+     * <p>If you need to get hold of the original {@link android.graphics.drawable.Drawable} again,
+     * you can use the value returned from {@link #unwrap(Drawable)}.</p>
      *
      * @param drawable The Drawable to process
      * @return A drawable capable of being tinted across all API levels.
@@ -340,7 +478,7 @@ public class DrawableCompat {
      * @see #setTintMode(Drawable, PorterDuff.Mode)
      * @see #unwrap(Drawable)
      */
-    public static Drawable wrap(Drawable drawable) {
+    public static Drawable wrap(@NonNull Drawable drawable) {
         return IMPL.wrap(drawable);
     }
 
@@ -354,7 +492,7 @@ public class DrawableCompat {
      *
      * @see #wrap(Drawable)
      */
-    public static <T extends Drawable> T unwrap(Drawable drawable) {
+    public static <T extends Drawable> T unwrap(@NonNull Drawable drawable) {
         if (drawable instanceof DrawableWrapper) {
             return (T) ((DrawableWrapper) drawable).getWrappedDrawable();
         }
@@ -369,10 +507,13 @@ public class DrawableCompat {
      * @param layoutDirection the resolved layout direction for the drawable,
      *                        either {@link ViewCompat#LAYOUT_DIRECTION_LTR}
      *                        or {@link ViewCompat#LAYOUT_DIRECTION_RTL}
+     * @return {@code true} if the layout direction change has caused the
+     *         appearance of the drawable to change such that it needs to be
+     *         re-drawn, {@code false} otherwise
      * @see #getLayoutDirection(Drawable)
      */
-    public static void setLayoutDirection(Drawable drawable, int layoutDirection) {
-        IMPL.setLayoutDirection(drawable, layoutDirection);
+    public static boolean setLayoutDirection(@NonNull Drawable drawable, int layoutDirection) {
+        return IMPL.setLayoutDirection(drawable, layoutDirection);
     }
 
     /**
@@ -382,7 +523,9 @@ public class DrawableCompat {
      *         {@link ViewCompat#LAYOUT_DIRECTION_RTL}
      * @see #setLayoutDirection(Drawable, int)
      */
-    public static int getLayoutDirection(Drawable drawable) {
+    public static int getLayoutDirection(@NonNull Drawable drawable) {
         return IMPL.getLayoutDirection(drawable);
     }
+
+    private DrawableCompat() {}
 }

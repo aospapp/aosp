@@ -6,6 +6,7 @@
 #include "Main.h"
 #include "Bundle.h"
 
+#include <utils/Compat.h>
 #include <utils/Log.h>
 #include <utils/threads.h>
 #include <utils/List.h>
@@ -66,6 +67,7 @@ void usage(void)
         "        [--max-res-version VAL] \\\n"
         "        [-I base-package [-I base-package ...]] \\\n"
         "        [-A asset-source-dir]  [-G class-list-file] [-P public-definitions-file] \\\n"
+        "        [-D main-dex-class-list-file] \\\n"
         "        [-S resource-sources [-S resource-sources ...]] \\\n"
         "        [-F apk-file] [-J R-file-dir] \\\n"
         "        [--product product1,product2,...] \\\n"
@@ -119,6 +121,7 @@ void usage(void)
         "       localization=\"suggested\"\n"
         "   -A  additional directory in which to find raw asset files\n"
         "   -G  A file to output proguard options into.\n"
+        "   -D  A file to output proguard options for the main dex into.\n"
         "   -F  specify the apk file to output\n"
         "   -I  add an existing package to base include set\n"
         "   -J  specify where to output R.java resource constant definitions\n"
@@ -199,6 +202,9 @@ void usage(void)
         "   --shared-lib\n"
         "       Make a shared library resource package that can be loaded by an application\n"
         "       at runtime to access the libraries resources. Implies --non-constant-id.\n"
+        "   --app-as-shared-lib\n"
+        "       Make an app resource package that also can be loaded as shared library at runtime.\n"
+        "       Implies --non-constant-id.\n"
         "   --error-on-failed-insert\n"
         "       Forces aapt to return an error if it fails to insert values into the manifest\n"
         "       with --debug-mode, --min-sdk-version, --target-sdk-version --version-code\n"
@@ -216,7 +222,9 @@ void usage(void)
         "       Prevents symbols from being generated for strings that do not have a default\n"
         "       localization\n"
         "   --no-version-vectors\n"
-        "       Do not automatically generate versioned copies of vector XML resources.\n",
+        "       Do not automatically generate versioned copies of vector XML resources.\n"
+        "   --private-symbols\n"
+        "       Java package name to use when generating R.java for private resources.\n",
         gDefaultIgnoreAssets);
 }
 
@@ -383,6 +391,17 @@ int main(int argc, char* const argv[])
                 }
                 convertPath(argv[0]);
                 bundle.setProguardFile(argv[0]);
+                break;
+            case 'D':
+                argc--;
+                argv++;
+                if (!argc) {
+                    fprintf(stderr, "ERROR: No argument supplied for '-D' option\n");
+                    wantUsage = true;
+                    goto bail;
+                }
+                convertPath(argv[0]);
+                bundle.setMainDexProguardFile(argv[0]);
                 break;
             case 'I':
                 argc--;
@@ -667,6 +686,9 @@ int main(int argc, char* const argv[])
                 } else if (strcmp(cp, "-shared-lib") == 0) {
                     bundle.setNonConstantId(true);
                     bundle.setBuildSharedLibrary(true);
+                } else if (strcmp(cp, "-app-as-shared-lib") == 0) {
+                    bundle.setNonConstantId(true);
+                    bundle.setBuildAppAsSharedLibrary(true);
                 } else if (strcmp(cp, "-no-crunch") == 0) {
                     bundle.setUseCrunchCache(true);
                 } else if (strcmp(cp, "-ignore-assets") == 0) {
@@ -682,6 +704,16 @@ int main(int argc, char* const argv[])
                     bundle.setPseudolocalize(PSEUDO_ACCENTED | PSEUDO_BIDI);
                 } else if (strcmp(cp, "-no-version-vectors") == 0) {
                     bundle.setNoVersionVectors(true);
+                } else if (strcmp(cp, "-private-symbols") == 0) {
+                    argc--;
+                    argv++;
+                    if (!argc) {
+                        fprintf(stderr, "ERROR: No argument supplied for "
+                                "'--private-symbols' option\n");
+                        wantUsage = true;
+                        goto bail;
+                    }
+                    bundle.setPrivateSymbolsPackage(String8(argv[0]));
                 } else {
                     fprintf(stderr, "ERROR: Unknown option '-%s'\n", cp);
                     wantUsage = true;

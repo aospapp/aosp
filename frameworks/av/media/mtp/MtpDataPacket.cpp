@@ -25,8 +25,6 @@
 #include "MtpDataPacket.h"
 #include "MtpStringBuffer.h"
 
-#define MTP_BUFFER_SIZE 16384
-
 namespace android {
 
 MtpDataPacket::MtpDataPacket()
@@ -458,7 +456,7 @@ int MtpDataPacket::read(struct usb_request *request) {
         // look at the length field to see if the data spans multiple packets
         uint32_t totalLength = MtpPacket::getUInt32(MTP_CONTAINER_LENGTH_OFFSET);
         allocate(totalLength);
-        while (totalLength > length) {
+        while (totalLength > static_cast<uint32_t>(length)) {
             request->buffer = mBuffer + length;
             request->buffer_length = totalLength - length;
             int ret = transfer(request);
@@ -525,16 +523,9 @@ int MtpDataPacket::writeDataHeader(struct usb_request *request, uint32_t length)
 int MtpDataPacket::write(struct usb_request *request) {
     MtpPacket::putUInt32(MTP_CONTAINER_LENGTH_OFFSET, mPacketSize);
     MtpPacket::putUInt16(MTP_CONTAINER_TYPE_OFFSET, MTP_CONTAINER_TYPE_DATA);
-
-    // send header separately from data
     request->buffer = mBuffer;
-    request->buffer_length = MTP_CONTAINER_HEADER_SIZE;
+    request->buffer_length = mPacketSize;
     int ret = transfer(request);
-    if (ret == MTP_CONTAINER_HEADER_SIZE) {
-        request->buffer = mBuffer + MTP_CONTAINER_HEADER_SIZE;
-        request->buffer_length = mPacketSize - MTP_CONTAINER_HEADER_SIZE;
-        ret = transfer(request);
-    }
     return (ret < 0 ? ret : 0);
 }
 
@@ -547,17 +538,17 @@ int MtpDataPacket::write(struct usb_request *request, void* buffer, uint32_t len
 
 #endif // MTP_HOST
 
-void* MtpDataPacket::getData(int& outLength) const {
+void* MtpDataPacket::getData(int* outLength) const {
     int length = mPacketSize - MTP_CONTAINER_HEADER_SIZE;
     if (length > 0) {
         void* result = malloc(length);
         if (result) {
             memcpy(result, mBuffer + MTP_CONTAINER_HEADER_SIZE, length);
-            outLength = length;
+            *outLength = length;
             return result;
         }
     }
-    outLength = 0;
+    *outLength = 0;
     return NULL;
 }
 

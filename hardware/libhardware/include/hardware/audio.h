@@ -144,6 +144,9 @@ __BEGIN_DECLS
 /* Set the HW synchronization source for an output stream. */
 #define AUDIO_PARAMETER_STREAM_HW_AV_SYNC "hw_av_sync"
 
+/* Enable mono audio playback if 1, else should be 0. */
+#define AUDIO_PARAMETER_MONO_OUTPUT "mono_output"
+
 /**
  * audio codec parameters
  */
@@ -428,6 +431,23 @@ struct audio_stream_in {
      * Unit: the number of input audio frames
      */
     uint32_t (*get_input_frames_lost)(struct audio_stream_in *stream);
+
+    /**
+     * Return a recent count of the number of audio frames received and
+     * the clock time associated with that frame count.
+     *
+     * frames is the total frame count received. This should be as early in
+     *     the capture pipeline as possible. In general,
+     *     frames should be non-negative and should not go "backwards".
+     *
+     * time is the clock MONOTONIC time when frames was measured. In general,
+     *     time should be a positive quantity and should not go "backwards".
+     *
+     * The status returned is 0 on success, -ENOSYS if the device is not
+     * ready/available, or -EINVAL if the arguments are null or otherwise invalid.
+     */
+    int (*get_capture_position)(const struct audio_stream_in *stream,
+                                int64_t *frames, int64_t *time);
 };
 typedef struct audio_stream_in audio_stream_in_t;
 
@@ -442,7 +462,7 @@ static inline size_t audio_stream_frame_size(const struct audio_stream *s)
     size_t chan_samp_sz;
     audio_format_t format = s->get_format(s);
 
-    if (audio_is_linear_pcm(format)) {
+    if (audio_has_proportional_frames(format)) {
         chan_samp_sz = audio_bytes_per_sample(format);
         return popcount(s->get_channels(s)) * chan_samp_sz;
     }
@@ -458,7 +478,7 @@ static inline size_t audio_stream_out_frame_size(const struct audio_stream_out *
     size_t chan_samp_sz;
     audio_format_t format = s->common.get_format(&s->common);
 
-    if (audio_is_linear_pcm(format)) {
+    if (audio_has_proportional_frames(format)) {
         chan_samp_sz = audio_bytes_per_sample(format);
         return audio_channel_count_from_out_mask(s->common.get_channels(&s->common)) * chan_samp_sz;
     }
@@ -474,7 +494,7 @@ static inline size_t audio_stream_in_frame_size(const struct audio_stream_in *s)
     size_t chan_samp_sz;
     audio_format_t format = s->common.get_format(&s->common);
 
-    if (audio_is_linear_pcm(format)) {
+    if (audio_has_proportional_frames(format)) {
         chan_samp_sz = audio_bytes_per_sample(format);
         return audio_channel_count_from_in_mask(s->common.get_channels(&s->common)) * chan_samp_sz;
     }

@@ -18,14 +18,23 @@
 #define LOG_TAG "Utils"
 #include <utils/Log.h>
 #include <ctype.h>
+#include <stdio.h>
+#include <sys/stat.h>
+
+#include <utility>
 
 #include "include/ESDS.h"
+#include "include/HevcUtils.h"
 
 #include <arpa/inet.h>
 #include <cutils/properties.h>
 #include <media/openmax/OMX_Audio.h>
+#include <media/openmax/OMX_Video.h>
+#include <media/openmax/OMX_VideoExt.h>
+#include <media/stagefright/CodecBase.h>
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/ADebug.h>
+#include <media/stagefright/foundation/ALookup.h>
 #include <media/stagefright/foundation/AMessage.h>
 #include <media/stagefright/MetaData.h>
 #include <media/stagefright/MediaDefs.h>
@@ -87,12 +96,515 @@ static status_t copyNALUToABuffer(sp<ABuffer> *buffer, const uint8_t *ptr, size_
     return OK;
 }
 
+#if 0
+static void convertMetaDataToMessageInt32(
+        const sp<MetaData> &meta, sp<AMessage> &msg, uint32_t key, const char *name) {
+    int32_t value;
+    if (meta->findInt32(key, &value)) {
+        msg->setInt32(name, value);
+    }
+}
+#endif
+
+static void convertMetaDataToMessageColorAspects(const sp<MetaData> &meta, sp<AMessage> &msg) {
+    // 0 values are unspecified
+    int32_t range = 0;
+    int32_t primaries = 0;
+    int32_t transferFunction = 0;
+    int32_t colorMatrix = 0;
+    meta->findInt32(kKeyColorRange, &range);
+    meta->findInt32(kKeyColorPrimaries, &primaries);
+    meta->findInt32(kKeyTransferFunction, &transferFunction);
+    meta->findInt32(kKeyColorMatrix, &colorMatrix);
+    ColorAspects colorAspects;
+    memset(&colorAspects, 0, sizeof(colorAspects));
+    colorAspects.mRange = (ColorAspects::Range)range;
+    colorAspects.mPrimaries = (ColorAspects::Primaries)primaries;
+    colorAspects.mTransfer = (ColorAspects::Transfer)transferFunction;
+    colorAspects.mMatrixCoeffs = (ColorAspects::MatrixCoeffs)colorMatrix;
+
+    int32_t rangeMsg, standardMsg, transferMsg;
+    if (CodecBase::convertCodecColorAspectsToPlatformAspects(
+            colorAspects, &rangeMsg, &standardMsg, &transferMsg) != OK) {
+        return;
+    }
+
+    // save specified values to msg
+    if (rangeMsg != 0) {
+        msg->setInt32("color-range", rangeMsg);
+    }
+    if (standardMsg != 0) {
+        msg->setInt32("color-standard", standardMsg);
+    }
+    if (transferMsg != 0) {
+        msg->setInt32("color-transfer", transferMsg);
+    }
+}
+
+static bool isHdr(const sp<AMessage> &format) {
+    // if CSD specifies HDR transfer(s), we assume HDR. Otherwise, if it specifies non-HDR
+    // transfers, we must assume non-HDR. This is because CSD trumps any color-transfer key
+    // in the format.
+    int32_t isHdr;
+    if (format->findInt32("android._is-hdr", &isHdr)) {
+        return isHdr;
+    }
+
+    // if user/container supplied HDR static info without transfer set, assume true
+    if (format->contains("hdr-static-info") && !format->contains("color-transfer")) {
+        return true;
+    }
+    // otherwise, verify that an HDR transfer function is set
+    int32_t transfer;
+    if (format->findInt32("color-transfer", &transfer)) {
+        return transfer == ColorUtils::kColorTransferST2084
+                || transfer == ColorUtils::kColorTransferHLG;
+    }
+    return false;
+}
+
+static void parseAacProfileFromCsd(const sp<ABuffer> &csd, sp<AMessage> &format) {
+    if (csd->size() < 2) {
+        return;
+    }
+
+    uint16_t audioObjectType = U16_AT((uint8_t*)csd->data());
+    if ((audioObjectType & 0xF800) == 0xF800) {
+        audioObjectType = 32 + ((audioObjectType >> 5) & 0x3F);
+    } else {
+        audioObjectType >>= 11;
+    }
+
+    const static ALookup<uint16_t, OMX_AUDIO_AACPROFILETYPE> profiles {
+        { 1,  OMX_AUDIO_AACObjectMain     },
+        { 2,  OMX_AUDIO_AACObjectLC       },
+        { 3,  OMX_AUDIO_AACObjectSSR      },
+        { 4,  OMX_AUDIO_AACObjectLTP      },
+        { 5,  OMX_AUDIO_AACObjectHE       },
+        { 6,  OMX_AUDIO_AACObjectScalable },
+        { 17, OMX_AUDIO_AACObjectERLC     },
+        { 23, OMX_AUDIO_AACObjectLD       },
+        { 29, OMX_AUDIO_AACObjectHE_PS    },
+        { 39, OMX_AUDIO_AACObjectELD      },
+    };
+
+    OMX_AUDIO_AACPROFILETYPE profile;
+    if (profiles.map(audioObjectType, &profile)) {
+        format->setInt32("profile", profile);
+    }
+}
+
+static void parseAvcProfileLevelFromAvcc(const uint8_t *ptr, size_t size, sp<AMessage> &format) {
+    if (size < 4 || ptr[0] != 1) {  // configurationVersion == 1
+        return;
+    }
+    const uint8_t profile = ptr[1];
+    const uint8_t constraints = ptr[2];
+    const uint8_t level = ptr[3];
+
+    const static ALookup<uint8_t, OMX_VIDEO_AVCLEVELTYPE> levels {
+        {  9, OMX_VIDEO_AVCLevel1b }, // technically, 9 is only used for High+ profiles
+        { 10, OMX_VIDEO_AVCLevel1  },
+        { 11, OMX_VIDEO_AVCLevel11 }, // prefer level 1.1 for the value 11
+        { 11, OMX_VIDEO_AVCLevel1b },
+        { 12, OMX_VIDEO_AVCLevel12 },
+        { 13, OMX_VIDEO_AVCLevel13 },
+        { 20, OMX_VIDEO_AVCLevel2  },
+        { 21, OMX_VIDEO_AVCLevel21 },
+        { 22, OMX_VIDEO_AVCLevel22 },
+        { 30, OMX_VIDEO_AVCLevel3  },
+        { 31, OMX_VIDEO_AVCLevel31 },
+        { 32, OMX_VIDEO_AVCLevel32 },
+        { 40, OMX_VIDEO_AVCLevel4  },
+        { 41, OMX_VIDEO_AVCLevel41 },
+        { 42, OMX_VIDEO_AVCLevel42 },
+        { 50, OMX_VIDEO_AVCLevel5  },
+        { 51, OMX_VIDEO_AVCLevel51 },
+        { 52, OMX_VIDEO_AVCLevel52 },
+    };
+    const static ALookup<uint8_t, OMX_VIDEO_AVCPROFILETYPE> profiles {
+        { 66, OMX_VIDEO_AVCProfileBaseline },
+        { 77, OMX_VIDEO_AVCProfileMain     },
+        { 88, OMX_VIDEO_AVCProfileExtended },
+        { 100, OMX_VIDEO_AVCProfileHigh    },
+        { 110, OMX_VIDEO_AVCProfileHigh10  },
+        { 122, OMX_VIDEO_AVCProfileHigh422 },
+        { 244, OMX_VIDEO_AVCProfileHigh444 },
+    };
+
+    // set profile & level if they are recognized
+    OMX_VIDEO_AVCPROFILETYPE codecProfile;
+    OMX_VIDEO_AVCLEVELTYPE codecLevel;
+    if (profiles.map(profile, &codecProfile)) {
+        format->setInt32("profile", codecProfile);
+        if (levels.map(level, &codecLevel)) {
+            // for 9 && 11 decide level based on profile and constraint_set3 flag
+            if (level == 11 && (profile == 66 || profile == 77 || profile == 88)) {
+                codecLevel = (constraints & 0x10) ? OMX_VIDEO_AVCLevel1b : OMX_VIDEO_AVCLevel11;
+            }
+            format->setInt32("level", codecLevel);
+        }
+    }
+}
+
+static void parseH263ProfileLevelFromD263(const uint8_t *ptr, size_t size, sp<AMessage> &format) {
+    if (size < 7) {
+        return;
+    }
+
+    const uint8_t profile = ptr[6];
+    const uint8_t level = ptr[5];
+
+    const static ALookup<uint8_t, OMX_VIDEO_H263PROFILETYPE> profiles {
+        { 0, OMX_VIDEO_H263ProfileBaseline },
+        { 1, OMX_VIDEO_H263ProfileH320Coding },
+        { 2, OMX_VIDEO_H263ProfileBackwardCompatible },
+        { 3, OMX_VIDEO_H263ProfileISWV2 },
+        { 4, OMX_VIDEO_H263ProfileISWV3 },
+        { 5, OMX_VIDEO_H263ProfileHighCompression },
+        { 6, OMX_VIDEO_H263ProfileInternet },
+        { 7, OMX_VIDEO_H263ProfileInterlace },
+        { 8, OMX_VIDEO_H263ProfileHighLatency },
+    };
+
+    const static ALookup<uint8_t, OMX_VIDEO_H263LEVELTYPE> levels {
+        { 10, OMX_VIDEO_H263Level10 },
+        { 20, OMX_VIDEO_H263Level20 },
+        { 30, OMX_VIDEO_H263Level30 },
+        { 40, OMX_VIDEO_H263Level40 },
+        { 45, OMX_VIDEO_H263Level45 },
+        { 50, OMX_VIDEO_H263Level50 },
+        { 60, OMX_VIDEO_H263Level60 },
+        { 70, OMX_VIDEO_H263Level70 },
+    };
+
+    // set profile & level if they are recognized
+    OMX_VIDEO_H263PROFILETYPE codecProfile;
+    OMX_VIDEO_H263LEVELTYPE codecLevel;
+    if (profiles.map(profile, &codecProfile)) {
+        format->setInt32("profile", codecProfile);
+        if (levels.map(level, &codecLevel)) {
+            format->setInt32("level", codecLevel);
+        }
+    }
+}
+
+static void parseHevcProfileLevelFromHvcc(const uint8_t *ptr, size_t size, sp<AMessage> &format) {
+    if (size < 13 || ptr[0] != 1) {  // configurationVersion == 1
+        return;
+    }
+
+    const uint8_t profile = ptr[1] & 0x1F;
+    const uint8_t tier = (ptr[1] & 0x20) >> 5;
+    const uint8_t level = ptr[12];
+
+    const static ALookup<std::pair<uint8_t, uint8_t>, OMX_VIDEO_HEVCLEVELTYPE> levels {
+        { { 0, 30  }, OMX_VIDEO_HEVCMainTierLevel1  },
+        { { 0, 60  }, OMX_VIDEO_HEVCMainTierLevel2  },
+        { { 0, 63  }, OMX_VIDEO_HEVCMainTierLevel21 },
+        { { 0, 90  }, OMX_VIDEO_HEVCMainTierLevel3  },
+        { { 0, 93  }, OMX_VIDEO_HEVCMainTierLevel31 },
+        { { 0, 120 }, OMX_VIDEO_HEVCMainTierLevel4  },
+        { { 0, 123 }, OMX_VIDEO_HEVCMainTierLevel41 },
+        { { 0, 150 }, OMX_VIDEO_HEVCMainTierLevel5  },
+        { { 0, 153 }, OMX_VIDEO_HEVCMainTierLevel51 },
+        { { 0, 156 }, OMX_VIDEO_HEVCMainTierLevel52 },
+        { { 0, 180 }, OMX_VIDEO_HEVCMainTierLevel6  },
+        { { 0, 183 }, OMX_VIDEO_HEVCMainTierLevel61 },
+        { { 0, 186 }, OMX_VIDEO_HEVCMainTierLevel62 },
+        { { 1, 30  }, OMX_VIDEO_HEVCHighTierLevel1  },
+        { { 1, 60  }, OMX_VIDEO_HEVCHighTierLevel2  },
+        { { 1, 63  }, OMX_VIDEO_HEVCHighTierLevel21 },
+        { { 1, 90  }, OMX_VIDEO_HEVCHighTierLevel3  },
+        { { 1, 93  }, OMX_VIDEO_HEVCHighTierLevel31 },
+        { { 1, 120 }, OMX_VIDEO_HEVCHighTierLevel4  },
+        { { 1, 123 }, OMX_VIDEO_HEVCHighTierLevel41 },
+        { { 1, 150 }, OMX_VIDEO_HEVCHighTierLevel5  },
+        { { 1, 153 }, OMX_VIDEO_HEVCHighTierLevel51 },
+        { { 1, 156 }, OMX_VIDEO_HEVCHighTierLevel52 },
+        { { 1, 180 }, OMX_VIDEO_HEVCHighTierLevel6  },
+        { { 1, 183 }, OMX_VIDEO_HEVCHighTierLevel61 },
+        { { 1, 186 }, OMX_VIDEO_HEVCHighTierLevel62 },
+    };
+
+    const static ALookup<uint8_t, OMX_VIDEO_HEVCPROFILETYPE> profiles {
+        { 1, OMX_VIDEO_HEVCProfileMain   },
+        { 2, OMX_VIDEO_HEVCProfileMain10 },
+    };
+
+    // set profile & level if they are recognized
+    OMX_VIDEO_HEVCPROFILETYPE codecProfile;
+    OMX_VIDEO_HEVCLEVELTYPE codecLevel;
+    if (!profiles.map(profile, &codecProfile)) {
+        if (ptr[2] & 0x40 /* general compatibility flag 1 */) {
+            codecProfile = OMX_VIDEO_HEVCProfileMain;
+        } else if (ptr[2] & 0x20 /* general compatibility flag 2 */) {
+            codecProfile = OMX_VIDEO_HEVCProfileMain10;
+        } else {
+            return;
+        }
+    }
+
+    // bump to HDR profile
+    if (isHdr(format) && codecProfile == OMX_VIDEO_HEVCProfileMain10) {
+        codecProfile = OMX_VIDEO_HEVCProfileMain10HDR10;
+    }
+
+    format->setInt32("profile", codecProfile);
+    if (levels.map(std::make_pair(tier, level), &codecLevel)) {
+        format->setInt32("level", codecLevel);
+    }
+}
+
+static void parseMpeg2ProfileLevelFromHeader(
+        const uint8_t *data, size_t size, sp<AMessage> &format) {
+    // find sequence extension
+    const uint8_t *seq = (const uint8_t*)memmem(data, size, "\x00\x00\x01\xB5", 4);
+    if (seq != NULL && seq + 5 < data + size) {
+        const uint8_t start_code = seq[4] >> 4;
+        if (start_code != 1 /* sequence extension ID */) {
+            return;
+        }
+        const uint8_t indication = ((seq[4] & 0xF) << 4) | ((seq[5] & 0xF0) >> 4);
+
+        const static ALookup<uint8_t, OMX_VIDEO_MPEG2PROFILETYPE> profiles {
+            { 0x50, OMX_VIDEO_MPEG2ProfileSimple  },
+            { 0x40, OMX_VIDEO_MPEG2ProfileMain    },
+            { 0x30, OMX_VIDEO_MPEG2ProfileSNR     },
+            { 0x20, OMX_VIDEO_MPEG2ProfileSpatial },
+            { 0x10, OMX_VIDEO_MPEG2ProfileHigh    },
+        };
+
+        const static ALookup<uint8_t, OMX_VIDEO_MPEG2LEVELTYPE> levels {
+            { 0x0A, OMX_VIDEO_MPEG2LevelLL  },
+            { 0x08, OMX_VIDEO_MPEG2LevelML  },
+            { 0x06, OMX_VIDEO_MPEG2LevelH14 },
+            { 0x04, OMX_VIDEO_MPEG2LevelHL  },
+            { 0x02, OMX_VIDEO_MPEG2LevelHP  },
+        };
+
+        const static ALookup<uint8_t,
+                std::pair<OMX_VIDEO_MPEG2PROFILETYPE, OMX_VIDEO_MPEG2LEVELTYPE>> escapes {
+            /* unsupported
+            { 0x8E, { XXX_MPEG2ProfileMultiView, OMX_VIDEO_MPEG2LevelLL  } },
+            { 0x8D, { XXX_MPEG2ProfileMultiView, OMX_VIDEO_MPEG2LevelML  } },
+            { 0x8B, { XXX_MPEG2ProfileMultiView, OMX_VIDEO_MPEG2LevelH14 } },
+            { 0x8A, { XXX_MPEG2ProfileMultiView, OMX_VIDEO_MPEG2LevelHL  } }, */
+            { 0x85, { OMX_VIDEO_MPEG2Profile422, OMX_VIDEO_MPEG2LevelML  } },
+            { 0x82, { OMX_VIDEO_MPEG2Profile422, OMX_VIDEO_MPEG2LevelHL  } },
+        };
+
+        OMX_VIDEO_MPEG2PROFILETYPE profile;
+        OMX_VIDEO_MPEG2LEVELTYPE level;
+        std::pair<OMX_VIDEO_MPEG2PROFILETYPE, OMX_VIDEO_MPEG2LEVELTYPE> profileLevel;
+        if (escapes.map(indication, &profileLevel)) {
+            format->setInt32("profile", profileLevel.first);
+            format->setInt32("level", profileLevel.second);
+        } else if (profiles.map(indication & 0x70, &profile)) {
+            format->setInt32("profile", profile);
+            if (levels.map(indication & 0xF, &level)) {
+                format->setInt32("level", level);
+            }
+        }
+    }
+}
+
+static void parseMpeg2ProfileLevelFromEsds(ESDS &esds, sp<AMessage> &format) {
+    // esds seems to only contain the profile for MPEG-2
+    uint8_t objType;
+    if (esds.getObjectTypeIndication(&objType) == OK) {
+        const static ALookup<uint8_t, OMX_VIDEO_MPEG2PROFILETYPE> profiles{
+            { 0x60, OMX_VIDEO_MPEG2ProfileSimple  },
+            { 0x61, OMX_VIDEO_MPEG2ProfileMain    },
+            { 0x62, OMX_VIDEO_MPEG2ProfileSNR     },
+            { 0x63, OMX_VIDEO_MPEG2ProfileSpatial },
+            { 0x64, OMX_VIDEO_MPEG2ProfileHigh    },
+            { 0x65, OMX_VIDEO_MPEG2Profile422     },
+        };
+
+        OMX_VIDEO_MPEG2PROFILETYPE profile;
+        if (profiles.map(objType, &profile)) {
+            format->setInt32("profile", profile);
+        }
+    }
+}
+
+static void parseMpeg4ProfileLevelFromCsd(const sp<ABuffer> &csd, sp<AMessage> &format) {
+    const uint8_t *data = csd->data();
+    // find visual object sequence
+    const uint8_t *seq = (const uint8_t*)memmem(data, csd->size(), "\x00\x00\x01\xB0", 4);
+    if (seq != NULL && seq + 4 < data + csd->size()) {
+        const uint8_t indication = seq[4];
+
+        const static ALookup<uint8_t,
+                std::pair<OMX_VIDEO_MPEG4PROFILETYPE, OMX_VIDEO_MPEG4LEVELTYPE>> table {
+            { 0b00000001, { OMX_VIDEO_MPEG4ProfileSimple,            OMX_VIDEO_MPEG4Level1  } },
+            { 0b00000010, { OMX_VIDEO_MPEG4ProfileSimple,            OMX_VIDEO_MPEG4Level2  } },
+            { 0b00000011, { OMX_VIDEO_MPEG4ProfileSimple,            OMX_VIDEO_MPEG4Level3  } },
+            { 0b00000100, { OMX_VIDEO_MPEG4ProfileSimple,            OMX_VIDEO_MPEG4Level4a } },
+            { 0b00000101, { OMX_VIDEO_MPEG4ProfileSimple,            OMX_VIDEO_MPEG4Level5  } },
+            { 0b00000110, { OMX_VIDEO_MPEG4ProfileSimple,            OMX_VIDEO_MPEG4Level6  } },
+            { 0b00001000, { OMX_VIDEO_MPEG4ProfileSimple,            OMX_VIDEO_MPEG4Level0  } },
+            { 0b00001001, { OMX_VIDEO_MPEG4ProfileSimple,            OMX_VIDEO_MPEG4Level0b } },
+            { 0b00010000, { OMX_VIDEO_MPEG4ProfileSimpleScalable,    OMX_VIDEO_MPEG4Level0  } },
+            { 0b00010001, { OMX_VIDEO_MPEG4ProfileSimpleScalable,    OMX_VIDEO_MPEG4Level1  } },
+            { 0b00010010, { OMX_VIDEO_MPEG4ProfileSimpleScalable,    OMX_VIDEO_MPEG4Level2  } },
+            /* unsupported
+            { 0b00011101, { XXX_MPEG4ProfileSimpleScalableER,        OMX_VIDEO_MPEG4Level0  } },
+            { 0b00011110, { XXX_MPEG4ProfileSimpleScalableER,        OMX_VIDEO_MPEG4Level1  } },
+            { 0b00011111, { XXX_MPEG4ProfileSimpleScalableER,        OMX_VIDEO_MPEG4Level2  } }, */
+            { 0b00100001, { OMX_VIDEO_MPEG4ProfileCore,              OMX_VIDEO_MPEG4Level1  } },
+            { 0b00100010, { OMX_VIDEO_MPEG4ProfileCore,              OMX_VIDEO_MPEG4Level2  } },
+            { 0b00110010, { OMX_VIDEO_MPEG4ProfileMain,              OMX_VIDEO_MPEG4Level2  } },
+            { 0b00110011, { OMX_VIDEO_MPEG4ProfileMain,              OMX_VIDEO_MPEG4Level3  } },
+            { 0b00110100, { OMX_VIDEO_MPEG4ProfileMain,              OMX_VIDEO_MPEG4Level4  } },
+            /* deprecated
+            { 0b01000010, { OMX_VIDEO_MPEG4ProfileNbit,              OMX_VIDEO_MPEG4Level2  } }, */
+            { 0b01010001, { OMX_VIDEO_MPEG4ProfileScalableTexture,   OMX_VIDEO_MPEG4Level1  } },
+            { 0b01100001, { OMX_VIDEO_MPEG4ProfileSimpleFace,        OMX_VIDEO_MPEG4Level1  } },
+            { 0b01100010, { OMX_VIDEO_MPEG4ProfileSimpleFace,        OMX_VIDEO_MPEG4Level2  } },
+            { 0b01100011, { OMX_VIDEO_MPEG4ProfileSimpleFBA,         OMX_VIDEO_MPEG4Level1  } },
+            { 0b01100100, { OMX_VIDEO_MPEG4ProfileSimpleFBA,         OMX_VIDEO_MPEG4Level2  } },
+            { 0b01110001, { OMX_VIDEO_MPEG4ProfileBasicAnimated,     OMX_VIDEO_MPEG4Level1  } },
+            { 0b01110010, { OMX_VIDEO_MPEG4ProfileBasicAnimated,     OMX_VIDEO_MPEG4Level2  } },
+            { 0b10000001, { OMX_VIDEO_MPEG4ProfileHybrid,            OMX_VIDEO_MPEG4Level1  } },
+            { 0b10000010, { OMX_VIDEO_MPEG4ProfileHybrid,            OMX_VIDEO_MPEG4Level2  } },
+            { 0b10010001, { OMX_VIDEO_MPEG4ProfileAdvancedRealTime,  OMX_VIDEO_MPEG4Level1  } },
+            { 0b10010010, { OMX_VIDEO_MPEG4ProfileAdvancedRealTime,  OMX_VIDEO_MPEG4Level2  } },
+            { 0b10010011, { OMX_VIDEO_MPEG4ProfileAdvancedRealTime,  OMX_VIDEO_MPEG4Level3  } },
+            { 0b10010100, { OMX_VIDEO_MPEG4ProfileAdvancedRealTime,  OMX_VIDEO_MPEG4Level4  } },
+            { 0b10100001, { OMX_VIDEO_MPEG4ProfileCoreScalable,      OMX_VIDEO_MPEG4Level1  } },
+            { 0b10100010, { OMX_VIDEO_MPEG4ProfileCoreScalable,      OMX_VIDEO_MPEG4Level2  } },
+            { 0b10100011, { OMX_VIDEO_MPEG4ProfileCoreScalable,      OMX_VIDEO_MPEG4Level3  } },
+            { 0b10110001, { OMX_VIDEO_MPEG4ProfileAdvancedCoding,    OMX_VIDEO_MPEG4Level1  } },
+            { 0b10110010, { OMX_VIDEO_MPEG4ProfileAdvancedCoding,    OMX_VIDEO_MPEG4Level2  } },
+            { 0b10110011, { OMX_VIDEO_MPEG4ProfileAdvancedCoding,    OMX_VIDEO_MPEG4Level3  } },
+            { 0b10110100, { OMX_VIDEO_MPEG4ProfileAdvancedCoding,    OMX_VIDEO_MPEG4Level4  } },
+            { 0b11000001, { OMX_VIDEO_MPEG4ProfileAdvancedCore,      OMX_VIDEO_MPEG4Level1  } },
+            { 0b11000010, { OMX_VIDEO_MPEG4ProfileAdvancedCore,      OMX_VIDEO_MPEG4Level2  } },
+            { 0b11010001, { OMX_VIDEO_MPEG4ProfileAdvancedScalable,  OMX_VIDEO_MPEG4Level1  } },
+            { 0b11010010, { OMX_VIDEO_MPEG4ProfileAdvancedScalable,  OMX_VIDEO_MPEG4Level2  } },
+            { 0b11010011, { OMX_VIDEO_MPEG4ProfileAdvancedScalable,  OMX_VIDEO_MPEG4Level3  } },
+            /* unsupported
+            { 0b11100001, { XXX_MPEG4ProfileSimpleStudio,            OMX_VIDEO_MPEG4Level1  } },
+            { 0b11100010, { XXX_MPEG4ProfileSimpleStudio,            OMX_VIDEO_MPEG4Level2  } },
+            { 0b11100011, { XXX_MPEG4ProfileSimpleStudio,            OMX_VIDEO_MPEG4Level3  } },
+            { 0b11100100, { XXX_MPEG4ProfileSimpleStudio,            OMX_VIDEO_MPEG4Level4  } },
+            { 0b11100101, { XXX_MPEG4ProfileCoreStudio,              OMX_VIDEO_MPEG4Level1  } },
+            { 0b11100110, { XXX_MPEG4ProfileCoreStudio,              OMX_VIDEO_MPEG4Level2  } },
+            { 0b11100111, { XXX_MPEG4ProfileCoreStudio,              OMX_VIDEO_MPEG4Level3  } },
+            { 0b11101000, { XXX_MPEG4ProfileCoreStudio,              OMX_VIDEO_MPEG4Level4  } },
+            { 0b11101011, { XXX_MPEG4ProfileSimpleStudio,            OMX_VIDEO_MPEG4Level5  } },
+            { 0b11101100, { XXX_MPEG4ProfileSimpleStudio,            OMX_VIDEO_MPEG4Level6  } }, */
+            { 0b11110000, { OMX_VIDEO_MPEG4ProfileAdvancedSimple,    OMX_VIDEO_MPEG4Level0  } },
+            { 0b11110001, { OMX_VIDEO_MPEG4ProfileAdvancedSimple,    OMX_VIDEO_MPEG4Level1  } },
+            { 0b11110010, { OMX_VIDEO_MPEG4ProfileAdvancedSimple,    OMX_VIDEO_MPEG4Level2  } },
+            { 0b11110011, { OMX_VIDEO_MPEG4ProfileAdvancedSimple,    OMX_VIDEO_MPEG4Level3  } },
+            { 0b11110100, { OMX_VIDEO_MPEG4ProfileAdvancedSimple,    OMX_VIDEO_MPEG4Level4  } },
+            { 0b11110101, { OMX_VIDEO_MPEG4ProfileAdvancedSimple,    OMX_VIDEO_MPEG4Level5  } },
+            { 0b11110111, { OMX_VIDEO_MPEG4ProfileAdvancedSimple,    OMX_VIDEO_MPEG4Level3b } },
+            /* deprecated
+            { 0b11111000, { XXX_MPEG4ProfileFineGranularityScalable, OMX_VIDEO_MPEG4Level0  } },
+            { 0b11111001, { XXX_MPEG4ProfileFineGranularityScalable, OMX_VIDEO_MPEG4Level1  } },
+            { 0b11111010, { XXX_MPEG4ProfileFineGranularityScalable, OMX_VIDEO_MPEG4Level2  } },
+            { 0b11111011, { XXX_MPEG4ProfileFineGranularityScalable, OMX_VIDEO_MPEG4Level3  } },
+            { 0b11111100, { XXX_MPEG4ProfileFineGranularityScalable, OMX_VIDEO_MPEG4Level4  } },
+            { 0b11111101, { XXX_MPEG4ProfileFineGranularityScalable, OMX_VIDEO_MPEG4Level5  } }, */
+        };
+
+        std::pair<OMX_VIDEO_MPEG4PROFILETYPE, OMX_VIDEO_MPEG4LEVELTYPE> profileLevel;
+        if (table.map(indication, &profileLevel)) {
+            format->setInt32("profile", profileLevel.first);
+            format->setInt32("level", profileLevel.second);
+        }
+    }
+}
+
+static void parseVp9ProfileLevelFromCsd(const sp<ABuffer> &csd, sp<AMessage> &format) {
+    const uint8_t *data = csd->data();
+    size_t remaining = csd->size();
+
+    while (remaining >= 2) {
+        const uint8_t id = data[0];
+        const uint8_t length = data[1];
+        remaining -= 2;
+        data += 2;
+        if (length > remaining) {
+            break;
+        }
+        switch (id) {
+            case 1 /* profileId */:
+                if (length >= 1) {
+                    const static ALookup<uint8_t, OMX_VIDEO_VP9PROFILETYPE> profiles {
+                        { 0, OMX_VIDEO_VP9Profile0 },
+                        { 1, OMX_VIDEO_VP9Profile1 },
+                        { 2, OMX_VIDEO_VP9Profile2 },
+                        { 3, OMX_VIDEO_VP9Profile3 },
+                    };
+
+                    const static ALookup<OMX_VIDEO_VP9PROFILETYPE, OMX_VIDEO_VP9PROFILETYPE> toHdr {
+                        { OMX_VIDEO_VP9Profile2, OMX_VIDEO_VP9Profile2HDR },
+                        { OMX_VIDEO_VP9Profile3, OMX_VIDEO_VP9Profile3HDR },
+                    };
+
+                    OMX_VIDEO_VP9PROFILETYPE profile;
+                    if (profiles.map(data[0], &profile)) {
+                        // convert to HDR profile
+                        if (isHdr(format)) {
+                            toHdr.lookup(profile, &profile);
+                        }
+
+                        format->setInt32("profile", profile);
+                    }
+                }
+                break;
+            case 2 /* levelId */:
+                if (length >= 1) {
+                    const static ALookup<uint8_t, OMX_VIDEO_VP9LEVELTYPE> levels {
+                        { 10, OMX_VIDEO_VP9Level1  },
+                        { 11, OMX_VIDEO_VP9Level11 },
+                        { 20, OMX_VIDEO_VP9Level2  },
+                        { 21, OMX_VIDEO_VP9Level21 },
+                        { 30, OMX_VIDEO_VP9Level3  },
+                        { 31, OMX_VIDEO_VP9Level31 },
+                        { 40, OMX_VIDEO_VP9Level4  },
+                        { 41, OMX_VIDEO_VP9Level41 },
+                        { 50, OMX_VIDEO_VP9Level5  },
+                        { 51, OMX_VIDEO_VP9Level51 },
+                        { 52, OMX_VIDEO_VP9Level52 },
+                        { 60, OMX_VIDEO_VP9Level6  },
+                        { 61, OMX_VIDEO_VP9Level61 },
+                        { 62, OMX_VIDEO_VP9Level62 },
+                    };
+
+                    OMX_VIDEO_VP9LEVELTYPE level;
+                    if (levels.map(data[0], &level)) {
+                        format->setInt32("level", level);
+                    }
+                }
+                break;
+            default:
+                break;
+        }
+        remaining -= length;
+        data += length;
+    }
+}
+
 status_t convertMetaDataToMessage(
         const sp<MetaData> &meta, sp<AMessage> *format) {
+
     format->clear();
 
+    if (meta == NULL) {
+        ALOGE("convertMetaDataToMessage: NULL input");
+        return BAD_VALUE;
+    }
+
     const char *mime;
-    CHECK(meta->findCString(kKeyMIMEType, &mime));
+    if (!meta->findCString(kKeyMIMEType, &mime)) {
+        return BAD_VALUE;
+    }
 
     sp<AMessage> msg = new AMessage;
     msg->setString("mime", mime);
@@ -102,9 +614,15 @@ status_t convertMetaDataToMessage(
         msg->setInt64("durationUs", durationUs);
     }
 
-    int avgBitRate;
-    if (meta->findInt32(kKeyBitRate, &avgBitRate)) {
-        msg->setInt32("bit-rate", avgBitRate);
+    int32_t avgBitRate = 0;
+    if (meta->findInt32(kKeyBitRate, &avgBitRate) && avgBitRate > 0) {
+        msg->setInt32("bitrate", avgBitRate);
+    }
+
+    int32_t maxBitRate;
+    if (meta->findInt32(kKeyMaxBitRate, &maxBitRate)
+            && maxBitRate > 0 && maxBitRate >= avgBitRate) {
+        msg->setInt32("max-bitrate", maxBitRate);
     }
 
     int32_t isSync;
@@ -112,10 +630,18 @@ status_t convertMetaDataToMessage(
         msg->setInt32("is-sync-frame", 1);
     }
 
+    // this only needs to be translated from meta to message as it is an extractor key
+    int32_t trackID;
+    if (meta->findInt32(kKeyTrackID, &trackID)) {
+        msg->setInt32("track-id", trackID);
+    }
+
     if (!strncasecmp("video/", mime, 6)) {
         int32_t width, height;
-        CHECK(meta->findInt32(kKeyWidth, &width));
-        CHECK(meta->findInt32(kKeyHeight, &height));
+        if (!meta->findInt32(kKeyWidth, &width)
+                || !meta->findInt32(kKeyHeight, &height)) {
+            return BAD_VALUE;
+        }
 
         msg->setInt32("width", width);
         msg->setInt32("height", height);
@@ -145,10 +671,22 @@ status_t convertMetaDataToMessage(
         if (meta->findInt32(kKeyRotation, &rotationDegrees)) {
             msg->setInt32("rotation-degrees", rotationDegrees);
         }
+
+        uint32_t type;
+        const void *data;
+        size_t size;
+        if (meta->findData(kKeyHdrStaticInfo, &type, &data, &size)
+                && type == 'hdrS' && size == sizeof(HDRStaticInfo)) {
+            ColorUtils::setHDRStaticInfoIntoFormat(*(HDRStaticInfo*)data, msg);
+        }
+
+        convertMetaDataToMessageColorAspects(meta, msg);
     } else if (!strncasecmp("audio/", mime, 6)) {
         int32_t numChannels, sampleRate;
-        CHECK(meta->findInt32(kKeyChannelCount, &numChannels));
-        CHECK(meta->findInt32(kKeySampleRate, &sampleRate));
+        if (!meta->findInt32(kKeyChannelCount, &numChannels)
+                || !meta->findInt32(kKeySampleRate, &sampleRate)) {
+            return BAD_VALUE;
+        }
 
         msg->setInt32("channel-count", numChannels);
         msg->setInt32("sample-rate", sampleRate);
@@ -169,12 +707,17 @@ status_t convertMetaDataToMessage(
 
         int32_t isADTS;
         if (meta->findInt32(kKeyIsADTS, &isADTS)) {
-            msg->setInt32("is-adts", true);
+            msg->setInt32("is-adts", isADTS);
         }
 
         int32_t aacProfile = -1;
         if (meta->findInt32(kKeyAACAOT, &aacProfile)) {
             msg->setInt32("aac-profile", aacProfile);
+        }
+
+        int32_t pcmEncoding;
+        if (meta->findInt32(kKeyPcmEncoding, &pcmEncoding)) {
+            msg->setInt32("pcm-encoding", pcmEncoding);
         }
     }
 
@@ -199,7 +742,7 @@ status_t convertMetaDataToMessage(
     }
 
     int32_t fps;
-    if (meta->findInt32(kKeyFrameRate, &fps)) {
+    if (meta->findInt32(kKeyFrameRate, &fps) && fps > 0) {
         msg->setInt32("frame-rate", fps);
     }
 
@@ -211,10 +754,12 @@ status_t convertMetaDataToMessage(
 
         const uint8_t *ptr = (const uint8_t *)data;
 
-        CHECK(size >= 7);
-        CHECK_EQ((unsigned)ptr[0], 1u);  // configurationVersion == 1
-        uint8_t profile __unused = ptr[1];
-        uint8_t level __unused = ptr[3];
+        if (size < 7 || ptr[0] != 1) {  // configurationVersion == 1
+            ALOGE("b/23680780");
+            return BAD_VALUE;
+        }
+
+        parseAvcProfileLevelFromAvcc(ptr, size, msg);
 
         // There is decodable content out there that fails the following
         // assertion, let's be lenient for now...
@@ -238,7 +783,10 @@ status_t convertMetaDataToMessage(
         buffer->setRange(0, 0);
 
         for (size_t i = 0; i < numSeqParameterSets; ++i) {
-            CHECK(size >= 2);
+            if (size < 2) {
+                ALOGE("b/23680780");
+                return BAD_VALUE;
+            }
             size_t length = U16_AT(ptr);
 
             ptr += 2;
@@ -267,13 +815,19 @@ status_t convertMetaDataToMessage(
         }
         buffer->setRange(0, 0);
 
-        CHECK(size >= 1);
+        if (size < 1) {
+            ALOGE("b/23680780");
+            return BAD_VALUE;
+        }
         size_t numPictureParameterSets = *ptr;
         ++ptr;
         --size;
 
         for (size_t i = 0; i < numPictureParameterSets; ++i) {
-            CHECK(size >= 2);
+            if (size < 2) {
+                ALOGE("b/23680780");
+                return BAD_VALUE;
+            }
             size_t length = U16_AT(ptr);
 
             ptr += 2;
@@ -297,13 +851,14 @@ status_t convertMetaDataToMessage(
     } else if (meta->findData(kKeyHVCC, &type, &data, &size)) {
         const uint8_t *ptr = (const uint8_t *)data;
 
-        CHECK(size >= 7);
-        CHECK_EQ((unsigned)ptr[0], 1u);  // configurationVersion == 1
-        uint8_t profile __unused = ptr[1] & 31;
-        uint8_t level __unused = ptr[12];
+        if (size < 23 || ptr[0] != 1) {  // configurationVersion == 1
+            ALOGE("b/23680780");
+            return BAD_VALUE;
+        }
+
+        const size_t dataSize = size; // save for later
         ptr += 22;
         size -= 22;
-
 
         size_t numofArrays = (char)ptr[0];
         ptr += 1;
@@ -316,7 +871,13 @@ status_t convertMetaDataToMessage(
         }
         buffer->setRange(0, 0);
 
+        HevcParameterSets hvcc;
+
         for (i = 0; i < numofArrays; i++) {
+            if (size < 3) {
+                ALOGE("b/23680780");
+                return BAD_VALUE;
+            }
             ptr += 1;
             size -= 1;
 
@@ -327,7 +888,10 @@ status_t convertMetaDataToMessage(
             size -= 2;
 
             for (j = 0; j < numofNals; j++) {
-                CHECK(size >= 2);
+                if (size < 2) {
+                    ALOGE("b/23680780");
+                    return BAD_VALUE;
+                }
                 size_t length = U16_AT(ptr);
 
                 ptr += 2;
@@ -340,6 +904,7 @@ status_t convertMetaDataToMessage(
                 if (err != OK) {
                     return err;
                 }
+                (void)hvcc.addNalUnit(ptr, length);
 
                 ptr += length;
                 size -= length;
@@ -349,9 +914,19 @@ status_t convertMetaDataToMessage(
         buffer->meta()->setInt64("timeUs", 0);
         msg->setBuffer("csd-0", buffer);
 
+        // if we saw VUI color information we know whether this is HDR because VUI trumps other
+        // format parameters for HEVC.
+        HevcParameterSets::Info info = hvcc.getInfo();
+        if (info & hvcc.kInfoHasColorDescription) {
+            msg->setInt32("android._is-hdr", (info & hvcc.kInfoIsHdr) != 0);
+        }
+
+        parseHevcProfileLevelFromHvcc((const uint8_t *)data, dataSize, msg);
     } else if (meta->findData(kKeyESDS, &type, &data, &size)) {
         ESDS esds((const char *)data, size);
-        CHECK_EQ(esds.InitCheck(), (status_t)OK);
+        if (esds.InitCheck() != (status_t)OK) {
+            return BAD_VALUE;
+        }
 
         const void *codec_specific_data;
         size_t codec_specific_data_size;
@@ -369,6 +944,34 @@ status_t convertMetaDataToMessage(
         buffer->meta()->setInt32("csd", true);
         buffer->meta()->setInt64("timeUs", 0);
         msg->setBuffer("csd-0", buffer);
+
+        if (!strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_MPEG4)) {
+            parseMpeg4ProfileLevelFromCsd(buffer, msg);
+        } else if (!strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_MPEG2)) {
+            parseMpeg2ProfileLevelFromEsds(esds, msg);
+            if (meta->findData(kKeyStreamHeader, &type, &data, &size)) {
+                parseMpeg2ProfileLevelFromHeader((uint8_t*)data, size, msg);
+            }
+        } else if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_AAC)) {
+            parseAacProfileFromCsd(buffer, msg);
+        }
+
+        uint32_t maxBitrate, avgBitrate;
+        if (esds.getBitRate(&maxBitrate, &avgBitrate) == OK) {
+            if (!meta->hasData(kKeyBitRate)
+                    && avgBitrate > 0 && avgBitrate <= INT32_MAX) {
+                msg->setInt32("bitrate", (int32_t)avgBitrate);
+            } else {
+                (void)msg->findInt32("bitrate", (int32_t*)&avgBitrate);
+            }
+            if (!meta->hasData(kKeyMaxBitRate)
+                    && maxBitrate > 0 && maxBitrate <= INT32_MAX && maxBitrate >= avgBitrate) {
+                msg->setInt32("max-bitrate", (int32_t)maxBitrate);
+            }
+        }
+    } else if (meta->findData(kTypeD263, &type, &data, &size)) {
+        const uint8_t *ptr = (const uint8_t *)data;
+        parseH263ProfileLevelFromD263(ptr, size, msg);
     } else if (meta->findData(kKeyVorbisInfo, &type, &data, &size)) {
         sp<ABuffer> buffer = new (std::nothrow) ABuffer(size);
         if (buffer.get() == NULL || buffer->base() == NULL) {
@@ -431,6 +1034,25 @@ status_t convertMetaDataToMessage(
         buffer->meta()->setInt32("csd", true);
         buffer->meta()->setInt64("timeUs", 0);
         msg->setBuffer("csd-2", buffer);
+    } else if (meta->findData(kKeyVp9CodecPrivate, &type, &data, &size)) {
+        sp<ABuffer> buffer = new (std::nothrow) ABuffer(size);
+        if (buffer.get() == NULL || buffer->base() == NULL) {
+            return NO_MEMORY;
+        }
+        memcpy(buffer->data(), data, size);
+
+        buffer->meta()->setInt32("csd", true);
+        buffer->meta()->setInt64("timeUs", 0);
+        msg->setBuffer("csd-0", buffer);
+
+        parseVp9ProfileLevelFromCsd(buffer, msg);
+    }
+
+    // TODO expose "crypto-key"/kKeyCryptoKey through public api
+    if (meta->findData(kKeyCryptoKey, &type, &data, &size)) {
+        sp<ABuffer> buffer = new (std::nothrow) ABuffer(size);
+        msg->setBuffer("crypto-key", buffer);
+        memcpy(buffer->data(), data, size);
     }
 
     *format = msg;
@@ -438,12 +1060,20 @@ status_t convertMetaDataToMessage(
     return OK;
 }
 
-static size_t reassembleAVCC(const sp<ABuffer> &csd0, const sp<ABuffer> csd1, char *avcc) {
+const uint8_t *findNextNalStartCode(const uint8_t *data, size_t length) {
+    uint8_t *res = NULL;
+    if (length > 4) {
+        // minus 1 as to not match NAL start code at end
+        res = (uint8_t *)memmem(data, length - 1, "\x00\x00\x00\x01", 4);
+    }
+    return res != NULL && res < data + length - 4 ? res : &data[length];
+}
 
+static size_t reassembleAVCC(const sp<ABuffer> &csd0, const sp<ABuffer> csd1, char *avcc) {
     avcc[0] = 1;        // version
-    avcc[1] = 0x64;     // profile
-    avcc[2] = 0;        // unused (?)
-    avcc[3] = 0xd;      // level
+    avcc[1] = 0x64;     // profile (default to high)
+    avcc[2] = 0;        // constraints (default to none)
+    avcc[3] = 0xd;      // level (default to 1.3)
     avcc[4] = 0xff;     // reserved+size
 
     size_t i = 0;
@@ -451,26 +1081,28 @@ static size_t reassembleAVCC(const sp<ABuffer> &csd0, const sp<ABuffer> csd1, ch
     int lastparamoffset = 0;
     int avccidx = 6;
     do {
-        if (i >= csd0->size() - 4 ||
-                memcmp(csd0->data() + i, "\x00\x00\x00\x01", 4) == 0) {
-            if (i >= csd0->size() - 4) {
-                // there can't be another param here, so use all the rest
-                i = csd0->size();
+        i = findNextNalStartCode(csd0->data() + i, csd0->size() - i) - csd0->data();
+        ALOGV("block at %zu, last was %d", i, lastparamoffset);
+        if (lastparamoffset > 0) {
+            const uint8_t *lastparam = csd0->data() + lastparamoffset;
+            int size = i - lastparamoffset;
+            if (size > 3) {
+                if (numparams && memcmp(avcc + 1, lastparam + 1, 3)) {
+                    ALOGW("Inconsisted profile/level found in SPS: %x,%x,%x vs %x,%x,%x",
+                            avcc[1], avcc[2], avcc[3], lastparam[1], lastparam[2], lastparam[3]);
+                } else if (!numparams) {
+                    // fill in profile, constraints and level
+                    memcpy(avcc + 1, lastparam + 1, 3);
+                }
             }
-            ALOGV("block at %zu, last was %d", i, lastparamoffset);
-            if (lastparamoffset > 0) {
-                int size = i - lastparamoffset;
-                avcc[avccidx++] = size >> 8;
-                avcc[avccidx++] = size & 0xff;
-                memcpy(avcc+avccidx, csd0->data() + lastparamoffset, size);
-                avccidx += size;
-                numparams++;
-            }
-            i += 4;
-            lastparamoffset = i;
-        } else {
-            i++;
+            avcc[avccidx++] = size >> 8;
+            avcc[avccidx++] = size & 0xff;
+            memcpy(avcc+avccidx, lastparam, size);
+            avccidx += size;
+            numparams++;
         }
+        i += 4;
+        lastparamoffset = i;
     } while(i < csd0->size());
     ALOGV("csd0 contains %d params", numparams);
 
@@ -482,26 +1114,18 @@ static size_t reassembleAVCC(const sp<ABuffer> &csd0, const sp<ABuffer> csd1, ch
     int numpicparamsoffset = avccidx;
     avccidx++;
     do {
-        if (i >= csd1->size() - 4 ||
-                memcmp(csd1->data() + i, "\x00\x00\x00\x01", 4) == 0) {
-            if (i >= csd1->size() - 4) {
-                // there can't be another param here, so use all the rest
-                i = csd1->size();
-            }
-            ALOGV("block at %zu, last was %d", i, lastparamoffset);
-            if (lastparamoffset > 0) {
-                int size = i - lastparamoffset;
-                avcc[avccidx++] = size >> 8;
-                avcc[avccidx++] = size & 0xff;
-                memcpy(avcc+avccidx, csd1->data() + lastparamoffset, size);
-                avccidx += size;
-                numparams++;
-            }
-            i += 4;
-            lastparamoffset = i;
-        } else {
-            i++;
+        i = findNextNalStartCode(csd1->data() + i, csd1->size() - i) - csd1->data();
+        ALOGV("block at %zu, last was %d", i, lastparamoffset);
+        if (lastparamoffset > 0) {
+            int size = i - lastparamoffset;
+            avcc[avccidx++] = size >> 8;
+            avcc[avccidx++] = size & 0xff;
+            memcpy(avcc+avccidx, csd1->data() + lastparamoffset, size);
+            avccidx += size;
+            numparams++;
         }
+        i += 4;
+        lastparamoffset = i;
     } while(i < csd1->size());
     avcc[numpicparamsoffset] = numparams;
     return avccidx;
@@ -525,15 +1149,16 @@ static void reassembleESDS(const sp<ABuffer> &csd0, char *esds) {
     esds[11] = 0x80 | ((configdescriptorsize >> 7) & 0x7f);
     esds[12] = (configdescriptorsize & 0x7f);
     esds[13] = 0x40; // objectTypeIndication
-    esds[14] = 0x15; // not sure what 14-25 mean, they are ignored by ESDS.cpp,
-    esds[15] = 0x00; // but the actual values here were taken from a real file.
+    // bytes 14-25 are examples from a real file. they are unused/overwritten by muxers.
+    esds[14] = 0x15; // streamType(5), upStream(0),
+    esds[15] = 0x00; // 15-17: bufferSizeDB (6KB)
     esds[16] = 0x18;
     esds[17] = 0x00;
-    esds[18] = 0x00;
+    esds[18] = 0x00; // 18-21: maxBitrate (64kbps)
     esds[19] = 0x00;
     esds[20] = 0xfa;
     esds[21] = 0x00;
-    esds[22] = 0x00;
+    esds[22] = 0x00; // 22-25: avgBitrate (64kbps)
     esds[23] = 0x00;
     esds[24] = 0xfa;
     esds[25] = 0x00;
@@ -544,7 +1169,80 @@ static void reassembleESDS(const sp<ABuffer> &csd0, char *esds) {
     esds[30] = (csd0size & 0x7f);
     memcpy((void*)&esds[31], csd0->data(), csd0size);
     // data following this is ignored, so don't bother appending it
+}
 
+static size_t reassembleHVCC(const sp<ABuffer> &csd0, uint8_t *hvcc, size_t hvccSize, size_t nalSizeLength) {
+    HevcParameterSets paramSets;
+    uint8_t* data = csd0->data();
+    if (csd0->size() < 4) {
+        ALOGE("csd0 too small");
+        return 0;
+    }
+    if (memcmp(data, "\x00\x00\x00\x01", 4) != 0) {
+        ALOGE("csd0 doesn't start with a start code");
+        return 0;
+    }
+    size_t prevNalOffset = 4;
+    status_t err = OK;
+    for (size_t i = 1; i < csd0->size() - 4; ++i) {
+        if (memcmp(&data[i], "\x00\x00\x00\x01", 4) != 0) {
+            continue;
+        }
+        err = paramSets.addNalUnit(&data[prevNalOffset], i - prevNalOffset);
+        if (err != OK) {
+            return 0;
+        }
+        prevNalOffset = i + 4;
+    }
+    err = paramSets.addNalUnit(&data[prevNalOffset], csd0->size() - prevNalOffset);
+    if (err != OK) {
+        return 0;
+    }
+    size_t size = hvccSize;
+    err = paramSets.makeHvcc(hvcc, &size, nalSizeLength);
+    if (err != OK) {
+        return 0;
+    }
+    return size;
+}
+
+#if 0
+static void convertMessageToMetaDataInt32(
+        const sp<AMessage> &msg, sp<MetaData> &meta, uint32_t key, const char *name) {
+    int32_t value;
+    if (msg->findInt32(name, &value)) {
+        meta->setInt32(key, value);
+    }
+}
+#endif
+
+static void convertMessageToMetaDataColorAspects(const sp<AMessage> &msg, sp<MetaData> &meta) {
+    // 0 values are unspecified
+    int32_t range = 0, standard = 0, transfer = 0;
+    (void)msg->findInt32("color-range", &range);
+    (void)msg->findInt32("color-standard", &standard);
+    (void)msg->findInt32("color-transfer", &transfer);
+
+    ColorAspects colorAspects;
+    memset(&colorAspects, 0, sizeof(colorAspects));
+    if (CodecBase::convertPlatformColorAspectsToCodecAspects(
+            range, standard, transfer, colorAspects) != OK) {
+        return;
+    }
+
+    // save specified values to meta
+    if (colorAspects.mRange != 0) {
+        meta->setInt32(kKeyColorRange, colorAspects.mRange);
+    }
+    if (colorAspects.mPrimaries != 0) {
+        meta->setInt32(kKeyColorPrimaries, colorAspects.mPrimaries);
+    }
+    if (colorAspects.mTransfer != 0) {
+        meta->setInt32(kKeyTransferFunction, colorAspects.mTransfer);
+    }
+    if (colorAspects.mMatrixCoeffs != 0) {
+        meta->setInt32(kKeyColorMatrix, colorAspects.mMatrixCoeffs);
+    }
 }
 
 void convertMessageToMetaData(const sp<AMessage> &msg, sp<MetaData> &meta) {
@@ -563,6 +1261,15 @@ void convertMessageToMetaData(const sp<AMessage> &msg, sp<MetaData> &meta) {
     int32_t isSync;
     if (msg->findInt32("is-sync-frame", &isSync) && isSync != 0) {
         meta->setInt32(kKeyIsSyncFrame, 1);
+    }
+
+    int32_t avgBitrate = 0;
+    int32_t maxBitrate;
+    if (msg->findInt32("bitrate", &avgBitrate) && avgBitrate > 0) {
+        meta->setInt32(kKeyBitRate, avgBitrate);
+    }
+    if (msg->findInt32("max-bitrate", &maxBitrate) && maxBitrate > 0 && maxBitrate >= avgBitrate) {
+        meta->setInt32(kKeyMaxBitRate, maxBitrate);
     }
 
     if (mime.startsWith("video/")) {
@@ -600,6 +1307,15 @@ void convertMessageToMetaData(const sp<AMessage> &msg, sp<MetaData> &meta) {
         if (msg->findInt32("rotation-degrees", &rotationDegrees)) {
             meta->setInt32(kKeyRotation, rotationDegrees);
         }
+
+        if (msg->contains("hdr-static-info")) {
+            HDRStaticInfo info;
+            if (ColorUtils::getHDRStaticInfoFromFormat(msg, &info)) {
+                meta->setData(kKeyHdrStaticInfo, 'hdrS', &info, sizeof(info));
+            }
+        }
+
+        convertMessageToMetaDataColorAspects(msg, meta);
     } else if (mime.startsWith("audio/")) {
         int32_t numChannels;
         if (msg->findInt32("channel-count", &numChannels)) {
@@ -626,6 +1342,11 @@ void convertMessageToMetaData(const sp<AMessage> &msg, sp<MetaData> &meta) {
         if (msg->findInt32("is-adts", &isADTS)) {
             meta->setInt32(kKeyIsADTS, isADTS);
         }
+
+        int32_t pcmEncoding;
+        if (msg->findInt32("pcm-encoding", &pcmEncoding)) {
+            meta->setInt32(kKeyPcmEncoding, pcmEncoding);
+        }
     }
 
     int32_t maxInputSize;
@@ -644,12 +1365,17 @@ void convertMessageToMetaData(const sp<AMessage> &msg, sp<MetaData> &meta) {
     }
 
     int32_t fps;
-    if (msg->findInt32("frame-rate", &fps)) {
+    float fpsFloat;
+    if (msg->findInt32("frame-rate", &fps) && fps > 0) {
         meta->setInt32(kKeyFrameRate, fps);
+    } else if (msg->findFloat("frame-rate", &fpsFloat)
+            && fpsFloat >= 1 && fpsFloat <= INT32_MAX) {
+        // truncate values to distinguish between e.g. 24 vs 23.976 fps
+        meta->setInt32(kKeyFrameRate, (int32_t)fpsFloat);
     }
 
     // reassemble the csd data into its original form
-    sp<ABuffer> csd0;
+    sp<ABuffer> csd0, csd1, csd2;
     if (msg->findBuffer("csd-0", &csd0)) {
         if (mime == MEDIA_MIMETYPE_VIDEO_AVC) {
             sp<ABuffer> csd1;
@@ -665,6 +1391,25 @@ void convertMessageToMetaData(const sp<AMessage> &msg, sp<MetaData> &meta) {
             // for transporting the CSD to muxers.
             reassembleESDS(csd0, esds);
             meta->setData(kKeyESDS, kKeyESDS, esds, sizeof(esds));
+        } else if (mime == MEDIA_MIMETYPE_VIDEO_HEVC) {
+            uint8_t hvcc[1024]; // that oughta be enough, right?
+            size_t outsize = reassembleHVCC(csd0, hvcc, 1024, 4);
+            meta->setData(kKeyHVCC, kKeyHVCC, hvcc, outsize);
+        } else if (mime == MEDIA_MIMETYPE_VIDEO_VP9) {
+            meta->setData(kKeyVp9CodecPrivate, 0, csd0->data(), csd0->size());
+        } else if (mime == MEDIA_MIMETYPE_AUDIO_OPUS) {
+            meta->setData(kKeyOpusHeader, 0, csd0->data(), csd0->size());
+            if (msg->findBuffer("csd-1", &csd1)) {
+                meta->setData(kKeyOpusCodecDelay, 0, csd1->data(), csd1->size());
+            }
+            if (msg->findBuffer("csd-2", &csd2)) {
+                meta->setData(kKeyOpusSeekPreRoll, 0, csd2->data(), csd2->size());
+            }
+        } else if (mime == MEDIA_MIMETYPE_AUDIO_VORBIS) {
+            meta->setData(kKeyVorbisInfo, 0, csd0->data(), csd0->size());
+            if (msg->findBuffer("csd-1", &csd1)) {
+                meta->setData(kKeyVorbisBooks, 0, csd1->data(), csd1->size());
+            }
         }
     }
 
@@ -856,7 +1601,7 @@ bool canOffloadStream(const sp<MetaData>& meta, bool hasVideo,
     int32_t brate = -1;
     if (!meta->findInt32(kKeyBitRate, &brate)) {
         ALOGV("track of type '%s' does not publish bitrate", mime);
-     }
+    }
     info.bit_rate = brate;
 
 
@@ -985,6 +1730,38 @@ void readFromAMessage(
     CHECK(msg->findFloat("tolerance", &settings.mTolerance));
     CHECK(msg->findFloat("video-fps", videoFps));
     *sync = settings;
+}
+
+AString nameForFd(int fd) {
+    const size_t SIZE = 256;
+    char buffer[SIZE];
+    AString result;
+    snprintf(buffer, SIZE, "/proc/%d/fd/%d", getpid(), fd);
+    struct stat s;
+    if (lstat(buffer, &s) == 0) {
+        if ((s.st_mode & S_IFMT) == S_IFLNK) {
+            char linkto[256];
+            int len = readlink(buffer, linkto, sizeof(linkto));
+            if(len > 0) {
+                if(len > 255) {
+                    linkto[252] = '.';
+                    linkto[253] = '.';
+                    linkto[254] = '.';
+                    linkto[255] = 0;
+                } else {
+                    linkto[len] = 0;
+                }
+                result.append(linkto);
+            }
+        } else {
+            result.append("unexpected type for ");
+            result.append(buffer);
+        }
+    } else {
+        result.append("couldn't open ");
+        result.append(buffer);
+    }
+    return result;
 }
 
 }  // namespace android

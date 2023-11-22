@@ -21,6 +21,7 @@
 #include "utils.h"
 #include <numeric>
 #include "gtest/gtest.h"
+#include "runtime/experimental_flags.h"
 
 #define EXPECT_NULL(expected) EXPECT_EQ(reinterpret_cast<const void*>(expected), \
                                         reinterpret_cast<void*>(nullptr));
@@ -101,6 +102,19 @@ namespace art {
     return ::testing::AssertionFailure() << "key was not in the map";
   }
 
+  template <typename TMap, typename TKey, typename T>
+  ::testing::AssertionResult IsExpectedDefaultKeyValue(const T& expected,
+                                                       const TMap& map,
+                                                       const TKey& key) {
+    const T& actual = map.GetOrDefault(key);
+    if (!UsuallyEquals(expected, actual)) {
+      return ::testing::AssertionFailure()
+          << "expected " << detail::ToStringAny(expected) << " but got "
+          << detail::ToStringAny(actual);
+     }
+    return ::testing::AssertionSuccess();
+  }
+
 class CmdlineParserTest : public ::testing::Test {
  public:
   CmdlineParserTest() = default;
@@ -145,12 +159,22 @@ class CmdlineParserTest : public ::testing::Test {
 
 #define EXPECT_KEY_EXISTS(map, key) EXPECT_TRUE((map).Exists(key))
 #define EXPECT_KEY_VALUE(map, key, expected) EXPECT_TRUE(IsExpectedKeyValue(expected, map, key))
+#define EXPECT_DEFAULT_KEY_VALUE(map, key, expected) EXPECT_TRUE(IsExpectedDefaultKeyValue(expected, map, key))
 
-#define EXPECT_SINGLE_PARSE_EMPTY_SUCCESS(argv)               \
+#define _EXPECT_SINGLE_PARSE_EMPTY_SUCCESS(argv)              \
   do {                                                        \
     EXPECT_TRUE(IsResultSuccessful(parser_->Parse(argv)));    \
     EXPECT_EQ(0u, parser_->GetArgumentsMap().Size());         \
+
+#define EXPECT_SINGLE_PARSE_EMPTY_SUCCESS(argv)               \
+  _EXPECT_SINGLE_PARSE_EMPTY_SUCCESS(argv);                   \
   } while (false)
+
+#define EXPECT_SINGLE_PARSE_DEFAULT_VALUE(expected, argv, key)\
+  _EXPECT_SINGLE_PARSE_EMPTY_SUCCESS(argv);                   \
+    RuntimeArgumentMap args = parser_->ReleaseArgumentsMap(); \
+    EXPECT_DEFAULT_KEY_VALUE(args, key, expected);            \
+  } while (false)                                             // NOLINT [readability/namespace] [5]
 
 #define _EXPECT_SINGLE_PARSE_EXISTS(argv, key)                \
   do {                                                        \
@@ -193,9 +217,6 @@ TEST_F(CmdlineParserTest, TestSimpleSuccesses) {
   EXPECT_SINGLE_PARSE_EXISTS("-Xzygote", M::Zygote);
   EXPECT_SINGLE_PARSE_VALUE_STR("/hello/world", "-Xbootclasspath:/hello/world", M::BootClassPath);
   EXPECT_SINGLE_PARSE_VALUE("/hello/world", "-Xbootclasspath:/hello/world", M::BootClassPath);
-  EXPECT_SINGLE_PARSE_VALUE(false, "-Xverify:none", M::Verify);
-  EXPECT_SINGLE_PARSE_VALUE(true, "-Xverify:remote", M::Verify);
-  EXPECT_SINGLE_PARSE_VALUE(true, "-Xverify:all", M::Verify);
   EXPECT_SINGLE_PARSE_VALUE(Memory<1>(234), "-Xss234", M::StackSize);
   EXPECT_SINGLE_PARSE_VALUE(MemoryKiB(1234*MB), "-Xms1234m", M::MemoryInitialSize);
   EXPECT_SINGLE_PARSE_VALUE(true, "-XX:EnableHSpaceCompactForOOM", M::EnableHSpaceCompactForOOM);
@@ -222,8 +243,8 @@ TEST_F(CmdlineParserTest, TestSimpleFailures) {
 TEST_F(CmdlineParserTest, TestLogVerbosity) {
   {
     const char* log_args = "-verbose:"
-        "class,compiler,gc,heap,jdwp,jni,monitor,profiler,signals,startup,third-party-jni,"
-        "threads,verifier";
+        "class,compiler,gc,heap,jdwp,jni,monitor,profiler,signals,simulator,startup,"
+        "third-party-jni,threads,verifier";
 
     LogVerbosity log_verbosity = LogVerbosity();
     log_verbosity.class_linker = true;
@@ -235,6 +256,7 @@ TEST_F(CmdlineParserTest, TestLogVerbosity) {
     log_verbosity.monitor = true;
     log_verbosity.profiler = true;
     log_verbosity.signals = true;
+    log_verbosity.simulator = true;
     log_verbosity.startup = true;
     log_verbosity.third_party_jni = true;
     log_verbosity.threads = true;
@@ -260,6 +282,20 @@ TEST_F(CmdlineParserTest, TestLogVerbosity) {
   }
 
   EXPECT_SINGLE_PARSE_FAIL("-verbose:blablabla", CmdlineResult::kUsage);  // invalid verbose opt
+
+  {
+    const char* log_args = "-verbose:deopt";
+    LogVerbosity log_verbosity = LogVerbosity();
+    log_verbosity.deopt = true;
+    EXPECT_SINGLE_PARSE_VALUE(log_verbosity, log_args, M::Verbose);
+  }
+
+  {
+    const char* log_args = "-verbose:collector";
+    LogVerbosity log_verbosity = LogVerbosity();
+    log_verbosity.collector = true;
+    EXPECT_SINGLE_PARSE_VALUE(log_verbosity, log_args, M::Verbose);
+  }
 
   {
     const char* log_args = "-verbose:oat";
@@ -425,12 +461,14 @@ TEST_F(CmdlineParserTest, TestJitOptions) {
   * Test successes
   */
   {
-    EXPECT_SINGLE_PARSE_VALUE(true, "-Xusejit:true", M::UseJIT);
-    EXPECT_SINGLE_PARSE_VALUE(false, "-Xusejit:false", M::UseJIT);
+    EXPECT_SINGLE_PARSE_VALUE(true, "-Xusejit:true", M::UseJitCompilation);
+    EXPECT_SINGLE_PARSE_VALUE(false, "-Xusejit:false", M::UseJitCompilation);
   }
   {
-    EXPECT_SINGLE_PARSE_VALUE(MemoryKiB(16 * KB), "-Xjitcodecachesize:16K", M::JITCodeCacheCapacity);
-    EXPECT_SINGLE_PARSE_VALUE(MemoryKiB(16 * MB), "-Xjitcodecachesize:16M", M::JITCodeCacheCapacity);
+    EXPECT_SINGLE_PARSE_VALUE(
+        MemoryKiB(16 * KB), "-Xjitinitialsize:16K", M::JITCodeCacheInitialCapacity);
+    EXPECT_SINGLE_PARSE_VALUE(
+        MemoryKiB(16 * MB), "-Xjitmaxsize:16M", M::JITCodeCacheMaxCapacity);
   }
   {
     EXPECT_SINGLE_PARSE_VALUE(12345u, "-Xjitthreshold:12345", M::JITCompileThreshold);
@@ -501,6 +539,32 @@ TEST_F(CmdlineParserTest, TestProfilerOptions) {
                               M::ProfilerOpts);
   }
 }  // TEST_F
+
+/* -Xexperimental:_ */
+TEST_F(CmdlineParserTest, TestExperimentalFlags) {
+  // Default
+  EXPECT_SINGLE_PARSE_DEFAULT_VALUE(ExperimentalFlags::kNone,
+                                    "",
+                                    M::Experimental);
+
+  // Disabled explicitly
+  EXPECT_SINGLE_PARSE_VALUE(ExperimentalFlags::kNone,
+                            "-Xexperimental:none",
+                            M::Experimental);
+
+  // Enabled explicitly
+  EXPECT_SINGLE_PARSE_VALUE(ExperimentalFlags::kLambdas,
+                            "-Xexperimental:lambdas",
+                            M::Experimental);
+}
+
+// -Xverify:_
+TEST_F(CmdlineParserTest, TestVerify) {
+  EXPECT_SINGLE_PARSE_VALUE(verifier::VerifyMode::kNone,     "-Xverify:none",     M::Verify);
+  EXPECT_SINGLE_PARSE_VALUE(verifier::VerifyMode::kEnable,   "-Xverify:remote",   M::Verify);
+  EXPECT_SINGLE_PARSE_VALUE(verifier::VerifyMode::kEnable,   "-Xverify:all",      M::Verify);
+  EXPECT_SINGLE_PARSE_VALUE(verifier::VerifyMode::kSoftFail, "-Xverify:softfail", M::Verify);
+}
 
 TEST_F(CmdlineParserTest, TestIgnoreUnrecognized) {
   RuntimeParser::Builder parserBuilder;

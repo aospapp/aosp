@@ -46,7 +46,10 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:id="@+id/audio_frequency_speaker_mic_ready_btn"
-                android:text="@string/audio_frequency_speaker_mic_ready_btn"/>
+                android:text="@string/audio_frequency_speaker_mic_ready_btn"
+                android:nextFocusForward="@+id/audio_frequency_speaker_test_btn"
+                android:nextFocusDown="@+id/audio_frequency_speaker_test_btn"
+                android:nextFocusRight="@+id/audio_frequency_speaker_test_btn" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -68,7 +71,12 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/audio_frequency_speaker_test_btn"
-                        android:id="@+id/audio_frequency_speaker_test_btn"/>
+                        android:id="@+id/audio_frequency_speaker_test_btn"
+                        android:nextFocusForward="@+id/pass_button"
+                        android:nextFocusUp="@+id/audio_frequency_speaker_mic_ready_btn"
+                        android:nextFocusDown="@+id/pass_button"
+                        android:nextFocusLeft="@+id/audio_frequency_speaker_mic_ready_btn"
+                        android:nextFocusRight="@+id/pass_button" />
 
                     <ProgressBar
                         android:layout_width="wrap_content"

@@ -29,7 +29,7 @@
 #include <string.h>
 
 #include "bta_gatts_int.h"
-#include "gki.h"
+#include "bt_common.h"
 
 /* type for service building action functions */
 typedef void (*tBTA_GATTS_SRVC_ACT)(tBTA_GATTS_SRVC_CB *p_rcb, tBTA_GATTS_DATA *p_data);

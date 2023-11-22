@@ -21,7 +21,7 @@
     <string name="title_select_cert" msgid="3588447616418041699">"Tria de certificat"</string>
     <string name="requesting_application" msgid="1589142627467598421">"L\'aplicació %s ha sol·licitat un certificat. En triar un certificat, l\'aplicació podrà fer servir aquesta identitat amb els servidors tant ara com en el futur."</string>
     <string name="requesting_server" msgid="5832565605998634370">"L\'aplicació ha identificat el servidor sol·licitant com a %s, però només has de permetre que l\'aplicació accedeixi al certificat si hi confies."</string>
-    <string name="install_new_cert_message" msgid="4451971501142085495">"Pots instal·lar certificats d\'un fitxer PKCS#12 amb una extensió %1$s o %2$s ubicada en un emmagatzematge extern."</string>
+    <string name="install_new_cert_message" msgid="4451971501142085495">"Pots instal·lar certificats des d\'un fitxer PKCS#12 amb una extensió %1$s o %2$s ubicada en un emmagatzematge extern."</string>
     <string name="install_new_cert_button_label" msgid="510732745267546907">"Instal·la"</string>
     <string name="allow_button" msgid="5340501035618157678">"Permet"</string>
     <string name="deny_button" msgid="3766539809121892584">"Denega"</string>

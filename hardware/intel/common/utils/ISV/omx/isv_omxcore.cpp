@@ -258,6 +258,8 @@ OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_FreeHandle(
     for (OMX_U32 i = 0; i < g_isv_components.size(); i++) {
         ISVComponent *pComp = g_isv_components.itemAt(i);
         if (static_cast<OMX_HANDLETYPE>(pComp->getBaseComponent()) == hComponent) {
+            // remove it in media resource manager before call  pComp->freeComponent
+            g_mrm_omx_adaptor->MRM_OMX_RemoveComponent(pComp->getComponent());
             OMX_ERRORTYPE omx_res = pComp->freeComponent();
             if (omx_res != OMX_ErrorNone) {
                 ALOGE("%s: free OMX handle %p failed", __func__, hComponent);
@@ -267,9 +269,6 @@ OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_FreeHandle(
             delete pComp;
             g_isv_components.removeAt(i);
             ALOGD_IF(ISV_CORE_DEBUG, "%s: free component %p success", __func__, hComponent);
-
-            // remove it in media resource manager
-            g_mrm_omx_adaptor->MRM_OMX_RemoveComponent(pComp->getComponent());
             pthread_mutex_unlock(&g_module_lock);
             return OMX_ErrorNone;
         }

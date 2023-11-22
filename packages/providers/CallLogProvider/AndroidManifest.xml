@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.providers.calllogbackup"
+        package="com.android.calllogbackup"
         android:sharedUserId="android.uid.shared"
         android:sharedUserLabel="@string/sharedUserLabel">
 
@@ -10,7 +10,7 @@
         android:usesCleartextTraffic="false">
 
         <meta-data android:name="com.google.android.backup.api_key"
-            android:value="AEdPqrEAAAAISbHhhUji6KZyyjz4I8-MdBqlnoiTJoFAEUHHzA" />
+                android:value="AEdPqrEAAAAIVhVYJjcc4bozis7qBfzzgREFk3nIkWGNc5VaRg" />
 
         <receiver android:name="CallLogChangeReceiver"
                 android:permission="android.permission.SEND_CALL_LOG_CHANGE">

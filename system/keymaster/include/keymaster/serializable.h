@@ -62,6 +62,14 @@ class Serializable {
  */
 
 /**
+ * Convert a pointer into a value.  This is used to make sure compiler won't optimize away pointer
+ * overflow checks. (See http://www.kb.cert.org/vuls/id/162289)
+ */
+template <typename T> inline uintptr_t __pval(const T *p) {
+    return reinterpret_cast<uintptr_t>(p);
+}
+
+/**
  * Append a byte array to a buffer.  Note that by itself this function isn't very useful, because it
  * provides no indication in the serialized buffer of what the array size is.  For writing arrays,
  * see \p append_size_and_data_to_buf().
@@ -111,7 +119,8 @@ template <typename T>
 inline uint8_t* append_uint32_array_to_buf(uint8_t* buf, const uint8_t* end, const T* data,
                                            size_t count) {
     // Check for overflow
-    if (count >= (UINT32_MAX / sizeof(uint32_t)) || buf + count * sizeof(uint32_t) < buf)
+    if (count >= (UINT32_MAX / sizeof(uint32_t)) ||
+        __pval(buf) + count * sizeof(uint32_t) < __pval(buf))
         return buf;
     buf = append_uint32_to_buf(buf, end, count);
     for (size_t i = 0; i < count; ++i)
@@ -172,8 +181,9 @@ inline bool copy_uint32_array_from_buf(const uint8_t** buf_ptr, const uint8_t* e
     if (!copy_uint32_from_buf(buf_ptr, end, count))
         return false;
 
-    const uint8_t* array_end = *buf_ptr + *count * sizeof(uint32_t);
-    if (*count >= UINT32_MAX / sizeof(uint32_t) || array_end < *buf_ptr || array_end > end)
+    uintptr_t array_end = __pval(*buf_ptr) + *count * sizeof(uint32_t);
+    if (*count >= UINT32_MAX / sizeof(uint32_t) ||
+        array_end < __pval(*buf_ptr) || array_end > __pval(end))
         return false;
 
     data->reset(new (std::nothrow) T[*count]);

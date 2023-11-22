@@ -81,6 +81,25 @@ def convert_capture_to_rgb_image(cap,
     else:
         raise its.error.Error('Invalid format %s' % (cap["format"]))
 
+def unpack_rawstats_capture(cap):
+    """Unpack a rawStats capture to the mean and variance images.
+
+    Args:
+        cap: A capture object as returned by its.device.do_capture.
+
+    Returns:
+        Tuple (mean_image var_image) of float-4 images, with non-normalized
+        pixel values computed from the RAW16 images on the device
+    """
+    assert(cap["format"] == "rawStats")
+    w = cap["width"]
+    h = cap["height"]
+    img = numpy.ndarray(shape=(2*h*w*4,), dtype='<f', buffer=cap["data"])
+    analysis_image = img.reshape(2,h,w,4)
+    mean_image = analysis_image[0,:,:,:].reshape(h,w,4)
+    var_image = analysis_image[1,:,:,:].reshape(h,w,4)
+    return mean_image, var_image
+
 def unpack_raw10_capture(cap, props):
     """Unpack a raw-10 capture to a raw-16 capture.
 
@@ -603,6 +622,21 @@ def compute_image_variances(img):
     for i in xrange(chans):
         variances.append(numpy.var(img[:,:,i], dtype=numpy.float64))
     return variances
+
+def compute_image_snrs(img):
+    """Calculate the SNR (db) of each color channel in the image.
+
+    Args:
+        img: Numpy float image array, with pixel values in [0,1].
+
+    Returns:
+        A list of SNR value, one per color channel in the image.
+    """
+    means = compute_image_means(img)
+    variances = compute_image_variances(img)
+    std_devs = [math.sqrt(v) for v in variances]
+    snr = [20 * math.log10(m/s) for m,s in zip(means, std_devs)]
+    return snr
 
 def write_image(img, fname, apply_gamma=False):
     """Save a float-3 numpy array image to a file.

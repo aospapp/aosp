@@ -5,7 +5,6 @@
  * found in the LICENSE file.
  */
 
-#include "LazyDecodeBitmap.h"
 #include "SkLua.h"
 #include "SkLuaCanvas.h"
 #include "SkPicture.h"
@@ -16,6 +15,8 @@
 #include "picture_utils.h"
 #include "SkOSFile.h"
 #include "SkImageDecoder.h"
+
+#include <stdlib.h>
 
 extern "C" {
     #include "lua.h"
@@ -40,9 +41,9 @@ DEFINE_bool2(quiet, q, false, "Silence all non-error related output");
 
 static SkPicture* load_picture(const char path[]) {
     SkAutoTDelete<SkStream> stream(SkStream::NewFromFile(path));
-    SkPicture* pic = NULL;
+    SkPicture* pic = nullptr;
     if (stream.get()) {
-        pic = SkPicture::CreateFromStream(stream.get(), &sk_tools::LazyDecodeBitmap);
+        pic = SkPicture::CreateFromStream(stream.get());
     }
     return pic;
 }
@@ -87,7 +88,7 @@ int tool_main(int argc, char** argv) {
 
     for (int i = 0; i < FLAGS_luaFile.count(); ++i) {
         SkAutoDataUnref data(SkData::NewFromFileName(FLAGS_luaFile[i]));
-        if (NULL == data.get()) {
+        if (nullptr == data.get()) {
             data.reset(SkData::NewEmpty());
         }
         if (!FLAGS_quiet) {

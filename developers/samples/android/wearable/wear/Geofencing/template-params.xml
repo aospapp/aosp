@@ -24,8 +24,9 @@
 
     <minSdk>18</minSdk>
     <targetSdkVersion>22</targetSdkVersion>
+    <targetSdkVersionWear>22</targetSdkVersionWear>
 
-    <dependency>com.google.android.gms:play-services-location:7.3.0</dependency>
+    <dependency>com.google.android.gms:play-services-location</dependency>
 
     <wearable>
         <has_handheld_app>true</has_handheld_app>
@@ -46,7 +47,7 @@
     <template src="Wear"/>
 
     <metadata>
-        <status>PUBLISHED</status>
+        <status>DEPRECATED</status>
         <categories>Wearable, Sensors</categories>
         <technologies>Android</technologies>
         <languages>Java</languages>

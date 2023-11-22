@@ -134,3 +134,9 @@ void rcUpdateColorBuffer(uint32_t colorbuffer, GLint x, GLint y,
                          GLenum type, void* pixels);
        Updates the content of a subregion of a colorBuffer object.
        pixels are always unpacked with alignment of 1.
+
+uint32_t rcCreateClientImage(uint32_t context, EGLenum target, GLuint buffer)
+       Create an EGLImage from a client object.
+
+int rcDestroyClientImage(uint32_t image)
+       Destroy an EGLImage object.

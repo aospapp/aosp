@@ -16,16 +16,17 @@
 
 package vogar;
 
-//import com.google.caliper.internal.gson.stream.JsonReader;
-
 import com.android.json.stream.JsonReader;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
-
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.net.URL;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -127,26 +128,61 @@ public final class ExpectationStore {
         return result;
     }
 
+    /**
+     * Create an {@link ExpectationStore} that is populated from expectation resources.
+     * @param owningClass the class from which the resources are loaded.
+     * @param expectationResources the set of paths to the expectation resources; the paths are
+     * either relative to the owning class, or absolute (starting with a /).
+     * @param mode the mode within which the tests are to be run.
+     * @return the populated {@link ExpectationStore}.
+     * @throws IOException if there was a problem loading
+     */
+    public static ExpectationStore parseResources(
+            Class<?> owningClass, Set<String> expectationResources, ModeId mode)
+            throws IOException {
+        ExpectationStore result = new ExpectationStore();
+        for (String expectationsPath : expectationResources) {
+            URL url = owningClass.getResource(expectationsPath);
+            if (url == null) {
+                Log.warn("Could not find resource '" + expectationsPath
+                        + "' relative to " + owningClass);
+            } else {
+                result.parse(url, mode);
+            }
+        }
+        return result;
+    }
+
+    private void parse(URL url, ModeId mode) throws IOException {
+        Log.verbose("loading expectations from " + url);
+
+        try (InputStream is = url.openStream();
+             Reader reader = new InputStreamReader(is)) {
+            parse(reader, url.toString(), mode);
+        }
+    }
+
     public void parse(File expectationsFile, ModeId mode) throws IOException {
         Log.verbose("loading expectations file " + expectationsFile);
 
+        try (Reader fileReader = new FileReader(expectationsFile)) {
+            String source = expectationsFile.toString();
+            parse(fileReader, source, mode);
+        }
+    }
+
+    private void parse(Reader reader, String source, ModeId mode) throws IOException {
         int count = 0;
-        JsonReader reader = null;
-        try {
-            reader = new JsonReader(new FileReader(expectationsFile));
-            reader.setLenient(true);
-            reader.beginArray();
-            while (reader.hasNext()) {
-                readExpectation(reader, mode);
+        try (JsonReader jsonReader = new JsonReader(reader)) {
+            jsonReader.setLenient(true);
+            jsonReader.beginArray();
+            while (jsonReader.hasNext()) {
+                readExpectation(jsonReader, mode);
                 count++;
             }
-            reader.endArray();
+            jsonReader.endArray();
 
-            Log.verbose("loaded " + count + " expectations from " + expectationsFile);
-        } finally {
-            if (reader != null) {
-                reader.close();
-            }
+            Log.verbose("loaded " + count + " expectations from " + source);
         }
     }
 
@@ -268,5 +304,13 @@ public final class ExpectationStore {
                 expectation.setBugIsOpen(true);
             }
         }
+    }
+
+    public Map<String, Expectation> getAllOutComes() {
+        return outcomes;
+    }
+
+    public Map<String, Expectation> getAllFailures() {
+        return failures;
     }
 }

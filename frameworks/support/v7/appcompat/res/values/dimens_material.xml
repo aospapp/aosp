@@ -24,6 +24,8 @@
     <dimen name="abc_action_bar_default_padding_end_material">0dp</dimen>
     <!-- Default content inset of an action bar. -->
     <dimen name="abc_action_bar_content_inset_material">16dp</dimen>
+    <!-- Default content inset of an action bar with navigation. -->
+    <dimen name="abc_action_bar_content_inset_with_nav">72dp</dimen>
     <!-- Vertical padding around action bar icons. -->
     <dimen name="abc_action_bar_icon_vertical_padding_material">16dp</dimen>
     <!-- Top margin for action bar subtitles -->
@@ -54,6 +56,7 @@
     <dimen name="abc_text_size_title_material_toolbar">20dp</dimen>
     <dimen name="abc_text_size_subtitle_material_toolbar">16dp</dimen>
     <dimen name="abc_text_size_menu_material">16sp</dimen>
+    <dimen name="abc_text_size_menu_header_material">14sp</dimen>
     <dimen name="abc_text_size_body_2_material">14sp</dimen>
     <dimen name="abc_text_size_body_1_material">14sp</dimen>
     <dimen name="abc_text_size_caption_material">12sp</dimen>
@@ -67,5 +70,10 @@
 
     <item name="abc_disabled_alpha_material_light" format="float" type="dimen">0.26</item>
     <item name="abc_disabled_alpha_material_dark" format="float" type="dimen">0.30</item>
+
+    <dimen name="abc_seekbar_track_background_height_material">2dp</dimen>
+    <dimen name="abc_seekbar_track_progress_height_material">2dp</dimen>
+
+    <dimen name="abc_progress_bar_height_material">4dp</dimen>
 
 </resources>

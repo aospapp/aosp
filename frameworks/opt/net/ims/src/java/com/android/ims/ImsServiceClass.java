@@ -38,5 +38,5 @@ public class ImsServiceClass {
      * RCS
      *    supports the RCS service defined in GSMA RCS.
      */
-    /** public static final int RCS = 2; */
+    public static final int RCS = 2;
 }

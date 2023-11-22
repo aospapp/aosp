@@ -19,6 +19,8 @@
 
 #include <stdint.h>
 
+namespace art {
+
 static constexpr uint32_t kAccPublic =       0x0001;  // class, field, method, ic
 static constexpr uint32_t kAccPrivate =      0x0002;  // field, method, ic
 static constexpr uint32_t kAccProtected =    0x0004;  // field, method, ic
@@ -40,38 +42,39 @@ static constexpr uint32_t kAccEnum =         0x4000;  // class, field, ic (1.5)
 
 static constexpr uint32_t kAccJavaFlagsMask = 0xffff;  // bits set from Java sources (low 16)
 
-static constexpr uint32_t kAccConstructor =          0x00010000;  // method (dex only) <(cl)init>
-static constexpr uint32_t kAccDeclaredSynchronized = 0x00020000;  // method (dex only)
-static constexpr uint32_t kAccClassIsProxy =         0x00040000;  // class  (dex only)
-static constexpr uint32_t kAccPreverified =          0x00080000;  // class (runtime),
-                                                                  // method (dex only)
-static constexpr uint32_t kAccFastNative =           0x00080000;  // method (dex only)
-static constexpr uint32_t kAccMiranda =              0x00200000;  // method (dex only)
+static constexpr uint32_t kAccConstructor =           0x00010000;  // method (dex only) <(cl)init>
+static constexpr uint32_t kAccDeclaredSynchronized =  0x00020000;  // method (dex only)
+static constexpr uint32_t kAccClassIsProxy =          0x00040000;  // class  (dex only)
+// Used by a method to denote that its execution does not need to go through slow path interpreter.
+static constexpr uint32_t kAccSkipAccessChecks =      0x00080000;  // method (dex only)
+// Used by a class to denote that the verifier has attempted to check it at least once.
+static constexpr uint32_t kAccVerificationAttempted = 0x00080000;  // class (runtime)
+static constexpr uint32_t kAccFastNative =            0x00080000;  // method (dex only)
+// This is set by the class linker during LinkInterfaceMethods. It is used by a method to represent
+// that it was copied from its declaring class into another class. All methods marked kAccMiranda
+// and kAccDefaultConflict will have this bit set. Any kAccDefault method contained in the methods_
+// array of a concrete class will also have this bit set.
+static constexpr uint32_t kAccCopied =                0x00100000;  // method (runtime)
+static constexpr uint32_t kAccMiranda =               0x00200000;  // method (dex only)
+static constexpr uint32_t kAccDefault =               0x00400000;  // method (runtime)
+// This is set by the class linker during LinkInterfaceMethods. Prior to that point we do not know
+// if any particular method needs to be a default conflict. Used to figure out at runtime if
+// invoking this method will throw an exception.
+static constexpr uint32_t kAccDefaultConflict =       0x00800000;  // method (runtime)
 
-// Flag is set if the compiler decides it is not worth trying
-// to inline the method. This avoids other callers to try it again and again.
-static constexpr uint32_t kAccDontInline =           0x00400000;  // method (dex only)
+// Set by the verifier for a method we do not want the compiler to compile.
+static constexpr uint32_t kAccCompileDontBother =     0x01000000;  // method (runtime)
+
+// Set by the verifier for a method that could not be verified to follow structured locking.
+static constexpr uint32_t kAccMustCountLocks =        0x02000000;  // method (runtime)
 
 // Special runtime-only flags.
-// Note: if only kAccClassIsReference is set, we have a soft reference.
-
+// Interface and all its super-interfaces with default methods have been recursively initialized.
+static constexpr uint32_t kAccRecursivelyInitialized    = 0x20000000;
+// Interface declares some default method.
+static constexpr uint32_t kAccHasDefaultMethod          = 0x40000000;
 // class/ancestor overrides finalize()
 static constexpr uint32_t kAccClassIsFinalizable        = 0x80000000;
-// class is a soft/weak/phantom ref
-static constexpr uint32_t kAccClassIsReference          = 0x08000000;
-// class is a weak reference
-static constexpr uint32_t kAccClassIsWeakReference      = 0x04000000;
-// class is a finalizer reference
-static constexpr uint32_t kAccClassIsFinalizerReference = 0x02000000;
-// class is a phantom reference
-static constexpr uint32_t kAccClassIsPhantomReference   = 0x01000000;
-// class is the string class
-static constexpr uint32_t kAccClassIsStringClass        = 0x00800000;
-
-static constexpr uint32_t kAccReferenceFlagsMask = (kAccClassIsReference
-                                                  | kAccClassIsWeakReference
-                                                  | kAccClassIsFinalizerReference
-                                                  | kAccClassIsPhantomReference);
 
 // Valid (meaningful) bits for a field.
 static constexpr uint32_t kAccValidFieldFlags = kAccPublic | kAccPrivate | kAccProtected |
@@ -95,6 +98,8 @@ static constexpr uint32_t kAccValidClassFlags = kAccPublic | kAccFinal | kAccSup
 // Note 3. Inner classes can expose more access flags to Java programs. That is handled by libcore.
 static constexpr uint32_t kAccValidInterfaceFlags = kAccPublic | kAccInterface |
     kAccAbstract | kAccSynthetic | kAccAnnotation;
+
+}  // namespace art
 
 #endif  // ART_RUNTIME_MODIFIERS_H_
 

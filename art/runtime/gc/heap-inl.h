@@ -20,8 +20,8 @@
 #include "heap.h"
 
 #include "base/time_utils.h"
-#include "debugger.h"
 #include "gc/accounting/card_table-inl.h"
+#include "gc/allocation_record.h"
 #include "gc/collector/semi_space.h"
 #include "gc/space/bump_pointer_space-inl.h"
 #include "gc/space/dlmalloc_space-inl.h"
@@ -38,8 +38,10 @@ namespace art {
 namespace gc {
 
 template <bool kInstrumented, bool kCheckLargeObject, typename PreFenceVisitor>
-inline mirror::Object* Heap::AllocObjectWithAllocator(Thread* self, mirror::Class* klass,
-                                                      size_t byte_count, AllocatorType allocator,
+inline mirror::Object* Heap::AllocObjectWithAllocator(Thread* self,
+                                                      mirror::Class* klass,
+                                                      size_t byte_count,
+                                                      AllocatorType allocator,
                                                       const PreFenceVisitor& pre_fence_visitor) {
   if (kIsDebugBuild) {
     CheckPreconditionsForAllocObject(klass, byte_count);
@@ -64,7 +66,6 @@ inline mirror::Object* Heap::AllocObjectWithAllocator(Thread* self, mirror::Clas
     // non moving space). This can happen if there is significant virtual address space
     // fragmentation.
   }
-  AllocationTimer alloc_timer(this, &obj);
   // bytes allocated for the (individual) object.
   size_t bytes_allocated;
   size_t usable_size;
@@ -91,7 +92,7 @@ inline mirror::Object* Heap::AllocObjectWithAllocator(Thread* self, mirror::Clas
   } else if (!kInstrumented && allocator == kAllocatorTypeRosAlloc &&
              (obj = rosalloc_space_->AllocThreadLocal(self, byte_count, &bytes_allocated)) &&
              LIKELY(obj != nullptr)) {
-    DCHECK(!running_on_valgrind_);
+    DCHECK(!is_running_on_memory_tool_);
     obj->SetClass(klass);
     if (kUseBakerOrBrooksReadBarrier) {
       if (kUseBrooksReadBarrier) {
@@ -108,16 +109,25 @@ inline mirror::Object* Heap::AllocObjectWithAllocator(Thread* self, mirror::Clas
     obj = TryToAllocate<kInstrumented, false>(self, allocator, byte_count, &bytes_allocated,
                                               &usable_size, &bytes_tl_bulk_allocated);
     if (UNLIKELY(obj == nullptr)) {
-      bool is_current_allocator = allocator == GetCurrentAllocator();
-      obj = AllocateInternalWithGc(self, allocator, byte_count, &bytes_allocated, &usable_size,
+      // AllocateInternalWithGc can cause thread suspension, if someone instruments the entrypoints
+      // or changes the allocator in a suspend point here, we need to retry the allocation.
+      obj = AllocateInternalWithGc(self,
+                                   allocator,
+                                   kInstrumented,
+                                   byte_count,
+                                   &bytes_allocated,
+                                   &usable_size,
                                    &bytes_tl_bulk_allocated, &klass);
       if (obj == nullptr) {
-        bool after_is_current_allocator = allocator == GetCurrentAllocator();
-        // If there is a pending exception, fail the allocation right away since the next one
-        // could cause OOM and abort the runtime.
-        if (!self->IsExceptionPending() && is_current_allocator && !after_is_current_allocator) {
-          // If the allocator changed, we need to restart the allocation.
-          return AllocObject<kInstrumented>(self, klass, byte_count, pre_fence_visitor);
+        // The only way that we can get a null return if there is no pending exception is if the
+        // allocator or instrumentation changed.
+        if (!self->IsExceptionPending()) {
+          // AllocObject will pick up the new allocator type, and instrumented as true is the safe
+          // default.
+          return AllocObject</*kInstrumented*/true>(self,
+                                                    klass,
+                                                    byte_count,
+                                                    pre_fence_visitor);
         }
         return nullptr;
       }
@@ -144,9 +154,9 @@ inline mirror::Object* Heap::AllocObjectWithAllocator(Thread* self, mirror::Clas
       WriteBarrierField(obj, mirror::Object::ClassOffset(), klass);
     }
     pre_fence_visitor(obj, usable_size);
+    QuasiAtomic::ThreadFenceForConstructor();
     new_num_bytes_allocated = static_cast<size_t>(
-        num_bytes_allocated_.FetchAndAddSequentiallyConsistent(bytes_tl_bulk_allocated))
-        + bytes_tl_bulk_allocated;
+        num_bytes_allocated_.FetchAndAddRelaxed(bytes_tl_bulk_allocated)) + bytes_tl_bulk_allocated;
   }
   if (kIsDebugBuild && Runtime::Current()->IsStarted()) {
     CHECK_LE(obj->SizeOf(), usable_size);
@@ -164,15 +174,18 @@ inline mirror::Object* Heap::AllocObjectWithAllocator(Thread* self, mirror::Clas
   } else {
     DCHECK(!Runtime::Current()->HasStatsEnabled());
   }
-  if (AllocatorHasAllocationStack(allocator)) {
-    PushOnAllocationStack(self, &obj);
-  }
   if (kInstrumented) {
-    if (Dbg::IsAllocTrackingEnabled()) {
-      Dbg::RecordAllocation(self, klass, bytes_allocated);
+    if (IsAllocTrackingEnabled()) {
+      // allocation_records_ is not null since it never becomes null after allocation tracking is
+      // enabled.
+      DCHECK(allocation_records_ != nullptr);
+      allocation_records_->RecordAllocation(self, &obj, bytes_allocated);
     }
   } else {
-    DCHECK(!Dbg::IsAllocTrackingEnabled());
+    DCHECK(!IsAllocTrackingEnabled());
+  }
+  if (AllocatorHasAllocationStack(allocator)) {
+    PushOnAllocationStack(self, &obj);
   }
   if (kInstrumented) {
     if (gc_stress_mode_) {
@@ -207,7 +220,8 @@ inline void Heap::PushOnAllocationStack(Thread* self, mirror::Object** obj) {
 }
 
 template <bool kInstrumented, typename PreFenceVisitor>
-inline mirror::Object* Heap::AllocLargeObject(Thread* self, mirror::Class** klass,
+inline mirror::Object* Heap::AllocLargeObject(Thread* self,
+                                              mirror::Class** klass,
                                               size_t byte_count,
                                               const PreFenceVisitor& pre_fence_visitor) {
   // Save and restore the class in case it moves.
@@ -219,11 +233,14 @@ inline mirror::Object* Heap::AllocLargeObject(Thread* self, mirror::Class** klas
 }
 
 template <const bool kInstrumented, const bool kGrow>
-inline mirror::Object* Heap::TryToAllocate(Thread* self, AllocatorType allocator_type,
-                                           size_t alloc_size, size_t* bytes_allocated,
+inline mirror::Object* Heap::TryToAllocate(Thread* self,
+                                           AllocatorType allocator_type,
+                                           size_t alloc_size,
+                                           size_t* bytes_allocated,
                                            size_t* usable_size,
                                            size_t* bytes_tl_bulk_allocated) {
-  if (allocator_type != kAllocatorTypeTLAB && allocator_type != kAllocatorTypeRegionTLAB &&
+  if (allocator_type != kAllocatorTypeTLAB &&
+      allocator_type != kAllocatorTypeRegionTLAB &&
       allocator_type != kAllocatorTypeRosAlloc &&
       UNLIKELY(IsOutOfMemoryOnAllocation<kGrow>(allocator_type, alloc_size))) {
     return nullptr;
@@ -242,8 +259,8 @@ inline mirror::Object* Heap::TryToAllocate(Thread* self, AllocatorType allocator
       break;
     }
     case kAllocatorTypeRosAlloc: {
-      if (kInstrumented && UNLIKELY(running_on_valgrind_)) {
-        // If running on valgrind, we should be using the instrumented path.
+      if (kInstrumented && UNLIKELY(is_running_on_memory_tool_)) {
+        // If running on valgrind or asan, we should be using the instrumented path.
         size_t max_bytes_tl_bulk_allocated = rosalloc_space_->MaxBytesBulkAllocatedFor(alloc_size);
         if (UNLIKELY(IsOutOfMemoryOnAllocation<kGrow>(allocator_type,
                                                       max_bytes_tl_bulk_allocated))) {
@@ -252,7 +269,7 @@ inline mirror::Object* Heap::TryToAllocate(Thread* self, AllocatorType allocator
         ret = rosalloc_space_->Alloc(self, alloc_size, bytes_allocated, usable_size,
                                      bytes_tl_bulk_allocated);
       } else {
-        DCHECK(!running_on_valgrind_);
+        DCHECK(!is_running_on_memory_tool_);
         size_t max_bytes_tl_bulk_allocated =
             rosalloc_space_->MaxBytesBulkAllocatedForNonvirtual(alloc_size);
         if (UNLIKELY(IsOutOfMemoryOnAllocation<kGrow>(allocator_type,
@@ -268,12 +285,12 @@ inline mirror::Object* Heap::TryToAllocate(Thread* self, AllocatorType allocator
       break;
     }
     case kAllocatorTypeDlMalloc: {
-      if (kInstrumented && UNLIKELY(running_on_valgrind_)) {
+      if (kInstrumented && UNLIKELY(is_running_on_memory_tool_)) {
         // If running on valgrind, we should be using the instrumented path.
         ret = dlmalloc_space_->Alloc(self, alloc_size, bytes_allocated, usable_size,
                                      bytes_tl_bulk_allocated);
       } else {
-        DCHECK(!running_on_valgrind_);
+        DCHECK(!is_running_on_memory_tool_);
         ret = dlmalloc_space_->AllocNonvirtual(self, alloc_size, bytes_allocated, usable_size,
                                                bytes_tl_bulk_allocated);
       }
@@ -378,21 +395,6 @@ inline mirror::Object* Heap::TryToAllocate(Thread* self, AllocatorType allocator
   return ret;
 }
 
-inline Heap::AllocationTimer::AllocationTimer(Heap* heap, mirror::Object** allocated_obj_ptr)
-    : heap_(heap), allocated_obj_ptr_(allocated_obj_ptr),
-      allocation_start_time_(kMeasureAllocationTime ? NanoTime() / kTimeAdjust : 0u) { }
-
-inline Heap::AllocationTimer::~AllocationTimer() {
-  if (kMeasureAllocationTime) {
-    mirror::Object* allocated_obj = *allocated_obj_ptr_;
-    // Only if the allocation succeeded, record the time.
-    if (allocated_obj != nullptr) {
-      uint64_t allocation_end_time = NanoTime() / kTimeAdjust;
-      heap_->total_allocation_time_.FetchAndAddSequentiallyConsistent(allocation_end_time - allocation_start_time_);
-    }
-  }
-}
-
 inline bool Heap::ShouldAllocLargeObject(mirror::Class* c, size_t byte_count) const {
   // We need to have a zygote space or else our newly allocated large object can end up in the
   // Zygote resulting in it being prematurely freed.
@@ -421,7 +423,8 @@ inline bool Heap::IsOutOfMemoryOnAllocation(AllocatorType allocator_type, size_t
   return false;
 }
 
-inline void Heap::CheckConcurrentGC(Thread* self, size_t new_num_bytes_allocated,
+inline void Heap::CheckConcurrentGC(Thread* self,
+                                    size_t new_num_bytes_allocated,
                                     mirror::Object** obj) {
   if (UNLIKELY(new_num_bytes_allocated >= concurrent_start_bytes_)) {
     RequestConcurrentGCAndSaveObject(self, false, obj);

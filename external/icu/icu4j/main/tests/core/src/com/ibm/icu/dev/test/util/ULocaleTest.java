@@ -23,6 +23,8 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 
 import com.ibm.icu.dev.test.TestFmwk;
+import com.ibm.icu.dev.test.TestUtil;
+import com.ibm.icu.dev.test.TestUtil.JavaVendor;
 import com.ibm.icu.lang.UCharacter;
 import com.ibm.icu.text.DateFormat;
 import com.ibm.icu.text.DecimalFormat;
@@ -44,7 +46,9 @@ import com.ibm.icu.util.VersionInfo;
 
 public class ULocaleTest extends TestFmwk {
 
-    private static final boolean JAVA7_OR_LATER = (VersionInfo.javaVersion().compareTo(VersionInfo.getInstance(1, 7)) >= 0);
+    // Ticket #8078 and #11674
+    private static final boolean JAVA7_OR_LATER =
+            TestUtil.getJavaVendor() == JavaVendor.Android || TestUtil.getJavaVersion() >= 7;
 
     public static void main(String[] args) throws Exception {
         new ULocaleTest().run(args);
@@ -1088,6 +1092,9 @@ public class ULocaleTest extends TestFmwk {
                 ULocale locale = new ULocale(item.displayLocale);
                 LocaleDisplayNames ldn = LocaleDisplayNames.getInstance(locale, item.dialectHandling, item.capitalization, item.nameLength);
                 DisplayContext dialectHandling = ldn.getContext(DisplayContext.Type.DIALECT_HANDLING);
+                assertEquals("consistent dialect handling",
+                        dialectHandling == DisplayContext.DIALECT_NAMES,
+                        ldn.getDialectHandling() == LocaleDisplayNames.DialectHandling.DIALECT_NAMES);
                 DisplayContext capitalization = ldn.getContext(DisplayContext.Type.CAPITALIZATION);
                 DisplayContext nameLength = ldn.getContext(DisplayContext.Type.DISPLAY_LENGTH);
                 if (dialectHandling != item.dialectHandling || capitalization != item.capitalization || nameLength != item.nameLength) {
@@ -1104,6 +1111,43 @@ public class ULocaleTest extends TestFmwk {
                 }
             }
         }
+    }
+
+    public void TestDisplayLanguageWithDialectCoverage() {
+        // Coverage test. Implementation is in class LocaleDisplayNames.
+        assertFalse("en in system default locale: anything but empty",
+                ULocale.ENGLISH.getDisplayLanguageWithDialect().isEmpty());
+        assertEquals("en in de", "Englisch",
+                ULocale.ENGLISH.getDisplayLanguageWithDialect(ULocale.GERMAN));
+        assertEquals("en (string) in de", "Englisch",
+                ULocale.getDisplayLanguageWithDialect("en", ULocale.GERMAN));
+        assertEquals("en (string) in de (string)", "Englisch",
+                ULocale.getDisplayLanguageWithDialect("en", "de"));
+    }
+
+    public void TestDisplayNameWithDialectCoverage() {
+        // Coverage test. Implementation is in class LocaleDisplayNames.
+        assertFalse("en-GB in system default locale: anything but empty",
+                ULocale.UK.getDisplayNameWithDialect().isEmpty());
+        assertEquals("en-GB in de", "Britisches Englisch",
+                ULocale.UK.getDisplayNameWithDialect(ULocale.GERMAN));
+        assertEquals("en-GB (string) in de", "Britisches Englisch",
+                ULocale.getDisplayNameWithDialect("en-GB", ULocale.GERMAN));
+        assertEquals("en-GB (string) in de (string)", "Britisches Englisch",
+                ULocale.getDisplayNameWithDialect("en-GB", "de"));
+    }
+
+    public void TestDisplayScriptCoverage() {
+        // Coverage test. Implementation is in class LocaleDisplayNames.
+        assertFalse("zh-Hans in system default locale: anything but empty",
+                ULocale.SIMPLIFIED_CHINESE.getDisplayScript().isEmpty());
+        // Stand-alone script name, so not just "Vereinfacht".
+        assertEquals("zh-Hans in de", "Vereinfachtes Chinesisch",
+                ULocale.SIMPLIFIED_CHINESE.getDisplayScript(ULocale.GERMAN));
+        assertEquals("zh-Hans (string) in de", "Vereinfachtes Chinesisch",
+                ULocale.getDisplayScript("zh-Hans", ULocale.GERMAN));
+        assertEquals("zh-Hans (string) in de (string)", "Vereinfachtes Chinesisch",
+                ULocale.getDisplayScript("zh-Hans", "de"));
     }
 
     private boolean checkName(String name, String language, String script, String country, String variant, ULocale dl) {
@@ -1384,10 +1428,10 @@ public class ULocaleTest extends TestFmwk {
         h[1].put("collation", "\u6392\u5E8F");
         h[1].put("calendar", "\u65E5\u5386");
         h[1].put("currency", "\u8D27\u5E01");
-        h[1].put("phonebook", "\u7535\u8BDD\u7C3F\u6392\u5E8F\u987A\u5E8F");
+        h[1].put("phonebook", "\u7535\u8BDD\u7C3F\u6392\u5E8F");
         h[1].put("pinyin", "\u62FC\u97F3\u6392\u5E8F");
         h[1].put("stroke", "\u7B14\u5212\u987A\u5E8F");
-        h[1].put("traditional", "\u4F20\u7EDF\u6392\u5E8F\u987A\u5E8F");
+        h[1].put("traditional", "\u4F20\u7EDF\u6392\u5E8F");
         h[1].put("japanese", "\u65E5\u672C\u65E5\u5386");
         h[1].put("buddhist", "\u4F5B\u6559\u65E5\u5386");
         h[1].put("islamic", "\u4F0A\u65AF\u5170\u65E5\u5386");
@@ -2360,8 +2404,8 @@ public class ULocaleTest extends TestFmwk {
                     "ur"
                 }, {
                     "und_Arab_SN",
-                    "ar_Arab_SN",
-                    "ar_SN"
+                    "wo_Arab_SN",  // Android patch: likelySubtags.txt: Add lots of entries.
+                    "wo_Arab"
                 }, {
                     "und_Armn",
                     "hy_Armn_AM",
@@ -2488,8 +2532,8 @@ public class ULocaleTest extends TestFmwk {
                     "ru"
                 }, {
                     "und_Cyrl_KZ",
-                    "ru_Cyrl_KZ",
-                    "ru_KZ"
+                    "kk_Cyrl_KZ",  // Android patch: likelySubtags.txt: Add lots of entries.
+                    "kk"
                 }, {
                     "und_DE",
                     "de_Latn_DE",
@@ -2548,8 +2592,8 @@ public class ULocaleTest extends TestFmwk {
                     "am"
                 }, {
                     "und_Ethi_ER",
-                    "am_Ethi_ER",
-                    "am_ER"
+                    "ti_Ethi_ER",  // Android patch: likelySubtags.txt: Add lots of entries.
+                    "ti_ER"
                 }, {
                     "und_FI",
                     "fi_Latn_FI",
@@ -2604,8 +2648,8 @@ public class ULocaleTest extends TestFmwk {
                     "es_GT"
                 }, {
                     "und_GU",
-                    "en_Latn_GU",
-                    "en_GU"
+                    "ch_Latn_GU",  // Android patch: likelySubtags.txt: Add lots of entries.
+                    "ch"
                 }, {
                     "und_GW",
                     "pt_Latn_GW",
@@ -2816,8 +2860,8 @@ public class ULocaleTest extends TestFmwk {
                     "tr"
                 }, {
                     "und_Latn_ZA",
-                    "en_Latn_ZA",
-                    "en_ZA"
+                    "af_Latn_ZA",  // Android patch: likelySubtags.txt: Add lots of entries.
+                    "af"
                 }, {
                     "und_MA",
                     "ar_Arab_MA",
@@ -2924,8 +2968,8 @@ public class ULocaleTest extends TestFmwk {
                     "ne"
                 }, {
                     "und_NR",
-                    "en_Latn_NR",
-                    "en_NR"
+                    "na_Latn_NR",  // Android patch: likelySubtags.txt: Add lots of entries.
+                    "na"
                 }, {
                     "und_OM",
                     "ar_Arab_OM",

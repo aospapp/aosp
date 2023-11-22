@@ -22,6 +22,7 @@
 #include "mirror/array-inl.h"
 #include "space_bitmap-inl.h"
 #include "thread-inl.h"
+#include "thread_list.h"
 
 namespace art {
 namespace gc {
@@ -46,7 +47,7 @@ class ModUnionTableTest : public CommonRuntimeTest {
   }
   mirror::ObjectArray<mirror::Object>* AllocObjectArray(
       Thread* self, space::ContinuousMemMapAllocSpace* space, size_t component_count)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     auto* klass = GetObjectArrayClass(self, space);
     const size_t size = mirror::ComputeArraySize(component_count, 2);
     size_t bytes_allocated = 0, bytes_tl_bulk_allocated;
@@ -67,7 +68,7 @@ class ModUnionTableTest : public CommonRuntimeTest {
 
  private:
   mirror::Class* GetObjectArrayClass(Thread* self, space::ContinuousMemMapAllocSpace* space)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     if (java_lang_object_array_ == nullptr) {
       java_lang_object_array_ =
           Runtime::Current()->GetClassLinker()->GetClassRoot(ClassLinker::kObjectArrayClass);
@@ -93,12 +94,24 @@ class ModUnionTableTest : public CommonRuntimeTest {
 };
 
 // Collect visited objects into container.
-static void CollectVisitedCallback(mirror::HeapReference<mirror::Object>* ref, void* arg)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-  DCHECK(ref != nullptr);
-  DCHECK(arg != nullptr);
-  reinterpret_cast<std::set<mirror::Object*>*>(arg)->insert(ref->AsMirrorPtr());
-}
+class CollectVisitedVisitor : public MarkObjectVisitor {
+ public:
+  explicit CollectVisitedVisitor(std::set<mirror::Object*>* out) : out_(out) {}
+  virtual void MarkHeapReference(mirror::HeapReference<mirror::Object>* ref) OVERRIDE
+      SHARED_REQUIRES(Locks::mutator_lock_) {
+    DCHECK(ref != nullptr);
+    MarkObject(ref->AsMirrorPtr());
+  }
+  virtual mirror::Object* MarkObject(mirror::Object* obj) OVERRIDE
+      SHARED_REQUIRES(Locks::mutator_lock_) {
+    DCHECK(obj != nullptr);
+    out_->insert(obj);
+    return obj;
+  }
+
+ private:
+  std::set<mirror::Object*>* const out_;
+};
 
 // A mod union table that only holds references to a specified target space.
 class ModUnionTableRefCacheToSpace : public ModUnionTableReferenceCache {
@@ -172,7 +185,11 @@ void ModUnionTableTest::RunTest(ModUnionTableFactory::TableType type) {
   std::unique_ptr<space::DlMallocSpace> other_space(space::DlMallocSpace::Create(
       "other space", 128 * KB, 4 * MB, 4 * MB, nullptr, false));
   ASSERT_TRUE(other_space.get() != nullptr);
-  heap->AddSpace(other_space.get());
+  {
+    ScopedThreadSuspension sts(self, kSuspended);
+    ScopedSuspendAll ssa("Add image space");
+    heap->AddSpace(other_space.get());
+  }
   std::unique_ptr<ModUnionTable> table(ModUnionTableFactory::Create(
       type, space, other_space.get()));
   ASSERT_TRUE(table.get() != nullptr);
@@ -199,7 +216,8 @@ void ModUnionTableTest::RunTest(ModUnionTableFactory::TableType type) {
   obj2->Set(3, other_space_ref2);
   table->ClearCards();
   std::set<mirror::Object*> visited_before;
-  table->UpdateAndMarkReferences(&CollectVisitedCallback, &visited_before);
+  CollectVisitedVisitor collector_before(&visited_before);
+  table->UpdateAndMarkReferences(&collector_before);
   // Check that we visited all the references in other spaces only.
   ASSERT_GE(visited_before.size(), 2u);
   ASSERT_TRUE(visited_before.find(other_space_ref1) != visited_before.end());
@@ -230,7 +248,8 @@ void ModUnionTableTest::RunTest(ModUnionTableFactory::TableType type) {
   }
   // Visit again and make sure the cards got cleared back to their sane state.
   std::set<mirror::Object*> visited_after;
-  table->UpdateAndMarkReferences(&CollectVisitedCallback, &visited_after);
+  CollectVisitedVisitor collector_after(&visited_after);
+  table->UpdateAndMarkReferences(&collector_after);
   // Check that we visited a superset after.
   for (auto* obj : visited_before) {
     ASSERT_TRUE(visited_after.find(obj) != visited_after.end()) << obj;
@@ -239,6 +258,8 @@ void ModUnionTableTest::RunTest(ModUnionTableFactory::TableType type) {
   std::ostringstream oss2;
   table->Dump(oss2);
   // Remove the space we added so it doesn't persist to the next test.
+  ScopedThreadSuspension sts(self, kSuspended);
+  ScopedSuspendAll ssa("Add image space");
   heap->RemoveSpace(other_space.get());
 }
 

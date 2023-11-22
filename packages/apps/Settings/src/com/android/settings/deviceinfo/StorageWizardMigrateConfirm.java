@@ -16,15 +16,20 @@
 
 package com.android.settings.deviceinfo;
 
-import static com.android.settings.deviceinfo.StorageSettings.TAG;
-
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.os.storage.DiskInfo;
+import android.os.storage.StorageManager;
 import android.os.storage.VolumeInfo;
 import android.util.Log;
 
+import android.widget.Toast;
 import com.android.settings.R;
+
+import java.util.Objects;
+
+import static com.android.settings.deviceinfo.StorageSettings.TAG;
 
 public class StorageWizardMigrateConfirm extends StorageWizardBase {
     private MigrateEstimateTask mEstimate;
@@ -49,7 +54,7 @@ public class StorageWizardMigrateConfirm extends StorageWizardBase {
         final String sourceDescrip = mStorage.getBestVolumeDescription(sourceVol);
         final String targetDescrip = mStorage.getBestVolumeDescription(mVolume);
 
-        setIllustrationInternal(true);
+        setIllustrationType(ILLUSTRATION_INTERNAL);
         setHeaderText(R.string.storage_wizard_migrate_confirm_title, targetDescrip);
         setBodyText(R.string.memory_calculating_size);
         setSecondaryBodyText(R.string.storage_wizard_migrate_details, targetDescrip);
@@ -70,7 +75,32 @@ public class StorageWizardMigrateConfirm extends StorageWizardBase {
 
     @Override
     public void onNavigateNext() {
-        final int moveId = getPackageManager().movePrimaryStorage(mVolume);
+        int moveId;
+
+        // We only expect exceptions from MountService#setPrimaryStorageUuid
+        try {
+            moveId = getPackageManager().movePrimaryStorage(mVolume);
+        } catch (IllegalArgumentException e) {
+            StorageManager sm = (StorageManager) getSystemService(STORAGE_SERVICE);
+
+            if (Objects.equals(mVolume.getFsUuid(), sm.getPrimaryStorageVolume().getUuid())) {
+                final Intent intent = new Intent(this, StorageWizardReady.class);
+                intent.putExtra(DiskInfo.EXTRA_DISK_ID,
+                        getIntent().getStringExtra(DiskInfo.EXTRA_DISK_ID));
+                startActivity(intent);
+                finishAffinity();
+
+                return;
+            } else {
+                throw e;
+            }
+        } catch (IllegalStateException e) {
+            Toast.makeText(this, getString(R.string.another_migration_already_in_progress),
+                    Toast.LENGTH_LONG).show();
+            finishAffinity();
+
+            return;
+        }
 
         final Intent intent = new Intent(this, StorageWizardMigrateProgress.class);
         intent.putExtra(VolumeInfo.EXTRA_VOLUME_ID, mVolume.getId());

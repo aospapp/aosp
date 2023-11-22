@@ -23,6 +23,14 @@ LOCAL_UNINSTALLABLE_MODULE := true
 LOCAL_IS_STATIC_JAVA_LIBRARY := true
 LOCAL_MODULE_CLASS := JAVA_LIBRARIES
 
+#################################
+include $(BUILD_SYSTEM)/configure_local_jack.mk
+#################################
+
+intermediates.COMMON := $(call local-intermediates-dir,COMMON)
+
+my_res_package :=
+
 # Hack to build static Java library with Android resource
 # See bug 5714516
 all_resources :=
@@ -30,6 +38,14 @@ need_compile_res :=
 # A static Java library needs to explicily set LOCAL_RESOURCE_DIR.
 ifdef LOCAL_RESOURCE_DIR
 need_compile_res := true
+endif
+ifdef LOCAL_USE_AAPT2
+ifneq ($(LOCAL_STATIC_ANDROID_LIBRARIES),)
+need_compile_res := true
+endif
+endif
+
+ifeq ($(need_compile_res),true)
 all_resources := $(strip \
     $(foreach dir, $(LOCAL_RESOURCE_DIR), \
       $(addprefix $(dir)/, \
@@ -52,16 +68,11 @@ endif
 
 proguard_options_file :=
 
-intermediates.COMMON := $(call local-intermediates-dir,COMMON)
 ifneq ($(LOCAL_PROGUARD_ENABLED),custom)
   proguard_options_file := $(intermediates.COMMON)/proguard_options
 endif
 
 LOCAL_PROGUARD_FLAGS := $(addprefix -include ,$(proguard_options_file)) $(LOCAL_PROGUARD_FLAGS)
-
-#################################
-include $(BUILD_SYSTEM)/configure_local_jack.mk
-#################################
 
 ifdef LOCAL_JACK_ENABLED
 ifndef LOCAL_JACK_PROGUARD_FLAGS
@@ -70,6 +81,18 @@ endif
 LOCAL_JACK_PROGUARD_FLAGS := $(addprefix -include ,$(proguard_options_file)) $(LOCAL_JACK_PROGUARD_FLAGS)
 endif # LOCAL_JACK_ENABLED
 
+R_file_stamp := $(intermediates.COMMON)/src/R.stamp
+LOCAL_INTERMEDIATE_TARGETS += $(R_file_stamp)
+
+ifdef LOCAL_USE_AAPT2
+# For library we treat all the resource equal with no overlay.
+my_res_resources := $(all_resources)
+my_overlay_resources :=
+# For libraries put everything in the COMMON intermediate directory.
+my_res_package := $(intermediates.COMMON)/package-res.apk
+
+LOCAL_INTERMEDIATE_TARGETS += $(my_res_package)
+endif  # LOCAL_USE_AAPT2
 endif  # LOCAL_RESOURCE_DIR
 
 all_res_assets := $(all_resources)
@@ -77,8 +100,6 @@ all_res_assets := $(all_resources)
 include $(BUILD_SYSTEM)/java_library.mk
 
 ifeq (true,$(need_compile_res))
-R_file_stamp := $(LOCAL_INTERMEDIATE_SOURCE_DIR)/R.stamp
-
 include $(BUILD_SYSTEM)/android_manifest.mk
 
 LOCAL_SDK_RES_VERSION:=$(strip $(LOCAL_SDK_RES_VERSION))
@@ -90,7 +111,7 @@ framework_res_package_export :=
 framework_res_package_export_deps :=
 # Please refer to package.mk
 ifneq ($(LOCAL_NO_STANDARD_LIBRARIES),true)
-ifneq ($(filter-out current system_current,$(LOCAL_SDK_RES_VERSION))$(if $(TARGET_BUILD_APPS),$(filter current system_current,$(LOCAL_SDK_RES_VERSION))),)
+ifneq ($(filter-out current system_current test_current,$(LOCAL_SDK_RES_VERSION))$(if $(TARGET_BUILD_APPS),$(filter current system_current test_current,$(LOCAL_SDK_RES_VERSION))),)
 framework_res_package_export := \
     $(HISTORICAL_SDK_VERSIONS_ROOT)/$(LOCAL_SDK_RES_VERSION)/android.jar
 framework_res_package_export_deps := $(framework_res_package_export)
@@ -102,34 +123,53 @@ framework_res_package_export_deps := \
 endif
 endif
 
-$(R_file_stamp): PRIVATE_MODULE := $(LOCAL_MODULE)
 # add --non-constant-id to prevent inlining constants.
 # AAR needs text symbol file R.txt.
-$(R_file_stamp): PRIVATE_AAPT_FLAGS := $(LOCAL_AAPT_FLAGS) --non-constant-id --output-text-symbols $(LOCAL_INTERMEDIATE_SOURCE_DIR)
-$(R_file_stamp): PRIVATE_SOURCE_INTERMEDIATES_DIR := $(LOCAL_INTERMEDIATE_SOURCE_DIR)
-$(R_file_stamp): PRIVATE_ANDROID_MANIFEST := $(full_android_manifest)
-$(R_file_stamp): PRIVATE_RESOURCE_PUBLICS_OUTPUT := $(intermediates.COMMON)/public_resources.xml
-$(R_file_stamp): PRIVATE_RESOURCE_DIR := $(LOCAL_RESOURCE_DIR)
-$(R_file_stamp): PRIVATE_AAPT_INCLUDES := $(framework_res_package_export)
-ifneq (,$(filter-out current system_current, $(LOCAL_SDK_VERSION)))
-$(R_file_stamp): PRIVATE_DEFAULT_APP_TARGET_SDK := $(LOCAL_SDK_VERSION)
+ifdef LOCAL_USE_AAPT2
+$(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_AAPT_FLAGS := $(LOCAL_AAPT_FLAGS) --static-lib --no-static-lib-packages
+$(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_PRODUCT_AAPT_CONFIG :=
+$(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_PRODUCT_AAPT_PREF_CONFIG :=
+$(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_TARGET_AAPT_CHARACTERISTICS :=
 else
-$(R_file_stamp): PRIVATE_DEFAULT_APP_TARGET_SDK := $(DEFAULT_APP_TARGET_SDK)
+$(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_AAPT_FLAGS := $(LOCAL_AAPT_FLAGS) --non-constant-id --output-text-symbols $(LOCAL_INTERMEDIATE_SOURCE_DIR)
 endif
-$(R_file_stamp): PRIVATE_ASSET_DIR :=
-$(R_file_stamp): PRIVATE_PROGUARD_OPTIONS_FILE := $(proguard_options_file)
-$(R_file_stamp): PRIVATE_MANIFEST_PACKAGE_NAME :=
-$(R_file_stamp): PRIVATE_MANIFEST_INSTRUMENTATION_FOR :=
 
+$(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_SOURCE_INTERMEDIATES_DIR := $(LOCAL_INTERMEDIATE_SOURCE_DIR)
+$(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_ANDROID_MANIFEST := $(full_android_manifest)
+$(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_RESOURCE_PUBLICS_OUTPUT := $(intermediates.COMMON)/public_resources.xml
+$(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_RESOURCE_DIR := $(LOCAL_RESOURCE_DIR)
+$(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_AAPT_INCLUDES := $(framework_res_package_export)
+
+ifneq (,$(filter-out current system_current test_current, $(LOCAL_SDK_VERSION)))
+$(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_DEFAULT_APP_TARGET_SDK := $(LOCAL_SDK_VERSION)
+else
+$(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_DEFAULT_APP_TARGET_SDK := $(DEFAULT_APP_TARGET_SDK)
+endif
+
+$(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_ASSET_DIR :=
+$(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_PROGUARD_OPTIONS_FILE := $(proguard_options_file)
+$(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_MANIFEST_PACKAGE_NAME :=
+$(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_MANIFEST_INSTRUMENTATION_FOR :=
+
+ifdef LOCAL_USE_AAPT2
+# One more level with name res so we can zip up the flat resources that can be linked by apps.
+my_compiled_res_base_dir := $(intermediates.COMMON)/flat-res/res
+my_generated_res_dirs := $(rs_generated_res_dir)
+my_generated_res_dirs_deps := $(RenderScript_file_stamp)
+include $(BUILD_SYSTEM)/aapt2.mk
+$(my_res_package) : $(framework_res_package_export_deps)
+else
 $(R_file_stamp) : $(all_resources) $(full_android_manifest) $(AAPT) $(framework_res_package_export_deps)
 	@echo "target R.java/Manifest.java: $(PRIVATE_MODULE) ($@)"
 	$(create-resource-java-files)
 	$(hide) find $(PRIVATE_SOURCE_INTERMEDIATES_DIR) -name R.java | xargs cat > $@
+endif  # LOCAL_USE_AAPT2
 
 $(LOCAL_BUILT_MODULE): $(R_file_stamp)
 ifdef LOCAL_JACK_ENABLED
 $(noshrob_classes_jack): $(R_file_stamp)
 $(full_classes_jack): $(R_file_stamp)
+$(jack_check_timestamp): $(R_file_stamp)
 endif # LOCAL_JACK_ENABLED
 $(full_classes_compiled_jar): $(R_file_stamp)
 
@@ -137,10 +177,10 @@ $(full_classes_compiled_jar): $(R_file_stamp)
 built_aar := $(intermediates.COMMON)/javalib.aar
 $(built_aar): PRIVATE_MODULE := $(LOCAL_MODULE)
 $(built_aar): PRIVATE_ANDROID_MANIFEST := $(full_android_manifest)
-$(built_aar): PRIVATE_CLASSES_JAR := $(LOCAL_BUILT_MODULE)
+$(built_aar): PRIVATE_CLASSES_JAR := $(full_classes_jar)
 $(built_aar): PRIVATE_RESOURCE_DIR := $(LOCAL_RESOURCE_DIR)
 $(built_aar): PRIVATE_R_TXT := $(LOCAL_INTERMEDIATE_SOURCE_DIR)/R.txt
-$(built_aar) : $(LOCAL_BUILT_MODULE)
+$(built_aar) : $(full_classes_jar) $(full_android_manifest)
 	@echo "target AAR:  $(PRIVATE_MODULE) ($@)"
 	$(hide) rm -rf $(dir $@)aar && mkdir -p $(dir $@)aar/res
 	$(hide) cp $(PRIVATE_ANDROID_MANIFEST) $(dir $@)aar/AndroidManifest.xml
@@ -153,7 +193,6 @@ $(built_aar) : $(LOCAL_BUILT_MODULE)
 
 # Register the aar file.
 ALL_MODULES.$(LOCAL_MODULE).AAR := $(built_aar)
-
 endif  # need_compile_res
 
 # Reset internal variables.

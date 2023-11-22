@@ -17,12 +17,11 @@
 #ifndef ART_COMPILER_OPTIMIZING_SSA_BUILDER_H_
 #define ART_COMPILER_OPTIMIZING_SSA_BUILDER_H_
 
+#include "base/arena_containers.h"
 #include "nodes.h"
 #include "optimization.h"
 
 namespace art {
-
-static constexpr int kDefaultNumberOfLoops = 2;
 
 /**
  * Transforms a graph into SSA form. The liveness guarantees of
@@ -46,62 +45,85 @@ static constexpr int kDefaultNumberOfLoops = 2;
  *     is not set, values of Dex registers only used by environments
  *     are killed.
  */
-class SsaBuilder : public HGraphVisitor {
+class SsaBuilder : public ValueObject {
  public:
-  explicit SsaBuilder(HGraph* graph)
-      : HGraphVisitor(graph),
-        current_locals_(nullptr),
-        loop_headers_(graph->GetArena(), kDefaultNumberOfLoops),
-        locals_for_(graph->GetArena(), graph->GetBlocks().Size()) {
-    locals_for_.SetSize(graph->GetBlocks().Size());
+  SsaBuilder(HGraph* graph,
+             Handle<mirror::DexCache> dex_cache,
+             StackHandleScopeCollection* handles)
+      : graph_(graph),
+        dex_cache_(dex_cache),
+        handles_(handles),
+        agets_fixed_(false),
+        ambiguous_agets_(graph->GetArena()->Adapter(kArenaAllocGraphBuilder)),
+        ambiguous_asets_(graph->GetArena()->Adapter(kArenaAllocGraphBuilder)),
+        uninitialized_strings_(graph->GetArena()->Adapter(kArenaAllocGraphBuilder)) {
+    graph_->InitializeInexactObjectRTI(handles);
   }
 
-  void BuildSsa();
+  GraphAnalysisResult BuildSsa();
 
-  GrowableArray<HInstruction*>* GetLocalsFor(HBasicBlock* block) {
-    GrowableArray<HInstruction*>* locals = locals_for_.Get(block->GetBlockId());
-    if (locals == nullptr) {
-      locals = new (GetGraph()->GetArena()) GrowableArray<HInstruction*>(
-          GetGraph()->GetArena(), GetGraph()->GetNumberOfVRegs());
-      locals->SetSize(GetGraph()->GetNumberOfVRegs());
-      locals_for_.Put(block->GetBlockId(), locals);
+  HInstruction* GetFloatOrDoubleEquivalent(HInstruction* instruction, Primitive::Type type);
+  HInstruction* GetReferenceTypeEquivalent(HInstruction* instruction);
+
+  void MaybeAddAmbiguousArrayGet(HArrayGet* aget) {
+    Primitive::Type type = aget->GetType();
+    DCHECK(!Primitive::IsFloatingPointType(type));
+    if (Primitive::IsIntOrLongType(type)) {
+      ambiguous_agets_.push_back(aget);
     }
-    return locals;
   }
 
-  HInstruction* ValueOfLocal(HBasicBlock* block, size_t local);
+  void MaybeAddAmbiguousArraySet(HArraySet* aset) {
+    Primitive::Type type = aset->GetValue()->GetType();
+    if (Primitive::IsIntOrLongType(type)) {
+      ambiguous_asets_.push_back(aset);
+    }
+  }
 
-  void VisitBasicBlock(HBasicBlock* block);
-  void VisitLoadLocal(HLoadLocal* load);
-  void VisitStoreLocal(HStoreLocal* store);
-  void VisitInstruction(HInstruction* instruction);
-  void VisitTemporary(HTemporary* instruction);
-
-  static HInstruction* GetFloatOrDoubleEquivalent(HInstruction* user,
-                                                  HInstruction* instruction,
-                                                  Primitive::Type type);
-
-  static HInstruction* GetReferenceTypeEquivalent(HInstruction* instruction);
-
-  static constexpr const char* kSsaBuilderPassName = "ssa_builder";
+  void AddUninitializedString(HNewInstance* string) {
+    // In some rare cases (b/27847265), the same NewInstance may be seen
+    // multiple times. We should only consider it once for removal, so we
+    // ensure it is not added more than once.
+    // Note that we cannot check whether this really is a NewInstance of String
+    // before RTP. We DCHECK that in RemoveRedundantUninitializedStrings.
+    if (!ContainsElement(uninitialized_strings_, string)) {
+      uninitialized_strings_.push_back(string);
+    }
+  }
 
  private:
+  void SetLoopHeaderPhiInputs();
+  void FixEnvironmentPhis();
   void FixNullConstantType();
   void EquivalentPhisCleanup();
+  void RunPrimitiveTypePropagation();
 
-  static HFloatConstant* GetFloatEquivalent(HIntConstant* constant);
-  static HDoubleConstant* GetDoubleEquivalent(HLongConstant* constant);
-  static HPhi* GetFloatDoubleOrReferenceEquivalentOfPhi(HPhi* phi, Primitive::Type type);
+  // Attempts to resolve types of aget(-wide) instructions and type values passed
+  // to aput(-wide) instructions from reference type information on the array
+  // input. Returns false if the type of an array is unknown.
+  bool FixAmbiguousArrayOps();
 
-  // Locals for the current block being visited.
-  GrowableArray<HInstruction*>* current_locals_;
+  bool TypeInputsOfPhi(HPhi* phi, ArenaVector<HPhi*>* worklist);
+  bool UpdatePrimitiveType(HPhi* phi, ArenaVector<HPhi*>* worklist);
+  void ProcessPrimitiveTypePropagationWorklist(ArenaVector<HPhi*>* worklist);
 
-  // Keep track of loop headers found. The last phase of the analysis iterates
-  // over these blocks to set the inputs of their phis.
-  GrowableArray<HBasicBlock*> loop_headers_;
+  HFloatConstant* GetFloatEquivalent(HIntConstant* constant);
+  HDoubleConstant* GetDoubleEquivalent(HLongConstant* constant);
+  HPhi* GetFloatDoubleOrReferenceEquivalentOfPhi(HPhi* phi, Primitive::Type type);
+  HArrayGet* GetFloatOrDoubleEquivalentOfArrayGet(HArrayGet* aget);
 
-  // HEnvironment for each block.
-  GrowableArray<GrowableArray<HInstruction*>*> locals_for_;
+  void RemoveRedundantUninitializedStrings();
+
+  HGraph* graph_;
+  Handle<mirror::DexCache> dex_cache_;
+  StackHandleScopeCollection* const handles_;
+
+  // True if types of ambiguous ArrayGets have been resolved.
+  bool agets_fixed_;
+
+  ArenaVector<HArrayGet*> ambiguous_agets_;
+  ArenaVector<HArraySet*> ambiguous_asets_;
+  ArenaVector<HNewInstance*> uninitialized_strings_;
 
   DISALLOW_COPY_AND_ASSIGN(SsaBuilder);
 };

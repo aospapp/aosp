@@ -160,9 +160,13 @@ keymaster_error_t HmacOperation::Abort() {
     return KM_ERROR_OK;
 }
 
-keymaster_error_t HmacOperation::Finish(const AuthorizationSet& /* additional_params */,
-                                        const Buffer& signature,
+keymaster_error_t HmacOperation::Finish(const AuthorizationSet& additional_params,
+                                        const Buffer& input, const Buffer& signature,
                                         AuthorizationSet* /* output_params */, Buffer* output) {
+    keymaster_error_t error = UpdateForFinish(additional_params, input);
+    if (error != KM_ERROR_OK)
+        return error;
+
     uint8_t digest[EVP_MAX_MD_SIZE];
     unsigned int digest_len;
     if (!HMAC_Final(&ctx_, digest, &digest_len))

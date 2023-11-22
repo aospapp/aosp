@@ -72,13 +72,13 @@ static inline ogg_int32_t vorbis_invsqlook_i(long a,long e){
 #ifdef _LOW_ACCURACY_
 static inline ogg_int32_t vorbis_fromdBlook_i(long a){
   if(a>0) return 0x7fffffff;
-  if(a<(-140<<12)) return 0;
+  if(a<(int)(((unsigned)-140)<<12)) return 0;
   return FLOOR_fromdB_LOOKUP[((a+140)*467)>>20]<<9;
 }
 #else
 static inline ogg_int32_t vorbis_fromdBlook_i(long a){
   if(a>0) return 0x7fffffff;
-  if(a<(-140<<12)) return 0;
+  if(a<(int)(((unsigned)-140)<<12)) return 0;
   return FLOOR_fromdB_LOOKUP[((a+(140<<12))*467)>>20];
 }
 #endif

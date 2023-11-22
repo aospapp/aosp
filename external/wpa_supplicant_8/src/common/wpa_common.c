@@ -170,6 +170,12 @@ int wpa_pmk_to_ptk(const u8 *pmk, size_t pmk_len, const char *label,
 	ptk->tk_len = wpa_cipher_key_len(cipher);
 	ptk_len = ptk->kck_len + ptk->kek_len + ptk->tk_len;
 
+#ifdef CONFIG_SUITEB192
+	if (wpa_key_mgmt_sha384(akmp))
+		sha384_prf(pmk, pmk_len, label, data, sizeof(data),
+			   tmp, ptk_len);
+	else
+#endif /* CONFIG_SUITEB192 */
 #ifdef CONFIG_IEEE80211W
 	if (wpa_key_mgmt_sha256(akmp))
 		sha256_prf(pmk, pmk_len, label, data, sizeof(data),
@@ -286,38 +292,47 @@ static int wpa_ft_parse_ftie(const u8 *ie, size_t ie_len,
 	pos = ie + sizeof(struct rsn_ftie);
 	end = ie + ie_len;
 
-	while (pos + 2 <= end && pos + 2 + pos[1] <= end) {
-		switch (pos[0]) {
+	while (end - pos >= 2) {
+		u8 id, len;
+
+		id = *pos++;
+		len = *pos++;
+		if (len > end - pos)
+			break;
+
+		switch (id) {
 		case FTIE_SUBELEM_R1KH_ID:
-			if (pos[1] != FT_R1KH_ID_LEN) {
-				wpa_printf(MSG_DEBUG, "FT: Invalid R1KH-ID "
-					   "length in FTIE: %d", pos[1]);
+			if (len != FT_R1KH_ID_LEN) {
+				wpa_printf(MSG_DEBUG,
+					   "FT: Invalid R1KH-ID length in FTIE: %d",
+					   len);
 				return -1;
 			}
-			parse->r1kh_id = pos + 2;
+			parse->r1kh_id = pos;
 			break;
 		case FTIE_SUBELEM_GTK:
-			parse->gtk = pos + 2;
-			parse->gtk_len = pos[1];
+			parse->gtk = pos;
+			parse->gtk_len = len;
 			break;
 		case FTIE_SUBELEM_R0KH_ID:
-			if (pos[1] < 1 || pos[1] > FT_R0KH_ID_MAX_LEN) {
-				wpa_printf(MSG_DEBUG, "FT: Invalid R0KH-ID "
-					   "length in FTIE: %d", pos[1]);
+			if (len < 1 || len > FT_R0KH_ID_MAX_LEN) {
+				wpa_printf(MSG_DEBUG,
+					   "FT: Invalid R0KH-ID length in FTIE: %d",
+					   len);
 				return -1;
 			}
-			parse->r0kh_id = pos + 2;
-			parse->r0kh_id_len = pos[1];
+			parse->r0kh_id = pos;
+			parse->r0kh_id_len = len;
 			break;
 #ifdef CONFIG_IEEE80211W
 		case FTIE_SUBELEM_IGTK:
-			parse->igtk = pos + 2;
-			parse->igtk_len = pos[1];
+			parse->igtk = pos;
+			parse->igtk_len = len;
 			break;
 #endif /* CONFIG_IEEE80211W */
 		}
 
-		pos += 2 + pos[1];
+		pos += len;
 	}
 
 	return 0;
@@ -339,11 +354,18 @@ int wpa_ft_parse_ies(const u8 *ies, size_t ies_len,
 
 	pos = ies;
 	end = ies + ies_len;
-	while (pos + 2 <= end && pos + 2 + pos[1] <= end) {
-		switch (pos[0]) {
+	while (end - pos >= 2) {
+		u8 id, len;
+
+		id = *pos++;
+		len = *pos++;
+		if (len > end - pos)
+			break;
+
+		switch (id) {
 		case WLAN_EID_RSN:
-			parse->rsn = pos + 2;
-			parse->rsn_len = pos[1];
+			parse->rsn = pos;
+			parse->rsn_len = len;
 			ret = wpa_parse_wpa_ie_rsn(parse->rsn - 2,
 						   parse->rsn_len + 2,
 						   &data);
@@ -356,32 +378,32 @@ int wpa_ft_parse_ies(const u8 *ies, size_t ies_len,
 				parse->rsn_pmkid = data.pmkid;
 			break;
 		case WLAN_EID_MOBILITY_DOMAIN:
-			if (pos[1] < sizeof(struct rsn_mdie))
+			if (len < sizeof(struct rsn_mdie))
 				return -1;
-			parse->mdie = pos + 2;
-			parse->mdie_len = pos[1];
+			parse->mdie = pos;
+			parse->mdie_len = len;
 			break;
 		case WLAN_EID_FAST_BSS_TRANSITION:
-			if (pos[1] < sizeof(*ftie))
+			if (len < sizeof(*ftie))
 				return -1;
-			ftie = (const struct rsn_ftie *) (pos + 2);
+			ftie = (const struct rsn_ftie *) pos;
 			prot_ie_count = ftie->mic_control[1];
-			if (wpa_ft_parse_ftie(pos + 2, pos[1], parse) < 0)
+			if (wpa_ft_parse_ftie(pos, len, parse) < 0)
 				return -1;
 			break;
 		case WLAN_EID_TIMEOUT_INTERVAL:
-			if (pos[1] != 5)
+			if (len != 5)
 				break;
-			parse->tie = pos + 2;
-			parse->tie_len = pos[1];
+			parse->tie = pos;
+			parse->tie_len = len;
 			break;
 		case WLAN_EID_RIC_DATA:
 			if (parse->ric == NULL)
-				parse->ric = pos;
+				parse->ric = pos - 2;
 			break;
 		}
 
-		pos += 2 + pos[1];
+		pos += len;
 	}
 
 	if (prot_ie_count == 0)
@@ -410,13 +432,15 @@ int wpa_ft_parse_ies(const u8 *ies, size_t ies_len,
 	}
 
 	/* Determine the end of the RIC IE(s) */
-	pos = parse->ric;
-	while (pos && pos + 2 <= end && pos + 2 + pos[1] <= end &&
-	       prot_ie_count) {
-		prot_ie_count--;
-		pos += 2 + pos[1];
+	if (parse->ric) {
+		pos = parse->ric;
+		while (end - pos >= 2 && 2 + pos[1] <= end - pos &&
+		       prot_ie_count) {
+			prot_ie_count--;
+			pos += 2 + pos[1];
+		}
+		parse->ric_len = pos - parse->ric;
 	}
-	parse->ric_len = pos - parse->ric;
 	if (prot_ie_count) {
 		wpa_printf(MSG_DEBUG, "FT: %d protected IEs missing from "
 			   "frame", (int) prot_ie_count);
@@ -492,7 +516,7 @@ static int rsn_key_mgmt_to_bitfield(const u8 *s)
 }
 
 
-static int wpa_cipher_valid_group(int cipher)
+int wpa_cipher_valid_group(int cipher)
 {
 	return wpa_cipher_valid_pairwise(cipher) ||
 		cipher == WPA_CIPHER_GTK_NOT_USED;
@@ -576,8 +600,10 @@ int wpa_parse_wpa_ie_rsn(const u8 *rsn_ie, size_t rsn_ie_len,
 	if (left >= RSN_SELECTOR_LEN) {
 		data->group_cipher = rsn_selector_to_bitfield(pos);
 		if (!wpa_cipher_valid_group(data->group_cipher)) {
-			wpa_printf(MSG_DEBUG, "%s: invalid group cipher 0x%x",
-				   __func__, data->group_cipher);
+			wpa_printf(MSG_DEBUG,
+				   "%s: invalid group cipher 0x%x (%08x)",
+				   __func__, data->group_cipher,
+				   WPA_GET_BE32(pos));
 			return -1;
 		}
 		pos += RSN_SELECTOR_LEN;
@@ -665,9 +691,10 @@ int wpa_parse_wpa_ie_rsn(const u8 *rsn_ie, size_t rsn_ie_len,
 	if (left >= 4) {
 		data->mgmt_group_cipher = rsn_selector_to_bitfield(pos);
 		if (!wpa_cipher_valid_mgmt_group(data->mgmt_group_cipher)) {
-			wpa_printf(MSG_DEBUG, "%s: Unsupported management "
-				   "group cipher 0x%x", __func__,
-				   data->mgmt_group_cipher);
+			wpa_printf(MSG_DEBUG,
+				   "%s: Unsupported management group cipher 0x%x (%08x)",
+				   __func__, data->mgmt_group_cipher,
+				   WPA_GET_BE32(pos));
 			return -10;
 		}
 		pos += RSN_SELECTOR_LEN;
@@ -1255,13 +1282,13 @@ int wpa_compare_rsn_ie(int ft_initial_assoc,
 
 
 #ifdef CONFIG_IEEE80211R
-int wpa_insert_pmkid(u8 *ies, size_t ies_len, const u8 *pmkid)
+int wpa_insert_pmkid(u8 *ies, size_t *ies_len, const u8 *pmkid)
 {
 	u8 *start, *end, *rpos, *rend;
 	int added = 0;
 
 	start = ies;
-	end = ies + ies_len;
+	end = ies + *ies_len;
 
 	while (start < end) {
 		if (*start == WLAN_EID_RSN)
@@ -1292,6 +1319,9 @@ int wpa_insert_pmkid(u8 *ies, size_t ies_len, const u8 *pmkid)
 		os_memmove(rpos + 2, rpos, end - rpos);
 		*rpos++ = 0;
 		*rpos++ = 0;
+		added += 2;
+		start[1] += 2;
+		rend = rpos;
 	} else {
 		/* Skip RSN Capabilities */
 		rpos += 2;
@@ -1304,22 +1334,40 @@ int wpa_insert_pmkid(u8 *ies, size_t ies_len, const u8 *pmkid)
 
 	if (rpos == rend) {
 		/* No PMKID-Count field included; add it */
-		os_memmove(rpos + 2 + PMKID_LEN, rpos, end - rpos);
+		os_memmove(rpos + 2 + PMKID_LEN, rpos, end + added - rpos);
 		WPA_PUT_LE16(rpos, 1);
 		rpos += 2;
 		os_memcpy(rpos, pmkid, PMKID_LEN);
 		added += 2 + PMKID_LEN;
 		start[1] += 2 + PMKID_LEN;
 	} else {
-		/* PMKID-Count was included; use it */
-		if (WPA_GET_LE16(rpos) != 0) {
-			wpa_printf(MSG_ERROR, "FT: Unexpected PMKID "
-				   "in RSN IE in EAPOL-Key data");
+		u16 num_pmkid;
+
+		if (rend - rpos < 2)
 			return -1;
+		num_pmkid = WPA_GET_LE16(rpos);
+		/* PMKID-Count was included; use it */
+		if (num_pmkid != 0) {
+			u8 *after;
+
+			if (num_pmkid * PMKID_LEN > rend - rpos - 2)
+				return -1;
+			/*
+			 * PMKID may have been included in RSN IE in
+			 * (Re)Association Request frame, so remove the old
+			 * PMKID(s) first before adding the new one.
+			 */
+			wpa_printf(MSG_DEBUG,
+				   "FT: Remove %u old PMKID(s) from RSN IE",
+				   num_pmkid);
+			after = rpos + 2 + num_pmkid * PMKID_LEN;
+			os_memmove(rpos + 2, after, rend - after);
+			start[1] -= num_pmkid * PMKID_LEN;
+			added -= num_pmkid * PMKID_LEN;
 		}
 		WPA_PUT_LE16(rpos, 1);
 		rpos += 2;
-		os_memmove(rpos + PMKID_LEN, rpos, end - rpos);
+		os_memmove(rpos + PMKID_LEN, rpos, end + added - rpos);
 		os_memcpy(rpos, pmkid, PMKID_LEN);
 		added += PMKID_LEN;
 		start[1] += PMKID_LEN;
@@ -1328,7 +1376,9 @@ int wpa_insert_pmkid(u8 *ies, size_t ies_len, const u8 *pmkid)
 	wpa_hexdump(MSG_DEBUG, "FT: RSN IE after modification "
 		    "(PMKID inserted)", start, 2 + start[1]);
 
-	return added;
+	*ies_len += added;
+
+	return 0;
 }
 #endif /* CONFIG_IEEE80211R */
 

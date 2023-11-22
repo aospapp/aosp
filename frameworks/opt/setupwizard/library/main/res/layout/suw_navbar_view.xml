@@ -17,14 +17,14 @@
 
 <merge xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <view class="com.android.setupwizardlib.view.NavigationBar$NavButton"
+    <com.android.setupwizardlib.view.NavigationBarButton
         android:id="@+id/suw_navbar_back"
         style="@style/SuwNavBarButtonStyle"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
         android:contentDescription="@string/suw_back_button_label"
-        android:drawableLeft="?attr/suwNavBarBackButton"
-        android:drawableStart="?attr/suwNavBarBackButton" />
+        android:drawableLeft="@drawable/suw_navbar_ic_back"
+        android:drawableStart="@drawable/suw_navbar_ic_back" />
 
     <View
         android:layout_width="0dp"
@@ -32,24 +32,24 @@
         android:layout_weight="1"
         android:visibility="invisible" />
 
-    <view class="com.android.setupwizardlib.view.NavigationBar$NavButton"
+    <com.android.setupwizardlib.view.NavigationBarButton
         android:id="@+id/suw_navbar_more"
         style="@style/SuwNavBarButtonStyle"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
         android:contentDescription="@string/suw_more_button_label"
-        android:drawableEnd="?attr/suwNavBarMoreButton"
-        android:drawableRight="?attr/suwNavBarMoreButton"
+        android:drawableEnd="@drawable/suw_navbar_ic_more"
+        android:drawableRight="@drawable/suw_navbar_ic_more"
         android:gravity="end|center_vertical"
         android:visibility="gone" />
 
-    <view class="com.android.setupwizardlib.view.NavigationBar$NavButton"
+    <com.android.setupwizardlib.view.NavigationBarButton
         android:id="@+id/suw_navbar_next"
         style="@style/SuwNavBarButtonStyle"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
-        android:drawableEnd="?attr/suwNavBarNextButton"
-        android:drawableRight="?attr/suwNavBarNextButton"
+        android:drawableEnd="@drawable/suw_navbar_ic_next"
+        android:drawableRight="@drawable/suw_navbar_ic_next"
         android:gravity="end|center_vertical"
         android:text="@string/suw_next_button_label" />
 

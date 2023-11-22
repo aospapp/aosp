@@ -17,6 +17,7 @@
 
 package org.apache.harmony.tests.java.util;
 
+import libcore.java.util.SpliteratorTester;
 import org.apache.harmony.testframework.serialization.SerializationTest;
 import org.apache.harmony.testframework.serialization.SerializationTest.SerializableAssert;
 import tests.support.Support_MapTest2;
@@ -25,6 +26,8 @@ import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.ConcurrentModificationException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
@@ -33,6 +36,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.function.BiFunction;
 
 public class IdentityHashMapTest extends junit.framework.TestCase {
     private static final String ID = "hello";
@@ -856,6 +860,229 @@ public class IdentityHashMapTest extends junit.framework.TestCase {
         entry.setValue(newValue);
         assertSame(newValue, ihm.get(key));
     }
+
+    public void test_forEach() throws Exception {
+        IdentityHashMap<String, String> map = new IdentityHashMap<>();
+        map.put("one", "1");
+        map.put("two", "2");
+        map.put("three", "3");
+
+        IdentityHashMap<String, String> output = new IdentityHashMap<>();
+        map.forEach((k, v) -> output.put(k,v));
+        assertEquals(map, output);
+
+        HashSet<String> setOutput = new HashSet<>();
+        map.keySet().forEach((k) -> setOutput.add(k));
+        assertEquals(map.keySet(), setOutput);
+
+        setOutput.clear();
+        map.values().forEach((v) -> setOutput.add(v));
+        assertEquals(new HashSet<>(map.values()), setOutput);
+
+        HashSet<Map.Entry<String,String>> entrySetOutput = new HashSet<>();
+        map.entrySet().forEach((v) -> entrySetOutput.add(v));
+        assertEquals(map.entrySet(), entrySetOutput);
+    }
+
+
+    public void test_forEach_NPE() throws Exception {
+        IdentityHashMap<String, String> map = new IdentityHashMap<>();
+        try {
+            map.forEach(null);
+            fail();
+        } catch(NullPointerException expected) {}
+
+        try {
+            map.keySet().forEach(null);
+            fail();
+        } catch(NullPointerException expected) {}
+
+        try {
+            map.values().forEach(null);
+            fail();
+        } catch(NullPointerException expected) {}
+
+        try {
+            map.entrySet().forEach(null);
+            fail();
+        } catch(NullPointerException expected) {}
+    }
+
+    public void test_forEach_CME() throws Exception {
+        IdentityHashMap<String, String> map = new IdentityHashMap<>();
+        map.put("one", "1");
+        map.put("two", "2");
+        map.put("three", "3");
+
+        IdentityHashMap<String, String> outputMap = new IdentityHashMap<>();
+        try {
+            map.forEach(new java.util.function.BiConsumer<String, String>() {
+                    @Override
+                    public void accept(String k, String v) {
+                        outputMap.put(k, v);
+                        map.put("foo1", v);
+                    }
+                });
+            fail();
+        } catch(ConcurrentModificationException expected) {}
+        // We should get a CME and DO NOT continue forEach evaluation
+        assertEquals(1, outputMap.size());
+
+        outputMap.clear();
+        try {
+            map.keySet().forEach(new java.util.function.Consumer<String>() {
+                    @Override
+                    public void accept(String k) {
+                        outputMap.put(k, "foo");
+                        map.put("foo2", "boo");
+                    }
+                });
+            fail();
+        } catch(ConcurrentModificationException expected) {}
+        // We should get a CME and DO NOT continue forEach evaluation
+        assertEquals(1, outputMap.size());
+
+        outputMap.clear();
+        try {
+            map.values().forEach(new java.util.function.Consumer<String>() {
+                    @Override
+                    public void accept(String k)  {
+                        outputMap.put(k, "foo");
+                        map.put("foo3", "boo");
+                    }
+                });
+            fail();
+        } catch(ConcurrentModificationException expected) {}
+        // We should get a CME and DO NOT continue forEach evaluation
+        assertEquals(1, outputMap.size());
+
+        outputMap.clear();
+        try {
+            map.entrySet().forEach(new java.util.function.Consumer<Map.Entry<String,String>>() {
+                    @Override
+                    public void accept(Map.Entry<String,String> k)  {
+                        outputMap.put(k.getKey(), "foo");
+                        map.put("foo4", "boo");
+                    }
+                });
+            fail();
+        } catch(ConcurrentModificationException expected) {}
+        // We should get a CME and DO NOT continue forEach evaluation
+        assertEquals(1, outputMap.size());
+    }
+
+    public void test_spliterator_keySet() {
+        IdentityHashMap<String, String> hashMap = new IdentityHashMap<>();
+        hashMap.put("a", "1");
+        hashMap.put("b", "2");
+        hashMap.put("c", "3");
+        hashMap.put("d", "4");
+        hashMap.put("e", "5");
+        hashMap.put("f", "6");
+        hashMap.put("g", "7");
+        hashMap.put("h", "8");
+        hashMap.put("i", "9");
+        hashMap.put("j", "10");
+        hashMap.put("k", "11");
+        hashMap.put("l", "12");
+        hashMap.put("m", "13");
+        hashMap.put("n", "14");
+        hashMap.put("o", "15");
+        hashMap.put("p", "16");
+
+        Set<String> keys = hashMap.keySet();
+        ArrayList<String> expectedKeys = new ArrayList<>(keys);
+
+        SpliteratorTester.runBasicIterationTests(keys.spliterator(), expectedKeys);
+        SpliteratorTester.runBasicSplitTests(keys, expectedKeys);
+        SpliteratorTester.testSpliteratorNPE(keys.spliterator());
+    }
+
+    public void test_spliterator_valueSet() {
+        IdentityHashMap<String, String> hashMap = new IdentityHashMap<>();
+        hashMap.put("a", "1");
+        hashMap.put("b", "2");
+        hashMap.put("c", "3");
+        hashMap.put("d", "4");
+        hashMap.put("e", "5");
+        hashMap.put("f", "6");
+        hashMap.put("g", "7");
+        hashMap.put("h", "8");
+        hashMap.put("i", "9");
+        hashMap.put("j", "10");
+        hashMap.put("k", "11");
+        hashMap.put("l", "12");
+        hashMap.put("m", "13");
+        hashMap.put("n", "14");
+        hashMap.put("o", "15");
+        hashMap.put("p", "16");
+
+        Collection<String> values = hashMap.values();
+        ArrayList<String> expectedValues = new ArrayList<>(values);
+
+        SpliteratorTester.runBasicIterationTests(values.spliterator(), expectedValues);
+        SpliteratorTester.runBasicSplitTests(values, expectedValues);
+        SpliteratorTester.testSpliteratorNPE(values.spliterator());
+    }
+
+    public void test_spliterator_entrySet() {
+        IdentityHashMap<String, String> hashMap = new IdentityHashMap<>();
+        hashMap.put("a", "1");
+        hashMap.put("b", "2");
+        hashMap.put("c", "3");
+        hashMap.put("d", "4");
+        hashMap.put("e", "5");
+        hashMap.put("f", "6");
+        hashMap.put("g", "7");
+        hashMap.put("h", "8");
+        hashMap.put("i", "9");
+        hashMap.put("j", "10");
+        hashMap.put("k", "11");
+        hashMap.put("l", "12");
+        hashMap.put("m", "13");
+        hashMap.put("n", "14");
+        hashMap.put("o", "15");
+        hashMap.put("p", "16");
+
+        Set<Map.Entry<String, String>> values = hashMap.entrySet();
+        ArrayList<Map.Entry<String, String>> expectedValues = new ArrayList<>(values);
+
+        Comparator<Map.Entry<String, String>> comparator =
+                (a, b) -> (a.getKey().compareTo(b.getKey()));
+
+        SpliteratorTester.runBasicIterationTests(values.spliterator(), expectedValues);
+        SpliteratorTester.runBasicSplitTests(values, expectedValues, comparator);
+        SpliteratorTester.testSpliteratorNPE(values.spliterator());
+    }
+
+    public void test_replaceAll() {
+        IdentityHashMap<String, String> map = new IdentityHashMap<>();
+        String key1 = "key1";
+        String key2 = "key2";
+        String key3 = "key3";
+
+        map.put(key1, "1");
+        map.put(key2, "2");
+        map.put(key3, "3");
+
+        map.replaceAll((k, v) -> k + v);
+
+        assertEquals("key11", map.get(key1));
+        assertEquals("key22", map.get(key2));
+        assertEquals("key33", map.get(key3));
+        assertEquals(3, map.size());
+
+        try {
+            map.replaceAll(new BiFunction<String, String, String>() {
+                @Override
+                public String apply(String s, String s2) {
+                    map.put("key4", "4");
+                    return "";
+                }
+            });
+        } catch (ConcurrentModificationException expected) {}
+    }
+
 
     // comparator for IdentityHashMap objects
     private static final SerializableAssert COMPARATOR = new SerializableAssert() {

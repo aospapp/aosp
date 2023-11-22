@@ -68,6 +68,19 @@
         android:layout_height="@dimen/dialpad_digits_adjustable_height"
         android:orientation="horizontal">
 
+        <ImageButton android:id="@+id/dialpad_back"
+            android:background="@drawable/btn_dialpad_key"
+            android:src="@drawable/ic_arrow_back_black_24dp"
+            android:tint="?attr/dialpad_icon_tint"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_margin="@dimen/dialpad_overflow_margin"
+            android:paddingLeft="@dimen/dialpad_digits_menu_left_padding"
+            android:paddingRight="@dimen/dialpad_digits_menu_right_padding"
+            android:contentDescription="@string/description_dialpad_back"
+            android:gravity="center"
+            android:visibility="gone" />
+
         <ImageButton android:id="@+id/dialpad_overflow"
             android:background="@drawable/btn_dialpad_key"
             android:src="@drawable/ic_overflow_menu"
@@ -79,7 +92,7 @@
             android:paddingRight="@dimen/dialpad_digits_menu_right_padding"
             android:contentDescription="@string/description_dialpad_overflow"
             android:gravity="center"
-            android:visibility="invisible" />
+            android:visibility="gone" />
 
         <view class="com.android.phone.common.dialpad.DigitsEditText"
             xmlns:ex="http://schemas.android.com/apk/res-auto"
@@ -128,6 +141,6 @@
 
     <Space
         android:layout_width="match_parent"
-        android:layout_height="8dp" />
+        android:layout_height="@dimen/dialpad_space_below_keys" />
 
 </view>

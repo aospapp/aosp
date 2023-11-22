@@ -81,11 +81,9 @@ LOCAL_CFLAGS += -Wno-unused-variable \
                 -Wno-unused-label \
                 -Wno-unused-value
 
-# pfkey.c, isakmp.c, remoteconf.c have some K&R warnings,
-# to be ignored until they are fixed from upstream.
-LOCAL_CLANG_CFLAGS += -Wno-knr-promoted-parameter
-
 LOCAL_MODULE := racoon
+
+LOCAL_INIT_RC := racoon.rc
 
 include $(BUILD_EXECUTABLE)
 
@@ -100,10 +98,6 @@ LOCAL_SRC_FILES := \
 LOCAL_CFLAGS := -DANDROID_CHANGES -DHAVE_CONFIG_H -DHAVE_OPENSSL_ENGINE_H
 
 LOCAL_CFLAGS += -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-pointer-sign -Werror
-
-# pfkey.c has some K&R warnings,
-# to be ignored until they are fixed from upstream.
-LOCAL_CLANG_CFLAGS += -Wno-knr-promoted-parameter
 
 LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH) \

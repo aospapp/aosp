@@ -89,7 +89,7 @@ static std::string NormalizeJniClassDescriptor(const char* name) {
 
 static void ThrowNoSuchMethodError(ScopedObjectAccess& soa, mirror::Class* c,
                                    const char* name, const char* sig, const char* kind)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   std::string temp;
   soa.Self()->ThrowNewExceptionF("Ljava/lang/NoSuchMethodError;",
                                  "no %s method \"%s.%s%s\"",
@@ -98,7 +98,7 @@ static void ThrowNoSuchMethodError(ScopedObjectAccess& soa, mirror::Class* c,
 
 static void ReportInvalidJNINativeMethod(const ScopedObjectAccess& soa, mirror::Class* c,
                                          const char* kind, jint idx, bool return_errors)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   LOG(return_errors ? ERROR : FATAL) << "Failed to register native method in "
       << PrettyDescriptor(c) << " in " << c->GetDexCache()->GetLocation()->ToModifiedUtf8()
       << ": " << kind << " is null at index " << idx;
@@ -107,7 +107,7 @@ static void ReportInvalidJNINativeMethod(const ScopedObjectAccess& soa, mirror::
 }
 
 static mirror::Class* EnsureInitialized(Thread* self, mirror::Class* klass)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   if (LIKELY(klass->IsInitialized())) {
     return klass;
   }
@@ -121,7 +121,7 @@ static mirror::Class* EnsureInitialized(Thread* self, mirror::Class* klass)
 
 static jmethodID FindMethodID(ScopedObjectAccess& soa, jclass jni_class,
                               const char* name, const char* sig, bool is_static)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   mirror::Class* c = EnsureInitialized(soa.Self(), soa.Decode<mirror::Class*>(jni_class));
   if (c == nullptr) {
     return nullptr;
@@ -148,7 +148,7 @@ static jmethodID FindMethodID(ScopedObjectAccess& soa, jclass jni_class,
 }
 
 static mirror::ClassLoader* GetClassLoader(const ScopedObjectAccess& soa)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   ArtMethod* method = soa.Self()->GetCurrentMethod(nullptr);
   // If we are running Runtime.nativeLoad, use the overriding ClassLoader it set.
   if (method == soa.DecodeMethod(WellKnownClasses::java_lang_Runtime_nativeLoad)) {
@@ -179,7 +179,7 @@ static mirror::ClassLoader* GetClassLoader(const ScopedObjectAccess& soa)
 
 static jfieldID FindFieldID(const ScopedObjectAccess& soa, jclass jni_class, const char* name,
                             const char* sig, bool is_static)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   StackHandleScope<2> hs(soa.Self());
   Handle<mirror::Class> c(
       hs.NewHandle(EnsureInitialized(soa.Self(), soa.Decode<mirror::Class*>(jni_class))));
@@ -227,7 +227,7 @@ static jfieldID FindFieldID(const ScopedObjectAccess& soa, jclass jni_class, con
 
 static void ThrowAIOOBE(ScopedObjectAccess& soa, mirror::Array* array, jsize start,
                         jsize length, const char* identifier)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   std::string type(PrettyTypeOf(array));
   soa.Self()->ThrowNewExceptionF("Ljava/lang/ArrayIndexOutOfBoundsException;",
                                  "%s offset=%d length=%d %s.length=%d",
@@ -236,14 +236,14 @@ static void ThrowAIOOBE(ScopedObjectAccess& soa, mirror::Array* array, jsize sta
 
 static void ThrowSIOOBE(ScopedObjectAccess& soa, jsize start, jsize length,
                         jsize array_length)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   soa.Self()->ThrowNewExceptionF("Ljava/lang/StringIndexOutOfBoundsException;",
                                  "offset=%d length=%d string.length()=%d", start, length,
                                  array_length);
 }
 
 int ThrowNewException(JNIEnv* env, jclass exception_class, const char* msg, jobject cause)
-    LOCKS_EXCLUDED(Locks::mutator_lock_) {
+    REQUIRES(!Locks::mutator_lock_) {
   // Turn the const char* into a java.lang.String.
   ScopedLocalRef<jstring> s(env, env->NewStringUTF(msg));
   if (msg != nullptr && s.get() == nullptr) {
@@ -314,14 +314,9 @@ static JavaVMExt* JavaVmExtFromEnv(JNIEnv* env) {
 
 template <bool kNative>
 static ArtMethod* FindMethod(mirror::Class* c, const StringPiece& name, const StringPiece& sig)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   auto pointer_size = Runtime::Current()->GetClassLinker()->GetImagePointerSize();
-  for (auto& method : c->GetDirectMethods(pointer_size)) {
-    if (kNative == method.IsNative() && name == method.GetName() && method.GetSignature() == sig) {
-      return &method;
-    }
-  }
-  for (auto& method : c->GetVirtualMethods(pointer_size)) {
+  for (auto& method : c->GetMethods(pointer_size)) {
     if (kNative == method.IsNative() && name == method.GetName() && method.GetSignature() == sig) {
       return &method;
     }
@@ -406,7 +401,7 @@ class JNI {
     CHECK_NON_NULL_ARGUMENT(java_class);
     ScopedObjectAccess soa(env);
     mirror::Class* c = soa.Decode<mirror::Class*>(java_class);
-    return soa.AddLocalReference<jclass>(c->GetSuperClass());
+    return soa.AddLocalReference<jclass>(c->IsInterface() ? nullptr : c->GetSuperClass());
   }
 
   // Note: java_class1 should be safely castable to java_class2, and
@@ -1670,7 +1665,7 @@ class JNI {
     CHECK_NON_NULL_ARGUMENT_RETURN_VOID(java_string);
     ScopedObjectAccess soa(env);
     mirror::String* s = soa.Decode<mirror::String*>(java_string);
-    if (start < 0 || length < 0 || start + length > s->GetLength()) {
+    if (start < 0 || length < 0 || length > s->GetLength() - start) {
       ThrowSIOOBE(soa, start, length, s->GetLength());
     } else {
       CHECK_NON_NULL_MEMCPY_ARGUMENT(length, buf);
@@ -1684,12 +1679,13 @@ class JNI {
     CHECK_NON_NULL_ARGUMENT_RETURN_VOID(java_string);
     ScopedObjectAccess soa(env);
     mirror::String* s = soa.Decode<mirror::String*>(java_string);
-    if (start < 0 || length < 0 || start + length > s->GetLength()) {
+    if (start < 0 || length < 0 || length > s->GetLength() - start) {
       ThrowSIOOBE(soa, start, length, s->GetLength());
     } else {
       CHECK_NON_NULL_MEMCPY_ARGUMENT(length, buf);
       const jchar* chars = s->GetValue();
-      ConvertUtf16ToModifiedUtf8(buf, chars + start, length);
+      size_t bytes = CountUtf8Bytes(chars + start, length);
+      ConvertUtf16ToModifiedUtf8(buf, bytes, chars + start, length);
     }
   }
 
@@ -1729,7 +1725,13 @@ class JNI {
     if (heap->IsMovableObject(s)) {
       StackHandleScope<1> hs(soa.Self());
       HandleWrapper<mirror::String> h(hs.NewHandleWrapper(&s));
-      heap->IncrementDisableMovingGC(soa.Self());
+      if (!kUseReadBarrier) {
+        heap->IncrementDisableMovingGC(soa.Self());
+      } else {
+        // For the CC collector, we only need to wait for the thread flip rather than the whole GC
+        // to occur thanks to the to-space invariant.
+        heap->IncrementDisableThreadFlip(soa.Self());
+      }
     }
     if (is_copy != nullptr) {
       *is_copy = JNI_FALSE;
@@ -1737,14 +1739,19 @@ class JNI {
     return static_cast<jchar*>(s->GetValue());
   }
 
-  static void ReleaseStringCritical(JNIEnv* env, jstring java_string, const jchar* chars) {
-    UNUSED(chars);
+  static void ReleaseStringCritical(JNIEnv* env,
+                                    jstring java_string,
+                                    const jchar* chars ATTRIBUTE_UNUSED) {
     CHECK_NON_NULL_ARGUMENT_RETURN_VOID(java_string);
     ScopedObjectAccess soa(env);
     gc::Heap* heap = Runtime::Current()->GetHeap();
     mirror::String* s = soa.Decode<mirror::String*>(java_string);
     if (heap->IsMovableObject(s)) {
-      heap->DecrementDisableMovingGC(soa.Self());
+      if (!kUseReadBarrier) {
+        heap->DecrementDisableMovingGC(soa.Self());
+      } else {
+        heap->DecrementDisableThreadFlip(soa.Self());
+      }
     }
   }
 
@@ -1761,7 +1768,7 @@ class JNI {
     char* bytes = new char[byte_count + 1];
     CHECK(bytes != nullptr);  // bionic aborts anyway.
     const uint16_t* chars = s->GetValue();
-    ConvertUtf16ToModifiedUtf8(bytes, chars, s->GetLength());
+    ConvertUtf16ToModifiedUtf8(bytes, byte_count, chars, s->GetLength());
     bytes[byte_count] = '\0';
     return bytes;
   }
@@ -1891,7 +1898,13 @@ class JNI {
     }
     gc::Heap* heap = Runtime::Current()->GetHeap();
     if (heap->IsMovableObject(array)) {
-      heap->IncrementDisableMovingGC(soa.Self());
+      if (!kUseReadBarrier) {
+        heap->IncrementDisableMovingGC(soa.Self());
+      } else {
+        // For the CC collector, we only need to wait for the thread flip rather than the whole GC
+        // to occur thanks to the to-space invariant.
+        heap->IncrementDisableThreadFlip(soa.Self());
+      }
       // Re-decode in case the object moved since IncrementDisableGC waits for GC to complete.
       array = soa.Decode<mirror::Array*>(java_array);
     }
@@ -2202,13 +2215,7 @@ class JNI {
 
     size_t unregistered_count = 0;
     auto pointer_size = Runtime::Current()->GetClassLinker()->GetImagePointerSize();
-    for (auto& m : c->GetDirectMethods(pointer_size)) {
-      if (m.IsNative()) {
-        m.UnregisterNative();
-        unregistered_count++;
-      }
-    }
-    for (auto& m : c->GetVirtualMethods(pointer_size)) {
+    for (auto& m : c->GetMethods(pointer_size)) {
       if (m.IsNative()) {
         m.UnregisterNative();
         unregistered_count++;
@@ -2321,7 +2328,7 @@ class JNI {
  private:
   static jint EnsureLocalCapacityInternal(ScopedObjectAccess& soa, jint desired_capacity,
                                           const char* caller)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     // TODO: we should try to expand the table if necessary.
     if (desired_capacity < 0 || desired_capacity > static_cast<jint>(kLocalsMax)) {
       LOG(ERROR) << "Invalid capacity given to " << caller << ": " << desired_capacity;
@@ -2350,7 +2357,7 @@ class JNI {
   template <typename JArrayT, typename ElementT, typename ArtArrayT>
   static ArtArrayT* DecodeAndCheckArrayType(ScopedObjectAccess& soa, JArrayT java_array,
                                            const char* fn_name, const char* operation)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     ArtArrayT* array = soa.Decode<ArtArrayT*>(java_array);
     if (UNLIKELY(ArtArrayT::GetArrayClass() != array->GetClass())) {
       soa.Vm()->JniAbortF(fn_name,
@@ -2407,13 +2414,11 @@ class JNI {
 
   static void ReleasePrimitiveArray(ScopedObjectAccess& soa, mirror::Array* array,
                                     size_t component_size, void* elements, jint mode)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     void* array_data = array->GetRawData(component_size, 0);
     gc::Heap* heap = Runtime::Current()->GetHeap();
     bool is_copy = array_data != elements;
     size_t bytes = array->GetLength() * component_size;
-    VLOG(heap) << "Release primitive array " << soa.Env() << " array_data " << array_data
-               << " elements " << elements;
     if (is_copy) {
       // Sanity check: If elements is not the same as the java array's data, it better not be a
       // heap address. TODO: This might be slow to check, may be worth keeping track of which
@@ -2437,7 +2442,11 @@ class JNI {
         delete[] reinterpret_cast<uint64_t*>(elements);
       } else if (heap->IsMovableObject(array)) {
         // Non copy to a movable object must means that we had disabled the moving GC.
-        heap->DecrementDisableMovingGC(soa.Self());
+        if (!kUseReadBarrier) {
+          heap->DecrementDisableMovingGC(soa.Self());
+        } else {
+          heap->DecrementDisableThreadFlip(soa.Self());
+        }
       }
     }
   }
@@ -2452,7 +2461,7 @@ class JNI {
                                                               "GetPrimitiveArrayRegion",
                                                               "get region of");
     if (array != nullptr) {
-      if (start < 0 || length < 0 || start + length > array->GetLength()) {
+      if (start < 0 || length < 0 || length > array->GetLength() - start) {
         ThrowAIOOBE(soa, array, start, length, "src");
       } else {
         CHECK_NON_NULL_MEMCPY_ARGUMENT(length, buf);
@@ -2472,7 +2481,7 @@ class JNI {
                                                               "SetPrimitiveArrayRegion",
                                                               "set region of");
     if (array != nullptr) {
-      if (start < 0 || length < 0 || start + length > array->GetLength()) {
+      if (start < 0 || length < 0 || length > array->GetLength() - start) {
         ThrowAIOOBE(soa, array, start, length, "dst");
       } else {
         CHECK_NON_NULL_MEMCPY_ARGUMENT(length, buf);
@@ -2721,6 +2730,246 @@ const JNINativeInterface gJniNativeInterface = {
 
 const JNINativeInterface* GetJniNativeInterface() {
   return &gJniNativeInterface;
+}
+
+void (*gJniSleepForeverStub[])()  = {
+  nullptr,  // reserved0.
+  nullptr,  // reserved1.
+  nullptr,  // reserved2.
+  nullptr,  // reserved3.
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+  SleepForever,
+};
+
+const JNINativeInterface* GetRuntimeShutdownNativeInterface() {
+  return reinterpret_cast<JNINativeInterface*>(&gJniSleepForeverStub);
 }
 
 void RegisterNativeMethods(JNIEnv* env, const char* jni_class_name, const JNINativeMethod* methods,

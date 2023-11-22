@@ -35,6 +35,7 @@ import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
 import android.provider.DocumentsContract.Root;
 import android.provider.DocumentsProvider;
+import android.support.provider.DocumentArchiveHelper;
 import android.text.TextUtils;
 import android.webkit.MimeTypeMap;
 
@@ -65,11 +66,14 @@ public class DownloadStorageProvider extends DocumentsProvider {
     };
 
     private DownloadManager mDm;
+    private DocumentArchiveHelper mArchiveHelper;
 
     @Override
     public boolean onCreate() {
         mDm = (DownloadManager) getContext().getSystemService(Context.DOWNLOAD_SERVICE);
         mDm.setAccessAllDownloads(true);
+        mDm.setAccessFilename(true);
+        mArchiveHelper = new DocumentArchiveHelper(this, ':');
         return true;
     }
 
@@ -151,7 +155,30 @@ public class DownloadStorageProvider extends DocumentsProvider {
     }
 
     @Override
+    public String renameDocument(String documentId, String displayName)
+            throws FileNotFoundException {
+        displayName = FileUtils.buildValidFatFilename(displayName);
+
+        final long token = Binder.clearCallingIdentity();
+        try {
+            final long id = Long.parseLong(documentId);
+
+            if (!mDm.rename(getContext(), id, displayName)) {
+                throw new IllegalStateException(
+                        "Failed to rename to " + displayName + " in downloadsManager");
+            }
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
+        return null;
+    }
+
+    @Override
     public Cursor queryDocument(String docId, String[] projection) throws FileNotFoundException {
+        if (mArchiveHelper.isArchivedDocument(docId)) {
+            return mArchiveHelper.queryDocument(docId, projection);
+        }
+
         final MatrixCursor result = new MatrixCursor(resolveDocumentProjection(projection));
 
         if (DOC_ID_ROOT.equals(docId)) {
@@ -164,6 +191,8 @@ public class DownloadStorageProvider extends DocumentsProvider {
                 cursor = mDm.query(new Query().setFilterById(Long.parseLong(docId)));
                 copyNotificationUri(result, cursor);
                 if (cursor.moveToFirst()) {
+                    // We don't know if this queryDocument() call is from Downloads (manage)
+                    // or Files. Safely assume it's Files.
                     includeDownloadFromCursor(result, cursor);
                 }
             } finally {
@@ -177,6 +206,11 @@ public class DownloadStorageProvider extends DocumentsProvider {
     @Override
     public Cursor queryChildDocuments(String docId, String[] projection, String sortOrder)
             throws FileNotFoundException {
+        if (mArchiveHelper.isArchivedDocument(docId) ||
+                mArchiveHelper.isSupportedArchiveType(getDocumentType(docId))) {
+            return mArchiveHelper.queryChildDocuments(docId, projection, sortOrder);
+        }
+
         final MatrixCursor result = new MatrixCursor(resolveDocumentProjection(projection));
 
         // Delegate to real provider
@@ -200,6 +234,10 @@ public class DownloadStorageProvider extends DocumentsProvider {
     public Cursor queryChildDocumentsForManage(
             String parentDocumentId, String[] projection, String sortOrder)
             throws FileNotFoundException {
+        if (mArchiveHelper.isArchivedDocument(parentDocumentId)) {
+            return mArchiveHelper.queryDocument(parentDocumentId, projection);
+        }
+
         final MatrixCursor result = new MatrixCursor(resolveDocumentProjection(projection));
 
         // Delegate to real provider
@@ -256,6 +294,10 @@ public class DownloadStorageProvider extends DocumentsProvider {
     @Override
     public ParcelFileDescriptor openDocument(String docId, String mode, CancellationSignal signal)
             throws FileNotFoundException {
+        if (mArchiveHelper.isArchivedDocument(docId)) {
+            return mArchiveHelper.openDocument(docId, mode, signal);
+        }
+
         // Delegate to real provider
         final long token = Binder.clearCallingIdentity();
         try {
@@ -303,10 +345,12 @@ public class DownloadStorageProvider extends DocumentsProvider {
             size = null;
         }
 
+        int extraFlags = Document.FLAG_PARTIAL;
         final int status = cursor.getInt(
                 cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
         switch (status) {
             case DownloadManager.STATUS_SUCCESSFUL:
+                extraFlags = Document.FLAG_SUPPORTS_RENAME;  // only successful is non-partial
                 break;
             case DownloadManager.STATUS_PAUSED:
                 summary = getContext().getString(R.string.download_queued);
@@ -331,9 +375,13 @@ public class DownloadStorageProvider extends DocumentsProvider {
                 break;
         }
 
-        int flags = Document.FLAG_SUPPORTS_DELETE | Document.FLAG_SUPPORTS_WRITE;
-        if (mimeType != null && mimeType.startsWith("image/")) {
+        int flags = Document.FLAG_SUPPORTS_DELETE | Document.FLAG_SUPPORTS_WRITE | extraFlags;
+        if (mimeType.startsWith("image/")) {
             flags |= Document.FLAG_SUPPORTS_THUMBNAIL;
+        }
+
+        if (mArchiveHelper.isSupportedArchiveType(mimeType)) {
+            flags |= Document.FLAG_ARCHIVE;
         }
 
         final long lastModified = cursor.getLong(
@@ -345,8 +393,18 @@ public class DownloadStorageProvider extends DocumentsProvider {
         row.add(Document.COLUMN_SUMMARY, summary);
         row.add(Document.COLUMN_SIZE, size);
         row.add(Document.COLUMN_MIME_TYPE, mimeType);
-        row.add(Document.COLUMN_LAST_MODIFIED, lastModified);
         row.add(Document.COLUMN_FLAGS, flags);
+        // Incomplete downloads get a null timestamp.  This prevents thrashy UI when a bunch of
+        // active downloads get sorted by mod time.
+        if (status != DownloadManager.STATUS_RUNNING) {
+            row.add(Document.COLUMN_LAST_MODIFIED, lastModified);
+        }
+
+        final String localFilePath = cursor.getString(
+                cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_FILENAME));
+        if (localFilePath != null) {
+            row.add(DocumentArchiveHelper.COLUMN_LOCAL_FILE_PATH, localFilePath);
+        }
     }
 
     /**

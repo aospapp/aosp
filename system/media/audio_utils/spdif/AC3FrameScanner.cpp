@@ -181,6 +181,10 @@ bool AC3FrameScanner::parseHeader()
         return false;
     }
 
+    // bitstream mode, main, commentary, etc.
+    uint32_t bsmod = mHeaderBuffer[5] & 7;
+    mDataTypeInfo = bsmod; // as per IEC61937-3, table 3.
+
     // The names fscod, frmsiz are from the AC3 spec.
     uint32_t fscod = mHeaderBuffer[4] >> 6;
     if (mDataType == SPDIF_DATA_TYPE_E_AC3) {
@@ -195,7 +199,7 @@ bool AC3FrameScanner::parseHeader()
         if (fscod == 3) {
             uint32_t fscod2 = (mHeaderBuffer[4] >> 4) & 0x03;
             if (fscod2 >= AC3_NUM_SAMPLE_RATE_TABLE_ENTRIES) {
-                ALOGW("Invalid EAC3 fscod2 = %d\n", fscod2);
+                ALOGW("Invalid EAC3 fscod2 = %d", fscod2);
                 return false;
             } else {
                 mSampleRate = kEAC3ReducedSampleRateTable[fscod2];
@@ -224,10 +228,10 @@ bool AC3FrameScanner::parseHeader()
         uint32_t frmsizcod = mHeaderBuffer[4] & 0x3F; // frame size code
 
         if (fscod >= AC3_NUM_SAMPLE_RATE_TABLE_ENTRIES) {
-            ALOGW("Invalid AC3 sampleRateCode = %d\n", fscod);
+            ALOGW("Invalid AC3 sampleRateCode = %d", fscod);
             return false;
         } else if (frmsizcod >= AC3_NUM_FRAME_SIZE_TABLE_ENTRIES) {
-            ALOGW("Invalid AC3 frameSizeCode = %d\n", frmsizcod);
+            ALOGW("Invalid AC3 frameSizeCode = %d", frmsizcod);
             return false;
         } else {
             mSampleRate = kAC3SampleRateTable[fscod];
@@ -238,7 +242,7 @@ bool AC3FrameScanner::parseHeader()
         mAudioBlocksPerSyncFrame = 6;
     }
     ALOGI_IF((mFormatDumpCount == 0),
-            "AC3 frame rate = %d * %d, size = %d, audioBlocksPerSyncFrame = %d\n",
+            "AC3 frame rate = %d * %d, size = %zu, audioBlocksPerSyncFrame = %d",
             mSampleRate, mRateMultiplier, mFrameSizeBytes, mAudioBlocksPerSyncFrame);
     mFormatDumpCount++;
     return true;

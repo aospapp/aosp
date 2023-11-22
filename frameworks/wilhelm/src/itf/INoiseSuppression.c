@@ -54,7 +54,6 @@ SLresult IAndroidNoiseSuppression_IsEnabled(SLAndroidNoiseSuppressionItf self, S
     } else {
         IAndroidNoiseSuppression *thiz = (IAndroidNoiseSuppression *) self;
         interface_lock_exclusive(thiz);
-        SLboolean enabled = thiz->mEnabled;
         if (NO_NOISESUPPRESS(thiz)) {
             result = SL_RESULT_CONTROL_LOST;
         } else {

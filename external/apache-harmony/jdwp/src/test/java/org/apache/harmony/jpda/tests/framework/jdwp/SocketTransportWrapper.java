@@ -39,7 +39,7 @@ import org.apache.harmony.jpda.tests.framework.jdwp.Packet;
 
 /**
  * This class provides TransportWrapper for row TCP/IP socket connection.
- *  
+ *
  */
 public class SocketTransportWrapper implements TransportWrapper {
 
@@ -52,9 +52,12 @@ public class SocketTransportWrapper implements TransportWrapper {
 
     /**
      * Starts listening for connection on given or default address.
-     * 
-     * @param address address to listen or null for default address
-     * @return string representation of listening address 
+     *
+     * @param address
+     *            address to listen to or null for default address,
+     *            parsed as "hostname:port" or "port", if it contains
+     *            no semi-colon.
+     * @return string representation of listening address
      */
     public String startListening(String address) throws IOException {
         String hostName = null;
@@ -82,7 +85,7 @@ public class SocketTransportWrapper implements TransportWrapper {
         } else {
             serverSocket = new ServerSocket(port);
         }
-        
+
         // use as workaround for unspecified behaviour of isAnyLocalAddress()
         InetAddress iAddress = null;
         if (hostName != null) {
@@ -90,11 +93,11 @@ public class SocketTransportWrapper implements TransportWrapper {
         } else {
             iAddress = InetAddress.getLocalHost();
         }
-        
+
         address = iAddress.getHostName() + ":" + serverSocket.getLocalPort();
         return address;
     }
-    
+
     /**
      * Stops listening for connection on current address.
      */

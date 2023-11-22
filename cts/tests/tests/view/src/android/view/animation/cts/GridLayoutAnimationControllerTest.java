@@ -16,7 +16,7 @@
 
 package android.view.animation.cts;
 
-import com.android.cts.view.R;
+import android.view.cts.R;
 
 
 import android.content.Context;
@@ -58,7 +58,7 @@ public class GridLayoutAnimationControllerTest
     private static final int INDEX_OF_CHILD9 = 8;
 
     public GridLayoutAnimationControllerTest() {
-        super("com.android.cts.view", GridLayoutAnimCtsActivity.class);
+        super("android.view.cts", GridLayoutAnimCtsActivity.class);
     }
 
     @Override

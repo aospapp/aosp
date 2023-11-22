@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cutils/log.h>
 #include <stddef.h>
 #include <string.h>
 #include <minikin/SparseBitSet.h>
@@ -71,6 +72,7 @@ void SparseBitSet::initFromRanges(const uint32_t* ranges, size_t nRanges) {
     for (size_t i = 0; i < nRanges; i++) {
         uint32_t start = ranges[i * 2];
         uint32_t end = ranges[i * 2 + 1];
+        LOG_ALWAYS_FATAL_IF(end < start);  // make sure range size is nonnegative
         uint32_t startPage = start >> kLogValuesPerPage;
         uint32_t endPage = (end - 1) >> kLogValuesPerPage;
         if (startPage >= nonzeroPageEnd) {
@@ -90,13 +92,13 @@ void SparseBitSet::initFromRanges(const uint32_t* ranges, size_t nRanges) {
         size_t nElements = (end - (start & ~kElMask) + kElMask) >> kLogBitsPerEl;
         if (nElements == 1) {
             mBitmaps[index] |= (kElAllOnes >> (start & kElMask)) &
-                (kElAllOnes << ((-end) & kElMask));
+                (kElAllOnes << ((~end + 1) & kElMask));
         } else {
             mBitmaps[index] |= kElAllOnes >> (start & kElMask);
             for (size_t j = 1; j < nElements - 1; j++) {
                 mBitmaps[index + j] = kElAllOnes;
             }
-            mBitmaps[index + nElements - 1] |= kElAllOnes << ((-end) & kElMask);
+            mBitmaps[index + nElements - 1] |= kElAllOnes << ((~end + 1) & kElMask);
         }
         for (size_t j = startPage + 1; j < endPage + 1; j++) {
             mIndices[j] = (currentPage++) << (kLogValuesPerPage - kLogBitsPerEl);

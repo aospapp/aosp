@@ -26,7 +26,7 @@ LOCAL_MULTILIB := both
 
 LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner ctsdeviceutil
 
-LOCAL_JNI_SHARED_LIBRARIES := libctsopenglperf_jni
+LOCAL_JNI_SHARED_LIBRARIES := libctsopenglperf_jni libnativehelper_compat_libc++
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
@@ -35,6 +35,9 @@ LOCAL_PACKAGE_NAME := CtsOpenGlPerfTestCases
 LOCAL_INSTRUMENTATION_FOR := com.replica.replicaisland
 
 LOCAL_SDK_VERSION := current
+
+# Tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
 
 include $(BUILD_CTS_PACKAGE)
 

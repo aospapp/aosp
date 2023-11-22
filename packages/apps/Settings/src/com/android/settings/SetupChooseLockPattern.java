@@ -16,19 +16,21 @@
 
 package com.android.settings;
 
-import com.android.setupwizardlib.SetupWizardLayout;
-import com.android.setupwizardlib.view.NavigationBar;
-
 import android.app.Activity;
 import android.app.Fragment;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.os.Bundle;
+import android.os.UserHandle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.LinearLayout;
+
+import com.android.setupwizardlib.SetupWizardLayout;
+import com.android.setupwizardlib.view.NavigationBar;
 
 /**
  * Setup Wizard's version of ChooseLockPattern screen. It inherits the logic and basic structure
@@ -42,19 +44,21 @@ public class SetupChooseLockPattern extends ChooseLockPattern {
     public static Intent createIntent(Context context, boolean requirePassword,
             boolean confirmCredentials) {
         Intent intent = ChooseLockPattern.createIntent(context, requirePassword,
-                confirmCredentials);
+                confirmCredentials, UserHandle.myUserId());
         intent.setClass(context, SetupChooseLockPattern.class);
         return intent;
     }
 
     public static Intent createIntent(Context context, boolean requirePassword, String pattern) {
-        Intent intent = ChooseLockPattern.createIntent(context, requirePassword, pattern);
+        Intent intent = ChooseLockPattern.createIntent(
+                context, requirePassword, pattern, UserHandle.myUserId());
         intent.setClass(context, SetupChooseLockPattern.class);
         return intent;
     }
 
     public static Intent createIntent(Context context, boolean requirePassword, long challenge) {
-        Intent intent = ChooseLockPattern.createIntent(context, requirePassword, challenge);
+        Intent intent = ChooseLockPattern.createIntent(
+                context, requirePassword, challenge, UserHandle.myUserId());
         intent.setClass(context, SetupChooseLockPattern.class);
         return intent;
     }
@@ -67,6 +71,13 @@ public class SetupChooseLockPattern extends ChooseLockPattern {
     @Override
     /* package */ Class<? extends Fragment> getFragmentClass() {
         return SetupChooseLockPatternFragment.class;
+    }
+
+    @Override
+    protected void onCreate(Bundle savedInstance) {
+        super.onCreate(savedInstance);
+        LinearLayout layout = (LinearLayout) findViewById(R.id.content_parent);
+        layout.setFitsSystemWindows(false);
     }
 
     @Override
@@ -102,11 +113,7 @@ public class SetupChooseLockPattern extends ChooseLockPattern {
 
         @Override
         protected Intent getRedactionInterstitialIntent(Context context) {
-            Intent intent = SetupRedactionInterstitial.createStartIntent(context);
-            if (intent != null) {
-                SetupWizardUtils.copySetupExtras(getActivity().getIntent(), intent);
-            }
-            return intent;
+            return null;
         }
 
         @Override
@@ -133,6 +140,20 @@ public class SetupChooseLockPattern extends ChooseLockPattern {
             super.updateStage(stage);
             // Only enable the button for retry
             mRetryButton.setEnabled(stage == Stage.FirstChoiceValid);
+
+            switch (stage) {
+                case Introduction:
+                case HelpScreen:
+                case ChoiceTooShort:
+                case FirstChoiceValid:
+                    mRetryButton.setVisibility(View.VISIBLE);
+                    break;
+                case NeedToConfirm:
+                case ConfirmWrong:
+                case ChoiceConfirmed:
+                    mRetryButton.setVisibility(View.INVISIBLE);
+                    break;
+            }
         }
 
         @Override

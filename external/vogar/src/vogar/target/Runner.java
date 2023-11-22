@@ -16,28 +16,16 @@
 
 package vogar.target;
 
-import java.util.concurrent.atomic.AtomicReference;
-import vogar.monitor.TargetMonitor;
-
 /**
  * Interface between the generic TestRunner and the more specific
- * backend implementations that know about specific types of tests.
+ * backend implementations that know how to run specific types of tests.
  */
 public interface Runner {
-
-    /**
-     * Returns true if this runner can exercise {@code klass}.
-     */
-    boolean supports(Class<?> klass);
-
-    void init(TargetMonitor monitor, String actionName, String qualification, Class<?> klass,
-            AtomicReference<String> skipPastReference, TestEnvironment testEnvironment,
-            int timeoutSeconds, boolean profile);
 
     /**
      * @return true if this run completed normally. Otherwise the calling
      *     process should kill this process and attempt to resume after the last
      *     known outcome.
      */
-    boolean run(String actionName, Profiler profiler, String[] args);
+    boolean run(Profiler profiler);
 }

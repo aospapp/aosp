@@ -16,27 +16,33 @@
 
 package com.android.settings;
 
+import android.app.Activity;
 import android.app.backup.IBackupManager;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.os.Bundle;
-import android.os.Process;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.UserHandle;
 import android.os.UserManager;
-import android.preference.Preference;
-import android.preference.Preference.OnPreferenceChangeListener;
-import android.preference.PreferenceScreen;
-import android.preference.SwitchPreference;
 import android.provider.SearchIndexableResource;
 import android.provider.Settings;
+import android.support.v14.preference.SwitchPreference;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.Preference.OnPreferenceChangeListener;
+import android.support.v7.preference.PreferenceScreen;
 import android.util.Log;
 
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.settings.dashboard.SummaryLoader;
 import com.android.settings.search.BaseSearchIndexProvider;
 import com.android.settings.search.Indexable;
+import com.android.settingslib.RestrictedLockUtils;
+import com.android.settingslib.RestrictedPreference;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -53,6 +59,7 @@ public class PrivacySettings extends SettingsPreferenceFragment implements Index
     private static final String BACKUP_DATA = "backup_data";
     private static final String AUTO_RESTORE = "auto_restore";
     private static final String CONFIGURE_ACCOUNT = "configure_account";
+    private static final String DATA_MANAGEMENT = "data_management";
     private static final String BACKUP_INACTIVE = "backup_inactive";
     private static final String NETWORK_RESET = "network_reset";
     private static final String FACTORY_RESET = "factory_reset";
@@ -61,18 +68,20 @@ public class PrivacySettings extends SettingsPreferenceFragment implements Index
     private PreferenceScreen mBackup;
     private SwitchPreference mAutoRestore;
     private PreferenceScreen mConfigure;
+    private PreferenceScreen mManageData;
     private boolean mEnabled;
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.PRIVACY;
+        return MetricsEvent.PRIVACY;
     }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // Don't allow any access if this is a secondary user
-        mEnabled = Process.myUserHandle().isOwner();
+        // Don't allow any access if this is not an admin user.
+        // TODO: backup/restore currently only works with owner user b/22760572
+        mEnabled = UserManager.get(getActivity()).isAdminUser();
         if (!mEnabled) {
             return;
         }
@@ -88,6 +97,7 @@ public class PrivacySettings extends SettingsPreferenceFragment implements Index
         mAutoRestore.setOnPreferenceChangeListener(preferenceChangeListener);
 
         mConfigure = (PreferenceScreen) screen.findPreference(CONFIGURE_ACCOUNT);
+        mManageData = (PreferenceScreen) screen.findPreference(DATA_MANAGEMENT);
 
         Set<String> keysToRemove = new HashSet<>();
         getNonVisibleKeys(getActivity(), keysToRemove);
@@ -142,11 +152,17 @@ public class PrivacySettings extends SettingsPreferenceFragment implements Index
         boolean backupEnabled = false;
         Intent configIntent = null;
         String configSummary = null;
+        Intent manageIntent = null;
+        String manageLabel = null;
         try {
             backupEnabled = mBackupManager.isBackupEnabled();
             String transport = mBackupManager.getCurrentTransport();
-            configIntent = mBackupManager.getConfigurationIntent(transport);
+            configIntent = validatedActivityIntent(
+                    mBackupManager.getConfigurationIntent(transport), "config");
             configSummary = mBackupManager.getDestinationString(transport);
+            manageIntent = validatedActivityIntent(
+                    mBackupManager.getDataManagementIntent(transport), "management");
+            manageLabel = mBackupManager.getDataManagementLabel(transport);
 
             mBackup.setSummary(backupEnabled
                     ? R.string.accessibility_feature_state_on
@@ -164,6 +180,30 @@ public class PrivacySettings extends SettingsPreferenceFragment implements Index
         mConfigure.setEnabled(configureEnabled);
         mConfigure.setIntent(configIntent);
         setConfigureSummary(configSummary);
+
+        final boolean manageEnabled = (manageIntent != null) && backupEnabled;
+        if (manageEnabled) {
+            mManageData.setIntent(manageIntent);
+            if (manageLabel != null) {
+                mManageData.setTitle(manageLabel);
+            }
+        } else {
+            // Hide the item if data management intent is not supported by transport.
+            getPreferenceScreen().removePreference(mManageData);
+        }
+    }
+
+    private Intent validatedActivityIntent(Intent intent, String logLabel) {
+        if (intent != null) {
+            PackageManager pm = getPackageManager();
+            List<ResolveInfo> resolved = pm.queryIntentActivities(intent, 0);
+            if (resolved == null || resolved.isEmpty()) {
+                intent = null;
+                Log.e(TAG, "Backup " + logLabel + " intent " + intent
+                        + " fails to resolve; ignoring");
+            }
+        }
+        return intent;
     }
 
     private void setConfigureSummary(String summary) {
@@ -179,6 +219,51 @@ public class PrivacySettings extends SettingsPreferenceFragment implements Index
         return R.string.help_url_backup_reset;
     }
 
+    private static class SummaryProvider implements SummaryLoader.SummaryProvider {
+
+        private final Context mContext;
+        private final SummaryLoader mSummaryLoader;
+
+        public SummaryProvider(Context context, SummaryLoader summaryLoader) {
+            mContext = context;
+            mSummaryLoader = summaryLoader;
+        }
+
+        @Override
+        public void setListening(boolean listening) {
+            if (listening) {
+                IBackupManager backupManager = IBackupManager.Stub.asInterface(
+                        ServiceManager.getService(Context.BACKUP_SERVICE));
+                try {
+                    boolean backupEnabled = backupManager.isBackupEnabled();
+                    if (backupEnabled) {
+                        String transport = backupManager.getCurrentTransport();
+                        String configSummary = backupManager.getDestinationString(transport);
+                        if (configSummary != null) {
+                            mSummaryLoader.setSummary(this, configSummary);
+                        } else {
+                            mSummaryLoader.setSummary(this, mContext.getString(
+                                    R.string.backup_configure_account_default_summary));
+                        }
+                    } else {
+                        mSummaryLoader.setSummary(this, mContext.getString(
+                                R.string.backup_disabled));
+                    }
+                } catch (RemoteException e) {
+                }
+            }
+        }
+    }
+
+    public static final SummaryLoader.SummaryProviderFactory SUMMARY_PROVIDER_FACTORY
+            = new SummaryLoader.SummaryProviderFactory() {
+        @Override
+        public SummaryLoader.SummaryProvider createSummaryProvider(Activity activity,
+                                                                   SummaryLoader summaryLoader) {
+            return new SummaryProvider(activity, summaryLoader);
+        }
+    };
+
     /**
      * For Search.
      */
@@ -192,7 +277,7 @@ public class PrivacySettings extends SettingsPreferenceFragment implements Index
         public PrivacySearchIndexProvider() {
             super();
 
-            mIsPrimary = UserHandle.myUserId() == UserHandle.USER_OWNER;
+            mIsPrimary = UserHandle.myUserId() == UserHandle.USER_SYSTEM;
         }
 
         @Override
@@ -202,6 +287,7 @@ public class PrivacySettings extends SettingsPreferenceFragment implements Index
             List<SearchIndexableResource> result = new ArrayList<SearchIndexableResource>();
 
             // For non-primary user, no backup or reset is available
+            // TODO: http://b/22388012
             if (!mIsPrimary) {
                 return result;
             }
@@ -241,12 +327,12 @@ public class PrivacySettings extends SettingsPreferenceFragment implements Index
             nonVisibleKeys.add(AUTO_RESTORE);
             nonVisibleKeys.add(CONFIGURE_ACCOUNT);
         }
-        if (UserManager.get(context).hasUserRestriction(
-                UserManager.DISALLOW_FACTORY_RESET)) {
+        if (RestrictedLockUtils.hasBaseUserRestriction(context,
+                UserManager.DISALLOW_FACTORY_RESET, UserHandle.myUserId())) {
             nonVisibleKeys.add(FACTORY_RESET);
         }
-        if (UserManager.get(context).hasUserRestriction(
-                UserManager.DISALLOW_NETWORK_RESET)) {
+        if (RestrictedLockUtils.hasBaseUserRestriction(context,
+                UserManager.DISALLOW_NETWORK_RESET, UserHandle.myUserId())) {
             nonVisibleKeys.add(NETWORK_RESET);
         }
     }

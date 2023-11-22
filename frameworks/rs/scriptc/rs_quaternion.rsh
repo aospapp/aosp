@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,13 +34,15 @@
  *   q: Destination quaternion to add to.
  *   rhs: Quaternion to add.
  */
+#if !defined(RS_VERSION) || (RS_VERSION <= 23)
 static inline void __attribute__((overloadable))
     rsQuaternionAdd(rs_quaternion* q, const rs_quaternion* rhs) {
-    q->w *= rhs->w;
-    q->x *= rhs->x;
-    q->y *= rhs->y;
-    q->z *= rhs->z;
+    q->w += rhs->w;
+    q->x += rhs->x;
+    q->y += rhs->y;
+    q->z += rhs->z;
 }
+#endif
 
 /*
  * rsQuaternionConjugate: Conjugate a quaternion
@@ -50,12 +52,14 @@ static inline void __attribute__((overloadable))
  * Parameters:
  *   q: Quaternion to modify.
  */
+#if !defined(RS_VERSION) || (RS_VERSION <= 23)
 static inline void __attribute__((overloadable))
     rsQuaternionConjugate(rs_quaternion* q) {
     q->x = -q->x;
     q->y = -q->y;
     q->z = -q->z;
 }
+#endif
 
 /*
  * rsQuaternionDot: Dot product of two quaternions
@@ -66,10 +70,12 @@ static inline void __attribute__((overloadable))
  *   q0: First quaternion.
  *   q1: Second quaternion.
  */
+#if !defined(RS_VERSION) || (RS_VERSION <= 23)
 static inline float __attribute__((overloadable))
     rsQuaternionDot(const rs_quaternion* q0, const rs_quaternion* q1) {
     return q0->w*q1->w + q0->x*q1->x + q0->y*q1->y + q0->z*q1->z;
 }
+#endif
 
 /*
  * rsQuaternionGetMatrixUnit: Get a rotation matrix from a quaternion
@@ -80,6 +86,7 @@ static inline float __attribute__((overloadable))
  *   m: Resulting matrix.
  *   q: Normalized quaternion.
  */
+#if !defined(RS_VERSION) || (RS_VERSION <= 23)
 static inline void __attribute__((overloadable))
     rsQuaternionGetMatrixUnit(rs_matrix4x4* m, const rs_quaternion* q) {
     float xx = q->x * q->x;
@@ -104,6 +111,7 @@ static inline void __attribute__((overloadable))
     m->m[3]  = m->m[7] = m->m[11] = m->m[12] = m->m[13] = m->m[14] = 0.0f;
     m->m[15] = 1.0f;
 }
+#endif
 
 /*
  * rsQuaternionLoadRotateUnit: Quaternion that represents a rotation about an arbitrary unit vector
@@ -117,6 +125,7 @@ static inline void __attribute__((overloadable))
  *   y: Y component of the vector.
  *   z: Z component of the vector.
  */
+#if !defined(RS_VERSION) || (RS_VERSION <= 23)
 static inline void __attribute__((overloadable))
     rsQuaternionLoadRotateUnit(rs_quaternion* q, float rot, float x, float y, float z) {
     rot *= (float)(M_PI / 180.0f) * 0.5f;
@@ -128,6 +137,7 @@ static inline void __attribute__((overloadable))
     q->y = y * s;
     q->z = z * s;
 }
+#endif
 
 /*
  * rsQuaternionSet: Create a quaternion
@@ -142,6 +152,7 @@ static inline void __attribute__((overloadable))
  *   z: Z component.
  *   rhs: Source quaternion.
  */
+#if !defined(RS_VERSION) || (RS_VERSION <= 23)
 static inline void __attribute__((overloadable))
     rsQuaternionSet(rs_quaternion* q, float w, float x, float y, float z) {
     q->w = w;
@@ -149,7 +160,9 @@ static inline void __attribute__((overloadable))
     q->y = y;
     q->z = z;
 }
+#endif
 
+#if !defined(RS_VERSION) || (RS_VERSION <= 23)
 static inline void __attribute__((overloadable))
     rsQuaternionSet(rs_quaternion* q, const rs_quaternion* rhs) {
     q->w = rhs->w;
@@ -157,6 +170,7 @@ static inline void __attribute__((overloadable))
     q->y = rhs->y;
     q->z = rhs->z;
 }
+#endif
 
 /*
  * rsQuaternionLoadRotate: Create a rotation quaternion
@@ -171,6 +185,7 @@ static inline void __attribute__((overloadable))
  *   y: Y component of a vector.
  *   z: Z component of a vector.
  */
+#if !defined(RS_VERSION) || (RS_VERSION <= 23)
 static inline void __attribute__((overloadable))
     rsQuaternionLoadRotate(rs_quaternion* q, float rot, float x, float y, float z) {
     const float len = x*x + y*y + z*z;
@@ -182,6 +197,7 @@ static inline void __attribute__((overloadable))
     }
     rsQuaternionLoadRotateUnit(q, rot, x, y, z);
 }
+#endif
 
 /*
  * rsQuaternionNormalize: Normalize a quaternion
@@ -191,6 +207,7 @@ static inline void __attribute__((overloadable))
  * Parameters:
  *   q: Quaternion to normalize.
  */
+#if !defined(RS_VERSION) || (RS_VERSION <= 23)
 static inline void __attribute__((overloadable))
     rsQuaternionNormalize(rs_quaternion* q) {
     const float len = rsQuaternionDot(q, q);
@@ -202,6 +219,7 @@ static inline void __attribute__((overloadable))
         q->z *= recipLen;
     }
 }
+#endif
 
 /*
  * rsQuaternionMultiply: Multiply a quaternion by a scalar or another quaternion
@@ -214,6 +232,7 @@ static inline void __attribute__((overloadable))
  *   scalar: Scalar to multiply the quaternion by.
  *   rhs: Quaternion to multiply the destination quaternion by.
  */
+#if !defined(RS_VERSION) || (RS_VERSION <= 23)
 static inline void __attribute__((overloadable))
     rsQuaternionMultiply(rs_quaternion* q, float scalar) {
     q->w *= scalar;
@@ -221,7 +240,9 @@ static inline void __attribute__((overloadable))
     q->y *= scalar;
     q->z *= scalar;
 }
+#endif
 
+#if !defined(RS_VERSION) || (RS_VERSION <= 23)
 static inline void __attribute__((overloadable))
     rsQuaternionMultiply(rs_quaternion* q, const rs_quaternion* rhs) {
     rs_quaternion qtmp;
@@ -233,6 +254,7 @@ static inline void __attribute__((overloadable))
     q->z = qtmp.w*rhs->z + qtmp.z*rhs->w + qtmp.x*rhs->y - qtmp.y*rhs->x;
     rsQuaternionNormalize(q);
 }
+#endif
 
 /*
  * rsQuaternionSlerp: Spherical linear interpolation between two quaternions
@@ -245,6 +267,7 @@ static inline void __attribute__((overloadable))
  *   q1: Second input quaternion.
  *   t: How much to interpolate by.
  */
+#if !defined(RS_VERSION) || (RS_VERSION <= 23)
 static inline void __attribute__((overloadable))
     rsQuaternionSlerp(rs_quaternion* q, const rs_quaternion* q0, const rs_quaternion* q1, float t) {
     if (t <= 0.0f) {
@@ -286,5 +309,66 @@ static inline void __attribute__((overloadable))
     rsQuaternionSet(q, tempq0.w*scale + tempq1.w*invScale, tempq0.x*scale + tempq1.x*invScale,
                         tempq0.y*scale + tempq1.y*invScale, tempq0.z*scale + tempq1.z*invScale);
 }
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern void __attribute__((overloadable))
+    rsQuaternionAdd(rs_quaternion* q, const rs_quaternion* rhs);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern void __attribute__((overloadable))
+    rsQuaternionConjugate(rs_quaternion* q);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern float __attribute__((overloadable))
+    rsQuaternionDot(const rs_quaternion* q0, const rs_quaternion* q1);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern void __attribute__((overloadable))
+    rsQuaternionGetMatrixUnit(rs_matrix4x4* m, const rs_quaternion* q);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern void __attribute__((overloadable))
+    rsQuaternionLoadRotateUnit(rs_quaternion* q, float rot, float x, float y, float z);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern void __attribute__((overloadable))
+    rsQuaternionSet(rs_quaternion* q, float w, float x, float y, float z);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern void __attribute__((overloadable))
+    rsQuaternionSet(rs_quaternion* q, const rs_quaternion* rhs);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern void __attribute__((overloadable))
+    rsQuaternionLoadRotate(rs_quaternion* q, float rot, float x, float y, float z);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern void __attribute__((overloadable))
+    rsQuaternionNormalize(rs_quaternion* q);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern void __attribute__((overloadable))
+    rsQuaternionMultiply(rs_quaternion* q, float scalar);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern void __attribute__((overloadable))
+    rsQuaternionMultiply(rs_quaternion* q, const rs_quaternion* rhs);
+#endif
+
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
+extern void __attribute__((overloadable))
+    rsQuaternionSlerp(rs_quaternion* q, const rs_quaternion* q0, const rs_quaternion* q1, float t);
+#endif
 
 #endif // RENDERSCRIPT_RS_QUATERNION_RSH

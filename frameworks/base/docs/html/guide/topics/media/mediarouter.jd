@@ -95,7 +95,7 @@ page.tags="mediarouter","cast","chromecast","wireless display","miracast"
   {@link android.support.v7.media.MediaRouteProvider} and distributing it as an application.
   For more information on implementing a media route provider, see the {@link
   android.support.v7.media.MediaRouteProvider} reference documentation and the v7-mediarouter
-  support library sample {@code &lt;sdk&gt;/extras/android/compatibility/v7/mediarouter}.
+  support library sample {@code <sdk>/extras/android/compatibility/v7/mediarouter}.
 </p>
 
 
@@ -458,8 +458,8 @@ public class MediaRouterPlaybackActivity extends ActionBarActivity {
 <p class="note">
   <strong>Note:</strong> In order for Wireless Display routes to show up in the media route
   selection dialog, users must enable this option in the Settings app. The option is under
-  the <em>Display</em> category and is called <em>Cast screen</em> on Android 4.4 (KitKat) and higher
-  devices and <em>Wireless Display</em> on Android 4.2.x (Jelly Bean) devices. For more information
+  the <em>Display</em> category and is called <em>Cast screen</em> on Android 4.4 (KitKat)
+  and higher devices. For more information
   on enabling this feature see this
   <a href="https://support.google.com/nexus/answer/2865484">Wireless display</a> support page.
 </p>
@@ -540,7 +540,7 @@ private void updateRemotePlayer(RouteInfo route) {
   multiple media items for playback and management of the media queue. For a comprehensive sample
   implementation of these features, see {@code SampleMediaRouterActivity} and its associated
   classes in the v7 mediarouter support library sample
-  {@code &lt;sdk&gt;/extras/android/compatibility/v7/mediarouter}.
+  {@code <sdk>/extras/android/compatibility/v7/mediarouter}.
 </p>
 
 <p>

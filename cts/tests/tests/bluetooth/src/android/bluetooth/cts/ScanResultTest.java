@@ -19,6 +19,7 @@ package android.bluetooth.cts;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.le.ScanResult;
+import android.content.pm.PackageManager;
 import android.os.Parcel;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
@@ -41,6 +42,9 @@ public class ScanResultTest extends AndroidTestCase {
      */
     @SmallTest
     public void testScanResultParceling() {
+        if (! mContext.getPackageManager().
+                  hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)) return;
+
         BluetoothDevice device =
                 BluetoothAdapter.getDefaultAdapter().getRemoteDevice(DEVICE_ADDRESS);
         ScanResult result = new ScanResult(device, TestUtils.parseScanRecord(SCAN_RECORD), RSSI,
@@ -59,6 +63,9 @@ public class ScanResultTest extends AndroidTestCase {
 
     @SmallTest
     public void testDescribeContents() {
+        if (! mContext.getPackageManager().
+                  hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)) return;
+
         BluetoothDevice device =
                 BluetoothAdapter.getDefaultAdapter().getRemoteDevice(DEVICE_ADDRESS);
         ScanResult result = new ScanResult(device, TestUtils.parseScanRecord(SCAN_RECORD), RSSI,

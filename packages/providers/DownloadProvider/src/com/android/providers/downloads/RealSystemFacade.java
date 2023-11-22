@@ -16,8 +16,6 @@
 
 package com.android.providers.downloads;
 
-import com.android.internal.util.ArrayUtils;
-
 import android.app.DownloadManager;
 import android.content.Context;
 import android.content.Intent;
@@ -26,9 +24,17 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.net.ConnectivityManager;
+import android.net.Network;
 import android.net.NetworkInfo;
-import android.telephony.TelephonyManager;
-import android.util.Log;
+import android.security.NetworkSecurityPolicy;
+import android.security.net.config.ApplicationConfig;
+
+import java.security.GeneralSecurityException;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+
+import com.android.internal.util.ArrayUtils;
 
 class RealSystemFacade implements SystemFacade {
     private Context mContext;
@@ -43,53 +49,27 @@ class RealSystemFacade implements SystemFacade {
     }
 
     @Override
-    public NetworkInfo getActiveNetworkInfo(int uid) {
-        ConnectivityManager connectivity =
-                (ConnectivityManager) mContext.getSystemService(Context.CONNECTIVITY_SERVICE);
-        if (connectivity == null) {
-            Log.w(Constants.TAG, "couldn't get connectivity manager");
-            return null;
-        }
-
-        final NetworkInfo activeInfo = connectivity.getActiveNetworkInfoForUid(uid);
-        if (activeInfo == null && Constants.LOGVV) {
-            Log.v(Constants.TAG, "network is not available");
-        }
-        return activeInfo;
+    public Network getActiveNetwork(int uid, boolean ignoreBlocked) {
+        return mContext.getSystemService(ConnectivityManager.class)
+                .getActiveNetworkForUid(uid, ignoreBlocked);
     }
 
     @Override
-    public boolean isActiveNetworkMetered() {
-        final ConnectivityManager conn = ConnectivityManager.from(mContext);
-        return conn.isActiveNetworkMetered();
+    public NetworkInfo getNetworkInfo(Network network, int uid, boolean ignoreBlocked) {
+        return mContext.getSystemService(ConnectivityManager.class)
+                .getNetworkInfoForUid(network, uid, ignoreBlocked);
     }
 
     @Override
-    public boolean isNetworkRoaming() {
-        ConnectivityManager connectivity =
-            (ConnectivityManager) mContext.getSystemService(Context.CONNECTIVITY_SERVICE);
-        if (connectivity == null) {
-            Log.w(Constants.TAG, "couldn't get connectivity manager");
-            return false;
-        }
-
-        NetworkInfo info = connectivity.getActiveNetworkInfo();
-        boolean isMobile = (info != null && info.getType() == ConnectivityManager.TYPE_MOBILE);
-        boolean isRoaming = isMobile && TelephonyManager.getDefault().isNetworkRoaming();
-        if (Constants.LOGVV && isRoaming) {
-            Log.v(Constants.TAG, "network is roaming");
-        }
-        return isRoaming;
+    public long getMaxBytesOverMobile() {
+        final Long value = DownloadManager.getMaxBytesOverMobile(mContext);
+        return (value == null) ? Long.MAX_VALUE : value;
     }
 
     @Override
-    public Long getMaxBytesOverMobile() {
-        return DownloadManager.getMaxBytesOverMobile(mContext);
-    }
-
-    @Override
-    public Long getRecommendedMaxBytesOverMobile() {
-        return DownloadManager.getRecommendedMaxBytesOverMobile(mContext);
+    public long getRecommendedMaxBytesOverMobile() {
+        final Long value = DownloadManager.getRecommendedMaxBytesOverMobile(mContext);
+        return (value == null) ? Long.MAX_VALUE : value;
     }
 
     @Override
@@ -119,6 +99,21 @@ class RealSystemFacade implements SystemFacade {
             }
         }
         return false;
+    }
+
+    @Override
+    public SSLContext getSSLContextForPackage(Context context, String packageName)
+            throws GeneralSecurityException {
+        ApplicationConfig appConfig;
+        try {
+            appConfig = NetworkSecurityPolicy.getApplicationConfigForPackage(context, packageName);
+        } catch (NameNotFoundException e) {
+            // Unknown package -- fallback to the default SSLContext
+            return SSLContext.getDefault();
+        }
+        SSLContext ctx = SSLContext.getInstance("TLS");
+        ctx.init(null, new TrustManager[] {appConfig.getTrustManager()}, null);
+        return ctx;
     }
 
     /**

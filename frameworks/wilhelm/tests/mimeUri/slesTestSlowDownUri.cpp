@@ -179,9 +179,6 @@ void TestSlowDownUri( SLObjectItf sl, const char* path)
 {
     SLEngineItf                EngineItf;
 
-    SLint32                    numOutputs = 0;
-    SLuint32                   deviceID = 0;
-
     SLresult                   res;
 
     SLDataSource               audioSource;

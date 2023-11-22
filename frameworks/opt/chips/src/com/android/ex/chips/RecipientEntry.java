@@ -19,6 +19,7 @@ package com.android.ex.chips;
 import android.net.Uri;
 import android.provider.ContactsContract.CommonDataKinds.Email;
 import android.provider.ContactsContract.DisplayNameSources;
+import android.support.annotation.DrawableRes;
 import android.text.util.Rfc822Token;
 import android.text.util.Rfc822Tokenizer;
 
@@ -39,7 +40,15 @@ public class RecipientEntry {
 
     public static final int ENTRY_TYPE_PERSON = 0;
 
-    public static final int ENTRY_TYPE_SIZE = 1;
+    /**
+     * Entry of this type represents the item in auto-complete that asks user to grant permissions
+     * to the app. This permission model is introduced in M platform.
+     *
+     * <p>Entries of this type should have {@link #mPermissions} set as well.
+     */
+    public static final int ENTRY_TYPE_PERMISSION_REQUEST = 1;
+
+    public static final int ENTRY_TYPE_SIZE = 2;
 
     private final int mEntryType;
 
@@ -65,7 +74,6 @@ public class RecipientEntry {
     private final Long mDirectoryId;
     /** ID for the destination */
     private final long mDataId;
-    private final boolean mIsDivider;
 
     private final Uri mPhotoThumbnailUri;
 
@@ -76,13 +84,19 @@ public class RecipientEntry {
      */
     private byte[] mPhotoBytes;
 
+    @DrawableRes private int mIndicatorIconId;
+    private String mIndicatorText;
+
     /** See {@link android.provider.ContactsContract.ContactsColumns#LOOKUP_KEY} */
     private final String mLookupKey;
+
+    /** Should be used when type is {@link #ENTRY_TYPE_PERMISSION_REQUEST}. */
+    private final String[] mPermissions;
 
     protected RecipientEntry(int entryType, String displayName, String destination,
             int destinationType, String destinationLabel, long contactId, Long directoryId,
             long dataId, Uri photoThumbnailUri, boolean isFirstLevel, boolean isValid,
-            String lookupKey) {
+            String lookupKey, String[] permissions) {
         mEntryType = entryType;
         mIsFirstLevel = isFirstLevel;
         mDisplayName = displayName;
@@ -94,9 +108,20 @@ public class RecipientEntry {
         mDataId = dataId;
         mPhotoThumbnailUri = photoThumbnailUri;
         mPhotoBytes = null;
-        mIsDivider = false;
         mIsValid = isValid;
         mLookupKey = lookupKey;
+        mIndicatorIconId = 0;
+        mIndicatorText = null;
+        mPermissions = permissions;
+    }
+
+    protected RecipientEntry(int entryType, String displayName, String destination,
+            int destinationType, String destinationLabel, long contactId, Long directoryId,
+            long dataId, Uri photoThumbnailUri, boolean isFirstLevel, boolean isValid,
+            String lookupKey) {
+        this(entryType, displayName, destination, destinationType, destinationLabel,
+                contactId, directoryId, dataId, photoThumbnailUri, isFirstLevel, isValid,
+                lookupKey, null);
     }
 
     public boolean isValid() {
@@ -122,7 +147,7 @@ public class RecipientEntry {
 
         return new RecipientEntry(ENTRY_TYPE_PERSON, tokenizedAddress, tokenizedAddress,
                 INVALID_DESTINATION_TYPE, null, INVALID_CONTACT, null /* directoryId */,
-                INVALID_CONTACT, null, true, isValid, null /* lookupKey */);
+                INVALID_CONTACT, null, true, isValid, null /* lookupKey */, null /* permissions */);
     }
 
     /**
@@ -132,18 +157,7 @@ public class RecipientEntry {
             final boolean isValid) {
         return new RecipientEntry(ENTRY_TYPE_PERSON, phoneNumber, phoneNumber,
                 INVALID_DESTINATION_TYPE, null, INVALID_CONTACT, null /* directoryId */,
-                INVALID_CONTACT, null, true, isValid, null /* lookupKey */);
-    }
-
-    /**
-     * @return the display name for the entry.  If the display name source is larger than
-     * {@link DisplayNameSources#PHONE} we use the contact's display name, but if not,
-     * i.e. the display name came from an email address or a phone number, we don't use it
-     * to avoid confusion and just use the destination instead.
-     */
-    private static String pickDisplayName(int displayNameSource, String displayName,
-            String destination) {
-        return (displayNameSource > DisplayNameSources.PHONE) ? displayName : destination;
+                INVALID_CONTACT, null, true, isValid, null /* lookupKey */, null /* permissions */);
     }
 
     /**
@@ -155,7 +169,7 @@ public class RecipientEntry {
             boolean isValid) {
         return new RecipientEntry(ENTRY_TYPE_PERSON, display, address, INVALID_DESTINATION_TYPE,
                 null, GENERATED_CONTACT, null /* directoryId */, GENERATED_CONTACT, null, true,
-                isValid, null /* lookupKey */);
+                isValid, null /* lookupKey */, null /* permissions */);
     }
 
     public static RecipientEntry constructTopLevelEntry(String displayName, int displayNameSource,
@@ -164,7 +178,8 @@ public class RecipientEntry {
             String lookupKey) {
         return new RecipientEntry(ENTRY_TYPE_PERSON, pickDisplayName(displayNameSource,
                 displayName, destination), destination, destinationType, destinationLabel,
-                contactId, directoryId, dataId, photoThumbnailUri, true, isValid, lookupKey);
+                contactId, directoryId, dataId, photoThumbnailUri, true, isValid, lookupKey,
+                null /* permissions */);
     }
 
     public static RecipientEntry constructTopLevelEntry(String displayName, int displayNameSource,
@@ -174,7 +189,8 @@ public class RecipientEntry {
         return new RecipientEntry(ENTRY_TYPE_PERSON, pickDisplayName(displayNameSource,
                 displayName, destination), destination, destinationType, destinationLabel,
                 contactId, directoryId, dataId, (thumbnailUriAsString != null
-                ? Uri.parse(thumbnailUriAsString) : null), true, isValid, lookupKey);
+                ? Uri.parse(thumbnailUriAsString) : null), true, isValid, lookupKey,
+                null /* permissions */);
     }
 
     public static RecipientEntry constructSecondLevelEntry(String displayName,
@@ -184,7 +200,36 @@ public class RecipientEntry {
         return new RecipientEntry(ENTRY_TYPE_PERSON, pickDisplayName(displayNameSource,
                 displayName, destination), destination, destinationType, destinationLabel,
                 contactId, directoryId, dataId, (thumbnailUriAsString != null
-                ? Uri.parse(thumbnailUriAsString) : null), false, isValid, lookupKey);
+                ? Uri.parse(thumbnailUriAsString) : null), false, isValid, lookupKey,
+                null /* permissions */);
+    }
+
+    public static RecipientEntry constructPermissionEntry(String[] permissions) {
+        return new RecipientEntry(
+                ENTRY_TYPE_PERMISSION_REQUEST,
+                "" /* displayName */,
+                "" /* destination */,
+                Email.TYPE_CUSTOM,
+                "" /* destinationLabel */,
+                INVALID_CONTACT,
+                null /* directoryId */,
+                INVALID_CONTACT,
+                null /* photoThumbnailUri */,
+                true /* isFirstLevel*/,
+                false /* isValid */,
+                null /* lookupKey */,
+                permissions);
+    }
+
+    /**
+     * @return the display name for the entry.  If the display name source is larger than
+     * {@link DisplayNameSources#PHONE} we use the contact's display name, but if not,
+     * i.e. the display name came from an email address or a phone number, we don't use it
+     * to avoid confusion and just use the destination instead.
+     */
+    private static String pickDisplayName(int displayNameSource, String displayName,
+            String destination) {
+        return (displayNameSource > DisplayNameSources.PHONE) ? displayName : destination;
     }
 
     public int getEntryType() {
@@ -237,16 +282,20 @@ public class RecipientEntry {
         return mPhotoBytes;
     }
 
-    public boolean isSeparator() {
-        return mIsDivider;
-    }
-
-    public boolean isSelectable() {
-        return mEntryType == ENTRY_TYPE_PERSON;
+    /**
+     * Used together with {@link #ENTRY_TYPE_PERMISSION_REQUEST} and indicates what permissions we
+     * need to ask user to grant.
+     */
+    public String[] getPermissions() {
+        return mPermissions;
     }
 
     public String getLookupKey() {
         return mLookupKey;
+    }
+
+    public boolean isSelectable() {
+        return mEntryType == ENTRY_TYPE_PERSON || mEntryType == ENTRY_TYPE_PERMISSION_REQUEST;
     }
 
     @Override
@@ -260,5 +309,34 @@ public class RecipientEntry {
      */
     public boolean isSamePerson(final RecipientEntry entry) {
         return entry != null && mContactId == entry.mContactId;
+    }
+
+    /**
+     * Returns the resource ID for the indicator icon, or 0 if no icon should be displayed.
+     */
+    @DrawableRes
+    public int getIndicatorIconId() {
+        return mIndicatorIconId;
+    }
+
+    /**
+     * Sets the indicator icon to the given resource ID.  Set to 0 to display no icon.
+     */
+    public void setIndicatorIconId(@DrawableRes int indicatorIconId) {
+        mIndicatorIconId = indicatorIconId;
+    }
+
+    /**
+     * Get the indicator text, or null if no text should be displayed.
+     */
+    public String getIndicatorText() {
+        return mIndicatorText;
+    }
+
+    /**
+     * Set the indicator text.  Set to null for no text to be displayed.
+     */
+    public void setIndicatorText(String indicatorText) {
+        mIndicatorText = indicatorText;
     }
 }

@@ -82,7 +82,7 @@ public class LeakTest extends ActivityInstrumentationTestCase2<TestActivity> {
             public void run() {
                 getActivity().setContentView(new FrameLayout(getActivity()));
                 binding.setName("goodbye world");
-                binding.getRoot().postOnAnimation(watcher);
+                getActivity().getWindow().getDecorView().postOnAnimation(watcher);
             }
         });
 
@@ -93,7 +93,7 @@ public class LeakTest extends ActivityInstrumentationTestCase2<TestActivity> {
             public void run() {
                 assertEquals("hello world", binding.textView.getText().toString());
                 getActivity().setContentView(binding.getRoot());
-                binding.getRoot().postOnAnimation(watcher);
+                getActivity().getWindow().getDecorView().postOnAnimation(watcher);
             }
         });
 

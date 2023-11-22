@@ -552,7 +552,7 @@ void mel_2_lin_lookup(sig_innerobj_t *sig_inObj, picoos_uint32 scmeanMGC)
     for (nI = 1; nI < m1; nI++) {
         XXr[nI] = c1[nI] << shift;
     }
-    i = sizeof(picoos_int32) * (PICODSP_FFTSIZE + 1 - m1);
+    i = sizeof(picoos_int32) * (PICODSP_FFTSIZE - m1);
     picoos_mem_set(XXr + m1, 0, i);
     dfct_nmf(m4, XXr); /* DFCT directly in fixed point */
 

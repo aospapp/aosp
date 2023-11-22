@@ -81,7 +81,8 @@ RSExportType *RSExportElement::Create(RSContext *Context,
 
   slangAssert(EI != nullptr && "Element info not found");
 
-  if (!RSExportType::NormalizeType(T, TypeName, Context, nullptr))
+  if (!RSExportType::NormalizeType(T, TypeName, Context, nullptr,
+                                   NotLegacyKernelArgument))
     return nullptr;
 
   switch (T->getTypeClass()) {
@@ -137,7 +138,7 @@ RSExportType *RSExportElement::CreateFromDecl(RSContext *Context,
   // primitive or vector.
   if ((CT->getTypeClass() != clang::Type::Builtin) &&
       (CT->getTypeClass() != clang::Type::ExtVector)) {
-    return RSExportType::Create(Context, T);
+    return RSExportType::Create(Context, T, NotLegacyKernelArgument);
   }
 
   // Following the typedef chain to see whether it's an element name like
@@ -157,7 +158,7 @@ RSExportType *RSExportElement::CreateFromDecl(RSContext *Context,
   }
 
   if (EI == nullptr) {
-    return RSExportType::Create(Context, T);
+    return RSExportType::Create(Context, T, NotLegacyKernelArgument);
   } else {
     return RSExportElement::Create(Context, T, EI);
   }

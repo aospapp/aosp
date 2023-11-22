@@ -20,7 +20,7 @@
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.BIND_VOICE_INTERACTION" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application>
       <uses-library android:name="android.test.runner" />
@@ -33,6 +33,9 @@
               <action android:name="android.intent.action.TEST_START_ACTIVITY_LIFECYCLE" />
               <action android:name="android.intent.action.TEST_START_ACTIVITY_SCREENSHOT" />
               <action android:name="android.intent.action.TEST_START_ACTIVITY_EXTRA_ASSIST" />
+              <action android:name="android.intent.action.TEST_START_ACTIVITY_TEXTVIEW" />
+              <action android:name="android.intent.action.TEST_START_ACTIVITY_LARGE_VIEW_HIERARCHY" />
+              <action android:name="android.intent.action.TEST_START_ACTIVITY_WEBVIEW" />
               <category android:name="android.intent.category.LAUNCHER" />
               <category android:name="android.intent.category.DEFAULT" />
           </intent-filter>

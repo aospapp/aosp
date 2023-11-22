@@ -25,6 +25,9 @@ import org.bouncycastle.util.Selector;
 public class PKIXCRLStoreSelector<T extends CRL>
     implements Selector<T>
 {
+    /**
+     * Builder for a PKIXCRLStoreSelector.
+     */
     public static class Builder
     {
         private final CRLSelector baseSelector;
@@ -35,9 +38,14 @@ public class PKIXCRLStoreSelector<T extends CRL>
         private byte[] issuingDistributionPoint = null;
         private boolean issuingDistributionPointEnabled = false;
 
-        public Builder(CRLSelector certSelector)
+        /**
+         * Constructor initializing a builder with a CertSelector.
+         *
+         * @param crlSelector the CertSelector to copy the match details from.
+         */
+        public Builder(CRLSelector crlSelector)
         {
-            this.baseSelector = (CRLSelector)certSelector.clone();
+            this.baseSelector = (CRLSelector)crlSelector.clone();
         }
 
 
@@ -124,6 +132,11 @@ public class PKIXCRLStoreSelector<T extends CRL>
             this.issuingDistributionPoint = Arrays.clone(issuingDistributionPoint);
         }
 
+        /**
+         * Build a selector.
+         *
+         * @return a new PKIXCRLStoreSelector
+         */
         public PKIXCRLStoreSelector<? extends CRL> build()
         {
             return new PKIXCRLStoreSelector(this);
@@ -291,23 +304,44 @@ public class PKIXCRLStoreSelector<T extends CRL>
 
     public X509Certificate getCertificateChecking()
     {
-        return ((X509CRLSelector)baseSelector).getCertificateChecking();
+        if (baseSelector instanceof X509CRLSelector)
+        {
+            return ((X509CRLSelector)baseSelector).getCertificateChecking();
+        }
+
+        return null;
     }
 
     public static Collection<? extends CRL> getCRLs(final PKIXCRLStoreSelector selector, CertStore certStore)
         throws CertStoreException
     {
-        return certStore.getCRLs(new CRLSelector()
-        {
-            public boolean match(CRL crl)
-            {
-                return selector.match(crl);
-            }
+        return certStore.getCRLs(new SelectorClone(selector));
+    }
 
-            public Object clone()
+    private static class SelectorClone
+        extends X509CRLSelector
+    {
+        private final PKIXCRLStoreSelector selector;
+
+        SelectorClone(PKIXCRLStoreSelector selector)
+        {
+            this.selector = selector;
+
+            if (selector.baseSelector instanceof X509CRLSelector)
             {
-                return this;
+                X509CRLSelector baseSelector = (X509CRLSelector)selector.baseSelector;
+
+                this.setCertificateChecking(baseSelector.getCertificateChecking());
+                this.setDateAndTime(baseSelector.getDateAndTime());
+                this.setIssuers(baseSelector.getIssuers());
+                this.setMinCRLNumber(baseSelector.getMinCRL());
+                this.setMaxCRLNumber(baseSelector.getMaxCRL());
             }
-        });
+        }
+
+        public boolean match(CRL crl)
+        {
+            return (selector == null) ? (crl != null) : selector.match(crl);
+        }
     }
 }

@@ -25,6 +25,7 @@ import android.content.pm.ResolveInfo;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
+import android.net.ConnectivityManager;
 import android.view.ContextThemeWrapper;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -33,16 +34,10 @@ import android.widget.ImageView;
 import android.widget.ListView;
 
 import com.android.settings.Settings.TetherSettingsActivity;
-import com.android.settings.dashboard.DashboardCategory;
-import com.android.settings.dashboard.DashboardTile;
-import com.android.settingslib.TetherUtil;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class CreateShortcut extends LauncherActivity {
-
-    private static final String TOP_LEVEL_HEADER = "com.android.settings.TOP_LEVEL_HEADER_ID";
 
     @Override
     protected Intent getTargetIntent() {
@@ -63,10 +58,8 @@ public class CreateShortcut extends LauncherActivity {
         intent.putExtra(Intent.EXTRA_SHORTCUT_NAME, itemForPosition(position).label);
         ResolveInfo resolveInfo = itemForPosition(position).resolveInfo;
         ActivityInfo activityInfo = resolveInfo.activityInfo;
-        if (activityInfo.metaData != null && activityInfo.metaData.containsKey(TOP_LEVEL_HEADER)) {
-            int topLevelId = activityInfo.metaData.getInt(TOP_LEVEL_HEADER);
-            int resourceId = getDrawableResource(topLevelId);
-            intent.putExtra(Intent.EXTRA_SHORTCUT_ICON, createIcon(resourceId));
+        if (activityInfo.icon != 0) {
+            intent.putExtra(Intent.EXTRA_SHORTCUT_ICON, createIcon(activityInfo.icon));
         }
         setResult(RESULT_OK, intent);
         finish();
@@ -87,19 +80,6 @@ public class CreateShortcut extends LauncherActivity {
         return bitmap;
     }
 
-    private int getDrawableResource(int topLevelId) {
-        ArrayList<DashboardCategory> categories = new ArrayList<>();
-        SettingsActivity.loadCategoriesFromResource(R.xml.dashboard_categories, categories, this);
-        for (DashboardCategory category : categories) {
-            for (DashboardTile tile : category.tiles) {
-                if (tile.id == topLevelId) {
-                    return tile.iconRes;
-                }
-            }
-        }
-        return 0;
-    }
-
     @Override
     protected boolean onEvaluateShowIcons() {
         return false;
@@ -112,11 +92,13 @@ public class CreateShortcut extends LauncherActivity {
     protected List<ResolveInfo> onQueryPackageManager(Intent queryIntent) {
         List<ResolveInfo> activities = getPackageManager().queryIntentActivities(queryIntent,
                 PackageManager.GET_META_DATA);
+        final ConnectivityManager cm =
+                (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         if (activities == null) return null;
         for (int i = activities.size() - 1; i >= 0; i--) {
             ResolveInfo info = activities.get(i);
             if (info.activityInfo.name.endsWith(TetherSettingsActivity.class.getSimpleName())) {
-                if (!TetherUtil.isTetheringSupported(this)) {
+                if (!cm.isTetheringSupported()) {
                     activities.remove(i);
                 }
             }

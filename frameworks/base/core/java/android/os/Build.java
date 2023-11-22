@@ -16,6 +16,7 @@
 
 package android.os;
 
+import android.annotation.SystemApi;
 import android.text.TextUtils;
 import android.util.Slog;
 
@@ -90,6 +91,12 @@ public class Build {
 
     /** The name of the hardware (from the kernel command line or /proc). */
     public static final String HARDWARE = getString("ro.hardware");
+
+    /**
+     * Whether this build was for an emulator device.
+     * @hide
+     */
+    public static final boolean IS_EMULATOR = getString("ro.kernel.qemu").equals("1");
 
     /** A hardware serial number, if available.  Alphanumeric only, case-insensitive. */
     public static final String SERIAL = getString("ro.serialno");
@@ -577,7 +584,7 @@ public class Build {
         public static final int KITKAT = 19;
 
         /**
-         * Android 4.4W: KitKat for watches, snacks on the run.
+         * June 2014: Android 4.4W. KitKat for watches, snacks on the run.
          *
          * <p>Applications targeting this or a later release will get these
          * new changes in behavior:</p>
@@ -595,7 +602,7 @@ public class Build {
         public static final int L = 21;
 
         /**
-         * Lollipop.  A flat one with beautiful shadows.  But still tasty.
+         * November 2014: Lollipop.  A flat one with beautiful shadows.  But still tasty.
          *
          * <p>Applications targeting this or a later release will get these
          * new changes in behavior:</p>
@@ -626,14 +633,45 @@ public class Build {
         public static final int LOLLIPOP = 21;
 
         /**
-         * Lollipop with an extra sugar coating on the outside!
+         * March 2015: Lollipop with an extra sugar coating on the outside!
          */
         public static final int LOLLIPOP_MR1 = 22;
 
         /**
-         * M comes after L.
+         * M is for Marshmallow!
+         *
+         * <p>Applications targeting this or a later release will get these
+         * new changes in behavior:</p>
+         * <ul>
+         * <li> Runtime permissions.  Dangerous permissions are no longer granted at
+         * install time, but must be requested by the application at runtime through
+         * {@link android.app.Activity#requestPermissions}.</li>
+         * <li> Bluetooth and Wi-Fi scanning now requires holding the location permission.</li>
+         * <li> {@link android.app.AlarmManager#setTimeZone AlarmManager.setTimeZone} will fail if
+         * the given timezone is non-Olson.</li>
+         * <li> Activity transitions will only return shared
+         * elements mapped in the returned view hierarchy back to the calling activity.</li>
+         * <li> {@link android.view.View} allows a number of behaviors that may break
+         * existing apps: Canvas throws an exception if restore() is called too many times,
+         * widgets may return a hint size when returning UNSPECIFIED measure specs, and it
+         * will respect the attributes {@link android.R.attr#foreground},
+         * {@link android.R.attr#foregroundGravity}, {@link android.R.attr#foregroundTint}, and
+         * {@link android.R.attr#foregroundTintMode}.</li>
+         * <li> {@link android.view.MotionEvent#getButtonState MotionEvent.getButtonState}
+         * will no longer report {@link android.view.MotionEvent#BUTTON_PRIMARY}
+         * and {@link android.view.MotionEvent#BUTTON_SECONDARY} as synonyms for
+         * {@link android.view.MotionEvent#BUTTON_STYLUS_PRIMARY} and
+         * {@link android.view.MotionEvent#BUTTON_STYLUS_SECONDARY}.</li>
+         * <li> {@link android.widget.ScrollView} now respects the layout param margins
+         * when measuring.</li>
+         * </ul>
          */
         public static final int M = 23;
+
+        /**
+         * N is for ¯\_(ツ)_/¯.
+         */
+        public static final int N = 24;
     }
 
     /** The type of build, like "user" or "eng". */
@@ -691,6 +729,9 @@ public class Build {
      * @hide
      */
     public static boolean isBuildConsistent() {
+        // Don't care on eng builds.  Incremental build may trigger false negative.
+        if ("eng".equals(TYPE)) return true;
+
         final String system = SystemProperties.get("ro.build.fingerprint");
         final String vendor = SystemProperties.get("ro.vendor.build.fingerprint");
         final String bootimage = SystemProperties.get("ro.bootimage.build.fingerprint");
@@ -752,6 +793,19 @@ public class Build {
      */
     public static final boolean IS_DEBUGGABLE =
             SystemProperties.getInt("ro.debuggable", 0) == 1;
+
+    /**
+     * Specifies whether the permissions needed by a legacy app should be
+     * reviewed before any of its components can run. A legacy app is one
+     * with targetSdkVersion < 23, i.e apps using the old permission model.
+     * If review is not required, permissions are reviewed before the app
+     * is installed.
+     *
+     * @hide
+     */
+    @SystemApi
+    public static final boolean PERMISSIONS_REVIEW_REQUIRED =
+            SystemProperties.getInt("ro.permission_review_required", 0) == 1;
 
     /**
      * Returns the version string for the radio firmware.  May return

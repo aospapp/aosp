@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ package android.renderscript.cts;
 import android.renderscript.Allocation;
 import android.renderscript.RSRuntimeException;
 import android.renderscript.Element;
+import android.renderscript.cts.Target;
 
 import java.util.Arrays;
 
@@ -74,7 +75,7 @@ public class TestNativeTanpi extends RSBaseCompute {
                 ArgumentsFloatFloat args = new ArgumentsFloatFloat();
                 args.inV = arrayInV[i];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeNativeTanpi(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -143,7 +144,7 @@ public class TestNativeTanpi extends RSBaseCompute {
                 ArgumentsFloatFloat args = new ArgumentsFloatFloat();
                 args.inV = arrayInV[i * 2 + j];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeNativeTanpi(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -212,7 +213,7 @@ public class TestNativeTanpi extends RSBaseCompute {
                 ArgumentsFloatFloat args = new ArgumentsFloatFloat();
                 args.inV = arrayInV[i * 4 + j];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeNativeTanpi(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -281,7 +282,7 @@ public class TestNativeTanpi extends RSBaseCompute {
                 ArgumentsFloatFloat args = new ArgumentsFloatFloat();
                 args.inV = arrayInV[i * 4 + j];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeNativeTanpi(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -317,10 +318,293 @@ public class TestNativeTanpi extends RSBaseCompute {
                 (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
     }
 
+    public class ArgumentsHalfHalf {
+        public short inV;
+        public double inVDouble;
+        public short out;
+        public double outDouble;
+    }
+
+    private void checkNativeTanpiHalfHalf() {
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xa1618990l, -100, 100);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
+            script.forEach_testNativeTanpiHalfHalf(inV, out);
+            verifyResultsNativeTanpiHalfHalf(inV, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeTanpiHalfHalf: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
+            scriptRelaxed.forEach_testNativeTanpiHalfHalf(inV, out);
+            verifyResultsNativeTanpiHalfHalf(inV, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeTanpiHalfHalf: " + e.toString());
+        }
+    }
+
+    private void verifyResultsNativeTanpiHalfHalf(Allocation inV, Allocation out, boolean relaxed) {
+        short[] arrayInV = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayInV, (short) 42);
+        inV.copyTo(arrayInV);
+        short[] arrayOut = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 1 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalf args = new ArgumentsHalfHalf();
+                args.inV = arrayInV[i];
+                args.inVDouble = Float16Utils.convertFloat16ToDouble(args.inV);
+                // Extract the outputs.
+                args.out = arrayOut[i * 1 + j];
+                args.outDouble = Float16Utils.convertFloat16ToDouble(args.out);
+                // Ask the CoreMathVerifier to validate.
+                Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.HALF, relaxed);
+                String errorMessage = CoreMathVerifier.verifyNativeTanpi(args, target);
+                boolean valid = errorMessage == null;
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inV: ");
+                        appendVariableToMessage(message, args.inV);
+                        message.append("\n");
+                        message.append("Output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("\n");
+                        message.append("Output out (in double): ");
+                        appendVariableToMessage(message, args.outDouble);
+                        message.append("\n");
+                        message.append(errorMessage);
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkNativeTanpiHalfHalf" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkNativeTanpiHalf2Half2() {
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x40b19f32l, -100, 100);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
+            script.forEach_testNativeTanpiHalf2Half2(inV, out);
+            verifyResultsNativeTanpiHalf2Half2(inV, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeTanpiHalf2Half2: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
+            scriptRelaxed.forEach_testNativeTanpiHalf2Half2(inV, out);
+            verifyResultsNativeTanpiHalf2Half2(inV, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeTanpiHalf2Half2: " + e.toString());
+        }
+    }
+
+    private void verifyResultsNativeTanpiHalf2Half2(Allocation inV, Allocation out, boolean relaxed) {
+        short[] arrayInV = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayInV, (short) 42);
+        inV.copyTo(arrayInV);
+        short[] arrayOut = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 2 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalf args = new ArgumentsHalfHalf();
+                args.inV = arrayInV[i * 2 + j];
+                args.inVDouble = Float16Utils.convertFloat16ToDouble(args.inV);
+                // Extract the outputs.
+                args.out = arrayOut[i * 2 + j];
+                args.outDouble = Float16Utils.convertFloat16ToDouble(args.out);
+                // Ask the CoreMathVerifier to validate.
+                Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.HALF, relaxed);
+                String errorMessage = CoreMathVerifier.verifyNativeTanpi(args, target);
+                boolean valid = errorMessage == null;
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inV: ");
+                        appendVariableToMessage(message, args.inV);
+                        message.append("\n");
+                        message.append("Output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("\n");
+                        message.append("Output out (in double): ");
+                        appendVariableToMessage(message, args.outDouble);
+                        message.append("\n");
+                        message.append(errorMessage);
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkNativeTanpiHalf2Half2" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkNativeTanpiHalf3Half3() {
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x9fb96426l, -100, 100);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            script.forEach_testNativeTanpiHalf3Half3(inV, out);
+            verifyResultsNativeTanpiHalf3Half3(inV, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeTanpiHalf3Half3: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            scriptRelaxed.forEach_testNativeTanpiHalf3Half3(inV, out);
+            verifyResultsNativeTanpiHalf3Half3(inV, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeTanpiHalf3Half3: " + e.toString());
+        }
+    }
+
+    private void verifyResultsNativeTanpiHalf3Half3(Allocation inV, Allocation out, boolean relaxed) {
+        short[] arrayInV = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInV, (short) 42);
+        inV.copyTo(arrayInV);
+        short[] arrayOut = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 3 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalf args = new ArgumentsHalfHalf();
+                args.inV = arrayInV[i * 4 + j];
+                args.inVDouble = Float16Utils.convertFloat16ToDouble(args.inV);
+                // Extract the outputs.
+                args.out = arrayOut[i * 4 + j];
+                args.outDouble = Float16Utils.convertFloat16ToDouble(args.out);
+                // Ask the CoreMathVerifier to validate.
+                Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.HALF, relaxed);
+                String errorMessage = CoreMathVerifier.verifyNativeTanpi(args, target);
+                boolean valid = errorMessage == null;
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inV: ");
+                        appendVariableToMessage(message, args.inV);
+                        message.append("\n");
+                        message.append("Output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("\n");
+                        message.append("Output out (in double): ");
+                        appendVariableToMessage(message, args.outDouble);
+                        message.append("\n");
+                        message.append(errorMessage);
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkNativeTanpiHalf3Half3" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkNativeTanpiHalf4Half4() {
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xfec1291al, -100, 100);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            script.forEach_testNativeTanpiHalf4Half4(inV, out);
+            verifyResultsNativeTanpiHalf4Half4(inV, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeTanpiHalf4Half4: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            scriptRelaxed.forEach_testNativeTanpiHalf4Half4(inV, out);
+            verifyResultsNativeTanpiHalf4Half4(inV, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeTanpiHalf4Half4: " + e.toString());
+        }
+    }
+
+    private void verifyResultsNativeTanpiHalf4Half4(Allocation inV, Allocation out, boolean relaxed) {
+        short[] arrayInV = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInV, (short) 42);
+        inV.copyTo(arrayInV);
+        short[] arrayOut = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 4 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalf args = new ArgumentsHalfHalf();
+                args.inV = arrayInV[i * 4 + j];
+                args.inVDouble = Float16Utils.convertFloat16ToDouble(args.inV);
+                // Extract the outputs.
+                args.out = arrayOut[i * 4 + j];
+                args.outDouble = Float16Utils.convertFloat16ToDouble(args.out);
+                // Ask the CoreMathVerifier to validate.
+                Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.HALF, relaxed);
+                String errorMessage = CoreMathVerifier.verifyNativeTanpi(args, target);
+                boolean valid = errorMessage == null;
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inV: ");
+                        appendVariableToMessage(message, args.inV);
+                        message.append("\n");
+                        message.append("Output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("\n");
+                        message.append("Output out (in double): ");
+                        appendVariableToMessage(message, args.outDouble);
+                        message.append("\n");
+                        message.append(errorMessage);
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkNativeTanpiHalf4Half4" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
     public void testNativeTanpi() {
         checkNativeTanpiFloatFloat();
         checkNativeTanpiFloat2Float2();
         checkNativeTanpiFloat3Float3();
         checkNativeTanpiFloat4Float4();
+        checkNativeTanpiHalfHalf();
+        checkNativeTanpiHalf2Half2();
+        checkNativeTanpiHalf3Half3();
+        checkNativeTanpiHalf4Half4();
     }
 }

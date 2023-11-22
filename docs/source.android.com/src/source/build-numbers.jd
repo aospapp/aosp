@@ -41,6 +41,11 @@ API levels and NDK releases provided for convenience:</p>
 </thead>
 <tbody>
 <tr>
+<td>Marshmallow</td>
+<td>6.0</td>
+<td>API level 23</td>
+</tr>
+<tr>
 <td>Lollipop</td>
 <td>5.1</td>
 <td>API level 22</td>
@@ -178,10 +183,316 @@ following table. Factory images and binaries for Nexus devices can be downloaded
 <th>Supported devices</th>
 </tr>
 <tr>
+  <td>MXB48T</td>
+  <td>android-6.0.1_r16</td>
+  <td>Marshmallow</td>
+  <td>Pixel C</td>
+</tr>
+<tr>
+  <td>MMB29U</td>
+  <td>android-6.0.1_r13</td>
+  <td>Marshmallow</td>
+  <td>Nexus Player</td>
+</tr>
+<tr>
+  <td>MMB29R</td>
+  <td>android-6.0.1_r12</td>
+  <td>Marshmallow</td>
+  <td>Nexus 9 (volantis/volantisg)</td>
+</tr>
+<tr>
+  <td>MMB29Q</td>
+  <td>android-6.0.1_r11</td>
+  <td>Marshmallow</td>
+  <td>Nexus 5, Nexus 5X, Nexus 6, Nexus 6P, Nexus 7 (flo/deb)</td>
+</tr>
+<tr>
+  <td>MMB29T</td>
+  <td>android-6.0.1_r10</td>
+  <td>Marshmallow</td>
+  <td>Nexus Player</td>
+</tr>
+<tr>
+  <td>MMB29S</td>
+  <td>android-6.0.1_r9</td>
+  <td>Marshmallow</td>
+  <td>Nexus 5, Nexus 6, Nexus 9 (volantis/volantisg)</td>
+</tr>
+<tr>
+  <td>MMB29P</td>
+  <td>android-6.0.1_r8</td>
+  <td>Marshmallow</td>
+  <td>Nexus 5X, Nexus 6P</td>
+</tr>
+<tr>
+  <td>MMB29O</td>
+  <td>android-6.0.1_r7</td>
+  <td>Marshmallow</td>
+  <td>Nexus 7 (flo/deb)</td>
+</tr>
+<tr>
+  <td>MXB48K</td>
+  <td>android-6.0.1_r5</td>
+  <td>Marshmallow</td>
+  <td>Pixel C</td>
+</tr>
+<tr>
+  <td>MXB48J</td>
+  <td>android-6.0.1_r4</td>
+  <td>Marshmallow</td>
+  <td>Pixel C</td>
+</tr>
+<tr>
+  <td>MMB29M</td>
+  <td>android-6.0.1_r3</td>
+  <td>Marshmallow</td>
+  <td>Nexus 6P, Nexus Player</td>
+</tr>
+<tr>
+  <td>MMB29K</td>
+  <td>android-6.0.1_r1</td>
+  <td>Marshmallow</td>
+  <td>Nexus 5, Nexus 5X, Nexus 6, Nexus 7 (flo/deb), Nexus 9 (volantis/volantisg)</td>
+</tr>
+<tr>
+  <td>MMB29N</td>
+  <td>android-6.0.0_r41</td>
+  <td>Marshmallow</td>
+  <td>Nexus 6P</td>
+</tr>
+<tr>
+  <td>MDB08M</td>
+  <td>android-6.0.0_r26</td>
+  <td>Marshmallow</td>
+  <td>Nexus 5X, Nexus 6P</td>
+</tr>
+<tr>
+  <td>MDB08L</td>
+  <td>android-6.0.0_r25</td>
+  <td>Marshmallow</td>
+  <td>Nexus 5X, Nexus 6P</td>
+</tr>
+<tr>
+  <td>MDB08K</td>
+  <td>android-6.0.0_r24</td>
+  <td>Marshmallow</td>
+  <td>Nexus 6P</td>
+</tr>
+<tr>
+  <td>MDB08I</td>
+  <td>android-6.0.0_r23</td>
+  <td>Marshmallow</td>
+  <td>Nexus 5X</td>
+</tr>
+<tr>
+  <td>MDA89E</td>
+  <td>android-6.0.0_r12</td>
+  <td>Marshmallow</td>
+  <td>Nexus 5X</td>
+</tr>
+<tr>
+  <td>MDA89D</td>
+  <td>android-6.0.0_r11</td>
+  <td>Marshmallow</td>
+  <td>Nexus 6P</td>
+</tr>
+<tr>
+  <td>MRA59B</td>
+  <td>android-6.0.0_r7</td>
+  <td>Marshmallow</td>
+  <td>Nexus 7 (deb)</td>
+</tr>
+<tr>
+  <td>MRA58X</td>
+  <td>android-6.0.0_r6</td>
+  <td>Marshmallow</td>
+  <td>Nexus 6</td>
+</tr>
+<tr>
+  <td>MRA58V</td>
+  <td>android-6.0.0_r5</td>
+  <td>Marshmallow</td>
+  <td>Nexus 7 (flo/deb)</td>
+</tr>
+<tr>
+  <td>MRA58U</td>
+  <td>android-6.0.0_r4</td>
+  <td>Marshmallow</td>
+  <td>Nexus 7 (flo)</td>
+</tr>
+<tr>
+  <td>MRA58N</td>
+  <td>android-6.0.0_r2</td>
+  <td>Marshmallow</td>
+  <td>Nexus 5, Nexus 6, Nexus 7 (flo/deb), Nexus 9 (volantis/volantisg), Nexus Player</td>
+</tr>
+<tr>
+  <td>MRA58K</td>
+  <td>android-6.0.0_r1</td>
+  <td>Marshmallow</td>
+  <td>Nexus 5, Nexus 6, Nexus 7 (flo/deb), Nexus 9 (volantis/volantisg), Nexus Player</td>
+</tr>
+<tr>
+  <td>LMY49G</td>
+  <td>android-5.1.1_r34</td>
+  <td>Lollipop</td>
+  <td>Nexus 10</td>
+</tr>
+<tr>
+  <td>LMY49F</td>
+  <td>android-5.1.1_r33</td>
+  <td>Lollipop</td>
+  <td>Nexus 9 (volantisg), Nexus 10</td>
+</tr>
+<tr>
+  <td>LMY48Z</td>
+  <td>android-5.1.1_r30</td>
+  <td>Lollipop</td>
+  <td>Nexus 6, Nexus 7 (deb), Nexus 9 (volantisg), Nexus 10</td>
+</tr>
+<tr>
+  <td>LYZ28N</td>
+  <td>android-5.1.1_r28</td>
+  <td>Lollipop</td>
+  <td>Nexus 6 (For T-Mobile ONLY)</td>
+</tr>
+<tr>
+  <td>LMY48Y</td>
+  <td>android-5.1.1_r26</td>
+  <td>Lollipop</td>
+  <td>Nexus 6</td>
+</tr>
+<tr>
+  <td>LMY48X</td>
+  <td>android-5.1.1_r25</td>
+  <td>Lollipop</td>
+  <td>Nexus 6, Nexus 7 (deb), Nexus 9 (volantisg), Nexus 10</td>
+</tr>
+<tr>
+  <td>LMY48W</td>
+  <td>android-5.1.1_r24</td>
+  <td>Lollipop</td>
+  <td>Nexus 6</td>
+</tr>
+<tr>
+  <td>LVY48H</td>
+  <td>android-5.1.1_r23</td>
+  <td>Lollipop</td>
+  <td>Nexus 6 (For Project Fi ONLY)</td>
+</tr>
+<tr>
+  <td>LYZ28M</td>
+  <td>android-5.1.1_r22</td>
+  <td>Lollipop</td>
+  <td>Nexus 6 (For T-Mobile ONLY)</td>
+</tr>
+<tr>
+  <td>LMY48U</td>
+  <td>android-5.1.1_r20</td>
+  <td>Lollipop</td>
+  <td>Nexus 7 (deb)</td>
+</tr>
+<tr>
+  <td>LMY48T</td>
+  <td>android-5.1.1_r19</td>
+  <td>Lollipop</td>
+  <td>Nexus 4, Nexus 6, Nexus 9 (volantis/volantisg), Nexus 10</td>
+</tr>
+<tr>
+  <td>LVY48F</td>
+  <td>android-5.1.1_r18</td>
+  <td>Lollipop</td>
+  <td>Nexus 6 (For Project Fi ONLY)</td>
+</tr>
+<tr>
+  <td>LYZ28K</td>
+  <td>android-5.1.1_r17</td>
+  <td>Lollipop</td>
+  <td>Nexus 6 (For T-Mobile ONLY)</td>
+</tr>
+<tr>
+  <td>LMY48P</td>
+  <td>android-5.1.1_r16</td>
+  <td>Lollipop</td>
+  <td>Nexus 7 (deb)</td>
+</tr>
+<tr>
+  <td>LMY48N</td>
+  <td>android-5.1.1_r15</td>
+  <td>Lollipop</td>
+  <td>Nexus Player</td>
+</tr>
+<tr>
+  <td>LMY48M</td>
+  <td>android-5.1.1_r14</td>
+  <td>Lollipop</td>
+  <td>Nexus 4, Nexus 5, Nexus 6, Nexus 7 (flo), Nexus 9 (volantis/volantisg), Nexus 10</td>
+</tr>
+<tr>
+  <td>LVY48E</td>
+  <td>android-5.1.1_r13</td>
+  <td>Lollipop</td>
+  <td>Nexus 6 (For Project Fi ONLY)</td>
+</tr>
+<tr>
+  <td>LYZ28J</td>
+  <td>android-5.1.1_r12</td>
+  <td>Lollipop</td>
+  <td>Nexus 6 (For T-Mobile ONLY)</td>
+</tr>
+<tr>
+  <td>LMY48J</td>
+  <td>android-5.1.1_r10</td>
+  <td>Lollipop</td>
+  <td>Nexus Player</td>
+</tr>
+<tr>
+  <td>LMY48I</td>
+  <td>android-5.1.1_r9</td>
+  <td>Lollipop</td>
+  <td>Nexus 4, Nexus 5, Nexus 6, Nexus 7 (flo), Nexus 9 (volantis/volantisg), Nexus 10</td>
+</tr>
+<tr>
+  <td>LVY48C</td>
+  <td>android-5.1.1_r8</td>
+  <td>Lollipop</td>
+  <td>Nexus 6 (For Project Fi ONLY)</td>
+</tr>
+<tr>
+  <td>LMY48G</td>
+  <td>android-5.1.1_r6</td>
+  <td>Lollipop</td>
+  <td>Nexus 7 (flo)</td>
+</tr>
+<tr>
+  <td>LYZ28E</td>
+  <td>android-5.1.1_r5</td>
+  <td>Lollipop</td>
+  <td>Nexus 6 (For T-Mobile ONLY)</td>
+</tr>
+<tr>
+  <td>LMY47Z</td>
+  <td>android-5.1.1_r4</td>
+  <td>Lollipop</td>
+  <td>Nexus 6 (All carriers except T-Mobile US)</td>
+</tr>
+<tr>
+  <td>LMY48B</td>
+  <td>android-5.1.1_r3</td>
+  <td>Lollipop</td>
+  <td>Nexus 5</td>
+</tr>
+<tr>
+  <td>LMY47X</td>
+  <td>android-5.1.1_r2</td>
+  <td>Lollipop</td>
+  <td>Nexus 9 (volantis)</td>
+</tr>
+<tr>
   <td>LMY47V</td>
   <td>android-5.1.1_r1</td>
   <td>Lollipop</td>
-  <td>Nexus Player</td>
+  <td>Nexus 7 (flo/grouper), Nexus 10, Nexus Player</td>
 </tr>
 <tr>
   <td>LMY47O</td>
@@ -190,16 +501,34 @@ following table. Factory images and binaries for Nexus devices can be downloaded
   <td>Nexus 4, Nexus 7 (flo/deb)</td>
 </tr>
 <tr>
+  <td>LMY47M</td>
+  <td>android-5.1.0_r4</td>
+  <td>Lollipop</td>
+  <td>Nexus 6 (For T-Mobile ONLY)</td>
+</tr>
+<tr>
   <td>LMY47I</td>
   <td>android-5.1.0_r3</td>
   <td>Lollipop</td>
   <td>Nexus 5, Nexus 6</td>
 </tr>
 <tr>
+  <td>LMY47E</td>
+  <td>android-5.1.0_r2</td>
+  <td>Lollipop</td>
+  <td>Nexus 6</td>
+</tr>
+<tr>
   <td>LMY47D</td>
   <td>android-5.1.0_r1</td>
   <td>Lollipop</td>
   <td>Nexus 5, Nexus 6, Nexus 7 (grouper/tilapia), Nexus 10, Nexus Player</td>
+</tr>
+<tr>
+  <td>LRX22L</td>
+  <td>android-5.0.2_r3</td>
+  <td>Lollipop</td>
+  <td>Nexus 9 (volantis/volantisg)</td>
 </tr>
 <tr>
   <td>LRX22G</td>

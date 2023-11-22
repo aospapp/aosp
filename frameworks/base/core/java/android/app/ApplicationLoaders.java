@@ -18,17 +18,17 @@ package android.app;
 
 import android.os.Trace;
 import android.util.ArrayMap;
+import com.android.internal.os.PathClassLoaderFactory;
 import dalvik.system.PathClassLoader;
 
-class ApplicationLoaders
-{
-    public static ApplicationLoaders getDefault()
-    {
+class ApplicationLoaders {
+    public static ApplicationLoaders getDefault() {
         return gApplicationLoaders;
     }
 
-    public ClassLoader getClassLoader(String zip, String libPath, ClassLoader parent)
-    {
+    public ClassLoader getClassLoader(String zip, int targetSdkVersion, boolean isBundled,
+                                      String librarySearchPath, String libraryPermittedPath,
+                                      ClassLoader parent) {
         /*
          * This is the parent we use if they pass "null" in.  In theory
          * this should be the "system" class loader; in practice we
@@ -52,10 +52,21 @@ class ApplicationLoaders
                 if (loader != null) {
                     return loader;
                 }
-    
+
                 Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, zip);
-                PathClassLoader pathClassloader =
-                    new PathClassLoader(zip, libPath, parent);
+
+                PathClassLoader pathClassloader = PathClassLoaderFactory.createClassLoader(
+                                                      zip,
+                                                      librarySearchPath,
+                                                      libraryPermittedPath,
+                                                      parent,
+                                                      targetSdkVersion,
+                                                      isBundled);
+
+                Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);
+
+                Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, "setupVulkanLayerPath");
+                setupVulkanLayerPath(pathClassloader, librarySearchPath);
                 Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);
 
                 mLoaders.put(zip, pathClassloader);
@@ -69,8 +80,21 @@ class ApplicationLoaders
         }
     }
 
+    private static native void setupVulkanLayerPath(ClassLoader classLoader, String librarySearchPath);
+
+    /**
+     * Adds a new path the classpath of the given loader.
+     * @throws IllegalStateException if the provided class loader is not a {@link PathClassLoader}.
+     */
+    void addPath(ClassLoader classLoader, String dexPath) {
+        if (!(classLoader instanceof PathClassLoader)) {
+            throw new IllegalStateException("class loader is not a PathClassLoader");
+        }
+        final PathClassLoader baseDexClassLoader = (PathClassLoader) classLoader;
+        baseDexClassLoader.addDexPath(dexPath);
+    }
+
     private final ArrayMap<String, ClassLoader> mLoaders = new ArrayMap<String, ClassLoader>();
 
-    private static final ApplicationLoaders gApplicationLoaders
-        = new ApplicationLoaders();
+    private static final ApplicationLoaders gApplicationLoaders = new ApplicationLoaders();
 }

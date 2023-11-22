@@ -15,6 +15,7 @@
 import its.image
 import its.device
 import its.objects
+import its.caps
 import time
 import math
 import pylab
@@ -31,11 +32,11 @@ import sys
 
 NAME = os.path.basename(__file__).split(".")[0]
 
-# Capture 210 QVGA frames (which is 7s at 30fps)
+# Capture 210 VGA frames (which is 7s at 30fps)
 N = 210
-W,H = 320,240
+W,H = 640,480
 
-FEATURE_PARAMS = dict( maxCorners = 50,
+FEATURE_PARAMS = dict( maxCorners = 80,
                        qualityLevel = 0.3,
                        minDistance = 7,
                        blockSize = 7 )
@@ -57,6 +58,11 @@ NSEC_TO_MSEC = 1/(1000*1000.0)
 THRESH_MAX_CORR_DIST = 0.005
 THRESH_MAX_SHIFT_MS = 2
 THRESH_MIN_ROT = 0.001
+
+# lens facing
+FACING_FRONT = 0
+FACING_BACK = 1
+FACING_EXTERNAL = 2
 
 def main():
     """Test if image and motion sensor events are well synchronized.
@@ -98,7 +104,7 @@ def main():
 
     # Compute the camera rotation displacements (rad) between each pair of
     # adjacent frames.
-    cam_rots = get_cam_rotations(frames)
+    cam_rots = get_cam_rotations(frames, events["facing"])
     if max(abs(cam_rots)) < THRESH_MIN_ROT:
         print "Device wasn't moved enough"
         assert(0)
@@ -115,7 +121,7 @@ def main():
     plot_rotations(cam_rots, gyro_rots)
 
     # Pass/fail based on the offset and also the correlation distance.
-    dist = scipy.spatial.distance.correlation(cam_rots,gyro_rots)
+    dist = scipy.spatial.distance.correlation(cam_rots, gyro_rots)
     print "Best correlation of %f at shift of %.2fms"%(dist, offset*SEC_TO_MSEC)
     assert(dist < THRESH_MAX_CORR_DIST)
     assert(abs(offset) < THRESH_MAX_SHIFT_MS*MSEC_TO_SEC)
@@ -141,7 +147,7 @@ def get_best_alignment_offset(cam_times, cam_rots, gyro_events):
     for shift in candidates:
         times = cam_times + shift*MSEC_TO_NSEC
         gyro_rots = get_gyro_rotations(gyro_events, times)
-        dists.append(scipy.spatial.distance.correlation(cam_rots,gyro_rots))
+        dists.append(scipy.spatial.distance.correlation(cam_rots, gyro_rots))
     best_corr_dist = min(dists)
     best_shift = candidates[dists.index(best_corr_dist)]
 
@@ -181,9 +187,10 @@ def plot_rotations(cam_rots, gyro_rots):
         gyro_rots: Array of N-1 gyro rotation measurements (rad).
     """
     # For the plot, scale the rotations to be in degrees.
+    scale = 360/(2*math.pi)
     fig = matplotlib.pyplot.figure()
-    cam_rots = cam_rots * (360/(2*math.pi))
-    gyro_rots = gyro_rots * (360/(2*math.pi))
+    cam_rots = cam_rots * scale
+    gyro_rots = gyro_rots * scale
     pylab.plot(range(len(cam_rots)), cam_rots, 'r', label="camera")
     pylab.plot(range(len(gyro_rots)), gyro_rots, 'b', label="gyro")
     pylab.legend()
@@ -196,8 +203,7 @@ def get_gyro_rotations(gyro_events, cam_times):
     """Get the rotation values of the gyro.
 
     Integrates the gyro data between each camera frame to compute an angular
-    displacement. Uses simple Euler approximation to implement the
-    integration.
+    displacement.
 
     Args:
         gyro_events: List of gyro event objects.
@@ -219,20 +225,16 @@ def get_gyro_rotations(gyro_events, cam_times):
         sgyro = 0
         # Integrate samples within the window.
         for igyro in range(igyrowindow0, igyrowindow1):
-            vgyro0 = all_rots[igyro]
-            vgyro1 = all_rots[igyro+1]
+            vgyro = all_rots[igyro+1]
             tgyro0 = all_times[igyro]
             tgyro1 = all_times[igyro+1]
-            vgyro = 0.5 * (vgyro0 + vgyro1)
             deltatgyro = (tgyro1 - tgyro0) * NSEC_TO_SEC
             sgyro += vgyro * deltatgyro
         # Handle the fractional intervals at the sides of the window.
         for side,igyro in enumerate([igyrowindow0-1, igyrowindow1]):
-            vgyro0 = all_rots[igyro]
-            vgyro1 = all_rots[igyro+1]
+            vgyro = all_rots[igyro+1]
             tgyro0 = all_times[igyro]
             tgyro1 = all_times[igyro+1]
-            vgyro = 0.5 * (vgyro0 + vgyro1)
             deltatgyro = (tgyro1 - tgyro0) * NSEC_TO_SEC
             if side == 0:
                 f = (tcam0 - tgyro0) / (tgyro1 - tgyro0)
@@ -244,7 +246,7 @@ def get_gyro_rotations(gyro_events, cam_times):
     gyro_rots = numpy.array(gyro_rots)
     return gyro_rots
 
-def get_cam_rotations(frames):
+def get_cam_rotations(frames, facing):
     """Get the rotations of the camera between each pair of frames.
 
     Takes N frames and returns N-1 angular displacements corresponding to the
@@ -268,8 +270,13 @@ def get_cam_rotations(frames):
         p1,st,_ = cv2.calcOpticalFlowPyrLK(gframe0, gframe1, p0, None,
                 **LK_PARAMS)
         tform = procrustes_rotation(p0[st==1], p1[st==1])
-        # TODO: Choose the sign for the rotation so the cam matches the gyro
-        rot = -math.atan2(tform[0, 1], tform[0, 0])
+        if facing == FACING_BACK:
+            rot = -math.atan2(tform[0, 1], tform[0, 0])
+        elif facing == FACING_FRONT:
+            rot = math.atan2(tform[0, 1], tform[0, 0])
+        else:
+            print "Unknown lens facing", facing
+            assert(0)
         rots.append(rot)
         if i == 1:
             # Save a debug visualization of the features that are being
@@ -277,7 +284,7 @@ def get_cam_rotations(frames):
             frame = frames[i]
             for x,y in p0[st==1]:
                 cv2.circle(frame, (x,y), 3, (100,100,255), -1)
-            its.image.write_image(frame, "%s_features.jpg"%(NAME))
+            its.image.write_image(frame, "%s_features.png"%(NAME))
     return numpy.array(rots)
 
 def get_cam_times(cam_events):
@@ -311,7 +318,7 @@ def load_data():
     n = len(events["cam"])
     frames = []
     for i in range(n):
-        img = Image.open("%s_frame%03d.jpg"%(NAME,i))
+        img = Image.open("%s_frame%03d.png"%(NAME,i))
         w,h = img.size[0:2]
         frames.append(numpy.array(img).reshape(h,w,3) / 255.0)
     return events, frames
@@ -327,16 +334,25 @@ def collect_data():
         frames: List of RGB images as numpy arrays.
     """
     with its.device.ItsSession() as cam:
+        props = cam.get_camera_properties()
+        its.caps.skip_unless(its.caps.sensor_fusion(props) and
+                             its.caps.manual_sensor(props) and
+                             props['android.lens.facing'] != FACING_EXTERNAL)
+
         print "Starting sensor event collection"
         cam.start_sensor_events()
 
         # Sleep a few seconds for gyro events to stabilize.
-        time.sleep(5)
+        time.sleep(2)
 
         # TODO: Ensure that OIS is disabled; set to DISABLE and wait some time.
 
         # Capture the frames.
-        props = cam.get_camera_properties()
+        facing = props['android.lens.facing']
+        if facing != FACING_FRONT and facing != FACING_BACK:
+            print "Unknown lens facing", facing
+            assert(0)
+
         fmt = {"format":"yuv", "width":W, "height":H}
         s,e,_,_,_ = cam.do_3a(get_results=True)
         req = its.objects.manual_capture_request(s, e)
@@ -354,7 +370,8 @@ def collect_data():
         exptimes = [c["metadata"]["android.sensor.exposureTime"] for c in caps]
         readouts = [c["metadata"]["android.sensor.rollingShutterSkew"]
                     for c in caps]
-        events = {"gyro": gyro, "cam": zip(starts,exptimes,readouts)}
+        events = {"gyro": gyro, "cam": zip(starts,exptimes,readouts),
+                  "facing": facing}
         with open("%s_events.txt"%(NAME), "w") as f:
             f.write(json.dumps(events))
 
@@ -364,7 +381,7 @@ def collect_data():
         for i,c in enumerate(caps):
             img = its.image.convert_capture_to_rgb_image(c)
             frames.append(img)
-            its.image.write_image(img, "%s_frame%03d.jpg"%(NAME,i))
+            its.image.write_image(img, "%s_frame%03d.png"%(NAME,i))
 
         return events, frames
 
@@ -388,4 +405,3 @@ def procrustes_rotation(X, Y):
 
 if __name__ == '__main__':
     main()
-

@@ -18,6 +18,8 @@
 
 #include <sstream>
 
+#include "ScopedLocalRef.h"
+
 #include "art_field-inl.h"
 #include "art_method-inl.h"
 #include "base/logging.h"
@@ -34,7 +36,7 @@
 namespace art {
 
 static void AddReferrerLocation(std::ostream& os, mirror::Class* referrer)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   if (referrer != nullptr) {
     std::string location(referrer->GetLocation());
     if (!location.empty()) {
@@ -46,7 +48,7 @@ static void AddReferrerLocation(std::ostream& os, mirror::Class* referrer)
 
 static void ThrowException(const char* exception_descriptor,
                            mirror::Class* referrer, const char* fmt, va_list* args = nullptr)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   std::ostringstream msg;
   if (args != nullptr) {
     std::string vmsg;
@@ -62,7 +64,7 @@ static void ThrowException(const char* exception_descriptor,
 
 static void ThrowWrappedException(const char* exception_descriptor,
                                   mirror::Class* referrer, const char* fmt, va_list* args = nullptr)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   std::ostringstream msg;
   if (args != nullptr) {
     std::string vmsg;
@@ -82,6 +84,14 @@ void ThrowAbstractMethodError(ArtMethod* method) {
   ThrowException("Ljava/lang/AbstractMethodError;", nullptr,
                  StringPrintf("abstract method \"%s\"",
                               PrettyMethod(method).c_str()).c_str());
+}
+
+void ThrowAbstractMethodError(uint32_t method_idx, const DexFile& dex_file) {
+  ThrowException("Ljava/lang/AbstractMethodError;", /* referrer */ nullptr,
+                 StringPrintf("abstract method \"%s\"",
+                              PrettyMethod(method_idx,
+                                           dex_file,
+                                           /* with_signature */ true).c_str()).c_str());
 }
 
 // ArithmeticException
@@ -125,6 +135,13 @@ void ThrowClassCircularityError(mirror::Class* c) {
   std::ostringstream msg;
   msg << PrettyDescriptor(c);
   ThrowException("Ljava/lang/ClassCircularityError;", c, msg.str().c_str());
+}
+
+void ThrowClassCircularityError(mirror::Class* c, const char* fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+  ThrowException("Ljava/lang/ClassCircularityError;", c, fmt, &args);
+  va_end(args);
 }
 
 // ClassFormatError
@@ -209,6 +226,22 @@ void ThrowIncompatibleClassChangeError(InvokeType expected_type, InvokeType foun
                  msg.str().c_str());
 }
 
+void ThrowIncompatibleClassChangeErrorClassForInterfaceSuper(ArtMethod* method,
+                                                             mirror::Class* target_class,
+                                                             mirror::Object* this_object,
+                                                             ArtMethod* referrer) {
+  // Referrer is calling interface_method on this_object, however, the interface_method isn't
+  // implemented by this_object.
+  CHECK(this_object != nullptr);
+  std::ostringstream msg;
+  msg << "Class '" << PrettyDescriptor(this_object->GetClass())
+      << "' does not implement interface '" << PrettyDescriptor(target_class) << "' in call to '"
+      << PrettyMethod(method) << "'";
+  ThrowException("Ljava/lang/IncompatibleClassChangeError;",
+                 referrer != nullptr ? referrer->GetDeclaringClass() : nullptr,
+                 msg.str().c_str());
+}
+
 void ThrowIncompatibleClassChangeErrorClassForInterfaceDispatch(ArtMethod* interface_method,
                                                                 mirror::Object* this_object,
                                                                 ArtMethod* referrer) {
@@ -241,6 +274,15 @@ void ThrowIncompatibleClassChangeError(mirror::Class* referrer, const char* fmt,
   ThrowException("Ljava/lang/IncompatibleClassChangeError;", referrer, fmt, &args);
   va_end(args);
 }
+
+void ThrowIncompatibleClassChangeErrorForMethodConflict(ArtMethod* method) {
+  DCHECK(method != nullptr);
+  ThrowException("Ljava/lang/IncompatibleClassChangeError;",
+                 /*referrer*/nullptr,
+                 StringPrintf("Conflicting default method implementations %s",
+                              PrettyMethod(method).c_str()).c_str());
+}
+
 
 // IOException
 
@@ -336,7 +378,7 @@ void ThrowNullPointerExceptionForFieldAccess(ArtField* field, bool is_read) {
 static void ThrowNullPointerExceptionForMethodAccessImpl(uint32_t method_idx,
                                                          const DexFile& dex_file,
                                                          InvokeType type)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   std::ostringstream msg;
   msg << "Attempt to invoke " << type << " method '"
       << PrettyMethod(method_idx, dex_file, true) << "' on a null object reference";
@@ -511,6 +553,104 @@ void ThrowRuntimeException(const char* fmt, ...) {
   va_start(args, fmt);
   ThrowException("Ljava/lang/RuntimeException;", nullptr, fmt, &args);
   va_end(args);
+}
+
+// Stack overflow.
+
+void ThrowStackOverflowError(Thread* self) {
+  if (self->IsHandlingStackOverflow()) {
+    LOG(ERROR) << "Recursive stack overflow.";
+    // We don't fail here because SetStackEndForStackOverflow will print better diagnostics.
+  }
+
+  self->SetStackEndForStackOverflow();  // Allow space on the stack for constructor to execute.
+  JNIEnvExt* env = self->GetJniEnv();
+  std::string msg("stack size ");
+  msg += PrettySize(self->GetStackSize());
+
+  // Avoid running Java code for exception initialization.
+  // TODO: Checks to make this a bit less brittle.
+
+  std::string error_msg;
+
+  // Allocate an uninitialized object.
+  ScopedLocalRef<jobject> exc(env,
+                              env->AllocObject(WellKnownClasses::java_lang_StackOverflowError));
+  if (exc.get() != nullptr) {
+    // "Initialize".
+    // StackOverflowError -> VirtualMachineError -> Error -> Throwable -> Object.
+    // Only Throwable has "custom" fields:
+    //   String detailMessage.
+    //   Throwable cause (= this).
+    //   List<Throwable> suppressedExceptions (= Collections.emptyList()).
+    //   Object stackState;
+    //   StackTraceElement[] stackTrace;
+    // Only Throwable has a non-empty constructor:
+    //   this.stackTrace = EmptyArray.STACK_TRACE_ELEMENT;
+    //   fillInStackTrace();
+
+    // detailMessage.
+    // TODO: Use String::FromModifiedUTF...?
+    ScopedLocalRef<jstring> s(env, env->NewStringUTF(msg.c_str()));
+    if (s.get() != nullptr) {
+      env->SetObjectField(exc.get(), WellKnownClasses::java_lang_Throwable_detailMessage, s.get());
+
+      // cause.
+      env->SetObjectField(exc.get(), WellKnownClasses::java_lang_Throwable_cause, exc.get());
+
+      // suppressedExceptions.
+      ScopedLocalRef<jobject> emptylist(env, env->GetStaticObjectField(
+          WellKnownClasses::java_util_Collections,
+          WellKnownClasses::java_util_Collections_EMPTY_LIST));
+      CHECK(emptylist.get() != nullptr);
+      env->SetObjectField(exc.get(),
+                          WellKnownClasses::java_lang_Throwable_suppressedExceptions,
+                          emptylist.get());
+
+      // stackState is set as result of fillInStackTrace. fillInStackTrace calls
+      // nativeFillInStackTrace.
+      ScopedLocalRef<jobject> stack_state_val(env, nullptr);
+      {
+        ScopedObjectAccessUnchecked soa(env);
+        stack_state_val.reset(soa.Self()->CreateInternalStackTrace<false>(soa));
+      }
+      if (stack_state_val.get() != nullptr) {
+        env->SetObjectField(exc.get(),
+                            WellKnownClasses::java_lang_Throwable_stackState,
+                            stack_state_val.get());
+
+        // stackTrace.
+        ScopedLocalRef<jobject> stack_trace_elem(env, env->GetStaticObjectField(
+            WellKnownClasses::libcore_util_EmptyArray,
+            WellKnownClasses::libcore_util_EmptyArray_STACK_TRACE_ELEMENT));
+        env->SetObjectField(exc.get(),
+                            WellKnownClasses::java_lang_Throwable_stackTrace,
+                            stack_trace_elem.get());
+      } else {
+        error_msg = "Could not create stack trace.";
+      }
+      // Throw the exception.
+      self->SetException(reinterpret_cast<mirror::Throwable*>(self->DecodeJObject(exc.get())));
+    } else {
+      // Could not allocate a string object.
+      error_msg = "Couldn't throw new StackOverflowError because JNI NewStringUTF failed.";
+    }
+  } else {
+    error_msg = "Could not allocate StackOverflowError object.";
+  }
+
+  if (!error_msg.empty()) {
+    LOG(WARNING) << error_msg;
+    CHECK(self->IsExceptionPending());
+  }
+
+  bool explicit_overflow_check = Runtime::Current()->ExplicitStackOverflowChecks();
+  self->ResetDefaultStackEnd();  // Return to default stack size.
+
+  // And restore protection if implicit checks are on.
+  if (!explicit_overflow_check) {
+    self->ProtectStack();
+  }
 }
 
 // VerifyError

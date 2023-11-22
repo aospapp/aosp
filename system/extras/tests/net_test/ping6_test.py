@@ -20,7 +20,6 @@ import errno
 import os
 import posix
 import random
-import re
 from socket import *  # pylint: disable=wildcard-import
 import threading
 import time
@@ -254,42 +253,6 @@ class Ping6Test(multinetwork_base.MultiNetworkBaseTest):
     self.assertEqual(len(data), len(rcvd))
     self.assertEqual(data[6:].encode("hex"), rcvd[6:].encode("hex"))
 
-  def ReadProcNetSocket(self, protocol):
-    # Read file.
-    lines = open("/proc/net/%s" % protocol).readlines()
-
-    # Possibly check, and strip, header.
-    if protocol in ["icmp6", "raw6", "udp6"]:
-      self.assertEqual(net_test.IPV6_SEQ_DGRAM_HEADER, lines[0])
-    lines = lines[1:]
-
-    # Check contents.
-    if protocol.endswith("6"):
-      addrlen = 32
-    else:
-      addrlen = 8
-    regexp = re.compile(r" *(\d+): "                    # bucket
-                        "([0-9A-F]{%d}:[0-9A-F]{4}) "   # srcaddr, port
-                        "([0-9A-F]{%d}:[0-9A-F]{4}) "   # dstaddr, port
-                        "([0-9A-F][0-9A-F]) "           # state
-                        "([0-9A-F]{8}:[0-9A-F]{8}) "    # mem
-                        "([0-9A-F]{2}:[0-9A-F]{8}) "    # ?
-                        "([0-9A-F]{8}) +"               # ?
-                        "([0-9]+) +"                    # uid
-                        "([0-9]+) +"                    # ?
-                        "([0-9]+) +"                    # inode
-                        "([0-9]+) +"                    # refcnt
-                        "([0-9a-f]+) +"                 # sp
-                        "([0-9]+) *$"                   # drops, icmp has spaces
-                        % (addrlen, addrlen))
-    # Return a list of lists with only source / dest addresses for now.
-    out = []
-    for line in lines:
-      (_, src, dst, state, mem,
-       _, _, uid, _, _, refcnt, _, drops) = regexp.match(line).groups()
-      out.append([src, dst, state, mem, uid, refcnt, drops])
-    return out
-
   def CheckSockStatFile(self, name, srcaddr, srcport, dstaddr, dstport, state,
                         txmem=0, rxmem=0):
     expected = ["%s:%04X" % (net_test.FormatSockStatAddress(srcaddr), srcport),
@@ -380,7 +343,17 @@ class Ping6Test(multinetwork_base.MultiNetworkBaseTest):
     # No crash? Good.
 
   def testCrossProtocolCalls(self):
-    """Tests that passing in the wrong family returns EAFNOSUPPORT."""
+    """Tests that passing in the wrong family returns EAFNOSUPPORT.
+
+    Relevant kernel commits:
+      upstream net:
+        91a0b60 net/ping: handle protocol mismatching scenario
+        9145736d net: ping: Return EAFNOSUPPORT when appropriate.
+
+      android-3.10:
+        78a6809 net/ping: handle protocol mismatching scenario
+        428e6d6 net: ping: Return EAFNOSUPPORT when appropriate.
+    """
 
     def CheckEAFNoSupport(function, *args):
       self.assertRaisesErrno(errno.EAFNOSUPPORT, function, *args)

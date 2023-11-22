@@ -16,13 +16,12 @@
 
 package android.security.cts;
 
-import com.android.cts.security.R;
-
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.Signature;
 import android.content.res.Resources.NotFoundException;
+import android.platform.test.annotations.RestrictedBuildTest;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
@@ -35,11 +34,15 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class PackageSignatureTest extends AndroidTestCase {
 
     private static final String TAG = PackageSignatureTest.class.getSimpleName();
+    private static final Pattern TEST_PACKAGE_PATTERN = Pattern.compile("android\\.[^\\.]+\\.cts");
 
+    @RestrictedBuildTest
     public void testPackageSignatures() throws Exception {
         Set<String> badPackages = new HashSet<String>();
         Set<Signature> wellKnownSignatures = getWellKnownSignatures();
@@ -77,6 +80,11 @@ public class PackageSignatureTest extends AndroidTestCase {
     }
 
     private static final Set<String> WHITELISTED_PACKAGES = new HashSet<String>(Arrays.asList(
+            // APKS are installed before beigning test
+            "android.netsecpolicy.usescleartext.false.cts",
+            "android.netsecpolicy.usescleartext.unspecified.cts",
+            "android.netsecpolicy.usescleartext.true.cts",
+
             // The accessibility APK required to be installed while running CTS
             "android.accessibilityservice.delegate",
 
@@ -102,15 +110,19 @@ public class PackageSignatureTest extends AndroidTestCase {
             "android.core.tests.libcore.package.libcore",
             "android.core.tests.libcore.package.org",
             "android.core.tests.libcore.package.sun",
-            "android.core.tests.libcore.package.tests"
+            "android.core.tests.libcore.package.tests",
+
+            // Test package to verify upgrades to privileged applications
+            "com.android.cts.priv.ctsshim",
+            "com.android.cts.ctsshim"
 
             ));
 
     private boolean isWhitelistedPackage(String packageName) {
         // Don't check the signatures of CTS test packages on the device.
         // devicesetup is the APK CTS loads to collect information needed in the final report
-        return packageName.startsWith("com.android.cts")
-                || WHITELISTED_PACKAGES.contains(packageName);
+        final Matcher matcher = TEST_PACKAGE_PATTERN.matcher(packageName);
+        return matcher.matches() || WHITELISTED_PACKAGES.contains(packageName);
     }
 
     private static final int DEFAULT_BUFFER_BYTES = 1024 * 4;

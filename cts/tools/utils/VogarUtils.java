@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-import com.android.cts.util.AbiUtils;
-
 import vogar.Expectation;
 import vogar.ExpectationStore;
 import vogar.ModeId;
 import vogar.Result;
+
+import com.android.compatibility.common.util.AbiUtils;
 
 import java.io.File;
 import java.io.FilenameFilter;

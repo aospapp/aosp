@@ -19,9 +19,8 @@
 #include <string>
 #include <vector>
 
-#include "bcinfo/BitcodeWrapper.h"
-
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/Attr.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclGroup.h"
 
@@ -64,17 +63,18 @@
 
 #include "slang_assert.h"
 #include "slang.h"
+#include "slang_bitcode_gen.h"
 #include "slang_rs_context.h"
 #include "slang_rs_export_foreach.h"
 #include "slang_rs_export_func.h"
+#include "slang_rs_export_reduce.h"
 #include "slang_rs_export_type.h"
 #include "slang_rs_export_var.h"
 #include "slang_rs_metadata.h"
 
+#include "rs_cc_options.h"
+
 #include "strip_unknown_attributes.h"
-#include "BitWriter_2_9/ReaderWriter_2_9.h"
-#include "BitWriter_2_9_func/ReaderWriter_2_9_func.h"
-#include "BitWriter_3_2/ReaderWriter_3_2.h"
 
 namespace slang {
 
@@ -138,17 +138,10 @@ bool Backend::CreateCodeGenPasses() {
   // Target Machine Options
   llvm::TargetOptions Options;
 
-  Options.NoFramePointerElim = mCodeGenOpts.DisableFPElim;
-
-  // Use hardware FPU.
-  //
-  // FIXME: Need to detect the CPU capability and decide whether to use softfp.
-  // To use softfp, change following 2 lines to
-  //
-  // Options.FloatABIType = llvm::FloatABI::Soft;
-  // Options.UseSoftFloat = true;
-  Options.FloatABIType = llvm::FloatABI::Hard;
-  Options.UseSoftFloat = false;
+  // Use soft-float ABI for ARM (which is the target used by Slang during code
+  // generation).  Codegen still uses hardware FPU by default.  To use software
+  // floating point, add 'soft-float' feature to FeaturesStr below.
+  Options.FloatABIType = llvm::FloatABI::Soft;
 
   // BCC needs all unknown symbols resolved at compilation time. So we don't
   // need any relocation model.
@@ -183,9 +176,6 @@ bool Backend::CreateCodeGenPasses() {
     TargetInfo->createTargetMachine(Triple, mTargetOpts.CPU, FeaturesStr,
                                     Options, RM, CM);
 
-  // Register scheduler
-  llvm::RegisterScheduler::setDefault(llvm::createDefaultScheduler);
-
   // Register allocation policy:
   //  createFastRegisterAllocator: fast but bad quality
   //  createGreedyRegisterAllocator: not so fast but good quality
@@ -215,6 +205,9 @@ bool Backend::CreateCodeGenPasses() {
 }
 
 Backend::Backend(RSContext *Context, clang::DiagnosticsEngine *DiagEngine,
+                 const RSCCOptions &Opts,
+                 const clang::HeaderSearchOptions &HeaderSearchOpts,
+                 const clang::PreprocessorOptions &PreprocessorOpts,
                  const clang::CodeGenOptions &CodeGenOpts,
                  const clang::TargetOptions &TargetOpts, PragmaList *Pragmas,
                  llvm::raw_ostream *OS, Slang::OutputType OT,
@@ -224,15 +217,19 @@ Backend::Backend(RSContext *Context, clang::DiagnosticsEngine *DiagEngine,
       mOT(OT), mGen(nullptr), mPerFunctionPasses(nullptr),
       mPerModulePasses(nullptr), mCodeGenPasses(nullptr),
       mBufferOutStream(*mpOS), mContext(Context),
-      mSourceMgr(SourceMgr), mAllowRSPrefix(AllowRSPrefix),
+      mSourceMgr(SourceMgr), mASTPrint(Opts.mASTPrint), mAllowRSPrefix(AllowRSPrefix),
       mIsFilterscript(IsFilterscript), mExportVarMetadata(nullptr),
       mExportFuncMetadata(nullptr), mExportForEachNameMetadata(nullptr),
-      mExportForEachSignatureMetadata(nullptr), mExportTypeMetadata(nullptr),
-      mRSObjectSlotsMetadata(nullptr), mRefCount(mContext->getASTContext()),
+      mExportForEachSignatureMetadata(nullptr),
+      mExportReduceMetadata(nullptr),
+      mExportTypeMetadata(nullptr), mRSObjectSlotsMetadata(nullptr),
+      mRefCount(mContext->getASTContext()),
       mASTChecker(Context, Context->getTargetAPI(), IsFilterscript),
+      mForEachHandler(Context),
       mLLVMContext(llvm::getGlobalContext()), mDiagEngine(*DiagEngine),
       mCodeGenOpts(CodeGenOpts), mPragmas(Pragmas) {
-  mGen = CreateLLVMCodeGen(mDiagEngine, "", mCodeGenOpts, mLLVMContext);
+  mGen = CreateLLVMCodeGen(mDiagEngine, "", HeaderSearchOpts, PreprocessorOpts,
+      mCodeGenOpts, mLLVMContext);
 }
 
 void Backend::Initialize(clang::ASTContext &Ctx) {
@@ -241,24 +238,11 @@ void Backend::Initialize(clang::ASTContext &Ctx) {
   mpModule = mGen->GetModule();
 }
 
-// Encase the Bitcode in a wrapper containing RS version information.
-void Backend::WrapBitcode(llvm::raw_string_ostream &Bitcode) {
-  bcinfo::AndroidBitcodeWrapper wrapper;
-  size_t actualWrapperLen = bcinfo::writeAndroidBitcodeWrapper(
-      &wrapper, Bitcode.str().length(), getTargetAPI(),
-      SlangVersion::CURRENT, mCodeGenOpts.OptimizationLevel);
-
-  slangAssert(actualWrapperLen > 0);
-
-  // Write out the bitcode wrapper.
-  mBufferOutStream.write(reinterpret_cast<char*>(&wrapper), actualWrapperLen);
-
-  // Write out the actual encoded bitcode.
-  mBufferOutStream << Bitcode.str();
-}
-
 void Backend::HandleTranslationUnit(clang::ASTContext &Ctx) {
   HandleTranslationUnitPre(Ctx);
+
+  if (mASTPrint)
+    Ctx.getTranslationUnitDecl()->dump();
 
   mGen->HandleTranslationUnit(Ctx);
 
@@ -346,40 +330,8 @@ void Backend::HandleTranslationUnit(clang::ASTContext &Ctx) {
       break;
     }
     case Slang::OT_Bitcode: {
-      llvm::legacy::PassManager *BCEmitPM = new llvm::legacy::PassManager();
-      std::string BCStr;
-      llvm::raw_string_ostream Bitcode(BCStr);
-      unsigned int TargetAPI = getTargetAPI();
-      switch (TargetAPI) {
-        case SLANG_HC_TARGET_API:
-        case SLANG_HC_MR1_TARGET_API:
-        case SLANG_HC_MR2_TARGET_API: {
-          // Pre-ICS targets must use the LLVM 2.9 BitcodeWriter
-          BCEmitPM->add(llvm_2_9::createBitcodeWriterPass(Bitcode));
-          break;
-        }
-        case SLANG_ICS_TARGET_API:
-        case SLANG_ICS_MR1_TARGET_API: {
-          // ICS targets must use the LLVM 2.9_func BitcodeWriter
-          BCEmitPM->add(llvm_2_9_func::createBitcodeWriterPass(Bitcode));
-          break;
-        }
-        default: {
-          if (TargetAPI != SLANG_DEVELOPMENT_TARGET_API &&
-              (TargetAPI < SLANG_MINIMUM_TARGET_API ||
-               TargetAPI > SLANG_MAXIMUM_TARGET_API)) {
-            slangAssert(false && "Invalid target API value");
-          }
-          // Switch to the 3.2 BitcodeWriter by default, and don't use
-          // LLVM's included BitcodeWriter at all (for now).
-          BCEmitPM->add(llvm_3_2::createBitcodeWriterPass(Bitcode));
-          //BCEmitPM->add(llvm::createBitcodeWriterPass(Bitcode));
-          break;
-        }
-      }
-
-      BCEmitPM->run(*mpModule);
-      WrapBitcode(Bitcode);
+      writeBitcode(mBufferOutStream, *mpModule, getTargetAPI(),
+                   mCodeGenOpts.OptimizationLevel, mCodeGenOpts.getDebugInfo());
       break;
     }
     case Slang::OT_Nothing: {
@@ -389,8 +341,6 @@ void Backend::HandleTranslationUnit(clang::ASTContext &Ctx) {
       slangAssert(false && "Unknown output type");
     }
   }
-
-  mBufferOutStream.flush();
 }
 
 void Backend::HandleTagDeclDefinition(clang::TagDecl *D) {
@@ -415,11 +365,28 @@ void Backend::AnnotateFunction(clang::FunctionDecl *FD) {
       FD->hasBody() &&
       !Slang::IsLocInRSHeaderFile(FD->getLocation(), mSourceMgr)) {
     mRefCount.Init();
+    mRefCount.SetDeclContext(FD);
     mRefCount.Visit(FD->getBody());
   }
 }
 
 bool Backend::HandleTopLevelDecl(clang::DeclGroupRef D) {
+  // Find and remember the types for rs_allocation and rs_script_call_t so
+  // they can be used later for translating rsForEach() calls.
+  for (clang::DeclGroupRef::iterator I = D.begin(), E = D.end();
+       (mContext->getAllocationType().isNull() ||
+        mContext->getScriptCallType().isNull()) &&
+       I != E; I++) {
+    if (clang::TypeDecl* TD = llvm::dyn_cast<clang::TypeDecl>(*I)) {
+      clang::StringRef TypeName = TD->getName();
+      if (TypeName.equals("rs_allocation")) {
+        mContext->setAllocationType(TD);
+      } else if (TypeName.equals("rs_script_call_t")) {
+        mContext->setScriptCallType(TD);
+      }
+    }
+  }
+
   // Disallow user-defined functions with prefix "rs"
   if (!mAllowRSPrefix) {
     // Iterate all function declarations in the program.
@@ -438,31 +405,56 @@ bool Backend::HandleTopLevelDecl(clang::DeclGroupRef D) {
     }
   }
 
-  // Process any non-static function declarations
   for (clang::DeclGroupRef::iterator I = D.begin(), E = D.end(); I != E; I++) {
     clang::FunctionDecl *FD = llvm::dyn_cast<clang::FunctionDecl>(*I);
-    if (FD && FD->isGlobal()) {
-      // Check that we don't have any array parameters being misintrepeted as
-      // kernel pointers due to the C type system's array to pointer decay.
-      size_t numParams = FD->getNumParams();
-      for (size_t i = 0; i < numParams; i++) {
-        const clang::ParmVarDecl *PVD = FD->getParamDecl(i);
-        clang::QualType QT = PVD->getOriginalType();
-        if (QT->isArrayType()) {
-          mContext->ReportError(
-              PVD->getTypeSpecStartLoc(),
-              "exported function parameters may not have array type: %0")
-              << QT;
+    if (FD) {
+      // Handle forward reference from pragma (see
+      // RSReducePragmaHandler::HandlePragma for backward reference).
+      mContext->markUsedByReducePragma(FD, RSContext::CheckNameYes);
+      if (FD->isGlobal()) {
+        // Check that we don't have any array parameters being misinterpreted as
+        // kernel pointers due to the C type system's array to pointer decay.
+        size_t numParams = FD->getNumParams();
+        for (size_t i = 0; i < numParams; i++) {
+          const clang::ParmVarDecl *PVD = FD->getParamDecl(i);
+          clang::QualType QT = PVD->getOriginalType();
+          if (QT->isArrayType()) {
+            mContext->ReportError(
+                PVD->getTypeSpecStartLoc(),
+                "exported function parameters may not have array type: %0")
+                << QT;
+          }
         }
+        AnnotateFunction(FD);
       }
-      AnnotateFunction(FD);
+    }
+
+    if (getTargetAPI() >= SLANG_FEATURE_SINGLE_SOURCE_API) {
+      if (FD && FD->hasBody() &&
+          !Slang::IsLocInRSHeaderFile(FD->getLocation(), mSourceMgr)) {
+        if (FD->hasAttr<clang::KernelAttr>()) {
+          // Log functions with attribute "kernel" by their names, and assign
+          // them slot numbers. Any other function cannot be used in a
+          // rsForEach() or rsForEachWithOptions() call, including old-style
+          // kernel functions which are defined without the "kernel" attribute.
+          mContext->addForEach(FD);
+        }
+        // Look for any kernel launch calls and translate them into using the
+        // internal API.
+        // Report a compiler error on kernel launches inside a kernel.
+        mForEachHandler.handleForEachCalls(FD, getTargetAPI());
+      }
     }
   }
+
   return mGen->HandleTopLevelDecl(D);
 }
 
 void Backend::HandleTranslationUnitPre(clang::ASTContext &C) {
   clang::TranslationUnitDecl *TUDecl = C.getTranslationUnitDecl();
+
+  if (!mContext->processReducePragmas(this))
+    return;
 
   // If we have an invalid RS/FS AST, don't check further.
   if (!mASTChecker.Validate()) {
@@ -722,10 +714,11 @@ void Backend::dumpExportFunctionInfo(llvm::Module *M) {
 
           CI->setCallingConv(F->getCallingConv());
 
-          if (F->getReturnType() == llvm::Type::getVoidTy(mLLVMContext))
+          if (F->getReturnType() == llvm::Type::getVoidTy(mLLVMContext)) {
             IB->CreateRetVoid();
-          else
+          } else {
             IB->CreateRet(CI);
+          }
 
           delete IB;
         }
@@ -775,6 +768,59 @@ void Backend::dumpExportForEachInfo(llvm::Module *M) {
     mExportForEachSignatureMetadata->addOperand(
         llvm::MDNode::get(mLLVMContext, ExportForEachInfo));
     ExportForEachInfo.clear();
+  }
+}
+
+void Backend::dumpExportReduceInfo(llvm::Module *M) {
+  if (!mExportReduceMetadata) {
+    mExportReduceMetadata =
+      M->getOrInsertNamedMetadata(RS_EXPORT_REDUCE_MN);
+  }
+
+  llvm::SmallVector<llvm::Metadata *, 6> ExportReduceInfo;
+  // Add operand to ExportReduceInfo, padding out missing operands with
+  // nullptr.
+  auto addOperand = [&ExportReduceInfo](uint32_t Idx, llvm::Metadata *N) {
+    while (Idx > ExportReduceInfo.size())
+      ExportReduceInfo.push_back(nullptr);
+    ExportReduceInfo.push_back(N);
+  };
+  // Add string operand to ExportReduceInfo, padding out missing operands
+  // with nullptr.
+  // If string is empty, then do not add it unless Always is true.
+  auto addString = [&addOperand, this](uint32_t Idx, const std::string &S,
+                                       bool Always = true) {
+    if (Always || !S.empty())
+      addOperand(Idx, llvm::MDString::get(mLLVMContext, S));
+  };
+
+  // Add the description of the reduction kernels to the metadata node.
+  for (auto I = mContext->export_reduce_begin(),
+            E = mContext->export_reduce_end();
+       I != E; ++I) {
+    ExportReduceInfo.clear();
+
+    int Idx = 0;
+
+    addString(Idx++, (*I)->getNameReduce());
+
+    addOperand(Idx++, llvm::MDString::get(mLLVMContext, llvm::utostr_32((*I)->getAccumulatorTypeSize())));
+
+    llvm::SmallVector<llvm::Metadata *, 2> Accumulator;
+    Accumulator.push_back(
+      llvm::MDString::get(mLLVMContext, (*I)->getNameAccumulator()));
+    Accumulator.push_back(llvm::MDString::get(
+      mLLVMContext,
+      llvm::utostr_32((*I)->getAccumulatorSignatureMetadata())));
+    addOperand(Idx++, llvm::MDTuple::get(mLLVMContext, Accumulator));
+
+    addString(Idx++, (*I)->getNameInitializer(), false);
+    addString(Idx++, (*I)->getNameCombiner(), false);
+    addString(Idx++, (*I)->getNameOutConverter(), false);
+    addString(Idx++, (*I)->getNameHalter(), false);
+
+    mExportReduceMetadata->addOperand(
+      llvm::MDTuple::get(mLLVMContext, ExportReduceInfo));
   }
 }
 
@@ -843,9 +889,8 @@ void Backend::HandleTranslationUnitPost(llvm::Module *M) {
     M->setDataLayout("e-p:32:32-i64:64-v128:64:128-n32-S64");
   }
 
-  if (!mContext->processExport()) {
+  if (!mContext->processExports())
     return;
-  }
 
   if (mContext->hasExportVar())
     dumpExportVarInfo(M);
@@ -855,6 +900,9 @@ void Backend::HandleTranslationUnitPost(llvm::Module *M) {
 
   if (mContext->hasExportForEach())
     dumpExportForEachInfo(M);
+
+  if (mContext->hasExportReduce())
+    dumpExportReduceInfo(M);
 
   if (mContext->hasExportType())
     dumpExportTypeInfo(M);

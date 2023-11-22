@@ -10,7 +10,7 @@ def:fullpage() ?>
   <div id="body-content">
     <div>
 <?cs /def ?>
-<?cs 
+<?cs
 def:sdk_nav() ?>
   <div class="wrap clearfix" id="body-content"><div class="cols">
     <div class="col-4 dac-toggle dac-mobile" id="side-nav" itemscope itemtype="http://schema.org/SiteNavigationElement">
@@ -297,7 +297,7 @@ def:google_nav() ?>
       </div>
       <script type="text/javascript">
        showGoogleRefTree();
-    
+
       </script>
     </div> <!-- end side-nav -->
     <script>
@@ -528,7 +528,7 @@ def:custom_left_nav() ?><?cs
       call:fullpage() ?><?cs
     elif:nonavpage ?><?cs
       call:no_nav() ?><?cs
-    elif:guide || reference || samples || downloads ?><?cs      
+    elif:guide || reference || samples || downloads ?><?cs
       call:ndk_nav() ?><?cs
     else ?><?cs
       call:default_left_nav() ?> <?cs
@@ -585,7 +585,7 @@ def:custom_left_nav() ?><?cs
 <?cs # appears at the bottom of every page ?><?cs
 def:custom_cc_copyright() ?>
   Except as noted, this content is
-  licensed under <a href="http://creativecommons.org/licenses/by/2.5/">
+  licensed under <a href="//creativecommons.org/licenses/by/2.5/">
   Creative Commons Attribution 2.5</a>. For details and
   restrictions, see the <a href="<?cs var:toroot ?>license.html">Content
   License</a>.<?cs
@@ -594,7 +594,7 @@ def:custom_cc_copyright() ?>
 <?cs
 def:custom_copyright() ?>
   Except as noted, this content is licensed under <a
-  href="http://www.apache.org/licenses/LICENSE-2.0">Apache 2.0</a>.
+  href="//www.apache.org/licenses/LICENSE-2.0">Apache 2.0</a>.
   For details and restrictions, see the <a href="<?cs var:toroot ?>license.html">
   Content License</a>.<?cs
 /def ?>

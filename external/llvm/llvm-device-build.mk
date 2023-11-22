@@ -13,6 +13,7 @@ LOCAL_CFLAGS :=	\
 	-W	\
 	-Wno-unused-parameter	\
 	-Wwrite-strings	\
+	-Werror \
         -Dsprintf=sprintf \
 	$(LOCAL_CFLAGS)
 
@@ -28,7 +29,7 @@ LOCAL_CFLAGS := -DANDROID_ENGINEERING_BUILD \
                 $(LOCAL_CFLAGS)
 endif
 
-ifeq ($(LLVM_ENABLE_ASSERTION),true)
+ifeq ($(FORCE_BUILD_LLVM_DISABLE_NDEBUG),true)
 LOCAL_CFLAGS :=	\
 	$(LOCAL_CFLAGS) \
 	-D_DEBUG	\

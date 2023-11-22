@@ -1,9 +1,9 @@
 #!/bin/sh
-srcversion='$MirOS: src/bin/mksh/Build.sh,v 1.669.2.4 2015/04/19 19:18:08 tg Exp $'
+srcversion='$MirOS: src/bin/mksh/Build.sh,v 1.695 2016/01/02 20:11:31 tg Exp $'
 #-
 # Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-#		2011, 2012, 2013, 2014, 2015
-#	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
+#		2011, 2012, 2013, 2014, 2015, 2016
+#	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
@@ -100,6 +100,7 @@ do_genopt() {
 	srcfile=$1
 	test -f "$srcfile" || genopt_die Source file \$srcfile not set.
 	bn=`basename "$srcfile" | sed 's/.opt$//'`
+	o_hdr='/* +++ GENERATED FILE +++ DO NOT EDIT +++ */'
 	o_gen=
 	o_str=
 	o_sym=
@@ -128,6 +129,9 @@ do_genopt() {
 			;;
 		*:@@*)
 			genopt_die ;;
+		0:/\*-|0:\ \**|0:)
+			o_hdr=$o_hdr$nl$line
+			;;
 		0:@*|1:@*)
 			# begin of a definition block
 			sym=`echo "$line" | sed 's/^@//'`
@@ -177,6 +181,7 @@ do_genopt() {
 		echo "\"$opts\""
 		test -n "$cond" && echo "#endif"
 	done | {
+		echo "$o_hdr"
 		echo "#ifndef $o_sym$o_gen"
 		echo "#else"
 		cat
@@ -314,6 +319,7 @@ ac_testnnd() {
 	vv ']' "$CC $CFLAGS $CPPFLAGS $LDFLAGS $NOWARN conftest.c $LIBS $ccpr"
 	test $tcfn = no && test -f a.out && tcfn=a.out
 	test $tcfn = no && test -f a.exe && tcfn=a.exe
+	test $tcfn = no && test -f conftest.exe && tcfn=conftest.exe
 	test $tcfn = no && test -f conftest && tcfn=conftest
 	if test -f $tcfn; then
 		test 1 = $fr || fv=1
@@ -577,8 +583,8 @@ if test -d $tfn || test -d $tfn.exe; then
 	echo "$me: Error: ./$tfn is a directory!" >&2
 	exit 1
 fi
-rmf a.exe* a.out* conftest.c *core core.* lft ${tfn}* no *.bc *.ll *.o *.gen \
-    Rebuild.sh signames.inc test.sh x vv.out
+rmf a.exe* a.out* conftest.c conftest.exe* *core core.* ${tfn}* *.bc *.dbg \
+    *.ll *.o *.gen Rebuild.sh lft no signames.inc test.sh x vv.out
 
 SRCS="lalloc.c eval.c exec.c expr.c funcs.c histrap.c jobs.c"
 SRCS="$SRCS lex.c main.c misc.c shf.c syn.c tree.c var.c"
@@ -682,14 +688,14 @@ esac
 # Configuration depending on OS name
 case $TARGET_OS in
 386BSD)
-	: ${HAVE_CAN_OTWO=0}
+	: "${HAVE_CAN_OTWO=0}"
 	add_cppflags -DMKSH_NO_SIGSETJMP
 	add_cppflags -DMKSH_TYPEDEF_SIG_ATOMIC_T=int
 	add_cppflags -DMKSH_CONSERVATIVE_FDS
 	;;
 AIX)
 	add_cppflags -D_ALL_SOURCE
-	: ${HAVE_SETLOCALE_CTYPE=0}
+	: "${HAVE_SETLOCALE_CTYPE=0}"
 	;;
 BeOS)
 	case $KSH_VERSION in
@@ -708,7 +714,7 @@ BeOS)
 	add_cppflags -DMKSH__NO_SETEUGID
 	;;
 BSD/OS)
-	: ${HAVE_SETLOCALE_CTYPE=0}
+	: "${HAVE_SETLOCALE_CTYPE=0}"
 	;;
 Coherent)
 	oswarn="; it has major issues"
@@ -719,7 +725,7 @@ Coherent)
 	add_cppflags -DMKSH_DISABLE_TTY_WARNING
 	;;
 CYGWIN*)
-	: ${HAVE_SETLOCALE_CTYPE=0}
+	: "${HAVE_SETLOCALE_CTYPE=0}"
 	;;
 Darwin)
 	add_cppflags -D_DARWIN_C_SOURCE
@@ -732,13 +738,14 @@ FreeMiNT)
 	oswarn="; it has minor issues"
 	add_cppflags -D_GNU_SOURCE
 	add_cppflags -DMKSH_CONSERVATIVE_FDS
-	: ${HAVE_SETLOCALE_CTYPE=0}
+	: "${HAVE_SETLOCALE_CTYPE=0}"
 	;;
 GNU)
 	case $CC in
 	*tendracc*) ;;
 	*) add_cppflags -D_GNU_SOURCE ;;
 	esac
+	add_cppflags -DSETUID_CAN_FAIL_WITH_EAGAIN
 	# define MKSH__NO_PATH_MAX to use Hurd-only functions
 	add_cppflags -DMKSH__NO_PATH_MAX
 	;;
@@ -747,6 +754,7 @@ GNU/kFreeBSD)
 	*tendracc*) ;;
 	*) add_cppflags -D_GNU_SOURCE ;;
 	esac
+	add_cppflags -DSETUID_CAN_FAIL_WITH_EAGAIN
 	;;
 Haiku)
 	add_cppflags -DMKSH_ASSUME_UTF8; HAVE_ISSET_MKSH_ASSUME_UTF8=1
@@ -757,11 +765,11 @@ Interix)
 	ccpc='-X '
 	ccpl='-Y '
 	add_cppflags -D_ALL_SOURCE
-	: ${LIBS='-lcrypt'}
-	: ${HAVE_SETLOCALE_CTYPE=0}
+	: "${LIBS=-lcrypt}"
+	: "${HAVE_SETLOCALE_CTYPE=0}"
 	;;
 IRIX*)
-	: ${HAVE_SETLOCALE_CTYPE=0}
+	: "${HAVE_SETLOCALE_CTYPE=0}"
 	;;
 Linux)
 	case $CC in
@@ -769,7 +777,7 @@ Linux)
 	*) add_cppflags -D_GNU_SOURCE ;;
 	esac
 	add_cppflags -DSETUID_CAN_FAIL_WITH_EAGAIN
-	: ${HAVE_REVOKE=0}
+	: "${HAVE_REVOKE=0}"
 	;;
 LynxOS)
 	oswarn="; it has minor issues"
@@ -782,7 +790,7 @@ Minix-vmd)
 	add_cppflags -DMKSH_CONSERVATIVE_FDS
 	add_cppflags -D_MINIX_SOURCE
 	oldish_ed=no-stderr-ed		# no /bin/ed, maybe see below
-	: ${HAVE_SETLOCALE_CTYPE=0}
+	: "${HAVE_SETLOCALE_CTYPE=0}"
 	;;
 Minix3)
 	add_cppflags -DMKSH_UNEMPLOYED
@@ -790,23 +798,24 @@ Minix3)
 	add_cppflags -DMKSH_NO_LIMITS
 	add_cppflags -D_POSIX_SOURCE -D_POSIX_1_SOURCE=2 -D_MINIX
 	oldish_ed=no-stderr-ed		# /usr/bin/ed(!) is broken
-	: ${HAVE_SETLOCALE_CTYPE=0}
+	: "${HAVE_SETLOCALE_CTYPE=0}"
 	;;
 MirBSD)
 	;;
 MSYS_*)
 	add_cppflags -DMKSH_ASSUME_UTF8=0; HAVE_ISSET_MKSH_ASSUME_UTF8=1
 	# almost same as CYGWIN* (from RT|Chatzilla)
-	: ${HAVE_SETLOCALE_CTYPE=0}
+	: "${HAVE_SETLOCALE_CTYPE=0}"
 	# broken on this OE (from ir0nh34d)
-	: ${HAVE_STDINT_H=0}
+	: "${HAVE_STDINT_H=0}"
 	;;
 NetBSD)
 	;;
 NEXTSTEP)
 	add_cppflags -D_NEXT_SOURCE
 	add_cppflags -D_POSIX_SOURCE
-	: ${AWK=gawk} ${CC=cc -posix}
+	: "${AWK=gawk}"
+	: "${CC=cc -posix}"
 	add_cppflags -DMKSH_NO_SIGSETJMP
 	# NeXTstep cannot get a controlling tty
 	add_cppflags -DMKSH_UNEMPLOYED
@@ -827,7 +836,17 @@ Ninix3)
 	oswarn="; it has unknown issues"
 	;;
 OpenBSD)
-	: ${HAVE_SETLOCALE_CTYPE=0}
+	: "${HAVE_SETLOCALE_CTYPE=0}"
+	;;
+OS/2)
+	HAVE_TERMIOS_H=0
+	HAVE_MKNOD=0	# setmode() incompatible
+	oswarn="; it is currently being ported"
+	check_categories="$check_categories nosymlink"
+	: "${CC=gcc}"
+	: "${SIZE=: size}"
+	add_cppflags -DMKSH_UNEMPLOYED
+	add_cppflags -DMKSH_NOPROSPECTOFWORK
 	;;
 OSF1)
 	HAVE_SIG_T=0	# incompatible
@@ -835,7 +854,7 @@ OSF1)
 	add_cppflags -D_POSIX_C_SOURCE=200112L
 	add_cppflags -D_XOPEN_SOURCE=600
 	add_cppflags -D_XOPEN_SOURCE_EXTENDED
-	: ${HAVE_SETLOCALE_CTYPE=0}
+	: "${HAVE_SETLOCALE_CTYPE=0}"
 	;;
 Plan9)
 	add_cppflags -D_POSIX_SOURCE
@@ -853,7 +872,7 @@ Plan9)
 PW32*)
 	HAVE_SIG_T=0	# incompatible
 	oswarn=' and will currently not work'
-	: ${HAVE_SETLOCALE_CTYPE=0}
+	: "${HAVE_SETLOCALE_CTYPE=0}"
 	;;
 QNX)
 	add_cppflags -D__NO_EXT_QNX
@@ -863,7 +882,7 @@ QNX)
 		oldish_ed=no-stderr-ed		# oldish /bin/ed is broken
 		;;
 	esac
-	: ${HAVE_SETLOCALE_CTYPE=0}
+	: "${HAVE_SETLOCALE_CTYPE=0}"
 	;;
 SCO_SV)
 	case $TARGET_OSREV in
@@ -880,7 +899,7 @@ SCO_SV)
 		;;
 	esac
 	add_cppflags -DMKSH_CONSERVATIVE_FDS
-	: ${HAVE_SYS_SIGLIST=0} ${HAVE__SYS_SIGLIST=0}
+	: "${HAVE_SYS_SIGLIST=0}${HAVE__SYS_SIGLIST=0}"
 	;;
 skyos)
 	oswarn="; it has minor issues"
@@ -895,15 +914,15 @@ syllable)
 	oswarn=' and will currently not work'
 	;;
 ULTRIX)
-	: ${CC=cc -YPOSIX}
+	: "${CC=cc -YPOSIX}"
 	add_cppflags -DMKSH_TYPEDEF_SSIZE_T=int
 	add_cppflags -DMKSH_CONSERVATIVE_FDS
-	: ${HAVE_SETLOCALE_CTYPE=0}
+	: "${HAVE_SETLOCALE_CTYPE=0}"
 	;;
 UnixWare|UNIX_SV)
 	# SCO UnixWare
 	add_cppflags -DMKSH_CONSERVATIVE_FDS
-	: ${HAVE_SYS_SIGLIST=0} ${HAVE__SYS_SIGLIST=0}
+	: "${HAVE_SYS_SIGLIST=0}${HAVE__SYS_SIGLIST=0}"
 	;;
 UWIN*)
 	ccpc='-Yc,'
@@ -911,7 +930,7 @@ UWIN*)
 	tsts=" 3<>/dev/tty"
 	oswarn="; it will compile, but the target"
 	oswarn="$oswarn${nl}platform itself is very flakey/unreliable"
-	: ${HAVE_SETLOCALE_CTYPE=0}
+	: "${HAVE_SETLOCALE_CTYPE=0}"
 	;;
 _svr4)
 	# generic target for SVR4 Unix with uname -s = uname -n
@@ -925,11 +944,11 @@ _svr4)
 	;;
 esac
 
-: ${HAVE_MKNOD=0}
+: "${HAVE_MKNOD=0}"
 
-: ${AWK=awk} ${CC=cc} ${NROFF=nroff} ${SIZE=size}
+: "${AWK=awk}${CC=cc}${NROFF=nroff}${SIZE=size}"
 test 0 = $r && echo | $NROFF -v 2>&1 | grep GNU >/dev/null 2>&1 && \
-    NROFF="$NROFF -c"
+    echo | $NROFF -c >/dev/null 2>&1 && NROFF="$NROFF -c"
 
 # this aids me in tracing FTBFSen without access to the buildd
 $e "Hi from$ao $bi$srcversion$ao on:"
@@ -1050,7 +1069,7 @@ ct="unknown"
 #endif
 ;
 const char *
-#if defined(__KLIBC__)
+#if defined(__KLIBC__) && !defined(__OS2__)
 et="klibc"
 #else
 et="unknown"
@@ -1183,7 +1202,7 @@ tcc)
 	;;
 tendra)
 	vv '|' "$CC $CFLAGS $CPPFLAGS $LDFLAGS $NOWARN $LIBS -V 2>&1 | \
-	    fgrep -i -e version -e release"
+	    grep -F -i -e version -e release"
 	;;
 ucode)
 	vv '|' "$CC $CFLAGS $CPPFLAGS $LDFLAGS $NOWARN $LIBS -V"
@@ -1194,7 +1213,7 @@ uslc)
 	SCO_SV:3.2*)
 		# SCO OpenServer 5
 		CFLAGS="$CFLAGS -g"
-		: ${HAVE_CAN_OTWO=0} ${HAVE_CAN_OPTIMISE=0}
+		: "${HAVE_CAN_OTWO=0}${HAVE_CAN_OPTIMISE=0}"
 		;;
 	esac
 	vv '|' "$CC $CFLAGS $CPPFLAGS $LDFLAGS $NOWARN -V conftest.c $LIBS"
@@ -1220,20 +1239,21 @@ dragonegg|llvm)
 	vv '|' "llc -version"
 	;;
 esac
+etd=" on $et"
 case $et in
 klibc)
 	add_cppflags -DMKSH_NO_LIMITS
 	;;
 unknown)
 	# nothing special detected, don’t worry
-	unset et
+	etd=
 	;;
 *)
 	# huh?
 	;;
 esac
-$e "$bi==> which compiler seems to be used...$ao $ui$ct${et+ on $et}$ao"
-rmf conftest.c conftest.o conftest a.out* a.exe* vv.out
+$e "$bi==> which compiler seems to be used...$ao $ui$ct$etd$ao"
+rmf conftest.c conftest.o conftest a.out* a.exe* conftest.exe* vv.out
 
 #
 # Compiler: works as-is, with -Wno-error and -Werror
@@ -1248,7 +1268,7 @@ test $ct = unknown || HAVE_COMPILER_KNOWN=1
 if ac_ifcpp 'if 0' compiler_fails '' \
     'if the compiler does not fail correctly'; then
 	save_CFLAGS=$CFLAGS
-	: ${HAVE_CAN_DELEXE=x}
+	: "${HAVE_CAN_DELEXE=x}"
 	case $ct in
 	dec)
 		CFLAGS="$CFLAGS ${ccpl}-non_shared"
@@ -1610,8 +1630,8 @@ phase=x
 #
 if ac_ifcpp 'ifdef MKSH_SMALL' isset_MKSH_SMALL '' \
     "if a reduced-feature mksh is requested"; then
-	: ${HAVE_NICE=0}
-	: ${HAVE_PERSISTENT_HISTORY=0}
+	: "${HAVE_NICE=0}"
+	: "${HAVE_PERSISTENT_HISTORY=0}"
 	check_categories="$check_categories smksh"
 	HAVE_ISSET_MKSH_CONSERVATIVE_FDS=1	# from sh.h
 fi
@@ -1625,7 +1645,7 @@ ac_ifcpp 'ifdef MKSH_NOPROSPECTOFWORK' isset_MKSH_NOPROSPECTOFWORK '' \
     "if mksh will be built without job signals" && \
     check_categories="$check_categories arge nojsig"
 ac_ifcpp 'ifdef MKSH_ASSUME_UTF8' isset_MKSH_ASSUME_UTF8 '' \
-    'if the default UTF-8 mode is specified' && : ${HAVE_SETLOCALE_CTYPE=0}
+    'if the default UTF-8 mode is specified' && : "${HAVE_SETLOCALE_CTYPE=0}"
 ac_ifcpp 'ifdef MKSH_CONSERVATIVE_FDS' isset_MKSH_CONSERVATIVE_FDS '' \
     'if traditional/conservative fd use is requested' && \
     check_categories="$check_categories convfds"
@@ -1662,6 +1682,7 @@ ac_header sys/select.h sys/types.h
 ac_header sys/sysmacros.h
 ac_header bstring.h
 ac_header grp.h sys/types.h
+ac_header io.h
 ac_header libgen.h
 ac_header libutil.h sys/types.h
 ac_header paths.h
@@ -1903,11 +1924,6 @@ ac_test gettimeofday <<-'EOF'
 	#define MKSH_INCLUDES_ONLY
 	#include "sh.h"
 	int main(void) { struct timeval tv; return (gettimeofday(&tv, NULL)); }
-EOF
-
-ac_test issetugid <<-'EOF'
-	#include <unistd.h>
-	int main(void) { return (issetugid()); }
 EOF
 
 ac_test killpg <<-'EOF'
@@ -2248,20 +2264,22 @@ if test 0 = $HAVE_SYS_SIGNAME; then
 	sigseenone=:
 	sigseentwo=:
 	echo '#include <signal.h>
-#ifndef NSIG
-#if defined(_NSIG)
-#define NSIG _NSIG
+#if defined(NSIG_MAX)
+#define cfg_NSIG NSIG_MAX
+#elif defined(NSIG)
+#define cfg_NSIG NSIG
+#elif defined(_NSIG)
+#define cfg_NSIG _NSIG
 #elif defined(SIGMAX)
-#define NSIG (SIGMAX+1)
+#define cfg_NSIG (SIGMAX + 1)
 #elif defined(_SIGMAX)
-#define NSIG (_SIGMAX+1)
+#define cfg_NSIG (_SIGMAX + 1)
 #else
-/* XXX better error out, see sh.h */
-#define NSIG 64
-#endif
+/*XXX better error out, see sh.h */
+#define cfg_NSIG 64
 #endif
 int
-mksh_cfg= NSIG
+mksh_cfg= cfg_NSIG
 ;' >conftest.c
 	# GNU sed 2.03 segfaults when optimising this to sed -n
 	NSIG=`vq "$CPP $CFLAGS $CPPFLAGS $NOWARN conftest.c" | \
@@ -2283,8 +2301,8 @@ mksh_cfg= NSIG
 	$printf "NSIG=$NSIG ... "
 	sigs="ABRT FPE ILL INT SEGV TERM ALRM BUS CHLD CONT HUP KILL PIPE QUIT"
 	sigs="$sigs STOP TSTP TTIN TTOU USR1 USR2 POLL PROF SYS TRAP URG VTALRM"
-	sigs="$sigs XCPU XFSZ INFO WINCH EMT IO DIL LOST PWR SAK CLD IOT RESV"
-	sigs="$sigs STKFLT UNUSED"
+	sigs="$sigs XCPU XFSZ INFO WINCH EMT IO DIL LOST PWR SAK CLD IOT STKFLT"
+	sigs="$sigs ABND DCE DUMP IOERR TRACE DANGER THCONT THSTOP RESV UNUSED"
 	test 1 = $HAVE_CPP_DD && test $NSIG -gt 1 && sigs="$sigs "`vq \
 	    "$CPP $CFLAGS $CPPFLAGS $NOWARN -dD conftest.c" | \
 	    grep '[	 ]SIG[A-Z0-9][A-Z0-9]*[	 ]' | \
@@ -2310,7 +2328,7 @@ mksh_cfg= NSIG
 		    sed 's/^ *mksh_cfg *=[	 ]*\([0-9][0-9x]*\).*$/:\1 '$name/
 	done | sed -n '/^:[^ ]/s/^://p' | while read nr name; do
 		test $printf = echo || nr=`printf %d "$nr" 2>/dev/null`
-		test $nr -gt 0 && test $nr -le $NSIG || continue
+		test $nr -gt 0 && test $nr -lt $NSIG || continue
 		case $sigseentwo in
 		*:$nr:*) ;;
 		*)	echo "		{ \"$name\", $nr },"
@@ -2327,7 +2345,7 @@ addsrcs '!' HAVE_STRLCPY strlcpy.c
 addsrcs USE_PRINTF_BUILTIN printf.c
 test 1 = "$USE_PRINTF_BUILTIN" && add_cppflags -DMKSH_PRINTF_BUILTIN
 test 1 = "$HAVE_CAN_VERB" && CFLAGS="$CFLAGS -verbose"
-add_cppflags -DMKSH_BUILD_R=506
+add_cppflags -DMKSH_BUILD_R=521
 
 $e $bi$me: Finished configuration testing, now producing output.$ao
 
@@ -2335,8 +2353,13 @@ files=
 objs=
 sp=
 case $tcfn in
-a.exe)	mkshexe=$tfn.exe ;;
-*)	mkshexe=$tfn ;;
+a.exe|conftest.exe)
+	mkshexe=$tfn.exe
+	add_cppflags -DMKSH_EXE_EXT
+	;;
+*)
+	mkshexe=$tfn
+	;;
 esac
 case $curdir in
 *\ *)	mkshshebang="#!./$mkshexe" ;;
@@ -2394,7 +2417,7 @@ cat >test.sh <<-EOF
 		args[\${#args[*]}]=\$TMPDIR
 	fi
 	print Testing mksh for conformance:
-	fgrep -e MirOS: -e MIRBSD "\$sflag"
+	grep -F -e Mir''OS: -e MIRBSD "\$sflag"
 	print "This shell is actually:\\n\\t\$KSH_VERSION"
 	print 'test.sh built for mksh $dstversion'
 	cstr='\$os = defined \$^O ? \$^O : "unknown";'
@@ -2643,7 +2666,6 @@ MKSH_NOPROSPECTOFWORK		disable jobs, co-processes, etc. (do not use)
 MKSH_NOPWNAM			skip PAM calls, for -static on glibc or Solaris
 MKSH_NO_CMDLINE_EDITING		disable command line editing code entirely
 MKSH_NO_DEPRECATED_WARNING	omit warning when deprecated stuff is run
-MKSH_NO_EXTERNAL_CAT		omit hack to skip cat builtin when flags passed
 MKSH_NO_LIMITS			omit ulimit code
 MKSH_NO_SIGSETJMP		define if sigsetjmp is broken or not available
 MKSH_NO_SIGSUSPEND		use sigprocmask+pause instead of sigsuspend
@@ -2669,5 +2691,8 @@ Copy dot.mkshrc to /etc/skel/.mkshrc; install mksh into $prefix/bin; or
 using $NROFF. Consider using a forward script as /etc/skel/.mkshrc like
 http://anonscm.debian.org/cgit/collab-maint/mksh.git/plain/debian/.mkshrc
 and put dot.mkshrc as /etc/mkshrc so users need not keep up their HOME.
+
+You may also want to install the lksh binary (also as /bin/sh) built by:
+$ CPPFLAGS="$CPPFLAGS -DMKSH_BINSHPOSIX" sh Build.sh -L -r -c lto
 
 EOD

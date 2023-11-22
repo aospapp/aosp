@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <string.h>
 #include "drmtest.h"
 
 /**
@@ -39,13 +40,12 @@
  */
 int main(int argc, char **argv)
 {
-	int fd, ret;
-	drm_set_version_t sv, version;
+	int fd;
 	const char *name = "/dev/dri/card0";
 	char *v;
 
 	fd = open("/dev/dri/card0", O_RDWR);
-	if (fd == -1)
+	if (fd < 0)
 		return 0;
 
 	v = drmGetDeviceNameFromFd(fd);

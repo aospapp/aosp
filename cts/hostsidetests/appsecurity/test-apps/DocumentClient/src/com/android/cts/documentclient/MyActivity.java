@@ -28,10 +28,12 @@ public class MyActivity extends Activity {
     private final SynchronousQueue<Result> mResult = new SynchronousQueue<>();
 
     public static class Result {
+        public final int requestCode;
         public final int resultCode;
         public final Intent data;
 
-        public Result(int resultCode, Intent data) {
+        public Result(int requestCode, int resultCode, Intent data) {
+            this.requestCode = requestCode;
             this.resultCode = resultCode;
             this.data = data;
         }
@@ -49,17 +51,22 @@ public class MyActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         try {
-            mResult.offer(new Result(resultCode, data), 5, TimeUnit.SECONDS);
+            mResult.offer(new Result(requestCode, resultCode, data), 5, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
     }
 
     public Result getResult() {
+        final Result result;
         try {
-            return mResult.take();
+            result = mResult.poll(30, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
+        if (result == null) {
+            throw new IllegalStateException("Activity didn't receive a Result in 30 seconds");
+        }
+        return result;
     }
 }

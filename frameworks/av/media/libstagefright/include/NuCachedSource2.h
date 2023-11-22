@@ -28,7 +28,7 @@ struct ALooper;
 struct PageCache;
 
 struct NuCachedSource2 : public DataSource {
-    NuCachedSource2(
+    static sp<NuCachedSource2> Create(
             const sp<DataSource> &source,
             const char *cacheConfig = NULL,
             bool disconnectAtHighwatermark = false);
@@ -47,6 +47,10 @@ struct NuCachedSource2 : public DataSource {
     virtual String8 getUri();
 
     virtual String8 getMIMEType() const;
+
+    virtual String8 toString() {
+        return mName;
+    }
 
     ////////////////////////////////////////////////////////////////////////////
 
@@ -72,6 +76,11 @@ protected:
 private:
     friend struct AHandlerReflector<NuCachedSource2>;
 
+    NuCachedSource2(
+            const sp<DataSource> &source,
+            const char *cacheConfig,
+            bool disconnectAtHighwatermark);
+
     enum {
         kPageSize                       = 65536,
         kDefaultHighWaterThreshold      = 20 * 1024 * 1024,
@@ -94,6 +103,7 @@ private:
     sp<DataSource> mSource;
     sp<AHandlerReflector<NuCachedSource2> > mReflector;
     sp<ALooper> mLooper;
+    String8 mName;
 
     Mutex mSerializer;
     mutable Mutex mLock;

@@ -44,6 +44,12 @@ unw_step (unw_cursor_t *cursor)
   /* Try DWARF-based unwinding... */
   ret = dwarf_step (&c->dwarf);
 
+#if !defined(UNW_LOCAL_ONLY)
+  /* Do not use this method on a local unwind. There is a very high
+   * probability this method will try to access unmapped memory, which
+   * will crash the process. Since this almost never actually works,
+   * it should be okay to skip.
+   */
   if (ret < 0)
     {
       /* DWARF failed, let's see if we can follow the frame-chain
@@ -110,6 +116,7 @@ unw_step (unw_cursor_t *cursor)
       else
 	c->dwarf.ip = 0;
     }
+#endif
 
   /* ANDROID support update. */
   if (ret >= 0)
@@ -130,7 +137,8 @@ unw_step (unw_cursor_t *cursor)
       c->dwarf.frame++;
     }
   /* End of ANDROID update. */
-  ret = (c->dwarf.ip == 0) ? 0 : 1;
-  Debug (2, "returning %d\n", ret);
-  return ret;
+  if (unlikely (ret <= 0))
+    return 0;
+
+  return (c->dwarf.ip == 0) ? 0 : 1;
 }

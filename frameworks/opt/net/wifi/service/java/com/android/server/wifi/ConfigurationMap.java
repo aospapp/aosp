@@ -1,10 +1,9 @@
 package com.android.server.wifi;
 
+import android.content.pm.UserInfo;
 import android.net.wifi.WifiConfiguration;
-import android.util.Log;
-
-import com.android.server.wifi.hotspot2.Utils;
-import com.android.server.wifi.hotspot2.pps.HomeSP;
+import android.os.UserHandle;
+import android.os.UserManager;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -13,55 +12,43 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class ConfigurationMap {
     private final Map<Integer, WifiConfiguration> mPerID = new HashMap<>();
     private final Map<Integer, WifiConfiguration> mPerConfigKey = new HashMap<>();
-    private final Map<String, Integer> mPerFQDN = new HashMap<>();
 
-    // RW methods:
-    public WifiConfiguration put(int netid, WifiConfiguration config) {
-        WifiConfiguration current = mPerID.put(netid, config);
-        mPerConfigKey.put(config.configKey().hashCode(), config);   // This is ridiculous...
-        if (config.FQDN != null && config.FQDN.length() > 0) {
-            mPerFQDN.put(config.FQDN, netid);
-        }
-        return current;
+    private final Map<Integer, WifiConfiguration> mPerIDForCurrentUser = new HashMap<>();
+    private final Map<String, WifiConfiguration> mPerFQDNForCurrentUser = new HashMap<>();
+    /**
+     * List of all hidden networks in the current user's configuration.
+     * Use this list as a param for directed scanning .
+     */
+    private final Set<Integer> mHiddenNetworkIdsForCurrentUser = new HashSet<>();
+
+    private final UserManager mUserManager;
+
+    private int mCurrentUserId = UserHandle.USER_SYSTEM;
+
+    ConfigurationMap(UserManager userManager) {
+        mUserManager = userManager;
     }
 
-    public void populatePasspointData(Collection<HomeSP> homeSPs, WifiNative wifiNative) {
-        mPerFQDN.clear();
-
-        for (HomeSP homeSp : homeSPs) {
-            String fqdn = homeSp.getFQDN();
-            Log.d(WifiConfigStore.TAG, "Looking for " + fqdn);
-            for (WifiConfiguration config : mPerID.values()) {
-                Log.d(WifiConfigStore.TAG, "Testing " + config.SSID);
-
-                String id_str = Utils.unquote(wifiNative.getNetworkVariable(
-                        config.networkId, WifiConfigStore.idStringVarName));
-                if (id_str != null && id_str.equals(fqdn) && config.enterpriseConfig != null) {
-                    Log.d(WifiConfigStore.TAG, "Matched " + id_str + " with " + config.networkId);
-                    config.FQDN = fqdn;
-                    config.providerFriendlyName = homeSp.getFriendlyName();
-
-                    HashSet<Long> roamingConsortiumIds = homeSp.getRoamingConsortiums();
-                    config.roamingConsortiumIds = new long[roamingConsortiumIds.size()];
-                    int i = 0;
-                    for (long id : roamingConsortiumIds) {
-                        config.roamingConsortiumIds[i] = id;
-                        i++;
-                    }
-                    IMSIParameter imsiParameter = homeSp.getCredential().getImsi();
-                    config.enterpriseConfig.setPlmn(
-                            imsiParameter != null ? imsiParameter.toString() : null);
-                    config.enterpriseConfig.setRealm(homeSp.getCredential().getRealm());
-                    mPerFQDN.put(fqdn, config.networkId);
-                }
+    // RW methods:
+    public WifiConfiguration put(WifiConfiguration config) {
+        final WifiConfiguration current = mPerID.put(config.networkId, config);
+        mPerConfigKey.put(config.configKey().hashCode(), config);   // This is ridiculous...
+        if (WifiConfigurationUtil.isVisibleToAnyProfile(config,
+                mUserManager.getProfiles(mCurrentUserId))) {
+            mPerIDForCurrentUser.put(config.networkId, config);
+            if (config.FQDN != null && config.FQDN.length() > 0) {
+                mPerFQDNForCurrentUser.put(config.FQDN, config);
+            }
+            if (config.hiddenSSID) {
+                mHiddenNetworkIdsForCurrentUser.add(config.networkId);
             }
         }
-
-        Log.d(WifiConfigStore.TAG, "loaded " + mPerFQDN.size() + " passpoint configs");
+        return current;
     }
 
     public WifiConfiguration remove(int netID) {
@@ -71,45 +58,89 @@ public class ConfigurationMap {
         }
         mPerConfigKey.remove(config.configKey().hashCode());
 
-        Iterator<Map.Entry<String, Integer>> entries = mPerFQDN.entrySet().iterator();
+        mPerIDForCurrentUser.remove(netID);
+        Iterator<Map.Entry<String, WifiConfiguration>> entries =
+                mPerFQDNForCurrentUser.entrySet().iterator();
         while (entries.hasNext()) {
-            if (entries.next().getValue() == netID) {
+            if (entries.next().getValue().networkId == netID) {
                 entries.remove();
                 break;
             }
         }
+        mHiddenNetworkIdsForCurrentUser.remove(netID);
         return config;
     }
 
     public void clear() {
         mPerID.clear();
         mPerConfigKey.clear();
-        mPerFQDN.clear();
+        mPerIDForCurrentUser.clear();
+        mPerFQDNForCurrentUser.clear();
+        mHiddenNetworkIdsForCurrentUser.clear();
+    }
+
+    /**
+     * Handles the switch to a different foreground user:
+     * - Hides private network configurations belonging to the previous foreground user
+     * - Reveals private network configurations belonging to the new foreground user
+     *
+     * @param userId the id of the new foreground user
+     * @return a list of {@link WifiConfiguration}s that became hidden because of the user switch
+     */
+    public List<WifiConfiguration> handleUserSwitch(int userId) {
+        mPerIDForCurrentUser.clear();
+        mPerFQDNForCurrentUser.clear();
+        mHiddenNetworkIdsForCurrentUser.clear();
+
+        final List<UserInfo> previousUserProfiles = mUserManager.getProfiles(mCurrentUserId);
+        mCurrentUserId = userId;
+        final List<UserInfo> currentUserProfiles = mUserManager.getProfiles(mCurrentUserId);
+
+        final List<WifiConfiguration> hiddenConfigurations = new ArrayList<>();
+        for (Map.Entry<Integer, WifiConfiguration> entry : mPerID.entrySet()) {
+            final WifiConfiguration config = entry.getValue();
+            if (WifiConfigurationUtil.isVisibleToAnyProfile(config, currentUserProfiles)) {
+                mPerIDForCurrentUser.put(entry.getKey(), config);
+                if (config.FQDN != null && config.FQDN.length() > 0) {
+                    mPerFQDNForCurrentUser.put(config.FQDN, config);
+                }
+                if (config.hiddenSSID) {
+                    mHiddenNetworkIdsForCurrentUser.add(config.networkId);
+                }
+            } else if (WifiConfigurationUtil.isVisibleToAnyProfile(config, previousUserProfiles)) {
+                hiddenConfigurations.add(config);
+            }
+        }
+
+        return hiddenConfigurations;
     }
 
     // RO methods:
-    public WifiConfiguration get(int netid) {
+    public WifiConfiguration getForAllUsers(int netid) {
         return mPerID.get(netid);
     }
 
-    public int size() {
+    public WifiConfiguration getForCurrentUser(int netid) {
+        return mPerIDForCurrentUser.get(netid);
+    }
+
+    public int sizeForAllUsers() {
         return mPerID.size();
     }
 
-    public boolean isEmpty() {
-        return mPerID.size() == 0;
+    public int sizeForCurrentUser() {
+        return mPerIDForCurrentUser.size();
     }
 
-    public WifiConfiguration getByFQDN(String fqdn) {
-        Integer id = mPerFQDN.get(fqdn);
-        return id != null ? mPerID.get(id) : null;
+    public WifiConfiguration getByFQDNForCurrentUser(String fqdn) {
+        return mPerFQDNForCurrentUser.get(fqdn);
     }
 
-    public WifiConfiguration getByConfigKey(String key) {
+    public WifiConfiguration getByConfigKeyForCurrentUser(String key) {
         if (key == null) {
             return null;
         }
-        for (WifiConfiguration config : mPerID.values()) {
+        for (WifiConfiguration config : mPerIDForCurrentUser.values()) {
             if (config.configKey().equals(key)) {
                 return config;
             }
@@ -117,13 +148,13 @@ public class ConfigurationMap {
         return null;
     }
 
-    public WifiConfiguration getByConfigKeyID(int id) {
+    public WifiConfiguration getByConfigKeyIDForAllUsers(int id) {
         return mPerConfigKey.get(id);
     }
 
-    public Collection<WifiConfiguration> getEnabledNetworks() {
+    public Collection<WifiConfiguration> getEnabledNetworksForCurrentUser() {
         List<WifiConfiguration> list = new ArrayList<>();
-        for (WifiConfiguration config : mPerID.values()) {
+        for (WifiConfiguration config : mPerIDForCurrentUser.values()) {
             if (config.status != WifiConfiguration.Status.DISABLED) {
                 list.add(config);
             }
@@ -131,8 +162,8 @@ public class ConfigurationMap {
         return list;
     }
 
-    public WifiConfiguration getEphemeral(String ssid) {
-        for (WifiConfiguration config : mPerID.values()) {
+    public WifiConfiguration getEphemeralForCurrentUser(String ssid) {
+        for (WifiConfiguration config : mPerIDForCurrentUser.values()) {
             if (ssid.equals(config.SSID) && config.ephemeral) {
                 return config;
             }
@@ -140,7 +171,15 @@ public class ConfigurationMap {
         return null;
     }
 
-    public Collection<WifiConfiguration> values() {
+    public Collection<WifiConfiguration> valuesForAllUsers() {
         return mPerID.values();
+    }
+
+    public Collection<WifiConfiguration> valuesForCurrentUser() {
+        return mPerIDForCurrentUser.values();
+    }
+
+    public Set<Integer> getHiddenNetworkIdsForCurrentUser() {
+        return mHiddenNetworkIdsForCurrentUser;
     }
 }

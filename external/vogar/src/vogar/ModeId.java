@@ -23,17 +23,8 @@ import java.util.List;
 public enum ModeId {
     /** ART (works >= L) */
     DEVICE,
-    /** Dalvik (works <= KitKat) */
-    DEVICE_DALVIK,
-    /** ART (for KitKat only, use DEVICE_DALVIK otherwise) */
-    DEVICE_ART_KITKAT,
-
     /** ART (works >= L) */
     HOST,
-    /** Dalvik (works <= KitKat) */
-    HOST_DALVIK,
-    /** ART for KitKat only */
-    HOST_ART_KITKAT,
     /** Local Java */
     JVM,
     /** Device, execution as an Android app with Zygote */
@@ -42,9 +33,9 @@ public enum ModeId {
     APP_PROCESS;
 
     // $BOOTCLASSPATH defined by system/core/rootdir/init.rc
-    private static final String[] DALVIK_DEVICE_JARS = new String[] {"core"};
-    private static final String[] ART_DEVICE_JARS = new String[] {"core-libart"};
-    private static final String[] COMMON_DEVICE_JARS = new String[] {
+    private static final String[] DEVICE_JARS = new String[] {
+            "core-libart",
+            "core-oj",
             "conscrypt",
             "okhttp",
             "core-junit",
@@ -58,13 +49,13 @@ public enum ModeId {
             "services",
             "apache-xml"};
 
-    private static final String[] DALVIK_HOST_JARS = new String[] {"core-hostdex"};
-    private static final String[] ART_HOST_JARS = new String[] {"core-libart-hostdex"};
-    private static final String[] COMMON_HOST_JARS = new String[] {
+    private static final String[] HOST_JARS = new String[] {
+            "core-libart-hostdex",
+            "core-oj-hostdex",
             "conscrypt-hostdex",
             "okhttp-hostdex",
             "bouncycastle-hostdex",
-            "apache-xml-hostdex",
+            "apache-xml-hostdex"
     };
 
     public boolean acceptsVmArgs() {
@@ -81,13 +72,12 @@ public enum ModeId {
 
     /** Returns {@code true} if execution takes place with a host-mode Android runtime */
     public boolean isHost() {
-        return this == HOST || this == HOST_DALVIK || this == ModeId.HOST_ART_KITKAT;
+        return this == HOST;
     }
 
     /** Returns {@code true} if execution takes place with a device-mode Android runtime */
     public boolean isDevice() {
-        return this == ModeId.DEVICE || this == ModeId.DEVICE_ART_KITKAT
-                || this == ModeId.DEVICE_DALVIK || this == ModeId.APP_PROCESS;
+        return this == ModeId.DEVICE || this == ModeId.APP_PROCESS;
     }
 
     public boolean requiresAndroidSdk() {
@@ -112,11 +102,7 @@ public enum ModeId {
                 } else {
                     return "dalvikvm64";
                 }
-            case DEVICE_DALVIK:
-            case DEVICE_ART_KITKAT:
-            case HOST_DALVIK:
-            case HOST_ART_KITKAT:
-                return "dalvikvm";
+
             case JVM:
                 return "java";
             case APP_PROCESS:
@@ -135,25 +121,13 @@ public enum ModeId {
     public String[] getJarNames() {
         List<String> jarNames = new ArrayList<String>();
         switch (this) {
-            case DEVICE_DALVIK:
-                jarNames.addAll(Arrays.asList(DALVIK_DEVICE_JARS));
-                jarNames.addAll(Arrays.asList(COMMON_DEVICE_JARS));
-                break;
             case ACTIVITY:
             case APP_PROCESS:
             case DEVICE:
-            case DEVICE_ART_KITKAT:
-                jarNames.addAll(Arrays.asList(ART_DEVICE_JARS));
-                jarNames.addAll(Arrays.asList(COMMON_DEVICE_JARS));
-                break;
-            case HOST_DALVIK:
-                jarNames.addAll(Arrays.asList(DALVIK_HOST_JARS));
-                jarNames.addAll(Arrays.asList(COMMON_HOST_JARS));
+                jarNames.addAll(Arrays.asList(DEVICE_JARS));
                 break;
             case HOST:
-            case HOST_ART_KITKAT:
-                jarNames.addAll(Arrays.asList(ART_HOST_JARS));
-                jarNames.addAll(Arrays.asList(COMMON_HOST_JARS));
+                jarNames.addAll(Arrays.asList(HOST_JARS));
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported mode: " + this);

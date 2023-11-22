@@ -21,7 +21,7 @@
 bool generateHeaderFiles(const std::string& directory);
 
 // Generates the Java and RenderScript test files.  The implementation is in GenerateTestFiles.cpp.
-bool generateTestFiles(const std::string& directory, int versionOfTestFiles);
+bool generateTestFiles(const std::string& directory, unsigned int versionOfTestFiles);
 
 /* Generates the documentation files.  The implementation is in GenerateDocumentation.cpp.
  * If forVerification is false (the default), we generate the .jd files needed by the
@@ -33,6 +33,6 @@ bool generateDocumentation(const std::string& director, bool forVerification);
  * when testing slang and that can be used to manually verify the white list.
  * The implementation is in GenerateStubsWhiteList.cpp.
  */
-bool generateStubsWhiteList(const std::string& slangTestDirectory, int maxApiLevel);
+bool generateStubsWhiteList(const std::string& slangTestDirectory, unsigned int maxApiLevel);
 
 #endif  // ANDROID_RS_API_GENERATOR_GENERATOR_H

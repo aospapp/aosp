@@ -24,6 +24,7 @@
 #include <utils/Errors.h>
 #include <utils/KeyedVector.h>
 #include <utils/SortedVector.h>
+#include <media/AudioParameter.h>
 #include <media/AudioPolicy.h>
 #include "AudioPolicyInterface.h"
 
@@ -32,7 +33,6 @@
 #include <AudioGain.h>
 #include <AudioPort.h>
 #include <AudioPatch.h>
-#include <ConfigParsingUtils.h>
 #include <DeviceDescriptor.h>
 #include <IOProfile.h>
 #include <HwModule.h>
@@ -41,19 +41,19 @@
 #include <AudioPolicyMix.h>
 #include <EffectDescriptor.h>
 #include <SoundTriggerSession.h>
-#include <StreamDescriptor.h>
 #include <SessionRoute.h>
+#include <VolumeCurve.h>
 
 namespace android {
 
 // ----------------------------------------------------------------------------
 
 // Attenuation applied to STRATEGY_SONIFICATION streams when a headset is connected: 6dB
-#define SONIFICATION_HEADSET_VOLUME_FACTOR 0.5
 #define SONIFICATION_HEADSET_VOLUME_FACTOR_DB (-6)
 // Min volume for STRATEGY_SONIFICATION streams when limited by music volume: -36dB
-#define SONIFICATION_HEADSET_VOLUME_MIN  0.016
 #define SONIFICATION_HEADSET_VOLUME_MIN_DB  (-36)
+// Max volume difference on A2DP between playing media and STRATEGY_SONIFICATION streams: 12dB
+#define SONIFICATION_A2DP_MAX_MEDIA_DIFF_DB (12)
 
 // Time in milliseconds during which we consider that music is still active after a music
 // track was stopped - see computeVolume()
@@ -211,6 +211,8 @@ public:
                                           unsigned int *generation);
         virtual status_t setAudioPortConfig(const struct audio_port_config *config);
 
+        virtual void releaseResourcesForUid(uid_t uid);
+
         virtual status_t acquireSoundTriggerSession(audio_session_t *session,
                                                audio_io_handle_t *ioHandle,
                                                audio_devices_t *device);
@@ -225,14 +227,12 @@ public:
 
         virtual status_t startAudioSource(const struct audio_port_config *source,
                                           const audio_attributes_t *attributes,
-                                          audio_io_handle_t *handle);
+                                          audio_io_handle_t *handle,
+                                          uid_t uid);
         virtual status_t stopAudioSource(audio_io_handle_t handle);
 
-        virtual void     releaseResourcesForUid(uid_t uid);
-
-        // Audio policy configuration file parsing (audio_policy.conf)
-        // TODO candidates to be moved to ConfigParsingUtils
-                void defaultAudioPolicyConfig(void);
+        virtual status_t setMasterMono(bool mono);
+        virtual status_t getMasterMono(bool *mono);
 
         // return the strategy corresponding to a given stream type
         routing_strategy getStrategy(audio_stream_type_t stream) const;
@@ -267,10 +267,7 @@ protected:
         {
             return mAvailableInputDevices;
         }
-        virtual StreamDescriptorCollection &getStreamDescriptors()
-        {
-            return mStreams;
-        }
+        virtual IVolumeCurvesCollection &getVolumeCurves() { return *mVolumeCurves; }
         virtual const sp<DeviceDescriptor> &getDefaultOutputDevice() const
         {
             return mDefaultOutputDevice;
@@ -487,6 +484,7 @@ protected:
         status_t startSource(sp<AudioOutputDescriptor> outputDesc,
                              audio_stream_type_t stream,
                              audio_devices_t device,
+                             const char *address,
                              uint32_t *delayMs);
         status_t stopSource(sp<AudioOutputDescriptor> outputDesc,
                             audio_stream_type_t stream,
@@ -497,6 +495,20 @@ protected:
         void checkStrategyRoute(routing_strategy strategy, audio_io_handle_t ouptutToSkip);
 
         status_t hasPrimaryOutput() const { return mPrimaryOutput != 0; }
+
+        status_t connectAudioSource(const sp<AudioSourceDescriptor>& sourceDesc);
+        status_t disconnectAudioSource(const sp<AudioSourceDescriptor>& sourceDesc);
+
+        sp<AudioSourceDescriptor> getSourceForStrategyOnOutput(audio_io_handle_t output,
+                                                               routing_strategy strategy);
+
+        void cleanUpForDevice(const sp<DeviceDescriptor>& deviceDesc);
+
+        void clearAudioSources(uid_t uid);
+
+
+        static bool streamsMatchForvolume(audio_stream_type_t stream1,
+                                          audio_stream_type_t stream2);
 
         uid_t mUidCached;
         AudioPolicyClientInterface *mpClientInterface;  // audio policy client interface
@@ -515,7 +527,8 @@ protected:
         SessionRouteMap mOutputRoutes = SessionRouteMap(SessionRouteMap::MAPTYPE_OUTPUT);
         SessionRouteMap mInputRoutes = SessionRouteMap(SessionRouteMap::MAPTYPE_INPUT);
 
-        StreamDescriptorCollection mStreams; // stream descriptors for volume control
+        IVolumeCurvesCollection *mVolumeCurves; // Volume Curves per use case and device category
+
         bool    mLimitRingtoneVolume;        // limit ringtone volume to music volume if headset connected
         audio_devices_t mDeviceForStrategy[NUM_STRATEGIES];
         float   mLastVoiceVolume;            // last voice volume value sent to audio HAL
@@ -523,9 +536,6 @@ protected:
         EffectDescriptorCollection mEffects;  // list of registered audio effects
         bool    mA2dpSuspended;  // true if A2DP output is suspended
         sp<DeviceDescriptor> mDefaultOutputDevice; // output device selected by default at boot time
-        bool mSpeakerDrcEnabled;// true on devices that use DRC on the DEVICE_CATEGORY_SPEAKER path
-                                // to boost soft sounds, used to adjust volume curves accordingly
-
         HwModuleCollection mHwModules;
 
         volatile int32_t mAudioPortGeneration;
@@ -536,6 +546,9 @@ protected:
 
         sp<AudioPatch> mCallTxPatch;
         sp<AudioPatch> mCallRxPatch;
+
+        HwAudioOutputCollection mHwOutputs;
+        AudioSourceCollection mAudioSources;
 
         // for supporting "beacon" streams, i.e. streams that only play on speaker, and never
         // when something other than STREAM_TTS (a.k.a. "Transmitted Through Speaker") is playing
@@ -548,7 +561,9 @@ protected:
         uint32_t mBeaconMuteRefCount;   // ref count for stream that would mute beacon
         uint32_t mBeaconPlayingRefCount;// ref count for the playing beacon streams
         bool mBeaconMuted;              // has STREAM_TTS been muted
+        bool mTtsOutputAvailable;       // true if a dedicated output for TTS stream is available
 
+        bool mMasterMono;               // true if we wish to force all outputs to mono
         AudioPolicyMixCollection mPolicyMixes; // list of registered mixes
 
 #ifdef AUDIO_POLICY_TEST
@@ -571,6 +586,14 @@ protected:
         // Audio Policy Engine Interface.
         AudioPolicyManagerInterface *mEngine;
 private:
+        // Add or remove AC3 DTS encodings based on user preferences.
+        void filterSurroundFormats(FormatVector *formatsPtr);
+        void filterSurroundChannelMasks(ChannelsVector *channelMasksPtr);
+
+        // If any, resolve any "dynamic" fields of an Audio Profiles collection
+        void updateAudioProfiles(audio_devices_t device, audio_io_handle_t ioHandle,
+                AudioProfileVector &profiles);
+
         // updates device caching and output for streams that can influence the
         //    routing of notifications
         void handleNotificationRoutingForStream(audio_stream_type_t stream);
@@ -594,6 +617,18 @@ private:
                 audio_channel_mask_t channelMask,
                 audio_output_flags_t flags,
                 const audio_offload_info_t *offloadInfo);
+        // internal method to return the input handle for the given device and format
+        audio_io_handle_t getInputForDevice(audio_devices_t device,
+                String8 address,
+                audio_session_t session,
+                uid_t uid,
+                audio_source_t inputSource,
+                uint32_t samplingRate,
+                audio_format_t format,
+                audio_channel_mask_t channelMask,
+                audio_input_flags_t flags,
+                AudioMix *policyMix);
+
         // internal function to derive a stream type value from audio attributes
         audio_stream_type_t streamTypefromAttributesInt(const audio_attributes_t *attr);
         // event is one of STARTING_OUTPUT, STARTING_BEACON, STOPPING_OUTPUT, STOPPING_BEACON
@@ -613,6 +648,11 @@ private:
                                                           audio_policy_dev_state_t state,
                                                           const char *device_address,
                                                           const char *device_name);
+        void updateMono(audio_io_handle_t output) {
+            AudioParameter param;
+            param.addInt(String8(AUDIO_PARAMETER_MONO_OUTPUT), (int)mMasterMono);
+            mpClientInterface->setParameters(output, param.toString());
+        }
 };
 
 };

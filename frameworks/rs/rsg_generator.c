@@ -1,11 +1,29 @@
-
 #include "spec.h"
 #include <stdio.h>
 #include <string.h>
 
+#define LOCAL_FIFO_PREFIX "LF_"
+#define RS_PLAYBACK_PREFIX "rsp_"
+#define RS_INTERNAL_PREFIX "rsi_"
+
+#define RSG_API_CPP_DOC                                                     \
+"/*\n"                                                                      \
+" * rsgApi.cpp\n"                                                           \
+" * This file implements the functions responsible for sending messages\n"  \
+" * to the RS driver layer. The messages are sent through a FIFO that is\n" \
+" * shared between the process's caller threads and driver thread.\n"       \
+" */\n\n"
+
+#define RSG_API_REPLAY_CPP_DOC                                              \
+"/*\n"                                                                      \
+" * rsgApiReplay.cpp\n"                                                     \
+" * This file implements the functions responsible for reading messages\n"  \
+" * sent to the RS driver layer.\n"                                         \
+" */\n\n"
+
 void printFileHeader(FILE *f) {
     fprintf(f, "/*\n");
-    fprintf(f, " * Copyright (C) 2011 The Android Open Source Project\n");
+    fprintf(f, " * Copyright (C) 2015 The Android Open Source Project\n");
     fprintf(f, " *\n");
     fprintf(f, " * Licensed under the Apache License, Version 2.0 (the \"License\");\n");
     fprintf(f, " * you may not use this file except in compliance with the License.\n");
@@ -135,18 +153,6 @@ void printFuncDecls(FILE *f, const char *prefix, int addContext, int externC) {
     fprintf(f, "\n\n");
 }
 
-void printFuncPointers(FILE *f, int addContext) {
-    fprintf(f, "\n");
-    fprintf(f, "typedef struct RsApiEntrypoints {\n");
-    int ct;
-    for (ct=0; ct < apiCount; ct++) {
-        fprintf(f, "    ");
-        printFuncDecl(f, &apis[ct], "", addContext, 1);
-        fprintf(f, ";\n");
-    }
-    fprintf(f, "} RsApiEntrypoints_t;\n\n");
-}
-
 void printPlaybackFuncs(FILE *f, const char *prefix) {
     int ct;
     for (ct=0; ct < apiCount; ct++) {
@@ -188,6 +194,8 @@ void printApiCpp(FILE *f) {
     int ct;
     int ct2;
 
+    fprintf(f, RSG_API_CPP_DOC);
+
     fprintf(f, "#include \"rsDevice.h\"\n");
     fprintf(f, "#include \"rsContext.h\"\n");
     fprintf(f, "#include \"rsThreadIO.h\"\n");
@@ -199,22 +207,20 @@ void printApiCpp(FILE *f) {
     fprintf(f, "using namespace android::renderscript;\n");
     fprintf(f, "\n");
 
-    printFuncPointers(f, 0);
-
-    // Generate RS funcs for local fifo
+    // Generate RS funcs that send messages on the local FIFO.
     for (ct=0; ct < apiCount; ct++) {
         int needFlush = 0;
         const ApiEntry * api = &apis[ct];
 
         fprintf(f, "static ");
-        printFuncDecl(f, api, "LF_", 0, 0);
+        printFuncDecl(f, api, LOCAL_FIFO_PREFIX, 0, 0);
         fprintf(f, "\n{\n");
         if (api->direct) {
             fprintf(f, "    ");
             if (api->ret.typeName[0]) {
                 fprintf(f, "return ");
             }
-            fprintf(f, "rsi_%s(", api->name);
+            fprintf(f, RS_INTERNAL_PREFIX "%s(", api->name);
             if (!api->nocontext) {
                 fprintf(f, "(Context *)rsc");
             }
@@ -228,7 +234,7 @@ void printApiCpp(FILE *f) {
             fprintf(f, ");\n");
         } else if (api->handcodeApi) {
             // handle handcode path
-            fprintf(f, "    LF_%s_handcode(", api->name);
+            fprintf(f, "    " LOCAL_FIFO_PREFIX "%s_handcode(", api->name);
             if (!api->nocontext) {
                 fprintf(f, "(Context *)rsc");
             }
@@ -248,7 +254,7 @@ void printApiCpp(FILE *f) {
             if (api->ret.typeName[0]) {
                 fprintf(f, "return ");
             }
-            fprintf(f, "rsi_%s(", api->name);
+            fprintf(f, RS_INTERNAL_PREFIX "%s(", api->name);
             if (!api->nocontext) {
                 fprintf(f, "(Context *)rsc");
             }
@@ -330,92 +336,10 @@ void printApiCpp(FILE *f) {
             }
         }
         fprintf(f, "};\n\n");
-
-
-        // Generate a remote sender function
-        const char * str = "core";
-        if (api->direct) {
-            str = "async";
-        }
-
-        fprintf(f, "static ");
-        printFuncDecl(f, api, "RF_", 0, 0);
-        fprintf(f, "\n{\n");
-        fprintf(f, "    ThreadIO *io = &((Context *)rsc)->mIO;\n");
-        fprintf(f, "    const uint32_t cmdID = RS_CMD_ID_%s;\n", api->name);
-        fprintf(f, "    io->%sWrite(&cmdID, sizeof(cmdID));\n\n", str);
-
-        for (ct2=0; ct2 < api->paramCount; ct2++) {
-            const VarType *vt = &api->params[ct2];
-            if (vt->ptrLevel == 0) {
-                fprintf(f, "    io->%sWrite(& %s, sizeof(%s));\n", str, vt->name, vt->name);
-            }
-        }
-        fprintf(f, "\n");
-
-        for (ct2=0; ct2 < api->paramCount; ct2++) {
-            const VarType *vt = &api->params[ct2];
-            if ((vt->ptrLevel == 1) && (vt->isConst)) {
-                fprintf(f, "    io->%sWrite(%s, %s_length);\n", str, vt->name, vt->name);
-            }
-        }
-        fprintf(f, "\n");
-
-        for (ct2=0; ct2 < api->paramCount; ct2++) {
-            const VarType *vt = &api->params[ct2];
-            if ((vt->ptrLevel == 2) && (vt->isConst)) {
-                fprintf(f, "    for (size_t ct = 0; ct < (%s_length_length / sizeof(%s_length)); ct++) {\n", vt->name, vt->name);
-                fprintf(f, "        io->%sWrite(%s[ct], %s_length[ct]);\n", str, vt->name, vt->name);
-                fprintf(f, "    }\n");
-            }
-        }
-        fprintf(f, "\n");
-
-        for (ct2=0; ct2 < api->paramCount; ct2++) {
-            const VarType *vt = &api->params[ct2];
-            if ((vt->ptrLevel == 1) && (!vt->isConst)) {
-                fprintf(f, "    io->%sGetReturn(%s, %s_length);\n", str, vt->name, vt->name);
-            }
-        }
-        fprintf(f, "\n");
-
-        for (ct2=0; ct2 < api->paramCount; ct2++) {
-            const VarType *vt = &api->params[ct2];
-            if ((vt->ptrLevel == 2) && (!vt->isConst)) {
-                fprintf(f, "    for (size_t ct = 0; ct < (%s_length_length / sizeof(%s_length)); ct++) {\n", vt->name, vt->name);
-                fprintf(f, "        io->%sGetReturn(%s[ct], %s_length[ct]);\n", str, vt->name, vt->name);
-                fprintf(f, "    }\n");
-            }
-        }
-        fprintf(f, "\n");
-
-        if (api->ret.typeName[0]) {
-            fprintf(f, "    ");
-            printVarType(f, &api->ret);
-            fprintf(f, " retValue;\n");
-            fprintf(f, "    io->%sGetReturn(&retValue, sizeof(retValue));\n", str);
-            fprintf(f, "    return retValue;\n");
-        } else /*if (api->sync)*/ {
-            fprintf(f, "    io->%sGetReturn(NULL, 0);\n", str);
-        }
-        fprintf(f, "}\n\n");
     }
 
     fprintf(f, "\n");
-    fprintf(f, "static RsApiEntrypoints_t s_LocalTable = {\n");
-    for (ct=0; ct < apiCount; ct++) {
-        fprintf(f, "    LF_%s,\n", apis[ct].name);
-    }
-    fprintf(f, "};\n");
 
-    fprintf(f, "\n");
-    fprintf(f, "static RsApiEntrypoints_t s_RemoteTable = {\n");
-    for (ct=0; ct < apiCount; ct++) {
-        fprintf(f, "    RF_%s,\n", apis[ct].name);
-    }
-    fprintf(f, "};\n");
-
-    fprintf(f, "static RsApiEntrypoints_t *s_CurrentTable = &s_LocalTable;\n\n");
     for (ct=0; ct < apiCount; ct++) {
         int needFlush = 0;
         const ApiEntry * api = &apis[ct];
@@ -428,7 +352,7 @@ void printApiCpp(FILE *f) {
         if (api->ret.typeName[0]) {
             fprintf(f, "return ");
         }
-        fprintf(f, "s_CurrentTable->%s(", api->name);
+        fprintf(f, LOCAL_FIFO_PREFIX "%s(", api->name);
 
         if (!api->nocontext) {
             fprintf(f, "(Context *)rsc");
@@ -451,6 +375,8 @@ void printPlaybackCpp(FILE *f) {
     int ct;
     int ct2;
 
+    fprintf(f, RSG_API_REPLAY_CPP_DOC);
+
     fprintf(f, "#include \"rsDevice.h\"\n");
     fprintf(f, "#include \"rsContext.h\"\n");
     fprintf(f, "#include \"rsThreadIO.h\"\n");
@@ -461,6 +387,7 @@ void printPlaybackCpp(FILE *f) {
     fprintf(f, "namespace renderscript {\n");
     fprintf(f, "\n");
 
+    // Generate functions to play back messages sent from the local FIFO.
     for (ct=0; ct < apiCount; ct++) {
         const ApiEntry * api = &apis[ct];
         int needFlush = 0;
@@ -469,7 +396,7 @@ void printPlaybackCpp(FILE *f) {
             continue;
         }
 
-        fprintf(f, "void rsp_%s(Context *con, const void *vp, size_t cmdSizeBytes) {\n", api->name);
+        fprintf(f, "void " RS_PLAYBACK_PREFIX "%s(Context *con, const void *vp, size_t cmdSizeBytes) {\n", api->name);
         fprintf(f, "    const RS_CMD_%s *cmd = static_cast<const RS_CMD_%s *>(vp);\n", api->name, api->name);
 
         if (hasInlineDataPointers(api)) {
@@ -485,7 +412,7 @@ void printPlaybackCpp(FILE *f) {
             printVarType(f, &api->ret);
             fprintf(f, " ret = ");
         }
-        fprintf(f, "rsi_%s(con", api->name);
+        fprintf(f, RS_INTERNAL_PREFIX "%s(con", api->name);
         for (ct2=0; ct2 < api->paramCount; ct2++) {
             const VarType *vt = &api->params[ct2];
             needFlush += vt->ptrLevel;
@@ -519,123 +446,15 @@ void printPlaybackCpp(FILE *f) {
         fprintf(f, "};\n\n");
     }
 
-    for (ct=0; ct < apiCount; ct++) {
-        const ApiEntry * api = &apis[ct];
-        int needFlush = 0;
-
-        fprintf(f, "void rspr_%s(Context *con, ThreadIO *io) {\n", api->name);
-        fprintf(f, "    RS_CMD_%s cmd;\n", api->name);
-
-        for (ct2=0; ct2 < api->paramCount; ct2++) {
-            const VarType *vt = &api->params[ct2];
-            if (vt->ptrLevel == 0) {
-                fprintf(f, "    io->coreRead(&cmd.%s, sizeof(cmd.%s));\n", vt->name, vt->name);
-            }
-        }
-        fprintf(f, "\n");
-
-        for (ct2=0; ct2 < api->paramCount; ct2++) {
-            const VarType *vt = &api->params[ct2];
-            if (vt->ptrLevel == 1) {
-                fprintf(f, "    cmd.%s = (", vt->name);
-                printVarType(f, vt);
-                fprintf(f, ")malloc(cmd.%s_length);\n", vt->name);
-
-                if (vt->isConst) {
-                    fprintf(f, "    if (cmd.%s_length) io->coreRead((void *)cmd.%s, cmd.%s_length);\n", vt->name, vt->name, vt->name);
-                }
-            }
-        }
-        fprintf(f, "\n");
-
-        for (ct2=0; ct2 < api->paramCount; ct2++) {
-            const VarType *vt = &api->params[ct2];
-            if (vt->ptrLevel == 2) {
-                fprintf(f, "    for (size_t ct = 0; ct < (cmd.%s_length_length / sizeof(cmd.%s_length)); ct++) {\n", vt->name, vt->name);
-                fprintf(f, "        cmd.%s = (", vt->name);
-                printVarType(f, vt);
-                fprintf(f, ")malloc(cmd.%s_length[ct]);\n", vt->name);
-                fprintf(f, "        io->coreRead(& cmd.%s, cmd.%s_length[ct]);\n", vt->name, vt->name);
-                fprintf(f, "    }\n");
-            }
-        }
-        fprintf(f, "\n");
-
-        if (api->ret.typeName[0]) {
-            fprintf(f, "    ");
-            printVarType(f, &api->ret);
-            fprintf(f, " ret =\n");
-        }
-
-        fprintf(f, "    rsi_%s(", api->name);
-        if (!api->nocontext) {
-            fprintf(f, "con");
-        }
-        for (ct2=0; ct2 < api->paramCount; ct2++) {
-            const VarType *vt = &api->params[ct2];
-            if (ct2 > 0 || !api->nocontext) {
-                fprintf(f, ",\n");
-            }
-            fprintf(f, "           cmd.%s", vt->name);
-        }
-        fprintf(f, ");\n");
-
-        for (ct2=0; ct2 < api->paramCount; ct2++) {
-            const VarType *vt = &api->params[ct2];
-            if ((vt->ptrLevel == 1) && (!vt->isConst)) {
-                fprintf(f, "    io->coreSetReturn((void *)cmd.%s, cmd.%s_length);\n", vt->name, vt->name);
-            }
-        }
-
-        for (ct2=0; ct2 < api->paramCount; ct2++) {
-            const VarType *vt = &api->params[ct2];
-            if ((vt->ptrLevel == 2) && (!vt->isConst)) {
-                fprintf(f, "    for (size_t ct = 0; ct < (cmd.%s_length_length / sizeof(cmd.%s_length)); ct++) {\n", vt->name, vt->name);
-                fprintf(f, "        io->coreSetReturn((void *)cmd.%s[ct], cmd.%s_length[ct]);\n", vt->name, vt->name);
-                fprintf(f, "    }\n");
-            }
-        }
-        fprintf(f, "\n");
-
-        if (api->ret.typeName[0]) {
-            fprintf(f, "    io->coreSetReturn(&ret, sizeof(ret));\n");
-        } else /*if (needFlush)*/ {
-            fprintf(f, "    io->coreSetReturn(NULL, 0);\n");
-        }
-
-        for (ct2=0; ct2 < api->paramCount; ct2++) {
-            const VarType *vt = &api->params[ct2];
-            if (vt->ptrLevel == 1) {
-                fprintf(f, "    free((void *)cmd.%s);\n", vt->name);
-            }
-        }
-        for (ct2=0; ct2 < api->paramCount; ct2++) {
-            const VarType *vt = &api->params[ct2];
-            if (vt->ptrLevel == 2) {
-                fprintf(f, "    for (size_t ct = 0; ct < (cmd.%s_length_length / sizeof(cmd.%s_length)); ct++) {\n", vt->name, vt->name);
-                fprintf(f, "        free((void *)cmd.%s);\n", vt->name);
-                fprintf(f, "    }\n");
-            }
-        }
-
-        fprintf(f, "};\n\n");
-    }
-
+    // Generate the globally accessible table of playback functions.
     fprintf(f, "RsPlaybackLocalFunc gPlaybackFuncs[%i] = {\n", apiCount + 1);
     fprintf(f, "    NULL,\n");
     for (ct=0; ct < apiCount; ct++) {
         if (apis[ct].direct) {
             fprintf(f, "    NULL,\n");
         } else {
-            fprintf(f, "    %s%s,\n", "rsp_", apis[ct].name);
+            fprintf(f, "    %s%s,\n", RS_PLAYBACK_PREFIX, apis[ct].name);
         }
-    }
-    fprintf(f, "};\n");
-
-    fprintf(f, "RsPlaybackRemoteFunc gPlaybackRemoteFuncs[%i] = {\n", apiCount + 1);
-    fprintf(f, "    NULL,\n");
-    for (ct=0; ct < apiCount; ct++) {
-        fprintf(f, "    %s%s,\n", "rspr_", apis[ct].name);
     }
     fprintf(f, "};\n");
 
@@ -678,16 +497,10 @@ int main(int argc, char **argv) {
             fprintf(f, "namespace android {\n");
             fprintf(f, "namespace renderscript {\n");
             printStructures(f);
-            printFuncDecls(f, "rsi_", 1, 0);
-            printPlaybackFuncs(f, "rsp_");
-            fprintf(f, "\n\ntypedef struct RsPlaybackRemoteHeaderRec {\n");
-            fprintf(f, "    uint32_t command;\n");
-            fprintf(f, "    size_t size;\n");
-            fprintf(f, "} RsPlaybackRemoteHeader;\n\n");
+            printFuncDecls(f, RS_INTERNAL_PREFIX, 1, 0);
+            printPlaybackFuncs(f, RS_PLAYBACK_PREFIX);
             fprintf(f, "typedef void (*RsPlaybackLocalFunc)(Context *, const void *, size_t sizeBytes);\n");
-            fprintf(f, "typedef void (*RsPlaybackRemoteFunc)(Context *, ThreadIO *);\n");
             fprintf(f, "extern RsPlaybackLocalFunc gPlaybackFuncs[%i];\n", apiCount + 1);
-            fprintf(f, "extern RsPlaybackRemoteFunc gPlaybackRemoteFuncs[%i];\n", apiCount + 1);
 
             fprintf(f, "}\n");
             fprintf(f, "}\n");
@@ -708,7 +521,6 @@ int main(int argc, char **argv) {
 
         case '3': // rsgApiReplay.cpp
         {
-            printFileHeader(f);
             printPlaybackCpp(f);
         }
         break;

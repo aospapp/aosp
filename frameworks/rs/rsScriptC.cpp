@@ -53,18 +53,9 @@ using namespace android::renderscript;
     ScriptC * sc = (ScriptC *) tls->mScript
 
 ScriptC::ScriptC(Context *rsc) : Script(rsc) {
-#if !defined(RS_COMPATIBILITY_LIB) && !defined(ANDROID_RS_SERIALIZE)
-    BT = nullptr;
-#endif
 }
 
 ScriptC::~ScriptC() {
-#if !defined(RS_COMPATIBILITY_LIB) && !defined(ANDROID_RS_SERIALIZE)
-    if (BT) {
-        delete BT;
-        BT = nullptr;
-    }
-#endif
     if (mInitialized) {
         mRSC->mHal.funcs.script.invokeFreeChildren(mRSC, this);
         mRSC->mHal.funcs.script.destroy(mRSC, this);
@@ -201,6 +192,12 @@ void ScriptC::runForEach(Context *rsc,
         sc = &sc_copy;
     }
 
+    if (slot >= mHal.info.exportedForEachCount) {
+        rsc->setError(RS_ERROR_BAD_SCRIPT,
+                      "The forEach kernel index is out of bounds");
+        return;
+    }
+
     // Trace this function call.
     // To avoid overhead we only build the string if tracing is actually
     // enabled.
@@ -220,6 +217,10 @@ void ScriptC::runForEach(Context *rsc,
     setupGLState(rsc);
     setupScript(rsc);
 
+    if (rsc->props.mLogScripts) {
+        ALOGV("%p ScriptC::runForEach invoking slot %i, ptr %p", rsc, slot, this);
+    }
+
     if (rsc->mHal.funcs.script.invokeForEachMulti != nullptr) {
         rsc->mHal.funcs.script.invokeForEachMulti(rsc, this, slot, ains, inLen,
                                                   aout, usr, usrBytes, sc);
@@ -238,11 +239,32 @@ void ScriptC::runForEach(Context *rsc,
     }
 }
 
+void ScriptC::runReduce(Context *rsc, uint32_t slot,
+                        const Allocation ** ains, size_t inLen,
+                        Allocation *aout, const RsScriptCall *sc) {
+  // TODO: Record the name of the kernel in the tracing information.
+  ATRACE_CALL();
+
+  if (slot >= mHal.info.exportedReduceCount) {
+      rsc->setError(RS_ERROR_BAD_SCRIPT, "The general reduce kernel index is out of bounds");
+      return;
+  }
+  if (mRSC->hadFatalError()) return;
+
+  setupScript(rsc);
+
+  if (rsc->props.mLogScripts) {
+      ALOGV("%p ScriptC::runReduce invoking slot %i, ptr %p", rsc, slot, this);
+  }
+
+  rsc->mHal.funcs.script.invokeReduce(rsc, this, slot, ains, inLen, aout, sc);
+}
+
 void ScriptC::Invoke(Context *rsc, uint32_t slot, const void *data, size_t len) {
     ATRACE_CALL();
 
     if (slot >= mHal.info.exportedFunctionCount) {
-        rsc->setError(RS_ERROR_BAD_SCRIPT, "Calling invoke on bad script");
+        rsc->setError(RS_ERROR_BAD_SCRIPT, "The invokable index is out of bounds");
         return;
     }
     if (mRSC->hadFatalError()) return;
@@ -323,25 +345,25 @@ bool ScriptC::runCompiler(Context *rsc,
     // Bug 19734267
     mApiLevel = sdkVersion;
 
-    if (BT) {
-        delete BT;
-    }
-    BT = new bcinfo::BitcodeTranslator((const char *)bitcode, bitcodeLen,
-                                       sdkVersion);
-    if (!BT->translate()) {
+    bcinfo::BitcodeTranslator BT((const char *)bitcode, bitcodeLen,
+                                 sdkVersion);
+    if (!BT.translate()) {
         ALOGE("Failed to translate bitcode from version: %u", sdkVersion);
-        delete BT;
-        BT = nullptr;
         return false;
     }
-    bitcode = (const uint8_t *) BT->getTranslatedBitcode();
-    bitcodeLen = BT->getTranslatedBitcodeSize();
+    bitcode = (const uint8_t *) BT.getTranslatedBitcode();
+    bitcodeLen = BT.getTranslatedBitcodeSize();
 
     if (kDebugBitcode) {
         if (!dumpBitcodeFile(cacheDir, resName, "after", bitcode, bitcodeLen)) {
             return false;
         }
     }
+
+
+    // Set the optimization level of bcc to be the same as the
+    // optimization level used to compile the bitcode.
+    rsc->setOptLevel(bcWrapper.getOptimizationLevel());
 
 #endif
     if (!cacheDir) {

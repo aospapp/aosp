@@ -24,7 +24,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_MODULE_TAGS := optional
 
-LOCAL_MODULE := compatibility-common-util-devicesidelib_v2
+LOCAL_MODULE := compatibility-common-util-devicesidelib
 
 LOCAL_SDK_VERSION := current
 
@@ -40,27 +40,10 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_MODULE_TAGS := optional
 
-LOCAL_MODULE := compatibility-common-util-hostsidelib_v2
+LOCAL_MODULE := compatibility-common-util-hostsidelib
 
-LOCAL_STATIC_JAVA_LIBRARIES := kxml2-2.3.0
-
-include $(BUILD_HOST_JAVA_LIBRARY)
-
-###############################################################################
-# Build the tests
-###############################################################################
-
-include $(CLEAR_VARS)
-
-LOCAL_SRC_FILES := $(call all-java-files-under, tests/src)
-
-LOCAL_STATIC_JAVA_LIBRARIES := \
-                        junit \
-                        kxml2-2.3.0 \
-                        compatibility-common-util-hostsidelib_v2
-
-LOCAL_MODULE := compatibility-common-util-tests_v2
-
-LOCAL_MODULE_TAGS := optional
+LOCAL_STATIC_JAVA_LIBRARIES := junit kxml2-2.3.0 platform-test-annotations-host
 
 include $(BUILD_HOST_JAVA_LIBRARY)
+
+include $(call all-makefiles-under,$(LOCAL_PATH))

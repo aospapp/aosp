@@ -30,12 +30,14 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.text.TextUtils;
 
+import com.android.managedprovisioning.NetworkMonitor;
 import com.android.managedprovisioning.ProvisionLogger;
-import com.android.managedprovisioning.ProvisioningParams.PackageDownloadInfo;
-import com.android.managedprovisioning.Utils;
+import com.android.managedprovisioning.common.Utils;
+import com.android.managedprovisioning.model.PackageDownloadInfo;
 
 import java.io.InputStream;
 import java.io.IOException;
+import java.io.File;
 import java.io.FileInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -64,6 +66,9 @@ public class DownloadPackageTask {
     private BroadcastReceiver mReceiver;
     private final DownloadManager mDlm;
     private final PackageManager mPm;
+    private int mFileNumber = 0;
+
+    private final Utils mUtils = new Utils();
 
     private Set<DownloadStatusInfo> mDownloads;
 
@@ -71,15 +76,16 @@ public class DownloadPackageTask {
         mCallback = callback;
         mContext = context;
         mDlm = (DownloadManager) mContext.getSystemService(Context.DOWNLOAD_SERVICE);
+        mDlm.setAccessFilename(true);
         mPm = context.getPackageManager();
 
         mDownloads = new HashSet<DownloadStatusInfo>();
     }
 
-    public void addDownloadIfNecessary(String packageName, PackageDownloadInfo downloadInfo,
-            String label) {
-        if (!TextUtils.isEmpty(downloadInfo.location) && Utils.packageRequiresUpdate(packageName,
-               downloadInfo.minVersion, mContext)) {
+    public void addDownloadIfNecessary(
+            String packageName, PackageDownloadInfo downloadInfo, String label) {
+        if (downloadInfo != null
+                && mUtils.packageRequiresUpdate(packageName, downloadInfo.minVersion, mContext)) {
             mDownloads.add(new DownloadStatusInfo(downloadInfo, label));
         }
     }
@@ -88,6 +94,11 @@ public class DownloadPackageTask {
         if (mDownloads.size() == 0) {
             mCallback.onSuccess();
             return;
+        }
+        if (!mUtils.isConnectedToNetwork(mContext)) {
+            ProvisionLogger.loge("DownloadPackageTask: not connected to the network, can't download"
+                    + " the package");
+            mCallback.onError(ERROR_OTHER);
         }
         mReceiver = createDownloadReceiver();
         mContext.registerReceiver(mReceiver,
@@ -102,6 +113,15 @@ public class DownloadPackageTask {
             }
 
             Request request = new Request(Uri.parse(info.mPackageDownloadInfo.location));
+            // All we want is to have a different file for each apk
+            // Note that the apk may not actually be downloaded to this path. This could happen if
+            // this file already exists.
+            String path = mContext.getExternalFilesDir(null)
+                    + "/download_cache/managed_provisioning_downloaded_app_" + mFileNumber + ".apk";
+            mFileNumber++;
+            File downloadedFile = new File(path);
+            downloadedFile.getParentFile().mkdirs(); // If the folder doesn't exists it is created
+            request.setDestinationUri(Uri.fromFile(downloadedFile));
             if (info.mPackageDownloadInfo.cookieHeader != null) {
                 request.addRequestHeader("Cookie", info.mPackageDownloadInfo.cookieHeader);
                 if (DEBUG) {
@@ -129,12 +149,12 @@ public class DownloadPackageTask {
                         if (c.moveToFirst()) {
                             long downloadId =
                                     c.getLong(c.getColumnIndex(DownloadManager.COLUMN_ID));
+                            String filePath = c.getString(c.getColumnIndex(
+                                    DownloadManager.COLUMN_LOCAL_FILENAME));
                             int columnIndex = c.getColumnIndex(DownloadManager.COLUMN_STATUS);
                             if (DownloadManager.STATUS_SUCCESSFUL == c.getInt(columnIndex)) {
-                                String location = c.getString(
-                                        c.getColumnIndex(DownloadManager.COLUMN_LOCAL_FILENAME));
                                 c.close();
-                                onDownloadSuccess(downloadId, location);
+                                onDownloadSuccess(downloadId, filePath);
                             } else if (DownloadManager.STATUS_FAILED == c.getInt(columnIndex)){
                                 int reason = c.getInt(
                                         c.getColumnIndex(DownloadManager.COLUMN_REASON));
@@ -156,7 +176,7 @@ public class DownloadPackageTask {
      * @param downloadId the unique download id for the completed download.
      * @param location the file location of the downloaded file.
      */
-    private void onDownloadSuccess(long downloadId, String location) {
+    private void onDownloadSuccess(long downloadId, String filePath) {
         DownloadStatusInfo info = null;
         for (DownloadStatusInfo infoToMatch : mDownloads) {
             if (downloadId == infoToMatch.mDownloadId) {
@@ -168,9 +188,9 @@ public class DownloadPackageTask {
             return;
         } else {
             info.mDoneDownloading = true;
+            info.mLocation = filePath;
         }
-        ProvisionLogger.logd("Downloaded succesfully to: " + location);
-        info.mLocation = location;
+        ProvisionLogger.logd("Downloaded succesfully to: " + info.mLocation);
 
         boolean downloadedContentsCorrect = false;
         if (info.mPackageDownloadInfo.packageChecksum.length > 0) {
@@ -217,11 +237,11 @@ public class DownloadPackageTask {
 
         ProvisionLogger.loge("Provided hash does not match file hash.");
         ProvisionLogger.loge("Hash provided by programmer: "
-                + Utils.byteArrayToString(info.mPackageDownloadInfo.packageChecksum));
-        ProvisionLogger.loge("SHA-256 Hash computed from file: " + Utils.byteArrayToString(
+                + mUtils.byteArrayToString(info.mPackageDownloadInfo.packageChecksum));
+        ProvisionLogger.loge("SHA-256 Hash computed from file: " + mUtils.byteArrayToString(
                 packageSha256Hash));
         if (packageSha1Hash != null) {
-            ProvisionLogger.loge("SHA-1 Hash computed from file: " + Utils.byteArrayToString(
+            ProvisionLogger.loge("SHA-1 Hash computed from file: " + mUtils.byteArrayToString(
                     packageSha1Hash));
         }
         return false;
@@ -248,10 +268,10 @@ public class DownloadPackageTask {
 
         ProvisionLogger.loge("Provided hash does not match any signature hash.");
         ProvisionLogger.loge("Hash provided by programmer: "
-                + Utils.byteArrayToString(info.mPackageDownloadInfo.signatureChecksum));
+                + mUtils.byteArrayToString(info.mPackageDownloadInfo.signatureChecksum));
         ProvisionLogger.loge("Hashes computed from package signatures: ");
         for (byte[] sigHash : sigHashes) {
-            ProvisionLogger.loge(Utils.byteArrayToString(sigHash));
+            ProvisionLogger.loge(mUtils.byteArrayToString(sigHash));
         }
 
         return false;
@@ -324,6 +344,12 @@ public class DownloadPackageTask {
     private List<byte[]> computeHashesOfAllSignatures(String packageArchiveLocation) {
         PackageInfo info = mPm.getPackageArchiveInfo(packageArchiveLocation,
                 PackageManager.GET_SIGNATURES);
+        if (info == null) {
+            ProvisionLogger.loge("Unable to get package archive info from "
+                    + packageArchiveLocation);
+            mCallback.onError(ERROR_OTHER);
+            return null;
+        }
 
         List<byte[]> hashes = new LinkedList<byte[]>();
         Signature signatures[] = info.signatures;

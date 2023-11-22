@@ -13,7 +13,12 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<configuration description="CTS package preparer for install/uninstall of the apk used as a test operation target">
-    <include name="common-config" />
-    <option name="cts-apk-installer:test-file-name" value="CtsDeviceOsTestApp.apk" />
+<configuration description="Config for the CTS OS host test cases">
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.ApkInstaller">
+        <option name="cleanup-apks" value="true" />
+        <option name="test-file-name" value="CtsDeviceOsTestApp.apk" />
+    </target_preparer>
+    <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
+        <option name="jar" value="CtsOsHostTestCases.jar" />
+    </test>
 </configuration>

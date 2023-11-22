@@ -1,3 +1,10 @@
+/*
+ * Copyright 2015 Google Inc.
+ *
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
 #ifndef SkXfermode_proccoeff_DEFINED
 #define SkXfermode_proccoeff_DEFINED
 
@@ -7,6 +14,7 @@
 
 struct ProcCoeff {
     SkXfermodeProc      fProc;
+    SkXfermodeProc4f    fProc4f;
     SkXfermode::Coeff   fSC;
     SkXfermode::Coeff   fDC;
 };
@@ -23,12 +31,12 @@ public:
         fDstCoeff = rec.fDC;
     }
 
-    virtual void xfer32(SkPMColor dst[], const SkPMColor src[], int count,
-                        const SkAlpha aa[]) const override;
-    virtual void xfer16(uint16_t dst[], const SkPMColor src[], int count,
-                        const SkAlpha aa[]) const override;
-    virtual void xferA8(SkAlpha dst[], const SkPMColor src[], int count,
-                        const SkAlpha aa[]) const override;
+    void xfer32(SkPMColor dst[], const SkPMColor src[], int count,
+                const SkAlpha aa[]) const override;
+    void xfer16(uint16_t dst[], const SkPMColor src[], int count,
+                const SkAlpha aa[]) const override;
+    void xferA8(SkAlpha dst[], const SkPMColor src[], int count,
+                const SkAlpha aa[]) const override;
 
     bool asMode(Mode* mode) const override;
 
@@ -37,10 +45,9 @@ public:
     bool isOpaque(SkXfermode::SrcColorOpacity opacityType) const override;
 
 #if SK_SUPPORT_GPU
-    virtual bool asFragmentProcessor(GrFragmentProcessor**,
-                                     GrTexture* background) const override;
-
-    virtual bool asXPFactory(GrXPFactory**) const override;
+    const GrFragmentProcessor* getFragmentProcessorForImageFilter(
+                                                        const GrFragmentProcessor*) const override;
+    GrXPFactory* asXPFactory() const override;
 #endif
 
     SK_TO_STRING_OVERRIDE()

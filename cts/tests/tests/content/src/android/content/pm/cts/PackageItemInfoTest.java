@@ -16,7 +16,7 @@
 
 package android.content.pm.cts;
 
-import com.android.cts.content.R;
+import android.content.cts.R;
 
 
 import android.content.ComponentName;
@@ -30,7 +30,7 @@ import android.test.AndroidTestCase;
 import android.util.Printer;
 
 public class PackageItemInfoTest extends AndroidTestCase {
-    private static final String PACKAGE_NAME = "com.android.cts.content";
+    private static final String PACKAGE_NAME = "android.content.cts";
     private static final String ACTIVITY_NAME = "android.content.pm.cts.TestPmActivity";
     private static final String METADATA_NAME = "android.content.pm.cts.xmltest";
     private PackageManager mPackageManager;

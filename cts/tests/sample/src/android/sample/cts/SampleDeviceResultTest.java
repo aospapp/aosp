@@ -15,21 +15,30 @@
  */
 package android.sample.cts;
 
-import com.android.cts.util.MeasureRun;
-import com.android.cts.util.MeasureTime;
-import com.android.cts.util.ReportLog;
-import com.android.cts.util.ResultType;
-import com.android.cts.util.ResultUnit;
-import com.android.cts.util.Stat;
+import android.sample.SampleDeviceActivity;
+import android.test.ActivityInstrumentationTestCase2;
 
-import android.cts.util.CtsAndroidTestCase;
+import com.android.compatibility.common.util.DeviceReportLog;
+import com.android.compatibility.common.util.MeasureRun;
+import com.android.compatibility.common.util.MeasureTime;
+import com.android.compatibility.common.util.ResultType;
+import com.android.compatibility.common.util.ResultUnit;
+import com.android.compatibility.common.util.Stat;
+
+import java.util.Arrays;
+import java.util.Random;
 
 /**
  * A simple compatibility test which includes results in the report.
  *
  * This test measures the time taken to run a workload and adds in the report.
  */
-public class SampleDeviceResultTest extends CtsAndroidTestCase {
+public class SampleDeviceResultTest extends ActivityInstrumentationTestCase2<SampleDeviceActivity> {
+
+    /**
+     * Name of the report log to store test metrics.
+     */
+    private static final String REPORT_LOG_NAME = "CtsSampleDeviceTestCases";
 
     /**
      * The number of times to repeat the test.
@@ -37,86 +46,74 @@ public class SampleDeviceResultTest extends CtsAndroidTestCase {
     private static final int REPEAT = 5;
 
     /**
-     * The input number for the factorial.
+     * A {@link Random} to generate random integers to test the sort.
      */
-    private static final int IN = 15;
+    private static final Random random = new Random(12345);
 
     /**
-     * The expected output number for the factorial.
+     * Constructor which passes the class of the activity to be instrumented.
      */
-    private static final long OUT = 1307674368000L;
-
-    /**
-     * Measures the time taken to compute the factorial of 15 with a recursive method.
-     *
-     * @throws Exception
-     */
-    public void testFactorialRecursive() throws Exception {
-        runTest(new MeasureRun() {
-            @Override
-            public void run(int i) throws Exception {
-                // Compute the factorial and assert it is correct.
-                assertEquals("Incorrect result", OUT, factorialRecursive(IN));
-            }
-        });
+    public SampleDeviceResultTest() {
+        super(SampleDeviceActivity.class);
     }
 
     /**
-     * Measures the time taken to compute the factorial of 15 with a iterative method.
-     *
-     * @throws Exception
+     * Measures the time taken to sort an array.
      */
-    public void testFactorialIterative() throws Exception {
-        runTest(new MeasureRun() {
-            @Override
-            public void run(int i) throws Exception {
-                // Compute the factorial and assert it is correct.
-                assertEquals("Incorrect result", OUT, factorialIterative(IN));
-            }
-        });
-    }
-
-    /**
-     * Computes the factorial of a number with a recursive method.
-     *
-     * @param num The number to compute the factorial of.
-     */
-    private static long factorialRecursive(int num) {
-        if (num <= 0) {
-            return 1;
-        }
-        return num * factorialRecursive(num - 1);
-    }
-
-    /**
-     * Computes the factorial of a number with a iterative method.
-     *
-     * @param num The number to compute the factorial of.
-     */
-    private static long factorialIterative(int num) {
-        long result = 1;
-        for (int i = 2; i <= num; i++) {
-            result *= i;
-        }
-        return result;
-    }
-
-    /**
-     * Runs the workload and records the result to the report log.
-     *
-     * @param workload
-     */
-    private void runTest(MeasureRun workload) throws Exception {
+    public void testSort() throws Exception {
         // MeasureTime runs the workload N times and records the time taken by each run.
-        double[] result = MeasureTime.measure(REPEAT, workload);
+        double[] result = MeasureTime.measure(REPEAT, new MeasureRun() {
+            /**
+             * The size of the array to sort.
+             */
+            private static final int ARRAY_SIZE = 100000;
+            private int[] array;
+            @Override
+            public void prepare(int i) throws Exception {
+                array = createArray(ARRAY_SIZE);
+            }
+            @Override
+            public void run(int i) throws Exception {
+                Arrays.sort(array);
+                assertTrue("Array not sorted", isSorted(array));
+            }
+        });
         // Compute the stats.
         Stat.StatResult stat = Stat.getStat(result);
-        // Get the report for this test and add the results to record.
-        ReportLog log = getReportLog();
-        log.printArray("Times", result, ResultType.LOWER_BETTER, ResultUnit.MS);
-        log.printValue("Min", stat.mMin, ResultType.LOWER_BETTER, ResultUnit.MS);
-        log.printValue("Max", stat.mMax, ResultType.LOWER_BETTER, ResultUnit.MS);
-        // Every report must have a summary,
-        log.printSummary("Average", stat.mAverage, ResultType.LOWER_BETTER, ResultUnit.MS);
+        // Create a new report to hold the metrics.
+        String streamName = "test_sort";
+        DeviceReportLog reportLog = new DeviceReportLog(REPORT_LOG_NAME, streamName);
+        // Add the results to the report.
+        reportLog.addValues("times", result, ResultType.LOWER_BETTER, ResultUnit.MS);
+        reportLog.addValue("min", stat.mMin, ResultType.LOWER_BETTER, ResultUnit.MS);
+        reportLog.addValue("max", stat.mMax, ResultType.LOWER_BETTER, ResultUnit.MS);
+        // Set a summary.
+        reportLog.setSummary("average", stat.mAverage, ResultType.LOWER_BETTER, ResultUnit.MS);
+        // Submit the report to the given instrumentation.
+        reportLog.submit(getInstrumentation());
+    }
+
+    /**
+     * Creates an array filled with random numbers of the given size.
+     */
+    private static int[] createArray(int size) {
+        int[] array = new int[size];
+        for (int i = 0; i < size; i++) {
+            array[i] = random.nextInt();
+        }
+        return array;
+    }
+
+    /**
+     * Tests an array is sorted.
+     */
+    private static boolean isSorted(int[] array) {
+        int len = array.length;
+        for (int i = 0, j = 1; j < len; i++, j++) {
+            if (array[i] > array[j]) {
+                return false;
+            }
+        }
+        return true;
     }
 }

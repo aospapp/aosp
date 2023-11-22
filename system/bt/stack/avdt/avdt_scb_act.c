@@ -30,8 +30,11 @@
 #include "avdt_api.h"
 #include "avdtc_api.h"
 #include "avdt_int.h"
-#include "gki.h"
+#include "bt_common.h"
 #include "btu.h"
+
+
+extern fixed_queue_t *btu_general_alarm_queue;
 
 /* This table is used to lookup the callback event that matches a particular
 ** state machine API request event.  Note that state machine API request
@@ -227,7 +230,10 @@ void avdt_scb_hdl_open_rsp(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
     avdt_ad_open_req(AVDT_CHAN_MEDIA, p_scb->p_ccb, p_scb, AVDT_INT);
 
     /* start tc connect timer */
-    btu_start_timer(&p_scb->timer_entry, BTU_TTYPE_AVDT_SCB_TC, AVDT_SCB_TC_CONN_TOUT);
+    alarm_set_on_queue(p_scb->transport_channel_timer,
+                       AVDT_SCB_TC_CONN_TIMEOUT_MS,
+                       avdt_scb_transport_channel_timer_timeout, p_scb,
+                       btu_general_alarm_queue);
 }
 
 /*******************************************************************************
@@ -287,7 +293,7 @@ void avdt_scb_hdl_pkt_no_frag(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
     if ((offset > p_data->p_pkt->len) || ((pad_len + offset) > p_data->p_pkt->len))
     {
         AVDT_TRACE_WARNING("Got bad media packet");
-        GKI_freebuf(p_data->p_pkt);
+        osi_free_and_reset((void **)&p_data->p_pkt);
     }
     /* adjust offset and length and send it up */
     else
@@ -316,7 +322,7 @@ void avdt_scb_hdl_pkt_no_frag(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
                     p_scb->media_buf_len,time_stamp,seq,m_pt,marker);
             }
 #endif
-            GKI_freebuf(p_data->p_pkt);
+            osi_free_and_reset((void **)&p_data->p_pkt);
         }
     }
 }
@@ -630,7 +636,7 @@ void avdt_scb_hdl_pkt_frag(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
     {
         AVDT_TRACE_WARNING("*** Got bad media packet");
     }
-    GKI_freebuf(p_data->p_pkt);
+    osi_free_and_reset((void **)&p_data->p_pkt);
 }
 #endif
 
@@ -662,7 +668,7 @@ void avdt_scb_hdl_pkt(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
     {
         p = (UINT8 *)(p_data->p_pkt + 1) + p_data->p_pkt->offset;
         avdt_scb_hdl_report(p_scb, p, p_data->p_pkt->len);
-        GKI_freebuf(p_data->p_pkt);
+        osi_free_and_reset((void **)&p_data->p_pkt);
     }
     else
 #endif
@@ -683,8 +689,8 @@ void avdt_scb_drop_pkt(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 {
     UNUSED(p_scb);
 
-    GKI_freebuf(p_data->p_pkt);
-    AVDT_TRACE_ERROR(" avdt_scb_drop_pkt Dropped incoming media packet");
+    AVDT_TRACE_ERROR("%s dropped incoming media packet", __func__);
+    osi_free_and_reset((void **)&p_data->p_pkt);
 }
 
 /*******************************************************************************
@@ -1014,14 +1020,9 @@ void avdt_scb_hdl_tc_close(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
     p_scb->cong = FALSE;
 
     /* free pkt we're holding, if any */
-    if (p_scb->p_pkt != NULL)
-    {
-        GKI_freebuf(p_scb->p_pkt);
-        p_scb->p_pkt = NULL;
-    }
+    osi_free_and_reset((void **)&p_scb->p_pkt);
 
-    /* stop transport channel timer */
-    btu_stop_timer(&p_scb->timer_entry);
+    alarm_cancel(p_scb->transport_channel_timer);
 
     if ((p_scb->role == AVDT_CLOSE_INT) || (p_scb->role == AVDT_OPEN_INT))
     {
@@ -1153,8 +1154,7 @@ void avdt_scb_hdl_tc_open(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
     UINT8   role;
 #endif
 
-    /* stop transport channel connect timer */
-    btu_stop_timer(&p_scb->timer_entry);
+    alarm_cancel(p_scb->transport_channel_timer);
 
     event = (p_scb->role == AVDT_OPEN_INT) ? AVDT_OPEN_CFM_EVT : AVDT_OPEN_IND_EVT;
     p_data->open.hdr.err_code = 0;
@@ -1224,13 +1224,11 @@ void avdt_scb_hdl_write_req_no_frag(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
     UINT32  ssrc;
 
     /* free packet we're holding, if any; to be replaced with new */
-    if (p_scb->p_pkt != NULL)
-    {
-        GKI_freebuf(p_scb->p_pkt);
-
+    if (p_scb->p_pkt != NULL) {
         /* this shouldn't be happening */
         AVDT_TRACE_WARNING("Dropped media packet; congested");
     }
+    osi_free_and_reset((void **)&p_scb->p_pkt);
 
     /* build a media packet */
     /* Add RTP header if required */
@@ -1269,16 +1267,15 @@ void avdt_scb_hdl_write_req_frag(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 {
     UINT8   *p;
     UINT32  ssrc;
-    BT_HDR  *p_frag;
 
     /* free fragments we're holding, if any; it shouldn't happen */
-    if (!GKI_queue_is_empty(&p_scb->frag_q))
+    if (!fixed_queue_is_empty(p_scb->frag_q))
     {
-        while((p_frag = (BT_HDR*)GKI_dequeue (&p_scb->frag_q)) != NULL)
-            GKI_freebuf(p_frag);
-
         /* this shouldn't be happening */
         AVDT_TRACE_WARNING("*** Dropped media packet; congested");
+        BT_HDR *p_frag;
+        while ((p_frag = (BT_HDR*)fixed_queue_try_dequeue(p_scb->frag_q)) != NULL)
+             osi_free(p_frag);
     }
 
     /* build a media fragments */
@@ -1287,43 +1284,54 @@ void avdt_scb_hdl_write_req_frag(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 
     ssrc = avdt_scb_gen_ssrc(p_scb);
 
-    /* get first packet */
-    p_frag = (BT_HDR*)GKI_getfirst (&p_data->apiwrite.frag_q);
-    /* posit on Adaptation Layer header */
-    p_frag->len += AVDT_AL_HDR_SIZE + AVDT_MEDIA_HDR_SIZE;
-    p_frag->offset -= AVDT_AL_HDR_SIZE + AVDT_MEDIA_HDR_SIZE;
-    p = (UINT8 *)(p_frag + 1) + p_frag->offset;
+    if (! fixed_queue_is_empty(p_scb->frag_q)) {
+        list_t *list = fixed_queue_get_list(p_scb->frag_q);
+        const list_node_t *node = list_begin(list);
+        if (node != list_end(list)) {
+            BT_HDR *p_frag = (BT_HDR *)list_node(node);
+            node = list_next(node);
 
-    /* Adaptation Layer header */
-    /* TSID, no-fragment bit and coding of length(in 2 length octets following) */
-    *p++ = (p_scb->curr_cfg.mux_tsid_media<<3) | AVDT_ALH_LCODE_16BIT;
+            /* get first packet */
+            /* posit on Adaptation Layer header */
+            p_frag->len += AVDT_AL_HDR_SIZE + AVDT_MEDIA_HDR_SIZE;
+            p_frag->offset -= AVDT_AL_HDR_SIZE + AVDT_MEDIA_HDR_SIZE;
+            p = (UINT8 *)(p_frag + 1) + p_frag->offset;
 
-    /* length of all remaining transport packet */
-    UINT16_TO_BE_STREAM(p, p_frag->layer_specific+AVDT_MEDIA_HDR_SIZE );
-    /* media header */
-    UINT8_TO_BE_STREAM(p, AVDT_MEDIA_OCTET1);
-    UINT8_TO_BE_STREAM(p, p_data->apiwrite.m_pt);
-    UINT16_TO_BE_STREAM(p, p_scb->media_seq);
-    UINT32_TO_BE_STREAM(p, p_data->apiwrite.time_stamp);
-    UINT32_TO_BE_STREAM(p, ssrc);
-    p_scb->media_seq++;
+            /* Adaptation Layer header */
+            /* TSID, no-fragment bit and coding of length (in 2 length octets
+             * following)
+             */
+            *p++ = (p_scb->curr_cfg.mux_tsid_media<<3) | AVDT_ALH_LCODE_16BIT;
 
-    while((p_frag = (BT_HDR*)GKI_getnext (p_frag)) != NULL)
-    {
-        /* posit on Adaptation Layer header */
-        p_frag->len += AVDT_AL_HDR_SIZE;
-        p_frag->offset -= AVDT_AL_HDR_SIZE;
-        p = (UINT8 *)(p_frag + 1) + p_frag->offset;
-        /* Adaptation Layer header */
-        /* TSID, fragment bit and coding of length(in 2 length octets following) */
-        *p++ = (p_scb->curr_cfg.mux_tsid_media<<3) | (AVDT_ALH_FRAG_MASK|AVDT_ALH_LCODE_16BIT);
+            /* length of all remaining transport packet */
+            UINT16_TO_BE_STREAM(p, p_frag->layer_specific + AVDT_MEDIA_HDR_SIZE );
+            /* media header */
+            UINT8_TO_BE_STREAM(p, AVDT_MEDIA_OCTET1);
+            UINT8_TO_BE_STREAM(p, p_data->apiwrite.m_pt);
+            UINT16_TO_BE_STREAM(p, p_scb->media_seq);
+            UINT32_TO_BE_STREAM(p, p_data->apiwrite.time_stamp);
+            UINT32_TO_BE_STREAM(p, ssrc);
+            p_scb->media_seq++;
+        }
 
-        /* length of all remaining transport packet */
-        UINT16_TO_BE_STREAM(p, p_frag->layer_specific );
+        for ( ; node != list_end(list); node = list_next(node)) {
+            BT_HDR *p_frag = (BT_HDR *)list_node(node);
+
+            /* posit on Adaptation Layer header */
+            p_frag->len += AVDT_AL_HDR_SIZE;
+            p_frag->offset -= AVDT_AL_HDR_SIZE;
+            p = (UINT8 *)(p_frag + 1) + p_frag->offset;
+            /* Adaptation Layer header */
+            /* TSID, fragment bit and coding of length (in 2 length octets
+             * following)
+             */
+            *p++ = (p_scb->curr_cfg.mux_tsid_media << 3) |
+                (AVDT_ALH_FRAG_MASK | AVDT_ALH_LCODE_16BIT);
+
+            /* length of all remaining transport packet */
+            UINT16_TO_BE_STREAM(p, p_frag->layer_specific);
+        }
     }
-
-    /* store it */
-    p_scb->frag_q = p_data->apiwrite.frag_q;
 }
 #endif
 
@@ -1341,7 +1349,7 @@ void avdt_scb_hdl_write_req_frag(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 void avdt_scb_hdl_write_req(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 {
 #if AVDT_MULTIPLEXING == TRUE
-    if (GKI_queue_is_empty(&p_data->apiwrite.frag_q))
+    if (fixed_queue_is_empty(p_scb->frag_q))
 #endif
         avdt_scb_hdl_write_req_no_frag(p_scb, p_data);
 #if AVDT_MULTIPLEXING == TRUE
@@ -1424,27 +1432,18 @@ void avdt_scb_snd_close_req(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 void avdt_scb_snd_stream_close(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 {
 #if AVDT_MULTIPLEXING == TRUE
-    BT_HDR          *p_frag;
+    AVDT_TRACE_WARNING("%s c:%d, off:%d", __func__,
+        fixed_queue_length(p_scb->frag_q), p_scb->frag_off);
 
-    AVDT_TRACE_WARNING("avdt_scb_snd_stream_close c:%d, off:%d",
-        GKI_queue_length(&p_scb->frag_q), p_scb->frag_off);
     /* clean fragments queue */
-    while((p_frag = (BT_HDR*)GKI_dequeue (&p_scb->frag_q)) != NULL)
-         GKI_freebuf(p_frag);
+    BT_HDR *p_frag;
+    while ((p_frag = (BT_HDR*)fixed_queue_try_dequeue(p_scb->frag_q)) != NULL)
+        osi_free(p_frag);
+
     p_scb->frag_off = 0;
 #endif
-    if (p_scb->p_pkt)
-    {
-        GKI_freebuf(p_scb->p_pkt);
-        p_scb->p_pkt = NULL;
-    }
+    osi_free_and_reset((void **)&p_scb->p_pkt);
 
-#if 0
-    if(p_scb->cong)
-        p_scb->cong = FALSE;
-
-    /* p_scb->curr_cfg.mux_tsid_media == 0 */
-#endif
     avdt_scb_snd_close_req(p_scb, p_data);
 }
 
@@ -1534,8 +1533,10 @@ void avdt_scb_snd_open_rsp(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
     /* send response */
     avdt_msg_send_rsp(p_scb->p_ccb, AVDT_SIG_OPEN, &p_data->msg);
 
-    /* start tc connect timer */
-    btu_start_timer(&p_scb->timer_entry, BTU_TTYPE_AVDT_SCB_TC, AVDT_SCB_TC_CONN_TOUT);
+    alarm_set_on_queue(p_scb->transport_channel_timer,
+                       AVDT_SCB_TC_CONN_TIMEOUT_MS,
+                       avdt_scb_transport_channel_timer_timeout, p_scb,
+                       btu_general_alarm_queue);
 }
 
 /*******************************************************************************
@@ -1858,22 +1859,19 @@ void avdt_scb_set_remove(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 void avdt_scb_free_pkt(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 {
     tAVDT_CTRL      avdt_ctrl;
-#if AVDT_MULTIPLEXING == TRUE
-    BT_HDR          *p_frag;
-#endif
 
     /* set error code and parameter */
     avdt_ctrl.hdr.err_code = AVDT_ERR_BAD_STATE;
     avdt_ctrl.hdr.err_param = 0;
 
     /* p_buf can be NULL in case using of fragments queue frag_q */
-    if(p_data->apiwrite.p_buf)
-        GKI_freebuf(p_data->apiwrite.p_buf);
+    osi_free_and_reset((void **)&p_data->apiwrite.p_buf);
 
 #if AVDT_MULTIPLEXING == TRUE
     /* clean fragments queue */
-    while((p_frag = (BT_HDR*)GKI_dequeue (&p_data->apiwrite.frag_q)) != NULL)
-         GKI_freebuf(p_frag);
+    BT_HDR          *p_frag;
+    while ((p_frag = (BT_HDR*)fixed_queue_try_dequeue(p_scb->frag_q)) != NULL)
+         osi_free(p_frag);
 #endif
 
     AVDT_TRACE_WARNING("Dropped media packet");
@@ -1898,9 +1896,6 @@ void avdt_scb_clr_pkt(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
     tAVDT_CCB       *p_ccb;
     UINT8           tcid;
     UINT16          lcid;
-#if AVDT_MULTIPLEXING == TRUE
-    BT_HDR          *p_frag;
-#endif
     UNUSED(p_data);
 
     /* set error code and parameter */
@@ -1918,8 +1913,7 @@ void avdt_scb_clr_pkt(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 
     if (p_scb->p_pkt != NULL)
     {
-        GKI_freebuf(p_scb->p_pkt);
-        p_scb->p_pkt = NULL;
+        osi_free_and_reset((void **)&p_scb->p_pkt);
 
         AVDT_TRACE_DEBUG("Dropped stored media packet");
 
@@ -1928,13 +1922,13 @@ void avdt_scb_clr_pkt(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
                                   &avdt_ctrl);
     }
 #if AVDT_MULTIPLEXING == TRUE
-    else if(!GKI_queue_is_empty (&p_scb->frag_q))
+    else if (!fixed_queue_is_empty(p_scb->frag_q))
     {
         AVDT_TRACE_DEBUG("Dropped fragments queue");
         /* clean fragments queue */
-        while((p_frag = (BT_HDR*)GKI_dequeue (&p_scb->frag_q)) != NULL)
-             GKI_freebuf(p_frag);
-
+        BT_HDR *p_frag;
+        while ((p_frag = (BT_HDR*)fixed_queue_try_dequeue(p_scb->frag_q)) != NULL)
+             osi_free(p_frag);
         p_scb->frag_off = 0;
 
         /* we need to call callback to keep data flow going */
@@ -1988,7 +1982,7 @@ void avdt_scb_chk_snd_pkt(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
                 L2CA_FlushChannel(avdt_cb.ad.rt_tbl[avdt_ccb_to_idx(p_scb->p_ccb)][avdt_ad_type_to_tcid(AVDT_CHAN_MEDIA, p_scb)].lcid),
                                   L2CAP_FLUSH_CHANS_GET);
 #endif
-            while((p_pkt = (BT_HDR*)GKI_dequeue (&p_scb->frag_q)) != NULL)
+            while ((p_pkt = (BT_HDR*)fixed_queue_try_dequeue(p_scb->frag_q)) != NULL)
             {
                 sent = TRUE;
                 AVDT_TRACE_DEBUG("Send fragment len=%d",p_pkt->len);
@@ -2005,11 +1999,11 @@ void avdt_scb_chk_snd_pkt(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 
             if(p_scb->frag_off)
             {
-                if(AVDT_AD_SUCCESS == res || GKI_queue_is_empty (&p_scb->frag_q))
+                if (AVDT_AD_SUCCESS == res || fixed_queue_is_empty(p_scb->frag_q))
                 {
                     /* all buffers were sent to L2CAP, compose more to queue */
-                    avdt_scb_queue_frags(p_scb, &p_scb->p_next_frag, &p_scb->frag_off, &p_scb->frag_q);
-                    if(!GKI_queue_is_empty (&p_scb->frag_q))
+                    avdt_scb_queue_frags(p_scb, &p_scb->p_next_frag, &p_scb->frag_off);
+                    if (!fixed_queue_is_empty(p_scb->frag_q))
                     {
                         data.llcong = p_scb->cong;
                         avdt_scb_event(p_scb, AVDT_SCB_TC_CONG_EVT, &data);
@@ -2018,7 +2012,7 @@ void avdt_scb_chk_snd_pkt(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
             }
 
             /* Send event AVDT_WRITE_CFM_EVT if it was last fragment */
-            else if (sent && GKI_queue_is_empty (&p_scb->frag_q))
+            else if (sent && fixed_queue_is_empty(p_scb->frag_q))
             {
                 (*p_scb->cs.p_ctrl_cback)(avdt_scb_to_hdl(p_scb), NULL, AVDT_WRITE_CFM_EVT, &avdt_ctrl);
             }
@@ -2029,7 +2023,7 @@ void avdt_scb_chk_snd_pkt(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 
 /*******************************************************************************
 **
-** Function         avdt_scb_tc_timer
+** Function         avdt_scb_transport_channel_timer
 **
 ** Description      This function is called to start a timer when the peer
 **                  initiates closing of the stream.  The timer verifies that
@@ -2038,11 +2032,14 @@ void avdt_scb_chk_snd_pkt(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 ** Returns          Nothing.
 **
 *******************************************************************************/
-void avdt_scb_tc_timer(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
+void avdt_scb_transport_channel_timer(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 {
     UNUSED(p_data);
 
-    btu_start_timer(&p_scb->timer_entry, BTU_TTYPE_AVDT_SCB_TC, AVDT_SCB_TC_DISC_TOUT);
+    alarm_set_on_queue(p_scb->transport_channel_timer,
+                       AVDT_SCB_TC_DISC_TIMEOUT_MS,
+                       avdt_scb_transport_channel_timer_timeout, p_scb,
+                       btu_general_alarm_queue);
 }
 
 /*******************************************************************************
@@ -2057,15 +2054,7 @@ void avdt_scb_tc_timer(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 void avdt_scb_clr_vars(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 {
     UNUSED(p_data);
-
-    if ((p_scb->cs.tsep == AVDT_TSEP_SNK) && (!p_scb->sink_activated))
-    {
-        p_scb->in_use = TRUE;
-    }
-    else
-    {
-        p_scb->in_use = FALSE;
-    }
+    p_scb->in_use = FALSE;
     p_scb->p_ccb = NULL;
     p_scb->peer_seid = 0;
 }
@@ -2081,7 +2070,8 @@ void avdt_scb_clr_vars(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 ** Returns          Nothing.
 **
 *******************************************************************************/
-void avdt_scb_queue_frags(tAVDT_SCB *p_scb, UINT8 **pp_data, UINT32 *p_data_len, BUFFER_Q *pq)
+void avdt_scb_queue_frags(tAVDT_SCB *p_scb, UINT8 **pp_data,
+                          UINT32 *p_data_len)
 {
     UINT16  lcid;
     UINT16  num_frag;
@@ -2093,7 +2083,6 @@ void avdt_scb_queue_frags(tAVDT_SCB *p_scb, UINT8 **pp_data, UINT32 *p_data_len,
     UINT16          buf_size;
     UINT16          offset = AVDT_MEDIA_OFFSET + AVDT_AL_HDR_SIZE;
     UINT16          cont_offset = offset - AVDT_MEDIA_HDR_SIZE;
-    BT_HDR          *p_frag;
 
     tcid = avdt_ad_type_to_tcid(AVDT_CHAN_MEDIA, p_scb);
     lcid = avdt_cb.ad.rt_tbl[avdt_ccb_to_idx(p_scb->p_ccb)][tcid].lcid;
@@ -2127,19 +2116,15 @@ void avdt_scb_queue_frags(tAVDT_SCB *p_scb, UINT8 **pp_data, UINT32 *p_data_len,
     AVDT_TRACE_DEBUG("peer_mtu: %d, buf_size: %d num_frag=%d",
         p_tbl->peer_mtu, buf_size, num_frag);
 
-    if(buf_size > AVDT_DATA_POOL_SIZE)
-        buf_size = AVDT_DATA_POOL_SIZE;
+    if (buf_size > AVDT_DATA_BUF_SIZE)
+        buf_size = AVDT_DATA_BUF_SIZE;
 
     mtu_used = buf_size - BT_HDR_SIZE;
 
-    while(*p_data_len && num_frag)
-    {
+    while (*p_data_len && num_frag) {
         /* allocate buffer for fragment */
-        if(NULL == (p_frag = (BT_HDR*)GKI_getbuf(buf_size)))
-        {
-            AVDT_TRACE_WARNING("avdt_scb_queue_frags len=%d(out of GKI buffers)",*p_data_len);
-            break;
-        }
+        BT_HDR *p_frag = (BT_HDR *)osi_malloc(buf_size);
+
         /* fill fragment by chunk of media payload */
         p_frag->layer_specific = *p_data_len;/* length of all remaining transport packet */
         p_frag->offset = offset;
@@ -2167,7 +2152,7 @@ void avdt_scb_queue_frags(tAVDT_SCB *p_scb, UINT8 **pp_data, UINT32 *p_data_len,
             UINT16_TO_BE_STREAM(p, p_frag->layer_specific );
         }
         /* put fragment into gueue */
-        GKI_enqueue(pq, p_frag);
+        fixed_queue_enqueue(p_scb->frag_q, p_frag);
         num_frag--;
     }
 }

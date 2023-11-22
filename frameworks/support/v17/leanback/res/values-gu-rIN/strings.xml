@@ -17,6 +17,7 @@ limitations under the License.
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="lb_navigation_menu_contentDescription" msgid="6215811486591629025">"નૅવિગેશન મેનૂ"</string>
     <string name="orb_search_action" msgid="5651268540267663887">"શોધ ક્રિયા"</string>
     <string name="lb_search_bar_hint" msgid="8325490927970116252">"શોધો"</string>
     <string name="lb_search_bar_hint_speech" msgid="5511270823320183816">"શોધવા માટે બોલો"</string>
@@ -46,4 +47,11 @@ limitations under the License.
     <string name="lb_playback_controls_high_quality_disable" msgid="8637371582779057866">"ઉચ્ચ ગુણવત્તા અક્ષમ કરો"</string>
     <string name="lb_playback_controls_closed_captioning_enable" msgid="2429655367176440226">"ઉપશીર્ષક સક્ષમ કરો"</string>
     <string name="lb_playback_controls_closed_captioning_disable" msgid="6133362019475930048">"વિગતવાર ઉપશીર્ષકોને અક્ષમ કરો"</string>
+    <string name="lb_playback_controls_picture_in_picture" msgid="3040035547765350690">"ચિત્ર મોડમાં ચિત્ર દાખલ કરો"</string>
+    <string name="lb_guidedaction_finish_title" msgid="4015190340667946245">"સમાપ્ત કરો"</string>
+    <string name="lb_guidedaction_continue_title" msgid="8842094924543063706">"ચાલુ રાખો"</string>
+    <string name="lb_date_separator" msgid="2440386660906697298">"/"</string>
+    <string name="lb_time_separator" msgid="2763247350845477227">":"</string>
+    <string name="lb_onboarding_get_started" msgid="6961440391306351139">"પ્રારંભ કરો"</string>
+    <string name="lb_onboarding_accessibility_next" msgid="2918313444257732434">"આગલું"</string>
 </resources>

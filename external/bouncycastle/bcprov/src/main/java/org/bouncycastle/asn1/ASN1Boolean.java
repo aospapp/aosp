@@ -8,7 +8,6 @@ import org.bouncycastle.util.Arrays;
  * Public facade of ASN.1 Boolean data.
  * <p>
  * Use following to place a new instance of ASN.1 Boolean in your dataset:
- * </p>
  * <ul>
  * <li> ASN1Boolean.TRUE literal</li>
  * <li> ASN1Boolean.FALSE literal</li>
@@ -23,9 +22,7 @@ public class ASN1Boolean
     private static final byte[] TRUE_VALUE = new byte[] { (byte)0xff };
     private static final byte[] FALSE_VALUE = new byte[] { 0 };
 
-    // BEGIN android-changed
-    final private byte[]         value;
-    // END android-changed
+    private final byte[]         value;
 
     public static final ASN1Boolean FALSE = new ASN1Boolean(false);
     public static final ASN1Boolean TRUE  = new ASN1Boolean(true);
@@ -63,6 +60,7 @@ public class ASN1Boolean
 
     /**
      * return an ASN1Boolean from the passed in boolean.
+     * @param value true or false depending on the ASN1Boolean wanted.
      * @return an ASN1Boolean instance.
      */
     public static ASN1Boolean getInstance(
@@ -73,6 +71,7 @@ public class ASN1Boolean
 
     /**
      * return an ASN1Boolean from the passed in value.
+     * @param value non-zero (true) or zero (false) depending on the ASN1Boolean wanted.
      * @return an ASN1Boolean instance.
      */
     public static ASN1Boolean getInstance(

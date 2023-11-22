@@ -31,20 +31,27 @@
 
 #include <binder/IServiceManager.h>
 #include <binder/ProcessState.h>
+#include <media/ICrypto.h>
 #include <media/IMediaHTTPService.h>
+#include <media/IMediaCodecService.h>
 #include <media/IMediaPlayerService.h>
+#include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/ALooper.h>
+#include <media/stagefright/foundation/AMessage.h>
+#include <media/stagefright/foundation/AUtils.h>
 #include "include/NuCachedSource2.h"
 #include <media/stagefright/AudioPlayer.h>
 #include <media/stagefright/DataSource.h>
 #include <media/stagefright/JPEGSource.h>
+#include <media/stagefright/MediaCodec.h>
+#include <media/stagefright/MediaCodecList.h>
 #include <media/stagefright/MediaDefs.h>
 #include <media/stagefright/MediaErrors.h>
 #include <media/stagefright/MediaExtractor.h>
 #include <media/stagefright/MediaSource.h>
 #include <media/stagefright/MetaData.h>
-#include <media/stagefright/OMXClient.h>
-#include <media/stagefright/OMXCodec.h>
+#include <media/stagefright/SimpleDecodingSource.h>
+#include <media/stagefright/Utils.h>
 #include <media/mediametadataretriever.h>
 
 #include <media/stagefright/foundation/hexdump.h>
@@ -67,6 +74,7 @@ static bool gForceToUseHardwareCodec;
 static bool gPlaybackAudio;
 static bool gWriteMP4;
 static bool gDisplayHistogram;
+static bool showProgress = true;
 static String8 gWriteMP4Filename;
 
 static sp<ANativeWindow> gSurface;
@@ -130,7 +138,7 @@ static void displayAVCProfileLevelIfPossible(const sp<MetaData>& meta) {
     }
 }
 
-static void dumpSource(const sp<MediaSource> &source, const String8 &filename) {
+static void dumpSource(const sp<IMediaSource> &source, const String8 &filename) {
     FILE *out = fopen(filename.string(), "wb");
 
     CHECK_EQ((status_t)OK, source->start());
@@ -163,32 +171,26 @@ static void dumpSource(const sp<MediaSource> &source, const String8 &filename) {
     out = NULL;
 }
 
-static void playSource(OMXClient *client, sp<MediaSource> &source) {
+static void playSource(sp<IMediaSource> &source) {
     sp<MetaData> meta = source->getFormat();
 
     const char *mime;
     CHECK(meta->findCString(kKeyMIMEType, &mime));
 
-    sp<MediaSource> rawSource;
+    sp<IMediaSource> rawSource;
     if (!strcasecmp(MEDIA_MIMETYPE_AUDIO_RAW, mime)) {
         rawSource = source;
     } else {
         int flags = 0;
         if (gPreferSoftwareCodec) {
-            flags |= OMXCodec::kPreferSoftwareCodecs;
+            flags |= MediaCodecList::kPreferSoftwareCodecs;
         }
         if (gForceToUseHardwareCodec) {
             CHECK(!gPreferSoftwareCodec);
-            flags |= OMXCodec::kHardwareCodecsOnly;
+            flags |= MediaCodecList::kHardwareCodecsOnly;
         }
-        rawSource = OMXCodec::Create(
-            client->interface(), meta, false /* createEncoder */, source,
-            NULL /* matchComponentName */,
-            flags,
-            gSurface);
-
+        rawSource = SimpleDecodingSource::Create(source, flags, gSurface);
         if (rawSource == NULL) {
-            fprintf(stderr, "Failed to instantiate decoder for '%s'.\n", mime);
             return;
         }
         displayAVCProfileLevelIfPossible(meta);
@@ -338,7 +340,7 @@ static void playSource(OMXClient *client, sp<MediaSource> &source) {
                     decodeTimesUs.push(delayDecodeUs);
                 }
 
-                if ((n++ % 16) == 0) {
+                if (showProgress && (n++ % 16) == 0) {
                     printf(".");
                     fflush(stdout);
                 }
@@ -364,8 +366,10 @@ static void playSource(OMXClient *client, sp<MediaSource> &source) {
             }
         }
 
-        printf("$");
-        fflush(stdout);
+        if (showProgress) {
+            printf("$");
+            fflush(stdout);
+        }
 
         options.setSeekTo(0);
     }
@@ -397,7 +401,7 @@ static void playSource(OMXClient *client, sp<MediaSource> &source) {
 ////////////////////////////////////////////////////////////////////////////////
 
 struct DetectSyncSource : public MediaSource {
-    DetectSyncSource(const sp<MediaSource> &source);
+    DetectSyncSource(const sp<IMediaSource> &source);
 
     virtual status_t start(MetaData *params = NULL);
     virtual status_t stop();
@@ -414,14 +418,14 @@ private:
         OTHER,
     };
 
-    sp<MediaSource> mSource;
+    sp<IMediaSource> mSource;
     StreamType mStreamType;
     bool mSawFirstIDRFrame;
 
     DISALLOW_EVIL_CONSTRUCTORS(DetectSyncSource);
 };
 
-DetectSyncSource::DetectSyncSource(const sp<MediaSource> &source)
+DetectSyncSource::DetectSyncSource(const sp<IMediaSource> &source)
     : mSource(source),
       mStreamType(OTHER),
       mSawFirstIDRFrame(false) {
@@ -503,7 +507,7 @@ status_t DetectSyncSource::read(
 ////////////////////////////////////////////////////////////////////////////////
 
 static void writeSourcesToMP4(
-        Vector<sp<MediaSource> > &sources, bool syncInfoPresent) {
+        Vector<sp<IMediaSource> > &sources, bool syncInfoPresent) {
 #if 0
     sp<MPEG4Writer> writer =
         new MPEG4Writer(gWriteMP4Filename.string());
@@ -521,7 +525,7 @@ static void writeSourcesToMP4(
     writer->setMaxFileDuration(60000000ll);
 
     for (size_t i = 0; i < sources.size(); ++i) {
-        sp<MediaSource> source = sources.editItemAt(i);
+        sp<IMediaSource> source = sources.editItemAt(i);
 
         CHECK_EQ(writer->addSource(
                     syncInfoPresent ? source : new DetectSyncSource(source)),
@@ -538,7 +542,7 @@ static void writeSourcesToMP4(
     writer->stop();
 }
 
-static void performSeekTest(const sp<MediaSource> &source) {
+static void performSeekTest(const sp<IMediaSource> &source) {
     CHECK_EQ((status_t)OK, source->start());
 
     int64_t durationUs;
@@ -612,49 +616,57 @@ static void usage(const char *me) {
     fprintf(stderr, "       -k seek test\n");
     fprintf(stderr, "       -x display a histogram of decoding times/fps "
                     "(video only)\n");
+    fprintf(stderr, "       -q don't show progress indicator\n");
     fprintf(stderr, "       -S allocate buffers from a surface\n");
     fprintf(stderr, "       -T allocate buffers from a surface texture\n");
     fprintf(stderr, "       -d(ump) output_filename (raw stream data to a file)\n");
     fprintf(stderr, "       -D(ump) output_filename (decoded PCM data to a file)\n");
 }
 
-static void dumpCodecProfiles(const sp<IOMX>& omx, bool queryDecoders) {
+static void dumpCodecProfiles(bool queryDecoders) {
     const char *kMimeTypes[] = {
         MEDIA_MIMETYPE_VIDEO_AVC, MEDIA_MIMETYPE_VIDEO_MPEG4,
         MEDIA_MIMETYPE_VIDEO_H263, MEDIA_MIMETYPE_AUDIO_AAC,
         MEDIA_MIMETYPE_AUDIO_AMR_NB, MEDIA_MIMETYPE_AUDIO_AMR_WB,
         MEDIA_MIMETYPE_AUDIO_MPEG, MEDIA_MIMETYPE_AUDIO_G711_MLAW,
         MEDIA_MIMETYPE_AUDIO_G711_ALAW, MEDIA_MIMETYPE_AUDIO_VORBIS,
-        MEDIA_MIMETYPE_VIDEO_VP8, MEDIA_MIMETYPE_VIDEO_VP9
+        MEDIA_MIMETYPE_VIDEO_VP8, MEDIA_MIMETYPE_VIDEO_VP9,
+        MEDIA_MIMETYPE_VIDEO_DOLBY_VISION
     };
 
     const char *codecType = queryDecoders? "decoder" : "encoder";
     printf("%s profiles:\n", codecType);
 
+    sp<IMediaCodecList> list = MediaCodecList::getInstance();
+    size_t numCodecs = list->countCodecs();
+
     for (size_t k = 0; k < sizeof(kMimeTypes) / sizeof(kMimeTypes[0]); ++k) {
         printf("type '%s':\n", kMimeTypes[k]);
 
-        Vector<CodecCapabilities> results;
-        // will retrieve hardware and software codecs
-        CHECK_EQ(QueryCodecs(omx, kMimeTypes[k],
-                             queryDecoders,
-                             &results), (status_t)OK);
-
-        for (size_t i = 0; i < results.size(); ++i) {
+        for (size_t index = 0; index < numCodecs; ++index) {
+            sp<MediaCodecInfo> info = list->getCodecInfo(index);
+            if (info == NULL || info->isEncoder() != !queryDecoders) {
+                continue;
+            }
+            sp<MediaCodecInfo::Capabilities> caps = info->getCapabilitiesFor(kMimeTypes[k]);
+            if (caps == NULL) {
+                continue;
+            }
             printf("  %s '%s' supports ",
-                       codecType, results[i].mComponentName.string());
+                       codecType, info->getCodecName());
 
-            if (results[i].mProfileLevels.size() == 0) {
-                    printf("NOTHING.\n");
-                    continue;
+            Vector<MediaCodecInfo::ProfileLevel> profileLevels;
+            caps->getSupportedProfileLevels(&profileLevels);
+            if (profileLevels.size() == 0) {
+                printf("NOTHING.\n");
+                continue;
             }
 
-            for (size_t j = 0; j < results[i].mProfileLevels.size(); ++j) {
-                const CodecProfileLevel &profileLevel =
-                     results[i].mProfileLevels[j];
+            for (size_t j = 0; j < profileLevels.size(); ++j) {
+                const MediaCodecInfo::ProfileLevel &profileLevel = profileLevels[j];
 
-                printf("%s%" PRIu32 "/%" PRIu32, j > 0 ? ", " : "",
-                    profileLevel.mProfile, profileLevel.mLevel);
+                printf("%s%u/%u", j > 0 ? ", " : "",
+                        profileLevel.mProfile, profileLevel.mLevel);
             }
 
             printf("\n");
@@ -687,11 +699,17 @@ int main(int argc, char **argv) {
     sp<ALooper> looper;
 
     int res;
-    while ((res = getopt(argc, argv, "han:lm:b:ptsrow:kxSTd:D:")) >= 0) {
+    while ((res = getopt(argc, argv, "haqn:lm:b:ptsrow:kxSTd:D:")) >= 0) {
         switch (res) {
             case 'a':
             {
                 audioOnly = true;
+                break;
+            }
+
+            case 'q':
+            {
+                showProgress = false;
                 break;
             }
 
@@ -881,23 +899,14 @@ int main(int argc, char **argv) {
     }
 
     if (dumpProfiles) {
-        sp<IServiceManager> sm = defaultServiceManager();
-        sp<IBinder> binder = sm->getService(String16("media.player"));
-        sp<IMediaPlayerService> service =
-            interface_cast<IMediaPlayerService>(binder);
-
-        CHECK(service.get() != NULL);
-
-        sp<IOMX> omx = service->getOMX();
-        CHECK(omx.get() != NULL);
-        dumpCodecProfiles(omx, true /* queryDecoders */);
-        dumpCodecProfiles(omx, false /* queryDecoders */);
+        dumpCodecProfiles(true /* queryDecoders */);
+        dumpCodecProfiles(false /* queryDecoders */);
     }
 
     if (listComponents) {
         sp<IServiceManager> sm = defaultServiceManager();
-        sp<IBinder> binder = sm->getService(String16("media.player"));
-        sp<IMediaPlayerService> service = interface_cast<IMediaPlayerService>(binder);
+        sp<IBinder> binder = sm->getService(String16("media.codec"));
+        sp<IMediaCodecService> service = interface_cast<IMediaCodecService>(binder);
 
         CHECK(service.get() != NULL);
 
@@ -954,16 +963,11 @@ int main(int argc, char **argv) {
                     false /* isControlledByApp */);
             gSurface = new Surface(producer);
         }
-
-        CHECK_EQ((status_t)OK,
-                 native_window_api_connect(
-                     gSurface.get(), NATIVE_WINDOW_API_MEDIA));
     }
 
     DataSource::RegisterDefaultSniffers();
 
-    OMXClient client;
-    status_t err = client.connect();
+    status_t err = OK;
 
     for (int k = 0; k < argc && err == OK; ++k) {
         bool syncInfoPresent = true;
@@ -985,8 +989,8 @@ int main(int argc, char **argv) {
             isJPEG = true;
         }
 
-        Vector<sp<MediaSource> > mediaSources;
-        sp<MediaSource> mediaSource;
+        Vector<sp<IMediaSource> > mediaSources;
+        sp<IMediaSource> mediaSource;
 
         if (isJPEG) {
             mediaSource = new JPEGSource(dataSource);
@@ -1005,7 +1009,7 @@ int main(int argc, char **argv) {
                 mediaSources.push(mediaSource);
             }
         } else {
-            sp<MediaExtractor> extractor = MediaExtractor::Create(dataSource);
+            sp<IMediaExtractor> extractor = MediaExtractor::Create(dataSource);
 
             if (extractor == NULL) {
                 fprintf(stderr, "could not create extractor.\n");
@@ -1016,7 +1020,10 @@ int main(int argc, char **argv) {
 
             if (meta != NULL) {
                 const char *mime;
-                CHECK(meta->findCString(kKeyMIMEType, &mime));
+                if (!meta->findCString(kKeyMIMEType, &mime)) {
+                    fprintf(stderr, "extractor did not provide MIME type.\n");
+                    return -1;
+                }
 
                 if (!strcasecmp(mime, MEDIA_MIMETYPE_CONTAINER_MPEG2TS)) {
                     syncInfoPresent = false;
@@ -1029,7 +1036,7 @@ int main(int argc, char **argv) {
                 bool haveAudio = false;
                 bool haveVideo = false;
                 for (size_t i = 0; i < numTracks; ++i) {
-                    sp<MediaSource> source = extractor->getTrack(i);
+                    sp<IMediaSource> source = extractor->getTrack(i);
 
                     const char *mime;
                     CHECK(source->getFormat()->findCString(
@@ -1059,6 +1066,9 @@ int main(int argc, char **argv) {
                     meta = extractor->getTrackMetaData(
                             i, MediaExtractor::kIncludeExtensiveMetaData);
 
+                    if (meta == NULL) {
+                        break;
+                    }
                     const char *mime;
                     meta->findCString(kKeyMIMEType, &mime);
 
@@ -1097,39 +1107,22 @@ int main(int argc, char **argv) {
         } else if (dumpStream) {
             dumpSource(mediaSource, dumpStreamFilename);
         } else if (dumpPCMStream) {
-            OMXClient client;
-            CHECK_EQ(client.connect(), (status_t)OK);
-
-            sp<MediaSource> decSource =
-                OMXCodec::Create(
-                        client.interface(),
-                        mediaSource->getFormat(),
-                        false,
-                        mediaSource,
-                        0,
-                        0);
-
+            sp<IMediaSource> decSource = SimpleDecodingSource::Create(mediaSource);
             dumpSource(decSource, dumpStreamFilename);
         } else if (seekTest) {
             performSeekTest(mediaSource);
         } else {
-            playSource(&client, mediaSource);
+            playSource(mediaSource);
         }
     }
 
     if ((useSurfaceAlloc || useSurfaceTexAlloc) && !audioOnly) {
-        CHECK_EQ((status_t)OK,
-                 native_window_api_disconnect(
-                     gSurface.get(), NATIVE_WINDOW_API_MEDIA));
-
         gSurface.clear();
 
         if (useSurfaceAlloc) {
             composerClient->dispose();
         }
     }
-
-    client.disconnect();
 
     return 0;
 }

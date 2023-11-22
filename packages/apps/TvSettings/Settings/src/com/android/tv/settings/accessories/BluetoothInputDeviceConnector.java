@@ -31,7 +31,7 @@ import android.view.InputDevice;
  */
 public class BluetoothInputDeviceConnector implements BluetoothDevicePairer.BluetoothConnector {
 
-    public static final String TAG = "aah.BluetoothInputDeviceConnector";
+    public static final String TAG = "BtInputDeviceConnector";
 
     private static final boolean DEBUG = false;
 

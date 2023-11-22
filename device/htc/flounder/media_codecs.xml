@@ -145,6 +145,7 @@ Only the three quirks included above are recognized at this point:
             <Limit name="blocks-per-second" min="1" max="783360" />
             <Limit name="bitrate" range="1-50000000" />
             <Limit name="concurrent-instances" max="32" />
+            <Feature name="intra-refresh" />
         </MediaCodec>
         <MediaCodec name="OMX.Nvidia.vp8.encoder" type="video/x-vnd.on2.vp8" >
             <Limit name="size" min="48x48" max="3840x2176" />

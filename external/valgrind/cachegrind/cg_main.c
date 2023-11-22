@@ -8,7 +8,7 @@
    This file is part of Cachegrind, a Valgrind tool for cache
    profiling programs.
 
-   Copyright (C) 2002-2013 Nicholas Nethercote
+   Copyright (C) 2002-2015 Nicholas Nethercote
       njn@valgrind.org
 
    This program is free software; you can redistribute it and/or
@@ -1456,7 +1456,7 @@ static void fprint_CC_table_and_calc_totals(void)
 
       // Print the LineCC
       if (clo_cache_sim && clo_branch_sim) {
-         VG_(fprintf)(fp,  "%u %llu %llu %llu"
+         VG_(fprintf)(fp,  "%d %llu %llu %llu"
                              " %llu %llu %llu"
                              " %llu %llu %llu"
                              " %llu %llu %llu %llu\n",
@@ -1468,7 +1468,7 @@ static void fprint_CC_table_and_calc_totals(void)
                             lineCC->Bi.b, lineCC->Bi.mp);
       }
       else if (clo_cache_sim && !clo_branch_sim) {
-         VG_(fprintf)(fp,  "%u %llu %llu %llu"
+         VG_(fprintf)(fp,  "%d %llu %llu %llu"
                              " %llu %llu %llu"
                              " %llu %llu %llu\n",
                             lineCC->loc.line,
@@ -1477,7 +1477,7 @@ static void fprint_CC_table_and_calc_totals(void)
                             lineCC->Dw.a, lineCC->Dw.m1, lineCC->Dw.mL);
       }
       else if (!clo_cache_sim && clo_branch_sim) {
-         VG_(fprintf)(fp,  "%u %llu"
+         VG_(fprintf)(fp,  "%d %llu"
                              " %llu %llu %llu %llu\n",
                             lineCC->loc.line,
                             lineCC->Ir.a, 
@@ -1485,7 +1485,7 @@ static void fprint_CC_table_and_calc_totals(void)
                             lineCC->Bi.b, lineCC->Bi.mp);
       }
       else {
-         VG_(fprintf)(fp,  "%u %llu\n",
+         VG_(fprintf)(fp,  "%d %llu\n",
                             lineCC->loc.line,
                             lineCC->Ir.a);
       }
@@ -1698,11 +1698,11 @@ static void cg_fini(Int exitcode)
       VG_(dmsg)("cachegrind: with zero      info:%6.1f%% (%d)\n", 
                 no_debugs * 100.0 / debug_lookups, no_debugs);
 
-      VG_(dmsg)("cachegrind: string table size: %lu\n",
+      VG_(dmsg)("cachegrind: string table size: %u\n",
                 VG_(OSetGen_Size)(stringTable));
-      VG_(dmsg)("cachegrind: CC table size: %lu\n",
+      VG_(dmsg)("cachegrind: CC table size: %u\n",
                 VG_(OSetGen_Size)(CC_table));
-      VG_(dmsg)("cachegrind: InstrInfo table size: %lu\n",
+      VG_(dmsg)("cachegrind: InstrInfo table size: %u\n",
                 VG_(OSetGen_Size)(instrInfoTable));
    }
 }
@@ -1783,7 +1783,7 @@ static void cg_pre_clo_init(void)
    VG_(details_version)         (NULL);
    VG_(details_description)     ("a cache and branch-prediction profiler");
    VG_(details_copyright_author)(
-      "Copyright (C) 2002-2013, and GNU GPL'd, by Nicholas Nethercote et al.");
+      "Copyright (C) 2002-2015, and GNU GPL'd, by Nicholas Nethercote et al.");
    VG_(details_bug_reports_to)  (VG_BUGS_TO);
    VG_(details_avg_translation_sizeB) ( 500 );
 

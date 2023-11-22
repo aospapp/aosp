@@ -44,9 +44,11 @@ clang_frontend_SRC_FILES := \
   LogDiagnosticPrinter.cpp \
   ModuleDependencyCollector.cpp \
   MultiplexConsumer.cpp \
+  PCHContainerOperations.cpp \
   PrintPreprocessedOutput.cpp \
   SerializedDiagnosticPrinter.cpp \
   SerializedDiagnosticReader.cpp \
+  TestModuleFileExtension.cpp \
   TextDiagnosticBuffer.cpp \
   TextDiagnostic.cpp \
   TextDiagnosticPrinter.cpp \
@@ -63,6 +65,7 @@ LOCAL_MODULE_TAGS:= optional
 include $(CLANG_HOST_BUILD_MK)
 include $(CLANG_TBLGEN_RULES_MK)
 include $(CLANG_VERSION_INC_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
 include $(BUILD_HOST_STATIC_LIBRARY)
 
 # For the target
@@ -76,4 +79,5 @@ LOCAL_MODULE_TAGS:= optional
 include $(CLANG_DEVICE_BUILD_MK)
 include $(CLANG_TBLGEN_RULES_MK)
 include $(CLANG_VERSION_INC_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
 include $(BUILD_STATIC_LIBRARY)

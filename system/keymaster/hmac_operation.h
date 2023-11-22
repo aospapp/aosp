@@ -35,7 +35,7 @@ class HmacOperation : public Operation {
                                      AuthorizationSet* output_params, Buffer* output,
                                      size_t* input_consumed);
     virtual keymaster_error_t Abort();
-    virtual keymaster_error_t Finish(const AuthorizationSet& additional_params,
+    virtual keymaster_error_t Finish(const AuthorizationSet& additional_params, const Buffer& input,
                                      const Buffer& signature, AuthorizationSet* output_params,
                                      Buffer* output);
 

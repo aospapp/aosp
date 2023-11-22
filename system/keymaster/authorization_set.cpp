@@ -17,9 +17,9 @@
 #include <keymaster/authorization_set.h>
 
 #include <assert.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stddef.h>
 
 #include <new>
 
@@ -103,6 +103,23 @@ bool AuthorizationSet::reserve_indirect(size_t length) {
     return true;
 }
 
+void AuthorizationSet::MoveFrom(AuthorizationSet& set) {
+    elems_ = set.elems_;
+    elems_size_ = set.elems_size_;
+    elems_capacity_ = set.elems_capacity_;
+    indirect_data_ = set.indirect_data_;
+    indirect_data_size_ = set.indirect_data_size_;
+    indirect_data_capacity_ = set.indirect_data_capacity_;
+    error_ = set.error_;
+    set.elems_ = nullptr;
+    set.elems_size_ = 0;
+    set.elems_capacity_ = 0;
+    set.indirect_data_ = nullptr;
+    set.indirect_data_size_ = 0;
+    set.indirect_data_capacity_ = 0;
+    set.error_ = OK;
+}
+
 bool AuthorizationSet::Reinitialize(const keymaster_key_param_t* elems, const size_t count) {
     FreeData();
 
@@ -129,9 +146,13 @@ void AuthorizationSet::set_invalid(Error error) {
     error_ = error;
 }
 
-void AuthorizationSet::Deduplicate() {
+void AuthorizationSet::Sort() {
     qsort(elems_, elems_size_, sizeof(*elems_),
           reinterpret_cast<int (*)(const void*, const void*)>(keymaster_param_compare));
+}
+
+void AuthorizationSet::Deduplicate() {
+    Sort();
 
     size_t invalid_count = 0;
     for (size_t i = 1; i < size(); ++i) {
@@ -150,6 +171,8 @@ void AuthorizationSet::Deduplicate() {
 
     if (invalid_count == 0)
         return;
+
+    Sort();
 
     // Since KM_TAG_INVALID == 0, all of the invalid entries are first.
     elems_size_ -= invalid_count;
@@ -190,13 +213,31 @@ int AuthorizationSet::find(keymaster_tag_t tag, int begin) const {
         return i;
 }
 
-keymaster_key_param_t empty;
+bool AuthorizationSet::erase(int index) {
+    if (index < 0 || index >= static_cast<int>(size()))
+        return false;
+
+    --elems_size_;
+    for (size_t i = index; i < elems_size_; ++i)
+        elems_[i] = elems_[i + 1];
+    return true;
+}
+
+keymaster_key_param_t empty_param = {KM_TAG_INVALID, {}};
+keymaster_key_param_t& AuthorizationSet::operator[](int at) {
+    if (is_valid() == OK && at < (int)elems_size_) {
+        return elems_[at];
+    }
+    empty_param = {KM_TAG_INVALID, {}};
+    return empty_param;
+}
+
 keymaster_key_param_t AuthorizationSet::operator[](int at) const {
     if (is_valid() == OK && at < (int)elems_size_) {
         return elems_[at];
     }
-    memset(&empty, 0, sizeof(empty));
-    return empty;
+    empty_param = {KM_TAG_INVALID, {}};
+    return empty_param;
 }
 
 bool AuthorizationSet::push_back(const keymaster_key_param_set_t& set) {
@@ -585,6 +626,13 @@ bool AuthorizationSet::GetTagValueBool(keymaster_tag_t tag) const {
 bool AuthorizationSet::ContainsEnumValue(keymaster_tag_t tag, uint32_t value) const {
     for (auto& entry : *this)
         if (entry.tag == tag && entry.enumerated == value)
+            return true;
+    return false;
+}
+
+bool AuthorizationSet::ContainsIntValue(keymaster_tag_t tag, uint32_t value) const {
+    for (auto& entry : *this)
+        if (entry.tag == tag && entry.integer == value)
             return true;
     return false;
 }

@@ -16,16 +16,17 @@
 
 package android.graphics.drawable.shapes.cts;
 
+import junit.framework.TestCase;
 
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Paint;
-import android.graphics.Path;
 import android.graphics.Bitmap.Config;
+import android.graphics.Canvas;
+import android.graphics.Outline;
+import android.graphics.Paint;
 import android.graphics.Paint.Style;
+import android.graphics.Path;
 import android.graphics.drawable.shapes.PathShape;
-
-import junit.framework.TestCase;
+import android.test.suitebuilder.annotation.SmallTest;
 
 public class PathShapeTest extends TestCase {
     private static final int TEST_COLOR_1 = 0xFF00FF00;
@@ -33,6 +34,7 @@ public class PathShapeTest extends TestCase {
 
     private static final int TOLERANCE = 4;
 
+    @SmallTest
     public void testConstructor() {
         new PathShape(new Path(), 1f, 5f);
 
@@ -41,6 +43,7 @@ public class PathShapeTest extends TestCase {
         new PathShape(null, 0f, 0f);
     }
 
+    @SmallTest
     public void testDraw() {
         final int SHAPE_SIZE = 200;
 
@@ -87,6 +90,7 @@ public class PathShapeTest extends TestCase {
         assertEquals(25, diagonal, TOLERANCE);
     }
 
+    @SmallTest
     public void testClone() throws CloneNotSupportedException {
         PathShape pathShape = new PathShape(new Path(), 1f, 5f);
         pathShape.resize(100f, 200f);
@@ -97,5 +101,17 @@ public class PathShapeTest extends TestCase {
         assertNotSame(pathShape, clonedShape);
         assertEquals(pathShape.getWidth(), clonedShape.getWidth());
         assertEquals(pathShape.getHeight(), clonedShape.getHeight());
+    }
+
+    @SmallTest
+    public void testGetOutline() {
+        Outline outline = new Outline();
+        PathShape shape;
+
+        // This is a no-op. Just make sure it doesn't crash.
+        outline.setEmpty();
+        shape = new PathShape(new Path(), 0, 0);
+        shape.getOutline(outline);
+        assertTrue(outline.isEmpty());
     }
 }

@@ -20,7 +20,7 @@
  *  This file contains compile-time configurable constants for SDP Search
  ******************************************************************************/
 
-#include "gki.h"
+#include "bt_common.h"
 #include "bta_api.h"
 #include "bta_sdp_api.h"
 

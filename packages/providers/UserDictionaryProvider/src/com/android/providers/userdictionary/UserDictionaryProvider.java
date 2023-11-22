@@ -33,6 +33,7 @@ import android.database.sqlite.SQLiteQueryBuilder;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.Process;
+import android.os.UserHandle;
 import android.provider.UserDictionary;
 import android.provider.UserDictionary.Words;
 import android.text.TextUtils;
@@ -311,7 +312,7 @@ public class UserDictionaryProvider extends ContentProvider {
     private boolean canCallerAccessUserDictionary() {
         final int callingUid = Binder.getCallingUid();
 
-        if (callingUid == Process.SYSTEM_UID
+        if (UserHandle.getAppId(callingUid) == Process.SYSTEM_UID
                 || callingUid == Process.ROOT_UID
                 || callingUid == Process.myUid()) {
             return true;

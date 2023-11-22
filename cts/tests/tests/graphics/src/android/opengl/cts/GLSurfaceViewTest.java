@@ -41,7 +41,7 @@ public class GLSurfaceViewTest extends
     private GLSurfaceViewCtsActivity mActivity;
 
     public GLSurfaceViewTest() {
-        super("com.android.cts.graphics", GLSurfaceViewCtsActivity.class);
+        super("android.graphics.cts", GLSurfaceViewCtsActivity.class);
     }
 
     @Override

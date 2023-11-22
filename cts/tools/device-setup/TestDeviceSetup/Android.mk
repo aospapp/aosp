@@ -25,7 +25,8 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 LOCAL_DEX_PREOPT := false
 LOCAL_PROGUARD_ENABLED := disabled
 
-LOCAL_SDK_VERSION := current
+# uncomment when b/13282254 is fixed
+#LOCAL_SDK_VERSION := current
 
 LOCAL_PACKAGE_NAME := TestDeviceSetup
 

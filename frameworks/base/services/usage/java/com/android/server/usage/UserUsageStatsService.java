@@ -65,8 +65,19 @@ class UserUsageStatsService {
     private final String mLogPrefix;
     private final int mUserId;
 
+    private static final long[] INTERVAL_LENGTH = new long[] {
+            UnixCalendar.DAY_IN_MILLIS, UnixCalendar.WEEK_IN_MILLIS,
+            UnixCalendar.MONTH_IN_MILLIS, UnixCalendar.YEAR_IN_MILLIS
+    };
+
     interface StatsUpdatedListener {
         void onStatsUpdated();
+        void onStatsReloaded();
+        /**
+         * Callback that a system update was detected
+         * @param mUserId user that needs to be initialized
+         */
+        void onNewUpdate(int mUserId);
     }
 
     UserUsageStatsService(Context context, int userId, File usageStatsDir,
@@ -80,7 +91,7 @@ class UserUsageStatsService {
         mUserId = userId;
     }
 
-    void init(final long currentTimeMillis, final long deviceUsageTime) {
+    void init(final long currentTimeMillis) {
         mDatabase.init(currentTimeMillis);
 
         int nullCount = 0;
@@ -104,18 +115,12 @@ class UserUsageStatsService {
 
             // By calling loadActiveStats, we will
             // generate new stats for each bucket.
-            loadActiveStats(currentTimeMillis,/*force=*/ false, /*resetBeginIdleTime=*/ false);
+            loadActiveStats(currentTimeMillis);
         } else {
             // Set up the expiry date to be one day from the latest daily stat.
             // This may actually be today and we will rollover on the first event
             // that is reported.
-            mDailyExpiryDate.setTimeInMillis(
-                    mCurrentStats[UsageStatsManager.INTERVAL_DAILY].beginTime);
-            mDailyExpiryDate.addDays(1);
-            mDailyExpiryDate.truncateToDay();
-            Slog.i(TAG, mLogPrefix + "Rollover scheduled @ " +
-                    sDateFormat.format(mDailyExpiryDate.getTimeInMillis()) +
-                    "(" + mDailyExpiryDate.getTimeInMillis() + ")");
+            updateRolloverDeadline();
         }
 
         // Now close off any events that were open at the time this was saved.
@@ -135,45 +140,17 @@ class UserUsageStatsService {
         }
 
         if (mDatabase.isNewUpdate()) {
-            initializeDefaultsForApps(currentTimeMillis, deviceUsageTime,
-                    mDatabase.isFirstUpdate());
+            notifyNewUpdate();
         }
     }
 
-    /**
-     * If any of the apps don't have a last-used entry, add one now.
-     * @param currentTimeMillis the current time
-     * @param firstUpdate if it is the first update, touch all installed apps, otherwise only
-     *        touch the system apps
-     */
-    private void initializeDefaultsForApps(long currentTimeMillis, long deviceUsageTime,
-            boolean firstUpdate) {
-        PackageManager pm = mContext.getPackageManager();
-        List<PackageInfo> packages = pm.getInstalledPackages(0, mUserId);
-        final int packageCount = packages.size();
-        for (int i = 0; i < packageCount; i++) {
-            final PackageInfo pi = packages.get(i);
-            String packageName = pi.packageName;
-            if (pi.applicationInfo != null && (firstUpdate || pi.applicationInfo.isSystemApp())
-                    && getBeginIdleTime(packageName) == -1) {
-                for (IntervalStats stats : mCurrentStats) {
-                    stats.update(packageName, currentTimeMillis, Event.SYSTEM_INTERACTION);
-                    stats.updateBeginIdleTime(packageName, deviceUsageTime);
-                    mStatsChanged = true;
-                }
-            }
-        }
-        // Persist the new OTA-related access stats.
-        persistActiveStats();
-    }
-
-    void onTimeChanged(long oldTime, long newTime, boolean resetBeginIdleTime) {
+    void onTimeChanged(long oldTime, long newTime) {
         persistActiveStats();
         mDatabase.onTimeChanged(newTime - oldTime);
-        loadActiveStats(newTime, /* force= */ true, resetBeginIdleTime);
+        loadActiveStats(newTime);
     }
 
-    void reportEvent(UsageEvents.Event event, long deviceUsageTime) {
+    void reportEvent(UsageEvents.Event event) {
         if (DEBUG) {
             Slog.d(TAG, mLogPrefix + "Got usage event for " + event.mPackage
                     + "[" + event.mTimeStamp + "]: "
@@ -208,28 +185,9 @@ class UserUsageStatsService {
                 stats.updateConfigurationStats(newFullConfig, event.mTimeStamp);
             } else {
                 stats.update(event.mPackage, event.mTimeStamp, event.mEventType);
-                stats.updateBeginIdleTime(event.mPackage, deviceUsageTime);
             }
         }
 
-        notifyStatsChanged();
-    }
-
-    /**
-     * Sets the beginIdleTime for each of the intervals.
-     * @param beginIdleTime
-     */
-    void setBeginIdleTime(String packageName, long beginIdleTime) {
-        for (IntervalStats stats : mCurrentStats) {
-            stats.updateBeginIdleTime(packageName, beginIdleTime);
-        }
-        notifyStatsChanged();
-    }
-
-    void setSystemLastUsedTime(String packageName, long lastUsedTime) {
-        for (IntervalStats stats : mCurrentStats) {
-            stats.updateSystemLastUsedTime(packageName, lastUsedTime);
-        }
         notifyStatsChanged();
     }
 
@@ -237,7 +195,7 @@ class UserUsageStatsService {
             new StatCombiner<UsageStats>() {
                 @Override
                 public void combine(IntervalStats stats, boolean mutable,
-                        List<UsageStats> accResult) {
+                                    List<UsageStats> accResult) {
                     if (!mutable) {
                         accResult.addAll(stats.packageStats.values());
                         return;
@@ -254,7 +212,7 @@ class UserUsageStatsService {
             new StatCombiner<ConfigurationStats>() {
                 @Override
                 public void combine(IntervalStats stats, boolean mutable,
-                        List<ConfigurationStats> accResult) {
+                                    List<ConfigurationStats> accResult) {
                     if (!mutable) {
                         accResult.addAll(stats.configurations.values());
                         return;
@@ -387,26 +345,6 @@ class UserUsageStatsService {
         return new UsageEvents(results, table);
     }
 
-    long getBeginIdleTime(String packageName) {
-        final IntervalStats yearly = mCurrentStats[UsageStatsManager.INTERVAL_YEARLY];
-        UsageStats packageUsage;
-        if ((packageUsage = yearly.packageStats.get(packageName)) == null) {
-            return -1;
-        } else {
-            return packageUsage.getBeginIdleTime();
-        }
-    }
-
-    long getSystemLastUsedTime(String packageName) {
-        final IntervalStats yearly = mCurrentStats[UsageStatsManager.INTERVAL_YEARLY];
-        UsageStats packageUsage;
-        if ((packageUsage = yearly.packageStats.get(packageName)) == null) {
-            return -1;
-        } else {
-            return packageUsage.getLastTimeSystemUsed();
-        }
-    }
-
     void persistActiveStats() {
         if (mStatsChanged) {
             Slog.i(TAG, mLogPrefix + "Flushing usage stats to disk");
@@ -448,7 +386,7 @@ class UserUsageStatsService {
 
         persistActiveStats();
         mDatabase.prune(currentTimeMillis);
-        loadActiveStats(currentTimeMillis, /*force=*/ false, /*resetBeginIdleTime=*/ false);
+        loadActiveStats(currentTimeMillis);
 
         final int continueCount = continuePreviousDay.size();
         for (int i = 0; i < continueCount; i++) {
@@ -474,83 +412,72 @@ class UserUsageStatsService {
         }
     }
 
-    /**
-     * @param force To force all in-memory stats to be reloaded.
-     */
-    private void loadActiveStats(final long currentTimeMillis, boolean force,
-            boolean resetBeginIdleTime) {
-        final UnixCalendar tempCal = mDailyExpiryDate;
+    private void notifyNewUpdate() {
+        mListener.onNewUpdate(mUserId);
+    }
+
+    private void loadActiveStats(final long currentTimeMillis) {
         for (int intervalType = 0; intervalType < mCurrentStats.length; intervalType++) {
-            tempCal.setTimeInMillis(currentTimeMillis);
-            UnixCalendar.truncateTo(tempCal, intervalType);
-
-            if (!force && mCurrentStats[intervalType] != null &&
-                    mCurrentStats[intervalType].beginTime == tempCal.getTimeInMillis()) {
-                // These are the same, no need to load them (in memory stats are always newer
-                // than persisted stats).
-                continue;
-            }
-
-            final long lastBeginTime = mDatabase.getLatestUsageStatsBeginTime(intervalType);
-            if (lastBeginTime >= tempCal.getTimeInMillis()) {
+            final IntervalStats stats = mDatabase.getLatestUsageStats(intervalType);
+            if (stats != null && currentTimeMillis - 500 >= stats.endTime &&
+                    currentTimeMillis < stats.beginTime + INTERVAL_LENGTH[intervalType]) {
                 if (DEBUG) {
                     Slog.d(TAG, mLogPrefix + "Loading existing stats @ " +
-                            sDateFormat.format(lastBeginTime) + "(" + lastBeginTime +
+                            sDateFormat.format(stats.beginTime) + "(" + stats.beginTime +
                             ") for interval " + intervalType);
                 }
-                mCurrentStats[intervalType] = mDatabase.getLatestUsageStats(intervalType);
+                mCurrentStats[intervalType] = stats;
             } else {
-                mCurrentStats[intervalType] = null;
-            }
-
-            if (mCurrentStats[intervalType] == null) {
+                // No good fit remains.
                 if (DEBUG) {
                     Slog.d(TAG, "Creating new stats @ " +
-                            sDateFormat.format(tempCal.getTimeInMillis()) + "(" +
-                            tempCal.getTimeInMillis() + ") for interval " + intervalType);
-
+                            sDateFormat.format(currentTimeMillis) + "(" +
+                            currentTimeMillis + ") for interval " + intervalType);
                 }
+
                 mCurrentStats[intervalType] = new IntervalStats();
-                mCurrentStats[intervalType].beginTime = tempCal.getTimeInMillis();
-                mCurrentStats[intervalType].endTime = currentTimeMillis;
-            }
-
-            if (resetBeginIdleTime) {
-                for (UsageStats usageStats : mCurrentStats[intervalType].packageStats.values()) {
-                    usageStats.mBeginIdleTime = 0;
-                }
+                mCurrentStats[intervalType].beginTime = currentTimeMillis;
+                mCurrentStats[intervalType].endTime = currentTimeMillis + 1;
             }
         }
+
         mStatsChanged = false;
-        mDailyExpiryDate.setTimeInMillis(currentTimeMillis);
+        updateRolloverDeadline();
+
+        // Tell the listener that the stats reloaded, which may have changed idle states.
+        mListener.onStatsReloaded();
+    }
+
+    private void updateRolloverDeadline() {
+        mDailyExpiryDate.setTimeInMillis(
+                mCurrentStats[UsageStatsManager.INTERVAL_DAILY].beginTime);
         mDailyExpiryDate.addDays(1);
-        mDailyExpiryDate.truncateToDay();
         Slog.i(TAG, mLogPrefix + "Rollover scheduled @ " +
                 sDateFormat.format(mDailyExpiryDate.getTimeInMillis()) + "(" +
-                tempCal.getTimeInMillis() + ")");
+                mDailyExpiryDate.getTimeInMillis() + ")");
     }
 
     //
     // -- DUMP related methods --
     //
 
-    void checkin(final IndentingPrintWriter pw, final long screenOnTime) {
+    void checkin(final IndentingPrintWriter pw) {
         mDatabase.checkinDailyFiles(new UsageStatsDatabase.CheckinAction() {
             @Override
             public boolean checkin(IntervalStats stats) {
-                printIntervalStats(pw, stats, screenOnTime, false);
+                printIntervalStats(pw, stats, false);
                 return true;
             }
         });
     }
 
-    void dump(IndentingPrintWriter pw, final long screenOnTime) {
+    void dump(IndentingPrintWriter pw) {
         // This is not a check-in, only dump in-memory stats.
         for (int interval = 0; interval < mCurrentStats.length; interval++) {
             pw.print("In-memory ");
             pw.print(intervalToString(interval));
             pw.println(" stats");
-            printIntervalStats(pw, mCurrentStats[interval], screenOnTime, true);
+            printIntervalStats(pw, mCurrentStats[interval], true);
         }
     }
 
@@ -568,7 +495,7 @@ class UserUsageStatsService {
         return Long.toString(elapsedTime);
     }
 
-    void printIntervalStats(IndentingPrintWriter pw, IntervalStats stats, long screenOnTime,
+    void printIntervalStats(IndentingPrintWriter pw, IntervalStats stats,
             boolean prettyDates) {
         if (prettyDates) {
             pw.printPair("timeRange", "\"" + DateUtils.formatDateRange(mContext,
@@ -589,10 +516,6 @@ class UserUsageStatsService {
             pw.printPair("totalTime",
                     formatElapsedTime(usageStats.mTotalTimeInForeground, prettyDates));
             pw.printPair("lastTime", formatDateTime(usageStats.mLastTimeUsed, prettyDates));
-            pw.printPair("lastTimeSystem",
-                    formatDateTime(usageStats.mLastTimeSystemUsed, prettyDates));
-            pw.printPair("inactiveTime",
-                    formatElapsedTime(screenOnTime - usageStats.mBeginIdleTime, prettyDates));
             pw.println();
         }
         pw.decreaseIndent();
@@ -668,5 +591,13 @@ class UserUsageStatsService {
             default:
                 return "UNKNOWN";
         }
+    }
+
+    byte[] getBackupPayload(String key){
+        return mDatabase.getBackupPayload(key);
+    }
+
+    void applyRestoredPayload(String key, byte[] payload){
+        mDatabase.applyRestoredPayload(key, payload);
     }
 }

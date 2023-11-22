@@ -34,7 +34,8 @@ import com.android.phone.vvm.omtp.sms.OmtpStandardMessageSender;
  * retrieve carrier vvm configuration details before sending the appropriate texts.
  */
 public class OmtpVvmCarrierConfigHelper {
-    private static final String TAG = "OmtpVvmCarrierConfigHelper";
+
+    private static final String TAG = "OmtpVvmCarrierCfgHlpr";
     private Context mContext;
     private int mSubId;
     private PersistableBundle mCarrierConfig;
@@ -86,6 +87,22 @@ public class OmtpVvmCarrierConfigHelper {
         } catch (NameNotFoundException e) {
             return true;
         }
+    }
+
+    public boolean isCellularDataRequired() {
+        if (mCarrierConfig == null) {
+            return false;
+        }
+        return mCarrierConfig
+                .getBoolean(CarrierConfigManager.KEY_VVM_CELLULAR_DATA_REQUIRED_BOOL);
+    }
+
+    public boolean isPrefetchEnabled() {
+        if (mCarrierConfig == null) {
+            return false;
+        }
+        return mCarrierConfig
+                .getBoolean(CarrierConfigManager.KEY_VVM_PREFETCH_BOOL);
     }
 
     public void startActivation() {

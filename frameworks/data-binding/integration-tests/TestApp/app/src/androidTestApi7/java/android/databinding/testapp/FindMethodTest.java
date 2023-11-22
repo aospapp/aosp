@@ -116,4 +116,11 @@ public class FindMethodTest
         mBinder.executePendingBindings();
         assertEquals("barfoo", mBinder.textView26.getText().toString());
     }
+
+    @UiThreadTest
+    public void testPrimitiveToObject() throws Throwable {
+        mBinder.executePendingBindings();
+        assertTrue(mBinder.textView27.getTag() instanceof Integer);
+        assertEquals((Integer)1, mBinder.textView27.getTag());
+    }
 }

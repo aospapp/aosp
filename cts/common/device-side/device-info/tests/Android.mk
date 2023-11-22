@@ -27,4 +27,3 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := compatibility-device-info-tests
 
 include $(BUILD_STATIC_JAVA_LIBRARY)
-

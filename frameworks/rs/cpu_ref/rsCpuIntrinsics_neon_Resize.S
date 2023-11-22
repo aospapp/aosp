@@ -140,7 +140,7 @@ END(rsdIntrinsicResize_oscctl_K)
  * For the most part the vertical pass (the outer loop) is the same for all
  * versions.  Exceptions are handled in-line with conditional assembly.
  */
-.irep comp, 1, 2, 4
+.irp comp, 1, 2, 4
 .if \comp == 1
 .set COMPONENT_SHIFT, 0
 .elseif \comp == 2

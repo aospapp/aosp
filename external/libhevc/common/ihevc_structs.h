@@ -38,6 +38,870 @@
 #ifndef _IHEVC_STRUCTS_H_
 #define _IHEVC_STRUCTS_H_
 
+
+/**
+ * Buffering Period SEI parameters Info
+ */
+typedef struct
+{
+    /**
+     * specifies SPS Id active for the coded picture assosiated
+     * with the bp message.
+     */
+    UWORD8  u1_bp_seq_parameter_set_id;
+
+    /**
+     * Derived from Hrd parameters
+     */
+    UWORD8  u1_sub_pic_cpb_params_present_flag;
+
+    /**
+     * specifies the presence of the initial_alt_cpb_removal_delay[ i ]
+     * and initial_alt_cpb_removal_offset[ i ] syntax elements
+     */
+    UWORD8  u1_rap_cpb_params_present_flag;
+
+    /**
+     * cbp removal delay used in buffering period SEI
+     */
+    UWORD32 u4_cpb_delay_offset;
+
+    /**
+     * dbp removal delay used in buffering period SEI
+     */
+    UWORD32 u4_dpb_delay_offset;
+
+    /**
+     * concatanation flag
+     */
+    UWORD8 u1_concatenation_flag;
+
+    /**
+     * delata cbp removal delay
+     */
+    UWORD32 u4_au_cpb_removal_delay_delta_minus1;
+
+    /**
+     * specify the default initial CPB removal delays, respectively,
+     * for the CPB when the NAL HRD parameters are in use
+     */
+    UWORD32 au4_nal_initial_cpb_removal_delay[MAX_CPB_CNT];
+
+    /**
+     * specify the alternate initial CPB removal delays, respectively,
+     * for the CPB when the NAL HRD parameters are in use
+     */
+    UWORD32 au4_nal_initial_alt_cpb_removal_delay[MAX_CPB_CNT];
+
+    /**
+     * specify the initial CPB removal delay offset, respectively,
+     * for the CPB when the NAL HRD parameters are in use
+     */
+    UWORD32 au4_nal_initial_cpb_removal_delay_offset[MAX_CPB_CNT];
+
+    /**
+     * specify the alternate initial CPB removal delays offsets, respectively,
+     * for the CPB when the NAL HRD parameters are in use
+     */
+    UWORD32 au4_nal_initial_alt_cpb_removal_delay_offset[MAX_CPB_CNT];
+
+    /**
+     * specify the default initial CPB removal delays, respectively,
+     * for the CPB when the VCL HRD parameters are in use
+     */
+    UWORD32 au4_vcl_initial_cpb_removal_delay[MAX_CPB_CNT];
+
+    /**
+     * specify the initial alt CPB removal delays , respectively,
+     * for the CPB when the VCL HRD parameters are in use
+     */
+    UWORD32 au4_vcl_initial_alt_cpb_removal_delay[MAX_CPB_CNT];
+
+    /**
+     * specify the initial CPB removal delay offset, respectively,
+     * for the CPB when the VCL HRD parameters are in use
+     */
+    UWORD32 au4_vcl_initial_cpb_removal_delay_offset[MAX_CPB_CNT];
+
+    /**
+     * specify the alternate initial CPB removal delays offsets, respectively,
+     * for the CPB when the VCL HRD parameters are in use
+     */
+    UWORD32 au4_vcl_initial_alt_cpb_removal_delay_offset[MAX_CPB_CNT];
+
+    /**
+     * Inital CPB removal delay
+     */
+    UWORD32 u4_initial_cpb_removal_delay_length;
+
+    /**
+     * CPB cnt for corr. sublayer
+     */
+    UWORD32 u4_cpb_cnt;
+
+
+    /**
+     * VBV buffer size used in buffering period SEI
+     */
+    UWORD32 u4_buffer_size_sei;
+
+    /**
+     * Encoder buffer fullness  used in buffering period SEI
+     */
+    UWORD32 u4_dbf_sei;
+
+    /**
+     * target bitrate used in buffering period SEI
+     */
+    UWORD32 u4_target_bit_rate_sei;
+
+}buf_period_sei_params_t;
+
+
+/**
+ * Picture Timing SEI parameters Info
+ */
+typedef struct
+{
+    /**
+     * derived from vui parameters
+     */
+    UWORD8 u1_frame_field_info_present_flag;
+
+    /**
+     * indicates whether a picture should be displayed as a
+     * frame or as one or more fields
+     */
+    UWORD32 u4_pic_struct;
+
+    UWORD32 u4_source_scan_type;
+
+    /**
+     * if 1, indicates if the current pic is a duplicte pic in output order
+     */
+    UWORD8 u1_duplicate_flag;
+
+    /**
+     * specifies the number clock ticks between the nominal CPB removal time
+     * au associated with the pt SEI message and
+     * the preceding au in decoding order that contained a bp SEI message
+     */
+    UWORD32 u4_au_cpb_removal_delay_minus1;
+
+    /**
+     * compute the DPB output time of the picture
+     */
+    UWORD32 u4_pic_dpb_output_delay;
+
+    UWORD32 u4_pic_dpb_output_du_delay;
+
+    /**
+     * specifies the number of decoding units in the access unit
+     * the picture timing SEI message is associated with
+     */
+    UWORD32 u4_num_decoding_units_minus1;
+
+    /**
+     * if 1 specifies that the du_common_cpb_removal_delay_increment_minus1 is present
+     */
+    UWORD8 u1_du_common_cpb_removal_delay_flag;
+
+    /**
+     * specifies the duration, in units of clock sub-ticks,
+     * between the nominal CPB removal times of any two consecutive decoding units
+     * in decoding order in the access unit associated with the pt_SEI message
+     */
+    UWORD32 u4_du_common_cpb_removal_delay_increment_minus1; //same as u4_du_cpb_removal_delay_increment_minus1
+
+    /**
+     * specifies the number of NAL units in the decoding unit of the access unit
+     * the picture timing SEI message is associated with.
+     * range from 0 to (pic size in ctby - 1)
+     */
+    UWORD32 au4_num_nalus_in_du_minus1[4320 / MIN_CTB_SIZE];
+
+    /**
+     * specifies the duration, in units of clock sub-ticks,
+     * between the nominal CPB removal times of the ( i + 1 )-th decoding unit and the i-th decoding unit,
+     * in decoding order, in the access unit associated with the pt_SEI message
+     */
+    UWORD32 au4_du_cpb_removal_delay_increment_minus1[4320 / MIN_CTB_SIZE];
+
+}pic_timing_sei_params_t;
+
+/**
+ * Structure to hold Recovery point SEI parameters Info
+ */
+typedef struct
+{
+    /**
+     * specifies the recovery point of output pictures in output order
+     */
+    WORD32 i4_recovery_poc_cnt;
+
+    UWORD8 u1_exact_match_flag;
+
+    /**
+     * indicates the presence or absence of a broken link in the NAL unit
+     * stream at the location of the recovery point SEI message
+     */
+
+    UWORD8 u1_broken_link_flag;
+
+}recovery_point_sei_params_t;
+
+/**
+ * Structure to hold Mastering Display Colour Volume SEI
+ */
+typedef struct
+{
+    /**
+     * Array to store the display_primaries_x values
+     */
+    UWORD16 au2_display_primaries_x[3];
+
+    /**
+     * Array to store the display_primaries_y values
+     */
+    UWORD16 au2_display_primaries_y[3];
+
+    /**
+     * Variable to store the white point x value
+     */
+    UWORD16 u2_white_point_x;
+
+    /**
+     * Variable to store the white point y value
+     */
+    UWORD16 u2_white_point_y;
+
+    /**
+     * Variable to store the max display mastering luminance value
+     */
+    UWORD32 u4_max_display_mastering_luminance;
+
+    /**
+     * Variable to store the min display mastering luminance value
+     */
+    UWORD32 u4_min_display_mastering_luminance;
+
+}mastering_dis_col_vol_sei_params_t;
+
+/**
+ * Structure to hold active parameter parameter set SEI parameters Info
+ */
+typedef struct
+{
+    /*
+    * active vps id
+    */
+
+    UWORD8 u1_active_video_parameter_set_id;
+
+    /*
+     * default set to zero.
+     */
+    UWORD8 u1_self_contained_cvs_flag;
+
+    UWORD8 u1_no_parameter_set_update_flag;
+
+    UWORD8 u1_num_sps_ids_minus1;
+
+    /*
+     * active sps id
+     */
+    UWORD8 au1_active_seq_parameter_set_id[15];
+
+    UWORD32 au4_layer_sps_idx[64];
+
+}active_parameter_set_sei_param_t;
+
+/**
+ * Structure to hold SEI Hash values
+ */
+typedef struct
+{
+    /*
+     * SEI Hash values for each color component
+     */
+    UWORD8 au1_sei_hash[3][16];
+
+}hash_sei_param_t;
+
+/**
+ * Structure to hold user data registered SEI param Info
+ */
+typedef struct
+{
+    /**
+     * Contains country code by Annex A of Recommendation ITU-T T.35
+     */
+    UWORD8 u1_itu_t_t35_country_code;
+
+    /**
+     * Contains country code by Annex B of Recommendation ITU-T T.35
+     */
+    UWORD8 u1_itu_t_t35_country_code_extension_byte;
+
+    /**
+     * Contains data registered as specified in Recommendation ITU-T T.35
+     */
+    UWORD8 u1_itu_t_t35_payload_byte[MAX_USERDATA_PAYLOAD];
+
+    /**
+     * Valid payload size present in this buffer
+     */
+    WORD32 i4_valid_payload_size;
+
+    /**
+     * Total payload size incase payloadSize > IHEVCD_MAX_USERDATA_PAYLOAD
+     */
+    WORD32 i4_payload_size;
+}user_data_registered_itu_t_t35_t;
+
+/**
+ * Structure to hold time code SEI param info
+ */
+typedef struct
+{
+    /**
+     * Number of sets of clock timestamp syntax elements present for the current picture
+     */
+    UWORD8 u1_num_clock_ts;
+
+    /**
+     * Indicates presenc of associated set of clock timestamps
+     */
+    UWORD8 au1_clock_timestamp_flag[MAX_NUM_CLOCK_TS];
+
+    /**
+     * Used in calculating clockTimestamp[i]
+     */
+    UWORD8 au1_units_field_based_flag[MAX_NUM_CLOCK_TS];
+
+    /**
+     * Specifies the method of dropping values of the n_frames[i] syntax element
+     */
+    UWORD8 au1_counting_type[MAX_NUM_CLOCK_TS];
+
+    /**
+     * Specifies that the n_frames[i] syntax element is followed by seconds_value[i],
+     * minutes_value[i] and hours_value[i]
+     */
+    UWORD8 au1_full_timestamp_flag[MAX_NUM_CLOCK_TS];
+
+    /**
+     * Indicates the discontinuity in clockTimestamp
+     */
+    UWORD8 au1_discontinuity_flag[MAX_NUM_CLOCK_TS];
+
+    /**
+     * Specifies the skipping of one or more values of n_frames[i]
+     */
+    UWORD8 au1_cnt_dropped_flag[MAX_NUM_CLOCK_TS];
+
+    /**
+     * Specifies the value of nFrames used to compute clockTimestamp[i]
+     */
+    UWORD16 au2_n_frames[MAX_NUM_CLOCK_TS];
+
+    /**
+     * Specifies the presence of seconds_value[i] and minutes_flag[i]
+     */
+    UWORD8 au1_seconds_flag[MAX_NUM_CLOCK_TS];
+
+    /**
+     * Specifies the presence of minutes_value[i] and hours_flag[i]
+     */
+    UWORD8 au1_minutes_flag[MAX_NUM_CLOCK_TS];
+
+    /**
+     * Specifies the presence of hours_value[i]
+     */
+    UWORD8 au1_hours_flag[MAX_NUM_CLOCK_TS];
+
+    /**
+     * Specifies the value of sS used to compute clockTimestamp[i]
+     */
+    UWORD8 au1_seconds_value[MAX_NUM_CLOCK_TS];
+
+    /**
+     * Specifies the value of mM used to compute clockTimestamp[i]
+     */
+    UWORD8 au1_minutes_value[MAX_NUM_CLOCK_TS];
+
+    /**
+     * Specifies the value of hH used to compute clockTimestamp[i]
+     */
+    UWORD8 au1_hours_value[MAX_NUM_CLOCK_TS];
+
+    /**
+     * Specifies the length in bits of the time_offset_value[i]
+     */
+    UWORD8 au1_time_offset_length[MAX_NUM_CLOCK_TS];
+
+    /**
+     * pecifies the value of tOffset used to compute clockTimestamp[i]
+     */
+    UWORD8 au1_time_offset_value[MAX_NUM_CLOCK_TS];
+
+}time_code_t;
+
+
+/**
+ * Structure to hold SEI parameters Info
+ */
+typedef struct
+{
+
+    WORD8 i1_sei_parameters_present_flag;
+
+    WORD8 i1_aud_present_flag;
+
+    WORD8 i1_buf_period_params_present_flag;
+
+    WORD8 i1_pic_timing_params_present_flag;
+
+    WORD8 i1_recovery_point_params_present_flag;
+
+    WORD8 i1_active_parameter_set;
+
+    WORD8 i4_sei_mastering_disp_colour_vol_params_present_flags;
+
+    /* Enable/Disable SEI Hash on the Decoded picture & Hash type */
+    /* < 3 : Checksum, 2 : CRC, 1 : MD5, 0 : disable >            */
+    /* Other values are not supported                             */
+    WORD8 i1_decoded_pic_hash_sei_flag;
+
+    /* number of user data e.g. CC data, BAR data, AFD data etc */
+    WORD32 i4_sei_user_data_cnt;
+
+    WORD8 i1_user_data_registered_present_flag;
+
+    WORD8 i1_time_code_present_flag;
+
+    buf_period_sei_params_t  s_buf_period_sei_params;
+
+    pic_timing_sei_params_t  s_pic_timing_sei_params;
+
+    recovery_point_sei_params_t s_recovery_point_params;
+
+    active_parameter_set_sei_param_t s_active_parameter_set_sei_params;
+
+    hash_sei_param_t    s_hash_sei_params;
+
+    mastering_dis_col_vol_sei_params_t s_mastering_dis_col_vol_sei_params;
+
+    user_data_registered_itu_t_t35_t as_user_data_registered_itu_t_t35[USER_DATA_MAX];
+
+    time_code_t s_time_code;
+} sei_params_t;
+
+
+/**
+ * Sub-layer HRD parameters Info
+ */
+typedef struct
+{
+    /**
+     * (together with bit_rate_scale) specifies the
+     * maximum input bit rate for the i-th CPB
+     */
+    UWORD32 au4_bit_rate_value_minus1[MAX_CPB_CNT];
+    /**
+     * together with cpb_size_scale to specify the
+     * CPB size when the CPB operates at the access unit level.
+     */
+    UWORD32 au4_cpb_size_value_minus1[MAX_CPB_CNT];
+
+    /**
+     * together with cpb_size_du_scale to specify the CPB size
+     * when the CPB operates at sub-picture level
+     */
+    UWORD32 au4_cpb_size_du_value_minus1[MAX_CPB_CNT];
+
+    /**
+     * specifies the maximum input bit rate for the i-th CPB when the CPB
+     * operates at the sub-picture level. bit_rate_du_value_minus1[ i ]
+     * shall be in the range of 0 to 2^32 - 2
+     */
+    UWORD32 au4_bit_rate_du_value_minus1[MAX_CPB_CNT];
+
+    /**
+     * if 1, specifies that the HSS operates in a constant bit rate (CBR) mode
+     * if 0, specifies that the HSS operates in a intermittent bit rate (CBR) mode
+     */
+    UWORD8  au1_cbr_flag[32];
+
+}sub_lyr_hrd_params_t;
+
+/**
+ * HRD parameters Info
+ */
+typedef struct
+{
+    /**
+     * Indicates the presence of the
+     * num_units_in_ticks, time_scale flag
+     */
+    UWORD8 u1_timing_info_present_flag;
+
+    /**
+     * Number of units that
+     * correspond to one increment of the
+     * clock. Indicates the  resolution
+     */
+    UWORD32 u4_num_units_in_tick;
+
+    /**
+     * The number of time units that pass in one second
+     */
+    UWORD32 u4_time_scale;
+
+    /**
+     * Nal- hrd parameters flag
+     */
+    UWORD8 u1_nal_hrd_parameters_present_flag;
+
+    /**
+     * VCL- hrd parameters flag
+     */
+    UWORD8 u1_vcl_hrd_parameters_present_flag;
+
+    /**
+     * Indicates the presence of NAL-HRD params or VCL_HRD params
+     * in the bitstream
+     */
+    UWORD8 u1_cpbdpb_delays_present_flag;
+
+    /**
+     * specifies that sub-picture level CPB removal delay parameters are
+     * present in picture timing SEI messages
+     */
+    UWORD8 u1_sub_pic_cpb_params_present_flag;
+
+    /**
+     * specify the clock sub-tick
+     * (the minimum interval of time that can be represented in the coded data when sub_pic_cpb_params_present_flag is equal to 1)
+     */
+    UWORD8 u1_tick_divisor_minus2;
+
+    /**
+     * specifies the length, in bits for the du cpb delay syntax in pt_sei
+     */
+    UWORD8 u1_du_cpb_removal_delay_increment_length_minus1;
+
+    /**
+     * Indicates presence of sub_pic_cpb_params in pic timing sei
+     */
+    UWORD8 u1_sub_pic_cpb_params_in_pic_timing_sei_flag;
+
+    /**
+     * specifies the length, in bits, of the pic_dpb_output_du_delay syntax
+     * element in the picture timing SEI message and the
+     * pic_spt_dpb_output_du_delay syntax element in the decoding unit
+     * information SEI message
+     */
+    UWORD8 u1_dpb_output_delay_du_length_minus1;
+
+    /**
+     * (together with bit_rate_value_minus1) specifies the
+     * maximum input bit rate of the i-th CPB
+     */
+    UWORD32 u4_bit_rate_scale;
+
+    /**
+     * (together with cpb_size_du_value_minus1) specfies
+     * CPB size of the i-th CPB when the CPB operates
+     * at the access unit level
+     */
+    UWORD32 u4_cpb_size_scale;
+
+    /**
+     * (together with cpb_size_du_value_minus1) specfies
+     * CPB size of the i-th CPB when the CPB operates
+     * at the sub-picture level
+     */
+    UWORD32 u4_cpb_size_du_scale;
+
+
+    /**
+     * specifies the length, in bits for initial cpb delay (nal/vcl)sysntax in bp sei
+     */
+    UWORD8  u1_initial_cpb_removal_delay_length_minus1;
+
+    /**
+     * specifies the length, in bits for the au cpb delay syntax in pt_sei
+     */
+    UWORD8  u1_au_cpb_removal_delay_length_minus1;
+
+    /**
+     * specifies the length, in bits, of the pic_dpb_output_delay syntax element in the pt SEI message
+     */
+    UWORD8  u1_dpb_output_delay_length_minus1;
+
+    /**
+     * if 1, , for the highest temporal sub-layers, the temporal distance between the HRD output times
+     * of consecutive pictures in output order is constrained refer to Table E-6
+     */
+    UWORD8 au1_fixed_pic_rate_general_flag[6];
+
+    UWORD8 au1_fixed_pic_rate_within_cvs_flag[6];
+
+    /**
+     * if 1, , for the highest temporal sub-layers, the temporal distance (in clock ticks) between the
+     * element units that specify HRD output times of consecutive pictures in output order is constrained
+     * refer to Table E-6
+     */
+    UWORD8 au1_elemental_duration_in_tc_minus1[6];
+
+    /**
+     * specifies the HRD operational mode
+     */
+    UWORD8 au1_low_delay_hrd_flag[6];
+
+    /**
+     * 1 specifies the number of alternative CPB specifications in the
+     * bitstream of the cvs when HighestTid is equal to i
+     */
+    UWORD8 au1_cpb_cnt_minus1[6];
+
+
+    /**
+     * VUI level Sub-layer HRD parameters
+     */
+    sub_lyr_hrd_params_t as_sub_layer_hrd_params[6];
+
+}hrd_params_t;
+
+/**
+ * Structure to hold VUI parameters Info
+ */
+typedef struct
+{
+    /**
+     * indicates the presence of aspect_ratio
+     */
+    UWORD8 u1_aspect_ratio_info_present_flag;
+
+    /**
+     * specifies the aspect ratio of the luma samples
+     */
+    UWORD8 u1_aspect_ratio_idc;
+
+    /**
+     *  width of the luma samples. user dependent
+     */
+    UWORD16 u2_sar_width;
+
+    /**
+     *  hieght of the luma samples. user dependent
+     */
+    UWORD16 u2_sar_height;
+
+    /**
+     * if 1, specifies that the overscan_appropriate_flag is present
+     * if 0, the preferred display method for the video signal is unspecified
+     */
+    UWORD8 u1_overscan_info_present_flag;
+
+    /**
+     * if 1,indicates that the cropped decoded pictures output
+     * are suitable for display using overscan
+     */
+    UWORD8 u1_overscan_appropriate_flag;
+
+    /**
+     * if 1 specifies that video_format, video_full_range_flag and
+     * colour_description_present_flag are present
+     */
+    UWORD8 u1_video_signal_type_present_flag;
+
+    /**
+     *
+     */
+    UWORD8 u1_video_format;
+
+    /**
+     * indicates the black level and range of the luma and chroma signals
+     */
+    UWORD8 u1_video_full_range_flag;
+
+    /**
+     * if 1,to 1 specifies that colour_primaries, transfer_characteristics
+     * and matrix_coefficients are present
+     */
+    UWORD8 u1_colour_description_present_flag;
+
+    /**
+     * indicates the chromaticity coordinates of the source primaries
+     */
+    UWORD8 u1_colour_primaries;
+
+    /**
+     * indicates the opto-electronic transfer characteristic of the source picture
+     */
+    UWORD8 u1_transfer_characteristics;
+
+    /**
+     * the matrix coefficients used in deriving luma and chroma signals
+     * from the green, blue, and red primaries
+     */
+    UWORD8 u1_matrix_coefficients;
+
+    /**
+     * if 1, specifies that chroma_sample_loc_type_top_field and
+     * chroma_sample_loc_type_bottom_field are present
+     */
+    UWORD8 u1_chroma_loc_info_present_flag;
+
+    /**
+     * location of chroma samples
+     */
+    UWORD8 u1_chroma_sample_loc_type_top_field;
+
+    UWORD8 u1_chroma_sample_loc_type_bottom_field;
+
+    /**
+     * if 1, indicates that the value of all decoded chroma samples is
+     * equal to 1 << ( BitDepthC - 1 )
+     */
+    UWORD8 u1_neutral_chroma_indication_flag;
+
+    /**
+     * 1 indicates that the coded video sequence conveys pictures that represent fields
+     * 0 indicates the pictures that represents field
+     */
+    UWORD8 u1_field_seq_flag;
+
+    /**
+     * specifies that picture timing SEI messages are present for every picture
+     */
+    UWORD8 u1_frame_field_info_present_flag;
+
+    /**
+     * 1 indicates that the default display window parameters follow next in the VUI
+     */
+    UWORD8 u1_default_display_window_flag;
+
+    /**
+     * specify the samples of the pictures in the coded video sequence
+     * that are within the default display window,
+     * in terms of a rectangular region specified in picture coordinates for display
+     */
+    UWORD32 u4_def_disp_win_left_offset;
+
+    UWORD32 u4_def_disp_win_right_offset;
+
+    UWORD32 u4_def_disp_win_top_offset;
+
+    UWORD32 u4_def_disp_win_bottom_offset;
+
+    /**
+     * to 1 specifies that the syntax structure hrd_parameters is present in the vui_parameters syntax structue
+     */
+    UWORD8 u1_vui_hrd_parameters_present_flag;
+
+    /**
+     * VUI level HRD parameters
+     */
+    hrd_params_t s_vui_hrd_parameters;
+
+    /**
+     * Indicates the presence of the
+     * num_units_in_ticks, time_scale flag
+     */
+    UWORD8 u1_vui_timing_info_present_flag;
+
+    /**
+     * Number of units that
+     * correspond to one increment of the
+     * clock. Indicates the  resolution
+     */
+    UWORD32 u4_vui_num_units_in_tick;
+
+    /**
+     * The number of time units that pass in one second
+     */
+    UWORD32 u4_vui_time_scale;
+    /**
+     * if 1, indicates that the POC for each picture in the coded video sequence (cvs) (not the first picture), in decoding order,
+     * is proportional to the output time of the picture relative to that of the first picture in the cvs
+     */
+    UWORD8 u1_poc_proportional_to_timing_flag;
+
+    /**
+     * num_ticks_poc_diff_one_minus1 plus 1 specifies the number of clock ticks
+     * corresponding to a difference of poc values equal to 1
+     */
+    UWORD8 u1_num_ticks_poc_diff_one_minus1;
+
+    /**
+     * 1, specifies that the following cvs bitstream restriction parameters are present
+     */
+    UWORD8 u1_bitstream_restriction_flag;
+
+    /**
+     *  if 1, indicates that each pps that is active in the cvs has
+     *  the same value of the tile syntax elements
+     */
+    UWORD8 u1_tiles_fixed_structure_flag;
+
+    /**
+     * if 0, indicates that no pel outside the pic boundaries and
+     * no sub-pels derived using pels outside the pic boundaries is used for inter prediction
+     */
+    UWORD8 u1_motion_vectors_over_pic_boundaries_flag;
+
+    /**
+     * if 1, indicates
+     * all P/B slices belonging to the same pic have an identical refpic list0,
+     * all B slices that belong to the same picture have an identical refpic list1.
+     */
+    UWORD8 u1_restricted_ref_pic_lists_flag;
+
+    /**
+     * min_spatial_segmentation_idc, when not equal to 0, establishes a bound on the maximum possible size of distinct
+     * coded spatial segmentation regions in the pictures of the CVS. When min_spatial_segmentation_idc is not present, it is
+     * inferred to be equal to 0. The value of min_spatial_segmentation_idc shall be in the range of 0 to 4095, inclusive.
+     *
+     * can be used by a decoder to calculate the maximum number of luma samples to be processed by one processing thread
+     *
+     * If tiles=0 and entropy_sync=0 then
+     *     no slice shall exceed ( 4 * PicSizeInSamplesY ) / minSpatialSegmentationTimes4 luma samples
+     *
+     * If tiles=1 and entropy_sync=0 then
+     *     no tile shall exceed ( 4 * PicSizeInSamplesY ) / minSpatialSegmentationTimes4 luma samples
+     *
+     * If tiles=0 and entropy_sync=1 then
+     *     ( 2 * pic_height_in_luma_samples + pic_width_in_luma_samples ) * CtbSizeY
+     *             <= ( 4 * PicSizeInSamplesY ) / minSpatialSegmentationTimes4
+     */
+    UWORD32 u4_min_spatial_segmentation_idc;
+    /**
+     * Indicates a number of bytes not exceeded by the sum of the sizes of the VCL NAL units
+     * associated with any coded picture
+     */
+    UWORD8 u1_max_bytes_per_pic_denom;
+
+    /**
+     * Indicates an upper bound for the number of bits of coding_unit() data
+     */
+    UWORD8 u1_max_bits_per_mincu_denom;
+
+    /**
+     * Indicate the maximum absolute value of a decoded horizontal MV component
+     * in quarter-pel luma units
+     */
+    UWORD8 u1_log2_max_mv_length_horizontal;
+
+    /**
+     * Indicate the maximum absolute value of a decoded vertical MV component
+     * in quarter-pel luma units
+     */
+    UWORD8 u1_log2_max_mv_length_vertical;
+}vui_t;
+
 /**
  * Picture buffer
  */
@@ -58,6 +922,16 @@ typedef struct
      * buffer ID from buffer manager
      */
     UWORD8 u1_buf_id;
+
+
+    // See IV_FLD_TYPE_T for all field types
+    UWORD32 e4_fld_type;
+
+    sei_params_t s_sei_params;
+
+    WORD32 i4_vui_present;
+
+    vui_t s_vui;
 
 }pic_buf_t;
 
@@ -386,7 +1260,7 @@ typedef struct
     UWORD32     b2_pred_mode    : 2;
 
 
-/**
+    /**
      *  Merge flag for each partition - 0 or 1
      */
     UWORD32     b1_merge_flag   : 1;
@@ -424,7 +1298,6 @@ typedef struct
      */
     UWORD32      b2_part_idx     : 2;
 
-
 }pu_t;
 
 /**
@@ -441,7 +1314,6 @@ typedef struct
      *  TU Y position in terms of min TU (4x4) units
      */
     UWORD32     b4_pos_y            : 4;
-
 
     /*************************************************************************/
     /* Luma TU size (width or height) = 1 << (b3_size + 2)                   */
@@ -460,7 +1332,6 @@ typedef struct
     /* Cr info. For the first three TUs in 8x8 (for 4x4 luma) this will      */
     /* be zero. For all the other cases this will be 1                       */
     /*************************************************************************/
-
     /**
      * 4x4 Luma TUs only the fourth one contains cb,cr
      * TODO: Check if this is really needed, cb_cbf and cr_cbf should be enough
@@ -909,7 +1780,6 @@ typedef struct
 }tu_sblk_coeff_data_t;
 
 
-
 /*************************************************************************/
 /* The following describes how each of the CU cases are handled          */
 /*************************************************************************/
@@ -1310,7 +2180,6 @@ typedef struct
      */
     WORD8 ai1_bit_rate_info_present_flag[VPS_MAX_SUB_LAYERS];
 
-
     /**
      * pic_rate_info_present_flag[i]
      */
@@ -1320,427 +2189,22 @@ typedef struct
      * avg_bit_rate[i]
      */
     UWORD16 au2_avg_bit_rate[VPS_MAX_SUB_LAYERS];
+
     /**
      * max_bit_rate[i]
      */
     UWORD16 au2_max_bit_rate[VPS_MAX_SUB_LAYERS];
+
     /**
      * constant_pic_rate_idc[i]
      */
     WORD8 ai1_constant_pic_rate_idc[VPS_MAX_SUB_LAYERS];
+
     /**
      * avg_pic_rate[i]
      */
     UWORD16 au2_avg_pic_rate[VPS_MAX_SUB_LAYERS];
 }vps_t;
-
-/**
- * Sub-layer HRD parameters Info
- */
-typedef struct
-{
-    /**
-    *  (together with bit_rate_scale) specifies the
-    *  maximum input bit rate for the i-th CPB
-    */
-    UWORD32 au4_bit_rate_value_minus1[32];
-    /**
-    *  together with cpb_size_scale to specify the
-    *  CPB size when the CPB operates at the access unit level.
-    */
-    UWORD32 au4_cpb_size_value_minus1[32];
-
-    /**
-    * together with cpb_size_du_scale to specify the CPB size
-    * when the CPB operates at sub-picture level
-    */
-    UWORD32 au4_cpb_size_du_value_minus1[32];
-
-    /**
-    * specifies the maximum input bit rate for the i-th CPB when the CPB
-    * operates at the sub-picture level. bit_rate_du_value_minus1[ i ]
-    * shall be in the range of 0 to 2^32 - 2
-    */
-    UWORD32 au4_bit_rate_du_value_minus1[32];
-
-    /**
-    * if 1, specifies that the HSS operates in a constant bit rate (CBR) mode
-    * if 0, specifies that the HSS operates in a intermittent bit rate (CBR) mode
-    */
-    UWORD8  au1_cbr_flag[32];
-
-}sub_lyr_hrd_params_t;
-
-/**
- * HRD parameters Info
- */
-typedef struct
-{
-
-    /**
-    *   Indicates the presence of the
-    *   num_units_in_ticks, time_scale flag
-    */
-    UWORD8 u1_timing_info_present_flag;
-
-    /**
-    *   Number of units that
-    *   correspond to one increment of the
-    *   clock. Indicates the  resolution
-    */
-    UWORD32 u4_num_units_in_tick;
-
-    /**
-    *   The number of time units that pass in one second
-    */
-    UWORD32 u4_time_scale;
-
-    /**
-    * Nal- hrd parameters flag
-    */
-    UWORD8 u1_nal_hrd_parameters_present_flag;
-
-    /**
-    * VCL- hrd parameters flag
-    */
-    UWORD8 u1_vcl_hrd_parameters_present_flag;
-
-    /**
-    * Indicates the presence of NAL-HRD params or VCL_HRD params
-    * in the bitstream
-    */
-    UWORD8 u1_cpbdpb_delays_present_flag;
-
-    /**
-    * specifies that sub-picture level CPB removal delay parameters are
-    * present in picture timing SEI messages
-    */
-    UWORD8 u1_sub_pic_cpb_params_present_flag;
-
-    /**
-    * specify the clock sub-tick
-    * (the minimum interval of time that can be represented in the coded data when sub_pic_cpb_params_present_flag is equal to 1)
-    */
-    UWORD8 u1_tick_divisor_minus2;
-
-    /**
-    * specifies the length, in bits for the du cpb delay syntax in pt_sei
-    */
-    UWORD8 u1_du_cpb_removal_delay_increment_length_minus1;
-
-    /**
-    * Indicates presence of sub_pic_cpb_params in pic timing sei
-    */
-    UWORD8 u1_sub_pic_cpb_params_in_pic_timing_sei_flag;
-
-    /**
-    * specifies the length, in bits, of the pic_dpb_output_du_delay syntax
-    * element in the picture timing SEI message and the
-    * pic_spt_dpb_output_du_delay syntax element in the decoding unit
-    * information SEI message
-     */
-    UWORD8 u1_dpb_output_delay_du_length_minus1;
-
-    /**
-    * (together with bit_rate_value_minus1) specifies the
-    * maximum input bit rate of the i-th CPB
-    */
-    UWORD32 u4_bit_rate_scale;
-
-    /**
-    * (together with cpb_size_du_value_minus1) specfies
-    * CPB size of the i-th CPB when the CPB operates
-    * at the access unit level
-    */
-    UWORD32 u4_cpb_size_scale;
-
-    /**
-    * (together with cpb_size_du_value_minus1) specfies
-    * CPB size of the i-th CPB when the CPB operates
-    * at the sub-picture level
-    */
-    UWORD32 u4_cpb_size_du_scale;
-
-
-    /**
-    * specifies the length, in bits for initial cpb delay (nal/vcl)sysntax in bp sei
-    */
-    UWORD8  u1_initial_cpb_removal_delay_length_minus1;
-
-    /**
-    * specifies the length, in bits for the au cpb delay syntax in pt_sei
-    */
-    UWORD8  u1_au_cpb_removal_delay_length_minus1;
-
-    /**
-    * specifies the length, in bits, of the pic_dpb_output_delay syntax element in the pt SEI message
-    */
-    UWORD8  u1_dpb_output_delay_length_minus1;
-
-    /**
-    * if 1, , for the highest temporal sub-layers, the temporal distance between the HRD output times
-    *  of consecutive pictures in output order is constrained refer to Table E-6
-    */
-    UWORD8 au1_fixed_pic_rate_general_flag[6];
-
-    UWORD8 au1_fixed_pic_rate_within_cvs_flag[6];
-
-    /**
-    * if 1, , for the highest temporal sub-layers, the temporal distance (in clock ticks) between the
-    * element units that specify HRD output times of consecutive pictures in output order is constrained
-    * refer to Table E-6
-    */
-    UWORD8 au1_elemental_duration_in_tc_minus1[6];
-
-    /**
-    * specifies the HRD operational mode
-    */
-    UWORD8 au1_low_delay_hrd_flag[6];
-
-    /**
-    * 1 specifies the number of alternative CPB specifications in the
-    * bitstream of the cvs when HighestTid is equal to i
-    */
-    UWORD8 au1_cpb_cnt_minus1[6];
-
-
-    /**
-    *  VUI level Sub-layer HRD parameters
-    */
-    sub_lyr_hrd_params_t as_sub_layer_hrd_params[6];
-
-}hrd_params_t;
-
-
-/**
- * Structure to hold VUI parameters Info
- */
-typedef struct
-{
-    /**
-    *  indicates the presence of aspect_ratio
-    */
-    UWORD8 u1_aspect_ratio_info_present_flag;
-
-    /**
-    *  specifies the aspect ratio of the luma samples
-    */
-    UWORD8 u1_aspect_ratio_idc;
-
-    /**
-    *  width of the luma samples. user dependent
-    */
-    UWORD16 u2_sar_width;
-
-    /**
-    *  hieght of the luma samples. user dependent
-    */
-    UWORD16 u2_sar_height;
-
-    /**
-    * if 1, specifies that the overscan_appropriate_flag is present
-    * if 0, the preferred display method for the video signal is unspecified
-    */
-    UWORD8 u1_overscan_info_present_flag;
-
-    /**
-    * if 1,indicates that the cropped decoded pictures output
-    * are suitable for display using overscan
-    */
-    UWORD8 u1_overscan_appropriate_flag;
-
-    /**
-    * if 1 specifies that video_format, video_full_range_flag and
-    * colour_description_present_flag are present
-    */
-    UWORD8 u1_video_signal_type_present_flag;
-
-    /**
-    *
-    */
-    UWORD8 u1_video_format;
-
-    /**
-    * indicates the black level and range of the luma and chroma signals
-    */
-    UWORD8 u1_video_full_range_flag;
-
-    /**
-    * if 1,to 1 specifies that colour_primaries, transfer_characteristics
-    * and matrix_coefficients are present
-    */
-    UWORD8 u1_colour_description_present_flag;
-
-    /**
-    * indicates the chromaticity coordinates of the source primaries
-    */
-    UWORD8 u1_colour_primaries;
-
-    /**
-    * indicates the opto-electronic transfer characteristic of the source picture
-    */
-    UWORD8 u1_transfer_characteristics;
-
-    /**
-    * the matrix coefficients used in deriving luma and chroma signals
-    * from the green, blue, and red primaries
-    */
-    UWORD8 u1_matrix_coefficients;
-
-    /**
-    * if 1, specifies that chroma_sample_loc_type_top_field and
-    * chroma_sample_loc_type_bottom_field are present
-    */
-    UWORD8 u1_chroma_loc_info_present_flag;
-
-    /**
-    * location of chroma samples
-    */
-    UWORD8 u1_chroma_sample_loc_type_top_field;
-
-    UWORD8 u1_chroma_sample_loc_type_bottom_field;
-
-    /**
-    * if 1, indicates that the value of all decoded chroma samples is
-    * equal to 1 << ( BitDepthC - 1 )
-    */
-    UWORD8 u1_neutral_chroma_indication_flag;
-
-    /**
-    *  1 indicates that the coded video sequence conveys pictures that represent fields
-    *  0 indicates the pictures that represents field
-    */
-    UWORD8 u1_field_seq_flag;
-
-    /**
-    * specifies that picture timing SEI messages are present for every picture
-    */
-    UWORD8 u1_frame_field_info_present_flag;
-
-    /**
-    * 1 indicates that the default display window parameters follow next in the VUI
-    */
-    UWORD8 u1_default_display_window_flag;
-
-    /**
-    * specify the samples of the pictures in the coded video sequence
-    * that are within the default display window,
-    * in terms of a rectangular region specified in picture coordinates for display
-    */
-    UWORD32 u4_def_disp_win_left_offset;
-
-    UWORD32 u4_def_disp_win_right_offset;
-
-    UWORD32 u4_def_disp_win_top_offset;
-
-    UWORD32 u4_def_disp_win_bottom_offset;
-
-    /**
-    *  to 1 specifies that the syntax structure hrd_parameters is present in the vui_parameters syntax structue
-    */
-    UWORD8 u1_vui_hrd_parameters_present_flag;
-
-    /**
-    *  VUI level HRD parameters
-    */
-    hrd_params_t s_vui_hrd_parameters;
-
-    /**
-    *   Indicates the presence of the
-    *   num_units_in_ticks, time_scale flag
-    */
-    UWORD8 u1_vui_timing_info_present_flag;
-
-    /**
-    *   Number of units that
-    *   correspond to one increment of the
-    *   clock. Indicates the  resolution
-    */
-    UWORD32 u4_vui_num_units_in_tick;
-
-    /**
-    *   The number of time units that pass in one second
-    */
-    UWORD32 u4_vui_time_scale;
-    /**
-    * if 1, indicates that the POC for each picture in the coded video sequence (cvs) (not the first picture), in decoding order,
-    * is proportional to the output time of the picture relative to that of the first picture in the cvs
-    */
-    UWORD8 u1_poc_proportional_to_timing_flag;
-
-    /**
-    * num_ticks_poc_diff_one_minus1 plus 1 specifies the number of clock ticks
-    * corresponding to a difference of poc values equal to 1
-    */
-    UWORD8 u1_num_ticks_poc_diff_one_minus1;
-
-    /**
-    * 1, specifies that the following cvs bitstream restriction parameters are present
-    */
-    UWORD8 u1_bitstream_restriction_flag;
-
-    /**
-    *  if 1, indicates that each pps that is active in the cvs has
-    *  the same value of the tile syntax elements
-    */
-    UWORD8 u1_tiles_fixed_structure_flag;
-
-    /**
-    * if 0, indicates that no pel outside the pic boundaries and
-    * no sub-pels derived using pels outside the pic boundaries is used for inter prediction
-    */
-    UWORD8 u1_motion_vectors_over_pic_boundaries_flag;
-
-    /**
-    * if 1, indicates
-    * all P/B slices belonging to the same pic have an identical refpic list0,
-    * all B slices that belong to the same picture have an identical refpic list1.
-    */
-    UWORD8 u1_restricted_ref_pic_lists_flag;
-
-    /**
-    *   min_spatial_segmentation_idc, when not equal to 0, establishes a bound on the maximum possible size of distinct
-    *   coded spatial segmentation regions in the pictures of the CVS. When min_spatial_segmentation_idc is not present, it is
-    *   inferred to be equal to 0. The value of min_spatial_segmentation_idc shall be in the range of 0 to 4095, inclusive.
-    *
-    *   can be used by a decoder to calculate the maximum number of luma samples to be processed by one processing thread
-    *
-    *   If tiles=0 and entropy_sync=0 then
-    *       no slice shall exceed ( 4 * PicSizeInSamplesY ) / minSpatialSegmentationTimes4 luma samples
-    *
-    *   If tiles=1 and entropy_sync=0 then
-    *       no tile shall exceed ( 4 * PicSizeInSamplesY ) / minSpatialSegmentationTimes4 luma samples
-    *
-    *   If tiles=0 and entropy_sync=1 then
-    *       ( 2 * pic_height_in_luma_samples + pic_width_in_luma_samples ) * CtbSizeY
-    *               <= ( 4 * PicSizeInSamplesY ) / minSpatialSegmentationTimes4
-    */
-    UWORD32 u4_min_spatial_segmentation_idc;
-    /**
-    * Indicates a number of bytes not exceeded by the sum of the sizes of the VCL NAL units
-    * associated with any coded picture
-    */
-    UWORD8 u1_max_bytes_per_pic_denom;
-
-    /**
-    *  Indicates an upper bound for the number of bits of coding_unit() data
-    */
-    UWORD8 u1_max_bits_per_mincu_denom;
-
-    /**
-    * Indicate the maximum absolute value of a decoded horizontal MV component
-    * in quarter-pel luma units
-    */
-    UWORD8 u1_log2_max_mv_length_horizontal;
-
-    /**
-    * Indicate the maximum absolute value of a decoded vertical MV component
-    * in quarter-pel luma units
-    */
-    UWORD8 u1_log2_max_mv_length_vertical;
-
-
-}vui_t;
 
 
 /**
@@ -2286,283 +2750,6 @@ typedef struct
     WORD8 i1_pps_valid;
 
 }pps_t;
-
-
-
-/**
- * Buffering Period SEI parameters Info
- */
-typedef struct
-{
-    /**
-    * specifies SPS Id active for the coded picture assosiated
-    * with the bp message.
-    */
-    UWORD8  u1_sps_id;
-
-    /**
-    * Derived from Hrd parameters
-    */
-    UWORD8  u1_sub_pic_cpb_params_present_flag;
-
-    /**
-    * specifies the presence of the initial_alt_cpb_removal_delay[ i ]
-    * and initial_alt_cpb_removal_offset[ i ] syntax elements
-    */
-    UWORD8  u1_rap_cpb_params_present_flag;
-
-    /**
-    * cbp removal delay used in buffering period SEI
-    */
-    UWORD32 cpb_delay_offset;
-
-    /**
-    * dbp removal delay used in buffering period SEI
-    */
-    UWORD32 dpb_delay_offset;
-
-    /**
-    * concatanation flag
-    */
-    UWORD8 concatenation_flag;
-
-    /**
-    * delata cbp removal delay
-    */
-    UWORD32 au_cpb_removal_delay_delta_minus1;
-
-    /**
-    * specify the default initial CPB removal delays, respectively,
-    * for the CPB when the NAL HRD parameters are in use
-    */
-    UWORD32 au4_nal_initial_cpb_removal_delay[32];
-
-    /**
-    * specify the alternate initial CPB removal delays, respectively,
-    * for the CPB when the NAL HRD parameters are in use
-    */
-    UWORD32 au4_nal_initial_alt_cpb_removal_delay[32];
-
-    /**
-    * specify the initial CPB removal delay offset, respectively,
-    * for the CPB when the NAL HRD parameters are in use
-    */
-    UWORD32 au4_nal_initial_cpb_removal_delay_offset[32];
-
-    /**
-    * specify the alternate initial CPB removal delays offsets, respectively,
-    * for the CPB when the NAL HRD parameters are in use
-    */
-    UWORD32 au4_nal_initial_alt_cpb_removal_delay_offset[32];
-
-    /**
-    * specify the default initial CPB removal delays, respectively,
-    * for the CPB when the VCL HRD parameters are in use
-    */
-    UWORD32 au4_vcl_initial_cpb_removal_delay[32];
-
-    /**
-    * specify the initial alt CPB removal delays , respectively,
-    * for the CPB when the VCL HRD parameters are in use
-    */
-    UWORD32 au4_vcl_initial_alt_cpb_removal_delay[32];
-
-    /**
-    * specify the initial CPB removal delay offset, respectively,
-    * for the CPB when the VCL HRD parameters are in use
-    */
-    UWORD32 au4_vcl_initial_cpb_removal_delay_offset[32];
-
-    /**
-    * specify the alternate initial CPB removal delays offsets, respectively,
-    * for the CPB when the VCL HRD parameters are in use
-    */
-    UWORD32 au4_vcl_initial_alt_cpb_removal_delay_offset[32];
-
-    /**
-    *  Inital CPB removal delay
-    */
-    UWORD32 u4_initial_cpb_removal_delay_length;
-
-    /**
-    *  CPB cnt for corr. sublayer
-    */
-    UWORD32 u4_cpb_cnt;
-
-
-    /**
-    * VBV buffer size used in buffering period SEI
-    */
-    UWORD32 u4_buffer_size_sei;
-
-    /**
-    * Encoder buffer fullness  used in buffering period SEI
-    */
-    UWORD32 u4_dbf_sei;
-
-    /**
-    * target bitrate used in buffering period SEI
-    */
-    UWORD32 u4_target_bit_rate_sei;
-
-
-
-
-}buf_period_sei_params_t;
-
-
-/**
- * Picture Timing SEI parameters Info
- */
-typedef struct
-{
-    /**
-    * derived from vui parameters
-    */
-    UWORD8 u1_frame_field_info_present_flag;
-
-    /**
-    * indicates whether a picture should be displayed as a
-    * frame or as one or more fields
-    */
-    UWORD32 u4_pic_struct;
-
-    UWORD8  u1_num_clk_ticks;
-
-    /**
-    * indicates whether a scan-type of the pic should be interpreted
-    * as progressive or interlaced
-    */
-    UWORD8 u1_progressive_source_idc;
-
-    /**
-    * if 1, indicates if the current pic is a duplicte pic in output order
-    */
-    UWORD8 u1_duplicate_flag;
-
-    /**
-    * specifies the number clock ticks between the nominal CPB removal time
-    * au associated with the pt SEI message and
-    * the preceding au in decoding order that contained a bp SEI message
-    */
-    UWORD32 u4_au_cpb_removal_delay_minus1;
-
-    /**
-    * compute the DPB output time of the picture
-    */
-    UWORD32 u4_pic_dpb_output_delay;
-
-    UWORD32 u4_pic_dpb_output_du_delay;
-
-    /**
-    * specifies the number of decoding units in the access unit
-    * the picture timing SEI message is associated with
-    */
-    UWORD32 u4_num_decoding_units_minus1;
-
-    /**
-    * if 1 specifies that the du_common_cpb_removal_delay_increment_minus1 is present
-    */
-    UWORD32 u4_du_common_cpb_removal_delay_flag;
-
-    /**
-    * specifies the duration, in units of clock sub-ticks,
-    * between the nominal CPB removal times of any two consecutive decoding units
-    * in decoding order in the access unit associated with the pt_SEI message
-    */
-    UWORD32 u4_du_common_cpb_removal_delay_increment_minus1; //same as u4_du_cpb_removal_delay_increment_minus1
-
-    /**
-    * specifies the number of NAL units in the decoding unit of the access unit
-    * the picture timing SEI message is associated with.
-    * range from 0 to (pic size in ctby - 1)
-    */
-    UWORD32 u4_num_nalus_in_du_minus1;
-
-    /**
-    * specifies the duration, in units of clock sub-ticks,
-    * between the nominal CPB removal times of the ( i + 1 )-th decoding unit and the i-th decoding unit,
-    * in decoding order, in the access unit associated with the pt_SEI message
-    */
-    UWORD32 u4_du_cpb_removal_delay_increment_minus1;
-
-
-}pic_timing_sei_params_t;
-
-/**
- * Structure to hold Recovery point SEI parameters Info
- */
-typedef struct
-{
-    /**
-    * specifies the recovery point of output pictures in output order
-    */
-    WORD32 i4_recovery_poc_cnt;
-
-    UWORD8 u1_exact_match_flag;
-
-    /**
-    * indicates the presence or absence of a broken link in the NAL unit
-    * stream at the location of the recovery point SEI message
-    */
-
-    UWORD8 u1_broken_link_flag;
-
-}recovery_point_sei_params_t;
-/**
- * Structure to hold active parameter parameter set SEI parameters Info
- */
-typedef struct
-{
-    /*
-    * active vps id
-    */
-
-    UWORD8 u1_active_video_parameter_set_id;
-
-    /*
-    * default set to zero.
-    */
-    UWORD8 u1_self_contained_cvs_flag;
-
-    UWORD8 u1_no_parameter_set_update_flag;
-
-    UWORD8 u1_num_sps_ids_minus1;
-
-    /*
-    * active sps id
-    */
-    UWORD8 au1_active_seq_parameter_set_id[15];
-
-}active_parameter_set_sei_param_t;
-
-/**
- * Structure to hold SEI parameters Info
- */
-typedef struct
-{
-
-    WORD8 i1_sei_parameters_present_flag;
-
-    WORD8 i1_aud_present_flag;
-
-    WORD8 i1_buf_period_params_present_flag;
-
-    WORD8 i1_pic_timing_params_present_flag;
-
-    WORD8 i1_recovery_point_params_present_flag;
-
-    buf_period_sei_params_t  s_buf_period_sei_params;
-
-    pic_timing_sei_params_t  s_pic_timing_sei_params;
-
-    recovery_point_sei_params_t s_recovery_point_params;
-
-    active_parameter_set_sei_param_t s_active_parameter_set_sei_params;
-
-
-} sei_params_t;
-
 
 
 /**

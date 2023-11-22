@@ -5,6 +5,7 @@ set(LLVM_LINK_COMPONENTS
   MC
   Object
   Support
+  Target
   )
 
 add_llvm_tool(llvm-dsymutil
@@ -13,5 +14,6 @@ add_llvm_tool(llvm-dsymutil
   DebugMap.cpp
   DwarfLinker.cpp
   MachODebugMapParser.cpp
+  MachOUtils.cpp
   )
 

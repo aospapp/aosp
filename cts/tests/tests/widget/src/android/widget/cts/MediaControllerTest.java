@@ -16,7 +16,7 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 
 import org.xmlpull.v1.XmlPullParser;
@@ -50,7 +50,7 @@ public class MediaControllerTest extends
     private static final long DEFAULT_TIMEOUT = 3000;
 
     public MediaControllerTest() {
-        super("com.android.cts.widget", MediaControllerCtsActivity.class);
+        super("android.widget.cts", MediaControllerCtsActivity.class);
     }
 
     @Override
@@ -166,7 +166,7 @@ public class MediaControllerTest extends
 
         try {
             source = mActivity.getResources().openRawResource(R.raw.testvideo);
-            target = mActivity.openFileOutput(VIDEO_NAME, Context.MODE_WORLD_READABLE);
+            target = mActivity.openFileOutput(VIDEO_NAME, Context.MODE_PRIVATE);
 
             final byte[] buffer = new byte[1024];
             for (int len = source.read(buffer); len > 0; len = source.read(buffer)) {
@@ -182,7 +182,7 @@ public class MediaControllerTest extends
                 if (target != null) {
                     target.close();
                 }
-            } catch (final IOException _) {
+            } catch (final IOException ignored) {
                 // Ignore the IOException.
             }
         }

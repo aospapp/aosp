@@ -21,12 +21,10 @@ import android.content.ComponentName;
 import android.content.DialogInterface;
 import android.os.Bundle;
 import android.os.Handler;
-import android.preference.Preference;
-import android.preference.SwitchPreference;
 import android.provider.Settings;
-
-import com.android.internal.logging.MetricsLogger;
-import com.android.settings.InstrumentedFragment;
+import android.support.v14.preference.SwitchPreference;
+import android.support.v7.preference.Preference;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.R;
 import com.android.settings.SettingsPreferenceFragment;
 import com.android.settings.voice.VoiceInputListPreference;
@@ -62,8 +60,6 @@ public class ManageAssist extends SettingsPreferenceFragment
         mContextPref.setOnPreferenceChangeListener(this);
 
         mScreenshotPref = (SwitchPreference) findPreference(KEY_SCREENSHOT);
-        mScreenshotPref.setChecked(Settings.Secure.getInt(getContentResolver(),
-                Settings.Secure.ASSIST_SCREENSHOT_ENABLED, 1) != 0);
         mScreenshotPref.setOnPreferenceChangeListener(this);
 
         mVoiceInputPref = (VoiceInputListPreference) findPreference(KEY_VOICE_INPUT);
@@ -72,7 +68,7 @@ public class ManageAssist extends SettingsPreferenceFragment
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.APPLICATIONS_MANAGE_ASSIST;
+        return MetricsEvent.APPLICATIONS_MANAGE_ASSIST;
     }
 
     @Override
@@ -136,9 +132,8 @@ public class ManageAssist extends SettingsPreferenceFragment
         }
 
         mScreenshotPref.setEnabled(mContextPref.isChecked());
-        if (!mContextPref.isChecked()) {
-            mScreenshotPref.setChecked(false);
-        }
+        mScreenshotPref.setChecked(mContextPref.isChecked() && Settings.Secure.getInt(
+                getContentResolver(), Settings.Secure.ASSIST_SCREENSHOT_ENABLED, 1) != 0);
     }
 
     private boolean isCurrentAssistVoiceService() {

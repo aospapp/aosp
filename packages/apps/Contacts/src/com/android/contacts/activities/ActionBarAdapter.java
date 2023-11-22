@@ -24,6 +24,7 @@ import android.content.SharedPreferences;
 import android.content.res.TypedArray;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.support.v4.content.ContextCompat;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
@@ -42,6 +43,7 @@ import android.widget.Toolbar;
 
 import com.android.contacts.R;
 import com.android.contacts.activities.ActionBarAdapter.Listener.Action;
+import com.android.contacts.common.compat.CompatUtils;
 import com.android.contacts.list.ContactsRequest;
 
 /**
@@ -481,12 +483,16 @@ public class ActionBarAdapter implements OnCloseListener {
     }
 
     private void updateStatusBarColor() {
+        if (!CompatUtils.isLollipopCompatible()) {
+            return; // we can't change the status bar color prior to Lollipop
+        }
         if (mSelectionMode) {
-            int cabStatusBarColor = mActivity.getResources().getColor(
+            final int cabStatusBarColor = mActivity.getResources().getColor(
                     R.color.contextual_selection_bar_status_bar_color);
             mActivity.getWindow().setStatusBarColor(cabStatusBarColor);
         } else {
-            int normalStatusBarColor = mActivity.getColor(R.color.primary_color_dark);
+            final int normalStatusBarColor = ContextCompat.getColor(
+                    mActivity, R.color.primary_color_dark);
             mActivity.getWindow().setStatusBarColor(normalStatusBarColor);
         }
     }

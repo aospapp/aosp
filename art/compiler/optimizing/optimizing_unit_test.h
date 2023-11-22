@@ -19,9 +19,12 @@
 
 #include "nodes.h"
 #include "builder.h"
-#include "compiler/dex/pass_manager.h"
+#include "common_compiler_test.h"
 #include "dex_file.h"
 #include "dex_instruction.h"
+#include "handle_scope-inl.h"
+#include "scoped_thread_state_change.h"
+#include "ssa_builder.h"
 #include "ssa_liveness_analysis.h"
 
 #include "gtest/gtest.h"
@@ -42,7 +45,6 @@ namespace art {
 #define FIVE_REGISTERS_CODE_ITEM(...)  N_REGISTERS_CODE_ITEM(5, __VA_ARGS__)
 #define SIX_REGISTERS_CODE_ITEM(...)   N_REGISTERS_CODE_ITEM(6, __VA_ARGS__)
 
-
 LiveInterval* BuildInterval(const size_t ranges[][2],
                             size_t number_of_ranges,
                             ArenaAllocator* allocator,
@@ -60,13 +62,13 @@ LiveInterval* BuildInterval(const size_t ranges[][2],
 }
 
 void RemoveSuspendChecks(HGraph* graph) {
-  for (size_t i = 0, e = graph->GetBlocks().Size(); i < e; ++i) {
-    for (HInstructionIterator it(graph->GetBlocks().Get(i)->GetInstructions());
-         !it.Done();
-         it.Advance()) {
-      HInstruction* current = it.Current();
-      if (current->IsSuspendCheck()) {
-        current->GetBlock()->RemoveInstruction(current);
+  for (HBasicBlock* block : graph->GetBlocks()) {
+    if (block != nullptr) {
+      for (HInstructionIterator it(block->GetInstructions()); !it.Done(); it.Advance()) {
+        HInstruction* current = it.Current();
+        if (current->IsSuspendCheck()) {
+          current->GetBlock()->RemoveInstruction(current);
+        }
       }
     }
   }
@@ -74,20 +76,25 @@ void RemoveSuspendChecks(HGraph* graph) {
 
 inline HGraph* CreateGraph(ArenaAllocator* allocator) {
   return new (allocator) HGraph(
-      allocator, *reinterpret_cast<DexFile*>(allocator->Alloc(sizeof(DexFile))), -1, kRuntimeISA,
-      false);
+      allocator, *reinterpret_cast<DexFile*>(allocator->Alloc(sizeof(DexFile))), -1, false,
+      kRuntimeISA);
 }
 
 // Create a control-flow graph from Dex instructions.
 inline HGraph* CreateCFG(ArenaAllocator* allocator,
                          const uint16_t* data,
                          Primitive::Type return_type = Primitive::kPrimInt) {
-  HGraph* graph = CreateGraph(allocator);
-  HGraphBuilder builder(graph, return_type);
   const DexFile::CodeItem* item =
     reinterpret_cast<const DexFile::CodeItem*>(data);
-  bool graph_built = builder.BuildGraph(*item);
-  return graph_built ? graph : nullptr;
+  HGraph* graph = CreateGraph(allocator);
+
+  {
+    ScopedObjectAccess soa(Thread::Current());
+    StackHandleScopeCollection handles(soa.Self());
+    HGraphBuilder builder(graph, *item, &handles, return_type);
+    bool graph_built = (builder.BuildGraph() == kAnalysisSuccess);
+    return graph_built ? graph : nullptr;
+  }
 }
 
 // Naive string diff data type.
@@ -102,7 +109,8 @@ inline std::string Patch(const std::string& original, const diff_t& diff) {
   std::string result = original;
   for (const auto& p : diff) {
     std::string::size_type pos = result.find(p.first);
-    EXPECT_NE(pos, std::string::npos);
+    DCHECK_NE(pos, std::string::npos)
+        << "Could not find: \"" << p.first << "\" in \"" << result << "\"";
     result.replace(pos, p.first.size(), p.second);
   }
   return result;

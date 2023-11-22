@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ package android.renderscript.cts;
 import android.renderscript.Allocation;
 import android.renderscript.RSRuntimeException;
 import android.renderscript.Element;
+import android.renderscript.cts.Target;
 
 import java.util.Arrays;
 
@@ -88,7 +89,7 @@ public class TestCross extends RSBaseCompute {
             for (int j = 0; j < 3 ; j++) {
                 args.inRightVector[j] = arrayInRightVector[i * 4 + j];
             }
-            Target target = new Target(relaxed);
+            Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
             CoreMathVerifier.computeCross(args, target);
 
             // Compare the expected outputs to the actual values returned by RS.
@@ -179,7 +180,7 @@ public class TestCross extends RSBaseCompute {
             for (int j = 0; j < 4 ; j++) {
                 args.inRightVector[j] = arrayInRightVector[i * 4 + j];
             }
-            Target target = new Target(relaxed);
+            Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
             CoreMathVerifier.computeCross(args, target);
 
             // Compare the expected outputs to the actual values returned by RS.
@@ -224,8 +225,214 @@ public class TestCross extends RSBaseCompute {
                 (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
     }
 
+    public class ArgumentsHalfNHalfNHalfN {
+        public short[] inLeftVector;
+        public double[] inLeftVectorDouble;
+        public short[] inRightVector;
+        public double[] inRightVectorDouble;
+        public Target.Floaty[] out;
+    }
+
+    private void checkCrossHalf3Half3Half3() {
+        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xfc3afdafl, false);
+        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xcc0165eal, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            script.set_gAllocInRightVector(inRightVector);
+            script.forEach_testCrossHalf3Half3Half3(inLeftVector, out);
+            verifyResultsCrossHalf3Half3Half3(inLeftVector, inRightVector, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCrossHalf3Half3Half3: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            scriptRelaxed.set_gAllocInRightVector(inRightVector);
+            scriptRelaxed.forEach_testCrossHalf3Half3Half3(inLeftVector, out);
+            verifyResultsCrossHalf3Half3Half3(inLeftVector, inRightVector, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCrossHalf3Half3Half3: " + e.toString());
+        }
+    }
+
+    private void verifyResultsCrossHalf3Half3Half3(Allocation inLeftVector, Allocation inRightVector, Allocation out, boolean relaxed) {
+        short[] arrayInLeftVector = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInLeftVector, (short) 42);
+        inLeftVector.copyTo(arrayInLeftVector);
+        short[] arrayInRightVector = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInRightVector, (short) 42);
+        inRightVector.copyTo(arrayInRightVector);
+        short[] arrayOut = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            ArgumentsHalfNHalfNHalfN args = new ArgumentsHalfNHalfNHalfN();
+            // Create the appropriate sized arrays in args
+            args.inLeftVector = new short[3];
+            args.inLeftVectorDouble = new double[3];
+            args.inRightVector = new short[3];
+            args.inRightVectorDouble = new double[3];
+            args.out = new Target.Floaty[3];
+            // Fill args with the input values
+            for (int j = 0; j < 3 ; j++) {
+                args.inLeftVector[j] = arrayInLeftVector[i * 4 + j];
+                args.inLeftVectorDouble[j] = Float16Utils.convertFloat16ToDouble(args.inLeftVector[j]);
+            }
+            for (int j = 0; j < 3 ; j++) {
+                args.inRightVector[j] = arrayInRightVector[i * 4 + j];
+                args.inRightVectorDouble[j] = Float16Utils.convertFloat16ToDouble(args.inRightVector[j]);
+            }
+            Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+            CoreMathVerifier.computeCross(args, target);
+
+            // Compare the expected outputs to the actual values returned by RS.
+            boolean valid = true;
+            for (int j = 0; j < 3 ; j++) {
+                if (!args.out[j].couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                    valid = false;
+                }
+            }
+            if (!valid) {
+                if (!errorFound) {
+                    errorFound = true;
+                    for (int j = 0; j < 3 ; j++) {
+                        message.append("Input inLeftVector: ");
+                        appendVariableToMessage(message, arrayInLeftVector[i * 4 + j]);
+                        message.append("\n");
+                    }
+                    for (int j = 0; j < 3 ; j++) {
+                        message.append("Input inRightVector: ");
+                        appendVariableToMessage(message, arrayInRightVector[i * 4 + j]);
+                        message.append("\n");
+                    }
+                    for (int j = 0; j < 3 ; j++) {
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out[j]);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 4 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]));
+                        if (!args.out[j].couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                    }
+                    message.append("Errors at");
+                }
+                message.append(" [");
+                message.append(Integer.toString(i));
+                message.append("]");
+            }
+        }
+        assertFalse("Incorrect output for checkCrossHalf3Half3Half3" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkCrossHalf4Half4Half4() {
+        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xa8692054l, false);
+        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xb7c137a1l, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            script.set_gAllocInRightVector(inRightVector);
+            script.forEach_testCrossHalf4Half4Half4(inLeftVector, out);
+            verifyResultsCrossHalf4Half4Half4(inLeftVector, inRightVector, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCrossHalf4Half4Half4: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            scriptRelaxed.set_gAllocInRightVector(inRightVector);
+            scriptRelaxed.forEach_testCrossHalf4Half4Half4(inLeftVector, out);
+            verifyResultsCrossHalf4Half4Half4(inLeftVector, inRightVector, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCrossHalf4Half4Half4: " + e.toString());
+        }
+    }
+
+    private void verifyResultsCrossHalf4Half4Half4(Allocation inLeftVector, Allocation inRightVector, Allocation out, boolean relaxed) {
+        short[] arrayInLeftVector = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInLeftVector, (short) 42);
+        inLeftVector.copyTo(arrayInLeftVector);
+        short[] arrayInRightVector = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInRightVector, (short) 42);
+        inRightVector.copyTo(arrayInRightVector);
+        short[] arrayOut = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            ArgumentsHalfNHalfNHalfN args = new ArgumentsHalfNHalfNHalfN();
+            // Create the appropriate sized arrays in args
+            args.inLeftVector = new short[4];
+            args.inLeftVectorDouble = new double[4];
+            args.inRightVector = new short[4];
+            args.inRightVectorDouble = new double[4];
+            args.out = new Target.Floaty[4];
+            // Fill args with the input values
+            for (int j = 0; j < 4 ; j++) {
+                args.inLeftVector[j] = arrayInLeftVector[i * 4 + j];
+                args.inLeftVectorDouble[j] = Float16Utils.convertFloat16ToDouble(args.inLeftVector[j]);
+            }
+            for (int j = 0; j < 4 ; j++) {
+                args.inRightVector[j] = arrayInRightVector[i * 4 + j];
+                args.inRightVectorDouble[j] = Float16Utils.convertFloat16ToDouble(args.inRightVector[j]);
+            }
+            Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+            CoreMathVerifier.computeCross(args, target);
+
+            // Compare the expected outputs to the actual values returned by RS.
+            boolean valid = true;
+            for (int j = 0; j < 4 ; j++) {
+                if (!args.out[j].couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                    valid = false;
+                }
+            }
+            if (!valid) {
+                if (!errorFound) {
+                    errorFound = true;
+                    for (int j = 0; j < 4 ; j++) {
+                        message.append("Input inLeftVector: ");
+                        appendVariableToMessage(message, arrayInLeftVector[i * 4 + j]);
+                        message.append("\n");
+                    }
+                    for (int j = 0; j < 4 ; j++) {
+                        message.append("Input inRightVector: ");
+                        appendVariableToMessage(message, arrayInRightVector[i * 4 + j]);
+                        message.append("\n");
+                    }
+                    for (int j = 0; j < 4 ; j++) {
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out[j]);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 4 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]));
+                        if (!args.out[j].couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                    }
+                    message.append("Errors at");
+                }
+                message.append(" [");
+                message.append(Integer.toString(i));
+                message.append("]");
+            }
+        }
+        assertFalse("Incorrect output for checkCrossHalf4Half4Half4" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
     public void testCross() {
         checkCrossFloat3Float3Float3();
         checkCrossFloat4Float4Float4();
+        checkCrossHalf3Half3Half3();
+        checkCrossHalf4Half4Half4();
     }
 }

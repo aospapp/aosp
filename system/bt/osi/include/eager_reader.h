@@ -22,7 +22,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "allocator.h"
+#include "osi/include/allocator.h"
+#include "osi/include/thread.h"
 
 typedef struct eager_reader_t eager_reader_t;
 typedef struct reactor_t reactor_t;
@@ -55,9 +56,12 @@ void eager_reader_register(eager_reader_t *reader, reactor_t *reactor, eager_rea
 // function is idempotent.
 void eager_reader_unregister(eager_reader_t *reader);
 
-// Reads up to |max_size| bytes into |buffer|. If |block| is true, blocks until
-// |max_size| bytes are read. Otherwise only reads from currently available bytes.
+// Reads up to |max_size| bytes into |buffer| from currently available bytes.
 // NOT SAFE FOR READING FROM MULTIPLE THREADS
 // but you should probably only be reading from one thread anyway,
 // otherwise the byte stream probably doesn't make sense.
-size_t eager_reader_read(eager_reader_t *reader, uint8_t *buffer, size_t max_size, bool block);
+size_t eager_reader_read(eager_reader_t *reader, uint8_t *buffer, size_t max_size);
+
+// Returns the inbound read thread for a given |reader| or NULL if the thread
+// is not running.
+thread_t* eager_reader_get_read_thread(const eager_reader_t *reader);

@@ -34,7 +34,7 @@ SkOpSegment* SkOpContour::addCurve(SkPath::Verb verb, const SkPoint pts[4],
         default:
             SkASSERT(0);
     }
-    return NULL;
+    return nullptr;
 }
 
 void SkOpContour::toPath(SkPathWriter* path) const {
@@ -42,8 +42,18 @@ void SkOpContour::toPath(SkPathWriter* path) const {
     path->deferredMove(pt);
     const SkOpSegment* segment = &fHead;
     do {
-        segment->addCurveTo(segment->head(), segment->tail(), path, true);
+        SkAssertResult(segment->addCurveTo(segment->head(), segment->tail(), path));
     } while ((segment = segment->next()));
+    path->close();
+}
+
+void SkOpContour::toReversePath(SkPathWriter* path) const {
+    const SkPoint& pt = fTail->pts()[0];
+    path->deferredMove(pt);
+    const SkOpSegment* segment = fTail;
+    do {
+        SkAssertResult(segment->addCurveTo(segment->tail(), segment->head(), path));
+    } while ((segment = segment->prev()));
     path->close();
 }
 
@@ -56,5 +66,5 @@ SkOpSegment* SkOpContour::undoneSegment(SkOpSpanBase** startPtr, SkOpSpanBase** 
         segment->undoneSpan(startPtr, endPtr);
         return segment;
     } while ((segment = segment->next()));
-    return NULL;
+    return nullptr;
 }

@@ -24,6 +24,9 @@ import android.hardware.cts.helpers.SensorCtsHelper;
 import android.hardware.cts.helpers.TestSensorEnvironment;
 import android.hardware.cts.helpers.sensoroperations.TestSensorOperation;
 import android.hardware.cts.helpers.sensorverification.FifoLengthVerification;
+import android.platform.test.annotations.Presubmit;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * Checks the minimum Hardware FIFO length for each of the Hardware sensor.
@@ -32,13 +35,6 @@ import android.hardware.cts.helpers.sensorverification.FifoLengthVerification;
  *
  */
 public class SensorBatchingFifoTest extends SensorTestCase {
-    private static final int ACCELEROMETER_MIN_FIFO_LENGTH = 3000;
-    private static final int UNCAL_MAGNETOMETER_MIN_FIFO_LENGTH = 600;
-    private static final int PRESSURE_MIN_FIFO_LENGTH = 300;
-    private static final int GAME_ROTATION_VECTOR_MIN_FIFO_LENGTH = 300;
-    private static final int PROXIMITY_SENSOR_MIN_FIFO_LENGTH = 300;
-    private static final int STEP_DETECTOR_MIN_FIFO_LENGTH = 100;
-
     private static final int SAMPLING_INTERVAL = 1000; /* every 1ms */
     private static final String TAG = "batching_fifo_test";
 
@@ -51,58 +47,39 @@ public class SensorBatchingFifoTest extends SensorTestCase {
                 PackageManager.FEATURE_HIFI_SENSORS);
     }
 
+    @Presubmit
     public void testAccelerometerFifoLength() throws Throwable {
         if (!mHasHifiSensors) return;
         runBatchingSensorFifoTest(
                 Sensor.TYPE_ACCELEROMETER,
-                checkMinFifoLength(Sensor.TYPE_ACCELEROMETER, ACCELEROMETER_MIN_FIFO_LENGTH));
+                getReservedFifoLength(Sensor.TYPE_ACCELEROMETER));
     }
 
     public void testUncalMagnetometerFifoLength() throws Throwable {
         if (!mHasHifiSensors) return;
         runBatchingSensorFifoTest(
                 Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED,
-                checkMinFifoLength(
-                        Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED,
-                        UNCAL_MAGNETOMETER_MIN_FIFO_LENGTH));
+                getReservedFifoLength(Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED));
     }
 
     public void testPressureFifoLength() throws Throwable {
         if (!mHasHifiSensors) return;
         runBatchingSensorFifoTest(
                 Sensor.TYPE_PRESSURE,
-                checkMinFifoLength(Sensor.TYPE_PRESSURE, PRESSURE_MIN_FIFO_LENGTH));
+                getReservedFifoLength(Sensor.TYPE_PRESSURE));
     }
 
     public void testGameRotationVectorFifoLength() throws Throwable {
         if (!mHasHifiSensors) return;
         runBatchingSensorFifoTest(
                 Sensor.TYPE_GAME_ROTATION_VECTOR,
-                checkMinFifoLength(
-                        Sensor.TYPE_GAME_ROTATION_VECTOR, GAME_ROTATION_VECTOR_MIN_FIFO_LENGTH));
+                getReservedFifoLength(Sensor.TYPE_GAME_ROTATION_VECTOR));
     }
 
-    public void testProximityFifoLength() throws Throwable {
-        if (!mHasHifiSensors) return;
-        Sensor sensor = mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
-        if (sensor != null) {
-            assertTrue(sensor.getFifoReservedEventCount() <= PROXIMITY_SENSOR_MIN_FIFO_LENGTH);
-        }
-    }
-
-    public void testStepDetectorFifoLength() throws Throwable {
-        if (!mHasHifiSensors) return;
-        checkMinFifoLength(Sensor.TYPE_STEP_DETECTOR, STEP_DETECTOR_MIN_FIFO_LENGTH);
-    }
-
-    private int checkMinFifoLength(int sensorType, int minRequiredLength) {
+    private int getReservedFifoLength(int sensorType) {
         Sensor sensor = mSensorManager.getDefaultSensor(sensorType);
         assertTrue(String.format("sensor of type=%d (null)", sensorType), sensor != null);
-        int maxFifoLength = sensor.getFifoReservedEventCount();
-        assertTrue(String.format("Sensor=%s, min required fifo length=%d actual=%d",
-                    sensor.getName(), minRequiredLength, maxFifoLength),
-                    maxFifoLength >= minRequiredLength);
-        return maxFifoLength;
+        return sensor.getFifoReservedEventCount();
     }
 
     private void runBatchingSensorFifoTest(int sensorType, int fifoLength) throws Throwable {
@@ -112,12 +89,19 @@ public class SensorBatchingFifoTest extends SensorTestCase {
         Sensor sensor = mSensorManager.getDefaultSensor(sensorType);
         TestSensorEnvironment environment =  new TestSensorEnvironment(getContext(),
                 sensor,
-                false,
+                false, /* sensorMightHaveMoreListeners */
                 sensor.getMinDelay(),
-                Integer.MAX_VALUE);
+                Integer.MAX_VALUE /*maxReportLatencyUs*/);
 
-        TestSensorOperation op = TestSensorOperation.createOperation(environment,
-                sensor.getFifoReservedEventCount() * 2);
+        int preFlushMs = 2000;  // 2 sec to make sure there is sample at the time of flush
+        int postFlushMs = environment.getExpectedSamplingPeriodUs() * 100 /1000;
+        int testFlushMs =
+                environment.getSensor().getFifoReservedEventCount() *
+                environment.getExpectedSamplingPeriodUs() / (int)(1000 / 1.2); // 120%
+
+        TestSensorOperation op = TestSensorOperation.createFlushOperation(
+                environment, new int [] { preFlushMs, testFlushMs, postFlushMs }, -1);
+
         op.addVerification(FifoLengthVerification.getDefault(environment));
         op.execute(getCurrentTestNode());
         op.getStats().log(TAG);

@@ -24,10 +24,10 @@ extern "C" {
 #include <stdint.h>
 
 #include "low_power_manager.h"
-#include "osi.h"
-#include "semaphore.h"
+#include "osi/include/osi.h"
+#include "osi/include/semaphore.h"
+#include "osi/include/thread.h"
 #include "test_stubs.h"
-#include "thread.h"
 #include "vendor.h"
 }
 
@@ -48,7 +48,7 @@ static void flush_work_queue_item(UNUSED_ATTR void *context) {
 }
 
 STUB_FUNCTION(int, vendor_send_command, (vendor_opcode_t opcode, void *param))
-  DURING(init) AT_CALL(0) {
+  DURING(enable_disable) AT_CALL(0) {
     EXPECT_EQ(VENDOR_GET_LPM_IDLE_TIMEOUT, opcode);
     *((uint32_t *)param) = 100;
     return 0;
@@ -112,7 +112,6 @@ class LowPowerManagerTest : public AlarmTestHarness {
       reset_for(init);
       manager->init(thread);
 
-      EXPECT_CALL_COUNT(vendor_send_command, 1);
       EXPECT_CALL_COUNT(vendor_set_callback, 1);
     }
 
@@ -136,5 +135,6 @@ TEST_F(LowPowerManagerTest, test_enable_disable) {
   manager->post_command(LPM_DISABLE);
   semaphore_wait(done);
 
+  EXPECT_CALL_COUNT(vendor_send_command, 1);
   EXPECT_CALL_COUNT(vendor_send_async_command, 2);
 }

@@ -20,9 +20,12 @@
 #include <deque>
 #include <queue>
 #include <set>
-#include <vector>
+#include <utility>
 
 #include "arena_allocator.h"
+#include "base/dchecked_vector.h"
+#include "hash_map.h"
+#include "hash_set.h"
 #include "safe_map.h"
 
 namespace art {
@@ -48,7 +51,7 @@ template <typename T>
 using ArenaQueue = std::queue<T, ArenaDeque<T>>;
 
 template <typename T>
-using ArenaVector = std::vector<T, ArenaAllocatorAdapter<T>>;
+using ArenaVector = dchecked_vector<T, ArenaAllocatorAdapter<T>>;
 
 template <typename T, typename Comparator = std::less<T>>
 using ArenaSet = std::set<T, Comparator, ArenaAllocatorAdapter<T>>;
@@ -56,6 +59,24 @@ using ArenaSet = std::set<T, Comparator, ArenaAllocatorAdapter<T>>;
 template <typename K, typename V, typename Comparator = std::less<K>>
 using ArenaSafeMap =
     SafeMap<K, V, Comparator, ArenaAllocatorAdapter<std::pair<const K, V>>>;
+
+template <typename T,
+          typename EmptyFn = DefaultEmptyFn<T>,
+          typename HashFn = std::hash<T>,
+          typename Pred = std::equal_to<T>>
+using ArenaHashSet = HashSet<T, EmptyFn, HashFn, Pred, ArenaAllocatorAdapter<T>>;
+
+template <typename Key,
+          typename Value,
+          typename EmptyFn = DefaultEmptyFn<std::pair<Key, Value>>,
+          typename HashFn = std::hash<Key>,
+          typename Pred = std::equal_to<Key>>
+using ArenaHashMap = HashMap<Key,
+                             Value,
+                             EmptyFn,
+                             HashFn,
+                             Pred,
+                             ArenaAllocatorAdapter<std::pair<Key, Value>>>;
 
 // Implementation details below.
 
@@ -76,6 +97,7 @@ template <bool kCount>
 class ArenaAllocatorAdapterKindImpl {
  public:
   explicit ArenaAllocatorAdapterKindImpl(ArenaAllocKind kind) : kind_(kind) { }
+  ArenaAllocatorAdapterKindImpl(const ArenaAllocatorAdapterKindImpl&) = default;
   ArenaAllocatorAdapterKindImpl& operator=(const ArenaAllocatorAdapterKindImpl&) = default;
   ArenaAllocKind Kind() { return kind_; }
 
@@ -134,7 +156,7 @@ class ArenaAllocatorAdapter : private ArenaAllocatorAdapterKind {
     typedef ArenaAllocatorAdapter<U> other;
   };
 
-  explicit ArenaAllocatorAdapter(ArenaAllocator* arena_allocator, ArenaAllocKind kind)
+  ArenaAllocatorAdapter(ArenaAllocator* arena_allocator, ArenaAllocKind kind)
       : ArenaAllocatorAdapterKind(kind),
         arena_allocator_(arena_allocator) {
   }
@@ -154,20 +176,22 @@ class ArenaAllocatorAdapter : private ArenaAllocatorAdapterKind {
   pointer address(reference x) const { return &x; }
   const_pointer address(const_reference x) const { return &x; }
 
-  pointer allocate(size_type n, ArenaAllocatorAdapter<void>::pointer hint = nullptr) {
-    UNUSED(hint);
+  pointer allocate(size_type n,
+                   ArenaAllocatorAdapter<void>::pointer hint ATTRIBUTE_UNUSED = nullptr) {
     DCHECK_LE(n, max_size());
     return arena_allocator_->AllocArray<T>(n, ArenaAllocatorAdapterKind::Kind());
   }
   void deallocate(pointer p, size_type n) {
-    UNUSED(p, n);
+    arena_allocator_->MakeInaccessible(p, sizeof(T) * n);
   }
 
-  void construct(pointer p, const_reference val) {
-    new (static_cast<void*>(p)) value_type(val);
+  template <typename U, typename... Args>
+  void construct(U* p, Args&&... args) {
+    ::new (static_cast<void*>(p)) U(std::forward<Args>(args)...);
   }
-  void destroy(pointer p) {
-    p->~value_type();
+  template <typename U>
+  void destroy(U* p) {
+    p->~U();
   }
 
  private:

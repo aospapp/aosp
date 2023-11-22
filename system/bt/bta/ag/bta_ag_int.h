@@ -54,9 +54,9 @@
 #define BTA_AG_NUM_SCB          2
 #endif
 
-/* Timer to wait for retry in case of collision */
-#ifndef BTA_AG_COLLISION_TIMER
-#define BTA_AG_COLLISION_TIMER  2000
+/* Time to wait for retry in case of collision */
+#ifndef BTA_AG_COLLISION_TIMEOUT_MS
+#define BTA_AG_COLLISION_TIMEOUT_MS (2 * 1000)          /* 2 seconds */
 #endif
 
 /* RFCOMM MTU SIZE */
@@ -105,8 +105,8 @@ enum
     BTA_AG_DISC_OK_EVT,
     BTA_AG_DISC_FAIL_EVT,
     BTA_AG_CI_RX_WRITE_EVT,
-    BTA_AG_RING_TOUT_EVT,
-    BTA_AG_SVC_TOUT_EVT,
+    BTA_AG_RING_TIMEOUT_EVT,
+    BTA_AG_SVC_TIMEOUT_EVT,
     BTA_AG_CI_SCO_DATA_EVT,
     BTA_AG_CI_SLC_READY_EVT,
     BTA_AG_MAX_EVT,
@@ -251,7 +251,6 @@ typedef struct
     char                clip[BTA_AG_AT_MAX_LEN+1]; /* number string used for CLIP */
     UINT16              serv_handle[BTA_AG_NUM_IDX]; /* RFCOMM server handles */
     tBTA_AG_AT_CB       at_cb;          /* AT command interpreter */
-    TIMER_LIST_ENT      act_timer;     /* ring timer */
     BD_ADDR             peer_addr;      /* peer bd address */
     tSDP_DISCOVERY_DB   *p_disc_db;     /* pointer to discovery database */
     tBTA_SERVICE_MASK   reg_services;   /* services specified in register API */
@@ -263,15 +262,6 @@ typedef struct
     tBTA_AG_PEER_FEAT   peer_features;  /* peer device features */
     UINT16              peer_version;   /* profile version of peer device */
     UINT16              hsp_version;    /* HSP profile version */
-#if (BTM_WBS_INCLUDED == TRUE )
-    tBTA_AG_PEER_CODEC  peer_codecs;    /* codecs for eSCO supported by the peer */
-    tBTA_AG_PEER_CODEC  sco_codec;      /* codec to be used for eSCO connection */
-    tBTA_AG_PEER_CODEC  inuse_codec;    /* codec being used for the current SCO connection */
-    BOOLEAN             codec_updated;  /* set to TRUE whenever the app updates codec type */
-    BOOLEAN             codec_fallback; /* If sco nego fails for mSBC, fallback to CVSD */
-    tBTA_AG_SCO_MSBC_SETTINGS codec_msbc_settings; /* settings to be used for the impending eSCO */
-    TIMER_LIST_ENT      cn_timer;       /* codec negotiation timer */
-#endif
     UINT16              sco_idx;        /* SCO handle */
     BOOLEAN             in_use;         /* scb in use */
     BOOLEAN             dealloc;        /* TRUE if service shutting down */
@@ -281,8 +271,6 @@ typedef struct
     BOOLEAN             cmee_enabled;   /* set to TRUE if HF enables CME ERROR reporting */
     BOOLEAN             inband_enabled; /* set to TRUE if inband ring enabled */
     BOOLEAN             svc_conn;       /* set to TRUE when service level connection up */
-    TIMER_LIST_ENT      colli_timer;    /* Collision timer */
-    BOOLEAN             colli_tmr_on;   /* TRUE if collision timer is active */
     UINT8               state;          /* state machine state */
     UINT8               conn_service;   /* connected service */
     UINT8               peer_scn;       /* peer scn */
@@ -298,6 +286,18 @@ typedef struct
     UINT8               callheld_ind;   /* CIEV call held indicator value */
     BOOLEAN             retry_with_sco_only; /* indicator to try with SCO only when eSCO fails */
     UINT32              bia_masked_out; /* indicators HF does not want us to send */
+    alarm_t             *collision_timer;
+    alarm_t             *ring_timer;
+#if (BTM_WBS_INCLUDED == TRUE)
+    alarm_t             *codec_negotiation_timer;
+    tBTA_AG_PEER_CODEC  peer_codecs;    /* codecs for eSCO supported by the peer */
+    tBTA_AG_PEER_CODEC  sco_codec;      /* codec to be used for eSCO connection */
+    tBTA_AG_PEER_CODEC  inuse_codec;    /* codec being used for the current SCO connection */
+    BOOLEAN             codec_updated;  /* set to TRUE whenever the app updates codec type */
+    BOOLEAN             codec_fallback; /* If sco nego fails for mSBC, fallback to CVSD */
+    tBTA_AG_SCO_MSBC_SETTINGS codec_msbc_settings; /* settings to be used for the impending eSCO */
+#endif
+
 } tBTA_AG_SCB;
 
 /* type for sco data */

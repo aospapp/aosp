@@ -25,7 +25,7 @@ import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Log;
 
-import com.android.cts.content.R;
+import android.content.cts.R;
 
 public class PluralResourcesTest extends AndroidTestCase {
     public static boolean DEBUG = false;
@@ -42,7 +42,7 @@ public class PluralResourcesTest extends AndroidTestCase {
     private Resources resourcesForLanguage(final String lang) {
         final Configuration config = new Configuration();
         config.updateFrom(mResources.getConfiguration());
-        config.locale = new Locale(lang);
+        config.setLocale(new Locale(lang));
         return new Resources(mResources.getAssets(), mResources.getDisplayMetrics(), config);
     }
 

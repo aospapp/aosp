@@ -16,8 +16,8 @@
 
 package com.android.cts.tradefed.result;
 
+import com.android.compatibility.common.util.AbiUtils;
 import com.android.cts.tradefed.device.DeviceInfoCollector;
-import com.android.cts.util.AbiUtils;
 import com.android.ddmlib.Log;
 import com.android.ddmlib.Log.LogLevel;
 import com.android.ddmlib.testrunner.TestIdentifier;
@@ -34,6 +34,8 @@ import java.util.Map;
  * Dumps tests in progress to stdout
  */
 public class CtsTestLogReporter extends StubTestInvocationListener implements IShardableListener {
+
+    private static final String DEVICE_INFO_ERROR = "DEVICE_INFO_ERROR_";
 
     @Option(name = "quiet-output", description = "Mute display of test results.")
     private boolean mQuietOutput = false;
@@ -84,6 +86,9 @@ public class CtsTestLogReporter extends StubTestInvocationListener implements IS
      */
     @Override
     public void testStarted(TestIdentifier test) {
+        if (mIsExtendedDeviceInfoRun) {
+            return;
+        }
         mCurrentPkgResult.insertTest(test);
     }
 
@@ -92,6 +97,9 @@ public class CtsTestLogReporter extends StubTestInvocationListener implements IS
      */
     @Override
     public void testFailed(TestIdentifier test, String trace) {
+        if (mIsExtendedDeviceInfoRun) {
+            return;
+        }
         mCurrentPkgResult.reportTestFailure(test, CtsTestStatus.FAIL, trace);
     }
 
@@ -100,6 +108,9 @@ public class CtsTestLogReporter extends StubTestInvocationListener implements IS
      */
     @Override
     public void testAssumptionFailure(TestIdentifier test, String trace) {
+        if (mIsExtendedDeviceInfoRun) {
+            return;
+        }
         // TODO: do something different here?
         mCurrentPkgResult.reportTestFailure(test, CtsTestStatus.FAIL, trace);
     }
@@ -109,6 +120,17 @@ public class CtsTestLogReporter extends StubTestInvocationListener implements IS
      */
     @Override
     public void testEnded(TestIdentifier test, Map<String, String> testMetrics) {
+        if (mIsExtendedDeviceInfoRun) {
+            for (Map.Entry<String, String> metricsEntry : testMetrics.entrySet()) {
+                String key = metricsEntry.getKey();
+                String value = metricsEntry.getValue();
+                if (key.startsWith(DEVICE_INFO_ERROR)) {
+                    throw new RuntimeException(String.format(
+                        "Error collecting extended device info: %s=%s", key, value));
+                }
+            }
+            return;
+        }
         mCurrentPkgResult.reportTestEnded(test, testMetrics);
         Test result = mCurrentPkgResult.findTest(test);
         String stack = result.getStackTrace() == null ? "" : "\n" + result.getStackTrace();
@@ -121,6 +143,9 @@ public class CtsTestLogReporter extends StubTestInvocationListener implements IS
      */
     @Override
     public void invocationEnded(long elapsedTime) {
+        if (mIsExtendedDeviceInfoRun) {
+            return;
+        }
         // display the results of the last completed run
         if (mCurrentPkgResult != null) {
             logCompleteRun(mCurrentPkgResult);

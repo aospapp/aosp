@@ -94,6 +94,7 @@ public class BufferedSourceTest {
 
   // ANDROID-BEGIN
   //  @Parameterized.Parameters(name = "{0}")
+  @Parameterized.Parameters
   // ANDROID-END
   public static List<Object[]> parameters() {
     return Arrays.asList(
@@ -104,7 +105,10 @@ public class BufferedSourceTest {
 
   // ANDROID-BEGIN
   // @Parameterized.Parameter
-  public Factory factory = (Factory) (parameters().get(0))[0];
+  private final Factory factory;
+  public BufferedSourceTest(Factory factory) {
+    this.factory = factory;
+  }
   // ANDROID-END
   private BufferedSink sink;
   private BufferedSource source;
@@ -465,6 +469,45 @@ public class BufferedSourceTest {
     sink.writeUtf8("a").writeUtf8(repeat('b', Segment.SIZE)).writeUtf8("c");
     assertEquals(-1, source.indexOf((byte) 'a', 1));
     assertEquals(15, source.indexOf((byte) 'b', 15));
+  }
+
+  @Test public void indexOfByteString() throws IOException {
+    assertEquals(-1, source.indexOf(ByteString.encodeUtf8("flop")));
+
+    sink.writeUtf8("flip flop");
+    assertEquals(5, source.indexOf(ByteString.encodeUtf8("flop")));
+    source.readUtf8(); // Clear stream.
+
+    // Make sure we backtrack and resume searching after partial match.
+    sink.writeUtf8("hi hi hi hey");
+    assertEquals(3, source.indexOf(ByteString.encodeUtf8("hi hi hey")));
+  }
+
+  @Test public void indexOfByteStringWithOffset() throws IOException {
+    assertEquals(-1, source.indexOf(ByteString.encodeUtf8("flop"), 1));
+
+    sink.writeUtf8("flop flip flop");
+    assertEquals(10, source.indexOf(ByteString.encodeUtf8("flop"), 1));
+    source.readUtf8(); // Clear stream
+
+    // Make sure we backtrack and resume searching after partial match.
+    sink.writeUtf8("hi hi hi hi hey");
+    assertEquals(6, source.indexOf(ByteString.encodeUtf8("hi hi hey"), 1));
+  }
+
+  @Test public void indexOfByteStringInvalidArgumentsThrows() throws IOException {
+    try {
+      source.indexOf(ByteString.of());
+      fail();
+    } catch (IllegalArgumentException e) {
+      assertEquals("bytes is empty", e.getMessage());
+    }
+    try {
+      source.indexOf(ByteString.encodeUtf8("hi"), -1);
+      fail();
+    } catch (IllegalArgumentException e) {
+      assertEquals("fromIndex < 0", e.getMessage());
+    }
   }
 
   @Test public void indexOfElement() throws IOException {

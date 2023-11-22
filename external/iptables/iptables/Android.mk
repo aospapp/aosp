@@ -30,6 +30,12 @@ LOCAL_STATIC_LIBRARIES := \
 	libip4tc \
 	libxtables
 
+LOCAL_POST_INSTALL_CMD := $(hide) mkdir -p $(TARGET_OUT)/bin; \
+    ln -sf iptables $(TARGET_OUT)/bin/iptables-save; \
+    ln -sf iptables $(TARGET_OUT)/bin/iptables-restore
+
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../NOTICE
+
 include $(BUILD_EXECUTABLE)
 
 #----------------------------------------------------------------
@@ -60,6 +66,12 @@ LOCAL_STATIC_LIBRARIES := \
 	libext6 \
 	libip6tc \
 	libxtables
+
+LOCAL_POST_INSTALL_CMD := $(hide) mkdir -p $(TARGET_OUT)/bin; \
+    ln -sf ip6tables $(TARGET_OUT)/bin/ip6tables-save; \
+    ln -sf ip6tables $(TARGET_OUT)/bin/ip6tables-restore
+
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../NOTICE
 
 include $(BUILD_EXECUTABLE)
 

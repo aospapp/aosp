@@ -296,7 +296,6 @@ public:
     {
         mIfaceInfo = NULL;
         mInfo = getHalInfo(handle);
-        // ALOGD("WifiCommand %p created, mInfo = %p, mIfaceInfo = %p", this, mInfo, mIfaceInfo);
     }
 
     WifiCommand(wifi_interface_handle iface, wifi_request_id id)
@@ -304,11 +303,9 @@ public:
     {
         mIfaceInfo = getIfaceInfo(iface);
         mInfo = getHalInfo(iface);
-        // ALOGD("WifiCommand %p created, mInfo = %p, mIfaceInfo = %p", this, mInfo, mIfaceInfo);
     }
 
     virtual ~WifiCommand() {
-        // ALOGD("WifiCommand %p destroyed", this);
     }
 
     wifi_request_id id() {
@@ -317,7 +314,6 @@ public:
 
     virtual int create() {
         /* by default there is no way to cancel */
-        ALOGD("WifiCommand %p can't be created", this);
         return WIFI_ERROR_NOT_SUPPORTED;
     }
 
@@ -350,13 +346,11 @@ protected:
 
     /* Override this method to parse reply and dig out data; save it in the object */
     virtual int handleResponse(WifiEvent& reply) {
-        ALOGI("skipping a response");
         return NL_SKIP;
     }
 
     /* Override this method to parse event and dig out data; save it in the object */
     virtual int handleEvent(WifiEvent& event) {
-        ALOGI("skipping an event");
         return NL_SKIP;
     }
 
@@ -475,6 +469,7 @@ protected:
         pos = (nlattr *)nla_next(pos, &(rem)))
 
 wifi_error initialize_vendor_cmd(wifi_interface_handle iface,
+                                 wifi_request_id id,
                                  u32 subcmd,
                                  WifiVendorCommand **vCommand);
 #endif

@@ -17,12 +17,35 @@
 #
 
 DEVICE_INFO_PACKAGE := com.android.compatibility.common.deviceinfo
-DEVICE_INFO_INSTRUMENT := com.android.compatibility.common.deviceinfo.DeviceInfoInstrument
+DEVICE_INFO_INSTRUMENT := android.support.test.runner.AndroidJUnitRunner
 DEVICE_INFO_PERMISSIONS += android.permission.WRITE_EXTERNAL_STORAGE
-DEVICE_INFO_ACTIVITIES += $(DEVICE_INFO_PACKAGE).GenericDeviceInfo $(DEVICE_INFO_PACKAGE).PackageDeviceInfo
+DEVICE_INFO_ACTIVITIES += \
+  $(DEVICE_INFO_PACKAGE).ConfigurationDeviceInfo \
+  $(DEVICE_INFO_PACKAGE).CpuDeviceInfo \
+  $(DEVICE_INFO_PACKAGE).FeatureDeviceInfo \
+  $(DEVICE_INFO_PACKAGE).GenericDeviceInfo \
+  $(DEVICE_INFO_PACKAGE).GlesStubActivity \
+  $(DEVICE_INFO_PACKAGE).GraphicsDeviceInfo \
+  $(DEVICE_INFO_PACKAGE).LibraryDeviceInfo \
+  $(DEVICE_INFO_PACKAGE).LocaleDeviceInfo \
+  $(DEVICE_INFO_PACKAGE).MediaDeviceInfo \
+  $(DEVICE_INFO_PACKAGE).MemoryDeviceInfo \
+  $(DEVICE_INFO_PACKAGE).PackageDeviceInfo \
+  $(DEVICE_INFO_PACKAGE).PropertyDeviceInfo \
+  $(DEVICE_INFO_PACKAGE).ScreenDeviceInfo \
+  $(DEVICE_INFO_PACKAGE).StorageDeviceInfo \
+  $(DEVICE_INFO_PACKAGE).UserDeviceInfo
+
+ifeq ($(DEVICE_INFO_MIN_SDK),)
+DEVICE_INFO_MIN_SDK := 8
+endif
+
+ifeq ($(DEVICE_INFO_TARGET_SDK),)
+DEVICE_INFO_TARGET_SDK := 8
+endif
 
 # Add the base device info
-LOCAL_STATIC_JAVA_LIBRARIES += compatibility-device-info
+LOCAL_STATIC_JAVA_LIBRARIES += compatibility-device-info compatibility-device-util
 
 # Generator of APK manifests.
 MANIFEST_GENERATOR_JAR := $(HOST_OUT_JAVA_LIBRARIES)/compatibility-manifest-generator.jar
@@ -34,6 +57,8 @@ $(manifest_xml): PRIVATE_INFO_PERMISSIONS := $(foreach permission, $(DEVICE_INFO
 $(manifest_xml): PRIVATE_INFO_ACTIVITIES := $(foreach activity,$(DEVICE_INFO_ACTIVITIES),-a $(activity))
 $(manifest_xml): PRIVATE_PACKAGE := $(DEVICE_INFO_PACKAGE)
 $(manifest_xml): PRIVATE_INSTRUMENT := $(DEVICE_INFO_INSTRUMENT)
+$(manifest_xml): PRIVATE_MIN_SDK := $(DEVICE_INFO_MIN_SDK)
+$(manifest_xml): PRIVATE_TARGET_SDK := $(DEVICE_INFO_TARGET_SDK)
 
 # Regenerate manifest.xml if the generator jar, */cts-device-info/Android.mk, or this file is changed.
 $(manifest_xml): $(MANIFEST_GENERATOR_JAR) $(LOCAL_PATH)/Android.mk cts/build/device_info_package.mk
@@ -44,9 +69,13 @@ $(manifest_xml): $(MANIFEST_GENERATOR_JAR) $(LOCAL_PATH)/Android.mk cts/build/de
 						$(PRIVATE_INFO_ACTIVITIES) \
 						-p $(PRIVATE_PACKAGE) \
 						-i $(PRIVATE_INSTRUMENT) \
+						-s $(PRIVATE_MIN_SDK) \
+						-t $(PRIVATE_TARGET_SDK) \
 						-o $@
 
 # Reset variables
+DEVICE_INFO_MIN_SDK :=
+DEVICE_INFO_TARGET_SDK :=
 DEVICE_INFO_PACKAGE :=
 DEVICE_INFO_INSTRUMENT :=
 DEVICE_INFO_PERMISSIONS :=

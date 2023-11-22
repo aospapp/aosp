@@ -61,16 +61,17 @@ void SoundTriggerHwService::onFirstRef()
     rc = hw_get_module_by_class(SOUND_TRIGGER_HARDWARE_MODULE_ID, HW_MODULE_PREFIX, &mod);
     if (rc != 0) {
         ALOGE("couldn't load sound trigger module %s.%s (%s)",
-              SOUND_TRIGGER_HARDWARE_MODULE_ID, "primary", strerror(-rc));
+              SOUND_TRIGGER_HARDWARE_MODULE_ID, HW_MODULE_PREFIX, strerror(-rc));
         return;
     }
     rc = sound_trigger_hw_device_open(mod, &dev);
     if (rc != 0) {
         ALOGE("couldn't open sound trigger hw device in %s.%s (%s)",
-              SOUND_TRIGGER_HARDWARE_MODULE_ID, "primary", strerror(-rc));
+              SOUND_TRIGGER_HARDWARE_MODULE_ID, HW_MODULE_PREFIX, strerror(-rc));
         return;
     }
-    if (dev->common.version != SOUND_TRIGGER_DEVICE_API_VERSION_CURRENT) {
+    if (dev->common.version < SOUND_TRIGGER_DEVICE_API_VERSION_1_0 ||
+        dev->common.version > SOUND_TRIGGER_DEVICE_API_VERSION_CURRENT) {
         ALOGE("wrong sound trigger hw device version %04x", dev->common.version);
         return;
     }
@@ -240,6 +241,13 @@ sp<IMemory> SoundTriggerHwService::prepareRecognitionEvent_l(
                     "prepareRecognitionEvent_l(): invalid data offset %u for keyphrase event type",
                     event->data_offset);
         event->data_offset = sizeof(struct sound_trigger_phrase_recognition_event);
+        break;
+    case SOUND_MODEL_TYPE_GENERIC:
+        ALOGW_IF(event->data_size != 0 && event->data_offset !=
+                    sizeof(struct sound_trigger_generic_recognition_event),
+                    "prepareRecognitionEvent_l(): invalid data offset %u for generic event type",
+                    event->data_offset);
+        event->data_offset = sizeof(struct sound_trigger_generic_recognition_event);
         break;
     case SOUND_MODEL_TYPE_UNKNOWN:
         ALOGW_IF(event->data_size != 0 && event->data_offset !=
@@ -537,19 +545,15 @@ status_t SoundTriggerHwService::Module::loadSoundModel(const sp<IMemory>& modelM
     AutoMutex lock(mLock);
 
     if (mModels.size() >= mDescriptor.properties.max_sound_models) {
-        if (mModels.size() == 0) {
-            return INVALID_OPERATION;
-        }
-        ALOGW("loadSoundModel() max number of models exceeded %d making room for a new one",
+        ALOGW("loadSoundModel(): Not loading, max number of models (%d) would be exceeded",
               mDescriptor.properties.max_sound_models);
-        unloadSoundModel_l(mModels.valueAt(0)->mHandle);
+        return INVALID_OPERATION;
     }
 
-    status_t status = mHwDevice->load_sound_model(mHwDevice,
-                                                  sound_model,
+    status_t status = mHwDevice->load_sound_model(mHwDevice, sound_model,
                                                   SoundTriggerHwService::soundModelCallback,
-                                                  this,
-                                                  handle);
+                                                  this, handle);
+
     if (status != NO_ERROR) {
         return status;
     }
@@ -781,31 +785,60 @@ void SoundTriggerHwService::Module::setCaptureState_l(bool active)
             goto exit;
         }
 
+        const bool supports_stop_all =
+            (mHwDevice->common.version >= SOUND_TRIGGER_DEVICE_API_VERSION_1_1 &&
+             mHwDevice->stop_all_recognitions);
+
+        if (supports_stop_all) {
+            mHwDevice->stop_all_recognitions(mHwDevice);
+        }
+
         for (size_t i = 0; i < mModels.size(); i++) {
             sp<Model> model = mModels.valueAt(i);
             if (model->mState == Model::STATE_ACTIVE) {
-                mHwDevice->stop_recognition(mHwDevice, model->mHandle);
-                // keep model in ACTIVE state so that event is processed by onCallbackEvent()
-                struct sound_trigger_phrase_recognition_event phraseEvent;
-                memset(&phraseEvent, 0, sizeof(struct sound_trigger_phrase_recognition_event));
-                switch (model->mType) {
-                case SOUND_MODEL_TYPE_KEYPHRASE:
-                    phraseEvent.num_phrases = model->mConfig.num_phrases;
-                    for (size_t i = 0; i < phraseEvent.num_phrases; i++) {
-                        phraseEvent.phrase_extras[i] = model->mConfig.phrases[i];
-                    }
-                    break;
-                case SOUND_MODEL_TYPE_UNKNOWN:
-                default:
-                    break;
+                if (!supports_stop_all) {
+                    mHwDevice->stop_recognition(mHwDevice, model->mHandle);
                 }
-                phraseEvent.common.status = RECOGNITION_STATUS_ABORT;
-                phraseEvent.common.type = model->mType;
-                phraseEvent.common.model = model->mHandle;
-                phraseEvent.common.data_size = 0;
-                sp<IMemory> eventMemory = service->prepareRecognitionEvent_l(&phraseEvent.common);
-                if (eventMemory != 0) {
-                    events.add(eventMemory);
+                // keep model in ACTIVE state so that event is processed by onCallbackEvent()
+                if (model->mType == SOUND_MODEL_TYPE_KEYPHRASE) {
+                    struct sound_trigger_phrase_recognition_event event;
+                    memset(&event, 0, sizeof(struct sound_trigger_phrase_recognition_event));
+                    event.num_phrases = model->mConfig.num_phrases;
+                    for (size_t i = 0; i < event.num_phrases; i++) {
+                        event.phrase_extras[i] = model->mConfig.phrases[i];
+                    }
+                    event.common.status = RECOGNITION_STATUS_ABORT;
+                    event.common.type = model->mType;
+                    event.common.model = model->mHandle;
+                    event.common.data_size = 0;
+                    sp<IMemory> eventMemory = service->prepareRecognitionEvent_l(&event.common);
+                    if (eventMemory != 0) {
+                        events.add(eventMemory);
+                    }
+                } else if (model->mType == SOUND_MODEL_TYPE_GENERIC) {
+                    struct sound_trigger_generic_recognition_event event;
+                    memset(&event, 0, sizeof(struct sound_trigger_generic_recognition_event));
+                    event.common.status = RECOGNITION_STATUS_ABORT;
+                    event.common.type = model->mType;
+                    event.common.model = model->mHandle;
+                    event.common.data_size = 0;
+                    sp<IMemory> eventMemory = service->prepareRecognitionEvent_l(&event.common);
+                    if (eventMemory != 0) {
+                        events.add(eventMemory);
+                    }
+                } else if (model->mType == SOUND_MODEL_TYPE_UNKNOWN) {
+                    struct sound_trigger_phrase_recognition_event event;
+                    memset(&event, 0, sizeof(struct sound_trigger_phrase_recognition_event));
+                    event.common.status = RECOGNITION_STATUS_ABORT;
+                    event.common.type = model->mType;
+                    event.common.model = model->mHandle;
+                    event.common.data_size = 0;
+                    sp<IMemory> eventMemory = service->prepareRecognitionEvent_l(&event.common);
+                    if (eventMemory != 0) {
+                        events.add(eventMemory);
+                    }
+                } else {
+                    goto exit;
                 }
             }
         }

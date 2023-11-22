@@ -32,7 +32,7 @@ public class FilterTest extends ActivityInstrumentationTestCase2<CtsActivity> {
     private MockFilter mMockFilter;
 
     public FilterTest() {
-        super("com.android.cts.widget", CtsActivity.class);
+        super("android.widget.cts", CtsActivity.class);
     }
 
     public void testConstructor() throws Throwable {

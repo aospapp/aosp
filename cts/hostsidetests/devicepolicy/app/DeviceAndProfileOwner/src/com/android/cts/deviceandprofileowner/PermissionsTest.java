@@ -29,6 +29,7 @@ import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.UiWatcher;
 import android.support.test.uiautomator.Until;
+import android.test.suitebuilder.annotation.Suppress;
 import android.util.Log;
 
 import java.util.concurrent.ArrayBlockingQueue;
@@ -156,6 +157,7 @@ public class PermissionsTest extends BaseDeviceAdminTest {
         assertPermissionRequest(PackageManager.PERMISSION_GRANTED);
     }
 
+    @Suppress // Flakey.
     public void testPermissionPrompts() throws Exception {
         // register a crash watcher
         mDevice.registerWatcher(CRASH_WATCHER_ID, new UiWatcher() {

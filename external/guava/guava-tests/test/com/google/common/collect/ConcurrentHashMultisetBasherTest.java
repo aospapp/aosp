@@ -26,6 +26,7 @@ import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -45,6 +46,10 @@ public class ConcurrentHashMultisetBasherTest extends TestCase {
 
   public void testAddAndRemove_ConcurrentHashMap() throws Exception {
     testAddAndRemove(new ConcurrentHashMap<String, AtomicInteger>());
+  }
+
+  public void testAddAndRemove_ConcurrentSkipListMap() throws Exception {
+    testAddAndRemove(new ConcurrentSkipListMap<String, AtomicInteger>());
   }
 
   public void testAddAndRemove_MapMakerMap() throws Exception {

@@ -312,10 +312,13 @@ static int gralloc_alloc(alloc_device_t* dev,
     //
     // Allocate ColorBuffer handle on the host (only if h/w access is allowed)
     // Only do this for some h/w usages, not all.
+    // Also do this if we need to read from the surface, in this case the
+    // rendering will still happen on the host but we also need to be able to
+    // read back from the color buffer, which requires that there is a buffer
     //
     if (usage & (GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_HW_RENDER |
                     GRALLOC_USAGE_HW_2D | GRALLOC_USAGE_HW_COMPOSER |
-                    GRALLOC_USAGE_HW_FB) ) {
+                    GRALLOC_USAGE_HW_FB | GRALLOC_USAGE_SW_READ_MASK) ) {
         DEFINE_HOST_CONNECTION;
         if (hostCon && rcEnc) {
             cb->hostHandle = rcEnc->rcCreateColorBuffer(rcEnc, w, h, glFormat);
@@ -682,12 +685,8 @@ static int gralloc_lock(gralloc_module_t const* module,
             return -EBUSY;
         }
 
-        const bool sw_read = (cb->usage & GRALLOC_USAGE_SW_READ_MASK);
-        const bool hw_write = (cb->usage & GRALLOC_USAGE_HW_RENDER);
-        const bool screen_capture_mode = (sw_read && hw_write);
-        if (screen_capture_mode) {
+        if (sw_read) {
             D("gralloc_lock read back color buffer %d %d\n", cb->width, cb->height);
-            DEFINE_AND_VALIDATE_HOST_CONNECTION;
             rcEnc->rcReadColorBuffer(rcEnc, cb->hostHandle,
                     0, 0, cb->width, cb->height, GL_RGBA, GL_UNSIGNED_BYTE, cpu_addr);
         }
@@ -733,7 +732,7 @@ static int gralloc_unlock(gralloc_module_t const* module,
     // if buffer was locked for s/w write, we need to update the host with
     // the updated data
     //
-    if (cb->lockedWidth > 0 && cb->lockedHeight > 0 && cb->hostHandle) {
+    if (cb->hostHandle) {
 
         // Make sure we have host connection
         DEFINE_AND_VALIDATE_HOST_CONNECTION;
@@ -1025,7 +1024,7 @@ struct private_module_t HAL_MODULE_INFO_SYM = {
 
 /* This function is called once to detect whether the emulator supports
  * GPU emulation (this is done by looking at the qemu.gles kernel
- * parameter, which must be > 0 if this is the case).
+ * parameter, which must be == 1 if this is the case).
  *
  * If not, then load gralloc.default instead as a fallback.
  */
@@ -1035,11 +1034,14 @@ fallback_init(void)
     char  prop[PROPERTY_VALUE_MAX];
     void* module;
 
+    // qemu.gles=0 -> no GLES 2.x support (only 1.x through software).
+    // qemu.gles=1 -> host-side GPU emulation through EmuGL
+    // qemu.gles=2 -> guest-side GPU emulation.
     property_get("ro.kernel.qemu.gles", prop, "0");
-    if (atoi(prop) > 0) {
+    if (atoi(prop) == 1) {
         return;
     }
-    ALOGD("Emulator without GPU emulation detected.");
+    ALOGD("Emulator without host-side GPU emulation detected.");
 #if __LP64__
     module = dlopen("/system/lib64/hw/gralloc.default.so", RTLD_LAZY|RTLD_LOCAL);
 #else

@@ -2035,12 +2035,22 @@ static int role_to_cil(int indent, struct policydb *pdb, struct avrule_block *UN
 			// one of these roles in base, the declaration will not appeaer in
 			// the resulting policy, likely resulting in a compilation error in
 			// CIL.
+			//
+			// To make things more complicated, the auditadm_r and secadm_r
+			// roles could actually be in either the base module or a non-base
+			// module, or both. So we can't rely on this same behavior. So for
+			// these roles, don't declare them here, even if they are in a base
+			// or non-base module. Instead we will just declare them in the
+			// base module elsewhere.
 			int is_base_role = (!strcmp(key, "user_r") ||
 			                    !strcmp(key, "staff_r") ||
 			                    !strcmp(key, "sysadm_r") ||
 			                    !strcmp(key, "system_r") ||
 			                    !strcmp(key, "unconfined_r"));
-			if ((is_base_role && pdb->policy_type == SEPOL_POLICY_BASE) || !is_base_role) {
+			int is_builtin_role = (!strcmp(key, "auditadm_r") ||
+			                       !strcmp(key, "secadm_r"));
+			if ((is_base_role && pdb->policy_type == SEPOL_POLICY_BASE) ||
+			    (!is_base_role && !is_builtin_role)) {
 				cil_println(indent, "(role %s)", key);
 			}
 		}
@@ -2091,7 +2101,9 @@ static int role_to_cil(int indent, struct policydb *pdb, struct avrule_block *UN
 
 
 		for (i = 0; i < num_types; i++) {
-			cil_println(indent, "(roletype %s %s)", key, types[i]);
+			if (is_id_in_scope(pdb, decl_stack, types[i], SYM_TYPES)) {
+				cil_println(indent, "(roletype %s %s)", key, types[i]);
+			}
 		}
 
 		break;
@@ -2847,7 +2859,7 @@ static int level_string_to_cil(char *levelstr)
 	char *token = NULL;
 	char *ranged = NULL;
 
-	matched = sscanf(levelstr, "%m[^:]:%ms", &sens, &cats);
+	matched = tokenize(levelstr, ':', 2, &sens, &cats);
 	if (matched < 1 || matched > 2) {
 		log_err("Invalid level: %s", levelstr);
 		rc = -1;
@@ -2912,7 +2924,7 @@ static int context_string_to_cil(char *contextstr)
 	char *type = NULL;
 	char *level = NULL;
 
-	matched = sscanf(contextstr, "%m[^:]:%m[^:]:%m[^:]:%ms", &user, &role, &type, &level);
+	matched = tokenize(contextstr, ':', 4, &user, &role, &type, &level);
 	if (matched < 3 || matched > 4) {
 		log_err("Invalid context: %s", contextstr);
 		rc = -1;
@@ -2953,6 +2965,7 @@ static int seusers_to_cil(struct sepol_module_package *mod_pkg)
 	char *user = NULL;
 	char *seuser = NULL;
 	char *level = NULL;
+	char *tmp = NULL;
 	int matched;
 
 	if (seusers_len == 0) {
@@ -2960,11 +2973,18 @@ static int seusers_to_cil(struct sepol_module_package *mod_pkg)
 	}
 
 	while ((rc = get_line(&cur, end, &line)) > 0) {
-		if (line[0] == '#') {
+		tmp = line;
+		while (isspace(*tmp)) {
+			tmp++;
+		}
+
+		if (tmp[0] == '#' || tmp[0] == '\0') {
+			free(line);
+			line = NULL;
 			continue;
 		}
 
-		matched = sscanf(line, "%m[^:]:%m[^:]:%ms", &user, &seuser, &level);
+		matched = tokenize(tmp, ':', 3, &user, &seuser, &level);
 
 		if (matched < 2 || matched > 3) {
 			log_err("Invalid seuser line: %s", line);
@@ -3033,28 +3053,51 @@ static int user_extra_to_cil(struct sepol_module_package *mod_pkg)
 	int matched;
 	char *user = NULL;
 	char *prefix = NULL;
+	int prefix_len = 0;
+	char *user_str = NULL;
+	char *prefix_str = NULL;
+	char *eol = NULL;
+	char *tmp = NULL;
 
 	if (userx_len == 0) {
 		return 0;
 	}
 
 	while ((rc = get_line(&cur, end, &line)) > 0) {
-		if (line[0] == '#') {
+		tmp = line;
+		while (isspace(*tmp)) {
+			tmp++;
+		}
+
+		if (tmp[0] == '#' || tmp[0] == '\0') {
+			free(line);
+			line = NULL;
 			continue;
 		}
 
-		matched = sscanf(line, "user %ms prefix %m[^;];", &user, &prefix);
-		if (matched != 2) {
+		matched = tokenize(tmp, ' ', 4, &user_str, &user, &prefix_str, &prefix);
+		if (matched != 4) {
 			rc = -1;
-			log_err("Invalid file context line: %s", line);
+			log_err("Invalid user extra line: %s", line);
 			goto exit;
 		}
+
+		prefix_len = strlen(prefix);
+		eol = prefix + prefix_len - 1;
+		if (*eol != ';' || strcmp(user_str, "user") || strcmp(prefix_str, "prefix")) {
+			rc = -1;
+			log_err("Invalid user extra line: %s", line);
+			goto exit;
+		}
+		*eol = '\0';
 
 		cil_println(0, "(userprefix %s %s)", user, prefix);
 		free(user);
 		free(prefix);
 		free(line);
-		user = prefix = line = NULL;
+		free(user_str);
+		free(prefix_str);
+		user = prefix = line = user_str = prefix_str = NULL;
 	}
 
 	if (rc == -1) {
@@ -3084,17 +3127,25 @@ static int file_contexts_to_cil(struct sepol_module_package *mod_pkg)
 	char *mode = NULL;
 	char *context = NULL;
 	const char *cilmode;
+	char *tmp = NULL;
 
 	if (fc_len == 0) {
 		return 0;
 	}
 
 	while ((rc = get_line(&cur, end, &line)) > 0) {
-		if (line[0] == '#') {
+		tmp = line;
+		while (isspace(*tmp)) {
+			tmp++;
+		}
+
+		if (tmp[0] == '#' || tmp[0] == '\0') {
+			free(line);
+			line = NULL;
 			continue;
 		}
 
-		matched = sscanf(line, "%ms %ms %ms", &regex, &mode, &context);
+		matched = tokenize(tmp, ' ', 3, &regex, &mode, &context);
 		if (matched < 2 || matched > 3) {
 			rc = -1;
 			log_err("Invalid file context line: %s", line);
@@ -3715,6 +3766,17 @@ static int generate_default_object(void)
 	return 0;
 }
 
+static int generate_builtin_roles(void)
+{
+	// due to inconsistentencies between policies and CIL not allowing
+	// duplicate roles, some roles are always created, regardless of if they
+	// are declared in modules or not
+	cil_println(0, "(role auditadm_r)");
+	cil_println(0, "(role secadm_r)");
+
+	return 0;
+}
+
 static int generate_gen_require_attribute(void)
 {
 	cil_println(0, "(typeattribute " GEN_REQUIRE_ATTR ")");
@@ -3795,6 +3857,11 @@ int sepol_module_policydb_to_cil(FILE *fp, struct policydb *pdb, int linked)
 		// object_r is implicit in checkmodule, but not with CIL, create it
 		// as part of base
 		rc = generate_default_object();
+		if (rc != 0) {
+			goto exit;
+		}
+
+		rc = generate_builtin_roles();
 		if (rc != 0) {
 			goto exit;
 		}

@@ -970,7 +970,7 @@ mDNSlocal int SetupInterfaceList(mDNS *const m)
 					if (firstLoopback == NULL)
 						firstLoopback = i;
 					}
-				else
+				else if (i->ifi_flags & (IFF_MULTICAST | IFF_BROADCAST))  // http://b/25669326
 					{
 					if (SetupOneInterface(m, i->ifi_addr, i->ifi_netmask, i->ifi_name, i->ifi_index) == 0)
 						if (i->ifi_addr->sa_family == AF_INET)

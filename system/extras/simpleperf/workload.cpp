@@ -21,7 +21,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include <base/logging.h>
+#include <android-base/logging.h>
 
 std::unique_ptr<Workload> Workload::CreateWorkload(const std::vector<std::string>& args) {
   std::unique_ptr<Workload> workload(new Workload(args));
@@ -29,6 +29,21 @@ std::unique_ptr<Workload> Workload::CreateWorkload(const std::vector<std::string
     return workload;
   }
   return nullptr;
+}
+
+Workload::~Workload() {
+  if (work_pid_ != -1 && work_state_ != NotYetCreateNewProcess) {
+    if (!Workload::WaitChildProcess(false)) {
+      kill(work_pid_, SIGKILL);
+      Workload::WaitChildProcess(true);
+    }
+  }
+  if (start_signal_fd_ != -1) {
+    close(start_signal_fd_);
+  }
+  if (exec_child_fd_ != -1) {
+    close(exec_child_fd_);
+  }
 }
 
 static void ChildProcessFn(std::vector<std::string>& args, int start_signal_fd, int exec_child_fd);
@@ -63,6 +78,7 @@ bool Workload::CreateNewProcess() {
     close(start_signal_pipe[1]);
     close(exec_child_pipe[0]);
     ChildProcessFn(args_, start_signal_pipe[0], exec_child_pipe[1]);
+    _exit(0);
   }
   // In parent process.
   close(start_signal_pipe[0]);
@@ -93,11 +109,10 @@ static void ChildProcessFn(std::vector<std::string>& args, int start_signal_fd, 
     TEMP_FAILURE_RETRY(write(exec_child_fd, &exec_child_failed, 1));
     close(exec_child_fd);
     errno = saved_errno;
-    PLOG(ERROR) << "execvp(" << argv[0] << ") failed";
+    PLOG(ERROR) << "child process failed to execvp(" << argv[0] << ")";
   } else {
-    PLOG(DEBUG) << "child process failed to receive start_signal, nread = " << nread;
+    PLOG(ERROR) << "child process failed to receive start_signal, nread = " << nread;
   }
-  exit(1);
 }
 
 bool Workload::Start() {
@@ -111,38 +126,30 @@ bool Workload::Start() {
   char exec_child_failed;
   ssize_t nread = TEMP_FAILURE_RETRY(read(exec_child_fd_, &exec_child_failed, 1));
   if (nread != 0) {
-    LOG(ERROR) << "exec child failed";
+    if (nread == -1) {
+      PLOG(ERROR) << "failed to receive error message from child process";
+    } else {
+      LOG(ERROR) << "received error message from child process";
+    }
     return false;
   }
   work_state_ = Started;
   return true;
 }
 
-bool Workload::IsFinished() {
-  if (work_state_ == Started) {
-    WaitChildProcess(true);
-  }
-  return work_state_ == Finished;
-}
-
-void Workload::WaitFinish() {
-  CHECK(work_state_ == Started || work_state_ == Finished);
-  if (work_state_ == Started) {
-    WaitChildProcess(false);
-  }
-}
-
-void Workload::WaitChildProcess(bool no_hang) {
+bool Workload::WaitChildProcess(bool wait_forever) {
+  bool finished = false;
   int status;
-  pid_t result = TEMP_FAILURE_RETRY(waitpid(work_pid_, &status, (no_hang ? WNOHANG : 0)));
+  pid_t result = TEMP_FAILURE_RETRY(waitpid(work_pid_, &status, (wait_forever ? 0 : WNOHANG)));
   if (result == work_pid_) {
-    work_state_ = Finished;
+    finished = true;
     if (WIFSIGNALED(status)) {
-      LOG(ERROR) << "work process was terminated by signal " << strsignal(WTERMSIG(status));
+      LOG(WARNING) << "child process was terminated by signal " << strsignal(WTERMSIG(status));
     } else if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
-      LOG(ERROR) << "work process exited with exit code " << WEXITSTATUS(status);
+      LOG(WARNING) << "child process exited with exit code " << WEXITSTATUS(status);
     }
   } else if (result == -1) {
-    PLOG(FATAL) << "waitpid() failed";
+    PLOG(ERROR) << "waitpid() failed";
   }
+  return finished;
 }

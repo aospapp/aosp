@@ -27,7 +27,7 @@ import android.view.ViewStub;
 import android.view.ViewTreeObserver;
 import android.webkit.WebView;
 
-import com.android.cts.uirendering.R;
+import android.uirendering.cts.R;
 
 /**
  * A generic activity that uses a view specified by the user.
@@ -48,7 +48,7 @@ public class DrawActivity extends Activity {
                 View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN);
         mHandler = new RenderSpecHandler();
         int uiMode = getResources().getConfiguration().uiMode;
-        mOnTv = (uiMode & Configuration.UI_MODE_TYPE_TELEVISION) == Configuration.UI_MODE_TYPE_TELEVISION;
+        mOnTv = (uiMode & Configuration.UI_MODE_TYPE_MASK) == Configuration.UI_MODE_TYPE_TELEVISION;
     }
 
     public boolean getOnTv() {
@@ -79,12 +79,13 @@ public class DrawActivity extends Activity {
         return point;
     }
 
+    private ViewInitializer mViewInitializer;
+
     private class RenderSpecHandler extends Handler {
         public static final int LAYOUT_MSG = 1;
         public static final int CANVAS_MSG = 2;
         public static final int WEB_VIEW_MSG = 3;
 
-        private ViewInitializer mViewInitializer;
 
         public void setViewInitializer(ViewInitializer viewInitializer) {
             mViewInitializer = viewInitializer;
@@ -136,6 +137,14 @@ public class DrawActivity extends Activity {
         }
     }
 
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (mViewInitializer != null) {
+            mViewInitializer.teardownView();
+        }
+    }
+
     private class DrawCounterListener implements ViewTreeObserver.OnPreDrawListener {
         private int mCurrentDraws = 0;
         private int mExtraDraws;
@@ -146,7 +155,6 @@ public class DrawActivity extends Activity {
 
         @Override
         public boolean onPreDraw() {
-
             mCurrentDraws++;
             if (mCurrentDraws < MIN_NUMBER_OF_DRAWS + mExtraDraws) {
                 mView.postInvalidate();

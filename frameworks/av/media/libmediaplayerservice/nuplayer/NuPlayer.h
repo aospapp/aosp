@@ -140,6 +140,7 @@ private:
     bool mUIDValid;
     uid_t mUID;
     pid_t mPID;
+    Mutex mSourceLock;  // guard |mSource|.
     sp<Source> mSource;
     uint32_t mSourceFlags;
     sp<Surface> mSurface;
@@ -197,6 +198,8 @@ private:
     AVSyncSettings mSyncSettings;
     float mVideoFpsHint;
     bool mStarted;
+    bool mPrepared;
+    bool mResetting;
     bool mSourceStarted;
 
     // Actual pause state, either as requested by client or due to buffering.
@@ -221,11 +224,15 @@ private:
         mFlushComplete[1][1] = false;
     }
 
-    void tryOpenAudioSinkForOffload(const sp<AMessage> &format, bool hasVideo);
+    void tryOpenAudioSinkForOffload(
+            const sp<AMessage> &format, const sp<MetaData> &audioMeta, bool hasVideo);
     void closeAudioSink();
-    void determineAudioModeChange();
+    void restartAudio(
+            int64_t currentPositionUs, bool forceNonOffload, bool needsToCreateAudioDecoder);
+    void determineAudioModeChange(const sp<AMessage> &audioFormat);
 
-    status_t instantiateDecoder(bool audio, sp<DecoderBase> *decoder);
+    status_t instantiateDecoder(
+            bool audio, sp<DecoderBase> *decoder, bool checkAudioModeChange = true);
 
     status_t onInstantiateSecureDecoders();
 

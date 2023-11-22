@@ -35,9 +35,9 @@ void SkMultiPictureDraw::DrawData::init(SkCanvas* canvas, const SkPicture* pictu
         fMatrix.setIdentity();
     }
     if (paint) {
-        fPaint = SkNEW_ARGS(SkPaint, (*paint));
+        fPaint = new SkPaint(*paint);
     } else {
-        fPaint = NULL;
+        fPaint = nullptr;
     }
 }
 
@@ -45,7 +45,7 @@ void SkMultiPictureDraw::DrawData::Reset(SkTDArray<DrawData>& data) {
     for (int i = 0; i < data.count(); ++i) {
         data[i].fPicture->unref();
         data[i].fCanvas->unref();
-        SkDELETE(data[i].fPaint);
+        delete data[i].fPaint;
     }
     data.rewind();
 }
@@ -68,8 +68,8 @@ void SkMultiPictureDraw::add(SkCanvas* canvas,
                              const SkPicture* picture,
                              const SkMatrix* matrix,
                              const SkPaint* paint) {
-    if (NULL == canvas || NULL == picture) {
-        SkDEBUGFAIL("parameters to SkMultiPictureDraw::add should be non-NULL");
+    if (nullptr == canvas || nullptr == picture) {
+        SkDEBUGFAIL("parameters to SkMultiPictureDraw::add should be non-nullptr");
         return;
     }
 
@@ -91,17 +91,16 @@ void SkMultiPictureDraw::draw(bool flush) {
 
 #ifdef FORCE_SINGLE_THREAD_DRAWING_FOR_TESTING
     for (int i = 0; i < fThreadSafeDrawData.count(); ++i) {
-        DrawData* dd = &fThreadSafeDrawData.begin()[i];
-        dd->fCanvas->drawPicture(dd->fPicture, &dd->fMatrix, dd->fPaint);
+        fThreadSafeDrawData[i].draw();
     }
 #else
-    // we place the taskgroup after the MPDReset, to ensure that we don't delete the DrawData
-    // objects until after we're finished the tasks (which have pointers to the data).
-    SkTaskGroup group;
-    group.batch(DrawData::Draw, fThreadSafeDrawData.begin(), fThreadSafeDrawData.count());
+    SkTaskGroup().batch(fThreadSafeDrawData.count(), [&](int i) {
+        fThreadSafeDrawData[i].draw();
+    });
 #endif
-    // we deliberately don't call wait() here, since the destructor will do that, this allows us
-    // to continue processing gpu-data without having to wait on the cpu tasks.
+
+    // N.B. we could get going on any GPU work from this main thread while the CPU work runs.
+    // But in practice, we've either got GPU work or CPU work, not both.
 
     const int count = fGPUDrawData.count();
     if (0 == count) {
@@ -116,6 +115,8 @@ void SkMultiPictureDraw::draw(bool flush) {
     // them (if necessary). Hoisting the free floating layers is deferred until
     // drawing the canvas that requires them.
     SkTDArray<GrHoistedLayer> atlasedNeedRendering, atlasedRecycled;
+
+    GrLayerHoister::Begin(context);
 
     for (int i = 0; i < count; ++i) {
         const DrawData& data = fGPUDrawData[i];
@@ -141,7 +142,7 @@ void SkMultiPictureDraw::draw(bool flush) {
             GrLayerHoister::FindLayersToAtlas(context, data.fPicture, initialMatrix,
                                               clipBounds,
                                               &atlasedNeedRendering, &atlasedRecycled,
-                                              rt->numSamples());
+                                              rt->numColorSamples());
         }
     }
 
@@ -174,13 +175,13 @@ void SkMultiPictureDraw::draw(bool flush) {
             // layers in the 'recycled' list since they have already been drawn.
             GrLayerHoister::FindLayersToHoist(context, picture, initialMatrix,
                                               clipBounds, &needRendering, &recycled,
-                                              rt->numSamples());
+                                              rt->numColorSamples());
 
             GrLayerHoister::DrawLayers(context, needRendering);
 
             // Render the entire picture using new layers
             GrRecordReplaceDraw(picture, canvas, context->getLayerCache(),
-                                initialMatrix, NULL);
+                                initialMatrix, nullptr);
 
             GrLayerHoister::UnlockLayers(context, needRendering);
             GrLayerHoister::UnlockLayers(context, recycled);
@@ -200,9 +201,7 @@ void SkMultiPictureDraw::draw(bool flush) {
 #if !defined(SK_IGNORE_GPU_LAYER_HOISTING) && SK_SUPPORT_GPU
     GrLayerHoister::UnlockLayers(context, atlasedNeedRendering);
     GrLayerHoister::UnlockLayers(context, atlasedRecycled);
-#if !GR_CACHE_HOISTED_LAYERS
-    GrLayerHoister::PurgeCache(context);
-#endif
+    GrLayerHoister::End(context);
 #endif
 }
 

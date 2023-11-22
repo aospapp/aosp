@@ -250,7 +250,7 @@ static void bta_hh_sdp_cback(UINT16 result, UINT16 attr_mask,
     }
 
     /* free disc_db when SDP is completed */
-    utl_freebuf((void **)&bta_hh_cb.p_disc_db);
+    osi_free_and_reset((void **)&bta_hh_cb.p_disc_db);
 
     /* send SDP_CMPL_EVT into state machine */
     bta_hh_sm_execute(p_cb, BTA_HH_SDP_CMPL_EVT, (tBTA_HH_DATA *)&status);
@@ -313,9 +313,8 @@ static void bta_hh_di_sdp_cback(UINT16 result)
     }
 
 
-    if (status != BTA_HH_OK)
-    {
-        utl_freebuf((void **)&bta_hh_cb.p_disc_db);
+    if (status != BTA_HH_OK) {
+        osi_free_and_reset((void **)&bta_hh_cb.p_disc_db);
         /* send SDP_CMPL_EVT into state machine */
         bta_hh_sm_execute(p_cb, BTA_HH_SDP_CMPL_EVT, (tBTA_HH_DATA *)&status);
     }
@@ -384,30 +383,21 @@ void bta_hh_start_sdp(tBTA_HH_DEV_CB *p_cb, tBTA_HH_DATA *p_data)
     /* GetSDPRecord. at one time only one SDP precedure can be active */
     else if (!bta_hh_cb.p_disc_db)
     {
-        bta_hh_cb.p_disc_db = (tSDP_DISCOVERY_DB *) GKI_getbuf(p_bta_hh_cfg->sdp_db_size);
-
-        if (bta_hh_cb.p_disc_db == NULL)
-        {
-            status = BTA_HH_ERR_NO_RES;
-        }
-        else
-        {
-            bta_hh_cb.p_cur = p_cb;
-            /* do DI discovery first */
-            if (SDP_DiDiscover(p_data->api_conn.bd_addr,
-                                         bta_hh_cb.p_disc_db,
-                                         p_bta_hh_cfg->sdp_db_size,
-                                         bta_hh_di_sdp_cback) != SDP_SUCCESS)
-            {
+        bta_hh_cb.p_disc_db = (tSDP_DISCOVERY_DB *)osi_malloc(p_bta_hh_cfg->sdp_db_size);
+        bta_hh_cb.p_cur = p_cb;
+        /* do DI discovery first */
+        if (SDP_DiDiscover(p_data->api_conn.bd_addr,
+                           bta_hh_cb.p_disc_db,
+                           p_bta_hh_cfg->sdp_db_size,
+                           bta_hh_di_sdp_cback) != SDP_SUCCESS) {
 #if BTA_HH_DEBUG
-                APPL_TRACE_DEBUG ("bta_hh_start_sdp:  SDP_DiDiscover failed: \
+            APPL_TRACE_DEBUG("bta_hh_start_sdp:  SDP_DiDiscover failed: \
                     Status 0x%2X",status);
 #endif
-                status = BTA_HH_ERR_SDP;
-                utl_freebuf((void **)&bta_hh_cb.p_disc_db);
-            }
-            else
-                status = BTA_HH_OK;
+            status = BTA_HH_ERR_SDP;
+            osi_free_and_reset((void **)&bta_hh_cb.p_disc_db);
+        } else {
+            status = BTA_HH_OK;
         }
     }
 
@@ -453,19 +443,28 @@ void bta_hh_sdp_cmpl(tBTA_HH_DEV_CB *p_cb, tBTA_HH_DATA *p_data)
             HID_HostSetSecurityLevel("", p_cb->sec_mask);
 
             /* open HID connection */
-            if ((ret = HID_HostOpenDev (p_cb->hid_handle)) != HID_SUCCESS)
+            ret = HID_HostOpenDev (p_cb->hid_handle);
+            APPL_TRACE_DEBUG ("%s: HID_HostOpenDev returned=%d", __func__, ret);
+            if (ret == HID_SUCCESS || ret == HID_ERR_ALREADY_CONN)
+            {
+                status = BTA_HH_OK;
+            }
+            else if (ret == HID_ERR_CONN_IN_PROCESS)
+            {
+                /* Connection already in progress, return from here, SDP
+                 * will be performed after connection is completed.
+                 */
+                APPL_TRACE_DEBUG ("%s: connection already in progress", __func__);
+                return;
+            }
+            else
             {
 #if BTA_HH_DEBUG
-                APPL_TRACE_DEBUG ("bta_hh_sdp_cmpl:  HID_HostOpenDev failed: \
-                    Status 0x%2X",ret);
+                APPL_TRACE_DEBUG ("%s: HID_HostOpenDev failed: Status 0x%2X", __func__, ret);
 #endif
                 /* open fail, remove device from management device list */
                 HID_HostRemoveDev( p_cb->hid_handle);
                 status = BTA_HH_ERR;
-            }
-            else
-            {
-                status = BTA_HH_OK;
             }
         }
         else /* incoming connection SDP finish */
@@ -668,7 +667,7 @@ void bta_hh_data_act(tBTA_HH_DEV_CB *p_cb, tBTA_HH_DATA * p_data)
     bta_hh_co_data((UINT8)p_data->hid_cback.hdr.layer_specific, p_rpt, pdata->len,
                     p_cb->mode, p_cb->sub_class, p_cb->dscp_info.ctry_code, p_cb->addr, p_cb->app_id);
 
-    utl_freebuf((void **)&pdata);
+    osi_free_and_reset((void **)&pdata);
 }
 
 
@@ -807,7 +806,7 @@ void bta_hh_ctrl_dat_act(tBTA_HH_DEV_CB *p_cb, tBTA_HH_DATA * p_data)
     (* bta_hh_cb.p_cback)(p_cb->w4_evt, (tBTA_HH *)&hs_data);
 
     p_cb->w4_evt = 0;
-    utl_freebuf((void **)&pdata);
+    osi_free_and_reset((void **)&pdata);
 
 }
 
@@ -850,6 +849,9 @@ void bta_hh_open_failure(tBTA_HH_DEV_CB *p_cb, tBTA_HH_DATA *p_data)
         bta_hh_disc_cmpl();
     }
 
+    /* Error in opening hid connection, reset flags */
+    p_cb->incoming_conn = FALSE;
+    p_cb->incoming_hid_handle = BTA_HH_INVALID_HANDLE;
 }
 
 /*******************************************************************************
@@ -1185,7 +1187,6 @@ void bta_hh_write_dev_act(tBTA_HH_DEV_CB *p_cb, tBTA_HH_DATA *p_data)
 static void bta_hh_cback (UINT8 dev_handle, BD_ADDR addr, UINT8 event,
                         UINT32 data, BT_HDR *pdata)
 {
-    tBTA_HH_CBACK_DATA    *p_buf = NULL;
     UINT16  sm_event = BTA_HH_INVALID_EVT;
     UINT8   xx = 0;
 
@@ -1215,7 +1216,7 @@ static void bta_hh_cback (UINT8 dev_handle, BD_ADDR addr, UINT8 event,
     case HID_HDEV_EVT_INTR_DATC:
     case HID_HDEV_EVT_CTRL_DATC:
         /* Unhandled events: Free buffer for DATAC */
-        utl_freebuf((void **)&pdata);
+        osi_free_and_reset((void **)&pdata);
         break;
     case HID_HDEV_EVT_VC_UNPLUG:
         for (xx = 0; xx < BTA_HH_MAX_DEVICE; xx++)
@@ -1229,20 +1230,20 @@ static void bta_hh_cback (UINT8 dev_handle, BD_ADDR addr, UINT8 event,
         break;
     }
 
-    if (sm_event != BTA_HH_INVALID_EVT &&
-        (p_buf = (tBTA_HH_CBACK_DATA *)GKI_getbuf(sizeof(tBTA_HH_CBACK_DATA) +
-                    sizeof(BT_HDR))) != NULL)
-    {
-        p_buf->hdr.event  = sm_event;
+    if (sm_event != BTA_HH_INVALID_EVT) {
+        tBTA_HH_CBACK_DATA *p_buf =
+            (tBTA_HH_CBACK_DATA *)osi_malloc(sizeof(tBTA_HH_CBACK_DATA) +
+                                             sizeof(BT_HDR));
+        p_buf->hdr.event = sm_event;
         p_buf->hdr.layer_specific = (UINT16)dev_handle;
-        p_buf->data       = data;
+        p_buf->data = data;
         bdcpy(p_buf->addr, addr);
-        p_buf->p_data     = pdata;
+        p_buf->p_data = pdata;
 
         bta_sys_sendmsg(p_buf);
     }
-
 }
+
 /*******************************************************************************
 **
 ** Function         bta_hh_get_trans_status

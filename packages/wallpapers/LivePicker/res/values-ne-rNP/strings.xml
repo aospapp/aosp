@@ -29,5 +29,6 @@
     <string name="set_live_wallpaper" msgid="2381437614949033266">"वालपेपरलाई  मिलाउनुहोस्"</string>
     <string name="wallpaper_title_and_author" msgid="8891734217843935304">"<xliff:g id="TITLE">%1$s</xliff:g> बाट <xliff:g id="AUTHOR">%2$s</xliff:g>"</string>
     <string name="live_wallpaper_loading" msgid="2488371303130330734">"लाइभ वालपेपर लोड हुँदै ..."</string>
-    <string name="wallpaper_cancel" msgid="7340240618834119228">"रद्द गर्नुहोस्"</string>
+    <string name="which_wallpaper_option_home_screen" msgid="6592329803583957023">"गृह स्क्रिन"</string>
+    <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="6170359719231147447">"गृह स्क्रिन र लक स्क्रिन"</string>
 </resources>

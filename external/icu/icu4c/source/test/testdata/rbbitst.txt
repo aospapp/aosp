@@ -32,6 +32,23 @@
 # TODO:  figure out how to have a single copy of the file for use by both C and Java.
 
 
+## FILTERED BREAK TESTS
+
+# (William Bradford, public domain. http://catalog.hathitrust.org/Record/008651224 ) - edited.
+<locale en>
+<sent>
+<data>\
+•In the meantime Mr. •Weston arrived with his small ship, which he had now recovered. •Capt. •Gorges, who informed the Sgt. here that one purpose of his going east was to meet with Mr. •Weston, took this opportunity to call him to account for some abuses he had to lay to his charge.•</data>
+
+<locale en@ss=standard>
+<sent>
+<data>\
+•In the meantime Mr. Weston arrived with his small ship, which he had now recovered. •Capt. Gorges, who informed the Sgt. here that one purpose of his going east was to meet with Mr. Weston, took this opportunity to call him to account for some abuses he had to lay to his charge.•</data>
+
+## END FILTERED BREAK TESTS
+
+<locale>
+
 #   Temp debugging tests 
 <sent>
 <data>•\u00c0.•</data>
@@ -252,6 +269,10 @@
 
 # User guide example:
 <data>•Parlez<200>-•vous<200> •français<200> •?•</data>
+
+# Test for #11673
+<word>
+<data>•ジョージア<400> •</data>
 
 ########################################################################################
 #
@@ -708,6 +729,10 @@ Bangkok)•</data>
 # Test for #11019
 <line>
 <data>•เบ•เบราว์เซอร์•โพ•โพสต์•โพสท์•</data>
+
+# Test for #11688
+<line>
+<data>•อัปเดต•อีเวนต์•</data>
 
 ##########################################################################################
 #

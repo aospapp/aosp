@@ -78,6 +78,13 @@ are used, or delay in responding to a command.
 </p>
 
 <p>
+A common workaround for priority inversion is to increase audio buffer sizes.
+However, this method increases latency and merely hides the problem
+instead of solving it. It is better to understand and prevent priority
+inversion, as seen below.
+</p>
+
+<p>
 In the Android audio implementation, priority inversion is most
 likely to occur in these places. And so you should focus your attention here:
 </p>
@@ -295,10 +302,10 @@ application code.  See these files located in the platform source directory
 <code>frameworks/av/audio_utils</code>:
 </p>
 <ul>
-  <li><a href="https://android.googlesource.com/platform/system/media/+/master/audio_utils/include/audio_utils/fifo.h">include/audio_utils/fifo.h</a>
-  <li><a href="https://android.googlesource.com/platform/system/media/+/master/audio_utils/fifo.c">fifo.c</a>
-  <li><a href="https://android.googlesource.com/platform/system/media/+/master/audio_utils/include/audio_utils/roundup.h">include/audio_utils/roundup.h</a>
-  <li><a href="https://android.googlesource.com/platform/system/media/+/master/audio_utils/roundup.c">roundup.c</a>
+  <li><a href="https://android.googlesource.com/platform/system/media/+/master/audio_utils/include/audio_utils/fifo.h">include/audio_utils/fifo.h</a></li>
+  <li><a href="https://android.googlesource.com/platform/system/media/+/master/audio_utils/fifo.c">fifo.c</a></li>
+  <li><a href="https://android.googlesource.com/platform/system/media/+/master/audio_utils/include/audio_utils/roundup.h">include/audio_utils/roundup.h</a></li>
+  <li><a href="https://android.googlesource.com/platform/system/media/+/master/audio_utils/roundup.c">roundup.c</a></li>
 </ul>
 
 <h2 id="tools">Tools</h2>
@@ -329,4 +336,3 @@ in ordinary non-time-critical use cases. But between high- and
 low-priority tasks and in time-sensitive systems mutexes are more
 likely to cause trouble.
 </p>
-

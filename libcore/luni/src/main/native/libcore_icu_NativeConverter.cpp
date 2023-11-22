@@ -601,8 +601,28 @@ static jobject NativeConverter_charsetForName(JNIEnv* env, jclass, jstring chars
     if (env->ExceptionCheck()) {
         return NULL;
     }
+
+    jstring icuCanonicalNameStr = env->NewStringUTF(icuCanonicalName);
+    if (env->ExceptionCheck()) {
+        return NULL;
+    }
+
     return env->NewObject(JniConstants::charsetICUClass, charsetConstructor,
-            javaCanonicalName, env->NewStringUTF(icuCanonicalName), javaAliases);
+            javaCanonicalName, icuCanonicalNameStr, javaAliases);
+}
+
+static void FreeNativeConverter(void *converter) {
+    ucnv_close(reinterpret_cast<UConverter*>(converter));
+}
+
+static jlong NativeConverter_getNativeFinalizer(JNIEnv*, jclass) {
+    return reinterpret_cast<jlong>(&FreeNativeConverter);
+}
+
+
+static jlong NativeConverter_getNativeSize(JNIEnv*, jclass, jstring) {
+    // TODO: Improve estimate.
+    return 200;
 }
 
 static JNINativeMethod gMethods[] = {
@@ -622,6 +642,8 @@ static JNINativeMethod gMethods[] = {
     NATIVE_METHOD(NativeConverter, resetCharToByte, "(J)V"),
     NATIVE_METHOD(NativeConverter, setCallbackDecode, "(JIILjava/lang/String;)V"),
     NATIVE_METHOD(NativeConverter, setCallbackEncode, "(JII[B)V"),
+    NATIVE_METHOD(NativeConverter, getNativeFinalizer, "()J"),
+    NATIVE_METHOD(NativeConverter, getNativeSize, "()J")
 };
 void register_libcore_icu_NativeConverter(JNIEnv* env) {
     jniRegisterNativeMethods(env, "libcore/icu/NativeConverter", gMethods, NELEM(gMethods));

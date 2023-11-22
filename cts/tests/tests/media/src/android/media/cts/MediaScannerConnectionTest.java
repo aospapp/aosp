@@ -16,7 +16,7 @@
 
 package android.media.cts;
 
-import com.android.cts.media.R;
+import android.media.cts.R;
 
 
 import android.content.ComponentName;
@@ -48,10 +48,10 @@ public class MediaScannerConnectionTest extends AndroidTestCase {
 
         FileCopyHelper copier = new FileCopyHelper(mContext);
         String fileName = "test" + System.currentTimeMillis();
-        copier.copy(R.raw.testmp3, fileName);
-
-        File dir = getContext().getFilesDir();
+        File dir = getContext().getExternalFilesDir(null);
         mMediaFile = new File(dir, fileName);
+        copier.copyToExternalStorage(R.raw.testmp3, mMediaFile);
+
         assertTrue(mMediaFile.exists());
     }
 

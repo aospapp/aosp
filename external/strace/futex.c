@@ -1,138 +1,116 @@
+/*
+ * Copyright (c) 2002-2003 Roland McGrath  <roland@redhat.com>
+ * Copyright (c) 2007-2008 Ulrich Drepper <drepper@redhat.com>
+ * Copyright (c) 2009 Andreas Schwab <schwab@redhat.com>
+ * Copyright (c) 2014-2015 Dmitry V. Levin <ldv@altlinux.org>
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. The name of the author may not be used to endorse or promote products
+ *    derived from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #include "defs.h"
 
 #ifdef HAVE_LINUX_FUTEX_H
 # include <linux/futex.h>
 #endif
 
-#ifndef FUTEX_WAIT
-# define FUTEX_WAIT 0
-#endif
-#ifndef FUTEX_WAKE
-# define FUTEX_WAKE 1
-#endif
-#ifndef FUTEX_FD
-# define FUTEX_FD 2
-#endif
-#ifndef FUTEX_REQUEUE
-# define FUTEX_REQUEUE 3
-#endif
-#ifndef FUTEX_CMP_REQUEUE
-# define FUTEX_CMP_REQUEUE 4
-#endif
-#ifndef FUTEX_WAKE_OP
-# define FUTEX_WAKE_OP 5
-#endif
-#ifndef FUTEX_LOCK_PI
-# define FUTEX_LOCK_PI 6
-# define FUTEX_UNLOCK_PI 7
-# define FUTEX_TRYLOCK_PI 8
-#endif
-#ifndef FUTEX_WAIT_BITSET
-# define FUTEX_WAIT_BITSET 9
-#endif
-#ifndef FUTEX_WAKE_BITSET
-# define FUTEX_WAKE_BITSET 10
-#endif
-#ifndef FUTEX_WAIT_REQUEUE_PI
-# define FUTEX_WAIT_REQUEUE_PI 11
-#endif
-#ifndef FUTEX_CMP_REQUEUE_PI
-# define FUTEX_CMP_REQUEUE_PI 12
-#endif
 #ifndef FUTEX_PRIVATE_FLAG
 # define FUTEX_PRIVATE_FLAG 128
 #endif
 #ifndef FUTEX_CLOCK_REALTIME
 # define FUTEX_CLOCK_REALTIME 256
 #endif
-#ifndef FUTEX_WAIT_PRIVATE
-# define FUTEX_WAIT_PRIVATE		(FUTEX_WAIT | FUTEX_PRIVATE_FLAG)
-#endif
-#ifndef FUTEX_WAKE_PRIVATE
-# define FUTEX_WAKE_PRIVATE		(FUTEX_WAKE | FUTEX_PRIVATE_FLAG)
-#endif
-#ifndef FUTEX_REQUEUE_PRIVATE
-# define FUTEX_REQUEUE_PRIVATE		(FUTEX_REQUEUE | FUTEX_PRIVATE_FLAG)
-#endif
-#ifndef FUTEX_CMP_REQUEUE_PRIVATE
-# define FUTEX_CMP_REQUEUE_PRIVATE 	(FUTEX_CMP_REQUEUE | FUTEX_PRIVATE_FLAG)
-#endif
-#ifndef FUTEX_WAKE_OP_PRIVATE
-# define FUTEX_WAKE_OP_PRIVATE		(FUTEX_WAKE_OP | FUTEX_PRIVATE_FLAG)
-#endif
-#ifndef FUTEX_LOCK_PI_PRIVATE
-# define FUTEX_LOCK_PI_PRIVATE		(FUTEX_LOCK_PI | FUTEX_PRIVATE_FLAG)
-#endif
-#ifndef FUTEX_UNLOCK_PI_PRIVATE
-# define FUTEX_UNLOCK_PI_PRIVATE	(FUTEX_UNLOCK_PI | FUTEX_PRIVATE_FLAG)
-#endif
-#ifndef FUTEX_TRYLOCK_PI_PRIVATE
-# define FUTEX_TRYLOCK_PI_PRIVATE 	(FUTEX_TRYLOCK_PI | FUTEX_PRIVATE_FLAG)
-#endif
-#ifndef FUTEX_WAIT_BITSET_PRIVATE
-# define FUTEX_WAIT_BITSET_PRIVATE	(FUTEX_WAIT_BITSET | FUTEX_PRIVATE_FLAG)
-#endif
-#ifndef FUTEX_WAKE_BITSET_PRIVATE
-# define FUTEX_WAKE_BITSET_PRIVATE	(FUTEX_WAKE_BITSET | FUTEX_PRIVATE_FLAG)
-#endif
-#ifndef FUTEX_WAIT_REQUEUE_PI_PRIVATE
-# define FUTEX_WAIT_REQUEUE_PI_PRIVATE	(FUTEX_WAIT_REQUEUE_PI | FUTEX_PRIVATE_FLAG)
-#endif
-#ifndef FUTEX_CMP_REQUEUE_PI_PRIVATE
-# define FUTEX_CMP_REQUEUE_PI_PRIVATE	(FUTEX_CMP_REQUEUE_PI | FUTEX_PRIVATE_FLAG)
-#endif
+
 #include "xlat/futexops.h"
-#ifndef FUTEX_OP_SET
-# define FUTEX_OP_SET		0
-# define FUTEX_OP_ADD		1
-# define FUTEX_OP_OR		2
-# define FUTEX_OP_ANDN		3
-# define FUTEX_OP_XOR		4
-# define FUTEX_OP_CMP_EQ	0
-# define FUTEX_OP_CMP_NE	1
-# define FUTEX_OP_CMP_LT	2
-# define FUTEX_OP_CMP_LE	3
-# define FUTEX_OP_CMP_GT	4
-# define FUTEX_OP_CMP_GE	5
-#endif
 #include "xlat/futexwakeops.h"
 #include "xlat/futexwakecmps.h"
 
 SYS_FUNC(futex)
 {
-	if (entering(tcp)) {
-		long int cmd = tcp->u_arg[1] & 127;
-		tprintf("%p, ", (void *) tcp->u_arg[0]);
-		printxval(futexops, tcp->u_arg[1], "FUTEX_???");
-		tprintf(", %ld", tcp->u_arg[2]);
-		if (cmd == FUTEX_WAKE_BITSET)
-			tprintf(", %lx", tcp->u_arg[5]);
-		else if (cmd == FUTEX_WAIT) {
-			tprints(", ");
-			printtv(tcp, tcp->u_arg[3]);
-		} else if (cmd == FUTEX_WAIT_BITSET) {
-			tprints(", ");
-			printtv(tcp, tcp->u_arg[3]);
-			tprintf(", %lx", tcp->u_arg[5]);
-		} else if (cmd == FUTEX_REQUEUE)
-			tprintf(", %ld, %p", tcp->u_arg[3], (void *) tcp->u_arg[4]);
-		else if (cmd == FUTEX_CMP_REQUEUE || cmd == FUTEX_CMP_REQUEUE_PI)
-			tprintf(", %ld, %p, %ld", tcp->u_arg[3], (void *) tcp->u_arg[4], tcp->u_arg[5]);
-		else if (cmd == FUTEX_WAKE_OP) {
-			tprintf(", %ld, %p, {", tcp->u_arg[3], (void *) tcp->u_arg[4]);
-			if ((tcp->u_arg[5] >> 28) & 8)
-				tprints("FUTEX_OP_OPARG_SHIFT|");
-			printxval(futexwakeops, (tcp->u_arg[5] >> 28) & 0x7, "FUTEX_OP_???");
-			tprintf(", %ld, ", (tcp->u_arg[5] >> 12) & 0xfff);
-			if ((tcp->u_arg[5] >> 24) & 8)
-				tprints("FUTEX_OP_OPARG_SHIFT|");
-			printxval(futexwakecmps, (tcp->u_arg[5] >> 24) & 0x7, "FUTEX_OP_CMP_???");
-			tprintf(", %ld}", tcp->u_arg[5] & 0xfff);
-		} else if (cmd == FUTEX_WAIT_REQUEUE_PI) {
-			tprints(", ");
-			printtv(tcp, tcp->u_arg[3]);
-			tprintf(", %p", (void *) tcp->u_arg[4]);
-		}
+	const long uaddr = tcp->u_arg[0];
+	const int op = tcp->u_arg[1];
+	const int cmd = op & 127;
+	const long timeout = tcp->u_arg[3];
+	const long uaddr2 = tcp->u_arg[4];
+	const unsigned int val = tcp->u_arg[2];
+	const unsigned int val2 = tcp->u_arg[3];
+	const unsigned int val3 = tcp->u_arg[5];
+
+	printaddr(uaddr);
+	tprints(", ");
+	printxval(futexops, op, "FUTEX_???");
+	tprintf(", %u", val);
+	switch (cmd) {
+	case FUTEX_WAIT:
+	case FUTEX_LOCK_PI:
+		tprints(", ");
+		print_timespec(tcp, timeout);
+		break;
+	case FUTEX_WAIT_BITSET:
+		tprints(", ");
+		print_timespec(tcp, timeout);
+		tprintf(", %x", val3);
+		break;
+	case FUTEX_WAKE_BITSET:
+		tprintf(", %x", val3);
+		break;
+	case FUTEX_REQUEUE:
+		tprintf(", %u, ", val2);
+		printaddr(uaddr2);
+		break;
+	case FUTEX_CMP_REQUEUE:
+	case FUTEX_CMP_REQUEUE_PI:
+		tprintf(", %u, ", val2);
+		printaddr(uaddr2);
+		tprintf(", %u", val3);
+		break;
+	case FUTEX_WAKE_OP:
+		tprintf(", %u, ", val2);
+		printaddr(uaddr2);
+		tprints(", {");
+		if ((val3 >> 28) & 8)
+			tprints("FUTEX_OP_OPARG_SHIFT|");
+		printxval(futexwakeops, (val3 >> 28) & 0x7, "FUTEX_OP_???");
+		tprintf(", %u, ", (val3 >> 12) & 0xfff);
+		if ((val3 >> 24) & 8)
+			tprints("FUTEX_OP_OPARG_SHIFT|");
+		printxval(futexwakecmps, (val3 >> 24) & 0x7, "FUTEX_OP_CMP_???");
+		tprintf(", %u}", val3 & 0xfff);
+		break;
+	case FUTEX_WAIT_REQUEUE_PI:
+		tprints(", ");
+		print_timespec(tcp, timeout);
+		tprints(", ");
+		printaddr(uaddr2);
+		break;
+	case FUTEX_WAKE:
+	case FUTEX_UNLOCK_PI:
+	case FUTEX_TRYLOCK_PI:
+		break;
+	default:
+		tprintf(", %lx, %lx, %x", timeout, uaddr2, val3);
+		break;
 	}
-	return 0;
+
+	return RVAL_DECODED;
 }

@@ -462,7 +462,7 @@ public class JDiffClassDescription {
      * @param apiMethod the method read from the api file.
      * @param reflectedMethod the method found via reflections.
      */
-    private boolean areMethodModifiedCompatibile(JDiffMethod apiMethod ,
+    private boolean areMethodsModifiedCompatible(JDiffMethod apiMethod ,
             Method reflectedMethod) {
 
         // If the apiMethod isn't synchronized
@@ -475,10 +475,11 @@ public class JDiffClassDescription {
 
         // Mask off NATIVE since it is a don't care.  Also mask off
         // SYNCHRONIZED since we've already handled that check.
-        int mod1 = reflectedMethod.getModifiers() & ~(Modifier.NATIVE | Modifier.SYNCHRONIZED);
-        int mod2 = apiMethod.mModifier & ~(Modifier.NATIVE | Modifier.SYNCHRONIZED);
+        int ignoredMods = (Modifier.NATIVE | Modifier.SYNCHRONIZED | Modifier.STRICT);
+        int mod1 = reflectedMethod.getModifiers() & ~ignoredMods;
+        int mod2 = apiMethod.mModifier & ~ignoredMods;
 
-        // We can ignore FINAL for final classes
+        // We can ignore FINAL for classes
         if ((mModifier & Modifier.FINAL) != 0) {
             mod1 &= ~Modifier.FINAL;
             mod2 &= ~Modifier.FINAL;
@@ -494,10 +495,6 @@ public class JDiffClassDescription {
     private void checkMethodCompliance() {
         for (JDiffMethod method : jDiffMethods) {
             try {
-                // this is because jdiff think a method in an interface is not abstract
-                if (JDiffType.INTERFACE.equals(mClassType)) {
-                    method.mModifier |= Modifier.ABSTRACT;
-                }
 
                 Method m = findMatchingMethod(method);
                 if (m == null) {
@@ -521,7 +518,7 @@ public class JDiffClassDescription {
                         return;
                     }
 
-                    if (!areMethodModifiedCompatibile(method, m)) {
+                    if (!areMethodsModifiedCompatible(method, m)) {
                         mResultObserver.notifyFailure(FailureType.MISMATCH_METHOD,
                                 method.toReadableString(mAbsoluteClassName),
                                 "Non-compatible method found when looking for " +
@@ -544,35 +541,62 @@ public class JDiffClassDescription {
      * @param method the reflected method to compare
      * @return true, if both methods are the same
      */
-    private boolean matches(JDiffMethod jDiffMethod, Method method) {
+    private boolean matches(JDiffMethod jDiffMethod, Method reflectedMethod) {
         // If the method names aren't equal, the methods can't match.
-        if (jDiffMethod.mName.equals(method.getName())) {
-            String jdiffReturnType = jDiffMethod.mReturnType;
-            String reflectionReturnType = typeToString(method.getGenericReturnType());
-            List<String> jdiffParamList = jDiffMethod.mParamList;
-
-            // Next, compare the return types of the two methods.  If
-            // they aren't equal, the methods can't match.
-            if (jdiffReturnType.equals(reflectionReturnType)) {
-                Type[] params = method.getGenericParameterTypes();
-                // Next, check the method parameters.  If they have
-                // different number of parameters, the two methods
-                // can't match.
-                if (jdiffParamList.size() == params.length) {
-                    // If any of the parameters don't match, the
-                    // methods can't match.
-                    for (int i = 0; i < jdiffParamList.size(); i++) {
-                        if (!compareParam(jdiffParamList.get(i), params[i])) {
-                            return false;
-                        }
-                    }
-                    // We've passed all the tests, the methods do
-                    // match.
-                    return true;
-                }
-            }
+        if (!jDiffMethod.mName.equals(reflectedMethod.getName())) {
+            return false;
         }
-        return false;
+        String jdiffReturnType = jDiffMethod.mReturnType;
+        String reflectionReturnType = typeToString(reflectedMethod.getGenericReturnType());
+        List<String> jdiffParamList = jDiffMethod.mParamList;
+
+        // Next, compare the return types of the two methods.  If
+        // they aren't equal, the methods can't match.
+        if (!jdiffReturnType.equals(reflectionReturnType)) {
+            return false;
+        }
+
+        Type[] params = reflectedMethod.getGenericParameterTypes();
+
+        // Next, check the method parameters.  If they have different
+        // parameter lengths, the two methods can't match.
+        if (jdiffParamList.size() != params.length) {
+            return false;
+        }
+
+        boolean piecewiseParamsMatch = true;
+
+        // Compare method parameters piecewise and return true if they all match.
+        for (int i = 0; i < jdiffParamList.size(); i++) {
+            piecewiseParamsMatch &= compareParam(jdiffParamList.get(i), params[i]);
+        }
+        if (piecewiseParamsMatch) {
+            return true;
+        }
+
+        /** NOTE: There are cases where piecewise method parameter checking
+         * fails even though the strings are equal, so compare entire strings
+         * against each other. This is not done by default to avoid a
+         * TransactionTooLargeException.
+         * Additionally, this can fail anyway due to extra
+         * information dug up by reflection.
+         *
+         * TODO: fix parameter equality checking and reflection matching
+         * See https://b.corp.google.com/issues/27726349
+         */
+
+        StringBuilder reflectedMethodParams = new StringBuilder("");
+        StringBuilder jdiffMethodParams = new StringBuilder("");
+
+        for (int i = 0; i < jdiffParamList.size(); i++) {
+            jdiffMethodParams.append(jdiffParamList.get(i));
+            reflectedMethodParams.append(params[i]);
+        }
+
+        String jDiffFName = jdiffMethodParams.toString();
+        String refName = reflectedMethodParams.toString();
+
+        return jDiffFName.equals(refName);
     }
 
     /**

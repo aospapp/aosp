@@ -168,18 +168,6 @@ extern "C" {
 #endif
 
 
-#if defined(_MSC_VER)
-#define OPENSSL_U64(x) x##UI64
-#else
-
-#if defined(OPENSSL_64_BIT)
-#define OPENSSL_U64(x) x##UL
-#else
-#define OPENSSL_U64(x) x##ULL
-#endif
-
-#endif  /* defined(_MSC_VER) */
-
 #if defined(OPENSSL_X86) || defined(OPENSSL_X86_64) || defined(OPENSSL_ARM) || \
     defined(OPENSSL_AARCH64)
 /* OPENSSL_cpuid_setup initializes OPENSSL_ia32cap_P. */
@@ -452,6 +440,7 @@ OPENSSL_EXPORT void CRYPTO_STATIC_MUTEX_unlock(
 typedef enum {
   OPENSSL_THREAD_LOCAL_ERR = 0,
   OPENSSL_THREAD_LOCAL_RAND,
+  OPENSSL_THREAD_LOCAL_URANDOM_BUF,
   OPENSSL_THREAD_LOCAL_TEST,
   NUM_OPENSSL_THREAD_LOCALS,
 } thread_local_data_t;
@@ -493,9 +482,14 @@ typedef struct crypto_ex_data_func_st CRYPTO_EX_DATA_FUNCS;
 typedef struct {
   struct CRYPTO_STATIC_MUTEX lock;
   STACK_OF(CRYPTO_EX_DATA_FUNCS) *meth;
+  /* num_reserved is one if the ex_data index zero is reserved for legacy
+   * |TYPE_get_app_data| functions. */
+  uint8_t num_reserved;
 } CRYPTO_EX_DATA_CLASS;
 
-#define CRYPTO_EX_DATA_CLASS_INIT {CRYPTO_STATIC_MUTEX_INIT, NULL}
+#define CRYPTO_EX_DATA_CLASS_INIT {CRYPTO_STATIC_MUTEX_INIT, NULL, 0}
+#define CRYPTO_EX_DATA_CLASS_INIT_WITH_APP_DATA \
+    {CRYPTO_STATIC_MUTEX_INIT, NULL, 1}
 
 /* CRYPTO_get_ex_new_index allocates a new index for |ex_data_class| and writes
  * it to |*out_index|. Each class of object should provide a wrapper function
@@ -503,8 +497,7 @@ typedef struct {
  * zero otherwise. */
 OPENSSL_EXPORT int CRYPTO_get_ex_new_index(CRYPTO_EX_DATA_CLASS *ex_data_class,
                                            int *out_index, long argl,
-                                           void *argp, CRYPTO_EX_new *new_func,
-                                           CRYPTO_EX_dup *dup_func,
+                                           void *argp, CRYPTO_EX_dup *dup_func,
                                            CRYPTO_EX_free *free_func);
 
 /* CRYPTO_set_ex_data sets an extra data pointer on a given object. Each class
@@ -516,11 +509,8 @@ OPENSSL_EXPORT int CRYPTO_set_ex_data(CRYPTO_EX_DATA *ad, int index, void *val);
  * function. */
 OPENSSL_EXPORT void *CRYPTO_get_ex_data(const CRYPTO_EX_DATA *ad, int index);
 
-/* CRYPTO_new_ex_data initialises a newly allocated |CRYPTO_EX_DATA| which is
- * embedded inside of |obj| which is of class |ex_data_class|. Returns one on
- * success and zero otherwise. */
-OPENSSL_EXPORT int CRYPTO_new_ex_data(CRYPTO_EX_DATA_CLASS *ex_data_class,
-                                      void *obj, CRYPTO_EX_DATA *ad);
+/* CRYPTO_new_ex_data initialises a newly allocated |CRYPTO_EX_DATA|. */
+OPENSSL_EXPORT void CRYPTO_new_ex_data(CRYPTO_EX_DATA *ad);
 
 /* CRYPTO_dup_ex_data duplicates |from| into a freshly allocated
  * |CRYPTO_EX_DATA|, |to|. Both of which are inside objects of the given

@@ -22,7 +22,7 @@
  *
  ******************************************************************************/
 
-#include "gki.h"
+#include "bt_common.h"
 #include "bta_sys.h"
 #include "bta_api.h"
 #include "bta_dm_int.h"
@@ -61,30 +61,26 @@ static const tBTA_SYS_REG bta_dm_search_reg =
 *******************************************************************************/
 tBTA_STATUS BTA_EnableBluetooth(tBTA_DM_SEC_CBACK *p_cback)
 {
-
-    tBTA_DM_API_ENABLE    *p_msg;
-
     /* Bluetooth disabling is in progress */
     if (bta_dm_cb.disabling)
         return BTA_FAILURE;
 
-    memset(&bta_dm_cb, 0, sizeof(bta_dm_cb));
+    bta_dm_init_cb();
 
-    bta_sys_register (BTA_ID_DM, &bta_dm_reg );
-    bta_sys_register (BTA_ID_DM_SEARCH, &bta_dm_search_reg );
+    bta_sys_register(BTA_ID_DM, &bta_dm_reg );
+    bta_sys_register(BTA_ID_DM_SEARCH, &bta_dm_search_reg );
 
     /* if UUID list is not provided as static data */
     bta_sys_eir_register(bta_dm_eir_update_uuid);
 
-    if ((p_msg = (tBTA_DM_API_ENABLE *) GKI_getbuf(sizeof(tBTA_DM_API_ENABLE))) != NULL)
-    {
-        p_msg->hdr.event = BTA_DM_API_ENABLE_EVT;
-        p_msg->p_sec_cback = p_cback;
-        bta_sys_sendmsg(p_msg);
-        return BTA_SUCCESS;
-    }
-    return BTA_FAILURE;
+    tBTA_DM_API_ENABLE *p_msg =
+        (tBTA_DM_API_ENABLE *)osi_malloc(sizeof(tBTA_DM_API_ENABLE));
+    p_msg->hdr.event = BTA_DM_API_ENABLE_EVT;
+    p_msg->p_sec_cback = p_cback;
 
+    bta_sys_sendmsg(p_msg);
+
+    return BTA_SUCCESS;
 }
 
 /*******************************************************************************
@@ -99,18 +95,11 @@ tBTA_STATUS BTA_EnableBluetooth(tBTA_DM_SEC_CBACK *p_cback)
 *******************************************************************************/
 tBTA_STATUS BTA_DisableBluetooth(void)
 {
+    BT_HDR *p_msg = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
 
-    BT_HDR    *p_msg;
+    p_msg->event = BTA_DM_API_DISABLE_EVT;
 
-    if ((p_msg = (BT_HDR *) GKI_getbuf(sizeof(BT_HDR))) != NULL)
-    {
-        p_msg->event = BTA_DM_API_DISABLE_EVT;
-        bta_sys_sendmsg(p_msg);
-    }
-    else
-    {
-        return BTA_FAILURE;
-    }
+    bta_sys_sendmsg(p_msg);
 
     return BTA_SUCCESS;
 }
@@ -127,17 +116,14 @@ tBTA_STATUS BTA_DisableBluetooth(void)
 *******************************************************************************/
 tBTA_STATUS BTA_EnableTestMode(void)
 {
-    BT_HDR    *p_msg;
+    BT_HDR *p_msg = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
 
-    APPL_TRACE_API("BTA_EnableTestMode");
+    APPL_TRACE_API("%s", __func__);
 
-    if ((p_msg = (BT_HDR *) GKI_getbuf(sizeof(BT_HDR))) != NULL)
-    {
-        p_msg->event = BTA_DM_API_ENABLE_TEST_MODE_EVT;
-        bta_sys_sendmsg(p_msg);
-        return BTA_SUCCESS;
-    }
-    return BTA_FAILURE;
+    p_msg->event = BTA_DM_API_ENABLE_TEST_MODE_EVT;
+    bta_sys_sendmsg(p_msg);
+
+    return BTA_SUCCESS;
 }
 
 /*******************************************************************************
@@ -152,15 +138,12 @@ tBTA_STATUS BTA_EnableTestMode(void)
 *******************************************************************************/
 void BTA_DisableTestMode(void)
 {
-    BT_HDR    *p_msg;
+    BT_HDR *p_msg = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
 
-    APPL_TRACE_API("BTA_DisableTestMode");
+    APPL_TRACE_API("%s", __func__);
 
-    if ((p_msg = (BT_HDR *) GKI_getbuf(sizeof(BT_HDR))) != NULL)
-    {
-        p_msg->event = BTA_DM_API_DISABLE_TEST_MODE_EVT;
-        bta_sys_sendmsg(p_msg);
-    }
+    p_msg->event = BTA_DM_API_DISABLE_TEST_MODE_EVT;
+    bta_sys_sendmsg(p_msg);
 }
 
 /*******************************************************************************
@@ -175,20 +158,13 @@ void BTA_DisableTestMode(void)
 *******************************************************************************/
 void BTA_DmSetDeviceName(char *p_name)
 {
+    tBTA_DM_API_SET_NAME *p_msg =
+        (tBTA_DM_API_SET_NAME *)osi_malloc(sizeof(tBTA_DM_API_SET_NAME));
 
-    tBTA_DM_API_SET_NAME    *p_msg;
+    p_msg->hdr.event = BTA_DM_API_SET_NAME_EVT;
+    strlcpy((char*)p_msg->name, p_name, BD_NAME_LEN);
 
-    if ((p_msg = (tBTA_DM_API_SET_NAME *) GKI_getbuf(sizeof(tBTA_DM_API_SET_NAME))) != NULL)
-    {
-        p_msg->hdr.event = BTA_DM_API_SET_NAME_EVT;
-        /* truncate the name if needed */
-        BCM_STRNCPY_S((char*)p_msg->name, sizeof(p_msg->name), p_name, BD_NAME_LEN-1);
-        p_msg->name[BD_NAME_LEN-1]=0;
-
-        bta_sys_sendmsg(p_msg);
-    }
-
-
+    bta_sys_sendmsg(p_msg);
 }
 
 /*******************************************************************************
@@ -204,22 +180,16 @@ void BTA_DmSetDeviceName(char *p_name)
 *******************************************************************************/
 void BTA_DmSetVisibility(tBTA_DM_DISC disc_mode, tBTA_DM_CONN conn_mode, UINT8 pairable_mode, UINT8 conn_filter )
 {
+    tBTA_DM_API_SET_VISIBILITY *p_msg =
+        (tBTA_DM_API_SET_VISIBILITY *)osi_malloc(sizeof(tBTA_DM_MSG));
 
-    tBTA_DM_API_SET_VISIBILITY    *p_msg;
+    p_msg->hdr.event = BTA_DM_API_SET_VISIBILITY_EVT;
+    p_msg->disc_mode = disc_mode;
+    p_msg->conn_mode = conn_mode;
+    p_msg->pair_mode = pairable_mode;
+    p_msg->conn_paired_only = conn_filter;
 
-    if ((p_msg = (tBTA_DM_API_SET_VISIBILITY *) GKI_getbuf(sizeof(tBTA_DM_MSG))) != NULL)
-    {
-        p_msg->hdr.event = BTA_DM_API_SET_VISIBILITY_EVT;
-        p_msg->disc_mode = disc_mode;
-        p_msg->conn_mode = conn_mode;
-        p_msg->pair_mode = pairable_mode;
-        p_msg->conn_paired_only = conn_filter;
-
-
-        bta_sys_sendmsg(p_msg);
-    }
-
-
+    bta_sys_sendmsg(p_msg);
 }
 
 /*******************************************************************************
@@ -236,23 +206,17 @@ void BTA_DmSetVisibility(tBTA_DM_DISC disc_mode, tBTA_DM_CONN conn_mode, UINT8 p
 *******************************************************************************/
 void BTA_DmSearch(tBTA_DM_INQ *p_dm_inq, tBTA_SERVICE_MASK services, tBTA_DM_SEARCH_CBACK *p_cback)
 {
+    tBTA_DM_API_SEARCH *p_msg =
+        (tBTA_DM_API_SEARCH *)osi_calloc(sizeof(tBTA_DM_API_SEARCH));
 
-    tBTA_DM_API_SEARCH    *p_msg;
+    p_msg->hdr.event = BTA_DM_API_SEARCH_EVT;
+    memcpy(&p_msg->inq_params, p_dm_inq, sizeof(tBTA_DM_INQ));
+    p_msg->services = services;
+    p_msg->p_cback = p_cback;
+    p_msg->rs_res  = BTA_DM_RS_NONE;
 
-    if ((p_msg = (tBTA_DM_API_SEARCH *) GKI_getbuf(sizeof(tBTA_DM_API_SEARCH))) != NULL)
-    {
-        memset(p_msg, 0, sizeof(tBTA_DM_API_SEARCH));
-
-        p_msg->hdr.event = BTA_DM_API_SEARCH_EVT;
-        memcpy(&p_msg->inq_params, p_dm_inq, sizeof(tBTA_DM_INQ));
-        p_msg->services = services;
-        p_msg->p_cback = p_cback;
-        p_msg->rs_res  = BTA_DM_RS_NONE;
-        bta_sys_sendmsg(p_msg);
-    }
-
+    bta_sys_sendmsg(p_msg);
 }
-
 
 /*******************************************************************************
 **
@@ -266,14 +230,10 @@ void BTA_DmSearch(tBTA_DM_INQ *p_dm_inq, tBTA_SERVICE_MASK services, tBTA_DM_SEA
 *******************************************************************************/
 void BTA_DmSearchCancel(void)
 {
-    BT_HDR    *p_msg;
+    BT_HDR *p_msg = (BT_HDR *)osi_malloc(sizeof(BT_HDR));
 
-    if ((p_msg = (BT_HDR *) GKI_getbuf(sizeof(BT_HDR))) != NULL)
-    {
-        p_msg->event = BTA_DM_API_SEARCH_CANCEL_EVT;
-        bta_sys_sendmsg(p_msg);
-    }
-
+    p_msg->event = BTA_DM_API_SEARCH_CANCEL_EVT;
+    bta_sys_sendmsg(p_msg);
 }
 
 /*******************************************************************************
@@ -290,20 +250,16 @@ void BTA_DmSearchCancel(void)
 void BTA_DmDiscover(BD_ADDR bd_addr, tBTA_SERVICE_MASK services,
                     tBTA_DM_SEARCH_CBACK *p_cback, BOOLEAN sdp_search)
 {
-    tBTA_DM_API_DISCOVER    *p_msg;
+    tBTA_DM_API_DISCOVER *p_msg =
+        (tBTA_DM_API_DISCOVER *)osi_calloc(sizeof(tBTA_DM_API_DISCOVER));
 
-    if ((p_msg = (tBTA_DM_API_DISCOVER *) GKI_getbuf(sizeof(tBTA_DM_API_DISCOVER))) != NULL)
-    {
-        memset(p_msg, 0, sizeof(tBTA_DM_API_DISCOVER));
+    p_msg->hdr.event = BTA_DM_API_DISCOVER_EVT;
+    bdcpy(p_msg->bd_addr, bd_addr);
+    p_msg->services = services;
+    p_msg->p_cback = p_cback;
+    p_msg->sdp_search = sdp_search;
 
-        p_msg->hdr.event = BTA_DM_API_DISCOVER_EVT;
-        bdcpy(p_msg->bd_addr, bd_addr);
-        p_msg->services = services;
-        p_msg->p_cback = p_cback;
-        p_msg->sdp_search = sdp_search;
-        bta_sys_sendmsg(p_msg);
-    }
-
+    bta_sys_sendmsg(p_msg);
 }
 
 /*******************************************************************************
@@ -320,24 +276,22 @@ void BTA_DmDiscover(BD_ADDR bd_addr, tBTA_SERVICE_MASK services,
 void BTA_DmDiscoverUUID(BD_ADDR bd_addr, tSDP_UUID *uuid,
                     tBTA_DM_SEARCH_CBACK *p_cback, BOOLEAN sdp_search)
 {
-    tBTA_DM_API_DISCOVER    *p_msg;
+    tBTA_DM_API_DISCOVER *p_msg =
+        (tBTA_DM_API_DISCOVER *)osi_malloc(sizeof(tBTA_DM_API_DISCOVER));
 
-    if ((p_msg = (tBTA_DM_API_DISCOVER *) GKI_getbuf(sizeof(tBTA_DM_API_DISCOVER))) != NULL)
-    {
-        p_msg->hdr.event = BTA_DM_API_DISCOVER_EVT;
-        bdcpy(p_msg->bd_addr, bd_addr);
-        p_msg->services = BTA_USER_SERVICE_MASK; //Not exposed at API level
-        p_msg->p_cback = p_cback;
-        p_msg->sdp_search = sdp_search;
+    p_msg->hdr.event = BTA_DM_API_DISCOVER_EVT;
+    bdcpy(p_msg->bd_addr, bd_addr);
+    p_msg->services = BTA_USER_SERVICE_MASK; //Not exposed at API level
+    p_msg->p_cback = p_cback;
+    p_msg->sdp_search = sdp_search;
 
 #if BLE_INCLUDED == TRUE && BTA_GATT_INCLUDED == TRUE
-        p_msg->num_uuid = 0;
-        p_msg->p_uuid = NULL;
+    p_msg->num_uuid = 0;
+    p_msg->p_uuid = NULL;
 #endif
-        memcpy( &p_msg->uuid, uuid, sizeof(tSDP_UUID) );
-        bta_sys_sendmsg(p_msg);
-    }
+    memcpy(&p_msg->uuid, uuid, sizeof(tSDP_UUID) );
 
+    bta_sys_sendmsg(p_msg);
 }
 
 /*******************************************************************************
@@ -353,16 +307,14 @@ void BTA_DmDiscoverUUID(BD_ADDR bd_addr, tSDP_UUID *uuid,
 *******************************************************************************/
 void BTA_DmBond(BD_ADDR bd_addr)
 {
-    tBTA_DM_API_BOND    *p_msg;
+    tBTA_DM_API_BOND *p_msg =
+        (tBTA_DM_API_BOND *)osi_malloc(sizeof(tBTA_DM_API_BOND));
 
-    p_msg = (tBTA_DM_API_BOND *) GKI_getbuf(sizeof(tBTA_DM_API_BOND));
-    if (p_msg != NULL)
-    {
-        p_msg->hdr.event = BTA_DM_API_BOND_EVT;
-        bdcpy(p_msg->bd_addr, bd_addr);
-        p_msg->transport = BTA_TRANSPORT_UNKNOWN;
-        bta_sys_sendmsg(p_msg);
-    }
+    p_msg->hdr.event = BTA_DM_API_BOND_EVT;
+    bdcpy(p_msg->bd_addr, bd_addr);
+    p_msg->transport = BTA_TRANSPORT_UNKNOWN;
+
+    bta_sys_sendmsg(p_msg);
 }
 
 /*******************************************************************************
@@ -378,17 +330,14 @@ void BTA_DmBond(BD_ADDR bd_addr)
 *******************************************************************************/
 void BTA_DmBondByTransport(BD_ADDR bd_addr, tBTA_TRANSPORT transport)
 {
-    tBTA_DM_API_BOND    *p_msg;
+    tBTA_DM_API_BOND *p_msg =
+        (tBTA_DM_API_BOND *)osi_malloc(sizeof(tBTA_DM_API_BOND));
 
-    if ((p_msg = (tBTA_DM_API_BOND *) GKI_getbuf(sizeof(tBTA_DM_API_BOND))) != NULL)
-    {
-        p_msg->hdr.event = BTA_DM_API_BOND_EVT;
-        bdcpy(p_msg->bd_addr, bd_addr);
-        p_msg->transport = transport;
-        bta_sys_sendmsg(p_msg);
-    }
+    p_msg->hdr.event = BTA_DM_API_BOND_EVT;
+    bdcpy(p_msg->bd_addr, bd_addr);
+    p_msg->transport = transport;
 
-
+    bta_sys_sendmsg(p_msg);
 }
 
 /*******************************************************************************
@@ -404,16 +353,13 @@ void BTA_DmBondByTransport(BD_ADDR bd_addr, tBTA_TRANSPORT transport)
 *******************************************************************************/
 void BTA_DmBondCancel(BD_ADDR bd_addr)
 {
-    tBTA_DM_API_BOND_CANCEL    *p_msg;
+    tBTA_DM_API_BOND_CANCEL *p_msg =
+        (tBTA_DM_API_BOND_CANCEL *)osi_malloc(sizeof(tBTA_DM_API_BOND_CANCEL));
 
-    if ((p_msg = (tBTA_DM_API_BOND_CANCEL *) GKI_getbuf(sizeof(tBTA_DM_API_BOND_CANCEL))) != NULL)
-    {
-        p_msg->hdr.event = BTA_DM_API_BOND_CANCEL_EVT;
-        bdcpy(p_msg->bd_addr, bd_addr);
-        bta_sys_sendmsg(p_msg);
-    }
+    p_msg->hdr.event = BTA_DM_API_BOND_CANCEL_EVT;
+    bdcpy(p_msg->bd_addr, bd_addr);
 
-
+    bta_sys_sendmsg(p_msg);
 }
 
 /*******************************************************************************
@@ -430,24 +376,20 @@ void BTA_DmBondCancel(BD_ADDR bd_addr)
 void BTA_DmPinReply(BD_ADDR bd_addr, BOOLEAN accept, UINT8 pin_len, UINT8 *p_pin)
 
 {
-    tBTA_DM_API_PIN_REPLY    *p_msg;
+    tBTA_DM_API_PIN_REPLY *p_msg =
+        (tBTA_DM_API_PIN_REPLY *)osi_malloc(sizeof(tBTA_DM_API_PIN_REPLY));
 
-    if ((p_msg = (tBTA_DM_API_PIN_REPLY *) GKI_getbuf(sizeof(tBTA_DM_API_PIN_REPLY))) != NULL)
-    {
-        p_msg->hdr.event = BTA_DM_API_PIN_REPLY_EVT;
-        bdcpy(p_msg->bd_addr, bd_addr);
-        p_msg->accept = accept;
-        if(accept)
-        {
-            p_msg->pin_len = pin_len;
-            memcpy(p_msg->p_pin, p_pin, pin_len);
-        }
-        bta_sys_sendmsg(p_msg);
+    p_msg->hdr.event = BTA_DM_API_PIN_REPLY_EVT;
+    bdcpy(p_msg->bd_addr, bd_addr);
+    p_msg->accept = accept;
+    if (accept) {
+        p_msg->pin_len = pin_len;
+        memcpy(p_msg->p_pin, p_pin, pin_len);
     }
 
+    bta_sys_sendmsg(p_msg);
 }
 
-#if (BTM_OOB_INCLUDED == TRUE)
 /*******************************************************************************
 **
 ** Function         BTA_DmLocalOob
@@ -463,15 +405,13 @@ void BTA_DmPinReply(BD_ADDR bd_addr, BOOLEAN accept, UINT8 pin_len, UINT8 *p_pin
 *******************************************************************************/
 void BTA_DmLocalOob(void)
 {
-    tBTA_DM_API_LOC_OOB    *p_msg;
+    tBTA_DM_API_LOC_OOB *p_msg =
+        (tBTA_DM_API_LOC_OOB *)osi_malloc(sizeof(tBTA_DM_API_LOC_OOB));
 
-    if ((p_msg = (tBTA_DM_API_LOC_OOB *) GKI_getbuf(sizeof(tBTA_DM_API_LOC_OOB))) != NULL)
-    {
-        p_msg->hdr.event = BTA_DM_API_LOC_OOB_EVT;
-        bta_sys_sendmsg(p_msg);
-    }
+    p_msg->hdr.event = BTA_DM_API_LOC_OOB_EVT;
+    bta_sys_sendmsg(p_msg);
 }
-#endif /* BTM_OOB_INCLUDED */
+
 /*******************************************************************************
 **
 ** Function         BTA_DmConfirm
@@ -484,15 +424,14 @@ void BTA_DmLocalOob(void)
 *******************************************************************************/
 void BTA_DmConfirm(BD_ADDR bd_addr, BOOLEAN accept)
 {
-    tBTA_DM_API_CONFIRM    *p_msg;
+    tBTA_DM_API_CONFIRM *p_msg =
+        (tBTA_DM_API_CONFIRM *)osi_malloc(sizeof(tBTA_DM_API_CONFIRM));
 
-    if ((p_msg = (tBTA_DM_API_CONFIRM *) GKI_getbuf(sizeof(tBTA_DM_API_CONFIRM))) != NULL)
-    {
-        p_msg->hdr.event = BTA_DM_API_CONFIRM_EVT;
-        bdcpy(p_msg->bd_addr, bd_addr);
-        p_msg->accept = accept;
-        bta_sys_sendmsg(p_msg);
-    }
+    p_msg->hdr.event = BTA_DM_API_CONFIRM_EVT;
+    bdcpy(p_msg->bd_addr, bd_addr);
+    p_msg->accept = accept;
+
+    bta_sys_sendmsg(p_msg);
 }
 
 /*******************************************************************************
@@ -510,41 +449,33 @@ void BTA_DmAddDevice(BD_ADDR bd_addr, DEV_CLASS dev_class, LINK_KEY link_key,
                      tBTA_SERVICE_MASK trusted_mask, BOOLEAN is_trusted,
                      UINT8 key_type, tBTA_IO_CAP io_cap, UINT8 pin_length)
 {
+    tBTA_DM_API_ADD_DEVICE *p_msg =
+        (tBTA_DM_API_ADD_DEVICE *)osi_calloc(sizeof(tBTA_DM_API_ADD_DEVICE));
 
-    tBTA_DM_API_ADD_DEVICE *p_msg;
+    p_msg->hdr.event = BTA_DM_API_ADD_DEVICE_EVT;
+    bdcpy(p_msg->bd_addr, bd_addr);
+    p_msg->tm = trusted_mask;
+    p_msg->is_trusted = is_trusted;
+    p_msg->io_cap = io_cap;
 
-    if ((p_msg = (tBTA_DM_API_ADD_DEVICE *) GKI_getbuf(sizeof(tBTA_DM_API_ADD_DEVICE))) != NULL)
-    {
-        memset (p_msg, 0, sizeof(tBTA_DM_API_ADD_DEVICE));
-
-        p_msg->hdr.event = BTA_DM_API_ADD_DEVICE_EVT;
-        bdcpy(p_msg->bd_addr, bd_addr);
-        p_msg->tm = trusted_mask;
-        p_msg->is_trusted = is_trusted;
-        p_msg->io_cap = io_cap;
-
-        if (link_key)
-        {
-            p_msg->link_key_known = TRUE;
-            p_msg->key_type = key_type;
-            memcpy(p_msg->link_key, link_key, LINK_KEY_LEN);
-        }
-
-        /* Load device class if specified */
-        if (dev_class)
-        {
-            p_msg->dc_known = TRUE;
-            memcpy (p_msg->dc, dev_class, DEV_CLASS_LEN);
-        }
-
-        memset (p_msg->bd_name, 0, BD_NAME_LEN + 1);
-        memset (p_msg->features, 0, sizeof (p_msg->features));
-        p_msg->pin_length = pin_length;
-
-        bta_sys_sendmsg(p_msg);
+    if (link_key) {
+        p_msg->link_key_known = TRUE;
+        p_msg->key_type = key_type;
+        memcpy(p_msg->link_key, link_key, LINK_KEY_LEN);
     }
-}
 
+    /* Load device class if specified */
+    if (dev_class) {
+        p_msg->dc_known = TRUE;
+        memcpy(p_msg->dc, dev_class, DEV_CLASS_LEN);
+    }
+
+    memset(p_msg->bd_name, 0, BD_NAME_LEN + 1);
+    memset(p_msg->features, 0, sizeof (p_msg->features));
+    p_msg->pin_length = pin_length;
+
+    bta_sys_sendmsg(p_msg);
+}
 
 /*******************************************************************************
 **
@@ -559,20 +490,13 @@ void BTA_DmAddDevice(BD_ADDR bd_addr, DEV_CLASS dev_class, LINK_KEY link_key,
 *******************************************************************************/
 tBTA_STATUS BTA_DmRemoveDevice(BD_ADDR bd_addr)
 {
-    tBTA_DM_API_REMOVE_DEVICE *p_msg;
+    tBTA_DM_API_REMOVE_DEVICE *p_msg =
+        (tBTA_DM_API_REMOVE_DEVICE *)osi_calloc(sizeof(tBTA_DM_API_REMOVE_DEVICE));
 
-    if ((p_msg = (tBTA_DM_API_REMOVE_DEVICE *) GKI_getbuf(sizeof(tBTA_DM_API_REMOVE_DEVICE))) != NULL)
-    {
-        memset (p_msg, 0, sizeof(tBTA_DM_API_REMOVE_DEVICE));
+    p_msg->hdr.event = BTA_DM_API_REMOVE_DEVICE_EVT;
+    bdcpy(p_msg->bd_addr, bd_addr);
 
-        p_msg->hdr.event = BTA_DM_API_REMOVE_DEVICE_EVT;
-        bdcpy(p_msg->bd_addr, bd_addr);
-        bta_sys_sendmsg(p_msg);
-    }
-    else
-    {
-        return BTA_FAILURE;
-    }
+    bta_sys_sendmsg(p_msg);
 
     return BTA_SUCCESS;
 }
@@ -688,15 +612,14 @@ tBTA_STATUS BTA_DmSetLocalDiRecord( tBTA_DI_RECORD *p_device_info,
 *******************************************************************************/
 void bta_dmexecutecallback (tBTA_DM_EXEC_CBACK* p_callback, void * p_param)
 {
-    tBTA_DM_API_EXECUTE_CBACK *p_msg;
+    tBTA_DM_API_EXECUTE_CBACK *p_msg =
+        (tBTA_DM_API_EXECUTE_CBACK *)osi_malloc(sizeof(tBTA_DM_MSG));
 
-    if ((p_msg = (tBTA_DM_API_EXECUTE_CBACK *) GKI_getbuf(sizeof(tBTA_DM_MSG))) != NULL)
-    {
-        p_msg->hdr.event = BTA_DM_API_EXECUTE_CBACK_EVT;
-        p_msg->p_param= p_param;
-        p_msg->p_exec_cback= p_callback;
-        bta_sys_sendmsg(p_msg);
-    }
+    p_msg->hdr.event = BTA_DM_API_EXECUTE_CBACK_EVT;
+    p_msg->p_param= p_param;
+    p_msg->p_exec_cback= p_callback;
+
+    bta_sys_sendmsg(p_msg);
 }
 
 /*******************************************************************************
@@ -719,20 +642,15 @@ void BTA_DmAddBleKey (BD_ADDR bd_addr, tBTA_LE_KEY_VALUE *p_le_key, tBTA_LE_KEY_
 {
 #if BLE_INCLUDED == TRUE
 
-    tBTA_DM_API_ADD_BLEKEY *p_msg;
+    tBTA_DM_API_ADD_BLEKEY *p_msg =
+        (tBTA_DM_API_ADD_BLEKEY *)osi_calloc(sizeof(tBTA_DM_API_ADD_BLEKEY));
 
-    if ((p_msg = (tBTA_DM_API_ADD_BLEKEY *) GKI_getbuf(sizeof(tBTA_DM_API_ADD_BLEKEY))) != NULL)
-    {
-        memset (p_msg, 0, sizeof(tBTA_DM_API_ADD_BLEKEY));
+    p_msg->hdr.event = BTA_DM_API_ADD_BLEKEY_EVT;
+    p_msg->key_type = key_type;
+    bdcpy(p_msg->bd_addr, bd_addr);
+    memcpy(&p_msg->blekey, p_le_key, sizeof(tBTA_LE_KEY_VALUE));
 
-        p_msg->hdr.event = BTA_DM_API_ADD_BLEKEY_EVT;
-        p_msg->key_type = key_type;
-        bdcpy(p_msg->bd_addr, bd_addr);
-        memcpy(&p_msg->blekey, p_le_key, sizeof(tBTA_LE_KEY_VALUE));
-
-        bta_sys_sendmsg(p_msg);
-    }
-
+    bta_sys_sendmsg(p_msg);
 #endif
 }
 
@@ -754,21 +672,18 @@ void BTA_DmAddBleKey (BD_ADDR bd_addr, tBTA_LE_KEY_VALUE *p_le_key, tBTA_LE_KEY_
 void BTA_DmAddBleDevice(BD_ADDR bd_addr, tBLE_ADDR_TYPE addr_type, tBT_DEVICE_TYPE dev_type)
 {
 #if BLE_INCLUDED == TRUE
-    tBTA_DM_API_ADD_BLE_DEVICE *p_msg;
+    tBTA_DM_API_ADD_BLE_DEVICE *p_msg =
+        (tBTA_DM_API_ADD_BLE_DEVICE *)osi_calloc(sizeof(tBTA_DM_API_ADD_BLE_DEVICE));
 
-    if ((p_msg = (tBTA_DM_API_ADD_BLE_DEVICE *) GKI_getbuf(sizeof(tBTA_DM_API_ADD_BLE_DEVICE))) != NULL)
-    {
-        memset (p_msg, 0, sizeof(tBTA_DM_API_ADD_BLE_DEVICE));
+    p_msg->hdr.event = BTA_DM_API_ADD_BLEDEVICE_EVT;
+    bdcpy(p_msg->bd_addr, bd_addr);
+    p_msg->addr_type = addr_type;
+    p_msg->dev_type = dev_type;
 
-        p_msg->hdr.event = BTA_DM_API_ADD_BLEDEVICE_EVT;
-        bdcpy(p_msg->bd_addr, bd_addr);
-        p_msg->addr_type = addr_type;
-        p_msg->dev_type = dev_type;
-
-        bta_sys_sendmsg(p_msg);
-    }
+    bta_sys_sendmsg(p_msg);
 #endif
 }
+
 /*******************************************************************************
 **
 ** Function         BTA_DmBlePasskeyReply
@@ -786,24 +701,20 @@ void BTA_DmAddBleDevice(BD_ADDR bd_addr, tBLE_ADDR_TYPE addr_type, tBT_DEVICE_TY
 void BTA_DmBlePasskeyReply(BD_ADDR bd_addr, BOOLEAN accept, UINT32 passkey)
 {
 #if BLE_INCLUDED == TRUE
-    tBTA_DM_API_PASSKEY_REPLY    *p_msg;
+    tBTA_DM_API_PASSKEY_REPLY *p_msg =
+        (tBTA_DM_API_PASSKEY_REPLY *)osi_calloc(sizeof(tBTA_DM_API_PASSKEY_REPLY));
 
-    if ((p_msg = (tBTA_DM_API_PASSKEY_REPLY *) GKI_getbuf(sizeof(tBTA_DM_API_PASSKEY_REPLY))) != NULL)
-    {
-        memset(p_msg, 0, sizeof(tBTA_DM_API_PASSKEY_REPLY));
+    p_msg->hdr.event = BTA_DM_API_BLE_PASSKEY_REPLY_EVT;
+    bdcpy(p_msg->bd_addr, bd_addr);
+    p_msg->accept = accept;
 
-        p_msg->hdr.event = BTA_DM_API_BLE_PASSKEY_REPLY_EVT;
-        bdcpy(p_msg->bd_addr, bd_addr);
-        p_msg->accept = accept;
+    if (accept)
+        p_msg->passkey = passkey;
 
-        if(accept)
-        {
-            p_msg->passkey = passkey;
-        }
-        bta_sys_sendmsg(p_msg);
-    }
+    bta_sys_sendmsg(p_msg);
 #endif
 }
+
 /*******************************************************************************
 **
 ** Function         BTA_DmBleConfirmReply
@@ -819,15 +730,14 @@ void BTA_DmBlePasskeyReply(BD_ADDR bd_addr, BOOLEAN accept, UINT32 passkey)
 void BTA_DmBleConfirmReply(BD_ADDR bd_addr, BOOLEAN accept)
 {
 #if BLE_INCLUDED == TRUE
-    tBTA_DM_API_CONFIRM *p_msg = (tBTA_DM_API_CONFIRM *)GKI_getbuf(sizeof(tBTA_DM_API_CONFIRM));
-    if (p_msg != NULL)
-    {
-        memset(p_msg, 0, sizeof(tBTA_DM_API_CONFIRM));
-        p_msg->hdr.event = BTA_DM_API_BLE_CONFIRM_REPLY_EVT;
-        bdcpy(p_msg->bd_addr, bd_addr);
-        p_msg->accept = accept;
-        bta_sys_sendmsg(p_msg);
-    }
+    tBTA_DM_API_CONFIRM *p_msg =
+        (tBTA_DM_API_CONFIRM *)osi_calloc(sizeof(tBTA_DM_API_CONFIRM));
+
+    p_msg->hdr.event = BTA_DM_API_BLE_CONFIRM_REPLY_EVT;
+    bdcpy(p_msg->bd_addr, bd_addr);
+    p_msg->accept = accept;
+
+    bta_sys_sendmsg(p_msg);
 #endif
 }
 
@@ -846,20 +756,17 @@ void BTA_DmBleConfirmReply(BD_ADDR bd_addr, BOOLEAN accept)
 void BTA_DmBleSecurityGrant(BD_ADDR bd_addr, tBTA_DM_BLE_SEC_GRANT res)
 {
 #if BLE_INCLUDED == TRUE
-    tBTA_DM_API_BLE_SEC_GRANT    *p_msg;
+    tBTA_DM_API_BLE_SEC_GRANT *p_msg =
+        (tBTA_DM_API_BLE_SEC_GRANT *)osi_calloc(sizeof(tBTA_DM_API_BLE_SEC_GRANT));
 
-    if ((p_msg = (tBTA_DM_API_BLE_SEC_GRANT *) GKI_getbuf(sizeof(tBTA_DM_API_BLE_SEC_GRANT))) != NULL)
-    {
-        memset(p_msg, 0, sizeof(tBTA_DM_API_BLE_SEC_GRANT));
+    p_msg->hdr.event = BTA_DM_API_BLE_SEC_GRANT_EVT;
+    bdcpy(p_msg->bd_addr, bd_addr);
+    p_msg->res = res;
 
-        p_msg->hdr.event = BTA_DM_API_BLE_SEC_GRANT_EVT;
-        bdcpy(p_msg->bd_addr, bd_addr);
-        p_msg->res = res;
-
-        bta_sys_sendmsg(p_msg);
-    }
+    bta_sys_sendmsg(p_msg);
 #endif
 }
+
 /*******************************************************************************
 **
 ** Function         BTA_DmSetBlePrefConnParams
@@ -884,23 +791,17 @@ void BTA_DmSetBlePrefConnParams(BD_ADDR bd_addr,
                                UINT16 slave_latency, UINT16 supervision_tout )
 {
 #if BLE_INCLUDED == TRUE
-    tBTA_DM_API_BLE_CONN_PARAMS    *p_msg;
+    tBTA_DM_API_BLE_CONN_PARAMS *p_msg =
+        (tBTA_DM_API_BLE_CONN_PARAMS *)osi_calloc(sizeof(tBTA_DM_API_BLE_CONN_PARAMS));
 
-    if ((p_msg = (tBTA_DM_API_BLE_CONN_PARAMS *) GKI_getbuf(sizeof(tBTA_DM_API_BLE_CONN_PARAMS))) != NULL)
-    {
-        memset(p_msg, 0, sizeof(tBTA_DM_API_BLE_CONN_PARAMS));
+    p_msg->hdr.event = BTA_DM_API_BLE_CONN_PARAM_EVT;
+    memcpy(p_msg->peer_bda, bd_addr, BD_ADDR_LEN);
+    p_msg->conn_int_max = max_conn_int;
+    p_msg->conn_int_min = min_conn_int;
+    p_msg->slave_latency = slave_latency;
+    p_msg->supervision_tout = supervision_tout;
 
-        p_msg->hdr.event = BTA_DM_API_BLE_CONN_PARAM_EVT;
-
-        memcpy(p_msg->peer_bda, bd_addr, BD_ADDR_LEN);
-
-        p_msg->conn_int_max     = max_conn_int;
-        p_msg->conn_int_min     = min_conn_int;
-        p_msg->slave_latency    = slave_latency;
-        p_msg->supervision_tout = supervision_tout;
-
-        bta_sys_sendmsg(p_msg);
-    }
+    bta_sys_sendmsg(p_msg);
 #endif
 }
 
@@ -919,15 +820,16 @@ void BTA_DmSetBlePrefConnParams(BD_ADDR bd_addr,
 *******************************************************************************/
 void BTA_DmSetBleConnScanParams(UINT32 scan_interval, UINT32 scan_window)
 {
-    tBTA_DM_API_BLE_SCAN_PARAMS  *p_msg;
-    if ((p_msg = (tBTA_DM_API_BLE_SCAN_PARAMS *)GKI_getbuf(sizeof(tBTA_DM_API_BLE_SCAN_PARAMS))) != NULL)
-    {
-        memset(p_msg, 0, sizeof(tBTA_DM_API_BLE_SCAN_PARAMS));
-        p_msg->hdr.event = BTA_DM_API_BLE_CONN_SCAN_PARAM_EVT;
-        p_msg->scan_int         = scan_interval;
-        p_msg->scan_window      = scan_window;
-        bta_sys_sendmsg(p_msg);
-    }
+#if BLE_INCLUDED == TRUE
+    tBTA_DM_API_BLE_SCAN_PARAMS *p_msg =
+        (tBTA_DM_API_BLE_SCAN_PARAMS *)osi_calloc(sizeof(tBTA_DM_API_BLE_SCAN_PARAMS));
+
+    p_msg->hdr.event = BTA_DM_API_BLE_CONN_SCAN_PARAM_EVT;
+    p_msg->scan_int = scan_interval;
+    p_msg->scan_window = scan_window;
+
+    bta_sys_sendmsg(p_msg);
+#endif  // BLE_INCLUDED == TRUE
 }
 
 /*******************************************************************************
@@ -945,25 +847,25 @@ void BTA_DmSetBleConnScanParams(UINT32 scan_interval, UINT32 scan_window)
 ** Returns          void
 **
 *******************************************************************************/
+
+#if BLE_INCLUDED == TRUE
 void BTA_DmSetBleScanParams(tGATT_IF client_if, UINT32 scan_interval,
                             UINT32 scan_window, tBLE_SCAN_MODE scan_mode,
                             tBLE_SCAN_PARAM_SETUP_CBACK scan_param_setup_cback)
 {
-    tBTA_DM_API_BLE_SCAN_PARAMS *p_msg;
+    tBTA_DM_API_BLE_SCAN_PARAMS *p_msg =
+        (tBTA_DM_API_BLE_SCAN_PARAMS *)osi_calloc(sizeof(tBTA_DM_API_BLE_SCAN_PARAMS));
 
-    if ((p_msg = (tBTA_DM_API_BLE_SCAN_PARAMS *)GKI_getbuf(sizeof(tBTA_DM_API_BLE_SCAN_PARAMS))) != NULL)
-    {
-        memset(p_msg, 0, sizeof(tBTA_DM_API_BLE_SCAN_PARAMS));
-        p_msg->hdr.event = BTA_DM_API_BLE_SCAN_PARAM_EVT;
-        p_msg->client_if = client_if;
-        p_msg->scan_int = scan_interval;
-        p_msg->scan_window = scan_window;
-        p_msg->scan_mode = scan_mode;
-        p_msg->scan_param_setup_cback = scan_param_setup_cback;
+    p_msg->hdr.event = BTA_DM_API_BLE_SCAN_PARAM_EVT;
+    p_msg->client_if = client_if;
+    p_msg->scan_int = scan_interval;
+    p_msg->scan_window = scan_window;
+    p_msg->scan_mode = scan_mode;
+    p_msg->scan_param_setup_cback = scan_param_setup_cback;
 
-        bta_sys_sendmsg(p_msg);
-    }
+    bta_sys_sendmsg(p_msg);
 }
+#endif  // BLE_INCLUDED == TRUE
 
 /*******************************************************************************
 **
@@ -981,29 +883,24 @@ void BTA_DmSetBleAdvParams (UINT16 adv_int_min, UINT16 adv_int_max,
                            tBLE_BD_ADDR *p_dir_bda)
 {
 #if BLE_INCLUDED == TRUE
-    tBTA_DM_API_BLE_ADV_PARAMS    *p_msg;
+    tBTA_DM_API_BLE_ADV_PARAMS *p_msg =
+        (tBTA_DM_API_BLE_ADV_PARAMS *)osi_calloc(sizeof(tBTA_DM_API_BLE_ADV_PARAMS));
 
-    APPL_TRACE_API ("BTA_DmSetBleAdvParam: %d, %d", adv_int_min, adv_int_max);
+    APPL_TRACE_API("BTA_DmSetBleAdvParam: %d, %d", adv_int_min, adv_int_max);
 
-    if ((p_msg = (tBTA_DM_API_BLE_ADV_PARAMS *) GKI_getbuf(sizeof(tBTA_DM_API_BLE_ADV_PARAMS))) != NULL)
-    {
-        memset(p_msg, 0, sizeof(tBTA_DM_API_BLE_ADV_PARAMS));
+    p_msg->hdr.event = BTA_DM_API_BLE_ADV_PARAM_EVT;
+    p_msg->adv_int_min = adv_int_min;
+    p_msg->adv_int_max = adv_int_max;
 
-        p_msg->hdr.event = BTA_DM_API_BLE_ADV_PARAM_EVT;
-
-        p_msg->adv_int_min      = adv_int_min;
-        p_msg->adv_int_max      = adv_int_max;
-
-        if (p_dir_bda != NULL)
-        {
-            p_msg->p_dir_bda = (tBLE_BD_ADDR *)(p_msg + 1);
-            memcpy(p_msg->p_dir_bda, p_dir_bda, sizeof(tBLE_BD_ADDR));
-        }
-
-        bta_sys_sendmsg(p_msg);
+    if (p_dir_bda != NULL) {
+        p_msg->p_dir_bda = (tBLE_BD_ADDR *)(p_msg + 1);
+        memcpy(p_msg->p_dir_bda, p_dir_bda, sizeof(tBLE_BD_ADDR));
     }
+
+    bta_sys_sendmsg(p_msg);
 #endif
 }
+
 /*******************************************************************************
 **                      BLE ADV data management API
 ********************************************************************************/
@@ -1027,18 +924,14 @@ void BTA_DmSetBleAdvParams (UINT16 adv_int_min, UINT16 adv_int_max,
 void BTA_DmBleSetAdvConfig (tBTA_BLE_AD_MASK data_mask, tBTA_BLE_ADV_DATA *p_adv_cfg,
                             tBTA_SET_ADV_DATA_CMPL_CBACK *p_adv_data_cback)
 {
-    tBTA_DM_API_SET_ADV_CONFIG  *p_msg;
+  tBTA_DM_API_SET_ADV_CONFIG *p_msg = osi_calloc(sizeof(*p_msg));
 
-    if ((p_msg = (tBTA_DM_API_SET_ADV_CONFIG *)
-        GKI_getbuf(sizeof(tBTA_DM_API_SET_ADV_CONFIG))) != NULL)
-    {
-        p_msg->hdr.event = BTA_DM_API_BLE_SET_ADV_CONFIG_EVT;
-        p_msg->data_mask = data_mask;
-        p_msg->p_adv_data_cback = p_adv_data_cback;
-        p_msg->p_adv_cfg = p_adv_cfg;
+  p_msg->hdr.event = BTA_DM_API_BLE_SET_ADV_CONFIG_EVT;
+  p_msg->data_mask = data_mask;
+  p_msg->p_adv_data_cback = p_adv_data_cback;
+  memcpy(&p_msg->adv_cfg, p_adv_cfg, sizeof(p_msg->adv_cfg));
 
-        bta_sys_sendmsg(p_msg);
-    }
+  bta_sys_sendmsg(p_msg);
 }
 
 /*******************************************************************************
@@ -1055,18 +948,14 @@ void BTA_DmBleSetAdvConfig (tBTA_BLE_AD_MASK data_mask, tBTA_BLE_ADV_DATA *p_adv
 extern void BTA_DmBleSetScanRsp (tBTA_BLE_AD_MASK data_mask, tBTA_BLE_ADV_DATA *p_adv_cfg,
                                  tBTA_SET_ADV_DATA_CMPL_CBACK *p_adv_data_cback)
 {
-    tBTA_DM_API_SET_ADV_CONFIG  *p_msg;
+  tBTA_DM_API_SET_ADV_CONFIG *p_msg = osi_calloc(sizeof(*p_msg));
 
-    if ((p_msg = (tBTA_DM_API_SET_ADV_CONFIG *)
-        GKI_getbuf(sizeof(tBTA_DM_API_SET_ADV_CONFIG))) != NULL)
-    {
-        p_msg->hdr.event = BTA_DM_API_BLE_SET_SCAN_RSP_EVT;
-        p_msg->data_mask = data_mask;
-        p_msg->p_adv_data_cback = p_adv_data_cback;
-        p_msg->p_adv_cfg = p_adv_cfg;
+  p_msg->hdr.event = BTA_DM_API_BLE_SET_SCAN_RSP_EVT;
+  p_msg->data_mask = data_mask;
+  p_msg->p_adv_data_cback = p_adv_data_cback;
+  memcpy(&p_msg->adv_cfg, p_adv_cfg, sizeof(p_msg->adv_cfg));
 
-        bta_sys_sendmsg(p_msg);
-    }
+  bta_sys_sendmsg(p_msg);
 }
 
 /*******************************************************************************
@@ -1094,21 +983,21 @@ extern void BTA_DmBleSetStorageParams(UINT8 batch_scan_full_max,
                                          tBTA_BLE_SCAN_REP_CBACK* p_rep_cback,
                                          tBTA_DM_BLE_REF_VALUE ref_value)
 {
-    tBTA_DM_API_SET_STORAGE_CONFIG  *p_msg;
+    tBTA_DM_API_SET_STORAGE_CONFIG *p_msg =
+        (tBTA_DM_API_SET_STORAGE_CONFIG *)osi_malloc(sizeof(tBTA_DM_API_SET_STORAGE_CONFIG));
+
     bta_dm_cb.p_setup_cback = p_setup_cback;
-    if ((p_msg = (tBTA_DM_API_SET_STORAGE_CONFIG *)
-          GKI_getbuf(sizeof(tBTA_DM_API_SET_STORAGE_CONFIG))) != NULL)
-    {
-        p_msg->hdr.event = BTA_DM_API_BLE_SETUP_STORAGE_EVT;
-        p_msg->p_setup_cback=bta_ble_scan_setup_cb;
-        p_msg->p_thres_cback=p_thres_cback;
-        p_msg->p_read_rep_cback=p_rep_cback;
-        p_msg->ref_value = ref_value;
-        p_msg->batch_scan_full_max = batch_scan_full_max;
-        p_msg->batch_scan_trunc_max = batch_scan_trunc_max;
-        p_msg->batch_scan_notify_threshold = batch_scan_notify_threshold;
-        bta_sys_sendmsg(p_msg);
-    }
+
+    p_msg->hdr.event = BTA_DM_API_BLE_SETUP_STORAGE_EVT;
+    p_msg->p_setup_cback=bta_ble_scan_setup_cb;
+    p_msg->p_thres_cback=p_thres_cback;
+    p_msg->p_read_rep_cback=p_rep_cback;
+    p_msg->ref_value = ref_value;
+    p_msg->batch_scan_full_max = batch_scan_full_max;
+    p_msg->batch_scan_trunc_max = batch_scan_trunc_max;
+    p_msg->batch_scan_notify_threshold = batch_scan_notify_threshold;
+
+    bta_sys_sendmsg(p_msg);
 }
 
 /*******************************************************************************
@@ -1133,19 +1022,18 @@ extern void BTA_DmBleEnableBatchScan(tBTA_BLE_BATCH_SCAN_MODE scan_mode,
                                          tBLE_ADDR_TYPE        addr_type,
                                          tBTA_DM_BLE_REF_VALUE ref_value)
 {
-    tBTA_DM_API_ENABLE_SCAN  *p_msg;
+    tBTA_DM_API_ENABLE_SCAN *p_msg =
+        (tBTA_DM_API_ENABLE_SCAN *)osi_malloc(sizeof(tBTA_DM_API_ENABLE_SCAN));
 
-    if ((p_msg = (tBTA_DM_API_ENABLE_SCAN *) GKI_getbuf(sizeof(tBTA_DM_API_ENABLE_SCAN))) != NULL)
-    {
-        p_msg->hdr.event = BTA_DM_API_BLE_ENABLE_BATCH_SCAN_EVT;
-        p_msg->scan_mode = scan_mode;
-        p_msg->scan_int = scan_interval;
-        p_msg->scan_window = scan_window;
-        p_msg->discard_rule = discard_rule;
-        p_msg->addr_type = addr_type;
-        p_msg->ref_value = ref_value;
-        bta_sys_sendmsg(p_msg);
-    }
+    p_msg->hdr.event = BTA_DM_API_BLE_ENABLE_BATCH_SCAN_EVT;
+    p_msg->scan_mode = scan_mode;
+    p_msg->scan_int = scan_interval;
+    p_msg->scan_window = scan_window;
+    p_msg->discard_rule = discard_rule;
+    p_msg->addr_type = addr_type;
+    p_msg->ref_value = ref_value;
+
+    bta_sys_sendmsg(p_msg);
 }
 
 /*******************************************************************************
@@ -1161,15 +1049,13 @@ extern void BTA_DmBleEnableBatchScan(tBTA_BLE_BATCH_SCAN_MODE scan_mode,
 *******************************************************************************/
 extern void BTA_DmBleDisableBatchScan(tBTA_DM_BLE_REF_VALUE ref_value)
 {
-    tBTA_DM_API_DISABLE_SCAN  *p_msg;
+    tBTA_DM_API_DISABLE_SCAN *p_msg =
+        (tBTA_DM_API_DISABLE_SCAN *)osi_malloc(sizeof(tBTA_DM_API_DISABLE_SCAN));
 
-    if ((p_msg = (tBTA_DM_API_DISABLE_SCAN *)
-         GKI_getbuf(sizeof(tBTA_DM_API_DISABLE_SCAN))) != NULL)
-    {
-        p_msg->hdr.event = BTA_DM_API_BLE_DISABLE_BATCH_SCAN_EVT;
-        p_msg->ref_value = ref_value;
-        bta_sys_sendmsg(p_msg);
-    }
+    p_msg->hdr.event = BTA_DM_API_BLE_DISABLE_BATCH_SCAN_EVT;
+    p_msg->ref_value = ref_value;
+
+    bta_sys_sendmsg(p_msg);
 }
 
 /*******************************************************************************
@@ -1187,16 +1073,14 @@ extern void BTA_DmBleDisableBatchScan(tBTA_DM_BLE_REF_VALUE ref_value)
 extern void BTA_DmBleReadScanReports(tBTA_BLE_BATCH_SCAN_MODE scan_type,
                                              tBTA_DM_BLE_REF_VALUE ref_value)
 {
-    tBTA_DM_API_READ_SCAN_REPORTS  *p_msg;
+    tBTA_DM_API_READ_SCAN_REPORTS *p_msg =
+        (tBTA_DM_API_READ_SCAN_REPORTS *)osi_malloc(sizeof(tBTA_DM_API_READ_SCAN_REPORTS));
 
-    if ((p_msg = (tBTA_DM_API_READ_SCAN_REPORTS *)
-          GKI_getbuf(sizeof(tBTA_DM_API_READ_SCAN_REPORTS))) != NULL)
-    {
-        p_msg->hdr.event = BTA_DM_API_BLE_READ_SCAN_REPORTS_EVT;
-        p_msg->scan_type = scan_type;
-        p_msg->ref_value = ref_value;
-        bta_sys_sendmsg(p_msg);
-    }
+    p_msg->hdr.event = BTA_DM_API_BLE_READ_SCAN_REPORTS_EVT;
+    p_msg->scan_type = scan_type;
+    p_msg->ref_value = ref_value;
+
+    bta_sys_sendmsg(p_msg);
 }
 
 /*******************************************************************************
@@ -1214,16 +1098,14 @@ extern void BTA_DmBleReadScanReports(tBTA_BLE_BATCH_SCAN_MODE scan_type,
 extern void BTA_DmBleTrackAdvertiser(tBTA_DM_BLE_REF_VALUE ref_value,
                             tBTA_BLE_TRACK_ADV_CBACK *p_track_adv_cback)
 {
-    tBTA_DM_API_TRACK_ADVERTISER  *p_msg;
+    tBTA_DM_API_TRACK_ADVERTISER *p_msg =
+        (tBTA_DM_API_TRACK_ADVERTISER *)osi_malloc(sizeof(tBTA_DM_API_TRACK_ADVERTISER));
 
-    if ((p_msg = (tBTA_DM_API_TRACK_ADVERTISER *)
-         GKI_getbuf(sizeof(tBTA_DM_API_TRACK_ADVERTISER))) != NULL)
-    {
-        p_msg->hdr.event = BTA_DM_API_BLE_TRACK_ADVERTISER_EVT;
-        p_msg->p_track_adv_cback = p_track_adv_cback;
-        p_msg->ref_value = ref_value;
-        bta_sys_sendmsg(p_msg);
-    }
+    p_msg->hdr.event = BTA_DM_API_BLE_TRACK_ADVERTISER_EVT;
+    p_msg->p_track_adv_cback = p_track_adv_cback;
+    p_msg->ref_value = ref_value;
+
+    bta_sys_sendmsg(p_msg);
 }
 
 #endif
@@ -1246,19 +1128,15 @@ extern void BTA_DmBleTrackAdvertiser(tBTA_DM_BLE_REF_VALUE ref_value,
 *******************************************************************************/
 extern void BTA_DmBleBroadcast (BOOLEAN start)
 {
-    tBTA_DM_API_BLE_OBSERVE   *p_msg;
+    tBTA_DM_API_BLE_OBSERVE *p_msg =
+        (tBTA_DM_API_BLE_OBSERVE *)osi_calloc(sizeof(tBTA_DM_API_BLE_OBSERVE));
 
     APPL_TRACE_API("BTA_DmBleBroadcast: start = %d ", start);
 
-    if ((p_msg = (tBTA_DM_API_BLE_OBSERVE *) GKI_getbuf(sizeof(tBTA_DM_API_BLE_OBSERVE))) != NULL)
-    {
-        memset(p_msg, 0, sizeof(tBTA_DM_API_BLE_OBSERVE));
+    p_msg->hdr.event = BTA_DM_API_BLE_BROADCAST_EVT;
+    p_msg->start = start;
 
-        p_msg->hdr.event = BTA_DM_API_BLE_BROADCAST_EVT;
-        p_msg->start = start;
-
-        bta_sys_sendmsg(p_msg);
-    }
+    bta_sys_sendmsg(p_msg);
 }
 
 #endif
@@ -1279,18 +1157,14 @@ extern void BTA_DmBleBroadcast (BOOLEAN start)
 void BTA_DmBleSetBgConnType(tBTA_DM_BLE_CONN_TYPE bg_conn_type, tBTA_DM_BLE_SEL_CBACK *p_select_cback)
 {
 #if BLE_INCLUDED == TRUE
-    tBTA_DM_API_BLE_SET_BG_CONN_TYPE    *p_msg;
+    tBTA_DM_API_BLE_SET_BG_CONN_TYPE *p_msg =
+        (tBTA_DM_API_BLE_SET_BG_CONN_TYPE *)osi_calloc(sizeof(tBTA_DM_API_BLE_SET_BG_CONN_TYPE));
 
-    if ((p_msg = (tBTA_DM_API_BLE_SET_BG_CONN_TYPE *) GKI_getbuf(sizeof(tBTA_DM_API_BLE_SET_BG_CONN_TYPE))) != NULL)
-    {
-        memset(p_msg, 0, sizeof(tBTA_DM_API_BLE_SET_BG_CONN_TYPE));
+    p_msg->hdr.event = BTA_DM_API_BLE_SET_BG_CONN_TYPE;
+    p_msg->bg_conn_type = bg_conn_type;
+    p_msg->p_select_cback = p_select_cback;
 
-        p_msg->hdr.event        = BTA_DM_API_BLE_SET_BG_CONN_TYPE;
-        p_msg->bg_conn_type     = bg_conn_type;
-        p_msg->p_select_cback   = p_select_cback;
-
-        bta_sys_sendmsg(p_msg);
-    }
+    bta_sys_sendmsg(p_msg);
 #endif
 }
 
@@ -1308,38 +1182,33 @@ static void bta_dm_discover_send_msg(BD_ADDR bd_addr, tBTA_SERVICE_MASK_EXT *p_s
                     tBTA_DM_SEARCH_CBACK *p_cback, BOOLEAN sdp_search,
                     tBTA_TRANSPORT transport)
 {
-    tBTA_DM_API_DISCOVER    *p_msg;
-    UINT16  len = p_services ? (sizeof(tBTA_DM_API_DISCOVER) +
-                                sizeof(tBT_UUID) * p_services->num_uuid) :
-                                sizeof(tBTA_DM_API_DISCOVER);
+    const size_t len = p_services ?
+        (sizeof(tBTA_DM_API_DISCOVER) + sizeof(tBT_UUID) * p_services->num_uuid)
+        : sizeof(tBTA_DM_API_DISCOVER);
+    tBTA_DM_API_DISCOVER *p_msg = (tBTA_DM_API_DISCOVER *)osi_calloc(len);
 
-    if ((p_msg = (tBTA_DM_API_DISCOVER *) GKI_getbuf(len)) != NULL)
-    {
-        memset(p_msg, 0, len);
+    p_msg->hdr.event = BTA_DM_API_DISCOVER_EVT;
+    bdcpy(p_msg->bd_addr, bd_addr);
+    p_msg->p_cback = p_cback;
+    p_msg->sdp_search = sdp_search;
+    p_msg->transport    = transport;
 
-        p_msg->hdr.event = BTA_DM_API_DISCOVER_EVT;
-        bdcpy(p_msg->bd_addr, bd_addr);
-        p_msg->p_cback = p_cback;
-        p_msg->sdp_search = sdp_search;
-        p_msg->transport    = transport;
-
-        if (p_services != NULL)
-        {
+    if (p_services != NULL) {
 #if BLE_INCLUDED == TRUE && BTA_GATT_INCLUDED == TRUE
-            p_msg->services = p_services->srvc_mask;
-            p_msg->num_uuid = p_services->num_uuid;
-            if (p_services->num_uuid != 0)
-            {
-                p_msg->p_uuid = (tBT_UUID *)(p_msg + 1);
-                memcpy(p_msg->p_uuid, p_services->p_uuid, sizeof(tBT_UUID) * p_services->num_uuid);
-            }
-#endif
+        p_msg->services = p_services->srvc_mask;
+        p_msg->num_uuid = p_services->num_uuid;
+        if (p_services->num_uuid != 0) {
+            p_msg->p_uuid = (tBT_UUID *)(p_msg + 1);
+            memcpy(p_msg->p_uuid, p_services->p_uuid,
+                   sizeof(tBT_UUID) * p_services->num_uuid);
         }
-
-        bta_sys_sendmsg(p_msg);
+#endif
     }
+
+    bta_sys_sendmsg(p_msg);
 }
 #endif
+
 /*******************************************************************************
 **
 ** Function         BTA_DmDiscoverByTransport
@@ -1412,36 +1281,30 @@ void BTA_DmDiscoverExt(BD_ADDR bd_addr, tBTA_SERVICE_MASK_EXT *p_services,
 void BTA_DmSearchExt(tBTA_DM_INQ *p_dm_inq, tBTA_SERVICE_MASK_EXT *p_services, tBTA_DM_SEARCH_CBACK *p_cback)
 {
 #if BLE_INCLUDED == TRUE && BTA_GATT_INCLUDED == TRUE
-    tBTA_DM_API_SEARCH    *p_msg;
-    UINT16  len = p_services ? (sizeof(tBTA_DM_API_SEARCH) + sizeof(tBT_UUID) * p_services->num_uuid) :
-                    sizeof(tBTA_DM_API_SEARCH);
+    const size_t len = p_services ?
+        (sizeof(tBTA_DM_API_SEARCH) + sizeof(tBT_UUID) * p_services->num_uuid)
+        : sizeof(tBTA_DM_API_SEARCH);
+    tBTA_DM_API_SEARCH *p_msg = (tBTA_DM_API_SEARCH *)osi_calloc(len);
 
-    if ((p_msg = (tBTA_DM_API_SEARCH *) GKI_getbuf(len)) != NULL)
-    {
-        memset(p_msg, 0, len);
+    p_msg->hdr.event = BTA_DM_API_SEARCH_EVT;
+    memcpy(&p_msg->inq_params, p_dm_inq, sizeof(tBTA_DM_INQ));
+    p_msg->p_cback = p_cback;
+    p_msg->rs_res  = BTA_DM_RS_NONE;
 
-        p_msg->hdr.event = BTA_DM_API_SEARCH_EVT;
-        memcpy(&p_msg->inq_params, p_dm_inq, sizeof(tBTA_DM_INQ));
-        p_msg->p_cback = p_cback;
-        p_msg->rs_res  = BTA_DM_RS_NONE;
+    if (p_services != NULL) {
+        p_msg->services = p_services->srvc_mask;
+        p_msg->num_uuid = p_services->num_uuid;
 
-
-        if (p_services != NULL)
-        {
-            p_msg->services = p_services->srvc_mask;
-            p_msg->num_uuid = p_services->num_uuid;
-
-            if (p_services->num_uuid != 0)
-            {
-                p_msg->p_uuid = (tBT_UUID *)(p_msg + 1);
-                memcpy(p_msg->p_uuid, p_services->p_uuid, sizeof(tBT_UUID) * p_services->num_uuid);
-            }
-            else
-                p_msg->p_uuid = NULL;
+        if (p_services->num_uuid != 0) {
+            p_msg->p_uuid = (tBT_UUID *)(p_msg + 1);
+            memcpy(p_msg->p_uuid, p_services->p_uuid,
+                   sizeof(tBT_UUID) * p_services->num_uuid);
+        } else {
+            p_msg->p_uuid = NULL;
         }
-
-        bta_sys_sendmsg(p_msg);
     }
+
+    bta_sys_sendmsg(p_msg);
 #else
     UNUSED(p_dm_inq);
     UNUSED(p_services);
@@ -1468,24 +1331,20 @@ void BTA_DmBleUpdateConnectionParam(BD_ADDR bd_addr, UINT16 min_int,
                                     UINT16 timeout)
 {
 #if BLE_INCLUDED == TRUE
-    tBTA_DM_API_UPDATE_CONN_PARAM *p_msg;
+    tBTA_DM_API_UPDATE_CONN_PARAM *p_msg =
+        (tBTA_DM_API_UPDATE_CONN_PARAM *)osi_calloc(sizeof(tBTA_DM_API_UPDATE_CONN_PARAM));
 
-    p_msg = (tBTA_DM_API_UPDATE_CONN_PARAM *) GKI_getbuf(sizeof(tBTA_DM_API_UPDATE_CONN_PARAM));
-    if (p_msg != NULL)
-    {
-        memset(p_msg, 0, sizeof(tBTA_DM_API_UPDATE_CONN_PARAM));
+    p_msg->hdr.event = BTA_DM_API_UPDATE_CONN_PARAM_EVT;
+    bdcpy(p_msg->bd_addr, bd_addr);
+    p_msg->min_int = min_int;
+    p_msg->max_int = max_int;
+    p_msg->latency = latency;
+    p_msg->timeout = timeout;
 
-        p_msg->hdr.event = BTA_DM_API_UPDATE_CONN_PARAM_EVT;
-        bdcpy(p_msg->bd_addr, bd_addr);
-        p_msg->min_int   = min_int;
-        p_msg->max_int   = max_int;
-        p_msg->latency   = latency;
-        p_msg->timeout   = timeout;
-
-        bta_sys_sendmsg(p_msg);
-    }
+    bta_sys_sendmsg(p_msg);
 #endif
 }
+
 /*******************************************************************************
 **
 ** Function         BTA_DmBleConfigLocalPrivacy
@@ -1500,17 +1359,13 @@ void BTA_DmBleUpdateConnectionParam(BD_ADDR bd_addr, UINT16 min_int,
 void BTA_DmBleConfigLocalPrivacy(BOOLEAN privacy_enable)
 {
 #if BLE_INCLUDED == TRUE && BLE_PRIVACY_SPT == TRUE
-    tBTA_DM_API_LOCAL_PRIVACY *p_msg;
+    tBTA_DM_API_LOCAL_PRIVACY *p_msg =
+        (tBTA_DM_API_LOCAL_PRIVACY *)osi_calloc(sizeof(tBTA_DM_API_ENABLE_PRIVACY));
 
-    if ((p_msg = (tBTA_DM_API_LOCAL_PRIVACY *) GKI_getbuf(sizeof(tBTA_DM_API_ENABLE_PRIVACY))) != NULL)
-    {
-        memset (p_msg, 0, sizeof(tBTA_DM_API_LOCAL_PRIVACY));
+    p_msg->hdr.event = BTA_DM_API_LOCAL_PRIVACY_EVT;
+    p_msg->privacy_enable   = privacy_enable;
 
-        p_msg->hdr.event = BTA_DM_API_LOCAL_PRIVACY_EVT;
-        p_msg->privacy_enable   = privacy_enable;
-
-        bta_sys_sendmsg(p_msg);
-    }
+    bta_sys_sendmsg(p_msg);
 #else
     UNUSED (privacy_enable);
 #endif
@@ -1535,26 +1390,22 @@ void BTA_BleEnableAdvInstance (tBTA_BLE_ADV_PARAMS *p_params,
                                 tBTA_BLE_MULTI_ADV_CBACK *p_cback,
                                 void *p_ref)
 {
-    tBTA_DM_API_BLE_MULTI_ADV_ENB    *p_msg;
-    UINT16 len = sizeof(tBTA_BLE_ADV_PARAMS) + sizeof(tBTA_DM_API_BLE_MULTI_ADV_ENB);
+    const size_t len = sizeof(tBTA_BLE_ADV_PARAMS) +
+        sizeof(tBTA_DM_API_BLE_MULTI_ADV_ENB);
+    tBTA_DM_API_BLE_MULTI_ADV_ENB *p_msg =
+        (tBTA_DM_API_BLE_MULTI_ADV_ENB *)osi_calloc(len);
 
-    APPL_TRACE_API ("BTA_BleEnableAdvInstance");
+    APPL_TRACE_API("%s", __func__);
 
-    if ((p_msg = (tBTA_DM_API_BLE_MULTI_ADV_ENB *) GKI_getbuf(len)) != NULL)
-    {
-        memset(p_msg, 0, sizeof(tBTA_DM_API_BLE_MULTI_ADV_ENB));
-
-        p_msg->hdr.event     = BTA_DM_API_BLE_MULTI_ADV_ENB_EVT;
-        p_msg->p_cback      = (void *)p_cback;
-        if (p_params != NULL)
-        {
-            p_msg->p_params =  (void *)(p_msg + 1);
-            memcpy(p_msg->p_params, p_params, sizeof(tBTA_BLE_ADV_PARAMS));
-        }
-        p_msg->p_ref        = p_ref;
-
-        bta_sys_sendmsg(p_msg);
+    p_msg->hdr.event = BTA_DM_API_BLE_MULTI_ADV_ENB_EVT;
+    p_msg->p_cback = (void *)p_cback;
+    if (p_params != NULL) {
+        p_msg->p_params = (void *)(p_msg + 1);
+        memcpy(p_msg->p_params, p_params, sizeof(tBTA_BLE_ADV_PARAMS));
     }
+    p_msg->p_ref = p_ref;
+
+    bta_sys_sendmsg(p_msg);
 }
 
 /*******************************************************************************
@@ -1572,20 +1423,19 @@ void BTA_BleEnableAdvInstance (tBTA_BLE_ADV_PARAMS *p_params,
 *******************************************************************************/
 void BTA_BleUpdateAdvInstParam (UINT8 inst_id, tBTA_BLE_ADV_PARAMS *p_params)
 {
-    tBTA_DM_API_BLE_MULTI_ADV_PARAM    *p_msg;
-    UINT16      len = sizeof(tBTA_BLE_ADV_PARAMS) + sizeof(tBTA_DM_API_BLE_MULTI_ADV_PARAM);
+    const size_t len = sizeof(tBTA_BLE_ADV_PARAMS) +
+        sizeof(tBTA_DM_API_BLE_MULTI_ADV_PARAM);
+    tBTA_DM_API_BLE_MULTI_ADV_PARAM *p_msg =
+        (tBTA_DM_API_BLE_MULTI_ADV_PARAM *)osi_calloc(len);
 
-    APPL_TRACE_API ("BTA_BleUpdateAdvInstParam");
-     if ((p_msg = (tBTA_DM_API_BLE_MULTI_ADV_PARAM *) GKI_getbuf(len)) != NULL)
-     {
-          memset(p_msg, 0, sizeof(tBTA_DM_API_BLE_MULTI_ADV_PARAM));
-          p_msg->hdr.event     = BTA_DM_API_BLE_MULTI_ADV_PARAM_UPD_EVT;
-          p_msg->inst_id        = inst_id;
-          p_msg->p_params =  (void *)(p_msg + 1);
-          memcpy(p_msg->p_params, p_params, sizeof(tBTA_BLE_ADV_PARAMS));
+    APPL_TRACE_API("%s", __func__);
 
-          bta_sys_sendmsg(p_msg);
-    }
+    p_msg->hdr.event = BTA_DM_API_BLE_MULTI_ADV_PARAM_UPD_EVT;
+    p_msg->inst_id = inst_id;
+    p_msg->p_params = (void *)(p_msg + 1);
+    memcpy(p_msg->p_params, p_params, sizeof(tBTA_BLE_ADV_PARAMS));
+
+    bta_sys_sendmsg(p_msg);
 }
 
 /*******************************************************************************
@@ -1609,22 +1459,15 @@ void BTA_BleCfgAdvInstData (UINT8 inst_id, BOOLEAN is_scan_rsp,
                             tBTA_BLE_AD_MASK data_mask,
                             tBTA_BLE_ADV_DATA *p_data)
 {
-    tBTA_DM_API_BLE_MULTI_ADV_DATA    *p_msg;
-    UINT16      len =  sizeof(tBTA_DM_API_BLE_MULTI_ADV_DATA) ;
+  tBTA_DM_API_BLE_MULTI_ADV_DATA *p_msg = osi_calloc(sizeof(*p_msg));
 
-    APPL_TRACE_API ("BTA_BleCfgAdvInstData");
+  p_msg->hdr.event = BTA_DM_API_BLE_MULTI_ADV_DATA_EVT;
+  p_msg->inst_id = inst_id;
+  p_msg->is_scan_rsp = is_scan_rsp;
+  p_msg->data_mask = data_mask;
+  memcpy(&p_msg->data, p_data, sizeof(p_msg->data));
 
-    if ((p_msg = (tBTA_DM_API_BLE_MULTI_ADV_DATA *) GKI_getbuf(len)) != NULL)
-    {
-          memset(p_msg, 0, len);
-          p_msg->hdr.event     = BTA_DM_API_BLE_MULTI_ADV_DATA_EVT;
-          p_msg->inst_id      = inst_id;
-          p_msg->is_scan_rsp  = is_scan_rsp;
-          p_msg->data_mask     = data_mask;
-          p_msg->p_data        = p_data;
-
-          bta_sys_sendmsg(p_msg);
-    }
+  bta_sys_sendmsg(p_msg);
 }
 
 /*******************************************************************************
@@ -1638,19 +1481,17 @@ void BTA_BleCfgAdvInstData (UINT8 inst_id, BOOLEAN is_scan_rsp,
 ** Returns          BTA_SUCCESS if command started sucessfully; otherwise failure.
 **
 *******************************************************************************/
-void BTA_BleDisableAdvInstance (UINT8  inst_id)
+void BTA_BleDisableAdvInstance(UINT8 inst_id)
 {
-    tBTA_DM_API_BLE_MULTI_ADV_DISABLE    *p_msg;
+    tBTA_DM_API_BLE_MULTI_ADV_DISABLE *p_msg =
+        (tBTA_DM_API_BLE_MULTI_ADV_DISABLE *)osi_calloc(sizeof(tBTA_DM_API_BLE_MULTI_ADV_DISABLE));
 
-    APPL_TRACE_API ("BTA_BleDisableAdvInstance: %d", inst_id);
-    if ((p_msg = (tBTA_DM_API_BLE_MULTI_ADV_DISABLE *)
-          GKI_getbuf(sizeof(tBTA_DM_API_BLE_MULTI_ADV_DISABLE))) != NULL)
-    {
-         memset(p_msg, 0, sizeof(tBTA_DM_API_BLE_MULTI_ADV_DISABLE));
-         p_msg->hdr.event    = BTA_DM_API_BLE_MULTI_ADV_DISABLE_EVT;
-         p_msg->inst_id      = inst_id;
-         bta_sys_sendmsg(p_msg);
-    }
+    APPL_TRACE_API("%s: %d", __func__, inst_id);
+
+    p_msg->hdr.event = BTA_DM_API_BLE_MULTI_ADV_DISABLE_EVT;
+    p_msg->inst_id = inst_id;
+
+    bta_sys_sendmsg(p_msg);
 }
 
 /*******************************************************************************
@@ -1711,75 +1552,64 @@ void BTA_DmBleCfgFilterCondition(tBTA_DM_BLE_SCAN_COND_OP action,
         }
     }
 
-    if ((p_msg = (tBTA_DM_API_CFG_FILTER_COND *) GKI_getbuf(len)) != NULL)
-    {
-        memset (p_msg, 0, len);
+    p_msg = (tBTA_DM_API_CFG_FILTER_COND *)osi_calloc(len);
+    p_msg->hdr.event = BTA_DM_API_CFG_FILTER_COND_EVT;
+    p_msg->action = action;
+    p_msg->cond_type = cond_type;
+    p_msg->filt_index = filt_index;
+    p_msg->p_filt_cfg_cback = p_cmpl_cback;
+    p_msg->ref_value = ref_value;
+    if (p_cond) {
+        p_msg->p_cond_param = (tBTA_DM_BLE_PF_COND_PARAM *)(p_msg + 1);
+        memcpy(p_msg->p_cond_param, p_cond, sizeof(tBTA_DM_BLE_PF_COND_PARAM));
 
-        p_msg->hdr.event        = BTA_DM_API_CFG_FILTER_COND_EVT;
-        p_msg->action           = action;
-        p_msg->cond_type        = cond_type;
-        p_msg->filt_index       = filt_index;
-        p_msg->p_filt_cfg_cback = p_cmpl_cback;
-        p_msg->ref_value        = ref_value;
-        if (p_cond)
-        {
-            p_msg->p_cond_param = (tBTA_DM_BLE_PF_COND_PARAM *)(p_msg + 1);
-            memcpy(p_msg->p_cond_param, p_cond, sizeof(tBTA_DM_BLE_PF_COND_PARAM));
+        p = (UINT8 *)(p_msg->p_cond_param + 1);
 
-            p = (UINT8 *)(p_msg->p_cond_param + 1);
+        if (cond_type == BTA_DM_BLE_PF_SRVC_DATA_PATTERN ||
+            cond_type == BTA_DM_BLE_PF_MANU_DATA) {
+            p_msg->p_cond_param->manu_data.p_pattern = p;
+            p_msg->p_cond_param->manu_data.data_len = p_cond->manu_data.data_len;
+            memcpy(p_msg->p_cond_param->manu_data.p_pattern, p_cond->manu_data.p_pattern,
+                   p_cond->manu_data.data_len);
+            p += p_cond->manu_data.data_len;
 
-            if (cond_type == BTA_DM_BLE_PF_SRVC_DATA_PATTERN ||
-                cond_type == BTA_DM_BLE_PF_MANU_DATA)
-            {
-                p_msg->p_cond_param->manu_data.p_pattern = p;
-                p_msg->p_cond_param->manu_data.data_len = p_cond->manu_data.data_len;
-                memcpy(p_msg->p_cond_param->manu_data.p_pattern, p_cond->manu_data.p_pattern,
-                    p_cond->manu_data.data_len);
-                p += p_cond->manu_data.data_len;
-
-                if (cond_type == BTA_DM_BLE_PF_MANU_DATA)
-                {
-                    p_msg->p_cond_param->manu_data.company_id_mask =
-                        p_cond->manu_data.company_id_mask;
-                    if ( p_cond->manu_data.p_pattern_mask != NULL)
-                    {
-                        p_msg->p_cond_param->manu_data.p_pattern_mask = p;
-                        memcpy(p_msg->p_cond_param->manu_data.p_pattern_mask,
-                            p_cond->manu_data.p_pattern_mask, p_cond->manu_data.data_len);
-                    }
+            if (cond_type == BTA_DM_BLE_PF_MANU_DATA) {
+                p_msg->p_cond_param->manu_data.company_id_mask =
+                    p_cond->manu_data.company_id_mask;
+                if ( p_cond->manu_data.p_pattern_mask != NULL) {
+                    p_msg->p_cond_param->manu_data.p_pattern_mask = p;
+                    memcpy(p_msg->p_cond_param->manu_data.p_pattern_mask,
+                           p_cond->manu_data.p_pattern_mask,
+                           p_cond->manu_data.data_len);
                 }
             }
-            else if (cond_type == BTA_DM_BLE_PF_LOCAL_NAME)
-            {
-                p_msg->p_cond_param->local_name.p_data = p;
-                p_msg->p_cond_param->local_name.data_len =
-                    p_cond->local_name.data_len;
-                memcpy(p_msg->p_cond_param->local_name.p_data,
-                    p_cond->local_name.p_data, p_cond->local_name.data_len);
+        } else if (cond_type == BTA_DM_BLE_PF_LOCAL_NAME) {
+            p_msg->p_cond_param->local_name.p_data = p;
+            p_msg->p_cond_param->local_name.data_len =
+                p_cond->local_name.data_len;
+            memcpy(p_msg->p_cond_param->local_name.p_data,
+                   p_cond->local_name.p_data, p_cond->local_name.data_len);
+        } else if (cond_type == BTM_BLE_PF_SRVC_UUID ||
+                   cond_type == BTM_BLE_PF_SRVC_SOL_UUID) {
+            if (p_cond->srvc_uuid.p_target_addr != NULL) {
+                p_msg->p_cond_param->srvc_uuid.p_target_addr = (tBLE_BD_ADDR *)(p);
+                p_msg->p_cond_param->srvc_uuid.p_target_addr->type =
+                    p_cond->srvc_uuid.p_target_addr->type;
+                memcpy(p_msg->p_cond_param->srvc_uuid.p_target_addr->bda,
+                       p_cond->srvc_uuid.p_target_addr->bda, BD_ADDR_LEN);
+                p = (UINT8 *)(p_msg->p_cond_param->srvc_uuid.p_target_addr + 1);
             }
-            else if ((cond_type == BTM_BLE_PF_SRVC_UUID
-                || cond_type == BTM_BLE_PF_SRVC_SOL_UUID))
-            {
-                if (p_cond->srvc_uuid.p_target_addr != NULL)
-                {
-                    p_msg->p_cond_param->srvc_uuid.p_target_addr = (tBLE_BD_ADDR *)(p);
-                    p_msg->p_cond_param->srvc_uuid.p_target_addr->type =
-                        p_cond->srvc_uuid.p_target_addr->type;
-                    memcpy(p_msg->p_cond_param->srvc_uuid.p_target_addr->bda,
-                        p_cond->srvc_uuid.p_target_addr->bda, BD_ADDR_LEN);
-                    p = (UINT8*)( p_msg->p_cond_param->srvc_uuid.p_target_addr + 1);
-                }
-                if (p_cond->srvc_uuid.p_uuid_mask)
-                {
-                    p_msg->p_cond_param->srvc_uuid.p_uuid_mask = (tBTA_DM_BLE_PF_COND_MASK *)p;
-                    memcpy(p_msg->p_cond_param->srvc_uuid.p_uuid_mask,
-                        p_cond->srvc_uuid.p_uuid_mask, sizeof(tBTA_DM_BLE_PF_COND_MASK));
-                }
+            if (p_cond->srvc_uuid.p_uuid_mask) {
+                p_msg->p_cond_param->srvc_uuid.p_uuid_mask = (tBTA_DM_BLE_PF_COND_MASK *)p;
+                memcpy(p_msg->p_cond_param->srvc_uuid.p_uuid_mask,
+                       p_cond->srvc_uuid.p_uuid_mask,
+                       sizeof(tBTA_DM_BLE_PF_COND_MASK));
             }
         }
-
-        bta_sys_sendmsg(p_msg);
     }
+
+    bta_sys_sendmsg(p_msg);
+
 #else
     UNUSED(action);
     UNUSED(cond_type);
@@ -1806,38 +1636,38 @@ void BTA_DmBleCfgFilterCondition(tBTA_DM_BLE_SCAN_COND_OP action,
 ** Returns          void
 **
 *******************************************************************************/
-void BTA_DmBleScanFilterSetup(UINT8 action, tBTA_DM_BLE_PF_FILT_INDEX filt_index,
-                                    tBTA_DM_BLE_PF_FILT_PARAMS *p_filt_params,
-                                    tBLE_BD_ADDR *p_target,
-                                    tBTA_DM_BLE_PF_PARAM_CBACK *p_cmpl_cback,
-                                    tBTA_DM_BLE_REF_VALUE ref_value)
+void BTA_DmBleScanFilterSetup(UINT8 action,
+                              tBTA_DM_BLE_PF_FILT_INDEX filt_index,
+                              tBTA_DM_BLE_PF_FILT_PARAMS *p_filt_params,
+                              tBLE_BD_ADDR *p_target,
+                              tBTA_DM_BLE_PF_PARAM_CBACK *p_cmpl_cback,
+                              tBTA_DM_BLE_REF_VALUE ref_value)
 {
 #if BLE_ANDROID_CONTROLLER_SCAN_FILTER == TRUE
-    tBTA_DM_API_SCAN_FILTER_PARAM_SETUP *p_msg;
-    APPL_TRACE_API ("BTA_DmBleScanFilterSetup: %d", action);
+    const size_t len = sizeof(tBTA_DM_API_SCAN_FILTER_PARAM_SETUP) +
+        sizeof(tBLE_BD_ADDR);
+    tBTA_DM_API_SCAN_FILTER_PARAM_SETUP *p_msg =
+        (tBTA_DM_API_SCAN_FILTER_PARAM_SETUP *)osi_calloc(len);
 
-    UINT16  len = sizeof(tBTA_DM_API_SCAN_FILTER_PARAM_SETUP) + sizeof(tBLE_BD_ADDR);
+    APPL_TRACE_API("%s: %d", __func__, action);
 
-    if ((p_msg = (tBTA_DM_API_SCAN_FILTER_PARAM_SETUP *) GKI_getbuf(len)) != NULL)
-    {
-        memset (p_msg, 0, len);
-
-        p_msg->hdr.event        = BTA_DM_API_SCAN_FILTER_SETUP_EVT;
-        p_msg->action       = action;
-        p_msg->filt_index = filt_index;
-        if (p_filt_params)
-            memcpy(&p_msg->filt_params, p_filt_params, sizeof(tBTA_DM_BLE_PF_FILT_PARAMS));
-        p_msg->p_filt_param_cback = p_cmpl_cback;
-        p_msg->ref_value        = ref_value;
-
-        if (p_target)
-        {
-            p_msg->p_target = (tBLE_BD_ADDR *)(p_msg + 1);
-            memcpy(p_msg->p_target, p_target, sizeof(tBLE_BD_ADDR));
-        }
-
-        bta_sys_sendmsg(p_msg);
+    p_msg->hdr.event = BTA_DM_API_SCAN_FILTER_SETUP_EVT;
+    p_msg->action = action;
+    p_msg->filt_index = filt_index;
+    if (p_filt_params) {
+        memcpy(&p_msg->filt_params, p_filt_params,
+               sizeof(tBTA_DM_BLE_PF_FILT_PARAMS));
     }
+    p_msg->p_filt_param_cback = p_cmpl_cback;
+    p_msg->ref_value        = ref_value;
+
+    if (p_target) {
+        p_msg->p_target = (tBLE_BD_ADDR *)(p_msg + 1);
+        memcpy(p_msg->p_target, p_target, sizeof(tBLE_BD_ADDR));
+    }
+
+    bta_sys_sendmsg(p_msg);
+
 #else
     UNUSED(action);
     UNUSED(filt_index);
@@ -1861,18 +1691,15 @@ void BTA_DmBleScanFilterSetup(UINT8 action, tBTA_DM_BLE_PF_FILT_INDEX filt_index
 *******************************************************************************/
 void BTA_DmBleGetEnergyInfo(tBTA_BLE_ENERGY_INFO_CBACK *p_cmpl_cback)
 {
-    tBTA_DM_API_ENERGY_INFO *p_msg;
-    APPL_TRACE_API ("BTA_DmBleGetEnergyInfo");
+    const size_t len = sizeof(tBTA_DM_API_ENERGY_INFO) + sizeof(tBLE_BD_ADDR);
+    tBTA_DM_API_ENERGY_INFO *p_msg = (tBTA_DM_API_ENERGY_INFO *)osi_calloc(len);
 
-    UINT16  len = sizeof(tBTA_DM_API_ENERGY_INFO) + sizeof(tBLE_BD_ADDR);
+    APPL_TRACE_API("%s", __func__);
 
-    if ((p_msg = (tBTA_DM_API_ENERGY_INFO *) GKI_getbuf(len)) != NULL)
-    {
-        memset (p_msg, 0, len);
-        p_msg->hdr.event        = BTA_DM_API_BLE_ENERGY_INFO_EVT;
-        p_msg->p_energy_info_cback = p_cmpl_cback;
-        bta_sys_sendmsg(p_msg);
-    }
+    p_msg->hdr.event = BTA_DM_API_BLE_ENERGY_INFO_EVT;
+    p_msg->p_energy_info_cback = p_cmpl_cback;
+
+    bta_sys_sendmsg(p_msg);
 }
 
 /*******************************************************************************
@@ -1892,22 +1719,20 @@ void BTA_DmEnableScanFilter(UINT8 action, tBTA_DM_BLE_PF_STATUS_CBACK *p_cmpl_cb
                                     tBTA_DM_BLE_REF_VALUE ref_value)
 {
 #if BLE_ANDROID_CONTROLLER_SCAN_FILTER == TRUE
-    tBTA_DM_API_ENABLE_SCAN_FILTER *p_msg;
-    APPL_TRACE_API ("BTA_DmEnableScanFilter: %d", action);
+    const size_t len = sizeof(tBTA_DM_API_ENABLE_SCAN_FILTER) +
+        sizeof(tBLE_BD_ADDR);
+    tBTA_DM_API_ENABLE_SCAN_FILTER *p_msg =
+        (tBTA_DM_API_ENABLE_SCAN_FILTER *)osi_calloc(len);
 
-    UINT16  len = sizeof(tBTA_DM_API_ENABLE_SCAN_FILTER) + sizeof(tBLE_BD_ADDR);
+    APPL_TRACE_API("%s: %d", __func__, action);
 
-    if ((p_msg = (tBTA_DM_API_ENABLE_SCAN_FILTER *) GKI_getbuf(len)) != NULL)
-    {
-        memset (p_msg, 0, len);
+    p_msg->hdr.event = BTA_DM_API_SCAN_FILTER_ENABLE_EVT;
+    p_msg->action = action;
+    p_msg->ref_value = ref_value;
+    p_msg->p_filt_status_cback = p_cmpl_cback;
 
-        p_msg->hdr.event        = BTA_DM_API_SCAN_FILTER_ENABLE_EVT;
-        p_msg->action       = action;
-        p_msg->ref_value    = ref_value;
-        p_msg->p_filt_status_cback = p_cmpl_cback;
+    bta_sys_sendmsg(p_msg);
 
-        bta_sys_sendmsg(p_msg);
-    }
 #else
     UNUSED(action);
     UNUSED(p_cmpl_cback);
@@ -1933,21 +1758,17 @@ void BTA_DmEnableScanFilter(UINT8 action, tBTA_DM_BLE_PF_STATUS_CBACK *p_cmpl_cb
 void BTA_DmBleUpdateConnectionParams(BD_ADDR bd_addr, UINT16 min_int, UINT16 max_int,
                                     UINT16 latency, UINT16 timeout)
 {
-    tBTA_DM_API_UPDATE_CONN_PARAM *p_msg;
+    tBTA_DM_API_UPDATE_CONN_PARAM *p_msg =
+        (tBTA_DM_API_UPDATE_CONN_PARAM *)osi_calloc(sizeof(tBTA_DM_API_UPDATE_CONN_PARAM));
 
-    if ((p_msg = (tBTA_DM_API_UPDATE_CONN_PARAM *) GKI_getbuf(sizeof(tBTA_DM_API_UPDATE_CONN_PARAM))) != NULL)
-    {
-        memset (p_msg, 0, sizeof(tBTA_DM_API_UPDATE_CONN_PARAM));
+    p_msg->hdr.event = BTA_DM_API_UPDATE_CONN_PARAM_EVT;
+    bdcpy(p_msg->bd_addr, bd_addr);
+    p_msg->min_int = min_int;
+    p_msg->max_int = max_int;
+    p_msg->latency = latency;
+    p_msg->timeout = timeout;
 
-        p_msg->hdr.event = BTA_DM_API_UPDATE_CONN_PARAM_EVT;
-        bdcpy(p_msg->bd_addr, bd_addr);
-        p_msg->min_int   = min_int;
-        p_msg->max_int   = max_int;
-        p_msg->latency   = latency;
-        p_msg->timeout   = timeout;
-
-        bta_sys_sendmsg(p_msg);
-    }
+    bta_sys_sendmsg(p_msg);
 }
 
 /*******************************************************************************
@@ -1962,17 +1783,14 @@ void BTA_DmBleUpdateConnectionParams(BD_ADDR bd_addr, UINT16 min_int, UINT16 max
 *******************************************************************************/
 void BTA_DmBleSetDataLength(BD_ADDR remote_device, UINT16 tx_data_length)
 {
-    tBTA_DM_API_BLE_SET_DATA_LENGTH *p_msg;
+    tBTA_DM_API_BLE_SET_DATA_LENGTH *p_msg =
+        (tBTA_DM_API_BLE_SET_DATA_LENGTH *)osi_malloc(sizeof(tBTA_DM_API_BLE_SET_DATA_LENGTH));
 
-    if ((p_msg = (tBTA_DM_API_BLE_SET_DATA_LENGTH *)GKI_getbuf(sizeof(tBTA_DM_API_BLE_SET_DATA_LENGTH)))
-                  != NULL)
-    {
-        bdcpy(p_msg->remote_bda, remote_device);
-        p_msg->hdr.event = BTA_DM_API_SET_DATA_LENGTH_EVT;
-        p_msg->tx_data_length = tx_data_length;
+    bdcpy(p_msg->remote_bda, remote_device);
+    p_msg->hdr.event = BTA_DM_API_SET_DATA_LENGTH_EVT;
+    p_msg->tx_data_length = tx_data_length;
 
-        bta_sys_sendmsg(p_msg);
-    }
+    bta_sys_sendmsg(p_msg);
 }
 
 #endif
@@ -2002,22 +1820,17 @@ void BTA_DmBleSetDataLength(BD_ADDR remote_device, UINT16 tx_data_length)
 void BTA_DmSetEncryption(BD_ADDR bd_addr, tBTA_TRANSPORT transport, tBTA_DM_ENCRYPT_CBACK *p_callback,
                             tBTA_DM_BLE_SEC_ACT sec_act)
 {
-    tBTA_DM_API_SET_ENCRYPTION   *p_msg;
+    tBTA_DM_API_SET_ENCRYPTION *p_msg = (tBTA_DM_API_SET_ENCRYPTION *)osi_calloc(sizeof(tBTA_DM_API_SET_ENCRYPTION));
 
-    APPL_TRACE_API("BTA_DmSetEncryption"); //todo
-    if ((p_msg = (tBTA_DM_API_SET_ENCRYPTION *) GKI_getbuf(sizeof(tBTA_DM_API_SET_ENCRYPTION))) != NULL)
-    {
-        memset(p_msg, 0, sizeof(tBTA_DM_API_SET_ENCRYPTION));
+    APPL_TRACE_API("%s", __func__);
 
-        p_msg->hdr.event = BTA_DM_API_SET_ENCRYPTION_EVT;
+    p_msg->hdr.event = BTA_DM_API_SET_ENCRYPTION_EVT;
+    memcpy(p_msg->bd_addr, bd_addr, BD_ADDR_LEN);
+    p_msg->transport = transport;
+    p_msg->p_callback = p_callback;
+    p_msg->sec_act = sec_act;
 
-        memcpy(p_msg->bd_addr, bd_addr, BD_ADDR_LEN);
-        p_msg->transport    = transport;
-        p_msg->p_callback      = p_callback;
-        p_msg->sec_act         = sec_act;
-
-        bta_sys_sendmsg(p_msg);
-    }
+    bta_sys_sendmsg(p_msg);
 }
 
 /*******************************************************************************
@@ -2035,22 +1848,17 @@ void BTA_DmSetEncryption(BD_ADDR bd_addr, tBTA_TRANSPORT transport, tBTA_DM_ENCR
 *******************************************************************************/
 void BTA_DmCloseACL(BD_ADDR bd_addr, BOOLEAN remove_dev, tBTA_TRANSPORT transport)
 {
-    tBTA_DM_API_REMOVE_ACL   *p_msg;
+    tBTA_DM_API_REMOVE_ACL *p_msg =
+        (tBTA_DM_API_REMOVE_ACL *)osi_calloc(sizeof(tBTA_DM_API_REMOVE_ACL));
 
-    APPL_TRACE_API("BTA_DmCloseACL");
+    APPL_TRACE_API("%s", __func__);
 
-    if ((p_msg = (tBTA_DM_API_REMOVE_ACL *) GKI_getbuf(sizeof(tBTA_DM_API_REMOVE_ACL))) != NULL)
-    {
-        memset(p_msg, 0, sizeof(tBTA_DM_API_REMOVE_ACL));
+    p_msg->hdr.event = BTA_DM_API_REMOVE_ACL_EVT;
+    memcpy(p_msg->bd_addr, bd_addr, BD_ADDR_LEN);
+    p_msg->remove_dev = remove_dev;
+    p_msg->transport = transport;
 
-        p_msg->hdr.event = BTA_DM_API_REMOVE_ACL_EVT;
-
-        memcpy(p_msg->bd_addr, bd_addr, BD_ADDR_LEN);
-        p_msg->remove_dev      = remove_dev;
-        p_msg->transport       = transport;
-
-        bta_sys_sendmsg(p_msg);
-    }
+    bta_sys_sendmsg(p_msg);
 }
 
 #if BLE_INCLUDED == TRUE
@@ -2072,21 +1880,17 @@ void BTA_DmCloseACL(BD_ADDR bd_addr, BOOLEAN remove_dev, tBTA_TRANSPORT transpor
 extern void BTA_DmBleObserve(BOOLEAN start, UINT8 duration,
                              tBTA_DM_SEARCH_CBACK *p_results_cb)
 {
-    tBTA_DM_API_BLE_OBSERVE   *p_msg;
+    tBTA_DM_API_BLE_OBSERVE *p_msg =
+        (tBTA_DM_API_BLE_OBSERVE *)osi_calloc(sizeof(tBTA_DM_API_BLE_OBSERVE));
 
-    APPL_TRACE_API("BTA_DmBleObserve:start = %d ", start);
+    APPL_TRACE_API("%s:start = %d ", __func__, start);
 
-    if ((p_msg = (tBTA_DM_API_BLE_OBSERVE *) GKI_getbuf(sizeof(tBTA_DM_API_BLE_OBSERVE))) != NULL)
-    {
-        memset(p_msg, 0, sizeof(tBTA_DM_API_BLE_OBSERVE));
+    p_msg->hdr.event = BTA_DM_API_BLE_OBSERVE_EVT;
+    p_msg->start = start;
+    p_msg->duration = duration;
+    p_msg->p_cback = p_results_cb;
 
-        p_msg->hdr.event = BTA_DM_API_BLE_OBSERVE_EVT;
-        p_msg->start = start;
-        p_msg->duration = duration;
-        p_msg->p_cback = p_results_cb;
-
-        bta_sys_sendmsg(p_msg);
-    }
+    bta_sys_sendmsg(p_msg);
 }
 
 /*******************************************************************************

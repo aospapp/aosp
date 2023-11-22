@@ -9,11 +9,9 @@
 #include "GrLayerHoister.h"
 #include "GrRecordReplaceDraw.h"
 
+#include "SkBigPicture.h"
 #include "SkCanvas.h"
-#include "SkDeviceImageFilterProxy.h"
-#include "SkDeviceProperties.h"
 #include "SkGpuDevice.h"
-#include "SkGrPixelRef.h"
 #include "SkLayerInfo.h"
 #include "SkRecordDraw.h"
 #include "SkSurface.h"
@@ -21,7 +19,7 @@
 
 // Create the layer information for the hoisted layer and secure the
 // required texture/render target resources.
-static void prepare_for_hoisting(GrLayerCache* layerCache, 
+static void prepare_for_hoisting(GrLayerCache* layerCache,
                                  const SkPicture* topLevelPicture,
                                  const SkMatrix& initialMat,
                                  const SkLayerInfo::BlockInfo& info,
@@ -74,7 +72,7 @@ static void prepare_for_hoisting(GrLayerCache* layerCache,
     } else {
         hl = recycled->append();
     }
-    
+
     layerCache->addUse(layer);
     hl->fLayer = layer;
     hl->fPicture = pict;
@@ -129,12 +127,12 @@ void GrLayerHoister::FindLayersToAtlas(GrContext* context,
     }
 
     GrLayerCache* layerCache = context->getLayerCache();
-
     layerCache->processDeletedPictures();
 
-    SkPicture::AccelData::Key key = SkLayerInfo::ComputeKey();
-
-    const SkPicture::AccelData* topLevelData = topLevelPicture->EXPERIMENTAL_getAccelData(key);
+    const SkBigPicture::AccelData* topLevelData = nullptr;
+    if (const SkBigPicture* bp = topLevelPicture->asSkBigPicture()) {
+        topLevelData = bp->accelData();
+    }
     if (!topLevelData) {
         return;
     }
@@ -189,9 +187,10 @@ void GrLayerHoister::FindLayersToHoist(GrContext* context,
 
     layerCache->processDeletedPictures();
 
-    SkPicture::AccelData::Key key = SkLayerInfo::ComputeKey();
-
-    const SkPicture::AccelData* topLevelData = topLevelPicture->EXPERIMENTAL_getAccelData(key);
+    const SkBigPicture::AccelData* topLevelData = nullptr;
+    if (const SkBigPicture* bp = topLevelPicture->asSkBigPicture()) {
+        topLevelData = bp->accelData();
+    }
     if (!topLevelData) {
         return;
     }
@@ -239,7 +238,11 @@ void GrLayerHoister::DrawLayersToAtlas(GrContext* context,
 
         for (int i = 0; i < atlased.count(); ++i) {
             const GrCachedLayer* layer = atlased[i].fLayer;
-            const SkPicture* pict = atlased[i].fPicture;
+            const SkBigPicture* pict = atlased[i].fPicture->asSkBigPicture();
+            if (!pict) {
+                // TODO: can we assume / assert this?
+                continue;
+            }
             const SkIPoint offset = SkIPoint::Make(layer->srcIR().fLeft, layer->srcIR().fTop);
             SkDEBUGCODE(const SkPaint* layerPaint = layer->paint();)
 
@@ -265,24 +268,12 @@ void GrLayerHoister::DrawLayersToAtlas(GrContext* context,
             atlasCanvas->setMatrix(initialCTM);
             atlasCanvas->concat(atlased[i].fLocalMat);
 
-            SkRecordPartialDraw(*pict->fRecord.get(), atlasCanvas,
-                                pict->drawablePicts(), pict->drawableCount(),
-                                layer->start() + 1, layer->stop(), initialCTM);
-
+            pict->partialPlayback(atlasCanvas, layer->start() + 1, layer->stop(), initialCTM);
             atlasCanvas->restore();
         }
 
         atlasCanvas->flush();
     }
-}
-
-SkBitmap wrap_texture(GrTexture* texture) {
-    SkASSERT(texture);
-
-    SkBitmap result;
-    result.setInfo(texture->surfacePriv().info());
-    result.setPixelRef(SkNEW_ARGS(SkGrPixelRef, (result.info(), texture)))->unref();
-    return result;
 }
 
 void GrLayerHoister::FilterLayer(GrContext* context,
@@ -312,23 +303,30 @@ void GrLayerHoister::FilterLayer(GrContext* context,
     SkAutoTUnref<SkImageFilter::Cache> cache(SkImageFilter::Cache::Create(kDefaultCacheSize));
     SkImageFilter::Context filterContext(totMat, clipBounds, cache);
 
-    SkDeviceImageFilterProxy proxy(device, SkSurfaceProps(0, kUnknown_SkPixelGeometry));
-    const SkBitmap src = wrap_texture(layer->texture());
+    SkImageFilter::DeviceProxy proxy(device);
+    SkBitmap src;
+    GrWrapTextureInBitmap(layer->texture(), layer->texture()->width(), layer->texture()->height(),
+                          false, &src);
 
-    if (!layer->filter()->filterImage(&proxy, src, filterContext, &filteredBitmap, &offset)) {
+    if (!layer->filter()->filterImageDeprecated(&proxy, src, filterContext,
+                                                &filteredBitmap, &offset)) {
         // Filtering failed. Press on with the unfiltered version.
         return;
     }
 
     SkIRect newRect = SkIRect::MakeWH(filteredBitmap.width(), filteredBitmap.height());
-    layer->setTexture(filteredBitmap.getTexture(), newRect);
+    layer->setTexture(filteredBitmap.getTexture(), newRect, false);
     layer->setOffset(offset);
 }
 
 void GrLayerHoister::DrawLayers(GrContext* context, const SkTDArray<GrHoistedLayer>& layers) {
     for (int i = 0; i < layers.count(); ++i) {
         GrCachedLayer* layer = layers[i].fLayer;
-        const SkPicture* pict = layers[i].fPicture;
+        const SkBigPicture* pict = layers[i].fPicture->asSkBigPicture();
+        if (!pict) {
+            // TODO: can we assume / assert this?
+            continue;
+        }
         const SkIPoint offset = SkIPoint::Make(layer->srcIR().fLeft, layer->srcIR().fTop);
 
         // Each non-atlased layer has its own GrTexture
@@ -353,10 +351,7 @@ void GrLayerHoister::DrawLayers(GrContext* context, const SkTDArray<GrHoistedLay
         layerCanvas->setMatrix(initialCTM);
         layerCanvas->concat(layers[i].fLocalMat);
 
-        SkRecordPartialDraw(*pict->fRecord.get(), layerCanvas,
-                            pict->drawablePicts(), pict->drawableCount(),
-                            layer->start()+1, layer->stop(), initialCTM);
-
+        pict->partialPlayback(layerCanvas, layer->start()+1, layer->stop(), initialCTM);
         layerCanvas->flush();
 
         if (layer->filter()) {
@@ -378,13 +373,22 @@ void GrLayerHoister::UnlockLayers(GrContext* context,
     SkDEBUGCODE(layerCache->validate();)
 }
 
-void GrLayerHoister::PurgeCache(GrContext* context) {
-#if !GR_CACHE_HOISTED_LAYERS
+void GrLayerHoister::Begin(GrContext* context) {
     GrLayerCache* layerCache = context->getLayerCache();
+
+    layerCache->begin();
+}
+
+void GrLayerHoister::End(GrContext* context) {
+    GrLayerCache* layerCache = context->getLayerCache();
+
+#if !GR_CACHE_HOISTED_LAYERS
 
     // This code completely clears out the atlas. It is required when
     // caching is disabled so the atlas doesn't fill up and force more
     // free floating layers
     layerCache->purgeAll();
 #endif
+
+    layerCache->end();
 }

@@ -128,6 +128,12 @@ public class WebViewOnUiThread {
         setPictureListener(null);
         setWebChromeClient(null);
         setWebViewClient(null);
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mWebView.destroy();
+            }
+        });
     }
 
     /**
@@ -807,6 +813,17 @@ public class WebViewOnUiThread {
         });
     }
 
+    public void setLayoutToMatchParent() {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                setMatchParent((View) mWebView.getParent());
+                setMatchParent(mWebView);
+                mWebView.requestLayout();
+            }
+        });
+    }
+
     public void setAcceptThirdPartyCookies(final boolean accept) {
         runOnUiThread(new Runnable() {
             @Override
@@ -975,6 +992,18 @@ public class WebViewOnUiThread {
             Looper.loop();
         } catch (ExitLoopException e) {
         }
+    }
+
+    /**
+     * Set LayoutParams to MATCH_PARENT.
+     *
+     * @param view Target view
+     */
+    private void setMatchParent(View view) {
+        ViewGroup.LayoutParams params = view.getLayoutParams();
+        params.height = ViewGroup.LayoutParams.MATCH_PARENT;
+        params.width = ViewGroup.LayoutParams.MATCH_PARENT;
+        view.setLayoutParams(params);
     }
 
     /**

@@ -16,6 +16,7 @@
 
 package foo.bar.print;
 
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -24,6 +25,7 @@ import java.util.List;
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.pdf.PdfDocument.Page;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.CancellationSignal;
@@ -35,6 +37,7 @@ import android.print.PrintDocumentAdapter;
 import android.print.PrintDocumentInfo;
 import android.print.PrintManager;
 import android.print.pdf.PrintedPdfDocument;
+import android.support.v4.print.PrintHelper;
 import android.util.SparseIntArray;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -64,11 +67,36 @@ public class PrintActivity extends Activity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == R.id.menu_print) {
-            printView();
-            return true;
+        switch (item.getItemId()) {
+            case R.id.menu_print:
+                printView();
+                return true;
+            case R.id.menu_print_uri_portrait_force:
+            case R.id.menu_print_uri_portrait:
+            case R.id.menu_print_uri_landscape:
+                try {
+                    PrintHelper ph = new PrintHelper(this);
+                    Uri uri = null;
+                    switch (item.getItemId()) {
+                        case R.id.menu_print_uri_portrait_force:
+                            ph.setOrientation(PrintHelper.ORIENTATION_PORTRAIT);
+                            /* fall through */
+                        case R.id.menu_print_uri_portrait:
+                            uri = Uri.parse("android.resource://foo.bar.print/raw/portrait");
+                            break;
+                        case R.id.menu_print_uri_landscape:
+                            uri = Uri.parse("android.resource://foo.bar.print/raw/landscape");
+                            break;
+                    }
+
+                    ph.printBitmap("Print Uri", uri);
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                }
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
         }
-        return super.onOptionsItemSelected(item);
     }
 
     private void printView() {

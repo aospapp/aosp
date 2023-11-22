@@ -35,6 +35,12 @@ static bool failed = false;
  * functions check their input against a global variable.
  */
 
+// The clear_input_* kernels have rsDebug calls so that the writes they make to
+// their parameters don't get optimized away.  To avoid logspam from the
+// rsDebug, guard calls to it with a runtime test that is guaranteed to be
+// false.
+volatile int gDummy = 0;
+
 // For clear_input_* kernels, we use a volatile qualified input argument
 // to try to inhibit any optimizations that would result in the write to
 // the input argument being optimized out by the compiler.
@@ -42,9 +48,13 @@ static bool failed = false;
 #define COMMON_TEST_CODE(type)                           \
   type initial_value_##type;                             \
   type RS_KERNEL clear_input_##type(volatile type in) {  \
-    rsDebug(#type, in);                                  \
+    if (gDummy == 500) {                                 \
+      rsDebug(#type, in);                                \
+    }                                                    \
     in -= in;                                            \
-    rsDebug(#type, in);                                  \
+    if (gDummy == 500) {                                 \
+      rsDebug(#type, in);                                \
+    }                                                    \
     return in;                                           \
   }
 
@@ -174,9 +184,13 @@ small initial_value_small;
 
 // See comment on volatile above.
 small RS_KERNEL clear_input_small(volatile small in) {
-  rsDebug("in.x", in.x[0]);
+  if (gDummy == 500) {
+    rsDebug("in.x", in.x[0]);
+  }
   in.x[0] = 0;
-  rsDebug("in.x", in.x[0]);
+  if (gDummy == 500) {
+    rsDebug("in.x", in.x[0]);
+  }
   return in;
 }
 
@@ -190,9 +204,13 @@ big initial_value_big;
 // See comment on volatile above.
 big RS_KERNEL clear_input_big(volatile big in) {
   for (size_t i = 0; i < 100; ++i) {
-    rsDebug("in.x", in.x[i]);
+    if (gDummy == 500) {
+      rsDebug("in.x", in.x[i]);
+    }
     in.x[i] = 0;
-    rsDebug("in.x", in.x[i]);
+    if (gDummy == 500) {
+      rsDebug("in.x", in.x[i]);
+    }
   }
   return in;
 }

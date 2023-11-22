@@ -20,6 +20,7 @@
 
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/FileSource.h>
+#include <media/stagefright/Utils.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -32,12 +33,17 @@ FileSource::FileSource(const char *filename)
     : mFd(-1),
       mOffset(0),
       mLength(-1),
+      mName("<null>"),
       mDecryptHandle(NULL),
       mDrmManagerClient(NULL),
       mDrmBufOffset(0),
       mDrmBufSize(0),
       mDrmBuf(NULL){
 
+    if (filename) {
+        mName = String8::format("FileSource(%s)", filename);
+    }
+    ALOGV("%s", filename);
     mFd = open(filename, O_LARGEFILE | O_RDONLY);
 
     if (mFd >= 0) {
@@ -51,18 +57,51 @@ FileSource::FileSource(int fd, int64_t offset, int64_t length)
     : mFd(fd),
       mOffset(offset),
       mLength(length),
+      mName("<null>"),
       mDecryptHandle(NULL),
       mDrmManagerClient(NULL),
       mDrmBufOffset(0),
       mDrmBufSize(0),
-      mDrmBuf(NULL){
-    CHECK(offset >= 0);
-    CHECK(length >= 0);
+      mDrmBuf(NULL) {
+    ALOGV("fd=%d (%s), offset=%lld, length=%lld",
+            fd, nameForFd(fd).c_str(), (long long) offset, (long long) length);
+
+    if (mOffset < 0) {
+        mOffset = 0;
+    }
+    if (mLength < 0) {
+        mLength = 0;
+    }
+    if (mLength > INT64_MAX - mOffset) {
+        mLength = INT64_MAX - mOffset;
+    }
+    struct stat s;
+    if (fstat(fd, &s) == 0) {
+        if (mOffset > s.st_size) {
+            mOffset = s.st_size;
+            mLength = 0;
+        }
+        if (mOffset + mLength > s.st_size) {
+            mLength = s.st_size - mOffset;
+        }
+    }
+    if (mOffset != offset || mLength != length) {
+        ALOGW("offset/length adjusted from %lld/%lld to %lld/%lld",
+                (long long) offset, (long long) length,
+                (long long) mOffset, (long long) mLength);
+    }
+
+    mName = String8::format(
+            "FileSource(fd(%s), %lld, %lld)",
+            nameForFd(fd).c_str(),
+            (long long) mOffset,
+            (long long) mLength);
+
 }
 
 FileSource::~FileSource() {
     if (mFd >= 0) {
-        close(mFd);
+        ::close(mFd);
         mFd = -1;
     }
 
@@ -99,8 +138,8 @@ ssize_t FileSource::readAt(off64_t offset, void *data, size_t size) {
         if (offset >= mLength) {
             return 0;  // read beyond EOF.
         }
-        int64_t numAvailable = mLength - offset;
-        if ((int64_t)size > numAvailable) {
+        uint64_t numAvailable = mLength - offset;
+        if ((uint64_t)size > numAvailable) {
             size = numAvailable;
         }
     }
@@ -166,7 +205,7 @@ ssize_t FileSource::readAtDRM(off64_t offset, void *data, size_t size) {
     }
 
     if (mDrmBuf != NULL && mDrmBufSize > 0 && (offset + mOffset) >= mDrmBufOffset
-            && (offset + mOffset + size) <= (mDrmBufOffset + mDrmBufSize)) {
+            && (offset + mOffset + size) <= static_cast<size_t>(mDrmBufOffset + mDrmBufSize)) {
         /* Use buffered data */
         memcpy(data, (void*)(mDrmBuf+(offset+mOffset-mDrmBufOffset)), size);
         return size;
@@ -177,7 +216,7 @@ ssize_t FileSource::readAtDRM(off64_t offset, void *data, size_t size) {
                 DRM_CACHE_SIZE, offset + mOffset);
         if (mDrmBufSize > 0) {
             int64_t dataRead = 0;
-            dataRead = size > mDrmBufSize ? mDrmBufSize : size;
+            dataRead = size > static_cast<size_t>(mDrmBufSize) ? mDrmBufSize : size;
             memcpy(data, (void*)mDrmBuf, dataRead);
             return dataRead;
         } else {

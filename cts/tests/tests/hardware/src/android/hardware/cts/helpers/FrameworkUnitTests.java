@@ -27,6 +27,7 @@ import android.hardware.cts.helpers.sensorverification.JitterVerificationTest;
 import android.hardware.cts.helpers.sensorverification.MagnitudeVerificationTest;
 import android.hardware.cts.helpers.sensorverification.MeanVerificationTest;
 import android.hardware.cts.helpers.sensorverification.StandardDeviationVerificationTest;
+import android.hardware.cts.helpers.sensorverification.TimestampClockSourceVerificationTest;
 
 /**
  * Unit test suite for the CTS sensor framework.
@@ -48,6 +49,8 @@ public class FrameworkUnitTests extends TestSuite {
         addTestSuite(MeanVerificationTest.class);
         addTestSuite(EventGapVerificationTest.class);
         addTestSuite(StandardDeviationVerificationTest.class);
+        addTestSuite(TimestampClockSourceVerificationTest.class);
+
 
         // sensorOperations
         addTestSuite(SensorOperationTest.class);

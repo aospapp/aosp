@@ -15,8 +15,6 @@
  */
 package android.databinding.tool.reflection.annotation;
 
-import org.antlr.v4.codegen.model.decl.Decl;
-
 import android.databinding.tool.reflection.ModelAnalyzer;
 import android.databinding.tool.reflection.ModelClass;
 import android.databinding.tool.reflection.ModelField;
@@ -57,6 +55,9 @@ class AnnotationClass extends ModelClass {
 
     @Override
     public String toJavaCode() {
+        if (isIncomplete()) {
+            return getCanonicalName();
+        }
         return mTypeMirror.toString();
     }
 
@@ -244,6 +245,11 @@ class AnnotationClass extends ModelClass {
     @Override
     public boolean isTypeVar() {
         return mTypeMirror.getKind() == TypeKind.TYPEVAR;
+    }
+
+    @Override
+    public boolean isWildcard() {
+        return mTypeMirror.getKind() == TypeKind.WILDCARD;
     }
 
     @Override

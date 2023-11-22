@@ -26,7 +26,7 @@
 
 #if BLE_INCLUDED == TRUE
 #include <string.h>
-#include "gki.h"
+#include "bt_common.h"
 
 #include "gatt_int.h"
 #include "gatt_api.h"
@@ -52,36 +52,30 @@ static BOOLEAN gatt_sign_data (tGATT_CLCB *p_clcb)
     /* do not need to mark channel securoty activity for data signing */
     gatt_set_sec_act(p_clcb->p_tcb, GATT_SEC_OK);
 
-    p_data = (UINT8 *)GKI_getbuf((UINT16)(p_attr->len + 3)); /* 3 = 2 byte handle + opcode */
+    p_data = (UINT8 *)osi_malloc(p_attr->len + 3); /* 3 = 2 byte handle + opcode */
 
-    if (p_data != NULL)
-    {
-        p = p_data;
-        UINT8_TO_STREAM(p, GATT_SIGN_CMD_WRITE);
-        UINT16_TO_STREAM(p, p_attr->handle);
-        ARRAY_TO_STREAM(p, p_attr->value, p_attr->len);
+    p = p_data;
+    UINT8_TO_STREAM(p, GATT_SIGN_CMD_WRITE);
+    UINT16_TO_STREAM(p, p_attr->handle);
+    ARRAY_TO_STREAM(p, p_attr->value, p_attr->len);
 
-        /* sign data length should be attribulte value length plus 2B handle + 1B op code */
-        if ((payload_size - GATT_AUTH_SIGN_LEN - 3) < p_attr->len)
-            p_attr->len = payload_size - GATT_AUTH_SIGN_LEN - 3;
+    /* sign data length should be attribulte value length plus 2B handle + 1B op code */
+    if ((payload_size - GATT_AUTH_SIGN_LEN - 3) < p_attr->len)
+        p_attr->len = payload_size - GATT_AUTH_SIGN_LEN - 3;
 
-        p_signature = p_attr->value + p_attr->len;
-        if (BTM_BleDataSignature(p_clcb->p_tcb->peer_bda,
-                                p_data,
-                                (UINT16)(p_attr->len + 3), /* 3 = 2 byte handle + opcode */
-                                p_signature))
-        {
-            p_attr->len += BTM_BLE_AUTH_SIGN_LEN;
-            gatt_set_ch_state(p_clcb->p_tcb, GATT_CH_OPEN);
-            gatt_act_write(p_clcb, GATT_SEC_SIGN_DATA);
-        }
-        else
-        {
-            gatt_end_operation(p_clcb, GATT_INTERNAL_ERROR, NULL);
-        }
-
-        GKI_freebuf(p_data);
+    p_signature = p_attr->value + p_attr->len;
+    if (BTM_BleDataSignature(p_clcb->p_tcb->peer_bda,
+                             p_data,
+                             (UINT16)(p_attr->len + 3), /* 3 = 2 byte handle + opcode */
+                             p_signature)) {
+        p_attr->len += BTM_BLE_AUTH_SIGN_LEN;
+        gatt_set_ch_state(p_clcb->p_tcb, GATT_CH_OPEN);
+        gatt_act_write(p_clcb, GATT_SEC_SIGN_DATA);
+    } else {
+        gatt_end_operation(p_clcb, GATT_INTERNAL_ERROR, NULL);
     }
+
+    osi_free(p_data);
 
     return status;
 }
@@ -103,6 +97,11 @@ void gatt_verify_signature(tGATT_TCB *p_tcb, BT_HDR *p_buf)
     UINT8   *p, *p_orig = (UINT8 *)(p_buf + 1) + p_buf->offset;
     UINT32  counter;
 
+    if (p_buf->len < GATT_AUTH_SIGN_LEN + 4) {
+        GATT_TRACE_ERROR("%s: Data length %u less than expected %u",
+                         __func__, p_buf->len, GATT_AUTH_SIGN_LEN + 4);
+        return;
+    }
     cmd_len = p_buf->len - GATT_AUTH_SIGN_LEN + 4;
     p =  p_orig + cmd_len - 4;
     STREAM_TO_UINT32(counter, p);
@@ -131,8 +130,10 @@ void gatt_verify_signature(tGATT_TCB *p_tcb, BT_HDR *p_buf)
 *******************************************************************************/
 void gatt_sec_check_complete(BOOLEAN sec_check_ok, tGATT_CLCB   *p_clcb, UINT8 sec_act)
 {
-    if (p_clcb && p_clcb->p_tcb && GKI_queue_is_empty(&p_clcb->p_tcb->pending_enc_clcb))
+    if (p_clcb && p_clcb->p_tcb &&
+        fixed_queue_is_empty(p_clcb->p_tcb->pending_enc_clcb)) {
         gatt_set_sec_act(p_clcb->p_tcb, GATT_SEC_NONE);
+    }
 
     if (!sec_check_ok)
     {
@@ -161,8 +162,6 @@ void gatt_enc_cmpl_cback(BD_ADDR bd_addr, tBT_TRANSPORT transport, void *p_ref_d
     tGATT_TCB   *p_tcb;
     UINT8       sec_flag;
     BOOLEAN     status = FALSE;
-    tGATT_PENDING_ENC_CLCB  *p_buf;
-    UINT16       count;
     UNUSED(p_ref_data);
 
     GATT_TRACE_DEBUG("gatt_enc_cmpl_cback");
@@ -171,7 +170,9 @@ void gatt_enc_cmpl_cback(BD_ADDR bd_addr, tBT_TRANSPORT transport, void *p_ref_d
         if (gatt_get_sec_act(p_tcb) == GATT_SEC_ENC_PENDING)
             return;
 
-        if ((p_buf = (tGATT_PENDING_ENC_CLCB *)GKI_dequeue (&p_tcb->pending_enc_clcb)) != NULL)
+        tGATT_PENDING_ENC_CLCB *p_buf =
+            (tGATT_PENDING_ENC_CLCB *)fixed_queue_try_dequeue(p_tcb->pending_enc_clcb);
+        if (p_buf != NULL)
         {
             if (result == BTM_SUCCESS)
             {
@@ -189,16 +190,17 @@ void gatt_enc_cmpl_cback(BD_ADDR bd_addr, tBT_TRANSPORT transport, void *p_ref_d
                     status = TRUE;
                 }
             }
-            gatt_sec_check_complete(status , p_buf->p_clcb, p_tcb->sec_act);
-            GKI_freebuf(p_buf);
+            gatt_sec_check_complete(status, p_buf->p_clcb, p_tcb->sec_act);
+            osi_free(p_buf);
             /* start all other pending operation in queue */
-            count = GKI_queue_length(&p_tcb->pending_enc_clcb);
-            for (; count > 0; count --)
+            for (size_t count = fixed_queue_length(p_tcb->pending_enc_clcb);
+                 count > 0; count--)
             {
-                if ((p_buf = (tGATT_PENDING_ENC_CLCB *)GKI_dequeue (&p_tcb->pending_enc_clcb)) != NULL)
+                p_buf = (tGATT_PENDING_ENC_CLCB *)fixed_queue_try_dequeue(p_tcb->pending_enc_clcb);
+                if (p_buf != NULL)
                 {
                     gatt_security_check_start(p_buf->p_clcb);
-                    GKI_freebuf(p_buf);
+                    osi_free(p_buf);
                 }
                 else
                     break;
@@ -228,8 +230,6 @@ void gatt_enc_cmpl_cback(BD_ADDR bd_addr, tBT_TRANSPORT transport, void *p_ref_d
 void gatt_notify_enc_cmpl(BD_ADDR bd_addr)
 {
     tGATT_TCB   *p_tcb;
-    tGATT_PENDING_ENC_CLCB  *p_buf;
-    UINT16       count;
     UINT8        i = 0;
 
     if ((p_tcb = gatt_find_tcb_by_addr(bd_addr, BT_TRANSPORT_LE)) != NULL)
@@ -246,14 +246,15 @@ void gatt_notify_enc_cmpl(BD_ADDR bd_addr)
         {
             gatt_set_sec_act(p_tcb, GATT_SEC_NONE);
 
-            count = GKI_queue_length(&p_tcb->pending_enc_clcb);
-
-            for (; count > 0; count --)
+            size_t count = fixed_queue_length(p_tcb->pending_enc_clcb);
+            for (; count > 0; count--)
             {
-                if ((p_buf = (tGATT_PENDING_ENC_CLCB *)GKI_dequeue (&p_tcb->pending_enc_clcb)) != NULL)
+                tGATT_PENDING_ENC_CLCB *p_buf =
+                    (tGATT_PENDING_ENC_CLCB *)fixed_queue_try_dequeue(p_tcb->pending_enc_clcb);
+                if (p_buf != NULL)
                 {
                     gatt_security_check_start(p_buf->p_clcb);
-                    GKI_freebuf(p_buf);
+                    osi_free(p_buf);
                 }
                 else
                     break;
@@ -499,7 +500,8 @@ BOOLEAN gatt_security_check_start(tGATT_CLCB *p_clcb)
             {
                 GATT_TRACE_DEBUG("gatt_security_check_start: Encrypt now or key upgreade first");
                 gatt_convert_sec_action(gatt_sec_act, &btm_ble_sec_act);
-                btm_status = BTM_SetEncryption(p_tcb->peer_bda, p_tcb->transport , gatt_enc_cmpl_cback, &btm_ble_sec_act);
+                btm_status = BTM_SetEncryption(p_tcb->peer_bda, p_tcb->transport,
+                                               gatt_enc_cmpl_cback, NULL, btm_ble_sec_act);
                 if ( (btm_status != BTM_SUCCESS) && (btm_status != BTM_CMD_STARTED))
                 {
                     GATT_TRACE_ERROR("gatt_security_check_start BTM_SetEncryption failed btm_status=%d", btm_status);

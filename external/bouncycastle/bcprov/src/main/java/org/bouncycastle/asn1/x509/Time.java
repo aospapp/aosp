@@ -2,6 +2,7 @@ package org.bouncycastle.asn1.x509;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 import java.util.SimpleTimeZone;
@@ -51,7 +52,10 @@ public class Time
         Date    time)
     {
         SimpleTimeZone      tz = new SimpleTimeZone(0, "Z");
-        SimpleDateFormat    dateF = new SimpleDateFormat("yyyyMMddHHmmss");
+        // BEGIN android-changed
+        // Was: SimpleDateFormat    dateF = new SimpleDateFormat("yyyyMMddHHmmss");
+        SimpleDateFormat    dateF = new SimpleDateFormat("yyyyMMddHHmmss", Locale.US);
+        // END android-changed
 
         dateF.setTimeZone(tz);
 
@@ -82,7 +86,11 @@ public class Time
         Locale locale)
     {
         SimpleTimeZone      tz = new SimpleTimeZone(0, "Z");
-        SimpleDateFormat    dateF = new SimpleDateFormat("yyyyMMddHHmmss", locale);
+        // BEGIN android-changed
+        // Was: SimpleDateFormat    dateF = new SimpleDateFormat("yyyyMMddHHmmss", locale);
+        SimpleDateFormat    dateF = new SimpleDateFormat("yyyyMMddHHmmss", Locale.US);
+        dateF.setCalendar(Calendar.getInstance(locale));
+        // END android-changed
 
         dateF.setTimeZone(tz);
 

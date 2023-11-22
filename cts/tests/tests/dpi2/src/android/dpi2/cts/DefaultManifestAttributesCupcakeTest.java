@@ -29,7 +29,7 @@ import android.dpi.cts.DefaultManifestAttributesTest;
  */
 public class DefaultManifestAttributesCupcakeTest extends DefaultManifestAttributesTest {
     protected String getPackageName() {
-        return "com.android.cts.dpi2";
+        return "android.dpi2.cts";
     }
 
     // This is a sanity test to make sure that we're instrumenting the proper package

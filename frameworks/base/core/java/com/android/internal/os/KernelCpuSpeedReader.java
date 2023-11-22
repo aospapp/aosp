@@ -16,7 +16,10 @@
 package com.android.internal.os;
 
 import android.text.TextUtils;
+import android.system.OsConstants;
 import android.util.Slog;
+
+import libcore.io.Libcore;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -24,21 +27,34 @@ import java.io.IOException;
 import java.util.Arrays;
 
 /**
- * Reads CPU time spent at various frequencies and provides a delta from the last call to
- * {@link #readDelta}. Each line in the proc file has the format:
+ * Reads CPU time of a specific core spent at various frequencies and provides a delta from the
+ * last call to {@link #readDelta}. Each line in the proc file has the format:
  *
  * freq time
  *
- * where time is measured in 1/100 seconds.
+ * where time is measured in jiffies.
  */
 public class KernelCpuSpeedReader {
     private static final String TAG = "KernelCpuSpeedReader";
-    private static final String sProcFile =
-            "/sys/devices/system/cpu/cpu0/cpufreq/stats/time_in_state";
-    private static final int MAX_SPEEDS = 60;
 
-    private long[] mLastSpeedTimes = new long[MAX_SPEEDS];
-    private long[] mDeltaSpeedTimes = new long[MAX_SPEEDS];
+    private final String mProcFile;
+    private final long[] mLastSpeedTimes;
+    private final long[] mDeltaSpeedTimes;
+
+    // How long a CPU jiffy is in milliseconds.
+    private final long mJiffyMillis;
+
+    /**
+     * @param cpuNumber The cpu (cpu0, cpu1, etc) whose state to read.
+     */
+    public KernelCpuSpeedReader(int cpuNumber, int numSpeedSteps) {
+        mProcFile = String.format("/sys/devices/system/cpu/cpu%d/cpufreq/stats/time_in_state",
+                cpuNumber);
+        mLastSpeedTimes = new long[numSpeedSteps];
+        mDeltaSpeedTimes = new long[numSpeedSteps];
+        long jiffyHz = Libcore.os.sysconf(OsConstants._SC_CLK_TCK);
+        mJiffyMillis = 1000/jiffyHz;
+    }
 
     /**
      * The returned array is modified in subsequent calls to {@link #readDelta}.
@@ -46,22 +62,27 @@ public class KernelCpuSpeedReader {
      * {@link #readDelta}.
      */
     public long[] readDelta() {
-        try (BufferedReader reader = new BufferedReader(new FileReader(sProcFile))) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(mProcFile))) {
             TextUtils.SimpleStringSplitter splitter = new TextUtils.SimpleStringSplitter(' ');
             String line;
             int speedIndex = 0;
-            while ((line = reader.readLine()) != null) {
+            while (speedIndex < mLastSpeedTimes.length && (line = reader.readLine()) != null) {
                 splitter.setString(line);
                 Long.parseLong(splitter.next());
 
-                // The proc file reports time in 1/100 sec, so convert to milliseconds.
-                long time = Long.parseLong(splitter.next()) * 10;
-                mDeltaSpeedTimes[speedIndex] = time - mLastSpeedTimes[speedIndex];
+                long time = Long.parseLong(splitter.next()) * mJiffyMillis;
+                if (time < mLastSpeedTimes[speedIndex]) {
+                    // The stats reset when the cpu hotplugged. That means that the time
+                    // we read is offset from 0, so the time is the delta.
+                    mDeltaSpeedTimes[speedIndex] = time;
+                } else {
+                    mDeltaSpeedTimes[speedIndex] = time - mLastSpeedTimes[speedIndex];
+                }
                 mLastSpeedTimes[speedIndex] = time;
                 speedIndex++;
             }
         } catch (IOException e) {
-            Slog.e(TAG, "Failed to read cpu-freq", e);
+            Slog.e(TAG, "Failed to read cpu-freq: " + e.getMessage());
             Arrays.fill(mDeltaSpeedTimes, 0);
         }
         return mDeltaSpeedTimes;

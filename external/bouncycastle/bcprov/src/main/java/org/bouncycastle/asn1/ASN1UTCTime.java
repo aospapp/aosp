@@ -3,6 +3,7 @@ package org.bouncycastle.asn1;
 import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 import java.util.SimpleTimeZone;
@@ -123,7 +124,10 @@ public class ASN1UTCTime
     public ASN1UTCTime(
         Date time)
     {
-        SimpleDateFormat dateF = new SimpleDateFormat("yyMMddHHmmss'Z'");
+        // BEGIN android-changed
+        // Was: SimpleDateFormat dateF = new SimpleDateFormat("yyMMddHHmmss'Z'");
+        SimpleDateFormat dateF = new SimpleDateFormat("yyMMddHHmmss'Z'", Locale.US);
+        // END android-changed
 
         dateF.setTimeZone(new SimpleTimeZone(0,"Z"));
 
@@ -141,7 +145,11 @@ public class ASN1UTCTime
         Date time,
         Locale locale)
     {
-        SimpleDateFormat dateF = new SimpleDateFormat("yyMMddHHmmss'Z'", locale);
+        // BEGIN android-changed
+        // Was: SimpleDateFormat dateF = new SimpleDateFormat("yyMMddHHmmss'Z'", locale);
+        SimpleDateFormat dateF = new SimpleDateFormat("yyMMddHHmmss'Z'", Locale.US);
+        dateF.setCalendar(Calendar.getInstance(locale));
+        // END android-changed
 
         dateF.setTimeZone(new SimpleTimeZone(0,"Z"));
 
@@ -164,7 +172,10 @@ public class ASN1UTCTime
     public Date getDate()
         throws ParseException
     {
-        SimpleDateFormat dateF = new SimpleDateFormat("yyMMddHHmmssz");
+        // BEGIN android-changed
+        // Was: SimpleDateFormat dateF = new SimpleDateFormat("yyMMddHHmmssz");
+        SimpleDateFormat dateF = new SimpleDateFormat("yyMMddHHmmssz", Locale.US);
+        // END android-changed
 
         return dateF.parse(getTime());
     }
@@ -179,7 +190,10 @@ public class ASN1UTCTime
     public Date getAdjustedDate()
         throws ParseException
     {
-        SimpleDateFormat dateF = new SimpleDateFormat("yyyyMMddHHmmssz");
+        // BEGIN android-changed
+        // Was: SimpleDateFormat dateF = new SimpleDateFormat("yyyyMMddHHmmssz");
+        SimpleDateFormat dateF = new SimpleDateFormat("yyyyMMddHHmmssz", Locale.US);
+        // END android-changed
 
         dateF.setTimeZone(new SimpleTimeZone(0, "Z"));
 

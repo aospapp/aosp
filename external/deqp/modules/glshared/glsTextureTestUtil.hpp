@@ -240,14 +240,6 @@ public:
 	RandomViewport (const tcu::RenderTarget& renderTarget, int preferredWidth, int preferredHeight, deUint32 seed);
 };
 
-inline tcu::RGBA toRGBA (const tcu::Vec4& v)
-{
-	return tcu::RGBA(tcu::floatToU8(v.x()),
-					 tcu::floatToU8(v.y()),
-					 tcu::floatToU8(v.z()),
-					 tcu::floatToU8(v.w()));
-}
-
 inline tcu::RGBA toRGBAMasked (const tcu::Vec4& v, deUint8 mask)
 {
 	return tcu::RGBA((mask&tcu::RGBA::RED_MASK)		? tcu::floatToU8(v.x()) : 0,
@@ -256,20 +248,18 @@ inline tcu::RGBA toRGBAMasked (const tcu::Vec4& v, deUint8 mask)
 					 (mask&tcu::RGBA::ALPHA_MASK)	? tcu::floatToU8(v.w()) : 0xFF); //!< \note Alpha defaults to full saturation when reading masked format
 }
 
+// \todo[jarkko 2015-05-19] remove this
 inline tcu::Vec4 toVec4 (const tcu::RGBA& c)
 {
-	return tcu::Vec4(c.getRed()		/ 255.0f,
-					 c.getGreen()	/ 255.0f,
-					 c.getBlue()	/ 255.0f,
-					 c.getAlpha()	/ 255.0f);
+	return c.toVec();
 }
 
 inline deUint8 getColorMask (const tcu::PixelFormat& format)
 {
-	return (format.redBits		? tcu::RGBA::RED_MASK	: 0) |
-		   (format.greenBits	? tcu::RGBA::GREEN_MASK	: 0) |
-		   (format.blueBits		? tcu::RGBA::BLUE_MASK	: 0) |
-		   (format.alphaBits	? tcu::RGBA::ALPHA_MASK	: 0);
+	return (deUint8)((format.redBits	? tcu::RGBA::RED_MASK	: 0) |
+					 (format.greenBits	? tcu::RGBA::GREEN_MASK	: 0) |
+					 (format.blueBits	? tcu::RGBA::BLUE_MASK	: 0) |
+					 (format.alphaBits	? tcu::RGBA::ALPHA_MASK	: 0));
 }
 
 inline tcu::IVec4 getBitsVec (const tcu::PixelFormat& format)
@@ -354,8 +344,6 @@ struct ReferenceParams : public RenderParams
 	int					maxLevel;
 };
 
-void			clear						(const SurfaceAccess& dst, const tcu::Vec4& color);
-
 // Similar to sampleTexture() except uses texelFetch.
 void			fetchTexture				(const SurfaceAccess& dst, const tcu::ConstPixelBufferAccess& src, const float* texCoord, const tcu::Vec4& colorScale, const tcu::Vec4& colorBias);
 
@@ -366,6 +354,10 @@ void			sampleTexture				(const SurfaceAccess& dst, const tcu::Texture3DView&		sr
 void			sampleTexture				(const SurfaceAccess& dst, const tcu::TextureCubeArrayView&	src, const float* texCoord, const ReferenceParams& params);
 void			sampleTexture				(const SurfaceAccess& dst, const tcu::Texture1DView&		src, const float* texCoord, const ReferenceParams& params);
 void			sampleTexture				(const SurfaceAccess& dst, const tcu::Texture1DArrayView&	src, const float* texCoord, const ReferenceParams& params);
+
+float			computeLodFromDerivates		(LodMode mode, float dudx, float dudy);
+float			computeLodFromDerivates		(LodMode mode, float dudx, float dvdx, float dudy, float dvdy);
+float			computeLodFromDerivates		(LodMode mode, float dudx, float dvdx, float dwdx, float dudy, float dvdy, float dwdy);
 
 void			computeQuadTexCoord1D			(std::vector<float>& dst, float left, float right);
 void			computeQuadTexCoord1DArray		(std::vector<float>& dst, int layerNdx, float left, float right);

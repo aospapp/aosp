@@ -24,7 +24,7 @@ import android.util.AttributeSet;
 import android.util.Xml;
 import android.widget.Button;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 
 public class ButtonTest extends AndroidTestCase {

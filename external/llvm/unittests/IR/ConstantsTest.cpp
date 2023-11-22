@@ -15,6 +15,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/SourceMgr.h"
+#include "llvm-c/Core.h"
 #include "gtest/gtest.h"
 
 namespace llvm {
@@ -187,6 +188,13 @@ TEST(ConstantsTest, AsInstructionsTest) {
   Constant *P6 = ConstantExpr::getBitCast(P4, VectorType::get(Int16Ty, 2));
 
   Constant *One = ConstantInt::get(Int32Ty, 1);
+  Constant *Two = ConstantInt::get(Int64Ty, 2);
+  Constant *Big = ConstantInt::get(getGlobalContext(),
+                                   APInt{256, uint64_t(-1), true});
+  Constant *Elt = ConstantInt::get(Int16Ty, 2015);
+  Constant *Undef16  = UndefValue::get(Int16Ty);
+  Constant *Undef64  = UndefValue::get(Int64Ty);
+  Constant *UndefV16 = UndefValue::get(P6->getType());
 
   #define P0STR "ptrtoint (i32** @dummy to i32)"
   #define P1STR "uitofp (i32 ptrtoint (i32** @dummy to i32) to float)"
@@ -255,6 +263,16 @@ TEST(ConstantsTest, AsInstructionsTest) {
 
   CHECK(ConstantExpr::getExtractElement(P6, One), "extractelement <2 x i16> "
         P6STR ", i32 1");
+
+  EXPECT_EQ(Undef16, ConstantExpr::getExtractElement(P6, Two));
+  EXPECT_EQ(Undef16, ConstantExpr::getExtractElement(P6, Big));
+  EXPECT_EQ(Undef16, ConstantExpr::getExtractElement(P6, Undef64));
+
+  EXPECT_EQ(Elt, ConstantExpr::getExtractElement(
+                 ConstantExpr::getInsertElement(P6, Elt, One), One));
+  EXPECT_EQ(UndefV16, ConstantExpr::getInsertElement(P6, Elt, Two));
+  EXPECT_EQ(UndefV16, ConstantExpr::getInsertElement(P6, Elt, Big));
+  EXPECT_EQ(UndefV16, ConstantExpr::getInsertElement(P6, Elt, Undef64));
 }
 
 #ifdef GTEST_HAS_DEATH_TEST
@@ -363,6 +381,74 @@ TEST(ConstantsTest, AliasCAPI) {
   LLVMValueRef AliasRef =
       LLVMAddAlias(wrap(M.get()), wrap(I16PTy), wrap(Aliasee), "a");
   ASSERT_EQ(unwrap<GlobalAlias>(AliasRef)->getAliasee(), Aliasee);
+}
+
+static std::string getNameOfType(Type *T) {
+  std::string S;
+  raw_string_ostream RSOS(S);
+  T->print(RSOS);
+  return S;
+}
+
+TEST(ConstantsTest, BuildConstantDataArrays) {
+  LLVMContext Context;
+  std::unique_ptr<Module> M(new Module("MyModule", Context));
+
+  for (Type *T : {Type::getInt8Ty(Context), Type::getInt16Ty(Context),
+                  Type::getInt32Ty(Context), Type::getInt64Ty(Context)}) {
+    ArrayType *ArrayTy = ArrayType::get(T, 2);
+    Constant *Vals[] = {ConstantInt::get(T, 0), ConstantInt::get(T, 1)};
+    Constant *CDV = ConstantArray::get(ArrayTy, Vals);
+    ASSERT_TRUE(dyn_cast<ConstantDataArray>(CDV) != nullptr)
+        << " T = " << getNameOfType(T);
+  }
+
+  for (Type *T : {Type::getHalfTy(Context), Type::getFloatTy(Context),
+                  Type::getDoubleTy(Context)}) {
+    ArrayType *ArrayTy = ArrayType::get(T, 2);
+    Constant *Vals[] = {ConstantFP::get(T, 0), ConstantFP::get(T, 1)};
+    Constant *CDV = ConstantArray::get(ArrayTy, Vals);
+    ASSERT_TRUE(dyn_cast<ConstantDataArray>(CDV) != nullptr)
+        << " T = " << getNameOfType(T);
+  }
+}
+
+TEST(ConstantsTest, BuildConstantDataVectors) {
+  LLVMContext Context;
+  std::unique_ptr<Module> M(new Module("MyModule", Context));
+
+  for (Type *T : {Type::getInt8Ty(Context), Type::getInt16Ty(Context),
+                  Type::getInt32Ty(Context), Type::getInt64Ty(Context)}) {
+    Constant *Vals[] = {ConstantInt::get(T, 0), ConstantInt::get(T, 1)};
+    Constant *CDV = ConstantVector::get(Vals);
+    ASSERT_TRUE(dyn_cast<ConstantDataVector>(CDV) != nullptr)
+        << " T = " << getNameOfType(T);
+  }
+
+  for (Type *T : {Type::getHalfTy(Context), Type::getFloatTy(Context),
+                  Type::getDoubleTy(Context)}) {
+    Constant *Vals[] = {ConstantFP::get(T, 0), ConstantFP::get(T, 1)};
+    Constant *CDV = ConstantVector::get(Vals);
+    ASSERT_TRUE(dyn_cast<ConstantDataVector>(CDV) != nullptr)
+        << " T = " << getNameOfType(T);
+  }
+}
+
+TEST(ConstantsTest, BitcastToGEP) {
+  LLVMContext Context;
+  std::unique_ptr<Module> M(new Module("MyModule", Context));
+
+  auto *i32 = Type::getInt32Ty(Context);
+  auto *U = StructType::create(Context, "Unsized");
+  Type *EltTys[] = {i32, U};
+  auto *S = StructType::create(EltTys);
+
+  auto *G = new GlobalVariable(*M, S, false,
+                               GlobalValue::ExternalLinkage, nullptr);
+  auto *PtrTy = PointerType::get(i32, 0);
+  auto *C = ConstantExpr::getBitCast(G, PtrTy);
+  ASSERT_EQ(dyn_cast<ConstantExpr>(C)->getOpcode(),
+            Instruction::BitCast);
 }
 
 }  // end anonymous namespace

@@ -28,7 +28,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
-import com.android.cts.keystore.R;
+import android.keystore.cts.R;
 
 import android.content.Context;
 import android.security.keystore.KeyProperties;
@@ -163,7 +163,7 @@ public class RSASignatureTest extends AndroidTestCase {
                         R.raw.rsa_key6_768_pkcs8, R.raw.rsa_key6_768_cert, importParams),
                 TestUtils.importIntoAndroidKeyStore("testRSA1024", context,
                         R.raw.rsa_key3_1024_pkcs8, R.raw.rsa_key3_1024_cert, importParams),
-                TestUtils.importIntoAndroidKeyStore("testRSA2024", context,
+                TestUtils.importIntoAndroidKeyStore("testRSA2048", context,
                         R.raw.rsa_key8_2048_pkcs8, R.raw.rsa_key8_2048_cert, importParams),
                 TestUtils.importIntoAndroidKeyStore("testRSA3072", context,
                         R.raw.rsa_key7_3072_pksc8, R.raw.rsa_key7_3072_cert, importParams),

@@ -5,6 +5,7 @@ llvm_pre_static_libraries := \
   libLLVMipo \
   libLLVMDebugInfoDWARF \
   libLLVMDebugInfoPDB \
+  libLLVMSymbolize \
   libLLVMIRReader \
   libLLVMBitWriter \
   libLLVMBitReader
@@ -53,7 +54,6 @@ llvm_post_static_libraries := \
   libLLVMInstrumentation \
   libLLVMTransformObjCARC \
   libLLVMTransformUtils \
-  libLLVMipa \
   libLLVMAnalysis \
   libLLVMTarget \
   libLLVMMCDisassembler \
@@ -64,7 +64,8 @@ llvm_post_static_libraries := \
   libLLVMOption \
   libLLVMSupport \
   libLLVMVectorize \
-  libLLVMProfileData
+  libLLVMProfileData \
+  libLLVMLibDriver
 
 llvm_host_static_libraries := \
   libLLVMExecutionEngine \
@@ -72,7 +73,6 @@ llvm_host_static_libraries := \
   libLLVMMCJIT \
   libLLVMOrcJIT
 
-ifeq (true,$(FORCE_BUILD_LLVM_COMPONENTS))
 # HOST LLVM shared library build
 include $(CLEAR_VARS)
 LOCAL_IS_HOST_MODULE := true
@@ -91,15 +91,20 @@ LOCAL_WHOLE_STATIC_LIBRARIES := \
   $(llvm_host_static_libraries) \
   $(llvm_post_static_libraries)
 
-ifeq ($(HOST_OS),windows)
-  LOCAL_LDLIBS := -limagehlp -lpsapi
+LOCAL_LDLIBS_windows := -limagehlp -lpsapi -lole32
+LOCAL_LDLIBS_darwin := -ldl -lpthread
+LOCAL_LDLIBS_linux := -ldl -lpthread
+
+# Use prebuilts for linux and darwin unless
+# FORCE_BUILD_LLVM_COMPONENTS is true
+ifneq (true,$(FORCE_BUILD_LLVM_COMPONENTS))
+LOCAL_MODULE_HOST_OS := windows
 else
-  LOCAL_LDLIBS := -ldl -lpthread
+LOCAL_MODULE_HOST_OS := darwin linux windows
 endif
 
 include $(LLVM_HOST_BUILD_MK)
 include $(BUILD_HOST_SHARED_LIBRARY)
-endif
 
 ifeq (,$(filter $(TARGET_ARCH),$(LLVM_SUPPORTED_ARCH)))
 $(warning TODO $(TARGET_ARCH): Enable llvm build)
@@ -127,13 +132,12 @@ LOCAL_WHOLE_STATIC_LIBRARIES_arm64 += $(llvm_arm_static_libraries)
 
 ifeq ($(BUILD_ARM_FOR_X86),true)
 LOCAL_WHOLE_STATIC_LIBRARIES_x86 += $(llvm_arm_static_libraries)
+LOCAL_WHOLE_STATIC_LIBRARIES_x86 += $(llvm_aarch64_static_libraries)
 LOCAL_WHOLE_STATIC_LIBRARIES_x86_64 += $(llvm_arm_static_libraries)
+LOCAL_WHOLE_STATIC_LIBRARIES_x86_64 += $(llvm_aarch64_static_libraries)
 endif
 
 LOCAL_WHOLE_STATIC_LIBRARIES += $(llvm_post_static_libraries)
-
-#LOCAL_LDLIBS := -ldl -lpthread
-LOCAL_SHARED_LIBRARIES := libcutils libdl libc++
 
 include $(LLVM_DEVICE_BUILD_MK)
 include $(BUILD_SHARED_LIBRARY)

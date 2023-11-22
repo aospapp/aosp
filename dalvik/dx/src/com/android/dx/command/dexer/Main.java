@@ -478,7 +478,7 @@ public class Main {
         } else if (dexB == null) {
             result = dexA;
         } else {
-            result = new DexMerger(dexA, dexB, CollisionPolicy.KEEP_FIRST).merge();
+            result = new DexMerger(new Dex[] {dexA, dexB}, CollisionPolicy.KEEP_FIRST).merge();
         }
 
         ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
@@ -491,19 +491,18 @@ public class Main {
      * same type, this fails with an exception.
      */
     private static byte[] mergeLibraryDexBuffers(byte[] outArray) throws IOException {
-        for (byte[] libraryDex : libraryDexBuffers) {
-            if (outArray == null) {
-                outArray = libraryDex;
-                continue;
-            }
-
-            Dex a = new Dex(outArray);
-            Dex b = new Dex(libraryDex);
-            Dex ab = new DexMerger(a, b, CollisionPolicy.FAIL).merge();
-            outArray = ab.getBytes();
+        ArrayList<Dex> dexes = new ArrayList<Dex>();
+        if (outArray != null) {
+            dexes.add(new Dex(outArray));
         }
-
-        return outArray;
+        for (byte[] libraryDex : libraryDexBuffers) {
+            dexes.add(new Dex(libraryDex));
+        }
+        if (dexes.isEmpty()) {
+            return null;
+        }
+        Dex merged = new DexMerger(dexes.toArray(new Dex[dexes.size()]), CollisionPolicy.FAIL).merge();
+        return merged.getBytes();
     }
 
     /**
@@ -596,7 +595,12 @@ public class Main {
                     // class translation and adding to dex.
                     int count = errors.incrementAndGet();
                     if (count < 10) {
-                        DxConsole.err.println("Uncaught translation error: " + ex.getCause());
+                        if (args.debug) {
+                            DxConsole.err.println("Uncaught translation error:");
+                            ex.getCause().printStackTrace(DxConsole.err);
+                        } else {
+                            DxConsole.err.println("Uncaught translation error: " + ex.getCause());
+                        }
                     } else {
                         throw new InterruptedException("Too many errors");
                     }
@@ -749,6 +753,9 @@ public class Main {
         try {
             new DirectClassFileConsumer(name, bytes, null).call(
                     new ClassParserTask(name, bytes).call());
+        } catch (ParseException ex) {
+            // handled in FileBytesConsumer
+            throw ex;
         } catch(Exception ex) {
             throw new RuntimeException("Exception parsing classes", ex);
         }
@@ -1654,6 +1661,14 @@ public class Main {
                 DxConsole.err.println("\nEXCEPTION FROM SIMULATION:");
                 DxConsole.err.println(ex.getMessage() + "\n");
                 DxConsole.err.println(((SimException) ex).getContext());
+            } else if (ex instanceof ParseException) {
+                DxConsole.err.println("\nPARSE ERROR:");
+                ParseException parseException = (ParseException) ex;
+                if (args.debug) {
+                    parseException.printStackTrace(DxConsole.err);
+                } else {
+                    parseException.printContext(DxConsole.err);
+                }
             } else {
                 DxConsole.err.println("\nUNEXPECTED TOP-LEVEL EXCEPTION:");
                 ex.printStackTrace(DxConsole.err);

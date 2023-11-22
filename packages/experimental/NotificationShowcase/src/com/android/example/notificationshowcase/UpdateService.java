@@ -21,6 +21,8 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.support.v7.preference.PreferenceManager;
 import android.util.Log;
 
 public class UpdateService extends IntentService {
@@ -39,12 +41,6 @@ public class UpdateService extends IntentService {
 
     @Override
     protected void onHandleIntent(Intent intent) {
-
-        try {
-            // allow the user close the shade, if they want to test that.
-            Thread.sleep(3000);
-        } catch (Exception e) {
-        }
         Log.v(TAG, "clicked a thing! intent=" + intent.toString());
         if (intent.hasExtra("id") && intent.hasExtra("when")) {
             final int id = intent.getIntExtra("id", 0);
@@ -54,7 +50,7 @@ public class UpdateService extends IntentService {
                 final long when = intent.getLongExtra("when", 0L);
                 Log.v(TAG, "id: " + id + " when: " + when + " update: " + update);
                 noMa.notify(NotificationService.NOTIFICATION_ID + id,
-                        NotificationService.makeBigTextNotification(this, update, id, when));
+                        NotificationService.makeSmsNotification(this, update, id, when));
         } else {
             Log.v(TAG, "id extra was " + (intent.hasExtra("id") ? "present" : "missing"));
             Log.v(TAG, "when extra was " + (intent.hasExtra("when") ? "present"  : "missing"));

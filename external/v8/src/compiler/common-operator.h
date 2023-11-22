@@ -1,86 +1,153 @@
-// Copyright 2013 the V8 project authors. All rights reserved.
+// Copyright 2014 the V8 project authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef V8_COMPILER_COMMON_OPERATOR_H_
 #define V8_COMPILER_COMMON_OPERATOR_H_
 
-#include "src/compiler/machine-type.h"
-#include "src/unique.h"
+#include "src/compiler/frame-states.h"
+#include "src/machine-type.h"
+#include "src/zone-containers.h"
 
 namespace v8 {
 namespace internal {
 
 // Forward declarations.
 class ExternalReference;
-class OStream;
+template <class>
+class TypeImpl;
+struct ZoneTypeConfig;
+typedef TypeImpl<ZoneTypeConfig> Type;
 
 
 namespace compiler {
 
 // Forward declarations.
 class CallDescriptor;
-struct CommonOperatorBuilderImpl;
+struct CommonOperatorGlobalCache;
 class Operator;
 
 
-// Flag that describes how to combine the current environment with
-// the output of a node to obtain a framestate for lazy bailout.
-enum OutputFrameStateCombine {
-  kPushOutput,   // Push the output on the expression stack.
-  kIgnoreOutput  // Use the frame state as-is.
-};
+// Prediction hint for branches.
+enum class BranchHint : uint8_t { kNone, kTrue, kFalse };
+
+inline BranchHint NegateBranchHint(BranchHint hint) {
+  switch (hint) {
+    case BranchHint::kNone:
+      return hint;
+    case BranchHint::kTrue:
+      return BranchHint::kFalse;
+    case BranchHint::kFalse:
+      return BranchHint::kTrue;
+  }
+  UNREACHABLE();
+  return hint;
+}
+
+inline size_t hash_value(BranchHint hint) { return static_cast<size_t>(hint); }
+
+std::ostream& operator<<(std::ostream&, BranchHint);
+
+BranchHint BranchHintOf(const Operator* const);
 
 
-// The type of stack frame that a FrameState node represents.
-enum FrameStateType {
-  JS_FRAME,          // Represents an unoptimized JavaScriptFrame.
-  ARGUMENTS_ADAPTOR  // Represents an ArgumentsAdaptorFrame.
-};
+// Deoptimize bailout kind.
+enum class DeoptimizeKind : uint8_t { kEager, kSoft };
+
+size_t hash_value(DeoptimizeKind kind);
+
+std::ostream& operator<<(std::ostream&, DeoptimizeKind);
+
+DeoptimizeKind DeoptimizeKindOf(const Operator* const);
 
 
-class FrameStateCallInfo FINAL {
+// Prediction whether throw-site is surrounded by any local catch-scope.
+enum class IfExceptionHint { kLocallyUncaught, kLocallyCaught };
+
+size_t hash_value(IfExceptionHint hint);
+
+std::ostream& operator<<(std::ostream&, IfExceptionHint);
+
+
+class SelectParameters final {
  public:
-  FrameStateCallInfo(
-      FrameStateType type, BailoutId bailout_id,
-      OutputFrameStateCombine state_combine,
-      MaybeHandle<JSFunction> jsfunction = MaybeHandle<JSFunction>())
-      : type_(type),
-        bailout_id_(bailout_id),
-        frame_state_combine_(state_combine),
-        jsfunction_(jsfunction) {}
+  explicit SelectParameters(MachineRepresentation representation,
+                            BranchHint hint = BranchHint::kNone)
+      : representation_(representation), hint_(hint) {}
 
-  FrameStateType type() const { return type_; }
-  BailoutId bailout_id() const { return bailout_id_; }
-  OutputFrameStateCombine state_combine() const { return frame_state_combine_; }
-  MaybeHandle<JSFunction> jsfunction() const { return jsfunction_; }
+  MachineRepresentation representation() const { return representation_; }
+  BranchHint hint() const { return hint_; }
 
  private:
-  FrameStateType type_;
-  BailoutId bailout_id_;
-  OutputFrameStateCombine frame_state_combine_;
-  MaybeHandle<JSFunction> jsfunction_;
+  const MachineRepresentation representation_;
+  const BranchHint hint_;
 };
+
+bool operator==(SelectParameters const&, SelectParameters const&);
+bool operator!=(SelectParameters const&, SelectParameters const&);
+
+size_t hash_value(SelectParameters const& p);
+
+std::ostream& operator<<(std::ostream&, SelectParameters const& p);
+
+SelectParameters const& SelectParametersOf(const Operator* const);
+
+
+size_t ProjectionIndexOf(const Operator* const);
+
+MachineRepresentation PhiRepresentationOf(const Operator* const);
+
+
+// The {IrOpcode::kParameter} opcode represents an incoming parameter to the
+// function. This class bundles the index and a debug name for such operators.
+class ParameterInfo final {
+ public:
+  ParameterInfo(int index, const char* debug_name)
+      : index_(index), debug_name_(debug_name) {}
+
+  int index() const { return index_; }
+  const char* debug_name() const { return debug_name_; }
+
+ private:
+  int index_;
+  const char* debug_name_;
+};
+
+std::ostream& operator<<(std::ostream&, ParameterInfo const&);
+
+int ParameterIndexOf(const Operator* const);
+const ParameterInfo& ParameterInfoOf(const Operator* const);
 
 
 // Interface for building common operators that can be used at any level of IR,
 // including JavaScript, mid-level, and low-level.
-class CommonOperatorBuilder FINAL {
+class CommonOperatorBuilder final : public ZoneObject {
  public:
   explicit CommonOperatorBuilder(Zone* zone);
 
   const Operator* Dead();
-  const Operator* End();
-  const Operator* Branch();
+  const Operator* End(size_t control_input_count);
+  const Operator* Branch(BranchHint = BranchHint::kNone);
   const Operator* IfTrue();
   const Operator* IfFalse();
+  const Operator* IfSuccess();
+  const Operator* IfException(IfExceptionHint hint);
+  const Operator* Switch(size_t control_output_count);
+  const Operator* IfValue(int32_t value);
+  const Operator* IfDefault();
   const Operator* Throw();
-  const Operator* Return();
+  const Operator* Deoptimize(DeoptimizeKind kind);
+  const Operator* Return(int value_input_count = 1);
+  const Operator* Terminate();
 
-  const Operator* Start(int num_formal_parameters);
-  const Operator* Merge(int controls);
-  const Operator* Loop(int controls);
-  const Operator* Parameter(int index);
+  const Operator* Start(int value_output_count);
+  const Operator* Loop(int control_input_count);
+  const Operator* Merge(int control_input_count);
+  const Operator* Parameter(int index, const char* debug_name = nullptr);
+
+  const Operator* OsrNormalEntry();
+  const Operator* OsrLoopEntry();
+  const Operator* OsrValue(int index);
 
   const Operator* Int32Constant(int32_t);
   const Operator* Int64Constant(int64_t);
@@ -88,26 +155,44 @@ class CommonOperatorBuilder FINAL {
   const Operator* Float64Constant(volatile double);
   const Operator* ExternalConstant(const ExternalReference&);
   const Operator* NumberConstant(volatile double);
-  const Operator* HeapConstant(const Unique<Object>&);
+  const Operator* HeapConstant(const Handle<HeapObject>&);
 
-  const Operator* Phi(MachineType type, int arguments);
-  const Operator* EffectPhi(int arguments);
-  const Operator* ControlEffect();
-  const Operator* ValueEffect(int arguments);
-  const Operator* Finish(int arguments);
+  const Operator* Select(MachineRepresentation, BranchHint = BranchHint::kNone);
+  const Operator* Phi(MachineRepresentation representation,
+                      int value_input_count);
+  const Operator* EffectPhi(int effect_input_count);
+  const Operator* EffectSet(int arguments);
+  const Operator* Guard(Type* type);
+  const Operator* BeginRegion();
+  const Operator* FinishRegion();
   const Operator* StateValues(int arguments);
-  const Operator* FrameState(
-      FrameStateType type, BailoutId bailout_id,
-      OutputFrameStateCombine state_combine,
-      MaybeHandle<JSFunction> jsfunction = MaybeHandle<JSFunction>());
+  const Operator* ObjectState(int pointer_slots, int id);
+  const Operator* TypedStateValues(const ZoneVector<MachineType>* types);
+  const Operator* FrameState(BailoutId bailout_id,
+                             OutputFrameStateCombine state_combine,
+                             const FrameStateFunctionInfo* function_info);
   const Operator* Call(const CallDescriptor* descriptor);
+  const Operator* TailCall(const CallDescriptor* descriptor);
   const Operator* Projection(size_t index);
+  const Operator* LazyBailout();
+
+  // Constructs a new merge or phi operator with the same opcode as {op}, but
+  // with {size} inputs.
+  const Operator* ResizeMergeOrPhi(const Operator* op, int size);
+
+  // Constructs function info for frame state construction.
+  const FrameStateFunctionInfo* CreateFrameStateFunctionInfo(
+      FrameStateType type, int parameter_count, int local_count,
+      Handle<SharedFunctionInfo> shared_info,
+      ContextCallingMode context_calling_mode);
 
  private:
   Zone* zone() const { return zone_; }
 
-  const CommonOperatorBuilderImpl& impl_;
+  const CommonOperatorGlobalCache& cache_;
   Zone* const zone_;
+
+  DISALLOW_COPY_AND_ASSIGN(CommonOperatorBuilder);
 };
 
 }  // namespace compiler

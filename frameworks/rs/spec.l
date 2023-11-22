@@ -44,7 +44,7 @@ ID       [a-zA-Z_][a-zA-Z0-9_]*
        }
    }
 
-   extern "C" int yylex();
+   int yylex();
 
 %%
 

@@ -18,6 +18,7 @@ LOCAL_SHARED_LIBRARIES := \
 LOCAL_STATIC_LIBRARIES := \
     libOpenSLESUT \
 
+LOCAL_CFLAGS := -Werror -Wall
 ifeq ($(TARGET_OS),linux)
 	LOCAL_CFLAGS += -DXP_UNIX
 endif

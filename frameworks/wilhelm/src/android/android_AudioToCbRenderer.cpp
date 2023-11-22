@@ -20,6 +20,7 @@
 #include "android/android_AudioToCbRenderer.h"
 
 #include <media/stagefright/foundation/ADebug.h>
+#include <media/stagefright/MediaBuffer.h>
 
 namespace android {
 

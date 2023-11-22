@@ -92,8 +92,16 @@ void RSObjectRefCount::GetRSRefCountingFunctions(clang::ASTContext &C) {
 
 namespace {
 
+unsigned CountRSObjectTypes(const clang::Type *T);
+
+clang::Stmt *CreateSingleRSSetObject(clang::ASTContext &C,
+                                     clang::Expr *DstExpr,
+                                     clang::Expr *SrcExpr,
+                                     clang::SourceLocation StartLoc,
+                                     clang::SourceLocation Loc);
+
 // This function constructs a new CompoundStmt from the input StmtList.
-static clang::CompoundStmt* BuildCompoundStmt(clang::ASTContext &C,
+clang::CompoundStmt* BuildCompoundStmt(clang::ASTContext &C,
       std::list<clang::Stmt*> &StmtList, clang::SourceLocation Loc) {
   unsigned NewStmtCount = StmtList.size();
   unsigned CompoundStmtCount = 0;
@@ -116,10 +124,10 @@ static clang::CompoundStmt* BuildCompoundStmt(clang::ASTContext &C,
   return CS;
 }
 
-static void AppendAfterStmt(clang::ASTContext &C,
-                            clang::CompoundStmt *CS,
-                            clang::Stmt *S,
-                            std::list<clang::Stmt*> &StmtList) {
+void AppendAfterStmt(clang::ASTContext &C,
+                     clang::CompoundStmt *CS,
+                     clang::Stmt *S,
+                     std::list<clang::Stmt*> &StmtList) {
   slangAssert(CS);
   clang::CompoundStmt::body_iterator bI = CS->body_begin();
   clang::CompoundStmt::body_iterator bE = CS->body_end();
@@ -161,27 +169,17 @@ static void AppendAfterStmt(clang::ASTContext &C,
     }
   }
 
-  CS->setStmts(C, UpdatedStmtList, UpdatedStmtCount);
+  CS->setStmts(C, llvm::makeArrayRef(UpdatedStmtList, UpdatedStmtCount));
 
   delete [] UpdatedStmtList;
 }
 
-// This class visits a compound statement and inserts DtorStmt
-// in proper locations. This includes inserting it before any
-// return statement in any sub-block, at the end of the logical enclosing
-// scope (compound statement), and/or before any break/continue statement that
-// would resume outside the declared scope. We will not handle the case for
-// goto statements that leave a local scope.
-//
-// To accomplish these goals, it collects a list of sub-Stmt's that
-// correspond to scope exit points. It then uses an RSASTReplace visitor to
-// transform the AST, inserting appropriate destructors before each of those
-// sub-Stmt's (and also before the exit of the outermost containing Stmt for
-// the scope).
+// This class visits a compound statement and collects a list of all the exiting
+// statements, such as any return statement in any sub-block, and any
+// break/continue statement that would resume outside the current scope.
+// We do not handle the case for goto statements that leave a local scope.
 class DestructorVisitor : public clang::StmtVisitor<DestructorVisitor> {
  private:
-  clang::ASTContext &mCtx;
-
   // The loop depth of the currently visited node.
   int mLoopDepth;
 
@@ -191,125 +189,49 @@ class DestructorVisitor : public clang::StmtVisitor<DestructorVisitor> {
   // corresponding loop scope.
   int mSwitchDepth;
 
-  // The outermost statement block that we are currently visiting.
-  // This should always be a CompoundStmt.
-  clang::Stmt *mOuterStmt;
-
-  // The destructor to execute for this scope/variable.
-  clang::Stmt* mDtorStmt;
-
-  // The stack of statements which should be replaced by a compound statement
-  // containing the new destructor call followed by the original Stmt.
-  std::stack<clang::Stmt*> mReplaceStmtStack;
-
-  // The source location for the variable declaration that we are trying to
-  // insert destructors for. Note that InsertDestructors() will not generate
-  // destructor calls for source locations that occur lexically before this
-  // location.
-  clang::SourceLocation mVarLoc;
+  // Output of the visitor: the statements that should be replaced by compound
+  // statements, each of which contains rsClearObject() calls followed by the
+  // original statement.
+  std::vector<clang::Stmt*> mExitingStmts;
 
  public:
-  DestructorVisitor(clang::ASTContext &C,
-                    clang::Stmt* OuterStmt,
-                    clang::Stmt* DtorStmt,
-                    clang::SourceLocation VarLoc);
+  DestructorVisitor() : mLoopDepth(0), mSwitchDepth(0) {}
 
-  // This code walks the collected list of Stmts to replace and actually does
-  // the replacement. It also finishes up by appending the destructor to the
-  // current outermost CompoundStmt.
-  void InsertDestructors() {
-    clang::Stmt *S = nullptr;
-    clang::SourceManager &SM = mCtx.getSourceManager();
-    std::list<clang::Stmt *> StmtList;
-    StmtList.push_back(mDtorStmt);
-
-    while (!mReplaceStmtStack.empty()) {
-      S = mReplaceStmtStack.top();
-      mReplaceStmtStack.pop();
-
-      // Skip all source locations that occur before the variable's
-      // declaration, since it won't have been initialized yet.
-      if (SM.isBeforeInTranslationUnit(S->getLocStart(), mVarLoc)) {
-        continue;
-      }
-
-      StmtList.push_back(S);
-      clang::CompoundStmt *CS =
-          BuildCompoundStmt(mCtx, StmtList, S->getLocEnd());
-      StmtList.pop_back();
-
-      RSASTReplace R(mCtx);
-      R.ReplaceStmt(mOuterStmt, S, CS);
-    }
-    clang::CompoundStmt *CS =
-      llvm::dyn_cast<clang::CompoundStmt>(mOuterStmt);
-    slangAssert(CS);
-    AppendAfterStmt(mCtx, CS, nullptr, StmtList);
+  const std::vector<clang::Stmt*>& getExitingStmts() const {
+    return mExitingStmts;
   }
 
   void VisitStmt(clang::Stmt *S);
-  void VisitCompoundStmt(clang::CompoundStmt *CS);
-
   void VisitBreakStmt(clang::BreakStmt *BS);
-  void VisitCaseStmt(clang::CaseStmt *CS);
   void VisitContinueStmt(clang::ContinueStmt *CS);
-  void VisitDefaultStmt(clang::DefaultStmt *DS);
   void VisitDoStmt(clang::DoStmt *DS);
   void VisitForStmt(clang::ForStmt *FS);
-  void VisitIfStmt(clang::IfStmt *IS);
   void VisitReturnStmt(clang::ReturnStmt *RS);
-  void VisitSwitchCase(clang::SwitchCase *SC);
   void VisitSwitchStmt(clang::SwitchStmt *SS);
   void VisitWhileStmt(clang::WhileStmt *WS);
 };
 
-DestructorVisitor::DestructorVisitor(clang::ASTContext &C,
-                         clang::Stmt *OuterStmt,
-                         clang::Stmt *DtorStmt,
-                         clang::SourceLocation VarLoc)
-  : mCtx(C),
-    mLoopDepth(0),
-    mSwitchDepth(0),
-    mOuterStmt(OuterStmt),
-    mDtorStmt(DtorStmt),
-    mVarLoc(VarLoc) {
-}
-
 void DestructorVisitor::VisitStmt(clang::Stmt *S) {
-  for (clang::Stmt::child_iterator I = S->child_begin(), E = S->child_end();
-       I != E;
-       I++) {
-    if (clang::Stmt *Child = *I) {
+  for (clang::Stmt* Child : S->children()) {
+    if (Child) {
       Visit(Child);
     }
   }
 }
 
-void DestructorVisitor::VisitCompoundStmt(clang::CompoundStmt *CS) {
-  VisitStmt(CS);
-}
-
 void DestructorVisitor::VisitBreakStmt(clang::BreakStmt *BS) {
   VisitStmt(BS);
   if ((mLoopDepth == 0) && (mSwitchDepth == 0)) {
-    mReplaceStmtStack.push(BS);
+    mExitingStmts.push_back(BS);
   }
-}
-
-void DestructorVisitor::VisitCaseStmt(clang::CaseStmt *CS) {
-  VisitStmt(CS);
 }
 
 void DestructorVisitor::VisitContinueStmt(clang::ContinueStmt *CS) {
   VisitStmt(CS);
   if (mLoopDepth == 0) {
     // Switch statements can have nested continues.
-    mReplaceStmtStack.push(CS);
+    mExitingStmts.push_back(CS);
   }
-}
-
-void DestructorVisitor::VisitDefaultStmt(clang::DefaultStmt *DS) {
-  VisitStmt(DS);
 }
 
 void DestructorVisitor::VisitDoStmt(clang::DoStmt *DS) {
@@ -324,17 +246,8 @@ void DestructorVisitor::VisitForStmt(clang::ForStmt *FS) {
   mLoopDepth--;
 }
 
-void DestructorVisitor::VisitIfStmt(clang::IfStmt *IS) {
-  VisitStmt(IS);
-}
-
 void DestructorVisitor::VisitReturnStmt(clang::ReturnStmt *RS) {
-  mReplaceStmtStack.push(RS);
-}
-
-void DestructorVisitor::VisitSwitchCase(clang::SwitchCase *SC) {
-  slangAssert(false && "Both case and default have specialized handlers");
-  VisitStmt(SC);
+  mExitingStmts.push_back(RS);
 }
 
 void DestructorVisitor::VisitSwitchStmt(clang::SwitchStmt *SS) {
@@ -425,14 +338,14 @@ static int ArrayDim(const clang::Type *T) {
   return static_cast<int>(CAT->getSize().getSExtValue());
 }
 
-static clang::Stmt *ClearStructRSObject(
+clang::Stmt *ClearStructRSObject(
     clang::ASTContext &C,
     clang::DeclContext *DC,
     clang::Expr *RefRSStruct,
     clang::SourceLocation StartLoc,
     clang::SourceLocation Loc);
 
-static clang::Stmt *ClearArrayRSObject(
+clang::Stmt *ClearArrayRSObject(
     clang::ASTContext &C,
     clang::DeclContext *DC,
     clang::Expr *RefRSArr,
@@ -445,60 +358,64 @@ static clang::Stmt *ClearArrayRSObject(
   // Actually extract out the base RS object type for use later
   BaseType = BaseType->getArrayElementTypeNoTypeQual();
 
-  clang::Stmt *StmtArray[2] = {nullptr};
-  int StmtCtr = 0;
-
   if (NumArrayElements <= 0) {
     return nullptr;
   }
 
   // Example destructor loop for "rs_font fontArr[10];"
   //
-  // (CompoundStmt
-  //   (DeclStmt "int rsIntIter")
-  //   (ForStmt
-  //     (BinaryOperator 'int' '='
-  //       (DeclRefExpr 'int' Var='rsIntIter')
-  //       (IntegerLiteral 'int' 0))
-  //     (BinaryOperator 'int' '<'
-  //       (DeclRefExpr 'int' Var='rsIntIter')
-  //       (IntegerLiteral 'int' 10)
-  //     nullptr << CondVar >>
-  //     (UnaryOperator 'int' postfix '++'
+  // (ForStmt
+  //   (DeclStmt
+  //     (VarDecl used rsIntIter 'int' cinit
+  //       (IntegerLiteral 'int' 0)))
+  //   (BinaryOperator 'int' '<'
+  //     (ImplicitCastExpr int LValueToRValue
   //       (DeclRefExpr 'int' Var='rsIntIter'))
-  //     (CallExpr 'void'
-  //       (ImplicitCastExpr 'void (*)(rs_font *)' <FunctionToPointerDecay>
-  //         (DeclRefExpr 'void (rs_font *)' FunctionDecl='rsClearObject'))
-  //       (UnaryOperator 'rs_font *' prefix '&'
-  //         (ArraySubscriptExpr 'rs_font':'rs_font'
-  //           (ImplicitCastExpr 'rs_font *' <ArrayToPointerDecay>
-  //             (DeclRefExpr 'rs_font [10]' Var='fontArr'))
-  //           (DeclRefExpr 'int' Var='rsIntIter')))))))
+  //     (IntegerLiteral 'int' 10)
+  //   nullptr << CondVar >>
+  //   (UnaryOperator 'int' postfix '++'
+  //     (DeclRefExpr 'int' Var='rsIntIter'))
+  //   (CallExpr 'void'
+  //     (ImplicitCastExpr 'void (*)(rs_font *)' <FunctionToPointerDecay>
+  //       (DeclRefExpr 'void (rs_font *)' FunctionDecl='rsClearObject'))
+  //     (UnaryOperator 'rs_font *' prefix '&'
+  //       (ArraySubscriptExpr 'rs_font':'rs_font'
+  //         (ImplicitCastExpr 'rs_font *' <ArrayToPointerDecay>
+  //           (DeclRefExpr 'rs_font [10]' Var='fontArr'))
+  //         (DeclRefExpr 'int' Var='rsIntIter'))))))
 
   // Create helper variable for iterating through elements
-  clang::IdentifierInfo& II = C.Idents.get("rsIntIter");
+  static unsigned sIterCounter = 0;
+  std::stringstream UniqueIterName;
+  UniqueIterName << "rsIntIter" << sIterCounter++;
+  clang::IdentifierInfo *II = &C.Idents.get(UniqueIterName.str());
   clang::VarDecl *IIVD =
       clang::VarDecl::Create(C,
                              DC,
                              StartLoc,
                              Loc,
-                             &II,
+                             II,
                              C.IntTy,
                              C.getTrivialTypeSourceInfo(C.IntTy),
                              clang::SC_None);
   // Mark "rsIntIter" as used
   IIVD->markUsed(C);
-  clang::Decl *IID = (clang::Decl *)IIVD;
-
-  clang::DeclGroupRef DGR = clang::DeclGroupRef::Create(C, &IID, 1);
-  StmtArray[StmtCtr++] = new(C) clang::DeclStmt(DGR, Loc, Loc);
 
   // Form the actual destructor loop
   // for (Init; Cond; Inc)
   //   RSClearObjectCall;
 
-  // Init -> "rsIntIter = 0"
-  clang::DeclRefExpr *RefrsIntIter =
+  // Init -> "int rsIntIter = 0"
+  clang::Expr *Int0 = clang::IntegerLiteral::Create(C,
+      llvm::APInt(C.getTypeSize(C.IntTy), 0), C.IntTy, Loc);
+  IIVD->setInit(Int0);
+
+  clang::Decl *IID = (clang::Decl *)IIVD;
+  clang::DeclGroupRef DGR = clang::DeclGroupRef::Create(C, &IID, 1);
+  clang::Stmt *Init = new(C) clang::DeclStmt(DGR, Loc, Loc);
+
+  // Cond -> "rsIntIter < NumArrayElements"
+  clang::DeclRefExpr *RefrsIntIterLValue =
       clang::DeclRefExpr::Create(C,
                                  clang::NestedNameSpecifierLoc(),
                                  clang::SourceLocation(),
@@ -506,28 +423,22 @@ static clang::Stmt *ClearArrayRSObject(
                                  false,
                                  Loc,
                                  C.IntTy,
-                                 clang::VK_RValue,
+                                 clang::VK_LValue,
                                  nullptr);
 
-  clang::Expr *Int0 = clang::IntegerLiteral::Create(C,
-      llvm::APInt(C.getTypeSize(C.IntTy), 0), C.IntTy, Loc);
+  clang::Expr *RefrsIntIterRValue =
+      clang::ImplicitCastExpr::Create(C,
+                                      RefrsIntIterLValue->getType(),
+                                      clang::CK_LValueToRValue,
+                                      RefrsIntIterLValue,
+                                      nullptr,
+                                      clang::VK_RValue);
 
-  clang::BinaryOperator *Init =
-      new(C) clang::BinaryOperator(RefrsIntIter,
-                                   Int0,
-                                   clang::BO_Assign,
-                                   C.IntTy,
-                                   clang::VK_RValue,
-                                   clang::OK_Ordinary,
-                                   Loc,
-                                   false);
-
-  // Cond -> "rsIntIter < NumArrayElements"
   clang::Expr *NumArrayElementsExpr = clang::IntegerLiteral::Create(C,
       llvm::APInt(C.getTypeSize(C.IntTy), NumArrayElements), C.IntTy, Loc);
 
   clang::BinaryOperator *Cond =
-      new(C) clang::BinaryOperator(RefrsIntIter,
+      new(C) clang::BinaryOperator(RefrsIntIterRValue,
                                    NumArrayElementsExpr,
                                    clang::BO_LT,
                                    C.IntTy,
@@ -538,7 +449,7 @@ static clang::Stmt *ClearArrayRSObject(
 
   // Inc -> "rsIntIter++"
   clang::UnaryOperator *Inc =
-      new(C) clang::UnaryOperator(RefrsIntIter,
+      new(C) clang::UnaryOperator(RefrsIntIterLValue,
                                   clang::UO_PostInc,
                                   C.IntTy,
                                   clang::VK_RValue,
@@ -558,7 +469,7 @@ static clang::Stmt *ClearArrayRSObject(
 
   clang::Expr *RefRSArrPtrSubscript =
       new(C) clang::ArraySubscriptExpr(RefRSArrPtr,
-                                       RefrsIntIter,
+                                       RefrsIntIterRValue,
                                        BaseType->getCanonicalTypeInternal(),
                                        clang::VK_RValue,
                                        clang::OK_Ordinary,
@@ -588,23 +499,15 @@ static clang::Stmt *ClearArrayRSObject(
                             Loc,
                             Loc);
 
-  StmtArray[StmtCtr++] = DestructorLoop;
-  slangAssert(StmtCtr == 2);
-
-  clang::CompoundStmt *CS = new(C) clang::CompoundStmt(
-      C, llvm::makeArrayRef(StmtArray, StmtCtr), Loc, Loc);
-
-  return CS;
+  return DestructorLoop;
 }
 
-static unsigned CountRSObjectTypes(clang::ASTContext &C,
-                                   const clang::Type *T,
-                                   clang::SourceLocation Loc) {
+unsigned CountRSObjectTypes(const clang::Type *T) {
   slangAssert(T);
   unsigned RSObjectCount = 0;
 
   if (T->isArrayType()) {
-    return CountRSObjectTypes(C, T->getArrayElementTypeNoTypeQual(), Loc);
+    return CountRSObjectTypes(T->getArrayElementTypeNoTypeQual());
   }
 
   DataType DT = RSExportPrimitiveType::GetRSSpecificType(T);
@@ -621,7 +524,7 @@ static unsigned CountRSObjectTypes(clang::ASTContext &C,
          FI++) {
       const clang::FieldDecl *FD = *FI;
       const clang::Type *FT = RSExportType::GetTypeOfDecl(FD);
-      if (CountRSObjectTypes(C, FT, Loc)) {
+      if (CountRSObjectTypes(FT)) {
         slangAssert(false && "can't have unions with RS object types!");
         return 0;
       }
@@ -640,7 +543,7 @@ static unsigned CountRSObjectTypes(clang::ASTContext &C,
        FI++) {
     const clang::FieldDecl *FD = *FI;
     const clang::Type *FT = RSExportType::GetTypeOfDecl(FD);
-    if (CountRSObjectTypes(C, FT, Loc)) {
+    if (CountRSObjectTypes(FT)) {
       // Sub-structs should only count once (as should arrays, etc.)
       RSObjectCount++;
     }
@@ -649,7 +552,7 @@ static unsigned CountRSObjectTypes(clang::ASTContext &C,
   return RSObjectCount;
 }
 
-static clang::Stmt *ClearStructRSObject(
+clang::Stmt *ClearStructRSObject(
     clang::ASTContext &C,
     clang::DeclContext *DC,
     clang::Expr *RefRSStruct,
@@ -663,7 +566,7 @@ static clang::Stmt *ClearStructRSObject(
   slangAssert(RSExportPrimitiveType::GetRSSpecificType(BaseType) ==
               DataTypeUnknown);
 
-  unsigned FieldsToDestroy = CountRSObjectTypes(C, BaseType, Loc);
+  unsigned FieldsToDestroy = CountRSObjectTypes(BaseType);
   slangAssert(FieldsToDestroy != 0);
 
   unsigned StmtCount = 0;
@@ -726,7 +629,7 @@ static clang::Stmt *ClearStructRSObject(
                                                      RSObjectMember,
                                                      Loc);
       }
-    } else if (FT->isStructureType() && CountRSObjectTypes(C, FT, Loc)) {
+    } else if (FT->isStructureType() && CountRSObjectTypes(FT)) {
       // In this case, we have a nested struct. We may not end up filling all
       // of the spaces in StmtArray (sub-structs should handle themselves
       // with separate compound statements).
@@ -772,11 +675,11 @@ static clang::Stmt *ClearStructRSObject(
   return CS;
 }
 
-static clang::Stmt *CreateSingleRSSetObject(clang::ASTContext &C,
-                                            clang::Expr *DstExpr,
-                                            clang::Expr *SrcExpr,
-                                            clang::SourceLocation StartLoc,
-                                            clang::SourceLocation Loc) {
+clang::Stmt *CreateSingleRSSetObject(clang::ASTContext &C,
+                                     clang::Expr *DstExpr,
+                                     clang::Expr *SrcExpr,
+                                     clang::SourceLocation StartLoc,
+                                     clang::SourceLocation Loc) {
   const clang::Type *T = DstExpr->getType().getTypePtr();
   clang::FunctionDecl *SetObjectFD = RSObjectRefCount::GetRSSetObjectFD(T);
   slangAssert((SetObjectFD != nullptr) &&
@@ -826,11 +729,11 @@ static clang::Stmt *CreateSingleRSSetObject(clang::ASTContext &C,
   return RSSetObjectCall;
 }
 
-static clang::Stmt *CreateStructRSSetObject(clang::ASTContext &C,
-                                            clang::Expr *LHS,
-                                            clang::Expr *RHS,
-                                            clang::SourceLocation StartLoc,
-                                            clang::SourceLocation Loc);
+clang::Stmt *CreateStructRSSetObject(clang::ASTContext &C,
+                                     clang::Expr *LHS,
+                                     clang::Expr *RHS,
+                                     clang::SourceLocation StartLoc,
+                                     clang::SourceLocation Loc);
 
 /*static clang::Stmt *CreateArrayRSSetObject(clang::ASTContext &C,
                                            clang::Expr *DstArr,
@@ -989,18 +892,18 @@ static clang::Stmt *CreateStructRSSetObject(clang::ASTContext &C,
   return CS;
 } */
 
-static clang::Stmt *CreateStructRSSetObject(clang::ASTContext &C,
-                                            clang::Expr *LHS,
-                                            clang::Expr *RHS,
-                                            clang::SourceLocation StartLoc,
-                                            clang::SourceLocation Loc) {
+clang::Stmt *CreateStructRSSetObject(clang::ASTContext &C,
+                                     clang::Expr *LHS,
+                                     clang::Expr *RHS,
+                                     clang::SourceLocation StartLoc,
+                                     clang::SourceLocation Loc) {
   clang::QualType QT = LHS->getType();
   const clang::Type *T = QT.getTypePtr();
   slangAssert(T->isStructureType());
   slangAssert(!RSExportPrimitiveType::IsRSObjectType(T));
 
   // Keep an extra slot for the original copy (memcpy)
-  unsigned FieldsToSet = CountRSObjectTypes(C, T, Loc) + 1;
+  unsigned FieldsToSet = CountRSObjectTypes(T) + 1;
 
   unsigned StmtCount = 0;
   clang::Stmt **StmtArray = new clang::Stmt*[FieldsToSet];
@@ -1019,7 +922,7 @@ static clang::Stmt *CreateStructRSSetObject(clang::ASTContext &C,
     const clang::Type *FT = RSExportType::GetTypeOfDecl(FD);
     const clang::Type *OrigType = FT;
 
-    if (!CountRSObjectTypes(C, FT, Loc)) {
+    if (!CountRSObjectTypes(FT)) {
       // Skip to next if we don't have any viable RS object types
       continue;
     }
@@ -1104,6 +1007,38 @@ static clang::Stmt *CreateStructRSSetObject(clang::ASTContext &C,
 }
 
 }  // namespace
+
+void RSObjectRefCount::Scope::InsertStmt(const clang::ASTContext &C,
+                                         clang::Stmt *NewStmt) {
+  std::vector<clang::Stmt*> newBody;
+  for (clang::Stmt* S1 : mCS->body()) {
+    if (S1 == mCurrent) {
+      newBody.push_back(NewStmt);
+    }
+    newBody.push_back(S1);
+  }
+  mCS->setStmts(C, newBody);
+}
+
+void RSObjectRefCount::Scope::ReplaceStmt(const clang::ASTContext &C,
+                                          clang::Stmt *NewStmt) {
+  std::vector<clang::Stmt*> newBody;
+  for (clang::Stmt* S1 : mCS->body()) {
+    if (S1 == mCurrent) {
+      newBody.push_back(NewStmt);
+    } else {
+      newBody.push_back(S1);
+    }
+  }
+  mCS->setStmts(C, newBody);
+}
+
+void RSObjectRefCount::Scope::ReplaceExpr(const clang::ASTContext& C,
+                                          clang::Expr* OldExpr,
+                                          clang::Expr* NewExpr) {
+  RSASTReplace R(C);
+  R.ReplaceStmt(mCurrent, OldExpr, NewExpr);
+}
 
 void RSObjectRefCount::Scope::ReplaceRSObjectAssignment(
     clang::BinaryOperator *AS) {
@@ -1233,26 +1168,68 @@ void RSObjectRefCount::Scope::AppendRSObjectInit(
 }
 
 void RSObjectRefCount::Scope::InsertLocalVarDestructors() {
-  for (std::list<clang::VarDecl*>::const_iterator I = mRSO.begin(),
-          E = mRSO.end();
-        I != E;
-        I++) {
-    clang::VarDecl *VD = *I;
-    clang::Stmt *RSClearObjectCall = ClearRSObject(VD, VD->getDeclContext());
-    if (RSClearObjectCall) {
-      clang::ASTContext &C = (*mRSO.begin())->getASTContext();
-      // Mark VD as used.  It might be unused, except for the destructor.
-      // 'markUsed' has side-effects that are caused only if VD is not already
-      // used.  Hence no need for an extra check here.
-      VD->markUsed(C);
-      DestructorVisitor DV(C,
-                           mCS,
-                           RSClearObjectCall,
-                           VD->getSourceRange().getBegin());
-      DV.Visit(mCS);
-      DV.InsertDestructors();
-    }
+  if (mRSO.empty()) {
+    return;
   }
+
+  clang::DeclContext* DC = mRSO.front()->getDeclContext();
+  clang::ASTContext& C = DC->getParentASTContext();
+  clang::SourceManager& SM = C.getSourceManager();
+
+  const auto& OccursBefore = [&SM] (clang::SourceLocation L1, clang::SourceLocation L2)->bool {
+    return SM.isBeforeInTranslationUnit(L1, L2);
+  };
+  typedef std::map<clang::SourceLocation, clang::Stmt*, decltype(OccursBefore)> DMap;
+
+  DMap dtors(OccursBefore);
+
+  // Create rsClearObject calls. Note the DMap entries are sorted by the SourceLocation.
+  for (clang::VarDecl* VD : mRSO) {
+    clang::SourceLocation Loc = VD->getSourceRange().getBegin();
+    clang::Stmt* RSClearObjectCall = ClearRSObject(VD, DC);
+    dtors.insert(std::make_pair(Loc, RSClearObjectCall));
+  }
+
+  DestructorVisitor Visitor;
+  Visitor.Visit(mCS);
+
+  // Replace each exiting statement with a block that contains the original statement
+  // and added rsClearObject() calls before it.
+  for (clang::Stmt* S : Visitor.getExitingStmts()) {
+
+    const clang::SourceLocation currentLoc = S->getLocStart();
+
+    DMap::iterator firstDtorIter = dtors.begin();
+    DMap::iterator currentDtorIter = firstDtorIter;
+    DMap::iterator lastDtorIter = dtors.end();
+
+    while (currentDtorIter != lastDtorIter &&
+           OccursBefore(currentDtorIter->first, currentLoc)) {
+      currentDtorIter++;
+    }
+
+    if (currentDtorIter == firstDtorIter) {
+      continue;
+    }
+
+    std::list<clang::Stmt*> Stmts;
+
+    // Insert rsClearObject() calls for all rsObjects declared before the current statement
+    for(DMap::iterator it = firstDtorIter; it != currentDtorIter; it++) {
+      Stmts.push_back(it->second);
+    }
+    Stmts.push_back(S);
+
+    RSASTReplace R(C);
+    clang::CompoundStmt* CS = BuildCompoundStmt(C, Stmts, S->getLocEnd());
+    R.ReplaceStmt(mCS, S, CS);
+  }
+
+  std::list<clang::Stmt*> Stmts;
+  for(auto LocCallPair : dtors) {
+    Stmts.push_back(LocCallPair.second);
+  }
+  AppendAfterStmt(C, mCS, nullptr, Stmts);
 }
 
 clang::Stmt *RSObjectRefCount::Scope::ClearRSObject(
@@ -1330,9 +1307,7 @@ bool RSObjectRefCount::InitializeRSObject(clang::VarDecl *VD,
   }
 
   clang::Expr *ZeroInitializer =
-      CreateZeroInitializerForRSSpecificType(*DT,
-                                             VD->getASTContext(),
-                                             VD->getLocation());
+      CreateEmptyInitListExpr(VD->getASTContext(), VD->getLocation());
 
   if (ZeroInitializer) {
     ZeroInitializer->setType(T->getCanonicalTypeInternal());
@@ -1342,114 +1317,91 @@ bool RSObjectRefCount::InitializeRSObject(clang::VarDecl *VD,
   return DataTypeIsRSObject;
 }
 
-clang::Expr *RSObjectRefCount::CreateZeroInitializerForRSSpecificType(
-    DataType DT,
+clang::Expr *RSObjectRefCount::CreateEmptyInitListExpr(
     clang::ASTContext &C,
     const clang::SourceLocation &Loc) {
-  clang::Expr *Res = nullptr;
-  switch (DT) {
-    case DataTypeIsStruct:
-    case DataTypeRSElement:
-    case DataTypeRSType:
-    case DataTypeRSAllocation:
-    case DataTypeRSSampler:
-    case DataTypeRSScript:
-    case DataTypeRSMesh:
-    case DataTypeRSPath:
-    case DataTypeRSProgramFragment:
-    case DataTypeRSProgramVertex:
-    case DataTypeRSProgramRaster:
-    case DataTypeRSProgramStore:
-    case DataTypeRSFont: {
-      //    (ImplicitCastExpr 'nullptr_t'
-      //      (IntegerLiteral 0)))
-      llvm::APInt Zero(C.getTypeSize(C.IntTy), 0);
-      clang::Expr *Int0 = clang::IntegerLiteral::Create(C, Zero, C.IntTy, Loc);
-      clang::Expr *CastToNull =
-          clang::ImplicitCastExpr::Create(C,
-                                          C.NullPtrTy,
-                                          clang::CK_IntegralToPointer,
-                                          Int0,
-                                          nullptr,
-                                          clang::VK_RValue);
 
-      llvm::SmallVector<clang::Expr*, 1>InitList;
-      InitList.push_back(CastToNull);
+  // We can cheaply construct a zero initializer by just creating an empty
+  // initializer list. Clang supports this extension to C(99), and will create
+  // any necessary constructs to zero out the entire variable.
+  llvm::SmallVector<clang::Expr*, 1> EmptyInitList;
+  return new(C) clang::InitListExpr(C, Loc, EmptyInitList, Loc);
+}
 
-      Res = new(C) clang::InitListExpr(C, Loc, InitList, Loc);
-      break;
-    }
-    case DataTypeRSMatrix2x2:
-    case DataTypeRSMatrix3x3:
-    case DataTypeRSMatrix4x4: {
-      // RS matrix is not completely an RS object. They hold data by themselves.
-      // (InitListExpr rs_matrix2x2
-      //   (InitListExpr float[4]
-      //     (FloatingLiteral 0)
-      //     (FloatingLiteral 0)
-      //     (FloatingLiteral 0)
-      //     (FloatingLiteral 0)))
-      clang::QualType FloatTy = C.FloatTy;
-      // Constructor sets value to 0.0f by default
-      llvm::APFloat Val(C.getFloatTypeSemantics(FloatTy));
-      clang::FloatingLiteral *Float0Val =
-          clang::FloatingLiteral::Create(C,
-                                         Val,
-                                         /* isExact = */true,
-                                         FloatTy,
-                                         Loc);
+clang::CompoundStmt* RSObjectRefCount::CreateRetStmtWithTempVar(
+    clang::ASTContext& C,
+    clang::DeclContext* DC,
+    clang::ReturnStmt* RS,
+    const unsigned id) {
+  std::list<clang::Stmt*> NewStmts;
+  // Since we insert rsClearObj() calls before the return statement, we need
+  // to make sure none of the cleared RS objects are referenced in the
+  // return statement.
+  // For that, we create a new local variable named .rs.retval, assign the
+  // original return expression to it, make all necessary rsClearObj()
+  // calls, then return .rs.retval. Note rsClearObj() is not called on
+  // .rs.retval.
 
-      unsigned N = 0;
-      if (DT == DataTypeRSMatrix2x2)
-        N = 2;
-      else if (DT == DataTypeRSMatrix3x3)
-        N = 3;
-      else if (DT == DataTypeRSMatrix4x4)
-        N = 4;
-      unsigned N_2 = N * N;
+  clang::SourceLocation Loc = RS->getLocStart();
+  std::stringstream ss;
+  ss << ".rs.retval" << id;
+  llvm::StringRef VarName(ss.str());
 
-      // Assume we are going to be allocating 16 elements, since 4x4 is max.
-      llvm::SmallVector<clang::Expr*, 16> InitVals;
-      for (unsigned i = 0; i < N_2; i++)
-        InitVals.push_back(Float0Val);
-      clang::Expr *InitExpr =
-          new(C) clang::InitListExpr(C, Loc, InitVals, Loc);
-      InitExpr->setType(C.getConstantArrayType(FloatTy,
-                                               llvm::APInt(32, N_2),
-                                               clang::ArrayType::Normal,
-                                               /* EltTypeQuals = */0));
-      llvm::SmallVector<clang::Expr*, 1> InitExprVec;
-      InitExprVec.push_back(InitExpr);
+  clang::Expr* RetVal = RS->getRetValue();
+  const clang::QualType RetTy = RetVal->getType();
+  clang::VarDecl* RSRetValDecl = clang::VarDecl::Create(
+      C,                                     // AST context
+      DC,                                    // Decl context
+      Loc,                                   // Start location
+      Loc,                                   // Id location
+      &C.Idents.get(VarName),                // Id
+      RetTy,                                 // Type
+      C.getTrivialTypeSourceInfo(RetTy),     // Type info
+      clang::SC_None                         // Storage class
+  );
+  const clang::Type *T = RetTy.getTypePtr();
+  clang::Expr *ZeroInitializer =
+      RSObjectRefCount::CreateEmptyInitListExpr(C, Loc);
+  ZeroInitializer->setType(T->getCanonicalTypeInternal());
+  RSRetValDecl->setInit(ZeroInitializer);
+  clang::Decl* Decls[] = { RSRetValDecl };
+  const clang::DeclGroupRef DGR = clang::DeclGroupRef::Create(
+      C, Decls, sizeof(Decls) / sizeof(*Decls));
+  clang::DeclStmt* DS = new (C) clang::DeclStmt(DGR, Loc, Loc);
+  NewStmts.push_back(DS);
 
-      Res = new(C) clang::InitListExpr(C, Loc, InitExprVec, Loc);
-      break;
-    }
-    case DataTypeUnknown:
-    case DataTypeFloat16:
-    case DataTypeFloat32:
-    case DataTypeFloat64:
-    case DataTypeSigned8:
-    case DataTypeSigned16:
-    case DataTypeSigned32:
-    case DataTypeSigned64:
-    case DataTypeUnsigned8:
-    case DataTypeUnsigned16:
-    case DataTypeUnsigned32:
-    case DataTypeUnsigned64:
-    case DataTypeBoolean:
-    case DataTypeUnsigned565:
-    case DataTypeUnsigned5551:
-    case DataTypeUnsigned4444:
-    case DataTypeMax: {
-      slangAssert(false && "Not RS object type!");
-    }
-    // No default case will enable compiler detecting the missing cases
-  }
+  clang::DeclRefExpr* DRE = clang::DeclRefExpr::Create(
+      C,
+      clang::NestedNameSpecifierLoc(),       // QualifierLoc
+      Loc,                                   // TemplateKWLoc
+      RSRetValDecl,
+      false,                                 // RefersToEnclosingVariableOrCapture
+      Loc,                                   // NameLoc
+      RetTy,
+      clang::VK_LValue
+  );
+  clang::Stmt* SetRetTempVar = CreateSingleRSSetObject(C, DRE, RetVal, Loc, Loc);
+  NewStmts.push_back(SetRetTempVar);
 
-  return Res;
+  // Creates a new return statement
+  clang::ReturnStmt* NewRet = new (C) clang::ReturnStmt(RS->getReturnLoc());
+  clang::Expr* CastExpr = clang::ImplicitCastExpr::Create(
+      C,
+      RetTy,
+      clang::CK_LValueToRValue,
+      DRE,
+      nullptr,
+      clang::VK_RValue
+  );
+  NewRet->setRetValue(CastExpr);
+  NewStmts.push_back(NewRet);
+
+  return BuildCompoundStmt(C, NewStmts, Loc);
 }
 
 void RSObjectRefCount::VisitDeclStmt(clang::DeclStmt *DS) {
+  VisitStmt(DS);
+  getCurrentScope()->setCurrentStmt(DS);
   for (clang::DeclStmt::decl_iterator I = DS->decl_begin(), E = DS->decl_end();
        I != E;
        I++) {
@@ -1463,8 +1415,7 @@ void RSObjectRefCount::VisitDeclStmt(clang::DeclStmt *DS) {
         getCurrentScope()->AppendRSObjectInit(VD, DS, DT, InitExpr);
         // ... but, only add to the list of RS objects if we have some
         // non-matrix RS object fields.
-        if (CountRSObjectTypes(mCtx, VD->getType().getTypePtr(),
-                               VD->getLocation())) {
+        if (CountRSObjectTypes(VD->getType().getTypePtr())) {
           getCurrentScope()->addRSObject(VD);
         }
       }
@@ -1472,31 +1423,154 @@ void RSObjectRefCount::VisitDeclStmt(clang::DeclStmt *DS) {
   }
 }
 
+void RSObjectRefCount::VisitCallExpr(clang::CallExpr* CE) {
+  clang::QualType RetTy;
+  const clang::FunctionDecl* FD = CE->getDirectCallee();
+
+  if (FD) {
+    // Direct calls
+
+    RetTy = FD->getReturnType();
+  } else {
+    // Indirect calls through function pointers
+
+    const clang::Expr* Callee = CE->getCallee();
+    const clang::Type* CalleeType = Callee->getType().getTypePtr();
+    const clang::PointerType* PtrType = CalleeType->getAs<clang::PointerType>();
+
+    if (!PtrType) {
+      return;
+    }
+
+    const clang::Type* PointeeType = PtrType->getPointeeType().getTypePtr();
+    const clang::FunctionType* FuncType = PointeeType->getAs<clang::FunctionType>();
+
+    if (!FuncType) {
+      return;
+    }
+
+    RetTy = FuncType->getReturnType();
+  }
+
+  if (CountRSObjectTypes(RetTy.getTypePtr())==0) {
+    return;
+  }
+
+  clang::SourceLocation Loc = CE->getSourceRange().getBegin();
+  std::stringstream ss;
+  ss << ".rs.tmp" << getNextID();
+  llvm::StringRef VarName(ss.str());
+
+  clang::VarDecl* TempVarDecl = clang::VarDecl::Create(
+      mCtx,                                  // AST context
+      GetDeclContext(),                      // Decl context
+      Loc,                                   // Start location
+      Loc,                                   // Id location
+      &mCtx.Idents.get(VarName),             // Id
+      RetTy,                                 // Type
+      mCtx.getTrivialTypeSourceInfo(RetTy),  // Type info
+      clang::SC_None                         // Storage class
+  );
+  TempVarDecl->setInit(CE);
+  clang::Decl* Decls[] = { TempVarDecl };
+  const clang::DeclGroupRef DGR = clang::DeclGroupRef::Create(
+      mCtx, Decls, sizeof(Decls) / sizeof(*Decls));
+  clang::DeclStmt* DS = new (mCtx) clang::DeclStmt(DGR, Loc, Loc);
+
+  getCurrentScope()->InsertStmt(mCtx, DS);
+
+  clang::DeclRefExpr* DRE = clang::DeclRefExpr::Create(
+      mCtx,                                  // AST context
+      clang::NestedNameSpecifierLoc(),       // QualifierLoc
+      Loc,                                   // TemplateKWLoc
+      TempVarDecl,
+      false,                                 // RefersToEnclosingVariableOrCapture
+      Loc,                                   // NameLoc
+      RetTy,
+      clang::VK_LValue
+  );
+  clang::Expr* CastExpr = clang::ImplicitCastExpr::Create(
+      mCtx,
+      RetTy,
+      clang::CK_LValueToRValue,
+      DRE,
+      nullptr,
+      clang::VK_RValue
+  );
+
+  getCurrentScope()->ReplaceExpr(mCtx, CE, CastExpr);
+
+  // Register TempVarDecl for destruction call (rsClearObj).
+  getCurrentScope()->addRSObject(TempVarDecl);
+}
+
 void RSObjectRefCount::VisitCompoundStmt(clang::CompoundStmt *CS) {
+  if (!emptyScope()) {
+    getCurrentScope()->setCurrentStmt(CS);
+  }
+
   if (!CS->body_empty()) {
     // Push a new scope
     Scope *S = new Scope(CS);
-    mScopeStack.push(S);
+    mScopeStack.push_back(S);
 
     VisitStmt(CS);
 
     // Destroy the scope
     slangAssert((getCurrentScope() == S) && "Corrupted scope stack!");
     S->InsertLocalVarDestructors();
-    mScopeStack.pop();
+    mScopeStack.pop_back();
     delete S;
   }
 }
 
 void RSObjectRefCount::VisitBinAssign(clang::BinaryOperator *AS) {
+  getCurrentScope()->setCurrentStmt(AS);
   clang::QualType QT = AS->getType();
 
-  if (CountRSObjectTypes(mCtx, QT.getTypePtr(), AS->getExprLoc())) {
+  if (CountRSObjectTypes(QT.getTypePtr())) {
     getCurrentScope()->ReplaceRSObjectAssignment(AS);
   }
 }
 
+void RSObjectRefCount::VisitReturnStmt(clang::ReturnStmt *RS) {
+  getCurrentScope()->setCurrentStmt(RS);
+
+  // If there is no local rsObject declared so far, no need to transform the
+  // return statement.
+
+  bool RSObjDeclared = false;
+
+  for (const Scope* S : mScopeStack) {
+    if (S->hasRSObject()) {
+      RSObjDeclared = true;
+      break;
+    }
+  }
+
+  if (!RSObjDeclared) {
+    return;
+  }
+
+  // If the return statement does not return anything, or if it does not return
+  // a rsObject, no need to transform it.
+
+  clang::Expr* RetVal = RS->getRetValue();
+  if (!RetVal || CountRSObjectTypes(RetVal->getType().getTypePtr()) == 0) {
+    return;
+  }
+
+  // Transform the return statement so that it does not potentially return or
+  // reference a rsObject that has been cleared.
+
+  clang::CompoundStmt* NewRS;
+  NewRS = CreateRetStmtWithTempVar(mCtx, GetDeclContext(), RS, getNextID());
+
+  getCurrentScope()->ReplaceStmt(mCtx, NewRS);
+}
+
 void RSObjectRefCount::VisitStmt(clang::Stmt *S) {
+  getCurrentScope()->setCurrentStmt(S);
   for (clang::Stmt::child_iterator I = S->child_begin(), E = S->child_end();
        I != E;
        I++) {
@@ -1530,7 +1604,7 @@ clang::FunctionDecl *RSObjectRefCount::CreateStaticGlobalDtor() {
           E = DC->decls_end(); I != E; I++) {
     clang::VarDecl *VD = llvm::dyn_cast<clang::VarDecl>(*I);
     if (VD) {
-      if (CountRSObjectTypes(mCtx, VD->getType().getTypePtr(), loc)) {
+      if (CountRSObjectTypes(VD->getType().getTypePtr())) {
         if (!FD) {
           // Only create FD if we are going to use it.
           FD = clang::FunctionDecl::Create(mCtx, DC, loc, loc, N, T, nullptr,
@@ -1558,6 +1632,10 @@ clang::FunctionDecl *RSObjectRefCount::CreateStaticGlobalDtor() {
   FD->setBody(CS);
 
   return FD;
+}
+
+bool HasRSObjectType(const clang::Type *T) {
+  return CountRSObjectTypes(T) != 0;
 }
 
 }  // namespace slang

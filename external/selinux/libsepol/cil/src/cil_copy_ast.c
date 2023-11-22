@@ -282,6 +282,8 @@ int cil_copy_classpermission(__attribute__((unused)) struct cil_db *db, void *da
 		}
 	}
 
+	cil_classpermission_init(&new);
+
 	cil_copy_classperms_list(orig->classperms, &new->classperms);
 
 	*copy = new;
@@ -293,6 +295,8 @@ int cil_copy_classpermissionset(__attribute__((unused)) struct cil_db *db, void 
 {
 	struct cil_classpermissionset *orig = data;
 	struct cil_classpermissionset *new = NULL;
+
+	cil_classpermissionset_init(&new);
 
 	new->set_str = orig->set_str;
 
@@ -384,6 +388,41 @@ int cil_copy_user(__attribute__((unused)) struct cil_db *db, void *data, void **
 	} else {
 		*copy = datum;
 	}
+
+	return SEPOL_OK;
+}
+
+int cil_copy_userattribute(__attribute__((unused)) struct cil_db *db, void *data, void **copy, symtab_t *symtab)
+{
+	struct cil_userattribute *orig = data;
+	struct cil_userattribute *new = NULL;
+	char *key = orig->datum.name;
+	struct cil_symtab_datum *datum = NULL;
+
+	cil_symtab_get_datum(symtab, key, &datum);
+	if (datum == NULL) {
+		cil_userattribute_init(&new);
+		*copy = new;
+	} else {
+		*copy = datum;
+	}
+
+	return SEPOL_OK;
+}
+
+int cil_copy_userattributeset(struct cil_db *db, void *data, void **copy, __attribute__((unused)) symtab_t *symtab)
+{
+	struct cil_userattributeset *orig = data;
+	struct cil_userattributeset *new = NULL;
+
+	cil_userattributeset_init(&new);
+
+	new->attr_str = orig->attr_str;
+
+	cil_copy_expr(db, orig->str_expr, &new->str_expr);
+	cil_copy_expr(db, orig->datum_expr, &new->datum_expr);
+
+	*copy = new;
 
 	return SEPOL_OK;
 }
@@ -743,6 +782,13 @@ int cil_copy_tunable(__attribute__((unused)) struct cil_db *db, void *data, void
 	return SEPOL_OK;
 }
 
+void cil_copy_fill_permissionx(struct cil_db *db, struct cil_permissionx *orig, struct cil_permissionx *new)
+{
+	new->kind = orig->kind;
+	new->obj_str = orig->obj_str;
+	cil_copy_expr(db, orig->expr_str, &new->expr_str);
+}
+
 int cil_copy_avrule(__attribute__((unused)) struct cil_db *db, void *data, void **copy, __attribute__((unused)) symtab_t *symtab)
 {
 	struct cil_avrule *orig = data;
@@ -750,10 +796,43 @@ int cil_copy_avrule(__attribute__((unused)) struct cil_db *db, void *data, void 
 
 	cil_avrule_init(&new);
 
+	new->is_extended = orig->is_extended;
 	new->rule_kind = orig->rule_kind;
 	new->src_str = orig->src_str;
 	new->tgt_str = orig->tgt_str;
-	cil_copy_classperms_list(orig->classperms, &new->classperms);
+
+	if (!new->is_extended) {
+		cil_copy_classperms_list(orig->perms.classperms, &new->perms.classperms);
+	} else {
+		if (new->perms.x.permx_str != NULL) {
+			new->perms.x.permx_str = orig->perms.x.permx_str;
+		} else {
+			cil_permissionx_init(&new->perms.x.permx);
+			cil_copy_fill_permissionx(db, orig->perms.x.permx, new->perms.x.permx);
+		}
+	}
+
+	*copy = new;
+
+	return SEPOL_OK;
+}
+
+int cil_copy_permissionx(struct cil_db *db, void *data, void **copy, symtab_t *symtab)
+{
+	struct cil_permissionx *orig = data;
+	struct cil_permissionx *new = NULL;
+	char *key = orig->datum.name;
+	struct cil_symtab_datum *datum = NULL;
+
+
+	cil_symtab_get_datum(symtab, key, &datum);
+	if (datum != NULL) {
+		cil_log(CIL_INFO, "cil_copy_permissionx: permissionx cannot be redefined\n");
+		return SEPOL_ERR;
+	}
+
+	cil_permissionx_init(&new);
+	cil_copy_fill_permissionx(db, orig, new);
 
 	*copy = new;
 
@@ -1660,6 +1739,12 @@ int __cil_copy_node_helper(struct cil_tree_node *orig, __attribute__((unused)) u
 	case CIL_USER:
 		copy_func = &cil_copy_user;
 		break;
+	case CIL_USERATTRIBUTE:
+		copy_func = &cil_copy_userattribute;
+		break;
+	case CIL_USERATTRIBUTESET:
+		copy_func = &cil_copy_userattributeset;
+		break;
 	case CIL_USERROLE:
 		copy_func = &cil_copy_userrole;
 		break;
@@ -1730,7 +1815,11 @@ int __cil_copy_node_helper(struct cil_tree_node *orig, __attribute__((unused)) u
 		copy_func = &cil_copy_bool;
 		break;
 	case CIL_AVRULE:
+	case CIL_AVRULEX:
 		copy_func = &cil_copy_avrule;
+		break;
+	case CIL_PERMISSIONX:
+		copy_func = &cil_copy_permissionx;
 		break;
 	case CIL_TYPE_RULE:
 		copy_func = &cil_copy_type_rule;
@@ -1909,7 +1998,14 @@ int __cil_copy_node_helper(struct cil_tree_node *orig, __attribute__((unused)) u
 
 		if (new->flavor == CIL_BLOCKINHERIT) {
 			blockinherit = new->data;
-			cil_list_append(blockinherit->block->bi_nodes, CIL_NODE, new);
+			// if a blockinherit statement is copied before blockinherit are
+			// resolved (like in an in-statement), the block will not have been
+			// resolved yet, so there's nothing to append yet. This is fine,
+			// the copied blockinherit statement will be handled later, as if
+			// it wasn't in an in-statement
+			if (blockinherit->block != NULL) {
+				cil_list_append(blockinherit->block->bi_nodes, CIL_NODE, new);
+			}
 		}
 
 		if (parent->cl_head == NULL) {

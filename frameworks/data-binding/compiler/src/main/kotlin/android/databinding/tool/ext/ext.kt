@@ -15,17 +15,12 @@ package android.databinding.tool.ext
 
 import android.databinding.tool.expr.VersionProvider
 import kotlin.properties.ReadOnlyProperty
-import kotlin.properties.Delegates
-import android.databinding.tool.ext.joinToCamelCase
-import android.databinding.tool.ext.joinToCamelCaseAsVar
-import android.databinding.tool.reflection.ModelAnalyzer
-import android.databinding.tool.reflection.ModelClass
-import android.databinding.tool.reflection.ModelAnalyzer
+import kotlin.reflect.KProperty
 
 private class LazyExt<K, T>(private val initializer: (k : K) -> T) : ReadOnlyProperty<K, T> {
     private val mapping = hashMapOf<K, T>()
-    override fun get(thisRef: K, desc: PropertyMetadata): T {
-        val t = mapping.get(thisRef)
+    override fun getValue(thisRef: K, property: kotlin.reflect.KProperty<*>): T {
+        val t = mapping[thisRef]
         if (t != null) {
             return t
         }
@@ -37,9 +32,10 @@ private class LazyExt<K, T>(private val initializer: (k : K) -> T) : ReadOnlyPro
 
 private class VersionedLazyExt<K, T>(private val initializer: (k : K) -> T) : ReadOnlyProperty<K, T> {
     private val mapping = hashMapOf<K, VersionedResult<T>>()
-    override fun get(thisRef: K, desc: PropertyMetadata): T {
-        val t = mapping.get(thisRef)
-        val version = if(thisRef is VersionProvider) thisRef.getVersion() else 1
+
+    override fun getValue(thisRef: K, property: KProperty<*>): T {
+        val t = mapping[thisRef]
+        val version = if(thisRef is VersionProvider) thisRef.version else 1
         if (t != null && version == t.version) {
             return t.result
         }
@@ -51,19 +47,18 @@ private class VersionedLazyExt<K, T>(private val initializer: (k : K) -> T) : Re
 
 data class VersionedResult<T>(val version : Int, val result : T)
 
-fun Delegates.lazy<K, T>(initializer: (k : K) -> T): ReadOnlyProperty<K, T> = LazyExt(initializer)
-fun Delegates.versionedLazy<K, T>(initializer: (k : K) -> T): ReadOnlyProperty<K, T> = VersionedLazyExt(initializer)
+fun <K, T> lazyProp(initializer: (k : K) -> T): ReadOnlyProperty<K, T> = LazyExt(initializer)
+fun <K, T> versionedLazy(initializer: (k : K) -> T): ReadOnlyProperty<K, T> = VersionedLazyExt(initializer)
 
 public fun Class<*>.toJavaCode() : String {
-    val name = getName();
     if (name.startsWith('[')) {
         val numArray = name.lastIndexOf('[') + 1;
         val componentType : String;
-        when (name.charAt(numArray)) {
+        when (name[numArray]) {
             'Z' -> componentType = "boolean"
             'B' -> componentType = "byte"
             'C' -> componentType = "char"
-            'L' -> componentType = name.substring(numArray + 1, name.length() - 1).replace('$', '.');
+            'L' -> componentType = name.substring(numArray + 1, name.length - 1).replace('$', '.');
             'D' -> componentType = "double"
             'F' -> componentType = "float"
             'I' -> componentType = "int"
@@ -78,19 +73,19 @@ public fun Class<*>.toJavaCode() : String {
     }
 }
 
-public fun String.androidId() : String = this.splitBy("/")[1]
+public fun String.androidId() : String = this.split("/")[1]
 
 public fun String.toCamelCase() : String {
-    val split = this.splitBy("_")
-    if (split.size() == 0) return ""
-    if (split.size() == 1) return split[0].capitalize()
+    val split = this.split("_")
+    if (split.size == 0) return ""
+    if (split.size == 1) return split[0].capitalize()
     return split.joinToCamelCase()
 }
 
 public fun String.toCamelCaseAsVar() : String {
-    val split = this.splitBy("_")
-    if (split.size() == 0) return ""
-    if (split.size() == 1) return split[0]
+    val split = this.split("_")
+    if (split.size == 0) return ""
+    if (split.size == 1) return split[0]
     return split.joinToCamelCaseAsVar()
 }
 

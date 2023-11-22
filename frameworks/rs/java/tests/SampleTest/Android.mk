@@ -22,5 +22,7 @@ LOCAL_MODULE_TAGS := tests
 LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-renderscript-files-under, src)
 
 LOCAL_PACKAGE_NAME := SampleRS
+LOCAL_SDK_VERSION := current
+LOCAL_MIN_SDK_VERSION := 17
 
 include $(BUILD_PACKAGE)

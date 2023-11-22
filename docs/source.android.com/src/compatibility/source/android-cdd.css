@@ -284,16 +284,14 @@ td.noborder {
     width: 950px;
 }
 
-#toc_left,
-#toc_left_2 {
+#toc_left {
     float: left;
     padding-top:15px;
     padding-bottom:15px;
     width: 470px;
 }
 
-#toc_right,
-#toc_right_2 {
+#toc_right {
     float: right;
     padding-top:15px;
     padding-bottom:15px;

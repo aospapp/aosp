@@ -31,6 +31,8 @@ TEST_F(SurfaceTextureGLThreadToGLTest,
         }
     };
 
+    SetUpWindowAndContext();
+
     runProducerThread(new PT());
 
     mFC->waitForFrame();
@@ -49,6 +51,8 @@ TEST_F(SurfaceTextureGLThreadToGLTest,
             swapBuffers();
         }
     };
+
+    SetUpWindowAndContext();
 
     runProducerThread(new PT());
 
@@ -74,6 +78,8 @@ TEST_F(SurfaceTextureGLThreadToGLTest,
             }
         }
     };
+
+    SetUpWindowAndContext();
 
     runProducerThread(new PT());
 
@@ -103,6 +109,8 @@ TEST_F(SurfaceTextureGLThreadToGLTest,
             }
         }
     };
+
+    SetUpWindowAndContext();
 
     runProducerThread(new PT());
 
@@ -134,7 +142,7 @@ TEST_F(SurfaceTextureGLThreadToGLTest,
         }
     };
 
-    ASSERT_EQ(OK, mST->setDefaultMaxBufferCount(2));
+    SetUpWindowAndContext();
 
     runProducerThread(new PT());
 

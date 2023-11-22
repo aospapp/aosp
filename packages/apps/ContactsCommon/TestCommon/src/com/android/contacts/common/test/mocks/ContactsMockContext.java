@@ -39,16 +39,16 @@ public class ContactsMockContext extends ContextWrapper {
     private Intent mIntentForStartActivity;
 
     public ContactsMockContext(Context base) {
+        this(base, ContactsContract.AUTHORITY);
+    }
+
+    public ContactsMockContext(Context base, String authority) {
         super(base);
         mPackageManager = new ContactsMockPackageManager();
         mContentResolver = new MockContentResolver();
         mContactsProvider = new MockContentProvider();
-        mContentResolver.addProvider(ContactsContract.AUTHORITY, mContactsProvider);
-        final ProviderInfo providerInfo = new ProviderInfo();
-        providerInfo.authority = ContactsContract.AUTHORITY;
-        mContactsProvider.attachInfo(this, providerInfo);
+        mContentResolver.addProvider(authority, mContactsProvider);
         mSettingsProvider = new MockContentProvider();
-        mSettingsProvider.attachInfo(this, providerInfo);
         mContentResolver.addProvider(Settings.AUTHORITY, mSettingsProvider);
     }
 

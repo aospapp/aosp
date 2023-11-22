@@ -1,12 +1,16 @@
 LIBDRM_FILES := \
 	xf86drm.c \
 	xf86drmHash.c \
+	xf86drmHash.h \
 	xf86drmRandom.c \
+	xf86drmRandom.h \
 	xf86drmSL.c \
 	xf86drmMode.c \
 	xf86atomic.h \
-	libdrm.h \
-	libdrm_lists.h
+	libdrm_macros.h \
+	libdrm_lists.h \
+	util_double_list.h \
+	util_math.h
 
 LIBDRM_H_FILES := \
 	xf86drm.h \
@@ -24,6 +28,7 @@ LIBDRM_INCLUDE_H_FILES := \
 	include/drm/qxl_drm.h \
 	include/drm/r128_drm.h \
 	include/drm/radeon_drm.h \
+	include/drm/amdgpu_drm.h \
 	include/drm/savage_drm.h \
 	include/drm/sis_drm.h \
 	include/drm/tegra_drm.h \

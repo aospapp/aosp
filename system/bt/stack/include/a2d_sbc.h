@@ -152,7 +152,7 @@ extern tA2D_STATUS A2D_BldSbcInfo(UINT8 media_type, tA2D_SBC_CIE *p_ie,
 ** Returns          A2D_SUCCESS if function execution succeeded.
 **                  Error status code, otherwise.
 ******************************************************************************/
-extern tA2D_STATUS A2D_ParsSbcInfo(tA2D_SBC_CIE *p_ie, UINT8 *p_info,
+extern tA2D_STATUS A2D_ParsSbcInfo(tA2D_SBC_CIE *p_ie, const UINT8 *p_info,
                                    BOOLEAN for_caps);
 
 /******************************************************************************

@@ -17,7 +17,7 @@
 #ifndef ANDROID_EGL_OBJECT_H
 #define ANDROID_EGL_OBJECT_H
 
-
+#include <atomic>
 #include <ctype.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -37,25 +37,25 @@
 namespace android {
 // ----------------------------------------------------------------------------
 
-struct egl_display_t;
+class egl_display_t;
 
 class egl_object_t {
     egl_display_t *display;
-    mutable volatile int32_t count;
+    mutable std::atomic_size_t count;
 
 protected:
     virtual ~egl_object_t();
+    virtual void terminate();
 
 public:
     egl_object_t(egl_display_t* display);
     void destroy();
 
-    inline int32_t incRef() { return android_atomic_inc(&count); }
-    inline int32_t decRef() { return android_atomic_dec(&count); }
+    inline void incRef() { count.fetch_add(1, std::memory_order_relaxed); }
+    inline size_t decRef() { return count.fetch_sub(1, std::memory_order_acq_rel); }
     inline egl_display_t* getDisplay() const { return display; }
 
 private:
-    void terminate();
     static bool get(egl_display_t const* display, egl_object_t* object);
 
 public:
@@ -127,6 +127,7 @@ void egl_object_t::LocalRef<N,T>::terminate() {
 class egl_surface_t : public egl_object_t {
 protected:
     ~egl_surface_t();
+    void terminate() override;
 public:
     typedef egl_object_t::LocalRef<egl_surface_t, EGLSurface> Ref;
 
@@ -138,6 +139,9 @@ public:
     EGLConfig config;
     sp<ANativeWindow> win;
     egl_connection_t const* cnx;
+private:
+    bool connected;
+    void disconnect();
 };
 
 class egl_context_t: public egl_object_t {

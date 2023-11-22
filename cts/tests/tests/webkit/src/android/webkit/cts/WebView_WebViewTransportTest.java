@@ -27,7 +27,7 @@ public class WebView_WebViewTransportTest
         extends ActivityInstrumentationTestCase2<WebViewCtsActivity> {
 
     public WebView_WebViewTransportTest() {
-        super("com.android.cts.webkit", WebViewCtsActivity.class);
+        super("android.webkit.cts", WebViewCtsActivity.class);
     }
 
     @UiThreadTest

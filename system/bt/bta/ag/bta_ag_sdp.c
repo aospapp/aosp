@@ -30,7 +30,7 @@
 #include "bta_ag_int.h"
 #include "sdp_api.h"
 #include "btm_api.h"
-#include "gki.h"
+#include "bt_common.h"
 #include "utl.h"
 
 /* Number of protocol elements in protocol element list. */
@@ -41,7 +41,7 @@
 
 /* size of database for service discovery */
 #ifndef BTA_AG_DISC_BUF_SIZE
-#define BTA_AG_DISC_BUF_SIZE        GKI_MAX_BUF_SIZE
+#define BTA_AG_DISC_BUF_SIZE        BT_DEFAULT_BUFFER_SIZE
 #endif
 
 /* declare sdp callback functions */
@@ -70,7 +70,6 @@ const tBTA_AG_SDP_CBACK bta_ag_sdp_cback_tbl[] =
 *******************************************************************************/
 static void bta_ag_sdp_cback(UINT16 status, UINT8 idx)
 {
-    tBTA_AG_DISC_RESULT *p_buf;
     UINT16              event;
     tBTA_AG_SCB         *p_scb;
 
@@ -88,13 +87,12 @@ static void bta_ag_sdp_cback(UINT16 status, UINT8 idx)
             event = BTA_AG_DISC_INT_RES_EVT;
         }
 
-        if ((p_buf = (tBTA_AG_DISC_RESULT *) GKI_getbuf(sizeof(tBTA_AG_DISC_RESULT))) != NULL)
-        {
-            p_buf->hdr.event = event;
-            p_buf->hdr.layer_specific = idx;
-            p_buf->status = status;
-            bta_sys_sendmsg(p_buf);
-        }
+        tBTA_AG_DISC_RESULT *p_buf =
+            (tBTA_AG_DISC_RESULT *)osi_malloc(sizeof(tBTA_AG_DISC_RESULT));
+        p_buf->hdr.event = event;
+        p_buf->hdr.layer_specific = idx;
+        p_buf->status = status;
+        bta_sys_sendmsg(p_buf);
     }
 }
 
@@ -454,16 +452,12 @@ void bta_ag_do_disc(tBTA_AG_SCB *p_scb, tBTA_SERVICE_MASK service)
     }
 
     /* allocate buffer for sdp database */
-    p_scb->p_disc_db = (tSDP_DISCOVERY_DB *) GKI_getbuf(BTA_AG_DISC_BUF_SIZE);
-
-    if(p_scb->p_disc_db)
-    {
-        /* set up service discovery database; attr happens to be attr_list len */
-        uuid_list[0].len = LEN_UUID_16;
-        uuid_list[1].len = LEN_UUID_16;
-        db_inited = SDP_InitDiscoveryDb(p_scb->p_disc_db, BTA_AG_DISC_BUF_SIZE, num_uuid,
-                            uuid_list, num_attr, attr_list);
-    }
+    p_scb->p_disc_db = (tSDP_DISCOVERY_DB *)osi_malloc(BTA_AG_DISC_BUF_SIZE);
+    /* set up service discovery database; attr happens to be attr_list len */
+    uuid_list[0].len = LEN_UUID_16;
+    uuid_list[1].len = LEN_UUID_16;
+    db_inited = SDP_InitDiscoveryDb(p_scb->p_disc_db, BTA_AG_DISC_BUF_SIZE,
+                                    num_uuid, uuid_list, num_attr, attr_list);
 
     if(db_inited)
     {
@@ -495,10 +489,5 @@ void bta_ag_do_disc(tBTA_AG_SCB *p_scb, tBTA_SERVICE_MASK service)
 void bta_ag_free_db(tBTA_AG_SCB *p_scb, tBTA_AG_DATA *p_data)
 {
     UNUSED(p_data);
-
-    if (p_scb->p_disc_db != NULL)
-    {
-        GKI_freebuf(p_scb->p_disc_db);
-        p_scb->p_disc_db = NULL;
-    }
+    osi_free_and_reset((void **)&p_scb->p_disc_db);
 }

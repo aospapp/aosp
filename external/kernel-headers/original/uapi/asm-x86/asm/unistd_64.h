@@ -323,5 +323,9 @@
 #define __NR_memfd_create 319
 #define __NR_kexec_file_load 320
 #define __NR_bpf 321
+#define __NR_execveat 322
+#define __NR_userfaultfd 323
+#define __NR_membarrier 324
+#define __NR_mlock2 325
 
 #endif /* _ASM_X86_UNISTD_64_H */

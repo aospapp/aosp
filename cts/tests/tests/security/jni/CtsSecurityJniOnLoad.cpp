@@ -21,10 +21,8 @@ extern int register_android_security_cts_KernelSettingsTest(JNIEnv*);
 extern int register_android_security_cts_CharDeviceTest(JNIEnv*);
 extern int register_android_security_cts_LinuxRngTest(JNIEnv*);
 extern int register_android_security_cts_NativeCodeTest(JNIEnv*);
-extern int register_android_security_cts_LoadEffectLibraryTest(JNIEnv*);
 extern int register_android_security_cts_SELinuxTest(JNIEnv*);
 extern int register_android_security_cts_MMapExecutableTest(JNIEnv* env);
-extern int register_android_security_cts_AudioPolicyBinderTest(JNIEnv* env);
 extern int register_android_security_cts_EncryptionTest(JNIEnv* env);
 
 jint JNI_OnLoad(JavaVM *vm, void *reserved) {
@@ -46,10 +44,6 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved) {
         return JNI_ERR;
     }
 
-    if (register_android_security_cts_LoadEffectLibraryTest(env)) {
-        return JNI_ERR;
-    }
-
     if (register_android_security_cts_SELinuxTest(env)) {
         return JNI_ERR;
     }
@@ -59,10 +53,6 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     }
 
     if (register_android_security_cts_MMapExecutableTest(env)) {
-        return JNI_ERR;
-    }
-
-    if (register_android_security_cts_AudioPolicyBinderTest(env)) {
         return JNI_ERR;
     }
 

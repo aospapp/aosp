@@ -29,8 +29,8 @@ import java.io.FileNotFoundException;
  */
 public class CtsBuildHelper {
 
-    static final String CTS_DIR_NAME = "android-cts";
-    private final String mSuiteName = "CTS";
+    static final String CTS_DIR_NAME = "old-android-cts";
+    private final String mSuiteName = "OLD-CTS";
     /** The root location of the extracted CTS package */
     private final File mRootDir;
     /** the {@link #CTS_DIR_NAME} directory */

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<android.support.wearable.view.BoxInsetLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.android.cts.verifier.BoxInsetLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
-    <ScrollView app:layout_box="all"
+    <ScrollView app:ctsv_layout_box="all"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
         <LinearLayout
@@ -88,4 +88,4 @@
             <include layout="@layout/pass_fail_buttons" />
         </LinearLayout>
     </ScrollView>
-</android.support.wearable.view.BoxInsetLayout>
+</com.android.cts.verifier.BoxInsetLayout>

@@ -175,7 +175,14 @@ ParameterEntry* Scanner::parseArgString(bool isReturn) {
     if (!isReturn) {
         size_t nameStart = s.rfind(' ');
         if (nameStart == string::npos) {
-            error() << "Missing variable name\n";
+            if (s == "...") {
+                p->name = s;
+                p->type = s;
+                p->lineNumber = mLineNumber;
+                return p;
+            } else {
+                error() << "Missing variable name\n";
+            }
         } else {
             p->name = s.substr(nameStart + 1);
             s.erase(nameStart);

@@ -31,12 +31,16 @@
 #include <utils/threads.h>
 
 #include "OMXMaster.h"
+#include "OMXUtils.h"
 
 #include <OMX_AsString.h>
 #include <OMX_Component.h>
 #include <OMX_VideoExt.h>
 
 namespace android {
+
+// node ids are created by concatenating the pid with a 16-bit counter
+static size_t kMaxNodeInstances = (1 << 16);
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -179,7 +183,12 @@ void OMX::binderDied(const wp<IBinder> &the_late_who) {
         Mutex::Autolock autoLock(mLock);
 
         ssize_t index = mLiveNodes.indexOfKey(the_late_who);
-        CHECK(index >= 0);
+
+        if (index < 0) {
+            ALOGE("b/27597103, nonexistent observer on binderDied");
+            android_errorWriteLog(0x534e4554, "27597103");
+            return;
+        }
 
         instance = mLiveNodes.editValueAt(index);
         mLiveNodes.removeItemsAt(index);
@@ -192,6 +201,11 @@ void OMX::binderDied(const wp<IBinder> &the_late_who) {
     }
 
     instance->onObserverDied(mMaster);
+}
+
+bool OMX::isSecure(node_id node) {
+    OMXNodeInstance *instance = findInstance(node);
+    return (instance == NULL ? false : instance->isSecure());
 }
 
 bool OMX::livesLocally(node_id /* node */, pid_t pid) {
@@ -227,10 +241,19 @@ status_t OMX::listNodes(List<ComponentInfo> *list) {
 }
 
 status_t OMX::allocateNode(
-        const char *name, const sp<IOMXObserver> &observer, node_id *node) {
+        const char *name, const sp<IOMXObserver> &observer,
+        sp<IBinder> *nodeBinder, node_id *node) {
     Mutex::Autolock autoLock(mLock);
 
     *node = 0;
+    if (nodeBinder != NULL) {
+        *nodeBinder = NULL;
+    }
+
+    if (mNodeIDToInstance.size() == kMaxNodeInstances) {
+        // all possible node IDs are in use
+        return NO_MEMORY;
+    }
 
     OMXNodeInstance *instance = new OMXNodeInstance(this, observer, name);
 
@@ -247,7 +270,7 @@ status_t OMX::allocateNode(
         return StatusFromOMXError(err);
     }
 
-    *node = makeNodeID(instance);
+    *node = makeNodeID_l(instance);
     mDispatchers.add(*node, new CallbackDispatcher(instance));
 
     instance->setHandle(*node, handle);
@@ -260,6 +283,10 @@ status_t OMX::allocateNode(
 
 status_t OMX::freeNode(node_id node) {
     OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return OK;
+    }
 
     {
         Mutex::Autolock autoLock(mLock);
@@ -288,14 +315,26 @@ status_t OMX::freeNode(node_id node) {
 
 status_t OMX::sendCommand(
         node_id node, OMX_COMMANDTYPE cmd, OMX_S32 param) {
-    return findInstance(node)->sendCommand(cmd, param);
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return NAME_NOT_FOUND;
+    }
+
+    return instance->sendCommand(cmd, param);
 }
 
 status_t OMX::getParameter(
         node_id node, OMX_INDEXTYPE index,
         void *params, size_t size) {
     ALOGV("getParameter(%u %#x %p %zd)", node, index, params, size);
-    return findInstance(node)->getParameter(
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return NAME_NOT_FOUND;
+    }
+
+    return instance->getParameter(
             index, params, size);
 }
 
@@ -303,85 +342,176 @@ status_t OMX::setParameter(
         node_id node, OMX_INDEXTYPE index,
         const void *params, size_t size) {
     ALOGV("setParameter(%u %#x %p %zd)", node, index, params, size);
-    return findInstance(node)->setParameter(
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return NAME_NOT_FOUND;
+    }
+
+    return instance->setParameter(
             index, params, size);
 }
 
 status_t OMX::getConfig(
         node_id node, OMX_INDEXTYPE index,
         void *params, size_t size) {
-    return findInstance(node)->getConfig(
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return NAME_NOT_FOUND;
+    }
+
+    return instance->getConfig(
             index, params, size);
 }
 
 status_t OMX::setConfig(
         node_id node, OMX_INDEXTYPE index,
         const void *params, size_t size) {
-    return findInstance(node)->setConfig(
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return NAME_NOT_FOUND;
+    }
+
+    return instance->setConfig(
             index, params, size);
 }
 
 status_t OMX::getState(
         node_id node, OMX_STATETYPE* state) {
-    return findInstance(node)->getState(
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return NAME_NOT_FOUND;
+    }
+
+    return instance->getState(
             state);
 }
 
-status_t OMX::enableGraphicBuffers(
-        node_id node, OMX_U32 port_index, OMX_BOOL enable) {
-    return findInstance(node)->enableGraphicBuffers(port_index, enable);
+status_t OMX::enableNativeBuffers(
+        node_id node, OMX_U32 port_index, OMX_BOOL graphic, OMX_BOOL enable) {
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return NAME_NOT_FOUND;
+    }
+
+    return instance->enableNativeBuffers(port_index, graphic, enable);
 }
 
 status_t OMX::getGraphicBufferUsage(
         node_id node, OMX_U32 port_index, OMX_U32* usage) {
-    return findInstance(node)->getGraphicBufferUsage(port_index, usage);
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return NAME_NOT_FOUND;
+    }
+
+    return instance->getGraphicBufferUsage(port_index, usage);
 }
 
 status_t OMX::storeMetaDataInBuffers(
         node_id node, OMX_U32 port_index, OMX_BOOL enable, MetadataBufferType *type) {
-    return findInstance(node)->storeMetaDataInBuffers(port_index, enable, type);
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return NAME_NOT_FOUND;
+    }
+
+    return instance->storeMetaDataInBuffers(port_index, enable, type);
 }
 
 status_t OMX::prepareForAdaptivePlayback(
         node_id node, OMX_U32 portIndex, OMX_BOOL enable,
         OMX_U32 maxFrameWidth, OMX_U32 maxFrameHeight) {
-    return findInstance(node)->prepareForAdaptivePlayback(
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return NAME_NOT_FOUND;
+    }
+
+    return instance->prepareForAdaptivePlayback(
             portIndex, enable, maxFrameWidth, maxFrameHeight);
 }
 
 status_t OMX::configureVideoTunnelMode(
         node_id node, OMX_U32 portIndex, OMX_BOOL tunneled,
         OMX_U32 audioHwSync, native_handle_t **sidebandHandle) {
-    return findInstance(node)->configureVideoTunnelMode(
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return NAME_NOT_FOUND;
+    }
+
+    return instance->configureVideoTunnelMode(
             portIndex, tunneled, audioHwSync, sidebandHandle);
 }
 
 status_t OMX::useBuffer(
         node_id node, OMX_U32 port_index, const sp<IMemory> &params,
         buffer_id *buffer, OMX_U32 allottedSize) {
-    return findInstance(node)->useBuffer(
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return NAME_NOT_FOUND;
+    }
+
+    return instance->useBuffer(
             port_index, params, buffer, allottedSize);
 }
 
 status_t OMX::useGraphicBuffer(
         node_id node, OMX_U32 port_index,
         const sp<GraphicBuffer> &graphicBuffer, buffer_id *buffer) {
-    return findInstance(node)->useGraphicBuffer(
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return NAME_NOT_FOUND;
+    }
+
+    return instance->useGraphicBuffer(
             port_index, graphicBuffer, buffer);
 }
 
 status_t OMX::updateGraphicBufferInMeta(
         node_id node, OMX_U32 port_index,
         const sp<GraphicBuffer> &graphicBuffer, buffer_id buffer) {
-    return findInstance(node)->updateGraphicBufferInMeta(
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return NAME_NOT_FOUND;
+    }
+
+    return instance->updateGraphicBufferInMeta(
             port_index, graphicBuffer, buffer);
 }
 
-status_t OMX::createInputSurface(
+status_t OMX::updateNativeHandleInMeta(
         node_id node, OMX_U32 port_index,
+        const sp<NativeHandle> &nativeHandle, buffer_id buffer) {
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return NAME_NOT_FOUND;
+    }
+
+    return instance->updateNativeHandleInMeta(
+            port_index, nativeHandle, buffer);
+}
+
+status_t OMX::createInputSurface(
+        node_id node, OMX_U32 port_index, android_dataspace dataSpace,
         sp<IGraphicBufferProducer> *bufferProducer, MetadataBufferType *type) {
-    return findInstance(node)->createInputSurface(
-            port_index, bufferProducer, type);
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return NAME_NOT_FOUND;
+    }
+
+    return instance->createInputSurface(
+            port_index, dataSpace, bufferProducer, type);
 }
 
 status_t OMX::createPersistentInputSurface(
@@ -394,35 +524,71 @@ status_t OMX::createPersistentInputSurface(
 status_t OMX::setInputSurface(
         node_id node, OMX_U32 port_index,
         const sp<IGraphicBufferConsumer> &bufferConsumer, MetadataBufferType *type) {
-    return findInstance(node)->setInputSurface(port_index, bufferConsumer, type);
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return NAME_NOT_FOUND;
+    }
+
+    return instance->setInputSurface(port_index, bufferConsumer, type);
 }
 
 
 status_t OMX::signalEndOfInputStream(node_id node) {
-    return findInstance(node)->signalEndOfInputStream();
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return NAME_NOT_FOUND;
+    }
+
+    return instance->signalEndOfInputStream();
 }
 
-status_t OMX::allocateBuffer(
+status_t OMX::allocateSecureBuffer(
         node_id node, OMX_U32 port_index, size_t size,
-        buffer_id *buffer, void **buffer_data) {
-    return findInstance(node)->allocateBuffer(
-            port_index, size, buffer, buffer_data);
+        buffer_id *buffer, void **buffer_data, sp<NativeHandle> *native_handle) {
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return NAME_NOT_FOUND;
+    }
+
+    return instance->allocateSecureBuffer(
+            port_index, size, buffer, buffer_data, native_handle);
 }
 
 status_t OMX::allocateBufferWithBackup(
         node_id node, OMX_U32 port_index, const sp<IMemory> &params,
         buffer_id *buffer, OMX_U32 allottedSize) {
-    return findInstance(node)->allocateBufferWithBackup(
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return NAME_NOT_FOUND;
+    }
+
+    return instance->allocateBufferWithBackup(
             port_index, params, buffer, allottedSize);
 }
 
 status_t OMX::freeBuffer(node_id node, OMX_U32 port_index, buffer_id buffer) {
-    return findInstance(node)->freeBuffer(
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return NAME_NOT_FOUND;
+    }
+
+    return instance->freeBuffer(
             port_index, buffer);
 }
 
 status_t OMX::fillBuffer(node_id node, buffer_id buffer, int fenceFd) {
-    return findInstance(node)->fillBuffer(buffer, fenceFd);
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return NAME_NOT_FOUND;
+    }
+
+    return instance->fillBuffer(buffer, fenceFd);
 }
 
 status_t OMX::emptyBuffer(
@@ -430,7 +596,13 @@ status_t OMX::emptyBuffer(
         buffer_id buffer,
         OMX_U32 range_offset, OMX_U32 range_length,
         OMX_U32 flags, OMX_TICKS timestamp, int fenceFd) {
-    return findInstance(node)->emptyBuffer(
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return NAME_NOT_FOUND;
+    }
+
+    return instance->emptyBuffer(
             buffer, range_offset, range_length, flags, timestamp, fenceFd);
 }
 
@@ -438,7 +610,13 @@ status_t OMX::getExtensionIndex(
         node_id node,
         const char *parameter_name,
         OMX_INDEXTYPE *index) {
-    return findInstance(node)->getExtensionIndex(
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return NAME_NOT_FOUND;
+    }
+
+    return instance->getExtensionIndex(
             parameter_name, index);
 }
 
@@ -448,7 +626,13 @@ status_t OMX::setInternalOption(
         InternalOptionType type,
         const void *data,
         size_t size) {
-    return findInstance(node)->setInternalOption(port_index, type, data, size);
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return NAME_NOT_FOUND;
+    }
+
+    return instance->setInternalOption(port_index, type, data, size);
 }
 
 OMX_ERRORTYPE OMX::OnEvent(
@@ -458,9 +642,14 @@ OMX_ERRORTYPE OMX::OnEvent(
         OMX_IN OMX_U32 nData2,
         OMX_IN OMX_PTR pEventData) {
     ALOGV("OnEvent(%d, %" PRIu32", %" PRIu32 ")", eEvent, nData1, nData2);
+    OMXNodeInstance *instance = findInstance(node);
+
+    if (instance == NULL) {
+        return OMX_ErrorComponentNotFound;
+    }
 
     // Forward to OMXNodeInstance.
-    findInstance(node)->onEvent(eEvent, nData1, nData2);
+    instance->onEvent(eEvent, nData1, nData2);
 
     sp<OMX::CallbackDispatcher> dispatcher = findDispatcher(node);
 
@@ -532,10 +721,17 @@ OMX_ERRORTYPE OMX::OnFillBufferDone(
     return OMX_ErrorNone;
 }
 
-OMX::node_id OMX::makeNodeID(OMXNodeInstance *instance) {
+OMX::node_id OMX::makeNodeID_l(OMXNodeInstance *instance) {
     // mLock is already held.
 
-    node_id node = (node_id)++mNodeCounter;
+    node_id prefix = node_id(getpid() << 16);
+    node_id node = 0;
+    do  {
+        if (++mNodeCounter >= kMaxNodeInstances) {
+            mNodeCounter = 0; // OK to use because we're combining with the pid
+        }
+        node = node_id(prefix | mNodeCounter);
+    } while (mNodeIDToInstance.indexOfKey(node) >= 0);
     mNodeIDToInstance.add(node, instance);
 
     return node;

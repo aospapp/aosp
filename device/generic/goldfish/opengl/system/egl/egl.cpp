@@ -24,6 +24,7 @@
 #include "GLSharedGroup.h"
 #include "eglContext.h"
 #include "ClientAPIExts.h"
+#include "EGLImage.h"
 
 #include "GLEncoder.h"
 #ifdef WITH_GLES2
@@ -257,11 +258,6 @@ egl_window_surface_t::egl_window_surface_t (
 {
     // keep a reference on the window
     nativeWindow->common.incRef(&nativeWindow->common);
-    EGLint w,h;
-    nativeWindow->query(nativeWindow, NATIVE_WINDOW_WIDTH, &w);
-    setWidth(w);
-    nativeWindow->query(nativeWindow, NATIVE_WINDOW_HEIGHT, &h);
-    setHeight(h);
 }
 
 EGLBoolean egl_window_surface_t::init()
@@ -269,6 +265,8 @@ EGLBoolean egl_window_surface_t::init()
     if (nativeWindow->dequeueBuffer_DEPRECATED(nativeWindow, &buffer) != NO_ERROR) {
         setErrorReturn(EGL_BAD_ALLOC, EGL_FALSE);
     }
+    setWidth(buffer->width);
+    setHeight(buffer->height);
 
     DEFINE_AND_VALIDATE_HOST_CONNECTION(EGL_FALSE);
     rcSurface = rcEnc->rcCreateWindowSurface(rcEnc, (uintptr_t)config,
@@ -326,6 +324,9 @@ EGLBoolean egl_window_surface_t::swapBuffers()
 
     rcEnc->rcSetWindowColorBuffer(rcEnc, rcSurface,
             ((cb_handle_t *)(buffer->handle))->hostHandle);
+
+    setWidth(buffer->width);
+    setHeight(buffer->height);
 
     return EGL_TRUE;
 }
@@ -635,7 +636,7 @@ EGLSurface eglCreateWindowSurface(EGLDisplay dpy, EGLConfig config, EGLNativeWin
     }
 
     egl_surface_t* surface = egl_window_surface_t::create(
-            &s_display, config, surfaceType, static_cast<ANativeWindow*>(win));
+            &s_display, config, EGL_WINDOW_BIT, static_cast<ANativeWindow*>(win));
     if (!surface) {
         setErrorReturn(EGL_BAD_ALLOC, EGL_NO_SURFACE);
     }
@@ -659,7 +660,7 @@ EGLSurface eglCreatePbufferSurface(EGLDisplay dpy, EGLConfig config, const EGLin
     int32_t h = 0;
     EGLint texFormat = EGL_NO_TEXTURE;
     EGLint texTarget = EGL_NO_TEXTURE;
-    while (attrib_list[0]) {
+    while (attrib_list[0] != EGL_NONE) {
         switch (attrib_list[0]) {
             case EGL_WIDTH:
                 w = attrib_list[1];
@@ -689,7 +690,7 @@ EGLSurface eglCreatePbufferSurface(EGLDisplay dpy, EGLConfig config, const EGLin
         setErrorReturn(EGL_BAD_MATCH, EGL_NO_SURFACE);
 
     egl_surface_t* surface = egl_pbuffer_surface_t::create(dpy, config,
-            surfaceType, w, h, pixelFormat);
+            EGL_PBUFFER_BIT, w, h, pixelFormat);
     if (!surface) {
         setErrorReturn(EGL_BAD_ALLOC, EGL_NO_SURFACE);
     }
@@ -757,6 +758,15 @@ EGLBoolean eglQuerySurface(EGLDisplay dpy, EGLSurface eglSurface, EGLint attribu
             // and we ignore it when creating a PBuffer surface (default is EGL_FALSE)
             if (surface->getSurfaceType() & EGL_PBUFFER_BIT) *value = EGL_FALSE;
             break;
+        case EGL_MIPMAP_LEVEL:
+            // not modified for a window or pixmap surface
+            // and we ignore it when creating a PBuffer surface (default is 0)
+            if (surface->getSurfaceType() & EGL_PBUFFER_BIT) *value = 0;
+            break;
+        case EGL_MULTISAMPLE_RESOLVE:
+            // ignored when creating the surface, return default
+            *value = EGL_MULTISAMPLE_RESOLVE_DEFAULT;
+            break;
         //TODO: complete other attributes
         default:
             ALOGE("eglQuerySurface %x  EGL_BAD_ATTRIBUTE", attribute);
@@ -807,13 +817,29 @@ EGLSurface eglCreatePbufferFromClientBuffer(EGLDisplay dpy, EGLenum buftype, EGL
 
 EGLBoolean eglSurfaceAttrib(EGLDisplay dpy, EGLSurface surface, EGLint attribute, EGLint value)
 {
-    //TODO
-    (void)dpy;
-    (void)surface;
-    (void)attribute;
+    // Right now we don't do anything when using host GPU.
+    // This is purely just to pass the data through
+    // without issuing a warning. We may benefit from validating the
+    // display and surface for debug purposes.
+    // TODO: Find cases where we actually need to do something.
+    VALIDATE_DISPLAY_INIT(dpy, EGL_FALSE);
+    VALIDATE_SURFACE_RETURN(surface, EGL_FALSE);
+    if (surface == EGL_NO_SURFACE) {
+        setErrorReturn(EGL_BAD_SURFACE, EGL_FALSE);
+    }
+
     (void)value;
-    ALOGW("%s not implemented", __FUNCTION__);
-    return 0;
+
+    switch (attribute) {
+    case EGL_MIPMAP_LEVEL:
+    case EGL_MULTISAMPLE_RESOLVE:
+    case EGL_SWAP_BEHAVIOR:
+        return true;
+        break;
+    default:
+        ALOGW("%s: attr=0x%x not implemented", __FUNCTION__, attribute);
+    }
+    return false;
 }
 
 EGLBoolean eglBindTexImage(EGLDisplay dpy, EGLSurface eglSurface, EGLint buffer)
@@ -883,9 +909,14 @@ EGLContext eglCreateContext(EGLDisplay dpy, EGLConfig config, EGLContext share_c
     VALIDATE_CONFIG(config, EGL_NO_CONTEXT);
 
     EGLint version = 1; //default
-    while (attrib_list && attrib_list[0]) {
+    while (attrib_list && attrib_list[0] != EGL_NONE) {
         if (attrib_list[0] == EGL_CONTEXT_CLIENT_VERSION) version = attrib_list[1];
         attrib_list+=2;
+    }
+
+    // Currently only support GLES1 and 2
+    if (version != 1 && version != 2) {
+        setErrorReturn(EGL_BAD_CONFIG, EGL_NO_CONTEXT);
     }
 
     uint32_t rcShareCtx = 0;
@@ -1001,7 +1032,7 @@ EGLBoolean eglMakeCurrent(EGLDisplay dpy, EGLSurface draw, EGLSurface read, EGLC
             hostCon->glEncoder()->setClientState(context->getClientState());
             hostCon->glEncoder()->setSharedGroup(context->getSharedGroup());
         }
-    } 
+    }
     else if (tInfo->currentContext) {
         //release ClientState & SharedGroup
         if (tInfo->currentContext->version == 2) {
@@ -1178,52 +1209,93 @@ EGLImageKHR eglCreateImageKHR(EGLDisplay dpy, EGLContext ctx, EGLenum target, EG
     (void)attrib_list;
 
     VALIDATE_DISPLAY_INIT(dpy, EGL_NO_IMAGE_KHR);
-    if (ctx != EGL_NO_CONTEXT) {
-        setErrorReturn(EGL_BAD_CONTEXT, EGL_NO_IMAGE_KHR);
-    }
-    if (target != EGL_NATIVE_BUFFER_ANDROID) {
-        setErrorReturn(EGL_BAD_PARAMETER, EGL_NO_IMAGE_KHR);
-    }
 
-    android_native_buffer_t* native_buffer = (android_native_buffer_t*)buffer;
+    if (target == EGL_NATIVE_BUFFER_ANDROID) {
+        if (ctx != EGL_NO_CONTEXT) {
+            setErrorReturn(EGL_BAD_CONTEXT, EGL_NO_IMAGE_KHR);
+        }
 
-    if (native_buffer->common.magic != ANDROID_NATIVE_BUFFER_MAGIC)
-        setErrorReturn(EGL_BAD_PARAMETER, EGL_NO_IMAGE_KHR);
+        android_native_buffer_t* native_buffer = (android_native_buffer_t*)buffer;
 
-    if (native_buffer->common.version != sizeof(android_native_buffer_t))
-        setErrorReturn(EGL_BAD_PARAMETER, EGL_NO_IMAGE_KHR);
-
-    cb_handle_t *cb = (cb_handle_t *)(native_buffer->handle);
-
-    switch (cb->format) {
-        case HAL_PIXEL_FORMAT_RGBA_8888:
-        case HAL_PIXEL_FORMAT_RGBX_8888:
-        case HAL_PIXEL_FORMAT_RGB_888:
-        case HAL_PIXEL_FORMAT_RGB_565:
-        case HAL_PIXEL_FORMAT_BGRA_8888:
-            break;
-        default:
+        if (native_buffer->common.magic != ANDROID_NATIVE_BUFFER_MAGIC)
             setErrorReturn(EGL_BAD_PARAMETER, EGL_NO_IMAGE_KHR);
+
+        if (native_buffer->common.version != sizeof(android_native_buffer_t))
+            setErrorReturn(EGL_BAD_PARAMETER, EGL_NO_IMAGE_KHR);
+
+        cb_handle_t *cb = (cb_handle_t *)(native_buffer->handle);
+
+        switch (cb->format) {
+            case HAL_PIXEL_FORMAT_RGBA_8888:
+            case HAL_PIXEL_FORMAT_RGBX_8888:
+            case HAL_PIXEL_FORMAT_RGB_888:
+            case HAL_PIXEL_FORMAT_RGB_565:
+            case HAL_PIXEL_FORMAT_BGRA_8888:
+                break;
+            default:
+                setErrorReturn(EGL_BAD_PARAMETER, EGL_NO_IMAGE_KHR);
+        }
+
+        native_buffer->common.incRef(&native_buffer->common);
+
+        EGLImage_t *image = new EGLImage_t();
+        image->dpy = dpy;
+        image->target = target;
+        image->native_buffer = native_buffer;
+
+        return (EGLImageKHR)image;
+    }
+    else if (target == EGL_GL_TEXTURE_2D_KHR) {
+        VALIDATE_CONTEXT_RETURN(ctx, EGL_NO_IMAGE_KHR);
+
+        EGLContext_t *context = static_cast<EGLContext_t*>(ctx);
+        DEFINE_AND_VALIDATE_HOST_CONNECTION(EGL_NO_IMAGE_KHR);
+
+        uint32_t ctxHandle = (context) ? context->rcContext : 0;
+        GLuint texture = (GLuint)reinterpret_cast<uintptr_t>(buffer);
+        uint32_t img = rcEnc->rcCreateClientImage(rcEnc, ctxHandle, target, texture);
+        EGLImage_t *image = new EGLImage_t();
+        image->dpy = dpy;
+        image->target = target;
+        image->host_egl_image = img;
+
+        return (EGLImageKHR)image;
     }
 
-    native_buffer->common.incRef(&native_buffer->common);
-    return (EGLImageKHR)native_buffer;
+    setErrorReturn(EGL_BAD_PARAMETER, EGL_NO_IMAGE_KHR);
 }
 
 EGLBoolean eglDestroyImageKHR(EGLDisplay dpy, EGLImageKHR img)
 {
     VALIDATE_DISPLAY_INIT(dpy, EGL_FALSE);
-    android_native_buffer_t* native_buffer = (android_native_buffer_t*)img;
+    EGLImage_t *image = (EGLImage_t*)img;
 
-    if (native_buffer->common.magic != ANDROID_NATIVE_BUFFER_MAGIC)
-        setErrorReturn(EGL_BAD_PARAMETER, EGL_FALSE);
+    if (!image || image->dpy != dpy) {
+        RETURN_ERROR(EGL_FALSE, EGL_BAD_PARAMETER);
+    }
 
-    if (native_buffer->common.version != sizeof(android_native_buffer_t))
-        setErrorReturn(EGL_BAD_PARAMETER, EGL_FALSE);
+    if (image->target == EGL_NATIVE_BUFFER_ANDROID) {
+        android_native_buffer_t* native_buffer = image->native_buffer;
 
-    native_buffer->common.decRef(&native_buffer->common);
+        if (native_buffer->common.magic != ANDROID_NATIVE_BUFFER_MAGIC)
+            setErrorReturn(EGL_BAD_PARAMETER, EGL_FALSE);
 
-    return EGL_TRUE;
+        if (native_buffer->common.version != sizeof(android_native_buffer_t))
+            setErrorReturn(EGL_BAD_PARAMETER, EGL_FALSE);
+
+        native_buffer->common.decRef(&native_buffer->common);
+        delete image;
+
+        return EGL_TRUE;
+    }
+    else if (image->target == EGL_GL_TEXTURE_2D_KHR) {
+        uint32_t host_egl_image = image->host_egl_image;
+        delete image;
+        DEFINE_AND_VALIDATE_HOST_CONNECTION(EGL_FALSE);
+        return rcEnc->rcDestroyClientImage(rcEnc, host_egl_image);
+    }
+
+    setErrorReturn(EGL_BAD_PARAMETER, EGL_FALSE);
 }
 
 #define FENCE_SYNC_HANDLE (EGLSyncKHR)0xFE4CE

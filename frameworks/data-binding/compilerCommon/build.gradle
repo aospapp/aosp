@@ -15,10 +15,9 @@
  */
 
 apply plugin: 'java'
-apply plugin: 'com.android.databinding.bintray'
 
-sourceCompatibility = config.javaTargetCompatibility
-targetCompatibility = config.javaSourceCompatibility
+sourceCompatibility = dataBindingConfig.javaSourceCompatibility
+targetCompatibility = dataBindingConfig.javaTargetCompatibility
 
 sourceSets {
     main {
@@ -37,11 +36,12 @@ sourceSets {
 }
 
 dependencies {
-    testCompile group: 'junit', name: 'junit', version: '4.12'
-    compile project(':baseLibrary')
-    compile 'org.apache.commons:commons-lang3:3.3.2'
+    testCompile 'junit:junit:4.12'
+    compile project(':dataBinding:baseLibrary')
     compile 'com.tunnelvisionlabs:antlr4:4.5'
     compile 'commons-io:commons-io:2.4'
+    compile 'com.googlecode.juniversalchardet:juniversalchardet:1.0.3'
+    compile 'com.google.guava:guava:17.0'
 }
 
 project.tasks.create(name : "generateXmlParser", type : JavaExec) {
@@ -57,3 +57,27 @@ project.tasks.create(name : "generateGrammar", type : JavaExec) {
     args "BindingExpression.g4", "-visitor", "-o", "src/main/grammar-gen/android/databinding/parser", "-package", "android.databinding.parser"
 }
 
+tasks.create(name : 'exportBuildVersions') << {
+    def props = new HashMap();
+    def buildVersionFile = new File(sourceSets.main.output.resourcesDir,"data_binding_version_info.properties")
+    // Using Java Properties appends date to the output which is bad for incremental compilation.
+    // Instead, we build it manually.
+    props.put("compilerCommon", project.version)
+    props.put("compiler", rootProject.findProject("dataBinding:compiler").version)
+    props.put("baseLibrary", rootProject.findProject("dataBinding:baseLibrary").version)
+    props.put("extensions", dataBindingConfig.extensionsVersion)
+    buildVersionFile.getParentFile().mkdirs()
+    println("writing build versions file to $buildVersionFile")
+    def propText = new StringBuilder();
+    props.each {
+        propText.append(it.key).append("=").append(it.value).append(System.getProperty("line.separator"))
+    }
+    file(buildVersionFile).write(propText.toString())
+}
+
+tasks['jar'].dependsOn('exportBuildVersions')
+tasks['exportBuildVersions'].dependsOn('processResources')
+
+project.ext.pomName = 'Data Binding Compiler Common'
+project.ext.pomDesc = 'Common library that can be shared between different build tools'
+enablePublishing(this, true)

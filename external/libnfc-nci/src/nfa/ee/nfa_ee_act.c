@@ -537,6 +537,16 @@ void nfa_ee_api_set_tech_cfg(tNFA_EE_MSG *p_data)
     tNFA_TECHNOLOGY_MASK    old_tech_battery_off = p_cb->tech_battery_off;
     UINT8                   old_size_mask        = p_cb->size_mask;
 
+    if (   (p_cb->tech_switch_on == p_data->set_tech.technologies_switch_on)
+        && (p_cb->tech_switch_off == p_data->set_tech.technologies_switch_off)
+        && (p_cb->tech_battery_off == p_data->set_tech.technologies_battery_off))
+    {
+        /* nothing to change */
+        evt_data.status = NFA_STATUS_OK;
+        nfa_ee_report_event (p_cb->p_ee_cback, NFA_EE_SET_TECH_CFG_EVT, &evt_data);
+        return;
+    }
+
     p_cb->tech_switch_on   = p_data->set_tech.technologies_switch_on;
     p_cb->tech_switch_off  = p_data->set_tech.technologies_switch_off;
     p_cb->tech_battery_off = p_data->set_tech.technologies_battery_off;
@@ -582,6 +592,16 @@ void nfa_ee_api_set_proto_cfg(tNFA_EE_MSG *p_data)
     tNFA_PROTOCOL_MASK    old_proto_switch_off  = p_cb->proto_switch_off;
     tNFA_PROTOCOL_MASK    old_proto_battery_off = p_cb->proto_battery_off;
     UINT8                   old_size_mask        = p_cb->size_mask;
+
+    if (   (p_cb->proto_switch_on == p_data->set_proto.protocols_switch_on)
+        && (p_cb->proto_switch_off == p_data->set_proto.protocols_switch_off)
+        && (p_cb->proto_battery_off == p_data->set_proto.protocols_battery_off)  )
+    {
+        /* nothing to change */
+        evt_data.status = NFA_STATUS_OK;
+        nfa_ee_report_event (p_cb->p_ee_cback, NFA_EE_SET_PROTO_CFG_EVT, &evt_data);
+        return;
+    }
 
     p_cb->proto_switch_on       = p_data->set_proto.protocols_switch_on;
     p_cb->proto_switch_off      = p_data->set_proto.protocols_switch_off;

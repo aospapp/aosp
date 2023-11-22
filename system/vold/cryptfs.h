@@ -52,6 +52,16 @@
                                         correctly marked partial encryption */
 #define CRYPT_DATA_CORRUPT 0x8 /* Set when encryption is fine, but the
                                   underlying volume is corrupt */
+#define CRYPT_FORCE_ENCRYPTION 0x10 /* Set when it is time to encrypt this
+                                       volume on boot. Everything in this
+                                       structure is set up correctly as
+                                       though device is encrypted except
+                                       that the master key is encrypted with the
+                                       default password. */
+#define CRYPT_FORCE_COMPLETE 0x20 /* Set when the above encryption cycle is
+                                     complete. On next cryptkeeper entry, match
+                                     the password. If it matches fix the master
+                                     key and remove this flag. */
 
 /* Allowed values for type in the structure below */
 #define CRYPT_TYPE_PASSWORD 0 /* master_key is encrypted with a password
@@ -65,9 +75,6 @@
 
 #define CRYPT_MNT_MAGIC 0xD0B5B1C4
 #define PERSIST_DATA_MAGIC 0xE950CD44
-
-#define SCRYPT_PROP "ro.crypto.scrypt_params"
-#define SCRYPT_DEFAULTS { 15, 3, 1 }
 
 /* Key Derivation Function algorithms */
 #define KDF_PBKDF2 1
@@ -94,7 +101,7 @@ struct crypt_mnt_ftr {
   __le32 keysize;       /* in bytes */
   __le32 crypt_type;    /* how master_key is encrypted. Must be a
                          * CRYPT_TYPE_XXX value */
-  __le64 fs_size;	/* Size of the encrypted fs, in 512 byte sectors */
+  __le64 fs_size;       /* Size of the encrypted fs, in 512 byte sectors */
   __le32 failed_decrypt_count; /* count of # of failed attempts to decrypt and
                                   mount, set to 0 on successful mount */
   unsigned char crypto_type_name[MAX_CRYPTO_TYPE_NAME_LEN]; /* The type of encryption
@@ -145,6 +152,12 @@ struct crypt_mnt_ftr {
      then we will be OK.
    */
   unsigned char scrypted_intermediate_key[SCRYPT_LEN];
+
+  /* sha of this structure with this element set to zero
+     Used when encrypting on reboot to validate structure before doing something
+     fatal
+   */
+  unsigned char sha256[SHA256_DIGEST_LENGTH];
 };
 
 /* Persistant data that should be available before decryption.
@@ -218,9 +231,9 @@ extern "C" {
   int cryptfs_check_passwd(char *pw);
   int cryptfs_verify_passwd(char *newpw);
   int cryptfs_restart(void);
-  int cryptfs_enable(char *flag, int type, char *passwd, int allow_reboot);
+  int cryptfs_enable(char *flag, int type, char *passwd, int no_ui);
   int cryptfs_changepw(int type, const char *newpw);
-  int cryptfs_enable_default(char *flag, int allow_reboot);
+  int cryptfs_enable_default(char *flag, int no_ui);
   int cryptfs_setup_ext_volume(const char* label, const char* real_blkdev,
           const unsigned char* key, int keysize, char* out_crypto_blkdev);
   int cryptfs_revert_ext_volume(const char* label);
@@ -231,6 +244,7 @@ extern "C" {
   int cryptfs_get_password_type(void);
   const char* cryptfs_get_password(void);
   void cryptfs_clear_password(void);
+  int cryptfs_isConvertibleToFBE(void);
 
   // Functions for file encryption to use to inherit our encryption logic
   int cryptfs_create_default_ftr(struct crypt_mnt_ftr* ftr, int key_length);
@@ -238,6 +252,7 @@ extern "C" {
                              unsigned char* master_key);
   int cryptfs_set_password(struct crypt_mnt_ftr* ftr, const char* password,
                            const unsigned char* master_key);
+
 #ifdef __cplusplus
 }
 #endif

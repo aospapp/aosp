@@ -10,6 +10,7 @@
 #include "HelloWorld.h"
 
 #include "gl/GrGLInterface.h"
+#include "GrContext.h"
 #include "SkApplication.h"
 #include "SkCanvas.h"
 #include "SkGradientShader.h"
@@ -23,7 +24,6 @@ void application_init() {
 
 void application_term() {
     SkEvent::Term();
-    SkGraphics::Term();
 }
 
 HelloWorldWindow::HelloWorldWindow(void* hwnd)
@@ -59,7 +59,6 @@ void HelloWorldWindow::setTitle() {
 }
 
 bool HelloWorldWindow::setUpBackend() {
-    this->setColorType(kRGBA_8888_SkColorType);
     this->setVisibleP(true);
     this->setClipToBounds(false);
 
@@ -158,7 +157,7 @@ void HelloWorldWindow::draw(SkCanvas* canvas) {
     if (kRaster_DeviceType == fType) {
         // need to send the raster bits to the (gpu) window
         SkImage* snap = fSurface->newImageSnapshot();
-        size_t rowBytes;
+        size_t rowBytes = 0;
         SkImageInfo info;
         const void* pixels = snap->peekPixels(&info, &rowBytes);
         fRenderTarget->writePixels(0, 0, snap->width(), snap->height(),

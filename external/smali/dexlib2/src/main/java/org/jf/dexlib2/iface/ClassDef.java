@@ -35,6 +35,7 @@ import org.jf.dexlib2.iface.reference.TypeReference;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -43,7 +44,7 @@ import java.util.Set;
  * It also acts as a TypeReference to itself. Any equality/comparison is based on its identity as a TypeReference,
  * and shouldn't take into account anything other than the type of this class.
  */
-public interface ClassDef extends TypeReference {
+public interface ClassDef extends TypeReference, Annotatable {
     /**
      * Gets the class type.
      *
@@ -72,11 +73,11 @@ public interface ClassDef extends TypeReference {
     @Nullable String getSuperclass();
 
     /**
-     * Gets a set of the interfaces that this class implements.
+     * Gets a list of the interfaces that this class implements.
      *
-     * @return A set of the interfaces that this class implements
+     * @return A list of the interfaces that this class implements
      */
-    @Nonnull Set<String> getInterfaces();
+    @Nonnull List<String> getInterfaces();
 
     /**
      * Gets the name of the primary source file that this class is defined in, if available.
@@ -95,7 +96,7 @@ public interface ClassDef extends TypeReference {
      *
      * @return A set of the annotations that are applied to this class
      */
-    @Nonnull Set<? extends Annotation> getAnnotations();
+    @Override @Nonnull Set<? extends Annotation> getAnnotations();
 
     /**
      * Gets the static fields that are defined by this class.

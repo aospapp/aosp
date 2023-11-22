@@ -18,12 +18,15 @@
 
 #define LOG_TAG "bt_osi_thread"
 
+#include "osi/include/thread.h"
+
 #include <assert.h>
 #include <errno.h>
 #include <malloc.h>
 #include <pthread.h>
 #include <string.h>
 #include <sys/prctl.h>
+#include <sys/resource.h>
 #include <sys/types.h>
 
 #include "osi/include/allocator.h"
@@ -32,7 +35,6 @@
 #include "osi/include/log.h"
 #include "osi/include/reactor.h"
 #include "osi/include/semaphore.h"
-#include "osi/include/thread.h"
 
 struct thread_t {
   bool is_joined;
@@ -64,8 +66,6 @@ thread_t *thread_new_sized(const char *name, size_t work_queue_capacity) {
   assert(work_queue_capacity != 0);
 
   thread_t *ret = osi_calloc(sizeof(thread_t));
-  if (!ret)
-    goto error;
 
   ret->reactor = reactor_new();
   if (!ret->reactor)
@@ -139,10 +139,6 @@ bool thread_post(thread_t *thread, thread_fn func, void *context) {
   // Queue item is freed either when the queue itself is destroyed
   // or when the item is removed from the queue for dispatch.
   work_item_t *item = (work_item_t *)osi_malloc(sizeof(work_item_t));
-  if (!item) {
-    LOG_ERROR("%s unable to allocate memory: %s", __func__, strerror(errno));
-    return false;
-  }
   item->func = func;
   item->context = context;
   fixed_queue_enqueue(thread->work_queue, item);
@@ -152,6 +148,20 @@ bool thread_post(thread_t *thread, thread_fn func, void *context) {
 void thread_stop(thread_t *thread) {
   assert(thread != NULL);
   reactor_stop(thread->reactor);
+}
+
+bool thread_set_priority(thread_t *thread, int priority) {
+  if (!thread)
+    return false;
+
+  const int rc = setpriority(PRIO_PROCESS, thread->tid, priority);
+  if (rc < 0) {
+    LOG_ERROR(LOG_TAG, "%s unable to set thread priority %d for tid %d, error %d",
+      __func__, priority, thread->tid, rc);
+    return false;
+  }
+
+  return true;
 }
 
 bool thread_is_self(const thread_t *thread) {
@@ -178,12 +188,14 @@ static void *run_thread(void *start_arg) {
   assert(thread != NULL);
 
   if (prctl(PR_SET_NAME, (unsigned long)thread->name) == -1) {
-    LOG_ERROR("%s unable to set thread name: %s", __func__, strerror(errno));
+    LOG_ERROR(LOG_TAG, "%s unable to set thread name: %s", __func__, strerror(errno));
     start->error = errno;
     semaphore_post(start->start_sem);
     return NULL;
   }
   thread->tid = gettid();
+
+  LOG_WARN(LOG_TAG, "%s: thread id %d, thread name %s started", __func__, thread->tid, thread->name);
 
   semaphore_post(start->start_sem);
 
@@ -207,8 +219,9 @@ static void *run_thread(void *start_arg) {
   }
 
   if (count > fixed_queue_capacity(thread->work_queue))
-    LOG_DEBUG("%s growing event queue on shutdown.", __func__);
+    LOG_DEBUG(LOG_TAG, "%s growing event queue on shutdown.", __func__);
 
+  LOG_WARN(LOG_TAG, "%s: thread id %d, thread name %s exited", __func__, thread->tid, thread->name);
   return NULL;
 }
 

@@ -7,12 +7,14 @@
 #include <sys/mman.h>
 #include <sys/syscall.h>
 
+typedef unsigned int             UInt;
 typedef unsigned long            UWord;
 typedef unsigned long long int   ULong;
+
 // Below code is copied from m_syscall.c
 // Refer to this file for syscall convention.
 #if defined(VGP_x86_linux)
-extern UWord do_syscall_WRK (UWord syscall_no, 
+extern UWord do_syscall_WRK (UWord syscall_no,
                              UWord a1, UWord a2, UWord a3,
                              UWord a4, UWord a5, UWord a6
                              );
@@ -39,6 +41,7 @@ asm(
 "	ret\n"
 ".previous\n"
 );
+
 #elif defined(VGP_amd64_linux)
 extern UWord do_syscall_WRK (
           UWord syscall_no, 
@@ -104,6 +107,7 @@ asm(
 "         bx      lr\n"
 ".previous\n"
 );
+
 #elif defined(VGP_s390x_linux)
 UWord do_syscall_WRK (
    UWord syscall_no,
@@ -184,6 +188,51 @@ extern UWord do_syscall_WRK (
    return out;
 }
 
+#elif defined(VGP_x86_solaris)
+extern ULong
+do_syscall_WRK(UWord a1, UWord a2, UWord a3,
+               UWord a4, UWord a5, UWord a6,
+               UWord a7, UWord a8,
+               UWord syscall_no,
+               UInt *errflag);
+asm(
+".text\n"
+".globl do_syscall_WRK\n"
+"do_syscall_WRK:\n"
+"        movl    40(%esp), %ecx\n"      /* assume syscall success */
+"        movl    $0, (%ecx)\n"
+"        movl    36(%esp), %eax\n"
+"        int     $0x91\n"
+"        jnc     1f\n"                  /* jump if success */
+"        movl    40(%esp), %ecx\n"      /* syscall failed - set *errflag */
+"        movl    $1, (%ecx)\n"
+"1:      ret\n"
+".previous\n"
+);
+
+#elif defined(VGP_amd64_solaris)
+extern ULong
+do_syscall_WRK(UWord a1, UWord a2, UWord a3,
+               UWord a4, UWord a5, UWord a6,
+               UWord a7, UWord a8,
+               UWord syscall_no,
+               UInt *errflag);
+asm(
+".text\n"
+".globl do_syscall_WRK\n"
+"do_syscall_WRK:\n"
+"       movq    %rcx, %r10\n"           /* pass rcx in r10 instead */
+"       movq    32(%rsp), %rcx\n"       /* assume syscall success */
+"       movl    $0, (%rcx)\n"
+"       movq    24(%rsp), %rax\n"
+"       syscall\n"
+"       jnc     1f\n"                   /* jump if success */
+"       movq    32(%rsp), %rcx\n"       /* syscall failed - set *errflag */
+"       movl    $1, (%rcx)\n"
+"1:     ret\n"
+".previous\n"
+);
+
 #else
 // Ensure the file compiles even if the syscall nr is not defined.
 #ifndef __NR_mprotect
@@ -202,12 +251,35 @@ UWord do_syscall_WRK (UWord syscall_no,
 
 
 char **b10;
+char *interior_ptrs[3];
 int mprotect_result = 0;
 static void non_simd_mprotect (long tid, void* addr, long len)
 {
+#if defined(VGP_x86_solaris) || defined(VGP_amd64_solaris)
+   UInt err = 0;
+   mprotect_result = do_syscall_WRK((UWord) addr, len, PROT_NONE,
+                                    0, 0, 0, 0, 0, SYS_mprotect, 
+                                    &err);
+   if (err)
+      mprotect_result = -1;
+#else
    mprotect_result = do_syscall_WRK(__NR_mprotect,
                                     (UWord) addr, len, PROT_NONE,
                                     0, 0, 0);
+#endif
+}
+
+// can this work without global variable for return value?
+static void my_mprotect_none(void* addr, long len)
+{
+   if (RUNNING_ON_VALGRIND)
+     (void) VALGRIND_NON_SIMD_CALL2(non_simd_mprotect,
+                                    addr,
+                                    len);
+   else
+      mprotect_result = mprotect(addr,
+                                 len,
+                                 PROT_NONE);
 }
 
 void f(void)
@@ -221,7 +293,7 @@ void f(void)
    for (i = 0; i < nr_ptr; i++)
       b10[i] = (char*)b10;
    b10[4000] = malloc (1000);
-   
+
    fprintf(stderr, "expecting no leaks\n");
    fflush(stderr);
    VALGRIND_DO_LEAK_CHECK;
@@ -248,29 +320,41 @@ void f(void)
    if (pagesize == -1)
       perror ("sysconf failed");
    
-   if (RUNNING_ON_VALGRIND)
-     (void) VALGRIND_NON_SIMD_CALL2(non_simd_mprotect, RNDPAGEDOWN(&b10[4000]), 2 * pagesize);
-   else
-      mprotect_result = mprotect((void*) RNDPAGEDOWN(&b10[4000]), 2 * pagesize, PROT_NONE);
+   my_mprotect_none((void*) RNDPAGEDOWN(&b10[4000]), 2 * pagesize);
    fprintf(stderr, "mprotect result %d\n", mprotect_result);
 
    fprintf(stderr, "expecting a leak again\n");
    fflush(stderr);
    VALGRIND_DO_LEAK_CHECK;
 
-   if (RUNNING_ON_VALGRIND)
-     (void) VALGRIND_NON_SIMD_CALL2(non_simd_mprotect,
-                                    RNDPAGEDOWN(&b10[0]),
-                                    RNDPAGEDOWN(&(b10[nr_ptr-1]))
-                                    - RNDPAGEDOWN(&(b10[0])));
-   else
-      mprotect_result = mprotect((void*) RNDPAGEDOWN(&b10[0]),
+   my_mprotect_none((void*) RNDPAGEDOWN(&b10[0]),
                                  RNDPAGEDOWN(&(b10[nr_ptr-1]))
-                                 - RNDPAGEDOWN(&(b10[0])),
-                                 PROT_NONE);
+                                 - RNDPAGEDOWN(&(b10[0])));
    fprintf(stderr, "full mprotect result %d\n", mprotect_result);
 
    fprintf(stderr, "expecting a leak again after full mprotect\n");
+   fflush(stderr);
+   VALGRIND_DO_LEAK_CHECK;
+
+   // allocate memory but keep only interior pointers to trigger various
+   // heuristics
+   // Allocate some memory:
+   interior_ptrs[0] = calloc (nr_ptr * sizeof(char*), 1);
+
+   // Inner pointer after 3 sizeT: triggers the stdstring heuristic:
+   interior_ptrs[2] = interior_ptrs[0] + 3 * sizeof(size_t);
+
+   // Inner pointer after 1 ULong: triggers the length64 heuristic:
+   interior_ptrs[1] = interior_ptrs[0] + sizeof(unsigned long);
+
+   // Inner pointer after a size: triggers the newarray heuristics.
+   interior_ptrs[0] += sizeof(size_t);
+
+   my_mprotect_none( (void*) RNDPAGEDOWN((interior_ptrs[0] - sizeof(size_t))),
+                     RNDPAGEDOWN(nr_ptr * sizeof(char*)));
+   fprintf(stderr, "mprotect result %d\n", mprotect_result);
+
+   fprintf(stderr, "expecting heuristic not to crash after full mprotect\n");
    fflush(stderr);
    VALGRIND_DO_LEAK_CHECK;
 

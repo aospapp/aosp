@@ -297,7 +297,7 @@ void RsdCpuScriptIntrinsicBlur::kernelU4(const RsExpandKernelDriverInfo *info,
     uint32_t x2 = xend;
 
 #if defined(ARCH_ARM_USE_INTRINSICS)
-    if (gArchUseSIMD) {
+    if (gArchUseSIMD && info->dim.x >= 4) {
       rsdIntrinsicBlurU4_K(out, (uchar4 const *)(pin + stride * info->current.y),
                  info->dim.x, info->dim.y,
                  stride, x1, info->current.y, x2 - x1, cp->mIradius, cp->mIp + cp->mIradius);
@@ -368,10 +368,15 @@ void RsdCpuScriptIntrinsicBlur::kernelU1(const RsExpandKernelDriverInfo *info,
     uint32_t x2 = xend;
 
 #if defined(ARCH_ARM_USE_INTRINSICS)
-    if (gArchUseSIMD) {
-        rsdIntrinsicBlurU1_K(out, pin + stride * info->current.y, info->dim.x, info->dim.y,
-                 stride, x1, info->current.y, x2 - x1, cp->mIradius, cp->mIp + cp->mIradius);
-        return;
+    if (gArchUseSIMD && info->dim.x >= 16) {
+        // The specialisation for r<=8 has an awkward prefill case, which is
+        // fiddly to resolve, where starting close to the right edge can cause
+        // a read beyond the end of input.  So avoid that case here.
+        if (cp->mIradius > 8 || (info->dim.x - rsMax(0, (int32_t)x1 - 8)) >= 16) {
+            rsdIntrinsicBlurU1_K(out, pin + stride * info->current.y, info->dim.x, info->dim.y,
+                     stride, x1, info->current.y, x2 - x1, cp->mIradius, cp->mIp + cp->mIradius);
+            return;
+        }
     }
 #endif
 

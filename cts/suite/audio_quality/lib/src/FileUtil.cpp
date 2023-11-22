@@ -81,7 +81,7 @@ FileUtil::FileUtil()
     mBuffer = new char[DEFAULT_BUFFER_SIZE];
     if (mBuffer == NULL) {
         // cannot use ASSERT here, just crash
-        *(char*)0 = 0;
+        abort();
     }
     mBufferSize = DEFAULT_BUFFER_SIZE;
 }
@@ -130,7 +130,7 @@ bool FileUtil::doVprintf(bool fileOnly, int logLevel, const char *fmt, va_list a
             mBuffer = new char[2 * size];
             if (mBuffer == NULL) {
                 // cannot use ASSERT here, just crash
-                *(char*)0 = 0;
+                abort();
             }
             mBufferSize = 2 * size;
             // re-try

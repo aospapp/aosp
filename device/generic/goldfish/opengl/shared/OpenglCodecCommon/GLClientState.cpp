@@ -65,6 +65,8 @@ GLClientState::GLClientState(int nLocations)
     m_tex.textures = NULL;
     m_tex.numTextures = 0;
     m_tex.allocTextures = 0;
+
+    m_maxVertexAttribsDirty = true;
 }
 
 GLClientState::~GLClientState()
@@ -92,7 +94,7 @@ void GLClientState::setState(int location, int size, GLenum type, GLboolean norm
     m_states[location].stride = stride;
     m_states[location].data = (void*)data;
     m_states[location].bufferObject = m_currentArrayVbo;
-    m_states[location].elementSize = glSizeof(type) * size;
+    m_states[location].elementSize = size ? (glSizeof(type) * size) : 0;
     m_states[location].normalized = normalized;
 }
 
@@ -247,7 +249,7 @@ GLenum GLClientState::setActiveTextureUnit(GLenum texture)
 {
     GLuint unit = texture - GL_TEXTURE0;
     if (unit >= MAX_TEXTURE_UNITS) {
-        return GL_INVALID_OPERATION;
+        return GL_INVALID_ENUM;
     }
     m_tex.activeUnit = &m_tex.unit[unit];
     return GL_NO_ERROR;

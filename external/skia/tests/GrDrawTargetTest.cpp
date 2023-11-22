@@ -6,31 +6,19 @@
  * found in the LICENSE file.
  */
 
+#include "Test.h"
 #if SK_SUPPORT_GPU
 
+#include "GrCaps.h"
 #include "GrContext.h"
-#include "GrContextFactory.h"
-#include "GrDrawTargetCaps.h"
 #include "GrGpu.h"
-#include "Test.h"
 
-static void test_print(skiatest::Reporter*, const GrDrawTargetCaps* caps) {
+DEF_GPUTEST_FOR_ALL_CONTEXTS(GrDrawTargetPrint, reporter, context) {
     // This used to assert.
-    SkString result = caps->dump();
+    SkString result = context->caps()->dump();
     SkASSERT(!result.isEmpty());
-}
-
-DEF_GPUTEST(GrDrawTarget, reporter, factory) {
-    for (int type = 0; type < GrContextFactory::kLastGLContextType; ++type) {
-        GrContextFactory::GLContextType glType = static_cast<GrContextFactory::GLContextType>(type);
-
-        GrContext* grContext = factory->get(glType);
-        if (NULL == grContext) {
-            continue;
-        }
-
-        test_print(reporter, grContext->getGpu()->caps());
-    }
+    SkString shaderResult = context->caps()->shaderCaps()->dump();
+    SkASSERT(!shaderResult.isEmpty());
 }
 
 #endif

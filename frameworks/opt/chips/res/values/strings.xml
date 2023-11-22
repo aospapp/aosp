@@ -24,6 +24,14 @@
     <string name="action_label">Return</string>
     <!-- Announce the number of possible recipient entries that the user can select from for accessibility purposes [CHAR LIMIT=200] -->
     <string name="accessbility_suggestion_dropdown_opened">Contact suggestions opened</string>
+    <!-- Announce that there are no possible recipient entries that the user can select from for accessibility purposes [CHAR LIMIT=200] -->
+    <string name="accessbility_suggestion_dropdown_closed">No suggestions available</string>
     <!-- Description for the delete button that removes the selected contact from the recipients [CHAR LIMIT=100] -->
     <string name="dropdown_delete_button_desc">Remove <xliff:g id="contact">%s</xliff:g> from recipients</string>
+    <!-- Text displayed as the primary action for a dialog to copy text. [CHAR LIMIT=25] -->
+    <string name="chips_action_copy">Copy</string>
+    <!-- Text displayed as the secondary action for a dialog to cancel. [CHAR LIMIT=25] -->
+    <string name="chips_action_cancel">Cancel</string>
+    <!-- Text displayed on the drop down item that is shown when app doesn't have Contact permission. This item will open dialog to request permission. [CHAR LIMIT=50] -->
+    <string name="chips_permission_text">Allow contacts suggestions</string>
 </resources>

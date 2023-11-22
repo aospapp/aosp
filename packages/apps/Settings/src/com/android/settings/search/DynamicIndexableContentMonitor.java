@@ -18,25 +18,32 @@ package com.android.settings.search;
 
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.AccessibilityServiceInfo;
+import android.app.Activity;
+import android.app.LoaderManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.Loader;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ServiceInfo;
 import android.database.ContentObserver;
 import android.hardware.input.InputManager;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.UserHandle;
+import android.os.UserManager;
 import android.print.PrintManager;
-import android.printservice.PrintService;
+import android.print.PrintServicesLoader;
 import android.printservice.PrintServiceInfo;
 import android.provider.UserDictionary;
+import android.util.Log;
 import android.view.accessibility.AccessibilityManager;
 import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
+
 import com.android.internal.content.PackageMonitor;
 import com.android.settings.accessibility.AccessibilitySettings;
 import com.android.settings.inputmethod.InputMethodAndLanguageSettings;
@@ -46,7 +53,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class DynamicIndexableContentMonitor extends PackageMonitor implements
-        InputManager.InputDeviceListener {
+        InputManager.InputDeviceListener,
+        LoaderManager.LoaderCallbacks<List<PrintServiceInfo>> {
+    private static final String TAG = "DynamicIndexableContentMonitor";
 
     private static final long DELAY_PROCESS_PACKAGE_CHANGE = 2000;
 
@@ -54,7 +63,6 @@ public final class DynamicIndexableContentMonitor extends PackageMonitor impleme
     private static final int MSG_PACKAGE_UNAVAILABLE = 2;
 
     private final List<String> mAccessibilityServices = new ArrayList<String>();
-    private final List<String> mPrintServices = new ArrayList<String>();
     private final List<String> mImeServices = new ArrayList<String>();
 
     private final Handler mHandler = new Handler() {
@@ -78,17 +86,11 @@ public final class DynamicIndexableContentMonitor extends PackageMonitor impleme
             new UserDictionaryContentObserver(mHandler);
 
     private Context mContext;
-    private boolean mHasFeaturePrinting;
     private boolean mHasFeatureIme;
+    private boolean mRegistered;
 
     private static Intent getAccessibilityServiceIntent(String packageName) {
         final Intent intent = new Intent(AccessibilityService.SERVICE_INTERFACE);
-        intent.setPackage(packageName);
-        return intent;
-    }
-
-    private static Intent getPrintServiceIntent(String packageName) {
-        final Intent intent = new Intent(PrintService.SERVICE_INTERFACE);
         intent.setPackage(packageName);
         return intent;
     }
@@ -99,10 +101,18 @@ public final class DynamicIndexableContentMonitor extends PackageMonitor impleme
         return intent;
     }
 
-    public void register(Context context) {
-        mContext = context;
+    public void register(Activity activity, int loaderId) {
+        mContext = activity;
 
-        mHasFeaturePrinting = mContext.getPackageManager().hasSystemFeature(
+        if (!mContext.getSystemService(UserManager.class).isUserUnlocked()) {
+            Log.w(TAG, "Skipping content monitoring because user is locked");
+            mRegistered = false;
+            return;
+        } else {
+            mRegistered = true;
+        }
+
+        boolean hasFeaturePrinting = mContext.getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_PRINTING);
         mHasFeatureIme = mContext.getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_INPUT_METHODS);
@@ -122,20 +132,8 @@ public final class DynamicIndexableContentMonitor extends PackageMonitor impleme
             mAccessibilityServices.add(resolveInfo.serviceInfo.packageName);
         }
 
-        if (mHasFeaturePrinting) {
-            // Cache print service packages to know when they go away.
-            PrintManager printManager = (PrintManager)
-                    mContext.getSystemService(Context.PRINT_SERVICE);
-            List<PrintServiceInfo> printServices = printManager.getInstalledPrintServices();
-            final int serviceCount = printServices.size();
-            for (int i = 0; i < serviceCount; i++) {
-                PrintServiceInfo printService = printServices.get(i);
-                ResolveInfo resolveInfo = printService.getResolveInfo();
-                if (resolveInfo == null || resolveInfo.serviceInfo == null) {
-                    continue;
-                }
-                mPrintServices.add(resolveInfo.serviceInfo.packageName);
-            }
+        if (hasFeaturePrinting) {
+            activity.getLoaderManager().initLoader(loaderId, null, this);
         }
 
         // Cache IME service packages to know when they go away.
@@ -157,15 +155,18 @@ public final class DynamicIndexableContentMonitor extends PackageMonitor impleme
         }
 
         // Watch for input device changes.
-        InputManager inputManager = (InputManager) context.getSystemService(
+        InputManager inputManager = (InputManager) activity.getSystemService(
                 Context.INPUT_SERVICE);
         inputManager.registerInputDeviceListener(this, mHandler);
 
         // Start tracking packages.
-        register(context, Looper.getMainLooper(), UserHandle.CURRENT, false);
+        register(activity, Looper.getMainLooper(), UserHandle.CURRENT, false);
     }
 
+    @Override
     public void unregister() {
+        if (!mRegistered) return;
+
         super.unregister();
 
         InputManager inputManager = (InputManager) mContext.getSystemService(
@@ -178,7 +179,6 @@ public final class DynamicIndexableContentMonitor extends PackageMonitor impleme
         }
 
         mAccessibilityServices.clear();
-        mPrintServices.clear();
         mImeServices.clear();
     }
 
@@ -198,13 +198,17 @@ public final class DynamicIndexableContentMonitor extends PackageMonitor impleme
     @Override
     public void onPackageModified(String packageName) {
         super.onPackageModified(packageName);
-        final int state = mContext.getPackageManager().getApplicationEnabledSetting(
-                packageName);
-        if (state == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT
-                || state ==  PackageManager.COMPONENT_ENABLED_STATE_ENABLED) {
-            postMessage(MSG_PACKAGE_AVAILABLE, packageName);
-        } else {
-            postMessage(MSG_PACKAGE_UNAVAILABLE, packageName);
+        try {
+            final int state = mContext.getPackageManager().getApplicationEnabledSetting(
+                    packageName);
+            if (state == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT
+                    || state == PackageManager.COMPONENT_ENABLED_STATE_ENABLED) {
+                postMessage(MSG_PACKAGE_AVAILABLE, packageName);
+            } else {
+                postMessage(MSG_PACKAGE_UNAVAILABLE, packageName);
+            }
+        } catch (IllegalArgumentException e) {
+            Log.e(TAG, "Package does not exist: " + packageName, e);
         }
     }
 
@@ -233,28 +237,19 @@ public final class DynamicIndexableContentMonitor extends PackageMonitor impleme
     private void handlePackageAvailable(String packageName) {
         if (!mAccessibilityServices.contains(packageName)) {
             final Intent intent = getAccessibilityServiceIntent(packageName);
-            if (!mContext.getPackageManager().queryIntentServices(intent, 0).isEmpty()) {
+            List<?> services = mContext.getPackageManager().queryIntentServices(intent, 0);
+            if (services != null && !services.isEmpty()) {
                 mAccessibilityServices.add(packageName);
                 Index.getInstance(mContext).updateFromClassNameResource(
                         AccessibilitySettings.class.getName(), false, true);
             }
         }
 
-        if (mHasFeaturePrinting) {
-            if (!mPrintServices.contains(packageName)) {
-                final Intent intent = getPrintServiceIntent(packageName);
-                if (!mContext.getPackageManager().queryIntentServices(intent, 0).isEmpty()) {
-                    mPrintServices.add(packageName);
-                    Index.getInstance(mContext).updateFromClassNameResource(
-                            PrintSettingsFragment.class.getName(), false, true);
-                }
-            }
-        }
-
         if (mHasFeatureIme) {
             if (!mImeServices.contains(packageName)) {
                 Intent intent = getIMEServiceIntent(packageName);
-                if (!mContext.getPackageManager().queryIntentServices(intent, 0).isEmpty()) {
+                List<?> services = mContext.getPackageManager().queryIntentServices(intent, 0);
+                if (services != null && !services.isEmpty()) {
                     mImeServices.add(packageName);
                     Index.getInstance(mContext).updateFromClassNameResource(
                             InputMethodAndLanguageSettings.class.getName(), false, true);
@@ -271,15 +266,6 @@ public final class DynamicIndexableContentMonitor extends PackageMonitor impleme
                     AccessibilitySettings.class.getName(), true, true);
         }
 
-        if (mHasFeaturePrinting) {
-            final int printIndex = mPrintServices.indexOf(packageName);
-            if (printIndex >= 0) {
-                mPrintServices.remove(printIndex);
-                Index.getInstance(mContext).updateFromClassNameResource(
-                        PrintSettingsFragment.class.getName(), true, true);
-            }
-        }
-
         if (mHasFeatureIme) {
             final int imeIndex = mImeServices.indexOf(packageName);
             if (imeIndex >= 0) {
@@ -288,6 +274,25 @@ public final class DynamicIndexableContentMonitor extends PackageMonitor impleme
                         InputMethodAndLanguageSettings.class.getName(), true, true);
             }
         }
+    }
+
+    @Override
+    public Loader<List<PrintServiceInfo>> onCreateLoader(int id, Bundle args) {
+        return new PrintServicesLoader(
+                (PrintManager) mContext.getSystemService(Context.PRINT_SERVICE), mContext,
+                PrintManager.ALL_SERVICES);
+    }
+
+    @Override
+    public void onLoadFinished(Loader<List<PrintServiceInfo>> loader,
+            List<PrintServiceInfo> services) {
+        Index.getInstance(mContext).updateFromClassNameResource(
+                PrintSettingsFragment.class.getName(), false, true);
+    }
+
+    @Override
+    public void onLoaderReset(Loader<List<PrintServiceInfo>> loader) {
+        // nothing to do
     }
 
     private final class UserDictionaryContentObserver extends ContentObserver {

@@ -43,11 +43,34 @@ static void MaybePrintStackTrace(uptr pc, uptr bp) {
   stack.Print();
 }
 
-static void MaybeReportErrorSummary(Location Loc) {
+static const char *ConvertTypeToString(ErrorType Type) {
+  switch (Type) {
+#define UBSAN_CHECK(Name, SummaryKind, FSanitizeFlagName)                      \
+  case ErrorType::Name:                                                        \
+    return SummaryKind;
+#include "ubsan_checks.inc"
+#undef UBSAN_CHECK
+  }
+  UNREACHABLE("unknown ErrorType!");
+}
+
+static const char *ConvertTypeToFlagName(ErrorType Type) {
+  switch (Type) {
+#define UBSAN_CHECK(Name, SummaryKind, FSanitizeFlagName)                      \
+  case ErrorType::Name:                                                        \
+    return FSanitizeFlagName;
+#include "ubsan_checks.inc"
+#undef UBSAN_CHECK
+  }
+  UNREACHABLE("unknown ErrorType!");
+}
+
+static void MaybeReportErrorSummary(Location Loc, ErrorType Type) {
   if (!common_flags()->print_summary)
     return;
-  // Don't try to unwind the stack trace in UBSan summaries: just use the
-  // provided location.
+  if (!flags()->report_error_type)
+    Type = ErrorType::GenericUB;
+  const char *ErrorKind = ConvertTypeToString(Type);
   if (Loc.isSourceLocation()) {
     SourceLocation SLoc = Loc.getSourceLocation();
     if (!SLoc.isInvalid()) {
@@ -56,12 +79,16 @@ static void MaybeReportErrorSummary(Location Loc) {
       AI.line = SLoc.getLine();
       AI.column = SLoc.getColumn();
       AI.function = internal_strdup("");  // Avoid printing ?? as function name.
-      ReportErrorSummary("undefined-behavior", AI);
+      ReportErrorSummary(ErrorKind, AI);
       AI.Clear();
       return;
     }
+  } else if (Loc.isSymbolizedStack()) {
+    const AddressInfo &AI = Loc.getSymbolizedStack()->info;
+    ReportErrorSummary(ErrorKind, AI);
+    return;
   }
-  ReportErrorSummary("undefined-behavior");
+  ReportErrorSummary(ErrorKind);
 }
 
 namespace {
@@ -118,7 +145,8 @@ static void renderLocation(Location Loc) {
       LocBuffer.append("<unknown>");
     else
       RenderSourceLocation(&LocBuffer, SLoc.getFilename(), SLoc.getLine(),
-                           SLoc.getColumn(), common_flags()->strip_path_prefix);
+                           SLoc.getColumn(), common_flags()->symbolize_vs_style,
+                           common_flags()->strip_path_prefix);
     break;
   }
   case Location::LK_Memory:
@@ -128,6 +156,7 @@ static void renderLocation(Location Loc) {
     const AddressInfo &Info = Loc.getSymbolizedStack()->info;
     if (Info.file) {
       RenderSourceLocation(&LocBuffer, Info.file, Info.line, Info.column,
+                           common_flags()->symbolize_vs_style,
                            common_flags()->strip_path_prefix);
     } else if (Info.module) {
       RenderModuleLocation(&LocBuffer, Info.module, Info.module_offset,
@@ -160,8 +189,12 @@ static void renderText(const char *Message, const Diag::Arg *Args) {
       case Diag::AK_String:
         Printf("%s", A.String);
         break;
-      case Diag::AK_Mangled: {
-        Printf("'%s'", Symbolizer::GetOrInit()->Demangle(A.String));
+      case Diag::AK_TypeName: {
+        if (SANITIZER_WINDOWS)
+          // The Windows implementation demangles names early.
+          Printf("'%s'", A.String);
+        else
+          Printf("'%s'", Symbolizer::GetOrInit()->Demangle(A.String));
         break;
       }
       case Diag::AK_SInt:
@@ -181,7 +214,11 @@ static void renderText(const char *Message, const Diag::Arg *Args) {
         // FIXME: Support floating-point formatting in sanitizer_common's
         //        printf, and stop using snprintf here.
         char Buffer[32];
+#if SANITIZER_WINDOWS
+        sprintf_s(Buffer, sizeof(Buffer), "%Lg", (long double)A.Float);
+#else
         snprintf(Buffer, sizeof(Buffer), "%Lg", (long double)A.Float);
+#endif
         Printf("%s", Buffer);
         break;
       }
@@ -328,24 +365,30 @@ Diag::~Diag() {
                         NumRanges, Args);
 }
 
-ScopedReport::ScopedReport(ReportOptions Opts, Location SummaryLoc)
-    : Opts(Opts), SummaryLoc(SummaryLoc) {
+ScopedReport::ScopedReport(ReportOptions Opts, Location SummaryLoc,
+                           ErrorType Type)
+    : Opts(Opts), SummaryLoc(SummaryLoc), Type(Type) {
   InitAsStandaloneIfNecessary();
   CommonSanitizerReportMutex.Lock();
 }
 
 ScopedReport::~ScopedReport() {
   MaybePrintStackTrace(Opts.pc, Opts.bp);
-  MaybeReportErrorSummary(SummaryLoc);
+  MaybeReportErrorSummary(SummaryLoc, Type);
   CommonSanitizerReportMutex.Unlock();
-  if (Opts.DieAfterReport || flags()->halt_on_error)
+  if (flags()->halt_on_error)
     Die();
 }
 
 ALIGNED(64) static char suppression_placeholder[sizeof(SuppressionContext)];
 static SuppressionContext *suppression_ctx = nullptr;
 static const char kVptrCheck[] = "vptr_check";
-static const char *kSuppressionTypes[] = { kVptrCheck };
+static const char *kSuppressionTypes[] = {
+#define UBSAN_CHECK(Name, SummaryKind, FSanitizeFlagName) FSanitizeFlagName,
+#include "ubsan_checks.inc"
+#undef UBSAN_CHECK
+    kVptrCheck,
+};
 
 void __ubsan::InitializeSuppressions() {
   CHECK_EQ(nullptr, suppression_ctx);
@@ -359,6 +402,30 @@ bool __ubsan::IsVptrCheckSuppressed(const char *TypeName) {
   CHECK(suppression_ctx);
   Suppression *s;
   return suppression_ctx->Match(TypeName, kVptrCheck, &s);
+}
+
+bool __ubsan::IsPCSuppressed(ErrorType ET, uptr PC, const char *Filename) {
+  InitAsStandaloneIfNecessary();
+  CHECK(suppression_ctx);
+  const char *SuppType = ConvertTypeToFlagName(ET);
+  // Fast path: don't symbolize PC if there is no suppressions for given UB
+  // type.
+  if (!suppression_ctx->HasSuppressionType(SuppType))
+    return false;
+  Suppression *s = nullptr;
+  // Suppress by file name known to runtime.
+  if (Filename != nullptr && suppression_ctx->Match(Filename, SuppType, &s))
+    return true;
+  // Suppress by module name.
+  if (const char *Module = Symbolizer::GetOrInit()->GetModuleNameForPc(PC)) {
+    if (suppression_ctx->Match(Module, SuppType, &s))
+      return true;
+  }
+  // Suppress by function or source file name from debug info.
+  SymbolizedStackHolder Stack(Symbolizer::GetOrInit()->SymbolizePC(PC));
+  const AddressInfo &AI = Stack.get()->info;
+  return suppression_ctx->Match(AI.function, SuppType, &s) ||
+         suppression_ctx->Match(AI.file, SuppType, &s);
 }
 
 #endif  // CAN_SANITIZE_UB

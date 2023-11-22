@@ -25,6 +25,8 @@
 #endif
 
 #include "StreamDescriptor.h"
+#include "Gains.h"
+#include "policy.h"
 #include <utils/Log.h>
 #include <utils/String8.h>
 
@@ -35,15 +37,18 @@ namespace android {
 StreamDescriptor::StreamDescriptor()
     :   mIndexMin(0), mIndexMax(1), mCanBeMuted(true)
 {
-    mIndexCur.add(AUDIO_DEVICE_OUT_DEFAULT, 0);
+    // Initialize the current stream's index to mIndexMax so volume isn't 0 in
+    // cases where the Java layer doesn't call into the audio policy service to
+    // set the default volume.
+    mIndexCur.add(AUDIO_DEVICE_OUT_DEFAULT_FOR_VOLUME, mIndexMax);
 }
 
 int StreamDescriptor::getVolumeIndex(audio_devices_t device) const
 {
     device = Volume::getDeviceForVolume(device);
-    // there is always a valid entry for AUDIO_DEVICE_OUT_DEFAULT
+    // there is always a valid entry for AUDIO_DEVICE_OUT_DEFAULT_FOR_VOLUME
     if (mIndexCur.indexOfKey(device) < 0) {
-        device = AUDIO_DEVICE_OUT_DEFAULT;
+        device = AUDIO_DEVICE_OUT_DEFAULT_FOR_VOLUME;
     }
     return mIndexCur.valueFor(device);
 }
@@ -68,7 +73,7 @@ void StreamDescriptor::setVolumeIndexMax(int volIndexMax)
     mIndexMax = volIndexMax;
 }
 
-void StreamDescriptor::setVolumeCurvePoint(Volume::device_category deviceCategory,
+void StreamDescriptor::setVolumeCurvePoint(device_category deviceCategory,
                                            const VolumeCurvePoint *point)
 {
     mVolumeCurve[deviceCategory] = point;
@@ -118,14 +123,14 @@ void StreamDescriptorCollection::addCurrentVolumeIndex(audio_stream_type_t strea
 }
 
 void StreamDescriptorCollection::setVolumeCurvePoint(audio_stream_type_t stream,
-                                                     Volume::device_category deviceCategory,
+                                                     device_category deviceCategory,
                                                      const VolumeCurvePoint *point)
 {
     editValueAt(stream).setVolumeCurvePoint(deviceCategory, point);
 }
 
 const VolumeCurvePoint *StreamDescriptorCollection::getVolumeCurvePoint(audio_stream_type_t stream,
-                                                                        Volume::device_category deviceCategory) const
+                                                                        device_category deviceCategory) const
 {
     return valueAt(stream).getVolumeCurvePoint(deviceCategory);
 }
@@ -138,6 +143,65 @@ void StreamDescriptorCollection::setVolumeIndexMin(audio_stream_type_t stream,in
 void StreamDescriptorCollection::setVolumeIndexMax(audio_stream_type_t stream,int volIndexMax)
 {
     return editValueAt(stream).setVolumeIndexMax(volIndexMax);
+}
+
+float StreamDescriptorCollection::volIndexToDb(audio_stream_type_t stream, device_category category,
+                                               int indexInUi) const
+{
+    const StreamDescriptor &streamDesc = valueAt(stream);
+    return Gains::volIndexToDb(streamDesc.getVolumeCurvePoint(category),
+                               streamDesc.getVolumeIndexMin(), streamDesc.getVolumeIndexMax(),
+                               indexInUi);
+}
+
+status_t StreamDescriptorCollection::initStreamVolume(audio_stream_type_t stream,
+                                                      int indexMin, int indexMax)
+{
+    ALOGV("initStreamVolume() stream %d, min %d, max %d", stream , indexMin, indexMax);
+    if (indexMin < 0 || indexMin >= indexMax) {
+        ALOGW("initStreamVolume() invalid index limits for stream %d, min %d, max %d",
+              stream , indexMin, indexMax);
+        return BAD_VALUE;
+    }
+    setVolumeIndexMin(stream, indexMin);
+    setVolumeIndexMax(stream, indexMax);
+    return NO_ERROR;
+}
+
+void StreamDescriptorCollection::initializeVolumeCurves(bool isSpeakerDrcEnabled)
+{
+    for (int i = 0; i < AUDIO_STREAM_CNT; i++) {
+        for (int j = 0; j < DEVICE_CATEGORY_CNT; j++) {
+            setVolumeCurvePoint(static_cast<audio_stream_type_t>(i),
+                                static_cast<device_category>(j),
+                                Gains::sVolumeProfiles[i][j]);
+        }
+    }
+
+    // Check availability of DRC on speaker path: if available, override some of the speaker curves
+    if (isSpeakerDrcEnabled) {
+        setVolumeCurvePoint(AUDIO_STREAM_SYSTEM, DEVICE_CATEGORY_SPEAKER,
+                            Gains::sDefaultSystemVolumeCurveDrc);
+        setVolumeCurvePoint(AUDIO_STREAM_RING, DEVICE_CATEGORY_SPEAKER,
+                            Gains::sSpeakerSonificationVolumeCurveDrc);
+        setVolumeCurvePoint(AUDIO_STREAM_ALARM, DEVICE_CATEGORY_SPEAKER,
+                            Gains::sSpeakerSonificationVolumeCurveDrc);
+        setVolumeCurvePoint(AUDIO_STREAM_NOTIFICATION, DEVICE_CATEGORY_SPEAKER,
+                            Gains::sSpeakerSonificationVolumeCurveDrc);
+        setVolumeCurvePoint(AUDIO_STREAM_MUSIC, DEVICE_CATEGORY_SPEAKER,
+                            Gains::sSpeakerMediaVolumeCurveDrc);
+        setVolumeCurvePoint(AUDIO_STREAM_ACCESSIBILITY, DEVICE_CATEGORY_SPEAKER,
+                            Gains::sSpeakerMediaVolumeCurveDrc);
+    }
+}
+
+void StreamDescriptorCollection::switchVolumeCurve(audio_stream_type_t streamSrc,
+                                                   audio_stream_type_t streamDst)
+{
+    for (int j = 0; j < DEVICE_CATEGORY_CNT; j++) {
+        setVolumeCurvePoint(streamDst, static_cast<device_category>(j),
+                            Gains::sVolumeProfiles[streamSrc][j]);
+    }
 }
 
 status_t StreamDescriptorCollection::dump(int fd) const

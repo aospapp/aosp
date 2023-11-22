@@ -48,11 +48,10 @@ cflags := -D_IEEE_LIBM
 # Android only supports little-endian.
 cflags += -D__LITTLE_ENDIAN
 
-# Disable GCC optimizations that interact badly with this crufty
+# Disable compiler optimizations that interact badly with this crufty
 # library (see their own admission in 'readme'). Without this, we
 # fail StrictMath tests on x86.
 cflags += -fno-strict-aliasing
-cflags += -ffloat-store
 
 # c99 specifies a less relaxed floating point model that does not enable
 # floating point expession contraction (e.g: fused multiply-add operations).
@@ -63,10 +62,10 @@ cflags += -std=c99
 #
 
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES:= $(src_files)
 LOCAL_CFLAGS := $(cflags)
+LOCAL_CLANG := true
 LOCAL_MODULE := libfdlibm
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
+LOCAL_SRC_FILES:= $(src_files)
 include $(BUILD_STATIC_LIBRARY)
 
 
@@ -75,9 +74,9 @@ include $(BUILD_STATIC_LIBRARY)
 #
 
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES:= $(src_files)
 LOCAL_CFLAGS := $(cflags)
+LOCAL_CLANG := true
 LOCAL_MODULE := libfdlibm
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_MULTILIB := both
+LOCAL_SRC_FILES:= $(src_files)
 include $(BUILD_HOST_STATIC_LIBRARY)

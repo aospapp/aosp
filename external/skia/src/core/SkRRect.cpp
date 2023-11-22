@@ -5,13 +5,18 @@
  * found in the LICENSE file.
  */
 
+#include <cmath>
 #include "SkRRect.h"
 #include "SkMatrix.h"
+#include "SkScaleToSides.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 
 void SkRRect::setRectXY(const SkRect& rect, SkScalar xRad, SkScalar yRad) {
-    if (rect.isEmpty() || !rect.isFinite()) {
+    fRect = rect;
+    fRect.sort();
+
+    if (fRect.isEmpty() || !fRect.isFinite()) {
         this->setEmpty();
         return;
     }
@@ -25,14 +30,13 @@ void SkRRect::setRectXY(const SkRect& rect, SkScalar xRad, SkScalar yRad) {
         return;
     }
 
-    if (rect.width() < xRad+xRad || rect.height() < yRad+yRad) {
-        SkScalar scale = SkMinScalar(rect.width() / (xRad + xRad), rect.height() / (yRad + yRad));
+    if (fRect.width() < xRad+xRad || fRect.height() < yRad+yRad) {
+        SkScalar scale = SkMinScalar(fRect.width() / (xRad + xRad), fRect.height() / (yRad + yRad));
         SkASSERT(scale < SK_Scalar1);
         xRad = SkScalarMul(xRad, scale);
         yRad = SkScalarMul(yRad, scale);
     }
 
-    fRect = rect;
     for (int i = 0; i < 4; ++i) {
         fRadii[i].set(xRad, yRad);
     }
@@ -47,7 +51,10 @@ void SkRRect::setRectXY(const SkRect& rect, SkScalar xRad, SkScalar yRad) {
 
 void SkRRect::setNinePatch(const SkRect& rect, SkScalar leftRad, SkScalar topRad,
                            SkScalar rightRad, SkScalar bottomRad) {
-    if (rect.isEmpty() || !rect.isFinite()) {
+    fRect = rect;
+    fRect.sort();
+
+    if (fRect.isEmpty() || !fRect.isFinite()) {
         this->setEmpty();
         return;
     }
@@ -64,11 +71,11 @@ void SkRRect::setNinePatch(const SkRect& rect, SkScalar leftRad, SkScalar topRad
     bottomRad = SkMaxScalar(bottomRad, 0);
 
     SkScalar scale = SK_Scalar1;
-    if (leftRad + rightRad > rect.width()) {
-        scale = rect.width() / (leftRad + rightRad);
+    if (leftRad + rightRad > fRect.width()) {
+        scale = fRect.width() / (leftRad + rightRad);
     }
-    if (topRad + bottomRad > rect.height()) {
-        scale = SkMinScalar(scale, rect.height() / (topRad + bottomRad));
+    if (topRad + bottomRad > fRect.height()) {
+        scale = SkMinScalar(scale, fRect.height() / (topRad + bottomRad));
     }
 
     if (scale < SK_Scalar1) {
@@ -79,7 +86,7 @@ void SkRRect::setNinePatch(const SkRect& rect, SkScalar leftRad, SkScalar topRad
     }
 
     if (leftRad == rightRad && topRad == bottomRad) {
-        if (leftRad >= SkScalarHalf(rect.width()) && topRad >= SkScalarHalf(rect.height())) {
+        if (leftRad >= SkScalarHalf(fRect.width()) && topRad >= SkScalarHalf(fRect.height())) {
             fType = kOval_Type;
         } else if (0 == leftRad || 0 == topRad) {
             // If the left and (by equality check above) right radii are zero then it is a rect.
@@ -96,35 +103,12 @@ void SkRRect::setNinePatch(const SkRect& rect, SkScalar leftRad, SkScalar topRad
         fType = kNinePatch_Type;
     }
 
-    fRect = rect;
     fRadii[kUpperLeft_Corner].set(leftRad, topRad);
     fRadii[kUpperRight_Corner].set(rightRad, topRad);
     fRadii[kLowerRight_Corner].set(rightRad, bottomRad);
     fRadii[kLowerLeft_Corner].set(leftRad, bottomRad);
 
     SkDEBUGCODE(this->validate();)
-}
-
-/*
- *  TODO: clean this guy up and possibly add to SkScalar.h
- */
-static inline SkScalar SkScalarDecULP(SkScalar value) {
-#if SK_SCALAR_IS_FLOAT
-        return SkBits2Float(SkFloat2Bits(value) - 1);
-#else
-    #error "need impl for doubles"
-#endif
-}
-
- /**
- *  We need all combinations of predicates to be true to have a "safe" radius value.
- */
-static SkScalar clamp_radius_check_predicates(SkScalar rad, SkScalar min, SkScalar max) {
-    SkASSERT(min < max);
-    if (rad > max - min || min + rad > max || max - rad < min) {
-        rad = SkScalarDecULP(rad);
-    }
-    return rad;
 }
 
 // These parameters intentionally double. Apropos crbug.com/463920, if one of the
@@ -138,7 +122,10 @@ static double compute_min_scale(double rad1, double rad2, double limit, double c
 }
 
 void SkRRect::setRectRadii(const SkRect& rect, const SkVector radii[4]) {
-    if (rect.isEmpty() || !rect.isFinite()) {
+    fRect = rect;
+    fRect.sort();
+
+    if (fRect.isEmpty() || !fRect.isFinite()) {
         this->setEmpty();
         return;
     }
@@ -148,7 +135,6 @@ void SkRRect::setRectRadii(const SkRect& rect, const SkVector radii[4]) {
         return;
     }
 
-    fRect = rect;
     memcpy(fRadii, radii, sizeof(fRadii));
 
     bool allCornersSquare = true;
@@ -172,6 +158,11 @@ void SkRRect::setRectRadii(const SkRect& rect, const SkVector radii[4]) {
         return;
     }
 
+    this->scaleRadii();
+}
+
+void SkRRect::scaleRadii() {
+
     // Proportionally scale down all radii to fit. Find the minimum ratio
     // of a side and the radii on that side (for all four sides) and use
     // that to scale down _all_ the radii. This algorithm is from the
@@ -184,29 +175,21 @@ void SkRRect::setRectRadii(const SkRect& rect, const SkVector radii[4]) {
     // If f < 1, then all corner radii are reduced by multiplying them by f."
     double scale = 1.0;
 
-    scale = compute_min_scale(fRadii[0].fX, fRadii[1].fX, rect.width(),  scale);
-    scale = compute_min_scale(fRadii[1].fY, fRadii[2].fY, rect.height(), scale);
-    scale = compute_min_scale(fRadii[2].fX, fRadii[3].fX, rect.width(),  scale);
-    scale = compute_min_scale(fRadii[3].fY, fRadii[0].fY, rect.height(), scale);
+    // The sides of the rectangle may be larger than a float.
+    double width = (double)fRect.fRight - (double)fRect.fLeft;
+    double height = (double)fRect.fBottom - (double)fRect.fTop;
+    scale = compute_min_scale(fRadii[0].fX, fRadii[1].fX, width,  scale);
+    scale = compute_min_scale(fRadii[1].fY, fRadii[2].fY, height, scale);
+    scale = compute_min_scale(fRadii[2].fX, fRadii[3].fX, width,  scale);
+    scale = compute_min_scale(fRadii[3].fY, fRadii[0].fY, height, scale);
 
     if (scale < 1.0) {
-        for (int i = 0; i < 4; ++i) {
-            fRadii[i].fX *= scale;
-            fRadii[i].fY *= scale;
-        }
+        SkScaleToSides::AdjustRadii(width,  scale, &fRadii[0].fX, &fRadii[1].fX);
+        SkScaleToSides::AdjustRadii(height, scale, &fRadii[1].fY, &fRadii[2].fY);
+        SkScaleToSides::AdjustRadii(width,  scale, &fRadii[2].fX, &fRadii[3].fX);
+        SkScaleToSides::AdjustRadii(height, scale, &fRadii[3].fY, &fRadii[0].fY);
     }
 
-    // skbug.com/3239 -- its possible that we can hit the following inconsistency:
-    //     rad == bounds.bottom - bounds.top
-    //     bounds.bottom - radius < bounds.top
-    //     YIKES
-    // We need to detect and "fix" this now, otherwise we can have the following wackiness:
-    //     path.addRRect(rrect);
-    //     rrect.rect() != path.getBounds()
-    for (int i = 0; i < 4; ++i) {
-        fRadii[i].fX = clamp_radius_check_predicates(fRadii[i].fX, rect.fLeft, rect.fRight);
-        fRadii[i].fY = clamp_radius_check_predicates(fRadii[i].fY, rect.fTop, rect.fBottom);
-    }
     // At this point we're either oval, simple, or complex (not empty or rect).
     this->computeType();
 
@@ -359,7 +342,7 @@ static bool matrix_only_scale_and_translate(const SkMatrix& matrix) {
 }
 
 bool SkRRect::transform(const SkMatrix& matrix, SkRRect* dst) const {
-    if (NULL == dst) {
+    if (nullptr == dst) {
         return false;
     }
 
@@ -442,7 +425,7 @@ bool SkRRect::transform(const SkMatrix& matrix, SkRRect* dst) const {
         SkTSwap(dst->fRadii[kUpperRight_Corner], dst->fRadii[kLowerRight_Corner]);
     }
 
-    SkDEBUGCODE(dst->validate();)
+    dst->scaleRadii();
 
     return true;
 }

@@ -19,7 +19,7 @@
 
     <original-package android:name="com.android.quicksearchbox" />
 
-    <uses-sdk android:minSdkVersion="8" />
+    <uses-sdk android:minSdkVersion="8" android:targetSdkVersion="24" />
 
     <uses-permission android:name="android.permission.GLOBAL_SEARCH" />
 

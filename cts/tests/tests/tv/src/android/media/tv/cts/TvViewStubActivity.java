@@ -19,7 +19,7 @@ package android.media.tv.cts;
 import android.app.Activity;
 import android.os.Bundle;
 
-import com.android.cts.tv.R;
+import android.tv.cts.R;
 
 public class TvViewStubActivity extends Activity {
     @Override

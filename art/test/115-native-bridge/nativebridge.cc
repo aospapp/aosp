@@ -200,15 +200,24 @@ static jint trampoline_Java_Main_testSignal(JNIEnv*, jclass) {
 #if !defined(__APPLE__) && !defined(__mips__)
   tmp.sa_restorer = nullptr;
 #endif
-  sigaction(SIGSEGV, &tmp, nullptr);
 
-#if defined(__arm__) || defined(__i386__) || defined(__x86_64__) || defined(__aarch64__)
-  // On supported architectures we cause a real SEGV.
+  // Test segv
+  sigaction(SIGSEGV, &tmp, nullptr);
+#if defined(__arm__) || defined(__i386__) || defined(__aarch64__)
   *go_away_compiler = 'a';
+#elif defined(__x86_64__)
+  // Cause a SEGV using an instruction known to be 2 bytes long to account for hardcoded jump
+  // in the signal handler
+  asm volatile("movl $0, %%eax;" "movb %%ah, (%%rax);" : : : "%eax");
 #else
   // On other architectures we simulate SEGV.
   kill(getpid(), SIGSEGV);
 #endif
+
+  // Test sigill
+  sigaction(SIGILL, &tmp, nullptr);
+  kill(getpid(), SIGILL);
+
   return 1234;
 }
 
@@ -258,11 +267,16 @@ extern "C" bool native_bridge_initialize(const android::NativeBridgeRuntimeCallb
                                          const char* app_code_cache_dir,
                                          const char* isa ATTRIBUTE_UNUSED) {
   struct stat st;
-  if ((app_code_cache_dir != nullptr)
-      && (stat(app_code_cache_dir, &st) == 0)
-      && S_ISDIR(st.st_mode)) {
-    printf("Code cache exists: '%s'.\n", app_code_cache_dir);
+  if (app_code_cache_dir != nullptr) {
+    if (stat(app_code_cache_dir, &st) == 0) {
+      if (!S_ISDIR(st.st_mode)) {
+        printf("Code cache is not a directory.\n");
+      }
+    } else {
+      perror("Error when stat-ing the code_cache:");
+    }
   }
+
   if (art_cbs != nullptr) {
     gNativeBridgeArtCallbacks = art_cbs;
     printf("Native bridge initialized.\n");
@@ -381,31 +395,67 @@ extern "C" bool nb_is_compatible(uint32_t bridge_version ATTRIBUTE_UNUSED) {
 #endif
 #endif
 
+static bool cannot_be_blocked(int signum) {
+  // These two sigs cannot be blocked anywhere.
+  if ((signum == SIGKILL) || (signum == SIGSTOP)) {
+      return true;
+  }
+
+  // The invalid rt_sig cannot be blocked.
+  if (((signum >= 32) && (signum < SIGRTMIN)) || (signum > SIGRTMAX)) {
+      return true;
+  }
+
+  return false;
+}
+
 // A dummy special handler, continueing after the faulting location. This code comes from
 // 004-SignalTest.
 static bool nb_signalhandler(int sig, siginfo_t* info ATTRIBUTE_UNUSED, void* context) {
   printf("NB signal handler with signal %d.\n", sig);
+  if (sig == SIGSEGV) {
 #if defined(__arm__)
-  struct ucontext *uc = reinterpret_cast<struct ucontext*>(context);
-  struct sigcontext *sc = reinterpret_cast<struct sigcontext*>(&uc->uc_mcontext);
-  sc->arm_pc += 2;          // Skip instruction causing segv.
+    struct ucontext *uc = reinterpret_cast<struct ucontext*>(context);
+    struct sigcontext *sc = reinterpret_cast<struct sigcontext*>(&uc->uc_mcontext);
+    sc->arm_pc += 2;          // Skip instruction causing segv & sigill.
 #elif defined(__aarch64__)
-  struct ucontext *uc = reinterpret_cast<struct ucontext*>(context);
-  struct sigcontext *sc = reinterpret_cast<struct sigcontext*>(&uc->uc_mcontext);
-  sc->pc += 4;          // Skip instruction causing segv.
-#elif defined(__i386__) || defined(__x86_64__)
-  struct ucontext *uc = reinterpret_cast<struct ucontext*>(context);
-  uc->CTX_EIP += 3;
+    struct ucontext *uc = reinterpret_cast<struct ucontext*>(context);
+    struct sigcontext *sc = reinterpret_cast<struct sigcontext*>(&uc->uc_mcontext);
+    sc->pc += 4;          // Skip instruction causing segv & sigill.
+#elif defined(__i386__)
+    struct ucontext *uc = reinterpret_cast<struct ucontext*>(context);
+    uc->CTX_EIP += 3;
+#elif defined(__x86_64__)
+    struct ucontext *uc = reinterpret_cast<struct ucontext*>(context);
+    uc->CTX_EIP += 2;
 #else
-  UNUSED(context);
+    UNUSED(context);
 #endif
+  }
+
+  // Before invoking this handler, all other unclaimed signals must be blocked.
+  // We're trying to check the signal mask to verify its status here.
+  sigset_t tmpset;
+  sigemptyset(&tmpset);
+  sigprocmask(SIG_SETMASK, nullptr, &tmpset);
+  int other_claimed = (sig == SIGSEGV) ? SIGILL : SIGSEGV;
+  for (int signum = 0; signum < NSIG; ++signum) {
+    if (cannot_be_blocked(signum)) {
+        continue;
+    } else if ((sigismember(&tmpset, signum)) && (signum == other_claimed)) {
+      printf("ERROR: The claimed signal %d is blocked\n", signum);
+    } else if ((!sigismember(&tmpset, signum)) && (signum != other_claimed)) {
+      printf("ERROR: The unclaimed signal %d is not blocked\n", signum);
+    }
+  }
+
   // We handled this...
   return true;
 }
 
 static ::android::NativeBridgeSignalHandlerFn native_bridge_get_signal_handler(int signal) {
-  // Only test segfault handler.
-  if (signal == SIGSEGV) {
+  // Test segv for already claimed signal, and sigill for not claimed signal
+  if ((signal == SIGSEGV) || (signal == SIGILL)) {
     return &nb_signalhandler;
   }
   return nullptr;

@@ -29,5 +29,6 @@
     <string name="set_live_wallpaper" msgid="2381437614949033266">"កំណត់​ផ្ទាំង​រូបភាព"</string>
     <string name="wallpaper_title_and_author" msgid="8891734217843935304">"<xliff:g id="TITLE">%1$s</xliff:g> ដោយ <xliff:g id="AUTHOR">%2$s</xliff:g>"</string>
     <string name="live_wallpaper_loading" msgid="2488371303130330734">"កំពុង​ផ្ទុក​ផ្ទាំង​រូបភាព​មាន​ចលនា..."</string>
-    <string name="wallpaper_cancel" msgid="7340240618834119228">"បោះ​បង់​"</string>
+    <string name="which_wallpaper_option_home_screen" msgid="6592329803583957023">"អេក្រង់ដើម"</string>
+    <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="6170359719231147447">"អេក្រង់ដើម និងអេក្រង់ជាប់សោ"</string>
 </resources>

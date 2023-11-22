@@ -1,4 +1,34 @@
-dnl Process this file with autoconf to create configure.  Use autoreconf.
+# Configure template for strace.
+#
+# Copyright (c) 1999-2001 Wichert Akkerman <wichert@deephackmode.org>
+# Copyright (c) 2002-2009 Roland McGrath <roland@redhat.com>
+# Copyright (c) 2006-2015 Dmitry V. Levin <ldv@altlinux.org>
+# Copyright (c) 2008-2015 Mike Frysinger <vapier@gentoo.org>
+# Copyright (c) 2015 Elvira Khabirova <lineprinter0@gmail.com>
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+# 3. The name of the author may not be used to endorse or promote products
+#    derived from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+# IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+# OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+# IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+# NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+# THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 AC_PREREQ(2.57)
 AC_INIT([strace],
 	m4_esyscmd([./git-version-gen .tarball-version]),
@@ -6,15 +36,18 @@ AC_INIT([strace],
 AC_CONFIG_SRCDIR([strace.c])
 AC_CONFIG_AUX_DIR([.])
 AC_CONFIG_HEADERS([config.h])
-AM_INIT_AUTOMAKE([foreign dist-xz no-dist-gzip silent-rules parallel-tests])
+AM_INIT_AUTOMAKE([foreign nostdinc dist-xz no-dist-gzip silent-rules parallel-tests])
 AM_MAINTAINER_MODE
 AC_CANONICAL_HOST
 
 AC_PROG_CC
 AX_PROG_CC_FOR_BUILD
 AC_USE_SYSTEM_EXTENSIONS
+AC_PROG_RANLIB
 
 AC_MSG_CHECKING([for supported architecture])
+arch_m32=
+arch_mx32=
 case "$host_cpu" in
 bfin)
 	arch=bfin
@@ -34,6 +67,7 @@ m68k)
 	;;
 sparc64*)
 	arch=sparc64
+	arch_m32=sparc
 	AC_DEFINE([SPARC64], 1, [Define for the SPARC64 architecture.])
 	;;
 sparc*)
@@ -59,6 +93,7 @@ powerpc*)
 # error 32 bit
 #endif], [], arch=powerpc64, arch=powerpc)
 	if test "$arch" = "powerpc64"; then
+		arch_m32=powerpc
 		AC_DEFINE([POWERPC64], 1, [Define for the PowerPC64 architecture.])
 	fi
 	;;
@@ -68,6 +103,7 @@ arm*)
 	;;
 aarch64*)
 	arch=aarch64
+	arch_m32=arm
 	AC_DEFINE([AARCH64], 1, [Define for the AArch64 architecture.])
 	;;
 avr32*)
@@ -99,11 +135,13 @@ sh*)
 	AC_DEFINE([SH], 1, [Define for the SH architecture.])
 	;;
 x86?64*)
+	arch_m32=i386
 	AC_TRY_COMPILE(
 [#ifndef __ILP32__
 # error not x32
 #endif], [], arch=x32, arch=x86_64)
 	if test "$arch" = "x86_64"; then
+		arch_mx32=x32
 		AC_DEFINE([X86_64], 1, [Define for the 64bit AMD x86-64 architecture.])
 	else
 		AC_DEFINE([X32], 1, [Define for the 32bit AMD x86-64 architecture.])
@@ -125,6 +163,11 @@ microblaze*)
 	arch=microblaze
 	AC_DEFINE([MICROBLAZE], 1, [Define for the MicroBlaze architecture.])
 	;;
+nios2*)
+	arch=nios2
+	AC_DEFINE([NIOS2], 1, [Define for the Nios-II architecture.])
+	;;
+
 or1k*)
 	arch=or1k
 	AC_DEFINE([OR1K], 1, [Define for the OpenRISC 1000 architecture.])
@@ -142,24 +185,36 @@ xtensa*)
 esac
 AC_MSG_RESULT($arch)
 
+test -n "$arch_m32" ||
+	arch_m32=$arch
+test -n "$arch_mx32" ||
+	arch_mx32=$arch
 AC_SUBST(arch)
+AC_SUBST(arch_m32)
+AC_SUBST(arch_mx32)
 
 if test "$arch" = mips; then
-	AC_CACHE_CHECK([for MIPS ABI], [ac_cv_mips_abi],
+	AC_CACHE_CHECK([for _MIPS_SIM], [st_cv__MIPS_SIM],
+		       [AC_COMPUTE_INT([st_cv__MIPS_SIM], [_MIPS_SIM],
+				       [#include <sgidefs.h>],
+				       [AC_MSG_ERROR([_MIPS_SIM cannot be determined])])])
+
+	AC_CACHE_CHECK([for MIPS ABI], [st_cv_mips_abi],
 		[AC_COMPILE_IFELSE(
 			[AC_LANG_PROGRAM([[#include <sgidefs.h>]],
 					 [[int i[_MIPS_SIM == _MIPS_SIM_ABI32 ? 1 : - 1];]])],
-			[ac_cv_mips_abi=o32],
+			[st_cv_mips_abi=o32],
 		[AC_COMPILE_IFELSE(
 			[AC_LANG_PROGRAM([[#include <sgidefs.h>]],
 					 [[int i[_MIPS_SIM == _MIPS_SIM_NABI32 ? 1 : - 1];]])],
-			[ac_cv_mips_abi=n32],
+			[st_cv_mips_abi=n32],
 		[AC_COMPILE_IFELSE(
 			[AC_LANG_PROGRAM([[#include <sgidefs.h>]],
 					 [[int i[_MIPS_SIM == _MIPS_SIM_ABI64 ? 1 : - 1];]])],
-			[ac_cv_mips_abi=n64],
-			[ac_cv_mips_abi=unknown])])])])
-	case "$ac_cv_mips_abi" in
+			[st_cv_mips_abi=n64],
+			[st_cv_mips_abi=unknown])])])])
+
+	case "$st_cv_mips_abi" in
 		o32) AC_DEFINE([LINUX_MIPSO32], [1], [Define for _MIPS_SIM_ABI32.]);;
 		n32) AC_DEFINE([LINUX_MIPSN32], [1], [Define for _MIPS_SIM_NABI32.]);;
 		n64) AC_DEFINE([LINUX_MIPSN64], [1], [Define for _MIPS_SIM_ABI64.]);;
@@ -201,11 +256,14 @@ AC_HEADER_STDBOOL
 AC_HEADER_DIRENT
 AC_HEADER_STAT
 AC_CHECK_MEMBERS(m4_normalize([
+	struct stat.st_atim.tv_nsec,
 	struct stat.st_blksize,
 	struct stat.st_blocks,
+	struct stat.st_ctim.tv_nsec,
 	struct stat.st_flags,
 	struct stat.st_fstype,
 	struct stat.st_gen,
+	struct stat.st_mtim.tv_nsec,
 	struct stat.st_rdev
 ]))
 
@@ -219,26 +277,30 @@ AC_CHECK_MEMBERS([struct sockaddr_in6.sin6_scope_id],,,
 [#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>])
-AC_LITTLE_ENDIAN_LONG_LONG
 
 AC_CHECK_FUNCS(m4_normalize([
 	fanotify_mark
 	fopen64
 	fork
 	fputs_unlocked
+	fstatat
+	ftruncate
+	futimens
 	if_indextoname
 	inet_ntop
+	inet_pton
 	pipe2
 	prctl
 	preadv
 	process_vm_readv
 	pwritev
-	sendmsg
 	sendmmsg
 	sigaction
+	signalfd
 	stpcpy
 	strerror
 	strsignal
+	utimensat
 ]))
 AC_CHECK_HEADERS(m4_normalize([
 	asm/cachectl.h
@@ -251,26 +313,35 @@ AC_CHECK_HEADERS(m4_normalize([
 	linux/falloc.h
 	linux/filter.h
 	linux/hiddev.h
+	linux/ip_vs.h
+	linux/ipc.h
 	linux/mmtimer.h
+	linux/msg.h
 	linux/perf_event.h
 	linux/seccomp.h
 	linux/securebits.h
+	linux/sem.h
+	linux/shm.h
 	linux/utsname.h
 	mqueue.h
 	netinet/sctp.h
-	poll.h
 	scsi/sg.h
 	stropts.h
 	sys/conf.h
 	sys/epoll.h
+	sys/eventfd.h
 	sys/fanotify.h
-	sys/filio.h
 	sys/ioctl.h
-	sys/poll.h
+	sys/ipc.h
+	sys/msg.h
 	sys/reg.h
+	sys/sem.h
+	sys/shm.h
+	sys/signalfd.h
 	sys/vfs.h
 	sys/xattr.h
 ]))
+AC_CHECK_HEADERS([linux/mqueue.h],,, [#include <linux/types.h>])
 AC_CHECK_HEADERS([linux/icmp.h linux/in6.h linux/netlink.h linux/if_packet.h],
                  [], [], [#include <stddef.h>
 #include <sys/socket.h>
@@ -278,9 +349,23 @@ AC_CHECK_HEADERS([linux/icmp.h linux/in6.h linux/netlink.h linux/if_packet.h],
 AC_CHECK_HEADERS([asm/sigcontext.h], [], [], [#include <signal.h>])
 AC_CHECK_TYPES([struct sigcontext],,, [#include <signal.h>])
 AC_CHECK_HEADERS([netinet/tcp.h netinet/udp.h],,, [#include <netinet/in.h>])
+AC_CHECK_HEADERS(m4_normalize([
+	linux/netfilter_arp/arp_tables.h
+	linux/netfilter_bridge/ebtables.h
+	linux/netfilter_ipv4/ip_tables.h
+	linux/netfilter_ipv6/ip6_tables.h
+]), [], [], [#include <netinet/in.h>
+#include <net/if.h>])
 
 AC_CHECK_TYPES([struct mmsghdr],,, [#include <sys/socket.h>])
 AC_CHECK_MEMBERS([struct msghdr.msg_control],,, [#include <sys/socket.h>])
+
+AC_CHECK_MEMBERS(m4_normalize([
+	struct stat.st_atime_nsec,
+	struct stat.st_ctime_nsec,
+	struct stat.st_mtime_nsec
+]),,, [#include <sys/types.h>
+#include <asm/stat.h>])
 
 AC_CHECK_TYPES([struct stat64],,, [#include <sys/types.h>
 #include <asm/stat.h>])
@@ -298,19 +383,32 @@ AC_CHECK_MEMBERS([struct sigevent._sigev_un._pad,
 		  siginfo_t.si_timerid,
 		  siginfo_t.si_overrun],,, [#include <signal.h>])
 
-AC_CHECK_MEMBERS([struct sysinfo.totalhigh,
-		  struct sysinfo.freehigh,
-		  struct sysinfo.mem_unit],,, [#include <sys/sysinfo.h>])
+AC_CHECK_TYPES([struct flock,
+		struct flock64,
+		struct __kernel_flock,
+		struct __kernel_flock64],,, [#include <sys/types.h>
+#include <linux/fcntl.h>])
 
-AC_CHECK_TYPES([struct flock64],,, [#include <fcntl.h>])
+AC_CHECK_TYPES([__kernel_long_t, __kernel_ulong_t],,, [#include <asm/posix_types.h>])
 
-AC_CHECK_HEADERS([libaio.h], [
-	AC_CHECK_MEMBERS([struct iocb.u.c.flags],,, [#include <libaio.h>])
-	AC_CHECK_DECLS([IO_CMD_PWRITE, IO_CMD_PWRITEV],,, [#include <libaio.h>])
-])
+AC_CHECK_MEMBERS([struct timex.tai],,, [#include <sys/timex.h>])
 
 AC_CHECK_HEADERS([linux/input.h], [
 	AC_CHECK_MEMBERS([struct input_absinfo.resolution],,, [#include <linux/input.h>])
+])
+
+AC_CHECK_HEADERS([linux/bpf.h], [
+	AC_CACHE_CHECK([whether union bpf_attr.log_buf initialization works],
+		       [st_cv_have_union_bpf_attr_log_buf],
+		[AC_COMPILE_IFELSE(
+			[AC_LANG_PROGRAM([[#include <linux/bpf.h>]],
+					 [[union bpf_attr a = { .log_buf = 0 };]])],
+			[st_cv_have_union_bpf_attr_log_buf=yes],
+			[st_cv_have_union_bpf_attr_log_buf=no])])
+	if test $st_cv_have_union_bpf_attr_log_buf = yes; then
+		AC_DEFINE(HAVE_UNION_BPF_ATTR_LOG_BUF, [1],
+			  [Define to 1 if union bpf_attr.log_buf initialization works])
+	fi
 ])
 
 AC_CHECK_DECLS([sys_errlist])
@@ -711,6 +809,7 @@ AC_CACHE_CHECK([for BLKGETSIZE64], [ac_cv_have_blkgetsize64],
 AC_CHECK_SIZEOF([long])
 AC_CHECK_SIZEOF([long long])
 AC_CHECK_SIZEOF([off_t],,[#include <sys/types.h>])
+AC_CHECK_SIZEOF([struct i64_i32],,[struct i64_i32 {long long i64; int i32;};])
 
 AC_CACHE_CHECK([for SIGRTMIN], [st_cv_SIGRTMIN],
 	       [[st_cv_SIGRTMIN="$(echo SIGRTMIN |
@@ -846,33 +945,8 @@ if test "$arch" = mips && test "$no_create" != yes; then
 	fi
 fi
 
-have_m32=no
-case "$arch" in
-	aarch64|powerpc64|sparc64|tile|x32|x86_64)
-	AC_MSG_CHECKING([for -m32 runtime support])
-	saved_CFLAGS="$CFLAGS"
-	CFLAGS="$CFLAGS -m32"
-	AC_RUN_IFELSE([AC_LANG_SOURCE([[int main(){return 0;}]])],
-		[have_m32=yes],[have_m32=no],[have_m32=no])
-	CFLAGS="$saved_CFLAGS"
-	AC_MSG_RESULT($have_m32)
-	;;
-esac
-AM_CONDITIONAL([HAVE_M32_RUNTIME], [test "$have_m32" = yes])
-
-have_mx32=no
-case "$arch" in
-	x86_64)
-	AC_MSG_CHECKING([for -mx32 runtime support])
-	saved_CFLAGS="$CFLAGS"
-	CFLAGS="$CFLAGS -mx32"
-	AC_RUN_IFELSE([AC_LANG_SOURCE([[int main(){return 0;}]])],
-		[have_mx32=yes],[have_mx32=no],[have_mx32=no])
-	CFLAGS="$saved_CFLAGS"
-	AC_MSG_RESULT($have_mx32)
-	;;
-esac
-AM_CONDITIONAL([HAVE_MX32_RUNTIME], [test "$have_mx32" = yes])
+st_MPERS([m32], [aarch64|powerpc64|sparc64|tile|x32|x86_64])
+st_MPERS([mx32], [x86_64])
 
 AC_CONFIG_FILES([Makefile tests/Makefile tests-m32/Makefile tests-mx32/Makefile])
 AC_OUTPUT

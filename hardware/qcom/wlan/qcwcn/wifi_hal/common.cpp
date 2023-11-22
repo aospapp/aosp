@@ -18,6 +18,7 @@
 #include <linux/pkt_sched.h>
 #include <netlink/object-api.h>
 #include <netlink-types.h>
+#include <dlfcn.h>
 
 #include "wifi_hal.h"
 #include "common.h"
@@ -65,9 +66,10 @@ wifi_error wifi_register_handler(wifi_handle handle, int cmd, nl_recvmsg_msg_cb_
         if(info->event_cb[i].nl_cmd == cmd &&
            info->event_cb[i].cb_arg == arg) {
             info->event_cb[i].cb_func = func;
-            ALOGI("Updated event handler %p for nl_cmd 0x%0x"
+            ALOGV("Updated event handler %p for nl_cmd 0x%0x"
                     " and arg %p", func, cmd, arg);
-            result = WIFI_SUCCESS;
+            pthread_mutex_unlock(&info->cb_lock);
+            return WIFI_SUCCESS;
         }
     }
 
@@ -78,8 +80,8 @@ wifi_error wifi_register_handler(wifi_handle handle, int cmd, nl_recvmsg_msg_cb_
         info->event_cb[info->num_event_cb].cb_func = func;
         info->event_cb[info->num_event_cb].cb_arg  = arg;
         info->num_event_cb++;
-        ALOGI("Successfully added event handler %p for command %d", func, cmd);
-        result = WIFI_SUCCESS; 
+        ALOGV("Successfully added event handler %p for command %d", func, cmd);
+        result = WIFI_SUCCESS;
     } else {
         result = WIFI_ERROR_OUT_OF_MEMORY;
     }
@@ -103,9 +105,10 @@ wifi_error wifi_register_vendor_handler(wifi_handle handle,
         {
             info->event_cb[i].cb_func = func;
             info->event_cb[i].cb_arg  = arg;
-            ALOGI("Updated event handler %p for vendor 0x%0x, subcmd 0x%0x"
+            ALOGV("Updated event handler %p for vendor 0x%0x, subcmd 0x%0x"
                 " and arg %p", func, id, subcmd, arg);
-            result = WIFI_SUCCESS;
+            pthread_mutex_unlock(&info->cb_lock);
+            return WIFI_SUCCESS;
         }
     }
 
@@ -116,7 +119,7 @@ wifi_error wifi_register_vendor_handler(wifi_handle handle,
         info->event_cb[info->num_event_cb].cb_func = func;
         info->event_cb[info->num_event_cb].cb_arg  = arg;
         info->num_event_cb++;
-        ALOGI("Added event handler %p for vendor 0x%0x, subcmd 0x%0x and arg"
+        ALOGV("Added event handler %p for vendor 0x%0x, subcmd 0x%0x and arg"
             " %p", func, id, subcmd, arg);
         result = WIFI_SUCCESS;
     } else {
@@ -148,7 +151,7 @@ void wifi_unregister_handler(wifi_handle handle, int cmd)
                         (info->num_event_cb - i) * sizeof(cb_info));
             }
             info->num_event_cb--;
-            ALOGI("Successfully removed event handler for command %d", cmd);
+            ALOGV("Successfully removed event handler for command %d", cmd);
             break;
         }
     }
@@ -175,7 +178,7 @@ void wifi_unregister_vendor_handler(wifi_handle handle, uint32_t id, int subcmd)
                         (info->num_event_cb - i) * sizeof(cb_info));
             }
             info->num_event_cb--;
-            ALOGI("Successfully removed event handler for vendor 0x%0x", id);
+            ALOGV("Successfully removed event handler for vendor 0x%0x", id);
             break;
         }
     }
@@ -188,13 +191,11 @@ wifi_error wifi_register_cmd(wifi_handle handle, int id, WifiCommand *cmd)
 {
     hal_info *info = (hal_info *)handle;
 
-    ALOGD("registering command %d", id);
-
     if (info->num_cmd < info->alloc_cmd) {
         info->cmd[info->num_cmd].id   = id;
         info->cmd[info->num_cmd].cmd  = cmd;
         info->num_cmd++;
-        ALOGI("Successfully added command %d: %p", id, cmd);
+        ALOGV("Successfully added command %d: %p", id, cmd);
         return WIFI_SUCCESS;
     } else {
         return WIFI_ERROR_OUT_OF_MEMORY;
@@ -205,14 +206,12 @@ WifiCommand *wifi_unregister_cmd(wifi_handle handle, int id)
 {
     hal_info *info = (hal_info *)handle;
 
-    ALOGD("un-registering command %d", id);
-
     for (int i = 0; i < info->num_cmd; i++) {
         if (info->cmd[i].id == id) {
             WifiCommand *cmd = info->cmd[i].cmd;
             memmove(&info->cmd[i], &info->cmd[i+1], (info->num_cmd - i) * sizeof(cmd_info));
             info->num_cmd--;
-            ALOGI("Successfully removed command %d: %p", id, cmd);
+            ALOGV("Successfully removed command %d: %p", id, cmd);
             return cmd;
         }
     }
@@ -229,7 +228,7 @@ void wifi_unregister_cmd(wifi_handle handle, WifiCommand *cmd)
             int id = info->cmd[i].id;
             memmove(&info->cmd[i], &info->cmd[i+1], (info->num_cmd - i) * sizeof(cmd_info));
             info->num_cmd--;
-            ALOGI("Successfully removed command %d: %p", id, cmd);
+            ALOGV("Successfully removed command %d: %p", id, cmd);
             return;
         }
     }
@@ -244,26 +243,202 @@ void hexdump(void *buf, u16 len)
 {
     int i=0;
     char *bytes = (char *)buf;
-    ALOGI("******HexDump len:%d*********", len);
+    ALOGV("******HexDump len:%d*********", len);
     for (i = 0; ((i + 7) < len); i+=8) {
-        ALOGI("%02x %02x %02x %02x   %02x %02x %02x %02x",
+        ALOGV("%02x %02x %02x %02x   %02x %02x %02x %02x",
               bytes[i], bytes[i+1],
               bytes[i+2], bytes[i+3],
               bytes[i+4], bytes[i+5],
               bytes[i+6], bytes[i+7]);
     }
     if ((len - i) >= 4) {
-        ALOGI("%02x %02x %02x %02x",
+        ALOGV("%02x %02x %02x %02x",
               bytes[i], bytes[i+1],
               bytes[i+2], bytes[i+3]);
         i+=4;
     }
     for (;i < len;i++) {
-        ALOGI("%02x", bytes[i]);
+        ALOGV("%02x", bytes[i]);
     }
-    ALOGI("******HexDump End***********");
+    ALOGV("******HexDump End***********");
+}
+
+/* Firmware sends RSSI value without noise floor.
+ * Add noise floor to the same and return absolute values.
+ */
+u8 get_rssi(u8 rssi_wo_noise_floor)
+{
+    return abs((int)rssi_wo_noise_floor - 96);
 }
 
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
+
+/* Pointer to the table of LOWI callback funcs */
+lowi_cb_table_t *LowiWifiHalApi = NULL;
+/* LowiSupportedCapabilities read */
+u32 lowiSupportedCapabilities = 0;
+
+int compareLowiVersion(u16 major, u16 minor, u16 micro)
+{
+    u32 currVersion = 0x10000*(WIFIHAL_LOWI_MAJOR_VERSION) + \
+                      0x100*(WIFIHAL_LOWI_MINOR_VERSION) + \
+                      WIFIHAL_LOWI_MICRO_VERSION;
+
+    u32 lowiVersion = 0x10000*(major) + \
+                      0x100*(minor) + \
+                      micro;
+
+    return (memcmp(&currVersion, &lowiVersion, sizeof(u32)));
+}
+
+/*
+ * This function will open the lowi shared library and obtain the
+ * Lowi Callback table and the capabilities supported.
+ * A version check is also performed in this function and if the version
+ * check fails then the callback table returned will be NULL.
+ */
+wifi_error fetchLowiCbTableAndCapabilities(lowi_cb_table_t **lowi_wifihal_api,
+                                           bool *lowi_get_capa_supported)
+{
+    getCbTable_t* lowiCbTable = NULL;
+    int ret = 0;
+    wifi_error retVal = WIFI_SUCCESS;
+
+    *lowi_wifihal_api = NULL;
+    *lowi_get_capa_supported = false;
+
+#if __WORDSIZE == 64
+    void* lowi_handle = dlopen("/vendor/lib64/liblowi_wifihal.so", RTLD_NOW);
+#else
+    void* lowi_handle = dlopen("/vendor/lib/liblowi_wifihal.so", RTLD_NOW);
+#endif
+    if (!lowi_handle) {
+        ALOGE("%s: NULL lowi_handle, err: %s", __FUNCTION__, dlerror());
+        return WIFI_ERROR_UNKNOWN;
+    }
+
+    lowiCbTable = (getCbTable_t*)dlsym(lowi_handle,
+                                       "lowi_wifihal_get_cb_table");
+    if (!lowiCbTable) {
+        ALOGE("%s: NULL lowi callback table", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
+
+    *lowi_wifihal_api = lowiCbTable();
+
+    /* First check whether lowi module implements the get_lowi_version
+     * function. All the functions in lowi module starts with
+     * "lowi_wifihal_" prefix thus the below function name.
+     */
+    if ((dlsym(lowi_handle, "lowi_wifihal_get_lowi_version") != NULL) &&
+        ((*lowi_wifihal_api)->get_lowi_version != NULL)) {
+        u16 lowiMajorVersion = WIFIHAL_LOWI_MAJOR_VERSION;
+        u16 lowiMinorVersion = WIFIHAL_LOWI_MINOR_VERSION;
+        u16 lowiMicroVersion = WIFIHAL_LOWI_MICRO_VERSION;
+        int versionCheck = -1;
+
+        ret = (*lowi_wifihal_api)->get_lowi_version(&lowiMajorVersion,
+                                                    &lowiMinorVersion,
+                                                    &lowiMicroVersion);
+        if (ret) {
+            ALOGE("%s: get_lowi_version returned error:%d",
+                  __FUNCTION__, ret);
+            retVal = WIFI_ERROR_NOT_SUPPORTED;
+            goto cleanup;
+        }
+        ALOGV("%s: Lowi version:%d.%d.%d", __FUNCTION__,
+              lowiMajorVersion, lowiMinorVersion,
+              lowiMicroVersion);
+
+        /* Compare the version with version in wifihal_internal.h */
+        versionCheck = compareLowiVersion(lowiMajorVersion,
+                                          lowiMinorVersion,
+                                          lowiMicroVersion);
+        if (versionCheck < 0) {
+            ALOGE("%s: Version Check failed:%d", __FUNCTION__,
+                  versionCheck);
+            retVal = WIFI_ERROR_NOT_SUPPORTED;
+            goto cleanup;
+        }
+    }
+    else {
+        ALOGV("%s: lowi_wifihal_get_lowi_version not present",
+              __FUNCTION__);
+    }
+
+
+    /* Check if get_lowi_capabilities func pointer exists in
+     * the lowi lib and populate lowi_get_capa_supported
+     * All the functions in lowi modules starts with
+     * "lowi_wifihal_ prefix" thus the below function name.
+     */
+    if (dlsym(lowi_handle, "lowi_wifihal_get_lowi_capabilities") != NULL) {
+        *lowi_get_capa_supported = true;
+    }
+    else {
+        ALOGV("lowi_wifihal_get_lowi_capabilities() is not supported.");
+        *lowi_get_capa_supported = false;
+    }
+cleanup:
+    if (retVal) {
+        *lowi_wifihal_api = NULL;
+    }
+    return retVal;
+}
+
+lowi_cb_table_t *getLowiCallbackTable(u32 requested_lowi_capabilities)
+{
+    int ret = WIFI_SUCCESS;
+    bool lowi_get_capabilities_support = false;
+
+    if (LowiWifiHalApi == NULL) {
+        ALOGV("%s: LowiWifiHalApi Null, Initialize Lowi",
+              __FUNCTION__);
+        ret = fetchLowiCbTableAndCapabilities(&LowiWifiHalApi,
+                                              &lowi_get_capabilities_support);
+        if (ret != WIFI_SUCCESS || LowiWifiHalApi == NULL ||
+            LowiWifiHalApi->init == NULL) {
+            ALOGE("%s: LOWI is not supported.", __FUNCTION__);
+            goto cleanup;
+        }
+        /* Initialize LOWI if it isn't up already. */
+        ret = LowiWifiHalApi->init();
+        if (ret) {
+            ALOGE("%s: failed lowi initialization. "
+                "Returned error:%d. Exit.", __FUNCTION__, ret);
+            goto cleanup;
+        }
+        if (!lowi_get_capabilities_support ||
+            LowiWifiHalApi->get_lowi_capabilities == NULL) {
+                ALOGV("%s: Allow rtt APIs thru LOWI to proceed even though "
+                      "get_lowi_capabilities() is not supported. Returning",
+                      __FUNCTION__);
+                lowiSupportedCapabilities |=
+                    (ONE_SIDED_RANGING_SUPPORTED|DUAL_SIDED_RANGING_SUPPORED);
+                return LowiWifiHalApi;
+        }
+        ret =
+            LowiWifiHalApi->get_lowi_capabilities(&lowiSupportedCapabilities);
+        if (ret) {
+            ALOGV("%s: failed to get lowi supported capabilities."
+                "Returned error:%d. Exit.", __FUNCTION__, ret);
+            goto cleanup;
+        }
+    }
+
+    if ((lowiSupportedCapabilities & requested_lowi_capabilities) == 0) {
+        return NULL;
+    }
+    return LowiWifiHalApi;
+
+cleanup:
+    if (LowiWifiHalApi && LowiWifiHalApi->destroy) {
+        ret = LowiWifiHalApi->destroy();
+    }
+    LowiWifiHalApi = NULL;
+    lowiSupportedCapabilities = 0;
+    return LowiWifiHalApi;
+}
+

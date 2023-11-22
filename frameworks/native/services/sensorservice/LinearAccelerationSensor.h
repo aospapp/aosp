@@ -32,18 +32,15 @@ namespace android {
 class SensorDevice;
 class SensorFusion;
 
-class LinearAccelerationSensor : public SensorInterface {
-    SensorDevice& mSensorDevice;
+class LinearAccelerationSensor : public VirtualSensor {
     GravitySensor mGravitySensor;
 
     virtual bool process(sensors_event_t* outEvent,
             const sensors_event_t& event);
 public:
     LinearAccelerationSensor(sensor_t const* list, size_t count);
-    virtual status_t activate(void* ident, bool enabled);
-    virtual status_t setDelay(void* ident, int handle, int64_t ns);
-    virtual Sensor getSensor() const;
-    virtual bool isVirtual() const { return true; }
+    virtual status_t activate(void* ident, bool enabled) override;
+    virtual status_t setDelay(void* ident, int handle, int64_t ns) override;
 };
 
 // ---------------------------------------------------------------------------

@@ -46,6 +46,7 @@ class Primitive {
     kPrimFloat,
     kPrimDouble,
     kPrimVoid,
+    kPrimLast = kPrimVoid
   };
 
   static Type GetType(char type) {
@@ -163,6 +164,60 @@ class Primitive {
 
   static bool Is64BitType(Type type) {
     return type == kPrimLong || type == kPrimDouble;
+  }
+
+  // Return the general kind of `type`, fusing integer-like types as kPrimInt.
+  static Type PrimitiveKind(Type type) {
+    switch (type) {
+      case kPrimBoolean:
+      case kPrimByte:
+      case kPrimShort:
+      case kPrimChar:
+      case kPrimInt:
+        return kPrimInt;
+      default:
+        return type;
+    }
+  }
+
+  static int64_t MinValueOfIntegralType(Type type) {
+    switch (type) {
+      case kPrimBoolean:
+        return std::numeric_limits<bool>::min();
+      case kPrimByte:
+        return std::numeric_limits<int8_t>::min();
+      case kPrimChar:
+        return std::numeric_limits<uint16_t>::min();
+      case kPrimShort:
+        return std::numeric_limits<int16_t>::min();
+      case kPrimInt:
+        return std::numeric_limits<int32_t>::min();
+      case kPrimLong:
+        return std::numeric_limits<int64_t>::min();
+      default:
+        LOG(FATAL) << "non integral type";
+    }
+    return 0;
+  }
+
+  static int64_t MaxValueOfIntegralType(Type type) {
+    switch (type) {
+      case kPrimBoolean:
+        return std::numeric_limits<bool>::max();
+      case kPrimByte:
+        return std::numeric_limits<int8_t>::max();
+      case kPrimChar:
+        return std::numeric_limits<uint16_t>::max();
+      case kPrimShort:
+        return std::numeric_limits<int16_t>::max();
+      case kPrimInt:
+        return std::numeric_limits<int32_t>::max();
+      case kPrimLong:
+        return std::numeric_limits<int64_t>::max();
+      default:
+        LOG(FATAL) << "non integral type";
+    }
+    return 0;
   }
 
  private:

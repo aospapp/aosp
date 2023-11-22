@@ -18,11 +18,15 @@
 #include <poll.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 
 #include <cutils/sockets.h>
 
-#include "LogReader.h"
 #include "FlushCommand.h"
+#include "LogBuffer.h"
+#include "LogBufferElement.h"
+#include "LogReader.h"
+#include "LogUtils.h"
 
 LogReader::LogReader(LogBuffer *logbuf) :
         SocketListener(getLogSocket(), true),
@@ -67,6 +71,14 @@ bool LogReader::onDataAvailable(SocketClient *cli) {
         start.strptime(cp + sizeof(_start) - 1, "%s.%q");
     }
 
+    uint64_t timeout = 0;
+    static const char _timeout[] = " timeout=";
+    cp = strstr(buffer, _timeout);
+    if (cp) {
+        timeout = atol(cp + sizeof(_timeout) - 1) * NS_PER_SEC +
+                  log_time(CLOCK_REALTIME).nsec();
+    }
+
     unsigned int logMask = -1;
     static const char _logIds[] = " lids=";
     cp = strstr(buffer, _logIds);
@@ -95,7 +107,7 @@ bool LogReader::onDataAvailable(SocketClient *cli) {
     }
 
     bool nonBlock = false;
-    if (strncmp(buffer, "dumpAndClose", 12) == 0) {
+    if (!fast<strncmp>(buffer, "dumpAndClose", 12)) {
         // Allow writer to get some cycles, and wait for pending notifications
         sched_yield();
         LogTimeEntry::lock();
@@ -114,15 +126,17 @@ bool LogReader::onDataAvailable(SocketClient *cli) {
             log_time &start;
             uint64_t &sequence;
             uint64_t last;
+            bool isMonotonic;
 
         public:
-            LogFindStart(unsigned logMask, pid_t pid, log_time &start, uint64_t &sequence) :
+            LogFindStart(unsigned logMask, pid_t pid, log_time &start, uint64_t &sequence, bool isMonotonic) :
                     mPid(pid),
                     mLogMask(logMask),
                     startTimeSet(false),
                     start(start),
                     sequence(sequence),
-                    last(sequence) {
+                    last(sequence),
+                    isMonotonic(isMonotonic) {
             }
 
             static int callback(const LogBufferElement *element, void *obj) {
@@ -133,12 +147,15 @@ bool LogReader::onDataAvailable(SocketClient *cli) {
                         me->sequence = element->getSequence();
                         me->startTimeSet = true;
                         return -1;
-                    } else {
+                    } else if (!me->isMonotonic ||
+                            android::isMonotonic(element->getRealTime())) {
                         if (me->start < element->getRealTime()) {
                             me->sequence = me->last;
                             me->startTimeSet = true;
                             return -1;
                         }
+                        me->last = element->getSequence();
+                    } else {
                         me->last = element->getSequence();
                     }
                 }
@@ -146,9 +163,11 @@ bool LogReader::onDataAvailable(SocketClient *cli) {
             }
 
             bool found() { return startTimeSet; }
-        } logFindStart(logMask, pid, start, sequence);
+        } logFindStart(logMask, pid, start, sequence,
+                       logbuf().isMonotonic() && android::isMonotonic(start));
 
         logbuf().flushTo(cli, sequence, FlushCommand::hasReadLogs(cli),
+                         FlushCommand::hasSecurityLogs(cli),
                          logFindStart.callback, &logFindStart);
 
         if (!logFindStart.found()) {
@@ -160,7 +179,12 @@ bool LogReader::onDataAvailable(SocketClient *cli) {
         }
     }
 
-    FlushCommand command(*this, nonBlock, tail, logMask, pid, sequence);
+    FlushCommand command(*this, nonBlock, tail, logMask, pid, sequence, timeout);
+
+    // Set acceptable upper limit to wait for slow reader processing b/27242723
+    struct timeval t = { LOGD_SNDTIMEO, 0 };
+    setsockopt(cli->getSocket(), SOL_SOCKET, SO_SNDTIMEO, (const char *)&t, sizeof(t));
+
     command.runSocketCommand(cli);
     return true;
 }

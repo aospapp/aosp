@@ -44,15 +44,21 @@ class GrallocConsumer : public ConsumerBase
   public:
     typedef ConsumerBase::FrameAvailableListener FrameAvailableListener;
 
-    GrallocConsumer(Allocation *, const sp<IGraphicBufferConsumer>& bq, int flags);
+    GrallocConsumer(Allocation *, const sp<IGraphicBufferConsumer>& bq, int flags, uint32_t numAlloc);
 
     virtual ~GrallocConsumer();
-    status_t lockNextBuffer();
-    status_t unlockBuffer();
+    status_t lockNextBuffer(uint32_t idx = 0);
+    status_t unlockBuffer(uint32_t idx = 0);
+    uint32_t getNextAvailableIdx(Allocation *a);
+    bool releaseIdx(uint32_t idx);
+    uint32_t mNumAlloc;
+
 
   private:
-    status_t releaseAcquiredBufferLocked();
-    Allocation *mAlloc;
+    status_t releaseAcquiredBufferLocked(uint32_t idx);
+    // Boolean array to check if a position has been occupied or not.
+    bool *isIdxUsed;
+    Allocation **mAlloc;
 
     // Tracking for buffers acquired by the user
     struct AcquiredBuffer {
@@ -68,11 +74,10 @@ class GrallocConsumer : public ConsumerBase
                 mBufferPointer(nullptr) {
         }
     };
-    AcquiredBuffer mAcquiredBuffer;
+    AcquiredBuffer *mAcquiredBuffer;
 };
 
 } // namespace renderscript
 } // namespace android
 
 #endif // ANDROID_RS_GRALLOC_CONSUMER_H
-

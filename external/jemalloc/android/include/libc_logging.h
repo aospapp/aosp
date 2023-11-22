@@ -32,7 +32,4 @@
 /* Convert this to an abort for jemalloc tests. */
 #define __libc_fatal(format, ...) abort()
 
-/* Convert this to a nop. */
-#define __libc_fatal_no_abort(format, ...)
-
 #endif  /* _JEMALLOC_LIBC_LOGGING_H */

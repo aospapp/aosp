@@ -18,9 +18,14 @@ package com.android.tv.settings.name;
 
 import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
+import android.content.Intent;
 import android.provider.Settings;
+import android.support.v4.content.LocalBroadcastManager;
 
 public class DeviceManager {
+
+    public static final String ACTION_DEVICE_NAME_UPDATE =
+            "com.android.tv.settings.name.DeviceManager.DEVICE_NAME_UPDATE";
     /**
      * Retrieves the name from Settings.Global.DEVICE_NAME
      *
@@ -43,5 +48,7 @@ public class DeviceManager {
     public static void setDeviceName(Context context, String name) {
         Settings.Global.putString(context.getContentResolver(), Settings.Global.DEVICE_NAME, name);
         BluetoothAdapter.getDefaultAdapter().setName(name);
+        LocalBroadcastManager.getInstance(context)
+                .sendBroadcast(new Intent(ACTION_DEVICE_NAME_UPDATE));
     }
 }

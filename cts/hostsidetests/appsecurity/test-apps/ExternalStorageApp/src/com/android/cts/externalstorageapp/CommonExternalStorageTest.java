@@ -137,6 +137,16 @@ public class CommonExternalStorageTest extends AndroidTestCase {
         Collections.addAll(paths, context.getExternalCacheDirs());
         Collections.addAll(paths, context.getExternalFilesDirs(null));
         Collections.addAll(paths, context.getExternalFilesDirs(Environment.DIRECTORY_PICTURES));
+        Collections.addAll(paths, context.getExternalMediaDirs());
+        Collections.addAll(paths, context.getObbDirs());
+        return paths;
+    }
+
+    public static List<File> getAllPackageSpecificPathsExceptMedia(Context context) {
+        final List<File> paths = new ArrayList<File>();
+        Collections.addAll(paths, context.getExternalCacheDirs());
+        Collections.addAll(paths, context.getExternalFilesDirs(null));
+        Collections.addAll(paths, context.getExternalFilesDirs(Environment.DIRECTORY_PICTURES));
         Collections.addAll(paths, context.getObbDirs());
         return paths;
     }
@@ -146,7 +156,24 @@ public class CommonExternalStorageTest extends AndroidTestCase {
         Collections.addAll(paths, context.getExternalCacheDirs());
         Collections.addAll(paths, context.getExternalFilesDirs(null));
         Collections.addAll(paths, context.getExternalFilesDirs(Environment.DIRECTORY_PICTURES));
+        Collections.addAll(paths, context.getExternalMediaDirs());
         return paths;
+    }
+
+    /**
+     * Return a set of several package-specific external storage paths pointing
+     * at "gift" files designed to be exchanged with the target package.
+     */
+    public static List<File> getAllPackageSpecificGiftPaths(Context context,
+            String targetPackageName) {
+        final List<File> files = getPrimaryPackageSpecificPaths(context);
+        final List<File> targetFiles = new ArrayList<>();
+        for (File file : files) {
+            final File targetFile = new File(
+                    file.getAbsolutePath().replace(context.getPackageName(), targetPackageName));
+            targetFiles.add(new File(targetFile, targetPackageName + ".gift"));
+        }
+        return targetFiles;
     }
 
     public static List<File> getPrimaryPackageSpecificPaths(Context context) {
@@ -189,14 +216,23 @@ public class CommonExternalStorageTest extends AndroidTestCase {
         return after;
     }
 
-    public static File buildGiftForPackage(Context context, String packageName) {
-        final File myCache = context.getExternalCacheDir();
-        return new File(myCache.getAbsolutePath().replace(context.getPackageName(), packageName),
-                packageName + ".gift");
-    }
-
     public static File buildProbeFile(File dir) {
         return new File(dir, ".probe_" + System.nanoTime());
+    }
+
+    public static File[] buildCommonChildDirs(File dir) {
+        return new File[] {
+                new File(dir, Environment.DIRECTORY_MUSIC),
+                new File(dir, Environment.DIRECTORY_PODCASTS),
+                new File(dir, Environment.DIRECTORY_ALARMS),
+                new File(dir, Environment.DIRECTORY_RINGTONES),
+                new File(dir, Environment.DIRECTORY_NOTIFICATIONS),
+                new File(dir, Environment.DIRECTORY_PICTURES),
+                new File(dir, Environment.DIRECTORY_MOVIES),
+                new File(dir, Environment.DIRECTORY_DOWNLOADS),
+                new File(dir, Environment.DIRECTORY_DCIM),
+                new File(dir, Environment.DIRECTORY_DOCUMENTS),
+        };
     }
 
     public static void assertDirReadOnlyAccess(File path) {
@@ -209,8 +245,9 @@ public class CommonExternalStorageTest extends AndroidTestCase {
 
         try {
             final File probe = buildProbeFile(path);
-            probe.createNewFile();
-            probe.delete();
+            assertFalse(probe.createNewFile());
+            assertFalse(probe.exists());
+            assertFalse(probe.delete());
             fail("able to create probe!");
         } catch (IOException e) {
             // expected
@@ -227,8 +264,10 @@ public class CommonExternalStorageTest extends AndroidTestCase {
 
         try {
             final File probe = buildProbeFile(path);
-            probe.createNewFile();
-            probe.delete();
+            assertTrue(probe.createNewFile());
+            assertTrue(probe.exists());
+            assertTrue(probe.delete());
+            assertFalse(probe.exists());
         } catch (IOException e) {
             fail("failed to create probe!");
         }
@@ -242,11 +281,18 @@ public class CommonExternalStorageTest extends AndroidTestCase {
 
         try {
             final File probe = buildProbeFile(path);
-            probe.createNewFile();
-            probe.delete();
+            assertFalse(probe.createNewFile());
+            assertFalse(probe.exists());
+            assertFalse(probe.delete());
             fail("able to create probe!");
         } catch (IOException e) {
             // expected
+        }
+    }
+
+    public static void assertDirNoWriteAccess(File[] paths) {
+        for (File path : paths) {
+            assertDirNoWriteAccess(path);
         }
     }
 
@@ -255,8 +301,9 @@ public class CommonExternalStorageTest extends AndroidTestCase {
 
         try {
             final File probe = buildProbeFile(path);
-            probe.createNewFile();
-            probe.delete();
+            assertFalse(probe.createNewFile());
+            assertFalse(probe.exists());
+            assertFalse(probe.delete());
             fail("able to create probe!");
         } catch (IOException e) {
             // expected
@@ -308,15 +355,22 @@ public class CommonExternalStorageTest extends AndroidTestCase {
         }
     }
 
-    public static void assertMediaNoAccess(ContentResolver resolver) throws Exception {
+    public static void assertMediaNoAccess(ContentResolver resolver, boolean legacyApp)
+            throws Exception {
         final ContentValues values = new ContentValues();
         values.put(Images.Media.MIME_TYPE, "image/jpeg");
         values.put(Images.Media.DATA,
                 buildProbeFile(Environment.getExternalStorageDirectory()).getAbsolutePath());
 
         try {
-            resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
-            fail("Expected access to be blocked");
+            Uri uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+            if (legacyApp) {
+                // For legacy apps we do not crash - just make the operation do nothing
+                assertEquals(MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                        .buildUpon().appendPath("0").build().toString(), uri.toString());
+            } else {
+                fail("Expected access to be blocked");
+            }
         } catch (Exception expected) {
         }
     }

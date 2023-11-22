@@ -51,9 +51,12 @@
     <color name="lb_basic_card_title_text_color">#FFEEEEEE</color>
     <color name="lb_basic_card_content_text_color">#B3EEEEEE</color>
 
-    <color name="lb_default_brand_color">#FF455A64</color>
-    <color name="lb_default_search_color">#FFFFAA3F</color>
+    <color name="lb_default_brand_color">#FF37474F</color>
+    <color name="lb_default_brand_color_dark">#FF263238</color>
+    <color name="lb_default_search_color">#FF86C739</color>
+    <color name="lb_default_search_icon_color">#FFFFFFFF</color>
 
+    <color name="lb_media_background_color">#FF384248</color>
     <color name="lb_control_button_color">#66EEEEEE</color>
     <color name="lb_control_button_text">#EEEEEE</color>
     <color name="lb_playback_progress_color_no_theme">#ff40c4ff</color>
@@ -63,6 +66,8 @@
     <color name="lb_playback_controls_background_light">#80000000</color>
     <color name="lb_playback_controls_background_dark">#c0000000</color>
     <color name="lb_playback_controls_time_text_color">#B2EEEEEE</color>
+    <color name="lb_playback_media_row_highlight_color">#1AFFFFFF</color>
+    <color name="lb_playback_media_row_separator_highlight_color">#1AFFFFFF</color>
 
     <color name="lb_search_plate_hint_text_color">#FFCCCCCC</color>
 
@@ -71,8 +76,13 @@
 
     <!-- refactor naming here -->
     <color name="lb_guidedactions_background">#FF111111</color>
-    <color name="lb_guidedactions_selector_color">#26FFFFFF</color>
+    <color name="lb_guidedactions_background_dark">#FF080808</color>
     <color name="lb_guidedactions_item_unselected_text_color">#FFF1F1F1</color>
     <!-- end refactor naming -->
+
+    <!-- Onboarding screen -->
+    <color name="lb_page_indicator_dot">#014269</color>
+    <color name="lb_page_indicator_arrow_background">#EEEEEE</color>
+    <color name="lb_page_indicator_arrow_shadow">#4C000000</color>
 
 </resources>

@@ -222,7 +222,9 @@ public:
   /// This representation is in the same format accepted by the string
   /// constructor above. This should not be used to compare two DataLayout as
   /// different string can represent the same layout.
-  std::string getStringRepresentation() const { return StringRepresentation; }
+  const std::string &getStringRepresentation() const {
+    return StringRepresentation;
+  }
 
   /// \brief Test if the DataLayout was constructed from an empty string.
   bool isDefault() const { return StringRepresentation.empty(); }
@@ -473,7 +475,8 @@ inline LLVMTargetDataRef wrap(const DataLayout *P) {
 class StructLayout {
   uint64_t StructSize;
   unsigned StructAlignment;
-  unsigned NumElements;
+  bool IsPadded : 1;
+  unsigned NumElements : 31;
   uint64_t MemberOffsets[1]; // variable sized array!
 public:
   uint64_t getSizeInBytes() const { return StructSize; }
@@ -481,6 +484,10 @@ public:
   uint64_t getSizeInBits() const { return 8 * StructSize; }
 
   unsigned getAlignment() const { return StructAlignment; }
+
+  /// Returns whether the struct has padding or not between its fields.
+  /// NB: Padding in nested element is not taken into account.
+  bool hasPadding() const { return IsPadded; }
 
   /// \brief Given a valid byte offset into the structure, returns the structure
   /// index that contains it.

@@ -15,7 +15,7 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.providers.calllogbackup.tests"
+        package="com.android.calllogbackup.tests"
         android:sharedUserId="android.uid.shared">
 
     <application>
@@ -27,10 +27,10 @@
     all other applications via the command: "adb shell itr".
     The "itr" command will find all tests declared by all applications. If you want to run just these
     tests on their own then use the command:
-    "adb shell am instrument -w com.android.providers.calllogbackup.tests/android.test.InstrumentationTestRunner"
+    "adb shell am instrument -w com.android.calllogbackup.tests/android.test.InstrumentationTestRunner"
     -->
     <instrumentation android:name="android.test.InstrumentationTestRunner"
-        android:targetPackage="com.android.providers.calllogbackup"
+        android:targetPackage="com.android.calllogbackup"
         android:label="CallLog Backup Tests">
     </instrumentation>
 

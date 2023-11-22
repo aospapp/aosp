@@ -30,7 +30,7 @@
 #include <stdbool.h>
 
 #include "bta_api.h"
-#include "gki.h"
+#include "bt_common.h"
 #include "btif_av_api.h"
 #include "audio_a2dp_hw.h"
 
@@ -97,6 +97,19 @@ typedef struct
         BT_HDR hdr;
         UINT8 codec_info[AVDT_CODEC_SIZE];
 } tBTIF_MEDIA_SINK_CFG_UPDATE;
+#endif
+
+#ifdef USE_AUDIO_TRACK
+typedef enum {
+        BTIF_MEDIA_FOCUS_NOT_GRANTED = 0,
+        BTIF_MEDIA_FOCUS_GRANTED
+} btif_media_audio_focus_state;
+
+typedef struct
+{
+        BT_HDR hdr;
+        UINT8 focus_state;
+} tBTIF_MEDIA_SINK_FOCUS_UPDATE;
 #endif
 
 /*******************************************************************************
@@ -274,9 +287,17 @@ void btif_a2dp_set_tx_flush(BOOLEAN enable);
 void btif_a2dp_set_rx_flush(BOOLEAN enable);
 void btif_media_check_iop_exceptions(UINT8 *peer_bda);
 void btif_reset_decoder(UINT8 *p_av);
+void btif_a2dp_on_offload_started(tBTA_AV_STATUS status);
+
 
 int btif_a2dp_get_track_frequency(UINT8 frequency);
 int btif_a2dp_get_track_channel_count(UINT8 channeltype);
 void btif_a2dp_set_peer_sep(UINT8 sep);
+#ifdef USE_AUDIO_TRACK
+void btif_a2dp_set_audio_focus_state(btif_media_audio_focus_state state);
+void btif_a2dp_set_audio_track_gain(float gain);
+#endif
 
+void btif_debug_a2dp_dump(int fd);
+void btif_update_a2dp_metrics(void);
 #endif

@@ -60,6 +60,7 @@ protected:
     virtual OMX_ERRORTYPE ProcessorPreFreeBuffer(OMX_U32 nPortIndex,OMX_BUFFERHEADERTYPE * pBuffer);
     virtual OMX_ERRORTYPE PrepareConfigBuffer(VideoConfigBuffer *p);
     virtual OMX_ERRORTYPE PrepareDecodeBuffer(OMX_BUFFERHEADERTYPE *buffer, buffer_retain_t *retain, VideoDecodeBuffer *p);
+    virtual OMX_ERRORTYPE PrepareDecodeNativeHandleBuffer(OMX_BUFFERHEADERTYPE *buffer, buffer_retain_t *retain, VideoDecodeBuffer *p);
     virtual OMX_ERRORTYPE FillRenderBuffer(OMX_BUFFERHEADERTYPE **pBuffer,  buffer_retain_t *retain,
                               OMX_U32 inportBufferFlags,  OMX_BOOL *isResolutionChange);
     virtual OMX_ERRORTYPE HandleFormatChange(void);
@@ -104,7 +105,8 @@ private:
     };
 
     struct GraphicBufferParam {
-        uint32_t graphicBufferStride;
+        uint32_t graphicBufferHStride;
+        uint32_t graphicBufferVStride;
         uint32_t graphicBufferWidth;
         uint32_t graphicBufferHeight;
         uint32_t graphicBufferColorFormat;
@@ -143,6 +145,7 @@ protected:
     };
     AdaptivePlaybackMode mAPMode;
     uint32_t mMetaDataBuffersNum;
+    OMX_TICKS mFlushMode;
     bool mFormatChanged;
     uint32_t getStride(uint32_t width);
 };

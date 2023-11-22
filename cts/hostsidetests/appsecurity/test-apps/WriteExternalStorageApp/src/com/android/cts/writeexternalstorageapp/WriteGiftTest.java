@@ -20,41 +20,48 @@ import static com.android.cts.externalstorageapp.CommonExternalStorageTest.PACKA
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.PACKAGE_READ;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.PACKAGE_WRITE;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertFileReadWriteAccess;
-import static com.android.cts.externalstorageapp.CommonExternalStorageTest.buildGiftForPackage;
+import static com.android.cts.externalstorageapp.CommonExternalStorageTest.getAllPackageSpecificGiftPaths;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.readInt;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.writeInt;
 
 import android.test.AndroidTestCase;
 
 import java.io.File;
+import java.util.List;
 
 public class WriteGiftTest extends AndroidTestCase {
     /**
      * Leave gifts for other packages in their primary external cache dirs.
      */
     public void testGifts() throws Exception {
-        final File none = buildGiftForPackage(getContext(), PACKAGE_NONE);
-        none.getParentFile().mkdirs();
-        none.createNewFile();
-        assertFileReadWriteAccess(none);
+        final List<File> noneList = getAllPackageSpecificGiftPaths(getContext(), PACKAGE_NONE);
+        for (File none : noneList) {
+            none.getParentFile().mkdirs();
+            none.createNewFile();
+            assertFileReadWriteAccess(none);
 
-        writeInt(none, 100);
-        assertEquals(100, readInt(none));
+            writeInt(none, 100);
+            assertEquals(100, readInt(none));
+        }
 
-        final File read = buildGiftForPackage(getContext(), PACKAGE_READ);
-        read.getParentFile().mkdirs();
-        read.createNewFile();
-        assertFileReadWriteAccess(read);
+        final List<File> readList = getAllPackageSpecificGiftPaths(getContext(), PACKAGE_READ);
+        for (File read : readList) {
+            read.getParentFile().mkdirs();
+            read.createNewFile();
+            assertFileReadWriteAccess(read);
 
-        writeInt(read, 101);
-        assertEquals(101, readInt(read));
+            writeInt(read, 101);
+            assertEquals(101, readInt(read));
+        }
 
-        final File write = buildGiftForPackage(getContext(), PACKAGE_WRITE);
-        write.getParentFile().mkdirs();
-        write.createNewFile();
-        assertFileReadWriteAccess(write);
+        final List<File> writeList = getAllPackageSpecificGiftPaths(getContext(), PACKAGE_WRITE);
+        for (File write : writeList) {
+            write.getParentFile().mkdirs();
+            write.createNewFile();
+            assertFileReadWriteAccess(write);
 
-        writeInt(write, 102);
-        assertEquals(102, readInt(write));
+            writeInt(write, 102);
+            assertEquals(102, readInt(write));
+        }
     }
 }

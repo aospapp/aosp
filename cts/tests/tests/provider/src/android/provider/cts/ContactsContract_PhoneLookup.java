@@ -23,6 +23,7 @@ import android.net.Uri;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.CommonDataKinds.Email;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
+import android.provider.ContactsContract.CommonDataKinds.SipAddress;
 import android.provider.ContactsContract.CommonDataKinds.StructuredName;
 import android.provider.ContactsContract.Contacts;
 import android.provider.ContactsContract.PhoneLookup;
@@ -60,7 +61,17 @@ public class ContactsContract_PhoneLookup extends AndroidTestCase {
         mBuilder.cleanup();
     }
 
-    private long[] setupTestData() throws Exception {
+    static class Id {
+        public long contactId;
+        public long dataId;
+
+        public Id (long contactId, long dataId) {
+            this.contactId = contactId;
+            this.dataId = dataId;
+        }
+    }
+
+    private Id[] setupTestData() throws Exception {
         TestRawContact rawContact = mBuilder.newRawContact()
                 .with(RawContacts.ACCOUNT_TYPE, "test_account")
                 .with(RawContacts.ACCOUNT_NAME, "test_name")
@@ -68,7 +79,7 @@ public class ContactsContract_PhoneLookup extends AndroidTestCase {
         rawContact.newDataRow(StructuredName.CONTENT_ITEM_TYPE)
                 .with(StructuredName.DISPLAY_NAME, "Hot Tamale")
                 .insert();
-        rawContact.newDataRow(Phone.CONTENT_ITEM_TYPE)
+        long dataId = rawContact.newDataRow(Phone.CONTENT_ITEM_TYPE)
                 .with(Phone.DATA, "1111222333444")
                 .with(Email.TYPE, Phone.TYPE_HOME)
                 .insert().load().getId();
@@ -82,24 +93,41 @@ public class ContactsContract_PhoneLookup extends AndroidTestCase {
         rawContact2.newDataRow(StructuredName.CONTENT_ITEM_TYPE)
                 .with(StructuredName.DISPLAY_NAME, "Cold Tamago")
                 .insert();
-        rawContact2.newDataRow(Phone.CONTENT_ITEM_TYPE)
+       long dataId2 =  rawContact2.newDataRow(Phone.CONTENT_ITEM_TYPE)
                 .with(Phone.DATA, "2111222333444")
                 .with(Phone.TYPE, Phone.TYPE_OTHER)
-                .insert().load();
-
+                .insert().load().getId();
         rawContact2.load();
         TestContact contact2 = rawContact2.getContact().load();
 
-        return new long[] {
-                contact.getId(), contact2.getId()
+        // Contact with SIP address
+        TestRawContact rawContact3 = mBuilder.newRawContact()
+                .with(RawContacts.ACCOUNT_TYPE, "test_account")
+                .with(RawContacts.ACCOUNT_NAME, "test_name")
+                .insert();
+        rawContact3.newDataRow(StructuredName.CONTENT_ITEM_TYPE)
+                .with(StructuredName.DISPLAY_NAME, "Warm Tempura")
+                .insert();
+        long dataId3 = rawContact2.newDataRow(SipAddress.CONTENT_ITEM_TYPE)
+                .with(SipAddress.SIP_ADDRESS, "777@sip.org")
+                .with(SipAddress.TYPE, SipAddress.TYPE_WORK)
+                .insert().load().getId();
+        rawContact3.load();
+        TestContact contact3 = rawContact2.getContact().load();
+
+        return new Id[] {
+                new Id(contact.getId(), dataId),
+                new Id(contact2.getId(), dataId2),
+                new Id(contact3.getId(), dataId3)
         };
+
     }
 
     /**
      * Test for {@link android.provider.ContactsContract.PhoneLookup#CONTENT_FILTER_URI}.
      */
     public void testPhoneLookup_nomatch() throws Exception {
-        long[] ids = setupTestData();
+        Id[] ids = setupTestData();
         final Uri uri = PhoneLookup.CONTENT_FILTER_URI.buildUpon()
                 .appendPath("no-such-phone-number").build();
 
@@ -110,12 +138,14 @@ public class ContactsContract_PhoneLookup extends AndroidTestCase {
      * Test for {@link android.provider.ContactsContract.PhoneLookup#CONTENT_FILTER_URI}.
      */
     public void testPhoneLookup_found1() throws Exception {
-        long[] ids = setupTestData();
+        Id[] ids = setupTestData();
         final Uri uri = PhoneLookup.CONTENT_FILTER_URI.buildUpon()
                 .appendPath("1111222333444").build();
 
         final ContentValues expected = new ContentValues();
-        expected.put(PhoneLookup._ID, ids[0]);
+        expected.put(PhoneLookup._ID, ids[0].contactId);
+        expected.put(PhoneLookup.CONTACT_ID, ids[0].contactId);
+        expected.put(PhoneLookup.DATA_ID, ids[0].dataId);
         expected.put(PhoneLookup.NUMBER, "1111222333444");
 
         assertCursorStoredValuesWithContactsFilter(uri, ids, expected);
@@ -125,13 +155,30 @@ public class ContactsContract_PhoneLookup extends AndroidTestCase {
      * Test for {@link android.provider.ContactsContract.PhoneLookup#CONTENT_FILTER_URI}.
      */
     public void testPhoneLookup_found2() throws Exception {
-        long[] ids = setupTestData();
+        Id[] ids = setupTestData();
         final Uri uri = PhoneLookup.CONTENT_FILTER_URI.buildUpon()
                 .appendPath("2111222333444").build();
 
         final ContentValues expected = new ContentValues();
-        expected.put(PhoneLookup._ID, ids[1]);
+        expected.put(PhoneLookup._ID, ids[1].contactId);
+        expected.put(PhoneLookup.CONTACT_ID, ids[1].contactId);
+        expected.put(PhoneLookup.DATA_ID, ids[1].dataId);
         expected.put(PhoneLookup.NUMBER, "2111222333444");
+
+        assertCursorStoredValuesWithContactsFilter(uri, ids, expected);
+    }
+
+    public void testPhoneLookup_sip_found() throws Exception {
+        Id[] ids = setupTestData();
+        final Uri uri = PhoneLookup.CONTENT_FILTER_URI.buildUpon()
+                .appendPath("777@sip.org")
+                .appendQueryParameter(PhoneLookup.QUERY_PARAMETER_SIP_ADDRESS, "1")
+                .build();
+
+        final ContentValues expected = new ContentValues();
+        expected.put(PhoneLookup.CONTACT_ID, ids[2].contactId);
+        expected.put(PhoneLookup.DATA_ID, ids[2].dataId);
+        expected.put(SipAddress.SIP_ADDRESS, "777@sip.org");
 
         assertCursorStoredValuesWithContactsFilter(uri, ids, expected);
     }
@@ -140,7 +187,7 @@ public class ContactsContract_PhoneLookup extends AndroidTestCase {
      * Test for {@link android.provider.ContactsContract.PhoneLookup#ENTERPRISE_CONTENT_FILTER_URI}.
      */
     public void testPhoneLookupEnterprise_nomatch() throws Exception {
-        long[] ids = setupTestData();
+        Id[] ids = setupTestData();
         final Uri uri = PhoneLookup.ENTERPRISE_CONTENT_FILTER_URI.buildUpon()
                 .appendPath("no-such-phone-number").build();
 
@@ -151,12 +198,14 @@ public class ContactsContract_PhoneLookup extends AndroidTestCase {
      * Test for {@link android.provider.ContactsContract.PhoneLookup#ENTERPRISE_CONTENT_FILTER_URI}.
      */
     public void testPhoneLookupEnterprise_found1() throws Exception {
-        long[] ids = setupTestData();
+        Id[] ids = setupTestData();
         final Uri uri = PhoneLookup.ENTERPRISE_CONTENT_FILTER_URI.buildUpon()
                 .appendPath("1111222333444").build();
 
         final ContentValues expected = new ContentValues();
-        expected.put(PhoneLookup._ID, ids[0]);
+        expected.put(PhoneLookup._ID, ids[0].contactId);
+        expected.put(PhoneLookup.CONTACT_ID, ids[0].contactId);
+        expected.put(PhoneLookup.DATA_ID, ids[0].dataId);
         expected.put(PhoneLookup.NUMBER, "1111222333444");
 
         assertCursorStoredValuesWithContactsFilter(uri, ids, expected);
@@ -166,27 +215,45 @@ public class ContactsContract_PhoneLookup extends AndroidTestCase {
      * Test for {@link android.provider.ContactsContract.PhoneLookup#ENTERPRISE_CONTENT_FILTER_URI}.
      */
     public void testPhoneLookupEnterprise_found2() throws Exception {
-        long[] ids = setupTestData();
+        Id[] ids = setupTestData();
         final Uri uri = PhoneLookup.ENTERPRISE_CONTENT_FILTER_URI.buildUpon()
                 .appendPath("2111222333444").build();
 
         final ContentValues expected = new ContentValues();
-        expected.put(PhoneLookup._ID, ids[1]);
+        expected.put(PhoneLookup._ID, ids[1].contactId);
+        expected.put(PhoneLookup.CONTACT_ID, ids[1].contactId);
+        expected.put(PhoneLookup.DATA_ID, ids[1].dataId);
         expected.put(PhoneLookup.NUMBER, "2111222333444");
 
         assertCursorStoredValuesWithContactsFilter(uri, ids, expected);
     }
 
-    private void assertCursorStoredValuesWithContactsFilter(Uri uri, long[] contactsId,
+    public void testPhoneLookupEnterprise_sip_found() throws Exception {
+        Id[] ids = setupTestData();
+        final Uri uri = PhoneLookup.ENTERPRISE_CONTENT_FILTER_URI.buildUpon()
+                .appendPath("777@sip.org")
+                .appendQueryParameter(PhoneLookup.QUERY_PARAMETER_SIP_ADDRESS, "1")
+                .build();
+
+        final ContentValues expected = new ContentValues();
+        expected.put(PhoneLookup._ID, ids[2].dataId);
+        expected.put(PhoneLookup.CONTACT_ID, ids[2].contactId);
+        expected.put(PhoneLookup.DATA_ID, ids[2].dataId);
+        expected.put(SipAddress.SIP_ADDRESS, "777@sip.org");
+
+        assertCursorStoredValuesWithContactsFilter(uri, ids, expected);
+    }
+
+    private void assertCursorStoredValuesWithContactsFilter(Uri uri, Id[] ids,
             ContentValues... expected) {
         // We need this helper function to add a filter for specific contacts because
         // otherwise tests will fail if performed on a device with existing contacts data
         StringBuilder sb = new StringBuilder();
         sb.append(Contacts._ID + " in ");
         sb.append("(");
-        for (int i = 0; i < contactsId.length; i++) {
+        for (int i = 0; i < ids.length; i++) {
             if (i != 0) sb.append(",");
-            sb.append(contactsId[i]);
+            sb.append(ids[i].contactId);
         }
         sb.append(")");
         DatabaseAsserts.assertStoredValuesInUriMatchExactly(mResolver, uri, null,

@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2000-2013 Julian Seward 
+   Copyright (C) 2000-2015 Julian Seward 
       jseward@acm.org
 
    This program is free software; you can redistribute it and/or
@@ -838,22 +838,22 @@ struct vki_ifreq
 };
 
 #define vki_ifr_name	ifr_ifrn.ifrn_name	/* interface name 	*/
-#define ifr_hwaddr	ifr_ifru.ifru_hwaddr	/* MAC address 		*/
-#define	ifr_addr	ifr_ifru.ifru_addr	/* address		*/
-#define	ifr_dstaddr	ifr_ifru.ifru_dstaddr	/* other end of p-p lnk	*/
-#define	ifr_broadaddr	ifr_ifru.ifru_broadaddr	/* broadcast address	*/
-#define	ifr_netmask	ifr_ifru.ifru_netmask	/* interface net mask	*/
+#define vki_ifr_hwaddr	ifr_ifru.ifru_hwaddr	/* MAC address 		*/
+#define	vki_ifr_addr	ifr_ifru.ifru_addr	/* address		*/
+#define	vki_ifr_dstaddr	ifr_ifru.ifru_dstaddr	/* other end of p-p lnk	*/
+#define	vki_ifr_broadaddr ifr_ifru.ifru_broadaddr /* broadcast address	*/
+#define	vki_ifr_netmask	ifr_ifru.ifru_netmask	/* interface net mask	*/
 #define	vki_ifr_flags	ifr_ifru.ifru_flags	/* flags		*/
 #define	vki_ifr_metric	ifr_ifru.ifru_ivalue	/* metric		*/
-#define	vki_ifr_mtu		ifr_ifru.ifru_mtu	/* mtu			*/
-#define ifr_map		ifr_ifru.ifru_map	/* device map		*/
-#define ifr_slave	ifr_ifru.ifru_slave	/* slave device		*/
+#define	vki_ifr_mtu	ifr_ifru.ifru_mtu	/* mtu			*/
+#define vki_ifr_map	ifr_ifru.ifru_map	/* device map		*/
+#define vki_ifr_slave	ifr_ifru.ifru_slave	/* slave device		*/
 #define	vki_ifr_data	ifr_ifru.ifru_data	/* for use by interface	*/
 #define vki_ifr_ifindex	ifr_ifru.ifru_ivalue	/* interface index	*/
-#define ifr_bandwidth	ifr_ifru.ifru_ivalue    /* link bandwidth	*/
-#define ifr_qlen	ifr_ifru.ifru_ivalue	/* Queue length 	*/
-#define ifr_newname	ifr_ifru.ifru_newname	/* New name		*/
-#define ifr_settings	ifr_ifru.ifru_settings	/* Device/proto settings*/
+#define vki_ifr_bandwidth ifr_ifru.ifru_ivalue  /* link bandwidth	*/
+#define vki_ifr_qlen	ifr_ifru.ifru_ivalue	/* Queue length 	*/
+#define vki_ifr_newname	ifr_ifru.ifru_newname	/* New name		*/
+#define vki_ifr_settings ifr_ifru.ifru_settings	/* Device/proto settings*/
 
 struct vki_ifconf 
 {
@@ -3167,6 +3167,24 @@ struct vki_sockaddr_rc {
 #define VKI_KVM_NMI                   _VKI_IO(KVMIO,   0x9a)
 #define VKI_KVM_KVMCLOCK_CTRL         _VKI_IO(KVMIO,   0xad)
 
+struct vki_kvm_s390_mem_op {
+        /* in */
+        __vki_u64 gaddr;            /* the guest address */
+        __vki_u64 flags;            /* flags */
+        __vki_u32 size;             /* amount of bytes */
+        __vki_u32 op;               /* type of operation */
+        __vki_u64 buf;              /* buffer in userspace */
+        __vki_u8 ar;                /* the access register number */
+        __vki_u8 reserved[31];      /* should be set to 0 */
+};
+
+#define VKI_KVM_S390_MEMOP_LOGICAL_READ		0
+#define VKI_KVM_S390_MEMOP_LOGICAL_WRITE	1
+#define VKI_KVM_S390_MEMOP_F_CHECK_ONLY		(1ULL << 0)
+#define VKI_KVM_S390_MEMOP_F_INJECT_EXCEPTION	(1ULL << 1)
+
+#define VKI_KVM_S390_MEM_OP           _VKI_IOW(KVMIO,  0xb1, struct vki_kvm_s390_mem_op)
+
 //----------------------------------------------------------------------
 // From linux-2.6/include/linux/net_stamp.h
 //----------------------------------------------------------------------
@@ -3294,7 +3312,6 @@ struct vki_xen_privcmd_mmapbatch_v2 {
 	_VKI_IOC(_VKI_IOC_NONE, 'E', 0, sizeof(struct vki_xen_ioctl_evtchn_bind_virq))
 struct vki_xen_ioctl_evtchn_bind_virq {
 	vki_uint32_t virq;
-	vki_uint32_t port;
 };
 
 #define VKI_XEN_IOCTL_EVTCHN_BIND_INTERDOMAIN			\
@@ -3675,6 +3692,10 @@ struct vki_getparent {
 //----------------------------------------------------------------------
 // From Lustre's lustre/include/lustre/lustre_user.h
 //----------------------------------------------------------------------
+#define VKI_LL_IOC_GROUP_LOCK \
+           _VKI_IOW('f', 158, long)
+#define VKI_LL_IOC_GROUP_UNLOCK \
+           _VKI_IOW('f', 159, long)
 #define VKI_LL_IOC_GETPARENT \
            _VKI_IOWR('f', 249, struct vki_getparent)
 
@@ -4223,8 +4244,8 @@ struct vki_v4l2_sliced_vbi_data {
 
 struct vki_v4l2_plane_pix_format {
 	__vki_u32		sizeimage;
-	__vki_u16		bytesperline;
-	__vki_u16		reserved[7];
+	__vki_u32		bytesperline;
+	__vki_u16		reserved[6];
 } __attribute__ ((packed));
 
 #define VKI_VIDEO_MAX_PLANES               8
@@ -4492,7 +4513,8 @@ struct vki_v4l2_subdev_mbus_code_enum {
 	__vki_u32 pad;
 	__vki_u32 index;
 	__vki_u32 code;
-	__vki_u32 reserved[9];
+	__vki_u32 which;
+	__vki_u32 reserved[8];
 };
 
 struct vki_v4l2_subdev_frame_size_enum {
@@ -4503,7 +4525,8 @@ struct vki_v4l2_subdev_frame_size_enum {
 	__vki_u32 max_width;
 	__vki_u32 min_height;
 	__vki_u32 max_height;
-	__vki_u32 reserved[9];
+	__vki_u32 which;
+	__vki_u32 reserved[8];
 };
 
 struct vki_v4l2_subdev_frame_interval {
@@ -4519,7 +4542,8 @@ struct vki_v4l2_subdev_frame_interval_enum {
 	__vki_u32 width;
 	__vki_u32 height;
 	struct vki_v4l2_fract interval;
-	__vki_u32 reserved[9];
+	__vki_u32 which;
+	__vki_u32 reserved[8];
 };
 
 struct vki_v4l2_subdev_selection {
@@ -4615,6 +4639,9 @@ struct vki_media_links_enum {
 #define VKI_MEDIA_IOC_ENUM_LINKS		_VKI_IOWR('|', 0x02, struct vki_media_links_enum)
 #define VKI_MEDIA_IOC_SETUP_LINK		_VKI_IOWR('|', 0x03, struct vki_media_link_desc)
 
+/* DVB demux API */
+#define	VKI_DMX_STOP	_VKI_IO('o', 42)
+
 /* Comparison type */
 enum vki_kcmp_type {
    VKI_KCMP_FILE,
@@ -4638,6 +4665,31 @@ enum vki_kcmp_type {
 // From linux-3.19.3/include/uapi/linux/binfmts.h
 //----------------------------------------------------------------------
 #define VKI_BINPRM_BUF_SIZE 128
+
+//----------------------------------------------------------------------
+// From linux-3.19.0/include/linux/serial.h
+//----------------------------------------------------------------------
+
+struct vki_serial_struct {
+	int	type;
+	int	line;
+	unsigned int	port;
+	int	irq;
+	int	flags;
+	int	xmit_fifo_size;
+	int	custom_divisor;
+	int	baud_base;
+	unsigned short	close_delay;
+	char	io_type;
+	char	reserved_char[1];
+	int	hub6;
+	unsigned short	closing_wait; /* time to wait before closing */
+	unsigned short	closing_wait2; /* no longer used... */
+	unsigned char	*iomem_base;
+	unsigned short	iomem_reg_shift;
+	unsigned int	port_high;
+	unsigned long	iomap_base;	/* cookie passed into ioremap */
+};
 
 #endif // __VKI_LINUX_H
 

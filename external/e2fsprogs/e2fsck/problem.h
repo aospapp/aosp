@@ -625,6 +625,9 @@ struct problem_context {
 /* Couldn't clone file (error) */
 #define PR_1D_CLONE_ERROR	0x013008
 
+/* Error allocating memory for encrypted directory list */
+#define PR_1_ALLOCATE_ENCRYPTED_DIRLIST		0x01007E
+
 /*
  * Pass 2 errors
  */
@@ -829,6 +832,9 @@ struct problem_context {
 
 /* i_file_acl_hi should be zero */
 #define PR_2_I_FILE_ACL_HI_ZERO		0x020048
+
+/* Encrypted directory entry is too short */
+#define PR_2_BAD_ENCRYPTED_NAME		0x020050
 
 /*
  * Pass 3 errors

@@ -16,8 +16,11 @@
 
 package android.os;
 
+import android.annotation.IntegerRes;
+import android.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.ArrayMap;
+import android.util.ArraySet;
 import android.util.Log;
 import android.util.Size;
 import android.util.SizeF;
@@ -42,6 +45,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import dalvik.system.VMRuntime;
+
 /**
  * Container for a message (data and object references) that can
  * be sent through an IBinder.  A Parcel can contain both flattened data
@@ -58,12 +63,12 @@ import java.util.Set;
  * appropriate to place any Parcel data in to persistent storage: changes
  * in the underlying implementation of any of the data in the Parcel can
  * render older data unreadable.</p>
- * 
+ *
  * <p>The bulk of the Parcel API revolves around reading and writing data
  * of various types.  There are six major classes of such functions available.</p>
- * 
+ *
  * <h3>Primitives</h3>
- * 
+ *
  * <p>The most basic data functions are for writing and reading primitive
  * data types: {@link #writeByte}, {@link #readByte}, {@link #writeDouble},
  * {@link #readDouble}, {@link #writeFloat}, {@link #readFloat}, {@link #writeInt},
@@ -71,15 +76,15 @@ import java.util.Set;
  * {@link #writeString}, {@link #readString}.  Most other
  * data operations are built on top of these.  The given data is written and
  * read using the endianess of the host CPU.</p>
- * 
+ *
  * <h3>Primitive Arrays</h3>
- * 
+ *
  * <p>There are a variety of methods for reading and writing raw arrays
  * of primitive objects, which generally result in writing a 4-byte length
  * followed by the primitive data items.  The methods for reading can either
  * read the data into an existing array, or create and return a new array.
  * These available types are:</p>
- * 
+ *
  * <ul>
  * <li> {@link #writeBooleanArray(boolean[])},
  * {@link #readBooleanArray(boolean[])}, {@link #createBooleanArray()}
@@ -101,9 +106,9 @@ import java.util.Set;
  * <li> {@link #writeSparseBooleanArray(SparseBooleanArray)},
  * {@link #readSparseBooleanArray()}.
  * </ul>
- * 
+ *
  * <h3>Parcelables</h3>
- * 
+ *
  * <p>The {@link Parcelable} protocol provides an extremely efficient (but
  * low-level) protocol for objects to write and read themselves from Parcels.
  * You can use the direct methods {@link #writeParcelable(Parcelable, int)}
@@ -113,7 +118,7 @@ import java.util.Set;
  * methods write both the class type and its data to the Parcel, allowing
  * that class to be reconstructed from the appropriate class loader when
  * later reading.</p>
- * 
+ *
  * <p>There are also some methods that provide a more efficient way to work
  * with Parcelables: {@link #writeTypedObject}, {@link #writeTypedArray},
  * {@link #writeTypedList}, {@link #readTypedObject},
@@ -126,9 +131,9 @@ import java.util.Set;
  * call {@link Parcelable#writeToParcel Parcelable.writeToParcel} and
  * {@link Parcelable.Creator#createFromParcel Parcelable.Creator.createFromParcel}
  * yourself.)</p>
- * 
+ *
  * <h3>Bundles</h3>
- * 
+ *
  * <p>A special type-safe container, called {@link Bundle}, is available
  * for key/value maps of heterogeneous values.  This has many optimizations
  * for improved performance when reading and writing data, and its type-safe
@@ -136,16 +141,16 @@ import java.util.Set;
  * data contents into a Parcel.  The methods to use are
  * {@link #writeBundle(Bundle)}, {@link #readBundle()}, and
  * {@link #readBundle(ClassLoader)}.
- * 
+ *
  * <h3>Active Objects</h3>
- * 
+ *
  * <p>An unusual feature of Parcel is the ability to read and write active
  * objects.  For these objects the actual contents of the object is not
  * written, rather a special token referencing the object is written.  When
  * reading the object back from the Parcel, you do not get a new instance of
  * the object, but rather a handle that operates on the exact same object that
  * was originally written.  There are two forms of active objects available.</p>
- * 
+ *
  * <p>{@link Binder} objects are a core facility of Android's general cross-process
  * communication system.  The {@link IBinder} interface describes an abstract
  * protocol with a Binder object.  Any such interface can be written in to
@@ -158,7 +163,7 @@ import java.util.Set;
  * {@link #createBinderArray()},
  * {@link #writeBinderList(List)}, {@link #readBinderList(List)},
  * {@link #createBinderArrayList()}.</p>
- * 
+ *
  * <p>FileDescriptor objects, representing raw Linux file descriptor identifiers,
  * can be written and {@link ParcelFileDescriptor} objects returned to operate
  * on the original file descriptor.  The returned file descriptor is a dup
@@ -166,9 +171,9 @@ import java.util.Set;
  * operating on the same underlying file stream, with the same position, etc.
  * The methods to use are {@link #writeFileDescriptor(FileDescriptor)},
  * {@link #readFileDescriptor()}.
- * 
+ *
  * <h3>Untyped Containers</h3>
- * 
+ *
  * <p>A final class of methods are for writing and reading standard Java
  * containers of arbitrary types.  These all revolve around the
  * {@link #writeValue(Object)} and {@link #readValue(ClassLoader)} methods
@@ -193,6 +198,7 @@ public final class Parcel {
      * indicating that we're responsible for its lifecycle.
      */
     private boolean mOwnsNativeParcelObject;
+    private long mNativeSize;
 
     private RuntimeException mStack;
 
@@ -200,6 +206,7 @@ public final class Parcel {
     private static final Parcel[] sOwnedPool = new Parcel[POOL_SIZE];
     private static final Parcel[] sHolderPool = new Parcel[POOL_SIZE];
 
+    // Keep in sync with frameworks/native/libs/binder/PersistableBundle.cpp.
     private static final int VAL_NULL = -1;
     private static final int VAL_STRING = 0;
     private static final int VAL_INTEGER = 1;
@@ -229,8 +236,10 @@ public final class Parcel {
     private static final int VAL_PERSISTABLEBUNDLE = 25;
     private static final int VAL_SIZE = 26;
     private static final int VAL_SIZEF = 27;
+    private static final int VAL_DOUBLEARRAY = 28;
 
     // The initial int32 in a Binder call's reply Parcel header:
+    // Keep these in sync with libbinder's binder/Status.h.
     private static final int EX_SECURITY = -1;
     private static final int EX_BAD_PARCELABLE = -2;
     private static final int EX_ILLEGAL_ARGUMENT = -3;
@@ -238,13 +247,17 @@ public final class Parcel {
     private static final int EX_ILLEGAL_STATE = -5;
     private static final int EX_NETWORK_MAIN_THREAD = -6;
     private static final int EX_UNSUPPORTED_OPERATION = -7;
+    private static final int EX_SERVICE_SPECIFIC = -8;
     private static final int EX_HAS_REPLY_HEADER = -128;  // special; see below
+    // EX_TRANSACTION_FAILED is used exclusively in native code.
+    // see libbinder's binder/Status.h
+    private static final int EX_TRANSACTION_FAILED = -129;
 
     private static native int nativeDataSize(long nativePtr);
     private static native int nativeDataAvail(long nativePtr);
     private static native int nativeDataPosition(long nativePtr);
     private static native int nativeDataCapacity(long nativePtr);
-    private static native void nativeSetDataSize(long nativePtr, int size);
+    private static native long nativeSetDataSize(long nativePtr, int size);
     private static native void nativeSetDataPosition(long nativePtr, int pos);
     private static native void nativeSetDataCapacity(long nativePtr, int size);
 
@@ -259,7 +272,7 @@ public final class Parcel {
     private static native void nativeWriteDouble(long nativePtr, double val);
     private static native void nativeWriteString(long nativePtr, String val);
     private static native void nativeWriteStrongBinder(long nativePtr, IBinder val);
-    private static native void nativeWriteFileDescriptor(long nativePtr, FileDescriptor val);
+    private static native long nativeWriteFileDescriptor(long nativePtr, FileDescriptor val);
 
     private static native byte[] nativeCreateByteArray(long nativePtr);
     private static native byte[] nativeReadBlob(long nativePtr);
@@ -272,13 +285,13 @@ public final class Parcel {
     private static native FileDescriptor nativeReadFileDescriptor(long nativePtr);
 
     private static native long nativeCreate();
-    private static native void nativeFreeBuffer(long nativePtr);
+    private static native long nativeFreeBuffer(long nativePtr);
     private static native void nativeDestroy(long nativePtr);
 
     private static native byte[] nativeMarshall(long nativePtr);
-    private static native void nativeUnmarshall(
+    private static native long nativeUnmarshall(
             long nativePtr, byte[] data, int offset, int length);
-    private static native void nativeAppendFrom(
+    private static native long nativeAppendFrom(
             long thisNativePtr, long otherNativePtr, int offset, int length);
     private static native boolean nativeHasFileDescriptors(long nativePtr);
     private static native void nativeWriteInterfaceToken(long nativePtr, String interfaceName);
@@ -390,7 +403,7 @@ public final class Parcel {
      * @param size The new number of bytes in the Parcel.
      */
     public final void setDataSize(int size) {
-        nativeSetDataSize(mNativePtr, size);
+        updateNativeSize(nativeSetDataSize(mNativePtr, size));
     }
 
     /**
@@ -442,11 +455,11 @@ public final class Parcel {
      * Set the bytes in data to be the raw bytes of this Parcel.
      */
     public final void unmarshall(byte[] data, int offset, int length) {
-        nativeUnmarshall(mNativePtr, data, offset, length);
+        updateNativeSize(nativeUnmarshall(mNativePtr, data, offset, length));
     }
 
     public final void appendFrom(Parcel parcel, int offset, int length) {
-        nativeAppendFrom(mNativePtr, parcel.mNativePtr, offset, length);
+        updateNativeSize(nativeAppendFrom(mNativePtr, parcel.mNativePtr, offset, length));
     }
 
     /**
@@ -599,7 +612,50 @@ public final class Parcel {
      * if {@link Parcelable#PARCELABLE_WRITE_RETURN_VALUE} is set.</p>
      */
     public final void writeFileDescriptor(FileDescriptor val) {
+        updateNativeSize(nativeWriteFileDescriptor(mNativePtr, val));
+    }
+
+    private void updateNativeSize(long newNativeSize) {
+        if (mOwnsNativeParcelObject) {
+            if (newNativeSize > Integer.MAX_VALUE) {
+                newNativeSize = Integer.MAX_VALUE;
+            }
+            if (newNativeSize != mNativeSize) {
+                int delta = (int) (newNativeSize - mNativeSize);
+                if (delta > 0) {
+                    VMRuntime.getRuntime().registerNativeAllocation(delta);
+                } else {
+                    VMRuntime.getRuntime().registerNativeFree(-delta);
+                }
+                mNativeSize = newNativeSize;
+            }
+        }
+    }
+
+    /**
+     * {@hide}
+     * This will be the new name for writeFileDescriptor, for consistency.
+     **/
+    public final void writeRawFileDescriptor(FileDescriptor val) {
         nativeWriteFileDescriptor(mNativePtr, val);
+    }
+
+    /**
+     * {@hide}
+     * Write an array of FileDescriptor objects into the Parcel.
+     *
+     * @param value The array of objects to be written.
+     */
+    public final void writeRawFileDescriptorArray(FileDescriptor[] value) {
+        if (value != null) {
+            int N = value.length;
+            writeInt(N);
+            for (int i=0; i<N; i++) {
+                writeRawFileDescriptor(value[i]);
+            }
+        } else {
+            writeInt(-1);
+        }
     }
 
     /**
@@ -616,7 +672,7 @@ public final class Parcel {
      * growing dataCapacity() if needed.  The Map keys must be String objects.
      * The Map values are written using {@link #writeValue} and must follow
      * the specification there.
-     * 
+     *
      * <p>It is strongly recommended to use {@link #writeBundle} instead of
      * this method, since the Bundle class provides a type-safe API that
      * allows you to avoid mysterious type errors at the point of marshalling.
@@ -651,6 +707,8 @@ public final class Parcel {
             writeInt(-1);
             return;
         }
+        // Keep the format of this Parcel in sync with writeToParcelInner() in
+        // frameworks/native/libs/binder/PersistableBundle.cpp.
         final int N = val.size();
         writeInt(N);
         if (DEBUG_ARRAY_MAP) {
@@ -675,6 +733,21 @@ public final class Parcel {
      */
     public void writeArrayMap(ArrayMap<String, Object> val) {
         writeArrayMapInternal(val);
+    }
+
+    /**
+     * Write an array set to the parcel.
+     *
+     * @param val The array set to write.
+     *
+     * @hide
+     */
+    public void writeArraySet(@Nullable ArraySet<? extends Object> val) {
+        final int size = (val != null) ? val.size() : -1;
+        writeInt(size);
+        for (int i = 0; i < size; i++) {
+            writeValue(val.valueAt(i));
+        }
     }
 
     /**
@@ -1317,7 +1390,13 @@ public final class Parcel {
             // Must be before Parcelable
             writeInt(VAL_BUNDLE);
             writeBundle((Bundle) v);
+        } else if (v instanceof PersistableBundle) {
+            writeInt(VAL_PERSISTABLEBUNDLE);
+            writePersistableBundle((PersistableBundle) v);
         } else if (v instanceof Parcelable) {
+            // IMPOTANT: cases for classes that implement Parcelable must
+            // come before the Parcelable case, so that their specific VAL_*
+            // types will be written.
             writeInt(VAL_PARCELABLE);
             writeParcelable((Parcelable) v, 0);
         } else if (v instanceof Short) {
@@ -1373,15 +1452,15 @@ public final class Parcel {
         } else if (v instanceof Byte) {
             writeInt(VAL_BYTE);
             writeInt((Byte) v);
-        } else if (v instanceof PersistableBundle) {
-            writeInt(VAL_PERSISTABLEBUNDLE);
-            writePersistableBundle((PersistableBundle) v);
         } else if (v instanceof Size) {
             writeInt(VAL_SIZE);
             writeSize((Size) v);
         } else if (v instanceof SizeF) {
             writeInt(VAL_SIZEF);
             writeSizeF((SizeF) v);
+        } else if (v instanceof double[]) {
+            writeInt(VAL_DOUBLEARRAY);
+            writeDoubleArray((double[]) v);
         } else {
             Class<?> clazz = v.getClass();
             if (clazz.isArray() && clazz.getComponentType() == Object.class) {
@@ -1457,7 +1536,7 @@ public final class Parcel {
      * exception will be re-thrown by this function as a RuntimeException
      * (to be caught by the system's last-resort exception handling when
      * dispatching a transaction).
-     * 
+     *
      * <p>The supported exception types are:
      * <ul>
      * <li>{@link BadParcelableException}
@@ -1467,7 +1546,7 @@ public final class Parcel {
      * <li>{@link SecurityException}
      * <li>{@link NetworkOnMainThreadException}
      * </ul>
-     * 
+     *
      * @param e The Exception to be written.
      *
      * @see #writeNoException
@@ -1489,6 +1568,8 @@ public final class Parcel {
             code = EX_NETWORK_MAIN_THREAD;
         } else if (e instanceof UnsupportedOperationException) {
             code = EX_UNSUPPORTED_OPERATION;
+        } else if (e instanceof ServiceSpecificException) {
+            code = EX_SERVICE_SPECIFIC;
         }
         writeInt(code);
         StrictMode.clearGatheredViolations();
@@ -1499,6 +1580,9 @@ public final class Parcel {
             throw new RuntimeException(e);
         }
         writeString(e.getMessage());
+        if (e instanceof ServiceSpecificException) {
+            writeInt(((ServiceSpecificException)e).errorCode);
+        }
     }
 
     /**
@@ -1609,6 +1693,8 @@ public final class Parcel {
                 throw new NetworkOnMainThreadException();
             case EX_UNSUPPORTED_OPERATION:
                 throw new UnsupportedOperationException(msg);
+            case EX_SERVICE_SPECIFIC:
+                throw new ServiceSpecificException(readInt(), msg);
         }
         throw new RuntimeException("Unknown exception code: " + code
                 + " msg " + msg);
@@ -1678,6 +1764,41 @@ public final class Parcel {
     public final FileDescriptor readRawFileDescriptor() {
         return nativeReadFileDescriptor(mNativePtr);
     }
+
+    /**
+     * {@hide}
+     * Read and return a new array of FileDescriptors from the parcel.
+     * @return the FileDescriptor array, or null if the array is null.
+     **/
+    public final FileDescriptor[] createRawFileDescriptorArray() {
+        int N = readInt();
+        if (N < 0) {
+            return null;
+        }
+        FileDescriptor[] f = new FileDescriptor[N];
+        for (int i = 0; i < N; i++) {
+            f[i] = readRawFileDescriptor();
+        }
+        return f;
+    }
+
+    /**
+     * {@hide}
+     * Read an array of FileDescriptors from a parcel.
+     * The passed array must be exactly the length of the array in the parcel.
+     * @return the FileDescriptor array, or null if the array is null.
+     **/
+    public final void readRawFileDescriptorArray(FileDescriptor[] val) {
+        int N = readInt();
+        if (N == val.length) {
+            for (int i=0; i<N; i++) {
+                val[i] = readRawFileDescriptor();
+            }
+        } else {
+            throw new RuntimeException("bad array lengths");
+        }
+    }
+
 
     /*package*/ static native FileDescriptor openFileDescriptor(String file,
             int mode) throws FileNotFoundException;
@@ -1753,7 +1874,7 @@ public final class Parcel {
             if (Bundle.DEBUG) Log.d(TAG, "null bundle: length=" + length);
             return null;
         }
-        
+
         final Bundle bundle = new Bundle(this, length);
         if (loader != null) {
             bundle.setClassLoader(loader);
@@ -2264,7 +2385,7 @@ public final class Parcel {
             return readArrayList(loader);
 
         case VAL_BOOLEANARRAY:
-            return createBooleanArray();        
+            return createBooleanArray();
 
         case VAL_BYTEARRAY:
             return createByteArray();
@@ -2313,6 +2434,9 @@ public final class Parcel {
 
         case VAL_SIZEF:
             return readSizeF();
+
+        case VAL_DOUBLEARRAY:
+            return createDoubleArray();
 
         default:
             int off = dataPosition() - 4;
@@ -2545,7 +2669,7 @@ public final class Parcel {
 
     private void freeBuffer() {
         if (mOwnsNativeParcelObject) {
-            nativeFreeBuffer(mNativePtr);
+            updateNativeSize(nativeFreeBuffer(mNativePtr));
         }
     }
 
@@ -2553,6 +2677,7 @@ public final class Parcel {
         if (mNativePtr != 0) {
             if (mOwnsNativeParcelObject) {
                 nativeDestroy(mNativePtr);
+                updateNativeSize(0);
             }
             mNativePtr = 0;
         }
@@ -2625,6 +2750,26 @@ public final class Parcel {
             return;
         }
         readArrayMapInternal(outVal, N, loader);
+    }
+
+    /**
+     * Reads an array set.
+     *
+     * @param loader The class loader to use.
+     *
+     * @hide
+     */
+    public @Nullable ArraySet<? extends Object> readArraySet(ClassLoader loader) {
+        final int size = readInt();
+        if (size < 0) {
+            return null;
+        }
+        ArraySet<Object> result = new ArraySet<>(size);
+        for (int i = 0; i < size; i++) {
+            Object value = readValue(loader);
+            result.append(value);
+        }
+        return result;
     }
 
     private void readListInternal(List outVal, int N,

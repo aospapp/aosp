@@ -94,9 +94,9 @@ page.title=Request creation and submission
   given device. The framework will use this to dump all state as quickly as 
   possible in order to prepare for a configure_streams() call.<br/>
   No buffers are required to be successfully returned, so every buffer held at the 
-  time of flush() (whether sucessfully filled or not) may be returned with 
+  time of flush() (whether successfully filled or not) may be returned with
   CAMERA3_BUFFER_STATUS_ERROR. Note the HAL is still allowed to return valid 
-  (STATUS_OK) buffers during this call, provided they are succesfully filled.<br/>
+  (STATUS_OK) buffers during this call, provided they are successfully filled.<br/>
   All requests currently in the HAL are expected to be returned as soon as 
   possible. Not-in-process requests should return errors immediately. Any 
   interruptible hardware blocks should be stopped, and any uninterruptible blocks 

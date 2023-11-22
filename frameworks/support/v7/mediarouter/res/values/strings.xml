@@ -23,29 +23,44 @@
 
     <!-- Content description of a MediaRouteButton for accessibility support.
         Cast is the standard android verb for sending content to a remote device. [CHAR LIMIT=50] -->
-    <string name="mr_media_route_button_content_description">Cast</string>
+    <string name="mr_button_content_description">Cast button</string>
 
     <!-- Title of the media route chooser dialog. [CHAR LIMIT=30] -->
-    <string name="mr_media_route_chooser_title">Connect to device</string>
+    <string name="mr_chooser_title">Cast to</string>
 
     <!-- Placeholder text to show when no devices have been found. [CHAR LIMIT=50] -->
-    <string name="mr_media_route_chooser_searching">Searching for devices\u2026</string>
+    <string name="mr_chooser_searching">Finding devices</string>
 
     <!-- Button to disconnect from a media route.  [CHAR LIMIT=30] -->
-    <string name="mr_media_route_controller_disconnect">Disconnect</string>
+    <string name="mr_controller_disconnect">Disconnect</string>
 
-    <!-- Button to stop playback and disconnect from a media route.  [CHAR LIMIT=30] -->
-    <string name="mr_media_route_controller_stop">Stop casting</string>
+    <!-- Button to stop playback and disconnect from a media route. [CHAR LIMIT=30] -->
+    <string name="mr_controller_stop">Stop casting</string>
 
-    <!-- Description for a button that takes you to settings for the active route -->
-    <string name="mr_media_route_controller_settings_description">Route settings</string>
+    <!-- Content description for accessibility (not shown on the screen): dialog close button. [CHAR LIMIT=NONE] -->
+    <string name="mr_controller_close_description">Close</string>
 
-    <!-- Accessibility description for the play button -->
-    <string name="mr_media_route_controller_play">Play</string>
+    <!-- Content description for accessibility (not shown on the screen): media play button. [CHAR LIMIT=NONE] -->
+    <string name="mr_controller_play">Play</string>
 
-    <!-- Accessibility description for the pause button -->
-    <string name="mr_media_route_controller_pause">Pause</string>
+    <!-- Content description for accessibility (not shown on the screen): media pause button. [CHAR LIMIT=NONE] -->
+    <string name="mr_controller_pause">Pause</string>
+
+    <!-- Content description for accessibility (not shown on the screen): group expand button. Pressing button shows group members of a selected route group. [CHAR LIMIT=NONE] -->
+    <string name="mr_controller_expand_group">Expand</string>
+
+    <!-- Content description for accessibility (not shown on the screen): group collapse button. Pressing button hides group members of a selected route group. [CHAR LIMIT=NONE] -->
+    <string name="mr_controller_collapse_group">Collapse</string>
+
+    <!-- Content description for accessibility (not shown on the screen): album art button. Clicking on the album art takes user to a predefined activity per media app. [CHAR LIMIT=50] -->
+    <string name="mr_controller_album_art">Album art</string>
+
+    <!-- Placeholder text to show when no media have been selected for playback. [CHAR LIMIT=50] -->
+    <string name="mr_controller_no_media_selected">No media selected</string>
 
     <!-- Placeholder text to show when no title/description have been found for a given song/video. [CHAR LIMIT=50] -->
-    <string name="mr_media_route_controller_no_info_available">No info available</string>
+    <string name="mr_controller_no_info_available">No info available</string>
+
+    <!-- Placeholder text indicating that the user is currently casting screen. [CHAR LIMIT=50] -->
+    <string name="mr_controller_casting_screen">Casting screen</string>
 </resources>

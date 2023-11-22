@@ -30,10 +30,6 @@ struct lookahead_entry {
   int64_t             ts_start;
   int64_t             ts_end;
   unsigned int        flags;
-
-#if CONFIG_SPATIAL_SVC
-  vpx_svc_parameters_t svc_params[VPX_SS_MAX_LAYERS];
-#endif
 };
 
 // The max of past frames we want to keep in the queue.
@@ -56,6 +52,9 @@ struct lookahead_ctx *vp9_lookahead_init(unsigned int width,
                                          unsigned int height,
                                          unsigned int subsampling_x,
                                          unsigned int subsampling_y,
+#if CONFIG_VP9_HIGHBITDEPTH
+                                         int use_highbitdepth,
+#endif
                                          unsigned int depth);
 
 
@@ -80,7 +79,11 @@ void vp9_lookahead_destroy(struct lookahead_ctx *ctx);
  * \param[in] active_map  Map that specifies which macroblock is active
  */
 int vp9_lookahead_push(struct lookahead_ctx *ctx, YV12_BUFFER_CONFIG *src,
-                       int64_t ts_start, int64_t ts_end, unsigned int flags);
+                       int64_t ts_start, int64_t ts_end,
+#if CONFIG_VP9_HIGHBITDEPTH
+                       int use_highbitdepth,
+#endif
+                       unsigned int flags);
 
 
 /**\brief Get the next source buffer to encode

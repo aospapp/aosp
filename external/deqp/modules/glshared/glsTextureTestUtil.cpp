@@ -213,7 +213,7 @@ SurfaceAccess::SurfaceAccess (const SurfaceAccess& parent, int x, int y, int wid
 
 // 1D lookup LOD computation.
 
-inline float computeLodFromDerivates (LodMode mode, float dudx, float dudy)
+float computeLodFromDerivates (LodMode mode, float dudx, float dudy)
 {
 	float p = 0.0f;
 	switch (mode)
@@ -244,7 +244,7 @@ static float computeNonProjectedTriLod (LodMode mode, const tcu::IVec2& dstSize,
 
 // 2D lookup LOD computation.
 
-inline float computeLodFromDerivates (LodMode mode, float dudx, float dvdx, float dudy, float dvdy)
+float computeLodFromDerivates (LodMode mode, float dudx, float dvdx, float dudy, float dvdy)
 {
 	float p = 0.0f;
 	switch (mode)
@@ -284,7 +284,7 @@ static float computeNonProjectedTriLod (LodMode mode, const tcu::IVec2& dstSize,
 
 // 3D lookup LOD computation.
 
-inline float computeLodFromDerivates (LodMode mode, float dudx, float dvdx, float dwdx, float dudy, float dvdy, float dwdy)
+float computeLodFromDerivates (LodMode mode, float dudx, float dvdx, float dwdx, float dudy, float dvdy, float dwdy)
 {
 	float p = 0.0f;
 	switch (mode)
@@ -718,8 +718,8 @@ static void sampleTextureNonProjected (const SurfaceAccess& dst, const tcu::Text
 	tcu::Vec3									triS[2]				= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
 	tcu::Vec3									triT[2]				= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
 	tcu::Vec3									triR[2]				= { rq.swizzle(0, 1, 2), rq.swizzle(3, 2, 1) };
-	float										triLod[2]			= { computeNonProjectedTriLod(params.lodMode, dstSize, srcSize, triS[0], triT[0]) + lodBias,
-																		computeNonProjectedTriLod(params.lodMode, dstSize, srcSize, triS[1], triT[1]) + lodBias};
+	float										triLod[2]			= { de::clamp(computeNonProjectedTriLod(params.lodMode, dstSize, srcSize, triS[0], triT[0]) + lodBias, params.minLod, params.maxLod),
+																		de::clamp(computeNonProjectedTriLod(params.lodMode, dstSize, srcSize, triS[1], triT[1]) + lodBias, params.minLod, params.maxLod) };
 
 	for (int y = 0; y < dst.getHeight(); y++)
 	{
@@ -982,13 +982,6 @@ void fetchTexture (const SurfaceAccess& dst, const tcu::ConstPixelBufferAccess& 
 	}
 }
 
-void clear (const SurfaceAccess& dst, const tcu::Vec4& color)
-{
-	for (int y = 0; y < dst.getHeight(); y++)
-		for (int x = 0; x < dst.getWidth(); x++)
-			dst.setPixel(color, x, y);
-}
-
 bool compareImages (TestLog& log, const tcu::Surface& reference, const tcu::Surface& rendered, tcu::RGBA threshold)
 {
 	return tcu::pixelThresholdCompare(log, "Result", "Image comparison result", reference, rendered, threshold, tcu::COMPARE_LOG_RESULT);
@@ -1130,15 +1123,17 @@ glu::ShaderProgram* ProgramLibrary::getProgram (Program program)
 		params["FRAG_IN"]		= "varying";
 		params["FRAG_COLOR"]	= "gl_FragColor";
 	}
-	else if (m_glslVersion == glu::GLSL_VERSION_300_ES || m_glslVersion == glu::GLSL_VERSION_310_ES || m_glslVersion == glu::GLSL_VERSION_330)
+	else if (m_glslVersion == glu::GLSL_VERSION_300_ES || m_glslVersion == glu::GLSL_VERSION_310_ES || m_glslVersion == glu::GLSL_VERSION_320_ES || m_glslVersion == glu::GLSL_VERSION_330)
 	{
 		const string	version	= glu::getGLSLVersionDeclaration(m_glslVersion);
 		const char*		ext		= DE_NULL;
 
-		if (isCubeArray && glu::glslVersionIsES(m_glslVersion))
-			ext = "GL_EXT_texture_cube_map_array";
-		else if (isBuffer && glu::glslVersionIsES(m_glslVersion))
-			ext = "GL_EXT_texture_buffer";
+		if (glu::glslVersionIsES(m_glslVersion) && m_glslVersion != glu::GLSL_VERSION_320_ES) {
+			if (isCubeArray)
+				ext = "GL_EXT_texture_cube_map_array";
+			else if (isBuffer)
+				ext = "GL_EXT_texture_buffer";
+		}
 
 		params["FRAG_HEADER"]	= version + (ext ? string("\n#extension ") + ext + " : require" : string()) + "\nlayout(location = 0) out mediump vec4 dEQP_FragColor;\n";
 		params["VTX_HEADER"]	= version + "\n";
@@ -1148,7 +1143,7 @@ glu::ShaderProgram* ProgramLibrary::getProgram (Program program)
 		params["FRAG_COLOR"]	= "dEQP_FragColor";
 	}
 	else
-		DE_ASSERT(!"Unsupported version");
+		DE_FATAL("Unsupported version");
 
 	params["PRECISION"]		= glu::getPrecisionName(m_texCoordPrecision);
 
@@ -1166,7 +1161,7 @@ glu::ShaderProgram* ProgramLibrary::getProgram (Program program)
 	const char*	sampler	= DE_NULL;
 	const char*	lookup	= DE_NULL;
 
-	if (m_glslVersion == glu::GLSL_VERSION_300_ES || m_glslVersion == glu::GLSL_VERSION_310_ES || m_glslVersion == glu::GLSL_VERSION_330)
+	if (m_glslVersion == glu::GLSL_VERSION_300_ES || m_glslVersion == glu::GLSL_VERSION_310_ES || m_glslVersion == glu::GLSL_VERSION_320_ES || m_glslVersion == glu::GLSL_VERSION_330)
 	{
 		switch (program)
 		{
@@ -1234,7 +1229,7 @@ glu::ShaderProgram* ProgramLibrary::getProgram (Program program)
 		}
 	}
 	else
-		DE_ASSERT(!"Unsupported version");
+		DE_FATAL("Unsupported version");
 
 	params["SAMPLER_TYPE"]	= sampler;
 	params["LOOKUP"]		= lookup;
@@ -1732,7 +1727,7 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 		tcu::Vec2( 0, +1),
 	};
 
-	tcu::clear(errorMask, tcu::RGBA::green.toVec());
+	tcu::clear(errorMask, tcu::RGBA::green().toVec());
 
 	for (int py = 0; py < result.getHeight(); py++)
 	{
@@ -1786,7 +1781,7 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 
 				if (!isOk)
 				{
-					errorMask.setPixel(tcu::RGBA::red.toVec(), px, py);
+					errorMask.setPixel(tcu::RGBA::red().toVec(), px, py);
 					numFailed += 1;
 				}
 			}
@@ -1837,7 +1832,7 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 		tcu::Vec2( 0, +1),
 	};
 
-	tcu::clear(errorMask, tcu::RGBA::green.toVec());
+	tcu::clear(errorMask, tcu::RGBA::green().toVec());
 
 	for (int py = 0; py < result.getHeight(); py++)
 	{
@@ -1896,7 +1891,7 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 
 				if (!isOk)
 				{
-					errorMask.setPixel(tcu::RGBA::red.toVec(), px, py);
+					errorMask.setPixel(tcu::RGBA::red().toVec(), px, py);
 					numFailed += 1;
 				}
 			}
@@ -2030,7 +2025,7 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 		tcu::Vec2(+1, +1),
 	};
 
-	tcu::clear(errorMask, tcu::RGBA::green.toVec());
+	tcu::clear(errorMask, tcu::RGBA::green().toVec());
 
 	for (int py = 0; py < result.getHeight(); py++)
 	{
@@ -2112,7 +2107,7 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 
 				if (!isOk)
 				{
-					errorMask.setPixel(tcu::RGBA::red.toVec(), px, py);
+					errorMask.setPixel(tcu::RGBA::red().toVec(), px, py);
 					numFailed += 1;
 				}
 			}
@@ -2204,7 +2199,7 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 		tcu::Vec2( 0, +1),
 	};
 
-	tcu::clear(errorMask, tcu::RGBA::green.toVec());
+	tcu::clear(errorMask, tcu::RGBA::green().toVec());
 
 	for (int py = 0; py < result.getHeight(); py++)
 	{
@@ -2283,7 +2278,7 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 
 				if (!isOk)
 				{
-					errorMask.setPixel(tcu::RGBA::red.toVec(), px, py);
+					errorMask.setPixel(tcu::RGBA::red().toVec(), px, py);
 					numFailed += 1;
 				}
 			}
@@ -2371,7 +2366,7 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 		tcu::Vec2( 0, +1),
 	};
 
-	tcu::clear(errorMask, tcu::RGBA::green.toVec());
+	tcu::clear(errorMask, tcu::RGBA::green().toVec());
 
 	for (int py = 0; py < result.getHeight(); py++)
 	{
@@ -2426,7 +2421,7 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 
 				if (!isOk)
 				{
-					errorMask.setPixel(tcu::RGBA::red.toVec(), px, py);
+					errorMask.setPixel(tcu::RGBA::red().toVec(), px, py);
 					numFailed += 1;
 				}
 			}
@@ -2480,7 +2475,7 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 		tcu::Vec2( 0, +1),
 	};
 
-	tcu::clear(errorMask, tcu::RGBA::green.toVec());
+	tcu::clear(errorMask, tcu::RGBA::green().toVec());
 
 	for (int py = 0; py < result.getHeight(); py++)
 	{
@@ -2540,7 +2535,7 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 
 				if (!isOk)
 				{
-					errorMask.setPixel(tcu::RGBA::red.toVec(), px, py);
+					errorMask.setPixel(tcu::RGBA::red().toVec(), px, py);
 					numFailed += 1;
 				}
 			}
@@ -2677,7 +2672,7 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 		tcu::Vec2(+1, +1),
 	};
 
-	tcu::clear(errorMask, tcu::RGBA::green.toVec());
+	tcu::clear(errorMask, tcu::RGBA::green().toVec());
 
 	for (int py = 0; py < result.getHeight(); py++)
 	{
@@ -2760,7 +2755,7 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 
 				if (!isOk)
 				{
-					errorMask.setPixel(tcu::RGBA::red.toVec(), px, py);
+					errorMask.setPixel(tcu::RGBA::red().toVec(), px, py);
 					numFailed += 1;
 				}
 			}
@@ -2847,7 +2842,7 @@ int computeTextureCompareDiff (const tcu::ConstPixelBufferAccess&	result,
 		tcu::Vec2( 0, +1),
 	};
 
-	tcu::clear(errorMask, tcu::RGBA::green.toVec());
+	tcu::clear(errorMask, tcu::RGBA::green().toVec());
 
 	for (int py = 0; py < result.getHeight(); py++)
 	{
@@ -2859,7 +2854,7 @@ int computeTextureCompareDiff (const tcu::ConstPixelBufferAccess&	result,
 			// Other channels should trivially match to reference.
 			if (!tcu::boolAll(tcu::lessThanEqual(tcu::abs(refPix.swizzle(1,2,3) - resPix.swizzle(1,2,3)), nonShadowThreshold)))
 			{
-				errorMask.setPixel(tcu::RGBA::red.toVec(), px, py);
+				errorMask.setPixel(tcu::RGBA::red().toVec(), px, py);
 				numFailed += 1;
 				continue;
 			}
@@ -2911,7 +2906,7 @@ int computeTextureCompareDiff (const tcu::ConstPixelBufferAccess&	result,
 
 				if (!isOk)
 				{
-					errorMask.setPixel(tcu::RGBA::red.toVec(), px, py);
+					errorMask.setPixel(tcu::RGBA::red().toVec(), px, py);
 					numFailed += 1;
 				}
 			}
@@ -2961,7 +2956,7 @@ int computeTextureCompareDiff (const tcu::ConstPixelBufferAccess&	result,
 		tcu::Vec2( 0, +1),
 	};
 
-	tcu::clear(errorMask, tcu::RGBA::green.toVec());
+	tcu::clear(errorMask, tcu::RGBA::green().toVec());
 
 	for (int py = 0; py < result.getHeight(); py++)
 	{
@@ -2973,7 +2968,7 @@ int computeTextureCompareDiff (const tcu::ConstPixelBufferAccess&	result,
 			// Other channels should trivially match to reference.
 			if (!tcu::boolAll(tcu::lessThanEqual(tcu::abs(refPix.swizzle(1,2,3) - resPix.swizzle(1,2,3)), nonShadowThreshold)))
 			{
-				errorMask.setPixel(tcu::RGBA::red.toVec(), px, py);
+				errorMask.setPixel(tcu::RGBA::red().toVec(), px, py);
 				numFailed += 1;
 				continue;
 			}
@@ -3033,7 +3028,7 @@ int computeTextureCompareDiff (const tcu::ConstPixelBufferAccess&	result,
 
 				if (!isOk)
 				{
-					errorMask.setPixel(tcu::RGBA::red.toVec(), px, py);
+					errorMask.setPixel(tcu::RGBA::red().toVec(), px, py);
 					numFailed += 1;
 				}
 			}
@@ -3083,7 +3078,7 @@ int computeTextureCompareDiff (const tcu::ConstPixelBufferAccess&	result,
 		tcu::Vec2( 0, +1),
 	};
 
-	tcu::clear(errorMask, tcu::RGBA::green.toVec());
+	tcu::clear(errorMask, tcu::RGBA::green().toVec());
 
 	for (int py = 0; py < result.getHeight(); py++)
 	{
@@ -3095,7 +3090,7 @@ int computeTextureCompareDiff (const tcu::ConstPixelBufferAccess&	result,
 			// Other channels should trivially match to reference.
 			if (!tcu::boolAll(tcu::lessThanEqual(tcu::abs(refPix.swizzle(1,2,3) - resPix.swizzle(1,2,3)), nonShadowThreshold)))
 			{
-				errorMask.setPixel(tcu::RGBA::red.toVec(), px, py);
+				errorMask.setPixel(tcu::RGBA::red().toVec(), px, py);
 				numFailed += 1;
 				continue;
 			}
@@ -3148,7 +3143,7 @@ int computeTextureCompareDiff (const tcu::ConstPixelBufferAccess&	result,
 
 				if (!isOk)
 				{
-					errorMask.setPixel(tcu::RGBA::red.toVec(), px, py);
+					errorMask.setPixel(tcu::RGBA::red().toVec(), px, py);
 					numFailed += 1;
 				}
 			}
@@ -3188,7 +3183,7 @@ static int compareGenMipmapBilinear (const tcu::ConstPixelBufferAccess& dst, con
 		const float		cy		= (float(y)+0.5f) / dstH * srcH;
 		const bool		isOk	= tcu::isLinearSampleResultValid(src, sampler, lookupPrec, tcu::Vec2(cx, cy), 0, result);
 
-		errorMask.setPixel(isOk ? tcu::RGBA::green.toVec() : tcu::RGBA::red.toVec(), x, y);
+		errorMask.setPixel(isOk ? tcu::RGBA::green().toVec() : tcu::RGBA::red().toVec(), x, y);
 		if (!isOk)
 			numFailed += 1;
 	}
@@ -3224,7 +3219,7 @@ static int compareGenMipmapBox (const tcu::ConstPixelBufferAccess& dst, const tc
 		const float		cy		= deFloatFloor(float(y) / dstH * srcH) + 1.0f;
 		const bool		isOk	= tcu::isLinearSampleResultValid(src, sampler, lookupPrec, tcu::Vec2(cx, cy), 0, result);
 
-		errorMask.setPixel(isOk ? tcu::RGBA::green.toVec() : tcu::RGBA::red.toVec(), x, y);
+		errorMask.setPixel(isOk ? tcu::RGBA::green().toVec() : tcu::RGBA::red().toVec(), x, y);
 		if (!isOk)
 			numFailed += 1;
 	}
@@ -3247,10 +3242,10 @@ static int compareGenMipmapVeryLenient (const tcu::ConstPixelBufferAccess& dst, 
 	for (int x = 0; x < dst.getWidth(); x++)
 	{
 		const tcu::Vec4	result	= dst.getPixel(x, y);
-		const int		minX		= deFloorFloatToInt32(float(x-0.5f) / dstW * srcW);
-		const int		minY		= deFloorFloatToInt32(float(y-0.5f) / dstH * srcH);
-		const int		maxX		= deCeilFloatToInt32(float(x+1.5f) / dstW * srcW);
-		const int		maxY		= deCeilFloatToInt32(float(y+1.5f) / dstH * srcH);
+		const int		minX		= deFloorFloatToInt32(((float)x-0.5f) / dstW * srcW);
+		const int		minY		= deFloorFloatToInt32(((float)y-0.5f) / dstH * srcH);
+		const int		maxX		= deCeilFloatToInt32(((float)x+1.5f) / dstW * srcW);
+		const int		maxY		= deCeilFloatToInt32(((float)y+1.5f) / dstH * srcH);
 		tcu::Vec4		minVal, maxVal;
 		bool			isOk;
 
@@ -3279,7 +3274,7 @@ static int compareGenMipmapVeryLenient (const tcu::ConstPixelBufferAccess& dst, 
 
 		isOk = boolAll(logicalAnd(lessThanEqual(minVal, result), lessThanEqual(result, maxVal)));
 
-		errorMask.setPixel(isOk ? tcu::RGBA::green.toVec() : tcu::RGBA::red.toVec(), x, y);
+		errorMask.setPixel(isOk ? tcu::RGBA::green().toVec() : tcu::RGBA::red().toVec(), x, y);
 		if (!isOk)
 			numFailed += 1;
 	}

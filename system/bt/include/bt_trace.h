@@ -103,7 +103,6 @@ static const char BTE_LOGMSG_MODULE[] = "bte_logmsg_module";
 #define BTTRC_ID_AVDT_SCB                  80         /* avdt scb */
 #define BTTRC_ID_AVDT_CCB                  81         /* avdt ccb */
 
-// btla-specific ++
 /* LayerIDs added for BTL-A. Probably should modify bte_logmsg.c in future. */
 #define BTTRC_ID_STK_RFCOMM                82
 #define BTTRC_ID_STK_RFCOMM_DATA           83
@@ -116,7 +115,6 @@ static const char BTE_LOGMSG_MODULE[] = "bte_logmsg_module";
 #define BTTRC_ID_BT_PROTOCOL               88         /* this is a temporary solution to allow dynamic
                                                          enable/disable of BT_PROTOCOL_TRACE */
 #define BTTRC_ID_MAX_ID                    BTTRC_ID_BT_PROTOCOL
-// btla-specific --
 #define BTTRC_ID_ALL_LAYERS                0xFF       /* all trace layers */
 /* Parameter datatypes used in Trace APIs */
 #define BTTRC_PARAM_UINT8                  1
@@ -146,7 +144,6 @@ static const char BTE_LOGMSG_MODULE[] = "bte_logmsg_module";
 **      BT_TRACE_LEVEL_DEBUG   5        * Debug messages (general)
 ******************************************************************************/
 
-// btla-specific ++
 /* Core Stack default trace levels */
 #ifndef HCI_INITIAL_TRACE_LEVEL
 #define HCI_INITIAL_TRACE_LEVEL             BT_TRACE_LEVEL_WARNING
@@ -219,7 +216,6 @@ static const char BTE_LOGMSG_MODULE[] = "bte_logmsg_module";
 #ifndef SMP_INITIAL_TRACE_LEVEL
 #define SMP_INITIAL_TRACE_LEVEL             BT_TRACE_LEVEL_WARNING
 #endif
-// btla-specific --
 
 #define BT_TRACE(l,t,...)                        LogMsg((TRACE_CTRL_GENERAL | (l) | TRACE_ORG_STACK | (t)), ##__VA_ARGS__)
 #define BT_ERROR_TRACE(l,...)                    LogMsg(TRACE_CTRL_GENERAL | (l) | TRACE_ORG_STACK | TRACE_TYPE_ERROR, ##__VA_ARGS__)
@@ -227,10 +223,10 @@ static const char BTE_LOGMSG_MODULE[] = "bte_logmsg_module";
 /* Define tracing for the HCI unit
 */
 
-#define HCI_TRACE_ERROR(...)                     {if (btu_cb.trace_level >= BT_TRACE_LEVEL_ERROR) BT_TRACE(TRACE_LAYER_HCI, TRACE_TYPE_ERROR, ##__VA_ARGS__);}
-#define HCI_TRACE_WARNING(...)                   {if (btu_cb.trace_level >= BT_TRACE_LEVEL_WARNING) BT_TRACE(TRACE_LAYER_HCI, TRACE_TYPE_WARNING, ##__VA_ARGS__);}
-#define HCI_TRACE_EVENT(...)                     {if (btu_cb.trace_level >= BT_TRACE_LEVEL_EVENT) BT_TRACE(TRACE_LAYER_HCI, TRACE_TYPE_EVENT, ##__VA_ARGS__);}
-#define HCI_TRACE_DEBUG(...)                     {if (btu_cb.trace_level >= BT_TRACE_LEVEL_DEBUG) BT_TRACE(TRACE_LAYER_HCI, TRACE_TYPE_DEBUG, ##__VA_ARGS__);}
+#define HCI_TRACE_ERROR(...)                     {if (btu_trace_level >= BT_TRACE_LEVEL_ERROR) BT_TRACE(TRACE_LAYER_HCI, TRACE_TYPE_ERROR, ##__VA_ARGS__);}
+#define HCI_TRACE_WARNING(...)                   {if (btu_trace_level >= BT_TRACE_LEVEL_WARNING) BT_TRACE(TRACE_LAYER_HCI, TRACE_TYPE_WARNING, ##__VA_ARGS__);}
+#define HCI_TRACE_EVENT(...)                     {if (btu_trace_level >= BT_TRACE_LEVEL_EVENT) BT_TRACE(TRACE_LAYER_HCI, TRACE_TYPE_EVENT, ##__VA_ARGS__);}
+#define HCI_TRACE_DEBUG(...)                     {if (btu_trace_level >= BT_TRACE_LEVEL_DEBUG) BT_TRACE(TRACE_LAYER_HCI, TRACE_TYPE_DEBUG, ##__VA_ARGS__);}
 
 
 /* Define tracing for BTM
@@ -416,3 +412,5 @@ typedef struct {
 
 /* External declaration for appl_trace_level here to avoid to add the declaration in all the files using APPL_TRACExxx macros */
 extern UINT8 appl_trace_level;
+
+void LogMsg (UINT32 trace_set_mask, const char *fmt_str, ...);

@@ -89,6 +89,9 @@ IHEVCD_ERROR_T ihevcd_fmt_conv(codec_t *ps_codec,
                                WORD32 cur_row,
                                WORD32 num_rows);
 WORD32 ihevcd_init(codec_t *ps_codec);
+
+WORD32 ihevcd_allocate_dynamic_bufs(codec_t *ps_codec);
+WORD32 ihevcd_free_dynamic_bufs(codec_t *ps_codec);
 /*****************************************************************************/
 /* Function Prototypes                                                       */
 /*****************************************************************************/
@@ -183,12 +186,7 @@ static void ihevcd_fill_outargs(codec_t *ps_codec,
     ps_dec_op->u4_error_code = ihevcd_map_error((IHEVCD_ERROR_T)ps_codec->i4_error_code);
     ps_dec_op->u4_num_bytes_consumed = ps_dec_ip->u4_num_Bytes
                     - ps_codec->i4_bytes_remaining;
-    if(ps_codec->i4_error_code == IHEVCD_UNSUPPORTED_DIMENSIONS)
-    {
-        ps_dec_op->u4_pic_wd = ps_codec->i4_new_max_wd;
-        ps_dec_op->u4_pic_ht = ps_codec->i4_new_max_ht;
-    }
-    else if(ps_codec->i4_sps_done)
+    if(ps_codec->i4_sps_done)
     {
         ps_dec_op->u4_pic_wd = ps_codec->i4_disp_wd;
         ps_dec_op->u4_pic_ht = ps_codec->i4_disp_ht;
@@ -244,14 +242,25 @@ static void ihevcd_fill_outargs(codec_t *ps_codec,
             }
             else
             {
-                ps_dec_op->s_disp_frm_buf.pv_u_buf =
-                                ps_dec_ip->s_out_buffer.pu1_bufs[1];
-                ps_dec_op->s_disp_frm_buf.pv_v_buf =
-                                ps_dec_ip->s_out_buffer.pu1_bufs[2];
+                WORD32 i;
+                UWORD8 *pu1_u_dst = NULL, *pu1_v_dst = NULL;
+                for(i = 0; i < ps_codec->i4_share_disp_buf_cnt; i++)
+                {
+                    WORD32 diff = ps_disp_buf->pu1_luma - ps_codec->s_disp_buffer[i].pu1_bufs[0];
+                    if(diff == (ps_codec->i4_strd * PAD_TOP + PAD_LEFT))
+                    {
+                        pu1_u_dst = ps_codec->s_disp_buffer[i].pu1_bufs[1];
+                        pu1_u_dst += (ps_codec->i4_strd * PAD_TOP) / 4 + (PAD_LEFT / 2);
 
+                        pu1_v_dst = ps_codec->s_disp_buffer[i].pu1_bufs[2];
+                        pu1_v_dst += (ps_codec->i4_strd * PAD_TOP) / 4 + (PAD_LEFT / 2);
+                        break;
+                    }
+                }
+                ps_dec_op->s_disp_frm_buf.pv_u_buf = pu1_u_dst;
+                ps_dec_op->s_disp_frm_buf.pv_v_buf = pu1_v_dst;
             }
             ps_dec_op->s_disp_frm_buf.u4_y_strd = ps_codec->i4_strd;
-
         }
         else
         {
@@ -554,6 +563,17 @@ WORD32 ihevcd_decode(iv_obj_t *ps_codec_obj, void *pv_api_ip, void *pv_api_op)
                 ps_codec->i4_slice_error = 0;
         }
 
+        if(ps_codec->pu1_bitsbuf_dynamic)
+        {
+            ps_codec->pu1_bitsbuf = ps_codec->pu1_bitsbuf_dynamic;
+            ps_codec->u4_bitsbuf_size = ps_codec->u4_bitsbuf_size_dynamic;
+        }
+        else
+        {
+            ps_codec->pu1_bitsbuf = ps_codec->pu1_bitsbuf_static;
+            ps_codec->u4_bitsbuf_size = ps_codec->u4_bitsbuf_size_static;
+        }
+
         nal_ofst = ihevcd_nal_search_start_code(ps_codec->pu1_inp_bitsbuf,
                                                 ps_codec->i4_bytes_remaining);
 
@@ -566,6 +586,13 @@ WORD32 ihevcd_decode(iv_obj_t *ps_codec_obj, void *pv_api_ip, void *pv_api_op)
                                         ps_codec->pu1_bitsbuf,
                                         bytes_remaining,
                                         &nal_len, &bits_len);
+
+            /* Decoder may read upto 8 extra bytes at the end of frame */
+            /* These are not used, but still set them to zero to avoid uninitialized reads */
+            if(bits_len < (WORD32)(ps_codec->u4_bitsbuf_size - 8))
+            {
+                memset(ps_codec->pu1_bitsbuf + bits_len, 0, 2 * sizeof(UWORD32));
+            }
         }
         /* This may be used to update the offsets for tiles and entropy sync row offsets */
         ps_codec->i4_num_emln_bytes = nal_len - bits_len;
@@ -635,6 +662,23 @@ WORD32 ihevcd_decode(iv_obj_t *ps_codec_obj, void *pv_api_ip, void *pv_api_op)
         {
             ret = IHEVCD_SUCCESS;
             break;
+        }
+
+        /* Allocate dynamic bitstream buffer once SPS is decoded */
+        if((ps_codec->u4_allocate_dynamic_done == 0) && ps_codec->i4_sps_done)
+        {
+            WORD32 ret;
+            ret = ihevcd_allocate_dynamic_bufs(ps_codec);
+            if(ret != IV_SUCCESS)
+            {
+                /* Free any dynamic buffers that are allocated */
+                ihevcd_free_dynamic_bufs(ps_codec);
+                ps_codec->i4_error_code = IVD_MEM_ALLOC_FAILED;
+                ps_dec_op->u4_error_code |= 1 << IVD_FATALERROR;
+                ps_dec_op->u4_error_code |= IVD_MEM_ALLOC_FAILED;
+
+                return IV_FAIL;
+            }
         }
 
         BREAK_AFTER_SLICE_NAL();

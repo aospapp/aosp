@@ -42,7 +42,7 @@ maps_create_list (pid_t pid)
 }
 
 PROTECTED int
-tdep_get_elf_image (unw_addr_space_t as, struct elf_image *ei,
+tdep_get_elf_image (unw_addr_space_t as, struct elf_image **ei,
                     pid_t pid, unw_word_t ip,
                     unsigned long *segbase, unsigned long *mapoff, char **path)
 {
@@ -119,7 +119,7 @@ release_lock:
 finish:
   if (map)
     {
-      *ei = map->ei;
+      *ei = &map->ei;
       *segbase = map->start;
       *mapoff = map->offset;
       if (path != NULL)

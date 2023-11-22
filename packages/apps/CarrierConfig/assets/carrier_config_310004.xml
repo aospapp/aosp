@@ -24,5 +24,8 @@
         <int name="volte_replacement_rat_int" value="6" />
         <boolean name="enabledNotifyWapMMSC" value="true" />
         <boolean name="enableMultipartSMS" value="true" />
+        <boolean name="allow_adding_apns_bool" value="false" />
+        <boolean name="broadcast_emergency_call_state_changes_bool" value="true" />
+        <string name="carrier_eri_file_name_string">eri_311480.xml</string>
     </carrier_config>
 </carrier_config_list>

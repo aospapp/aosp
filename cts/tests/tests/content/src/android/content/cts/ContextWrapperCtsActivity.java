@@ -21,7 +21,7 @@ package android.content.cts;
 import android.app.Activity;
 import android.os.Bundle;
 
-import com.android.cts.content.R;
+import android.content.cts.R;
 
 public class ContextWrapperCtsActivity extends Activity {
     @Override

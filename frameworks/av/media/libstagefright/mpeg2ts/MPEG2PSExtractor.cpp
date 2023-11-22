@@ -108,7 +108,8 @@ MPEG2PSExtractor::MPEG2PSExtractor(const sp<DataSource> &source)
     }
 
     // Remove all tracks that were unable to determine their format.
-    for (size_t i = mTracks.size(); i-- > 0;) {
+    for (size_t i = mTracks.size(); i > 0;) {
+        i--;
         if (mTracks.valueAt(i)->getFormat() == NULL) {
             mTracks.removeItemsAt(i);
         }
@@ -124,7 +125,7 @@ size_t MPEG2PSExtractor::countTracks() {
     return mTracks.size();
 }
 
-sp<MediaSource> MPEG2PSExtractor::getTrack(size_t index) {
+sp<IMediaSource> MPEG2PSExtractor::getTrack(size_t index) {
     if (index >= mTracks.size()) {
         return NULL;
     }

@@ -19,8 +19,8 @@
 #include <malloc.h>
 
 #define LOG_TAG "InterfaceController"
-#include <base/file.h>
-#include <base/stringprintf.h>
+#include <android-base/file.h>
+#include <android-base/stringprintf.h>
 #include <cutils/log.h>
 #include <logwrap/logwrap.h>
 
@@ -40,7 +40,7 @@ const char ipv6_neigh_conf_dir[] = "/proc/sys/net/ipv6/neigh";
 
 const char sys_net_path[] = "/sys/class/net";
 
-const char wl_util_path[] = "/system/xbin/wlutil";
+const char wl_util_path[] = "/vendor/xbin/wlutil";
 
 bool isInterfaceName(const char *name) {
     return strcmp(name, ".") &&

@@ -23,6 +23,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+
 import com.ibm.icu.impl.ICUCache;
 import com.ibm.icu.impl.ICUResourceBundle;
 import com.ibm.icu.impl.PatternTokenizer;
@@ -89,9 +90,8 @@ public class DateTimePatternGenerator implements Freezable<DateTimePatternGenera
 
     /**
      * Construct a flexible generator according to data for a given locale.
-     * @param locale The JDK locale to pass.
-     * @draft ICU 54
-     * @provisional This API might change or be removed in a future release.
+     * @param locale The {@link java.util.Locale} to pass.
+     * @stable ICU 54
      */
     public static DateTimePatternGenerator getInstance(Locale locale) {
         return getInstance(ULocale.forLocale(locale));
@@ -1053,7 +1053,7 @@ public class DateTimePatternGenerator implements Freezable<DateTimePatternGenera
     }
 
     /**
-     * Boilerplate for Freezable
+     * {@inheritDoc}
      * @stable ICU 3.6
      */
     public boolean isFrozen() {
@@ -1061,7 +1061,7 @@ public class DateTimePatternGenerator implements Freezable<DateTimePatternGenera
     }
 
     /**
-     * Boilerplate for Freezable
+     * {@inheritDoc}
      * @stable ICU 4.4
      */
     public DateTimePatternGenerator freeze() {
@@ -1070,7 +1070,7 @@ public class DateTimePatternGenerator implements Freezable<DateTimePatternGenera
     }
 
     /**
-     * Boilerplate for Freezable
+     * {@inheritDoc}
      * @stable ICU 4.4
      */
     public DateTimePatternGenerator cloneAsThawed() {
@@ -1080,7 +1080,8 @@ public class DateTimePatternGenerator implements Freezable<DateTimePatternGenera
     }
 
     /**
-     * Boilerplate
+     * Returns a copy of this <code>DateTimePatternGenerator</code> object.
+     * @return A copy of this <code>DateTimePatternGenerator</code> object.
      * @stable ICU 3.6
      */
     @SuppressWarnings("unchecked")

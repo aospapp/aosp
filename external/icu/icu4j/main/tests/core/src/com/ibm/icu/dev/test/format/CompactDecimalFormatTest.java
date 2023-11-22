@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (C) 1996-2014, Google, International Business Machines Corporation and
+ * Copyright (C) 1996-2015, Google, International Business Machines Corporation and
  * others. All Rights Reserved.                                                *
  *******************************************************************************
  */
@@ -12,6 +12,7 @@ import java.text.FieldPosition;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.Map;
 
 import com.ibm.icu.dev.test.TestFmwk;
@@ -111,7 +112,7 @@ public class CompactDecimalFormatTest extends TestFmwk {
     };
 
     Object[][] JapaneseTestData = {
-            {1234f, "1.2千"},
+            {1234f, "1200"},
             {12345f, "1.2万"},
             {123456f, "12万"},
             {1234567f, "120万"},
@@ -159,8 +160,8 @@ public class CompactDecimalFormatTest extends TestFmwk {
 
     Object[][] SkTestDataLong = {
             {1000, "1 tis\u00edc"},
-            {1572, "1,6 tis\u00edc"},
-            {5184, "5,2 tis\u00edc"},
+            {1572, "1,6 tis\u00edca"},
+            {5184, "5,2 tis\u00edca"},
     };
 
     Object[][] SwahiliTestDataNegative = {
@@ -268,8 +269,7 @@ public class CompactDecimalFormatTest extends TestFmwk {
 
     public void TestArabicLongStyle() {
         NumberFormat cdf =
-                CompactDecimalFormat.getInstance(
-                        ULocale.forLanguageTag("ar"), CompactStyle.LONG);
+                CompactDecimalFormat.getInstance(new Locale("ar"), CompactStyle.LONG);
         assertEquals("Arabic Long", "\u200F-\u0665\u066B\u0663 \u0623\u0644\u0641", cdf.format(-5300));
     }
 

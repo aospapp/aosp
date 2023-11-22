@@ -29,7 +29,7 @@ import android.media.tv.cts.HardwareSessionTest.HardwareProxyTvInputService.Coun
 import android.net.Uri;
 import android.test.ActivityInstrumentationTestCase2;
 
-import com.android.cts.tv.R;
+import android.tv.cts.R;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -78,11 +78,11 @@ public class HardwareSessionTest extends ActivityInstrumentationTestCase2<TvView
             return;
         }
         for (final TvInputInfo info : mPassthroughInputList) {
-            verifyCommandTuneAndHardwareVideoAvailable(info);
+            verifyCommandTuneAndHardwareVideoAvailability(info);
         }
     }
 
-    public void verifyCommandTuneAndHardwareVideoAvailable(TvInputInfo passthroughInfo) throws
+    public void verifyCommandTuneAndHardwareVideoAvailability(TvInputInfo passthroughInfo) throws
             Throwable {
         HardwareProxyTvInputService.sHardwareInputId = passthroughInfo.getId();
         Uri fakeChannelUri = TvContract.buildChannelUri(0);
@@ -93,7 +93,8 @@ public class HardwareSessionTest extends ActivityInstrumentationTestCase2<TvView
             protected boolean check() {
                 CountingSession session = HardwareProxyTvInputService.sSession;
                 return session != null && session.mTuneCount > 0
-                        && session.mHardwareVideoAvailableCount > 0;
+                        && (session.mHardwareVideoAvailableCount > 0
+                                || session.mHardwareVideoUnavailableCount > 0);
             }
         }.run();
         runTestOnUiThread(new Runnable() {
@@ -119,6 +120,7 @@ public class HardwareSessionTest extends ActivityInstrumentationTestCase2<TvView
         public static class CountingSession extends HardwareSession {
             public volatile int mTuneCount;
             public volatile int mHardwareVideoAvailableCount;
+            public volatile int mHardwareVideoUnavailableCount;
 
             CountingSession(Context context) {
                 super(context);
@@ -150,6 +152,11 @@ public class HardwareSessionTest extends ActivityInstrumentationTestCase2<TvView
             @Override
             public void onHardwareVideoAvailable() {
                 mHardwareVideoAvailableCount++;
+            }
+
+            @Override
+            public void onHardwareVideoUnavailable(int reason) {
+                mHardwareVideoUnavailableCount++;
             }
         }
     }

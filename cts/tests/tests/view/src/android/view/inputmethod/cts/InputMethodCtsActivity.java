@@ -17,7 +17,7 @@ package android.view.inputmethod.cts;
 
 import android.app.Activity;
 import android.os.Bundle;
-import com.android.cts.view.R;
+import android.view.cts.R;
 
 public class InputMethodCtsActivity extends Activity {
     @Override

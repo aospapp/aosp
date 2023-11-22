@@ -16,18 +16,23 @@
 
 package com.android.server.telecom;
 
+import android.os.UserHandle;
+
 /**
  * Creates a notification for calls that the user missed (neither answered nor rejected).
  */
 public interface MissedCallNotifier extends CallsManager.CallsManagerListener {
 
-    void clearMissedCalls();
+    void clearMissedCalls(UserHandle userHandle);
 
     void showMissedCallNotification(Call call);
 
-    void updateOnStartup(
+    void reloadFromDatabase(
             TelecomSystem.SyncRoot lock,
             CallsManager callsManager,
             ContactsAsyncHelper contactsAsyncHelper,
-            CallerInfoAsyncQueryFactory callerInfoAsyncQueryFactory);
+            CallerInfoAsyncQueryFactory callerInfoAsyncQueryFactory,
+            UserHandle userHandle);
+
+    void setCurrentUserHandle(UserHandle userHandle);
 }

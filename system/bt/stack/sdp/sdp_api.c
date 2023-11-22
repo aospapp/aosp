@@ -28,7 +28,7 @@
 
 #include "bt_target.h"
 #include "bt_utils.h"
-#include "gki.h"
+#include "bt_common.h"
 #include "l2cdefs.h"
 #include "hcidefs.h"
 #include "hcimsgs.h"
@@ -36,6 +36,8 @@
 #include "sdp_api.h"
 #include "sdpint.h"
 #include "btu.h"
+
+#include "osi/include/osi.h"
 
 /**********************************************************************
 **   C L I E N T    F U N C T I O N    P R O T O T Y P E S            *
@@ -73,7 +75,7 @@ BOOLEAN SDP_InitDiscoveryDb (tSDP_DISCOVERY_DB *p_db, UINT32 len, UINT16 num_uui
         num_attr > SDP_MAX_ATTR_FILTERS || num_uuid > SDP_MAX_UUID_FILTERS)
     {
         SDP_TRACE_ERROR("SDP_InitDiscoveryDb Illegal param: p_db 0x%x, len %d, num_uuid %d, num_attr %d",
-                         (UINT32)p_db, len, num_uuid, num_attr);
+                        PTR_TO_UINT(p_db), len, num_uuid, num_attr);
 
         return(FALSE);
     }
@@ -355,7 +357,8 @@ BOOLEAN SDP_FindServiceUUIDInRec(tSDP_DISC_REC *p_rec, tBT_UUID * p_uuid)
                     else if (SDP_DISC_ATTR_LEN(p_sattr->attr_len_type) == LEN_UUID_128)
                     {
                         p_uuid->len = LEN_UUID_128;
-                        memcpy(p_uuid->uu.uuid128, p_sattr->attr_value.v.array, LEN_UUID_128);
+                        for (uint8_t i = 0; i != LEN_UUID_128; ++i)
+                            p_uuid->uu.uuid128[i] = p_sattr->attr_value.v.array[LEN_UUID_128-i-1];
                     }
                     else if (SDP_DISC_ATTR_LEN(p_sattr->attr_len_type) == LEN_UUID_32)
                     {
@@ -425,27 +428,28 @@ BOOLEAN SDP_FindServiceUUIDInRec(tSDP_DISC_REC *p_rec, tBT_UUID * p_uuid)
 BOOLEAN SDP_FindServiceUUIDInRec_128bit(tSDP_DISC_REC *p_rec, tBT_UUID * p_uuid)
 {
 #if SDP_CLIENT_ENABLED == TRUE
-    tSDP_DISC_ATTR  *p_attr, *p_sattr;
-
-    p_attr = p_rec->p_first_attr;
-
+    tSDP_DISC_ATTR  *p_attr = p_rec->p_first_attr;
     while (p_attr)
     {
         if ((p_attr->attr_id == ATTR_ID_SERVICE_CLASS_ID_LIST)
             && (SDP_DISC_ATTR_TYPE(p_attr->attr_len_type) == DATA_ELE_SEQ_DESC_TYPE))
         {
-            for (p_sattr = p_attr->attr_value.v.p_sub_attr; p_sattr; p_sattr = p_sattr->p_next_attr)
+            tSDP_DISC_ATTR *p_sattr = p_attr->attr_value.v.p_sub_attr;
+            while (p_sattr)
             {
                 if (SDP_DISC_ATTR_TYPE(p_sattr->attr_len_type) == UUID_DESC_TYPE)
                 {
                     /* only support 128 bits UUID for now */
                     if (SDP_DISC_ATTR_LEN(p_sattr->attr_len_type) == 16)
                     {
-                        p_uuid->len = 16;
-                        memcpy(p_uuid->uu.uuid128, p_sattr->attr_value.v.array, MAX_UUID_SIZE);
+                        p_uuid->len = LEN_UUID_128;
+                        for (uint8_t i = 0; i != LEN_UUID_128; ++i)
+                            p_uuid->uu.uuid128[i] = p_sattr->attr_value.v.array[LEN_UUID_128-i-1];
                     }
                     return(TRUE);
                 }
+
+                p_sattr = p_sattr->p_next_attr;
             }
             break;
         }
@@ -455,8 +459,9 @@ BOOLEAN SDP_FindServiceUUIDInRec_128bit(tSDP_DISC_REC *p_rec, tBT_UUID * p_uuid)
                 /* only support 128 bits UUID for now */
                 && (SDP_DISC_ATTR_LEN(p_attr->attr_len_type) == 16))
             {
-                p_uuid->len = 16;
-                memcpy(p_uuid->uu.uuid128, p_attr->attr_value.v.array, MAX_UUID_SIZE);
+                p_uuid->len = LEN_UUID_128;
+                for (uint8_t i = 0; i != LEN_UUID_128; ++i)
+                    p_uuid->uu.uuid128[i] = p_attr->attr_value.v.array[LEN_UUID_128-i-1];
                 return(TRUE);
             }
         }

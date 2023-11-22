@@ -20,8 +20,11 @@ import static com.android.providers.contacts.util.DbQueryUtils.checkForSupported
 import static com.android.providers.contacts.util.DbQueryUtils.getEqualityClause;
 import static com.android.providers.contacts.util.DbQueryUtils.getInequalityClause;
 
+import com.google.common.annotations.VisibleForTesting;
+
 import android.app.AppOpsManager;
 import android.content.ContentProvider;
+import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
@@ -31,6 +34,7 @@ import android.database.DatabaseUtils;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteQueryBuilder;
 import android.net.Uri;
+import android.os.Binder;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
@@ -45,12 +49,12 @@ import android.telecom.TelecomManager;
 import android.text.TextUtils;
 import android.util.Log;
 
-import com.android.providers.contacts.ContactsDatabaseHelper.DbProperties;
-import com.android.providers.contacts.ContactsDatabaseHelper.Tables;
+import com.android.providers.contacts.CallLogDatabaseHelper.DbProperties;
+import com.android.providers.contacts.CallLogDatabaseHelper.Tables;
 import com.android.providers.contacts.util.SelectionBuilder;
 import com.android.providers.contacts.util.UserUtils;
-import com.google.common.annotations.VisibleForTesting;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -60,6 +64,8 @@ import java.util.concurrent.CountDownLatch;
  */
 public class CallLogProvider extends ContentProvider {
     private static final String TAG = CallLogProvider.class.getSimpleName();
+
+    public static final boolean VERBOSE_LOGGING = false; // DO NOT SUBMIT WITH TRUE
 
     private static final int BACKGROUND_TASK_INITIALIZE = 0;
     private static final int BACKGROUND_TASK_ADJUST_PHONE_ACCOUNT = 1;
@@ -83,7 +89,8 @@ public class CallLogProvider extends ContentProvider {
         Calls.DURATION,
         Calls.DATA_USAGE,
         Calls.PHONE_ACCOUNT_COMPONENT_NAME,
-        Calls.PHONE_ACCOUNT_ID
+        Calls.PHONE_ACCOUNT_ID,
+        Calls.ADD_FOR_ALL_USERS
     };
 
     static final String[] MINIMAL_PROJECTION = new String[] { Calls._ID };
@@ -107,6 +114,9 @@ public class CallLogProvider extends ContentProvider {
         sURIMatcher.addURI(CallLog.AUTHORITY, "calls", CALLS);
         sURIMatcher.addURI(CallLog.AUTHORITY, "calls/#", CALLS_ID);
         sURIMatcher.addURI(CallLog.AUTHORITY, "calls/filter/*", CALLS_FILTER);
+
+        // Shadow provider only supports "/calls".
+        sURIMatcher.addURI(CallLog.SHADOW_AUTHORITY, "calls", CALLS);
     }
 
     private static final HashMap<String, String> sCallsProjectionMap;
@@ -116,6 +126,8 @@ public class CallLogProvider extends ContentProvider {
         sCallsProjectionMap = new HashMap<String, String>();
         sCallsProjectionMap.put(Calls._ID, Calls._ID);
         sCallsProjectionMap.put(Calls.NUMBER, Calls.NUMBER);
+        sCallsProjectionMap.put(Calls.POST_DIAL_DIGITS, Calls.POST_DIAL_DIGITS);
+        sCallsProjectionMap.put(Calls.VIA_NUMBER, Calls.VIA_NUMBER);
         sCallsProjectionMap.put(Calls.NUMBER_PRESENTATION, Calls.NUMBER_PRESENTATION);
         sCallsProjectionMap.put(Calls.DATE, Calls.DATE);
         sCallsProjectionMap.put(Calls.DURATION, Calls.DURATION);
@@ -140,23 +152,33 @@ public class CallLogProvider extends ContentProvider {
         sCallsProjectionMap.put(Calls.CACHED_PHOTO_ID, Calls.CACHED_PHOTO_ID);
         sCallsProjectionMap.put(Calls.CACHED_PHOTO_URI, Calls.CACHED_PHOTO_URI);
         sCallsProjectionMap.put(Calls.CACHED_FORMATTED_NUMBER, Calls.CACHED_FORMATTED_NUMBER);
+        sCallsProjectionMap.put(Calls.ADD_FOR_ALL_USERS, Calls.ADD_FOR_ALL_USERS);
+        sCallsProjectionMap.put(Calls.LAST_MODIFIED, Calls.LAST_MODIFIED);
     }
 
     private HandlerThread mBackgroundThread;
     private Handler mBackgroundHandler;
     private volatile CountDownLatch mReadAccessLatch;
 
-    private ContactsDatabaseHelper mDbHelper;
+    private CallLogDatabaseHelper mDbHelper;
     private DatabaseUtils.InsertHelper mCallsInserter;
     private boolean mUseStrictPhoneNumberComparation;
     private VoicemailPermissions mVoicemailPermissions;
     private CallLogInsertionHelper mCallLogInsertionHelper;
 
+    protected boolean isShadow() {
+        return false;
+    }
+
+    protected final String getProviderName() {
+        return this.getClass().getSimpleName();
+    }
+
     @Override
     public boolean onCreate() {
         setAppOps(AppOpsManager.OP_READ_CALL_LOG, AppOpsManager.OP_WRITE_CALL_LOG);
         if (Log.isLoggable(Constants.PERFORMANCE_TAG, Log.DEBUG)) {
-            Log.d(Constants.PERFORMANCE_TAG, "CallLogProvider.onCreate start");
+            Log.d(Constants.PERFORMANCE_TAG, getProviderName() + ".onCreate start");
         }
         final Context context = getContext();
         mDbHelper = getDatabaseHelper(context);
@@ -166,7 +188,7 @@ public class CallLogProvider extends ContentProvider {
         mVoicemailPermissions = new VoicemailPermissions(context);
         mCallLogInsertionHelper = createCallLogInsertionHelper(context);
 
-        mBackgroundThread = new HandlerThread("CallLogProviderWorker",
+        mBackgroundThread = new HandlerThread(getProviderName() + "Worker",
                 Process.THREAD_PRIORITY_BACKGROUND);
         mBackgroundThread.start();
         mBackgroundHandler = new Handler(mBackgroundThread.getLooper()) {
@@ -181,7 +203,7 @@ public class CallLogProvider extends ContentProvider {
         scheduleBackgroundTask(BACKGROUND_TASK_INITIALIZE, null);
 
         if (Log.isLoggable(Constants.PERFORMANCE_TAG, Log.DEBUG)) {
-            Log.d(Constants.PERFORMANCE_TAG, "CallLogProvider.onCreate finish");
+            Log.d(Constants.PERFORMANCE_TAG, getProviderName() + ".onCreate finish");
         }
         return true;
     }
@@ -191,14 +213,19 @@ public class CallLogProvider extends ContentProvider {
         return DefaultCallLogInsertionHelper.getInstance(context);
     }
 
-    @VisibleForTesting
-    protected ContactsDatabaseHelper getDatabaseHelper(final Context context) {
-        return ContactsDatabaseHelper.getInstance(context);
+    protected CallLogDatabaseHelper getDatabaseHelper(final Context context) {
+        return CallLogDatabaseHelper.getInstance(context);
     }
 
     @Override
     public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs,
             String sortOrder) {
+        if (VERBOSE_LOGGING) {
+            Log.v(TAG, "query: uri=" + uri + "  projection=" + Arrays.toString(projection) +
+                    "  selection=[" + selection + "]  args=" + Arrays.toString(selectionArgs) +
+                    "  order=[" + sortOrder + "] CPID=" + Binder.getCallingPid() +
+                    " User=" + UserUtils.getCurrentUserHandle(getContext()));
+        }
         waitForAccess(mReadAccessLatch);
         final SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
         qb.setTables(Tables.CALLS);
@@ -296,6 +323,10 @@ public class CallLogProvider extends ContentProvider {
 
     @Override
     public Uri insert(Uri uri, ContentValues values) {
+        if (VERBOSE_LOGGING) {
+            Log.v(TAG, "insert: uri=" + uri + "  values=[" + values + "]" +
+                    " CPID=" + Binder.getCallingPid());
+        }
         waitForAccess(mReadAccessLatch);
         checkForSupportedColumns(sCallsProjectionMap, values);
         // Inserting a voicemail record through call_log requires the voicemail
@@ -323,6 +354,12 @@ public class CallLogProvider extends ContentProvider {
 
     @Override
     public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs) {
+        if (VERBOSE_LOGGING) {
+            Log.v(TAG, "update: uri=" + uri +
+                    "  selection=[" + selection + "]  args=" + Arrays.toString(selectionArgs) +
+                    "  values=[" + values + "] CPID=" + Binder.getCallingPid() +
+                    " User=" + UserUtils.getCurrentUserHandle(getContext()));
+        }
         waitForAccess(mReadAccessLatch);
         checkForSupportedColumns(sCallsProjectionMap, values);
         // Request that involves changing record type to voicemail requires the
@@ -354,6 +391,12 @@ public class CallLogProvider extends ContentProvider {
 
     @Override
     public int delete(Uri uri, String selection, String[] selectionArgs) {
+        if (VERBOSE_LOGGING) {
+            Log.v(TAG, "delete: uri=" + uri +
+                    "  selection=[" + selection + "]  args=" + Arrays.toString(selectionArgs) +
+                    " CPID=" + Binder.getCallingPid() +
+                    " User=" + UserUtils.getCurrentUserHandle(getContext()));
+        }
         waitForAccess(mReadAccessLatch);
         SelectionBuilder selectionBuilder = new SelectionBuilder(selection);
         checkVoicemailPermissionAndAddRestriction(uri, selectionBuilder, false /*isQuery*/);
@@ -362,17 +405,13 @@ public class CallLogProvider extends ContentProvider {
         final int matchedUriId = sURIMatcher.match(uri);
         switch (matchedUriId) {
             case CALLS:
+                // TODO: Special case - We may want to forward the delete request on user 0 to the
+                // shadow provider too.
                 return getDatabaseModifier(db).delete(Tables.CALLS,
                         selectionBuilder.build(), selectionArgs);
             default:
                 throw new UnsupportedOperationException("Cannot delete that URL: " + uri);
         }
-    }
-
-    // Work around to let the test code override the context. getContext() is final so cannot be
-    // overridden.
-    protected Context context() {
-        return getContext();
     }
 
     void adjustForNewPhoneAccount(PhoneAccountHandle handle) {
@@ -384,7 +423,7 @@ public class CallLogProvider extends ContentProvider {
      * after the operation is performed.
      */
     private DatabaseModifier getDatabaseModifier(SQLiteDatabase db) {
-        return new DbModifierWithNotification(Tables.CALLS, db, context());
+        return new DbModifierWithNotification(Tables.CALLS, db, getContext());
     }
 
     /**
@@ -392,7 +431,7 @@ public class CallLogProvider extends ContentProvider {
      * only.
      */
     private DatabaseModifier getDatabaseModifier(DatabaseUtils.InsertHelper insertHelper) {
-        return new DbModifierWithNotification(Tables.CALLS, insertHelper, context());
+        return new DbModifierWithNotification(Tables.CALLS, insertHelper, getContext());
     }
 
     private static final Integer VOICEMAIL_TYPE = new Integer(Calls.VOICEMAIL_TYPE);
@@ -456,35 +495,75 @@ public class CallLogProvider extends ContentProvider {
     }
 
     /**
-     * Syncs any unique call log entries that have been inserted into the primary user's call log
-     * since the last time the last sync occurred.
+     * Sync all calllog entries that were inserted
      */
-    private void syncEntriesFromPrimaryUser(UserManager userManager) {
-        final int userHandle = userManager.getUserHandle();
-        if (userHandle == UserHandle.USER_OWNER
-                || userManager.getUserInfo(userHandle).isManagedProfile()) {
+    private void syncEntries() {
+        if (isShadow()) {
+            return; // It's the shadow provider itself.  No copying.
+        }
+
+        final UserManager userManager = UserUtils.getUserManager(getContext());
+
+        // TODO: http://b/24944959
+        if (!Calls.shouldHaveSharedCallLogEntries(getContext(), userManager,
+                userManager.getUserHandle())) {
             return;
         }
 
-        final long lastSyncTime = getLastSyncTime();
-        final Uri uri = ContentProvider.maybeAddUserId(CallLog.Calls.CONTENT_URI,
-                UserHandle.USER_OWNER);
-        final Cursor cursor = getContext().getContentResolver().query(
+        final int myUserId = userManager.getUserHandle();
+
+        // See the comment in Calls.addCall() for the logic.
+
+        if (userManager.isSystemUser()) {
+            // If it's the system user, just copy from shadow.
+            syncEntriesFrom(UserHandle.USER_SYSTEM, /* sourceIsShadow = */ true,
+                    /* forAllUsersOnly =*/ false);
+        } else {
+            // Otherwise, copy from system's real provider, as well as self's shadow.
+            syncEntriesFrom(UserHandle.USER_SYSTEM, /* sourceIsShadow = */ false,
+                    /* forAllUsersOnly =*/ true);
+            syncEntriesFrom(myUserId, /* sourceIsShadow = */ true,
+                    /* forAllUsersOnly =*/ false);
+        }
+    }
+
+    private void syncEntriesFrom(int sourceUserId, boolean sourceIsShadow,
+            boolean forAllUsersOnly) {
+
+        final Uri sourceUri = sourceIsShadow ? Calls.SHADOW_CONTENT_URI : Calls.CONTENT_URI;
+
+        final long lastSyncTime = getLastSyncTime(sourceIsShadow);
+
+        final Uri uri = ContentProvider.maybeAddUserId(sourceUri, sourceUserId);
+        final long newestTimeStamp;
+        final ContentResolver cr = getContext().getContentResolver();
+
+        final StringBuilder selection = new StringBuilder();
+
+        selection.append(
+                "(" + EXCLUDE_VOICEMAIL_SELECTION + ") AND (" + MORE_RECENT_THAN_SELECTION + ")");
+
+        if (forAllUsersOnly) {
+            selection.append(" AND (" + Calls.ADD_FOR_ALL_USERS + "=1)");
+        }
+
+        final Cursor cursor = cr.query(
                 uri,
                 CALL_LOG_SYNC_PROJECTION,
-                EXCLUDE_VOICEMAIL_SELECTION + " AND " + MORE_RECENT_THAN_SELECTION,
+                selection.toString(),
                 new String[] {String.valueOf(lastSyncTime)},
-                Calls.DATE + " DESC");
+                Calls.DATE + " ASC");
         if (cursor == null) {
             return;
         }
         try {
-            final long lastSyncedEntryTime = copyEntriesFromCursor(cursor);
-            if (lastSyncedEntryTime > lastSyncTime) {
-                setLastTimeSynced(lastSyncedEntryTime);
-            }
+            newestTimeStamp = copyEntriesFromCursor(cursor, lastSyncTime, sourceIsShadow);
         } finally {
             cursor.close();
+        }
+        if (sourceIsShadow) {
+            // delete all entries in shadow.
+            cr.delete(uri, Calls.DATE + "<= ?", new String[] {String.valueOf(newestTimeStamp)});
         }
     }
 
@@ -532,12 +611,10 @@ public class CallLogProvider extends ContentProvider {
 
     /**
      * @param cursor to copy call log entries from
-     *
-     * @return the timestamp of the last synced entry.
      */
     @VisibleForTesting
-    long copyEntriesFromCursor(Cursor cursor) {
-        long lastSynced = 0;
+    long copyEntriesFromCursor(Cursor cursor, long lastSyncTime, boolean forShadow) {
+        long latestTimestamp = 0;
         final ContentValues values = new ContentValues();
         final SQLiteDatabase db = mDbHelper.getWritableDatabase();
         db.beginTransaction();
@@ -547,6 +624,7 @@ public class CallLogProvider extends ContentProvider {
             while (cursor.moveToNext()) {
                 values.clear();
                 DatabaseUtils.cursorRowToContentValues(cursor, values);
+
                 final String startTime = values.getAsString(Calls.DATE);
                 final String number = values.getAsString(Calls.NUMBER);
 
@@ -556,7 +634,7 @@ public class CallLogProvider extends ContentProvider {
 
                 if (cursor.isLast()) {
                     try {
-                        lastSynced = Long.valueOf(startTime);
+                        latestTimestamp = Long.valueOf(startTime);
                     } catch (NumberFormatException e) {
                         Log.e(TAG, "Call log entry does not contain valid start time: "
                                 + startTime);
@@ -574,23 +652,35 @@ public class CallLogProvider extends ContentProvider {
 
                 db.insert(Tables.CALLS, null, values);
             }
+
+            if (latestTimestamp > lastSyncTime) {
+                setLastTimeSynced(latestTimestamp, forShadow);
+            }
+
             db.setTransactionSuccessful();
         } finally {
             db.endTransaction();
         }
-        return lastSynced;
+        return latestTimestamp;
     }
 
-    private long getLastSyncTime() {
+    private static String getLastSyncTimePropertyName(boolean forShadow) {
+        return forShadow
+                ? DbProperties.CALL_LOG_LAST_SYNCED_FOR_SHADOW
+                : DbProperties.CALL_LOG_LAST_SYNCED;
+    }
+
+    @VisibleForTesting
+    long getLastSyncTime(boolean forShadow) {
         try {
-            return Long.valueOf(mDbHelper.getProperty(DbProperties.CALL_LOG_LAST_SYNCED, "0"));
+            return Long.valueOf(mDbHelper.getProperty(getLastSyncTimePropertyName(forShadow), "0"));
         } catch (NumberFormatException e) {
             return 0;
         }
     }
 
-    private void setLastTimeSynced(long time) {
-        mDbHelper.setProperty(DbProperties.CALL_LOG_LAST_SYNCED, String.valueOf(time));
+    private void setLastTimeSynced(long time, boolean forShadow) {
+        mDbHelper.setProperty(getLastSyncTimePropertyName(forShadow), String.valueOf(time));
     }
 
     private static void waitForAccess(CountDownLatch latch) {
@@ -615,14 +705,7 @@ public class CallLogProvider extends ContentProvider {
     private void performBackgroundTask(int task, Object arg) {
         if (task == BACKGROUND_TASK_INITIALIZE) {
             try {
-                final Context context = getContext();
-                if (context != null) {
-                    final UserManager userManager = UserUtils.getUserManager(context);
-                    if (userManager != null &&
-                            !userManager.hasUserRestriction(UserManager.DISALLOW_OUTGOING_CALLS)) {
-                        syncEntriesFromPrimaryUser(userManager);
-                    }
-                }
+                syncEntries();
             } finally {
                 mReadAccessLatch.countDown();
                 mReadAccessLatch = null;
@@ -630,6 +713,5 @@ public class CallLogProvider extends ContentProvider {
         } else if (task == BACKGROUND_TASK_ADJUST_PHONE_ACCOUNT) {
             adjustForNewPhoneAccountInternal((PhoneAccountHandle) arg);
         }
-
     }
 }

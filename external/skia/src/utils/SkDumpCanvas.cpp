@@ -195,18 +195,18 @@ void SkDumpCanvas::dump(Verb verb, const SkPaint* paint,
 ///////////////////////////////////////////////////////////////////////////////
 
 void SkDumpCanvas::willSave() {
-    this->dump(kSave_Verb, NULL, "save()");
+    this->dump(kSave_Verb, nullptr, "save()");
     this->INHERITED::willSave();
 }
 
-SkCanvas::SaveLayerStrategy SkDumpCanvas::willSaveLayer(const SkRect* bounds, const SkPaint* paint,
-                                                        SaveFlags flags) {
+SkCanvas::SaveLayerStrategy SkDumpCanvas::getSaveLayerStrategy(const SaveLayerRec& rec) {
     SkString str;
-    str.printf("saveLayer(0x%X)", flags);
-    if (bounds) {
+    str.printf("saveLayer(0x%X)", rec.fSaveLayerFlags);
+    if (rec.fBounds) {
         str.append(" bounds");
-        toString(*bounds, &str);
+        toString(*rec.fBounds, &str);
     }
+    const SkPaint* paint = rec.fPaint;
     if (paint) {
         if (paint->getAlpha() != 0xFF) {
             str.appendf(" alpha:0x%02X", paint->getAlpha());
@@ -216,11 +216,11 @@ SkCanvas::SaveLayerStrategy SkDumpCanvas::willSaveLayer(const SkRect* bounds, co
         }
     }
     this->dump(kSave_Verb, paint, str.c_str());
-    return this->INHERITED::willSaveLayer(bounds, paint, flags);
+    return this->INHERITED::getSaveLayerStrategy(rec);
 }
 
 void SkDumpCanvas::willRestore() {
-    this->dump(kRestore_Verb, NULL, "restore");
+    this->dump(kRestore_Verb, nullptr, "restore");
     this->INHERITED::willRestore();
 }
 
@@ -229,18 +229,18 @@ void SkDumpCanvas::didConcat(const SkMatrix& matrix) {
 
     switch (matrix.getType()) {
         case SkMatrix::kTranslate_Mask:
-            this->dump(kMatrix_Verb, NULL, "translate(%g %g)",
+            this->dump(kMatrix_Verb, nullptr, "translate(%g %g)",
                        SkScalarToFloat(matrix.getTranslateX()),
                        SkScalarToFloat(matrix.getTranslateY()));
             break;
         case SkMatrix::kScale_Mask:
-            this->dump(kMatrix_Verb, NULL, "scale(%g %g)",
+            this->dump(kMatrix_Verb, nullptr, "scale(%g %g)",
                        SkScalarToFloat(matrix.getScaleX()),
                        SkScalarToFloat(matrix.getScaleY()));
             break;
         default:
             matrix.toString(&str);
-            this->dump(kMatrix_Verb, NULL, "concat(%s)", str.c_str());
+            this->dump(kMatrix_Verb, nullptr, "concat(%s)", str.c_str());
             break;
     }
 
@@ -250,7 +250,7 @@ void SkDumpCanvas::didConcat(const SkMatrix& matrix) {
 void SkDumpCanvas::didSetMatrix(const SkMatrix& matrix) {
     SkString str;
     matrix.toString(&str);
-    this->dump(kMatrix_Verb, NULL, "setMatrix(%s)", str.c_str());
+    this->dump(kMatrix_Verb, nullptr, "setMatrix(%s)", str.c_str());
     this->INHERITED::didSetMatrix(matrix);
 }
 
@@ -263,7 +263,7 @@ const char* SkDumpCanvas::EdgeStyleToAAString(ClipEdgeStyle edgeStyle) {
 void SkDumpCanvas::onClipRect(const SkRect& rect, SkRegion::Op op, ClipEdgeStyle edgeStyle) {
     SkString str;
     toString(rect, &str);
-    this->dump(kClip_Verb, NULL, "clipRect(%s %s %s)", str.c_str(), toString(op),
+    this->dump(kClip_Verb, nullptr, "clipRect(%s %s %s)", str.c_str(), toString(op),
                EdgeStyleToAAString(edgeStyle));
     this->INHERITED::onClipRect(rect, op, edgeStyle);
 }
@@ -271,7 +271,7 @@ void SkDumpCanvas::onClipRect(const SkRect& rect, SkRegion::Op op, ClipEdgeStyle
 void SkDumpCanvas::onClipRRect(const SkRRect& rrect, SkRegion::Op op, ClipEdgeStyle edgeStyle) {
     SkString str;
     toString(rrect, &str);
-    this->dump(kClip_Verb, NULL, "clipRRect(%s %s %s)", str.c_str(), toString(op),
+    this->dump(kClip_Verb, nullptr, "clipRRect(%s %s %s)", str.c_str(), toString(op),
                EdgeStyleToAAString(edgeStyle));
     this->INHERITED::onClipRRect(rrect, op, edgeStyle);
 }
@@ -279,7 +279,7 @@ void SkDumpCanvas::onClipRRect(const SkRRect& rrect, SkRegion::Op op, ClipEdgeSt
 void SkDumpCanvas::onClipPath(const SkPath& path, SkRegion::Op op, ClipEdgeStyle edgeStyle) {
     SkString str;
     toString(path, &str);
-    this->dump(kClip_Verb, NULL, "clipPath(%s %s %s)", str.c_str(), toString(op),
+    this->dump(kClip_Verb, nullptr, "clipPath(%s %s %s)", str.c_str(), toString(op),
                EdgeStyleToAAString(edgeStyle));
     this->INHERITED::onClipPath(path, op, edgeStyle);
 }
@@ -287,7 +287,7 @@ void SkDumpCanvas::onClipPath(const SkPath& path, SkRegion::Op op, ClipEdgeStyle
 void SkDumpCanvas::onClipRegion(const SkRegion& deviceRgn, SkRegion::Op op) {
     SkString str;
     toString(deviceRgn, &str);
-    this->dump(kClip_Verb, NULL, "clipRegion(%s %s)", str.c_str(),
+    this->dump(kClip_Verb, nullptr, "clipRegion(%s %s)", str.c_str(),
                toString(op));
     this->INHERITED::onClipRegion(deviceRgn, op);
 }
@@ -346,7 +346,7 @@ void SkDumpCanvas::onDrawBitmap(const SkBitmap& bitmap, SkScalar x, SkScalar y,
 }
 
 void SkDumpCanvas::onDrawBitmapRect(const SkBitmap& bitmap, const SkRect* src, const SkRect& dst,
-                                    const SkPaint* paint, DrawBitmapRectFlags flags) {
+                                    const SkPaint* paint, SrcRectConstraint) {
     SkString bs, rs;
     bitmap.toString(&bs);
     toString(dst, &rs);
@@ -359,8 +359,7 @@ void SkDumpCanvas::onDrawBitmapRect(const SkBitmap& bitmap, const SkRect* src, c
         rs.prependf("%s ", ss.c_str());
     }
 
-    this->dump(kDrawBitmap_Verb, paint, "drawBitmapRectToRect(%s %s)",
-               bs.c_str(), rs.c_str());
+    this->dump(kDrawBitmap_Verb, paint, "drawBitmapRect(%s %s)", bs.c_str(), rs.c_str());
 }
 
 void SkDumpCanvas::onDrawBitmapNine(const SkBitmap& bitmap, const SkIRect& center,
@@ -381,7 +380,7 @@ void SkDumpCanvas::onDrawImage(const SkImage* image, SkScalar x, SkScalar y, con
 }
 
 void SkDumpCanvas::onDrawImageRect(const SkImage* image, const SkRect* src, const SkRect& dst,
-                                   const SkPaint* paint) {
+                                   const SkPaint* paint, SrcRectConstraint) {
     SkString bs, rs;
     image->toString(&bs);
     toString(dst, &rs);
@@ -396,13 +395,6 @@ void SkDumpCanvas::onDrawImageRect(const SkImage* image, const SkRect* src, cons
     
     this->dump(kDrawBitmap_Verb, paint, "drawImageRectToRect(%s %s)",
                bs.c_str(), rs.c_str());
-}
-
-void SkDumpCanvas::onDrawSprite(const SkBitmap& bitmap, int x, int y, const SkPaint* paint) {
-    SkString str;
-    bitmap.toString(&str);
-    this->dump(kDrawBitmap_Verb, paint, "drawSprite(%s %d %d)", str.c_str(),
-               x, y);
 }
 
 void SkDumpCanvas::onDrawText(const void* text, size_t byteLength, SkScalar x, SkScalar y,
@@ -449,13 +441,13 @@ void SkDumpCanvas::onDrawTextBlob(const SkTextBlob* blob, SkScalar x, SkScalar y
 
 void SkDumpCanvas::onDrawPicture(const SkPicture* picture, const SkMatrix* matrix,
                                  const SkPaint* paint) {
-    this->dump(kDrawPicture_Verb, NULL, "drawPicture(%p) %f:%f:%f:%f", picture,
+    this->dump(kDrawPicture_Verb, nullptr, "drawPicture(%p) %f:%f:%f:%f", picture,
                picture->cullRect().fLeft, picture->cullRect().fTop,
                picture->cullRect().fRight, picture->cullRect().fBottom);
     fNestLevel += 1;
     this->INHERITED::onDrawPicture(picture, matrix, paint);
     fNestLevel -= 1;
-    this->dump(kDrawPicture_Verb, NULL, "endPicture(%p) %f:%f:%f:%f", &picture,
+    this->dump(kDrawPicture_Verb, nullptr, "endPicture(%p) %f:%f:%f:%f", &picture,
                picture->cullRect().fLeft, picture->cullRect().fTop,
                picture->cullRect().fRight, picture->cullRect().fBottom);
 }
@@ -488,18 +480,6 @@ void SkDumpCanvas::onDrawPatch(const SkPoint cubics[12], const SkColor colors[4]
               colors[0], colors[1], colors[2], colors[3],
               texCoords[0].x(), texCoords[0].y(), texCoords[1].x(), texCoords[1].y(),
               texCoords[2].x(), texCoords[2].y(), texCoords[3].x(), texCoords[3].y());
-}
-
-void SkDumpCanvas::beginCommentGroup(const char* description) {
-    this->dump(kBeginCommentGroup_Verb, NULL, "beginCommentGroup(%s)", description);
-}
-
-void SkDumpCanvas::addComment(const char* kywd, const char* value) {
-    this->dump(kAddComment_Verb, NULL, "addComment(%s, %s)", kywd, value);
-}
-
-void SkDumpCanvas::endCommentGroup() {
-    this->dump(kEndCommentGroup_Verb, NULL, "endCommentGroup()");
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -565,6 +545,6 @@ static void dumpToDebugf(const char text[], void*) {
     SkDebugf("%s\n", text);
 }
 
-SkDebugfDumper::SkDebugfDumper() : INHERITED(dumpToDebugf, NULL) {}
+SkDebugfDumper::SkDebugfDumper() : INHERITED(dumpToDebugf, nullptr) {}
 
 #endif

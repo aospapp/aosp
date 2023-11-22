@@ -29,6 +29,7 @@
 #include "mirror/class.h"
 #include "oat.h"
 #include "os.h"
+#include "utils.h"
 
 namespace art {
 
@@ -39,8 +40,17 @@ class OatMethodOffsets;
 class OatHeader;
 class OatDexFile;
 
-class OatFile FINAL {
+namespace gc {
+namespace collector {
+class DummyOatFile;
+}  // namespace collector
+}  // namespace gc
+
+class OatFile {
  public:
+  // Special classpath that skips shared library check.
+  static constexpr const char* kSpecialSharedLibrary = "&";
+
   typedef art::OatDexFile OatDexFile;
 
   // Opens an oat file contained within the given elf file. This is always opened as
@@ -57,6 +67,7 @@ class OatFile FINAL {
                        uint8_t* requested_base,
                        uint8_t* oat_file_begin,
                        bool executable,
+                       bool low_4gb,
                        const char* abs_dex_location,
                        std::string* error_msg);
 
@@ -73,22 +84,20 @@ class OatFile FINAL {
                                const char* abs_dex_location,
                                std::string* error_msg);
 
-  ~OatFile();
+  virtual ~OatFile();
 
   bool IsExecutable() const {
     return is_executable_;
   }
+
+  bool HasPatchInfo() const;
 
   bool IsPic() const;
 
   // Indicates whether the oat file was compiled with full debugging capability.
   bool IsDebuggable() const;
 
-  ElfFile* GetElfFile() const {
-    CHECK_NE(reinterpret_cast<uintptr_t>(elf_file_.get()), reinterpret_cast<uintptr_t>(nullptr))
-        << "Cannot get an elf file from " << GetLocation();
-    return elf_file_.get();
-  }
+  CompilerFilter::Filter GetCompilerFilter() const;
 
   const std::string& GetLocation() const {
     return location_;
@@ -100,13 +109,9 @@ class OatFile FINAL {
    public:
     void LinkMethod(ArtMethod* method) const;
 
-    uint32_t GetCodeOffset() const {
-      return code_offset_;
-    }
+    uint32_t GetCodeOffset() const;
 
-    const void* GetQuickCode() const {
-      return GetOatPointer<const void*>(code_offset_);
-    }
+    const void* GetQuickCode() const;
 
     // Returns size of quick code.
     uint32_t GetQuickCodeSize() const;
@@ -121,17 +126,9 @@ class OatFile FINAL {
     uint32_t GetCoreSpillMask() const;
     uint32_t GetFpSpillMask() const;
 
-    const uint8_t* GetMappingTable() const;
-    uint32_t GetMappingTableOffset() const;
-    uint32_t GetMappingTableOffsetOffset() const;
-
     const uint8_t* GetVmapTable() const;
     uint32_t GetVmapTableOffset() const;
     uint32_t GetVmapTableOffsetOffset() const;
-
-    const uint8_t* GetGcMap() const;
-    uint32_t GetGcMapOffset() const;
-    uint32_t GetGcMapOffsetOffset() const;
 
     // Create an OatMethod with offsets relative to the given base address
     OatMethod(const uint8_t* base, const uint32_t code_offset)
@@ -219,7 +216,7 @@ class OatFile FINAL {
   const OatDexFile* GetOatDexFile(const char* dex_location,
                                   const uint32_t* const dex_location_checksum,
                                   bool exception_if_not_found = true) const
-      LOCKS_EXCLUDED(secondary_lookup_lock_);
+      REQUIRES(!secondary_lookup_lock_);
 
   const std::vector<const OatDexFile*>& GetOatDexFiles() const {
     return oat_dex_files_storage_;
@@ -227,6 +224,10 @@ class OatFile FINAL {
 
   size_t Size() const {
     return End() - Begin();
+  }
+
+  bool Contains(const void* p) const {
+    return p >= Begin() && p < End();
   }
 
   size_t BssSize() const {
@@ -263,35 +264,10 @@ class OatFile FINAL {
   static bool GetDexLocationsFromDependencies(const char* dex_dependencies,
                                               std::vector<std::string>* locations);
 
+ protected:
+  OatFile(const std::string& filename, bool executable);
+
  private:
-  static void CheckLocation(const std::string& location);
-
-  static OatFile* OpenDlopen(const std::string& elf_filename,
-                             const std::string& location,
-                             uint8_t* requested_base,
-                             const char* abs_dex_location,
-                             std::string* error_msg);
-
-  static OatFile* OpenElfFile(File* file,
-                              const std::string& location,
-                              uint8_t* requested_base,
-                              uint8_t* oat_file_begin,  // Override base if not null
-                              bool writable,
-                              bool executable,
-                              const char* abs_dex_location,
-                              std::string* error_msg);
-
-  explicit OatFile(const std::string& filename, bool executable);
-  bool Dlopen(const std::string& elf_filename, uint8_t* requested_base,
-              const char* abs_dex_location, std::string* error_msg);
-  bool ElfFileOpen(File* file, uint8_t* requested_base,
-                   uint8_t* oat_file_begin,  // Override where the file is loaded to if not null
-                   bool writable, bool executable,
-                   const char* abs_dex_location,
-                   std::string* error_msg);
-
-  bool Setup(const char* abs_dex_location, std::string* error_msg);
-
   // The oat file name.
   //
   // The image will embed this to link its associated oat file.
@@ -304,25 +280,13 @@ class OatFile FINAL {
   const uint8_t* end_;
 
   // Pointer to the .bss section, if present, otherwise null.
-  const uint8_t* bss_begin_;
+  uint8_t* bss_begin_;
 
   // Pointer to the end of the .bss section, if present, otherwise null.
-  const uint8_t* bss_end_;
+  uint8_t* bss_end_;
 
   // Was this oat_file loaded executable?
   const bool is_executable_;
-
-  // Backing memory map for oat file during when opened by ElfWriter during initial compilation.
-  std::unique_ptr<MemMap> mem_map_;
-
-  // Backing memory map for oat file during cross compilation.
-  std::unique_ptr<ElfFile> elf_file_;
-
-  // dlopen handle during runtime.
-  void* dlopen_handle_;
-
-  // Dummy memory map objects corresponding to the regions mapped by dlopen.
-  std::vector<std::unique_ptr<MemMap>> dlopen_mmaps_;
 
   // Owning storage for the OatDexFile objects.
   std::vector<const OatDexFile*> oat_dex_files_storage_;
@@ -356,9 +320,11 @@ class OatFile FINAL {
   // elements. std::list<> and std::deque<> satisfy this requirement, std::vector<> doesn't.
   mutable std::list<std::string> string_cache_ GUARDED_BY(secondary_lookup_lock_);
 
+  friend class gc::collector::DummyOatFile;  // For modifying begin_ and end_.
   friend class OatClass;
   friend class art::OatDexFile;
   friend class OatDumper;  // For GetBase and GetLimit
+  friend class OatFileBase;
   DISALLOW_COPY_AND_ASSIGN(OatFile);
 };
 
@@ -399,6 +365,18 @@ class OatDexFile FINAL {
   // Returns the offset to the OatClass information. Most callers should use GetOatClass.
   uint32_t GetOatClassOffset(uint16_t class_def_index) const;
 
+  uint8_t* GetDexCacheArrays() const {
+    return dex_cache_arrays_;
+  }
+
+  const uint8_t* GetLookupTableData() const {
+    return lookup_table_data_;
+  }
+
+  const uint8_t* GetDexFilePointer() const {
+    return dex_file_pointer_;
+  }
+
   ~OatDexFile();
 
  private:
@@ -407,16 +385,21 @@ class OatDexFile FINAL {
              const std::string& canonical_dex_file_location,
              uint32_t dex_file_checksum,
              const uint8_t* dex_file_pointer,
-             const uint32_t* oat_class_offsets_pointer);
+             const uint8_t* lookup_table_data,
+             const uint32_t* oat_class_offsets_pointer,
+             uint8_t* dex_cache_arrays);
 
   const OatFile* const oat_file_;
   const std::string dex_file_location_;
   const std::string canonical_dex_file_location_;
   const uint32_t dex_file_location_checksum_;
   const uint8_t* const dex_file_pointer_;
+  const uint8_t* lookup_table_data_;
   const uint32_t* const oat_class_offsets_pointer_;
+  uint8_t* const dex_cache_arrays_;
 
   friend class OatFile;
+  friend class OatFileBase;
   DISALLOW_COPY_AND_ASSIGN(OatDexFile);
 };
 

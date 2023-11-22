@@ -61,13 +61,7 @@ include $(BUILD_HOST_JAVA_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_IS_HOST_MODULE := true
 LOCAL_MODULE_CLASS := EXECUTABLES
-LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := baksmali
-
-include $(BUILD_SYSTEM)/base_rules.mk
-
-$(LOCAL_BUILT_MODULE): $(HOST_OUT_JAVA_LIBRARIES)/baksmalilib.jar
-$(LOCAL_BUILT_MODULE): $(LOCAL_PATH)/../scripts/baksmali | $(ACP)
-	@echo "Copy: $(PRIVATE_MODULE) ($@)"
-	$(copy-file-to-new-target)
-	$(hide) chmod 755 $@
+LOCAL_SRC_FILES := ../scripts/baksmali
+LOCAL_REQUIRED_MODULES := baksmalilib
+include $(BUILD_PREBUILT)

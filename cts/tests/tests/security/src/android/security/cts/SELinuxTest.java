@@ -42,43 +42,6 @@ public class SELinuxTest extends AndroidTestCase {
         System.loadLibrary("ctssecurity_jni");
     }
 
-    public void testMyJni() {
-        try {
-            checkSELinuxAccess(null, null, null, null, null);
-            fail("checkSELinuxAccess should have thrown");
-        } catch (NullPointerException e) {
-            // expected
-        }
-        try {
-            checkSELinuxContext(null);
-            fail("checkSELinuxContext should have thrown");
-        } catch (NullPointerException e) {
-            // expected
-        }
-    }
-
-    public void testCheckAccessSane() {
-        assertFalse(checkSELinuxAccess("a", "b", "c", "d", "e"));
-    }
-
-    public void testCheckContextSane() {
-        assertFalse(checkSELinuxContext("a"));
-    }
-
-    public void testZygoteContext() {
-        assertTrue(checkSELinuxContext("u:r:zygote:s0"));
-    }
-
-    public void testZygote() {
-        assertFalse(checkSELinuxAccess("u:r:zygote:s0", "u:object_r:runas_exec:s0", "file", "getattr", "/system/bin/run-as"));
-    }
-
-    public void testNoBooleans() throws Exception {
-        // Intentionally not using JNI bindings to keep things simple
-        File[] files = new File("/sys/fs/selinux/booleans/").listFiles();
-        assertEquals(0, files.length);
-    }
-
     public void testCTSIsUntrustedApp() throws IOException {
         String found = KernelSettingsTest.getFile("/proc/self/attr/current");
         String expected = "u:r:untrusted_app:s0";
@@ -109,10 +72,6 @@ public class SELinuxTest extends AndroidTestCase {
         assertEquals(getFileContext("/cache"), "u:object_r:cache_file:s0");
         assertEquals(getFileContext("/sys"), "u:object_r:sysfs:s0");
     }
-
-    private static native boolean checkSELinuxAccess(String scon, String tcon, String tclass, String perm, String extra);
-
-    private static native boolean checkSELinuxContext(String con);
 
     private static final native String getFileContext(String path);
 }

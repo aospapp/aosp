@@ -31,8 +31,7 @@ namespace arm64 {
 // runtime/arch/arm64/registers_arm64.h. We do not include that file to
 // avoid a dependency on libart.
 enum {
-  TR  = 18,
-  ETR = 21,
+  TR  = 19,
   IP0 = 16,
   IP1 = 17,
   FP  = 29,
@@ -64,9 +63,17 @@ void CustomDisassembler::VisitLoadLiteral(const vixl::Instruction* instr) {
     return;
   }
 
+  // Get address of literal. Bail if not within expected buffer range to
+  // avoid trying to fetch invalid literals (we can encounter this when
+  // interpreting raw data as instructions).
   void* data_address = instr->LiteralAddress<void*>();
-  vixl::Instr op = instr->Mask(vixl::LoadLiteralMask);
+  if (data_address < base_address_ || data_address >= end_address_) {
+    AppendToOutput(" (?)");
+    return;
+  }
 
+  // Output information on literal.
+  vixl::Instr op = instr->Mask(vixl::LoadLiteralMask);
   switch (op) {
     case vixl::LDR_w_lit:
     case vixl::LDR_x_lit:
@@ -95,7 +102,7 @@ void CustomDisassembler::VisitLoadStoreUnsignedOffset(const vixl::Instruction* i
     int64_t offset = instr->ImmLSUnsigned() << instr->SizeLS();
     std::ostringstream tmp_stream;
     Thread::DumpThreadOffset<8>(tmp_stream, static_cast<uint32_t>(offset));
-    AppendToOutput(" (%s)", tmp_stream.str().c_str());
+    AppendToOutput(" ; %s", tmp_stream.str().c_str());
   }
 }
 

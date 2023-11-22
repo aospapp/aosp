@@ -20,6 +20,7 @@ import android.app.AppOpsManager;
 import android.app.usage.NetworkStatsManager;
 import android.app.usage.NetworkStats;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -39,7 +40,7 @@ import java.io.InputStreamReader;
 import java.net.URL;
 import java.text.MessageFormat;
 import java.util.Scanner;
-import javax.net.ssl.HttpsURLConnection;
+import java.net.HttpURLConnection;
 
 import libcore.io.IoUtils;
 import libcore.io.Streams;
@@ -50,20 +51,67 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
     private static final String APPOPS_GET_SHELL_COMMAND = "appops get {0} {1}";
 
     private static final long MINUTE = 1000 * 60;
+    private static final int TIMEOUT_MILLIS = 15000;
 
-    private static final int[] sNetworkTypesToTest = new int[] {
-        ConnectivityManager.TYPE_WIFI,
-        ConnectivityManager.TYPE_MOBILE,
-    };
+    private interface NetworkInterfaceToTest {
+        int getNetworkType();
+        int getTransportType();
+        String getSystemFeature();
+        String getErrorMessage();
+    }
 
-    // Order corresponds to sNetworkTypesToTest
-    private static final int[] sTransportTypesToTest = new int[] {
-        NetworkCapabilities.TRANSPORT_WIFI,
-        NetworkCapabilities.TRANSPORT_CELLULAR,
+    private static final NetworkInterfaceToTest[] sNetworkInterfacesToTest =
+            new NetworkInterfaceToTest[] {
+                    new NetworkInterfaceToTest() {
+                        @Override
+                        public int getNetworkType() {
+                            return ConnectivityManager.TYPE_WIFI;
+                        }
+
+                        @Override
+                        public int getTransportType() {
+                            return NetworkCapabilities.TRANSPORT_WIFI;
+                        }
+
+                        @Override
+                        public String getSystemFeature() {
+                            return PackageManager.FEATURE_WIFI;
+                        }
+
+                        @Override
+                        public String getErrorMessage() {
+                            return " Please make sure you are connected to a WiFi access point.";
+                        }
+                    },
+                    new NetworkInterfaceToTest() {
+                        @Override
+                        public int getNetworkType() {
+                            return ConnectivityManager.TYPE_MOBILE;
+                        }
+
+                        @Override
+                        public int getTransportType() {
+                            return NetworkCapabilities.TRANSPORT_CELLULAR;
+                        }
+
+                        @Override
+                        public String getSystemFeature() {
+                            return PackageManager.FEATURE_TELEPHONY;
+                        }
+
+                        @Override
+                        public String getErrorMessage() {
+                            return " Please make sure you have added a SIM card with data plan to" +
+                                    " your phone, have enabled data over cellular and in case of" +
+                                    " dual SIM devices, have selected the right SIM " +
+                                    "for data connection.";
+                        }
+                    }
     };
 
     private NetworkStatsManager mNsm;
     private ConnectivityManager mCm;
+    private PackageManager mPm;
     private long mStartTime;
     private long mEndTime;
 
@@ -71,62 +119,49 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
     private String mWriteSettingsMode;
     private String mUsageStatsMode;
 
-    private void exerciseRemoteHost(int transportType) throws Exception {
-        final int timeout = 15000;
-        mCm.requestNetwork(new NetworkRequest.Builder()
-            .addTransportType(transportType)
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            .build(), new ConnectivityManager.NetworkCallback() {
-                @Override
-                public void onAvailable(Network network) {
-                    NetworkInfo networkInfo = mCm.getNetworkInfo(network);
-                    if (networkInfo == null) {
-                        Log.w(LOG_TAG, "Network info is null");
-                    } else {
-                        Log.w(LOG_TAG, "Network: " + networkInfo.toString());
-                    }
-                    InputStreamReader in = null;
-                    HttpsURLConnection urlc = null;
-                    String originalKeepAlive = System.getProperty("http.keepAlive");
-                    System.setProperty("http.keepAlive", "false");
-                    try {
-                        urlc = (HttpsURLConnection) network.openConnection(new URL(
-                                "https://www.google.com"));
-                        urlc.setConnectTimeout(timeout);
-                        urlc.setUseCaches(false);
-                        urlc.connect();
-                        boolean ping = urlc.getResponseCode() == 200;
-                        if (ping) {
-                            in = new InputStreamReader(
-                                    (InputStream) urlc.getContent());
-
-                            mBytesRead = 0;
-                            while (in.read() != -1) ++mBytesRead;
-                        }
-                    } catch (Exception e) {
-                        Log.i(LOG_TAG, "Badness during exercising remote server: " + e);
-                    } finally {
-                        if (in != null) {
-                            try {
-                                in.close();
-                            } catch (IOException e) {
-                                // don't care
-                            }
-                        }
-                        if (urlc != null) {
-                            urlc.disconnect();
-                        }
-                        if (originalKeepAlive == null) {
-                            System.clearProperty("http.keepAlive");
-                        } else {
-                            System.setProperty("http.keepAlive", originalKeepAlive);
-                        }
-                    }
-                }
-            });
+    private void exerciseRemoteHost(Network network) throws Exception {
+        NetworkInfo networkInfo = mCm.getNetworkInfo(network);
+        if (networkInfo == null) {
+            Log.w(LOG_TAG, "Network info is null");
+        } else {
+            Log.w(LOG_TAG, "Network: " + networkInfo.toString());
+        }
+        InputStreamReader in = null;
+        HttpURLConnection urlc = null;
+        String originalKeepAlive = System.getProperty("http.keepAlive");
+        System.setProperty("http.keepAlive", "false");
         try {
-            Thread.sleep(timeout);
-        } catch (InterruptedException e) {
+            urlc = (HttpURLConnection) network.openConnection(new URL(
+                    "http://www.265.com/"));
+            urlc.setConnectTimeout(TIMEOUT_MILLIS);
+            urlc.setUseCaches(false);
+            urlc.connect();
+            boolean ping = urlc.getResponseCode() == 200;
+            if (ping) {
+                in = new InputStreamReader(
+                        (InputStream) urlc.getContent());
+
+                mBytesRead = 0;
+                while (in.read() != -1) ++mBytesRead;
+            }
+        } catch (Exception e) {
+            Log.i(LOG_TAG, "Badness during exercising remote server: " + e);
+        } finally {
+            if (in != null) {
+                try {
+                    in.close();
+                } catch (IOException e) {
+                    // don't care
+                }
+            }
+            if (urlc != null) {
+                urlc.disconnect();
+            }
+            if (originalKeepAlive == null) {
+                System.clearProperty("http.keepAlive");
+            } else {
+                System.setProperty("http.keepAlive", originalKeepAlive);
+            }
         }
     }
 
@@ -138,6 +173,8 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
 
         mCm = (ConnectivityManager) getInstrumentation().getContext()
                 .getSystemService(Context.CONNECTIVITY_SERVICE);
+
+        mPm = getInstrumentation().getContext().getPackageManager();
 
         mWriteSettingsMode = getAppOpsMode(AppOpsManager.OPSTR_WRITE_SETTINGS);
         setAppOpsMode(AppOpsManager.OPSTR_WRITE_SETTINGS, "allow");
@@ -190,19 +227,65 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
         }
     }
 
-    private boolean shouldTestThisNetworkType(int networkTypeIndex, long tolerance)
-            throws Exception {
-        NetworkInfo networkInfo = mCm.getNetworkInfo(sNetworkTypesToTest[networkTypeIndex]);
-        if (networkInfo == null || !networkInfo.isAvailable()) {
-            return false;
+    private class NetworkCallback extends ConnectivityManager.NetworkCallback {
+        private long mTolerance;
+        public boolean success;
+
+        NetworkCallback(long tolerance) {
+            mTolerance = tolerance;
+            success = false;
         }
-        mStartTime = System.currentTimeMillis() - tolerance;
-        exerciseRemoteHost(sTransportTypesToTest[networkTypeIndex]);
-        mEndTime = System.currentTimeMillis() + tolerance;
-        return true;
+
+        @Override
+        public void onAvailable(Network network) {
+            try {
+                mStartTime = System.currentTimeMillis() - mTolerance;
+                exerciseRemoteHost(network);
+                mEndTime = System.currentTimeMillis() + mTolerance;
+                success = true;
+                synchronized(NetworkUsageStatsTest.this) {
+                    NetworkUsageStatsTest.this.notify();
+                }
+            } catch (Exception e) {
+                Log.w(LOG_TAG, "exercising remote host failed.", e);
+                success = false;
+            }
+        }
     }
 
-    private String getSubscriberId(int networkType) {
+    private boolean shouldTestThisNetworkType(int networkTypeIndex, final long tolerance)
+            throws Exception {
+        boolean hasFeature = mPm.hasSystemFeature(
+                sNetworkInterfacesToTest[networkTypeIndex].getSystemFeature());
+        if (!hasFeature) {
+            return false;
+        }
+        NetworkCallback callback = new NetworkCallback(tolerance);
+        mCm.requestNetwork(new NetworkRequest.Builder()
+                .addTransportType(sNetworkInterfacesToTest[networkTypeIndex].getTransportType())
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build(), callback);
+        synchronized(this) {
+            try {
+                wait((int)(TIMEOUT_MILLIS * 1.2));
+            } catch (InterruptedException e) {
+            }
+        }
+        if (callback.success) {
+            return true;
+        }
+
+        // This will always fail at this point as we know 'hasFeature' is true.
+        assertFalse (sNetworkInterfacesToTest[networkTypeIndex].getSystemFeature() +
+                " is a reported system feature, " +
+                "however no corresponding connected network interface was found or the attempt " +
+                "to connect has timed out (timeout = " + TIMEOUT_MILLIS + "ms)." +
+                sNetworkInterfacesToTest[networkTypeIndex].getErrorMessage(), hasFeature);
+        return false;
+    }
+
+    private String getSubscriberId(int networkIndex) {
+        int networkType = sNetworkInterfacesToTest[networkIndex].getNetworkType();
         if (ConnectivityManager.TYPE_MOBILE == networkType) {
             TelephonyManager tm = (TelephonyManager) getInstrumentation().getContext()
                     .getSystemService(Context.TELEPHONY_SERVICE);
@@ -212,7 +295,7 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
     }
 
     public void testDeviceSummary() throws Exception {
-        for (int i = 0; i < sNetworkTypesToTest.length; ++i) {
+        for (int i = 0; i < sNetworkInterfacesToTest.length; ++i) {
             if (!shouldTestThisNetworkType(i, MINUTE/2)) {
                 continue;
             }
@@ -220,7 +303,7 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
             NetworkStats.Bucket bucket = null;
             try {
                 bucket = mNsm.querySummaryForDevice(
-                        sNetworkTypesToTest[i], getSubscriberId(sNetworkTypesToTest[i]),
+                        sNetworkInterfacesToTest[i].getNetworkType(), getSubscriberId(i),
                         mStartTime, mEndTime);
             } catch (RemoteException | SecurityException e) {
                 fail("testDeviceSummary fails with exception: " + e.toString());
@@ -232,7 +315,7 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
             setAppOpsMode(AppOpsManager.OPSTR_GET_USAGE_STATS, "deny");
             try {
                 bucket = mNsm.querySummaryForDevice(
-                        sNetworkTypesToTest[i], getSubscriberId(sNetworkTypesToTest[i]),
+                        sNetworkInterfacesToTest[i].getNetworkType(), getSubscriberId(i),
                         mStartTime, mEndTime);
                 fail("negative testDeviceSummary fails: no exception thrown.");
             } catch (RemoteException e) {
@@ -244,7 +327,7 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
     }
 
     public void testUserSummary() throws Exception {
-        for (int i = 0; i < sNetworkTypesToTest.length; ++i) {
+        for (int i = 0; i < sNetworkInterfacesToTest.length; ++i) {
             if (!shouldTestThisNetworkType(i, MINUTE/2)) {
                 continue;
             }
@@ -252,7 +335,7 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
             NetworkStats.Bucket bucket = null;
             try {
                 bucket = mNsm.querySummaryForUser(
-                        sNetworkTypesToTest[i], getSubscriberId(sNetworkTypesToTest[i]),
+                        sNetworkInterfacesToTest[i].getNetworkType(), getSubscriberId(i),
                         mStartTime, mEndTime);
             } catch (RemoteException | SecurityException e) {
                 fail("testUserSummary fails with exception: " + e.toString());
@@ -264,7 +347,7 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
             setAppOpsMode(AppOpsManager.OPSTR_GET_USAGE_STATS, "deny");
             try {
                 bucket = mNsm.querySummaryForUser(
-                        sNetworkTypesToTest[i], getSubscriberId(sNetworkTypesToTest[i]),
+                        sNetworkInterfacesToTest[i].getNetworkType(), getSubscriberId(i),
                         mStartTime, mEndTime);
                 fail("negative testUserSummary fails: no exception thrown.");
             } catch (RemoteException e) {
@@ -276,7 +359,7 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
     }
 
     public void testAppSummary() throws Exception {
-        for (int i = 0; i < sNetworkTypesToTest.length; ++i) {
+        for (int i = 0; i < sNetworkInterfacesToTest.length; ++i) {
             if (!shouldTestThisNetworkType(i, MINUTE/2)) {
                 continue;
             }
@@ -284,7 +367,7 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
             NetworkStats result = null;
             try {
                 result = mNsm.querySummary(
-                        sNetworkTypesToTest[i], getSubscriberId(sNetworkTypesToTest[i]),
+                        sNetworkInterfacesToTest[i].getNetworkType(), getSubscriberId(i),
                         mStartTime, mEndTime);
                 assertTrue(result != null);
                 NetworkStats.Bucket bucket = new NetworkStats.Bucket();
@@ -317,7 +400,7 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
             setAppOpsMode(AppOpsManager.OPSTR_GET_USAGE_STATS, "deny");
             try {
                 result = mNsm.querySummary(
-                        sNetworkTypesToTest[i], getSubscriberId(sNetworkTypesToTest[i]),
+                        sNetworkInterfacesToTest[i].getNetworkType(), getSubscriberId(i),
                         mStartTime, mEndTime);
                 fail("negative testAppSummary fails: no exception thrown.");
             } catch (RemoteException e) {
@@ -329,7 +412,7 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
     }
 
     public void testAppDetails() throws Exception {
-        for (int i = 0; i < sNetworkTypesToTest.length; ++i) {
+        for (int i = 0; i < sNetworkInterfacesToTest.length; ++i) {
             // Relatively large tolerance to accommodate for history bucket size.
             if (!shouldTestThisNetworkType(i, MINUTE * 120)) {
                 continue;
@@ -338,7 +421,7 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
             NetworkStats result = null;
             try {
                 result = mNsm.queryDetails(
-                        sNetworkTypesToTest[i], getSubscriberId(sNetworkTypesToTest[i]),
+                        sNetworkInterfacesToTest[i].getNetworkType(), getSubscriberId(i),
                         mStartTime, mEndTime);
                 assertTrue(result != null);
                 NetworkStats.Bucket bucket = new NetworkStats.Bucket();
@@ -372,7 +455,7 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
             setAppOpsMode(AppOpsManager.OPSTR_GET_USAGE_STATS, "deny");
             try {
                 result = mNsm.queryDetails(
-                        sNetworkTypesToTest[i], getSubscriberId(sNetworkTypesToTest[i]),
+                        sNetworkInterfacesToTest[i].getNetworkType(), getSubscriberId(i),
                         mStartTime, mEndTime);
                 fail("negative testAppDetails fails: no exception thrown.");
             } catch (RemoteException e) {
@@ -384,7 +467,7 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
     }
 
     public void testUidDetails() throws Exception {
-        for (int i = 0; i < sNetworkTypesToTest.length; ++i) {
+        for (int i = 0; i < sNetworkInterfacesToTest.length; ++i) {
             // Relatively large tolerance to accommodate for history bucket size.
             if (!shouldTestThisNetworkType(i, MINUTE * 120)) {
                 continue;
@@ -393,7 +476,7 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
             NetworkStats result = null;
             try {
                 result = mNsm.queryDetailsForUid(
-                        sNetworkTypesToTest[i], getSubscriberId(sNetworkTypesToTest[i]),
+                        sNetworkInterfacesToTest[i].getNetworkType(), getSubscriberId(i),
                         mStartTime, mEndTime, Process.myUid());
                 assertTrue(result != null);
                 NetworkStats.Bucket bucket = new NetworkStats.Bucket();
@@ -426,7 +509,7 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
             setAppOpsMode(AppOpsManager.OPSTR_GET_USAGE_STATS, "deny");
             try {
                 result = mNsm.queryDetailsForUid(
-                        sNetworkTypesToTest[i], getSubscriberId(sNetworkTypesToTest[i]),
+                        sNetworkInterfacesToTest[i].getNetworkType(), getSubscriberId(i),
                         mStartTime, mEndTime, Process.myUid());
                 fail("negative testUidDetails fails: no exception thrown.");
             } catch (RemoteException e) {

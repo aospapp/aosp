@@ -7,7 +7,7 @@
  */
 
 #include "GrContext.h"
-#include "GrDrawTargetCaps.h"
+#include "GrCaps.h"
 #include "GrGpu.h"
 #include "GrResourceKey.h"
 #include "GrRenderTarget.h"
@@ -18,7 +18,7 @@
 void GrTexture::dirtyMipMaps(bool mipMapsDirty) {
     if (mipMapsDirty) {
         if (kValid_MipMapsStatus == fMipMapsStatus) {
-           fMipMapsStatus = kAllocated_MipMapsStatus;
+            fMipMapsStatus = kAllocated_MipMapsStatus;
         }
     } else {
         const bool sizeChanged = kNotAllocated_MipMapsStatus == fMipMapsStatus;
@@ -42,8 +42,12 @@ size_t GrTexture::onGpuMemorySize() const {
     if (this->texturePriv().hasMipMaps()) {
         // We don't have to worry about the mipmaps being a different size than
         // we'd expect because we never change fDesc.fWidth/fHeight.
-        textureSize *= 2;
+        textureSize += textureSize/3;
     }
+
+    SkASSERT(!SkToBool(fDesc.fFlags & kRenderTarget_GrSurfaceFlag));
+    SkASSERT(textureSize <= WorseCaseSize(fDesc));
+
     return textureSize;
 }
 
@@ -51,7 +55,7 @@ void GrTexture::validateDesc() const {
     if (this->asRenderTarget()) {
         // This texture has a render target
         SkASSERT(0 != (fDesc.fFlags & kRenderTarget_GrSurfaceFlag));
-        SkASSERT(fDesc.fSampleCnt == this->asRenderTarget()->numSamples());
+        SkASSERT(fDesc.fSampleCnt == this->asRenderTarget()->numColorSamples());
     } else {
         SkASSERT(0 == (fDesc.fFlags & kRenderTarget_GrSurfaceFlag));
         SkASSERT(0 == fDesc.fSampleCnt);
@@ -81,31 +85,27 @@ GrTexture::GrTexture(GrGpu* gpu, LifeCycle lifeCycle, const GrSurfaceDesc& desc)
     : INHERITED(gpu, lifeCycle, desc)
     , fMipMapsStatus(kNotAllocated_MipMapsStatus) {
 
-    if (kWrapped_LifeCycle != lifeCycle && !GrPixelConfigIsCompressed(desc.fConfig)) {
+    if (!this->isExternal() && !GrPixelConfigIsCompressed(desc.fConfig) &&
+        !desc.fTextureStorageAllocator.fAllocateTextureStorage) {
         GrScratchKey key;
         GrTexturePriv::ComputeScratchKey(desc, &key);
         this->setScratchKey(key);
     }
-    // only make sense if alloc size is pow2
-    fShiftFixedX = 31 - SkCLZ(fDesc.fWidth);
-    fShiftFixedY = 31 - SkCLZ(fDesc.fHeight);
 }
 
 void GrTexturePriv::ComputeScratchKey(const GrSurfaceDesc& desc, GrScratchKey* key) {
     static const GrScratchKey::ResourceType kType = GrScratchKey::GenerateResourceType();
 
-    GrScratchKey::Builder builder(key, kType, 2);
-
     GrSurfaceOrigin origin = resolve_origin(desc);
     uint32_t flags = desc.fFlags & ~kCheckAllocation_GrSurfaceFlag;
 
-    SkASSERT(desc.fWidth <= SK_MaxU16);
-    SkASSERT(desc.fHeight <= SK_MaxU16);
     SkASSERT(static_cast<int>(desc.fConfig) < (1 << 6));
     SkASSERT(desc.fSampleCnt < (1 << 8));
     SkASSERT(flags < (1 << 10));
     SkASSERT(static_cast<int>(origin) < (1 << 8));
 
-    builder[0] = desc.fWidth | (desc.fHeight << 16);
-    builder[1] = desc.fConfig | (desc.fSampleCnt << 6) | (flags << 14) | (origin << 24);
+    GrScratchKey::Builder builder(key, kType, 3);
+    builder[0] = desc.fWidth;
+    builder[1] = desc.fHeight;
+    builder[2] = desc.fConfig | (desc.fSampleCnt << 6) | (flags << 14) | (origin << 24);
 }

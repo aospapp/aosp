@@ -7,7 +7,7 @@
    This file is part of MemCheck, a heavyweight Valgrind tool for
    detecting memory errors.
 
-   Copyright (C) 2000-2013 Julian Seward 
+   Copyright (C) 2000-2015 Julian Seward 
       jseward@acm.org
 
    This program is free software; you can redistribute it and/or
@@ -265,9 +265,9 @@ Int find_chunk_for_OLD ( Addr       ptr,
 {
    Int  i;
    Addr a_lo, a_hi;
-   PROF_EVENT(70, "find_chunk_for_OLD");
+   PROF_EVENT(MCPE_FIND_CHUNK_FOR_OLD);
    for (i = 0; i < n_chunks; i++) {
-      PROF_EVENT(71, "find_chunk_for_OLD(loop)");
+      PROF_EVENT(MCPE_FIND_CHUNK_FOR_OLD_LOOP);
       a_lo = chunks[i]->data;
       a_hi = ((Addr)chunks[i]->data) + chunks[i]->szB;
       if (a_lo <= ptr && ptr < a_hi)
@@ -683,6 +683,65 @@ static Bool is_valid_aligned_ULong ( Addr a )
       && MC_(is_valid_aligned_word)(a + 4);
 }
 
+/* The below leak_search_fault_catcher is used to catch memory access
+   errors happening during leak_search.  During the scan, we check
+   with aspacemgr and/or VA bits that each page or dereferenced location is
+   readable and belongs to the client.  However, we still protect
+   against SIGSEGV and SIGBUS e.g. in case aspacemgr is desynchronised
+   with the real page mappings.  Such a desynchronisation could happen
+   due to an aspacemgr bug.  Note that if the application is using
+   mprotect(NONE), then a page can be unreadable but have addressable
+   and defined VA bits (see mc_main.c function mc_new_mem_mprotect).
+   Currently, 2 functions are dereferencing client memory during leak search:
+   heuristic_reachedness and lc_scan_memory.
+   Each such function has its own fault catcher, that will call
+   leak_search_fault_catcher with the proper 'who' and jmpbuf parameters. */
+static volatile Addr bad_scanned_addr;
+static
+void leak_search_fault_catcher ( Int sigNo, Addr addr,
+                                 const HChar *who, VG_MINIMAL_JMP_BUF(jmpbuf) )
+{
+   vki_sigset_t sigmask;
+
+   if (0)
+      VG_(printf)("OUCH! sig=%d addr=%#lx who=%s\n", sigNo, addr, who);
+
+   /* Signal handler runs with the signal masked.
+      Unmask the handled signal before longjmp-ing or return-ing.
+      Note that during leak search, we expect only SIGSEGV or SIGBUS
+      and we do not expect another occurence until we longjmp-ed!return-ed
+      to resume the leak search. So, it is safe to unmask the signal
+      here. */
+   /* First get current mask (by passing NULL as first arg) */
+   VG_(sigprocmask)(VKI_SIG_SETMASK, NULL, &sigmask);
+   /* Then set a new sigmask, with this signal removed from the mask. */
+   VG_(sigdelset)(&sigmask, sigNo);
+   VG_(sigprocmask)(VKI_SIG_SETMASK, &sigmask, NULL);
+
+   if (sigNo == VKI_SIGSEGV || sigNo == VKI_SIGBUS) {
+      bad_scanned_addr = addr;
+      VG_MINIMAL_LONGJMP(jmpbuf);
+   } else {
+      /* ??? During leak search, we are not supposed to receive any
+         other sync signal that these 2.
+         In theory, we should not call VG_(umsg) in a signal handler,
+         but better (try to) report this unexpected behaviour. */
+      VG_(umsg)("leak_search_fault_catcher:"
+                " unexpected signal %d, catcher %s ???\n",
+                sigNo, who);
+   }
+}
+
+// jmpbuf and fault_catcher used during heuristic_reachedness
+static VG_MINIMAL_JMP_BUF(heuristic_reachedness_jmpbuf);
+static
+void heuristic_reachedness_fault_catcher ( Int sigNo, Addr addr )
+{
+   leak_search_fault_catcher (sigNo, addr, 
+                              "heuristic_reachedness_fault_catcher",
+                              heuristic_reachedness_jmpbuf);
+}
+
 // If ch is heuristically reachable via an heuristic member of heur_set,
 // returns this heuristic.
 // If ch cannot be considered reachable using one of these heuristics,
@@ -696,6 +755,17 @@ static LeakCheckHeuristic heuristic_reachedness (Addr ptr,
                                                  MC_Chunk *ch, LC_Extra *ex,
                                                  UInt heur_set)
 {
+
+   fault_catcher_t prev_catcher;
+
+   prev_catcher = VG_(set_fault_catcher)(heuristic_reachedness_fault_catcher);
+
+   // See leak_search_fault_catcher
+   if (VG_MINIMAL_SETJMP(heuristic_reachedness_jmpbuf) != 0) {
+      VG_(set_fault_catcher) (prev_catcher);
+      return LchNone;
+   }
+
    if (HiS(LchStdString, heur_set)) {
       // Detects inner pointers to Std::String for layout being
       //     length capacity refcount char_array[] \0
@@ -717,6 +787,7 @@ static LeakCheckHeuristic heuristic_reachedness (Addr ptr,
                // ??? probably not a good idea, as I guess stdstring
                // ??? allocator can be done via custom allocator
                // ??? or even a call to malloc ????
+               VG_(set_fault_catcher) (prev_catcher);
                return LchStdString;
             }
          }
@@ -735,6 +806,7 @@ static LeakCheckHeuristic heuristic_reachedness (Addr ptr,
           && is_valid_aligned_ULong(ch->data)) {
          const ULong size = *((ULong*)ch->data);
          if (size > 0 && (ch->szB - sizeof(ULong)) == size) {
+            VG_(set_fault_catcher) (prev_catcher);
             return LchLength64;
          }
       }
@@ -761,6 +833,7 @@ static LeakCheckHeuristic heuristic_reachedness (Addr ptr,
          const SizeT nr_elts = *((SizeT*)ch->data);
          if (nr_elts > 0 && (ch->szB - sizeof(SizeT)) % nr_elts == 0) {
             // ??? could check that ch->allockind is MC_AllocNewVec ???
+            VG_(set_fault_catcher) (prev_catcher);
             return LchNewArray;
          }
       }
@@ -792,12 +865,14 @@ static LeakCheckHeuristic heuristic_reachedness (Addr ptr,
                 && aligned_ptr_above_page0_is_vtable_addr(inner_addr)
                 && aligned_ptr_above_page0_is_vtable_addr(first_addr)) {
                // ??? could check that ch->allockind is MC_AllocNew ???
+               VG_(set_fault_catcher) (prev_catcher);
                return LchMultipleInheritance;
             }
          }
       }
    }
 
+   VG_(set_fault_catcher) (prev_catcher);
    return LchNone;
 }
 
@@ -899,11 +974,10 @@ lc_push_with_clique_if_a_chunk_ptr(Addr ptr, Int clique, Int cur_clique)
       if (VG_DEBUG_CLIQUE) {
          if (ex->IorC.indirect_szB > 0)
             VG_(printf)("  clique %d joining clique %d adding %lu+%lu\n", 
-                        ch_no, clique, (unsigned long)ch->szB,
-			(unsigned long)ex->IorC.indirect_szB);
+                        ch_no, clique, (SizeT)ch->szB, ex->IorC.indirect_szB);
          else
             VG_(printf)("  block %d joining clique %d adding %lu\n", 
-                        ch_no, clique, (unsigned long)ch->szB);
+                        ch_no, clique, (SizeT)ch->szB);
       }
 
       lc_extras[clique].IorC.indirect_szB += ch->szB;
@@ -924,18 +998,13 @@ lc_push_if_a_chunk_ptr(Addr ptr,
 }
 
 
-static VG_MINIMAL_JMP_BUF(memscan_jmpbuf);
-static volatile Addr bad_scanned_addr;
-
+static VG_MINIMAL_JMP_BUF(lc_scan_memory_jmpbuf);
 static
-void scan_all_valid_memory_catcher ( Int sigNo, Addr addr )
+void lc_scan_memory_fault_catcher ( Int sigNo, Addr addr )
 {
-   if (0)
-      VG_(printf)("OUCH! sig=%d addr=%#lx\n", sigNo, addr);
-   if (sigNo == VKI_SIGSEGV || sigNo == VKI_SIGBUS) {
-      bad_scanned_addr = addr;
-      VG_MINIMAL_LONGJMP(memscan_jmpbuf);
-   }
+   leak_search_fault_catcher (sigNo, addr, 
+                              "lc_scan_memory_fault_catcher",
+                              lc_scan_memory_jmpbuf);
 }
 
 // lc_scan_memory has 2 modes:
@@ -943,7 +1012,7 @@ void scan_all_valid_memory_catcher ( Int sigNo, Addr addr )
 // 1. Leak check mode (searched == 0).
 // -----------------------------------
 // Scan a block of memory between [start, start+len).  This range may
-// be bogus, inaccessable, or otherwise strange; we deal with it.  For each
+// be bogus, inaccessible, or otherwise strange; we deal with it.  For each
 // valid aligned word we assume it's a pointer to a chunk a push the chunk
 // onto the mark stack if so.
 // clique is the "highest level clique" in which indirectly leaked blocks have
@@ -984,18 +1053,17 @@ lc_scan_memory(Addr start, SizeT len, Bool is_prior_definite,
 #endif
    Addr ptr = VG_ROUNDUP(start, sizeof(Addr));
    const Addr end = VG_ROUNDDN(start+len, sizeof(Addr));
-   vki_sigset_t sigmask;
+   fault_catcher_t prev_catcher;
 
    if (VG_DEBUG_LEAKCHECK)
       VG_(printf)("scan %#lx-%#lx (%lu)\n", start, end, len);
 
-   VG_(sigprocmask)(VKI_SIG_SETMASK, NULL, &sigmask);
-   VG_(set_fault_catcher)(scan_all_valid_memory_catcher);
+   prev_catcher = VG_(set_fault_catcher)(lc_scan_memory_fault_catcher);
 
    /* Optimisation: the loop below will check for each begin
       of SM chunk if the chunk is fully unaddressable. The idea is to
       skip efficiently such fully unaddressable SM chunks.
-      So, we preferrably start the loop on a chunk boundary.
+      So, we preferably start the loop on a chunk boundary.
       If the chunk is not fully unaddressable, we might be in
       an unaddressable page. Again, the idea is to skip efficiently
       such unaddressable page : this is the "else" part.
@@ -1017,19 +1085,9 @@ lc_scan_memory(Addr start, SizeT len, Bool is_prior_definite,
       between VKI_PAGE_SIZE, SM_SIZE and sizeof(Addr) which are asserted in
       MC_(detect_memory_leaks). */
 
-   // During scan, we check with aspacemgr that each page is readable and
-   // belongs to client.
-   // We still protect against SIGSEGV and SIGBUS e.g. in case aspacemgr is
-   // desynchronised with the real page mappings.
-   // Such a desynchronisation could happen due to an aspacemgr bug.
-   // Note that if the application is using mprotect(NONE), then
-   // a page can be unreadable but have addressable and defined
-   // VA bits (see mc_main.c function mc_new_mem_mprotect).
-   if (VG_MINIMAL_SETJMP(memscan_jmpbuf) != 0) {
+   // See leak_search_fault_catcher
+   if (VG_MINIMAL_SETJMP(lc_scan_memory_jmpbuf) != 0) {
       // Catch read error ...
-      // We need to restore the signal mask, because we were
-      // longjmped out of a signal handler.
-      VG_(sigprocmask)(VKI_SIG_SETMASK, &sigmask, NULL);
 #     if defined(VGA_s390x)
       // For a SIGSEGV, s390 delivers the page address of the bad address.
       // For a SIGBUS, old s390 kernels deliver a NULL address.
@@ -1110,8 +1168,7 @@ lc_scan_memory(Addr start, SizeT len, Bool is_prior_definite,
       ptr += sizeof(Addr);
    }
 
-   VG_(sigprocmask)(VKI_SIG_SETMASK, &sigmask, NULL);
-   VG_(set_fault_catcher)(NULL);
+   VG_(set_fault_catcher)(prev_catcher);
 }
 
 
@@ -1178,8 +1235,8 @@ static Int cmp_LossRecords(const void* va, const void* vb)
 
 // allocates or reallocates lr_array, and set its elements to the loss records
 // contains in lr_table.
-static Int get_lr_array_from_lr_table(void) {
-   Int          i, n_lossrecords;
+static UInt get_lr_array_from_lr_table(void) {
+   UInt         i, n_lossrecords;
    LossRecord*  lr;
 
    n_lossrecords = VG_(OSetGen_Size)(lr_table);
@@ -1321,7 +1378,7 @@ static void print_results(ThreadId tid, LeakCheckParams* lcp)
         if (VG_DEBUG_LEAKCHECK)
            VG_(printf)("heuristic %s %#lx len %lu\n",
                        pp_heuristic(ex->heuristic),
-                       ch->data, (unsigned long)ch->szB);
+                       ch->data, (SizeT)ch->szB);
      }
 
       old_lr = VG_(OSetGen_Lookup)(lr_table, &lrkey);
@@ -1508,21 +1565,22 @@ static void print_results(ThreadId tid, LeakCheckParams* lcp)
 }
 
 // print recursively all indirectly leaked blocks collected in clique.
-static void print_clique (Int clique, UInt level)
+// Printing stops when *remaining reaches 0.
+static void print_clique (Int clique, UInt level, UInt *remaining)
 {
    Int ind;
-   Int i,  n_lossrecords;;
+   UInt i,  n_lossrecords;
 
    n_lossrecords = VG_(OSetGen_Size)(lr_table);
 
-   for (ind = 0; ind < lc_n_chunks; ind++) {
+   for (ind = 0; ind < lc_n_chunks && *remaining > 0; ind++) {
       LC_Extra*     ind_ex = &(lc_extras)[ind];
       if (ind_ex->state == IndirectLeak 
           && ind_ex->IorC.clique == (SizeT) clique) {
          MC_Chunk*    ind_ch = lc_chunks[ind];
          LossRecord*  ind_lr;
          LossRecordKey ind_lrkey;
-         Int lr_i;
+         UInt lr_i;
          ind_lrkey.state = ind_ex->state;
          ind_lrkey.allocated_at = MC_(allocated_at)(ind_ch);
          ind_lr = VG_(OSetGen_Lookup)(lr_table, &ind_lrkey);
@@ -1531,22 +1589,29 @@ static void print_clique (Int clique, UInt level)
                break;
          for (i = 0; i < level; i++)
             VG_(umsg)("  ");
-         VG_(umsg)("%p[%lu] indirect loss record %d\n",
-                   (void *)ind_ch->data, (unsigned long)ind_ch->szB,
+         VG_(umsg)("%p[%lu] indirect loss record %u\n",
+                   (void *)ind_ch->data, (SizeT)ind_ch->szB,
                    lr_i+1); // lr_i+1 for user numbering.
+         (*remaining)--;
          if (lr_i >= n_lossrecords)
             VG_(umsg)
                ("error: no indirect loss record found for %p[%lu]?????\n",
-                (void *)ind_ch->data, (unsigned long)ind_ch->szB);
-         print_clique(ind, level+1);
+                (void *)ind_ch->data, (SizeT)ind_ch->szB);
+         print_clique(ind, level+1, remaining);
       }
    }
  }
 
-Bool MC_(print_block_list) ( UInt loss_record_nr)
+Bool MC_(print_block_list) ( UInt loss_record_nr_from,
+                             UInt loss_record_nr_to,
+                             UInt max_blocks,
+                             UInt heuristics)
 {
-   Int          i,  n_lossrecords;
+   UInt loss_record_nr;
+   UInt         i,  n_lossrecords;
    LossRecord*  lr;
+   Bool lr_printed;
+   UInt remaining = max_blocks;
 
    if (lr_table == NULL || lc_chunks == NULL || lc_extras == NULL) {
       VG_(umsg)("Can't print block list : no valid leak search result\n");
@@ -1559,46 +1624,75 @@ Bool MC_(print_block_list) ( UInt loss_record_nr)
    }
 
    n_lossrecords = VG_(OSetGen_Size)(lr_table);
-   if (loss_record_nr >= n_lossrecords)
-      return False; // Invalid loss record nr.
+   if (loss_record_nr_from >= n_lossrecords)
+      return False; // Invalid starting loss record nr.
+
+   if (loss_record_nr_to >= n_lossrecords)
+      loss_record_nr_to = n_lossrecords - 1;
 
    tl_assert (lr_array);
-   lr = lr_array[loss_record_nr];
+
+   for (loss_record_nr = loss_record_nr_from;
+        loss_record_nr <= loss_record_nr_to && remaining > 0;
+        loss_record_nr++) {
+      lr = lr_array[loss_record_nr];
+      lr_printed = False;
+
+      /* If user asks to print a specific loss record, we print
+         the block details, even if no block will be shown for this lr.
+         If user asks to print a range of lr, we only print lr details
+         when at least one block is shown. */
+      if (loss_record_nr_from == loss_record_nr_to) {
+         /* (+1 on loss_record_nr as user numbering for loss records
+            starts at 1). */
+         MC_(pp_LossRecord)(loss_record_nr+1, n_lossrecords, lr);
+         lr_printed = True;
+      }
    
-   // (re-)print the loss record details.
-   // (+1 on loss_record_nr as user numbering for loss records starts at 1).
-   MC_(pp_LossRecord)(loss_record_nr+1, n_lossrecords, lr);
+      // Match the chunks with loss records.
+      for (i = 0; i < lc_n_chunks && remaining > 0; i++) {
+         MC_Chunk*     ch = lc_chunks[i];
+         LC_Extra*     ex = &(lc_extras)[i];
+         LossRecord*   old_lr;
+         LossRecordKey lrkey;
+         lrkey.state        = ex->state;
+         lrkey.allocated_at = MC_(allocated_at)(ch);
 
-   // Match the chunks with loss records.
-   for (i = 0; i < lc_n_chunks; i++) {
-      MC_Chunk*     ch = lc_chunks[i];
-      LC_Extra*     ex = &(lc_extras)[i];
-      LossRecord*   old_lr;
-      LossRecordKey lrkey;
-      lrkey.state        = ex->state;
-      lrkey.allocated_at = MC_(allocated_at)(ch);
+         old_lr = VG_(OSetGen_Lookup)(lr_table, &lrkey);
+         if (old_lr) {
+            // We found an existing loss record matching this chunk.
+            // If this is the loss record we are looking for, output the
+            // pointer.
+            if (old_lr == lr_array[loss_record_nr]
+                && (heuristics == 0 || HiS(ex->heuristic, heuristics))) {
+               if (!lr_printed) {
+                  MC_(pp_LossRecord)(loss_record_nr+1, n_lossrecords, lr);
+                  lr_printed = True;
+               }
 
-      old_lr = VG_(OSetGen_Lookup)(lr_table, &lrkey);
-      if (old_lr) {
-         // We found an existing loss record matching this chunk.
-         // If this is the loss record we are looking for, output the pointer.
-         if (old_lr == lr_array[loss_record_nr]) {
-            VG_(umsg)("%p[%lu]\n",
-                      (void *)ch->data, (unsigned long) ch->szB);
-            if (ex->state != Reachable) {
-               // We can print the clique in all states, except Reachable.
-               // In Unreached state, lc_chunk[i] is the clique leader.
-               // In IndirectLeak, lc_chunk[i] might have been a clique leader
-               // which was later collected in another clique.
-               // For Possible, lc_chunk[i] might be the top of a clique
-               // or an intermediate clique.
-               print_clique(i, 1);
+               if (ex->heuristic)
+                  VG_(umsg)("%p[%lu] (found via heuristic %s)\n",
+                            (void *)ch->data, (SizeT)ch->szB,
+                            pp_heuristic (ex->heuristic));
+               else
+                  VG_(umsg)("%p[%lu]\n",
+                            (void *)ch->data, (SizeT)ch->szB);
+               remaining--;
+               if (ex->state != Reachable) {
+                  // We can print the clique in all states, except Reachable.
+                  // In Unreached state, lc_chunk[i] is the clique leader.
+                  // In IndirectLeak, lc_chunk[i] might have been a clique
+                  // leader which was later collected in another clique.
+                  // For Possible, lc_chunk[i] might be the top of a clique
+                  // or an intermediate clique.
+                  print_clique(i, 1, &remaining);
+               }
             }
+         } else {
+            // No existing loss record matches this chunk ???
+            VG_(umsg)("error: no loss record found for %p[%lu]?????\n",
+                      (void *)ch->data, (SizeT)ch->szB);
          }
-      } else {
-         // No existing loss record matches this chunk ???
-         VG_(umsg)("error: no loss record found for %p[%lu]?????\n",
-                   (void *)ch->data, (unsigned long) ch->szB);
       }
    }
    return True;
@@ -1856,7 +1950,7 @@ void MC_(detect_memory_leaks) ( ThreadId tid, LeakCheckParams* lcp)
          tl_assert(ex->state == Unreached);
       }
    }
-      
+
    print_results( tid, lcp);
 
    VG_(free) ( lc_markstack );
@@ -1875,11 +1969,11 @@ search_address_in_GP_reg(ThreadId tid, const HChar* regname, Addr addr_in_reg)
        && addr_in_reg < searched_wpa + searched_szB) {
       if (addr_in_reg == searched_wpa)
          VG_(umsg)
-            ("tid %d register %s pointing at %#lx\n",
+            ("tid %u register %s pointing at %#lx\n",
              tid, regname, searched_wpa);  
       else
          VG_(umsg)
-            ("tid %d register %s interior pointing %lu bytes inside %#lx\n",
+            ("tid %u register %s interior pointing %lu bytes inside %#lx\n",
              tid, regname, (long unsigned) addr_in_reg - searched_wpa,
              searched_wpa);
    }

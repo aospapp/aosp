@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "Configuration.h"
 #include "utils/threads.h"
 
 //--------------------------------------------------------------------------------------------------

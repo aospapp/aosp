@@ -16,7 +16,7 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.os">
+    package="android.os.cts">
 
     <permission android:name="android.os.cts.permission.TEST_GRANTED"
         android:protectionLevel="normal"
@@ -132,7 +132,7 @@
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.os"
+                     android:targetPackage="android.os.cts"
                      android:label="CTS tests of android.os">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

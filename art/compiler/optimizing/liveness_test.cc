@@ -27,9 +27,9 @@
 #include "prepare_for_register_allocation.h"
 #include "ssa_liveness_analysis.h"
 
-#include "gtest/gtest.h"
-
 namespace art {
+
+class LivenessTest : public CommonCompilerTest {};
 
 static void DumpBitVector(BitVector* vector,
                           std::ostream& buffer,
@@ -46,12 +46,7 @@ static void DumpBitVector(BitVector* vector,
 static void TestCode(const uint16_t* data, const char* expected) {
   ArenaPool pool;
   ArenaAllocator allocator(&pool);
-  HGraph* graph = CreateGraph(&allocator);
-  HGraphBuilder builder(graph);
-  const DexFile::CodeItem* item = reinterpret_cast<const DexFile::CodeItem*>(data);
-  bool graph_built = builder.BuildGraph(*item);
-  ASSERT_TRUE(graph_built);
-  graph->TryBuildingSsa();
+  HGraph* graph = CreateCFG(&allocator, data);
   // `Inline` conditions into ifs.
   PrepareForRegisterAllocation(graph).Run();
   std::unique_ptr<const X86InstructionSetFeatures> features_x86(
@@ -75,7 +70,7 @@ static void TestCode(const uint16_t* data, const char* expected) {
   ASSERT_STREQ(expected, buffer.str().c_str());
 }
 
-TEST(LivenessTest, CFG1) {
+TEST_F(LivenessTest, CFG1) {
   const char* expected =
     "Block 0\n"
     "  live in: (0)\n"
@@ -98,7 +93,7 @@ TEST(LivenessTest, CFG1) {
   TestCode(data, expected);
 }
 
-TEST(LivenessTest, CFG2) {
+TEST_F(LivenessTest, CFG2) {
   const char* expected =
     "Block 0\n"
     "  live in: (0)\n"
@@ -120,7 +115,7 @@ TEST(LivenessTest, CFG2) {
   TestCode(data, expected);
 }
 
-TEST(LivenessTest, CFG3) {
+TEST_F(LivenessTest, CFG3) {
   const char* expected =
     "Block 0\n"  // entry block
     "  live in: (000)\n"
@@ -149,7 +144,7 @@ TEST(LivenessTest, CFG3) {
   TestCode(data, expected);
 }
 
-TEST(LivenessTest, CFG4) {
+TEST_F(LivenessTest, CFG4) {
   // var a;
   // if (0 == 0) {
   //   a = 5;
@@ -159,7 +154,7 @@ TEST(LivenessTest, CFG4) {
   // return a;
   //
   // Bitsets are made of:
-  // (constant0, constant4, constant5, phi)
+  // (constant0, constant5, constant4, phi)
   const char* expected =
     "Block 0\n"  // entry block
     "  live in: (0000)\n"
@@ -170,11 +165,11 @@ TEST(LivenessTest, CFG4) {
     "  live out: (0110)\n"
     "  kill: (0000)\n"
     "Block 2\n"  // else block
-    "  live in: (0100)\n"
+    "  live in: (0010)\n"
     "  live out: (0000)\n"
     "  kill: (0000)\n"
     "Block 3\n"  // then block
-    "  live in: (0010)\n"
+    "  live in: (0100)\n"
     "  live out: (0000)\n"
     "  kill: (0000)\n"
     "Block 4\n"  // return block
@@ -197,7 +192,7 @@ TEST(LivenessTest, CFG4) {
   TestCode(data, expected);
 }
 
-TEST(LivenessTest, CFG5) {
+TEST_F(LivenessTest, CFG5) {
   // var a = 0;
   // if (0 == 0) {
   // } else {
@@ -242,7 +237,7 @@ TEST(LivenessTest, CFG5) {
   TestCode(data, expected);
 }
 
-TEST(LivenessTest, Loop1) {
+TEST_F(LivenessTest, Loop1) {
   // Simple loop with one preheader and one back edge.
   // var a = 0;
   // while (a == a) {
@@ -288,7 +283,7 @@ TEST(LivenessTest, Loop1) {
   TestCode(data, expected);
 }
 
-TEST(LivenessTest, Loop3) {
+TEST_F(LivenessTest, Loop3) {
   // Test that the returned value stays live in a preceding loop.
   // var a = 0;
   // while (a == a) {
@@ -296,7 +291,7 @@ TEST(LivenessTest, Loop3) {
   // }
   // return 5;
   // Bitsets are made of:
-  // (constant0, constant4, constant5, phi)
+  // (constant0, constant5, constant4, phi)
   const char* expected =
     "Block 0\n"
     "  live in: (0000)\n"
@@ -315,7 +310,7 @@ TEST(LivenessTest, Loop3) {
     "  live out: (0110)\n"
     "  kill: (0000)\n"
     "Block 4\n"  // return block
-    "  live in: (0010)\n"
+    "  live in: (0100)\n"
     "  live out: (0000)\n"
     "  kill: (0000)\n"
     "Block 5\n"  // exit block
@@ -335,7 +330,7 @@ TEST(LivenessTest, Loop3) {
 }
 
 
-TEST(LivenessTest, Loop4) {
+TEST_F(LivenessTest, Loop4) {
   // Make sure we support a preheader of a loop not being the first predecessor
   // in the predecessor list of the header.
   // var a = 0;
@@ -387,11 +382,11 @@ TEST(LivenessTest, Loop4) {
   TestCode(data, expected);
 }
 
-TEST(LivenessTest, Loop5) {
+TEST_F(LivenessTest, Loop5) {
   // Make sure we create a preheader of a loop when a header originally has two
   // incoming blocks and one back edge.
   // Bitsets are made of:
-  // (constant0, constant4, constant5, phi in block 8)
+  // (constant0, constant5, constant4, phi in block 8)
   const char* expected =
     "Block 0\n"
     "  live in: (0000)\n"
@@ -402,11 +397,11 @@ TEST(LivenessTest, Loop5) {
     "  live out: (0110)\n"
     "  kill: (0000)\n"
     "Block 2\n"
-    "  live in: (0100)\n"
+    "  live in: (0010)\n"
     "  live out: (0000)\n"
     "  kill: (0000)\n"
     "Block 3\n"
-    "  live in: (0010)\n"
+    "  live in: (0100)\n"
     "  live out: (0000)\n"
     "  kill: (0000)\n"
     "Block 4\n"  // loop header
@@ -443,7 +438,7 @@ TEST(LivenessTest, Loop5) {
   TestCode(data, expected);
 }
 
-TEST(LivenessTest, Loop6) {
+TEST_F(LivenessTest, Loop6) {
   // Bitsets are made of:
   // (constant0, constant4, constant5, phi in block 2)
   const char* expected =
@@ -494,7 +489,7 @@ TEST(LivenessTest, Loop6) {
 }
 
 
-TEST(LivenessTest, Loop7) {
+TEST_F(LivenessTest, Loop7) {
   // Bitsets are made of:
   // (constant0, constant4, constant5, phi in block 2, phi in block 6)
   const char* expected =
@@ -548,7 +543,7 @@ TEST(LivenessTest, Loop7) {
   TestCode(data, expected);
 }
 
-TEST(LivenessTest, Loop8) {
+TEST_F(LivenessTest, Loop8) {
   // var a = 0;
   // while (a == a) {
   //   a = a + a;

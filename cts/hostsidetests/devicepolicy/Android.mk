@@ -22,9 +22,14 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_JAVA_LIBRARIES := tradefed-prebuilt tools-common-prebuilt cts-tradefed
+LOCAL_JAVA_LIBRARIES := tools-common-prebuilt cts-tradefed tradefed-prebuilt
+
+LOCAL_STATIC_JAVA_LIBRARIES := cts-migration-lib
 
 LOCAL_CTS_TEST_PACKAGE := android.adminhostside
+
+# tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
 
 include $(BUILD_CTS_HOST_JAVA_LIBRARY)
 

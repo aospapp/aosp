@@ -27,6 +27,11 @@ class AlarmTestHarness : public AllocationTestHarness {
     virtual void SetUp();
     virtual void TearDown();
 
+    std::string tmp_dir_;
+    std::string lock_path_;
+    std::string unlock_path_;
+
   public:
-    int lock_count;
+    // Returns true if a wake lock is held.
+    bool WakeLockHeld();
 };

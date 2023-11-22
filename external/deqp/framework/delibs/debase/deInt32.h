@@ -158,9 +158,9 @@ DE_INLINE int deSign32 (int a)
  * \param a	Input value.
  * \return 0x80000000 if a<0, 0 otherwise.
  *//*--------------------------------------------------------------------*/
-DE_INLINE int deSignBit32 (int a)
+DE_INLINE deInt32 deSignBit32 (deInt32 a)
 {
-	return (a & 0x80000000);
+	return (deInt32)((deUint32)a & 0x80000000u);
 }
 
 /*--------------------------------------------------------------------*//*!
@@ -203,6 +203,36 @@ DE_INLINE int deRol32 (int val, int r)
 DE_INLINE deBool deIsPowerOfTwo32 (int a)
 {
 	return ((a & (a - 1)) == 0);
+}
+
+/*--------------------------------------------------------------------*//*!
+ * \brief Check if a value is a power-of-two.
+ * \param a Input value.
+ * \return True if input is a power-of-two value, false otherwise.
+ *
+ * \note Also returns true for zero.
+ *//*--------------------------------------------------------------------*/
+DE_INLINE deBool deIsPowerOfTwo64 (deUint64 a)
+{
+	return ((a & (a - 1ull)) == 0);
+}
+
+/*--------------------------------------------------------------------*//*!
+ * \brief Check if a value is a power-of-two.
+ * \param a Input value.
+ * \return True if input is a power-of-two value, false otherwise.
+ *
+ * \note Also returns true for zero.
+ *//*--------------------------------------------------------------------*/
+DE_INLINE deBool deIsPowerOfTwoSize (size_t a)
+{
+#if (DE_PTR_SIZE == 4)
+	return deIsPowerOfTwo32(a);
+#elif (DE_PTR_SIZE == 8)
+	return deIsPowerOfTwo64(a);
+#else
+#	error "Invalid DE_PTR_SIZE"
+#endif
 }
 
 /*--------------------------------------------------------------------*//*!
@@ -255,12 +285,24 @@ DE_INLINE void* deAlignPtr (void* ptr, deUintptr align)
 }
 
 /*--------------------------------------------------------------------*//*!
+ * \brief Align a size_t value to given power-of-two size.
+ * \param ptr	Input value to align.
+ * \param align	Alignment to check for (power-of-two).
+ * \return The aligned size (larger or equal to input).
+ *//*--------------------------------------------------------------------*/
+DE_INLINE size_t deAlignSize (size_t val, size_t align)
+{
+	DE_ASSERT(deIsPowerOfTwoSize(align));
+	return (val + align - 1) & ~(align - 1);
+}
+
+extern const deInt8 g_clzLUT[256];
+
+/*--------------------------------------------------------------------*//*!
  * \brief Compute number of leading zeros in an integer.
  * \param a	Input value.
  * \return The number of leading zero bits in the input.
  *//*--------------------------------------------------------------------*/
-extern const deInt8 g_clzLUT[256];
-
 DE_INLINE int deClz32 (deUint32 a)
 {
 #if (DE_COMPILER == DE_COMPILER_MSC)
@@ -285,6 +327,37 @@ DE_INLINE int deClz32 (deUint32 a)
 #endif
 }
 
+extern const deInt8 g_ctzLUT[256];
+
+/*--------------------------------------------------------------------*//*!
+ * \brief Compute number of trailing zeros in an integer.
+ * \param a	Input value.
+ * \return The number of trailing zero bits in the input.
+ *//*--------------------------------------------------------------------*/
+DE_INLINE int deCtz32 (deUint32 a)
+{
+#if (DE_COMPILER == DE_COMPILER_MSC)
+	unsigned long i;
+	if (_BitScanForward(&i, (unsigned long)a) == 0)
+		return 32;
+	else
+		return i;
+#elif (DE_COMPILER == DE_COMPILER_GCC) || (DE_COMPILER == DE_COMPILER_CLANG)
+	if (a == 0)
+		return 32;
+	else
+		return __builtin_ctz((unsigned int)a);
+#else
+	if ((a & 0x00FFFFFFu) == 0)
+		return (int)g_ctzLUT[a >> 24] + 24;
+	if ((a & 0x0000FFFFu) == 0)
+		return (int)g_ctzLUT[(a >> 16) & 0xffu] + 16;
+	if ((a & 0x000000FFu) == 0)
+		return (int)g_ctzLUT[(a >> 8) & 0xffu] + 8;
+	return (int)g_ctzLUT[a & 0xffu];
+#endif
+}
+
 /*--------------------------------------------------------------------*//*!
  * \brief Compute integer 'floor' of 'log2' for a positive integer.
  * \param a	Input value.
@@ -293,7 +366,7 @@ DE_INLINE int deClz32 (deUint32 a)
 DE_INLINE int deLog2Floor32 (deInt32 a)
 {
 	DE_ASSERT(a > 0);
-	return 31 - deClz32(a);
+	return 31 - deClz32((deUint32)a);
 }
 
 /*--------------------------------------------------------------------*//*!
@@ -356,6 +429,16 @@ DE_INLINE deUint32 deReverseBytes32 (deUint32 v)
 	return b0|b1|b2|b3;
 }
 
+/*--------------------------------------------------------------------*//*!
+ * \brief Reverse bytes in 16-bit integer (for example MSB -> LSB).
+ * \param a	Input value.
+ * \return The input with bytes reversed
+ *//*--------------------------------------------------------------------*/
+DE_INLINE deUint16 deReverseBytes16 (deUint16 v)
+{
+	return (deUint16)((v << 8) | (v >> 8));
+}
+
 DE_INLINE deInt32 deSafeMul32 (deInt32 a, deInt32 b)
 {
 	deInt32 res = a * b;
@@ -367,6 +450,11 @@ DE_INLINE deInt32 deSafeAdd32 (deInt32 a, deInt32 b)
 {
 	DE_ASSERT((deInt64)a + (deInt64)b == (deInt64)(a + b));
 	return (a + b);
+}
+
+DE_INLINE deInt32 deDivRoundUp32 (deInt32 a, deInt32 b)
+{
+	return a/b + ((a%b) ? 1 : 0);
 }
 
 /* \todo [petri] Move to deInt64.h? */
@@ -401,11 +489,11 @@ DE_INLINE deInt64 deAbs64 (deInt64 a)
 	return (a >= 0) ? a : -a;
 }
 
-DE_INLINE int deClz64 (deInt64 a)
+DE_INLINE int deClz64 (deUint64 a)
 {
-	if (((deUint64)a >> 32) != 0)
-		return deClz32((deInt32)(a >> 32));
-	return deClz32((deInt32)a) + 32;
+	if ((a >> 32) != 0)
+		return deClz32((deUint32)(a >> 32));
+	return deClz32((deUint32)a) + 32;
 }
 
 /* Common hash & compare functions. */
@@ -413,7 +501,7 @@ DE_INLINE int deClz64 (deInt64 a)
 DE_INLINE deUint32 deInt32Hash (deInt32 a)
 {
 	/* From: http://www.concentric.net/~Ttwang/tech/inthash.htm */
-	deUint32 key = a;
+	deUint32 key = (deUint32)a;
 	key = (key ^ 61) ^ (key >> 16);
 	key = key + (key << 3);
 	key = key ^ (key >> 4);
@@ -425,7 +513,7 @@ DE_INLINE deUint32 deInt32Hash (deInt32 a)
 DE_INLINE deUint32 deInt64Hash (deInt64 a)
 {
 	/* From: http://www.concentric.net/~Ttwang/tech/inthash.htm */
-	deUint64 key = a;
+	deUint64 key = (deUint64)a;
 	key = (~key) + (key << 21); /* key = (key << 21) - key - 1; */
 	key = key ^ (key >> 24);
 	key = (key + (key << 3)) + (key << 8); /* key * 265 */
@@ -436,10 +524,10 @@ DE_INLINE deUint32 deInt64Hash (deInt64 a)
 	return (deUint32)key;
 }
 
-DE_INLINE int		deInt16Hash		(deInt16 v)					{ return deInt32Hash(v);			}
-DE_INLINE int		deUint16Hash	(deUint16 v)				{ return deInt32Hash((deInt32)v);	}
-DE_INLINE int		deUint32Hash	(deUint32 v)				{ return deInt32Hash((deInt32)v);	}
-DE_INLINE int		deUint64Hash	(deUint64 v)				{ return deInt64Hash((deInt64)v);	}
+DE_INLINE deUint32	deInt16Hash		(deInt16 v)					{ return deInt32Hash(v);			}
+DE_INLINE deUint32	deUint16Hash	(deUint16 v)				{ return deInt32Hash((deInt32)v);	}
+DE_INLINE deUint32	deUint32Hash	(deUint32 v)				{ return deInt32Hash((deInt32)v);	}
+DE_INLINE deUint32	deUint64Hash	(deUint64 v)				{ return deInt64Hash((deInt64)v);	}
 
 DE_INLINE deBool	deInt16Equal	(deInt16 a, deInt16 b)		{ return (a == b);	}
 DE_INLINE deBool	deUint16Equal	(deUint16 a, deUint16 b)	{ return (a == b);	}
@@ -448,7 +536,7 @@ DE_INLINE deBool	deUint32Equal	(deUint32 a, deUint32 b)	{ return (a == b);	}
 DE_INLINE deBool	deInt64Equal	(deInt64 a, deInt64 b)		{ return (a == b);	}
 DE_INLINE deBool	deUint64Equal	(deUint64 a, deUint64 b)	{ return (a == b);	}
 
-DE_INLINE int dePointerHash (const void* ptr)
+DE_INLINE deUint32	dePointerHash (const void* ptr)
 {
 	deUintptr val = (deUintptr)ptr;
 #if (DE_PTR_SIZE == 4)
@@ -478,7 +566,7 @@ DE_INLINE deInt32 deInt32ModF (deInt32 n, deInt32 d)
 
 DE_INLINE deBool deInt64InInt32Range (deInt64 x)
 {
-	return ((x >= (-1ll<<31)) && (x <= ((1ll<<31)-1)));
+	return ((x >= (((deInt64)((deInt32)(-0x7FFFFFFF - 1))))) && (x <= ((1ll<<31)-1)));
 }
 
 
@@ -530,6 +618,23 @@ DE_INLINE deInt32 deIntMinValue32 (int numBits)
 		/* avoid undefined behavior of int overflow when shifting */
 		return (deInt32)(-0x7FFFFFFF - 1);
 	}
+}
+
+DE_INLINE deInt32 deSignExtendTo32 (deInt32 value, int numBits)
+{
+	DE_ASSERT(deInRange32(numBits, 1, 32));
+
+	if (numBits < 32)
+	{
+		deBool		signSet		= ((deUint32)value & (1u<<(numBits-1))) != 0;
+		deUint32	signMask	= deBitMask32(numBits, 32-numBits);
+
+		DE_ASSERT(((deUint32)value & signMask) == 0u);
+
+		return (deInt32)((deUint32)value | (signSet ? signMask : 0u));
+	}
+	else
+		return value;
 }
 
 DE_END_EXTERN_C

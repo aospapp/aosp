@@ -15,15 +15,25 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.cts.acceleration.stub">
+        package="android.acceleration.cts">
+
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
 
     <application android:hardwareAccelerated="true">
-        <activity android:name="android.acceleration.cts.HardwareAcceleratedActivity" />
-        <activity android:name="android.acceleration.cts.SoftwareAcceleratedActivity"
+        <uses-library android:name="android.test.runner" />
+        <activity android:name="android.acceleration.HardwareAcceleratedActivity" />
+        <activity android:name="android.acceleration.SoftwareAcceleratedActivity"
                 android:hardwareAccelerated="false" />
-        <activity android:name="android.acceleration.cts.WindowFlagHardwareAcceleratedActivity"
+        <activity android:name="android.acceleration.WindowFlagHardwareAcceleratedActivity"
                 android:hardwareAccelerated="false" />
     </application>
+
+    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+            android:targetPackage="android.acceleration.cts"
+            android:label="Tests for the Hardware Acceleration APIs." >
+        <meta-data android:name="listener"
+                android:value="com.android.cts.runner.CtsTestRunListener" />
+    </instrumentation>
 
 </manifest>
 

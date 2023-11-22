@@ -29,6 +29,7 @@ import android.provider.VoicemailContract.Voicemails;
 import android.test.MoreAsserts;
 import android.test.suitebuilder.annotation.SmallTest;
 
+import android.test.suitebuilder.annotation.Suppress;
 import com.android.common.io.MoreCloseables;
 
 import java.io.FileNotFoundException;
@@ -59,7 +60,7 @@ public class VoicemailProviderTest extends BaseVoicemailProviderTest {
             Calls.COUNTRY_ISO
     };
     /** Total number of columns exposed by voicemail provider. */
-    private static final int NUM_VOICEMAIL_FIELDS = 18;
+    private static final int NUM_VOICEMAIL_FIELDS = 19;
 
     @Override
     protected void setUp() throws Exception {
@@ -86,6 +87,8 @@ public class VoicemailProviderTest extends BaseVoicemailProviderTest {
         assertStoredValues(uri, getTestVoicemailValues());
         assertSelection(uri, getTestVoicemailValues(), Voicemails._ID, ContentUris.parseId(uri));
         assertEquals(1, countFilesInTestDirectory());
+
+        assertLastModified(uri);
     }
 
     public void testInsertReadMessageIsNotNew() throws Exception {
@@ -143,6 +146,7 @@ public class VoicemailProviderTest extends BaseVoicemailProviderTest {
         int count = mResolver.update(uri, values, null, null);
         assertEquals(1, count);
         assertStoredValues(uri, values);
+        assertLastModified(uri);
     }
 
     public void testUpdateOwnPackageVoicemail_NotDirty() {
@@ -192,6 +196,7 @@ public class VoicemailProviderTest extends BaseVoicemailProviderTest {
 
         assertEquals(1, getCount(anotherVoicemail, null, null));
         assertStoredValues(anotherVoicemail, values);
+        assertLastModified(anotherVoicemail);
     }
 
     public void testDelete() {
@@ -421,7 +426,7 @@ public class VoicemailProviderTest extends BaseVoicemailProviderTest {
         EvenMoreAsserts.assertThrows(SecurityException.class, new Runnable() {
             @Override
             public void run() {
-                mResolver.query(uri, null, null ,null, null);
+                mResolver.query(uri, null, null, null, null);
             }
         });
         EvenMoreAsserts.assertThrows(SecurityException.class, new Runnable() {
@@ -561,24 +566,6 @@ public class VoicemailProviderTest extends BaseVoicemailProviderTest {
         assertSelection(uri, values, Status._ID, ContentUris.parseId(uri));
     }
 
-    // Test to ensure that duplicate entries for the same package still end up as the same record.
-    public void testStatusInsertDuplicate() throws Exception {
-        setUpForFullPermission();
-        ContentValues values = getTestStatusValues();
-        assertNotNull(mResolver.insert(statusUri(), values));
-        assertEquals(1, getCount(statusUri(), null, null));
-
-        // Insertion request for the same package should fail with no change in count.
-        values.put(Status.DATA_CHANNEL_STATE, Status.DATA_CHANNEL_STATE_NO_CONNECTION);
-        assertNull(mResolver.insert(statusUri(), values));
-        assertEquals(1, getCount(statusUri(), null, null));
-
-        // Now insert entry for another source package, and it should end up as a separate record.
-        values.put(Status.SOURCE_PACKAGE, "another.package");
-        assertNotNull(mResolver.insert(statusUri(), values));
-        assertEquals(2, getCount(statusUri(), null, null));
-    }
-
     public void testStatusUpdate() throws Exception {
         Uri uri = insertTestStatusEntry();
         ContentValues values = getTestStatusValues();
@@ -590,12 +577,65 @@ public class VoicemailProviderTest extends BaseVoicemailProviderTest {
         assertStoredValues(uri, values);
     }
 
+    public void testStatusUpsert() throws Exception {
+        ContentValues values = getTestStatusValues();
+        mResolver.insert(statusUri(), values);
+        ContentValues values2 = new ContentValues();
+        values2.put(Status.CONFIGURATION_STATE, Status.CONFIGURATION_STATE_NOT_CONFIGURED);
+        values.put(Status.CONFIGURATION_STATE, Status.CONFIGURATION_STATE_NOT_CONFIGURED);
+        Uri uri = mResolver.insert(statusUri(), values2);
+        assertStoredValues(uri, values);
+        assertSelection(uri, values, Status._ID, ContentUris.parseId(uri));
+    }
+
     public void testStatusDelete() {
         Uri uri = insertTestStatusEntry();
         int count = mResolver.delete(statusUri(), Status._ID + "="
                 + ContentUris.parseId(uri), null);
         assertEquals(1, count);
         assertEquals(0, getCount(uri, null, null));
+    }
+
+    public void testStatusQuotaInsert() {
+        ContentValues values = new ContentValues();
+        values.put(Status.SOURCE_PACKAGE, mActor.packageName);
+        values.put(Status.QUOTA_OCCUPIED, 2);
+        values.put(Status.QUOTA_TOTAL, 13);
+        Uri uri = mResolver.insert(statusUri(), values);
+        assertStoredValues(uri, values);
+        assertSelection(uri, values, Status._ID, ContentUris.parseId(uri));
+    }
+
+    public void testStatusQuotaUpdate() {
+        Uri uri = insertTestStatusEntry();
+        ContentValues values = new ContentValues();
+        values.put(Status.SOURCE_PACKAGE, mActor.packageName);
+        values.put(Status.QUOTA_OCCUPIED, 2);
+        values.put(Status.QUOTA_TOTAL, 13);
+        int count = mResolver.update(uri, values, null, null);
+        assertEquals(1, count);
+
+        ContentValues refValues = getTestStatusValues();
+        refValues.put(Status.QUOTA_OCCUPIED, 2);
+        refValues.put(Status.QUOTA_TOTAL, 13);
+        assertStoredValues(uri, refValues);
+    }
+
+    public void testStatusQuotaUpsert() {
+        Uri uri = insertTestStatusEntry();
+        ContentValues values = new ContentValues();
+        values.put(Status.SOURCE_PACKAGE, mActor.packageName);
+        values.put(Status.QUOTA_OCCUPIED, 2);
+        int count = mResolver.update(uri, values, null, null);
+
+        ContentValues values2 = new ContentValues();
+        values2.put(Status.QUOTA_TOTAL, 13);
+        mResolver.insert(uri, values2);
+
+        ContentValues refValues = getTestStatusValues();
+        refValues.put(Status.QUOTA_OCCUPIED, 2);
+        refValues.put(Status.QUOTA_TOTAL, 13);
+        assertStoredValues(uri, refValues);
     }
 
     public void testStatusGetType() throws Exception {
@@ -715,4 +755,5 @@ public class VoicemailProviderTest extends BaseVoicemailProviderTest {
         values.put(Status.NOTIFICATION_CHANNEL_STATE, Status.NOTIFICATION_CHANNEL_STATE_OK);
         return values;
     }
+
 }

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm -gdwarf-4 -triple x86_64-linux-gnu %s -o - | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -debug-info-kind=limited -triple x86_64-linux-gnu %s -o - | FileCheck %s
 
 // Make sure that we emit a global variable for each of the members of the
 // anonymous union.
@@ -21,8 +21,43 @@ int test_it() {
   return (c == 1);
 }
 
-// CHECK: [[FILE:.*]] = !MDFile(filename: "{{.*}}debug-info-anon-union-vars.cpp",
-// CHECK: !MDGlobalVariable(name: "c",{{.*}} file: [[FILE]], line: 6,{{.*}} isLocal: true, isDefinition: true
-// CHECK: !MDGlobalVariable(name: "d",{{.*}} file: [[FILE]], line: 6,{{.*}} isLocal: true, isDefinition: true
-// CHECK: !MDGlobalVariable(name: "a",{{.*}} file: [[FILE]], line: 6,{{.*}} isLocal: true, isDefinition: true
-// CHECK: !MDGlobalVariable(name: "b",{{.*}} file: [[FILE]], line: 6,{{.*}} isLocal: true, isDefinition: true
+void foo() {
+  union {
+    int i;
+    char c;
+  };
+  i = 8;
+}
+
+// A funky reinterpret cast idiom that we used to crash on.
+template <class T>
+unsigned char *buildBytes(const T v) {
+  static union {
+    unsigned char result[sizeof(T)];
+    T value;
+  };
+  value = v;
+  return result;
+}
+
+void instantiate(int x) {
+  buildBytes(x);
+}
+
+// CHECK: [[FILE:.*]] = !DIFile(filename: "{{.*}}debug-info-anon-union-vars.cpp",
+// CHECK: !DIGlobalVariable(name: "c",{{.*}} file: [[FILE]], line: 6,{{.*}} isLocal: true, isDefinition: true
+// CHECK: !DIGlobalVariable(name: "d",{{.*}} file: [[FILE]], line: 6,{{.*}} isLocal: true, isDefinition: true
+// CHECK: !DIGlobalVariable(name: "a",{{.*}} file: [[FILE]], line: 6,{{.*}} isLocal: true, isDefinition: true
+// CHECK: !DIGlobalVariable(name: "b",{{.*}} file: [[FILE]], line: 6,{{.*}} isLocal: true, isDefinition: true
+// CHECK: !DIGlobalVariable(name: "result", {{.*}} isLocal: false, isDefinition: true
+// CHECK: !DIGlobalVariable(name: "value", {{.*}} isLocal: false, isDefinition: true
+// CHECK: !DILocalVariable(name: "i", {{.*}}, flags: DIFlagArtificial
+// CHECK: !DILocalVariable(name: "c", {{.*}}, flags: DIFlagArtificial
+// CHECK: !DILocalVariable(
+// CHECK-NOT: name:
+// CHECK: type: ![[UNION:[0-9]+]]
+// CHECK: ![[UNION]] = !DICompositeType(tag: DW_TAG_union_type,
+// CHECK-NOT: name:
+// CHECK: elements
+// CHECK: !DIDerivedType(tag: DW_TAG_member, name: "i", scope: ![[UNION]],
+// CHECK: !DIDerivedType(tag: DW_TAG_member, name: "c", scope: ![[UNION]],

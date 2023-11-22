@@ -94,9 +94,14 @@ struct MinikinRect {
 
 class MinikinFontFreeType;
 
+// Callback for freeing data
+typedef void (*MinikinDestroyFunc) (void* data);
+
 class MinikinFont : public MinikinRefCounted {
 public:
-    virtual bool GetGlyph(uint32_t codepoint, uint32_t *glyph) const = 0;
+    MinikinFont(int32_t uniqueId) : mUniqueId(uniqueId) {}
+
+    virtual ~MinikinFont();
 
     virtual float GetHorizontalAdvance(uint32_t glyph_id,
         const MinikinPaint &paint) const = 0;
@@ -104,15 +109,32 @@ public:
     virtual void GetBounds(MinikinRect* bounds, uint32_t glyph_id,
         const MinikinPaint &paint) const = 0;
 
-    // If buf is NULL, just update size
-    virtual bool GetTable(uint32_t tag, uint8_t *buf, size_t *size) = 0;
+    virtual const void* GetTable(uint32_t tag, size_t* size, MinikinDestroyFunc* destroy) = 0;
 
-    virtual int32_t GetUniqueId() const = 0;
+    // Override if font can provide access to raw data
+    virtual const void* GetFontData() const {
+        return nullptr;
+    }
+
+    // Override if font can provide access to raw data
+    virtual size_t GetFontSize() const {
+        return 0;
+    }
+
+    // Override if font can provide access to raw data.
+    // Returns index within OpenType collection
+    virtual int GetFontIndex() const {
+        return 0;
+    }
 
     static uint32_t MakeTag(char c1, char c2, char c3, char c4) {
         return ((uint32_t)c1 << 24) | ((uint32_t)c2 << 16) |
             ((uint32_t)c3 << 8) | (uint32_t)c4;
     }
+
+    int32_t GetUniqueId() const { return mUniqueId; }
+private:
+    const int32_t mUniqueId;
 };
 
 }  // namespace android

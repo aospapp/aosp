@@ -16,7 +16,7 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.dpi2">
+    package="android.dpi2.cts">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <application>
@@ -28,7 +28,7 @@
     <uses-sdk android:targetSdkVersion="3" />
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.dpi2"
+                     android:targetPackage="android.dpi2.cts"
                      android:label="CTS tests for DPI">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

@@ -15,6 +15,9 @@
 #
 
 LOCAL_PATH:= $(call my-dir)
+
+# Build the host library
+# ======================
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_MODULE := vogarexpectlib
@@ -22,4 +25,14 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_STATIC_JAVA_LIBRARIES := guavalib jsonlib
 include $(BUILD_HOST_JAVA_LIBRARY)
+
+# Build the target library
+# =======================
+include $(CLEAR_VARS)
+LOCAL_SRC_FILES := $(call all-java-files-under, src)
+LOCAL_MODULE := vogarexpect
+LOCAL_MODULE_TAGS := optional
+
+LOCAL_STATIC_JAVA_LIBRARIES := guava json
+include $(BUILD_STATIC_JAVA_LIBRARY)
 

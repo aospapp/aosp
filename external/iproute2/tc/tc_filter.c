@@ -26,26 +26,22 @@
 #include "tc_util.h"
 #include "tc_common.h"
 
-static void usage(void);
-
 static void usage(void)
 {
 	fprintf(stderr, "Usage: tc filter [ add | del | change | replace | show ] dev STRING\n");
 	fprintf(stderr, "       [ pref PRIO ] protocol PROTO\n");
 	fprintf(stderr, "       [ estimator INTERVAL TIME_CONSTANT ]\n");
-	fprintf(stderr, "       [ root | classid CLASSID ] [ handle FILTERID ]\n");
-	fprintf(stderr, "       [ [ FILTER_TYPE ] [ help | OPTIONS ] ]\n");
+	fprintf(stderr, "       [ root | ingress | egress | parent CLASSID ]\n");
+	fprintf(stderr, "       [ handle FILTERID ] [ [ FILTER_TYPE ] [ help | OPTIONS ] ]\n");
 	fprintf(stderr, "\n");
-	fprintf(stderr, "       tc filter show [ dev STRING ] [ root | parent CLASSID ]\n");
+	fprintf(stderr, "       tc filter show [ dev STRING ] [ root | ingress | egress | parent CLASSID ]\n");
 	fprintf(stderr, "Where:\n");
-	fprintf(stderr, "FILTER_TYPE := { rsvp | u32 | fw | route | etc. }\n");
+	fprintf(stderr, "FILTER_TYPE := { rsvp | u32 | bpf | fw | route | etc. }\n");
 	fprintf(stderr, "FILTERID := ... format depends on classifier, see there\n");
 	fprintf(stderr, "OPTIONS := ... try tc filter add <desired FILTER_KIND> help\n");
-	return;
 }
 
-
-int tc_filter_modify(int cmd, unsigned flags, int argc, char **argv)
+static int tc_filter_modify(int cmd, unsigned flags, int argc, char **argv)
 {
 	struct {
 		struct nlmsghdr 	n;
@@ -87,13 +83,27 @@ int tc_filter_modify(int cmd, unsigned flags, int argc, char **argv)
 				return -1;
 			}
 			req.t.tcm_parent = TC_H_ROOT;
+		} else if (strcmp(*argv, "ingress") == 0) {
+			if (req.t.tcm_parent) {
+				fprintf(stderr, "Error: \"ingress\" is duplicate parent ID\n");
+				return -1;
+			}
+			req.t.tcm_parent = TC_H_MAKE(TC_H_CLSACT,
+						     TC_H_MIN_INGRESS);
+		} else if (strcmp(*argv, "egress") == 0) {
+			if (req.t.tcm_parent) {
+				fprintf(stderr, "Error: \"egress\" is duplicate parent ID\n");
+				return -1;
+			}
+			req.t.tcm_parent = TC_H_MAKE(TC_H_CLSACT,
+						     TC_H_MIN_EGRESS);
 		} else if (strcmp(*argv, "parent") == 0) {
 			__u32 handle;
 			NEXT_ARG();
 			if (req.t.tcm_parent)
 				duparg("parent", *argv);
 			if (get_tc_classid(&handle, *argv))
-				invarg(*argv, "Invalid parent ID");
+				invarg("Invalid parent ID", *argv);
 			req.t.tcm_parent = handle;
 		} else if (strcmp(*argv, "handle") == 0) {
 			NEXT_ARG();
@@ -105,15 +115,15 @@ int tc_filter_modify(int cmd, unsigned flags, int argc, char **argv)
 			NEXT_ARG();
 			if (prio)
 				duparg("priority", *argv);
-			if (get_u32(&prio, *argv, 0))
-				invarg(*argv, "invalid priority value");
+			if (get_u32(&prio, *argv, 0) || prio > 0xFFFF)
+				invarg("invalid priority value", *argv);
 		} else if (matches(*argv, "protocol") == 0) {
 			__u16 id;
 			NEXT_ARG();
 			if (protocol_set)
 				duparg("protocol", *argv);
 			if (ll_proto_a2n(&id, *argv))
-				invarg(*argv, "invalid protocol");
+				invarg("invalid protocol", *argv);
 			protocol = id;
 			protocol_set = 1;
 		} else if (matches(*argv, "estimator") == 0) {
@@ -159,7 +169,7 @@ int tc_filter_modify(int cmd, unsigned flags, int argc, char **argv)
 
 
 	if (d[0])  {
- 		ll_init_map(&rth);
+		ll_init_map(&rth);
 
 		if ((req.t.tcm_ifindex = ll_name_to_index(d)) == 0) {
 			fprintf(stderr, "Cannot find device \"%s\"\n", d);
@@ -167,7 +177,7 @@ int tc_filter_modify(int cmd, unsigned flags, int argc, char **argv)
 		}
 	}
 
-	if (rtnl_talk(&rth, &req.n, 0, 0, NULL) < 0) {
+	if (rtnl_talk(&rth, &req.n, NULL, 0) < 0) {
 		fprintf(stderr, "We have an error talking to the kernel\n");
 		return 2;
 	}
@@ -220,11 +230,16 @@ int print_filter(const struct sockaddr_nl *who,
 	if (!filter_parent || filter_parent != t->tcm_parent) {
 		if (t->tcm_parent == TC_H_ROOT)
 			fprintf(fp, "root ");
+		else if (t->tcm_parent == TC_H_MAKE(TC_H_CLSACT, TC_H_MIN_INGRESS))
+			fprintf(fp, "ingress ");
+		else if (t->tcm_parent == TC_H_MAKE(TC_H_CLSACT, TC_H_MIN_EGRESS))
+			fprintf(fp, "egress ");
 		else {
 			print_tc_classid(abuf, sizeof(abuf), t->tcm_parent);
 			fprintf(fp, "parent %s ", abuf);
 		}
 	}
+
 	if (t->tcm_info) {
 		f_proto = TC_H_MIN(t->tcm_info);
 		__u32 prio = TC_H_MAJ(t->tcm_info)>>16;
@@ -259,8 +274,7 @@ int print_filter(const struct sockaddr_nl *who,
 	return 0;
 }
 
-
-int tc_filter_list(int argc, char **argv)
+static int tc_filter_list(int argc, char **argv)
 {
 	struct tcmsg t;
 	char d[16];
@@ -284,13 +298,29 @@ int tc_filter_list(int argc, char **argv)
 				return -1;
 			}
 			filter_parent = t.tcm_parent = TC_H_ROOT;
+		} else if (strcmp(*argv, "ingress") == 0) {
+			if (t.tcm_parent) {
+				fprintf(stderr, "Error: \"ingress\" is duplicate parent ID\n");
+				return -1;
+			}
+			filter_parent = TC_H_MAKE(TC_H_CLSACT,
+						  TC_H_MIN_INGRESS);
+			t.tcm_parent = filter_parent;
+		} else if (strcmp(*argv, "egress") == 0) {
+			if (t.tcm_parent) {
+				fprintf(stderr, "Error: \"egress\" is duplicate parent ID\n");
+				return -1;
+			}
+			filter_parent = TC_H_MAKE(TC_H_CLSACT,
+						  TC_H_MIN_EGRESS);
+			t.tcm_parent = filter_parent;
 		} else if (strcmp(*argv, "parent") == 0) {
 			__u32 handle;
 			NEXT_ARG();
 			if (t.tcm_parent)
 				duparg("parent", *argv);
 			if (get_tc_classid(&handle, *argv))
-				invarg(*argv, "invalid parent ID");
+				invarg("invalid parent ID", *argv);
 			filter_parent = t.tcm_parent = handle;
 		} else if (strcmp(*argv, "handle") == 0) {
 			NEXT_ARG();
@@ -303,7 +333,7 @@ int tc_filter_list(int argc, char **argv)
 			if (prio)
 				duparg("priority", *argv);
 			if (get_u32(&prio, *argv, 0))
-				invarg(*argv, "invalid preference");
+				invarg("invalid preference", *argv);
 			filter_prio = prio;
 		} else if (matches(*argv, "protocol") == 0) {
 			__u16 res;
@@ -311,7 +341,7 @@ int tc_filter_list(int argc, char **argv)
 			if (protocol)
 				duparg("protocol", *argv);
 			if (ll_proto_a2n(&res, *argv))
-				invarg(*argv, "invalid protocol");
+				invarg("invalid protocol", *argv);
 			protocol = res;
 			filter_protocol = protocol;
 		} else if (matches(*argv, "help") == 0) {
@@ -326,7 +356,7 @@ int tc_filter_list(int argc, char **argv)
 
 	t.tcm_info = TC_H_MAKE(prio<<16, protocol);
 
- 	ll_init_map(&rth);
+	ll_init_map(&rth);
 
 	if (d[0]) {
 		if ((t.tcm_ifindex = ll_name_to_index(d)) == 0) {
@@ -336,12 +366,12 @@ int tc_filter_list(int argc, char **argv)
 		filter_ifindex = t.tcm_ifindex;
 	}
 
- 	if (rtnl_dump_request(&rth, RTM_GETTFILTER, &t, sizeof(t)) < 0) {
+	if (rtnl_dump_request(&rth, RTM_GETTFILTER, &t, sizeof(t)) < 0) {
 		perror("Cannot send dump request");
 		return 1;
 	}
 
- 	if (rtnl_dump_filter(&rth, print_filter, stdout) < 0) {
+	if (rtnl_dump_filter(&rth, print_filter, stdout) < 0) {
 		fprintf(stderr, "Dump terminated\n");
 		return 1;
 	}
@@ -375,4 +405,3 @@ int do_filter(int argc, char **argv)
 	fprintf(stderr, "Command \"%s\" is unknown, try \"tc filter help\".\n", *argv);
 	return -1;
 }
-

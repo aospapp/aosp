@@ -17,7 +17,12 @@
 package android.graphics.cts;
 
 import junit.framework.TestCase;
+
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Matrix;
+import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
 
@@ -71,7 +76,26 @@ public class PathTest extends TestCase {
         Path path1 = new Path();
         setPath(path1);
         path.set(path1);
-        assertFalse(path.isEmpty());
+        assertPathsAreEquivalent(path, path1);
+    }
+
+    public void testSetCleanOld() {
+        Path path = new Path();
+        setPath(path);
+        path.addRect(new RectF(0, 0, 10, 10), Path.Direction.CW);
+        Path path1 = new Path();
+        path1.addRect(new RectF(10, 10, 20, 20), Path.Direction.CW);
+        path.set(path1);
+        assertPathsAreEquivalent(path, path1);
+    }
+
+    public void testSetEmptyPath() {
+        // new the Path instance
+        Path path = new Path();
+        setPath(path);
+        Path path1 = new Path();
+        path.set(path1);
+        assertPathsAreEquivalent(path, path1);
     }
 
     public void testAccessFillType() {
@@ -378,6 +402,25 @@ public class PathTest extends TestCase {
         assertTrue(path.isEmpty());
         path.rCubicTo(10.0f, 10.0f, 11.0f, 11.0f, 12.0f, 12.0f);
         assertFalse(path.isEmpty());
+    }
+
+    private static void assertPathsAreEquivalent(Path actual, Path expected) {
+        Bitmap actualBitmap = drawAndGetBitmap(actual);
+        Bitmap expectedBitmap = drawAndGetBitmap(expected);
+        assertTrue(actualBitmap.sameAs(expectedBitmap));
+    }
+
+    private static final int WIDTH = 100;
+    private static final int HEIGHT = 100;
+
+    private static Bitmap drawAndGetBitmap(Path path) {
+        Bitmap bitmap = Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888);
+        bitmap.eraseColor(Color.BLACK);
+        Paint paint = new Paint();
+        paint.setColor(Color.RED);
+        Canvas canvas = new Canvas(bitmap);
+        canvas.drawPath(path, paint);
+        return bitmap;
     }
 
     private void setPath(Path path) {

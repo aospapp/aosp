@@ -24,9 +24,30 @@
     </div>
     <ul>
       <li><a href="<?cs var:toroot ?>compatibility/overview.html">Overview</a></li>
-      <li><a href="<?cs var:toroot ?>compatibility/cts-intro.html">Compatibility Test Suite</a></li>
-      <li><a href="<?cs var:toroot ?>compatibility/cts-development.html">CTS Development</a></li>
       <li><a href="<?cs var:toroot ?>compatibility/android-cdd.pdf">Compatibility Definition Document (CDD)</a></li>
+      <li class="nav-section">
+        <div class="nav-section-header">
+          <a href="<?cs var:toroot ?>compatibility/cts/index.html">
+            <span class="en">Compatibility Test Suite</span>
+          </a>
+        </div>
+        <ul>
+          <li><a href="<?cs var:toroot ?>compatibility/cts/setup.html">Set up CTS</a></li>
+          <li><a href="<?cs var:toroot ?>compatibility/cts/run.html">Run CTS</a></li>
+          <li class="nav-section">
+            <div class="nav-section-header">
+            <a href="<?cs var:toroot ?>compatibility/cts/verifier.html">
+              <span class="en">Run CTS Verifier</span>
+            </a>
+            </div>
+           <ul>
+            <li><a href="<?cs var:toroot ?>compatibility/cts/rotation-vector.html">Rotation Vector Crosscheck</a></li>
+           </ul>
+          </li>
+          <li><a href="<?cs var:toroot ?>compatibility/cts/interpret.html">Interpret Results</a></li>
+          <li><a href="<?cs var:toroot ?>compatibility/cts/development.html">Develop CTS</a></li>
+        </ul>
+      </li>
       <li><a href="<?cs var:toroot ?>compatibility/downloads.html">Downloads</a></li>
       <li><a href="<?cs var:toroot ?>compatibility/contact-us.html">Contact Us</a></li>
     </ul>

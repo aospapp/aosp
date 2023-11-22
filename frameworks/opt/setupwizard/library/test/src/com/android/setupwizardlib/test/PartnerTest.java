@@ -102,9 +102,9 @@ public class PartnerTest extends InstrumentationTestCase {
         );
 
         ResourceEntry entry =
-                Partner.getResourceEntry(mTestContext, R.color.suw_navbar_text_dark);
+                Partner.getResourceEntry(mTestContext, R.color.suw_color_accent_dark);
         int partnerValue = entry.resources.getColor(entry.id);
-        assertEquals("Partner value should default to 0xdeffffff", 0xdeffffff, partnerValue);
+        assertEquals("Partner value should default to 0xff448aff", 0xff448aff, partnerValue);
         assertFalse("Partner value should come from fallback", entry.isOverlay);
     }
 

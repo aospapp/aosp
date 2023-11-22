@@ -16,13 +16,15 @@
 
 package com.android.example.notificationshowcase;
 
+import android.app.AlarmManager;
 import android.app.IntentService;
 import android.app.Notification;
-import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -30,13 +32,17 @@ import android.graphics.Typeface;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.os.SystemClock;
 import android.provider.ContactsContract;
 import android.support.v4.app.NotificationCompat;
+import android.support.v4.app.NotificationManagerCompat;
+import android.support.v7.preference.PreferenceManager;
 import android.text.SpannableString;
 import android.text.TextUtils;
 import android.text.style.StyleSpan;
 import android.util.Log;
-import android.view.View;
+
+import com.android.example.notificationshowcase.R;
 
 import java.util.ArrayList;
 
@@ -45,7 +51,9 @@ public class NotificationService extends IntentService {
     private static final String TAG = "NotificationService";
 
     public static final String ACTION_CREATE = "create";
+    public static final String ACTION_DESTROY = "destroy";
     public static final int NOTIFICATION_ID = 31338;
+    private static final long FADE_TIME_MILLIS = 1000 * 60 * 5;
 
     public NotificationService() {
         super(TAG);
@@ -53,6 +61,14 @@ public class NotificationService extends IntentService {
 
     public NotificationService(String name) {
         super(name);
+    }
+
+    private static PendingIntent makeCancelAllIntent(Context context) {
+        final Intent intent = new Intent(ACTION_DESTROY);
+        intent.setComponent(new ComponentName(context, NotificationService.class));
+        return PendingIntent.getService(
+                context, 0, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT);
     }
 
     private static Bitmap getBitmap(Context context, int resId) {
@@ -76,74 +92,91 @@ public class NotificationService extends IntentService {
                 PendingIntent.FLAG_CANCEL_CURRENT);
     }
 
-    public static Notification makeBigTextNotification(Context context, int update, int id,
-            long when) {
+    public static Notification makeSmsNotification(Context context, int update, int id, long when) {
+        final SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(context);
+        String sender = context.getString(R.string.sms_sender);
+
         String personUri = null;
-        Cursor c = null;
-        try {
-            String[] projection = new String[] { ContactsContract.Contacts._ID, ContactsContract.Contacts.LOOKUP_KEY };
-            String selections = ContactsContract.Contacts.DISPLAY_NAME + " = 'Mike Cleron'";
-            final ContentResolver contentResolver = context.getContentResolver();
-            c = contentResolver.query(ContactsContract.Contacts.CONTENT_URI,
-                    projection, selections, null, null);
-            if (c != null && c.getCount() > 0) {
-                c.moveToFirst();
-                int lookupIdx = c.getColumnIndex(ContactsContract.Contacts.LOOKUP_KEY);
-                int idIdx = c.getColumnIndex(ContactsContract.Contacts._ID);
-                String lookupKey = c.getString(lookupIdx);
-                long contactId = c.getLong(idIdx);
-                Uri lookupUri = ContactsContract.Contacts.getLookupUri(contactId, lookupKey);
-                personUri = lookupUri.toString();
+        if (sharedPref.getBoolean(SettingsActivity.KEY_SMS_PERSON, false)) {
+            Cursor c = null;
+            try {
+                String[] projection = new String[] { ContactsContract.Contacts._ID,
+                        ContactsContract.Contacts.LOOKUP_KEY };
+                String selections = ContactsContract.Contacts.DISPLAY_NAME + " = ?";
+                String[] selectionArgs = { sender };
+                final ContentResolver contentResolver = context.getContentResolver();
+                c = contentResolver.query(ContactsContract.Contacts.CONTENT_URI,
+                        projection, selections, selectionArgs, null);
+                if (c != null && c.getCount() > 0) {
+                    c.moveToFirst();
+                    int lookupIdx = c.getColumnIndex(ContactsContract.Contacts.LOOKUP_KEY);
+                    int idIdx = c.getColumnIndex(ContactsContract.Contacts._ID);
+                    String lookupKey = c.getString(lookupIdx);
+                    long contactId = c.getLong(idIdx);
+                    Uri lookupUri = ContactsContract.Contacts.getLookupUri(contactId, lookupKey);
+                    personUri = lookupUri.toString();
+                }
+            } finally {
+                if (c != null) {
+                    c.close();
+                }
             }
-        } finally {
-            if (c != null) {
-                c.close();
-            }
-        }
-        if (TextUtils.isEmpty(personUri)) {
-            Log.w(TAG, "failed to find contact for Mike Cleron");
-        } else {
-            Log.w(TAG, "Mike Cleron is " + personUri);
         }
 
-        String addendum = update > 0 ? "(updated) " : "";
-        String longSmsText = "Hey, looks like\nI'm getting kicked out of this conference" +
-                " room";
-        if (update > 1) {
-            longSmsText += ", so stay in the hangout and I'll rejoin in about 5-10 minutes" +
-                    ". If you don't see me, assume I got pulled into another meeting. And" +
-                    " now \u2026 I have to find my shoes.";
-        }
         if (update > 2) {
             when = System.currentTimeMillis();
         }
+        final String priorityName = sharedPref.getString(SettingsActivity.KEY_SMS_PRIORITY, "0");
+        final int priority = Integer.valueOf(priorityName);
         NotificationCompat.BigTextStyle bigTextStyle = new NotificationCompat.BigTextStyle();
-        bigTextStyle.bigText(addendum + longSmsText);
-        Notification bigText = new NotificationCompat.Builder(context)
-                .setContentTitle(addendum + "Mike Cleron")
-                .setContentIntent(ToastService.getPendingIntent(context, "Clicked on bigText"))
-                .setContentText(addendum + longSmsText)
-                .setTicker(addendum + "Mike Cleron: " + longSmsText)
+        bigTextStyle.bigText(context.getString(R.string.sms_message));
+        PendingIntent ci = ToastService.getPendingIntent(context, R.string.sms_click);
+        PendingIntent ai = UpdateService.getPendingIntent(context, update + 1, id, when);
+        NotificationCompat.Builder bigText = new NotificationCompat.Builder(context)
+                .setContentTitle(sender)
+                .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                .setContentIntent(ci)
+                .setContentText(context.getString(R.string.sms_message))
                 .setWhen(when)
                 .setLargeIcon(getBitmap(context, R.drawable.bucket))
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .addAction(R.drawable.ic_media_next,
-                        "update: " + update,
-                        UpdateService.getPendingIntent(context, update + 1, id, when))
+                .setPriority(priority)
+                .addAction(R.drawable.ic_media_next, context.getString(R.string.sms_reply), ai)
                 .setSmallIcon(R.drawable.stat_notify_talk_text)
                 .setStyle(bigTextStyle)
-                .setDefaults(Notification.DEFAULT_SOUND)
-                .addPerson(personUri)
-                .build();
-        return bigText;
+                .setOnlyAlertOnce(sharedPref.getBoolean(SettingsActivity.KEY_SMS_ONCE, true));
+
+        if (TextUtils.isEmpty(personUri)) {
+            Log.w(TAG, "failed to find contact for Mike Cleron");
+        } else {
+            bigText.addPerson(personUri);
+            Log.w(TAG, "Mike Cleron is " + personUri);
+        }
+
+        int defaults = 0;
+        if(sharedPref.getBoolean(SettingsActivity.KEY_SMS_NOISY, true)) {
+            String uri = sharedPref.getString(SettingsActivity.KEY_SMS_SOUND, null);
+            if(uri == null) {
+                defaults |= Notification.DEFAULT_SOUND;
+            } else {
+                bigText.setSound(Uri.parse(uri));
+            }
+        }
+        if(sharedPref.getBoolean(SettingsActivity.KEY_SMS_BUZZY, false)) {
+            defaults |= Notification.DEFAULT_VIBRATE;
+        }
+        bigText.setDefaults(defaults);
+
+        return bigText.build();
     }
 
     public static Notification makeUploadNotification(Context context, int progress, long when) {
+        PendingIntent pi = ToastService.getPendingIntent(context, R.string.upload_click);
         NotificationCompat.Builder uploadNotification = new NotificationCompat.Builder(context)
-                .setContentTitle("File Upload")
-                .setContentText("foo.txt")
+                .setContentTitle(context.getString(R.string.upload_title))
+                .setContentText(context.getString(R.string.upload_text))
+                .setCategory(NotificationCompat.CATEGORY_PROGRESS)
                 .setPriority(NotificationCompat.PRIORITY_MIN)
-                .setContentIntent(ToastService.getPendingIntent(context, "Clicked on Upload"))
+                .setContentIntent(pi)
                 .setWhen(when)
                 .setSmallIcon(R.drawable.ic_menu_upload)
                 .setProgress(100, Math.min(progress, 100), false);
@@ -152,115 +185,153 @@ public class NotificationService extends IntentService {
 
     @Override
     protected void onHandleIntent(Intent intent) {
+        NotificationManagerCompat noMa = NotificationManagerCompat.from(this);
+        if (ACTION_DESTROY.equals(intent.getAction())) {
+            noMa.cancelAll();
+            return;
+        }
+
+        SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(this);
         ArrayList<Notification> mNotifications = new ArrayList<Notification>();
-        NotificationManager noMa =
-                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
-        int bigtextId = mNotifications.size();
-        mNotifications.add(makeBigTextNotification(this, 0, bigtextId, System.currentTimeMillis()));
+        if(sharedPref.getBoolean(SettingsActivity.KEY_SMS_ENABLE, true)) {
+            final int id = mNotifications.size();
+            mNotifications.add(makeSmsNotification(this, 2, id, System.currentTimeMillis()));
+        }
 
-        int uploadId = mNotifications.size();
-        long uploadWhen = System.currentTimeMillis();
-        mNotifications.add(makeUploadNotification(this, 10, uploadWhen));
+        if(sharedPref.getBoolean(SettingsActivity.KEY_UPLOAD_ENABLE, false)) {
+            final int id = mNotifications.size();
+            final long uploadWhen = System.currentTimeMillis();
+            mNotifications.add(makeUploadNotification(this, 10, uploadWhen));
+            ProgressService.startProgressUpdater(this, id, uploadWhen, 0);
+        }
 
-        int phoneId = mNotifications.size();
-        final PendingIntent fullscreenIntent = FullScreenActivity.getPendingIntent(this, phoneId);
-        Notification phoneCall = new NotificationCompat.Builder(this)
-                .setContentTitle("Incoming call")
-                .setContentText("Matias Duarte")
-                .setLargeIcon(getBitmap(this, R.drawable.matias_hed))
-                .setSmallIcon(R.drawable.stat_sys_phone_call)
-                .setPriority(NotificationCompat.PRIORITY_MAX)
-                .setContentIntent(fullscreenIntent)
-                .setFullScreenIntent(fullscreenIntent, true)
-                .addAction(R.drawable.ic_dial_action_call, "Answer",
-                        PhoneService.getPendingIntent(this, phoneId, PhoneService.ACTION_ANSWER))
-                .addAction(R.drawable.ic_end_call, "Ignore",
-                        PhoneService.getPendingIntent(this, phoneId, PhoneService.ACTION_IGNORE))
-                .setOngoing(true)
-                .addPerson(Uri.fromParts("tel", "1 (617) 555-1212", null).toString())
-                .build();
-        mNotifications.add(phoneCall);
+        if(sharedPref.getBoolean(SettingsActivity.KEY_PHONE_ENABLE, false)) {
+            final int id = mNotifications.size();
+            final PendingIntent fullscreen = FullScreenActivity.getPendingIntent(this, id);
+            PendingIntent ans = PhoneService.getPendingIntent(this, id,
+                    PhoneService.ACTION_ANSWER);
+            PendingIntent ign =
+                    PhoneService.getPendingIntent(this, id, PhoneService.ACTION_IGNORE);
+            NotificationCompat.Builder phoneCall = new NotificationCompat.Builder(this)
+                    .setContentTitle(getString(R.string.call_title))
+                    .setContentText(getString(R.string.call_text))
+                    .setLargeIcon(getBitmap(this, R.drawable.matias_hed))
+                    .setSmallIcon(R.drawable.stat_sys_phone_call)
+                    .setPriority(NotificationCompat.PRIORITY_MAX)
+                    .setCategory(NotificationCompat.CATEGORY_CALL)
+                    .setContentIntent(fullscreen)
+                    .addAction(R.drawable.ic_dial_action_call, getString(R.string.call_answer), ans)
+                    .addAction(R.drawable.ic_end_call, getString(R.string.call_ignore), ign)
+                    .setOngoing(true);
 
-        mNotifications.add(new NotificationCompat.Builder(this)
-                .setContentTitle("Stopwatch PRO")
-                .setContentText("Counting up")
-                .setContentIntent(ToastService.getPendingIntent(this, "Clicked on Stopwatch"))
-                .setSmallIcon(R.drawable.stat_notify_alarm)
-                .setUsesChronometer(true)
-                .build());
+            if(sharedPref.getBoolean(SettingsActivity.KEY_PHONE_FULLSCREEN, false)) {
+                phoneCall.setFullScreenIntent(fullscreen, true);
+            }
 
-        mNotifications.add(new NotificationCompat.Builder(this)
-                .setContentTitle("J Planning")
-                .setContentText("The Botcave")
-                .setWhen(System.currentTimeMillis())
-                .setSmallIcon(R.drawable.stat_notify_calendar)
-                .setContentIntent(ToastService.getPendingIntent(this, "Clicked on calendar event"))
-                .setContentInfo("7PM")
-                .addAction(R.drawable.stat_notify_snooze, "+10 min",
-                        ToastService.getPendingIntent(this, "snoozed 10 min"))
-                .addAction(R.drawable.stat_notify_snooze_longer, "+1 hour",
-                        ToastService.getPendingIntent(this, "snoozed 1 hr"))
-                .addAction(R.drawable.stat_notify_email, "Email",
-                        makeEmailIntent(this,
-                                "gabec@example.com,mcleron@example.com,dsandler@example.com"))
-                .build());
+            if(sharedPref.getBoolean(SettingsActivity.KEY_PHONE_NOISY, false)) {
+                phoneCall.setDefaults(Notification.DEFAULT_SOUND);
+            }
 
-        BitmapDrawable d =
-                (BitmapDrawable) getResources().getDrawable(R.drawable.romainguy_rockaway);
-        mNotifications.add(new NotificationCompat.BigPictureStyle(
-                new NotificationCompat.Builder(this)
-                        .setContentTitle("Romain Guy")
-                        .setContentText("I was lucky to find a Canon 5D Mk III at a local Bay Area "
-                                + "store last week but I had not been able to try it in the field "
-                                + "until tonight. After a few days of rain the sky finally cleared "
-                                + "up. Rockaway Beach did not disappoint and I was finally able to "
-                                + "see what my new camera feels like when shooting landscapes.")
-                        .setSmallIcon(R.drawable.ic_stat_gplus)
-                        .setContentIntent(
-                                ToastService.getPendingIntent(this, "Clicked on bigPicture"))
-                        .setLargeIcon(getBitmap(this, R.drawable.romainguy_hed))
-                        .addAction(R.drawable.add, "Add to Gallery",
-                                ToastService.getPendingIntent(this, "added! (just kidding)"))
-                        .setSubText("talk rocks!"))
-                .bigPicture(d.getBitmap())
-                .build());
+            if (sharedPref.getBoolean(SettingsActivity.KEY_PHONE_PERSON, false)) {
+                phoneCall.addPerson(Uri.fromParts("tel",
+                        "1 (617) 555-1212", null)
+                        .toString());
+            }
+            mNotifications.add(phoneCall.build());
+        }
 
-        // Note: this may conflict with real email notifications
-        StyleSpan bold = new StyleSpan(Typeface.BOLD);
-        SpannableString line1 = new SpannableString("Alice: hey there!");
-        line1.setSpan(bold, 0, 5, 0);
-        SpannableString line2 = new SpannableString("Bob: hi there!");
-        line2.setSpan(bold, 0, 3, 0);
-        SpannableString line3 = new SpannableString("Charlie: Iz IN UR EMAILZ!!");
-        line3.setSpan(bold, 0, 7, 0);
-        mNotifications.add(new NotificationCompat.InboxStyle(
-                new NotificationCompat.Builder(this)
-                        .setContentTitle("24 new messages")
-                        .setContentText("You have mail!")
-                        .setSubText("test.hugo2@gmail.com")
-                        .setContentIntent(ToastService.getPendingIntent(this, "Clicked on Email"))
-                        .setSmallIcon(R.drawable.stat_notify_email))
-                .setSummaryText("+21 more")
-                .addLine(line1)
-                .addLine(line2)
-                .addLine(line3)
-                .build());
+        if(sharedPref.getBoolean(SettingsActivity.KEY_TIMER_ENABLE, false)) {
+            PendingIntent pi = ToastService.getPendingIntent(this, R.string.timer_click);
+            mNotifications.add(new NotificationCompat.Builder(this)
+                    .setContentTitle(getString(R.string.timer_title))
+                    .setContentText(getString(R.string.timer_text))
+                    .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+                    .setContentIntent(pi)
+                    .setSmallIcon(R.drawable.stat_notify_alarm)
+                    .setUsesChronometer(true)
+                            .build());
+        }
 
-        mNotifications.add(new NotificationCompat.Builder(this)
-                .setContentTitle("Twitter")
-                .setContentText("New mentions")
-                .setContentIntent(ToastService.getPendingIntent(this, "Clicked on Twitter"))
-                .setSmallIcon(R.drawable.twitter_icon)
-                .setNumber(15)
-                .setPriority(NotificationCompat.PRIORITY_LOW)
-                .build());
+        if(sharedPref.getBoolean(SettingsActivity.KEY_CALENDAR_ENABLE, false)) {
+            mNotifications.add(new NotificationCompat.Builder(this)
+                    .setContentTitle(getString(R.string.calendar_title))
+                    .setContentText(getString(R.string.calendar_text))
+                    .setCategory(NotificationCompat.CATEGORY_EVENT)
+                    .setWhen(System.currentTimeMillis())
+                    .setSmallIcon(R.drawable.stat_notify_calendar)
+                    .setContentIntent(ToastService.getPendingIntent(this, R.string.calendar_click))
+                    .setContentInfo("7PM")
+                    .addAction(R.drawable.stat_notify_snooze, getString(R.string.calendar_10),
+                            ToastService.getPendingIntent(this, R.string.calendar_10_click))
+                    .addAction(R.drawable.stat_notify_snooze_longer, getString(R.string.calendar_60),
+                            ToastService.getPendingIntent(this, R.string.calendar_60_click))
+                            .addAction(R.drawable.stat_notify_email, "Email",
+                                    makeEmailIntent(this,
+                                            "gabec@example.com,mcleron@example.com,dsandler@example.com"))
+                            .build());
+        }
 
+        if(sharedPref.getBoolean(SettingsActivity.KEY_PICTURE_ENABLE, false)) {
+            BitmapDrawable d =
+                    (BitmapDrawable) getResources().getDrawable(R.drawable.romainguy_rockaway);
+            PendingIntent ci = ToastService.getPendingIntent(this, R.string.picture_click);
+            PendingIntent ai = ToastService.getPendingIntent(this, R.string.picture_add_click);
+            mNotifications.add(new NotificationCompat.BigPictureStyle(
+                    new NotificationCompat.Builder(this)
+                            .setCategory(NotificationCompat.CATEGORY_SOCIAL)
+                            .setContentTitle(getString(R.string.picture_title))
+                            .setContentText(getString(R.string.picture_text))
+                            .setSmallIcon(R.drawable.ic_stat_gplus)
+                            .setContentIntent(ci)
+                            .setLargeIcon(getBitmap(this, R.drawable.romainguy_hed))
+                            .addAction(R.drawable.add, getString(R.string.picture_add), ai)
+                            .setSubText(getString(R.string.picture_sub_text)))
+                    .bigPicture(d.getBitmap())
+                    .build());
+        }
+
+        if(sharedPref.getBoolean(SettingsActivity.KEY_INBOX_ENABLE, false)) {
+            PendingIntent pi = ToastService.getPendingIntent(this, R.string.email_click);
+            mNotifications.add(new NotificationCompat.InboxStyle(
+                    new NotificationCompat.Builder(this)
+                            .setContentTitle(getString(R.string.email_title))
+                            .setContentText(getString(R.string.email_text))
+                            .setSubText(getString(R.string.email_sub_text))
+                            .setCategory(NotificationCompat.CATEGORY_EMAIL)
+                            .setContentIntent(pi)
+                            .setSmallIcon(R.drawable.stat_notify_email))
+                    .setSummaryText("+21 more")
+                    .addLine(getString(R.string.email_a))
+                    .addLine(getString(R.string.email_b))
+                    .addLine(getString(R.string.email_c))
+                    .build());
+        }
+
+        if(sharedPref.getBoolean(SettingsActivity.KEY_SOCIAL_ENABLE, false)) {
+            PendingIntent pi = ToastService.getPendingIntent(this, R.string.social_click);
+            mNotifications.add(new NotificationCompat.Builder(this)
+                    .setContentTitle(getString(R.string.social_title))
+                    .setContentText(getString(R.string.social_text))
+                    .setCategory(NotificationCompat.CATEGORY_SOCIAL)
+                    .setContentIntent(pi)
+                    .setSmallIcon(R.drawable.twitter_icon)
+                    .setNumber(15)
+                    .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .build());
+        }
 
         for (int i=0; i<mNotifications.size(); i++) {
             noMa.notify(NOTIFICATION_ID + i, mNotifications.get(i));
         }
 
-        ProgressService.startProgressUpdater(this, uploadId, uploadWhen, 0);
+        // always cancel any previous alarm
+        PendingIntent pendingCancel = makeCancelAllIntent(this);
+        AlarmManager alMa = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        alMa.cancel(pendingCancel);
+        if(sharedPref.getBoolean(SettingsActivity.KEY_GLOBAL_FADE, false)) {
+            long t = SystemClock.elapsedRealtime() + FADE_TIME_MILLIS;
+            alMa.set(AlarmManager.ELAPSED_REALTIME, t, pendingCancel);
+        }
     }
 }

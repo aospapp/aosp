@@ -19,6 +19,7 @@
 #include "drmplane.h"
 #include "drmresources.h"
 
+#include <cinttypes>
 #include <errno.h>
 #include <stdint.h>
 
@@ -29,9 +30,6 @@ namespace android {
 
 DrmPlane::DrmPlane(DrmResources *drm, drmModePlanePtr p)
     : drm_(drm), id_(p->plane_id), possible_crtc_mask_(p->possible_crtcs) {
-}
-
-DrmPlane::~DrmPlane() {
 }
 
 int DrmPlane::Init() {
@@ -56,7 +54,7 @@ int DrmPlane::Init() {
       type_ = (uint32_t)type;
       break;
     default:
-      ALOGE("Invalid plane type %d", type);
+      ALOGE("Invalid plane type %" PRIu64, type);
       return -EINVAL;
   }
 
@@ -120,6 +118,14 @@ int DrmPlane::Init() {
     return ret;
   }
 
+  ret = drm_->GetPlaneProperty(*this, "rotation", &rotation_property_);
+  if (ret)
+    ALOGE("Could not get rotation property");
+
+  ret = drm_->GetPlaneProperty(*this, "alpha", &alpha_property_);
+  if (ret)
+    ALOGI("Could not get alpha property");
+
   return 0;
 }
 
@@ -173,5 +179,13 @@ const DrmProperty &DrmPlane::src_w_property() const {
 
 const DrmProperty &DrmPlane::src_h_property() const {
   return src_h_property_;
+}
+
+const DrmProperty &DrmPlane::rotation_property() const {
+  return rotation_property_;
+}
+
+const DrmProperty &DrmPlane::alpha_property() const {
+  return alpha_property_;
 }
 }

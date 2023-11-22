@@ -518,15 +518,17 @@ void ISVProcessor::addInput(OMX_BUFFERHEADERTYPE* input)
     }
 
     if (input->nFlags & OMX_BUFFERFLAG_EOS) {
-        mpOwner->releaseBuffer(kPortIndexInput, input, true);
+        //the last buffer is the last to release
         notifyFlush();
+        mpOwner->releaseBuffer(kPortIndexInput, input, true);
         return;
     }
 
     status_t ret = configFilters(input);
     if (ret == NOT_ENOUGH_DATA) {
         // release this buffer if frc is not ready.
-        mpOwner->releaseBuffer(kPortIndexInput, input, false);
+        // send the buffer to framework
+        mpOwner->releaseBuffer(kPortIndexOutput, input, false);
         ALOGD_IF(ISV_THREAD_DEBUG,
                  "%s: frc rate is not ready, release this buffer %" PRIuPTR
                  ", fps %d", __func__, reinterpret_cast<uintptr_t>(input),
@@ -606,6 +608,17 @@ void ISVProcessor::notifyFlush()
     }
 
     Mutex::Autolock autoLock(mLock);
+    //make sure the useful buffer will be sended to framework first
+    OMX_BUFFERHEADERTYPE* pBuffer = NULL;
+    {
+        Mutex::Autolock autoLock(mInputLock);
+        while (!mInputBuffers.empty()) {
+            pBuffer = mInputBuffers.itemAt(0);
+            mpOwner->releaseBuffer(kPortIndexInput, pBuffer, true);
+            ALOGD_IF(ISV_THREAD_DEBUG,"%s: Flush the pBuffer %" PRIuPTR " in input buffer queue.",__func__, reinterpret_cast<uintptr_t>(pBuffer));
+            mInputBuffers.removeAt(0);
+        }
+    }
     mbFlush = true;
     mRunCond.signal();
     ALOGD_IF(ISV_THREAD_DEBUG, "wake up proc thread");
@@ -643,7 +656,7 @@ void ISVProcessor::flush()
             pBuffer = mOutputBuffers.itemAt(0);
             mpOwner->releaseBuffer(kPortIndexOutput, pBuffer, true);
             ALOGD_IF(
-                ISV_THREAD_DEBUG, 
+                ISV_THREAD_DEBUG,
                 "%s: Flush the pBuffer %" PRIuPTR " in output buffer queue.",
                 __func__, reinterpret_cast<uintptr_t>(pBuffer));
             mOutputBuffers.removeAt(0);

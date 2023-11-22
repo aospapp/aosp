@@ -33,6 +33,8 @@
 enum rb_status {
     RB_SUCCESS = 0,
     RB_FAILURE = 1,
+    RB_FULL = 2,
+    RB_RETRY = 3,
 };
 
 struct rb_stats {
@@ -52,7 +54,8 @@ void * ring_buffer_init(size_t size_of_buf, int num_bufs);
 void ring_buffer_deinit(void *ctx);
 
 /* Writes writes length of bytes from buf to ring buffer */
-enum rb_status rb_write(void *ctx, u8 *buf, size_t length, int overwrite);
+enum rb_status rb_write(void *ctx, u8 *buf, size_t length, int overwrite,
+                        size_t record_length);
 
 /* Tries to read max_length of bytes from ring buffer to buf
  * and returns actual length of bytes read from ring buffer

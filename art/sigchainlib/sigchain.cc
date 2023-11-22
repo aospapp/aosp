@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_ANDROID_OS
+#ifdef __ANDROID__
 #include <android/log.h>
 #else
 #include <stdarg.h>
@@ -103,7 +103,7 @@ static void log(const char* format, ...) {
   va_list ap;
   va_start(ap, format);
   vsnprintf(buf, sizeof(buf), format, ap);
-#ifdef HAVE_ANDROID_OS
+#ifdef __ANDROID__
   __android_log_write(ANDROID_LOG_ERROR, "libsigchain", buf);
 #else
   std::cout << buf << "\n";
@@ -150,10 +150,15 @@ extern "C" void InvokeUserSignalHandler(int sig, siginfo_t* info, void* context)
   // Do we have a managed handler? If so, run it first.
   SpecialSignalHandlerFn managed = user_sigactions[sig].GetSpecialHandler();
   if (managed != nullptr) {
+    sigset_t mask, old_mask;
+    sigfillset(&mask);
+    sigprocmask(SIG_BLOCK, &mask, &old_mask);
     // Call the handler. If it succeeds, we're done.
     if (managed(sig, info, context)) {
+      sigprocmask(SIG_SETMASK, &old_mask, nullptr);
       return;
     }
+    sigprocmask(SIG_SETMASK, &old_mask, nullptr);
   }
 
   const struct sigaction& action = user_sigactions[sig].GetAction();
@@ -166,7 +171,10 @@ extern "C" void InvokeUserSignalHandler(int sig, siginfo_t* info, void* context)
     }
   } else {
     if (action.sa_sigaction != nullptr) {
+      sigset_t old_mask;
+      sigprocmask(SIG_BLOCK, &action.sa_mask, &old_mask);
       action.sa_sigaction(sig, info, context);
+      sigprocmask(SIG_SETMASK, &old_mask, nullptr);
     } else {
       signal(sig, SIG_DFL);
       raise(sig);
@@ -337,14 +345,16 @@ extern "C" void SetSpecialSignalHandlerFn(int signal, SpecialSignalHandlerFn fn)
   // In case the chain isn't claimed, claim it for ourself so we can ensure the managed handler
   // goes first.
   if (!user_sigactions[signal].IsClaimed()) {
-    struct sigaction tmp;
-    tmp.sa_sigaction = sigchainlib_managed_handler_sigaction;
-    sigemptyset(&tmp.sa_mask);
-    tmp.sa_flags = SA_SIGINFO | SA_ONSTACK;
+    struct sigaction act, old_act;
+    act.sa_sigaction = sigchainlib_managed_handler_sigaction;
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = SA_SIGINFO | SA_ONSTACK;
 #if !defined(__APPLE__) && !defined(__mips__)
-    tmp.sa_restorer = nullptr;
+    act.sa_restorer = nullptr;
 #endif
-    user_sigactions[signal].Claim(tmp);
+    if (sigaction(signal, &act, &old_act) != -1) {
+      user_sigactions[signal].Claim(old_act);
+    }
   }
 }
 

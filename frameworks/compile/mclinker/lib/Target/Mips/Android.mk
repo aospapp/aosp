@@ -1,6 +1,7 @@
 LOCAL_PATH:= $(call my-dir)
 
 mcld_mips_target_SRC_FILES := \
+  MipsAbiFlags.cpp \
   MipsDiagnostic.cpp  \
   MipsELFDynamic.cpp  \
   MipsEmulation.cpp \

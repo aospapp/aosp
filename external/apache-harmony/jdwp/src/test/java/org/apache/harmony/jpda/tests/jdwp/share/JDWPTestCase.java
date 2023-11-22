@@ -57,7 +57,9 @@ public abstract class JDWPTestCase extends JDWPRawTestCase {
 
         // launch debuggee process
         debuggeeWrapper = createDebuggeeWrapper();
-        beforeDebuggeeStart(debuggeeWrapper);
+        beforeConnectionSetUp();
+        setUpDebuggeeWrapperConnection();
+        beforeDebuggeeStart();
         startDebuggeeWrapper();
 
         // receive and handle initial event
@@ -80,19 +82,27 @@ public abstract class JDWPTestCase extends JDWPRawTestCase {
     }
 
     /**
+     * Set up server side JDWP connection.
+     */
+    protected void setUpDebuggeeWrapperConnection() {
+        debuggeeWrapper.setUpConnection();
+        logWriter.println("Set up server side JDWP connection.");
+    }
+
+    /**
      * Starts wrapper for debuggee process.
      */
     protected void startDebuggeeWrapper() {
-    	debuggeeWrapper.start();
+        debuggeeWrapper.start();
         logWriter.println("Established JDWP connection with debuggee VM");
     }
-    	
+
     /**
      * Receives initial VM_INIT event if debuggee is suspended on event.
      */
     protected void receiveInitialEvent() {
         if (settings.isDebuggeeSuspend()) {
-            initialEvent = 
+            initialEvent =
                 debuggeeWrapper.vmMirror.receiveCertainEvent(JDWPConstants.EventKind.VM_INIT);
             logWriter.println("Received inital VM_INIT event");
         }
@@ -111,10 +121,17 @@ public abstract class JDWPTestCase extends JDWPRawTestCase {
     }
 
     /**
+     * This method is invoked right before setting up the server side JDWP connection.
+     */
+    protected void beforeConnectionSetUp() {
+      // Empty.
+    }
+
+    /**
      * This method is invoked right before starting debuggee VM.
      */
-    protected void beforeDebuggeeStart(JDWPUnitDebuggeeWrapper debuggeeWrapper) {
-
+    protected void beforeDebuggeeStart() {
+      // Empty.
     }
 
     /**
@@ -199,6 +216,37 @@ public abstract class JDWPTestCase extends JDWPRawTestCase {
             reply.getNextValueAsString(); // method signature
             reply.getNextValueAsInt(); // method modifiers
             if (name.equals(methodName)) {
+                return methodID;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Helper for getting method ID of corresponding class, method name and signature.
+     *
+     * @param classID -
+     *            class ID
+     * @param methodName -
+     *            method name
+     * @param methodSignature -
+     *            method signature
+     * @return method ID
+     */
+    protected long getMethodID(long classID, String methodName, String methodSignature) {
+        CommandPacket command = new CommandPacket(
+                JDWPCommands.ReferenceTypeCommandSet.CommandSetID,
+                JDWPCommands.ReferenceTypeCommandSet.MethodsCommand);
+        command.setNextValueAsClassID(classID);
+        ReplyPacket reply = debuggeeWrapper.vmMirror.performCommand(command);
+        checkReplyPacket(reply, "ReferenceType::Methods command");
+        int methods = reply.getNextValueAsInt();
+        for (int i = 0; i < methods; i++) {
+            long methodID = reply.getNextValueAsMethodID();
+            String name = reply.getNextValueAsString(); // method name
+            String signature = reply.getNextValueAsString();
+            reply.getNextValueAsInt(); // method modifiers
+            if (name.equals(methodName) && signature.equals(methodSignature)) {
                 return methodID;
             }
         }
@@ -771,6 +819,58 @@ public abstract class JDWPTestCase extends JDWPRawTestCase {
             return; // OK
         }
         printErrorAndFail("Not all data has been read");
+    }
+
+    /**
+     * Asserts that two JDWP event kinds are equal.
+     *
+     * @param message
+     *          user message
+     * @param expected
+     *          expected event kind
+     * @param actual
+     *          actual event kind
+     */
+    protected void assertEventKindEquals(String message, byte expected, byte actual) {
+        if (expected != actual) {
+            StringBuilder builder = new StringBuilder(message);
+            builder.append(": expected ");
+            builder.append(expected);
+            builder.append(" (");
+            builder.append(JDWPConstants.EventKind.getName(expected));
+            builder.append(") but was ");
+            builder.append(actual);
+            builder.append(" (");
+            builder.append(JDWPConstants.EventKind.getName(actual));
+            builder.append(")");
+            printErrorAndFail(builder.toString());
+        }
+    }
+
+    /**
+     * Asserts that two JDWP tags are equal.
+     *
+     * @param message
+     *          user message
+     * @param expected
+     *          expected tag
+     * @param actual
+     *          actual tag
+     */
+    protected void assertTagEquals(String message, byte expected, byte actual) {
+        if (expected != actual) {
+            StringBuilder builder = new StringBuilder(message);
+            builder.append(": expected ");
+            builder.append(expected);
+            builder.append(" (");
+            builder.append(JDWPConstants.Tag.getName(expected));
+            builder.append(") but was ");
+            builder.append(actual);
+            builder.append(" (");
+            builder.append(JDWPConstants.Tag.getName(actual));
+            builder.append(")");
+            printErrorAndFail(builder.toString());
+        }
     }
 
     /**

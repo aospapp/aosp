@@ -20,11 +20,12 @@
 #include "GLClientState.h"
 #include "GLSharedGroup.h"
 #include "FixedBuffer.h"
+#include "ChecksumCalculator.h"
 
 class GLEncoder : public gl_encoder_context_t {
 
 public:
-    GLEncoder(IOStream *stream);
+    GLEncoder(IOStream *stream, ChecksumCalculator* protocol);
     virtual ~GLEncoder();
     void setClientState(GLClientState *state) {
         m_state = state;
@@ -145,5 +146,9 @@ private:
     static void s_glTexParameterx(void* self, GLenum target, GLenum pname, GLfixed param);
     static void s_glTexParameteriv(void* self, GLenum target, GLenum pname, const GLint* params);
     static void s_glTexParameterxv(void* self, GLenum target, GLenum pname, const GLfixed* params);
+
+public:
+    glEGLImageTargetTexture2DOES_client_proc_t m_glEGLImageTargetTexture2DOES_enc;
+
 };
 #endif

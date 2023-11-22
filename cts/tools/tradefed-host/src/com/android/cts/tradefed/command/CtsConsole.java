@@ -15,6 +15,7 @@
  */
 package com.android.cts.tradefed.command;
 
+import com.android.compatibility.common.util.AbiUtils;
 import com.android.cts.tradefed.build.CtsBuildHelper;
 import com.android.cts.tradefed.build.CtsBuildProvider;
 import com.android.cts.tradefed.result.ITestResultRepo;
@@ -23,7 +24,6 @@ import com.android.cts.tradefed.result.PlanCreator;
 import com.android.cts.tradefed.result.TestResultRepo;
 import com.android.cts.tradefed.testtype.ITestPackageRepo;
 import com.android.cts.tradefed.testtype.TestPackageRepo;
-import com.android.cts.util.AbiUtils;
 import com.android.tradefed.build.IFolderBuildInfo;
 import com.android.tradefed.command.Console;
 import com.android.tradefed.config.ArgsOptionParser;
@@ -120,7 +120,7 @@ public class CtsConsole extends Console {
                 CtsBuildHelper ctsBuild = getCtsBuildHelper();
                 if (ctsBuild != null) {
                     // FIXME may want to only add certain ABIs
-                    addDerivedPlan(ctsBuild, AbiUtils.getAbisSupportedByCts(), flatArgs);
+                    addDerivedPlan(ctsBuild, AbiUtils.getAbisSupportedByCompatibility(), flatArgs);
                 }
             }
         };

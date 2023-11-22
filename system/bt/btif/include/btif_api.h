@@ -30,6 +30,8 @@
 #ifndef BTIF_API_H
 #define BTIF_API_H
 
+#include <hardware/bluetooth.h>
+
 #include "btif_common.h"
 #include "btif_dm.h"
 
@@ -74,16 +76,32 @@ bt_status_t btif_disable_bluetooth(void);
 
 /*******************************************************************************
 **
-** Function         btif_shutdown_bluetooth
+** Function         btif_cleanup_bluetooth
 **
-** Description      Finalizes BT scheduler shutdown and terminates BTIF
-**                  task.
+** Description      Cleanup BTIF state.
 **
 **
 ** Returns          void
 **
 *******************************************************************************/
-bt_status_t btif_shutdown_bluetooth(void);
+bt_status_t btif_cleanup_bluetooth(void);
+
+/*******************************************************************************
+**
+** Function         is_restricted_mode
+**
+** Description      Checks if BT was enabled in restriced mode. In restricted
+**                  mode, bonds that are created are marked as temporary.
+**                  These bonds persist until we leave restricted mode, at
+**                  which point they will be deleted from the config. Also
+**                  while in restricted mode, the user can access devices
+**                  that are already paired before entering restricted mode,
+**                  but they cannot remove any of these devices.
+**
+** Returns          bool
+**
+*******************************************************************************/
+bool is_restricted_mode(void);
 
 /*******************************************************************************
 **
@@ -207,6 +225,18 @@ bt_status_t btif_dm_cancel_discovery(void);
 **
 *******************************************************************************/
 bt_status_t btif_dm_create_bond(const bt_bdaddr_t *bd_addr, int transport);
+
+/*******************************************************************************
+**
+** Function         btif_dm_create_bond_out_of_band
+**
+** Description      Initiate bonding with the specified device using OOB data.
+**
+** Returns          bt_status_t
+**
+*******************************************************************************/
+bt_status_t btif_dm_create_bond_out_of_band(const bt_bdaddr_t *bd_addr, int transport,
+                                    const bt_out_of_band_data_t *oob_data);
 
 /*******************************************************************************
 **
@@ -379,4 +409,15 @@ void btif_dm_read_energy_info();
 **
 *******************************************************************************/
 bt_status_t btif_config_hci_snoop_log(uint8_t enable);
+
+/*******************************************************************************
+**
+** Function         btif_debug_bond_event_dump
+**
+** Description     Dump bond event information
+**
+** Returns          void
+**
+*******************************************************************************/
+void btif_debug_bond_event_dump(int fd);
 #endif /* BTIF_API_H */

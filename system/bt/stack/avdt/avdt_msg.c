@@ -33,8 +33,10 @@
 #include "avdt_api.h"
 #include "avdtc_api.h"
 #include "avdt_int.h"
-#include "gki.h"
+#include "bt_common.h"
 #include "btu.h"
+
+extern fixed_queue_t *btu_general_alarm_queue;
 
 /*****************************************************************************
 ** constants
@@ -1243,12 +1245,7 @@ BOOLEAN avdt_msg_send(tAVDT_CCB *p_ccb, BT_HDR *p_msg)
                    (p_tbl->peer_mtu - 1) + 2;
 
             /* get a new buffer for fragment we are sending */
-            if ((p_buf = (BT_HDR *) GKI_getpoolbuf(AVDT_CMD_POOL_ID)) == NULL)
-            {
-                /* do we even want to try and recover from this? could do so
-                by setting retransmission timer */
-                return TRUE;
-            }
+            p_buf = (BT_HDR *)osi_malloc(AVDT_CMD_BUF_SIZE);
 
             /* copy portion of data from current message to new buffer */
             p_buf->offset = L2CAP_MIN_OFFSET + hdr_len;
@@ -1264,12 +1261,7 @@ BOOLEAN avdt_msg_send(tAVDT_CCB *p_ccb, BT_HDR *p_msg)
             hdr_len = AVDT_LEN_TYPE_CONT;
 
             /* get a new buffer for fragment we are sending */
-            if ((p_buf = (BT_HDR *) GKI_getpoolbuf(AVDT_CMD_POOL_ID)) == NULL)
-            {
-                /* do we even want to try and recover from this? could do so
-                by setting retransmission timer */
-                return TRUE;
-            }
+            p_buf = (BT_HDR *)osi_malloc(AVDT_CMD_BUF_SIZE);
 
             /* copy portion of data from current message to new buffer */
             p_buf->offset = L2CAP_MIN_OFFSET + hdr_len;
@@ -1305,11 +1297,21 @@ BOOLEAN avdt_msg_send(tAVDT_CCB *p_ccb, BT_HDR *p_msg)
                 if ((sig == AVDT_SIG_DISCOVER) || (sig == AVDT_SIG_GETCAP) ||
                     (sig == AVDT_SIG_SECURITY) || (avdt_cb.rcb.ret_tout == 0))
                 {
-                    btu_start_timer(&p_ccb->timer_entry, BTU_TTYPE_AVDT_CCB_RSP, avdt_cb.rcb.sig_tout);
+                    alarm_cancel(p_ccb->idle_ccb_timer);
+                    alarm_cancel(p_ccb->ret_ccb_timer);
+                    period_ms_t interval_ms = avdt_cb.rcb.sig_tout * 1000;
+                    alarm_set_on_queue(p_ccb->rsp_ccb_timer, interval_ms,
+                                       avdt_ccb_rsp_ccb_timer_timeout, p_ccb,
+                                       btu_general_alarm_queue);
                 }
                 else if (sig != AVDT_SIG_DELAY_RPT)
                 {
-                    btu_start_timer(&p_ccb->timer_entry, BTU_TTYPE_AVDT_CCB_RET, avdt_cb.rcb.ret_tout);
+                    alarm_cancel(p_ccb->idle_ccb_timer);
+                    alarm_cancel(p_ccb->rsp_ccb_timer);
+                    period_ms_t interval_ms = avdt_cb.rcb.ret_tout * 1000;
+                    alarm_set_on_queue(p_ccb->ret_ccb_timer, interval_ms,
+                                       avdt_ccb_ret_ccb_timer_timeout, p_ccb,
+                                       btu_general_alarm_queue);
                 }
             }
         }
@@ -1358,7 +1360,6 @@ BT_HDR *avdt_msg_asmbl(tAVDT_CCB *p_ccb, BT_HDR *p_buf)
     UINT8   *p;
     UINT8   pkt_type;
     BT_HDR  *p_ret;
-    UINT16  buf_len;
 
     /* parse the message header */
     p = (UINT8 *)(p_buf + 1) + p_buf->offset;
@@ -1367,7 +1368,7 @@ BT_HDR *avdt_msg_asmbl(tAVDT_CCB *p_ccb, BT_HDR *p_buf)
     /* quick sanity check on length */
     if (p_buf->len < avdt_msg_pkt_type_len[pkt_type])
     {
-        GKI_freebuf(p_buf);
+        osi_free(p_buf);
         AVDT_TRACE_WARNING("Bad length during reassembly");
         p_ret = NULL;
     }
@@ -1376,11 +1377,10 @@ BT_HDR *avdt_msg_asmbl(tAVDT_CCB *p_ccb, BT_HDR *p_buf)
     {
         /* if reassembly in progress drop message and process new single */
         if (p_ccb->p_rx_msg != NULL)
-        {
-            GKI_freebuf(p_ccb->p_rx_msg);
-            p_ccb->p_rx_msg = NULL;
             AVDT_TRACE_WARNING("Got single during reassembly");
-        }
+
+        osi_free_and_reset((void **)&p_ccb->p_rx_msg);
+
         p_ret = p_buf;
     }
     /* start packet */
@@ -1388,11 +1388,24 @@ BT_HDR *avdt_msg_asmbl(tAVDT_CCB *p_ccb, BT_HDR *p_buf)
     {
         /* if reassembly in progress drop message and process new single */
         if (p_ccb->p_rx_msg != NULL)
-        {
-            GKI_freebuf(p_ccb->p_rx_msg);
             AVDT_TRACE_WARNING("Got start during reassembly");
-        }
-        p_ccb->p_rx_msg = p_buf;
+
+        osi_free_and_reset((void **)&p_ccb->p_rx_msg);
+
+        /*
+         * Allocate bigger buffer for reassembly. As lower layers are
+         * not aware of possible packet size after reassembly, they
+         * would have allocated smaller buffer.
+         */
+        p_ccb->p_rx_msg = (BT_HDR *)osi_malloc(BT_DEFAULT_BUFFER_SIZE);
+        memcpy(p_ccb->p_rx_msg, p_buf,
+               sizeof(BT_HDR) + p_buf->offset + p_buf->len);
+
+        /* Free original buffer */
+        osi_free(p_buf);
+
+        /* update p to point to new buffer */
+        p = (UINT8 *)(p_ccb->p_rx_msg + 1) + p_ccb->p_rx_msg->offset;
 
         /* copy first header byte over nosp */
         *(p + 1) = *p;
@@ -1411,30 +1424,31 @@ BT_HDR *avdt_msg_asmbl(tAVDT_CCB *p_ccb, BT_HDR *p_buf)
         /* if no reassembly in progress drop message */
         if (p_ccb->p_rx_msg == NULL)
         {
-            GKI_freebuf(p_buf);
+            osi_free(p_buf);
             AVDT_TRACE_WARNING("Pkt type=%d out of order", pkt_type);
             p_ret = NULL;
         }
         else
         {
             /* get size of buffer holding assembled message */
-            buf_len = GKI_get_buf_size(p_ccb->p_rx_msg) - sizeof(BT_HDR);
+            /*
+             * NOTE: The buffer is allocated above at the beginning of the
+             * reassembly, and is always of size BT_DEFAULT_BUFFER_SIZE.
+             */
+            UINT16 buf_len = BT_DEFAULT_BUFFER_SIZE - sizeof(BT_HDR);
 
             /* adjust offset and len of fragment for header byte */
             p_buf->offset += AVDT_LEN_TYPE_CONT;
             p_buf->len -= AVDT_LEN_TYPE_CONT;
 
             /* verify length */
-            if ((p_ccb->p_rx_msg->offset + p_buf->len) > buf_len)
-            {
+            if ((p_ccb->p_rx_msg->offset + p_buf->len) > buf_len) {
                 /* won't fit; free everything */
-                GKI_freebuf(p_ccb->p_rx_msg);
-                p_ccb->p_rx_msg = NULL;
-                GKI_freebuf(p_buf);
+                AVDT_TRACE_WARNING("%s: Fragmented message too big!", __func__);
+                osi_free_and_reset((void **)&p_ccb->p_rx_msg);
+                osi_free(p_buf);
                 p_ret = NULL;
-            }
-            else
-            {
+            } else {
                 /* copy contents of p_buf to p_rx_msg */
                 memcpy((UINT8 *)(p_ccb->p_rx_msg + 1) + p_ccb->p_rx_msg->offset,
                        (UINT8 *)(p_buf + 1) + p_buf->offset, p_buf->len);
@@ -1452,7 +1466,7 @@ BT_HDR *avdt_msg_asmbl(tAVDT_CCB *p_ccb, BT_HDR *p_buf)
                     p_ccb->p_rx_msg->len += p_buf->len;
                     p_ret = NULL;
                 }
-                GKI_freebuf(p_buf);
+                osi_free(p_buf);
             }
         }
     }
@@ -1476,19 +1490,11 @@ BT_HDR *avdt_msg_asmbl(tAVDT_CCB *p_ccb, BT_HDR *p_buf)
 *******************************************************************************/
 void avdt_msg_send_cmd(tAVDT_CCB *p_ccb, void *p_scb, UINT8 sig_id, tAVDT_MSG *p_params)
 {
-    BT_HDR      *p_buf;
-    UINT8       *p;
-    UINT8       *p_start;
+    UINT8 *p;
+    UINT8 *p_start;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(AVDT_CMD_BUF_SIZE);
 
-    /* get a buffer */
-    p_buf = (BT_HDR *) GKI_getpoolbuf(AVDT_CMD_POOL_ID);
-    if (p_buf == NULL)
-    {
-        AVDT_TRACE_ERROR("avdt_msg_send_cmd out of buffer!!");
-        return;
-    }
-
-    /* set up gki buf pointer and offset */
+    /* set up buf pointer and offset */
     p_buf->offset = AVDT_MSG_OFFSET;
     p_start = p = (UINT8 *)(p_buf + 1) + p_buf->offset;
 
@@ -1523,7 +1529,7 @@ void avdt_msg_send_cmd(tAVDT_CCB *p_ccb, void *p_scb, UINT8 sig_id, tAVDT_MSG *p
     p_ccb->label = (p_ccb->label + 1) % 16;
 
     /* queue message and trigger ccb to send it */
-    GKI_enqueue(&p_ccb->cmd_q, p_buf);
+    fixed_queue_enqueue(p_ccb->cmd_q, p_buf);
     avdt_ccb_event(p_ccb, AVDT_CCB_SENDMSG_EVT, NULL);
 }
 
@@ -1545,15 +1551,11 @@ void avdt_msg_send_cmd(tAVDT_CCB *p_ccb, void *p_scb, UINT8 sig_id, tAVDT_MSG *p
 *******************************************************************************/
 void avdt_msg_send_rsp(tAVDT_CCB *p_ccb, UINT8 sig_id, tAVDT_MSG *p_params)
 {
-    BT_HDR      *p_buf;
-    UINT8       *p;
-    UINT8       *p_start;
+    UINT8 *p;
+    UINT8 *p_start;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(AVDT_CMD_BUF_SIZE);
 
-    /* get a buffer */
-    p_buf = (BT_HDR *) GKI_getpoolbuf(AVDT_CMD_POOL_ID);
-    if (p_buf == NULL) return;
-
-    /* set up gki buf pointer and offset */
+    /* set up buf pointer and offset */
     p_buf->offset = AVDT_MSG_OFFSET;
     p_start = p = (UINT8 *)(p_buf + 1) + p_buf->offset;
 
@@ -1568,7 +1570,7 @@ void avdt_msg_send_rsp(tAVDT_CCB *p_ccb, UINT8 sig_id, tAVDT_MSG *p_params)
     AVDT_BLD_LAYERSPEC(p_buf->layer_specific, AVDT_MSG_TYPE_RSP, p_params->hdr.label);
 
     /* queue message and trigger ccb to send it */
-    GKI_enqueue(&p_ccb->rsp_q, p_buf);
+    fixed_queue_enqueue(p_ccb->rsp_q, p_buf);
     avdt_ccb_event(p_ccb, AVDT_CCB_SENDMSG_EVT, NULL);
 }
 
@@ -1590,15 +1592,11 @@ void avdt_msg_send_rsp(tAVDT_CCB *p_ccb, UINT8 sig_id, tAVDT_MSG *p_params)
 *******************************************************************************/
 void avdt_msg_send_rej(tAVDT_CCB *p_ccb, UINT8 sig_id, tAVDT_MSG *p_params)
 {
-    BT_HDR      *p_buf;
-    UINT8       *p;
-    UINT8       *p_start;
+    UINT8 *p;
+    UINT8 *p_start;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(AVDT_CMD_BUF_SIZE);
 
-    /* get a buffer */
-    p_buf = (BT_HDR *) GKI_getpoolbuf(AVDT_CMD_POOL_ID);
-    if (p_buf == NULL) return;
-
-    /* set up gki buf pointer and offset */
+    /* set up buf pointer and offset */
     p_buf->offset = AVDT_MSG_OFFSET;
     p_start = p = (UINT8 *)(p_buf + 1) + p_buf->offset;
 
@@ -1630,7 +1628,7 @@ void avdt_msg_send_rej(tAVDT_CCB *p_ccb, UINT8 sig_id, tAVDT_MSG *p_params)
     AVDT_BLD_LAYERSPEC(p_buf->layer_specific, AVDT_MSG_TYPE_REJ, p_params->hdr.label);
 
     /* queue message and trigger ccb to send it */
-    GKI_enqueue(&p_ccb->rsp_q, p_buf);
+    fixed_queue_enqueue(p_ccb->rsp_q, p_buf);
     avdt_ccb_event(p_ccb, AVDT_CCB_SENDMSG_EVT, NULL);
 }
 
@@ -1651,15 +1649,11 @@ void avdt_msg_send_rej(tAVDT_CCB *p_ccb, UINT8 sig_id, tAVDT_MSG *p_params)
 *******************************************************************************/
 void avdt_msg_send_grej(tAVDT_CCB *p_ccb, UINT8 sig_id, tAVDT_MSG *p_params)
 {
-    BT_HDR      *p_buf;
-    UINT8       *p;
-    UINT8       *p_start;
+    UINT8 *p;
+    UINT8 *p_start;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(AVDT_CMD_BUF_SIZE);
 
-    /* get a buffer */
-    p_buf = (BT_HDR *) GKI_getpoolbuf(AVDT_CMD_POOL_ID);
-    if (p_buf == NULL) return;
-
-    /* set up gki buf pointer and offset */
+    /* set up buf pointer and offset */
     p_buf->offset = AVDT_MSG_OFFSET;
     p_start = p = (UINT8 *)(p_buf + 1) + p_buf->offset;
 
@@ -1667,12 +1661,12 @@ void avdt_msg_send_grej(tAVDT_CCB *p_ccb, UINT8 sig_id, tAVDT_MSG *p_params)
     p_buf->len = (UINT16) (p - p_start);
 
     /* stash sig, label, and message type in buf */
-    p_buf->event = 0;
-    AVDT_BLD_LAYERSPEC(p_buf->layer_specific, 0, p_params->hdr.label);
-    AVDT_TRACE_DEBUG("avdt_msg_send_grej");
+    p_buf->event = sig_id;
+    AVDT_BLD_LAYERSPEC(p_buf->layer_specific, AVDT_MSG_TYPE_GRJ, p_params->hdr.label);
+    AVDT_TRACE_DEBUG(__func__);
 
     /* queue message and trigger ccb to send it */
-    GKI_enqueue(&p_ccb->rsp_q, p_buf);
+    fixed_queue_enqueue(p_ccb->rsp_q, p_buf);
     avdt_ccb_event(p_ccb, AVDT_CCB_SENDMSG_EVT, NULL);
 }
 
@@ -1840,7 +1834,9 @@ void avdt_msg_ind(tAVDT_CCB *p_ccb, BT_HDR *p_buf)
                 (AVDT_LAYERSPEC_LABEL(p_ccb->p_curr_cmd->layer_specific) == label))
             {
                 /* stop timer */
-                btu_stop_timer(&p_ccb->timer_entry);
+                alarm_cancel(p_ccb->idle_ccb_timer);
+                alarm_cancel(p_ccb->ret_ccb_timer);
+                alarm_cancel(p_ccb->rsp_ccb_timer);
 
                 /* clear retransmission count */
                 p_ccb->ret_count = 0;
@@ -1889,7 +1885,7 @@ void avdt_msg_ind(tAVDT_CCB *p_ccb, BT_HDR *p_buf)
     }
 
     /* free message buffer */
-    GKI_freebuf(p_buf);
+    osi_free(p_buf);
 
     /* if its a rsp or rej, send event to ccb to free associated
     ** cmd msg buffer and handle cmd queue

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ package android.renderscript.cts;
 import android.renderscript.Allocation;
 import android.renderscript.RSRuntimeException;
 import android.renderscript.Element;
+import android.renderscript.cts.Target;
 
 import java.util.Arrays;
 
@@ -90,7 +91,7 @@ public class TestMad extends RSBaseCompute {
                 args.inMultiplicand2 = arrayInMultiplicand2[i];
                 args.inOffset = arrayInOffset[i];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeMad(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -179,7 +180,7 @@ public class TestMad extends RSBaseCompute {
                 args.inMultiplicand2 = arrayInMultiplicand2[i * 2 + j];
                 args.inOffset = arrayInOffset[i * 2 + j];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeMad(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -268,7 +269,7 @@ public class TestMad extends RSBaseCompute {
                 args.inMultiplicand2 = arrayInMultiplicand2[i * 4 + j];
                 args.inOffset = arrayInOffset[i * 4 + j];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeMad(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -357,7 +358,7 @@ public class TestMad extends RSBaseCompute {
                 args.inMultiplicand2 = arrayInMultiplicand2[i * 4 + j];
                 args.inOffset = arrayInOffset[i * 4 + j];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeMad(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -399,10 +400,404 @@ public class TestMad extends RSBaseCompute {
                 (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
     }
 
+    public class ArgumentsHalfHalfHalfHalf {
+        public short inMultiplicand1;
+        public double inMultiplicand1Double;
+        public short inMultiplicand2;
+        public double inMultiplicand2Double;
+        public short inOffset;
+        public double inOffsetDouble;
+        public Target.Floaty out;
+    }
+
+    private void checkMadHalfHalfHalfHalf() {
+        Allocation inMultiplicand1 = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xcfbe7d2cl, false);
+        Allocation inMultiplicand2 = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xcfbe7d2dl, false);
+        Allocation inOffset = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xfd6cfcc8l, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
+            script.set_gAllocInMultiplicand2(inMultiplicand2);
+            script.set_gAllocInOffset(inOffset);
+            script.forEach_testMadHalfHalfHalfHalf(inMultiplicand1, out);
+            verifyResultsMadHalfHalfHalfHalf(inMultiplicand1, inMultiplicand2, inOffset, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMadHalfHalfHalfHalf: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
+            scriptRelaxed.set_gAllocInMultiplicand2(inMultiplicand2);
+            scriptRelaxed.set_gAllocInOffset(inOffset);
+            scriptRelaxed.forEach_testMadHalfHalfHalfHalf(inMultiplicand1, out);
+            verifyResultsMadHalfHalfHalfHalf(inMultiplicand1, inMultiplicand2, inOffset, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMadHalfHalfHalfHalf: " + e.toString());
+        }
+    }
+
+    private void verifyResultsMadHalfHalfHalfHalf(Allocation inMultiplicand1, Allocation inMultiplicand2, Allocation inOffset, Allocation out, boolean relaxed) {
+        short[] arrayInMultiplicand1 = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayInMultiplicand1, (short) 42);
+        inMultiplicand1.copyTo(arrayInMultiplicand1);
+        short[] arrayInMultiplicand2 = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayInMultiplicand2, (short) 42);
+        inMultiplicand2.copyTo(arrayInMultiplicand2);
+        short[] arrayInOffset = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayInOffset, (short) 42);
+        inOffset.copyTo(arrayInOffset);
+        short[] arrayOut = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 1 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalfHalf args = new ArgumentsHalfHalfHalfHalf();
+                args.inMultiplicand1 = arrayInMultiplicand1[i];
+                args.inMultiplicand1Double = Float16Utils.convertFloat16ToDouble(args.inMultiplicand1);
+                args.inMultiplicand2 = arrayInMultiplicand2[i];
+                args.inMultiplicand2Double = Float16Utils.convertFloat16ToDouble(args.inMultiplicand2);
+                args.inOffset = arrayInOffset[i];
+                args.inOffsetDouble = Float16Utils.convertFloat16ToDouble(args.inOffset);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeMad(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 1 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inMultiplicand1: ");
+                        appendVariableToMessage(message, args.inMultiplicand1);
+                        message.append("\n");
+                        message.append("Input inMultiplicand2: ");
+                        appendVariableToMessage(message, args.inMultiplicand2);
+                        message.append("\n");
+                        message.append("Input inOffset: ");
+                        appendVariableToMessage(message, args.inOffset);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 1 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 1 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 1 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkMadHalfHalfHalfHalf" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkMadHalf2Half2Half2Half2() {
+        Allocation inMultiplicand1 = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xe9fc79e0l, false);
+        Allocation inMultiplicand2 = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xe9fc79e1l, false);
+        Allocation inOffset = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xdeb2c084l, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
+            script.set_gAllocInMultiplicand2(inMultiplicand2);
+            script.set_gAllocInOffset(inOffset);
+            script.forEach_testMadHalf2Half2Half2Half2(inMultiplicand1, out);
+            verifyResultsMadHalf2Half2Half2Half2(inMultiplicand1, inMultiplicand2, inOffset, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMadHalf2Half2Half2Half2: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
+            scriptRelaxed.set_gAllocInMultiplicand2(inMultiplicand2);
+            scriptRelaxed.set_gAllocInOffset(inOffset);
+            scriptRelaxed.forEach_testMadHalf2Half2Half2Half2(inMultiplicand1, out);
+            verifyResultsMadHalf2Half2Half2Half2(inMultiplicand1, inMultiplicand2, inOffset, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMadHalf2Half2Half2Half2: " + e.toString());
+        }
+    }
+
+    private void verifyResultsMadHalf2Half2Half2Half2(Allocation inMultiplicand1, Allocation inMultiplicand2, Allocation inOffset, Allocation out, boolean relaxed) {
+        short[] arrayInMultiplicand1 = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayInMultiplicand1, (short) 42);
+        inMultiplicand1.copyTo(arrayInMultiplicand1);
+        short[] arrayInMultiplicand2 = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayInMultiplicand2, (short) 42);
+        inMultiplicand2.copyTo(arrayInMultiplicand2);
+        short[] arrayInOffset = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayInOffset, (short) 42);
+        inOffset.copyTo(arrayInOffset);
+        short[] arrayOut = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 2 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalfHalf args = new ArgumentsHalfHalfHalfHalf();
+                args.inMultiplicand1 = arrayInMultiplicand1[i * 2 + j];
+                args.inMultiplicand1Double = Float16Utils.convertFloat16ToDouble(args.inMultiplicand1);
+                args.inMultiplicand2 = arrayInMultiplicand2[i * 2 + j];
+                args.inMultiplicand2Double = Float16Utils.convertFloat16ToDouble(args.inMultiplicand2);
+                args.inOffset = arrayInOffset[i * 2 + j];
+                args.inOffsetDouble = Float16Utils.convertFloat16ToDouble(args.inOffset);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeMad(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inMultiplicand1: ");
+                        appendVariableToMessage(message, args.inMultiplicand1);
+                        message.append("\n");
+                        message.append("Input inMultiplicand2: ");
+                        appendVariableToMessage(message, args.inMultiplicand2);
+                        message.append("\n");
+                        message.append("Input inOffset: ");
+                        appendVariableToMessage(message, args.inOffset);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 2 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkMadHalf2Half2Half2Half2" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkMadHalf3Half3Half3Half3() {
+        Allocation inMultiplicand1 = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xd5500128l, false);
+        Allocation inMultiplicand2 = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xd5500129l, false);
+        Allocation inOffset = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x2979209cl, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            script.set_gAllocInMultiplicand2(inMultiplicand2);
+            script.set_gAllocInOffset(inOffset);
+            script.forEach_testMadHalf3Half3Half3Half3(inMultiplicand1, out);
+            verifyResultsMadHalf3Half3Half3Half3(inMultiplicand1, inMultiplicand2, inOffset, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMadHalf3Half3Half3Half3: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            scriptRelaxed.set_gAllocInMultiplicand2(inMultiplicand2);
+            scriptRelaxed.set_gAllocInOffset(inOffset);
+            scriptRelaxed.forEach_testMadHalf3Half3Half3Half3(inMultiplicand1, out);
+            verifyResultsMadHalf3Half3Half3Half3(inMultiplicand1, inMultiplicand2, inOffset, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMadHalf3Half3Half3Half3: " + e.toString());
+        }
+    }
+
+    private void verifyResultsMadHalf3Half3Half3Half3(Allocation inMultiplicand1, Allocation inMultiplicand2, Allocation inOffset, Allocation out, boolean relaxed) {
+        short[] arrayInMultiplicand1 = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInMultiplicand1, (short) 42);
+        inMultiplicand1.copyTo(arrayInMultiplicand1);
+        short[] arrayInMultiplicand2 = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInMultiplicand2, (short) 42);
+        inMultiplicand2.copyTo(arrayInMultiplicand2);
+        short[] arrayInOffset = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInOffset, (short) 42);
+        inOffset.copyTo(arrayInOffset);
+        short[] arrayOut = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 3 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalfHalf args = new ArgumentsHalfHalfHalfHalf();
+                args.inMultiplicand1 = arrayInMultiplicand1[i * 4 + j];
+                args.inMultiplicand1Double = Float16Utils.convertFloat16ToDouble(args.inMultiplicand1);
+                args.inMultiplicand2 = arrayInMultiplicand2[i * 4 + j];
+                args.inMultiplicand2Double = Float16Utils.convertFloat16ToDouble(args.inMultiplicand2);
+                args.inOffset = arrayInOffset[i * 4 + j];
+                args.inOffsetDouble = Float16Utils.convertFloat16ToDouble(args.inOffset);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeMad(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inMultiplicand1: ");
+                        appendVariableToMessage(message, args.inMultiplicand1);
+                        message.append("\n");
+                        message.append("Input inMultiplicand2: ");
+                        appendVariableToMessage(message, args.inMultiplicand2);
+                        message.append("\n");
+                        message.append("Input inOffset: ");
+                        appendVariableToMessage(message, args.inOffset);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 4 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkMadHalf3Half3Half3Half3" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkMadHalf4Half4Half4Half4() {
+        Allocation inMultiplicand1 = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xc0a38870l, false);
+        Allocation inMultiplicand2 = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xc0a38871l, false);
+        Allocation inOffset = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x743f80b4l, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            script.set_gAllocInMultiplicand2(inMultiplicand2);
+            script.set_gAllocInOffset(inOffset);
+            script.forEach_testMadHalf4Half4Half4Half4(inMultiplicand1, out);
+            verifyResultsMadHalf4Half4Half4Half4(inMultiplicand1, inMultiplicand2, inOffset, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMadHalf4Half4Half4Half4: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            scriptRelaxed.set_gAllocInMultiplicand2(inMultiplicand2);
+            scriptRelaxed.set_gAllocInOffset(inOffset);
+            scriptRelaxed.forEach_testMadHalf4Half4Half4Half4(inMultiplicand1, out);
+            verifyResultsMadHalf4Half4Half4Half4(inMultiplicand1, inMultiplicand2, inOffset, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMadHalf4Half4Half4Half4: " + e.toString());
+        }
+    }
+
+    private void verifyResultsMadHalf4Half4Half4Half4(Allocation inMultiplicand1, Allocation inMultiplicand2, Allocation inOffset, Allocation out, boolean relaxed) {
+        short[] arrayInMultiplicand1 = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInMultiplicand1, (short) 42);
+        inMultiplicand1.copyTo(arrayInMultiplicand1);
+        short[] arrayInMultiplicand2 = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInMultiplicand2, (short) 42);
+        inMultiplicand2.copyTo(arrayInMultiplicand2);
+        short[] arrayInOffset = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInOffset, (short) 42);
+        inOffset.copyTo(arrayInOffset);
+        short[] arrayOut = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 4 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalfHalf args = new ArgumentsHalfHalfHalfHalf();
+                args.inMultiplicand1 = arrayInMultiplicand1[i * 4 + j];
+                args.inMultiplicand1Double = Float16Utils.convertFloat16ToDouble(args.inMultiplicand1);
+                args.inMultiplicand2 = arrayInMultiplicand2[i * 4 + j];
+                args.inMultiplicand2Double = Float16Utils.convertFloat16ToDouble(args.inMultiplicand2);
+                args.inOffset = arrayInOffset[i * 4 + j];
+                args.inOffsetDouble = Float16Utils.convertFloat16ToDouble(args.inOffset);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeMad(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inMultiplicand1: ");
+                        appendVariableToMessage(message, args.inMultiplicand1);
+                        message.append("\n");
+                        message.append("Input inMultiplicand2: ");
+                        appendVariableToMessage(message, args.inMultiplicand2);
+                        message.append("\n");
+                        message.append("Input inOffset: ");
+                        appendVariableToMessage(message, args.inOffset);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 4 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkMadHalf4Half4Half4Half4" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
     public void testMad() {
         checkMadFloatFloatFloatFloat();
         checkMadFloat2Float2Float2Float2();
         checkMadFloat3Float3Float3Float3();
         checkMadFloat4Float4Float4Float4();
+        checkMadHalfHalfHalfHalf();
+        checkMadHalf2Half2Half2Half2();
+        checkMadHalf3Half3Half3Half3();
+        checkMadHalf4Half4Half4Half4();
     }
 }

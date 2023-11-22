@@ -20,13 +20,18 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageItemInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
+import android.icu.text.AlphabeticIndex;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.LocaleList;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.preference.PreferenceFrameLayout;
-import android.provider.Settings;
+import android.text.TextUtils;
 import android.util.ArraySet;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -35,7 +40,6 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.animation.AnimationUtils;
 import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
@@ -46,30 +50,32 @@ import android.widget.Filter;
 import android.widget.Filterable;
 import android.widget.FrameLayout;
 import android.widget.ListView;
+import android.widget.SectionIndexer;
 import android.widget.Spinner;
-
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.AppHeader;
-import com.android.settings.HelpUtils;
 import com.android.settings.InstrumentedFragment;
 import com.android.settings.R;
 import com.android.settings.Settings.AllApplicationsActivity;
 import com.android.settings.Settings.DomainsURLsAppListActivity;
 import com.android.settings.Settings.HighPowerApplicationsActivity;
 import com.android.settings.Settings.NotificationAppListActivity;
+import com.android.settings.Settings.OverlaySettingsActivity;
 import com.android.settings.Settings.StorageUseActivity;
 import com.android.settings.Settings.UsageAccessSettingsActivity;
-import com.android.settings.Settings.OverlaySettingsActivity;
 import com.android.settings.Settings.WriteSettingsActivity;
 import com.android.settings.SettingsActivity;
 import com.android.settings.Utils;
 import com.android.settings.applications.AppStateAppOpsBridge.PermissionState;
 import com.android.settings.applications.AppStateUsageBridge.UsageState;
+import com.android.settings.dashboard.SummaryLoader;
 import com.android.settings.fuelgauge.HighPowerDetail;
 import com.android.settings.fuelgauge.PowerWhitelistBackend;
 import com.android.settings.notification.AppNotificationSettings;
+import com.android.settings.notification.ConfigureNotificationSettings;
 import com.android.settings.notification.NotificationBackend;
 import com.android.settings.notification.NotificationBackend.AppRow;
+import com.android.settingslib.HelpUtils;
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.settingslib.applications.ApplicationsState.AppEntry;
 import com.android.settingslib.applications.ApplicationsState.AppFilter;
@@ -79,6 +85,8 @@ import com.android.settingslib.applications.ApplicationsState.VolumeFilter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
 
 /**
  * Activity to pick an application that will be used to display installation information and
@@ -101,6 +109,7 @@ public class ManageApplications extends InstrumentedFragment
     private static final String EXTRA_SORT_ORDER = "sortOrder";
     private static final String EXTRA_SHOW_SYSTEM = "showSystem";
     private static final String EXTRA_HAS_ENTRIES = "hasEntries";
+    private static final String EXTRA_HAS_BRIDGE = "hasBridge";
 
     // attributes used as keys when passing values to InstalledAppDetails activity
     public static final String APP_CHG = "chg";
@@ -115,60 +124,63 @@ public class ManageApplications extends InstrumentedFragment
 
     // Filter options used for displayed list of applications
     // The order which they appear is the order they will show when spinner is present.
-    public static final int FILTER_APPS_POWER_WHITELIST         = 0;
-    public static final int FILTER_APPS_POWER_WHITELIST_ALL     = 1;
-    public static final int FILTER_APPS_ALL                     = 2;
-    public static final int FILTER_APPS_ENABLED                 = 3;
-    public static final int FILTER_APPS_DISABLED                = 4;
-    public static final int FILTER_APPS_BLOCKED                 = 5;
-    public static final int FILTER_APPS_PRIORITY                = 6;
-    public static final int FILTER_APPS_NO_PEEKING              = 7;
-    public static final int FILTER_APPS_SENSITIVE               = 8;
-    public static final int FILTER_APPS_PERSONAL                = 9;
-    public static final int FILTER_APPS_WORK                    = 10;
-    public static final int FILTER_APPS_WITH_DOMAIN_URLS        = 11;
-    public static final int FILTER_APPS_USAGE_ACCESS            = 12;
-    public static final int FILTER_APPS_WITH_OVERLAY            = 13;
-    public static final int FILTER_APPS_WRITE_SETTINGS          = 14;
+    public static final int FILTER_APPS_POWER_WHITELIST = 0;
+    public static final int FILTER_APPS_POWER_WHITELIST_ALL = 1;
+    public static final int FILTER_APPS_ALL = 2;
+    public static final int FILTER_APPS_ENABLED = 3;
+    public static final int FILTER_APPS_DISABLED = 4;
+    public static final int FILTER_APPS_BLOCKED = 5;
+    public static final int FILTER_APPS_SILENT = 6;
+    public static final int FILTER_APPS_SENSITIVE = 7;
+    public static final int FILTER_APPS_HIDE_NOTIFICATIONS = 8;
+    public static final int FILTER_APPS_PRIORITY = 9;
+    public static final int FILTER_APPS_PERSONAL = 10;
+    public static final int FILTER_APPS_WORK = 11;
+    public static final int FILTER_APPS_WITH_DOMAIN_URLS = 12;
+    public static final int FILTER_APPS_USAGE_ACCESS = 13;
+    public static final int FILTER_APPS_WITH_OVERLAY = 14;
+    public static final int FILTER_APPS_WRITE_SETTINGS = 15;
 
     // This is the string labels for the filter modes above, the order must be kept in sync.
-    public static final int[] FILTER_LABELS = new int[] {
-        R.string.high_power_filter_on, // High power whitelist, on
-        R.string.filter_all_apps,      // All apps label, but personal filter (for high power);
-        R.string.filter_all_apps,      // All apps
-        R.string.filter_enabled_apps,  // Enabled
-        R.string.filter_apps_disabled, // Disabled
-        R.string.filter_notif_blocked_apps,   // Blocked Notifications
-        R.string.filter_notif_priority_apps,  // Priority Notifications
-        R.string.filter_notif_no_peeking,     // No peeking Notifications
-        R.string.filter_notif_sensitive_apps, // Sensitive Notifications
-        R.string.filter_personal_apps, // Personal
-        R.string.filter_work_apps,     // Work
-        R.string.filter_with_domain_urls_apps,     // Domain URLs
-        R.string.filter_all_apps,      // Usage access screen, never displayed
-        R.string.filter_overlay_apps,   // Apps with overlay permission
-        R.string.filter_write_settings_apps,   // Apps that can write system settings
+    public static final int[] FILTER_LABELS = new int[]{
+            R.string.high_power_filter_on, // High power whitelist, on
+            R.string.filter_all_apps,      // Without disabled until used
+            R.string.filter_all_apps,      // All apps
+            R.string.filter_enabled_apps,  // Enabled
+            R.string.filter_apps_disabled, // Disabled
+            R.string.filter_notif_blocked_apps,   // Blocked Notifications
+            R.string.filter_notif_silent,    // Silenced Notifications
+            R.string.filter_notif_sensitive_apps, // Sensitive Notifications
+            R.string.filter_notif_hide_notifications_apps, // Sensitive Notifications
+            R.string.filter_notif_priority_apps,  // Priority Notifications
+            R.string.filter_personal_apps, // Personal
+            R.string.filter_work_apps,     // Work
+            R.string.filter_with_domain_urls_apps,     // Domain URLs
+            R.string.filter_all_apps,      // Usage access screen, never displayed
+            R.string.filter_overlay_apps,   // Apps with overlay permission
+            R.string.filter_write_settings_apps,   // Apps that can write system settings
     };
     // This is the actual mapping to filters from FILTER_ constants above, the order must
     // be kept in sync.
-    public static final AppFilter[] FILTERS = new AppFilter[] {
-        new CompoundFilter(AppStatePowerBridge.FILTER_POWER_WHITELISTED,
-                ApplicationsState.FILTER_ALL_ENABLED),     // High power whitelist, on
-        new CompoundFilter(ApplicationsState.FILTER_PERSONAL_WITHOUT_DISABLED_UNTIL_USED,
-                ApplicationsState.FILTER_ALL_ENABLED),     // All apps label, but personal filter
-        ApplicationsState.FILTER_EVERYTHING,  // All apps
-        ApplicationsState.FILTER_ALL_ENABLED, // Enabled
-        ApplicationsState.FILTER_DISABLED,    // Disabled
-        AppStateNotificationBridge.FILTER_APP_NOTIFICATION_BLOCKED,   // Blocked Notifications
-        AppStateNotificationBridge.FILTER_APP_NOTIFICATION_PRIORITY,  // Priority Notifications
-        AppStateNotificationBridge.FILTER_APP_NOTIFICATION_NO_PEEK,   // No peeking Notifications
-        AppStateNotificationBridge.FILTER_APP_NOTIFICATION_SENSITIVE, // Sensitive Notifications
-        ApplicationsState.FILTER_PERSONAL,    // Personal
-        ApplicationsState.FILTER_WORK,        // Work
-        ApplicationsState.FILTER_WITH_DOMAIN_URLS,   // Apps with Domain URLs
-        AppStateUsageBridge.FILTER_APP_USAGE, // Apps with Domain URLs
-        AppStateOverlayBridge.FILTER_SYSTEM_ALERT_WINDOW,   // Apps that can draw overlays
-        AppStateWriteSettingsBridge.FILTER_WRITE_SETTINGS,  // Apps that can write system settings
+    public static final AppFilter[] FILTERS = new AppFilter[]{
+            new CompoundFilter(AppStatePowerBridge.FILTER_POWER_WHITELISTED,
+                    ApplicationsState.FILTER_ALL_ENABLED),     // High power whitelist, on
+            new CompoundFilter(ApplicationsState.FILTER_WITHOUT_DISABLED_UNTIL_USED,
+                    ApplicationsState.FILTER_ALL_ENABLED),     // Without disabled until used
+            ApplicationsState.FILTER_EVERYTHING,  // All apps
+            ApplicationsState.FILTER_ALL_ENABLED, // Enabled
+            ApplicationsState.FILTER_DISABLED,    // Disabled
+            AppStateNotificationBridge.FILTER_APP_NOTIFICATION_BLOCKED,   // Blocked Notifications
+            AppStateNotificationBridge.FILTER_APP_NOTIFICATION_SILENCED,   // Silenced Notifications
+            AppStateNotificationBridge.FILTER_APP_NOTIFICATION_HIDE_SENSITIVE, // Sensitive Notifications
+            AppStateNotificationBridge.FILTER_APP_NOTIFICATION_HIDE_ALL, // Hide all Notifications
+            AppStateNotificationBridge.FILTER_APP_NOTIFICATION_PRIORITY,  // Priority Notifications
+            ApplicationsState.FILTER_PERSONAL,    // Personal
+            ApplicationsState.FILTER_WORK,        // Work
+            ApplicationsState.FILTER_WITH_DOMAIN_URLS,   // Apps with Domain URLs
+            AppStateUsageBridge.FILTER_APP_USAGE, // Apps with Domain URLs
+            AppStateOverlayBridge.FILTER_SYSTEM_ALERT_WINDOW,   // Apps that can draw overlays
+            AppStateWriteSettingsBridge.FILTER_WRITE_SETTINGS,  // Apps that can write system settings
     };
 
     // sort order
@@ -203,13 +215,13 @@ public class ManageApplications extends InstrumentedFragment
 
     private Menu mOptionsMenu;
 
-    public static final int LIST_TYPE_MAIN         = 0;
+    public static final int LIST_TYPE_MAIN = 0;
     public static final int LIST_TYPE_NOTIFICATION = 1;
     public static final int LIST_TYPE_DOMAINS_URLS = 2;
-    public static final int LIST_TYPE_STORAGE      = 3;
+    public static final int LIST_TYPE_STORAGE = 3;
     public static final int LIST_TYPE_USAGE_ACCESS = 4;
-    public static final int LIST_TYPE_HIGH_POWER   = 5;
-    public static final int LIST_TYPE_OVERLAY      = 6;
+    public static final int LIST_TYPE_HIGH_POWER = 5;
+    public static final int LIST_TYPE_OVERLAY = 6;
     public static final int LIST_TYPE_WRITE_SETTINGS = 7;
 
     private View mRootView;
@@ -253,17 +265,14 @@ public class ManageApplications extends InstrumentedFragment
             mSortOrder = R.id.sort_order_size;
         } else if (className.equals(UsageAccessSettingsActivity.class.getName())) {
             mListType = LIST_TYPE_USAGE_ACCESS;
-            getActivity().getActionBar().setTitle(R.string.usage_access_title);
         } else if (className.equals(HighPowerApplicationsActivity.class.getName())) {
             mListType = LIST_TYPE_HIGH_POWER;
             // Default to showing system.
             mShowSystem = true;
         } else if (className.equals(OverlaySettingsActivity.class.getName())) {
             mListType = LIST_TYPE_OVERLAY;
-            getActivity().getActionBar().setTitle(R.string.system_alert_window_access_title);
         } else if (className.equals(WriteSettingsActivity.class.getName())) {
             mListType = LIST_TYPE_WRITE_SETTINGS;
-            getActivity().getActionBar().setTitle(R.string.write_settings_title);
         } else {
             mListType = LIST_TYPE_MAIN;
         }
@@ -282,7 +291,7 @@ public class ManageApplications extends InstrumentedFragment
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
-            Bundle savedInstanceState) {
+                             Bundle savedInstanceState) {
         // initialize the inflater
         mInflater = inflater;
 
@@ -306,9 +315,12 @@ public class ManageApplications extends InstrumentedFragment
             if (savedInstanceState != null) {
                 mApplications.mHasReceivedLoadEntries =
                         savedInstanceState.getBoolean(EXTRA_HAS_ENTRIES, false);
+                mApplications.mHasReceivedBridgeCallback =
+                        savedInstanceState.getBoolean(EXTRA_HAS_BRIDGE, false);
             }
             mListView.setAdapter(mApplications);
             mListView.setRecyclerListener(mApplications);
+            mListView.setFastScrollEnabled(isFastScrollEnabled());
 
             Utils.prepareCustomPreferencesList(container, mRootView, mListView, false);
         }
@@ -338,7 +350,7 @@ public class ManageApplications extends InstrumentedFragment
         pinnedHeader.addView(mSpinnerHeader, 0);
 
         mFilterAdapter.enableFilter(getDefaultFilter());
-        if (mListType == LIST_TYPE_MAIN || mListType == LIST_TYPE_NOTIFICATION) {
+        if (mListType == LIST_TYPE_MAIN) {
             if (UserManager.get(getActivity()).getUserProfiles().size() > 1) {
                 mFilterAdapter.enableFilter(FILTER_APPS_PERSONAL);
                 mFilterAdapter.enableFilter(FILTER_APPS_WORK);
@@ -346,9 +358,10 @@ public class ManageApplications extends InstrumentedFragment
         }
         if (mListType == LIST_TYPE_NOTIFICATION) {
             mFilterAdapter.enableFilter(FILTER_APPS_BLOCKED);
-            mFilterAdapter.enableFilter(FILTER_APPS_PRIORITY);
+            mFilterAdapter.enableFilter(FILTER_APPS_SILENT);
             mFilterAdapter.enableFilter(FILTER_APPS_SENSITIVE);
-            mFilterAdapter.enableFilter(FILTER_APPS_NO_PEEKING);
+            mFilterAdapter.enableFilter(FILTER_APPS_HIDE_NOTIFICATIONS);
+            mFilterAdapter.enableFilter(FILTER_APPS_PRIORITY);
         }
         if (mListType == LIST_TYPE_HIGH_POWER) {
             mFilterAdapter.enableFilter(FILTER_APPS_POWER_WHITELIST_ALL);
@@ -363,7 +376,7 @@ public class ManageApplications extends InstrumentedFragment
         super.onViewCreated(view, savedInstanceState);
         if (mListType == LIST_TYPE_STORAGE) {
             FrameLayout pinnedHeader = (FrameLayout) mRootView.findViewById(R.id.pinned_header);
-            AppHeader.createAppHeader(getActivity(), null, mVolumeName, null, pinnedHeader);
+            AppHeader.createAppHeader(getActivity(), null, mVolumeName, null, -1, pinnedHeader);
         }
     }
 
@@ -384,27 +397,38 @@ public class ManageApplications extends InstrumentedFragment
         }
     }
 
+    private boolean isFastScrollEnabled() {
+        switch (mListType) {
+            case LIST_TYPE_MAIN:
+            case LIST_TYPE_NOTIFICATION:
+            case LIST_TYPE_STORAGE:
+                return mSortOrder == R.id.sort_order_alpha;
+            default:
+                return false;
+        }
+    }
+
     @Override
     protected int getMetricsCategory() {
         switch (mListType) {
             case LIST_TYPE_MAIN:
-                return MetricsLogger.MANAGE_APPLICATIONS;
+                return MetricsEvent.MANAGE_APPLICATIONS;
             case LIST_TYPE_NOTIFICATION:
-                return MetricsLogger.MANAGE_APPLICATIONS_NOTIFICATIONS;
+                return MetricsEvent.MANAGE_APPLICATIONS_NOTIFICATIONS;
             case LIST_TYPE_DOMAINS_URLS:
-                return MetricsLogger.MANAGE_DOMAIN_URLS;
+                return MetricsEvent.MANAGE_DOMAIN_URLS;
             case LIST_TYPE_STORAGE:
-                return MetricsLogger.APPLICATIONS_STORAGE_APPS;
+                return MetricsEvent.APPLICATIONS_STORAGE_APPS;
             case LIST_TYPE_USAGE_ACCESS:
-                return MetricsLogger.USAGE_ACCESS;
+                return MetricsEvent.USAGE_ACCESS;
             case LIST_TYPE_HIGH_POWER:
-                return MetricsLogger.APPLICATIONS_HIGH_POWER_APPS;
+                return MetricsEvent.APPLICATIONS_HIGH_POWER_APPS;
             case LIST_TYPE_OVERLAY:
-                return MetricsLogger.SYSTEM_ALERT_WINDOW_APPS;
+                return MetricsEvent.SYSTEM_ALERT_WINDOW_APPS;
             case LIST_TYPE_WRITE_SETTINGS:
-                return MetricsLogger.SYSTEM_ALERT_WINDOW_APPS;
+                return MetricsEvent.SYSTEM_ALERT_WINDOW_APPS;
             default:
-                return MetricsLogger.VIEW_UNKNOWN;
+                return MetricsEvent.VIEW_UNKNOWN;
         }
     }
 
@@ -426,6 +450,7 @@ public class ManageApplications extends InstrumentedFragment
         outState.putInt(EXTRA_SORT_ORDER, mSortOrder);
         outState.putBoolean(EXTRA_SHOW_SYSTEM, mShowSystem);
         outState.putBoolean(EXTRA_HAS_ENTRIES, mApplications.mHasReceivedLoadEntries);
+        outState.putBoolean(EXTRA_HAS_BRIDGE, mApplications.mHasReceivedBridgeCallback);
     }
 
     @Override
@@ -536,7 +561,8 @@ public class ManageApplications extends InstrumentedFragment
         if (mOptionsMenu == null) {
             return;
         }
-        mOptionsMenu.findItem(R.id.advanced).setVisible(mListType == LIST_TYPE_MAIN);
+        mOptionsMenu.findItem(R.id.advanced).setVisible(
+                mListType == LIST_TYPE_MAIN || mListType == LIST_TYPE_NOTIFICATION);
 
         mOptionsMenu.findItem(R.id.sort_order_alpha).setVisible(mListType == LIST_TYPE_STORAGE
                 && mSortOrder != R.id.sort_order_alpha);
@@ -552,10 +578,11 @@ public class ManageApplications extends InstrumentedFragment
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int menuId = item.getItemId();
-        switch(item.getItemId()) {
+        switch (item.getItemId()) {
             case R.id.sort_order_alpha:
             case R.id.sort_order_size:
                 mSortOrder = menuId;
+                mListView.setFastScrollEnabled(isFastScrollEnabled());
                 if (mApplications != null) {
                     mApplications.rebuild(mSortOrder);
                 }
@@ -569,9 +596,15 @@ public class ManageApplications extends InstrumentedFragment
                 mResetAppsHelper.buildResetDialog();
                 return true;
             case R.id.advanced:
-                ((SettingsActivity) getActivity()).startPreferencePanel(
-                        AdvancedAppSettings.class.getName(), null, R.string.configure_apps,
-                        null, this, ADVANCED_SETTINGS);
+                if (mListType == LIST_TYPE_NOTIFICATION) {
+                    ((SettingsActivity) getActivity()).startPreferencePanel(
+                            ConfigureNotificationSettings.class.getName(), null,
+                            R.string.configure_notification_settings, null, this, ADVANCED_SETTINGS);
+                } else {
+                    ((SettingsActivity) getActivity()).startPreferencePanel(
+                            AdvancedAppSettings.class.getName(), null, R.string.configure_apps,
+                            null, this, ADVANCED_SETTINGS);
+                }
                 return true;
             default:
                 // Handle the home button
@@ -611,7 +644,7 @@ public class ManageApplications extends InstrumentedFragment
     }
 
     public void setHasDisabled(boolean hasDisabledApps) {
-        if (mListType == LIST_TYPE_HIGH_POWER) {
+        if (mListType != LIST_TYPE_MAIN) {
             return;
         }
         mFilterAdapter.setFilterEnabled(FILTER_APPS_ENABLED, hasDisabledApps);
@@ -704,24 +737,32 @@ public class ManageApplications extends InstrumentedFragment
      */
     static class ApplicationsAdapter extends BaseAdapter implements Filterable,
             ApplicationsState.Callbacks, AppStateBaseBridge.Callback,
-            AbsListView.RecyclerListener {
+            AbsListView.RecyclerListener, SectionIndexer {
+        private static final SectionInfo[] EMPTY_SECTIONS = new SectionInfo[0];
+
         private final ApplicationsState mState;
         private final ApplicationsState.Session mSession;
         private final ManageApplications mManageApplications;
         private final Context mContext;
         private final ArrayList<View> mActive = new ArrayList<View>();
         private final AppStateBaseBridge mExtraInfoBridge;
+        private final Handler mBgHandler;
+        private final Handler mFgHandler;
         private int mFilterMode;
         private ArrayList<ApplicationsState.AppEntry> mBaseEntries;
         private ArrayList<ApplicationsState.AppEntry> mEntries;
         private boolean mResumed;
-        private int mLastSortMode=-1;
+        private int mLastSortMode = -1;
         private int mWhichSize = SIZE_TOTAL;
         CharSequence mCurFilterPrefix;
         private PackageManager mPm;
         private AppFilter mOverrideFilter;
         private boolean mHasReceivedLoadEntries;
         private boolean mHasReceivedBridgeCallback;
+
+        private AlphabeticIndex.ImmutableIndex mIndex;
+        private SectionInfo[] mSections = EMPTY_SECTIONS;
+        private int[] mPositionToSectionIndex;
 
         private Filter mFilter = new Filter() {
             @Override
@@ -739,21 +780,24 @@ public class ManageApplications extends InstrumentedFragment
             protected void publishResults(CharSequence constraint, FilterResults results) {
                 mCurFilterPrefix = constraint;
                 mEntries = (ArrayList<ApplicationsState.AppEntry>) results.values;
+                rebuildSections();
                 notifyDataSetChanged();
             }
         };
 
         public ApplicationsAdapter(ApplicationsState state, ManageApplications manageApplications,
-                int filterMode) {
+                                   int filterMode) {
             mState = state;
+            mFgHandler = new Handler();
+            mBgHandler = new Handler(mState.getBackgroundLooper());
             mSession = state.newSession(this);
             mManageApplications = manageApplications;
             mContext = manageApplications.getActivity();
             mPm = mContext.getPackageManager();
             mFilterMode = filterMode;
             if (mManageApplications.mListType == LIST_TYPE_NOTIFICATION) {
-                mExtraInfoBridge = new AppStateNotificationBridge(mContext.getPackageManager(),
-                        mState, this, manageApplications.mNotifBackend);
+                mExtraInfoBridge = new AppStateNotificationBridge(mContext, mState, this,
+                        manageApplications.mNotifBackend);
             } else if (mManageApplications.mListType == LIST_TYPE_USAGE_ACCESS) {
                 mExtraInfoBridge = new AppStateUsageBridge(mContext, mState, this);
             } else if (mManageApplications.mListType == LIST_TYPE_HIGH_POWER) {
@@ -786,7 +830,7 @@ public class ManageApplications extends InstrumentedFragment
                 if (mExtraInfoBridge != null) {
                     mExtraInfoBridge.resume();
                 }
-                rebuild(true);
+                rebuild(false);
             } else {
                 rebuild(sort);
             }
@@ -819,7 +863,7 @@ public class ManageApplications extends InstrumentedFragment
 
         public void rebuild(boolean eraseold) {
             if (!mHasReceivedLoadEntries
-                    && (mExtraInfoBridge == null || mHasReceivedBridgeCallback)) {
+                    || (mExtraInfoBridge != null && !mHasReceivedBridgeCallback)) {
                 // Don't rebuild the list until all the app entries are loaded.
                 return;
             }
@@ -858,18 +902,65 @@ public class ManageApplications extends InstrumentedFragment
                     comparatorObj = ApplicationsState.ALPHA_COMPARATOR;
                     break;
             }
-            ArrayList<ApplicationsState.AppEntry> entries
-                    = mSession.rebuild(filterObj, comparatorObj);
-            if (entries == null && !eraseold) {
-                // Don't have new list yet, but can continue using the old one.
-                return;
+            AppFilter finalFilterObj = filterObj;
+            mBgHandler.post(() -> {
+                final ArrayList<AppEntry> entries = mSession.rebuild(finalFilterObj,
+                        comparatorObj, false);
+                if (entries != null) {
+                    mFgHandler.post(() -> onRebuildComplete(entries));
+                }
+            });
+        }
+
+
+        static private boolean packageNameEquals(PackageItemInfo info1, PackageItemInfo info2) {
+            if (info1 == null || info2 == null) {
+                return false;
+            }
+            if (info1.packageName == null || info2.packageName == null) {
+                return false;
+            }
+            return info1.packageName.equals(info2.packageName);
+        }
+
+        private ArrayList<ApplicationsState.AppEntry> removeDuplicateIgnoringUser(
+                ArrayList<ApplicationsState.AppEntry> entries)
+        {
+            int size = entries.size();
+            // returnList will not have more entries than entries
+            ArrayList<ApplicationsState.AppEntry> returnEntries = new
+                    ArrayList<ApplicationsState.AppEntry>(size);
+
+            // assume appinfo of same package but different users are grouped together
+            PackageItemInfo lastInfo = null;
+            for (int i = 0; i < size; i++) {
+                AppEntry appEntry = entries.get(i);
+                PackageItemInfo info = appEntry.info;
+                if (!packageNameEquals(lastInfo, appEntry.info)) {
+                    returnEntries.add(appEntry);
+                }
+                lastInfo = info;
+            }
+            returnEntries.trimToSize();
+            return returnEntries;
+        }
+
+        @Override
+        public void onRebuildComplete(ArrayList<AppEntry> entries) {
+            if (mFilterMode == FILTER_APPS_POWER_WHITELIST ||
+                    mFilterMode == FILTER_APPS_POWER_WHITELIST_ALL) {
+                entries = removeDuplicateIgnoringUser(entries);
             }
             mBaseEntries = entries;
             if (mBaseEntries != null) {
                 mEntries = applyPrefixFilter(mCurFilterPrefix, mBaseEntries);
+                rebuildSections();
             } else {
                 mEntries = null;
+                mSections = EMPTY_SECTIONS;
+                mPositionToSectionIndex = null;
             }
+
             notifyDataSetChanged();
 
             if (mSession.getAllApps().size() != 0
@@ -885,6 +976,45 @@ public class ManageApplications extends InstrumentedFragment
             mManageApplications.setHasDisabled(mState.haveDisabledApps());
         }
 
+        private void rebuildSections() {
+            if (mEntries!= null && mManageApplications.mListView.isFastScrollEnabled()) {
+                // Rebuild sections
+                if (mIndex == null) {
+                    LocaleList locales = mContext.getResources().getConfiguration().getLocales();
+                    if (locales.size() == 0) {
+                        locales = new LocaleList(Locale.ENGLISH);
+                    }
+                    AlphabeticIndex index = new AlphabeticIndex<>(locales.get(0));
+                    int localeCount = locales.size();
+                    for (int i = 1; i < localeCount; i++) {
+                        index.addLabels(locales.get(i));
+                    }
+                    // Ensure we always have some base English locale buckets
+                    index.addLabels(Locale.ENGLISH);
+                    mIndex = index.buildImmutableIndex();
+                }
+
+                ArrayList<SectionInfo> sections = new ArrayList<>();
+                int lastSecId = -1;
+                int totalEntries = mEntries.size();
+                mPositionToSectionIndex = new int[totalEntries];
+
+                for (int pos = 0; pos < totalEntries; pos++) {
+                    String label = mEntries.get(pos).label;
+                    int secId = mIndex.getBucketIndex(TextUtils.isEmpty(label) ? "" : label);
+                    if (secId != lastSecId) {
+                        lastSecId = secId;
+                        sections.add(new SectionInfo(mIndex.getBucket(secId).getLabel(), pos));
+                    }
+                    mPositionToSectionIndex[pos] = sections.size() - 1;
+                }
+                mSections = sections.toArray(EMPTY_SECTIONS);
+            } else {
+                mSections = EMPTY_SECTIONS;
+                mPositionToSectionIndex = null;
+            }
+        }
+
         private void updateLoading() {
             Utils.handleLoadingContainer(mManageApplications.mLoadingContainer,
                     mManageApplications.mListContainer,
@@ -892,7 +1022,7 @@ public class ManageApplications extends InstrumentedFragment
         }
 
         ArrayList<ApplicationsState.AppEntry> applyPrefixFilter(CharSequence prefix,
-                ArrayList<ApplicationsState.AppEntry> origEntries) {
+                                                                ArrayList<ApplicationsState.AppEntry> origEntries) {
             if (prefix == null || prefix.length() == 0) {
                 return origEntries;
             } else {
@@ -900,7 +1030,7 @@ public class ManageApplications extends InstrumentedFragment
                 final String spacePrefixStr = " " + prefixStr;
                 ArrayList<ApplicationsState.AppEntry> newEntries
                         = new ArrayList<ApplicationsState.AppEntry>();
-                for (int i=0; i<origEntries.size(); i++) {
+                for (int i = 0; i < origEntries.size(); i++) {
                     ApplicationsState.AppEntry entry = origEntries.get(i);
                     String nlabel = entry.getNormalizedLabel();
                     if (nlabel.startsWith(prefixStr) || nlabel.indexOf(spacePrefixStr) != -1) {
@@ -923,21 +1053,6 @@ public class ManageApplications extends InstrumentedFragment
         }
 
         @Override
-        public void onRebuildComplete(ArrayList<AppEntry> apps) {
-            if (mManageApplications.mLoadingContainer.getVisibility() == View.VISIBLE) {
-                mManageApplications.mLoadingContainer.startAnimation(AnimationUtils.loadAnimation(
-                        mContext, android.R.anim.fade_out));
-                mManageApplications.mListContainer.startAnimation(AnimationUtils.loadAnimation(
-                        mContext, android.R.anim.fade_in));
-            }
-            mManageApplications.mListContainer.setVisibility(View.VISIBLE);
-            mManageApplications.mLoadingContainer.setVisibility(View.GONE);
-            mBaseEntries = apps;
-            mEntries = applyPrefixFilter(mCurFilterPrefix, mBaseEntries);
-            notifyDataSetChanged();
-        }
-
-        @Override
         public void onPackageListChanged() {
             rebuild(false);
         }
@@ -951,12 +1066,14 @@ public class ManageApplications extends InstrumentedFragment
         @Override
         public void onLoadEntriesCompleted() {
             mHasReceivedLoadEntries = true;
+            // We may have been skipping rebuilds until this came in, trigger one now.
+            rebuild(false);
         }
 
         @Override
         public void onPackageSizeChanged(String packageName) {
-            for (int i=0; i<mActive.size(); i++) {
-                AppViewHolder holder = (AppViewHolder)mActive.get(i).getTag();
+            for (int i = 0; i < mActive.size(); i++) {
+                AppViewHolder holder = (AppViewHolder) mActive.get(i).getTag();
                 if (holder.entry.info.packageName.equals(packageName)) {
                     synchronized (holder.entry) {
                         updateSummary(holder);
@@ -1037,7 +1154,7 @@ public class ManageApplications extends InstrumentedFragment
                     holder.appIcon.setImageDrawable(entry.icon);
                 }
                 updateSummary(holder);
-                if ((entry.info.flags&ApplicationInfo.FLAG_INSTALLED) == 0) {
+                if ((entry.info.flags & ApplicationInfo.FLAG_INSTALLED) == 0) {
                     holder.disabled.setVisibility(View.VISIBLE);
                     holder.disabled.setText(R.string.not_installed);
                 } else if (!entry.info.enabled) {
@@ -1070,7 +1187,7 @@ public class ManageApplications extends InstrumentedFragment
 
                 case LIST_TYPE_USAGE_ACCESS:
                     if (holder.entry.extraInfo != null) {
-                        holder.summary.setText((new UsageState((PermissionState)holder.entry
+                        holder.summary.setText((new UsageState((PermissionState) holder.entry
                                 .extraInfo)).isPermissible() ? R.string.switch_on_text :
                                 R.string.switch_off_text);
                     } else {
@@ -1110,7 +1227,7 @@ public class ManageApplications extends InstrumentedFragment
         private CharSequence getDomainsSummary(String packageName) {
             // If the user has explicitly said "no" for this package, that's the
             // string we should show.
-            int domainStatus = mPm.getIntentVerificationStatus(packageName, UserHandle.myUserId());
+            int domainStatus = mPm.getIntentVerificationStatusAsUser(packageName, UserHandle.myUserId());
             if (domainStatus == PackageManager.INTENT_FILTER_DOMAIN_VERIFICATION_STATUS_NEVER) {
                 return mContext.getString(R.string.domain_urls_summary_none);
             }
@@ -1125,5 +1242,89 @@ public class ManageApplications extends InstrumentedFragment
                 return mContext.getString(R.string.domain_urls_summary_some, result.valueAt(0));
             }
         }
+
+        @Override
+        public Object[] getSections() {
+            return mSections;
+        }
+
+        @Override
+        public int getPositionForSection(int sectionIndex) {
+            return mSections[sectionIndex].position;
+        }
+
+        @Override
+        public int getSectionForPosition(int position) {
+            return mPositionToSectionIndex[position];
+        }
     }
+
+    private static class SummaryProvider implements SummaryLoader.SummaryProvider {
+
+        private final Context mContext;
+        private final SummaryLoader mLoader;
+        private ApplicationsState.Session mSession;
+
+        private SummaryProvider(Context context, SummaryLoader loader) {
+            mContext = context;
+            mLoader = loader;
+        }
+
+        @Override
+        public void setListening(boolean listening) {
+            if (listening) {
+                new AppCounter(mContext) {
+                    @Override
+                    protected void onCountComplete(int num) {
+                        mLoader.setSummary(SummaryProvider.this,
+                                mContext.getString(R.string.apps_summary, num));
+                    }
+
+                    @Override
+                    protected boolean includeInCount(ApplicationInfo info) {
+                        if ((info.flags & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0) {
+                            return true;
+                        } else if ((info.flags & ApplicationInfo.FLAG_SYSTEM) == 0) {
+                            return true;
+                        }
+                        Intent launchIntent = new Intent(Intent.ACTION_MAIN, null)
+                                .addCategory(Intent.CATEGORY_LAUNCHER)
+                                .setPackage(info.packageName);
+                        int userId = UserHandle.getUserId(info.uid);
+                        List<ResolveInfo> intents = mPm.queryIntentActivitiesAsUser(
+                                launchIntent,
+                                PackageManager.GET_DISABLED_COMPONENTS
+                                        | PackageManager.MATCH_DIRECT_BOOT_AWARE
+                                        | PackageManager.MATCH_DIRECT_BOOT_UNAWARE,
+                                userId);
+                        return intents != null && intents.size() != 0;
+                    }
+                }.execute();
+            }
+        }
+    }
+
+    private static class SectionInfo {
+        final String label;
+        final int position;
+
+        public SectionInfo(String label, int position) {
+            this.label = label;
+            this.position = position;
+        }
+
+        @Override
+        public String toString() {
+            return label;
+        }
+    }
+
+    public static final SummaryLoader.SummaryProviderFactory SUMMARY_PROVIDER_FACTORY
+            = new SummaryLoader.SummaryProviderFactory() {
+        @Override
+        public SummaryLoader.SummaryProvider createSummaryProvider(Activity activity,
+                                                                   SummaryLoader summaryLoader) {
+            return new SummaryProvider(activity, summaryLoader);
+        }
+    };
 }

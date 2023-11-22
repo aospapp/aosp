@@ -16,14 +16,13 @@
 
 package com.example.android.fingerprintdialog;
 
-import android.Manifest;
 import android.app.Activity;
 import android.app.KeyguardManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
 import android.hardware.fingerprint.FingerprintManager;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyPermanentlyInvalidatedException;
 import android.security.keystore.KeyProperties;
@@ -42,6 +41,7 @@ import java.security.InvalidKeyException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 
@@ -49,8 +49,8 @@ import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
+import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
-import javax.inject.Inject;
 
 /**
  * Main entry point for the sample, showing a backpack and "Purchase" button.
@@ -64,87 +64,102 @@ public class MainActivity extends Activity {
     /** Alias for our key in the Android Key Store */
     private static final String KEY_NAME = "my_key";
 
-    private static final int FINGERPRINT_PERMISSION_REQUEST_CODE = 0;
-
-    @Inject KeyguardManager mKeyguardManager;
-    @Inject FingerprintManager mFingerprintManager;
-    @Inject FingerprintAuthenticationDialogFragment mFragment;
-    @Inject KeyStore mKeyStore;
-    @Inject KeyGenerator mKeyGenerator;
-    @Inject Cipher mCipher;
-    @Inject SharedPreferences mSharedPreferences;
+    private KeyStore mKeyStore;
+    private KeyGenerator mKeyGenerator;
+    private Cipher mCipher;
+    private SharedPreferences mSharedPreferences;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        ((InjectedApplication) getApplication()).inject(this);
+        setContentView(R.layout.activity_main);
 
-        requestPermissions(new String[]{Manifest.permission.USE_FINGERPRINT},
-                FINGERPRINT_PERMISSION_REQUEST_CODE);
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] state) {
-        if (requestCode == FINGERPRINT_PERMISSION_REQUEST_CODE
-                && state[0] == PackageManager.PERMISSION_GRANTED) {
-            setContentView(R.layout.activity_main);
-            Button purchaseButton = (Button) findViewById(R.id.purchase_button);
-            if (!mKeyguardManager.isKeyguardSecure()) {
-                // Show a message that the user hasn't set up a fingerprint or lock screen.
-                Toast.makeText(this,
-                        "Secure lock screen hasn't set up.\n"
-                                + "Go to 'Settings -> Security -> Fingerprint' to set up a fingerprint",
-                        Toast.LENGTH_LONG).show();
-                purchaseButton.setEnabled(false);
-                return;
-            }
-            if (!mFingerprintManager.hasEnrolledFingerprints()) {
-                purchaseButton.setEnabled(false);
-                // This happens when no fingerprints are registered.
-                Toast.makeText(this,
-                        "Go to 'Settings -> Security -> Fingerprint' and register at least one fingerprint",
-                        Toast.LENGTH_LONG).show();
-                return;
-            }
-            createKey();
-            purchaseButton.setEnabled(true);
-            purchaseButton.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    findViewById(R.id.confirmation_message).setVisibility(View.GONE);
-                    findViewById(R.id.encrypted_message).setVisibility(View.GONE);
-
-                    // Set up the crypto object for later. The object will be authenticated by use
-                    // of the fingerprint.
-                    if (initCipher()) {
-
-                        // Show the fingerprint dialog. The user has the option to use the fingerprint with
-                        // crypto, or you can fall back to using a server-side verified password.
-                        mFragment.setCryptoObject(new FingerprintManager.CryptoObject(mCipher));
-                        boolean useFingerprintPreference = mSharedPreferences
-                                .getBoolean(getString(R.string.use_fingerprint_to_authenticate_key),
-                                        true);
-                        if (useFingerprintPreference) {
-                            mFragment.setStage(
-                                    FingerprintAuthenticationDialogFragment.Stage.FINGERPRINT);
-                        } else {
-                            mFragment.setStage(
-                                    FingerprintAuthenticationDialogFragment.Stage.PASSWORD);
-                        }
-                        mFragment.show(getFragmentManager(), DIALOG_FRAGMENT_TAG);
-                    } else {
-                        // This happens if the lock screen has been disabled or or a fingerprint got
-                        // enrolled. Thus show the dialog to authenticate with their password first
-                        // and ask the user if they want to authenticate with fingerprints in the
-                        // future
-                        mFragment.setCryptoObject(new FingerprintManager.CryptoObject(mCipher));
-                        mFragment.setStage(
-                                FingerprintAuthenticationDialogFragment.Stage.NEW_FINGERPRINT_ENROLLED);
-                        mFragment.show(getFragmentManager(), DIALOG_FRAGMENT_TAG);
-                    }
-                }
-            });
+        try {
+            mKeyStore = KeyStore.getInstance("AndroidKeyStore");
+        } catch (KeyStoreException e) {
+            throw new RuntimeException("Failed to get an instance of KeyStore", e);
         }
+        try {
+            mKeyGenerator = KeyGenerator
+                    .getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
+        } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
+            throw new RuntimeException("Failed to get an instance of KeyGenerator", e);
+        }
+        try {
+            mCipher = Cipher.getInstance(KeyProperties.KEY_ALGORITHM_AES + "/"
+                    + KeyProperties.BLOCK_MODE_CBC + "/"
+                    + KeyProperties.ENCRYPTION_PADDING_PKCS7);
+        } catch (NoSuchAlgorithmException | NoSuchPaddingException e) {
+            throw new RuntimeException("Failed to get an instance of Cipher", e);
+        }
+        mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+
+        KeyguardManager keyguardManager = getSystemService(KeyguardManager.class);
+        FingerprintManager fingerprintManager = getSystemService(FingerprintManager.class);
+        Button purchaseButton = (Button) findViewById(R.id.purchase_button);
+        if (!keyguardManager.isKeyguardSecure()) {
+            // Show a message that the user hasn't set up a fingerprint or lock screen.
+            Toast.makeText(this,
+                    "Secure lock screen hasn't set up.\n"
+                            + "Go to 'Settings -> Security -> Fingerprint' to set up a fingerprint",
+                    Toast.LENGTH_LONG).show();
+            purchaseButton.setEnabled(false);
+            return;
+        }
+
+        // Now the protection level of USE_FINGERPRINT permission is normal instead of dangerous.
+        // See http://developer.android.com/reference/android/Manifest.permission.html#USE_FINGERPRINT
+        // The line below prevents the false positive inspection from Android Studio
+        // noinspection ResourceType
+        if (!fingerprintManager.hasEnrolledFingerprints()) {
+            purchaseButton.setEnabled(false);
+            // This happens when no fingerprints are registered.
+            Toast.makeText(this,
+                    "Go to 'Settings -> Security -> Fingerprint' and register at least one fingerprint",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        createKey();
+        purchaseButton.setEnabled(true);
+        purchaseButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                findViewById(R.id.confirmation_message).setVisibility(View.GONE);
+                findViewById(R.id.encrypted_message).setVisibility(View.GONE);
+
+                // Set up the crypto object for later. The object will be authenticated by use
+                // of the fingerprint.
+                if (initCipher()) {
+                    // Show the fingerprint dialog. The user has the option to use the fingerprint
+                    // with crypto, or you can fall back to using a server-side verified password.
+                    FingerprintAuthenticationDialogFragment fragment
+                            = new FingerprintAuthenticationDialogFragment();
+                    fragment.setCryptoObject(new FingerprintManager.CryptoObject(mCipher));
+                    boolean useFingerprintPreference = mSharedPreferences
+                            .getBoolean(getString(R.string.use_fingerprint_to_authenticate_key),
+                                    true);
+                    if (useFingerprintPreference) {
+                        fragment.setStage(
+                                FingerprintAuthenticationDialogFragment.Stage.FINGERPRINT);
+                    } else {
+                        fragment.setStage(
+                                FingerprintAuthenticationDialogFragment.Stage.PASSWORD);
+                    }
+                    fragment.show(getFragmentManager(), DIALOG_FRAGMENT_TAG);
+                } else {
+                    // This happens if the lock screen has been disabled or or a fingerprint got
+                    // enrolled. Thus show the dialog to authenticate with their password first
+                    // and ask the user if they want to authenticate with fingerprints in the
+                    // future
+                    FingerprintAuthenticationDialogFragment fragment
+                            = new FingerprintAuthenticationDialogFragment();
+                    fragment.setCryptoObject(new FingerprintManager.CryptoObject(mCipher));
+                    fragment.setStage(
+                            FingerprintAuthenticationDialogFragment.Stage.NEW_FINGERPRINT_ENROLLED);
+                    fragment.show(getFragmentManager(), DIALOG_FRAGMENT_TAG);
+                }
+            }
+        });
     }
 
     /**
@@ -221,8 +236,8 @@ public class MainActivity extends Activity {
                     KeyProperties.PURPOSE_ENCRYPT |
                             KeyProperties.PURPOSE_DECRYPT)
                     .setBlockModes(KeyProperties.BLOCK_MODE_CBC)
-                            // Require the user to authenticate with a fingerprint to authorize every use
-                            // of the key
+                    // Require the user to authenticate with a fingerprint to authorize every use
+                    // of the key
                     .setUserAuthenticationRequired(true)
                     .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_PKCS7)
                     .build());

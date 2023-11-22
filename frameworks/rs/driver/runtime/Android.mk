@@ -22,12 +22,14 @@ clcore_base_files := \
     rs_cl.c \
     rs_core.c \
     rs_element.c \
+    rs_f16_math.c \
     rs_mesh.c \
     rs_matrix.c \
     rs_program.c \
     rs_sample.c \
     rs_sampler.c \
-    rs_convert.c
+    rs_convert.c \
+    rs_quaternion.c
 
 clcore_cflags := -Iframeworks/rs/cpu_ref -DRS_DECLARE_EXPIRED_APIS
 
@@ -40,6 +42,9 @@ clcore_base_files_64 := \
 clcore_files := \
     $(clcore_base_files) \
     arch/generic.c
+
+clcore_g_files := \
+    rs_abi_debuginfo.c
 
 clcore_files_32 := \
     $(clcore_base_files_32) \
@@ -83,6 +88,7 @@ LOCAL_SRC_FILES_64 := $(clcore_arm64_files)
 LOCAL_CFLAGS_64 += -DARCH_ARM64_HAVE_NEON
 else
 LOCAL_SRC_FILES_64 := $(clcore_files_64)
+LOCAL_SRC_FILES_64 += arch/generic.c
 endif
 
 include $(LOCAL_PATH)/build_bc_lib.mk
@@ -102,6 +108,7 @@ LOCAL_SRC_FILES_64 := $(clcore_arm64_files)
 LOCAL_CFLAGS_64 += -DARCH_ARM64_HAVE_NEON
 else
 LOCAL_SRC_FILES_64 := $(clcore_files_64)
+LOCAL_SRC_FILES_64 += arch/generic.c
 endif
 
 include $(LOCAL_PATH)/build_bc_lib.mk
@@ -112,7 +119,7 @@ ifeq ($(TARGET_ARCH),$(filter $(TARGET_ARCH),x86 x86_64))
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libclcore_x86.bc
-LOCAL_CFLAGS += $(clcore_cflags)
+LOCAL_CFLAGS += $(clcore_cflags) -DARCH_X86_HAVE_SSSE3
 LOCAL_SRC_FILES := $(clcore_x86_files)
 LOCAL_SRC_FILES_32 := $(clcore_base_files_32)
 LOCAL_SRC_FILES_64 := $(clcore_base_files_64)
@@ -135,6 +142,25 @@ ifeq ($(ARCH_ARM_HAVE_NEON),true)
   include $(LOCAL_PATH)/build_bc_lib.mk
 endif
 
+# Build a version of the library with debug info
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libclcore_g.bc
+rs_g_runtime := 1
+LOCAL_CFLAGS += $(clcore_cflags)
+LOCAL_CFLAGS += -g -O0
+LOCAL_SRC_FILES := $(clcore_base_files) $(clcore_g_files)
+LOCAL_SRC_FILES_32 := arch/generic.c
+
+ifeq ($(TARGET_ARCH),$(filter $(TARGET_ARCH),arm64))
+LOCAL_CFLAGS_64 += -DARCH_ARM64_HAVE_NEON
+LOCAL_SRC_FILES_64 := arch/generic.c
+endif
+
+include $(LOCAL_PATH)/build_bc_lib.mk
+rs_g_runtime :=
+
+
 ### Build new versions (librsrt_<ARCH>.bc) as host shared libraries.
 ### These will be used with bcc_compat and the support library.
 
@@ -144,7 +170,7 @@ include $(CLEAR_VARS)
 # FIXME for 64-bit
 LOCAL_32_BIT_ONLY := true
 
-BCC_RS_TRIPLE := armv7-none-linux-gnueabi
+BCC_RS_TRIPLE := armv7-linux-androideabi
 RS_TRIPLE_CFLAGS :=
 LOCAL_MODULE := librsrt_arm.bc
 LOCAL_IS_HOST_MODULE := true
@@ -158,7 +184,7 @@ include $(CLEAR_VARS)
 # FIXME for 64-bit
 LOCAL_32_BIT_ONLY := true
 
-BCC_RS_TRIPLE := armv7-none-linux-gnueabi
+BCC_RS_TRIPLE := armv7-linux-androideabi
 RS_TRIPLE_CFLAGS :=
 LOCAL_MODULE := librsrt_mips.bc
 LOCAL_IS_HOST_MODULE := true
@@ -172,11 +198,11 @@ include $(CLEAR_VARS)
 # FIXME for 64-bit
 LOCAL_32_BIT_ONLY := true
 
-BCC_RS_TRIPLE := armv7-none-linux-gnueabi
+BCC_RS_TRIPLE := armv7-linux-androideabi
 RS_TRIPLE_CFLAGS := -D__i386__
 LOCAL_MODULE := librsrt_x86.bc
 LOCAL_IS_HOST_MODULE := true
-LOCAL_CFLAGS += $(clcore_cflags)
+LOCAL_CFLAGS += $(clcore_cflags) -DARCH_X86_HAVE_SSSE3
 LOCAL_SRC_FILES := $(clcore_x86_files) $(clcore_base_files_32)
 include $(LOCAL_PATH)/build_bc_lib.mk
 
@@ -188,4 +214,15 @@ LOCAL_MODULE := librsrt_arm64.bc
 LOCAL_IS_HOST_MODULE := true
 LOCAL_CFLAGS += $(clcore_cflags)
 LOCAL_SRC_FILES := $(clcore_files) $(clcore_files_64)
+include $(LOCAL_PATH)/build_bc_lib.mk
+
+# Build the x86_64 version of the library
+include $(CLEAR_VARS)
+
+BCC_RS_TRIPLE := aarch64-linux-android
+RS_TRIPLE_CFLAGS := -D__x86_64__
+LOCAL_MODULE := librsrt_x86_64.bc
+LOCAL_IS_HOST_MODULE := true
+LOCAL_CFLAGS += $(clcore_cflags) -DARCH_X86_HAVE_SSSE3
+LOCAL_SRC_FILES := $(clcore_x86_files) $(clcore_base_files_64)
 include $(LOCAL_PATH)/build_bc_lib.mk

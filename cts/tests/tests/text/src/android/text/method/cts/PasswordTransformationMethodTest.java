@@ -17,19 +17,26 @@
 package android.text.method.cts;
 
 
+import android.cts.util.KeyEventUtil;
 import android.cts.util.PollingCheck;
 import android.graphics.Rect;
+import android.os.ParcelFileDescriptor;
 import android.provider.Settings.SettingNotFoundException;
 import android.provider.Settings.System;
 import android.test.ActivityInstrumentationTestCase2;
 import android.text.Editable;
 import android.text.method.PasswordTransformationMethod;
+import android.util.TypedValue;
 import android.view.KeyCharacterMap;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.LinearLayout.LayoutParams;
+
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.util.Scanner;
 
 /**
  * Test {@link PasswordTransformationMethod}.
@@ -58,8 +65,10 @@ public class PasswordTransformationMethodTest extends
     private CharSequence mTransformedText;
 
     public PasswordTransformationMethodTest() {
-        super("com.android.cts.text", CtsActivity.class);
+        super("android.text.cts", CtsActivity.class);
     }
+
+    private KeyEventUtil mKeyEventUtil;
 
     @Override
     protected void setUp() throws Exception {
@@ -75,7 +84,8 @@ public class PasswordTransformationMethodTest extends
         try {
             runTestOnUiThread(new Runnable() {
                 public void run() {
-                    EditText editText = new EditText(mActivity);
+                    EditText editText = new EditTextNoIme(mActivity);
+                    editText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
                     editText.setId(EDIT_TXT_ID);
                     editText.setTransformationMethod(mMethod);
                     Button button = new Button(mActivity);
@@ -97,8 +107,39 @@ public class PasswordTransformationMethodTest extends
         mEditText = (EditText) getActivity().findViewById(EDIT_TXT_ID);
         assertTrue(mEditText.isFocused());
 
+        mKeyEventUtil = new KeyEventUtil(getInstrumentation());
+
+        enableAppOps();
         savePasswordPref();
         switchShowPassword(true);
+    }
+
+    private void enableAppOps() {
+        StringBuilder cmd = new StringBuilder();
+        cmd.append("appops set ");
+        cmd.append(getInstrumentation().getContext().getPackageName());
+        cmd.append(" android:write_settings allow");
+        getInstrumentation().getUiAutomation().executeShellCommand(cmd.toString());
+
+        StringBuilder query = new StringBuilder();
+        query.append("appops get ");
+        query.append(getInstrumentation().getContext().getPackageName());
+        query.append(" android:write_settings");
+        String queryStr = query.toString();
+
+        String result = "No operations.";
+        while (result.contains("No operations")) {
+            ParcelFileDescriptor pfd = getInstrumentation().getUiAutomation().executeShellCommand(
+                                        queryStr);
+            InputStream inputStream = new FileInputStream(pfd.getFileDescriptor());
+            result = convertStreamToString(inputStream);
+        }
+    }
+
+    private String convertStreamToString(InputStream is) {
+        try (Scanner scanner = new Scanner(is).useDelimiter("\\A")) {
+            return scanner.hasNext() ? scanner.next() : "";
+        }
     }
 
     @Override
@@ -123,10 +164,10 @@ public class PasswordTransformationMethodTest extends
         KeyCharacterMap keymap = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD);
         if (keymap.getKeyboardType() == KeyCharacterMap.NUMERIC) {
             // "HELLO" in case of 12-key(NUMERIC) keyboard
-            sendKeys("6*4 6*3 7*5 DPAD_RIGHT 7*5 7*6 DPAD_RIGHT");
+            mKeyEventUtil.sendKeys(mEditText, "6*4 6*3 7*5 DPAD_RIGHT 7*5 7*6 DPAD_RIGHT");
         }
         else {
-            sendKeys("H E 2*L O");
+            mKeyEventUtil.sendKeys(mEditText, "H E 2*L O");
         }
         assertTrue(mMethod.hasCalledBeforeTextChanged());
         assertTrue(mMethod.hasCalledOnTextChanged());
@@ -187,14 +228,14 @@ public class PasswordTransformationMethodTest extends
         // lose focus
         mMethod.reset();
         assertTrue(mEditText.isFocused());
-        sendKeys("DPAD_DOWN");
+        mKeyEventUtil.sendKeys(mEditText, "DPAD_DOWN");
         assertFalse(mEditText.isFocused());
         assertTrue(mMethod.hasCalledOnFocusChanged());
 
         // gain focus
         mMethod.reset();
         assertFalse(mEditText.isFocused());
-        sendKeys("DPAD_UP");
+        mKeyEventUtil.sendKeys(mEditText, "DPAD_UP");
         assertTrue(mEditText.isFocused());
         assertTrue(mMethod.hasCalledOnFocusChanged());
     }

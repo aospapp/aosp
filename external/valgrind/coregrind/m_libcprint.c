@@ -8,7 +8,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2000-2013 Julian Seward 
+   Copyright (C) 2000-2015 Julian Seward 
       jseward@acm.org
 
    This program is free software; you can redistribute it and/or
@@ -660,7 +660,7 @@ const HChar *VG_(sr_as_string) ( SysRes sr )
    return buf;
 }
 
-#elif defined(VGO_darwin)
+#elif defined(VGO_darwin) || (VGO_solaris)
 
 const HChar *VG_(sr_as_string) ( SysRes sr )
 {

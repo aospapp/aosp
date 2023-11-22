@@ -164,6 +164,7 @@ public final class StandardNames extends Assert {
         provide("AlgorithmParameters", "PBEWithMD5AndTripleDES");
         provide("AlgorithmParameters", "PBEWithSHA1AndDESede");
         provide("AlgorithmParameters", "PBEWithSHA1AndRC2_40");
+        provide("AlgorithmParameters", "PSS");
         provide("AlgorithmParameters", "RC2");
         provide("CertPathBuilder", "PKIX");
         provide("CertPathValidator", "PKIX");
@@ -311,25 +312,29 @@ public final class StandardNames extends Assert {
         // Only available with the SunPKCS11-NSS provider,
         // which seems to be enabled in OpenJDK 6 but not Oracle Java 6
         if (Security.getProvider("SunPKCS11-NSS") != null) {
-            provide("AlgorithmParameters", "EC");
             provide("Cipher", "AES/CBC/NOPADDING");
             provide("Cipher", "DES/CBC/NOPADDING");
             provide("Cipher", "DESEDE/CBC/NOPADDING");
             provide("Cipher", "RSA/ECB/PKCS1PADDING");
             provide("KeyAgreement", "DH");
-            provide("KeyAgreement", "ECDH");
             provide("KeyFactory", "DH");
-            provide("KeyFactory", "EC");
             provide("KeyPairGenerator", "DH");
-            provide("KeyPairGenerator", "EC");
             provide("KeyStore", "PKCS11");
             provide("MessageDigest", "SHA1");
             provide("SecretKeyFactory", "AES");
             provide("SecretKeyFactory", "ARCFOUR");
             provide("SecureRandom", "PKCS11");
             provide("Signature", "DSA");
-            provide("Signature", "NONEWITHECDSA");
             provide("Signature", "RAWDSA");
+        }
+
+        if (Security.getProvider("SunPKCS11-NSS") != null ||
+                Security.getProvider("SunEC") != null) {
+            provide("AlgorithmParameters", "EC");
+            provide("KeyAgreement", "ECDH");
+            provide("KeyFactory", "EC");
+            provide("KeyPairGenerator", "EC");
+            provide("Signature", "NONEWITHECDSA");
             provide("Signature", "SHA1WITHECDSA");
             provide("Signature", "SHA224WITHECDSA");
             provide("Signature", "SHA256WITHECDSA");
@@ -545,7 +550,7 @@ public final class StandardNames extends Assert {
             provide("KeyFactory", "EC");
             provide("KeyPairGenerator", "EC");
             provide("Signature", "NONEWITHECDSA");
-            provide("Signature", "ECDSA"); // as opposed to SHA1WITHECDSA
+            provide("Signature", "SHA1WITHECDSA");
             provide("Signature", "SHA224WITHECDSA");
             provide("Signature", "SHA256WITHECDSA");
             provide("Signature", "SHA384WITHECDSA");
@@ -753,6 +758,8 @@ public final class StandardNames extends Assert {
         addBoth(   "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384");
         addOpenSsl("TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256");
         addOpenSsl("TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384");
+        addOpenSsl("TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256");
+        addOpenSsl("TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256");
 
         // Pre-Shared Key (PSK) cipher suites
         addOpenSsl("TLS_PSK_WITH_RC4_128_SHA");
@@ -760,6 +767,7 @@ public final class StandardNames extends Assert {
         addOpenSsl("TLS_PSK_WITH_AES_256_CBC_SHA");
         addOpenSsl("TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA");
         addOpenSsl("TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA");
+        addOpenSsl("TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256");
 
         // RFC 5746's Signaling Cipher Suite Value to indicate a request for secure renegotiation
         addBoth(CIPHER_SUITE_SECURE_RENEGOTIATION);
@@ -876,6 +884,54 @@ public final class StandardNames extends Assert {
 
     // NOTE: This list needs to be kept in sync with Javadoc of javax.net.ssl.SSLSocket and
     // javax.net.ssl.SSLEngine.
+    private static final List<String> CIPHER_SUITES_ANDROID_AES_HARDWARE = Arrays.asList(
+            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+            "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+            "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+            "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+            "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+            "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+            "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256",
+            "TLS_DHE_RSA_WITH_AES_256_GCM_SHA384",
+            "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
+            "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
+            "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+            "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+            "TLS_DHE_RSA_WITH_AES_128_CBC_SHA",
+            "TLS_DHE_RSA_WITH_AES_256_CBC_SHA",
+            "TLS_RSA_WITH_AES_128_GCM_SHA256",
+            "TLS_RSA_WITH_AES_256_GCM_SHA384",
+            "TLS_RSA_WITH_AES_128_CBC_SHA",
+            "TLS_RSA_WITH_AES_256_CBC_SHA",
+            CIPHER_SUITE_SECURE_RENEGOTIATION
+    );
+
+    // NOTE: This list needs to be kept in sync with Javadoc of javax.net.ssl.SSLSocket and
+    // javax.net.ssl.SSLEngine.
+    private static final List<String> CIPHER_SUITES_ANDROID_SOFTWARE = Arrays.asList(
+            "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+            "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+            "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+            "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+            "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+            "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256",
+            "TLS_DHE_RSA_WITH_AES_256_GCM_SHA384",
+            "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
+            "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
+            "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+            "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+            "TLS_DHE_RSA_WITH_AES_128_CBC_SHA",
+            "TLS_DHE_RSA_WITH_AES_256_CBC_SHA",
+            "TLS_RSA_WITH_AES_128_GCM_SHA256",
+            "TLS_RSA_WITH_AES_256_GCM_SHA384",
+            "TLS_RSA_WITH_AES_128_CBC_SHA",
+            "TLS_RSA_WITH_AES_256_CBC_SHA",
+            CIPHER_SUITE_SECURE_RENEGOTIATION
+    );
+
+    // NOTE: This list needs to be kept in sync with Javadoc of javax.net.ssl.SSLSocket and
+    // javax.net.ssl.SSLEngine.
     public static final List<String> CIPHER_SUITES_DEFAULT = (IS_RI)
             ? Arrays.asList("TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384",
                             "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384",
@@ -919,30 +975,13 @@ public final class StandardNames extends Assert {
                             "SSL_DHE_DSS_WITH_3DES_EDE_CBC_SHA",
                             "SSL_RSA_WITH_RC4_128_MD5",
                             "TLS_EMPTY_RENEGOTIATION_INFO_SCSV")
-            : Arrays.asList("TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
-                            "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
-                            "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
-                            "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
-                            "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256",
-                            "TLS_DHE_RSA_WITH_AES_256_GCM_SHA384",
-                            "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
-                            "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
-                            "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
-                            "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
-                            "TLS_DHE_RSA_WITH_AES_128_CBC_SHA",
-                            "TLS_DHE_RSA_WITH_AES_256_CBC_SHA",
-                            "TLS_ECDHE_ECDSA_WITH_RC4_128_SHA",
-                            "TLS_ECDHE_RSA_WITH_RC4_128_SHA",
-                            "TLS_RSA_WITH_AES_128_GCM_SHA256",
-                            "TLS_RSA_WITH_AES_256_GCM_SHA384",
-                            "TLS_RSA_WITH_AES_128_CBC_SHA",
-                            "TLS_RSA_WITH_AES_256_CBC_SHA",
-                            "SSL_RSA_WITH_RC4_128_SHA",
-                            CIPHER_SUITE_SECURE_RENEGOTIATION);
+            : CpuFeatures.isAESHardwareAccelerated() ? CIPHER_SUITES_ANDROID_AES_HARDWARE
+                    : CIPHER_SUITES_ANDROID_SOFTWARE;
 
     // NOTE: This list needs to be kept in sync with Javadoc of javax.net.ssl.SSLSocket and
     // javax.net.ssl.SSLEngine.
     public static final List<String> CIPHER_SUITES_DEFAULT_PSK = Arrays.asList(
+            "TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256",
             "TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA",
             "TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA",
             "TLS_PSK_WITH_AES_128_CBC_SHA",
@@ -957,11 +996,11 @@ public final class StandardNames extends Assert {
                                               "ECDHE_ECDSA"));
 
     private static final Set<String> PERMITTED_DEFAULT_BULK_ENCRYPTION_CIPHERS =
-            new HashSet<String>(Arrays.asList("RC4_128",
-                                              "AES_128_CBC",
+            new HashSet<String>(Arrays.asList("AES_128_CBC",
                                               "AES_256_CBC",
                                               "AES_128_GCM",
-                                              "AES_256_GCM"));
+                                              "AES_256_GCM",
+                                              "CHACHA20_POLY1305"));
 
     private static final Set<String> PERMITTED_DEFAULT_MACS =
             new HashSet<String>(Arrays.asList("SHA",

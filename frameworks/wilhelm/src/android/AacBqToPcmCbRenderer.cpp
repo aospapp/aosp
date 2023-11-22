@@ -19,7 +19,7 @@
 #include "sles_allinclusive.h"
 #include "android/include/AacBqToPcmCbRenderer.h"
 #include "android/channels.h"
-#include <media/stagefright/foundation/ADebug.h>
+#include <media/stagefright/SimpleDecodingSource.h>
 
 namespace android {
 
@@ -143,7 +143,7 @@ void AacBqToPcmCbRenderer::onPrepare() {
         //      once the decoder has figured them out
         mPcmFormatValues[ANDROID_KEY_INDEX_PCMFORMAT_NUMCHANNELS] = UNKNOWN_NUMCHANNELS;
         mPcmFormatValues[ANDROID_KEY_INDEX_PCMFORMAT_SAMPLERATE] = UNKNOWN_SAMPLERATE;
-        mPcmFormatValues[ANDROID_KEY_INDEX_PCMFORMAT_CHANNELMASK] = UNKNOWN_CHANNELMASK;
+        mPcmFormatValues[ANDROID_KEY_INDEX_PCMFORMAT_CHANNELMASK] = SL_ANDROID_UNKNOWN_CHANNELMASK;
     }
 
     sp<MediaExtractor> extractor = new AacAdtsExtractor(mBqSource);
@@ -151,21 +151,15 @@ void AacBqToPcmCbRenderer::onPrepare() {
     // only decoding a single track of data
     const size_t kTrackToDecode = 0;
 
-    sp<MediaSource> source = extractor->getTrack(kTrackToDecode);
+    sp<IMediaSource> source = extractor->getTrack(kTrackToDecode);
     if (source == 0) {
         SL_LOGE("AacBqToPcmCbRenderer::onPrepare: error getting source from extractor");
         notifyPrepared(ERROR_UNSUPPORTED);
         return;
     }
-    sp<MetaData> meta = extractor->getTrackMetaData(kTrackToDecode);
 
     // the audio content is not raw PCM, so we need a decoder
-    OMXClient client;
-    CHECK_EQ(client.connect(), (status_t)OK);
-
-    source = OMXCodec::Create(
-            client.interface(), meta, false /* createEncoder */,
-            source);
+    source = SimpleDecodingSource::Create(source);
 
     if (source == NULL) {
         SL_LOGE("AacBqToPcmCbRenderer::onPrepare: Could not instantiate decoder.");
@@ -173,7 +167,7 @@ void AacBqToPcmCbRenderer::onPrepare() {
         return;
     }
 
-    meta = source->getFormat();
+    sp<MetaData> meta = source->getFormat();
 
     SL_LOGD("AacBqToPcmCbRenderer::onPrepare() after instantiating decoder");
 
@@ -201,7 +195,7 @@ void AacBqToPcmCbRenderer::onPrepare() {
         mPcmFormatValues[ANDROID_KEY_INDEX_PCMFORMAT_SAMPLERATE] = sr;
         mPcmFormatValues[ANDROID_KEY_INDEX_PCMFORMAT_NUMCHANNELS] = channelCount;
         mPcmFormatValues[ANDROID_KEY_INDEX_PCMFORMAT_CHANNELMASK] =
-                channelCountToMask(channelCount);
+                sles_channel_out_mask_from_count(channelCount);
     }
     SL_LOGV("AacBqToPcmCbRenderer::onPrepare() channel count=%d SR=%d",
             channelCount, sr);

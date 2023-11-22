@@ -68,6 +68,8 @@
 
 #define NOP(nop_cnt)    {UWORD32 nop_i; for (nop_i = 0; nop_i < nop_cnt; nop_i++);}
 
+#define POPCNT_U32(x)       __builtin_popcount(x)
+
 #define PLD(a)
 #define INLINE inline
 
@@ -78,7 +80,10 @@ static INLINE UWORD32 CLZ(UWORD32 u4_word)
     else
         return 32;
 }
-
+static INLINE UWORD32 CLZNZ(UWORD32 u4_word)
+{
+   return (__builtin_clz(u4_word));
+}
 static INLINE UWORD32 CTZ(UWORD32 u4_word)
 {
     if(0 == u4_word)

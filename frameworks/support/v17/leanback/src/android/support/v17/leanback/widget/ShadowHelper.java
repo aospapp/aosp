@@ -14,7 +14,6 @@
 package android.support.v17.leanback.widget;
 
 import android.os.Build;
-import android.view.ViewGroup;
 import android.view.View;
 
 
@@ -32,7 +31,7 @@ final class ShadowHelper {
      */
     static interface ShadowHelperVersionImpl {
         public Object addDynamicShadow(
-                ViewGroup shadowContainer, float unfocusedZ, float focusedZ, boolean roundedCorners);
+                View shadowContainer, float unfocusedZ, float focusedZ, int roundedCornerRadius);
         public void setZ(View view, float z);
         public void setShadowFocusLevel(Object impl, float level);
     }
@@ -43,7 +42,7 @@ final class ShadowHelper {
     private static final class ShadowHelperStubImpl implements ShadowHelperVersionImpl {
         @Override
         public Object addDynamicShadow(
-                ViewGroup shadowContainer, float focusedZ, float unfocusedZ, boolean roundedCorners) {
+                View shadowContainer, float focusedZ, float unfocusedZ, int roundedCornerRadius) {
             // do nothing
             return null;
         }
@@ -65,9 +64,9 @@ final class ShadowHelper {
     private static final class ShadowHelperApi21Impl implements ShadowHelperVersionImpl {
         @Override
         public Object addDynamicShadow(
-                ViewGroup shadowContainer, float unfocusedZ, float focusedZ, boolean roundedCorners) {
+                View shadowContainer, float unfocusedZ, float focusedZ, int roundedCornerRadius) {
             return ShadowHelperApi21.addDynamicShadow(
-                    shadowContainer, unfocusedZ, focusedZ, roundedCorners);
+                    shadowContainer, unfocusedZ, focusedZ, roundedCornerRadius);
         }
 
         @Override
@@ -102,8 +101,8 @@ final class ShadowHelper {
     }
 
     public Object addDynamicShadow(
-            ViewGroup shadowContainer, float unfocusedZ, float focusedZ, boolean roundedCorners) {
-        return mImpl.addDynamicShadow(shadowContainer, unfocusedZ, focusedZ, roundedCorners);
+            View shadowContainer, float unfocusedZ, float focusedZ, int roundedCornerRadius) {
+        return mImpl.addDynamicShadow(shadowContainer, unfocusedZ, focusedZ, roundedCornerRadius);
     }
 
     public void setShadowFocusLevel(Object impl, float level) {

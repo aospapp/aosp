@@ -1,18 +1,18 @@
 /*
-* Copyright (C) 2015 The Android Open Source Project
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*      http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (C) 2015 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 public class Main {
 
@@ -27,9 +27,9 @@ public class Main {
    * we implement a suitable type analysis.
    */
 
-  // CHECK-START: boolean Main.TestPhiAsBoolean(int) boolean_simplifier (after)
-  // CHECK-DAG:     [[Phi:i\d+]]     Phi
-  // CHECK-DAG:                      BooleanNot [ [[Phi]] ]
+  /// CHECK-START: boolean Main.TestPhiAsBoolean(int) select_generator (after)
+  /// CHECK-DAG:     <<Phi:i\d+>>     Phi
+  /// CHECK-DAG:                      Select [{{i\d+}},{{i\d+}},<<Phi>>]
 
   public static boolean f1;
   public static boolean f2;
@@ -47,9 +47,9 @@ public class Main {
    * we implement a suitable type analysis.
    */
 
-  // CHECK-START: boolean Main.TestAndAsBoolean(boolean, boolean) boolean_simplifier (after)
-  // CHECK-DAG:     [[And:i\d+]]     And
-  // CHECK-DAG:                      BooleanNot [ [[And]] ]
+  /// CHECK-START: boolean Main.TestAndAsBoolean(boolean, boolean) select_generator (after)
+  /// CHECK-DAG:     <<And:i\d+>>     And
+  /// CHECK-DAG:                      Select [{{i\d+}},{{i\d+}},<<And>>]
 
   public static boolean InlineAnd(boolean x, boolean y) {
     return x & y;
@@ -64,9 +64,9 @@ public class Main {
    * we implement a suitable type analysis.
    */
 
-  // CHECK-START: boolean Main.TestOrAsBoolean(boolean, boolean) boolean_simplifier (after)
-  // CHECK-DAG:     [[Or:i\d+]]      Or
-  // CHECK-DAG:                      BooleanNot [ [[Or]] ]
+  /// CHECK-START: boolean Main.TestOrAsBoolean(boolean, boolean) select_generator (after)
+  /// CHECK-DAG:     <<Or:i\d+>>      Or
+  /// CHECK-DAG:                      Select [{{i\d+}},{{i\d+}},<<Or>>]
 
   public static boolean InlineOr(boolean x, boolean y) {
     return x | y;
@@ -81,9 +81,9 @@ public class Main {
    * we implement a suitable type analysis.
    */
 
-  // CHECK-START: boolean Main.TestXorAsBoolean(boolean, boolean) boolean_simplifier (after)
-  // CHECK-DAG:     [[Xor:i\d+]]     Xor
-  // CHECK-DAG:                      BooleanNot [ [[Xor]] ]
+  /// CHECK-START: boolean Main.TestXorAsBoolean(boolean, boolean) select_generator (after)
+  /// CHECK-DAG:     <<Xor:i\d+>>     Xor
+  /// CHECK-DAG:                      Select [{{i\d+}},{{i\d+}},<<Xor>>]
 
   public static boolean InlineXor(boolean x, boolean y) {
     return x ^ y;

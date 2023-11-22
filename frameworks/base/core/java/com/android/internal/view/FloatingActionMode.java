@@ -24,6 +24,8 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewConfiguration;
+import android.view.ViewGroup;
+import android.view.ViewParent;
 
 import com.android.internal.R;
 import com.android.internal.util.Preconditions;
@@ -35,7 +37,7 @@ import java.util.Arrays;
 public class FloatingActionMode extends ActionMode {
 
     private static final int MAX_HIDE_DURATION = 3000;
-    private static final int MOVING_HIDE_DELAY = 300;
+    private static final int MOVING_HIDE_DELAY = 50;
 
     private final Context mContext;
     private final ActionMode.Callback2 mCallback;
@@ -165,7 +167,18 @@ public class FloatingActionMode extends ActionMode {
         checkToolbarInitialized();
 
         mContentRectOnScreen.set(mContentRect);
-        mContentRectOnScreen.offset(mViewPositionOnScreen[0], mViewPositionOnScreen[1]);
+
+        // Offset the content rect into screen coordinates, taking into account any transformations
+        // that may be applied to the originating view or its ancestors.
+        final ViewParent parent = mOriginatingView.getParent();
+        if (parent instanceof ViewGroup) {
+            ((ViewGroup) parent).getChildVisibleRect(
+                    mOriginatingView, mContentRectOnScreen,
+                    null /* offset */, true /* forceParentCheck */);
+            mContentRectOnScreen.offset(mRootViewPositionOnScreen[0], mRootViewPositionOnScreen[1]);
+        } else {
+            mContentRectOnScreen.offset(mViewPositionOnScreen[0], mViewPositionOnScreen[1]);
+        }
 
         if (isContentRectWithinBounds()) {
             mFloatingToolbarVisibilityHelper.setOutOfBounds(false);
@@ -181,7 +194,6 @@ public class FloatingActionMode extends ActionMode {
                 // Content rect is moving.
                 mOriginatingView.removeCallbacks(mMovingOff);
                 mFloatingToolbarVisibilityHelper.setMoving(true);
-                mFloatingToolbarVisibilityHelper.updateToolbarVisibility();
                 mOriginatingView.postDelayed(mMovingOff, MOVING_HIDE_DELAY);
 
                 mFloatingToolbar.setContentRect(mContentRectOnScreen);
@@ -189,9 +201,9 @@ public class FloatingActionMode extends ActionMode {
             }
         } else {
             mFloatingToolbarVisibilityHelper.setOutOfBounds(true);
-            mFloatingToolbarVisibilityHelper.updateToolbarVisibility();
             mContentRectOnScreen.setEmpty();
         }
+        mFloatingToolbarVisibilityHelper.updateToolbarVisibility();
 
         mPreviousContentRectOnScreen.set(mContentRectOnScreen);
     }

@@ -17,7 +17,6 @@ LOCAL_PATH := $(call my-dir)
 
 # Too many benign warnings to be fixed later.
 my_ignored_clang_warnings := \
-    -Wno-unused-parameter \
     -Wno-unused-private-field \
     -Wno-gnu-designator
 
@@ -30,6 +29,7 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_OWNER := invensense
 
 LOCAL_CFLAGS := -DLOG_TAG=\"Sensors\" -Werror -Wall
+LOCAL_CFLAGS += -Wno-unused-parameter
 
 # ANDROID version check
 MAJOR_VERSION :=$(shell echo $(PLATFORM_VERSION) | cut -f1 -d.)
@@ -122,6 +122,7 @@ LOCAL_C_INCLUDES += $(LOCAL_PATH)/software/core/driver/include/linux
 
 LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS := -DLOG_TAG=\"Sensors\" -Werror -Wall
+LOCAL_CFLAGS += -Wno-unused-parameter
 
 ifeq ($(VERSION_JB),true)
 LOCAL_CFLAGS += -DANDROID_JELLYBEAN

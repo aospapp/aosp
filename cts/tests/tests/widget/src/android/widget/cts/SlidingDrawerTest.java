@@ -16,7 +16,7 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 
 import org.xmlpull.v1.XmlPullParser;
@@ -51,7 +51,7 @@ public class SlidingDrawerTest
     private Object mLock;
 
     public SlidingDrawerTest() {
-        super("com.android.cts.widget", SlidingDrawerCtsActivity.class);
+        super("android.widget.cts", SlidingDrawerCtsActivity.class);
     }
 
     @Override

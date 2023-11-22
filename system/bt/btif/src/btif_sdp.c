@@ -25,17 +25,19 @@
  *
  ***********************************************************************************/
 
-#include <hardware/bluetooth.h>
-#include <hardware/bt_sdp.h>
+#define LOG_TAG "bt_btif_sdp"
+
 #include <stdlib.h>
 #include <string.h>
 
-#define LOG_TAG "BTIF_SDP"
-#include "btif_common.h"
-#include "btif_util.h"
-#include "btif_profile_queue.h"
+#include <hardware/bluetooth.h>
+#include <hardware/bt_sdp.h>
+
 #include "bta_api.h"
 #include "bta_sdp_api.h"
+#include "btif_common.h"
+#include "btif_profile_queue.h"
+#include "btif_util.h"
 
 /*****************************************************************************
 **  Functions implemented in sdp_server.c
@@ -51,7 +53,6 @@ void on_remove_record_event(int handle);
 int get_sdp_records_size(bluetooth_sdp_record* in_record, int count);
 void copy_sdp_records(bluetooth_sdp_record* in_records,
         bluetooth_sdp_record* out_records, int count);
-
 
 /*****************************************************************************
 **  Static variables
@@ -86,7 +87,7 @@ static void sdp_search_comp_copy_cb(UINT16 event, char *p_dest, char *p_src)
     if (event != BTA_SDP_SEARCH_COMP_EVT)
         return;
 
-    memcpy(p_dest_data, p_src_data, sizeof(tBTA_SDP_SEARCH_COMP));
+    maybe_non_aligned_memcpy(p_dest_data, p_src_data, sizeof(*p_src_data));
 
     copy_sdp_records(p_src_data->records, p_dest_data->records, p_src_data->record_count);
 }
@@ -108,12 +109,12 @@ static void sdp_dm_cback(tBTA_SDP_EVT event, tBTA_SDP *p_data, void *user_data)
         }
         case BTA_SDP_CREATE_RECORD_USER_EVT:
         {
-            on_create_record_event((int)user_data);
+            on_create_record_event(PTR_TO_INT(user_data));
             break;
         }
         case BTA_SDP_REMOVE_RECORD_USER_EVT:
         {
-            on_remove_record_event((int)user_data);
+            on_remove_record_event(PTR_TO_INT(user_data));
             break;
         }
         default:
@@ -144,10 +145,8 @@ static bt_status_t deinit()
     return BT_STATUS_SUCCESS;
 }
 
-
 static bt_status_t search(bt_bdaddr_t *bd_addr, const uint8_t *uuid)
 {
-    bdstr_t bdstr;
     tSDP_UUID sdp_uuid;
     sdp_uuid.len = 16;
     memcpy(sdp_uuid.uu.uuid128, uuid, sizeof(sdp_uuid.uu.uuid128));

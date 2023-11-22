@@ -37,6 +37,9 @@
 #include "device/include/controller.h"
 #include "btm_int.h"
 
+
+extern fixed_queue_t *btu_general_alarm_queue;
+
 #define SMP_PAIRING_REQ_SIZE    7
 #define SMP_CONFIRM_CMD_SIZE    (BT_OCTET16_LEN + 1)
 #define SMP_RAND_CMD_SIZE       (BT_OCTET16_LEN + 1)
@@ -324,10 +327,9 @@ BOOLEAN smp_send_cmd(UINT8 cmd_code, tSMP_CB *p_cb)
             smp_send_msg_to_L2CAP(p_cb->pairing_bda, p_buf))
         {
             sent = TRUE;
-
-            btu_stop_timer (&p_cb->rsp_timer_ent);
-            btu_start_timer (&p_cb->rsp_timer_ent, BTU_TTYPE_SMP_PAIRING_CMD,
-                             SMP_WAIT_FOR_RSP_TOUT);
+            alarm_set_on_queue(p_cb->smp_rsp_timer_ent,
+                               SMP_WAIT_FOR_RSP_TIMEOUT_MS, smp_rsp_timeout,
+                               NULL, btu_general_alarm_queue);
         }
     }
 
@@ -354,11 +356,10 @@ BOOLEAN smp_send_cmd(UINT8 cmd_code, tSMP_CB *p_cb)
 ** Returns          void
 **
 *******************************************************************************/
-void smp_rsp_timeout(TIMER_LIST_ENT *p_tle)
+void smp_rsp_timeout(UNUSED_ATTR void *data)
 {
     tSMP_CB   *p_cb = &smp_cb;
     UINT8 failure = SMP_RSP_TIMEOUT;
-    UNUSED(p_tle);
 
     SMP_TRACE_EVENT("%s state:%d br_state:%d", __FUNCTION__, p_cb->state, p_cb->br_state);
 
@@ -381,26 +382,24 @@ void smp_rsp_timeout(TIMER_LIST_ENT *p_tle)
 *******************************************************************************/
 BT_HDR * smp_build_pairing_cmd(UINT8 cmd_code, tSMP_CB *p_cb)
 {
-    BT_HDR      *p_buf = NULL ;
-    UINT8       *p;
+    UINT8 *p;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR) +
+                        SMP_PAIRING_REQ_SIZE + L2CAP_MIN_OFFSET);
 
-    SMP_TRACE_EVENT("smp_build_pairing_cmd");
-    if ((p_buf = (BT_HDR *)GKI_getbuf(sizeof(BT_HDR) + SMP_PAIRING_REQ_SIZE + L2CAP_MIN_OFFSET)) != NULL)
-    {
-        p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    SMP_TRACE_EVENT("%s", __func__);
 
-        UINT8_TO_STREAM (p, cmd_code);
-        UINT8_TO_STREAM (p, p_cb->local_io_capability);
-        UINT8_TO_STREAM (p, p_cb->loc_oob_flag);
-        UINT8_TO_STREAM (p, p_cb->loc_auth_req);
-        UINT8_TO_STREAM (p, p_cb->loc_enc_size);
-        UINT8_TO_STREAM (p, p_cb->local_i_key);
-        UINT8_TO_STREAM (p, p_cb->local_r_key);
+    p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    UINT8_TO_STREAM(p, cmd_code);
+    UINT8_TO_STREAM(p, p_cb->local_io_capability);
+    UINT8_TO_STREAM(p, p_cb->loc_oob_flag);
+    UINT8_TO_STREAM(p, p_cb->loc_auth_req);
+    UINT8_TO_STREAM(p, p_cb->loc_enc_size);
+    UINT8_TO_STREAM(p, p_cb->local_i_key);
+    UINT8_TO_STREAM(p, p_cb->local_r_key);
 
-        p_buf->offset = L2CAP_MIN_OFFSET;
-        /* 1B ERR_RSP op code + 1B cmd_op_code + 2B handle + 1B status */
-        p_buf->len = SMP_PAIRING_REQ_SIZE;
-    }
+    p_buf->offset = L2CAP_MIN_OFFSET;
+    /* 1B ERR_RSP op code + 1B cmd_op_code + 2B handle + 1B status */
+    p_buf->len = SMP_PAIRING_REQ_SIZE;
 
     return p_buf;
 }
@@ -414,24 +413,24 @@ BT_HDR * smp_build_pairing_cmd(UINT8 cmd_code, tSMP_CB *p_cb)
 *******************************************************************************/
 static BT_HDR * smp_build_confirm_cmd(UINT8 cmd_code, tSMP_CB *p_cb)
 {
-    BT_HDR      *p_buf = NULL ;
-    UINT8       *p;
+    UINT8 *p;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR) +
+                        SMP_CONFIRM_CMD_SIZE + L2CAP_MIN_OFFSET);
+
     UNUSED(cmd_code);
+    SMP_TRACE_EVENT("%s", __func__);
 
-    SMP_TRACE_EVENT("smp_build_confirm_cmd");
-    if ((p_buf = (BT_HDR *)GKI_getbuf(sizeof(BT_HDR) + SMP_CONFIRM_CMD_SIZE + L2CAP_MIN_OFFSET)) != NULL)
-    {
-        p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
 
-        UINT8_TO_STREAM (p, SMP_OPCODE_CONFIRM);
-        ARRAY_TO_STREAM (p, p_cb->confirm, BT_OCTET16_LEN);
+    UINT8_TO_STREAM(p, SMP_OPCODE_CONFIRM);
+    ARRAY_TO_STREAM(p, p_cb->confirm, BT_OCTET16_LEN);
 
-        p_buf->offset = L2CAP_MIN_OFFSET;
-        p_buf->len = SMP_CONFIRM_CMD_SIZE;
-    }
+    p_buf->offset = L2CAP_MIN_OFFSET;
+    p_buf->len = SMP_CONFIRM_CMD_SIZE;
 
     return p_buf;
 }
+
 /*******************************************************************************
 **
 ** Function         smp_build_rand_cmd
@@ -441,25 +440,23 @@ static BT_HDR * smp_build_confirm_cmd(UINT8 cmd_code, tSMP_CB *p_cb)
 *******************************************************************************/
 static BT_HDR * smp_build_rand_cmd(UINT8 cmd_code, tSMP_CB *p_cb)
 {
-    BT_HDR      *p_buf = NULL ;
-    UINT8       *p;
+    UINT8 *p;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR) +
+                        SMP_RAND_CMD_SIZE + L2CAP_MIN_OFFSET);
+
     UNUSED(cmd_code);
-
     SMP_TRACE_EVENT("%s", __func__);
-    if ((p_buf = (BT_HDR *)GKI_getbuf(sizeof(BT_HDR) + SMP_RAND_CMD_SIZE + L2CAP_MIN_OFFSET))
-         != NULL)
-    {
-        p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
 
-        UINT8_TO_STREAM (p, SMP_OPCODE_RAND);
-        ARRAY_TO_STREAM (p, p_cb->rand, BT_OCTET16_LEN);
+    p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    UINT8_TO_STREAM(p, SMP_OPCODE_RAND);
+    ARRAY_TO_STREAM(p, p_cb->rand, BT_OCTET16_LEN);
 
-        p_buf->offset = L2CAP_MIN_OFFSET;
-        p_buf->len = SMP_RAND_CMD_SIZE;
-    }
+    p_buf->offset = L2CAP_MIN_OFFSET;
+    p_buf->len = SMP_RAND_CMD_SIZE;
 
     return p_buf;
 }
+
 /*******************************************************************************
 **
 ** Function         smp_build_encrypt_info_cmd
@@ -469,21 +466,19 @@ static BT_HDR * smp_build_rand_cmd(UINT8 cmd_code, tSMP_CB *p_cb)
 *******************************************************************************/
 static BT_HDR * smp_build_encrypt_info_cmd(UINT8 cmd_code, tSMP_CB *p_cb)
 {
-    BT_HDR      *p_buf = NULL ;
-    UINT8       *p;
+    UINT8 *p;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR) +
+                        SMP_ENC_INFO_SIZE + L2CAP_MIN_OFFSET);
+
     UNUSED(cmd_code);
+    SMP_TRACE_EVENT("%s", __func__);
 
-    SMP_TRACE_EVENT("smp_build_encrypt_info_cmd");
-    if ((p_buf = (BT_HDR *)GKI_getbuf(sizeof(BT_HDR) + SMP_ENC_INFO_SIZE + L2CAP_MIN_OFFSET)) != NULL)
-    {
-        p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    UINT8_TO_STREAM(p, SMP_OPCODE_ENCRYPT_INFO);
+    ARRAY_TO_STREAM(p, p_cb->ltk, BT_OCTET16_LEN);
 
-        UINT8_TO_STREAM (p, SMP_OPCODE_ENCRYPT_INFO);
-        ARRAY_TO_STREAM (p, p_cb->ltk, BT_OCTET16_LEN);
-
-        p_buf->offset = L2CAP_MIN_OFFSET;
-        p_buf->len = SMP_ENC_INFO_SIZE;
-    }
+    p_buf->offset = L2CAP_MIN_OFFSET;
+    p_buf->len = SMP_ENC_INFO_SIZE;
 
     return p_buf;
 }
@@ -497,23 +492,20 @@ static BT_HDR * smp_build_encrypt_info_cmd(UINT8 cmd_code, tSMP_CB *p_cb)
 *******************************************************************************/
 static BT_HDR * smp_build_master_id_cmd(UINT8 cmd_code, tSMP_CB *p_cb)
 {
-    BT_HDR      *p_buf = NULL ;
-    UINT8       *p;
-    UNUSED(cmd_code);
+    UINT8 *p;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR) +
+                        SMP_MASTER_ID_SIZE + L2CAP_MIN_OFFSET);
 
+    UNUSED(cmd_code);
     SMP_TRACE_EVENT("%s", __func__);
 
-    if ((p_buf = (BT_HDR *)GKI_getbuf(sizeof(BT_HDR) + SMP_MASTER_ID_SIZE + L2CAP_MIN_OFFSET)) != NULL)
-    {
-        p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    UINT8_TO_STREAM(p, SMP_OPCODE_MASTER_ID);
+    UINT16_TO_STREAM(p, p_cb->ediv);
+    ARRAY_TO_STREAM(p, p_cb->enc_rand, BT_OCTET8_LEN);
 
-        UINT8_TO_STREAM (p, SMP_OPCODE_MASTER_ID);
-        UINT16_TO_STREAM (p, p_cb->ediv);
-        ARRAY_TO_STREAM (p, p_cb->enc_rand, BT_OCTET8_LEN);
-
-        p_buf->offset = L2CAP_MIN_OFFSET;
-        p_buf->len = SMP_MASTER_ID_SIZE;
-    }
+    p_buf->offset = L2CAP_MIN_OFFSET;
+    p_buf->len = SMP_MASTER_ID_SIZE;
 
     return p_buf;
 }
@@ -527,25 +519,24 @@ static BT_HDR * smp_build_master_id_cmd(UINT8 cmd_code, tSMP_CB *p_cb)
 *******************************************************************************/
 static BT_HDR * smp_build_identity_info_cmd(UINT8 cmd_code, tSMP_CB *p_cb)
 {
-    BT_HDR      *p_buf = NULL ;
-    UINT8       *p;
-    BT_OCTET16  irk;
+    UINT8 *p;
+    BT_OCTET16 irk;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR) +
+                        SMP_ID_INFO_SIZE + L2CAP_MIN_OFFSET);
+
     UNUSED(cmd_code);
     UNUSED(p_cb);
+    SMP_TRACE_EVENT("%s", __func__);
 
-    SMP_TRACE_EVENT("smp_build_identity_info_cmd");
-    if ((p_buf = (BT_HDR *)GKI_getbuf(sizeof(BT_HDR) + SMP_ID_INFO_SIZE + L2CAP_MIN_OFFSET)) != NULL)
-    {
-        p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
 
-        BTM_GetDeviceIDRoot(irk);
+    BTM_GetDeviceIDRoot(irk);
 
-        UINT8_TO_STREAM (p, SMP_OPCODE_IDENTITY_INFO);
-        ARRAY_TO_STREAM (p,  irk, BT_OCTET16_LEN);
+    UINT8_TO_STREAM(p, SMP_OPCODE_IDENTITY_INFO);
+    ARRAY_TO_STREAM(p,  irk, BT_OCTET16_LEN);
 
-        p_buf->offset = L2CAP_MIN_OFFSET;
-        p_buf->len = SMP_ID_INFO_SIZE;
-    }
+    p_buf->offset = L2CAP_MIN_OFFSET;
+    p_buf->len = SMP_ID_INFO_SIZE;
 
     return p_buf;
 }
@@ -559,23 +550,21 @@ static BT_HDR * smp_build_identity_info_cmd(UINT8 cmd_code, tSMP_CB *p_cb)
 *******************************************************************************/
 static BT_HDR * smp_build_id_addr_cmd(UINT8 cmd_code, tSMP_CB *p_cb)
 {
-    BT_HDR *p_buf = NULL;
     UINT8 *p;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR) +
+                        SMP_ID_ADDR_SIZE + L2CAP_MIN_OFFSET);
 
     UNUSED(cmd_code);
     UNUSED(p_cb);
-    SMP_TRACE_EVENT("smp_build_id_addr_cmd");
-    if ((p_buf = (BT_HDR *)GKI_getbuf(sizeof(BT_HDR) + SMP_ID_ADDR_SIZE + L2CAP_MIN_OFFSET)) != NULL)
-    {
-        p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    SMP_TRACE_EVENT("%s", __func__);
 
-        UINT8_TO_STREAM (p, SMP_OPCODE_ID_ADDR);
-        UINT8_TO_STREAM (p, 0);
-        BDADDR_TO_STREAM (p, controller_get_interface()->get_address()->address);
+    p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    UINT8_TO_STREAM(p, SMP_OPCODE_ID_ADDR);
+    UINT8_TO_STREAM(p, 0);
+    BDADDR_TO_STREAM(p, controller_get_interface()->get_address()->address);
 
-        p_buf->offset = L2CAP_MIN_OFFSET;
-        p_buf->len = SMP_ID_ADDR_SIZE;
-    }
+    p_buf->offset = L2CAP_MIN_OFFSET;
+    p_buf->len = SMP_ID_ADDR_SIZE;
 
     return p_buf;
 }
@@ -589,21 +578,19 @@ static BT_HDR * smp_build_id_addr_cmd(UINT8 cmd_code, tSMP_CB *p_cb)
 *******************************************************************************/
 static BT_HDR * smp_build_signing_info_cmd(UINT8 cmd_code, tSMP_CB *p_cb)
 {
-    BT_HDR      *p_buf = NULL ;
-    UINT8       *p;
+    UINT8 *p;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR) +
+                        SMP_SIGN_INFO_SIZE + L2CAP_MIN_OFFSET);
+
     UNUSED(cmd_code);
+    SMP_TRACE_EVENT("%s", __func__);
 
-    SMP_TRACE_EVENT("smp_build_signing_info_cmd");
-    if ((p_buf = (BT_HDR *)GKI_getbuf(sizeof(BT_HDR) + SMP_SIGN_INFO_SIZE + L2CAP_MIN_OFFSET)) != NULL)
-    {
-        p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    UINT8_TO_STREAM(p, SMP_OPCODE_SIGN_INFO);
+    ARRAY_TO_STREAM(p, p_cb->csrk, BT_OCTET16_LEN);
 
-        UINT8_TO_STREAM (p, SMP_OPCODE_SIGN_INFO);
-        ARRAY_TO_STREAM (p, p_cb->csrk, BT_OCTET16_LEN);
-
-        p_buf->offset = L2CAP_MIN_OFFSET;
-        p_buf->len = SMP_SIGN_INFO_SIZE;
-    }
+    p_buf->offset = L2CAP_MIN_OFFSET;
+    p_buf->len = SMP_SIGN_INFO_SIZE;
 
     return p_buf;
 }
@@ -617,21 +604,19 @@ static BT_HDR * smp_build_signing_info_cmd(UINT8 cmd_code, tSMP_CB *p_cb)
 *******************************************************************************/
 static BT_HDR * smp_build_pairing_fail(UINT8 cmd_code, tSMP_CB *p_cb)
 {
-    BT_HDR      *p_buf = NULL ;
-    UINT8       *p;
+    UINT8 *p;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR) +
+                        SMP_PAIR_FAIL_SIZE + L2CAP_MIN_OFFSET);
+
     UNUSED(cmd_code);
-
     SMP_TRACE_EVENT("%s", __func__);
-    if ((p_buf = (BT_HDR *)GKI_getbuf(sizeof(BT_HDR) + SMP_PAIR_FAIL_SIZE + L2CAP_MIN_OFFSET)) != NULL)
-    {
-        p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
 
-        UINT8_TO_STREAM (p, SMP_OPCODE_PAIRING_FAILED);
-        UINT8_TO_STREAM (p, p_cb->failure);
+    p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    UINT8_TO_STREAM(p, SMP_OPCODE_PAIRING_FAILED);
+    UINT8_TO_STREAM(p, p_cb->failure);
 
-        p_buf->offset = L2CAP_MIN_OFFSET;
-        p_buf->len = SMP_PAIR_FAIL_SIZE;
-    }
+    p_buf->offset = L2CAP_MIN_OFFSET;
+    p_buf->len = SMP_PAIR_FAIL_SIZE;
 
     return p_buf;
 }
@@ -645,26 +630,23 @@ static BT_HDR * smp_build_pairing_fail(UINT8 cmd_code, tSMP_CB *p_cb)
 *******************************************************************************/
 static BT_HDR *smp_build_security_request(UINT8 cmd_code, tSMP_CB *p_cb)
 {
-    BT_HDR      *p_buf = NULL ;
-    UINT8       *p;
+    UINT8 *p;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR) +
+                        2 + L2CAP_MIN_OFFSET);
+
     UNUSED(cmd_code);
-
     SMP_TRACE_EVENT("%s", __func__);
-    if ((p_buf = (BT_HDR *)GKI_getbuf(sizeof(BT_HDR) + 2 + L2CAP_MIN_OFFSET)) != NULL)
-    {
-        p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
 
-        UINT8_TO_STREAM (p, SMP_OPCODE_SEC_REQ);
-        UINT8_TO_STREAM (p,  p_cb->loc_auth_req);
+    p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    UINT8_TO_STREAM(p, SMP_OPCODE_SEC_REQ);
+    UINT8_TO_STREAM(p, p_cb->loc_auth_req);
 
-        p_buf->offset = L2CAP_MIN_OFFSET;
-        p_buf->len = SMP_SECURITY_REQUEST_SIZE;
+    p_buf->offset = L2CAP_MIN_OFFSET;
+    p_buf->len = SMP_SECURITY_REQUEST_SIZE;
 
-        SMP_TRACE_EVENT("opcode=%d auth_req=0x%x",SMP_OPCODE_SEC_REQ,  p_cb->loc_auth_req );
-    }
+    SMP_TRACE_EVENT("opcode=%d auth_req=0x%x",SMP_OPCODE_SEC_REQ,  p_cb->loc_auth_req );
 
     return p_buf;
-
 }
 
 /*******************************************************************************
@@ -676,28 +658,24 @@ static BT_HDR *smp_build_security_request(UINT8 cmd_code, tSMP_CB *p_cb)
 *******************************************************************************/
 static BT_HDR *smp_build_pair_public_key_cmd(UINT8 cmd_code, tSMP_CB *p_cb)
 {
-    BT_HDR  *p_buf = NULL ;
     UINT8   *p;
     UINT8   publ_key[2*BT_OCTET32_LEN];
     UINT8   *p_publ_key = publ_key;
-    UNUSED(cmd_code);
+    BT_HDR  *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR) +
+                        SMP_PAIR_PUBL_KEY_SIZE + L2CAP_MIN_OFFSET);
 
-    SMP_TRACE_EVENT("%s", __FUNCTION__);
+    UNUSED(cmd_code);
+    SMP_TRACE_EVENT("%s", __func__);
 
     memcpy(p_publ_key, p_cb->loc_publ_key.x, BT_OCTET32_LEN);
     memcpy(p_publ_key + BT_OCTET32_LEN, p_cb->loc_publ_key.y, BT_OCTET32_LEN);
 
-    if ((p_buf = (BT_HDR *)GKI_getbuf(sizeof(BT_HDR) +
-        SMP_PAIR_PUBL_KEY_SIZE + L2CAP_MIN_OFFSET)) != NULL)
-    {
-        p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    UINT8_TO_STREAM(p, SMP_OPCODE_PAIR_PUBLIC_KEY);
+    ARRAY_TO_STREAM(p, p_publ_key, 2*BT_OCTET32_LEN);
 
-        UINT8_TO_STREAM (p, SMP_OPCODE_PAIR_PUBLIC_KEY);
-        ARRAY_TO_STREAM (p, p_publ_key, 2*BT_OCTET32_LEN);
-
-        p_buf->offset = L2CAP_MIN_OFFSET;
-        p_buf->len = SMP_PAIR_PUBL_KEY_SIZE;
-    }
+    p_buf->offset = L2CAP_MIN_OFFSET;
+    p_buf->len = SMP_PAIR_PUBL_KEY_SIZE;
 
     return p_buf;
 }
@@ -711,22 +689,19 @@ static BT_HDR *smp_build_pair_public_key_cmd(UINT8 cmd_code, tSMP_CB *p_cb)
 *******************************************************************************/
 static BT_HDR *smp_build_pairing_commitment_cmd(UINT8 cmd_code, tSMP_CB *p_cb)
 {
-    BT_HDR *p_buf = NULL;
     UINT8 *p;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR) +
+                        SMP_PAIR_COMMITM_SIZE + L2CAP_MIN_OFFSET);
+
     UNUSED(cmd_code);
-
     SMP_TRACE_EVENT("%s", __func__);
-    if ((p_buf = (BT_HDR *)GKI_getbuf(sizeof(BT_HDR) + SMP_PAIR_COMMITM_SIZE + L2CAP_MIN_OFFSET))
-        != NULL)
-    {
-        p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
 
-        UINT8_TO_STREAM (p, SMP_OPCODE_CONFIRM);
-        ARRAY_TO_STREAM (p, p_cb->commitment, BT_OCTET16_LEN);
+    p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    UINT8_TO_STREAM(p, SMP_OPCODE_CONFIRM);
+    ARRAY_TO_STREAM(p, p_cb->commitment, BT_OCTET16_LEN);
 
-        p_buf->offset = L2CAP_MIN_OFFSET;
-        p_buf->len = SMP_PAIR_COMMITM_SIZE;
-    }
+    p_buf->offset = L2CAP_MIN_OFFSET;
+    p_buf->len = SMP_PAIR_COMMITM_SIZE;
 
     return p_buf;
 }
@@ -740,22 +715,19 @@ static BT_HDR *smp_build_pairing_commitment_cmd(UINT8 cmd_code, tSMP_CB *p_cb)
 *******************************************************************************/
 static BT_HDR *smp_build_pair_dhkey_check_cmd(UINT8 cmd_code, tSMP_CB *p_cb)
 {
-    BT_HDR *p_buf = NULL;
     UINT8 *p;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR) +
+                        SMP_PAIR_DHKEY_CHECK_SIZE + L2CAP_MIN_OFFSET);
+
     UNUSED(cmd_code);
+    SMP_TRACE_EVENT("%s", __func__);
 
-    SMP_TRACE_EVENT("%s", __FUNCTION__);
-    if ((p_buf = (BT_HDR *)GKI_getbuf(sizeof(BT_HDR) +
-        SMP_PAIR_DHKEY_CHECK_SIZE + L2CAP_MIN_OFFSET)) != NULL)
-    {
-        p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    UINT8_TO_STREAM(p, SMP_OPCODE_PAIR_DHKEY_CHECK);
+    ARRAY_TO_STREAM(p, p_cb->dhkey_check, BT_OCTET16_LEN);
 
-        UINT8_TO_STREAM (p, SMP_OPCODE_PAIR_DHKEY_CHECK);
-        ARRAY_TO_STREAM (p, p_cb->dhkey_check, BT_OCTET16_LEN);
-
-        p_buf->offset = L2CAP_MIN_OFFSET;
-        p_buf->len = SMP_PAIR_DHKEY_CHECK_SIZE;
-    }
+    p_buf->offset = L2CAP_MIN_OFFSET;
+    p_buf->len = SMP_PAIR_DHKEY_CHECK_SIZE;
 
     return p_buf;
 }
@@ -769,22 +741,19 @@ static BT_HDR *smp_build_pair_dhkey_check_cmd(UINT8 cmd_code, tSMP_CB *p_cb)
 *******************************************************************************/
 static BT_HDR * smp_build_pairing_keypress_notification_cmd(UINT8 cmd_code, tSMP_CB *p_cb)
 {
-    BT_HDR      *p_buf = NULL ;
     UINT8       *p;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR) +
+                        SMP_PAIR_KEYPR_NOTIF_SIZE + L2CAP_MIN_OFFSET);
+
     UNUSED(cmd_code);
+    SMP_TRACE_EVENT("%s", __func__);
 
-    SMP_TRACE_EVENT("%s", __FUNCTION__);
-    if ((p_buf = (BT_HDR *)GKI_getbuf(sizeof(BT_HDR)\
-        + SMP_PAIR_KEYPR_NOTIF_SIZE + L2CAP_MIN_OFFSET)) != NULL)
-    {
-        p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    UINT8_TO_STREAM(p, SMP_OPCODE_PAIR_KEYPR_NOTIF);
+    UINT8_TO_STREAM(p, p_cb->local_keypress_notification);
 
-        UINT8_TO_STREAM (p, SMP_OPCODE_PAIR_KEYPR_NOTIF);
-        UINT8_TO_STREAM (p, p_cb->local_keypress_notification);
-
-        p_buf->offset = L2CAP_MIN_OFFSET;
-        p_buf->len = SMP_PAIR_KEYPR_NOTIF_SIZE;
-    }
+    p_buf->offset = L2CAP_MIN_OFFSET;
+    p_buf->len = SMP_PAIR_KEYPR_NOTIF_SIZE;
 
     return p_buf;
 }
@@ -872,9 +841,11 @@ void smp_cb_cleanup(tSMP_CB   *p_cb)
 
     SMP_TRACE_EVENT("smp_cb_cleanup");
 
+    alarm_free(p_cb->smp_rsp_timer_ent);
     memset(p_cb, 0, sizeof(tSMP_CB));
     p_cb->p_callback = p_callback;
     p_cb->trace_level = trace_level;
+    p_cb->smp_rsp_timer_ent = alarm_new("smp.smp_rsp_timer_ent");
 }
 
 /*******************************************************************************
@@ -909,8 +880,9 @@ void smp_remove_fixed_channel(tSMP_CB *p_cb)
 *******************************************************************************/
 void smp_reset_control_value(tSMP_CB *p_cb)
 {
-    SMP_TRACE_EVENT("smp_reset_control_value");
-    btu_stop_timer (&p_cb->rsp_timer_ent);
+    SMP_TRACE_EVENT("%s", __func__);
+
+    alarm_cancel(p_cb->smp_rsp_timer_ent);
     p_cb->flags = 0;
     /* set the link idle timer to drop the link when pairing is done
        usually service discovery will follow authentication complete, to avoid
@@ -1118,7 +1090,7 @@ BOOLEAN smp_pairing_keypress_notification_is_valid(tSMP_CB *p_cb)
 ** Description      Always returns TRUE.
 **
 *******************************************************************************/
-BOOLEAN smp_parameter_unconditionally_valid(tSMP_CB *p_cb)
+BOOLEAN smp_parameter_unconditionally_valid(UNUSED_ATTR tSMP_CB *p_cb)
 {
     return TRUE;
 }
@@ -1130,7 +1102,7 @@ BOOLEAN smp_parameter_unconditionally_valid(tSMP_CB *p_cb)
 ** Description      Always returns FALSE.
 **
 *******************************************************************************/
-BOOLEAN smp_parameter_unconditionally_invalid(tSMP_CB *p_cb)
+BOOLEAN smp_parameter_unconditionally_invalid(UNUSED_ATTR tSMP_CB *p_cb)
 {
     return FALSE;
 }
@@ -1147,24 +1119,20 @@ BOOLEAN smp_parameter_unconditionally_invalid(tSMP_CB *p_cb)
 *******************************************************************************/
 void smp_reject_unexpected_pairing_command(BD_ADDR bd_addr)
 {
-    BT_HDR *p_buf;
-    UINT8   *p;
+    UINT8 *p;
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(sizeof(BT_HDR) +
+                        SMP_PAIR_FAIL_SIZE + L2CAP_MIN_OFFSET);
 
-    SMP_TRACE_DEBUG ("%s", __FUNCTION__);
+    SMP_TRACE_DEBUG("%s", __func__);
 
-    if ((p_buf = (BT_HDR *)GKI_getbuf(sizeof(BT_HDR) +\
-        SMP_PAIR_FAIL_SIZE + L2CAP_MIN_OFFSET)) != NULL)
-    {
-        p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    p = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
+    UINT8_TO_STREAM(p, SMP_OPCODE_PAIRING_FAILED);
+    UINT8_TO_STREAM(p, SMP_PAIR_NOT_SUPPORT);
 
-        UINT8_TO_STREAM (p, SMP_OPCODE_PAIRING_FAILED);
-        UINT8_TO_STREAM (p, SMP_PAIR_NOT_SUPPORT);
+    p_buf->offset = L2CAP_MIN_OFFSET;
+    p_buf->len = SMP_PAIR_FAIL_SIZE;
 
-        p_buf->offset = L2CAP_MIN_OFFSET;
-        p_buf->len = SMP_PAIR_FAIL_SIZE;
-
-        smp_send_msg_to_L2CAP(bd_addr, p_buf);
-    }
+    smp_send_msg_to_L2CAP(bd_addr, p_buf);
 }
 
 /*******************************************************************************

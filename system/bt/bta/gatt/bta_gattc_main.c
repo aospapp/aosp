@@ -29,7 +29,7 @@
 #include <string.h>
 
 #include "bta_gattc_int.h"
-#include "gki.h"
+#include "bt_common.h"
 
 
 /*****************************************************************************
@@ -62,10 +62,6 @@ enum
     BTA_GATTC_CONFIRM,
     BTA_GATTC_EXEC,
     BTA_GATTC_READ_MULTI,
-    BTA_GATTC_CI_OPEN,
-    BTA_GATTC_CI_LOAD,
-    BTA_GATTC_CI_SAVE,
-    BTA_GATTC_CACHE_OPEN,
     BTA_GATTC_IGNORE_OP_CMPL,
     BTA_GATTC_DISC_CLOSE,
     BTA_GATTC_RESTART_DISCOVER,
@@ -101,10 +97,6 @@ const tBTA_GATTC_ACTION bta_gattc_action[] =
     bta_gattc_confirm,
     bta_gattc_execute,
     bta_gattc_read_multi,
-    bta_gattc_ci_open,
-    bta_gattc_ci_load,
-    bta_gattc_ci_save,
-    bta_gattc_cache_open,
     bta_gattc_ignore_op_cmpl,
     bta_gattc_disc_close,
     bta_gattc_restart_discover,
@@ -144,12 +136,6 @@ static const UINT8 bta_gattc_st_idle[][BTA_GATTC_NUM_COLS] =
 /* BTA_GATTC_OP_CMPL_EVT            */   {BTA_GATTC_IGNORE,            BTA_GATTC_IDLE_ST},
 /* BTA_GATTC_INT_DISCONN_EVT       */    {BTA_GATTC_IGNORE,            BTA_GATTC_IDLE_ST},
 
-
-/* ===> for cache loading, saving   */
-/* BTA_GATTC_START_CACHE_EVT        */   {BTA_GATTC_IGNORE,            BTA_GATTC_IDLE_ST},
-/* BTA_GATTC_CI_CACHE_OPEN_EVT      */   {BTA_GATTC_IGNORE,            BTA_GATTC_IDLE_ST},
-/* BTA_GATTC_CI_CACHE_LOAD_EVT      */   {BTA_GATTC_IGNORE,            BTA_GATTC_IDLE_ST},
-/* BTA_GATTC_CI_CACHE_SAVE_EVT      */   {BTA_GATTC_IGNORE,            BTA_GATTC_IDLE_ST}
 };
 
 /* state table for wait for open state */
@@ -179,11 +165,6 @@ static const UINT8 bta_gattc_st_w4_conn[][BTA_GATTC_NUM_COLS] =
 /* BTA_GATTC_OP_CMPL_EVT            */   {BTA_GATTC_IGNORE,             BTA_GATTC_W4_CONN_ST},
 /* BTA_GATTC_INT_DISCONN_EVT      */     {BTA_GATTC_OPEN_FAIL,          BTA_GATTC_IDLE_ST},
 
-/* ===> for cache loading, saving   */
-/* BTA_GATTC_START_CACHE_EVT        */   {BTA_GATTC_IGNORE,             BTA_GATTC_W4_CONN_ST},
-/* BTA_GATTC_CI_CACHE_OPEN_EVT      */   {BTA_GATTC_IGNORE,             BTA_GATTC_W4_CONN_ST},
-/* BTA_GATTC_CI_CACHE_LOAD_EVT      */   {BTA_GATTC_IGNORE,             BTA_GATTC_W4_CONN_ST},
-/* BTA_GATTC_CI_CACHE_SAVE_EVT      */   {BTA_GATTC_IGNORE,             BTA_GATTC_W4_CONN_ST}
 };
 
 /* state table for open state */
@@ -214,11 +195,6 @@ static const UINT8 bta_gattc_st_connected[][BTA_GATTC_NUM_COLS] =
 
 /* BTA_GATTC_INT_DISCONN_EVT        */   {BTA_GATTC_CLOSE,              BTA_GATTC_IDLE_ST},
 
-/* ===> for cache loading, saving   */
-/* BTA_GATTC_START_CACHE_EVT        */   {BTA_GATTC_CACHE_OPEN,         BTA_GATTC_DISCOVER_ST},
-/* BTA_GATTC_CI_CACHE_OPEN_EVT      */   {BTA_GATTC_IGNORE,             BTA_GATTC_CONN_ST},
-/* BTA_GATTC_CI_CACHE_LOAD_EVT      */   {BTA_GATTC_IGNORE,             BTA_GATTC_CONN_ST},
-/* BTA_GATTC_CI_CACHE_SAVE_EVT      */   {BTA_GATTC_IGNORE,             BTA_GATTC_CONN_ST}
 };
 
 /* state table for discover state */
@@ -248,11 +224,6 @@ static const UINT8 bta_gattc_st_discover[][BTA_GATTC_NUM_COLS] =
 /* BTA_GATTC_OP_CMPL_EVT            */   {BTA_GATTC_IGNORE_OP_CMPL,     BTA_GATTC_DISCOVER_ST},
 /* BTA_GATTC_INT_DISCONN_EVT        */   {BTA_GATTC_CLOSE,              BTA_GATTC_IDLE_ST},
 
-/* ===> for cache loading, saving       */
-/* BTA_GATTC_START_CACHE_EVT        */   {BTA_GATTC_IGNORE,             BTA_GATTC_DISCOVER_ST},
-/* BTA_GATTC_CI_CACHE_OPEN_EVT      */   {BTA_GATTC_CI_OPEN,            BTA_GATTC_DISCOVER_ST},
-/* BTA_GATTC_CI_CACHE_LOAD_EVT      */   {BTA_GATTC_CI_LOAD,            BTA_GATTC_DISCOVER_ST},
-/* BTA_GATTC_CI_CACHE_SAVE_EVT      */   {BTA_GATTC_CI_SAVE,            BTA_GATTC_DISCOVER_ST}
 };
 
 /* type for state table */
@@ -485,14 +456,6 @@ static char *gattc_evt_code(tBTA_GATTC_INT_EVT evt_code)
             return "BTA_GATTC_OP_CMPL_EVT";
         case BTA_GATTC_INT_DISCONN_EVT:
             return "BTA_GATTC_INT_DISCONN_EVT";
-        case BTA_GATTC_START_CACHE_EVT:
-            return "BTA_GATTC_START_CACHE_EVT";
-        case BTA_GATTC_CI_CACHE_OPEN_EVT:
-            return "BTA_GATTC_CI_CACHE_OPEN_EVT";
-        case BTA_GATTC_CI_CACHE_LOAD_EVT:
-            return "BTA_GATTC_CI_CACHE_LOAD_EVT";
-        case BTA_GATTC_CI_CACHE_SAVE_EVT:
-            return "BTA_GATTC_CI_CACHE_SAVE_EVT";
         case BTA_GATTC_INT_START_IF_EVT:
             return "BTA_GATTC_INT_START_IF_EVT";
         case BTA_GATTC_API_REG_EVT:

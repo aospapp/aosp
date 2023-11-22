@@ -70,8 +70,8 @@ public:
 
     typedef std::lock_guard<std::recursive_mutex> auto_lock;
 
-    status_t open(uint32_t numChannels, uint32_t sampleRate, bool useFloat,
-            uint32_t numBuffers) {
+    status_t open(jint numChannels, jint channelMask,
+                  jint sampleRate, jboolean useFloat, jint numBuffers) {
         close();
         auto_lock l(mLock);
         mEngineObj = OpenSLEngine();
@@ -111,7 +111,7 @@ public:
             pcm.bitsPerSample = useFloat ?
                     SL_PCMSAMPLEFORMAT_FIXED_32 : SL_PCMSAMPLEFORMAT_FIXED_16;
             pcm.containerSize = pcm.bitsPerSample;
-            pcm.channelMask = channelCountToMask(numChannels);
+            pcm.channelMask = channelMask;
             pcm.endianness = SL_BYTEORDER_LITTLEENDIAN;
             // additional
             pcm.representation = useFloat ? SL_ANDROID_PCM_REPRESENTATION_FLOAT
@@ -345,7 +345,6 @@ private:
     }
 
     static void BufferQueueCallback(SLBufferQueueItf queueItf, void *pContext) {
-        SLresult res;
         // naked native track
         AudioTrackNative *track = (AudioTrackNative *)pContext;
         track->bufferQueueCallback(queueItf);
@@ -377,7 +376,7 @@ private:
 
 extern "C" jint Java_android_media_cts_AudioTrackNative_nativeTest(
     JNIEnv * /* env */, jclass /* clazz */,
-    jint numChannels, jint sampleRate, jboolean useFloat,
+    jint numChannels, jint channelMask, jint sampleRate, jboolean useFloat,
     jint msecPerBuffer, jint numBuffers)
 {
     AudioTrackNative track;
@@ -387,7 +386,7 @@ extern "C" jint Java_android_media_cts_AudioTrackNative_nativeTest(
     status_t res;
     void *buffer = calloc(framesPerBuffer * numBuffers, frameSize);
     for (;;) {
-        res = track.open(numChannels, sampleRate, useFloat, numBuffers);
+        res = track.open(numChannels, channelMask, sampleRate, useFloat, numBuffers);
         if (res != OK) break;
 
         for (int i = 0; i < numBuffers; ++i) {
@@ -426,14 +425,18 @@ extern "C" void Java_android_media_cts_AudioTrackNative_nativeDestroyTrack(
 
 extern "C" jint Java_android_media_cts_AudioTrackNative_nativeOpen(
     JNIEnv * /* env */, jclass /* clazz */, jlong jtrack,
-    jint numChannels, jint sampleRate, jboolean useFloat, jint numBuffers)
+    jint numChannels, jint channelMask, jint sampleRate,
+    jboolean useFloat, jint numBuffers)
 {
     auto track = *(shared_pointer<AudioTrackNative> *)jtrack;
     if (track.get() == NULL) {
         return (jint)INVALID_OPERATION;
     }
-    return (jint)track->open(numChannels, sampleRate, useFloat == JNI_TRUE,
-            numBuffers);
+    return (jint) track->open(numChannels,
+                              channelMask,
+                              sampleRate,
+                              useFloat == JNI_TRUE,
+                              numBuffers);
 }
 
 extern "C" void Java_android_media_cts_AudioTrackNative_nativeClose(

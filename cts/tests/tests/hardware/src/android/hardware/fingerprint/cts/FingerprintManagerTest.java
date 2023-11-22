@@ -21,6 +21,7 @@ import android.content.pm.PackageManager;
 import android.hardware.fingerprint.FingerprintManager;
 import android.hardware.fingerprint.FingerprintManager.AuthenticationCallback;
 import android.os.CancellationSignal;
+import android.platform.test.annotations.Presubmit;
 import android.test.AndroidTestCase;
 
 /**
@@ -65,6 +66,7 @@ public class FingerprintManagerTest extends AndroidTestCase {
         }
     }
 
+    @Presubmit
     public void test_hasFingerprintHardware() {
         if (!mHasFingerprintManager) {
             return; // skip test if no fingerprint feature

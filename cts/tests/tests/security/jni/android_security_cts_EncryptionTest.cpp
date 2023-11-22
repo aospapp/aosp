@@ -24,6 +24,7 @@
 #include <openssl/evp.h>
 #include <stdint.h>
 #include <string.h>
+#include <sys/vfs.h>
 #include <time.h>
 #include <new>
 
@@ -31,6 +32,21 @@
 #define TEST_BUFSIZE        (1 * 1024 * 1024) /* 1 MiB */
 #define TEST_ITERATIONS     100 /* MiB */
 #define TEST_THRESHOLD      2000 /* ms */
+
+/*
+ * Detect if filesystem is already encrypted looking at the file
+ * system type. It should be possible to check this first but fall
+ * back to checking a property value if this is not possible to
+ * verify.
+ */
+static jboolean checkEncryptedFileSystem() {
+    struct statfs buf;
+    if ((-1 != statfs("/data", &buf)) &&
+        (buf.f_type == 0xf15f /* ecryptfs */)) {
+        return true;
+    }
+    return false;
+}
 
 /*
  * Function: deviceIsEncrypted
@@ -41,6 +57,10 @@
  */
 static jboolean android_security_cts_EncryptionTest_deviceIsEncrypted(JNIEnv *, jobject)
 {
+    if (checkEncryptedFileSystem()) {
+        return true;
+    }
+
     char prop_value[PROP_VALUE_MAX];
     property_get("ro.crypto.state", prop_value, "");
 

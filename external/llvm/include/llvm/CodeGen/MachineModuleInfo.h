@@ -35,7 +35,7 @@
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/Analysis/LibCallSemantics.h"
+#include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/ValueHandle.h"
@@ -51,6 +51,7 @@ namespace llvm {
 // Forward declarations.
 class Constant;
 class GlobalVariable;
+class BlockAddress;
 class MDNode;
 class MMIAddrLabelMap;
 class MachineBasicBlock;
@@ -58,7 +59,14 @@ class MachineFunction;
 class Module;
 class PointerType;
 class StructType;
-struct WinEHFuncInfo;
+
+struct SEHHandler {
+  // Filter or finally function. Null indicates a catch-all.
+  const Function *FilterOrFinally;
+
+  // Address of block to recover at. Null for a finally handler.
+  const BlockAddress *RecoverBA;
+};
 
 //===----------------------------------------------------------------------===//
 /// LandingPadInfo - This structure is used to retain landing pad info for
@@ -68,15 +76,12 @@ struct LandingPadInfo {
   MachineBasicBlock *LandingPadBlock;      // Landing pad block.
   SmallVector<MCSymbol *, 1> BeginLabels;  // Labels prior to invoke.
   SmallVector<MCSymbol *, 1> EndLabels;    // Labels after invoke.
-  SmallVector<MCSymbol *, 1> ClauseLabels; // Labels for each clause.
+  SmallVector<SEHHandler, 1> SEHHandlers;  // SEH handlers active at this lpad.
   MCSymbol *LandingPadLabel;               // Label at beginning of landing pad.
-  const Function *Personality;             // Personality function.
   std::vector<int> TypeIds;               // List of type ids (filters negative).
-  int WinEHState;                         // WinEH specific state number.
 
   explicit LandingPadInfo(MachineBasicBlock *MBB)
-      : LandingPadBlock(MBB), LandingPadLabel(nullptr), Personality(nullptr),
-        WinEHState(-1) {}
+      : LandingPadBlock(MBB), LandingPadLabel(nullptr) {}
 };
 
 //===----------------------------------------------------------------------===//
@@ -148,17 +153,19 @@ class MachineModuleInfo : public ImmutablePass {
   /// emit common EH frames.
   std::vector<const Function *> Personalities;
 
-  /// UsedFunctions - The functions in the @llvm.used list in a more easily
-  /// searchable format.  This does not include the functions in
-  /// llvm.compiler.used.
-  SmallPtrSet<const Function *, 32> UsedFunctions;
-
   /// AddrLabelSymbols - This map keeps track of which symbol is being used for
   /// the specified basic block's address of label.
   MMIAddrLabelMap *AddrLabelSymbols;
 
   bool CallsEHReturn;
   bool CallsUnwindInit;
+  bool HasEHFunclets;
+
+  // TODO: Ideally, what we'd like is to have a switch that allows emitting 
+  // synchronous (precise at call-sites only) CFA into .eh_frame. However,
+  // even under this switch, we'd like .debug_frame to be precise when using.
+  // -g. At this moment, there's no way to specify that some CFI directives
+  // go into .eh_frame only, while others go into .debug_frame only.
 
   /// DbgInfoAvailable - True if debugging information is available
   /// in this module.
@@ -178,19 +185,17 @@ class MachineModuleInfo : public ImmutablePass {
 
   EHPersonality PersonalityTypeCache;
 
-  DenseMap<const Function *, std::unique_ptr<WinEHFuncInfo>> FuncInfoMap;
-
 public:
   static char ID; // Pass identification, replacement for typeid
 
   struct VariableDbgInfo {
-    const MDLocalVariable *Var;
-    const MDExpression *Expr;
+    const DILocalVariable *Var;
+    const DIExpression *Expr;
     unsigned Slot;
-    const MDLocation *Loc;
+    const DILocation *Loc;
 
-    VariableDbgInfo(const MDLocalVariable *Var, const MDExpression *Expr,
-                    unsigned Slot, const MDLocation *Loc)
+    VariableDbgInfo(const DILocalVariable *Var, const DIExpression *Expr,
+                    unsigned Slot, const DILocation *Loc)
         : Var(Var), Expr(Expr), Slot(Slot), Loc(Loc) {}
   };
   typedef SmallVector<VariableDbgInfo, 4> VariableDbgInfoMapTy;
@@ -216,12 +221,6 @@ public:
   void setModule(const Module *M) { TheModule = M; }
   const Module *getModule() const { return TheModule; }
 
-  const Function *getWinEHParent(const Function *F) const;
-  WinEHFuncInfo &getWinEHFuncInfo(const Function *F);
-  bool hasWinEHFuncInfo(const Function *F) const {
-    return FuncInfoMap.count(getWinEHParent(F)) > 0;
-  }
-
   /// getInfo - Keep track of various per-function pieces of information for
   /// backends that would like to do so.
   ///
@@ -237,10 +236,6 @@ public:
     return const_cast<MachineModuleInfo*>(this)->getObjFileInfo<Ty>();
   }
 
-  /// AnalyzeModule - Scan the module for global debug information.
-  ///
-  void AnalyzeModule(const Module &M);
-
   /// hasDebugInfo - Returns true if valid debug info is present.
   ///
   bool hasDebugInfo() const { return DbgInfoAvailable; }
@@ -251,6 +246,9 @@ public:
 
   bool callsUnwindInit() const { return CallsUnwindInit; }
   void setCallsUnwindInit(bool b) { CallsUnwindInit = b; }
+
+  bool hasEHFunclets() const { return HasEHFunclets; }
+  void setHasEHFunclets(bool V) { HasEHFunclets = V; }
 
   bool usesVAFloatArgument() const {
     return UsesVAFloatArgument;
@@ -284,12 +282,14 @@ public:
   /// getAddrLabelSymbol - Return the symbol to be used for the specified basic
   /// block when its address is taken.  This cannot be its normal LBB label
   /// because the block may be accessed outside its containing function.
-  MCSymbol *getAddrLabelSymbol(const BasicBlock *BB);
+  MCSymbol *getAddrLabelSymbol(const BasicBlock *BB) {
+    return getAddrLabelSymbolToEmit(BB).front();
+  }
 
   /// getAddrLabelSymbolToEmit - Return the symbol to be used for the specified
   /// basic block when its address is taken.  If other blocks were RAUW'd to
   /// this one, we may have to emit them as well, return the whole set.
-  std::vector<MCSymbol*> getAddrLabelSymbolToEmit(const BasicBlock *BB);
+  ArrayRef<MCSymbol *> getAddrLabelSymbolToEmit(const BasicBlock *BB);
 
   /// takeDeletedSymbolsForFunction - If the specified function has had any
   /// references to address-taken blocks generated, but the block got deleted,
@@ -316,25 +316,11 @@ public:
 
   /// addPersonality - Provide the personality function for the exception
   /// information.
-  void addPersonality(MachineBasicBlock *LandingPad,
-                      const Function *Personality);
-
-  void addWinEHState(MachineBasicBlock *LandingPad, int State);
-
-  /// getPersonalityIndex - Get index of the current personality function inside
-  /// Personalitites array
-  unsigned getPersonalityIndex() const;
+  void addPersonality(const Function *Personality);
 
   /// getPersonalities - Return array of personality functions ever seen.
   const std::vector<const Function *>& getPersonalities() const {
     return Personalities;
-  }
-
-  /// isUsedFunction - Return true if the functions in the llvm.used list.  This
-  /// does not return true for things in llvm.compiler.used unless they are also
-  /// in llvm.used.
-  bool isUsedFunction(const Function *F) const {
-    return UsedFunctions.count(F);
   }
 
   /// addCatchTypeInfo - Provide the catch typeinfo for a landing pad.
@@ -351,10 +337,11 @@ public:
   ///
   void addCleanup(MachineBasicBlock *LandingPad);
 
-  /// Add a clause for a landing pad. Returns a new label for the clause. This
-  /// is used by EH schemes that have more than one landing pad. In this case,
-  /// each clause gets its own basic block.
-  MCSymbol *addClauseForLandingPad(MachineBasicBlock *LandingPad);
+  void addSEHCatchHandler(MachineBasicBlock *LandingPad, const Function *Filter,
+                          const BlockAddress *RecoverLabel);
+
+  void addSEHCleanupHandler(MachineBasicBlock *LandingPad,
+                            const Function *Cleanup);
 
   /// getTypeIDFor - Return the type id for the specified typeinfo.  This is
   /// function wide.
@@ -429,17 +416,10 @@ public:
     return FilterIds;
   }
 
-  /// getPersonality - Return a personality function if available.  The presence
-  /// of one is required to emit exception handling info.
-  const Function *getPersonality() const;
-
-  /// Classify the personality function amongst known EH styles.
-  EHPersonality getPersonalityType();
-
   /// setVariableDbgInfo - Collect information used to emit debugging
   /// information of a variable.
-  void setVariableDbgInfo(const MDLocalVariable *Var, const MDExpression *Expr,
-                          unsigned Slot, const MDLocation *Loc) {
+  void setVariableDbgInfo(const DILocalVariable *Var, const DIExpression *Expr,
+                          unsigned Slot, const DILocation *Loc) {
     VariableDbgInfos.emplace_back(Var, Expr, Slot, Loc);
   }
 

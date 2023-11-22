@@ -38,10 +38,13 @@ import android.util.Log;
 import com.android.settings.SettingsActivity;
 import com.android.settings.SettingsPreferenceFragment;
 import com.android.settings.Utils;
+import com.android.settingslib.RestrictedLockUtils;
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.settingslib.applications.ApplicationsState.AppEntry;
 
 import java.util.ArrayList;
+
+import static com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
 
 public abstract class AppInfoBase extends SettingsPreferenceFragment
         implements ApplicationsState.Callbacks {
@@ -52,7 +55,8 @@ public abstract class AppInfoBase extends SettingsPreferenceFragment
     protected static final String TAG = AppInfoBase.class.getSimpleName();
     protected static final boolean localLOGV = false;
 
-    protected boolean mAppControlRestricted = false;
+    protected EnforcedAdmin mAppsControlDisallowedAdmin;
+    protected boolean mAppsControlDisallowedBySystem;
 
     protected ApplicationsState mState;
     protected ApplicationsState.Session mSession;
@@ -92,7 +96,10 @@ public abstract class AppInfoBase extends SettingsPreferenceFragment
     public void onResume() {
         super.onResume();
         mSession.resume();
-        mAppControlRestricted = mUserManager.hasUserRestriction(UserManager.DISALLOW_APPS_CONTROL);
+        mAppsControlDisallowedAdmin = RestrictedLockUtils.checkIfRestrictionEnforced(getActivity(),
+                UserManager.DISALLOW_APPS_CONTROL, mUserId);
+        mAppsControlDisallowedBySystem = RestrictedLockUtils.hasBaseUserRestriction(getActivity(),
+                UserManager.DISALLOW_APPS_CONTROL, mUserId);
 
         if (!refreshUi()) {
             setIntentAndFinish(true, true);
@@ -103,6 +110,12 @@ public abstract class AppInfoBase extends SettingsPreferenceFragment
     public void onPause() {
         mSession.pause();
         super.onPause();
+    }
+
+    @Override
+    public void onDestroy() {
+        mSession.release();
+        super.onDestroy();
     }
 
     protected String retrieveAppEntry() {
@@ -123,7 +136,8 @@ public abstract class AppInfoBase extends SettingsPreferenceFragment
                 mPackageInfo = mPm.getPackageInfo(mAppEntry.info.packageName,
                         PackageManager.GET_DISABLED_COMPONENTS |
                         PackageManager.GET_UNINSTALLED_PACKAGES |
-                        PackageManager.GET_SIGNATURES);
+                        PackageManager.GET_SIGNATURES |
+                        PackageManager.GET_PERMISSIONS);
             } catch (NameNotFoundException e) {
                 Log.e(TAG, "Exception when retrieving package:" + mAppEntry.info.packageName, e);
             }
@@ -195,13 +209,18 @@ public abstract class AppInfoBase extends SettingsPreferenceFragment
 
     public static void startAppInfoFragment(Class<?> fragment, int titleRes,
             String pkg, int uid, Fragment source, int request) {
+        startAppInfoFragment(fragment, titleRes, pkg, uid, source.getActivity(), request);
+    }
+
+    public static void startAppInfoFragment(Class<?> fragment, int titleRes,
+            String pkg, int uid, Activity source, int request) {
         Bundle args = new Bundle();
         args.putString(AppInfoBase.ARG_PACKAGE_NAME, pkg);
         args.putInt(AppInfoBase.ARG_PACKAGE_UID, uid);
 
-        Intent intent = Utils.onBuildStartFragmentIntent(source.getActivity(), fragment.getName(),
+        Intent intent = Utils.onBuildStartFragmentIntent(source, fragment.getName(),
                 args, null, titleRes, null, false);
-        source.getActivity().startActivityForResultAsUser(intent, request,
+        source.startActivityForResultAsUser(intent, request,
                 new UserHandle(UserHandle.getUserId(uid)));
     }
 

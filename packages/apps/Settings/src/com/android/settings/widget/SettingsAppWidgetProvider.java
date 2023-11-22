@@ -454,6 +454,9 @@ public class SettingsAppWidgetProvider extends AppWidgetProvider {
                     return STATE_UNKNOWN;  // On emulator?
                 }
                 sLocalBluetoothAdapter = manager.getBluetoothAdapter();
+                if (sLocalBluetoothAdapter == null) {
+                    return STATE_UNKNOWN;  // On emulator?
+                }
             }
             return bluetoothStateToFiveState(sLocalBluetoothAdapter.getBluetoothState());
         }
@@ -569,7 +572,7 @@ public class SettingsAppWidgetProvider extends AppWidgetProvider {
                                 mode = Settings.Secure.LOCATION_MODE_OFF;
                                 break;
                             case Settings.Secure.LOCATION_MODE_OFF:
-                                mode = Settings.Secure.LOCATION_MODE_HIGH_ACCURACY;
+                                mode = Settings.Secure.LOCATION_MODE_PREVIOUS;
                                 break;
                         }
                         Settings.Secure.putInt(resolver, Settings.Secure.LOCATION_MODE, mode);
@@ -945,6 +948,8 @@ public class SettingsAppWidgetProvider extends AppWidgetProvider {
                     .getUriFor(Settings.System.SCREEN_BRIGHTNESS), false, this);
             resolver.registerContentObserver(Settings.System
                     .getUriFor(Settings.System.SCREEN_BRIGHTNESS_MODE), false, this);
+            resolver.registerContentObserver(Settings.System
+                    .getUriFor(Settings.System.SCREEN_AUTO_BRIGHTNESS_ADJ), false, this);
         }
 
         void stopObserving() {

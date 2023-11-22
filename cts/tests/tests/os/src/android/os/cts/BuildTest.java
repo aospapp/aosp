@@ -38,15 +38,15 @@ public class BuildTest extends TestCase {
 
     /** Tests that check the values of {@link Build#CPU_ABI} and {@link Build#CPU_ABI2}. */
     public void testCpuAbi() throws Exception {
-        testCpuAbiCommon();
+        runTestCpuAbiCommon();
         if (VMRuntime.getRuntime().is64Bit()) {
-            testCpuAbi64();
+            runTestCpuAbi64();
         } else {
-            testCpuAbi32();
+            runTestCpuAbi32();
         }
     }
 
-    private void testCpuAbiCommon() throws Exception {
+    private void runTestCpuAbiCommon() throws Exception {
         // The build property must match Build.SUPPORTED_ABIS exactly.
         final String[] abiListProperty = getStringList(RO_PRODUCT_CPU_ABILIST);
         assertEquals(Arrays.toString(abiListProperty), Arrays.toString(Build.SUPPORTED_ABIS));
@@ -75,7 +75,7 @@ public class BuildTest extends TestCase {
         }
     }
 
-    private void testCpuAbi32() throws Exception {
+    private void runTestCpuAbi32() throws Exception {
         List<String> abi32 = Arrays.asList(Build.SUPPORTED_32_BIT_ABIS);
         assertTrue(abi32.contains(Build.CPU_ABI));
 
@@ -84,7 +84,7 @@ public class BuildTest extends TestCase {
         }
     }
 
-    private void testCpuAbi64() {
+    private void runTestCpuAbi64() {
         List<String> abi64 = Arrays.asList(Build.SUPPORTED_64_BIT_ABIS);
         assertTrue(abi64.contains(Build.CPU_ABI));
 

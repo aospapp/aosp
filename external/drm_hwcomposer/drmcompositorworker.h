@@ -26,14 +26,15 @@ class DrmDisplayCompositor;
 class DrmCompositorWorker : public Worker {
  public:
   DrmCompositorWorker(DrmDisplayCompositor *compositor);
-  ~DrmCompositorWorker();
+  ~DrmCompositorWorker() override;
 
   int Init();
 
  protected:
-  virtual void Routine();
+  void Routine() override;
 
   DrmDisplayCompositor *compositor_;
+  bool did_squash_all_ = false;
 };
 }
 

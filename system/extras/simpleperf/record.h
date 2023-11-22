@@ -17,6 +17,11 @@
 #ifndef SIMPLE_PERF_RECORD_H_
 #define SIMPLE_PERF_RECORD_H_
 
+#include <stdio.h>
+#include <sys/types.h>
+
+#include <memory>
+#include <queue>
 #include <string>
 #include <vector>
 
@@ -68,6 +73,34 @@ struct PerfSamplePeriodType {
   uint64_t period;
 };
 
+struct PerfSampleCallChainType {
+  std::vector<uint64_t> ips;
+};
+
+struct PerfSampleRawType {
+  std::vector<char> data;
+};
+
+struct PerfSampleBranchStackType {
+  struct BranchStackItemType {
+    uint64_t from;
+    uint64_t to;
+    uint64_t flags;
+  };
+  std::vector<BranchStackItemType> stack;
+};
+
+struct PerfSampleRegsUserType {
+  uint64_t abi;
+  uint64_t reg_mask;
+  std::vector<uint64_t> regs;
+};
+
+struct PerfSampleStackUserType {
+  std::vector<char> data;
+  uint64_t dyn_size;
+};
+
 // SampleId is optional at the end of a record in binary format. Its content is determined by
 // sample_id_all and sample_type in perf_event_attr. To avoid the complexity of referring to
 // perf_event_attr each time, we copy sample_id_all and sample_type inside the SampleId structure.
@@ -92,6 +125,7 @@ struct SampleId {
   // Write the binary format of sample_id to the buffer pointed by p.
   void WriteToBinaryFormat(char*& p) const;
   void Dump(size_t indent) const;
+  size_t Size() const;
 };
 
 // Usually one record contains the following three parts in order in binary format:
@@ -110,11 +144,20 @@ struct Record {
   virtual ~Record() {
   }
 
+  size_t size() const {
+    return header.size;
+  }
+
+  uint32_t type() const {
+    return header.type;
+  }
+
   void Dump(size_t indent = 0) const;
+  virtual std::vector<char> BinaryFormat() const = 0;
+  virtual uint64_t Timestamp() const;
 
  protected:
-  virtual void DumpData(size_t) const {
-  }
+  virtual void DumpData(size_t) const = 0;
 };
 
 struct MmapRecord : public Record {
@@ -126,11 +169,37 @@ struct MmapRecord : public Record {
   } data;
   std::string filename;
 
-  MmapRecord() {  // For storage in std::vector.
+  MmapRecord() {  // For CreateMmapRecord.
   }
 
   MmapRecord(const perf_event_attr& attr, const perf_event_header* pheader);
-  std::vector<char> BinaryFormat() const;
+  std::vector<char> BinaryFormat() const override;
+  void AdjustSizeBasedOnData();
+
+ protected:
+  void DumpData(size_t indent) const override;
+};
+
+struct Mmap2Record : public Record {
+  struct Mmap2RecordDataType {
+    uint32_t pid, tid;
+    uint64_t addr;
+    uint64_t len;
+    uint64_t pgoff;
+    uint32_t maj;
+    uint32_t min;
+    uint64_t ino;
+    uint64_t ino_generation;
+    uint32_t prot, flags;
+  } data;
+  std::string filename;
+
+  Mmap2Record() {
+  }
+
+  Mmap2Record(const perf_event_attr& attr, const perf_event_header* pheader);
+  std::vector<char> BinaryFormat() const override;
+  void AdjustSizeBasedOnData();
 
  protected:
   void DumpData(size_t indent) const override;
@@ -146,23 +215,40 @@ struct CommRecord : public Record {
   }
 
   CommRecord(const perf_event_attr& attr, const perf_event_header* pheader);
-  std::vector<char> BinaryFormat() const;
+  std::vector<char> BinaryFormat() const override;
 
  protected:
   void DumpData(size_t indent) const override;
 };
 
-struct ExitRecord : public Record {
-  struct ExitRecordDataType {
+struct ExitOrForkRecord : public Record {
+  struct ExitOrForkRecordDataType {
     uint32_t pid, ppid;
     uint32_t tid, ptid;
     uint64_t time;
   } data;
 
-  ExitRecord(const perf_event_attr& attr, const perf_event_header* pheader);
+  ExitOrForkRecord() {
+  }
+  ExitOrForkRecord(const perf_event_attr& attr, const perf_event_header* pheader);
+  std::vector<char> BinaryFormat() const override;
 
  protected:
   void DumpData(size_t indent) const override;
+};
+
+struct ExitRecord : public ExitOrForkRecord {
+  ExitRecord(const perf_event_attr& attr, const perf_event_header* pheader)
+      : ExitOrForkRecord(attr, pheader) {
+  }
+};
+
+struct ForkRecord : public ExitOrForkRecord {
+  ForkRecord() {
+  }
+  ForkRecord(const perf_event_attr& attr, const perf_event_header* pheader)
+      : ExitOrForkRecord(attr, pheader) {
+  }
 };
 
 struct SampleRecord : public Record {
@@ -177,7 +263,16 @@ struct SampleRecord : public Record {
   PerfSampleCpuType cpu_data;             // Valid if PERF_SAMPLE_CPU.
   PerfSamplePeriodType period_data;       // Valid if PERF_SAMPLE_PERIOD.
 
+  PerfSampleCallChainType callchain_data;       // Valid if PERF_SAMPLE_CALLCHAIN.
+  PerfSampleRawType raw_data;                   // Valid if PERF_SAMPLE_RAW.
+  PerfSampleBranchStackType branch_stack_data;  // Valid if PERF_SAMPLE_BRANCH_STACK.
+  PerfSampleRegsUserType regs_user_data;        // Valid if PERF_SAMPLE_REGS_USER.
+  PerfSampleStackUserType stack_user_data;      // Valid if PERF_SAMPLE_STACK_USER.
+
   SampleRecord(const perf_event_attr& attr, const perf_event_header* pheader);
+  std::vector<char> BinaryFormat() const override;
+  void AdjustSizeBasedOnData();
+  uint64_t Timestamp() const override;
 
  protected:
   void DumpData(size_t indent) const override;
@@ -193,19 +288,83 @@ struct BuildIdRecord : public Record {
   }
 
   BuildIdRecord(const perf_event_header* pheader);
-  std::vector<char> BinaryFormat() const;
+  std::vector<char> BinaryFormat() const override;
 
  protected:
   void DumpData(size_t indent) const override;
 };
 
-std::unique_ptr<const Record> ReadRecordFromBuffer(const perf_event_attr& attr,
-                                                   const perf_event_header* pheader);
+// UnknownRecord is used for unknown record types, it makes sure all unknown records
+// are not changed when modifying perf.data.
+struct UnknownRecord : public Record {
+  std::vector<char> data;
+
+  UnknownRecord(const perf_event_header* pheader);
+  std::vector<char> BinaryFormat() const override;
+
+ protected:
+  void DumpData(size_t indent) const override;
+};
+
+// RecordCache is a cache used when receiving records from the kernel.
+// It sorts received records based on type and timestamp, and pops records
+// in sorted order. Records from the kernel need to be sorted because
+// records may come from different cpus at the same time, and it is affected
+// by the order in which we collect records from different cpus.
+// RecordCache pushes records and pops sorted record online. It uses two checks to help
+// ensure that records are popped in order. Each time we pop a record A, it is the earliest record
+// among all records in the cache. In addition, we have checks for min_cache_size and
+// min_time_diff. For min_cache_size check, we check if the cache size >= min_cache_size,
+// which is based on the assumption that if we have received (min_cache_size - 1) records
+// after record A, we are not likely to receive a record earlier than A. For min_time_diff
+// check, we check if record A is generated min_time_diff ns earlier than the latest
+// record, which is based on the assumption that if we have received a record for time t,
+// we are not likely to receive a record for time (t - min_time_diff) or earlier.
+class RecordCache {
+ public:
+  RecordCache(const perf_event_attr& attr, size_t min_cache_size = 1000u,
+              uint64_t min_time_diff_in_ns = 1000000u);
+  ~RecordCache();
+  void Push(const char* data, size_t size);
+  void Push(std::unique_ptr<Record> record);
+  std::unique_ptr<Record> Pop();
+  std::vector<std::unique_ptr<Record>> PopAll();
+
+ private:
+  struct RecordWithSeq {
+    uint32_t seq;
+    Record *record;
+
+    bool IsHappensBefore(const RecordWithSeq& other) const;
+  };
+
+  struct RecordComparator {
+    bool operator()(const RecordWithSeq& r1, const RecordWithSeq& r2);
+  };
+
+  RecordWithSeq CreateRecordWithSeq(Record *r);
+
+  const perf_event_attr attr_;
+  bool has_timestamp_;
+  size_t min_cache_size_;
+  uint64_t min_time_diff_in_ns_;
+  uint64_t last_time_;
+  uint32_t cur_seq_;
+  std::priority_queue<RecordWithSeq, std::vector<RecordWithSeq>,
+      RecordComparator> queue_;
+};
+
+std::vector<std::unique_ptr<Record>> ReadRecordsFromBuffer(const perf_event_attr& attr,
+                                                           const char* buf, size_t buf_size);
+std::unique_ptr<Record> ReadRecordFromFile(const perf_event_attr& attr, FILE* fp);
 MmapRecord CreateMmapRecord(const perf_event_attr& attr, bool in_kernel, uint32_t pid, uint32_t tid,
                             uint64_t addr, uint64_t len, uint64_t pgoff,
                             const std::string& filename);
 CommRecord CreateCommRecord(const perf_event_attr& attr, uint32_t pid, uint32_t tid,
                             const std::string& comm);
+ForkRecord CreateForkRecord(const perf_event_attr& attr, uint32_t pid, uint32_t tid, uint32_t ppid,
+                            uint32_t ptid);
 BuildIdRecord CreateBuildIdRecord(bool in_kernel, pid_t pid, const BuildId& build_id,
                                   const std::string& filename);
+
 #endif  // SIMPLE_PERF_RECORD_H_

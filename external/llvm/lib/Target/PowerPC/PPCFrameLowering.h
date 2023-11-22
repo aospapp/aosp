@@ -29,6 +29,30 @@ class PPCFrameLowering: public TargetFrameLowering {
   const unsigned LinkageSize;
   const unsigned BasePointerSaveOffset;
 
+  /**
+   * \brief Find a register that can be used in function prologue and epilogue
+   *
+   * Find a register that can be use as the scratch register in function
+   * prologue and epilogue to save various registers (Link Register, Base
+   * Pointer, etc.). Prefer R0, if it is available. If it is not available,
+   * then choose a different register.
+   *
+   * This method will return true if an available register was found (including
+   * R0). If no available registers are found, the method returns false and sets
+   * ScratchRegister to R0, as per the recommendation in the ABI.
+   *
+   * \param[in] MBB The machine basic block to find an available register for
+   * \param[in] UseAtEnd Specify whether the scratch register will be used at
+   *                     the end of the basic block (i.e., will the scratch
+   *                     register kill a register defined in the basic block)
+   * \param[out] ScratchRegister The scratch register to use
+   * \return true if a scratch register was found. false of a scratch register
+   *         was not found and R0 is being used as the default.
+   */
+  bool findScratchRegister(MachineBasicBlock *MBB,
+                           bool UseAtEnd,
+                           unsigned *ScratchRegister) const;
+
 public:
   PPCFrameLowering(const PPCSubtarget &STI);
 
@@ -38,15 +62,15 @@ public:
 
   /// emitProlog/emitEpilog - These methods insert prolog and epilog code into
   /// the function.
-  void emitPrologue(MachineFunction &MF) const override;
+  void emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB) const override;
   void emitEpilogue(MachineFunction &MF, MachineBasicBlock &MBB) const override;
 
   bool hasFP(const MachineFunction &MF) const override;
   bool needsFP(const MachineFunction &MF) const;
   void replaceFPWithRealFP(MachineFunction &MF) const;
 
-  void processFunctionBeforeCalleeSavedScan(MachineFunction &MF,
-                                     RegScavenger *RS = nullptr) const override;
+  void determineCalleeSaves(MachineFunction &MF, BitVector &SavedRegs,
+                            RegScavenger *RS = nullptr) const override;
   void processFunctionBeforeFrameFinalized(MachineFunction &MF,
                                      RegScavenger *RS = nullptr) const override;
   void addScavengingSpillSlot(MachineFunction &MF, RegScavenger *RS) const;
@@ -92,6 +116,13 @@ public:
 
   const SpillSlot *
   getCalleeSavedSpillSlots(unsigned &NumEntries) const override;
+
+  bool enableShrinkWrapping(const MachineFunction &MF) const override;
+
+  /// Methods used by shrink wrapping to determine if MBB can be used for the
+  /// function prologue/epilogue.
+  bool canUseAsPrologue(const MachineBasicBlock &MBB) const override;
+  bool canUseAsEpilogue(const MachineBasicBlock &MBB) const override;
 };
 } // End llvm namespace
 

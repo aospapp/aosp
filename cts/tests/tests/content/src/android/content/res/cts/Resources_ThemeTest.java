@@ -23,13 +23,16 @@ import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.content.res.Resources.Theme;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.test.AndroidTestCase;
+import android.test.suitebuilder.annotation.SmallTest;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.util.Xml;
 import android.view.View;
 
-import com.android.cts.content.R;
+import android.content.cts.R;
 
 import java.util.Locale;
 
@@ -44,6 +47,7 @@ public class Resources_ThemeTest extends AndroidTestCase {
         mResTheme = getContext().getResources().newTheme();
     }
 
+    @SmallTest
     public void testSetMethods() {
         // call a native method, and have no way to get the style
         mResTheme.applyStyle(R.raw.testmp3, false);
@@ -54,6 +58,7 @@ public class Resources_ThemeTest extends AndroidTestCase {
         mResTheme.setTo(other);
     }
 
+    @SmallTest
     public void testObtainStyledAttributes() {
         final int[] attrs = new int[1];
         attrs[0] = R.raw.testmp3;
@@ -77,12 +82,14 @@ public class Resources_ThemeTest extends AndroidTestCase {
         testTypedArray.recycle();
     }
 
+    @SmallTest
     public void testResolveAttribute() {
         final TypedValue value = new TypedValue();
         getContext().getResources().getValue(R.raw.testmp3, value, true);
         assertFalse(mResTheme.resolveAttribute(R.raw.testmp3, value, false));
     }
 
+    @SmallTest
     public void testGetChangingConfigurations() {
         Resources.Theme theme = getContext().getResources().newTheme();
         assertEquals("Initial changing configuration mask is empty",
@@ -104,10 +111,13 @@ public class Resources_ThemeTest extends AndroidTestCase {
                 theme.getChangingConfigurations());
     }
 
+    @SmallTest
     public void testRebase() {
         Resources res = getContext().getResources();
         Configuration config = res.getConfiguration();
         config.setLocale(Locale.ENGLISH);
+        res.updateConfiguration(config, null);
+
         assertEquals("Theme will be created in LTR config",
                 View.LAYOUT_DIRECTION_LTR, config.getLayoutDirection());
 
@@ -129,5 +139,22 @@ public class Resources_ThemeTest extends AndroidTestCase {
         t = theme.obtainStyledAttributes(new int[] { R.attr.themeBoolean });
         assertEquals("Theme was rebased in RTL config", true, t.getBoolean(0, false));
         t.recycle();
+    }
+
+    @SmallTest
+    public void testGetDrawable() {
+        final Resources res = getContext().getResources();
+        final Theme theme = res.newTheme();
+        theme.applyStyle(R.style.Theme_ThemedDrawableTest, true);
+
+        final ColorDrawable dr = (ColorDrawable) theme.getDrawable(R.drawable.colordrawable_themed);
+        assertEquals(Color.BLACK, dr.getColor());
+    }
+
+    @SmallTest
+    public void testGetResources() {
+        final Resources res = getContext().getResources();
+        final Theme theme = res.newTheme();
+        assertSame(res, theme.getResources());
     }
 }

@@ -19,7 +19,6 @@
     <group>Media</group>
     <package>com.example.android.midiscope</package>
     <minSdk>23</minSdk>
-    <compileSdkVersion>23</compileSdkVersion>
 
     <strings>
         <intro>
@@ -43,7 +42,7 @@ attached input device.
         <icon>screenshots/icon-web.png</icon>
         <screenshots>
             <img>screenshots/1-main.png</img>
-            <img>screenshots/2-settings.png</img>
+            <img>screenshots/2-signals.png</img>
         </screenshots>
         <api_refs>
             <android>android.media.midi.MidiManager</android>

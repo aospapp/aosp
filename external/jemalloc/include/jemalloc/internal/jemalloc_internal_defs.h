@@ -28,8 +28,7 @@
 #endif
 
 /* Defined if C11 atomics are available. */
-/* TODO: Fix compile issues with the atomics. */
-#undef JEMALLOC_C11ATOMICS
+#define JEMALLOC_C11ATOMICS 
 
 /* Defined if the equivalent of FreeBSD's atomic(9) functions are available. */
 /* #undef JEMALLOC_ATOMIC9 */
@@ -140,7 +139,8 @@
  * This makes it possible to allocate/deallocate objects without any locking
  * when the cache is in the steady state.
  */
-#define JEMALLOC_TCACHE 
+/* ANDROID: The tcache is enabled/disabled in the Makefile, not here. */
+/* #undef JEMALLOC_TCACHE */
 
 /*
  * JEMALLOC_DSS enables use of sbrk(2) to allocate chunks from the data storage
@@ -176,6 +176,15 @@
 #define LG_PAGE 12
 
 /*
+ * If defined, adjacent virtual memory mappings with identical attributes
+ * automatically coalesce, and they fragment when changes are made to subranges.
+ * This is the normal order of things for mmap()/munmap(), but on Windows
+ * VirtualAlloc()/VirtualFree() operations must be precisely matched, i.e.
+ * mappings do *not* coalesce/fragment.
+ */
+#define JEMALLOC_MAPS_COALESCE 
+
+/*
  * If defined, use munmap() to unmap freed chunks, rather than storing them for
  * later reuse.  This is disabled by default on Linux because common sequences
  * of mmap()/munmap() calls will cause virtual memory map holes.
@@ -186,9 +195,10 @@
 /* #undef JEMALLOC_TLS */
 
 /*
- * ffs()/ffsl() functions to use for bitmapping.  Don't use these directly;
- * instead, use jemalloc_ffs() or jemalloc_ffsl() from util.h.
+ * ffs*() functions to use for bitmapping.  Don't use these directly; instead,
+ * use ffs_*() from util.h.
  */
+#define JEMALLOC_INTERNAL_FFSLL __builtin_ffsll
 #define JEMALLOC_INTERNAL_FFSL __builtin_ffsl
 #define JEMALLOC_INTERNAL_FFS __builtin_ffs
 
@@ -202,7 +212,7 @@
  * If defined, explicitly attempt to more uniformly distribute large allocation
  * pointer alignments across all cache indices.
  */
-/* #undef JEMALLOC_CACHE_OBLIVIOUS */
+#define JEMALLOC_CACHE_OBLIVIOUS 
 
 /*
  * Darwin (OS X) uses zones to work around Mach-O symbol override shortcomings.
@@ -242,6 +252,9 @@
 #define LG_SIZEOF_LONG 2
 #endif
 
+/* sizeof(long long) == 2^LG_SIZEOF_LONG_LONG. */
+#define LG_SIZEOF_LONG_LONG 3
+
 /* sizeof(intmax_t) == 2^LG_SIZEOF_INTMAX_T. */
 #define LG_SIZEOF_INTMAX_T 3
 
@@ -259,5 +272,8 @@
  * JEMALLOC_PREFIX is not defined).
  */
 #define JEMALLOC_EXPORT 
+
+/* config.malloc_conf options string. */
+#define JEMALLOC_CONFIG_MALLOC_CONF ""
 
 #endif /* JEMALLOC_INTERNAL_DEFS_H_ */

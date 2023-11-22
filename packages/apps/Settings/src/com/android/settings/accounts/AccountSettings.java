@@ -32,30 +32,40 @@ import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.UserInfo;
+import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
+import android.os.Process;
 import android.os.UserHandle;
 import android.os.UserManager;
-import android.os.Process;
+import android.provider.SearchIndexableResource;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.Preference.OnPreferenceClickListener;
+import android.support.v7.preference.PreferenceGroup;
+import android.support.v7.preference.PreferenceScreen;
 import android.util.Log;
 import android.util.SparseArray;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
-import android.preference.Preference;
-import android.preference.Preference.OnPreferenceClickListener;
-import android.preference.PreferenceGroup;
-import android.preference.PreferenceCategory;
-import android.preference.PreferenceScreen;
 
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.AccessiblePreferenceCategory;
+import com.android.settings.DimmableIconPreference;
 import com.android.settings.R;
+import com.android.settings.SettingsActivity;
 import com.android.settings.SettingsPreferenceFragment;
 import com.android.settings.Utils;
+import com.android.settings.search.BaseSearchIndexProvider;
+import com.android.settings.search.Index;
+import com.android.settings.search.Indexable;
+import com.android.settings.search.SearchIndexableRaw;
 import com.android.settings.users.UserDialogs;
+import com.android.settingslib.RestrictedLockUtils;
+import com.android.settingslib.accounts.AuthenticatorHelper;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -73,7 +83,7 @@ import static android.provider.Settings.EXTRA_AUTHORITIES;
  */
 public class AccountSettings extends SettingsPreferenceFragment
         implements AuthenticatorHelper.OnAccountsUpdateListener,
-        OnPreferenceClickListener {
+        OnPreferenceClickListener, Indexable {
     public static final String TAG = "AccountSettings";
 
     private static final String KEY_ACCOUNT = "account";
@@ -81,8 +91,9 @@ public class AccountSettings extends SettingsPreferenceFragment
     private static final String ADD_ACCOUNT_ACTION = "android.settings.ADD_ACCOUNT_SETTINGS";
     private static final String TAG_CONFIRM_AUTO_SYNC_CHANGE = "confirmAutoSyncChange";
 
-    private static final int ORDER_LAST = 1001;
-    private static final int ORDER_NEXT_TO_LAST = 1000;
+    private static final int ORDER_LAST = 1002;
+    private static final int ORDER_NEXT_TO_LAST = 1001;
+    private static final int ORDER_NEXT_TO_NEXT_TO_LAST = 1000;
 
     private UserManager mUm;
     private SparseArray<ProfileData> mProfiles = new SparseArray<ProfileData>();
@@ -103,11 +114,15 @@ public class AccountSettings extends SettingsPreferenceFragment
         /**
          * The preference that displays the add account button.
          */
-        public Preference addAccountPreference;
+        public DimmableIconPreference addAccountPreference;
         /**
          * The preference that displays the button to remove the managed profile
          */
         public Preference removeWorkProfilePreference;
+        /**
+         * The preference that displays managed profile settings.
+         */
+        public Preference managedProfilePreference;
         /**
          * The {@link AuthenticatorHelper} that holds accounts data for this profile.
          */
@@ -120,14 +135,14 @@ public class AccountSettings extends SettingsPreferenceFragment
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.ACCOUNT;
+        return MetricsEvent.ACCOUNT;
     }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mUm = (UserManager) getSystemService(Context.USER_SERVICE);
-        mProfileNotAvailablePreference = new Preference(getActivity());
+        mProfileNotAvailablePreference = new Preference(getPrefContext());
         mAuthorities = getActivity().getIntent().getStringArrayExtra(EXTRA_AUTHORITIES);
         if (mAuthorities != null) {
             mAuthoritiesCount = mAuthorities.length;
@@ -175,6 +190,7 @@ public class AccountSettings extends SettingsPreferenceFragment
     @Override
     public void onResume() {
         super.onResume();
+        cleanUpPreferences();
         updateUi();
         mManagedProfileBroadcastReceiver.register(getActivity());
         listenToAccountUpdates();
@@ -185,7 +201,6 @@ public class AccountSettings extends SettingsPreferenceFragment
         super.onPause();
         stopListeningToAccountUpdates();
         mManagedProfileBroadcastReceiver.unregister(getActivity());
-        cleanUpPreferences();
     }
 
     @Override
@@ -221,6 +236,14 @@ public class AccountSettings extends SettingsPreferenceFragment
                             }
                         }
                 ).show();
+                return true;
+            }
+            if (preference == profileData.managedProfilePreference) {
+                Bundle arguments = new Bundle();
+                arguments.putParcelable(Intent.EXTRA_USER, profileData.userInfo.getUserHandle());
+                ((SettingsActivity) getActivity()).startPreferencePanel(
+                        ManagedProfileSettings.class.getName(), arguments,
+                        R.string.managed_profile_settings_title, null, null, 0);
                 return true;
             }
         }
@@ -271,7 +294,7 @@ public class AccountSettings extends SettingsPreferenceFragment
         final ProfileData profileData = new ProfileData();
         profileData.userInfo = userInfo;
         if (addCategory) {
-            profileData.preferenceGroup = new AccessiblePreferenceCategory(context);
+            profileData.preferenceGroup = new AccessiblePreferenceCategory(getPrefContext());
             if (userInfo.isManagedProfile()) {
                 profileData.preferenceGroup.setLayoutResource(R.layout.work_profile_category);
                 profileData.preferenceGroup.setTitle(R.string.category_work);
@@ -280,6 +303,7 @@ public class AccountSettings extends SettingsPreferenceFragment
                 ((AccessiblePreferenceCategory) profileData.preferenceGroup).setContentDescription(
                         getString(R.string.accessibility_category_work, workGroupSummary));
                 profileData.removeWorkProfilePreference = newRemoveWorkProfilePreference(context);
+                profileData.managedProfilePreference = newManagedProfileSettings();
             } else {
                 profileData.preferenceGroup.setTitle(R.string.category_personal);
                 ((AccessiblePreferenceCategory) profileData.preferenceGroup).setContentDescription(
@@ -291,29 +315,44 @@ public class AccountSettings extends SettingsPreferenceFragment
         }
         if (userInfo.isEnabled()) {
             profileData.authenticatorHelper = new AuthenticatorHelper(context,
-                    userInfo.getUserHandle(), mUm, this);
-            if (!mUm.hasUserRestriction(DISALLOW_MODIFY_ACCOUNTS, userInfo.getUserHandle())) {
+                    userInfo.getUserHandle(), this);
+            if (!RestrictedLockUtils.hasBaseUserRestriction(context,
+                    UserManager.DISALLOW_MODIFY_ACCOUNTS, userInfo.id)) {
                 profileData.addAccountPreference = newAddAccountPreference(context);
+                profileData.addAccountPreference.checkRestrictionAndSetDisabled(
+                        DISALLOW_MODIFY_ACCOUNTS, userInfo.id);
             }
         }
         mProfiles.put(userInfo.id, profileData);
+        Index.getInstance(getActivity()).updateFromClassNameResource(
+                AccountSettings.class.getName(), true, true);
     }
 
-    private Preference newAddAccountPreference(Context context) {
-        Preference preference = new Preference(context);
+    private DimmableIconPreference newAddAccountPreference(Context context) {
+        DimmableIconPreference preference = new DimmableIconPreference(getPrefContext());
         preference.setTitle(R.string.add_account_label);
         preference.setIcon(R.drawable.ic_menu_add);
         preference.setOnPreferenceClickListener(this);
-        preference.setOrder(ORDER_NEXT_TO_LAST);
+        preference.setOrder(ORDER_NEXT_TO_NEXT_TO_LAST);
         return preference;
     }
 
     private Preference newRemoveWorkProfilePreference(Context context) {
-        Preference preference = new Preference(context);
+        Preference preference = new Preference(getPrefContext());
         preference.setTitle(R.string.remove_managed_profile_label);
         preference.setIcon(R.drawable.ic_menu_delete);
         preference.setOnPreferenceClickListener(this);
         preference.setOrder(ORDER_LAST);
+        return preference;
+    }
+
+
+    private Preference newManagedProfileSettings() {
+        Preference preference = new Preference(getPrefContext());
+        preference.setTitle(R.string.managed_profile_settings_title);
+        preference.setIcon(R.drawable.ic_sysbar_quicksettings);
+        preference.setOnPreferenceClickListener(this);
+        preference.setOrder(ORDER_NEXT_TO_LAST);
         return preference;
     }
 
@@ -379,6 +418,9 @@ public class AccountSettings extends SettingsPreferenceFragment
         if (profileData.removeWorkProfilePreference != null) {
             profileData.preferenceGroup.addPreference(profileData.removeWorkProfilePreference);
         }
+        if (profileData.managedProfilePreference != null) {
+            profileData.preferenceGroup.addPreference(profileData.managedProfilePreference);
+        }
     }
 
     private ArrayList<AccountPreference> getAccountTypePreferences(AuthenticatorHelper helper,
@@ -411,7 +453,7 @@ public class AccountSettings extends SettingsPreferenceFragment
                         accounts[0]);
                 fragmentArguments.putParcelable(EXTRA_USER, userHandle);
 
-                accountTypePreferences.add(new AccountPreference(getActivity(), label,
+                accountTypePreferences.add(new AccountPreference(getPrefContext(), label,
                         titleResPackageName, titleResId, AccountSyncSettings.class.getName(),
                         fragmentArguments,
                         helper.getDrawableForType(getActivity(), accountType)));
@@ -422,7 +464,7 @@ public class AccountSettings extends SettingsPreferenceFragment
                         label.toString());
                 fragmentArguments.putParcelable(EXTRA_USER, userHandle);
 
-                accountTypePreferences.add(new AccountPreference(getActivity(), label,
+                accountTypePreferences.add(new AccountPreference(getPrefContext(), label,
                         titleResPackageName, titleResId, ManageAccountsSettings.class.getName(),
                         fragmentArguments,
                         helper.getDrawableForType(getActivity(), accountType)));
@@ -524,9 +566,10 @@ public class AccountSettings extends SettingsPreferenceFragment
 
         @Override
         public void onReceive(Context context, Intent intent) {
-            if (intent.getAction().equals(Intent.ACTION_MANAGED_PROFILE_REMOVED)
-                    || intent.getAction().equals(Intent.ACTION_MANAGED_PROFILE_ADDED)) {
-                Log.v(TAG, "Received broadcast: " + intent.getAction());
+            final String action = intent.getAction();
+            Log.v(TAG, "Received broadcast: " + action);
+            if (action.equals(Intent.ACTION_MANAGED_PROFILE_REMOVED)
+                    || action.equals(Intent.ACTION_MANAGED_PROFILE_ADDED)) {
                 // Clean old state
                 stopListeningToAccountUpdates();
                 cleanUpPreferences();
@@ -633,6 +676,53 @@ public class AccountSettings extends SettingsPreferenceFragment
             outState.putParcelable(SAVE_USER_HANDLE, mUserHandle);
         }
     }
-    // TODO Implement a {@link SearchIndexProvider} to allow Indexing and Search of account types
-    // See http://b/15403806
+
+    public static final SearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new BaseSearchIndexProvider() {
+        @Override
+        public List<SearchIndexableResource> getXmlResourcesToIndex(
+                Context context, boolean enabled) {
+            final SearchIndexableResource sir = new SearchIndexableResource(context);
+            sir.xmlResId = R.xml.account_settings;
+            return Arrays.asList(sir);
+        }
+
+        @Override
+        public List<SearchIndexableRaw> getRawDataToIndex(Context context, boolean enabled) {
+            final List<SearchIndexableRaw> result = new ArrayList<SearchIndexableRaw>();
+            final Resources res = context.getResources();
+            final String screenTitle = res.getString(R.string.account_settings_title);
+
+            final UserManager um = UserManager.get(context);
+            List<UserInfo> profiles = um.getProfiles(UserHandle.myUserId());
+            final int profilesCount = profiles.size();
+            for (int i = 0; i < profilesCount; i++) {
+                UserInfo userInfo = profiles.get(i);
+                if (userInfo.isEnabled()) {
+                    if (!RestrictedLockUtils.hasBaseUserRestriction(context,
+                            DISALLOW_MODIFY_ACCOUNTS, userInfo.id)) {
+                        SearchIndexableRaw data = new SearchIndexableRaw(context);
+                        data.title = res.getString(R.string.add_account_label);
+                        data.screenTitle = screenTitle;
+                        result.add(data);
+                    }
+                    if (userInfo.isManagedProfile()) {
+                        {
+                            SearchIndexableRaw data = new SearchIndexableRaw(context);
+                            data.title = res.getString(R.string.remove_managed_profile_label);
+                            data.screenTitle = screenTitle;
+                            result.add(data);
+                        }
+                        {
+                            SearchIndexableRaw data = new SearchIndexableRaw(context);
+                            data.title = res.getString(R.string.managed_profile_settings_title);
+                            data.screenTitle = screenTitle;
+                            result.add(data);
+                        }
+                    }
+                }
+            }
+            return result;
+        }
+    };
 }

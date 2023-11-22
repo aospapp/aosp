@@ -16,20 +16,89 @@
 
 package android.security.cts;
 
+import android.test.InstrumentationTestCase;
 import junit.framework.TestCase;
 
+import android.os.ParcelFileDescriptor;
+import android.util.Log;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import android.cts.util.ReadElf;
 
 /**
  * Verify that ASLR is properly enabled on Android Compatible devices.
  */
-public class AslrTest extends TestCase {
+public class AslrTest extends InstrumentationTestCase {
+
+    private static final int aslrMinEntropyBits = 8;
+
+    private static final String TAG = "AslrTest";
+
+    private String readMappingAddress(String mappingName) throws Exception {
+        ParcelFileDescriptor pfd = getInstrumentation().getUiAutomation()
+                .executeShellCommand("/system/bin/cat /proc/self/maps");
+
+        BufferedReader reader = new BufferedReader(
+                new InputStreamReader(new FileInputStream(pfd.getFileDescriptor())));
+
+        Pattern p = Pattern.compile("^([a-f0-9]+)\\-.+\\[" + mappingName + "\\]$");
+        String line;
+
+        while ((line = reader.readLine()) != null) {
+            Matcher m = p.matcher(line);
+
+            if (m.matches()) {
+                return m.group(1);
+            }
+        }
+
+        return null;
+    }
+
+    private int calculateEntropyBits(String mappingName) throws Exception {
+        HashMap<String, Integer> addresses = new HashMap<String, Integer>();
+
+        // Sufficient number of iterations to ensure we should see at least
+        // aslrMinEntropyBits 
+        for (int i = 0; i < 2 * (1 << aslrMinEntropyBits); i++) {
+            addresses.put(readMappingAddress(mappingName), 1);
+        }
+
+        double entropy = Math.log(addresses.size()) / Math.log(2);
+
+        Log.i(TAG, String.format("%.1f", entropy) +
+            " bits of entropy for " + mappingName);
+
+        return (int) Math.round(entropy);
+    }
+
+    private void testMappingEntropy(String mappingName) throws Exception {
+        if (readMappingAddress(mappingName) == null) {
+            Log.i(TAG, mappingName + " does not exist");
+            return;
+        }
+
+        int entropy = calculateEntropyBits(mappingName);
+
+        assertTrue("Insufficient " + mappingName + " randomization (" +
+            entropy + " bits, >= " + aslrMinEntropyBits + " required)",
+            entropy >= aslrMinEntropyBits);
+    }
+
+    public void testRandomization() throws Exception {
+        testMappingEntropy("stack");
+        testMappingEntropy("heap");
+        testMappingEntropy("anon:libc_malloc");
+    }
 
     public void testOneExecutableIsPie() throws IOException {
         assertTrue(ReadElf.read(new File("/system/bin/cat")).isPIE());
@@ -51,5 +120,4 @@ public class AslrTest extends TestCase {
             }
         }
     }
-
 }

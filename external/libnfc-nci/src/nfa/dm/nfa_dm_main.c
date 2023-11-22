@@ -250,6 +250,13 @@ tNFA_STATUS nfa_dm_check_set_config (UINT8 tlv_list_len, UINT8 *p_tlv_list, BOOL
 
         switch (type)
         {
+        /*
+        **  Poll F Configuration
+        */
+        case NFC_PMID_PF_RC:
+            p_stored = nfa_dm_cb.params.pf_rc;
+            max_len  = NCI_PARAM_LEN_PF_RC;
+            break;
         case NFC_PMID_TOTAL_DURATION:
             p_stored = nfa_dm_cb.params.total_duration;
             max_len  = NCI_PARAM_LEN_TOTAL_DURATION;

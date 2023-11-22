@@ -34,6 +34,24 @@ typedef uint64_t word_t;
 typedef uint32_t word_t;
 #endif
 
+enum BacktraceUnwindError : uint32_t {
+  BACKTRACE_UNWIND_NO_ERROR,
+  // Something failed while trying to perform the setup to begin the unwind.
+  BACKTRACE_UNWIND_ERROR_SETUP_FAILED,
+  // There is no map information to use with the unwind.
+  BACKTRACE_UNWIND_ERROR_MAP_MISSING,
+  // An error occurred that indicates a programming error.
+  BACKTRACE_UNWIND_ERROR_INTERNAL,
+  // The thread to unwind has disappeared before the unwind can begin.
+  BACKTRACE_UNWIND_ERROR_THREAD_DOESNT_EXIST,
+  // The thread to unwind has not responded to a signal in a timely manner.
+  BACKTRACE_UNWIND_ERROR_THREAD_TIMEOUT,
+  // Attempt to do an unsupported operation.
+  BACKTRACE_UNWIND_ERROR_UNSUPPORTED_OPERATION,
+  // Attempt to do an offline unwind without a context.
+  BACKTRACE_UNWIND_ERROR_NO_CONTEXT,
+};
+
 struct backtrace_frame_data_t {
   size_t num;             // The current fame number.
   uintptr_t pc;           // The absolute pc.
@@ -52,6 +70,12 @@ struct ucontext;
 typedef ucontext ucontext_t;
 #endif
 
+struct backtrace_stackinfo_t {
+  uint64_t start;
+  uint64_t end;
+  const uint8_t* data;
+};
+
 class Backtrace {
 public:
   // Create the correct Backtrace object based on what is to be unwound.
@@ -65,6 +89,14 @@ public:
   // If map is NULL, then create the map and manage it internally.
   // If map is not NULL, the map is still owned by the caller.
   static Backtrace* Create(pid_t pid, pid_t tid, BacktraceMap* map = NULL);
+
+  // Create an offline Backtrace object that can be used to do an unwind without a process
+  // that is still running. If cache_file is set to true, then elf information will be cached
+  // for this call. The cached information survives until the calling process ends. This means
+  // that subsequent calls to create offline Backtrace objects will continue to use the same
+  // cache. It also assumes that the elf files used for each offline unwind are the same.
+  static Backtrace* CreateOffline(pid_t pid, pid_t tid, BacktraceMap* map,
+                                  const backtrace_stackinfo_t& stack, bool cache_file = false);
 
   virtual ~Backtrace();
 
@@ -113,6 +145,10 @@ public:
 
   BacktraceMap* GetMap() { return map_; }
 
+  BacktraceUnwindError GetError() { return error_; }
+
+  std::string GetErrorString(BacktraceUnwindError error);
+
 protected:
   Backtrace(pid_t pid, pid_t tid, BacktraceMap* map);
 
@@ -131,6 +167,8 @@ protected:
   bool map_shared_;
 
   std::vector<backtrace_frame_data_t> frames_;
+
+  BacktraceUnwindError error_;
 };
 
 #endif // _BACKTRACE_BACKTRACE_H

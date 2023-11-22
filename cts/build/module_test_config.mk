@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cts_module_test_config := $(if $(wildcard \
-	$(LOCAL_PATH)/$(CTS_MODULE_TEST_CONFIG)), \
-	$(CTS_TESTCASES_OUT)/$(LOCAL_MODULE).config)
-ifneq ($(cts_module_test_config),)
-$(cts_module_test_config): $(LOCAL_PATH)/$(CTS_MODULE_TEST_CONFIG) | $(ACP)
+ifneq ($(LOCAL_CTS_MODULE_CONFIG),)
+cts_module_test_config := $(CTS_TESTCASES_OUT)/$(LOCAL_MODULE).config
+$(cts_module_test_config): $(LOCAL_CTS_MODULE_CONFIG) | $(ACP)
 	$(call copy-file-to-target)
 endif
+# clear var
+LOCAL_CTS_MODULE_CONFIG :=

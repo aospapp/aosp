@@ -25,6 +25,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import android.test.AndroidTestCase;
+import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
@@ -39,6 +40,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static android.support.v7.widget.RecyclerView.*;
 
 @RunWith(JUnit4.class)
+@SmallTest
 public class AdapterHelperTest extends AndroidTestCase {
 
     private static final boolean DEBUG = false;
@@ -241,6 +243,18 @@ public class AdapterHelperTest extends AndroidTestCase {
                 24, mAdapterHelper.findPositionOffset(28));
         assertEquals("find position for view 29",
                 25, mAdapterHelper.findPositionOffset(29));
+    }
+
+    @Test
+    public void testNotifyAfterPre() {
+        setupBasic(10, 2, 3);
+        add(2, 1);
+        mAdapterHelper.preProcess();
+        add(3, 1);
+        mAdapterHelper.consumeUpdatesInOnePass();
+        mPreProcessClone.applyOps(mFirstPassUpdates, mTestAdapter);
+        mPreProcessClone.applyOps(mSecondPassUpdates, mTestAdapter);
+        assertAdaptersEqual(mTestAdapter, mPreProcessClone);
     }
 
     @Test

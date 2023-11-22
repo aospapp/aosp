@@ -217,6 +217,7 @@ enum
     NFC_HAL_INIT_STATE_W4_POST_INIT_DONE,  /* Waiting for complete of post init     */
     NFC_HAL_INIT_STATE_W4_CONTROL_DONE,    /* Waiting for control release           */
     NFC_HAL_INIT_STATE_W4_PREDISCOVER_DONE,/* Waiting for complete of prediscover   */
+    NFC_HAL_INIT_STATE_W4_NFCC_TURN_OFF,   /* Waiting for NFCC to turn OFF          */
     NFC_HAL_INIT_STATE_CLOSING             /* Shutting down                         */
 };
 typedef UINT8 tNFC_HAL_INIT_STATE;
@@ -412,6 +413,9 @@ typedef struct
 
 #endif
 
+#define NFC_HAL_FLAGS_NEED_DISABLE_VSC  0x01
+typedef UINT8 tNFC_HAL_FLAGS;
+
 typedef struct
 {
     tHAL_NFC_CBACK          *p_stack_cback;     /* Callback for HAL event notification  */
@@ -434,6 +438,7 @@ typedef struct
 #endif
 
     UINT8                   pre_discover_done;  /* TRUE, when the prediscover config is complete */
+    tNFC_HAL_FLAGS          hal_flags;
     UINT8                   pre_set_mem_idx;
 
     UINT8                   max_rf_credits;     /* NFC Max RF data credits */
@@ -456,7 +461,9 @@ extern UINT8 *p_nfc_hal_pre_discover_cfg;
 /* From nfc_hal_main.c */
 UINT32 nfc_hal_main_task (UINT32 param);
 void   nfc_hal_main_init (void);
+void   nfc_hal_main_close (void);
 void   nfc_hal_main_pre_init_done (tHAL_NFC_STATUS);
+void   nfc_hal_main_exit_op_done (tNFC_HAL_NCI_EVT event, UINT16 data_len, UINT8 *p_data);
 void   nfc_hal_main_start_quick_timer (TIMER_LIST_ENT *p_tle, UINT16 type, UINT32 timeout);
 void   nfc_hal_main_stop_quick_timer (TIMER_LIST_ENT *p_tle);
 void   nfc_hal_main_send_error (tHAL_NFC_STATUS status);
@@ -474,8 +481,10 @@ void    nfc_hal_nci_cmd_timeout_cback (void *p_tle);
 /* nfc_hal_dm.c */
 void nfc_hal_dm_init (void);
 void nfc_hal_dm_set_xtal_freq_index (void);
+void nfc_hal_dm_set_power_level_zero (void);
 void nfc_hal_dm_send_get_build_info_cmd (void);
 void nfc_hal_dm_proc_msg_during_init (NFC_HDR *p_msg);
+void nfc_hal_dm_proc_msg_during_exit (NFC_HDR *p_msg);
 void nfc_hal_dm_config_nfcc (void);
 void nfc_hal_dm_send_nci_cmd (const UINT8 *p_data, UINT16 len, tNFC_HAL_NCI_CBACK *p_cback);
 void nfc_hal_dm_send_bt_cmd (const UINT8 *p_data, UINT16 len, tNFC_HAL_BTVSC_CPLT_CBACK *p_cback);
@@ -486,6 +495,7 @@ BOOLEAN nfc_hal_dm_power_mode_execute (tNFC_HAL_LP_EVT event);
 void nfc_hal_dm_send_pend_cmd (void);
 tHAL_NFC_STATUS nfc_hal_dm_set_config (UINT8 tlv_size, UINT8 *p_param_tlvs, tNFC_HAL_NCI_CBACK *p_cback);
 BOOLEAN nfc_hal_dm_check_pre_set_mem (void);
+tNFC_HAL_NCI_CBACK * nfc_hal_dm_got_vs_rsp (void);
 
 
 /* nfc_hal_prm.c */

@@ -129,12 +129,12 @@ For one-shot and special reporting mode sensors, set <code>maxDelay</code> to 0.
 <p>For continuous sensors, set it to the maximum sampling period allowed in
 microseconds.</p>
 
-<p>Note:</p>
+<p>The following are applicable for <code>period_ns</code>, <code>maxDelay</code>, and <code>minDelay</code>:</p>
 <ul>
 <li><code>period_ns</code> is in nanoseconds whereas
 <code>maxDelay</code>/<code>minDelay</code> are in microseconds.</li>
-<li><code>maxDelay </code>should always fit within a 32-bit signed integer. It
-is declared as 64 bit on 64 bit architectures only for binary compatibility reasons.</li>
+<li><code>maxDelay</code> should always fit within a 32-bit signed integer. It
+is declared as 64-bit on 64-bit architectures only for binary compatibility reasons.</li>
 </ul>
 
 <p><em>flags</em>: This field defines the reporting mode of the sensor and whether the sensor is

@@ -44,11 +44,11 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "libdrm.h"
+#include "libdrm_macros.h"
 #include "xf86drm.h"
 #include "xf86atomic.h"
 
-#include "list.h"
+#include "util_double_list.h"
 
 #include "freedreno_drmif.h"
 #include "freedreno_ringbuffer.h"
@@ -83,7 +83,7 @@ struct fd_device {
 	 */
 	void *handle_table, *name_table;
 
-	struct fd_device_funcs *funcs;
+	const struct fd_device_funcs *funcs;
 
 	struct fd_bo_bucket cache_bucket[14 * 4];
 	int num_buckets;
@@ -92,22 +92,22 @@ struct fd_device {
 	int closefd;        /* call close(fd) upon destruction */
 };
 
-void fd_cleanup_bo_cache(struct fd_device *dev, time_t time);
+drm_private void fd_cleanup_bo_cache(struct fd_device *dev, time_t time);
 
 /* for where @table_lock is already held: */
-void fd_device_del_locked(struct fd_device *dev);
+drm_private void fd_device_del_locked(struct fd_device *dev);
 
 struct fd_pipe_funcs {
 	struct fd_ringbuffer * (*ringbuffer_new)(struct fd_pipe *pipe, uint32_t size);
 	int (*get_param)(struct fd_pipe *pipe, enum fd_param_id param, uint64_t *value);
-	int (*wait)(struct fd_pipe *pipe, uint32_t timestamp);
+	int (*wait)(struct fd_pipe *pipe, uint32_t timestamp, uint64_t timeout);
 	void (*destroy)(struct fd_pipe *pipe);
 };
 
 struct fd_pipe {
 	struct fd_device *dev;
 	enum fd_pipe_id id;
-	struct fd_pipe_funcs *funcs;
+	const struct fd_pipe_funcs *funcs;
 };
 
 struct fd_ringmarker {
@@ -138,10 +138,9 @@ struct fd_bo {
 	uint32_t size;
 	uint32_t handle;
 	uint32_t name;
-	int fd;          /* dmabuf handle */
 	void *map;
 	atomic_t refcnt;
-	struct fd_bo_funcs *funcs;
+	const struct fd_bo_funcs *funcs;
 
 	int bo_reuse;
 	struct list_head list;   /* bucket-list entry */

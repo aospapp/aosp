@@ -21,7 +21,7 @@ import java.nio.Buffer;
 import java.nio.ByteOrder;
 import java.util.HashMap;
 
-import com.android.cts.graphics.R;
+import android.graphics.cts.R;
 
 import android.app.Activity;
 import android.content.res.AssetFileDescriptor;

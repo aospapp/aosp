@@ -1,4 +1,4 @@
-apply plugin: 'android-library'
+apply plugin: 'com.android.library'
 
 archivesBaseName = 'leanback-v17'
 
@@ -9,7 +9,7 @@ dependencies {
 
 android {
     // WARNING: should be 17
-    compileSdkVersion 'current'
+    compileSdkVersion project.ext.currentSdk
 
     defaultConfig {
         minSdkVersion 17
@@ -19,8 +19,8 @@ android {
 
     sourceSets {
         main.manifest.srcFile 'AndroidManifest.xml'
-        main.java.srcDirs = ['common', 'jbmr2', 'kitkat', 'api21', 'src']
-        main.aidl.srcDirs = ['common', 'jbmr2', 'kitkat', 'api21', 'src']
+        main.java.srcDirs = ['common', 'jbmr2', 'kitkat', 'api21', 'api23', 'src']
+        main.aidl.srcDirs = ['common', 'jbmr2', 'kitkat', 'api21', 'api23', 'src']
         main.res.srcDirs = ['res']
 
         androidTest.setRoot('tests')

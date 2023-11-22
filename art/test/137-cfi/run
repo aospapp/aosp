@@ -14,8 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Temporarily disable address space layout randomization (ASLR).
-# This is need on host so that the linker loads core.oat at fixed address.
-export LD_USE_LOAD_BIAS=1
+# Test with full DWARF debugging information.
+# Check full signatures of methods.
+${RUN} "$@" -Xcompiler-option --generate-debug-info \
+  --args --full-signatures --args --test-local --args --test-remote
 
-exec ${RUN} "$@"
+# Test with minimal compressed debugging information.
+# Check only method names (parameters are omitted to save space).
+# Check only remote unwinding since decompression is disabled in local unwinds (b/27391690).
+${RUN} "$@" -Xcompiler-option --generate-mini-debug-info --args --test-remote

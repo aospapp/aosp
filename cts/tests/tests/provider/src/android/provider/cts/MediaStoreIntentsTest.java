@@ -71,7 +71,10 @@ public class MediaStoreIntentsTest extends AndroidTestCase {
         final String[] schemes = new String[] {
                 "file", "http", "https", "content" };
         final String[] mimes = new String[] {
-                "image/bmp", "image/jpeg", "image/png", "image/gif", "image/webp" };
+                "image/bmp", "image/jpeg", "image/png", "image/gif", "image/webp",
+                "image/x-adobe-dng", "image/x-canon-cr2", "image/x-nikon-nef", "image/x-nikon-nrw",
+                "image/x-sony-arw", "image/x-panasonic-rw2", "image/x-olympus-orf",
+                "image/x-fuji-raf", "image/x-pentax-pef", "image/x-samsung-srw" };
 
         for (String scheme : schemes) {
             for (String mime : mimes) {

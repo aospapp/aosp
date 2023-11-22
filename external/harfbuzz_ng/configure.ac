@@ -1,6 +1,6 @@
 AC_PREREQ([2.64])
 AC_INIT([HarfBuzz],
-        [0.9.38],
+        [1.2.6],
         [http://bugs.freedesktop.org/enter_bug.cgi?product=harfbuzz],
         [harfbuzz],
         [http://harfbuzz.org/])
@@ -9,7 +9,7 @@ AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR([src/harfbuzz.pc.in])
 AC_CONFIG_HEADERS([config.h])
 
-AM_INIT_AUTOMAKE([1.11.1 gnits tar-pax dist-bzip2 no-dist-gzip -Wall no-define color-tests -Wno-portability])
+AM_INIT_AUTOMAKE([1.11.1 gnits tar-ustar dist-bzip2 no-dist-gzip -Wall no-define color-tests -Wno-portability])
 AM_CONDITIONAL(AUTOMAKE_OLDER_THAN_1_13, test $am__api_version = 1.11 -o $am__api_version = 1.12)
 AM_SILENT_RULES([yes])
 
@@ -51,7 +51,7 @@ m4_if(m4_eval(hb_version_minor % 2), [1],
 m4_define([hb_libtool_age],
 	  m4_eval(hb_version_int - hb_libtool_revision))
 m4_define([hb_libtool_current],
-	  m4_eval(hb_version_major + hb_libtool_age))
+	  m4_eval(hb_libtool_age))
 HB_LIBTOOL_VERSION_INFO=hb_libtool_current:hb_libtool_revision:hb_libtool_age
 AC_SUBST(HB_LIBTOOL_VERSION_INFO)
 
@@ -145,8 +145,10 @@ AC_ARG_WITH(glib,
 			[Use glib @<:@default=auto@:>@])],,
 	[with_glib=auto])
 have_glib=false
+GLIB_DEPS="glib-2.0 >= 2.16"
+AC_SUBST(GLIB_DEPS)
 if test "x$with_glib" = "xyes" -o "x$with_glib" = "xauto"; then
-	PKG_CHECK_MODULES(GLIB, glib-2.0 >= 2.16, have_glib=true, :)
+	PKG_CHECK_MODULES(GLIB, $GLIB_DEPS, have_glib=true, :)
 fi
 if test "x$with_glib" = "xyes" -a "x$have_glib" != "xtrue"; then
 	AC_MSG_ERROR([glib support requested but glib-2.0 not found])
@@ -195,17 +197,6 @@ m4_ifdef([GOBJECT_INTROSPECTION_CHECK], [
 	AM_CONDITIONAL([HAVE_INTROSPECTION], false)
 ])
 
-dnl ===========================================================================
-
-have_ucdn=true
-if $have_glib; then
-	have_ucdn=false
-fi
-if $have_ucdn; then
-	AC_DEFINE(HAVE_UCDN, 1, [Have UCDN Unicode functions])
-fi
-AM_CONDITIONAL(HAVE_UCDN, $have_ucdn)
-
 dnl ==========================================================================
 
 AC_ARG_WITH(cairo,
@@ -235,12 +226,30 @@ AM_CONDITIONAL(HAVE_CAIRO_FT, $have_cairo_ft)
 
 dnl ==========================================================================
 
+AC_ARG_WITH(fontconfig,
+	[AS_HELP_STRING([--with-fontconfig=@<:@yes/no/auto@:>@],
+			[Use fontconfig @<:@default=auto@:>@])],,
+	[with_fontconfig=auto])
+have_fontconfig=false
+if test "x$with_fontconfig" = "xyes" -o "x$with_fontconfig" = "xauto"; then
+	PKG_CHECK_MODULES(FONTCONFIG, fontconfig, have_fontconfig=true, :)
+fi
+if test "x$with_fontconfig" = "xyes" -a "x$have_fontconfig" != "xtrue"; then
+	AC_MSG_ERROR([fontconfig support requested but not found])
+fi
+if $have_fontconfig; then
+	AC_DEFINE(HAVE_FONTCONFIG, 1, [Have fontconfig library])
+fi
+AM_CONDITIONAL(HAVE_FONTCONFIG, $have_fontconfig)
+
+dnl ==========================================================================
+
 AC_ARG_WITH(icu,
-	[AS_HELP_STRING([--with-icu=@<:@yes/no/auto@:>@],
+	[AS_HELP_STRING([--with-icu=@<:@yes/no/builtin/auto@:>@],
 			[Use ICU @<:@default=auto@:>@])],,
 	[with_icu=auto])
 have_icu=false
-if test "x$with_icu" = "xyes" -o "x$with_icu" = "xauto"; then
+if test "x$with_icu" = "xyes" -o "x$with_icu" = "xbuiltin" -o "x$with_icu" = "xauto"; then
 	PKG_CHECK_MODULES(ICU, icu-uc, have_icu=true, :)
 
 	dnl Fallback to icu-config if ICU pkg-config files could not be found
@@ -262,14 +271,30 @@ if test "x$with_icu" = "xyes" -o "x$with_icu" = "xauto"; then
 		fi
 	fi
 fi
-if test "x$with_icu" = "xyes" -a "x$have_icu" != "xtrue"; then
+if test \( "x$with_icu" = "xyes" -o "x$with_icu" = "xbuiltin" \) -a "x$have_icu" != "xtrue"; then
 	AC_MSG_ERROR([icu support requested but icu-uc not found])
 fi
+
 if $have_icu; then
 	CXXFLAGS="$CXXFLAGS `$PKG_CONFIG --variable=CXXFLAGS icu-uc`"
 	AC_DEFINE(HAVE_ICU, 1, [Have ICU library])
+	if test "x$with_icu" = "xbuiltin"; then
+		AC_DEFINE(HAVE_ICU_BUILTIN, 1, [Use hb-icu Unicode callbacks])
+	fi
 fi
 AM_CONDITIONAL(HAVE_ICU, $have_icu)
+AM_CONDITIONAL(HAVE_ICU_BUILTIN, $have_icu && test "x$with_icu" = "xbuiltin")
+
+dnl ===========================================================================
+
+have_ucdn=true
+if $have_glib || $have_icu && test "x$with_icu" = "xbuiltin"; then
+	have_ucdn=false
+fi
+if $have_ucdn; then
+	AC_DEFINE(HAVE_UCDN, 1, [Have UCDN Unicode functions])
+fi
+AM_CONDITIONAL(HAVE_UCDN, $have_ucdn)
 
 dnl ==========================================================================
 
@@ -278,8 +303,10 @@ AC_ARG_WITH(graphite2,
 			[Use the graphite2 library @<:@default=no@:>@])],,
 	[with_graphite2=no])
 have_graphite2=false
+GRAPHITE2_DEPS="graphite2"
+AC_SUBST(GRAPHITE2_DEPS)
 if test "x$with_graphite2" = "xyes" -o "x$with_graphite2" = "xauto"; then
-	PKG_CHECK_MODULES(GRAPHITE2, graphite2, have_graphite2=true, :)
+	PKG_CHECK_MODULES(GRAPHITE2, $GRAPHITE2_DEPS, have_graphite2=true, :)
 fi
 if test "x$with_graphite2" = "xyes" -a "x$have_graphite2" != "xtrue"; then
 	AC_MSG_ERROR([graphite2 support requested but libgraphite2 not found])
@@ -296,9 +323,11 @@ AC_ARG_WITH(freetype,
 			[Use the FreeType library @<:@default=auto@:>@])],,
 	[with_freetype=auto])
 have_freetype=false
+FREETYPE_DEPS="freetype2 >= 12.0.6"
+AC_SUBST(FREETYPE_DEPS)
 if test "x$with_freetype" = "xyes" -o "x$with_freetype" = "xauto"; then
 	# See freetype/docs/VERSION.DLL; 12.0.6 means freetype-2.4.2
-	PKG_CHECK_MODULES(FREETYPE, freetype2 >= 12.0.6, have_freetype=true, :)
+	PKG_CHECK_MODULES(FREETYPE, $FREETYPE_DEPS, have_freetype=true, :)
 fi
 if test "x$with_freetype" = "xyes" -a "x$have_freetype" != "xtrue"; then
 	AC_MSG_ERROR([FreeType support requested but libfreetype2 not found])
@@ -329,6 +358,30 @@ if $have_uniscribe; then
 	AC_DEFINE(HAVE_UNISCRIBE, 1, [Have Uniscribe library])
 fi
 AM_CONDITIONAL(HAVE_UNISCRIBE, $have_uniscribe)
+
+dnl ===========================================================================
+
+AC_ARG_WITH(directwrite,
+	[AS_HELP_STRING([--with-directwrite=@<:@yes/no/auto@:>@],
+			[Use the DirectWrite library (experimental) @<:@default=no@:>@])],,
+	[with_directwrite=no])
+have_directwrite=false
+AC_LANG_PUSH([C++])
+if test "x$with_directwrite" = "xyes" -o "x$with_directwrite" = "xauto"; then
+	AC_CHECK_HEADERS(dwrite.h, have_directwrite=true)
+fi
+AC_LANG_POP([C++])
+if test "x$with_directwrite" = "xyes" -a "x$have_directwrite" != "xtrue"; then
+	AC_MSG_ERROR([directwrite support requested but not found])
+fi
+if $have_directwrite; then
+	DIRECTWRITE_CXXFLAGS=
+	DIRECTWRITE_LIBS="-ldwrite"
+	AC_SUBST(DIRECTWRITE_CXXFLAGS)
+	AC_SUBST(DIRECTWRITE_LIBS)
+	AC_DEFINE(HAVE_DIRECTWRITE, 1, [Have DirectWrite library])
+fi
+AM_CONDITIONAL(HAVE_DIRECTWRITE, $have_directwrite)
 
 dnl ===========================================================================
 
@@ -416,10 +469,12 @@ src/hb-ucdn/Makefile
 util/Makefile
 test/Makefile
 test/api/Makefile
+test/fuzzing/Makefile
 test/shaping/Makefile
 docs/Makefile
-docs/reference/Makefile
-docs/reference/version.xml
+docs/version.xml
+win32/Makefile
+win32/config.h.win32
 ])
 
 AC_OUTPUT
@@ -438,6 +493,7 @@ Font callbacks (the more the better):
 
 Tools used for command-line utilities:
 	Cairo:			${have_cairo}
+	Fontconfig:		${have_fontconfig}
 
 Additional shapers (the more the better):
 	Graphite2:		${have_graphite2}
@@ -445,6 +501,7 @@ Additional shapers (the more the better):
 Platform shapers (not normally needed):
 	CoreText:		${have_coretext}
 	Uniscribe:		${have_uniscribe}
+	DirectWrite:		${have_directwrite}
 
 Other features:
 	Documentation:		${have_gtk_doc}

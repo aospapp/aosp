@@ -4,4 +4,6 @@
     <item type="id" name="onAttachStateChangeListener"/>
     <!-- Used to track TextWatcher for TextView BindingAdapter -->
     <item type="id" name="textWatcher"/>
+    <!-- Used to track DatePicker OnDateChanged BindingAdapter -->
+    <item type="id" name="onDateChanged"/>
 </resources>

@@ -172,16 +172,17 @@ of license.</p>
 <code>int checkRightsStatus(int uniqueId, const String8&amp; path, int
 action);</code>
 
+<p>Check whether the given content has valid rights or not.  The input
+parameters are the content file path where the content was saved and the action
+to query rights for, for example: Action::DEFAULT, Action::PLAY.  Returns the
+status of the rights for the protected content, such as
+RightsStatus::RIGHTS_VALID, RightsStatus::RIGHTS_EXPIRED.</p>
+
+<code>status_t saveRights(int uniqueId, const DrmRights&amp; drmRights, const String8&amp; rightsPath, const String8&amp; contentPath);</code>
+
 <p>Save DRM rights to the specified rights path and make association with content path.
 The input parameters are the DrmRights to be saved, the rights file path where rights
 are to be saved, and the content file path where content was saved.</p>
-
-<code>status_t saveRights(int uniqueId, const DrmRights&amp; drmRights,
-            const String8&amp; rightsPath, const String8&amp;
-contentPath);</code>
-
-<p>Save DRM rights to specified rights path and make association with content
-path.</p>
 
 <h3 id="metadata">License Metadata</h3>
 <p>License metadata such as license expiry time, repeatable count and etc., may be
@@ -227,7 +228,7 @@ application can register three listener classes to DRM framework.</p>
 
 <ul>
 <li>OnEventListener for results of asynchronous APIs</li>
-<li>OnErrorListener for recieving errors of asynchronous APIs</li>
+<li>OnErrorListener for receiving errors of asynchronous APIs</li>
 <li>OnInfoListener for any supplementary information during DRM
 transactions.</li>
 </ul>

@@ -32,9 +32,9 @@
     <skip />
     <!-- no translation found for header_category_personal (8893959635328775096) -->
     <skip />
-    <!-- no translation found for add_account (4098060223200619258) -->
+    <!-- no translation found for accounts_category_title (7591072907146317425) -->
     <skip />
-    <!-- no translation found for account_header_sync (2679585471372319471) -->
+    <!-- no translation found for add_account (4098060223200619258) -->
     <skip />
     <!-- no translation found for account_header_remove_account (3288957118207682685) -->
     <skip />
@@ -42,19 +42,23 @@
     <skip />
     <!-- no translation found for sync_now (8732244492880016471) -->
     <skip />
-    <!-- no translation found for sync_cancel (5839264070098894371) -->
-    <skip />
     <!-- no translation found for sync_in_progress (1330721038775646022) -->
     <skip />
     <!-- no translation found for last_synced (6178494892357077274) -->
     <skip />
     <!-- no translation found for sync_disabled (3089360175872892781) -->
     <skip />
-    <!-- no translation found for sync_is_failing (8229476000384257186) -->
-    <skip />
     <!-- no translation found for account_remove (4313580520737295272) -->
     <skip />
     <!-- no translation found for account_remove_failed (980654375770693544) -->
+    <skip />
+    <!-- no translation found for sync_item_title (2716687595867726981) -->
+    <skip />
+    <!-- no translation found for sync_one_time_sync (3575080833667908804) -->
+    <skip />
+    <!-- no translation found for sync_failed (5514824149810480551) -->
+    <skip />
+    <!-- no translation found for sync_active (6891115263481154378) -->
     <skip />
     <!-- no translation found for connectivity_network (8321537111272398501) -->
     <skip />
@@ -68,17 +72,18 @@
     <skip />
     <!-- no translation found for wifi_setting_enable_wifi (9214100840401870408) -->
     <skip />
-    <!-- no translation found for device_daydream (4933581408059561077) -->
-    <skip />
+    <string name="device_daydream" msgid="3354366974209179614">"ਸਕ੍ਰੀਨ ਸੇਵਰ"</string>
     <!-- no translation found for device_display (101455384386372747) -->
+    <skip />
+    <!-- no translation found for device_sound (9214182566287657481) -->
+    <skip />
+    <!-- no translation found for device_surround_sound (6272196310566546860) -->
     <skip />
     <!-- no translation found for device_sound_effects (7793281745920228622) -->
     <skip />
     <!-- no translation found for device_apps (9180435229638772838) -->
     <skip />
     <!-- no translation found for device_storage_reset (1425978936501134425) -->
-    <skip />
-    <!-- no translation found for device_storage (5536683600091277826) -->
     <skip />
     <!-- no translation found for device_backup_restore (5627523987587511884) -->
     <skip />
@@ -98,8 +103,6 @@
     <skip />
     <!-- no translation found for accessories_add (1347802656349218830) -->
     <skip />
-    <!-- no translation found for accessories_wifi_display (1107690327150126038) -->
-    <skip />
     <!-- no translation found for accessory_state_pairing (7501989679637780963) -->
     <skip />
     <!-- no translation found for accessory_state_connecting (8777884957977608529) -->
@@ -111,8 +114,6 @@
     <!-- no translation found for accessory_state_paired (1959238931866401476) -->
     <skip />
     <!-- no translation found for accessory_options (4799658564005710297) -->
-    <skip />
-    <!-- no translation found for accessory_rename (3250766501262581206) -->
     <skip />
     <!-- no translation found for accessory_unpair (8242725516604465355) -->
     <skip />
@@ -127,12 +128,6 @@
     <!-- no translation found for accessories_add_bluetooth_inst (5892952745770640383) -->
     <skip />
     <!-- no translation found for accessories_autopair_msg (8618829246837821752) -->
-    <skip />
-    <!-- no translation found for accessories_add_title_multiple (8455249961819802466) -->
-    <skip />
-    <!-- no translation found for accessories_add_multiple (3900633668371061399) -->
-    <skip />
-    <!-- no translation found for accessories_add_multiple_select (3696794187001405647) -->
     <skip />
     <!-- no translation found for error_action_not_supported (300552308104354666) -->
     <skip />
@@ -177,6 +172,8 @@
     <skip />
     <!-- no translation found for accessibility_none (3441648940134070004) -->
     <skip />
+    <!-- no translation found for system_diagnostic (7269638365915225701) -->
+    <skip />
     <!-- no translation found for about_system_update (7282772247661356586) -->
     <skip />
     <!-- no translation found for about_preference (4131396784531360434) -->
@@ -208,6 +205,66 @@
     <skip />
     <!-- no translation found for show_dev_already (7525967300421794483) -->
     <skip />
+    <!-- no translation found for device_info_default (4519181343309136050) -->
+    <skip />
+    <!-- no translation found for selinux_status (8000422283341040360) -->
+    <skip />
+    <!-- no translation found for selinux_status_disabled (4925733135520787807) -->
+    <skip />
+    <!-- no translation found for selinux_status_permissive (4806219236988993826) -->
+    <skip />
+    <!-- no translation found for selinux_status_enforcing (8839484208185347776) -->
+    <skip />
+    <!-- no translation found for additional_system_update_settings_list_item_title (6285273598178967613) -->
+    <skip />
+    <!-- no translation found for device_status (4379924151946190768) -->
+    <skip />
+    <!-- no translation found for device_status_summary (180586140242936323) -->
+    <skip />
+    <!-- no translation found for manual (4957388668881541669) -->
+    <skip />
+    <!-- no translation found for regulatory_information (5448865708097003189) -->
+    <skip />
+    <!-- no translation found for device_feedback (209146642122579479) -->
+    <skip />
+    <!-- no translation found for fcc_equipment_id (8295142996591094301) -->
+    <skip />
+    <!-- no translation found for baseband_version (2229081246529676107) -->
+    <skip />
+    <!-- no translation found for kernel_version (2418845475938044903) -->
+    <skip />
+    <!-- no translation found for status_unavailable (831018565485085059) -->
+    <skip />
+    <!-- no translation found for device_status_title (1629253652287243543) -->
+    <skip />
+    <!-- no translation found for battery_status_title (2557264957661087826) -->
+    <skip />
+    <!-- no translation found for battery_level_title (100046129713781009) -->
+    <skip />
+    <!-- no translation found for sim_status_title (498929467188844611) -->
+    <skip />
+    <!-- no translation found for imei_information_title (5208860549282877136) -->
+    <skip />
+    <!-- no translation found for status_bt_address (1571721865060122393) -->
+    <skip />
+    <!-- no translation found for status_up_time (1674116490191446110) -->
+    <skip />
+    <!-- no translation found for status_wimax_mac_address (1102907383444152052) -->
+    <skip />
+    <!-- no translation found for legal_information (2346024659831852038) -->
+    <skip />
+    <!-- no translation found for copyright_title (5564228453228549353) -->
+    <skip />
+    <!-- no translation found for license_title (4482927105870812604) -->
+    <skip />
+    <!-- no translation found for terms_title (8480859222932736291) -->
+    <skip />
+    <!-- no translation found for webview_license_title (8843666223583780825) -->
+    <skip />
+    <!-- no translation found for wallpaper_attributions (8622098625739634898) -->
+    <skip />
+    <!-- no translation found for wallpaper_attributions_values (1565931506291182879) -->
+    <skip />
     <!-- no translation found for wifi_signal_strength:0 (6926038943588801452) -->
     <!-- no translation found for wifi_signal_strength:1 (5986166866411161790) -->
     <!-- no translation found for wifi_signal_strength:2 (7541004325985469896) -->
@@ -226,13 +283,13 @@
     <skip />
     <!-- no translation found for not_connected (6858480380326923017) -->
     <skip />
-    <!-- no translation found for wifi_setting_header_available_networks (6244107218643835636) -->
-    <skip />
-    <!-- no translation found for wifi_setting_header_other_options (1530334691232749342) -->
+    <!-- no translation found for wifi_setting_header_other_options (3638677601577777216) -->
     <skip />
     <!-- no translation found for wifi_setting_see_all (3217814666041974878) -->
     <skip />
-    <!-- no translation found for wifi_setting_available_networks (1244646604369133314) -->
+    <!-- no translation found for wifi_setting_see_fewer (5958876323942699235) -->
+    <skip />
+    <!-- no translation found for wifi_setting_available_networks (6713791371350513043) -->
     <skip />
     <!-- no translation found for wifi_setting_other_options_wps (2320322351779996152) -->
     <skip />
@@ -338,15 +395,15 @@
     <skip />
     <!-- no translation found for wifi_ip_settings_invalid_network_prefix_length (6209978918929182270) -->
     <skip />
-    <!-- no translation found for wifi_ip_address_hint (1895267564692073689) -->
+    <!-- no translation found for wifi_ip_address_description (6548838784556001283) -->
     <skip />
-    <!-- no translation found for wifi_dns1_hint (214345156394229347) -->
+    <!-- no translation found for wifi_dns1_description (2463500547232077393) -->
     <skip />
-    <!-- no translation found for wifi_dns2_hint (1075709328208368894) -->
+    <!-- no translation found for wifi_dns2_description (8005473174044015359) -->
     <skip />
-    <!-- no translation found for wifi_gateway_hint (7687219682024189028) -->
+    <!-- no translation found for wifi_gateway_description (4773751224452216231) -->
     <skip />
-    <!-- no translation found for wifi_network_prefix_length_hint (332915798888599682) -->
+    <!-- no translation found for wifi_network_prefix_length_description (4849589333293194414) -->
     <skip />
     <!-- no translation found for proxy_error_invalid_host (3660415920668138953) -->
     <skip />
@@ -360,11 +417,11 @@
     <skip />
     <!-- no translation found for proxy_warning_limited_support (6160239282535986523) -->
     <skip />
-    <!-- no translation found for proxy_port_hint (8532733797275927007) -->
+    <!-- no translation found for proxy_port_description (6791098212244367568) -->
     <skip />
-    <!-- no translation found for proxy_exclusionlist_hint (86175095050438325) -->
+    <!-- no translation found for proxy_exclusionlist_description (6020640103462473072) -->
     <skip />
-    <!-- no translation found for proxy_hostname_hint (3719688422767210803) -->
+    <!-- no translation found for proxy_hostname_description (5824391500254472447) -->
     <skip />
     <!-- no translation found for wifi_summary_title_connected (8329216588732277139) -->
     <skip />
@@ -402,13 +459,21 @@
     <skip />
     <!-- no translation found for storage_format (3759273736493279595) -->
     <skip />
+    <!-- no translation found for storage_format_as_private (4169495230765116075) -->
+    <skip />
+    <!-- no translation found for storage_format_as_public (8568317076021814054) -->
+    <skip />
     <!-- no translation found for storage_format_for_private (7095270113028182032) -->
     <skip />
     <!-- no translation found for storage_not_connected (6378589497819596096) -->
     <skip />
-    <!-- no translation found for storage_migrate (658894157418304023) -->
+    <!-- no translation found for storage_migrate (1304058078948715456) -->
     <skip />
-    <!-- no translation found for storage_forget (8541387048014779836) -->
+    <!-- no translation found for storage_migrate_away (3410590501311323877) -->
+    <skip />
+    <!-- no translation found for storage_no_apps (579118619398668670) -->
+    <skip />
+    <!-- no translation found for storage_forget (8731986045697320463) -->
     <skip />
     <!-- no translation found for storage_forget_wall_of_text (8953451024930539678) -->
     <skip />
@@ -422,6 +487,8 @@
     <skip />
     <!-- no translation found for storage_mount_failure (2469026716895846633) -->
     <skip />
+    <!-- no translation found for storage_mount_adopted (3360994581083675640) -->
+    <skip />
     <!-- no translation found for storage_unmount_success (7921627277443856151) -->
     <skip />
     <!-- no translation found for storage_unmount_failure (6322048355281833871) -->
@@ -432,17 +499,19 @@
     <skip />
     <!-- no translation found for storage_format_failure (7336977074523932399) -->
     <skip />
-    <!-- no translation found for storage_wizard_format_as_private_title (1433086533563409114) -->
+    <!-- no translation found for storage_wizard_format_as_private_title (1887035626526247913) -->
     <skip />
     <!-- no translation found for storage_wizard_format_as_private_description (5814513630861655168) -->
     <skip />
     <!-- no translation found for storage_wizard_format_as_public_title (977475385015522171) -->
     <skip />
-    <!-- no translation found for storage_wizard_format_as_public_description (8591201523650249337) -->
+    <!-- no translation found for storage_wizard_format_as_public_description (184405877453834449) -->
     <skip />
     <!-- no translation found for storage_wizard_format_progress_title (143911640282435570) -->
     <skip />
     <!-- no translation found for storage_wizard_format_progress_description (5320980721352781920) -->
+    <skip />
+    <!-- no translation found for storage_wizard_migrate_choose_title (4247584708563925746) -->
     <skip />
     <!-- no translation found for storage_wizard_migrate_confirm_title (369820166257265495) -->
     <skip />
@@ -474,11 +543,11 @@
     <skip />
     <!-- no translation found for storage_wizard_back_up_apps_space_available (7209210725057470544) -->
     <skip />
-    <!-- no translation found for storage_wizard_eject_internal_title (3717872796166039893) -->
+    <!-- no translation found for storage_wizard_eject_private_title (2844023177159233031) -->
     <skip />
-    <!-- no translation found for storage_wizard_eject_internal_description (6107781224687080575) -->
+    <!-- no translation found for storage_wizard_eject_private_description (8966427719795472538) -->
     <skip />
-    <!-- no translation found for sotrage_wizard_eject_progress_title (8034235439954334978) -->
+    <!-- no translation found for storage_wizard_eject_progress_title (8823133087157003820) -->
     <skip />
     <!-- no translation found for storage_wizard_move_app_title (37057801779891287) -->
     <skip />
@@ -486,7 +555,7 @@
     <skip />
     <!-- no translation found for storage_wizard_move_app_progress_description (3693104566187904724) -->
     <skip />
-    <!-- no translation found for storage_wizard_forget_confirm_title (1183642893909026951) -->
+    <!-- no translation found for storage_wizard_forget_confirm_title (4321200084208420221) -->
     <skip />
     <!-- no translation found for storage_wizard_forget_confirm_description (4264263982217111372) -->
     <skip />
@@ -496,7 +565,7 @@
     <skip />
     <!-- no translation found for storage_new_action_browse (9041125660441839453) -->
     <skip />
-    <!-- no translation found for storage_new_action_adopt (1903427557119380415) -->
+    <!-- no translation found for storage_new_action_adopt (880224317112988974) -->
     <skip />
     <!-- no translation found for storage_new_action_format_public (5604328981214071670) -->
     <skip />
@@ -515,6 +584,8 @@
     <!-- no translation found for invalid_location (5269044848535157307) -->
     <skip />
     <!-- no translation found for system_package (9200255718634512790) -->
+    <skip />
+    <!-- no translation found for move_error_device_admin (2060627704270836951) -->
     <skip />
     <!-- no translation found for learn_more_action (7015991954404958779) -->
     <skip />
@@ -554,8 +625,11 @@
     <skip />
     <!-- no translation found for system_auto_date_time (3629668599205033272) -->
     <skip />
-    <!-- no translation found for desc_auto_date_time (6997571927680580633) -->
-    <skip />
+    <!-- no translation found for auto_date_time_entries:0 (4590792581242018007) -->
+    <!-- no translation found for auto_date_time_entries:1 (3807025813081244357) -->
+    <!-- no translation found for auto_date_time_ts_entries:0 (8463479794795616025) -->
+    <!-- no translation found for auto_date_time_ts_entries:1 (2475903014233987786) -->
+    <!-- no translation found for auto_date_time_ts_entries:2 (150957081326946463) -->
     <!-- no translation found for system_location (502463575930545806) -->
     <skip />
     <!-- no translation found for system_desc_location (4243551425631207495) -->
@@ -564,8 +638,7 @@
     <skip />
     <!-- no translation found for location_mode_title (6573195849329396150) -->
     <skip />
-    <!-- no translation found for location_category_recent_location_requests (3437903422445812245) -->
-    <skip />
+    <string name="location_category_recent_location_requests" msgid="3437903422445812245">"ਹਾਲੀਆ ਟਿਕਾਣਾ ਬੇਨਤੀਆਂ"</string>
     <!-- no translation found for location_no_recent_apps (4218851908476344030) -->
     <skip />
     <!-- no translation found for location_high_battery_use (576143332793626088) -->
@@ -576,8 +649,7 @@
     <skip />
     <!-- no translation found for location_status (3456414279428237558) -->
     <skip />
-    <!-- no translation found for location_services (5441085185119797200) -->
-    <skip />
+    <string name="location_services" msgid="5441085185119797200">"ਟਿਕਾਣਾ ਸੇਵਾਵਾਂ"</string>
     <!-- no translation found for on (6683600681314500652) -->
     <skip />
     <!-- no translation found for off (5264189545064767245) -->
@@ -602,6 +674,8 @@
     <skip />
     <!-- no translation found for accessibility_service_settings (322888335240595695) -->
     <skip />
+    <!-- no translation found for accessibility_toggle_high_text_contrast_preference_title (4970438261747914408) -->
+    <skip />
     <!-- no translation found for accessibility_captions (6133896463407851079) -->
     <skip />
     <!-- no translation found for accessibility_captions_description (4290317621720499628) -->
@@ -616,7 +690,7 @@
     <skip />
     <!-- no translation found for captions_configure (5537548915977371014) -->
     <skip />
-    <!-- no translation found for captions_lanaguage (3291057448460880449) -->
+    <!-- no translation found for captions_language (2835554055388996343) -->
     <skip />
     <!-- no translation found for captions_textsize (4828195509546070971) -->
     <skip />
@@ -632,6 +706,8 @@
     <skip />
     <!-- no translation found for captions_edgecolor (845125757332620884) -->
     <skip />
+    <!-- no translation found for captions_backgroundshow (9177987321551275698) -->
+    <skip />
     <!-- no translation found for captions_backgroundcolor (448518890988125453) -->
     <skip />
     <!-- no translation found for captions_backgroundopacity (2643722493273126220) -->
@@ -640,9 +716,21 @@
     <skip />
     <!-- no translation found for captions_textopacity (5536765490446288641) -->
     <skip />
+    <!-- no translation found for captions_windowshow (5716898740522196707) -->
+    <skip />
     <!-- no translation found for captions_windowcolor (8986165172260903279) -->
     <skip />
     <!-- no translation found for captions_windowopacity (2784473496224936703) -->
+    <skip />
+    <!-- no translation found for captions_style_0 (2068865433439146533) -->
+    <skip />
+    <!-- no translation found for captions_style_1 (8878565905353923498) -->
+    <skip />
+    <!-- no translation found for captions_style_2 (1486695984924671199) -->
+    <skip />
+    <!-- no translation found for captions_style_3 (3217829874170162074) -->
+    <skip />
+    <!-- no translation found for captions_style_custom (3645114505000714364) -->
     <skip />
     <!-- no translation found for color_white (65537523012024751) -->
     <skip />
@@ -660,7 +748,7 @@
     <skip />
     <!-- no translation found for color_magenta (6395786485839439122) -->
     <skip />
-    <!-- no translation found for system_accessibility_status (4389074529913575327) -->
+    <!-- no translation found for system_accessibility_status (6150600992901856367) -->
     <skip />
     <!-- no translation found for system_accessibility_config (3216531917536720277) -->
     <skip />
@@ -673,6 +761,8 @@
     <!-- no translation found for system_accessibility_service_off_confirm_desc (6714782635926048678) -->
     <skip />
     <!-- no translation found for system_accessibility_tts_output (8905477795536714590) -->
+    <skip />
+    <!-- no translation found for system_accessibility_tts_engine_config (5331139536083054552) -->
     <skip />
     <!-- no translation found for system_speak_passwords (5264650214879185873) -->
     <skip />
@@ -808,10 +898,10 @@
     <skip />
     <!-- no translation found for security_unknown_sources_title (769762478057744545) -->
     <skip />
-    <!-- no translation found for security_unknown_sources_desc (7197053279914817124) -->
+    <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Play ਸਟੋਰ ਤੋਂ ਇਲਾਵਾ ਹੋਰ ਸਰੋਤਾਂ ਤੋਂ ਐਪਾਂ ਦੀ ਸਥਾਪਨਾ ਕਰਨ ਦੀ ਆਗਿਆ ਦਿਓ"</string>
+    <!-- no translation found for security_unknown_sources_confirm_title (1249752174105198821) -->
     <skip />
-    <!-- no translation found for security_unknown_sources_confirm_desc (7167350583097191925) -->
-    <skip />
+    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"ਤੁਹਾਡੀ ਡੀਵਾਈਸ ਅਤੇ ਨਿੱਜੀ ਡੈਟਾ ਅਗਿਆਤ ਸਰੋਤਾਂ ਤੋਂ ਲਈਆਂ ਐਪਾਂ ਵੱਲੋਂ ਹਮਲੇ ਪ੍ਰਤੀ ਵਧੇਰੇ ਕਮਜ਼ੋਰ ਹੈ। ਤੁਸੀਂ ਸਹਿਮਤੀ ਦਿੰਦੇ ਹੋ ਕਿ ਤੁਸੀਂ ਆਪਣੀ ਡੀਵਾਈਸ ਨੂੰ ਹੋਣ ਵਾਲੇ ਕਿਸੇ ਵੀ ਨੁਕਸਾਨ ਅਤੇ ਡੈਟੇ ਦੇ ਨਸ਼ਟ ਹੋਣ ਲਈ ਕੇਵਲ ਖੁਦ ਜ਼ਿੰਮੇਵਾਰ ਹੋ, ਜੋ ਇਹਨਾਂ ਐਪਾਂ ਨੂੰ ਵਰਤਣ ਦੇ ਸਿੱਟੇ ਵਜੋਂ ਹੋ ਸਕਦਾ ਹੈ।"</string>
     <!-- no translation found for security_verify_apps_title (5787946958632254988) -->
     <skip />
     <!-- no translation found for security_verify_apps_desc (1456317893117818733) -->
@@ -915,11 +1005,13 @@
     <skip />
     <!-- no translation found for inputs_custom_name (5584925321693432362) -->
     <skip />
+    <!-- no translation found for inputs_custom_name_description_fmt (7123031859468901866) -->
+    <skip />
     <!-- no translation found for inputs_hide (1575971556150395486) -->
     <skip />
-    <!-- no translation found for inputs_hide_desc (8172670556559886526) -->
+    <!-- no translation found for inputs_show (5069718540369447778) -->
     <skip />
-    <!-- no translation found for inputs_custom_title (374036983231176581) -->
+    <!-- no translation found for input_header_names (6958427658951236078) -->
     <skip />
     <!-- no translation found for inputs_hdmi_control (2462240356665628563) -->
     <skip />
@@ -933,9 +1025,9 @@
     <skip />
     <!-- no translation found for inputs_tv_auto_on_desc (7658625130577708249) -->
     <skip />
-    <!-- no translation found for inputs_header_connected_input (4694899943180976672) -->
-    <!-- no translation found for inputs_header_standby_input (1903575597797993135) -->
-    <!-- no translation found for inputs_header_disconnected_input (2979766871256996256) -->
+    <!-- no translation found for inputs_header_connected_input (3158173055262045630) -->
+    <!-- no translation found for inputs_header_standby_input (8614849472167217134) -->
+    <!-- no translation found for inputs_header_disconnected_input (1092697966171944243) -->
     <!-- no translation found for user_add_profile_item_summary (2946168478936086933) -->
     <skip />
     <!-- no translation found for user_new_profile_name (336521054830056189) -->
@@ -956,6 +1048,8 @@
     <skip />
     <!-- no translation found for restricted_profile_delete_title (3445944923018324707) -->
     <skip />
+    <!-- no translation found for restricted_profile_create_title (1392190365829029390) -->
+    <skip />
     <!-- no translation found for restricted_profile_configure_title (4684188123147519620) -->
     <skip />
     <!-- no translation found for restricted_profile_configure_apps_title (11507255932348492) -->
@@ -972,6 +1066,8 @@
     <!-- no translation found for restricted_profile_change_password_title (2848537651211816659) -->
     <skip />
     <!-- no translation found for restriction_description (3104855945910233028) -->
+    <skip />
+    <!-- no translation found for app_sees_restricted_accounts_and_controlled_by (6677671440081319908) -->
     <skip />
     <!-- no translation found for pin_enter_unlock_channel (5980400420298506069) -->
     <skip />
@@ -993,11 +1089,11 @@
     <skip />
     <!-- no translation found for wifi_setup_input_password (1596168874369038536) -->
     <skip />
-    <!-- no translation found for wifi_setup_connection_success (6262755735033937164) -->
+    <!-- no translation found for wifi_setup_connection_success (3846993789166071184) -->
     <skip />
-    <!-- no translation found for wifi_setup_save_success (4829154865874318015) -->
+    <!-- no translation found for wifi_setup_save_success (4785799603638549254) -->
     <skip />
-    <!-- no translation found for device_apps_app_management_version (1004679024556315208) -->
+    <!-- no translation found for device_apps_app_management_version (2267065043941006486) -->
     <skip />
     <!-- no translation found for device_apps_app_management_open (8009823973422120839) -->
     <skip />
@@ -1049,19 +1145,18 @@
     <skip />
     <!-- no translation found for settings_off (449272161738237637) -->
     <skip />
-    <!-- no translation found for device_daydreams_none (7364189761517824834) -->
+    <!-- no translation found for device_daydreams_none (2767107052779579259) -->
     <skip />
-    <!-- no translation found for device_daydreams_select (3691552535056569158) -->
-    <skip />
+    <string name="device_daydreams_select" msgid="2112338101206187695">"ਸਕ੍ਰੀਨ ਸੇਵਰ"</string>
     <!-- no translation found for device_daydreams_test (9038920213402659591) -->
     <skip />
-    <!-- no translation found for device_daydreams_sleep (8766795993034660366) -->
+    <!-- no translation found for device_daydreams_sleep (7676938708373592766) -->
     <skip />
-    <!-- no translation found for device_daydreams_sleep_description (5269460120567642259) -->
+    <!-- no translation found for device_daydreams_sleep_description (7655223016581708511) -->
     <skip />
     <!-- no translation found for device_daydreams_sleep_summary (7361113408939289262) -->
     <skip />
-    <!-- no translation found for device_daydreams_screen_off (5002473979169042970) -->
+    <!-- no translation found for device_daydreams_screen_off (1765925964376076171) -->
     <skip />
     <!-- no translation found for device_daydreams_screen_off_description (4181262365345306243) -->
     <skip />
@@ -1084,9 +1179,9 @@
     <skip />
     <!-- no translation found for confirm_factory_reset_device (8923287482399582268) -->
     <skip />
-    <!-- no translation found for select_title (3905067953686121845) -->
+    <!-- no translation found for select_device_name_title (5165800500130943604) -->
     <skip />
-    <!-- no translation found for select_description (4070142015460337658) -->
+    <!-- no translation found for select_device_name_description (2697127827643821315) -->
     <skip />
     <!-- no translation found for rooms:0 (7085399612393981553) -->
     <!-- no translation found for rooms:1 (3722089849939477581) -->
@@ -1097,9 +1192,9 @@
     <!-- no translation found for rooms:6 (8120010459866284578) -->
     <!-- no translation found for custom_room (8991561978321502549) -->
     <skip />
-    <!-- no translation found for settings_status_title (3890412726442124167) -->
+    <!-- no translation found for device_rename_title (2629557295786267185) -->
     <skip />
-    <!-- no translation found for settings_status_description (3600745966132434139) -->
+    <!-- no translation found for device_rename_description (2461752788563877107) -->
     <skip />
     <!-- no translation found for change_setting (2047402388786162246) -->
     <skip />
@@ -1111,5 +1206,17 @@
     <skip />
     <!-- no translation found for app_permissions_group_summary (7906834786705287901) -->
     <skip />
+    <!-- no translation found for bluetooth_permission_request (6649813878683015301) -->
+    <skip />
     <string name="security_patch" msgid="2131617390189164481">"Android ਸੁਰੱਖਿਆ ਪੈਚ ਪੱਧਰ"</string>
+    <!-- no translation found for choose_application (5662960665577780353) -->
+    <skip />
+    <!-- no translation found for experimental_preference (1137673985823581797) -->
+    <skip />
+    <!-- no translation found for reboot_safemode_action (8129550438717110406) -->
+    <skip />
+    <!-- no translation found for reboot_safemode_confirm (3329475617645192086) -->
+    <skip />
+    <!-- no translation found for reboot_safemode_desc (5031024337104679492) -->
+    <skip />
 </resources>

@@ -1,7 +1,7 @@
 /*
  *******************************************************************************
- * Copyright (C) 2004-2014, International Business Machines Corporation and    *
- * others. All Rights Reserved.                                                *
+ * Copyright (C) 2004-2016, International Business Machines Corporation and
+ * others. All Rights Reserved.
  *******************************************************************************
  */
 
@@ -83,11 +83,11 @@ import com.ibm.icu.impl.SimpleCache;
  *          UResourceBundle.getBundleInstance("com.mycompany.resources.LocaleElements", 
  *                                            "en_US", myClassLoader);
  * </pre>
- * <note>
- * Please use pass a class loader for loading non-ICU resources. Java security does not
+ *
+ * <p>Note: Please use pass a class loader for loading non-ICU resources. Java security does not
  * allow loading of resources across jar files. You must provide your class loader
  * to load the resources
- * </note>
+
  * @stable ICU 3.0
  * @author ram
  */
@@ -348,10 +348,9 @@ public abstract class UResourceBundle extends ResourceBundle {
      * @deprecated This API is ICU internal only.
      */
     @Deprecated
-    protected static UResourceBundle addToCache(ClassLoader cl, String fullName,
-                                                ULocale defaultLocale, UResourceBundle b) {
+    protected static UResourceBundle addToCache(String fullName, ULocale defaultLocale, UResourceBundle b) {
         synchronized(cacheKey){
-            cacheKey.setKeyValues(cl, fullName, defaultLocale);
+            cacheKey.setKeyValues(fullName, defaultLocale);
             UResourceBundle cachedBundle = BUNDLE_CACHE.get(cacheKey);
             if (cachedBundle != null) {
                 return cachedBundle;
@@ -367,10 +366,9 @@ public abstract class UResourceBundle extends ResourceBundle {
      * @deprecated This API is ICU internal only.
      */
     @Deprecated
-    protected static UResourceBundle loadFromCache(ClassLoader cl, String fullName, 
-                                                   ULocale defaultLocale){
+    protected static UResourceBundle loadFromCache(String fullName, ULocale defaultLocale) {
         synchronized(cacheKey){
-            cacheKey.setKeyValues(cl, fullName, defaultLocale);
+            cacheKey.setKeyValues(fullName, defaultLocale);
             return BUNDLE_CACHE.get(cacheKey);
         }
     }
@@ -386,7 +384,6 @@ public abstract class UResourceBundle extends ResourceBundle {
      * locale (if at all).
      */
     private static final class ResourceCacheKey implements Cloneable {
-        private SoftReference<ClassLoader> loaderRef;
         private String searchName;
         private ULocale defaultLocale;
         private int hashCodeCache;
@@ -418,13 +415,7 @@ public abstract class UResourceBundle extends ResourceBundle {
                         return false;
                     }
                 }
-                //are refs (both non-null) or (both null)?
-                if (loaderRef == null) {
-                    return otherEntry.loaderRef == null;
-                } else {
-                    return (otherEntry.loaderRef != null)
-                            && (loaderRef.get() == otherEntry.loaderRef.get());
-                }
+                return true;
             } catch (NullPointerException e) {
                 return false;
             } catch (ClassCastException e) {
@@ -446,19 +437,12 @@ public abstract class UResourceBundle extends ResourceBundle {
         }
 
         ///CLOVER:ON
-        private synchronized void setKeyValues(ClassLoader root, String searchName, 
-                                               ULocale defaultLocale) {
+        private synchronized void setKeyValues(String searchName, ULocale defaultLocale) {
             this.searchName = searchName;
             hashCodeCache = searchName.hashCode();
             this.defaultLocale = defaultLocale;
             if (defaultLocale != null) {
                 hashCodeCache ^= defaultLocale.hashCode();
-            }
-            if (root == null) {
-                this.loaderRef = null;
-            } else {
-                loaderRef = new SoftReference<ClassLoader>(root);
-                hashCodeCache ^= root.hashCode();
             }
         }
         /*private void clear() {
@@ -556,7 +540,7 @@ public abstract class UResourceBundle extends ResourceBundle {
         case ROOT_ICU:
             if(disableFallback) {
                 String fullName = ICUResourceBundleReader.getFullName(baseName, localeName);
-                b = loadFromCache(root, fullName, defaultLocale);
+                b = loadFromCache(fullName, defaultLocale);
                 if (b == null) {
                     b = ICUResourceBundle.getBundleInstance(baseName, localeName, root, 
                                                             disableFallback);

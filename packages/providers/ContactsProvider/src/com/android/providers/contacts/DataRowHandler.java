@@ -19,6 +19,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.provider.ContactsContract;
 import android.provider.ContactsContract.CommonDataKinds.Email;
 import android.provider.ContactsContract.CommonDataKinds.Nickname;
 import android.provider.ContactsContract.CommonDataKinds.Organization;
@@ -36,6 +37,9 @@ import com.android.providers.contacts.aggregation.AbstractContactAggregator;
  * Handles inserts and update for a specific Data type.
  */
 public abstract class DataRowHandler {
+
+    private static final String[] HASH_INPUT_COLUMNS = new String[] {
+            Data.DATA1, Data.DATA2};
 
     public interface DataDeleteQuery {
         public static final String TABLE = Tables.DATA_JOIN_MIMETYPES;
@@ -107,6 +111,9 @@ public abstract class DataRowHandler {
      */
     public long insert(SQLiteDatabase db, TransactionContext txContext, long rawContactId,
             ContentValues values) {
+        // Generate hash_id from data1 and data2 columns.
+        // For photo, use data15 column instead of data1 and data2 to generate hash_id.
+        handleHashIdForInsert(values);
         final long dataId = db.insert(Tables.DATA, null, values);
 
         final Integer primary = values.getAsInteger(Data.IS_PRIMARY);
@@ -114,6 +121,7 @@ public abstract class DataRowHandler {
         if ((primary != null && primary != 0) || (superPrimary != null && superPrimary != 0)) {
             final long mimeTypeId = getMimeTypeId();
             mDbHelper.setIsPrimary(rawContactId, dataId, mimeTypeId);
+            txContext.markRawContactMetadataDirty(rawContactId, /* isMetadataSyncAdapter =*/false);
 
             // We also have to make sure that no other data item on this raw_contact is
             // configured super primary
@@ -146,11 +154,14 @@ public abstract class DataRowHandler {
      * @return true if update changed something
      */
     public boolean update(SQLiteDatabase db, TransactionContext txContext,
-            ContentValues values, Cursor c, boolean callerIsSyncAdapter) {
+            ContentValues values, Cursor c, boolean callerIsSyncAdapter,
+            boolean callerIsMetadataSyncAdapter) {
         long dataId = c.getLong(DataUpdateQuery._ID);
         long rawContactId = c.getLong(DataUpdateQuery.RAW_CONTACT_ID);
 
-        handlePrimaryAndSuperPrimary(values, dataId, rawContactId);
+        handlePrimaryAndSuperPrimary(txContext, values, dataId, rawContactId,
+                callerIsMetadataSyncAdapter);
+        handleHashIdForUpdate(values, dataId);
 
         if (values.size() > 0) {
             mSelectionArgs1[0] = String.valueOf(dataId);
@@ -178,16 +189,76 @@ public abstract class DataRowHandler {
     }
 
     /**
+     * Fetch data1, data2, and data15 from values if they exist, and generate hash_id
+     * if one of data1 and data2 columns is set, otherwise using data15 instead.
+     * hash_id is null if all of these three field is null.
+     * Add hash_id key to values.
+     */
+    public void handleHashIdForInsert(ContentValues values) {
+        final String data1 = values.getAsString(Data.DATA1);
+        final String data2 = values.getAsString(Data.DATA2);
+        final String photoHashId= mDbHelper.getPhotoHashId();
+
+        String hashId;
+        if (ContactsContract.CommonDataKinds.Photo.CONTENT_ITEM_TYPE.equals(mMimetype)) {
+            hashId = photoHashId;
+        } else if (!TextUtils.isEmpty(data1) || !TextUtils.isEmpty(data2)) {
+            hashId = mDbHelper.generateHashId(data1, data2);
+        } else {
+            hashId = null;
+        }
+        if (TextUtils.isEmpty(hashId)) {
+            values.putNull(Data.HASH_ID);
+        } else {
+            values.put(Data.HASH_ID, hashId);
+        }
+    }
+
+    /**
+     * Compute hash_id column and add it to values.
+     * If this is not a photo field, and one of data1 and data2 changed, re-compute hash_id with new
+     * data1 and data2.
+     * If this is a photo field, no need to change hash_id.
+     */
+    private void handleHashIdForUpdate(ContentValues values, long dataId) {
+        if (!ContactsContract.CommonDataKinds.Photo.CONTENT_ITEM_TYPE.equals(mMimetype)
+                && (values.containsKey(Data.DATA1) || values.containsKey(Data.DATA2))) {
+            String data1 = values.getAsString(Data.DATA1);
+            String data2 = values.getAsString(Data.DATA2);
+            mSelectionArgs1[0] = String.valueOf(dataId);
+            final Cursor c = mDbHelper.getReadableDatabase().query(Tables.DATA,
+                    HASH_INPUT_COLUMNS, Data._ID + "=?", mSelectionArgs1, null, null, null);
+            try {
+                if (c.moveToFirst()) {
+                    data1 = values.containsKey(Data.DATA1) ? data1 : c.getString(0);
+                    data2 = values.containsKey(Data.DATA2) ? data2 : c.getString(1);
+                }
+            } finally {
+                c.close();
+            }
+
+            String hashId = mDbHelper.generateHashId(data1, data2);
+            if (TextUtils.isEmpty(hashId)) {
+                values.putNull(Data.HASH_ID);
+            } else {
+                values.put(Data.HASH_ID, hashId);
+            }
+        }
+    }
+
+    /**
      * Ensures that all super-primary and primary flags of this raw_contact are
      * configured correctly
      */
-    private void handlePrimaryAndSuperPrimary(ContentValues values, long dataId,
-            long rawContactId) {
+    private void handlePrimaryAndSuperPrimary(TransactionContext txContext, ContentValues values,
+            long dataId, long rawContactId, boolean callerIsMetadataSyncAdapter) {
         final boolean hasPrimary = values.getAsInteger(Data.IS_PRIMARY) != null;
         final boolean hasSuperPrimary = values.getAsInteger(Data.IS_SUPER_PRIMARY) != null;
 
         // Nothing to do? Bail out early
         if (!hasPrimary && !hasSuperPrimary) return;
+
+        txContext.markRawContactMetadataDirty(rawContactId, callerIsMetadataSyncAdapter);
 
         final long mimeTypeId = getMimeTypeId();
 
@@ -254,6 +325,7 @@ public abstract class DataRowHandler {
         db.delete(Tables.PRESENCE, PresenceColumns.RAW_CONTACT_ID + "=?", mSelectionArgs1);
         if (count != 0 && primary) {
             fixPrimary(db, rawContactId);
+            txContext.markRawContactMetadataDirty(rawContactId, /* isMetadataSyncAdapter =*/false);
         }
 
         if (hasSearchableData()) {

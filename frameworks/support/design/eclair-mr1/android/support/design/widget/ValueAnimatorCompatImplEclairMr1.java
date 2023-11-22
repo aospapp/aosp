@@ -38,7 +38,7 @@ class ValueAnimatorCompatImplEclairMr1 extends ValueAnimatorCompat.Impl {
     private final int[] mIntValues = new int[2];
     private final float[] mFloatValues = new float[2];
 
-    private int mDuration = DEFAULT_DURATION;
+    private long mDuration = DEFAULT_DURATION;
     private Interpolator mInterpolator;
     private AnimatorListenerProxy mListener;
     private AnimatorUpdateListenerProxy mUpdateListener;
@@ -58,6 +58,9 @@ class ValueAnimatorCompatImplEclairMr1 extends ValueAnimatorCompat.Impl {
 
         mStartTime = SystemClock.uptimeMillis();
         mIsRunning = true;
+
+        // Reset the animated fraction
+        mAnimatedFraction = 0f;
 
         if (mListener != null) {
             mListener.onAnimationStart();
@@ -109,7 +112,7 @@ class ValueAnimatorCompatImplEclairMr1 extends ValueAnimatorCompat.Impl {
     }
 
     @Override
-    public void setDuration(int duration) {
+    public void setDuration(long duration) {
         mDuration = duration;
     }
 
@@ -120,6 +123,7 @@ class ValueAnimatorCompatImplEclairMr1 extends ValueAnimatorCompat.Impl {
 
         if (mListener != null) {
             mListener.onAnimationCancel();
+            mListener.onAnimationEnd();
         }
     }
 
@@ -147,11 +151,16 @@ class ValueAnimatorCompatImplEclairMr1 extends ValueAnimatorCompat.Impl {
         }
     }
 
+    @Override
+    public long getDuration() {
+        return mDuration;
+    }
+
     private void update() {
         if (mIsRunning) {
             // Update the animated fraction
             final long elapsed = SystemClock.uptimeMillis() - mStartTime;
-            final float linearFraction = elapsed / (float) mDuration;
+            final float linearFraction = MathUtils.constrain(elapsed / (float) mDuration, 0f, 1f);
             mAnimatedFraction = mInterpolator != null
                     ? mInterpolator.getInterpolation(linearFraction)
                     : linearFraction;

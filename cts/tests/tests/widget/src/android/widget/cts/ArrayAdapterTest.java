@@ -29,7 +29,7 @@ import android.widget.ArrayAdapter;
 import android.widget.Filter;
 import android.widget.TextView;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 
 public class ArrayAdapterTest extends InstrumentationTestCase {

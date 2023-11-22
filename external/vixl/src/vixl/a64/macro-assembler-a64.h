@@ -33,6 +33,8 @@
 #include "vixl/globals.h"
 #include "vixl/a64/assembler-a64.h"
 #include "vixl/a64/debugger-a64.h"
+#include "vixl/a64/instrument-a64.h"
+#include "vixl/a64/simulator-constants-a64.h"
 
 
 #define LS_MACRO_LIST(V)                                      \
@@ -100,15 +102,7 @@ class LiteralPool : public Pool {
   ~LiteralPool();
   void Reset();
 
-  template <typename T>
-  RawLiteral* Add(T imm) {
-    return AddEntry(new Literal<T>(imm));
-  }
-  template <typename T>
-  RawLiteral* Add(T high64, T low64) {
-    return AddEntry(new Literal<T>(high64, low64));
-  }
-  RawLiteral* AddEntry(RawLiteral* literal);
+  void AddEntry(RawLiteral* literal);
   bool IsEmpty() const { return entries_.empty(); }
   size_t Size() const;
   size_t MaxSize() const;
@@ -119,6 +113,12 @@ class LiteralPool : public Pool {
 
   void SetNextRecommendedCheckpoint(ptrdiff_t offset);
   ptrdiff_t NextRecommendedCheckpoint();
+
+  void UpdateFirstUse(ptrdiff_t use_position);
+
+  void DeleteOnDestruction(RawLiteral* literal) {
+    deleted_on_destruction_.push_back(literal);
+  }
 
   // Recommended not exact since the pool can be blocked for short periods.
   static const ptrdiff_t kRecommendedLiteralPoolRange = 128 * KBytes;
@@ -133,6 +133,8 @@ class LiteralPool : public Pool {
   // MacroAssembler can, but does not have to, check the buffer when the
   // checkpoint is reached.
   ptrdiff_t recommended_checkpoint_;
+
+  std::vector<RawLiteral*> deleted_on_destruction_;
 };
 
 
@@ -228,7 +230,7 @@ class VeneerPool : public Pool {
                                 ImmBranchType branch_type);
   void DeleteUnresolvedBranchInfoForLabel(Label* label);
 
-  bool ShouldEmitVeneer(int max_reachable_pc, size_t amount);
+  bool ShouldEmitVeneer(int64_t max_reachable_pc, size_t amount);
   bool ShouldEmitVeneers(size_t amount) {
     return ShouldEmitVeneer(unresolved_branches_.FirstLimit(), amount);
   }
@@ -250,7 +252,7 @@ class VeneerPool : public Pool {
   }
 
   int NumberOfPotentialVeneers() const {
-    return unresolved_branches_.size();
+    return static_cast<int>(unresolved_branches_.size());
   }
 
   size_t MaxSize() const {
@@ -482,7 +484,8 @@ inline void InvalSet<VeneerPool::BranchInfo,
 // This scope has the following purposes:
 //  * Acquire/Release the underlying assembler's code buffer.
 //     * This is mandatory before emitting.
-//  * Emit the literal pool if necessary before emitting the macro-instruction.
+//  * Emit the literal or veneer pools if necessary before emitting the
+//    macro-instruction.
 //  * Ensure there is enough space to emit the macro-instruction.
 class EmissionCheckScope {
  public:
@@ -490,8 +493,8 @@ class EmissionCheckScope {
   ~EmissionCheckScope();
 
  protected:
-#ifdef VIXL_DEBUG
   MacroAssembler* masm_;
+#ifdef VIXL_DEBUG
   Label start_;
   size_t size_;
 #endif
@@ -1465,9 +1468,13 @@ class MacroAssembler : public Assembler {
     SingleEmissionCheckScope guard(this);
     RawLiteral* literal;
     if (vt.IsD()) {
-      literal = literal_pool_.Add(imm);
+      literal = new Literal<double>(imm,
+                                    &literal_pool_,
+                                    RawLiteral::kDeletedOnPlacementByPool);
     } else {
-      literal = literal_pool_.Add(static_cast<float>(imm));
+      literal = new Literal<float>(static_cast<float>(imm),
+                                   &literal_pool_,
+                                   RawLiteral::kDeletedOnPlacementByPool);
     }
     ldr(vt, literal);
   }
@@ -1476,9 +1483,13 @@ class MacroAssembler : public Assembler {
     SingleEmissionCheckScope guard(this);
     RawLiteral* literal;
     if (vt.IsS()) {
-      literal = literal_pool_.Add(imm);
+      literal = new Literal<float>(imm,
+                                   &literal_pool_,
+                                   RawLiteral::kDeletedOnPlacementByPool);
     } else {
-      literal = literal_pool_.Add(static_cast<double>(imm));
+      literal = new Literal<double>(static_cast<double>(imm),
+                                    &literal_pool_,
+                                    RawLiteral::kDeletedOnPlacementByPool);
     }
     ldr(vt, literal);
   }
@@ -1486,7 +1497,9 @@ class MacroAssembler : public Assembler {
     VIXL_ASSERT(allow_macro_instructions_);
     VIXL_ASSERT(vt.IsQ());
     SingleEmissionCheckScope guard(this);
-    ldr(vt, literal_pool_.Add(high64, low64));
+    ldr(vt, new Literal<uint64_t>(high64, low64,
+                                  &literal_pool_,
+                                  RawLiteral::kDeletedOnPlacementByPool));
   }
   void Ldr(const Register& rt, uint64_t imm) {
     VIXL_ASSERT(allow_macro_instructions_);
@@ -1494,11 +1507,15 @@ class MacroAssembler : public Assembler {
     SingleEmissionCheckScope guard(this);
     RawLiteral* literal;
     if (rt.Is64Bits()) {
-      literal = literal_pool_.Add(imm);
+      literal = new Literal<uint64_t>(imm,
+                                      &literal_pool_,
+                                      RawLiteral::kDeletedOnPlacementByPool);
     } else {
       VIXL_ASSERT(rt.Is32Bits());
       VIXL_ASSERT(is_uint32(imm) || is_int32(imm));
-      literal = literal_pool_.Add(static_cast<uint32_t>(imm));
+      literal = new Literal<uint32_t>(static_cast<uint32_t>(imm),
+                                      &literal_pool_,
+                                      RawLiteral::kDeletedOnPlacementByPool);
     }
     ldr(rt, literal);
   }
@@ -1506,7 +1523,19 @@ class MacroAssembler : public Assembler {
     VIXL_ASSERT(allow_macro_instructions_);
     VIXL_ASSERT(!rt.IsZero());
     SingleEmissionCheckScope guard(this);
-    RawLiteral* literal = literal_pool_.Add(imm);
+    ldrsw(rt,
+          new Literal<uint32_t>(imm,
+                                &literal_pool_,
+                                RawLiteral::kDeletedOnPlacementByPool));
+  }
+  void Ldr(const CPURegister& rt, RawLiteral* literal) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    ldr(rt, literal);
+  }
+  void Ldrsw(const Register& rt, RawLiteral* literal) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
     ldrsw(rt, literal);
   }
   void Ldxp(const Register& rt, const Register& rt2, const MemOperand& src) {
@@ -2047,13 +2076,13 @@ class MacroAssembler : public Assembler {
   void Unreachable() {
     VIXL_ASSERT(allow_macro_instructions_);
     SingleEmissionCheckScope guard(this);
-#ifdef USE_SIMULATOR
-    hlt(kUnreachableOpcode);
-#else
-    // Branch to 0 to generate a segfault.
-    // lr - kInstructionSize is the address of the offending instruction.
-    blr(xzr);
-#endif
+    if (allow_simulator_instructions_) {
+      hlt(kUnreachableOpcode);
+    } else {
+      // Branch to 0 to generate a segfault.
+      // lr - kInstructionSize is the address of the offending instruction.
+      blr(xzr);
+    }
   }
   void Uxtb(const Register& rd, const Register& rn) {
     VIXL_ASSERT(allow_macro_instructions_);
@@ -2845,6 +2874,21 @@ class MacroAssembler : public Assembler {
     SingleEmissionCheckScope guard(this);
     crc32cx(rd, rn, rm);
   }
+
+  template<typename T>
+  Literal<T>* CreateLiteralDestroyedWithPool(T value) {
+    return new Literal<T>(value,
+                          &literal_pool_,
+                          RawLiteral::kDeletedOnPoolDestruction);
+  }
+
+  template<typename T>
+  Literal<T>* CreateLiteralDestroyedWithPool(T high64, T low64) {
+    return new Literal<T>(high64, low64,
+                          &literal_pool_,
+                          RawLiteral::kDeletedOnPoolDestruction);
+  }
+
   // Push the system stack pointer (sp) down to allow the same to be done to
   // the current stack pointer (according to StackPointer()). This must be
   // called _before_ accessing the memory.
@@ -2860,7 +2904,7 @@ class MacroAssembler : public Assembler {
   // one instruction. Refer to the implementation for details.
   void BumpSystemStackPointer(const Operand& space);
 
-#if VIXL_DEBUG
+#ifdef VIXL_DEBUG
   void SetAllowMacroInstructions(bool value) {
     allow_macro_instructions_ = value;
   }
@@ -2870,12 +2914,30 @@ class MacroAssembler : public Assembler {
   }
 #endif
 
+  void SetAllowSimulatorInstructions(bool value) {
+    allow_simulator_instructions_ = value;
+  }
+
+  bool AllowSimulatorInstructions() const {
+    return allow_simulator_instructions_;
+  }
+
   void BlockLiteralPool() { literal_pool_.Block(); }
   void ReleaseLiteralPool() { literal_pool_.Release(); }
   bool IsLiteralPoolBlocked() const { return literal_pool_.IsBlocked(); }
   void BlockVeneerPool() { veneer_pool_.Block(); }
   void ReleaseVeneerPool() { veneer_pool_.Release(); }
   bool IsVeneerPoolBlocked() const { return veneer_pool_.IsBlocked(); }
+
+  void BlockPools() {
+    BlockLiteralPool();
+    BlockVeneerPool();
+  }
+
+  void ReleasePools() {
+    ReleaseLiteralPool();
+    ReleaseVeneerPool();
+  }
 
   size_t LiteralPoolSize() const {
     return literal_pool_.Size();
@@ -2997,6 +3059,10 @@ class MacroAssembler : public Assembler {
   // the output data.
   void AnnotateInstrumentation(const char* marker_name);
 
+  LiteralPool* GetLiteralPool() {
+    return &literal_pool_;
+  }
+
  private:
   // The actual Push and Pop implementations. These don't generate any code
   // other than that required for the push or pop. This allows
@@ -3043,12 +3109,15 @@ class MacroAssembler : public Assembler {
                                             label->location() - CursorOffset());
   }
 
-#if VIXL_DEBUG
+#ifdef VIXL_DEBUG
   // Tell whether any of the macro instruction can be used. When false the
   // MacroAssembler will assert if a method which can emit a variable number
   // of instructions is called.
   bool allow_macro_instructions_;
 #endif
+
+  // Tell whether we should generate code that will run on the simulator or not.
+  bool allow_simulator_instructions_;
 
   // The register to use as a stack pointer for stack operations.
   Register sp_;
@@ -3091,7 +3160,7 @@ inline void LiteralPool::SetNextRecommendedCheckpoint(ptrdiff_t offset) {
 class InstructionAccurateScope : public CodeBufferCheckScope {
  public:
   InstructionAccurateScope(MacroAssembler* masm,
-                           int count,
+                           int64_t count,
                            AssertPolicy policy = kExactSize)
       : CodeBufferCheckScope(masm,
                              (count * kInstructionSize),
@@ -3151,13 +3220,11 @@ class BlockVeneerPoolScope {
 class BlockPoolsScope {
  public:
   explicit BlockPoolsScope(MacroAssembler* masm) : masm_(masm) {
-    masm_->BlockLiteralPool();
-    masm_->BlockVeneerPool();
+    masm_->BlockPools();
   }
 
   ~BlockPoolsScope() {
-    masm_->ReleaseLiteralPool();
-    masm_->ReleaseVeneerPool();
+    masm_->ReleasePools();
   }
 
  private:
@@ -3272,10 +3339,10 @@ class UseScratchRegisterScope {
 #endif
 
   // Disallow copy constructor and operator=.
-  UseScratchRegisterScope(const UseScratchRegisterScope&) {
+  VIXL_DEBUG_NO_RETURN UseScratchRegisterScope(const UseScratchRegisterScope&) {
     VIXL_UNREACHABLE();
   }
-  void operator=(const UseScratchRegisterScope&) {
+  VIXL_DEBUG_NO_RETURN void operator=(const UseScratchRegisterScope&) {
     VIXL_UNREACHABLE();
   }
 };

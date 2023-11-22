@@ -24,12 +24,12 @@
 #ifndef BTA_AV_INT_H
 #define BTA_AV_INT_H
 
+#include "osi/include/list.h"
 #include "bta_sys.h"
 #include "bta_api.h"
 #include "bta_av_api.h"
 #include "avdt_api.h"
 #include "bta_av_co.h"
-#include "list.h"
 
 #define BTA_AV_DEBUG TRUE
 /*****************************************************************************
@@ -84,6 +84,8 @@ enum
     BTA_AV_ROLE_CHANGE_EVT,
     BTA_AV_AVDT_DELAY_RPT_EVT,
     BTA_AV_ACP_CONNECT_EVT,
+    BTA_AV_API_OFFLOAD_START_EVT,
+    BTA_AV_API_OFFLOAD_START_RSP_EVT,
 
     /* these events are handled outside of the state machine */
     BTA_AV_API_ENABLE_EVT,
@@ -92,7 +94,7 @@ enum
     BTA_AV_API_DISCONNECT_EVT,
     BTA_AV_CI_SRC_DATA_READY_EVT,
     BTA_AV_SIG_CHG_EVT,
-    BTA_AV_SIG_TIMER_EVT,
+    BTA_AV_SIGNALLING_TIMER_EVT,
     BTA_AV_SDP_AVRC_DISC_EVT,
     BTA_AV_AVRC_CLOSE_EVT,
     BTA_AV_CONN_CHG_EVT,
@@ -210,6 +212,7 @@ typedef struct
     char                p_service_name[BTA_SERVICE_NAME_LEN+1];
     UINT8               app_id;
     tBTA_AV_DATA_CBACK       *p_app_data_cback;
+    UINT16              service_uuid;
 } tBTA_AV_API_REG;
 
 
@@ -379,6 +382,14 @@ typedef struct
     UINT16              avdt_version;   /* AVDTP protocol version */
 } tBTA_AV_SDP_RES;
 
+/* data type for BTA_AV_API_OFFLOAD_RSP_EVT */
+typedef struct
+{
+    BT_HDR              hdr;
+    tBTA_AV_STATUS      status;
+} tBTA_AV_API_STATUS_RSP;
+
+
 /* type for SEP control block */
 typedef struct
 {
@@ -422,6 +433,7 @@ typedef union
     tBTA_AV_ROLE_RES        role_res;
     tBTA_AV_SDP_RES         sdp_res;
     tBTA_AV_API_META_RSP    api_meta_rsp;
+    tBTA_AV_API_STATUS_RSP  api_status_rsp;
 } tBTA_AV_DATA;
 
 typedef void (tBTA_AV_VDP_DATA_ACT)(void *p_scb);
@@ -467,14 +479,14 @@ typedef struct
 {
     const tBTA_AV_ACT   *p_act_tbl;     /* the action table for stream state machine */
     const tBTA_AV_CO_FUNCTS *p_cos;     /* the associated callout functions */
-    tSDP_DISCOVERY_DB   *p_disc_db;     /* pointer to discovery database */
+    BOOLEAN             sdp_discovery_started; /* variable to determine whether SDP is started */
     tBTA_AV_SEP         seps[BTA_AV_MAX_SEPS];
     tAVDT_CFG           *p_cap;         /* buffer used for get capabilities */
     list_t              *a2d_list;      /* used for audio channels only */
     tBTA_AV_Q_INFO      q_info;
     tAVDT_SEP_INFO      sep_info[BTA_AV_NUM_SEPS];      /* stream discovery results */
     tAVDT_CFG           cfg;            /* local SEP configuration */
-    TIMER_LIST_ENT      timer;          /* delay timer for AVRC CT */
+    alarm_t             *avrc_ct_timer; /* delay timer for AVRC CT */
     BD_ADDR             peer_addr;      /* peer BD address */
     UINT16              l2c_cid;        /* L2CAP channel ID */
     UINT16              stream_mtu;     /* MTU of stream */
@@ -515,6 +527,8 @@ typedef struct
     UINT8               q_tag;          /* identify the associated q_info union member */
     BOOLEAN             no_rtp_hdr;     /* TRUE if add no RTP header*/
     UINT16              uuid_int;       /*intended UUID of Initiator to connect to */
+    BOOLEAN             offload_start_pending;
+    BOOLEAN             skip_sdp;       /* Decides if sdp to be done prior to profile connection */
 } tBTA_AV_SCB;
 
 #define BTA_AV_RC_ROLE_MASK     0x10
@@ -561,8 +575,8 @@ typedef struct
     tBTA_AV_CBACK       *p_cback;       /* application callback function */
     tBTA_AV_RCB         rcb[BTA_AV_NUM_RCB];  /* RCB control block */
     tBTA_AV_LCB         lcb[BTA_AV_NUM_LINKS+1];  /* link control block */
-    TIMER_LIST_ENT      sig_tmr;        /* link timer */
-    TIMER_LIST_ENT      acp_sig_tmr;    /* timer to monitor signalling when accepting */
+    alarm_t             *link_signalling_timer;
+    alarm_t             *accept_signalling_timer; /* timer to monitor signalling when accepting */
     UINT32              sdp_a2d_handle; /* SDP record handle for audio src */
 #if (BTA_AV_SINK_INCLUDED == TRUE)
     UINT32              sdp_a2d_snk_handle; /* SDP record handle for audio snk */
@@ -605,6 +619,8 @@ extern tBTA_AV_CB *bta_av_cb_ptr;
 
 /* config struct */
 extern tBTA_AV_CFG *p_bta_av_cfg;
+extern const tBTA_AV_CFG bta_avk_cfg;
+extern const tBTA_AV_CFG bta_av_cfg;
 
 /* rc id config struct */
 extern UINT16 *p_bta_av_rc_id;
@@ -651,7 +667,7 @@ extern BOOLEAN bta_av_is_rcfg_sst(tBTA_AV_SCB *p_scb);
 /* nsm action functions */
 extern void bta_av_api_disconnect(tBTA_AV_DATA *p_data);
 extern void bta_av_sig_chg(tBTA_AV_DATA *p_data);
-extern void bta_av_sig_timer(tBTA_AV_DATA *p_data);
+extern void bta_av_signalling_timer(tBTA_AV_DATA *p_data);
 extern void bta_av_rc_disc_done(tBTA_AV_DATA *p_data);
 extern void bta_av_rc_closed(tBTA_AV_DATA *p_data);
 extern void bta_av_rc_disc(UINT8 disc);
@@ -723,6 +739,9 @@ extern void bta_av_switch_role (tBTA_AV_SCB *p_scb, tBTA_AV_DATA *p_data);
 extern void bta_av_role_res (tBTA_AV_SCB *p_scb, tBTA_AV_DATA *p_data);
 extern void bta_av_delay_co (tBTA_AV_SCB *p_scb, tBTA_AV_DATA *p_data);
 extern void bta_av_open_at_inc (tBTA_AV_SCB *p_scb, tBTA_AV_DATA *p_data);
+extern void bta_av_offload_req (tBTA_AV_SCB *p_scb, tBTA_AV_DATA *p_data);
+extern void bta_av_offload_rsp (tBTA_AV_SCB *p_scb, tBTA_AV_DATA *p_data);
+
 
 /* ssm action functions - vdp specific */
 extern void bta_av_do_disc_vdp (tBTA_AV_SCB *p_scb, tBTA_AV_DATA *p_data);

@@ -39,9 +39,13 @@
 #include <xf86drm.h>
 #include <string.h>
 #include <unistd.h>
-
 #include <sys/stat.h>
+#include <sys/types.h>
+#ifdef HAVE_SYS_MKDEV_H
+#include <sys/mkdev.h>
+#endif
 
+#include "libdrm_macros.h"
 #include "internal.h"
 
 #define PATH_SIZE 512
@@ -145,7 +149,7 @@ struct create_record
 	int (*func)(int fd, struct kms_driver **out);
 };
 
-static struct create_record table[] = {
+static const struct create_record table[] = {
 	{ 0x8086, 0x2a42, intel_create }, /* i965 */
 #ifdef HAVE_VMWGFX
 	{ 0x15ad, 0x0405, vmwgfx_create }, /* VMware vGPU */
@@ -225,7 +229,7 @@ linux_from_udev(int fd, struct kms_driver **out)
 }
 #endif
 
-int
+drm_private int
 linux_create(int fd, struct kms_driver **out)
 {
 	if (!dumb_create(fd, out))

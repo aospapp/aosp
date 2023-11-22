@@ -29,13 +29,14 @@ import android.os.Message;
 
 // TODO: Needed for move to system service: import com.android.internal.R;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 
 /**
  * Helper class for loading contacts photo asynchronously.
  */
-public final class ContactsAsyncHelper {
+public class ContactsAsyncHelper {
     private static final String LOG_TAG = ContactsAsyncHelper.class.getSimpleName();
 
     /**
@@ -57,15 +58,22 @@ public final class ContactsAsyncHelper {
                 Object cookie);
     }
 
+    /**
+     * Interface to enable stubbing of the call to openInputStream
+     */
+    public interface ContentResolverAdapter {
+        InputStream openInputStream(Context context, Uri uri) throws FileNotFoundException;
+    }
+
     // constants
     private static final int EVENT_LOAD_IMAGE = 1;
 
     /** Handler run on a worker thread to load photo asynchronously. */
     private Handler mThreadHandler;
-    private final TelecomSystem.SyncRoot mLock;
+    private final ContentResolverAdapter mContentResolverAdapter;
 
-    public ContactsAsyncHelper(TelecomSystem.SyncRoot lock) {
-        mLock = lock;
+    public ContactsAsyncHelper(ContentResolverAdapter contentResolverAdapter) {
+        mContentResolverAdapter = contentResolverAdapter;
     }
 
     private static final class WorkerArgs {
@@ -95,8 +103,8 @@ public final class ContactsAsyncHelper {
                     InputStream inputStream = null;
                     try {
                         try {
-                            inputStream = args.context.getContentResolver()
-                                    .openInputStream(args.displayPhotoUri);
+                            inputStream = mContentResolverAdapter.openInputStream(
+                                    args.context, args.displayPhotoUri);
                         } catch (Exception e) {
                             Log.e(this, e, "Error opening photo input stream");
                         }
@@ -191,7 +199,7 @@ public final class ContactsAsyncHelper {
      * fourth argument of {@link OnImageLoadCompleteListener#onImageLoadComplete(int, Drawable,
      * Bitmap, Object)}. Can be null, at which the callback will also has null for the argument.
      */
-    public final void startObtainPhotoAsync(int token, Context context, Uri displayPhotoUri,
+    public void startObtainPhotoAsync(int token, Context context, Uri displayPhotoUri,
             OnImageLoadCompleteListener listener, Object cookie) {
         ensureAsyncHandlerStarted();
 

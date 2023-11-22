@@ -20,12 +20,9 @@ import android.text.InputType;
 import android.text.Selection;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
-import android.text.method.cts.KeyListenerTestCase;
 import android.text.method.QwertyKeyListener;
-import android.text.method.TextKeyListener;
 import android.text.method.TextKeyListener.Capitalize;
 import android.view.KeyEvent;
-import android.widget.TextView;
 import android.widget.TextView.BufferType;
 
 public class QwertyKeyListenerTest extends KeyListenerTestCase {

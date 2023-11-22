@@ -29,7 +29,7 @@ import android.os.ParcelFileDescriptor;
 import android.test.InstrumentationTestCase;
 import android.util.Log;
 
-import com.android.cts.graphics.R;
+import android.graphics.cts.R;
 
 
 import java.io.ByteArrayOutputStream;
@@ -301,6 +301,83 @@ public class BitmapRegionDecoderTest extends InstrumentationTestCase {
             decoder.decodeRegion(rect, opts);
             fail("Should throw an exception!");
         } catch (Exception e) {
+        }
+    }
+
+    // The documentation for BitmapRegionDecoder guarantees that, when reusing a
+    // bitmap, "the provided Bitmap's width, height, and Bitmap.Config will not
+    // be changed".  If the inBitmap is too small, decoded content will be
+    // clipped into inBitmap.  Here we test that:
+    //     (1) If inBitmap is specified, it is always used.
+    //     (2) The width, height, and Config of inBitmap are never changed.
+    //     (3) All of the pixels decoded into inBitmap exactly match the pixels
+    //         of a decode where inBitmap is NULL.
+    public void testInBitmapReuse() throws IOException {
+        Options defaultOpts = new BitmapFactory.Options();
+        Options reuseOpts = new BitmapFactory.Options();
+        Rect subset = new Rect(0, 0, TILE_SIZE, TILE_SIZE);
+
+        for (int i = 0; i < NUM_TEST_IMAGES; i++) {
+            InputStream is = obtainInputStream(RES_IDS[i]);
+            BitmapRegionDecoder decoder = BitmapRegionDecoder.newInstance(is, false);
+            for (int j = 0; j < SAMPLESIZES.length; j++) {
+                int sampleSize = SAMPLESIZES[j];
+                defaultOpts.inSampleSize = sampleSize;
+                reuseOpts.inSampleSize = sampleSize;
+
+                // We don't need to worry about rounding here because sampleSize
+                // divides evenly into TILE_SIZE.
+                assertEquals(0, TILE_SIZE % sampleSize);
+                int scaledDim = TILE_SIZE / sampleSize;
+                int chunkSize = scaledDim / 2;
+                for (int k = 0; k < COLOR_CONFIGS.length; k++) {
+                    Config config = COLOR_CONFIGS[k];
+                    defaultOpts.inPreferredConfig = config;
+                    reuseOpts.inPreferredConfig = config;
+
+                    // For both the width and the height of inBitmap, we test three
+                    // interesting cases:
+                    // (1) inBitmap dimension is smaller than scaledDim.  The decoded
+                    //     pixels that fit inside inBitmap should exactly match the
+                    //     corresponding decoded pixels from the same region decode,
+                    //     performed without an inBitmap.  The pixels that do not fit
+                    //     inside inBitmap should be clipped.
+                    // (2) inBitmap dimension matches scaledDim.  After the decode,
+                    //     the pixels and dimensions of inBitmap should exactly match
+                    //     those of the result bitmap of the same region decode,
+                    //     performed without an inBitmap.
+                    // (3) inBitmap dimension is larger than scaledDim.  After the
+                    //     decode, inBitmap should contain decoded pixels for the
+                    //     entire region, exactly matching the decoded pixels
+                    //     produced when inBitmap is not specified.  The additional
+                    //     pixels in inBitmap are left the same as before the decode.
+                    for (int w = chunkSize; w <= 3 * chunkSize; w += chunkSize) {
+                        for (int h = chunkSize; h <= 3 * chunkSize; h += chunkSize) {
+                            // Decode reusing inBitmap.
+                            reuseOpts.inBitmap = Bitmap.createBitmap(w, h, config);
+                            Bitmap reuseResult = decoder.decodeRegion(subset, reuseOpts);
+                            assertSame(reuseOpts.inBitmap, reuseResult);
+                            assertEquals(reuseResult.getWidth(), w);
+                            assertEquals(reuseResult.getHeight(), h);
+                            assertEquals(reuseResult.getConfig(), config);
+
+                            // Decode into a new bitmap.
+                            Bitmap defaultResult = decoder.decodeRegion(subset, defaultOpts);
+                            assertEquals(defaultResult.getWidth(), scaledDim);
+                            assertEquals(defaultResult.getHeight(), scaledDim);
+
+                            // Ensure that the decoded pixels of reuseResult and defaultResult
+                            // are identical.
+                            int cropWidth = Math.min(w, scaledDim);
+                            int cropHeight = Math.min(h, scaledDim);
+                            Rect crop = new Rect(0 ,0, cropWidth, cropHeight);
+                            Bitmap reuseCropped = cropBitmap(reuseResult, crop);
+                            Bitmap defaultCropped = cropBitmap(defaultResult, crop);
+                            compareBitmaps(reuseCropped, defaultCropped, 0, true);
+                        }
+                    }
+                }
+            }
         }
     }
 

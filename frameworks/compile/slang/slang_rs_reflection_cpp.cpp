@@ -25,7 +25,6 @@
 #include <algorithm>
 #include <sstream>
 #include <string>
-#include <utility>
 
 #include "os_sep.h"
 #include "slang_rs_context.h"
@@ -41,9 +40,10 @@ using namespace std;
 
 namespace slang {
 
-#define RS_TYPE_ITEM_CLASS_NAME "Item"
-
-#define RS_ELEM_PREFIX "__rs_elem_"
+const char kRsTypeItemClassName[] = "Item";
+const char kRsElemPrefix[] = "__rs_elem_";
+// The name of the Allocation type that is reflected in C++
+const char kAllocationSp[] = "android::RSC::sp<android::RSC::Allocation>";
 
 static const char *GetMatrixTypeName(const RSExportMatrixType *EMT) {
   static const char *MatrixTypeCNameMap[] = {
@@ -58,7 +58,11 @@ static const char *GetMatrixTypeName(const RSExportMatrixType *EMT) {
   return nullptr;
 }
 
-static std::string GetTypeName(const RSExportType *ET, bool Brackets = true) {
+static std::string GetTypeName(const RSExportType *ET, bool PreIdentifier = true) {
+  if((!PreIdentifier) && (ET->getClass() != RSExportType::ExportClassConstantArray)) {
+    slangAssert(false && "Non-array type post identifier?");
+    return "";
+  }
   switch (ET->getClass()) {
   case RSExportType::ExportClassPrimitive: {
     const RSExportPrimitiveType *EPT =
@@ -75,7 +79,7 @@ static std::string GetTypeName(const RSExportType *ET, bool Brackets = true) {
         static_cast<const RSExportPointerType *>(ET)->getPointeeType();
 
     if (PointeeType->getClass() != RSExportType::ExportClassRecord)
-      return "android::RSC::sp<android::RSC::Allocation>";
+      return kAllocationSp;
     else
       return PointeeType->getElementName();
   }
@@ -90,18 +94,21 @@ static std::string GetTypeName(const RSExportType *ET, bool Brackets = true) {
     return GetMatrixTypeName(static_cast<const RSExportMatrixType *>(ET));
   }
   case RSExportType::ExportClassConstantArray: {
-    // TODO: Fix this for C arrays!
     const RSExportConstantArrayType *CAT =
         static_cast<const RSExportConstantArrayType *>(ET);
-    std::string ElementTypeName = GetTypeName(CAT->getElementType());
-    if (Brackets) {
-      ElementTypeName.append("[]");
+    if (PreIdentifier) {
+      std::string ElementTypeName = GetTypeName(CAT->getElementType());
+      return ElementTypeName;
     }
-    return ElementTypeName;
+    else {
+      std::stringstream ArraySpec;
+      ArraySpec << "[" << CAT->getNumElement() << "]";
+      return ArraySpec.str();
+    }
   }
   case RSExportType::ExportClassRecord: {
     // TODO: Fix for C structs!
-    return ET->getElementName() + "." RS_TYPE_ITEM_CLASS_NAME;
+    return ET->getElementName() + "." + kRsTypeItemClassName;
   }
   default: { slangAssert(false && "Unknown class of type"); }
   }
@@ -175,9 +182,8 @@ bool RSReflectionCpp::writeHeaderFile() {
 }
 
 void RSReflectionCpp::genTypeInstancesUsedInForEach() {
-  for (RSContext::const_export_foreach_iterator
-           I = mRSContext->export_foreach_begin(),
-           E = mRSContext->export_foreach_end();
+  for (auto I = mRSContext->export_foreach_begin(),
+            E = mRSContext->export_foreach_end();
        I != E; I++) {
     const RSExportForEach *EF = *I;
     const RSExportType *OET = EF->getOutType();
@@ -207,7 +213,7 @@ void RSReflectionCpp::genFieldsForAllocationTypeVerification() {
       CommentAdded = true;
     }
     mOut.indent() << "android::RSC::sp<const android::RSC::Element> "
-                  << RS_ELEM_PREFIX << *I << ";\n";
+                  << kRsElemPrefix << *I << ";\n";
   }
 }
 
@@ -266,13 +272,11 @@ void RSReflectionCpp::genForEachDeclarations() {
     for (RSExportForEach::InIter BI = Ins.begin(), EI = Ins.end();
          BI != EI; BI++) {
 
-      Arguments.push_back(std::make_pair(
-        "android::RSC::sp<const android::RSC::Allocation>", (*BI)->getName()));
+      Arguments.push_back(Argument(kAllocationSp, (*BI)->getName()));
     }
 
     if (ForEach->hasOut() || ForEach->hasReturn()) {
-      Arguments.push_back(std::make_pair(
-          "android::RSC::sp<const android::RSC::Allocation>", "aout"));
+      Arguments.push_back(Argument(kAllocationSp, "aout"));
     }
 
     const RSExportRecordType *ERT = ForEach->getParamPacketType();
@@ -282,7 +286,7 @@ void RSReflectionCpp::genForEachDeclarations() {
            i != e; i++) {
         RSReflectionTypeData rtd;
         (*i)->getType()->convertToRTD(&rtd);
-        Arguments.push_back(std::make_pair(rtd.type->c_name, (*i)->getName()));
+        Arguments.push_back(Argument(rtd.type->c_name, (*i)->getName()));
       }
     }
     genArguments(Arguments, FunctionStart.length());
@@ -298,6 +302,121 @@ void RSReflectionCpp::genExportFunctionDeclarations() {
     const RSExportFunc *ef = *I;
 
     makeFunctionSignature(false, ef);
+  }
+}
+
+// forEach_* implementation
+void RSReflectionCpp::genExportForEachBodies() {
+  uint32_t slot = 0;
+  for (auto I = mRSContext->export_foreach_begin(),
+            E = mRSContext->export_foreach_end();
+       I != E; I++, slot++) {
+    const RSExportForEach *ef = *I;
+    if (ef->isDummyRoot()) {
+      mOut.indent() << "// No forEach_root(...)\n";
+      continue;
+    }
+
+    ArgumentList Arguments;
+    std::string FunctionStart =
+        "void " + mClassName + "::forEach_" + ef->getName() + "(";
+    mOut.indent() << FunctionStart;
+
+    if (ef->hasIns()) {
+      // FIXME: Add support for kernels with multiple inputs.
+      slangAssert(ef->getIns().size() == 1);
+      Arguments.push_back(Argument(kAllocationSp, "ain"));
+    }
+
+    if (ef->hasOut() || ef->hasReturn()) {
+      Arguments.push_back(Argument(kAllocationSp, "aout"));
+    }
+
+    const RSExportRecordType *ERT = ef->getParamPacketType();
+    if (ERT) {
+      for (RSExportForEach::const_param_iterator i = ef->params_begin(),
+                                                 e = ef->params_end();
+           i != e; i++) {
+        RSReflectionTypeData rtd;
+        (*i)->getType()->convertToRTD(&rtd);
+        Arguments.push_back(Argument(rtd.type->c_name, (*i)->getName()));
+      }
+    }
+    genArguments(Arguments, FunctionStart.length());
+    mOut << ")";
+    mOut.startBlock();
+
+    const RSExportType *OET = ef->getOutType();
+    const RSExportForEach::InTypeVec &InTypes = ef->getInTypes();
+    if (ef->hasIns()) {
+      // FIXME: Add support for kernels with multiple inputs.
+      slangAssert(ef->getIns().size() == 1);
+      genTypeCheck(InTypes[0], "ain");
+    }
+    if (OET) {
+      genTypeCheck(OET, "aout");
+    }
+
+    // TODO Add the appropriate dimension checking code, as seen in
+    // slang_rs_reflection.cpp.
+
+    std::string FieldPackerName = ef->getName() + "_fp";
+    if (ERT) {
+      if (genCreateFieldPacker(ERT, FieldPackerName.c_str())) {
+        genPackVarOfType(ERT, nullptr, FieldPackerName.c_str());
+      }
+    }
+    mOut.indent() << "forEach(" << slot << ", ";
+
+    if (ef->hasIns()) {
+      // FIXME: Add support for kernels with multiple inputs.
+      slangAssert(ef->getIns().size() == 1);
+      mOut << "ain, ";
+    } else {
+      mOut << "NULL, ";
+    }
+
+    if (ef->hasOut() || ef->hasReturn()) {
+      mOut << "aout, ";
+    } else {
+      mOut << "NULL, ";
+    }
+
+    // FIXME (no support for usrData with C++ kernels)
+    mOut << "NULL, 0);\n";
+    mOut.endBlock();
+  }
+}
+
+// invoke_* implementation
+void RSReflectionCpp::genExportFunctionBodies() {
+  uint32_t slot = 0;
+  // Reflect export function
+  for (auto I = mRSContext->export_funcs_begin(),
+            E = mRSContext->export_funcs_end();
+       I != E; I++) {
+    const RSExportFunc *ef = *I;
+
+    makeFunctionSignature(true, ef);
+    mOut.startBlock();
+    const RSExportRecordType *params = ef->getParamPacketType();
+    size_t param_len = 0;
+    if (params) {
+      param_len = params->getAllocSize();
+      if (genCreateFieldPacker(params, "__fp")) {
+        genPackVarOfType(params, nullptr, "__fp");
+      }
+    }
+
+    mOut.indent() << "invoke(" << slot;
+    if (params) {
+      mOut << ", __fp.getData(), " << param_len << ");\n";
+    } else {
+      mOut << ", NULL, 0);\n";
+    }
+    mOut.endBlock();
+
+    slot++;
   }
 }
 
@@ -334,11 +453,13 @@ bool RSReflectionCpp::writeImplementationFile() {
     return false;
   }
 
+  // Front matter
   mOut.indent() << "#include \"" << mClassName << ".h\"\n\n";
 
   genEncodedBitCode();
   mOut.indent() << "\n\n";
 
+  // Constructor
   const std::string &packageName = mRSContext->getReflectJavaPackageName();
   mOut.indent() << mClassName << "::" << mClassName
                 << "(android::RSC::sp<android::RSC::RS> rs):\n"
@@ -350,7 +471,7 @@ bool RSReflectionCpp::writeImplementationFile() {
   for (std::set<std::string>::iterator I = mTypesToCheck.begin(),
                                        E = mTypesToCheck.end();
        I != E; I++) {
-    mOut.indent() << RS_ELEM_PREFIX << *I << " = android::RSC::Element::" << *I
+    mOut.indent() << kRsElemPrefix << *I << " = android::RSC::Element::" << *I
                   << "(mRS);\n";
   }
 
@@ -366,123 +487,14 @@ bool RSReflectionCpp::writeImplementationFile() {
   }
   mOut.endBlock();
 
+  // Destructor
   mOut.indent() << mClassName << "::~" << mClassName << "()";
   mOut.startBlock();
   mOut.endBlock();
 
-  // Reflect export for each functions
-  uint32_t slot = 0;
-  for (RSContext::const_export_foreach_iterator
-           I = mRSContext->export_foreach_begin(),
-           E = mRSContext->export_foreach_end();
-       I != E; I++, slot++) {
-    const RSExportForEach *ef = *I;
-    if (ef->isDummyRoot()) {
-      mOut.indent() << "// No forEach_root(...)\n";
-      continue;
-    }
-
-    ArgumentList Arguments;
-    std::string FunctionStart =
-        "void " + mClassName + "::forEach_" + ef->getName() + "(";
-    mOut.indent() << FunctionStart;
-
-    if (ef->hasIns()) {
-      // FIXME: Add support for kernels with multiple inputs.
-      assert(ef->getIns().size() == 1);
-      Arguments.push_back(std::make_pair(
-          "android::RSC::sp<const android::RSC::Allocation>", "ain"));
-    }
-
-    if (ef->hasOut() || ef->hasReturn()) {
-      Arguments.push_back(std::make_pair(
-          "android::RSC::sp<const android::RSC::Allocation>", "aout"));
-    }
-
-    const RSExportRecordType *ERT = ef->getParamPacketType();
-    if (ERT) {
-      for (RSExportForEach::const_param_iterator i = ef->params_begin(),
-                                                 e = ef->params_end();
-           i != e; i++) {
-        RSReflectionTypeData rtd;
-        (*i)->getType()->convertToRTD(&rtd);
-        Arguments.push_back(std::make_pair(rtd.type->c_name, (*i)->getName()));
-      }
-    }
-    genArguments(Arguments, FunctionStart.length());
-    mOut << ")";
-    mOut.startBlock();
-
-    const RSExportType *OET = ef->getOutType();
-    const RSExportForEach::InTypeVec &InTypes = ef->getInTypes();
-    if (ef->hasIns()) {
-      // FIXME: Add support for kernels with multiple inputs.
-      assert(ef->getIns().size() == 1);
-      genTypeCheck(InTypes[0], "ain");
-    }
-    if (OET) {
-      genTypeCheck(OET, "aout");
-    }
-
-    // TODO Add the appropriate dimension checking code, as seen in
-    // slang_rs_reflection.cpp.
-
-    std::string FieldPackerName = ef->getName() + "_fp";
-    if (ERT) {
-      if (genCreateFieldPacker(ERT, FieldPackerName.c_str())) {
-        genPackVarOfType(ERT, nullptr, FieldPackerName.c_str());
-      }
-    }
-    mOut.indent() << "forEach(" << slot << ", ";
-
-    if (ef->hasIns()) {
-      // FIXME: Add support for kernels with multiple inputs.
-      assert(ef->getIns().size() == 1);
-      mOut << "ain, ";
-    } else {
-      mOut << "NULL, ";
-    }
-
-    if (ef->hasOut() || ef->hasReturn()) {
-      mOut << "aout, ";
-    } else {
-      mOut << "NULL, ";
-    }
-
-    // FIXME (no support for usrData with C++ kernels)
-    mOut << "NULL, 0);\n";
-    mOut.endBlock();
-  }
-
-  slot = 0;
-  // Reflect export function
-  for (RSContext::const_export_func_iterator
-           I = mRSContext->export_funcs_begin(),
-           E = mRSContext->export_funcs_end();
-       I != E; I++) {
-    const RSExportFunc *ef = *I;
-
-    makeFunctionSignature(true, ef);
-    mOut.startBlock();
-    const RSExportRecordType *params = ef->getParamPacketType();
-    size_t param_len = 0;
-    if (params) {
-      param_len = params->getAllocSize();
-      if (genCreateFieldPacker(params, "__fp")) {
-        genPackVarOfType(params, nullptr, "__fp");
-      }
-    }
-
-    mOut.indent() << "invoke(" << slot;
-    if (params) {
-      mOut << ", __fp.getData(), " << param_len << ");\n";
-    } else {
-      mOut << ", NULL, 0);\n";
-    }
-    mOut.endBlock();
-
-    slot++;
-  }
+  // Function bodies
+  genExportForEachBodies();
+  genExportFunctionBodies();
 
   mOut.closeFile();
   return true;
@@ -538,7 +550,7 @@ void RSReflectionCpp::genGetterAndSetter(const RSExportPrimitiveType *EPT,
                                          const RSExportVar *EV) {
   RSReflectionTypeData rtd;
   EPT->convertToRTD(&rtd);
-  std::string TypeName = GetTypeName(EPT, false);
+  std::string TypeName = GetTypeName(EPT);
 
   if (!EV->isConst()) {
     mOut.indent() << "void set_" << EV->getName() << "(" << TypeName << " v)";
@@ -546,7 +558,7 @@ void RSReflectionCpp::genGetterAndSetter(const RSExportPrimitiveType *EPT,
     mOut.indent() << "setVar(" << getNextExportVarSlot() << ", ";
     if (EPT->isRSObjectType()) {
       mOut << "v";
-    } else {
+   } else {
       mOut << "&v, sizeof(v)";
     }
     mOut << ");\n";
@@ -635,12 +647,51 @@ void RSReflectionCpp::genGetterAndSetter(const RSExportVectorType *EVT,
 }
 
 void RSReflectionCpp::genMatrixTypeExportVariable(const RSExportVar *EV) {
-  slangAssert(false);
+  uint32_t slot = getNextExportVarSlot();
+  stringstream tmp;
+  tmp << slot;
+
+  const RSExportType *ET = EV->getType();
+  if (ET->getName() == "rs_matrix4x4") {
+    mOut.indent() << "void set_" << EV->getName() << "(float v[16])";
+    mOut.startBlock();
+    mOut.indent() << "setVar(" << tmp.str() << ", v, sizeof(float)*16);\n";
+    mOut.endBlock();
+  } else if (ET->getName() == "rs_matrix3x3") {
+    mOut.indent() << "void set_" << EV->getName() << "(float v[9])";
+    mOut.startBlock();
+    mOut.indent() << "setVar(" << tmp.str() << ", v, sizeof(float)*9);";
+    mOut.endBlock();
+  } else if (ET->getName() == "rs_matrix2x2") {
+    mOut.indent() << "void set_" << EV->getName() << "(float v[4])";
+    mOut.startBlock();
+    mOut.indent() << "setVar(" << tmp.str() << ", v, sizeof(float)*4);";
+    mOut.endBlock();
+  } else {
+    mOut.indent() << "#error: TODO: " << ET->getName();
+    slangAssert(false);
+  }
 }
 
 void RSReflectionCpp::genGetterAndSetter(const RSExportConstantArrayType *AT,
                                          const RSExportVar *EV) {
-  slangAssert(false);
+  std::stringstream ArraySpec;
+  const RSExportType *ET = EV->getType();
+
+  const RSExportConstantArrayType *CAT =
+      static_cast<const RSExportConstantArrayType *>(ET);
+
+  uint32_t slot = getNextExportVarSlot();
+  stringstream tmp;
+  tmp << slot;
+
+  ArraySpec << CAT->getNumElement();
+  mOut.indent() << "void set_" << EV->getName() << "(" << GetTypeName(EV->getType()) << " v "
+      << GetTypeName(EV->getType(), false) << ")";
+  mOut.startBlock();
+  mOut.indent() << "setVar(" << tmp.str() << ", v, sizeof(" << GetTypeName(EV->getType()) + ") *"
+      << ArraySpec.str() << ");";
+  mOut.endBlock();
 }
 
 void RSReflectionCpp::genGetterAndSetter(const RSExportRecordType *ERT,
@@ -666,7 +717,7 @@ void RSReflectionCpp::makeFunctionSignature(bool isDefinition,
       } else {
         FirstArg = false;
       }
-      mOut << GetTypeName((*i)->getType(), false) << " " << (*i)->getName();
+      mOut << GetTypeName((*i)->getType()) << " " << (*i)->getName();
     }
   }
 
@@ -689,7 +740,10 @@ void RSReflectionCpp::genArguments(const ArgumentList &Arguments, int Offset) {
       FirstArg = false;
     }
 
-    mOut << I->first << " " << I->second;
+    mOut << I->Type << " " << I->Name;
+    if (!I->DefaultValue.empty()) {
+      mOut << " = " << I->DefaultValue;
+    }
   }
 }
 
@@ -822,7 +876,7 @@ void RSReflectionCpp::genTypeCheck(const RSExportType *ET,
   if (!TypeName.empty()) {
     mOut.indent() << "if (!" << VarName
                   << "->getType()->getElement()->isCompatible("
-                  << RS_ELEM_PREFIX << TypeName << "))";
+                  << kRsElemPrefix << TypeName << "))";
     mOut.startBlock();
     mOut.indent() << "mRS->throwError(RS_ERROR_RUNTIME_ERROR, "
                      "\"Incompatible type\");\n";

@@ -18,13 +18,7 @@ import java.util.concurrent.TimeUnit;
 
 @TargetApi(21)
 public abstract class ConstraintTestActivity extends PassFailButtons.Activity {
-    /**
-     * Intent we use to force the job scheduler to consider any ready jobs that otherwise it may
-     * have decided to be lazy about.
-     */
-    protected static final Intent EXPEDITE_STABLE_CHARGING =
-            new Intent("com.android.server.task.controllers.BatteryController.ACTION_CHARGING_STABLE");
-
+    
     protected ComponentName mMockComponent;
 
     protected MockJobService.TestEnvironment mTestEnvironment;

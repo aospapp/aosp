@@ -21,6 +21,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
+import android.location.LocationManager;
 import android.net.NetworkInfo;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
@@ -29,6 +31,7 @@ import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.TxPacketCountListener;
 import android.net.wifi.WifiManager.WifiLock;
 import android.os.SystemClock;
+import android.provider.Settings;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
@@ -278,6 +281,14 @@ public class WifiManagerTest extends AndroidTestCase {
             Log.d(TAG, "Skipping test as WiFi is not supported");
             return;
         }
+        if (!hasLocationFeature()) {
+            Log.d(TAG, "Skipping test as location is not supported");
+            return;
+        }
+        if (!isLocationEnabled()) {
+            fail("Please enable location for this test - since Marshmallow WiFi scan results are"
+                    + " empty when location is disabled!");
+        }
         if (!mWifiManager.isWifiEnabled()) {
             setWifiEnabled(true);
         }
@@ -285,6 +296,8 @@ public class WifiManagerTest extends AndroidTestCase {
         for (int i = 0; i < WIFI_SCAN_TEST_ITERATIONS; ++i) {
             startScan();
             // Make sure at least one AP is found.
+            assertTrue("mScanResult should not be null. This may be due to a scan timeout",
+                       mScanResults != null);
             assertFalse("empty scan results!", mScanResults.isEmpty());
             long nowMillis = SystemClock.elapsedRealtime();
             // Keep track of how many APs are fresh in one scan.
@@ -305,6 +318,18 @@ public class WifiManagerTest extends AndroidTestCase {
                 Thread.sleep(WIFI_SCAN_TEST_INTERVAL_MILLIS);
             }
         }
+    }
+
+    // Return true if location is enabled.
+    private boolean isLocationEnabled() {
+        return Settings.Secure.getInt(getContext().getContentResolver(),
+                Settings.Secure.LOCATION_MODE, Settings.Secure.LOCATION_MODE_OFF) !=
+                Settings.Secure.LOCATION_MODE_OFF;
+    }
+
+    // Returns true if the device has location feature.
+    private boolean hasLocationFeature() {
+        return getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_LOCATION);
     }
 
     /**
@@ -350,7 +375,7 @@ public class WifiManagerTest extends AndroidTestCase {
             assertTrue(notExist != pos);
 
             // Enable & disable network
-            boolean disableOthers = false;
+            boolean disableOthers = true;
             assertTrue(mWifiManager.enableNetwork(netId, disableOthers));
             wifiConfiguration = mWifiManager.getConfiguredNetworks().get(pos);
             assertDisableOthers(wifiConfiguration, disableOthers);
@@ -460,6 +485,9 @@ public class WifiManagerTest extends AndroidTestCase {
             Thread.sleep(DURATION);
         }
         assertTrue(mWifiManager.isWifiEnabled());
+
+        // This will generate a distinct stack trace if the initial connection fails.
+        connectWifi();
 
         int i = 0;
         for (; i < 15; i++) {

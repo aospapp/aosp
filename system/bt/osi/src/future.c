@@ -18,12 +18,13 @@
 
 #define LOG_TAG "bt_osi_future"
 
+#include "osi/include/future.h"
+
 #include <assert.h>
 
 #include "osi/include/allocator.h"
-#include "osi/include/future.h"
-#include "osi/include/osi.h"
 #include "osi/include/log.h"
+#include "osi/include/osi.h"
 #include "osi/include/semaphore.h"
 
 struct future_t {
@@ -36,14 +37,10 @@ static void future_free(future_t *future);
 
 future_t *future_new(void) {
   future_t *ret = osi_calloc(sizeof(future_t));
-  if (!ret) {
-    LOG_ERROR("%s unable to allocate memory for return value.", __func__);
-    goto error;
-  }
 
   ret->semaphore = semaphore_new(0);
   if (!ret->semaphore) {
-    LOG_ERROR("%s unable to allocate memory for the semaphore.", __func__);
+    LOG_ERROR(LOG_TAG, "%s unable to allocate memory for the semaphore.", __func__);
     goto error;
   }
 
@@ -56,17 +53,10 @@ error:;
 
 future_t *future_new_immediate(void *value) {
   future_t *ret = osi_calloc(sizeof(future_t));
-  if (!ret) {
-    LOG_ERROR("%s unable to allocate memory for return value.", __func__);
-    goto error;
-  }
 
   ret->result = value;
   ret->ready_can_be_called = false;
- return ret;
-error:;
-  future_free(ret);
-  return NULL;
+  return ret;
 }
 
 void future_ready(future_t *future, void *value) {

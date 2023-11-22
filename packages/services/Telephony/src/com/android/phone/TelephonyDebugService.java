@@ -17,6 +17,7 @@
 package com.android.phone;
 
 import com.android.internal.telephony.DebugService;
+
 import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
@@ -30,11 +31,12 @@ import java.io.PrintWriter;
  */
 public class TelephonyDebugService extends Service {
     private static String TAG = "TelephonyDebugService";
+    private static final boolean DBG = true;
     private DebugService mDebugService = new DebugService();
 
     /** Constructor */
     public TelephonyDebugService() {
-        Log.d(TAG, "TelephonyDebugService()");
+        if (DBG) Log.d(TAG, "TelephonyDebugService()");
     }
 
     /**
@@ -50,4 +52,3 @@ public class TelephonyDebugService extends Service {
         mDebugService.dump(fd, pw, args);
     }
 }
-

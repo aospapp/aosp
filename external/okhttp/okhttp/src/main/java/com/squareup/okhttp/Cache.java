@@ -165,7 +165,11 @@ public final class Cache {
   private int requestCount;
 
   public Cache(File directory, long maxSize) {
-    cache = DiskLruCache.create(FileSystem.SYSTEM, directory, VERSION, ENTRY_COUNT, maxSize);
+    this(directory, maxSize, FileSystem.SYSTEM);
+  }
+
+  Cache(File directory, long maxSize, FileSystem fileSystem) {
+    this.cache = DiskLruCache.create(fileSystem, directory, VERSION, ENTRY_COUNT, maxSize);
   }
 
   private static String urlToKey(Request request) {
@@ -267,6 +271,23 @@ public final class Cache {
       }
     } catch (IOException ignored) {
     }
+  }
+
+  /**
+   * Initialize the cache. This will include reading the journal files from
+   * the storage and building up the necessary in-memory cache information.
+   * <p>
+   * The initialization time may vary depending on the journal file size and
+   * the current actual cache size. The application needs to be aware of calling
+   * this function during the initialization phase and preferably in a background
+   * worker thread.
+   * <p>
+   * Note that if the application chooses to not call this method to initialize
+   * the cache. By default, the okhttp will perform lazy initialization upon the
+   * first usage of the cache.
+   */
+  public void initialize() throws IOException {
+    cache.initialize();
   }
 
   /**

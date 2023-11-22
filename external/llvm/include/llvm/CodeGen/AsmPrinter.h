@@ -19,6 +19,7 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
+#include "llvm/CodeGen/DwarfStringPoolEntry.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -53,6 +54,7 @@ class MCSection;
 class MCStreamer;
 class MCSubtargetInfo;
 class MCSymbol;
+class MCTargetOptions;
 class MDNode;
 class DwarfDebug;
 class Mangler;
@@ -78,7 +80,7 @@ public:
   /// This is the MCStreamer object for the file we are generating. This
   /// contains the transient state for the current translation unit that we are
   /// generating (such as the current section etc).
-  MCStreamer &OutStreamer;
+  std::unique_ptr<MCStreamer> OutStreamer;
 
   /// The current machine function.
   const MachineFunction *MF;
@@ -163,6 +165,9 @@ public:
   /// Return information about data layout.
   const DataLayout &getDataLayout() const;
 
+  /// Return the pointer size from the TargetMachine
+  unsigned getPointerSize() const;
+
   /// Return information about subtarget.
   const MCSubtargetInfo &getSubtargetInfo() const;
 
@@ -231,7 +236,7 @@ public:
   /// Print assembly representations of the jump tables used by the current
   /// function to the current output stream.
   ///
-  void EmitJumpTableInfo();
+  virtual void EmitJumpTableInfo();
 
   /// Emit the specified global variable to the .s file.
   virtual void EmitGlobalVariable(const GlobalVariable *GV);
@@ -252,7 +257,7 @@ public:
   const MCExpr *lowerConstant(const Constant *CV);
 
   /// \brief Print a general LLVM constant to the .s file.
-  void EmitGlobalConstant(const Constant *CV);
+  void EmitGlobalConstant(const DataLayout &DL, const Constant *CV);
 
   /// \brief Unnamed constant global variables solely contaning a pointer to
   /// another globals variable act like a global variable "proxy", or GOT
@@ -315,7 +320,9 @@ public:
 
   /// Targets can override this to change how global constants that are part of
   /// a C++ static/global constructor list are emitted.
-  virtual void EmitXXStructor(const Constant *CV) { EmitGlobalConstant(CV); }
+  virtual void EmitXXStructor(const DataLayout &DL, const Constant *CV) {
+    EmitGlobalConstant(DL, CV);
+  }
 
   /// Return true if the basic block has exactly one predecessor and the control
   /// transfer mechanism between the predecessor and this block is a
@@ -402,9 +409,6 @@ public:
   void EmitULEB128(uint64_t Value, const char *Desc = nullptr,
                    unsigned PadTo = 0) const;
 
-  /// Emit a .byte 42 directive for a DW_CFA_xxx value.
-  void EmitCFAByte(unsigned Val) const;
-
   /// Emit a .byte 42 directive that corresponds to an encoding.  If verbose
   /// assembly output is enabled, we output comments describing the encoding.
   /// Desc is a string saying what the encoding is specifying (e.g. "LSDA").
@@ -416,10 +420,18 @@ public:
   /// Emit reference to a ttype global with a specified encoding.
   void EmitTTypeReference(const GlobalValue *GV, unsigned Encoding) const;
 
-  /// Emit the 4-byte offset of Label from the start of its section.  This can
-  /// be done with a special directive if the target supports it (e.g. cygwin)
-  /// or by emitting it as an offset from a label at the start of the section.
-  void emitSectionOffset(const MCSymbol *Label) const;
+  /// Emit a reference to a symbol for use in dwarf. Different object formats
+  /// represent this in different ways. Some use a relocation others encode
+  /// the label offset in its section.
+  void emitDwarfSymbolReference(const MCSymbol *Label,
+                                bool ForceOffset = false) const;
+
+  /// Emit the 4-byte offset of a string from the start of its section.
+  ///
+  /// When possible, emit a DwarfStringPool section offset without any
+  /// relocations, and without using the symbol.  Otherwise, defers to \a
+  /// emitDwarfSymbolReference().
+  void emitDwarfStringOffset(DwarfStringPoolEntryRef S) const;
 
   /// Get the value for DW_AT_APPLE_isa. Zero if no isa encoding specified.
   virtual unsigned getISAEncoding() { return 0; }
@@ -436,7 +448,16 @@ public:
   void emitCFIInstruction(const MCCFIInstruction &Inst) const;
 
   /// \brief Emit Dwarf abbreviation table.
-  void emitDwarfAbbrevs(const std::vector<DIEAbbrev *>& Abbrevs) const;
+  template <typename T> void emitDwarfAbbrevs(const T &Abbrevs) const {
+    // For each abbreviation.
+    for (const auto &Abbrev : Abbrevs)
+      emitDwarfAbbrev(*Abbrev);
+
+    // Mark end of abbreviations.
+    EmitULEB128(0, "EOM(3)");
+  }
+
+  void emitDwarfAbbrev(const DIEAbbrev &Abbrev) const;
 
   /// \brief Recursively emit Dwarf DIE tree.
   void emitDwarfDIE(const DIE &Die) const;
@@ -493,11 +514,12 @@ private:
   mutable unsigned Counter;
 
   /// This method emits the header for the current function.
-  void EmitFunctionHeader();
+  virtual void EmitFunctionHeader();
 
   /// Emit a blob of inline asm to the output streamer.
   void
   EmitInlineAsm(StringRef Str, const MCSubtargetInfo &STI,
+                const MCTargetOptions &MCOptions,
                 const MDNode *LocMDNode = nullptr,
                 InlineAsm::AsmDialect AsmDialect = InlineAsm::AD_ATT) const;
 
@@ -521,7 +543,8 @@ private:
   void EmitLLVMUsedList(const ConstantArray *InitList);
   /// Emit llvm.ident metadata in an '.ident' directive.
   void EmitModuleIdents(Module &M);
-  void EmitXXStructorList(const Constant *List, bool isCtor);
+  void EmitXXStructorList(const DataLayout &DL, const Constant *List,
+                          bool isCtor);
   GCMetadataPrinter *GetOrCreateGCPrinter(GCStrategy &C);
 };
 }

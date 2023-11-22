@@ -46,8 +46,9 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
-
+import java.util.Map;
 
 // ----------------------------------------------------------------------
 
@@ -61,7 +62,7 @@ public class RVCVRecordActivity extends Activity {
     private MotionIndicatorView mIndicatorView;
 
     private SoundPool mSoundPool;
-    private int [] mSoundPoolLookup;
+    private Map<String, Integer> mSoundMap;
 
     private File mRecordDir;
     private RecordProcedureController mController;
@@ -225,16 +226,13 @@ public class RVCVRecordActivity extends Activity {
      * Initialize sound pool for user notification
      */
     private void initSoundPool() {
-        final int MAX_STREAM = 10;
-        int i=0;
-        mSoundPool = new SoundPool(MAX_STREAM, AudioManager.STREAM_MUSIC, 0);
-        mSoundPoolLookup = new int[MAX_STREAM];
+        mSoundPool = new SoundPool(1 /*maxStreams*/, AudioManager.STREAM_MUSIC, 0);
+        mSoundMap = new HashMap<>();
 
         // TODO: add different sound into this
-        mSoundPoolLookup[i++] = mSoundPool.load(this, R.raw.next_axis, 1);
-        mSoundPoolLookup[i++] = mSoundPool.load(this, R.raw.next_axis, 1);
-        mSoundPoolLookup[i++] = mSoundPool.load(this, R.raw.next_axis, 1);
-
+        mSoundMap.put("start", mSoundPool.load(this, R.raw.start_axis, 1));
+        mSoundMap.put("end", mSoundPool.load(this, R.raw.next_axis, 1));
+        mSoundMap.put("half-way", mSoundPool.load(this, R.raw.half_way, 1));
     }
     private void endSoundPool() {
         mSoundPool.release();
@@ -242,10 +240,14 @@ public class RVCVRecordActivity extends Activity {
 
     /**
      * Play notify sound to user
-     * @param id ID of the sound to be played
+     * @param name name of the sound to be played
      */
-    public void playNotifySound(int id) {
-        mSoundPool.play(mSoundPoolLookup[id], 1, 1, 0, 0, 1);
+    public void playNotifySound(String name) {
+        Integer id = mSoundMap.get(name);
+        if (id != null) {
+            mSoundPool.play(id.intValue(), 0.75f/*left vol*/, 0.75f/*right vol*/, 0 /*priority*/,
+                    0/*loop play*/, 1/*rate*/);
+        }
     }
 
     /**
@@ -298,6 +300,13 @@ public class RVCVRecordActivity extends Activity {
         mCoverManager.waitUntilCovered(axis);
     }
 
+    /**
+     * Wait until a sensor recording for a certain axis is halfway covered
+     * @param axis
+     */
+    public void waitUntilHalfCovered(int axis) {
+        mCoverManager.waitUntilHalfCovered(axis);
+    }
 
     /**
      *
@@ -442,6 +451,7 @@ public class RVCVRecordActivity extends Activity {
                 }
             }
             if (profile != null) {
+                param = mCamera.getParameters(); //acquire proper fov after change the picture size
                 float fovW = param.getHorizontalViewAngle();
                 float fovH = param.getVerticalViewAngle();
                 writeVideoMetaInfo(profile.videoFrameWidth, profile.videoFrameHeight,
@@ -516,7 +526,7 @@ public class RVCVRecordActivity extends Activity {
      */
     class CoverageManager {
         // settings
-        private final int MAX_TILT_ANGLE = 60; // +/- 60
+        private final int MAX_TILT_ANGLE = 50; // +/- 50
         //private final int REQUIRED_TILT_ANGLE = 50; // +/- 50
         private final int TILT_ANGLE_STEP = 5; // 5 degree(s) per step
         private final int YAW_ANGLE_STEP = 10; // 10 degree(s) per step
@@ -526,9 +536,11 @@ public class RVCVRecordActivity extends Activity {
         CoverageManager() {
             mAxisCovered = new RangeCoveredRegister[3];
             // X AXIS
-            mAxisCovered[0] = new RangeCoveredRegister(-MAX_TILT_ANGLE, +MAX_TILT_ANGLE, TILT_ANGLE_STEP);
+            mAxisCovered[0] = new RangeCoveredRegister(
+                    -MAX_TILT_ANGLE, +MAX_TILT_ANGLE, TILT_ANGLE_STEP);
             // Y AXIS
-            mAxisCovered[1] = new RangeCoveredRegister(-MAX_TILT_ANGLE, +MAX_TILT_ANGLE, TILT_ANGLE_STEP);
+            mAxisCovered[1] = new RangeCoveredRegister(
+                    -MAX_TILT_ANGLE, +MAX_TILT_ANGLE, TILT_ANGLE_STEP);
             // Z AXIS
             mAxisCovered[2] = new RangeCoveredRegister(YAW_ANGLE_STEP);
         }
@@ -536,6 +548,25 @@ public class RVCVRecordActivity extends Activity {
         public RangeCoveredRegister getAxis(int axis) {
             // SensorManager.AXIS_X = 1, need offset -1 for mAxisCovered array
             return mAxisCovered[axis-1];
+        }
+
+        public void waitUntilHalfCovered(int axis) {
+            if (axis == SensorManager.AXIS_Z) {
+                waitUntilCovered(axis);
+            }
+
+            // SensorManager.AXIS_X = 1, need offset -1 for mAxisCovered array
+            while(!(mAxisCovered[axis-1].isRangeCovered(-MAX_TILT_ANGLE, -MAX_TILT_ANGLE/2) ||
+                        mAxisCovered[axis-1].isRangeCovered(MAX_TILT_ANGLE/2, MAX_TILT_ANGLE) ) ) {
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    if (LOCAL_LOGV) {
+                        Log.v(TAG, "waitUntilHalfCovered axis = "+ axis + " is interrupted");
+                    }
+                    Thread.currentThread().interrupt();
+                }
+            }
         }
 
         public void waitUntilCovered(int axis) {
@@ -547,6 +578,7 @@ public class RVCVRecordActivity extends Activity {
                     if (LOCAL_LOGV) {
                         Log.v(TAG, "waitUntilCovered axis = "+ axis + " is interrupted");
                     }
+                    Thread.currentThread().interrupt();
                 }
             }
         }
@@ -960,13 +992,21 @@ public class RVCVRecordActivity extends Activity {
             mActivity.switchAxisAsync(axis);
 
             // play start sound
-            mActivity.playNotifySound(0);
+            mActivity.playNotifySound("start");
+
+            if (axis != SensorManager.AXIS_Z) {
+                // wait until axis half covered
+                mActivity.waitUntilHalfCovered(axis);
+
+                // play half way sound
+                mActivity.playNotifySound("half-way");
+            }
 
             // wait until axis covered
             mActivity.waitUntilCovered(axis);
 
             // play stop sound
-            mActivity.playNotifySound(1);
+            mActivity.playNotifySound("end");
         }
 
         /**

@@ -1,4 +1,4 @@
-page.title=Initializing a Build Environment
+page.title=Establishing a Build Environment
 @jd:body
 
 <!--
@@ -47,39 +47,88 @@ distributions are welcome.</p>
 <p>For Gingerbread (2.3.x) and newer versions, including the <code>master</code>
 branch, a 64-bit environment is required. Older versions can be
 compiled on 32-bit systems.</p>
-<p><strong>Note</strong>: See the <a href="building.html">Downloading and
-Building</a> page for the list of hardware and software requirements. Then
-follow the detailed instructions for Ubuntu and Mac OS below.</p>
+<p class="note"><strong>Note:</strong> See the <a
+href="requirements.html">Requirements</a> for the complete list of hardware and
+software requirements. Then follow the detailed instructions for Ubuntu and Mac
+OS below.</p>
 
 <h3 id="installing-the-jdk">Installing the JDK</h3>
 <p>The <code>master</code> branch of Android in the <a
 href="https://android.googlesource.com/">Android Open Source Project (AOSP)</a>
-requires Java 7. On Ubuntu, use <a href="http://openjdk.java.net/install/">OpenJDK</a>.</p>
-<p>Java 7: For the latest version of Android</p>
+requires Java 8. On Ubuntu, use <a href="http://openjdk.java.net/install/">OpenJDK</a>.</p>
+<p>Java 8: For the latest version of Android</p>
+
+<h4 id="for-ubuntu-15-04">For Ubuntu &gt;= 15.04</h4>
+<p>Run the following:</p>
 <pre><code>$ sudo apt-get update
-$ sudo apt-get install openjdk-7-jdk
+$ sudo apt-get install openjdk-8-jdk
 </code></pre>
 
-<p>Optionally, update the default Java version by running:</p>
+<h4 id="for-ubuntu-14-04">For Ubuntu LTS 14.04</h4>
+<p>There are no available supported OpenJDK 8 packages for Ubuntu 14.04. The
+<strong>Ubuntu 15.04 OpenJDK 8</strong> packages have been used successfully
+with Ubuntu 14.04. <em>Newer package versions (e.g. those for 15.10, 16.04) were
+found not to work on 14.04 using the instructions below.</em></p>
+<ol>
+<li>
+<p>Download the <code>.deb</code> packages for your architecture from
+<a
+href="http://packages.ubuntu.com/vivid/openjdk-8-jdk">http://packages.ubuntu.com/vivid/openjdk-8-jdk</a>:</p>
+<ul>
+<li><a href="http://packages.ubuntu.com/vivid/openjdk-8-jre-headless">openjdk-8-jre-headless</a></li>
+<li><a href="http://packages.ubuntu.com/vivid/openjdk-8-jre">openjdk-8-jre</a></li>
+<li><a href="http://packages.ubuntu.com/vivid/openjdk-8-jdk">openjdk-8-jdk</a></li>
+</ul>
+<p>Remember, you may obtain the architecture for your machine with:</p>
+<code>$ uname -m</code>
+<p>With <code>x86_64</code> representing a 64-bit (amd64) Linux kernel architecture and
+<code>i386/i486/i586/i686</code> representing a 32-bit (i386) system.</p>
+</li>
+<li>
+<p>Optionally, confirm the checksums of the downloaded files using the information
+found on <a href="http://packages.ubuntu.com/vivid/openjdk-8-jdk"
+>http://packages.ubuntu.com/vivid/openjdk-8-jdk</a>.</p>
+<p>For example with the sha256sum tool:</p>
+<pre><code>$ sha256sum {package file}</code></pre>
+</li>
+<li>
+<p>Install the packages:</p>
+<pre><code>$ sudo apt-get update</pre></code>
+<p>Run dpkg for each of the .deb files you downloaded. It may produce errors due to
+missing dependencies:</p>
+<pre><code>$ sudo dpkg -i {downloaded.deb file}</pre></code>
+<p>To fix missing dependencies:</p>
+<pre><code>$ sudo apt-get -f install</pre></code>
+</li>
+</ol>
+
+<h4 id="default-java-version">Update the default Java version - optional</h4>
+<p>Optionally, for the Ubuntu versions above update the default Java version by
+running:</p>
 <pre><code>$ sudo update-alternatives --config java
 $ sudo update-alternatives --config javac
 </code></pre>
 
-<p>If you encounter version errors for Java, set its
-path as described in the <a href="building-running.html#wrong-java-version">Wrong
+<p>If, during a build, you encounter version errors for Java, set its
+path as described in the <a href="building.html#wrong-java-version">Wrong
 Java Version</a> section.</p>
 
 <p>To develop older versions of Android, download and install the corresponding version of the <a
 href="http://www.oracle.com/technetwork/java/javase/archive-139210.html">Java JDK</a>:<br/>
+Java 7: for Lollipop through Marshmallow<br/>
 Java 6: for Gingerbread through KitKat<br/>
 Java 5: for Cupcake through Froyo</p>
 
-<p><strong>Note</strong>: The <code>lunch</code> command in the build step will ensure that the Sun JDK is
-used instead of any previously installed JDK.</p>
-
 <h3 id="installing-required-packages-ubuntu-1404">Installing required packages (Ubuntu 14.04)</h3>
 <p>You will need a 64-bit version of Ubuntu. Ubuntu 14.04 is recommended.</p>
-<pre><code>$ sudo apt-get install bison g++-multilib git gperf libxml2-utils make zlib1g-dev:i386 zip</code></pre>
+<pre><code>$ sudo apt-get install git-core gnupg flex bison gperf build-essential \
+  zip curl zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 \
+  lib32ncurses5-dev x11proto-core-dev libx11-dev lib32z-dev ccache \
+  libgl1-mesa-dev libxml2-utils xsltproc unzip
+</code></pre>
+
+<p class="note"><strong>Note:</strong> To use SELinux tools for policy
+analysis, also install the <code>python-networkx</code> package.</p>
 
 <h3 id="installing-required-packages-ubuntu-1204">Installing required packages (Ubuntu 12.04)</h3>
 <p>You may use Ubuntu 12.04 to build older versions of Android. Version 12.04 is not supported on master or recent releases.</p>
@@ -110,46 +159,15 @@ releases of AOSP.</p>
 <p>Under GNU/Linux systems (and specifically under Ubuntu systems),
 regular users can't directly access USB devices by default. The
 system needs to be configured to allow such access.</p>
-<p>The recommended approach is to create a file
-<code>/etc/udev/rules.d/51-android.rules</code> (as the root user) and to copy
-the following lines in it. <code>&lt;username&gt;</code> must be replaced by the
-actual username of the user who is authorized to access the phones
-over USB.</p>
-<pre><code># adb protocol on passion (Nexus One)
-SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", ATTR{idProduct}=="4e12", MODE="0600", OWNER="&lt;username&gt;"
-# fastboot protocol on passion (Nexus One)
-SUBSYSTEM=="usb", ATTR{idVendor}=="0bb4", ATTR{idProduct}=="0fff", MODE="0600", OWNER="&lt;username&gt;"
-# adb protocol on crespo/crespo4g (Nexus S)
-SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", ATTR{idProduct}=="4e22", MODE="0600", OWNER="&lt;username&gt;"
-# fastboot protocol on crespo/crespo4g (Nexus S)
-SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", ATTR{idProduct}=="4e20", MODE="0600", OWNER="&lt;username&gt;"
-# adb protocol on stingray/wingray (Xoom)
-SUBSYSTEM=="usb", ATTR{idVendor}=="22b8", ATTR{idProduct}=="70a9", MODE="0600", OWNER="&lt;username&gt;"
-# fastboot protocol on stingray/wingray (Xoom)
-SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", ATTR{idProduct}=="708c", MODE="0600", OWNER="&lt;username&gt;"
-# adb protocol on maguro/toro (Galaxy Nexus)
-SUBSYSTEM=="usb", ATTR{idVendor}=="04e8", ATTR{idProduct}=="6860", MODE="0600", OWNER="&lt;username&gt;"
-# fastboot protocol on maguro/toro (Galaxy Nexus)
-SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", ATTR{idProduct}=="4e30", MODE="0600", OWNER="&lt;username&gt;"
-# adb protocol on panda (PandaBoard)
-SUBSYSTEM=="usb", ATTR{idVendor}=="0451", ATTR{idProduct}=="d101", MODE="0600", OWNER="&lt;username&gt;"
-# adb protocol on panda (PandaBoard ES)
-SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", ATTR{idProduct}=="d002", MODE="0600", OWNER="&lt;username&gt;"
-# fastboot protocol on panda (PandaBoard)
-SUBSYSTEM=="usb", ATTR{idVendor}=="0451", ATTR{idProduct}=="d022", MODE="0600", OWNER="&lt;username&gt;"
-# usbboot protocol on panda (PandaBoard)
-SUBSYSTEM=="usb", ATTR{idVendor}=="0451", ATTR{idProduct}=="d00f", MODE="0600", OWNER="&lt;username&gt;"
-# usbboot protocol on panda (PandaBoard ES)
-SUBSYSTEM=="usb", ATTR{idVendor}=="0451", ATTR{idProduct}=="d010", MODE="0600", OWNER="&lt;username&gt;"
-# adb protocol on grouper/tilapia (Nexus 7)
-SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", ATTR{idProduct}=="4e42", MODE="0600", OWNER="&lt;username&gt;"
-# fastboot protocol on grouper/tilapia (Nexus 7)
-SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", ATTR{idProduct}=="4e40", MODE="0600", OWNER="&lt;username&gt;"
-# adb protocol on manta (Nexus 10)
-SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", ATTR{idProduct}=="4ee2", MODE="0600", OWNER="&lt;username&gt;"
-# fastboot protocol on manta (Nexus 10)
-SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", ATTR{idProduct}=="4ee0", MODE="0600", OWNER="&lt;username&gt;"
-</code></pre>
+<p>The recommended approach is to create a file at
+<code>/etc/udev/rules.d/51-android.rules</code> (as the root user).</p> 
+
+<p>To do this, run the following command to download the <a href="51-android.rules">51-android.rules</a> file attached to this site, modify it to include your username, and place it in the correct location:</p>
+
+<pre>
+<code>$ wget -S -O - http://source.android.com/source/51-android.rules | sed "s/&lt;username&gt;/$USER/" | sudo tee >/dev/null /etc/udev/rules.d/51-android.rules; sudo udevadm control --reload-rules</code>
+</pre>
+
 <p>Those new rules take effect the next time a device is plugged in.
 It might therefore be necessary to unplug the device and plug it
 back into the computer.</p>
@@ -212,7 +230,7 @@ To mount the image when you execute <code>mountAndroid</code>:</p>
 <pre><code># mount the android file image
 function mountAndroid { hdiutil attach ~/android.dmg -mountpoint /Volumes/android; }
 </code></pre>
-<p><strong>Note</strong>: If your system created a <code>.dmg.sparseimage</code> file, replace <code>~/android.dmg</code> with <code>~/android.dmg.sparseimage</code>.</p>
+<p class="note"><strong>Note:</strong> If your system created a <code>.dmg.sparseimage</code> file, replace <code>~/android.dmg</code> with <code>~/android.dmg.sparseimage</code>.</p>
 </li>
 <li>
 <p>To unmount it when you execute <code>umountAndroid</code>:</p>
@@ -224,7 +242,12 @@ function umountAndroid() { hdiutil detach /Volumes/android; }
 <p>Once you've mounted the <code>android</code> volume, you'll do all your work there. You can eject it (unmount it) just like you would with an external drive.</p>
 
 <h3 id="installing-the-mac-jdk">Installing the JDK</h3>
-<p>The <code>master</code> and <code>5.0.x</code> branches of Android in the <a
+<p>The <code>master</code> branch of Android in the <a
+href="https://android.googlesource.com/">Android Open Source Project (AOSP)</a>
+requires Java 8. On Mac OS, use <a
+href="http://www.oracle.com/technetwork/java/javase/downloads/java-archive-javase8-2177648.html#jdk-8u45-oth-JPR">jdk 8u45 or newer</a>.</p>
+
+<p>The <code>5.0.x</code> branches of Android in the <a
 href="https://android.googlesource.com/">Android Open Source Project (AOSP)</a>
 require Java 7. On Mac OS, use <a
 href="https://www.oracle.com/technetwork/java/javase/downloads/java-archive-downloads-javase7-521261.html#jdk-7u71-oth-JPR">jdk-7u71-macosx-x64.dmg</a>.</p>
@@ -235,15 +258,20 @@ href="http://support.apple.com/kb/dl1572">Java JDK</a>.</p>
 
 <h3 id="master-branch">Master branch</h3>
 <p>To build the latest source in a Mac OS environment, you will need an Intel/x86
-machine running Mac OS X v10.8 (Mountain Lion) or later, along with Xcode
+machine running Mac OS X v10.10 (Yosemite) or later, along with Xcode
 4.5.2 or later including the Command Line Tools.</p>
 
-<h3 id="branch-50x-and-all-earlier-branches">Branch 5.0.x and earlier branches</h3>
+<h3 id="branch-60x">Branch 6.0.x</h3>
+<p>To build 6.0.x and earlier source in a Mac OS environment, you will need an Intel/x86
+machine running Mac OS X v10.10 (Yosemite), along with Xcode
+4.5.2 and Command Line Tools.</p>
+
+<h3 id="branch-50x">Branch 5.0.x</h3>
 <p>To build 5.0.x and earlier source in a Mac OS environment, you will need an Intel/x86
 machine running Mac OS X v10.8 (Mountain Lion), along with Xcode
 4.5.2 and Command Line Tools.</p>
 
-<h3 id="branch-44x-and-all-earlier-branches">Branch 4.4.x and earlier branches</h3>
+<h3 id="branch-44x">Branch 4.4.x</h3>
 <p>To build 4.2.x and earlier source in a Mac OS environment, you will need an Intel/x86
 machine running Mac OS X v10.6 (Snow Leopard) or Mac OS X v10.7 (Lion), along with Xcode
 4.2 (Apple's Developer Tools). Although Lion does not come with a JDK, it should
@@ -251,7 +279,7 @@ install automatically when you attempt to build the source.</p>
 <p>The remaining sections for Mac OS apply only to those who wish to build
 earlier branches.</p>
 
-<h3 id="branch-40x-and-all-earlier-branches">Branch 4.0.x and all earlier branches</h3>
+<h3 id="branch-40x">Branch 4.0.x and all earlier branches</h3>
 <p>To build android-4.0.x and earlier branches in a Mac OS environment, you need an
 Intel/x86 machine running Mac OS X v10.5 (Leopard) or Mac OS X v10.6 (Snow Leopard). You
 will need the Mac OS X v10.5 SDK.</p>
@@ -266,13 +294,11 @@ create an Apple ID in order to download.</p>
 </li>
 <li>
 <p>Install MacPorts from <a href="http://www.macports.org/install.php">macports.org</a>.</p>
-<p><em>Note: Make sure that <code>/opt/local/bin</code> appears in your path BEFORE <code>/usr/bin</code>.  If not, add</em> </p>
-<pre><code>export PATH=/opt/local/bin:$PATH
-</code></pre>
-<p><em>to your <code>~/.bash_profile</code>.</em></p>
-
-<p><strong>Note</strong>: If you do not have a <code>.bash_profile</code> file in your home directory, create one.</p>
-
+<p class="note"><strong>Note:</strong> Make sure that <code>/opt/local/bin</code> appears in your path <strong>before</strong> <code>/usr/bin</code>. If not, please add the following to your <code>~/.bash_profile</code> file:</p>
+<pre>
+<code>export PATH=/opt/local/bin:$PATH</code>
+</pre>
+<p class="note"><strong>Note:</strong> If you do not have a <code>.bash_profile</code> file in your home directory, create one.</p>
 </li>
 <li>
 <p>Get make, git, and GPG packages from MacPorts: </p>

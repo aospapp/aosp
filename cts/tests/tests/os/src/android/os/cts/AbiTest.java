@@ -17,16 +17,35 @@
 package android.os.cts;
 
 import android.cts.util.ReadElf;
+import android.util.ArraySet;
 
 import java.io.File;
+import java.util.Arrays;
 
 import junit.framework.TestCase;
 
 public class AbiTest extends TestCase {
     public void testNo64() throws Exception {
-        for (String dir : new File("/").list()) {
-            if (!dir.equals("data") && !dir.equals("dev") && !dir.equals("proc") && !dir.equals("sys")) {
-                checkElfFilesInDirectory(new File("/" + dir));
+        ArraySet<String> abiDirs = new ArraySet(Arrays.asList(
+            "/sbin",
+            "/system",
+            "/vendor"));
+        String pathVar = System.getenv("PATH");
+        if (pathVar != null) {
+            abiDirs.addAll(Arrays.asList(pathVar.split(":")));
+        }
+        for (String dir : abiDirs) {
+            boolean skip_dir = false;
+            for (String dirOther : abiDirs) {
+                if (dir.equals(dirOther)) {
+                    continue;
+                } else if (dir.startsWith(dirOther + "/")) {
+                    skip_dir = true;
+                    break;
+                }
+            }
+            if (!skip_dir) {
+                checkElfFilesInDirectory(new File(dir));
             }
         }
     }

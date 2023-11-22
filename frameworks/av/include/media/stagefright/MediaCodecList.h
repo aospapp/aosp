@@ -47,6 +47,10 @@ struct MediaCodecList : public BnMediaCodecList {
     virtual size_t countCodecs() const;
 
     virtual sp<MediaCodecInfo> getCodecInfo(size_t index) const {
+        if (index >= mCodecInfos.size()) {
+            ALOGE("b/24445127");
+            return NULL;
+        }
         return mCodecInfos.itemAt(index);
     }
 
@@ -60,6 +64,22 @@ struct MediaCodecList : public BnMediaCodecList {
 
     // only to be used by MediaPlayerService
     void parseTopLevelXMLFile(const char *path, bool ignore_errors = false);
+
+    enum Flags {
+        kPreferSoftwareCodecs   = 1,
+        kHardwareCodecsOnly     = 2,
+    };
+
+    static void findMatchingCodecs(
+            const char *mime,
+            bool createEncoder,
+            uint32_t flags,
+            Vector<AString> *matching);
+
+    static uint32_t getQuirksFor(const char *mComponentName);
+
+    static bool isSoftwareCodec(const AString &componentName);
+
 
 private:
     class BinderDeathObserver : public IBinder::DeathRecipient {

@@ -79,8 +79,7 @@ unsigned Format_channelCount(const NBAIO_Format& format);
 
 // Callbacks used by NBAIO_Sink::writeVia() and NBAIO_Source::readVia() below.
 typedef ssize_t (*writeVia_t)(void *user, void *buffer, size_t count);
-typedef ssize_t (*readVia_t)(void *user, const void *buffer,
-                             size_t count, int64_t readPTS);
+typedef ssize_t (*readVia_t)(void *user, const void *buffer, size_t count);
 
 // Check whether an NBAIO_Format is valid
 bool Format_isValid(const NBAIO_Format& format);
@@ -146,13 +145,13 @@ public:
     // 32 bits rolls over after 27 hours at 44.1 kHz; if that concerns you then poll periodically.
 
     // Return the number of frames written successfully since construction.
-    virtual size_t framesWritten() const { return mFramesWritten; }
+    virtual int64_t framesWritten() const { return mFramesWritten; }
 
     // Number of frames lost due to underrun since construction.
-    virtual size_t framesUnderrun() const { return 0; }
+    virtual int64_t framesUnderrun() const { return 0; }
 
     // Number of underruns since construction, where a set of contiguous lost frames is one event.
-    virtual size_t underruns() const { return 0; }
+    virtual int64_t underruns() const { return 0; }
 
     // Estimate of number of frames that could be written successfully now without blocking.
     // When a write() is actually attempted, the implementation is permitted to return a smaller or
@@ -210,25 +209,10 @@ public:
     //  < 0     status_t error occurred prior to the first frame transfer during this callback.
     virtual ssize_t writeVia(writeVia_t via, size_t total, void *user, size_t block = 0);
 
-    // Get the time (on the LocalTime timeline) at which the first frame of audio of the next write
-    // operation to this sink will be eventually rendered by the HAL.
-    // Inputs:
-    //  ts      A pointer pointing to the int64_t which will hold the result.
-    // Return value:
-    //  OK      Everything went well, *ts holds the time at which the first audio frame of the next
-    //          write operation will be rendered, or AudioBufferProvider::kInvalidPTS if this sink
-    //          does not know the answer for some reason.  Sinks which eventually lead to a HAL
-    //          which implements get_next_write_timestamp may return Invalid temporarily if the DMA
-    //          output of the audio driver has not started yet.  Sinks which lead to a HAL which
-    //          does not implement get_next_write_timestamp, or which don't lead to a HAL at all,
-    //          will always return kInvalidPTS.
-    //  <other> Something unexpected happened internally.  Check the logs and start debugging.
-    virtual status_t getNextWriteTimestamp(int64_t *ts) { return INVALID_OPERATION; }
-
     // Returns NO_ERROR if a timestamp is available.  The timestamp includes the total number
     // of frames presented to an external observer, together with the value of CLOCK_MONOTONIC
     // as of this presentation count.  The timestamp parameter is undefined if error is returned.
-    virtual status_t getTimestamp(AudioTimestamp& timestamp) { return INVALID_OPERATION; }
+    virtual status_t getTimestamp(ExtendedTimestamp &timestamp) { return INVALID_OPERATION; }
 
 protected:
     NBAIO_Sink(const NBAIO_Format& format = Format_Invalid) : NBAIO_Port(format), mFramesWritten(0)
@@ -236,7 +220,7 @@ protected:
     virtual ~NBAIO_Sink() { }
 
     // Implementations are free to ignore these if they don't need them
-    size_t  mFramesWritten;
+    int64_t  mFramesWritten;
 };
 
 // Abstract class (interface) representing a non-blocking data source, for use by a data consumer.
@@ -248,15 +232,15 @@ public:
     // 32 bits rolls over after 27 hours at 44.1 kHz; if that concerns you then poll periodically.
 
     // Number of frames read successfully since construction.
-    virtual size_t framesRead() const { return mFramesRead; }
+    virtual int64_t framesRead() const { return mFramesRead; }
 
     // Number of frames lost due to overrun since construction.
     // Not const because implementations may need to do I/O.
-    virtual size_t framesOverrun() /*const*/ { return 0; }
+    virtual int64_t framesOverrun() /*const*/ { return 0; }
 
     // Number of overruns since construction, where a set of contiguous lost frames is one event.
     // Not const because implementations may need to do I/O.
-    virtual size_t overruns() /*const*/ { return 0; }
+    virtual int64_t overruns() /*const*/ { return 0; }
 
     // Estimate of number of frames that could be read successfully now.
     // When a read() is actually attempted, the implementation is permitted to return a smaller or
@@ -271,8 +255,6 @@ public:
     // Inputs:
     //  buffer  Non-NULL destination buffer owned by consumer.
     //  count   Maximum number of frames to transfer.
-    //  readPTS The presentation time (on the LocalTime timeline) for which data
-    //          is being requested, or kInvalidPTS if not known.
     // Return value:
     //  > 0     Number of frames successfully transferred prior to first error.
     //  = 0     Count was zero.
@@ -282,7 +264,7 @@ public:
     //  WOULD_BLOCK No frames can be transferred without blocking.
     //  OVERRUN     read() has not been called frequently enough, or with enough frames to keep up.
     //              One or more frames were lost due to overrun, try again to read more recent data.
-    virtual ssize_t read(void *buffer, size_t count, int64_t readPTS) = 0;
+    virtual ssize_t read(void *buffer, size_t count) = 0;
 
     // Transfer data from source using a series of callbacks.  More suitable for zero-fill,
     // synthesis, and non-contiguous transfers (e.g. circular buffer or readv).
@@ -291,8 +273,6 @@ public:
     //  total   Estimate of the number of frames the consumer desires.  This is an estimate,
     //          and it can consume a different number of frames during the series of callbacks.
     //  user    Arbitrary void * reserved for data consumer.
-    //  readPTS The presentation time (on the LocalTime timeline) for which data
-    //          is being requested, or kInvalidPTS if not known.
     //  block   Number of frames per block, that is a suggested value for 'count' in each callback.
     //          Zero means no preference.  This parameter is a hint only, and may be ignored.
     // Return value:
@@ -315,12 +295,11 @@ public:
     //  > 0     Number of frames successfully transferred during this callback prior to first error.
     //  = 0     Count was zero.
     //  < 0     status_t error occurred prior to the first frame transfer during this callback.
-    virtual ssize_t readVia(readVia_t via, size_t total, void *user,
-                            int64_t readPTS, size_t block = 0);
+    virtual ssize_t readVia(readVia_t via, size_t total, void *user, size_t block = 0);
 
     // Invoked asynchronously by corresponding sink when a new timestamp is available.
     // Default implementation ignores the timestamp.
-    virtual void    onTimestamp(const AudioTimestamp& timestamp) { }
+    virtual void    onTimestamp(const ExtendedTimestamp& timestamp) { }
 
 protected:
     NBAIO_Source(const NBAIO_Format& format = Format_Invalid) : NBAIO_Port(format), mFramesRead(0)
@@ -328,7 +307,7 @@ protected:
     virtual ~NBAIO_Source() { }
 
     // Implementations are free to ignore these if they don't need them
-    size_t  mFramesRead;
+    int64_t  mFramesRead;
 };
 
 }   // namespace android

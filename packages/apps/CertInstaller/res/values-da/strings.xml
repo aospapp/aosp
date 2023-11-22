@@ -34,14 +34,13 @@
     <string name="password_empty_error" msgid="591713406761723025">"Indtast adgangskoden."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"Indtast et navn."</string>
     <string name="name_char_error" msgid="3176618568784938968">"Indtast et navn, som kun indeholder bogstaver og tal."</string>
-    <string name="storage_error" msgid="8306802455802770779">"Certifikatet kunne ikke gemmes. Tryk på OK for at prøve igen."</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"Certifikatet kunne ikke gemmes. Lageret for loginoplysninger er ikke aktiveret eller korrekt installeret."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"Certifikatet er ikke installeret."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"Der er intet certifikat at installere."</string>
     <string name="invalid_cert" msgid="7704228670980743590">"Certifikatet er ugyldigt."</string>
     <string name="cert_is_added" msgid="6996557598167000500">"<xliff:g id="CREDENTIAL">%s</xliff:g> er installeret."</string>
     <string name="cert_too_large_error" msgid="8715414972725646285">"Kunne ikke installere, fordi certifikatstørrelsen er for stor."</string>
-    <string name="cert_missing_error" msgid="7040527352278728220">"Der kunne ikke installeres, fordi certifikatfilen ikke kunne findes."</string>
+    <string name="cert_missing_error" msgid="7040527352278728220">"Der kunne ikke installeres, fordi certifikatfilen ikke blev fundet."</string>
     <string name="cert_read_error" msgid="7353463360652419796">"Der kunne ikke installeres, fordi certifikatfilen ikke kunne læses."</string>
     <string name="no_cert_file_found" product="nosdcard" msgid="3555332946357131929">"Ingen certifikatfil i USB-lager."</string>
     <string name="no_cert_file_found" product="default" msgid="1942077544887243999">"Der blev ikke fundet nogen certifikatfil på SD-kortet."</string>

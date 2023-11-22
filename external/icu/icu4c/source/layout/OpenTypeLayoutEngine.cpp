@@ -532,11 +532,7 @@ void OpenTypeLayoutEngine::adjustGlyphPositions(const LEUnicode chars[], le_int3
         delete adjustments;
     } else {
         // if there was no GPOS table, maybe there's non-OpenType kerning we can use
-        //   Google Patch: disable this.  Causes problems with Tamil.
-        //       Umesh says layout is poor both with and without the change, but
-        //       worse with the change.  See ocean/imageprocessing/layout_test_unittest.cc
-        //   Public ICU ticket for this problem is  #7742
-        // LayoutEngine::adjustGlyphPositions(chars, offset, count, reverse, glyphStorage, success);        
+        LayoutEngine::adjustGlyphPositions(chars, offset, count, reverse, glyphStorage, success);        
     }
 
     LEGlyphID zwnj  = fFontInstance->mapCharToGlyph(0x200C);

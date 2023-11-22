@@ -17,8 +17,9 @@
 #ifndef _MTP_DEVICE_H
 #define _MTP_DEVICE_H
 
-#include "MtpRequestPacket.h"
+#include "MtpEventPacket.h"
 #include "MtpDataPacket.h"
+#include "MtpRequestPacket.h"
 #include "MtpResponsePacket.h"
 #include "MtpTypes.h"
 
@@ -31,6 +32,7 @@ struct usb_endpoint_descriptor;
 namespace android {
 
 class MtpDeviceInfo;
+class MtpEventPacket;
 class MtpObjectInfo;
 class MtpStorageInfo;
 
@@ -53,17 +55,27 @@ private:
     MtpRequestPacket        mRequest;
     MtpDataPacket           mData;
     MtpResponsePacket       mResponse;
+    MtpEventPacket          mEventPacket;
+
     // set to true if we received a response packet instead of a data packet
     bool                    mReceivedResponse;
+    bool                    mProcessingEvent;
+    int                     mCurrentEventHandle;
 
     // to ensure only one MTP transaction at a time
     Mutex                   mMutex;
+    Mutex                   mEventMutex;
+    Mutex                   mEventMutexForInterrupt;
 
 public:
-                            MtpDevice(struct usb_device* device, int interface,
-                                    const struct usb_endpoint_descriptor *ep_in,
-                                    const struct usb_endpoint_descriptor *ep_out,
-                                    const struct usb_endpoint_descriptor *ep_intr);
+    typedef bool (*ReadObjectCallback)
+            (void* data, uint32_t offset, uint32_t length, void* clientData);
+
+    MtpDevice(struct usb_device* device,
+              int interface,
+              const struct usb_endpoint_descriptor *ep_in,
+              const struct usb_endpoint_descriptor *ep_out,
+              const struct usb_endpoint_descriptor *ep_intr);
 
     static MtpDevice*       open(const char* deviceName, int fd);
 
@@ -85,7 +97,7 @@ public:
     MtpObjectInfo*          getObjectInfo(MtpObjectHandle handle);
     void*                   getThumbnail(MtpObjectHandle handle, int& outLength);
     MtpObjectHandle         sendObjectInfo(MtpObjectInfo* info);
-    bool                    sendObject(MtpObjectInfo* info, int srcFD);
+    bool                    sendObject(MtpObjectHandle handle, int size, int srcFD);
     bool                    deleteObject(MtpObjectHandle handle);
     MtpObjectHandle         getParent(MtpObjectHandle handle);
     MtpObjectHandle         getStorageID(MtpObjectHandle handle);
@@ -95,20 +107,56 @@ public:
     MtpProperty*            getDevicePropDesc(MtpDeviceProperty code);
     MtpProperty*            getObjectPropDesc(MtpObjectProperty code, MtpObjectFormat format);
 
-    bool                    readObject(MtpObjectHandle handle,
-                                    bool (* callback)(void* data, int offset,
-                                            int length, void* clientData),
-                                    size_t objectSize, void* clientData);
+    // Reads value of |property| for |handle|. Returns true on success.
+    bool                    getObjectPropValue(MtpObjectHandle handle, MtpProperty* property);
+
+    bool                    readObject(MtpObjectHandle handle, ReadObjectCallback callback,
+                                    uint32_t objectSize, void* clientData);
     bool                    readObject(MtpObjectHandle handle, const char* destPath, int group,
                                     int perm);
+    bool                    readObject(MtpObjectHandle handle, int fd);
+    bool                    readPartialObject(MtpObjectHandle handle,
+                                              uint32_t offset,
+                                              uint32_t size,
+                                              uint32_t *writtenSize,
+                                              ReadObjectCallback callback,
+                                              void* clientData);
+    bool                    readPartialObject64(MtpObjectHandle handle,
+                                                uint64_t offset,
+                                                uint32_t size,
+                                                uint32_t *writtenSize,
+                                                ReadObjectCallback callback,
+                                                void* clientData);
+    // Starts a request to read MTP event from MTP device. It returns a request handle that
+    // can be used for blocking read or cancel. If other thread has already been processing an
+    // event returns -1.
+    int                     submitEventRequest();
+    // Waits for MTP event from the device and returns MTP event code. It blocks the current thread
+    // until it receives an event from the device. |handle| should be a request handle returned
+    // by |submitEventRequest|. The function writes event parameters to |parameters|. Returns 0 for
+    // cancellations. Returns -1 for errors.
+    int                     reapEventRequest(int handle, uint32_t (*parameters)[3]);
+    // Cancels an event request. |handle| should be request handle returned by
+    // |submitEventRequest|. If there is a thread blocked by |reapEventRequest| with the same
+    // |handle|, the thread will resume.
+    void                    discardEventRequest(int handle);
 
 private:
+    // If |objectSize| is not NULL, it checks object size before reading data bytes.
+    bool                    readObjectInternal(MtpObjectHandle handle,
+                                               ReadObjectCallback callback,
+                                               const uint32_t* objectSize,
+                                               void* clientData);
+    // If |objectSize| is not NULL, it checks object size before reading data bytes.
+    bool                    readData(ReadObjectCallback callback,
+                                     const uint32_t* objectSize,
+                                     uint32_t* writtenData,
+                                     void* clientData);
     bool                    sendRequest(MtpOperationCode operation);
     bool                    sendData();
     bool                    readData();
     bool                    writeDataHeader(MtpOperationCode operation, int dataLength);
     MtpResponseCode         readResponse();
-
 };
 
 }; // namespace android

@@ -16,7 +16,6 @@
 
 package com.android.tv.settings.device.storage;
 
-import android.annotation.Nullable;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -26,24 +25,34 @@ import android.os.Handler;
 import android.os.storage.StorageManager;
 import android.os.storage.VolumeInfo;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+import android.support.v17.leanback.app.GuidedStepFragment;
 import android.support.v17.leanback.widget.GuidanceStylist;
 import android.support.v17.leanback.widget.GuidedAction;
+import android.text.TextUtils;
+import android.text.format.Formatter;
+import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
 
 import com.android.tv.settings.R;
 import com.android.tv.settings.dialog.ProgressDialogFragment;
 
+import java.io.File;
 import java.util.List;
+import java.util.Objects;
 
 public class MigrateStorageActivity extends Activity {
+    private static final String TAG = "MigrateStorageActivity";
 
-    public static final String EXTRA_SHOW_CONFIRMATION =
-            "com.android.tv.settings.device.storage.MigrateStorageActivity.SHOW_CONFIRMATION";
+    private static final String EXTRA_MIGRATE_HERE =
+            "com.android.tv.settings.device.storage.MigrateStorageActivity.MIGRATE_HERE";
 
     private static final String SAVE_STATE_MOVE_ID = "MigrateStorageActivity.MOVE_ID";
 
+    private VolumeInfo mTargetVolumeInfo;
     private VolumeInfo mVolumeInfo;
+    private String mTargetVolumeDesc;
     private String mVolumeDesc;
     private int mMoveId = -1;
     private final Handler mHandler = new Handler();
@@ -55,23 +64,19 @@ public class MigrateStorageActivity extends Activity {
                 return;
             }
             if (status == PackageManager.MOVE_SUCCEEDED) {
-                Toast.makeText(MigrateStorageActivity.this,
-                        getString(R.string.storage_wizard_migrate_toast_success, mVolumeDesc),
-                        Toast.LENGTH_SHORT).show();
+                showMigrationSuccessToast();
             } else {
-                Toast.makeText(MigrateStorageActivity.this,
-                        getString(R.string.storage_wizard_migrate_toast_failure, mVolumeDesc),
-                        Toast.LENGTH_SHORT).show();
+                showMigrationFailureToast();
             }
             finish();
         }
     };
 
     public static Intent getLaunchIntent(Context context, String volumeId,
-            boolean showConfirmation) {
+            boolean migrateHere) {
         final Intent i = new Intent(context, MigrateStorageActivity.class);
         i.putExtra(VolumeInfo.EXTRA_VOLUME_ID, volumeId);
-        i.putExtra(EXTRA_SHOW_CONFIRMATION, showConfirmation);
+        i.putExtra(EXTRA_MIGRATE_HERE, migrateHere);
         return i;
     }
 
@@ -82,20 +87,29 @@ public class MigrateStorageActivity extends Activity {
         final Intent intent = getIntent();
         final String volumeId = intent.getStringExtra(VolumeInfo.EXTRA_VOLUME_ID);
         final StorageManager storageManager = getSystemService(StorageManager.class);
-        mVolumeInfo = storageManager.findVolumeById(volumeId);
-        if (mVolumeInfo == null) {
-            finish();
-            return;
-        }
-        mVolumeDesc = storageManager.getBestVolumeDescription(mVolumeInfo);
 
-        if (intent.getBooleanExtra(EXTRA_SHOW_CONFIRMATION, true)) {
+        if (intent.getBooleanExtra(EXTRA_MIGRATE_HERE, true)) {
+            mTargetVolumeInfo = storageManager.findVolumeById(volumeId);
+            if (mTargetVolumeInfo == null) {
+                finish();
+                return;
+            }
+            mTargetVolumeDesc = storageManager.getBestVolumeDescription(mTargetVolumeInfo);
             getFragmentManager().beginTransaction()
                     .add(android.R.id.content,
-                            MigrateConfirmationStepFragment.newInstance(mVolumeDesc))
+                            MigrateConfirmationStepFragment.newInstance(mTargetVolumeDesc))
                     .commit();
         } else {
-            onConfirmProceed();
+            mVolumeInfo = storageManager.findVolumeById(volumeId);
+            if (mVolumeInfo == null) {
+                finish();
+                return;
+            }
+            mVolumeDesc = storageManager.getBestVolumeDescription(mVolumeInfo);
+            getFragmentManager().beginTransaction()
+                    .add(android.R.id.content,
+                            ChooseStorageStepFragment.newInstance(mVolumeInfo))
+                    .commit();
         }
 
         mPackageManager = getPackageManager();
@@ -119,15 +133,56 @@ public class MigrateStorageActivity extends Activity {
     }
 
     private void onConfirmProceed() {
-        getFragmentManager().beginTransaction()
-                .replace(android.R.id.content,
-                        MigrateProgressFragment.newInstance(mVolumeDesc))
-                .commit();
-        getFragmentManager().executePendingTransactions();
-        mMoveId = mPackageManager.movePrimaryStorage(mVolumeInfo);
+        startMigrationInternal();
     }
 
-    public static class MigrateConfirmationStepFragment extends StorageGuidedStepFragment {
+    private void onChoose(VolumeInfo volumeInfo) {
+        mTargetVolumeInfo = volumeInfo;
+        final StorageManager storageManager = getSystemService(StorageManager.class);
+        mTargetVolumeDesc = storageManager.getBestVolumeDescription(mTargetVolumeInfo);
+        startMigrationInternal();
+    }
+
+    private void startMigrationInternal() {
+        try {
+            mMoveId = mPackageManager.movePrimaryStorage(mTargetVolumeInfo);
+            getFragmentManager().beginTransaction()
+                    .replace(android.R.id.content,
+                            MigrateProgressFragment.newInstance(mTargetVolumeDesc))
+                    .commitNow();
+        } catch (IllegalArgumentException e) {
+            // This will generally happen if there's a move already in progress or completed
+            StorageManager sm = (StorageManager) getSystemService(STORAGE_SERVICE);
+
+            if (Objects.equals(mTargetVolumeInfo.getFsUuid(),
+                    sm.getPrimaryStorageVolume().getUuid())) {
+                // The data is already on the target volume
+                showMigrationSuccessToast();
+            } else {
+                // The data is most likely in the process of being moved
+                Log.e(TAG, "Storage migration failure", e);
+                showMigrationFailureToast();
+            }
+            finish();
+        } catch (IllegalStateException e) {
+            showMigrationFailureToast();
+            finish();
+        }
+    }
+
+    private void showMigrationSuccessToast() {
+        Toast.makeText(MigrateStorageActivity.this,
+                getString(R.string.storage_wizard_migrate_toast_success, mTargetVolumeDesc),
+                Toast.LENGTH_SHORT).show();
+    }
+
+    private void showMigrationFailureToast() {
+        Toast.makeText(MigrateStorageActivity.this,
+                getString(R.string.storage_wizard_migrate_toast_failure, mTargetVolumeDesc),
+                Toast.LENGTH_SHORT).show();
+    }
+
+    public static class MigrateConfirmationStepFragment extends GuidedStepFragment {
         private static final String ARG_VOLUME_DESC = "volumeDesc";
 
         private static final int ACTION_CONFIRM = 1;
@@ -149,19 +204,19 @@ public class MigrateStorageActivity extends Activity {
                     getString(R.string.storage_wizard_migrate_confirm_title, driveDesc),
                     getString(R.string.storage_wizard_migrate_confirm_description, driveDesc),
                     null,
-                    getActivity().getDrawable(R.drawable.ic_settings_storage));
+                    getActivity().getDrawable(R.drawable.ic_storage_132dp));
         }
 
         @Override
         public void onCreateActions(@NonNull List<GuidedAction> actions,
                 Bundle savedInstanceState) {
-            actions.add(new GuidedAction.Builder()
+            actions.add(new GuidedAction.Builder(getContext())
                     .id(ACTION_CONFIRM)
-                    .title(getString(R.string.storage_wizard_migrate_confirm_action_move_now))
+                    .title(R.string.storage_wizard_migrate_confirm_action_move_now)
                     .build());
-            actions.add(new GuidedAction.Builder()
+            actions.add(new GuidedAction.Builder(getContext())
                     .id(ACTION_LATER)
-                    .title(getString(R.string.storage_wizard_migrate_confirm_action_move_later))
+                    .title(R.string.storage_wizard_migrate_confirm_action_move_later)
                     .build());
         }
 
@@ -176,6 +231,60 @@ public class MigrateStorageActivity extends Activity {
                     ((MigrateStorageActivity) getActivity()).onConfirmCancel();
                     break;
             }
+        }
+    }
+
+    public static class ChooseStorageStepFragment extends GuidedStepFragment {
+
+        private List<VolumeInfo> mCandidateVolumes;
+
+        public static ChooseStorageStepFragment newInstance(VolumeInfo currentVolumeInfo) {
+            Bundle args = new Bundle(1);
+            args.putString(VolumeInfo.EXTRA_VOLUME_ID, currentVolumeInfo.getId());
+
+            ChooseStorageStepFragment fragment = new ChooseStorageStepFragment();
+            fragment.setArguments(args);
+            return fragment;
+        }
+
+        @NonNull
+        @Override
+        public GuidanceStylist.Guidance onCreateGuidance(Bundle savedInstanceState) {
+            return new GuidanceStylist.Guidance(
+                    getString(R.string.storage_wizard_migrate_choose_title),
+                    null,
+                    null,
+                    getActivity().getDrawable(R.drawable.ic_storage_132dp));
+        }
+
+        @Override
+        public void onCreateActions(@NonNull List<GuidedAction> actions,
+                Bundle savedInstanceState) {
+            final StorageManager storageManager =
+                    getContext().getSystemService(StorageManager.class);
+            mCandidateVolumes =
+                    getContext().getPackageManager().getPrimaryStorageCandidateVolumes();
+            final String volumeId = getArguments().getString(VolumeInfo.EXTRA_VOLUME_ID);
+            for (final VolumeInfo candidate : mCandidateVolumes) {
+                if (TextUtils.equals(candidate.getId(), volumeId)) {
+                    continue;
+                }
+                final File path = candidate.getPath();
+                final String avail = Formatter.formatFileSize(getActivity(), path.getFreeSpace());
+                actions.add(new GuidedAction.Builder(getContext())
+                        .title(storageManager.getBestVolumeDescription(candidate))
+                        .description(getString(
+                                R.string.storage_wizard_back_up_apps_space_available, avail))
+                        .id(mCandidateVolumes.indexOf(candidate))
+                        .build());
+            }
+
+        }
+
+        @Override
+        public void onGuidedActionClicked(GuidedAction action) {
+            final VolumeInfo volumeInfo = mCandidateVolumes.get((int) action.getId());
+            ((MigrateStorageActivity)getActivity()).onChoose(volumeInfo);
         }
     }
 

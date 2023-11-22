@@ -8,7 +8,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright IBM Corp. 2010-2013
+   Copyright IBM Corp. 2010-2015
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License as
@@ -2151,6 +2151,8 @@ guest_s390x_spechelper(const HChar *function_name, IRExpr **args,
             return mkU32(0);
          }
 
+         if (cond == 15) return mkU32(1);
+
          if (cond == 8) {
             return unop(Iop_1Uto32, binop(Iop_CmpEQ64,
                                           binop(Iop_And64, cc_dep1, cc_dep2),
@@ -2227,6 +2229,17 @@ guest_s390x_spechelper(const HChar *function_name, IRExpr **args,
                               binop(Iop_And64, cc_dep1, mkU64(msb)),
                               mkU64(0)));
          }
+         if (cond == 13) { /* cc == 0 || cc == 1 || cc == 3 */
+            IRExpr *c01, *c3;
+
+            c01 = binop(Iop_CmpEQ64, binop(Iop_And64, cc_dep1, mkU64(msb)),
+                        mkU64(0));
+            c3 = binop(Iop_CmpEQ64, binop(Iop_And64, cc_dep1, cc_dep2),
+                       mkU64(mask16));
+            return binop(Iop_Or32, unop(Iop_1Uto32, c01),
+                         unop(Iop_1Uto32, c3));
+         }
+         // fixs390: handle cond = 5,6,9,10 (the missing cases)
          // vex_printf("TUM mask = 0x%llx\n", mask16);
          goto missed;
       }
@@ -2365,7 +2378,7 @@ guest_s390x_spechelper(const HChar *function_name, IRExpr **args,
       goto missed;
    }
 
-   /* --------- Specialising "s390_calculate_cond" --------- */
+   /* --------- Specialising "s390_calculate_cc" --------- */
 
    if (vex_streq(function_name, "s390_calculate_cc")) {
       IRExpr *cc_op_expr, *cc_dep1;

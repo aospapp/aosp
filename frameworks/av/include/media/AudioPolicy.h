@@ -28,11 +28,13 @@ namespace android {
 
 // Keep in sync with AudioMix.java, AudioMixingRule.java, AudioPolicyConfig.java
 #define RULE_EXCLUSION_MASK 0x8000
-#define RULE_MATCH_ATTRIBUTE_USAGE 0x1
+#define RULE_MATCH_ATTRIBUTE_USAGE           0x1
 #define RULE_MATCH_ATTRIBUTE_CAPTURE_PRESET (0x1 << 1)
-#define RULE_EXCLUDE_ATTRIBUTE_USAGE (RULE_EXCLUSION_MASK|RULE_MATCH_ATTRIBUTE_USAGE)
+#define RULE_MATCH_UID                      (0x1 << 2)
+#define RULE_EXCLUDE_ATTRIBUTE_USAGE  (RULE_EXCLUSION_MASK|RULE_MATCH_ATTRIBUTE_USAGE)
 #define RULE_EXCLUDE_ATTRIBUTE_CAPTURE_PRESET \
-    (RULE_EXCLUSION_MASK|RULE_MATCH_ATTRIBUTE_CAPTURE_PRESET)
+                                      (RULE_EXCLUSION_MASK|RULE_MATCH_ATTRIBUTE_CAPTURE_PRESET)
+#define RULE_EXCLUDE_UID              (RULE_EXCLUSION_MASK|RULE_MATCH_UID)
 
 #define MIX_TYPE_INVALID -1
 #define MIX_TYPE_PLAYERS 0
@@ -49,14 +51,15 @@ namespace android {
 
 #define MIX_ROUTE_FLAG_RENDER 0x1
 #define MIX_ROUTE_FLAG_LOOP_BACK (0x1 << 1)
+#define MIX_ROUTE_FLAG_ALL (MIX_ROUTE_FLAG_RENDER | MIX_ROUTE_FLAG_LOOP_BACK)
 
 #define MAX_MIXES_PER_POLICY 10
 #define MAX_CRITERIA_PER_MIX 20
 
-class AttributeMatchCriterion {
+class AudioMixMatchCriterion {
 public:
-    AttributeMatchCriterion() {}
-    AttributeMatchCriterion(audio_usage_t usage, audio_source_t source, uint32_t rule);
+    AudioMixMatchCriterion() {}
+    AudioMixMatchCriterion(audio_usage_t usage, audio_source_t source, uint32_t rule);
 
     status_t readFromParcel(Parcel *parcel);
     status_t writeToParcel(Parcel *parcel) const;
@@ -64,7 +67,8 @@ public:
     union {
         audio_usage_t   mUsage;
         audio_source_t  mSource;
-    } mAttr;
+        uid_t           mUid;
+    } mValue;
     uint32_t        mRule;
 };
 
@@ -75,21 +79,29 @@ public:
     static const uint32_t kCbFlagNotifyActivity = 0x1;
 
     AudioMix() {}
-    AudioMix(Vector<AttributeMatchCriterion> criteria, uint32_t mixType, audio_config_t format,
+    AudioMix(Vector<AudioMixMatchCriterion> criteria, uint32_t mixType, audio_config_t format,
              uint32_t routeFlags, String8 registrationId, uint32_t flags) :
         mCriteria(criteria), mMixType(mixType), mFormat(format),
-        mRouteFlags(routeFlags), mRegistrationId(registrationId), mCbFlags(flags){}
+        mRouteFlags(routeFlags), mDeviceAddress(registrationId), mCbFlags(flags){}
 
     status_t readFromParcel(Parcel *parcel);
     status_t writeToParcel(Parcel *parcel) const;
 
-    Vector<AttributeMatchCriterion> mCriteria;
+    Vector<AudioMixMatchCriterion> mCriteria;
     uint32_t        mMixType;
     audio_config_t  mFormat;
     uint32_t        mRouteFlags;
-    String8         mRegistrationId;
+    audio_devices_t mDeviceType;
+    String8         mDeviceAddress;
     uint32_t        mCbFlags; // flags indicating which callbacks to use, see kCbFlag*
 };
+
+
+// definitions for audio recording configuration updates
+// which update type is reported
+#define RECORD_CONFIG_EVENT_NONE -1
+#define RECORD_CONFIG_EVENT_START 1
+#define RECORD_CONFIG_EVENT_STOP  0
 
 }; // namespace android
 

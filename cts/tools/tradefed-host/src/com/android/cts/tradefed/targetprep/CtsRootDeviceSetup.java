@@ -41,7 +41,7 @@ import java.io.FileNotFoundException;
  */
 public class CtsRootDeviceSetup implements ITargetPreparer {
 
-    private static final String DEVICE_ADMIN_APK_FILE_NAME = "CtsDeviceAdmin.apk";
+    private static final String DEVICE_ADMIN_APK_FILE_NAME = "CtsAdminApp.apk";
 
     /**
      * {@inheritDoc}

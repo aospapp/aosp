@@ -2,7 +2,7 @@ page.title=Getting Started with TF
 @jd:body
 
 <!--
-    Copyright 2013 The Android Open Source Project
+    Copyright 2015 The Android Open Source Project
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -70,6 +70,6 @@ things that aren't directly discussed in the documentation.</p>
 <p>If you've gotten through everything here and still have unanswered questions, first try taking
 a look at the <a href="https://android.googlesource.com/platform/tools/tradefederation/+/master"
 >Trade Federation source code.</a>.  Beyond that, feel free to try asking on the
-<a href="/source/community/index.html">android-platform</a> Google Group.  For best results, make
+<a href="{@docRoot}source/community.html">android-platform</a> Google Group.  For best results, make
 sure to mention "Trade Federation" (or "tradefed", or "TF") in the message subject.</p>
 

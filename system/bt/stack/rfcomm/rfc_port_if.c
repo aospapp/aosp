@@ -25,7 +25,7 @@
 
 #include <string.h>
 #include "bt_target.h"
-#include "gki.h"
+#include "bt_common.h"
 #include "rfcdefs.h"
 #include "port_api.h"
 #include "l2c_api.h"

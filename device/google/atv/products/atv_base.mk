@@ -63,6 +63,7 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     BasicDreams \
     CalendarProvider \
+    CaptivePortalLogin \
     CertInstaller \
     ExternalStorageProvider \
     FusedLocation \
@@ -73,7 +74,9 @@ PRODUCT_PACKAGES += \
     PrintSpooler \
     ProxyHandler \
     SharedStorageBackup \
-    VpnDialogs
+    VpnDialogs \
+    com.android.media.tv.remoteprovider \
+    com.android.media.tv.remoteprovider.xml
 
 # From build/target/product/generic_no_telephony.mk
 PRODUCT_PACKAGES += \
@@ -94,15 +97,17 @@ PRODUCT_COPY_FILES += \
 PRODUCT_PROPERTY_OVERRIDES += \
     persist.sys.media.avsync=true
 
-# Use full Noto Sans Japanese font
-FONT_NOTOSANS_JP_FULL := true
-
 # Do not include the Live Channels app if USE_OEM_TV_APP flag is set.
 # The feature com.google.android.tv.installed is used to tell whether a device
 # has the pre-installed Live Channels app. This is necessary for the Play Store
 # to identify the compatible devices that can install later updates of the app.
 ifneq ($(USE_OEM_TV_APP),true)
-    PRODUCT_PACKAGES += TV
+    ifneq ($(PRODUCT_IS_ATV_SDK),true)
+        PRODUCT_PACKAGES += TV
+    else
+        PRODUCT_PACKAGES += LiveTv
+    endif # if PRODUCT_IS_ATV_SDK
+
     PRODUCT_COPY_FILES += \
         device/google/atv/permissions/com.google.android.tv.installed.xml:system/etc/permissions/com.google.android.tv.installed.xml
 endif

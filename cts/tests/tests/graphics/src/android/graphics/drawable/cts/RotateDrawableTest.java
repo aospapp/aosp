@@ -16,7 +16,7 @@
 
 package android.graphics.drawable.cts;
 
-import com.android.cts.graphics.R;
+import android.graphics.cts.R;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -55,6 +55,60 @@ public class RotateDrawableTest extends AndroidTestCase {
     public void testDraw() {
         Canvas canvas = new Canvas();
         mRotateDrawable.draw(canvas);
+    }
+
+    public void testInflate() {
+        RotateDrawable d;
+
+        d = (RotateDrawable) mContext.getResources().getDrawable(R.drawable.rotatedrawable_rel);
+        assertEquals(0.1f, d.getPivotX(), 0.01f);
+        assertEquals(0.2f, d.getPivotY(), 0.01f);
+        assertEquals(360.0f, d.getFromDegrees(), 0.01f);
+        assertEquals(360.0f, d.getToDegrees(), 0.01f);
+        assertEquals(true, d.isPivotXRelative());
+        assertEquals(true, d.isPivotYRelative());
+
+        d = (RotateDrawable) mContext.getResources().getDrawable(R.drawable.rotatedrawable_abs);
+        assertEquals(0.3f, d.getPivotX(), 0.01f);
+        assertEquals(0.3f, d.getPivotY(), 0.01f);
+        assertEquals(180.0f, d.getFromDegrees(), 0.01f);
+        assertEquals(-180.0f, d.getToDegrees(), 0.01f);
+        assertEquals(false, d.isPivotXRelative());
+        assertEquals(false, d.isPivotYRelative());
+    }
+
+    public void testSetPivot() {
+        RotateDrawable d = new RotateDrawable();
+        assertEquals(0.5f, d.getPivotX(), 0.01f);
+        assertEquals(0.5f, d.getPivotY(), 0.01f);
+        assertEquals(true, d.isPivotXRelative());
+        assertEquals(true, d.isPivotYRelative());
+
+        d.setPivotX(10.0f);
+        assertEquals(10.0f, d.getPivotX(), 0.01f);
+
+        d.setPivotY(10.0f);
+        assertEquals(10.0f, d.getPivotY(), 0.01f);
+
+        d.setPivotXRelative(false);
+        assertEquals(false, d.isPivotXRelative());
+
+        d.setPivotYRelative(false);
+        assertEquals(false, d.isPivotYRelative());
+    }
+
+    public void testSetDegrees() {
+        RotateDrawable d = new RotateDrawable();
+        assertEquals(0.0f, d.getFromDegrees(), 0.01f);
+        assertEquals(360.0f, d.getToDegrees(), 0.01f);
+
+        d.setFromDegrees(-10.0f);
+        assertEquals(-10.0f, d.getFromDegrees(), 0.01f);
+        assertEquals(360.0f, d.getToDegrees(), 0.01f);
+
+        d.setToDegrees(10.0f);
+        assertEquals(10.0f, d.getToDegrees(), 0.01f);
+        assertEquals(-10.0f, d.getFromDegrees(), 0.01f);
     }
 
     public void testGetChangingConfigurations() {

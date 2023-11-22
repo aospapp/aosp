@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-RS_VERSION := 23
+RS_VERSION := 24
 RS_VERSION_DEFINE := -DRS_VERSION=$(RS_VERSION)
 
 # Use RS_VERSION_DEFINE as part of your LOCAL_CFLAGS to have the proper value.

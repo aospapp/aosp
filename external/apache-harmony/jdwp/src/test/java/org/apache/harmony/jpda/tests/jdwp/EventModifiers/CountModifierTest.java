@@ -185,11 +185,6 @@ public class CountModifierTest extends JDWPEventModifierTestCase {
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        if (!canWatchFieldAccessCapability()) {
-            synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
-            return;
-        }
-
         EventBuilder builder = createFieldAccessEventBuilder(
                 JDWPConstants.TypeTag.CLASS, DEBUGGEE_SIGNATURE,
                 WATCHED_FIELD_NAME);
@@ -214,11 +209,6 @@ public class CountModifierTest extends JDWPEventModifierTestCase {
         logWriter.println("testFieldModification started");
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
-
-        if (!canWatchFieldModificationCapability()) {
-            synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
-            return;
-        }
 
         EventBuilder builder = createFieldModificationEventBuilder(
                 JDWPConstants.TypeTag.CLASS, DEBUGGEE_SIGNATURE,

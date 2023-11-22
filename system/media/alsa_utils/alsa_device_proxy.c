@@ -50,15 +50,30 @@ void proxy_prepare(alsa_device_proxy * proxy, alsa_device_profile* profile,
     log_pcm_config(config, "proxy_setup()");
 #endif
 
-    proxy->alsa_config.format =
-        config->format != PCM_FORMAT_INVALID && profile_is_format_valid(profile, config->format)
-            ? config->format : profile->default_config.format;
-    proxy->alsa_config.rate =
-        config->rate != 0 && profile_is_sample_rate_valid(profile, config->rate)
-            ? config->rate : profile->default_config.rate;
-    proxy->alsa_config.channels =
-        config->channels != 0 && profile_is_channel_count_valid(profile, config->channels)
-            ? config->channels : profile->default_config.channels;
+    if (config->format != PCM_FORMAT_INVALID && profile_is_format_valid(profile, config->format)) {
+        proxy->alsa_config.format = config->format;
+    } else {
+        ALOGW("Invalid format %d - using default %d.",
+              config->format, profile->default_config.format);
+        proxy->alsa_config.format = profile->default_config.format;
+    }
+
+    if (config->rate != 0 && profile_is_sample_rate_valid(profile, config->rate)) {
+        proxy->alsa_config.rate = config->rate;
+    } else {
+        ALOGW("Invalid sample rate %u - using default %u.",
+              config->rate, profile->default_config.rate);
+        proxy->alsa_config.rate = profile->default_config.rate;
+    }
+
+    if (config->channels != 0 && profile_is_channel_count_valid(profile, config->channels)) {
+        proxy->alsa_config.channels = config->channels;
+    } else {
+        ALOGW("Invalid channel count %u - using default %u.",
+              config->channels, profile->default_config.channels);
+        proxy->alsa_config.channels = profile->default_config.channels;
+
+    }
 
     proxy->alsa_config.period_count = profile->default_config.period_count;
     proxy->alsa_config.period_size =

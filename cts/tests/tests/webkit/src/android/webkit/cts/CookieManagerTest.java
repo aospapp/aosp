@@ -42,7 +42,7 @@ public class CookieManagerTest extends
     private WebViewOnUiThread mOnUiThread;
 
     public CookieManagerTest() {
-        super("com.android.cts.webkit", CookieSyncManagerCtsActivity.class);
+        super("android.webkit.cts", CookieSyncManagerCtsActivity.class);
     }
 
     @Override

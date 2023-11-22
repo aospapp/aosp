@@ -18,9 +18,11 @@ package com.android.managedprovisioning.task;
 
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -90,6 +92,11 @@ public class InstallPackageTaskTest extends AndroidTestCase {
     @SmallTest
     public void testInstall_NoPackages() {
         mTask.run();
+        verify(mPackageManager, never()).installPackage(
+                any(Uri.class),
+                any(IPackageInstallObserver.class),
+                anyInt(),
+                anyString());
         verify(mCallback, times(1)).onSuccess();
     }
 
@@ -140,6 +147,19 @@ public class InstallPackageTaskTest extends AndroidTestCase {
                 eq(PACKAGE_NAME));
         mTask.run();
         verify(mCallback, times(1)).onSuccess();
+    }
+
+    @SmallTest
+    public void testPackageHasNoReceivers() {
+        mPackageInfo.receivers = null;
+        mTask.addInstallIfNecessary(TEST_PACKAGE_NAME, TEST_PACKAGE_LOCATION);
+        mTask.run();
+        verify(mPackageManager, never()).installPackage(
+                any(Uri.class),
+                any(IPackageInstallObserver.class),
+                anyInt(),
+                anyString());
+        verify(mCallback, times(1)).onError(InstallPackageTask.ERROR_PACKAGE_INVALID);
     }
 
     private static class MyMockContentProvider extends MockContentProvider {

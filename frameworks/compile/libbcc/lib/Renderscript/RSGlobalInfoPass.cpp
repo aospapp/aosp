@@ -138,6 +138,11 @@ public:
         continue;
       }
 
+      // Skip intrinsic variables.
+      if (GV.getName().startswith("llvm.")) {
+        continue;
+      }
+
       // In LLVM, an instance of GlobalVariable is actually a Value
       // corresponding to the address of it.
       GVAddresses.push_back(llvm::ConstantExpr::getBitCast(&GV, VoidPtrTy));

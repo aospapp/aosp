@@ -16,6 +16,7 @@
 
 package android.jni.cts;
 
+import java.io.IOException;
 
 /**
  * Basic static method tests. The "nonce" class being tested by this
@@ -27,6 +28,17 @@ public class JniStaticTest extends JniTestCase {
     static {
         if (!JniTestCase.isCpuAbiNone()) {
             System.loadLibrary("jnitest");
+        }
+    }
+
+    /**
+     * Test library accessibility. Internal platform libraries should not
+     * be accessible from the jni code.
+     */
+    public void test_linker_namespaces() throws IOException {
+        String error = LinkerNamespacesHelper.runAccessibilityTest();
+        if (error != null) {
+            fail(error);
         }
     }
 

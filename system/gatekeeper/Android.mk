@@ -29,6 +29,24 @@ LOCAL_CFLAGS = -Wall -Werror -g
 LOCAL_MODULE_TAGS := optional
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
+# TODO(krasin): reenable coverage flags, when the new Clang toolchain is released.
+# Currently, if enabled, these flags will cause an internal error in Clang.
+# Bug: 25119481
+LOCAL_CLANG_CFLAGS += -fno-sanitize-coverage=edge,indirect-calls,8bit-counters,trace-cmp
+
 include $(BUILD_SHARED_LIBRARY)
+
+###
+# libgatekeeper_static is an empty static library that exports
+# all of the files in gatekeeper as includes.
+###
+include $(CLEAR_VARS)
+LOCAL_MODULE := libgatekeeper_static
+LOCAL_EXPORT_C_INCLUDE_DIRS := \
+        $(LOCAL_PATH) \
+        $(LOCAL_PATH)/include
+LOCAL_MODULE_TAGS := optional
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
+include $(BUILD_STATIC_LIBRARY)
 
 include $(call first-makefiles-under,$(LOCAL_PATH))

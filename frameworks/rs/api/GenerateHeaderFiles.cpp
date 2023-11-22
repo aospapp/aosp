@@ -42,7 +42,7 @@ static string makeGuardString(const string& filename) {
  * add a check on a flag that can be set for internal builds.  This enables us to keep supporting
  * old APIs in the runtime code.
  */
-static void writeVersionGuardStart(GeneratedFile* file, VersionInfo info, int finalVersion) {
+static void writeVersionGuardStart(GeneratedFile* file, VersionInfo info, unsigned int finalVersion) {
     if (info.intSize == 32) {
         *file << "#ifndef __LP64__\n";
     } else if (info.intSize == 64) {
@@ -138,6 +138,9 @@ static void writeTypeSpecification(GeneratedFile* file, const TypeSpecification&
         case SIMPLE:
             *file << spec.getSimpleType() << attribute;
             break;
+        case RS_OBJECT:
+            *file << "struct " << typeName << " _RS_OBJECT_DECL" << attribute;
+            break;
         case ENUM: {
             *file << "enum" << attribute << " ";
             const string name = spec.getEnumName();
@@ -215,7 +218,7 @@ static void writeFunctionPermutation(GeneratedFile* file, const FunctionSpecific
         *file << "void";
     }
 
-    *file << makeAttributeTag(spec.getAttribute(), "overloadable",
+    *file << makeAttributeTag(spec.getAttribute(), spec.isOverloadable() ? "overloadable" : "",
                               function->getDeprecatedApiLevel(), function->getDeprecatedMessage());
     *file << "\n";
 
@@ -236,7 +239,7 @@ static void writeFunctionPermutation(GeneratedFile* file, const FunctionSpecific
         if (p->isOutParameter) {
             ps << "*";
         }
-        if (!p->specName.empty()) {
+        if (!p->specName.empty() && p->rsType != "...") {
             ps << " " << p->specName;
         }
         const string s = ps.str();
@@ -361,6 +364,10 @@ static bool writeHeaderFile(const string& directory, const SpecFile& specFile) {
 
     set<Function*> documentedFunctions;
     for (auto spec : specFile.getFunctionSpecifications()) {
+        // Do not include internal APIs in the header files.
+        if (spec->isInternal()) {
+            continue;
+        }
         Function* function = spec->getFunction();
         if (documentedFunctions.find(function) == documentedFunctions.end()) {
             documentedFunctions.insert(function);

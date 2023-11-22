@@ -58,16 +58,6 @@ public class InstancesTest extends JDWPSyncTestCase {
      * objects are expected ones.
      */
     private void runTestInstances() {
-        // check capability, relevant for this test
-        logWriter.println("=> Check capability: canGetInstanceInfo");
-        debuggeeWrapper.vmMirror.capabilities();
-        boolean isCapability = debuggeeWrapper.vmMirror.targetVMCapabilities.canGetInstanceInfo;
-        if (!isCapability) {
-            logWriter
-                    .println("##WARNING: this VM dosn't possess capability: canGetInstanceInfo");
-            return;
-        }
-
         logWriter.println("==> " + thisTestName + " for " + thisCommandName
                 + ": START...");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
@@ -217,16 +207,6 @@ public class InstancesTest extends JDWPSyncTestCase {
     public void testInstances_String() {
         String thisTestName = "testInstances_String";
 
-        // check capability, relevant for this test
-        logWriter.println("=> Check capability: canGetInstanceInfo");
-        debuggeeWrapper.vmMirror.capabilities();
-        boolean isCapability = debuggeeWrapper.vmMirror.targetVMCapabilities.canGetInstanceInfo;
-        if (!isCapability) {
-            logWriter
-                    .println("##WARNING: this VM dosn't possess capability: canGetInstanceInfo");
-            return;
-        }
-
         logWriter.println("==> " + thisTestName + " for " + thisCommandName
                 + ": START...");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
@@ -276,16 +256,6 @@ public class InstancesTest extends JDWPSyncTestCase {
      */
     public void testInstances_Array() {
         String thisTestName = "testInstances_Array";
-
-        // check capability, relevant for this test
-        logWriter.println("=> Check capability: canGetInstanceInfo");
-        debuggeeWrapper.vmMirror.capabilities();
-        boolean isCapability = debuggeeWrapper.vmMirror.targetVMCapabilities.canGetInstanceInfo;
-        if (!isCapability) {
-            logWriter
-                    .println("##WARNING: this VM dosn't possess capability: canGetInstanceInfo");
-            return;
-        }
 
         logWriter.println("==> " + thisTestName + " for " + thisCommandName
                 + ": START...");

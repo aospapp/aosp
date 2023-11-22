@@ -5,10 +5,9 @@
 extern "C" {
 #include <sys/select.h>
 
-#include "reactor.h"
-#include "semaphore.h"
-#include "thread.h"
-#include "osi.h"
+#include "osi/include/reactor.h"
+#include "osi/include/thread.h"
+#include "osi/include/osi.h"
 }
 
 class ThreadTest : public AllocationTestHarness {};

@@ -23,6 +23,7 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.SystemClock;
 import android.telephony.SmsManager;
@@ -84,6 +85,7 @@ public class MmsTest extends AndroidTestCase {
     private Random mRandom;
     private SentReceiver mSentReceiver;
     private TelephonyManager mTelephonyManager;
+    private PackageManager mPackageManager;
 
     private static class SentReceiver extends BroadcastReceiver {
         private final Object mLock;
@@ -164,15 +166,27 @@ public class MmsTest extends AndroidTestCase {
         mRandom = new Random();
         mTelephonyManager =
                 (TelephonyManager) mContext.getSystemService(Context.TELEPHONY_SERVICE);
+        mPackageManager = mContext.getPackageManager();
     }
 
     public void testSendMmsMessage() {
-        if (!mTelephonyManager.isSmsCapable()) {
-            Log.i(TAG, "testSendMmsMessage skipped: not SMS capable");
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)
+             || !doesSupportMMS()) {
+            Log.i(TAG, "testSendMmsMessage skipped: no telephony available or MMS not supported");
             return;
         }
 
         Log.i(TAG, "testSendMmsMessage");
+        // Prime the MmsService so that MMS config is loaded
+        final SmsManager smsManager = SmsManager.getDefault();
+        smsManager.getAutoPersisting();
+        // MMS config is loaded asynchronously. Wait a bit so it will be loaded.
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            // Ignore
+        }
+
         final Context context = getContext();
         // Register sent receiver
         mSentReceiver = new SentReceiver();
@@ -193,7 +207,7 @@ public class MmsTest extends AndroidTestCase {
         // Send
         final PendingIntent pendingIntent = PendingIntent.getBroadcast(
                 context, 0, new Intent(ACTION_MMS_SENT), 0);
-        SmsManager.getDefault().sendMultimediaMessage(context,
+        smsManager.sendMultimediaMessage(context,
                 contentUri, null/*locationUrl*/, null/*configOverrides*/, pendingIntent);
         assertTrue(mSentReceiver.waitForSuccess(SENT_TIMEOUT));
         sendFile.delete();
@@ -303,4 +317,12 @@ public class MmsTest extends AndroidTestCase {
                 .getCarrierConfigValues()
                 .getBoolean(SmsManager.MMS_CONFIG_SUPPORT_MMS_CONTENT_DISPOSITION, true);
     }
+
+    private static boolean doesSupportMMS() {
+        return SmsManager
+                .getDefault()
+                .getCarrierConfigValues()
+                .getBoolean(SmsManager.MMS_CONFIG_MMS_ENABLED, true);
+    }
+
 }

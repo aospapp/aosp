@@ -27,10 +27,11 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.ResolveInfo;
 import android.graphics.Rect;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 
+import com.android.launcher3.Utilities;
+import com.android.launcher3.util.PackageManagerHelper;
 import com.android.launcher3.util.Thunk;
 
 import java.util.ArrayList;
@@ -113,7 +114,7 @@ public class LauncherAppsCompatV16 extends LauncherAppsCompat {
     }
 
     public boolean isPackageEnabledForProfile(String packageName, UserHandleCompat user) {
-        return isAppEnabled(mPm, packageName, 0);
+        return PackageManagerHelper.isAppEnabled(mPm, packageName);
     }
 
     public boolean isActivityEnabledForProfile(ComponentName component, UserHandleCompat user) {
@@ -123,6 +124,10 @@ public class LauncherAppsCompatV16 extends LauncherAppsCompat {
         } catch (NameNotFoundException e) {
             return false;
         }
+    }
+
+    public boolean isPackageSuspendedForProfile(String packageName, UserHandleCompat user) {
+        return false;
     }
 
     private void unregisterForPackageIntents() {
@@ -188,7 +193,7 @@ public class LauncherAppsCompatV16 extends LauncherAppsCompat {
                 // when moving a package or mounting/un-mounting external storage. Assume that
                 // it is a replacing operation.
                 final boolean replacing = intent.getBooleanExtra(Intent.EXTRA_REPLACING,
-                        Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT);
+                        !Utilities.ATLEAST_KITKAT);
                 String[] packages = intent.getStringArrayExtra(Intent.EXTRA_CHANGED_PACKAGE_LIST);
                 for (OnAppsChangedCallbackCompat callback : getCallbacks()) {
                     callback.onPackagesAvailable(packages, user, replacing);

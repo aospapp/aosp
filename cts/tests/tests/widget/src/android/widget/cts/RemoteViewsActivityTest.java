@@ -26,11 +26,11 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.RemoteViews;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 public class RemoteViewsActivityTest
         extends ActivityInstrumentationTestCase2<RemoteViewsCtsActivity> {
-    private static final String PACKAGE_NAME = "com.android.cts.widget";
+    private static final String PACKAGE_NAME = "android.widget.cts";
     private Activity mActivity;
 
     public RemoteViewsActivityTest() {

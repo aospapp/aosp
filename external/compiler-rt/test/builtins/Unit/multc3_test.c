@@ -13,7 +13,7 @@
 
 #include <stdio.h>
 
-#if _ARCH_PPC
+#if _ARCH_PPC || __aarch64__
 
 #include "int_lib.h"
 #include <math.h>
@@ -21,7 +21,7 @@
 
 // Returns: the product of a + ib and c + id
 
-long double _Complex
+COMPILER_RT_ABI long double _Complex
 __multc3(long double __a, long double __b, long double __c, long double __d);
 
 enum {zero, non_zero, inf, NaN, non_zero_nan};
@@ -357,7 +357,7 @@ long double x[][2] =
 
 int main()
 {
-#if _ARCH_PPC
+#if _ARCH_PPC || __aarch64__
     const unsigned N = sizeof(x) / sizeof(x[0]);
     unsigned i, j;
     for (i = 0; i < N; ++i)

@@ -257,19 +257,43 @@ static void VMDebug_infopoint(JNIEnv*, jclass, jint id) {
 static jlong VMDebug_countInstancesOfClass(JNIEnv* env, jclass, jclass javaClass,
                                            jboolean countAssignable) {
   ScopedObjectAccess soa(env);
-  gc::Heap* heap = Runtime::Current()->GetHeap();
-  // We only want reachable instances, so do a GC. Heap::VisitObjects visits all of the heap
-  // objects in the all spaces and the allocation stack.
-  heap->CollectGarbage(false);
+  gc::Heap* const heap = Runtime::Current()->GetHeap();
+  // Caller's responsibility to do GC if desired.
   mirror::Class* c = soa.Decode<mirror::Class*>(javaClass);
   if (c == nullptr) {
     return 0;
   }
-  std::vector<mirror::Class*> classes;
-  classes.push_back(c);
+  std::vector<mirror::Class*> classes {c};
   uint64_t count = 0;
   heap->CountInstances(classes, countAssignable, &count);
   return count;
+}
+
+static jlongArray VMDebug_countInstancesOfClasses(JNIEnv* env, jclass, jobjectArray javaClasses,
+                                                  jboolean countAssignable) {
+  ScopedObjectAccess soa(env);
+  gc::Heap* const heap = Runtime::Current()->GetHeap();
+  // Caller's responsibility to do GC if desired.
+  auto* decoded_classes = soa.Decode<mirror::ObjectArray<mirror::Class>*>(javaClasses);
+  if (decoded_classes == nullptr) {
+    return nullptr;
+  }
+  std::vector<mirror::Class*> classes;
+  for (size_t i = 0, count = decoded_classes->GetLength(); i < count; ++i) {
+    classes.push_back(decoded_classes->Get(i));
+  }
+  std::vector<uint64_t> counts(classes.size(), 0u);
+  // Heap::CountInstances can handle null and will put 0 for these classes.
+  heap->CountInstances(classes, countAssignable, &counts[0]);
+  auto* long_counts = mirror::LongArray::Alloc(soa.Self(), counts.size());
+  if (long_counts == nullptr) {
+    soa.Self()->AssertPendingOOMException();
+    return nullptr;
+  }
+  for (size_t i = 0; i < counts.size(); ++i) {
+    long_counts->Set(i, counts[i]);
+  }
+  return soa.AddLocalReference<jlongArray>(long_counts);
 }
 
 // We export the VM internal per-heap-space size/alloc/free metrics
@@ -290,32 +314,33 @@ static void VMDebug_getHeapSpaceStats(JNIEnv* env, jclass, jlongArray data) {
   size_t largeObjectsSize = 0;
   size_t largeObjectsUsed = 0;
   gc::Heap* heap = Runtime::Current()->GetHeap();
-  for (gc::space::ContinuousSpace* space : heap->GetContinuousSpaces()) {
-    if (space->IsImageSpace()) {
-      // Currently don't include the image space.
-    } else if (space->IsZygoteSpace()) {
-      gc::space::ZygoteSpace* zygote_space = space->AsZygoteSpace();
-      zygoteSize += zygote_space->Size();
-      zygoteUsed += zygote_space->GetBytesAllocated();
-    } else if (space->IsMallocSpace()) {
-      // This is a malloc space.
-      gc::space::MallocSpace* malloc_space = space->AsMallocSpace();
-      allocSize += malloc_space->GetFootprint();
-      allocUsed += malloc_space->GetBytesAllocated();
-    } else if (space->IsBumpPointerSpace()) {
-      ScopedObjectAccess soa(env);
-      gc::space::BumpPointerSpace* bump_pointer_space = space->AsBumpPointerSpace();
-      allocSize += bump_pointer_space->Size();
-      allocUsed += bump_pointer_space->GetBytesAllocated();
+  {
+    ScopedObjectAccess soa(env);
+    for (gc::space::ContinuousSpace* space : heap->GetContinuousSpaces()) {
+      if (space->IsImageSpace()) {
+        // Currently don't include the image space.
+      } else if (space->IsZygoteSpace()) {
+        gc::space::ZygoteSpace* zygote_space = space->AsZygoteSpace();
+        zygoteSize += zygote_space->Size();
+        zygoteUsed += zygote_space->GetBytesAllocated();
+      } else if (space->IsMallocSpace()) {
+        // This is a malloc space.
+        gc::space::MallocSpace* malloc_space = space->AsMallocSpace();
+        allocSize += malloc_space->GetFootprint();
+        allocUsed += malloc_space->GetBytesAllocated();
+      } else if (space->IsBumpPointerSpace()) {
+        gc::space::BumpPointerSpace* bump_pointer_space = space->AsBumpPointerSpace();
+        allocSize += bump_pointer_space->Size();
+        allocUsed += bump_pointer_space->GetBytesAllocated();
+      }
+    }
+    for (gc::space::DiscontinuousSpace* space : heap->GetDiscontinuousSpaces()) {
+      if (space->IsLargeObjectSpace()) {
+        largeObjectsSize += space->AsLargeObjectSpace()->GetBytesAllocated();
+        largeObjectsUsed += largeObjectsSize;
+      }
     }
   }
-  for (gc::space::DiscontinuousSpace* space : heap->GetDiscontinuousSpaces()) {
-    if (space->IsLargeObjectSpace()) {
-      largeObjectsSize += space->AsLargeObjectSpace()->GetBytesAllocated();
-      largeObjectsUsed += largeObjectsSize;
-    }
-  }
-
   size_t allocFree = allocSize - allocUsed;
   size_t zygoteFree = zygoteSize - zygoteUsed;
   size_t largeObjectsFree = largeObjectsSize - largeObjectsUsed;
@@ -452,6 +477,7 @@ static jobjectArray VMDebug_getRuntimeStatsInternal(JNIEnv* env, jclass) {
 
 static JNINativeMethod gMethods[] = {
   NATIVE_METHOD(VMDebug, countInstancesOfClass, "(Ljava/lang/Class;Z)J"),
+  NATIVE_METHOD(VMDebug, countInstancesOfClasses, "([Ljava/lang/Class;Z)[J"),
   NATIVE_METHOD(VMDebug, crash, "()V"),
   NATIVE_METHOD(VMDebug, dumpHprofData, "(Ljava/lang/String;Ljava/io/FileDescriptor;)V"),
   NATIVE_METHOD(VMDebug, dumpHprofDataDdms, "()V"),

@@ -24,13 +24,14 @@
 #include <utils/Timers.h>
 #include <utils/List.h>
 
-#include <camera/camera2/ICameraDeviceCallbacks.h>
 #include "hardware/camera2.h"
 #include "hardware/camera3.h"
 #include "camera/CameraMetadata.h"
 #include "camera/CaptureResult.h"
 #include "common/CameraModule.h"
 #include "gui/IGraphicBufferProducer.h"
+#include "device3/Camera3StreamInterface.h"
+#include "binder/Status.h"
 
 namespace android {
 
@@ -108,7 +109,8 @@ class CameraDeviceBase : public virtual RefBase {
      */
     virtual status_t createStream(sp<Surface> consumer,
             uint32_t width, uint32_t height, int format,
-            android_dataspace dataSpace, camera3_stream_rotation_t rotation, int *id) = 0;
+            android_dataspace dataSpace, camera3_stream_rotation_t rotation, int *id,
+            int streamSetId = camera3::CAMERA3_STREAM_SET_ID_INVALID) = 0;
 
     /**
      * Create an input stream of width, height, and format.
@@ -193,7 +195,7 @@ class CameraDeviceBase : public virtual RefBase {
         // API1 and API2.
 
         // Required for API 1 and 2
-        virtual void notifyError(ICameraDeviceCallbacks::CameraErrorCode errorCode,
+        virtual void notifyError(int32_t errorCode,
                                  const CaptureResultExtras &resultExtras) = 0;
 
         // Required only for API2
@@ -207,6 +209,7 @@ class CameraDeviceBase : public virtual RefBase {
         virtual void notifyAutoExposure(uint8_t newState, int triggerId) = 0;
         virtual void notifyAutoWhitebalance(uint8_t newState,
                 int triggerId) = 0;
+        virtual void notifyRepeatingRequestError(long lastFrameNumber) = 0;
       protected:
         virtual ~NotificationListener();
     };
@@ -292,6 +295,18 @@ class CameraDeviceBase : public virtual RefBase {
      * Free stream resources by dumping its unused gralloc buffers.
      */
     virtual status_t tearDown(int streamId) = 0;
+
+    /**
+     * Add buffer listener for a particular stream in the device.
+     */
+    virtual status_t addBufferListenerForStream(int streamId,
+            wp<camera3::Camera3StreamBufferListener> listener) = 0;
+
+    /**
+     * Prepare stream by preallocating up to maxCount buffers for it asynchronously.
+     * Calls notifyPrepared() once allocation is complete.
+     */
+    virtual status_t prepare(int maxCount, int streamId) = 0;
 
     /**
      * Get the HAL device version.

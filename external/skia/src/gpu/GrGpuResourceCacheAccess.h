@@ -27,21 +27,33 @@ private:
      */
     bool isScratch() const {
         return !fResource->getUniqueKey().isValid() && fResource->fScratchKey.isValid() &&
-                fResource->resourcePriv().isBudgeted();
+                SkBudgeted::kYes == fResource->resourcePriv().isBudgeted();
     }
 
     /**
      * Is the resource object wrapping an externally allocated GPU resource?
      */
-    bool isWrapped() const { return GrGpuResource::kWrapped_LifeCycle == fResource->fLifeCycle; }
+    bool isExternal() const { return fResource->isExternal(); }
+
+    /**
+     * Is the resource object wrapping an externally allocated GPU resource that Skia has not taken
+     * ownership of.
+     */
+    bool isBorrowed() const { return GrGpuResource::kBorrowed_LifeCycle == fResource->fLifeCycle; }
+
+    /**
+     * Is the resource object wrapping an externally allocated GPU resource that Skia has taken
+     * ownership of.
+     */
+    bool isAdopted() const { return GrGpuResource::kAdopted_LifeCycle == fResource->fLifeCycle; }
  
     /**
      * Called by the cache to delete the resource under normal circumstances.
      */
     void release() {
         fResource->release();
-        if (fResource->isPurgeable()) {            
-            SkDELETE(fResource);
+        if (fResource->isPurgeable()) {
+            delete fResource;
         }
     }
 
@@ -50,8 +62,8 @@ private:
      */
     void abandon() {
         fResource->abandon();
-        if (fResource->isPurgeable()) {            
-            SkDELETE(fResource);
+        if (fResource->isPurgeable()) {
+            delete fResource;
         }
     }
 

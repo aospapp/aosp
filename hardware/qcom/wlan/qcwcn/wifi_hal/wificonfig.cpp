@@ -31,6 +31,7 @@
 #include <utils/Log.h>
 #include <time.h>
 #include <errno.h>
+#include <stdlib.h>
 #include "wificonfigcommand.h"
 
 /* Implementation of the API functions exposed in wifi_config.h */
@@ -45,7 +46,7 @@ wifi_error wifi_extended_dtim_config_set(wifi_request_id id,
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
 
-    ALOGD("wifi_extended_dtim_config_set(): Enter");
+    ALOGV("%s: extended_dtim:%d", __FUNCTION__, extended_dtim);
 
     wifiConfigCommand = new WiFiConfigCommand(
                             wifiHandle,
@@ -54,7 +55,7 @@ wifi_error wifi_extended_dtim_config_set(wifi_request_id id,
                             QCA_NL80211_VENDOR_SUBCMD_SET_WIFI_CONFIGURATION);
 
     if (wifiConfigCommand == NULL) {
-        ALOGE("%s: Error wifiConfigCommand NULL", __func__);
+        ALOGE("%s: Error wifiConfigCommand NULL", __FUNCTION__);
         return WIFI_ERROR_UNKNOWN;
     }
 
@@ -99,7 +100,6 @@ wifi_error wifi_extended_dtim_config_set(wifi_request_id id,
     }
 
 cleanup:
-    ALOGI("%s: Delete object.", __func__);
     delete wifiConfigCommand;
     return (wifi_error)ret;
 }
@@ -115,13 +115,12 @@ wifi_error wifi_set_country_code(wifi_interface_handle iface,
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
 
-    ALOGD("wifi_set_country_code(): Enter");
+    ALOGV("%s: %s", __FUNCTION__, country_code);
 
     /* No request id from caller, so generate one and pass it on to the driver.
      * Generate it randomly.
      */
-    srand(time(NULL));
-    requestId = rand();
+    requestId = get_requestid();
 
     wifiConfigCommand = new WiFiConfigCommand(
                             wifiHandle,
@@ -129,7 +128,7 @@ wifi_error wifi_set_country_code(wifi_interface_handle iface,
                             OUI_QCA,
                             QCA_NL80211_VENDOR_SUBCMD_SET_WIFI_CONFIGURATION);
     if (wifiConfigCommand == NULL) {
-        ALOGE("%s: Error wifiConfigCommand NULL", __func__);
+        ALOGE("%s: Error wifiConfigCommand NULL", __FUNCTION__);
         return WIFI_ERROR_UNKNOWN;
     }
 
@@ -152,9 +151,9 @@ wifi_error wifi_set_country_code(wifi_interface_handle iface,
         ALOGE("wifi_set_country_code(): requestEvent Error:%d", ret);
         goto cleanup;
     }
+    usleep(WAIT_TIME_FOR_SET_REG_DOMAIN);
 
 cleanup:
-    ALOGI("%s: Delete object.", __func__);
     delete wifiConfigCommand;
     return (wifi_error)ret;
 }
@@ -171,14 +170,14 @@ wifi_error wifi_set_beacon_wifi_iface_stats_averaging_factor(
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
 
-    ALOGD("wifi_set_beacon_wifi_iface_stats_averaging_factor(): Enter");
+    ALOGV("%s factor:%u", __FUNCTION__, factor);
     wifiConfigCommand = new WiFiConfigCommand(
                             wifiHandle,
                             id,
                             OUI_QCA,
                             QCA_NL80211_VENDOR_SUBCMD_SET_WIFI_CONFIGURATION);
     if (wifiConfigCommand == NULL) {
-        ALOGE("%s: Error wifiConfigCommand NULL", __func__);
+        ALOGE("%s: Error wifiConfigCommand NULL", __FUNCTION__);
         return WIFI_ERROR_UNKNOWN;
     }
 
@@ -224,7 +223,6 @@ wifi_error wifi_set_beacon_wifi_iface_stats_averaging_factor(
     }
 
 cleanup:
-    ALOGI("%s: Delete object.", __func__);
     delete wifiConfigCommand;
     return (wifi_error)ret;
 }
@@ -240,7 +238,7 @@ wifi_error wifi_set_guard_time(wifi_request_id id,
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
 
-    ALOGD("wifi_set_guard_time(): Enter");
+    ALOGV("%s : guard_time:%u", __FUNCTION__, guard_time);
 
     wifiConfigCommand = new WiFiConfigCommand(
                             wifiHandle,
@@ -248,7 +246,7 @@ wifi_error wifi_set_guard_time(wifi_request_id id,
                             OUI_QCA,
                             QCA_NL80211_VENDOR_SUBCMD_SET_WIFI_CONFIGURATION);
     if (wifiConfigCommand == NULL) {
-        ALOGE("%s: Error wifiConfigCommand NULL", __func__);
+        ALOGE("%s: Error wifiConfigCommand NULL", __FUNCTION__);
         return WIFI_ERROR_UNKNOWN;
     }
 
@@ -290,7 +288,6 @@ wifi_error wifi_set_guard_time(wifi_request_id id,
     }
 
 cleanup:
-    ALOGI("%s: Delete object.", __func__);
     delete wifiConfigCommand;
     return (wifi_error)ret;
 }
@@ -300,7 +297,6 @@ WiFiConfigCommand::WiFiConfigCommand(wifi_handle handle,
                                      u32 subcmd)
         : WifiVendorCommand(handle, id, vendor_id, subcmd)
 {
-    ALOGD("WiFiConfigCommand %p constructed", this);
     /* Initialize the member data variables here */
     mWaitforRsp = false;
     mRequestId = id;
@@ -308,7 +304,6 @@ WiFiConfigCommand::WiFiConfigCommand(wifi_handle handle,
 
 WiFiConfigCommand::~WiFiConfigCommand()
 {
-    ALOGD("WiFiConfigCommand %p destructor", this);
     unregisterVendorHandler(mVendor_id, mSubcmd);
 }
 
@@ -327,16 +322,12 @@ int WiFiConfigCommand::create() {
     ret = mMsg.put_u32(NL80211_ATTR_VENDOR_SUBCMD, mSubcmd);
     if (ret < 0)
         goto out;
-
-     ALOGI("%s: mVendor_id = %d, Subcmd = %d.",
-        __func__, mVendor_id, mSubcmd);
 out:
     return ret;
 }
 
 /* This function implements creation of generic NL command */
 int WiFiConfigCommand::create_generic(u8 cmdId) {
-    ALOGI("%s: cmdId = %d", __func__, cmdId);
     int ret = mMsg.create(cmdId, 0, 0);
     return ret;
 }
@@ -355,7 +346,7 @@ static int error_handler_wifi_config(struct sockaddr_nl *nla,
     int *ret = (int *)arg;
     tmp = nla;
     *ret = err->error;
-    ALOGE("%s: Error code:%d (%s)", __func__, *ret, strerror(-(*ret)));
+    ALOGE("%s: Error code:%d (%s)", __FUNCTION__, *ret, strerror(-(*ret)));
     return NL_STOP;
 }
 
@@ -365,7 +356,6 @@ static int ack_handler_wifi_config(struct nl_msg *msg, void *arg)
     int *ret = (int *)arg;
     struct nl_msg * a;
 
-    ALOGE("%s: called", __func__);
     a = msg;
     *ret = 0;
     return NL_STOP;
@@ -377,7 +367,6 @@ static int finish_handler_wifi_config(struct nl_msg *msg, void *arg)
   int *ret = (int *)arg;
   struct nl_msg * a;
 
-  ALOGE("%s: called", __func__);
   a = msg;
   *ret = 0;
   return NL_SKIP;
@@ -394,17 +383,13 @@ int WiFiConfigCommand::requestEvent()
     int res = -1;
     struct nl_cb *cb;
 
-    ALOGD("%s: Entry.", __func__);
-
     cb = nl_cb_alloc(NL_CB_DEFAULT);
     if (!cb) {
-        ALOGE("%s: Callback allocation failed",__func__);
+        ALOGE("%s: Callback allocation failed",__FUNCTION__);
         res = -1;
         goto out;
     }
 
-    /* Send message */
-    ALOGE("%s:Handle:%p Socket Value:%p", __func__, mInfo, mInfo->cmd_sock);
     res = nl_send_auto_complete(mInfo->cmd_sock, mMsg.getMessage());
     if (res < 0)
         goto out;
@@ -420,7 +405,6 @@ int WiFiConfigCommand::requestEvent()
          nl_recvmsgs(mInfo->cmd_sock, cb);
     }
 
-    ALOGD("%s: Msg sent, res=%d, mWaitForRsp=%d", __func__, res, mWaitforRsp);
     /* Only wait for the asynchronous event if HDD returns success, res=0 */
     if (!res && (mWaitforRsp == true)) {
         struct timespec abstime;
@@ -429,10 +413,10 @@ int WiFiConfigCommand::requestEvent()
         res = mCondition.wait(abstime);
         if (res == ETIMEDOUT)
         {
-            ALOGE("%s: Time out happened.", __func__);
+            ALOGE("%s: Time out happened.", __FUNCTION__);
         }
-        ALOGD("%s: Command invoked return value:%d, mWaitForRsp=%d",
-            __func__, res, mWaitforRsp);
+        ALOGV("%s: Command invoked return value:%d, mWaitForRsp=%d",
+            __FUNCTION__, res, mWaitforRsp);
     }
 out:
     /* Cleanup the mMsg */

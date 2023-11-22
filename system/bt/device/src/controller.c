@@ -18,21 +18,17 @@
 
 #define LOG_TAG "bt_controller"
 
-#include <assert.h>
-#include <stdbool.h>
-
-#include "btcore/include/bdaddr.h"
-#include "bt_types.h"
 #include "device/include/controller.h"
+
+#include <assert.h>
+
+#include "bt_types.h"
 #include "btcore/include/event_mask.h"
-#include "osi/include/future.h"
-#include "hcimsgs.h"
-#include "hci/include/hci_layer.h"
-#include "hci/include/hci_packet_factory.h"
-#include "hci/include/hci_packet_parser.h"
 #include "btcore/include/module.h"
-#include "stack/include/btm_ble_api.h"
 #include "btcore/include/version.h"
+#include "hcimsgs.h"
+#include "osi/include/future.h"
+#include "stack/include/btm_ble_api.h"
 
 const bt_event_mask_t BLE_EVENT_MASK = { "\x00\x00\x00\x00\x00\x00\x06\x7f" };
 
@@ -49,6 +45,7 @@ const uint8_t SCO_HOST_BUFFER_SIZE = 0xff;
 #define MAX_FEATURES_CLASSIC_PAGE_COUNT 3
 #define BLE_SUPPORTED_STATES_SIZE         8
 #define BLE_SUPPORTED_FEATURES_SIZE       8
+#define MAX_LOCAL_SUPPORTED_CODECS_SIZE   8
 
 static const hci_t *hci;
 static const hci_packet_factory_t *packet_factory;
@@ -71,6 +68,8 @@ static uint8_t ble_resolving_list_max_size;
 static uint8_t ble_supported_states[BLE_SUPPORTED_STATES_SIZE];
 static bt_device_features_t features_ble;
 static uint16_t ble_suggested_default_data_length;
+static uint8_t local_supported_codecs[MAX_LOCAL_SUPPORTED_CODECS_SIZE];
+static uint8_t number_of_local_supported_codecs = 0;
 
 static bool readable;
 static bool ble_supported;
@@ -155,6 +154,10 @@ static future_t *start_up(void) {
     );
 
     packet_parser->parse_generic_command_complete(response);
+
+    // If we modified the BT_HOST_SUPPORT, we will need ext. feat. page 1
+    if (last_features_classic_page_index < 1)
+      last_features_classic_page_index = 1;
   }
 #endif
 
@@ -241,6 +244,14 @@ static future_t *start_up(void) {
     packet_parser->parse_generic_command_complete(response);
   }
 
+  // read local supported codecs
+  if(HCI_READ_LOCAL_CODECS_SUPPORTED(supported_commands)) {
+    response = AWAIT_COMMAND(packet_factory->make_read_local_supported_codecs());
+    packet_parser->parse_read_local_supported_codecs_response(
+        response,
+        &number_of_local_supported_codecs, local_supported_codecs);
+  }
+
   readable = true;
   return future_new_immediate(FUTURE_SUCCESS);
 }
@@ -250,7 +261,7 @@ static future_t *shut_down(void) {
   return future_new_immediate(FUTURE_SUCCESS);
 }
 
-const module_t controller_module = {
+EXPORT_SYMBOL const module_t controller_module = {
   .name = CONTROLLER_MODULE,
   .init = NULL,
   .start_up = start_up,
@@ -288,6 +299,15 @@ static const bt_device_features_t *get_features_classic(int index) {
 static uint8_t get_last_features_classic_index(void) {
   assert(readable);
   return last_features_classic_page_index;
+}
+
+static uint8_t *get_local_supported_codecs(uint8_t *number_of_codecs) {
+  assert(readable);
+  if(number_of_local_supported_codecs) {
+    *number_of_codecs = number_of_local_supported_codecs;
+    return local_supported_codecs;
+  }
+  return NULL;
 }
 
 static const bt_device_features_t *get_features_ble(void) {
@@ -416,7 +436,11 @@ static uint8_t get_ble_resolving_list_max_size(void) {
 }
 
 static void set_ble_resolving_list_max_size(int resolving_list_max_size) {
-  assert(readable);
+  // Setting "resolving_list_max_size" to 0 is done during cleanup,
+  // hence we ignore the "readable" flag already set to false during shutdown.
+  if (resolving_list_max_size != 0) {
+    assert(readable);
+  }
   assert(ble_supported);
   ble_resolving_list_max_size = resolving_list_max_size;
 }
@@ -460,7 +484,8 @@ static const controller_t interface = {
   get_ble_white_list_size,
 
   get_ble_resolving_list_max_size,
-  set_ble_resolving_list_max_size
+  set_ble_resolving_list_max_size,
+  get_local_supported_codecs
 };
 
 const controller_t *controller_get_interface() {

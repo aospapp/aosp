@@ -1,12 +1,12 @@
-/*	$OpenBSD: edit.c,v 1.40 2015/03/12 10:20:30 sthen Exp $	*/
+/*	$OpenBSD: edit.c,v 1.41 2015/09/01 13:12:31 tedu Exp $	*/
 /*	$OpenBSD: edit.h,v 1.9 2011/05/30 17:14:35 martynas Exp $	*/
-/*	$OpenBSD: emacs.c,v 1.50 2015/03/25 12:10:52 jca Exp $	*/
-/*	$OpenBSD: vi.c,v 1.28 2013/12/18 16:45:46 deraadt Exp $	*/
+/*	$OpenBSD: emacs.c,v 1.52 2015/09/10 22:48:58 nicm Exp $	*/
+/*	$OpenBSD: vi.c,v 1.30 2015/09/10 22:48:58 nicm Exp $	*/
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
- *		 2011, 2012, 2013, 2014
- *	Thorsten Glaser <tg@mirbsd.org>
+ *		 2011, 2012, 2013, 2014, 2015
+ *	mirabilos <m@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
  * are retained or reproduced in an accompanying document, permission
@@ -28,7 +28,7 @@
 
 #ifndef MKSH_NO_CMDLINE_EDITING
 
-__RCSID("$MirOS: src/bin/mksh/edit.c,v 1.276.2.5 2015/04/12 22:32:22 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/edit.c,v 1.292 2015/10/09 16:11:13 tg Exp $");
 
 /*
  * in later versions we might use libtermcap for this, but since external
@@ -771,7 +771,7 @@ glob_path(int flags, const char *pat, XPtrV *wp, const char *lpath)
 	Xinit(xs, xp, patlen + 128, ATEMP);
 	while (sp) {
 		xp = Xstring(xs, xp);
-		if (!(p = cstrchr(sp, ':')))
+		if (!(p = cstrchr(sp, MKSH_PATHSEPC)))
 			p = sp + strlen(sp);
 		pathlen = p - sp;
 		if (pathlen) {
@@ -887,7 +887,7 @@ struct x_defbindings {
 /* Separator for motion */
 #define	is_mfs(c)	(!(ksh_isalnux(c) || (c) == '$' || ((c) & 0x80)))
 
-#define X_NTABS		3			/* normal, meta1, meta2 */
+#define X_NTABS		4			/* normal, meta1, meta2, pc */
 #define X_TABSZ		256			/* size of keydef tables etc */
 
 /*-
@@ -1099,8 +1099,28 @@ static struct x_defbindings const x_defbindings[] = {
 	{ XFUNC_mv_end | 0x80,		2,	'8'	},
 	{ XFUNC_mv_end,			2,	'F'	},
 	{ XFUNC_del_char | 0x80,	2,	'3'	},
+	{ XFUNC_del_char,		2,	'P'	},
 	{ XFUNC_search_hist_up | 0x80,	2,	'5'	},
 	{ XFUNC_search_hist_dn | 0x80,	2,	'6'	},
+#endif
+	/* PC scancodes */
+#if !defined(MKSH_SMALL) || defined(__OS2__)
+	{ XFUNC_meta3,			0,	0	},
+	{ XFUNC_mv_begin,		3,	71	},
+	{ XFUNC_prev_com,		3,	72	},
+#ifndef MKSH_SMALL
+	{ XFUNC_search_hist_up,		3,	73	},
+#endif
+	{ XFUNC_mv_back,		3,	75	},
+	{ XFUNC_mv_forw,		3,	77	},
+	{ XFUNC_mv_end,			3,	79	},
+	{ XFUNC_next_com,		3,	80	},
+#ifndef MKSH_SMALL
+	{ XFUNC_search_hist_dn,		3,	81	},
+#endif
+	{ XFUNC_del_char,		3,	83	},
+#endif
+#ifndef MKSH_SMALL
 	/* more non-standard ones */
 	{ XFUNC_edit_line,		2,	'e'	}
 #endif
@@ -2215,6 +2235,13 @@ x_meta2(int c MKSH_A_UNUSED)
 }
 
 static int
+x_meta3(int c MKSH_A_UNUSED)
+{
+	x_curprefix = 3;
+	return (KSTD);
+}
+
+static int
 x_kill(int c MKSH_A_UNUSED)
 {
 	size_t col = xcp - xbuf;
@@ -2235,12 +2262,8 @@ x_kill(int c MKSH_A_UNUSED)
 static void
 x_push(int nchars)
 {
-	char *cp;
-
-	strndupx(cp, xcp, nchars, AEDIT);
-	if (killstack[killsp])
-		afree(killstack[killsp], AEDIT);
-	killstack[killsp] = cp;
+	afree(killstack[killsp], AEDIT);
+	strndupx(killstack[killsp], xcp, nchars, AEDIT);
 	killsp = (killsp + 1) % KILLSIZE;
 }
 
@@ -2412,8 +2435,8 @@ x_print(int prefix, int key)
 
 	if (prefix)
 		/* prefix == 1 || prefix == 2 */
-		shf_puts(x_mapout(prefix == 1 ?
-		    CTRL('[') : CTRL('X')), shl_stdout);
+		shf_puts(x_mapout(prefix == 1 ? CTRL('[') :
+		    prefix == 2 ? CTRL('X') : 0), shl_stdout);
 #ifdef MKSH_SMALL
 	shprintf("%s = ", x_mapout(key));
 #else
@@ -2478,6 +2501,8 @@ x_bind(const char *a1, const char *a2,
 			prefix = 1;
 		else if (f == XFUNC_meta2)
 			prefix = 2;
+		else if (f == XFUNC_meta3)
+			prefix = 3;
 		else
 			break;
 	}
@@ -2966,7 +2991,7 @@ x_set_arg(int c)
 	/* strip command prefix */
 	c &= 255;
 	while (c >= 0 && ksh_isdigit(c)) {
-		n = n * 10 + (c - '0');
+		n = n * 10 + ksh_numdig(c);
 		if (n > LINE)
 			/* upper bound for repeat */
 			goto x_set_arg_too_big;
@@ -3053,7 +3078,7 @@ x_edit_line(int c MKSH_A_UNUSED)
 		}
 		if (modified) {
 			*xep = '\0';
-			histsave(&source->line, xbuf, true, true);
+			histsave(&source->line, xbuf, HIST_STORE, true);
 			x_arg = 0;
 		} else
 			x_arg = source->line - (histptr - x_histp);
@@ -3290,7 +3315,22 @@ x_mode(bool onoff)
 		edchars.eof = tty_state.c_cc[VEOF];
 #ifdef VWERASE
 		edchars.werase = tty_state.c_cc[VWERASE];
+#else
+		edchars.werase = 0;
 #endif
+
+		if (!edchars.erase)
+			edchars.erase = CTRL('H');
+		if (!edchars.kill)
+			edchars.kill = CTRL('U');
+		if (!edchars.intr)
+			edchars.intr = CTRL('C');
+		if (!edchars.quit)
+			edchars.quit = CTRL('\\');
+		if (!edchars.eof)
+			edchars.eof = CTRL('D');
+		if (!edchars.werase)
+			edchars.werase = CTRL('W');
 
 #ifdef _POSIX_VDISABLE
 		/* Convert unset values to internal 'unset' value */
@@ -3602,6 +3642,18 @@ vi_hook(int ch)
 	switch (state) {
 
 	case VNORMAL:
+		/* PC scancodes */
+		if (!ch) switch (cmdlen = 0, (ch = x_getc())) {
+		case 71: ch = '0'; goto pseudo_vi_command;
+		case 72: ch = 'k'; goto pseudo_vi_command;
+		case 73: ch = 'A'; goto vi_xfunc_search_up;
+		case 75: ch = 'h'; goto pseudo_vi_command;
+		case 77: ch = 'l'; goto pseudo_vi_command;
+		case 79: ch = '$'; goto pseudo_vi_command;
+		case 80: ch = 'j'; goto pseudo_vi_command;
+		case 83: ch = 'x'; goto pseudo_vi_command;
+		default: ch = 0; goto vi_insert_failed;
+		}
 		if (insert != 0) {
 			if (ch == CTRL('v')) {
 				state = VLIT;
@@ -3609,6 +3661,7 @@ vi_hook(int ch)
 			}
 			switch (vi_insert(ch)) {
 			case -1:
+ vi_insert_failed:
 				vi_error();
 				state = VNORMAL;
 				break;
@@ -3627,10 +3680,11 @@ vi_hook(int ch)
 				return (1);
 			cmdlen = 0;
 			argc1 = 0;
-			if (ch >= '1' && ch <= '9') {
-				argc1 = ch - '0';
+			if (ch >= ord('1') && ch <= ord('9')) {
+				argc1 = ksh_numdig(ch);
 				state = VARG1;
 			} else {
+ pseudo_vi_command:
 				curcmd[cmdlen++] = ch;
 				state = nextstate(ch);
 				if (state == VSEARCH) {
@@ -3672,7 +3726,7 @@ vi_hook(int ch)
 
 	case VARG1:
 		if (ksh_isdigit(ch))
-			argc1 = argc1 * 10 + ch - '0';
+			argc1 = argc1 * 10 + ksh_numdig(ch);
 		else {
 			curcmd[cmdlen++] = ch;
 			state = nextstate(ch);
@@ -3681,8 +3735,8 @@ vi_hook(int ch)
 
 	case VEXTCMD:
 		argc2 = 0;
-		if (ch >= '1' && ch <= '9') {
-			argc2 = ch - '0';
+		if (ch >= ord('1') && ch <= ord('9')) {
+			argc2 = ksh_numdig(ch);
 			state = VARG2;
 			return (0);
 		} else {
@@ -3698,7 +3752,7 @@ vi_hook(int ch)
 
 	case VARG2:
 		if (ksh_isdigit(ch))
-			argc2 = argc2 * 10 + ch - '0';
+			argc2 = argc2 * 10 + ksh_numdig(ch);
 		else {
 			if (argc1 == 0)
 				argc1 = argc2;
@@ -3799,6 +3853,7 @@ vi_hook(int ch)
 		break;
 
 	case VPREFIX2:
+ vi_xfunc_search_up:
 		state = VFAIL;
 		switch (ch) {
 		case 'A':
@@ -4310,8 +4365,8 @@ vi_cmd(int argcnt, const char *cmd)
 					return (-1);
 				if (modified) {
 					es->cbuf[es->linelen] = '\0';
-					histsave(&source->line, es->cbuf, true,
-					    true);
+					histsave(&source->line, es->cbuf,
+					    HIST_STORE, true);
 				} else
 					argcnt = source->line + 1 -
 					    (hlast - hnum);

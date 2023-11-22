@@ -199,6 +199,7 @@ VerifyResponse::VerifyResponse(uint32_t user_id, SizedBuffer *auth_token) {
 }
 
 VerifyResponse::VerifyResponse() {
+    request_reenroll = false;
     memset_s(&auth_token, 0, sizeof(auth_token));
 };
 

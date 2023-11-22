@@ -34,7 +34,6 @@
     <string name="password_empty_error" msgid="591713406761723025">"​​បញ្ចូល​ពាក្យ​សម្ងាត់​។"</string>
     <string name="name_empty_error" msgid="3808800768660110354">"បញ្ចូល​ឈ្មោះ។"</string>
     <string name="name_char_error" msgid="3176618568784938968">"បញ្ចូល​ឈ្មោះ​ដែល​មាន​តែ​លេខ និង​អក្សរ។"</string>
-    <string name="storage_error" msgid="8306802455802770779">"មិន​អាច​រក្សាទុក​វិញ្ញាបនបត្រ។ ប៉ះ យល់ព្រម​ដើម្បី​ព្យាយាម​ម្ដង​ទៀត។"</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"មិន​អាច​រក្សាទុក​វិញ្ញាបនបត្រ។ ការ​ផ្ទុក​ព័ត៌មាន​សម្ងាត់​មិន​ត្រូវ​បាន​បើក ឬ​ចាប់ផ្ដើម​មិន​ត្រឹមត្រូវ។"</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"មិន​បាន​ដំឡើង​វិញ្ញាបនបត្រ។"</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"គ្មាន​វិញ្ញាបនបត្រ​ត្រូវ​ដំឡើង។"</string>

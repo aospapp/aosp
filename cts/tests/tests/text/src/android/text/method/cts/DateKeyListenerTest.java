@@ -16,16 +16,24 @@
 
 package android.text.method.cts;
 
+import android.cts.util.KeyEventUtil;
 import android.text.InputType;
-import android.text.method.cts.KeyListenerTestCase;
 import android.text.method.DateKeyListener;
 import android.view.KeyEvent;
-import android.widget.TextView;
 
 /**
  * Test {@link android.text.method.DateKeyListener}.
  */
 public class DateKeyListenerTest extends KeyListenerTestCase {
+
+    private KeyEventUtil mKeyEventUtil;
+
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp();
+        mKeyEventUtil = new KeyEventUtil(getInstrumentation());
+    }
+
     public void testConstructor() {
         new DateKeyListener();
     }
@@ -69,26 +77,26 @@ public class DateKeyListenerTest extends KeyListenerTestCase {
         assertEquals("", mTextView.getText().toString());
 
         // press '1' key.
-        sendKeys(KeyEvent.KEYCODE_1);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_1);
         assertEquals("1", mTextView.getText().toString());
 
         // press '2' key.
-        sendKeys(KeyEvent.KEYCODE_2);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_2);
         assertEquals("12", mTextView.getText().toString());
 
         // press an unaccepted key if it exists.
         int keyCode = TextMethodUtils.getUnacceptedKeyCode(DateKeyListener.CHARACTERS);
         if (-1 != keyCode) {
-            sendKeys(keyCode);
+            mKeyEventUtil.sendKeys(mTextView, keyCode);
             assertEquals("12", mTextView.getText().toString());
         }
 
         // press '-' key.
-        sendKeys(KeyEvent.KEYCODE_MINUS);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_MINUS);
         assertEquals("12-", mTextView.getText().toString());
 
         // press '/' key.
-        sendKeys(KeyEvent.KEYCODE_SLASH);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_SLASH);
         assertEquals("12-/", mTextView.getText().toString());
 
         // remove DateKeyListener
@@ -96,7 +104,7 @@ public class DateKeyListenerTest extends KeyListenerTestCase {
         assertEquals("12-/", mTextView.getText().toString());
 
         // press '/' key, it will not be accepted.
-        sendKeys(KeyEvent.KEYCODE_SLASH);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_SLASH);
         assertEquals("12-/", mTextView.getText().toString());
     }
 

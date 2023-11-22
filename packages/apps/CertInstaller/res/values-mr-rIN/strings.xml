@@ -34,7 +34,6 @@
     <string name="password_empty_error" msgid="591713406761723025">"संकेतशब्द टाइप करा."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"नाव टाइप करा."</string>
     <string name="name_char_error" msgid="3176618568784938968">"फक्त अक्षरे आणि संख्या असलेले नाव टाइप करा."</string>
-    <string name="storage_error" msgid="8306802455802770779">"प्रमाणपत्र जतन करू शकलो नाही. पुन्हा प्रयत्न करण्यासाठी ठीक ला स्पर्श करा."</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"प्रमाणपत्र जतन करू शकलो नाही. क्रेडेन्शियल संचयन सक्षम नाही किंवा योग्यरितीने प्रारंभ झाला नाही."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"प्रमाणपत्र स्थापित केले नाही."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"स्‍थापित करण्‍यासाठी कोणतेही प्रमाणपत्र नाही."</string>

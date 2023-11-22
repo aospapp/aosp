@@ -175,7 +175,6 @@ void ScriptIntrinsicBlend::forEachXor(sp<Allocation> in, sp<Allocation> out) {
     Script::forEach(11, in, out, nullptr, 0);
 }
 
-// Numbering jumps here
 void ScriptIntrinsicBlend::forEachMultiply(sp<Allocation> in, sp<Allocation> out) {
     if (in->getType()->getElement()->isCompatible(mElement) == false ||
         out->getType()->getElement()->isCompatible(mElement) == false) {
@@ -184,7 +183,6 @@ void ScriptIntrinsicBlend::forEachMultiply(sp<Allocation> in, sp<Allocation> out
     Script::forEach(14, in, out, nullptr, 0);
 }
 
-// Numbering jumps here
 void ScriptIntrinsicBlend::forEachAdd(sp<Allocation> in, sp<Allocation> out) {
     if (in->getType()->getElement()->isCompatible(mElement) == false ||
         out->getType()->getElement()->isCompatible(mElement) == false) {

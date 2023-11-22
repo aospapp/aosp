@@ -18,12 +18,15 @@
 #define ART_COMPILER_UTILS_X86_ASSEMBLER_X86_H_
 
 #include <vector>
+
+#include "base/arena_containers.h"
 #include "base/bit_utils.h"
 #include "base/macros.h"
 #include "constants_x86.h"
 #include "globals.h"
 #include "managed_register_x86.h"
 #include "offsets.h"
+#include "utils/array_ref.h"
 #include "utils/assembler.h"
 
 namespace art {
@@ -86,7 +89,7 @@ class Operand : public ValueObject {
 
  protected:
   // Operand can be sub classed (e.g: Address).
-  Operand() : length_(0) { }
+  Operand() : length_(0), fixup_(nullptr) { }
 
   void SetModRM(int mod_in, Register rm_in) {
     CHECK_EQ(mod_in & ~3, 0);
@@ -113,11 +116,23 @@ class Operand : public ValueObject {
     length_ += disp_size;
   }
 
+  AssemblerFixup* GetFixup() const {
+    return fixup_;
+  }
+
+  void SetFixup(AssemblerFixup* fixup) {
+    fixup_ = fixup;
+  }
+
  private:
   uint8_t length_;
   uint8_t encoding_[6];
 
-  explicit Operand(Register reg) { SetModRM(3, reg); }
+  // A fixup can be associated with the operand, in order to be applied after the
+  // code has been generated. This is used for constant area fixups.
+  AssemblerFixup* fixup_;
+
+  explicit Operand(Register reg) : fixup_(nullptr) { SetModRM(3, reg); }
 
   // Get the operand encoding byte at the given index.
   uint8_t encoding_at(int index_in) const {
@@ -136,6 +151,11 @@ class Address : public Operand {
     Init(base_in, disp);
   }
 
+  Address(Register base_in, int32_t disp, AssemblerFixup *fixup) {
+    Init(base_in, disp);
+    SetFixup(fixup);
+  }
+
   Address(Register base_in, Offset disp) {
     Init(base_in, disp.Int32Value());
   }
@@ -148,6 +168,39 @@ class Address : public Operand {
   Address(Register base_in, MemberOffset disp) {
     Init(base_in, disp.Int32Value());
   }
+
+  Address(Register index_in, ScaleFactor scale_in, int32_t disp) {
+    CHECK_NE(index_in, ESP);  // Illegal addressing mode.
+    SetModRM(0, ESP);
+    SetSIB(scale_in, index_in, EBP);
+    SetDisp32(disp);
+  }
+
+  Address(Register base_in, Register index_in, ScaleFactor scale_in, int32_t disp) {
+    Init(base_in, index_in, scale_in, disp);
+  }
+
+  Address(Register base_in,
+          Register index_in,
+          ScaleFactor scale_in,
+          int32_t disp, AssemblerFixup *fixup) {
+    Init(base_in, index_in, scale_in, disp);
+    SetFixup(fixup);
+  }
+
+  static Address Absolute(uintptr_t addr) {
+    Address result;
+    result.SetModRM(0, EBP);
+    result.SetDisp32(addr);
+    return result;
+  }
+
+  static Address Absolute(ThreadOffset<4> addr) {
+    return Absolute(addr.Int32Value());
+  }
+
+ private:
+  Address() {}
 
   void Init(Register base_in, int32_t disp) {
     if (disp == 0 && base_in != EBP) {
@@ -164,14 +217,7 @@ class Address : public Operand {
     }
   }
 
-  Address(Register index_in, ScaleFactor scale_in, int32_t disp) {
-    CHECK_NE(index_in, ESP);  // Illegal addressing mode.
-    SetModRM(0, ESP);
-    SetSIB(scale_in, index_in, EBP);
-    SetDisp32(disp);
-  }
-
-  Address(Register base_in, Register index_in, ScaleFactor scale_in, int32_t disp) {
+  void Init(Register base_in, Register index_in, ScaleFactor scale_in, int32_t disp) {
     CHECK_NE(index_in, ESP);  // Illegal addressing mode.
     if (disp == 0 && base_in != EBP) {
       SetModRM(0, ESP);
@@ -186,26 +232,79 @@ class Address : public Operand {
       SetDisp32(disp);
     }
   }
-
-  static Address Absolute(uintptr_t addr) {
-    Address result;
-    result.SetModRM(0, EBP);
-    result.SetDisp32(addr);
-    return result;
-  }
-
-  static Address Absolute(ThreadOffset<4> addr) {
-    return Absolute(addr.Int32Value());
-  }
-
- private:
-  Address() {}
 };
 
 
+// This is equivalent to the Label class, used in a slightly different context. We
+// inherit the functionality of the Label class, but prevent unintended
+// derived-to-base conversions by making the base class private.
+class NearLabel : private Label {
+ public:
+  NearLabel() : Label() {}
+
+  // Expose the Label routines that we need.
+  using Label::Position;
+  using Label::LinkPosition;
+  using Label::IsBound;
+  using Label::IsUnused;
+  using Label::IsLinked;
+
+ private:
+  using Label::BindTo;
+  using Label::LinkTo;
+
+  friend class x86::X86Assembler;
+
+  DISALLOW_COPY_AND_ASSIGN(NearLabel);
+};
+
+/**
+ * Class to handle constant area values.
+ */
+class ConstantArea {
+ public:
+  explicit ConstantArea(ArenaAllocator* arena) : buffer_(arena->Adapter(kArenaAllocAssembler)) {}
+
+  // Add a double to the constant area, returning the offset into
+  // the constant area where the literal resides.
+  size_t AddDouble(double v);
+
+  // Add a float to the constant area, returning the offset into
+  // the constant area where the literal resides.
+  size_t AddFloat(float v);
+
+  // Add an int32_t to the constant area, returning the offset into
+  // the constant area where the literal resides.
+  size_t AddInt32(int32_t v);
+
+  // Add an int32_t to the end of the constant area, returning the offset into
+  // the constant area where the literal resides.
+  size_t AppendInt32(int32_t v);
+
+  // Add an int64_t to the constant area, returning the offset into
+  // the constant area where the literal resides.
+  size_t AddInt64(int64_t v);
+
+  bool IsEmpty() const {
+    return buffer_.size() == 0;
+  }
+
+  size_t GetSize() const {
+    return buffer_.size() * elem_size_;
+  }
+
+  ArrayRef<const int32_t> GetBuffer() const {
+    return ArrayRef<const int32_t>(buffer_);
+  }
+
+ private:
+  static constexpr size_t elem_size_ = sizeof(int32_t);
+  ArenaVector<int32_t> buffer_;
+};
+
 class X86Assembler FINAL : public Assembler {
  public:
-  explicit X86Assembler() {}
+  explicit X86Assembler(ArenaAllocator* arena) : Assembler(arena), constant_area_(arena) {}
   virtual ~X86Assembler() {}
 
   /*
@@ -231,7 +330,22 @@ class X86Assembler FINAL : public Assembler {
   void movl(const Address& dst, const Immediate& imm);
   void movl(const Address& dst, Label* lbl);
 
+  void movntl(const Address& dst, Register src);
+
   void bswapl(Register dst);
+
+  void bsfl(Register dst, Register src);
+  void bsfl(Register dst, const Address& src);
+  void bsrl(Register dst, Register src);
+  void bsrl(Register dst, const Address& src);
+
+  void popcntl(Register dst, Register src);
+  void popcntl(Register dst, const Address& src);
+
+  void rorl(Register reg, const Immediate& imm);
+  void rorl(Register operand, Register shifter);
+  void roll(Register reg, const Immediate& imm);
+  void roll(Register operand, Register shifter);
 
   void movzxb(Register dst, ByteRegister src);
   void movzxb(Register dst, const Address& src);
@@ -252,6 +366,7 @@ class X86Assembler FINAL : public Assembler {
   void leal(Register dst, const Address& src);
 
   void cmovl(Condition condition, Register dst, Register src);
+  void cmovl(Condition condition, Register dst, const Address& src);
 
   void setb(Condition condition, Register dst);
 
@@ -310,7 +425,9 @@ class X86Assembler FINAL : public Assembler {
   void comiss(XmmRegister a, XmmRegister b);
   void comisd(XmmRegister a, XmmRegister b);
   void ucomiss(XmmRegister a, XmmRegister b);
+  void ucomiss(XmmRegister a, const Address& b);
   void ucomisd(XmmRegister a, XmmRegister b);
+  void ucomisd(XmmRegister a, const Address& b);
 
   void roundsd(XmmRegister dst, XmmRegister src, const Immediate& imm);
   void roundss(XmmRegister dst, XmmRegister src, const Immediate& imm);
@@ -409,6 +526,7 @@ class X86Assembler FINAL : public Assembler {
 
   void imull(Register dst, Register src);
   void imull(Register reg, const Immediate& imm);
+  void imull(Register dst, Register src, const Immediate& imm);
   void imull(Register reg, const Address& address);
 
   void imull(Register reg);
@@ -459,12 +577,18 @@ class X86Assembler FINAL : public Assembler {
   void hlt();
 
   void j(Condition condition, Label* label);
+  void j(Condition condition, NearLabel* label);
+  void jecxz(NearLabel* label);
 
   void jmp(Register reg);
   void jmp(const Address& address);
   void jmp(Label* label);
+  void jmp(NearLabel* label);
 
   void repne_scasw();
+  void repe_cmpsw();
+  void repe_cmpsl();
+  void rep_movsw();
 
   X86Assembler* lock();
   void cmpxchgl(const Address& address, Register reg);
@@ -497,7 +621,11 @@ class X86Assembler FINAL : public Assembler {
   //
   int PreferredLoopAlignment() { return 16; }
   void Align(int alignment, int offset);
-  void Bind(Label* label);
+  void Bind(Label* label) OVERRIDE;
+  void Jump(Label* label) OVERRIDE {
+    jmp(label);
+  }
+  void Bind(NearLabel* label);
 
   //
   // Overridden common assembler high-level functionality
@@ -541,7 +669,7 @@ class X86Assembler FINAL : public Assembler {
   void LoadRef(ManagedRegister dest, FrameOffset src) OVERRIDE;
 
   void LoadRef(ManagedRegister dest, ManagedRegister base, MemberOffset offs,
-               bool poison_reference) OVERRIDE;
+               bool unpoison_reference) OVERRIDE;
 
   void LoadRawPtr(ManagedRegister dest, ManagedRegister base, Offset offs) OVERRIDE;
 
@@ -616,6 +744,54 @@ class X86Assembler FINAL : public Assembler {
   // and branch to a ExceptionSlowPath if it is.
   void ExceptionPoll(ManagedRegister scratch, size_t stack_adjust) OVERRIDE;
 
+  //
+  // Heap poisoning.
+  //
+
+  // Poison a heap reference contained in `reg`.
+  void PoisonHeapReference(Register reg) { negl(reg); }
+  // Unpoison a heap reference contained in `reg`.
+  void UnpoisonHeapReference(Register reg) { negl(reg); }
+  // Unpoison a heap reference contained in `reg` if heap poisoning is enabled.
+  void MaybeUnpoisonHeapReference(Register reg) {
+    if (kPoisonHeapReferences) {
+      UnpoisonHeapReference(reg);
+    }
+  }
+
+  // Add a double to the constant area, returning the offset into
+  // the constant area where the literal resides.
+  size_t AddDouble(double v) { return constant_area_.AddDouble(v); }
+
+  // Add a float to the constant area, returning the offset into
+  // the constant area where the literal resides.
+  size_t AddFloat(float v)   { return constant_area_.AddFloat(v); }
+
+  // Add an int32_t to the constant area, returning the offset into
+  // the constant area where the literal resides.
+  size_t AddInt32(int32_t v) {
+    return constant_area_.AddInt32(v);
+  }
+
+  // Add an int32_t to the end of the constant area, returning the offset into
+  // the constant area where the literal resides.
+  size_t AppendInt32(int32_t v) {
+    return constant_area_.AppendInt32(v);
+  }
+
+  // Add an int64_t to the constant area, returning the offset into
+  // the constant area where the literal resides.
+  size_t AddInt64(int64_t v) { return constant_area_.AddInt64(v); }
+
+  // Add the contents of the constant area to the assembler buffer.
+  void AddConstantArea();
+
+  // Is the constant area empty? Return true if there are no literals in the constant area.
+  bool IsConstantAreaEmpty() const { return constant_area_.IsEmpty(); }
+
+  // Return the current size of the constant area.
+  size_t ConstantAreaSize() const { return constant_area_.GetSize(); }
+
  private:
   inline void EmitUint8(uint8_t value);
   inline void EmitInt32(int32_t value);
@@ -629,10 +805,12 @@ class X86Assembler FINAL : public Assembler {
   void EmitComplex(int rm, const Operand& operand, const Immediate& immediate);
   void EmitLabel(Label* label, int instruction_size);
   void EmitLabelLink(Label* label);
-  void EmitNearLabelLink(Label* label);
+  void EmitLabelLink(NearLabel* label);
 
   void EmitGenericShift(int rm, const Operand& operand, const Immediate& imm);
   void EmitGenericShift(int rm, const Operand& operand, Register shifter);
+
+  ConstantArea constant_area_;
 
   DISALLOW_COPY_AND_ASSIGN(X86Assembler);
 };

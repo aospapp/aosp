@@ -58,7 +58,7 @@ void BaseObj::updateFromNative() {
 }
 
 bool BaseObj::equals(sp<const BaseObj> obj) {
-    // Early-out check to see if both BaseObjs are actually the same
+    // Early-out check to see if both BaseObjs are actually the same.
     if (this == obj.get())
         return true;
     return mID == obj->mID;

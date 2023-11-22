@@ -535,6 +535,14 @@ BOOLEAN nfc_hal_nci_preproc_rx_nci_msg (NFC_HDR *p_msg)
 
     HAL_TRACE_DEBUG0 ("nfc_hal_nci_preproc_rx_nci_msg()");
 
+    if (nfc_hal_cb.dev_cb.initializing_state == NFC_HAL_INIT_STATE_W4_NFCC_TURN_OFF)
+    {
+        /* if turning off BRCM NFCC */
+        nfc_hal_dm_proc_msg_during_exit (p_msg);
+        /* do not send message to NFC task while shutting down */
+        return (FALSE);
+    }
+
     /* if initializing BRCM NFCC */
     if (nfc_hal_cb.dev_cb.initializing_state != NFC_HAL_INIT_STATE_IDLE)
     {
@@ -865,6 +873,10 @@ void nfc_hal_nci_cmd_timeout_cback (void *p_tle)
         {
             NFC_HAL_SET_INIT_STATE(NFC_HAL_INIT_STATE_IDLE);
             nfc_hal_cb.p_stack_cback (HAL_NFC_PRE_DISCOVER_CPLT_EVT, HAL_NFC_STATUS_ERR_CMD_TIMEOUT);
+        }
+        else if (nfc_hal_cb.dev_cb.initializing_state == NFC_HAL_INIT_STATE_W4_NFCC_TURN_OFF)
+        {
+            nfc_hal_main_close ();
         }
     }
 }

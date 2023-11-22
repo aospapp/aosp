@@ -66,6 +66,12 @@ public class TestConnectionManager extends ConnectionService {
             }
 
             @Override
+            public void onConnectionPropertiesChanged(RemoteConnection connection,
+                    int connectionProperties) {
+                setConnectionProperties(connectionProperties);
+            }
+
+            @Override
             public void onPostDialWait(RemoteConnection connection, String remainingDigits) {
                 setPostDialWait(remainingDigits);
             }
@@ -249,6 +255,12 @@ public class TestConnectionManager extends ConnectionService {
             public void onConnectionCapabilitiesChanged(RemoteConference conference,
                     int connectionCapabilities) {
                 setConnectionCapabilities(connectionCapabilities);
+            }
+
+            @Override
+            public void onConnectionPropertiesChanged(RemoteConference conference,
+                    int connectionProperties) {
+                setConnectionProperties(connectionProperties);
             }
 
             @Override

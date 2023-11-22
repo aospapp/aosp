@@ -17,18 +17,23 @@
 package libcore.java.nio.channels;
 
 import java.io.IOException;
+import java.net.BindException;
 import java.net.DatagramSocket;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
+import java.net.ProtocolFamily;
+import java.net.StandardProtocolFamily;
+import java.net.StandardSocketOptions;
 import java.nio.ByteBuffer;
+import java.nio.channels.AlreadyBoundException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.DatagramChannel;
-import java.nio.channels.UnresolvedAddressException;
+import java.nio.channels.UnsupportedAddressTypeException;
+import java.nio.channels.spi.SelectorProvider;
 import java.util.Enumeration;
-import java.util.Set;
 
 public class DatagramChannelTest extends junit.framework.TestCase {
     public void test_read_intoReadOnlyByteArrays() throws Exception {
@@ -153,6 +158,101 @@ public class DatagramChannelTest extends junit.framework.TestCase {
         dc.close();
     }
 
+    public void test_setOption() throws Exception {
+        DatagramChannel dc = DatagramChannel.open();
+        // There were problems in the past as the number used here was below the minimum for
+        // some platforms (b/27821554). It was increased from 1024 to 4096.
+        dc.setOption(StandardSocketOptions.SO_SNDBUF, 4096);
+
+        // Assert that we can read back the option from the channel...
+        assertEquals(4096, (int) dc.getOption(StandardSocketOptions.SO_SNDBUF));
+        // ... and its socket adaptor.
+        assertEquals(4096, dc.socket().getSendBufferSize());
+
+        dc.close();
+        try {
+            dc.setOption(StandardSocketOptions.SO_SNDBUF, 4096);
+            fail();
+        } catch (ClosedChannelException expected) {
+        }
+    }
+
+    // http://b/26292854
+    public void test_getFileDescriptor() throws Exception {
+        DatagramSocket socket = DatagramChannel.open().socket();
+        socket.getReuseAddress();
+        assertNotNull(socket.getFileDescriptor$());
+    }
+
+    public void test_bind() throws IOException {
+        InetSocketAddress socketAddress = new InetSocketAddress(Inet4Address.LOOPBACK, 0);
+        DatagramChannel channel = DatagramChannel.open();
+        channel.bind(socketAddress);
+        assertEquals(socketAddress.getAddress(),
+                ((InetSocketAddress)(channel.getLocalAddress())).getAddress());
+        assertTrue(((InetSocketAddress)(channel.getLocalAddress())).getPort() > 0);
+
+        try {
+            channel.bind(socketAddress);
+            fail();
+        } catch (AlreadyBoundException expected) {
+        }
+
+        socketAddress = new InetSocketAddress(Inet4Address.LOOPBACK,
+                ((InetSocketAddress)(channel.getLocalAddress())).getPort());
+        try {
+            DatagramChannel.open().bind(socketAddress);
+            fail();
+        } catch (BindException expected) {}
+
+        channel.close();
+        socketAddress = new InetSocketAddress(Inet4Address.LOOPBACK, 0);
+        try {
+            channel.bind(socketAddress);
+        } catch (ClosedChannelException expected) {}
+    }
+
+    public void test_getRemoteAddress() throws IOException {
+        InetSocketAddress socketAddress = new InetSocketAddress(Inet4Address.LOOPBACK, 0);
+        DatagramChannel clientChannel = DatagramChannel.open();
+        DatagramChannel serverChannel = DatagramChannel.open();
+        serverChannel.bind(socketAddress);
+
+        assertNull(clientChannel.getRemoteAddress());
+
+        clientChannel.connect(serverChannel.getLocalAddress());
+        assertEquals(socketAddress.getAddress(),
+                ((InetSocketAddress)(clientChannel.getRemoteAddress())).getAddress());
+        assertEquals(((InetSocketAddress)(serverChannel.getLocalAddress())).getPort(),
+                ((InetSocketAddress)(clientChannel.getRemoteAddress())).getPort());
+    }
+
+    public void test_open$java_net_ProtocolFamily() throws IOException {
+        DatagramChannel channel = DatagramChannel.open(StandardProtocolFamily.INET);
+
+        channel.bind(new InetSocketAddress(Inet4Address.LOOPBACK, 0));
+        assertEquals(SelectorProvider.provider(), channel.provider());
+
+        try {
+            // Should not support IPv6 Address
+            // InetSocketAddress(int) returns IPv6 ANY  address
+            DatagramChannel.open(StandardProtocolFamily.INET).bind(new InetSocketAddress(0));
+            fail();
+        } catch (UnsupportedAddressTypeException expected) {}
+
+        DatagramChannel.open(StandardProtocolFamily.INET6).bind(new InetSocketAddress(0));
+
+        try {
+            DatagramChannel.open(MockProtocolFamily.MOCK);
+            fail();
+        } catch (UnsupportedOperationException expected) {}
+
+        try {
+            DatagramChannel.open(null);
+            fail();
+        } catch (NullPointerException expected) {}
+    }
+
     private static InetAddress getNonLoopbackNetworkInterfaceAddress(boolean ipv4) throws IOException {
         Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
         while (networkInterfaces.hasMoreElements()) {
@@ -170,5 +270,9 @@ public class DatagramChannelTest extends junit.framework.TestCase {
             }
         }
         return null;
+    }
+
+    enum MockProtocolFamily implements ProtocolFamily {
+        MOCK,
     }
 }

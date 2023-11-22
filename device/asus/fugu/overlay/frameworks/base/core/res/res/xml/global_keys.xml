@@ -27,6 +27,7 @@
 
 <global_keys version="1">
     <!-- Example format: id = keycode to handle globally. component = component which will handle this key. -->
+    <key keyCode="KEYCODE_GUIDE" component="com.google.android.tv/.receiver.GlobalKeyReceiver" />
     <key keyCode="KEYCODE_TV" component="com.google.android.tv/.receiver.GlobalKeyReceiver" />
     <key keyCode="KEYCODE_TV_INPUT" component="com.google.android.tv/.receiver.GlobalKeyReceiver" />
     <key keyCode="KEYCODE_TV_POWER" component="com.google.android.athome.globalkeyinterceptor/.Receiver" />

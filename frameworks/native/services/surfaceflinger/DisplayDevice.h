@@ -17,21 +17,31 @@
 #ifndef ANDROID_DISPLAY_DEVICE_H
 #define ANDROID_DISPLAY_DEVICE_H
 
+#include "Transform.h"
+
 #include <stdlib.h>
 
+#ifndef USE_HWC2
 #include <ui/PixelFormat.h>
+#endif
 #include <ui/Region.h>
 
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 
+#ifdef USE_HWC2
+#include <binder/IBinder.h>
+#include <utils/RefBase.h>
+#endif
 #include <utils/Mutex.h>
 #include <utils/String8.h>
 #include <utils/Timers.h>
 
 #include <hardware/hwcomposer_defs.h>
 
-#include "Transform.h"
+#ifdef USE_HWC2
+#include <memory>
+#endif
 
 struct ANativeWindow;
 
@@ -39,6 +49,7 @@ namespace android {
 
 struct DisplayInfo;
 class DisplaySurface;
+class Fence;
 class IGraphicBufferProducer;
 class Layer;
 class SurfaceFlinger;
@@ -75,8 +86,10 @@ public:
     DisplayDevice(
             const sp<SurfaceFlinger>& flinger,
             DisplayType type,
-            int32_t hwcId,  // negative for non-HWC-composited displays
+            int32_t hwcId,
+#ifndef USE_HWC2
             int format,
+#endif
             bool isSecure,
             const wp<IBinder>& displayToken,
             const sp<DisplaySurface>& displaySurface,
@@ -99,14 +112,15 @@ public:
 
     int         getWidth() const;
     int         getHeight() const;
+#ifndef USE_HWC2
     PixelFormat getFormat() const;
+#endif
     uint32_t    getFlags() const;
 
     EGLSurface  getEGLSurface() const;
 
     void                    setVisibleLayersSortedByZ(const Vector< sp<Layer> >& layers);
     const Vector< sp<Layer> >& getVisibleLayersSortedByZ() const;
-    bool                    getSecureLayerVisible() const;
     Region                  getDirtyRegion(bool repaintEverything) const;
 
     void                    setLayerStack(uint32_t stack);
@@ -115,6 +129,7 @@ public:
 
     int                     getOrientation() const { return mOrientation; }
     uint32_t                getOrientationTransform() const;
+    static uint32_t         getPrimaryDisplayOrientationTransform();
     const Transform&        getTransform() const { return mGlobalTransform; }
     const Rect              getViewport() const { return mViewport; }
     const Rect              getFrame() const { return mFrame; }
@@ -129,13 +144,23 @@ public:
     // We pass in mustRecompose so we can keep VirtualDisplaySurface's state
     // machine happy without actually queueing a buffer if nothing has changed
     status_t beginFrame(bool mustRecompose) const;
+#ifdef USE_HWC2
+    status_t prepareFrame(HWComposer& hwc);
+#else
     status_t prepareFrame(const HWComposer& hwc) const;
+#endif
 
     void swapBuffers(HWComposer& hwc) const;
+#ifndef USE_HWC2
     status_t compositionComplete() const;
+#endif
 
     // called after h/w composer has completed its set() call
+#ifdef USE_HWC2
+    void onSwapBuffersCompleted() const;
+#else
     void onSwapBuffersCompleted(HWComposer& hwc) const;
+#endif
 
     Rect getBounds() const {
         return Rect(mDisplayWidth, mDisplayHeight);
@@ -147,6 +172,8 @@ public:
 
     EGLBoolean makeCurrent(EGLDisplay dpy, EGLContext ctx) const;
     void setViewportAndProjection() const;
+
+    const sp<Fence>& getClientTargetAcquireFence() const;
 
     /* ------------------------------------------------------------------------
      * Display power mode management.
@@ -188,7 +215,9 @@ private:
     EGLSurface      mSurface;
     int             mDisplayWidth;
     int             mDisplayHeight;
+#ifndef USE_HWC2
     PixelFormat     mFormat;
+#endif
     uint32_t        mFlags;
     mutable uint32_t mPageFlipCount;
     String8         mDisplayName;
@@ -202,10 +231,6 @@ private:
     // list of visible layers on that display
     Vector< sp<Layer> > mVisibleLayersSortedByZ;
 
-    // Whether we have a visible secure layer on this display
-    bool mSecureLayerVisible;
-
-
     /*
      * Transaction state
      */
@@ -214,6 +239,7 @@ private:
 
     uint32_t mLayerStack;
     int mOrientation;
+    static uint32_t sPrimaryDisplayOrientation;
     // user-provided visible area of the layer stack
     Rect mViewport;
     // user-provided rectangle where mViewport gets mapped to

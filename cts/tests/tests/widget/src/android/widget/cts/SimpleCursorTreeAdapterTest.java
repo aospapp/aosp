@@ -16,7 +16,7 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 
 import android.content.Context;
@@ -136,9 +136,9 @@ public class SimpleCursorTreeAdapterTest extends InstrumentationTestCase {
         ImageView view = new ImageView(mContext);
         assertNull(view.getDrawable());
         mSimpleCursorTreeAdapter.setViewImage(view,
-                String.valueOf(com.android.cts.widget.R.drawable.scenery));
+                String.valueOf(android.widget.cts.R.drawable.scenery));
         BitmapDrawable d = (BitmapDrawable) mContext.getResources().getDrawable(
-                com.android.cts.widget.R.drawable.scenery);
+                android.widget.cts.R.drawable.scenery);
         WidgetTestUtils.assertEquals(d.getBitmap(),
                 ((BitmapDrawable) view.getDrawable()).getBitmap());
 
@@ -164,10 +164,10 @@ public class SimpleCursorTreeAdapterTest extends InstrumentationTestCase {
         try {
             mSimpleCursorTreeAdapter.setViewImage(view,
                     SimpleCursorAdapterTest.createTestImage(mContext, SAMPLE_IMAGE_NAME,
-                            com.android.cts.widget.R.raw.testimage));
+                            android.widget.cts.R.raw.testimage));
             Bitmap actualBitmap = ((BitmapDrawable) view.getDrawable()).getBitmap();
             Bitmap test = WidgetTestUtils.getUnscaledAndDitheredBitmap(mContext.getResources(),
-                    com.android.cts.widget.R.raw.testimage, actualBitmap.getConfig());
+                    android.widget.cts.R.raw.testimage, actualBitmap.getConfig());
             WidgetTestUtils.assertEquals(test, actualBitmap);
         } finally {
             SimpleCursorAdapterTest.destroyTestImage(mContext, SAMPLE_IMAGE_NAME);

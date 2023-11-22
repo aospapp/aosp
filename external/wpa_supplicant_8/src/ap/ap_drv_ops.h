@@ -41,7 +41,7 @@ int hostapd_sta_add(struct hostapd_data *hapd,
 		    u16 listen_interval,
 		    const struct ieee80211_ht_capabilities *ht_capab,
 		    const struct ieee80211_vht_capabilities *vht_capab,
-		    u32 flags, u8 qosinfo, u8 vht_opmode);
+		    u32 flags, u8 qosinfo, u8 vht_opmode, int set);
 int hostapd_set_privacy(struct hostapd_data *hapd, int enabled);
 int hostapd_set_generic_elem(struct hostapd_data *hapd, const u8 *elem,
 			     size_t elem_len);
@@ -88,6 +88,9 @@ int hostapd_drv_set_key(const char *ifname,
 			const u8 *key, size_t key_len);
 int hostapd_drv_send_mlme(struct hostapd_data *hapd,
 			  const void *msg, size_t len, int noack);
+int hostapd_drv_send_mlme_csa(struct hostapd_data *hapd,
+			      const void *msg, size_t len, int noack,
+			      const u16 *csa_offs, size_t csa_offs_len);
 int hostapd_drv_sta_deauth(struct hostapd_data *hapd,
 			   const u8 *addr, int reason);
 int hostapd_drv_sta_disassoc(struct hostapd_data *hapd,

@@ -19,8 +19,9 @@ package android.databinding.tool.expr;
 import android.databinding.tool.processing.ErrorMessages;
 import android.databinding.tool.reflection.ModelAnalyzer;
 import android.databinding.tool.reflection.ModelClass;
-import android.databinding.tool.util.L;
 import android.databinding.tool.util.Preconditions;
+import android.databinding.tool.writer.KCode;
+import android.databinding.tool.writer.LayoutBinderWriterKt;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,6 +29,8 @@ import java.util.List;
 public class IdentifierExpr extends Expr {
     String mName;
     String mUserDefinedType;
+    private boolean mIsDeclared;
+
     IdentifierExpr(String name) {
         mName = name;
     }
@@ -66,11 +69,38 @@ public class IdentifierExpr extends Expr {
 
     @Override
     protected List<Dependency> constructDependencies() {
-        return new ArrayList<>();
+        return new ArrayList<Dependency>();
     }
 
     @Override
     protected String asPackage() {
         return mUserDefinedType == null ? mName : null;
+    }
+
+    @Override
+    protected KCode generateCode(boolean expand) {
+        if (expand) {
+            return new KCode(LayoutBinderWriterKt.getFieldName(this));
+        } else {
+            return new KCode(LayoutBinderWriterKt.getExecutePendingLocalName(this));
+        }
+    }
+
+    public void setDeclared() {
+        mIsDeclared = true;
+    }
+
+    public boolean isDeclared() {
+        return mIsDeclared;
+    }
+
+    @Override
+    public String getInvertibleError() {
+        return null;
+    }
+
+    @Override
+    public KCode toInverseCode(KCode value) {
+        return new KCode().app(LayoutBinderWriterKt.getSetterName(this)).app("(", value).app(");");
     }
 }

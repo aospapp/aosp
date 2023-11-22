@@ -17,12 +17,60 @@
 package android.print.cts.services;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
+import android.print.PrintJobInfo;
+import android.print.PrinterInfo;
+import android.printservice.PrintService;
 
+/**
+ * Custom print options activity for both print services
+ */
 public class CustomPrintOptionsActivity extends Activity {
+    /** Lock for {@link #sCallback} */
+    private static Object sLock = new Object();
+
+    /** Currently registered callback for _both_ first and second print service. */
+    private static CustomPrintOptionsCallback sCallback = null;
+
+    /**
+     * Set a new callback called when the custom options activity is launched.
+     *
+     * @param callback The new callback or null, if the callback should be unregistered.
+     */
+    public static void setCallBack(CustomPrintOptionsCallback callback) {
+        synchronized (sLock) {
+            sCallback = callback;
+        }
+    }
+
+    /**
+     * Callback executed for this activity. Set via {@link #setCallBack}.
+     */
+    public interface CustomPrintOptionsCallback {
+        PrintJobInfo executeCustomPrintOptionsActivity(PrintJobInfo printJob,
+                PrinterInfo printer);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        Intent result = new Intent();
+
+        synchronized (sLock) {
+            if (sCallback != null) {
+                PrintJobInfo printJobInfo = getIntent().getParcelableExtra(
+                        PrintService.EXTRA_PRINT_JOB_INFO);
+                PrinterInfo printerInfo = getIntent().getParcelableExtra(
+                        "android.intent.extra.print.EXTRA_PRINTER_INFO");
+
+                result.putExtra(PrintService.EXTRA_PRINT_JOB_INFO,
+                        sCallback.executeCustomPrintOptionsActivity(printJobInfo, printerInfo));
+            }
+        }
+
+        setResult(Activity.RESULT_OK, result);
+        finish();
     }
 }

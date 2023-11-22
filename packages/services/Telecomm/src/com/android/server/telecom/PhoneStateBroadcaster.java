@@ -43,28 +43,43 @@ final class PhoneStateBroadcaster extends CallsManagerListenerBase {
 
     @Override
     public void onCallStateChanged(Call call, int oldState, int newState) {
-        if ((newState == CallState.DIALING || newState == CallState.ACTIVE
-                || newState == CallState.ON_HOLD) &&
-                !mCallsManager.hasRingingCall()) {
-            /*
-             * EXTRA_STATE_RINGING takes precedence over EXTRA_STATE_OFFHOOK, so if there is
-             * already a ringing call, don't broadcast EXTRA_STATE_OFFHOOK.
-             */
-            sendPhoneStateChangedBroadcast(call, TelephonyManager.CALL_STATE_OFFHOOK);
-        }
+        updateStates(call);
     }
 
     @Override
     public void onCallAdded(Call call) {
-        if (call.getState() == CallState.RINGING) {
-            sendPhoneStateChangedBroadcast(call, TelephonyManager.CALL_STATE_RINGING);
+        if (call.isExternalCall()) {
+            return;
         }
-    };
+        updateStates(call);
+    }
 
     @Override
     public void onCallRemoved(Call call) {
+        if (call.isExternalCall()) {
+            return;
+        }
+        updateStates(call);
+    }
+
+    /**
+     * Handles changes to a call's external property.  If the call becomes external, we end up
+     * updating the call state to idle.  If the call becomes non-external, then the call state can
+     * update to off hook.
+     *
+     * @param call The call.
+     * @param isExternalCall {@code True} if the call is external, {@code false} otherwise.
+     */
+    @Override
+    public void onExternalCallChanged(Call call, boolean isExternalCall) {
+        updateStates(call);
+    }
+
+    private void updateStates(Call call) {
         // Recalculate the current phone state based on the consolidated state of the remaining
         // calls in the call list.
+        // Note: CallsManager#hasRingingCall() and CallsManager#getFirstCallWithState(..) do not
+        // consider external calls, so an external call is going to cause the state to be idle.
         int callState = TelephonyManager.CALL_STATE_IDLE;
         if (mCallsManager.hasRingingCall()) {
             callState = TelephonyManager.CALL_STATE_RINGING;

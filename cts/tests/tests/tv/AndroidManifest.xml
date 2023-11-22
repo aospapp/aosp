@@ -17,12 +17,11 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.cts.tv">
+        package="android.tv.cts">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.INJECT_EVENTS" />
 
-    <uses-permission android:name="com.android.providers.tv.permission.READ_EPG_DATA" />
     <uses-permission android:name="com.android.providers.tv.permission.WRITE_EPG_DATA" />
 
     <application>
@@ -94,6 +93,15 @@
                        android:resource="@xml/stub_tv_input_service" />
         </service>
 
+        <service android:name="android.media.tv.cts.FaultyTvInputService"
+                 android:permission="android.permission.BIND_TV_INPUT"
+                 android:process=":faultyTvInputService">
+            <intent-filter>
+                <action android:name="android.media.tv.TvInputService" />
+            </intent-filter>
+            <meta-data android:name="android.media.tv.input"
+                       android:resource="@xml/stub_tv_input_service" />
+        </service>
 
         <activity android:name="android.media.tv.cts.TvViewStubActivity">
             <intent-filter>
@@ -110,7 +118,7 @@
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-            android:targetPackage="com.android.cts.tv"
+            android:targetPackage="android.tv.cts"
             android:label="Tests for the TV APIs.">
         <meta-data android:name="listener"
                 android:value="com.android.cts.runner.CtsTestRunListener" />

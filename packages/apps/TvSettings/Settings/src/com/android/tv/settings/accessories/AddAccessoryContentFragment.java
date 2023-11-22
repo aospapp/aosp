@@ -16,61 +16,27 @@
 
 package com.android.tv.settings.accessories;
 
-import android.app.Fragment;
+import android.annotation.Nullable;
 import android.os.Bundle;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.TextView;
 
 import com.android.tv.settings.R;
-import com.android.tv.settings.util.AccessibilityHelper;
+import com.android.tv.settings.dialog.ProgressDialogFragment;
 
 /**
  * Custom Content Fragment for the Bluetooth settings activity.
  */
-public class AddAccessoryContentFragment extends Fragment {
+public class AddAccessoryContentFragment extends ProgressDialogFragment {
 
-    private static final String ARG_MULTIPLE = "multiple";
-
-    public static AddAccessoryContentFragment newInstance(boolean multiple) {
-        AddAccessoryContentFragment fragment = new AddAccessoryContentFragment();
-        final Bundle args = new Bundle(1);
-        args.putBoolean(ARG_MULTIPLE, multiple);
-        fragment.setArguments(args);
-        return fragment;
+    public static AddAccessoryContentFragment newInstance() {
+        return new AddAccessoryContentFragment();
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-            Bundle savedInstanceState) {
-        final boolean multiple = getArguments().getBoolean(ARG_MULTIPLE);
-
-        final View view =
-                inflater.inflate(multiple ? R.layout.add_accessory_multiple_content_fragment :
-                R.layout.add_accessory_content_fragment, container, false);
-
-        // Enable focusability of text views if accessibility is enabled.
-        if (AccessibilityHelper.forceFocusableViews(getActivity())) {
-            TextView title = (TextView) view.findViewById(
-                    multiple ? R.id.multiple_title : R.id.title);
-            if (title != null) {
-                title.setFocusable(true);
-                title.setFocusableInTouchMode(true);
-            }
-            TextView instructions = (TextView) view.findViewById(
-                    multiple ? R.id.multiple_instructions : R.id.bluetooth_instructions);
-            if (instructions != null) {
-                instructions.setFocusable(true);
-                instructions.setFocusableInTouchMode(true);
-            }
-            TextView autopair = (TextView) view.findViewById(
-                    multiple ? R.id.select_instructions : R.id.autopair_message);
-            if (autopair != null) {
-                autopair.setFocusable(true);
-                autopair.setFocusableInTouchMode(true);
-            }
-        }
-        return view;
+    public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        setTitle(R.string.accessories_add_title);
+        setIcon(R.drawable.ic_bluetooth_searching_128dp);
+        setSummary(R.string.accessories_add_bluetooth_inst);
     }
 }

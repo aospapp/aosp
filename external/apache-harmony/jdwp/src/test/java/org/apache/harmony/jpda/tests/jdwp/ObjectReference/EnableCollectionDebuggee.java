@@ -31,15 +31,16 @@ import org.apache.harmony.jpda.tests.share.SyncDebuggee;
 public class EnableCollectionDebuggee extends SyncDebuggee {
     
     static EnableCollectionObject001_01 checkedObject;
-    static boolean checkedObject_Finalized = false; 
+    static boolean checkedObject_Finalized = false;
     static EnableCollectionObject001_02 patternObject;
-    static boolean patternObject_Finalized = false; 
+    static boolean patternObject_Finalized = false;
 
     public void run() {
         logWriter.println("--> Debuggee: EnableCollectionDebuggee: START");
         
-        checkedObject = new EnableCollectionObject001_01();
-        patternObject = new EnableCollectionObject001_02();
+        // Allocates test objects to be sure there is no local reference
+        // to them.
+        allocateTestObjects();
 
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
         String messageFromTest = synchronizer.receiveMessage();
@@ -48,63 +49,79 @@ public class EnableCollectionDebuggee extends SyncDebuggee {
             return;
         }
         
-        logWriter.println("--> Debuggee: BEFORE System.gc():");
-        logWriter.println("--> Debuggee: checkedObject = " + 
-                checkedObject);
-        logWriter.println("--> Debuggee: checkedObject_UNLOADed = " + 
-                checkedObject_Finalized);
-        logWriter.println("--> Debuggee: patternObject = " + 
-                patternObject);
-        logWriter.println("--> Debuggee: patternObject_UNLOADed = " + 
-                patternObject_Finalized);
+        // Releases test objects so there is no more reference to them. We do it in a
+        // separate method to avoid having any local reference to them.
+        releaseTestObjects();
 
-        checkedObject = null;
-        patternObject = null;
-        long[][] longArray;
-        int i = 0;
-        try {
-            longArray = new long[1000000][];
-            int arraysNumberLimit = 8; // max - longArray.length
-            logWriter.println
-            ("--> Debuggee: memory depletion - creating 'long[1000000]' arrays (" + arraysNumberLimit + ")..."); 
-            for (; i < arraysNumberLimit; i++) {
-                longArray[i] = new long[1000000];
-            }
-        } catch ( OutOfMemoryError outOfMem ) {
-            logWriter.println("--> Debuggee: OutOfMemoryError!!!");
-        }
-        longArray = null;
+        // Allocates many objects to increase the heap.
+        causeMemoryDepletion();
+
+        // Requests GC and finalization of objects.
         System.gc();
-        logWriter.println("--> Debuggee: AFTER System.gc():");
-        logWriter.println("--> Debuggee: checkedObject = " + 
-                checkedObject);
-        logWriter.println("--> Debuggee: checkedObject_UNLOADed = " + 
-                checkedObject_Finalized);
-        logWriter.println("--> Debuggee: patternObject = " + 
-                patternObject);
-        logWriter.println("--> Debuggee: patternObject_UNLOADed = " + 
-                patternObject_Finalized);
+        System.runFinalization();
+        System.gc();
 
-        String messageForTest = null;
-        if ( checkedObject_Finalized ) {
-            if ( patternObject_Finalized ) {
-                messageForTest = "Checked Object is UNLOADed; Pattern Object is UNLOADed;";
-            } else {
-                messageForTest = "Checked Object is UNLOADed; Pattern Object is NOT UNLOADed;";
-            }
-        } else {
-            if ( patternObject_Finalized ) {
-                messageForTest = "Checked Object is NOT UNLOADed; Pattern Object is UNLOADed;";
-            } else {
-                messageForTest = "Checked Object is NOT UNLOADed; Pattern Object is NOT UNLOADed;";
-            }
-        }
+        logWriter.println("--> Debuggee: AFTER System.gc():");
+        logWriter.println("--> Debuggee: checkedObject = " + checkedObject);
+        logWriter.println("--> Debuggee: checkedObject_UNLOADed = " + checkedObject_Finalized);
+        logWriter.println("--> Debuggee: patternObject = " + patternObject);
+        logWriter.println("--> Debuggee: patternObject_UNLOADed = " + patternObject_Finalized);
+
+        String messageForTest = buildMessage();
         logWriter.println("--> Debuggee: Send to test message: \"" + messageForTest + "\"");
         synchronizer.sendMessage(messageForTest);
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
 
         logWriter.println("--> Debuggee: EnableCollectionDebuggee: FINISH");
+    }
 
+    private void allocateTestObjects() {
+        checkedObject = new EnableCollectionObject001_01();
+        patternObject = new EnableCollectionObject001_02();
+    }
+
+    private void releaseTestObjects() {
+        logWriter.println("--> Debuggee: BEFORE System.gc():");
+        logWriter.println("--> Debuggee: checkedObject = " + checkedObject);
+        logWriter.println("--> Debuggee: checkedObject_UNLOADed = " + checkedObject_Finalized);
+        logWriter.println("--> Debuggee: patternObject = " + patternObject);
+        logWriter.println("--> Debuggee: patternObject_UNLOADed = " + patternObject_Finalized);
+
+        checkedObject = null;
+        patternObject = null;
+    }
+
+    private void causeMemoryDepletion() {
+        long[][] longArray;
+        try {
+            longArray = new long[1000000][];
+            int arraysNumberLimit = 8; // max - longArray.length
+            logWriter.println
+            ("--> Debuggee: memory depletion - creating 'long[1000000]' arrays (" + arraysNumberLimit + ")...");
+            for (int i = 0; i < arraysNumberLimit; i++) {
+                longArray[i] = new long[1000000];
+            }
+        } catch (OutOfMemoryError outOfMem) {
+            logWriter.println("--> Debuggee: OutOfMemoryError!!!");
+        }
+    }
+
+    private String buildMessage() {
+        StringBuilder messageBuilder = new StringBuilder();
+        messageBuilder.append("Checked Object is ");
+        if (checkedObject_Finalized) {
+            messageBuilder.append("UNLOADed");
+        } else {
+            messageBuilder.append("NOT UNLOADed");
+        }
+        messageBuilder.append("; Pattern Object is ");
+        if (patternObject_Finalized) {
+            messageBuilder.append("UNLOADed");
+        } else {
+            messageBuilder.append("NOT UNLOADed");
+        }
+        messageBuilder.append(";");
+        return messageBuilder.toString();
     }
 
     public static void main(String [] args) {

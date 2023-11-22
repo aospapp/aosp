@@ -67,10 +67,6 @@ public final class Platform {
         SocketTagger.get().untag(socket);
     }
 
-    public URI toUriLenient(URL url) throws URISyntaxException {
-        return url.toURILenient();
-    }
-
     public void configureTlsExtensions(
             SSLSocket sslSocket, String hostname, List<Protocol> protocols) {
         // Enable SNI and session tickets.

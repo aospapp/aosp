@@ -14,8 +14,7 @@
      limitations under the License.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.textureview"
-    >
+    package="android.textureview.cts">
 
     <uses-feature android:glEsVersion="0x00020000" android:required="true" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
@@ -24,7 +23,7 @@
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
 
     <instrumentation
-        android:targetPackage="com.android.cts.textureview"
+        android:targetPackage="android.textureview.cts"
         android:name="android.support.test.runner.AndroidJUnitRunner" >
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

@@ -45,7 +45,7 @@ TEST(custom_disassembler) {
 
 
 // The tests below only work with the simulator.
-#ifdef USE_SIMULATOR
+#ifdef VIXL_INCLUDE_SIMULATOR
 
 #define ARRAY_SIZE(Array) (sizeof(Array) / sizeof((Array)[0]))
 #define BUF_SIZE (4096)
@@ -566,4 +566,11 @@ TEST(non_const_visitor) {
   assert(res_orig == -res_mod);
 }
 
-#endif  // USE_SIMULATOR
+
+TEST(literal_example) {
+  VIXL_ASSERT(LiteralExample(1, 2) == 3);
+  VIXL_ASSERT(
+      LiteralExample(INT64_C(0x100000000), 0x1) == INT64_C(0x100000001));
+}
+
+#endif  // VIXL_INCLUDE_SIMULATOR

@@ -15,6 +15,7 @@
  */
 
 #include <algorithm>
+#include <climits>
 #include <iostream>
 #include <iterator>
 #include <sstream>
@@ -25,8 +26,8 @@
 
 using namespace std;
 
-const int kMinimumApiLevelForTests = 11;
-const int kApiLevelWithFirst64Bit = 21;
+const unsigned int kMinimumApiLevelForTests = 11;
+const unsigned int kApiLevelWithFirst64Bit = 21;
 
 // Used to map the built-in types to their mangled representations
 struct BuiltInMangling {
@@ -58,7 +59,7 @@ BuiltInMangling builtInMangling[] = {
  * substitution for the provided type name, as would be done (mostly) by a
  * preprocessor.  Returns empty string if there's no substitution.
  */
-static string findSubstitute(const string& typeName, int apiLevel, int intSize) {
+static string findSubstitute(const string& typeName, unsigned int apiLevel, int intSize) {
     const auto& types = systemSpecification.getTypes();
     const auto type = types.find(typeName);
     if (type != types.end()) {
@@ -70,21 +71,14 @@ static string findSubstitute(const string& typeName, int apiLevel, int intSize) 
             }
             switch (spec->getKind()) {
                 case SIMPLE: {
-                    /* For simple typedefs, replace it unless it's the special case of _RS_HANDLE
-                     * which is a macro of a struct.
-                     */
-                    const string s = spec->getSimpleType();
-                    if (s != "_RS_HANDLE") {
-                        return s;
-                    }
+                    return spec->getSimpleType();
+                }
+                case RS_OBJECT: {
+                    // Do nothing for RS object types.
                     break;
                 }
                 case STRUCT: {
-                    const string s = spec->getStructName();
-                    if (!s.empty()) {
-                        return s;
-                    }
-                    break;
+                    return spec->getStructName();
                 }
                 case ENUM:
                     // Do nothing
@@ -99,7 +93,7 @@ static string findSubstitute(const string& typeName, int apiLevel, int intSize) 
  * the resulting list.  'apiLevel' and 'intSize' specifies the API level and bitness
  * we are currently processing.
  */
-list<string> expandTypedefs(const string type, int apiLevel, int intSize) {
+list<string> expandTypedefs(const string type, unsigned int apiLevel, int intSize, string& vectorSize) {
     // Split the string in tokens.
     istringstream stream(type);
     list<string> tokens{istream_iterator<string>{stream}, istream_iterator<string>{}};
@@ -112,6 +106,26 @@ list<string> expandTypedefs(const string type, int apiLevel, int intSize) {
         } else {
             // Split the replacement string in tokens.
             istringstream stream(substitute);
+
+            /* Get the new vector size. This is for the case of the type being for example
+             * rs_quaternion* == float4*, where we need the vector size to be 4 for the
+             * purposes of mangling, although the parameter itself is not determined to be
+             * a vector. */
+            string unused;
+            string newVectorSize;
+            getVectorSizeAndBaseType(*i, newVectorSize, unused);
+
+            istringstream vectorSizeBuf(vectorSize);
+            int vectorSizeVal;
+            vectorSizeBuf >> vectorSizeVal;
+
+            istringstream newVectorSizeBuf(newVectorSize);
+            int newVectorSizeVal;
+            newVectorSizeBuf >> newVectorSizeVal;
+
+            if (newVectorSizeVal > vectorSizeVal)
+                vectorSize = newVectorSize;
+
             list<string> newTokens{istream_iterator<string>{stream}, istream_iterator<string>{}};
             // Replace the token with the substitution. Don't advance, as the new substitution
             // might itself be replaced.
@@ -205,6 +219,9 @@ static bool mangleType(string vectorSize, list<string>* tokens, vector<string>* 
         delta = mangleLongName(tokens->front());
         isTerminal = true;
         tokens->pop_front();
+    } else if (eatFront(tokens, "...")) {
+        delta = "z";
+        isTerminal = true;
     } else {
         const char* c = findManglingOfBuiltInType(tokens);
         if (c) {
@@ -275,7 +292,7 @@ static bool mangleType(string vectorSize, list<string>* tokens, vector<string>* 
 
 // Write to the stream the mangled representation of each parameter.
 static bool writeParameters(ostringstream* stream, const std::vector<ParameterDefinition*>& params,
-                            int apiLevel, int intSize) {
+                            unsigned int apiLevel, int intSize) {
     if (params.empty()) {
         *stream << "v";
         return true;
@@ -286,12 +303,14 @@ static bool writeParameters(ostringstream* stream, const std::vector<ParameterDe
     vector<string> previousManglings;
     for (ParameterDefinition* p : params) {
         // Expand the typedefs and create a tokenized list.
-        list<string> tokens = expandTypedefs(p->rsType, apiLevel, intSize);
+        string vectorSize = p->mVectorSize;
+        list<string> tokens = expandTypedefs(p->rsType, apiLevel, intSize, vectorSize);
         if (p->isOutParameter) {
             tokens.push_back("*");
         }
         string mangling, compressedMangling;
-        if (!mangleType(p->mVectorSize, &tokens, &previousManglings, &mangling,
+
+        if (!mangleType(vectorSize, &tokens, &previousManglings, &mangling,
                         &compressedMangling)) {
             return false;
         }
@@ -305,7 +324,7 @@ static bool writeParameters(ostringstream* stream, const std::vector<ParameterDe
  */
 static bool addFunctionManglingToSet(const Function& function,
                                      const FunctionPermutation& permutation, bool overloadable,
-                                     int apiLevel, int intSize, set<string>* allManglings) {
+                                     unsigned int apiLevel, int intSize, set<string>* allManglings) {
     const string& functionName = permutation.getName();
     string mangling;
     if (overloadable) {
@@ -329,22 +348,25 @@ static bool addFunctionManglingToSet(const Function& function,
  * of API levels covered.
  */
 static bool addManglingsForSpecification(const Function& function,
-                                         const FunctionSpecification& spec, int lastApiLevel,
+                                         const FunctionSpecification& spec, unsigned int lastApiLevel,
                                          set<string>* allManglings) {
     // If the function is inlined, we won't generate an unresolved external for that.
     if (spec.hasInline()) {
         return true;
     }
     const VersionInfo info = spec.getVersionInfo();
-    const int minApiLevel = info.minVersion ? info.minVersion : kMinimumApiLevelForTests;
-    const int maxApiLevel = info.maxVersion ? info.maxVersion : lastApiLevel;
+    unsigned int minApiLevel, maxApiLevel;
+    minApiLevel = info.minVersion ? info.minVersion : kMinimumApiLevelForTests;
+    maxApiLevel = info.maxVersion ? info.maxVersion : lastApiLevel;
     const bool overloadable = spec.isOverloadable();
 
     /* We track success rather than aborting early in case of failure so that we
      * generate all the error messages.
      */
     bool success = true;
-    for (int apiLevel = minApiLevel; apiLevel <= maxApiLevel; ++apiLevel) {
+    // Use 64-bit integer here for the loop count to avoid overflow
+    // (minApiLevel == maxApiLevel == UINT_MAX for unreleased API)
+    for (int64_t apiLevel = minApiLevel; apiLevel <= maxApiLevel; ++apiLevel) {
         for (auto permutation : spec.getPermutations()) {
             if (info.intSize == 0 || info.intSize == 32) {
                 if (!addFunctionManglingToSet(function, *permutation, overloadable, apiLevel, 32,
@@ -367,13 +389,17 @@ static bool addManglingsForSpecification(const Function& function,
  * to validate unresolved external references.  'lastApiLevel' is the largest api level found in
  * all spec files.
  */
-static bool generateWhiteListFile(int lastApiLevel) {
+static bool generateWhiteListFile(unsigned int lastApiLevel) {
     bool success = true;
     // We generate all the manglings in a set to remove duplicates and to order them.
     set<string> allManglings;
     for (auto f : systemSpecification.getFunctions()) {
         const Function* function = f.second;
         for (auto spec : function->getSpecifications()) {
+            // Compiler intrinsics are not runtime APIs. Do not include them in the whitelist.
+            if (spec->isIntrinsic()) {
+                continue;
+            }
             if (!addManglingsForSpecification(*function, *spec, lastApiLevel, &allManglings)) {
                 success = false;  // We continue so we can generate all errors.
             }
@@ -428,9 +454,12 @@ static void generateTestCall(GeneratedFile* file, ostringstream* calls,
     const char* separator = "";
     for (auto p : permutation.getParams()) {
         *calls << separator;
-        // Special case for the kernel context, as it has a special existence.
         if (p->rsType == "rs_kernel_context") {
+            // Special case for the kernel context, as it has a special existence.
             *calls << "context";
+        } else if (p->rsType == "...") {
+            // Special case for varargs. No need for casting.
+            *calls << addVariable(file, variableNumber);
         } else if (p->isOutParameter) {
             *calls << "(" << p->rsType << "*) " << addVariable(file, variableNumber);
         } else {
@@ -451,7 +480,7 @@ static void generateTestCall(GeneratedFile* file, ostringstream* calls,
  * This file can be used to verify the white list that's also generated in this file.  To do so,
  * run "llvm-nm -undefined-only -just-symbol-name" on the resulting bit code.
  */
-static bool generateApiTesterFile(const string& slangTestDirectory, int apiLevel) {
+static bool generateApiTesterFile(const string& slangTestDirectory, unsigned int apiLevel) {
     GeneratedFile file;
     if (!file.start(slangTestDirectory, "all" + to_string(apiLevel) + ".rs")) {
         return false;
@@ -477,6 +506,10 @@ static bool generateApiTesterFile(const string& slangTestDirectory, int apiLevel
     for (auto f : systemSpecification.getFunctions()) {
         const Function* function = f.second;
         for (auto spec : function->getSpecifications()) {
+            // Do not include internal APIs in the API tests.
+            if (spec->isInternal()) {
+                continue;
+            }
             VersionInfo info = spec->getVersionInfo();
             if (!info.includesVersion(apiLevel)) {
                 continue;
@@ -487,6 +520,9 @@ static bool generateApiTesterFile(const string& slangTestDirectory, int apiLevel
                 calls << "#ifdef __LP64__\n";
             }
             for (auto permutation : spec->getPermutations()) {
+                // http://b/27358969 Do not test rsForEach in the all-api test.
+                if (apiLevel >= 24 && permutation->getName().compare(0, 9, "rsForEach") == 0)
+                  continue;
                 generateTestCall(&file, &calls, &variableNumber, *function, *permutation);
             }
             if (info.intSize != 0) {
@@ -510,13 +546,13 @@ static bool generateApiTesterFile(const string& slangTestDirectory, int apiLevel
     return true;
 }
 
-bool generateStubsWhiteList(const string& slangTestDirectory, int maxApiLevel) {
-    int lastApiLevel = min(systemSpecification.getMaximumApiLevel(), maxApiLevel);
+bool generateStubsWhiteList(const string& slangTestDirectory, unsigned int maxApiLevel) {
+    unsigned int lastApiLevel = min(systemSpecification.getMaximumApiLevel(), maxApiLevel);
     if (!generateWhiteListFile(lastApiLevel)) {
         return false;
     }
     // Generate a test file for each apiLevel.
-    for (int i = kMinimumApiLevelForTests; i <= lastApiLevel; ++i) {
+    for (unsigned int i = kMinimumApiLevelForTests; i <= lastApiLevel; ++i) {
         if (!generateApiTesterFile(slangTestDirectory, i)) {
             return false;
         }

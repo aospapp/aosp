@@ -6,36 +6,39 @@
 #define V8_COMPILER_JS_BUILTIN_REDUCER_H_
 
 #include "src/compiler/graph-reducer.h"
-#include "src/compiler/js-graph.h"
-#include "src/compiler/machine-operator.h"
-#include "src/compiler/node.h"
-#include "src/compiler/simplified-operator.h"
 
 namespace v8 {
 namespace internal {
 namespace compiler {
 
-class JSBuiltinReducer FINAL : public Reducer {
- public:
-  explicit JSBuiltinReducer(JSGraph* jsgraph)
-      : jsgraph_(jsgraph), simplified_(jsgraph->zone()) {}
-  virtual ~JSBuiltinReducer() {}
+// Forward declarations.
+class CommonOperatorBuilder;
+class JSGraph;
+class MachineOperatorBuilder;
+class SimplifiedOperatorBuilder;
 
-  virtual Reduction Reduce(Node* node) OVERRIDE;
+
+class JSBuiltinReducer final : public AdvancedReducer {
+ public:
+  explicit JSBuiltinReducer(Editor* editor, JSGraph* jsgraph);
+  ~JSBuiltinReducer() final {}
+
+  Reduction Reduce(Node* node) final;
 
  private:
-  JSGraph* jsgraph() const { return jsgraph_; }
-  Graph* graph() const { return jsgraph_->graph(); }
-  CommonOperatorBuilder* common() const { return jsgraph_->common(); }
-  MachineOperatorBuilder* machine() const { return jsgraph_->machine(); }
-  SimplifiedOperatorBuilder* simplified() { return &simplified_; }
-
-  Reduction ReduceMathSqrt(Node* node);
+  Reduction ReduceFunctionCall(Node* node);
   Reduction ReduceMathMax(Node* node);
   Reduction ReduceMathImul(Node* node);
+  Reduction ReduceMathFround(Node* node);
+
+  Graph* graph() const;
+  JSGraph* jsgraph() const { return jsgraph_; }
+  Isolate* isolate() const;
+  CommonOperatorBuilder* common() const;
+  MachineOperatorBuilder* machine() const;
+  SimplifiedOperatorBuilder* simplified() const;
 
   JSGraph* jsgraph_;
-  SimplifiedOperatorBuilder simplified_;
 };
 
 }  // namespace compiler

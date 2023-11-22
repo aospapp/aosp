@@ -77,10 +77,8 @@ public class TimestampTest extends TestCase {
 
     static String STRING_INVALID3 = "21-43-48";
 
-    // A timepoint in the correct format but with numeric values out of range
-    // ...this is accepted despite being a crazy date specification
-    // ...it is treated as the correct format date 3000-06-08 12:40:06.875 !!
-    static String STRING_OUTRANGE = "2999-15-99 35:99:66.875";
+    // A timepoint in the correct format but with numeric values out of range.
+    static String STRING_INVALID_OUTRANGE = "2999-15-99 35:99:66.875";
 
     static long[] TIME_ARRAY = { TIME_TEST1, TIME_TEST2, TIME_TEST3 };
 
@@ -111,7 +109,7 @@ public class TimestampTest extends TestCase {
     static String[] STRING_JP_ARRAY = { "19:45:20", "07:17:59", "22:14:40" };
 
     static String[] INVALID_STRINGS = { STRING_INVALID1, STRING_INVALID2,
-            STRING_INVALID3 };
+            STRING_INVALID3, STRING_INVALID_OUTRANGE };
 
     // Timezones
     static String TZ_LONDON = "GMT"; // GMT (!) PS London != GMT (?!?)
@@ -312,15 +310,6 @@ public class TimestampTest extends TestCase {
             Timestamp theTimestamp2 = Timestamp.valueOf(STRING_GMT_ARRAY[i]);
             assertEquals(theTimestamp, theTimestamp2);
         } // end for
-
-        // Test for a string in correct format but with number values out of
-        // range
-        Timestamp theTimestamp = Timestamp.valueOf(STRING_OUTRANGE);
-        assertNotNull(theTimestamp);
-        /*
-         * System.out.println("testValueOfString: outrange timestamp: " +
-         * theTimestamp.toString() );
-         */
 
         for (String element : INVALID_STRINGS) {
             try {
@@ -612,8 +601,8 @@ public class TimestampTest extends TestCase {
 
         t1.setTime(Long.MIN_VALUE);
         t2.setDate(Integer.MIN_VALUE);
-        assertEquals(1, t1.compareTo(t2));
-        assertEquals(-1, t2.compareTo(t1));
+        assertEquals(-1, t1.compareTo(t2));
+        assertEquals(1, t2.compareTo(t1));
 
         t1.setTime(Long.MAX_VALUE);
         t2.setTime(Long.MAX_VALUE - 1);

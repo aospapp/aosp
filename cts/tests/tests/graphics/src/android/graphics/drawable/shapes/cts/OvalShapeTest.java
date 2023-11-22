@@ -16,15 +16,17 @@
 
 package android.graphics.drawable.shapes.cts;
 
+import junit.framework.TestCase;
 
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Paint;
 import android.graphics.Bitmap.Config;
+import android.graphics.Canvas;
+import android.graphics.Outline;
+import android.graphics.Paint;
 import android.graphics.Paint.Style;
+import android.graphics.Rect;
 import android.graphics.drawable.shapes.OvalShape;
-
-import junit.framework.TestCase;
+import android.test.suitebuilder.annotation.SmallTest;
 
 public class OvalShapeTest extends TestCase {
     private static final int TEST_WIDTH  = 100;
@@ -64,5 +66,37 @@ public class OvalShapeTest extends TestCase {
             }
         }
         assertEquals((double)SQUARE / Math.sqrt(2), count, TOLERANCE);
+    }
+
+    @SmallTest
+    public void testGetOutline() {
+        Outline outline = new Outline();
+        Rect rect = new Rect();
+        OvalShape shape;
+
+        // Zero-sized oval yields an empty outline.
+        shape = new OvalShape();
+        shape.getOutline(outline);
+        assertTrue(outline.isEmpty());
+        assertTrue(outline.getRadius() < 0);
+        assertFalse(outline.getRect(rect));
+
+        // Non-zero oval yields a rounded rect.
+        shape.resize(100, 100);
+        shape.getOutline(outline);
+        assertFalse(outline.isEmpty());
+        assertEquals(50.0f, outline.getRadius(), 0.01f);
+        assertTrue(outline.getRect(rect));
+        assertEquals(0, rect.left);
+        assertEquals(0, rect.top);
+        assertEquals(100, rect.right);
+        assertEquals(100, rect.bottom);
+
+        // Non-circular oval yields a path.
+        shape.resize(100, 200);
+        shape.getOutline(outline);
+        assertFalse(outline.isEmpty());
+        assertTrue(outline.getRadius() < 0);
+        assertFalse(outline.getRect(rect));
     }
 }

@@ -51,7 +51,7 @@ FrameScanner::~FrameScanner()
 bool FrameScanner::scan(uint8_t byte)
 {
     bool result = false;
-    ALOGV("FrameScanner: byte = 0x%02X, mCursor = %d\n", byte, mCursor);
+    ALOGV("FrameScanner: byte = 0x%02X, mCursor = %d", byte, mCursor);
     assert(mCursor < sizeof(mHeaderBuffer));
     if (mCursor < mSyncLength) {
         // match sync word

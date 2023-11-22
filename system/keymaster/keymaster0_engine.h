@@ -31,7 +31,7 @@ namespace keymaster {
 
 struct KeymasterKeyBlob;
 
-/* Keymaster0Engine is a BoringSSL ENGINE that implements RSA by forwarding the requested
+/* Keymaster0Engine is a BoringSSL ENGINE that implements RSA & EC by forwarding the requested
  * operations to a keymaster0 module. */
 class Keymaster0Engine {
   public:
@@ -50,12 +50,16 @@ class Keymaster0Engine {
 
     bool ImportKey(keymaster_key_format_t key_format, const KeymasterKeyBlob& to_import,
                    KeymasterKeyBlob* imported_key_material) const;
+    bool DeleteKey(const KeymasterKeyBlob& blob) const;
+    bool DeleteAllKeys() const;
 
     RSA* BlobToRsaKey(const KeymasterKeyBlob& blob) const;
     EC_KEY* BlobToEcKey(const KeymasterKeyBlob& blob) const;
 
     const keymaster_key_blob_t* RsaKeyToBlob(const RSA* rsa) const;
     const keymaster_key_blob_t* EcKeyToBlob(const EC_KEY* rsa) const;
+
+    const keymaster0_device_t* device() { return keymaster0_device_; }
 
     EVP_PKEY* GetKeymaster0PublicKey(const KeymasterKeyBlob& blob) const;
 
@@ -88,9 +92,9 @@ class Keymaster0Engine {
     ENGINE* const engine_;
     int rsa_index_, ec_key_index_;
     bool supports_ec_;
+    RSA_METHOD rsa_method_;
+    ECDSA_METHOD ecdsa_method_;
 
-    static const RSA_METHOD rsa_method_;
-    static const ECDSA_METHOD ecdsa_method_;
     static Keymaster0Engine* instance_;
 };
 

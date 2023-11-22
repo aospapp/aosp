@@ -874,6 +874,11 @@ OMX_ERRORTYPE ComponentBase::CBaseGetExtensionIndex(
         return OMX_ErrorNone;
     }
 
+     if (!strcmp(cParameterName, "OMX.google.android.index.allocateNativeHandle")) {
+        *pIndexType = static_cast<OMX_INDEXTYPE>(OMX_IndexExtAllocateNativeHandle);
+        return OMX_ErrorNone;
+    }
+
     return OMX_ErrorUnsupportedIndex;
 }
 

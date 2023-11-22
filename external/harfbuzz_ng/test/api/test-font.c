@@ -36,8 +36,8 @@ static void
 test_face_empty (void)
 {
   g_assert (hb_face_get_empty ());
-  g_assert (hb_face_get_empty () == hb_face_create (hb_blob_get_empty (), 0));
-  g_assert (hb_face_get_empty () == hb_face_create (NULL, 0));
+  g_assert (hb_face_get_empty () != hb_face_create (hb_blob_get_empty (), 0));
+  g_assert (hb_face_get_empty () != hb_face_create (NULL, 0));
 
   g_assert (hb_face_reference_table (hb_face_get_empty (), HB_TAG ('h','e','a','d')) == hb_blob_get_empty ());
 
@@ -115,6 +115,7 @@ _test_font_nil_funcs (hb_font_t *font)
   hb_codepoint_t glyph;
   hb_position_t x, y;
   hb_glyph_extents_t extents;
+  unsigned int upem = hb_face_get_upem (hb_font_get_face (font));
 
   x = y = 13;
   g_assert (!hb_font_get_glyph_contour_point (font, 17, 2, &x, &y));
@@ -122,7 +123,7 @@ _test_font_nil_funcs (hb_font_t *font)
   g_assert_cmpint (y, ==, 0);
 
   x = hb_font_get_glyph_h_advance (font, 17);
-  g_assert_cmpint (x, ==, 0);
+  g_assert_cmpint (x, ==, upem);
 
   extents.x_bearing = extents.y_bearing = 13;
   extents.width = extents.height = 15;
@@ -290,9 +291,22 @@ test_fontfuncs_subclassing (void)
   x = hb_font_get_glyph_h_advance (font1, 2);
   g_assert_cmpint (x, ==, 0);
 
+  /* creating sub-font doesn't make the parent font immutable;
+   * making a font immutable however makes it's lineage immutable.
+   */
+  font2 = hb_font_create_sub_font (font1);
+  font3 = hb_font_create_sub_font (font2);
+  g_assert (!hb_font_is_immutable (font1));
+  g_assert (!hb_font_is_immutable (font2));
+  g_assert (!hb_font_is_immutable (font3));
+  hb_font_make_immutable (font3);
+  g_assert (hb_font_is_immutable (font1));
+  g_assert (hb_font_is_immutable (font2));
+  g_assert (hb_font_is_immutable (font3));
+  hb_font_destroy (font2);
+  hb_font_destroy (font3);
 
   font2 = hb_font_create_sub_font (font1);
-  g_assert (hb_font_is_immutable (font1));
   hb_font_destroy (font1);
 
   /* setup font2 to override some funcs */
@@ -316,12 +330,8 @@ test_fontfuncs_subclassing (void)
   x = hb_font_get_glyph_h_advance (font2, 2);
   g_assert_cmpint (x, ==, 0);
 
-
-  font3 = hb_font_create_sub_font (font2);
-  g_assert (hb_font_is_immutable (font2));
-  hb_font_destroy (font2);
-
   /* setup font3 to override scale */
+  font3 = hb_font_create_sub_font (font2);
   hb_font_set_scale (font3, 20, 30);
 
   x = y = 1;
@@ -348,9 +358,9 @@ static void
 test_font_empty (void)
 {
   g_assert (hb_font_get_empty ());
-  g_assert (hb_font_get_empty () == hb_font_create (hb_face_get_empty ()));
-  g_assert (hb_font_get_empty () == hb_font_create (NULL));
-  g_assert (hb_font_get_empty () == hb_font_create_sub_font (NULL));
+  g_assert (hb_font_get_empty () != hb_font_create (hb_face_get_empty ()));
+  g_assert (hb_font_get_empty () != hb_font_create (NULL));
+  g_assert (hb_font_get_empty () != hb_font_create_sub_font (NULL));
   g_assert (hb_font_is_immutable (hb_font_get_empty ()));
 
   g_assert (hb_font_get_face (hb_font_get_empty ()) == hb_face_get_empty ());
@@ -366,6 +376,7 @@ test_font_properties (void)
   hb_font_t *subfont;
   int x_scale, y_scale;
   unsigned int x_ppem, y_ppem;
+  unsigned int upem;
 
   blob = hb_blob_create (test_data, sizeof (test_data), HB_MEMORY_MODE_READONLY, NULL, NULL);
   face = hb_face_create (blob, 0);
@@ -375,22 +386,35 @@ test_font_properties (void)
 
 
   g_assert (hb_font_get_face (font) == face);
-  g_assert (hb_font_get_parent (font) == NULL);
+  g_assert (hb_font_get_parent (font) == hb_font_get_empty ());
+  subfont = hb_font_create_sub_font (font);
+  g_assert (hb_font_get_parent (subfont) == font);
+  hb_font_set_parent(subfont, NULL);
+  g_assert (hb_font_get_parent (subfont) == hb_font_get_empty());
+  hb_font_set_parent(subfont, font);
+  g_assert (hb_font_get_parent (subfont) == font);
+  hb_font_set_parent(subfont, NULL);
+  hb_font_make_immutable (subfont);
+  g_assert (hb_font_get_parent (subfont) == hb_font_get_empty());
+  hb_font_set_parent(subfont, font);
+  g_assert (hb_font_get_parent (subfont) == hb_font_get_empty());
+  hb_font_destroy (subfont);
 
 
   /* Check scale */
 
+  upem = hb_face_get_upem (hb_font_get_face (font));
   hb_font_get_scale (font, NULL, NULL);
   x_scale = y_scale = 13;
   hb_font_get_scale (font, &x_scale, NULL);
-  g_assert_cmpint (x_scale, ==, 0);
+  g_assert_cmpint (x_scale, ==, upem);
   x_scale = y_scale = 13;
   hb_font_get_scale (font, NULL, &y_scale);
-  g_assert_cmpint (y_scale, ==, 0);
+  g_assert_cmpint (y_scale, ==, upem);
   x_scale = y_scale = 13;
   hb_font_get_scale (font, &x_scale, &y_scale);
-  g_assert_cmpint (x_scale, ==, 0);
-  g_assert_cmpint (y_scale, ==, 0);
+  g_assert_cmpint (x_scale, ==, upem);
+  g_assert_cmpint (y_scale, ==, upem);
 
   hb_font_set_scale (font, 17, 19);
 

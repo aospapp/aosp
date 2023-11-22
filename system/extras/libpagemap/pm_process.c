@@ -81,6 +81,10 @@ int pm_process_usage_flags(pm_process_t *proc, pm_memusage_t *usage_out,
         return -1;
 
     pm_memusage_zero(&usage);
+    pm_memusage_pswap_init_handle(&usage, usage_out->p_swap);
+
+    pm_memusage_zero(&map_usage);
+    pm_memusage_pswap_init_handle(&map_usage, usage_out->p_swap);
 
     for (i = 0; i < proc->num_maps; i++) {
         error = pm_map_usage_flags(proc->maps[i], &map_usage, flags_mask,
@@ -185,6 +189,11 @@ int pm_process_workingset(pm_process_t *proc,
 
     if (ws_out) {
         pm_memusage_zero(&ws);
+        pm_memusage_pswap_init_handle(&ws, ws_out->p_swap);
+
+        pm_memusage_zero(&map_ws);
+        pm_memusage_pswap_init_handle(&map_ws, ws_out->p_swap);
+
         for (i = 0; i < proc->num_maps; i++) {
             error = pm_map_workingset(proc->maps[i], &map_ws);
             if (error) return error;
@@ -231,19 +240,13 @@ int pm_process_destroy(pm_process_t *proc) {
 }
 
 #define INITIAL_MAPS 10
-#define MAX_LINE 1024
 #define MAX_PERMS 5
-
-/* 
- * #define FOO 123
- * S(FOO) => "123"
- */
-#define _S(n) #n
-#define S(n) _S(n)
 
 static int read_maps(pm_process_t *proc) {
     char filename[MAX_FILENAME];
-    char line[MAX_LINE], name[MAX_LINE], perms[MAX_PERMS];
+    char *line = NULL;
+    size_t line_length = 0;
+    char perms[MAX_PERMS];
     FILE *maps_f;
     pm_map_t *map, **maps, **new_maps;
     int maps_count, maps_size;
@@ -269,12 +272,15 @@ static int read_maps(pm_process_t *proc) {
         return errno;
     }
 
-    while (fgets(line, MAX_LINE, maps_f)) {
+    while (getline(&line, &line_length, maps_f) != -1) {
+        line[strlen(line) - 1] = '\0'; // Lose the newline.
+
         if (maps_count >= maps_size) {
             new_maps = realloc(maps, 2 * maps_size * sizeof(pm_map_t*));
             if (!new_maps) {
                 error = errno;
                 free(maps);
+                free(line);
                 fclose(maps_f);
                 return error;
             }
@@ -286,20 +292,21 @@ static int read_maps(pm_process_t *proc) {
 
         map->proc = proc;
 
-        name[0] = '\0';
-        sscanf(line, "%" SCNx64 "-%" SCNx64 " %s %" SCNx64 " %*s %*d %" S(MAX_LINE) "s",
-               &map->start, &map->end, perms, &map->offset, name);
+        int name_offset;
+        sscanf(line, "%" SCNx64 "-%" SCNx64 " %4s %" SCNx64 " %*s %*d %n",
+               &map->start, &map->end, perms, &map->offset, &name_offset);
 
-        map->name = malloc(strlen(name) + 1);
+        map->name = strdup(line + name_offset);
         if (!map->name) {
             error = errno;
             for (; maps_count > 0; maps_count--)
                 pm_map_destroy(maps[maps_count]);
             free(maps);
+            free(line);
             fclose(maps_f);
             return error;
         }
-        strcpy(map->name, name);
+
         if (perms[0] == 'r') map->flags |= PM_MAP_READ;
         if (perms[1] == 'w') map->flags |= PM_MAP_WRITE;
         if (perms[2] == 'x') map->flags |= PM_MAP_EXEC;
@@ -307,6 +314,7 @@ static int read_maps(pm_process_t *proc) {
         maps_count++;
     }
 
+    free(line);
     fclose(maps_f);
 
     new_maps = realloc(maps, maps_count * sizeof(pm_map_t*));

@@ -1,9 +1,8 @@
 # Output variables:
 # libvpx_config_dir_x86
 # libvpx_codec_srcs_c_x86
-# libvpx_codec_srcs_asm_x86
 
-libvpx_target := x86
+libvpx_target := config/x86
 
 libvpx_config_dir_x86 := $(LOCAL_PATH)/$(libvpx_target)
 libvpx_codec_srcs := $(sort $(shell cat $(libvpx_config_dir_x86)/libvpx_srcs.txt))

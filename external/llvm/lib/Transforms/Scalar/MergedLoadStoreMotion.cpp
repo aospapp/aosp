@@ -78,6 +78,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/CFG.h"
+#include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/MemoryDependenceAnalysis.h"
@@ -91,6 +92,7 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 #include <vector>
+
 using namespace llvm;
 
 #define DEBUG_TYPE "mldst-motion"
@@ -106,7 +108,7 @@ class MergedLoadStoreMotion : public FunctionPass {
 
 public:
   static char ID; // Pass identification, replacement for typeid
-  explicit MergedLoadStoreMotion(void)
+  MergedLoadStoreMotion()
       : FunctionPass(ID), MD(nullptr), MagicCompileTimeControl(250) {
     initializeMergedLoadStoreMotionPass(*PassRegistry::getPassRegistry());
   }
@@ -116,10 +118,11 @@ public:
 private:
   // This transformation requires dominator postdominator info
   void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.setPreservesCFG();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<MemoryDependenceAnalysis>();
-    AU.addRequired<AliasAnalysis>();
-    AU.addPreserved<AliasAnalysis>();
+    AU.addRequired<AAResultsWrapperPass>();
+    AU.addPreserved<GlobalsAAWrapperPass>();
+    AU.addPreserved<MemoryDependenceAnalysis>();
   }
 
   // Helper routines
@@ -144,9 +147,8 @@ private:
   // Routines for sinking stores
   StoreInst *canSinkFromBlock(BasicBlock *BB, StoreInst *SI);
   PHINode *getPHIOperand(BasicBlock *BB, StoreInst *S0, StoreInst *S1);
-  bool isStoreSinkBarrierInRange(const Instruction& Start,
-                                 const Instruction& End,
-                                 AliasAnalysis::Location Loc);
+  bool isStoreSinkBarrierInRange(const Instruction &Start,
+                                 const Instruction &End, MemoryLocation Loc);
   bool sinkStore(BasicBlock *BB, StoreInst *SinkCand, StoreInst *ElseInst);
   bool mergeStores(BasicBlock *BB);
   // The mergeLoad/Store algorithms could have Size0 * Size1 complexity,
@@ -157,7 +159,7 @@ private:
 };
 
 char MergedLoadStoreMotion::ID = 0;
-}
+} // anonymous namespace
 
 ///
 /// \brief createMergedLoadStoreMotionPass - The public interface to this file.
@@ -170,7 +172,8 @@ INITIALIZE_PASS_BEGIN(MergedLoadStoreMotion, "mldst-motion",
                       "MergedLoadStoreMotion", false, false)
 INITIALIZE_PASS_DEPENDENCY(MemoryDependenceAnalysis)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_AG_DEPENDENCY(AliasAnalysis)
+INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
 INITIALIZE_PASS_END(MergedLoadStoreMotion, "mldst-motion",
                     "MergedLoadStoreMotion", false, false)
 
@@ -237,12 +240,11 @@ bool MergedLoadStoreMotion::isDiamondHead(BasicBlock *BB) {
 /// being loaded or protect against the load from happening
 /// it is considered a hoist barrier.
 ///
-
 bool MergedLoadStoreMotion::isLoadHoistBarrierInRange(const Instruction& Start, 
                                                       const Instruction& End,
                                                       LoadInst* LI) {
-  AliasAnalysis::Location Loc = AA->getLocation(LI);
-  return AA->canInstructionRangeModRef(Start, End, Loc, AliasAnalysis::Mod);
+  MemoryLocation Loc = MemoryLocation::get(LI);
+  return AA->canInstructionRangeModRef(Start, End, Loc, MRI_Mod);
 }
 
 ///
@@ -257,7 +259,7 @@ LoadInst *MergedLoadStoreMotion::canHoistFromBlock(BasicBlock *BB1,
 
   for (BasicBlock::iterator BBI = BB1->begin(), BBE = BB1->end(); BBI != BBE;
        ++BBI) {
-    Instruction *Inst = BBI;
+    Instruction *Inst = &*BBI;
 
     // Only merge and hoist loads when their result in used only in BB
     if (!isa<LoadInst>(Inst) || Inst->isUsedOutsideOfBlock(BB1))
@@ -266,8 +268,8 @@ LoadInst *MergedLoadStoreMotion::canHoistFromBlock(BasicBlock *BB1,
     LoadInst *Load1 = dyn_cast<LoadInst>(Inst);
     BasicBlock *BB0 = Load0->getParent();
 
-    AliasAnalysis::Location Loc0 = AA->getLocation(Load0);
-    AliasAnalysis::Location Loc1 = AA->getLocation(Load1);
+    MemoryLocation Loc0 = MemoryLocation::get(Load0);
+    MemoryLocation Loc1 = MemoryLocation::get(Load1);
     if (AA->isMustAlias(Loc0, Loc1) && Load0->isSameOperationAs(Load1) &&
         !isLoadHoistBarrierInRange(BB1->front(), *Load1, Load1) &&
         !isLoadHoistBarrierInRange(BB0->front(), *Load0, Load0)) {
@@ -294,17 +296,13 @@ void MergedLoadStoreMotion::hoistInstruction(BasicBlock *BB,
 
   // Intersect optional metadata.
   HoistCand->intersectOptionalDataWith(ElseInst);
-  HoistCand->dropUnknownMetadata();
+  HoistCand->dropUnknownNonDebugMetadata();
 
   // Prepend point for instruction insert
   Instruction *HoistPt = BB->getTerminator();
 
   // Merged instruction
   Instruction *HoistedInst = HoistCand->clone();
-
-  // Notify AA of the new value.
-  if (isa<LoadInst>(HoistCand))
-    AA->copyValue(HoistCand, HoistedInst);
 
   // Hoist instruction.
   HoistedInst->insertBefore(HoistPt);
@@ -368,8 +366,7 @@ bool MergedLoadStoreMotion::mergeLoads(BasicBlock *BB) {
   int NLoads = 0;
   for (BasicBlock::iterator BBI = Succ0->begin(), BBE = Succ0->end();
        BBI != BBE;) {
-
-    Instruction *I = BBI;
+    Instruction *I = &*BBI;
     ++BBI;
 
     // Only move non-simple (atomic, volatile) loads.
@@ -399,12 +396,10 @@ bool MergedLoadStoreMotion::mergeLoads(BasicBlock *BB) {
 /// value being stored or protect against the store from
 /// happening it is considered a sink barrier.
 ///
-
-bool MergedLoadStoreMotion::isStoreSinkBarrierInRange(const Instruction& Start,
-                                                      const Instruction& End,
-                                                      AliasAnalysis::Location
-                                                      Loc) {
-  return AA->canInstructionRangeModRef(Start, End, Loc, AliasAnalysis::ModRef);
+bool MergedLoadStoreMotion::isStoreSinkBarrierInRange(const Instruction &Start,
+                                                      const Instruction &End,
+                                                      MemoryLocation Loc) {
+  return AA->canInstructionRangeModRef(Start, End, Loc, MRI_ModRef);
 }
 
 ///
@@ -425,8 +420,8 @@ StoreInst *MergedLoadStoreMotion::canSinkFromBlock(BasicBlock *BB1,
 
     StoreInst *Store1 = cast<StoreInst>(Inst);
 
-    AliasAnalysis::Location Loc0 = AA->getLocation(Store0);
-    AliasAnalysis::Location Loc1 = AA->getLocation(Store1);
+    MemoryLocation Loc0 = MemoryLocation::get(Store0);
+    MemoryLocation Loc1 = MemoryLocation::get(Store1);
     if (AA->isMustAlias(Loc0, Loc1) && Store0->isSameOperationAs(Store1) &&
       !isStoreSinkBarrierInRange(*(std::next(BasicBlock::iterator(Store1))),
                                  BB1->back(), Loc1) &&
@@ -444,26 +439,16 @@ StoreInst *MergedLoadStoreMotion::canSinkFromBlock(BasicBlock *BB1,
 PHINode *MergedLoadStoreMotion::getPHIOperand(BasicBlock *BB, StoreInst *S0,
                                               StoreInst *S1) {
   // Create a phi if the values mismatch.
-  PHINode *NewPN = 0;
+  PHINode *NewPN = nullptr;
   Value *Opd1 = S0->getValueOperand();
   Value *Opd2 = S1->getValueOperand();
   if (Opd1 != Opd2) {
     NewPN = PHINode::Create(Opd1->getType(), 2, Opd2->getName() + ".sink",
-                            BB->begin());
+                            &BB->front());
     NewPN->addIncoming(Opd1, S0->getParent());
     NewPN->addIncoming(Opd2, S1->getParent());
-    if (NewPN->getType()->getScalarType()->isPointerTy()) {
-      // Notify AA of the new value.
-      AA->copyValue(Opd1, NewPN);
-      AA->copyValue(Opd2, NewPN);
-      // AA needs to be informed when a PHI-use of the pointer value is added
-      for (unsigned I = 0, E = NewPN->getNumIncomingValues(); I != E; ++I) {
-        unsigned J = PHINode::getOperandNumForIncomingValue(I);
-        AA->addEscapingUse(NewPN->getOperandUse(J));
-      }
-      if (MD)
-        MD->invalidateCachedPointerInfo(NewPN);
-    }
+    if (MD && NewPN->getType()->getScalarType()->isPointerTy())
+      MD->invalidateCachedPointerInfo(NewPN);
   }
   return NewPN;
 }
@@ -488,13 +473,12 @@ bool MergedLoadStoreMotion::sinkStore(BasicBlock *BB, StoreInst *S0,
     BasicBlock::iterator InsertPt = BB->getFirstInsertionPt();
     // Intersect optional metadata.
     S0->intersectOptionalDataWith(S1);
-    S0->dropUnknownMetadata();
+    S0->dropUnknownNonDebugMetadata();
 
     // Create the new store to be inserted at the join point.
     StoreInst *SNew = (StoreInst *)(S0->clone());
     Instruction *ANew = A0->clone();
-    AA->copyValue(S0, SNew);
-    SNew->insertBefore(InsertPt);
+    SNew->insertBefore(&*InsertPt);
     ANew->insertBefore(SNew);
 
     assert(S0->getParent() == A0->getParent());
@@ -576,12 +560,13 @@ bool MergedLoadStoreMotion::mergeStores(BasicBlock *T) {
   }
   return MergedStores;
 }
+
 ///
 /// \brief Run the transformation for each function
 ///
 bool MergedLoadStoreMotion::runOnFunction(Function &F) {
-  MD = &getAnalysis<MemoryDependenceAnalysis>();
-  AA = &getAnalysis<AliasAnalysis>();
+  MD = getAnalysisIfAvailable<MemoryDependenceAnalysis>();
+  AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
 
   bool Changed = false;
   DEBUG(dbgs() << "Instruction Merger\n");
@@ -589,7 +574,7 @@ bool MergedLoadStoreMotion::runOnFunction(Function &F) {
   // Merge unconditional branches, allowing PRE to catch more
   // optimization opportunities.
   for (Function::iterator FI = F.begin(), FE = F.end(); FI != FE;) {
-    BasicBlock *BB = FI++;
+    BasicBlock *BB = &*FI++;
 
     // Hoist equivalent loads and sink stores
     // outside diamonds when possible

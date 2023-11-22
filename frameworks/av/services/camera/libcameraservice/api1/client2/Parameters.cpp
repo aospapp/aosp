@@ -30,6 +30,7 @@
 #include "Parameters.h"
 #include "system/camera.h"
 #include "hardware/camera_common.h"
+#include <android/hardware/ICamera.h>
 #include <media/MediaProfiles.h>
 #include <media/mediarecorder.h>
 
@@ -214,8 +215,8 @@ status_t Parameters::initialize(const CameraMetadata *info, int deviceVersion) {
                 supportedPreviewFormats);
     }
 
-    previewFpsRange[0] = availableFpsRanges.data.i32[0];
-    previewFpsRange[1] = availableFpsRanges.data.i32[1];
+    previewFpsRange[0] = fastInfo.bestStillCaptureFpsRange[0];
+    previewFpsRange[1] = fastInfo.bestStillCaptureFpsRange[1];
 
     // PREVIEW_FRAME_RATE / SUPPORTED_PREVIEW_FRAME_RATES are deprecated, but
     // still have to do something sane for them
@@ -870,8 +871,9 @@ status_t Parameters::initialize(const CameraMetadata *info, int deviceVersion) {
     }
 
     // Set up initial state for non-Camera.Parameters state variables
-
-    storeMetadataInBuffers = true;
+    videoFormat = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+    videoDataSpace = HAL_DATASPACE_V0_BT709;
+    videoBufferMode = hardware::ICamera::VIDEO_BUFFER_MODE_DATA_CALLBACK_YUV;
     playShutterSound = true;
     enableFaceDetect = false;
 
@@ -912,8 +914,6 @@ status_t Parameters::initialize(const CameraMetadata *info, int deviceVersion) {
     }
 
     ALOGI("%s: zslMode: %d slowJpegMode %d", __FUNCTION__, zslMode, slowJpegMode);
-
-    lightFx = LIGHTFX_NONE;
 
     state = STOPPED;
 
@@ -1040,7 +1040,7 @@ status_t Parameters::buildFastInfo() {
             ALOGE("%s: Camera %d: Scene mode override list is an "
                     "unexpected size: %zu (expected %zu)", __FUNCTION__,
                     cameraId, sceneModeOverrides.count,
-                    availableSceneModes.count);
+                    availableSceneModes.count * kModesPerSceneMode);
             return NO_INIT;
         }
         for (size_t i = 0; i < availableSceneModes.count; i++) {
@@ -1864,10 +1864,6 @@ status_t Parameters::set(const String8& paramString) {
         ALOGE("%s: Video stabilization not supported", __FUNCTION__);
     }
 
-    // LIGHTFX
-    validatedParams.lightFx = lightFxStringToEnum(
-        newParams.get(CameraParameters::KEY_LIGHTFX));
-
     /** Update internal parameters */
 
     *this = validatedParams;
@@ -1959,7 +1955,7 @@ status_t Parameters::updateRequest(CameraMetadata *request) const {
     if (res != OK) return res;
 
     // android.hardware.Camera requires that when face detect is enabled, the
-    // camera is in a face-priority mode. HAL2 splits this into separate parts
+    // camera is in a face-priority mode. HAL3.x splits this into separate parts
     // (face detection statistics and face priority scene mode). Map from other
     // to the other.
     bool sceneModeActive =
@@ -2499,18 +2495,6 @@ const char *Parameters::focusModeEnumToString(focusMode_t focusMode) {
                     __FUNCTION__, focusMode);
             return "unknown";
     }
-}
-
-Parameters::Parameters::lightFxMode_t Parameters::lightFxStringToEnum(
-        const char *lightFxMode) {
-    return
-        !lightFxMode ?
-            Parameters::LIGHTFX_NONE :
-        !strcmp(lightFxMode, CameraParameters::LIGHTFX_LOWLIGHT) ?
-            Parameters::LIGHTFX_LOWLIGHT :
-        !strcmp(lightFxMode, CameraParameters::LIGHTFX_HDR) ?
-            Parameters::LIGHTFX_HDR :
-        Parameters::LIGHTFX_NONE;
 }
 
 status_t Parameters::parseAreas(const char *areasCStr,

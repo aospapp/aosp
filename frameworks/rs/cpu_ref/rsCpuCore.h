@@ -25,20 +25,31 @@
 #include "rsScriptC.h"
 #include "rsCpuCoreRuntime.h"
 
-namespace bcc {
-    class BCCContext;
-    class RSCompilerDriver;
-    class RSExecutable;
-}
-
 namespace android {
 namespace renderscript {
 
 // Whether the CPU we're running on supports SIMD instructions
 extern bool gArchUseSIMD;
 
-typedef void (* InvokeFunc_t)(void);
-typedef void (* ForEachFunc_t)(void);
+// Function types found in RenderScript code
+typedef void (*ReduceAccumulatorFunc_t)(const RsExpandKernelDriverInfo *info, uint32_t x1, uint32_t x2, uint8_t *accum);
+typedef void (*ReduceCombinerFunc_t)(uint8_t *accum, const uint8_t *other);
+typedef void (*ReduceInitializerFunc_t)(uint8_t *accum);
+typedef void (*ReduceOutConverterFunc_t)(uint8_t *out, const uint8_t *accum);
+typedef void (*ForEachFunc_t)(const RsExpandKernelDriverInfo *info, uint32_t x1, uint32_t x2, uint32_t outStride);
+typedef void (*InvokeFunc_t)(void *params);
+typedef void (*InitOrDtorFunc_t)(void);
+typedef int  (*RootFunc_t)(void);
+
+struct ReduceDescription {
+    ReduceAccumulatorFunc_t  accumFunc;  // expanded accumulator function
+    ReduceInitializerFunc_t  initFunc;   // user initializer function
+    ReduceCombinerFunc_t     combFunc;   // user combiner function
+    ReduceOutConverterFunc_t outFunc;    // user outconverter function
+    size_t                   accumSize;  // accumulator datum size, in bytes
+};
+
+// Internal driver callback used to execute a kernel
 typedef void (*WorkerCallback_t)(void *usr, uint32_t idx);
 
 class RsdCpuScriptImpl;
@@ -50,23 +61,85 @@ struct ScriptTLSStruct {
     RsdCpuScriptImpl *mImpl;
 };
 
-struct MTLaunchStruct {
-    RsExpandKernelDriverInfo fep;
-
-    RsdCpuReferenceImpl *rsc;
+// MTLaunchStruct passes information about a multithreaded kernel launch.
+struct MTLaunchStructCommon {
+    RsdCpuReferenceImpl *rs;
     RsdCpuScriptImpl *script;
-
-    ForEachFunc_t kernel;
-    uint32_t sig;
-    const Allocation * ains[RS_KERNEL_INPUT_LIMIT];
-    Allocation * aout[RS_KERNEL_INPUT_LIMIT];
 
     uint32_t mSliceSize;
     volatile int mSliceNum;
     bool isThreadable;
 
+    // Boundary information about the launch
     RsLaunchDimensions start;
     RsLaunchDimensions end;
+    // Points to MTLaunchStructForEach::fep::dim or
+    // MTLaunchStructReduce::redp::dim.
+    RsLaunchDimensions *dimPtr;
+};
+
+struct MTLaunchStructForEach : public MTLaunchStructCommon {
+    // Driver info structure
+    RsExpandKernelDriverInfo fep;
+
+    ForEachFunc_t kernel;
+    const Allocation *ains[RS_KERNEL_INPUT_LIMIT];
+    Allocation *aout[RS_KERNEL_INPUT_LIMIT];
+};
+
+struct MTLaunchStructReduce : public MTLaunchStructCommon {
+    // Driver info structure
+    RsExpandKernelDriverInfo redp;
+
+    const Allocation *ains[RS_KERNEL_INPUT_LIMIT];
+
+    ReduceAccumulatorFunc_t accumFunc;
+    ReduceInitializerFunc_t initFunc;
+    ReduceCombinerFunc_t combFunc;
+    ReduceOutConverterFunc_t outFunc;
+
+    size_t accumSize;  // accumulator datum size in bytes
+
+    size_t accumStride;  // stride between accumulators in accumAlloc (below)
+
+    // These fields are used for managing accumulator data items in a
+    // multithreaded execution.
+    //
+    // Let the number of threads be N.
+    // Let Outc be true iff there is an outconverter.
+    //
+    // accumAlloc is a pointer to a single allocation of (N - !Outc)
+    // accumulators.  (If there is no outconverter, then the output
+    // allocation acts as an accumulator.)  It is created at kernel
+    // launch time.  Within that allocation, the distance between the
+    // start of adjacent accumulators is accumStride bytes -- this
+    // might be the same as accumSize, or it might be larger, if we
+    // are attempting to avoid false sharing.
+    //
+    // accumCount is an atomic counter of how many accumulators have
+    // been grabbed by threads.  It is initialized to zero at kernel
+    // launch time.  See accumPtr for further description.
+    //
+    // accumPtr is pointer to an array of N pointers to accumulators.
+    // The array is created at kernel launch time, and each element is
+    // initialized to nullptr.  When a particular thread goes to work,
+    // that thread obtains its accumulator from its entry in this
+    // array.  If the entry is nullptr, that thread needs to obtain an
+    // accumulator, and initialize its entry in the array accordingly.
+    // It does so via atomic access (fetch-and-add) to accumCount.
+    // - If Outc, then the fetched value is used as an index into
+    //   accumAlloc.
+    // - If !Outc, then
+    //   - If the fetched value is zero, then this thread gets the
+    //     output allocation for its accumulator.
+    //   - If the fetched value is nonzero, then (fetched value - 1)
+    //     is used as an index into accumAlloc.
+    uint8_t *accumAlloc;
+    uint8_t **accumPtr;
+    uint32_t accumCount;
+
+    // Logging control
+    uint32_t logReduce;
 };
 
 class RsdCpuReferenceImpl : public RsdCpuReference {
@@ -88,8 +161,13 @@ public:
         return mWorkers.mCount + 1;
     }
 
-    void launchThreads(const Allocation** ains, uint32_t inLen, Allocation* aout,
-                       const RsScriptCall* sc, MTLaunchStruct* mtls);
+    // Launch foreach kernel
+    void launchForEach(const Allocation **ains, uint32_t inLen, Allocation *aout,
+                       const RsScriptCall *sc, MTLaunchStructForEach *mtls);
+
+    // Launch a general reduce kernel
+    void launchReduce(const Allocation ** ains, uint32_t inLen, Allocation *aout,
+                      MTLaunchStructReduce *mtls);
 
     CpuScript * createScript(const ScriptC *s, char const *resName, char const *cacheDir,
                              uint8_t const *bitcode, size_t bitcodeSize, uint32_t flags) override;
@@ -98,16 +176,8 @@ public:
 
     const RsdCpuReference::CpuSymbol *symLookup(const char *);
 
-    RsdCpuReference::CpuScript * lookupScript(const Script *s) {
+    RsdCpuReference::CpuScript *lookupScript(const Script *s) {
         return mScriptLookupFn(mRSC, s);
-    }
-
-    void setLinkRuntimeCallback(
-            bcc::RSLinkRuntimeCallback pLinkRuntimeCallback) {
-        mLinkRuntimeCallback = pLinkRuntimeCallback;
-    }
-    bcc::RSLinkRuntimeCallback getLinkRuntimeCallback() {
-        return mLinkRuntimeCallback;
     }
 
     void setSelectRTCallback(RSSelectRTCallback pSelectRTCallback) {
@@ -117,22 +187,13 @@ public:
         return mSelectRTCallback;
     }
 
-#ifndef RS_COMPATIBILITY_LIB
-    void setSetupCompilerCallback(RSSetupCompilerCallback pSetupCompilerCallback) override {
-        mSetupCompilerCallback = pSetupCompilerCallback;
-    }
-    RSSetupCompilerCallback getSetupCompilerCallback() const override {
-        return mSetupCompilerCallback;
-    }
-#endif
-
     virtual void setBccPluginName(const char *name) {
         mBccPluginName.setTo(name);
     }
     virtual const char *getBccPluginName() const {
         return mBccPluginName.string();
     }
-    bool getInForEach() override { return mInForEach; }
+    bool getInKernel() override { return mInKernel; }
 
     // Set to true if we should embed global variable information in the code.
     void setEmbedGlobalInfo(bool v) override {
@@ -161,7 +222,7 @@ protected:
     uint32_t version_major;
     uint32_t version_minor;
     //bool mHasGraphics;
-    bool mInForEach;
+    bool mInKernel;  // Is a parallel kernel execution underway?
 
     struct Workers {
         volatile int mRunningCount;
@@ -181,9 +242,7 @@ protected:
 
     ScriptTLSStruct mTlsStruct;
 
-    bcc::RSLinkRuntimeCallback mLinkRuntimeCallback;
     RSSelectRTCallback mSelectRTCallback;
-    RSSetupCompilerCallback mSetupCompilerCallback;
     String8 mBccPluginName;
 
     // Specifies whether we should embed global variable information in the
@@ -195,6 +254,14 @@ protected:
     // when potentially embedding information about globals.
     // Defaults to true.
     bool mEmbedGlobalInfoSkipConstant;
+
+    long mPageSize;
+
+    // Launch a general reduce kernel
+    void launchReduceSerial(const Allocation ** ains, uint32_t inLen, Allocation *aout,
+                            MTLaunchStructReduce *mtls);
+    void launchReduceParallel(const Allocation ** ains, uint32_t inLen, Allocation *aout,
+                              MTLaunchStructReduce *mtls);
 };
 
 

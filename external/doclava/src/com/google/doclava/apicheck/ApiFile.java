@@ -29,7 +29,9 @@ import com.google.doclava.TypeInfo;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedList;
+import java.util.List;
 
 class ApiFile {
 
@@ -252,7 +254,7 @@ class ApiFile {
     method = new MethodInfo(""/*rawCommentText*/, new ArrayList<TypeInfo>()/*typeParameters*/,
         name, null/*signature*/, cl, cl, pub, prot, pkgpriv, false/*isPrivate*/, false/*isFinal*/,
         false/*isStatic*/, false/*isSynthetic*/, false/*isAbstract*/, false/*isSynthetic*/,
-        false/*isNative*/,
+        false/*isNative*/, false/* isDefault */,
         false /*isAnnotationElement*/, "constructor", null/*flatSignature*/,
         null/*overriddenMethod*/, cl.asTypeInfo(), new ArrayList<ParameterInfo>(),
         new ArrayList<ClassInfo>()/*thrownExceptions*/, tokenizer.pos(),
@@ -280,6 +282,7 @@ class ApiFile {
     boolean abs = false;
     boolean dep = false;
     boolean syn = false;
+    boolean def = false;
     String type;
     String name;
     String ext = null;
@@ -293,6 +296,10 @@ class ApiFile {
       token = tokenizer.requireToken();
     } else {
       pkgpriv = true;
+    }
+    if ("default".equals(token)) {
+      def = true;
+      token = tokenizer.requireToken();
     }
     if ("static".equals(token)) {
       stat = true;
@@ -321,7 +328,7 @@ class ApiFile {
     name = token;
     method = new MethodInfo(""/*rawCommentText*/, new ArrayList<TypeInfo>()/*typeParameters*/,
         name, null/*signature*/, cl, cl, pub, prot, pkgpriv, false/*isPrivate*/, fin,
-        stat, false/*isSynthetic*/, abs/*isAbstract*/, syn, false/*isNative*/,
+        stat, false/*isSynthetic*/, abs/*isAbstract*/, syn, false/*isNative*/, def/*isDefault*/,
         false /*isAnnotationElement*/, "method", null/*flatSignature*/, null/*overriddenMethod*/,
         Converter.obtainTypeFromString(type), new ArrayList<ParameterInfo>(),
         new ArrayList<ClassInfo>()/*thrownExceptions*/, tokenizer.pos(),
@@ -488,10 +495,13 @@ class ApiFile {
       } else {
         throw new ApiParseException("expected , found " + token, tokenizer.getLine());
       }
+      // api file does not preserve annotations.
+      List<AnnotationInstanceInfo> annotations = Collections.emptyList();
       method.addParameter(new ParameterInfo(name, type,
             Converter.obtainTypeFromString(type),
             type.endsWith("..."),
-            tokenizer.pos()));
+            tokenizer.pos(),
+            annotations));
       if (type.endsWith("...")) {
         method.setVarargs(true);
       }

@@ -16,15 +16,13 @@
 
 package com.android.settings.notification;
 
-import static com.android.settings.notification.SettingPref.TYPE_GLOBAL;
-import static com.android.settings.notification.SettingPref.TYPE_SYSTEM;
-
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.Resources;
 import android.database.ContentObserver;
 import android.media.AudioManager;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Vibrator;
@@ -33,7 +31,7 @@ import android.provider.Settings.Global;
 import android.provider.Settings.System;
 import android.telephony.TelephonyManager;
 
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.R;
 import com.android.settings.SettingsPreferenceFragment;
 import com.android.settings.Utils;
@@ -43,6 +41,9 @@ import com.android.settings.search.Indexable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+
+import static com.android.settings.notification.SettingPref.TYPE_GLOBAL;
+import static com.android.settings.notification.SettingPref.TYPE_SYSTEM;
 
 public class OtherSoundSettings extends SettingsPreferenceFragment implements Indexable {
     private static final String TAG = "OtherSoundSettings";
@@ -92,13 +93,19 @@ public class OtherSoundSettings extends SettingsPreferenceFragment implements In
     private static final SettingPref PREF_TOUCH_SOUNDS = new SettingPref(
             TYPE_SYSTEM, KEY_TOUCH_SOUNDS, System.SOUND_EFFECTS_ENABLED, DEFAULT_ON) {
         @Override
-        protected boolean setSetting(Context context, int value) {
-            final AudioManager am = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-            if (value != 0) {
-                am.loadSoundEffects();
-            } else {
-                am.unloadSoundEffects();
-            }
+        protected boolean setSetting(final Context context, final int value) {
+            AsyncTask.execute(new Runnable() {
+                @Override
+                public void run() {
+                    final AudioManager am =
+                            (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+                    if (value != 0) {
+                        am.loadSoundEffects();
+                    } else {
+                        am.unloadSoundEffects();
+                    }
+                }
+            });
             return super.setSetting(context, value);
         }
     };
@@ -173,7 +180,7 @@ public class OtherSoundSettings extends SettingsPreferenceFragment implements In
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.NOTIFICATION_OTHER_SOUND;
+        return MetricsEvent.NOTIFICATION_OTHER_SOUND;
     }
 
     @Override

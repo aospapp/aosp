@@ -239,6 +239,12 @@ public class ParcelFileDescriptorTest extends AndroidTestCase {
         new FileOutputStream(pfd.getFileDescriptor()).write(oneByte);
     }
 
+    // This method is unlikely to be used by clients, as clients use ContentResolver,
+    // which builds AutoCloseInputStream under the hood rather than FileInputStream
+    // built from a raw FD.
+    //
+    // Using new FileInputStream(PFD.getFileDescriptor()) is discouraged, as error
+    // propagation is lost, and read() will never throw IOException in such case.
     private static int read(ParcelFileDescriptor pfd) throws IOException {
         return new FileInputStream(pfd.getFileDescriptor()).read();
     }
@@ -256,6 +262,27 @@ public class ParcelFileDescriptorTest extends AndroidTestCase {
         red.checkError();
     }
 
+    // Reading should be done via AutoCloseInputStream if possible, rather than
+    // recreating a FileInputStream from a raw FD, what's done in read(PFD).
+    public void testPipeError_Discouraged() throws Exception {
+        final ParcelFileDescriptor[] pipe = ParcelFileDescriptor.createReliablePipe();
+        final ParcelFileDescriptor red = pipe[0];
+        final ParcelFileDescriptor blue = pipe[1];
+
+        write(blue, 2);
+        blue.closeWithError("OMG MUFFINS");
+
+        // Even though closed we should still drain pipe.
+        assertEquals(2, read(red));
+        assertEquals(-1, read(red));
+        try {
+            red.checkError();
+            fail("expected throw!");
+        } catch (IOException e) {
+            assertContains("OMG MUFFINS", e.getMessage());
+        }
+    }
+
     public void testPipeError() throws Exception {
         final ParcelFileDescriptor[] pipe = ParcelFileDescriptor.createReliablePipe();
         final ParcelFileDescriptor red = pipe[0];
@@ -264,11 +291,9 @@ public class ParcelFileDescriptorTest extends AndroidTestCase {
         write(blue, 2);
         blue.closeWithError("OMG MUFFINS");
 
-        // even though closed we should still drain pipe
-        assertEquals(2, read(red));
-        assertEquals(-1, read(red));
-        try {
-            red.checkError();
+        try (AutoCloseInputStream is = new AutoCloseInputStream(red)) {
+            is.read();
+            is.read();  // Checks errors on EOF.
             fail("expected throw!");
         } catch (IOException e) {
             assertContains("OMG MUFFINS", e.getMessage());
@@ -372,7 +397,7 @@ public class ParcelFileDescriptorTest extends AndroidTestCase {
 
         FileOutputStream fout = null;
 
-        fout = con.openFileOutput(fileName, Context.MODE_WORLD_WRITEABLE);
+        fout = con.openFileOutput(fileName, Context.MODE_PRIVATE);
 
         try {
             fout.write(new byte[] { 0x0, 0x1, 0x2, 0x3 });

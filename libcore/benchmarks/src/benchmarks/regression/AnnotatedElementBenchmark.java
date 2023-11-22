@@ -16,20 +16,20 @@
 
 package benchmarks.regression;
 
-import com.google.caliper.Runner;
-import com.google.caliper.SimpleBenchmark;
+import com.google.caliper.BeforeExperiment;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
-public class AnnotatedElementBenchmark extends SimpleBenchmark {
+public class AnnotatedElementBenchmark {
 
     private Class<?> type;
     private Field field;
     private Method method;
 
-    @Override protected void setUp() throws Exception {
+    @BeforeExperiment
+    protected void setUp() throws Exception {
         type = Type.class;
         field = Type.class.getField("field");
         method = Type.class.getMethod("method", String.class);
@@ -141,7 +141,68 @@ public class AnnotatedElementBenchmark extends SimpleBenchmark {
 
     public void timeGetDeclaredAnnotationsOnSubclass(int reps) {
         for (int i = 0; i < reps; i++) {
-            ExtendsHasThreeAnnotations.class.getAnnotations();
+            ExtendsHasThreeAnnotations.class.getDeclaredAnnotations();
+        }
+    }
+
+
+    // get annotations with enclosing / inner classes
+
+    public void timeGetDeclaredClasses(int reps) {
+        for (int i = 0; i < reps; i++) {
+            AnnotatedElementBenchmark.class.getDeclaredClasses();
+        }
+    }
+
+    public void timeGetDeclaringClass(int reps) {
+        for (int i = 0; i < reps; i++) {
+            HasSmallAnnotation.class.getDeclaringClass();
+        }
+    }
+
+    public void timeGetEnclosingClass(int reps) {
+        Object anonymousClass = new Object() {};
+        for (int i = 0; i < reps; i++) {
+            anonymousClass.getClass().getEnclosingClass();
+        }
+    }
+
+    public void timeGetEnclosingConstructor(int reps) {
+        Object anonymousClass = new Object() {};
+        for (int i = 0; i < reps; i++) {
+            anonymousClass.getClass().getEnclosingConstructor();
+        }
+    }
+
+    public void timeGetEnclosingMethod(int reps) {
+        Object anonymousClass = new Object() {};
+        for (int i = 0; i < reps; i++) {
+            anonymousClass.getClass().getEnclosingMethod();
+        }
+    }
+
+    public void timeGetModifiers(int reps) {
+        for (int i = 0; i < reps; i++) {
+            HasSmallAnnotation.class.getModifiers();
+        }
+    }
+
+    public void timeGetSimpleName(int reps) {
+        for (int i = 0; i < reps; i++) {
+            HasSmallAnnotation.class.getSimpleName();
+        }
+    }
+
+    public void timeIsAnonymousClass(int reps) {
+        Object anonymousClass = new Object() {};
+        for (int i = 0; i < reps; i++) {
+            anonymousClass.getClass().isAnonymousClass();
+        }
+    }
+
+    public void timeIsLocalClass(int reps) {
+        for (int i = 0; i < reps; i++) {
+            HasSmallAnnotation.class.isLocalClass();
         }
     }
 
@@ -174,7 +235,7 @@ public class AnnotatedElementBenchmark extends SimpleBenchmark {
     @Marker
     public class HasThreeAnnotations {}
 
-    public class ExtendsHasThreeAnnotations {}
+    public class ExtendsHasThreeAnnotations extends HasThreeAnnotations {}
 
 
     // the annotations
@@ -195,9 +256,5 @@ public class AnnotatedElementBenchmark extends SimpleBenchmark {
         String e() default "";
         int f() default 0;
         long g() default 0L;
-    }
-
-    public static void main(String[] args) throws Exception {
-        Runner.main(AnnotatedElementBenchmark.class, args);
     }
 }

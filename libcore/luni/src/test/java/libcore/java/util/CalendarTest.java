@@ -197,11 +197,11 @@ public class CalendarTest extends junit.framework.TestCase {
 
     private void assertCalendarEquals(Calendar calendar,
             int year, int month, int day, int hour, int minute) {
-        assertEquals(year, calendar.get(Calendar.YEAR));
-        assertEquals(month, calendar.get(Calendar.MONTH));
-        assertEquals(day, calendar.get(Calendar.DATE));
-        assertEquals(hour, calendar.get(Calendar.HOUR_OF_DAY));
-        assertEquals(minute, calendar.get(Calendar.MINUTE));
+        assertEquals("year", year, calendar.get(Calendar.YEAR));
+        assertEquals("month", month, calendar.get(Calendar.MONTH));
+        assertEquals("day", day, calendar.get(Calendar.DATE));
+        assertEquals("hour", hour, calendar.get(Calendar.HOUR_OF_DAY));
+        assertEquals("minute", minute, calendar.get(Calendar.MINUTE));
     }
 
     private static double hoursSinceEpoch(Calendar c) {
@@ -210,8 +210,22 @@ public class CalendarTest extends junit.framework.TestCase {
     }
 
     // https://code.google.com/p/android/issues/detail?id=45877
-    public void test_clear_45877() {
+    public void test_clear_45877_morning() {
       GregorianCalendar cal = new GregorianCalendar(TimeZone.getTimeZone("America/Los_Angeles"));
+      // 3rd February 2016 05:32:40.000 America/Los_Angeles time.
+      cal.setTimeInMillis(1454506360000L);
+      checkClear(cal, 0, 28800000);
+    }
+
+    // https://code.google.com/p/android/issues/detail?id=45877
+    public void test_clear_45877_afternoon() {
+      GregorianCalendar cal = new GregorianCalendar(TimeZone.getTimeZone("America/Los_Angeles"));
+      // 3rd February 2016 12:32:40.000 America/Los_Angeles time.
+      cal.setTimeInMillis(1454531560000L);
+      checkClear(cal, 12, 72000000);
+    }
+
+    private void checkClear(GregorianCalendar cal, int expectedHourOfDay, long expectedMillis) {
       cal.set(Calendar.YEAR, 1970);
       cal.set(Calendar.MONTH, Calendar.JANUARY);
       cal.set(Calendar.DAY_OF_MONTH, 1);
@@ -226,7 +240,7 @@ public class CalendarTest extends junit.framework.TestCase {
       assertFalse(cal.isSet(Calendar.HOUR_OF_DAY));
 
       // When we call get, unset fields are computed.
-      assertEquals(0, cal.get(Calendar.HOUR_OF_DAY));
+      assertEquals(expectedHourOfDay, cal.get(Calendar.HOUR_OF_DAY));
       // And set fields stay the same.
       assertEquals(1, cal.get(Calendar.DAY_OF_MONTH));
 
@@ -234,7 +248,7 @@ public class CalendarTest extends junit.framework.TestCase {
       assertTrue(cal.isSet(Calendar.DAY_OF_MONTH));
       assertTrue(cal.isSet(Calendar.HOUR_OF_DAY));
 
-      assertEquals(28800000, cal.getTimeInMillis());
+      assertEquals(expectedMillis, cal.getTimeInMillis());
 
       cal.set(Calendar.HOUR_OF_DAY, 1);
       assertEquals(32400000, cal.getTimeInMillis());
@@ -243,15 +257,28 @@ public class CalendarTest extends junit.framework.TestCase {
     // http://b/16938922.
     //
     // TODO: This is for backwards compatibility only. Seems like a better idea to throw
-    // here. We should add a targetSdkVersion based check and throw for each of these
-    // cases.
-    public void test_nullLocale() {
+    // here. We should add a targetSdkVersion based check and throw for this case.
+    public void test_nullLocale_getInstance_Locale() {
         assertCalendarConfigEquals(
                 Calendar.getInstance(Locale.getDefault()),
                 Calendar.getInstance((Locale) null));
+    }
+
+    // http://b/16938922.
+    //
+    // TODO: This is for backwards compatibility only. Seems like a better idea to throw
+    // here. We should add a targetSdkVersion based check and throw for this case.
+    public void test_nullLocale_getInstance_TimeZone_Locale() {
         assertCalendarConfigEquals(
                 Calendar.getInstance(TimeZone.getDefault(), Locale.getDefault()),
                 Calendar.getInstance(TimeZone.getDefault(), null));
+    }
+
+    // http://b/16938922.
+    //
+    // TODO: This is for backwards compatibility only. Seems like a better idea to throw
+    // here. We should add a targetSdkVersion based check and throw for this case.
+    public void test_nullLocale_GregorianCalendar_Locale() {
         assertCalendarConfigEquals(
                 new GregorianCalendar(Locale.getDefault()),
                 new GregorianCalendar((Locale) null));
@@ -276,6 +303,40 @@ public class CalendarTest extends junit.framework.TestCase {
         assertFalse(c.getCalenderFields() == c2.getCalenderFields());
         // ,,, and a shallow copy of subclass fields.
         assertSame(c.getSubclassFields(), c2.getSubclassFields());
+    }
+
+    // http://b/26581303
+    public void testSetHourOfDayInEuropeLondon() {
+        Calendar calendar = Calendar.getInstance();
+        calendar.clear();
+        calendar.setTimeZone(TimeZone.getTimeZone("Europe/London"));
+        calendar.set(Calendar.HOUR_OF_DAY, 1);
+        assertEquals(1,calendar.get(Calendar.HOUR_OF_DAY));
+    }
+
+    public void testGetWeekYear() {
+        try {
+            new FakeCalendar().getWeekYear();
+            fail();
+        } catch (UnsupportedOperationException expected) {}
+    }
+
+    public void testGetWeeksInWeekYear() {
+        try {
+            new FakeCalendar().getWeeksInWeekYear();
+            fail();
+        } catch (UnsupportedOperationException expected) {}
+    }
+
+    public void testIsWeekDateSupported() {
+        assertFalse(new FakeCalendar().isWeekDateSupported());
+    }
+
+    public void testSetWeekDate() {
+        try {
+            new FakeCalendar().setWeekDate(1, 1, 1);
+            fail();
+        } catch (UnsupportedOperationException expected) {}
     }
 
     public static class FakeCalendar extends Calendar {

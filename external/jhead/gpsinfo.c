@@ -257,7 +257,7 @@ void ProcessGpsInfo(unsigned char * DirStart, int ByteCountUnused, unsigned char
 
             case TAG_GPS_TIMESTAMP:
                 snprintf(ImageInfo.GpsTimeStamp,
-                    sizeof(ImageInfo.GpsTimeStamp), "%d:%d:%d",
+                    sizeof(ImageInfo.GpsTimeStamp), "%02d:%02d:%02d",
                     (int) ConvertAnyFormat(ValuePtr, Format),
                     (int) ConvertAnyFormat(ValuePtr + 8, Format),
                     (int) ConvertAnyFormat(ValuePtr + 16, Format)

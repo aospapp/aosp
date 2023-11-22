@@ -37,4 +37,12 @@
     <!-- String for button in TestDialerActivity that tries to exercise the
             TelecomManager.cancelMissedCallNotifications() functionality -->
     <string name="cancelMissedButton">Cancel missed calls</string>
+
+    <string name="endCallButton">End Call</string>
+
+    <string name="muteButton">Mute</string>
+
+    <string name="holdButton">Hold</string>
+
+    <string name="inCallUiAppLabel">Test InCall UI</string>
 </resources>

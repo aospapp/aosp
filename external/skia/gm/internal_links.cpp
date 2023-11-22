@@ -20,7 +20,7 @@ namespace skiagm {
 class InternalLinksGM : public GM {
 public:
     InternalLinksGM() {
-        this->setBGColor(0xFFDDDDDD);
+        this->setBGColor(sk_tool_utils::color_to_565(0xFFDDDDDD));
     }
 
 protected:
@@ -72,7 +72,7 @@ private:
 
 //////////////////////////////////////////////////////////////////////////////
 
-static GM* MyFactory(void*) { return SkNEW(InternalLinksGM); }
+static GM* MyFactory(void*) { return new InternalLinksGM; }
 static GMRegistry reg(MyFactory);
 
 }

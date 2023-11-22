@@ -20,19 +20,18 @@
     android:layout_height="match_parent" >
 
     <FrameLayout
-        android:id="@+id/action_fragment"
-        android:layout_width="@dimen/lb_action_section_width"
-        android:layout_height="match_parent"
-        android:layout_alignParentEnd="true"
-        android:background="@color/lb_action_fragment_background"
-        android:clipChildren="true" />
-
-    <FrameLayout
         android:id="@+id/content_fragment"
         android:layout_width="@dimen/lb_content_section_width"
         android:layout_height="match_parent"
         android:layout_alignParentStart="true"
-        android:layout_toStartOf="@id/action_fragment"
+        android:clipChildren="true" />
+
+    <FrameLayout
+        android:id="@+id/action_fragment"
+        android:layout_width="@dimen/lb_action_section_width"
+        android:layout_height="match_parent"
+        android:layout_toEndOf="@id/content_fragment"
+        android:background="@color/lb_action_fragment_background"
         android:clipChildren="true" />
 
 </RelativeLayout>

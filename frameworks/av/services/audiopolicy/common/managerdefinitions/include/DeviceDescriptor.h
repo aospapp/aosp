@@ -29,9 +29,14 @@ namespace android {
 class DeviceDescriptor : public AudioPort, public AudioPortConfig
 {
 public:
-    DeviceDescriptor(audio_devices_t type);
+     // Note that empty name refers by convention to a generic device.
+    DeviceDescriptor(audio_devices_t type, const String8 &tagName = String8(""));
 
     virtual ~DeviceDescriptor() {}
+
+    virtual const String8 getTagName() const { return mTagName; }
+
+    audio_devices_t type() const { return mDeviceType; }
 
     bool equals(const sp<DeviceDescriptor>& other) const;
 
@@ -42,50 +47,44 @@ public:
 
     // AudioPort
     virtual void attach(const sp<HwModule>& module);
-    virtual void loadGains(cnode *root);
     virtual void toAudioPort(struct audio_port *port) const;
     virtual void importAudioPort(const sp<AudioPort> port);
 
     audio_port_handle_t getId() const;
-    audio_devices_t type() const { return mDeviceType; }
-    status_t dump(int fd, int spaces, int index) const;
+    status_t dump(int fd, int spaces, int index, bool verbose = true) const;
     void log() const;
 
-    String8 mTag;
     String8 mAddress;
 
 private:
+    String8 mTagName; // Unique human readable identifier for a device port found in conf file.
     audio_devices_t     mDeviceType;
     audio_port_handle_t mId;
 
 friend class DeviceVector;
 };
 
-class DeviceVector : public SortedVector< sp<DeviceDescriptor> >
+class DeviceVector : public SortedVector<sp<DeviceDescriptor> >
 {
 public:
     DeviceVector() : SortedVector(), mDeviceTypes(AUDIO_DEVICE_NONE) {}
 
     ssize_t add(const sp<DeviceDescriptor>& item);
+    void add(const DeviceVector &devices);
     ssize_t remove(const sp<DeviceDescriptor>& item);
     ssize_t indexOf(const sp<DeviceDescriptor>& item) const;
 
     audio_devices_t types() const { return mDeviceTypes; }
 
-    void loadDevicesFromType(audio_devices_t types);
-    void loadDevicesFromTag(char *tag, const DeviceVector& declaredDevices);
-
     sp<DeviceDescriptor> getDevice(audio_devices_t type, String8 address) const;
     DeviceVector getDevicesFromType(audio_devices_t types) const;
     sp<DeviceDescriptor> getDeviceFromId(audio_port_handle_t id) const;
-    sp<DeviceDescriptor> getDeviceFromTag(const String8& tag) const;
+    sp<DeviceDescriptor> getDeviceFromTagName(const String8 &tagName) const;
     DeviceVector getDevicesFromTypeAddr(audio_devices_t type, String8 address) const;
 
     audio_devices_t getDevicesFromHwModule(audio_module_handle_t moduleHandle) const;
 
-    audio_policy_dev_state_t getDeviceConnectionState(const sp<DeviceDescriptor> &devDesc) const;
-
-    status_t dump(int fd, const String8 &direction) const;
+    status_t dump(int fd, const String8 &tag, int spaces = 0, bool verbose = true) const;
 
 private:
     void refreshTypes();

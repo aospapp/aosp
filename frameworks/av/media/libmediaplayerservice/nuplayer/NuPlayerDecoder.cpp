@@ -69,7 +69,6 @@ NuPlayer::Decoder::Decoder(
       mIsSecure(false),
       mFormatChangePending(false),
       mTimeChangePending(false),
-      mPaused(true),
       mResumePending(false),
       mComponentName("decoder") {
     mCodecLooper = new ALooper;
@@ -526,7 +525,10 @@ bool NuPlayer::Decoder::handleAnInputBuffer(size_t index) {
         ALOGI("[%s] resubmitting CSD", mComponentName.c_str());
         msg->setBuffer("buffer", buffer);
         mCSDsToSubmit.removeAt(0);
-        CHECK(onInputBufferFetched(msg));
+        if (!onInputBufferFetched(msg)) {
+            handleError(UNKNOWN_ERROR);
+            return false;
+        }
         return true;
     }
 
@@ -635,8 +637,11 @@ void NuPlayer::Decoder::handleOutputFormatChange(const sp<AMessage> &format) {
             flags = AUDIO_OUTPUT_FLAG_NONE;
         }
 
-        mRenderer->openAudioSink(
+        status_t err = mRenderer->openAudioSink(
                 format, false /* offloadOnly */, hasVideo, flags, NULL /* isOffloaed */);
+        if (err != OK) {
+            handleError(err);
+        }
     }
 }
 
@@ -860,7 +865,11 @@ bool NuPlayer::Decoder::onInputBufferFetched(const sp<AMessage> &msg) {
 
         // copy into codec buffer
         if (buffer != codecBuffer) {
-            CHECK_LE(buffer->size(), codecBuffer->capacity());
+            if (buffer->size() > codecBuffer->capacity()) {
+                handleError(ERROR_BUFFER_TOO_SMALL);
+                mDequeuedInputBuffers.push_back(bufferIx);
+                return false;
+            }
             codecBuffer->setRange(0, buffer->size());
             memcpy(codecBuffer->data(), buffer->data(), buffer->size());
         }

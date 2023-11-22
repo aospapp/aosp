@@ -28,14 +28,17 @@ LOCAL_MULTILIB := both
 # When built, explicitly put it in the data partition.
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner
-LOCAL_JNI_SHARED_LIBRARIES := libcoremathtestcpp_jni libbnnmdata_jni
+LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner xmp_toolkit
+LOCAL_JNI_SHARED_LIBRARIES := libcoremathtestcpp_jni
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-renderscript-files-under, src)
 
 LOCAL_RENDERSCRIPT_FLAGS := -Wno-error=deprecated-declarations
 
 LOCAL_SDK_VERSION := current
+
+# Tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
 
 include $(BUILD_CTS_PACKAGE)
 include $(call all-makefiles-under,$(LOCAL_PATH))

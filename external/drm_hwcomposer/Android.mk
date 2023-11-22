@@ -30,6 +30,7 @@ LOCAL_SHARED_LIBRARIES := \
 
 
 LOCAL_C_INCLUDES := \
+        external/drm_gralloc \
 	external/libdrm \
 	external/libdrm/include/drm \
 	system/core/include/utils \
@@ -37,32 +38,33 @@ LOCAL_C_INCLUDES := \
 	system/core/libsync/include \
 
 LOCAL_SRC_FILES := \
-	compositor.cpp \
+	autolock.cpp \
 	drmresources.cpp \
-        drmcomposition.cpp \
-        drmcompositor.cpp \
-        drmcompositorworker.cpp \
+	drmcomposition.cpp \
+	drmcompositor.cpp \
+	drmcompositorworker.cpp \
 	drmconnector.cpp \
 	drmcrtc.cpp \
-        drmdisplaycomposition.cpp \
-        drmdisplaycompositor.cpp \
+	drmdisplaycomposition.cpp \
+	drmdisplaycompositor.cpp \
 	drmencoder.cpp \
+	drmeventlistener.cpp \
 	drmmode.cpp \
 	drmplane.cpp \
 	drmproperty.cpp \
-	gl_compositor.cpp \
 	glworker.cpp \
 	hwcomposer.cpp \
-	seperate_rects.cpp \
+        platform.cpp \
+        platformdrmgeneric.cpp \
+        platformnv.cpp \
+	separate_rects.cpp \
+	virtualcompositorworker.cpp \
 	vsyncworker.cpp \
 	worker.cpp
 
 ifeq ($(strip $(BOARD_DRM_HWCOMPOSER_BUFFER_IMPORTER)),nvidia-gralloc)
-LOCAL_SRC_FILES += nvimporter.cpp
 LOCAL_CPPFLAGS += -DUSE_NVIDIA_IMPORTER
 else
-LOCAL_C_INCLUDES += external/drm_gralloc
-LOCAL_SRC_FILES += drmgenericimporter.cpp
 LOCAL_CPPFLAGS += -DUSE_DRM_GENERIC_IMPORTER
 endif
 

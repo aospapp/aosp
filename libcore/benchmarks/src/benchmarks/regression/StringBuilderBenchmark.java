@@ -17,13 +17,11 @@
 package benchmarks.regression;
 
 import com.google.caliper.Param;
-import com.google.caliper.Runner;
-import com.google.caliper.SimpleBenchmark;
 
 /**
  * Tests the performance of various StringBuilder methods.
  */
-public class StringBuilderBenchmark extends SimpleBenchmark {
+public class StringBuilderBenchmark {
 
     @Param({"1", "10", "100"}) private int length;
 
@@ -56,6 +54,16 @@ public class StringBuilderBenchmark extends SimpleBenchmark {
     }
 
     public void timeAppendCharSequence(int reps) {
+        CharSequence cs = "chars";
+        for (int i = 0; i < reps; ++i) {
+            StringBuilder sb = new StringBuilder();
+            for (int j = 0; j < length; ++j) {
+                sb.append(cs);
+            }
+        }
+    }
+
+    public void timeAppendSubCharSequence(int reps) {
         CharSequence cs = "chars";
         for (int i = 0; i < reps; ++i) {
             StringBuilder sb = new StringBuilder();

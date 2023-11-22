@@ -18,50 +18,43 @@ package android.transition.cts;
 import android.transition.Transition;
 import android.transition.Transition.TransitionListener;
 
+import java.util.concurrent.CountDownLatch;
+
 /**
  * Listener captures whether each of the methods is called.
  */
 class SimpleTransitionListener implements TransitionListener {
     public Transition transition;
 
-    public boolean started;
-
-    public boolean ended;
-
-    public boolean canceled;
-
-    public boolean paused;
-
-    public boolean resumed;
+    public CountDownLatch startLatch = new CountDownLatch(1);
+    public CountDownLatch endLatch = new CountDownLatch(1);
+    public CountDownLatch cancelLatch = new CountDownLatch(1);
+    public CountDownLatch pauseLatch = new CountDownLatch(1);
+    public CountDownLatch resumeLatch = new CountDownLatch(1);
 
     @Override
-    public synchronized void onTransitionStart(Transition transition) {
-        started = true;
+    public void onTransitionStart(Transition transition) {
         this.transition = transition;
-        notifyAll();
+        startLatch.countDown();
     }
 
     @Override
-    public synchronized void onTransitionEnd(Transition transition) {
-        ended = true;
-        notifyAll();
+    public void onTransitionEnd(Transition transition) {
+        endLatch.countDown();
     }
 
     @Override
-    public synchronized void onTransitionCancel(Transition transition) {
-        canceled = true;
-        notifyAll();
+    public void onTransitionCancel(Transition transition) {
+        cancelLatch.countDown();
     }
 
     @Override
-    public synchronized void onTransitionPause(Transition transition) {
-        paused = true;
-        notifyAll();
+    public void onTransitionPause(Transition transition) {
+        pauseLatch.countDown();
     }
 
     @Override
-    public synchronized void onTransitionResume(Transition transition) {
-        resumed = true;
-        notifyAll();
+    public void onTransitionResume(Transition transition) {
+        resumeLatch.countDown();
     }
 }

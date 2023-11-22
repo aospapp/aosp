@@ -77,6 +77,10 @@ public class FlagSecureTest extends AssistTestBase {
     }
 
     public void testSecureActivity() throws Exception {
+        if (mActivityManager.isLowRamDevice()) {
+            Log.d(TAG, "Not running assist tests on low-RAM device.");
+            return;
+        }
         mTestActivity.startTest(TEST_CASE_TYPE);
         waitForAssistantToBeReady(mReadyLatch);
         mTestActivity.start3pApp(TEST_CASE_TYPE);

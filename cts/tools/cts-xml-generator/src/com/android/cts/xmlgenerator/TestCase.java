@@ -46,4 +46,8 @@ class TestCase implements Comparable<TestCase> {
     public int compareTo(TestCase another) {
         return getName().compareTo(another.getName());
     }
+
+    public int countTests() {
+        return mTests.size();
+    }
 }

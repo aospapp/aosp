@@ -33,7 +33,6 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.preference.PreferenceManager;
 import android.provider.ContactsContract.PhoneLookup;
-import android.provider.Settings;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
@@ -49,16 +48,13 @@ import android.util.Log;
 import android.widget.Toast;
 
 import com.android.internal.telephony.Phone;
-import com.android.internal.telephony.PhoneBase;
 import com.android.internal.telephony.TelephonyCapabilities;
 import com.android.phone.settings.VoicemailSettingsActivity;
 import com.android.phone.vvm.omtp.sync.VoicemailStatusQueryHelper;
 import com.android.phone.settings.VoicemailNotificationSettingsUtil;
-import com.android.phone.settings.VoicemailProviderSettingsUtil;
 
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -93,14 +89,13 @@ public class NotificationMgr {
 
     private Context mContext;
     private NotificationManager mNotificationManager;
+    private final ComponentName mNotificationComponent;
     private StatusBarManager mStatusBarManager;
     private UserManager mUserManager;
     private Toast mToast;
     private SubscriptionManager mSubscriptionManager;
     private TelecomManager mTelecomManager;
     private TelephonyManager mTelephonyManager;
-
-    public StatusBarHelper statusBarHelper;
 
     // used to track the notification of selected network unavailable
     private boolean mSelectedUnavailableNotify = false;
@@ -121,10 +116,15 @@ public class NotificationMgr {
                 (StatusBarManager) app.getSystemService(Context.STATUS_BAR_SERVICE);
         mUserManager = (UserManager) app.getSystemService(Context.USER_SERVICE);
         mPhone = app.mCM.getDefaultPhone();
-        statusBarHelper = new StatusBarHelper();
         mSubscriptionManager = SubscriptionManager.from(mContext);
         mTelecomManager = TelecomManager.from(mContext);
         mTelephonyManager = (TelephonyManager) app.getSystemService(Context.TELEPHONY_SERVICE);
+
+        final String notificationComponent = mContext.getString(
+                R.string.config_customVoicemailComponent);
+
+        mNotificationComponent = notificationComponent != null
+                ? ComponentName.unflattenFromString(notificationComponent) : null;
     }
 
     /**
@@ -143,101 +143,6 @@ public class NotificationMgr {
                 Log.wtf(LOG_TAG, "init() called multiple times!  sInstance = " + sInstance);
             }
             return sInstance;
-        }
-    }
-
-    /**
-     * Helper class that's a wrapper around the framework's
-     * StatusBarManager.disable() API.
-     *
-     * This class is used to control features like:
-     *
-     *   - Disabling the status bar "notification windowshade"
-     *     while the in-call UI is up
-     *
-     *   - Disabling notification alerts (audible or vibrating)
-     *     while a phone call is active
-     *
-     *   - Disabling navigation via the system bar (the "soft buttons" at
-     *     the bottom of the screen on devices with no hard buttons)
-     *
-     * We control these features through a single point of control to make
-     * sure that the various StatusBarManager.disable() calls don't
-     * interfere with each other.
-     */
-    public class StatusBarHelper {
-        // Current desired state of status bar / system bar behavior
-        private boolean mIsNotificationEnabled = true;
-        private boolean mIsExpandedViewEnabled = true;
-        private boolean mIsSystemBarNavigationEnabled = true;
-
-        private StatusBarHelper() {
-        }
-
-        /**
-         * Enables or disables auditory / vibrational alerts.
-         *
-         * (We disable these any time a voice call is active, regardless
-         * of whether or not the in-call UI is visible.)
-         */
-        public void enableNotificationAlerts(boolean enable) {
-            if (mIsNotificationEnabled != enable) {
-                mIsNotificationEnabled = enable;
-                updateStatusBar();
-            }
-        }
-
-        /**
-         * Enables or disables the expanded view of the status bar
-         * (i.e. the ability to pull down the "notification windowshade").
-         *
-         * (This feature is disabled by the InCallScreen while the in-call
-         * UI is active.)
-         */
-        public void enableExpandedView(boolean enable) {
-            if (mIsExpandedViewEnabled != enable) {
-                mIsExpandedViewEnabled = enable;
-                updateStatusBar();
-            }
-        }
-
-        /**
-         * Enables or disables the navigation via the system bar (the
-         * "soft buttons" at the bottom of the screen)
-         *
-         * (This feature is disabled while an incoming call is ringing,
-         * because it's easy to accidentally touch the system bar while
-         * pulling the phone out of your pocket.)
-         */
-        public void enableSystemBarNavigation(boolean enable) {
-            if (mIsSystemBarNavigationEnabled != enable) {
-                mIsSystemBarNavigationEnabled = enable;
-                updateStatusBar();
-            }
-        }
-
-        /**
-         * Updates the status bar to reflect the current desired state.
-         */
-        private void updateStatusBar() {
-            int state = StatusBarManager.DISABLE_NONE;
-
-            if (!mIsExpandedViewEnabled) {
-                state |= StatusBarManager.DISABLE_EXPAND;
-            }
-            if (!mIsNotificationEnabled) {
-                state |= StatusBarManager.DISABLE_NOTIFICATION_ALERTS;
-            }
-            if (!mIsSystemBarNavigationEnabled) {
-                // Disable *all* possible navigation via the system bar.
-                state |= StatusBarManager.DISABLE_HOME;
-                state |= StatusBarManager.DISABLE_RECENT;
-                state |= StatusBarManager.DISABLE_BACK;
-                state |= StatusBarManager.DISABLE_SEARCH;
-            }
-
-            if (DBG) log("updateStatusBar: state = 0x" + Integer.toHexString(state));
-            mStatusBarManager.disable(state);
         }
     }
 
@@ -352,8 +257,10 @@ public class NotificationMgr {
                 return;
             }
 
+            Integer vmCount = null;
+
             if (TelephonyCapabilities.supportsVoiceMessageCount(phone)) {
-                int vmCount = phone.getVoiceMessageCount();
+                vmCount = phone.getVoiceMessageCount();
                 String titleFormat = mContext.getString(R.string.notification_voicemail_title_count);
                 notificationTitle = String.format(titleFormat, vmCount);
             }
@@ -363,7 +270,9 @@ public class NotificationMgr {
 
             Intent intent;
             String notificationText;
-            if (TextUtils.isEmpty(vmNumber)) {
+            boolean isSettingsIntent = TextUtils.isEmpty(vmNumber);
+
+            if (isSettingsIntent) {
                 notificationText = mContext.getString(
                         R.string.notification_voicemail_no_vm_number);
 
@@ -423,19 +332,72 @@ public class NotificationMgr {
                 if (!mUserManager.hasUserRestriction(
                         UserManager.DISALLOW_OUTGOING_CALLS, userHandle)
                         && !user.isManagedProfile()) {
-                    mNotificationManager.notifyAsUser(
-                            Integer.toString(subId) /* tag */,
-                            VOICEMAIL_NOTIFICATION,
-                            notification,
-                            userHandle);
+                    if (!sendNotificationCustomComponent(vmCount, vmNumber, pendingIntent,
+                            isSettingsIntent)) {
+                        mNotificationManager.notifyAsUser(
+                                Integer.toString(subId) /* tag */,
+                                VOICEMAIL_NOTIFICATION,
+                                notification,
+                                userHandle);
+                    }
                 }
             }
         } else {
-            mNotificationManager.cancelAsUser(
-                    Integer.toString(subId) /* tag */,
-                    VOICEMAIL_NOTIFICATION,
-                    UserHandle.ALL);
+            if (!sendNotificationCustomComponent(0, null, null, false)) {
+                mNotificationManager.cancelAsUser(
+                        Integer.toString(subId) /* tag */,
+                        VOICEMAIL_NOTIFICATION,
+                        UserHandle.ALL);
+            }
         }
+    }
+
+    /**
+     * Sends a broadcast with the voicemail notification information to a custom component to
+     * handle. This method is also used to indicate to the custom component when to clear the
+     * notification. A pending intent can be passed to the custom component to indicate an action to
+     * be taken as it would by a notification produced in this class.
+     * @param count The number of pending voicemail messages to indicate on the notification. A
+     *              Value of 0 is passed here to indicate that the notification should be cleared.
+     * @param number The voicemail phone number if specified.
+     * @param pendingIntent The intent that should be passed as the action to be taken.
+     * @param isSettingsIntent {@code true} to indicate the pending intent is to launch settings.
+     *                         otherwise, {@code false} to indicate the intent launches voicemail.
+     * @return {@code true} if a custom component was notified of the notification.
+     */
+    private boolean sendNotificationCustomComponent(Integer count, String number,
+            PendingIntent pendingIntent, boolean isSettingsIntent) {
+        if (mNotificationComponent != null) {
+            Intent intent = new Intent();
+            intent.setFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+            intent.setComponent(mNotificationComponent);
+            intent.setAction(TelephonyManager.ACTION_SHOW_VOICEMAIL_NOTIFICATION);
+
+            if (count != null) {
+                intent.putExtra(TelephonyManager.EXTRA_NOTIFICATION_COUNT, count);
+            }
+
+            // Additional information about the voicemail notification beyond the count is only
+            // present when the count not specified or greater than 0. The value of 0 represents
+            // clearing the notification, which does not require additional information.
+            if (count == null || count > 0) {
+                if (!TextUtils.isEmpty(number)) {
+                    intent.putExtra(TelephonyManager.EXTRA_VOICEMAIL_NUMBER, number);
+                }
+
+                if (pendingIntent != null) {
+                    intent.putExtra(isSettingsIntent
+                            ? TelephonyManager.EXTRA_LAUNCH_VOICEMAIL_SETTINGS_INTENT
+                            : TelephonyManager.EXTRA_CALL_VOICEMAIL_INTENT,
+                            pendingIntent);
+                }
+            }
+
+            mContext.sendBroadcast(intent);
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -493,7 +455,7 @@ public class NotificationMgr {
                     continue;
                 }
                 UserHandle userHandle = user.getUserHandle();
-                builder.setContentIntent(userHandle.isOwner() ? contentIntent : null);
+                builder.setContentIntent(user.isAdmin() ? contentIntent : null);
                 mNotificationManager.notifyAsUser(
                         Integer.toString(subId) /* tag */,
                         CALL_FORWARD_NOTIFICATION,
@@ -535,7 +497,7 @@ public class NotificationMgr {
                 continue;
             }
             UserHandle userHandle = user.getUserHandle();
-            builder.setContentIntent(userHandle.isOwner() ? contentIntent : null);
+            builder.setContentIntent(user.isAdmin() ? contentIntent : null);
             final Notification notif =
                     new Notification.BigTextStyle(builder).bigText(contentText).build();
             mNotificationManager.notifyAsUser(
@@ -571,8 +533,9 @@ public class NotificationMgr {
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
                 Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
         // Use NetworkSetting to handle the selection intent
-        intent.setComponent(new ComponentName("com.android.phone",
-                "com.android.phone.NetworkSetting"));
+        intent.setComponent(new ComponentName(
+                mContext.getString(R.string.network_operator_settings_package),
+                mContext.getString(R.string.network_operator_settings_class)));
         intent.putExtra(GsmUmtsOptions.EXTRA_SUB_ID, mPhone.getSubId());
         PendingIntent contentIntent = PendingIntent.getActivity(mContext, 0, intent, 0);
 
@@ -583,7 +546,7 @@ public class NotificationMgr {
                 continue;
             }
             UserHandle userHandle = user.getUserHandle();
-            builder.setContentIntent(userHandle.isOwner() ? contentIntent : null);
+            builder.setContentIntent(user.isAdmin() ? contentIntent : null);
             mNotificationManager.notifyAsUser(
                     null /* tag */,
                     SELECTED_OPERATOR_FAIL_NOTIFICATION,
@@ -616,10 +579,10 @@ public class NotificationMgr {
                 SharedPreferences sp =
                         PreferenceManager.getDefaultSharedPreferences(mContext);
                 String networkSelection =
-                        sp.getString(PhoneBase.NETWORK_SELECTION_NAME_KEY + subId, "");
+                        sp.getString(Phone.NETWORK_SELECTION_NAME_KEY + subId, "");
                 if (TextUtils.isEmpty(networkSelection)) {
                     networkSelection =
-                            sp.getString(PhoneBase.NETWORK_SELECTION_KEY + subId, "");
+                            sp.getString(Phone.NETWORK_SELECTION_KEY + subId, "");
                 }
 
                 if (DBG) log("updateNetworkSelection()..." + "state = " +
@@ -627,10 +590,8 @@ public class NotificationMgr {
 
                 if (serviceState == ServiceState.STATE_OUT_OF_SERVICE
                         && !TextUtils.isEmpty(networkSelection)) {
-                    if (!mSelectedUnavailableNotify) {
-                        showNetworkSelection(networkSelection);
-                        mSelectedUnavailableNotify = true;
-                    }
+                    showNetworkSelection(networkSelection);
+                    mSelectedUnavailableNotify = true;
                 } else {
                     if (mSelectedUnavailableNotify) {
                         cancelNetworkSelection();

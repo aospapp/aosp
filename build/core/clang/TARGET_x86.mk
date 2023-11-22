@@ -19,11 +19,8 @@ CLANG_CONFIG_x86_TARGET_EXTRA_CFLAGS := \
   $(CLANG_CONFIG_TARGET_EXTRA_CFLAGS) \
   $(CLANG_CONFIG_x86_EXTRA_CFLAGS) \
   $(CLANG_CONFIG_x86_TARGET_EXTRA_ASFLAGS) \
-  -fno-optimize-sibling-calls \
   -mstackrealign
 
-# http://llvm.org/bugs/show_bug.cgi?id=15086,
-# llvm tail call optimization is wrong for x86.
 # -mstackrealign is needed to realign stack in native code
 # that could be called from JNI, so that movaps instruction
 # will work on assumed stack aligned local variables.
@@ -69,8 +66,12 @@ $(clang_2nd_arch_prefix)CLANG_TARGET_GLOBAL_LDFLAGS := \
   $(call $(clang_2nd_arch_prefix)convert-to-clang-flags,$($(clang_2nd_arch_prefix)TARGET_GLOBAL_LDFLAGS)) \
   $(CLANG_CONFIG_x86_TARGET_EXTRA_LDFLAGS)
 
-$(clang_2nd_arch_prefix)RS_TRIPLE := armv7-none-linux-gnueabi
+$(clang_2nd_arch_prefix)RS_TRIPLE := armv7-linux-androideabi
 $(clang_2nd_arch_prefix)RS_TRIPLE_CFLAGS := -D__i386__
 $(clang_2nd_arch_prefix)RS_COMPAT_TRIPLE := i686-linux-android
 
 $(clang_2nd_arch_prefix)TARGET_LIBPROFILE_RT := $(LLVM_RTLIB_PATH)/libclang_rt.profile-i686-android.a
+
+# Address sanitizer clang config
+$(clang_2nd_arch_prefix)ADDRESS_SANITIZER_RUNTIME_LIBRARY := libclang_rt.asan-i686-android
+$(clang_2nd_arch_prefix)ADDRESS_SANITIZER_LINKER := /system/bin/linker_asan

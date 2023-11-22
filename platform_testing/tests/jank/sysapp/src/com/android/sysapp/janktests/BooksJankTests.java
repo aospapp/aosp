@@ -16,8 +16,13 @@
 
 package com.android.sysapp.janktests;
 
+import java.io.File;
+import java.io.IOException;
+
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Bundle;
+import android.os.Environment;
 import android.os.RemoteException;
 import android.os.SystemClock;
 import android.support.test.jank.GfxMonitor;
@@ -31,8 +36,8 @@ import android.support.test.uiautomator.UiObjectNotFoundException;
 import android.support.test.uiautomator.Until;
 import android.widget.Button;
 import android.widget.ProgressBar;
-
 import junit.framework.Assert;
+import android.support.test.timeresulthelper.TimeResultLogger;
 
 /**
  * Jank test for Books app recommendation page fling
@@ -45,6 +50,10 @@ public class BooksJankTests extends JankTestBase {
     private static final int EXPECTED_FRAMES = 100;
     private static final String PACKAGE_NAME = "com.google.android.apps.books";
     private UiDevice mDevice;
+    private static final File TIMESTAMP_FILE = new File(Environment.getExternalStorageDirectory()
+            .getAbsolutePath(), "autotester.log");
+    private static final File RESULTS_FILE = new File(Environment.getExternalStorageDirectory()
+            .getAbsolutePath(), "results.log");
 
     @Override
     public void setUp() throws Exception {
@@ -71,17 +80,29 @@ public class BooksJankTests extends JankTestBase {
         SystemClock.sleep(SHORT_TIMEOUT);
     }
 
-    public void launchBooks () throws UiObjectNotFoundException {
+    public void launchBooks () throws UiObjectNotFoundException, IOException {
         launchApp(PACKAGE_NAME);
         dismissClings();
         openMyLibrary();
         Assert.assertTrue("Books haven't loaded yet", getNumberOfVisibleBooks() > 3);
+        TimeResultLogger.writeTimeStampLogStart(String.format("%s-%s",
+                getClass().getSimpleName(), getName()), TIMESTAMP_FILE);
+    }
+
+    public void afterTestBooksRecommendationPageFling(Bundle metrics) throws IOException {
+        TimeResultLogger.writeTimeStampLogEnd(String.format("%s-%s",
+                getClass().getSimpleName(), getName()), TIMESTAMP_FILE);
+        TimeResultLogger.writeResultToFile(String.format("%s-%s",
+                getClass().getSimpleName(), getName()), RESULTS_FILE, metrics);
+        super.afterTest(metrics);
     }
 
     // Measures jank while fling books mylibrary
-    @JankTest(beforeTest="launchBooks", expectedFrames=EXPECTED_FRAMES)
+    @JankTest(beforeTest="launchBooks", expectedFrames=EXPECTED_FRAMES,
+            afterTest="afterTestBooksRecommendationPageFling")
     @GfxMonitor(processName=PACKAGE_NAME)
-    public void testBooksRecommendationPageFling() {
+    // Books is not a system app anymore
+    public void doNotRun_BooksRecommendationPageFling() {
         UiObject2 container = mDevice.wait(Until.findObject(
                 By.res(PACKAGE_NAME, "content_container")), LONG_TIMEOUT);
         for (int i = 0; i < INNER_LOOP; i++) {

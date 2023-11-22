@@ -16,11 +16,11 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="7559008249836700599">"Emitiranja na mobitele"</string>
+    <string name="app_label" msgid="7559008249836700599">"Poruke mobilne mreže"</string>
     <string name="sms_cb_settings" msgid="971917159442705371">"Postavke emitiranja na mobitele"</string>
     <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"Postavke emitiranja na mobitele nisu dostupne za ovog korisnika"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"U redu"</string>
-    <string name="no_cell_broadcasts" msgid="5409324337492758562">"Nema aktivnih upozorenja u vašem području. Možete promijeniti postavke upozorenja pomoću opcije izbornika Postavke."</string>
+    <string name="no_cell_broadcasts" msgid="5409324337492758562">"Nema aktivnih upozorenja u vašem području. Postavke upozorenja možete promijeniti odabirom te opcije s izbornika Postavke."</string>
     <string name="menu_preferences" msgid="3596514894131599202">"Postavke"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"Izbriši emitiranja"</string>
     <string name="message_options" msgid="3178489901903589574">"Opcije poruka"</string>
@@ -44,7 +44,7 @@
     <string name="cmas_exercise_alert" msgid="2892255514938370321">"Hitno upozorenje (vježba)"</string>
     <string name="cmas_operator_defined_alert" msgid="8755372450810011476">"Hitna upozorenja (operator)"</string>
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"Hitno upozorenje"</string>
-    <string name="cb_other_message_identifiers" msgid="7083176204482365281">"Emitiranje na mobitele"</string>
+    <string name="cb_other_message_identifiers" msgid="7083176204482365281">"Poruke mobilne mreže"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"Postavke hitnih upozorenja"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"Uključivanje obavijesti"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"Prikaži emitiranja hitnih upozorenja"</string>

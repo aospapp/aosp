@@ -95,7 +95,12 @@ public abstract class ImmutableCollection<E> extends AbstractCollection<E>
     return false;
   }
 
-  abstract static class Builder<E> {
+  /**
+   * GWT emulated version of {@link ImmutableCollection.Builder}.
+   */
+  public abstract static class Builder<E> {
+
+    Builder() {}
 
     public abstract Builder<E> add(E element);
 

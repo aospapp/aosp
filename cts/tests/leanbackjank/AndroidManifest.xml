@@ -17,15 +17,17 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="android.cts.leanbackjank">
+        package="android.leanbackjank.cts">
+
+  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
   <application>
       <uses-library android:name="android.test.runner"/>
   </application>
 
   <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                   android:targetPackage="android.cts.leanbackjank"
-                   android:label="Jank tests">
+                   android:targetPackage="android.leanbackjank.cts"
+                   android:label="LeanbackJank tests">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />
     </instrumentation>

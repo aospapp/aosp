@@ -120,28 +120,28 @@ Attribute::AttrKind Attribute::getKindAsEnum() const {
   if (!pImpl) return None;
   assert((isEnumAttribute() || isIntAttribute()) &&
          "Invalid attribute type to get the kind as an enum!");
-  return pImpl ? pImpl->getKindAsEnum() : None;
+  return pImpl->getKindAsEnum();
 }
 
 uint64_t Attribute::getValueAsInt() const {
   if (!pImpl) return 0;
   assert(isIntAttribute() &&
          "Expected the attribute to be an integer attribute!");
-  return pImpl ? pImpl->getValueAsInt() : 0;
+  return pImpl->getValueAsInt();
 }
 
 StringRef Attribute::getKindAsString() const {
   if (!pImpl) return StringRef();
   assert(isStringAttribute() &&
          "Invalid attribute type to get the kind as a string!");
-  return pImpl ? pImpl->getKindAsString() : StringRef();
+  return pImpl->getKindAsString();
 }
 
 StringRef Attribute::getValueAsString() const {
   if (!pImpl) return StringRef();
   assert(isStringAttribute() &&
          "Invalid attribute type to get the value as a string!");
-  return pImpl ? pImpl->getValueAsString() : StringRef();
+  return pImpl->getValueAsString();
 }
 
 bool Attribute::hasAttribute(AttrKind Kind) const {
@@ -190,10 +190,18 @@ std::string Attribute::getAsString(bool InAttrGrp) const {
     return "sanitize_address";
   if (hasAttribute(Attribute::AlwaysInline))
     return "alwaysinline";
+  if (hasAttribute(Attribute::ArgMemOnly))
+    return "argmemonly";
   if (hasAttribute(Attribute::Builtin))
     return "builtin";
   if (hasAttribute(Attribute::ByVal))
     return "byval";
+  if (hasAttribute(Attribute::Convergent))
+    return "convergent";
+  if (hasAttribute(Attribute::InaccessibleMemOnly))
+    return "inaccessiblememonly";
+  if (hasAttribute(Attribute::InaccessibleMemOrArgMemOnly))
+    return "inaccessiblemem_or_argmemonly";
   if (hasAttribute(Attribute::InAlloca))
     return "inalloca";
   if (hasAttribute(Attribute::InlineHint))
@@ -228,6 +236,8 @@ std::string Attribute::getAsString(bool InAttrGrp) const {
     return "noredzone";
   if (hasAttribute(Attribute::NoReturn))
     return "noreturn";
+  if (hasAttribute(Attribute::NoRecurse))
+    return "norecurse";
   if (hasAttribute(Attribute::NoUnwind))
     return "nounwind";
   if (hasAttribute(Attribute::OptimizeNone))
@@ -250,6 +260,8 @@ std::string Attribute::getAsString(bool InAttrGrp) const {
     return "sspreq";
   if (hasAttribute(Attribute::StackProtectStrong))
     return "sspstrong";
+  if (hasAttribute(Attribute::SafeStack))
+    return "safestack";
   if (hasAttribute(Attribute::StructRet))
     return "sret";
   if (hasAttribute(Attribute::SanitizeThread))
@@ -434,12 +446,20 @@ uint64_t AttributeImpl::getAttrMask(Attribute::AttrKind Val) {
   case Attribute::InAlloca:        return 1ULL << 43;
   case Attribute::NonNull:         return 1ULL << 44;
   case Attribute::JumpTable:       return 1ULL << 45;
+  case Attribute::Convergent:      return 1ULL << 46;
+  case Attribute::SafeStack:       return 1ULL << 47;
+  case Attribute::NoRecurse:       return 1ULL << 48;
+  case Attribute::InaccessibleMemOnly:         return 1ULL << 49;
+  case Attribute::InaccessibleMemOrArgMemOnly: return 1ULL << 50;
   case Attribute::Dereferenceable:
     llvm_unreachable("dereferenceable attribute not supported in raw format");
     break;
   case Attribute::DereferenceableOrNull:
     llvm_unreachable("dereferenceable_or_null attribute not supported in raw "
                      "format");
+    break;
+  case Attribute::ArgMemOnly:
+    llvm_unreachable("argmemonly attribute not supported in raw format");
     break;
   }
   llvm_unreachable("Unsupported attribute type");
@@ -461,9 +481,8 @@ AttributeSetNode *AttributeSetNode::get(LLVMContext &C,
   SmallVector<Attribute, 8> SortedAttrs(Attrs.begin(), Attrs.end());
   array_pod_sort(SortedAttrs.begin(), SortedAttrs.end());
 
-  for (SmallVectorImpl<Attribute>::iterator I = SortedAttrs.begin(),
-         E = SortedAttrs.end(); I != E; ++I)
-    I->Profile(ID);
+  for (Attribute Attr : SortedAttrs)
+    Attr.Profile(ID);
 
   void *InsertPoint;
   AttributeSetNode *PA =
@@ -473,8 +492,7 @@ AttributeSetNode *AttributeSetNode::get(LLVMContext &C,
   // new one and insert it.
   if (!PA) {
     // Coallocate entries after the AttributeSetNode itself.
-    void *Mem = ::operator new(sizeof(AttributeSetNode) +
-                               sizeof(Attribute) * SortedAttrs.size());
+    void *Mem = ::operator new(totalSizeToAlloc<Attribute>(SortedAttrs.size()));
     PA = new (Mem) AttributeSetNode(SortedAttrs);
     pImpl->AttrsSetNodes.InsertNode(PA, InsertPoint);
   }
@@ -529,6 +547,13 @@ uint64_t AttributeSetNode::getDereferenceableBytes() const {
   for (iterator I = begin(), E = end(); I != E; ++I)
     if (I->hasAttribute(Attribute::Dereferenceable))
       return I->getDereferenceableBytes();
+  return 0;
+}
+
+uint64_t AttributeSetNode::getDereferenceableOrNullBytes() const {
+  for (iterator I = begin(), E = end(); I != E; ++I)
+    if (I->hasAttribute(Attribute::DereferenceableOrNull))
+      return I->getDereferenceableOrNullBytes();
   return 0;
 }
 
@@ -599,9 +624,8 @@ AttributeSet::getImpl(LLVMContext &C,
   // create a new one and insert it.
   if (!PA) {
     // Coallocate entries after the AttributeSetImpl itself.
-    void *Mem = ::operator new(sizeof(AttributeSetImpl) +
-                               sizeof(std::pair<unsigned, AttributeSetNode *>) *
-                                   Attrs.size());
+    void *Mem = ::operator new(
+        AttributeSetImpl::totalSizeToAlloc<IndexAttrPair>(Attrs.size()));
     PA = new (Mem) AttributeSetImpl(C, Attrs);
     pImpl->AttrsLists.InsertNode(PA, InsertPoint);
   }
@@ -666,22 +690,26 @@ AttributeSet AttributeSet::get(LLVMContext &C, unsigned Index,
     if (!B.contains(Kind))
       continue;
 
-    if (Kind == Attribute::Alignment)
-      Attrs.push_back(std::make_pair(Index, Attribute::
-                                     getWithAlignment(C, B.getAlignment())));
-    else if (Kind == Attribute::StackAlignment)
-      Attrs.push_back(std::make_pair(Index, Attribute::
-                              getWithStackAlignment(C, B.getStackAlignment())));
-    else if (Kind == Attribute::Dereferenceable)
-      Attrs.push_back(std::make_pair(Index,
-                                     Attribute::getWithDereferenceableBytes(C,
-                                       B.getDereferenceableBytes())));
-    else if (Kind == Attribute::DereferenceableOrNull)
-      Attrs.push_back(
-          std::make_pair(Index, Attribute::getWithDereferenceableOrNullBytes(
-                                    C, B.getDereferenceableOrNullBytes())));
-    else
-      Attrs.push_back(std::make_pair(Index, Attribute::get(C, Kind)));
+    Attribute Attr;
+    switch (Kind) {
+    case Attribute::Alignment:
+      Attr = Attribute::getWithAlignment(C, B.getAlignment());
+      break;
+    case Attribute::StackAlignment:
+      Attr = Attribute::getWithStackAlignment(C, B.getStackAlignment());
+      break;
+    case Attribute::Dereferenceable:
+      Attr = Attribute::getWithDereferenceableBytes(
+          C, B.getDereferenceableBytes());
+      break;
+    case Attribute::DereferenceableOrNull:
+      Attr = Attribute::getWithDereferenceableOrNullBytes(
+          C, B.getDereferenceableOrNullBytes());
+      break;
+    default:
+      Attr = Attribute::get(C, Kind);
+    }
+    Attrs.push_back(std::make_pair(Index, Attr));
   }
 
   // Add target-dependent (string) attributes.
@@ -695,9 +723,8 @@ AttributeSet AttributeSet::get(LLVMContext &C, unsigned Index,
 AttributeSet AttributeSet::get(LLVMContext &C, unsigned Index,
                                ArrayRef<Attribute::AttrKind> Kind) {
   SmallVector<std::pair<unsigned, Attribute>, 8> Attrs;
-  for (ArrayRef<Attribute::AttrKind>::iterator I = Kind.begin(),
-         E = Kind.end(); I != E; ++I)
-    Attrs.push_back(std::make_pair(Index, Attribute::get(C, *I)));
+  for (Attribute::AttrKind K : Kind)
+    Attrs.push_back(std::make_pair(Index, Attribute::get(C, K)));
   return get(C, Attrs);
 }
 
@@ -718,9 +745,8 @@ AttributeSet AttributeSet::get(LLVMContext &C, ArrayRef<AttributeSet> Attrs) {
     if (!AS) continue;
     SmallVector<std::pair<unsigned, AttributeSetNode *>, 8>::iterator
       ANVI = AttrNodeVec.begin(), ANVE;
-    for (const AttributeSetImpl::IndexAttrPair
-             *AI = AS->getNode(0),
-             *AE = AS->getNode(AS->getNumAttributes());
+    for (const IndexAttrPair *AI = AS->getNode(0),
+                             *AE = AS->getNode(AS->getNumAttributes());
          AI != AE; ++AI) {
       ANVE = AttrNodeVec.end();
       while (ANVI != ANVE && ANVI->first <= AI->first)
@@ -750,6 +776,36 @@ AttributeSet AttributeSet::addAttribute(LLVMContext &C, unsigned Index,
   llvm::AttrBuilder B;
   B.addAttribute(Kind, Value);
   return addAttributes(C, Index, AttributeSet::get(C, Index, B));
+}
+
+AttributeSet AttributeSet::addAttribute(LLVMContext &C,
+                                        ArrayRef<unsigned> Indices,
+                                        Attribute A) const {
+  unsigned I = 0, E = pImpl ? pImpl->getNumAttributes() : 0;
+  auto IdxI = Indices.begin(), IdxE = Indices.end();
+  SmallVector<AttributeSet, 4> AttrSet;
+
+  while (I != E && IdxI != IdxE) {
+    if (getSlotIndex(I) < *IdxI)
+      AttrSet.emplace_back(getSlotAttributes(I++));
+    else if (getSlotIndex(I) > *IdxI)
+      AttrSet.emplace_back(AttributeSet::get(C, std::make_pair(*IdxI++, A)));
+    else {
+      AttrBuilder B(getSlotAttributes(I), *IdxI);
+      B.addAttribute(A);
+      AttrSet.emplace_back(AttributeSet::get(C, *IdxI, B));
+      ++I;
+      ++IdxI;
+    }
+  }
+
+  while (I != E)
+    AttrSet.emplace_back(getSlotAttributes(I++));
+
+  while (IdxI != IdxE)
+    AttrSet.emplace_back(AttributeSet::get(C, std::make_pair(*IdxI++, A)));
+
+  return get(C, AttrSet);
 }
 
 AttributeSet AttributeSet::addAttributes(LLVMContext &C, unsigned Index,
@@ -812,12 +868,10 @@ AttributeSet AttributeSet::removeAttributes(LLVMContext &C, unsigned Index,
   if (!pImpl) return AttributeSet();
   if (!Attrs.pImpl) return *this;
 
-#ifndef NDEBUG
   // FIXME it is not obvious how this should work for alignment.
   // For now, say we can't pass in alignment, which no current use does.
   assert(!Attrs.hasAttribute(Index, Attribute::Alignment) &&
          "Attempt to change alignment!");
-#endif
 
   // Add the attribute slots before the one we're trying to add.
   SmallVector<AttributeSet, 4> AttrSet;
@@ -842,6 +896,42 @@ AttributeSet AttributeSet::removeAttributes(LLVMContext &C, unsigned Index,
       B.removeAttributes(Attrs.pImpl->getSlotAttributes(I), Index);
       break;
     }
+
+  AttrSet.push_back(AttributeSet::get(C, Index, B));
+
+  // Add the remaining attribute slots.
+  for (unsigned I = LastIndex, E = NumAttrs; I < E; ++I)
+    AttrSet.push_back(getSlotAttributes(I));
+
+  return get(C, AttrSet);
+}
+
+AttributeSet AttributeSet::removeAttributes(LLVMContext &C, unsigned Index,
+                                            const AttrBuilder &Attrs) const {
+  if (!pImpl) return AttributeSet();
+
+  // FIXME it is not obvious how this should work for alignment.
+  // For now, say we can't pass in alignment, which no current use does.
+  assert(!Attrs.hasAlignmentAttr() && "Attempt to change alignment!");
+
+  // Add the attribute slots before the one we're trying to add.
+  SmallVector<AttributeSet, 4> AttrSet;
+  uint64_t NumAttrs = pImpl->getNumAttributes();
+  AttributeSet AS;
+  uint64_t LastIndex = 0;
+  for (unsigned I = 0, E = NumAttrs; I != E; ++I) {
+    if (getSlotIndex(I) >= Index) {
+      if (getSlotIndex(I) == Index) AS = getSlotAttributes(LastIndex++);
+      break;
+    }
+    LastIndex = I + 1;
+    AttrSet.push_back(getSlotAttributes(I));
+  }
+
+  // Now remove the attribute from the correct slot. There may already be an
+  // AttributeSet there.
+  AttrBuilder B(AS, Index);
+  B.remove(Attrs);
 
   AttrSet.push_back(AttributeSet::get(C, Index, B));
 
@@ -903,17 +993,17 @@ AttributeSet AttributeSet::getFnAttributes() const {
 
 bool AttributeSet::hasAttribute(unsigned Index, Attribute::AttrKind Kind) const{
   AttributeSetNode *ASN = getAttributes(Index);
-  return ASN ? ASN->hasAttribute(Kind) : false;
+  return ASN && ASN->hasAttribute(Kind);
 }
 
 bool AttributeSet::hasAttribute(unsigned Index, StringRef Kind) const {
   AttributeSetNode *ASN = getAttributes(Index);
-  return ASN ? ASN->hasAttribute(Kind) : false;
+  return ASN && ASN->hasAttribute(Kind);
 }
 
 bool AttributeSet::hasAttributes(unsigned Index) const {
   AttributeSetNode *ASN = getAttributes(Index);
-  return ASN ? ASN->hasAttributes() : false;
+  return ASN && ASN->hasAttributes();
 }
 
 /// \brief Return true if the specified attribute is set for at least one
@@ -955,6 +1045,11 @@ unsigned AttributeSet::getStackAlignment(unsigned Index) const {
 uint64_t AttributeSet::getDereferenceableBytes(unsigned Index) const {
   AttributeSetNode *ASN = getAttributes(Index);
   return ASN ? ASN->getDereferenceableBytes() : 0;
+}
+
+uint64_t AttributeSet::getDereferenceableOrNullBytes(unsigned Index) const {
+  AttributeSetNode *ASN = getAttributes(Index);
+  return ASN ? ASN->getDereferenceableOrNullBytes() : 0;
 }
 
 std::string AttributeSet::getAsString(unsigned Index,
@@ -1054,6 +1149,7 @@ AttrBuilder::AttrBuilder(AttributeSet AS, unsigned Index)
 
 void AttrBuilder::clear() {
   Attrs.reset();
+  TargetDepAttrs.clear();
   Alignment = StackAlignment = DerefBytes = DerefOrNullBytes = 0;
 }
 
@@ -1120,23 +1216,10 @@ AttrBuilder &AttrBuilder::removeAttributes(AttributeSet A, uint64_t Index) {
   for (AttributeSet::iterator I = A.begin(Slot), E = A.end(Slot); I != E; ++I) {
     Attribute Attr = *I;
     if (Attr.isEnumAttribute() || Attr.isIntAttribute()) {
-      Attribute::AttrKind Kind = I->getKindAsEnum();
-      Attrs[Kind] = false;
-
-      if (Kind == Attribute::Alignment)
-        Alignment = 0;
-      else if (Kind == Attribute::StackAlignment)
-        StackAlignment = 0;
-      else if (Kind == Attribute::Dereferenceable)
-        DerefBytes = 0;
-      else if (Kind == Attribute::DereferenceableOrNull)
-        DerefOrNullBytes = 0;
+      removeAttribute(Attr.getKindAsEnum());
     } else {
       assert(Attr.isStringAttribute() && "Invalid attribute type!");
-      std::map<std::string, std::string>::iterator
-        Iter = TargetDepAttrs.find(Attr.getKindAsString());
-      if (Iter != TargetDepAttrs.end())
-        TargetDepAttrs.erase(Iter);
+      removeAttribute(Attr.getKindAsString());
     }
   }
 
@@ -1201,13 +1284,50 @@ AttrBuilder &AttrBuilder::merge(const AttrBuilder &B) {
   if (!DerefBytes)
     DerefBytes = B.DerefBytes;
 
+  if (!DerefOrNullBytes)
+    DerefOrNullBytes = B.DerefOrNullBytes;
+
   Attrs |= B.Attrs;
 
-  for (td_const_iterator I = B.TargetDepAttrs.begin(),
-         E = B.TargetDepAttrs.end(); I != E; ++I)
-    TargetDepAttrs[I->first] = I->second;
+  for (auto I : B.td_attrs())
+    TargetDepAttrs[I.first] = I.second;
 
   return *this;
+}
+
+AttrBuilder &AttrBuilder::remove(const AttrBuilder &B) {
+  // FIXME: What if both have alignments, but they don't match?!
+  if (B.Alignment)
+    Alignment = 0;
+
+  if (B.StackAlignment)
+    StackAlignment = 0;
+
+  if (B.DerefBytes)
+    DerefBytes = 0;
+
+  if (B.DerefOrNullBytes)
+    DerefOrNullBytes = 0;
+
+  Attrs &= ~B.Attrs;
+
+  for (auto I : B.td_attrs())
+    TargetDepAttrs.erase(I.first);
+
+  return *this;
+}
+
+bool AttrBuilder::overlaps(const AttrBuilder &B) const {
+  // First check if any of the target independent attributes overlap.
+  if ((Attrs & B.Attrs).any())
+    return true;
+
+  // Then check if any target dependent ones do.
+  for (auto I : td_attrs())
+    if (B.contains(I.first))
+      return true;
+
+  return false;
 }
 
 bool AttrBuilder::contains(StringRef A) const {
@@ -1228,8 +1348,7 @@ bool AttrBuilder::hasAttributes(AttributeSet A, uint64_t Index) const {
 
   assert(Slot != ~0U && "Couldn't find the index!");
 
-  for (AttributeSet::iterator I = A.begin(Slot), E = A.end(Slot);
-       I != E; ++I) {
+  for (AttributeSet::iterator I = A.begin(Slot), E = A.end(Slot); I != E; ++I) {
     Attribute Attr = *I;
     if (Attr.isEnumAttribute() || Attr.isIntAttribute()) {
       if (Attrs[I->getKindAsEnum()])
@@ -1267,7 +1386,8 @@ AttrBuilder &AttrBuilder::addRawValue(uint64_t Val) {
   for (Attribute::AttrKind I = Attribute::None; I != Attribute::EndAttrKinds;
        I = Attribute::AttrKind(I + 1)) {
     if (I == Attribute::Dereferenceable ||
-        I == Attribute::DereferenceableOrNull)
+        I == Attribute::DereferenceableOrNull ||
+        I == Attribute::ArgMemOnly)
       continue;
     if (uint64_t A = (Val & AttributeImpl::getAttrMask(I))) {
       Attrs[I] = true;
@@ -1287,7 +1407,7 @@ AttrBuilder &AttrBuilder::addRawValue(uint64_t Val) {
 //===----------------------------------------------------------------------===//
 
 /// \brief Which attributes cannot be applied to a type.
-AttributeSet AttributeFuncs::typeIncompatible(Type *Ty, uint64_t Index) {
+AttrBuilder AttributeFuncs::typeIncompatible(Type *Ty) {
   AttrBuilder Incompatible;
 
   if (!Ty->isIntegerTy())
@@ -1309,5 +1429,5 @@ AttributeSet AttributeFuncs::typeIncompatible(Type *Ty, uint64_t Index) {
       .addAttribute(Attribute::StructRet)
       .addAttribute(Attribute::InAlloca);
 
-  return AttributeSet::get(Ty->getContext(), Index, Incompatible);
+  return Incompatible;
 }

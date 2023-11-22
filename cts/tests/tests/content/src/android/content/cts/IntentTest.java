@@ -720,33 +720,33 @@ public class IntentTest extends AndroidTestCase {
     }
 
     public void testResolveActivitySingleMatch() {
-        final Intent intent = new Intent("com.android.cts.content.action.TEST_ACTION");
-        intent.addCategory("com.android.cts.content.category.TEST_CATEGORY");
+        final Intent intent = new Intent("android.content.cts.action.TEST_ACTION");
+        intent.addCategory("android.content.cts.category.TEST_CATEGORY");
 
         // Should only have one activity responding to narrow category
         final ComponentName target = intent.resolveActivity(mPm);
-        assertEquals("com.android.cts.content", target.getPackageName());
+        assertEquals("android.content.cts", target.getPackageName());
         assertEquals("android.content.cts.MockActivity", target.getClassName());
     }
 
     public void testResolveActivityShortcutMatch() {
-        final Intent intent = new Intent("com.android.cts.content.action.TEST_ACTION");
+        final Intent intent = new Intent("android.content.cts.action.TEST_ACTION");
         intent.setComponent(
-                new ComponentName("com.android.cts.content", "android.content.cts.MockActivity2"));
+                new ComponentName("android.content.cts", "android.content.cts.MockActivity2"));
 
         // Multiple activities match, but we asked for explicit component
         final ComponentName target = intent.resolveActivity(mPm);
-        assertEquals("com.android.cts.content", target.getPackageName());
+        assertEquals("android.content.cts", target.getPackageName());
         assertEquals("android.content.cts.MockActivity2", target.getClassName());
     }
 
     public void testResolveActivityMultipleMatch() {
-        final Intent intent = new Intent("com.android.cts.content.action.TEST_ACTION");
+        final Intent intent = new Intent("android.content.cts.action.TEST_ACTION");
 
         // Should have multiple activities, resulting in resolver dialog
         final ComponentName target = intent.resolveActivity(mPm);
         final String pkgName = target.getPackageName();
-        assertFalse("com.android.cts.content".equals(pkgName));
+        assertFalse("android.content.cts".equals(pkgName));
 
         // Whoever they are must be able to set preferred activities
         if (!"android".equals(pkgName)) {

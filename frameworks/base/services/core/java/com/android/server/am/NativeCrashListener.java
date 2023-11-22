@@ -21,6 +21,7 @@ import android.system.ErrnoException;
 import android.system.Os;
 import android.system.StructTimeval;
 import android.system.StructUcred;
+import android.system.UnixSocketAddress;
 import android.util.Slog;
 
 import static android.system.OsConstants.*;
@@ -30,7 +31,6 @@ import java.io.File;
 import java.io.FileDescriptor;
 import java.io.InterruptedIOException;
 import java.net.InetSocketAddress;
-import java.net.InetUnixAddress;
 
 /**
  * Set up a Unix domain socket that debuggerd will connect() to in
@@ -49,8 +49,8 @@ final class NativeCrashListener extends Thread {
     static final String DEBUGGERD_SOCKET_PATH = "/data/system/ndebugsocket";
 
     // Use a short timeout on socket operations and abandon the connection
-    // on hard errors
-    static final long SOCKET_TIMEOUT_MILLIS = 2000;  // 2 seconds
+    // on hard errors, just in case debuggerd goes out to lunch.
+    static final long SOCKET_TIMEOUT_MILLIS = 10000;  // 10 seconds
 
     final ActivityManagerService mAm;
 
@@ -117,16 +117,16 @@ final class NativeCrashListener extends Thread {
 
         try {
             FileDescriptor serverFd = Os.socket(AF_UNIX, SOCK_STREAM, 0);
-            final InetUnixAddress sockAddr = new InetUnixAddress(DEBUGGERD_SOCKET_PATH);
-            Os.bind(serverFd, sockAddr, 0);
+            final UnixSocketAddress sockAddr = UnixSocketAddress.createFileSystem(
+                    DEBUGGERD_SOCKET_PATH);
+            Os.bind(serverFd, sockAddr);
             Os.listen(serverFd, 1);
 
             while (true) {
-                InetSocketAddress peer = new InetSocketAddress();
                 FileDescriptor peerFd = null;
                 try {
                     if (MORE_DEBUG) Slog.v(TAG, "Waiting for debuggerd connection");
-                    peerFd = Os.accept(serverFd, peer);
+                    peerFd = Os.accept(serverFd, null /* peerAddress */);
                     if (MORE_DEBUG) Slog.v(TAG, "Got debuggerd socket " + peerFd);
                     if (peerFd != null) {
                         // Only the superuser is allowed to talk to us over this socket

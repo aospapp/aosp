@@ -17,9 +17,11 @@
 #include "hash_set.h"
 
 #include <map>
+#include <forward_list>
 #include <sstream>
 #include <string>
 #include <unordered_set>
+#include <vector>
 
 #include <gtest/gtest.h>
 #include "hash_map.h"
@@ -156,6 +158,62 @@ TEST_F(HashSetTest, TestSwap) {
   }
 }
 
+TEST_F(HashSetTest, TestShrink) {
+  HashSet<std::string, IsEmptyFnString> hash_set;
+  std::vector<std::string> strings = {"a", "b", "c", "d", "e", "f", "g"};
+  for (size_t i = 0; i < strings.size(); ++i) {
+    // Insert some strings into the beginning of our hash set to establish an initial size
+    hash_set.Insert(strings[i]);
+  }
+
+  hash_set.ShrinkToMaximumLoad();
+  const double initial_load = hash_set.CalculateLoadFactor();
+
+  // Insert a bunch of random strings to guarantee that we grow the capacity.
+  std::vector<std::string> random_strings;
+  static constexpr size_t count = 1000;
+  for (size_t i = 0; i < count; ++i) {
+    random_strings.push_back(RandomString(10));
+    hash_set.Insert(random_strings[i]);
+  }
+
+  // Erase all the extra strings which guarantees that our load factor will be really bad.
+  for (size_t i = 0; i < count; ++i) {
+    hash_set.Erase(hash_set.Find(random_strings[i]));
+  }
+
+  const double bad_load = hash_set.CalculateLoadFactor();
+  EXPECT_GT(initial_load, bad_load);
+
+  // Shrink again, the load factor should be good again.
+  hash_set.ShrinkToMaximumLoad();
+  EXPECT_DOUBLE_EQ(initial_load, hash_set.CalculateLoadFactor());
+
+  // Make sure all the initial elements we had are still there
+  for (const std::string& initial_string : strings) {
+    EXPECT_NE(hash_set.end(), hash_set.Find(initial_string))
+        << "expected to find " << initial_string;
+  }
+}
+
+TEST_F(HashSetTest, TestLoadFactor) {
+  HashSet<std::string, IsEmptyFnString> hash_set;
+  static constexpr size_t kStringCount = 1000;
+  static constexpr double kEpsilon = 0.01;
+  for (size_t i = 0; i < kStringCount; ++i) {
+    hash_set.Insert(RandomString(i % 10 + 1));
+  }
+  // Check that changing the load factor resizes the table to be within the target range.
+  EXPECT_GE(hash_set.CalculateLoadFactor() + kEpsilon, hash_set.GetMinLoadFactor());
+  EXPECT_LE(hash_set.CalculateLoadFactor() - kEpsilon, hash_set.GetMaxLoadFactor());
+  hash_set.SetLoadFactor(0.1, 0.3);
+  EXPECT_DOUBLE_EQ(0.1, hash_set.GetMinLoadFactor());
+  EXPECT_DOUBLE_EQ(0.3, hash_set.GetMaxLoadFactor());
+  EXPECT_LE(hash_set.CalculateLoadFactor() - kEpsilon, hash_set.GetMaxLoadFactor());
+  hash_set.SetLoadFactor(0.6, 0.8);
+  EXPECT_LE(hash_set.CalculateLoadFactor() - kEpsilon, hash_set.GetMaxLoadFactor());
+}
+
 TEST_F(HashSetTest, TestStress) {
   HashSet<std::string, IsEmptyFnString> hash_set;
   std::unordered_multiset<std::string> std_set;
@@ -218,6 +276,82 @@ TEST_F(HashSetTest, TestHashMap) {
   hash_map.Erase(it);
   it = hash_map.Find(std::string("abcd"));
   ASSERT_EQ(it->second, 124);
+}
+
+struct IsEmptyFnVectorInt {
+  void MakeEmpty(std::vector<int>& item) const {
+    item.clear();
+  }
+  bool IsEmpty(const std::vector<int>& item) const {
+    return item.empty();
+  }
+};
+
+template <typename T>
+size_t HashIntSequence(T begin, T end) {
+  size_t hash = 0;
+  for (auto iter = begin; iter != end; ++iter) {
+    hash = hash * 2 + *iter;
+  }
+  return hash;
+};
+
+struct VectorIntHashEquals {
+  std::size_t operator()(const std::vector<int>& item) const {
+    return HashIntSequence(item.begin(), item.end());
+  }
+
+  std::size_t operator()(const std::forward_list<int>& item) const {
+    return HashIntSequence(item.begin(), item.end());
+  }
+
+  bool operator()(const std::vector<int>& a, const std::vector<int>& b) const {
+    return a == b;
+  }
+
+  bool operator()(const std::vector<int>& a, const std::forward_list<int>& b) const {
+    auto aiter = a.begin();
+    auto biter = b.begin();
+    while (aiter != a.end() && biter != b.end()) {
+      if (*aiter != *biter) {
+        return false;
+      }
+      aiter++;
+      biter++;
+    }
+    return (aiter == a.end() && biter == b.end());
+  }
+};
+
+TEST_F(HashSetTest, TestLookupByAlternateKeyType) {
+  HashSet<std::vector<int>, IsEmptyFnVectorInt, VectorIntHashEquals, VectorIntHashEquals> hash_set;
+  hash_set.Insert(std::vector<int>({1, 2, 3, 4}));
+  hash_set.Insert(std::vector<int>({4, 2}));
+  ASSERT_EQ(hash_set.end(), hash_set.Find(std::vector<int>({1, 1, 1, 1})));
+  ASSERT_NE(hash_set.end(), hash_set.Find(std::vector<int>({1, 2, 3, 4})));
+  ASSERT_EQ(hash_set.end(), hash_set.Find(std::forward_list<int>({1, 1, 1, 1})));
+  ASSERT_NE(hash_set.end(), hash_set.Find(std::forward_list<int>({1, 2, 3, 4})));
+}
+
+TEST_F(HashSetTest, TestReserve) {
+  HashSet<std::string, IsEmptyFnString> hash_set;
+  std::vector<size_t> sizes = {1, 10, 25, 55, 128, 1024, 4096};
+  for (size_t size : sizes) {
+    hash_set.Reserve(size);
+    const size_t buckets_before = hash_set.NumBuckets();
+    // Check that we expanded enough.
+    CHECK_GE(hash_set.ElementsUntilExpand(), size);
+    // Try inserting elements until we are at our reserve size and ensure the hash set did not
+    // expand.
+    while (hash_set.Size() < size) {
+      hash_set.Insert(std::to_string(hash_set.Size()));
+    }
+    CHECK_EQ(hash_set.NumBuckets(), buckets_before);
+  }
+  // Check the behaviour for shrinking, it does not necessarily resize down.
+  constexpr size_t size = 100;
+  hash_set.Reserve(size);
+  CHECK_GE(hash_set.ElementsUntilExpand(), size);
 }
 
 }  // namespace art

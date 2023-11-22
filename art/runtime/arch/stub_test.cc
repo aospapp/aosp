@@ -21,6 +21,7 @@
 #include "class_linker-inl.h"
 #include "common_runtime_test.h"
 #include "entrypoints/quick/quick_entrypoints_enum.h"
+#include "linear_alloc.h"
 #include "mirror/class-inl.h"
 #include "mirror/string-inl.h"
 #include "scoped_thread_state_change.h"
@@ -71,351 +72,7 @@ class StubTest : public CommonRuntimeTest {
   // TODO: Set up a frame according to referrer's specs.
   size_t Invoke3WithReferrer(size_t arg0, size_t arg1, size_t arg2, uintptr_t code, Thread* self,
                              ArtMethod* referrer) {
-    // Push a transition back into managed code onto the linked list in thread.
-    ManagedStack fragment;
-    self->PushManagedStackFragment(&fragment);
-
-    size_t result;
-    size_t fpr_result = 0;
-#if defined(__i386__)
-    // TODO: Set the thread?
-    __asm__ __volatile__(
-        "subl $12, %%esp\n\t"       // Align stack.
-        "pushl %[referrer]\n\t"     // Store referrer.
-        "call *%%edi\n\t"           // Call the stub
-        "addl $16, %%esp"           // Pop referrer
-        : "=a" (result)
-          // Use the result from eax
-        : "a"(arg0), "c"(arg1), "d"(arg2), "D"(code), [referrer]"r"(referrer)
-          // This places code into edi, arg0 into eax, arg1 into ecx, and arg2 into edx
-        : "memory");  // clobber.
-    // TODO: Should we clobber the other registers? EBX gets clobbered by some of the stubs,
-    //       but compilation fails when declaring that.
-#elif defined(__arm__)
-    __asm__ __volatile__(
-        "push {r1-r12, lr}\n\t"     // Save state, 13*4B = 52B
-        ".cfi_adjust_cfa_offset 52\n\t"
-        "push {r9}\n\t"
-        ".cfi_adjust_cfa_offset 4\n\t"
-        "mov r9, %[referrer]\n\n"
-        "str r9, [sp, #-8]!\n\t"   // Push referrer, +8B padding so 16B aligned
-        ".cfi_adjust_cfa_offset 8\n\t"
-        "ldr r9, [sp, #8]\n\t"
-
-        // Push everything on the stack, so we don't rely on the order. What a mess. :-(
-        "sub sp, sp, #20\n\t"
-        "str %[arg0], [sp]\n\t"
-        "str %[arg1], [sp, #4]\n\t"
-        "str %[arg2], [sp, #8]\n\t"
-        "str %[code], [sp, #12]\n\t"
-        "str %[self], [sp, #16]\n\t"
-        "ldr r0, [sp]\n\t"
-        "ldr r1, [sp, #4]\n\t"
-        "ldr r2, [sp, #8]\n\t"
-        "ldr r3, [sp, #12]\n\t"
-        "ldr r9, [sp, #16]\n\t"
-        "add sp, sp, #20\n\t"
-
-        "blx r3\n\t"                // Call the stub
-        "add sp, sp, #12\n\t"       // Pop null and padding
-        ".cfi_adjust_cfa_offset -12\n\t"
-        "pop {r1-r12, lr}\n\t"      // Restore state
-        ".cfi_adjust_cfa_offset -52\n\t"
-        "mov %[result], r0\n\t"     // Save the result
-        : [result] "=r" (result)
-          // Use the result from r0
-        : [arg0] "r"(arg0), [arg1] "r"(arg1), [arg2] "r"(arg2), [code] "r"(code), [self] "r"(self),
-          [referrer] "r"(referrer)
-        : "memory");  // clobber.
-#elif defined(__aarch64__)
-    __asm__ __volatile__(
-        // Spill x0-x7 which we say we don't clobber. May contain args.
-        "sub sp, sp, #64\n\t"
-        ".cfi_adjust_cfa_offset 64\n\t"
-        "stp x0, x1, [sp]\n\t"
-        "stp x2, x3, [sp, #16]\n\t"
-        "stp x4, x5, [sp, #32]\n\t"
-        "stp x6, x7, [sp, #48]\n\t"
-
-        "sub sp, sp, #16\n\t"          // Reserve stack space, 16B aligned
-        ".cfi_adjust_cfa_offset 16\n\t"
-        "str %[referrer], [sp]\n\t"    // referrer
-
-        // Push everything on the stack, so we don't rely on the order. What a mess. :-(
-        "sub sp, sp, #48\n\t"
-        ".cfi_adjust_cfa_offset 48\n\t"
-        // All things are "r" constraints, so direct str/stp should work.
-        "stp %[arg0], %[arg1], [sp]\n\t"
-        "stp %[arg2], %[code], [sp, #16]\n\t"
-        "str %[self], [sp, #32]\n\t"
-
-        // Now we definitely have x0-x3 free, use it to garble d8 - d15
-        "movk x0, #0xfad0\n\t"
-        "movk x0, #0xebad, lsl #16\n\t"
-        "movk x0, #0xfad0, lsl #32\n\t"
-        "movk x0, #0xebad, lsl #48\n\t"
-        "fmov d8, x0\n\t"
-        "add x0, x0, 1\n\t"
-        "fmov d9, x0\n\t"
-        "add x0, x0, 1\n\t"
-        "fmov d10, x0\n\t"
-        "add x0, x0, 1\n\t"
-        "fmov d11, x0\n\t"
-        "add x0, x0, 1\n\t"
-        "fmov d12, x0\n\t"
-        "add x0, x0, 1\n\t"
-        "fmov d13, x0\n\t"
-        "add x0, x0, 1\n\t"
-        "fmov d14, x0\n\t"
-        "add x0, x0, 1\n\t"
-        "fmov d15, x0\n\t"
-
-        // Load call params into the right registers.
-        "ldp x0, x1, [sp]\n\t"
-        "ldp x2, x3, [sp, #16]\n\t"
-        "ldr x18, [sp, #32]\n\t"
-        "add sp, sp, #48\n\t"
-        ".cfi_adjust_cfa_offset -48\n\t"
-
-
-        "blr x3\n\t"              // Call the stub
-        "mov x8, x0\n\t"          // Store result
-        "add sp, sp, #16\n\t"     // Drop the quick "frame"
-        ".cfi_adjust_cfa_offset -16\n\t"
-
-        // Test d8 - d15. We can use x1 and x2.
-        "movk x1, #0xfad0\n\t"
-        "movk x1, #0xebad, lsl #16\n\t"
-        "movk x1, #0xfad0, lsl #32\n\t"
-        "movk x1, #0xebad, lsl #48\n\t"
-        "fmov x2, d8\n\t"
-        "cmp x1, x2\n\t"
-        "b.ne 1f\n\t"
-        "add x1, x1, 1\n\t"
-
-        "fmov x2, d9\n\t"
-        "cmp x1, x2\n\t"
-        "b.ne 1f\n\t"
-        "add x1, x1, 1\n\t"
-
-        "fmov x2, d10\n\t"
-        "cmp x1, x2\n\t"
-        "b.ne 1f\n\t"
-        "add x1, x1, 1\n\t"
-
-        "fmov x2, d11\n\t"
-        "cmp x1, x2\n\t"
-        "b.ne 1f\n\t"
-        "add x1, x1, 1\n\t"
-
-        "fmov x2, d12\n\t"
-        "cmp x1, x2\n\t"
-        "b.ne 1f\n\t"
-        "add x1, x1, 1\n\t"
-
-        "fmov x2, d13\n\t"
-        "cmp x1, x2\n\t"
-        "b.ne 1f\n\t"
-        "add x1, x1, 1\n\t"
-
-        "fmov x2, d14\n\t"
-        "cmp x1, x2\n\t"
-        "b.ne 1f\n\t"
-        "add x1, x1, 1\n\t"
-
-        "fmov x2, d15\n\t"
-        "cmp x1, x2\n\t"
-        "b.ne 1f\n\t"
-
-        "mov x9, #0\n\t"              // Use x9 as flag, in clobber list
-
-        // Finish up.
-        "2:\n\t"
-        "ldp x0, x1, [sp]\n\t"        // Restore stuff not named clobbered, may contain fpr_result
-        "ldp x2, x3, [sp, #16]\n\t"
-        "ldp x4, x5, [sp, #32]\n\t"
-        "ldp x6, x7, [sp, #48]\n\t"
-        "add sp, sp, #64\n\t"         // Free stack space, now sp as on entry
-        ".cfi_adjust_cfa_offset -64\n\t"
-
-        "str x9, %[fpr_result]\n\t"   // Store the FPR comparison result
-        "mov %[result], x8\n\t"              // Store the call result
-
-        "b 3f\n\t"                     // Goto end
-
-        // Failed fpr verification.
-        "1:\n\t"
-        "mov x9, #1\n\t"
-        "b 2b\n\t"                     // Goto finish-up
-
-        // End
-        "3:\n\t"
-        : [result] "=r" (result)
-          // Use the result from r0
-        : [arg0] "0"(arg0), [arg1] "r"(arg1), [arg2] "r"(arg2), [code] "r"(code), [self] "r"(self),
-          [referrer] "r"(referrer), [fpr_result] "m" (fpr_result)
-        : "x8", "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x18", "x19", "x20",
-          "x21", "x22", "x23", "x24", "x25", "x26", "x27", "x28", "x30",
-          "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7",
-          "d8", "d9", "d10", "d11", "d12", "d13", "d14", "d15",
-          "d16", "d17", "d18", "d19", "d20", "d21", "d22", "d23",
-          "d24", "d25", "d26", "d27", "d28", "d29", "d30", "d31",
-          "memory");  // clobber.
-#elif defined(__mips__) && !defined(__LP64__)
-    __asm__ __volatile__ (
-        // Spill a0-a3 and t0-t7 which we say we don't clobber. May contain args.
-        "addiu $sp, $sp, -64\n\t"
-        "sw $a0, 0($sp)\n\t"
-        "sw $a1, 4($sp)\n\t"
-        "sw $a2, 8($sp)\n\t"
-        "sw $a3, 12($sp)\n\t"
-        "sw $t0, 16($sp)\n\t"
-        "sw $t1, 20($sp)\n\t"
-        "sw $t2, 24($sp)\n\t"
-        "sw $t3, 28($sp)\n\t"
-        "sw $t4, 32($sp)\n\t"
-        "sw $t5, 36($sp)\n\t"
-        "sw $t6, 40($sp)\n\t"
-        "sw $t7, 44($sp)\n\t"
-        // Spill gp register since it is caller save.
-        "sw $gp, 52($sp)\n\t"
-
-        "addiu $sp, $sp, -16\n\t"  // Reserve stack space, 16B aligned.
-        "sw %[referrer], 0($sp)\n\t"
-
-        // Push everything on the stack, so we don't rely on the order.
-        "addiu $sp, $sp, -20\n\t"
-        "sw %[arg0], 0($sp)\n\t"
-        "sw %[arg1], 4($sp)\n\t"
-        "sw %[arg2], 8($sp)\n\t"
-        "sw %[code], 12($sp)\n\t"
-        "sw %[self], 16($sp)\n\t"
-
-        // Load call params into the right registers.
-        "lw $a0, 0($sp)\n\t"
-        "lw $a1, 4($sp)\n\t"
-        "lw $a2, 8($sp)\n\t"
-        "lw $t9, 12($sp)\n\t"
-        "lw $s1, 16($sp)\n\t"
-        "addiu $sp, $sp, 20\n\t"
-
-        "jalr $t9\n\t"             // Call the stub.
-        "nop\n\t"
-        "addiu $sp, $sp, 16\n\t"   // Drop the quick "frame".
-
-        // Restore stuff not named clobbered.
-        "lw $a0, 0($sp)\n\t"
-        "lw $a1, 4($sp)\n\t"
-        "lw $a2, 8($sp)\n\t"
-        "lw $a3, 12($sp)\n\t"
-        "lw $t0, 16($sp)\n\t"
-        "lw $t1, 20($sp)\n\t"
-        "lw $t2, 24($sp)\n\t"
-        "lw $t3, 28($sp)\n\t"
-        "lw $t4, 32($sp)\n\t"
-        "lw $t5, 36($sp)\n\t"
-        "lw $t6, 40($sp)\n\t"
-        "lw $t7, 44($sp)\n\t"
-        // Restore gp.
-        "lw $gp, 52($sp)\n\t"
-        "addiu $sp, $sp, 64\n\t"   // Free stack space, now sp as on entry.
-
-        "move %[result], $v0\n\t"  // Store the call result.
-        : [result] "=r" (result)
-        : [arg0] "r"(arg0), [arg1] "r"(arg1), [arg2] "r"(arg2), [code] "r"(code), [self] "r"(self),
-          [referrer] "r"(referrer)
-        : "at", "v0", "v1", "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "t8", "t9", "k0", "k1",
-          "fp", "ra",
-          "f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12", "f13",
-          "f14", "f15", "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23", "f24", "f25", "f26",
-          "f27", "f28", "f29", "f30", "f31",
-          "memory");  // clobber.
-#elif defined(__mips__) && defined(__LP64__)
-    __asm__ __volatile__ (
-        // Spill a0-a7 which we say we don't clobber. May contain args.
-        "daddiu $sp, $sp, -64\n\t"
-        "sd $a0, 0($sp)\n\t"
-        "sd $a1, 8($sp)\n\t"
-        "sd $a2, 16($sp)\n\t"
-        "sd $a3, 24($sp)\n\t"
-        "sd $a4, 32($sp)\n\t"
-        "sd $a5, 40($sp)\n\t"
-        "sd $a6, 48($sp)\n\t"
-        "sd $a7, 56($sp)\n\t"
-
-        "daddiu $sp, $sp, -16\n\t"  // Reserve stack space, 16B aligned.
-        "sd %[referrer], 0($sp)\n\t"
-
-        // Push everything on the stack, so we don't rely on the order.
-        "daddiu $sp, $sp, -40\n\t"
-        "sd %[arg0], 0($sp)\n\t"
-        "sd %[arg1], 8($sp)\n\t"
-        "sd %[arg2], 16($sp)\n\t"
-        "sd %[code], 24($sp)\n\t"
-        "sd %[self], 32($sp)\n\t"
-
-        // Load call params into the right registers.
-        "ld $a0, 0($sp)\n\t"
-        "ld $a1, 8($sp)\n\t"
-        "ld $a2, 16($sp)\n\t"
-        "ld $t9, 24($sp)\n\t"
-        "ld $s1, 32($sp)\n\t"
-        "daddiu $sp, $sp, 40\n\t"
-
-        "jalr $t9\n\t"              // Call the stub.
-        "nop\n\t"
-        "daddiu $sp, $sp, 16\n\t"   // Drop the quick "frame".
-
-        // Restore stuff not named clobbered.
-        "ld $a0, 0($sp)\n\t"
-        "ld $a1, 8($sp)\n\t"
-        "ld $a2, 16($sp)\n\t"
-        "ld $a3, 24($sp)\n\t"
-        "ld $a4, 32($sp)\n\t"
-        "ld $a5, 40($sp)\n\t"
-        "ld $a6, 48($sp)\n\t"
-        "ld $a7, 56($sp)\n\t"
-        "daddiu $sp, $sp, 64\n\t"
-
-        "move %[result], $v0\n\t"   // Store the call result.
-        : [result] "=r" (result)
-        : [arg0] "r"(arg0), [arg1] "r"(arg1), [arg2] "r"(arg2), [code] "r"(code), [self] "r"(self),
-          [referrer] "r"(referrer)
-        : "at", "v0", "v1", "t0", "t1", "t2", "t3", "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7",
-          "t8", "t9", "k0", "k1", "fp", "ra",
-          "f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12", "f13",
-          "f14", "f15", "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23", "f24", "f25", "f26",
-          "f27", "f28", "f29", "f30", "f31",
-          "memory");  // clobber.
-#elif defined(__x86_64__) && !defined(__APPLE__) && defined(__clang__)
-    // Note: Uses the native convention
-    // TODO: Set the thread?
-    __asm__ __volatile__(
-        "pushq %[referrer]\n\t"        // Push referrer
-        "pushq (%%rsp)\n\t"             // & 16B alignment padding
-        ".cfi_adjust_cfa_offset 16\n\t"
-        "call *%%rax\n\t"              // Call the stub
-        "addq $16, %%rsp\n\t"          // Pop null and padding
-        ".cfi_adjust_cfa_offset -16\n\t"
-        : "=a" (result)
-          // Use the result from rax
-        : "D"(arg0), "S"(arg1), "d"(arg2), "a"(code), [referrer] "c"(referrer)
-          // This places arg0 into rdi, arg1 into rsi, arg2 into rdx, and code into rax
-        : "rbx", "rbp", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
-          "memory");  // clobber all
-    // TODO: Should we clobber the other registers?
-#else
-    UNUSED(arg0, arg1, arg2, code, referrer);
-    LOG(WARNING) << "Was asked to invoke for an architecture I do not understand.";
-    result = 0;
-#endif
-    // Pop transition.
-    self->PopManagedStackFragment(fragment);
-
-    fp_result = fpr_result;
-    EXPECT_EQ(0U, fp_result);
-
-    return result;
+    return Invoke3WithReferrerAndHidden(arg0, arg1, arg2, code, self, referrer, 0);
   }
 
   // TODO: Set up a frame according to referrer's specs.
@@ -429,19 +86,55 @@ class StubTest : public CommonRuntimeTest {
     size_t fpr_result = 0;
 #if defined(__i386__)
     // TODO: Set the thread?
+#define PUSH(reg) "push " # reg "\n\t .cfi_adjust_cfa_offset 4\n\t"
+#define POP(reg) "pop " # reg "\n\t .cfi_adjust_cfa_offset -4\n\t"
     __asm__ __volatile__(
-        "movd %[hidden], %%xmm7\n\t"
-        "subl $12, %%esp\n\t"       // Align stack.
-        "pushl %[referrer]\n\t"     // Store referrer
+        "movd %[hidden], %%xmm7\n\t"  // This is a memory op, so do this early. If it is off of
+                                      // esp, then we won't be able to access it after spilling.
+
+        // Spill 6 registers.
+        PUSH(%%ebx)
+        PUSH(%%ecx)
+        PUSH(%%edx)
+        PUSH(%%esi)
+        PUSH(%%edi)
+        PUSH(%%ebp)
+
+        // Store the inputs to the stack, but keep the referrer up top, less work.
+        PUSH(%[referrer])           // Align stack.
+        PUSH(%[referrer])           // Store referrer
+
+        PUSH(%[arg0])
+        PUSH(%[arg1])
+        PUSH(%[arg2])
+        PUSH(%[code])
+        // Now read them back into the required registers.
+        POP(%%edi)
+        POP(%%edx)
+        POP(%%ecx)
+        POP(%%eax)
+        // Call is prepared now.
+
         "call *%%edi\n\t"           // Call the stub
-        "addl $16, %%esp"           // Pop referrer
+        "addl $8, %%esp\n\t"        // Pop referrer and padding.
+        ".cfi_adjust_cfa_offset -8\n\t"
+
+        // Restore 6 registers.
+        POP(%%ebp)
+        POP(%%edi)
+        POP(%%esi)
+        POP(%%edx)
+        POP(%%ecx)
+        POP(%%ebx)
+
         : "=a" (result)
           // Use the result from eax
-        : "a"(arg0), "c"(arg1), "d"(arg2), "D"(code), [referrer]"r"(referrer), [hidden]"m"(hidden)
+        : [arg0] "r"(arg0), [arg1] "r"(arg1), [arg2] "r"(arg2), [code] "r"(code),
+          [referrer]"r"(referrer), [hidden]"m"(hidden)
           // This places code into edi, arg0 into eax, arg1 into ecx, and arg2 into edx
-        : "memory");  // clobber.
-    // TODO: Should we clobber the other registers? EBX gets clobbered by some of the stubs,
-    //       but compilation fails when declaring that.
+        : "memory", "xmm7");  // clobber.
+#undef PUSH
+#undef POP
 #elif defined(__arm__)
     __asm__ __volatile__(
         "push {r1-r12, lr}\n\t"     // Save state, 13*4B = 52B
@@ -479,16 +172,20 @@ class StubTest : public CommonRuntimeTest {
           // Use the result from r0
         : [arg0] "r"(arg0), [arg1] "r"(arg1), [arg2] "r"(arg2), [code] "r"(code), [self] "r"(self),
           [referrer] "r"(referrer), [hidden] "r"(hidden)
-        : "memory");  // clobber.
+        : "r0", "memory");  // clobber.
 #elif defined(__aarch64__)
     __asm__ __volatile__(
         // Spill x0-x7 which we say we don't clobber. May contain args.
-        "sub sp, sp, #64\n\t"
-        ".cfi_adjust_cfa_offset 64\n\t"
+        "sub sp, sp, #80\n\t"
+        ".cfi_adjust_cfa_offset 80\n\t"
         "stp x0, x1, [sp]\n\t"
         "stp x2, x3, [sp, #16]\n\t"
         "stp x4, x5, [sp, #32]\n\t"
         "stp x6, x7, [sp, #48]\n\t"
+        // To be extra defensive, store x20. We do this because some of the stubs might make a
+        // transition into the runtime via the blr instruction below and *not* save x20.
+        "str x20, [sp, #64]\n\t"
+        // 8 byte buffer
 
         "sub sp, sp, #16\n\t"          // Reserve stack space, 16B aligned
         ".cfi_adjust_cfa_offset 16\n\t"
@@ -526,7 +223,7 @@ class StubTest : public CommonRuntimeTest {
         // Load call params into the right registers.
         "ldp x0, x1, [sp]\n\t"
         "ldp x2, x3, [sp, #16]\n\t"
-        "ldp x18, x17, [sp, #32]\n\t"
+        "ldp x19, x17, [sp, #32]\n\t"
         "add sp, sp, #48\n\t"
         ".cfi_adjust_cfa_offset -48\n\t"
 
@@ -587,8 +284,9 @@ class StubTest : public CommonRuntimeTest {
         "ldp x2, x3, [sp, #16]\n\t"
         "ldp x4, x5, [sp, #32]\n\t"
         "ldp x6, x7, [sp, #48]\n\t"
-        "add sp, sp, #64\n\t"         // Free stack space, now sp as on entry
-        ".cfi_adjust_cfa_offset -64\n\t"
+        "ldr x20, [sp, #64]\n\t"
+        "add sp, sp, #80\n\t"         // Free stack space, now sp as on entry
+        ".cfi_adjust_cfa_offset -80\n\t"
 
         "str x9, %[fpr_result]\n\t"   // Store the FPR comparison result
         "mov %[result], x8\n\t"              // Store the call result
@@ -606,13 +304,17 @@ class StubTest : public CommonRuntimeTest {
           // Use the result from r0
         : [arg0] "0"(arg0), [arg1] "r"(arg1), [arg2] "r"(arg2), [code] "r"(code), [self] "r"(self),
           [referrer] "r"(referrer), [hidden] "r"(hidden), [fpr_result] "m" (fpr_result)
-        : "x8", "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x18", "x19", "x20",
+          // Leave one register unclobbered, which is needed for compiling with
+          // -fstack-protector-strong. According to AAPCS64 registers x9-x15 are caller-saved,
+          // which means we should unclobber one of the callee-saved registers that are unused.
+          // Here we use x20.
+        : "x8", "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x18", "x19",
           "x21", "x22", "x23", "x24", "x25", "x26", "x27", "x28", "x30",
           "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7",
           "d8", "d9", "d10", "d11", "d12", "d13", "d14", "d15",
           "d16", "d17", "d18", "d19", "d20", "d21", "d22", "d23",
           "d24", "d25", "d26", "d27", "d28", "d29", "d30", "d31",
-          "memory");  // clobber.
+          "memory");
 #elif defined(__mips__) && !defined(__LP64__)
     __asm__ __volatile__ (
         // Spill a0-a3 and t0-t7 which we say we don't clobber. May contain args.
@@ -680,9 +382,9 @@ class StubTest : public CommonRuntimeTest {
           [referrer] "r"(referrer), [hidden] "r"(hidden)
         : "at", "v0", "v1", "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "t8", "t9", "k0", "k1",
           "fp", "ra",
-          "f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12", "f13",
-          "f14", "f15", "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23", "f24", "f25", "f26",
-          "f27", "f28", "f29", "f30", "f31",
+          "$f0", "$f1", "$f2", "$f3", "$f4", "$f5", "$f6", "$f7", "$f8", "$f9", "$f10", "$f11",
+          "$f12", "$f13", "$f14", "$f15", "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22",
+          "$f23", "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
           "memory");  // clobber.
 #elif defined(__mips__) && defined(__LP64__)
     __asm__ __volatile__ (
@@ -737,29 +439,80 @@ class StubTest : public CommonRuntimeTest {
         : [result] "=r" (result)
         : [arg0] "r"(arg0), [arg1] "r"(arg1), [arg2] "r"(arg2), [code] "r"(code), [self] "r"(self),
           [referrer] "r"(referrer), [hidden] "r"(hidden)
-        : "at", "v0", "v1", "t0", "t1", "t2", "t3", "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7",
-          "t8", "t9", "k0", "k1", "fp", "ra",
-          "f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12", "f13",
-          "f14", "f15", "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23", "f24", "f25", "f26",
-          "f27", "f28", "f29", "f30", "f31",
+        // Instead aliases t0-t3, register names $12-$15 has been used in the clobber list because
+        // t0-t3 are ambiguous.
+        : "at", "v0", "v1", "$12", "$13", "$14", "$15", "s0", "s1", "s2", "s3", "s4", "s5", "s6",
+          "s7", "t8", "t9", "k0", "k1", "fp", "ra",
+          "$f0", "$f1", "$f2", "$f3", "$f4", "$f5", "$f6", "$f7", "$f8", "$f9", "$f10", "$f11",
+          "$f12", "$f13", "$f14", "$f15", "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22",
+          "$f23", "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
           "memory");  // clobber.
-#elif defined(__x86_64__) && !defined(__APPLE__) && defined(__clang__)
-    // Note: Uses the native convention
+#elif defined(__x86_64__) && !defined(__APPLE__)
+#define PUSH(reg) "pushq " # reg "\n\t .cfi_adjust_cfa_offset 8\n\t"
+#define POP(reg) "popq " # reg "\n\t .cfi_adjust_cfa_offset -8\n\t"
+    // Note: Uses the native convention. We do a callee-save regimen by manually spilling and
+    //       restoring almost all registers.
     // TODO: Set the thread?
     __asm__ __volatile__(
-        "pushq %[referrer]\n\t"        // Push referrer
-        "pushq (%%rsp)\n\t"            // & 16B alignment padding
-        ".cfi_adjust_cfa_offset 16\n\t"
-        "call *%%rbx\n\t"              // Call the stub
-        "addq $16, %%rsp\n\t"          // Pop null and padding
+        // Spill almost everything (except rax, rsp). 14 registers.
+        PUSH(%%rbx)
+        PUSH(%%rcx)
+        PUSH(%%rdx)
+        PUSH(%%rsi)
+        PUSH(%%rdi)
+        PUSH(%%rbp)
+        PUSH(%%r8)
+        PUSH(%%r9)
+        PUSH(%%r10)
+        PUSH(%%r11)
+        PUSH(%%r12)
+        PUSH(%%r13)
+        PUSH(%%r14)
+        PUSH(%%r15)
+
+        PUSH(%[referrer])              // Push referrer & 16B alignment padding
+        PUSH(%[referrer])
+
+        // Now juggle the input registers.
+        PUSH(%[arg0])
+        PUSH(%[arg1])
+        PUSH(%[arg2])
+        PUSH(%[hidden])
+        PUSH(%[code])
+        POP(%%r8)
+        POP(%%rax)
+        POP(%%rdx)
+        POP(%%rsi)
+        POP(%%rdi)
+
+        "call *%%r8\n\t"                  // Call the stub
+        "addq $16, %%rsp\n\t"             // Pop null and padding
         ".cfi_adjust_cfa_offset -16\n\t"
+
+        POP(%%r15)
+        POP(%%r14)
+        POP(%%r13)
+        POP(%%r12)
+        POP(%%r11)
+        POP(%%r10)
+        POP(%%r9)
+        POP(%%r8)
+        POP(%%rbp)
+        POP(%%rdi)
+        POP(%%rsi)
+        POP(%%rdx)
+        POP(%%rcx)
+        POP(%%rbx)
+
         : "=a" (result)
         // Use the result from rax
-        : "D"(arg0), "S"(arg1), "d"(arg2), "b"(code), [referrer] "c"(referrer), [hidden] "a"(hidden)
-        // This places arg0 into rdi, arg1 into rsi, arg2 into rdx, and code into rax
-        : "rbp", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
-          "memory");  // clobber all
-    // TODO: Should we clobber the other registers?
+        : [arg0] "r"(arg0), [arg1] "r"(arg1), [arg2] "r"(arg2), [code] "r"(code),
+          [referrer] "r"(referrer), [hidden] "r"(hidden)
+        // This places arg0 into rdi, arg1 into rsi, arg2 into rdx, and code into some other
+        // register. We can't use "b" (rbx), as ASAN uses this for the frame pointer.
+        : "memory");  // We spill and restore (almost) all registers, so only mention memory here.
+#undef PUSH
+#undef POP
 #else
     UNUSED(arg0, arg1, arg2, code, referrer, hidden);
     LOG(WARNING) << "Was asked to invoke for an architecture I do not understand.";
@@ -772,22 +525,6 @@ class StubTest : public CommonRuntimeTest {
     EXPECT_EQ(0U, fp_result);
 
     return result;
-  }
-
-  // Method with 32b arg0, 64b arg1
-  size_t Invoke3UWithReferrer(size_t arg0, uint64_t arg1, uintptr_t code, Thread* self,
-                              ArtMethod* referrer) {
-#if (defined(__x86_64__) && !defined(__APPLE__)) || (defined(__mips__) && defined(__LP64__)) || \
-    defined(__aarch64__)
-    // Just pass through.
-    return Invoke3WithReferrer(arg0, arg1, 0U, code, self, referrer);
-#else
-    // Need to split up arguments.
-    uint32_t lower = static_cast<uint32_t>(arg1 & 0xFFFFFFFF);
-    uint32_t upper = static_cast<uint32_t>((arg1 >> 32) & 0xFFFFFFFF);
-
-    return Invoke3WithReferrer(arg0, lower, upper, code, self, referrer);
-#endif
   }
 
   static uintptr_t GetEntrypoint(Thread* self, QuickEntrypointEnum entrypoint) {
@@ -1124,8 +861,6 @@ TEST_F(StubTest, CheckCast) {
 
 
 TEST_F(StubTest, APutObj) {
-  TEST_DISABLED_FOR_HEAP_REFERENCE_POISONING();
-
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   Thread* self = Thread::Current();
@@ -1258,8 +993,6 @@ TEST_F(StubTest, APutObj) {
 }
 
 TEST_F(StubTest, AllocObject) {
-  TEST_DISABLED_FOR_HEAP_REFERENCE_POISONING();
-
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   // This will lead to OOM  error messages in the log.
@@ -1385,8 +1118,6 @@ TEST_F(StubTest, AllocObject) {
 }
 
 TEST_F(StubTest, AllocObjectArray) {
-  TEST_DISABLED_FOR_HEAP_REFERENCE_POISONING();
-
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   // TODO: Check the "Unresolved" allocation stubs
@@ -1474,9 +1205,8 @@ TEST_F(StubTest, AllocObjectArray) {
 
 
 TEST_F(StubTest, StringCompareTo) {
-  TEST_DISABLED_FOR_HEAP_REFERENCE_POISONING();
-
-#if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || (defined(__x86_64__) && !defined(__APPLE__))
+#if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || \
+    defined(__mips__) || (defined(__x86_64__) && !defined(__APPLE__))
   // TODO: Check the "Unresolved" allocation stubs
 
   Thread* self = Thread::Current();
@@ -1557,7 +1287,7 @@ TEST_F(StubTest, StringCompareTo) {
 
 static void GetSetBooleanStatic(ArtField* f, Thread* self,
                                 ArtMethod* referrer, StubTest* test)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   constexpr size_t num_values = 5;
@@ -1588,7 +1318,7 @@ static void GetSetBooleanStatic(ArtField* f, Thread* self,
 }
 static void GetSetByteStatic(ArtField* f, Thread* self, ArtMethod* referrer,
                              StubTest* test)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   int8_t values[] = { -128, -64, 0, 64, 127 };
@@ -1619,7 +1349,7 @@ static void GetSetByteStatic(ArtField* f, Thread* self, ArtMethod* referrer,
 
 static void GetSetBooleanInstance(Handle<mirror::Object>* obj, ArtField* f, Thread* self,
                                   ArtMethod* referrer, StubTest* test)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   uint8_t values[] = { 0, true, 2, 128, 0xFF };
@@ -1654,7 +1384,7 @@ static void GetSetBooleanInstance(Handle<mirror::Object>* obj, ArtField* f, Thre
 }
 static void GetSetByteInstance(Handle<mirror::Object>* obj, ArtField* f,
                              Thread* self, ArtMethod* referrer, StubTest* test)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   int8_t values[] = { -128, -64, 0, 64, 127 };
@@ -1689,7 +1419,7 @@ static void GetSetByteInstance(Handle<mirror::Object>* obj, ArtField* f,
 
 static void GetSetCharStatic(ArtField* f, Thread* self, ArtMethod* referrer,
                              StubTest* test)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   uint16_t values[] = { 0, 1, 2, 255, 32768, 0xFFFF };
@@ -1719,7 +1449,7 @@ static void GetSetCharStatic(ArtField* f, Thread* self, ArtMethod* referrer,
 }
 static void GetSetShortStatic(ArtField* f, Thread* self,
                               ArtMethod* referrer, StubTest* test)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   int16_t values[] = { -0x7FFF, -32768, 0, 255, 32767, 0x7FFE };
@@ -1750,7 +1480,7 @@ static void GetSetShortStatic(ArtField* f, Thread* self,
 
 static void GetSetCharInstance(Handle<mirror::Object>* obj, ArtField* f,
                                Thread* self, ArtMethod* referrer, StubTest* test)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   uint16_t values[] = { 0, 1, 2, 255, 32768, 0xFFFF };
@@ -1784,7 +1514,7 @@ static void GetSetCharInstance(Handle<mirror::Object>* obj, ArtField* f,
 }
 static void GetSetShortInstance(Handle<mirror::Object>* obj, ArtField* f,
                              Thread* self, ArtMethod* referrer, StubTest* test)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   int16_t values[] = { -0x7FFF, -32768, 0, 255, 32767, 0x7FFE };
@@ -1819,7 +1549,7 @@ static void GetSetShortInstance(Handle<mirror::Object>* obj, ArtField* f,
 
 static void GetSet32Static(ArtField* f, Thread* self, ArtMethod* referrer,
                            StubTest* test)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   uint32_t values[] = { 0, 1, 2, 255, 32768, 1000000, 0xFFFFFFFF };
@@ -1855,7 +1585,7 @@ static void GetSet32Static(ArtField* f, Thread* self, ArtMethod* referrer,
 
 static void GetSet32Instance(Handle<mirror::Object>* obj, ArtField* f,
                              Thread* self, ArtMethod* referrer, StubTest* test)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   uint32_t values[] = { 0, 1, 2, 255, 32768, 1000000, 0xFFFFFFFF };
@@ -1896,7 +1626,7 @@ static void GetSet32Instance(Handle<mirror::Object>* obj, ArtField* f,
 
 static void set_and_check_static(uint32_t f_idx, mirror::Object* val, Thread* self,
                                  ArtMethod* referrer, StubTest* test)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   test->Invoke3WithReferrer(static_cast<size_t>(f_idx),
                             reinterpret_cast<size_t>(val),
                             0U,
@@ -1916,7 +1646,7 @@ static void set_and_check_static(uint32_t f_idx, mirror::Object* val, Thread* se
 
 static void GetSetObjStatic(ArtField* f, Thread* self, ArtMethod* referrer,
                             StubTest* test)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   set_and_check_static(f->GetDexFieldIndex(), nullptr, self, referrer, test);
@@ -1940,7 +1670,7 @@ static void GetSetObjStatic(ArtField* f, Thread* self, ArtMethod* referrer,
 static void set_and_check_instance(ArtField* f, mirror::Object* trg,
                                    mirror::Object* val, Thread* self, ArtMethod* referrer,
                                    StubTest* test)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   test->Invoke3WithReferrer(static_cast<size_t>(f->GetDexFieldIndex()),
                             reinterpret_cast<size_t>(trg),
                             reinterpret_cast<size_t>(val),
@@ -1963,7 +1693,7 @@ static void set_and_check_instance(ArtField* f, mirror::Object* trg,
 
 static void GetSetObjInstance(Handle<mirror::Object>* obj, ArtField* f,
                               Thread* self, ArtMethod* referrer, StubTest* test)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   set_and_check_instance(f, obj->Get(), nullptr, self, referrer, test);
@@ -1982,21 +1712,23 @@ static void GetSetObjInstance(Handle<mirror::Object>* obj, ArtField* f,
 }
 
 
-// TODO: Complete these tests for 32b architectures.
+// TODO: Complete these tests for 32b architectures
 
 static void GetSet64Static(ArtField* f, Thread* self, ArtMethod* referrer,
                            StubTest* test)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-#if (defined(__x86_64__) && !defined(__APPLE__)) || (defined(__mips__) && defined(__LP64__)) || \
-    defined(__aarch64__)
+    SHARED_REQUIRES(Locks::mutator_lock_) {
+#if (defined(__x86_64__) && !defined(__APPLE__)) || (defined(__mips__) && defined(__LP64__)) \
+    || defined(__aarch64__)
   uint64_t values[] = { 0, 1, 2, 255, 32768, 1000000, 0xFFFFFFFF, 0xFFFFFFFFFFFF };
 
   for (size_t i = 0; i < arraysize(values); ++i) {
-    test->Invoke3UWithReferrer(static_cast<size_t>(f->GetDexFieldIndex()),
-                               values[i],
-                               StubTest::GetEntrypoint(self, kQuickSet64Static),
-                               self,
-                               referrer);
+    // 64 bit FieldSet stores the set value in the second register.
+    test->Invoke3WithReferrer(static_cast<size_t>(f->GetDexFieldIndex()),
+                              0U,
+                              values[i],
+                              StubTest::GetEntrypoint(self, kQuickSet64Static),
+                              self,
+                              referrer);
 
     size_t res = test->Invoke3WithReferrer(static_cast<size_t>(f->GetDexFieldIndex()),
                                            0U, 0U,
@@ -2017,7 +1749,7 @@ static void GetSet64Static(ArtField* f, Thread* self, ArtMethod* referrer,
 
 static void GetSet64Instance(Handle<mirror::Object>* obj, ArtField* f,
                              Thread* self, ArtMethod* referrer, StubTest* test)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
 #if (defined(__x86_64__) && !defined(__APPLE__)) || (defined(__mips__) && defined(__LP64__)) || \
     defined(__aarch64__)
   uint64_t values[] = { 0, 1, 2, 255, 32768, 1000000, 0xFFFFFFFF, 0xFFFFFFFFFFFF };
@@ -2071,37 +1803,34 @@ static void TestFields(Thread* self, StubTest* test, Primitive::Type test_type) 
   // Play with it...
 
   // Static fields.
-  ArtField* fields = c->GetSFields();
-  size_t num_fields = c->NumStaticFields();
-  for (size_t i = 0; i < num_fields; ++i) {
-    ArtField* f = &fields[i];
-    Primitive::Type type = f->GetTypeAsPrimitiveType();
+  for (ArtField& f : c->GetSFields()) {
+    Primitive::Type type = f.GetTypeAsPrimitiveType();
     if (test_type != type) {
      continue;
     }
     switch (type) {
       case Primitive::Type::kPrimBoolean:
-        GetSetBooleanStatic(f, self, m, test);
+        GetSetBooleanStatic(&f, self, m, test);
         break;
       case Primitive::Type::kPrimByte:
-        GetSetByteStatic(f, self, m, test);
+        GetSetByteStatic(&f, self, m, test);
         break;
       case Primitive::Type::kPrimChar:
-        GetSetCharStatic(f, self, m, test);
+        GetSetCharStatic(&f, self, m, test);
         break;
       case Primitive::Type::kPrimShort:
-        GetSetShortStatic(f, self, m, test);
+        GetSetShortStatic(&f, self, m, test);
         break;
       case Primitive::Type::kPrimInt:
-        GetSet32Static(f, self, m, test);
+        GetSet32Static(&f, self, m, test);
         break;
       case Primitive::Type::kPrimLong:
-        GetSet64Static(f, self, m, test);
+        GetSet64Static(&f, self, m, test);
         break;
       case Primitive::Type::kPrimNot:
         // Don't try array.
-        if (f->GetTypeDescriptor()[0] != '[') {
-          GetSetObjStatic(f, self, m, test);
+        if (f.GetTypeDescriptor()[0] != '[') {
+          GetSetObjStatic(&f, self, m, test);
         }
         break;
       default:
@@ -2110,37 +1839,34 @@ static void TestFields(Thread* self, StubTest* test, Primitive::Type test_type) 
   }
 
   // Instance fields.
-  fields = c->GetIFields();
-  num_fields = c->NumInstanceFields();
-  for (size_t i = 0; i < num_fields; ++i) {
-    ArtField* f = &fields[i];
-    Primitive::Type type = f->GetTypeAsPrimitiveType();
+  for (ArtField& f : c->GetIFields()) {
+    Primitive::Type type = f.GetTypeAsPrimitiveType();
     if (test_type != type) {
       continue;
     }
     switch (type) {
       case Primitive::Type::kPrimBoolean:
-        GetSetBooleanInstance(&obj, f, self, m, test);
+        GetSetBooleanInstance(&obj, &f, self, m, test);
         break;
       case Primitive::Type::kPrimByte:
-        GetSetByteInstance(&obj, f, self, m, test);
+        GetSetByteInstance(&obj, &f, self, m, test);
         break;
       case Primitive::Type::kPrimChar:
-        GetSetCharInstance(&obj, f, self, m, test);
+        GetSetCharInstance(&obj, &f, self, m, test);
         break;
       case Primitive::Type::kPrimShort:
-        GetSetShortInstance(&obj, f, self, m, test);
+        GetSetShortInstance(&obj, &f, self, m, test);
         break;
       case Primitive::Type::kPrimInt:
-        GetSet32Instance(&obj, f, self, m, test);
+        GetSet32Instance(&obj, &f, self, m, test);
         break;
       case Primitive::Type::kPrimLong:
-        GetSet64Instance(&obj, f, self, m, test);
+        GetSet64Instance(&obj, &f, self, m, test);
         break;
       case Primitive::Type::kPrimNot:
         // Don't try array.
-        if (f->GetTypeDescriptor()[0] != '[') {
-          GetSetObjInstance(&obj, f, self, m, test);
+        if (f.GetTypeDescriptor()[0] != '[') {
+          GetSetObjInstance(&obj, &f, self, m, test);
         }
         break;
       default:
@@ -2152,8 +1878,6 @@ static void TestFields(Thread* self, StubTest* test, Primitive::Type test_type) 
 }
 
 TEST_F(StubTest, Fields8) {
-  TEST_DISABLED_FOR_HEAP_REFERENCE_POISONING();
-
   Thread* self = Thread::Current();
 
   self->TransitionFromSuspendedToRunnable();
@@ -2166,8 +1890,6 @@ TEST_F(StubTest, Fields8) {
 }
 
 TEST_F(StubTest, Fields16) {
-  TEST_DISABLED_FOR_HEAP_REFERENCE_POISONING();
-
   Thread* self = Thread::Current();
 
   self->TransitionFromSuspendedToRunnable();
@@ -2180,8 +1902,6 @@ TEST_F(StubTest, Fields16) {
 }
 
 TEST_F(StubTest, Fields32) {
-  TEST_DISABLED_FOR_HEAP_REFERENCE_POISONING();
-
   Thread* self = Thread::Current();
 
   self->TransitionFromSuspendedToRunnable();
@@ -2193,8 +1913,6 @@ TEST_F(StubTest, Fields32) {
 }
 
 TEST_F(StubTest, FieldsObj) {
-  TEST_DISABLED_FOR_HEAP_REFERENCE_POISONING();
-
   Thread* self = Thread::Current();
 
   self->TransitionFromSuspendedToRunnable();
@@ -2206,8 +1924,6 @@ TEST_F(StubTest, FieldsObj) {
 }
 
 TEST_F(StubTest, Fields64) {
-  TEST_DISABLED_FOR_HEAP_REFERENCE_POISONING();
-
   Thread* self = Thread::Current();
 
   self->TransitionFromSuspendedToRunnable();
@@ -2218,11 +1934,14 @@ TEST_F(StubTest, Fields64) {
   TestFields(self, this, Primitive::Type::kPrimLong);
 }
 
-TEST_F(StubTest, IMT) {
+// Disabled, b/27991555 .
+// FIXME: Hacking the entry point to point to art_quick_to_interpreter_bridge is broken.
+// The bridge calls through to GetCalleeSaveMethodCaller() which looks up the pre-header
+// and gets a bogus OatQuickMethodHeader* pointing into our assembly code just before
+// the bridge and uses that to check for inlined frames, crashing in the process.
+TEST_F(StubTest, DISABLED_IMT) {
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
-  TEST_DISABLED_FOR_HEAP_REFERENCE_POISONING();
-
   Thread* self = Thread::Current();
 
   ScopedObjectAccess soa(self);
@@ -2287,11 +2006,26 @@ TEST_F(StubTest, IMT) {
 
   // Contains.
 
+  // We construct the ImtConflictTable ourselves, as we cannot go into the runtime stub
+  // that will create it: the runtime stub expects to be called by compiled code.
+  LinearAlloc* linear_alloc = Runtime::Current()->GetLinearAlloc();
+  ArtMethod* conflict_method = Runtime::Current()->CreateImtConflictMethod(linear_alloc);
+  ImtConflictTable* empty_conflict_table =
+      Runtime::Current()->GetClassLinker()->CreateImtConflictTable(/*count*/0u, linear_alloc);
+  void* data = linear_alloc->Alloc(
+      self,
+      ImtConflictTable::ComputeSizeWithOneMoreEntry(empty_conflict_table, sizeof(void*)));
+  ImtConflictTable* new_table = new (data) ImtConflictTable(
+      empty_conflict_table, inf_contains, contains_amethod, sizeof(void*));
+  conflict_method->SetImtConflictTable(new_table, sizeof(void*));
+
   size_t result =
-      Invoke3WithReferrerAndHidden(0U, reinterpret_cast<size_t>(array_list.Get()),
+      Invoke3WithReferrerAndHidden(reinterpret_cast<size_t>(conflict_method),
+                                   reinterpret_cast<size_t>(array_list.Get()),
                                    reinterpret_cast<size_t>(obj.Get()),
                                    StubTest::GetEntrypoint(self, kQuickQuickImtConflictTrampoline),
-                                   self, contains_amethod,
+                                   self,
+                                   contains_amethod,
                                    static_cast<size_t>(inf_contains->GetDexMethodIndex()));
 
   ASSERT_FALSE(self->IsExceptionPending());
@@ -2305,10 +2039,14 @@ TEST_F(StubTest, IMT) {
 
   // Contains.
 
-  result = Invoke3WithReferrerAndHidden(
-      0U, reinterpret_cast<size_t>(array_list.Get()), reinterpret_cast<size_t>(obj.Get()),
-      StubTest::GetEntrypoint(self, kQuickQuickImtConflictTrampoline), self, contains_amethod,
-      static_cast<size_t>(inf_contains->GetDexMethodIndex()));
+  result =
+      Invoke3WithReferrerAndHidden(reinterpret_cast<size_t>(conflict_method),
+                                   reinterpret_cast<size_t>(array_list.Get()),
+                                   reinterpret_cast<size_t>(obj.Get()),
+                                   StubTest::GetEntrypoint(self, kQuickQuickImtConflictTrampoline),
+                                   self,
+                                   contains_amethod,
+                                   static_cast<size_t>(inf_contains->GetDexMethodIndex()));
 
   ASSERT_FALSE(self->IsExceptionPending());
   EXPECT_EQ(static_cast<size_t>(JNI_TRUE), result);
@@ -2341,9 +2079,7 @@ TEST_F(StubTest, IMT) {
 }
 
 TEST_F(StubTest, StringIndexOf) {
-#if defined(__arm__) || defined(__aarch64__)
-  TEST_DISABLED_FOR_HEAP_REFERENCE_POISONING();
-
+#if defined(__arm__) || defined(__aarch64__) || defined(__mips__)
   Thread* self = Thread::Current();
   ScopedObjectAccess soa(self);
   // garbage is created during ClassLinker::Init
@@ -2413,6 +2149,77 @@ TEST_F(StubTest, StringIndexOf) {
   LOG(INFO) << "Skipping indexof as I don't know how to do that on " << kRuntimeISA;
   // Force-print to std::cout so it's also outside the logcat.
   std::cout << "Skipping indexof as I don't know how to do that on " << kRuntimeISA << std::endl;
+#endif
+}
+
+TEST_F(StubTest, ReadBarrier) {
+#if defined(ART_USE_READ_BARRIER) && (defined(__i386__) || defined(__arm__) || \
+      defined(__aarch64__) || defined(__mips__) || (defined(__x86_64__) && !defined(__APPLE__)))
+  Thread* self = Thread::Current();
+
+  const uintptr_t readBarrierSlow = StubTest::GetEntrypoint(self, kQuickReadBarrierSlow);
+
+  // Create an object
+  ScopedObjectAccess soa(self);
+  // garbage is created during ClassLinker::Init
+
+  StackHandleScope<2> hs(soa.Self());
+  Handle<mirror::Class> c(
+      hs.NewHandle(class_linker_->FindSystemClass(soa.Self(), "Ljava/lang/Object;")));
+
+  // Build an object instance
+  Handle<mirror::Object> obj(hs.NewHandle(c->AllocObject(soa.Self())));
+
+  EXPECT_FALSE(self->IsExceptionPending());
+
+  size_t result = Invoke3(0U, reinterpret_cast<size_t>(obj.Get()),
+                          mirror::Object::ClassOffset().SizeValue(), readBarrierSlow, self);
+
+  EXPECT_FALSE(self->IsExceptionPending());
+  EXPECT_NE(reinterpret_cast<size_t>(nullptr), result);
+  mirror::Class* klass = reinterpret_cast<mirror::Class*>(result);
+  EXPECT_EQ(klass, obj->GetClass());
+
+  // Tests done.
+#else
+  LOG(INFO) << "Skipping read_barrier_slow";
+  // Force-print to std::cout so it's also outside the logcat.
+  std::cout << "Skipping read_barrier_slow" << std::endl;
+#endif
+}
+
+TEST_F(StubTest, ReadBarrierForRoot) {
+#if defined(ART_USE_READ_BARRIER) && (defined(__i386__) || defined(__arm__) || \
+      defined(__aarch64__) || defined(__mips__) || (defined(__x86_64__) && !defined(__APPLE__)))
+  Thread* self = Thread::Current();
+
+  const uintptr_t readBarrierForRootSlow =
+      StubTest::GetEntrypoint(self, kQuickReadBarrierForRootSlow);
+
+  // Create an object
+  ScopedObjectAccess soa(self);
+  // garbage is created during ClassLinker::Init
+
+  StackHandleScope<1> hs(soa.Self());
+
+  Handle<mirror::String> obj(
+      hs.NewHandle(mirror::String::AllocFromModifiedUtf8(soa.Self(), "hello, world!")));
+
+  EXPECT_FALSE(self->IsExceptionPending());
+
+  GcRoot<mirror::Class>& root = mirror::String::java_lang_String_;
+  size_t result = Invoke3(reinterpret_cast<size_t>(&root), 0U, 0U, readBarrierForRootSlow, self);
+
+  EXPECT_FALSE(self->IsExceptionPending());
+  EXPECT_NE(reinterpret_cast<size_t>(nullptr), result);
+  mirror::Class* klass = reinterpret_cast<mirror::Class*>(result);
+  EXPECT_EQ(klass, obj->GetClass());
+
+  // Tests done.
+#else
+  LOG(INFO) << "Skipping read_barrier_for_root_slow";
+  // Force-print to std::cout so it's also outside the logcat.
+  std::cout << "Skipping read_barrier_for_root_slow" << std::endl;
 #endif
 }
 

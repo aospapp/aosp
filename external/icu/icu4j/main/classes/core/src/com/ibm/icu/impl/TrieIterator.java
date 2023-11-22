@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-* Copyright (C) 1996-2010, International Business Machines Corporation and
+* Copyright (C) 1996-2015, International Business Machines Corporation and
 * others. All Rights Reserved.
 ******************************************************************************
 */
@@ -15,6 +15,9 @@ import com.ibm.icu.util.RangeValueIterator;
 
 /**
  * <p>Class enabling iteration of the values in a Trie.</p>
+ *
+ * <p>2015-sep-03 TODO: Only used in test code, move there.
+ *
  * <p>Result of each iteration contains the interval of codepoints that have
  * the same value type and the value type itself.</p>
  * <p>The comparison of each codepoint value is done via extract(), which the
@@ -300,9 +303,7 @@ public class TrieIterator implements RangeValueIterator
                 // this is not a simple addition of 
                 // DATA_BLOCK_SUPPLEMENTARY_LENGTH since we need to consider
                 // that we might have moved some of the codepoints
-                m_nextCodepoint_ = UCharacterProperty.getRawSupplementary(
-                                     (char)nextLead, 
-                                     (char)UTF16.TRAIL_SURROGATE_MIN_VALUE);
+                m_nextCodepoint_ = Character.toCodePoint((char)nextLead, (char)UTF16.TRAIL_SURROGATE_MIN_VALUE);
                 continue;
             }
             if (m_trie_.m_dataManipulate_ == null) {

@@ -40,6 +40,7 @@ OperationFactory* HmacKeyFactory::GetOperationFactory(keymaster_purpose_t purpos
 }
 
 keymaster_error_t HmacKeyFactory::LoadKey(const KeymasterKeyBlob& key_material,
+                                          const AuthorizationSet& /* additional_params */,
                                           const AuthorizationSet& hw_enforced,
                                           const AuthorizationSet& sw_enforced,
                                           UniquePtr<Key>* key) const {

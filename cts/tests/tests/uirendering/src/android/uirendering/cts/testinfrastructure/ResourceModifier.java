@@ -15,7 +15,7 @@
   */
 package android.uirendering.cts.testinfrastructure;
 
-import com.android.cts.uirendering.R;
+import android.uirendering.cts.R;
 
 import android.content.res.Resources;
 import android.graphics.Bitmap;

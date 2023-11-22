@@ -24,30 +24,35 @@
     <string name="header_category_preferences" msgid="175105555164713972">"ចំណូលចិត្ត"</string>
     <string name="header_category_accessories" msgid="823295909353025991">"ពី​ចម្ងាយ &amp; ឧបករណ៍"</string>
     <string name="header_category_personal" msgid="8893959635328775096">"ផ្ទាល់ខ្លួន"</string>
+    <string name="accounts_category_title" msgid="7591072907146317425">"គណនី"</string>
     <string name="add_account" msgid="4098060223200619258">"បន្ថែម​គណនី"</string>
-    <string name="account_header_sync" msgid="2679585471372319471">"ធ្វើ​សម​កាល​កម្ម"</string>
     <string name="account_header_remove_account" msgid="3288957118207682685">"លុប​គណនី​​​ចេញ"</string>
     <string name="account_sync" msgid="773808124331714965">"ជ្រើស​រើស​កម្មវិធី​​​ដែល​បាន​ធ្វើ​សម​កាល​កម្ម"</string>
     <string name="sync_now" msgid="8732244492880016471">"ធ្វើ​សម្មកាលកម្ម​ឥឡូវ"</string>
-    <string name="sync_cancel" msgid="5839264070098894371">"បោះបង់​ការ​ធ្វើ​សម​កាល​កម្ម"</string>
     <string name="sync_in_progress" msgid="1330721038775646022">"កំពុង​ធ្វើ​សមកាលកម្ម…"</string>
     <string name="last_synced" msgid="6178494892357077274">"ធ្វើ​សម​កាល​កម្ម​ចុង​ក្រោយ <xliff:g id="TIME">%1s</xliff:g>"</string>
     <string name="sync_disabled" msgid="3089360175872892781">"បាន​បិទ​ដំណើរការ"</string>
-    <string name="sync_is_failing" msgid="8229476000384257186">"សកម្មកាលកម្ម​មិន​ដំណើរការ​​ទេ​ពេល​នេះ។ វា​នឹង​មាន​វិញ​ពេល​ឆាប់ៗ។"</string>
     <string name="account_remove" msgid="4313580520737295272">"លុប​គណនី​​​ចេញ"</string>
     <string name="account_remove_failed" msgid="980654375770693544">"មិន​អាច​​លុប​គណនី​បាន"</string>
+    <!-- no translation found for sync_item_title (2716687595867726981) -->
+    <skip />
+    <string name="sync_one_time_sync" msgid="3575080833667908804">"ធ្វើសមកាលកម្មឥឡូវនេះ<xliff:g id="LAST_SYNC_TIME">
+%1$s</xliff:g>"</string>
+    <string name="sync_failed" msgid="5514824149810480551">"បានបរាជ័យក្នុងការធ្វើសមកាលកម្ម"</string>
+    <string name="sync_active" msgid="6891115263481154378">"ការធ្វើសមកាលកម្មសកម្ម"</string>
     <string name="connectivity_network" msgid="8321537111272398501">"បណ្ដាញ"</string>
     <string name="connectivity_wifi" msgid="489974791299647708">"វ៉ាយហ្វាយ"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"អ៊ីសឺរណិត"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"ការស្កេនតែងតែមានជានិច្ច"</string>
     <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"អនុញ្ញាតឲ្យសេវាកម្មទីតាំងរបស់ Google និងកម្មវិធីផ្សេងទៀត ស្កេនរកបណ្តាញ បើទោះបីជា Wi-Fi របស់អ្នកបិទក៏ដោយ"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
-    <string name="device_daydream" msgid="4933581408059561077">"ស្រមើ​ស្រមៃ"</string>
+    <string name="device_daydream" msgid="3354366974209179614">"ធាតុរក្សាអេក្រង់"</string>
     <string name="device_display" msgid="101455384386372747">"បង្ហាញ"</string>
+    <string name="device_sound" msgid="9214182566287657481">"សំឡេង"</string>
+    <string name="device_surround_sound" msgid="6272196310566546860">"សំឡេងជុំវិញ"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"សំឡេង​​ប្រព័ន្ធ"</string>
     <string name="device_apps" msgid="9180435229638772838">"កម្មវិធី"</string>
     <string name="device_storage_reset" msgid="1425978936501134425">"ឧបករណ៍​ផ្ទុក &amp; កំណត់​ឡើងវិញ"</string>
-    <string name="device_storage" msgid="5536683600091277826">"កន្លែង​ផ្ទុក"</string>
     <string name="device_backup_restore" msgid="5627523987587511884">"​បម្រុង​ទុក &amp; ស្ដារ​ឡើង​វិញ"</string>
     <string name="device_reset" msgid="2827002349560023125">"កំណត់​ឡើងវិញ​​ទិន្នន័យ​ដូច​ប្រភព​ដើម"</string>
     <string name="device_calibration" msgid="8632962533376605191">"ការ​ក្រិត​តាម​ខ្នាត"</string>
@@ -57,14 +62,12 @@
     <string name="apps_system" msgid="2499191125802829425">"កម្មវិធី​ប្រព័ន្ធ"</string>
     <string name="apps_running" msgid="6430310491739956228">"កម្មវិធី​កំពុង​ដំណើរការ"</string>
     <string name="accessories_add" msgid="1347802656349218830">"បន្ថែម​គ្រឿង​បន្ទាប់​បន្សំ"</string>
-    <string name="accessories_wifi_display" msgid="1107690327150126038">"បង្ហា​ញ​វ៉ាយហ្វាយ"</string>
     <string name="accessory_state_pairing" msgid="7501989679637780963">"កំពុង​ផ្គូផ្គង..."</string>
     <string name="accessory_state_connecting" msgid="8777884957977608529">"កំពុង​ត​ភ្ជាប់​…"</string>
     <string name="accessory_state_error" msgid="4529815543328841909">"មិន​អាច​ផ្គូផ្គង"</string>
     <string name="accessory_state_canceled" msgid="4419328837733619447">"បាន​បោះបង់"</string>
     <string name="accessory_state_paired" msgid="1959238931866401476">"បាន​ផ្គូផ្គង"</string>
     <string name="accessory_options" msgid="4799658564005710297">"គ្រឿង​បន្ទាប់​បន្សំ"</string>
-    <string name="accessory_rename" msgid="3250766501262581206">"ប្ដូរ​ឈ្មោះ"</string>
     <string name="accessory_unpair" msgid="8242725516604465355">"មិន​ផ្គូផ្គង"</string>
     <string name="accessory_battery" msgid="7021788232835772126">"ថ្ម <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"កំពុង​ឈប់​​ផ្គូផ្គង​ឧបករណ៍..."</string>
@@ -72,9 +75,6 @@
     <string name="accessories_add_title" msgid="6940361421891873321">"កំពុង​ស្វែងរក​ឧបករណ៍​បន្ថែម..."</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"មុន​ពេល​ផ្គូ​ផ្គង​ឧបករណ៍​ប៊្លូធូស​របស់​អ្នក ប្រាកដ​ថា​ពួកវា​ស្ថិត​ក្នុង​របៀប​ផ្គូផ្គង"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"រក​ឃើញ​ឧបករណ៍ ហើយ​ផ្គូផ្គង​ស្វ័យ​ប្រវត្តិ​ក្នុង​រយៈ​ពេល <xliff:g id="COUNTDOWN">%1$s</xliff:g> វិនាទី"</string>
-    <string name="accessories_add_title_multiple" msgid="8455249961819802466">"បាន​រក​ឃើញ​ឧបករណ៍​ជា​ច្រើន"</string>
-    <string name="accessories_add_multiple" msgid="3900633668371061399">"ដើម្បី​ជ្រើស​ឧបករណ៍​ផ្សេង ចុច​ប៊ូតុង​ផ្គូផ្គង​នៅ​លើ​ឧបករណ៍​នេះ"</string>
-    <string name="accessories_add_multiple_select" msgid="3696794187001405647">"ដើម្បី​ផ្គូផ្គង​ឧបករណ៍​បាន​ជ្រើស ចុច &amp; សង្កត់​ប៊ូតុង​ផ្គូផ្គង​របស់​ឧបករណ៍​នេះ​រយៈពេល ៥​វិនាទី"</string>
     <string name="error_action_not_supported" msgid="300552308104354666">"សកម្មភាព​នេះ​មិន​ត្រូវ​បាន​គាំទ្រ"</string>
     <string name="bluetooth_pairing_request" msgid="4523088117471287665">"សំណើ​ផ្គូផ្គង​តាម​ប្ល៊ូធូស"</string>
     <string name="bluetooth_confirm_passkey_msg" msgid="7031117992819855434">"ដើម្បី​ផ្គូផ្គង​ជា​មួយ៖ &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;, ប្រាកដ​ថា​វា​បង្ហាញ​​ពាក្យ​សម្ងាត់​នេះ៖ &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt;"</string>
@@ -97,6 +97,7 @@
     <string name="system_accessibility" msgid="6215431399759498005">"ភាព​ងាយស្រួល"</string>
     <string name="system_developer_options" msgid="3237985523474863638">"ជម្រើស​អ្នក​អភិវឌ្ឍ"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"គ្មាន"</string>
+    <string name="system_diagnostic" msgid="7269638365915225701">"ការប្រើប្រាស់ &amp; ការវិនិច្ឆ័យ"</string>
     <string name="about_system_update" msgid="7282772247661356586">"ធ្វើ​បច្ចុប្បន្នភាព​ប្រព័ន្ធ​"</string>
     <string name="about_preference" msgid="4131396784531360434">"អំពី"</string>
     <string name="device_name" msgid="2670488158531273028">"ឈ្មោះ​ឧបករណ៍"</string>
@@ -116,6 +117,36 @@
     <string name="about_ads" msgid="3364786994943748337">"ផ្សាយ​ពាណិជ្ជកម្ម"</string>
     <string name="show_dev_on" msgid="8997172736024819952">"អ្នក​ជា​អ្នក​អភិវឌ្ឍ​ឥឡូវ​នេះ!"</string>
     <string name="show_dev_already" msgid="7525967300421794483">"មិន​ចាំបាច់ អ្នក​ជា​អ្នក​អភិវឌ្ឍ​រួចហើយ"</string>
+    <string name="device_info_default" msgid="4519181343309136050">"មិនស្គាល់"</string>
+    <string name="selinux_status" msgid="8000422283341040360">"ស្ថានភាព SELinux"</string>
+    <string name="selinux_status_disabled" msgid="4925733135520787807">"បានបិទដំណើរការ"</string>
+    <string name="selinux_status_permissive" msgid="4806219236988993826">"អនុញ្ញាត"</string>
+    <string name="selinux_status_enforcing" msgid="8839484208185347776">"បង្ខំ"</string>
+    <string name="additional_system_update_settings_list_item_title" msgid="6285273598178967613">"ការអាប់ដេតប្រព័ន្ធបន្ថែម"</string>
+    <string name="device_status" msgid="4379924151946190768">"ស្ថានភាព"</string>
+    <string name="device_status_summary" msgid="180586140242936323">"បណ្តាញ លេខស៊េរី និងព័ត៌មានផ្សេងទៀត"</string>
+    <string name="manual" msgid="4957388668881541669">"ឯកសារណែនាំ"</string>
+    <string name="regulatory_information" msgid="5448865708097003189">"ព័ត៌មានបទប្បញ្ញត្តិ"</string>
+    <string name="device_feedback" msgid="209146642122579479">"ផ្ដល់មតិអំពីឧបករណ៍នេះ"</string>
+    <string name="fcc_equipment_id" msgid="8295142996591094301">"លេខសម្គាល់បរិក្ខារ"</string>
+    <string name="baseband_version" msgid="2229081246529676107">"កំណែមូលដ្ឋាន៖"</string>
+    <string name="kernel_version" msgid="2418845475938044903">"កំណែខឺណែល"</string>
+    <string name="status_unavailable" msgid="831018565485085059">"មិនមានទេ"</string>
+    <string name="device_status_title" msgid="1629253652287243543">"ស្ថានភាព"</string>
+    <string name="battery_status_title" msgid="2557264957661087826">"ស្ថានភាពថ្ម"</string>
+    <string name="battery_level_title" msgid="100046129713781009">"កម្រិតថ្ម"</string>
+    <string name="sim_status_title" msgid="498929467188844611">"ស្ថានភាព​ស៊ី​ម​កាត"</string>
+    <string name="imei_information_title" msgid="5208860549282877136">"ព័ត៌មាន IMEI"</string>
+    <string name="status_bt_address" msgid="1571721865060122393">"អាសយដ្ឋាន​ប៊្លូធូស"</string>
+    <string name="status_up_time" msgid="1674116490191446110">"រយៈ​ពេល​បើក"</string>
+    <string name="status_wimax_mac_address" msgid="1102907383444152052">"អាសយដ្ឋាន 4G MAC"</string>
+    <string name="legal_information" msgid="2346024659831852038">"ព័ត៌មានផ្លូវច្បាប់"</string>
+    <string name="copyright_title" msgid="5564228453228549353">"រក្សាសិទ្ធិ"</string>
+    <string name="license_title" msgid="4482927105870812604">"អាជ្ញាប័ណ្ណ"</string>
+    <string name="terms_title" msgid="8480859222932736291">"លក្ខខណ្ឌប្រើប្រាស់"</string>
+    <string name="webview_license_title" msgid="8843666223583780825">"អាជ្ញាប័ណ្ណ System WebView"</string>
+    <string name="wallpaper_attributions" msgid="8622098625739634898">"ផ្ទាំង​រូបភាព"</string>
+    <string name="wallpaper_attributions_values" msgid="1565931506291182879">"អ្នកផ្តល់រូបភាពផ្កាយរណប៖\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"ខ្សោយ"</item>
     <item msgid="5986166866411161790">"មធ្យម​​"</item>
@@ -129,10 +160,10 @@
     <string name="title_internet_connection" msgid="8710084774588697646">"ការ​តភ្ជាប់​អ៊ីនធឺណិត"</string>
     <string name="connected" msgid="7563100162902079938">"បាន​ត​ភ្ជាប់"</string>
     <string name="not_connected" msgid="6858480380326923017">"មិន​បាន​តភ្ជាប់"</string>
-    <string name="wifi_setting_header_available_networks" msgid="6244107218643835636">"វ៉ាយហ្វាយ"</string>
-    <string name="wifi_setting_header_other_options" msgid="1530334691232749342">"ជម្រើស​ផ្សេង​ទៀត"</string>
+    <string name="wifi_setting_header_other_options" msgid="3638677601577777216">"ជម្រើស​ផ្សេង​ៗ"</string>
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"​មើល​ទាំង​អស់"</string>
-    <string name="wifi_setting_available_networks" msgid="1244646604369133314">"បណ្ដាញ​អាច​ប្រើ​បាន"</string>
+    <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"មើលតិចជាងមុន"</string>
+    <string name="wifi_setting_available_networks" msgid="6713791371350513043">"បណ្ដាញ​ដែល​មាន"</string>
     <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"តភ្ជាប់​តាម​រយៈ WPS"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"បន្ថែម​បណ្ដាញ​ថ្មី"</string>
     <string name="security_type" msgid="524443802004143058">"ប្រភេទ​​សុវត្ថិភាព"</string>
@@ -185,20 +216,20 @@
     <string name="wifi_ip_settings_invalid_gateway" msgid="3292444764474145026">"បញ្ចូល​អាសយដ្ឋាន​ច្រក​ចេញចូល​ដែល​ត្រឹមត្រូវ"</string>
     <string name="wifi_ip_settings_invalid_dns" msgid="6172189835428184828">"បញ្ចូល​អាសយដ្ឋាន DNS ត្រឹមត្រូវ"</string>
     <string name="wifi_ip_settings_invalid_network_prefix_length" msgid="6209978918929182270">"បញ្ចូល​​ប្រវែង​បុព្វបទ​បណ្ដាញ​ចន្លោះ​ពី០ ដល់ ៣២"</string>
-    <string name="wifi_ip_address_hint" msgid="1895267564692073689">"បញ្ចូល​អាសយដ្ឋាន IP ត្រឹមត្រូវ។\nឧទាហរណ៍៖ 192.168.1.128"</string>
-    <string name="wifi_dns1_hint" msgid="214345156394229347">"បញ្ចូល​អាសយដ្ឋាន IP ត្រឹមត្រូវ ឬ​ទុក​ទទេ។\nឧទាហរណ៍៖ 8.8.8.8"</string>
-    <string name="wifi_dns2_hint" msgid="1075709328208368894">"បញ្ចូល​អាសយដ្ឋាន IP ត្រឹមត្រូវ ឬ​ទុក​ទទេ។\nឧទាហរណ៍៖ 8.8.4.4"</string>
-    <string name="wifi_gateway_hint" msgid="7687219682024189028">"បញ្ចូល​អាសយដ្ឋាន IP ត្រឹមត្រូវ​ ឬ​ទុក​ទទេ។\nឧទាហរណ៍៖ 192.168.1.1"</string>
-    <string name="wifi_network_prefix_length_hint" msgid="332915798888599682">"បញ្ចូល​ប្រវែង​បុព្វបទ​បណ្ដាញ​ដែល​ត្រឹមត្រូវ។\nឧទាហរណ៍៖ 24"</string>
+    <string name="wifi_ip_address_description" msgid="6548838784556001283">"បញ្ចូលអាសយដ្ឋាន IP ដែលត្រឹមត្រូវ។\nឧទាហរណ៍៖ <xliff:g id="ID_1">192.168.1.128</xliff:g>"</string>
+    <string name="wifi_dns1_description" msgid="2463500547232077393">"បញ្ចូលអាសយដ្ឋាន IP ដែលត្រឹមត្រូវ ឬទុកវាឲ្យទទេ។\nឧទាហរណ៍៖ <xliff:g id="ID_1">8.8.8.8</xliff:g>"</string>
+    <string name="wifi_dns2_description" msgid="8005473174044015359">"បញ្ចូលអាសយដ្ឋាន IP ដែលត្រឹមត្រូវ ឬទុកវាឲ្យទទេ។\nឧទាហរណ៍៖ <xliff:g id="ID_1">8.8.4.4</xliff:g>"</string>
+    <string name="wifi_gateway_description" msgid="4773751224452216231">"បញ្ចូលអាសយដ្ឋាន IP ដែលត្រឹមត្រូវ ឬទុកវាឲ្យទទេ។\nឧទាហរណ៍៖ <xliff:g id="ID_1">192.168.1.1</xliff:g>"</string>
+    <string name="wifi_network_prefix_length_description" msgid="4849589333293194414">"បញ្ចូលប្រវែងបុព្វបទបណ្តាញដែលត្រឹមត្រូវ។\nឧទាហរណ៍៖ <xliff:g id="ID_1">24</xliff:g>"</string>
     <string name="proxy_error_invalid_host" msgid="3660415920668138953">"ឈ្មោះ​ម៉ាស៊ីន​មិន​ត្រឹមត្រូវ"</string>
     <string name="proxy_error_invalid_exclusion_list" msgid="4921547051724987804">"បញ្ជី​​បដិសេធ​នេះ​មិន​ត្រឹមត្រូវ។ បញ្ចូល​បញ្ជី​ដែន​បដិសេធ​បំបែក​ដោយ​សញ្ញា​ក្បៀស​។"</string>
     <string name="proxy_error_empty_port" msgid="6835658067776408062">"វាល​ច្រក​មិន​អាច​ទទេ"</string>
     <string name="proxy_error_empty_host_set_port" msgid="4428793978424303244">"បើ​វាល​ម៉ាស៊ីន​ទទេ ទុក​វាល​ច្រក​ទទេ​ដែរ"</string>
     <string name="proxy_error_invalid_port" msgid="1434922103959603993">"ច្រក​មិន​ត្រឹមត្រូវ"</string>
     <string name="proxy_warning_limited_support" msgid="6160239282535986523">"ប្រូកស៊ី HTTP ត្រូវ​បាន​ប្រើ​ដោយ​កម្មវិធី​រុករក ប៉ុន្តែ​មិន​អាច​ត្រូវ​បាន​ប្រើ​ដោយ​កម្មវិធី​ផ្សេង"</string>
-    <string name="proxy_port_hint" msgid="8532733797275927007">"បញ្ចូល​ច្រក​ដែល​ត្រឹមត្រូវ។\nឧទាហរណ៍៖ 8080"</string>
-    <string name="proxy_exclusionlist_hint" msgid="86175095050438325">"បញ្ចូល​សញ្ញា​ក្បៀស​ខណ្ឌ​ចែក​បញ្ជី​នៃ​ដែន​ដែល​លើក​លែង ឬ​ទុក​វា​ឲ្យ​ទទេ។\nឧទាហរណ៍៖ example.com,mycomp.test.com,localhost"</string>
-    <string name="proxy_hostname_hint" msgid="3719688422767210803">"បញ្ចូល​​ឈ្មោះ​ម៉ាស៊ីន​ត្រឹមត្រូវ។\nឧទាហរណ៍៖ proxy.example.com"</string>
+    <string name="proxy_port_description" msgid="6791098212244367568">"បញ្ចូលច្រកដែលត្រឹមត្រូវ។\nឧទាហរណ៍៖ <xliff:g id="ID_1">8080</xliff:g>"</string>
+    <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"បញ្ចូលបញ្ជីដែលបែងចែកដោយសញ្ញាក្បៀសនៃដែនបានដកចេញ ឬទុកវាឲ្យទទេ។\nឧទាហរណ៍៖ <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>"</string>
+    <string name="proxy_hostname_description" msgid="5824391500254472447">"បញ្ចូលឈ្មោះម៉ាស៊ីនដែលត្រឹមត្រូវ។\nឧទាហរណ៍៖ <xliff:g id="ID_1">proxy.example.com</xliff:g>"</string>
     <string name="wifi_summary_title_connected" msgid="8329216588732277139">"បាន​តភ្ជាប់​បណ្ដាញ"</string>
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"បណ្ដាញ​មិន​ត្រូវ​បាន​ភ្ជាប់"</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"បាន​ភ្ជាប់​ទៅ <xliff:g id="SSID">%1$s</xliff:g> រួច​ហើយ។ ភ្ជាប់​បណ្ដាញ​ផ្សេង?"</string>
@@ -217,27 +248,33 @@
     <string name="storage_media_cache_usage" msgid="5906737163212649904">"ទិន្នន័យ​ក្នុង​ឃ្លាំង​សម្ងាត់"</string>
     <string name="storage_eject" msgid="113476702798691558">"ដកចេញ"</string>
     <string name="storage_format" msgid="3759273736493279595">"លុប និងសម្អាត"</string>
+    <string name="storage_format_as_private" msgid="4169495230765116075">"លុប និងសម្អាតជាឧបករណ៍ផ្ទុក"</string>
+    <string name="storage_format_as_public" msgid="8568317076021814054">"លុប និងសម្អាតជាឧបករណ៍ផ្ទុកចល័ត"</string>
     <string name="storage_format_for_private" msgid="7095270113028182032">"សម្អាតឧបករណ៍ផ្ទុក"</string>
     <string name="storage_not_connected" msgid="6378589497819596096">"មិនបានតភ្ជាប់"</string>
-    <string name="storage_migrate" msgid="658894157418304023">"ប្តូរទីតាំងទិន្នន័យ"</string>
-    <string name="storage_forget" msgid="8541387048014779836">"បំភ្លេចឧបករណ៍ផ្ទុកខាងក្នុងនេះ"</string>
+    <string name="storage_migrate" msgid="1304058078948715456">"ប្តូរទីតាំងទិន្នន័យទៅឧបករណ៍ផ្ទុកនេះ"</string>
+    <string name="storage_migrate_away" msgid="3410590501311323877">"ប្តូរទីតាំងទិន្នន័យទៅឧបករណ៍ផ្ទុកផ្សេងទៀត"</string>
+    <string name="storage_no_apps" msgid="579118619398668670">"គ្មានកម្មវិធីដើម្បីបម្រុងទេ"</string>
+    <string name="storage_forget" msgid="8731986045697320463">"បំភ្លេចឧបករណ៍ផ្ទុកឧបករណ៍នេះ"</string>
     <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"ដើម្បីប្រើកម្មវិធី ឬទិន្នន័យដែលថាសនេះផ្ទុក សូមដោតវាចូលម្តងទៀត។ ជាជម្រើស អ្នកអាចជ្រើសរើសបំភ្លេចឧបករណ៍ផ្ទុកនេះ ប្រសិនបើមិនមានថាសនេះទេ។.\n\nប្រសិនបើអ្នកជ្រើសរើសបំភ្លេច ទិន្នន័យទាំងអស់ដែលផ្ទុកនៅក្នុងថាសនឹងបាត់បង់ជារៀងរហូត។\n\nអ្នកអាចដំឡើងកម្មវិធីឡើងវិញនៅពេលក្រោយ ប៉ុន្តែទិន្នន័យដែលផ្ទុកនៅលើថាសនឹងបាត់បង់។"</string>
     <string name="storage_device_storage_section" msgid="7797805634316822741">"ឧបករណ៍ផ្ទុក"</string>
     <string name="storage_removable_storage_section" msgid="3264955106565590076">"ឧបករណ៍ផ្ទុកចល័ត"</string>
     <string name="storage_reset_section" msgid="7324235036547192861">"កំណត់ឡើងវិញ"</string>
     <string name="storage_mount_success" msgid="4624254886950093443">"បានភ្ជាប់ <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_mount_failure" msgid="2469026716895846633">"មិនអាចដក <xliff:g id="NAME">%1$s</xliff:g> ចេញបានទេ"</string>
+    <string name="storage_mount_adopted" msgid="3360994581083675640">"បានតភា្ជប់ឧបករណ៍ផ្ទុក USB សារជាថ្មី"</string>
     <string name="storage_unmount_success" msgid="7921627277443856151">"បានដក <xliff:g id="NAME">%1$s</xliff:g> ចេញដោយសុវត្ថិភាព"</string>
     <string name="storage_unmount_failure" msgid="6322048355281833871">"មិនអាចដក <xliff:g id="NAME">%1$s</xliff:g> ចេញដោយសុវត្ថិភាពបានទេ"</string>
     <string name="storage_unmount_failure_cant_find" msgid="240731723168567217">"រកមិនឃើញថាសដើម្បីដកចេញទេ"</string>
     <string name="storage_format_success" msgid="6252068844653804319">"បានសម្អាត <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_format_failure" msgid="7336977074523932399">"មិនអាចសម្អាត <xliff:g id="NAME">%1$s</xliff:g> បានទេ"</string>
-    <string name="storage_wizard_format_as_private_title" msgid="1433086533563409114">"សម្អាតឧបករណ៍ផ្ទុកខាងក្នុង"</string>
+    <string name="storage_wizard_format_as_private_title" msgid="1887035626526247913">"សម្អាតឧបករណ៍ផ្ទុក"</string>
     <string name="storage_wizard_format_as_private_description" msgid="5814513630861655168">"វាតម្រូវឲ្យសម្អាតឧបករណ៍ផ្ទុក USB ដើម្បីធ្វើឲ្យមានសុវត្ថិភាព។ បន្ទាប់ពីសម្អាតប្រកបដោយសុវត្ថិភាពហើយ ឧបករណ៍ផ្ទុកនេះនឹងដំណើរការជាមួយឧបករណ៍នេះតែប៉ុណ្ណោះ។ ការសម្អាតនឹងលុបទិន្នន័យទាំងអស់ដែលផ្ទុកនៅលើឧបករណ៍នេះ។ ដើម្បីជៀងវាងការបាត់បង់ទិន្នន័យ សូមពិចារណាធ្វើការបម្រុងទុក។"</string>
     <string name="storage_wizard_format_as_public_title" msgid="977475385015522171">"លុប និងសម្អាត"</string>
-    <string name="storage_wizard_format_as_public_description" msgid="8591201523650249337">"បន្ទាប់ពីសម្អាតហើយ អ្នកអាចប្រើឧបករណ៍ផ្ទុក USB នេះនៅក្នុងឧបករណ៍ផ្សេងទៀត។ ទិន្នន័យទាំងអស់នឹងត្រូវបានលុបចោល។ សូមពិចារណាលើការបម្រុងទុកជាមុនសិនដោយផ្លាស់ទីកម្មវិធីទៅឧបករណ៍ផ្ទុកខាងក្នុងផ្សេងទៀត។"</string>
+    <string name="storage_wizard_format_as_public_description" msgid="184405877453834449">"បន្ទាប់ពីសម្អាតហើយ អ្នកអាចប្រើឧបករណ៍ផ្ទុក USB នេះជាមួយឧបករណ៍ផ្សេងទៀត។ ទិន្នន័យទាំងអស់នឹងត្រូវបានលុបចោល។ សូមពិចារណាធ្វើការបម្រុងទុកជាមុនសិនដោយផ្លាស់ទីកម្មវិធីទៅឧបករណ៍ផ្ទុកផ្សេងទៀត។"</string>
     <string name="storage_wizard_format_progress_title" msgid="143911640282435570">"កំពុងសម្អាតឧបករណ៍ផ្ទុក USB…"</string>
     <string name="storage_wizard_format_progress_description" msgid="5320980721352781920">"វាអាចចំណាយពេលបន្តិច។ សូមកុំយកឧបករណ៍ផ្ទុកនេះចេញ។"</string>
+    <string name="storage_wizard_migrate_choose_title" msgid="4247584708563925746">"ជ្រើសឧបករណ៍ផ្ទុកដើម្បីប្តូរទីតាំងទិន្នន័យ"</string>
     <string name="storage_wizard_migrate_confirm_title" msgid="369820166257265495">"ផ្លាស់ទីទិន្នន័យទៅ <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_wizard_migrate_confirm_description" msgid="2916497196106413598">"ផ្លាស់ទីរូបថត ឯកសារ និងទិន្នន័យកម្មវិធីរបស់អ្នកទៅ <xliff:g id="NAME">%1$s</xliff:g>។ វាអាចចំណាយពេលពីរបីនាទី។ កម្មវិធីមួយចំនួននឹងមិនដំណើរបានត្រឹមត្រូវនោះទេអំឡុងពេលធ្វើការផ្លាស់ទី។"</string>
     <string name="storage_wizard_migrate_confirm_action_move_now" msgid="512504294066473542">"ផ្លាស់ទីឥឡូវនេះ"</string>
@@ -253,18 +290,18 @@
     <string name="storage_wizard_back_up_apps_title" msgid="452805102278225533">"កម្មវិធីបានផ្ទុកនៅក្នុង <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_wizard_back_up_apps_and_data_title" msgid="1738767666148200795">"កម្មវិធី និងទិន្នន័យបានផ្ទុកនៅក្នុង <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_wizard_back_up_apps_space_available" msgid="7209210725057470544">"មាន <xliff:g id="SIZE">%1$s</xliff:g>"</string>
-    <string name="storage_wizard_eject_internal_title" msgid="3717872796166039893">"ច្រានចេញឧបករណ៍ផ្ទុកខាងក្នុង"</string>
-    <string name="storage_wizard_eject_internal_description" msgid="6107781224687080575">"កម្មវិធីនៅលើការផ្ទុករបស់ឧបករណ៍នេះនឹងឈប់ដំណើរការនៅពេលវាត្រូវច្រានចេញ។ ឧបករណ៍ផ្ទុក USB មួយនេះត្រូវបានសម្អាតដើម្បីដំណើរការតែលើឧបករណ៍នេះប៉ុណ្ណោះ។ វានឹងមិនដំណើរការលើឧបករណ៍ផ្សេងទៀតទេ។"</string>
-    <string name="sotrage_wizard_eject_progress_title" msgid="8034235439954334978">"កំពុងដក <xliff:g id="NAME">%1$s</xliff:g> ចេញ…"</string>
+    <string name="storage_wizard_eject_private_title" msgid="2844023177159233031">"ដកឧបករណ៍ផ្ទុកចេញ"</string>
+    <string name="storage_wizard_eject_private_description" msgid="8966427719795472538">"កម្មវិធីនៅលើឧបករណ៍ផ្ទុករបស់ឧបករណ៍នេះនឹងឈប់ដំណើរការនៅពេលដែលដកវាចេញ។ ឧបករណ៍ផ្ទុក USB មួយនេះត្រូវបានសម្អាតដើម្បីដំណើរការនៅលើឧបករណ៍នេះតែប៉ុណ្ណោះ។ វានឹងមិនដំណើរការលើឧបករណ៍ផ្សេងទៀតទេ។"</string>
+    <string name="storage_wizard_eject_progress_title" msgid="8823133087157003820">"កំពុងដក <xliff:g id="NAME">%1$s</xliff:g> ចេញ…"</string>
     <string name="storage_wizard_move_app_title" msgid="37057801779891287">"ឧបករណ៍ផ្ទុកដែលបានប្រើ"</string>
     <string name="storage_wizard_move_app_progress_title" msgid="7807062446517628864">"កំពុងផ្លាស់ទី <xliff:g id="NAME">%1$s</xliff:g>…"</string>
     <string name="storage_wizard_move_app_progress_description" msgid="3693104566187904724">"កុំដកថាសចេញអំឡុងពេលធ្វើការផ្លាស់ទី។\nកម្មវិធី <xliff:g id="APPNAME">%1$s</xliff:g> នៅលើឧបករណ៍នេះនឹងមិនមានទេ រហូតដល់ការផ្លាស់ទីបញ្ចប់។"</string>
-    <string name="storage_wizard_forget_confirm_title" msgid="1183642893909026951">"បំភ្លេចឧបករណ៍ផ្ទុកខាងក្នុង?"</string>
+    <string name="storage_wizard_forget_confirm_title" msgid="4321200084208420221">"បំភ្លេចឧបករណ៍ផ្ទុកឬ?"</string>
     <string name="storage_wizard_forget_confirm_description" msgid="4264263982217111372">"ទិន្នន័យដែលបានផ្ទុកទាំងអស់របស់អ្នកនៅក្នុងថាសនេះនឹងបាត់បង់ជារៀងរហូតនៅពេលជ្រើសរើស \'បំភ្លេច\'។ តើអ្នកចង់បន្តដែរឬទេ?"</string>
     <string name="storage_wizard_forget_action" msgid="2532812620271112355">"បំភ្លេច"</string>
     <string name="storage_new_title" msgid="3098495209500607438">"បានភ្ជាប់ឧបករណ៍ USB"</string>
     <string name="storage_new_action_browse" msgid="9041125660441839453">"រុករក"</string>
-    <string name="storage_new_action_adopt" msgid="1903427557119380415">"ដំឡើងជាឧបករណ៍ផ្ទុកខាងក្នុង"</string>
+    <string name="storage_new_action_adopt" msgid="880224317112988974">"កំណត់ជាឧបករណ៍ផ្ទុករបស់ឧបករណ៍"</string>
     <string name="storage_new_action_format_public" msgid="5604328981214071670">"ដំឡើងជាឧបករណ៍ផ្ទុកចល័ត"</string>
     <string name="storage_new_action_eject" msgid="4069294152676217949">"ដកចេញ"</string>
     <string name="storage_missing_title" msgid="2803464623922381858">"បានយក <xliff:g id="NAME">%1$s</xliff:g> ចេញ"</string>
@@ -274,6 +311,7 @@
     <string name="app_forward_locked" msgid="6078781450044847966">"កម្មវិធីត្រូវបានរក្សាសិទ្ធិ។"</string>
     <string name="invalid_location" msgid="5269044848535157307">"ទីតាំងដំឡើងមិនត្រឹមត្រូវ។"</string>
     <string name="system_package" msgid="9200255718634512790">"មិនអាចដំឡើងបច្ចុប្បន្នភាពប្រព័ន្ធលើមេឌៀខាងក្រៅបានទេ។"</string>
+    <string name="move_error_device_admin" msgid="2060627704270836951">"អ្នកគ្រប់គ្រងឧបករណ៍មិនអាចដំឡើងលើមេឌៀផ្នែកខាងក្រៅបានទេ។"</string>
     <string name="learn_more_action" msgid="7015991954404958779">"ស្វែងយល់បន្ថែម"</string>
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"ព្យាយាម​ម្ដងទៀត"</string>
     <string name="wifi_wps_title" msgid="1872305810119408482">"កំពុង​ស្វែងរក​រ៉ោទ័រ WPS ..."</string>
@@ -293,7 +331,15 @@
     <string name="system_set_time_format" msgid="4447882066895090612">"ប្រើ​ទ្រង់ទ្រាយ ២៤ ម៉ោង"</string>
     <string name="desc_set_time_format" msgid="3131006238681763219">"<xliff:g id="STATE">%1$s</xliff:g> (<xliff:g id="SAMPLE">%2$s</xliff:g>)"</string>
     <string name="system_auto_date_time" msgid="3629668599205033272">"កាលបរិច្ឆេទ &amp; ពេលវេលា​ស្វ័យ​ប្រវត្តិ"</string>
-    <string name="desc_auto_date_time" msgid="6997571927680580633">"ប្រើ​ពេលវេលា​បាន​ផ្ដល់​ដោយ​បណ្ដាញ"</string>
+  <string-array name="auto_date_time_entries">
+    <item msgid="4590792581242018007">"ប្រើពេលវេលាដែលផ្ដល់ដោយបណ្ដាញ"</item>
+    <item msgid="3807025813081244357">"បិទ"</item>
+  </string-array>
+  <string-array name="auto_date_time_ts_entries">
+    <item msgid="8463479794795616025">"ប្រើពេលវេលាដែលផ្ដល់ដោយបណ្ដាញ"</item>
+    <item msgid="2475903014233987786">"ប្រើពេលវេលាដែលផ្ដល់ដោយការបញ្ជូនការស្ទ្រីម"</item>
+    <item msgid="150957081326946463">"បិទ"</item>
+  </string-array>
     <string name="system_location" msgid="502463575930545806">"ទីតាំង"</string>
     <string name="system_desc_location" msgid="4243551425631207495">"អនុញ្ញាត​​កម្មវិធី​​​ដែល​សួរ​រក​សិទ្ធិ​​របស់​អ្នក​ ប្រើ​ព័ត៌មាន​​ទីតាំង​របស់​អ្នក"</string>
     <string name="system_network_location_confirm" msgid="8435144328428634060">"ព្រមព្រៀង​តាម​ទីតាំង"</string>
@@ -317,6 +363,7 @@
     <string name="delete_location_history_desc" msgid="4142806827237093397">"វា​នឹង​លុប​ប្រវត្តិ​ទីតាំង​ទាំងអស់​ដែល​បាន​រក្សាទុក​ចេញ​ពី​​ឧបករណ៍​នេះ​សម្រាប់​គណនី Google នេះ។ អ្នក​មិន​អាច​ត្រឡប់​វិញ​ចំពោះ​ការ​លុប​នេះ​ទេ។ កម្មវិធី​មួយ​ចំនួន រួម​ទាំង Googe Now នឹង​ឈប់​ដំណើរការ។"</string>
     <string name="system_services" msgid="7230571820151215779">"សេវាកម្ម"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"ការ​កំណត់​សេវាកម្ម"</string>
+    <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"អត្ថបទមានកម្រិតភាពដិតខ្ពស់"</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"ចំណងជើង"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"ការ​កំណត់​សម្រាប់​អត្ថបទ​ដែល​មាន​ចំណងជើង​បិទ​​គ្រប់​ពី​លើ​វីដេអូ"</string>
     <string name="captions_display" msgid="735692527287125548">"បង្ហាញ"</string>
@@ -324,7 +371,7 @@
     <string name="captions_display_off" msgid="496953007835201523">"បិទ"</string>
     <string name="display_options" msgid="5504549024985225774">"ជម្រើស​បង្ហាញ"</string>
     <string name="captions_configure" msgid="5537548915977371014">"កំណត់​រចនាសម្ព័ន្ធ"</string>
-    <string name="captions_lanaguage" msgid="3291057448460880449">"ភាសា"</string>
+    <string name="captions_language" msgid="2835554055388996343">"ភាសា"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"ទំហំ​អត្ថបទ"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"រចនាប័ទ្ម​ចំណងជើង"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"ជម្រើស​តាម​តម្រូវ​ការ"</string>
@@ -332,12 +379,19 @@
     <string name="captions_textcolor" msgid="3233568269335050287">"ពណ៌​អត្ថបទ"</string>
     <string name="captions_edgetype" msgid="841331274533086103">"ប្រភេទ​គែម"</string>
     <string name="captions_edgecolor" msgid="845125757332620884">"ពណ៌​គែម"</string>
+    <string name="captions_backgroundshow" msgid="9177987321551275698">"បង្ហាញផ្ទៃខាងក្រោយ"</string>
     <string name="captions_backgroundcolor" msgid="448518890988125453">"ពណ៌​ផ្ទៃ​ខាងក្រោយ"</string>
     <string name="captions_backgroundopacity" msgid="2643722493273126220">"ភាព​ស្រអាប់​ផ្ទៃ​ខាងក្រោយ"</string>
     <string name="captioning_preview_text" msgid="72080729155950127">"ចំណងជើង​នឹង​​មាន​រូបរាង​ដូច​នេះ"</string>
     <string name="captions_textopacity" msgid="5536765490446288641">"ភាព​ស្រអាប់​របស់​អត្ថបទ"</string>
+    <string name="captions_windowshow" msgid="5716898740522196707">"បង្ហាញផ្ទាំងវិនដូ"</string>
     <string name="captions_windowcolor" msgid="8986165172260903279">"ពណ៌​បង្អួច"</string>
     <string name="captions_windowopacity" msgid="2784473496224936703">"ភាព​ស្រអាប់​របស់​បង្អួច"</string>
+    <string name="captions_style_0" msgid="2068865433439146533">"ពណ៌ស​លើ​ពណ៌ខ្មៅ"</string>
+    <string name="captions_style_1" msgid="8878565905353923498">"ពណ៌ខ្មៅ​លើ​ពណ៌ស"</string>
+    <string name="captions_style_2" msgid="1486695984924671199">"ពណ៌លឿង​​លើ​​ពណ៌​ខ្មៅ"</string>
+    <string name="captions_style_3" msgid="3217829874170162074">"ពណ៌លឿង​លើ​ពណ៌ខៀវ"</string>
+    <string name="captions_style_custom" msgid="3645114505000714364">"តាម​តម្រូវ​ការ"</string>
     <string name="color_white" msgid="65537523012024751">"ស"</string>
     <string name="color_black" msgid="8804213372565106403">"ខ្មៅ"</string>
     <string name="color_red" msgid="5630553203246525989">"ក្រហម"</string>
@@ -346,13 +400,14 @@
     <string name="color_cyan" msgid="796226330055745">"​ផ្ទៃមេឃ"</string>
     <string name="color_yellow" msgid="1023390829879874964">"លឿង"</string>
     <string name="color_magenta" msgid="6395786485839439122">"ស្វាយ​ខ្ចី"</string>
-    <string name="system_accessibility_status" msgid="4389074529913575327">"ស្ថានភាព"</string>
+    <string name="system_accessibility_status" msgid="6150600992901856367">"បើកដំណើរការ"</string>
     <string name="system_accessibility_config" msgid="3216531917536720277">"ការ​កំណត់​រចនា​សម្ព័ន្ធ"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="8200707259067035823">"ប្រើ <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
     <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"<xliff:g id="SERVICE">%1$s</xliff:g> អាច​ប្រមូល​អត្ថបទ​ទាំងអស់​ដែល​អ្នក​វាយ លើកលែង​ពាក្យ​សម្ងាត់។ នេះ​​រួមមាន​ទិន្នន័យ​ផ្ទាល់ខ្លួន ដូចជា​លេខ​កាត​ឥណទាន។"</string>
     <string name="system_accessibility_service_off_confirm_title" msgid="963297812889694832">"បញ្ឈប់ <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
     <string name="system_accessibility_service_off_confirm_desc" msgid="6714782635926048678">"ការ​ជ្រើស ​យល់ព្រម ​នឹង​បញ្ឈប់ <xliff:g id="SERVICE">%1$s</xliff:g> ។"</string>
     <string name="system_accessibility_tts_output" msgid="8905477795536714590">"អត្ថបទ​ទៅ​ការ​និយាយ"</string>
+    <string name="system_accessibility_tts_engine_config" msgid="5331139536083054552">"ការកំណត់រចនាសម្ព័ន្ធម៉ាស៊ីន"</string>
     <string name="system_speak_passwords" msgid="5264650214879185873">"និយាយ​ពាក្យ​សម្ងាត់"</string>
     <string name="system_preferred_engine" msgid="8258210139854655567">"ម៉ាស៊ីន​ដែល​ពេញ​ចិត្ត"</string>
     <string name="system_speech_rate" msgid="8099856582088545576">"កម្រិត​ការ​និយាយ"</string>
@@ -421,6 +476,7 @@
     <string name="disagree" msgid="9170636026862400981">"មិន​យល់ព្រម"</string>
     <string name="security_unknown_sources_title" msgid="769762478057744545">"មិន​ស្គាល់​ប្រភព"</string>
     <string name="security_unknown_sources_desc" msgid="7197053279914817124">"អនុញ្ញាត​ដំឡើង​កម្មវិធី​ពី​ប្រភព​ផ្សេង​ពី​ ឃ្លាំង​កម្មវិធី"</string>
+    <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"អនុញ្ញាតប្រភពមិនស្គាល់"</string>
     <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"ឧបករណ៍ និង​ទិន្នន័យ​ផ្ទាល់ខ្លួន​របស់​អ្នក​គឺ​ងាយ​នឹង​ទទួល​រង​​ការ​វាយ​ប្រហារ​ដោយ​កម្មវិធី​ពី​ប្រភព​ដែល​មិន​ស្គាល់។ អ្នក​យល់ព្រម​​ថា អ្នក​​​ទទួល​ខុសត្រូវ​តែ​ម្នាក់​ឯង​សម្រាប់​ការ​ខូចខាត​ណា​មួយ​ចំពោះ​ឧបករណ៍​របស់​អ្នក ឬ​​ការ​បាត់បង់​ទិន្នន័យ​ដែល​​ជា​លទ្ធផល​ពី​ការ​ប្រើប្រាស់​កម្មវិធី​ទាំងនេះ។"</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"ផ្ទៀងផ្ទាត់​កម្មវិធី"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"មិន​អនុញ្ញាត ឬ​ព្រមាន​មុន​ដំឡើង​កម្មវិធី​ដែល​អាច​​បង្ក​គ្រោះ​ថ្នាក់"</string>
@@ -479,26 +535,27 @@
     <string name="inputs_game" msgid="1114086481110094757">"ហ្គេម​​កុងសូល"</string>
     <string name="inputs_aux" msgid="5704676433978730340">"Aux"</string>
     <string name="inputs_custom_name" msgid="5584925321693432362">"ឈ្មោះ​អតិថិជន"</string>
+    <string name="inputs_custom_name_description_fmt" msgid="7123031859468901866">"បញ្ចូលឈ្មោះសម្រាប់ធាតុបញ្ចូល <xliff:g id="INPUT">%1$s</xliff:g> ។"</string>
     <string name="inputs_hide" msgid="1575971556150395486">"បាន​លាក់"</string>
-    <string name="inputs_hide_desc" msgid="8172670556559886526">"មិន​បាន​បង្ហាញ​ពេល​ប្ដូរ​ការ​បញ្ចូល"</string>
-    <string name="inputs_custom_title" msgid="374036983231176581">"ឈ្មោះ​អតិថិជន"</string>
+    <string name="inputs_show" msgid="5069718540369447778">"បង្ហាញធាតុបញ្ចូលនេះ"</string>
+    <string name="input_header_names" msgid="6958427658951236078">"ឈ្មោះ"</string>
     <string name="inputs_hdmi_control" msgid="2462240356665628563">"ពិនិត្យ​ HDMI"</string>
     <string name="inputs_hdmi_control_desc" msgid="2300590479729796132">"ឲ្យ​ទូរទស្សន៍​ពិនិត្យ​ឧបករណ៍ HDMI"</string>
     <string name="inputs_device_auto_off" msgid="7510049770946999285">"ឧបករណ៍​បិទ​​ដោយ​ស្វ័យ​ប្រវត្តិ"</string>
     <string name="inputs_device_auto_off_desc" msgid="2679638131351116942">"បិទ​ឧបករណ៍ HDMI ជា​មួយ​ទូរទស្សន៍"</string>
     <string name="inputs_tv_auto_on" msgid="2627932269256793797">"​ទូរទស្សន៍​បើក​​ស្វ័យ​ប្រវត្តិ"</string>
     <string name="inputs_tv_auto_on_desc" msgid="7658625130577708249">"បើក​ទូរទស្សន៍​ជា​មួយ​ឧបករណ៍ HDMI"</string>
-    <plurals name="inputs_header_connected_input" formatted="false" msgid="4694899943180976672">
-      <item quantity="other">បានភ្ជាប់បញ្ចូល</item>
-      <item quantity="one">បានភ្ជាប់បញ្ចូល</item>
+    <plurals name="inputs_header_connected_input" formatted="false" msgid="3158173055262045630">
+      <item quantity="other"> ធាតុបញ្ចូលត្រូវបានភ្ជាប់</item>
+      <item quantity="one"> ធាតុបញ្ចូលត្រូវបានភ្ជាប់</item>
     </plurals>
-    <plurals name="inputs_header_standby_input" formatted="false" msgid="1903575597797993135">
-      <item quantity="other">បញ្ចូលរង់ចាំ</item>
-      <item quantity="one">បញ្ចូលរង់ចាំ</item>
+    <plurals name="inputs_header_standby_input" formatted="false" msgid="8614849472167217134">
+      <item quantity="other"> ធាតុបញ្ចូលដែលមានការផ្អាក</item>
+      <item quantity="one"> ធាតុបញ្ចូលដែលមានការផ្អាក</item>
     </plurals>
-    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="2979766871256996256">
-      <item quantity="other">មិនបានភ្ជាប់បញ្ចូល</item>
-      <item quantity="one">មិនបានភ្ជាប់បញ្ចូល</item>
+    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="1092697966171944243">
+      <item quantity="other"> ធាតុបញ្ចូលមិនត្រូវបានភ្ជាប់</item>
+      <item quantity="one"> ធាតុបញ្ចូលមិនត្រូវបានភ្ជាប់</item>
     </plurals>
     <string name="user_add_profile_item_summary" msgid="2946168478936086933">"ដាក់​​​កម្រិត​ការ​ចូល​ប្រើ​កម្មវិធី និង​មាតិកា​ផ្សេងទៀត​ក្នុង​គណនី​របស់​អ្នក"</string>
     <string name="user_new_profile_name" msgid="336521054830056189">"ប្រវត្តិរូប​​ដែល​​ដាក់កម្រិត"</string>
@@ -510,6 +567,7 @@
     <string name="restricted_profile_switch_to" msgid="1926433350907032138">"បញ្ចូល​ប្រវត្តិរូប​ដែល​បាន​ដាក់​កម្រិត"</string>
     <string name="restricted_profile_switch_out" msgid="1893784095623209495">"ចេញពី​ប្រវត្តិ​រូប​ដែល​បាន​ដាក់​កម្រិត"</string>
     <string name="restricted_profile_delete_title" msgid="3445944923018324707">"លុប​ប្រវត្តិរូប​ដែល​បាន​ដាក់​កម្រិត"</string>
+    <string name="restricted_profile_create_title" msgid="1392190365829029390">"បង្កើតប្រវត្តិរូបដែលរឹតបន្តឹង"</string>
     <string name="restricted_profile_configure_title" msgid="4684188123147519620">"ការកំណត់"</string>
     <string name="restricted_profile_configure_apps_title" msgid="11507255932348492">"កម្មវិធី​ដែល​អនុញ្ញាត"</string>
     <plurals name="restricted_profile_configure_apps_description" formatted="false" msgid="1138147479259808487">
@@ -522,6 +580,7 @@
     <string name="restricted_profile_configure_apps_description_loading" msgid="5269477581791409700">"មួយ​ភ្លែត…"</string>
     <string name="restricted_profile_change_password_title" msgid="2848537651211816659">"ប្ដូរ​កូដ pin"</string>
     <string name="restriction_description" msgid="3104855945910233028">"<xliff:g id="DESCRIPTION">%1$s</xliff:g>\n<xliff:g id="VALUE">%2$s</xliff:g>"</string>
+    <string name="app_sees_restricted_accounts_and_controlled_by" msgid="6677671440081319908">"កម្មវិធីនេះអាចចូលដំណើរការគណនីរបស់អ្នកបាន។ គ្រប់គ្រងដោយ <xliff:g id="APP">%1$s</xliff:g>"</string>
     <string name="pin_enter_unlock_channel" msgid="5980400420298506069">"បញ្ចូល​កូដ PIN ដើម្បី​មើល​ឆានែល​នេះ"</string>
     <string name="pin_enter_unlock_program" msgid="52453773316071511">"បញ្ចូល​កូដ​ PIN ដើម្បី​មើល​កម្មវិធី​នេះ"</string>
     <string name="pin_enter_pin" msgid="821552376577935497">"បញ្ចូល​​កូដ PIN"</string>
@@ -532,9 +591,9 @@
     <string name="pin_toast_wrong" msgid="4628358195224633248">"លេខ​កូដ PIN មិន​ត្រឹមត្រូវ​ សូម​ព្យាយាម​ម្ដងទៀត"</string>
     <string name="pin_toast_not_match" msgid="5886041789737632996">"ព្យាយាម​ម្ដងទៀត កូដ​ PIN មិន​ត្រូវគ្នា"</string>
     <string name="wifi_setup_input_password" msgid="1596168874369038536">"បញ្ចូលពាក្យសម្ងាត់សម្រាប់ <xliff:g id="SSID">%1$s</xliff:g>"</string>
-    <string name="wifi_setup_connection_success" msgid="6262755735033937164">"បានភ្ជាប់ដោយជោគជ័យ។"</string>
-    <string name="wifi_setup_save_success" msgid="4829154865874318015">"បានរក្សាទុកដោយជោគជ័យ។"</string>
-    <string name="device_apps_app_management_version" msgid="1004679024556315208">"កំណែ <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
+    <string name="wifi_setup_connection_success" msgid="3846993789166071184">"បានភ្ជាប់ដោយជោគជ័យ"</string>
+    <string name="wifi_setup_save_success" msgid="4785799603638549254">"បានរក្សាទុកដោយជោគជ័យ"</string>
+    <string name="device_apps_app_management_version" msgid="2267065043941006486">"កំណែ <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
     <string name="device_apps_app_management_open" msgid="8009823973422120839">"បើក"</string>
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"បង្ខំឲ្យបញ្ឈប់"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"ប្រសិនបើអ្នកបង្ខំឲ្យបញ្ឈប់កម្មវិធីនេះ វាអាចដំណើរការមិនប្រក្រតី"</string>
@@ -560,13 +619,13 @@
     <string name="settings_cancel" msgid="304280412158061225">"បោះបង់"</string>
     <string name="settings_on" msgid="6892236264945435013">"បើក"</string>
     <string name="settings_off" msgid="449272161738237637">"បិទ"</string>
-    <string name="device_daydreams_none" msgid="7364189761517824834">"គ្មាន"</string>
-    <string name="device_daydreams_select" msgid="3691552535056569158">"រូបចលនារវើរវាយ"</string>
+    <string name="device_daydreams_none" msgid="2767107052779579259">"បិទអេក្រង់"</string>
+    <string name="device_daydreams_select" msgid="2112338101206187695">"ធាតុរក្សាអេក្រង់"</string>
     <string name="device_daydreams_test" msgid="9038920213402659591">"ចាប់ផ្ដើម​ឥឡូវ"</string>
-    <string name="device_daydreams_sleep" msgid="8766795993034660366">"ពេលត្រូវប្រើរូបចលនារវើរវាយ"</string>
-    <string name="device_daydreams_sleep_description" msgid="5269460120567642259">"រូបចលនាវើរវាយចាប់ផ្តើម បន្ទាប់ពីរយៈពេលអសកម្មនេះ។ ប្រសិនបើគ្មានរូបចលនារវើរវាយត្រូវបានជ្រើសរើសទេ អេក្រង់នឹងបិទ។"</string>
+    <string name="device_daydreams_sleep" msgid="7676938708373592766">"នៅពេលចាប់ផ្តើម"</string>
+    <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"ធាតុរក្សាអេក្រង់ចាប់ផ្តើមបន្ទាប់ពីរយៈពេលអសកម្មនេះ។ ប្រសិនបើធាតុរក្សាអេក្រង់មិនត្រូវបានជ្រើសទេ នោះការបង្ហាញនឹងបិទ។"</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"បន្ទាប់ពី <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> អសកម្ម។"</string>
-    <string name="device_daydreams_screen_off" msgid="5002473979169042970">"នៅពេលទុកចោល"</string>
+    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"ដាក់ឲ្យឧបករណ៍ដេក"</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"បិទអេក្រង់បន្ទាប់ពីរយៈពេលអសកម្មនេះ។"</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"មិនមានគណនីណាមួយកំពុងផ្ទុកទិន្នន័យបម្រុងទេបច្ចុប្បន្ននេះ។"</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
@@ -578,8 +637,8 @@
     <string name="factory_reset_description" msgid="5381170999141355891">"វានឹងលុបទិន្នន័យទាំងអស់ពីឧបករណ៍ផ្ទុកខាងក្នុងរបស់ឧបករណ៍អ្នក រួមបញ្ចូលទាំងគណនី Google ប្រព័ន្ធ ទិន្នន័យកម្មវិធី ការកំណត់ និងកម្មវិធីដែលបានទាញយករបស់អ្នក។"</string>
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"លុប​ព័ត៌មាន​ផ្ទាល់ខ្លួន​របស់​អ្នក​ទាំងអស់ និង​កម្មវិធី​ដែល​បាន​​ទាញ​យក? អ្នក​មិន​អាច​​ត្រឡប់​សកម្មភាព​នេះ​វិញ​បាន​ទេ!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"លុប​​​ទាំងអស់"</string>
-    <string name="select_title" msgid="3905067953686121845">"ជ្រើស​ឈ្មោះ​សម្រាប់ ^1 របស់​អ្នក"</string>
-    <string name="select_description" msgid="4070142015460337658">"ឈ្មោះ​នឹង​ជួយ​កំណត់​អត្ត​សញ្ញាណ​របស់​អ្នក ^1 ពេល​ចូល​ដំណើរការ​វា​ពី​ឧបករណ៍​ផ្សេង​ដូច​ជា​ទូរសព្ទ, កុំព្យូទ័រ​បន្ទះ ឬ​កុំព្យូទ័រ​របស់​អ្នក។"</string>
+    <string name="select_device_name_title" msgid="5165800500130943604">"ជ្រើសរើសឈ្មោះសម្រាប់ <xliff:g id="DEVICEMODEL">%1$s</xliff:g> របស់អ្នក"</string>
+    <string name="select_device_name_description" msgid="2697127827643821315">"ឈ្មោះនឹងជួយកំណត់អត្តសញ្ញាណ <xliff:g id="DEVICEMODEL">%1$s</xliff:g> របស់អ្នកនៅពេលដែលអ្នកចូលដំណើរការវាពីឧបករណ៍ផ្សេងទៀតដូចជា ទូរស័ព្ទ ថេប្លេត ឬកុំព្យូទ័ររបស់អ្នក។"</string>
   <string-array name="rooms">
     <item msgid="7085399612393981553">"បន្ទប់ទទួលភ្ញៀវ"</item>
     <item msgid="3722089849939477581">"បន្ទប់ព័ត៌មាន"</item>
@@ -590,12 +649,18 @@
     <item msgid="8120010459866284578">"ផ្ទះបាយ"</item>
   </string-array>
     <string name="custom_room" msgid="8991561978321502549">"បញ្ចូលឈ្មោះផ្ទាល់ខ្លួន…"</string>
-    <string name="settings_status_title" msgid="3890412726442124167">"^1 នេះ​ត្រូវ​បាន​ដាក់ឈ្មោះ"</string>
-    <string name="settings_status_description" msgid="3600745966132434139">"\"^1\" គឺ​ជា​ឈ្មោះ​របស់ ^2 នេះ។ តើ​អ្នក​ចង់​ប្ដូរ​វា?"</string>
+    <string name="device_rename_title" msgid="2629557295786267185">"ដាក់ឈ្មោះឲ្យ <xliff:g id="DEVICEMODEL">%1$s</xliff:g> នេះឡើងវិញ"</string>
+    <string name="device_rename_description" msgid="2461752788563877107">"បច្ចុប្បន្ននេះ <xliff:g id="DEVICEMODEL">%1$s</xliff:g> នេះមានឈ្មោះថា \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\""</string>
     <string name="change_setting" msgid="2047402388786162246">"ផ្លាស់ប្ដូរ"</string>
     <string name="keep_settings" msgid="6798327196645732517">"កុំ​ផ្លាស់ប្ដូរ"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"សិទ្ធិ"</string>
     <string name="device_apps_permissions" msgid="2966387603529725982">"សិទ្ធិ​កម្មវិធី"</string>
     <string name="app_permissions_group_summary" msgid="7906834786705287901">"បានអនុញ្ញាតកម្មវិធី <xliff:g id="COUNT_0">%d</xliff:g> នៃ <xliff:g id="COUNT_1">%d</xliff:g>"</string>
+    <string name="bluetooth_permission_request" msgid="6649813878683015301">"សំណើ​សិទ្ធិ​ប៊្លូធូស"</string>
     <string name="security_patch" msgid="2131617390189164481">"កម្រិតនៃការដោះស្រាយសុវត្ថិភាព Android"</string>
+    <string name="choose_application" msgid="5662960665577780353">"ជ្រើសកម្មវិធី"</string>
+    <string name="experimental_preference" msgid="1137673985823581797">"(ពិសោធន៍)"</string>
+    <string name="reboot_safemode_action" msgid="8129550438717110406">"ចាប់ផ្ដើមឡើងវិញទៅជារបៀបសុវត្ថិភាព"</string>
+    <string name="reboot_safemode_confirm" msgid="3329475617645192086">"តើអ្នកចង់ចាប់ផ្ដើមឡើងវិញទៅជារបៀបសុវត្ថិភាពឬទេ?"</string>
+    <string name="reboot_safemode_desc" msgid="5031024337104679492">"វានឹងបិទដំណើរការកម្មវិធីភាគីទីបីទាំងអស់ដែលអ្នកបានដំឡើង។ ពួកវានឹងត្រូវបានស្ដារពេលអ្នកចាប់ផ្ដើមឡើងវិញ។"</string>
 </resources>

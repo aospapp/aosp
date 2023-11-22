@@ -16,9 +16,6 @@
 
 package com.android.settings.accounts;
 
-import com.android.internal.logging.MetricsLogger;
-import com.google.android.collect.Lists;
-
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.accounts.AccountManagerCallback;
@@ -36,11 +33,11 @@ import android.content.SyncInfo;
 import android.content.SyncStatusInfo;
 import android.content.pm.ProviderInfo;
 import android.content.pm.UserInfo;
+import android.os.Binder;
 import android.os.Bundle;
 import android.os.UserHandle;
 import android.os.UserManager;
-import android.preference.Preference;
-import android.preference.PreferenceScreen;
+import android.support.v7.preference.Preference;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -50,17 +47,22 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
-import android.widget.ListView;
 import android.widget.TextView;
 
+import com.google.android.collect.Lists;
+
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.R;
 import com.android.settings.Utils;
+import com.android.settingslib.RestrictedLockUtils;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+
+import static com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
 
 public class AccountSyncSettings extends AccountPreferenceBase {
 
@@ -144,7 +146,7 @@ public class AccountSyncSettings extends AccountPreferenceBase {
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.ACCOUNTS_ACCOUNT_SYNC;
+        return MetricsEvent.ACCOUNTS_ACCOUNT_SYNC;
     }
 
     @Override
@@ -152,6 +154,7 @@ public class AccountSyncSettings extends AccountPreferenceBase {
         super.onCreate(icicle);
         setPreferenceScreen(null);
         addPreferencesFromResource(R.xml.account_sync_settings);
+        getPreferenceScreen().setOrderingAsAdded(false);
         setAccessibilityTitle();
 
         setHasOptionsMenu(true);
@@ -162,8 +165,10 @@ public class AccountSyncSettings extends AccountPreferenceBase {
             Bundle savedInstanceState) {
         final View view = inflater.inflate(R.layout.account_sync_screen, container, false);
 
-        final ListView list = (ListView) view.findViewById(android.R.id.list);
-        Utils.prepareCustomPreferencesList(container, view, list, false);
+        final ViewGroup prefs_container = (ViewGroup) view.findViewById(R.id.prefs_container);
+        Utils.prepareCustomPreferencesList(container, view, prefs_container, false);
+        View prefs = super.onCreateView(inflater, prefs_container, savedInstanceState);
+        prefs_container.addView(prefs);
 
         initializeUi(view);
 
@@ -219,8 +224,7 @@ public class AccountSyncSettings extends AccountPreferenceBase {
         removePreference("dummy");
         mAuthenticatorHelper.listenToAccountUpdates();
         updateAuthDescriptions();
-        onAccountsUpdate(UserHandle.getCallingUserHandle());
-
+        onAccountsUpdate(Binder.getCallingUserHandle());
         super.onResume();
     }
 
@@ -231,8 +235,13 @@ public class AccountSyncSettings extends AccountPreferenceBase {
     }
 
     private void addSyncStateSwitch(Account account, String authority) {
-        SyncStateSwitchPreference item =
-                new SyncStateSwitchPreference(getActivity(), account, authority);
+        SyncStateSwitchPreference item = (SyncStateSwitchPreference) getCachedPreference(authority);
+        if (item == null) {
+            item = new SyncStateSwitchPreference(getPrefContext(), account, authority);
+            getPreferenceScreen().addPreference(item);
+        } else {
+            item.setup(account, authority);
+        }
         item.setPersistent(false);
         final ProviderInfo providerInfo = getPackageManager().resolveContentProviderAsUser(
                 authority, 0, mUserHandle.getIdentifier());
@@ -247,7 +256,6 @@ public class AccountSyncSettings extends AccountPreferenceBase {
         String title = getString(R.string.sync_item_title, providerLabel);
         item.setTitle(title);
         item.setKey(authority);
-        mSwitches.add(item);
     }
 
     @Override
@@ -259,13 +267,22 @@ public class AccountSyncSettings extends AccountPreferenceBase {
         MenuItem syncCancel = menu.add(0, MENU_SYNC_CANCEL_ID, 0,
                 getString(R.string.sync_menu_sync_cancel))
                 .setIcon(com.android.internal.R.drawable.ic_menu_close_clear_cancel);
-        final UserManager um = (UserManager) getSystemService(Context.USER_SERVICE);
-        if (!um.hasUserRestriction(UserManager.DISALLOW_MODIFY_ACCOUNTS, mUserHandle)) {
+        if (!RestrictedLockUtils.hasBaseUserRestriction(getPrefContext(),
+                UserManager.DISALLOW_MODIFY_ACCOUNTS, mUserHandle.getIdentifier())) {
             MenuItem removeAccount = menu.add(0, MENU_REMOVE_ACCOUNT_ID, 0,
                     getString(R.string.remove_account_label))
                     .setIcon(R.drawable.ic_menu_delete);
             removeAccount.setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER |
                     MenuItem.SHOW_AS_ACTION_WITH_TEXT);
+            EnforcedAdmin admin = RestrictedLockUtils.checkIfRestrictionEnforced(
+                    getPrefContext(), UserManager.DISALLOW_MODIFY_ACCOUNTS,
+                    mUserHandle.getIdentifier());
+            if (admin == null) {
+                admin = RestrictedLockUtils.checkIfAccountManagementDisabled(
+                        getPrefContext(), mAccount.type, mUserHandle.getIdentifier());
+            }
+            RestrictedLockUtils.setMenuItemAsDisabledByAdmin(getPrefContext(),
+                    removeAccount, admin);
         }
         syncNow.setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER |
                 MenuItem.SHOW_AS_ACTION_WITH_TEXT);
@@ -302,7 +319,7 @@ public class AccountSyncSettings extends AccountPreferenceBase {
     }
 
     @Override
-    public boolean onPreferenceTreeClick(PreferenceScreen preferences, Preference preference) {
+    public boolean onPreferenceTreeClick(Preference preference) {
         if (preference instanceof SyncStateSwitchPreference) {
             SyncStateSwitchPreference syncPref = (SyncStateSwitchPreference) preference;
             String authority = syncPref.getAuthority();
@@ -328,7 +345,7 @@ public class AccountSyncSettings extends AccountPreferenceBase {
             }
             return true;
         } else {
-            return super.onPreferenceTreeClick(preferences, preference);
+            return super.onPreferenceTreeClick(preference);
         }
     }
 
@@ -517,14 +534,10 @@ public class AccountSyncSettings extends AccountPreferenceBase {
             }
         }
 
-        for (int i = 0, n = mSwitches.size(); i < n; i++) {
-            getPreferenceScreen().removePreference(mSwitches.get(i));
-        }
-        mSwitches.clear();
-
         if (Log.isLoggable(TAG, Log.VERBOSE)) {
             Log.d(TAG, "looking for sync adapters that match account " + mAccount);
         }
+        cacheRemoveAllPrefs(getPreferenceScreen());
         for (int j = 0, m = authorities.size(); j < m; j++) {
             final String authority = authorities.get(j);
             // We could check services here....
@@ -537,11 +550,7 @@ public class AccountSyncSettings extends AccountPreferenceBase {
                 addSyncStateSwitch(mAccount, authority);
             }
         }
-
-        Collections.sort(mSwitches);
-        for (int i = 0, n = mSwitches.size(); i < n; i++) {
-            getPreferenceScreen().addPreference(mSwitches.get(i));
-        }
+        removeCachedPrefs(getPreferenceScreen());
     }
 
     /**
@@ -550,7 +559,6 @@ public class AccountSyncSettings extends AccountPreferenceBase {
     @Override
     protected void onAuthDescriptionsUpdated() {
         super.onAuthDescriptionsUpdated();
-        getPreferenceScreen().removeAll();
         if (mAccount != null) {
             mProviderIcon.setImageDrawable(getDrawableForType(mAccount.type));
             mProviderId.setText(getLabelForType(mAccount.type));

@@ -23,7 +23,7 @@
 namespace art {
 
 // Run the tests only on host.
-#ifndef HAVE_ANDROID_OS
+#ifndef __ANDROID__
 
 class PrebuiltToolsTest : public CommonRuntimeTest {
 };
@@ -34,7 +34,7 @@ static void CheckToolsExist(const std::string& tools_dir) {
     struct stat exec_st;
     std::string exec_path = tools_dir + tool;
     if (stat(exec_path.c_str(), &exec_st) != 0) {
-      ADD_FAILURE() << "Can not find " << tool << " in " << tools_dir;
+      ADD_FAILURE() << "Cannot find " << tool << " in " << tools_dir;
     }
   }
 }
@@ -42,7 +42,7 @@ static void CheckToolsExist(const std::string& tools_dir) {
 TEST_F(PrebuiltToolsTest, CheckHostTools) {
   std::string tools_dir = GetAndroidHostToolsDir();
   if (tools_dir.empty()) {
-    ADD_FAILURE() << "Can not find Android tools directory for host";
+    ADD_FAILURE() << "Cannot find Android tools directory for host";
   } else {
     CheckToolsExist(tools_dir);
   }
@@ -54,13 +54,13 @@ TEST_F(PrebuiltToolsTest, CheckTargetTools) {
   for (InstructionSet isa : isas) {
     std::string tools_dir = GetAndroidTargetToolsDir(isa);
     if (tools_dir.empty()) {
-      ADD_FAILURE() << "Can not find Android tools directory for " << isa;
+      ADD_FAILURE() << "Cannot find Android tools directory for " << isa;
     } else {
       CheckToolsExist(tools_dir);
     }
   }
 }
 
-#endif  // HAVE_ANDROID_OS
+#endif  // __ANDROID__
 
 }  // namespace art

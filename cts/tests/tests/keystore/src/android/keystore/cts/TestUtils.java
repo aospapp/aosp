@@ -744,7 +744,8 @@ abstract class TestUtils extends Assert {
             if (KeyProperties.SIGNATURE_PADDING_RSA_PKCS1.equalsIgnoreCase(paddingScheme)) {
                 paddingOverheadBytes = 30;
             } else if (KeyProperties.SIGNATURE_PADDING_RSA_PSS.equalsIgnoreCase(paddingScheme)) {
-                paddingOverheadBytes = 22;
+                int saltSizeBytes = (digestOutputSizeBits + 7) / 8;
+                paddingOverheadBytes = saltSizeBytes + 1;
             } else {
                 throw new IllegalArgumentException(
                         "Unsupported signature padding scheme: " + paddingScheme);

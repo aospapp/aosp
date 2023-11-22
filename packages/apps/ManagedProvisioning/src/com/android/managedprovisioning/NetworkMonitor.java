@@ -24,6 +24,8 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.NetworkInfo.DetailedState;
 
+import com.android.managedprovisioning.common.Utils;
+
 /**
  * Monitor the state of the data network and the checkin service. Invoke a callback when the network
  * is connected and checkin has succeeded. Callbacks are made on the thread that created this
@@ -44,6 +46,8 @@ public class NetworkMonitor {
     private boolean mNetworkConnected = false;
 
     private boolean mReceiverRegistered;
+
+    private final Utils mUtils = new Utils();
 
     /**
      * Start watching the network and monitoring the checkin service. Immediately invokes one of the
@@ -91,7 +95,7 @@ public class NetworkMonitor {
         public void onReceive(Context context, Intent intent) {
             ProvisionLogger.logd("onReceive " + intent.toString());
 
-            mNetworkConnected = isConnectedToWifi(context);
+            mNetworkConnected = mUtils.isConnectedToWifi(context);
 
             if (intent.getAction().equals(ConnectivityManager.CONNECTIVITY_ACTION) ||
                     intent.getAction().equals(ConnectivityManager.INET_CONDITION_ACTION)) {
@@ -103,27 +107,6 @@ public class NetworkMonitor {
             }
         }
     };
-
-    private static NetworkInfo getActiveNetworkInfo(Context context) {
-        ConnectivityManager cm =
-                (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
-        if (cm != null) {
-            return cm.getActiveNetworkInfo();
-        }
-        return null;
-    }
-
-    public static boolean isConnectedToNetwork(Context context) {
-        NetworkInfo info = getActiveNetworkInfo(context);
-        return info != null && info.isConnected();
-    }
-
-    public static boolean isConnectedToWifi(Context context) {
-        NetworkInfo info = getActiveNetworkInfo(context);
-        return info != null
-                && info.isConnected()
-                && info.getType() == ConnectivityManager.TYPE_WIFI;
-    }
 
     public boolean isNetworkConnected() {
         return mNetworkConnected;

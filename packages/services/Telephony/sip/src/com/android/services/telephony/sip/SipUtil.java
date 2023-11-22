@@ -31,8 +31,11 @@ import android.telecom.TelecomManager;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.android.phone.PhoneGlobals;
 import com.android.phone.R;
+import com.android.server.sip.SipService;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -55,10 +58,10 @@ public class SipUtil {
     }
 
     static PendingIntent createIncomingCallPendingIntent(
-            Context context, String sipUri) {
+            Context context, String sipProfileName) {
         Intent intent = new Intent(context, SipBroadcastReceiver.class);
         intent.setAction(SipManager.ACTION_SIP_INCOMING_CALL);
-        intent.putExtra(EXTRA_PHONE_ACCOUNT, SipUtil.createAccountHandle(context, sipUri));
+        intent.putExtra(EXTRA_PHONE_ACCOUNT, SipUtil.createAccountHandle(context, sipProfileName));
         return PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
     }
 
@@ -133,13 +136,60 @@ public class SipUtil {
     }
 
     /**
+     * Upon migration from M->N, the SIP Profile database will be moved into DE storage. This will
+     * not be a problem for non-FBE enabled devices, since DE and CE storage is available at the
+     * same time. This will be a problem for backup/restore, however if the SIP Profile DB is
+     * restored onto a new FBE enabled device.
+     *
+     * Checks if the Sip Db is in DE storage. If it is, the Db is moved to CE storage and
+     * deleted.
+     */
+    private static void possiblyMigrateSipDb(Context context) {
+        SipProfileDb dbDeStorage = new SipProfileDb(context);
+        dbDeStorage.accessDEStorageForMigration();
+        List<SipProfile> profilesDeStorage = dbDeStorage.retrieveSipProfileList();
+        if(profilesDeStorage.size() != 0) {
+            Log.i(LOG_TAG, "Migrating SIP Profiles over!");
+            SipProfileDb dbCeStorage = new SipProfileDb(context);
+            //Perform Profile Migration
+            for (SipProfile profileToMove : profilesDeStorage) {
+                if (dbCeStorage.retrieveSipProfileFromName(
+                        profileToMove.getProfileName()) == null) {
+                    try {
+                        dbCeStorage.saveProfile(profileToMove);
+                    } catch (IOException e) {
+                        Log.w(LOG_TAG, "Error Migrating file to CE: " +
+                                profileToMove.getProfileName(), e);
+                    }
+                }
+                Log.i(LOG_TAG, "(Migration) Deleting SIP profile: " +
+                        profileToMove.getProfileName());
+                dbDeStorage.deleteProfile(profileToMove);
+            }
+        }
+        // Delete supporting structures if they exist
+        dbDeStorage.cleanupUponMigration();
+    }
+
+    /**
+     * Migrates the DB files over from CE->DE storage and starts the SipService.
+     */
+    public static void startSipService() {
+        Context phoneGlobalsContext = PhoneGlobals.getInstance();
+        // Migrate SIP database from DE->CE storage if the device has just upgraded.
+        possiblyMigrateSipDb(phoneGlobalsContext);
+        // Wait until boot complete to start SIP so that it has access to CE storage.
+        SipService.start(phoneGlobalsContext);
+    }
+
+    /**
      * Determines if the user has chosen to use SIP for PSTN calls as well as SIP calls.
      * @param context The context.
      * @return {@code True} if SIP should be used for PSTN calls.
      */
     private static boolean useSipForPstnCalls(Context context) {
-        final SipSharedPreferences sipSharedPreferences = new SipSharedPreferences(context);
-        return sipSharedPreferences.getSipCallOption().equals(Settings.System.SIP_ALWAYS);
+        final SipPreferences sipPreferences = new SipPreferences(context);
+        return sipPreferences.getSipCallOption().equals(Settings.System.SIP_ALWAYS);
     }
 
     /**

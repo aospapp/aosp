@@ -68,7 +68,6 @@ Currently running services:
   batterystats
   bluetooth_manager
   clipboard
-  commontime_management
   connectivity
   consumer_ir
   content
@@ -97,8 +96,8 @@ following articles:</p>
 <ul>
   <li> <a
   href="{@docRoot}devices/input/diagnostics.html">Viewing Input Diagnostics (dumpsys input)</a>
-  <li> <a href="{@docRoot}devices/tech/ram/procstats.html">Viewing RAM Usage Data (dumpsys procstats)</a>
-  <li> <a href="{@docRoot}devices/tech/netstats.html">Viewing Network Data (dumpsys netstats)</a>
+  <li> <a href="procstats.html">Viewing RAM Usage Data (dumpsys procstats)</a>
+  <li> <a href="netstats.html">Viewing Network Data (dumpsys netstats)</a>
   <li> <a href="{@docRoot}devices/tech/power/batterystats.html">Viewing Battery Usage Data (dumpsys batterystats)</a>
 </ul>
 

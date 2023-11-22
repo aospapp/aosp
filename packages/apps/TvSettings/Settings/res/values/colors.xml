@@ -17,7 +17,6 @@
 
     <color name="normal">#FFFFFFFF</color>
     <color name="background">#FF707070</color>
-    <color name="quiet">#FF909090</color>
     <color name="legacy_app_item_background">#1a000000</color>
     <color name="settings_background">#FF1F292E</color>
 
@@ -128,7 +127,6 @@
     <color name="pin_number_picker_focused_background">#4B5459</color>
 
     <!-- Canvas colors -->
-    <color name="action_fragment_background">#FF111111</color>
     <color name="content_breadcrumb_text_color">#88F1F1F1</color>
     <color name="content_description_text_color">#88F1F1F1</color>
     <color name="content_fragment_default_icon_color">#33F1F1F1</color>
@@ -153,5 +151,11 @@
     <item name="picker_item_separator_alpha" format="float" type="dimen">0.50</item>
     <item name="picker_item_visible_column_item_alpha" format="float" type="dimen">0.50</item>
 
-    <color name="permissions_color_overlay">#FFEEEEEE</color>
+    <color name="setup_list_item_background_focused">#FFFFFFFF</color>
+    <color name="setup_list_item_background">@android:color/transparent</color>
+    <color name="setup_list_item_focused">#FF444444</color>
+    <color name="setup_list_item">#FFEEEEEE</color>
+    <color name="setup_list_item_icon_focused">#FF555555</color>
+
+    <color name="activity_progress_text">#FFEEEEEE</color>
 </resources>

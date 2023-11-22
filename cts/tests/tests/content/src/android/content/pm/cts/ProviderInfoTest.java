@@ -21,14 +21,17 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ProviderInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.res.XmlResourceParser;
 import android.os.Parcel;
 import android.test.AndroidTestCase;
+
+import libcore.io.IoUtils;
 
 import java.util.Iterator;
 import java.util.List;
 
 public class ProviderInfoTest extends AndroidTestCase {
-    private static final String PACKAGE_NAME = "com.android.cts.content";
+    private static final String PACKAGE_NAME = "android.content.cts";
     private static final String PROVIDER_NAME = "android.content.cts.MockContentProvider";
 
     public void testProviderInfo() throws NameNotFoundException {
@@ -47,6 +50,19 @@ public class ProviderInfoTest extends AndroidTestCase {
                 checkProviderInfoMethods(current, p);
                 break;
             }
+        }
+    }
+
+    public void testProviderMetaData() {
+        final ProviderInfo info = getContext().getPackageManager()
+                .resolveContentProvider("android.content.cts.fileprovider",
+                        PackageManager.GET_META_DATA);
+        final XmlResourceParser in = info.loadXmlMetaData(
+                getContext().getPackageManager(), "android.support.FILE_PROVIDER_PATHS");
+        try {
+            assertNotNull(in);
+        } finally {
+            IoUtils.closeQuietly(in);
         }
     }
 

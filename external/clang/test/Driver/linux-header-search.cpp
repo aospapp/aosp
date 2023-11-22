@@ -26,6 +26,42 @@
 // CHECK-BASIC-LIBCXX-INSTALL: "-internal-isystem" "[[SYSROOT]]/usr/bin/../include/c++/v1"
 // CHECK-BASIC-LIBCXX-INSTALL: "-internal-isystem" "[[SYSROOT]]/usr/local/include"
 //
+// RUN: %clang -no-canonical-prefixes %s -### -fsyntax-only 2>&1 \
+// RUN:     -target x86_64-unknown-linux-gnu \
+// RUN:     -stdlib=libc++ \
+// RUN:     -ccc-install-dir %S/Inputs/basic_linux_tree/usr/bin \
+// RUN:     --sysroot=%S/Inputs/basic_linux_libcxxv2_tree \
+// RUN:     --gcc-toolchain="" \
+// RUN:   | FileCheck --check-prefix=CHECK-BASIC-LIBCXXV2-SYSROOT %s
+// CHECK-BASIC-LIBCXXV2-SYSROOT: "{{[^"]*}}clang{{[^"]*}}" "-cc1"
+// CHECK-BASIC-LIBCXXV2-SYSROOT: "-isysroot" "[[SYSROOT:[^"]+]]"
+// CHECK-BASIC-LIBCXXV2-SYSROOT: "-internal-isystem" "[[SYSROOT]]/usr/include/c++/v2"
+// CHECK-BASIC-LIBCXXV2-SYSROOT: "-internal-isystem" "[[SYSROOT]]/usr/local/include"
+// RUN: %clang -no-canonical-prefixes %s -### -fsyntax-only 2>&1 \
+// RUN:     -target x86_64-unknown-linux-gnu \
+// RUN:     -stdlib=libc++ \
+// RUN:     -ccc-install-dir %S/Inputs/basic_linux_libcxxv2_tree/usr/bin \
+// RUN:     --sysroot=%S/Inputs/basic_linux_libcxxv2_tree \
+// RUN:     --gcc-toolchain="" \
+// RUN:   | FileCheck --check-prefix=CHECK-BASIC-LIBCXXV2-INSTALL %s
+// CHECK-BASIC-LIBCXXV2-INSTALL: "{{[^"]*}}clang{{[^"]*}}" "-cc1"
+// CHECK-BASIC-LIBCXXV2-INSTALL: "-isysroot" "[[SYSROOT:[^"]+]]"
+// CHECK-BASIC-LIBCXXV2-INSTALL: "-internal-isystem" "[[SYSROOT]]/usr/bin/../include/c++/v2"
+// CHECK-BASIC-LIBCXXV2-INSTALL: "-internal-isystem" "[[SYSROOT]]/usr/local/include"
+//
+// Test Linux with both libc++ and libstdc++ installed.
+// RUN: %clang -no-canonical-prefixes %s -### -fsyntax-only 2>&1 \
+// RUN:     -target x86_64-unknown-linux-gnu \
+// RUN:     -stdlib=libc++ \
+// RUN:     -ccc-install-dir %S/Inputs/basic_linux_tree/usr/bin \
+// RUN:     --sysroot=%S/Inputs/basic_linux_libstdcxx_libcxxv2_tree \
+// RUN:     --gcc-toolchain="" \
+// RUN:   | FileCheck --check-prefix=CHECK-BASIC-LIBSTDCXX-LIBCXXV2-SYSROOT %s
+// CHECK-BASIC-LIBSTDCXX-LIBCXXV2-SYSROOT: "{{[^"]*}}clang{{[^"]*}}" "-cc1"
+// CHECK-BASIC-LIBSTDCXX-LIBCXXV2-SYSROOT: "-isysroot" "[[SYSROOT:[^"]+]]"
+// CHECK-BASIC-LIBSTDCXX-LIBCXXV2-SYSROOT: "-internal-isystem" "[[SYSROOT]]/usr/include/c++/v2"
+// CHECK-BASIC-LIBSTDCXX-LIBCXXV2-SYSROOT: "-internal-isystem" "[[SYSROOT]]/usr/local/include"
+//
 // Test a very broken version of multiarch that shipped in Ubuntu 11.04.
 // RUN: %clang -no-canonical-prefixes %s -### -fsyntax-only 2>&1 \
 // RUN:     -target i386-unknown-linux \
@@ -285,3 +321,60 @@
 // CHECK-MIPS64EL-GNUABI: "-internal-externc-isystem" "[[SYSROOT]]/usr/include/mips64el-linux-gnuabi64"
 // CHECK-MIPS64EL-GNUABI: "-internal-externc-isystem" "[[SYSROOT]]/include"
 // CHECK-MIPS64EL-GNUABI: "-internal-externc-isystem" "[[SYSROOT]]/usr/include"
+
+// Check header search on Debian 8 / Sparc
+// RUN: %clang -no-canonical-prefixes %s -### -fsyntax-only 2>&1 \
+// RUN:     -target sparc-unknown-linux-gnu \
+// RUN:     --sysroot=%S/Inputs/debian_8_sparc_multilib_tree \
+// RUN:     --gcc-toolchain="" \
+// RUN:   | FileCheck --check-prefix=CHECK-DEBIAN-SPARC32 %s
+// CHECK-DEBIAN-SPARC32: "{{[^"]*}}clang{{[^"]*}}" "-cc1"
+// CHECK-DEBIAN-SPARC32: "-resource-dir" "[[RESOURCE_DIR:[^"]+]]"
+// CHECK-DEBIAN-SPARC32: "-isysroot" "[[SYSROOT:[^"]+]]"
+// CHECK-DEBIAN-SPARC32: "-internal-isystem" "[[SYSROOT]]/usr/lib/gcc/sparc-linux-gnu/4.9/../../../../include/c++/4.9"
+// CHECK-DEBIAN-SPARC32: "-internal-isystem" "[[SYSROOT]]/usr/lib/gcc/sparc-linux-gnu/4.9/../../../../include/sparc-linux-gnu/c++/4.9"
+// CHECK-DEBIAN-SPARC32: "-internal-isystem" "[[SYSROOT]]/usr/lib/gcc/sparc-linux-gnu/4.9/../../../../include/c++/4.9/backward"
+// CHECK-DEBIAN-SPARC32: "-internal-isystem" "[[SYSROOT]]/usr/local/include"
+// CHECK-DEBIAN-SPARC32: "-internal-isystem" "[[RESOURCE_DIR]]{{/|\\\\}}include"
+// CHECK-DEBIAN-SPARC32: "-internal-externc-isystem" "[[SYSROOT]]/usr/include/sparc-linux-gnu"
+// CHECK-DEBIAN-SPARC32: "-internal-externc-isystem" "[[SYSROOT]]/include"
+// CHECK-DEBIAN-SPARC32: "-internal-externc-isystem" "[[SYSROOT]]/usr/include"
+
+// Check header search on Debian 8 / Sparc, with the oldstyle multilib packages
+// RUN: %clang -no-canonical-prefixes -m64 %s -### -fsyntax-only 2>&1 \
+// RUN:     -target sparc-unknown-linux-gnu \
+// RUN:     --sysroot=%S/Inputs/debian_8_sparc_multilib_tree \
+// RUN:     --gcc-toolchain="" \
+// RUN:   | FileCheck --check-prefix=CHECK-DEBIAN-SPARC32-LIB64 %s
+// CHECK-DEBIAN-SPARC32-LIB64: "{{[^"]*}}clang{{[^"]*}}" "-cc1"
+// CHECK-DEBIAN-SPARC32-LIB64: "-resource-dir" "[[RESOURCE_DIR:[^"]+]]"
+// CHECK-DEBIAN-SPARC32-LIB64: "-isysroot" "[[SYSROOT:[^"]+]]"
+// CHECK-DEBIAN-SPARC32-LIB64: "-internal-isystem" "[[SYSROOT]]/usr/lib/gcc/sparc-linux-gnu/4.9/../../../../include/c++/4.9"
+// CHECK-DEBIAN-SPARC32-LIB64: "-internal-isystem" "[[SYSROOT]]/usr/lib/gcc/sparc-linux-gnu/4.9/../../../../include/sparc-linux-gnu/c++/4.9/64"
+// CHECK-DEBIAN-SPARC32-LIB64: "-internal-isystem" "[[SYSROOT]]/usr/lib/gcc/sparc-linux-gnu/4.9/../../../../include/c++/4.9/backward"
+// CHECK-DEBIAN-SPARC32-LIB64: "-internal-isystem" "[[SYSROOT]]/usr/local/include"
+// CHECK-DEBIAN-SPARC32-LIB64: "-internal-isystem" "[[RESOURCE_DIR]]{{/|\\\\}}include"
+/* TODO: GCC 4.9 includes the following dir in its search path, which
+   seems questionable. Clang doesn't. Not sure if clang should be
+   doing that too. */
+// CHECK-DEBIAN-SPARC32-LIB64-todo: "-internal-externc-isystem" "[[SYSROOT]]/usr/include/sparc-linux-gnu"
+// CHECK-DEBIAN-SPARC32-LIB64: "-internal-externc-isystem" "[[SYSROOT]]/include"
+// CHECK-DEBIAN-SPARC32-LIB64: "-internal-externc-isystem" "[[SYSROOT]]/usr/include"
+
+// Check header search on Debian 8 / Sparc64
+// RUN: %clang -no-canonical-prefixes %s -### -fsyntax-only 2>&1 \
+// RUN:     -target sparc64-unknown-linux-gnu \
+// RUN:     --sysroot=%S/Inputs/debian_8_sparc64_tree \
+// RUN:     --gcc-toolchain="" \
+// RUN:   | FileCheck --check-prefix=CHECK-DEBIAN-SPARC64 %s
+// CHECK-DEBIAN-SPARC64: "{{[^"]*}}clang{{[^"]*}}" "-cc1"
+// CHECK-DEBIAN-SPARC64: "-resource-dir" "[[RESOURCE_DIR:[^"]+]]"
+// CHECK-DEBIAN-SPARC64: "-isysroot" "[[SYSROOT:[^"]+]]"
+// CHECK-DEBIAN-SPARC64: "-internal-isystem" "[[SYSROOT]]/usr/lib/gcc/sparc64-linux-gnu/4.9/../../../../include/c++/4.9"
+// CHECK-DEBIAN-SPARC64: "-internal-isystem" "[[SYSROOT]]/usr/lib/gcc/sparc64-linux-gnu/4.9/../../../../include/sparc64-linux-gnu/c++/4.9"
+// CHECK-DEBIAN-SPARC64: "-internal-isystem" "[[SYSROOT]]/usr/lib/gcc/sparc64-linux-gnu/4.9/../../../../include/c++/4.9/backward"
+// CHECK-DEBIAN-SPARC64: "-internal-isystem" "[[SYSROOT]]/usr/local/include"
+// CHECK-DEBIAN-SPARC64: "-internal-isystem" "[[RESOURCE_DIR]]{{/|\\\\}}include"
+// CHECK-DEBIAN-SPARC64: "-internal-externc-isystem" "[[SYSROOT]]/usr/include/sparc64-linux-gnu"
+// CHECK-DEBIAN-SPARC64: "-internal-externc-isystem" "[[SYSROOT]]/include"
+// CHECK-DEBIAN-SPARC64: "-internal-externc-isystem" "[[SYSROOT]]/usr/include"

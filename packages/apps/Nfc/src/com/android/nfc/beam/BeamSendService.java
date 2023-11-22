@@ -16,12 +16,16 @@
 
 package com.android.nfc.beam;
 
+import com.android.nfc.R;
+
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.media.AudioManager;
+import android.media.SoundPool;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
@@ -43,6 +47,8 @@ public class BeamSendService extends Service implements BeamTransferManager.Call
     private boolean mBluetoothEnabledByNfc;
     private Messenger mCompleteCallback;
     private int mStartId;
+    SoundPool mSoundPool;
+    int mSuccessSound;
 
     private final BluetoothAdapter mBluetoothAdapter;
     private final BroadcastReceiver mBluetoothStateReceiver = new BroadcastReceiver() {
@@ -63,6 +69,9 @@ public class BeamSendService extends Service implements BeamTransferManager.Call
     public void onCreate() {
         super.onCreate();
 
+        mSoundPool = new SoundPool(1, AudioManager.STREAM_NOTIFICATION, 0);
+        mSuccessSound = mSoundPool.load(this, R.raw.end, 1);
+
         // register BT state receiver
         IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
         registerReceiver(mBluetoothStateReceiver, filter);
@@ -71,6 +80,9 @@ public class BeamSendService extends Service implements BeamTransferManager.Call
     @Override
     public void onDestroy() {
         super.onDestroy();
+        if (mSoundPool != null) {
+            mSoundPool.release();
+        }
 
         if (mBeamStatusReceiver != null) {
             unregisterReceiver(mBeamStatusReceiver);
@@ -96,7 +108,7 @@ public class BeamSendService extends Service implements BeamTransferManager.Call
             if (DBG) Log.i(TAG, "Starting outgoing Beam transfer");
             return START_STICKY;
         } else {
-            invokeCompleteCallback(false);
+            invokeCompleteCallback();
             stopSelf(startId);
             return START_NOT_STICKY;
         }
@@ -158,12 +170,10 @@ public class BeamSendService extends Service implements BeamTransferManager.Call
         }
     }
 
-    private void invokeCompleteCallback(boolean success) {
+    private void invokeCompleteCallback() {
         if (mCompleteCallback != null) {
             try {
-                Message msg = Message.obtain(null, BeamManager.MSG_BEAM_COMPLETE);
-                msg.arg1 = success ? 1 : 0;
-                mCompleteCallback.send(msg);
+                mCompleteCallback.send(Message.obtain(null, BeamManager.MSG_BEAM_COMPLETE));
             } catch (RemoteException e) {
                 Log.e(TAG, "failed to invoke Beam complete callback", e);
             }
@@ -173,7 +183,9 @@ public class BeamSendService extends Service implements BeamTransferManager.Call
     @Override
     public void onTransferComplete(BeamTransferManager transfer, boolean success) {
         // Play success sound
-        if (!success) {
+        if (success) {
+            mSoundPool.play(mSuccessSound, 1.0f, 1.0f, 0, 0, 1.0f);
+        } else {
             if (DBG) Log.d(TAG, "Transfer failed, final state: " +
                     Integer.toString(transfer.mState));
         }
@@ -183,7 +195,7 @@ public class BeamSendService extends Service implements BeamTransferManager.Call
             mBluetoothAdapter.disable();
         }
 
-        invokeCompleteCallback(success);
+        invokeCompleteCallback();
         stopSelf(mStartId);
     }
 

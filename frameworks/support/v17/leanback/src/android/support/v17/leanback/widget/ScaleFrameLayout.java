@@ -18,6 +18,7 @@ import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
 /**
@@ -30,6 +31,8 @@ public class ScaleFrameLayout extends FrameLayout {
 
     private float mLayoutScaleX = 1f;
     private float mLayoutScaleY = 1f;
+
+    private float mChildScale = 1f;
 
     public ScaleFrameLayout(Context context) {
         this(context ,null);
@@ -56,6 +59,34 @@ public class ScaleFrameLayout extends FrameLayout {
             mLayoutScaleY = scaleY;
             requestLayout();
         }
+    }
+
+    public void setChildScale(float scale) {
+        if (mChildScale != scale) {
+            mChildScale = scale;
+            for (int i = 0; i < getChildCount(); i++) {
+                getChildAt(i).setScaleX(scale);
+                getChildAt(i).setScaleY(scale);
+            }
+        }
+    }
+
+    @Override
+    public void addView(View child, int index, ViewGroup.LayoutParams params) {
+        super.addView(child, index, params);
+        child.setScaleX(mChildScale);
+        child.setScaleY(mChildScale);
+    }
+
+    @Override
+    protected boolean addViewInLayout (View child, int index, ViewGroup.LayoutParams params,
+            boolean preventRequestLayout) {
+        boolean ret = super.addViewInLayout(child, index, params, preventRequestLayout);
+        if (ret) {
+            child.setScaleX(mChildScale);
+            child.setScaleY(mChildScale);
+        }
+        return ret;
     }
 
     @Override
@@ -170,4 +201,5 @@ public class ScaleFrameLayout extends FrameLayout {
     public void setForeground(Drawable d) {
         throw new UnsupportedOperationException();
     }
+
 }

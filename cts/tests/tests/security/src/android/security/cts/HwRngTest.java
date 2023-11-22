@@ -17,11 +17,10 @@
 package android.security.cts;
 
 import android.cts.util.CtsAndroidTestCase;
-import com.android.cts.util.ReportLog;
-import com.android.cts.util.ResultType;
-import com.android.cts.util.ResultUnit;
 
-import junit.framework.TestCase;
+import com.android.compatibility.common.util.DeviceReportLog;
+import com.android.compatibility.common.util.ResultType;
+import com.android.compatibility.common.util.ResultUnit;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
@@ -46,23 +45,26 @@ public class HwRngTest extends CtsAndroidTestCase {
     private static final String HWRNG_DRIVER_NAME = "hwrng";
     private static final int HWRNG_DRIVER_MAJOR = 10;
     private static final int HWRNG_DRIVER_MINOR = 183;
+    private static final String REPORT_LOG_NAME = "CtsSecurityTestCases";
 
     /**
      * Reports whether the {@code /dev/hw_random} device is found. This test always passes.
      */
     public void testDeviceFilePresent() {
-        ReportLog report = getReportLog();
+        String streamName = "test_device_file_present";
+        DeviceReportLog report = new DeviceReportLog(REPORT_LOG_NAME, streamName);
         // Need to report at least one value, otherwise summary won't be logged.
-        report.printValue(
-                DEV_HW_RANDOM + " found",
+        report.addValue(
+                "hw_random_found" /* key cannot contain special chars */,
                 DEV_HW_RANDOM.exists() ? 1 : 0,
                 ResultType.WARNING,
                 ResultUnit.NONE);
-        report.printSummary(
-                "Hardware RNG exposed",
+        report.setSummary(
+                "hardware_rng_exposed",
                 DEV_HW_RANDOM.exists() ? 1 : 0,
                 ResultType.WARNING,
                 ResultUnit.NONE);
+        report.submit(getInstrumentation());
     }
 
     /**

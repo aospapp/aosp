@@ -27,17 +27,9 @@
 
 namespace art {
 
-static HGraph* TestCode(const uint16_t* data, ArenaAllocator* allocator) {
-  HGraph* graph = CreateGraph(allocator);
-  HGraphBuilder builder(graph);
-  const DexFile::CodeItem* item = reinterpret_cast<const DexFile::CodeItem*>(data);
-  builder.BuildGraph(*item);
-  graph->BuildDominatorTree();
-  graph->AnalyzeNaturalLoops();
-  return graph;
-}
+class FindLoopsTest : public CommonCompilerTest {};
 
-TEST(FindLoopsTest, CFG1) {
+TEST_F(FindLoopsTest, CFG1) {
   // Constant is not used.
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
@@ -45,26 +37,26 @@ TEST(FindLoopsTest, CFG1) {
 
   ArenaPool arena;
   ArenaAllocator allocator(&arena);
-  HGraph* graph = TestCode(data, &allocator);
-  for (size_t i = 0, e = graph->GetBlocks().Size(); i < e; ++i) {
-    ASSERT_EQ(graph->GetBlocks().Get(i)->GetLoopInformation(), nullptr);
+  HGraph* graph = CreateCFG(&allocator, data);
+  for (HBasicBlock* block : graph->GetBlocks()) {
+    ASSERT_EQ(block->GetLoopInformation(), nullptr);
   }
 }
 
-TEST(FindLoopsTest, CFG2) {
+TEST_F(FindLoopsTest, CFG2) {
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::RETURN);
 
   ArenaPool arena;
   ArenaAllocator allocator(&arena);
-  HGraph* graph = TestCode(data, &allocator);
-  for (size_t i = 0, e = graph->GetBlocks().Size(); i < e; ++i) {
-    ASSERT_EQ(graph->GetBlocks().Get(i)->GetLoopInformation(), nullptr);
+  HGraph* graph = CreateCFG(&allocator, data);
+  for (HBasicBlock* block : graph->GetBlocks()) {
+    ASSERT_EQ(block->GetLoopInformation(), nullptr);
   }
 }
 
-TEST(FindLoopsTest, CFG3) {
+TEST_F(FindLoopsTest, CFG3) {
   const uint16_t data[] = TWO_REGISTERS_CODE_ITEM(
     Instruction::CONST_4 | 3 << 12 | 0,
     Instruction::CONST_4 | 4 << 12 | 1 << 8,
@@ -74,13 +66,13 @@ TEST(FindLoopsTest, CFG3) {
 
   ArenaPool arena;
   ArenaAllocator allocator(&arena);
-  HGraph* graph = TestCode(data, &allocator);
-  for (size_t i = 0, e = graph->GetBlocks().Size(); i < e; ++i) {
-    ASSERT_EQ(graph->GetBlocks().Get(i)->GetLoopInformation(), nullptr);
+  HGraph* graph = CreateCFG(&allocator, data);
+  for (HBasicBlock* block : graph->GetBlocks()) {
+    ASSERT_EQ(block->GetLoopInformation(), nullptr);
   }
 }
 
-TEST(FindLoopsTest, CFG4) {
+TEST_F(FindLoopsTest, CFG4) {
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 4,
@@ -91,13 +83,13 @@ TEST(FindLoopsTest, CFG4) {
 
   ArenaPool arena;
   ArenaAllocator allocator(&arena);
-  HGraph* graph = TestCode(data, &allocator);
-  for (size_t i = 0, e = graph->GetBlocks().Size(); i < e; ++i) {
-    ASSERT_EQ(graph->GetBlocks().Get(i)->GetLoopInformation(), nullptr);
+  HGraph* graph = CreateCFG(&allocator, data);
+  for (HBasicBlock* block : graph->GetBlocks()) {
+    ASSERT_EQ(block->GetLoopInformation(), nullptr);
   }
 }
 
-TEST(FindLoopsTest, CFG5) {
+TEST_F(FindLoopsTest, CFG5) {
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 3,
@@ -106,21 +98,21 @@ TEST(FindLoopsTest, CFG5) {
 
   ArenaPool arena;
   ArenaAllocator allocator(&arena);
-  HGraph* graph = TestCode(data, &allocator);
-  for (size_t i = 0, e = graph->GetBlocks().Size(); i < e; ++i) {
-    ASSERT_EQ(graph->GetBlocks().Get(i)->GetLoopInformation(), nullptr);
+  HGraph* graph = CreateCFG(&allocator, data);
+  for (HBasicBlock* block : graph->GetBlocks()) {
+    ASSERT_EQ(block->GetLoopInformation(), nullptr);
   }
 }
 
 static void TestBlock(HGraph* graph,
-                      int block_id,
+                      uint32_t block_id,
                       bool is_loop_header,
-                      int parent_loop_header_id,
+                      uint32_t parent_loop_header_id,
                       const int* blocks_in_loop = nullptr,
                       size_t number_of_blocks = 0) {
-  HBasicBlock* block = graph->GetBlocks().Get(block_id);
+  HBasicBlock* block = graph->GetBlocks()[block_id];
   ASSERT_EQ(block->IsLoopHeader(), is_loop_header);
-  if (parent_loop_header_id == -1) {
+  if (parent_loop_header_id == kInvalidBlockId) {
     ASSERT_EQ(block->GetLoopInformation(), nullptr);
   } else {
     ASSERT_EQ(block->GetLoopInformation()->GetHeader()->GetBlockId(), parent_loop_header_id);
@@ -138,7 +130,7 @@ static void TestBlock(HGraph* graph,
   }
 }
 
-TEST(FindLoopsTest, Loop1) {
+TEST_F(FindLoopsTest, Loop1) {
   // Simple loop with one preheader and one back edge.
   // var a = 0;
   // while (a == a) {
@@ -152,18 +144,18 @@ TEST(FindLoopsTest, Loop1) {
 
   ArenaPool arena;
   ArenaAllocator allocator(&arena);
-  HGraph* graph = TestCode(data, &allocator);
+  HGraph* graph = CreateCFG(&allocator, data);
 
-  TestBlock(graph, 0, false, -1);            // entry block
-  TestBlock(graph, 1, false, -1);            // pre header
+  TestBlock(graph, 0, false, kInvalidBlockId);  // entry block
+  TestBlock(graph, 1, false, kInvalidBlockId);  // pre header
   const int blocks2[] = {2, 3};
-  TestBlock(graph, 2, true, 2, blocks2, 2);  // loop header
-  TestBlock(graph, 3, false, 2);             // block in loop
-  TestBlock(graph, 4, false, -1);            // return block
-  TestBlock(graph, 5, false, -1);            // exit block
+  TestBlock(graph, 2, true, 2, blocks2, 2);     // loop header
+  TestBlock(graph, 3, false, 2);                // block in loop
+  TestBlock(graph, 4, false, kInvalidBlockId);  // return block
+  TestBlock(graph, 5, false, kInvalidBlockId);  // exit block
 }
 
-TEST(FindLoopsTest, Loop2) {
+TEST_F(FindLoopsTest, Loop2) {
   // Make sure we support a preheader of a loop not being the first predecessor
   // in the predecessor list of the header.
   // var a = 0;
@@ -180,19 +172,19 @@ TEST(FindLoopsTest, Loop2) {
 
   ArenaPool arena;
   ArenaAllocator allocator(&arena);
-  HGraph* graph = TestCode(data, &allocator);
+  HGraph* graph = CreateCFG(&allocator, data);
 
-  TestBlock(graph, 0, false, -1);            // entry block
-  TestBlock(graph, 1, false, -1);            // goto block
+  TestBlock(graph, 0, false, kInvalidBlockId);  // entry block
+  TestBlock(graph, 1, false, kInvalidBlockId);  // goto block
   const int blocks2[] = {2, 3};
-  TestBlock(graph, 2, true, 2, blocks2, 2);  // loop header
-  TestBlock(graph, 3, false, 2);             // block in loop
-  TestBlock(graph, 4, false, -1);            // pre header
-  TestBlock(graph, 5, false, -1);            // return block
-  TestBlock(graph, 6, false, -1);            // exit block
+  TestBlock(graph, 2, true, 2, blocks2, 2);     // loop header
+  TestBlock(graph, 3, false, 2);                // block in loop
+  TestBlock(graph, 4, false, kInvalidBlockId);  // pre header
+  TestBlock(graph, 5, false, kInvalidBlockId);  // return block
+  TestBlock(graph, 6, false, kInvalidBlockId);  // exit block
 }
 
-TEST(FindLoopsTest, Loop3) {
+TEST_F(FindLoopsTest, Loop3) {
   // Make sure we create a preheader of a loop when a header originally has two
   // incoming blocks and one back edge.
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
@@ -205,21 +197,21 @@ TEST(FindLoopsTest, Loop3) {
 
   ArenaPool arena;
   ArenaAllocator allocator(&arena);
-  HGraph* graph = TestCode(data, &allocator);
+  HGraph* graph = CreateCFG(&allocator, data);
 
-  TestBlock(graph, 0, false, -1);            // entry block
-  TestBlock(graph, 1, false, -1);            // goto block
-  TestBlock(graph, 2, false, -1);
+  TestBlock(graph, 0, false, kInvalidBlockId);  // entry block
+  TestBlock(graph, 1, false, kInvalidBlockId);  // goto block
+  TestBlock(graph, 2, false, kInvalidBlockId);
   const int blocks2[] = {3, 4};
-  TestBlock(graph, 3, true, 3, blocks2, 2);  // loop header
-  TestBlock(graph, 4, false, 3);             // block in loop
-  TestBlock(graph, 5, false, -1);            // pre header
-  TestBlock(graph, 6, false, -1);            // return block
-  TestBlock(graph, 7, false, -1);            // exit block
-  TestBlock(graph, 8, false, -1);            // synthesized pre header
+  TestBlock(graph, 3, true, 3, blocks2, 2);     // loop header
+  TestBlock(graph, 4, false, 3);                // block in loop
+  TestBlock(graph, 5, false, kInvalidBlockId);  // pre header
+  TestBlock(graph, 6, false, kInvalidBlockId);  // return block
+  TestBlock(graph, 7, false, kInvalidBlockId);  // exit block
+  TestBlock(graph, 8, false, kInvalidBlockId);  // synthesized pre header
 }
 
-TEST(FindLoopsTest, Loop4) {
+TEST_F(FindLoopsTest, Loop4) {
   // Test loop with originally two back edges.
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
@@ -231,21 +223,21 @@ TEST(FindLoopsTest, Loop4) {
 
   ArenaPool arena;
   ArenaAllocator allocator(&arena);
-  HGraph* graph = TestCode(data, &allocator);
+  HGraph* graph = CreateCFG(&allocator, data);
 
-  TestBlock(graph, 0, false, -1);            // entry block
-  TestBlock(graph, 1, false, -1);            // pre header
+  TestBlock(graph, 0, false, kInvalidBlockId);  // entry block
+  TestBlock(graph, 1, false, kInvalidBlockId);  // pre header
   const int blocks2[] = {2, 3, 4, 5};
   TestBlock(graph, 2, true, 2, blocks2, arraysize(blocks2));  // loop header
-  TestBlock(graph, 3, false, 2);             // block in loop
-  TestBlock(graph, 4, false, 2);             // back edge
-  TestBlock(graph, 5, false, 2);             // back edge
-  TestBlock(graph, 6, false, -1);            // return block
-  TestBlock(graph, 7, false, -1);            // exit block
+  TestBlock(graph, 3, false, 2);                // block in loop
+  TestBlock(graph, 4, false, 2);                // back edge
+  TestBlock(graph, 5, false, 2);                // back edge
+  TestBlock(graph, 6, false, kInvalidBlockId);  // return block
+  TestBlock(graph, 7, false, kInvalidBlockId);  // exit block
 }
 
 
-TEST(FindLoopsTest, Loop5) {
+TEST_F(FindLoopsTest, Loop5) {
   // Test loop with two exit edges.
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
@@ -257,21 +249,21 @@ TEST(FindLoopsTest, Loop5) {
 
   ArenaPool arena;
   ArenaAllocator allocator(&arena);
-  HGraph* graph = TestCode(data, &allocator);
+  HGraph* graph = CreateCFG(&allocator, data);
 
-  TestBlock(graph, 0, false, -1);            // entry block
-  TestBlock(graph, 1, false, -1);            // pre header
+  TestBlock(graph, 0, false, kInvalidBlockId);  // entry block
+  TestBlock(graph, 1, false, kInvalidBlockId);  // pre header
   const int blocks2[] = {2, 3, 5};
-  TestBlock(graph, 2, true, 2, blocks2, 3);  // loop header
-  TestBlock(graph, 3, false, 2);             // block in loop
-  TestBlock(graph, 4, false, -1);            // loop exit
-  TestBlock(graph, 5, false, 2);             // back edge
-  TestBlock(graph, 6, false, -1);            // return block
-  TestBlock(graph, 7, false, -1);            // exit block
-  TestBlock(graph, 8, false, -1);            // synthesized block at the loop exit
+  TestBlock(graph, 2, true, 2, blocks2, 3);     // loop header
+  TestBlock(graph, 3, false, 2);                // block in loop
+  TestBlock(graph, 4, false, kInvalidBlockId);  // loop exit
+  TestBlock(graph, 5, false, 2);                // back edge
+  TestBlock(graph, 6, false, kInvalidBlockId);  // return block
+  TestBlock(graph, 7, false, kInvalidBlockId);  // exit block
+  TestBlock(graph, 8, false, kInvalidBlockId);  // synthesized block at the loop exit
 }
 
-TEST(FindLoopsTest, InnerLoop) {
+TEST_F(FindLoopsTest, InnerLoop) {
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 6,
@@ -282,27 +274,27 @@ TEST(FindLoopsTest, InnerLoop) {
 
   ArenaPool arena;
   ArenaAllocator allocator(&arena);
-  HGraph* graph = TestCode(data, &allocator);
+  HGraph* graph = CreateCFG(&allocator, data);
 
-  TestBlock(graph, 0, false, -1);            // entry block
-  TestBlock(graph, 1, false, -1);            // pre header of outer loop
+  TestBlock(graph, 0, false, kInvalidBlockId);  // entry block
+  TestBlock(graph, 1, false, kInvalidBlockId);  // pre header of outer loop
   const int blocks2[] = {2, 3, 4, 5, 8};
-  TestBlock(graph, 2, true, 2, blocks2, 5);  // outer loop header
+  TestBlock(graph, 2, true, 2, blocks2, 5);     // outer loop header
   const int blocks3[] = {3, 4};
-  TestBlock(graph, 3, true, 3, blocks3, 2);  // inner loop header
-  TestBlock(graph, 4, false, 3);             // back edge on inner loop
-  TestBlock(graph, 5, false, 2);             // back edge on outer loop
-  TestBlock(graph, 6, false, -1);            // return block
-  TestBlock(graph, 7, false, -1);            // exit block
-  TestBlock(graph, 8, false, 2);             // synthesized block as pre header of inner loop
+  TestBlock(graph, 3, true, 3, blocks3, 2);     // inner loop header
+  TestBlock(graph, 4, false, 3);                // back edge on inner loop
+  TestBlock(graph, 5, false, 2);                // back edge on outer loop
+  TestBlock(graph, 6, false, kInvalidBlockId);  // return block
+  TestBlock(graph, 7, false, kInvalidBlockId);  // exit block
+  TestBlock(graph, 8, false, 2);                // synthesized block as pre header of inner loop
 
-  ASSERT_TRUE(graph->GetBlocks().Get(3)->GetLoopInformation()->IsIn(
-                    *graph->GetBlocks().Get(2)->GetLoopInformation()));
-  ASSERT_FALSE(graph->GetBlocks().Get(2)->GetLoopInformation()->IsIn(
-                    *graph->GetBlocks().Get(3)->GetLoopInformation()));
+  ASSERT_TRUE(graph->GetBlocks()[3]->GetLoopInformation()->IsIn(
+                    *graph->GetBlocks()[2]->GetLoopInformation()));
+  ASSERT_FALSE(graph->GetBlocks()[2]->GetLoopInformation()->IsIn(
+                    *graph->GetBlocks()[3]->GetLoopInformation()));
 }
 
-TEST(FindLoopsTest, TwoLoops) {
+TEST_F(FindLoopsTest, TwoLoops) {
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 3,
@@ -313,26 +305,26 @@ TEST(FindLoopsTest, TwoLoops) {
 
   ArenaPool arena;
   ArenaAllocator allocator(&arena);
-  HGraph* graph = TestCode(data, &allocator);
+  HGraph* graph = CreateCFG(&allocator, data);
 
-  TestBlock(graph, 0, false, -1);            // entry block
-  TestBlock(graph, 1, false, -1);            // pre header of first loop
+  TestBlock(graph, 0, false, kInvalidBlockId);  // entry block
+  TestBlock(graph, 1, false, kInvalidBlockId);  // pre header of first loop
   const int blocks2[] = {2, 3};
-  TestBlock(graph, 2, true, 2, blocks2, 2);  // first loop header
-  TestBlock(graph, 3, false, 2);             // back edge of first loop
+  TestBlock(graph, 2, true, 2, blocks2, 2);     // first loop header
+  TestBlock(graph, 3, false, 2);                // back edge of first loop
   const int blocks4[] = {4, 5};
-  TestBlock(graph, 4, true, 4, blocks4, 2);  // second loop header
-  TestBlock(graph, 5, false, 4);             // back edge of second loop
-  TestBlock(graph, 6, false, -1);            // return block
-  TestBlock(graph, 7, false, -1);            // exit block
+  TestBlock(graph, 4, true, 4, blocks4, 2);     // second loop header
+  TestBlock(graph, 5, false, 4);                // back edge of second loop
+  TestBlock(graph, 6, false, kInvalidBlockId);  // return block
+  TestBlock(graph, 7, false, kInvalidBlockId);  // exit block
 
-  ASSERT_FALSE(graph->GetBlocks().Get(4)->GetLoopInformation()->IsIn(
-                    *graph->GetBlocks().Get(2)->GetLoopInformation()));
-  ASSERT_FALSE(graph->GetBlocks().Get(2)->GetLoopInformation()->IsIn(
-                    *graph->GetBlocks().Get(4)->GetLoopInformation()));
+  ASSERT_FALSE(graph->GetBlocks()[4]->GetLoopInformation()->IsIn(
+                    *graph->GetBlocks()[2]->GetLoopInformation()));
+  ASSERT_FALSE(graph->GetBlocks()[2]->GetLoopInformation()->IsIn(
+                    *graph->GetBlocks()[4]->GetLoopInformation()));
 }
 
-TEST(FindLoopsTest, NonNaturalLoop) {
+TEST_F(FindLoopsTest, NonNaturalLoop) {
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 3,
@@ -343,13 +335,14 @@ TEST(FindLoopsTest, NonNaturalLoop) {
 
   ArenaPool arena;
   ArenaAllocator allocator(&arena);
-  HGraph* graph = TestCode(data, &allocator);
-  ASSERT_TRUE(graph->GetBlocks().Get(3)->IsLoopHeader());
-  HLoopInformation* info = graph->GetBlocks().Get(3)->GetLoopInformation();
-  ASSERT_FALSE(info->GetHeader()->Dominates(info->GetBackEdges().Get(0)));
+  HGraph* graph = CreateCFG(&allocator, data);
+  ASSERT_TRUE(graph->GetBlocks()[3]->IsLoopHeader());
+  HLoopInformation* info = graph->GetBlocks()[3]->GetLoopInformation();
+  ASSERT_EQ(1u, info->NumberOfBackEdges());
+  ASSERT_FALSE(info->GetHeader()->Dominates(info->GetBackEdges()[0]));
 }
 
-TEST(FindLoopsTest, DoWhileLoop) {
+TEST_F(FindLoopsTest, DoWhileLoop) {
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::GOTO | 0x0100,
@@ -358,16 +351,16 @@ TEST(FindLoopsTest, DoWhileLoop) {
 
   ArenaPool arena;
   ArenaAllocator allocator(&arena);
-  HGraph* graph = TestCode(data, &allocator);
+  HGraph* graph = CreateCFG(&allocator, data);
 
-  TestBlock(graph, 0, false, -1);            // entry block
-  TestBlock(graph, 1, false, -1);            // pre header of first loop
+  TestBlock(graph, 0, false, kInvalidBlockId);  // entry block
+  TestBlock(graph, 1, false, kInvalidBlockId);  // pre header of first loop
   const int blocks2[] = {2, 3, 6};
-  TestBlock(graph, 2, true, 2, blocks2, 3);  // loop header
-  TestBlock(graph, 3, false, 2);             // back edge of first loop
-  TestBlock(graph, 4, false, -1);            // return block
-  TestBlock(graph, 5, false, -1);            // exit block
-  TestBlock(graph, 6, false, 2);             // synthesized block to avoid a critical edge
+  TestBlock(graph, 2, true, 2, blocks2, 3);     // loop header
+  TestBlock(graph, 3, false, 2);                // back edge of first loop
+  TestBlock(graph, 4, false, kInvalidBlockId);  // return block
+  TestBlock(graph, 5, false, kInvalidBlockId);  // exit block
+  TestBlock(graph, 6, false, 2);                // synthesized block to avoid a critical edge
 }
 
 }  // namespace art

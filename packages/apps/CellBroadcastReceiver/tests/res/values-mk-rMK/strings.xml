@@ -40,6 +40,6 @@
     <string name="button_gsm_ucs2_with_language_type" msgid="8992961254390480388">"Испрати GSM UCS-2 со јазик"</string>
     <string name="button_gsm_ucs2_with_language_umts_type" msgid="1080788762601688380">"Испрати UMTS UCS-2 со јазик"</string>
     <string name="button_delay_broadcast" msgid="5138650276363839541">"Одложи 5 секунди пред испраќање"</string>
-    <string name="message_id_label" msgid="4365322663037110887">"ИД на порака:"</string>
+    <string name="message_id_label" msgid="4365322663037110887">"ID на порака:"</string>
     <string name="category_id_label" msgid="8472814003810180738">"Категорија:"</string>
 </resources>

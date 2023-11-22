@@ -30,11 +30,11 @@
 
 #include <android/native_window_jni.h>
 
-#include "ndk/NdkMediaExtractor.h"
-#include "ndk/NdkMediaCodec.h"
-#include "ndk/NdkMediaCrypto.h"
-#include "ndk/NdkMediaFormat.h"
-#include "ndk/NdkMediaMuxer.h"
+#include "media/NdkMediaExtractor.h"
+#include "media/NdkMediaCodec.h"
+#include "media/NdkMediaCrypto.h"
+#include "media/NdkMediaFormat.h"
+#include "media/NdkMediaMuxer.h"
 
 template <class T>
 class simplevector {
@@ -263,7 +263,7 @@ extern "C" jobject Java_android_media_cts_NativeDecoderTest_getDecodedDataNative
         int t = AMediaExtractor_getSampleTrackIndex(ex);
         if (t >=0) {
             ssize_t bufidx = AMediaCodec_dequeueInputBuffer(codec[t], 5000);
-            ALOGV("track %d, input buffer %d", t, bufidx);
+            ALOGV("track %d, input buffer %zd", t, bufidx);
             if (bufidx >= 0) {
                 size_t bufsize;
                 uint8_t *buf = AMediaCodec_getInputBuffer(codec[t], bufidx, &bufsize);
@@ -408,7 +408,7 @@ extern "C" jboolean Java_android_media_cts_NativeDecoderTest_testPlaybackNative(
 
     while (!sawOutputEOS) {
         ssize_t bufidx = AMediaCodec_dequeueInputBuffer(codec, 5000);
-        ALOGV("input buffer %d", bufidx);
+        ALOGV("input buffer %zd", bufidx);
         if (bufidx >= 0) {
             size_t bufsize;
             uint8_t *buf = AMediaCodec_getInputBuffer(codec, bufidx, &bufsize);
@@ -481,7 +481,7 @@ extern "C" jboolean Java_android_media_cts_NativeDecoderTest_testMuxerNative(JNI
             return false;
         } else if (!strncmp(mime, "audio/", 6) || !strncmp(mime, "video/", 6)) {
             ssize_t tidx = AMediaMuxer_addTrack(muxer, format);
-            ALOGI("track %d -> %d format %s", i, tidx, s);
+            ALOGI("track %d -> %zd format %s", i, tidx, s);
             AMediaExtractor_selectTrack(ex, i);
         } else {
             ALOGE("expected audio or video mime type, got %s", mime);
@@ -536,7 +536,7 @@ extern "C" jboolean Java_android_media_cts_NativeDecoderTest_testFormatNative(JN
     int64_t duration = 0;
     if (!AMediaFormat_getInt64(format, AMEDIAFORMAT_KEY_DURATION, &duration)
             || duration != 123456789123456789ll) {
-        ALOGE("AMediaFormat_getInt64 fail: %lld", duration);
+        ALOGE("AMediaFormat_getInt64 fail: %lld", (long long) duration);
         return false;
     }
 

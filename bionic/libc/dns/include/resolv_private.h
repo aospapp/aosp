@@ -58,7 +58,10 @@
 
 #include <resolv.h>
 #include "resolv_static.h"
+#include "resolv_params.h"
+#include "resolv_stats.h"
 #include <net/if.h>
+#include <time.h>
 
 /* Despite this file's name, it's part of libresolv. On Android, that means it's part of libc :-( */
 #pragma GCC visibility push(default)
@@ -136,9 +139,7 @@ struct res_sym {
 /*
  * Global defines and variables for resolver stub.
  */
-#define	MAXNS			3	/* max # name servers we'll track */
 #define	MAXDFLSRCH		3	/* # default domain levels to try */
-#define	MAXDNSRCH		6	/* max # domains in search path */
 #define	LOCALDOMAINPARTS	2	/* min levels in name that is "local" */
 
 #define	RES_TIMEOUT		5	/* min. seconds between retries */
@@ -204,6 +205,24 @@ struct __res_state {
 };
 
 typedef struct __res_state *res_state;
+
+/* Retrieve a local copy of the stats for the given netid. The buffer must have space for
+ * MAXNS __resolver_stats. Returns the revision id of the resolvers used.
+ */
+__LIBC_HIDDEN__
+extern int
+_resolv_cache_get_resolver_stats( unsigned netid, struct __res_params* params,
+        struct __res_stats stats[MAXNS]);
+
+/* Add a sample to the shared struct for the given netid and server, provided that the
+ * revision_id of the stored servers has not changed.
+ */
+__LIBC_HIDDEN__
+extern void
+_resolv_cache_add_resolver_stats_sample( unsigned netid, int revision_id, int ns,
+        const struct __res_sample* sample, int max_samples);
+
+/* End of stats related definitions */
 
 union res_sockaddr_union {
 	struct sockaddr_in	sin;
@@ -398,7 +417,6 @@ __LIBC_HIDDEN__ extern const struct res_sym __p_rcode_syms[];
 #define res_nisourserver	__res_nisourserver
 #define res_ownok		__res_ownok
 #define res_queriesmatch	__res_queriesmatch
-#define res_randomid		__res_randomid
 #define sym_ntop		__sym_ntop
 #define sym_ntos		__sym_ntos
 #define sym_ston		__sym_ston
@@ -454,7 +472,6 @@ const u_char *	p_fqname(const u_char *, const u_char *, FILE *);
 const char *	p_option(u_long);
 char *		p_secstodate(u_long);
 int		dn_count_labels(const char *);
-u_int		res_randomid(void);
 int		res_nameinquery(const char *, int, int, const u_char *,
 				     const u_char *);
 int		res_queriesmatch(const u_char *, const u_char *,
@@ -503,7 +520,11 @@ __LIBC_HIDDEN__ int		res_getservers(res_state,
 
 __LIBC_HIDDEN__ void res_setnetid(res_state, unsigned);
 __LIBC_HIDDEN__ void res_setmark(res_state, unsigned);
-u_int  res_randomid(void);
+
+// We use the OpenBSD __res_randomid...
+u_int __res_randomid(void);
+// ...but NetBSD calls it res_randomid.
+#define res_randomid __res_randomid
 
 #ifdef __i386__
 # define __socketcall extern __attribute__((__cdecl__))

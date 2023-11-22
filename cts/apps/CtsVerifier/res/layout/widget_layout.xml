@@ -21,7 +21,7 @@
     android:layout_marginLeft="@dimen/widget_margin_left"
     android:layout_marginRight="@dimen/widget_margin_right"
     android:padding="1dp"
-    android:background="#2f2f2f">
+    android:background="#fff">
 
     <LinearLayout
         android:orientation="vertical"
@@ -32,7 +32,7 @@
         android:paddingBottom="12dp"
         android:paddingRight="12dp"
         android:layout_gravity="center"
-        android:background="#222">
+        android:background="#fff">
 
         <TextView
             android:id="@+id/title"
@@ -70,7 +70,7 @@
             android:layout_weight="1"
             android:layout_marginBottom="12dp"
             android:padding="1dp"
-            android:background="#333"
+            android:background="#fff"
             android:visibility="gone"/>
 
         <LinearLayout

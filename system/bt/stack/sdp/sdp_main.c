@@ -28,7 +28,7 @@
 
 #include "bt_target.h"
 #include "bt_utils.h"
-#include "gki.h"
+#include "bt_common.h"
 #include "l2cdefs.h"
 #include "hcidefs.h"
 #include "hcimsgs.h"
@@ -42,6 +42,8 @@
 #include "sdp_api.h"
 #include "sdpint.h"
 
+
+extern fixed_queue_t *btu_general_alarm_queue;
 
 /********************************************************************************/
 /*                       G L O B A L      S D P       D A T A                   */
@@ -379,15 +381,16 @@ static void sdp_config_ind (UINT16 l2cap_cid, tL2CAP_CFG_INFO *p_cfg)
     {
         p_ccb->con_state = SDP_STATE_CONNECTED;
 
-        if (p_ccb->con_flags & SDP_FLAGS_IS_ORIG)
+        if (p_ccb->con_flags & SDP_FLAGS_IS_ORIG) {
             sdp_disc_connected (p_ccb);
-        else
+        } else {
             /* Start inactivity timer */
-            btu_start_timer (&p_ccb->timer_entry, BTU_TTYPE_SDP, SDP_INACT_TIMEOUT);
+            alarm_set_on_queue(p_ccb->sdp_conn_timer, SDP_INACT_TIMEOUT_MS,
+                               sdp_conn_timer_timeout, p_ccb,
+                               btu_general_alarm_queue);
+        }
     }
-
 }
-
 
 /*******************************************************************************
 **
@@ -421,11 +424,14 @@ static void sdp_config_cfm (UINT16 l2cap_cid, tL2CAP_CFG_INFO *p_cfg)
         {
             p_ccb->con_state = SDP_STATE_CONNECTED;
 
-            if (p_ccb->con_flags & SDP_FLAGS_IS_ORIG)
+            if (p_ccb->con_flags & SDP_FLAGS_IS_ORIG) {
                 sdp_disc_connected (p_ccb);
-            else
+            } else {
                 /* Start inactivity timer */
-                btu_start_timer (&p_ccb->timer_entry, BTU_TTYPE_SDP, SDP_INACT_TIMEOUT);
+                alarm_set_on_queue(p_ccb->sdp_conn_timer, SDP_INACT_TIMEOUT_MS,
+                                   sdp_conn_timer_timeout, p_ccb,
+                                   btu_general_alarm_queue);
+            }
         }
     }
     else
@@ -525,7 +531,7 @@ static void sdp_data_ind (UINT16 l2cap_cid, BT_HDR *p_msg)
         SDP_TRACE_WARNING ("SDP - Rcvd L2CAP data, unknown CID: 0x%x", l2cap_cid);
     }
 
-    GKI_freebuf (p_msg);
+    osi_free(p_msg);
 }
 
 
@@ -692,7 +698,7 @@ static void sdp_disconnect_cfm (UINT16 l2cap_cid, UINT16 result)
 
 /*******************************************************************************
 **
-** Function         sdp_conn_timeout
+** Function         sdp_conn_timer_timeout
 **
 ** Description      This function processes a timeout. Currently, we simply send
 **                  a disconnect request to L2CAP.
@@ -700,8 +706,10 @@ static void sdp_disconnect_cfm (UINT16 l2cap_cid, UINT16 result)
 ** Returns          void
 **
 *******************************************************************************/
-void sdp_conn_timeout (tCONN_CB*p_ccb)
+void sdp_conn_timer_timeout(void *data)
 {
+    tCONN_CB *p_ccb = (tCONN_CB *)data;
+
     SDP_TRACE_EVENT ("SDP - CCB timeout in state: %d  CID: 0x%x",
                       p_ccb->con_state, p_ccb->connection_id);
 

@@ -145,10 +145,15 @@ static AMediaCodec * createAMediaCodec(const char *name, bool name_is_type, bool
     AMediaCodec *mData = new AMediaCodec();
     mData->mLooper = new ALooper;
     mData->mLooper->setName("NDK MediaCodec_looper");
-    status_t ret = mData->mLooper->start(
+    size_t res = mData->mLooper->start(
             false,      // runOnCallingThread
             true,       // canCallJava XXX
             PRIORITY_FOREGROUND);
+    if (res != OK) {
+        ALOGE("Failed to start the looper");
+        AMediaCodec_delete(mData);
+        return NULL;
+    }
     if (name_is_type) {
         mData->mCodec = android::MediaCodec::CreateByType(mData->mLooper, name, encoder);
     } else {
@@ -359,6 +364,15 @@ media_status_t AMediaCodec_releaseOutputBufferAtTime(
     return translate_error(mData->mCodec->renderOutputBufferAndRelease(idx, timestampNs));
 }
 
+EXPORT
+media_status_t AMediaCodec_setOutputSurface(AMediaCodec *mData, ANativeWindow* window) {
+    sp<Surface> surface = NULL;
+    if (window != NULL) {
+        surface = (Surface*) window;
+    }
+    return translate_error(mData->mCodec->setSurface(surface));
+}
+
 //EXPORT
 media_status_t AMediaCodec_setNotificationCallback(AMediaCodec *mData, OnCodecEvent callback,
         void *userdata) {
@@ -372,6 +386,7 @@ typedef struct AMediaCodecCryptoInfo {
         uint8_t key[16];
         uint8_t iv[16];
         cryptoinfo_mode_t mode;
+        cryptoinfo_pattern_t pattern;
         size_t *clearbytes;
         size_t *encryptedbytes;
 } AMediaCodecCryptoInfo;
@@ -391,6 +406,10 @@ media_status_t AMediaCodec_queueSecureInputBuffer(
         subSamples[i].mNumBytesOfEncryptedData = crypto->encryptedbytes[i];
     }
 
+    CryptoPlugin::Pattern pattern;
+    pattern.mEncryptBlocks = crypto->pattern.encryptBlocks;
+    pattern.mSkipBlocks = crypto->pattern.skipBlocks;
+
     AString errormsg;
     status_t err  = codec->mCodec->queueSecureInputBuffer(idx,
             offset,
@@ -398,7 +417,8 @@ media_status_t AMediaCodec_queueSecureInputBuffer(
             crypto->numsubsamples,
             crypto->key,
             crypto->iv,
-            (CryptoPlugin::Mode) crypto->mode,
+            (CryptoPlugin::Mode)crypto->mode,
+            pattern,
             time,
             flags,
             &errormsg);
@@ -410,6 +430,12 @@ media_status_t AMediaCodec_queueSecureInputBuffer(
 }
 
 
+EXPORT
+void AMediaCodecCryptoInfo_setPattern(AMediaCodecCryptoInfo *info,
+        cryptoinfo_pattern_t *pattern) {
+    info->pattern.encryptBlocks = pattern->encryptBlocks;
+    info->pattern.skipBlocks = pattern->skipBlocks;
+}
 
 EXPORT
 AMediaCodecCryptoInfo *AMediaCodecCryptoInfo_new(
@@ -431,6 +457,8 @@ AMediaCodecCryptoInfo *AMediaCodecCryptoInfo_new(
     memcpy(ret->key, key, 16);
     memcpy(ret->iv, iv, 16);
     ret->mode = mode;
+    ret->pattern.encryptBlocks = 0;
+    ret->pattern.skipBlocks = 0;
 
     // clearbytes and encryptedbytes point at the actual data, which follows
     ret->clearbytes = (size_t*) (ret + 1); // point immediately after the struct

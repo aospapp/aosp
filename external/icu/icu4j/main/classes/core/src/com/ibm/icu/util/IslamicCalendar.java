@@ -64,12 +64,7 @@ import com.ibm.icu.util.ULocale.Category;
  * Like the Islamic religious calendar, <em>Umm al-Qura</em> is also based 
  * on the sighting method of the crescent moon but is standardized by Saudi Arabia.
  * <p>  
- * The {@link #setCalculationType(CalculationType) setCalculationType} method determines
- * which approach is used to determine the start of a month.  By default, the
- * fixed-cycle <em>civil</em> calendar is used.  However, if <code>setCalculationType(ISLAMIC)</code>
- * is called, an approximation of the true lunar calendar will be used.
- * Similarly, if <code>setCalculationType(ISLAMIC_UMALQURA)</code> is called, an approximation 
- * of the Umm al-Qura lunar calendar will be used.
+ * The fixed-cycle <em>civil</em> calendar is used.
  * <p>
  * This class should not be subclassed.</p>
  * <p>
@@ -951,8 +946,7 @@ public class IslamicCalendar extends Calendar {
     /**
      * sets the calculation type for this calendar.
      * 
-     * @draft ICU 55
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 55
      */
     public void setCalculationType(CalculationType type) {
         cType = type;
@@ -967,8 +961,7 @@ public class IslamicCalendar extends Calendar {
     /**
      * gets the calculation type for this calendar.
      * 
-     * @draft ICU 55
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 55
      */
     public CalculationType getCalculationType() {
         return cType;

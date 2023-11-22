@@ -14,7 +14,7 @@
      limitations under the License.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.graphics2"
+    package="android.graphics2.cts"
     android:versionCode="1"
     android:versionName="1.0" >
 
@@ -23,7 +23,7 @@
     <uses-feature android:name="android.hardware.camera" />
 
     <instrumentation
-        android:targetPackage="com.android.cts.graphics2"
+        android:targetPackage="android.graphics2.cts"
         android:name="android.support.test.runner.AndroidJUnitRunner" >
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

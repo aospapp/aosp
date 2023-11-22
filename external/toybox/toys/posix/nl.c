@@ -40,7 +40,7 @@ GLOBALS(
   long lcount;
 )
 
-void do_nl(int fd, char *name)
+static void do_nl(int fd, char *name)
 {
   FILE *f = xfdopen(fd, "r");
   int w = TT.w, slen = strlen(TT.s);
@@ -51,7 +51,7 @@ void do_nl(int fd, char *name)
     int match = *TT.b != 'n';
 
     if (getline(&line, &temp, f) < 1) {
-      if (ferror(f)) perror_msg("%s", name);
+      if (ferror(f)) perror_msg_raw(name);
       break;
     }
 

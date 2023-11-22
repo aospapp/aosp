@@ -17,6 +17,7 @@
 package android.security.cts;
 
 import android.cts.util.FileUtils;
+import android.platform.test.annotations.RestrictedBuildTest;
 
 import junit.framework.TestCase;
 
@@ -58,6 +59,18 @@ public class BannedFilesTest extends TestCase {
         assertFalse("/dev/socket/fotabinder", new File("/dev/socket/fotabinder").exists());
     }
 
+    /**
+     * Detect devices allowing shell commands to be executed as system
+     * through sockets.
+     *
+     * ANDROID-19679287
+     * CVE-2015-2231
+     */
+    public void testNoSystemCmdSocket() {
+        assertFalse("/dev/socket/fota", new File("/dev/socket/fota").exists());
+    }
+
+    @RestrictedBuildTest
     public void testNoSu() {
         assertFalse("/sbin/su",        new File("/sbin/su").exists());
         assertFalse("/system/bin/su",  new File("/system/bin/su").exists());
@@ -66,6 +79,7 @@ public class BannedFilesTest extends TestCase {
         assertFalse("/vendor/bin/su",  new File("/vendor/bin/su").exists());
     }
 
+    @RestrictedBuildTest
     public void testNoSuInPath() {
         String path = System.getenv("PATH");
         if (path == null) {
@@ -138,5 +152,16 @@ public class BannedFilesTest extends TestCase {
         }
         assertTrue("File \"" + file + "\" is setUID", (fs.mode & FileUtils.S_ISUID) == 0);
         assertTrue("File \"" + file + "\" is setGID", (fs.mode & FileUtils.S_ISGID) == 0);
+    }
+
+    /**
+     * Detect "rootmydevice" vulnerability
+     *
+     * References:
+     *
+     * http://www.theregister.co.uk/2016/05/09/allwinners_allloser_custom_kernel_has_a_nasty_root_backdoor/
+     */
+    public void testNoSunxiDebug() {
+        assertFalse("/proc/sunxi_debug/sunxi_debug", new File("/proc/sunxi_debug/sunxi_debug").exists());
     }
 }

@@ -22,6 +22,7 @@
     <string name="mode_deg" msgid="1146123354434332479">"град"</string>
     <string name="mode_rad" msgid="1434228830085760996">"радиан"</string>
     <string name="clr" msgid="6730945431543327337">"жтч"</string>
+    <string name="cleared" msgid="3952521190281880880">"тазаланды"</string>
     <string name="del" msgid="5878069000864178910">"өчр"</string>
     <string name="desc_const_e" msgid="1889187337970539507">"Эйлер саны"</string>
     <string name="desc_const_pi" msgid="5430918714009441655">"Пи"</string>
@@ -60,15 +61,15 @@
     <string name="error_syntax" msgid="4786987111228645602">"Начар туюнтма"</string>
     <string name="error_aborted" msgid="3402238176316342537">"Үзгүлтккө учурды"</string>
     <string name="error_overflow" msgid="7800547394563434764">"Чексизби?"</string>
-    <string name="error_zero_divide" msgid="458040988686661801">"0 гө бөлүнбөй жатат"</string>
+    <string name="error_zero_divide" msgid="458040988686661801">"0гө бөлүнбөйт"</string>
     <string name="text_copied_toast" msgid="2104264466812485425">"Текст көчүрүлдү"</string>
     <string name="cancelled" msgid="1618889609742874632">"Эсептөө жокко чыгарылды"</string>
     <string name="timeout" msgid="802690170415591535">"Күтүү убакыты соңуна чыкты. Маани чексиз жана белгисиз болушу мүмкүн."</string>
     <string name="ok_remove_timeout" msgid="8344529153919268011">"Күтүү убакытын узартуу"</string>
     <string name="dismiss" msgid="7872443888515066216">"Этибарга албоо"</string>
-    <string name="exact" msgid="2597237880041789948">"(дал өзү)"</string>
-    <string name="approximate" msgid="7117143366610670836">"(±1 акыркы цифрада)"</string>
-    <string name="menu_leading" msgid="2338520833272667740">"Баш сандуу жооп"</string>
-    <string name="menu_fraction" msgid="1247477377840252234">"Бөлчөктүү жооп"</string>
+    <string name="exact" msgid="2597237880041789948">"(так)"</string>
+    <string name="approximate" msgid="7117143366610670836">"(акыркы санда ±1)"</string>
+    <string name="menu_leading" msgid="2338520833272667740">"Биринчи сандарды көрсөтүү"</string>
+    <string name="menu_fraction" msgid="1247477377840252234">"Бөлчөк түрүндө"</string>
     <string name="menu_licenses" msgid="1890541368064108592">"Ачык программа уруксаттамалары"</string>
 </resources>

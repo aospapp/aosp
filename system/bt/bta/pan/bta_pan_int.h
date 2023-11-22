@@ -24,6 +24,7 @@
 #ifndef BTA_PAN_INT_H
 #define BTA_PAN_INT_H
 
+#include "osi/include/fixed_queue.h"
 #include "bta_sys.h"
 #include "bta_pan_api.h"
 
@@ -138,7 +139,7 @@ typedef union
 typedef struct
 {
     BD_ADDR                 bd_addr;        /* peer bdaddr */
-    BUFFER_Q                data_queue;     /* Queue of buffers waiting to be passed to application */
+    fixed_queue_t           *data_queue;    /* Queue of buffers waiting to be passed to application */
     UINT16                  handle;         /* BTA PAN/BNEP handle */
     BOOLEAN                 in_use;         /* scb in use */
     tBTA_SEC                sec_mask;       /* Security mask */

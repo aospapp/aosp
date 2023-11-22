@@ -816,7 +816,7 @@ int WriteJpegFile(const char * FileName)
     }
 
     int writeOk = FALSE;
-    int nWrite = 0;
+    size_t nWrite = 0;
     // Write all the misc sections
     for (a=0;a<SectionsRead-1;a++){
         fputc(0xff,outfile);

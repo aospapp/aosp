@@ -187,12 +187,19 @@ final class DisplayPowerState {
     }
 
     /**
-     * Dismisses the electron beam surface.
+     * Dismisses the color fade surface.
      */
     public void dismissColorFade() {
         mColorFade.dismiss();
         mColorFadePrepared = false;
         mColorFadeReady = true;
+    }
+
+   /**
+     * Dismisses the color fade resources.
+     */
+    public void dismissColorFadeResources() {
+        mColorFade.dismissResources();
     }
 
     /**
@@ -341,7 +348,8 @@ final class DisplayPowerState {
         private int mPendingBacklight = INITIAL_BACKLIGHT;
         private int mActualState = INITIAL_SCREEN_STATE;
         private int mActualBacklight = INITIAL_BACKLIGHT;
-        private boolean mChangeInProgress;
+        private boolean mStateChangeInProgress;
+        private boolean mBacklightChangeInProgress;
 
         public PhotonicModulator() {
             super("PhotonicModulator");
@@ -349,7 +357,9 @@ final class DisplayPowerState {
 
         public boolean setState(int state, int backlight) {
             synchronized (mLock) {
-                if (state != mPendingState || backlight != mPendingBacklight) {
+                boolean stateChanged = state != mPendingState;
+                boolean backlightChanged = backlight != mPendingBacklight;
+                if (stateChanged || backlightChanged) {
                     if (DEBUG) {
                         Slog.d(TAG, "Requesting new screen state: state="
                                 + Display.stateToString(state) + ", backlight=" + backlight);
@@ -358,12 +368,15 @@ final class DisplayPowerState {
                     mPendingState = state;
                     mPendingBacklight = backlight;
 
-                    if (!mChangeInProgress) {
-                        mChangeInProgress = true;
+                    boolean changeInProgress = mStateChangeInProgress || mBacklightChangeInProgress;
+                    mStateChangeInProgress = stateChanged;
+                    mBacklightChangeInProgress = backlightChanged;
+
+                    if (!changeInProgress) {
                         mLock.notifyAll();
                     }
                 }
-                return !mChangeInProgress;
+                return !mStateChangeInProgress;
             }
         }
 
@@ -375,7 +388,8 @@ final class DisplayPowerState {
                 pw.println("  mPendingBacklight=" + mPendingBacklight);
                 pw.println("  mActualState=" + Display.stateToString(mActualState));
                 pw.println("  mActualBacklight=" + mActualBacklight);
-                pw.println("  mChangeInProgress=" + mChangeInProgress);
+                pw.println("  mStateChangeInProgress=" + mStateChangeInProgress);
+                pw.println("  mBacklightChangeInProgress=" + mBacklightChangeInProgress);
             }
         }
 
@@ -392,10 +406,15 @@ final class DisplayPowerState {
                     stateChanged = (state != mActualState);
                     backlight = mPendingBacklight;
                     backlightChanged = (backlight != mActualBacklight);
-                    if (!stateChanged && !backlightChanged) {
-                        // All changed applied, notify outer class and wait for more.
-                        mChangeInProgress = false;
+                    if (!stateChanged) {
+                        // State changed applied, notify outer class.
                         postScreenUpdateThreadSafe();
+                        mStateChangeInProgress = false;
+                    }
+                    if (!backlightChanged) {
+                        mBacklightChangeInProgress = false;
+                    }
+                    if (!stateChanged && !backlightChanged) {
                         try {
                             mLock.wait();
                         } catch (InterruptedException ex) { }

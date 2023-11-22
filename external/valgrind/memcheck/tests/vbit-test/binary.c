@@ -1,5 +1,29 @@
 /* -*- mode: C; c-basic-offset: 3; -*- */
 
+/*
+   This file is part of MemCheck, a heavyweight Valgrind tool for
+   detecting memory errors.
+
+   Copyright (C) 2012-2015  Florian Krohm
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 2 of the
+   License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+   02111-1307, USA.
+
+   The GNU General Public License is contained in the file COPYING.
+*/
+
 #include <assert.h>
 #include <string.h>  // memset
 #include "vtest.h"
@@ -450,10 +474,20 @@ test_binary_op(const irop_t *op, test_data_t *data)
          won't crash. */
       memset(&opnds[1].value, 0xff, sizeof opnds[1].value);
 
-      /* For immediate shift amounts choose a value of '1'. That should
-         not cause a problem. */
+      /* For immediate shift amounts choose a value of '1'. That value should
+         not cause a problem. Note: we always assign to the u64 member here.
+         The reason is that in ir_inject.c the value_t type is not visible.
+         The value is picked up there by interpreting the memory as an
+         ULong value. So, we rely on 
+         union {
+           ULong   v1;   // value picked up in ir_inject.c
+           value_t v2;   // value assigned here
+         } xx;
+         assert(sizeof xx.v1 == sizeof xx.v2.u64);
+         assert(xx.v1 == xx.v2.u64);
+      */
       if (op->shift_amount_is_immediate)
-         opnds[1].value.u8 = 1;
+         opnds[1].value.u64 = 1;
 
       for (bitpos = 0; bitpos < num_input_bits; ++bitpos) {
          opnds[i].vbits = onehot_vbits(bitpos, bitsof_irtype(opnds[i].type));

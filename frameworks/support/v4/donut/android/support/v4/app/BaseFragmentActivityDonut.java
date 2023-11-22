@@ -25,6 +25,8 @@ import android.view.View;
 
 /**
  * Base class for {@code FragmentActivity} to be able to use Donut APIs.
+ *
+ * @hide
  */
 abstract class BaseFragmentActivityDonut extends Activity {
 
@@ -50,5 +52,13 @@ abstract class BaseFragmentActivityDonut extends Activity {
 
     abstract View dispatchFragmentsOnCreateView(View parent, String name,
             Context context, AttributeSet attrs);
+
+    /**
+     * Called when the back button has been pressed.and not handled by the support fragment manager.
+     */
+    void onBackPressedNotHandled() {
+        // on v4, just call finish manually
+        finish();
+    }
 
 }

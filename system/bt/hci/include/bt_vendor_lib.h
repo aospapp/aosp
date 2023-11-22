@@ -167,6 +167,35 @@ typedef enum {
  *      specific epilog process once it has been done.
  */
     BT_VND_OP_EPILOG,
+
+/*  [operation]
+ *      Call to the vendor module so that it can perform all vendor-specific
+ *      operations to start offloading a2dp media encode & tx.
+ *  [input param]
+ *      pointer to bt_vendor_op_a2dp_offload_start_t containing elements
+ *      required for VND FW to setup a2dp offload.
+ *  [return]
+ *      0  - default, dont care.
+ *  [callback]
+ *      Must call a2dp_offload_start_cb to notify the stack of the
+ *      completion of vendor specific setup process once it has been done.
+ */
+    BT_VND_OP_A2DP_OFFLOAD_START,
+
+/*  [operation]
+ *      Call to the vendor module so that it can perform all vendor-specific
+ *      operations to suspend offloading a2dp media encode & tx.
+ *  [input param]
+ *      pointer to bt_vendor_op_a2dp_offload_t containing elements
+ *      required for VND FW to setup a2dp offload.
+ *  [return]
+ *      0  - default, dont care.
+ *  [callback]
+ *      Must call a2dp_offload_cb to notify the stack of the
+ *      completion of vendor specific setup process once it has been done.
+ */
+    BT_VND_OP_A2DP_OFFLOAD_STOP,
+
 } bt_vendor_opcode_t;
 
 /** Power on/off control states */
@@ -287,6 +316,8 @@ typedef void (*tINT_CMD_CBACK)(void *p_mem);
  */
 typedef uint8_t (*cmd_xmit_cb)(uint16_t opcode, void *p_buf, tINT_CMD_CBACK p_cback);
 
+typedef void (*cfg_a2dp_cb)(bt_vendor_op_result_t result, bt_vendor_opcode_t op, uint8_t bta_av_handle);
+
 typedef struct {
     /** set to sizeof(bt_vendor_callbacks_t) */
     size_t         size;
@@ -319,7 +350,24 @@ typedef struct {
 
     /* notifies caller completion of epilog process */
     cfg_result_cb epilog_cb;
+
+    /* notifies status of a2dp offload cmd's */
+    cfg_a2dp_cb a2dp_offload_cb;
 } bt_vendor_callbacks_t;
+
+/** A2DP offload request */
+typedef struct {
+    uint8_t   bta_av_handle;                 /* BTA_AV Handle for callbacks */
+    uint16_t  xmit_quota;                    /* Total ACL quota for light stack */
+    uint16_t  acl_data_size;                 /* Max ACL data size across HCI transport */
+    uint16_t  stream_mtu;
+    uint16_t  local_cid;
+    uint16_t  remote_cid;
+    uint16_t  lm_handle;
+    uint8_t   is_flushable;                  /* TRUE if flushable channel */
+    uint32_t  stream_source;
+    uint8_t   codec_info[10];                /* Codec capabilities array */
+} bt_vendor_op_a2dp_offload_t;
 
 /*
  * Bluetooth Host/Controller VENDOR Interface

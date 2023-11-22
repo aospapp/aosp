@@ -18,31 +18,77 @@
 
 #define LOG_TAG "bt_btif_config"
 
+#include "btif_config.h"
+
 #include <assert.h>
 #include <ctype.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
+#include <unistd.h>
 
-#include "osi/include/alarm.h"
-#include "osi/include/allocator.h"
+#include "bt_types.h"
 #include "btcore/include/bdaddr.h"
+#include "btcore/include/module.h"
+#include "btif_api.h"
+#include "btif_common.h"
 #include "btif_config.h"
 #include "btif_config_transcode.h"
 #include "btif_util.h"
+#include "osi/include/alarm.h"
+#include "osi/include/allocator.h"
 #include "osi/include/compat.h"
 #include "osi/include/config.h"
-#include "btcore/include/module.h"
-#include "osi/include/osi.h"
 #include "osi/include/log.h"
+#include "osi/include/osi.h"
 
-#include "bt_types.h"
+/**
+ * TODO(apanicke): cutils/properties.h is only being used to pull-in runtime
+ * settings on Android. Remove this conditional include once we have a generic
+ * way to obtain system properties.
+ */
+#if !defined(OS_GENERIC)
+#include <cutils/properties.h>
+#endif  /* !defined(OS_GENERIC) */
 
+#define INFO_SECTION "Info"
+#define FILE_TIMESTAMP "TimeCreated"
+#define FILE_SOURCE "FileSource"
+#define TIME_STRING_LENGTH sizeof("YYYY-MM-DD HH:MM:SS")
+static const char* TIME_STRING_FORMAT = "%Y-%m-%d %H:%M:%S";
+
+// TODO(armansito): Find a better way than searching by a hardcoded path.
+#if defined(OS_GENERIC)
+static const char *CONFIG_FILE_PATH = "bt_config.conf";
+static const char *CONFIG_BACKUP_PATH = "bt_config.bak";
+static const char *CONFIG_LEGACY_FILE_PATH = "bt_config.xml";
+#else  // !defined(OS_GENERIC)
 static const char *CONFIG_FILE_PATH = "/data/misc/bluedroid/bt_config.conf";
-static const char *LEGACY_CONFIG_FILE_PATH = "/data/misc/bluedroid/bt_config.xml";
+static const char *CONFIG_BACKUP_PATH = "/data/misc/bluedroid/bt_config.bak";
+static const char *CONFIG_LEGACY_FILE_PATH = "/data/misc/bluedroid/bt_config.xml";
+#endif  // defined(OS_GENERIC)
 static const period_ms_t CONFIG_SETTLE_PERIOD_MS = 3000;
 
-static void timer_config_save(void *data);
+static void timer_config_save_cb(void *data);
+static void btif_config_write(UINT16 event, char *p_param);
+static bool is_factory_reset(void);
+static void delete_config_files(void);
+static void btif_config_remove_unpaired(config_t *config);
+static void btif_config_remove_restricted(config_t *config);
+static config_t *btif_config_open(const char* filename);
+
+static enum ConfigSource {
+  NOT_LOADED,
+  ORIGINAL,
+  BACKUP,
+  LEGACY,
+  NEW_FILE,
+  RESET
+} btif_config_source = NOT_LOADED;
+
+static int btif_config_devices_loaded = -1;
+static char btif_config_time_created[TIME_STRING_LENGTH];
 
 // TODO(zachoverflow): Move these two functions out, because they are too specific for this file
 // {grumpy-cat/no, monty-python/you-make-me-sad}
@@ -60,7 +106,7 @@ bool btif_get_device_type(const BD_ADDR bd_addr, int *p_device_type)
     if (!btif_config_get_int(bd_addr_str, "DevType", p_device_type))
         return FALSE;
 
-    LOG_DEBUG("%s: Device [%s] type %d", __FUNCTION__, bd_addr_str, *p_device_type);
+    LOG_DEBUG(LOG_TAG, "%s: Device [%s] type %d", __FUNCTION__, bd_addr_str, *p_device_type);
     return TRUE;
 }
 
@@ -78,53 +124,107 @@ bool btif_get_address_type(const BD_ADDR bd_addr, int *p_addr_type)
     if (!btif_config_get_int(bd_addr_str, "AddrType", p_addr_type))
         return FALSE;
 
-    LOG_DEBUG("%s: Device [%s] address type %d", __FUNCTION__, bd_addr_str, *p_addr_type);
+    LOG_DEBUG(LOG_TAG, "%s: Device [%s] address type %d", __FUNCTION__, bd_addr_str, *p_addr_type);
     return TRUE;
 }
 
 static pthread_mutex_t lock;  // protects operations on |config|.
 static config_t *config;
-static alarm_t *alarm_timer;
+static alarm_t *config_timer;
 
 // Module lifecycle functions
 
 static future_t *init(void) {
   pthread_mutex_init(&lock, NULL);
-  config = config_new(CONFIG_FILE_PATH);
-  if (!config) {
-    LOG_WARN("%s unable to load config file; attempting to transcode legacy file.", __func__);
-    config = btif_config_transcode(LEGACY_CONFIG_FILE_PATH);
-    if (!config) {
-      LOG_WARN("%s unable to transcode legacy file, starting unconfigured.", __func__);
-      config = config_new_empty();
-      if (!config) {
-        LOG_ERROR("%s unable to allocate a config object.", __func__);
-        goto error;
-      }
-    }
+  pthread_mutex_lock(&lock);
 
-    if (config_save(config, CONFIG_FILE_PATH))
-      unlink(LEGACY_CONFIG_FILE_PATH);
+  if (is_factory_reset())
+    delete_config_files();
+
+  const char *file_source = NULL;
+
+  config = btif_config_open(CONFIG_FILE_PATH);
+  btif_config_source = ORIGINAL;
+  if (!config) {
+    LOG_WARN("%s unable to load config file: %s; using backup.",
+              __func__, CONFIG_FILE_PATH);
+    config = btif_config_open(CONFIG_BACKUP_PATH);
+    btif_config_source = BACKUP;
+    file_source = "Backup";
+  }
+  if (!config) {
+    LOG_WARN("%s unable to load backup; attempting to transcode legacy file.", __func__);
+    config = btif_config_transcode(CONFIG_LEGACY_FILE_PATH);
+    btif_config_source = LEGACY;
+    file_source = "Legacy";
+  }
+  if (!config) {
+    LOG_ERROR("%s unable to transcode legacy file; creating empty config.", __func__);
+    config = config_new_empty();
+    btif_config_source = NEW_FILE;
+    file_source = "Empty";
+  }
+
+  if (file_source != NULL)
+    config_set_string(config, INFO_SECTION, FILE_SOURCE, file_source);
+
+  if (!config) {
+    LOG_ERROR("%s unable to allocate a config object.", __func__);
+    goto error;
+  }
+
+  btif_config_remove_unpaired(config);
+
+  // Cleanup temporary pairings if we have left guest mode
+  if (!is_restricted_mode())
+    btif_config_remove_restricted(config);
+
+  // Read or set config file creation timestamp
+  const char* time_str = config_get_string(config, INFO_SECTION, FILE_TIMESTAMP, NULL);
+  if (time_str != NULL) {
+    strlcpy(btif_config_time_created, time_str, TIME_STRING_LENGTH);
+  } else {
+    time_t current_time = time(NULL);
+    struct tm* time_created = localtime(&current_time);
+    strftime(btif_config_time_created, TIME_STRING_LENGTH, TIME_STRING_FORMAT, time_created);
+    config_set_string(config, INFO_SECTION, FILE_TIMESTAMP, btif_config_time_created);
   }
 
   // TODO(sharvil): use a non-wake alarm for this once we have
   // API support for it. There's no need to wake the system to
   // write back to disk.
-  alarm_timer = alarm_new();
-  if (!alarm_timer) {
-    LOG_ERROR("%s unable to create alarm.", __func__);
+  config_timer = alarm_new("btif.config");
+  if (!config_timer) {
+    LOG_ERROR(LOG_TAG, "%s unable to create alarm.", __func__);
     goto error;
   }
 
+  pthread_mutex_unlock(&lock);
   return future_new_immediate(FUTURE_SUCCESS);
 
-error:;
-  alarm_free(alarm_timer);
+error:
+  alarm_free(config_timer);
   config_free(config);
+  pthread_mutex_unlock(&lock);
   pthread_mutex_destroy(&lock);
-  alarm_timer = NULL;
+  config_timer = NULL;
   config = NULL;
+  btif_config_source = NOT_LOADED;
   return future_new_immediate(FUTURE_FAIL);
+}
+
+static config_t *btif_config_open(const char *filename) {
+  config_t *config = config_new(filename);
+  if (!config)
+    return NULL;
+
+  if (!config_has_section(config, "Adapter")) {
+    LOG_ERROR(LOG_TAG, "Config is missing adapter section");
+    config_free(config);
+    return NULL;
+  }
+
+  return config;
 }
 
 static future_t *shut_down(void) {
@@ -135,15 +235,15 @@ static future_t *shut_down(void) {
 static future_t *clean_up(void) {
   btif_config_flush();
 
-  alarm_free(alarm_timer);
+  alarm_free(config_timer);
   config_free(config);
   pthread_mutex_destroy(&lock);
-  alarm_timer = NULL;
+  config_timer = NULL;
   config = NULL;
   return future_new_immediate(FUTURE_SUCCESS);
 }
 
-const module_t btif_config_module = {
+EXPORT_SYMBOL const module_t btif_config_module = {
   .name = BTIF_CONFIG_MODULE,
   .init = init,
   .start_up = NULL,
@@ -292,8 +392,6 @@ bool btif_config_set_bin(const char *section, const char *key, const uint8_t *va
       assert(value != NULL);
 
   char *str = (char *)osi_calloc(length * 2 + 1);
-  if (!str)
-    return false;
 
   for (size_t i = 0; i < length; ++i) {
     str[(i * 2) + 0] = lookup[(value[i] >> 4) & 0x0F];
@@ -343,28 +441,25 @@ bool btif_config_remove(const char *section, const char *key) {
 }
 
 void btif_config_save(void) {
-  assert(alarm_timer != NULL);
   assert(config != NULL);
+  assert(config_timer != NULL);
 
-  alarm_set(alarm_timer, CONFIG_SETTLE_PERIOD_MS, timer_config_save, NULL);
+  alarm_set(config_timer, CONFIG_SETTLE_PERIOD_MS, timer_config_save_cb, NULL);
 }
 
 void btif_config_flush(void) {
   assert(config != NULL);
-  assert(alarm_timer != NULL);
+  assert(config_timer != NULL);
 
-  alarm_cancel(alarm_timer);
-
-  pthread_mutex_lock(&lock);
-  config_save(config, CONFIG_FILE_PATH);
-  pthread_mutex_unlock(&lock);
+  alarm_cancel(config_timer);
+  btif_config_write(0, NULL);
 }
 
-int btif_config_clear(void){
+bool btif_config_clear(void) {
   assert(config != NULL);
-  assert(alarm_timer != NULL);
+  assert(config_timer != NULL);
 
-  alarm_cancel(alarm_timer);
+  alarm_cancel(config_timer);
 
   pthread_mutex_lock(&lock);
   config_free(config);
@@ -375,50 +470,116 @@ int btif_config_clear(void){
     return false;
   }
 
-  int ret = config_save(config, CONFIG_FILE_PATH);
+  bool ret = config_save(config, CONFIG_FILE_PATH);
+  btif_config_source = RESET;
   pthread_mutex_unlock(&lock);
   return ret;
 }
 
-static void timer_config_save(UNUSED_ATTR void *data) {
-  assert(config != NULL);
-  assert(alarm_timer != NULL);
+static void timer_config_save_cb(UNUSED_ATTR void *data) {
+  // Moving file I/O to btif context instead of timer callback because
+  // it usually takes a lot of time to be completed, introducing
+  // delays during A2DP playback causing blips or choppiness.
+  btif_transfer_context(btif_config_write, 0, NULL, 0, NULL);
+}
 
-  // Garbage collection process: the config file accumulates
-  // cached information about remote devices during regular
-  // inquiry scans. We remove some of these junk entries
-  // so the file doesn't grow indefinitely. We have to take care
-  // to make sure we don't remove information about bonded
-  // devices (hence the check for link keys).
-  static const size_t CACHE_MAX = 256;
-  const char *keys[CACHE_MAX];
-  size_t num_keys = 0;
-  size_t total_candidates = 0;
+static void btif_config_write(UNUSED_ATTR UINT16 event, UNUSED_ATTR char *p_param) {
+  assert(config != NULL);
+  assert(config_timer != NULL);
 
   pthread_mutex_lock(&lock);
-  for (const config_section_node_t *snode = config_section_begin(config); snode != config_section_end(config); snode = config_section_next(snode)) {
+  rename(CONFIG_FILE_PATH, CONFIG_BACKUP_PATH);
+  config_t *config_paired = config_new_clone(config);
+  btif_config_remove_unpaired(config_paired);
+  config_save(config_paired, CONFIG_FILE_PATH);
+  config_free(config_paired);
+  pthread_mutex_unlock(&lock);
+}
+
+static void btif_config_remove_unpaired(config_t *conf) {
+  assert(conf != NULL);
+  int paired_devices = 0;
+
+  // The paired config used to carry information about
+  // discovered devices during regular inquiry scans.
+  // We remove these now and cache them in memory instead.
+  const config_section_node_t *snode = config_section_begin(conf);
+  while (snode != config_section_end(conf)) {
     const char *section = config_section_name(snode);
-    if (!string_is_bdaddr(section))
-      continue;
-
-    if (config_has_key(config, section, "LinkKey") ||
-        config_has_key(config, section, "LE_KEY_PENC") ||
-        config_has_key(config, section, "LE_KEY_PID") ||
-        config_has_key(config, section, "LE_KEY_PCSRK") ||
-        config_has_key(config, section, "LE_KEY_LENC") ||
-        config_has_key(config, section, "LE_KEY_LCSRK"))
-      continue;
-
-    if (num_keys < CACHE_MAX)
-      keys[num_keys++] = section;
-
-    ++total_candidates;
+    if (string_is_bdaddr(section)) {
+      if (!config_has_key(conf, section, "LinkKey") &&
+          !config_has_key(conf, section, "LE_KEY_PENC") &&
+          !config_has_key(conf, section, "LE_KEY_PID") &&
+          !config_has_key(conf, section, "LE_KEY_PCSRK") &&
+          !config_has_key(conf, section, "LE_KEY_LENC") &&
+          !config_has_key(conf, section, "LE_KEY_LCSRK")) {
+        snode = config_section_next(snode);
+        config_remove_section(conf, section);
+        continue;
+      }
+      paired_devices++;
+    }
+    snode = config_section_next(snode);
   }
 
-  if (total_candidates > CACHE_MAX * 2)
-    while (num_keys > 0)
-      config_remove_section(config, keys[--num_keys]);
+  // should only happen once, at initial load time
+  if (btif_config_devices_loaded == -1)
+    btif_config_devices_loaded = paired_devices;
+}
 
-  config_save(config, CONFIG_FILE_PATH);
-  pthread_mutex_unlock(&lock);
+void btif_debug_config_dump(int fd) {
+    dprintf(fd, "\nBluetooth Config:\n");
+
+    dprintf(fd, "  Config Source: ");
+    switch(btif_config_source) {
+        case NOT_LOADED:
+            dprintf(fd, "Not loaded\n");
+            break;
+        case ORIGINAL:
+            dprintf(fd, "Original file\n");
+            break;
+        case BACKUP:
+            dprintf(fd, "Backup file\n");
+            break;
+        case LEGACY:
+            dprintf(fd, "Legacy file\n");
+            break;
+        case NEW_FILE:
+            dprintf(fd, "New file\n");
+            break;
+        case RESET:
+            dprintf(fd, "Reset file\n");
+            break;
+    }
+
+    dprintf(fd, "  Devices loaded: %d\n", btif_config_devices_loaded);
+    dprintf(fd, "  File created/tagged: %s\n", btif_config_time_created);
+    dprintf(fd, "  File source: %s\n", config_get_string(config, INFO_SECTION,
+                                           FILE_SOURCE, "Original"));
+}
+
+static void btif_config_remove_restricted(config_t* config) {
+  assert(config != NULL);
+
+  const config_section_node_t *snode = config_section_begin(config);
+  while (snode != config_section_end(config)) {
+    const char *section = config_section_name(snode);
+    if (string_is_bdaddr(section) && config_has_key(config, section, "Restricted")) {
+        BTIF_TRACE_DEBUG("%s: Removing restricted device %s", __func__, section);
+        config_remove_section(config, section);
+    }
+    snode = config_section_next(snode);
+  }
+}
+
+static bool is_factory_reset(void) {
+  char factory_reset[PROPERTY_VALUE_MAX] = {0};
+  property_get("persist.bluetooth.factoryreset", factory_reset, "false");
+  return strncmp(factory_reset, "true", 4) == 0;
+}
+
+static void delete_config_files(void) {
+  remove(CONFIG_FILE_PATH);
+  remove(CONFIG_BACKUP_PATH);
+  property_set("persist.bluetooth.factoryreset", "false");
 }

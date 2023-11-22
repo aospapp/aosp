@@ -16,8 +16,6 @@
 
 package com.android.settings.deviceinfo;
 
-import static com.android.settings.deviceinfo.StorageSettings.TAG;
-
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.DialogFragment;
@@ -39,6 +37,8 @@ import com.android.settings.R;
 
 import java.util.Objects;
 
+import static com.android.settings.deviceinfo.StorageSettings.TAG;
+
 public class StorageWizardFormatProgress extends StorageWizardBase {
     private static final String TAG_SLOW_WARNING = "slow_warning";
 
@@ -58,7 +58,8 @@ public class StorageWizardFormatProgress extends StorageWizardBase {
 
         mFormatPrivate = getIntent().getBooleanExtra(
                 StorageWizardFormatConfirm.EXTRA_FORMAT_PRIVATE, false);
-        setIllustrationInternal(mFormatPrivate);
+        setIllustrationType(
+                mFormatPrivate ? ILLUSTRATION_INTERNAL : ILLUSTRATION_PORTABLE);
 
         setHeaderText(R.string.storage_wizard_format_progress_title, mDisk.getDescription());
         setBodyText(R.string.storage_wizard_format_progress_body, mDisk.getDescription());
@@ -137,6 +138,10 @@ public class StorageWizardFormatProgress extends StorageWizardBase {
         @Override
         protected void onPostExecute(Exception e) {
             final StorageWizardFormatProgress activity = mActivity;
+            if (activity.isDestroyed()) {
+                return;
+            }
+
             if (e != null) {
                 Log.e(TAG, "Failed to partition", e);
                 Toast.makeText(activity, e.getMessage(), Toast.LENGTH_LONG).show();

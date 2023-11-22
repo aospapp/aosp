@@ -26,7 +26,7 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.test.AndroidTestCase;
 
 public class PackageItemInfo_DisplayNameComparatorTest extends AndroidTestCase {
-    private static final String PACKAGE_NAME = "com.android.cts.content";
+    private static final String PACKAGE_NAME = "android.content.cts";
     private static final String ACTIVITY_NAME = "android.content.pm.cts.TestPmActivity";
     private static final String CMPACTIVITY_NAME = "android.content.pm.cts.TestPmCompare";
 

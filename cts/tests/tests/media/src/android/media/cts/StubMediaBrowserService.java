@@ -32,10 +32,13 @@ import junit.framework.Assert;
  * Stub implementation of (@link android.service.media.MediaBrowserService}.
  */
 public class StubMediaBrowserService extends MediaBrowserService {
-    static final String MEDIA_ID_ROOT = "test_media_id_root";
     static final String EXTRAS_KEY = "test_extras_key";
     static final String EXTRAS_VALUE = "test_extras_value";
+
+    static final String MEDIA_ID_INVALID = "test_media_id_invalid";
+    static final String MEDIA_ID_ROOT = "test_media_id_root";
     static final String MEDIA_ID_CHILDREN_DELAYED = "test_media_id_children_delayed";
+
     static final String[] MEDIA_ID_CHILDREN = new String[] {
         "test_media_id_children_0", "test_media_id_children_1",
         "test_media_id_children_2", "test_media_id_children_3",
@@ -48,6 +51,7 @@ public class StubMediaBrowserService extends MediaBrowserService {
     private Bundle mExtras;
     private Result<List<MediaItem>> mPendingLoadChildrenResult;
     private Result<MediaItem> mPendingLoadItemResult;
+    private Bundle mPendingRootHints;
 
     @Override
     public void onCreate() {
@@ -68,15 +72,19 @@ public class StubMediaBrowserService extends MediaBrowserService {
     public void onLoadChildren(final String parentMediaId, final Result<List<MediaItem>> result) {
         List<MediaItem> mediaItems = new ArrayList<>();
         if (MEDIA_ID_ROOT.equals(parentMediaId)) {
+            Bundle rootHints = getBrowserRootHints();
             for (String id : MEDIA_ID_CHILDREN) {
                 mediaItems.add(new MediaItem(new MediaDescription.Builder()
-                        .setMediaId(id).build(), MediaItem.FLAG_BROWSABLE));
+                        .setMediaId(id).setExtras(rootHints).build(), MediaItem.FLAG_BROWSABLE));
             }
             result.sendResult(mediaItems);
         } else if (MEDIA_ID_CHILDREN_DELAYED.equals(parentMediaId)) {
             Assert.assertNull(mPendingLoadChildrenResult);
             mPendingLoadChildrenResult = result;
+            mPendingRootHints = getBrowserRootHints();
             result.detach();
+        } else if (MEDIA_ID_INVALID.equals(parentMediaId)){
+            result.sendResult(null);
         }
     }
 
@@ -84,6 +92,7 @@ public class StubMediaBrowserService extends MediaBrowserService {
     public void onLoadItem(String itemId, Result<MediaItem> result) {
         if (MEDIA_ID_CHILDREN_DELAYED.equals(itemId)) {
             mPendingLoadItemResult = result;
+            mPendingRootHints = getBrowserRootHints();
             result.detach();
             return;
         }
@@ -91,7 +100,8 @@ public class StubMediaBrowserService extends MediaBrowserService {
         for (String id : MEDIA_ID_CHILDREN) {
             if (id.equals(itemId)) {
                 result.sendResult(new MediaItem(new MediaDescription.Builder()
-                        .setMediaId(id).build(), MediaItem.FLAG_BROWSABLE));
+                        .setMediaId(id).setExtras(getBrowserRootHints()).build(),
+                                MediaItem.FLAG_BROWSABLE));
                 return;
             }
         }
@@ -102,6 +112,7 @@ public class StubMediaBrowserService extends MediaBrowserService {
     public void sendDelayedNotifyChildrenChanged() {
         if (mPendingLoadChildrenResult != null) {
             mPendingLoadChildrenResult.sendResult(Collections.<MediaItem>emptyList());
+            mPendingRootHints = null;
             mPendingLoadChildrenResult = null;
         }
     }
@@ -109,7 +120,9 @@ public class StubMediaBrowserService extends MediaBrowserService {
     public void sendDelayedItemLoaded() {
         if (mPendingLoadItemResult != null) {
             mPendingLoadItemResult.sendResult(new MediaItem(new MediaDescription.Builder()
-                    .setMediaId(MEDIA_ID_CHILDREN_DELAYED).build(), MediaItem.FLAG_BROWSABLE));
+                    .setMediaId(MEDIA_ID_CHILDREN_DELAYED).setExtras(mPendingRootHints).build(),
+                            MediaItem.FLAG_BROWSABLE));
+            mPendingRootHints = null;
             mPendingLoadItemResult = null;
         }
     }

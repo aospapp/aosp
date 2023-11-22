@@ -45,10 +45,10 @@ public class ListenConnectorTest extends JDWPSyncTestCase {
     /**
      * Sets kind of connection: listen kind.
      */
-    protected void beforeDebuggeeStart(JDWPUnitDebuggeeWrapper debuggeeWrapper) {
+    protected void beforeConnectionSetUp() {
         settings.setListenConnectorKind();
         logWriter.println("LISTEN connector kind");
-        super.beforeDebuggeeStart(debuggeeWrapper);
+        super.beforeConnectionSetUp();
     }
 
     /**

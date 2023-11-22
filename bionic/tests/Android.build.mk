@@ -28,16 +28,24 @@ ifneq ($(findstring LIBRARY, $(build_target)),LIBRARY)
     LOCAL_MODULE_STEM_32 := $(module)32
     LOCAL_MODULE_STEM_64 := $(module)64
 else
+
+ifneq ($($(module)_install_to_out_data_dir),)
+  $(module)_install_to_out_data := true
+endif
+
 ifeq ($($(module)_install_to_out_data),true)
-    LOCAL_MODULE_PATH_32 := $($(TARGET_2ND_ARCH_VAR_PREFIX)TARGET_OUT_DATA_NATIVE_TESTS)/$(module)
-    LOCAL_MODULE_PATH_64 := $(TARGET_OUT_DATA_NATIVE_TESTS)/$(module)
+    ifeq ($($(module)_install_to_out_data_dir),)
+      $(module)_install_to_out_data_dir := $(module)
+    endif
+    LOCAL_MODULE_PATH_32 := $($(TARGET_2ND_ARCH_VAR_PREFIX)TARGET_OUT_DATA_NATIVE_TESTS)/$($(module)_install_to_out_data_dir)
+    LOCAL_MODULE_PATH_64 := $(TARGET_OUT_DATA_NATIVE_TESTS)/$($(module)_install_to_out_data_dir)
 endif
 endif
 
 LOCAL_CLANG := $($(module)_clang_$(build_type))
 
 ifneq ($($(module)_allow_asan),true)
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 endif
 
 LOCAL_FORCE_STATIC_EXECUTABLE := $($(module)_force_static_executable)
@@ -46,6 +54,10 @@ LOCAL_ALLOW_UNDEFINED_SYMBOLS := $($(module)_allow_undefined_symbols)
 
 ifneq ($($(module)_multilib),)
     LOCAL_MULTILIB := $($(module)_multilib)
+endif
+
+ifneq ($($(module)_relative_path),)
+    LOCAL_MODULE_RELATIVE_PATH := $($(module)_relative_path)
 endif
 
 LOCAL_CFLAGS := \

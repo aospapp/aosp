@@ -90,6 +90,10 @@ public:
     int getLocation(GLenum loc);
     void setActiveTexture(int texUnit) {m_activeTexture = texUnit; };
     int getActiveTexture() const { return m_activeTexture; }
+    void setMaxVertexAttribs(int val) {
+        m_maxVertexAttribs = val;
+        m_maxVertexAttribsDirty = false;
+    }
 
     void unBindBuffer(GLuint id)
     {
@@ -184,6 +188,8 @@ public:
 private:
     PixelStoreState m_pixelStore;
     VertexAttribState *m_states;
+    int m_maxVertexAttribs;
+    bool m_maxVertexAttribsDirty;
     int m_nLocations;
     GLuint m_currentArrayVbo;
     GLuint m_currentIndexVbo;
@@ -437,6 +443,15 @@ public:
             int buffer = getBuffer(GL_ELEMENT_ARRAY_BUFFER);
             *ptr = buffer;
             isClientStateParam = true;
+            break;
+            }
+        case GL_MAX_VERTEX_ATTRIBS: {
+            if (m_maxVertexAttribsDirty) {
+                isClientStateParam = false;
+            } else {
+                *ptr = m_maxVertexAttribs;
+                isClientStateParam = true;
+            }
             break;
             }
         }

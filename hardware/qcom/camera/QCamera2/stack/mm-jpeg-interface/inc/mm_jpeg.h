@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,15 +30,20 @@
 #ifndef MM_JPEG_H_
 #define MM_JPEG_H_
 
-#include <cam_semaphore.h>
-#include "mm_jpeg_interface.h"
-#include "cam_list.h"
+// OpenMAX dependencies
 #include "OMX_Types.h"
 #include "OMX_Index.h"
 #include "OMX_Core.h"
 #include "OMX_Component.h"
 #include "QOMX_JpegExtensions.h"
+
+// JPEG dependencies
+#include "mm_jpeg_interface.h"
 #include "mm_jpeg_ionbuf.h"
+
+// Camera dependencies
+#include "cam_list.h"
+#include "cam_semaphore.h"
 
 #define MM_JPEG_MAX_THREADS 30
 #define MM_JPEG_CIRQ_SIZE 30
@@ -46,6 +51,7 @@
 #define MAX_EXIF_TABLE_ENTRIES 50
 #define MAX_JPEG_SIZE 20000000
 #define MAX_OMX_HANDLES (5)
+// Thumbnail src and dest aspect ratio diffrence tolerance
 #define ASPECT_TOLERANCE 0.001
 
 
@@ -82,10 +88,10 @@ typedef enum {
   FILE *fp = fopen(filename, "w+"); \
   if (fp) { \
     rc = fwrite(p_addr, 1, len, fp); \
-    CDBG_ERROR("%s:%d] written size %zu", __func__, __LINE__, len); \
+    LOGE("written size %zu", len); \
     fclose(fp); \
   } else { \
-    CDBG_ERROR("%s:%d] open %s failed", __func__, __LINE__, filename); \
+    LOGE("open %s failed", filename); \
   } \
 })
 
@@ -102,10 +108,10 @@ typedef enum {
   if (fp) { \
     rc = fwrite(p_addr1, 1, len1, fp); \
     rc = fwrite(p_addr2, 1, len2, fp); \
-    CDBG_ERROR("%s:%d] written %zu %zu", __func__, __LINE__, len1, len2); \
+    LOGE("written %zu %zu", len1, len2); \
     fclose(fp); \
   } else { \
-    CDBG_ERROR("%s:%d] open %s failed", __func__, __LINE__, filename); \
+    LOGE("open %s failed", filename); \
   } \
 })
 
@@ -118,7 +124,7 @@ typedef enum {
  **/
 #define MM_JPEG_CHK_ABORT(p, ret, label) ({ \
   if (MM_JPEG_ABORT_INIT == p->abort_state) { \
-    CDBG_ERROR("%s:%d] jpeg abort", __func__, __LINE__); \
+    LOGE("jpeg abort"); \
     ret = OMX_ErrorNone; \
     goto label; \
   } \
@@ -395,7 +401,15 @@ typedef struct mm_jpeg_obj_t {
   uint32_t work_buf_cnt;
 
   uint32_t num_sessions;
+  uint32_t reuse_reproc_buffer;
 
+  cam_jpeg_metadata_t *jpeg_metadata;
+
+  /* Pointer to the session in progress*/
+  mm_jpeg_job_session_t *p_session_inprogress;
+
+  // dummy OMX handle
+  OMX_HANDLETYPE dummy_handle;
 } mm_jpeg_obj;
 
 /** mm_jpeg_pending_func_t:

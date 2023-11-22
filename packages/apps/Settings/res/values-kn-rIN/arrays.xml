@@ -61,27 +61,9 @@
   </string-array>
   <string-array name="entries_font_size">
     <item msgid="8166647333858618801">"ಸಣ್ಣ"</item>
-    <item msgid="1932071435506638315">"ಸಾಮಾನ್ಯ"</item>
+    <item msgid="6986443533756848935">"ಡಿಫಾಲ್ಟ್"</item>
     <item msgid="38373998008112077">"ದೊಡ್ಡದು"</item>
-    <item msgid="7786168277516233536">"ಬಹಳ ದೊಡ್ಡದು"</item>
-  </string-array>
-  <string-array name="tts_rate_entries">
-    <item msgid="6041212618892492920">"ತುಂಬಾ ನಿಧಾನ"</item>
-    <item msgid="2361722960903353554">"ನಿಧಾನ"</item>
-    <item msgid="1145554631248513562">"ಸಾಮಾನ್ಯ"</item>
-    <item msgid="7553665153391107454">"ವೇಗ"</item>
-    <item msgid="1370673569131070146">"ಕ್ಷಿಪ್ರ"</item>
-    <item msgid="4648206845228970803">"ಅತ್ಯಂತ ವೇಗ"</item>
-    <item msgid="4977949754169483251">"ತ್ವರಿತ"</item>
-    <item msgid="6106302964845503577">"ಅತ್ಯಂತ ತ್ವರಿತ"</item>
-    <item msgid="6800277205640837264">"ಅತಿ ಕ್ಷಿಪ್ರ"</item>
-  </string-array>
-  <string-array name="tts_pitch_entries">
-    <item msgid="7526050907652687351">"ಅತ್ಯಂತ ಕಡಿಮೆ"</item>
-    <item msgid="2692137425242433765">"ಕಡಿಮೆ"</item>
-    <item msgid="3332408460740717754">"ಸಾಮಾನ್ಯ"</item>
-    <item msgid="4907380534957572531">"ಅಧಿಕ"</item>
-    <item msgid="4699640516390840297">"ಅತಿ ಹೆಚ್ಚು"</item>
+    <item msgid="7635254317531872272">"ದೊಡ್ಡ"</item>
   </string-array>
   <string-array name="wifi_status">
     <item msgid="1922181315419294640"></item>
@@ -176,11 +158,6 @@
     <item msgid="5013973108901348144">"ಕಳೆದ 30 ದಿನಗಳು"</item>
     <item msgid="6600989128423965319">"ಬಳಕೆಯ ಆವರ್ತನೆಯನ್ನು ಹೊಂದಿಸಿ..."</item>
   </string-array>
-  <string-array name="wifi_frequency_band_entries">
-    <item msgid="1013988753804838790">"ಸ್ವಯಂಚಾಲಿತ"</item>
-    <item msgid="6670588712989942178">"5 GHz ಮಾತ್ರ"</item>
-    <item msgid="2715516524973207876">"2.4 GHz ಮಾತ್ರ"</item>
-  </string-array>
   <string-array name="usage_stats_display_order_types">
     <item msgid="2100172576767439288">"ಬಳಕೆ ಸಮಯ"</item>
     <item msgid="4796160515314745154">"ಕಳೆದ ಬಾರಿಯ ಬಳಕೆ"</item>
@@ -271,7 +248,7 @@
     <item msgid="6546959730920410907">"ಕರೆಯ ಲಾಗ್‌ ಮಾರ್ಪಡಿಸಿ"</item>
     <item msgid="446877710771379667">"ಕ್ಯಾಲೆಂಡರ್‌ ಓದಿ"</item>
     <item msgid="7674458294386319722">"ಕ್ಯಾಲೆಂಡರ್‌ ಮಾರ್ಪಡಿಸಿ"</item>
-    <item msgid="8281201165558093009">"wi-fi ಸ್ಕ್ಯಾನ್‌"</item>
+    <item msgid="8281201165558093009">"ವೈ-ಫೈ ಸ್ಕ್ಯಾನ್‌"</item>
     <item msgid="8694611243479480497">"ಅಧಿಸೂಚನೆ"</item>
     <item msgid="7776439107987345446">"ಸೆಲ್ ಸ್ಕ್ಯಾನ್"</item>
     <item msgid="514615766544675057">"ಫೋನ್‌‌ಗೆ ಕರೆಮಾಡಿ"</item>
@@ -288,7 +265,7 @@
     <item msgid="1545733463471924009">"ಮೇಲಕ್ಕೆ ಎಳೆಯಿರಿ"</item>
     <item msgid="3609046903962454582">"ಅಧಿಸೂಚನೆಗಳನ್ನು ಪ್ರವೇಶಿಸಿ"</item>
     <item msgid="4671646036128214513">"ಕ್ಯಾಮರಾ"</item>
-    <item msgid="1097324338692486211">"ಆಡಿಯೋ ರೆಕಾರ್ಡ್‌ ಮಾಡಿ"</item>
+    <item msgid="1097324338692486211">"ಆಡಿಯೋ ರೆಕಾರ್ಡ್‌ ಮಾಡಲು"</item>
     <item msgid="5031552983987798163">"ಆಡಿಯೋ ಪ್ಲೇ ಮಾಡಿ"</item>
     <item msgid="8374996688066472414">"ಕ್ಲಿಪ್‌ಬೋರ್ಡ್‌ ಓದಿ"</item>
     <item msgid="3045529469061083747">"ಕ್ಲಿಪ್‌ಬೋರ್ಡ್‌ ಮಾರ್ಪಡಿಸಿ"</item>
@@ -306,11 +283,25 @@
     <item msgid="5753382310468855812">"ಪರಿವೀಕ್ಷಣೆಯ ಹೆಚ್ಚಿನ ಸಾಮರ್ಥ್ಯದ ಸ್ಥಾನ"</item>
     <item msgid="3356591542543137332">"ಬಳಕೆ ಅಂಕಿಅಂಶಗಳನ್ನು ಪಡೆಯಿರಿ"</item>
     <item msgid="3073734345226842233">"ಮೈಕ್ರೋಫೋನ್ ಮ್ಯೂಟ್/ಅನ್‌ಮ್ಯೂಟ್ ಮಾಡಿ"</item>
-    <item msgid="1148142988678569310">"ಪ್ರಾಜೆಕ್ಟ್ ಮೀಡಿಯಾ"</item>
-    <item msgid="9130014005474445273">"VPN ಸಕ್ರಿಯಗೊಳಿಸಿ"</item>
-    <item msgid="1165192162975045562">"ವಾಲ್‌ಪೇಪರ್‌ ಬರೆಯಿರಿ"</item>
-    <item msgid="7129487923652967258">"ವಿನ್ಯಾಸಕ್ಕೆ ಸಹಾಯ"</item>
-    <item msgid="1069023208100114540">"ಸ್ಕ್ರೀನ್‌ಶಾಟ್‌‌ಗೆ ಸಹಾಯ"</item>
+    <item msgid="2111767435887685265">"ಟೋಸ್ಟ್ ತೋರಿಸಿ"</item>
+    <item msgid="1091168669714823370">"ಪ್ರಾಜೆಕ್ಟ್ ಮೀಡಿಯಾ"</item>
+    <item msgid="485564189219029300">"VPN ಸಕ್ರಿಯಗೊಳಿಸಿ"</item>
+    <item msgid="7155384795265164395">"ವಾಲ್‌ಪೇಪರ್‌ ರೈಟ್ ಮಾಡಿ"</item>
+    <item msgid="1835836196806147034">"ವಿನ್ಯಾಸಕ್ಕೆ ಸಹಾಯ"</item>
+    <item msgid="5989890403088155055">"ಸ್ಕ್ರೀನ್‌ಶಾಟ್‌‌ಗೆ ಸಹಾಯ"</item>
+    <item msgid="8582699692765917557">"ಫೋನ್ ಸ್ಥಿತಿಯನ್ನು ರೀಡ್‌ ಮಾಡಿ"</item>
+    <item msgid="1474039653814954902">"ಧ್ವನಿಮೇಲ್ ಸೇರಿಸಿ"</item>
+    <item msgid="7222837656938871633">"sip ಬಳಸಿ"</item>
+    <item msgid="6108267038969274380">"ಹೊರಹೋಗುವ ಕರೆಯನ್ನು ಪ್ರಕ್ರಿಯೆಗೊಳಿಸಿ"</item>
+    <item msgid="4823402479973873358">"ಫಿಂಗರ್‌ ಪ್ರಿಂಟ್"</item>
+    <item msgid="5895843015407713543">"ದೇಹ ಸೆನ್ಸರ್‌ಗಳು"</item>
+    <item msgid="1436446526955010826">"ಸೆಲ್ ಪ್ರಸಾರಗಳನ್ನು ರೀಡ್ ಮಾಡಿ"</item>
+    <item msgid="884172201575690484">"ಸ್ಥಳ ನಕಲಿಸು"</item>
+    <item msgid="3591971310048485247">"ಸಂಗ್ರಹಣೆಯನ್ನು ರೀಡ್ ಮಾಡಿ"</item>
+    <item msgid="4041187808621866119">"ಸಂಗ್ರಹಣೆಯನ್ನು ರೈಟ್ ಮಾಡಿ"</item>
+    <item msgid="6628873315024166197">"ಸ್ಕ್ರೀನ್ ಆನ್ ಮಾಡಿ"</item>
+    <item msgid="3253368931113490863">"ಖಾತೆಗಳನ್ನು ಪಡೆದುಕೊಳ್ಳಿ"</item>
+    <item msgid="780392378084812901">"ಹಿನ್ನೆಲೆಯಲ್ಲಿ ರನ್ ಮಾಡಿ"</item>
   </string-array>
   <string-array name="app_ops_labels">
     <item msgid="6602854600289714121">"ಸ್ಥಾನ"</item>
@@ -340,7 +331,7 @@
     <item msgid="736541391767350377">"ಮೇಲಕ್ಕೆ ಎಳೆಯಿರಿ"</item>
     <item msgid="5530815681721654194">"ಅಧಿಸೂಚನೆಗಳನ್ನು ಪ್ರವೇಶಿಸಿ"</item>
     <item msgid="781213371706962767">"ಕ್ಯಾಮರಾ"</item>
-    <item msgid="1720492593061838172">"ಆಡಿಯೋ ರೆಕಾರ್ಡ್‌ ಮಾಡಿ"</item>
+    <item msgid="1720492593061838172">"ಆಡಿಯೋ ರೆಕಾರ್ಡ್‌ ಮಾಡಲು"</item>
     <item msgid="3493046322001257041">"ಆಡಿಯೋ ಪ್ಲೇ ಮಾಡಿ"</item>
     <item msgid="136815868796597058">"ಕ್ಲಿಪ್‌ಬೋರ್ಡ್‌ ಓದಿ"</item>
     <item msgid="5238692940326972503">"ಕ್ಲಿಪ್‌ಬೋರ್ಡ್ ಮಾರ್ಪಡಿಸಿ"</item>
@@ -358,11 +349,25 @@
     <item msgid="7669257279311110599">"ಸ್ಥಾನ"</item>
     <item msgid="3459320345690097795">"ಬಳಕೆ ಅಂಕಿಅಂಶಗಳನ್ನು ಪಡೆದುಕೊಳ್ಳಿ"</item>
     <item msgid="1312534577834048535">"ಮೈಕ್ರೋಫೋನ್ ಮ್ಯೂಟ್/ಅನ್‌ಮ್ಯೂಟ್ ಮಾಡಿ"</item>
-    <item msgid="5906017727368097853">"ಪ್ರಾಜೆಕ್ಟ್ ಮೀಡಿಯಾ"</item>
-    <item msgid="2486614710846178542">"VPN ಸಕ್ರಿಯಗೊಳಿಸಿ"</item>
-    <item msgid="5586547561693629602">"ವಾಲ್‌ಪೇಪರ್‌ ರೈಟ್‌ ಮಾಡಿ"</item>
-    <item msgid="32794179825485062">"ವಿನ್ಯಾಸಕ್ಕೆ ಸಹಾಯ"</item>
-    <item msgid="7872852746938272552">"ಸ್ಕ್ರೀನ್‌ಶಾಟ್‌ಗೆ ಸಹಾಯ"</item>
+    <item msgid="427580389823724225">"ಟೋಸ್ಟ್ ತೋರಿಸಿ"</item>
+    <item msgid="4992007785575926253">"ಪ್ರಾಜೆಕ್ಟ್ ಮೀಡಿಯಾ"</item>
+    <item msgid="2482631530338029480">"VPN ಸಕ್ರಿಯಗೊಳಿಸಿ"</item>
+    <item msgid="1662979573471871926">"ವಾಲ್‌ಪೇಪರ್‌ ರೈಟ್‌ ಮಾಡಿ"</item>
+    <item msgid="5964768335278263478">"ವಿನ್ಯಾಸಕ್ಕೆ ಸಹಾಯ"</item>
+    <item msgid="2657138701132782702">"ಸ್ಕ್ರೀನ್‌ಶಾಟ್‌ಗೆ ಸಹಾಯ"</item>
+    <item msgid="8571369610363539266">"ಫೋನ್ ಸ್ಥಿತಿಯನ್ನು ರೀಡ್‌ ಮಾಡಿ"</item>
+    <item msgid="4542463358215230845">"ಧ್ವನಿಮೇಲ್ ಸೇರಿಸಿ"</item>
+    <item msgid="864565065016166003">"sip ಬಳಸಿ"</item>
+    <item msgid="1958009349883195116">"ಹೊರಹೋಗುವ ಕರೆಯನ್ನು ಪ್ರಕ್ರಿಯೆಗೊಳಿಸಿ"</item>
+    <item msgid="8526563410140613458">"ಬೆರಳಚ್ಚು"</item>
+    <item msgid="7864822459293570891">"ದೇಹ ಸೆನ್ಸರ್‌ಗಳು"</item>
+    <item msgid="6798698496904810960">"ಸೆಲ್ ಪ್ರಸಾರಗಳನ್ನು ರೀಡ್ ಮಾಡಿ"</item>
+    <item msgid="5242052845700875820">"ಸ್ಥಳ ನಕಲಿಸು"</item>
+    <item msgid="1246296877820358565">"ಸಂಗ್ರಹಣೆಯನ್ನು ರೀಡ್ ಮಾಡಿ"</item>
+    <item msgid="2404067308793740341">"ಸಂಗ್ರಹಣೆಯನ್ನು ರೈಟ್ ಮಾಡಿ"</item>
+    <item msgid="5832543806893763620">"ಸ್ಕ್ರೀನ್ ಆನ್ ಮಾಡಿ"</item>
+    <item msgid="5258373962467495905">"ಖಾತೆಗಳನ್ನು ಪಡೆದುಕೊಳ್ಳಿ"</item>
+    <item msgid="334625385979270703">"ಹಿನ್ನೆಲೆಯಲ್ಲಿ ರನ್ ಮಾಡಿ"</item>
   </string-array>
   <string-array name="long_press_timeout_selector_titles">
     <item msgid="3511504869290423954">"ಚಿಕ್ಕದು"</item>
@@ -370,7 +375,7 @@
     <item msgid="2372711992605524591">"ದೊಡ್ಡದು"</item>
   </string-array>
   <string-array name="captioning_typeface_selector_titles">
-    <item msgid="1319652728542138112">"ಡೀಫಾಲ್ಟ್"</item>
+    <item msgid="1319652728542138112">"ಡಿಫಾಲ್ಟ್"</item>
     <item msgid="1016452621833735880">"Sans-serif"</item>
     <item msgid="2496277987934654454">"Sans-serif condensed"</item>
     <item msgid="7247838127505318669">"Sans-serif monospace"</item>
@@ -388,7 +393,7 @@
     <item msgid="9044232017390975191">"ತುಂಬಾ ದೊಡ್ಡದು"</item>
   </string-array>
   <string-array name="captioning_edge_type_selector_titles">
-    <item msgid="4733815704128258753">"ಡೀಫಾಲ್ಟ್"</item>
+    <item msgid="4733815704128258753">"ಡಿಫಾಲ್ಟ್"</item>
     <item msgid="3217099060748617005">"ಯಾವುದೂ ಅಲ್ಲ"</item>
     <item msgid="7467615139904599420">"ಔಟ್‌ಲೈನ್"</item>
     <item msgid="5623165557468608975">"ಡ್ರಾಪ್ ನೆರಳು"</item>
@@ -402,111 +407,12 @@
     <item msgid="8342334626783983353">"100%"</item>
   </string-array>
   <string-array name="captioning_preset_selector_titles">
-    <item msgid="7009918361545506251">"ಆಪ್‌‌ ಡೀಫಾಲ್ಟ್‌ ಬಳಸಿ"</item>
+    <item msgid="7009918361545506251">"ಆಪ್‌‌ ಡಿಫಾಲ್ಟ್‌ ಬಳಸಿ"</item>
     <item msgid="1770533843436933500">"ಕಪ್ಪು ಬಣ್ಣದಲ್ಲಿ ಬಿಳಿ"</item>
     <item msgid="758587126802411846">"ಬಿಳಿ ಬಣ್ಣದಲ್ಲಿ ಕಪ್ಪು"</item>
     <item msgid="1495307195241623402">"ಕಪ್ಪು ಬಣ್ಣದಲ್ಲಿ ಹಳದಿ"</item>
     <item msgid="6039700130994371612">"ನೀಲಿ ಬಣ್ಣದಲ್ಲಿ ಹಳದಿ"</item>
     <item msgid="7169235156349580064">"ಕಸ್ಟಮ್"</item>
-  </string-array>
-  <string-array name="select_logd_size_titles">
-    <item msgid="3100534874529240291">"64K"</item>
-    <item msgid="505611754508988476">"256K"</item>
-    <item msgid="6361286924268716397">"1M"</item>
-    <item msgid="6405203239560695266">"4M"</item>
-    <item msgid="3025431211013424097">"16M"</item>
-  </string-array>
-  <string-array name="select_logd_size_lowram_titles">
-    <item msgid="524799395770610154">"64K"</item>
-    <item msgid="3534782711045262344">"256K"</item>
-    <item msgid="8085867209202153403">"1M"</item>
-  </string-array>
-  <string-array name="select_logd_size_summaries">
-    <item msgid="7346595473588765019">"ಪ್ರತಿ ಲಾಗ್ ಬಫರ್‌ಗೆ 64K"</item>
-    <item msgid="2822309747675758628">"ಪ್ರತಿ ಲಾಗ್ ಬಫರ್‌ಗೆ 256K"</item>
-    <item msgid="6699306198357496731">"ಪ್ರತಿ ಲಾಗ್ ಬಫರ್‌ಗೆ 1M"</item>
-    <item msgid="5748528643937500349">"ಪ್ರತಿ ಲಾಗ್ ಬಫರ್‌ಗೆ 4M"</item>
-    <item msgid="1978629051085111592">"ಪ್ರತಿ ಲಾಗ್ ಬಫರ್‌ಗೆ 16M"</item>
-  </string-array>
-  <string-array name="hdcp_checking_titles">
-    <item msgid="441827799230089869">"ಎಂದಿಗೂ ಪರಿಶೀಲಿಸದಿರು"</item>
-    <item msgid="6042769699089883931">"DRM ವಿಷಯಗಳಿಗಾಗಿ ಮಾತ್ರ ಪರಿಶೀಲಿಸಿ"</item>
-    <item msgid="9174900380056846820">"ಯಾವಾಗಲೂ ಪರಿಶೀಲಿಸು"</item>
-  </string-array>
-  <string-array name="hdcp_checking_summaries">
-    <item msgid="505558545611516707">"HDCP ಪರಿಶೀಲನೆಯನ್ನು ಎಂದಿಗೂ ಬಳಸದಿರು"</item>
-    <item msgid="3878793616631049349">"DRM ವಿಷಯಗಳಿಗೆ ಮಾತ್ರ HDCP ಪರೀಕ್ಷಿಸುವಿಕೆಯನ್ನು ಬಳಸು"</item>
-    <item msgid="45075631231212732">"HDCP ಪರಿಶೀಲನೆಯನ್ನು ಯಾವಾಗಲೂ ಬಳಸು"</item>
-  </string-array>
-  <string-array name="window_animation_scale_entries">
-    <item msgid="8134156599370824081">"ಆನಿಮೇಶನ್ ಆಫ್"</item>
-    <item msgid="6624864048416710414">"ಅನಿಮೇಶನ್‌‌ ಮಾಪಕ .5x"</item>
-    <item msgid="2219332261255416635">"ಆನಿಮೇಶನ್ ಮಾಪಕ 1x"</item>
-    <item msgid="3544428804137048509">"ಅನಿಮೇಶನ್‌‌ ಮಾಪಕ 1.5x"</item>
-    <item msgid="3110710404225974514">"ಆನಿಮೇಶನ್ ಮಾಪಕ 2x"</item>
-    <item msgid="4402738611528318731">"ಆನಿಮೇಶನ್ ಮಾಪಕ 5x"</item>
-    <item msgid="6189539267968330656">"ಆನಿಮೇಶನ್ ಮಾಪಕ 10x"</item>
-  </string-array>
-  <string-array name="transition_animation_scale_entries">
-    <item msgid="8464255836173039442">"ಆನಿಮೇಶನ್ ಆಫ್"</item>
-    <item msgid="3375781541913316411">"ಅನಿಮೇಶನ್‌‌ ಮಾಪಕ .5x"</item>
-    <item msgid="1991041427801869945">"ಆನಿಮೇಶನ್ ಮಾಪಕ 1x"</item>
-    <item msgid="4012689927622382874">"ಅನಿಮೇಶನ್‌‌ ಮಾಪಕ 1.5x"</item>
-    <item msgid="3289156759925947169">"ಅನಿಮೇಶನ್‌‌ ಮಾಪಕ 2x"</item>
-    <item msgid="7705857441213621835">"ಆನಿಮೇಶನ್ ಮಾಪಕ 5x"</item>
-    <item msgid="6660750935954853365">"ಆನಿಮೇಶನ್ ಮಾಪಕ 10x"</item>
-  </string-array>
-  <string-array name="animator_duration_scale_entries">
-    <item msgid="6039901060648228241">"ಅನಿಮೇಶನ್‌‌ ಆಫ್‌ ಮಾಡಿ"</item>
-    <item msgid="1138649021950863198">"ಅನಿಮೇಶನ್‌‌ ಮಾಪಕ .5x"</item>
-    <item msgid="4394388961370833040">"ಅನಿಮೇಶನ್‌‌ ಮಾಪಕ 1x"</item>
-    <item msgid="8125427921655194973">"ಅನಿಮೇಶನ್‌‌ ಮಾಪಕ 1.5x"</item>
-    <item msgid="3334024790739189573">"ಅನಿಮೇಶನ್‌‌ ಮಾಪಕ 2x"</item>
-    <item msgid="3170120558236848008">"ಅನಿಮೇಷನ್ ಸ್ಕೇಲ್ 5x"</item>
-    <item msgid="1069584980746680398">"ಅನಿಮೇಶನ್‌‌ ಮಾಪಕ 10x"</item>
-  </string-array>
-  <string-array name="overlay_display_devices_entries">
-    <item msgid="1606809880904982133">"ಯಾವುದೂ ಇಲ್ಲ"</item>
-    <item msgid="9033194758688161545">"480p"</item>
-    <item msgid="1025306206556583600">"480p (ಸುರಕ್ಷಿತ)"</item>
-    <item msgid="1853913333042744661">"720p"</item>
-    <item msgid="3414540279805870511">"720p (ಸುರಕ್ಷಿತ)"</item>
-    <item msgid="9039818062847141551">"1080p"</item>
-    <item msgid="4939496949750174834">"1080p (ಸುರಕ್ಷಿತ)"</item>
-    <item msgid="1833612718524903568">"4K"</item>
-    <item msgid="238303513127879234">"4K (ಸುರಕ್ಷಿತ)"</item>
-    <item msgid="3547211260846843098">"4K (ಮಾಪನ ಮಾಡದ)"</item>
-    <item msgid="5411365648951414254">"4K (ಮಾಪನ ಮಾಡದ, ಸುರಕ್ಷಿತ)"</item>
-    <item msgid="1311305077526792901">"720p, 1080p (ಡ್ಯುಯಲ್ ಸ್ಕ್ರೀನ್)"</item>
-  </string-array>
-  <string-array name="enable_opengl_traces_entries">
-    <item msgid="3191973083884253830">"ಯಾವುದೂ ಇಲ್ಲ"</item>
-    <item msgid="9089630089455370183">"ಲಾಗ್‌ಕ್ಯಾಟ್‌"</item>
-    <item msgid="5397807424362304288">"Systrace (ಗ್ರಾಫಿಕ್ಸ್)"</item>
-    <item msgid="1340692776955662664">"glGetError ನಲ್ಲಿ ಕರೆಯ ಸ್ಟ್ಯಾಕ್"</item>
-  </string-array>
-  <string-array name="show_non_rect_clip_entries">
-    <item msgid="993742912147090253">"ಆಫ್"</item>
-    <item msgid="675719912558941285">"ಆಯತಾಕಾರವಲ್ಲದ ಕ್ಲಿಪ್‌ ಸ್ಥಳವನ್ನು ನೀಲಿಯಲ್ಲಿ ಡ್ರಾ ಮಾಡಿ"</item>
-    <item msgid="1064373276095698656">"ಪರೀಕ್ಷಿತ ಚಿತ್ರ ಆದೇಶವನ್ನು ಹಸಿರಿನಲ್ಲಿ ಹೈಲೈಟ್‌ ಮಾಡಿ"</item>
-  </string-array>
-  <string-array name="track_frame_time_entries">
-    <item msgid="2193584639058893150">"ಆಫ್"</item>
-    <item msgid="2751513398307949636">"ಪರದೆಯ ಮೇಲಿನ ಪಟ್ಟಿಗಳು"</item>
-    <item msgid="1851438178120770973">"In adb shell dumpsys gfxinfo"</item>
-  </string-array>
-  <string-array name="debug_hw_overdraw_entries">
-    <item msgid="8190572633763871652">"ಆಫ್"</item>
-    <item msgid="7688197031296835369">"ಓವರ್‌ಡ್ರಾ ಪ್ರದೇಶಗಳನ್ನು ತೋರಿಸು"</item>
-    <item msgid="2290859360633824369">"ಡ್ಯೂಟರ್‌ನೋಮಲಿಗಾಗಿ ಪ್ರದೇಶಗಳನ್ನು ತೋರಿಸು"</item>
-  </string-array>
-  <string-array name="app_process_limit_entries">
-    <item msgid="3401625457385943795">"ಪ್ರಮಾಣಿತ ಮಿತಿ"</item>
-    <item msgid="4071574792028999443">"ಹಿನ್ನೆಲೆ ಪ್ರಕ್ರಿಯೆಗಳು ಇಲ್ಲ"</item>
-    <item msgid="4810006996171705398">"ಬಹುತೇಕ 1 ಪ್ರಕ್ರಿಯೆ"</item>
-    <item msgid="8586370216857360863">"ಬಹುತೇಕ 2 ಪ್ರಕ್ರಿಯೆಗಳು"</item>
-    <item msgid="836593137872605381">"ಬಹುತೇಕ 3 ಪ್ರಕ್ರಿಯೆಗಳು"</item>
-    <item msgid="7899496259191969307">"ಬಹುತೇಕ 4 ಪ್ರಕ್ರಿಯೆಗಳು"</item>
   </string-array>
   <string-array name="vpn_types_long">
     <item msgid="2732002039459078847">"PPTP VPN"</item>
@@ -566,5 +472,4 @@
     <item msgid="4608643045752965568">"ಗುಲಾಬಿ ಬಣ್ಣ"</item>
     <item msgid="6131821495505931173">"ಕೆಂಪು"</item>
   </string-array>
-    <!-- no translation found for usb_configuration_titles:0 (292902998500371970) -->
 </resources>

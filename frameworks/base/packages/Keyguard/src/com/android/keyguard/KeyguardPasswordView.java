@@ -72,6 +72,7 @@ public class KeyguardPasswordView extends KeyguardAbsKeyInputView
                 context, android.R.interpolator.fast_out_linear_in);
     }
 
+    @Override
     protected void resetState() {
         mSecurityMessageDisplay.setMessage(R.string.kg_password_instructions, false);
         final boolean wasDisabled = mPasswordEntry.isEnabled();
@@ -115,8 +116,16 @@ public class KeyguardPasswordView extends KeyguardAbsKeyInputView
         switch (reason) {
             case PROMPT_REASON_RESTART:
                 return R.string.kg_prompt_reason_restart_password;
-            default:
+            case PROMPT_REASON_TIMEOUT:
+                return R.string.kg_prompt_reason_timeout_password;
+            case PROMPT_REASON_DEVICE_ADMIN:
+                return R.string.kg_prompt_reason_device_admin;
+            case PROMPT_REASON_USER_REQUEST:
+                return R.string.kg_prompt_reason_user_request;
+            case PROMPT_REASON_NONE:
                 return 0;
+            default:
+                return R.string.kg_prompt_reason_timeout_password;
         }
     }
 
@@ -151,6 +160,7 @@ public class KeyguardPasswordView extends KeyguardAbsKeyInputView
 
         // Poke the wakelock any time the text is selected or modified
         mPasswordEntry.setOnClickListener(new OnClickListener() {
+            @Override
             public void onClick(View v) {
                 mCallback.userActivity();
             }
@@ -167,6 +177,7 @@ public class KeyguardPasswordView extends KeyguardAbsKeyInputView
             switchImeButton.setVisibility(View.VISIBLE);
             imeOrDeleteButtonVisible = true;
             switchImeButton.setOnClickListener(new OnClickListener() {
+                @Override
                 public void onClick(View v) {
                     mCallback.userActivity(); // Leave the screen on a bit longer
                     // Do not show auxiliary subtypes in password lock screen.
@@ -194,7 +205,7 @@ public class KeyguardPasswordView extends KeyguardAbsKeyInputView
     }
 
     @Override
-    protected void resetPasswordText(boolean animate) {
+    protected void resetPasswordText(boolean animate, boolean announce) {
         mPasswordEntry.setText("");
     }
 

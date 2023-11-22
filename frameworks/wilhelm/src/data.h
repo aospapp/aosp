@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef WILHELM_SRC_DATA_H
+#define WILHELM_SRC_DATA_H
+
 /* Our own merged version of SLDataSource and SLDataSink */
 
 typedef union {
@@ -115,3 +118,5 @@ typedef struct {
 
 // FIXME a terrible hack until OpenMAX AL spec is updated
 #define XA_DOMAINTYPE_CONTAINER 0
+
+#endif // WILHELM_SRC_DATA_H

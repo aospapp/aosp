@@ -7,7 +7,10 @@
 
 #include "gm.h"
 #if SK_SUPPORT_GPU
-#include "GrTest.h"
+#include "GrContext.h"
+#include "GrDrawContext.h"
+#include "batches/GrDrawBatch.h"
+#include "batches/GrRectBatchFactory.h"
 #include "effects/GrRRectEffect.h"
 #endif
 #include "SkDevice.h"
@@ -26,12 +29,15 @@ public:
         kAA_Clip_Type,
         kEffect_Type,
     };
-    RRectGM(Type type) : fType(type) {
-        this->setBGColor(0xFFDDDDDD);
+    RRectGM(Type type) : fType(type) { }
+
+protected:
+
+    void onOnceBeforeDraw() override {
+        this->setBGColor(sk_tool_utils::color_to_565(0xFFDDDDDD));
         this->setUpRRects();
     }
 
-protected:
     SkString onShortName() override {
         SkString name("rrect");
         switch (fType) {
@@ -57,13 +63,25 @@ protected:
     SkISize onISize() override { return SkISize::Make(kImageWidth, kImageHeight); }
 
     void onDraw(SkCanvas* canvas) override {
-        GrContext* context = NULL;
+        GrContext* context = nullptr;
 #if SK_SUPPORT_GPU
         GrRenderTarget* rt = canvas->internal_private_accessTopLayerRenderTarget();
-        context = rt ? rt->getContext() : NULL;
+        context = rt ? rt->getContext() : nullptr;
+        SkAutoTUnref<GrDrawContext> drawContext;
+        if (kEffect_Type == fType) {
+            if (!context) {
+                skiagm::GM::DrawGpuOnlyMessage(canvas);
+                return;
+            }
+
+            drawContext.reset(context->drawContext(rt));
+            if (!drawContext) {
+                return;
+            }
+        }
 #endif
-        if (kEffect_Type == fType && NULL == context) {
-            this->drawGpuOnlyMessage(canvas);
+        if (kEffect_Type == fType && nullptr == context) {
+            skiagm::GM::DrawGpuOnlyMessage(canvas);
             return;
         }
 
@@ -100,13 +118,9 @@ protected:
                     canvas->translate(SkIntToScalar(x), SkIntToScalar(y));
                     if (kEffect_Type == fType) {
 #if SK_SUPPORT_GPU
-                        GrTestTarget tt;
-                        context->getTestTarget(&tt);
-                        if (NULL == tt.target()) {
-                            SkDEBUGFAIL("Couldn't get Gr test target.");
-                            return;
-                        }
                         GrPipelineBuilder pipelineBuilder;
+                        pipelineBuilder.setXPFactory(
+                            GrPorterDuffXPFactory::Create(SkXfermode::kSrc_Mode))->unref();
 
                         SkRRect rrect = fRRects[curRRect];
                         rrect.offset(SkIntToScalar(x), SkIntToScalar(y));
@@ -114,16 +128,16 @@ protected:
                         SkAutoTUnref<GrFragmentProcessor> fp(GrRRectEffect::Create(edgeType,
                                                                                    rrect));
                         if (fp) {
-                            pipelineBuilder.addCoverageProcessor(fp);
+                            pipelineBuilder.addCoverageFragmentProcessor(fp);
                             pipelineBuilder.setRenderTarget(rt);
 
                             SkRect bounds = rrect.getBounds();
                             bounds.outset(2.f, 2.f);
 
-                            tt.target()->drawSimpleRect(&pipelineBuilder,
-                                                        0xff000000,
-                                                        SkMatrix::I(),
-                                                        bounds);
+                            SkAutoTUnref<GrDrawBatch> batch(
+                                    GrRectBatchFactory::CreateNonAAFill(0xff000000, SkMatrix::I(),
+                                                                        bounds, nullptr, nullptr));
+                            drawContext->internal_drawBatch(pipelineBuilder, batch);
                         } else {
                             drew = false;
                         }

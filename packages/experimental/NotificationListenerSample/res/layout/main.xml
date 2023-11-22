@@ -46,5 +46,13 @@
             android:onClick="launchSettings"
             android:layout_weight="0"
             />
+    <Button
+            android:id="@+id/snooze"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/snooze"
+            android:onClick="snooze"
+            android:layout_weight="0"
+            />
 </LinearLayout>
 

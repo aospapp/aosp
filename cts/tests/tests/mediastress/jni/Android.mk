@@ -26,6 +26,7 @@ LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 
 LOCAL_C_INCLUDES += $(call include-path-for, wilhelm)
 
-LOCAL_SHARED_LIBRARIES := libandroid libnativehelper liblog libOpenMAXAL
+LOCAL_SHARED_LIBRARIES := libandroid libnativehelper_compat_libc++ liblog libOpenMAXAL
+LOCAL_CXX_STL := libc++_static
 
 include $(BUILD_SHARED_LIBRARY)

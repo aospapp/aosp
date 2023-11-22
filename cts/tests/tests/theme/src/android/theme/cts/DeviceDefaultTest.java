@@ -21,6 +21,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.platform.test.annotations.Presubmit;
 import android.test.ActivityInstrumentationTestCase2;
 
 public class DeviceDefaultTest extends ActivityInstrumentationTestCase2<DeviceDefaultActivity> {
@@ -57,6 +58,7 @@ public class DeviceDefaultTest extends ActivityInstrumentationTestCase2<DeviceDe
         assertNoActionBar(android.R.style.Theme_DeviceDefault_DialogWhenLarge_NoActionBar);
     }
 
+    @Presubmit
     public void testGetActionBar_DeviceDefault_InputMethod() {
         assertNoActionBar(android.R.style.Theme_DeviceDefault_InputMethod);
     }

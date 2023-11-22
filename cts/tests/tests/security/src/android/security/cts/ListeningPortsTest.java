@@ -18,11 +18,14 @@ package android.security.cts;
 
 import android.content.pm.PackageManager;
 import android.test.AndroidTestCase;
+import android.util.Log;
 import junit.framework.AssertionFailedError;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -37,15 +40,31 @@ import java.util.regex.Pattern;
  * is considered a security best practice.
  */
 public class ListeningPortsTest extends AndroidTestCase {
+    private static final String TAG = "ListeningPortsTest";
+
+    private static final int CONN_TIMEOUT_IN_MS = 5000;
 
     /** Ports that are allowed to be listening. */
     private static final List<String> EXCEPTION_PATTERNS = new ArrayList<String>(6);
 
     static {
         // IPv4 exceptions
-        EXCEPTION_PATTERNS.add("0.0.0.0:5555");   // emulator port
-        EXCEPTION_PATTERNS.add("10.0.2.15:5555"); // net forwarding for emulator
-        EXCEPTION_PATTERNS.add("127.0.0.1:5037"); // adb daemon "smart sockets"
+        // Patterns containing ":" are allowed address port combinations
+        // Pattterns contains " " are allowed address UID combinations
+        // Patterns containing both are allowed address, port, and UID combinations
+        EXCEPTION_PATTERNS.add("0.0.0.0:5555");     // emulator port
+        EXCEPTION_PATTERNS.add("0.0.0.0:9101");     // verified ports
+        EXCEPTION_PATTERNS.add("0.0.0.0:9551");     // verified ports
+        EXCEPTION_PATTERNS.add("0.0.0.0:9552");     // verified ports
+        EXCEPTION_PATTERNS.add("10.0.2.15:5555");   // net forwarding for emulator
+        EXCEPTION_PATTERNS.add("127.0.0.1:5037");   // adb daemon "smart sockets"
+        EXCEPTION_PATTERNS.add("0.0.0.0 1020");     // used by the cast receiver
+        EXCEPTION_PATTERNS.add("0.0.0.0 10000");    // used by the cast receiver
+        EXCEPTION_PATTERNS.add("127.0.0.1 10000");  // used by the cast receiver
+        EXCEPTION_PATTERNS.add(":: 1002");          // used by remote control
+        EXCEPTION_PATTERNS.add(":: 1020");          // used by remote control
+        //no current patterns involve address, port and UID combinations
+        //Example for when necessary: EXCEPTION_PATTERNS.add("0.0.0.0:5555 10000")
     }
 
     /**
@@ -185,10 +204,16 @@ public class ListeningPortsTest extends AndroidTestCase {
         List<ParsedProcEntry> entries = ParsedProcEntry.parse(procFilePath);
         for (ParsedProcEntry entry : entries) {
             String addrPort = entry.localAddress.getHostAddress() + ':' + entry.port;
+            String addrUid = entry.localAddress.getHostAddress() + ' ' + entry.uid;
+            String addrPortUid = addrPort + ' ' + entry.uid;
 
             if (isPortListening(entry.state, isTcp)
-                && !isException(addrPort)
-                && (!entry.localAddress.isLoopbackAddress() ^ loopback)) {
+                    && !(isException(addrPort) || isException(addrUid) || isException(addrPortUid))
+                    && (!entry.localAddress.isLoopbackAddress() ^ loopback)) {
+                if (isTcp && !isTcpConnectable(entry.localAddress, entry.port)) {
+                    continue;
+                }
+
                 errors += "\nFound port listening on addr="
                         + entry.localAddress.getHostAddress() + ", port="
                         + entry.port + ", UID=" + entry.uid
@@ -208,6 +233,33 @@ public class ListeningPortsTest extends AndroidTestCase {
             return "[unknown]";
         }
         return Arrays.asList(packages).toString();
+    }
+
+    private boolean isTcpConnectable(InetAddress address, int port) {
+        Socket socket = new Socket();
+
+        try {
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "Trying to connect " + address + ":" + port);
+            }
+            socket.connect(new InetSocketAddress(address, port), CONN_TIMEOUT_IN_MS);
+        } catch (IOException ioe) {
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "Unable to connect:" + ioe);
+            }
+            return false;
+        } finally {
+            try {
+                socket.close();
+            } catch (IOException closeError) {
+                Log.e(TAG, "Unable to close socket: " + closeError);
+            }
+        }
+
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, address + ":" + port + " is connectable.");
+        }
+        return true;
     }
 
     private static boolean isException(String localAddress) {

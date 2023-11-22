@@ -1,1 +1,2 @@
 libs/
+/libcxx/test/lit.site.cfg

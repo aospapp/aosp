@@ -14,16 +14,16 @@
 static const GrGLint gBOGUS_SIZE = 16;
 
 SkMesaGLContext::SkMesaGLContext()
-    : fContext(static_cast<Context>(NULL))
-    , fImage(NULL) {
+    : fContext(static_cast<Context>(0))
+    , fImage(nullptr) {
     GR_STATIC_ASSERT(sizeof(Context) == sizeof(OSMesaContext));
 
     /* Create an RGBA-mode context */
 #if OSMESA_MAJOR_VERSION * 100 + OSMESA_MINOR_VERSION >= 305
     /* specify Z, stencil, accum sizes */
-    fContext = (Context)OSMesaCreateContextExt(OSMESA_BGRA, 0, 0, 0, NULL);
+    fContext = (Context)OSMesaCreateContextExt(OSMESA_BGRA, 0, 0, 0, nullptr);
 #else
-    fContext = (Context)OSMesaCreateContext(OSMESA_BGRA, NULL);
+    fContext = (Context)OSMesaCreateContext(OSMESA_BGRA, nullptr);
 #endif
     if (!fContext) {
         SkDebugf("OSMesaCreateContext failed!\n");
@@ -50,40 +50,42 @@ SkMesaGLContext::SkMesaGLContext()
         return;
     }
 
-    fGL.reset(GrGLCreateMesaInterface());
-    if (NULL == fGL.get()) {
+    SkAutoTUnref<const GrGLInterface> gl(GrGLCreateMesaInterface());
+    if (nullptr == gl.get()) {
         SkDebugf("Could not create GL interface!\n");
         this->destroyGLContext();
         return;
     }
 
-    if (!fGL->validate()) {
+    if (!gl->validate()) {
         SkDebugf("Could not validate GL interface!\n");
         this->destroyGLContext();
         return;
     }
+
+    this->init(gl.detach());
 }
 
 SkMesaGLContext::~SkMesaGLContext() {
+    this->teardown();
     this->destroyGLContext();
 }
 
 void SkMesaGLContext::destroyGLContext() {
-    fGL.reset(NULL);
     if (fImage) {
         sk_free(fImage);
-        fImage = NULL;
+        fImage = nullptr;
     }
 
     if (fContext) {
         OSMesaDestroyContext((OSMesaContext)fContext);
-        fContext = static_cast<Context>(NULL);
+        fContext = static_cast<Context>(0);
     }
 }
 
 
 
-void SkMesaGLContext::makeCurrent() const {
+void SkMesaGLContext::onPlatformMakeCurrent() const {
     if (fContext) {
         if (!OSMesaMakeCurrent((OSMesaContext)fContext, fImage,
                                GR_GL_UNSIGNED_BYTE, gBOGUS_SIZE, gBOGUS_SIZE)) {
@@ -92,4 +94,8 @@ void SkMesaGLContext::makeCurrent() const {
     }
 }
 
-void SkMesaGLContext::swapBuffers() const { }
+void SkMesaGLContext::onPlatformSwapBuffers() const { }
+
+GrGLFuncPtr SkMesaGLContext::onPlatformGetProcAddress(const char* procName) const {
+    return OSMesaGetProcAddress(procName);
+}

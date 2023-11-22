@@ -29,7 +29,7 @@ import android.view.animation.CycleInterpolator;
 import android.view.animation.Interpolator;
 import android.view.animation.Transformation;
 
-import com.android.cts.view.R;
+import android.view.cts.R;
 
 
 /**
@@ -45,7 +45,7 @@ public class CycleInterpolatorTest
     private static final float ALPHA_DELTA = 0.001f;
 
     public CycleInterpolatorTest() {
-        super("com.android.cts.view", AnimationTestCtsActivity.class);
+        super("android.view.cts", AnimationTestCtsActivity.class);
     }
 
     @Override

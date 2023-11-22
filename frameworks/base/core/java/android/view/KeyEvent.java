@@ -761,6 +761,23 @@ public class KeyEvent extends InputEvent implements Parcelable {
      * Backs out one level of a navigation hierarchy or collapses the item that currently has
      * focus. */
     public static final int KEYCODE_NAVIGATE_OUT    = 263;
+    /** Key code constant: Primary stem key for Wear
+     * Main power/reset button on watch. */
+    public static final int KEYCODE_STEM_PRIMARY = 264;
+    /** Key code constant: Generic stem key 1 for Wear */
+    public static final int KEYCODE_STEM_1 = 265;
+    /** Key code constant: Generic stem key 2 for Wear */
+    public static final int KEYCODE_STEM_2 = 266;
+    /** Key code constant: Generic stem key 3 for Wear */
+    public static final int KEYCODE_STEM_3 = 267;
+    /** Key code constant: Directional Pad Up-Left */
+    public static final int KEYCODE_DPAD_UP_LEFT    = 268;
+    /** Key code constant: Directional Pad Down-Left */
+    public static final int KEYCODE_DPAD_DOWN_LEFT  = 269;
+    /** Key code constant: Directional Pad Up-Right */
+    public static final int KEYCODE_DPAD_UP_RIGHT   = 270;
+    /** Key code constant: Directional Pad Down-Right */
+    public static final int KEYCODE_DPAD_DOWN_RIGHT = 271;
     /** Key code constant: Skip forward media key. */
     public static final int KEYCODE_MEDIA_SKIP_FORWARD = 272;
     /** Key code constant: Skip backward media key. */
@@ -771,8 +788,16 @@ public class KeyEvent extends InputEvent implements Parcelable {
     /** Key code constant: Step backward media key.
      * Steps media backward, one frame at a time. */
     public static final int KEYCODE_MEDIA_STEP_BACKWARD = 275;
+    /** Key code constant: put device to sleep unless a wakelock is held. */
+    public static final int KEYCODE_SOFT_SLEEP = 276;
+    /** Key code constant: Cut key. */
+    public static final int KEYCODE_CUT = 277;
+    /** Key code constant: Copy key. */
+    public static final int KEYCODE_COPY = 278;
+    /** Key code constant: Paste key. */
+    public static final int KEYCODE_PASTE = 279;
 
-    private static final int LAST_KEYCODE = KEYCODE_MEDIA_STEP_BACKWARD;
+    private static final int LAST_KEYCODE = KEYCODE_PASTE;
 
     // NOTE: If you add a new keycode here you must also add it to:
     //  isSystem()
@@ -1754,6 +1779,8 @@ public class KeyEvent extends InputEvent implements Parcelable {
         switch (keyCode) {
             case KeyEvent.KEYCODE_DPAD_CENTER:
             case KeyEvent.KEYCODE_ENTER:
+            case KeyEvent.KEYCODE_SPACE:
+            case KeyEvent.KEYCODE_NUMPAD_ENTER:
                 return true;
             default:
                 return false;
@@ -1830,6 +1857,9 @@ public class KeyEvent extends InputEvent implements Parcelable {
             case KeyEvent.KEYCODE_MENU:
             case KeyEvent.KEYCODE_WAKEUP:
             case KeyEvent.KEYCODE_PAIRING:
+            case KeyEvent.KEYCODE_STEM_1:
+            case KeyEvent.KEYCODE_STEM_2:
+            case KeyEvent.KEYCODE_STEM_3:
                 return true;
         }
         return false;
@@ -1838,6 +1868,11 @@ public class KeyEvent extends InputEvent implements Parcelable {
     /** @hide */
     public static final boolean isMetaKey(int keyCode) {
         return keyCode == KeyEvent.KEYCODE_META_LEFT || keyCode == KeyEvent.KEYCODE_META_RIGHT;
+    }
+
+    /** @hide */
+    public static final boolean isAltKey(int keyCode) {
+        return keyCode == KeyEvent.KEYCODE_ALT_LEFT || keyCode == KeyEvent.KEYCODE_ALT_RIGHT;
     }
 
     /** {@inheritDoc} */

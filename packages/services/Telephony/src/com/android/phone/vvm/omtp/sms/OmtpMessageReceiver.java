@@ -16,14 +16,16 @@
 package com.android.phone.vvm.omtp.sms;
 
 import android.content.BroadcastReceiver;
+import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
+import android.os.UserManager;
 import android.provider.Telephony;
 import android.provider.VoicemailContract;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.Voicemail;
 import android.telephony.SmsMessage;
-import android.telephony.SubscriptionManager;
 import android.util.Log;
 
 import com.android.internal.telephony.PhoneConstants;
@@ -47,6 +49,12 @@ public class OmtpMessageReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
+        if (!UserManager.get(context).isUserUnlocked()) {
+            Log.i(TAG, "Received message on locked device");
+            // A full sync will happen after the device is unlocked, so nothing need to be done.
+            return;
+        }
+
         mContext = context;
         mPhoneAccount = PhoneUtils.makePstnPhoneAccountHandle(
                 intent.getExtras().getInt(PhoneConstants.PHONE_KEY));
@@ -62,6 +70,12 @@ public class OmtpMessageReceiver extends BroadcastReceiver {
         }
 
         SmsMessage[] messages = Telephony.Sms.Intents.getMessagesFromIntent(intent);
+
+        if (messages == null) {
+            Log.w(TAG, "Message does not exist in the intent.");
+            return;
+        }
+
         StringBuilder messageBody = new StringBuilder();
 
         for (int i = 0; i < messages.length; i++) {
@@ -76,9 +90,9 @@ public class OmtpMessageReceiver extends BroadcastReceiver {
                 SyncMessage message = new SyncMessage(messageData);
 
                 Log.v(TAG, "Received SYNC sms for " + mPhoneAccount.getId() +
-                        " with event" + message.getSyncTriggerEvent());
+                        " with event " + message.getSyncTriggerEvent());
                 LocalLogHelper.log(TAG, "Received SYNC sms for " + mPhoneAccount.getId() +
-                        " with event" + message.getSyncTriggerEvent());
+                        " with event " + message.getSyncTriggerEvent());
                 processSync(message);
             } else if (messageData.getPrefix() == OmtpConstants.STATUS_SMS_PREFIX) {
                 Log.v(TAG, "Received STATUS sms for " + mPhoneAccount.getId());
@@ -101,30 +115,41 @@ public class OmtpMessageReceiver extends BroadcastReceiver {
      * @param message The sync message to extract data from.
      */
     private void processSync(SyncMessage message) {
+        Intent serviceIntent = null;
         switch (message.getSyncTriggerEvent()) {
             case OmtpConstants.NEW_MESSAGE:
-                Voicemail voicemail = Voicemail.createForInsertion(
+                Voicemail.Builder builder = Voicemail.createForInsertion(
                         message.getTimestampMillis(), message.getSender())
                         .setPhoneAccount(mPhoneAccount)
                         .setSourceData(message.getId())
                         .setDuration(message.getLength())
-                        .setSourcePackage(mContext.getPackageName())
-                        .build();
+                        .setSourcePackage(mContext.getPackageName());
+                Voicemail voicemail = builder.build();
+
                 VoicemailsQueryHelper queryHelper = new VoicemailsQueryHelper(mContext);
-                queryHelper.insertIfUnique(voicemail);
+                if (queryHelper.isVoicemailUnique(voicemail)) {
+                    Uri uri = VoicemailContract.Voicemails.insert(mContext, voicemail);
+                    voicemail = builder.setId(ContentUris.parseId(uri)).setUri(uri).build();
+                    serviceIntent = OmtpVvmSyncService.getSyncIntent(mContext,
+                            OmtpVvmSyncService.SYNC_DOWNLOAD_ONE_TRANSCRIPTION, mPhoneAccount,
+                            voicemail, true /* firstAttempt */);
+                }
                 break;
             case OmtpConstants.MAILBOX_UPDATE:
-                Intent serviceIntent = OmtpVvmSyncService.getSyncIntent(
+                serviceIntent = OmtpVvmSyncService.getSyncIntent(
                         mContext, OmtpVvmSyncService.SYNC_DOWNLOAD_ONLY, mPhoneAccount,
                         true /* firstAttempt */);
-                mContext.startService(serviceIntent);
                 break;
             case OmtpConstants.GREETINGS_UPDATE:
                 // Not implemented in V1
                 break;
-           default:
+            default:
                Log.e(TAG, "Unrecognized sync trigger event: " + message.getSyncTriggerEvent());
                break;
+        }
+
+        if (serviceIntent != null) {
+            mContext.startService(serviceIntent);
         }
     }
 

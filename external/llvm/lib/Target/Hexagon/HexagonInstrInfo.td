@@ -13,7 +13,7 @@
 
 include "HexagonInstrFormats.td"
 include "HexagonOperands.td"
-
+include "HexagonInstrEnc.td"
 // Pattern fragment that combines the value type and the register class
 // into a single parameter.
 // The pat frags in the definitions below need to have a named register,
@@ -36,28 +36,28 @@ def HiReg: OutPatFrag<(ops node:$Rs),
 def DEC_CONST_SIGNED : SDNodeXForm<imm, [{
    // Return the byte immediate const-1 as an SDNode.
    int32_t imm = N->getSExtValue();
-   return XformSToSM1Imm(imm);
+   return XformSToSM1Imm(imm, SDLoc(N));
 }]>;
 
 // SDNode for converting immediate C to C-2.
 def DEC2_CONST_SIGNED : SDNodeXForm<imm, [{
    // Return the byte immediate const-2 as an SDNode.
    int32_t imm = N->getSExtValue();
-   return XformSToSM2Imm(imm);
+   return XformSToSM2Imm(imm, SDLoc(N));
 }]>;
 
 // SDNode for converting immediate C to C-3.
 def DEC3_CONST_SIGNED : SDNodeXForm<imm, [{
    // Return the byte immediate const-3 as an SDNode.
    int32_t imm = N->getSExtValue();
-   return XformSToSM3Imm(imm);
+   return XformSToSM3Imm(imm, SDLoc(N));
 }]>;
 
 // SDNode for converting immediate C to C-1.
 def DEC_CONST_UNSIGNED : SDNodeXForm<imm, [{
    // Return the byte immediate const-1 as an SDNode.
    uint32_t imm = N->getZExtValue();
-   return XformUToUM1Imm(imm);
+   return XformUToUM1Imm(imm, SDLoc(N));
 }]>;
 
 //===----------------------------------------------------------------------===//
@@ -1426,9 +1426,6 @@ def retflag : SDNode<"HexagonISD::RET_FLAG", SDTNone,
                      [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
 def eh_return: SDNode<"HexagonISD::EH_RETURN", SDTNone, [SDNPHasChain]>;
 
-def SDHexagonBR_JT: SDTypeProfile<0, 1, [SDTCisVT<0, i32>]>;
-def HexagonBR_JT: SDNode<"HexagonISD::BR_JT", SDHexagonBR_JT, [SDNPHasChain]>;
-
 class CondStr<string CReg, bit True, bit New> {
   string S = "if (" # !if(True,"","!") # CReg # !if(New,".new","") # ") ";
 }
@@ -1606,8 +1603,6 @@ def EH_RETURN_JMPR : T_JMPr;
 
 def: Pat<(eh_return),
          (EH_RETURN_JMPR (i32 R31))>;
-def: Pat<(HexagonBR_JT (i32 IntRegs:$dst)),
-         (J2_jumpr IntRegs:$dst)>;
 def: Pat<(brind (i32 IntRegs:$dst)),
          (J2_jumpr IntRegs:$dst)>;
 
@@ -2825,7 +2820,7 @@ let CextOpcode = "ADD_acc" in {
   let isExtentSigned = 1 in
   def M2_accii : T_MType_acc_ri <"+= add", 0b100, s8Ext,
                  [(set (i32 IntRegs:$dst),
-                       (add (add (i32 IntRegs:$src2), s16_16ImmPred:$src3),
+                       (add (add (i32 IntRegs:$src2), s32ImmPred:$src3),
                             (i32 IntRegs:$src1)))]>, ImmRegRel;
 
   def M2_acci  : T_MType_acc_rr <"+= add",  0b000, 0b001, 0,
@@ -2859,7 +2854,7 @@ class T_MType_acc_pat2 <InstHexagon MI, SDNode firstOp, SDNode secOp>
 def : T_MType_acc_pat2 <M2_xor_xacc, xor, xor>;
 def : T_MType_acc_pat1 <M2_macsin, mul, sub, u32ImmPred>;
 
-def : T_MType_acc_pat1 <M2_naccii, add, sub, s16_16ImmPred>;
+def : T_MType_acc_pat1 <M2_naccii, add, sub, s32ImmPred>;
 def : T_MType_acc_pat2 <M2_nacci, add, sub>;
 
 //===----------------------------------------------------------------------===//
@@ -3303,7 +3298,8 @@ class T_store_pi <string mnemonic, RegisterClass RC, Operand ImmOp,
                      !if (!eq(ImmOpStr, "s4_2Imm"), offset{5-2},
                      !if (!eq(ImmOpStr, "s4_1Imm"), offset{4-1},
                                       /* s4_0Imm */ offset{3-0})));
-    let isNVStorable = !if (!eq(ImmOpStr, "s4_3Imm"), 0, 1);
+    // Store upper-half and store doubleword cannot be NV.
+    let isNVStorable = !if (!eq(ImmOpStr, "s4_3Imm"), 0, !if(isHalf,0,1));
 
     let IClass = 0b1010;
 
@@ -3322,7 +3318,7 @@ class T_store_pi <string mnemonic, RegisterClass RC, Operand ImmOp,
 //===----------------------------------------------------------------------===//
 let isPredicated = 1, hasSideEffects = 0, addrMode = PostInc in
 class T_pstore_pi <string mnemonic, RegisterClass RC, Operand ImmOp,
-                      bits<4> MajOp, bit isHalf, bit isPredNot, bit isPredNew >
+                   bits<4> MajOp, bit isHalf, bit isPredNot, bit isPredNew>
   : STInst <(outs IntRegs:$_dst_),
             (ins PredRegs:$src1, IntRegs:$src2, ImmOp:$offset, RC:$src3),
   !if(isPredNot, "if (!$src1", "if ($src1")#!if(isPredNew, ".new) ",
@@ -3341,7 +3337,8 @@ class T_pstore_pi <string mnemonic, RegisterClass RC, Operand ImmOp,
                      !if (!eq(ImmOpStr, "s4_1Imm"), offset{4-1},
                                       /* s4_0Imm */ offset{3-0})));
 
-    let isNVStorable = !if (!eq(ImmOpStr, "s4_3Imm"), 0, 1);
+    // Store upper-half and store doubleword cannot be NV.
+    let isNVStorable = !if (!eq(ImmOpStr, "s4_3Imm"), 0, !if(isHalf,0,1));
     let isPredicatedNew = isPredNew;
     let isPredicatedFalse = isPredNot;
 
@@ -3404,7 +3401,6 @@ def: Storepi_pat<post_store,      I64, s4_3ImmPred, S2_storerd_pi>;
 //===----------------------------------------------------------------------===//
 // Template class for post increment stores with register offset.
 //===----------------------------------------------------------------------===//
-let isNVStorable = 1 in
 class T_store_pr <string mnemonic, RegisterClass RC, bits<3> MajOp,
                      MemAccessSize AccessSz, bit isHalf = 0>
   : STInst <(outs IntRegs:$_dst_),
@@ -3415,6 +3411,9 @@ class T_store_pr <string mnemonic, RegisterClass RC, bits<3> MajOp,
     bits<1> src2;
     bits<5> src3;
     let accessSize = AccessSz;
+
+    // Store upper-half and store doubleword cannot be NV.
+    let isNVStorable = !if(!eq(mnemonic,"memd"), 0, !if(isHalf,0,1));
 
     let IClass = 0b1010;
 
@@ -3430,12 +3429,11 @@ def S2_storerb_pr : T_store_pr<"memb", IntRegs, 0b000, ByteAccess>;
 def S2_storerh_pr : T_store_pr<"memh", IntRegs, 0b010, HalfWordAccess>;
 def S2_storeri_pr : T_store_pr<"memw", IntRegs, 0b100, WordAccess>;
 def S2_storerd_pr : T_store_pr<"memd", DoubleRegs, 0b110, DoubleWordAccess>;
-
 def S2_storerf_pr : T_store_pr<"memh", IntRegs, 0b011, HalfWordAccess, 1>;
 
 let opExtendable = 1, isExtentSigned = 1, isPredicable = 1 in
 class T_store_io <string mnemonic, RegisterClass RC, Operand ImmOp,
-                 bits<3>MajOp, bit isH = 0>
+                  bits<3> MajOp, bit isH = 0>
   : STInst <(outs),
             (ins IntRegs:$src1, ImmOp:$src2, RC:$src3),
   mnemonic#"($src1+#$src2) = $src3"#!if(isH,".h","")>,
@@ -3455,6 +3453,8 @@ class T_store_io <string mnemonic, RegisterClass RC, Operand ImmOp,
                      !if (!eq(ImmOpStr, "s11_2Ext"), src2{12-2},
                      !if (!eq(ImmOpStr, "s11_1Ext"), src2{11-1},
                                       /* s11_0Ext */ src2{10-0})));
+    // Store upper-half and store doubleword cannot be NV.
+    let isNVStorable = !if (!eq(mnemonic, "memd"), 0, !if(isH,0,1));
     let IClass = 0b1010;
 
     let Inst{27} = 0b0;
@@ -3494,7 +3494,10 @@ class T_pstore_io <string mnemonic, RegisterClass RC, Operand ImmOp,
                      !if (!eq(ImmOpStr, "u6_2Ext"), src3{7-2},
                      !if (!eq(ImmOpStr, "u6_1Ext"), src3{6-1},
                                       /* u6_0Ext */ src3{5-0})));
-     let IClass = 0b0100;
+    // Store upper-half and store doubleword cannot be NV.
+    let isNVStorable = !if (!eq(mnemonic, "memd"), 0, !if(isH,0,1));
+
+    let IClass = 0b0100;
 
     let Inst{27} = 0b0;
     let Inst{26} = PredNot;
@@ -3508,7 +3511,7 @@ class T_pstore_io <string mnemonic, RegisterClass RC, Operand ImmOp,
     let Inst{1-0} = src1;
   }
 
-let isExtendable = 1, isNVStorable = 1, hasSideEffects = 0 in
+let isExtendable = 1, hasSideEffects = 0 in
 multiclass ST_Idxd<string mnemonic, string CextOp, RegisterClass RC,
                  Operand ImmOp, Operand predImmOp, bits<3> MajOp, bit isH = 0> {
   let CextOpcode = CextOp, BaseOpcode = CextOp#_indexed in {
@@ -3665,7 +3668,7 @@ def S2_allocframe: ST0Inst <
 
 // S2_storer[bhwdf]_pci: Store byte/half/word/double.
 // S2_storer[bhwdf]_pci -> S2_storerbnew_pci
-let Uses = [CS], isNVStorable = 1 in
+let Uses = [CS] in
 class T_store_pci <string mnemonic, RegisterClass RC,
                          Operand Imm, bits<4>MajOp,
                          MemAccessSize AlignSize, string RegSrc = "Rt">
@@ -3679,6 +3682,8 @@ class T_store_pci <string mnemonic, RegisterClass RC,
     bits<1> Mu;
     bits<5> Rt;
     let accessSize = AlignSize;
+    let isNVStorable = !if(!eq(mnemonic,"memd"), 0,
+                       !if(!eq(RegSrc,"Rt.h"), 0, 1));
 
     let IClass = 0b1010;
     let Inst{27-25} = 0b100;
@@ -3696,15 +3701,15 @@ class T_store_pci <string mnemonic, RegisterClass RC,
   }
 
 def S2_storerb_pci : T_store_pci<"memb", IntRegs, s4_0Imm, 0b1000,
-                                        ByteAccess>;
+                                 ByteAccess>;
 def S2_storerh_pci : T_store_pci<"memh", IntRegs, s4_1Imm, 0b1010,
-                                        HalfWordAccess>;
+                                 HalfWordAccess>;
 def S2_storerf_pci : T_store_pci<"memh", IntRegs, s4_1Imm, 0b1011,
-                                        HalfWordAccess, "Rt.h">;
+                                 HalfWordAccess, "Rt.h">;
 def S2_storeri_pci : T_store_pci<"memw", IntRegs, s4_2Imm, 0b1100,
-                                        WordAccess>;
+                                 WordAccess>;
 def S2_storerd_pci : T_store_pci<"memd", DoubleRegs, s4_3Imm, 0b1110,
-                                        DoubleWordAccess>;
+                                 DoubleWordAccess>;
 
 let Uses = [CS], isNewValue = 1, mayStore = 1, isNVStore = 1, opNewValue = 4 in
 class T_storenew_pci <string mnemonic, Operand Imm,
@@ -3762,7 +3767,7 @@ def S2_storerd_pci_pseudo : T_store_pci_pseudo <"memd", DoubleRegs>;
 //===----------------------------------------------------------------------===//
 // Circular stores with auto-increment register
 //===----------------------------------------------------------------------===//
-let Uses = [CS], isNVStorable = 1 in
+let Uses = [CS] in
 class T_store_pcr <string mnemonic, RegisterClass RC, bits<4>MajOp,
                                MemAccessSize AlignSize, string RegSrc = "Rt">
   : STInst <(outs IntRegs:$_dst_),
@@ -3775,6 +3780,8 @@ class T_store_pcr <string mnemonic, RegisterClass RC, bits<4>MajOp,
     bits<5> Rt;
 
     let accessSize = AlignSize;
+    let isNVStorable = !if(!eq(mnemonic,"memd"), 0,
+                       !if(!eq(RegSrc,"Rt.h"), 0, 1));
 
     let IClass = 0b1010;
     let Inst{27-25} = 0b100;
@@ -4191,12 +4198,27 @@ def S2_clb     : T_COUNT_LEADING_32<"clb",     0b000, 0b100>;
 def S2_clbp    : T_COUNT_LEADING_64<"clb",     0b010, 0b000>;
 def S2_clbnorm : T_COUNT_LEADING_32<"normamt", 0b000, 0b111>;
 
-def: Pat<(i32 (ctlz I32:$Rs)),                (S2_cl0 I32:$Rs)>;
-def: Pat<(i32 (ctlz (not I32:$Rs))),          (S2_cl1 I32:$Rs)>;
-def: Pat<(i32 (cttz I32:$Rs)),                (S2_ct0 I32:$Rs)>;
-def: Pat<(i32 (cttz (not I32:$Rs))),          (S2_ct1 I32:$Rs)>;
-def: Pat<(i32 (trunc (ctlz I64:$Rss))),       (S2_cl0p I64:$Rss)>;
+// Count leading zeros.
+def: Pat<(i32 (ctlz I32:$Rs)), (S2_cl0 I32:$Rs)>;
+def: Pat<(i32 (trunc (ctlz I64:$Rss))), (S2_cl0p I64:$Rss)>;
+def: Pat<(i32 (ctlz_zero_undef I32:$Rs)), (S2_cl0 I32:$Rs)>;
+def: Pat<(i32 (trunc (ctlz_zero_undef I64:$Rss))), (S2_cl0p I64:$Rss)>;
+
+// Count trailing zeros: 32-bit.
+def: Pat<(i32 (cttz I32:$Rs)), (S2_ct0 I32:$Rs)>;
+def: Pat<(i32 (cttz_zero_undef I32:$Rs)), (S2_ct0 I32:$Rs)>;
+
+// Count leading ones.
+def: Pat<(i32 (ctlz (not I32:$Rs))), (S2_cl1 I32:$Rs)>;
 def: Pat<(i32 (trunc (ctlz (not I64:$Rss)))), (S2_cl1p I64:$Rss)>;
+def: Pat<(i32 (ctlz_zero_undef (not I32:$Rs))), (S2_cl1 I32:$Rs)>;
+def: Pat<(i32 (trunc (ctlz_zero_undef (not I64:$Rss)))), (S2_cl1p I64:$Rss)>;
+
+// Count trailing ones: 32-bit.
+def: Pat<(i32 (cttz (not I32:$Rs))), (S2_ct1 I32:$Rs)>;
+def: Pat<(i32 (cttz_zero_undef (not I32:$Rs))), (S2_ct1 I32:$Rs)>;
+
+// The 64-bit counts leading/trailing are defined in HexagonInstrInfoV4.td.
 
 // Bit set/clear/toggle
 
@@ -4526,10 +4548,18 @@ def Y2_barrier : SYSInst<(outs), (ins),
 // SYSTEM/SUPER -
 //===----------------------------------------------------------------------===//
 
-// Generate frameindex addresses.
+// Generate frameindex addresses. The main reason for the offset operand is
+// that every instruction that is allowed to have frame index as an operand
+// will then have that operand followed by an immediate operand (the offset).
+// This simplifies the frame-index elimination code.
+//
 let isMoveImm = 1, isAsCheapAsAMove = 1, isReMaterializable = 1,
-    isPseudo = 1, isCodeGenOnly = 1, hasSideEffects = 0 in
-def TFR_FI: ALU32_ri<(outs IntRegs:$Rd), (ins IntRegs:$fi, s32Imm:$Off), "">;
+    isPseudo = 1, isCodeGenOnly = 1, hasSideEffects = 0 in {
+  def TFR_FI  : ALU32_ri<(outs IntRegs:$Rd),
+                         (ins IntRegs:$fi, s32Imm:$off), "">;
+  def TFR_FIA : ALU32_ri<(outs IntRegs:$Rd),
+                         (ins IntRegs:$Rs, IntRegs:$fi, s32Imm:$off), "">;
+}
 
 //===----------------------------------------------------------------------===//
 // CRUSER - Type.
@@ -4815,12 +4845,6 @@ def CONST32 : CONSTLDInst<(outs IntRegs:$dst), (ins globaladdress:$global),
               [(set (i32 IntRegs:$dst),
                     (load (HexagonCONST32 tglobaltlsaddr:$global)))]>;
 
-let isReMaterializable = 1, isMoveImm = 1 in
-def CONST32_set_jt : CONSTLDInst<(outs IntRegs:$dst), (ins jumptablebase:$jt),
-                     "$dst = CONST32(#$jt)",
-                     [(set (i32 IntRegs:$dst),
-                           (HexagonCONST32 tjumptable:$jt))]>;
-
 let isReMaterializable = 1, isMoveImm = 1, isAsmParserOnly = 1 in
 def CONST32_Int_Real : CONSTLDInst<(outs IntRegs:$dst), (ins i32imm:$global),
                        "$dst = CONST32(#$global)",
@@ -4828,12 +4852,7 @@ def CONST32_Int_Real : CONSTLDInst<(outs IntRegs:$dst), (ins i32imm:$global),
 
 // Map TLS addressses to a CONST32 instruction
 def: Pat<(HexagonCONST32 tglobaltlsaddr:$addr), (A2_tfrsi s16Ext:$addr)>;
-def: Pat<(HexagonCONST32 bbl:$label), (A2_tfrsi s16Ext:$label)>;
-
-let isReMaterializable = 1, isMoveImm = 1, isAsmParserOnly = 1 in
-def CONST32_Label : LDInst2<(outs IntRegs:$dst), (ins bblabel:$label),
-                    "$dst = CONST32($label)",
-                    [(set (i32 IntRegs:$dst), (HexagonCONST32 bbl:$label))]>;
+def: Pat<(HexagonCONST32 bbl:$label),           (A2_tfrsi s16Ext:$label)>;
 
 let isReMaterializable = 1, isMoveImm = 1, isAsmParserOnly = 1 in
 def CONST64_Int_Real : CONSTLDInst<(outs DoubleRegs:$dst), (ins i64imm:$global),
@@ -5105,21 +5124,25 @@ def : Pat <(mulhu (i64 DoubleRegs:$src1), (i64 DoubleRegs:$src2)),
 )>;
 
 // Hexagon specific ISD nodes.
-def SDTHexagonADJDYNALLOC : SDTypeProfile<1, 2, [SDTCisVT<0, i32>,
-                                                 SDTCisVT<1, i32>]>;
-def SDTHexagonARGEXTEND   : SDTypeProfile<1, 1, [SDTCisVT<0, i32>]>;
+def SDTHexagonALLOCA : SDTypeProfile<1, 2,
+      [SDTCisVT<0, i32>, SDTCisVT<1, i32>]>;
+def HexagonALLOCA : SDNode<"HexagonISD::ALLOCA", SDTHexagonALLOCA,
+      [SDNPHasChain]>;
 
-def Hexagon_ADJDYNALLOC : SDNode<"HexagonISD::ADJDYNALLOC",
-                                  SDTHexagonADJDYNALLOC>;
-def Hexagon_ARGEXTEND   : SDNode<"HexagonISD::ARGEXTEND", SDTHexagonARGEXTEND>;
+// The reason for the custom inserter is to record all ALLOCA instructions
+// in MachineFunctionInfo.
+let Defs = [R29], isCodeGenOnly = 1, isPseudo = 1, hasSideEffects = 1,
+    usesCustomInserter = 1 in
+def ALLOCA: ALU32Inst<(outs IntRegs:$Rd),
+      (ins IntRegs:$Rs, u32Imm:$A), "",
+      [(set (i32 IntRegs:$Rd),
+            (HexagonALLOCA (i32 IntRegs:$Rs), (i32 imm:$A)))]>;
 
-// Needed to tag these instructions for stack layout.
-let isCodeGenOnly = 1, usesCustomInserter = 1 in
-def ADJDYNALLOC : T_Addri<s6Imm>;
+let isCodeGenOnly = 1, isPseudo = 1, Uses = [R30], hasSideEffects = 0 in
+def ALIGNA : ALU32Inst<(outs IntRegs:$Rd), (ins u32Imm:$A), "", []>;
 
-def: Pat<(Hexagon_ADJDYNALLOC I32:$Rs, s16ImmPred:$s16),
-         (ADJDYNALLOC I32:$Rs, imm:$s16)>;
-
+def SDTHexagonARGEXTEND : SDTypeProfile<1, 1, [SDTCisVT<0, i32>]>;
+def Hexagon_ARGEXTEND : SDNode<"HexagonISD::ARGEXTEND", SDTHexagonARGEXTEND>;
 let isCodeGenOnly = 1 in
 def ARGEXTEND : ALU32_rr <(outs IntRegs:$dst), (ins IntRegs:$src1),
                 "$dst = $src1",
@@ -5133,10 +5156,8 @@ def: Pat<(i32 (sext_inreg (Hexagon_ARGEXTEND (i32 IntRegs:$src1)), i16)),
 def HexagonJT:     SDNode<"HexagonISD::JT", SDTIntUnaryOp>;
 def HexagonCP:     SDNode<"HexagonISD::CP", SDTIntUnaryOp>;
 
-def: Pat<(HexagonJT tjumptable:$dst),
-         (CONST32_set_jt tjumptable:$dst)>;
-def: Pat<(HexagonCP tconstpool :$dst),
-         (CONST32_set_jt tconstpool:$dst)>;
+def: Pat<(HexagonJT tjumptable:$dst), (A2_tfrsi s16Ext:$dst)>;
+def: Pat<(HexagonCP tconstpool:$dst), (A2_tfrsi s16Ext:$dst)>;
 
 // XTYPE/SHIFT
 //
@@ -5574,40 +5595,33 @@ def S2_insertp_rp : T_S3op_insert<"insert", DoubleRegs>;
 def S2_insertp    : T_S2op_insert <0b0011, DoubleRegs, u6Imm>;
 
 
-def SDTHexagonINSERT_ri : SDTypeProfile<1, 4, [SDTCisVT<0, i32>,
-                                               SDTCisVT<1, i32>,
-                                               SDTCisVT<2, i32>,
-                                               SDTCisVT<3, i32>,
-                                               SDTCisVT<4, i32>]>;
-def SDTHexagonINSERT_rd : SDTypeProfile<1, 4, [SDTCisVT<0, i64>,
-                                               SDTCisVT<1, i64>,
-                                               SDTCisVT<2, i64>,
-                                               SDTCisVT<3, i32>,
-                                               SDTCisVT<4, i32>]>;
-def SDTHexagonINSERT_riv : SDTypeProfile<1, 3, [SDTCisVT<0, i32>,
-                                                SDTCisVT<1, i32>,
-                                                SDTCisVT<2, i32>,
-                                                SDTCisVT<3, i64>]>;
-def SDTHexagonINSERT_rdv : SDTypeProfile<1, 3, [SDTCisVT<0, i64>,
-                                                SDTCisVT<1, i64>,
-                                                SDTCisVT<2, i64>,
-                                                SDTCisVT<3, i64>]>;
-def HexagonINSERT_ri : SDNode<"HexagonISD::INSERT_ri",  SDTHexagonINSERT_ri>;
-def HexagonINSERT_rd : SDNode<"HexagonISD::INSERT_rd",  SDTHexagonINSERT_rd>;
-def HexagonINSERT_riv: SDNode<"HexagonISD::INSERT_riv", SDTHexagonINSERT_riv>;
-def HexagonINSERT_rdv: SDNode<"HexagonISD::INSERT_rdv", SDTHexagonINSERT_rdv>;
+def SDTHexagonINSERT:
+  SDTypeProfile<1, 4, [SDTCisSameAs<0, 1>, SDTCisSameAs<0, 2>,
+                       SDTCisInt<0>, SDTCisVT<3, i32>, SDTCisVT<4, i32>]>;
+def SDTHexagonINSERTRP:
+  SDTypeProfile<1, 3, [SDTCisSameAs<0, 1>, SDTCisSameAs<0, 2>,
+                       SDTCisInt<0>, SDTCisVT<3, i64>]>;
 
-def: Pat<(HexagonINSERT_ri I32:$Rs, I32:$Rt, u5ImmPred:$u1, u5ImmPred:$u2),
+def HexagonINSERT   : SDNode<"HexagonISD::INSERT",   SDTHexagonINSERT>;
+def HexagonINSERTRP : SDNode<"HexagonISD::INSERTRP", SDTHexagonINSERTRP>;
+
+def: Pat<(HexagonINSERT I32:$Rs, I32:$Rt, u5ImmPred:$u1, u5ImmPred:$u2),
          (S2_insert I32:$Rs, I32:$Rt, u5ImmPred:$u1, u5ImmPred:$u2)>;
-
-def: Pat<(HexagonINSERT_rd I64:$Rs, I64:$Rt, u6ImmPred:$u1, u6ImmPred:$u2),
+def: Pat<(HexagonINSERT I64:$Rs, I64:$Rt, u6ImmPred:$u1, u6ImmPred:$u2),
          (S2_insertp I64:$Rs, I64:$Rt, u6ImmPred:$u1, u6ImmPred:$u2)>;
-
-def: Pat<(HexagonINSERT_riv I32:$Rs, I32:$Rt, I64:$Ru),
+def: Pat<(HexagonINSERTRP I32:$Rs, I32:$Rt, I64:$Ru),
          (S2_insert_rp I32:$Rs, I32:$Rt, I64:$Ru)>;
-
-def: Pat<(HexagonINSERT_rdv I64:$Rs, I64:$Rt, I64:$Ru),
+def: Pat<(HexagonINSERTRP I64:$Rs, I64:$Rt, I64:$Ru),
          (S2_insertp_rp I64:$Rs, I64:$Rt, I64:$Ru)>;
+
+let AddedComplexity = 100 in
+def: Pat<(or (or (shl (HexagonINSERT (i32 (zextloadi8 (add I32:$b, 2))),
+                                     (i32 (extloadi8  (add I32:$b, 3))),
+                                     24, 8),
+                      (i32 16)),
+                 (shl (i32 (zextloadi8 (add I32:$b, 1))), (i32 8))),
+             (zextloadi8 I32:$b)),
+         (A2_swiz (L2_loadri_io I32:$b, 0))>;
 
 
 //===----------------------------------------------------------------------===//
@@ -5676,35 +5690,23 @@ let hasNewValue = 1 in {
   def S2_extractu    : T_S2op_extract <"extractu", 0b1101, IntRegs, u5Imm>;
 }
 
-def SDTHexagonEXTRACTU_ri : SDTypeProfile<1, 3, [SDTCisVT<0, i32>,
-                                                 SDTCisVT<1, i32>,
-                                                 SDTCisVT<2, i32>,
-                                                 SDTCisVT<3, i32>]>;
-def SDTHexagonEXTRACTU_rd : SDTypeProfile<1, 3, [SDTCisVT<0, i64>,
-                                                 SDTCisVT<1, i64>,
-                                                 SDTCisVT<2, i32>,
-                                                 SDTCisVT<3, i32>]>;
-def SDTHexagonEXTRACTU_riv : SDTypeProfile<1, 2, [SDTCisVT<0, i32>,
-                                                  SDTCisVT<1, i32>,
-                                                  SDTCisVT<2, i64>]>;
-def SDTHexagonEXTRACTU_rdv : SDTypeProfile<1, 2, [SDTCisVT<0, i64>,
-                                                  SDTCisVT<1, i64>,
-                                                  SDTCisVT<2, i64>]>;
-def HexagonEXTRACTU_ri : SDNode<"HexagonISD::EXTRACTU_ri",  SDTHexagonEXTRACTU_ri>;
-def HexagonEXTRACTU_rd : SDNode<"HexagonISD::EXTRACTU_rd",  SDTHexagonEXTRACTU_rd>;
-def HexagonEXTRACTU_riv: SDNode<"HexagonISD::EXTRACTU_riv", SDTHexagonEXTRACTU_riv>;
-def HexagonEXTRACTU_rdv: SDNode<"HexagonISD::EXTRACTU_rdv", SDTHexagonEXTRACTU_rdv>;
+def SDTHexagonEXTRACTU:
+  SDTypeProfile<1, 3, [SDTCisSameAs<0, 1>, SDTCisInt<0>, SDTCisInt<1>,
+                       SDTCisVT<2, i32>, SDTCisVT<3, i32>]>;
+def SDTHexagonEXTRACTURP:
+  SDTypeProfile<1, 2, [SDTCisSameAs<0, 1>, SDTCisInt<0>, SDTCisInt<1>,
+                       SDTCisVT<2, i64>]>;
 
-def: Pat<(HexagonEXTRACTU_ri I32:$src1, u5ImmPred:$src2, u5ImmPred:$src3),
+def HexagonEXTRACTU   : SDNode<"HexagonISD::EXTRACTU",   SDTHexagonEXTRACTU>;
+def HexagonEXTRACTURP : SDNode<"HexagonISD::EXTRACTURP", SDTHexagonEXTRACTURP>;
+
+def: Pat<(HexagonEXTRACTU I32:$src1, u5ImmPred:$src2, u5ImmPred:$src3),
          (S2_extractu I32:$src1, u5ImmPred:$src2, u5ImmPred:$src3)>;
-
-def: Pat<(HexagonEXTRACTU_rd I64:$src1, u6ImmPred:$src2, u6ImmPred:$src3),
+def: Pat<(HexagonEXTRACTU I64:$src1, u6ImmPred:$src2, u6ImmPred:$src3),
          (S2_extractup I64:$src1, u6ImmPred:$src2, u6ImmPred:$src3)>;
-
-def: Pat<(HexagonEXTRACTU_riv I32:$src1, I64:$src2),
+def: Pat<(HexagonEXTRACTURP I32:$src1, I64:$src2),
          (S2_extractu_rp I32:$src1, I64:$src2)>;
-
-def: Pat<(HexagonEXTRACTU_rdv I64:$src1, I64:$src2),
+def: Pat<(HexagonEXTRACTURP I64:$src1, I64:$src2),
          (S2_extractup_rp I64:$src1, I64:$src2)>;
 
 // Change the sign of the immediate for Rd=-mpyi(Rs,#u8)
@@ -5789,7 +5791,19 @@ include "HexagonInstrInfoV5.td"
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
+// V60 Instructions +
+//===----------------------------------------------------------------------===//
+
+include "HexagonInstrInfoV60.td"
+
+//===----------------------------------------------------------------------===//
+// V60 Instructions -
+//===----------------------------------------------------------------------===//
+
+//===----------------------------------------------------------------------===//
 // ALU32/64/Vector +
 //===----------------------------------------------------------------------===///
 
 include "HexagonInstrInfoVector.td"
+
+include "HexagonInstrAlias.td"

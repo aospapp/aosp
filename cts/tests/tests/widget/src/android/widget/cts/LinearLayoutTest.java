@@ -20,18 +20,24 @@ import org.xmlpull.v1.XmlPullParser;
 
 import android.app.Activity;
 import android.content.Context;
+import android.graphics.Color;
 import android.test.ActivityInstrumentationTestCase;
 import android.test.ViewAsserts;
 import android.util.AttributeSet;
 import android.util.Xml;
+import android.view.View;
+import android.view.View.MeasureSpec;
 import android.view.ViewGroup;
-import android.widget.LinearLayout.LayoutParams;
+import android.view.ViewTreeObserver;
 import android.widget.AbsoluteLayout;
 import android.widget.LinearLayout;
+import android.widget.LinearLayout.LayoutParams;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.cts.R;
 
-import com.android.cts.widget.R;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Test {@link LinearLayout}.
@@ -41,7 +47,7 @@ public class LinearLayoutTest extends ActivityInstrumentationTestCase<LinearLayo
     private Activity mActivity;
 
     public LinearLayoutTest() {
-        super("com.android.cts.widget", LinearLayoutCtsActivity.class);
+        super("android.widget.cts", LinearLayoutCtsActivity.class);
     }
 
     @Override
@@ -171,6 +177,54 @@ public class LinearLayoutTest extends ActivityInstrumentationTestCase<LinearLayo
         assertEquals(Math.ceil(parentWidth * 0.3), weight03.getWidth(), 1.0);
     }
 
+    public void testWeightDistribution() {
+        LinearLayout layout = new LinearLayout(mActivity);
+        for (int i = 0; i < 3; i++) {
+            layout.addView(new View(mActivity), new LayoutParams(0, 0, 1));
+        }
+
+        int size = 100;
+        int spec = MeasureSpec.makeMeasureSpec(size, MeasureSpec.EXACTLY);
+
+        for (int i = 0; i < 3; i++) {
+            View child = layout.getChildAt(i);
+            LayoutParams lp = (LayoutParams) child.getLayoutParams();
+            lp.height = 0;
+            lp.width = LayoutParams.MATCH_PARENT;
+            child.setLayoutParams(lp);
+        }
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.measure(spec, spec);
+        layout.layout(0, 0, size, size);
+        assertEquals(100, layout.getWidth());
+        assertEquals(100, layout.getChildAt(0).getWidth());
+        assertEquals(100, layout.getChildAt(1).getWidth());
+        assertEquals(100, layout.getChildAt(2).getWidth());
+        assertEquals(100, layout.getHeight());
+        assertEquals(33, layout.getChildAt(0).getHeight());
+        assertEquals(33, layout.getChildAt(1).getHeight());
+        assertEquals(34, layout.getChildAt(2).getHeight());
+
+        for (int i = 0; i < 3; i++) {
+            View child = layout.getChildAt(i);
+            LayoutParams lp = (LayoutParams) child.getLayoutParams();
+            lp.height = LayoutParams.MATCH_PARENT;
+            lp.width = 0;
+            child.setLayoutParams(lp);
+        }
+        layout.setOrientation(LinearLayout.HORIZONTAL);
+        layout.measure(spec, spec);
+        layout.layout(0, 0, size, size);
+        assertEquals(100, layout.getWidth());
+        assertEquals(33, layout.getChildAt(0).getWidth());
+        assertEquals(33, layout.getChildAt(1).getWidth());
+        assertEquals(34, layout.getChildAt(2).getWidth());
+        assertEquals(100, layout.getHeight());
+        assertEquals(100, layout.getChildAt(0).getHeight());
+        assertEquals(100, layout.getChildAt(1).getHeight());
+        assertEquals(100, layout.getChildAt(2).getHeight());
+    }
+
     public void testGenerateLayoutParams() {
         ViewGroup.LayoutParams lp = new ViewGroup.LayoutParams(320, 240);
         MockLinearLayout mockLinearLayout = new MockLinearLayout(mContext);
@@ -216,6 +270,24 @@ public class LinearLayoutTest extends ActivityInstrumentationTestCase<LinearLayo
 
         mockLinearLayout.setOrientation(-1);
         assertNull(mockLinearLayout.generateDefaultLayoutParams());
+    }
+
+    public void testGenerateLayoutParamsFromMarginParams() {
+        MockLinearLayout layout = new MockLinearLayout(mContext);
+        ViewGroup.MarginLayoutParams lp = new ViewGroup.MarginLayoutParams(3, 5);
+        lp.leftMargin = 1;
+        lp.topMargin = 2;
+        lp.rightMargin = 3;
+        lp.bottomMargin = 4;
+        LinearLayout.LayoutParams generated = layout.generateLayoutParams(lp);
+        assertNotNull(generated);
+        assertEquals(3, generated.width);
+        assertEquals(5, generated.height);
+
+        assertEquals(1, generated.leftMargin);
+        assertEquals(2, generated.topMargin);
+        assertEquals(3, generated.rightMargin);
+        assertEquals(4, generated.bottomMargin);
     }
 
     /**
@@ -325,6 +397,78 @@ public class LinearLayoutTest extends ActivityInstrumentationTestCase<LinearLayo
         assertEquals(parent.getHeight(), rightView.getBottom());
         assertEquals(parent.getWidth() - rightView.getWidth(), rightView.getLeft());
         assertEquals(parent.getWidth(), rightView.getRight());
+    }
+
+    private void checkBounds(final ViewGroup viewGroup, final View view,
+            final CountDownLatch countDownLatch, final int left, final int top,
+            final int width, final int height) {
+        viewGroup.getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener() {
+            @Override
+            public boolean onPreDraw() {
+                assertEquals(left, view.getLeft());
+                assertEquals(top, view.getTop());
+                assertEquals(width, view.getWidth());
+                assertEquals(height, view.getHeight());
+                countDownLatch.countDown();
+                viewGroup.getViewTreeObserver().removeOnPreDrawListener(this);
+                return true;
+            }
+        });
+    }
+
+    public void testVisibilityAffectsLayout() throws Throwable {
+        // Toggling view visibility between GONE/VISIBLE can affect the position of
+        // other children in that container. This test verifies that these changes
+        // on the first child of a LinearLayout affects the position of a second child
+        final int childWidth = 100;
+        final int childHeight = 200;
+        final LinearLayout parent = new LinearLayout(mActivity);
+        ViewGroup.LayoutParams parentParams = new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        parent.setLayoutParams(parentParams);
+        final View child1 = new View(mActivity);
+        child1.setBackgroundColor(Color.GREEN);
+        ViewGroup.LayoutParams childParams = new ViewGroup.LayoutParams(childWidth, childHeight);
+        child1.setLayoutParams(childParams);
+        final View child2 = new View(mActivity);
+        child2.setBackgroundColor(Color.RED);
+        childParams = new ViewGroup.LayoutParams(childWidth, childHeight);
+        child2.setLayoutParams(childParams);
+        final ViewGroup viewGroup = (ViewGroup) mActivity.findViewById(R.id.linearlayout_root);
+
+        final CountDownLatch countDownLatch1 = new CountDownLatch(1);
+        runTestOnUiThread(new Runnable() {
+            public void run() {
+                viewGroup.removeAllViews();
+                viewGroup.addView(parent);
+                parent.addView(child1);
+                parent.addView(child2);
+                checkBounds(viewGroup, child1, countDownLatch1, 0, 0, childWidth, childHeight);
+                checkBounds(viewGroup, child2, countDownLatch1,
+                        childWidth, 0, childWidth, childHeight);
+            }
+        });
+        countDownLatch1.await(500, TimeUnit.MILLISECONDS);
+
+        final CountDownLatch countDownLatch2 = new CountDownLatch(1);
+        runTestOnUiThread(new Runnable() {
+            public void run() {
+                child1.setVisibility(View.GONE);
+                checkBounds(viewGroup, child2, countDownLatch2, 0, 0, childWidth, childHeight);
+            }
+        });
+        countDownLatch2.await(500, TimeUnit.MILLISECONDS);
+
+        final CountDownLatch countDownLatch3 = new CountDownLatch(2);
+        runTestOnUiThread(new Runnable() {
+            public void run() {
+                child1.setVisibility(View.VISIBLE);
+                checkBounds(viewGroup, child1, countDownLatch3, 0, 0, childWidth, childHeight);
+                checkBounds(viewGroup, child2, countDownLatch3,
+                        childWidth, 0, childWidth, childHeight);
+            }
+        });
+        countDownLatch3.await(500, TimeUnit.MILLISECONDS);
     }
 
     private class MockListView extends ListView {

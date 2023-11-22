@@ -117,6 +117,22 @@ public class DrawableContainerStateTest extends TestCase{
         assertTrue(mDrawableContainerState.isStateful());
     }
 
+    public void testAccessEnterFadeDuration() {
+        mDrawableContainerState.setEnterFadeDuration(1000);
+        assertEquals(1000, mDrawableContainerState.getEnterFadeDuration());
+
+        mDrawableContainerState.setEnterFadeDuration(-1000);
+        assertEquals(-1000, mDrawableContainerState.getEnterFadeDuration());
+    }
+
+    public void testAccessExitFadeDuration() {
+        mDrawableContainerState.setExitFadeDuration(1000);
+        assertEquals(1000, mDrawableContainerState.getExitFadeDuration());
+
+        mDrawableContainerState.setExitFadeDuration(-1000);
+        assertEquals(-1000, mDrawableContainerState.getExitFadeDuration());
+    }
+
     public void testAccessConstantSize() {
         mDrawableContainerState.setConstantSize(true);
         assertTrue(mDrawableContainerState.isConstantSize());
@@ -236,13 +252,30 @@ public class DrawableContainerStateTest extends TestCase{
         assertEquals(PixelFormat.UNKNOWN, mDrawableContainerState.getOpacity());
     }
 
-    public void testCanConstantState(){
+    public void testCanConstantState() {
+        DrawableContainer dr = new LevelListDrawable();
+        DrawableContainerState cs = (DrawableContainerState) dr.getConstantState();
+        assertTrue(cs.canConstantState());
+
+        cs.addChild(new MockDrawable());
+        assertFalse(cs.canConstantState());
     }
 
-    public void testGetChangingConfigurations(){
-    }
+    public void testGrowArray() {
+        DrawableContainer dr = new LevelListDrawable();
+        DrawableContainerState cs = (DrawableContainerState) dr.getConstantState();
 
-    public void testGrowArray(){
+        // Default capacity is undefined, so pin it to 0.
+        cs.growArray(0, 0);
+        try {
+            cs.getChild(10);
+            fail("Expected IndexOutOfBoundsException");
+        } catch (IndexOutOfBoundsException e) {
+            // Yay!
+        }
+
+        cs.growArray(0, 10);
+        cs.getChild(9);
     }
 
     private class MockDrawable extends Drawable {

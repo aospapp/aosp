@@ -19,7 +19,7 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.renderscriptlegacy">
+    package="android.renderscriptlegacy.cts">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <application>
@@ -28,7 +28,7 @@
 
     <!-- This is a self-instrumenting test package. -->
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.renderscriptlegacy"
+                     android:targetPackage="android.renderscriptlegacy.cts"
                      android:label="CTS tests of Renderscript component">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

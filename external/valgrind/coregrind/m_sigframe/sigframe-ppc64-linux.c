@@ -8,9 +8,9 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2000-2013 Nicholas Nethercote
+   Copyright (C) 2000-2015 Nicholas Nethercote
       njn@valgrind.org
-   Copyright (C) 2004-2013 Paul Mackerras
+   Copyright (C) 2004-2015 Paul Mackerras
       paulus@samba.org
 
    This program is free software; you can redistribute it and/or
@@ -134,6 +134,7 @@ struct rt_sigframe {
 
 /* EXPORTED */
 void VG_(sigframe_create)( ThreadId tid, 
+                           Bool on_altstack,
                            Addr sp_top_of_frame,
                            const vki_siginfo_t *siginfo,
                            const struct vki_ucontext *siguc,
@@ -278,7 +279,7 @@ void VG_(sigframe_create)( ThreadId tid,
    if (0)
       VG_(printf)("pushed signal frame; %%R1 now = %#lx, "
                   "next %%CIA = %#llx, status=%d\n",
-		  sp, tst->arch.vex.guest_CIA, tst->status);
+		  sp, tst->arch.vex.guest_CIA, (Int)tst->status);
 }
 
 
@@ -344,7 +345,7 @@ void VG_(sigframe_destroy)( ThreadId tid, Bool isRT )
 
    if (VG_(clo_trace_signals))
       VG_(message)(Vg_DebugMsg,
-                   "vg_pop_signal_frame (thread %d): isRT=%d "
+                   "vg_pop_signal_frame (thread %u): isRT=%d "
                    "valid magic; EIP=%#llx\n",
                    tid, has_siginfo, tst->arch.vex.guest_CIA);
 

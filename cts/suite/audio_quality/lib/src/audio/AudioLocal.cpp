@@ -23,7 +23,7 @@ bool AudioLocal::prepare(AudioHardware::SamplingRate samplingRate,  int gain, in
     // gain control not necessary in MobilePre as there is no control.
     // This means audio source itself should be adjusted to control volume
     if (mState == EStNone) {
-        if (run() != android::NO_ERROR) {
+        if (run("AudioLocal") != android::NO_ERROR) {
             LOGE("AudioLocal cannot run");
             // cannot run thread
             return false;

@@ -188,7 +188,7 @@ static void TestSurrogateBehaviour(){
 
         int32_t offsets[] = {0,0,0,0,0,1,1,2,2,2,2,3,5 };
 
-        // iso-2022-jp  android-change
+        /*iso-2022-jp*/
         if(!convertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
                 expected, sizeof(expected), "iso-2022-jp", 0 , TRUE, U_ZERO_ERROR))
             log_err("u-> not match.\n");
@@ -200,7 +200,7 @@ static void TestSurrogateBehaviour(){
    /* BEGIN android-removed */
    /* To save space, Android does not build full ISO-2022-CN tables.
       We skip the tests for ISO-2022-CN. */
-   /*
+   /* 
     log_verbose("Testing for ISO-2022-cn\n");
     {
         static const UChar    sampleText[] =   { 0x4e00, 0x04e01, 0x0031, 0xd801, 0xdc01, 0x0032};
@@ -254,7 +254,7 @@ static void TestSurrogateBehaviour(){
                               7,
                             };
 
-        // iso-2022-kr  android-change
+        /*iso-2022-kr*/
         if(!convertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
                 expected, sizeof(expected), "iso-2022-kr", 0 , TRUE, U_ZERO_ERROR))
             log_err("u-> iso-2022-kr [UCNV_DBCS] not match.\n");
@@ -447,7 +447,7 @@ static void TestErrorBehaviour(){
             log_err("u-> euc-jp [UCNV_MBCS] \n");
     }
 
-    // iso-2022-jp  android-change
+    /*iso-2022-jp*/
     log_verbose("Testing for iso-2022-jp\n");
     {
         static const UChar    sampleText[]    = { 0x0031, 0xd801};
@@ -496,8 +496,8 @@ static void TestErrorBehaviour(){
     /* BEGIN android-removed */
     /* To save space, Android does not build full ISO-2022-CN tables.
        We skip the tests for ISO-2022-CN. */
+    /*iso-2022-cn*/
     /*
-    // iso-2022-cn  android-change
     log_verbose("Testing for iso-2022-cn\n");
     {
         static const UChar    sampleText[]    = { 0x0031, 0xd801};
@@ -550,7 +550,7 @@ static void TestErrorBehaviour(){
     */
     /* END android-removed */
 
-    // iso-2022-kr  android-change
+    /*iso-2022-kr*/
     log_verbose("Testing for iso-2022-kr\n");
     {
         static const UChar    sampleText[]    = { 0x0031, 0xd801};
@@ -1590,7 +1590,7 @@ static void TestResetBehaviour(void){
                                     0x31,0x1A, 0x32};
         static const int32_t offsets1[] =  { 3,5,10,11,12};
 
-        // iso-2022-jp  android-change
+        /*iso-2022-jp*/
         if(!testConvertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
                 expected, sizeof(expected), "iso-2022-jp",  UCNV_FROM_U_CALLBACK_SUBSTITUTE , NULL, TRUE))
             log_err("u-> not match.\n");
@@ -1690,7 +1690,7 @@ static void TestResetBehaviour(void){
                               13, 14, 15  
                       
                             };
-        // iso-2022-kr  android-change
+        /*iso-2022-kr*/
         if(!testConvertFromU(sampleText, sizeof(sampleText)/sizeof(sampleText[0]),
                 expected, sizeof(expected), "iso-2022-kr",  UCNV_FROM_U_CALLBACK_SUBSTITUTE , NULL, TRUE))
             log_err("u-> iso-2022-kr [UCNV_DBCS] not match.\n");

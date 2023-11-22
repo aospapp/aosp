@@ -30,19 +30,22 @@
 
 namespace tcu
 {
+namespace win32
+{
 
-class Win32EGLNativeDisplayFactory : public eglu::NativeDisplayFactory
+class EGLNativeDisplayFactory : public eglu::NativeDisplayFactory
 {
 public:
-									Win32EGLNativeDisplayFactory	(HINSTANCE instance);
-	virtual							~Win32EGLNativeDisplayFactory	(void);
+									EGLNativeDisplayFactory		(HINSTANCE instance);
+	virtual							~EGLNativeDisplayFactory	(void);
 
-	virtual eglu::NativeDisplay*	createDisplay					(const eglw::EGLAttrib* attribList) const;
+	virtual eglu::NativeDisplay*	createDisplay				(const eglw::EGLAttrib* attribList) const;
 
 private:
 	const HINSTANCE					m_instance;
 };
 
+} // win32
 } // tcu
 
 #endif // _TCUWIN32EGLNATIVEDISPLAYFACTORY_HPP

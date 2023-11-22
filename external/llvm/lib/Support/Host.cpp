@@ -368,7 +368,13 @@ StringRef sys::getHostCPUName() {
 
       // Broadwell:
       case 61:
+      case 71:
         return "broadwell";
+
+      // Skylake:
+      case 78:
+      case 94:
+        return "skylake";
 
       case 28: // Most 45 nm Intel Atom processors
       case 38: // 45 nm Atom Lincroft
@@ -381,6 +387,8 @@ StringRef sys::getHostCPUName() {
       case 55:
       case 74:
       case 77:
+      case 90:
+      case 93:
         return "silvermont";
 
       default: // Unknown family 6 CPU, try to guess.
@@ -682,6 +690,28 @@ StringRef sys::getHostCPUName() {
   StringRef Str(buffer, CPUInfoSize);
   SmallVector<StringRef, 32> Lines;
   Str.split(Lines, "\n");
+
+  // Look for the CPU features.
+  SmallVector<StringRef, 32> CPUFeatures;
+  for (unsigned I = 0, E = Lines.size(); I != E; ++I)
+    if (Lines[I].startswith("features")) {
+      size_t Pos = Lines[I].find(":");
+      if (Pos != StringRef::npos) {
+        Lines[I].drop_front(Pos + 1).split(CPUFeatures, ' ');
+        break;
+      }
+    }
+
+  // We need to check for the presence of vector support independently of
+  // the machine type, since we may only use the vector register set when
+  // supported by the kernel (and hypervisor).
+  bool HaveVectorSupport = false;
+  for (unsigned I = 0, E = CPUFeatures.size(); I != E; ++I) {
+    if (CPUFeatures[I] == "vx")
+      HaveVectorSupport = true;
+  }
+
+  // Now check the processor machine type.
   for (unsigned I = 0, E = Lines.size(); I != E; ++I) {
     if (Lines[I].startswith("processor ")) {
       size_t Pos = Lines[I].find("machine = ");
@@ -689,6 +719,8 @@ StringRef sys::getHostCPUName() {
         Pos += sizeof("machine = ") - 1;
         unsigned int Id;
         if (!Lines[I].drop_front(Pos).getAsInteger(10, Id)) {
+          if (Id >= 2964 && HaveVectorSupport)
+            return "z13";
           if (Id >= 2827)
             return "zEC12";
           if (Id >= 2817)
@@ -742,14 +774,17 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   // If CPUID indicates support for XSAVE, XRESTORE and AVX, and XGETBV
   // indicates that the AVX registers will be saved and restored on context
   // switch, then we have full AVX support.
-  bool HasAVX = ((ECX >> 27) & 1) && ((ECX >> 28) & 1) &&
-                !GetX86XCR0(&EAX, &EDX) && ((EAX & 0x6) == 0x6);
-  Features["avx"]    = HasAVX;
-  Features["fma"]    = HasAVX && (ECX >> 12) & 1;
-  Features["f16c"]   = HasAVX && (ECX >> 29) & 1;
+  bool HasAVXSave = ((ECX >> 27) & 1) && ((ECX >> 28) & 1) &&
+                    !GetX86XCR0(&EAX, &EDX) && ((EAX & 0x6) == 0x6);
+  Features["avx"]    = HasAVXSave;
+  Features["fma"]    = HasAVXSave && (ECX >> 12) & 1;
+  Features["f16c"]   = HasAVXSave && (ECX >> 29) & 1;
+
+  // Only enable XSAVE if OS has enabled support for saving YMM state.
+  Features["xsave"]  = HasAVXSave && (ECX >> 26) & 1;
 
   // AVX512 requires additional context to be saved by the OS.
-  bool HasAVX512Save = HasAVX && ((EAX & 0xe0) == 0xe0);
+  bool HasAVX512Save = HasAVXSave && ((EAX & 0xe0) == 0xe0);
 
   unsigned MaxExtLevel;
   GetX86CpuIDAndInfo(0x80000000, &MaxExtLevel, &EBX, &ECX, &EDX);
@@ -759,15 +794,15 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   Features["lzcnt"]  = HasExtLeaf1 && ((ECX >>  5) & 1);
   Features["sse4a"]  = HasExtLeaf1 && ((ECX >>  6) & 1);
   Features["prfchw"] = HasExtLeaf1 && ((ECX >>  8) & 1);
-  Features["xop"]    = HasAVX && HasExtLeaf1 && ((ECX >> 11) & 1);
-  Features["fma4"]   = HasAVX && HasExtLeaf1 && ((ECX >> 16) & 1);
+  Features["xop"]    = HasExtLeaf1 && ((ECX >> 11) & 1) && HasAVXSave;
+  Features["fma4"]   = HasExtLeaf1 && ((ECX >> 16) & 1) && HasAVXSave;
   Features["tbm"]    = HasExtLeaf1 && ((ECX >> 21) & 1);
 
   bool HasLeaf7 = MaxLevel >= 7 &&
                   !GetX86CpuIDAndInfoEx(0x7, 0x0, &EAX, &EBX, &ECX, &EDX);
 
   // AVX2 is only supported if we have the OS save support from AVX.
-  Features["avx2"]     = HasAVX && HasLeaf7 && (EBX >>  5) & 1;
+  Features["avx2"]     = HasAVXSave && HasLeaf7 && ((EBX >>  5) & 1);
 
   Features["fsgsbase"] = HasLeaf7 && ((EBX >>  0) & 1);
   Features["bmi"]      = HasLeaf7 && ((EBX >>  3) & 1);
@@ -777,6 +812,8 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   Features["rdseed"]   = HasLeaf7 && ((EBX >> 18) & 1);
   Features["adx"]      = HasLeaf7 && ((EBX >> 19) & 1);
   Features["sha"]      = HasLeaf7 && ((EBX >> 29) & 1);
+  // Enable protection keys
+  Features["pku"]    = HasLeaf7 && ((ECX >> 4) & 1);
 
   // AVX512 is only supported if the OS supports the context save for it.
   Features["avx512f"]  = HasLeaf7 && ((EBX >> 16) & 1) && HasAVX512Save;
@@ -786,6 +823,14 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   Features["avx512cd"] = HasLeaf7 && ((EBX >> 28) & 1) && HasAVX512Save;
   Features["avx512bw"] = HasLeaf7 && ((EBX >> 30) & 1) && HasAVX512Save;
   Features["avx512vl"] = HasLeaf7 && ((EBX >> 31) & 1) && HasAVX512Save;
+
+  bool HasLeafD = MaxLevel >= 0xd &&
+    !GetX86CpuIDAndInfoEx(0xd, 0x1, &EAX, &EBX, &ECX, &EDX);
+
+  // Only enable XSAVE if OS has enabled support for saving YMM state.
+  Features["xsaveopt"] = HasAVXSave && HasLeafD && ((EAX >> 0) & 1);
+  Features["xsavec"]   = HasAVXSave && HasLeafD && ((EAX >> 1) & 1);
+  Features["xsaves"]   = HasAVXSave && HasLeafD && ((EAX >> 3) & 1);
 
   return true;
 }
@@ -808,7 +853,7 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   // Look for the CPU features.
   for (unsigned I = 0, E = Lines.size(); I != E; ++I)
     if (Lines[I].startswith("Features")) {
-      Lines[I].split(CPUFeatures, " ");
+      Lines[I].split(CPUFeatures, ' ');
       break;
     }
 

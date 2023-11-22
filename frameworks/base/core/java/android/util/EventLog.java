@@ -23,6 +23,7 @@ import java.io.UnsupportedEncodingException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.regex.Matcher;
@@ -52,7 +53,7 @@ public class EventLog {
     private static HashMap<String, Integer> sTagCodes = null;
     private static HashMap<Integer, String> sTagNames = null;
 
-    /** A previously logged event read from the logs. */
+    /** A previously logged event read from the logs. Instances are thread safe. */
     public static final class Event {
         private final ByteBuffer mBuffer;
 
@@ -160,6 +161,17 @@ public class EventLog {
             default:
                 throw new IllegalArgumentException("Unknown entry type: " + type);
             }
+        }
+
+        /** @hide */
+        public static Event fromBytes(byte[] data) {
+            return new Event(data);
+        }
+
+        /** @hide */
+        public byte[] getBytes() {
+            byte[] bytes = mBuffer.array();
+            return Arrays.copyOf(bytes, bytes.length);
         }
     }
 

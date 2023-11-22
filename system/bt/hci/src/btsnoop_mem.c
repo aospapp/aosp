@@ -40,19 +40,24 @@ void btsnoop_mem_capture(const BT_HDR *packet) {
   switch (type) {
     case BT_EVT_TO_LM_HCI_CMD:
       if (packet->len > 2)
-        length = data[2] + 4;
+        length = data[2] + 3;
       break;
 
     case BT_EVT_TO_BTU_HCI_EVT:
       if (packet->len > 1)
-        length = data[1] + 3;
+        length = data[1] + 2;
       break;
 
-    // Ignore data for privacy
     case BT_EVT_TO_LM_HCI_ACL:
-    case BT_EVT_TO_LM_HCI_SCO:
     case BT_EVT_TO_BTU_HCI_ACL:
+      if (packet->len > 3)
+        length = (data[2] | (data[3] << 8)) + 4;
+      break;
+
+    case BT_EVT_TO_LM_HCI_SCO:
     case BT_EVT_TO_BTU_HCI_SCO:
+      if (packet->len > 2)
+        length = data[2] + 3;
       break;
   }
 

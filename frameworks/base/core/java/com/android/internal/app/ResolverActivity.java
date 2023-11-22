@@ -16,13 +16,17 @@
 
 package com.android.internal.app;
 
+import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.annotation.StringRes;
 import android.app.Activity;
 import android.app.ActivityThread;
 import android.app.VoiceInteractor.PickOptionRequest;
 import android.app.VoiceInteractor.PickOptionRequest.Option;
 import android.app.VoiceInteractor.Prompt;
+import android.content.pm.ComponentInfo;
 import android.os.AsyncTask;
+import android.provider.MediaStore;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.Slog;
@@ -51,6 +55,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.PatternMatcher;
 import android.os.RemoteException;
+import android.os.StrictMode;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.util.Log;
@@ -74,6 +79,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
+import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static android.view.WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR;
 import static android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
 
@@ -102,6 +108,9 @@ public class ResolverActivity extends Activity {
     private final ArrayList<Intent> mIntents = new ArrayList<>();
     private ResolverComparator mResolverComparator;
     private PickTargetOptionRequest mPickOptionRequest;
+    private ComponentName[] mFilteredComponents;
+
+    protected ResolverDrawerLayout mResolverDrawerLayout;
 
     private boolean mRegistered;
     private final PackageMonitor mPackageMonitor = new PackageMonitor() {
@@ -113,37 +122,62 @@ public class ResolverActivity extends Activity {
         }
     };
 
+    /**
+     * Get the string resource to be used as a label for the link to the resolver activity for an
+     * action.
+     *
+     * @param action The action to resolve
+     *
+     * @return The string resource to be used as a label
+     */
+    public static @StringRes int getLabelRes(String action) {
+        return ActionTitle.forAction(action).labelRes;
+    }
+
     private enum ActionTitle {
         VIEW(Intent.ACTION_VIEW,
                 com.android.internal.R.string.whichViewApplication,
-                com.android.internal.R.string.whichViewApplicationNamed),
+                com.android.internal.R.string.whichViewApplicationNamed,
+                com.android.internal.R.string.whichViewApplicationLabel),
         EDIT(Intent.ACTION_EDIT,
                 com.android.internal.R.string.whichEditApplication,
-                com.android.internal.R.string.whichEditApplicationNamed),
+                com.android.internal.R.string.whichEditApplicationNamed,
+                com.android.internal.R.string.whichEditApplicationLabel),
         SEND(Intent.ACTION_SEND,
                 com.android.internal.R.string.whichSendApplication,
-                com.android.internal.R.string.whichSendApplicationNamed),
+                com.android.internal.R.string.whichSendApplicationNamed,
+                com.android.internal.R.string.whichSendApplicationLabel),
         SENDTO(Intent.ACTION_SENDTO,
-                com.android.internal.R.string.whichSendApplication,
-                com.android.internal.R.string.whichSendApplicationNamed),
+                com.android.internal.R.string.whichSendToApplication,
+                com.android.internal.R.string.whichSendToApplicationNamed,
+                com.android.internal.R.string.whichSendToApplicationLabel),
         SEND_MULTIPLE(Intent.ACTION_SEND_MULTIPLE,
                 com.android.internal.R.string.whichSendApplication,
-                com.android.internal.R.string.whichSendApplicationNamed),
+                com.android.internal.R.string.whichSendApplicationNamed,
+                com.android.internal.R.string.whichSendApplicationLabel),
+        CAPTURE_IMAGE(MediaStore.ACTION_IMAGE_CAPTURE,
+                com.android.internal.R.string.whichImageCaptureApplication,
+                com.android.internal.R.string.whichImageCaptureApplicationNamed,
+                com.android.internal.R.string.whichImageCaptureApplicationLabel),
         DEFAULT(null,
                 com.android.internal.R.string.whichApplication,
-                com.android.internal.R.string.whichApplicationNamed),
+                com.android.internal.R.string.whichApplicationNamed,
+                com.android.internal.R.string.whichApplicationLabel),
         HOME(Intent.ACTION_MAIN,
                 com.android.internal.R.string.whichHomeApplication,
-                com.android.internal.R.string.whichHomeApplicationNamed);
+                com.android.internal.R.string.whichHomeApplicationNamed,
+                com.android.internal.R.string.whichHomeApplicationLabel);
 
         public final String action;
         public final int titleRes;
         public final int namedTitleRes;
+        public final @StringRes int labelRes;
 
-        ActionTitle(String action, int titleRes, int namedTitleRes) {
+        ActionTitle(String action, int titleRes, int namedTitleRes, @StringRes int labelRes) {
             this.action = action;
             this.titleRes = titleRes;
             this.namedTitleRes = namedTitleRes;
+            this.labelRes = labelRes;
         }
 
         public static ActionTitle forAction(String action) {
@@ -234,11 +268,9 @@ public class ResolverActivity extends Activity {
 
         mResolverComparator = new ResolverComparator(this, getTargetIntent(), referrerPackage);
 
-        configureContentView(mIntents, initialIntents, rList, alwaysUseOption);
-
-        // Prevent the Resolver window from becoming the top fullscreen window and thus from taking
-        // control of the system bars.
-        getWindow().clearFlags(FLAG_LAYOUT_IN_SCREEN|FLAG_LAYOUT_INSET_DECOR);
+        if (configureContentView(mIntents, initialIntents, rList, alwaysUseOption)) {
+            return;
+        }
 
         final ResolverDrawerLayout rdl = (ResolverDrawerLayout) findViewById(R.id.contentPanel);
         if (rdl != null) {
@@ -251,6 +283,7 @@ public class ResolverActivity extends Activity {
             if (isVoiceInteraction()) {
                 rdl.setCollapsed(false);
             }
+            mResolverDrawerLayout = rdl;
         }
 
         if (title == null) {
@@ -328,15 +361,33 @@ public class ResolverActivity extends Activity {
         }
     }
 
+    public final void setFilteredComponents(ComponentName[] components) {
+        mFilteredComponents = components;
+    }
+
+    public final boolean isComponentFiltered(ComponentInfo component) {
+        if (mFilteredComponents == null) {
+            return false;
+        }
+
+        final ComponentName checkName = component.getComponentName();
+        for (ComponentName name : mFilteredComponents) {
+            if (name.equals(checkName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * Perform any initialization needed for voice interaction.
      */
-    void onSetupVoiceInteraction() {
+    public void onSetupVoiceInteraction() {
         // Do it right now. Subclasses may delay this and send it later.
         sendVoiceChoicesIfNeeded();
     }
 
-    void sendVoiceChoicesIfNeeded() {
+    public void sendVoiceChoicesIfNeeded() {
         if (!isVoiceInteraction()) {
             // Clearly not needed.
             return;
@@ -377,7 +428,7 @@ public class ResolverActivity extends Activity {
         return null;
     }
 
-    int getLayoutResource() {
+    public int getLayoutResource() {
         return R.layout.resolver_list;
     }
 
@@ -385,12 +436,7 @@ public class ResolverActivity extends Activity {
         final DisplayResolveInfo dri = mAdapter.getOtherProfile();
         if (dri != null) {
             mProfileView.setVisibility(View.VISIBLE);
-            final ImageView icon = (ImageView) mProfileView.findViewById(R.id.icon);
-            final TextView text = (TextView) mProfileView.findViewById(R.id.text1);
-            if (!dri.hasDisplayIcon()) {
-                new LoadIconIntoViewTask(dri, icon).execute();
-            }
-            icon.setImageDrawable(dri.getDisplayIcon());
+            final TextView text = (TextView) mProfileView.findViewById(R.id.profile_button);
             text.setText(dri.getDisplayLabel());
         } else {
             mProfileView.setVisibility(View.GONE);
@@ -500,7 +546,9 @@ public class ResolverActivity extends Activity {
             mPackageMonitor.unregister();
             mRegistered = false;
         }
-        if ((getIntent().getFlags()&Intent.FLAG_ACTIVITY_NEW_TASK) != 0 && !isVoiceInteraction()) {
+        final Intent intent = getIntent();
+        if ((intent.getFlags() & FLAG_ACTIVITY_NEW_TASK) != 0 && !isVoiceInteraction()
+                && !mResolvingHome) {
             // This resolver is in the unusual situation where it has been
             // launched at the top of a new task.  We don't let it be added
             // to the recent tasks shown to the user, and we need to make sure
@@ -586,7 +634,7 @@ public class ResolverActivity extends Activity {
                 mAlwaysUseOption);
     }
 
-    void startSelected(int which, boolean always, boolean filtered) {
+    public void startSelected(int which, boolean always, boolean filtered) {
         if (isFinishing()) {
             return;
         }
@@ -620,12 +668,19 @@ public class ResolverActivity extends Activity {
                 && mAdapter.mOrigResolveList != null) {
             // Build a reasonable intent filter, based on what matched.
             IntentFilter filter = new IntentFilter();
-            String action = intent.getAction();
+            Intent filterIntent;
 
+            if (intent.getSelector() != null) {
+                filterIntent = intent.getSelector();
+            } else {
+                filterIntent = intent;
+            }
+
+            String action = filterIntent.getAction();
             if (action != null) {
                 filter.addAction(action);
             }
-            Set<String> categories = intent.getCategories();
+            Set<String> categories = filterIntent.getCategories();
             if (categories != null) {
                 for (String cat : categories) {
                     filter.addCategory(cat);
@@ -634,9 +689,9 @@ public class ResolverActivity extends Activity {
             filter.addCategory(Intent.CATEGORY_DEFAULT);
 
             int cat = ri.match & IntentFilter.MATCH_CATEGORY_MASK;
-            Uri data = intent.getData();
+            Uri data = filterIntent.getData();
             if (cat == IntentFilter.MATCH_CATEGORY_TYPE) {
-                String mimeType = intent.resolveType(this);
+                String mimeType = filterIntent.resolveType(this);
                 if (mimeType != null) {
                     try {
                         filter.addDataType(mimeType);
@@ -713,9 +768,9 @@ public class ResolverActivity extends Activity {
 
                     if (ri.handleAllWebDataURI) {
                         // Set default Browser if needed
-                        final String packageName = pm.getDefaultBrowserPackageName(userId);
+                        final String packageName = pm.getDefaultBrowserPackageNameAsUser(userId);
                         if (TextUtils.isEmpty(packageName)) {
-                            pm.setDefaultBrowserPackageName(ri.activityInfo.packageName, userId);
+                            pm.setDefaultBrowserPackageNameAsUser(ri.activityInfo.packageName, userId);
                         }
                     } else {
                         // Update Domain Verification status
@@ -732,7 +787,7 @@ public class ResolverActivity extends Activity {
                                 categories.contains(Intent.CATEGORY_BROWSABLE);
 
                         if (isHttpOrHttps && isViewAction && hasCategoryBrowsable) {
-                            pm.updateIntentVerificationStatus(packageName,
+                            pm.updateIntentVerificationStatusAsUser(packageName,
                                     PackageManager.INTENT_FILTER_DOMAIN_VERIFICATION_STATUS_ALWAYS,
                                     userId);
                         }
@@ -740,7 +795,7 @@ public class ResolverActivity extends Activity {
                 } else {
                     try {
                         AppGlobals.getPackageManager().setLastChosenActivity(intent,
-                                intent.resolveTypeIfNeeded(getContentResolver()),
+                                intent.resolveType(getContentResolver()),
                                 PackageManager.MATCH_DEFAULT_ONLY,
                                 filter, bestMatch, intent.getComponent());
                     } catch (RemoteException re) {
@@ -756,7 +811,18 @@ public class ResolverActivity extends Activity {
         return true;
     }
 
-    void safelyStartActivity(TargetInfo cti) {
+    public void safelyStartActivity(TargetInfo cti) {
+        // We're dispatching intents that might be coming from legacy apps, so
+        // don't kill ourselves.
+        StrictMode.disableDeathOnFileUriExposure();
+        try {
+            safelyStartActivityInternal(cti);
+        } finally {
+            StrictMode.enableDeathOnFileUriExposure();
+        }
+    }
+
+    private void safelyStartActivityInternal(TargetInfo cti) {
         // If needed, show that intent is forwarded
         // from managed profile to owner or other way around.
         if (mProfileSwitchMessageId != -1) {
@@ -786,29 +852,36 @@ public class ResolverActivity extends Activity {
         }
     }
 
-    void onActivityStarted(TargetInfo cti) {
+    public void onActivityStarted(TargetInfo cti) {
         // Do nothing
     }
 
-    boolean shouldGetActivityMetadata() {
+    public boolean shouldGetActivityMetadata() {
         return false;
     }
 
-    void showAppDetails(ResolveInfo ri) {
+    public boolean shouldAutoLaunchSingleChoice(TargetInfo target) {
+        return true;
+    }
+
+    public void showTargetDetails(ResolveInfo ri) {
         Intent in = new Intent().setAction(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
                 .setData(Uri.fromParts("package", ri.activityInfo.packageName, null))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT);
         startActivity(in);
     }
 
-    ResolveListAdapter createAdapter(Context context, List<Intent> payloadIntents,
+    public ResolveListAdapter createAdapter(Context context, List<Intent> payloadIntents,
             Intent[] initialIntents, List<ResolveInfo> rList, int launchedFromUid,
             boolean filterLastUsed) {
         return new ResolveListAdapter(context, payloadIntents, initialIntents, rList,
                 launchedFromUid, filterLastUsed);
     }
 
-    void configureContentView(List<Intent> payloadIntents, Intent[] initialIntents,
+    /**
+     * Returns true if the activity is finishing and creation should halt
+     */
+    public boolean configureContentView(List<Intent> payloadIntents, Intent[] initialIntents,
             List<ResolveInfo> rList, boolean alwaysUseOption) {
         // The last argument of createAdapter is whether to do special handling
         // of the last used choice to highlight it in the list.  We need to always
@@ -828,16 +901,21 @@ public class ResolverActivity extends Activity {
         mAlwaysUseOption = alwaysUseOption;
 
         int count = mAdapter.getUnfilteredCount();
-        if (count > 1 || (count == 1 && mAdapter.getOtherProfile() != null)) {
+        if (count == 1 && mAdapter.getOtherProfile() == null) {
+            // Only one target, so we're a candidate to auto-launch!
+            final TargetInfo target = mAdapter.targetInfoForPosition(0, false);
+            if (shouldAutoLaunchSingleChoice(target)) {
+                safelyStartActivity(target);
+                mPackageMonitor.unregister();
+                mRegistered = false;
+                finish();
+                return true;
+            }
+        }
+        if (count > 0) {
             setContentView(layoutId);
             mAdapterView = (AbsListView) findViewById(R.id.resolver_list);
             onPrepareAdapterView(mAdapterView, mAdapter, alwaysUseOption);
-        } else if (count == 1) {
-            safelyStartActivity(mAdapter.targetInfoForPosition(0, false));
-            mPackageMonitor.unregister();
-            mRegistered = false;
-            finish();
-            return;
         } else {
             setContentView(R.layout.resolver_list);
 
@@ -847,9 +925,10 @@ public class ResolverActivity extends Activity {
             mAdapterView = (AbsListView) findViewById(R.id.resolver_list);
             mAdapterView.setVisibility(View.GONE);
         }
+        return false;
     }
 
-    void onPrepareAdapterView(AbsListView adapterView, ResolveListAdapter adapter,
+    public void onPrepareAdapterView(AbsListView adapterView, ResolveListAdapter adapter,
             boolean alwaysUseOption) {
         final boolean useHeader = adapter.hasFilteredItem();
         final ListView listView = adapterView instanceof ListView ? (ListView) adapterView : null;
@@ -880,15 +959,17 @@ public class ResolverActivity extends Activity {
                 && Objects.equals(lhs.activityInfo.packageName, rhs.activityInfo.packageName);
     }
 
-    final class DisplayResolveInfo implements TargetInfo {
+    public final class DisplayResolveInfo implements TargetInfo {
         private final ResolveInfo mResolveInfo;
         private final CharSequence mDisplayLabel;
         private Drawable mDisplayIcon;
+        private Drawable mBadge;
         private final CharSequence mExtendedInfo;
         private final Intent mResolvedIntent;
         private final List<Intent> mSourceIntents = new ArrayList<>();
+        private boolean mPinned;
 
-        DisplayResolveInfo(Intent originalIntent, ResolveInfo pri, CharSequence pLabel,
+        public DisplayResolveInfo(Intent originalIntent, ResolveInfo pri, CharSequence pLabel,
                 CharSequence pInfo, Intent pOrigIntent) {
             mSourceIntents.add(originalIntent);
             mResolveInfo = pri;
@@ -913,6 +994,7 @@ public class ResolverActivity extends Activity {
             mExtendedInfo = other.mExtendedInfo;
             mResolvedIntent = new Intent(other.mResolvedIntent);
             mResolvedIntent.fillIn(fillInIntent, flags);
+            mPinned = other.mPinned;
         }
 
         public ResolveInfo getResolveInfo() {
@@ -928,7 +1010,25 @@ public class ResolverActivity extends Activity {
         }
 
         public Drawable getBadgeIcon() {
-            return null;
+            // We only expose a badge if we have extended info.
+            // The badge is a higher-priority disambiguation signal
+            // but we don't need one if we wouldn't show extended info at all.
+            if (TextUtils.isEmpty(getExtendedInfo())) {
+                return null;
+            }
+
+            if (mBadge == null && mResolveInfo != null && mResolveInfo.activityInfo != null
+                    && mResolveInfo.activityInfo.applicationInfo != null) {
+                if (mResolveInfo.activityInfo.icon == 0 || mResolveInfo.activityInfo.icon
+                        == mResolveInfo.activityInfo.applicationInfo.icon) {
+                    // Badging an icon with exactly the same icon is silly.
+                    // If the activityInfo icon resid is 0 it will fall back
+                    // to the application's icon, making it a match.
+                    return null;
+                }
+                mBadge = mResolveInfo.activityInfo.applicationInfo.loadIcon(mPm);
+            }
+            return mBadge;
         }
 
         @Override
@@ -989,6 +1089,15 @@ public class ResolverActivity extends Activity {
             activity.startActivityAsUser(mResolvedIntent, options, user);
             return false;
         }
+
+        @Override
+        public boolean isPinned() {
+            return mPinned;
+        }
+
+        public void setPinned(boolean pinned) {
+            mPinned = pinned;
+        }
     }
 
     /**
@@ -1002,7 +1111,7 @@ public class ResolverActivity extends Activity {
          *
          * @return the resolved intent for this target
          */
-        public Intent getResolvedIntent();
+        Intent getResolvedIntent();
 
         /**
          * Get the resolved component name that represents this target. Note that this may not
@@ -1011,7 +1120,7 @@ public class ResolverActivity extends Activity {
          *
          * @return the resolved ComponentName for this target
          */
-        public ComponentName getResolvedComponentName();
+        ComponentName getResolvedComponentName();
 
         /**
          * Start the activity referenced by this target.
@@ -1020,7 +1129,7 @@ public class ResolverActivity extends Activity {
          * @param options ActivityOptions bundle
          * @return true if the start completed successfully
          */
-        public boolean start(Activity activity, Bundle options);
+        boolean start(Activity activity, Bundle options);
 
         /**
          * Start the activity referenced by this target as if the ResolverActivity's caller
@@ -1031,7 +1140,7 @@ public class ResolverActivity extends Activity {
          * @param userId userId to start as or {@link UserHandle#USER_NULL} for activity's caller
          * @return true if the start completed successfully
          */
-        public boolean startAsCaller(Activity activity, Bundle options, int userId);
+        boolean startAsCaller(Activity activity, Bundle options, int userId);
 
         /**
          * Start the activity referenced by this target as a given user.
@@ -1041,7 +1150,7 @@ public class ResolverActivity extends Activity {
          * @param user handle for the user to start the activity as
          * @return true if the start completed successfully
          */
-        public boolean startAsUser(Activity activity, Bundle options, UserHandle user);
+        boolean startAsUser(Activity activity, Bundle options, UserHandle user);
 
         /**
          * Return the ResolveInfo about how and why this target matched the original query
@@ -1049,14 +1158,14 @@ public class ResolverActivity extends Activity {
          *
          * @return ResolveInfo representing this target's match
          */
-        public ResolveInfo getResolveInfo();
+        ResolveInfo getResolveInfo();
 
         /**
          * Return the human-readable text label for this target.
          *
          * @return user-visible target label
          */
-        public CharSequence getDisplayLabel();
+        CharSequence getDisplayLabel();
 
         /**
          * Return any extended info for this target. This may be used to disambiguate
@@ -1064,35 +1173,40 @@ public class ResolverActivity extends Activity {
          *
          * @return human-readable disambig string or null if none present
          */
-        public CharSequence getExtendedInfo();
+        CharSequence getExtendedInfo();
 
         /**
          * @return The drawable that should be used to represent this target
          */
-        public Drawable getDisplayIcon();
+        Drawable getDisplayIcon();
 
         /**
          * @return The (small) icon to badge the target with
          */
-        public Drawable getBadgeIcon();
+        Drawable getBadgeIcon();
 
         /**
          * @return The content description for the badge icon
          */
-        public CharSequence getBadgeContentDescription();
+        CharSequence getBadgeContentDescription();
 
         /**
          * Clone this target with the given fill-in information.
          */
-        public TargetInfo cloneFilledIn(Intent fillInIntent, int flags);
+        TargetInfo cloneFilledIn(Intent fillInIntent, int flags);
 
         /**
          * @return the list of supported source intents deduped against this single target
          */
-        public List<Intent> getAllSourceIntents();
+        List<Intent> getAllSourceIntents();
+
+        /**
+         * @return true if this target should be pinned to the front by the request of the user
+         */
+        boolean isPinned();
     }
 
-    class ResolveListAdapter extends BaseAdapter {
+    public class ResolveListAdapter extends BaseAdapter {
         private final List<Intent> mIntents;
         private final Intent[] mInitialIntents;
         private final List<ResolveInfo> mBaseResolveList;
@@ -1194,7 +1308,9 @@ public class ResolverActivity extends Activity {
                 }
 
                 // Filter out any activities that the launched uid does not
-                // have permission for.  We don't do this when we have an explicit
+                // have permission for.
+                // Also filter out those that are suspended because they couldn't
+                // be started. We don't do this when we have an explicit
                 // list of resolved activities, because that only happens when
                 // we are being subclassed, so we can safely launch whatever
                 // they gave us.
@@ -1205,7 +1321,10 @@ public class ResolverActivity extends Activity {
                         int granted = ActivityManager.checkComponentPermission(
                                 ai.permission, mLaunchedFromUid,
                                 ai.applicationInfo.uid, ai.exported);
-                        if (granted != PackageManager.PERMISSION_GRANTED) {
+                        boolean suspended = (ai.applicationInfo.flags
+                                & ApplicationInfo.FLAG_SUSPENDED) != 0;
+                        if (granted != PackageManager.PERMISSION_GRANTED || suspended
+                                || isComponentFiltered(ai)) {
                             // Access not allowed!
                             if (mOrigResolveList == currentResolveList) {
                                 mOrigResolveList = new ArrayList<>(mOrigResolveList);
@@ -1335,9 +1454,12 @@ public class ResolverActivity extends Activity {
                     }
                 }
                 if (!found) {
-                    into.add(new ResolvedComponentInfo(new ComponentName(
-                            newInfo.activityInfo.packageName, newInfo.activityInfo.name),
-                            intent, newInfo));
+                    final ComponentName name = new ComponentName(
+                            newInfo.activityInfo.packageName, newInfo.activityInfo.name);
+                    final ResolvedComponentInfo rci = new ResolvedComponentInfo(name,
+                            intent, newInfo);
+                    rci.setPinned(isComponentPinned(name));
+                    into.add(rci);
                 }
             }
         }
@@ -1366,8 +1488,8 @@ public class ResolverActivity extends Activity {
             } else {
                 mHasExtendedInfo = true;
                 boolean usePkg = false;
-                CharSequence startApp = ro.getResolveInfoAt(0).activityInfo.applicationInfo
-                        .loadLabel(mPm);
+                final ApplicationInfo ai = ro.getResolveInfoAt(0).activityInfo.applicationInfo;
+                final CharSequence startApp = ai.loadLabel(mPm);
                 if (startApp == null) {
                     usePkg = true;
                 }
@@ -1413,6 +1535,7 @@ public class ResolverActivity extends Activity {
             final Intent replaceIntent = getReplacementIntent(add.activityInfo, intent);
             final DisplayResolveInfo dri = new DisplayResolveInfo(intent, add, roLabel,
                     extraInfo, replaceIntent);
+            dri.setPinned(rci.isPinned());
             addResolveInfo(dri);
             if (replaceIntent == intent) {
                 // Only add alternates if we didn't get a specific replacement from
@@ -1496,11 +1619,11 @@ public class ResolverActivity extends Activity {
             return false;
         }
 
-        protected int getDisplayResolveInfoCount() {
+        public int getDisplayResolveInfoCount() {
             return mDisplayList.size();
         }
 
-        protected DisplayResolveInfo getDisplayResolveInfo(int index) {
+        public DisplayResolveInfo getDisplayResolveInfo(int index) {
             // Used to query services. We only query services for primary targets, not alternates.
             return mDisplayList.get(index);
         }
@@ -1530,13 +1653,20 @@ public class ResolverActivity extends Activity {
             return !TextUtils.isEmpty(info.getExtendedInfo());
         }
 
+        public boolean isComponentPinned(ComponentName name) {
+            return false;
+        }
+
         public final void bindView(int position, View view) {
             onBindView(view, getItem(position));
         }
 
         private void onBindView(View view, TargetInfo info) {
             final ViewHolder holder = (ViewHolder) view.getTag();
-            holder.text.setText(info.getDisplayLabel());
+            final CharSequence label = info.getDisplayLabel();
+            if (!TextUtils.equals(holder.text.getText(), label)) {
+                holder.text.setText(info.getDisplayLabel());
+            }
             if (showsExtendedInfo(info)) {
                 holder.text2.setVisibility(View.VISIBLE);
                 holder.text2.setText(info.getExtendedInfo());
@@ -1563,6 +1693,7 @@ public class ResolverActivity extends Activity {
 
     static final class ResolvedComponentInfo {
         public final ComponentName name;
+        private boolean mPinned;
         private final List<Intent> mIntents = new ArrayList<>();
         private final List<ResolveInfo> mResolveInfos = new ArrayList<>();
 
@@ -1604,6 +1735,14 @@ public class ResolverActivity extends Activity {
                 }
             }
             return -1;
+        }
+
+        public boolean isPinned() {
+            return mPinned;
+        }
+
+        public void setPinned(boolean pinned) {
+            mPinned = pinned;
         }
     }
 
@@ -1658,7 +1797,7 @@ public class ResolverActivity extends Activity {
                 return false;
             }
             ResolveInfo ri = mAdapter.resolveInfoForPosition(position, true);
-            showAppDetails(ri);
+            showTargetDetails(ri);
             return true;
         }
 

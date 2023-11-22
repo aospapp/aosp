@@ -88,6 +88,9 @@ private:
     int mSetSizeMax;
     int *mSetSizePtr;
     feature_set *mConcurrencySet;
+    int filterVersion;
+    int filterLength;
+    int firmware_bus_max_size;
 
 public:
     WifihalGeneric(wifi_handle handle, int id, u32 vendor_id, u32 subcmd);
@@ -98,6 +101,9 @@ public:
     virtual void setMaxSetSize(int set_size_max);
     virtual void setSizePtr(int *set_size);
     virtual void setConcurrencySet(feature_set set[]);
+    virtual int getFilterVersion();
+    virtual int getFilterLength();
+    virtual int getBusSize();
 };
 #ifdef __cplusplus
 }

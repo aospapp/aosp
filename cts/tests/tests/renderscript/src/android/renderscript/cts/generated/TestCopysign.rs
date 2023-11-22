@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,5 +38,25 @@ float3 __attribute__((kernel)) testCopysignFloat3Float3Float3(float3 inMagnitude
 
 float4 __attribute__((kernel)) testCopysignFloat4Float4Float4(float4 inMagnitudeValue, unsigned int x) {
     float4 inSignValue = rsGetElementAt_float4(gAllocInSignValue, x);
+    return copysign(inMagnitudeValue, inSignValue);
+}
+
+half __attribute__((kernel)) testCopysignHalfHalfHalf(half inMagnitudeValue, unsigned int x) {
+    half inSignValue = rsGetElementAt_half(gAllocInSignValue, x);
+    return copysign(inMagnitudeValue, inSignValue);
+}
+
+half2 __attribute__((kernel)) testCopysignHalf2Half2Half2(half2 inMagnitudeValue, unsigned int x) {
+    half2 inSignValue = rsGetElementAt_half2(gAllocInSignValue, x);
+    return copysign(inMagnitudeValue, inSignValue);
+}
+
+half3 __attribute__((kernel)) testCopysignHalf3Half3Half3(half3 inMagnitudeValue, unsigned int x) {
+    half3 inSignValue = rsGetElementAt_half3(gAllocInSignValue, x);
+    return copysign(inMagnitudeValue, inSignValue);
+}
+
+half4 __attribute__((kernel)) testCopysignHalf4Half4Half4(half4 inMagnitudeValue, unsigned int x) {
+    half4 inSignValue = rsGetElementAt_half4(gAllocInSignValue, x);
     return copysign(inMagnitudeValue, inSignValue);
 }

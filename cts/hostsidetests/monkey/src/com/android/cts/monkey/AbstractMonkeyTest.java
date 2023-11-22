@@ -1,7 +1,7 @@
 package com.android.cts.monkey;
 
-import com.android.cts.tradefed.build.CtsBuildHelper;
-import com.android.cts.util.AbiUtils;
+import com.android.compatibility.common.util.AbiUtils;
+import com.android.cts.migration.MigrationHelper;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
@@ -23,7 +23,7 @@ abstract class AbstractMonkeyTest extends DeviceTestCase implements IAbiReceiver
     static final String MONKEY_CMD = "monkey --pct-motion 0 --pct-majornav 0 --pct-syskeys 0 --pct-anyevent 0 --pct-rotation 0";
 
     IAbi mAbi;
-    CtsBuildHelper mBuild;
+    IBuildInfo mBuild;
     ITestDevice mDevice;
 
     @Override
@@ -33,7 +33,7 @@ abstract class AbstractMonkeyTest extends DeviceTestCase implements IAbiReceiver
 
     @Override
     public void setBuild(IBuildInfo buildInfo) {
-        mBuild = CtsBuildHelper.createBuildHelper(buildInfo);
+        mBuild = buildInfo;
     }
 
     @Override
@@ -43,7 +43,7 @@ abstract class AbstractMonkeyTest extends DeviceTestCase implements IAbiReceiver
         String[] options = {AbiUtils.createAbiFlag(mAbi.getName())};
         for (int i = 0; i < PKGS.length; i++) {
             mDevice.uninstallPackage(PKGS[i]);
-            File app = mBuild.getTestApp(APKS[i]);
+            File app = MigrationHelper.getTestFile(mBuild, APKS[i]);
             mDevice.installPackage(app, false, options);
         }
         clearLogCat();

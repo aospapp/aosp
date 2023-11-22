@@ -35,8 +35,8 @@ public class ViewGroupCtsActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(com.android.cts.widget.R.layout.viewgrouptest_stub);
-        TextView textView = (TextView)findViewById(com.android.cts.widget.R.id.viewgrouptest_stub);
+        setContentView(android.widget.cts.R.layout.viewgrouptest_stub);
+        TextView textView = (TextView)findViewById(android.widget.cts.R.id.viewgrouptest_stub);
         textView.setText("test");
     }
 
@@ -49,7 +49,7 @@ public class ViewGroupCtsActivity extends Activity {
             mHandler.postDelayed(new Runnable() {
                 public void run() {
                     MockLinearLayout mll =
-                        (MockLinearLayout) findViewById(com.android.cts.widget.R.id.
+                        (MockLinearLayout) findViewById(android.widget.cts.R.id.
                                                                         mocklinearlayout);
                     if (!mll.mIsInvalidateChildInParentCalled) {
                         fail();

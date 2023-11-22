@@ -31,8 +31,8 @@ static void test_string_null(skiatest::Reporter* reporter) {
     uint8_t storage[8];
     SkWriter32 writer(storage, sizeof(storage));
 
-    // Can we write NULL?
-    writer.writeString(NULL);
+    // Can we write nullptr?
+    writer.writeString(nullptr);
     const int32_t expected[] = { 0x0, 0x0 };
     check_contents(reporter, writer, expected, sizeof(expected));
 }
@@ -144,16 +144,13 @@ static void test2(skiatest::Reporter* reporter, SkWriter32* writer) {
 
 static void testWritePad(skiatest::Reporter* reporter, SkWriter32* writer) {
     // Create some random data to write.
-    const size_t dataSize = 10<<2;
-    SkASSERT(SkIsAlign4(dataSize));
+    const size_t dataSize = 10;
 
-    SkAutoMalloc originalData(dataSize);
+    SkAutoTMalloc<uint32_t> originalData(dataSize);
     {
         SkRandom rand(0);
-        uint32_t* ptr = static_cast<uint32_t*>(originalData.get());
-        uint32_t* stop = ptr + (dataSize>>2);
-        while (ptr < stop) {
-            *ptr++ = rand.nextU();
+        for (size_t i = 0; i < dataSize; i++) {
+            originalData[(int) i] = rand.nextU();
         }
 
         // Write  the random data to the writer at different lengths for
@@ -241,7 +238,7 @@ DEF_TEST(Writer32_contiguous, reporter) {
     writer.reset(storage, sizeof(storage));
     // This write is small enough to fit in storage, so it's contiguous.
     test1(reporter, &writer);
-    REPORTER_ASSERT(reporter, writer.contiguousArray() != NULL);
+    REPORTER_ASSERT(reporter, writer.contiguousArray() != nullptr);
 
     // Everything other aspect of contiguous/non-contiguous is an
     // implementation detail, not part of the public contract for

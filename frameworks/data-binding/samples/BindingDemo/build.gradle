@@ -14,32 +14,12 @@
  * limitations under the License.
  */
 
-// Top-level build file where you can add configuration options common to all sub-projects/modules.
+// Top-level build file where you can add dataBindingConfiguration options common to all sub-projects/modules.
 buildscript {
-    def Properties dataBindingProperties = new Properties()
-    dataBindingProperties.load(new FileInputStream("${projectDir}/../../databinding.properties"))
-    dataBindingProperties.mavenRepoDir = "${projectDir}/../../${dataBindingProperties.mavenRepoName}"
-    ext.config = dataBindingProperties
-
-    repositories {
-        jcenter()
-        maven {
-            url "$projectDir/../../maven-repo"
-        }
-        mavenCentral()
-    }
+    ext.dataBindingRootFolder = new File(project.projectDir, "../..")
+    apply from: "${project.projectDir}/../../propLoader.gradle"
+    ext.addRepos(repositories)
     dependencies {
-        classpath "com.android.tools.build:gradle:${config.androidPluginVersion}"
-        classpath  "com.android.databinding:dataBinder:${config.version}"
-    }
-}
-
-allprojects {
-    repositories {
-        jcenter()
-        maven {
-            url "$projectDir/../../../maven-repo"
-        }
-        mavenCentral()
+        classpath "com.android.tools.build:gradle:${dataBindingConfig.androidPluginVersion}"
     }
 }

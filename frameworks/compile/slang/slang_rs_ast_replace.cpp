@@ -54,7 +54,7 @@ void RSASTReplace::ReplaceInCompoundStmt(clang::CompoundStmt *CS) {
     }
   }
 
-  CS->setStmts(C, UpdatedStmtList, UpdatedStmtCount);
+  CS->setStmts(C, llvm::makeArrayRef(UpdatedStmtList, UpdatedStmtCount));
 
   delete [] UpdatedStmtList;
 }
@@ -84,6 +84,18 @@ void RSASTReplace::VisitCaseStmt(clang::CaseStmt *CS) {
     CS->setSubStmt(mNewStmt);
   } else {
     VisitStmt(CS);
+  }
+}
+
+void RSASTReplace::VisitDeclStmt(clang::DeclStmt* DS) {
+  VisitStmt(DS);
+  for (clang::Decl* D : DS->decls()) {
+    clang::VarDecl* VD;
+    if ((VD = llvm::dyn_cast<clang::VarDecl>(D))) {
+      if (matchesExpr(VD->getInit())) {
+        VD->setInit(mNewExpr);
+      }
+    }
   }
 }
 

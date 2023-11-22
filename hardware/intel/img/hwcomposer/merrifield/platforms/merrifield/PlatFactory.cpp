@@ -21,9 +21,7 @@
 #include <IDisplayDevice.h>
 #include <PrimaryDevice.h>
 #include <ExternalDevice.h>
-#ifdef INTEL_WIDI_MERRIFIELD
 #include <VirtualDevice.h>
-#endif
 #include <Hwcomposer.h>
 #include <PlatFactory.h>
 #include <common/VsyncControl.h>
@@ -76,10 +74,8 @@ IDisplayDevice* PlatFactory::createDisplayDevice(int disp)
             return new PrimaryDevice(hwc, new PlatDeviceControlFactory());
         case IDisplayDevice::DEVICE_EXTERNAL:
             return new ExternalDevice(hwc, new PlatDeviceControlFactory());
-#ifdef INTEL_WIDI_MERRIFIELD
         case IDisplayDevice::DEVICE_VIRTUAL:
             return new VirtualDevice(hwc);
-#endif
         default:
             ETRACE("invalid display device %d", disp);
             return NULL;

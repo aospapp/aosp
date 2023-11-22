@@ -29,8 +29,6 @@ extern "C" {
 
 typedef void * RsAsyncVoidPtr;
 
-typedef void * RsAdapter1D;
-typedef void * RsAdapter2D;
 typedef void * RsAllocation;
 typedef void * RsAnimation;
 typedef void * RsClosure;
@@ -96,6 +94,7 @@ enum RsAllocationUsageType {
     RS_ALLOCATION_USAGE_IO_OUTPUT = 0x0040,
     RS_ALLOCATION_USAGE_SHARED = 0x0080,
 
+    RS_ALLOCATION_USAGE_INCREMENTAL_SUPPORT = 0x1000,
     RS_ALLOCATION_USAGE_OEM = 0x8000,
     RS_ALLOCATION_USAGE_ALL = 0x80FF
 };
@@ -166,6 +165,13 @@ enum RsDataKind {
     RS_KIND_PIXEL_YUV,
 
     RS_KIND_INVALID = 100,
+};
+
+enum RsYuvFormat {
+    RS_YUV_NONE    = 0,
+    RS_YUV_YV12    = 0x32315659, // HAL_PIXEL_FORMAT_YV12 in system/graphics.h
+    RS_YUV_NV21    = 0x11,       // HAL_PIXEL_FORMAT_YCrCb_420_SP
+    RS_YUV_420_888 = 0x23,       // HAL_PIXEL_FORMAT_YCbCr_420_888
 };
 
 enum RsSamplerParam {

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ package android.renderscript.cts;
 import android.renderscript.Allocation;
 import android.renderscript.RSRuntimeException;
 import android.renderscript.Element;
+import android.renderscript.cts.Target;
 
 import java.util.Arrays;
 
@@ -91,7 +92,7 @@ public class TestClamp extends RSBaseCompute {
                 args.inMinValue = arrayInMinValue[i];
                 args.inMaxValue = arrayInMaxValue[i];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeClamp(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -181,7 +182,7 @@ public class TestClamp extends RSBaseCompute {
                 args.inMinValue = arrayInMinValue[i * 2 + j];
                 args.inMaxValue = arrayInMaxValue[i * 2 + j];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeClamp(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -271,7 +272,7 @@ public class TestClamp extends RSBaseCompute {
                 args.inMinValue = arrayInMinValue[i * 4 + j];
                 args.inMaxValue = arrayInMaxValue[i * 4 + j];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeClamp(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -361,7 +362,7 @@ public class TestClamp extends RSBaseCompute {
                 args.inMinValue = arrayInMinValue[i * 4 + j];
                 args.inMaxValue = arrayInMaxValue[i * 4 + j];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeClamp(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -451,7 +452,7 @@ public class TestClamp extends RSBaseCompute {
                 args.inMinValue = arrayInMinValue[i];
                 args.inMaxValue = arrayInMaxValue[i];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeClamp(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -541,7 +542,7 @@ public class TestClamp extends RSBaseCompute {
                 args.inMinValue = arrayInMinValue[i];
                 args.inMaxValue = arrayInMaxValue[i];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeClamp(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -631,7 +632,7 @@ public class TestClamp extends RSBaseCompute {
                 args.inMinValue = arrayInMinValue[i];
                 args.inMaxValue = arrayInMaxValue[i];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeClamp(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -5713,6 +5714,688 @@ public class TestClamp extends RSBaseCompute {
                 (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
     }
 
+    public class ArgumentsHalfHalfHalfHalf {
+        public short inValue;
+        public double inValueDouble;
+        public short inMinValue;
+        public double inMinValueDouble;
+        public short inMaxValue;
+        public double inMaxValueDouble;
+        public Target.Floaty out;
+    }
+
+    private void checkClampHalfHalfHalfHalf() {
+        Allocation inValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x4b82831l, false);
+        Allocation inMinValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xf102f883l, false);
+        Allocation inMaxValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x825fea89l, false);
+        enforceOrdering(inMinValue, inMaxValue);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
+            script.set_gAllocInMinValue(inMinValue);
+            script.set_gAllocInMaxValue(inMaxValue);
+            script.forEach_testClampHalfHalfHalfHalf(inValue, out);
+            verifyResultsClampHalfHalfHalfHalf(inValue, inMinValue, inMaxValue, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testClampHalfHalfHalfHalf: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
+            scriptRelaxed.set_gAllocInMinValue(inMinValue);
+            scriptRelaxed.set_gAllocInMaxValue(inMaxValue);
+            scriptRelaxed.forEach_testClampHalfHalfHalfHalf(inValue, out);
+            verifyResultsClampHalfHalfHalfHalf(inValue, inMinValue, inMaxValue, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testClampHalfHalfHalfHalf: " + e.toString());
+        }
+    }
+
+    private void verifyResultsClampHalfHalfHalfHalf(Allocation inValue, Allocation inMinValue, Allocation inMaxValue, Allocation out, boolean relaxed) {
+        short[] arrayInValue = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayInValue, (short) 42);
+        inValue.copyTo(arrayInValue);
+        short[] arrayInMinValue = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayInMinValue, (short) 42);
+        inMinValue.copyTo(arrayInMinValue);
+        short[] arrayInMaxValue = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayInMaxValue, (short) 42);
+        inMaxValue.copyTo(arrayInMaxValue);
+        short[] arrayOut = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 1 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalfHalf args = new ArgumentsHalfHalfHalfHalf();
+                args.inValue = arrayInValue[i];
+                args.inValueDouble = Float16Utils.convertFloat16ToDouble(args.inValue);
+                args.inMinValue = arrayInMinValue[i];
+                args.inMinValueDouble = Float16Utils.convertFloat16ToDouble(args.inMinValue);
+                args.inMaxValue = arrayInMaxValue[i];
+                args.inMaxValueDouble = Float16Utils.convertFloat16ToDouble(args.inMaxValue);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeClamp(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 1 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inValue: ");
+                        appendVariableToMessage(message, args.inValue);
+                        message.append("\n");
+                        message.append("Input inMinValue: ");
+                        appendVariableToMessage(message, args.inMinValue);
+                        message.append("\n");
+                        message.append("Input inMaxValue: ");
+                        appendVariableToMessage(message, args.inMaxValue);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 1 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 1 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 1 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkClampHalfHalfHalfHalf" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkClampHalf2Half2Half2Half2() {
+        Allocation inValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xb1049715l, false);
+        Allocation inMinValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x6f2ebd6fl, false);
+        Allocation inMaxValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x8baf75l, false);
+        enforceOrdering(inMinValue, inMaxValue);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
+            script.set_gAllocInMinValue(inMinValue);
+            script.set_gAllocInMaxValue(inMaxValue);
+            script.forEach_testClampHalf2Half2Half2Half2(inValue, out);
+            verifyResultsClampHalf2Half2Half2Half2(inValue, inMinValue, inMaxValue, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testClampHalf2Half2Half2Half2: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
+            scriptRelaxed.set_gAllocInMinValue(inMinValue);
+            scriptRelaxed.set_gAllocInMaxValue(inMaxValue);
+            scriptRelaxed.forEach_testClampHalf2Half2Half2Half2(inValue, out);
+            verifyResultsClampHalf2Half2Half2Half2(inValue, inMinValue, inMaxValue, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testClampHalf2Half2Half2Half2: " + e.toString());
+        }
+    }
+
+    private void verifyResultsClampHalf2Half2Half2Half2(Allocation inValue, Allocation inMinValue, Allocation inMaxValue, Allocation out, boolean relaxed) {
+        short[] arrayInValue = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayInValue, (short) 42);
+        inValue.copyTo(arrayInValue);
+        short[] arrayInMinValue = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayInMinValue, (short) 42);
+        inMinValue.copyTo(arrayInMinValue);
+        short[] arrayInMaxValue = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayInMaxValue, (short) 42);
+        inMaxValue.copyTo(arrayInMaxValue);
+        short[] arrayOut = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 2 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalfHalf args = new ArgumentsHalfHalfHalfHalf();
+                args.inValue = arrayInValue[i * 2 + j];
+                args.inValueDouble = Float16Utils.convertFloat16ToDouble(args.inValue);
+                args.inMinValue = arrayInMinValue[i * 2 + j];
+                args.inMinValueDouble = Float16Utils.convertFloat16ToDouble(args.inMinValue);
+                args.inMaxValue = arrayInMaxValue[i * 2 + j];
+                args.inMaxValueDouble = Float16Utils.convertFloat16ToDouble(args.inMaxValue);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeClamp(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inValue: ");
+                        appendVariableToMessage(message, args.inValue);
+                        message.append("\n");
+                        message.append("Input inMinValue: ");
+                        appendVariableToMessage(message, args.inMinValue);
+                        message.append("\n");
+                        message.append("Input inMaxValue: ");
+                        appendVariableToMessage(message, args.inMaxValue);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 2 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkClampHalf2Half2Half2Half2" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkClampHalf3Half3Half3Half3() {
+        Allocation inValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xa6d9935dl, false);
+        Allocation inMinValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x81facac7l, false);
+        Allocation inMaxValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x1357bccdl, false);
+        enforceOrdering(inMinValue, inMaxValue);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            script.set_gAllocInMinValue(inMinValue);
+            script.set_gAllocInMaxValue(inMaxValue);
+            script.forEach_testClampHalf3Half3Half3Half3(inValue, out);
+            verifyResultsClampHalf3Half3Half3Half3(inValue, inMinValue, inMaxValue, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testClampHalf3Half3Half3Half3: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            scriptRelaxed.set_gAllocInMinValue(inMinValue);
+            scriptRelaxed.set_gAllocInMaxValue(inMaxValue);
+            scriptRelaxed.forEach_testClampHalf3Half3Half3Half3(inValue, out);
+            verifyResultsClampHalf3Half3Half3Half3(inValue, inMinValue, inMaxValue, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testClampHalf3Half3Half3Half3: " + e.toString());
+        }
+    }
+
+    private void verifyResultsClampHalf3Half3Half3Half3(Allocation inValue, Allocation inMinValue, Allocation inMaxValue, Allocation out, boolean relaxed) {
+        short[] arrayInValue = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInValue, (short) 42);
+        inValue.copyTo(arrayInValue);
+        short[] arrayInMinValue = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInMinValue, (short) 42);
+        inMinValue.copyTo(arrayInMinValue);
+        short[] arrayInMaxValue = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInMaxValue, (short) 42);
+        inMaxValue.copyTo(arrayInMaxValue);
+        short[] arrayOut = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 3 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalfHalf args = new ArgumentsHalfHalfHalfHalf();
+                args.inValue = arrayInValue[i * 4 + j];
+                args.inValueDouble = Float16Utils.convertFloat16ToDouble(args.inValue);
+                args.inMinValue = arrayInMinValue[i * 4 + j];
+                args.inMinValueDouble = Float16Utils.convertFloat16ToDouble(args.inMinValue);
+                args.inMaxValue = arrayInMaxValue[i * 4 + j];
+                args.inMaxValueDouble = Float16Utils.convertFloat16ToDouble(args.inMaxValue);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeClamp(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inValue: ");
+                        appendVariableToMessage(message, args.inValue);
+                        message.append("\n");
+                        message.append("Input inMinValue: ");
+                        appendVariableToMessage(message, args.inMinValue);
+                        message.append("\n");
+                        message.append("Input inMaxValue: ");
+                        appendVariableToMessage(message, args.inMaxValue);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 4 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkClampHalf3Half3Half3Half3" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkClampHalf4Half4Half4Half4() {
+        Allocation inValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x9cae8fa5l, false);
+        Allocation inMinValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x94c6d81fl, false);
+        Allocation inMaxValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x2623ca25l, false);
+        enforceOrdering(inMinValue, inMaxValue);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            script.set_gAllocInMinValue(inMinValue);
+            script.set_gAllocInMaxValue(inMaxValue);
+            script.forEach_testClampHalf4Half4Half4Half4(inValue, out);
+            verifyResultsClampHalf4Half4Half4Half4(inValue, inMinValue, inMaxValue, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testClampHalf4Half4Half4Half4: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            scriptRelaxed.set_gAllocInMinValue(inMinValue);
+            scriptRelaxed.set_gAllocInMaxValue(inMaxValue);
+            scriptRelaxed.forEach_testClampHalf4Half4Half4Half4(inValue, out);
+            verifyResultsClampHalf4Half4Half4Half4(inValue, inMinValue, inMaxValue, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testClampHalf4Half4Half4Half4: " + e.toString());
+        }
+    }
+
+    private void verifyResultsClampHalf4Half4Half4Half4(Allocation inValue, Allocation inMinValue, Allocation inMaxValue, Allocation out, boolean relaxed) {
+        short[] arrayInValue = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInValue, (short) 42);
+        inValue.copyTo(arrayInValue);
+        short[] arrayInMinValue = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInMinValue, (short) 42);
+        inMinValue.copyTo(arrayInMinValue);
+        short[] arrayInMaxValue = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInMaxValue, (short) 42);
+        inMaxValue.copyTo(arrayInMaxValue);
+        short[] arrayOut = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 4 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalfHalf args = new ArgumentsHalfHalfHalfHalf();
+                args.inValue = arrayInValue[i * 4 + j];
+                args.inValueDouble = Float16Utils.convertFloat16ToDouble(args.inValue);
+                args.inMinValue = arrayInMinValue[i * 4 + j];
+                args.inMinValueDouble = Float16Utils.convertFloat16ToDouble(args.inMinValue);
+                args.inMaxValue = arrayInMaxValue[i * 4 + j];
+                args.inMaxValueDouble = Float16Utils.convertFloat16ToDouble(args.inMaxValue);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeClamp(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inValue: ");
+                        appendVariableToMessage(message, args.inValue);
+                        message.append("\n");
+                        message.append("Input inMinValue: ");
+                        appendVariableToMessage(message, args.inMinValue);
+                        message.append("\n");
+                        message.append("Input inMaxValue: ");
+                        appendVariableToMessage(message, args.inMaxValue);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 4 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkClampHalf4Half4Half4Half4" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkClampHalf2HalfHalfHalf2() {
+        Allocation inValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x35f68507l, false);
+        Allocation inMinValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xbc3d6b65l, false);
+        Allocation inMaxValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x4d9a5d6bl, false);
+        enforceOrdering(inMinValue, inMaxValue);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
+            script.set_gAllocInMinValue(inMinValue);
+            script.set_gAllocInMaxValue(inMaxValue);
+            script.forEach_testClampHalf2HalfHalfHalf2(inValue, out);
+            verifyResultsClampHalf2HalfHalfHalf2(inValue, inMinValue, inMaxValue, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testClampHalf2HalfHalfHalf2: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
+            scriptRelaxed.set_gAllocInMinValue(inMinValue);
+            scriptRelaxed.set_gAllocInMaxValue(inMaxValue);
+            scriptRelaxed.forEach_testClampHalf2HalfHalfHalf2(inValue, out);
+            verifyResultsClampHalf2HalfHalfHalf2(inValue, inMinValue, inMaxValue, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testClampHalf2HalfHalfHalf2: " + e.toString());
+        }
+    }
+
+    private void verifyResultsClampHalf2HalfHalfHalf2(Allocation inValue, Allocation inMinValue, Allocation inMaxValue, Allocation out, boolean relaxed) {
+        short[] arrayInValue = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayInValue, (short) 42);
+        inValue.copyTo(arrayInValue);
+        short[] arrayInMinValue = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayInMinValue, (short) 42);
+        inMinValue.copyTo(arrayInMinValue);
+        short[] arrayInMaxValue = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayInMaxValue, (short) 42);
+        inMaxValue.copyTo(arrayInMaxValue);
+        short[] arrayOut = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 2 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalfHalf args = new ArgumentsHalfHalfHalfHalf();
+                args.inValue = arrayInValue[i * 2 + j];
+                args.inValueDouble = Float16Utils.convertFloat16ToDouble(args.inValue);
+                args.inMinValue = arrayInMinValue[i];
+                args.inMinValueDouble = Float16Utils.convertFloat16ToDouble(args.inMinValue);
+                args.inMaxValue = arrayInMaxValue[i];
+                args.inMaxValueDouble = Float16Utils.convertFloat16ToDouble(args.inMaxValue);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeClamp(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inValue: ");
+                        appendVariableToMessage(message, args.inValue);
+                        message.append("\n");
+                        message.append("Input inMinValue: ");
+                        appendVariableToMessage(message, args.inMinValue);
+                        message.append("\n");
+                        message.append("Input inMaxValue: ");
+                        appendVariableToMessage(message, args.inMaxValue);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 2 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkClampHalf2HalfHalfHalf2" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkClampHalf3HalfHalfHalf3() {
+        Allocation inValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x1f414e1bl, false);
+        Allocation inMinValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x41ad19e1l, false);
+        Allocation inMaxValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xd30a0be7l, false);
+        enforceOrdering(inMinValue, inMaxValue);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            script.set_gAllocInMinValue(inMinValue);
+            script.set_gAllocInMaxValue(inMaxValue);
+            script.forEach_testClampHalf3HalfHalfHalf3(inValue, out);
+            verifyResultsClampHalf3HalfHalfHalf3(inValue, inMinValue, inMaxValue, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testClampHalf3HalfHalfHalf3: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            scriptRelaxed.set_gAllocInMinValue(inMinValue);
+            scriptRelaxed.set_gAllocInMaxValue(inMaxValue);
+            scriptRelaxed.forEach_testClampHalf3HalfHalfHalf3(inValue, out);
+            verifyResultsClampHalf3HalfHalfHalf3(inValue, inMinValue, inMaxValue, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testClampHalf3HalfHalfHalf3: " + e.toString());
+        }
+    }
+
+    private void verifyResultsClampHalf3HalfHalfHalf3(Allocation inValue, Allocation inMinValue, Allocation inMaxValue, Allocation out, boolean relaxed) {
+        short[] arrayInValue = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInValue, (short) 42);
+        inValue.copyTo(arrayInValue);
+        short[] arrayInMinValue = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayInMinValue, (short) 42);
+        inMinValue.copyTo(arrayInMinValue);
+        short[] arrayInMaxValue = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayInMaxValue, (short) 42);
+        inMaxValue.copyTo(arrayInMaxValue);
+        short[] arrayOut = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 3 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalfHalf args = new ArgumentsHalfHalfHalfHalf();
+                args.inValue = arrayInValue[i * 4 + j];
+                args.inValueDouble = Float16Utils.convertFloat16ToDouble(args.inValue);
+                args.inMinValue = arrayInMinValue[i];
+                args.inMinValueDouble = Float16Utils.convertFloat16ToDouble(args.inMinValue);
+                args.inMaxValue = arrayInMaxValue[i];
+                args.inMaxValueDouble = Float16Utils.convertFloat16ToDouble(args.inMaxValue);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeClamp(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inValue: ");
+                        appendVariableToMessage(message, args.inValue);
+                        message.append("\n");
+                        message.append("Input inMinValue: ");
+                        appendVariableToMessage(message, args.inMinValue);
+                        message.append("\n");
+                        message.append("Input inMaxValue: ");
+                        appendVariableToMessage(message, args.inMaxValue);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 4 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkClampHalf3HalfHalfHalf3" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkClampHalf4HalfHalfHalf4() {
+        Allocation inValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x88c172fl, false);
+        Allocation inMinValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xc71cc85dl, false);
+        Allocation inMaxValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x5879ba63l, false);
+        enforceOrdering(inMinValue, inMaxValue);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            script.set_gAllocInMinValue(inMinValue);
+            script.set_gAllocInMaxValue(inMaxValue);
+            script.forEach_testClampHalf4HalfHalfHalf4(inValue, out);
+            verifyResultsClampHalf4HalfHalfHalf4(inValue, inMinValue, inMaxValue, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testClampHalf4HalfHalfHalf4: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            scriptRelaxed.set_gAllocInMinValue(inMinValue);
+            scriptRelaxed.set_gAllocInMaxValue(inMaxValue);
+            scriptRelaxed.forEach_testClampHalf4HalfHalfHalf4(inValue, out);
+            verifyResultsClampHalf4HalfHalfHalf4(inValue, inMinValue, inMaxValue, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testClampHalf4HalfHalfHalf4: " + e.toString());
+        }
+    }
+
+    private void verifyResultsClampHalf4HalfHalfHalf4(Allocation inValue, Allocation inMinValue, Allocation inMaxValue, Allocation out, boolean relaxed) {
+        short[] arrayInValue = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInValue, (short) 42);
+        inValue.copyTo(arrayInValue);
+        short[] arrayInMinValue = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayInMinValue, (short) 42);
+        inMinValue.copyTo(arrayInMinValue);
+        short[] arrayInMaxValue = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayInMaxValue, (short) 42);
+        inMaxValue.copyTo(arrayInMaxValue);
+        short[] arrayOut = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 4 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalfHalf args = new ArgumentsHalfHalfHalfHalf();
+                args.inValue = arrayInValue[i * 4 + j];
+                args.inValueDouble = Float16Utils.convertFloat16ToDouble(args.inValue);
+                args.inMinValue = arrayInMinValue[i];
+                args.inMinValueDouble = Float16Utils.convertFloat16ToDouble(args.inMinValue);
+                args.inMaxValue = arrayInMaxValue[i];
+                args.inMaxValueDouble = Float16Utils.convertFloat16ToDouble(args.inMaxValue);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NORMAL, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeClamp(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inValue: ");
+                        appendVariableToMessage(message, args.inValue);
+                        message.append("\n");
+                        message.append("Input inMinValue: ");
+                        appendVariableToMessage(message, args.inMinValue);
+                        message.append("\n");
+                        message.append("Input inMaxValue: ");
+                        appendVariableToMessage(message, args.inMaxValue);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 4 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkClampHalf4HalfHalfHalf4" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
     public void testClamp() {
         checkClampFloatFloatFloatFloat();
         checkClampFloat2Float2Float2Float2();
@@ -5777,5 +6460,12 @@ public class TestClamp extends RSBaseCompute {
         checkClampUlong2UlongUlongUlong2();
         checkClampUlong3UlongUlongUlong3();
         checkClampUlong4UlongUlongUlong4();
+        checkClampHalfHalfHalfHalf();
+        checkClampHalf2Half2Half2Half2();
+        checkClampHalf3Half3Half3Half3();
+        checkClampHalf4Half4Half4Half4();
+        checkClampHalf2HalfHalfHalf2();
+        checkClampHalf3HalfHalfHalf3();
+        checkClampHalf4HalfHalfHalf4();
     }
 }

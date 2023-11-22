@@ -17,27 +17,35 @@
 
 package android.support.v7.widget;
 
+import org.hamcrest.CoreMatchers;
+import org.hamcrest.MatcherAssert;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mockito;
 
+import android.content.Context;
+import android.support.annotation.Nullable;
 import android.support.test.InstrumentationRegistry;
 import android.graphics.Color;
 import android.graphics.PointF;
 import android.graphics.Rect;
 import android.os.SystemClock;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.runner.AndroidJUnit4;
 import android.support.v4.view.ViewCompat;
-import android.support.v7.widget.RecyclerView;
-import android.test.TouchUtils;
+import android.support.v7.util.TouchUtils;
+import android.test.suitebuilder.annotation.MediumTest;
+import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Gravity;
-import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import java.util.ArrayList;
@@ -50,19 +58,24 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static android.support.v7.widget.RecyclerView.NO_POSITION;
-import static android.support.v7.widget.RecyclerView.SCROLL_STATE_IDLE;
 import static android.support.v7.widget.RecyclerView.SCROLL_STATE_DRAGGING;
+import static android.support.v7.widget.RecyclerView.SCROLL_STATE_IDLE;
 import static android.support.v7.widget.RecyclerView.SCROLL_STATE_SETTLING;
 import static android.support.v7.widget.RecyclerView.getChildViewHolderInt;
-import android.support.test.runner.AndroidJUnit4;
+
+import static org.hamcrest.CoreMatchers.sameInstance;
+import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
+import static org.hamcrest.CoreMatchers.is;
 
 @RunWith(AndroidJUnit4.class)
+@MediumTest
 public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest {
     private static final int FLAG_HORIZONTAL = 1;
     private static final int FLAG_VERTICAL = 1 << 1;
     private static final int FLAG_FLING = 1 << 2;
 
-    private static final boolean DEBUG = true;
+    private static final boolean DEBUG = false;
 
     private static final String TAG = "RecyclerViewLayoutTest";
 
@@ -70,27 +83,401 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
         super(DEBUG);
     }
 
-    @Before
-    @Override
-    public void setUp() throws Exception {
-        super.setUp();
-        injectInstrumentation(InstrumentationRegistry.getInstrumentation());
-    }
-
-    @After
-    @Override
-    public void tearDown() throws Exception {
-        super.tearDown();
+    @Test
+    public void detachAttachGetReadyWithoutChanges() throws Throwable {
+        detachAttachGetReady(false, false, false);
     }
 
     @Test
-    public void testFlingFrozen() throws Throwable {
+    public void detachAttachGetReadyRequireLayout() throws Throwable {
+        detachAttachGetReady(true, false, false);
+    }
+
+    @Test
+    public void detachAttachGetReadyRemoveAdapter() throws Throwable {
+        detachAttachGetReady(false, true, false);
+    }
+
+    @Test
+    public void detachAttachGetReadyRemoveLayoutManager() throws Throwable {
+        detachAttachGetReady(false, false, true);
+    }
+
+    private void detachAttachGetReady(final boolean requestLayoutOnDetach,
+            final boolean removeAdapter, final boolean removeLayoutManager) throws Throwable {
+        final LinearLayout ll1 = new LinearLayout(getActivity());
+        final LinearLayout ll2 = new LinearLayout(getActivity());
+        final LinearLayout ll3 = new LinearLayout(getActivity());
+
+        final RecyclerView rv = new RecyclerView(getActivity());
+        ll1.addView(ll2);
+        ll2.addView(ll3);
+        ll3.addView(rv);
+        TestLayoutManager layoutManager = new TestLayoutManager() {
+            @Override
+            public void onLayoutCompleted(RecyclerView.State state) {
+                super.onLayoutCompleted(state);
+                layoutLatch.countDown();
+            }
+
+            @Override
+            public void onDetachedFromWindow(RecyclerView view, RecyclerView.Recycler recycler) {
+                super.onDetachedFromWindow(view, recycler);
+                if (requestLayoutOnDetach) {
+                    view.requestLayout();
+                }
+            }
+        };
+        rv.setLayoutManager(layoutManager);
+        rv.setAdapter(new TestAdapter(10));
+        layoutManager.expectLayouts(1);
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                getActivity().getContainer().addView(ll1);
+            }
+        });
+        layoutManager.waitForLayout(2);
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                ll1.removeView(ll2);
+            }
+        });
+        getInstrumentation().waitForIdleSync();
+        if (removeLayoutManager) {
+            rv.setLayoutManager(null);
+            rv.setLayoutManager(layoutManager);
+        }
+        if (removeAdapter) {
+            rv.setAdapter(null);
+            rv.setAdapter(new TestAdapter(10));
+        }
+        final boolean requireLayout = requestLayoutOnDetach || removeAdapter || removeLayoutManager;
+        layoutManager.expectLayouts(1);
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                ll1.addView(ll2);
+                if (requireLayout) {
+                    assertTrue(rv.hasPendingAdapterUpdates());
+                    assertFalse(rv.mFirstLayoutComplete);
+                } else {
+                    assertFalse(rv.hasPendingAdapterUpdates());
+                    assertTrue(rv.mFirstLayoutComplete);
+                }
+            }
+        });
+        if (requireLayout) {
+            layoutManager.waitForLayout(2);
+        } else {
+            layoutManager.assertNoLayout("nothing is invalid, layout should not happen", 2);
+        }
+    }
+
+    @Test
+    public void focusSearchWithOtherFocusables() throws Throwable {
+        final LinearLayout container = new LinearLayout(getActivity());
+        container.setOrientation(LinearLayout.VERTICAL);
+        RecyclerView rv = new RecyclerView(getActivity());
+        mRecyclerView = rv;
+        rv.setAdapter(new TestAdapter(10) {
+            @Override
+            public void onBindViewHolder(TestViewHolder holder,
+                    int position) {
+                super.onBindViewHolder(holder, position);
+                holder.itemView.setFocusableInTouchMode(true);
+                holder.itemView.setLayoutParams(
+                        new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT));
+            }
+        });
+        TestLayoutManager tlm = new TestLayoutManager() {
+            @Override
+            public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
+                detachAndScrapAttachedViews(recycler);
+                layoutRange(recycler, 0, 1);
+                layoutLatch.countDown();
+            }
+
+            @Nullable
+            @Override
+            public View onFocusSearchFailed(View focused, int direction,
+                    RecyclerView.Recycler recycler,
+                    RecyclerView.State state) {
+                assertEquals(View.FOCUS_FORWARD, direction);
+                assertEquals(1, getChildCount());
+                View child0 = getChildAt(0);
+                View view = recycler.getViewForPosition(1);
+                addView(view);
+                measureChild(view, 0, 0);
+                layoutDecorated(view, 0, child0.getBottom(), getDecoratedMeasuredWidth(view),
+                        child0.getBottom() + getDecoratedMeasuredHeight(view));
+                return view;
+            }
+        };
+        tlm.setAutoMeasureEnabled(true);
+        rv.setLayoutManager(tlm);
+        TextView viewAbove = new TextView(getActivity());
+        viewAbove.setText("view above");
+        viewAbove.setFocusableInTouchMode(true);
+        container.addView(viewAbove);
+        container.addView(rv);
+        TextView viewBelow = new TextView(getActivity());
+        viewBelow.setText("view below");
+        viewBelow.setFocusableInTouchMode(true);
+        container.addView(viewBelow);
+        tlm.expectLayouts(1);
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                getActivity().getContainer().addView(container);
+            }
+        });
+
+        tlm.waitForLayout(2);
+        requestFocus(viewAbove, true);
+        assertTrue(viewAbove.hasFocus());
+        View newFocused = focusSearch(viewAbove, View.FOCUS_FORWARD);
+        assertThat(newFocused, sameInstance(rv.getChildAt(0)));
+        newFocused = focusSearch(rv.getChildAt(0), View.FOCUS_FORWARD);
+        assertThat(newFocused, sameInstance(rv.getChildAt(1)));
+    }
+
+    @Test
+    public void boundingBoxNoTranslation() throws Throwable {
+        transformedBoundingBoxTest(new ViewRunnable() {
+            @Override
+            public void run(View view) throws RuntimeException {
+                view.layout(10, 10, 30, 50);
+                assertThat(getTransformedBoundingBox(view), is(new Rect(10, 10, 30, 50)));
+            }
+        });
+    }
+
+    @Test
+    public void boundingBoxTranslateX() throws Throwable {
+        transformedBoundingBoxTest(new ViewRunnable() {
+            @Override
+            public void run(View view) throws RuntimeException {
+                view.layout(10, 10, 30, 50);
+                ViewCompat.setTranslationX(view, 10);
+                assertThat(getTransformedBoundingBox(view), is(new Rect(20, 10, 40, 50)));
+            }
+        });
+    }
+
+    @Test
+    public void boundingBoxTranslateY() throws Throwable {
+        transformedBoundingBoxTest(new ViewRunnable() {
+            @Override
+            public void run(View view) throws RuntimeException {
+                view.layout(10, 10, 30, 50);
+                ViewCompat.setTranslationY(view, 10);
+                assertThat(getTransformedBoundingBox(view), is(new Rect(10, 20, 30, 60)));
+            }
+        });
+    }
+
+    @Test
+    public void boundingBoxScaleX() throws Throwable {
+        transformedBoundingBoxTest(new ViewRunnable() {
+            @Override
+            public void run(View view) throws RuntimeException {
+                view.layout(10, 10, 30, 50);
+                ViewCompat.setScaleX(view, 2);
+                assertThat(getTransformedBoundingBox(view), is(new Rect(0, 10, 40, 50)));
+            }
+        });
+    }
+
+    @Test
+    public void boundingBoxScaleY() throws Throwable {
+        transformedBoundingBoxTest(new ViewRunnable() {
+            @Override
+            public void run(View view) throws RuntimeException {
+                view.layout(10, 10, 30, 50);
+                ViewCompat.setScaleY(view, 2);
+                assertThat(getTransformedBoundingBox(view), is(new Rect(10, -10, 30, 70)));
+            }
+        });
+    }
+
+    @Test
+    public void boundingBoxRotated() throws Throwable {
+        transformedBoundingBoxTest(new ViewRunnable() {
+            @Override
+            public void run(View view) throws RuntimeException {
+                view.layout(10, 10, 30, 50);
+                ViewCompat.setRotation(view, 90);
+                assertThat(getTransformedBoundingBox(view), is(new Rect(0, 20, 40, 40)));
+            }
+        });
+    }
+
+    @Test
+    public void boundingBoxRotatedWithDecorOffsets() throws Throwable {
+        final RecyclerView recyclerView = new RecyclerView(getActivity());
+        final TestAdapter adapter = new TestAdapter(1);
+        recyclerView.setAdapter(adapter);
+        recyclerView.addItemDecoration(new RecyclerView.ItemDecoration() {
+            @Override
+            public void getItemOffsets(Rect outRect, View view, RecyclerView parent,
+                    RecyclerView.State state) {
+                outRect.set(1, 2, 3, 4);
+            }
+        });
+        TestLayoutManager layoutManager = new TestLayoutManager() {
+            @Override
+            public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
+                detachAndScrapAttachedViews(recycler);
+                View view = recycler.getViewForPosition(0);
+                addView(view);
+                view.measure(
+                        View.MeasureSpec.makeMeasureSpec(20, View.MeasureSpec.EXACTLY),
+                        View.MeasureSpec.makeMeasureSpec(40, View.MeasureSpec.EXACTLY)
+                );
+                // trigger decor offsets calculation
+                calculateItemDecorationsForChild(view, new Rect());
+                view.layout(10, 10, 30, 50);
+                ViewCompat.setRotation(view, 90);
+                assertThat(RecyclerViewLayoutTest.this.getTransformedBoundingBox(view),
+                        is(new Rect(-4, 19, 42, 43)));
+
+                layoutLatch.countDown();
+            }
+        };
+        recyclerView.setLayoutManager(layoutManager);
+        layoutManager.expectLayouts(1);
+        setRecyclerView(recyclerView);
+        layoutManager.waitForLayout(2);
+        checkForMainThreadException();
+    }
+
+    private Rect getTransformedBoundingBox(View child) {
+        Rect rect = new Rect();
+        mRecyclerView.getLayoutManager().getTransformedBoundingBox(child, true, rect);
+        return rect;
+    }
+
+    public void transformedBoundingBoxTest(final ViewRunnable layout) throws Throwable {
+        final RecyclerView recyclerView = new RecyclerView(getActivity());
+        final TestAdapter adapter = new TestAdapter(1);
+        recyclerView.setAdapter(adapter);
+        TestLayoutManager layoutManager = new TestLayoutManager() {
+            @Override
+            public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
+                detachAndScrapAttachedViews(recycler);
+                View view = recycler.getViewForPosition(0);
+                addView(view);
+                view.measure(
+                        View.MeasureSpec.makeMeasureSpec(20, View.MeasureSpec.EXACTLY),
+                        View.MeasureSpec.makeMeasureSpec(40, View.MeasureSpec.EXACTLY)
+                );
+                layout.run(view);
+                layoutLatch.countDown();
+            }
+        };
+        recyclerView.setLayoutManager(layoutManager);
+        layoutManager.expectLayouts(1);
+        setRecyclerView(recyclerView);
+        layoutManager.waitForLayout(2);
+        checkForMainThreadException();
+    }
+
+    @Test
+    public void flingFrozen() throws Throwable {
         testScrollFrozen(true);
     }
 
     @Test
-    public void testDragFrozen() throws Throwable {
+    public void dragFrozen() throws Throwable {
         testScrollFrozen(false);
+    }
+
+    @Test
+    public void requestRectOnScreenWithScrollOffset() throws Throwable {
+        final RecyclerView recyclerView = new RecyclerView(getActivity());
+        final LayoutAllLayoutManager tlm = spy(new LayoutAllLayoutManager());
+        final int scrollY = 50;
+        RecyclerView.Adapter adapter = new RecyclerView.Adapter() {
+            @Override
+            public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+                View view = new View(parent.getContext());
+                view.setScrollY(scrollY);
+                return new RecyclerView.ViewHolder(view) {
+                };
+            }
+            @Override
+            public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {}
+            @Override
+            public int getItemCount() {
+                return 1;
+            }
+        };
+        recyclerView.setAdapter(adapter);
+        recyclerView.setLayoutManager(tlm);
+        tlm.expectLayouts(1);
+        setRecyclerView(recyclerView);
+        tlm.waitForLayout(1);
+        final View child = recyclerView.getChildAt(0);
+        assertThat(child.getScrollY(), CoreMatchers.is(scrollY));
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                recyclerView.requestChildRectangleOnScreen(child, new Rect(3, 4, 5, 6), true);
+                verify(tlm, times(1)).scrollVerticallyBy(eq(-46), any(RecyclerView.Recycler.class),
+                        any(RecyclerView.State.class));
+            }
+        });
+    }
+
+    @Test
+    public void reattachAndScrollCrash() throws Throwable {
+        final RecyclerView recyclerView = new RecyclerView(getActivity());
+        final TestLayoutManager tlm = new TestLayoutManager() {
+
+            @Override
+            public boolean canScrollVertically() {
+                return true;
+            }
+
+            @Override
+            public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
+                layoutRange(recycler, 0, Math.min(state.getItemCount(), 10));
+            }
+
+            @Override
+            public int scrollVerticallyBy(int dy, RecyclerView.Recycler recycler,
+                                          RecyclerView.State state) {
+                // Access views in the state (that might have been deleted).
+                for (int  i = 10; i < state.getItemCount(); i++) {
+                    recycler.getViewForPosition(i);
+                }
+                return dy;
+            }
+        };
+
+        final TestAdapter adapter = new TestAdapter(12);
+
+        recyclerView.setAdapter(adapter);
+        recyclerView.setLayoutManager(tlm);
+
+        setRecyclerView(recyclerView);
+
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                getActivity().getContainer().removeView(recyclerView);
+                getActivity().getContainer().addView(recyclerView);
+                try {
+                    adapter.deleteAndNotify(1, adapter.getItemCount() - 1);
+                } catch (Throwable throwable) {
+                    postExceptionToInstrumentation(throwable);
+                }
+                recyclerView.scrollBy(0, 10);
+            }
+        });
     }
 
     private void testScrollFrozen(boolean fling) throws Throwable {
@@ -151,7 +538,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
         if (fling) {
             assertFalse("fling should be blocked", fling(horizontalVelocity, verticalVelocity));
         } else { // drag
-            TouchUtils.dragViewTo(this, recyclerView,
+            TouchUtils.dragViewTo(getInstrumentation(), recyclerView,
                     Gravity.LEFT | Gravity.TOP,
                     mRecyclerView.getWidth() / 2, mRecyclerView.getHeight() / 2);
         }
@@ -165,7 +552,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
         if (fling) {
             assertTrue("fling should be started", fling(horizontalVelocity, verticalVelocity));
         } else { // drag
-            TouchUtils.dragViewTo(this, recyclerView,
+            TouchUtils.dragViewTo(getInstrumentation(), recyclerView,
                     Gravity.LEFT | Gravity.TOP,
                     mRecyclerView.getWidth() / 2, mRecyclerView.getHeight() / 2);
         }
@@ -174,9 +561,89 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testFocusSearchFailFrozen() throws Throwable {
-        RecyclerView recyclerView = new RecyclerView(getActivity());
+    public void testFocusSearchAfterChangedData() throws Throwable {
+        final RecyclerView recyclerView = new RecyclerView(getActivity());
+        TestLayoutManager tlm = new TestLayoutManager() {
+            @Override
+            public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
+                layoutRange(recycler, 0, 2);
+                layoutLatch.countDown();
+            }
 
+            @Nullable
+            @Override
+            public View onFocusSearchFailed(View focused, int direction,
+                                            RecyclerView.Recycler recycler,
+                                            RecyclerView.State state) {
+                try {
+                    View view = recycler.getViewForPosition(state.getItemCount() - 1);
+                } catch (Throwable t) {
+                    postExceptionToInstrumentation(t);
+                }
+                return null;
+            }
+        };
+        recyclerView.setLayoutManager(tlm);
+        final TestAdapter adapter = new TestAdapter(10) {
+            @Override
+            public void onBindViewHolder(TestViewHolder holder, int position) {
+                super.onBindViewHolder(holder, position);
+                holder.itemView.setFocusable(false);
+                holder.itemView.setFocusableInTouchMode(false);
+            }
+        };
+        recyclerView.setAdapter(adapter);
+        tlm.expectLayouts(1);
+        setRecyclerView(recyclerView);
+        tlm.waitForLayout(1);
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                adapter.mItems.remove(9);
+                adapter.notifyItemRemoved(9);
+                recyclerView.focusSearch(recyclerView.getChildAt(1), View.FOCUS_DOWN);
+            }
+        });
+        checkForMainThreadException();
+    }
+
+    @Test
+    public void testFocusSearchWithRemovedFocusedItem() throws Throwable {
+        final RecyclerView recyclerView = new RecyclerView(getActivity());
+        recyclerView.setItemAnimator(null);
+        TestLayoutManager tlm = new LayoutAllLayoutManager();
+        recyclerView.setLayoutManager(tlm);
+        final TestAdapter adapter = new TestAdapter(10) {
+            @Override
+            public void onBindViewHolder(TestViewHolder holder, int position) {
+                super.onBindViewHolder(holder, position);
+                holder.itemView.setFocusable(true);
+                holder.itemView.setFocusableInTouchMode(true);
+            }
+        };
+        recyclerView.setAdapter(adapter);
+        tlm.expectLayouts(1);
+        setRecyclerView(recyclerView);
+        tlm.waitForLayout(1);
+        final RecyclerView.ViewHolder toFocus = recyclerView.findViewHolderForAdapterPosition(9);
+        requestFocus(toFocus.itemView, true);
+        assertThat("test sanity", toFocus.itemView.hasFocus(), is(true));
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                adapter.mItems.remove(9);
+                adapter.notifyItemRemoved(9);
+                recyclerView.focusSearch(toFocus.itemView, View.FOCUS_DOWN);
+            }
+        });
+        checkForMainThreadException();
+    }
+
+
+    @Test
+    public void  testFocusSearchFailFrozen() throws Throwable {
+        RecyclerView recyclerView = new RecyclerView(getActivity());
+        final CountDownLatch focusLatch = new CountDownLatch(1);
         final AtomicInteger focusSearchCalled = new AtomicInteger(0);
         TestLayoutManager tlm = new TestLayoutManager() {
             @Override
@@ -196,9 +663,10 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
             }
 
             @Override
-            public View onFocusSearchFailed(View focused, int direction, RecyclerView.Recycler recycler,
-                    RecyclerView.State state) {
+            public View onFocusSearchFailed(View focused, int direction,
+                    RecyclerView.Recycler recycler, RecyclerView.State state) {
                 focusSearchCalled.addAndGet(1);
+                focusLatch.countDown();
                 return null;
             }
         };
@@ -208,28 +676,33 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
         tlm.expectLayouts(1);
         setRecyclerView(recyclerView);
         tlm.waitForLayout(2);
-
         final View c = recyclerView.getChildAt(recyclerView.getChildCount() - 1);
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                c.requestFocus();
-            }
-        });
-        assertTrue(c.hasFocus());
-
+        assertTrue("test sanity", requestFocus(c, true));
+        assertTrue("test sanity", c.hasFocus());
         freezeLayout(true);
-        sendKeys(KeyEvent.KEYCODE_DPAD_DOWN);
+        focusSearch(recyclerView, c, View.FOCUS_DOWN);
         assertEquals("onFocusSearchFailed should not be called when layout is frozen",
                 0, focusSearchCalled.get());
-
         freezeLayout(false);
-        sendKeys(KeyEvent.KEYCODE_DPAD_DOWN);
+        focusSearch(c, View.FOCUS_DOWN);
+        assertTrue(focusLatch.await(2, TimeUnit.SECONDS));
         assertEquals(1, focusSearchCalled.get());
     }
 
+    public View focusSearch(final ViewGroup parent, final View focused, final int direction)
+            throws Throwable {
+        final View[] result = new View[1];
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                result[0] = parent.focusSearch(focused, direction);
+            }
+        });
+        return result[0];
+    }
+
     @Test
-    public void testFrozenAndChangeAdapter() throws Throwable {
+    public void frozenAndChangeAdapter() throws Throwable {
         RecyclerView recyclerView = new RecyclerView(getActivity());
 
         final AtomicInteger focusSearchCalled = new AtomicInteger(0);
@@ -278,7 +751,88 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testScrollToPositionCallback() throws Throwable {
+    public void noLayoutIf0ItemsAreChanged() throws Throwable {
+        unnecessaryNotifyEvents(new AdapterRunnable() {
+            @Override
+            public void run(TestAdapter adapter) throws Throwable {
+                adapter.notifyItemRangeChanged(3, 0);
+            }
+        });
+    }
+
+    @Test
+    public void noLayoutIf0ItemsAreChangedWithPayload() throws Throwable {
+        unnecessaryNotifyEvents(new AdapterRunnable() {
+            @Override
+            public void run(TestAdapter adapter) throws Throwable {
+                adapter.notifyItemRangeChanged(0, 0, new Object());
+            }
+        });
+    }
+
+    @Test
+    public void noLayoutIf0ItemsAreAdded() throws Throwable {
+        unnecessaryNotifyEvents(new AdapterRunnable() {
+            @Override
+            public void run(TestAdapter adapter) throws Throwable {
+                adapter.notifyItemRangeInserted(3, 0);
+            }
+        });
+    }
+
+    @Test
+    public void noLayoutIf0ItemsAreRemoved() throws Throwable {
+        unnecessaryNotifyEvents(new AdapterRunnable() {
+            @Override
+            public void run(TestAdapter adapter) throws Throwable {
+                adapter.notifyItemRangeRemoved(3, 0);
+            }
+        });
+    }
+
+    @Test
+    public void noLayoutIfItemMovedIntoItsOwnPlace() throws Throwable {
+        unnecessaryNotifyEvents(new AdapterRunnable() {
+            @Override
+            public void run(TestAdapter adapter) throws Throwable {
+                adapter.notifyItemMoved(3, 3);
+            }
+        });
+    }
+
+    public void unnecessaryNotifyEvents(final AdapterRunnable action) throws Throwable {
+        final RecyclerView recyclerView = new RecyclerView(getActivity());
+        final TestAdapter adapter = new TestAdapter(5);
+        TestLayoutManager tlm = new TestLayoutManager() {
+            @Override
+            public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
+                super.onLayoutChildren(recycler, state);
+                layoutLatch.countDown();
+            }
+        };
+        recyclerView.setLayoutManager(tlm);
+        recyclerView.setAdapter(adapter);
+        tlm.expectLayouts(1);
+        setRecyclerView(recyclerView);
+        tlm.waitForLayout(1);
+        // ready
+        tlm.expectLayouts(1);
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    action.run(adapter);
+                } catch (Throwable throwable) {
+                    postExceptionToInstrumentation(throwable);
+                }
+            }
+        });
+        tlm.assertNoLayout("dummy event should not trigger a layout", 1);
+        checkForMainThreadException();
+    }
+
+    @Test
+    public void scrollToPositionCallback() throws Throwable {
         RecyclerView recyclerView = new RecyclerView(getActivity());
         TestLayoutManager tlm = new TestLayoutManager() {
             int scrollPos = RecyclerView.NO_POSITION;
@@ -344,56 +898,148 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
         Thread.sleep(1000);
         assertEquals("on scroll should NOT be called", 2, rvCounter.get());
         assertEquals("on scroll should NOT be called", 2, viewGroupCounter.get());
-
     }
 
     @Test
-    public void testScrollInBothDirectionEqual() throws Throwable {
+    public void scrollCalllbackOnVisibleRangeExpand() throws Throwable {
+        scrollCallbackOnVisibleRangeChange(10, new int[]{3, 5}, new int[]{3, 6});
+    }
+
+    @Test
+    public void scrollCalllbackOnVisibleRangeShrink() throws Throwable {
+        scrollCallbackOnVisibleRangeChange(10, new int[]{3, 6}, new int[]{3, 5});
+    }
+
+    @Test
+    public void scrollCalllbackOnVisibleRangeExpand2() throws Throwable {
+        scrollCallbackOnVisibleRangeChange(10, new int[]{3, 5}, new int[]{2, 5});
+    }
+
+    @Test
+    public void scrollCalllbackOnVisibleRangeShrink2() throws Throwable {
+        scrollCallbackOnVisibleRangeChange(10, new int[]{3, 6}, new int[]{2, 6});
+    }
+
+    private void scrollCallbackOnVisibleRangeChange(int itemCount, final int[] beforeRange,
+            final int[] afterRange) throws Throwable {
+        RecyclerView recyclerView = new RecyclerView(getActivity());
+        final AtomicBoolean beforeState = new AtomicBoolean(true);
+        TestLayoutManager tlm = new TestLayoutManager() {
+            @Override
+            public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
+                detachAndScrapAttachedViews(recycler);
+                int[] range = beforeState.get() ? beforeRange : afterRange;
+                layoutRange(recycler, range[0], range[1]);
+                layoutLatch.countDown();
+            }
+        };
+        recyclerView.setLayoutManager(tlm);
+        final TestAdapter adapter = new TestAdapter(itemCount);
+        recyclerView.setAdapter(adapter);
+        tlm.expectLayouts(1);
+        setRecyclerView(recyclerView);
+        tlm.waitForLayout(1);
+
+        RecyclerView.OnScrollListener mockListener = mock(RecyclerView.OnScrollListener.class);
+        recyclerView.addOnScrollListener(mockListener);
+        verify(mockListener, never()).onScrolled(any(RecyclerView.class), anyInt(), anyInt());
+
+        tlm.expectLayouts(1);
+        beforeState.set(false);
+        requestLayoutOnUIThread(recyclerView);
+        tlm.waitForLayout(2);
+        checkForMainThreadException();
+        verify(mockListener).onScrolled(recyclerView, 0, 0);
+    }
+
+    @Test
+    public void addItemOnScroll() throws Throwable {
+        RecyclerView recyclerView = new RecyclerView(getActivity());
+        final AtomicInteger start = new AtomicInteger(0);
+        TestLayoutManager tlm = new TestLayoutManager() {
+            @Override
+            public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
+                layoutRange(recycler, start.get(), start.get() + 10);
+                layoutLatch.countDown();
+            }
+        };
+        recyclerView.setLayoutManager(tlm);
+        final TestAdapter adapter = new TestAdapter(100);
+        recyclerView.setAdapter(adapter);
+        tlm.expectLayouts(1);
+        setRecyclerView(recyclerView);
+        tlm.waitForLayout(1);
+        final Throwable[] error = new Throwable[1];
+        final AtomicBoolean calledOnScroll = new AtomicBoolean(false);
+        recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
+                super.onScrolled(recyclerView, dx, dy);
+                calledOnScroll.set(true);
+                try {
+                    adapter.addAndNotify(5, 20);
+                } catch (Throwable throwable) {
+                    error[0] = throwable;
+                }
+            }
+        });
+        start.set(4);
+        MatcherAssert.assertThat("test sanity", calledOnScroll.get(), CoreMatchers.is(false));
+        tlm.expectLayouts(1);
+        requestLayoutOnUIThread(recyclerView);
+        tlm.waitForLayout(2);
+        checkForMainThreadException();
+        MatcherAssert.assertThat("test sanity", calledOnScroll.get(), CoreMatchers.is(true));
+        MatcherAssert.assertThat(error[0], CoreMatchers.nullValue());
+    }
+
+    @Test
+    public void scrollInBothDirectionEqual() throws Throwable {
         scrollInBothDirection(3, 3, 1000, 1000);
     }
 
     @Test
-    public void testScrollInBothDirectionMoreVertical() throws Throwable {
+    public void scrollInBothDirectionMoreVertical() throws Throwable {
         scrollInBothDirection(2, 3, 1000, 1000);
     }
 
     @Test
-    public void testScrollInBothDirectionMoreHorizontal() throws Throwable {
+    public void scrollInBothDirectionMoreHorizontal() throws Throwable {
         scrollInBothDirection(3, 2, 1000, 1000);
     }
 
     @Test
-    public void testScrollHorizontalOnly() throws Throwable {
+    public void scrollHorizontalOnly() throws Throwable {
         scrollInBothDirection(3, 0, 1000, 0);
     }
 
     @Test
-    public void testScrollVerticalOnly() throws Throwable {
+    public void scrollVerticalOnly() throws Throwable {
         scrollInBothDirection(0, 3, 0, 1000);
     }
 
     @Test
-    public void testScrollInBothDirectionEqualReverse() throws Throwable {
+    public void scrollInBothDirectionEqualReverse() throws Throwable {
         scrollInBothDirection(3, 3, -1000, -1000);
     }
 
     @Test
-    public void testScrollInBothDirectionMoreVerticalReverse() throws Throwable {
+    public void scrollInBothDirectionMoreVerticalReverse() throws Throwable {
         scrollInBothDirection(2, 3, -1000, -1000);
     }
 
     @Test
-    public void testScrollInBothDirectionMoreHorizontalReverse() throws Throwable {
+    public void scrollInBothDirectionMoreHorizontalReverse() throws Throwable {
         scrollInBothDirection(3, 2, -1000, -1000);
     }
 
     @Test
-    public void testScrollHorizontalOnlyReverse() throws Throwable {
+    public void scrollHorizontalOnlyReverse() throws Throwable {
         scrollInBothDirection(3, 0, -1000, 0);
     }
 
     @Test
-    public void testScrollVerticalOnlyReverse() throws Throwable {
+    public void scrollVerticalOnlyReverse() throws Throwable {
         scrollInBothDirection(0, 3, 0, -1000);
     }
 
@@ -454,44 +1100,44 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testDragHorizontal() throws Throwable {
+    public void dragHorizontal() throws Throwable {
         scrollInOtherOrientationTest(FLAG_HORIZONTAL);
     }
 
     @Test
-    public void testDragVertical() throws Throwable {
+    public void dragVertical() throws Throwable {
         scrollInOtherOrientationTest(FLAG_VERTICAL);
     }
 
     @Test
-    public void testFlingHorizontal() throws Throwable {
+    public void flingHorizontal() throws Throwable {
         scrollInOtherOrientationTest(FLAG_HORIZONTAL | FLAG_FLING);
     }
 
     @Test
-    public void testFlingVertical() throws Throwable {
+    public void flingVertical() throws Throwable {
         scrollInOtherOrientationTest(FLAG_VERTICAL | FLAG_FLING);
     }
 
     @Test
-    public void testNestedDragVertical() throws Throwable {
-        TestedFrameLayout tfl = getActivity().mContainer;
+    public void nestedDragVertical() throws Throwable {
+        TestedFrameLayout tfl = getActivity().getContainer();
         tfl.setNestedScrollMode(TestedFrameLayout.TEST_NESTED_SCROLL_MODE_CONSUME);
         tfl.setNestedFlingMode(TestedFrameLayout.TEST_NESTED_SCROLL_MODE_CONSUME);
         scrollInOtherOrientationTest(FLAG_VERTICAL, 0);
     }
 
     @Test
-    public void testNestedDragHorizontal() throws Throwable {
-        TestedFrameLayout tfl = getActivity().mContainer;
+    public void nestedDragHorizontal() throws Throwable {
+        TestedFrameLayout tfl = getActivity().getContainer();
         tfl.setNestedScrollMode(TestedFrameLayout.TEST_NESTED_SCROLL_MODE_CONSUME);
         tfl.setNestedFlingMode(TestedFrameLayout.TEST_NESTED_SCROLL_MODE_CONSUME);
         scrollInOtherOrientationTest(FLAG_HORIZONTAL, 0);
     }
 
     @Test
-    public void testNestedDragHorizontalCallsStopNestedScroll() throws Throwable {
-        TestedFrameLayout tfl = getActivity().mContainer;
+    public void nestedDragHorizontalCallsStopNestedScroll() throws Throwable {
+        TestedFrameLayout tfl = getActivity().getContainer();
         tfl.setNestedScrollMode(TestedFrameLayout.TEST_NESTED_SCROLL_MODE_CONSUME);
         tfl.setNestedFlingMode(TestedFrameLayout.TEST_NESTED_SCROLL_MODE_CONSUME);
         scrollInOtherOrientationTest(FLAG_HORIZONTAL, 0);
@@ -499,8 +1145,8 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testNestedDragVerticalCallsStopNestedScroll() throws Throwable {
-        TestedFrameLayout tfl = getActivity().mContainer;
+    public void nestedDragVerticalCallsStopNestedScroll() throws Throwable {
+        TestedFrameLayout tfl = getActivity().getContainer();
         tfl.setNestedScrollMode(TestedFrameLayout.TEST_NESTED_SCROLL_MODE_CONSUME);
         tfl.setNestedFlingMode(TestedFrameLayout.TEST_NESTED_SCROLL_MODE_CONSUME);
         scrollInOtherOrientationTest(FLAG_VERTICAL, 0);
@@ -560,7 +1206,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
             assertEquals("fling started", (expectedFlags & FLAG_FLING) != 0,
                     fling(flingVelocity, flingVelocity));
         } else { // drag
-            TouchUtils.dragViewTo(this, recyclerView, Gravity.LEFT | Gravity.TOP,
+            TouchUtils.dragViewTo(getInstrumentation(), recyclerView, Gravity.LEFT | Gravity.TOP,
                     mRecyclerView.getWidth() / 2, mRecyclerView.getHeight() / 2);
         }
         assertEquals("horizontally scrolled: " + tlm.mScrollHorizontallyAmount,
@@ -581,26 +1227,30 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
         if (!didStart.get()) {
             return false;
         }
-        // cannot set scroll listener in case it is subject to some test so instead doing a busy
-        // loop until state goes idle
-        while (mRecyclerView.getScrollState() != SCROLL_STATE_IDLE) {
-            getInstrumentation().waitForIdleSync();
-        }
+        waitForIdleScroll(mRecyclerView);
         return true;
     }
 
-    private void assertPendingUpdatesAndLayout(TestLayoutManager testLayoutManager,
-            final Runnable runnable) throws Throwable {
-        testLayoutManager.expectLayouts(1);
+    private void assertPendingUpdatesAndLayoutTest(final AdapterRunnable runnable) throws Throwable {
+        RecyclerView recyclerView = new RecyclerView(getActivity());
+        TestLayoutManager layoutManager = new DumbLayoutManager();
+        final TestAdapter testAdapter = new TestAdapter(10);
+        setupBasic(recyclerView, layoutManager, testAdapter, false);
+        layoutManager.expectLayouts(1);
         runTestOnUiThread(new Runnable() {
             @Override
             public void run() {
-                runnable.run();
+                try {
+                    runnable.run(testAdapter);
+                } catch (Throwable throwable) {
+                    fail("runnable has thrown an exception");
+                }
                 assertTrue(mRecyclerView.hasPendingAdapterUpdates());
             }
         });
-        testLayoutManager.waitForLayout(1);
+        layoutManager.waitForLayout(1);
         assertFalse(mRecyclerView.hasPendingAdapterUpdates());
+        checkForMainThreadException();
     }
 
     private void setupBasic(RecyclerView recyclerView, TestLayoutManager tlm,
@@ -617,7 +1267,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testHasPendingUpdatesBeforeFirstLayout() throws Throwable {
+    public void hasPendingUpdatesBeforeFirstLayout() throws Throwable {
         RecyclerView recyclerView = new RecyclerView(getActivity());
         TestLayoutManager layoutManager = new DumbLayoutManager();
         TestAdapter testAdapter = new TestAdapter(10);
@@ -626,7 +1276,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testNoPendingUpdatesAfterLayout() throws Throwable {
+    public void noPendingUpdatesAfterLayout() throws Throwable {
         RecyclerView recyclerView = new RecyclerView(getActivity());
         TestLayoutManager layoutManager = new DumbLayoutManager();
         TestAdapter testAdapter = new TestAdapter(10);
@@ -635,58 +1285,63 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testHasPendingUpdatesWhenAdapterIsChanged() throws Throwable {
-        RecyclerView recyclerView = new RecyclerView(getActivity());
-        TestLayoutManager layoutManager = new DumbLayoutManager();
-        final TestAdapter testAdapter = new TestAdapter(10);
-        setupBasic(recyclerView, layoutManager, testAdapter, false);
-        assertPendingUpdatesAndLayout(layoutManager, new Runnable() {
+    public void hasPendingUpdatesAfterItemIsRemoved() throws Throwable {
+        assertPendingUpdatesAndLayoutTest(new AdapterRunnable() {
             @Override
-            public void run() {
-                testAdapter.notifyItemRemoved(1);
+            public void run(TestAdapter testAdapter) throws Throwable {
+                testAdapter.deleteAndNotify(1, 1);
             }
         });
-        assertPendingUpdatesAndLayout(layoutManager, new Runnable() {
+    }
+    @Test
+    public void hasPendingUpdatesAfterItemIsInserted() throws Throwable {
+        assertPendingUpdatesAndLayoutTest(new AdapterRunnable() {
             @Override
-            public void run() {
-                testAdapter.notifyItemInserted(2);
+            public void run(TestAdapter testAdapter) throws Throwable {
+                testAdapter.addAndNotify(2, 1);
             }
         });
-
-        assertPendingUpdatesAndLayout(layoutManager, new Runnable() {
+    }
+    @Test
+    public void hasPendingUpdatesAfterItemIsMoved() throws Throwable {
+        assertPendingUpdatesAndLayoutTest(new AdapterRunnable() {
             @Override
-            public void run() {
-                testAdapter.notifyItemMoved(2, 3);
+            public void run(TestAdapter testAdapter) throws Throwable {
+                testAdapter.moveItem(2, 3, true);
             }
         });
-
-        assertPendingUpdatesAndLayout(layoutManager, new Runnable() {
+    }
+    @Test
+    public void hasPendingUpdatesAfterItemIsChanged() throws Throwable {
+        assertPendingUpdatesAndLayoutTest(new AdapterRunnable() {
             @Override
-            public void run() {
-                testAdapter.notifyItemChanged(2);
+            public void run(TestAdapter testAdapter) throws Throwable {
+                testAdapter.changeAndNotify(2, 1);
             }
         });
-
-        assertPendingUpdatesAndLayout(layoutManager, new Runnable() {
+    }
+    @Test
+    public void hasPendingUpdatesAfterDataSetIsChanged() throws Throwable {
+        assertPendingUpdatesAndLayoutTest(new AdapterRunnable() {
             @Override
-            public void run() {
-                testAdapter.notifyDataSetChanged();
+            public void run(TestAdapter testAdapter) {
+                mRecyclerView.getAdapter().notifyDataSetChanged();
             }
         });
     }
 
     @Test
-    public void testTransientStateRecycleViaAdapter() throws Throwable {
+    public void transientStateRecycleViaAdapter() throws Throwable {
         transientStateRecycleTest(true, false);
     }
 
     @Test
-    public void testTransientStateRecycleViaTransientStateCleanup() throws Throwable {
+    public void transientStateRecycleViaTransientStateCleanup() throws Throwable {
         transientStateRecycleTest(false, true);
     }
 
     @Test
-    public void testTransientStateDontRecycle() throws Throwable {
+    public void transientStateDontRecycle() throws Throwable {
         transientStateRecycleTest(false, false);
     }
 
@@ -744,7 +1399,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testAdapterPositionInvalidation() throws Throwable {
+    public void adapterPositionInvalidation() throws Throwable {
         final RecyclerView recyclerView = new RecyclerView(getActivity());
         final TestAdapter adapter = new TestAdapter(10);
         final TestLayoutManager tlm = new TestLayoutManager() {
@@ -778,12 +1433,12 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testAdapterPositionsBasic() throws Throwable {
+    public void adapterPositionsBasic() throws Throwable {
         adapterPositionsTest(null);
     }
 
     @Test
-    public void testAdapterPositionsRemoveItems() throws Throwable {
+    public void adapterPositionsRemoveItems() throws Throwable {
         adapterPositionsTest(new AdapterRunnable() {
             @Override
             public void run(TestAdapter adapter) throws Throwable {
@@ -793,7 +1448,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testAdapterPositionsRemoveItemsBefore() throws Throwable {
+    public void adapterPositionsRemoveItemsBefore() throws Throwable {
         adapterPositionsTest(new AdapterRunnable() {
             @Override
             public void run(TestAdapter adapter) throws Throwable {
@@ -803,7 +1458,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testAdapterPositionsAddItemsBefore() throws Throwable {
+    public void adapterPositionsAddItemsBefore() throws Throwable {
         adapterPositionsTest(new AdapterRunnable() {
             @Override
             public void run(TestAdapter adapter) throws Throwable {
@@ -813,7 +1468,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testAdapterPositionsAddItemsInside() throws Throwable {
+    public void adapterPositionsAddItemsInside() throws Throwable {
         adapterPositionsTest(new AdapterRunnable() {
             @Override
             public void run(TestAdapter adapter) throws Throwable {
@@ -823,7 +1478,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testAdapterPositionsMoveItems() throws Throwable {
+    public void adapterPositionsMoveItems() throws Throwable {
         adapterPositionsTest(new AdapterRunnable() {
             @Override
             public void run(TestAdapter adapter) throws Throwable {
@@ -833,7 +1488,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testAdapterPositionsNotifyDataSetChanged() throws Throwable {
+    public void adapterPositionsNotifyDataSetChanged() throws Throwable {
         adapterPositionsTest(new AdapterRunnable() {
             @Override
             public void run(TestAdapter adapter) throws Throwable {
@@ -847,7 +1502,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testAvoidLeakingRecyclerViewIfViewIsNotRecycled() throws Throwable {
+    public void avoidLeakingRecyclerViewIfViewIsNotRecycled() throws Throwable {
         final AtomicBoolean failedToRecycle = new AtomicBoolean(false);
         RecyclerView rv = new RecyclerView(getActivity());
         TestLayoutManager tlm = new TestLayoutManager() {
@@ -896,7 +1551,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testAvoidLeakingRecyclerViewViaViewHolder() throws Throwable {
+    public void avoidLeakingRecyclerViewViaViewHolder() throws Throwable {
         RecyclerView rv = new RecyclerView(getActivity());
         TestLayoutManager tlm = new TestLayoutManager() {
             @Override
@@ -927,6 +1582,147 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
         assertTrue(animationsLatch.await(2, TimeUnit.SECONDS));
         assertNull(vh.mOwnerRecyclerView);
         checkForMainThreadException();
+    }
+
+    @Test
+    public void duplicateAdapterPositionTest() throws Throwable {
+        final TestAdapter testAdapter = new TestAdapter(10);
+        final TestLayoutManager tlm = new TestLayoutManager() {
+            @Override
+            public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
+                detachAndScrapAttachedViews(recycler);
+                layoutRange(recycler, 0, state.getItemCount());
+                if (!state.isPreLayout()) {
+                    while (!recycler.getScrapList().isEmpty()) {
+                        RecyclerView.ViewHolder viewHolder = recycler.getScrapList().get(0);
+                        addDisappearingView(viewHolder.itemView, 0);
+                    }
+                }
+                layoutLatch.countDown();
+            }
+
+            @Override
+            public boolean supportsPredictiveItemAnimations() {
+                return true;
+            }
+        };
+        final DefaultItemAnimator animator = new DefaultItemAnimator();
+        animator.setSupportsChangeAnimations(true);
+        animator.setChangeDuration(10000);
+        testAdapter.setHasStableIds(true);
+        final TestRecyclerView recyclerView = new TestRecyclerView(getActivity());
+        recyclerView.setLayoutManager(tlm);
+        recyclerView.setAdapter(testAdapter);
+        recyclerView.setItemAnimator(animator);
+
+        tlm.expectLayouts(1);
+        setRecyclerView(recyclerView);
+        tlm.waitForLayout(2);
+
+        tlm.expectLayouts(2);
+        testAdapter.mItems.get(2).mType += 2;
+        final int itemId = testAdapter.mItems.get(2).mId;
+        testAdapter.changeAndNotify(2, 1);
+        tlm.waitForLayout(2);
+
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                assertThat("test sanity", recyclerView.getChildCount(), CoreMatchers.is(11));
+                // now mangle the order and run the test
+                RecyclerView.ViewHolder hidden = null;
+                RecyclerView.ViewHolder updated = null;
+                for (int i = 0; i < recyclerView.getChildCount(); i ++) {
+                    View view = recyclerView.getChildAt(i);
+                    RecyclerView.ViewHolder vh = recyclerView.getChildViewHolder(view);
+                    if (vh.getAdapterPosition() == 2) {
+                        if (mRecyclerView.mChildHelper.isHidden(view)) {
+                            assertThat(hidden, CoreMatchers.nullValue());
+                            hidden = vh;
+                        } else {
+                            assertThat(updated, CoreMatchers.nullValue());
+                            updated = vh;
+                        }
+                    }
+                }
+                assertThat(hidden, CoreMatchers.notNullValue());
+                assertThat(updated, CoreMatchers.notNullValue());
+
+                mRecyclerView.eatRequestLayout();
+
+                // first put the hidden child back
+                int index1 = mRecyclerView.indexOfChild(hidden.itemView);
+                int index2 = mRecyclerView.indexOfChild(updated.itemView);
+                if (index1 < index2) {
+                    // swap views
+                    swapViewsAtIndices(recyclerView, index1, index2);
+                }
+                assertThat(tlm.findViewByPosition(2), CoreMatchers.sameInstance(updated.itemView));
+
+                assertThat(recyclerView.findViewHolderForAdapterPosition(2),
+                        CoreMatchers.sameInstance(updated));
+                assertThat(recyclerView.findViewHolderForLayoutPosition(2),
+                        CoreMatchers.sameInstance(updated));
+                assertThat(recyclerView.findViewHolderForItemId(itemId),
+                        CoreMatchers.sameInstance(updated));
+
+                // now swap back
+                swapViewsAtIndices(recyclerView, index1, index2);
+
+                assertThat(tlm.findViewByPosition(2), CoreMatchers.sameInstance(updated.itemView));
+                assertThat(recyclerView.findViewHolderForAdapterPosition(2),
+                        CoreMatchers.sameInstance(updated));
+                assertThat(recyclerView.findViewHolderForLayoutPosition(2),
+                        CoreMatchers.sameInstance(updated));
+                assertThat(recyclerView.findViewHolderForItemId(itemId),
+                        CoreMatchers.sameInstance(updated));
+
+                // now remove updated. re-assert fallback to the hidden one
+                tlm.removeView(updated.itemView);
+
+                assertThat(tlm.findViewByPosition(2), CoreMatchers.nullValue());
+                assertThat(recyclerView.findViewHolderForAdapterPosition(2),
+                        CoreMatchers.sameInstance(hidden));
+                assertThat(recyclerView.findViewHolderForLayoutPosition(2),
+                        CoreMatchers.sameInstance(hidden));
+                assertThat(recyclerView.findViewHolderForItemId(itemId),
+                        CoreMatchers.sameInstance(hidden));
+            }
+        });
+
+    }
+
+    private void swapViewsAtIndices(TestRecyclerView recyclerView, int index1, int index2) {
+        if (index1 == index2) {
+            return;
+        }
+        if (index2 < index1) {
+            int tmp = index1;
+            index1 = index2;
+            index2 = tmp;
+        }
+        final View v1 = recyclerView.getChildAt(index1);
+        final View v2 = recyclerView.getChildAt(index2);
+        boolean v1Hidden = recyclerView.mChildHelper.isHidden(v1);
+        boolean v2Hidden = recyclerView.mChildHelper.isHidden(v2);
+        // must unhide before swap otherwise bucket indices will become invalid.
+        if (v1Hidden) {
+            mRecyclerView.mChildHelper.unhide(v1);
+        }
+        if (v2Hidden) {
+            mRecyclerView.mChildHelper.unhide(v2);
+        }
+        recyclerView.detachViewFromParent(index2);
+        recyclerView.attachViewToParent(v2, index1, v2.getLayoutParams());
+        recyclerView.detachViewFromParent(index1 + 1);
+        recyclerView.attachViewToParent(v1, index2, v1.getLayoutParams());
+
+        if (v1Hidden) {
+            mRecyclerView.mChildHelper.hide(v1);
+        }
+        if (v2Hidden) {
+            mRecyclerView.mChildHelper.hide(v2);
+        }
     }
 
     public void adapterPositionsTest(final AdapterRunnable adapterChanges) throws Throwable {
@@ -996,7 +1792,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testScrollStateForSmoothScroll() throws Throwable {
+    public void scrollStateForSmoothScroll() throws Throwable {
         TestAdapter testAdapter = new TestAdapter(10);
         TestLayoutManager tlm = new TestLayoutManager();
         RecyclerView recyclerView = new RecyclerView(getActivity());
@@ -1027,7 +1823,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testScrollStateForSmoothScrollWithStop() throws Throwable {
+    public void scrollStateForSmoothScrollWithStop() throws Throwable {
         TestAdapter testAdapter = new TestAdapter(10);
         TestLayoutManager tlm = new TestLayoutManager();
         RecyclerView recyclerView = new RecyclerView(getActivity());
@@ -1065,7 +1861,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testScrollStateForFling() throws Throwable {
+    public void scrollStateForFling() throws Throwable {
         TestAdapter testAdapter = new TestAdapter(10);
         TestLayoutManager tlm = new TestLayoutManager();
         RecyclerView recyclerView = new RecyclerView(getActivity());
@@ -1099,7 +1895,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testScrollStateForFlingWithStop() throws Throwable {
+    public void scrollStateForFlingWithStop() throws Throwable {
         TestAdapter testAdapter = new TestAdapter(10);
         TestLayoutManager tlm = new TestLayoutManager();
         RecyclerView recyclerView = new RecyclerView(getActivity());
@@ -1140,7 +1936,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testScrollStateDrag() throws Throwable {
+    public void scrollStateDrag() throws Throwable {
         TestAdapter testAdapter = new TestAdapter(10);
         TestLayoutManager tlm = new TestLayoutManager();
         RecyclerView recyclerView = new RecyclerView(getActivity());
@@ -1202,7 +1998,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testRecycleScrap() throws Throwable {
+    public void recycleScrap() throws Throwable {
         recycleScrapTest(false);
         removeRecyclerView();
         recycleScrapTest(true);
@@ -1214,6 +2010,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
         TestLayoutManager lm = new TestLayoutManager() {
             @Override
             public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
+                ViewInfoStore infoStore = mRecyclerView.mViewInfoStore;
                 if (test.get()) {
                     try {
                         detachAndScrapAttachedViews(recycler);
@@ -1225,25 +2022,26 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
                                         recycler);
                             }
                         }
-                        if (state.mOldChangedHolders != null) {
-                            for (int i = state.mOldChangedHolders.size() - 1; i >= 0; i--) {
+                        if (infoStore.mOldChangedHolders != null) {
+                            for (int i = infoStore.mOldChangedHolders.size() - 1; i >= 0; i--) {
                                 if (useRecycler) {
                                     recycler.recycleView(
-                                            state.mOldChangedHolders.valueAt(i).itemView);
+                                            infoStore.mOldChangedHolders.valueAt(i).itemView);
                                 } else {
                                     removeAndRecycleView(
-                                            state.mOldChangedHolders.valueAt(i).itemView, recycler);
+                                            infoStore.mOldChangedHolders.valueAt(i).itemView,
+                                            recycler);
                                 }
                             }
                         }
                         assertEquals("no scrap should be left over", 0, recycler.getScrapCount());
                         assertEquals("pre layout map should be empty", 0,
-                                state.mPreLayoutHolderMap.size());
+                                InfoStoreTrojan.sizeOfPreLayout(infoStore));
                         assertEquals("post layout map should be empty", 0,
-                                state.mPostLayoutHolderMap.size());
-                        if (state.mOldChangedHolders != null) {
+                                InfoStoreTrojan.sizeOfPostLayout(infoStore));
+                        if (infoStore.mOldChangedHolders != null) {
                             assertEquals("post old change map should be empty", 0,
-                                    state.mOldChangedHolders.size());
+                                    infoStore.mOldChangedHolders.size());
                         }
                     } catch (Throwable t) {
                         postExceptionToInstrumentation(t);
@@ -1258,7 +2056,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
         RecyclerView recyclerView = new RecyclerView(getActivity());
         recyclerView.setAdapter(testAdapter);
         recyclerView.setLayoutManager(lm);
-        recyclerView.getItemAnimator().setSupportsChangeAnimations(true);
+        ((SimpleItemAnimator)recyclerView.getItemAnimator()).setSupportsChangeAnimations(true);
         lm.expectLayouts(1);
         setRecyclerView(recyclerView);
         lm.waitForLayout(2);
@@ -1270,19 +2068,22 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testAccessRecyclerOnOnMeasure() throws Throwable {
-        accessRecyclerOnOnMeasureTest(false);
-        removeRecyclerView();
+    public void aAccessRecyclerOnOnMeasureWithPredictive() throws Throwable {
         accessRecyclerOnOnMeasureTest(true);
     }
 
     @Test
-    public void testSmoothScrollWithRemovedItemsAndRemoveItem() throws Throwable {
+    public void accessRecyclerOnOnMeasureWithoutPredictive() throws Throwable {
+        accessRecyclerOnOnMeasureTest(false);
+    }
+
+    @Test
+    public void smoothScrollWithRemovedItemsAndRemoveItem() throws Throwable {
         smoothScrollTest(true);
     }
 
     @Test
-    public void testSmoothScrollWithRemovedItems() throws Throwable {
+    public void smoothScrollWithRemovedItems() throws Throwable {
         smoothScrollTest(false);
     }
 
@@ -1407,7 +2208,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testConsecutiveSmoothScroll() throws Throwable {
+    public void consecutiveSmoothScroll() throws Throwable {
         final AtomicInteger visibleChildCount = new AtomicInteger(10);
         final AtomicInteger totalScrolled = new AtomicInteger(0);
         final TestLayoutManager lm = new TestLayoutManager() {
@@ -1490,8 +2291,10 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
                         assertNotNull(view);
                         assertEquals(i, getPosition(view));
                     }
-                    assertEquals(state.toString(),
-                            expectedOnMeasureStateCount.get(), state.getItemCount());
+                    if (!state.isPreLayout()) {
+                        assertEquals(state.toString(),
+                                expectedOnMeasureStateCount.get(), state.getItemCount());
+                    }
                 } catch (Throwable t) {
                     postExceptionToInstrumentation(t);
                 }
@@ -1521,7 +2324,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testSetCompatibleAdapter() throws Throwable {
+    public void setCompatibleAdapter() throws Throwable {
         compatibleAdapterTest(true, true);
         removeRecyclerView();
         compatibleAdapterTest(false, true);
@@ -1575,7 +2378,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testSetIncompatibleAdapter() throws Throwable {
+    public void setIncompatibleAdapter() throws Throwable {
         incompatibleAdapterTest(true);
         incompatibleAdapterTest(false);
     }
@@ -1611,7 +2414,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testRecycleIgnored() throws Throwable {
+    public void recycleIgnored() throws Throwable {
         final TestAdapter adapter = new TestAdapter(10);
         final TestLayoutManager lm = new TestLayoutManager() {
             @Override
@@ -1653,7 +2456,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testFindIgnoredByPosition() throws Throwable {
+    public void findIgnoredByPosition() throws Throwable {
         final TestAdapter adapter = new TestAdapter(10);
         final TestLayoutManager lm = new TestLayoutManager() {
             @Override
@@ -1693,7 +2496,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testInvalidateAllDecorOffsets() throws Throwable {
+    public void invalidateAllDecorOffsets() throws Throwable {
         final TestAdapter adapter = new TestAdapter(10);
         final RecyclerView recyclerView = new RecyclerView(getActivity());
         final AtomicBoolean invalidatedOffsets = new AtomicBoolean(true);
@@ -1835,7 +2638,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testInvalidateDecorOffsets() throws Throwable {
+    public void invalidateDecorOffsets() throws Throwable {
         final TestAdapter adapter = new TestAdapter(10);
         adapter.setHasStableIds(true);
         final RecyclerView recyclerView = new RecyclerView(getActivity());
@@ -1917,7 +2720,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testMovingViaStableIds() throws Throwable {
+    public void movingViaStableIds() throws Throwable {
         stableIdsMoveTest(true);
         removeRecyclerView();
         stableIdsMoveTest(false);
@@ -1994,7 +2797,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testAdapterChangeDuringLayout() throws Throwable {
+    public void adapterChangeDuringLayout() throws Throwable {
         adapterChangeInMainThreadTest("notifyDataSetChanged", new Runnable() {
             @Override
             public void run() {
@@ -2025,6 +2828,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
 
     public void adapterChangeInMainThreadTest(String msg,
             final Runnable onLayoutRunnable) throws Throwable {
+        setIgnoreMainThreadException(true);
         final AtomicBoolean doneFirstLayout = new AtomicBoolean(false);
         TestAdapter testAdapter = new TestAdapter(10);
         TestLayoutManager lm = new TestLayoutManager() {
@@ -2056,12 +2860,11 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
         lm.waitForLayout(2);
         removeRecyclerView();
         assertTrue("Invalid data updates should be caught:" + msg,
-                mainThreadException instanceof IllegalStateException);
-        mainThreadException = null;
+                getMainThreadException() instanceof IllegalStateException);
     }
 
     @Test
-    public void testAdapterChangeDuringScroll() throws Throwable {
+    public void adapterChangeDuringScroll() throws Throwable {
         for (int orientation : new int[]{OrientationHelper.HORIZONTAL,
                 OrientationHelper.VERTICAL}) {
             adapterChangeDuringScrollTest("notifyDataSetChanged", orientation,
@@ -2095,6 +2898,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
 
     public void adapterChangeDuringScrollTest(String msg, final int orientation,
             final Runnable onScrollRunnable) throws Throwable {
+        setIgnoreMainThreadException(true);
         TestAdapter testAdapter = new TestAdapter(100);
         TestLayoutManager lm = new TestLayoutManager() {
             @Override
@@ -2153,12 +2957,11 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
         lm.waitForLayout(2);
         removeRecyclerView();
         assertTrue("Invalid data updates should be caught:" + msg,
-                mainThreadException instanceof IllegalStateException);
-        mainThreadException = null;
+                getMainThreadException() instanceof IllegalStateException);
     }
 
     @Test
-    public void testRecycleOnDetach() throws Throwable {
+    public void recycleOnDetach() throws Throwable {
         final RecyclerView recyclerView = new RecyclerView(getActivity());
         final TestAdapter testAdapter = new TestAdapter(10);
         final AtomicBoolean didRunOnDetach = new AtomicBoolean(false);
@@ -2188,7 +2991,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testUpdatesWhileDetached() throws Throwable {
+    public void updatesWhileDetached() throws Throwable {
         final RecyclerView recyclerView = new RecyclerView(getActivity());
         final int initialAdapterSize = 20;
         final TestAdapter adapter = new TestAdapter(initialAdapterSize);
@@ -2211,7 +3014,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testUpdatesAfterDetach() throws Throwable {
+    public void updatesAfterDetach() throws Throwable {
         final RecyclerView recyclerView = new RecyclerView(getActivity());
         final int initialAdapterSize = 20;
         final TestAdapter adapter = new TestAdapter(initialAdapterSize);
@@ -2252,7 +3055,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testNotifyDataSetChangedWithStableIds() throws Throwable {
+    public void notifyDataSetChangedWithStableIds() throws Throwable {
         final int defaultViewType = 1;
         final Map<Item, Integer> viewTypeMap = new HashMap<Item, Integer>();
         final Map<Integer, Integer> oldPositionToNewPositionMapping =
@@ -2364,12 +3167,12 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testCallbacksDuringAdapterSwap() throws Throwable {
+    public void callbacksDuringAdapterSwap() throws Throwable {
         callbacksDuringAdapterChange(true);
     }
 
     @Test
-    public void testCallbacksDuringAdapterSet() throws Throwable {
+    public void callbacksDuringAdapterSet() throws Throwable {
         callbacksDuringAdapterChange(false);
     }
 
@@ -2452,7 +3255,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testFindViewById() throws Throwable {
+    public void findViewById() throws Throwable {
         findViewByIdTest(false);
         removeRecyclerView();
         findViewByIdTest(true);
@@ -2534,7 +3337,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testTypeForCache() throws Throwable {
+    public void typeForCache() throws Throwable {
         final AtomicInteger viewType = new AtomicInteger(1);
         final TestAdapter adapter = new TestAdapter(100) {
             @Override
@@ -2592,7 +3395,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testTypeForExistingViews() throws Throwable {
+    public void typeForExistingViews() throws Throwable {
         final AtomicInteger viewType = new AtomicInteger(1);
         final int invalidatedCount = 2;
         final int layoutStart = 2;
@@ -2649,7 +3452,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
 
 
     @Test
-    public void testState() throws Throwable {
+    public void state() throws Throwable {
         final TestAdapter adapter = new TestAdapter(10);
         final RecyclerView recyclerView = new RecyclerView(getActivity());
         recyclerView.setAdapter(adapter);
@@ -2671,10 +3474,10 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
         runTestOnUiThread(new Runnable() {
             @Override
             public void run() {
-                getActivity().mContainer.addView(recyclerView);
+                getActivity().getContainer().addView(recyclerView);
             }
         });
-        testLayoutManager.waitForLayout(2, TimeUnit.SECONDS);
+        testLayoutManager.waitForLayout(2);
 
         assertEquals("item count in state should be correct", adapter.getItemCount()
                 , itemCount.get());
@@ -2711,7 +3514,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testDetachWithoutLayoutManager() throws Throwable {
+    public void detachWithoutLayoutManager() throws Throwable {
         final RecyclerView recyclerView = new RecyclerView(getActivity());
         runTestOnUiThread(new Runnable() {
             @Override
@@ -2728,13 +3531,12 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testUpdateHiddenView() throws Throwable {
-        final RecyclerView.ViewHolder[] mTargetVH = new RecyclerView.ViewHolder[1];
+    public void updateHiddenView() throws Throwable {
         final RecyclerView recyclerView = new RecyclerView(getActivity());
         final int[] preLayoutRange = new int[]{0, 10};
         final int[] postLayoutRange = new int[]{0, 10};
         final AtomicBoolean enableGetViewTest = new AtomicBoolean(false);
-        final List<Integer> disappearingPositions = new ArrayList<Integer>();
+        final List<Integer> disappearingPositions = new ArrayList<>();
         final TestLayoutManager tlm = new TestLayoutManager() {
             @Override
             public boolean supportsPredictiveItemAnimations() {
@@ -2753,6 +3555,7 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
                             // test sanity.
                             assertNull(findViewByPosition(position));
                             final View view = recycler.getViewForPosition(position);
+                            assertNotNull(view);
                             addDisappearingView(view);
                             measureChildWithMargins(view, 0, 0);
                             // position item out of bounds.
@@ -2766,18 +3569,15 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
                 layoutLatch.countDown();
             }
         };
-
-        recyclerView.getItemAnimator().setMoveDuration(2000);
-        recyclerView.getItemAnimator().setRemoveDuration(2000);
+        recyclerView.getItemAnimator().setMoveDuration(4000);
+        recyclerView.getItemAnimator().setRemoveDuration(4000);
         final TestAdapter adapter = new TestAdapter(100);
         recyclerView.setAdapter(adapter);
         recyclerView.setLayoutManager(tlm);
         tlm.expectLayouts(1);
         setRecyclerView(recyclerView);
-
         tlm.waitForLayout(1);
         checkForMainThreadException();
-        mTargetVH[0] = recyclerView.findViewHolderForAdapterPosition(0);
         // now, a child disappears
         disappearingPositions.add(0);
         // layout one shifted
@@ -2796,10 +3596,12 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
             @Override
             public void run() {
                 try {
+                    assertThat("test sanity, should still be animating",
+                            mRecyclerView.isAnimating(), CoreMatchers.is(true));
                     adapter.changeAndNotify(0, 1);
                     adapter.deleteAndNotify(0, 1);
                 } catch (Throwable throwable) {
-                    throwable.printStackTrace();
+                    fail(throwable.getMessage());
                 }
             }
         });
@@ -2808,34 +3610,34 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testFocusBigViewOnTop() throws Throwable {
+    public void focusBigViewOnTop() throws Throwable {
         focusTooBigViewTest(Gravity.TOP);
     }
 
     @Test
-    public void testFocusBigViewOnLeft() throws Throwable {
+    public void focusBigViewOnLeft() throws Throwable {
         focusTooBigViewTest(Gravity.LEFT);
     }
 
     @Test
-    public void testFocusBigViewOnRight() throws Throwable {
+    public void focusBigViewOnRight() throws Throwable {
         focusTooBigViewTest(Gravity.RIGHT);
     }
 
     @Test
-    public void testFocusBigViewOnBottom() throws Throwable {
+    public void focusBigViewOnBottom() throws Throwable {
         focusTooBigViewTest(Gravity.BOTTOM);
     }
 
     @Test
-    public void testFocusBigViewOnLeftRTL() throws Throwable {
+    public void focusBigViewOnLeftRTL() throws Throwable {
         focusTooBigViewTest(Gravity.LEFT, true);
         assertEquals("test sanity", ViewCompat.LAYOUT_DIRECTION_RTL,
                 mRecyclerView.getLayoutManager().getLayoutDirection());
     }
 
     @Test
-    public void testFocusBigViewOnRightRTL() throws Throwable {
+    public void focusBigViewOnRightRTL() throws Throwable {
         focusTooBigViewTest(Gravity.RIGHT, true);
         assertEquals("test sanity", ViewCompat.LAYOUT_DIRECTION_RTL,
                 mRecyclerView.getLayoutManager().getLayoutDirection());
@@ -2937,8 +3739,8 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
         setRecyclerView(rv);
         tlm.waitForLayout(2);
         View view = rv.getChildAt(0);
-        requestFocus(view);
-        Thread.sleep(1000);
+        assertTrue("test sanity", requestFocus(view, true));
+        assertTrue("test sanity", view.hasFocus());
         assertEquals(vDesiredDist.get(), vScrollDist.get());
         assertEquals(hDesiredDist.get(), hScrollDist.get());
         assertEquals(mRecyclerView.getPaddingTop(), view.getTop());
@@ -2951,15 +3753,89 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testFocusRectOnScreenWithDecorOffsets() throws Throwable {
+    public void firstLayoutWithAdapterChanges() throws Throwable {
+        final TestAdapter adapter = new TestAdapter(0);
+        final RecyclerView rv = new RecyclerView(getActivity());
+        setVisibility(rv, View.GONE);
+        TestLayoutManager tlm = new TestLayoutManager() {
+            @Override
+            public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
+                try {
+                    super.onLayoutChildren(recycler, state);
+                    layoutRange(recycler, 0, state.getItemCount());
+                } catch (Throwable t) {
+                    postExceptionToInstrumentation(t);
+                } finally {
+                    layoutLatch.countDown();
+                }
+            }
+
+            @Override
+            public boolean supportsPredictiveItemAnimations() {
+                return true;
+            }
+        };
+        rv.setLayoutManager(tlm);
+        rv.setAdapter(adapter);
+        rv.setHasFixedSize(true);
+        setRecyclerView(rv);
+        tlm.expectLayouts(1);
+        tlm.assertNoLayout("test sanity, layout should not run", 1);
+        getInstrumentation().waitForIdleSync();
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    adapter.addAndNotify(2);
+                } catch (Throwable throwable) {
+                    throwable.printStackTrace();
+                }
+                rv.setVisibility(View.VISIBLE);
+            }
+        });
+        checkForMainThreadException();
+        tlm.waitForLayout(2);
+        assertEquals(2, rv.getChildCount());
+        checkForMainThreadException();
+    }
+
+    @Test
+    public void computeScrollOfsetWithoutLayoutManager() throws Throwable {
+        RecyclerView rv = new RecyclerView(getActivity());
+        rv.setAdapter(new TestAdapter(10));
+        setRecyclerView(rv);
+        assertEquals(0, rv.computeHorizontalScrollExtent());
+        assertEquals(0, rv.computeHorizontalScrollOffset());
+        assertEquals(0, rv.computeHorizontalScrollRange());
+
+        assertEquals(0, rv.computeVerticalScrollExtent());
+        assertEquals(0, rv.computeVerticalScrollOffset());
+        assertEquals(0, rv.computeVerticalScrollRange());
+    }
+
+    @Test
+    public void computeScrollOfsetWithoutAdapter() throws Throwable {
+        RecyclerView rv = new RecyclerView(getActivity());
+        rv.setLayoutManager(new TestLayoutManager());
+        setRecyclerView(rv);
+        assertEquals(0, rv.computeHorizontalScrollExtent());
+        assertEquals(0, rv.computeHorizontalScrollOffset());
+        assertEquals(0, rv.computeHorizontalScrollRange());
+
+        assertEquals(0, rv.computeVerticalScrollExtent());
+        assertEquals(0, rv.computeVerticalScrollOffset());
+        assertEquals(0, rv.computeVerticalScrollRange());
+    }
+
+    @Test
+    public void focusRectOnScreenWithDecorOffsets() throws Throwable {
         focusRectOnScreenTest(true);
     }
 
     @Test
-    public void testFocusRectOnScreenWithout() throws Throwable {
+    public void focusRectOnScreenWithout() throws Throwable {
         focusRectOnScreenTest(false);
     }
-
 
     public void focusRectOnScreenTest(boolean addItemDecors) throws Throwable {
         RecyclerView rv = new RecyclerView(getActivity());
@@ -3005,13 +3881,12 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
         tlm.waitForLayout(2);
 
         View view = rv.getChildAt(0);
-        requestFocus(view);
-        Thread.sleep(1000);
+        requestFocus(view, true);
         assertEquals(addItemDecors ? -30 : -20, scrollDist.get());
     }
 
     @Test
-    public void testUnimplementedSmoothScroll() throws Throwable {
+    public void unimplementedSmoothScroll() throws Throwable {
         final AtomicInteger receivedScrollToPosition = new AtomicInteger(-1);
         final AtomicInteger receivedSmoothScrollToPosition = new AtomicInteger(-1);
         final CountDownLatch cbLatch = new CountDownLatch(2);
@@ -3054,11 +3929,11 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
         setRecyclerView(rv);
         tlm.waitForLayout(2);
         freezeLayout(true);
-        smoothScrollToPosition(35);
+        smoothScrollToPosition(35, false);
         assertEquals("smoothScrollToPosition should be ignored when frozen",
                 -1, receivedSmoothScrollToPosition.get());
         freezeLayout(false);
-        smoothScrollToPosition(35);
+        smoothScrollToPosition(35, false);
         assertTrue("both scrolls should be called", cbLatch.await(3, TimeUnit.SECONDS));
         checkForMainThreadException();
         assertEquals(35, receivedSmoothScrollToPosition.get());
@@ -3066,13 +3941,55 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
     }
 
     @Test
-    public void testJumpingJackSmoothScroller() throws Throwable {
+    public void jumpingJackSmoothScroller() throws Throwable {
         jumpingJackSmoothScrollerTest(true);
     }
 
     @Test
-    public void testJumpingJackSmoothScrollerGoesIdle() throws Throwable {
+    public void jumpingJackSmoothScrollerGoesIdle() throws Throwable {
         jumpingJackSmoothScrollerTest(false);
+    }
+
+    @Test
+    public void testScrollByBeforeFirstLayout() throws Throwable {
+        final RecyclerView recyclerView = new RecyclerView(getActivity());
+        TestAdapter adapter = new TestAdapter(10);
+        recyclerView.setLayoutManager(new TestLayoutManager() {
+            AtomicBoolean didLayout = new AtomicBoolean(false);
+            @Override
+            public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
+                super.onLayoutChildren(recycler, state);
+                didLayout.set(true);
+            }
+
+            @Override
+            public int scrollVerticallyBy(int dy, RecyclerView.Recycler recycler,
+                    RecyclerView.State state) {
+                assertThat("should run layout before scroll",
+                        didLayout.get(), CoreMatchers.is(true));
+                return super.scrollVerticallyBy(dy, recycler, state);
+            }
+
+            @Override
+            public boolean canScrollVertically() {
+                return true;
+            }
+        });
+        recyclerView.setAdapter(adapter);
+
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    setRecyclerView(recyclerView);
+                    recyclerView.scrollBy(10, 19);
+                } catch (Throwable throwable) {
+                    postExceptionToInstrumentation(throwable);
+                }
+            }
+        });
+
+        checkForMainThreadException();
     }
 
     private void jumpingJackSmoothScrollerTest(final boolean succeed) throws Throwable {
@@ -3199,9 +4116,49 @@ public class RecyclerViewLayoutTest extends BaseRecyclerViewInstrumentationTest 
         }
     }
 
-    private static interface AdapterRunnable {
+    public interface AdapterRunnable {
 
-        public void run(TestAdapter adapter) throws Throwable;
+        void run(TestAdapter adapter) throws Throwable;
     }
 
+    public class LayoutAllLayoutManager extends TestLayoutManager {
+        @Override
+        public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
+            detachAndScrapAttachedViews(recycler);
+            layoutRange(recycler, 0, state.getItemCount());
+            layoutLatch.countDown();
+        }
+    }
+
+    /**
+     * Proxy class to make protected methods public
+     */
+    public static class TestRecyclerView extends RecyclerView {
+
+        public TestRecyclerView(Context context) {
+            super(context);
+        }
+
+        public TestRecyclerView(Context context, @Nullable AttributeSet attrs) {
+            super(context, attrs);
+        }
+
+        public TestRecyclerView(Context context, @Nullable AttributeSet attrs, int defStyle) {
+            super(context, attrs, defStyle);
+        }
+
+        @Override
+        public void detachViewFromParent(int index) {
+            super.detachViewFromParent(index);
+        }
+
+        @Override
+        public void attachViewToParent(View child, int index, ViewGroup.LayoutParams params) {
+            super.attachViewToParent(child, index, params);
+        }
+    }
+
+    private static interface ViewRunnable {
+        void run(View view) throws RuntimeException;
+    }
 }

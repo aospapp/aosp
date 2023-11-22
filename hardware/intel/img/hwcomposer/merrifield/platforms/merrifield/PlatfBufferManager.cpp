@@ -17,6 +17,7 @@
 #include <PlatfBufferManager.h>
 #include <tangier/TngGrallocBuffer.h>
 #include <tangier/TngGrallocBufferMapper.h>
+#include <sync/sync.h>
 
 namespace android {
 namespace intel {
@@ -42,34 +43,37 @@ void PlatfBufferManager::deinitialize()
     BufferManager::deinitialize();
 }
 
-DataBuffer* PlatfBufferManager::createDataBuffer(gralloc_module_t *module,
-                                                 buffer_handle_t handle)
+DataBuffer* PlatfBufferManager::createDataBuffer(buffer_handle_t handle)
 {
     return new TngGrallocBuffer(handle);
 }
 
-BufferMapper* PlatfBufferManager::createBufferMapper(gralloc_module_t *module,
-                                                        DataBuffer& buffer)
+BufferMapper* PlatfBufferManager::createBufferMapper(DataBuffer& buffer)
 {
-    if (!module)
-        return 0;
-
-    return new TngGrallocBufferMapper(*(IMG_gralloc_module_public_t*)module,
-                                        buffer);
+    return new TngGrallocBufferMapper(*mGrallocModule, buffer);
 }
 
 bool PlatfBufferManager::blit(buffer_handle_t srcHandle, buffer_handle_t destHandle,
                               const crop_t& destRect, bool filter, bool async)
 
 {
-    IMG_gralloc_module_public_t *imgGrallocModule = (IMG_gralloc_module_public_t *) mGrallocModule;
-    if (imgGrallocModule->Blit(imgGrallocModule, srcHandle,
+    int fenceFd;
+
+    if (mGrallocModule->perform(mGrallocModule,
+                                GRALLOC_MODULE_BLIT_HANDLE_TO_HANDLE_IMG,
+                                srcHandle,
                                 destHandle,
                                 destRect.w, destRect.h, destRect.x,
-                                destRect.y, filter, 0, async)) {
+                                destRect.y, 0, -1, &fenceFd)) {
         ETRACE("Blit failed");
         return false;
     }
+
+    if (!async) {
+        sync_wait(fenceFd, -1);
+    }
+    close(fenceFd);
+
     return true;
 }
 

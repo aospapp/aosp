@@ -1,7 +1,7 @@
 /* WARNING: This is auto-generated file. Do not modify, since changes will
  * be lost! Modify the generating script instead.
  *
- * Generated from Khronos GL API description (gl.xml) revision 30159.
+ * Generated from Khronos GL API description (gl.xml) revision 32093.
  */
 
 if (de::contains(extSet, "GL_KHR_debug"))
@@ -16,4 +16,13 @@ if (de::contains(extSet, "GL_KHR_debug"))
 	gl->objectPtrLabel			= (glObjectPtrLabelFunc)		loader->get("glObjectPtrLabel");
 	gl->popDebugGroup			= (glPopDebugGroupFunc)			loader->get("glPopDebugGroup");
 	gl->pushDebugGroup			= (glPushDebugGroupFunc)		loader->get("glPushDebugGroup");
+}
+
+if (de::contains(extSet, "GL_KHR_robustness"))
+{
+	gl->getGraphicsResetStatus	= (glGetGraphicsResetStatusFunc)	loader->get("glGetGraphicsResetStatus");
+	gl->getnUniformfv			= (glGetnUniformfvFunc)				loader->get("glGetnUniformfv");
+	gl->getnUniformiv			= (glGetnUniformivFunc)				loader->get("glGetnUniformiv");
+	gl->getnUniformuiv			= (glGetnUniformuivFunc)			loader->get("glGetnUniformuiv");
+	gl->readnPixels				= (glReadnPixelsFunc)				loader->get("glReadnPixels");
 }

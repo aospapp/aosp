@@ -23,7 +23,7 @@ import android.util.Xml;
 import android.view.animation.AlphaAnimation;
 import android.view.animation.Transformation;
 
-import com.android.cts.view.R;
+import android.view.cts.R;
 
 /**
  * Test {@link AlphaAnimation}.

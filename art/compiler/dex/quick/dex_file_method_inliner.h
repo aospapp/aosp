@@ -31,12 +31,6 @@ namespace verifier {
 class MethodVerifier;
 }  // namespace verifier
 
-class BasicBlock;
-struct CallInfo;
-class MIR;
-class MIRGraph;
-class Mir2Lir;
-
 /**
  * Handles inlining of methods from a particular DexFile.
  *
@@ -62,49 +56,33 @@ class DexFileMethodInliner {
      * @return true if the method is a candidate for inlining, false otherwise.
      */
     bool AnalyseMethodCode(verifier::MethodVerifier* verifier)
-        SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) LOCKS_EXCLUDED(lock_);
+        SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(!lock_);
 
     /**
      * Check whether a particular method index corresponds to an intrinsic or special function.
      */
-    InlineMethodFlags IsIntrinsicOrSpecial(uint32_t method_index) LOCKS_EXCLUDED(lock_);
+    InlineMethodFlags IsIntrinsicOrSpecial(uint32_t method_index) REQUIRES(!lock_);
 
     /**
      * Check whether a particular method index corresponds to an intrinsic function.
      */
-    bool IsIntrinsic(uint32_t method_index, InlineMethod* intrinsic) LOCKS_EXCLUDED(lock_);
-
-    /**
-     * Generate code for an intrinsic function invocation.
-     */
-    bool GenIntrinsic(Mir2Lir* backend, CallInfo* info) LOCKS_EXCLUDED(lock_);
+    bool IsIntrinsic(uint32_t method_index, InlineMethod* intrinsic) REQUIRES(!lock_);
 
     /**
      * Check whether a particular method index corresponds to a special function.
      */
-    bool IsSpecial(uint32_t method_index) LOCKS_EXCLUDED(lock_);
-
-    /**
-     * Generate code for a special function.
-     */
-    bool GenSpecial(Mir2Lir* backend, uint32_t method_idx) LOCKS_EXCLUDED(lock_);
-
-    /**
-     * Try to inline an invoke.
-     */
-    bool GenInline(MIRGraph* mir_graph, BasicBlock* bb, MIR* invoke, uint32_t method_idx)
-        LOCKS_EXCLUDED(lock_);
+    bool IsSpecial(uint32_t method_index) REQUIRES(!lock_);
 
     /**
      * Gets the thread pointer entrypoint offset for a string init method index and pointer size.
      */
     uint32_t GetOffsetForStringInit(uint32_t method_index, size_t pointer_size)
-        LOCKS_EXCLUDED(lock_);
+        REQUIRES(!lock_);
 
     /**
      * Check whether a particular method index is a string init.
      */
-    bool IsStringInitMethodIndex(uint32_t method_index) LOCKS_EXCLUDED(lock_);
+    bool IsStringInitMethodIndex(uint32_t method_index) REQUIRES(!lock_);
 
     /**
      * To avoid multiple lookups of a class by its descriptor, we cache its
@@ -162,6 +140,23 @@ class DexFileMethodInliner {
       kNameCacheAbs,
       kNameCacheMax,
       kNameCacheMin,
+      kNameCacheCos,
+      kNameCacheSin,
+      kNameCacheAcos,
+      kNameCacheAsin,
+      kNameCacheAtan,
+      kNameCacheAtan2,
+      kNameCacheCbrt,
+      kNameCacheCosh,
+      kNameCacheExp,
+      kNameCacheExpm1,
+      kNameCacheHypot,
+      kNameCacheLog,
+      kNameCacheLog10,
+      kNameCacheNextAfter,
+      kNameCacheSinh,
+      kNameCacheTan,
+      kNameCacheTanh,
       kNameCacheSqrt,
       kNameCacheCeil,
       kNameCacheFloor,
@@ -170,8 +165,13 @@ class DexFileMethodInliner {
       kNameCacheReferenceGetReferent,
       kNameCacheCharAt,
       kNameCacheCompareTo,
+      kNameCacheEquals,
       kNameCacheGetCharsNoCheck,
       kNameCacheIsEmpty,
+      kNameCacheFloatToIntBits,
+      kNameCacheDoubleToLongBits,
+      kNameCacheIsInfinite,
+      kNameCacheIsNaN,
       kNameCacheIndexOf,
       kNameCacheLength,
       kNameCacheInit,
@@ -205,7 +205,24 @@ class DexFileMethodInliner {
       kNameCachePutObject,
       kNameCachePutObjectVolatile,
       kNameCachePutOrderedObject,
+      kNameCacheGetAndAddInt,
+      kNameCacheGetAndAddLong,
+      kNameCacheGetAndSetInt,
+      kNameCacheGetAndSetLong,
+      kNameCacheGetAndSetObject,
+      kNameCacheLoadFence,
+      kNameCacheStoreFence,
+      kNameCacheFullFence,
       kNameCacheArrayCopy,
+      kNameCacheBitCount,
+      kNameCacheCompare,
+      kNameCacheHighestOneBit,
+      kNameCacheLowestOneBit,
+      kNameCacheNumberOfLeadingZeros,
+      kNameCacheNumberOfTrailingZeros,
+      kNameCacheRotateRight,
+      kNameCacheRotateLeft,
+      kNameCacheSignum,
       kNameCacheLast
     };
 
@@ -224,8 +241,10 @@ class DexFileMethodInliner {
       kProtoCacheF_F,
       kProtoCacheFF_F,
       kProtoCacheD_J,
+      kProtoCacheD_Z,
       kProtoCacheJ_D,
       kProtoCacheF_I,
+      kProtoCacheF_Z,
       kProtoCacheI_F,
       kProtoCacheII_I,
       kProtoCacheI_C,
@@ -240,18 +259,25 @@ class DexFileMethodInliner {
       kProtoCacheJB_V,
       kProtoCacheJI_V,
       kProtoCacheJJ_J,
+      kProtoCacheJJ_I,
       kProtoCacheJJ_V,
       kProtoCacheJS_V,
+      kProtoCacheObject_Z,
+      kProtoCacheJI_J,
       kProtoCacheObjectJII_Z,
       kProtoCacheObjectJJJ_Z,
       kProtoCacheObjectJObjectObject_Z,
       kProtoCacheObjectJ_I,
+      kProtoCacheObjectJI_I,
       kProtoCacheObjectJI_V,
       kProtoCacheObjectJ_J,
+      kProtoCacheObjectJJ_J,
       kProtoCacheObjectJJ_V,
       kProtoCacheObjectJ_Object,
       kProtoCacheObjectJObject_V,
+      kProtoCacheObjectJObject_Object,
       kProtoCacheCharArrayICharArrayII_V,
+      kProtoCacheObjectIObjectII_V,
       kProtoCacheIICharArrayI_V,
       kProtoCacheByteArrayIII_String,
       kProtoCacheIICharArray_String,
@@ -351,20 +377,11 @@ class DexFileMethodInliner {
      *
      * Only DexFileToMethodInlinerMap may call this function to initialize the inliner.
      */
-    void FindIntrinsics(const DexFile* dex_file) EXCLUSIVE_LOCKS_REQUIRED(lock_);
+    void FindIntrinsics(const DexFile* dex_file) REQUIRES(lock_);
 
     friend class DexFileToMethodInlinerMap;
 
-    bool AddInlineMethod(int32_t method_idx, const InlineMethod& method) LOCKS_EXCLUDED(lock_);
-
-    static bool GenInlineConst(MIRGraph* mir_graph, BasicBlock* bb, MIR* invoke,
-                               MIR* move_result, const InlineMethod& method);
-    static bool GenInlineReturnArg(MIRGraph* mir_graph, BasicBlock* bb, MIR* invoke,
-                                   MIR* move_result, const InlineMethod& method);
-    static bool GenInlineIGet(MIRGraph* mir_graph, BasicBlock* bb, MIR* invoke,
-                              MIR* move_result, const InlineMethod& method);
-    static bool GenInlineIPut(MIRGraph* mir_graph, BasicBlock* bb, MIR* invoke,
-                              MIR* move_result, const InlineMethod& method);
+    bool AddInlineMethod(int32_t method_idx, const InlineMethod& method) REQUIRES(!lock_);
 
     ReaderWriterMutex lock_;
     /*

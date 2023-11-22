@@ -41,15 +41,6 @@ ifeq ($(NDK_LOG),true)
     override NDK_LOG := 1
 endif
 
-# Define NDK_HOST_32BIT=1 in your environment to always use toolchain in 32-bit
-# even if 64-bit is present.  Note that toolchains in 64-bit still produce
-# 32-bit binaries for Android
-#
-NDK_HOST_32BIT := $(strip $(NDK_HOST_32BIT))
-ifeq ($(NDK_HOST_32BIT),true)
-    override NDK_HOST_32BIT := 1
-endif
-
 # Check that we have at least GNU Make 3.81
 # We do this by detecting whether 'lastword' is supported
 #
@@ -87,6 +78,9 @@ __ndk_info     = $(info $(__ndk_name): $1 $2 $3 $4 $5)
 __ndk_warning  = $(warning $(__ndk_name): $1 $2 $3 $4 $5)
 __ndk_error    = $(error $(__ndk_name): $1 $2 $3 $4 $5)
 
+ifdef NDK_NO_INFO
+__ndk_info :=
+endif
 ifdef NDK_NO_WARNINGS
 __ndk_warning :=
 endif
@@ -107,21 +101,40 @@ ndk_log :=
 endif
 
 # -----------------------------------------------------------------------------
-# Function : host-prebuilt-tag
-# Arguments: 1: parent path of "prebuilt"
-# Returns  : path $1/prebuilt/(HOST_TAG64) exists and NDK_HOST_32BIT isn't defined to 1,
-#            or $1/prebuilt/(HOST_TAG)
-# Usage    : $(call host-prebuilt-tag, <path>)
-# Rationale: This function is used to proble available 64-bit toolchain or
-#            return 32-bit one as default.  Note that HOST_TAG64==HOST_TAG for
-#            32-bit system (or 32-bit userland in 64-bit system)
+# Function : host-toolchain-path
+# Arguments: 1: NDK root
+#            2: Toolchain name
+# Returns  : The parent path of all toolchains for this host. Note that
+#            HOST_TAG64 == HOST_TAG for 32-bit systems.
 # -----------------------------------------------------------------------------
-ifeq ($(NDK_HOST_32BIT),1)
-host-prebuilt-tag = $1/prebuilt/$(HOST_TAG)
+ifeq ($(NDK_NEW_TOOLCHAINS_LAYOUT),true)
+    host-toolchain-path = $1/$(HOST_TAG64)/$2
 else
-host-prebuilt-tag = \
-   $(if $(strip $(wildcard $1/prebuilt/$(HOST_TAG64))),$1/prebuilt/$(HOST_TAG64),$1/prebuilt/$(HOST_TAG))
+    host-toolchain-path = $1/$2/prebuilt/$(HOST_TAG64)
 endif
+
+# -----------------------------------------------------------------------------
+# Function : get-toolchain-root
+# Arguments: 1: Toolchain name
+# Returns  : Path to the given prebuilt toolchain.
+# -----------------------------------------------------------------------------
+get-toolchain-root = $(call host-toolchain-path,$(NDK_TOOLCHAINS_ROOT),$1)
+
+# -----------------------------------------------------------------------------
+# Function : get-binutils-root
+# Arguments: 1: NDK root
+#            2: Toolchain name (no version number)
+# Returns  : Path to the given prebuilt binutils.
+# -----------------------------------------------------------------------------
+get-binutils-root = $1/binutils/$2
+
+# -----------------------------------------------------------------------------
+# Function : get-gcclibs-path
+# Arguments: 1: NDK root
+#            2: Toolchain name (no version number)
+# Returns  : Path to the given prebuilt gcclibs.
+# -----------------------------------------------------------------------------
+get-gcclibs-path = $1/gcclibs/$2
 
 # ====================================================================
 #
@@ -293,8 +306,8 @@ endif
 $(call ndk_log,HOST_TAG set to $(HOST_TAG))
 
 # Check for NDK-specific versions of our host tools
-HOST_PREBUILT_ROOT := $(call host-prebuilt-tag, $(NDK_ROOT))
-HOST_PREBUILT := $(strip $(wildcard $(HOST_PREBUILT_ROOT)/bin))
+HOST_TOOLS_ROOT := $(NDK_ROOT)/prebuilt/$(HOST_TAG64)
+HOST_PREBUILT := $(strip $(wildcard $(HOST_TOOLS_ROOT)/bin))
 HOST_AWK := $(strip $(NDK_HOST_AWK))
 HOST_MAKE := $(strip $(NDK_HOST_MAKE))
 HOST_PYTHON := $(strip $(NDK_HOST_PYTHON))
@@ -501,6 +514,15 @@ $(foreach level,$(NDK_ALL_PLATFORM_LEVELS),\
 
 $(call ndk_log,Found max platform level: $(NDK_MAX_PLATFORM_LEVEL))
 
+# Allow the user to point at an alternate location for the toolchains. This is
+# particularly helpful if we want to use prebuilt toolchains for building an NDK
+# module. Specifically, we use this to build libc++ using ndk-build instead of
+# the old build-cxx-stl.sh and maintaining two sets of build rules.
+NDK_TOOLCHAINS_ROOT := $(strip $(NDK_TOOLCHAINS_ROOT))
+ifndef NDK_TOOLCHAINS_ROOT
+    NDK_TOOLCHAINS_ROOT := $(strip $(NDK_ROOT)/toolchains)
+endif
+
 # ====================================================================
 #
 # Read all toolchain-specific configuration files.
@@ -557,7 +579,7 @@ NDK_ALL_TOOLCHAINS :=
 NDK_ALL_ABIS       :=
 NDK_ALL_ARCHS      :=
 
-TOOLCHAIN_CONFIGS := $(wildcard $(NDK_ROOT)/toolchains/*/config.mk)
+TOOLCHAIN_CONFIGS := $(wildcard $(NDK_ROOT)/build/core/toolchains/*/config.mk)
 $(foreach _config_mk,$(TOOLCHAIN_CONFIGS),\
   $(eval include $(BUILD_SYSTEM)/add-toolchain.mk)\
 )

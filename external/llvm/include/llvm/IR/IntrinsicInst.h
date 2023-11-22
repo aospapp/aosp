@@ -42,7 +42,7 @@ namespace llvm {
     /// getIntrinsicID - Return the intrinsic ID of this intrinsic.
     ///
     Intrinsic::ID getIntrinsicID() const {
-      return (Intrinsic::ID)getCalledFunction()->getIntrinsicID();
+      return getCalledFunction()->getIntrinsicID();
     }
 
     // Methods for support type inquiry through isa, cast, and dyn_cast:
@@ -82,11 +82,11 @@ namespace llvm {
   class DbgDeclareInst : public DbgInfoIntrinsic {
   public:
     Value *getAddress() const;
-    MDLocalVariable *getVariable() const {
-      return cast<MDLocalVariable>(getRawVariable());
+    DILocalVariable *getVariable() const {
+      return cast<DILocalVariable>(getRawVariable());
     }
-    MDExpression *getExpression() const {
-      return cast<MDExpression>(getRawExpression());
+    DIExpression *getExpression() const {
+      return cast<DIExpression>(getRawExpression());
     }
 
     Metadata *getRawVariable() const {
@@ -115,11 +115,11 @@ namespace llvm {
       return cast<ConstantInt>(
                           const_cast<Value*>(getArgOperand(1)))->getZExtValue();
     }
-    MDLocalVariable *getVariable() const {
-      return cast<MDLocalVariable>(getRawVariable());
+    DILocalVariable *getVariable() const {
+      return cast<DILocalVariable>(getRawVariable());
     }
-    MDExpression *getExpression() const {
-      return cast<MDExpression>(getRawExpression());
+    DIExpression *getExpression() const {
+      return cast<DIExpression>(getRawExpression());
     }
 
     Metadata *getRawVariable() const {
@@ -372,6 +372,39 @@ namespace llvm {
       return cast<ConstantInt>(const_cast<Value *>(getArgOperand(3)));
     }
   };
-}
+
+  /// This represents the llvm.instrprof_value_profile intrinsic.
+  class InstrProfValueProfileInst : public IntrinsicInst {
+  public:
+    static inline bool classof(const IntrinsicInst *I) {
+      return I->getIntrinsicID() == Intrinsic::instrprof_value_profile;
+    }
+    static inline bool classof(const Value *V) {
+      return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
+    }
+
+    GlobalVariable *getName() const {
+      return cast<GlobalVariable>(
+          const_cast<Value *>(getArgOperand(0))->stripPointerCasts());
+    }
+
+    ConstantInt *getHash() const {
+      return cast<ConstantInt>(const_cast<Value *>(getArgOperand(1)));
+    }
+
+    Value *getTargetValue() const {
+      return cast<Value>(const_cast<Value *>(getArgOperand(2)));
+    }
+
+    ConstantInt *getValueKind() const {
+      return cast<ConstantInt>(const_cast<Value *>(getArgOperand(3)));
+    }
+
+    // Returns the value site index.
+    ConstantInt *getIndex() const {
+      return cast<ConstantInt>(const_cast<Value *>(getArgOperand(4)));
+    }
+  };
+} // namespace llvm
 
 #endif

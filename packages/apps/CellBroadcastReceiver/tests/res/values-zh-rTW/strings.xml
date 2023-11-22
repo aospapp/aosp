@@ -20,7 +20,7 @@
     <string name="button_etws_normal_type" msgid="3852703138521119537">"傳送 ETWS 正常廣播"</string>
     <string name="button_etws_cancel_type" msgid="7194264116649371175">"傳送 ETWS 取消廣播"</string>
     <string name="button_etws_test_type" msgid="6353906188028139901">"傳送 ETWS 測試廣播"</string>
-    <string name="button_cmas_pres_alert" msgid="5905111586384766558">"傳送 CMAS 總統級警示"</string>
+    <string name="button_cmas_pres_alert" msgid="5905111586384766558">"傳送 CMAS 國家級警示"</string>
     <string name="button_cmas_extreme_alert" msgid="6111658124447111920">"傳送 CMAS 極嚴重警示"</string>
     <string name="button_cmas_severe_alert" msgid="9051731172452500819">"傳送 CMAS 嚴重警示"</string>
     <string name="button_cmas_amber_alert" msgid="4217147800913845288">"傳送 CMAS 安珀警示"</string>

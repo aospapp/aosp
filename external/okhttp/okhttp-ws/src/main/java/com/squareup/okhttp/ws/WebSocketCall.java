@@ -22,7 +22,6 @@ import com.squareup.okhttp.OkHttpClient;
 import com.squareup.okhttp.Request;
 import com.squareup.okhttp.Response;
 import com.squareup.okhttp.internal.Internal;
-import com.squareup.okhttp.internal.NamedRunnable;
 import com.squareup.okhttp.internal.Util;
 import com.squareup.okhttp.internal.ws.RealWebSocket;
 import com.squareup.okhttp.internal.ws.WebSocketProtocol;
@@ -61,19 +60,6 @@ public final class WebSocketCall {
     if (!"GET".equals(request.method())) {
       throw new IllegalArgumentException("Request must be GET: " + request.method());
     }
-    String url = request.urlString();
-    String httpUrl;
-    if (url.startsWith("ws://")) {
-      httpUrl = "http://" + url.substring(5);
-    } else if (url.startsWith("wss://")) {
-      httpUrl = "https://" + url.substring(6);
-    } else if (url.startsWith("http://") || url.startsWith("https://")) {
-      httpUrl = url;
-    } else {
-      throw new IllegalArgumentException(
-          "Request url must use 'ws', 'wss', 'http', or 'https' scheme: " + url);
-    }
-
     this.random = random;
 
     byte[] nonce = new byte[16];
@@ -87,7 +73,6 @@ public final class WebSocketCall {
     client.setProtocols(Collections.singletonList(com.squareup.okhttp.Protocol.HTTP_1_1));
 
     request = request.newBuilder()
-        .url(httpUrl)
         .header("Upgrade", "websocket")
         .header("Connection", "Upgrade")
         .header("Sec-WebSocket-Key", key)
@@ -116,12 +101,12 @@ public final class WebSocketCall {
         try {
           createWebSocket(response, listener);
         } catch (IOException e) {
-          listener.onFailure(e);
+          listener.onFailure(e, response);
         }
       }
 
       @Override public void onFailure(Request request, IOException e) {
-        listener.onFailure(e);
+        listener.onFailure(e, null);
       }
     };
     // TODO call.enqueue(responseCallback, true);
@@ -181,15 +166,10 @@ public final class WebSocketCall {
     // TODO connection.setOwner(webSocket);
     Internal.instance.connectionSetOwner(connection, webSocket);
 
-    listener.onOpen(webSocket, request, response);
+    listener.onOpen(webSocket, response);
 
-    // Start a dedicated thread for reading the web socket.
-    new Thread(new NamedRunnable("OkHttp WebSocket reader %s", request.urlString()) {
-      @Override protected void execute() {
-        while (webSocket.readMessage()) {
-        }
-      }
-    }).start();
+    while (webSocket.readMessage()) {
+    }
   }
 
   // Keep static so that the WebSocketCall instance can be garbage collected.

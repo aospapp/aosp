@@ -28,12 +28,9 @@ import android.net.Uri;
 import android.os.IBinder;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
-import android.telephony.CellBroadcastMessage;
-import android.telephony.SubscriptionManager;
 import android.util.Log;
 import android.media.AudioManager;
 import static com.android.cellbroadcastreceiver.CellBroadcastReceiver.DBG;
-import com.android.internal.telephony.PhoneConstants;
 
 /**
  * Manages alert reminder notification.
@@ -68,13 +65,10 @@ public class CellBroadcastAlertReminder extends Service {
             return START_NOT_STICKY;
         }
 
-        int subId = intent.getExtras().getInt(PhoneConstants.SUBSCRIPTION_KEY);
-        if(DBG) Log.d(TAG, "subscription id = " + subId);
-
         log("playing alert reminder");
         playAlertReminderSound();
 
-        if (queueAlertReminder(this, false, subId)) {
+        if (queueAlertReminder(this, false)) {
             return START_STICKY;
         } else {
             log("no reminders queued");
@@ -108,13 +102,25 @@ public class CellBroadcastAlertReminder extends Service {
      * Helper method to start the alert reminder service to queue the alert reminder.
      * @return true if a pending reminder was set; false if there are no more reminders
      */
-    static boolean queueAlertReminder(Context context, boolean firstTime, int subId) {
+    static boolean queueAlertReminder(Context context, boolean firstTime) {
         // Stop any alert reminder sound and cancel any previously queued reminders.
         cancelAlertReminder();
 
-        int interval = SubscriptionManager.getIntegerSubscriptionProperty(subId,
-                SubscriptionManager.CB_ALERT_REMINDER_INTERVAL, Integer.parseInt(
-                        CellBroadcastSettings.ALERT_REMINDER_INTERVAL), context);
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        String prefStr = prefs.getString(CellBroadcastSettings.KEY_ALERT_REMINDER_INTERVAL, null);
+
+        if (prefStr == null) {
+            if (DBG) log("no preference value for alert reminder");
+            return false;
+        }
+
+        int interval;
+        try {
+            interval = Integer.valueOf(prefStr);
+        } catch (NumberFormatException ignored) {
+            loge("invalid alert reminder interval preference: " + prefStr);
+            return false;
+        }
 
         if (interval == 0 || (interval == 1 && !firstTime)) {
             return false;
@@ -127,7 +133,6 @@ public class CellBroadcastAlertReminder extends Service {
 
         Intent playIntent = new Intent(context, CellBroadcastAlertReminder.class);
         playIntent.setAction(ACTION_PLAY_ALERT_REMINDER);
-        playIntent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
         sPlayReminderIntent = PendingIntent.getService(context, 0, playIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT);
 
@@ -139,7 +144,9 @@ public class CellBroadcastAlertReminder extends Service {
 
         // remind user after 2 minutes or 15 minutes
         long triggerTime = SystemClock.elapsedRealtime() + (interval * 60000);
-        alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerTime, sPlayReminderIntent);
+        // We use setExact instead of set because this is for emergency reminder.
+        alarmManager.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP, 
+                triggerTime, sPlayReminderIntent);
         return true;
     }
 

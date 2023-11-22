@@ -45,7 +45,7 @@ tdep_get_elf_image (unw_addr_space_t as, struct elf_image *ei,
   if (!map)
     return -UNW_ENOINFO;
 
-  if (!elf_map_cached_image (as, as_arg, map, ip))
+  if (!elf_map_cached_image (as, as_arg, map, ip, false))
     return -UNW_ENOINFO;
 
   *ei = map->ei;

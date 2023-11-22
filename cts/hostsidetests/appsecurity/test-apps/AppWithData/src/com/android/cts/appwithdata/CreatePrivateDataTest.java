@@ -24,8 +24,8 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.net.TrafficStats;
 import android.test.AndroidTestCase;
-import android.util.Log;
 
+import java.io.File;
 import java.net.ServerSocket;
 import java.net.Socket;
 
@@ -79,8 +79,7 @@ public class CreatePrivateDataTest extends AndroidTestCase {
         outputStream.close();
         assertTrue(getContext().getFileStreamPath(PRIVATE_FILE_NAME).exists());
 
-        outputStream = getContext().openFileOutput(PUBLIC_FILE_NAME,
-                Context.MODE_WORLD_READABLE);
+        outputStream = getContext().openFileOutput(PUBLIC_FILE_NAME, 0 /*mode*/);
         DataOutputStream dataOut = new DataOutputStream(outputStream);
         dataOut.writeInt(getContext().getApplicationInfo().uid);
         dataOut.close();
@@ -97,14 +96,11 @@ public class CreatePrivateDataTest extends AndroidTestCase {
         try {
             // construct the absolute file path to the app's public's file the same
             // way as the appaccessdata package will.
-            String publicFilePath = String.format("/data/data/%s/files/%s", APP_WITH_DATA_PKG,
-                    PUBLIC_FILE_NAME);
-            DataInputStream inputStream = new DataInputStream(new FileInputStream(publicFilePath));
-            int otherAppUid = (int)inputStream.readInt();
+            File publicFile = new File(mContext.getFilesDir(), PUBLIC_FILE_NAME);
+            DataInputStream inputStream = new DataInputStream(new FileInputStream(publicFile));
+            inputStream.readInt();
             inputStream.close();
-        } catch (FileNotFoundException e) {
-            fail("Was not able to access own public file: " + e);
-        } catch (SecurityException e) {
+        } catch (FileNotFoundException | SecurityException e) {
             fail("Was not able to access own public file: " + e);
         }
     }

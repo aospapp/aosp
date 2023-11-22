@@ -22,7 +22,7 @@
 
 #include "string.h"
 
-#if defined(HAVE_ANDROID_OS) && defined(__BIONIC__)
+#if defined(__ANDROID__) && defined(__BIONIC__)
 #define HAVE_TEST_STUFF 1
 #else
 #undef HAVE_TEST_STUFF

@@ -2,7 +2,7 @@
 /* -----------------------------------------------------------------------------------------------------------
 Software License for The Fraunhofer FDK AAC Codec Library for Android
 
-© Copyright  1995 - 2013 Fraunhofer-Gesellschaft zur Förderung der angewandten Forschung e.V.
+© Copyright  1995 - 2015 Fraunhofer-Gesellschaft zur Förderung der angewandten Forschung e.V.
   All rights reserved.
 
  1.    INTRODUCTION
@@ -93,6 +93,35 @@ amm-info@iis.fraunhofer.de
 
 
 #include "common_fix.h"
+
+#if !defined(FUNCTION_fIsLessThan)
+/**
+ * \brief Compares two fixpoint values incl. scaling.
+ * \param a_m mantissa of the first input value.
+ * \param a_e exponent of the first input value.
+ * \param b_m mantissa of the second input value.
+ * \param b_e exponent of the second input value.
+ * \return non-zero if (a_m*2^a_e) < (b_m*2^b_e), 0 otherwise
+ */
+FDK_INLINE INT fIsLessThan(FIXP_DBL a_m, INT a_e, FIXP_DBL b_m, INT b_e)
+{
+  if (a_e > b_e) {
+    return (b_m >> fMin(a_e-b_e, DFRACT_BITS-1) > a_m);
+  } else {
+    return (a_m >> fMin(b_e-a_e, DFRACT_BITS-1) < b_m);
+  }
+}
+
+FDK_INLINE INT fIsLessThan(FIXP_SGL a_m, INT a_e, FIXP_SGL b_m, INT b_e)
+{
+  if (a_e > b_e) {
+    return (b_m >> fMin(a_e-b_e, FRACT_BITS-1) > a_m);
+  } else {
+    return (a_m >> fMin(b_e-a_e, FRACT_BITS-1) < b_m);
+  }
+}
+#endif
+
 
 
 #define LD_DATA_SCALING (64.0f)
@@ -438,11 +467,11 @@ inline FIXP_DBL fAddSaturate(const FIXP_DBL a, const FIXP_DBL b)
 
 /*****************************************************************************
 
- array for 1/n, n=1..50
+ array for 1/n, n=1..80
 
 ****************************************************************************/
 
-  extern const FIXP_DBL invCount[50];
+  extern const FIXP_DBL invCount[80];
 
   LNK_SECTION_INITCODE
   inline void InitInvInt(void) {}
@@ -450,14 +479,14 @@ inline FIXP_DBL fAddSaturate(const FIXP_DBL a, const FIXP_DBL b)
 
 /**
  * \brief Calculate the value of 1/i where i is a integer value. It supports
- *        input values from 1 upto 50.
+ *        input values from 1 upto 80.
  * \param intValue Integer input value.
  * \param FIXP_DBL representation of 1/intValue
  */
 inline FIXP_DBL GetInvInt(int intValue)
 {
-  FDK_ASSERT((intValue > 0) && (intValue < 50));
-  FDK_ASSERT(intValue<50);
+  FDK_ASSERT((intValue > 0) && (intValue < 80));
+  FDK_ASSERT(intValue<80);
 	return invCount[intValue];
 }
 

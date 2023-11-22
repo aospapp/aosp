@@ -121,7 +121,7 @@ by the contract defined in each hardware-specific HAL interface.
 
   <p>In addition, the <code>hw_module_t</code> struct contains
   a pointer to another struct, <code>hw_module_methods_t</code>, that contains a pointer to
-  an "open" function for the module. This open function is used to initate communication with
+  an "open" function for the module. This open function is used to initiate communication with
   the hardware that the HAL is serving as an abstraction for. Each hardware-specific HAL usually
   extends the generic <code>hw_module_t</code> struct with additional information
   for that specific piece of hardware. For example in the camera HAL, the <code>camera_module_t</code> struct
@@ -195,7 +195,7 @@ typedef struct audio_hw_device audio_hw_device_t;
 <p>
 Developing your device drivers is similar to developing a typical Linux device
 driver. Android uses a version of the Linux kernel with a few special additions
-such as wake locks (a memory management system that is more agressive in
+such as wake locks (a memory management system that is more aggressive in
 preserving memory), the Binder IPC driver, and other features important for a
 mobile embedded platform. These additions are primarily for system functionality
 and do not affect driver development.

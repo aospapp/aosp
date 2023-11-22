@@ -19,6 +19,8 @@ package android.app.usage;
 import android.content.ComponentName;
 import android.content.res.Configuration;
 
+import java.io.IOException;
+
 /**
  * UsageStatsManager local system service interface.
  *
@@ -71,10 +73,11 @@ public abstract class UsageStatsManagerInternal {
      * Could be hours, could be days, who knows?
      *
      * @param packageName
+     * @param uidForAppId The uid of the app, which will be used for its app id
      * @param userId
      * @return
      */
-    public abstract boolean isAppIdle(String packageName, int userId);
+    public abstract boolean isAppIdle(String packageName, int uidForAppId, int userId);
 
     /**
      * Returns all of the uids for a given user where all packages associating with that uid
@@ -107,5 +110,10 @@ public abstract class UsageStatsManagerInternal {
         public abstract void onAppIdleStateChanged(String packageName, int userId, boolean idle);
         public abstract void onParoleStateChanged(boolean isParoleOn);
     }
+
+    /*  Backup/Restore API */
+    public abstract byte[] getBackupPayload(int user, String key);
+
+    public abstract void applyRestoredPayload(int user, String key, byte[] payload);
 
 }

@@ -28,9 +28,7 @@
 // -----------------
 // For encoders, you only have to include `vpx_encoder.h` and then any
 // header files for the specific codecs you use. In this case, we're using
-// vp8. The `VPX_CODEC_DISABLE_COMPAT` macro can be defined to ensure
-// strict compliance with the latest SDK by disabling some backwards
-// compatibility features. Defining this macro is encouraged.
+// vp8.
 //
 // Getting The Default Configuration
 // ---------------------------------
@@ -101,15 +99,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define VPX_CODEC_DISABLE_COMPAT 1
 #include "vpx/vpx_encoder.h"
 
-#include "./tools_common.h"
-#include "./video_writer.h"
+#include "../tools_common.h"
+#include "../video_writer.h"
 
 static const char *exec_name;
 
-void usage_exit() {
+void usage_exit(void) {
   fprintf(stderr,
           "Usage: %s <codec> <width> <height> <infile> <outfile> "
               "<keyframe-interval> [<error-resilient>]\nSee comments in "

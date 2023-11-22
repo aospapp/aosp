@@ -25,6 +25,7 @@ import java.io.ObjectOutput;
 import java.io.ObjectStreamClass;
 import java.io.ObjectStreamField;
 import java.io.Serializable;
+import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 
 public class ObjectStreamClassTest extends TestCase {
@@ -216,8 +217,81 @@ public class ObjectStreamClassTest extends TestCase {
 
         osc = ObjectStreamClass.lookup(NonSerialzableClass.class);
         assertNull(osc);
-
     }
 
+    // http://b/28106822
+    public void testBug28106822() throws Exception {
+        Method getConstructorId = ObjectStreamClass.class.getDeclaredMethod(
+                "getConstructorId", Class.class);
+        getConstructorId.setAccessible(true);
 
+        assertEquals(1189998819991197253L, getConstructorId.invoke(null, Object.class));
+        assertEquals(1189998819991197253L, getConstructorId.invoke(null, String.class));
+
+        Method newInstance = ObjectStreamClass.class.getDeclaredMethod("newInstance",
+                Class.class, Long.TYPE);
+        newInstance.setAccessible(true);
+
+        Object obj = newInstance.invoke(null, String.class, 0 /* ignored */);
+        assertNotNull(obj);
+        assertTrue(obj instanceof String);
+    }
+
+    // Class without <clinit> method
+    public static class NoClinitParent {
+    }
+    // Class without <clinit> method
+    public static class NoClinitChildWithNoClinitParent extends NoClinitParent {
+    }
+
+    // Class with <clinit> method
+    public static class ClinitParent {
+        // This field will trigger creation of <clinit> method for this class
+        private static final String TAG = ClinitParent.class.getName();
+        static {
+
+        }
+    }
+    // Class without <clinit> but with parent that has <clinit> method
+    public static class NoClinitChildWithClinitParent extends ClinitParent {
+    }
+
+    // http://b/29064453
+    public void testHasClinit() throws Exception {
+        Method hasStaticInitializer =
+            ObjectStreamClass.class.getDeclaredMethod("hasStaticInitializer", Class.class,
+                                                      boolean.class);
+        hasStaticInitializer.setAccessible(true);
+
+        assertTrue((Boolean)
+                   hasStaticInitializer.invoke(null, ClinitParent.class,
+                                               false /* checkSuperclass */));
+
+        // RI will return correctly False in this case, but android has been returning true
+        // in this particular case. We're returning true to enable deserializing classes
+        // like NoClinitChildWithClinitParent without explicit serialVersionID field.
+        assertTrue((Boolean)
+                   hasStaticInitializer.invoke(null, NoClinitChildWithClinitParent.class,
+                                               false /* checkSuperclass */));
+        assertFalse((Boolean)
+                    hasStaticInitializer.invoke(null, NoClinitParent.class,
+                                                false /* checkSuperclass */));
+        assertFalse((Boolean)
+                    hasStaticInitializer.invoke(null, NoClinitChildWithNoClinitParent.class,
+                                                false /* checkSuperclass */));
+
+
+        assertTrue((Boolean)
+                   hasStaticInitializer.invoke(null, ClinitParent.class,
+                                               true /* checkSuperclass */));
+        assertFalse((Boolean)
+                   hasStaticInitializer.invoke(null, NoClinitChildWithClinitParent.class,
+                                               true /* checkSuperclass */));
+        assertFalse((Boolean)
+                    hasStaticInitializer.invoke(null, NoClinitParent.class,
+                                                true /* checkSuperclass */));
+        assertFalse((Boolean)
+                    hasStaticInitializer.invoke(null, NoClinitChildWithNoClinitParent.class,
+                                                true /* checkSuperclass */));
+    }
 }

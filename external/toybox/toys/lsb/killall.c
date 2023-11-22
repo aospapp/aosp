@@ -40,8 +40,8 @@ static int kill_process(pid_t pid, char *name)
   if (pid == TT.cur_pid) return 0;
 
   if (toys.optflags & FLAG_i) {
-    snprintf(toybuf, sizeof(toybuf), "Signal %s(%d) ?", name, (int)pid);
-    if (!yesno(toybuf, 0)) return 0;
+    fprintf(stderr, "Signal %s(%d)", name, (int)pid);
+    if (!yesno(0)) return 0;
   }
 
   errno = 0;
@@ -83,10 +83,7 @@ void killall_main(void)
     }
   }
 
-  if (!(toys.optflags & FLAG_l) && !toys.optc) {
-    toys.exithelp++;
-    error_exit("no name");
-  }
+  if (!(toys.optflags & FLAG_l) && !toys.optc) help_exit("no name");
 
   TT.cur_pid = getpid();
 
@@ -97,7 +94,7 @@ void killall_main(void)
     if (TT.err[i]) {
       toys.exitval = 1;
       errno = TT.err[i];
-      perror_msg("%s", TT.names[i]);
+      perror_msg_raw(TT.names[i]);
     }
   }
   if (CFG_TOYBOX_FREE) free(TT.err);

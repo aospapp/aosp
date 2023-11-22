@@ -34,6 +34,7 @@
         <activity android:name=".Activities$ActivityThree" />
         <activity android:name=".Activities$ActivityFour" />
         <activity android:name=".ActivityTransitionActivity" />
+        <activity android:name=".FragmentTestActivity" />
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"

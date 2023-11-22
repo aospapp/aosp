@@ -28,7 +28,7 @@
 
 #include "osi/include/allocator.h"
 #include "bt_types.h"
-#include "gki.h"
+#include "bt_common.h"
 #include "utl.h"
 #include "bta_sys.h"
 #include "bta_api.h"
@@ -50,8 +50,6 @@ static const uint8_t  UUID_MAP_MAS[] = {0x00, 0x00, 0x11, 0x32, 0x00, 0x00, 0x10
                                         0x80, 0x00, 0x00, 0x80, 0x5F, 0x9B, 0x34, 0xFB};
 static const uint8_t  UUID_MAP_MNS[] = {0x00, 0x00, 0x11, 0x33, 0x00, 0x00, 0x10, 0x00,
                                         0x80, 0x00, 0x00, 0x80, 0x5F, 0x9B, 0x34, 0xFB};
-static const uint8_t  UUID_SPP[] = {0x00, 0x00, 0x11, 0x01, 0x00, 0x00, 0x10, 0x00,
-                                    0x80, 0x00, 0x00, 0x80, 0x5F, 0x9B, 0x34, 0xFB};
 static const uint8_t  UUID_SAP[] = {0x00, 0x00, 0x11, 0x2D, 0x00, 0x00, 0x10, 0x00,
                                     0x80, 0x00, 0x00, 0x80, 0x5F, 0x9B, 0x34, 0xFB};
 // TODO:
@@ -94,11 +92,9 @@ static inline tBT_UUID shorten_sdp_uuid(const tBT_UUID* u)
 
 static void bta_create_mns_sdp_record(bluetooth_sdp_record *record, tSDP_DISC_REC *p_rec)
 {
-    tSDP_DISCOVERY_DB *db = p_bta_sdp_cfg->p_sdp_db;
     tSDP_DISC_ATTR *p_attr;
     tSDP_PROTOCOL_ELEM pe;
     UINT16 pversion = 0;
-    UINT8 offset = 0;
     record->mns.hdr.type = SDP_TYPE_MAP_MNS;
     record->mns.hdr.service_name_length = 0;
     record->mns.hdr.service_name = NULL;
@@ -136,7 +132,6 @@ static void bta_create_mns_sdp_record(bluetooth_sdp_record *record, tSDP_DISC_RE
 
 static void bta_create_mas_sdp_record(bluetooth_sdp_record *record, tSDP_DISC_REC *p_rec)
 {
-    tSDP_DISCOVERY_DB *db = p_bta_sdp_cfg->p_sdp_db;
     tSDP_DISC_ATTR *p_attr;
     tSDP_PROTOCOL_ELEM pe;
     UINT16 pversion = -1;
@@ -190,7 +185,6 @@ static void bta_create_mas_sdp_record(bluetooth_sdp_record *record, tSDP_DISC_RE
 
 static void bta_create_pse_sdp_record(bluetooth_sdp_record *record, tSDP_DISC_REC *p_rec)
 {
-    tSDP_DISCOVERY_DB *db = p_bta_sdp_cfg->p_sdp_db;
     tSDP_DISC_ATTR *p_attr;
     UINT16 pversion;
     tSDP_PROTOCOL_ELEM pe;
@@ -237,7 +231,6 @@ static void bta_create_pse_sdp_record(bluetooth_sdp_record *record, tSDP_DISC_RE
 
 static void bta_create_ops_sdp_record(bluetooth_sdp_record *record, tSDP_DISC_REC *p_rec)
 {
-    tSDP_DISCOVERY_DB *db = p_bta_sdp_cfg->p_sdp_db;
     tSDP_DISC_ATTR *p_attr, *p_sattr;
     tSDP_PROTOCOL_ELEM pe;
     UINT16 pversion = -1;
@@ -319,7 +312,6 @@ static void bta_create_ops_sdp_record(bluetooth_sdp_record *record, tSDP_DISC_RE
 
 static void bta_create_sap_sdp_record(bluetooth_sdp_record *record, tSDP_DISC_REC *p_rec)
 {
-    tSDP_DISCOVERY_DB *db = p_bta_sdp_cfg->p_sdp_db;
     tSDP_DISC_ATTR *p_attr;
     tSDP_PROTOCOL_ELEM pe;
     UINT16 pversion = -1;
@@ -350,9 +342,7 @@ static void bta_create_sap_sdp_record(bluetooth_sdp_record *record, tSDP_DISC_RE
 
 static void bta_create_raw_sdp_record(bluetooth_sdp_record *record, tSDP_DISC_REC *p_rec)
 {
-    tSDP_DISCOVERY_DB *db = p_bta_sdp_cfg->p_sdp_db;
     tSDP_DISC_ATTR *p_attr;
-    UINT16 pversion;
     tSDP_PROTOCOL_ELEM pe;
 
     record->hdr.type = SDP_TYPE_RAW;
@@ -391,13 +381,13 @@ static void bta_create_raw_sdp_record(bluetooth_sdp_record *record, tSDP_DISC_RE
 static void bta_sdp_search_cback(UINT16 result, void * user_data)
 {
     tSDP_DISC_REC *p_rec = NULL;
-    tBTA_SDP_SEARCH_COMP evt_data = {0}; // We need to zero-initialize
+    tBTA_SDP_SEARCH_COMP evt_data;
     tBTA_SDP_STATUS status = BTA_SDP_FAILURE;
-    UINT16 uuid16 = 0;
     int count = 0;
     tBT_UUID su;
     APPL_TRACE_DEBUG("%s() -  res: 0x%x", __func__, result);
 
+    memset(&evt_data, 0, sizeof(evt_data));
     bta_sdp_cb.sdp_active = BTA_SDP_ACTIVE_NONE;
 
     if (bta_sdp_cb.p_dm_cback == NULL) return;
@@ -483,11 +473,7 @@ void bta_sdp_enable(tBTA_SDP_MSG *p_data)
 *******************************************************************************/
 void bta_sdp_search(tBTA_SDP_MSG *p_data)
 {
-    int x=0;
-    // TODO: Leaks!!! but needed as user-data pointer
-    tBT_UUID *bta_sdp_search_uuid = osi_malloc(sizeof(tBT_UUID));
-    if(p_data == NULL)
-    {
+    if (p_data == NULL) {
         APPL_TRACE_DEBUG("SDP control block handle is null");
         return;
     }
@@ -500,7 +486,8 @@ void bta_sdp_search(tBTA_SDP_MSG *p_data)
         /* SDP is still in progress */
         status = BTA_SDP_BUSY;
         if(bta_sdp_cb.p_dm_cback) {
-            tBTA_SDP_SEARCH_COMP result = {0};
+            tBTA_SDP_SEARCH_COMP result;
+            memset(&result, 0, sizeof(result));
             result.uuid = p_data->get_search.uuid;
             bdcpy(result.remote_addr, p_data->get_search.bd_addr);
             result.status = status;
@@ -512,12 +499,13 @@ void bta_sdp_search(tBTA_SDP_MSG *p_data)
     bta_sdp_cb.sdp_active = BTA_SDP_ACTIVE_YES;
     bdcpy(bta_sdp_cb.remote_addr, p_data->get_search.bd_addr);
     /* set the uuid used in the search */
+    tBT_UUID *bta_sdp_search_uuid = osi_malloc(sizeof(tBT_UUID));
     memcpy(bta_sdp_search_uuid, &(p_data->get_search.uuid),sizeof(tBT_UUID));
 
     /* initialize the search for the uuid */
     APPL_TRACE_DEBUG("%s init discovery with UUID(len: %d):",
             __func__, bta_sdp_search_uuid->len);
-    for(x = 0; x<bta_sdp_search_uuid->len;x++){
+    for (int x = 0; x<bta_sdp_search_uuid->len;x++){
         APPL_TRACE_DEBUG("%X",bta_sdp_search_uuid->uu.uuid128[x]);
     }
     SDP_InitDiscoveryDb (p_bta_sdp_cfg->p_sdp_db, p_bta_sdp_cfg->sdp_db_size, 1,
@@ -530,7 +518,8 @@ void bta_sdp_search(tBTA_SDP_MSG *p_data)
 
         /* failed to start SDP. report the failure right away */
         if (bta_sdp_cb.p_dm_cback) {
-            tBTA_SDP_SEARCH_COMP result = {0};
+            tBTA_SDP_SEARCH_COMP result;
+            memset(&result, 0, sizeof(result));
             result.uuid = p_data->get_search.uuid;
             bdcpy(result.remote_addr, p_data->get_search.bd_addr);
             result.status = status;

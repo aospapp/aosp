@@ -40,6 +40,7 @@
     <string name="call_work_pager" msgid="3036932765279753793">"कार्यस्‍थानी पेजरवर कॉल करा"</string>
     <string name="call_assistant" msgid="5188990854852312696">"<xliff:g id="ASSISTANT">%s</xliff:g> ला कॉल  करा"</string>
     <string name="call_mms" msgid="8998771923464696960">"MMS वर कॉल करा"</string>
+    <string name="call_by_shortcut" msgid="4053430514293064454">"<xliff:g id="CONTACT_NAME">%s</xliff:g> (कॉल करा)"</string>
     <string name="sms_custom" msgid="4601748252470175865">"<xliff:g id="CUSTOM">%s</xliff:g> मजकूर पाठवा"</string>
     <string name="sms_home" msgid="7765831490534280540">"निवासस्थानी मजकूर पाठवा"</string>
     <string name="sms_mobile" msgid="8387632124165893103">"मोबाईलवर मजकूर पाठवा"</string>
@@ -61,6 +62,7 @@
     <string name="sms_work_pager" msgid="499303540738557836">"कार्य पेजरवर मजकूर पाठवा"</string>
     <string name="sms_assistant" msgid="2677586547377136683">"<xliff:g id="ASSISTANT">%s</xliff:g> मजकूर पाठवा"</string>
     <string name="sms_mms" msgid="4887206338311086612">"MMS वर मजकूर पाठवा"</string>
+    <string name="sms_by_shortcut" msgid="2675928528835074838">"<xliff:g id="CONTACT_NAME">%s</xliff:g> (संदेश पाठवा)"</string>
     <string name="description_video_call" msgid="4907306403398614909">"व्‍हिडिओ कॉल करा"</string>
     <string name="clearFrequentsConfirmation_title" msgid="1482750234535491083">"वारंवार सपर्क साधलेले साफ करायचे?"</string>
     <string name="clearFrequentsConfirmation" msgid="1117709667923254374">"आपण संपर्क आणि फोन अ‍ॅप्‍स मधील वारंवार संपर्क साधलेली सूची साफ कराल आणि ईमेल अ‍ॅप्‍सना सुरवातीपासून आपली पत्ता प्राधान्‍ये जाणून घेण्‍याची सक्ती कराल."</string>
@@ -71,6 +73,7 @@
     <string name="contactsList" msgid="7140022347217602605">"संपर्क"</string>
     <string name="local_invisible_directory" msgid="8934840494825588347">"इतर"</string>
     <string name="directory_search_label" msgid="4484648822765516947">"निर्देशिका"</string>
+    <string name="directory_search_label_work" msgid="7396227297795426967">"कार्य निर्देशिका"</string>
     <string name="local_search_label" msgid="9094584931063745728">"सर्व संपर्क"</string>
     <string name="user_profile_contacts_list_header" msgid="8436133790234197565">"मी"</string>
     <string name="search_results_searching" msgid="9022794597388306615">"शोधत आहे..."</string>
@@ -80,15 +83,15 @@
       <item quantity="one"><xliff:g id="COUNT">%d</xliff:g> आढळला</item>
       <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> आढळले</item>
     </plurals>
-    <string name="description_quick_contact_for" msgid="6355240770807101947">"<xliff:g id="NAME">%1$s</xliff:g> साठी दृत संपर्क"</string>
+    <string name="description_quick_contact_for" msgid="6355240770807101947">"<xliff:g id="NAME">%1$s</xliff:g> साठी द्रुत संपर्क"</string>
     <string name="missing_name" msgid="2633118852693000081">"(नाव नाही)"</string>
     <string name="favoritesFrequentCalled" msgid="6600127125011757687">"वारंवार कॉल केलेले"</string>
     <string name="favoritesFrequentContacted" msgid="2849493314447751970">"वारंवार संपर्क केलेले"</string>
     <string name="description_view_contact_detail" msgid="2756753096193839285">"संपर्क पहा"</string>
     <string name="list_filter_phones" msgid="3692815632088465422">"फोन नंबरसह सर्व संपर्क"</string>
+    <string name="list_filter_phones_work" msgid="5226451114859079417">"कार्य प्रोफाईल संपर्क"</string>
     <string name="view_updates_from_group" msgid="3310864388165884352">"अद्यतने पहा"</string>
-    <string name="account_phone" product="tablet" msgid="1143884271396601338">"केवळ-टॅब्‍लेट, संकालित न केलेले"</string>
-    <string name="account_phone" product="default" msgid="6104157990869081962">"केवळ-फोन, संकालित न केलेले"</string>
+    <string name="account_phone" msgid="6104157990869081962">"केवळ-फोन, संकालित न केलेले"</string>
     <string name="nameLabelsGroup" msgid="1817502703362057154">"नाव"</string>
     <string name="nicknameLabelsGroup" msgid="6312795212164843246">"टोपणनाव"</string>
     <string name="full_name" msgid="885420216812981202">"नाव"</string>
@@ -107,7 +110,7 @@
     <string name="imLabelsGroup" msgid="8733603247535725786">"IM"</string>
     <string name="organizationLabelsGroup" msgid="961008074745871784">"संस्था"</string>
     <string name="relationLabelsGroup" msgid="3585294036166325520">"नातेसंबंध"</string>
-    <string name="eventLabelsGroup" msgid="5633007096910029346">"विशेष तारखा"</string>
+    <string name="eventLabelsGroup" msgid="4801419345682462171">"विशिष्ट तारीख"</string>
     <string name="sms" msgid="8086289395154598654">"मजकूर संदेश"</string>
     <string name="postal_address" msgid="7692926530081579786">"पत्ता"</string>
     <string name="ghostData_company" msgid="22470841482615409">"कंपनी"</string>
@@ -144,6 +147,7 @@
     <string name="chat" msgid="6297650784873558837">"चॅट करा"</string>
     <string name="description_minus_button" msgid="2142439445814730827">"हटवा"</string>
     <string name="expand_collapse_name_fields_description" msgid="5073419090665464541">"नाव फील्‍ड विस्‍तृत करा किंवा संकुचित करा"</string>
+    <string name="expand_collapse_phonetic_name_fields_description" msgid="5241493357460353777">"ध्वन्यात्मक नाव फील्ड विस्तृत करा किंवा संकुचित करा"</string>
     <string name="list_filter_all_accounts" msgid="4265359896628915784">"सर्व संपर्क"</string>
     <string name="list_filter_all_starred" msgid="9060325494254507806">"तारांकित"</string>
     <string name="list_filter_customize" msgid="2352794292558465089">"सानुकूलित करा"</string>
@@ -160,7 +164,7 @@
     <string name="listAllContactsInAccount" msgid="755499980092808715">"<xliff:g id="NAME">%s</xliff:g> मधील संपर्क"</string>
     <string name="listCustomView" msgid="1915154113477432033">"सानुकूल दृश्यामधील संपर्क"</string>
     <string name="listSingleContact" msgid="8525131203887307088">"एकल संपर्क"</string>
-    <string name="dialog_new_contact_account" msgid="4107520273478326011">"खात्याअंतर्गत संपर्क तयार करा"</string>
+    <string name="dialog_new_contact_account" msgid="32435918254518570">"आयात केलेले संपर्क यावर जतन करा:"</string>
     <string name="import_from_sim" msgid="4749894687871835873">"सिमकार्डवरुन आयात करा"</string>
     <string name="import_from_sim_summary" msgid="2306434118233541675">"<xliff:g id="SIM_NAME">^1</xliff:g> - <xliff:g id="SIM_NUMBER">^2</xliff:g> SIM वरून आयात करा"</string>
     <string name="import_from_sim_summary_no_number" msgid="8498561004799710237">"<xliff:g id="SIM_NAME">%1$s</xliff:g> SIM वरून आयात करा"</string>
@@ -175,8 +179,6 @@
     <string name="missing_required_permission" msgid="3120850759881656369">"आपण आवश्‍यक असलेली एक परवानगी अक्षम केली आहे."</string>
     <string name="fail_reason_error_occurred_during_export" msgid="8426833603664168716">"निर्यात दरम्‍यान त्रुटी आली: \"<xliff:g id="EXACT_REASON">%s</xliff:g>\"."</string>
     <string name="fail_reason_too_long_filename" msgid="3996610741248972232">"आवश्‍यक फाईल नाव (\"<xliff:g id="FILENAME">%s</xliff:g>\") खूप मोठे आहे."</string>
-    <string name="fail_reason_too_many_vcard" product="nosdcard" msgid="8720294715223591581">"संचयनात खूप vCard फायली आहेत."</string>
-    <string name="fail_reason_too_many_vcard" product="default" msgid="3793454448838716962">"SD कार्डवर खूप vCard फायली आहेत."</string>
     <string name="fail_reason_io_error" msgid="7736686553669161933">"I/O त्रुटी"</string>
     <string name="fail_reason_low_memory_during_import" msgid="3277485820827338116">"पुरेशी मेमरी नाही. फाईल कदाचित खूप मोठी असू शकते."</string>
     <string name="fail_reason_vcard_parse_error" msgid="514012644716565082">"अनपेक्षित कारणासाठी vCard विश्लेषण करू शकलो नाही."</string>
@@ -185,12 +187,13 @@
     <string name="fail_reason_failed_to_read_files" msgid="9213844535907986665">"एक किंवा अधिक फायली आयात केल्‍या जाऊ शकत नाहीत(%s)."</string>
     <string name="exporting_vcard_finished_title" msgid="3581883972188707378">"<xliff:g id="FILENAME">%s</xliff:g> निर्यात करणे समाप्त झाले."</string>
     <string name="exporting_vcard_finished_title_fallback" msgid="2953278060195308065">"संपर्क आयात करणे समाप्त झाले"</string>
+    <string name="exporting_vcard_finished_toast" msgid="5995505525489290221">"संपर्क निर्यात करणे समाप्त झाले, संपर्क सामायिक करण्यासाठी सूचनेवर क्लिक करा."</string>
+    <string name="touch_to_share_contacts" msgid="3237211496215699092">"संपर्क सामायिक करण्यासाठी टॅप करा."</string>
     <string name="exporting_vcard_canceled_title" msgid="6993607802553630980">"<xliff:g id="FILENAME">%s</xliff:g> निर्यात करणे रद्द केले."</string>
     <string name="exporting_contact_list_title" msgid="5663945499580026953">"संपर्क डेटा निर्यात करीत आहे"</string>
-    <string name="exporting_contact_list_message" msgid="3955619563572081300">"आपला संपर्क डेटा यावर निर्यात केला जात आहे: <xliff:g id="FILE_NAME">%s</xliff:g>."</string>
+    <string name="exporting_contact_list_message" msgid="141905615542638683">"संपर्क डेटा निर्यात केला जात आहे."</string>
     <string name="composer_failed_to_get_database_infomation" msgid="7801276776746351694">"डेटाबेस माहिती मिळवू शकलो नाही."</string>
-    <string name="composer_has_no_exportable_contact" product="tablet" msgid="1534625366506752907">"निर्यात करण्‍यायोग्‍य संपर्क नाहीत. आपल्‍या टॅब्‍लेटवर संपर्क असल्‍यास, काही डेटा प्रदाते टॅब्‍लेटवरून संपर्क निर्यात करण्‍यास कदाचित अनुमती देणार नाहीत."</string>
-    <string name="composer_has_no_exportable_contact" product="default" msgid="7063040740576745307">"निर्यात करण्‍यायोग्‍य संपर्क नाहीत. आपल्‍या फोनवर संपर्क असल्‍यास, काही डेटा प्रदाते फोनवरून संपर्क निर्यात करण्‍यास कदाचित अनुमती देणार नाहीत."</string>
+    <string name="composer_has_no_exportable_contact" msgid="7063040740576745307">"निर्यात करण्‍यायोग्‍य संपर्क नाहीत. आपल्‍या फोनवर संपर्क असल्‍यास, काही डेटा प्रदाते फोनवरून संपर्क निर्यात करण्‍यास कदाचित अनुमती देणार नाहीत."</string>
     <string name="composer_not_initialized" msgid="6514403866246950877">"vCard रचनाकाराने योग्‍यरित्‍या प्रारंभ केला नाही."</string>
     <string name="exporting_contact_failed_title" msgid="6059039606302373945">"निर्यात करू शकलो नाही"</string>
     <string name="exporting_contact_failed_message" msgid="3922498776695333328">"संपर्क डेटा निर्यात केला नाही.\nकारण: \"<xliff:g id="FAIL_REASON">%s</xliff:g>\""</string>
@@ -204,17 +207,14 @@
     <string name="vcard_import_request_rejected_message" msgid="5209363425953891316">"vCard आयात विनंती नाकारली. नंतर पुन्हा प्रयत्न करा."</string>
     <string name="vcard_export_will_start_message" msgid="2168853666316526278">"<xliff:g id="FILENAME">%s</xliff:g> लवकरच निर्यात केली जाईल."</string>
     <string name="vcard_export_will_start_message_fallback" msgid="6418767460851707308">"फाईल लवकरच निर्यात केली जाईल."</string>
+    <string name="contacts_export_will_start_message" msgid="4527597765334949574">"संपर्क लवकरच निर्यात केले जातील."</string>
     <string name="vcard_export_request_rejected_message" msgid="8044599716727705282">"vCard निर्यात विनंती नाकारली. नंतर पुन्हा प्रयत्न करा."</string>
     <string name="vcard_unknown_filename" msgid="4832657686149881554">"संपर्क"</string>
     <string name="caching_vcard_message" msgid="6635485116655518520">"स्‍थानिक तात्‍पुरत्‍या संचयनावर vCard(s) कॅशे करीत आहे. वास्‍तविक आयात लवकरच प्रारंभ होईल."</string>
     <string name="vcard_import_failed" msgid="4105296876768072508">"vCard आयात करू शकलो नाही."</string>
-    <string name="import_failure_no_vcard_file" product="nosdcard" msgid="2066107150525521097">"संचयनामध्ये कोणतीही vCard फाईल आढळली नाही."</string>
-    <string name="import_failure_no_vcard_file" product="default" msgid="1748300468382501403">"SD कार्डवर कोणतीही vCard फाईल आढळली नाही."</string>
     <string name="nfc_vcard_file_name" msgid="305679412445157370">"NFC वरील संपर्काचे पुनरावलोकन केले"</string>
     <string name="confirm_export_title" msgid="3240899428149018226">"संपर्क निर्यात करायचे?"</string>
     <string name="caching_vcard_title" msgid="9185299351381102305">"कॅशे करीत आहे"</string>
-    <string name="scanning_sdcard_failed_message" product="nosdcard" msgid="8442457519490864500">"संचयन स्कॅन होऊ शकले नाही. (कारण: \"<xliff:g id="FAIL_REASON">%s</xliff:g>\")"</string>
-    <string name="scanning_sdcard_failed_message" product="default" msgid="1409798274361146091">"SD कार्ड स्कॅन होऊ शकले नाही. (कारण: \"<xliff:g id="FAIL_REASON">%s</xliff:g>\")"</string>
     <string name="progress_notifier_message" msgid="359931715339778107">"आयात करत आहे <xliff:g id="CURRENT_NUMBER">%s</xliff:g>/<xliff:g id="TOTAL_NUMBER">%s</xliff:g>: <xliff:g id="NAME">%s</xliff:g>"</string>
     <string name="export_to_vcf_file" product="default" msgid="4142192068495589925">".vcf फाईलवर निर्यात करा"</string>
     <string name="display_options_sort_list_by" msgid="8635268562263708102">"नुसार क्रमवारी लावा"</string>
@@ -223,11 +223,20 @@
     <string name="display_options_view_names_as" msgid="3232196224409242435">"नाव स्वरूपन"</string>
     <string name="display_options_view_given_name_first" msgid="7283772578267332801">"नाव प्रथम"</string>
     <string name="display_options_view_family_name_first" msgid="8133167685885174166">"आडनाव प्रथम"</string>
+    <string name="default_editor_account" msgid="4338725881650654966">"नवीन संपर्कांसाठी डीफॉल्ट खाते"</string>
+    <string name="sync_contact_metadata_title" msgid="8322455849769727129">"संपर्क मेटाडेटा संकालित करा [डॉगफूड]"</string>
+    <string name="sync_contact_metadata_dialog_title" msgid="4521648342253661374">"संपर्क मेटाडेटा संकालित करा"</string>
+    <string name="setting_about" msgid="3926137653588942297">"संपर्कांबद्दल"</string>
+    <string name="activity_title_settings" msgid="3056389601004689380">"सेटिंग्ज"</string>
     <string name="share_visible_contacts" msgid="2150662668080757107">"दृश्यमान संपर्क सामायिक करा"</string>
     <string name="share_visible_contacts_failure" msgid="5895137872238059893">"दृश्यमान संपर्क सामायिक करण्‍यात अयशस्वी झाले."</string>
+    <string name="share_favorite_contacts" msgid="2838432887118216222">"आवडते संपर्क सामायिक करा"</string>
+    <string name="share_contacts" msgid="6404040163340914061">"सर्व संपर्क सामायिक करा"</string>
+    <string name="share_contacts_failure" msgid="3498837575583860197">"संपर्क सामायिक करण्यात अयशस्वी झाले."</string>
     <string name="dialog_import_export" msgid="1125776851100740858">"संपर्क आयात/निर्यात करा"</string>
     <string name="dialog_import" msgid="5177004290082451296">"संपर्क आयात करा"</string>
     <string name="share_error" msgid="665756457151793108">"हा संपर्क सामायिक केला जाऊ शकत नाही."</string>
+    <string name="no_contact_to_share" msgid="5749367538191552509">"सामायिक करण्यासाठी कोणतेही संपर्क नाहीत."</string>
     <string name="menu_search" msgid="7464453023659824700">"शोधा"</string>
     <string name="menu_contacts_filter" msgid="586356478145511794">"प्रदर्शित करण्यासाठी संपर्क"</string>
     <string name="activity_title_contacts_filter" msgid="7689519428197855166">"प्रदर्शित करण्यासाठी संपर्क"</string>
@@ -236,11 +245,11 @@
     <string name="contactsFavoritesLabel" msgid="1222038757062409949">"आवडते"</string>
     <string name="listTotalAllContactsZero" msgid="6041341919823872732">"कोणतेही संपर्क नाहीत."</string>
     <string name="listTotalAllContactsZeroCustom" msgid="5661794891640163617">"कोणतेही दृश्यमान संपर्क नाहीत."</string>
-    <string name="listTotalAllContactsZeroStarred" msgid="4176827228429279164">"कोणत्याही आवडी नाहीत."</string>
+    <string name="listTotalAllContactsZeroStarred" msgid="2747107662985362061">"कोणतेही मनपसंत नाही"</string>
     <string name="listTotalAllContactsZeroGroup" msgid="7450331854661098879">"<xliff:g id="NAME">%s</xliff:g> मध्ये कोणतेही सपंर्क नाहीत"</string>
     <string name="menu_clear_frequents" msgid="8492322695770647639">"वारंवारता साफ करा"</string>
     <string name="menu_select_sim" msgid="7814841439832447299">"सिम कार्ड निवडा"</string>
-    <string name="menu_accounts" msgid="795417468541517082">"खाती"</string>
+    <string name="menu_accounts" msgid="2944004960829403994">"खाती व्यवस्थापित करा"</string>
     <string name="menu_import_export" msgid="6446229463809981669">"आयात/निर्यात"</string>
     <string name="contact_status_update_attribution" msgid="8419168578670128134">"<xliff:g id="SOURCE">%1$s</xliff:g> द्वारे"</string>
     <string name="contact_status_update_attribution_with_date" msgid="7492465535645607473">"<xliff:g id="SOURCE">%2$s</xliff:g> द्वारे <xliff:g id="DATE">%1$s</xliff:g>"</string>
@@ -250,4 +259,23 @@
     <string name="select_account_dialog_title" msgid="5509088895267310568">"खाते"</string>
     <string name="set_default_account" msgid="3865970860434642695">"कॉलसाठी हे नेहमी वापरा"</string>
     <string name="select_phone_account_for_calls" msgid="933905607702811164">"यासह कॉल करा"</string>
+    <string name="call_with_a_note" msgid="8453800473226831257">"टीपसह कॉल करा"</string>
+    <string name="call_subject_hint" msgid="2270115162050853866">"कॉलसह पाठविण्‍यासाठी एक टीप टाइप करा..."</string>
+    <string name="send_and_call_button" msgid="7459507823002185202">"पाठवा आणि कॉल करा"</string>
+    <string name="call_subject_limit" msgid="4746194916585506281">"<xliff:g id="COUNT">%1$s</xliff:g> / <xliff:g id="LIMIT">%2$s</xliff:g>"</string>
+    <string name="call_subject_type_and_number" msgid="517676698821671164">"<xliff:g id="TYPE">%1$s</xliff:g> • <xliff:g id="NUMBER">%2$s</xliff:g>"</string>
+    <plurals name="tab_title_with_unread_items" formatted="false" msgid="6318422670912575609">
+      <item quantity="one"> <xliff:g id="TITLE_2">%1$s</xliff:g>. <xliff:g id="COUNT_3">%2$d</xliff:g> न वाचलेला आयटम. </item>
+      <item quantity="other"> <xliff:g id="TITLE_2">%1$s</xliff:g>. <xliff:g id="COUNT_3">%2$d</xliff:g> न वाचलेले आयटम. </item>
+    </plurals>
+    <string name="about_build_version" msgid="4221971683776635130">"बिल्ड आवृत्ती"</string>
+    <string name="about_open_source_licenses" msgid="3224958101863814649">"मुक्त स्त्रोत परवाने"</string>
+    <string name="about_open_source_licenses_summary" msgid="3009343539281606716">"मुक्त स्त्रोत सॉफ्टवेअरसाठी परवाना तपशील"</string>
+    <string name="about_privacy_policy" msgid="8458337666582973913">"गोपनीयता धोरण"</string>
+    <string name="about_terms_of_service" msgid="628537491496465267">"सेवा अटी"</string>
+    <string name="activity_title_licenses" msgid="7812517458691564230">"मुक्त स्त्रोत परवाने"</string>
+    <string name="url_open_error_toast" msgid="7557601281695424805">"url उघडण्यात अयशस्वी झाले."</string>
+    <string name="account_filter_view_checked" msgid="4368757211136754319">"<xliff:g id="ACCOUNT_INFO">%s</xliff:g> चेक केले"</string>
+    <string name="account_filter_view_not_checked" msgid="5652044086126815700">"<xliff:g id="ACCOUNT_INFO">%s</xliff:g> चेक केले नाही"</string>
+    <string name="description_search_video_call" msgid="1699305143973045516">"व्हिडिओ कॉल करा"</string>
 </resources>

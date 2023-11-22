@@ -18,29 +18,32 @@ import android.animation.AnimatorSet;
 import android.app.Activity;
 import android.app.Fragment;
 import android.app.FragmentManager;
+import android.app.FragmentManager.BackStackEntry;
 import android.app.FragmentTransaction;
 import android.content.Context;
-import android.content.res.TypedArray;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
-import android.support.v17.leanback.animation.UntargetableAnimatorSet;
 import android.support.v17.leanback.R;
+import android.support.v17.leanback.transition.TransitionHelper;
 import android.support.v17.leanback.widget.GuidanceStylist;
 import android.support.v17.leanback.widget.GuidanceStylist.Guidance;
 import android.support.v17.leanback.widget.GuidedAction;
+import android.support.v17.leanback.widget.GuidedActionAdapter;
+import android.support.v17.leanback.widget.GuidedActionAdapterGroup;
 import android.support.v17.leanback.widget.GuidedActionsStylist;
-import android.support.v17.leanback.widget.VerticalGridView;
-import android.util.AttributeSet;
+import android.support.v17.leanback.widget.ViewHolderTask;
+import android.support.v4.app.ActivityCompat;
+import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.ContextThemeWrapper;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewTreeObserver;
-import android.widget.ImageView;
-import android.widget.RelativeLayout;
-import android.widget.TextView;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -52,7 +55,7 @@ import java.util.List;
  * <p>
  * <h3>Basic Usage</h3>
  * <p>
- * Clients of GuidedStepFragment typically create a custom subclass to attach to their Activities.
+ * Clients of GuidedStepFragment must create a custom subclass to attach to their Activities.
  * This custom subclass provides the information necessary to construct the user interface and
  * respond to user actions. At a minimum, subclasses should override:
  * <ul>
@@ -61,6 +64,19 @@ import java.util.List;
  * <li>{@link #onGuidedActionClicked}, to respond to those actions</li>
  * </ul>
  * <p>
+ * Clients use following helper functions to add GuidedStepFragment to Activity or FragmentManager:
+ * <ul>
+ * <li>{@link #addAsRoot(Activity, GuidedStepFragment, int)}, to be called during Activity onCreate,
+ * adds GuidedStepFragment as the first Fragment in activity.</li>
+ * <li>{@link #add(FragmentManager, GuidedStepFragment)} or {@link #add(FragmentManager,
+ * GuidedStepFragment, int)}, to add GuidedStepFragment on top of existing Fragments or
+ * replacing existing GuidedStepFragment when moving forward to next step.</li>
+ * <li>{@link #finishGuidedStepFragments()} can either finish the activity or pop all
+ * GuidedStepFragment from stack.
+ * <li>If app chooses not to use the helper function, it is the app's responsibility to call
+ * {@link #setUiStyle(int)} to select fragment transition and remember the stack entry where it
+ * need pops to.
+ * </ul>
  * <h3>Theming and Stylists</h3>
  * <p>
  * GuidedStepFragment delegates its visual styling to classes called stylists. The {@link
@@ -106,36 +122,144 @@ import java.util.List;
  * <p>
  * <i>Note: Currently GuidedStepFragments grouped in this way must all be defined programmatically,
  * rather than in XML. This restriction may be removed in the future.</i>
- * <p>
+ *
  * @attr ref android.support.v17.leanback.R.styleable#LeanbackGuidedStepTheme_guidedStepTheme
+ * @attr ref android.support.v17.leanback.R.styleable#LeanbackGuidedStepTheme_guidedStepBackground
+ * @attr ref android.support.v17.leanback.R.styleable#LeanbackGuidedStepTheme_guidedActionContentWidthWeight
+ * @attr ref android.support.v17.leanback.R.styleable#LeanbackGuidedStepTheme_guidedActionContentWidthWeightTwoPanels
+ * @attr ref android.support.v17.leanback.R.styleable#LeanbackGuidedStepTheme_guidedActionsBackground
+ * @attr ref android.support.v17.leanback.R.styleable#LeanbackGuidedStepTheme_guidedActionsBackgroundDark
+ * @attr ref android.support.v17.leanback.R.styleable#LeanbackGuidedStepTheme_guidedActionsElevation
  * @see GuidanceStylist
  * @see GuidanceStylist.Guidance
  * @see GuidedAction
  * @see GuidedActionsStylist
  */
-public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.ClickListener,
-        GuidedActionAdapter.FocusListener {
+public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.FocusListener {
 
     private static final String TAG_LEAN_BACK_ACTIONS_FRAGMENT = "leanBackGuidedStepFragment";
     private static final String EXTRA_ACTION_SELECTED_INDEX = "selectedIndex";
-    private static final String EXTRA_ACTION_ENTRY_TRANSITION_ENABLED = "entryTransitionEnabled";
-    private static final String EXTRA_ENTRY_TRANSITION_PERFORMED = "entryTransitionPerformed";
+    private static final String EXTRA_ACTION_PREFIX = "action_";
+    private static final String EXTRA_BUTTON_ACTION_PREFIX = "buttonaction_";
+
+    private static final String ENTRY_NAME_REPLACE = "GuidedStepDefault";
+
+    private static final String ENTRY_NAME_ENTRANCE = "GuidedStepEntrance";
+
+    private static final boolean IS_FRAMEWORK_FRAGMENT = true;
+
+    /**
+     * Fragment argument name for UI style.  The argument value is persisted in fragment state and
+     * used to select fragment transition. The value is initially {@link #UI_STYLE_ENTRANCE} and
+     * might be changed in one of the three helper functions:
+     * <ul>
+     * <li>{@link #addAsRoot(Activity, GuidedStepFragment, int)} sets to
+     * {@link #UI_STYLE_ACTIVITY_ROOT}</li>
+     * <li>{@link #add(FragmentManager, GuidedStepFragment)} or {@link #add(FragmentManager,
+     * GuidedStepFragment, int)} sets it to {@link #UI_STYLE_REPLACE} if there is already a
+     * GuidedStepFragment on stack.</li>
+     * <li>{@link #finishGuidedStepFragments()} changes current GuidedStepFragment to
+     * {@link #UI_STYLE_ENTRANCE} for the non activity case.  This is a special case that changes
+     * the transition settings after fragment has been created,  in order to force current
+     * GuidedStepFragment run a return transition of {@link #UI_STYLE_ENTRANCE}</li>
+     * </ul>
+     * <p>
+     * Argument value can be either:
+     * <ul>
+     * <li>{@link #UI_STYLE_REPLACE}</li>
+     * <li>{@link #UI_STYLE_ENTRANCE}</li>
+     * <li>{@link #UI_STYLE_ACTIVITY_ROOT}</li>
+     * </ul>
+     */
+    public static final String EXTRA_UI_STYLE = "uiStyle";
+
+    /**
+     * This is the case that we use GuidedStepFragment to replace another existing
+     * GuidedStepFragment when moving forward to next step. Default behavior of this style is:
+     * <ul>
+     * <li>Enter transition slides in from END(right), exit transition same as
+     * {@link #UI_STYLE_ENTRANCE}.
+     * </li>
+     * </ul>
+     */
+    public static final int UI_STYLE_REPLACE = 0;
+
+    /**
+     * @deprecated Same value as {@link #UI_STYLE_REPLACE}.
+     */
+    @Deprecated
+    public static final int UI_STYLE_DEFAULT = 0;
+
+    /**
+     * Default value for argument {@link #EXTRA_UI_STYLE}. The default value is assigned in
+     * GuidedStepFragment constructor. This is the case that we show GuidedStepFragment on top of
+     * other content. The default behavior of this style:
+     * <ul>
+     * <li>Enter transition slides in from two sides, exit transition slide out to START(left).
+     * Background will be faded in. Note: Changing exit transition by UI style is not working
+     * because fragment transition asks for exit transition before UI style is restored in Fragment
+     * .onCreate().</li>
+     * </ul>
+     * When popping multiple GuidedStepFragment, {@link #finishGuidedStepFragments()} also changes
+     * the top GuidedStepFragment to UI_STYLE_ENTRANCE in order to run the return transition
+     * (reverse of enter transition) of UI_STYLE_ENTRANCE.
+     */
+    public static final int UI_STYLE_ENTRANCE = 1;
+
+    /**
+     * One possible value of argument {@link #EXTRA_UI_STYLE}. This is the case that we show first
+     * GuidedStepFragment in a separate activity. The default behavior of this style:
+     * <ul>
+     * <li>Enter transition is assigned null (will rely on activity transition), exit transition is
+     * same as {@link #UI_STYLE_ENTRANCE}. Note: Changing exit transition by UI style is not working
+     * because fragment transition asks for exit transition before UI style is restored in
+     * Fragment.onCreate().</li>
+     * </ul>
+     */
+    public static final int UI_STYLE_ACTIVITY_ROOT = 2;
+
+    /**
+     * Animation to slide the contents from the side (left/right).
+     * @hide
+     */
+    public static final int SLIDE_FROM_SIDE = 0;
+
+    /**
+     * Animation to slide the contents from the bottom.
+     * @hide
+     */
+    public static final int SLIDE_FROM_BOTTOM = 1;
+
     private static final String TAG = "GuidedStepFragment";
-    private static final boolean DEBUG = true;
-    private static final int ANIMATION_FRAGMENT_ENTER = 1;
-    private static final int ANIMATION_FRAGMENT_EXIT = 2;
-    private static final int ANIMATION_FRAGMENT_ENTER_POP = 3;
-    private static final int ANIMATION_FRAGMENT_EXIT_POP = 4;
+    private static final boolean DEBUG = false;
+
+    /**
+     * @hide
+     */
+    public static class DummyFragment extends Fragment {
+        @Override
+        public View onCreateView(LayoutInflater inflater, ViewGroup container,
+                Bundle savedInstanceState) {
+            final View v = new View(inflater.getContext());
+            v.setVisibility(View.GONE);
+            return v;
+        }
+    }
 
     private int mTheme;
+    private ContextThemeWrapper mThemeWrapper;
     private GuidanceStylist mGuidanceStylist;
     private GuidedActionsStylist mActionsStylist;
+    private GuidedActionsStylist mButtonActionsStylist;
     private GuidedActionAdapter mAdapter;
-    private VerticalGridView mListView;
+    private GuidedActionAdapter mSubAdapter;
+    private GuidedActionAdapter mButtonAdapter;
+    private GuidedActionAdapterGroup mAdapterGroup;
     private List<GuidedAction> mActions = new ArrayList<GuidedAction>();
+    private List<GuidedAction> mButtonActions = new ArrayList<GuidedAction>();
     private int mSelectedIndex = -1;
-    private boolean mEntryTransitionPerformed;
-    private boolean mEntryTransitionEnabled = true;
+    private int mButtonSelectedIndex = -1;
+    private int entranceTransitionType = SLIDE_FROM_SIDE;
 
     public GuidedStepFragment() {
         // We need to supply the theme before any potential call to onInflate in order
@@ -143,6 +267,8 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
         mTheme = onProvideTheme();
         mGuidanceStylist = onCreateGuidanceStylist();
         mActionsStylist = onCreateActionsStylist();
+        mButtonActionsStylist = onCreateButtonActionsStylist();
+        onProvideFragmentTransitions();
     }
 
     /**
@@ -161,6 +287,17 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
      */
     public GuidedActionsStylist onCreateActionsStylist() {
         return new GuidedActionsStylist();
+    }
+
+    /**
+     * Creates the presenter used to style a sided actions panel for button only.
+     * The default implementation returns a basic GuidedActionsStylist.
+     * @return The GuidedActionsStylist used in this fragment.
+     */
+    public GuidedActionsStylist onCreateButtonActionsStylist() {
+        GuidedActionsStylist stylist = new GuidedActionsStylist();
+        stylist.setAsButtonActions();
+        return stylist;
     }
 
     /**
@@ -195,12 +332,67 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
     }
 
     /**
+     * Fills out the set of actions shown at right available to the user. This hook is called during
+     * {@link #onCreate}. The default leaves the list of actions empty; subclasses may override.
+     * @param actions A non-null, empty list ready to be populated.
+     * @param savedInstanceState The saved instance state from onCreate.
+     */
+    public void onCreateButtonActions(@NonNull List<GuidedAction> actions,
+            Bundle savedInstanceState) {
+    }
+
+    /**
      * Callback invoked when an action is taken by the user. Subclasses should override in
      * order to act on the user's decisions.
      * @param action The chosen action.
      */
-    @Override
     public void onGuidedActionClicked(GuidedAction action) {
+    }
+
+    /**
+     * Callback invoked when an action in sub actions is taken by the user. Subclasses should
+     * override in order to act on the user's decisions.  Default return value is true to close
+     * the sub actions list.
+     * @param action The chosen action.
+     * @return true to collapse the sub actions list, false to keep it expanded.
+     */
+    public boolean onSubGuidedActionClicked(GuidedAction action) {
+        return true;
+    }
+
+    /**
+     * @return True if the sub actions list is expanded, false otherwise.
+     */
+    public boolean isSubActionsExpanded() {
+        return mActionsStylist.isSubActionsExpanded();
+    }
+
+    /**
+     * Expand a given action's sub actions list.
+     * @param action GuidedAction to expand.
+     * @see GuidedAction#getSubActions()
+     */
+    public void expandSubActions(GuidedAction action) {
+        final int actionPosition = mActions.indexOf(action);
+        if (actionPosition < 0) {
+            return;
+        }
+        mActionsStylist.getActionsGridView().setSelectedPositionSmooth(actionPosition,
+                new ViewHolderTask() {
+            @Override
+            public void run(RecyclerView.ViewHolder vh) {
+                GuidedActionsStylist.ViewHolder avh = (GuidedActionsStylist.ViewHolder) vh;
+                mActionsStylist.setExpandedViewHolder(avh);
+            }
+        });
+    }
+
+    /**
+     * Collapse sub actions list.
+     * @see GuidedAction#getSubActions()
+     */
+    public void collapseSubActions() {
+        mActionsStylist.setExpandedViewHolder(null);
     }
 
     /**
@@ -211,32 +403,226 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
     }
 
     /**
+     * Callback invoked when an action's title or description has been edited, this happens either
+     * when user clicks confirm button in IME or user closes IME window by BACK key.
+     * @deprecated Override {@link #onGuidedActionEditedAndProceed(GuidedAction)} and/or
+     *             {@link #onGuidedActionEditCanceled(GuidedAction)}.
+     */
+    @Deprecated
+    public void onGuidedActionEdited(GuidedAction action) {
+    }
+
+    /**
+     * Callback invoked when an action has been canceled editing, for example when user closes
+     * IME window by BACK key.  Default implementation calls deprecated method
+     * {@link #onGuidedActionEdited(GuidedAction)}.
+     * @param action The action which has been canceled editing.
+     */
+    public void onGuidedActionEditCanceled(GuidedAction action) {
+        onGuidedActionEdited(action);
+    }
+
+    /**
+     * Callback invoked when an action has been edited, for example when user clicks confirm button
+     * in IME window.  Default implementation calls deprecated method
+     * {@link #onGuidedActionEdited(GuidedAction)} and returns {@link GuidedAction#ACTION_ID_NEXT}.
+     *
+     * @param action The action that has been edited.
+     * @return ID of the action will be focused or {@link GuidedAction#ACTION_ID_NEXT},
+     * {@link GuidedAction#ACTION_ID_CURRENT}.
+     */
+    public long onGuidedActionEditedAndProceed(GuidedAction action) {
+        onGuidedActionEdited(action);
+        return GuidedAction.ACTION_ID_NEXT;
+    }
+
+    /**
      * Adds the specified GuidedStepFragment to the fragment stack, replacing any existing
-     * GuidedStepFragments in the stack, and configuring the fragment-to-fragment custom animations.
+     * GuidedStepFragments in the stack, and configuring the fragment-to-fragment custom
+     * transitions.  A backstack entry is added, so the fragment will be dismissed when BACK key
+     * is pressed.
+     * <li>If current fragment on stack is GuidedStepFragment: assign {@link #UI_STYLE_REPLACE}
+     * <li>If current fragment on stack is not GuidedStepFragment: assign {@link #UI_STYLE_ENTRANCE}
      * <p>
      * Note: currently fragments added using this method must be created programmatically rather
      * than via XML.
      * @param fragmentManager The FragmentManager to be used in the transaction.
      * @param fragment The GuidedStepFragment to be inserted into the fragment stack.
-     * @return The ID returned by the call FragmentTransaction.replace.
+     * @return The ID returned by the call FragmentTransaction.commit.
      */
     public static int add(FragmentManager fragmentManager, GuidedStepFragment fragment) {
         return add(fragmentManager, fragment, android.R.id.content);
     }
 
-    // Note, this method used to be public, but I haven't found a good way for a client
-    // to specify an id.
-    private static int add(FragmentManager fm, GuidedStepFragment f, int id) {
-        boolean inGuidedStep = getCurrentGuidedStepFragment(fm) != null;
-        FragmentTransaction ft = fm.beginTransaction();
-
-        if (inGuidedStep) {
-            ft.setCustomAnimations(ANIMATION_FRAGMENT_ENTER,
-                    ANIMATION_FRAGMENT_EXIT, ANIMATION_FRAGMENT_ENTER_POP,
-                    ANIMATION_FRAGMENT_EXIT_POP);
-            ft.addToBackStack(null);
+    /**
+     * Adds the specified GuidedStepFragment to the fragment stack, replacing any existing
+     * GuidedStepFragments in the stack, and configuring the fragment-to-fragment custom
+     * transitions.  A backstack entry is added, so the fragment will be dismissed when BACK key
+     * is pressed.
+     * <li>If current fragment on stack is GuidedStepFragment: assign {@link #UI_STYLE_REPLACE} and
+     * {@link #onAddSharedElementTransition(FragmentTransaction, GuidedStepFragment)} will be called
+     * to perform shared element transition between GuidedStepFragments.
+     * <li>If current fragment on stack is not GuidedStepFragment: assign {@link #UI_STYLE_ENTRANCE}
+     * <p>
+     * Note: currently fragments added using this method must be created programmatically rather
+     * than via XML.
+     * @param fragmentManager The FragmentManager to be used in the transaction.
+     * @param fragment The GuidedStepFragment to be inserted into the fragment stack.
+     * @param id The id of container to add GuidedStepFragment, can be android.R.id.content.
+     * @return The ID returned by the call FragmentTransaction.commit.
+     */
+    public static int add(FragmentManager fragmentManager, GuidedStepFragment fragment, int id) {
+        GuidedStepFragment current = getCurrentGuidedStepFragment(fragmentManager);
+        boolean inGuidedStep = current != null;
+        if (IS_FRAMEWORK_FRAGMENT && Build.VERSION.SDK_INT >= 21 && Build.VERSION.SDK_INT < 23
+                && !inGuidedStep) {
+            // workaround b/22631964 for framework fragment
+            fragmentManager.beginTransaction()
+                .replace(id, new DummyFragment(), TAG_LEAN_BACK_ACTIONS_FRAGMENT)
+                .commit();
         }
-        return ft.replace(id, f, TAG_LEAN_BACK_ACTIONS_FRAGMENT).commit();
+        FragmentTransaction ft = fragmentManager.beginTransaction();
+
+        fragment.setUiStyle(inGuidedStep ? UI_STYLE_REPLACE : UI_STYLE_ENTRANCE);
+        ft.addToBackStack(fragment.generateStackEntryName());
+        if (current != null) {
+            fragment.onAddSharedElementTransition(ft, current);
+        }
+        return ft.replace(id, fragment, TAG_LEAN_BACK_ACTIONS_FRAGMENT).commit();
+    }
+
+    /**
+     * Called when this fragment is added to FragmentTransaction with {@link #UI_STYLE_REPLACE} (aka
+     * when the GuidedStepFragment replacing an existing GuidedStepFragment). Default implementation
+     * establishes connections between action background views to morph action background bounds
+     * change from disappearing GuidedStepFragment into this GuidedStepFragment. The default
+     * implementation heavily relies on {@link GuidedActionsStylist}'s layout, app may override this
+     * method when modifying the default layout of {@link GuidedActionsStylist}.
+     *
+     * @see GuidedActionsStylist
+     * @see #onProvideFragmentTransitions()
+     * @param ft The FragmentTransaction to add shared element.
+     * @param disappearing The disappearing fragment.
+     */
+    protected void onAddSharedElementTransition(FragmentTransaction ft, GuidedStepFragment
+            disappearing) {
+        View fragmentView = disappearing.getView();
+        addNonNullSharedElementTransition(ft, fragmentView.findViewById(
+                R.id.action_fragment_root), "action_fragment_root");
+        addNonNullSharedElementTransition(ft, fragmentView.findViewById(
+                R.id.action_fragment_background), "action_fragment_background");
+        addNonNullSharedElementTransition(ft, fragmentView.findViewById(
+                R.id.action_fragment), "action_fragment");
+        addNonNullSharedElementTransition(ft, fragmentView.findViewById(
+                R.id.guidedactions_root), "guidedactions_root");
+        addNonNullSharedElementTransition(ft, fragmentView.findViewById(
+                R.id.guidedactions_content), "guidedactions_content");
+        addNonNullSharedElementTransition(ft, fragmentView.findViewById(
+                R.id.guidedactions_list_background), "guidedactions_list_background");
+        addNonNullSharedElementTransition(ft, fragmentView.findViewById(
+                R.id.guidedactions_root2), "guidedactions_root2");
+        addNonNullSharedElementTransition(ft, fragmentView.findViewById(
+                R.id.guidedactions_content2), "guidedactions_content2");
+        addNonNullSharedElementTransition(ft, fragmentView.findViewById(
+                R.id.guidedactions_list_background2), "guidedactions_list_background2");
+    }
+
+    private static void addNonNullSharedElementTransition (FragmentTransaction ft, View subView,
+                                                           String transitionName)
+    {
+        if (subView != null)
+            TransitionHelper.addSharedElement(ft, subView, transitionName);
+    }
+
+    /**
+     * Returns BackStackEntry name for the GuidedStepFragment or empty String if no entry is
+     * associated.  Note {@link #UI_STYLE_ACTIVITY_ROOT} will return empty String.  The method
+     * returns undefined value if the fragment is not in FragmentManager.
+     * @return BackStackEntry name for the GuidedStepFragment or empty String if no entry is
+     * associated.
+     */
+    String generateStackEntryName() {
+        return generateStackEntryName(getUiStyle(), getClass());
+    }
+
+    /**
+     * Generates BackStackEntry name for GuidedStepFragment class or empty String if no entry is
+     * associated.  Note {@link #UI_STYLE_ACTIVITY_ROOT} is not allowed and returns empty String.
+     * @param uiStyle {@link #UI_STYLE_REPLACE} or {@link #UI_STYLE_ENTRANCE}
+     * @return BackStackEntry name for the GuidedStepFragment or empty String if no entry is
+     * associated.
+     */
+    static String generateStackEntryName(int uiStyle, Class guidedStepFragmentClass) {
+        if (!GuidedStepFragment.class.isAssignableFrom(guidedStepFragmentClass)) {
+            return "";
+        }
+        switch (uiStyle) {
+        case UI_STYLE_REPLACE:
+            return ENTRY_NAME_REPLACE + guidedStepFragmentClass.getName();
+        case UI_STYLE_ENTRANCE:
+            return ENTRY_NAME_ENTRANCE + guidedStepFragmentClass.getName();
+        case UI_STYLE_ACTIVITY_ROOT:
+        default:
+            return "";
+        }
+    }
+
+    /**
+     * Returns true if the backstack entry represents GuidedStepFragment with
+     * {@link #UI_STYLE_ENTRANCE}, i.e. this is the first GuidedStepFragment pushed to stack; false
+     * otherwise.
+     * @see #generateStackEntryName(int, Class)
+     * @param backStackEntryName Name of BackStackEntry.
+     * @return True if the backstack represents GuidedStepFragment with {@link #UI_STYLE_ENTRANCE};
+     * false otherwise.
+     */
+    static boolean isStackEntryUiStyleEntrance(String backStackEntryName) {
+        return backStackEntryName != null && backStackEntryName.startsWith(ENTRY_NAME_ENTRANCE);
+    }
+
+    /**
+     * Extract Class name from BackStackEntry name.
+     * @param backStackEntryName Name of BackStackEntry.
+     * @return Class name of GuidedStepFragment.
+     */
+    static String getGuidedStepFragmentClassName(String backStackEntryName) {
+        if (backStackEntryName.startsWith(ENTRY_NAME_REPLACE)) {
+            return backStackEntryName.substring(ENTRY_NAME_REPLACE.length());
+        } else if (backStackEntryName.startsWith(ENTRY_NAME_ENTRANCE)) {
+            return backStackEntryName.substring(ENTRY_NAME_ENTRANCE.length());
+        } else {
+            return "";
+        }
+    }
+
+    /**
+     * Adds the specified GuidedStepFragment as content of Activity; no backstack entry is added so
+     * the activity will be dismissed when BACK key is pressed.  The method is typically called in
+     * Activity.onCreate() when savedInstanceState is null.  When savedInstanceState is not null,
+     * the Activity is being restored,  do not call addAsRoot() to duplicate the Fragment restored
+     * by FragmentManager.
+     * {@link #UI_STYLE_ACTIVITY_ROOT} is assigned.
+     *
+     * Note: currently fragments added using this method must be created programmatically rather
+     * than via XML.
+     * @param activity The Activity to be used to insert GuidedstepFragment.
+     * @param fragment The GuidedStepFragment to be inserted into the fragment stack.
+     * @param id The id of container to add GuidedStepFragment, can be android.R.id.content.
+     * @return The ID returned by the call FragmentTransaction.commit, or -1 there is already
+     *         GuidedStepFragment.
+     */
+    public static int addAsRoot(Activity activity, GuidedStepFragment fragment, int id) {
+        // Workaround b/23764120: call getDecorView() to force requestFeature of ActivityTransition.
+        activity.getWindow().getDecorView();
+        FragmentManager fragmentManager = activity.getFragmentManager();
+        if (fragmentManager.findFragmentByTag(TAG_LEAN_BACK_ACTIONS_FRAGMENT) != null) {
+            Log.w(TAG, "Fragment is already exists, likely calling " +
+                    "addAsRoot() when savedInstanceState is not null in Activity.onCreate().");
+            return -1;
+        }
+        FragmentTransaction ft = fragmentManager.beginTransaction();
+        fragment.setUiStyle(UI_STYLE_ACTIVITY_ROOT);
+        return ft.replace(id, fragment, TAG_LEAN_BACK_ACTIONS_FRAGMENT).commit();
     }
 
     /**
@@ -268,11 +654,131 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
     }
 
     /**
+     * Returns the list of button GuidedActions that the user may take in this fragment.
+     * @return The list of button GuidedActions for this fragment.
+     */
+    public List<GuidedAction> getButtonActions() {
+        return mButtonActions;
+    }
+
+    /**
+     * Find button GuidedAction by Id.
+     * @param id  Id of the button action to search.
+     * @return  GuidedAction object or null if not found.
+     */
+    public GuidedAction findButtonActionById(long id) {
+        int index = findButtonActionPositionById(id);
+        return index >= 0 ? mButtonActions.get(index) : null;
+    }
+
+    /**
+     * Find button GuidedAction position in array by Id.
+     * @param id  Id of the button action to search.
+     * @return  position of GuidedAction object in array or -1 if not found.
+     */
+    public int findButtonActionPositionById(long id) {
+        if (mButtonActions != null) {
+            for (int i = 0; i < mButtonActions.size(); i++) {
+                GuidedAction action = mButtonActions.get(i);
+                if (mButtonActions.get(i).getId() == id) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Returns the GuidedActionsStylist that displays the button actions the user may take.
+     * @return The GuidedActionsStylist for this fragment.
+     */
+    public GuidedActionsStylist getGuidedButtonActionsStylist() {
+        return mButtonActionsStylist;
+    }
+
+    /**
+     * Sets the list of button GuidedActions that the user may take in this fragment.
+     * @param actions The list of button GuidedActions for this fragment.
+     */
+    public void setButtonActions(List<GuidedAction> actions) {
+        mButtonActions = actions;
+        if (mButtonAdapter != null) {
+            mButtonAdapter.setActions(mButtonActions);
+        }
+    }
+
+    /**
+     * Notify an button action has changed and update its UI.
+     * @param position Position of the button GuidedAction in array.
+     */
+    public void notifyButtonActionChanged(int position) {
+        if (mButtonAdapter != null) {
+            mButtonAdapter.notifyItemChanged(position);
+        }
+    }
+
+    /**
+     * Returns the view corresponding to the button action at the indicated position in the list of
+     * actions for this fragment.
+     * @param position The integer position of the button action of interest.
+     * @return The View corresponding to the button action at the indicated position, or null if
+     * that action is not currently onscreen.
+     */
+    public View getButtonActionItemView(int position) {
+        final RecyclerView.ViewHolder holder = mButtonActionsStylist.getActionsGridView()
+                    .findViewHolderForPosition(position);
+        return holder == null ? null : holder.itemView;
+    }
+
+    /**
+     * Scrolls the action list to the position indicated, selecting that button action's view.
+     * @param position The integer position of the button action of interest.
+     */
+    public void setSelectedButtonActionPosition(int position) {
+        mButtonActionsStylist.getActionsGridView().setSelectedPosition(position);
+    }
+
+    /**
+     * Returns the position if the currently selected button GuidedAction.
+     * @return position The integer position of the currently selected button action.
+     */
+    public int getSelectedButtonActionPosition() {
+        return mButtonActionsStylist.getActionsGridView().getSelectedPosition();
+    }
+
+    /**
      * Returns the list of GuidedActions that the user may take in this fragment.
      * @return The list of GuidedActions for this fragment.
      */
     public List<GuidedAction> getActions() {
         return mActions;
+    }
+
+    /**
+     * Find GuidedAction by Id.
+     * @param id  Id of the action to search.
+     * @return  GuidedAction object or null if not found.
+     */
+    public GuidedAction findActionById(long id) {
+        int index = findActionPositionById(id);
+        return index >= 0 ? mActions.get(index) : null;
+    }
+
+    /**
+     * Find GuidedAction position in array by Id.
+     * @param id  Id of the action to search.
+     * @return  position of GuidedAction object in array or -1 if not found.
+     */
+    public int findActionPositionById(long id) {
+        if (mActions != null) {
+            for (int i = 0; i < mActions.size(); i++) {
+                GuidedAction action = mActions.get(i);
+                if (mActions.get(i).getId() == id) {
+                    return i;
+                }
+            }
+        }
+        return -1;
     }
 
     /**
@@ -287,6 +793,16 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
     }
 
     /**
+     * Notify an action has changed and update its UI.
+     * @param position Position of the GuidedAction in array.
+     */
+    public void notifyActionChanged(int position) {
+        if (mAdapter != null) {
+            mAdapter.notifyItemChanged(position);
+        }
+    }
+
+    /**
      * Returns the view corresponding to the action at the indicated position in the list of
      * actions for this fragment.
      * @param position The integer position of the action of interest.
@@ -294,7 +810,9 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
      * action is not currently onscreen.
      */
     public View getActionItemView(int position) {
-        return mListView.findViewHolderForPosition(position).itemView;
+        final RecyclerView.ViewHolder holder = mActionsStylist.getActionsGridView()
+                    .findViewHolderForPosition(position);
+        return holder == null ? null : holder.itemView;
     }
 
     /**
@@ -302,7 +820,7 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
      * @param position The integer position of the action of interest.
      */
     public void setSelectedActionPosition(int position) {
-        mListView.setSelectedPosition(position);
+        mActionsStylist.getActionsGridView().setSelectedPosition(position);
     }
 
     /**
@@ -310,7 +828,132 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
      * @return position The integer position of the currently selected action.
      */
     public int getSelectedActionPosition() {
-        return mListView.getSelectedPosition();
+        return mActionsStylist.getActionsGridView().getSelectedPosition();
+    }
+
+    /**
+     * Called by Constructor to provide fragment transitions.  The default implementation assigns
+     * transitions based on {@link #getUiStyle()}:
+     * <ul>
+     * <li> {@link #UI_STYLE_REPLACE} Slide from/to end(right) for enter transition, slide from/to
+     * start(left) for exit transition, shared element enter transition is set to ChangeBounds.
+     * <li> {@link #UI_STYLE_ENTRANCE} Enter transition is set to slide from both sides, exit
+     * transition is same as {@link #UI_STYLE_REPLACE}, no shared element enter transition.
+     * <li> {@link #UI_STYLE_ACTIVITY_ROOT} Enter transition is set to null and app should rely on
+     * activity transition, exit transition is same as {@link #UI_STYLE_REPLACE}, no shared element
+     * enter transition.
+     * </ul>
+     * <p>
+     * The default implementation heavily relies on {@link GuidedActionsStylist} and
+     * {@link GuidanceStylist} layout, app may override this method when modifying the default
+     * layout of {@link GuidedActionsStylist} or {@link GuidanceStylist}.
+     * <p>
+     * TIP: because the fragment view is removed during fragment transition, in general app cannot
+     * use two Visibility transition together. Workaround is to create your own Visibility
+     * transition that controls multiple animators (e.g. slide and fade animation in one Transition
+     * class).
+     */
+    protected void onProvideFragmentTransitions() {
+        if (Build.VERSION.SDK_INT >= 21) {
+            final int uiStyle = getUiStyle();
+            if (uiStyle == UI_STYLE_REPLACE) {
+                Object enterTransition = TransitionHelper.createFadeAndShortSlide(Gravity.END);
+                TransitionHelper.exclude(enterTransition, R.id.guidedstep_background, true);
+                TransitionHelper.setEnterTransition(this, enterTransition);
+
+                Object changeBounds = TransitionHelper.createChangeBounds(false);
+                TransitionHelper.setSharedElementEnterTransition(this, changeBounds);
+            } else if (uiStyle == UI_STYLE_ENTRANCE) {
+                if (entranceTransitionType == SLIDE_FROM_SIDE) {
+                    Object fade = TransitionHelper.createFadeTransition(TransitionHelper.FADE_IN |
+                            TransitionHelper.FADE_OUT);
+                    TransitionHelper.include(fade, R.id.guidedstep_background);
+                    Object slideFromSide = TransitionHelper.createFadeAndShortSlide(Gravity.END | Gravity.START);
+                    TransitionHelper.include(slideFromSide, R.id.content_fragment);
+                    TransitionHelper.include(slideFromSide, R.id.action_fragment_root);
+                    Object enterTransition = TransitionHelper.createTransitionSet(false);
+                    TransitionHelper.addTransition(enterTransition, fade);
+                    TransitionHelper.addTransition(enterTransition, slideFromSide);
+                    TransitionHelper.setEnterTransition(this, enterTransition);
+                } else {
+                    Object slideFromBottom = TransitionHelper.createFadeAndShortSlide(Gravity.BOTTOM);
+                    TransitionHelper.include(slideFromBottom, R.id.guidedstep_background_view_root);
+                    Object enterTransition = TransitionHelper.createTransitionSet(false);
+                    TransitionHelper.addTransition(enterTransition, slideFromBottom);
+                    TransitionHelper.setEnterTransition(this, enterTransition);
+                }
+                // No shared element transition
+                TransitionHelper.setSharedElementEnterTransition(this, null);
+            } else if (uiStyle == UI_STYLE_ACTIVITY_ROOT) {
+                // for Activity root, we dont need enter transition, use activity transition
+                TransitionHelper.setEnterTransition(this, null);
+                // No shared element transition
+                TransitionHelper.setSharedElementEnterTransition(this, null);
+            }
+            // exitTransition is same for all style
+            Object exitTransition = TransitionHelper.createFadeAndShortSlide(Gravity.START);
+            TransitionHelper.exclude(exitTransition, R.id.guidedstep_background, true);
+            TransitionHelper.setExitTransition(this, exitTransition);
+        }
+    }
+
+    /**
+     * Called by onCreateView to inflate background view.  Default implementation loads view
+     * from {@link R.layout#lb_guidedstep_background} which holds a reference to
+     * guidedStepBackground.
+     * @param inflater LayoutInflater to load background view.
+     * @param container Parent view of background view.
+     * @param savedInstanceState
+     * @return Created background view or null if no background.
+     */
+    public View onCreateBackgroundView(LayoutInflater inflater, ViewGroup container,
+            Bundle savedInstanceState) {
+        return inflater.inflate(R.layout.lb_guidedstep_background, container, false);
+    }
+
+    /**
+     * Set UI style to fragment arguments. Default value is {@link #UI_STYLE_ENTRANCE} when fragment
+     * is first initialized. UI style is used to choose different fragment transition animations and
+     * determine if this is the first GuidedStepFragment on backstack. In most cases app does not
+     * directly call this method, app calls helper function
+     * {@link #add(FragmentManager, GuidedStepFragment, int)}. However if the app creates Fragment
+     * transaction and controls backstack by itself, it would need call setUiStyle() to select the
+     * fragment transition to use.
+     *
+     * @param style {@link #UI_STYLE_ACTIVITY_ROOT} {@link #UI_STYLE_REPLACE} or
+     *        {@link #UI_STYLE_ENTRANCE}.
+     */
+    public void setUiStyle(int style) {
+        int oldStyle = getUiStyle();
+        Bundle arguments = getArguments();
+        boolean isNew = false;
+        if (arguments == null) {
+            arguments = new Bundle();
+            isNew = true;
+        }
+        arguments.putInt(EXTRA_UI_STYLE, style);
+        // call setArgument() will validate if the fragment is already added.
+        if (isNew) {
+            setArguments(arguments);
+        }
+        if (style != oldStyle) {
+            onProvideFragmentTransitions();
+        }
+    }
+
+    /**
+     * Read UI style from fragment arguments.  Default value is {@link #UI_STYLE_ENTRANCE} when
+     * fragment is first initialized.  UI style is used to choose different fragment transition
+     * animations and determine if this is the first GuidedStepFragment on backstack.
+     *
+     * @return {@link #UI_STYLE_ACTIVITY_ROOT} {@link #UI_STYLE_REPLACE} or
+     * {@link #UI_STYLE_ENTRANCE}.
+     * @see #onProvideFragmentTransitions()
+     */
+    public int getUiStyle() {
+        Bundle b = getArguments();
+        if (b == null) return UI_STYLE_ENTRANCE;
+        return b.getInt(EXTRA_UI_STYLE, UI_STYLE_ENTRANCE);
     }
 
     /**
@@ -320,16 +963,41 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (DEBUG) Log.v(TAG, "onCreate");
+        // Set correct transition from saved arguments.
+        onProvideFragmentTransitions();
         Bundle state = (savedInstanceState != null) ? savedInstanceState : getArguments();
         if (state != null) {
             if (mSelectedIndex == -1) {
                 mSelectedIndex = state.getInt(EXTRA_ACTION_SELECTED_INDEX, -1);
             }
-            mEntryTransitionEnabled = state.getBoolean(EXTRA_ACTION_ENTRY_TRANSITION_ENABLED, true);
-            mEntryTransitionPerformed = state.getBoolean(EXTRA_ENTRY_TRANSITION_PERFORMED, false);
         }
-        mActions.clear();
-        onCreateActions(mActions, savedInstanceState);
+        ArrayList<GuidedAction> actions = new ArrayList<GuidedAction>();
+        onCreateActions(actions, savedInstanceState);
+        if (savedInstanceState != null) {
+            onRestoreActions(actions, savedInstanceState);
+        }
+        setActions(actions);
+        ArrayList<GuidedAction> buttonActions = new ArrayList<GuidedAction>();
+        onCreateButtonActions(buttonActions, savedInstanceState);
+        if (savedInstanceState != null) {
+            onRestoreButtonActions(buttonActions, savedInstanceState);
+        }
+        setButtonActions(buttonActions);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void onDestroyView() {
+        mGuidanceStylist.onDestroyView();
+        mActionsStylist.onDestroyView();
+        mButtonActionsStylist.onDestroyView();
+        mAdapter = null;
+        mSubAdapter =  null;
+        mButtonAdapter = null;
+        mAdapterGroup = null;
+        super.onDestroyView();
     }
 
     /**
@@ -343,9 +1011,14 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
         resolveTheme();
         inflater = getThemeInflater(inflater);
 
-        View v = inflater.inflate(R.layout.lb_guidedstep_fragment, container, false);
-        ViewGroup guidanceContainer = (ViewGroup) v.findViewById(R.id.content_fragment);
-        ViewGroup actionContainer = (ViewGroup) v.findViewById(R.id.action_fragment);
+        GuidedStepRootLayout root = (GuidedStepRootLayout) inflater.inflate(
+                R.layout.lb_guidedstep_fragment, container, false);
+
+        root.setFocusOutStart(isFocusOutStartAllowed());
+        root.setFocusOutEnd(isFocusOutEndAllowed());
+
+        ViewGroup guidanceContainer = (ViewGroup) root.findViewById(R.id.content_fragment);
+        ViewGroup actionContainer = (ViewGroup) root.findViewById(R.id.action_fragment);
 
         Guidance guidance = onCreateGuidance(savedInstanceState);
         View guidanceView = mGuidanceStylist.onCreateView(inflater, guidanceContainer, guidance);
@@ -354,15 +1027,173 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
         View actionsView = mActionsStylist.onCreateView(inflater, actionContainer);
         actionContainer.addView(actionsView);
 
-        mAdapter = new GuidedActionAdapter(mActions, this, this, mActionsStylist);
+        View buttonActionsView = mButtonActionsStylist.onCreateView(inflater, actionContainer);
+        actionContainer.addView(buttonActionsView);
 
-        mListView = mActionsStylist.getActionsGridView();
-        mListView.setAdapter(mAdapter);
+        GuidedActionAdapter.EditListener editListener = new GuidedActionAdapter.EditListener() {
+
+                @Override
+                public void onImeOpen() {
+                    runImeAnimations(true);
+                }
+
+                @Override
+                public void onImeClose() {
+                    runImeAnimations(false);
+                }
+
+                @Override
+                public long onGuidedActionEditedAndProceed(GuidedAction action) {
+                    return GuidedStepFragment.this.onGuidedActionEditedAndProceed(action);
+                }
+
+                @Override
+                public void onGuidedActionEditCanceled(GuidedAction action) {
+                    GuidedStepFragment.this.onGuidedActionEditCanceled(action);
+                }
+        };
+
+        mAdapter = new GuidedActionAdapter(mActions, new GuidedActionAdapter.ClickListener() {
+            @Override
+            public void onGuidedActionClicked(GuidedAction action) {
+                GuidedStepFragment.this.onGuidedActionClicked(action);
+                if (isSubActionsExpanded()) {
+                    collapseSubActions();
+                } else if (action.hasSubActions()) {
+                    expandSubActions(action);
+                }
+            }
+        }, this, mActionsStylist, false);
+        mButtonAdapter =
+                new GuidedActionAdapter(mButtonActions, new GuidedActionAdapter.ClickListener() {
+                    @Override
+                    public void onGuidedActionClicked(GuidedAction action) {
+                        GuidedStepFragment.this.onGuidedActionClicked(action);
+                    }
+                }, this, mButtonActionsStylist, false);
+        mSubAdapter = new GuidedActionAdapter(null, new GuidedActionAdapter.ClickListener() {
+            @Override
+            public void onGuidedActionClicked(GuidedAction action) {
+                if (mActionsStylist.isInExpandTransition()) {
+                    return;
+                }
+                if (GuidedStepFragment.this.onSubGuidedActionClicked(action)) {
+                    collapseSubActions();
+                }
+            }
+        }, this, mActionsStylist, true);
+        mAdapterGroup = new GuidedActionAdapterGroup();
+        mAdapterGroup.addAdpter(mAdapter, mButtonAdapter);
+        mAdapterGroup.addAdpter(mSubAdapter, null);
+        mAdapterGroup.setEditListener(editListener);
+        mActionsStylist.setEditListener(editListener);
+
+        mActionsStylist.getActionsGridView().setAdapter(mAdapter);
+        if (mActionsStylist.getSubActionsGridView() != null) {
+            mActionsStylist.getSubActionsGridView().setAdapter(mSubAdapter);
+        }
+        mButtonActionsStylist.getActionsGridView().setAdapter(mButtonAdapter);
+        if (mButtonActions.size() == 0) {
+            // when there is no button actions, we dont need show the second panel, but keep
+            // the width zero to run ChangeBounds transition.
+            LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams)
+                    buttonActionsView.getLayoutParams();
+            lp.weight = 0;
+            buttonActionsView.setLayoutParams(lp);
+        } else {
+            // when there are two actions panel, we need adjust the weight of action to
+            // guidedActionContentWidthWeightTwoPanels.
+            Context ctx = mThemeWrapper != null ? mThemeWrapper : getActivity();
+            TypedValue typedValue = new TypedValue();
+            if (ctx.getTheme().resolveAttribute(R.attr.guidedActionContentWidthWeightTwoPanels,
+                    typedValue, true)) {
+                View actionsRoot = root.findViewById(R.id.action_fragment_root);
+                float weight = typedValue.getFloat();
+                LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) actionsRoot
+                        .getLayoutParams();
+                lp.weight = weight;
+                actionsRoot.setLayoutParams(lp);
+            }
+        }
+
         int pos = (mSelectedIndex >= 0 && mSelectedIndex < mActions.size()) ?
                 mSelectedIndex : getFirstCheckedAction();
-        mListView.setSelectedPosition(pos);
+        setSelectedActionPosition(pos);
 
-        return v;
+        setSelectedButtonActionPosition(0);
+
+        // Add the background view.
+        View backgroundView = onCreateBackgroundView(inflater, root, savedInstanceState);
+        if (backgroundView != null) {
+            FrameLayout backgroundViewRoot = (FrameLayout)root.findViewById(
+                R.id.guidedstep_background_view_root);
+            backgroundViewRoot.addView(backgroundView, 0);
+        }
+        return root;
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        getView().findViewById(R.id.action_fragment).requestFocus();
+    }
+
+    /**
+     * Get the key will be used to save GuidedAction with Fragment.
+     * @param action GuidedAction to get key.
+     * @return Key to save the GuidedAction.
+     */
+    final String getAutoRestoreKey(GuidedAction action) {
+        return EXTRA_ACTION_PREFIX + action.getId();
+    }
+
+    /**
+     * Get the key will be used to save GuidedAction with Fragment.
+     * @param action GuidedAction to get key.
+     * @return Key to save the GuidedAction.
+     */
+    final String getButtonAutoRestoreKey(GuidedAction action) {
+        return EXTRA_BUTTON_ACTION_PREFIX + action.getId();
+    }
+
+    final static boolean isSaveEnabled(GuidedAction action) {
+        return action.isAutoSaveRestoreEnabled() && action.getId() != GuidedAction.NO_ID;
+    }
+
+    final void onRestoreActions(List<GuidedAction> actions, Bundle savedInstanceState) {
+        for (int i = 0, size = actions.size(); i < size; i++) {
+            GuidedAction action = actions.get(i);
+            if (isSaveEnabled(action)) {
+                action.onRestoreInstanceState(savedInstanceState, getAutoRestoreKey(action));
+            }
+        }
+    }
+
+    final void onRestoreButtonActions(List<GuidedAction> actions, Bundle savedInstanceState) {
+        for (int i = 0, size = actions.size(); i < size; i++) {
+            GuidedAction action = actions.get(i);
+            if (isSaveEnabled(action)) {
+                action.onRestoreInstanceState(savedInstanceState, getButtonAutoRestoreKey(action));
+            }
+        }
+    }
+
+    final void onSaveActions(List<GuidedAction> actions, Bundle outState) {
+        for (int i = 0, size = actions.size(); i < size; i++) {
+            GuidedAction action = actions.get(i);
+            if (isSaveEnabled(action)) {
+                action.onSaveInstanceState(outState, getAutoRestoreKey(action));
+            }
+        }
+    }
+
+    final void onSaveButtonActions(List<GuidedAction> actions, Bundle outState) {
+        for (int i = 0, size = actions.size(); i < size; i++) {
+            GuidedAction action = actions.get(i);
+            if (isSaveEnabled(action)) {
+                action.onSaveInstanceState(outState, getButtonAutoRestoreKey(action));
+            }
+        }
     }
 
     /**
@@ -371,76 +1202,14 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
     @Override
     public void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
+        onSaveActions(mActions, outState);
+        onSaveButtonActions(mButtonActions, outState);
         outState.putInt(EXTRA_ACTION_SELECTED_INDEX,
-                (mListView != null) ? getSelectedActionPosition() : mSelectedIndex);
-        outState.putBoolean(EXTRA_ACTION_ENTRY_TRANSITION_ENABLED, mEntryTransitionEnabled);
-        outState.putBoolean(EXTRA_ENTRY_TRANSITION_PERFORMED, mEntryTransitionPerformed);
+                (mActionsStylist.getActionsGridView() != null) ?
+                        getSelectedActionPosition() : mSelectedIndex);
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void onStart() {
-        if (DEBUG) Log.v(TAG, "onStart");
-        super.onStart();
-        if (isEntryTransitionEnabled() && !mEntryTransitionPerformed) {
-            mEntryTransitionPerformed = true;
-            performEntryTransition();
-        }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Animator onCreateAnimator(int transit, boolean enter, int nextAnim) {
-        if (DEBUG) Log.v(TAG, "onCreateAnimator: " + transit + " " + enter + " " + nextAnim);
-        View mainView = getView();
-
-        ArrayList<Animator> animators = new ArrayList<Animator>();
-        switch (nextAnim) {
-            case ANIMATION_FRAGMENT_ENTER:
-                mGuidanceStylist.onFragmentEnter(animators);
-                mActionsStylist.onFragmentEnter(animators);
-                break;
-            case ANIMATION_FRAGMENT_EXIT:
-                mGuidanceStylist.onFragmentExit(animators);
-                mActionsStylist.onFragmentExit(animators);
-                break;
-            case ANIMATION_FRAGMENT_ENTER_POP:
-                mGuidanceStylist.onFragmentReenter(animators);
-                mActionsStylist.onFragmentReenter(animators);
-                break;
-            case ANIMATION_FRAGMENT_EXIT_POP:
-                mGuidanceStylist.onFragmentReturn(animators);
-                mActionsStylist.onFragmentReturn(animators);
-                break;
-            default:
-                return super.onCreateAnimator(transit, enter, nextAnim);
-        }
-
-        mEntryTransitionPerformed = true;
-        return createDummyAnimator(mainView, animators);
-    }
-
-    /**
-     * Returns whether entry transitions are enabled for this fragment.
-     * @return Whether entry transitions are enabled for this fragment.
-     */
-    protected boolean isEntryTransitionEnabled() {
-        return mEntryTransitionEnabled;
-    }
-
-    /**
-     * Sets whether entry transitions are enabled for this fragment.
-     * @param enabled Whether to enable entry transitions for this fragment.
-     */
-    protected void setEntryTransitionEnabled(boolean enabled) {
-        mEntryTransitionEnabled = enabled;
-    }
-
-    private boolean isGuidedStepTheme(Context context) {
+    private static boolean isGuidedStepTheme(Context context) {
         int resId = R.attr.guidedStepThemeFlag;
         TypedValue typedValue = new TypedValue();
         boolean found = context.getTheme().resolveAttribute(resId, typedValue, true);
@@ -448,8 +1217,95 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
         return found && typedValue.type == TypedValue.TYPE_INT_BOOLEAN && typedValue.data != 0;
     }
 
+    /**
+     * Convenient method to close GuidedStepFragments on top of other content or finish Activity if
+     * GuidedStepFragments were started in a separate activity.  Pops all stack entries including
+     * {@link #UI_STYLE_ENTRANCE}; if {@link #UI_STYLE_ENTRANCE} is not found, finish the activity.
+     * Note that this method must be paired with {@link #add(FragmentManager, GuidedStepFragment,
+     * int)} which sets up the stack entry name for finding which fragment we need to pop back to.
+     */
+    public void finishGuidedStepFragments() {
+        final FragmentManager fragmentManager = getFragmentManager();
+        final int entryCount = fragmentManager.getBackStackEntryCount();
+        if (entryCount > 0) {
+            for (int i = entryCount - 1; i >= 0; i--) {
+                BackStackEntry entry = fragmentManager.getBackStackEntryAt(i);
+                if (isStackEntryUiStyleEntrance(entry.getName())) {
+                    GuidedStepFragment top = getCurrentGuidedStepFragment(fragmentManager);
+                    if (top != null) {
+                        top.setUiStyle(UI_STYLE_ENTRANCE);
+                    }
+                    fragmentManager.popBackStack(entry.getId(),
+                            FragmentManager.POP_BACK_STACK_INCLUSIVE);
+                    return;
+                }
+            }
+        }
+        ActivityCompat.finishAfterTransition(getActivity());
+    }
+
+    /**
+     * Convenient method to pop to fragment with Given class.
+     * @param  guidedStepFragmentClass  Name of the Class of GuidedStepFragment to pop to.
+     * @param flags Either 0 or {@link FragmentManager#POP_BACK_STACK_INCLUSIVE}.
+     */
+    public void popBackStackToGuidedStepFragment(Class guidedStepFragmentClass, int flags) {
+        if (!GuidedStepFragment.class.isAssignableFrom(guidedStepFragmentClass)) {
+            return;
+        }
+        final FragmentManager fragmentManager = getFragmentManager();
+        final int entryCount = fragmentManager.getBackStackEntryCount();
+        String className = guidedStepFragmentClass.getName();
+        if (entryCount > 0) {
+            for (int i = entryCount - 1; i >= 0; i--) {
+                BackStackEntry entry = fragmentManager.getBackStackEntryAt(i);
+                String entryClassName = getGuidedStepFragmentClassName(entry.getName());
+                if (className.equals(entryClassName)) {
+                    fragmentManager.popBackStack(entry.getId(), flags);
+                    return;
+                }
+            }
+        }
+    }
+
+    /**
+     * Returns true if allows focus out of start edge of GuidedStepFragment, false otherwise.
+     * Default value is false, the reason is to disable FocusFinder to find focusable views
+     * beneath content of GuidedStepFragment.  Subclass may override.
+     * @return True if allows focus out of start edge of GuidedStepFragment.
+     */
+    public boolean isFocusOutStartAllowed() {
+        return false;
+    }
+
+    /**
+     * Returns true if allows focus out of end edge of GuidedStepFragment, false otherwise.
+     * Default value is false, the reason is to disable FocusFinder to find focusable views
+     * beneath content of GuidedStepFragment.  Subclass may override.
+     * @return True if allows focus out of end edge of GuidedStepFragment.
+     */
+    public boolean isFocusOutEndAllowed() {
+        return false;
+    }
+
+    /**
+     * Sets the transition type to be used for {@link #UI_STYLE_ENTRANCE} animation.
+     * Currently we provide 2 different variations for animation - slide in from
+     * side (default) or bottom.
+     *
+     * Ideally we can retireve the screen mode settings from the theme attribute
+     * {@code Theme.Leanback.GuidedStep#guidedStepHeightWeight} and use that to
+     * determine the transition. But the fragment context to retrieve the theme
+     * isn't available on platform v23 or earlier.
+     *
+     * For now clients(subclasses) can call this method inside the contructor.
+     * @hide
+     */
+    public void setEntranceTransitionType(int transitionType) {
+      this.entranceTransitionType = transitionType;
+    }
+
     private void resolveTheme() {
-        boolean hasThemeReference = true;
         // Look up the guidedStepTheme in the currently specified theme.  If it exists,
         // replace the theme with its value.
         Activity activity = getActivity();
@@ -461,15 +1317,21 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
             boolean found = activity.getTheme().resolveAttribute(resId, typedValue, true);
             if (DEBUG) Log.v(TAG, "Found guided step theme reference? " + found);
             if (found) {
-                if (isGuidedStepTheme(new ContextThemeWrapper(activity, typedValue.resourceId))) {
+                ContextThemeWrapper themeWrapper =
+                        new ContextThemeWrapper(activity, typedValue.resourceId);
+                if (isGuidedStepTheme(themeWrapper)) {
                     mTheme = typedValue.resourceId;
+                    mThemeWrapper = themeWrapper;
                 } else {
                     found = false;
+                    mThemeWrapper = null;
                 }
             }
             if (!found) {
                 Log.e(TAG, "GuidedStepFragment does not have an appropriate theme set.");
             }
+        } else if (mTheme != -1) {
+            mThemeWrapper = new ContextThemeWrapper(activity, mTheme);
         }
     }
 
@@ -477,8 +1339,7 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
         if (mTheme == -1) {
             return inflater;
         } else {
-            Context ctw = new ContextThemeWrapper(getActivity(), mTheme);
-            return inflater.cloneInContext(ctw);
+            return inflater.cloneInContext(mThemeWrapper);
         }
     }
 
@@ -491,41 +1352,20 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
         return 0;
     }
 
-    private void performEntryTransition() {
-        if (DEBUG) Log.v(TAG, "performEntryTransition");
-        final View mainView = getView();
-
-        mainView.setVisibility(View.INVISIBLE);
-
+    private void runImeAnimations(boolean entering) {
         ArrayList<Animator> animators = new ArrayList<Animator>();
-        mGuidanceStylist.onActivityEnter(animators);
-        mActionsStylist.onActivityEnter(animators);
-
-        final Animator animator = createDummyAnimator(mainView, animators);
-
-        // We need to defer the animation until the first layout has occurred, as we don't yet
-        // know the final locations of views.
-        mainView.getViewTreeObserver().addOnGlobalLayoutListener(
-                new ViewTreeObserver.OnGlobalLayoutListener() {
-                    @Override
-                    public void onGlobalLayout() {
-                        mainView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-                        if (!isAdded()) {
-                            // We have been detached before this could run,
-                            // so just bail
-                            return;
-                        }
-
-                        mainView.setVisibility(View.VISIBLE);
-                        animator.start();
-                    }
-                });
-    }
-
-    private Animator createDummyAnimator(final View v, ArrayList<Animator> animators) {
-        final AnimatorSet animatorSet = new AnimatorSet();
-        animatorSet.playTogether(animators);
-        return new UntargetableAnimatorSet(animatorSet);
+        if (entering) {
+            mGuidanceStylist.onImeAppearing(animators);
+            mActionsStylist.onImeAppearing(animators);
+            mButtonActionsStylist.onImeAppearing(animators);
+        } else {
+            mGuidanceStylist.onImeDisappearing(animators);
+            mActionsStylist.onImeDisappearing(animators);
+            mButtonActionsStylist.onImeDisappearing(animators);
+        }
+        AnimatorSet set = new AnimatorSet();
+        set.playTogether(animators);
+        set.start();
     }
 
 }

@@ -25,7 +25,7 @@ extern "C" {
 
 ////////////////////////
 JNIEXPORT jlong JNICALL Java_com_android_cts_verifier_audio_NativeAudioThread_slesInit
-  (JNIEnv *, jobject, jint, jint, jint );
+  (JNIEnv *, jobject, jint, jint, jint, jint );
 
 JNIEXPORT jint JNICALL Java_com_android_cts_verifier_audio_NativeAudioThread_slesProcessNext
   (JNIEnv *, jobject , jlong, jdoubleArray, jlong );

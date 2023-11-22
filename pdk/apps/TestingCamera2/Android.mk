@@ -28,6 +28,8 @@ LOCAL_SRC_FILES := \
 	$(call all-java-files-under, src) \
 	$(call all-renderscript-files-under, src)
 
+LOCAL_DEX_PREOPT := false
+
 LOCAL_PACKAGE_NAME := TestingCamera2
 
 include $(BUILD_PACKAGE)

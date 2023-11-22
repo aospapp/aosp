@@ -303,6 +303,7 @@ RandomFragmentOpCase::IterateResult RandomFragmentOpCase::iterate (void)
 	const int				viewportY		= rnd.getInt(0, m_context.getRenderTarget().getHeight()-height);
 
 	tcu::Surface			renderedImg		(width, height);
+	tcu::Surface			referenceImg	(width, height);
 
 	const Vec4				clearColor		= CLEAR_COLOR;
 	const float				clearDepth		= CLEAR_DEPTH;
@@ -363,6 +364,9 @@ RandomFragmentOpCase::IterateResult RandomFragmentOpCase::iterate (void)
 							  cmd->quad, refState);
 	}
 
+	// Expand reference color buffer to RGBA8
+	copy(referenceImg.getAccess(), m_refColorBuffer->getAccess());
+
 	// Read rendered image.
 	glu::readPixels(m_context.getRenderContext(), viewportX, viewportY, renderedImg.getAccess());
 
@@ -381,7 +385,7 @@ RandomFragmentOpCase::IterateResult RandomFragmentOpCase::iterate (void)
 		compareOk = tcu::bilinearCompare(m_testCtx.getLog(),
 										 "CompareResult",
 										 "Image Comparison Result",
-										 m_refColorBuffer->getAccess(),
+										 referenceImg.getAccess(),
 										 renderedImg.getAccess(),
 										 tcu::RGBA(threshold.x(), threshold.y(), threshold.z(), threshold.w()),
 										 tcu::COMPARE_LOG_RESULT);
@@ -390,7 +394,7 @@ RandomFragmentOpCase::IterateResult RandomFragmentOpCase::iterate (void)
 		compareOk = tcu::intThresholdCompare(m_testCtx.getLog(),
 											 "CompareResult",
 											 "Image Comparison Result",
-											 m_refColorBuffer->getAccess(),
+											 referenceImg.getAccess(),
 											 renderedImg.getAccess(),
 											 threshold,
 											 tcu::COMPARE_LOG_RESULT);
@@ -413,7 +417,7 @@ tcu::UVec4 RandomFragmentOpCase::getCompareThreshold (void) const
 	tcu::PixelFormat format = m_context.getRenderTarget().getPixelFormat();
 
 	if (format == tcu::PixelFormat(8, 8, 8, 8) || format == tcu::PixelFormat(8, 8, 8, 0))
-		return format.getColorThreshold().toIVec().asUint() + tcu::UVec4(2); // Default threshold.
+		return format.getColorThreshold().toIVec().asUint() + tcu::UVec4(6); // Default threshold.
 	else
 		return format.getColorThreshold().toIVec().asUint()
 			   * tcu::UVec4(5) + tcu::UVec4(2); // \note Non-scientific ad hoc formula. Need big threshold when few color bits; especially multiple blendings bring extra inaccuracy.

@@ -55,81 +55,9 @@ public class AppInfo {
         }
     }
 
-    public int getIconResource() {
-        synchronized (mLock) {
-            return mEntry.info.icon;
-        }
-    }
-
     public String getPackageName() {
         synchronized (mLock) {
             return mEntry.info.packageName;
-        }
-    }
-
-    public ApplicationInfo getApplicationInfo() {
-        synchronized (mLock) {
-            return mEntry.info;
-        }
-    }
-
-    public boolean isStopped() {
-        synchronized (mLock) {
-            return (mEntry.info.flags & ApplicationInfo.FLAG_STOPPED) != 0;
-        }
-    }
-
-    public boolean isInstalled() {
-        synchronized (mLock) {
-            return (mEntry.info.flags & ApplicationInfo.FLAG_INSTALLED) != 0;
-        }
-    }
-
-    public boolean isUpdatedSystemApp() {
-        synchronized (mLock) {
-            return (mEntry.info.flags & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0;
-        }
-    }
-
-    public boolean isEnabled() {
-        synchronized (mLock) {
-            return mEntry.info.enabled;
-        }
-    }
-
-    public boolean isSystemApp() {
-        synchronized (mLock) {
-            return (mEntry.info.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
-        }
-    }
-
-    public String getCacheSize() {
-        synchronized (mLock) {
-            return Formatter.formatFileSize(mContext, mEntry.cacheSize + mEntry.externalCacheSize);
-        }
-    }
-
-    public String getDataSize() {
-        synchronized (mLock) {
-            return Formatter.formatFileSize(mContext, mEntry.dataSize + mEntry.externalDataSize);
-        }
-    }
-
-    public String getSpaceManagerActivityName() {
-        synchronized (mLock) {
-            return mEntry.info.manageSpaceActivityName;
-        }
-    }
-
-    public int getUid() {
-        synchronized (mLock) {
-            return mEntry.info.uid;
-        }
-    }
-
-    public String getVersion() {
-        synchronized (mLock) {
-            return mEntry.getVersion(mContext);
         }
     }
 

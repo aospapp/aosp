@@ -47,6 +47,14 @@ public class AbsoluteSizeSpanTest extends TestCase {
         assertEquals(-5, absoluteSizeSpan.getSize());
     }
 
+    public void testGetDip() {
+        AbsoluteSizeSpan absoluteSizeSpan = new AbsoluteSizeSpan(5);
+        assertEquals(false, absoluteSizeSpan.getDip());
+
+        absoluteSizeSpan = new AbsoluteSizeSpan(5, true);
+        assertEquals(true, absoluteSizeSpan.getDip());
+    }
+
     public void testUpdateMeasureState() {
         AbsoluteSizeSpan absoluteSizeSpan = new AbsoluteSizeSpan(1);
 

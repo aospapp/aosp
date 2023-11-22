@@ -29,30 +29,28 @@
 namespace art {
 
 static jobject GetThreadStack(const ScopedFastNativeObjectAccess& soa, jobject peer)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   jobject trace = nullptr;
   if (soa.Decode<mirror::Object*>(peer) == soa.Self()->GetPeer()) {
     trace = soa.Self()->CreateInternalStackTrace<false>(soa);
   } else {
     // Suspend thread to build stack trace.
-    soa.Self()->TransitionFromRunnableToSuspended(kNative);
+    ScopedThreadSuspension sts(soa.Self(), kNative);
     ThreadList* thread_list = Runtime::Current()->GetThreadList();
     bool timed_out;
     Thread* thread = thread_list->SuspendThreadByPeer(peer, true, false, &timed_out);
     if (thread != nullptr) {
       // Must be runnable to create returned array.
-      CHECK_EQ(soa.Self()->TransitionFromSuspendedToRunnable(), kNative);
-      trace = thread->CreateInternalStackTrace<false>(soa);
-      soa.Self()->TransitionFromRunnableToSuspended(kNative);
+      {
+        ScopedObjectAccess soa2(soa.Self());
+        trace = thread->CreateInternalStackTrace<false>(soa);
+      }
       // Restart suspended thread.
       thread_list->Resume(thread, false);
-    } else {
-      if (timed_out) {
-        LOG(ERROR) << "Trying to get thread's stack failed as the thread failed to suspend within a "
-            "generous timeout.";
-      }
+    } else if (timed_out) {
+      LOG(ERROR) << "Trying to get thread's stack failed as the thread failed to suspend within a "
+          "generous timeout.";
     }
-    CHECK_EQ(soa.Self()->TransitionFromSuspendedToRunnable(), kNative);
   }
   return trace;
 }
@@ -87,7 +85,7 @@ static jobject VMStack_getClosestUserClassLoader(JNIEnv* env, jclass) {
       : StackVisitor(thread, nullptr, StackVisitor::StackWalkKind::kIncludeInlinedFrames),
         class_loader(nullptr) {}
 
-    bool VisitFrame() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    bool VisitFrame() SHARED_REQUIRES(Locks::mutator_lock_) {
       DCHECK(class_loader == nullptr);
       mirror::Class* c = GetMethod()->GetDeclaringClass();
       // c is null for runtime methods.

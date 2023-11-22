@@ -1,4 +1,32 @@
 # Automake input for strace.
+#
+# Copyright (c) 2002-2009 Roland McGrath <roland@redhat.com>
+# Copyright (c) 2006-2015 Dmitry V. Levin <ldv@altlinux.org>
+# Copyright (c) 2008-2015 Mike Frysinger <vapier@gentoo.org>
+# Copyright (c) 2015 Elvira Khabirova <lineprinter0@gmail.com>
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+# 3. The name of the author may not be used to endorse or promote products
+#    derived from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+# IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+# OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+# IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+# NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+# THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 if HAVE_M32_RUNTIME
 TESTS_M32 = tests-m32
@@ -21,9 +49,16 @@ AM_CFLAGS = $(WARN_CFLAGS)
 AM_CPPFLAGS = -I$(builddir)/$(OS)/$(ARCH) \
 	      -I$(srcdir)/$(OS)/$(ARCH) \
 	      -I$(builddir)/$(OS) \
-	      -I$(srcdir)/$(OS)
+	      -I$(srcdir)/$(OS) \
+	      -I$(builddir) \
+	      -I$(srcdir)
 
 include xlat/Makemodule.am
+
+strace_CPPFLAGS = $(AM_CPPFLAGS)
+strace_LDFLAGS =
+strace_LDADD =
+noinst_LIBRARIES =
 
 strace_SOURCES =	\
 	access.c	\
@@ -31,6 +66,7 @@ strace_SOURCES =	\
 	aio.c		\
 	bjm.c		\
 	block.c		\
+	bpf.c		\
 	cacheflush.c	\
 	capability.c	\
 	caps0.h		\
@@ -39,17 +75,29 @@ strace_SOURCES =	\
 	chmod.c		\
 	clone.c		\
 	count.c		\
+	defs.h		\
 	desc.c		\
 	dirent.c	\
+	dirent64.c	\
+	empty.h		\
+	epoll.c		\
 	evdev.c		\
+	eventfd.c	\
 	execve.c	\
 	exit.c		\
 	fadvise.c	\
 	fallocate.c	\
 	fanotify.c	\
 	fchownat.c	\
+	fcntl.c		\
+	fetch_seccomp_fprog.c \
+	fetch_struct_flock.c \
 	file.c		\
+	file_handle.c	\
+	flock.c		\
+	flock.h		\
 	futex.c		\
+	gcc_compat.h	\
 	get_robust_list.c \
 	getcpu.c	\
 	getcwd.c	\
@@ -58,26 +106,52 @@ strace_SOURCES =	\
 	inotify.c	\
 	io.c		\
 	ioctl.c		\
+	ioperm.c	\
+	iopl.c		\
 	ioprio.c	\
-	ipc.c		\
+	ipc_defs.h	\
+	ipc_msg.c	\
+	ipc_msgctl.c	\
+	ipc_sem.c	\
+	ipc_shm.c	\
+	ipc_shmctl.c	\
+	kcmp.c		\
+	kernel_types.h	\
 	kexec.c		\
 	keyctl.c	\
 	ldt.c		\
 	link.c		\
+	linux/asm_stat.h \
+	linux/x32/asm_stat.h \
+	lookup_dcookie.c \
 	loop.c		\
 	lseek.c		\
 	mem.c		\
+	membarrier.c	\
+	memfd_create.c	\
 	mknod.c		\
 	mount.c		\
+	mpers_type.h	\
+	mq.c		\
 	mtd.c		\
+	native_defs.h	\
 	net.c		\
 	open.c		\
 	or1k_atomic.c	\
 	pathtrace.c	\
+	perf.c		\
 	personality.c	\
+	poll.c		\
 	prctl.c		\
+	print_mq_attr.c	\
+	print_msgbuf.c	\
+	print_sigevent.c \
+	print_time.c	\
+	print_timex.c	\
 	printmode.c	\
+	printrusage.c	\
 	printsiginfo.c	\
+	printsiginfo.h	\
 	printstat.h	\
 	process.c	\
 	process_vm.c	\
@@ -90,18 +164,21 @@ strace_SOURCES =	\
 	regs.h		\
 	renameat.c	\
 	resource.c	\
+	rtc.c		\
 	sched.c		\
 	scsi.c		\
 	seccomp.c	\
+	seccomp_fprog.h \
+	sendfile.c	\
 	sigaltstack.c	\
 	signal.c	\
+	signalfd.c	\
 	sigreturn.c	\
 	sock.c		\
 	socketutils.c	\
 	sram_alloc.c	\
 	statfs.c	\
 	strace.c	\
-	stream.c	\
 	swapon.c	\
 	sync_file_range.c \
 	syscall.c	\
@@ -111,30 +188,31 @@ strace_SOURCES =	\
 	sysmips.c	\
 	term.c		\
 	time.c		\
+	times.c		\
 	truncate.c	\
 	uid.c		\
 	uid16.c		\
 	umask.c		\
 	umount.c	\
 	uname.c		\
+	userfaultfd.c	\
 	util.c		\
 	utime.c		\
 	utimes.c	\
 	v4l2.c		\
 	vsprintf.c	\
 	wait.c		\
-	xattr.c
+	xattr.c		\
+	xmalloc.c	\
+	# end of strace_SOURCES
 
 if USE_LIBUNWIND
 strace_SOURCES += unwind.c
-strace_CPPFLAGS = $(AM_CPPFLAGS) $(libunwind_CPPFLAGS)
-strace_LDFLAGS = $(libunwind_LDFLAGS)
-strace_LDADD = $(libunwind_LIBS)
-else
-strace_CPPFLAGS = $(AM_CPPFLAGS)
+strace_CPPFLAGS += $(libunwind_CPPFLAGS)
+strace_LDFLAGS += $(libunwind_LDFLAGS)
+strace_LDADD += $(libunwind_LIBS)
 endif
 
-noinst_HEADERS = defs.h
 # Enable this to get link map generated
 #strace_CFLAGS = $(AM_CFLAGS) -Wl,-Map=strace.mapfile
 
@@ -161,8 +239,11 @@ EXTRA_DIST =				\
 	debian/strace64.manpages	\
 	debian/watch			\
 	errnoent.sh			\
+	generate_sen.sh			\
 	ioctlsort.c			\
 	linux/32/ioctls_inc.h		\
+	linux/32/ioctls_inc_align32.h	\
+	linux/32/ioctls_inc_align64.h	\
 	linux/32/syscallent.h		\
 	linux/64/ioctls_inc.h		\
 	linux/64/syscallent.h		\
@@ -177,7 +258,6 @@ EXTRA_DIST =				\
 	linux/aarch64/ioctls_arch1.h	\
 	linux/aarch64/ioctls_inc0.h	\
 	linux/aarch64/ioctls_inc1.h	\
-	linux/aarch64/print_pc.c	\
 	linux/aarch64/signalent1.h	\
 	linux/aarch64/syscallent.h	\
 	linux/aarch64/syscallent1.h	\
@@ -192,7 +272,6 @@ EXTRA_DIST =				\
 	linux/alpha/get_syscall_result.c\
 	linux/alpha/ioctls_arch0.h	\
 	linux/alpha/ioctls_inc0.h	\
-	linux/alpha/print_pc.c		\
 	linux/alpha/signalent.h		\
 	linux/alpha/syscallent.h	\
 	linux/alpha/userent.h		\
@@ -202,7 +281,6 @@ EXTRA_DIST =				\
 	linux/arc/get_syscall_args.c	\
 	linux/arc/ioctls_arch0.h	\
 	linux/arc/ioctls_inc0.h		\
-	linux/arc/print_pc.c		\
 	linux/arc/syscallent.h		\
 	linux/arch_regs.h		\
 	linux/arch_sigreturn.c		\
@@ -214,7 +292,6 @@ EXTRA_DIST =				\
 	linux/arm/get_syscall_args.c	\
 	linux/arm/ioctls_arch0.h	\
 	linux/arm/ioctls_inc0.h		\
-	linux/arm/print_pc.c		\
 	linux/arm/syscallent.h		\
 	linux/arm/userent.h		\
 	linux/avr32/arch_regs.c		\
@@ -223,7 +300,6 @@ EXTRA_DIST =				\
 	linux/avr32/get_syscall_args.c	\
 	linux/avr32/ioctls_arch0.h	\
 	linux/avr32/ioctls_inc0.h	\
-	linux/avr32/print_pc.c		\
 	linux/avr32/syscallent.h	\
 	linux/avr32/userent.h		\
 	linux/bfin/arch_regs.c		\
@@ -233,7 +309,6 @@ EXTRA_DIST =				\
 	linux/bfin/get_syscall_result.c	\
 	linux/bfin/ioctls_arch0.h	\
 	linux/bfin/ioctls_inc0.h	\
-	linux/bfin/print_pc.c		\
 	linux/bfin/syscallent.h		\
 	linux/bfin/userent.h		\
 	linux/crisv10/arch_regs.c	\
@@ -242,7 +317,6 @@ EXTRA_DIST =				\
 	linux/crisv10/get_scno.c	\
 	linux/crisv10/get_syscall_args.c	\
 	linux/crisv10/get_syscall_result.c	\
-	linux/crisv10/print_pc.c	\
 	linux/crisv10/userent.h		\
 	linux/crisv32/arch_regs.c	\
 	linux/crisv32/arch_sigreturn.c	\
@@ -250,7 +324,6 @@ EXTRA_DIST =				\
 	linux/crisv32/get_scno.c	\
 	linux/crisv32/get_syscall_args.c	\
 	linux/crisv32/get_syscall_result.c	\
-	linux/crisv32/print_pc.c	\
 	linux/crisv32/userent.h		\
 	linux/dummy.h			\
 	linux/errnoent.h		\
@@ -263,7 +336,6 @@ EXTRA_DIST =				\
 	linux/hppa/get_syscall_result.c	\
 	linux/hppa/ioctls_arch0.h	\
 	linux/hppa/ioctls_inc0.h	\
-	linux/hppa/print_pc.c		\
 	linux/hppa/signalent.h		\
 	linux/hppa/syscallent.h		\
 	linux/i386/arch_regs.c		\
@@ -274,7 +346,6 @@ EXTRA_DIST =				\
 	linux/i386/get_syscall_args.c	\
 	linux/i386/ioctls_arch0.h	\
 	linux/i386/ioctls_inc0.h	\
-	linux/i386/print_pc.c		\
 	linux/i386/syscallent.h		\
 	linux/i386/userent.h		\
 	linux/i386/userent0.h		\
@@ -287,7 +358,6 @@ EXTRA_DIST =				\
 	linux/ia64/get_syscall_args.c	\
 	linux/ia64/ioctls_arch0.h	\
 	linux/ia64/ioctls_inc0.h	\
-	linux/ia64/print_pc.c		\
 	linux/ia64/syscallent.h		\
 	linux/ia64/userent.h		\
 	linux/inet_diag.h		\
@@ -299,7 +369,6 @@ EXTRA_DIST =				\
 	linux/m68k/get_syscall_result.c	\
 	linux/m68k/ioctls_arch0.h	\
 	linux/m68k/ioctls_inc0.h	\
-	linux/m68k/print_pc.c		\
 	linux/m68k/syscallent.h		\
 	linux/m68k/userent.h		\
 	linux/metag/arch_regs.c		\
@@ -308,7 +377,6 @@ EXTRA_DIST =				\
 	linux/metag/get_syscall_args.c	\
 	linux/metag/ioctls_arch0.h	\
 	linux/metag/ioctls_inc0.h	\
-	linux/metag/print_pc.c		\
 	linux/metag/syscallent.h	\
 	linux/microblaze/arch_regs.c	\
 	linux/microblaze/arch_sigreturn.c	\
@@ -318,7 +386,6 @@ EXTRA_DIST =				\
 	linux/microblaze/get_syscall_result.c	\
 	linux/microblaze/ioctls_arch0.h	\
 	linux/microblaze/ioctls_inc0.h	\
-	linux/microblaze/print_pc.c	\
 	linux/microblaze/syscallent.h	\
 	linux/microblaze/userent.h	\
 	linux/mips/arch_getrval2.c	\
@@ -332,7 +399,6 @@ EXTRA_DIST =				\
 	linux/mips/get_syscall_args.c	\
 	linux/mips/ioctls_arch0.h	\
 	linux/mips/ioctls_inc0.h	\
-	linux/mips/print_pc.c		\
 	linux/mips/signalent.h		\
 	linux/mips/syscallent-compat.h	\
 	linux/mips/syscallent-n32.h	\
@@ -341,13 +407,19 @@ EXTRA_DIST =				\
 	linux/mips/syscallent.h		\
 	linux/mips/userent.h		\
 	linux/mtd-abi.h			\
+	linux/nios2/arch_regs.c		\
+	linux/nios2/get_error.c		\
+	linux/nios2/get_scno.c		\
+	linux/nios2/get_syscall_args.c	\
+	linux/nios2/ioctls_arch0.h	\
+	linux/nios2/ioctls_inc0.h	\
+	linux/nios2/syscallent.h	\
 	linux/or1k/arch_regs.c		\
 	linux/or1k/get_error.c		\
 	linux/or1k/get_scno.c		\
 	linux/or1k/get_syscall_args.c	\
 	linux/or1k/ioctls_arch0.h	\
 	linux/or1k/ioctls_inc0.h	\
-	linux/or1k/print_pc.c		\
 	linux/or1k/syscallent.h		\
 	linux/or1k/userent.h		\
 	linux/personality.h		\
@@ -361,7 +433,6 @@ EXTRA_DIST =				\
 	linux/powerpc/getregs_old.c	\
 	linux/powerpc/ioctls_arch0.h	\
 	linux/powerpc/ioctls_inc0.h	\
-	linux/powerpc/print_pc.c	\
 	linux/powerpc/syscallent.h	\
 	linux/powerpc/userent.h		\
 	linux/powerpc64/arch_regs.c	\
@@ -377,7 +448,6 @@ EXTRA_DIST =				\
 	linux/powerpc64/ioctls_arch1.h	\
 	linux/powerpc64/ioctls_inc0.h	\
 	linux/powerpc64/ioctls_inc1.h	\
-	linux/powerpc64/print_pc.c	\
 	linux/powerpc64/signalent1.h	\
 	linux/powerpc64/syscallent.h	\
 	linux/powerpc64/syscallent1.h	\
@@ -391,7 +461,6 @@ EXTRA_DIST =				\
 	linux/s390/get_syscall_args.c	\
 	linux/s390/ioctls_arch0.h	\
 	linux/s390/ioctls_inc0.h	\
-	linux/s390/print_pc.c		\
 	linux/s390/syscallent.h		\
 	linux/s390/userent.h		\
 	linux/s390/userent0.h		\
@@ -404,7 +473,6 @@ EXTRA_DIST =				\
 	linux/s390x/get_syscall_args.c	\
 	linux/s390x/ioctls_arch0.h	\
 	linux/s390x/ioctls_inc0.h	\
-	linux/s390x/print_pc.c		\
 	linux/s390x/syscallent.h	\
 	linux/s390x/userent.h		\
 	linux/sh/arch_getrval2.c	\
@@ -415,7 +483,6 @@ EXTRA_DIST =				\
 	linux/sh/get_syscall_result.c	\
 	linux/sh/ioctls_arch0.h		\
 	linux/sh/ioctls_inc0.h		\
-	linux/sh/print_pc.c		\
 	linux/sh/syscallent.h		\
 	linux/sh/userent.h		\
 	linux/sh/userent0.h		\
@@ -427,7 +494,6 @@ EXTRA_DIST =				\
 	linux/sh64/get_syscall_result.c	\
 	linux/sh64/ioctls_arch0.h	\
 	linux/sh64/ioctls_inc0.h	\
-	linux/sh64/print_pc.c		\
 	linux/sh64/syscallent.h		\
 	linux/sh64/userent.h		\
 	linux/signalent.h		\
@@ -443,7 +509,6 @@ EXTRA_DIST =				\
 	linux/sparc/get_syscall_args.c	\
 	linux/sparc/ioctls_arch0.h	\
 	linux/sparc/ioctls_inc0.h	\
-	linux/sparc/print_pc.c		\
 	linux/sparc/signalent.h		\
 	linux/sparc/syscallent.h	\
 	linux/sparc/userent.h		\
@@ -460,7 +525,6 @@ EXTRA_DIST =				\
 	linux/sparc64/ioctls_arch1.h	\
 	linux/sparc64/ioctls_inc0.h	\
 	linux/sparc64/ioctls_inc1.h	\
-	linux/sparc64/print_pc.c	\
 	linux/sparc64/signalent.h	\
 	linux/sparc64/signalent1.h	\
 	linux/sparc64/syscallent.h	\
@@ -479,7 +543,6 @@ EXTRA_DIST =				\
 	linux/tile/ioctls_arch1.h	\
 	linux/tile/ioctls_inc0.h	\
 	linux/tile/ioctls_inc1.h	\
-	linux/tile/print_pc.c		\
 	linux/tile/signalent1.h		\
 	linux/tile/syscallent.h		\
 	linux/tile/syscallent1.h	\
@@ -499,7 +562,6 @@ EXTRA_DIST =				\
 	linux/x32/ioctls_arch1.h	\
 	linux/x32/ioctls_inc0.h		\
 	linux/x32/ioctls_inc1.h		\
-	linux/x32/print_pc.c		\
 	linux/x32/signalent1.h		\
 	linux/x32/syscallent.h		\
 	linux/x32/syscallent1.h		\
@@ -520,7 +582,6 @@ EXTRA_DIST =				\
 	linux/x86_64/ioctls_inc0.h	\
 	linux/x86_64/ioctls_inc1.h	\
 	linux/x86_64/ioctls_inc2.h	\
-	linux/x86_64/print_pc.c		\
 	linux/x86_64/signalent1.h	\
 	linux/x86_64/signalent2.h	\
 	linux/x86_64/syscallent.h	\
@@ -534,13 +595,16 @@ EXTRA_DIST =				\
 	linux/xtensa/get_syscall_result.c	\
 	linux/xtensa/ioctls_arch0.h	\
 	linux/xtensa/ioctls_inc0.h	\
-	linux/xtensa/print_pc.c		\
 	linux/xtensa/syscallent.h	\
 	linux/xtensa/userent.h		\
 	maint/ioctls_gen.sh		\
 	maint/ioctls_hex.sh		\
 	maint/ioctls_sym.sh		\
 	maint/print_ioctlent.c		\
+	mpers.awk			\
+	mpers.sh			\
+	mpers_test.sh			\
+	mpers_xlat.h			\
 	signalent.sh			\
 	strace-graph			\
 	strace-log-merge		\
@@ -555,8 +619,6 @@ EXTRA_DIST =				\
 srpm: dist-xz
 	rpmbuild --define '%_srcrpmdir .' -ts $(distdir).tar.xz
 
-BUILT_SOURCES = .version sys_func.h
-
 $(srcdir)/.version:
 	$(AM_V_GEN)echo $(VERSION) > $@-t && mv $@-t $@
 
@@ -566,6 +628,15 @@ sys_func.h: $(patsubst %,$(srcdir)/%,$(strace_SOURCES_c))
 	for f in $^; do \
 		sed -n 's/^SYS_FUNC(.*/extern &;/p' $$f; \
 	done | sort -u > $@
+
+syscallent_names = subcall.h syscallent.h syscallent1.h \
+		   syscallent-n32.h syscallent-n64.h syscallent-o32.h
+syscallent_patterns = $(patsubst %,\%/%,$(syscallent_names))
+syscallent_files = $(filter $(syscallent_patterns),$(EXTRA_DIST))
+
+sen.h: $(patsubst %,$(srcdir)/%,$(syscallent_files))
+	for f in $^; do cat -- $$f; done | \
+		$(srcdir)/generate_sen.sh > $@
 
 dist-hook:
 	$(AM_V_GEN)echo $(VERSION) > $(distdir)/.tarball-version
@@ -592,8 +663,6 @@ ioctlsort_LDFLAGS = $(AM_LDFLAGS) $(LDFLAGS_FOR_BUILD)
 
 ioctls_inc_h = $(wildcard $(srcdir)/$(OS)/$(ARCH)/ioctls_inc*.h)
 ioctlent_h = $(patsubst $(srcdir)/$(OS)/$(ARCH)/ioctls_inc%,ioctlent%,$(ioctls_inc_h))
-BUILT_SOURCES += $(ioctlent_h)
-CLEANFILES = sys_func.h $(ioctlent_h)
 
 ioctlent%.h: ioctlsort%
 	./$< > $@
@@ -606,6 +675,110 @@ ioctlsort%.o: ioctls_all%.h $(srcdir)/ioctlsort.c
 
 ioctls_all%.h: $(srcdir)/$(OS)/$(ARCH)/ioctls_inc%.h $(srcdir)/$(OS)/$(ARCH)/ioctls_arch%.h
 	cat $^ > $@
+
+BUILT_SOURCES = $(ioctlent_h) native_printer_decls.h native_printer_defs.h printers.h sen.h sys_func.h .version
+CLEANFILES    = $(ioctlent_h) native_printer_decls.h native_printer_defs.h printers.h sen.h sys_func.h
+DISTCLEANFILES = gnu/stubs-32.h gnu/stubs-x32.h
+
+# defines mpers_source_files
+include mpers.am
+srcdir_mpers_source_files = $(patsubst %,$(srcdir)/%,$(mpers_source_files))
+
+mpers_NAME =
+mpers_PREFIX = $(mpers_NAME)_
+mpers_DEFS = $(DEFS)
+mpers_INCLUDES = $(DEFAULT_INCLUDES) $(INCLUDES)
+mpers_CPPFLAGS = $(strace_CPPFLAGS) $(CPPFLAGS)
+mpers_sh_opts = $(mpers_DEFS) $(mpers_INCLUDES) $(mpers_CPPFLAGS)
+libmpers_CPPFLAGS = $(AM_CPPFLAGS) -DIN_MPERS
+
+# mpers targets
+
+mpers-m%.stamp: $(srcdir_mpers_source_files) | printers.h
+	for f in $^; do \
+		CC="$(CC)" CFLAGS="$(mpers_sh_opts)" \
+		CPP="$(CPP)" CPPFLAGS="$(mpers_sh_opts) -DIN_MPERS -DMPERS_IS_$(mpers_NAME)" \
+		$(srcdir)/mpers.sh -$(mpers_NAME) $$f || exit; \
+	done
+	> $@
+
+m%_type_defs.h: $(srcdir_mpers_source_files)
+	for f in $^; do \
+		sed -n 's/^#include DEF_MPERS_TYPE(\([^)]\+\))/#ifdef MPERS_$(mpers_PREFIX)\1\n# define \1 MPERS_$(mpers_PREFIX)\1\n#endif/p' $$f || exit; \
+	done > $@-t
+	echo '#undef MPERS_PRINTER_NAME' >> $@-t
+	echo '#define MPERS_PRINTER_NAME(printer_name) printer_name' >> $@-t
+	echo '#include "$(mpers_PREFIX)printer_decls.h"' >> $@-t
+	mv $@-t $@
+
+m%_funcs.h: $(srcdir_mpers_source_files)
+	for f in $^; do \
+		sed -n 's/^SYS_FUNC(\([^)]\+\))/#undef sys_\1\n#define sys_\1 $(mpers_PREFIX)sys_\1/p' $$f || exit; \
+	done > $@-t && \
+	echo '#include "sys_func.h"' >> $@-t
+	mv $@-t $@
+
+# printers
+
+printers.h: $(srcdir_mpers_source_files)
+	echo '/* Generated by Makefile from $^; do not edit. */' > $@-t
+	echo 'typedef struct {' >> $@-t
+	for f in $^; do \
+		sed -n 's/^MPERS_PRINTER_DECL(\([^,]\+\),[[:space:]]*\([^)]\+\))\(.*\)/ \1 (*\2) \3;\n#define \2 MPERS_PRINTER_NAME(\2)\n/p' $$f || exit; \
+	done >> $@-t
+	echo '} struct_printers;' >> $@-t
+	echo 'extern const struct_printers *printers;' >> $@-t
+	echo '#define MPERS_PRINTER_NAME(printer_name) printers->printer_name' >> $@-t
+	mv $@-t $@
+
+%_printer_decls.h: $(srcdir_mpers_source_files)
+	echo '/* Generated by Makefile from $^; do not edit. */' > $@-t
+	for f in $^; do \
+		sed -n 's/^MPERS_PRINTER_DECL(\([^,]\+\),[[:space:]]*\([^)]\+\))\(.*\)/extern \1 $(mpers_PREFIX)\2\3;/p' $$f || exit; \
+	done >> $@-t
+	mv $@-t $@
+
+%_printer_defs.h: $(srcdir_mpers_source_files)
+	echo '/* Generated by Makefile from $^; do not edit. */' > $@-t
+	for f in $^; do \
+		sed -n 's/^MPERS_PRINTER_DECL(\([^,]\+\),[[:space:]]*\([^)]\+\))\(.*\)/\.\2 = $(mpers_PREFIX)\2,/p' $$f || exit; \
+	done >> $@-t
+	mv $@-t $@
+
+native_printer_decls.h native_printer_defs.h: mpers_PREFIX =
+
+if HAVE_M32_MPERS
+
+strace_LDADD += libmpers-m32.a
+noinst_LIBRARIES += libmpers-m32.a
+libmpers_m32_a_SOURCES = $(mpers_source_files)
+libmpers_m32_a_CPPFLAGS = $(libmpers_CPPFLAGS) -DMPERS_IS_m32 -I$(builddir)/mpers-m32
+mpers_m32_targets = mpers-m32.stamp m32_type_defs.h m32_funcs.h m32_printer_decls.h m32_printer_defs.h
+
+BUILT_SOURCES += $(mpers_m32_targets)
+CLEANFILES    += $(mpers_m32_targets)
+
+$(mpers_m32_targets): mpers_NAME = m32
+
+endif # HAVE_M32_MPERS
+
+if HAVE_MX32_MPERS
+
+strace_LDADD += libmpers-mx32.a
+noinst_LIBRARIES += libmpers-mx32.a
+libmpers_mx32_a_SOURCES = $(mpers_source_files)
+libmpers_mx32_a_CPPFLAGS = $(libmpers_CPPFLAGS) -DMPERS_IS_mx32 -I$(builddir)/mpers-mx32
+mpers_mx32_targets = mpers-mx32.stamp mx32_type_defs.h mx32_funcs.h mx32_printer_decls.h mx32_printer_defs.h
+
+BUILT_SOURCES += $(mpers_mx32_targets)
+CLEANFILES    += $(mpers_mx32_targets)
+
+$(mpers_mx32_targets): mpers_NAME = mx32
+
+endif # HAVE_MX32_MPERS
+
+clean-local:
+	-rm -rf mpers-m32 mpers-mx32
 
 if MAINTAINER_MODE
 

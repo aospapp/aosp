@@ -41,6 +41,7 @@ typedef struct {
     SLuint32 freeBufCount;   // calculated
     SLuint32 bufSizeInBytes; // calculated
     int injectImpulse; // -i#i
+    SLuint32 numFramesToIgnore;
 
     // Storage area for the buffer queues
     char **rxBuffers;
@@ -76,7 +77,8 @@ enum {
     SLES_FAIL = 1,
 } SLES_STATUS_ENUM;
 
-int slesInit(sles_data ** ppSles, int samplingRate, int frameCount, int micSource);
+int slesInit(sles_data ** ppSles, int samplingRate, int frameCount,
+             int micSource, int numFramesToIgnore);
 
 //note the double pointer to properly free the memory of the structure
 int slesDestroy(sles_data ** ppSles);
@@ -84,7 +86,7 @@ int slesDestroy(sles_data ** ppSles);
 ///full
 int slesFull(sles_data *pSles);
 
-int slesCreateServer(sles_data *pSles, int samplingRate, int frameCount, int micSource);
+int slesCreateServer(sles_data *pSles, int samplingRate, int frameCount, int micSource, int numFramesToIgnore);
 int slesProcessNext(sles_data *pSles, double *pSamples, long maxSamples);
 int slesDestroyServer(sles_data *pSles);
 

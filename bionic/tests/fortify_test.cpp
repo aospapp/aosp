@@ -14,6 +14,14 @@
  * limitations under the License.
  */
 
+// -Werror is on whether we like it or not, and we're intentionally doing awful
+// things in this file. GCC is dumb and doesn't have a specific error class for
+// the fortify failures (it's just -Werror), so we can't use anything more
+// constrained than disabling all the warnings in the file :( It also won't let
+// us use system_header in a .cpp file, so we have to #include this from
+// fortify_test_main.cpp.
+#pragma GCC system_header
+
 #include <gtest/gtest.h>
 #include "BionicDeathTest.h"
 
@@ -623,6 +631,12 @@ TEST_F(DEATHTEST, FD_ISSET_2_fortified) {
   ASSERT_FORTIFY(FD_ISSET(0, set));
 }
 
+TEST_F(DEATHTEST, getcwd_fortified) {
+  char buf[1];
+  size_t ct = atoi("2"); // prevent optimizations
+  ASSERT_FORTIFY(getcwd(buf, ct));
+}
+
 TEST_F(DEATHTEST, pread_fortified) {
   char buf[1];
   size_t ct = atoi("2"); // prevent optimizations
@@ -639,12 +653,52 @@ TEST_F(DEATHTEST, pread64_fortified) {
   close(fd);
 }
 
+TEST_F(DEATHTEST, pwrite_fortified) {
+  char buf[1] = {0};
+  size_t ct = atoi("2"); // prevent optimizations
+  int fd = open("/dev/null", O_WRONLY);
+  ASSERT_FORTIFY(pwrite(fd, buf, ct, 0));
+  close(fd);
+}
+
+TEST_F(DEATHTEST, pwrite64_fortified) {
+  char buf[1] = {0};
+  size_t ct = atoi("2"); // prevent optimizations
+  int fd = open("/dev/null", O_WRONLY);
+  ASSERT_FORTIFY(pwrite64(fd, buf, ct, 0));
+  close(fd);
+}
+
 TEST_F(DEATHTEST, read_fortified) {
   char buf[1];
   size_t ct = atoi("2"); // prevent optimizations
   int fd = open("/dev/null", O_RDONLY);
   ASSERT_FORTIFY(read(fd, buf, ct));
   close(fd);
+}
+
+TEST_F(DEATHTEST, write_fortified) {
+  char buf[1] = {0};
+  size_t ct = atoi("2"); // prevent optimizations
+  int fd = open("/dev/null", O_WRONLY);
+  ASSERT_EXIT(write(fd, buf, ct), testing::KilledBySignal(SIGABRT), "");
+  close(fd);
+}
+
+TEST_F(DEATHTEST, fread_fortified) {
+  char buf[1];
+  size_t ct = atoi("2"); // prevent optimizations
+  FILE* fp = fopen("/dev/null", "r");
+  ASSERT_FORTIFY(fread(buf, 1, ct, fp));
+  fclose(fp);
+}
+
+TEST_F(DEATHTEST, fwrite_fortified) {
+  char buf[1] = {0};
+  size_t ct = atoi("2"); // prevent optimizations
+  FILE* fp = fopen("/dev/null", "w");
+  ASSERT_FORTIFY(fwrite(buf, 1, ct, fp));
+  fclose(fp);
 }
 
 TEST_F(DEATHTEST, readlink_fortified) {

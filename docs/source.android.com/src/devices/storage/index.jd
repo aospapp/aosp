@@ -1,36 +1,45 @@
-page.title=External Storage
+page.title=Storage
 @jd:body
-
 <!--
     Copyright 2015 The Android Open Source Project
-
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
     You may obtain a copy of the License at
-
         http://www.apache.org/licenses/LICENSE-2.0
-
     Unless required by applicable law or agreed to in writing, software
     distributed under the License is distributed on an "AS IS" BASIS,
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
 -->
+<div id="qv-wrapper">
+  <div id="qv">
+    <h2>In this document</h2>
+    <ol id="auto-toc">
+    </ol>
+  </div>
+</div>
 
 <img style="float: right; margin: 0px 15px 15px 15px;" src="images/ape_fwk_hal_extstor.png" alt="Android external storage HAL icon"/>
+<p>Android has evolved over time to support a wide variety of storage device types
+and features. All versions of Android support devices with <a href="{@docRoot}devices/storage/traditional.html">traditional storage</a>,
+which includes portable and emulated storage. <em>Portable</em> storage can be provided by physical media, like an SD card or USB, that is for
+temporary data transfer/ file storage. The physical media may remain with the
+device for an extended period of time, but is not tied to the device and may be
+removed. SD cards have been available as portable storage since Android 1.0;
+Android 6.0 added USB support. <em>Emulated</em> storage is provided by exposing a portion of internal storage through an
+emulation layer and has been available since Android 3.0.</p>
 
-<p>Android supports devices with external storage, which is defined to be a
-case-insensitive filesystem with immutable POSIX permission classes and
-modes. External storage can be provided by physical media (such as an SD
-card), or by exposing a portion of internal storage through an emulation
-layer. Devices may contain multiple instances of external storage.</p>
+<p>Starting in Android 6.0, Android supports <a href="{@docRoot}devices/storage/adoptable.html"><em>adoptable</em> storage</a>, which is provided by physical media, like an SD card or USB, that is
+encrypted and formatted to behave like internal storage. Adoptable storage can
+store all types of application data. </p>
 
+<h2 id=permissions>Permissions</h2>
 <p>Access to external storage is protected by various Android
 permissions. Starting in Android 1.0, write access is protected with the
 <code>WRITE_EXTERNAL_STORAGE</code> permission. Starting in Android 4.1,
 read access is protected with the <code>READ_EXTERNAL_STORAGE</code>
 permission.</p>
-
 <p>Starting in Android 4.4, the owner, group and modes of files on external
 storage devices are now synthesized based on directory structure. This
 enables apps to manage their package-specific directories on external
@@ -41,65 +50,29 @@ package name <code>com.example.foo</code> can now freely access
 no permissions. These synthesized permissions are accomplished by wrapping
 raw storage devices in a FUSE daemon.</p>
 
-<p>Since external storage offers minimal protection for stored data, system
-code should not store sensitive data on external storage. Specifically,
-configuration and log files should only be stored on internal storage where
-they can be effectively protected.</p>
+<h3 id=runtime_permissions>Runtime permissions</h3>
 
 
-<h2 id="multiple-external-storage-devices">Multiple external storage devices</h2>
-
-<p>Starting in Android 4.4, multiple external storage devices are surfaced
-to developers through <code>Context.getExternalFilesDirs()</code>,
-<code>Context.getExternalCacheDirs()</code>, and
-<code>Context.getObbDirs()</code>.</p>
-
-</p>External storage devices surfaced through these APIs must be a
-semi-permanent part of the device (such as an SD card slot in a battery
-compartment). Developers expect data stored in these locations to be
-available over long periods of time. For this reason, transient storage
-devices (such as USB mass storage drives) should not be surfaced through
-these APIs.</p>
-
-<p>The <code>WRITE_EXTERNAL_STORAGE</code> permission must only grant write
-access to the primary external storage on a device. Apps must not be
-allowed to write to secondary external storage devices, except in their
-package-specific directories as allowed by synthesized
-permissions. Restricting writes in this way ensures the system can clean
-up files when applications are uninstalled.</p>
-
-
-<h2 id="multi-user-external-storage">Multi-user external storage</h2>
-
-<p>Starting in Android 4.2, devices can support multiple users, and external
-storage must meet the following constraints:</p>
+<p>Android 6.0 introduces a new <a href="{@docRoot}devices/tech/config/runtime_perms.html">runtime permissions</a> model where apps request
+capabilities when needed at runtime. Because the new model includes the <code>READ/WRITE_EXTERNAL_STORAGE</code> permissions, the platform needs to dynamically grant storage access without
+killing or restarting already-running apps. It does this by maintaining three
+distinct views of all mounted storage devices:</p>
 
 <ul>
-<li>Each user must have their own isolated primary external storage, and
-must not have access to the primary external storage of other users.</li>
-<li>The <code>/sdcard</code> path must resolve to the correct user-specific
-primary external storage based on the user a process is running as.</li>
-<li>Storage for large OBB files in the <code>Android/obb</code> directory
-may be shared between multiple users as an optimization.</li>
-<li>Secondary external storage must not be writable by apps, except in
-package-specific directories as allowed by synthesized permissions.</li>
+  <li><code>/mnt/runtime/default</code> is shown to apps with no special storage permissions, and to the root
+namespace where <code>adbd</code> and other system components live.
+  <li><code>/mnt/runtime/read</code> is shown to apps with <code>READ_EXTERNAL_STORAGE</code>
+  <li><code>/mnt/runtime/write</code> is shown to apps with <code>WRITE_EXTERNAL_STORAGE</code>
 </ul>
 
-<p>The default platform implementation of this feature leverages Linux kernel
-namespaces to create isolated mount tables for each Zygote-forked process,
-and then uses bind mounts to offer the correct user-specific primary external
-storage into that private namespace.</p>
+<p>At Zygote fork time, we create a mount namespace for each running app and bind
+mount the appropriate initial view into place. Later, when runtime permissions
+are granted, <code>vold</code> jumps into the mount namespace of already-running apps and bind mounts the
+upgraded view into place. Note that permission downgrades always result in the
+app being killed.</p>
 
-<p>At boot, the system mounts a single emulated external storage FUSE daemon
-at <code>EMULATED_STORAGE_SOURCE</code>, which is hidden from apps. After
-the Zygote forks, it bind mounts the appropriate user-specific subdirectory
-from under the FUSE daemon to <code>EMULATED_STORAGE_TARGET</code> so that
-external storage paths resolve correctly for the app. Because an app lacks
-accessible mount points for other users' storage, they can only access
-storage for the user it was started as.</p>
+<p>The <code>setns()</code> functionality used to implement this feature requires at least Linux 3.8, but
+patches have been backported successfully to Linux 3.4. The <code>PermissionsHostTest</code> CTS test can be used to verify correct kernel behavior.</p>
 
-<p>This implementation also uses the shared subtree kernel feature to
-propagate mount events from the default root namespace into app namespaces,
-which ensures that features like ASEC containers and OBB mounting continue
-working correctly. It does this by mounting the rootfs as shared, and then
-remounting it as slave after each Zygote namespace is created.</p>
+<p>In Android 6.0,  third-party apps don’t have access to the <code>sdcard_r</code> and <code>sdcard_rw</code> GIDs. Instead, access is controlled by mounting only the appropriate runtime
+view in place for that app. Cross-user interactions are blocked using the <code>everybody</code> GID.</p>

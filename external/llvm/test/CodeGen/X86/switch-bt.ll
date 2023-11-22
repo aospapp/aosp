@@ -5,7 +5,7 @@
 
 ;      CHECK: movabsq $2305843009482129440, %r
 ; CHECK-NEXT: btq %rax, %r
-; CHECK-NEXT: jae
+; CHECK-NEXT: jb
 ;     CHECK: movl  $671088640, %e
 ; CHECK-NEXT: btq %rax, %r
 ; CHECK-NEXT: jae
@@ -140,20 +140,18 @@ sw.epilog:
 
 ; The balanced binary switch here would start with a comparison against 39, but
 ; it is currently starting with 29 because of the density-sum heuristic.
-; CHECK: cmpl $29
+; CHECK: cmpl $39
 ; CHECK: jg
 ; CHECK: cmpl $10
-; CHECK: jne
-; CHECK: cmpl $49
-; CHECK: jg
+; CHECK: je
+; CHECK: cmpl $20
+; CHECK: je
 ; CHECK: cmpl $30
 ; CHECK: jne
-; CHECK: cmpl $20
-; CHECK: jne
-; CHECK: cmpl $50
-; CHECK: jne
 ; CHECK: cmpl $40
-; CHECK: jne
+; CHECK: je
+; CHECK: cmpl $50
+; CHECK: je
 ; CHECK: cmpl $60
 ; CHECK: jne
 }

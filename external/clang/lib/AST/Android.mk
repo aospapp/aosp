@@ -52,6 +52,7 @@ clang_ast_SRC_FILES := \
   ExprConstant.cpp \
   Expr.cpp \
   ExprCXX.cpp \
+  ExprObjC.cpp \
   ExternalASTSource.cpp \
   InheritViz.cpp \
   ItaniumCXXABI.cpp \
@@ -61,13 +62,17 @@ clang_ast_SRC_FILES := \
   MicrosoftMangle.cpp \
   NestedNameSpecifier.cpp \
   NSAPI.cpp \
+  OpenMPClause.cpp \
   ParentMap.cpp \
   RawCommentList.cpp \
   RecordLayoutBuilder.cpp \
   RecordLayout.cpp \
   SelectorLocationsKind.cpp \
   Stmt.cpp \
+  StmtCXX.cpp \
   StmtIterator.cpp \
+  StmtObjC.cpp \
+  StmtOpenMP.cpp \
   StmtPrinter.cpp \
   StmtProfile.cpp \
   StmtViz.cpp \

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,11 +30,13 @@
 #ifndef __QCAMERA_CHANNEL_H__
 #define __QCAMERA_CHANNEL_H__
 
-#include <hardware/camera.h>
+#include "camera.h"
+#include "QCameraMem.h"
+#include "QCameraParameters.h"
 #include "QCameraStream.h"
 
 extern "C" {
-#include <mm_camera_interface.h>
+#include "mm_camera_interface.h"
 }
 
 namespace qcamera {
@@ -59,16 +61,18 @@ public:
     virtual int32_t start();
     virtual int32_t stop();
     virtual int32_t bufDone(mm_camera_super_buf_t *recvd_frame);
+    virtual int32_t bufDone(mm_camera_super_buf_t *recvd_frame, uint32_t stream_id);
     virtual int32_t processZoomDone(preview_stream_ops_t *previewWindow,
                                     cam_crop_data_t &crop_info);
-    int32_t config();
     QCameraStream *getStreamByHandle(uint32_t streamHandle);
     uint32_t getMyHandle() const {return m_handle;};
     uint32_t getNumOfStreams() const {return (uint32_t) mStreams.size();};
     QCameraStream *getStreamByIndex(uint32_t index);
     QCameraStream *getStreamByServerID(uint32_t serverID);
-    int32_t UpdateStreamBasedParameters(QCameraParameters &param);
+    int32_t UpdateStreamBasedParameters(QCameraParametersIntf &param);
     void deleteChannel();
+    int32_t setStreamSyncCB (cam_stream_type_t stream_type,
+            stream_cb_routine stream_cb);
 
 protected:
     uint32_t m_camHandle;
@@ -90,7 +94,7 @@ public:
                       mm_camera_ops_t *cam_ops);
     QCameraPicChannel();
     virtual ~QCameraPicChannel();
-    int32_t takePicture(uint8_t num_of_snapshot, uint8_t num_of_retro_snapshot);
+    int32_t takePicture(mm_camera_req_buf_t *buf);
     int32_t cancelPicture();
     int32_t stopAdvancedCapture(mm_camera_advanced_capture_t type);
     int32_t startAdvancedCapture(mm_camera_advanced_capture_t type,
@@ -106,6 +110,8 @@ public:
                         mm_camera_ops_t *cam_ops);
     QCameraVideoChannel();
     virtual ~QCameraVideoChannel();
+    int32_t takePicture(mm_camera_req_buf_t *buf);
+    int32_t cancelPicture();
     int32_t releaseFrame(const void *opaque, bool isMetaData);
 };
 
@@ -123,22 +129,27 @@ public:
                                        uint8_t minStreamBufNum,
                                        uint8_t burstNum,
                                        cam_padding_info_t *paddingInfo,
-                                       QCameraParameters &param,
+                                       QCameraParametersIntf &param,
                                        bool contStream,
                                        bool offline);
     // online reprocess
     int32_t doReprocess(mm_camera_super_buf_t *frame,
-            QCameraParameters &param, QCameraStream *pMetaStream,
+            QCameraParametersIntf &param, QCameraStream *pMetaStream,
             uint8_t meta_buf_index);
 
     // offline reprocess
     int32_t doReprocess(int buf_fd, size_t buf_length, int32_t &ret_val);
 
-    int32_t doReprocessOffline(mm_camera_super_buf_t *frame, 
-             mm_camera_buf_def_t *meta_buf);
+    int32_t doReprocessOffline(mm_camera_super_buf_t *frame,
+             mm_camera_buf_def_t *meta_buf, QCameraParametersIntf &param);
+
+    int32_t doReprocessOffline(mm_camera_buf_def_t *frame,
+             mm_camera_buf_def_t *meta_buf, QCameraStream *pStream = NULL);
 
     int32_t stop();
     QCameraChannel *getSrcChannel(){return m_pSrcChannel;};
+    int8_t getReprocCount(){return mPassCount;};
+    void setReprocCount(int8_t count) {mPassCount = count;};
 
 private:
     QCameraStream *getStreamBySrouceHandle(uint32_t srcHandle);
@@ -152,7 +163,7 @@ private:
     uint32_t mSrcStreamHandles[MAX_STREAM_NUM_IN_BUNDLE];
     QCameraChannel *m_pSrcChannel; // ptr to source channel for reprocess
     android::List<OfflineBuffer> mOfflineBuffers;
-
+    int8_t mPassCount;
 };
 
 }; // namespace qcamera

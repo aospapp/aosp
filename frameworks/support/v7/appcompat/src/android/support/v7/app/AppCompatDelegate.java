@@ -22,15 +22,19 @@ import android.content.Context;
 import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
+import android.support.annotation.IdRes;
 import android.support.annotation.IntDef;
 import android.support.annotation.LayoutRes;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v4.app.FragmentActivity;
+import android.support.v4.os.BuildCompat;
 import android.support.v4.view.WindowCompat;
 import android.support.v7.appcompat.R;
 import android.support.v7.view.ActionMode;
 import android.support.v7.widget.Toolbar;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.MenuInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -74,6 +78,58 @@ import java.lang.annotation.RetentionPolicy;
 public abstract class AppCompatDelegate {
 
     static final String TAG = "AppCompatDelegate";
+
+    /**
+     * Mode which means to not use night mode, and therefore prefer {@code notnight} qualified
+     * resources where available, regardless of the time.
+     *
+     * @see #setLocalNightMode(int)
+     */
+    public static final int MODE_NIGHT_NO = 1;
+
+    /**
+     * Mode which means to always use night mode, and therefore prefer {@code night} qualified
+     * resources where available, regardless of the time.
+     *
+     * @see #setLocalNightMode(int)
+     */
+    public static final int MODE_NIGHT_YES = 2;
+
+    /**
+     * Mode which means to use night mode when it is determined that it is night or not.
+     *
+     * <p>The calculation used to determine whether it is night or not makes use of the location
+     * APIs (if this app has the necessary permissions). This allows us to generate accurate
+     * sunrise and sunset times. If this app does not have permission to access the location APIs
+     * then we use hardcoded times which will be less accurate.</p>
+     *
+     * @see #setLocalNightMode(int)
+     */
+    public static final int MODE_NIGHT_AUTO = 0;
+
+    /**
+     * Mode which uses the system's night mode setting to determine if it is night or not.
+     *
+     * @see #setLocalNightMode(int)
+     */
+    public static final int MODE_NIGHT_FOLLOW_SYSTEM = -1;
+
+    static final int MODE_NIGHT_UNSPECIFIED = -100;
+
+    @NightMode
+    private static int sDefaultNightMode = MODE_NIGHT_FOLLOW_SYSTEM;
+
+    private static boolean sCompatVectorFromResourcesEnabled = false;
+
+    /** @hide */
+    @IntDef({MODE_NIGHT_NO, MODE_NIGHT_YES, MODE_NIGHT_AUTO, MODE_NIGHT_FOLLOW_SYSTEM,
+            MODE_NIGHT_UNSPECIFIED})
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface NightMode {}
+
+    @IntDef({MODE_NIGHT_NO, MODE_NIGHT_YES, MODE_NIGHT_FOLLOW_SYSTEM})
+    @Retention(RetentionPolicy.SOURCE)
+    @interface ApplyableNightMode {}
 
     /**
      * Flag for enabling the support Action Bar.
@@ -129,7 +185,9 @@ public abstract class AppCompatDelegate {
     private static AppCompatDelegate create(Context context, Window window,
             AppCompatCallback callback) {
         final int sdk = Build.VERSION.SDK_INT;
-        if (sdk >= 23) {
+        if (BuildCompat.isAtLeastN()) {
+            return new AppCompatDelegateImplN(context, window, callback);
+        } else if (sdk >= 23) {
             return new AppCompatDelegateImplV23(context, window, callback);
         } else if (sdk >= 14) {
             return new AppCompatDelegateImplV14(context, window, callback);
@@ -150,6 +208,7 @@ public abstract class AppCompatDelegate {
      *
      * @return AppCompat's action bar, or null if it does not have one.
      */
+    @Nullable
     public abstract ActionBar getSupportActionBar();
 
     /**
@@ -165,9 +224,9 @@ public abstract class AppCompatDelegate {
      * must not request the window feature
      * {@link AppCompatDelegate#FEATURE_SUPPORT_ACTION_BAR FEATURE_SUPPORT_ACTION_BAR}.</p>
      *
-     * @param toolbar Toolbar to set as the Activity's action bar
+     * @param toolbar Toolbar to set as the Activity's action bar, or {@code null} to clear it
      */
-    public abstract void setSupportActionBar(Toolbar toolbar);
+    public abstract void setSupportActionBar(@Nullable Toolbar toolbar);
 
     /**
      * Return the value of this call from your {@link Activity#getMenuInflater()}
@@ -175,7 +234,16 @@ public abstract class AppCompatDelegate {
     public abstract MenuInflater getMenuInflater();
 
     /**
-     * Should be called from {@link Activity#onCreate Activity.onCreate()}
+     * Should be called from {@link Activity#onCreate Activity.onCreate()}.
+     *
+     * <p>This should be called before {@code super.onCreate()} as so:</p>
+     * <pre class="prettyprint">
+     * protected void onCreate(Bundle savedInstanceState) {
+     *     getDelegate().onCreate(savedInstanceState);
+     *     super.onCreate(savedInstanceState);
+     *     // ...
+     * }
+     * </pre>
      */
     public abstract void onCreate(Bundle savedInstanceState);
 
@@ -199,6 +267,15 @@ public abstract class AppCompatDelegate {
      * Should be called from {@link Activity#onPostResume()}
      */
     public abstract void onPostResume();
+
+    /**
+     * Finds a view that was identified by the id attribute from the XML that
+     * was processed in {@link #onCreate}.
+     *
+     * @return The view if found or null otherwise.
+     */
+    @Nullable
+    public abstract View findViewById(@IdRes int id);
 
     /**
      * Should be called instead of {@link Activity#setContentView(android.view.View)}}
@@ -225,7 +302,7 @@ public abstract class AppCompatDelegate {
     /**
      * Should be called from {@link Activity#onTitleChanged(CharSequence, int)}}
      */
-    public abstract void setTitle(CharSequence title);
+    public abstract void setTitle(@Nullable CharSequence title);
 
     /**
      * Should be called from {@link Activity#invalidateOptionsMenu()}} or
@@ -242,6 +319,7 @@ public abstract class AppCompatDelegate {
      * Returns an {@link ActionBarDrawerToggle.Delegate} which can be returned from your Activity
      * if it implements {@link ActionBarDrawerToggle.DelegateProvider}.
      */
+    @Nullable
     public abstract ActionBarDrawerToggle.Delegate getDrawerToggleDelegate();
 
     /**
@@ -271,7 +349,8 @@ public abstract class AppCompatDelegate {
      * @param callback Callback that will manage lifecycle events for this context mode
      * @return The ContextMode that was started, or null if it was canceled
      */
-    public abstract ActionMode startSupportActionMode(ActionMode.Callback callback);
+    @Nullable
+    public abstract ActionMode startSupportActionMode(@NonNull ActionMode.Callback callback);
 
     /**
      * Installs AppCompat's {@link android.view.LayoutInflater} Factory so that it can replace
@@ -280,8 +359,8 @@ public abstract class AppCompatDelegate {
      * <pre class="prettyprint">
      * protected void onCreate(Bundle savedInstanceState) {
      *     getDelegate().installViewFactory();
-     *     super.onCreate(savedInstanceState);
      *     getDelegate().onCreate(savedInstanceState);
+     *     super.onCreate(savedInstanceState);
      *
      *     // ...
      * }
@@ -302,7 +381,7 @@ public abstract class AppCompatDelegate {
      * {@link android.view.LayoutInflater LayoutInflater} factory, and have therefore not
      * installed the default factory via {@link #installViewFactory()}.
      */
-    public abstract View createView(View parent, String name, @NonNull Context context,
+    public abstract View createView(@Nullable View parent, String name, @NonNull Context context,
             @NonNull AttributeSet attrs);
 
     /**
@@ -321,4 +400,121 @@ public abstract class AppCompatDelegate {
      */
     public abstract boolean isHandleNativeActionModesEnabled();
 
+    /**
+     * Allows AppCompat to save instance state.
+     */
+    public abstract void onSaveInstanceState(Bundle outState);
+
+    /**
+     * Allow AppCompat to apply the {@code night} and {@code notnight} resource qualifiers.
+     *
+     * <p>Doing this enables the
+     * {@link R.style#Theme_AppCompat_DayNight Theme.AppCompat.DayNight}
+     * family of themes to work, using the computed twilight to automatically select a dark or
+     * light theme.</p>
+     *
+     * <p>You can override the night mode using {@link #setLocalNightMode(int)}.</p>
+     *
+     * <p>This only works on devices running
+     * {@link Build.VERSION_CODES#ICE_CREAM_SANDWICH ICE_CREAM_SANDWICH} and above.</p>
+     *
+     * @see #setDefaultNightMode(int)
+     * @see #setLocalNightMode(int)
+     *
+     * @return true if the night mode was applied, false if not
+     */
+    public abstract boolean applyDayNight();
+
+    /**
+     * Override the night mode used for this delegate's host component. This method only takes
+     * effect for those situtations where {@link #applyDayNight()} works.
+     *
+     * <p>Depending on when this is called, this may not take effect until the next time that
+     * the host component is created. You may use {@link Activity#recreate()} to force a
+     * recreation.</p>
+     *
+     * @see #applyDayNight()
+     */
+    public abstract void setLocalNightMode(@NightMode int mode);
+
+    /**
+     * Sets the default night mode. This is used across all activities/dialogs but can be overriden
+     * locally via {@link #setLocalNightMode(int)}.
+     *
+     * <p>This method only takes effect for those situtations where {@link #applyDayNight()} works.
+     * Defaults to {@link #MODE_NIGHT_NO}.</p>
+     *
+     * @see #setLocalNightMode(int)
+     * @see #getDefaultNightMode()
+     */
+    public static void setDefaultNightMode(@NightMode int mode) {
+        switch (mode) {
+            case MODE_NIGHT_AUTO:
+            case MODE_NIGHT_NO:
+            case MODE_NIGHT_YES:
+            case MODE_NIGHT_FOLLOW_SYSTEM:
+                sDefaultNightMode = mode;
+                break;
+            default:
+                Log.d(TAG, "setDefaultNightMode() called with an unknown mode");
+                break;
+        }
+    }
+
+    /**
+     * Returns the default night mode.
+     *
+     * @see #setDefaultNightMode(int)
+     */
+    @NightMode
+    public static int getDefaultNightMode() {
+        return sDefaultNightMode;
+    }
+
+    /**
+     * Sets whether vector drawables on older platforms (< API 21) can be used within
+     * {@link android.graphics.drawable.DrawableContainer} resources.
+     *
+     * <p>When enabled, AppCompat can intercept some drawable inflation from the framework, which
+     * enables implicit inflation of vector drawables within
+     * {@link android.graphics.drawable.DrawableContainer} resources. You can then use those
+     * drawables in places such as {@code android:src} on {@link android.widget.ImageView},
+     * or {@code android:drawableLeft} on {@link android.widget.TextView}. Example usage:</p>
+     *
+     * <pre>
+     * &lt;selector xmlns:android=&quot;...&quot;&gt;
+     *     &lt;item android:state_checked=&quot;true&quot;
+     *           android:drawable=&quot;@drawable/vector_checked_icon&quot; /&gt;
+     *     &lt;item android:drawable=&quot;@drawable/vector_icon&quot; /&gt;
+     * &lt;/selector&gt;
+     *
+     * &lt;TextView
+     *         ...
+     *         android:drawableLeft=&quot;@drawable/vector_state_list_icon&quot; /&gt;
+     * </pre>
+     *
+     * <p>This feature defaults to disabled, since enabling it can cause issues with memory usage,
+     * and problems updating {@link Configuration} instances. If you update the configuration
+     * manually, then you probably do not want to enable this. You have been warned.</p>
+     *
+     * <p>Even with this disabled, you can still use vector resources through
+     * {@link android.support.v7.widget.AppCompatImageView#setImageResource(int)} and it's
+     * {@code app:srcCompat} attribute. They can also be used in anything which AppComapt inflates
+     * for you, such as menu resources.</p>
+     *
+     * <p>Please note: this only takes effect in Activities created after this call.</p>
+     */
+    public static void setCompatVectorFromResourcesEnabled(boolean enabled) {
+        sCompatVectorFromResourcesEnabled = enabled;
+    }
+
+    /**
+     * Returns whether vector drawables on older platforms (< API 21) can be accessed from within
+     * resources.
+     *
+     * @see #setCompatVectorFromResourcesEnabled(boolean)
+     */
+    public static boolean isCompatVectorFromResourcesEnabled() {
+        return sCompatVectorFromResourcesEnabled;
+    }
 }

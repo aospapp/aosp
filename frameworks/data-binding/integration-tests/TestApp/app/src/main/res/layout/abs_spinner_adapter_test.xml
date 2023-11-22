@@ -22,5 +22,8 @@
         <Spinner android:layout_width="match_parent" android:layout_height="match_parent"
                  android:id="@+id/view"
                  android:entries="@{obj.entries}"/>
+        <Spinner android:layout_width="match_parent" android:layout_height="match_parent"
+                 android:id="@+id/view2"
+                 android:entries="@{obj.list}"/>
     </LinearLayout>
 </layout>

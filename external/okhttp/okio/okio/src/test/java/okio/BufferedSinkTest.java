@@ -41,6 +41,7 @@ public class BufferedSinkTest {
 
   // ANDROID-BEGIN
   //  @Parameterized.Parameters(name = "{0}")
+  @Parameterized.Parameters
   // ANDROID-END
   public static List<Object[]> parameters() {
     return Arrays.asList(new Object[] {
@@ -68,7 +69,10 @@ public class BufferedSinkTest {
 
   // ANDROID-BEGIN
   //  @Parameterized.Parameter
-  public Factory factory = (Factory) (parameters().get(0))[0];
+  private final Factory factory;
+  public BufferedSinkTest(Factory factory) {
+    this.factory = factory;
+  }
   // ANDROID-END
 
   private Buffer data;

@@ -907,7 +907,7 @@ WORD32 ih264d_mv_pred_ref_tfr_nby2_bmb(dec_struct_t * ps_dec,
         ps_dec->i4_submb_ofst += SUB_BLK_SIZE;
         /* Restore the slice scratch MbX and MbY context */
         ps_cur_mb_info = ps_dec->ps_nmb_info + i;
-        ps_dec->u2_wait_id = i;
+
 
         u1_field = ps_cur_mb_info->u1_mb_field_decodingflag;
 
@@ -1536,9 +1536,18 @@ WORD32 ih264d_parse_bslice(dec_struct_t * ps_dec, UWORD16 u2_first_mb_in_slice)
         {
             WORD32 num_entries;
             WORD32 size;
+            num_entries = MAX_FRAMES;
+            if((1 >= ps_dec->ps_cur_sps->u1_num_ref_frames) &&
+                (0 == ps_dec->i4_display_delay))
+            {
+                num_entries = 1;
+            }
 
-            num_entries = MIN(MAX_FRAMES, ps_dec->u4_num_ref_frames_at_init);
-            num_entries = 2 * ((2 * num_entries) + 1);
+            num_entries = ((2 * num_entries) + 1);
+            if(BASE_PROFILE_IDC != ps_dec->ps_cur_sps->u1_profile_idc)
+            {
+                num_entries *= 2;
+            }
 
             size = num_entries * sizeof(void *);
             size += PAD_MAP_IDX_POC * sizeof(void *);
@@ -1581,7 +1590,14 @@ WORD32 ih264d_parse_bslice(dec_struct_t * ps_dec, UWORD16 u2_first_mb_in_slice)
     if(ps_slice->u1_nal_ref_idc != 0)
     {
         if(!ps_dec->ps_dpb_cmds->u1_dpb_commands_read)
-            ps_dec->u4_bitoffset = ih264d_read_mmco_commands(ps_dec);
+        {
+            i_temp = ih264d_read_mmco_commands(ps_dec);
+            if (i_temp < 0)
+            {
+                return ERROR_DBP_MANAGER_T;
+            }
+            ps_dec->u4_bitoffset = i_temp;
+        }
         else
             ps_bitstrm->u4_ofst += ps_dec->u4_bitoffset;
     }

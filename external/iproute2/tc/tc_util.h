@@ -7,10 +7,6 @@
 #include <linux/gen_stats.h>
 #include "tc_core.h"
 
-#ifndef MIN
-#define MIN(x,y)        ((x)<(y)?(x):(y))
-#endif
-
 /* This is the deprecated multiqueue interface */
 #ifndef TCA_PRIO_MAX
 enum
@@ -23,8 +19,7 @@ enum
 #define TCA_PRIO_MAX    (__TCA_PRIO_MAX - 1)
 #endif
 
-struct qdisc_util
-{
+struct qdisc_util {
 	struct  qdisc_util *next;
 	const char *id;
 	int	(*parse_qopt)(struct qdisc_util *qu, int argc, char **argv, struct nlmsghdr *n);
@@ -36,8 +31,7 @@ struct qdisc_util
 };
 
 extern __u16 f_proto;
-struct filter_util
-{
+struct filter_util {
 	struct filter_util *next;
 	char	id[16];
 	int	(*parse_fopt)(struct filter_util *qu, char *fhandle, int argc,
@@ -45,14 +39,19 @@ struct filter_util
 	int	(*print_fopt)(struct filter_util *qu, FILE *f, struct rtattr *opt, __u32 fhandle);
 };
 
-struct action_util
-{
+struct action_util {
 	struct  action_util *next;
 	char    id[16];
 	int     (*parse_aopt)(struct action_util *a, int *argc, char ***argv,
 			      int code, struct nlmsghdr *n);
 	int     (*print_aopt)(struct action_util *au, FILE *f, struct rtattr *opt);
 	int     (*print_xstats)(struct action_util *au, FILE *f, struct rtattr *xstats);
+};
+
+struct exec_util {
+	struct	exec_util *next;
+	char	id[16];
+	int	(*parse_eopt)(struct exec_util *eu, int argc, char **argv);
 };
 
 extern const char *get_tc_lib(void);
@@ -62,17 +61,19 @@ extern struct filter_util *get_filter_kind(const char *str);
 
 extern int get_qdisc_handle(__u32 *h, const char *str);
 extern int get_rate(unsigned *rate, const char *str);
+extern int get_rate64(__u64 *rate, const char *str);
 extern int get_size(unsigned *size, const char *str);
 extern int get_size_and_cell(unsigned *size, int *cell_log, char *str);
 extern int get_time(unsigned *time, const char *str);
 extern int get_linklayer(unsigned *val, const char *arg);
 
-extern void print_rate(char *buf, int len, __u32 rate);
+extern void print_rate(char *buf, int len, __u64 rate);
 extern void print_size(char *buf, int len, __u32 size);
 extern void print_qdisc_handle(char *buf, int len, __u32 h);
 extern void print_time(char *buf, int len, __u32 time);
 extern void print_linklayer(char *buf, int len, unsigned linklayer);
-extern char * sprint_rate(__u32 rate, char *buf);
+
+extern char * sprint_rate(__u64 rate, char *buf);
 extern char * sprint_size(__u32 size, char *buf);
 extern char * sprint_qdisc_handle(__u32 h, char *buf);
 extern char * sprint_tc_classid(__u32 h, char *buf);
@@ -101,5 +102,9 @@ extern int  tc_print_action(FILE *f, const struct rtattr *tb);
 extern int  tc_print_ipt(FILE *f, const struct rtattr *tb);
 extern int  parse_action(int *, char ***, int, struct nlmsghdr *);
 extern void print_tm(FILE *f, const struct tcf_t *tm);
+extern int prio_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt);
+
+extern int cls_names_init(char *path);
+extern void cls_names_uninit(void);
 
 #endif

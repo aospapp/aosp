@@ -80,7 +80,8 @@ public class KeyguardService extends Service {
         @Override // Binder interface
         public void keyguardDone(boolean authenticated, boolean wakeup) {
             checkPermission();
-            mKeyguardViewMediator.keyguardDone(authenticated, wakeup);
+            // TODO: Remove wakeup
+            mKeyguardViewMediator.keyguardDone(authenticated);
         }
 
         @Override // Binder interface
@@ -114,9 +115,9 @@ public class KeyguardService extends Service {
         }
 
         @Override // Binder interface
-        public void onFinishedGoingToSleep(int reason) {
+        public void onFinishedGoingToSleep(int reason, boolean cameraGestureTriggered) {
             checkPermission();
-            mKeyguardViewMediator.onFinishedGoingToSleep(reason);
+            mKeyguardViewMediator.onFinishedGoingToSleep(reason, cameraGestureTriggered);
         }
 
         @Override // Binder interface

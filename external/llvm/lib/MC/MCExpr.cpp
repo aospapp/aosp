@@ -30,10 +30,10 @@ STATISTIC(MCExprEvaluate, "Number of MCExpr evaluations");
 }
 }
 
-void MCExpr::print(raw_ostream &OS) const {
+void MCExpr::print(raw_ostream &OS, const MCAsmInfo *MAI) const {
   switch (getKind()) {
   case MCExpr::Target:
-    return cast<MCTargetExpr>(this)->PrintImpl(OS);
+    return cast<MCTargetExpr>(this)->printImpl(OS, MAI);
   case MCExpr::Constant:
     OS << cast<MCConstantExpr>(*this).getValue();
     return;
@@ -43,11 +43,13 @@ void MCExpr::print(raw_ostream &OS) const {
     const MCSymbol &Sym = SRE.getSymbol();
     // Parenthesize names that start with $ so that they don't look like
     // absolute names.
-    bool UseParens = Sym.getName()[0] == '$';
-    if (UseParens)
-      OS << '(' << Sym << ')';
-    else
-      OS << Sym;
+    bool UseParens = Sym.getName().size() && Sym.getName()[0] == '$';
+    if (UseParens) {
+      OS << '(';
+      Sym.print(OS, MAI);
+      OS << ')';
+    } else
+      Sym.print(OS, MAI);
 
     if (SRE.getKind() != MCSymbolRefExpr::VK_None)
       SRE.printVariantKind(OS);
@@ -63,7 +65,7 @@ void MCExpr::print(raw_ostream &OS) const {
     case MCUnaryExpr::Not:   OS << '~'; break;
     case MCUnaryExpr::Plus:  OS << '+'; break;
     }
-    OS << *UE.getSubExpr();
+    UE.getSubExpr()->print(OS, MAI);
     return;
   }
 
@@ -72,9 +74,11 @@ void MCExpr::print(raw_ostream &OS) const {
 
     // Only print parens around the LHS if it is non-trivial.
     if (isa<MCConstantExpr>(BE.getLHS()) || isa<MCSymbolRefExpr>(BE.getLHS())) {
-      OS << *BE.getLHS();
+      BE.getLHS()->print(OS, MAI);
     } else {
-      OS << '(' << *BE.getLHS() << ')';
+      OS << '(';
+      BE.getLHS()->print(OS, MAI);
+      OS << ')';
     }
 
     switch (BE.getOpcode()) {
@@ -89,6 +93,7 @@ void MCExpr::print(raw_ostream &OS) const {
 
       OS <<  '+';
       break;
+    case MCBinaryExpr::AShr: OS << ">>"; break;
     case MCBinaryExpr::And:  OS <<  '&'; break;
     case MCBinaryExpr::Div:  OS <<  '/'; break;
     case MCBinaryExpr::EQ:   OS << "=="; break;
@@ -96,6 +101,7 @@ void MCExpr::print(raw_ostream &OS) const {
     case MCBinaryExpr::GTE:  OS << ">="; break;
     case MCBinaryExpr::LAnd: OS << "&&"; break;
     case MCBinaryExpr::LOr:  OS << "||"; break;
+    case MCBinaryExpr::LShr: OS << ">>"; break;
     case MCBinaryExpr::LT:   OS <<  '<'; break;
     case MCBinaryExpr::LTE:  OS << "<="; break;
     case MCBinaryExpr::Mod:  OS <<  '%'; break;
@@ -103,16 +109,17 @@ void MCExpr::print(raw_ostream &OS) const {
     case MCBinaryExpr::NE:   OS << "!="; break;
     case MCBinaryExpr::Or:   OS <<  '|'; break;
     case MCBinaryExpr::Shl:  OS << "<<"; break;
-    case MCBinaryExpr::Shr:  OS << ">>"; break;
     case MCBinaryExpr::Sub:  OS <<  '-'; break;
     case MCBinaryExpr::Xor:  OS <<  '^'; break;
     }
 
     // Only print parens around the LHS if it is non-trivial.
     if (isa<MCConstantExpr>(BE.getRHS()) || isa<MCSymbolRefExpr>(BE.getRHS())) {
-      OS << *BE.getRHS();
+      BE.getRHS()->print(OS, MAI);
     } else {
-      OS << '(' << *BE.getRHS() << ')';
+      OS << '(';
+      BE.getRHS()->print(OS, MAI);
+      OS << ')';
     }
     return;
   }
@@ -123,24 +130,24 @@ void MCExpr::print(raw_ostream &OS) const {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void MCExpr::dump() const {
-  print(dbgs());
+  dbgs() << *this;
   dbgs() << '\n';
 }
 #endif
 
 /* *** */
 
-const MCBinaryExpr *MCBinaryExpr::Create(Opcode Opc, const MCExpr *LHS,
+const MCBinaryExpr *MCBinaryExpr::create(Opcode Opc, const MCExpr *LHS,
                                          const MCExpr *RHS, MCContext &Ctx) {
   return new (Ctx) MCBinaryExpr(Opc, LHS, RHS);
 }
 
-const MCUnaryExpr *MCUnaryExpr::Create(Opcode Opc, const MCExpr *Expr,
+const MCUnaryExpr *MCUnaryExpr::create(Opcode Opc, const MCExpr *Expr,
                                        MCContext &Ctx) {
   return new (Ctx) MCUnaryExpr(Opc, Expr);
 }
 
-const MCConstantExpr *MCConstantExpr::Create(int64_t Value, MCContext &Ctx) {
+const MCConstantExpr *MCConstantExpr::create(int64_t Value, MCContext &Ctx) {
   return new (Ctx) MCConstantExpr(Value);
 }
 
@@ -155,15 +162,15 @@ MCSymbolRefExpr::MCSymbolRefExpr(const MCSymbol *Symbol, VariantKind Kind,
   assert(Symbol);
 }
 
-const MCSymbolRefExpr *MCSymbolRefExpr::Create(const MCSymbol *Sym,
+const MCSymbolRefExpr *MCSymbolRefExpr::create(const MCSymbol *Sym,
                                                VariantKind Kind,
                                                MCContext &Ctx) {
   return new (Ctx) MCSymbolRefExpr(Sym, Kind, Ctx.getAsmInfo());
 }
 
-const MCSymbolRefExpr *MCSymbolRefExpr::Create(StringRef Name, VariantKind Kind,
+const MCSymbolRefExpr *MCSymbolRefExpr::create(StringRef Name, VariantKind Kind,
                                                MCContext &Ctx) {
-  return Create(Ctx.GetOrCreateSymbol(Name), Kind, Ctx);
+  return create(Ctx.getOrCreateSymbol(Name), Kind, Ctx);
 }
 
 StringRef MCSymbolRefExpr::getVariantKindName(VariantKind Kind) {
@@ -195,6 +202,7 @@ StringRef MCSymbolRefExpr::getVariantKindName(VariantKind Kind) {
   case VK_SIZE: return "SIZE";
   case VK_WEAKREF: return "WEAKREF";
   case VK_ARM_NONE: return "none";
+  case VK_ARM_GOT_PREL: return "GOT_PREL";
   case VK_ARM_TARGET1: return "target1";
   case VK_ARM_TARGET2: return "target2";
   case VK_ARM_PREL31: return "prel31";
@@ -282,6 +290,18 @@ StringRef MCSymbolRefExpr::getVariantKindName(VariantKind Kind) {
   case VK_Mips_PCREL_HI16: return "PCREL_HI16";
   case VK_Mips_PCREL_LO16: return "PCREL_LO16";
   case VK_COFF_IMGREL32: return "IMGREL";
+  case VK_Hexagon_PCREL: return "PCREL";
+  case VK_Hexagon_LO16: return "LO16";
+  case VK_Hexagon_HI16: return "HI16";
+  case VK_Hexagon_GPREL: return "GPREL";
+  case VK_Hexagon_GD_GOT: return "GDGOT";
+  case VK_Hexagon_LD_GOT: return "LDGOT";
+  case VK_Hexagon_GD_PLT: return "GDPLT";
+  case VK_Hexagon_LD_PLT: return "LDPLT";
+  case VK_Hexagon_IE: return "IE";
+  case VK_Hexagon_IE_GOT: return "IEGOT";
+  case VK_TPREL: return "tprel";
+  case VK_DTPREL: return "dtprel";
   }
   llvm_unreachable("Invalid variant kind");
 }
@@ -292,7 +312,6 @@ MCSymbolRefExpr::getVariantKindForName(StringRef Name) {
     .Case("got", VK_GOT)
     .Case("gotoff", VK_GOTOFF)
     .Case("gotpcrel", VK_GOTPCREL)
-    .Case("got_prel", VK_GOTPCREL)
     .Case("gottpoff", VK_GOTTPOFF)
     .Case("indntpoff", VK_INDNTPOFF)
     .Case("ntpoff", VK_NTPOFF)
@@ -363,7 +382,15 @@ MCSymbolRefExpr::getVariantKindForName(StringRef Name) {
     .Case("got@tlsld@l", VK_PPC_GOT_TLSLD_LO)
     .Case("got@tlsld@h", VK_PPC_GOT_TLSLD_HI)
     .Case("got@tlsld@ha", VK_PPC_GOT_TLSLD_HA)
+    .Case("gdgot", VK_Hexagon_GD_GOT)
+    .Case("gdplt", VK_Hexagon_GD_PLT)
+    .Case("iegot", VK_Hexagon_IE_GOT)
+    .Case("ie", VK_Hexagon_IE)
+    .Case("ldgot", VK_Hexagon_LD_GOT)
+    .Case("ldplt", VK_Hexagon_LD_PLT)
+    .Case("pcrel", VK_Hexagon_PCREL)
     .Case("none", VK_ARM_NONE)
+    .Case("got_prel", VK_ARM_GOT_PREL)
     .Case("target1", VK_ARM_TARGET1)
     .Case("target2", VK_ARM_TARGET2)
     .Case("prel31", VK_ARM_PREL31)
@@ -387,23 +414,23 @@ void MCTargetExpr::anchor() {}
 
 /* *** */
 
-bool MCExpr::EvaluateAsAbsolute(int64_t &Res) const {
-  return EvaluateAsAbsolute(Res, nullptr, nullptr, nullptr);
+bool MCExpr::evaluateAsAbsolute(int64_t &Res) const {
+  return evaluateAsAbsolute(Res, nullptr, nullptr, nullptr);
 }
 
-bool MCExpr::EvaluateAsAbsolute(int64_t &Res,
+bool MCExpr::evaluateAsAbsolute(int64_t &Res,
                                 const MCAsmLayout &Layout) const {
-  return EvaluateAsAbsolute(Res, &Layout.getAssembler(), &Layout, nullptr);
+  return evaluateAsAbsolute(Res, &Layout.getAssembler(), &Layout, nullptr);
 }
 
-bool MCExpr::EvaluateAsAbsolute(int64_t &Res,
+bool MCExpr::evaluateAsAbsolute(int64_t &Res,
                                 const MCAsmLayout &Layout,
                                 const SectionAddrMap &Addrs) const {
-  return EvaluateAsAbsolute(Res, &Layout.getAssembler(), &Layout, &Addrs);
+  return evaluateAsAbsolute(Res, &Layout.getAssembler(), &Layout, &Addrs);
 }
 
-bool MCExpr::EvaluateAsAbsolute(int64_t &Res, const MCAssembler &Asm) const {
-  return EvaluateAsAbsolute(Res, &Asm, nullptr, nullptr);
+bool MCExpr::evaluateAsAbsolute(int64_t &Res, const MCAssembler &Asm) const {
+  return evaluateAsAbsolute(Res, &Asm, nullptr, nullptr);
 }
 
 bool MCExpr::evaluateKnownAbsolute(int64_t &Res,
@@ -412,7 +439,7 @@ bool MCExpr::evaluateKnownAbsolute(int64_t &Res,
                             true);
 }
 
-bool MCExpr::EvaluateAsAbsolute(int64_t &Res, const MCAssembler *Asm,
+bool MCExpr::evaluateAsAbsolute(int64_t &Res, const MCAssembler *Asm,
                                 const MCAsmLayout *Layout,
                                 const SectionAddrMap *Addrs) const {
   // FIXME: The use if InSet = Addrs is a hack. Setting InSet causes us
@@ -433,7 +460,7 @@ bool MCExpr::evaluateAsAbsolute(int64_t &Res, const MCAssembler *Asm,
   }
 
   bool IsRelocatable =
-      EvaluateAsRelocatableImpl(Value, Asm, Layout, nullptr, Addrs, InSet);
+      evaluateAsRelocatableImpl(Value, Asm, Layout, nullptr, Addrs, InSet);
 
   // Record the current value.
   Res = Value.getConstant();
@@ -455,14 +482,12 @@ static void AttemptToFoldSymbolOffsetDifference(
   if (SA.isUndefined() || SB.isUndefined())
     return;
 
-  if (!Asm->getWriter().IsSymbolRefDifferenceFullyResolved(*Asm, A, B, InSet))
+  if (!Asm->getWriter().isSymbolRefDifferenceFullyResolved(*Asm, A, B, InSet))
     return;
 
-  const MCSymbolData &AD = Asm->getSymbolData(SA);
-  const MCSymbolData &BD = Asm->getSymbolData(SB);
-
-  if (AD.getFragment() == BD.getFragment()) {
-    Addend += (AD.getOffset() - BD.getOffset());
+  if (SA.getFragment() == SB.getFragment() && !SA.isVariable() &&
+      !SB.isVariable()) {
+    Addend += (SA.getOffset() - SB.getOffset());
 
     // Pointers to Thumb symbols need to have their low-bit set to allow
     // for interworking.
@@ -478,15 +503,15 @@ static void AttemptToFoldSymbolOffsetDifference(
   if (!Layout)
     return;
 
-  const MCSectionData &SecA = *AD.getFragment()->getParent();
-  const MCSectionData &SecB = *BD.getFragment()->getParent();
+  const MCSection &SecA = *SA.getFragment()->getParent();
+  const MCSection &SecB = *SB.getFragment()->getParent();
 
   if ((&SecA != &SecB) && !Addrs)
     return;
 
   // Eagerly evaluate.
-  Addend += (Layout->getSymbolOffset(&Asm->getSymbolData(A->getSymbol())) -
-             Layout->getSymbolOffset(&Asm->getSymbolData(B->getSymbol())));
+  Addend += Layout->getSymbolOffset(A->getSymbol()) -
+            Layout->getSymbolOffset(B->getSymbol());
   if (Addrs && (&SecA != &SecB))
     Addend += (Addrs->lookup(&SecA) - Addrs->lookup(&SecB));
 
@@ -567,39 +592,38 @@ EvaluateSymbolicAdd(const MCAssembler *Asm, const MCAsmLayout *Layout,
   const MCSymbolRefExpr *A = LHS_A ? LHS_A : RHS_A;
   const MCSymbolRefExpr *B = LHS_B ? LHS_B : RHS_B;
 
-  // If we have a negated symbol, then we must have also have a non-negated
-  // symbol in order to encode the expression.
-  if (B && !A)
-    return false;
-
   Res = MCValue::get(A, B, Result_Cst);
   return true;
 }
 
-bool MCExpr::EvaluateAsRelocatable(MCValue &Res,
+bool MCExpr::evaluateAsRelocatable(MCValue &Res,
                                    const MCAsmLayout *Layout,
                                    const MCFixup *Fixup) const {
   MCAssembler *Assembler = Layout ? &Layout->getAssembler() : nullptr;
-  return EvaluateAsRelocatableImpl(Res, Assembler, Layout, Fixup, nullptr,
+  return evaluateAsRelocatableImpl(Res, Assembler, Layout, Fixup, nullptr,
                                    false);
 }
 
 bool MCExpr::evaluateAsValue(MCValue &Res, const MCAsmLayout &Layout) const {
   MCAssembler *Assembler = &Layout.getAssembler();
-  return EvaluateAsRelocatableImpl(Res, Assembler, &Layout, nullptr, nullptr,
+  return evaluateAsRelocatableImpl(Res, Assembler, &Layout, nullptr, nullptr,
                                    true);
 }
 
-static bool canExpand(const MCSymbol &Sym, const MCAssembler *Asm, bool InSet) {
+static bool canExpand(const MCSymbol &Sym, bool InSet) {
+  const MCExpr *Expr = Sym.getVariableValue();
+  const auto *Inner = dyn_cast<MCSymbolRefExpr>(Expr);
+  if (Inner) {
+    if (Inner->getKind() == MCSymbolRefExpr::VK_WEAKREF)
+      return false;
+  }
+
   if (InSet)
     return true;
-  if (!Asm)
-    return false;
-  const MCSymbolData &SD = Asm->getSymbolData(Sym);
-  return !Asm->getWriter().isWeak(SD);
+  return !Sym.isInSection();
 }
 
-bool MCExpr::EvaluateAsRelocatableImpl(MCValue &Res, const MCAssembler *Asm,
+bool MCExpr::evaluateAsRelocatableImpl(MCValue &Res, const MCAssembler *Asm,
                                        const MCAsmLayout *Layout,
                                        const MCFixup *Fixup,
                                        const SectionAddrMap *Addrs,
@@ -608,7 +632,7 @@ bool MCExpr::EvaluateAsRelocatableImpl(MCValue &Res, const MCAssembler *Asm,
 
   switch (getKind()) {
   case Target:
-    return cast<MCTargetExpr>(this)->EvaluateAsRelocatableImpl(Res, Layout,
+    return cast<MCTargetExpr>(this)->evaluateAsRelocatableImpl(Res, Layout,
                                                                Fixup);
 
   case Constant:
@@ -621,9 +645,9 @@ bool MCExpr::EvaluateAsRelocatableImpl(MCValue &Res, const MCAssembler *Asm,
 
     // Evaluate recursively if this is a variable.
     if (Sym.isVariable() && SRE->getKind() == MCSymbolRefExpr::VK_None &&
-        canExpand(Sym, Asm, InSet)) {
+        canExpand(Sym, InSet)) {
       bool IsMachO = SRE->hasSubsectionsViaSymbols();
-      if (Sym.getVariableValue()->EvaluateAsRelocatableImpl(
+      if (Sym.getVariableValue()->evaluateAsRelocatableImpl(
               Res, Asm, Layout, Fixup, Addrs, InSet || IsMachO)) {
         if (!IsMachO)
           return true;
@@ -649,7 +673,7 @@ bool MCExpr::EvaluateAsRelocatableImpl(MCValue &Res, const MCAssembler *Asm,
     const MCUnaryExpr *AUE = cast<MCUnaryExpr>(this);
     MCValue Value;
 
-    if (!AUE->getSubExpr()->EvaluateAsRelocatableImpl(Value, Asm, Layout, Fixup,
+    if (!AUE->getSubExpr()->evaluateAsRelocatableImpl(Value, Asm, Layout, Fixup,
                                                       Addrs, InSet))
       return false;
 
@@ -683,9 +707,9 @@ bool MCExpr::EvaluateAsRelocatableImpl(MCValue &Res, const MCAssembler *Asm,
     const MCBinaryExpr *ABE = cast<MCBinaryExpr>(this);
     MCValue LHSValue, RHSValue;
 
-    if (!ABE->getLHS()->EvaluateAsRelocatableImpl(LHSValue, Asm, Layout, Fixup,
+    if (!ABE->getLHS()->evaluateAsRelocatableImpl(LHSValue, Asm, Layout, Fixup,
                                                   Addrs, InSet) ||
-        !ABE->getRHS()->EvaluateAsRelocatableImpl(RHSValue, Asm, Layout, Fixup,
+        !ABE->getRHS()->evaluateAsRelocatableImpl(RHSValue, Asm, Layout, Fixup,
                                                   Addrs, InSet))
       return false;
 
@@ -709,27 +733,38 @@ bool MCExpr::EvaluateAsRelocatableImpl(MCValue &Res, const MCAssembler *Asm,
     }
 
     // FIXME: We need target hooks for the evaluation. It may be limited in
-    // width, and gas defines the result of comparisons and right shifts
-    // differently from Apple as.
+    // width, and gas defines the result of comparisons differently from
+    // Apple as.
     int64_t LHS = LHSValue.getConstant(), RHS = RHSValue.getConstant();
     int64_t Result = 0;
     switch (ABE->getOpcode()) {
+    case MCBinaryExpr::AShr: Result = LHS >> RHS; break;
     case MCBinaryExpr::Add:  Result = LHS + RHS; break;
     case MCBinaryExpr::And:  Result = LHS & RHS; break;
-    case MCBinaryExpr::Div:  Result = LHS / RHS; break;
+    case MCBinaryExpr::Div:
+      // Handle division by zero. gas just emits a warning and keeps going,
+      // we try to be stricter.
+      // FIXME: Currently the caller of this function has no way to understand
+      // we're bailing out because of 'division by zero'. Therefore, it will
+      // emit a 'expected relocatable expression' error. It would be nice to
+      // change this code to emit a better diagnostic.
+      if (RHS == 0)
+        return false;
+      Result = LHS / RHS;
+      break;
     case MCBinaryExpr::EQ:   Result = LHS == RHS; break;
     case MCBinaryExpr::GT:   Result = LHS > RHS; break;
     case MCBinaryExpr::GTE:  Result = LHS >= RHS; break;
     case MCBinaryExpr::LAnd: Result = LHS && RHS; break;
     case MCBinaryExpr::LOr:  Result = LHS || RHS; break;
+    case MCBinaryExpr::LShr: Result = uint64_t(LHS) >> uint64_t(RHS); break;
     case MCBinaryExpr::LT:   Result = LHS < RHS; break;
     case MCBinaryExpr::LTE:  Result = LHS <= RHS; break;
     case MCBinaryExpr::Mod:  Result = LHS % RHS; break;
     case MCBinaryExpr::Mul:  Result = LHS * RHS; break;
     case MCBinaryExpr::NE:   Result = LHS != RHS; break;
     case MCBinaryExpr::Or:   Result = LHS | RHS; break;
-    case MCBinaryExpr::Shl:  Result = LHS << RHS; break;
-    case MCBinaryExpr::Shr:  Result = LHS >> RHS; break;
+    case MCBinaryExpr::Shl:  Result = uint64_t(LHS) << uint64_t(RHS); break;
     case MCBinaryExpr::Sub:  Result = LHS - RHS; break;
     case MCBinaryExpr::Xor:  Result = LHS ^ RHS; break;
     }
@@ -742,45 +777,41 @@ bool MCExpr::EvaluateAsRelocatableImpl(MCValue &Res, const MCAssembler *Asm,
   llvm_unreachable("Invalid assembly expression kind!");
 }
 
-const MCSection *MCExpr::FindAssociatedSection() const {
+MCFragment *MCExpr::findAssociatedFragment() const {
   switch (getKind()) {
   case Target:
     // We never look through target specific expressions.
-    return cast<MCTargetExpr>(this)->FindAssociatedSection();
+    return cast<MCTargetExpr>(this)->findAssociatedFragment();
 
   case Constant:
-    return MCSymbol::AbsolutePseudoSection;
+    return MCSymbol::AbsolutePseudoFragment;
 
   case SymbolRef: {
     const MCSymbolRefExpr *SRE = cast<MCSymbolRefExpr>(this);
     const MCSymbol &Sym = SRE->getSymbol();
-
-    if (Sym.isDefined())
-      return &Sym.getSection();
-
-    return nullptr;
+    return Sym.getFragment();
   }
 
   case Unary:
-    return cast<MCUnaryExpr>(this)->getSubExpr()->FindAssociatedSection();
+    return cast<MCUnaryExpr>(this)->getSubExpr()->findAssociatedFragment();
 
   case Binary: {
     const MCBinaryExpr *BE = cast<MCBinaryExpr>(this);
-    const MCSection *LHS_S = BE->getLHS()->FindAssociatedSection();
-    const MCSection *RHS_S = BE->getRHS()->FindAssociatedSection();
+    MCFragment *LHS_F = BE->getLHS()->findAssociatedFragment();
+    MCFragment *RHS_F = BE->getRHS()->findAssociatedFragment();
 
-    // If either section is absolute, return the other.
-    if (LHS_S == MCSymbol::AbsolutePseudoSection)
-      return RHS_S;
-    if (RHS_S == MCSymbol::AbsolutePseudoSection)
-      return LHS_S;
+    // If either is absolute, return the other.
+    if (LHS_F == MCSymbol::AbsolutePseudoFragment)
+      return RHS_F;
+    if (RHS_F == MCSymbol::AbsolutePseudoFragment)
+      return LHS_F;
 
     // Not always correct, but probably the best we can do without more context.
     if (BE->getOpcode() == MCBinaryExpr::Sub)
-      return MCSymbol::AbsolutePseudoSection;
+      return MCSymbol::AbsolutePseudoFragment;
 
-    // Otherwise, return the first non-null section.
-    return LHS_S ? LHS_S : RHS_S;
+    // Otherwise, return the first non-null fragment.
+    return LHS_F ? LHS_F : RHS_F;
   }
   }
 

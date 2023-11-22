@@ -19,11 +19,11 @@
     <group>Wearable</group>
     <package>com.example.android.wearable.wear.alwayson</package>
 
-    <dependency_wearable>com.google.android.support:wearable:1.2.0</dependency_wearable>
+    <dependency_wearable>com.google.android.support:wearable:1.3.0</dependency_wearable>
+
     <provided_dependency_wearable>com.google.android.wearable:wearable:1.0.0</provided_dependency_wearable>
 
-    <minSdk>20</minSdk>
-    <targetSdkVersion>22</targetSdkVersion>
+    <targetSdkVersionWear>22</targetSdkVersionWear>
 
     <strings>
         <intro>

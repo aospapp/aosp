@@ -24,7 +24,7 @@ import android.os.Looper;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
-import com.android.cts.media.R;
+import android.media.cts.R;
 
 import java.util.Arrays;
 

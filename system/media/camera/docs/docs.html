@@ -17,7 +17,7 @@
 <head>
   <!-- automatically generated from html.mako. do NOT edit directly -->
   <meta charset="utf-8" />
-  <title>Android Camera HAL3.2 Properties</title>
+  <title>Android Camera HAL3.4 Properties</title>
   <style type="text/css">
      body { background-color: #f7f7f7; font-family: Roboto, sans-serif;}
      h1 { color: #333333; }
@@ -188,6 +188,8 @@
             ><a href="#controls_android.control.sceneMode">android.control.sceneMode</a></li>
             <li
             ><a href="#controls_android.control.videoStabilizationMode">android.control.videoStabilizationMode</a></li>
+            <li
+            ><a href="#controls_android.control.postRawSensitivityBoost">android.control.postRawSensitivityBoost</a></li>
           </ul>
         </li>
         <li>
@@ -231,6 +233,8 @@
             ><a href="#static_android.control.awbLockAvailable">android.control.awbLockAvailable</a></li>
             <li
             ><a href="#static_android.control.availableModes">android.control.availableModes</a></li>
+            <li
+            ><a href="#static_android.control.postRawSensitivityBoostRange">android.control.postRawSensitivityBoostRange</a></li>
           </ul>
         </li>
         <li>
@@ -284,6 +288,8 @@
             ><a href="#dynamic_android.control.sceneMode">android.control.sceneMode</a></li>
             <li
             ><a href="#dynamic_android.control.videoStabilizationMode">android.control.videoStabilizationMode</a></li>
+            <li
+            ><a href="#dynamic_android.control.postRawSensitivityBoost">android.control.postRawSensitivityBoost</a></li>
           </ul>
         </li>
       </ul> <!-- toc_section -->
@@ -799,6 +805,10 @@
             ><a href="#static_android.sensor.profileHueSatMapDimensions">android.sensor.profileHueSatMapDimensions</a></li>
             <li
             ><a href="#static_android.sensor.availableTestPatternModes">android.sensor.availableTestPatternModes</a></li>
+            <li
+            ><a href="#static_android.sensor.opticalBlackRegions">android.sensor.opticalBlackRegions</a></li>
+            <li
+            ><a href="#static_android.sensor.opaqueRawSize">android.sensor.opaqueRawSize</a></li>
           </ul>
         </li>
         <li>
@@ -830,6 +840,10 @@
             ><a href="#dynamic_android.sensor.testPatternMode">android.sensor.testPatternMode</a></li>
             <li
             ><a href="#dynamic_android.sensor.rollingShutterSkew">android.sensor.rollingShutterSkew</a></li>
+            <li
+            ><a href="#dynamic_android.sensor.dynamicBlackLevel">android.sensor.dynamicBlackLevel</a></li>
+            <li
+            ><a href="#dynamic_android.sensor.dynamicWhiteLevel">android.sensor.dynamicWhiteLevel</a></li>
           </ul>
         </li>
       </ul> <!-- toc_section -->
@@ -3943,11 +3957,20 @@ range capture hardware.<wbr/> In all cases,<wbr/> a single image is
 produced in response to a capture request submitted
 while in HDR mode.<wbr/></p>
 <p>Since substantial post-processing is generally needed to
-produce an HDR image,<wbr/> only YUV and JPEG outputs are
-supported for LIMITED/<wbr/>FULL device HDR captures,<wbr/> and only
-JPEG outputs are supported for LEGACY HDR
-captures.<wbr/> Using a RAW output for HDR capture is not
-supported.<wbr/></p></span>
+produce an HDR image,<wbr/> only YUV,<wbr/> PRIVATE,<wbr/> and JPEG
+outputs are supported for LIMITED/<wbr/>FULL device HDR
+captures,<wbr/> and only JPEG outputs are supported for LEGACY
+HDR captures.<wbr/> Using a RAW output for HDR capture is not
+supported.<wbr/></p>
+<p>Some devices may also support always-on HDR,<wbr/> which
+applies HDR processing at full frame rate.<wbr/>  For these
+devices,<wbr/> intents other than STILL_<wbr/>CAPTURE will also
+produce an HDR output with no frame rate impact compared
+to normal operation,<wbr/> though the quality may be lower
+than for STILL_<wbr/>CAPTURE intents.<wbr/></p>
+<p>If SCENE_<wbr/>MODE_<wbr/>HDR is used with unsupported output types
+or capture intents,<wbr/> the images captured will be as if
+the SCENE_<wbr/>MODE was not enabled at all.<wbr/></p></span>
                   </li>
                   <li>
                     <span class="entry_type_enum_name">FACE_PRIORITY_LOW_LIGHT</span>
@@ -3974,6 +3997,24 @@ reducing the noise level of the captured images.<wbr/></p>
 <p>Unlike the other scene modes,<wbr/> <a href="#controls_android.control.aeMode">android.<wbr/>control.<wbr/>ae<wbr/>Mode</a>,<wbr/>
 <a href="#controls_android.control.awbMode">android.<wbr/>control.<wbr/>awb<wbr/>Mode</a>,<wbr/> and <a href="#controls_android.control.afMode">android.<wbr/>control.<wbr/>af<wbr/>Mode</a>
 remain active when FACE_<wbr/>PRIORITY_<wbr/>LOW_<wbr/>LIGHT is set.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">DEVICE_CUSTOM_START</span>
+                    <span class="entry_type_enum_optional">[optional]</span>
+                    <span class="entry_type_enum_hidden">[hidden]</span>
+                    <span class="entry_type_enum_value">100</span>
+                    <span class="entry_type_enum_notes"><p>Scene mode values within the range of
+<code>[DEVICE_<wbr/>CUSTOM_<wbr/>START,<wbr/> DEVICE_<wbr/>CUSTOM_<wbr/>END]</code> are reserved for device specific
+customized scene modes.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">DEVICE_CUSTOM_END</span>
+                    <span class="entry_type_enum_optional">[optional]</span>
+                    <span class="entry_type_enum_hidden">[hidden]</span>
+                    <span class="entry_type_enum_value">127</span>
+                    <span class="entry_type_enum_notes"><p>Scene mode values within the range of
+<code>[DEVICE_<wbr/>CUSTOM_<wbr/>START,<wbr/> DEVICE_<wbr/>CUSTOM_<wbr/>END]</code> are reserved for device specific
+customized scene modes.<wbr/></p></span>
                   </li>
                 </ul>
 
@@ -4091,7 +4132,7 @@ active.<wbr/></p>
           </tr>
           <tr class="entry_cont">
             <td class="entry_details" colspan="5">
-              <p>Video stabilization automatically translates and scales images from
+              <p>Video stabilization automatically warps images from
 the camera in order to stabilize motion between consecutive frames.<wbr/></p>
 <p>If enabled,<wbr/> video stabilization can modify the
 <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a> to keep the video stream stabilized.<wbr/></p>
@@ -4101,10 +4142,83 @@ in capture result metadata.<wbr/> For example,<wbr/> When "ON" mode is requested
 the video stabilization modes in the first several capture results may
 still be "OFF",<wbr/> and it will become "ON" when the initialization is
 done.<wbr/></p>
+<p>In addition,<wbr/> not all recording sizes or frame rates may be supported for
+stabilization by a device that reports stabilization support.<wbr/> It is guaranteed
+that an output targeting a MediaRecorder or MediaCodec will be stabilized if
+the recording resolution is less than or equal to 1920 x 1080 (width less than
+or equal to 1920,<wbr/> height less than or equal to 1080),<wbr/> and the recording
+frame rate is less than or equal to 30fps.<wbr/>  At other sizes,<wbr/> the CaptureResult
+<a href="#controls_android.control.videoStabilizationMode">android.<wbr/>control.<wbr/>video<wbr/>Stabilization<wbr/>Mode</a> field will return
+OFF if the recording output is not stabilized,<wbr/> or if there are no output
+Surface types that can be stabilized.<wbr/></p>
 <p>If a camera device supports both this mode and OIS
 (<a href="#controls_android.lens.opticalStabilizationMode">android.<wbr/>lens.<wbr/>optical<wbr/>Stabilization<wbr/>Mode</a>),<wbr/> turning both modes on may
 produce undesirable interaction,<wbr/> so it is recommended not to enable
 both at the same time.<wbr/></p>
+            </td>
+          </tr>
+
+
+          <tr class="entry_spacer"><td class="entry_spacer" colspan="6"></td></tr>
+           <!-- end of entry -->
+        
+                
+          <tr class="entry" id="controls_android.control.postRawSensitivityBoost">
+            <td class="entry_name
+             " rowspan="3">
+              android.<wbr/>control.<wbr/>post<wbr/>Raw<wbr/>Sensitivity<wbr/>Boost
+            </td>
+            <td class="entry_type">
+                <span class="entry_type_name">int32</span>
+
+              <span class="entry_type_visibility"> [public]</span>
+
+
+
+
+
+
+            </td> <!-- entry_type -->
+
+            <td class="entry_description">
+              <p>The amount of additional sensitivity boost applied to output images
+after RAW sensor data is captured.<wbr/></p>
+            </td>
+
+            <td class="entry_units">
+              ISO arithmetic units,<wbr/> the same as android.<wbr/>sensor.<wbr/>sensitivity
+            </td>
+
+            <td class="entry_range">
+              <p><a href="#static_android.control.postRawSensitivityBoostRange">android.<wbr/>control.<wbr/>post<wbr/>Raw<wbr/>Sensitivity<wbr/>Boost<wbr/>Range</a></p>
+            </td>
+
+            <td class="entry_tags">
+            </td>
+
+          </tr>
+          <tr class="entries_header">
+            <th class="th_details" colspan="5">Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="5">
+              <p>Some camera devices support additional digital sensitivity boosting in the
+camera processing pipeline after sensor RAW image is captured.<wbr/>
+Such a boost will be applied to YUV/<wbr/>JPEG format output images but will not
+have effect on RAW output formats like RAW_<wbr/>SENSOR,<wbr/> RAW10,<wbr/> RAW12 or RAW_<wbr/>OPAQUE.<wbr/></p>
+<p>This key will be <code>null</code> for devices that do not support any RAW format
+outputs.<wbr/> For devices that do support RAW format outputs,<wbr/> this key will always
+present,<wbr/> and if a device does not support post RAW sensitivity boost,<wbr/> it will
+list <code>100</code> in this key.<wbr/></p>
+<p>If the camera device cannot apply the exact boost requested,<wbr/> it will reduce the
+boost to the nearest supported value.<wbr/>
+The final boost value used will be available in the output capture result.<wbr/></p>
+<p>For devices that support post RAW sensitivity boost,<wbr/> the YUV/<wbr/>JPEG output images
+of such device will have the total sensitivity of
+<code><a href="#controls_android.sensor.sensitivity">android.<wbr/>sensor.<wbr/>sensitivity</a> * <a href="#controls_android.control.postRawSensitivityBoost">android.<wbr/>control.<wbr/>post<wbr/>Raw<wbr/>Sensitivity<wbr/>Boost</a> /<wbr/> 100</code>
+The sensitivity of RAW format images will always be <code><a href="#controls_android.sensor.sensitivity">android.<wbr/>sensor.<wbr/>sensitivity</a></code></p>
+<p>This control is only effective if <a href="#controls_android.control.aeMode">android.<wbr/>control.<wbr/>ae<wbr/>Mode</a> or <a href="#controls_android.control.mode">android.<wbr/>control.<wbr/>mode</a> is set to
+OFF; otherwise the auto-exposure algorithm will override this value.<wbr/></p>
             </td>
           </tr>
 
@@ -4316,17 +4430,24 @@ this camera device.<wbr/></p>
             <td class="entry_details" colspan="5">
               <p>For devices at the LEGACY level or above:</p>
 <ul>
-<li>This list will always include (30,<wbr/> 30).<wbr/></li>
-<li>Also,<wbr/> for constant-framerate recording,<wbr/> for each normal
+<li>
+<p>For constant-framerate recording,<wbr/> for each normal
+<a href="https://developer.android.com/reference/android/media/CamcorderProfile.html">CamcorderProfile</a>,<wbr/> that is,<wbr/> a
 <a href="https://developer.android.com/reference/android/media/CamcorderProfile.html">CamcorderProfile</a> that has
 <a href="https://developer.android.com/reference/android/media/CamcorderProfile.html#quality">quality</a> in
 the range [<a href="https://developer.android.com/reference/android/media/CamcorderProfile.html#QUALITY_LOW">QUALITY_<wbr/>LOW</a>,<wbr/>
 <a href="https://developer.android.com/reference/android/media/CamcorderProfile.html#QUALITY_2160P">QUALITY_<wbr/>2160P</a>],<wbr/> if the profile is
 supported by the device and has
 <a href="https://developer.android.com/reference/android/media/CamcorderProfile.html#videoFrameRate">videoFrameRate</a> <code>x</code>,<wbr/> this list will
-always include (<code>x</code>,<wbr/><code>x</code>).<wbr/></li>
-<li>For preview streaming use case,<wbr/> this list will always include (<code>min</code>,<wbr/> <code>max</code>) where
-<code>min</code> &lt;= 15 and <code>max</code> &gt;= 30.<wbr/></li>
+always include (<code>x</code>,<wbr/><code>x</code>).<wbr/></p>
+</li>
+<li>
+<p>Also,<wbr/> a camera device must either not support any
+<a href="https://developer.android.com/reference/android/media/CamcorderProfile.html">CamcorderProfile</a>,<wbr/>
+or support at least one
+normal <a href="https://developer.android.com/reference/android/media/CamcorderProfile.html">CamcorderProfile</a> that has
+<a href="https://developer.android.com/reference/android/media/CamcorderProfile.html#videoFrameRate">videoFrameRate</a> <code>x</code> &gt;= 24.<wbr/></p>
+</li>
 </ul>
 <p>For devices at the LIMITED level or above:</p>
 <ul>
@@ -4781,7 +4902,7 @@ mode camera devices.<wbr/></p>
                 <span class="entry_type_array">
                   3
                 </span>
-              <span class="entry_type_visibility"> [hidden]</span>
+              <span class="entry_type_visibility"> [ndk_public]</span>
 
 
               <span class="entry_type_hwlevel">[legacy] </span>
@@ -4829,7 +4950,7 @@ this value must be &gt;= 1 for AE and AF.<wbr/> The order of the elements is:
             <td class="entry_type">
                 <span class="entry_type_name">int32</span>
 
-              <span class="entry_type_visibility"> [public]</span>
+              <span class="entry_type_visibility"> [java_public]</span>
 
               <span class="entry_type_synthetic">[synthetic] </span>
 
@@ -4889,7 +5010,7 @@ maxRegions to have this entry be automatically populated.<wbr/></p>
             <td class="entry_type">
                 <span class="entry_type_name">int32</span>
 
-              <span class="entry_type_visibility"> [public]</span>
+              <span class="entry_type_visibility"> [java_public]</span>
 
               <span class="entry_type_synthetic">[synthetic] </span>
 
@@ -4948,7 +5069,7 @@ maxRegions to have this entry be automatically populated.<wbr/></p>
             <td class="entry_type">
                 <span class="entry_type_name">int32</span>
 
-              <span class="entry_type_visibility"> [public]</span>
+              <span class="entry_type_visibility"> [java_public]</span>
 
               <span class="entry_type_synthetic">[synthetic] </span>
 
@@ -5369,6 +5490,75 @@ devices will always support OFF,<wbr/> AUTO modes.<wbr/></p>
             </td>
           </tr>
 
+
+          <tr class="entry_spacer"><td class="entry_spacer" colspan="6"></td></tr>
+           <!-- end of entry -->
+        
+                
+          <tr class="entry" id="static_android.control.postRawSensitivityBoostRange">
+            <td class="entry_name
+             " rowspan="5">
+              android.<wbr/>control.<wbr/>post<wbr/>Raw<wbr/>Sensitivity<wbr/>Boost<wbr/>Range
+            </td>
+            <td class="entry_type">
+                <span class="entry_type_name">int32</span>
+                <span class="entry_type_container">x</span>
+
+                <span class="entry_type_array">
+                  2
+                </span>
+              <span class="entry_type_visibility"> [public as rangeInt]</span>
+
+
+
+
+                <div class="entry_type_notes">Range of supported post RAW sensitivitiy boosts</div>
+
+
+            </td> <!-- entry_type -->
+
+            <td class="entry_description">
+              <p>Range of boosts for <a href="#controls_android.control.postRawSensitivityBoost">android.<wbr/>control.<wbr/>post<wbr/>Raw<wbr/>Sensitivity<wbr/>Boost</a> supported
+by this camera device.<wbr/></p>
+            </td>
+
+            <td class="entry_units">
+              ISO arithmetic units,<wbr/> the same as android.<wbr/>sensor.<wbr/>sensitivity
+            </td>
+
+            <td class="entry_range">
+            </td>
+
+            <td class="entry_tags">
+            </td>
+
+          </tr>
+          <tr class="entries_header">
+            <th class="th_details" colspan="5">Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="5">
+              <p>Devices support post RAW sensitivity boost  will advertise
+<a href="#controls_android.control.postRawSensitivityBoost">android.<wbr/>control.<wbr/>post<wbr/>Raw<wbr/>Sensitivity<wbr/>Boost</a> key for controling
+post RAW sensitivity boost.<wbr/></p>
+<p>This key will be <code>null</code> for devices that do not support any RAW format
+outputs.<wbr/> For devices that do support RAW format outputs,<wbr/> this key will always
+present,<wbr/> and if a device does not support post RAW sensitivity boost,<wbr/> it will
+list <code>(100,<wbr/> 100)</code> in this key.<wbr/></p>
+            </td>
+          </tr>
+
+          <tr class="entries_header">
+            <th class="th_details" colspan="5">HAL Implementation Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="5">
+              <p>This key is added in HAL3.<wbr/>4.<wbr/> For HAL3.<wbr/>3 or earlier devices,<wbr/> camera framework will
+generate this key as <code>(100,<wbr/> 100)</code> if device supports any of RAW output formats.<wbr/>
+All HAL3.<wbr/>4 and above devices should list this key if device supports any of RAW
+output formats.<wbr/></p>
+            </td>
+          </tr>
 
           <tr class="entry_spacer"><td class="entry_spacer" colspan="6"></td></tr>
            <!-- end of entry -->
@@ -8413,11 +8603,20 @@ range capture hardware.<wbr/> In all cases,<wbr/> a single image is
 produced in response to a capture request submitted
 while in HDR mode.<wbr/></p>
 <p>Since substantial post-processing is generally needed to
-produce an HDR image,<wbr/> only YUV and JPEG outputs are
-supported for LIMITED/<wbr/>FULL device HDR captures,<wbr/> and only
-JPEG outputs are supported for LEGACY HDR
-captures.<wbr/> Using a RAW output for HDR capture is not
-supported.<wbr/></p></span>
+produce an HDR image,<wbr/> only YUV,<wbr/> PRIVATE,<wbr/> and JPEG
+outputs are supported for LIMITED/<wbr/>FULL device HDR
+captures,<wbr/> and only JPEG outputs are supported for LEGACY
+HDR captures.<wbr/> Using a RAW output for HDR capture is not
+supported.<wbr/></p>
+<p>Some devices may also support always-on HDR,<wbr/> which
+applies HDR processing at full frame rate.<wbr/>  For these
+devices,<wbr/> intents other than STILL_<wbr/>CAPTURE will also
+produce an HDR output with no frame rate impact compared
+to normal operation,<wbr/> though the quality may be lower
+than for STILL_<wbr/>CAPTURE intents.<wbr/></p>
+<p>If SCENE_<wbr/>MODE_<wbr/>HDR is used with unsupported output types
+or capture intents,<wbr/> the images captured will be as if
+the SCENE_<wbr/>MODE was not enabled at all.<wbr/></p></span>
                   </li>
                   <li>
                     <span class="entry_type_enum_name">FACE_PRIORITY_LOW_LIGHT</span>
@@ -8444,6 +8643,24 @@ reducing the noise level of the captured images.<wbr/></p>
 <p>Unlike the other scene modes,<wbr/> <a href="#controls_android.control.aeMode">android.<wbr/>control.<wbr/>ae<wbr/>Mode</a>,<wbr/>
 <a href="#controls_android.control.awbMode">android.<wbr/>control.<wbr/>awb<wbr/>Mode</a>,<wbr/> and <a href="#controls_android.control.afMode">android.<wbr/>control.<wbr/>af<wbr/>Mode</a>
 remain active when FACE_<wbr/>PRIORITY_<wbr/>LOW_<wbr/>LIGHT is set.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">DEVICE_CUSTOM_START</span>
+                    <span class="entry_type_enum_optional">[optional]</span>
+                    <span class="entry_type_enum_hidden">[hidden]</span>
+                    <span class="entry_type_enum_value">100</span>
+                    <span class="entry_type_enum_notes"><p>Scene mode values within the range of
+<code>[DEVICE_<wbr/>CUSTOM_<wbr/>START,<wbr/> DEVICE_<wbr/>CUSTOM_<wbr/>END]</code> are reserved for device specific
+customized scene modes.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">DEVICE_CUSTOM_END</span>
+                    <span class="entry_type_enum_optional">[optional]</span>
+                    <span class="entry_type_enum_hidden">[hidden]</span>
+                    <span class="entry_type_enum_value">127</span>
+                    <span class="entry_type_enum_notes"><p>Scene mode values within the range of
+<code>[DEVICE_<wbr/>CUSTOM_<wbr/>START,<wbr/> DEVICE_<wbr/>CUSTOM_<wbr/>END]</code> are reserved for device specific
+customized scene modes.<wbr/></p></span>
                   </li>
                 </ul>
 
@@ -8561,7 +8778,7 @@ active.<wbr/></p>
           </tr>
           <tr class="entry_cont">
             <td class="entry_details" colspan="5">
-              <p>Video stabilization automatically translates and scales images from
+              <p>Video stabilization automatically warps images from
 the camera in order to stabilize motion between consecutive frames.<wbr/></p>
 <p>If enabled,<wbr/> video stabilization can modify the
 <a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a> to keep the video stream stabilized.<wbr/></p>
@@ -8571,10 +8788,83 @@ in capture result metadata.<wbr/> For example,<wbr/> When "ON" mode is requested
 the video stabilization modes in the first several capture results may
 still be "OFF",<wbr/> and it will become "ON" when the initialization is
 done.<wbr/></p>
+<p>In addition,<wbr/> not all recording sizes or frame rates may be supported for
+stabilization by a device that reports stabilization support.<wbr/> It is guaranteed
+that an output targeting a MediaRecorder or MediaCodec will be stabilized if
+the recording resolution is less than or equal to 1920 x 1080 (width less than
+or equal to 1920,<wbr/> height less than or equal to 1080),<wbr/> and the recording
+frame rate is less than or equal to 30fps.<wbr/>  At other sizes,<wbr/> the CaptureResult
+<a href="#controls_android.control.videoStabilizationMode">android.<wbr/>control.<wbr/>video<wbr/>Stabilization<wbr/>Mode</a> field will return
+OFF if the recording output is not stabilized,<wbr/> or if there are no output
+Surface types that can be stabilized.<wbr/></p>
 <p>If a camera device supports both this mode and OIS
 (<a href="#controls_android.lens.opticalStabilizationMode">android.<wbr/>lens.<wbr/>optical<wbr/>Stabilization<wbr/>Mode</a>),<wbr/> turning both modes on may
 produce undesirable interaction,<wbr/> so it is recommended not to enable
 both at the same time.<wbr/></p>
+            </td>
+          </tr>
+
+
+          <tr class="entry_spacer"><td class="entry_spacer" colspan="6"></td></tr>
+           <!-- end of entry -->
+        
+                
+          <tr class="entry" id="dynamic_android.control.postRawSensitivityBoost">
+            <td class="entry_name
+             " rowspan="3">
+              android.<wbr/>control.<wbr/>post<wbr/>Raw<wbr/>Sensitivity<wbr/>Boost
+            </td>
+            <td class="entry_type">
+                <span class="entry_type_name">int32</span>
+
+              <span class="entry_type_visibility"> [public]</span>
+
+
+
+
+
+
+            </td> <!-- entry_type -->
+
+            <td class="entry_description">
+              <p>The amount of additional sensitivity boost applied to output images
+after RAW sensor data is captured.<wbr/></p>
+            </td>
+
+            <td class="entry_units">
+              ISO arithmetic units,<wbr/> the same as android.<wbr/>sensor.<wbr/>sensitivity
+            </td>
+
+            <td class="entry_range">
+              <p><a href="#static_android.control.postRawSensitivityBoostRange">android.<wbr/>control.<wbr/>post<wbr/>Raw<wbr/>Sensitivity<wbr/>Boost<wbr/>Range</a></p>
+            </td>
+
+            <td class="entry_tags">
+            </td>
+
+          </tr>
+          <tr class="entries_header">
+            <th class="th_details" colspan="5">Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="5">
+              <p>Some camera devices support additional digital sensitivity boosting in the
+camera processing pipeline after sensor RAW image is captured.<wbr/>
+Such a boost will be applied to YUV/<wbr/>JPEG format output images but will not
+have effect on RAW output formats like RAW_<wbr/>SENSOR,<wbr/> RAW10,<wbr/> RAW12 or RAW_<wbr/>OPAQUE.<wbr/></p>
+<p>This key will be <code>null</code> for devices that do not support any RAW format
+outputs.<wbr/> For devices that do support RAW format outputs,<wbr/> this key will always
+present,<wbr/> and if a device does not support post RAW sensitivity boost,<wbr/> it will
+list <code>100</code> in this key.<wbr/></p>
+<p>If the camera device cannot apply the exact boost requested,<wbr/> it will reduce the
+boost to the nearest supported value.<wbr/>
+The final boost value used will be available in the output capture result.<wbr/></p>
+<p>For devices that support post RAW sensitivity boost,<wbr/> the YUV/<wbr/>JPEG output images
+of such device will have the total sensitivity of
+<code><a href="#controls_android.sensor.sensitivity">android.<wbr/>sensor.<wbr/>sensitivity</a> * <a href="#controls_android.control.postRawSensitivityBoost">android.<wbr/>control.<wbr/>post<wbr/>Raw<wbr/>Sensitivity<wbr/>Boost</a> /<wbr/> 100</code>
+The sensitivity of RAW format images will always be <code><a href="#controls_android.sensor.sensitivity">android.<wbr/>sensor.<wbr/>sensitivity</a></code></p>
+<p>This control is only effective if <a href="#controls_android.control.aeMode">android.<wbr/>control.<wbr/>ae<wbr/>Mode</a> or <a href="#controls_android.control.mode">android.<wbr/>control.<wbr/>mode</a> is set to
+OFF; otherwise the auto-exposure algorithm will override this value.<wbr/></p>
             </td>
           </tr>
 
@@ -10176,7 +10466,7 @@ are stuck at an arbitrary value or are oversensitive).<wbr/></p>
             <td class="entry_type">
                 <span class="entry_type_name">byte</span>
 
-              <span class="entry_type_visibility"> [public as location]</span>
+              <span class="entry_type_visibility"> [java_public as location]</span>
 
               <span class="entry_type_synthetic">[synthetic] </span>
 
@@ -10229,7 +10519,7 @@ viewed by anyone who receives the JPEG image.<wbr/></p>
                 <span class="entry_type_array">
                   3
                 </span>
-              <span class="entry_type_visibility"> [hidden]</span>
+              <span class="entry_type_visibility"> [ndk_public]</span>
 
 
               <span class="entry_type_hwlevel">[legacy] </span>
@@ -10273,7 +10563,7 @@ EXIF.<wbr/></p>
             <td class="entry_type">
                 <span class="entry_type_name">byte</span>
 
-              <span class="entry_type_visibility"> [hidden as string]</span>
+              <span class="entry_type_visibility"> [ndk_public as string]</span>
 
 
               <span class="entry_type_hwlevel">[legacy] </span>
@@ -10316,7 +10606,7 @@ include in EXIF.<wbr/></p>
             <td class="entry_type">
                 <span class="entry_type_name">int64</span>
 
-              <span class="entry_type_visibility"> [hidden]</span>
+              <span class="entry_type_visibility"> [ndk_public]</span>
 
 
               <span class="entry_type_hwlevel">[legacy] </span>
@@ -10788,7 +11078,7 @@ JPEG</p>
             <td class="entry_type">
                 <span class="entry_type_name">byte</span>
 
-              <span class="entry_type_visibility"> [public as location]</span>
+              <span class="entry_type_visibility"> [java_public as location]</span>
 
               <span class="entry_type_synthetic">[synthetic] </span>
 
@@ -10841,7 +11131,7 @@ viewed by anyone who receives the JPEG image.<wbr/></p>
                 <span class="entry_type_array">
                   3
                 </span>
-              <span class="entry_type_visibility"> [hidden]</span>
+              <span class="entry_type_visibility"> [ndk_public]</span>
 
 
               <span class="entry_type_hwlevel">[legacy] </span>
@@ -10885,7 +11175,7 @@ EXIF.<wbr/></p>
             <td class="entry_type">
                 <span class="entry_type_name">byte</span>
 
-              <span class="entry_type_visibility"> [hidden as string]</span>
+              <span class="entry_type_visibility"> [ndk_public as string]</span>
 
 
               <span class="entry_type_hwlevel">[legacy] </span>
@@ -10928,7 +11218,7 @@ include in EXIF.<wbr/></p>
             <td class="entry_type">
                 <span class="entry_type_name">int64</span>
 
-              <span class="entry_type_visibility"> [hidden]</span>
+              <span class="entry_type_visibility"> [ndk_public]</span>
 
 
               <span class="entry_type_hwlevel">[legacy] </span>
@@ -12027,7 +12317,7 @@ the MANUAL_<wbr/>SENSOR capability.<wbr/></p>
                 <span class="entry_type_array">
                   2
                 </span>
-              <span class="entry_type_visibility"> [hidden as size]</span>
+              <span class="entry_type_visibility"> [ndk_public as size]</span>
 
 
               <span class="entry_type_hwlevel">[full] </span>
@@ -14636,7 +14926,7 @@ REPROCESS.<wbr/> For HAL3,<wbr/> this tag is redundant.<wbr/></p>
                 <span class="entry_type_array">
                   3
                 </span>
-              <span class="entry_type_visibility"> [hidden]</span>
+              <span class="entry_type_visibility"> [ndk_public]</span>
 
 
               <span class="entry_type_hwlevel">[legacy] </span>
@@ -14710,7 +15000,7 @@ into the 3 stream types as below:</p>
             <td class="entry_type">
                 <span class="entry_type_name">int32</span>
 
-              <span class="entry_type_visibility"> [public]</span>
+              <span class="entry_type_visibility"> [java_public]</span>
 
               <span class="entry_type_synthetic">[synthetic] </span>
 
@@ -14773,7 +15063,7 @@ never support raw streams.<wbr/></p>
             <td class="entry_type">
                 <span class="entry_type_name">int32</span>
 
-              <span class="entry_type_visibility"> [public]</span>
+              <span class="entry_type_visibility"> [java_public]</span>
 
               <span class="entry_type_synthetic">[synthetic] </span>
 
@@ -14841,7 +15131,7 @@ processed format -- it will return 0 for a non-stalling stream.<wbr/></p>
             <td class="entry_type">
                 <span class="entry_type_name">int32</span>
 
-              <span class="entry_type_visibility"> [public]</span>
+              <span class="entry_type_visibility"> [java_public]</span>
 
               <span class="entry_type_synthetic">[synthetic] </span>
 
@@ -15289,7 +15579,7 @@ raw sensor images.<wbr/></p>
 <li>The maximum available resolution for RAW_<wbr/>SENSOR streams
   will match either the value in
   <a href="#static_android.sensor.info.pixelArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>pixel<wbr/>Array<wbr/>Size</a> or
-  <a href="#static_android.sensor.info.activeArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>active<wbr/>Array<wbr/>Size</a>.<wbr/></li>
+  <a href="#static_android.sensor.info.preCorrectionActiveArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>pre<wbr/>Correction<wbr/>Active<wbr/>Array<wbr/>Size</a>.<wbr/></li>
 <li>All DNG-related optional metadata entries are provided
   by the camera device.<wbr/></li>
 </ul></span>
@@ -15624,7 +15914,7 @@ DEPTH).<wbr/></p>
                 <span class="entry_type_array">
                   n
                 </span>
-              <span class="entry_type_visibility"> [hidden]</span>
+              <span class="entry_type_visibility"> [ndk_public]</span>
 
 
               <span class="entry_type_hwlevel">[legacy] </span>
@@ -15697,7 +15987,7 @@ via
                 <span class="entry_type_array">
                   n
                 </span>
-              <span class="entry_type_visibility"> [hidden]</span>
+              <span class="entry_type_visibility"> [ndk_public]</span>
 
 
               <span class="entry_type_hwlevel">[legacy] </span>
@@ -15778,7 +16068,7 @@ here or in the vendor tag list.<wbr/></p>
                 <span class="entry_type_array">
                   n
                 </span>
-              <span class="entry_type_visibility"> [hidden]</span>
+              <span class="entry_type_visibility"> [ndk_public]</span>
 
 
               <span class="entry_type_hwlevel">[legacy] </span>
@@ -16387,8 +16677,10 @@ the full set of performance guarantees.<wbr/></p></span>
                     <span class="entry_type_enum_name">RAW_OPAQUE</span>
                     <span class="entry_type_enum_optional">[optional]</span>
                     <span class="entry_type_enum_value">0x24</span>
-                    <span class="entry_type_enum_notes"><p>RAW_<wbr/>OPAQUE is a format for raw image buffers coming from an
-image sensor.<wbr/></p>
+                    <span class="entry_type_enum_notes"><p>RAW_<wbr/>OPAQUE (or
+<a href="https://developer.android.com/reference/android/graphics/ImageFormat.html#RAW_PRIVATE">RAW_<wbr/>PRIVATE</a>
+as referred in public API) is a format for raw image buffers
+coming from an image sensor.<wbr/></p>
 <p>The actual structure of buffers of this format is
 platform-specific,<wbr/> but must follow several constraints:</p>
 <ol>
@@ -17082,7 +17374,7 @@ additional formats if it so chooses.<wbr/></p>
                 <span class="entry_type_array">
                   n x 4
                 </span>
-              <span class="entry_type_visibility"> [hidden as streamConfiguration]</span>
+              <span class="entry_type_visibility"> [ndk_public as streamConfiguration]</span>
 
 
               <span class="entry_type_hwlevel">[legacy] </span>
@@ -17269,7 +17561,7 @@ YUV_<wbr/>420_<wbr/>888 must also be available for IMPLEMENTATION_<wbr/>DEFINED.
                 <span class="entry_type_array">
                   4 x n
                 </span>
-              <span class="entry_type_visibility"> [hidden as streamConfigurationDuration]</span>
+              <span class="entry_type_visibility"> [ndk_public as streamConfigurationDuration]</span>
 
 
               <span class="entry_type_hwlevel">[legacy] </span>
@@ -17335,7 +17627,7 @@ calculating the max frame rate.<wbr/></p>
                 <span class="entry_type_array">
                   4 x n
                 </span>
-              <span class="entry_type_visibility"> [hidden as streamConfigurationDuration]</span>
+              <span class="entry_type_visibility"> [ndk_public as streamConfigurationDuration]</span>
 
 
               <span class="entry_type_hwlevel">[legacy] </span>
@@ -17451,7 +17743,7 @@ and IMPLEMENTATION_<wbr/>DEFINED must not have stall durations.<wbr/></p>
             <td class="entry_type">
                 <span class="entry_type_name">int32</span>
 
-              <span class="entry_type_visibility"> [public as streamConfigurationMap]</span>
+              <span class="entry_type_visibility"> [java_public as streamConfigurationMap]</span>
 
               <span class="entry_type_synthetic">[synthetic] </span>
 
@@ -18117,6 +18409,8 @@ is guaranteed to use only analog amplification for applying the gain.<wbr/></p>
 requested,<wbr/> it will reduce the gain to the nearest supported
 value.<wbr/> The final sensitivity used will be available in the
 output capture result.<wbr/></p>
+<p>This control is only effective if <a href="#controls_android.control.aeMode">android.<wbr/>control.<wbr/>ae<wbr/>Mode</a> or <a href="#controls_android.control.mode">android.<wbr/>control.<wbr/>mode</a> is set to
+OFF; otherwise the auto-exposure algorithm will override this value.<wbr/></p>
             </td>
           </tr>
 
@@ -18900,6 +19194,11 @@ each channel is specified by the offset in the
 (8-14 bits is expected),<wbr/> or by the point where the sensor response
 becomes too non-linear to be useful.<wbr/>  The default value for this is
 maximum representable value for a 16-bit raw sample (2^16 - 1).<wbr/></p>
+<p>The white level values of captured images may vary for different
+capture settings (e.<wbr/>g.,<wbr/> <a href="#controls_android.sensor.sensitivity">android.<wbr/>sensor.<wbr/>sensitivity</a>).<wbr/> This key
+represents a coarse approximation for such case.<wbr/> It is recommended
+to use <a href="#dynamic_android.sensor.dynamicWhiteLevel">android.<wbr/>sensor.<wbr/>dynamic<wbr/>White<wbr/>Level</a> for captures when supported
+by the camera device,<wbr/> which provides more accurate white level values.<wbr/></p>
             </td>
           </tr>
 
@@ -18920,7 +19219,7 @@ than maximum raw value supported,<wbr/> i.<wbr/>e.<wbr/> 2^(sensor bits per pixe
                 
           <tr class="entry" id="static_android.sensor.info.timestampSource">
             <td class="entry_name
-             " rowspan="3">
+             " rowspan="5">
               android.<wbr/>sensor.<wbr/>info.<wbr/>timestamp<wbr/>Source
             </td>
             <td class="entry_type">
@@ -18982,6 +19281,21 @@ can be compared against other system time sources/<wbr/>timestamps.<wbr/></p>
             </td>
           </tr>
 
+          <tr class="entries_header">
+            <th class="th_details" colspan="5">HAL Implementation Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="5">
+              <p>For camera devices implement UNKNOWN,<wbr/> the camera framework expects that the timestamp
+source to be SYSTEM_<wbr/>TIME_<wbr/>MONOTONIC.<wbr/> For camera devices implement REALTIME,<wbr/> the camera
+framework expects that the timestamp source to be SYSTEM_<wbr/>TIME_<wbr/>BOOTTIME.<wbr/> See
+system/<wbr/>core/<wbr/>include/<wbr/>utils/<wbr/>Timers.<wbr/>h for the definition of SYSTEM_<wbr/>TIME_<wbr/>MONOTONIC and
+SYSTEM_<wbr/>TIME_<wbr/>BOOTTIME.<wbr/> Note that HAL must follow above expectation; otherwise video
+recording might suffer unexpected behavior.<wbr/></p>
+<p>Also,<wbr/> camera devices implements REALTIME must pass the ITS sensor fusion test which
+tests the alignment between camera timestamps and gyro sensor timestamps.<wbr/></p>
+            </td>
+          </tr>
 
           <tr class="entry_spacer"><td class="entry_spacer" colspan="6"></td></tr>
            <!-- end of entry -->
@@ -19868,6 +20182,15 @@ sensor is represented by the value in <a href="#static_android.sensor.info.white
 layout key (see <a href="#static_android.sensor.info.colorFilterArrangement">android.<wbr/>sensor.<wbr/>info.<wbr/>color<wbr/>Filter<wbr/>Arrangement</a>),<wbr/> i.<wbr/>e.<wbr/> the
 nth value given corresponds to the black level offset for the nth
 color channel listed in the CFA.<wbr/></p>
+<p>The black level values of captured images may vary for different
+capture settings (e.<wbr/>g.,<wbr/> <a href="#controls_android.sensor.sensitivity">android.<wbr/>sensor.<wbr/>sensitivity</a>).<wbr/> This key
+represents a coarse approximation for such case.<wbr/> It is recommended to
+use <a href="#dynamic_android.sensor.dynamicBlackLevel">android.<wbr/>sensor.<wbr/>dynamic<wbr/>Black<wbr/>Level</a> or use pixels from
+<a href="#static_android.sensor.opticalBlackRegions">android.<wbr/>sensor.<wbr/>optical<wbr/>Black<wbr/>Regions</a> directly for captures when
+supported by the camera device,<wbr/> which provides more accurate black
+level values.<wbr/> For raw capture in particular,<wbr/> it is recommended to use
+pixels from <a href="#static_android.sensor.opticalBlackRegions">android.<wbr/>sensor.<wbr/>optical<wbr/>Black<wbr/>Regions</a> to calculate black
+level values for each frame.<wbr/></p>
             </td>
           </tr>
 
@@ -20106,6 +20429,152 @@ supported by this camera device.<wbr/></p>
           <tr class="entry_cont">
             <td class="entry_details" colspan="5">
               <p>All custom modes must be &gt;= CUSTOM1.<wbr/></p>
+            </td>
+          </tr>
+
+          <tr class="entry_spacer"><td class="entry_spacer" colspan="6"></td></tr>
+           <!-- end of entry -->
+        
+                
+          <tr class="entry" id="static_android.sensor.opticalBlackRegions">
+            <td class="entry_name
+             " rowspan="5">
+              android.<wbr/>sensor.<wbr/>optical<wbr/>Black<wbr/>Regions
+            </td>
+            <td class="entry_type">
+                <span class="entry_type_name">int32</span>
+                <span class="entry_type_container">x</span>
+
+                <span class="entry_type_array">
+                  4 x num_regions
+                </span>
+              <span class="entry_type_visibility"> [public as rectangle]</span>
+
+
+
+
+
+
+            </td> <!-- entry_type -->
+
+            <td class="entry_description">
+              <p>List of disjoint rectangles indicating the sensor
+optically shielded black pixel regions.<wbr/></p>
+            </td>
+
+            <td class="entry_units">
+            </td>
+
+            <td class="entry_range">
+            </td>
+
+            <td class="entry_tags">
+            </td>
+
+          </tr>
+          <tr class="entries_header">
+            <th class="th_details" colspan="5">Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="5">
+              <p>In most camera sensors,<wbr/> the active array is surrounded by some
+optically shielded pixel areas.<wbr/> By blocking light,<wbr/> these pixels
+provides a reliable black reference for black level compensation
+in active array region.<wbr/></p>
+<p>This key provides a list of disjoint rectangles specifying the
+regions of optically shielded (with metal shield) black pixel
+regions if the camera device is capable of reading out these black
+pixels in the output raw images.<wbr/> In comparison to the fixed black
+level values reported by <a href="#static_android.sensor.blackLevelPattern">android.<wbr/>sensor.<wbr/>black<wbr/>Level<wbr/>Pattern</a>,<wbr/> this key
+may provide a more accurate way for the application to calculate
+black level of each captured raw images.<wbr/></p>
+<p>When this key is reported,<wbr/> the <a href="#dynamic_android.sensor.dynamicBlackLevel">android.<wbr/>sensor.<wbr/>dynamic<wbr/>Black<wbr/>Level</a> and
+<a href="#dynamic_android.sensor.dynamicWhiteLevel">android.<wbr/>sensor.<wbr/>dynamic<wbr/>White<wbr/>Level</a> will also be reported.<wbr/></p>
+            </td>
+          </tr>
+
+          <tr class="entries_header">
+            <th class="th_details" colspan="5">HAL Implementation Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="5">
+              <p>This array contains (xmin,<wbr/> ymin,<wbr/> width,<wbr/> height).<wbr/> The (xmin,<wbr/> ymin)
+must be &gt;= (0,<wbr/>0) and &lt;=
+<a href="#static_android.sensor.info.pixelArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>pixel<wbr/>Array<wbr/>Size</a>.<wbr/> The (width,<wbr/> height) must be
+&lt;= <a href="#static_android.sensor.info.pixelArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>pixel<wbr/>Array<wbr/>Size</a>.<wbr/> Each region must be
+outside the region reported by
+<a href="#static_android.sensor.info.preCorrectionActiveArraySize">android.<wbr/>sensor.<wbr/>info.<wbr/>pre<wbr/>Correction<wbr/>Active<wbr/>Array<wbr/>Size</a>.<wbr/></p>
+<p>The HAL must report minimal number of disjoint regions for the
+optically shielded back pixel regions.<wbr/> For example,<wbr/> if a region can
+be covered by one rectangle,<wbr/> the HAL must not split this region into
+multiple rectangles.<wbr/></p>
+            </td>
+          </tr>
+
+          <tr class="entry_spacer"><td class="entry_spacer" colspan="6"></td></tr>
+           <!-- end of entry -->
+        
+                
+          <tr class="entry" id="static_android.sensor.opaqueRawSize">
+            <td class="entry_name
+             " rowspan="5">
+              android.<wbr/>sensor.<wbr/>opaque<wbr/>Raw<wbr/>Size
+            </td>
+            <td class="entry_type">
+                <span class="entry_type_name">int32</span>
+                <span class="entry_type_container">x</span>
+
+                <span class="entry_type_array">
+                  n x 3
+                </span>
+              <span class="entry_type_visibility"> [system]</span>
+
+
+
+
+
+
+            </td> <!-- entry_type -->
+
+            <td class="entry_description">
+              <p>Size in bytes for all the listed opaque RAW buffer sizes</p>
+            </td>
+
+            <td class="entry_units">
+            </td>
+
+            <td class="entry_range">
+              <p>Must be large enough to fit the opaque RAW of corresponding size produced by
+the camera</p>
+            </td>
+
+            <td class="entry_tags">
+            </td>
+
+          </tr>
+          <tr class="entries_header">
+            <th class="th_details" colspan="5">Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="5">
+              <p>This configurations are listed as <code>(width,<wbr/> height,<wbr/> size_<wbr/>in_<wbr/>bytes)</code> tuples.<wbr/>
+This is used for sizing the gralloc buffers for opaque RAW buffers.<wbr/>
+All RAW_<wbr/>OPAQUE output stream configuration listed in
+<a href="#static_android.scaler.availableStreamConfigurations">android.<wbr/>scaler.<wbr/>available<wbr/>Stream<wbr/>Configurations</a> will have a corresponding tuple in
+this key.<wbr/></p>
+            </td>
+          </tr>
+
+          <tr class="entries_header">
+            <th class="th_details" colspan="5">HAL Implementation Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="5">
+              <p>This key is added in HAL3.<wbr/>4.<wbr/>
+For HAL3.<wbr/>4 or above: devices advertising RAW_<wbr/>OPAQUE format output must list this key.<wbr/>
+For HAL3.<wbr/>3 or earlier devices: if RAW_<wbr/>OPAQUE ouput is advertised,<wbr/> camera framework
+will derive this key by assuming each pixel takes two bytes and no padding bytes
+between rows.<wbr/></p>
             </td>
           </tr>
 
@@ -20379,6 +20848,8 @@ is guaranteed to use only analog amplification for applying the gain.<wbr/></p>
 requested,<wbr/> it will reduce the gain to the nearest supported
 value.<wbr/> The final sensitivity used will be available in the
 output capture result.<wbr/></p>
+<p>This control is only effective if <a href="#controls_android.control.aeMode">android.<wbr/>control.<wbr/>ae<wbr/>Mode</a> or <a href="#controls_android.control.mode">android.<wbr/>control.<wbr/>mode</a> is set to
+OFF; otherwise the auto-exposure algorithm will override this value.<wbr/></p>
             </td>
           </tr>
 
@@ -21157,6 +21628,160 @@ to the frame readout time.<wbr/></p>
             <td class="entry_details" colspan="5">
               <p>The HAL must report <code>0</code> if the sensor is using global shutter,<wbr/> where all pixels begin
 exposure at the same time.<wbr/></p>
+            </td>
+          </tr>
+
+          <tr class="entry_spacer"><td class="entry_spacer" colspan="6"></td></tr>
+           <!-- end of entry -->
+        
+                
+          <tr class="entry" id="dynamic_android.sensor.dynamicBlackLevel">
+            <td class="entry_name
+             " rowspan="5">
+              android.<wbr/>sensor.<wbr/>dynamic<wbr/>Black<wbr/>Level
+            </td>
+            <td class="entry_type">
+                <span class="entry_type_name">float</span>
+                <span class="entry_type_container">x</span>
+
+                <span class="entry_type_array">
+                  4
+                </span>
+              <span class="entry_type_visibility"> [public]</span>
+
+
+
+
+                <div class="entry_type_notes">2x2 raw count block</div>
+
+
+            </td> <!-- entry_type -->
+
+            <td class="entry_description">
+              <p>A per-frame dynamic black level offset for each of the color filter
+arrangement (CFA) mosaic channels.<wbr/></p>
+            </td>
+
+            <td class="entry_units">
+            </td>
+
+            <td class="entry_range">
+              <p>&gt;= 0 for each.<wbr/></p>
+            </td>
+
+            <td class="entry_tags">
+              <ul class="entry_tags">
+                  <li><a href="#tag_RAW">RAW</a></li>
+              </ul>
+            </td>
+
+          </tr>
+          <tr class="entries_header">
+            <th class="th_details" colspan="5">Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="5">
+              <p>Camera sensor black levels may vary dramatically for different
+capture settings (e.<wbr/>g.<wbr/> <a href="#controls_android.sensor.sensitivity">android.<wbr/>sensor.<wbr/>sensitivity</a>).<wbr/> The fixed black
+level reported by <a href="#static_android.sensor.blackLevelPattern">android.<wbr/>sensor.<wbr/>black<wbr/>Level<wbr/>Pattern</a> may be too
+inaccurate to represent the actual value on a per-frame basis.<wbr/> The
+camera device internal pipeline relies on reliable black level values
+to process the raw images appropriately.<wbr/> To get the best image
+quality,<wbr/> the camera device may choose to estimate the per frame black
+level values either based on optically shielded black regions
+(<a href="#static_android.sensor.opticalBlackRegions">android.<wbr/>sensor.<wbr/>optical<wbr/>Black<wbr/>Regions</a>) or its internal model.<wbr/></p>
+<p>This key reports the camera device estimated per-frame zero light
+value for each of the CFA mosaic channels in the camera sensor.<wbr/> The
+<a href="#static_android.sensor.blackLevelPattern">android.<wbr/>sensor.<wbr/>black<wbr/>Level<wbr/>Pattern</a> may only represent a coarse
+approximation of the actual black level values.<wbr/> This value is the
+black level used in camera device internal image processing pipeline
+and generally more accurate than the fixed black level values.<wbr/>
+However,<wbr/> since they are estimated values by the camera device,<wbr/> they
+may not be as accurate as the black level values calculated from the
+optical black pixels reported by <a href="#static_android.sensor.opticalBlackRegions">android.<wbr/>sensor.<wbr/>optical<wbr/>Black<wbr/>Regions</a>.<wbr/></p>
+<p>The values are given in the same order as channels listed for the CFA
+layout key (see <a href="#static_android.sensor.info.colorFilterArrangement">android.<wbr/>sensor.<wbr/>info.<wbr/>color<wbr/>Filter<wbr/>Arrangement</a>),<wbr/> i.<wbr/>e.<wbr/> the
+nth value given corresponds to the black level offset for the nth
+color channel listed in the CFA.<wbr/></p>
+<p>This key will be available if <a href="#static_android.sensor.opticalBlackRegions">android.<wbr/>sensor.<wbr/>optical<wbr/>Black<wbr/>Regions</a> is
+available or the camera device advertises this key via
+<a href="https://developer.android.com/reference/android/hardware/camera2/CameraCharacteristics.html#getAvailableCaptureResultKeys">CameraCharacteristics#getAvailableCaptureResultKeys</a>.<wbr/></p>
+            </td>
+          </tr>
+
+          <tr class="entries_header">
+            <th class="th_details" colspan="5">HAL Implementation Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="5">
+              <p>The values are given in row-column scan order,<wbr/> with the first value
+corresponding to the element of the CFA in row=0,<wbr/> column=0.<wbr/></p>
+            </td>
+          </tr>
+
+          <tr class="entry_spacer"><td class="entry_spacer" colspan="6"></td></tr>
+           <!-- end of entry -->
+        
+                
+          <tr class="entry" id="dynamic_android.sensor.dynamicWhiteLevel">
+            <td class="entry_name
+             " rowspan="5">
+              android.<wbr/>sensor.<wbr/>dynamic<wbr/>White<wbr/>Level
+            </td>
+            <td class="entry_type">
+                <span class="entry_type_name">int32</span>
+
+              <span class="entry_type_visibility"> [public]</span>
+
+
+
+
+
+
+            </td> <!-- entry_type -->
+
+            <td class="entry_description">
+              <p>Maximum raw value output by sensor for this frame.<wbr/></p>
+            </td>
+
+            <td class="entry_units">
+            </td>
+
+            <td class="entry_range">
+              <p>&gt;= 0</p>
+            </td>
+
+            <td class="entry_tags">
+              <ul class="entry_tags">
+                  <li><a href="#tag_RAW">RAW</a></li>
+              </ul>
+            </td>
+
+          </tr>
+          <tr class="entries_header">
+            <th class="th_details" colspan="5">Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="5">
+              <p>Since the <a href="#static_android.sensor.blackLevelPattern">android.<wbr/>sensor.<wbr/>black<wbr/>Level<wbr/>Pattern</a> may change for different
+capture settings (e.<wbr/>g.,<wbr/> <a href="#controls_android.sensor.sensitivity">android.<wbr/>sensor.<wbr/>sensitivity</a>),<wbr/> the white
+level will change accordingly.<wbr/> This key is similar to
+<a href="#static_android.sensor.info.whiteLevel">android.<wbr/>sensor.<wbr/>info.<wbr/>white<wbr/>Level</a>,<wbr/> but specifies the camera device
+estimated white level for each frame.<wbr/></p>
+<p>This key will be available if <a href="#static_android.sensor.opticalBlackRegions">android.<wbr/>sensor.<wbr/>optical<wbr/>Black<wbr/>Regions</a> is
+available or the camera device advertises this key via
+<a href="https://developer.android.com/reference/android/hardware/camera2/CameraCharacteristics.html#getAvailableCaptureRequestKeys">CameraCharacteristics#getAvailableCaptureRequestKeys</a>.<wbr/></p>
+            </td>
+          </tr>
+
+          <tr class="entries_header">
+            <th class="th_details" colspan="5">HAL Implementation Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="5">
+              <p>The full bit depth of the sensor must be available in the raw data,<wbr/>
+so the value for linear sensors should not be significantly lower
+than maximum raw value supported,<wbr/> i.<wbr/>e.<wbr/> 2^(sensor bits per pixel).<wbr/></p>
             </td>
           </tr>
 
@@ -22405,7 +23030,7 @@ FULL mode must also fill in <a href="#dynamic_android.statistics.faceIds">androi
                 <span class="entry_type_array">
                   n
                 </span>
-              <span class="entry_type_visibility"> [hidden]</span>
+              <span class="entry_type_visibility"> [ndk_public]</span>
 
 
               <span class="entry_type_hwlevel">[legacy] </span>
@@ -22461,7 +23086,7 @@ assigned a new ID.<wbr/></p>
                 <span class="entry_type_array">
                   n x 6
                 </span>
-              <span class="entry_type_visibility"> [hidden]</span>
+              <span class="entry_type_visibility"> [ndk_public]</span>
 
 
               <span class="entry_type_hwlevel">[legacy] </span>
@@ -22518,7 +23143,7 @@ faces.<wbr/></p>
                 <span class="entry_type_array">
                   n x 4
                 </span>
-              <span class="entry_type_visibility"> [hidden as rectangle]</span>
+              <span class="entry_type_visibility"> [ndk_public as rectangle]</span>
 
 
               <span class="entry_type_hwlevel">[legacy] </span>
@@ -22575,7 +23200,7 @@ faces.<wbr/></p>
                 <span class="entry_type_array">
                   n
                 </span>
-              <span class="entry_type_visibility"> [hidden]</span>
+              <span class="entry_type_visibility"> [ndk_public]</span>
 
 
               <span class="entry_type_hwlevel">[legacy] </span>
@@ -22639,7 +23264,7 @@ all times is illegal).<wbr/></p>
                 <span class="entry_type_array">
                   n
                 </span>
-              <span class="entry_type_visibility"> [public as face]</span>
+              <span class="entry_type_visibility"> [java_public as face]</span>
 
               <span class="entry_type_synthetic">[synthetic] </span>
 
@@ -22897,7 +23522,7 @@ generation</p>
             <td class="entry_type">
                 <span class="entry_type_name">byte</span>
 
-              <span class="entry_type_visibility"> [public as lensShadingMap]</span>
+              <span class="entry_type_visibility"> [java_public as lensShadingMap]</span>
 
 
               <span class="entry_type_hwlevel">[full] </span>
@@ -22929,10 +23554,21 @@ Bayer color channel.<wbr/></p>
           </tr>
           <tr class="entry_cont">
             <td class="entry_details" colspan="5">
-              <p>The least shaded section of the image should have a gain factor
-of 1; all other sections should have gains above 1.<wbr/></p>
+              <p>The map provided here is the same map that is used by the camera device to
+correct both color shading and vignetting for output non-RAW images.<wbr/></p>
+<p>When there is no lens shading correction applied to RAW
+output images (<a href="#static_android.sensor.info.lensShadingApplied">android.<wbr/>sensor.<wbr/>info.<wbr/>lens<wbr/>Shading<wbr/>Applied</a> <code>==</code>
+false),<wbr/> this map is the complete lens shading correction
+map; when there is some lens shading correction applied to
+the RAW output image (<a href="#static_android.sensor.info.lensShadingApplied">android.<wbr/>sensor.<wbr/>info.<wbr/>lens<wbr/>Shading<wbr/>Applied</a><code>==</code> true),<wbr/> this map reports the remaining lens shading
+correction map that needs to be applied to get shading
+corrected images that match the camera device's output for
+non-RAW formats.<wbr/></p>
+<p>For a complete shading correction map,<wbr/> the least shaded
+section of the image will have a gain factor of 1; all
+other sections will have gains above 1.<wbr/></p>
 <p>When <a href="#controls_android.colorCorrection.mode">android.<wbr/>color<wbr/>Correction.<wbr/>mode</a> = TRANSFORM_<wbr/>MATRIX,<wbr/> the map
-must take into account the colorCorrection settings.<wbr/></p>
+will take into account the colorCorrection settings.<wbr/></p>
 <p>The shading map is for the entire active pixel array,<wbr/> and is not
 affected by the crop region specified in the request.<wbr/> Each shading map
 entry is the value of the shading compensation map over a specific
@@ -22944,8 +23580,8 @@ The map is assumed to be bilinearly interpolated between the sample points.<wbr/
 <p>The channel order is [R,<wbr/> Geven,<wbr/> Godd,<wbr/> B],<wbr/> where Geven is the green
 channel for the even rows of a Bayer pattern,<wbr/> and Godd is the odd rows.<wbr/>
 The shading map is stored in a fully interleaved format.<wbr/></p>
-<p>The shading map should have on the order of 30-40 rows and columns,<wbr/>
-and must be smaller than 64x64.<wbr/></p>
+<p>The shading map will generally have on the order of 30-40 rows and columns,<wbr/>
+and will be smaller than 64x64.<wbr/></p>
 <p>As an example,<wbr/> given a very small map defined as:</p>
 <pre><code>width,<wbr/>height = [ 4,<wbr/> 3 ]
 values =
@@ -22985,7 +23621,7 @@ image of a gray wall (using bicubic interpolation for visual quality) as capture
                 <span class="entry_type_array">
                   4 x n x m
                 </span>
-              <span class="entry_type_visibility"> [hidden]</span>
+              <span class="entry_type_visibility"> [ndk_public]</span>
 
 
               <span class="entry_type_hwlevel">[full] </span>
@@ -22998,8 +23634,8 @@ image of a gray wall (using bicubic interpolation for visual quality) as capture
 
             <td class="entry_description">
               <p>The shading map is a low-resolution floating-point map
-that lists the coefficients used to correct for vignetting,<wbr/> for each
-Bayer color channel of RAW image data.<wbr/></p>
+that lists the coefficients used to correct for vignetting and color shading,<wbr/>
+for each Bayer color channel of RAW image data.<wbr/></p>
             </td>
 
             <td class="entry_units">
@@ -23018,10 +23654,21 @@ Bayer color channel of RAW image data.<wbr/></p>
           </tr>
           <tr class="entry_cont">
             <td class="entry_details" colspan="5">
-              <p>The least shaded section of the image should have a gain factor
-of 1; all other sections should have gains above 1.<wbr/></p>
+              <p>The map provided here is the same map that is used by the camera device to
+correct both color shading and vignetting for output non-RAW images.<wbr/></p>
+<p>When there is no lens shading correction applied to RAW
+output images (<a href="#static_android.sensor.info.lensShadingApplied">android.<wbr/>sensor.<wbr/>info.<wbr/>lens<wbr/>Shading<wbr/>Applied</a> <code>==</code>
+false),<wbr/> this map is the complete lens shading correction
+map; when there is some lens shading correction applied to
+the RAW output image (<a href="#static_android.sensor.info.lensShadingApplied">android.<wbr/>sensor.<wbr/>info.<wbr/>lens<wbr/>Shading<wbr/>Applied</a><code>==</code> true),<wbr/> this map reports the remaining lens shading
+correction map that needs to be applied to get shading
+corrected images that match the camera device's output for
+non-RAW formats.<wbr/></p>
+<p>For a complete shading correction map,<wbr/> the least shaded
+section of the image will have a gain factor of 1; all
+other sections will have gains above 1.<wbr/></p>
 <p>When <a href="#controls_android.colorCorrection.mode">android.<wbr/>color<wbr/>Correction.<wbr/>mode</a> = TRANSFORM_<wbr/>MATRIX,<wbr/> the map
-must take into account the colorCorrection settings.<wbr/></p>
+will take into account the colorCorrection settings.<wbr/></p>
 <p>The shading map is for the entire active pixel array,<wbr/> and is not
 affected by the crop region specified in the request.<wbr/> Each shading map
 entry is the value of the shading compensation map over a specific
@@ -23034,8 +23681,8 @@ The map is assumed to be bilinearly interpolated between the sample points.<wbr/
 channel for the even rows of a Bayer pattern,<wbr/> and Godd is the odd rows.<wbr/>
 The shading map is stored in a fully interleaved format,<wbr/> and its size
 is provided in the camera static metadata by <a href="#static_android.lens.info.shadingMapSize">android.<wbr/>lens.<wbr/>info.<wbr/>shading<wbr/>Map<wbr/>Size</a>.<wbr/></p>
-<p>The shading map should have on the order of 30-40 rows and columns,<wbr/>
-and must be smaller than 64x64.<wbr/></p>
+<p>The shading map will generally have on the order of 30-40 rows and columns,<wbr/>
+and will be smaller than 64x64.<wbr/></p>
 <p>As an example,<wbr/> given a very small map defined as:</p>
 <pre><code><a href="#static_android.lens.info.shadingMapSize">android.<wbr/>lens.<wbr/>info.<wbr/>shading<wbr/>Map<wbr/>Size</a> = [ 4,<wbr/> 3 ]
 <a href="#dynamic_android.statistics.lensShadingMap">android.<wbr/>statistics.<wbr/>lens<wbr/>Shading<wbr/>Map</a> =
@@ -23539,7 +24186,7 @@ the output result metadata.<wbr/></p>
                 <span class="entry_type_array">
                   n x 2
                 </span>
-              <span class="entry_type_visibility"> [hidden]</span>
+              <span class="entry_type_visibility"> [ndk_public]</span>
 
 
               <span class="entry_type_hwlevel">[full] </span>
@@ -23592,7 +24239,7 @@ CONTRAST_<wbr/>CURVE.<wbr/></p>
                 <span class="entry_type_array">
                   n x 2
                 </span>
-              <span class="entry_type_visibility"> [hidden]</span>
+              <span class="entry_type_visibility"> [ndk_public]</span>
 
 
               <span class="entry_type_hwlevel">[full] </span>
@@ -23645,7 +24292,7 @@ CONTRAST_<wbr/>CURVE.<wbr/></p>
                 <span class="entry_type_array">
                   n x 2
                 </span>
-              <span class="entry_type_visibility"> [hidden]</span>
+              <span class="entry_type_visibility"> [ndk_public]</span>
 
 
               <span class="entry_type_hwlevel">[full] </span>
@@ -23746,7 +24393,7 @@ control points used as are available.<wbr/></p>
             <td class="entry_type">
                 <span class="entry_type_name">float</span>
 
-              <span class="entry_type_visibility"> [public as tonemapCurve]</span>
+              <span class="entry_type_visibility"> [java_public as tonemapCurve]</span>
 
               <span class="entry_type_synthetic">[synthetic] </span>
 
@@ -24253,7 +24900,7 @@ capture rate,<wbr/> then FAST and HIGH_<wbr/>QUALITY will generate the same outp
                 <span class="entry_type_array">
                   n x 2
                 </span>
-              <span class="entry_type_visibility"> [hidden]</span>
+              <span class="entry_type_visibility"> [ndk_public]</span>
 
 
               <span class="entry_type_hwlevel">[full] </span>
@@ -24306,7 +24953,7 @@ CONTRAST_<wbr/>CURVE.<wbr/></p>
                 <span class="entry_type_array">
                   n x 2
                 </span>
-              <span class="entry_type_visibility"> [hidden]</span>
+              <span class="entry_type_visibility"> [ndk_public]</span>
 
 
               <span class="entry_type_hwlevel">[full] </span>
@@ -24359,7 +25006,7 @@ CONTRAST_<wbr/>CURVE.<wbr/></p>
                 <span class="entry_type_array">
                   n x 2
                 </span>
-              <span class="entry_type_visibility"> [hidden]</span>
+              <span class="entry_type_visibility"> [ndk_public]</span>
 
 
               <span class="entry_type_hwlevel">[full] </span>
@@ -24460,7 +25107,7 @@ control points used as are available.<wbr/></p>
             <td class="entry_type">
                 <span class="entry_type_name">float</span>
 
-              <span class="entry_type_visibility"> [public as tonemapCurve]</span>
+              <span class="entry_type_visibility"> [java_public as tonemapCurve]</span>
 
               <span class="entry_type_synthetic">[synthetic] </span>
 
@@ -25062,15 +25709,75 @@ doesn't violate the above rules.<wbr/></p>
                 <ul class="entry_type_enum">
                   <li>
                     <span class="entry_type_enum_name">LIMITED</span>
-                    <span class="entry_type_enum_notes"><p>This camera device has only limited capabilities.<wbr/></p></span>
+                    <span class="entry_type_enum_notes"><p>This camera device does not have enough capabilities to qualify as a <code>FULL</code> device or
+better.<wbr/></p>
+<p>Only the stream configurations listed in the <code>LEGACY</code> and <code>LIMITED</code> tables in the
+<a href="https://developer.android.com/reference/android/hardware/camera2/CameraDevice.html#createCaptureSession">createCaptureSession</a> documentation are guaranteed to be supported.<wbr/></p>
+<p>All <code>LIMITED</code> devices support the <code>BACKWARDS_<wbr/>COMPATIBLE</code> capability,<wbr/> indicating basic
+support for color image capture.<wbr/> The only exception is that the device may
+alternatively support only the <code>DEPTH_<wbr/>OUTPUT</code> capability,<wbr/> if it can only output depth
+measurements and not color images.<wbr/></p>
+<p><code>LIMITED</code> devices and above require the use of <a href="#controls_android.control.aePrecaptureTrigger">android.<wbr/>control.<wbr/>ae<wbr/>Precapture<wbr/>Trigger</a>
+to lock exposure metering (and calculate flash power,<wbr/> for cameras with flash) before
+capturing a high-quality still image.<wbr/></p>
+<p>A <code>LIMITED</code> device that only lists the <code>BACKWARDS_<wbr/>COMPATIBLE</code> capability is only
+required to support full-automatic operation and post-processing (<code>OFF</code> is not
+supported for <a href="#controls_android.control.aeMode">android.<wbr/>control.<wbr/>ae<wbr/>Mode</a>,<wbr/> <a href="#controls_android.control.afMode">android.<wbr/>control.<wbr/>af<wbr/>Mode</a>,<wbr/> or
+<a href="#controls_android.control.awbMode">android.<wbr/>control.<wbr/>awb<wbr/>Mode</a>)</p>
+<p>Additional capabilities may optionally be supported by a <code>LIMITED</code>-level device,<wbr/> and
+can be checked for in <a href="#static_android.request.availableCapabilities">android.<wbr/>request.<wbr/>available<wbr/>Capabilities</a>.<wbr/></p></span>
                   </li>
                   <li>
                     <span class="entry_type_enum_name">FULL</span>
-                    <span class="entry_type_enum_notes"><p>This camera device is capable of supporting advanced imaging applications.<wbr/></p></span>
+                    <span class="entry_type_enum_notes"><p>This camera device is capable of supporting advanced imaging applications.<wbr/></p>
+<p>The stream configurations listed in the <code>FULL</code>,<wbr/> <code>LEGACY</code> and <code>LIMITED</code> tables in the
+<a href="https://developer.android.com/reference/android/hardware/camera2/CameraDevice.html#createCaptureSession">createCaptureSession</a> documentation are guaranteed to be supported.<wbr/></p>
+<p>A <code>FULL</code> device will support below capabilities:</p>
+<ul>
+<li><code>BURST_<wbr/>CAPTURE</code> capability (<a href="#static_android.request.availableCapabilities">android.<wbr/>request.<wbr/>available<wbr/>Capabilities</a> contains
+  <code>BURST_<wbr/>CAPTURE</code>)</li>
+<li>Per frame control (<a href="#static_android.sync.maxLatency">android.<wbr/>sync.<wbr/>max<wbr/>Latency</a> <code>==</code> PER_<wbr/>FRAME_<wbr/>CONTROL)</li>
+<li>Manual sensor control (<a href="#static_android.request.availableCapabilities">android.<wbr/>request.<wbr/>available<wbr/>Capabilities</a> contains <code>MANUAL_<wbr/>SENSOR</code>)</li>
+<li>Manual post-processing control (<a href="#static_android.request.availableCapabilities">android.<wbr/>request.<wbr/>available<wbr/>Capabilities</a> contains
+  <code>MANUAL_<wbr/>POST_<wbr/>PROCESSING</code>)</li>
+<li>The required exposure time range defined in <a href="#static_android.sensor.info.exposureTimeRange">android.<wbr/>sensor.<wbr/>info.<wbr/>exposure<wbr/>Time<wbr/>Range</a></li>
+<li>The required maxFrameDuration defined in <a href="#static_android.sensor.info.maxFrameDuration">android.<wbr/>sensor.<wbr/>info.<wbr/>max<wbr/>Frame<wbr/>Duration</a></li>
+</ul>
+<p>Note:
+Pre-API level 23,<wbr/> FULL devices also supported arbitrary cropping region
+(<a href="#static_android.scaler.croppingType">android.<wbr/>scaler.<wbr/>cropping<wbr/>Type</a> <code>== FREEFORM</code>); this requirement was relaxed in API level
+23,<wbr/> and <code>FULL</code> devices may only support <code>CENTERED</code> cropping.<wbr/></p></span>
                   </li>
                   <li>
                     <span class="entry_type_enum_name">LEGACY</span>
-                    <span class="entry_type_enum_notes"><p>This camera device is running in backward compatibility mode.<wbr/></p></span>
+                    <span class="entry_type_enum_notes"><p>This camera device is running in backward compatibility mode.<wbr/></p>
+<p>Only the stream configurations listed in the <code>LEGACY</code> table in the <a href="https://developer.android.com/reference/android/hardware/camera2/CameraDevice.html#createCaptureSession">createCaptureSession</a>
+documentation are supported.<wbr/></p>
+<p>A <code>LEGACY</code> device does not support per-frame control,<wbr/> manual sensor control,<wbr/> manual
+post-processing,<wbr/> arbitrary cropping regions,<wbr/> and has relaxed performance constraints.<wbr/>
+No additional capabilities beyond <code>BACKWARD_<wbr/>COMPATIBLE</code> will ever be listed by a
+<code>LEGACY</code> device in <a href="#static_android.request.availableCapabilities">android.<wbr/>request.<wbr/>available<wbr/>Capabilities</a>.<wbr/></p>
+<p>In addition,<wbr/> the <a href="#controls_android.control.aePrecaptureTrigger">android.<wbr/>control.<wbr/>ae<wbr/>Precapture<wbr/>Trigger</a> is not functional on <code>LEGACY</code>
+devices.<wbr/> Instead,<wbr/> every request that includes a JPEG-format output target is treated
+as triggering a still capture,<wbr/> internally executing a precapture trigger.<wbr/>  This may
+fire the flash for flash power metering during precapture,<wbr/> and then fire the flash
+for the final capture,<wbr/> if a flash is available on the device and the AE mode is set to
+enable the flash.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">3</span>
+                    <span class="entry_type_enum_notes"><p>This camera device is capable of YUV reprocessing and RAW data capture,<wbr/> in addition to
+FULL-level capabilities.<wbr/></p>
+<p>The stream configurations listed in the <code>LEVEL_<wbr/>3</code>,<wbr/> <code>RAW</code>,<wbr/> <code>FULL</code>,<wbr/> <code>LEGACY</code> and
+<code>LIMITED</code> tables in the <a href="https://developer.android.com/reference/android/hardware/camera2/CameraDevice.html#createCaptureSession">createCaptureSession</a>
+documentation are guaranteed to be supported.<wbr/></p>
+<p>The following additional capabilities are guaranteed to be supported:</p>
+<ul>
+<li><code>YUV_<wbr/>REPROCESSING</code> capability (<a href="#static_android.request.availableCapabilities">android.<wbr/>request.<wbr/>available<wbr/>Capabilities</a> contains
+  <code>YUV_<wbr/>REPROCESSING</code>)</li>
+<li><code>RAW</code> capability (<a href="#static_android.request.availableCapabilities">android.<wbr/>request.<wbr/>available<wbr/>Capabilities</a> contains
+  <code>RAW</code>)</li>
+</ul></span>
                   </li>
                 </ul>
 
@@ -25095,22 +25802,39 @@ doesn't violate the above rules.<wbr/></p>
           </tr>
           <tr class="entry_cont">
             <td class="entry_details" colspan="5">
-              <p>Camera devices will come in three flavors: LEGACY,<wbr/> LIMITED and FULL.<wbr/></p>
-<p>A FULL device will support below capabilities:</p>
+              <p>The supported hardware level is a high-level description of the camera device's
+capabilities,<wbr/> summarizing several capabilities into one field.<wbr/>  Each level adds additional
+features to the previous one,<wbr/> and is always a strict superset of the previous level.<wbr/>
+The ordering is <code>LEGACY &lt; LIMITED &lt; FULL &lt; LEVEL_<wbr/>3</code>.<wbr/></p>
+<p>Starting from <code>LEVEL_<wbr/>3</code>,<wbr/> the level enumerations are guaranteed to be in increasing
+numerical value as well.<wbr/> To check if a given device is at least at a given hardware level,<wbr/>
+the following code snippet can be used:</p>
+<pre><code>//<wbr/> Returns true if the device supports the required hardware level,<wbr/> or better.<wbr/>
+boolean isHardwareLevelSupported(CameraCharacteristics c,<wbr/> int requiredLevel) {
+    int deviceLevel = c.<wbr/>get(Camera<wbr/>Characteristics.<wbr/>INFO_<wbr/>SUPPORTED_<wbr/>HARDWARE_<wbr/>LEVEL);
+    if (deviceLevel == Camera<wbr/>Characteristics.<wbr/>INFO_<wbr/>SUPPORTED_<wbr/>HARDWARE_<wbr/>LEVEL_<wbr/>LEGACY) {
+        return requiredLevel == deviceLevel;
+    }
+    //<wbr/> deviceLevel is not LEGACY,<wbr/> can use numerical sort
+    return requiredLevel &lt;= deviceLevel;
+}
+</code></pre>
+<p>At a high level,<wbr/> the levels are:</p>
 <ul>
-<li>BURST_<wbr/>CAPTURE capability (<a href="#static_android.request.availableCapabilities">android.<wbr/>request.<wbr/>available<wbr/>Capabilities</a> contains BURST_<wbr/>CAPTURE)</li>
-<li>Per frame control (<a href="#static_android.sync.maxLatency">android.<wbr/>sync.<wbr/>max<wbr/>Latency</a> <code>==</code> PER_<wbr/>FRAME_<wbr/>CONTROL)</li>
-<li>Manual sensor control (<a href="#static_android.request.availableCapabilities">android.<wbr/>request.<wbr/>available<wbr/>Capabilities</a> contains MANUAL_<wbr/>SENSOR)</li>
-<li>Manual post-processing control (<a href="#static_android.request.availableCapabilities">android.<wbr/>request.<wbr/>available<wbr/>Capabilities</a> contains
-  MANUAL_<wbr/>POST_<wbr/>PROCESSING)</li>
-<li>At least 3 processed (but not stalling) format output streams
-  (<a href="#static_android.request.maxNumOutputProc">android.<wbr/>request.<wbr/>max<wbr/>Num<wbr/>Output<wbr/>Proc</a> <code>&gt;=</code> 3)</li>
-<li>The required stream configurations defined in <a href="#static_android.scaler.availableStreamConfigurations">android.<wbr/>scaler.<wbr/>available<wbr/>Stream<wbr/>Configurations</a></li>
-<li>The required exposure time range defined in <a href="#static_android.sensor.info.exposureTimeRange">android.<wbr/>sensor.<wbr/>info.<wbr/>exposure<wbr/>Time<wbr/>Range</a></li>
-<li>The required maxFrameDuration defined in <a href="#static_android.sensor.info.maxFrameDuration">android.<wbr/>sensor.<wbr/>info.<wbr/>max<wbr/>Frame<wbr/>Duration</a></li>
+<li><code>LEGACY</code> devices operate in a backwards-compatibility mode for older
+  Android devices,<wbr/> and have very limited capabilities.<wbr/></li>
+<li><code>LIMITED</code> devices represent the
+  baseline feature set,<wbr/> and may also include additional capabilities that are
+  subsets of <code>FULL</code>.<wbr/></li>
+<li><code>FULL</code> devices additionally support per-frame manual control of sensor,<wbr/> flash,<wbr/> lens and
+  post-processing settings,<wbr/> and image capture at a high rate.<wbr/></li>
+<li><code>LEVEL_<wbr/>3</code> devices additionally support YUV reprocessing and RAW image capture,<wbr/> along
+  with additional output stream configurations.<wbr/></li>
 </ul>
-<p>A LIMITED device may have some or none of the above characteristics.<wbr/>
-To find out more refer to <a href="#static_android.request.availableCapabilities">android.<wbr/>request.<wbr/>available<wbr/>Capabilities</a>.<wbr/></p>
+<p>See the individual level enums for full descriptions of the supported capabilities.<wbr/>  The
+<a href="#static_android.request.availableCapabilities">android.<wbr/>request.<wbr/>available<wbr/>Capabilities</a> entry describes the device's capabilities at a
+finer-grain level,<wbr/> if needed.<wbr/> In addition,<wbr/> many controls have their available settings or
+ranges defined in individual <a href="https://developer.android.com/reference/android/hardware/camera2/CameraCharacteristics.html">CameraCharacteristics</a> entries.<wbr/></p>
 <p>Some features are not part of any particular hardware level or capability and must be
 queried separately.<wbr/> These include:</p>
 <ul>
@@ -25121,14 +25845,6 @@ queried separately.<wbr/> These include:</p>
   (<a href="#static_android.lens.info.availableOpticalStabilization">android.<wbr/>lens.<wbr/>info.<wbr/>available<wbr/>Optical<wbr/>Stabilization</a>,<wbr/>
    <a href="#static_android.control.availableVideoStabilizationModes">android.<wbr/>control.<wbr/>available<wbr/>Video<wbr/>Stabilization<wbr/>Modes</a>)</li>
 </ul>
-<p>A LEGACY device does not support per-frame control,<wbr/> manual sensor control,<wbr/> manual
-post-processing,<wbr/> arbitrary cropping regions,<wbr/> and has relaxed performance constraints.<wbr/></p>
-<p>Each higher level supports everything the lower level supports
-in this order: FULL <code>&gt;</code> LIMITED <code>&gt;</code> LEGACY.<wbr/></p>
-<p>Note:
-Pre-API level 23,<wbr/> FULL devices also supported arbitrary cropping region
-(<a href="#static_android.scaler.croppingType">android.<wbr/>scaler.<wbr/>cropping<wbr/>Type</a> <code>==</code> FREEFORM); this requirement was relaxed in API level 23,<wbr/>
-and FULL devices may only support CENTERED cropping.<wbr/></p>
             </td>
           </tr>
 
@@ -25137,17 +25853,16 @@ and FULL devices may only support CENTERED cropping.<wbr/></p>
           </tr>
           <tr class="entry_cont">
             <td class="entry_details" colspan="5">
-              <p>The camera 3 HAL device can implement one of two possible
-operational modes; limited and full.<wbr/> Full support is
-expected from new higher-end devices.<wbr/> Limited mode has
-hardware requirements roughly in line with those for a
-camera HAL device v1 implementation,<wbr/> and is expected from
-older or inexpensive devices.<wbr/> Full is a strict superset of
-limited,<wbr/> and they share the same essential operational flow.<wbr/></p>
+              <p>The camera 3 HAL device can implement one of three possible operational modes; LIMITED,<wbr/>
+FULL,<wbr/> and LEVEL_<wbr/>3.<wbr/></p>
+<p>FULL support or better is expected from new higher-end devices.<wbr/> Limited
+mode has hardware requirements roughly in line with those for a camera HAL device v1
+implementation,<wbr/> and is expected from older or inexpensive devices.<wbr/> Each level is a strict
+superset of the previous level,<wbr/> and they share the same essential operational flow.<wbr/></p>
 <p>For full details refer to "S3.<wbr/> Operational Modes" in camera3.<wbr/>h</p>
-<p>Camera HAL3+ must not implement LEGACY mode.<wbr/> It is there
-for backwards compatibility in the <code>android.<wbr/>hardware.<wbr/>camera2</code>
-user-facing API only.<wbr/></p>
+<p>Camera HAL3+ must not implement LEGACY mode.<wbr/> It is there for backwards compatibility in
+the <code>android.<wbr/>hardware.<wbr/>camera2</code> user-facing API only on HALv1 devices,<wbr/> and is implemented
+by the camera framework code.<wbr/></p>
             </td>
           </tr>
 
@@ -25433,7 +26148,7 @@ possible again.<wbr/></p>
             <td class="entry_type">
                 <span class="entry_type_name entry_type_name_enum">int64</span>
 
-              <span class="entry_type_visibility"> [hidden]</span>
+              <span class="entry_type_visibility"> [ndk_public]</span>
 
 
               <span class="entry_type_hwlevel">[legacy] </span>
@@ -25694,7 +26409,7 @@ where resultN has frameNumber N.<wbr/>
 <code>4 - 2 = 2</code>.<wbr/></p>
 <p>Use <code>frame_<wbr/>count</code> from camera3_<wbr/>request_<wbr/>t instead of
 <a href="#controls_android.request.frameCount">android.<wbr/>request.<wbr/>frame<wbr/>Count</a> or
-<code>@link{android.<wbr/>hardware.<wbr/>camera2.<wbr/>Capture<wbr/>Result#get<wbr/>Frame<wbr/>Number}</code>.<wbr/></p>
+<code><a href="https://developer.android.com/reference/android/hardware/camera2/CaptureResult.html#getFrameNumber">CaptureResult#getFrameNumber</a></code>.<wbr/></p>
 <p>LIMITED devices are strongly encouraged to use a non-negative
 value.<wbr/> If UNKNOWN is used here then app developers do not have a way
 to know when sensor settings have been applied.<wbr/></p>
@@ -25745,7 +26460,7 @@ to know when sensor settings have been applied.<wbr/></p>
             <td class="entry_type">
                 <span class="entry_type_name">float</span>
 
-              <span class="entry_type_visibility"> [public]</span>
+              <span class="entry_type_visibility"> [java_public]</span>
 
 
               <span class="entry_type_hwlevel">[limited] </span>
@@ -25853,7 +26568,7 @@ Similarly,<wbr/> for edge enhancement reprocessing,<wbr/> it is only effective w
             <td class="entry_type">
                 <span class="entry_type_name">float</span>
 
-              <span class="entry_type_visibility"> [public]</span>
+              <span class="entry_type_visibility"> [java_public]</span>
 
 
               <span class="entry_type_hwlevel">[limited] </span>
@@ -25961,7 +26676,7 @@ Similarly,<wbr/> for edge enhancement reprocessing,<wbr/> it is only effective w
             <td class="entry_type">
                 <span class="entry_type_name">int32</span>
 
-              <span class="entry_type_visibility"> [public]</span>
+              <span class="entry_type_visibility"> [java_public]</span>
 
 
               <span class="entry_type_hwlevel">[limited] </span>
@@ -26119,7 +26834,7 @@ not be defined.<wbr/></p>
                 <span class="entry_type_array">
                   n x 4
                 </span>
-              <span class="entry_type_visibility"> [hidden as streamConfiguration]</span>
+              <span class="entry_type_visibility"> [ndk_public as streamConfiguration]</span>
 
 
               <span class="entry_type_hwlevel">[limited] </span>
@@ -26192,7 +26907,7 @@ the entries for HAL_<wbr/>PIXEL_<wbr/>FORMAT_<wbr/>Y16.<wbr/></p>
                 <span class="entry_type_array">
                   4 x n
                 </span>
-              <span class="entry_type_visibility"> [hidden as streamConfigurationDuration]</span>
+              <span class="entry_type_visibility"> [ndk_public as streamConfigurationDuration]</span>
 
 
               <span class="entry_type_hwlevel">[limited] </span>
@@ -26257,7 +26972,7 @@ calculating the max frame rate.<wbr/></p>
                 <span class="entry_type_array">
                   4 x n
                 </span>
-              <span class="entry_type_visibility"> [hidden as streamConfigurationDuration]</span>
+              <span class="entry_type_visibility"> [ndk_public as streamConfigurationDuration]</span>
 
 
               <span class="entry_type_hwlevel">[limited] </span>
@@ -26531,6 +27246,8 @@ corrupted during depth measurement.<wbr/></p>
           <li><a href="#dynamic_android.sensor.profileHueSatMap">android.sensor.profileHueSatMap</a> (dynamic)</li>
           <li><a href="#dynamic_android.sensor.profileToneCurve">android.sensor.profileToneCurve</a> (dynamic)</li>
           <li><a href="#dynamic_android.sensor.greenSplit">android.sensor.greenSplit</a> (dynamic)</li>
+          <li><a href="#dynamic_android.sensor.dynamicBlackLevel">android.sensor.dynamicBlackLevel</a> (dynamic)</li>
+          <li><a href="#dynamic_android.sensor.dynamicWhiteLevel">android.sensor.dynamicWhiteLevel</a> (dynamic)</li>
           <li><a href="#controls_android.statistics.hotPixelMapMode">android.statistics.hotPixelMapMode</a> (controls)</li>
           <li><a href="#static_android.statistics.info.availableHotPixelMapModes">android.statistics.info.availableHotPixelMapModes</a> (static)</li>
           <li><a href="#dynamic_android.statistics.hotPixelMap">android.statistics.hotPixelMap</a> (dynamic)</li>

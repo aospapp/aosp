@@ -60,6 +60,8 @@ import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509ExtendedKeyManager;
 
 import libcore.java.security.TestKeyStore;
@@ -75,7 +77,13 @@ public class KeyChainTest extends PassFailButtons.Activity implements View.OnCli
 
     private static final String TAG = "KeyChainTest";
 
-    private static final int REQUEST_CA_INSTALL = 1;
+    private static final int REQUEST_KEY_INSTALL = 1;
+
+    // Alias under which credentials are generated
+    private static final String ALIAS = "alias";
+
+    private static final String CREDENTIAL_NAME = TAG + " Keys";
+    private static final String CACERT_NAME = TAG + " CA";
 
     private TextView mInstructionView;
     private TextView mLogView;
@@ -87,7 +95,8 @@ public class KeyChainTest extends PassFailButtons.Activity implements View.OnCli
     int mCurrentStep;
 
     private KeyStore mKeyStore;
-    private static final char[] KEYSTORE_PASSWORD = "".toCharArray();
+    private TrustManagerFactory mTrustManagerFactory;
+    private static final char[] EMPTY_PASSWORD = "".toCharArray();
 
     // How long to wait before giving up on the user selecting a key alias.
     private static final int KEYCHAIN_ALIAS_TIMEOUT_MS = (int) TimeUnit.MINUTES.toMillis(5L);
@@ -149,11 +158,11 @@ public class KeyChainTest extends PassFailButtons.Activity implements View.OnCli
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         switch (requestCode) {
-            case REQUEST_CA_INSTALL: {
+            case REQUEST_KEY_INSTALL: {
                 if (resultCode == RESULT_OK) {
-                    log("CA Certificate installed successfully");
+                    log("Client keys installed successfully");
                 } else {
-                    log("REQUEST_CA_INSTALL failed with result code: " + resultCode);
+                    log("REQUEST_KEY_INSTALL failed with result code: " + resultCode);
                 }
                 break;
             }
@@ -232,8 +241,14 @@ public class KeyChainTest extends PassFailButtons.Activity implements View.OnCli
                 // Create a PKCS12 keystore populated with key + certificate chain
                 KeyStore ks = KeyStore.getInstance("PKCS12");
                 ks.load(null, null);
-                ks.setKeyEntry("alias", privKey, KEYSTORE_PASSWORD, chain);
+                ks.setKeyEntry(ALIAS, privKey, EMPTY_PASSWORD, chain);
                 mKeyStore = ks;
+
+                // Make a TrustManagerFactory backed by our new keystore.
+                mTrustManagerFactory = TrustManagerFactory.getInstance(
+                        TrustManagerFactory.getDefaultAlgorithm());
+                mTrustManagerFactory.init(mKeyStore);
+
                 log("KeyStore initialized");
             } catch (Exception e) {
                 log("KeyStore initialization failed");
@@ -248,17 +263,18 @@ public class KeyChainTest extends PassFailButtons.Activity implements View.OnCli
         protected Void doInBackground(Void... params) {
             try {
                 Intent intent = KeyChain.createInstallIntent();
-                intent.putExtra(KeyChain.EXTRA_NAME, TAG);
+                intent.putExtra(KeyChain.EXTRA_NAME, CREDENTIAL_NAME);
 
                 // Write keystore to byte array for installation
                 ByteArrayOutputStream pkcs12 = new ByteArrayOutputStream();
-                mKeyStore.store(pkcs12, KEYSTORE_PASSWORD);
+                mKeyStore.store(pkcs12, EMPTY_PASSWORD);
                 if (pkcs12.size() == 0) {
-                    throw new AssertionError("Credential archive is empty");
+                    log("ERROR: Credential archive is empty");
+                    return null;
                 }
-                log("Requesting install of server's credentials");
+                log("Requesting install of credentials");
                 intent.putExtra(KeyChain.EXTRA_PKCS12, pkcs12.toByteArray());
-                startActivityForResult(intent, REQUEST_CA_INSTALL);
+                startActivityForResult(intent, REQUEST_KEY_INSTALL);
             } catch (Exception e) {
                 log("Failed to install credentials: " + e);
             }
@@ -295,12 +311,12 @@ public class KeyChainTest extends PassFailButtons.Activity implements View.OnCli
          */
         private URL startWebServer() throws Exception {
             log("Starting web server");
-            String kmfAlgoritm = KeyManagerFactory.getDefaultAlgorithm();
-            KeyManagerFactory kmf = KeyManagerFactory.getInstance(kmfAlgoritm);
-            kmf.init(mKeyStore, KEYSTORE_PASSWORD);
+            KeyManagerFactory kmf = KeyManagerFactory.getInstance(
+                    KeyManagerFactory.getDefaultAlgorithm());
+            kmf.init(mKeyStore, EMPTY_PASSWORD);
             SSLContext serverContext = SSLContext.getInstance("TLS");
             serverContext.init(kmf.getKeyManagers(),
-                    null /* TrustManager[] */,
+                    mTrustManagerFactory.getTrustManagers(),
                     null /* SecureRandom */);
             SSLSocketFactory sf = serverContext.getSocketFactory();
             SSLSocketFactory needsClientAuth = TestSSLContext.clientAuth(sf,
@@ -316,16 +332,15 @@ public class KeyChainTest extends PassFailButtons.Activity implements View.OnCli
         /**
          * Open a new connection to the server.
          * The client authenticates itself to the server using a private key and certificate
-         * supplied by KeyChain. Server authentication uses default trust management: the client
-         * trusts only certificates installed in the credential storage of this user/profile. This
-         * setup is expected to work because the server uses a private key whose certificate was
-         * installed earlier during this test.
+         * supplied by KeyChain.
+         * Server authentication only trusts the root certificate of the credentials generated
+         * earlier during this test.
          */
         private void makeHttpsRequest(URL url) throws Exception {
             log("Making https request to " + url);
             SSLContext clientContext = SSLContext.getInstance("TLS");
             clientContext.init(new KeyManager[] { new KeyChainKeyManager() },
-                    null /* TrustManager[] */,
+                    mTrustManagerFactory.getTrustManagers(),
                     null /* SecureRandom */);
             HttpsURLConnection connection = (HttpsURLConnection) url.openConnection();
             connection.setSSLSocketFactory(clientContext.getSocketFactory());

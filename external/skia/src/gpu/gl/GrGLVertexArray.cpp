@@ -8,13 +8,38 @@
 #include "GrGLVertexArray.h"
 #include "GrGLGpu.h"
 
+struct AttribLayout {
+    GrGLint     fCount;
+    GrGLenum    fType;
+    GrGLboolean fNormalized;  // Only used by floating point types.
+};
 
-void GrGLAttribArrayState::set(const GrGLGpu* gpu,
+static const AttribLayout gLayouts[kGrVertexAttribTypeCount] = {
+    {1, GR_GL_FLOAT, false},         // kFloat_GrVertexAttribType
+    {2, GR_GL_FLOAT, false},         // kVec2f_GrVertexAttribType
+    {3, GR_GL_FLOAT, false},         // kVec3f_GrVertexAttribType
+    {4, GR_GL_FLOAT, false},         // kVec4f_GrVertexAttribType
+    {1, GR_GL_UNSIGNED_BYTE, true},  // kUByte_GrVertexAttribType
+    {4, GR_GL_UNSIGNED_BYTE, true},  // kVec4ub_GrVertexAttribType
+    {2, GR_GL_UNSIGNED_SHORT, true}, // kVec2s_GrVertexAttribType
+    {1, GR_GL_INT, false},           // kInt_GrVertexAttribType
+    {1, GR_GL_UNSIGNED_INT, false},  // kUint_GrVertexAttribType
+};
+
+GR_STATIC_ASSERT(0 == kFloat_GrVertexAttribType);
+GR_STATIC_ASSERT(1 == kVec2f_GrVertexAttribType);
+GR_STATIC_ASSERT(2 == kVec3f_GrVertexAttribType);
+GR_STATIC_ASSERT(3 == kVec4f_GrVertexAttribType);
+GR_STATIC_ASSERT(4 == kUByte_GrVertexAttribType);
+GR_STATIC_ASSERT(5 == kVec4ub_GrVertexAttribType);
+GR_STATIC_ASSERT(6 == kVec2us_GrVertexAttribType);
+GR_STATIC_ASSERT(7 == kInt_GrVertexAttribType);
+GR_STATIC_ASSERT(8 == kUint_GrVertexAttribType);
+
+void GrGLAttribArrayState::set(GrGLGpu* gpu,
                                int index,
-                               GrGLVertexBuffer* buffer,
-                               GrGLint size,
-                               GrGLenum type,
-                               GrGLboolean normalized,
+                               GrGLuint vertexBufferID,
+                               GrVertexAttribType type,
                                GrGLsizei stride,
                                GrGLvoid* offset) {
     SkASSERT(index >= 0 && index < fAttribArrayStates.count());
@@ -25,23 +50,32 @@ void GrGLAttribArrayState::set(const GrGLGpu* gpu,
         array->fEnabled = true;
     }
     if (!array->fAttribPointerIsValid ||
-        array->fVertexBufferID != buffer->bufferID() ||
-        array->fSize != size ||
-        array->fNormalized != normalized ||
+        array->fVertexBufferID != vertexBufferID ||
+        array->fType != type ||
         array->fStride != stride ||
         array->fOffset != offset) {
 
-        buffer->bind();
-        GR_GL_CALL(gpu->glInterface(), VertexAttribPointer(index,
-                                                           size,
-                                                           type,
-                                                           normalized,
-                                                           stride,
-                                                           offset));
+        gpu->bindVertexBuffer(vertexBufferID);
+        const AttribLayout& layout = gLayouts[type];
+        if (!GrVertexAttribTypeIsIntType(type)) {
+            GR_GL_CALL(gpu->glInterface(), VertexAttribPointer(index,
+                                                               layout.fCount,
+                                                               layout.fType,
+                                                               layout.fNormalized,
+                                                               stride,
+                                                               offset));
+        } else {
+            SkASSERT(gpu->caps()->shaderCaps()->integerSupport());
+            SkASSERT(!layout.fNormalized);
+            GR_GL_CALL(gpu->glInterface(), VertexAttribIPointer(index,
+                                                                layout.fCount,
+                                                                layout.fType,
+                                                                stride,
+                                                                offset));
+        }
         array->fAttribPointerIsValid = true;
-        array->fVertexBufferID = buffer->bufferID();
-        array->fSize = size;
-        array->fNormalized = normalized;
+        array->fVertexBufferID = vertexBufferID;
+        array->fType = type;
         array->fStride = stride;
         array->fOffset = offset;
     }
@@ -74,21 +108,19 @@ GrGLVertexArray::GrGLVertexArray(GrGLint id, int attribCount)
 
 GrGLAttribArrayState* GrGLVertexArray::bind(GrGLGpu* gpu) {
     if (0 == fID) {
-        return NULL;
+        return nullptr;
     }
     gpu->bindVertexArray(fID);
     return &fAttribArrays;
 }
 
-GrGLAttribArrayState* GrGLVertexArray::bindWithIndexBuffer(GrGLGpu* gpu,
-                                                           const GrGLIndexBuffer* buffer) {
+GrGLAttribArrayState* GrGLVertexArray::bindWithIndexBuffer(GrGLGpu* gpu, GrGLuint ibufferID) {
     GrGLAttribArrayState* state = this->bind(gpu);
-    if (state && buffer) {
-        GrGLuint bufferID = buffer->bufferID();
-        if (!fIndexBufferIDIsValid || bufferID != fIndexBufferID) {            
-            GR_GL_CALL(gpu->glInterface(), BindBuffer(GR_GL_ELEMENT_ARRAY_BUFFER, bufferID));
+    if (state) {
+        if (!fIndexBufferIDIsValid || ibufferID != fIndexBufferID) {            
+            GR_GL_CALL(gpu->glInterface(), BindBuffer(GR_GL_ELEMENT_ARRAY_BUFFER, ibufferID));
             fIndexBufferIDIsValid = true;
-            fIndexBufferID = bufferID;
+            fIndexBufferID = ibufferID;
         }
     }
     return state;

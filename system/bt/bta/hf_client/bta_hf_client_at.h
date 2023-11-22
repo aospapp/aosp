@@ -96,12 +96,8 @@ typedef struct
     unsigned int            offset;
     tBTA_HF_CLIENT_AT_CMD   current_cmd;
     tBTA_HF_CLIENT_AT_QCMD  *queued_cmd;
-
-    TIMER_LIST_ENT          resp_timer;    /* AT response timer */
-    BOOLEAN                 resp_timer_on; /* TRUE if AT response timer is active */
-
-    TIMER_LIST_ENT          hold_timer;    /* AT hold timer */
-    BOOLEAN                 hold_timer_on; /* TRUE if AT hold timer is active */
+    alarm_t                 *resp_timer;    /* AT response timer */
+    alarm_t                 *hold_timer;    /* AT hold timer */
 
     /* CIND: lookup table to store the sequence of incoming indicators and their values
        so when their values come later, we know which value in sequence match certain indicator */

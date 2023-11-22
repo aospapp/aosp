@@ -18,6 +18,7 @@
 #
 # Disable by default so "m cts" will work in emulator builds
 LOCAL_DEX_PREOPT := false
+LOCAL_STATIC_JAVA_LIBRARIES += platform-test-annotations
 include $(BUILD_JAVA_LIBRARY)
 include $(BUILD_CTS_MODULE_TEST_CONFIG)
 
@@ -50,4 +51,4 @@ $(cts_library_xml): $(CTS_EXPECTATIONS) $(CTS_UNSUPPORTED_ABIS) $(CTS_JAVA_TEST_
 						-o $@
 
 # Have the module name depend on the cts files; so the cts files get generated when you run mm/mmm/mma/mmma.
-$(my_register_name) : $(cts_library_jar) $(cts_library_xml $(cts_module_test_config))
+$(my_register_name) : $(cts_library_jar) $(cts_library_xml) $(cts_module_test_config)

@@ -38,6 +38,14 @@ static cl::opt<bool>
 VSXFMAMutateEarly("schedule-ppc-vsx-fma-mutation-early",
   cl::Hidden, cl::desc("Schedule VSX FMA instruction mutation early"));
 
+static cl::
+opt<bool> DisableVSXSwapRemoval("disable-ppc-vsx-swap-removal", cl::Hidden,
+                                cl::desc("Disable VSX Swap Removal for PPC"));
+
+static cl::
+opt<bool> DisableMIPeephole("disable-ppc-peephole", cl::Hidden,
+                            cl::desc("Disable machine peepholes for PPC"));
+
 static cl::opt<bool>
 EnableGEPOpt("ppc-gep-opt", cl::Hidden,
              cl::desc("Enable optimizations on complex GEPs"),
@@ -48,11 +56,24 @@ EnablePrefetch("enable-ppc-prefetching",
                   cl::desc("disable software prefetching on PPC"),
                   cl::init(false), cl::Hidden);
 
+static cl::opt<bool>
+EnableExtraTOCRegDeps("enable-ppc-extra-toc-reg-deps",
+                      cl::desc("Add extra TOC register dependencies"),
+                      cl::init(true), cl::Hidden);
+
+static cl::opt<bool>
+EnableMachineCombinerPass("ppc-machine-combiner",
+                          cl::desc("Enable the machine combiner pass"),
+                          cl::init(true), cl::Hidden);
+
 extern "C" void LLVMInitializePowerPCTarget() {
   // Register the targets
   RegisterTargetMachine<PPC32TargetMachine> A(ThePPC32Target);
   RegisterTargetMachine<PPC64TargetMachine> B(ThePPC64Target);
   RegisterTargetMachine<PPC64TargetMachine> C(ThePPC64LETarget);
+
+  PassRegistry &PR = *PassRegistry::getPassRegistry();
+  initializePPCBoolRetToIntPass(PR);
 }
 
 /// Return the datalayout string of a subtarget.
@@ -89,13 +110,12 @@ static std::string getDataLayoutString(const Triple &T) {
   return Ret;
 }
 
-static std::string computeFSAdditions(StringRef FS, CodeGenOpt::Level OL, StringRef TT) {
+static std::string computeFSAdditions(StringRef FS, CodeGenOpt::Level OL,
+                                      const Triple &TT) {
   std::string FullFS = FS;
-  Triple TargetTriple(TT);
 
   // Make sure 64-bit features are available when CPUname is generic
-  if (TargetTriple.getArch() == Triple::ppc64 ||
-      TargetTriple.getArch() == Triple::ppc64le) {
+  if (TT.getArch() == Triple::ppc64 || TT.getArch() == Triple::ppc64le) {
     if (!FullFS.empty())
       FullFS = "+64bit," + FullFS;
     else
@@ -110,7 +130,7 @@ static std::string computeFSAdditions(StringRef FS, CodeGenOpt::Level OL, String
   }
 
   if (OL != CodeGenOpt::None) {
-     if (!FullFS.empty())
+    if (!FullFS.empty())
       FullFS = "+invariant-function-descriptors," + FullFS;
     else
       FullFS = "+invariant-function-descriptors";
@@ -136,7 +156,7 @@ static PPCTargetMachine::PPCABI computeTargetABI(const Triple &TT,
     return PPCTargetMachine::PPC_ABI_ELFv2;
 
   assert(Options.MCOptions.getABIName().empty() &&
-	 "Unknown target-abi option!");
+         "Unknown target-abi option!");
 
   if (!TT.isMacOSX()) {
     switch (TT.getArch()) {
@@ -152,18 +172,38 @@ static PPCTargetMachine::PPCABI computeTargetABI(const Triple &TT,
   return PPCTargetMachine::PPC_ABI_UNKNOWN;
 }
 
-// The FeatureString here is a little subtle. We are modifying the feature string
-// with what are (currently) non-function specific overrides as it goes into the
-// LLVMTargetMachine constructor and then using the stored value in the
+// The FeatureString here is a little subtle. We are modifying the feature
+// string with what are (currently) non-function specific overrides as it goes
+// into the LLVMTargetMachine constructor and then using the stored value in the
 // Subtarget constructor below it.
-PPCTargetMachine::PPCTargetMachine(const Target &T, StringRef TT, StringRef CPU,
-                                   StringRef FS, const TargetOptions &Options,
+PPCTargetMachine::PPCTargetMachine(const Target &T, const Triple &TT,
+                                   StringRef CPU, StringRef FS,
+                                   const TargetOptions &Options,
                                    Reloc::Model RM, CodeModel::Model CM,
                                    CodeGenOpt::Level OL)
-    : LLVMTargetMachine(T, getDataLayoutString(Triple(TT)), TT, CPU,
+    : LLVMTargetMachine(T, getDataLayoutString(TT), TT, CPU,
                         computeFSAdditions(FS, OL, TT), Options, RM, CM, OL),
-      TLOF(createTLOF(Triple(getTargetTriple()))),
-      TargetABI(computeTargetABI(Triple(TT), Options)) {
+      TLOF(createTLOF(getTargetTriple())),
+      TargetABI(computeTargetABI(TT, Options)),
+      Subtarget(TargetTriple, CPU, computeFSAdditions(FS, OL, TT), *this) {
+
+  // For the estimates, convergence is quadratic, so we essentially double the
+  // number of digits correct after every iteration. For both FRE and FRSQRTE,
+  // the minimum architected relative accuracy is 2^-5. When hasRecipPrec(),
+  // this is 2^-14. IEEE float has 23 digits and double has 52 digits.
+  unsigned RefinementSteps = Subtarget.hasRecipPrec() ? 1 : 3,
+           RefinementSteps64 = RefinementSteps + 1;
+
+  this->Options.Reciprocals.setDefaults("sqrtf", true, RefinementSteps);
+  this->Options.Reciprocals.setDefaults("vec-sqrtf", true, RefinementSteps);
+  this->Options.Reciprocals.setDefaults("divf", true, RefinementSteps);
+  this->Options.Reciprocals.setDefaults("vec-divf", true, RefinementSteps);
+
+  this->Options.Reciprocals.setDefaults("sqrtd", true, RefinementSteps64);
+  this->Options.Reciprocals.setDefaults("vec-sqrtd", true, RefinementSteps64);
+  this->Options.Reciprocals.setDefaults("divd", true, RefinementSteps64);
+  this->Options.Reciprocals.setDefaults("vec-divd", true, RefinementSteps64);
+
   initAsmInfo();
 }
 
@@ -171,23 +211,21 @@ PPCTargetMachine::~PPCTargetMachine() {}
 
 void PPC32TargetMachine::anchor() { }
 
-PPC32TargetMachine::PPC32TargetMachine(const Target &T, StringRef TT,
+PPC32TargetMachine::PPC32TargetMachine(const Target &T, const Triple &TT,
                                        StringRef CPU, StringRef FS,
                                        const TargetOptions &Options,
                                        Reloc::Model RM, CodeModel::Model CM,
                                        CodeGenOpt::Level OL)
-  : PPCTargetMachine(T, TT, CPU, FS, Options, RM, CM, OL) {
-}
+    : PPCTargetMachine(T, TT, CPU, FS, Options, RM, CM, OL) {}
 
 void PPC64TargetMachine::anchor() { }
 
-PPC64TargetMachine::PPC64TargetMachine(const Target &T, StringRef TT,
-                                       StringRef CPU,  StringRef FS,
+PPC64TargetMachine::PPC64TargetMachine(const Target &T, const Triple &TT,
+                                       StringRef CPU, StringRef FS,
                                        const TargetOptions &Options,
                                        Reloc::Model RM, CodeModel::Model CM,
                                        CodeGenOpt::Level OL)
-  : PPCTargetMachine(T, TT, CPU, FS, Options, RM, CM, OL) {
-}
+    : PPCTargetMachine(T, TT, CPU, FS, Options, RM, CM, OL) {}
 
 const PPCSubtarget *
 PPCTargetMachine::getSubtargetImpl(const Function &F) const {
@@ -200,6 +238,19 @@ PPCTargetMachine::getSubtargetImpl(const Function &F) const {
   std::string FS = !FSAttr.hasAttribute(Attribute::None)
                        ? FSAttr.getValueAsString().str()
                        : TargetFS;
+
+  // FIXME: This is related to the code below to reset the target options,
+  // we need to know whether or not the soft float flag is set on the
+  // function before we can generate a subtarget. We also need to use
+  // it as a key for the subtarget since that can be the only difference
+  // between two functions.
+  bool SoftFloat =
+    F.hasFnAttribute("use-soft-float") &&
+    F.getFnAttribute("use-soft-float").getValueAsString() == "true";
+  // If the soft float attribute is set on the function turn on the soft float
+  // subtarget feature.
+  if (SoftFloat)
+    FS += FS.empty() ? "+soft-float" : ",+soft-float";
 
   auto &I = SubtargetMap[CPU + FS];
   if (!I) {
@@ -239,6 +290,7 @@ public:
   bool addPreISel() override;
   bool addILPOpts() override;
   bool addInstSelector() override;
+  void addMachineSSAOptimization() override;
   void addPreRegAlloc() override;
   void addPreSched2() override;
   void addPreEmitPass() override;
@@ -250,13 +302,14 @@ TargetPassConfig *PPCTargetMachine::createPassConfig(PassManagerBase &PM) {
 }
 
 void PPCPassConfig::addIRPasses() {
+  if (TM->getOptLevel() != CodeGenOpt::None)
+    addPass(createPPCBoolRetToIntPass());
   addPass(createAtomicExpandPass(&getPPCTargetMachine()));
 
   // For the BG/Q (or if explicitly requested), add explicit data prefetch
   // intrinsics.
-  bool UsePrefetching =
-    Triple(TM->getTargetTriple()).getVendor() == Triple::BGQ &&           
-    getOptLevel() != CodeGenOpt::None;
+  bool UsePrefetching = TM->getTargetTriple().getVendor() == Triple::BGQ &&
+                        getOptLevel() != CodeGenOpt::None;
   if (EnablePrefetch.getNumOccurrences() > 0)
     UsePrefetching = EnablePrefetch;
   if (UsePrefetching)
@@ -290,6 +343,10 @@ bool PPCPassConfig::addPreISel() {
 
 bool PPCPassConfig::addILPOpts() {
   addPass(&EarlyIfConverterID);
+
+  if (EnableMachineCombinerPass)
+    addPass(&MachineCombinerID);
+
   return true;
 }
 
@@ -306,12 +363,29 @@ bool PPCPassConfig::addInstSelector() {
   return false;
 }
 
+void PPCPassConfig::addMachineSSAOptimization() {
+  TargetPassConfig::addMachineSSAOptimization();
+  // For little endian, remove where possible the vector swap instructions
+  // introduced at code generation to normalize vector element order.
+  if (TM->getTargetTriple().getArch() == Triple::ppc64le &&
+      !DisableVSXSwapRemoval)
+    addPass(createPPCVSXSwapRemovalPass());
+  // Target-specific peephole cleanups performed after instruction
+  // selection.
+  if (!DisableMIPeephole) {
+    addPass(createPPCMIPeepholePass());
+    addPass(&DeadMachineInstructionElimID);
+  }
+}
+
 void PPCPassConfig::addPreRegAlloc() {
   initializePPCVSXFMAMutatePass(*PassRegistry::getPassRegistry());
   insertPass(VSXFMAMutateEarly ? &RegisterCoalescerID : &MachineSchedulerID,
              &PPCVSXFMAMutateID);
   if (getPPCTargetMachine().getRelocationModel() == Reloc::PIC_)
     addPass(createPPCTLSDynamicCallPass());
+  if (EnableExtraTOCRegDeps)
+    addPass(createPPCTOCRegDepsPass());
 }
 
 void PPCPassConfig::addPreSched2() {
@@ -327,6 +401,7 @@ void PPCPassConfig::addPreEmitPass() {
 }
 
 TargetIRAnalysis PPCTargetMachine::getTargetIRAnalysis() {
-  return TargetIRAnalysis(
-      [this](Function &F) { return TargetTransformInfo(PPCTTIImpl(this, F)); });
+  return TargetIRAnalysis([this](const Function &F) {
+    return TargetTransformInfo(PPCTTIImpl(this, F));
+  });
 }

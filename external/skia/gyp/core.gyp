@@ -21,8 +21,8 @@
         '../include/config',
         '../include/core',
         '../include/pathops',
-        '../include/pipe',
         '../include/ports',
+        '../include/private',
         '../include/utils',
         '../include/images',
         '../src/core',
@@ -107,7 +107,6 @@
           '../include/config',
           '../include/core',
           '../include/pathops',
-          '../include/pipe',
         ],
         'conditions': [
           [ 'skia_os == "mac"', {

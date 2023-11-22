@@ -43,7 +43,7 @@ public class TrustManagerImplTest extends TestCase {
         MessageDigest dgst = MessageDigest.getInstance("SHA512");
         byte[] encoded = cert.getPublicKey().getEncoded();
         byte[] fingerprint = dgst.digest(encoded);
-        return IntegralToString.bytesToHexString(fingerprint, false);
+        return Hex.bytesToHexString(fingerprint);
     }
 
     private String writeTmpPinFile(String text) throws Exception {
@@ -174,10 +174,7 @@ public class TrustManagerImplTest extends TestCase {
         KeyStore keyStore = TestKeyStore.createKeyStore();
         keyStore.setCertificateEntry("alias", ca);
 
-        String algorithm = TrustManagerFactory.getDefaultAlgorithm();
-        TrustManagerFactory tmf = TrustManagerFactory.getInstance(algorithm);
-        tmf.init(keyStore);
-        return (X509TrustManager) tmf.getTrustManagers()[0];
+        return new TrustManagerImpl(keyStore);
     }
 
     private TrustManagerImpl trustManager(X509Certificate ca, String hostname, X509Certificate pin)

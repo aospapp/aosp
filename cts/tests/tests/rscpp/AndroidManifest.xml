@@ -15,7 +15,7 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.rscpp">
+    package="android.rscpp.cts">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <application>
@@ -24,7 +24,7 @@
 
     <!-- This is a self-instrumenting test package. -->
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.rscpp"
+                     android:targetPackage="android.rscpp.cts"
                      android:label="CTS tests of RenderScript C++ component">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

@@ -33,6 +33,13 @@ commonFlags := \
 #########################
 
 include $(CLEAR_VARS)
+
+# uds_daemon.c explicitly dereferences a non-volatile null pointer. Clang rather
+# unhelpfully says "I know what you're trying to do, but I'm going to optimize
+# it away anyway". There's no way to disable this behavior, so just stick with
+# gcc.
+LOCAL_CLANG := false
+
 LOCAL_SRC_FILES :=  mDNSPosix/PosixDaemon.c    \
                     mDNSPosix/mDNSPosix.c      \
                     mDNSPosix/mDNSUNP.c        \
@@ -53,10 +60,11 @@ LOCAL_C_INCLUDES := external/mdnsresponder/mDNSPosix \
                     external/mdnsresponder/mDNSCore  \
                     external/mdnsresponder/mDNSShared
 
-LOCAL_CFLAGS := $(commonFlags)
+LOCAL_CFLAGS := $(commonFlags) -DMDNS_VERSIONSTR_NODTS=1
 
 LOCAL_STATIC_LIBRARIES := $(commonLibs) libc
 LOCAL_FORCE_STATIC_EXECUTABLE := true
+LOCAL_INIT_RC := mdnsd.rc
 include $(BUILD_EXECUTABLE)
 
 ##########################

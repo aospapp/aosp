@@ -106,11 +106,6 @@ public class ConnectivityConstraintTestActivity extends ConstraintTestActivity {
         mJobScheduler.schedule(testJob1);
         mJobScheduler.schedule(testJob2);
 
-        /*
-        // Send intent to kick off ready jobs that the JobScheduler might be lazily holding on to.
-        sendBroadcastAndBlockForResult(EXPEDITE_STABLE_CHARGING);
-        */
-
         boolean testPassed;
         try {
             testPassed = mTestEnvironment.awaitExecution();
@@ -131,9 +126,6 @@ public class ConnectivityConstraintTestActivity extends ConstraintTestActivity {
         mTestEnvironment.setExpectedExecutions(0);
 
         mJobScheduler.schedule(testJob);
-
-        // Send intent to kick off ready jobs that the JobScheduler might be lazily holding on to.
-        sendBroadcastAndBlockForResult(EXPEDITE_STABLE_CHARGING);
 
         boolean testPassed;
         try {

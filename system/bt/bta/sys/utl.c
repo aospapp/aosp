@@ -23,7 +23,7 @@
  ******************************************************************************/
 #include <stddef.h>
 #include "utl.h"
-#include "gki.h"
+#include "bt_common.h"
 #include "btm_api.h"
 
 /*******************************************************************************
@@ -146,28 +146,6 @@ UINT8 utl_itoa(UINT16 i, char *p_s)
     *p = 0;
     return (UINT8) (p - p_s);
 }
-
-/*******************************************************************************
-**
-** Function         utl_freebuf
-**
-** Description      This function calls GKI_freebuf to free the buffer passed
-**                  in, if buffer pointer is not NULL, and also initializes
-**                  buffer pointer to NULL.
-**
-**
-** Returns          Nothing.
-**
-*******************************************************************************/
-void utl_freebuf(void **p)
-{
-    if (*p != NULL)
-    {
-        GKI_freebuf(*p);
-        *p = NULL;
-    }
-}
-
 
 /*******************************************************************************
 **

@@ -16,9 +16,10 @@
 
 package android.telecom.cts;
 
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import android.content.Intent;
+import android.os.Bundle;
 import android.telecom.Call;
 import android.telecom.CallAudioState;
 import android.telecom.InCallService;
@@ -39,7 +40,7 @@ public class MockInCallService extends InCallService {
             new ArrayMap<Call, MockVideoCallCallback>();
 
     private static final Object sLock = new Object();
-    private static boolean mIsServiceUnbound;
+    private static boolean mIsServiceBound = false;
 
     public static abstract class InCallServiceCallbacks {
         private MockInCallService mService;
@@ -58,6 +59,8 @@ public class MockInCallService extends InCallService {
         public void onCallAudioStateChanged(CallAudioState audioState) {}
         public void onPostDialWait(Call call, String remainingPostDialSequence) {}
         public void onCannedTextResponsesLoaded(Call call, List<String> cannedTextResponses) {}
+        public void onSilenceRinger() {}
+        public void onConnectionEvent(Call call, String event, Bundle extras) {}
 
         final public MockInCallService getService() {
             return mService;
@@ -162,7 +165,7 @@ public class MockInCallService extends InCallService {
         if (getCallbacks() != null) {
             getCallbacks().setService(this);
         }
-        mIsServiceUnbound = false;
+        mIsServiceBound = true;
         return super.onBind(intent);
     }
 
@@ -224,6 +227,14 @@ public class MockInCallService extends InCallService {
         super.onCallAudioStateChanged(audioState);
         if (getCallbacks() != null) {
             getCallbacks().onCallAudioStateChanged(audioState);
+        }
+    }
+
+    @Override
+    public void onSilenceRinger(){
+        super.onSilenceRinger();
+        if(getCallbacks() != null) {
+            getCallbacks().onSilenceRinger();
         }
     }
 
@@ -323,13 +334,13 @@ public class MockInCallService extends InCallService {
 
     @Override
     public boolean onUnbind(Intent intent) {
-        Log.i(LOG_TAG, "Service unbounded");
-        assertFalse(mIsServiceUnbound);
-        mIsServiceUnbound = true;
+        Log.i(LOG_TAG, "Service has been unbound");
+        assertTrue(mIsServiceBound);
+        mIsServiceBound = false;
         return super.onUnbind(intent);
     }
 
-    public static boolean isServiceUnbound() {
-        return mIsServiceUnbound;
+    public static boolean isServiceBound() {
+        return mIsServiceBound;
     }
 }

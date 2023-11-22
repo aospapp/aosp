@@ -21,6 +21,7 @@
 #include "drmconnector.h"
 #include "drmcrtc.h"
 #include "drmencoder.h"
+#include "drmeventlistener.h"
 #include "drmplane.h"
 
 #include <stdint.h>
@@ -29,25 +30,28 @@ namespace android {
 
 class DrmResources {
  public:
-  typedef std::vector<DrmConnector *>::const_iterator ConnectorIter;
-  typedef std::vector<DrmPlane *>::const_iterator PlaneIter;
-
   DrmResources();
   ~DrmResources();
 
   int Init();
 
-  int fd() const;
+  int fd() const {
+    return fd_.get();
+  }
 
-  ConnectorIter begin_connectors() const;
-  ConnectorIter end_connectors() const;
-  PlaneIter begin_planes() const;
-  PlaneIter end_planes() const;
+  const std::vector<std::unique_ptr<DrmConnector>> &connectors() const {
+    return connectors_;
+  }
+
+  const std::vector<std::unique_ptr<DrmPlane>> &planes() const {
+    return planes_;
+  }
 
   DrmConnector *GetConnectorForDisplay(int display) const;
   DrmCrtc *GetCrtcForDisplay(int display) const;
   DrmPlane *GetPlane(uint32_t id) const;
   DrmCompositor *compositor();
+  DrmEventListener *event_listener();
 
   int GetPlaneProperty(const DrmPlane &plane, const char *prop_name,
                        DrmProperty *property);
@@ -60,6 +64,9 @@ class DrmResources {
   int SetDisplayActiveMode(int display, const DrmMode &mode);
   int SetDpmsMode(int display, uint64_t mode);
 
+  int CreatePropertyBlob(void *data, size_t length, uint32_t *blob_id);
+  int DestroyPropertyBlob(uint32_t blob_id);
+
  private:
   int TryEncoderForDisplay(int display, DrmEncoder *enc);
   int GetProperty(uint32_t obj_id, uint32_t obj_type, const char *prop_name,
@@ -67,17 +74,15 @@ class DrmResources {
 
   int CreateDisplayPipe(DrmConnector *connector);
 
-  int CreatePropertyBlob(void *data, size_t length, uint32_t *blob_id);
-  int DestroyPropertyBlob(uint32_t blob_id);
+  UniqueFd fd_;
+  uint32_t mode_id_ = 0;
 
-  int fd_;
-  uint32_t mode_id_;
-
-  std::vector<DrmConnector *> connectors_;
-  std::vector<DrmEncoder *> encoders_;
-  std::vector<DrmCrtc *> crtcs_;
-  std::vector<DrmPlane *> planes_;
+  std::vector<std::unique_ptr<DrmConnector>> connectors_;
+  std::vector<std::unique_ptr<DrmEncoder>> encoders_;
+  std::vector<std::unique_ptr<DrmCrtc>> crtcs_;
+  std::vector<std::unique_ptr<DrmPlane>> planes_;
   DrmCompositor compositor_;
+  DrmEventListener event_listener_;
 };
 }
 

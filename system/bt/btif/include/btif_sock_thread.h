@@ -20,6 +20,8 @@
 #define BTIF_SOCK_THREAD_H
 
 #include <stdbool.h>
+
+#include <hardware/bluetooth.h>
 #include <hardware/bt_sock.h>
 
 /*******************************************************************************

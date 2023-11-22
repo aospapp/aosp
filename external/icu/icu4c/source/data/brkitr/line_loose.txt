@@ -5,7 +5,7 @@
 #
 #         Line Breaking Rules
 #         Implement default line breaking as defined by 
-#         Unicode Standard Annex #14 Revision 29 for Unicode 6.2
+#         Unicode Standard Annex #14 Revision 34 for Unicode 8.0
 #         http://www.unicode.org/reports/tr14/
 #         tailored as noted in 2nd paragraph below..
 #
@@ -209,7 +209,7 @@ $CANT_CM = [ $SP $BK $CR $LF $NL $ZW $CM];       # Bases that can't take CMs
 #            so for this one case we need to manually list out longer sequences.
 #
 $AL_FOLLOW_NOCM = [$BK $CR $LF $NL $ZW $SP];
-$AL_FOLLOW_CM   = [$CL $CP $EX $HL $IS $SY $WJ $GL $OP $QU $BA $HY $NS $NSX $IN $NU $ALPlus];
+$AL_FOLLOW_CM   = [$CL $CP $EX $HL $IS $SY $WJ $GL $OP $QU $BA $HY $NS $IN $NU $ALPlus];
 $AL_FOLLOW      = [$AL_FOLLOW_NOCM $AL_FOLLOW_CM];
 
 
@@ -364,6 +364,7 @@ $SYcm $HLcm;
 # LB 22
 ($ALcm | $HLcm) $INcm;
 $CM+     $INcm;     #  by rule 10, any otherwise unattached CM behaves as AL
+$EXcm    $INcm;
 $IDcm    $INcm;
 # $INcm  $INcm; # delete this rule for CSS loose
 $NUcm    $INcm;
@@ -602,6 +603,7 @@ $CM* $HL $CM* $SY;
 
 # LB 22
 $CM* $IN $CM* ($ALPlus | $HL);
+$CM* $IN $CM* $EX;
 $CM* $IN $CM* $ID;
 # $CM* $IN $CM* $IN; # delete this rule for CSS loose
 $CM* $IN $CM* $NU;

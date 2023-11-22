@@ -19,6 +19,7 @@ package util.build;
 import com.android.dex.util.FileUtils;
 
 import dot.junit.AllTests;
+import util.build.BuildStep.BuildFile;
 
 import junit.framework.TestCase;
 import junit.framework.TestResult;
@@ -55,6 +56,8 @@ import java.util.regex.Pattern;
  * (one Main class for each test method in the Test_... class
  */
 public class BuildDalvikSuite {
+
+    public static final String TARGET_MAIN_FILE = "mains.jar";
 
     public static boolean DEBUG = true;
 
@@ -102,7 +105,10 @@ public class BuildDalvikSuite {
      */
     public static void main(String[] args) throws IOException {
 
-        parseArgs(args);
+        if (!parseArgs(args)) {
+          printUsage();
+          System.exit(-1);
+        }
 
         long start = System.currentTimeMillis();
         BuildDalvikSuite cat = new BuildDalvikSuite(false);
@@ -112,7 +118,7 @@ public class BuildDalvikSuite {
         System.out.println("elapsed seconds: " + (end - start) / 1000);
     }
 
-    public static void parseArgs(String[] args) {
+    public static boolean parseArgs(String[] args) {
       if (args.length > 5) {
           JAVASRC_FOLDER = args[0];
           OUTPUT_FOLDER = args[1];
@@ -130,13 +136,16 @@ public class BuildDalvikSuite {
               restrictTo = args[6];
               System.out.println("restricting build to: " + restrictTo);
           }
-
+          return true;
       } else {
-          System.out.println("usage: java-src-folder output-folder classpath " +
-                  "generated-main-files compiled_output generated-main-files " +
-          "[restrict-to-opcode]");
-          System.exit(-1);
+          return false;
       }
+    }
+
+    private static void printUsage() {
+        System.out.println("usage: java-src-folder output-folder classpath " +
+                           "generated-main-files compiled_output generated-main-files " +
+                           "[restrict-to-opcode]");
     }
 
     public BuildDalvikSuite(boolean useJack) {
@@ -257,14 +266,10 @@ public class BuildDalvikSuite {
         final String targetCoreJarPath = String.format("%s/dot/junit/dexcore.jar",
                 TARGET_JAR_ROOT_PATH);
 
-        // push class with Main jar.
-        String mjar = "Main_" + method + ".jar";
-        String pPath = pName.replaceAll("\\.","/");
-        String mainJar = String.format("%s/%s/%s", TARGET_JAR_ROOT_PATH, pPath, mjar);
+        String mainsJar = String.format("%s/%s", TARGET_JAR_ROOT_PATH, TARGET_MAIN_FILE);
 
-        String cp = String.format("%s:%s", targetCoreJarPath, mainJar);
+        String cp = String.format("%s:%s", targetCoreJarPath, mainsJar);
         for (String depFqcn : dependentTestClassNames) {
-            int lastDotPos = depFqcn.lastIndexOf('.');
             String sourceName = depFqcn.replaceAll("\\.", "/") + ".jar";
             String targetName= String.format("%s/%s", TARGET_JAR_ROOT_PATH,
                     sourceName);
@@ -289,7 +294,13 @@ public class BuildDalvikSuite {
         hostJunitBuildStep = new JavacBuildStep(
             HOSTJUNIT_CLASSES_OUTPUT_FOLDER, CLASS_PATH);
 
-        srcBuildStep = new JavacBuildStep(CLASSES_OUTPUT_FOLDER, CLASS_PATH);
+        String mainsJar = OUTPUT_FOLDER + File.separator + TARGET_MAIN_FILE;
+        if (useJack) {
+            srcBuildStep = new JackBuildStep(mainsJar,
+            CLASS_PATH);
+        } else {
+            srcBuildStep = new JavacBuildStep(CLASSES_OUTPUT_FOLDER, CLASS_PATH);
+        }
 
         for (Entry<String, List<String>> entry : map.entrySet()) {
 
@@ -355,23 +366,7 @@ public class BuildDalvikSuite {
                 File sourceFile = getFileFromPackage(pName, method);
 
                 writeToFile(sourceFile, content);
-                if (useJack) {
-                    File jackFile = new File(CLASSES_OUTPUT_FOLDER + "/" +
-                            getFileName(pName, method, ".jack"));
-                    JackBuildStep step = new JackBuildStep(jackFile.getAbsolutePath(), CLASS_PATH);
-                    step.addSourceFile(sourceFile.getAbsolutePath());
-                    if (!step.build()) {
-                        System.out.println("main src dalvik-cts-buildutil build step failed");
-                        System.exit(1);
-                    }
-                } else {
-                    srcBuildStep.addSourceFile(sourceFile.getAbsolutePath());
-                }
-
-                BuildStep dexBuildStep = generateDexBuildStep(
-                        CLASSES_OUTPUT_FOLDER, getFileName(pName, method, ""), null);
-                targets.add(dexBuildStep);
-
+                srcBuildStep.addSourceFile(sourceFile.getAbsolutePath());
 
                 // prepare the entry in the data file for the bash script.
                 // e.g.
@@ -459,6 +454,15 @@ public class BuildDalvikSuite {
 
         }
 
+        if (!useJack) {
+          DxBuildStep dexBuildStep = new DxBuildStep(
+              new BuildStep.BuildFile(new File(CLASSES_OUTPUT_FOLDER)),
+              new BuildStep.BuildFile(new File(mainsJar)),
+              false);
+
+          targets.add(dexBuildStep);
+        }
+
         // write latest HOSTJUNIT generated file.
         flushHostJunitFile();
 
@@ -471,12 +475,11 @@ public class BuildDalvikSuite {
             System.exit(1);
         }
 
-        if (!useJack) {
-            if (!srcBuildStep.build()) {
-                System.out.println("main src dalvik-cts-buildutil build step failed");
-                System.exit(1);
-            }
+        if (!srcBuildStep.build()) {
+            System.out.println("main src dalvik-cts-buildutil build step failed");
+            System.exit(1);
         }
+
         for (BuildStep buildStep : targets) {
             if (!buildStep.build()) {
                 System.out.println("building failed. buildStep: " +
@@ -541,15 +544,17 @@ public class BuildDalvikSuite {
 
         File srcFile = new File(sourceFolder, fileName + ".java");
         if (srcFile.exists()) {
-            JackBuildStep jackBuildStep = null;
+            BuildStep dexBuildStep;
             if (useJack) {
-                jackBuildStep = new JackBuildStep(
-                        COMPILED_CLASSES_FOLDER + File.separator + fileName + ".jack",
+                JackBuildStep jackBuildStep = new JackBuildStep(
+                    OUTPUT_FOLDER + File.separator + fileName + ".jar",
                         CLASS_PATH);
                 jackBuildStep.addSourceFile(srcFile.getAbsolutePath());
+                dexBuildStep = jackBuildStep;
+            } else {
+              dexBuildStep = generateDexBuildStep(
+                COMPILED_CLASSES_FOLDER, fileName, null);
             }
-            BuildStep dexBuildStep = generateDexBuildStep(
-                COMPILED_CLASSES_FOLDER, fileName, jackBuildStep);
             targets.add(dexBuildStep);
             return;
         }

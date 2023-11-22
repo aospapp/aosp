@@ -31,6 +31,9 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.support.annotation.ColorInt;
 import android.support.annotation.DrawableRes;
+import android.support.v4.os.ParcelableCompat;
+import android.support.v4.os.ParcelableCompatCreatorCallbacks;
+import android.support.v4.view.AbsSavedState;
 import android.support.v4.view.AccessibilityDelegateCompat;
 import android.support.v4.view.MotionEventCompat;
 import android.support.v4.view.ViewCompat;
@@ -1123,6 +1126,9 @@ public class SlidingPaneLayout extends ViewGroup {
      * during opening/closing.
      *
      * @param resId Resource ID of a drawable to use
+     * @deprecated Renamed to {@link #setShadowResourceLeft(int)} to support LTR (left to
+     * right language) and {@link #setShadowResourceRight(int)} to support RTL (right to left
+     * language) during opening/closing.
      */
     @Deprecated
     public void setShadowResource(@DrawableRes int resId) {
@@ -1285,6 +1291,11 @@ public class SlidingPaneLayout extends ViewGroup {
 
     @Override
     protected void onRestoreInstanceState(Parcelable state) {
+        if (!(state instanceof SavedState)) {
+            super.onRestoreInstanceState(state);
+            return;
+        }
+
         SavedState ss = (SavedState) state;
         super.onRestoreInstanceState(ss.getSuperState());
 
@@ -1446,15 +1457,15 @@ public class SlidingPaneLayout extends ViewGroup {
 
     }
 
-    static class SavedState extends BaseSavedState {
+    static class SavedState extends AbsSavedState {
         boolean isOpen;
 
         SavedState(Parcelable superState) {
             super(superState);
         }
 
-        private SavedState(Parcel in) {
-            super(in);
+        private SavedState(Parcel in, ClassLoader loader) {
+            super(in, loader);
             isOpen = in.readInt() != 0;
         }
 
@@ -1464,16 +1475,18 @@ public class SlidingPaneLayout extends ViewGroup {
             out.writeInt(isOpen ? 1 : 0);
         }
 
-        public static final Parcelable.Creator<SavedState> CREATOR =
-                new Parcelable.Creator<SavedState>() {
-            public SavedState createFromParcel(Parcel in) {
-                return new SavedState(in);
-            }
+        public static final Creator<SavedState> CREATOR = ParcelableCompat.newCreator(
+                new ParcelableCompatCreatorCallbacks<SavedState>() {
+                    @Override
+                    public SavedState createFromParcel(Parcel in, ClassLoader loader) {
+                        return new SavedState(in, loader);
+                    }
 
-            public SavedState[] newArray(int size) {
-                return new SavedState[size];
-            }
-        };
+                    @Override
+                    public SavedState[] newArray(int size) {
+                        return new SavedState[size];
+                    }
+                });
     }
 
     interface SlidingPanelLayoutImpl {

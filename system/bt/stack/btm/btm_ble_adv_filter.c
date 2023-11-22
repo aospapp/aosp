@@ -19,17 +19,19 @@
 #define LOG_TAG "bt_btm_ble"
 
 #include <string.h>
+
 #include "bt_target.h"
 
 #if (BLE_INCLUDED == TRUE)
+
 #include "bt_types.h"
-#include "hcimsgs.h"
-#include "btu.h"
-#include "btm_int.h"
 #include "bt_utils.h"
-#include "hcidefs.h"
 #include "btm_ble_api.h"
+#include "btm_int.h"
+#include "btu.h"
 #include "device/include/controller.h"
+#include "hcidefs.h"
+#include "hcimsgs.h"
 
 #define BTM_BLE_ADV_FILT_META_HDR_LENGTH 3
 #define BTM_BLE_ADV_FILT_FEAT_SELN_LEN  13
@@ -47,7 +49,6 @@
 
 #define BTM_BLE_PF_BIT_TO_MASK(x)          (UINT16)(1 << (x))
 
-
 tBTM_BLE_ADV_FILTER_CB btm_ble_adv_filt_cb;
 tBTM_BLE_VSC_CB cmn_ble_vsc_cb;
 static const BD_ADDR     na_bda= {0};
@@ -59,7 +60,6 @@ static UINT8 btm_ble_cs_update_pf_counter(tBTM_BLE_SCAN_COND_OP action,
 #define BTM_BLE_GET_SCAN_PF_SUBCODE(x)    ((x) >> 4)
 #define BTM_BLE_GET_SCAN_PF_ACTION(x)    ((x) & 0x0f)
 #define BTM_BLE_INVALID_COUNTER     0xff
-
 
 /* length of each multi adv sub command */
 #define BTM_BLE_ADV_FILTER_ENB_LEN                       3
@@ -502,7 +502,6 @@ tBTM_STATUS btm_ble_update_pf_local_name(tBTM_BLE_SCAN_COND_OP action,
     return st;
 }
 
-
 /*******************************************************************************
 **
 ** Function         btm_ble_update_srvc_data_change
@@ -721,7 +720,6 @@ UINT8 btm_ble_cs_update_pf_counter(tBTM_BLE_SCAN_COND_OP action,
     return BTM_BLE_INVALID_COUNTER;
 }
 
-
 /*******************************************************************************
 **
 ** Function         btm_ble_update_addr_filter
@@ -924,7 +922,6 @@ tBTM_STATUS btm_ble_update_uuid_filter(tBTM_BLE_SCAN_COND_OP action,
 
     return st;
 }
-
 
 /*******************************************************************************
 **
@@ -1321,7 +1318,7 @@ void btm_ble_adv_filter_init(void)
     if (cmn_ble_vsc_cb.max_filter > 0)
     {
         btm_ble_adv_filt_cb.p_addr_filter_count =
-            (tBTM_BLE_PF_COUNT*) GKI_getbuf( sizeof(tBTM_BLE_PF_COUNT) * cmn_ble_vsc_cb.max_filter);
+            (tBTM_BLE_PF_COUNT*)osi_malloc(sizeof(tBTM_BLE_PF_COUNT) * cmn_ble_vsc_cb.max_filter);
     }
 }
 
@@ -1338,8 +1335,7 @@ void btm_ble_adv_filter_init(void)
 *******************************************************************************/
 void btm_ble_adv_filter_cleanup(void)
 {
-    if (btm_ble_adv_filt_cb.p_addr_filter_count)
-        GKI_freebuf (btm_ble_adv_filt_cb.p_addr_filter_count);
+    osi_free_and_reset((void **)&btm_ble_adv_filt_cb.p_addr_filter_count);
 }
 
 #endif

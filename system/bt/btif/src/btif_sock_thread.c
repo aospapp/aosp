@@ -25,39 +25,34 @@
  *
  ***********************************************************************************/
 
-#include <hardware/bluetooth.h>
-#include <hardware/bt_sock.h>
+#define LOG_TAG "bt_btif_sock"
 
-//bta_jv_co_rfc_data
+#include "btif_sock_thread.h"
+
+#include <alloca.h>
+#include <ctype.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <features.h>
+#include <pthread.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <errno.h>
-#include <features.h>
 #include <string.h>
-#include <sys/types.h>
+#include <sys/poll.h>
+#include <sys/select.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <sys/un.h>
 #include <time.h>
-#include <fcntl.h>
 #include <unistd.h>
-#include <signal.h>
-#include <pthread.h>
-#include <ctype.h>
-
-#include <sys/select.h>
-#include <sys/poll.h>
-#include <cutils/sockets.h>
-#include <alloca.h>
-
-#define LOG_TAG "bt_btif_sock"
-#include "btif_common.h"
-#include "btif_util.h"
-
 
 #include "bta_api.h"
+#include "btif_common.h"
 #include "btif_sock.h"
-#include "btif_sock_thread.h"
 #include "btif_sock_util.h"
+#include "btif_util.h"
+#include "osi/include/socket_utils/sockets.h"
 
 #define asrt(s) if(!(s)) APPL_TRACE_ERROR("## %s assert %s failed at line:%d ##",__FUNCTION__, #s, __LINE__)
 #define print_events(events) do { \
@@ -102,69 +97,12 @@ typedef struct {
 } thread_slot_t;
 static thread_slot_t ts[MAX_THREAD];
 
-
-
 static void *sock_poll_thread(void *arg);
 static inline void close_cmd_fd(int h);
 
 static inline void add_poll(int h, int fd, int type, int flags, uint32_t user_id);
 
 static pthread_mutex_t thread_slot_lock = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
-
-static inline void set_socket_blocking(int s, int blocking)
-{
-    int opts;
-    opts = fcntl(s, F_GETFL);
-    if (opts<0) APPL_TRACE_ERROR("set blocking (%s)", strerror(errno));
-    if(blocking)
-        opts &= ~O_NONBLOCK;
-    else opts |= O_NONBLOCK;
-    if (fcntl(s, F_SETFL, opts) < 0)
-        APPL_TRACE_ERROR("set blocking (%s)", strerror(errno));
-}
-
-static inline int create_server_socket(const char* name)
-{
-    int s = socket(AF_LOCAL, SOCK_STREAM, 0);
-    if(s < 0)
-        return -1;
-    APPL_TRACE_DEBUG("covert name to android abstract name:%s", name);
-    if(socket_local_server_bind(s, name, ANDROID_SOCKET_NAMESPACE_ABSTRACT) >= 0)
-    {
-        if(listen(s, 5) == 0)
-        {
-            APPL_TRACE_DEBUG("listen to local socket:%s, fd:%d", name, s);
-            return s;
-        }
-        else APPL_TRACE_ERROR("listen to local socket:%s, fd:%d failed, errno:%d", name, s, errno);
-    }
-    else APPL_TRACE_ERROR("create local socket:%s fd:%d, failed, errno:%d", name, s, errno);
-    close(s);
-    return -1;
-}
-static inline int connect_server_socket(const char* name)
-{
-    int s = socket(AF_LOCAL, SOCK_STREAM, 0);
-    if(s < 0)
-        return -1;
-    set_socket_blocking(s, TRUE);
-    if(socket_local_client_connect(s, name, ANDROID_SOCKET_NAMESPACE_ABSTRACT, SOCK_STREAM) >= 0)
-    {
-        APPL_TRACE_DEBUG("connected to local socket:%s, fd:%d", name, s);
-        return s;
-    }
-    else APPL_TRACE_ERROR("connect to local socket:%s, fd:%d failed, errno:%d", name, s, errno);
-    close(s);
-    return -1;
-}
-static inline int accept_server_socket(int s)
-{
-    struct sockaddr_un client_address;
-    socklen_t clen;
-    int fd = accept(s, (struct sockaddr*)&client_address, &clen);
-    APPL_TRACE_DEBUG("accepted fd:%d for server fd:%d", fd, s);
-    return fd;
-}
 
 static inline int create_thread(void *(*start_routine)(void *), void * arg,
                                 pthread_t * thread_id)
@@ -325,7 +263,11 @@ int btsock_thread_add_fd(int h, int fd, int type, int flags, uint32_t user_id)
     }
     sock_cmd_t cmd = {CMD_ADD_FD, fd, type, flags, user_id};
     APPL_TRACE_DEBUG("adding fd:%d, flags:0x%x", fd, flags);
-    return send(ts[h].cmd_fdw, &cmd, sizeof(cmd), 0) == sizeof(cmd);
+
+    ssize_t ret;
+    OSI_NO_INTR(ret = send(ts[h].cmd_fdw, &cmd, sizeof(cmd), 0));
+
+    return ret == sizeof(cmd);
 }
 
 bool btsock_thread_remove_fd_and_close(int thread_handle, int fd)
@@ -342,7 +284,11 @@ bool btsock_thread_remove_fd_and_close(int thread_handle, int fd)
     }
 
     sock_cmd_t cmd = {CMD_REMOVE_FD, fd, 0, 0, 0};
-    return send(ts[thread_handle].cmd_fdw, &cmd, sizeof(cmd), 0) == sizeof(cmd);
+
+    ssize_t ret;
+    OSI_NO_INTR(ret = send(ts[thread_handle].cmd_fdw, &cmd, sizeof(cmd), 0));
+
+    return ret == sizeof(cmd);
 }
 
 int btsock_thread_post_cmd(int h, int type, const unsigned char* data, int size, uint32_t user_id)
@@ -376,7 +322,11 @@ int btsock_thread_post_cmd(int h, int type, const unsigned char* data, int size,
             return FALSE;
         }
     }
-    return send(ts[h].cmd_fdw, cmd_send, size_send, 0) == size_send;
+
+    ssize_t ret;
+    OSI_NO_INTR(ret = send(ts[h].cmd_fdw, cmd_send, size_send, 0));
+
+    return ret == size_send;
 }
 int btsock_thread_wakeup(int h)
 {
@@ -391,7 +341,11 @@ int btsock_thread_wakeup(int h)
         return FALSE;
     }
     sock_cmd_t cmd = {CMD_WAKEUP, 0, 0, 0, 0};
-    return send(ts[h].cmd_fdw, &cmd, sizeof(cmd), 0) == sizeof(cmd);
+
+    ssize_t ret;
+    OSI_NO_INTR(ret = send(ts[h].cmd_fdw, &cmd, sizeof(cmd), 0));
+
+    return ret == sizeof(cmd);
 }
 int btsock_thread_exit(int h)
 {
@@ -406,8 +360,11 @@ int btsock_thread_exit(int h)
         return FALSE;
     }
     sock_cmd_t cmd = {CMD_EXIT, 0, 0, 0, 0};
-    if(send(ts[h].cmd_fdw, &cmd, sizeof(cmd), 0) == sizeof(cmd))
-    {
+
+    ssize_t ret;
+    OSI_NO_INTR(ret = send(ts[h].cmd_fdw, &cmd, sizeof(cmd), 0));
+
+    if (ret == sizeof(cmd)) {
         pthread_join(ts[h].thread_id, 0);
         pthread_mutex_lock(&thread_slot_lock);
         free_thread_slot(h);
@@ -501,7 +458,11 @@ static int process_cmd_sock(int h)
 {
     sock_cmd_t cmd = {-1, 0, 0, 0, 0};
     int fd = ts[h].cmd_fdr;
-    if(recv(fd, &cmd, sizeof(cmd), MSG_WAITALL) != sizeof(cmd))
+
+    ssize_t ret;
+    OSI_NO_INTR(ret = recv(fd, &cmd, sizeof(cmd), MSG_WAITALL));
+
+    if (ret != sizeof(cmd))
     {
         APPL_TRACE_ERROR("recv cmd errno:%d", errno);
         return FALSE;
@@ -608,7 +569,8 @@ static void *sock_poll_thread(void *arg)
     for(;;)
     {
         prepare_poll_fds(h, pfds);
-        int ret = poll(pfds, ts[h].poll_count, -1);
+        int ret;
+        OSI_NO_INTR(ret = poll(pfds, ts[h].poll_count, -1));
         if(ret == -1)
         {
             APPL_TRACE_ERROR("poll ret -1, exit the thread, errno:%d, err:%s", errno, strerror(errno));

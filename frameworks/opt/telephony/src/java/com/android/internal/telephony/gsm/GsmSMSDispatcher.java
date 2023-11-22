@@ -28,10 +28,11 @@ import android.provider.Telephony.Sms.Intents;
 import android.telephony.Rlog;
 import android.telephony.ServiceState;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.GsmAlphabet;
 import com.android.internal.telephony.ImsSMSDispatcher;
 import com.android.internal.telephony.InboundSmsHandler;
-import com.android.internal.telephony.PhoneBase;
+import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.SMSDispatcher;
 import com.android.internal.telephony.SmsConstants;
 import com.android.internal.telephony.SmsHeader;
@@ -58,7 +59,7 @@ public final class GsmSMSDispatcher extends SMSDispatcher {
     /** Status report received */
     private static final int EVENT_NEW_SMS_STATUS_REPORT = 100;
 
-    public GsmSMSDispatcher(PhoneBase phone, SmsUsageMonitor usageMonitor,
+    public GsmSMSDispatcher(Phone phone, SmsUsageMonitor usageMonitor,
             ImsSMSDispatcher imsSMSDispatcher,
             GsmInboundSmsHandler gsmInboundSmsHandler) {
         super(phone, usageMonitor, imsSMSDispatcher);
@@ -174,8 +175,9 @@ public final class GsmSMSDispatcher extends SMSDispatcher {
     }
 
     /** {@inheritDoc} */
+    @VisibleForTesting
     @Override
-    protected void sendText(String destAddr, String scAddr, String text, PendingIntent sentIntent,
+    public void sendText(String destAddr, String scAddr, String text, PendingIntent sentIntent,
             PendingIntent deliveryIntent, Uri messageUri, String callingPkg,
             boolean persistMessage) {
         SmsMessage.SubmitPdu pdu = SmsMessage.getSubmitPdu(
@@ -244,7 +246,7 @@ public final class GsmSMSDispatcher extends SMSDispatcher {
     /** {@inheritDoc} */
     @Override
     protected void sendSms(SmsTracker tracker) {
-        HashMap<String, Object> map = tracker.mData;
+        HashMap<String, Object> map = tracker.getData();
 
         byte pdu[] = (byte[]) map.get("pdu");
 
@@ -282,7 +284,7 @@ public final class GsmSMSDispatcher extends SMSDispatcher {
             return;
         }
 
-        HashMap<String, Object> map = tracker.mData;
+        HashMap<String, Object> map = tracker.getData();
 
         byte smsc[] = (byte[]) map.get("smsc");
         byte[] pdu = (byte[]) map.get("pdu");

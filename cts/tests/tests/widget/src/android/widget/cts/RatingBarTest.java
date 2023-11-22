@@ -16,7 +16,7 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 import android.content.Context;
 import android.test.ActivityInstrumentationTestCase2;
@@ -32,7 +32,7 @@ public class RatingBarTest extends ActivityInstrumentationTestCase2<RatingBarCts
     private RatingBarCtsActivity mActivity;
 
     public RatingBarTest() {
-        super("com.android.cts.widget", RatingBarCtsActivity.class);
+        super("android.widget.cts", RatingBarCtsActivity.class);
     }
 
     @Override

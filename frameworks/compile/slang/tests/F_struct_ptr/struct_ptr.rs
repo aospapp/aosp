@@ -3,7 +3,3 @@
 
 struct s *myStruct;
 
-int root(int num) {
-    return 10;
-}
-

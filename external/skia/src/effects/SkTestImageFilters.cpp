@@ -1,3 +1,9 @@
+/*
+ * Copyright 2011 Google Inc.
+ *
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
 
 #include "SkTestImageFilters.h"
 #include "SkCanvas.h"
@@ -21,9 +27,9 @@ public:
 
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SkDownSampleImageFilter::onFilterImage(Proxy* proxy, const SkBitmap& src,
-                                            const Context&,
-                                            SkBitmap* result, SkIPoint*) const {
+bool SkDownSampleImageFilter::onFilterImageDeprecated(Proxy* proxy, const SkBitmap& src,
+                                                      const Context&,
+                                                      SkBitmap* result, SkIPoint*) const {
     SkScalar scale = fScale;
     if (scale > SK_Scalar1 || scale <= 0) {
         return false;
@@ -43,7 +49,7 @@ bool SkDownSampleImageFilter::onFilterImage(Proxy* proxy, const SkBitmap& src,
     // downsample
     {
         SkBaseDevice* dev = proxy->createDevice(dstW, dstH);
-        if (NULL == dev) {
+        if (nullptr == dev) {
             return false;
         }
         OwnDeviceCanvas canvas(dev);
@@ -58,14 +64,12 @@ bool SkDownSampleImageFilter::onFilterImage(Proxy* proxy, const SkBitmap& src,
     // upscale
     {
         SkBaseDevice* dev = proxy->createDevice(src.width(), src.height());
-        if (NULL == dev) {
+        if (nullptr == dev) {
             return false;
         }
         OwnDeviceCanvas canvas(dev);
 
-        SkRect r = SkRect::MakeWH(SkIntToScalar(src.width()),
-                                  SkIntToScalar(src.height()));
-        canvas.drawBitmapRect(tmp, NULL, r, NULL);
+        canvas.drawBitmapRect(tmp, SkRect::MakeIWH(src.width(), src.height()), nullptr);
         *result = dev->accessBitmap(false);
     }
     return true;

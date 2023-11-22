@@ -18,7 +18,6 @@ package android.mediastress.cts;
 import android.app.Instrumentation;
 import android.content.Intent;
 import android.cts.util.MediaUtils;
-import android.media.CamcorderProfile;
 import android.media.MediaFormat;
 import android.media.MediaRecorder.AudioEncoder;
 import android.media.MediaRecorder.VideoEncoder;
@@ -40,37 +39,30 @@ public class NativeMediaTest extends ActivityInstrumentationTestCase2<NativeMedi
     }
 
     public void test1080pPlay() throws InterruptedException {
-        runPlayTest(CamcorderProfile.QUALITY_1080P);
+        runPlayTest(1920, 1080);
     }
 
     public void test720pPlay() throws InterruptedException {
-        runPlayTest(CamcorderProfile.QUALITY_720P);
+        runPlayTest(1280, 720);
     }
 
     public void test480pPlay() throws InterruptedException {
-        runPlayTest(CamcorderProfile.QUALITY_480P);
+        runPlayTest(720, 480);
     }
 
     public void testDefaultPlay() throws InterruptedException {
-        runPlayTest(0);
+        runPlayTest(480, 360);
     }
 
-    private void runPlayTest(int quality) throws InterruptedException {
+    private void runPlayTest(int width, int height) throws InterruptedException {
+        MediaFormat format = MediaFormat.createVideoFormat(MIME_TYPE, width, height);
         // Don't run the test if the codec isn't supported.
-        if (!MediaUtils.checkDecoder(MIME_TYPE)) {
+        if (!MediaUtils.canDecode(format)) {
             return; // skip
-        }
-        // Don't run the test if the quality level isn't supported.
-        if (quality != 0) {
-            if (!isResolutionSupported(quality)) {
-                Log.w(TAG, "Quality level " + quality + " not supported.");
-                return;
-            }
         }
 
         Intent intent = new Intent();
-        intent.putExtra(NativeMediaActivity.EXTRA_VIDEO_QUALITY,
-                quality);
+        intent.putExtra(NativeMediaActivity.EXTRA_VIDEO_HEIGHT, height);
         setActivityIntent(intent);
         final NativeMediaActivity activity = getActivity();
         final Instrumentation instrumentation = getInstrumentation();
@@ -97,18 +89,5 @@ public class NativeMediaTest extends ActivityInstrumentationTestCase2<NativeMedi
         Boolean status = activity.waitForNativeMediaLifeCycle();
         Assert.assertNotNull(status); // null means time-out
         Assert.assertEquals(expectAlive, status.booleanValue());
-    }
-
-    private boolean isResolutionSupported(int quality) {
-        Assert.assertEquals(Environment.getExternalStorageState(), Environment.MEDIA_MOUNTED);
-        if (!CamcorderProfile.hasProfile(quality)) {
-            return false;
-        }
-        CamcorderProfile profile = CamcorderProfile.get(quality);
-        if ((profile != null) && (profile.videoCodec == VIDEO_CODEC) &&
-                (profile.audioCodec == AudioEncoder.AAC)) {
-            return true;
-        }
-        return false;
     }
 }

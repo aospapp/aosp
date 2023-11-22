@@ -39,8 +39,8 @@
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 #define FSTAB_PREFIX "/fstab."
 #define SB_OFFSET 1024
-#define UMOUNT_BIN "/system/bin/umount"
-#define VDC_BIN "/system/bin/vdc"
+static char UMOUNT_BIN[] = "/system/bin/umount";
+static char VDC_BIN[] = "/system/bin/vdc";
 
 enum Fs_Type { FS_UNKNOWN, FS_EXT4, FS_F2FS };
 
@@ -216,24 +216,29 @@ class FsRecoveryTest : public ::testing::Test {
   }
 
   bool unmountCache() {
+    char cache_str[] = "/cache";
     char *umount_argv[] = {
       UMOUNT_BIN,
-      "/cache"
+      cache_str,
     };
     int status;
     return android_fork_execvp_ext(ARRAY_SIZE(umount_argv), umount_argv,
-                                   NULL, true, LOG_KLOG, false, NULL) >= 0;
+                                   NULL, true, LOG_KLOG, false, NULL,
+                                   NULL, 0) >= 0;
   }
 
   bool mountAll() {
+    char storage_str[] = "storage";
+    char mountall_str[] = "mountall";
     char *mountall_argv[] = {
       VDC_BIN,
-      "storage",
-      "mountall"
+      storage_str,
+      mountall_str,
     };
     int status;
     return android_fork_execvp_ext(ARRAY_SIZE(mountall_argv), mountall_argv,
-                                   NULL, true, LOG_KLOG, false, NULL) >= 0;
+                                   NULL, true, LOG_KLOG, false, NULL,
+                                   NULL, 0) >= 0;
   }
 
   int getCacheBlkFd() {

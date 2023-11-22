@@ -16,7 +16,8 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
+import android.test.suitebuilder.annotation.MediumTest;
+import android.widget.cts.R;
 
 
 import org.xmlpull.v1.XmlPullParser;
@@ -47,6 +48,7 @@ import android.widget.GridView;
 import android.widget.ImageView;
 import android.widget.ListAdapter;
 import android.widget.AdapterView.OnItemClickListener;
+import android.widget.cts.util.ViewTestUtils;
 
 /**
  * Test {@link GridView}.
@@ -57,7 +59,7 @@ public class GridViewTest extends ActivityInstrumentationTestCase<GridViewCtsAct
     private Instrumentation mInstrumentation;
 
     public GridViewTest() {
-        super("com.android.cts.widget", GridViewCtsActivity.class);
+        super("android.widget.cts", GridViewCtsActivity.class);
     }
 
     private GridView findGridViewById(int id) {
@@ -564,6 +566,81 @@ public class GridViewTest extends ActivityInstrumentationTestCase<GridViewCtsAct
         child1 = mGridView.getChildAt(1);
         assertEquals(child0.getBottom(), child1.getTop());
         assertEquals(child0.getLeft(), child1.getLeft());
+    }
+
+    @MediumTest
+    public void testFullyDetachUnusedViewOnScroll() {
+        mGridView = findGridViewById(R.id.gridview);
+        final AttachDetachAwareView theView = new AttachDetachAwareView(mActivity);
+        ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mGridView, () -> {
+            mGridView.setAdapter(new DummyAdapter(1000, theView));
+        });
+        assertEquals("test sanity", 1, theView.mOnAttachCount);
+        assertEquals("test sanity", 0, theView.mOnDetachCount);
+        ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mGridView, () -> {
+            mGridView.scrollListBy(mGridView.getHeight() * 2);
+        });
+        assertNull("test sanity, unused view should be removed", theView.getParent());
+        assertEquals("unused view should be detached", 1, theView.mOnDetachCount);
+        assertFalse(theView.isTemporarilyDetached());
+        ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mGridView, () -> {
+            mGridView.scrollListBy(-mGridView.getHeight() * 2);
+            // listview limits scroll to 1 page which is why we call it twice here.
+            mGridView.scrollListBy(-mGridView.getHeight() * 2);
+        });
+        assertNotNull("test sanity, view should be re-added", theView.getParent());
+        assertEquals("view should receive another attach call", 2, theView.mOnAttachCount);
+        assertEquals("view should not receive a detach call", 1, theView.mOnDetachCount);
+        assertFalse(theView.isTemporarilyDetached());
+    }
+
+    @MediumTest
+    public void testFullyDetachUnusedViewOnReLayout() {
+        mGridView = findGridViewById(R.id.gridview);
+        final AttachDetachAwareView theView = new AttachDetachAwareView(mActivity);
+        ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mGridView, () -> {
+            mGridView.setAdapter(new DummyAdapter(1000, theView));
+        });
+        assertEquals("test sanity", 1, theView.mOnAttachCount);
+        assertEquals("test sanity", 0, theView.mOnDetachCount);
+        ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mGridView, () -> {
+            mGridView.setSelection(800);
+        });
+        assertNull("test sanity, unused view should be removed", theView.getParent());
+        assertEquals("unused view should be detached", 1, theView.mOnDetachCount);
+        assertFalse(theView.isTemporarilyDetached());
+        ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mGridView, () -> {
+            mGridView.setSelection(0);
+        });
+        assertNotNull("test sanity, view should be re-added", theView.getParent());
+        assertEquals("view should receive another attach call", 2, theView.mOnAttachCount);
+        assertEquals("view should not receive a detach call", 1, theView.mOnDetachCount);
+        assertFalse(theView.isTemporarilyDetached());
+    }
+
+    @MediumTest
+    public void testFullyDetachUnusedViewOnScrollForFocus() {
+        mGridView = findGridViewById(R.id.gridview);
+        final AttachDetachAwareView theView = new AttachDetachAwareView(mActivity);
+        ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mGridView, () -> {
+            mGridView.setAdapter(new DummyAdapter(1000, theView));
+        });
+        assertEquals("test sanity", 1, theView.mOnAttachCount);
+        assertEquals("test sanity", 0, theView.mOnDetachCount);
+        while(theView.getParent() != null) {
+            assertEquals("the view should NOT be detached", 0, theView.mOnDetachCount);
+            sendKeys(KeyEvent.KEYCODE_DPAD_DOWN);
+            ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mGridView, null);
+        }
+        assertEquals("the view should be detached", 1, theView.mOnDetachCount);
+        assertFalse(theView.isTemporarilyDetached());
+        while(theView.getParent() == null) {
+            sendKeys(KeyEvent.KEYCODE_DPAD_UP);
+            ViewTestUtils.runOnMainAndDrawSync(getInstrumentation(), mGridView, null);
+        }
+        assertEquals("the view should be re-attached", 2, theView.mOnAttachCount);
+        assertEquals("the view should not recieve another detach", 1, theView.mOnDetachCount);
+        assertFalse(theView.isTemporarilyDetached());
     }
 
     private static class MockGridView extends GridView {

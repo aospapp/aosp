@@ -67,7 +67,7 @@ enum AndroidObjectState {
 
 struct AudioPlayback_Parameters {
     audio_stream_type_t streamType;
-    int sessionId;
+    audio_session_t sessionId;
 };
 
 /**
@@ -184,9 +184,9 @@ enum CacheStatus_t {
 };
 
 enum {
-    kDataLocatorNone = 'none',
-    kDataLocatorUri  = 'uri',
-    kDataLocatorFd   = 'fd',
+    kDataLocatorNone = 0,
+    kDataLocatorUri  = 1,
+    kDataLocatorFd   = 2,
 };
 
 struct FdInfo {

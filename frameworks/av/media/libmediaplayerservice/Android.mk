@@ -8,17 +8,12 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES:=               \
     ActivityManager.cpp         \
-    Crypto.cpp                  \
-    Drm.cpp                     \
-    DrmSessionManager.cpp       \
     HDCP.cpp                    \
     MediaPlayerFactory.cpp      \
     MediaPlayerService.cpp      \
     MediaRecorderClient.cpp     \
     MetadataRetrieverClient.cpp \
     RemoteDisplay.cpp           \
-    SharedLibrary.cpp           \
-    StagefrightPlayer.cpp       \
     StagefrightRecorder.cpp     \
     TestPlayerStub.cpp          \
 
@@ -33,6 +28,7 @@ LOCAL_SHARED_LIBRARIES :=       \
     libgui                      \
     libmedia                    \
     libmediautils               \
+    libmemunreachable           \
     libsonivox                  \
     libstagefright              \
     libstagefright_foundation   \
@@ -45,14 +41,19 @@ LOCAL_SHARED_LIBRARIES :=       \
 LOCAL_STATIC_LIBRARIES :=       \
     libstagefright_nuplayer     \
     libstagefright_rtsp         \
+    libstagefright_timedtext    \
 
 LOCAL_C_INCLUDES :=                                                 \
     $(TOP)/frameworks/av/media/libstagefright/include               \
     $(TOP)/frameworks/av/media/libstagefright/rtsp                  \
     $(TOP)/frameworks/av/media/libstagefright/wifi-display          \
     $(TOP)/frameworks/av/media/libstagefright/webm                  \
+    $(TOP)/frameworks/av/include/media                              \
+    $(TOP)/frameworks/av/include/camera                             \
     $(TOP)/frameworks/native/include/media/openmax                  \
+    $(TOP)/frameworks/native/include/media/hardware                 \
     $(TOP)/external/tremolo/Tremolo                                 \
+    libcore/include                                                 \
 
 LOCAL_CFLAGS += -Werror -Wno-error=deprecated-declarations -Wall
 LOCAL_CLANG := true

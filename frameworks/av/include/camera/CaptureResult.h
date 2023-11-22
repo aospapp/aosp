@@ -18,15 +18,21 @@
 #define ANDROID_HARDWARE_CAPTURERESULT_H
 
 #include <utils/RefBase.h>
+#include <binder/Parcelable.h>
 #include <camera/CameraMetadata.h>
 
+
 namespace android {
+
+namespace hardware {
+namespace camera2 {
+namespace impl {
 
 /**
  * CaptureResultExtras is a structure to encapsulate various indices for a capture result.
  * These indices are framework-internal and not sent to the HAL.
  */
-struct CaptureResultExtras {
+struct CaptureResultExtras : public android::Parcelable {
     /**
      * An integer to index the request sequence that this result belongs to.
      */
@@ -58,6 +64,12 @@ struct CaptureResultExtras {
     int32_t partialResultCount;
 
     /**
+     * For buffer drop errors, the stream ID for the stream that lost a buffer.
+     * Otherwise -1.
+     */
+    int32_t errorStreamId;
+
+    /**
      * Constructor initializes object as invalid by setting requestId to be -1.
      */
     CaptureResultExtras()
@@ -66,7 +78,8 @@ struct CaptureResultExtras {
           afTriggerId(0),
           precaptureTriggerId(0),
           frameNumber(0),
-          partialResultCount(0) {
+          partialResultCount(0),
+          errorStreamId(-1) {
     }
 
     /**
@@ -75,9 +88,14 @@ struct CaptureResultExtras {
      */
     bool isValid();
 
-    status_t                readFromParcel(Parcel* parcel);
-    status_t                writeToParcel(Parcel* parcel) const;
+    virtual status_t                readFromParcel(const Parcel* parcel) override;
+    virtual status_t                writeToParcel(Parcel* parcel) const override;
 };
+} // namespace impl
+} // namespace camera2
+} // namespace hardware
+
+using hardware::camera2::impl::CaptureResultExtras;
 
 struct CaptureResult : public virtual LightRefBase<CaptureResult> {
     CameraMetadata          mMetadata;

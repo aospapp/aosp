@@ -26,6 +26,7 @@ import java.security.Security;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Set;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
@@ -39,17 +40,18 @@ import libcore.java.security.TestKeyStore;
 
 public class KeyManagerFactoryTest extends TestCase {
 
-    private static TestKeyStore TEST_KEY_STORE;
+    private TestKeyStore testKeyStore;
 
-    // note the rare usage of DSA keys here in addition to RSA
-    private static TestKeyStore getTestKeyStore() throws Exception {
-        if (TEST_KEY_STORE == null) {
-            TEST_KEY_STORE = new TestKeyStore.Builder()
-                    .keyAlgorithms("RSA", "DH_RSA", "DSA", "DH_DSA", "EC", "EC_RSA")
-                    .aliasPrefix("rsa-dsa-ec-dh")
-                    .build();
-        }
-        return TEST_KEY_STORE;
+    protected void setUp() throws Exception {
+        // note the rare usage of DSA keys here in addition to RSA
+        testKeyStore = new TestKeyStore.Builder()
+                .keyAlgorithms("RSA", "DH_RSA", "DSA", "DH_DSA", "EC", "EC_RSA")
+                .aliasPrefix("rsa-dsa-ec-dh")
+                .build();
+    }
+
+    private TestKeyStore getTestKeyStore() throws Exception {
+        return testKeyStore;
     }
 
     public void test_KeyManagerFactory_getDefaultAlgorithm() throws Exception {
@@ -230,34 +232,30 @@ public class KeyManagerFactoryTest extends TestCase {
         X509Certificate[] certificateChain = km.getCertificateChain(alias);
         PrivateKey privateKey = km.getPrivateKey(alias);
 
-        String keyAlgName;
-        String sigAlgName;
-        if (keyType == null) {
-            keyAlgName = privateKey.getAlgorithm();
-            sigAlgName = keyAlgName;
-        } else {
-            // potentially handle EC_EC or EC_RSA
-            keyAlgName = TestKeyStore.keyAlgorithm(keyType);
-            sigAlgName = TestKeyStore.signatureAlgorithm(keyType);
-            X509Certificate certificate = certificateChain[0];
-            assertEquals(keyType, keyAlgName, certificate.getPublicKey().getAlgorithm());
-            assertEquals(keyType, keyAlgName, privateKey.getAlgorithm());
-            // skip this for EC which could return EC_RSA case instead of EC_EC
-            if (!keyType.equals("EC")) {
-                String expectedSigAlgName = sigAlgName.toUpperCase();
-                String actualSigAlgName = certificate.getSigAlgName().toUpperCase();
-                String expected = actualSigAlgName + " contains " + expectedSigAlgName;
-                assertTrue(expected, actualSigAlgName.contains(expectedSigAlgName));
-            }
-        }
+        String keyAlgName =  privateKey.getAlgorithm();
+
+        X509Certificate certificate = certificateChain[0];
+        assertEquals(keyType, keyAlgName, certificate.getPublicKey().getAlgorithm());
+
+        String sigAlgName = certificate.getSigAlgName();
 
         PrivateKeyEntry privateKeyEntry = getTestKeyStore().getPrivateKey(keyAlgName, sigAlgName);
-        if (!"EC".equals(keyAlgName)) {
-            assertEquals(keyType,
-                         Arrays.<Certificate>asList(privateKeyEntry.getCertificateChain()),
-                         Arrays.<Certificate>asList(certificateChain));
-            assertEquals(keyType,
-                         privateKeyEntry.getPrivateKey(), privateKey);
+
+        assertEquals(keyType,
+                     Arrays.<Certificate>asList(privateKeyEntry.getCertificateChain()),
+                     Arrays.<Certificate>asList(certificateChain));
+        assertEquals(keyType,
+                     privateKeyEntry.getPrivateKey(), privateKey);
+
+        if (keyType != null) {
+            assertEquals(TestKeyStore.keyAlgorithm(keyType), keyAlgName);
+
+            // Skip this when we're given only "DH" or "EC" instead of "DH_DSA",
+            // "EC_RSA", etc. since we don't know what the expected
+            // algorithm was.
+            if (!keyType.equals("DH") && !keyType.equals("EC")) {
+                assertTrue(sigAlgName.contains(TestKeyStore.signatureAlgorithm(keyType)));
+            }
         }
     }
 

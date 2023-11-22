@@ -37,7 +37,7 @@ public class SurfaceViewTest extends ActivityInstrumentationTestCase2<SurfaceVie
     private MockSurfaceView mMockSurfaceView;
 
     public SurfaceViewTest() {
-        super("com.android.cts.view", SurfaceViewCtsActivity.class);
+        super("android.view.cts", SurfaceViewCtsActivity.class);
     }
 
     @Override

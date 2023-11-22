@@ -7,18 +7,20 @@
 
 /**
  * Port From:   ICU4C v1.8.1 : format : NumberFormatTest
- * Source File: $ICU4CRoot/source/test/intltest/numfmtst.cpp
+ * Source File: $ICU4oot/source/test/intltest/numfmtst.cpp
  **/
 
 package com.ibm.icu.dev.test.format;
 
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.math.BigInteger;
 import java.text.AttributedCharacterIterator;
 import java.text.FieldPosition;
 import java.text.ParseException;
 import java.text.ParsePosition;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.Set;
 
@@ -29,6 +31,7 @@ import com.ibm.icu.impl.data.ResourceReader;
 import com.ibm.icu.impl.data.TokenIterator;
 import com.ibm.icu.math.BigDecimal;
 import com.ibm.icu.math.MathContext;
+import com.ibm.icu.text.CompactDecimalFormat;
 import com.ibm.icu.text.DecimalFormat;
 import com.ibm.icu.text.DecimalFormatSymbols;
 import com.ibm.icu.text.DisplayContext;
@@ -36,11 +39,410 @@ import com.ibm.icu.text.MeasureFormat;
 import com.ibm.icu.text.NumberFormat;
 import com.ibm.icu.text.NumberFormat.NumberFormatFactory;
 import com.ibm.icu.text.NumberFormat.SimpleNumberFormatFactory;
+import com.ibm.icu.text.NumberingSystem;
+import com.ibm.icu.text.RuleBasedNumberFormat;
 import com.ibm.icu.util.Currency;
 import com.ibm.icu.util.CurrencyAmount;
 import com.ibm.icu.util.ULocale;
 
 public class NumberFormatTest extends com.ibm.icu.dev.test.TestFmwk {
+    
+    private static ULocale EN = new ULocale("en");
+    
+    private static Number toNumber(String s) {
+        if (s.equals("NaN")) {
+            return Double.NaN;
+        } else if (s.equals("-Inf")) {
+            return Double.NEGATIVE_INFINITY;
+        } else if (s.equals("Inf")) {
+            return Double.POSITIVE_INFINITY;
+        }
+        return new BigDecimal(s);
+    }
+    
+    
+    private DataDrivenNumberFormatTestSuite.CodeUnderTest ICU =
+            new DataDrivenNumberFormatTestSuite.CodeUnderTest() {
+                @Override
+                public Character Id() { return 'J'; }
+        
+                @Override
+                public String format(NumberFormatTestTuple tuple) {
+                    DecimalFormat fmt = newDecimalFormat(tuple);
+                    String actual = fmt.format(toNumber(tuple.format));
+                    String expected = tuple.output;
+                    if (!expected.equals(actual)) {
+                        return "Expected " + expected + ", got " + actual;
+                    }
+                    return null;
+                }
+
+                @Override
+                public String toPattern(NumberFormatTestTuple tuple) {
+                    DecimalFormat fmt = newDecimalFormat(tuple);
+                    StringBuilder result = new StringBuilder();
+                    if (tuple.toPattern != null) {
+                        String expected = tuple.toPattern;
+                        String actual = fmt.toPattern();
+                        if (!expected.equals(actual)) {
+                            result.append("Expected toPattern=" + expected + ", got " + actual);
+                        }
+                    }
+                    if (tuple.toLocalizedPattern != null) {
+                        String expected = tuple.toLocalizedPattern;
+                        String actual = fmt.toLocalizedPattern();
+                        if (!expected.equals(actual)) {
+                            result.append("Expected toLocalizedPattern=" + expected + ", got " + actual);
+                        }
+                    }
+                    return result.length() == 0 ? null : result.toString();
+                }
+
+                @Override
+                public String parse(NumberFormatTestTuple tuple) {
+                    DecimalFormat fmt = newDecimalFormat(tuple);
+                    ParsePosition ppos = new ParsePosition(0);
+                    Number actual = fmt.parse(tuple.parse, ppos);
+                    if (ppos.getIndex() == 0) {
+                        if (!tuple.output.equals("fail")) {
+                            return "Parse error expected.";
+                        }
+                        return null;
+                    }
+                    if (tuple.output.equals("fail")) {
+                        return "Parse succeeded: "+actual+", but was expected to fail.";
+                    }
+                    Number expected = toNumber(tuple.output);
+                    // number types cannot be compared, this is the best we can do.
+                    if (expected.doubleValue() != (actual.doubleValue())) {
+                        return "Expected: " + expected + ", got: " + actual;
+                    }
+                    return null;
+                }
+                
+                @Override
+                public String parseCurrency(NumberFormatTestTuple tuple) {
+                    DecimalFormat fmt = newDecimalFormat(tuple);
+                    ParsePosition ppos = new ParsePosition(0);
+                    CurrencyAmount currAmt = fmt.parseCurrency(tuple.parse, ppos);
+                    if (ppos.getIndex() == 0) {
+                        if (!tuple.output.equals("fail")) {
+                            return "Parse error expected.";
+                        }
+                        return null;
+                    }
+                    if (tuple.output.equals("fail")) {
+                        return "Parse succeeded: "+currAmt+", but was expected to fail.";
+                    }
+                    Number expected = toNumber(tuple.output);
+                    Number actual = currAmt.getNumber();
+                    // number types cannot be compared, this is the best we can do.
+                    if (expected.doubleValue() != (actual.doubleValue())) {
+                        return "Expected: " + expected + ", got: " + actual;
+                    }
+                
+                    if (!tuple.outputCurrency.equals(currAmt.getCurrency().toString())) {
+                        return "Expected currency: " + tuple.outputCurrency + ", got: " + currAmt.getCurrency();
+                    }
+                    return null;
+                }
+
+                /**
+                 * @param tuple
+                 * @return
+                 */
+                private DecimalFormat newDecimalFormat(NumberFormatTestTuple tuple) {
+             
+                    DecimalFormat fmt = new DecimalFormat(
+                            tuple.pattern == null ? "0" : tuple.pattern,
+                            new DecimalFormatSymbols(tuple.locale == null ? EN : tuple.locale));
+                    adjustDecimalFormat(tuple, fmt);
+                    return fmt;
+                }
+                /**
+                 * @param tuple
+                 * @param fmt
+                 */
+                private void adjustDecimalFormat(NumberFormatTestTuple tuple, DecimalFormat fmt) {
+                    if (tuple.minIntegerDigits != null) {
+                        fmt.setMinimumIntegerDigits(tuple.minIntegerDigits);
+                    }
+                    if (tuple.maxIntegerDigits != null) {
+                        fmt.setMaximumIntegerDigits(tuple.maxIntegerDigits);
+                    }
+                    if (tuple.minFractionDigits != null) {
+                        fmt.setMinimumFractionDigits(tuple.minFractionDigits);
+                    }
+                    if (tuple.maxFractionDigits != null) {
+                        fmt.setMaximumFractionDigits(tuple.maxFractionDigits);
+                    }
+                    if (tuple.currency != null) {
+                        fmt.setCurrency(tuple.currency);
+                    }
+                    if (tuple.minGroupingDigits != null) {
+                        // Oops we don't support this.
+                    }
+                    if (tuple.useSigDigits != null) {
+                        fmt.setSignificantDigitsUsed(
+                                tuple.useSigDigits != 0);
+                    }
+                    if (tuple.minSigDigits != null) {
+                        fmt.setMinimumSignificantDigits(tuple.minSigDigits);
+                    }
+                    if (tuple.maxSigDigits != null) {
+                        fmt.setMaximumSignificantDigits(tuple.maxSigDigits);
+                    }
+                    if (tuple.useGrouping != null) {
+                        fmt.setGroupingUsed(tuple.useGrouping != 0);
+                    }
+                    if (tuple.multiplier != null) {
+                        fmt.setMultiplier(tuple.multiplier);
+                    }
+                    if (tuple.roundingIncrement != null) {
+                        fmt.setRoundingIncrement(tuple.roundingIncrement.doubleValue());
+                    }
+                    if (tuple.formatWidth != null) {
+                        fmt.setFormatWidth(tuple.formatWidth);
+                    }
+                    if (tuple.padCharacter != null && tuple.padCharacter.length() > 0) {
+                        fmt.setPadCharacter(tuple.padCharacter.charAt(0));
+                    }
+                    if (tuple.useScientific != null) {
+                        fmt.setScientificNotation(tuple.useScientific != 0);
+                    }
+                    if (tuple.grouping != null) {
+                        fmt.setGroupingSize(tuple.grouping);
+                    }
+                    if (tuple.grouping2 != null) {
+                        fmt.setSecondaryGroupingSize(tuple.grouping2);
+                    }
+                    if (tuple.roundingMode != null) {
+                        fmt.setRoundingMode(tuple.roundingMode);
+                    }
+                    if (tuple.currencyUsage != null) {
+                        fmt.setCurrencyUsage(tuple.currencyUsage);
+                    }                    if (tuple.minimumExponentDigits != null) {
+                        fmt.setMinimumExponentDigits(
+                                tuple.minimumExponentDigits.byteValue());
+                    }
+                    if (tuple.exponentSignAlwaysShown != null) {
+                        fmt.setExponentSignAlwaysShown(
+                                tuple.exponentSignAlwaysShown != 0);
+                    }
+                    if (tuple.decimalSeparatorAlwaysShown != null) {
+                        fmt.setDecimalSeparatorAlwaysShown(
+                                tuple.decimalSeparatorAlwaysShown != 0);
+                    }
+                    if (tuple.padPosition != null) {
+                        fmt.setPadPosition(tuple.padPosition);
+                    }
+                    if (tuple.positivePrefix != null) {
+                        fmt.setPositivePrefix(tuple.positivePrefix);
+                    }
+                    if (tuple.positiveSuffix != null) {
+                        fmt.setPositiveSuffix(tuple.positiveSuffix);
+                    }
+                    if (tuple.negativePrefix != null) {
+                        fmt.setNegativePrefix(tuple.negativePrefix);
+                    }
+                    if (tuple.negativeSuffix != null) {
+                        fmt.setNegativeSuffix(tuple.negativeSuffix);
+                    }
+                    if (tuple.localizedPattern != null) {
+                        fmt.applyLocalizedPattern(tuple.localizedPattern);
+                    }
+                    int lenient = tuple.lenient == null ? 1 : tuple.lenient.intValue();
+                    fmt.setParseStrict(lenient == 0);
+                    if (tuple.parseIntegerOnly != null) {
+                        fmt.setParseIntegerOnly(tuple.parseIntegerOnly != 0);
+                    }
+                    if (tuple.decimalPatternMatchRequired != null) {
+                        fmt.setDecimalPatternMatchRequired(tuple.decimalPatternMatchRequired != 0);
+                    }
+                    if (tuple.parseNoExponent != null) {
+                        // Oops, not supported for now
+                    }
+                }
+    };
+
+    
+    private DataDrivenNumberFormatTestSuite.CodeUnderTest JDK =
+            new DataDrivenNumberFormatTestSuite.CodeUnderTest() {
+                @Override
+                public Character Id() { return 'K'; }
+        
+                @Override
+                public String format(NumberFormatTestTuple tuple) {
+                    java.text.DecimalFormat fmt = newDecimalFormat(tuple);
+                    String actual = fmt.format(toNumber(tuple.format));
+                    String expected = tuple.output;
+                    if (!expected.equals(actual)) {
+                        return "Expected " + expected + ", got " + actual;
+                    }
+                    return null;
+                }
+
+                @Override
+                public String toPattern(NumberFormatTestTuple tuple) {
+                    java.text.DecimalFormat fmt = newDecimalFormat(tuple);
+                    StringBuilder result = new StringBuilder();
+                    if (tuple.toPattern != null) {
+                        String expected = tuple.toPattern;
+                        String actual = fmt.toPattern();
+                        if (!expected.equals(actual)) {
+                            result.append("Expected toPattern=" + expected + ", got " + actual);
+                        }
+                    }
+                    if (tuple.toLocalizedPattern != null) {
+                        String expected = tuple.toLocalizedPattern;
+                        String actual = fmt.toLocalizedPattern();
+                        if (!expected.equals(actual)) {
+                            result.append("Expected toLocalizedPattern=" + expected + ", got " + actual);
+                        }
+                    }
+                    return result.length() == 0 ? null : result.toString();
+                }
+
+                @Override
+                public String parse(NumberFormatTestTuple tuple) {
+                    java.text.DecimalFormat fmt = newDecimalFormat(tuple);
+                    ParsePosition ppos = new ParsePosition(0);
+                    Number actual = fmt.parse(tuple.parse, ppos);
+                    if (ppos.getIndex() == 0) {
+                        if (!tuple.output.equals("fail")) {
+                            return "Parse error expected.";
+                        }
+                        return null;
+                    }
+                    if (tuple.output.equals("fail")) {
+                        return "Parse succeeded: "+actual+", but was expected to fail.";
+                    }
+                    Number expected = toNumber(tuple.output);
+                    // number types cannot be compared, this is the best we can do.
+                    if (expected.doubleValue() != actual.doubleValue()) {
+                        return "Expected: " + expected + ", got: " + actual;
+                    }
+                    return null;
+                }
+                
+               
+
+                /**
+                 * @param tuple
+                 * @return
+                 */
+                private java.text.DecimalFormat newDecimalFormat(NumberFormatTestTuple tuple) {
+                    java.text.DecimalFormat fmt = new java.text.DecimalFormat(
+                            tuple.pattern == null ? "0" : tuple.pattern,
+                            new java.text.DecimalFormatSymbols(
+                                    (tuple.locale == null ? EN : tuple.locale).toLocale()));
+                    adjustDecimalFormat(tuple, fmt);
+                    return fmt;
+                }
+
+                /**
+                 * @param tuple
+                 * @param fmt
+                 */
+                private void adjustDecimalFormat(NumberFormatTestTuple tuple, java.text.DecimalFormat fmt) {
+                    if (tuple.minIntegerDigits != null) {
+                        fmt.setMinimumIntegerDigits(tuple.minIntegerDigits);
+                    }
+                    if (tuple.maxIntegerDigits != null) {
+                        fmt.setMaximumIntegerDigits(tuple.maxIntegerDigits);
+                    }
+                    if (tuple.minFractionDigits != null) {
+                        fmt.setMinimumFractionDigits(tuple.minFractionDigits);
+                    }
+                    if (tuple.maxFractionDigits != null) {
+                        fmt.setMaximumFractionDigits(tuple.maxFractionDigits);
+                    }
+                    if (tuple.currency != null) {
+                        fmt.setCurrency(java.util.Currency.getInstance(tuple.currency.toString()));
+                    }
+                    if (tuple.minGroupingDigits != null) {
+                        // Oops we don't support this.
+                    }
+                    if (tuple.useSigDigits != null) {
+                        // Oops we don't support this
+                    }
+                    if (tuple.minSigDigits != null) {
+                        // Oops we don't support this
+                    }
+                    if (tuple.maxSigDigits != null) {
+                        // Oops we don't support this
+                    }
+                    if (tuple.useGrouping != null) {
+                        fmt.setGroupingUsed(tuple.useGrouping != 0);
+                    }
+                    if (tuple.multiplier != null) {
+                        fmt.setMultiplier(tuple.multiplier);
+                    }
+                    if (tuple.roundingIncrement != null) {
+                        // Not supported
+                    }
+                    if (tuple.formatWidth != null) {
+                        // Not supported
+                    }
+                    if (tuple.padCharacter != null && tuple.padCharacter.length() > 0) {
+                        // Not supported
+                    }
+                    if (tuple.useScientific != null) {
+                        // Not supported
+                    }
+                    if (tuple.grouping != null) {
+                        fmt.setGroupingSize(tuple.grouping);
+                    }
+                    if (tuple.grouping2 != null) {
+                        // Not supported
+                    }
+                    if (tuple.roundingMode != null) {
+                        // Not supported
+                    }
+                    if (tuple.currencyUsage != null) {
+                        // Not supported
+                    }
+                    if (tuple.minimumExponentDigits != null) {
+                        // Not supported
+                    }
+                    if (tuple.exponentSignAlwaysShown != null) {
+                        // Not supported
+                    }
+                    if (tuple.decimalSeparatorAlwaysShown != null) {
+                        fmt.setDecimalSeparatorAlwaysShown(
+                                tuple.decimalSeparatorAlwaysShown != 0);
+                    }
+                    if (tuple.padPosition != null) {
+                        // Not supported
+                    }
+                    if (tuple.positivePrefix != null) {
+                        fmt.setPositivePrefix(tuple.positivePrefix);
+                    }
+                    if (tuple.positiveSuffix != null) {
+                        fmt.setPositiveSuffix(tuple.positiveSuffix);
+                    }
+                    if (tuple.negativePrefix != null) {
+                        fmt.setNegativePrefix(tuple.negativePrefix);
+                    }
+                    if (tuple.negativeSuffix != null) {
+                        fmt.setNegativeSuffix(tuple.negativeSuffix);
+                    }
+                    if (tuple.localizedPattern != null) {
+                        fmt.applyLocalizedPattern(tuple.localizedPattern);
+                    }
+                    
+                    // lenient parsing not supported by JDK
+                    if (tuple.parseIntegerOnly != null) {
+                        fmt.setParseIntegerOnly(tuple.parseIntegerOnly != 0);
+                    }
+                    if (tuple.decimalPatternMatchRequired != null) {
+                       // Oops, not supported
+                    }
+                    if (tuple.parseNoExponent != null) {
+                        // Oops, not supported for now
+                    }
+                }
+    };
 
     public static void main(String[] args) throws Exception {
         new NumberFormatTest().run(args);
@@ -631,18 +1033,18 @@ public class NumberFormatTest extends com.ibm.icu.dev.test.TestFmwk {
                 {"en_US", "1", "USD", "$1.00", "USD1.00", "1.00 US dollars"}, 
                 {"en_US", "1234.56", "USD", "$1,234.56", "USD1,234.56", "1,234.56 US dollars"}, 
                 {"en_US", "-1234.56", "USD", "-$1,234.56", "-USD1,234.56", "-1,234.56 US dollars"}, 
-                {"zh_CN", "1", "USD", "US$\u00A01.00", "USD\u00A01.00", "1.00美元"}, 
-                {"zh_CN", "1234.56", "USD", "US$\u00A01,234.56", "USD\u00A01,234.56", "1,234.56美元"}, 
-                {"zh_CN", "1", "CNY", "￥\u00A01.00", "CNY\u00A01.00", "1.00人民币"}, 
-                {"zh_CN", "1234.56", "CNY", "￥\u00A01,234.56", "CNY\u00A01,234.56", "1,234.56人民币"}, 
-                {"ru_RU", "1", "RUB", "1,00 руб.", "1,00 RUB", "1,00 российского рубля"}, 
-                {"ru_RU", "2", "RUB", "2,00 руб.", "2,00 RUB", "2,00 российского рубля"}, 
-                {"ru_RU", "5", "RUB", "5,00 руб.", "5,00 RUB", "5,00 российского рубля"}, 
+                {"zh_CN", "1", "USD", "US$1.00", "USD1.00", "1.00美元"}, 
+                {"zh_CN", "1234.56", "USD", "US$1,234.56", "USD1,234.56", "1,234.56美元"}, 
+                {"zh_CN", "1", "CNY", "￥1.00", "CNY1.00", "1.00人民币"}, 
+                {"zh_CN", "1234.56", "CNY", "￥1,234.56", "CNY1,234.56", "1,234.56人民币"}, 
+                {"ru_RU", "1", "RUB", "1,00 \u20BD", "1,00 RUB", "1,00 российского рубля"}, 
+                {"ru_RU", "2", "RUB", "2,00 \u20BD", "2,00 RUB", "2,00 российского рубля"}, 
+                {"ru_RU", "5", "RUB", "5,00 \u20BD", "5,00 RUB", "5,00 российского рубля"}, 
                 // test locale without currency information 
                 {"root", "-1.23", "USD", "-US$ 1.23", "-USD 1.23", "-1.23 USD"}, 
                 {"root@numbers=latn", "-1.23", "USD", "-US$ 1.23", "-USD 1.23", "-1.23 USD"}, // ensure that the root locale is still used with modifiers 
                 {"root@numbers=arab", "-1.23", "USD", "\u200F-US$ ١٫٢٣", "\u200F-USD ١٫٢٣", "\u200F-١٫٢٣ USD"}, // ensure that the root locale is still used with modifiers 
-                {"es_AR", "1", "INR", "INR1,00", "INR1,00", "1,00 rupia india"}, 
+                {"es_AR", "1", "INR", "INR\u00A01,00", "INR\u00A01,00", "1,00 rupia india"}, 
                 {"ar_EG", "1", "USD", "US$ ١٫٠٠", "USD ١٫٠٠", "١٫٠٠ دولار أمريكي"}, 
         };
 
@@ -1553,6 +1955,50 @@ public class NumberFormatTest extends com.ibm.icu.dev.test.TestFmwk {
             }
         }
     }
+    
+    // Coverage tests for methods not being called otherwise.
+    public void TestNumberingSystemCoverage() {
+        // Test getAvaliableNames
+        String[] availableNames = NumberingSystem.getAvailableNames();
+        if (availableNames == null || availableNames.length <= 0) {
+            errln("ERROR: NumberingSystem.getAvailableNames() returned a null or empty array.");
+        } else {
+            boolean latnFound = false;
+            for (String name : availableNames){
+                if ("latn".equals(name)) {
+                    latnFound = true;
+                    break;
+                }
+            }
+            
+            if (!latnFound) {
+                errln("ERROR: 'latn' numbering system not found on NumberingSystem.getAvailableNames().");
+            }
+        }
+        
+        // Test NumberingSystem.getInstance()
+        NumberingSystem ns1 = NumberingSystem.getInstance();
+        if (ns1 == null || ns1.isAlgorithmic()) {
+            errln("ERROR: NumberingSystem.getInstance() returned a null or invalid NumberingSystem");
+        }
+        
+        // Test NumberingSystem.getInstance(int,boolean,String)
+        /* Parameters used: the ones used in the default constructor
+         * radix = 10;
+         * algorithmic = false;
+         * desc = "0123456789";
+         */
+        NumberingSystem ns2 = NumberingSystem.getInstance(10, false, "0123456789");
+        if (ns2 == null || ns2.isAlgorithmic()) {
+            errln("ERROR: NumberingSystem.getInstance(int,boolean,String) returned a null or invalid NumberingSystem");
+        }
+        
+        // Test NumberingSystem.getInstance(Locale)
+        NumberingSystem ns3 = NumberingSystem.getInstance(Locale.ENGLISH);
+        if (ns3 == null || ns3.isAlgorithmic()) {
+            errln("ERROR: NumberingSystem.getInstance(Locale) returned a null or invalid NumberingSystem");
+        }
+    }
 
     public void Test6816() {
         Currency cur1 = Currency.getInstance(new Locale("und", "PH"));
@@ -1943,6 +2389,113 @@ public class NumberFormatTest extends com.ibm.icu.dev.test.TestFmwk {
         assertEquals("fp end", 8, fp.getEndIndex());
     }
 
+    public void TestFieldPositionCurrency() {
+        DecimalFormat nf = (DecimalFormat) com.ibm.icu.text.NumberFormat.getCurrencyInstance(Locale.US);
+        double amount = 35.47;
+        double negAmount = -34.567;
+        FieldPosition cp = new FieldPosition(NumberFormat.Field.CURRENCY);
+        
+        StringBuffer buffer0 = new StringBuffer();
+        nf.format(amount, buffer0, cp);
+        assertEquals("$35.47", "$35.47", buffer0.toString());
+        assertEquals("cp begin", 0, cp.getBeginIndex());
+        assertEquals("cp end", 1, cp.getEndIndex());
+        
+        StringBuffer buffer01 = new StringBuffer();
+        nf.format(negAmount, buffer01, cp);
+        assertEquals("-$34.57", "-$34.57", buffer01.toString());
+        assertEquals("cp begin", 1, cp.getBeginIndex());
+        assertEquals("cp end", 2, cp.getEndIndex());     
+        
+        nf.setCurrency(Currency.getInstance(Locale.FRANCE));
+        StringBuffer buffer1 = new StringBuffer();
+        nf.format(amount, buffer1, cp);
+        assertEquals("€35.47", "€35.47", buffer1.toString());
+        assertEquals("cp begin", 0, cp.getBeginIndex());
+        assertEquals("cp end", 1, cp.getEndIndex());
+
+        nf.setCurrency(Currency.getInstance(new Locale("fr", "ch", "")));
+        StringBuffer buffer2 = new StringBuffer();
+        nf.format(amount, buffer2, cp);
+        assertEquals("CHF35.47", "CHF35.47", buffer2.toString());
+        assertEquals("cp begin", 0, cp.getBeginIndex());
+        assertEquals("cp end", 3, cp.getEndIndex());
+
+        StringBuffer buffer20 = new StringBuffer();
+        nf.format(negAmount, buffer20, cp);
+        assertEquals("-CHF34.57", "-CHF34.57", buffer20.toString());
+        assertEquals("cp begin", 1, cp.getBeginIndex());
+        assertEquals("cp end", 4, cp.getEndIndex());
+        
+        nf = (DecimalFormat) com.ibm.icu.text.NumberFormat.getCurrencyInstance(Locale.FRANCE);
+        StringBuffer buffer3 = new StringBuffer();
+        nf.format(amount, buffer3, cp);
+        assertEquals("35,47 €", "35,47 €", buffer3.toString());
+        assertEquals("cp begin", 6, cp.getBeginIndex());
+        assertEquals("cp end", 7, cp.getEndIndex());
+
+        StringBuffer buffer4 = new StringBuffer();
+        nf.format(negAmount, buffer4, cp);
+        assertEquals("-34,57 €", "-34,57 €", buffer4.toString());
+        assertEquals("cp begin", 7, cp.getBeginIndex());
+        assertEquals("cp end", 8, cp.getEndIndex());
+        
+        nf.setCurrency(Currency.getInstance(new Locale("fr", "ch")));
+        StringBuffer buffer5 = new StringBuffer();
+        nf.format(negAmount, buffer5, cp);
+        assertEquals("-34,57 CHF", "-34,57 CHF", buffer5.toString());
+        assertEquals("cp begin", 7, cp.getBeginIndex());
+        assertEquals("cp end", 10, cp.getEndIndex());
+        
+        NumberFormat plCurrencyFmt = NumberFormat.getInstance(new Locale("fr", "ch"), NumberFormat.PLURALCURRENCYSTYLE);
+        StringBuffer buffer6 = new StringBuffer();
+        plCurrencyFmt.format(negAmount, buffer6, cp);
+        assertEquals("-34.57 francs suisses", "-34.57 francs suisses", buffer6.toString());
+        assertEquals("cp begin", 7, cp.getBeginIndex());
+        assertEquals("cp end", 21, cp.getEndIndex());        
+        
+        // Positive value with PLURALCURRENCYSTYLE.
+        plCurrencyFmt = NumberFormat.getInstance(new Locale("ja", "ch"), NumberFormat.PLURALCURRENCYSTYLE);
+        StringBuffer buffer7 = new StringBuffer();
+        plCurrencyFmt.format(amount, buffer7, cp);
+        assertEquals("35.47スイス フラン", "35.47スイス フラン", buffer7.toString());
+        assertEquals("cp begin", 5, cp.getBeginIndex());
+        assertEquals("cp end", 12, cp.getEndIndex());
+        
+        // PLURALCURRENCYSTYLE for non-ASCII.
+        plCurrencyFmt = NumberFormat.getInstance(new Locale("ja", "de"), NumberFormat.PLURALCURRENCYSTYLE);
+        StringBuffer buffer8 = new StringBuffer();
+        plCurrencyFmt.format(negAmount, buffer8, cp);
+        assertEquals("-34.57ユーロ", "-34.57ユーロ", buffer8.toString());
+        assertEquals("cp begin", 6, cp.getBeginIndex());
+        assertEquals("cp end", 9, cp.getEndIndex());
+        
+        nf = (DecimalFormat) com.ibm.icu.text.NumberFormat.getCurrencyInstance(Locale.JAPAN);
+        nf.setCurrency(Currency.getInstance(new Locale("ja", "jp")));
+        StringBuffer buffer9 = new StringBuffer();
+        nf.format(negAmount, buffer9, cp);
+        assertEquals("-￥35", "-￥35", buffer9.toString());
+        assertEquals("cp begin", 1, cp.getBeginIndex());
+        assertEquals("cp end", 2, cp.getEndIndex());
+        
+        // Negative value with PLURALCURRENCYSTYLE.
+        plCurrencyFmt = NumberFormat.getInstance(new Locale("ja", "ch"), NumberFormat.PLURALCURRENCYSTYLE);
+        StringBuffer buffer10 = new StringBuffer();
+        plCurrencyFmt.format(negAmount, buffer10, cp);
+        assertEquals("-34.57スイス フラン", "-34.57スイス フラン", buffer10.toString());
+        assertEquals("cp begin", 6, cp.getBeginIndex());
+        assertEquals("cp end", 13, cp.getEndIndex());
+        
+        // Nagative value with PLURALCURRENCYSTYLE, Arabic digits.
+        nf = (DecimalFormat) com.ibm.icu.text.NumberFormat.getCurrencyInstance(new Locale("ar", "eg"));
+        plCurrencyFmt = NumberFormat.getInstance(new Locale("ar", "eg"), NumberFormat.PLURALCURRENCYSTYLE);
+        StringBuffer buffer11 = new StringBuffer();
+        plCurrencyFmt.format(negAmount, buffer11, cp);
+        assertEquals("‏-٣٤٫٥٧ جنيه مصري", "‏-٣٤٫٥٧ جنيه مصري", buffer11.toString());
+        assertEquals("cp begin", 8, cp.getBeginIndex());
+        assertEquals("cp end", 17, cp.getEndIndex());
+    }
+    
     public void TestRounding() {
         DecimalFormat nf = (DecimalFormat) com.ibm.icu.text.NumberFormat.getInstance(ULocale.ENGLISH);
         if (false) { // for debugging specific value
@@ -2736,12 +3289,42 @@ public class NumberFormatTest extends com.ibm.icu.dev.test.TestFmwk {
     }
 
     /*
+     * Coverage tests for the implementation of abstract format methods not being called otherwise
+     */
+    public void TestFormatAbstractImplCoverage() {
+        NumberFormat df = DecimalFormat.getInstance(Locale.ENGLISH);
+        NumberFormat cdf = CompactDecimalFormat.getInstance(Locale.ENGLISH, CompactDecimalFormat.CompactStyle.SHORT);
+        NumberFormat rbf = new RuleBasedNumberFormat(ULocale.ENGLISH, RuleBasedNumberFormat.SPELLOUT);
+
+        /*
+         *  Test  NumberFormat.format(BigDecimal,StringBuffer,FieldPosition)
+         */
+        StringBuffer sb = new StringBuffer();
+        String result = df.format(new BigDecimal(2000.43), sb, new FieldPosition(0)).toString();
+        if (!"2,000.43".equals(result)) {
+            errln("DecimalFormat failed. Expected: 2,000.43 - Actual: " + result);
+        }
+
+        sb.delete(0, sb.length());
+        result = cdf.format(new BigDecimal(2000.43), sb, new FieldPosition(0)).toString();
+        if (!"2K".equals(result)) {
+            errln("DecimalFormat failed. Expected: 2K - Actual: " + result);
+        }
+
+        sb.delete(0, sb.length());
+        result = rbf.format(new BigDecimal(2000.43), sb, new FieldPosition(0)).toString();
+        if (!"two thousand point four three".equals(result)) {
+            errln("DecimalFormat failed. Expected: 'two thousand point four three' - Actual: '" + result + "'");
+        }  
+    }
+
+    /*
      * Tests the method public final static NumberFormat getInstance(int style) public static NumberFormat
      * getInstance(Locale inLocale, int style) public static NumberFormat getInstance(ULocale desiredLocale, int choice)
      */
     public void TestGetInstance() {
         // Tests "public final static NumberFormat getInstance(int style)"
-        int maxStyle = NumberFormat.CASHCURRENCYSTYLE;
+        int maxStyle = NumberFormat.STANDARDCURRENCYSTYLE;
 
         int[] invalid_cases = { NumberFormat.NUMBERSTYLE - 1, NumberFormat.NUMBERSTYLE - 2,
                 maxStyle + 1, maxStyle + 2 };
@@ -2833,21 +3416,21 @@ public class NumberFormatTest extends com.ibm.icu.dev.test.TestFmwk {
          * Tests the method public boolean visible()
          */
         if (tf.visible() != true) {
-            errln("NumberFormatFactor.visible() was suppose to return true.");
+            errln("NumberFormatFactory.visible() was suppose to return true.");
         }
 
         /*
          * Tests the method public NumberFormat createFormat(Locale loc, int formatType)
          */
         if (tf.createFormat(new Locale(""), 0) != null) {
-            errln("NumberFormatFactor.createFormat(Locale loc, int formatType) " + "was suppose to return null");
+            errln("NumberFormatFactory.createFormat(Locale loc, int formatType) " + "was suppose to return null");
         }
 
         /*
          * Tests the method public NumberFormat createFormat(ULocale loc, int formatType)
          */
         if (tf1.createFormat(new ULocale(""), 0) != null) {
-            errln("NumberFormatFactor.createFormat(ULocale loc, int formatType) " + "was suppose to return null");
+            errln("NumberFormatFactory.createFormat(ULocale loc, int formatType) " + "was suppose to return null");
         }
     }
 
@@ -3138,7 +3721,6 @@ public class NumberFormatTest extends com.ibm.icu.dev.test.TestFmwk {
         // starting with CLDR 2.0
         String[] DATA = {
                 "es", "CO", "", "1.250,75",
-                "es", "CR", "", "1.250,75",
                 "es", "ES", "", "1.250,75",
                 "es", "GQ", "", "1.250,75",
                 "es", "MX", "", "1,250.75",
@@ -3596,22 +4178,37 @@ public class NumberFormatTest extends com.ibm.icu.dev.test.TestFmwk {
 
     public void TestAccountingCurrency() {
         String[][] tests = {
-                {"en_US", "1234.5", "$1,234.50", "true"},
-                {"en_US", "-1234.5", "($1,234.50)", "true"},
-                {"en_US", "0", "$0.00", "true"},
-                {"en_US", "-0.2", "($0.20)", "true"},
-                {"ja_JP", "10000", "￥10,000", "true"},
-                {"ja_JP", "-1000.5", "(￥1,000)", "false"},
-                {"de_DE", "-23456.7", "-23.456,70\u00A0€", "true"},
+                //locale              num         curr fmt per loc     curr std fmt         curr acct fmt        rt
+                {"en_US",             "1234.5",   "$1,234.50",         "$1,234.50",         "$1,234.50",         "true"},
+                {"en_US@cf=account",  "1234.5",   "$1,234.50",         "$1,234.50",         "$1,234.50",         "true"},
+                {"en_US",             "-1234.5",  "-$1,234.50",        "-$1,234.50",        "($1,234.50)",       "true"},
+                {"en_US@cf=standard", "-1234.5",  "-$1,234.50",        "-$1,234.50",        "($1,234.50)",       "true"},
+                {"en_US@cf=account",  "-1234.5",  "($1,234.50)",       "-$1,234.50",        "($1,234.50)",       "true"},
+                {"en_US",             "0",        "$0.00",             "$0.00",             "$0.00",             "true"},
+                {"en_US",             "-0.2",     "-$0.20",            "-$0.20",            "($0.20)",           "true"},
+                {"en_US@cf=standard", "-0.2",     "-$0.20",            "-$0.20",            "($0.20)",           "true"},
+                {"en_US@cf=account",  "-0.2",     "($0.20)",           "-$0.20",            "($0.20)",           "true"},
+                {"ja_JP",             "10000",    "￥10,000",          "￥10,000",          "￥10,000",          "true" },
+                {"ja_JP",             "-1000.5",  "-￥1,000",          "-￥1,000",          "(￥1,000)",         "false"},
+                {"ja_JP@cf=account",  "-1000.5",  "(￥1,000)",         "-￥1,000",          "(￥1,000)",         "false"},
+                {"de_DE",             "-23456.7", "-23.456,70\u00A0€", "-23.456,70\u00A0€", "-23.456,70\u00A0€", "true" },
         };
         for (String[] data : tests) {
             ULocale loc = new ULocale(data[0]);
             double num = Double.parseDouble(data[1]);
-            String fmt = data[2];
-            boolean rt = Boolean.parseBoolean(data[3]);
+            String fmtPerLocExpected   = data[2];
+            String fmtStandardExpected = data[3];
+            String fmtAccountExpected  = data[4];
+            boolean rt = Boolean.parseBoolean(data[5]);
 
-            NumberFormat acfmt = NumberFormat.getInstance(loc, NumberFormat.ACCOUNTINGCURRENCYSTYLE);
-            expect(acfmt, num, fmt, rt);
+            NumberFormat fmtPerLoc = NumberFormat.getInstance(loc, NumberFormat.CURRENCYSTYLE);
+            expect(fmtPerLoc, num, fmtPerLocExpected, rt);
+
+            NumberFormat fmtStandard = NumberFormat.getInstance(loc, NumberFormat.STANDARDCURRENCYSTYLE);
+            expect(fmtStandard, num, fmtStandardExpected, rt);
+
+            NumberFormat fmtAccount = NumberFormat.getInstance(loc, NumberFormat.ACCOUNTINGCURRENCYSTYLE);
+            expect(fmtAccount, num, fmtAccountExpected, rt);
         }
     }
     
@@ -3727,6 +4324,17 @@ public class NumberFormatTest extends com.ibm.icu.dev.test.TestFmwk {
         }
         
     }
+    
+    public void TestDataDrivenICU() {
+        DataDrivenNumberFormatTestSuite.runSuite(
+                this.params, "numberformattestspecification.txt", ICU);
+    }
+
+    public void TestDataDrivenJDK() {
+        DataDrivenNumberFormatTestSuite.runSuite(
+                this.params, "numberformattestspecification.txt", JDK);
+    }
+
 
     public void TestCurrFmtNegSameAsPositive() {
         DecimalFormatSymbols decfmtsym = DecimalFormatSymbols.getInstance(Locale.US);
@@ -3738,4 +4346,107 @@ public class NumberFormatTest extends com.ibm.icu.dev.test.TestFmwk {
         }
     }
 
+    public void TestNumberFormatTestTupleToString() {
+        new NumberFormatTestTuple().toString();
+    }
+
+   // Testing for Issue 11805.
+    public void TestFormatToCharacterIteratorIssue11805 () {
+        final double number = -350.76;
+        DecimalFormat dfUS = (DecimalFormat) DecimalFormat.getCurrencyInstance(Locale.US);
+        String strUS = dfUS.format(number);
+        Set<AttributedCharacterIterator.Attribute> resultUS  = dfUS.formatToCharacterIterator(number).getAllAttributeKeys();
+        assertEquals("Negative US Results: " + strUS, 5, resultUS.size());
+
+        // For each test, add assert that all the fields are present and in the right spot.
+        // TODO: Add tests for identify and position of each field, as in IntlTestDecimalFormatAPIC.
+        
+        DecimalFormat dfDE = (DecimalFormat) DecimalFormat.getCurrencyInstance(Locale.GERMANY);
+        String strDE = dfDE.format(number);
+        Set<AttributedCharacterIterator.Attribute> resultDE  = dfDE.formatToCharacterIterator(number).getAllAttributeKeys();
+        assertEquals("Negative DE Results: " + strDE, 5, resultDE.size());
+
+        DecimalFormat dfIN = (DecimalFormat) DecimalFormat.getCurrencyInstance(new Locale("hi", "in"));
+        String strIN = dfIN.format(number);
+        Set<AttributedCharacterIterator.Attribute> resultIN  = dfIN.formatToCharacterIterator(number).getAllAttributeKeys();
+        assertEquals("Negative IN Results: " + strIN, 5, resultIN.size());
+
+        DecimalFormat dfJP = (DecimalFormat) DecimalFormat.getCurrencyInstance(Locale.JAPAN);
+        String strJP = dfJP.format(number);
+        Set<AttributedCharacterIterator.Attribute> resultJP  = dfJP.formatToCharacterIterator(number).getAllAttributeKeys();
+        assertEquals("Negative JA Results: " + strJP, 3, resultJP.size());
+
+        DecimalFormat dfGB = (DecimalFormat) DecimalFormat.getCurrencyInstance(new Locale("en", "gb"));
+        String strGB = dfGB.format(number);
+        Set<AttributedCharacterIterator.Attribute> resultGB  = dfGB.formatToCharacterIterator(number).getAllAttributeKeys();
+        assertEquals("Negative GB Results: " + strGB , 5, resultGB.size());
+
+        DecimalFormat dfPlural = (DecimalFormat) NumberFormat.getInstance(new Locale("en", "gb"),
+            NumberFormat.PLURALCURRENCYSTYLE);
+        strGB = dfPlural.format(number);
+        resultGB = dfPlural.formatToCharacterIterator(number).getAllAttributeKeys();
+        assertEquals("Negative GB Results: " + strGB , 5, resultGB.size());
+
+        strGB = dfPlural.format(1);
+        resultGB = dfPlural.formatToCharacterIterator(1).getAllAttributeKeys();
+        assertEquals("Negative GB Results: " + strGB , 4, resultGB.size());
+
+        // Test output with unit value.
+        DecimalFormat auPlural = (DecimalFormat) NumberFormat.getInstance(new Locale("en", "au"),
+                NumberFormat.PLURALCURRENCYSTYLE);
+        String strAU = auPlural.format(1L);
+        Set<AttributedCharacterIterator.Attribute> resultAU  =
+                auPlural.formatToCharacterIterator(1L).getAllAttributeKeys();
+        assertEquals("Unit AU Result: " + strAU , 4, resultAU.size());
+
+        // Verify Permille fields.
+        DecimalFormatSymbols sym = new DecimalFormatSymbols(new Locale("en", "gb"));
+        DecimalFormat dfPermille = new DecimalFormat("####0.##\u2030", sym);
+        strGB = dfPermille.format(number);
+        resultGB = dfPermille.formatToCharacterIterator(number).getAllAttributeKeys();
+        assertEquals("Negative GB Permille Results: " + strGB , 3, resultGB.size());
+    }
+
+    // Testing for Issue 11808.
+    public void TestRoundUnnecessarytIssue11808 () {
+        DecimalFormat df = (DecimalFormat) DecimalFormat.getInstance();
+        StringBuffer result = new StringBuffer("");
+        df.setRoundingMode(BigDecimal.ROUND_UNNECESSARY);
+        df.applyPattern("00.0#E0");
+        
+        try {
+            df.format(99999.0, result, new FieldPosition(0));
+            fail("Missing ArithmeticException for double: " + result);
+        } catch (ArithmeticException expected) {
+            // The exception should be thrown, since rounding is needed.
+        }
+
+        try {
+            result = df.format(99999, result, new FieldPosition(0));
+            fail("Missing ArithmeticException for int: " + result);
+       } catch (ArithmeticException expected) {
+           // The exception should be thrown, since rounding is needed.
+        }
+
+        try {
+            result = df.format(new BigInteger("999999"), result, new FieldPosition(0));
+            fail("Missing ArithmeticException for BigInteger: " + result);
+        } catch (ArithmeticException expected) {
+            // The exception should be thrown, since rounding is needed.
+        }
+
+        try {
+            result = df.format(new BigDecimal("99999"), result, new FieldPosition(0));
+            fail("Missing ArithmeticException for BigDecimal: " + result);
+        } catch (ArithmeticException expected) {
+            // The exception should be thrown, since rounding is needed.
+        }
+        
+        try {
+            result = df.format(new BigDecimal("-99999"), result, new FieldPosition(0));
+            fail("Missing ArithmeticException for BigDecimal: " + result);
+        } catch (ArithmeticException expected) {
+            // The exception should be thrown, since rounding is needed.
+        }
+    }
 }

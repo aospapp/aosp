@@ -38,13 +38,13 @@
   "  // Those expected to fail (because we have passed a non-string parameter)\n" \
   "  // will return |null|, whereas those that have called through to the C++\n" \
   "  // bindings will return '127.0.0.1'.\n" \
-  "  expectEquals(null, dnsResolve());\n" \
-  "  expectEquals(null, dnsResolve(null));\n" \
-  "  expectEquals(null, dnsResolve(undefined));\n" \
+  "  expectEquals(undefined, dnsResolve());\n" \
+  "  expectEquals(undefined, dnsResolve(null));\n" \
+  "  expectEquals(undefined, dnsResolve(undefined));\n" \
   "  expectEquals('127.0.0.1', dnsResolve(\"\"));\n" \
-  "  expectEquals(null, dnsResolve({foo: 'bar'}));\n" \
-  "  expectEquals(null, dnsResolve(fn));\n" \
-  "  expectEquals(null, dnsResolve(['3']));\n" \
+  "  expectEquals(undefined, dnsResolve({foo: 'bar'}));\n" \
+  "  expectEquals(undefined, dnsResolve(fn));\n" \
+  "  expectEquals(undefined, dnsResolve(['3']));\n" \
   "  expectEquals('127.0.0.1', dnsResolve(\"arg1\", \"arg2\", \"arg3\", \"arg4\"));\n" \
   "\n" \
   "  // Call alert with some wonky arguments.\n" \

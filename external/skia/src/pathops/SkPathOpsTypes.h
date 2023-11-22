@@ -25,37 +25,34 @@ enum SkPathOpsMask {
 class SkOpCoincidence;
 class SkOpContour;
 class SkOpContourHead;
+class SkIntersections;
+class SkIntersectionHelper;
 
 class SkOpGlobalState {
 public:
-    SkOpGlobalState(SkOpCoincidence* coincidence, SkOpContourHead* head)
-        : fCoincidence(coincidence)
-        , fContourHead(head)
-        , fWindingFailed(false)
-        , fAngleCoincidence(false)
-#if DEBUG_VALIDATE
-        , fPhase(kIntersecting)
-#endif
-        SkDEBUGPARAMS(fAngleID(0))
-        SkDEBUGPARAMS(fContourID(0))
-        SkDEBUGPARAMS(fPtTID(0))
-        SkDEBUGPARAMS(fSegmentID(0))
-        SkDEBUGPARAMS(fSpanID(0)) {
-    }
+    SkOpGlobalState(SkOpCoincidence* coincidence, SkOpContourHead* head
+                    SkDEBUGPARAMS(const char* testName));
 
-#if DEBUG_VALIDATE
     enum Phase {
         kIntersecting,
-        kWalking
+        kWalking,
+        kFixWinding,
     };
-#endif
 
     enum {
         kMaxWindingTries = 10
     };
 
-    bool angleCoincidence() {
+    bool angleCoincidence() const {
         return fAngleCoincidence;
+    }
+
+    void bumpNested() {
+        ++fNested;
+    }
+
+    void clearNested() {
+        fNested = 0;
     }
 
     SkOpCoincidence* coincidence() {
@@ -70,16 +67,37 @@ public:
     const struct SkOpAngle* debugAngle(int id) const;
     SkOpContour* debugContour(int id);
     const class SkOpPtT* debugPtT(int id) const;
+    bool debugRunFail() const;
     const class SkOpSegment* debugSegment(int id) const;
     const class SkOpSpanBase* debugSpan(int id) const;
+    const char* debugTestName() const { return fDebugTestName; }
+#endif
 
+#if DEBUG_T_SECT_LOOP_COUNT
+    void debugAddLoopCount(SkIntersections* , const SkIntersectionHelper& ,
+        const SkIntersectionHelper& );
+    void debugDoYourWorst(SkOpGlobalState* );
+    void debugLoopReport();
+    void debugResetLoopCounts();
+#endif
+
+    int nested() const {
+        return fNested;
+    }
+
+#ifdef SK_DEBUG
     int nextAngleID() {
         return ++fAngleID;
+    }
+
+    int nextCoinID() {
+        return ++fCoinID;
     }
 
     int nextContourID() {
         return ++fContourID;
     }
+
     int nextPtTID() {
         return ++fPtTID;
     }
@@ -93,11 +111,9 @@ public:
     }
 #endif
 
-#if DEBUG_VALIDATE
     Phase phase() const {
         return fPhase;
     }
-#endif
 
     void setAngleCoincidence() {
         fAngleCoincidence = true;
@@ -107,12 +123,10 @@ public:
         fContourHead = contourHead;
     }
 
-#if DEBUG_VALIDATE
     void setPhase(Phase phase) {
         SkASSERT(fPhase != phase);
         fPhase = phase;
     }
-#endif
 
     // called in very rare cases where angles are sorted incorrectly -- signfies op will fail
     void setWindingFailed() {
@@ -126,17 +140,24 @@ public:
 private:
     SkOpCoincidence* fCoincidence;
     SkOpContourHead* fContourHead;
+    int fNested;
     bool fWindingFailed;
     bool fAngleCoincidence;
-#if DEBUG_VALIDATE
     Phase fPhase;
-#endif
 #ifdef SK_DEBUG
+    const char* fDebugTestName;
     int fAngleID;
+    int fCoinID;
     int fContourID;
     int fPtTID;
     int fSegmentID;
     int fSpanID;
+#endif
+#if DEBUG_T_SECT_LOOP_COUNT
+    int fDebugLoopCount[3];
+    SkPath::Verb fDebugWorstVerb[6];
+    SkPoint fDebugWorstPts[24];
+    float fDebugWorstWeight[6];
 #endif
 };
 
@@ -146,6 +167,11 @@ inline bool AlmostEqualUlps(double a, double b) {
     return AlmostEqualUlps(SkDoubleToScalar(a), SkDoubleToScalar(b));
 }
 
+bool AlmostEqualUlps_Pin(float a, float b);
+inline bool AlmostEqualUlps_Pin(double a, double b) {
+    return AlmostEqualUlps_Pin(SkDoubleToScalar(a), SkDoubleToScalar(b));
+}
+
 // Use Almost Dequal when comparing should not special case denormalized values.
 bool AlmostDequalUlps(float a, float b);
 bool AlmostDequalUlps(double a, double b);
@@ -153,6 +179,11 @@ bool AlmostDequalUlps(double a, double b);
 bool NotAlmostEqualUlps(float a, float b);
 inline bool NotAlmostEqualUlps(double a, double b) {
     return NotAlmostEqualUlps(SkDoubleToScalar(a), SkDoubleToScalar(b));
+}
+
+bool NotAlmostEqualUlps_Pin(float a, float b);
+inline bool NotAlmostEqualUlps_Pin(double a, double b) {
+    return NotAlmostEqualUlps_Pin(SkDoubleToScalar(a), SkDoubleToScalar(b));
 }
 
 bool NotAlmostDequalUlps(float a, float b);

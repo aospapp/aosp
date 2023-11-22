@@ -137,11 +137,7 @@
 #define U_ICUDATA_NAME    "icudt" U_ICU_VERSION_SHORT U_ICUDATA_TYPE_LETTER
 #ifndef U_HIDE_INTERNAL_API
 #define U_USRDATA_NAME    "usrdt" U_ICU_VERSION_SHORT U_ICUDATA_TYPE_LETTER  /**< @internal */
-/* BEGIN android-change - U_USE_USRDATA should be off by default. */
-#ifndef U_USE_USRDATA
 #define U_USE_USRDATA     0  /**< @internal */
-#endif  /* U_USE_USRDATA */
-/* END android-change */
 #endif  /* U_HIDE_INTERNAL_API */
 
 /**

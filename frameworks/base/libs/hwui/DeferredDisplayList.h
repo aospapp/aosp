@@ -17,14 +17,16 @@
 #ifndef ANDROID_HWUI_DEFERRED_DISPLAY_LIST_H
 #define ANDROID_HWUI_DEFERRED_DISPLAY_LIST_H
 
+#include <unordered_map>
+
 #include <utils/Errors.h>
 #include <utils/LinearAllocator.h>
-#include <utils/Vector.h>
-#include <utils/TinyHashMap.h>
 
 #include "Matrix.h"
 #include "OpenGLRenderer.h"
 #include "Rect.h"
+
+#include <vector>
 
 class SkBitmap;
 
@@ -47,11 +49,6 @@ typedef const void* mergeid_t;
 
 class DeferredDisplayState {
 public:
-    /** static void* operator new(size_t size); PURPOSELY OMITTED **/
-    static void* operator new(size_t size, LinearAllocator& allocator) {
-        return allocator.alloc(size);
-    }
-
     // global op bounds, mapped by mMatrix to be in screen space coordinates, clipped
     Rect mBounds;
 
@@ -59,7 +56,6 @@ public:
     bool mClipValid;
     Rect mClip;
     int mClipSideFlags; // specifies which sides of the bounds are clipped, unclipped if cleared
-    bool mClipped;
     mat4 mMatrix;
     float mAlpha;
     const RoundRectClipState* mRoundRectClipState;
@@ -81,8 +77,8 @@ public:
 class DeferredDisplayList {
     friend struct DeferStateStruct; // used to give access to allocator
 public:
-    DeferredDisplayList(const Rect& bounds, bool avoidOverdraw = true) :
-            mBounds(bounds), mAvoidOverdraw(avoidOverdraw) {
+    DeferredDisplayList(const Rect& bounds)
+            : mBounds(bounds) {
         clear();
     }
     ~DeferredDisplayList() { clear(); }
@@ -100,7 +96,7 @@ public:
         kOpBatch_Count, // Add other batch ids before this
     };
 
-    bool isEmpty() { return mBatches.isEmpty(); }
+    bool isEmpty() { return mBatches.empty(); }
 
     /**
      * Plays back all of the draw ops recorded into batches to the renderer.
@@ -123,7 +119,7 @@ private:
     DeferredDisplayList(const DeferredDisplayList& other); // disallow copy
 
     DeferredDisplayState* createState() {
-        return new (mAllocator) DeferredDisplayState();
+        return mAllocator.create_trivial<DeferredDisplayState>();
     }
 
     void tryRecycleState(DeferredDisplayState* state) {
@@ -150,17 +146,16 @@ private:
 
     // layer space bounds of rendering
     Rect mBounds;
-    const bool mAvoidOverdraw;
 
     /**
      * At defer time, stores the *defer time* savecount of save/saveLayer ops that were deferred, so
      * that when an associated restoreToCount is deferred, it can be recorded as a
      * RestoreToCountBatch
      */
-    Vector<int> mSaveStack;
+    std::vector<int> mSaveStack;
     int mComplexClipStackStart;
 
-    Vector<Batch*> mBatches;
+    std::vector<Batch*> mBatches;
 
     // Maps batch ids to the most recent *non-merging* batch of that id
     Batch* mBatchLookup[kOpBatch_Count];
@@ -176,7 +171,7 @@ private:
      * MergingDrawBatch of that id. These ids are unique per draw type and guaranteed to not
      * collide, which avoids the need to resolve mergeid collisions.
      */
-    TinyHashMap<mergeid_t, DrawBatch*> mMergingBatches[kOpBatch_Count];
+    std::unordered_map<mergeid_t, DrawBatch*> mMergingBatches[kOpBatch_Count];
 
     LinearAllocator mAllocator;
 };

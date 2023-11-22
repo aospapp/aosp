@@ -54,6 +54,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
+import android.support.v4.content.FileProvider;
 /**
  * This class has some utilities for Opp application;
  */
@@ -66,59 +67,11 @@ public class BluetoothOppUtility {
             = new ConcurrentHashMap<Uri, BluetoothOppSendFileInfo>();
 
     public static BluetoothOppTransferInfo queryRecord(Context context, Uri uri) {
-        BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
         BluetoothOppTransferInfo info = new BluetoothOppTransferInfo();
         Cursor cursor = context.getContentResolver().query(uri, null, null, null, null);
         if (cursor != null) {
             if (cursor.moveToFirst()) {
-                info.mID = cursor.getInt(cursor.getColumnIndexOrThrow(BluetoothShare._ID));
-                info.mStatus = cursor.getInt(cursor.getColumnIndexOrThrow(BluetoothShare.STATUS));
-                info.mDirection = cursor.getInt(cursor
-                        .getColumnIndexOrThrow(BluetoothShare.DIRECTION));
-                info.mTotalBytes = cursor.getLong(cursor
-                        .getColumnIndexOrThrow(BluetoothShare.TOTAL_BYTES));
-                info.mCurrentBytes = cursor.getLong(cursor
-                        .getColumnIndexOrThrow(BluetoothShare.CURRENT_BYTES));
-                info.mTimeStamp = cursor.getLong(cursor
-                        .getColumnIndexOrThrow(BluetoothShare.TIMESTAMP));
-                info.mDestAddr = cursor.getString(cursor
-                        .getColumnIndexOrThrow(BluetoothShare.DESTINATION));
-
-                info.mFileName = cursor.getString(cursor
-                        .getColumnIndexOrThrow(BluetoothShare._DATA));
-                if (info.mFileName == null) {
-                    info.mFileName = cursor.getString(cursor
-                            .getColumnIndexOrThrow(BluetoothShare.FILENAME_HINT));
-                }
-                if (info.mFileName == null) {
-                    info.mFileName = context.getString(R.string.unknown_file);
-                }
-
-                info.mFileUri = cursor.getString(cursor.getColumnIndexOrThrow(BluetoothShare.URI));
-
-                if (info.mFileUri != null) {
-                    Uri u = Uri.parse(info.mFileUri);
-                    info.mFileType = context.getContentResolver().getType(u);
-                } else {
-                    Uri u = Uri.parse(info.mFileName);
-                    info.mFileType = context.getContentResolver().getType(u);
-                }
-                if (info.mFileType == null) {
-                    info.mFileType = cursor.getString(cursor
-                            .getColumnIndexOrThrow(BluetoothShare.MIMETYPE));
-                }
-
-                BluetoothDevice remoteDevice = adapter.getRemoteDevice(info.mDestAddr);
-                info.mDeviceName =
-                        BluetoothOppManager.getInstance(context).getDeviceName(remoteDevice);
-
-                int confirmationType = cursor.getInt(
-                        cursor.getColumnIndexOrThrow(BluetoothShare.USER_CONFIRMATION));
-                info.mHandoverInitiated =
-                        confirmationType == BluetoothShare.USER_CONFIRMATION_HANDOVER_CONFIRMED;
-
-                if (V) Log.v(TAG, "Get data from db:" + info.mFileName + info.mFileType
-                            + info.mDestAddr);
+                fillRecord(context, cursor, info);
             }
             cursor.close();
         } else {
@@ -126,6 +79,58 @@ public class BluetoothOppUtility {
             if (V) Log.v(TAG, "BluetoothOppManager Error: not got data from db for uri:" + uri);
         }
         return info;
+    }
+
+    public static void fillRecord(Context context, Cursor cursor, BluetoothOppTransferInfo info) {
+        BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+        info.mID = cursor.getInt(cursor.getColumnIndexOrThrow(BluetoothShare._ID));
+        info.mStatus = cursor.getInt(cursor.getColumnIndexOrThrow(BluetoothShare.STATUS));
+        info.mDirection = cursor.getInt(cursor
+                .getColumnIndexOrThrow(BluetoothShare.DIRECTION));
+        info.mTotalBytes = cursor.getLong(cursor
+                .getColumnIndexOrThrow(BluetoothShare.TOTAL_BYTES));
+        info.mCurrentBytes = cursor.getLong(cursor
+                .getColumnIndexOrThrow(BluetoothShare.CURRENT_BYTES));
+        info.mTimeStamp = cursor.getLong(cursor
+                .getColumnIndexOrThrow(BluetoothShare.TIMESTAMP));
+        info.mDestAddr = cursor.getString(cursor
+                .getColumnIndexOrThrow(BluetoothShare.DESTINATION));
+
+        info.mFileName = cursor.getString(cursor
+                .getColumnIndexOrThrow(BluetoothShare._DATA));
+        if (info.mFileName == null) {
+            info.mFileName = cursor.getString(cursor
+                    .getColumnIndexOrThrow(BluetoothShare.FILENAME_HINT));
+        }
+        if (info.mFileName == null) {
+            info.mFileName = context.getString(R.string.unknown_file);
+        }
+
+        info.mFileUri = cursor.getString(cursor.getColumnIndexOrThrow(BluetoothShare.URI));
+
+        if (info.mFileUri != null) {
+            Uri u = Uri.parse(info.mFileUri);
+            info.mFileType = context.getContentResolver().getType(u);
+        } else {
+            Uri u = Uri.parse(info.mFileName);
+            info.mFileType = context.getContentResolver().getType(u);
+        }
+        if (info.mFileType == null) {
+            info.mFileType = cursor.getString(cursor
+                    .getColumnIndexOrThrow(BluetoothShare.MIMETYPE));
+        }
+
+        BluetoothDevice remoteDevice = adapter.getRemoteDevice(info.mDestAddr);
+        info.mDeviceName =
+                BluetoothOppManager.getInstance(context).getDeviceName(remoteDevice);
+
+        int confirmationType = cursor.getInt(
+                cursor.getColumnIndexOrThrow(BluetoothShare.USER_CONFIRMATION));
+        info.mHandoverInitiated =
+                confirmationType == BluetoothShare.USER_CONFIRMATION_HANDOVER_CONFIRMED;
+
+        if (V) Log.v(TAG, "Get data from db:" + info.mFileName + info.mFileType
+                    + info.mDestAddr);
     }
 
     /**
@@ -186,7 +191,8 @@ public class BluetoothOppUtility {
             return;
         }
 
-        Uri path = Uri.parse(fileName);
+        Uri path = FileProvider.getUriForFile(context,
+                       "com.google.android.bluetooth.fileprovider", f);
         // If there is no scheme, then it must be a file
         if (path.getScheme() == null) {
             path = Uri.fromFile(new File(fileName));
@@ -196,7 +202,22 @@ public class BluetoothOppUtility {
             Intent activityIntent = new Intent(Intent.ACTION_VIEW);
             activityIntent.setDataAndTypeAndNormalize(path, mimetype);
 
+            List<ResolveInfo> resInfoList = context.getPackageManager()
+                .queryIntentActivities(activityIntent,
+                        PackageManager.MATCH_DEFAULT_ONLY);
+
+            // Grant permissions for any app that can handle a file to access it
+            for (ResolveInfo resolveInfo : resInfoList) {
+                String packageName = resolveInfo.activityInfo.packageName;
+                context.grantUriPermission(packageName, path,
+                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION |
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            }
+
             activityIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            activityIntent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            activityIntent.setFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+
             try {
                 if (V) Log.d(TAG, "ACTION_VIEW intent sent out: " + path + " / " + mimetype);
                 context.startActivity(activityIntent);

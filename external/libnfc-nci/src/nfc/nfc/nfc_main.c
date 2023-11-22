@@ -238,7 +238,7 @@ void nfc_enabled (tNFC_STATUS nfc_status, BT_HDR *p_init_rsp_msg)
         {
             if ((*p) <= NCI_INTERFACE_MAX)
                 evt_data.enable.nci_interfaces |= (1 << (*p));
-            else if (((*p) > NCI_INTERFACE_FIRST_VS) && (yy < NFC_NFCC_MAX_NUM_VS_INTERFACE))
+            else if (((*p) >= NCI_INTERFACE_FIRST_VS) && (yy < NFC_NFCC_MAX_NUM_VS_INTERFACE))
             {
                 /* save the VS RF interface in control block, if there's still room */
                 nfc_cb.vs_interface[yy++] = *p;
@@ -844,6 +844,12 @@ tNFC_STATUS NFC_DiscoveryMap (UINT8 num, tNFC_DISCOVER_MAPS *p_maps,
     nfc_cb.p_discv_cback = p_cback;
     num_intf             = 0;
     NFC_TRACE_DEBUG1 ("nci_interfaces supported by NFCC: 0x%x", nfc_cb.nci_interfaces);
+
+    for (xx = 0; xx < NFC_NFCC_MAX_NUM_VS_INTERFACE + NCI_INTERFACE_MAX; xx++)
+    {
+        memset (&max_maps[xx], 0x00, sizeof(tNFC_DISCOVER_MAPS));
+    }
+
     for (xx = 0; xx < num_disc_maps; xx++)
     {
         is_supported = FALSE;

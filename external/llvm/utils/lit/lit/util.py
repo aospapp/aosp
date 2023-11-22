@@ -48,7 +48,7 @@ def mkdir_p(path):
     if not path or os.path.exists(path):
         return
 
-    parent = os.path.dirname(path) 
+    parent = os.path.dirname(path)
     if parent != path:
         mkdir_p(parent)
 
@@ -94,7 +94,7 @@ def which(command, paths = None):
     for path in paths.split(os.pathsep):
         for ext in pathext:
             p = os.path.join(path, command + ext)
-            if os.path.exists(p):
+            if os.path.exists(p) and not os.path.isdir(p):
                 return p
 
     return None
@@ -158,13 +158,13 @@ def printHistogram(items, title = 'Items'):
 # Close extra file handles on UNIX (on Windows this cannot be done while
 # also redirecting input).
 kUseCloseFDs = not (platform.system() == 'Windows')
-def executeCommand(command, cwd=None, env=None):
+def executeCommand(command, cwd=None, env=None, input=None):
     p = subprocess.Popen(command, cwd=cwd,
                          stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE,
                          env=env, close_fds=kUseCloseFDs)
-    out,err = p.communicate()
+    out,err = p.communicate(input=input)
     exitCode = p.wait()
 
     # Detect Ctrl-C in subprocess.

@@ -31,8 +31,9 @@ import android.telecom.PhoneAccount;
 import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
 import android.telephony.DisconnectCause;
-import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
+
+import com.android.internal.annotations.VisibleForTesting;
 
 // TODO: Needed for move to system service: import com.android.internal.R;
 
@@ -52,7 +53,8 @@ import android.text.TextUtils;
  * Calls to emergency numbers are still broadcast for informative purposes. The call is placed
  * prior to sending ACTION_NEW_OUTGOING_CALL and cannot be redirected nor prevented.
  */
-class NewOutgoingCallIntentBroadcaster {
+@VisibleForTesting
+public class NewOutgoingCallIntentBroadcaster {
     private static final String EXTRA_ACTUAL_NUMBER_TO_DIAL =
             "android.telecom.extra.ACTUAL_NUMBER_TO_DIAL";
 
@@ -72,6 +74,7 @@ class NewOutgoingCallIntentBroadcaster {
     private final Call mCall;
     private final Intent mIntent;
     private final Context mContext;
+    private final PhoneNumberUtilsAdapter mPhoneNumberUtilsAdapter;
 
     /*
      * Whether or not the outgoing call intent originated from the default phone application. If
@@ -79,12 +82,15 @@ class NewOutgoingCallIntentBroadcaster {
      */
     private final boolean mIsDefaultOrSystemPhoneApp;
 
-    NewOutgoingCallIntentBroadcaster(Context context, CallsManager callsManager, Call call,
-            Intent intent, boolean isDefaultPhoneApp) {
+    @VisibleForTesting
+    public NewOutgoingCallIntentBroadcaster(Context context, CallsManager callsManager, Call call,
+            Intent intent, PhoneNumberUtilsAdapter phoneNumberUtilsAdapter,
+            boolean isDefaultPhoneApp) {
         mContext = context;
         mCallsManager = callsManager;
         mCall = call;
         mIntent = intent;
+        mPhoneNumberUtilsAdapter = phoneNumberUtilsAdapter;
         mIsDefaultOrSystemPhoneApp = isDefaultPhoneApp;
     }
 
@@ -92,57 +98,74 @@ class NewOutgoingCallIntentBroadcaster {
      * Processes the result of the outgoing call broadcast intent, and performs callbacks to
      * the OutgoingCallIntentBroadcasterListener as necessary.
      */
-    private class NewOutgoingCallBroadcastIntentReceiver extends BroadcastReceiver {
+    public class NewOutgoingCallBroadcastIntentReceiver extends BroadcastReceiver {
 
         @Override
         public void onReceive(Context context, Intent intent) {
-            Trace.beginSection("onReceiveNewOutgoingCallBroadcast");
-            Log.v(this, "onReceive: %s", intent);
+            try {
+                Log.startSession("NOCBIR.oR");
+                Trace.beginSection("onReceiveNewOutgoingCallBroadcast");
+                Log.v(this, "onReceive: %s", intent);
 
-            // Once the NEW_OUTGOING_CALL broadcast is finished, the resultData is used as the
-            // actual number to call. (If null, no call will be placed.)
-            String resultNumber = getResultData();
-            Log.i(this, "Received new-outgoing-call-broadcast for %s with data %s", mCall,
-                    Log.pii(resultNumber));
+                // Once the NEW_OUTGOING_CALL broadcast is finished, the resultData is used as the
+                // actual number to call. (If null, no call will be placed.)
+                String resultNumber = getResultData();
+                Log.i(this, "Received new-outgoing-call-broadcast for %s with data %s", mCall,
+                        Log.pii(resultNumber));
 
-            boolean endEarly = false;
-            if (resultNumber == null) {
-                Log.v(this, "Call cancelled (null number), returning...");
-                endEarly = true;
-            } else if (PhoneNumberUtils.isPotentialLocalEmergencyNumber(mContext, resultNumber)) {
-                Log.w(this, "Cannot modify outgoing call to emergency number %s.", resultNumber);
-                endEarly = true;
-            }
-
-            if (endEarly) {
-                if (mCall != null) {
-                    mCall.disconnect(true /* wasViaNewOutgoingCall */);
+                boolean endEarly = false;
+                if (resultNumber == null) {
+                    Log.v(this, "Call cancelled (null number), returning...");
+                    endEarly = true;
+                } else if (mPhoneNumberUtilsAdapter.isPotentialLocalEmergencyNumber(
+                        mContext, resultNumber)) {
+                    Log.w(this, "Cannot modify outgoing call to emergency number %s.",
+                            resultNumber);
+                    endEarly = true;
                 }
+
+                if (endEarly) {
+                    if (mCall != null) {
+                        mCall.disconnect(true /* wasViaNewOutgoingCall */);
+                    }
+                    return;
+                }
+
+                // If this call is already disconnected then we have nothing more to do.
+                if (mCall.isDisconnected()) {
+                    Log.w(this,
+                        "Call has already been disconnected, ignore the broadcast Call %s", mCall);
+                    return;
+                }
+
+                Uri resultHandleUri = Uri.fromParts(
+                        mPhoneNumberUtilsAdapter.isUriNumber(resultNumber) ?
+                                PhoneAccount.SCHEME_SIP : PhoneAccount.SCHEME_TEL,
+                        resultNumber, null);
+
+                Uri originalUri = mIntent.getData();
+
+                if (originalUri.getSchemeSpecificPart().equals(resultNumber)) {
+                    Log.v(this, "Call number unmodified after new outgoing call intent broadcast.");
+                } else {
+                    Log.v(this, "Retrieved modified handle after outgoing call intent broadcast: "
+                                    + "Original: %s, Modified: %s",
+                            Log.pii(originalUri),
+                            Log.pii(resultHandleUri));
+                }
+
+                GatewayInfo gatewayInfo = getGateWayInfoFromIntent(intent, resultHandleUri);
+                mCall.setNewOutgoingCallIntentBroadcastIsDone();
+                mCallsManager.placeOutgoingCall(mCall, resultHandleUri, gatewayInfo,
+                        mIntent.getBooleanExtra(TelecomManager.EXTRA_START_CALL_WITH_SPEAKERPHONE,
+                                false),
+                        mIntent.getIntExtra(TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE,
+                                VideoProfile.STATE_AUDIO_ONLY));
+
+            } finally {
                 Trace.endSection();
-                return;
+                Log.endSession();
             }
-
-            Uri resultHandleUri = Uri.fromParts(PhoneNumberUtils.isUriNumber(resultNumber) ?
-                    PhoneAccount.SCHEME_SIP : PhoneAccount.SCHEME_TEL, resultNumber, null);
-
-            Uri originalUri = mIntent.getData();
-
-            if (originalUri.getSchemeSpecificPart().equals(resultNumber)) {
-                Log.v(this, "Call number unmodified after new outgoing call intent broadcast.");
-            } else {
-                Log.v(this, "Retrieved modified handle after outgoing call intent broadcast: "
-                        + "Original: %s, Modified: %s",
-                        Log.pii(originalUri),
-                        Log.pii(resultHandleUri));
-            }
-
-            GatewayInfo gatewayInfo = getGateWayInfoFromIntent(intent, resultHandleUri);
-            mCallsManager.placeOutgoingCall(mCall, resultHandleUri, gatewayInfo,
-                    mIntent.getBooleanExtra(TelecomManager.EXTRA_START_CALL_WITH_SPEAKERPHONE,
-                            false),
-                    mIntent.getIntExtra(TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE,
-                            VideoProfile.STATE_AUDIO_ONLY));
-            Trace.endSection();
         }
     }
 
@@ -159,7 +182,8 @@ class NewOutgoingCallIntentBroadcaster {
      * @return {@link DisconnectCause#NOT_DISCONNECTED} if the call succeeded, and an appropriate
      *         {@link DisconnectCause} if the call did not, describing why it failed.
      */
-    int processIntent() {
+    @VisibleForTesting
+    public int processIntent() {
         Log.v(this, "Processing call intent in OutgoingCallIntentBroadcaster.");
 
         Intent intent = mIntent;
@@ -179,6 +203,10 @@ class NewOutgoingCallIntentBroadcaster {
                 Log.i(this, "Placing call immediately instead of waiting for "
                         + " OutgoingCallBroadcastReceiver: %s", intent);
 
+                // Since we are not going to go through "Outgoing call broadcast", make sure
+                // we mark it as ready.
+                mCall.setNewOutgoingCallIntentBroadcastIsDone();
+
                 boolean speakerphoneOn = mIntent.getBooleanExtra(
                         TelecomManager.EXTRA_START_CALL_WITH_SPEAKERPHONE, false);
                 mCallsManager.placeOutgoingCall(mCall, handle, null, speakerphoneOn,
@@ -191,16 +219,16 @@ class NewOutgoingCallIntentBroadcaster {
             }
         }
 
-        String number = PhoneNumberUtils.getNumberFromIntent(intent, mContext);
+        String number = mPhoneNumberUtilsAdapter.getNumberFromIntent(intent, mContext);
         if (TextUtils.isEmpty(number)) {
             Log.w(this, "Empty number obtained from the call intent.");
             return DisconnectCause.NO_PHONE_NUMBER_SUPPLIED;
         }
 
-        boolean isUriNumber = PhoneNumberUtils.isUriNumber(number);
+        boolean isUriNumber = mPhoneNumberUtilsAdapter.isUriNumber(number);
         if (!isUriNumber) {
-            number = PhoneNumberUtils.convertKeypadLettersToDigits(number);
-            number = PhoneNumberUtils.stripSeparators(number);
+            number = mPhoneNumberUtilsAdapter.convertKeypadLettersToDigits(number);
+            number = mPhoneNumberUtilsAdapter.stripSeparators(number);
         }
 
         final boolean isPotentialEmergencyNumber = isPotentialEmergencyNumber(number);
@@ -253,8 +281,9 @@ class NewOutgoingCallIntentBroadcaster {
             // initiate the call again because of the presence of the EXTRA_ALREADY_CALLED extra.
         }
 
-        Log.i(this, "Sending NewOutgoingCallBroadcast for %s", mCall);
-        broadcastIntent(intent, number, !callImmediately);
+        UserHandle targetUser = mCall.getInitiatingUser();
+        Log.i(this, "Sending NewOutgoingCallBroadcast for %s to %s", mCall, targetUser);
+        broadcastIntent(intent, number, !callImmediately, targetUser);
         return DisconnectCause.NOT_DISCONNECTED;
     }
 
@@ -265,12 +294,14 @@ class NewOutgoingCallIntentBroadcaster {
      * @param originalCallIntent The original call intent.
      * @param number Call number that was stored in the original call intent.
      * @param receiverRequired Whether or not the result from the ordered broadcast should be
-     *     processed using a {@link NewOutgoingCallIntentBroadcaster}.
+     *                         processed using a {@link NewOutgoingCallIntentBroadcaster}.
+     * @param targetUser User that the broadcast sent to.
      */
     private void broadcastIntent(
             Intent originalCallIntent,
             String number,
-            boolean receiverRequired) {
+            boolean receiverRequired,
+            UserHandle targetUser) {
         Intent broadcastIntent = new Intent(Intent.ACTION_NEW_OUTGOING_CALL);
         if (number != null) {
             broadcastIntent.putExtra(Intent.EXTRA_PHONE_NUMBER, number);
@@ -285,7 +316,7 @@ class NewOutgoingCallIntentBroadcaster {
 
         mContext.sendOrderedBroadcastAsUser(
                 broadcastIntent,
-                UserHandle.CURRENT,
+                targetUser,
                 android.Manifest.permission.PROCESS_OUTGOING_CALLS,
                 AppOpsManager.OP_PROCESS_OUTGOING_CALLS,
                 receiverRequired ? new NewOutgoingCallBroadcastIntentReceiver() : null,
@@ -387,8 +418,8 @@ class NewOutgoingCallIntentBroadcaster {
      */
     private boolean isPotentialEmergencyNumber(String number) {
         Log.v(this, "Checking restrictions for number : %s", Log.pii(number));
-        return (number != null) && PhoneNumberUtils.isPotentialLocalEmergencyNumber(mContext,
-                number);
+        return (number != null)
+                && mPhoneNumberUtilsAdapter.isPotentialLocalEmergencyNumber(mContext, number);
     }
 
     /**

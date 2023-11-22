@@ -46,78 +46,78 @@ public class HceReaderTestActivity extends PassFailButtons.TestListActivity {
                     new Intent(this, ProtocolParamsReaderActivity.class), null));
 
             adapter.add(TestListItem.newTest(this, R.string.nfc_hce_single_payment_reader,
-                    SimpleReaderActivity.class.getName(),
+                    getString(R.string.nfc_hce_single_payment_reader),
                     SinglePaymentEmulatorActivity.buildReaderIntent(this), null));
 
             adapter.add(TestListItem.newTest(this, R.string.nfc_hce_dual_payment_reader,
-                    SimpleReaderActivity.class.getName(),
+                    getString(R.string.nfc_hce_dual_payment_reader),
                     DualPaymentEmulatorActivity.buildReaderIntent(this), null));
 
             adapter.add(TestListItem.newTest(this, R.string.nfc_hce_change_default_reader,
-                    SimpleReaderActivity.class.getName(),
+                    getString(R.string.nfc_hce_change_default_reader),
                     ChangeDefaultEmulatorActivity.buildReaderIntent(this), null));
 
             adapter.add(TestListItem.newTest(this, R.string.nfc_hce_foreground_payment_reader,
-                    SimpleReaderActivity.class.getName(),
+                    getString(R.string.nfc_hce_foreground_payment_reader),
                     ForegroundPaymentEmulatorActivity.buildReaderIntent(this), null));
 
             adapter.add(TestListItem.newTest(this, R.string.nfc_hce_single_non_payment_reader,
-                    SimpleReaderActivity.class.getName(),
+                    getString(R.string.nfc_hce_single_non_payment_reader),
                     SingleNonPaymentEmulatorActivity.buildReaderIntent(this), null));
 
             adapter.add(TestListItem.newTest(this, R.string.nfc_hce_dual_non_payment_reader,
-                    SimpleReaderActivity.class.getName(),
+                    getString(R.string.nfc_hce_dual_non_payment_reader),
                     DualNonPaymentEmulatorActivity.buildReaderIntent(this), null));
 
             adapter.add(TestListItem.newTest(this, R.string.nfc_hce_conflicting_non_payment_reader,
-                    SimpleReaderActivity.class.getName(),
+                    getString(R.string.nfc_hce_conflicting_non_payment_reader),
                     ConflictingNonPaymentEmulatorActivity.buildReaderIntent(this), null));
 
             adapter.add(TestListItem.newTest(this, R.string.nfc_hce_foreground_non_payment_reader,
-                    SimpleReaderActivity.class.getName(),
+                    getString(R.string.nfc_hce_foreground_non_payment_reader),
                     ForegroundNonPaymentEmulatorActivity.buildReaderIntent(this), null));
 
             adapter.add(TestListItem.newTest(this, R.string.nfc_hce_throughput_reader,
-                    SimpleReaderActivity.class.getName(),
+                    getString(R.string.nfc_hce_throughput_reader),
                     ThroughputEmulatorActivity.buildReaderIntent(this), null));
 
             adapter.add(TestListItem.newTest(this, R.string.nfc_hce_tap_test_reader,
-                    SimpleReaderActivity.class.getName(),
+                    getString(R.string.nfc_hce_tap_test_reader),
                     TapTestEmulatorActivity.buildReaderIntent(this), null));
 
             adapter.add(TestListItem.newTest(this, R.string.nfc_hce_offhost_service_reader,
-                    SimpleReaderActivity.class.getName(),
+                    getString(R.string.nfc_hce_offhost_service_reader),
                     OffHostEmulatorActivity.buildReaderIntent(this), null));
 
             adapter.add(TestListItem.newTest(this, R.string.nfc_hce_on_and_offhost_service_reader,
-                    SimpleReaderActivity.class.getName(),
+                    getString(R.string.nfc_hce_on_and_offhost_service_reader),
                     OnAndOffHostEmulatorActivity.buildReaderIntent(this), null));
 
             adapter.add(TestListItem.newTest(this, R.string.nfc_hce_payment_dynamic_aids_reader,
-                    SimpleReaderActivity.class.getName(),
+                    getString(R.string.nfc_hce_payment_dynamic_aids_reader),
                     DynamicAidEmulatorActivity.buildReaderIntent(this), null));
 
             adapter.add(TestListItem.newTest(this, R.string.nfc_hce_large_num_aids_reader,
-                    SimpleReaderActivity.class.getName(),
+                    getString(R.string.nfc_hce_large_num_aids_reader),
                     LargeNumAidsEmulatorActivity.buildReaderIntent(this), null));
 
             NfcAdapter nfcAdapter = NfcAdapter.getDefaultAdapter(this);
             CardEmulation cardEmulation = CardEmulation.getInstance(nfcAdapter);
             if (cardEmulation.supportsAidPrefixRegistration()) {
                 adapter.add(TestListItem.newTest(this, R.string.nfc_hce_payment_prefix_aids_reader,
-                        SimpleReaderActivity.class.getName(),
+                        getString(R.string.nfc_hce_payment_prefix_aids_reader),
                         PrefixPaymentEmulatorActivity.buildReaderIntent(this), null));
 
                 adapter.add(TestListItem.newTest(this, R.string.nfc_hce_payment_prefix_aids_reader_2,
-                        SimpleReaderActivity.class.getName(),
+                        getString(R.string.nfc_hce_payment_prefix_aids_reader_2),
                         PrefixPaymentEmulator2Activity.buildReaderIntent(this), null));
 
                 adapter.add(TestListItem.newTest(this, R.string.nfc_hce_other_prefix_aids_reader,
-                        SimpleReaderActivity.class.getName(),
+                        getString(R.string.nfc_hce_other_prefix_aids_reader),
                         DualNonPaymentPrefixEmulatorActivity.buildReaderIntent(this), null));
 
                 adapter.add(TestListItem.newTest(this, R.string.nfc_hce_other_conflicting_prefix_aids_reader,
-                        SimpleReaderActivity.class.getName(),
+                        getString(R.string.nfc_hce_other_conflicting_prefix_aids_reader),
                         ConflictingNonPaymentPrefixEmulatorActivity.buildReaderIntent(this), null));
             }
         }

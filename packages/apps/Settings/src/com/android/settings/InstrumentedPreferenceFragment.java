@@ -16,7 +16,8 @@
 
 package com.android.settings;
 
-import android.preference.PreferenceFragment;
+import android.support.v14.preference.PreferenceFragment;
+
 import com.android.internal.logging.MetricsLogger;
 
 /**
@@ -26,7 +27,7 @@ public abstract class InstrumentedPreferenceFragment extends PreferenceFragment 
     /**
      * Declare the view of this category.
      *
-     * Categories are defined in {@link com.android.internal.logging.MetricsLogger}
+     * Categories are defined in {@link com.android.internal.logging.MetricsProto.MetricsEvent}
      * or if there is no relevant existing category you may define one in
      * {@link com.android.settings.InstrumentedFragment}.
      */

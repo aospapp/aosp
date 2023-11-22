@@ -8,7 +8,7 @@ LOCAL_CPPFLAGS := \
 	-Wno-sign-promo \
 	$(LOCAL_CPPFLAGS)
 
-ifeq ($(CLANG_ENABLE_ASSERTION),true)
+ifeq ($(FORCE_BUILD_LLVM_DISABLE_NDEBUG),true)
 LOCAL_CFLAGS :=	\
 	$(LOCAL_CFLAGS) \
 	-D_DEBUG	\

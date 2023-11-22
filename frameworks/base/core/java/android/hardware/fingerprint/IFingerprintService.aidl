@@ -17,6 +17,7 @@ package android.hardware.fingerprint;
 
 import android.os.Bundle;
 import android.hardware.fingerprint.IFingerprintServiceReceiver;
+import android.hardware.fingerprint.IFingerprintServiceLockoutResetCallback;
 import android.hardware.fingerprint.Fingerprint;
 import java.util.List;
 
@@ -34,13 +35,14 @@ interface IFingerprintService {
 
     // Start fingerprint enrollment
     void enroll(IBinder token, in byte [] cryptoToken, int groupId, IFingerprintServiceReceiver receiver,
-            int flags);
+            int flags, String opPackageName);
 
     // Cancel enrollment in progress
     void cancelEnrollment(IBinder token);
 
     // Any errors resulting from this call will be returned to the listener
-    void remove(IBinder token, int fingerId, int groupId, IFingerprintServiceReceiver receiver);
+    void remove(IBinder token, int fingerId, int groupId, int userId,
+            IFingerprintServiceReceiver receiver);
 
     // Rename the fingerprint specified by fingerId and groupId to the given name
     void rename(int fingerId, int groupId, String name);
@@ -68,4 +70,13 @@ interface IFingerprintService {
 
     // Gets the authenticator ID for fingerprint
     long getAuthenticatorId(String opPackageName);
+
+    // Reset the timeout when user authenticates with strong auth (e.g. PIN, pattern or password)
+    void resetTimeout(in byte [] cryptoToken);
+
+    // Add a callback which gets notified when the fingerprint lockout period expired.
+    void addLockoutResetCallback(IFingerprintServiceLockoutResetCallback callback);
+
+    // Explicitly set the active user (for enrolling work profile)
+    void setActiveUser(int uid);
 }

@@ -62,9 +62,12 @@ static void signalhandler(int sig ATTRIBUTE_UNUSED, siginfo_t* info ATTRIBUTE_UN
   struct ucontext *uc = reinterpret_cast<struct ucontext*>(context);
   struct sigcontext *sc = reinterpret_cast<struct sigcontext*>(&uc->uc_mcontext);
   sc->pc += 4;          // Skip instruction causing segv.
-#elif defined(__i386__) || defined(__x86_64__)
+#elif defined(__i386__)
   struct ucontext *uc = reinterpret_cast<struct ucontext*>(context);
   uc->CTX_EIP += 3;
+#elif defined(__x86_64__)
+  struct ucontext *uc = reinterpret_cast<struct ucontext*>(context);
+  uc->CTX_EIP += 2;
 #else
   UNUSED(context);
 #endif
@@ -93,13 +96,16 @@ extern "C" JNIEXPORT void JNICALL Java_Main_terminateSignalTest(JNIEnv*, jclass)
 char *go_away_compiler = nullptr;
 
 extern "C" JNIEXPORT jint JNICALL Java_Main_testSignal(JNIEnv*, jclass) {
-#if defined(__arm__) || defined(__i386__) || defined(__x86_64__) || defined(__aarch64__)
+#if defined(__arm__) || defined(__i386__) || defined(__aarch64__)
   // On supported architectures we cause a real SEGV.
   *go_away_compiler = 'a';
+#elif defined(__x86_64__)
+  // Cause a SEGV using an instruction known to be 2 bytes long to account for hardcoded jump
+  // in the signal handler
+  asm volatile("movl $0, %%eax;" "movb %%ah, (%%rax);" : : : "%eax");
 #else
   // On other architectures we simulate SEGV.
   kill(getpid(), SIGSEGV);
 #endif
   return 1234;
 }
-

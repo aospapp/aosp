@@ -19,7 +19,7 @@ import com.google.common.annotations.GwtCompatible;
 
 import java.util.Comparator;
 import java.util.Iterator;
-import java.util.SortedSet;
+import java.util.NavigableSet;
 
 /**
  * A sorted multiset which forwards all its method calls to another sorted multiset. Subclasses
@@ -50,8 +50,8 @@ public abstract class ForwardingSortedMultiset<E> extends ForwardingMultiset<E>
   protected abstract SortedMultiset<E> delegate();
 
   @Override
-  public SortedSet<E> elementSet() {
-    return (SortedSet<E>) super.elementSet();
+  public NavigableSet<E> elementSet() {
+    return (NavigableSet<E>) super.elementSet();
   }
 
   /**
@@ -65,7 +65,7 @@ public abstract class ForwardingSortedMultiset<E> extends ForwardingMultiset<E>
    * situations, you may wish to override {@link SortedMultiset#elementSet} to forward to this
    * implementation or a subclass thereof.
    */
-  protected class StandardElementSet extends SortedMultisets.ElementSet<E> {
+  protected class StandardElementSet extends SortedMultisets.NavigableElementSet<E> {
     /** Constructor for use by subclasses. */
     public StandardElementSet() {
       super(ForwardingSortedMultiset.this);

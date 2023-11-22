@@ -128,10 +128,10 @@ inline void readFixed (tcu::Vec4& dst, const int size, const void* ptr)
 	deInt32 aligned[4];
 	deMemcpy(aligned, ptr, size * sizeof(deInt32));
 
-				   dst[0] = aligned[0] / float(1 << 16);
-	if (size >= 2) dst[1] = aligned[1] / float(1 << 16);
-	if (size >= 3) dst[2] = aligned[2] / float(1 << 16);
-	if (size >= 4) dst[3] = aligned[3] / float(1 << 16);
+				   dst[0] = float(aligned[0]) / float(1 << 16);
+	if (size >= 2) dst[1] = float(aligned[1]) / float(1 << 16);
+	if (size >= 3) dst[2] = float(aligned[2]) / float(1 << 16);
+	if (size >= 4) dst[3] = float(aligned[3]) / float(1 << 16);
 }
 
 inline void readDouble (tcu::Vec4& dst, const int size, const void* ptr)
@@ -216,10 +216,10 @@ inline void readSnorm2101010RevScaleOrder (tcu::Vec4& dst, const int size, const
 	deUint32 aligned;
 	deMemcpy(&aligned, ptr, sizeof(deUint32));
 
-				   dst[Order::T0] = (float(extendSign<10>((aligned >>  0) & ((1 << 10) - 1)) * 2.0f + 1.0f) / float(range10));
-	if (size >= 2) dst[Order::T1] = (float(extendSign<10>((aligned >> 10) & ((1 << 10) - 1)) * 2.0f + 1.0f) / float(range10));
-	if (size >= 3) dst[Order::T2] = (float(extendSign<10>((aligned >> 20) & ((1 << 10) - 1)) * 2.0f + 1.0f) / float(range10));
-	if (size >= 4) dst[Order::T3] = (float(extendSign< 2>((aligned >> 30) & ((1 <<  2) - 1)) * 2.0f + 1.0f) / float(range2));
+				   dst[Order::T0] = (float(extendSign<10>((aligned >>  0) & ((1 << 10) - 1))) * 2.0f + 1.0f) / float(range10);
+	if (size >= 2) dst[Order::T1] = (float(extendSign<10>((aligned >> 10) & ((1 << 10) - 1))) * 2.0f + 1.0f) / float(range10);
+	if (size >= 3) dst[Order::T2] = (float(extendSign<10>((aligned >> 20) & ((1 << 10) - 1))) * 2.0f + 1.0f) / float(range10);
+	if (size >= 4) dst[Order::T3] = (float(extendSign< 2>((aligned >> 30) & ((1 <<  2) - 1))) * 2.0f + 1.0f) / float(range2);
 }
 
 // ordered readers
@@ -313,7 +313,7 @@ void readFloat (tcu::Vec4& dst, const VertexAttribType type, const int size, con
 		case VERTEXATTRIBTYPE_PURE_INT8:
 		case VERTEXATTRIBTYPE_PURE_INT16:
 		case VERTEXATTRIBTYPE_PURE_INT32:
-			DE_ASSERT(!"Invalid read");
+			DE_FATAL("Invalid read");
 
 		default:
 			DE_ASSERT(false);
@@ -359,7 +359,7 @@ void readInt (tcu::IVec4& dst, const VertexAttribType type, const int size, cons
 		case VERTEXATTRIBTYPE_NONPURE_UNORM_2_10_10_10_REV_BGRA:
 		case VERTEXATTRIBTYPE_NONPURE_SNORM_2_10_10_10_REV_CLAMP_BGRA:
 		case VERTEXATTRIBTYPE_NONPURE_SNORM_2_10_10_10_REV_SCALE_BGRA:
-			DE_ASSERT(!"Invalid read");
+			DE_FATAL("Invalid read");
 
 		default:
 			DE_ASSERT(false);
@@ -405,7 +405,7 @@ void readUint (tcu::UVec4& dst, const VertexAttribType type, const int size, con
 		case VERTEXATTRIBTYPE_NONPURE_UNORM_2_10_10_10_REV_BGRA:
 		case VERTEXATTRIBTYPE_NONPURE_SNORM_2_10_10_10_REV_CLAMP_BGRA:
 		case VERTEXATTRIBTYPE_NONPURE_SNORM_2_10_10_10_REV_SCALE_BGRA:
-			DE_ASSERT(!"Invalid read");
+			DE_FATAL("Invalid read");
 
 		default:
 			DE_ASSERT(false);
@@ -419,27 +419,27 @@ int getComponentSize (const VertexAttribType type)
 		case VERTEXATTRIBTYPE_FLOAT:									return 4;
 		case VERTEXATTRIBTYPE_HALF:										return 2;
 		case VERTEXATTRIBTYPE_FIXED:									return 4;
-		case VERTEXATTRIBTYPE_DOUBLE:									return sizeof(double);
+		case VERTEXATTRIBTYPE_DOUBLE:									return (int)sizeof(double);
 		case VERTEXATTRIBTYPE_NONPURE_UNORM8:							return 1;
 		case VERTEXATTRIBTYPE_NONPURE_UNORM16:							return 2;
 		case VERTEXATTRIBTYPE_NONPURE_UNORM32:							return 4;
-		case VERTEXATTRIBTYPE_NONPURE_UNORM_2_10_10_10_REV:				return sizeof(deUint32)/4;
+		case VERTEXATTRIBTYPE_NONPURE_UNORM_2_10_10_10_REV:				return (int)sizeof(deUint32)/4;
 		case VERTEXATTRIBTYPE_NONPURE_SNORM8_CLAMP:						return 1;
 		case VERTEXATTRIBTYPE_NONPURE_SNORM16_CLAMP:					return 2;
 		case VERTEXATTRIBTYPE_NONPURE_SNORM32_CLAMP:					return 4;
-		case VERTEXATTRIBTYPE_NONPURE_SNORM_2_10_10_10_REV_CLAMP:		return sizeof(deUint32)/4;
+		case VERTEXATTRIBTYPE_NONPURE_SNORM_2_10_10_10_REV_CLAMP:		return (int)sizeof(deUint32)/4;
 		case VERTEXATTRIBTYPE_NONPURE_SNORM8_SCALE:						return 1;
 		case VERTEXATTRIBTYPE_NONPURE_SNORM16_SCALE:					return 2;
 		case VERTEXATTRIBTYPE_NONPURE_SNORM32_SCALE:					return 4;
-		case VERTEXATTRIBTYPE_NONPURE_SNORM_2_10_10_10_REV_SCALE:		return sizeof(deUint32)/4;
+		case VERTEXATTRIBTYPE_NONPURE_SNORM_2_10_10_10_REV_SCALE:		return (int)sizeof(deUint32)/4;
 		case VERTEXATTRIBTYPE_NONPURE_UINT8:							return 1;
 		case VERTEXATTRIBTYPE_NONPURE_UINT16:							return 2;
 		case VERTEXATTRIBTYPE_NONPURE_UINT32:							return 4;
 		case VERTEXATTRIBTYPE_NONPURE_INT8:								return 1;
 		case VERTEXATTRIBTYPE_NONPURE_INT16:							return 2;
 		case VERTEXATTRIBTYPE_NONPURE_INT32:							return 4;
-		case VERTEXATTRIBTYPE_NONPURE_UINT_2_10_10_10_REV:				return sizeof(deUint32)/4;
-		case VERTEXATTRIBTYPE_NONPURE_INT_2_10_10_10_REV:				return sizeof(deUint32)/4;
+		case VERTEXATTRIBTYPE_NONPURE_UINT_2_10_10_10_REV:				return (int)sizeof(deUint32)/4;
+		case VERTEXATTRIBTYPE_NONPURE_INT_2_10_10_10_REV:				return (int)sizeof(deUint32)/4;
 		case VERTEXATTRIBTYPE_PURE_UINT8:								return 1;
 		case VERTEXATTRIBTYPE_PURE_UINT16:								return 2;
 		case VERTEXATTRIBTYPE_PURE_UINT32:								return 4;
@@ -447,9 +447,9 @@ int getComponentSize (const VertexAttribType type)
 		case VERTEXATTRIBTYPE_PURE_INT16:								return 2;
 		case VERTEXATTRIBTYPE_PURE_INT32:								return 4;
 		case VERTEXATTRIBTYPE_NONPURE_UNORM8_BGRA:						return 1;
-		case VERTEXATTRIBTYPE_NONPURE_UNORM_2_10_10_10_REV_BGRA:		return sizeof(deUint32)/4;
-		case VERTEXATTRIBTYPE_NONPURE_SNORM_2_10_10_10_REV_CLAMP_BGRA:	return sizeof(deUint32)/4;
-		case VERTEXATTRIBTYPE_NONPURE_SNORM_2_10_10_10_REV_SCALE_BGRA:	return sizeof(deUint32)/4;
+		case VERTEXATTRIBTYPE_NONPURE_UNORM_2_10_10_10_REV_BGRA:		return (int)sizeof(deUint32)/4;
+		case VERTEXATTRIBTYPE_NONPURE_SNORM_2_10_10_10_REV_CLAMP_BGRA:	return (int)sizeof(deUint32)/4;
+		case VERTEXATTRIBTYPE_NONPURE_SNORM_2_10_10_10_REV_SCALE_BGRA:	return (int)sizeof(deUint32)/4;
 		default:
 			DE_ASSERT(false);
 			return 0;

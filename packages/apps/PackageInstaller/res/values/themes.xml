@@ -16,11 +16,21 @@
   -->
 
 <resources>
-    <style name="Settings" parent="@android:style/Theme.DeviceDefault.Settings">
-        <item name="android:actionBarStyle">@style/ActionBar</item>
-        <item name="preferenceTheme">@style/PreferenceThemeOverlay.v14.Permissions</item>
+
+    <style name="Settings"
+           parent="@android:style/Theme.DeviceDefault.Settings">
+    </style>
+
+    <style name="Settings.NoActionBar" parent="@style/Settings">
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
     </style>
 
     <style name="GrantPermissions"
-            parent="@android:style/Theme.DeviceDefault.Light.Dialog.NoActionBar" />
+           parent="@android:style/Theme.DeviceDefault.Light.Dialog.NoActionBar">
+        <item name="*android:windowFixedHeightMajor">100%</item>
+        <item name="*android:windowFixedHeightMinor">100%</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+    </style>
+
 </resources>

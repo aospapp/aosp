@@ -87,12 +87,9 @@ static OrderMap orderModule(const Module &M) {
     if (!isa<GlobalValue>(A.getAliasee()))
       orderValue(A.getAliasee(), OM);
   for (const Function &F : M) {
-    if (F.hasPrefixData())
-      if (!isa<GlobalValue>(F.getPrefixData()))
-        orderValue(F.getPrefixData(), OM);
-    if (F.hasPrologueData())
-      if (!isa<GlobalValue>(F.getPrologueData()))
-        orderValue(F.getPrologueData(), OM);
+    for (const Use &U : F.operands())
+      if (!isa<GlobalValue>(U.get()))
+        orderValue(U.get(), OM);
   }
   OM.LastGlobalConstantID = OM.size();
 
@@ -270,10 +267,8 @@ static UseListOrderStack predictUseListOrder(const Module &M) {
   for (const GlobalAlias &A : M.aliases())
     predictValueUseListOrder(A.getAliasee(), nullptr, OM, Stack);
   for (const Function &F : M) {
-    if (F.hasPrefixData())
-      predictValueUseListOrder(F.getPrefixData(), nullptr, OM, Stack);
-    if (F.hasPrologueData())
-      predictValueUseListOrder(F.getPrologueData(), nullptr, OM, Stack);
+    for (const Use &U : F.operands())
+      predictValueUseListOrder(U.get(), nullptr, OM, Stack);
   }
 
   return Stack;
@@ -285,50 +280,41 @@ static bool isIntOrIntVectorValue(const std::pair<const Value*, unsigned> &V) {
 
 ValueEnumerator::ValueEnumerator(const Module &M,
                                  bool ShouldPreserveUseListOrder)
-    : HasMDString(false), HasMDLocation(false), HasGenericDebugNode(false),
+    : HasMDString(false), HasDILocation(false), HasGenericDINode(false),
       ShouldPreserveUseListOrder(ShouldPreserveUseListOrder) {
   if (ShouldPreserveUseListOrder)
     UseListOrders = predictUseListOrder(M);
 
   // Enumerate the global variables.
-  for (Module::const_global_iterator I = M.global_begin(), E = M.global_end();
-       I != E; ++I)
-    EnumerateValue(I);
+  for (const GlobalVariable &GV : M.globals())
+    EnumerateValue(&GV);
 
   // Enumerate the functions.
-  for (Module::const_iterator I = M.begin(), E = M.end(); I != E; ++I) {
-    EnumerateValue(I);
-    EnumerateAttributes(cast<Function>(I)->getAttributes());
+  for (const Function & F : M) {
+    EnumerateValue(&F);
+    EnumerateAttributes(F.getAttributes());
   }
 
   // Enumerate the aliases.
-  for (Module::const_alias_iterator I = M.alias_begin(), E = M.alias_end();
-       I != E; ++I)
-    EnumerateValue(I);
+  for (const GlobalAlias &GA : M.aliases())
+    EnumerateValue(&GA);
 
   // Remember what is the cutoff between globalvalue's and other constants.
   unsigned FirstConstant = Values.size();
 
   // Enumerate the global variable initializers.
-  for (Module::const_global_iterator I = M.global_begin(), E = M.global_end();
-       I != E; ++I)
-    if (I->hasInitializer())
-      EnumerateValue(I->getInitializer());
+  for (const GlobalVariable &GV : M.globals())
+    if (GV.hasInitializer())
+      EnumerateValue(GV.getInitializer());
 
   // Enumerate the aliasees.
-  for (Module::const_alias_iterator I = M.alias_begin(), E = M.alias_end();
-       I != E; ++I)
-    EnumerateValue(I->getAliasee());
+  for (const GlobalAlias &GA : M.aliases())
+    EnumerateValue(GA.getAliasee());
 
-  // Enumerate the prefix data constants.
-  for (Module::const_iterator I = M.begin(), E = M.end(); I != E; ++I)
-    if (I->hasPrefixData())
-      EnumerateValue(I->getPrefixData());
-
-  // Enumerate the prologue data constants.
-  for (Module::const_iterator I = M.begin(), E = M.end(); I != E; ++I)
-    if (I->hasPrologueData())
-      EnumerateValue(I->getPrologueData());
+  // Enumerate any optional Function data.
+  for (const Function &F : M)
+    for (const Use &U : F.operands())
+      EnumerateValue(U.get());
 
   // Enumerate the metadata type.
   //
@@ -347,6 +333,11 @@ ValueEnumerator::ValueEnumerator(const Module &M,
   for (const Function &F : M) {
     for (const Argument &A : F.args())
       EnumerateType(A.getType());
+
+    // Enumerate metadata attached to this function.
+    F.getAllMetadata(MDs);
+    for (const auto &I : MDs)
+      EnumerateMetadata(I.second);
 
     for (const BasicBlock &BB : F)
       for (const Instruction &I : BB) {
@@ -377,7 +368,7 @@ ValueEnumerator::ValueEnumerator(const Module &M,
 
         // Don't enumerate the location directly -- it has a special record
         // type -- but enumerate its operands.
-        if (MDLocation *L = I.getDebugLoc())
+        if (DILocation *L = I.getDebugLoc())
           EnumerateMDNodeOperands(L);
       }
   }
@@ -501,10 +492,8 @@ void ValueEnumerator::EnumerateValueSymbolTable(const ValueSymbolTable &VST) {
 /// Insert all of the values referenced by named metadata in the specified
 /// module.
 void ValueEnumerator::EnumerateNamedMetadata(const Module &M) {
-  for (Module::const_named_metadata_iterator I = M.named_metadata_begin(),
-                                             E = M.named_metadata_end();
-       I != E; ++I)
-    EnumerateNamedMDNode(I);
+  for (const auto &I : M.named_metadata())
+    EnumerateNamedMDNode(&I);
 }
 
 void ValueEnumerator::EnumerateNamedMDNode(const NamedMDNode *MD) {
@@ -543,8 +532,8 @@ void ValueEnumerator::EnumerateMetadata(const Metadata *MD) {
     EnumerateValue(C->getValue());
 
   HasMDString |= isa<MDString>(MD);
-  HasMDLocation |= isa<MDLocation>(MD);
-  HasGenericDebugNode |= isa<GenericDebugNode>(MD);
+  HasDILocation |= isa<DILocation>(MD);
+  HasGenericDINode |= isa<GenericDINode>(MD);
 
   // Replace the dummy ID inserted above with the correct one.  MDValueMap may
   // have changed by inserting operands, so we need a fresh lookup here.
@@ -680,9 +669,7 @@ void ValueEnumerator::EnumerateOperandType(const Value *V) {
 
   // This constant may have operands, make sure to enumerate the types in
   // them.
-  for (unsigned i = 0, e = C->getNumOperands(); i != e; ++i) {
-    const Value *Op = C->getOperand(i);
-
+  for (const Value *Op : C->operands()) {
     // Don't enumerate basic blocks here, this happens as operands to
     // blockaddress.
     if (isa<BasicBlock>(Op))
@@ -720,23 +707,20 @@ void ValueEnumerator::incorporateFunction(const Function &F) {
   NumModuleMDs = MDs.size();
 
   // Adding function arguments to the value table.
-  for (Function::const_arg_iterator I = F.arg_begin(), E = F.arg_end();
-       I != E; ++I)
-    EnumerateValue(I);
+  for (const auto &I : F.args())
+    EnumerateValue(&I);
 
   FirstFuncConstantID = Values.size();
 
   // Add all function-level constants to the value table.
-  for (Function::const_iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
-    for (BasicBlock::const_iterator I = BB->begin(), E = BB->end(); I!=E; ++I)
-      for (User::const_op_iterator OI = I->op_begin(), E = I->op_end();
-           OI != E; ++OI) {
-        if ((isa<Constant>(*OI) && !isa<GlobalValue>(*OI)) ||
-            isa<InlineAsm>(*OI))
-          EnumerateValue(*OI);
+  for (const BasicBlock &BB : F) {
+    for (const Instruction &I : BB)
+      for (const Use &OI : I.operands()) {
+        if ((isa<Constant>(OI) && !isa<GlobalValue>(OI)) || isa<InlineAsm>(OI))
+          EnumerateValue(OI);
       }
-    BasicBlocks.push_back(BB);
-    ValueMap[BB] = BasicBlocks.size();
+    BasicBlocks.push_back(&BB);
+    ValueMap[&BB] = BasicBlocks.size();
   }
 
   // Optimize the constant layout.
@@ -750,18 +734,17 @@ void ValueEnumerator::incorporateFunction(const Function &F) {
 
   SmallVector<LocalAsMetadata *, 8> FnLocalMDVector;
   // Add all of the instructions.
-  for (Function::const_iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
-    for (BasicBlock::const_iterator I = BB->begin(), E = BB->end(); I!=E; ++I) {
-      for (User::const_op_iterator OI = I->op_begin(), E = I->op_end();
-           OI != E; ++OI) {
-        if (auto *MD = dyn_cast<MetadataAsValue>(&*OI))
+  for (const BasicBlock &BB : F) {
+    for (const Instruction &I : BB) {
+      for (const Use &OI : I.operands()) {
+        if (auto *MD = dyn_cast<MetadataAsValue>(&OI))
           if (auto *Local = dyn_cast<LocalAsMetadata>(MD->getMetadata()))
             // Enumerate metadata after the instructions they might refer to.
             FnLocalMDVector.push_back(Local);
       }
 
-      if (!I->getType()->isVoidTy())
-        EnumerateValue(I);
+      if (!I.getType()->isVoidTy())
+        EnumerateValue(&I);
     }
   }
 
@@ -788,8 +771,8 @@ void ValueEnumerator::purgeFunction() {
 static void IncorporateFunctionInfoGlobalBBIDs(const Function *F,
                                  DenseMap<const BasicBlock*, unsigned> &IDMap) {
   unsigned Counter = 0;
-  for (Function::const_iterator BB = F->begin(), E = F->end(); BB != E; ++BB)
-    IDMap[BB] = ++Counter;
+  for (const BasicBlock &BB : *F)
+    IDMap[&BB] = ++Counter;
 }
 
 /// getGlobalBasicBlockID - This returns the function-specific ID for the

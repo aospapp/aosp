@@ -340,6 +340,9 @@ void bta_ag_disc_fail(tBTA_AG_SCB *p_scb, tBTA_AG_DATA *p_data)
 
     /* reinitialize stuff */
 
+    /* clear the remote BD address */
+    bdcpy(p_scb->peer_addr, bd_addr_null);
+
     /* call open cback w. failure */
     bta_ag_cback_open(p_scb, NULL, BTA_AG_FAIL_SDP);
 }
@@ -379,8 +382,8 @@ void bta_ag_rfc_fail(tBTA_AG_SCB *p_scb, tBTA_AG_DATA *p_data)
     p_scb->conn_service = 0;
     p_scb->peer_features = 0;
 #if (BTM_WBS_INCLUDED == TRUE )
-    p_scb->peer_codecs = BTA_AG_CODEC_NONE;
-    p_scb->sco_codec = BTA_AG_CODEC_NONE;
+    p_scb->peer_codecs = BTA_AG_CODEC_CVSD;
+    p_scb->sco_codec = BTA_AG_CODEC_CVSD;
 #endif
     p_scb->role = 0;
     p_scb->svc_conn = FALSE;
@@ -416,8 +419,8 @@ void bta_ag_rfc_close(tBTA_AG_SCB *p_scb, tBTA_AG_DATA *p_data)
     p_scb->conn_service = 0;
     p_scb->peer_features = 0;
 #if (BTM_WBS_INCLUDED == TRUE )
-    p_scb->peer_codecs = BTA_AG_CODEC_NONE;
-    p_scb->sco_codec = BTA_AG_CODEC_NONE;
+    p_scb->peer_codecs = BTA_AG_CODEC_CVSD;
+    p_scb->sco_codec = BTA_AG_CODEC_CVSD;
     /* Clear these flags upon SLC teardown */
     p_scb->codec_updated = FALSE;
     p_scb->codec_fallback = FALSE;
@@ -430,9 +433,9 @@ void bta_ag_rfc_close(tBTA_AG_SCB *p_scb, tBTA_AG_DATA *p_data)
     bta_ag_at_reinit(&p_scb->at_cb);
 
     /* stop timers */
-    bta_sys_stop_timer(&p_scb->act_timer);
+    alarm_cancel(p_scb->ring_timer);
 #if (BTM_WBS_INCLUDED == TRUE)
-    bta_sys_stop_timer(&p_scb->cn_timer);
+    alarm_cancel(p_scb->codec_negotiation_timer);
 #endif
 
     close.hdr.handle = bta_ag_scb_to_idx(p_scb);
@@ -522,13 +525,11 @@ void bta_ag_rfc_open(tBTA_AG_SCB *p_scb, tBTA_AG_DATA *p_data)
 
     bta_ag_cback_open(p_scb, NULL, BTA_AG_SUCCESS);
 
-    if (p_scb->conn_service == BTA_AG_HFP)
-    {
+    if (p_scb->conn_service == BTA_AG_HFP) {
         /* if hfp start timer for service level conn */
-        bta_sys_start_timer(&p_scb->act_timer, BTA_AG_SVC_TOUT_EVT, p_bta_ag_cfg->conn_tout);
-    }
-    else
-    {
+        bta_sys_start_timer(p_scb->ring_timer, p_bta_ag_cfg->conn_tout,
+                            BTA_AG_SVC_TIMEOUT_EVT, bta_ag_scb_to_idx(p_scb));
+    } else {
         /* else service level conn is open */
         bta_ag_svc_conn_open(p_scb, p_data);
     }
@@ -567,11 +568,9 @@ void bta_ag_rfc_acp_open(tBTA_AG_SCB *p_scb, tBTA_AG_DATA *p_data)
     /* Collision Handling */
     for (i = 0, ag_scb = &bta_ag_cb.scb[0]; i < BTA_AG_NUM_SCB; i++, ag_scb++)
     {
-        if ((ag_scb->in_use) && (ag_scb->colli_tmr_on))
+        if (ag_scb->in_use && alarm_is_scheduled(ag_scb->collision_timer))
         {
-            /* stop collision timer */
-            ag_scb->colli_tmr_on = FALSE;
-            bta_sys_stop_timer (&ag_scb->colli_timer);
+            alarm_cancel(ag_scb->collision_timer);
 
             if (bdcmp (dev_addr, ag_scb->peer_addr) == 0)
             {
@@ -646,7 +645,8 @@ void bta_ag_rfc_data(tBTA_AG_SCB *p_scb, tBTA_AG_DATA *p_data)
 
     memset(buf, 0, BTA_AG_RFC_READ_MAX);
 
-    APPL_TRACE_DEBUG("bta_ag_rfc_data");
+    APPL_TRACE_DEBUG("%s", __func__);
+
     /* do the following */
     for(;;)
     {
@@ -665,7 +665,14 @@ void bta_ag_rfc_data(tBTA_AG_SCB *p_scb, tBTA_AG_DATA *p_data)
         /* run AT command interpreter on data */
         bta_sys_busy(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
         bta_ag_at_parse(&p_scb->at_cb, buf, len);
-        bta_sys_idle(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
+        if ((p_scb->sco_idx != BTM_INVALID_SCO_INDEX) && bta_ag_sco_is_open(p_scb))
+        {
+            APPL_TRACE_DEBUG ("%s change link policy for SCO", __func__);
+            bta_sys_sco_open(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
+        } else {
+            bta_sys_idle(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
+        }
+
         /* no more data to read, we're done */
         if (len < BTA_AG_RFC_READ_MAX)
         {
@@ -814,8 +821,7 @@ void bta_ag_svc_conn_open(tBTA_AG_SCB *p_scb, tBTA_AG_DATA *p_data)
         /* Clear AT+BIA mask from previous SLC if any. */
         p_scb->bia_masked_out = 0;
 
-        /* stop timer */
-        bta_sys_stop_timer(&p_scb->act_timer);
+        alarm_cancel(p_scb->ring_timer);
 
         /* call callback */
         evt.hdr.handle = bta_ag_scb_to_idx(p_scb);
@@ -855,7 +861,15 @@ void bta_ag_ci_rx_data(tBTA_AG_SCB *p_scb, tBTA_AG_DATA *p_data)
     /* send to RFCOMM */
     bta_sys_busy(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
     PORT_WriteData(p_scb->conn_handle, p_data_area, strlen(p_data_area), &len);
-    bta_sys_idle(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
+    if ((p_scb->sco_idx != BTM_INVALID_SCO_INDEX) && bta_ag_sco_is_open(p_scb))
+    {
+        APPL_TRACE_DEBUG ("bta_ag_rfc_data, change link policy for SCO");
+        bta_sys_sco_open(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
+    }
+    else
+    {
+        bta_sys_idle(BTA_ID_AG, p_scb->app_id, p_scb->peer_addr);
+    }
 }
 
 /*******************************************************************************

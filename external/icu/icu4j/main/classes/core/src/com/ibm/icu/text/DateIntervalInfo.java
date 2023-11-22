@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (C) 2008-2015, International Business Machines Corporation and    *
+ * Copyright (C) 2008-2016, International Business Machines Corporation and    *
  * others. All Rights Reserved.                                                *
  *******************************************************************************
  */
@@ -41,7 +41,7 @@ import com.ibm.icu.util.UResourceBundle;
  * <P>
  * For power users, who want to create their own date interval patterns,
  * or want to re-set date interval patterns, they could do so by
- * directly creating DateIntervalInfo and manupulating it.
+ * directly creating DateIntervalInfo and manipulating it.
  *
  * <P>
  * Logically, the interval patterns are mappings
@@ -71,9 +71,11 @@ import com.ibm.icu.util.UResourceBundle;
  *
  * <P>
  * The calendar fields we support for interval formatting are:
- * year, month, date, day-of-week, am-pm, hour, hour-of-day, and minute.
+ * year, month, date, day-of-week, am-pm, hour, hour-of-day, minute, and
+ * second (though we do not currently have specific intervalFormat data for
+ * skeletons with seconds). 
  * Those calendar fields can be defined in the following order:
- * year >  month > date > am-pm > hour >  minute 
+ * year &gt; month &gt; date &gt; am-pm &gt; hour &gt;  minute &gt; second
  *  
  * The largest different calendar fields between 2 calendars is the
  * first different calendar field in above order.
@@ -134,7 +136,7 @@ import com.ibm.icu.util.UResourceBundle;
  * the interval patterns using setIntervalPattern function as so desired.
  * Currently, users can only set interval patterns when the following 
  * calendar fields are different: ERA, YEAR, MONTH, DATE,  DAY_OF_MONTH, 
- * DAY_OF_WEEK, AM_PM,  HOUR, HOUR_OF_DAY, and MINUTE.
+ * DAY_OF_WEEK, AM_PM,  HOUR, HOUR_OF_DAY, MINUTE and SECOND.
  * Interval patterns when other calendar fields are different is not supported.
  * <P>
  * DateIntervalInfo objects are cloneable. 
@@ -193,7 +195,10 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
         private final boolean fFirstDateInPtnIsLaterDate;
 
         /**
-         * constructor
+         * Constructs a <code>PatternInfo</code> object.
+         * @param firstPart     The first part of interval pattern.
+         * @param secondPart    The second part of interval pattern.
+         * @param firstDateInPtnIsLaterDate Whether the first date in interval patter is later date or not.
          * @stable ICU 4.0
          */
         public PatternInfo(String firstPart, String secondPart,
@@ -204,7 +209,8 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
         }
 
         /**
-         * accessor
+         * Returns the first part of interval pattern.
+         * @return The first part of interval pattern.
          * @stable ICU 4.0
          */
         public String getFirstPart() {
@@ -212,7 +218,8 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
         }
 
         /**
-         * accessor
+         * Returns the second part of interval pattern.
+         * @return The second part of interval pattern.
          * @stable ICU 4.0
          */
         public String getSecondPart() {
@@ -220,7 +227,8 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
         }
 
         /**
-         * accessor
+         * Returns whether the first date in interval patter is later date or not.
+         * @return Whether the first date in interval patter is later date or not.
          * @stable ICU 4.0
          */
         public boolean firstDateInPtnIsLaterDate() {
@@ -228,7 +236,9 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
         }
 
         /**
-         * Override equals
+         * Compares the specified object with this <code>PatternInfo</code> for equality.
+         * @param a The object to be compared.
+         * @return <code>true</code> if the specified object is equal to this <code>PatternInfo</code>.
          * @stable ICU 4.0
          */
         public boolean equals(Object a) {
@@ -242,7 +252,8 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
         }
 
         /**
-         * Override hashcode
+         * Returns the hash code of this <code>PatternInfo</code>.
+         * @return A hash code value for this object.
          * @stable ICU 4.0
          */
         public int hashCode() {
@@ -285,7 +296,7 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
 
     private static final long serialVersionUID = 1;
     private static final int MINIMUM_SUPPORTED_CALENDAR_FIELD = 
-                                                          Calendar.MINUTE;
+                                                          Calendar.SECOND;
     //private static boolean DEBUG = true;
 
     private static String FALLBACK_STRING = "fallback";
@@ -349,12 +360,11 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
 
 
     /** 
-     * Construct DateIntervalInfo for the given JDK locale,
+     * Construct DateIntervalInfo for the given {@link java.util.Locale}.
      * @param locale  the interval patterns are loaded from the appropriate 
      *                calendar data (specified calendar or default calendar)
      *                in this locale.
-     * @draft ICU 54
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 54
      */
     public DateIntervalInfo(Locale locale) 
     {
@@ -478,6 +488,8 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
                             key = CALENDAR_FIELD_TO_PATTERN_LETTER[Calendar.HOUR];
                         } else if ( key.equals(CALENDAR_FIELD_TO_PATTERN_LETTER[Calendar.MINUTE]) ) {
                             calendarField = Calendar.MINUTE;    
+                        } else if ( key.equals(CALENDAR_FIELD_TO_PATTERN_LETTER[Calendar.SECOND]) ) {
+                            calendarField = Calendar.SECOND;    
                         }
              
                         if ( calendarField != -1 ) {
@@ -592,7 +604,7 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
      * Restriction: 
      * Currently, users can only set interval patterns when the following 
      * calendar fields are different: ERA, YEAR, MONTH, DATE,  DAY_OF_MONTH, 
-     * DAY_OF_WEEK, AM_PM,  HOUR, HOUR_OF_DAY, and MINUTE.
+     * DAY_OF_WEEK, AM_PM,  HOUR, HOUR_OF_DAY, MINUTE, and SECOND.
      * Interval patterns when other calendar fields are different are 
      * not supported.
      *
@@ -737,7 +749,7 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
     public PatternInfo getIntervalPattern(String skeleton, int field) 
     {
         if ( field > MINIMUM_SUPPORTED_CALENDAR_FIELD ) {
-            throw new IllegalArgumentException("no support for field less than MINUTE");
+            throw new IllegalArgumentException("no support for field less than SECOND");
         }
         Map<String, PatternInfo> patternsOfOneSkeleton = fIntervalPatterns.get(skeleton);
         if ( patternsOfOneSkeleton != null ) {
@@ -811,7 +823,7 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
 
 
     /**
-     * Boilerplate. Clone this object.
+     * Clone this object.
      * @return     a copy of the object
      * @stable ICU4.0
      */
@@ -870,7 +882,8 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
 
     
     /**
-     * Boilerplate for Freezable
+     * {@inheritDoc}
+     *
      * @stable ICU 4.0
      */
     public boolean isFrozen() {
@@ -878,7 +891,8 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
     }
     
     /**
-     * Boilerplate for Freezable
+     * {@inheritDoc}
+     *
      * @stable ICU 4.4
      */
     public DateIntervalInfo freeze() {
@@ -888,7 +902,8 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
     }
     
     /**
-     * Boilerplate for Freezable
+     * {@inheritDoc}
+     *
      * @stable ICU 4.4
      */
     public DateIntervalInfo cloneAsThawed() {

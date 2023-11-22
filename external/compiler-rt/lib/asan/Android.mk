@@ -79,11 +79,10 @@ asan_rtl_files := \
   ../sanitizer_common/sanitizer_symbolizer_libbacktrace.cc \
   ../sanitizer_common/sanitizer_symbolizer_libcdep.cc \
   ../sanitizer_common/sanitizer_symbolizer_posix_libcdep.cc \
-  ../sanitizer_common/sanitizer_symbolizer_process_libcdep.cc \
   ../sanitizer_common/sanitizer_symbolizer_win.cc \
   ../sanitizer_common/sanitizer_thread_registry.cc \
   ../sanitizer_common/sanitizer_tls_get_addr.cc \
-  ../sanitizer_common/sanitizer_unwind_posix_libcdep.cc \
+  ../sanitizer_common/sanitizer_unwind_linux_libcdep.cc \
   ../sanitizer_common/sanitizer_win.cc \
 
 asan_rtl_cxx_files := \
@@ -125,8 +124,6 @@ asan_test_cflags := \
 	-std=c++11
 
 
-ifeq ($(TARGET_ARCH),arm)
-
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libasan
@@ -135,11 +132,12 @@ LOCAL_C_INCLUDES := \
     external/compiler-rt/include
 LOCAL_CFLAGS += $(asan_rtl_cflags)
 LOCAL_SRC_FILES := asan_preinit.cc
-#LOCAL_SRC_FILES := asan_android_stub.cc asan_preinit.cc
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_CLANG := true
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
+LOCAL_MODULE_TARGET_ARCH := arm arm64 x86
+LOCAL_NDK_STL_VARIANT := none
+LOCAL_SDK_VERSION := 19
 include $(BUILD_STATIC_LIBRARY)
 
 define build-asan-rt-shared-library
@@ -147,6 +145,11 @@ define build-asan-rt-shared-library
 include $(CLEAR_VARS)
 LOCAL_MODULE := $(1)
 LOCAL_MULTILIB := $(2)
+# This library must go on /system partition, even in SANITIZE_TARGET mode (when all libraries are
+# installed on /data). That's because /data may not be available until vold does some magic and
+# vold itself depends on this library.
+LOCAL_MODULE_PATH_32 := $(TARGET_OUT)/lib
+LOCAL_MODULE_PATH_64 := $(TARGET_OUT)/lib64
 # We need to unwind by frame pointers through a small portion of ASan runtime library code,
 # and that only works with ARM, not with Thumb.
 LOCAL_ARM_MODE := arm
@@ -156,25 +159,29 @@ LOCAL_C_INCLUDES := \
 LOCAL_CFLAGS += $(asan_rtl_cflags)
 LOCAL_SRC_FILES := $(asan_rtl_files) $(asan_rtl_cxx_files)
 LOCAL_CPP_EXTENSION := .cc
-LOCAL_SHARED_LIBRARIES := liblog libc libdl
-LOCAL_STATIC_LIBRARIES := libcompiler_rt libubsan
+LOCAL_LDLIBS := -llog -ldl
+LOCAL_STATIC_LIBRARIES := libubsan
 # MacOS toolchain is out-of-date and does not support -z global.
 # TODO: re-enable once the toolchain issue is fixed.
 ifneq ($(HOST_OS),darwin)
   LOCAL_LDFLAGS += -Wl,-z,global
 endif
 LOCAL_CLANG := true
-LOCAL_ADDRESS_SANITIZER := false
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
+LOCAL_SANITIZE := never
+LOCAL_MODULE_TARGET_ARCH := arm arm64 x86
+LOCAL_NDK_STL_VARIANT := none
+LOCAL_SDK_VERSION := 19
 include $(BUILD_SHARED_LIBRARY)
 
 endef
 
+ifeq (true,$(FORCE_BUILD_SANITIZER_SHARED_OBJECTS))
 ifdef 2ND_ADDRESS_SANITIZER_RUNTIME_LIBRARY
   $(eval $(call build-asan-rt-shared-library,$(ADDRESS_SANITIZER_RUNTIME_LIBRARY),64))
   $(eval $(call build-asan-rt-shared-library,$(2ND_ADDRESS_SANITIZER_RUNTIME_LIBRARY),32))
 else
   $(eval $(call build-asan-rt-shared-library,$(ADDRESS_SANITIZER_RUNTIME_LIBRARY),32))
+endif
 endif
 
 include $(CLEAR_VARS)
@@ -183,13 +190,13 @@ LOCAL_MODULE := asanwrapper
 LOCAL_SRC_FILES := asanwrapper.cc
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_CPPFLAGS := -std=c++11
-LOCAL_SHARED_LIBRARIES += libc
-LOCAL_ADDRESS_SANITIZER := false
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
+LOCAL_SANITIZE := never
+LOCAL_MODULE_TARGET_ARCH := arm arm64 x86
 LOCAL_CXX_STL := libc++
 
 include $(BUILD_EXECUTABLE)
 
+ifneq (true,$(SKIP_LLVM_TESTS))
 
 include $(CLEAR_VARS)
 
@@ -213,8 +220,8 @@ LOCAL_CFLAGS += \
 LOCAL_SRC_FILES := tests/asan_noinst_test.cc tests/asan_test_main.cc
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_CLANG := true
-LOCAL_ADDRESS_SANITIZER := false
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
+LOCAL_SANITIZE := never
+LOCAL_MODULE_TARGET_ARCH := arm arm64 x86
 LOCAL_CXX_STL := libc++
 
 include $(BUILD_STATIC_LIBRARY)
@@ -234,14 +241,14 @@ LOCAL_SRC_FILES := $(asan_test_files)
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_STATIC_LIBRARIES := libgtest libasan_noinst_test
 LOCAL_SHARED_LIBRARIES := libc
-LOCAL_ADDRESS_SANITIZER := true
+LOCAL_SANITIZE := address
 LOCAL_CLANG := true
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
+LOCAL_MODULE_TARGET_ARCH := arm arm64 x86
 LOCAL_CXX_STL := libc++
 
 include $(BUILD_EXECUTABLE)
 
-endif # ifeq($(TARGET_ARCH),arm)
+endif # SKIP_LLVM_TESTS
 
 ################################################################################
 # Host modules
@@ -255,8 +262,7 @@ LOCAL_SRC_FILES := $(asan_rtl_files)
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_CLANG := true
 LOCAL_MULTILIB := both
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_WHOLE_STATIC_LIBRARIES := libubsan
 include $(BUILD_HOST_STATIC_LIBRARY)
 
@@ -268,9 +274,10 @@ LOCAL_SRC_FILES := $(asan_rtl_cxx_files)
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_CLANG := true
 LOCAL_MULTILIB := both
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 include $(BUILD_HOST_STATIC_LIBRARY)
+
+ifneq (true,$(SKIP_LLVM_TESTS))
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libasan_noinst_test
@@ -294,8 +301,7 @@ LOCAL_CPP_EXTENSION := .cc
 LOCAL_CLANG := true
 LOCAL_CXX_STL := libc++
 LOCAL_MULTILIB := both
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 include $(BUILD_HOST_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
@@ -309,12 +315,13 @@ LOCAL_CFLAGS += $(asan_test_cflags)
 LOCAL_SRC_FILES := $(asan_test_files)
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_STATIC_LIBRARIES := libasan_noinst_test
-LOCAL_ADDRESS_SANITIZER := true
+LOCAL_SANITIZE := address
 LOCAL_CLANG := true
 LOCAL_CXX_STL := libc++
 LOCAL_MULTILIB := both
+LOCAL_LDLIBS := -lrt
 LOCAL_MODULE_STEM_32 := $(LOCAL_MODULE)32
 LOCAL_MODULE_STEM_64 := $(LOCAL_MODULE)64
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 include $(BUILD_HOST_NATIVE_TEST)
+endif # SKIP_LLVM_TESTS
 endif

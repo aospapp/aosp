@@ -50,6 +50,7 @@ class AndroidKeymaster {
     AndroidKeymaster(KeymasterContext* context, size_t operation_table_size);
     virtual ~AndroidKeymaster();
 
+    void GetVersion(const GetVersionRequest& request, GetVersionResponse* response);
     void SupportedAlgorithms(const SupportedAlgorithmsRequest& request,
                              SupportedAlgorithmsResponse* response);
     void SupportedBlockModes(const SupportedBlockModesRequest& request,
@@ -69,13 +70,16 @@ class AndroidKeymaster {
                                GetKeyCharacteristicsResponse* response);
     void ImportKey(const ImportKeyRequest& request, ImportKeyResponse* response);
     void ExportKey(const ExportKeyRequest& request, ExportKeyResponse* response);
+    void AttestKey(const AttestKeyRequest& request, AttestKeyResponse* response);
+    void UpgradeKey(const UpgradeKeyRequest& request, UpgradeKeyResponse* response);
     void DeleteKey(const DeleteKeyRequest& request, DeleteKeyResponse* response);
     void DeleteAllKeys(const DeleteAllKeysRequest& request, DeleteAllKeysResponse* response);
     void BeginOperation(const BeginOperationRequest& request, BeginOperationResponse* response);
     void UpdateOperation(const UpdateOperationRequest& request, UpdateOperationResponse* response);
     void FinishOperation(const FinishOperationRequest& request, FinishOperationResponse* response);
     void AbortOperation(const AbortOperationRequest& request, AbortOperationResponse* response);
-    void GetVersion(const GetVersionRequest& request, GetVersionResponse* response);
+
+    bool has_operation(keymaster_operation_handle_t op_handle) const;
 
   private:
     keymaster_error_t LoadKey(const keymaster_key_blob_t& key_blob,

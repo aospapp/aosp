@@ -210,6 +210,16 @@ enum
     VID_FMT_UNSPECIFIED
 };
 
+typedef enum {
+    USER_DATA_BAR_DATA       = 0,
+    USER_DATA_CC_DATA        = 1,
+    USER_DATA_AFD_DATA       = 2,
+
+    // do not add anything below
+    USER_DATA_MAX
+} USER_DATA_SEI_TYPE_T;
+
+
 #define BIT_DEPTH           8
 #define BIT_DEPTH_LUMA      BIT_DEPTH
 #define BIT_DEPTH_CHROMA    BIT_DEPTH
@@ -246,10 +256,10 @@ enum
 /* Tile restrictions                                                         */
 /*****************************************************************************/
 /* Minimum tile width in Main Profile */
-#define MIN_TILE_WD  MIN_CTB_SIZE
+#define MIN_TILE_WD  MAX_CTB_SIZE
 
 /* Minimum tile height in Main Profile */
-#define MIN_TILE_HT  MIN_CTB_SIZE
+#define MIN_TILE_HT  MAX_CTB_SIZE
 
 /*****************************************************************************/
 /* SPS restrictions                                                          */
@@ -455,5 +465,9 @@ enum
 #define INTRA_PRED_CHROMA_IDX_NONE  7
 
 
+#define MAX_NUM_CLOCK_TS    3
+#define MAX_USERDATA_PAYLOAD 256
+
+#define MAX_CPB_CNT 32
 
 #endif /*__IHEVC_DEFS_H_*/

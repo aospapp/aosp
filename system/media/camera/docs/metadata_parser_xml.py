@@ -208,6 +208,7 @@ class MetadataParserXml:
       enum_deprecateds = []
       enum_optionals = []
       enum_hiddens = []
+      enum_ndk_hiddens = []
       enum_notes = {}
       enum_ids = {}
       for value in entry.enum.find_all('value'):
@@ -224,6 +225,9 @@ class MetadataParserXml:
         if value.attrs.get('hidden', 'false') == 'true':
           enum_hiddens.append(value_body)
 
+        if value.attrs.get('ndk_hidden', 'false') == 'true':
+          enum_ndk_hiddens.append(value_body)
+
         notes = value.find('notes')
         if notes is not None:
           enum_notes[value_body] = notes.string
@@ -235,6 +239,7 @@ class MetadataParserXml:
       d['enum_deprecateds'] = enum_deprecateds
       d['enum_optionals'] = enum_optionals
       d['enum_hiddens'] = enum_hiddens
+      d['enum_ndk_hiddens'] = enum_ndk_hiddens
       d['enum_notes'] = enum_notes
       d['enum_ids'] = enum_ids
       d['enum'] = True

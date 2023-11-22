@@ -15,11 +15,13 @@
  */
 
 #include "rsContext.h"
+#include "rsElement.h"
 #include "rsScriptC.h"
 #include "rsMatrix4x4.h"
 #include "rsMatrix3x3.h"
 #include "rsMatrix2x2.h"
 #include "rsRuntime.h"
+#include "rsType.h"
 
 #include "rsdCore.h"
 #include "rsdBcc.h"
@@ -32,6 +34,11 @@
 
 using namespace android;
 using namespace android::renderscript;
+
+typedef __fp16 half;
+typedef half half2 __attribute__((ext_vector_type(2)));
+typedef half half3 __attribute__((ext_vector_type(3)));
+typedef half half4 __attribute__((ext_vector_type(4)));
 
 typedef float float2 __attribute__((ext_vector_type(2)));
 typedef float float3 __attribute__((ext_vector_type(3)));
@@ -99,6 +106,14 @@ typedef enum {
     // Empty to avoid conflicting definitions with RsAllocationCubemapFace
 } rs_allocation_cubemap_face;
 
+typedef enum {
+    // Empty to avoid conflicting definitions with RsYuvFormat
+} rs_yuv_format;
+
+typedef enum {
+    // Empty to avoid conflicting definitions with RsAllocationMipmapControl
+} rs_allocation_mipmap_control;
+
 typedef struct { unsigned int val; } rs_allocation_usage_type;
 
 typedef struct {
@@ -121,9 +136,9 @@ static bool failIfInKernel(Context *rsc, const char *funcName) {
     RsdHal *dc = (RsdHal *)rsc->mHal.drv;
     RsdCpuReference *impl = (RsdCpuReference *) dc->mCpuRef;
 
-    if (impl->getInForEach()) {
+    if (impl->getInKernel()) {
         char buf[256];
-        sprintf(buf, "Error: Call to unsupported function %s "
+        snprintf(buf, sizeof(buf), "Error: Call to unsupported function %s "
                          "in kernel", funcName);
         rsc->setError(RS_ERROR_FATAL_DRIVER, buf);
         return true;
@@ -134,8 +149,8 @@ static bool failIfInKernel(Context *rsc, const char *funcName) {
 //////////////////////////////////////////////////////////////////////////////
 // Allocation routines
 //////////////////////////////////////////////////////////////////////////////
-#ifdef __i386__
-// i386 has different struct return passing to ARM; emulate with a pointer
+#if defined(__i386__) || (defined(__mips__) && __mips==32)
+// i386 and MIPS32 have different struct return passing to ARM; emulate with a pointer
 const Allocation * rsGetAllocation(const void *ptr) {
     Context *rsc = RsdCpuReference::getTlsContext();
     const Script *sc = RsdCpuReference::getTlsScript();
@@ -150,7 +165,7 @@ const android::renderscript::rs_allocation rsGetAllocation(const void *ptr) {
     const Script *sc = RsdCpuReference::getTlsScript();
     Allocation* alloc = rsdScriptGetAllocationForPointer(rsc, sc, ptr);
 
-#ifndef __LP64__ // ARMv7/MIPS
+#ifndef __LP64__ // ARMv7
     android::renderscript::rs_allocation obj = {0};
 #else // AArch64/x86_64/MIPS64
     android::renderscript::rs_allocation obj = {0, 0, 0, 0};
@@ -203,6 +218,204 @@ void __attribute__((overloadable)) rsAllocationCopy2DRange(
                              srcXoff, srcYoff, srcMip, srcFace);
 }
 
+static android::renderscript::rs_element CreateElement(RsDataType dt,
+                                                       RsDataKind dk,
+                                                       bool isNormalized,
+                                                       uint32_t vecSize) {
+    Context *rsc = RsdCpuReference::getTlsContext();
+
+    // No need for validation here.  The rsCreateElement overload below is not
+    // exposed to the Script.  The Element-creation APIs call this function in a
+    // consistent manner and rsComponent.cpp asserts on any inconsistency.
+    Element *element = (Element *) rsrElementCreate(rsc, dt, dk, isNormalized,
+                                                    vecSize);
+    android::renderscript::rs_element obj = {};
+    if (element == nullptr)
+        return obj;
+    element->callUpdateCacheObject(rsc, &obj);
+
+    // Any new rsObject created from inside a script should have the usrRefCount
+    // initialized to 0 and the sysRefCount initialized to 1.
+    element->incSysRef();
+    element->decUserRef();
+
+    return obj;
+}
+
+static android::renderscript::rs_type CreateType(RsElement element,
+                                                 uint32_t dimX, uint32_t dimY,
+                                                 uint32_t dimZ, bool mipmaps,
+                                                 bool faces,
+                                                 uint32_t yuv_format) {
+
+    Context *rsc = RsdCpuReference::getTlsContext();
+    android::renderscript::rs_type obj = {};
+
+    if (element == nullptr) {
+        ALOGE("rs_type creation error: Invalid element");
+        return obj;
+    }
+
+    // validate yuv_format
+    RsYuvFormat yuv = (RsYuvFormat) yuv_format;
+    if (yuv != RS_YUV_NONE &&
+        yuv != RS_YUV_YV12 &&
+        yuv != RS_YUV_NV21 &&
+        yuv != RS_YUV_420_888) {
+
+        ALOGE("rs_type creation error: Invalid yuv_format %d\n", yuv_format);
+        return obj;
+    }
+
+    // validate consistency of shape parameters
+    if (dimZ > 0) {
+        if (dimX < 1 || dimY < 1) {
+            ALOGE("rs_type creation error: Both X and Y dimension required "
+                  "when Z is present.");
+            return obj;
+        }
+        if (mipmaps) {
+            ALOGE("rs_type creation error: mipmap control requires 2D types");
+            return obj;
+        }
+        if (faces) {
+            ALOGE("rs_type creation error: Cube maps require 2D types");
+            return obj;
+        }
+    }
+    if (dimY > 0 && dimX < 1) {
+        ALOGE("rs_type creation error: X dimension required when Y is "
+              "present.");
+        return obj;
+    }
+    if (mipmaps && dimY < 1) {
+        ALOGE("rs_type creation error: mipmap control require 2D Types.");
+        return obj;
+    }
+    if (faces && dimY < 1) {
+        ALOGE("rs_type creation error: Cube maps require 2D Types.");
+        return obj;
+    }
+    if (yuv_format != RS_YUV_NONE) {
+        if (dimZ != 0 || dimY == 0 || faces || mipmaps) {
+            ALOGE("rs_type creation error: YUV only supports basic 2D.");
+            return obj;
+        }
+    }
+
+    Type *type = (Type *) rsrTypeCreate(rsc, element, dimX, dimY, dimZ, mipmaps,
+                                        faces, yuv_format);
+    if (type == nullptr)
+        return obj;
+    type->callUpdateCacheObject(rsc, &obj);
+
+    // Any new rsObject created from inside a script should have the usrRefCount
+    // initialized to 0 and the sysRefCount initialized to 1.
+    type->incSysRef();
+    type->decUserRef();
+
+    return obj;
+}
+
+static android::renderscript::rs_allocation CreateAllocation(
+        RsType type, RsAllocationMipmapControl mipmaps, uint32_t usages,
+        void *ptr) {
+
+    Context *rsc = RsdCpuReference::getTlsContext();
+    android::renderscript::rs_allocation obj = {};
+
+    if (type == nullptr) {
+        ALOGE("rs_allocation creation error: Invalid type");
+        return obj;
+    }
+
+    uint32_t validUsages = RS_ALLOCATION_USAGE_SCRIPT | \
+                           RS_ALLOCATION_USAGE_GRAPHICS_TEXTURE;
+    if (usages & ~validUsages) {
+        ALOGE("rs_allocation creation error: Invalid usage flag");
+        return obj;
+    }
+
+    Allocation *alloc = (Allocation *) rsrAllocationCreateTyped(rsc, type,
+                                                                mipmaps, usages,
+                                                                (uintptr_t) ptr);
+    if (alloc == nullptr)
+        return obj;
+    alloc->callUpdateCacheObject(rsc, &obj);
+
+    // Any new rsObject created from inside a script should have the usrRefCount
+    // initialized to 0 and the sysRefCount initialized to 1.
+    alloc->incSysRef();
+    alloc->decUserRef();
+
+    return obj;
+}
+
+// Define rsCreateElement, rsCreateType and rsCreateAllocation entry points
+// differently for 32-bit x86 and Mips.  The definitions for ARM32 and all
+// 64-bit architectures is further below.
+#if defined(__i386__) || (defined(__mips__) && __mips==32)
+
+// The calling convention for the driver on 32-bit x86 and Mips returns
+// rs_element etc. as a stack-return parameter.  The Script uses ARM32 calling
+// conventions that return the structs in a register.  To match this convention,
+// emulate the return value using a pointer.
+Element *rsCreateElement(int32_t dt, int32_t dk, bool isNormalized,
+                         uint32_t vecSize) {
+
+    android::renderscript::rs_element obj = CreateElement((RsDataType) dt,
+                                                          (RsDataKind) dk,
+                                                          isNormalized,
+                                                          vecSize);
+    return (Element *) obj.p;
+}
+
+Type *rsCreateType(::rs_element element, uint32_t dimX, uint32_t dimY,
+                   uint32_t dimZ, bool mipmaps, bool faces,
+                   rs_yuv_format yuv_format) {
+    android::renderscript::rs_type obj = CreateType((RsElement) element.p, dimX,
+                                                    dimY, dimZ, mipmaps, faces,
+                                                    (RsYuvFormat) yuv_format);
+    return (Type *) obj.p;
+}
+
+Allocation *rsCreateAllocation(::rs_type type,
+                               rs_allocation_mipmap_control mipmaps,
+                               uint32_t usages, void *ptr) {
+
+    android::renderscript::rs_allocation obj;
+    obj = CreateAllocation((RsType) type.p, (RsAllocationMipmapControl) mipmaps,
+                           usages, ptr);
+    return (Allocation *) obj.p;
+}
+
+#else
+android::renderscript::rs_element rsCreateElement(int32_t dt, int32_t dk,
+                                                  bool isNormalized,
+                                                  uint32_t vecSize) {
+
+    return CreateElement((RsDataType) dt, (RsDataKind) dk, isNormalized,
+                         vecSize);
+}
+
+android::renderscript::rs_type rsCreateType(::rs_element element, uint32_t dimX,
+                                            uint32_t dimY, uint32_t dimZ,
+                                            bool mipmaps, bool faces,
+                                            rs_yuv_format yuv_format) {
+    return CreateType((RsElement) element.p, dimX, dimY, dimZ, mipmaps, faces,
+                      yuv_format);
+}
+
+android::renderscript::rs_allocation rsCreateAllocation(
+        ::rs_type type, rs_allocation_mipmap_control mipmaps, uint32_t usages,
+        void *ptr) {
+
+    return CreateAllocation((RsType) type.p,
+                            (RsAllocationMipmapControl) mipmaps,
+                            usages, ptr);
+}
+#endif
+
 //////////////////////////////////////////////////////////////////////////////
 // Object routines
 //////////////////////////////////////////////////////////////////////////////
@@ -211,8 +424,7 @@ void __attribute__((overloadable)) rsAllocationCopy2DRange(
         return src.p != nullptr; \
     } \
     void __attribute__((overloadable)) rsClearObject(t *dst) { \
-        Context *rsc = RsdCpuReference::getTlsContext(); \
-        rsrClearObject(rsc, reinterpret_cast<rs_object_base *>(dst)); \
+        rsrClearObject(reinterpret_cast<rs_object_base *>(dst)); \
     } \
     void __attribute__((overloadable)) rsSetObject(t *dst, t src) { \
         Context *rsc = RsdCpuReference::getTlsContext(); \
@@ -245,32 +457,32 @@ static void * ElementAt(Allocation *a, RsDataType dt, uint32_t vecSize,
 
     char buf[256];
     if (x && (x >= t->getLODDimX(0))) {
-        sprintf(buf, "Out range ElementAt X %i of %i", x, t->getLODDimX(0));
+        snprintf(buf, sizeof(buf), "Out range ElementAt X %i of %i", x, t->getLODDimX(0));
         rsc->setError(RS_ERROR_FATAL_DEBUG, buf);
         return nullptr;
     }
 
     if (y && (y >= t->getLODDimY(0))) {
-        sprintf(buf, "Out range ElementAt Y %i of %i", y, t->getLODDimY(0));
+        snprintf(buf, sizeof(buf), "Out range ElementAt Y %i of %i", y, t->getLODDimY(0));
         rsc->setError(RS_ERROR_FATAL_DEBUG, buf);
         return nullptr;
     }
 
     if (z && (z >= t->getLODDimZ(0))) {
-        sprintf(buf, "Out range ElementAt Z %i of %i", z, t->getLODDimZ(0));
+        snprintf(buf, sizeof(buf), "Out range ElementAt Z %i of %i", z, t->getLODDimZ(0));
         rsc->setError(RS_ERROR_FATAL_DEBUG, buf);
         return nullptr;
     }
 
     if (vecSize > 0) {
         if (vecSize != e->getVectorSize()) {
-            sprintf(buf, "Vector size mismatch for ElementAt %i of %i", vecSize, e->getVectorSize());
+            snprintf(buf, sizeof(buf), "Vector size mismatch for ElementAt %i of %i", vecSize, e->getVectorSize());
             rsc->setError(RS_ERROR_FATAL_DEBUG, buf);
             return nullptr;
         }
 
         if (dt != e->getType()) {
-            sprintf(buf, "Data type mismatch for ElementAt %i of %i", dt, e->getType());
+            snprintf(buf, sizeof(buf), "Data type mismatch for ElementAt %i of %i", dt, e->getType());
             rsc->setError(RS_ERROR_FATAL_DEBUG, buf);
             return nullptr;
         }
@@ -367,6 +579,10 @@ ELEMENT_AT(ulong, RS_TYPE_UNSIGNED_64, 1)
 ELEMENT_AT(ulong2, RS_TYPE_UNSIGNED_64, 2)
 ELEMENT_AT(ulong3, RS_TYPE_UNSIGNED_64, 3)
 ELEMENT_AT(ulong4, RS_TYPE_UNSIGNED_64, 4)
+ELEMENT_AT(half, RS_TYPE_FLOAT_16, 1)
+ELEMENT_AT(half2, RS_TYPE_FLOAT_16, 2)
+ELEMENT_AT(half3, RS_TYPE_FLOAT_16, 3)
+ELEMENT_AT(half4, RS_TYPE_FLOAT_16, 4)
 ELEMENT_AT(float, RS_TYPE_FLOAT_32, 1)
 ELEMENT_AT(float2, RS_TYPE_FLOAT_32, 2)
 ELEMENT_AT(float3, RS_TYPE_FLOAT_32, 3)
@@ -433,13 +649,34 @@ ELEMENT_AT_OVERLOADS(long, long long)
 //////////////////////////////////////////////////////////////////////////////
 // ForEach routines
 //////////////////////////////////////////////////////////////////////////////
+void rsForEachInternal(int slot,
+                       rs_script_call *options,
+                       int hasOutput,
+                       int numInputs,
+                       ::rs_allocation* allocs) {
+    Context *rsc = RsdCpuReference::getTlsContext();
+    Script *s = const_cast<Script*>(RsdCpuReference::getTlsScript());
+    if (numInputs > RS_KERNEL_MAX_ARGUMENTS) {
+        rsc->setError(RS_ERROR_BAD_SCRIPT,
+                      "rsForEachInternal: too many inputs to a kernel.");
+        return;
+    }
+    Allocation* inputs[RS_KERNEL_MAX_ARGUMENTS];
+    for (int i = 0; i < numInputs; i++) {
+        inputs[i] = (Allocation*)allocs[i].p;
+    }
+    Allocation* out = hasOutput ? (Allocation*)allocs[numInputs].p : nullptr;
+    rsrForEach(rsc, s, slot, numInputs, numInputs > 0 ? inputs : nullptr, out,
+               nullptr, 0, (RsScriptCall*)options);
+}
+
 void __attribute__((overloadable)) rsForEach(::rs_script script,
                                              ::rs_allocation in,
                                              ::rs_allocation out,
                                              const void *usr,
                                              const rs_script_call *call) {
     Context *rsc = RsdCpuReference::getTlsContext();
-    rsrForEach(rsc, (Script *)script.p, (Allocation *)in.p,
+    rsrForEach(rsc, (Script *)script.p, 0, 1, (Allocation **)&in.p,
                (Allocation *)out.p, usr, 0, (RsScriptCall *)call);
 }
 
@@ -448,7 +685,7 @@ void __attribute__((overloadable)) rsForEach(::rs_script script,
                                              ::rs_allocation out,
                                              const void *usr) {
     Context *rsc = RsdCpuReference::getTlsContext();
-    rsrForEach(rsc, (Script *)script.p, (Allocation *)in.p, (Allocation *)out.p,
+    rsrForEach(rsc, (Script *)script.p, 0, 1, (Allocation **)&in.p, (Allocation *)out.p,
                usr, 0, nullptr);
 }
 
@@ -456,7 +693,7 @@ void __attribute__((overloadable)) rsForEach(::rs_script script,
                                              ::rs_allocation in,
                                              ::rs_allocation out) {
     Context *rsc = RsdCpuReference::getTlsContext();
-    rsrForEach(rsc, (Script *)script.p, (Allocation *)in.p, (Allocation *)out.p,
+    rsrForEach(rsc, (Script *)script.p, 0, 1, (Allocation **)&in.p, (Allocation *)out.p,
                nullptr, 0, nullptr);
 }
 
@@ -468,7 +705,7 @@ void __attribute__((overloadable)) rsForEach(::rs_script script,
                                              const void *usr,
                                              uint32_t usrLen) {
     Context *rsc = RsdCpuReference::getTlsContext();
-    rsrForEach(rsc, (Script *)script.p, (Allocation *)in.p, (Allocation *)out.p,
+    rsrForEach(rsc, (Script *)script.p, 0, 1, (Allocation **)&in.p, (Allocation *)out.p,
                usr, usrLen, nullptr);
 }
 
@@ -479,7 +716,7 @@ void __attribute__((overloadable)) rsForEach(::rs_script script,
                                              uint32_t usrLen,
                                              const rs_script_call *call) {
     Context *rsc = RsdCpuReference::getTlsContext();
-    rsrForEach(rsc, (Script *)script.p, (Allocation *)in.p, (Allocation *)out.p,
+    rsrForEach(rsc, (Script *)script.p, 0, 1, (Allocation **)&in.p, (Allocation *)out.p,
                usr, usrLen, (RsScriptCall *)call);
 }
 #endif
@@ -882,6 +1119,33 @@ void rsDebug(const char *s, const float3 *f3) {
 void rsDebug(const char *s, const float4 *f4) {
     float4 f = *f4;
     ALOGD("%s {%f, %f, %f, %f}", s, f.x, f.y, f.z, f.w);
+}
+
+// Accept a half value converted to float.  This eliminates the need in the
+// driver to properly support the half datatype (either by adding compiler flags
+// for half or link against compiler_rt).
+void rsDebug(const char *s, float f, ushort us) {
+    ALOGD("%s {%f} {0x%hx}", s, f, us);
+}
+
+void rsDebug(const char *s, const float2 *f2, const ushort2 *us2) {
+    float2 f = *f2;
+    ushort2 us = *us2;
+    ALOGD("%s {%f %f} {0x%hx 0x%hx}", s, f.x, f.y, us.x, us.y);
+}
+
+void rsDebug(const char *s, const float3 *f3, const ushort3 *us3) {
+    float3 f = *f3;
+    ushort3 us = *us3;
+    ALOGD("%s {%f %f %f} {0x%hx 0x%hx 0x%hx}", s, f.x, f.y, f.z, us.x, us.y,
+          us.z);
+}
+
+void rsDebug(const char *s, const float4 *f4, const ushort4 *us4) {
+    float4 f = *f4;
+    ushort4 us = *us4;
+    ALOGD("%s {%f %f %f %f} {0x%hx 0x%hx 0x%hx 0x%hx}", s, f.x, f.y, f.z, f.w,
+          us.x, us.y, us.z, us.w);
 }
 
 void rsDebug(const char *s, double d) {

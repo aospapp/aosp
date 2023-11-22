@@ -114,6 +114,13 @@ public final class URITest extends TestCase {
         }
     }
 
+    // http://b/26632332
+    public void testSingleLetterHost() throws Exception {
+        URI uri = new URI("http://a");
+        assertEquals("a", uri.getHost());
+        assertEquals("", uri.getPath());
+    }
+
     public void testNoHostAndNoPath() throws Exception {
         try {
             new URI("http:");
@@ -134,6 +141,15 @@ public final class URITest extends TestCase {
         assertEquals("user@host", uri.getAuthority());
         assertEquals("user", uri.getUserInfo());
         assertEquals("host", uri.getHost());
+    }
+
+    // http://b/26632332
+    public void testUserNoHost() throws Exception {
+        URI uri = new URI("http://user@");
+        assertEquals("user@", uri.getAuthority());
+        // from RI. this is curious
+        assertEquals(null, uri.getUserInfo());
+        assertEquals(null, uri.getHost());
     }
 
     public void testUserNoPasswordExplicitPort() throws Exception {
@@ -711,6 +727,15 @@ public final class URITest extends TestCase {
         // The RFC's don't permit underscores in hostnames, but URI has to because
         // a certain large website doesn't seem to care about standards and specs.
         assertEquals("a_b.c.d.net", uri.getHost());
+    }
+
+    // RFC1034#section-3.5 doesn't permit empty labels in hostnames, but we
+    // accepted this prior to N and the behavior is used by some apps. We need
+    // to keep the behavior for now for compatibility.
+    // http://b/25991669
+    public void testHostWithEmptyLabel() throws Exception {
+        assertEquals(".example.com", new URI("http://.example.com/").getHost());
+        assertEquals("example..com", new URI("http://example..com/").getHost());
     }
 
     // Adding a new test? Consider adding an equivalent test to URLTest.java

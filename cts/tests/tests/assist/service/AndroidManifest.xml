@@ -47,6 +47,8 @@
               <action android:name="android.intent.action.START_TEST_FLAG_SECURE" />
               <action android:name="android.intent.action.START_TEST_SCREENSHOT" />
               <action android:name="android.intent.action.START_TEST_EXTRA_ASSIST" />
+              <action android:name="android.intent.action.START_TEST_TEXTVIEW" />
+              <action android:name="android.intent.action.START_TEST_LARGE_VIEW_HIERARCHY" />
               <category android:name="android.intent.category.DEFAULT" />
           </intent-filter>
       </activity>

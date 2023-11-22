@@ -21,6 +21,8 @@ add_llvm_library(LLVMTransformUtils
   LoopSimplify.cpp
   LoopUnroll.cpp
   LoopUnrollRuntime.cpp
+  LoopUtils.cpp
+  LoopVersioning.cpp
   LowerInvoke.cpp
   LowerSwitch.cpp
   Mem2Reg.cpp
@@ -32,6 +34,7 @@ add_llvm_library(LLVMTransformUtils
   SimplifyIndVar.cpp
   SimplifyInstructions.cpp
   SimplifyLibCalls.cpp
+  SplitModule.cpp
   SymbolRewriter.cpp
   UnifyFunctionExitNodes.cpp
   Utils.cpp

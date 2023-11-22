@@ -12,34 +12,38 @@
 
 class ColorTypeGM : public skiagm::GM {
 public:
-    ColorTypeGM() {
+    ColorTypeGM()
+        : fColorType(nullptr) {
+    }
+
+    virtual ~ColorTypeGM() {
+        SkSafeUnref(fColorType);
+    }
+
+protected:
+    void onOnceBeforeDraw() override {
         const SkColor colors[] = {
             SK_ColorRED, SK_ColorGREEN, SK_ColorBLUE,
             SK_ColorMAGENTA, SK_ColorCYAN, SK_ColorYELLOW
         };
         SkMatrix local;
         local.setRotate(180);
-        SkShader* s = SkGradientShader::CreateSweep(0,0, colors, NULL,
+        SkShader* s = SkGradientShader::CreateSweep(0,0, colors, nullptr,
                                                     SK_ARRAY_COUNT(colors), 0, &local);
 
         SkPaint paint;
         paint.setAntiAlias(true);
         paint.setShader(s)->unref();
 
-        SkTypeface* orig = sk_tool_utils::create_portable_typeface("Times",
+        SkTypeface* orig = sk_tool_utils::create_portable_typeface("serif",
                                                             SkTypeface::kBold);
-        if (NULL == orig) {
+        if (nullptr == orig) {
             orig = SkTypeface::RefDefault();
         }
-        fColorType = SkNEW_ARGS(SkGTypeface, (orig, paint));
+        fColorType = new SkGTypeface(orig, paint);
         orig->unref();
     }
 
-    virtual ~ColorTypeGM() {
-        fColorType->unref();
-    }
-
-protected:
     SkString onShortName() override {
         return SkString("colortype");
     }
@@ -55,7 +59,7 @@ protected:
 
         for (SkScalar size = 10; size <= 100; size += 10) {
             paint.setTextSize(size);
-            canvas->translate(0, paint.getFontMetrics(NULL));
+            canvas->translate(0, paint.getFontMetrics(nullptr));
             canvas->drawText("Hamburgefons", 12, 10, 10, paint);
         }
     }
@@ -66,4 +70,4 @@ private:
     typedef skiagm::GM INHERITED;
 };
 
-DEF_GM( return SkNEW(ColorTypeGM); )
+DEF_GM(return new ColorTypeGM;)

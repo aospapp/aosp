@@ -962,7 +962,7 @@ public class BluetoothMasClient {
      * @return <code>true</code> if request has been sent, <code>false</code>
      *         otherwise
      */
-    public boolean getMessage(String handle, CharsetType charset, boolean attachment) {
+    public boolean getMessage(String handle, boolean attachment) {
         if (mObexSession == null) {
             return false;
         }
@@ -974,8 +974,10 @@ public class BluetoothMasClient {
             return false;
         }
 
-        BluetoothMasRequest request = new BluetoothMasRequestGetMessage(handle, charset,
-                attachment);
+        // Since we support only text messaging via Bluetooth, it is OK to restrict the requests to
+        // force conversion to UTF-8.
+        BluetoothMasRequest request =
+            new BluetoothMasRequestGetMessage(handle, CharsetType.UTF_8, attachment);
         return mObexSession.makeRequest(request);
     }
 

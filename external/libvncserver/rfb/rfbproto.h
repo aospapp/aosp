@@ -65,7 +65,7 @@
 #define LIBVNCSERVER_WORDS_BIGENDIAN
 #define rfbBool int
 #include <sys/timeb.h>
-#include <winsock.h>
+#include <winsock2.h>
 #undef SOCKET
 #define SOCKET int
 #else
@@ -106,6 +106,10 @@ typedef int8_t rfbBool;
 #define FALSE 0
 #undef TRUE
 #define TRUE -1
+#endif
+
+#ifdef _MSC_VER
+#include <stdint.h>
 #endif
 
 typedef uint32_t rfbKeySym;
@@ -441,6 +445,8 @@ typedef struct {
 #define rfbEncodingUltra 9
 #define rfbEncodingZRLE 16
 #define rfbEncodingZYWRLE 17
+
+#define rfbEncodingH264               0x48323634
 
 /* Cache & XOR-Zlib - rdv@2002 */
 #define rfbEncodingCache                 0xFFFF0000
@@ -867,6 +873,21 @@ typedef struct {
 #define rfbTightFilterGradient         0x02
 
 #endif
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ * h264 - h264 encoding.  We have an rfbH264Header structure
+ * giving the number of bytes following.  Finally the data follows is
+ * h264 encoded frame.
+ */
+
+typedef struct {
+    uint32_t nBytes;
+	uint32_t slice_type;
+	uint32_t width;
+	uint32_t height;
+} rfbH264Header;
+
+#define sz_rfbH264Header 16
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
  * XCursor encoding. This is a special encoding used to transmit X-style

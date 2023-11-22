@@ -44,15 +44,6 @@ public class InstanceCountsTest extends JDWPSyncTestCase {
         return "org.apache.harmony.jpda.tests.jdwp.VirtualMachine.InstanceCountsDebuggee";
     }
 
-    // InstanceCounts need canGetInstanceInfo VM capability support
-    private boolean isCapability() {
-        // check capability, relevant for this test
-        logWriter.println("=> Check capability: canGetInstanceInfo");
-        debuggeeWrapper.vmMirror.capabilities();
-        boolean isCapability = debuggeeWrapper.vmMirror.targetVMCapabilities.canGetInstanceInfo;
-        return isCapability;
-    }
-
     /**
      * This testcase exercises VirtualMachine.InstanceCounts command.
      * <BR>The test starts InstanceCountsDebuggee class, requests referenceTypeId,
@@ -62,11 +53,6 @@ public class InstanceCountsTest extends JDWPSyncTestCase {
      */
     public void testInstanceCounts_Normal() {
         String thisTestName = "testInstanceCounts_Normal";
-
-        if (!isCapability()) {
-            logWriter.println("##WARNING: this VM dosn't possess capability: canGetInstanceInfo");
-            return;
-        }
 
         logWriter.println("==> " + thisTestName + " for " + thisCommandName + ": START...");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
@@ -151,11 +137,6 @@ public class InstanceCountsTest extends JDWPSyncTestCase {
     public void testInstanceCounts_IllegalArgument() {
         String thisTestName = "testInstanceCounts_IllegalArgument";
 
-        if (!isCapability()) {
-            logWriter.println("##WARNING: this VM dosn't possess capability: canGetInstanceInfo");
-            return;
-        }
-
         int refTypesCount = -1;
 
         logWriter.println("==> " + thisTestName + " for " + thisCommandName + ": START...");
@@ -197,11 +178,6 @@ public class InstanceCountsTest extends JDWPSyncTestCase {
      */
     public void testInstanceCounts_Zero() {
         String thisTestName = "testInstanceCounts_Zero";
-
-        if (!isCapability()) {
-            logWriter.println("##WARNING: this VM dosn't possess capability: canGetInstanceInfo");
-            return;
-        }
 
         logWriter.println("==> " + thisTestName + " for " + thisCommandName + ": START...");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);

@@ -17,8 +17,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
         package="com.android.cts.net.hostside">
 
-    <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
 
     <application>
         <uses-library android:name="android.test.runner" />
@@ -27,6 +29,14 @@
                 android:permission="android.permission.BIND_VPN_SERVICE">
             <intent-filter>
                 <action android:name="android.net.VpnService"/>
+            </intent-filter>
+        </service>
+        <service
+            android:name=".MyNotificationListenerService"
+            android:label="MyNotificationListenerService"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" >
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
     </application>

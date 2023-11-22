@@ -274,8 +274,7 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  RSScript *s = nullptr;
-  s = PrepareRSScript(context, OptInputFilenames);
+  std::unique_ptr<RSScript> s(PrepareRSScript(context, OptInputFilenames));
   if (!rscd.buildForCompatLib(*s, OutputFilename.c_str(), nullptr, OptRuntimePath.c_str(), false)) {
     fprintf(stderr, "Failed to compile script!");
     return EXIT_FAILURE;

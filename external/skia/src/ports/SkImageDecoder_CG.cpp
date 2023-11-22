@@ -5,8 +5,12 @@
  * found in the LICENSE file.
  */
 
+#include "SkTypes.h"
+#if defined(SK_BUILD_FOR_MAC) || defined(SK_BUILD_FOR_IOS)
+
 #include "SkCGUtils.h"
 #include "SkColorPriv.h"
+#include "SkData.h"
 #include "SkImageDecoder.h"
 #include "SkImageEncoder.h"
 #include "SkMovie.h"
@@ -25,23 +29,25 @@
 #include <MobileCoreServices/MobileCoreServices.h>
 #endif
 
-static void malloc_release_proc(void* info, const void* data, size_t size) {
-    sk_free(info);
+static void data_unref_proc(void* skdata, const void*, size_t) {
+    SkASSERT(skdata);
+    static_cast<SkData*>(skdata)->unref();
 }
 
 static CGDataProviderRef SkStreamToDataProvider(SkStream* stream) {
     // TODO: use callbacks, so we don't have to load all the data into RAM
-    SkAutoMalloc storage;
-    const size_t len = SkCopyStreamToStorage(&storage, stream);
-    void* data = storage.detach();
+    SkData* skdata = SkCopyStreamToData(stream);
+    if (!skdata) {
+        return nullptr;
+    }
 
-    return CGDataProviderCreateWithData(data, data, len, malloc_release_proc);
+    return CGDataProviderCreateWithData(skdata, skdata->data(), skdata->size(), data_unref_proc);
 }
 
 static CGImageSourceRef SkStreamToCGImageSource(SkStream* stream) {
     CGDataProviderRef data = SkStreamToDataProvider(stream);
     if (!data) {
-        return NULL;
+        return nullptr;
     }
     CGImageSourceRef imageSrc = CGImageSourceCreateWithDataProvider(data, 0);
     CGDataProviderRelease(data);
@@ -134,13 +140,13 @@ static bool colorspace_is_sRGB(CGColorSpaceRef cs) {
 SkImageDecoder::Result SkImageDecoder_CG::onDecode(SkStream* stream, SkBitmap* bm, Mode mode) {
     CGImageSourceRef imageSrc = SkStreamToCGImageSource(stream);
 
-    if (NULL == imageSrc) {
+    if (nullptr == imageSrc) {
         return kFailure;
     }
     SkAutoTCallVProc<const void, CFRelease> arsrc(imageSrc);
 
-    CGImageRef image = CGImageSourceCreateImageAtIndex(imageSrc, 0, NULL);
-    if (NULL == image) {
+    CGImageRef image = CGImageSourceCreateImageAtIndex(imageSrc, 0, nullptr);
+    if (nullptr == image) {
         return kFailure;
     }
     SkAutoTCallVProc<CGImage, CGImageRelease> arimage(image);
@@ -157,12 +163,23 @@ SkImageDecoder::Result SkImageDecoder_CG::onDecode(SkStream* stream, SkBitmap* b
         }
     }
 
-    bm->setInfo(SkImageInfo::MakeN32Premul(width, height, cpType));
+    SkAlphaType at = kPremul_SkAlphaType;
+    switch (CGImageGetAlphaInfo(image)) {
+        case kCGImageAlphaNone:
+        case kCGImageAlphaNoneSkipLast:
+        case kCGImageAlphaNoneSkipFirst:
+            at = kOpaque_SkAlphaType;
+            break;
+        default:
+            break;
+    }
+
+    bm->setInfo(SkImageInfo::Make(width, height, kN32_SkColorType, at, cpType));
     if (SkImageDecoder::kDecodeBounds_Mode == mode) {
         return kSuccess;
     }
 
-    if (!this->allocPixelRef(bm, NULL)) {
+    if (!this->allocPixelRef(bm, nullptr)) {
         return kFailure;
     }
 
@@ -208,9 +225,9 @@ extern SkImageDecoder* image_decoder_from_stream(SkStreamRewindable*);
 
 SkImageDecoder* SkImageDecoder::Factory(SkStreamRewindable* stream) {
     SkImageDecoder* decoder = image_decoder_from_stream(stream);
-    if (NULL == decoder) {
+    if (nullptr == decoder) {
         // If no image decoder specific to the stream exists, use SkImageDecoder_CG.
-        return SkNEW(SkImageDecoder_CG);
+        return new SkImageDecoder_CG;
     } else {
         return decoder;
     }
@@ -219,7 +236,7 @@ SkImageDecoder* SkImageDecoder::Factory(SkStreamRewindable* stream) {
 /////////////////////////////////////////////////////////////////////////
 
 SkMovie* SkMovie::DecodeStream(SkStreamRewindable* stream) {
-    return NULL;
+    return nullptr;
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -245,12 +262,12 @@ static CGDataConsumerRef SkStreamToCGDataConsumer(SkWStream* stream) {
 static CGImageDestinationRef SkStreamToImageDestination(SkWStream* stream,
                                                         CFStringRef type) {
     CGDataConsumerRef consumer = SkStreamToCGDataConsumer(stream);
-    if (NULL == consumer) {
-        return NULL;
+    if (nullptr == consumer) {
+        return nullptr;
     }
     SkAutoTCallVProc<const void, CFRelease> arconsumer(consumer);
 
-    return CGImageDestinationCreateWithDataConsumer(consumer, type, 1, NULL);
+    return CGImageDestinationCreateWithDataConsumer(consumer, type, 1, nullptr);
 }
 
 class SkImageEncoder_CG : public SkImageEncoder {
@@ -305,18 +322,18 @@ bool SkImageEncoder_CG::onEncode(SkWStream* stream, const SkBitmap& bm,
     }
 
     CGImageDestinationRef dst = SkStreamToImageDestination(stream, type);
-    if (NULL == dst) {
+    if (nullptr == dst) {
         return false;
     }
     SkAutoTCallVProc<const void, CFRelease> ardst(dst);
 
     CGImageRef image = SkCreateCGImageRef(*bmPtr);
-    if (NULL == image) {
+    if (nullptr == image) {
         return false;
     }
     SkAutoTCallVProc<CGImage, CGImageRelease> agimage(image);
 
-    CGImageDestinationAddImage(dst, image, NULL);
+    CGImageDestinationAddImage(dst, image, nullptr);
     return CGImageDestinationFinalize(dst);
 }
 
@@ -331,9 +348,9 @@ static SkImageEncoder* sk_imageencoder_cg_factory(SkImageEncoder::Type t) {
         case SkImageEncoder::kPNG_Type:
             break;
         default:
-            return NULL;
+            return nullptr;
     }
-    return SkNEW_ARGS(SkImageEncoder_CG, (t));
+    return new SkImageEncoder_CG(t);
 }
 
 static SkImageEncoder_EncodeReg gEReg(sk_imageencoder_cg_factory);
@@ -377,16 +394,18 @@ static SkImageDecoder::Format UTType_to_Format(const CFStringRef uttype) {
 static SkImageDecoder::Format get_format_cg(SkStreamRewindable* stream) {
     CGImageSourceRef imageSrc = SkStreamToCGImageSource(stream);
 
-    if (NULL == imageSrc) {
+    if (nullptr == imageSrc) {
         return SkImageDecoder::kUnknown_Format;
     }
 
     SkAutoTCallVProc<const void, CFRelease> arsrc(imageSrc);
     const CFStringRef name = CGImageSourceGetType(imageSrc);
-    if (NULL == name) {
+    if (nullptr == name) {
         return SkImageDecoder::kUnknown_Format;
     }
     return UTType_to_Format(name);
 }
 
 static SkImageDecoder_FormatReg gFormatReg(get_format_cg);
+
+#endif//defined(SK_BUILD_FOR_MAC) || defined(SK_BUILD_FOR_IOS)

@@ -52,7 +52,7 @@ namespace vixl {
 
 #define BUF_SIZE (256)
 
-#ifdef USE_SIMULATOR
+#ifdef VIXL_INCLUDE_SIMULATOR
 
 #define SETUP()                                                               \
   MacroAssembler masm(BUF_SIZE);                                              \
@@ -94,7 +94,7 @@ namespace vixl {
 #define TEARDOWN()                                                            \
   delete simulator;
 
-#else     // USE_SIMULATOR
+#else     // VIXL_INCLUDE_SIMULATOR
 
 #define SETUP()                                                               \
   MacroAssembler masm(BUF_SIZE);                                              \
@@ -123,7 +123,7 @@ namespace vixl {
 
 #define TEARDOWN()
 
-#endif    // USE_SIMULATOR
+#endif    // VIXL_INCLUDE_SIMULATOR
 
 
 // The maximum number of errors to report in detail for each test.
@@ -182,6 +182,15 @@ class Test2OpImmediateNEONHelper_t {
     typedef void (MacroAssembler::*mnemonic)(
       const VRegister& vd, const VRegister& vn, T imm);
 };
+
+
+// Maximum number of hex characters required to represent values of either
+// templated type.
+template <typename Ta, typename Tb>
+static unsigned MaxHexCharCount() {
+  unsigned count = static_cast<unsigned>(std::max(sizeof(Ta), sizeof(Tb)));
+  return (count * 8) / 4;
+}
 
 
 // Standard test dispatchers.
@@ -1269,7 +1278,7 @@ static void Test1OpNEON(const char * name, Test1OpNEONHelper_t helper,
   const unsigned results_length = inputs_n_length;
   Td* results = new Td[results_length * vd_lane_count];
   const unsigned lane_bit = sizeof(Td) * 8;
-  const unsigned lane_len_in_hex = (std::max(sizeof(Td), sizeof(Tn)) * 8) / 4;
+  const unsigned lane_len_in_hex = MaxHexCharCount<Td, Tn>();
 
   Test1OpNEON_Helper(helper,
                      reinterpret_cast<uintptr_t>(inputs_n),
@@ -1460,7 +1469,7 @@ static void Test1OpAcrossNEON(const char * name, Test1OpNEONHelper_t helper,
   const unsigned results_length = inputs_n_length;
   Td* results = new Td[results_length * vd_lane_count];
   const unsigned lane_bit = sizeof(Td) * 8;
-  const unsigned lane_len_in_hex = (std::max(sizeof(Td), sizeof(Tn)) * 8) / 4;
+  const unsigned lane_len_in_hex = MaxHexCharCount<Td, Tn>();
 
   Test1OpAcrossNEON_Helper(helper,
                            reinterpret_cast<uintptr_t>(inputs_n),
@@ -1690,7 +1699,7 @@ static void Test2OpNEON(const char * name, Test2OpNEONHelper_t helper,
   const unsigned results_length = inputs_n_length * inputs_m_length;
   Td* results = new Td[results_length * vd_lane_count];
   const unsigned lane_bit = sizeof(Td) * 8;
-  const unsigned lane_len_in_hex = (std::max(sizeof(Td), sizeof(Tm)) * 8) / 4;
+  const unsigned lane_len_in_hex = MaxHexCharCount<Td, Tm>();
 
   Test2OpNEON_Helper(helper,
                      reinterpret_cast<uintptr_t>(inputs_d),
@@ -1926,7 +1935,7 @@ static void TestByElementNEON(const char *name,
                                   indices_length;
   Td* results = new Td[results_length * vd_lane_count];
   const unsigned lane_bit = sizeof(Td) * 8;
-  const unsigned lane_len_in_hex = (std::max(sizeof(Td), sizeof(Tm)) * 8) / 4;
+  const unsigned lane_len_in_hex = MaxHexCharCount<Td, Tm>();
 
   TestByElementNEON_Helper(helper,
     reinterpret_cast<uintptr_t>(inputs_d),
@@ -2138,7 +2147,7 @@ static void Test2OpImmNEON(
   const unsigned results_length = inputs_n_length * inputs_m_length;
   Td* results = new Td[results_length * vd_lane_count];
   const unsigned lane_bit = sizeof(Td) * 8;
-  const unsigned lane_len_in_hex = (std::max(sizeof(Td), sizeof(Tn)) * 8) / 4;
+  const unsigned lane_len_in_hex = MaxHexCharCount<Td, Tn>();
 
   Test2OpImmNEON_Helper(helper,
                         reinterpret_cast<uintptr_t>(inputs_n), inputs_n_length,
@@ -2352,7 +2361,7 @@ static void TestOpImmOpImmNEON(const char * name,
 
   Td* results = new Td[results_length * vd_lane_count];
   const unsigned lane_bit = sizeof(Td) * 8;
-  const unsigned lane_len_in_hex = (std::max(sizeof(Td), sizeof(Tn)) * 8) / 4;
+  const unsigned lane_len_in_hex = MaxHexCharCount<Td, Tn>();
 
   TestOpImmOpImmNEON_Helper(helper,
                             reinterpret_cast<uintptr_t>(inputs_d),

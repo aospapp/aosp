@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -397,5 +397,47 @@ ulong3 __attribute__((kernel)) testClampUlong3UlongUlongUlong3(ulong3 inValue, u
 ulong4 __attribute__((kernel)) testClampUlong4UlongUlongUlong4(ulong4 inValue, unsigned int x) {
     ulong inMinValue = rsGetElementAt_ulong(gAllocInMinValue, x);
     ulong inMaxValue = rsGetElementAt_ulong(gAllocInMaxValue, x);
+    return clamp(inValue, inMinValue, inMaxValue);
+}
+
+half __attribute__((kernel)) testClampHalfHalfHalfHalf(half inValue, unsigned int x) {
+    half inMinValue = rsGetElementAt_half(gAllocInMinValue, x);
+    half inMaxValue = rsGetElementAt_half(gAllocInMaxValue, x);
+    return clamp(inValue, inMinValue, inMaxValue);
+}
+
+half2 __attribute__((kernel)) testClampHalf2Half2Half2Half2(half2 inValue, unsigned int x) {
+    half2 inMinValue = rsGetElementAt_half2(gAllocInMinValue, x);
+    half2 inMaxValue = rsGetElementAt_half2(gAllocInMaxValue, x);
+    return clamp(inValue, inMinValue, inMaxValue);
+}
+
+half3 __attribute__((kernel)) testClampHalf3Half3Half3Half3(half3 inValue, unsigned int x) {
+    half3 inMinValue = rsGetElementAt_half3(gAllocInMinValue, x);
+    half3 inMaxValue = rsGetElementAt_half3(gAllocInMaxValue, x);
+    return clamp(inValue, inMinValue, inMaxValue);
+}
+
+half4 __attribute__((kernel)) testClampHalf4Half4Half4Half4(half4 inValue, unsigned int x) {
+    half4 inMinValue = rsGetElementAt_half4(gAllocInMinValue, x);
+    half4 inMaxValue = rsGetElementAt_half4(gAllocInMaxValue, x);
+    return clamp(inValue, inMinValue, inMaxValue);
+}
+
+half2 __attribute__((kernel)) testClampHalf2HalfHalfHalf2(half2 inValue, unsigned int x) {
+    half inMinValue = rsGetElementAt_half(gAllocInMinValue, x);
+    half inMaxValue = rsGetElementAt_half(gAllocInMaxValue, x);
+    return clamp(inValue, inMinValue, inMaxValue);
+}
+
+half3 __attribute__((kernel)) testClampHalf3HalfHalfHalf3(half3 inValue, unsigned int x) {
+    half inMinValue = rsGetElementAt_half(gAllocInMinValue, x);
+    half inMaxValue = rsGetElementAt_half(gAllocInMaxValue, x);
+    return clamp(inValue, inMinValue, inMaxValue);
+}
+
+half4 __attribute__((kernel)) testClampHalf4HalfHalfHalf4(half4 inValue, unsigned int x) {
+    half inMinValue = rsGetElementAt_half(gAllocInMinValue, x);
+    half inMaxValue = rsGetElementAt_half(gAllocInMaxValue, x);
     return clamp(inValue, inMinValue, inMaxValue);
 }

@@ -24,6 +24,14 @@ LOCAL_MODULE := objenesis-host
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_HOST_JAVA_LIBRARY)
 
+# build for host dalvik
+#-----------------------
+include $(CLEAR_VARS)
+LOCAL_SRC_FILES := $(call all-java-files-under, main/src)
+LOCAL_MODULE := objenesis-hostdex
+LOCAL_MODULE_TAGS := optional
+include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
+
 #-------------------------------
 # build a target jar
 

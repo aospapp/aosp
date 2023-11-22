@@ -38,7 +38,7 @@ struct resampler_buffer {
     size_t frame_count;
 };
 
-/* call back interface used by the resampler to get new data */
+/** call back interface used by the resampler to get new data */
 struct resampler_buffer_provider
 {
     /**
@@ -58,7 +58,7 @@ struct resampler_buffer_provider
             struct resampler_buffer *buffer);
 };
 
-/* resampler interface */
+/** resampler interface */
 struct resampler_itfe {
     /**
      * reset resampler state
@@ -82,7 +82,7 @@ struct resampler_itfe {
                     int16_t *out,
                     size_t *outFrameCount);
     /**
-     * return the latency introduced by the resampler in ns.
+     * \return the latency introduced by the resampler in ns.
      */
     int32_t (*delay_ns)(struct resampler_itfe *resampler);
 };

@@ -20,10 +20,10 @@
 #include "RenderScript.h"
 #include "rsCppInternal.h"
 
-// from system/graphics.h
+// From system/graphics.h
 enum {
-    HAL_PIXEL_FORMAT_YV12   = 0x32315659, // YCrCb 4:2:0 Planar
-    HAL_PIXEL_FORMAT_YCrCb_420_SP       = 0x11, // NV21
+    HAL_PIXEL_FORMAT_YV12               = 0x32315659, // YCrCb 4:2:0 Planar
+    HAL_PIXEL_FORMAT_YCrCb_420_SP       = 0x11,       // NV21
 };
 
 using namespace android;
@@ -77,26 +77,34 @@ Type::Type(void *id, sp<RS> rs) : BaseObj(id, rs) {
 }
 
 void Type::updateFromNative() {
-    // We have 6 integer to obtain mDimX; mDimY; mDimZ;
-    // mDimLOD; mDimFaces; mElement;
+    BaseObj::updateFromNative();
 
     /*
-    int[] dataBuffer = new int[6];
-    mRS.nTypeGetNativeData(getID(), dataBuffer);
+     * We have 6 integers / pointers (uintptr_t) to obtain from the return buffer:
+     * mDimX     (buffer[0]);
+     * mDimY     (buffer[1]);
+     * mDimZ     (buffer[2]);
+     * mDimLOD   (buffer[3]);
+     * mDimFaces (buffer[4]);
+     * mElement  (buffer[5]);
+     */
+    uintptr_t dataBuffer[6];
+    RS::dispatch->TypeGetNativeData(mRS->getContext(), getID(), dataBuffer, 6);
 
-    mDimX = dataBuffer[0];
-    mDimY = dataBuffer[1];
-    mDimZ = dataBuffer[2];
+    mDimX = (uint32_t)dataBuffer[0];
+    mDimY = (uint32_t)dataBuffer[1];
+    mDimZ = (uint32_t)dataBuffer[2];
     mDimMipmaps = dataBuffer[3] == 1 ? true : false;
     mDimFaces = dataBuffer[4] == 1 ? true : false;
 
-    int elementID = dataBuffer[5];
+    uintptr_t elementID = dataBuffer[5];
     if(elementID != 0) {
-        mElement = new Element(elementID, mRS);
-        mElement.updateFromNative();
+        // Just create a new Element and update it from native.
+        sp<Element> e = new Element((void *)elementID, mRS);
+        e->updateFromNative();
+        mElement = e;
     }
     calcElementCount();
-    */
 }
 
 sp<const Type> Type::create(sp<RS> rs, sp<const Element> e, uint32_t dimX, uint32_t dimY, uint32_t dimZ) {
@@ -148,13 +156,16 @@ void Type::Builder::setZ(uint32_t value) {
     mDimZ = value;
 }
 
-void Type::Builder::setYuvFormat(RSYuvFormat format) {
+void Type::Builder::setYuvFormat(RsYuvFormat format) {
     if (format != RS_YUV_NONE && !(mElement->isCompatible(Element::YUV(mRS)))) {
         ALOGE("Invalid element for use with YUV.");
         return;
     }
 
-    if (format >= RS_YUV_MAX) {
+    if (format != RS_YUV_NONE &&
+        format != RS_YUV_YV12 &&
+        format != RS_YUV_NV21 &&
+        format != RS_YUV_420_888) {
         ALOGE("Invalid YUV format.");
         return;
     }
@@ -194,27 +205,20 @@ sp<const Type> Type::Builder::create() {
         }
     }
 
-    if (mYuvFormat) {
+    if (mYuvFormat != RS_YUV_NONE) {
         if (mDimZ || mDimFaces || mDimMipmaps) {
             ALOGE("YUV only supports basic 2D.");
             return nullptr;
         }
     }
 
-    uint32_t nativeYuv;
-    switch(mYuvFormat) {
-    case(RS_YUV_YV12):
-        nativeYuv = HAL_PIXEL_FORMAT_YV12;
-        break;
-    case (RS_YUV_NV21):
-        nativeYuv = HAL_PIXEL_FORMAT_YCrCb_420_SP;
-        break;
-    default:
-        nativeYuv = 0;
+    if (mYuvFormat == RS_YUV_420_888) {
+        ALOGE("YUV_420_888 not supported.");
+        return nullptr;
     }
 
     void * id = RS::dispatch->TypeCreate(mRS->getContext(), mElement->getID(), mDimX, mDimY, mDimZ,
-                                         mDimMipmaps, mDimFaces, nativeYuv);
+                                         mDimMipmaps, mDimFaces, mYuvFormat);
     Type *t = new Type(id, mRS);
     t->mElement = mElement;
     t->mDimX = mDimX;

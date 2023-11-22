@@ -23,9 +23,9 @@ import android.os.Message;
 import android.os.Registrant;
 import android.os.RegistrantList;
 
-import android.telephony.Rlog;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
+import android.telephony.SubscriptionInfo;
 
 import com.android.internal.telephony.CommandsInterface;
 import com.android.internal.telephony.uicc.IccCardApplicationStatus.AppState;
@@ -65,7 +65,8 @@ public abstract class IccRecords extends Handler implements IccConstants {
 
     protected boolean mRecordsRequested = false; // true if we've made requests for the sim records
 
-    protected String mIccId;
+    protected String mIccId;  // Includes only decimals (no hex)
+    protected String mFullIccId;  // Includes hex characters in ICCID
     protected String mMsisdn = null;  // My mobile number
     protected String mMsisdnTag = null;
     protected String mNewMsisdn = null;
@@ -109,8 +110,13 @@ public abstract class IccRecords extends Handler implements IccConstants {
     protected static final int EVENT_APP_READY = 1;
     private static final int EVENT_AKA_AUTHENTICATE_DONE          = 90;
 
+    public static final int CALL_FORWARDING_STATUS_DISABLED = 0;
+    public static final int CALL_FORWARDING_STATUS_ENABLED = 1;
+    public static final int CALL_FORWARDING_STATUS_UNKNOWN = -1;
+
     @Override
     public String toString() {
+        String iccIdToPrint = SubscriptionInfo.givePrintableIccid(mFullIccId);
         return "mDestroyed=" + mDestroyed
                 + " mContext=" + mContext
                 + " mCi=" + mCi
@@ -125,7 +131,7 @@ public abstract class IccRecords extends Handler implements IccConstants {
                 + " recordsToLoad=" + mRecordsToLoad
                 + " adnCache=" + mAdnCache
                 + " recordsRequested=" + mRecordsRequested
-                + " iccid=" + mIccId
+                + " iccid=" + iccIdToPrint
                 + " msisdnTag=" + mMsisdnTag
                 + " voiceMailNum=" + mVoiceMailNum
                 + " voiceMailTag=" + mVoiceMailTag
@@ -183,8 +189,22 @@ public abstract class IccRecords extends Handler implements IccConstants {
         return mAdnCache;
     }
 
+    /**
+     * Returns the ICC ID stripped at the first hex character. Some SIMs have ICC IDs
+     * containing hex digits; {@link #getFullIccId()} should be used to get the full ID including
+     * hex digits.
+     * @return ICC ID without hex digits
+     */
     public String getIccId() {
         return mIccId;
+    }
+
+    /**
+     * Returns the full ICC ID including hex digits.
+     * @return full ICC ID including hex digits
+     */
+    public String getFullIccId() {
+        return mFullIccId;
     }
 
     public void registerForRecordsLoaded(Handler h, int what, Object obj) {
@@ -353,18 +373,17 @@ public abstract class IccRecords extends Handler implements IccConstants {
             if (card != null) {
                 String brandOverride = card.getOperatorBrandOverride();
                 if (brandOverride != null) {
-                    log("getServiceProviderName: override");
+                    log("getServiceProviderName: override, providerName=" + providerName);
                     providerName = brandOverride;
                 } else {
-                    log("getServiceProviderName: no brandOverride");
+                    log("getServiceProviderName: no brandOverride, providerName=" + providerName);
                 }
             } else {
-                log("getServiceProviderName: card is null");
+                log("getServiceProviderName: card is null, providerName=" + providerName);
             }
         } else {
-            log("getServiceProviderName: mParentApp is null");
+            log("getServiceProviderName: mParentApp is null, providerName=" + providerName);
         }
-        log("getServiceProviderName: providerName=" + providerName);
         return providerName;
     }
 
@@ -413,7 +432,7 @@ public abstract class IccRecords extends Handler implements IccConstants {
     public abstract void setVoiceMessageWaiting(int line, int countWaiting);
 
     /**
-     * Called by GsmPhone to update VoiceMail count
+     * Called by GsmCdmaPhone to update VoiceMail count
      */
     public abstract int getVoiceMessageCount();
 
@@ -576,10 +595,10 @@ public abstract class IccRecords extends Handler implements IccConstants {
     /**
      * Get the current Voice call forwarding flag for GSM/UMTS and the like SIMs
      *
-     * @return true if enabled
+     * @return CALL_FORWARDING_STATUS_XXX (DISABLED/ENABLED/UNKNOWN)
      */
-    public boolean getVoiceCallForwardingFlag() {
-        return false;
+    public int getVoiceCallForwardingFlag() {
+        return CALL_FORWARDING_STATUS_UNKNOWN;
     }
 
     /**
@@ -714,7 +733,10 @@ public abstract class IccRecords extends Handler implements IccConstants {
         pw.println(" mRecordsRequested=" + mRecordsRequested);
         pw.println(" mRecordsToLoad=" + mRecordsToLoad);
         pw.println(" mRdnCache=" + mAdnCache);
-        pw.println(" iccid=" + mIccId);
+
+        String iccIdToPrint = SubscriptionInfo.givePrintableIccid(mFullIccId);
+        pw.println(" iccid=" + iccIdToPrint);
+
         if (TextUtils.isEmpty(mMsisdn)) {
             pw.println(" mMsisdn=null");
         } else {

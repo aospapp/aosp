@@ -59,7 +59,6 @@ static SLresult IAndroidAcousticEchoCancellation_IsEnabled(
     } else {
         IAndroidAcousticEchoCancellation *thiz = (IAndroidAcousticEchoCancellation *) self;
         interface_lock_exclusive(thiz);
-        SLboolean enabled = thiz->mEnabled;
         if (NO_ECHOCANCEL(thiz)) {
             result = SL_RESULT_CONTROL_LOST;
         } else {

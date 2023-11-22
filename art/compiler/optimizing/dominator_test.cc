@@ -24,89 +24,86 @@
 
 namespace art {
 
-static void TestCode(const uint16_t* data, const int* blocks, size_t blocks_length) {
+class OptimizerTest : public CommonCompilerTest {};
+
+static void TestCode(const uint16_t* data, const uint32_t* blocks, size_t blocks_length) {
   ArenaPool pool;
   ArenaAllocator allocator(&pool);
-  HGraph* graph = CreateGraph(&allocator);
-  HGraphBuilder builder(graph);
-  const DexFile::CodeItem* item = reinterpret_cast<const DexFile::CodeItem*>(data);
-  bool graph_built = builder.BuildGraph(*item);
-  ASSERT_TRUE(graph_built);
-  graph->BuildDominatorTree();
-  ASSERT_EQ(graph->GetBlocks().Size(), blocks_length);
+  HGraph* graph = CreateCFG(&allocator, data);
+  ASSERT_EQ(graph->GetBlocks().size(), blocks_length);
   for (size_t i = 0, e = blocks_length; i < e; ++i) {
-    if (blocks[i] == -1) {
-      if (graph->GetBlocks().Get(i) == nullptr) {
+    if (blocks[i] == kInvalidBlockId) {
+      if (graph->GetBlocks()[i] == nullptr) {
         // Dead block.
       } else {
         // Only the entry block has no dominator.
-        ASSERT_EQ(nullptr, graph->GetBlocks().Get(i)->GetDominator());
-        ASSERT_TRUE(graph->GetBlocks().Get(i)->IsEntryBlock());
+        ASSERT_EQ(nullptr, graph->GetBlocks()[i]->GetDominator());
+        ASSERT_TRUE(graph->GetBlocks()[i]->IsEntryBlock());
       }
     } else {
-      ASSERT_NE(nullptr, graph->GetBlocks().Get(i)->GetDominator());
-      ASSERT_EQ(blocks[i], graph->GetBlocks().Get(i)->GetDominator()->GetBlockId());
+      ASSERT_NE(nullptr, graph->GetBlocks()[i]->GetDominator());
+      ASSERT_EQ(blocks[i], graph->GetBlocks()[i]->GetDominator()->GetBlockId());
     }
   }
 }
 
-TEST(OptimizerTest, ReturnVoid) {
+TEST_F(OptimizerTest, ReturnVoid) {
   const uint16_t data[] = ZERO_REGISTER_CODE_ITEM(
       Instruction::RETURN_VOID);  // Block number 1
 
-  const int dominators[] = {
-    -1,
-    0,
-    1
+  const uint32_t dominators[] = {
+      kInvalidBlockId,
+      0,
+      1
   };
 
   TestCode(data, dominators, sizeof(dominators) / sizeof(int));
 }
 
-TEST(OptimizerTest, CFG1) {
+TEST_F(OptimizerTest, CFG1) {
   const uint16_t data[] = ZERO_REGISTER_CODE_ITEM(
     Instruction::GOTO | 0x100,  // Block number 1
     Instruction::RETURN_VOID);  // Block number 2
 
-  const int dominators[] = {
-    -1,
-    0,
-    1,
-    2
+  const uint32_t dominators[] = {
+      kInvalidBlockId,
+      0,
+      1,
+      2
   };
 
   TestCode(data, dominators, sizeof(dominators) / sizeof(int));
 }
 
-TEST(OptimizerTest, CFG2) {
+TEST_F(OptimizerTest, CFG2) {
   const uint16_t data[] = ZERO_REGISTER_CODE_ITEM(
     Instruction::GOTO | 0x100,  // Block number 1
     Instruction::GOTO | 0x100,  // Block number 2
     Instruction::RETURN_VOID);  // Block number 3
 
-  const int dominators[] = {
-    -1,
-    0,
-    1,
-    2,
-    3
+  const uint32_t dominators[] = {
+      kInvalidBlockId,
+      0,
+      1,
+      2,
+      3
   };
 
   TestCode(data, dominators, sizeof(dominators) / sizeof(int));
 }
 
-TEST(OptimizerTest, CFG3) {
+TEST_F(OptimizerTest, CFG3) {
   const uint16_t data1[] = ZERO_REGISTER_CODE_ITEM(
     Instruction::GOTO | 0x200,    // Block number 1
     Instruction::RETURN_VOID,     // Block number 2
     Instruction::GOTO | 0xFF00);  // Block number 3
 
-  const int dominators[] = {
-    -1,
-    0,
-    3,
-    1,
-    2
+  const uint32_t dominators[] = {
+      kInvalidBlockId,
+      0,
+      3,
+      1,
+      2
   };
 
   TestCode(data1, dominators, sizeof(dominators) / sizeof(int));
@@ -126,15 +123,16 @@ TEST(OptimizerTest, CFG3) {
   TestCode(data3, dominators, sizeof(dominators) / sizeof(int));
 }
 
-TEST(OptimizerTest, CFG4) {
+TEST_F(OptimizerTest, CFG4) {
   const uint16_t data1[] = ZERO_REGISTER_CODE_ITEM(
     Instruction::NOP,
     Instruction::GOTO | 0xFF00);
 
-  const int dominators[] = {
-    -1,
-    0,
-    -1
+  const uint32_t dominators[] = {
+      kInvalidBlockId,
+      3,
+      kInvalidBlockId,
+      0
   };
 
   TestCode(data1, dominators, sizeof(dominators) / sizeof(int));
@@ -145,63 +143,63 @@ TEST(OptimizerTest, CFG4) {
   TestCode(data2, dominators, sizeof(dominators) / sizeof(int));
 }
 
-TEST(OptimizerTest, CFG5) {
+TEST_F(OptimizerTest, CFG5) {
   const uint16_t data[] = ZERO_REGISTER_CODE_ITEM(
     Instruction::RETURN_VOID,     // Block number 1
     Instruction::GOTO | 0x100,    // Dead block
     Instruction::GOTO | 0xFE00);  // Block number 2
 
 
-  const int dominators[] = {
-    -1,
-    0,
-    -1,
-    1
+  const uint32_t dominators[] = {
+      kInvalidBlockId,
+      0,
+      kInvalidBlockId,
+      1
   };
 
   TestCode(data, dominators, sizeof(dominators) / sizeof(int));
 }
 
-TEST(OptimizerTest, CFG6) {
+TEST_F(OptimizerTest, CFG6) {
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 3,
     Instruction::GOTO | 0x100,
     Instruction::RETURN_VOID);
 
-  const int dominators[] = {
-    -1,
-    0,
-    1,
-    1,
-    3,
-    1,  // Synthesized block to avoid critical edge.
+  const uint32_t dominators[] = {
+      kInvalidBlockId,
+      0,
+      1,
+      1,
+      3,
+      1,  // Synthesized block to avoid critical edge.
   };
 
   TestCode(data, dominators, sizeof(dominators) / sizeof(int));
 }
 
-TEST(OptimizerTest, CFG7) {
+TEST_F(OptimizerTest, CFG7) {
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 3,        // Block number 1
     Instruction::GOTO | 0x100,    // Block number 2
     Instruction::GOTO | 0xFF00);  // Block number 3
 
-  const int dominators[] = {
-    -1,
-    0,
-    1,
-    1,
-    -1,  // exit block is not dominated by any block due to the spin loop.
-    1,   // block to avoid critical edge.
-    1    // block to avoid critical edge.
+  const uint32_t dominators[] = {
+      kInvalidBlockId,
+      0,
+      1,
+      1,
+      kInvalidBlockId,  // exit block is not dominated by any block due to the spin loop.
+      1,   // block to avoid critical edge.
+      1    // block to avoid critical edge.
   };
 
   TestCode(data, dominators, sizeof(dominators) / sizeof(int));
 }
 
-TEST(OptimizerTest, CFG8) {
+TEST_F(OptimizerTest, CFG8) {
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 3,        // Block number 1
@@ -209,20 +207,20 @@ TEST(OptimizerTest, CFG8) {
     Instruction::GOTO | 0x100,    // Block number 3
     Instruction::GOTO | 0xFF00);  // Block number 4
 
-  const int dominators[] = {
-    -1,
-    0,
-    1,
-    1,
-    1,
-    -1,  // exit block is not dominated by any block due to the spin loop.
-    1    // block to avoid critical edge.
+  const uint32_t dominators[] = {
+      kInvalidBlockId,
+      0,
+      1,
+      1,
+      1,
+      kInvalidBlockId,  // exit block is not dominated by any block due to the spin loop.
+      1    // block to avoid critical edge.
   };
 
   TestCode(data, dominators, sizeof(dominators) / sizeof(int));
 }
 
-TEST(OptimizerTest, CFG9) {
+TEST_F(OptimizerTest, CFG9) {
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 3,        // Block number 1
@@ -230,20 +228,20 @@ TEST(OptimizerTest, CFG9) {
     Instruction::GOTO | 0x100,    // Block number 3
     Instruction::GOTO | 0xFE00);  // Block number 4
 
-  const int dominators[] = {
-    -1,
-    0,
-    1,
-    1,
-    1,
-    -1,  // exit block is not dominated by any block due to the spin loop.
-    1    // block to avoid critical edge.
+  const uint32_t dominators[] = {
+      kInvalidBlockId,
+      0,
+      1,
+      1,
+      1,
+      kInvalidBlockId,  // exit block is not dominated by any block due to the spin loop.
+      1    // block to avoid critical edge.
   };
 
   TestCode(data, dominators, sizeof(dominators) / sizeof(int));
 }
 
-TEST(OptimizerTest, CFG10) {
+TEST_F(OptimizerTest, CFG10) {
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 6,  // Block number 1
@@ -252,16 +250,16 @@ TEST(OptimizerTest, CFG10) {
     Instruction::GOTO | 0x100,  // Block number 4
     Instruction::RETURN_VOID);  // Block number 5
 
-  const int dominators[] = {
-    -1,
-    0,
-    1,
-    2,
-    2,
-    1,
-    5,    // Block number 5 dominates exit block
-    1,    // block to avoid critical edge.
-    2     // block to avoid critical edge.
+  const uint32_t dominators[] = {
+      kInvalidBlockId,
+      0,
+      1,
+      2,
+      2,
+      1,
+      5,    // Block number 5 dominates exit block
+      1,    // block to avoid critical edge.
+      2     // block to avoid critical edge.
   };
 
   TestCode(data, dominators, sizeof(dominators) / sizeof(int));

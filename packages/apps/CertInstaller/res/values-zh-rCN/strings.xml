@@ -34,7 +34,6 @@
     <string name="password_empty_error" msgid="591713406761723025">"键入密码。"</string>
     <string name="name_empty_error" msgid="3808800768660110354">"键入名称。"</string>
     <string name="name_char_error" msgid="3176618568784938968">"键入仅包含字母和数字的名称。"</string>
-    <string name="storage_error" msgid="8306802455802770779">"无法保存该证书。触摸“确定”可重试。"</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"无法保存该证书。未启用或未正确初始化凭据存储。"</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"未安装该证书。"</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"没有可安装的证书。"</string>

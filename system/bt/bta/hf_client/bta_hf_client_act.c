@@ -280,11 +280,8 @@ void bta_hf_client_rfc_acp_open(tBTA_HF_CLIENT_DATA *p_data)
     }
 
     /* Collision Handling */
-    if (bta_hf_client_cb.scb.colli_tmr_on)
-    {
-        /* stop collision timer */
-        bta_hf_client_cb.scb.colli_tmr_on = FALSE;
-        bta_sys_stop_timer (&bta_hf_client_cb.scb.colli_timer);
+    if (alarm_is_scheduled(bta_hf_client_cb.scb.collision_timer)) {
+        alarm_cancel(bta_hf_client_cb.scb.collision_timer);
 
         if (bdcmp (dev_addr, bta_hf_client_cb.scb.peer_addr) == 0)
         {

@@ -62,6 +62,7 @@ public class MockConnectionService extends ConnectionService {
             mCreateVideoProvider = true;
         }
         connection.setVideoState(request.getVideoState());
+        connection.setInitializing();
 
         outgoingConnections.add(connection);
         lock.release();
@@ -73,8 +74,12 @@ public class MockConnectionService extends ConnectionService {
             ConnectionRequest request) {
         final MockConnection connection = new MockConnection();
         connection.setAddress(request.getAddress(), CONNECTION_PRESENTATION);
+        connection.setConnectionCapabilities(
+                connection.getConnectionCapabilities() |
+                        Connection.CAPABILITY_CAN_SEND_RESPONSE_VIA_CONNECTION);
         connection.createMockVideoProvider();
         ((Connection) connection).setVideoState(request.getVideoState());
+        connection.setRinging();
 
         incomingConnections.add(connection);
         lock.release();
@@ -89,6 +94,14 @@ public class MockConnectionService extends ConnectionService {
                     (MockConnection)connection1, (MockConnection)connection2);
             CtsConnectionService.addConferenceToTelecom(conference);
             conferences.add(conference);
+
+            if (connection1.getState() == Connection.STATE_HOLDING){
+                connection1.setActive();
+            }
+            if(connection2.getState() == Connection.STATE_HOLDING){
+                connection2.setActive();
+            }
+
             lock.release();
         }
     }

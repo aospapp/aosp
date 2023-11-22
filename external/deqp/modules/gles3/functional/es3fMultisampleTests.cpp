@@ -162,7 +162,7 @@ static bool drawUnicolorTestErrors (tcu::Surface& img, const tcu::PixelBufferAcc
 		{
 			if (!tcu::compareThreshold(img.getPixel(x, y), refColor, tcu::RGBA(3, 3, 3, 3)))
 			{
-				img.setPixel(x, y, tcu::RGBA::red);
+				img.setPixel(x, y, tcu::RGBA::red());
 				errorImg.setPixel(Vec4(1.0f, 0.0f, 0.0f, 1.0f), x, y);
 			}
 		}
@@ -218,6 +218,8 @@ protected:
 
 	void				randomizeViewport		(void);
 	void				readImage				(tcu::Surface& dst) const;
+
+	IVec2				getRenderTargetSize		(void) const 				{ return IVec2(m_renderWidth, m_renderHeight); }
 
 	int					m_numSamples;
 
@@ -446,7 +448,7 @@ void MultisampleCase::init (void)
 			m_numSamples = m_fboParams.numSamples;
 		else
 		{
-			log << TestLog::Message << "Querying maximum number of samples for " << glu::getPixelFormatName(FBO_COLOR_FORMAT) << " with glGetInternalformativ()" << TestLog::EndMessage;
+			log << TestLog::Message << "Querying maximum number of samples for " << glu::getTextureFormatName(FBO_COLOR_FORMAT) << " with glGetInternalformativ()" << TestLog::EndMessage;
 			GLU_CHECK_CALL(glGetInternalformativ(GL_RENDERBUFFER, FBO_COLOR_FORMAT, GL_SAMPLES, 1, &m_numSamples));
 		}
 
@@ -497,7 +499,7 @@ void MultisampleCase::init (void)
 			GLint maxSampleCount = -1;
 			GLU_CHECK_CALL(glGetInternalformativ(GL_RENDERBUFFER, FBO_COLOR_FORMAT, GL_SAMPLES, 1, &maxSampleCount));
 			if (maxSampleCount < m_numSamples)
-				throw tcu::NotSupportedError(std::string("") + "Maximum sample count returned by glGetInternalformativ() for " + glu::getPixelFormatName(FBO_COLOR_FORMAT) + " is only " + de::toString(maxSampleCount));
+				throw tcu::NotSupportedError(std::string("") + "Maximum sample count returned by glGetInternalformativ() for " + glu::getTextureFormatName(FBO_COLOR_FORMAT) + " is only " + de::toString(maxSampleCount));
 			else
 				throw;
 		}
@@ -627,8 +629,18 @@ NumSamplesCase::IterateResult NumSamplesCase::iterate (void)
 
 		if (m_currentIteration >= m_maxNumIterations)
 		{
+			const IVec2 targetSize 			= getRenderTargetSize();
+			const int 	detectedNumSamples 	= (int)m_detectedColors.size() - 1; // One color is the background
+
 			log << TestLog::Message << "Failure: Number of distinct colors detected is lower than sample count+1" << TestLog::EndMessage;
-			m_context.getTestContext().setTestResult(QP_TEST_RESULT_FAIL, "Failed");
+
+			// For high resolution render targets the lack of samples is not likely detected by a human
+			// and for GLES 3.0 the application cannot observe the sample count directly. So, it only
+			// warrants a quality warning.
+			if ((targetSize.x() >= 2048 || targetSize.y() >= 2048) && (detectedNumSamples >= (m_numSamples/2)))
+				m_context.getTestContext().setTestResult(QP_TEST_RESULT_QUALITY_WARNING, "Measured sample count below the advertised count");
+			else
+				m_context.getTestContext().setTestResult(QP_TEST_RESULT_FAIL, "Failed");
 			return STOP;
 		}
 		else
@@ -668,7 +680,7 @@ void PolygonNumSamplesCase::renderPattern (void) const
 	for (int i = 0; i < numTriangles; i++)
 	{
 		float angle0 = 2.0f*DE_PI * (float)i			/ (float)numTriangles + 0.001f*(float)m_currentIteration;
-		float angle1 = 2.0f*DE_PI * (float)(i + 0.5f)	/ (float)numTriangles + 0.001f*(float)m_currentIteration;
+		float angle1 = 2.0f*DE_PI * ((float)i + 0.5f)	/ (float)numTriangles + 0.001f*(float)m_currentIteration;
 
 		renderTriangle(Vec2(0.0f, 0.0f),
 					   Vec2(deFloatCos(angle0)*0.95f, deFloatSin(angle0)*0.95f),
@@ -1138,7 +1150,7 @@ SampleStencilCase::IterateResult SampleStencilCase::iterate (void)
 		for (int i = 0; i < numTriangles; i++)
 		{
 			float angle0 = 2.0f*DE_PI * (float)i			/ (float)numTriangles;
-			float angle1 = 2.0f*DE_PI * (float)(i + 0.5f)	/ (float)numTriangles;
+			float angle1 = 2.0f*DE_PI * ((float)i + 0.5f)	/ (float)numTriangles;
 
 			renderTriangle(Vec2(0.0f, 0.0f),
 						   Vec2(deFloatCos(angle0)*0.95f, deFloatSin(angle0)*0.95f),
@@ -1166,7 +1178,7 @@ SampleStencilCase::IterateResult SampleStencilCase::iterate (void)
 		for (int x = 0; x < clearedImg.getWidth(); x++)
 		{
 			const tcu::RGBA& clr = clearedImg.getPixel(x, y);
-			if (clr != tcu::RGBA::black)
+			if (clr != tcu::RGBA::black())
 			{
 				log << TestLog::Message << "Failure: first non-black pixel, color " << clr << ", detected at coordinates (" << x << ", " << y << ")" << TestLog::EndMessage;
 				log << TestLog::Image("ClearedImg", "Image after clearing, erroneously non-black", clearedImg);
@@ -1544,7 +1556,7 @@ void CoverageMaskInvertCase::drawPattern (bool invertSampleCoverage) const
 		GLU_CHECK_CALL(glSampleCoverage((float)i / (float)(numTriangles-1), invertSampleCoverage ? GL_TRUE : GL_FALSE));
 
 		float angle0 = 2.0f*DE_PI * (float)i			/ (float)numTriangles;
-		float angle1 = 2.0f*DE_PI * (float)(i + 0.5f)	/ (float)numTriangles;
+		float angle1 = 2.0f*DE_PI * ((float)i + 0.5f)	/ (float)numTriangles;
 
 		renderTriangle(Vec2(0.0f, 0.0f),
 					   Vec2(deFloatCos(angle0)*0.95f, deFloatSin(angle0)*0.95f),

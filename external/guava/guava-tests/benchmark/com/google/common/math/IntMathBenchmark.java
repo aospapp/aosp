@@ -46,8 +46,8 @@ public class IntMathBenchmark {
       exponent[i] = randomExponent();
       factorial[i] = RANDOM_SOURCE.nextInt(50);
       binomial[i] = RANDOM_SOURCE.nextInt(factorial[i] + 1);
-      positive[i] = randomPositiveBigInteger(Integer.SIZE - 2).intValue();
-      nonnegative[i] = randomNonNegativeBigInteger(Integer.SIZE - 2).intValue();
+      positive[i] = randomPositiveBigInteger(Integer.SIZE - 1).intValue();
+      nonnegative[i] = randomNonNegativeBigInteger(Integer.SIZE - 1).intValue();
       ints[i] = RANDOM_SOURCE.nextInt();
     }
   }

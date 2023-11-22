@@ -23,7 +23,7 @@ public:
     : fDoAAClip(aaclip)
     , fDoSaveLayer(saveLayer)
     , fInvertDraw(invertDraw) {
-        this->setBGColor(0xFFDDDDDD);
+        this->setBGColor(0xFFDEDFDE);
     }
 
 protected:
@@ -115,7 +115,7 @@ protected:
             boundPaint.setColor(SK_ColorRED);
             boundPaint.setStyle(SkPaint::kStroke_Style);
             canvas->drawRect(bounds, boundPaint);
-            canvas->saveLayer(&bounds, NULL);
+            canvas->saveLayer(&bounds, nullptr);
         }
 
         for (int invBits = 0; invBits < 4; ++invBits) {
@@ -200,13 +200,12 @@ private:
 
 //////////////////////////////////////////////////////////////////////////////
 
-DEF_GM( return SkNEW_ARGS(ComplexClipGM, (false, false, false)); )
-DEF_GM( return SkNEW_ARGS(ComplexClipGM, (false, false, true));  )
-DEF_GM( return SkNEW_ARGS(ComplexClipGM, (false, true,  false)); )
-DEF_GM( return SkNEW_ARGS(ComplexClipGM, (false, true,  true));  )
-DEF_GM( return SkNEW_ARGS(ComplexClipGM, (true,  false, false)); )
-DEF_GM( return SkNEW_ARGS(ComplexClipGM, (true,  false, true));  )
-DEF_GM( return SkNEW_ARGS(ComplexClipGM, (true,  true,  false)); )
-DEF_GM( return SkNEW_ARGS(ComplexClipGM, (true,  true,  true));  )
-
+DEF_GM(return new ComplexClipGM(false, false, false);)
+DEF_GM(return new ComplexClipGM(false, false, true);)
+DEF_GM(return new ComplexClipGM(false, true, false);)
+DEF_GM(return new ComplexClipGM(false, true, true);)
+DEF_GM(return new ComplexClipGM(true, false, false);)
+DEF_GM(return new ComplexClipGM(true, false, true);)
+DEF_GM(return new ComplexClipGM(true, true, false);)
+DEF_GM(return new ComplexClipGM(true, true, true);)
 }

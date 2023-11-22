@@ -103,8 +103,8 @@ public:
 
     LineQuadraticIntersections(const SkDQuad& q)
         : fQuad(q) 
-        SkDEBUGPARAMS(fLine(NULL))
-        SkDEBUGPARAMS(fIntersections(NULL))
+        SkDEBUGPARAMS(fLine(nullptr))
+        SkDEBUGPARAMS(fIntersections(nullptr))
         SkDEBUGPARAMS(fAllowNear(false)) {
     }
 
@@ -117,7 +117,7 @@ public:
         for (int index = 0; index < last; ) {
             double quadMidT = ((*fIntersections)[0][index] + (*fIntersections)[0][index + 1]) / 2;
             SkDPoint quadMidPt = fQuad.ptAtT(quadMidT);
-            double t = fLine->nearPoint(quadMidPt, NULL);
+            double t = fLine->nearPoint(quadMidPt, nullptr);
             if (t < 0) {
                 ++index;
                 continue;
@@ -291,7 +291,7 @@ protected:
             if (fIntersections->hasT(quadT)) {
                 continue;
             }
-            double lineT = fLine->nearPoint(fQuad[qIndex], NULL);
+            double lineT = fLine->nearPoint(fQuad[qIndex], nullptr);
             if (lineT < 0) {
                 continue;
             }
@@ -441,4 +441,14 @@ int SkIntersections::HorizontalIntercept(const SkDQuad& quad, SkScalar y, double
 int SkIntersections::VerticalIntercept(const SkDQuad& quad, SkScalar x, double* roots) {
     LineQuadraticIntersections q(quad);
     return q.verticalIntersect(x, roots);
+}
+
+// SkDQuad accessors to Intersection utilities
+
+int SkDQuad::horizontalIntersect(double yIntercept, double roots[2]) const {
+    return SkIntersections::HorizontalIntercept(*this, yIntercept, roots);
+}
+
+int SkDQuad::verticalIntersect(double xIntercept, double roots[2]) const {
+    return SkIntersections::VerticalIntercept(*this, xIntercept, roots);
 }

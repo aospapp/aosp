@@ -18,13 +18,18 @@
 
 #include <system/audio.h>
 
+static const audio_format_t gDynamicFormat = AUDIO_FORMAT_DEFAULT;
+
 // For mixed output and inputs, the policy will use max mixer sampling rates.
 // Do not limit sampling rate otherwise
-#define MAX_MIXER_SAMPLING_RATE 192000
+#define SAMPLE_RATE_HZ_MAX 192000
+
+// Used when a client opens a capture stream, without specifying a desired sample rate.
+#define SAMPLE_RATE_HZ_DEFAULT 48000
 
 // For mixed output and inputs, the policy will use max mixer channel count.
 // Do not limit channel count otherwise
-#define MAX_MIXER_CHANNEL_COUNT 8
+#define MAX_MIXER_CHANNEL_COUNT FCC_8
 
 /**
  * A device mask for all audio input devices that are considered "virtual" when evaluating
@@ -37,9 +42,26 @@
  * A device mask for all audio input and output devices where matching inputs/outputs on device
  * type alone is not enough: the address must match too
  */
-#define APM_AUDIO_DEVICE_OUT_MATCH_ADDRESS_ALL (AUDIO_DEVICE_OUT_REMOTE_SUBMIX)
+#define APM_AUDIO_DEVICE_OUT_MATCH_ADDRESS_ALL (AUDIO_DEVICE_OUT_REMOTE_SUBMIX|AUDIO_DEVICE_OUT_BUS)
 
-#define APM_AUDIO_DEVICE_IN_MATCH_ADDRESS_ALL (AUDIO_DEVICE_IN_REMOTE_SUBMIX)
+#define APM_AUDIO_DEVICE_IN_MATCH_ADDRESS_ALL (AUDIO_DEVICE_IN_REMOTE_SUBMIX|AUDIO_DEVICE_IN_BUS)
+
+/**
+ * Stub audio output device. Used in policy configuration file on platforms without audio outputs.
+ * This alias value to AUDIO_DEVICE_OUT_DEFAULT is only used in the audio policy context.
+ */
+#define AUDIO_DEVICE_OUT_STUB AUDIO_DEVICE_OUT_DEFAULT
+/**
+ * Stub audio input device. Used in policy configuration file on platforms without audio inputs.
+ * This alias value to AUDIO_DEVICE_IN_DEFAULT is only used in the audio policy context.
+ */
+#define AUDIO_DEVICE_IN_STUB AUDIO_DEVICE_IN_DEFAULT
+/**
+ * Alias to AUDIO_DEVICE_OUT_DEFAULT defined for clarification when this value is used by volume
+ * control APIs (e.g setStreamVolumeIndex().
+ */
+#define AUDIO_DEVICE_OUT_DEFAULT_FOR_VOLUME AUDIO_DEVICE_OUT_DEFAULT
+
 
 /**
  * Check if the state given correspond to an in call state.
@@ -85,4 +107,19 @@ static inline bool device_distinguishes_on_address(audio_devices_t device)
             ((~AUDIO_DEVICE_BIT_IN & device & APM_AUDIO_DEVICE_IN_MATCH_ADDRESS_ALL) != 0)) ||
            (((device & AUDIO_DEVICE_BIT_IN) == 0) &&
             ((device & APM_AUDIO_DEVICE_OUT_MATCH_ADDRESS_ALL) != 0));
+}
+
+/* Indicates if audio formats are equivalent when considering a match between
+ * audio HAL supported formats and client requested formats
+ */
+static inline bool audio_formats_match(audio_format_t format1,
+                                       audio_format_t format2)
+{
+    if (audio_is_linear_pcm(format1) &&
+            (audio_bytes_per_sample(format1) > 2) &&
+            audio_is_linear_pcm(format2) &&
+            (audio_bytes_per_sample(format2) > 2)) {
+        return true;
+    }
+    return format1 == format2;
 }

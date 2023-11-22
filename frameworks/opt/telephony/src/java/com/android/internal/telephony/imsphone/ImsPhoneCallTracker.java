@@ -31,11 +31,14 @@ import android.os.AsyncResult;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.os.PersistableBundle;
 import android.os.Registrant;
 import android.os.RegistrantList;
 import android.os.RemoteException;
 import android.os.SystemProperties;
 import android.provider.Settings;
+import android.telephony.CarrierConfigManager;
+import android.text.TextUtils;
 import android.preference.PreferenceManager;
 import android.telecom.ConferenceParticipant;
 import android.telecom.VideoProfile;
@@ -43,16 +46,20 @@ import android.telephony.DisconnectCause;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.Rlog;
 import android.telephony.ServiceState;
+import android.telephony.SubscriptionManager;
 
 import com.android.ims.ImsCall;
 import com.android.ims.ImsCallProfile;
 import com.android.ims.ImsConfig;
+import com.android.ims.ImsConfigListener;
 import com.android.ims.ImsConnectionStateListener;
 import com.android.ims.ImsEcbm;
 import com.android.ims.ImsException;
 import com.android.ims.ImsManager;
+import com.android.ims.ImsMultiEndpoint;
 import com.android.ims.ImsReasonInfo;
 import com.android.ims.ImsServiceClass;
+import com.android.ims.ImsSuppServiceNotification;
 import com.android.ims.ImsUtInterface;
 import com.android.ims.internal.IImsVideoCallProvider;
 import com.android.ims.internal.ImsVideoCallProviderWrapper;
@@ -63,14 +70,15 @@ import com.android.internal.telephony.CommandException;
 import com.android.internal.telephony.CommandsInterface;
 import com.android.internal.telephony.Connection;
 import com.android.internal.telephony.Phone;
-import com.android.internal.telephony.PhoneBase;
 import com.android.internal.telephony.PhoneConstants;
+import com.android.internal.telephony.TelephonyEventLog;
 import com.android.internal.telephony.TelephonyProperties;
+import com.android.internal.telephony.gsm.SuppServiceNotification;
 
 /**
  * {@hide}
  */
-public final class ImsPhoneCallTracker extends CallTracker {
+public class ImsPhoneCallTracker extends CallTracker implements ImsPullCall {
     static final String LOG_TAG = "ImsPhoneCallTracker";
 
     private static final boolean DBG = true;
@@ -80,8 +88,11 @@ public final class ImsPhoneCallTracker extends CallTracker {
     private static final boolean VERBOSE_STATE_LOGGING = false; /* stopship if true */
 
     //Indices map to ImsConfig.FeatureConstants
-    private boolean[] mImsFeatureEnabled = {false, false, false, false};
-    private final String[] mImsFeatureStrings = {"VoLTE", "ViLTE", "VoWiFi", "ViWiFi"};
+    private boolean[] mImsFeatureEnabled = {false, false, false, false, false, false};
+    private final String[] mImsFeatureStrings = {"VoLTE", "ViLTE", "VoWiFi", "ViWiFi",
+            "UTLTE", "UTWiFi"};
+
+    private TelephonyEventLog mEventLog;
 
     private BroadcastReceiver mReceiver = new BroadcastReceiver() {
         @Override
@@ -105,27 +116,51 @@ public final class ImsPhoneCallTracker extends CallTracker {
                         return;
                     }
 
-                    // Normal MT call
+                    boolean isUnknown = intent.getBooleanExtra(ImsManager.EXTRA_IS_UNKNOWN_CALL,
+                            false);
+                    if (DBG) {
+                        log("onReceive : isUnknown = " + isUnknown +
+                                " fg = " + mForegroundCall.getState() +
+                                " bg = " + mBackgroundCall.getState());
+                    }
+
+                    // Normal MT/Unknown call
                     ImsCall imsCall = mImsManager.takeCall(mServiceId, intent, mImsCallListener);
-                    ImsPhoneConnection conn = new ImsPhoneConnection(mPhone.getContext(), imsCall,
-                            ImsPhoneCallTracker.this, mRingingCall);
+                    ImsPhoneConnection conn = new ImsPhoneConnection(mPhone, imsCall,
+                            ImsPhoneCallTracker.this,
+                            (isUnknown? mForegroundCall: mRingingCall), isUnknown);
                     addConnection(conn);
 
                     setVideoCallProvider(conn, imsCall);
 
-                    if ((mForegroundCall.getState() != ImsPhoneCall.State.IDLE) ||
-                            (mBackgroundCall.getState() != ImsPhoneCall.State.IDLE)) {
-                        conn.update(imsCall, ImsPhoneCall.State.WAITING);
-                    }
+                    mEventLog.writeOnImsCallReceive(imsCall.getSession());
 
-                    mPhone.notifyNewRingingConnection(conn);
-                    mPhone.notifyIncomingRing();
+                    if (isUnknown) {
+                        mPhone.notifyUnknownConnection(conn);
+                    } else {
+                        if ((mForegroundCall.getState() != ImsPhoneCall.State.IDLE) ||
+                                (mBackgroundCall.getState() != ImsPhoneCall.State.IDLE)) {
+                            conn.update(imsCall, ImsPhoneCall.State.WAITING);
+                        }
+
+                        mPhone.notifyNewRingingConnection(conn);
+                        mPhone.notifyIncomingRing();
+                    }
 
                     updatePhoneState();
                     mPhone.notifyPreciseCallStateChanged();
                 } catch (ImsException e) {
                     loge("onReceive : exception " + e);
                 } catch (RemoteException e) {
+                }
+            } else if (intent.getAction().equals(
+                    CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED)) {
+                int subId = intent.getIntExtra(PhoneConstants.SUBSCRIPTION_KEY,
+                        SubscriptionManager.INVALID_SUBSCRIPTION_ID);
+                if (subId == mPhone.getSubId()) {
+                    mAllowEmergencyVideoCalls = isEmergencyVtCallAllowed(subId);
+                    log("onReceive : Updating mAllowEmergencyVideoCalls = " +
+                            mAllowEmergencyVideoCalls);
                 }
             }
         }
@@ -139,6 +174,7 @@ public final class ImsPhoneCallTracker extends CallTracker {
     private static final int EVENT_HANGUP_PENDINGMO = 18;
     private static final int EVENT_RESUME_BACKGROUND = 19;
     private static final int EVENT_DIAL_PENDINGMO = 20;
+    private static final int EVENT_EXIT_ECBM_BEFORE_PENDINGMO = 21;
 
     private static final int TIMEOUT_HANGUP_PENDINGMO = 500;
 
@@ -147,10 +183,12 @@ public final class ImsPhoneCallTracker extends CallTracker {
     private RegistrantList mVoiceCallEndedRegistrants = new RegistrantList();
     private RegistrantList mVoiceCallStartedRegistrants = new RegistrantList();
 
-    final ImsPhoneCall mRingingCall = new ImsPhoneCall(this, ImsPhoneCall.CONTEXT_RINGING);
-    final ImsPhoneCall mForegroundCall = new ImsPhoneCall(this, ImsPhoneCall.CONTEXT_FOREGROUND);
-    final ImsPhoneCall mBackgroundCall = new ImsPhoneCall(this, ImsPhoneCall.CONTEXT_BACKGROUND);
-    final ImsPhoneCall mHandoverCall = new ImsPhoneCall(this, ImsPhoneCall.CONTEXT_HANDOVER);
+    public ImsPhoneCall mRingingCall = new ImsPhoneCall(this, ImsPhoneCall.CONTEXT_RINGING);
+    public ImsPhoneCall mForegroundCall = new ImsPhoneCall(this,
+            ImsPhoneCall.CONTEXT_FOREGROUND);
+    public ImsPhoneCall mBackgroundCall = new ImsPhoneCall(this,
+            ImsPhoneCall.CONTEXT_BACKGROUND);
+    public ImsPhoneCall mHandoverCall = new ImsPhoneCall(this, ImsPhoneCall.CONTEXT_HANDOVER);
 
     private ImsPhoneConnection mPendingMO;
     private int mClirMode = CommandsInterface.CLIR_DEFAULT;
@@ -163,8 +201,9 @@ public final class ImsPhoneCallTracker extends CallTracker {
 
     private boolean mDesiredMute = false;    // false = mute off
     private boolean mOnHoldToneStarted = false;
+    private int mOnHoldToneId = -1;
 
-    PhoneConstants.State mState = PhoneConstants.State.IDLE;
+    private PhoneConstants.State mState = PhoneConstants.State.IDLE;
 
     private ImsManager mImsManager;
     private int mServiceId = -1;
@@ -175,21 +214,27 @@ public final class ImsPhoneCallTracker extends CallTracker {
 
     private int pendingCallClirMode;
     private int mPendingCallVideoState;
+    private Bundle mPendingIntentExtras;
     private boolean pendingCallInEcm = false;
     private boolean mSwitchingFgAndBgCalls = false;
     private ImsCall mCallExpectedToResume = null;
+    private boolean mAllowEmergencyVideoCalls = false;
 
     //***** Events
 
 
     //***** Constructors
 
-    ImsPhoneCallTracker(ImsPhone phone) {
+    public ImsPhoneCallTracker(ImsPhone phone) {
         this.mPhone = phone;
+
+        mEventLog = new TelephonyEventLog(mPhone.getPhoneId());
 
         IntentFilter intentfilter = new IntentFilter();
         intentfilter.addAction(ImsManager.ACTION_IMS_INCOMING_CALL);
+        intentfilter.addAction(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED);
         mPhone.getContext().registerReceiver(mReceiver, intentfilter);
+        mAllowEmergencyVideoCalls = isEmergencyVtCallAllowed(mPhone.getSubId());
 
         Thread t = new Thread() {
             public void run() {
@@ -214,8 +259,10 @@ public final class ImsPhoneCallTracker extends CallTracker {
                     createIncomingCallPendingIntent(),
                     mImsConnectionStateListener);
 
+            mImsManager.setImsConfigListener(mImsConfigListener);
+
             // Get the ECBM interface and set IMSPhone's listener object for notifications
-            getEcbmInterface().setEcbmStateListener(mPhone.mImsEcbmStateListener);
+            getEcbmInterface().setEcbmStateListener(mPhone.getImsEcbmStateListener());
             if (mPhone.isInEcm()) {
                 // Call exit ECBM which will invoke onECBMExited
                 mPhone.exitEmergencyCallbackMode();
@@ -274,10 +321,10 @@ public final class ImsPhoneCallTracker extends CallTracker {
         mVoiceCallEndedRegistrants.remove(h);
     }
 
-    Connection
-    dial(String dialString, int videoState, Bundle intentExtras) throws CallStateException {
+    public Connection dial(String dialString, int videoState, Bundle intentExtras) throws
+            CallStateException {
         SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(mPhone.getContext());
-        int oirMode = sp.getInt(PhoneBase.CLIR_KEY, CommandsInterface.CLIR_DEFAULT);
+        int oirMode = sp.getInt(Phone.CLIR_KEY, CommandsInterface.CLIR_DEFAULT);
         return dial(dialString, oirMode, videoState, intentExtras);
     }
 
@@ -287,8 +334,7 @@ public final class ImsPhoneCallTracker extends CallTracker {
     synchronized Connection
     dial(String dialString, int clirMode, int videoState, Bundle intentExtras)
             throws CallStateException {
-        boolean isPhoneInEcmMode = SystemProperties.getBoolean(
-                TelephonyProperties.PROPERTY_INECM_MODE, false);
+        boolean isPhoneInEcmMode = isPhoneInEcbMode();
         boolean isEmergencyNumber = PhoneNumberUtils.isEmergencyNumber(dialString);
 
         if (DBG) log("dial clirMode=" + clirMode);
@@ -308,6 +354,14 @@ public final class ImsPhoneCallTracker extends CallTracker {
             handleEcmTimer(ImsPhone.CANCEL_ECM_TIMER);
         }
 
+        // If the call is to an emergency number and the carrier does not support video emergency
+        // calls, dial as an audio-only call.
+        if (isEmergencyNumber && VideoProfile.isVideo(videoState) &&
+                !mAllowEmergencyVideoCalls) {
+            loge("dial: carrier does not support video emergency calls; downgrade to audio-only");
+            videoState = VideoProfile.STATE_AUDIO_ONLY;
+        }
+
         boolean holdBeforeDial = false;
 
         // The new call must be assigned to the foreground call.
@@ -322,6 +376,7 @@ public final class ImsPhoneCallTracker extends CallTracker {
             holdBeforeDial = true;
             // Cache the video state for pending MO call.
             mPendingCallVideoState = videoState;
+            mPendingIntentExtras = intentExtras;
             switchWaitingOrHoldingAndActive();
         }
 
@@ -346,14 +401,16 @@ public final class ImsPhoneCallTracker extends CallTracker {
                 }
             }
 
-            mPendingMO = new ImsPhoneConnection(mPhone.getContext(),
-                    checkForTestEmergencyNumber(dialString), this, mForegroundCall);
+            mPendingMO = new ImsPhoneConnection(mPhone,
+                    checkForTestEmergencyNumber(dialString), this, mForegroundCall,
+                    isEmergencyNumber);
+            mPendingMO.setVideoState(videoState);
         }
         addConnection(mPendingMO);
 
         if (!holdBeforeDial) {
             if ((!isPhoneInEcmMode) || (isPhoneInEcmMode && isEmergencyNumber)) {
-                dialInternal(mPendingMO, clirMode, videoState);
+                dialInternal(mPendingMO, clirMode, videoState, intentExtras);
             } else {
                 try {
                     getEcbmInterface().exitEmergencyCallbackMode();
@@ -374,6 +431,30 @@ public final class ImsPhoneCallTracker extends CallTracker {
         return mPendingMO;
     }
 
+    /**
+     * Determines if the carrier associated with the specified SubId supports making video emergency
+     * calls.
+     *
+     * @param subId The sub id.
+     * @return {@code true} if video emergency calls are supported, {@code false} otherwise.
+     */
+    private boolean isEmergencyVtCallAllowed(int subId) {
+        CarrierConfigManager carrierConfigManager = (CarrierConfigManager)
+                mPhone.getContext().getSystemService(Context.CARRIER_CONFIG_SERVICE);
+        if (carrierConfigManager == null) {
+            loge("isEmergencyVideoCallsSupported: No carrier config service found.");
+            return false;
+        }
+
+        PersistableBundle carrierConfig = carrierConfigManager.getConfigForSubId(subId);
+        if (carrierConfig == null) {
+            loge("isEmergencyVideoCallsSupported: Empty carrier config.");
+            return false;
+        }
+
+        return carrierConfig.getBoolean(CarrierConfigManager.KEY_ALLOW_EMERGENCY_VIDEO_CALLS_BOOL);
+    }
+
     private void handleEcmTimer(int action) {
         mPhone.handleTimerInEmergencyCallbackMode(action);
         switch (action) {
@@ -386,7 +467,9 @@ public final class ImsPhoneCallTracker extends CallTracker {
         }
     }
 
-    private void dialInternal(ImsPhoneConnection conn, int clirMode, int videoState) {
+    private void dialInternal(ImsPhoneConnection conn, int clirMode, int videoState,
+            Bundle intentExtras) {
+
         if (conn == null) {
             return;
         }
@@ -413,9 +496,30 @@ public final class ImsPhoneCallTracker extends CallTracker {
                     serviceType, callType);
             profile.setCallExtraInt(ImsCallProfile.EXTRA_OIR, clirMode);
 
+            // Translate call subject intent-extra from Telecom-specific extra key to the
+            // ImsCallProfile key.
+            if (intentExtras != null) {
+                if (intentExtras.containsKey(android.telecom.TelecomManager.EXTRA_CALL_SUBJECT)) {
+                    intentExtras.putString(ImsCallProfile.EXTRA_DISPLAY_TEXT,
+                            cleanseInstantLetteringMessage(intentExtras.getString(
+                                    android.telecom.TelecomManager.EXTRA_CALL_SUBJECT))
+                    );
+                }
+
+                // Pack the OEM-specific call extras.
+                profile.mCallExtras.putBundle(ImsCallProfile.EXTRA_OEM_EXTRAS, intentExtras);
+
+                // NOTE: Extras to be sent over the network are packed into the
+                // intentExtras individually, with uniquely defined keys.
+                // These key-value pairs are processed by IMS Service before
+                // being sent to the lower layers/to the network.
+            }
+
             ImsCall imsCall = mImsManager.makeCall(mServiceId, profile,
                     callees, mImsCallListener);
             conn.setImsCall(imsCall);
+
+            mEventLog.writeOnImsCallStart(imsCall.getSession(), callees[0]);
 
             setVideoCallProvider(conn, imsCall);
         } catch (ImsException e) {
@@ -433,7 +537,7 @@ public final class ImsPhoneCallTracker extends CallTracker {
      * @param videoState The video State
      * @throws CallStateException
      */
-    void acceptCall (int videoState) throws CallStateException {
+    public void acceptCall (int videoState) throws CallStateException {
         if (DBG) log("acceptCall");
 
         if (mForegroundCall.getState().isAlive()
@@ -455,6 +559,7 @@ public final class ImsPhoneCallTracker extends CallTracker {
                 ImsCall imsCall = mRingingCall.getImsCall();
                 if (imsCall != null) {
                     imsCall.accept(ImsCallProfile.getCallTypeFromVideoState(videoState));
+                    mEventLog.writeOnImsCallAccept(imsCall.getSession());
                 } else {
                     throw new CallStateException("no valid ims call");
                 }
@@ -466,8 +571,7 @@ public final class ImsPhoneCallTracker extends CallTracker {
         }
     }
 
-    void
-    rejectCall () throws CallStateException {
+    public void rejectCall () throws CallStateException {
         if (DBG) log("rejectCall");
 
         if (mRingingCall.getState().isRinging()) {
@@ -488,8 +592,7 @@ public final class ImsPhoneCallTracker extends CallTracker {
         }
     }
 
-    void
-    switchWaitingOrHoldingAndActive() throws CallStateException {
+    public void switchWaitingOrHoldingAndActive() throws CallStateException {
         if (DBG) log("switchWaitingOrHoldingAndActive");
 
         if (mRingingCall.getState() == ImsPhoneCall.State.INCOMING) {
@@ -512,6 +615,7 @@ public final class ImsPhoneCallTracker extends CallTracker {
             // be resumed.
             try {
                 imsCall.hold();
+                mEventLog.writeOnImsCallHold(imsCall.getSession());
 
                 // If there is no background call to resume, then don't expect there to be a switch.
                 if (mCallExpectedToResume == null) {
@@ -526,7 +630,7 @@ public final class ImsPhoneCallTracker extends CallTracker {
         }
     }
 
-    void
+    public void
     conference() {
         if (DBG) log("conference");
 
@@ -571,12 +675,12 @@ public final class ImsPhoneCallTracker extends CallTracker {
         }
     }
 
-    void
+    public void
     explicitCallTransfer() {
         //TODO : implement
     }
 
-    void
+    public void
     clearDisconnected() {
         if (DBG) log("clearDisconnected");
 
@@ -586,7 +690,7 @@ public final class ImsPhoneCallTracker extends CallTracker {
         mPhone.notifyPreciseCallStateChanged();
     }
 
-    boolean
+    public boolean
     canConference() {
         return mForegroundCall.getState() == ImsPhoneCall.State.ACTIVE
             && mBackgroundCall.getState() == ImsPhoneCall.State.HOLDING
@@ -594,7 +698,7 @@ public final class ImsPhoneCallTracker extends CallTracker {
             && !mForegroundCall.isFull();
     }
 
-    boolean
+    public boolean
     canDial() {
         boolean ret;
         int serviceState = mPhone.getServiceState().getState();
@@ -611,7 +715,7 @@ public final class ImsPhoneCallTracker extends CallTracker {
         return ret;
     }
 
-    boolean
+    public boolean
     canTransfer() {
         return mForegroundCall.getState() == ImsPhoneCall.State.ACTIVE
             && mBackgroundCall.getState() == ImsPhoneCall.State.HOLDING;
@@ -652,6 +756,7 @@ public final class ImsPhoneCallTracker extends CallTracker {
 
         if (mState != oldState) {
             mPhone.notifyPhoneStateChanged();
+            mEventLog.writePhoneState(mState);
         }
     }
 
@@ -694,7 +799,7 @@ public final class ImsPhoneCallTracker extends CallTracker {
 
     //***** Called from ImsPhone
 
-    void setUiTTYMode(int uiTtyMode, Message onComplete) {
+    public void setUiTTYMode(int uiTtyMode, Message onComplete) {
         try {
             mImsManager.setUiTTYMode(mPhone.getContext(), mServiceId, uiTtyMode, onComplete);
         } catch (ImsException e) {
@@ -703,16 +808,16 @@ public final class ImsPhoneCallTracker extends CallTracker {
         }
     }
 
-    /*package*/ void setMute(boolean mute) {
+    public void setMute(boolean mute) {
         mDesiredMute = mute;
         mForegroundCall.setMute(mute);
     }
 
-    /*package*/ boolean getMute() {
+    public boolean getMute() {
         return mDesiredMute;
     }
 
-    /* package */ void sendDtmf(char c, Message result) {
+    public void sendDtmf(char c, Message result) {
         if (DBG) log("sendDtmf");
 
         ImsCall imscall = mForegroundCall.getImsCall();
@@ -721,7 +826,7 @@ public final class ImsPhoneCallTracker extends CallTracker {
         }
     }
 
-    /*package*/ void
+    public void
     startDtmf(char c) {
         if (DBG) log("startDtmf");
 
@@ -733,7 +838,7 @@ public final class ImsPhoneCallTracker extends CallTracker {
         }
     }
 
-    /*package*/ void
+    public void
     stopDtmf() {
         if (DBG) log("stopDtmf");
 
@@ -747,8 +852,7 @@ public final class ImsPhoneCallTracker extends CallTracker {
 
     //***** Called from ImsPhoneConnection
 
-    /*package*/ void
-    hangup (ImsPhoneConnection conn) throws CallStateException {
+    public void hangup (ImsPhoneConnection conn) throws CallStateException {
         if (DBG) log("hangup connection");
 
         if (conn.getOwner() != this) {
@@ -761,8 +865,7 @@ public final class ImsPhoneCallTracker extends CallTracker {
 
     //***** Called from ImsPhoneCall
 
-    /* package */ void
-    hangup (ImsPhoneCall call) throws CallStateException {
+    public void hangup (ImsPhoneCall call) throws CallStateException {
         if (DBG) log("hangup call");
 
         if (call.getConnections().size() == 0) {
@@ -799,8 +902,13 @@ public final class ImsPhoneCallTracker extends CallTracker {
 
         try {
             if (imsCall != null) {
-                if (rejectCall) imsCall.reject(ImsReasonInfo.CODE_USER_DECLINE);
-                else imsCall.terminate(ImsReasonInfo.CODE_USER_TERMINATED);
+                if (rejectCall) {
+                    imsCall.reject(ImsReasonInfo.CODE_USER_DECLINE);
+                    mEventLog.writeOnImsCallReject(imsCall.getSession());
+                } else {
+                    imsCall.terminate(ImsReasonInfo.CODE_USER_TERMINATED);
+                    mEventLog.writeOnImsCallTerminate(imsCall.getSession());
+                }
             } else if (mPendingMO != null && call == mForegroundCall) {
                 // is holding a foreground call
                 mPendingMO.update(null, ImsPhoneCall.State.DISCONNECTED);
@@ -835,13 +943,17 @@ public final class ImsPhoneCallTracker extends CallTracker {
                 //resume foreground call after holding background call
                 //they were switched before holding
                 ImsCall imsCall = mForegroundCall.getImsCall();
-                if (imsCall != null) imsCall.resume();
+                if (imsCall != null) {
+                    imsCall.resume();
+                    mEventLog.writeOnImsCallResume(imsCall.getSession());
+                }
             } else if (mRingingCall.getState() == ImsPhoneCall.State.WAITING) {
                 //accept waiting call after holding background call
                 ImsCall imsCall = mRingingCall.getImsCall();
                 if (imsCall != null) {
                     imsCall.accept(
                         ImsCallProfile.getCallTypeFromVideoState(mPendingCallVideoState));
+                    mEventLog.writeOnImsCallAccept(imsCall.getSession());
                 }
             } else {
                 //Just resume background call.
@@ -849,15 +961,17 @@ public final class ImsPhoneCallTracker extends CallTracker {
                 //we do not switch calls.here
                 //ImsPhoneConnection.update will chnage the parent when completed
                 ImsCall imsCall = mBackgroundCall.getImsCall();
-                if (imsCall != null) imsCall.resume();
+                if (imsCall != null) {
+                    imsCall.resume();
+                    mEventLog.writeOnImsCallResume(imsCall.getSession());
+                }
             }
         } catch (ImsException e) {
             throw new CallStateException(e.getMessage());
         }
     }
 
-    /* package */
-    void sendUSSD (String ussdString, Message response) {
+    public void sendUSSD (String ussdString, Message response) {
         if (DBG) log("sendUSSD");
 
         try {
@@ -882,8 +996,7 @@ public final class ImsPhoneCallTracker extends CallTracker {
         }
     }
 
-    /* package */
-    void cancelUSSD() {
+    public void cancelUSSD() {
         if (mUssdSession == null) return;
 
         try {
@@ -904,10 +1017,30 @@ public final class ImsPhoneCallTracker extends CallTracker {
 
     private synchronized void removeConnection(ImsPhoneConnection conn) {
         mConnections.remove(conn);
+        // If not emergency call is remaining, notify emergency call registrants
+        if (mIsInEmergencyCall) {
+            boolean isEmergencyCallInList = false;
+            // if no emergency calls pending, set this to false
+            for (ImsPhoneConnection imsPhoneConnection : mConnections) {
+                if (imsPhoneConnection != null && imsPhoneConnection.isEmergency() == true) {
+                    isEmergencyCallInList = true;
+                    break;
+                }
+            }
+
+            if (!isEmergencyCallInList) {
+                mIsInEmergencyCall = false;
+                mPhone.sendEmergencyCallStateChange(false);
+            }
+        }
     }
 
     private synchronized void addConnection(ImsPhoneConnection conn) {
         mConnections.add(conn);
+        if (conn.isEmergency()) {
+            mIsInEmergencyCall = true;
+            mPhone.sendEmergencyCallStateChange(true);
+        }
     }
 
     private void processCallStateChange(ImsCall imsCall, ImsPhoneCall.State state, int cause) {
@@ -941,8 +1074,12 @@ public final class ImsPhoneCallTracker extends CallTracker {
         // It should modify only other capabilities of call through updateMediaCapabilities
         // State updates will be triggered through individual callbacks
         // i.e. onCallHeld, onCallResume, etc and conn.update will be responsible for the update
+        conn.updateMediaCapabilities(imsCall);
         if (ignoreState) {
-            conn.updateMediaCapabilities(imsCall);
+            conn.updateAddressDisplay(imsCall);
+            conn.updateExtras(imsCall);
+
+            maybeSetVideoCallProvider(conn, imsCall);
             return;
         }
 
@@ -958,6 +1095,19 @@ public final class ImsPhoneCallTracker extends CallTracker {
             if (conn.getCall() == mHandoverCall) return;
             updatePhoneState();
             mPhone.notifyPreciseCallStateChanged();
+        }
+    }
+
+    private void maybeSetVideoCallProvider(ImsPhoneConnection conn, ImsCall imsCall) {
+        android.telecom.Connection.VideoProvider connVideoProvider = conn.getVideoProvider();
+        if (connVideoProvider != null || imsCall.getCallSession().getVideoCallProvider() == null) {
+            return;
+        }
+
+        try {
+            setVideoCallProvider(conn, imsCall);
+        } catch (RemoteException e) {
+            loge("maybeSetVideoCallProvider: exception " + e);
         }
     }
 
@@ -1016,10 +1166,33 @@ public final class ImsPhoneCallTracker extends CallTracker {
             case ImsReasonInfo.CODE_LOCAL_POWER_OFF:
                 return DisconnectCause.POWER_OFF;
 
+            case ImsReasonInfo.CODE_FDN_BLOCKED:
+                return DisconnectCause.FDN_BLOCKED;
             default:
         }
 
         return cause;
+    }
+
+    /**
+     * @return true if the phone is in Emergency Callback mode, otherwise false
+     */
+    private boolean isPhoneInEcbMode() {
+        return SystemProperties.getBoolean(TelephonyProperties.PROPERTY_INECM_MODE, false);
+    }
+
+    /**
+     * Before dialing pending MO request, check for the Emergency Callback mode.
+     * If device is in Emergency callback mode, then exit the mode before dialing pending MO.
+     */
+    private void dialPendingMO() {
+        boolean isPhoneInEcmMode = isPhoneInEcbMode();
+        boolean isEmergencyNumber = mPendingMO.isEmergency();
+        if ((!isPhoneInEcmMode) || (isPhoneInEcmMode && isEmergencyNumber)) {
+            sendEmptyMessage(EVENT_DIAL_PENDINGMO);
+        } else {
+            sendEmptyMessage(EVENT_EXIT_ECBM_BEFORE_PENDINGMO);
+        }
     }
 
     /**
@@ -1033,6 +1206,7 @@ public final class ImsPhoneCallTracker extends CallTracker {
             mPendingMO = null;
             processCallStateChange(imsCall, ImsPhoneCall.State.ALERTING,
                     DisconnectCause.NOT_DISCONNECTED);
+            mEventLog.writeOnImsCallProgressing(imsCall.getCallSession());
         }
 
         @Override
@@ -1042,6 +1216,7 @@ public final class ImsPhoneCallTracker extends CallTracker {
             mPendingMO = null;
             processCallStateChange(imsCall, ImsPhoneCall.State.ACTIVE,
                     DisconnectCause.NOT_DISCONNECTED);
+            mEventLog.writeOnImsCallStarted(imsCall.getCallSession());
         }
 
         @Override
@@ -1054,6 +1229,7 @@ public final class ImsPhoneCallTracker extends CallTracker {
             if (conn != null) {
                 processCallStateChange(imsCall, conn.getCall().mState,
                         DisconnectCause.NOT_DISCONNECTED, true /*ignore state update*/);
+                mEventLog.writeImsCallState(imsCall.getCallSession(), conn.getCall().mState);
             }
         }
 
@@ -1078,10 +1254,11 @@ public final class ImsPhoneCallTracker extends CallTracker {
                     mPhone.initiateSilentRedial();
                     return;
                 } else {
+                    mPendingMO = null;
                     int cause = getDisconnectCauseFromReasonInfo(reasonInfo);
                     processCallStateChange(imsCall, ImsPhoneCall.State.DISCONNECTED, cause);
                 }
-                mPendingMO = null;
+                mEventLog.writeOnImsCallStartFailed(imsCall.getCallSession(), reasonInfo);
             }
         }
 
@@ -1094,10 +1271,19 @@ public final class ImsPhoneCallTracker extends CallTracker {
             ImsPhoneConnection conn = findConnection(imsCall);
             if (DBG) log("cause = " + cause + " conn = " + conn);
 
+            if (mOnHoldToneId == System.identityHashCode(conn)) {
+                if (conn != null && mOnHoldToneStarted) {
+                    mPhone.stopOnHoldTone(conn);
+                }
+                mOnHoldToneStarted = false;
+                mOnHoldToneId = -1;
+            }
             if (conn != null && conn.isIncoming() && conn.getConnectTime() == 0) {
                 // Missed
                 if (cause == DisconnectCause.NORMAL) {
                     cause = DisconnectCause.INCOMING_MISSED;
+                } else {
+                    cause = DisconnectCause.INCOMING_REJECTED;
                 }
                 if (DBG) log("Incoming connection of 0 connect time detected - translated cause = "
                         + cause);
@@ -1109,7 +1295,41 @@ public final class ImsPhoneCallTracker extends CallTracker {
                 cause = DisconnectCause.IMS_MERGED_SUCCESSFULLY;
             }
 
+            mEventLog.writeOnImsCallTerminated(imsCall.getCallSession(), reasonInfo);
+
             processCallStateChange(imsCall, ImsPhoneCall.State.DISCONNECTED, cause);
+            if (mForegroundCall.getState() != ImsPhoneCall.State.ACTIVE) {
+                if (mRingingCall.getState().isRinging()) {
+                    // Drop pending MO. We should address incoming call first
+                    mPendingMO = null;
+                } else if (mPendingMO != null) {
+                    sendEmptyMessage(EVENT_DIAL_PENDINGMO);
+                }
+            }
+
+            if (mSwitchingFgAndBgCalls) {
+                if (DBG) {
+                    log("onCallTerminated: Call terminated in the midst of Switching " +
+                            "Fg and Bg calls.");
+                }
+                // If we are the in midst of swapping FG and BG calls and the call that was
+                // terminated was the one that we expected to resume, we need to swap the FG and
+                // BG calls back.
+                if (imsCall == mCallExpectedToResume) {
+                    if (DBG) {
+                        log("onCallTerminated: switching " + mForegroundCall + " with "
+                                + mBackgroundCall);
+                    }
+                    mForegroundCall.switchWith(mBackgroundCall);
+                }
+                // This call terminated in the midst of a switch after the other call was held, so
+                // resume it back to ACTIVE state since the switch failed.
+                if (mForegroundCall.getState() == ImsPhoneCall.State.HOLDING) {
+                    sendEmptyMessage(EVENT_RESUME_BACKGROUND);
+                    mSwitchingFgAndBgCalls = false;
+                    mCallExpectedToResume = null;
+                }
+            }
         }
 
         @Override
@@ -1137,14 +1357,13 @@ public final class ImsPhoneCallTracker extends CallTracker {
                     // The EVENT_RESUME_BACKGROUND causes resumeWaitingOrHolding to be called.
                     if ((mForegroundCall.getState() == ImsPhoneCall.State.HOLDING)
                             || (mRingingCall.getState() == ImsPhoneCall.State.WAITING)) {
-
                             sendEmptyMessage(EVENT_RESUME_BACKGROUND);
                     } else {
                         //when multiple connections belong to background call,
                         //only the first callback reaches here
                         //otherwise the oldState is already HOLDING
                         if (mPendingMO != null) {
-                            sendEmptyMessage(EVENT_DIAL_PENDINGMO);
+                            dialPendingMO();
                         }
 
                         // In this case there will be no call resumed, so we can assume that we
@@ -1153,8 +1372,17 @@ public final class ImsPhoneCallTracker extends CallTracker {
                         // we can dial another one.
                         mSwitchingFgAndBgCalls = false;
                     }
+                } else if (oldState == ImsPhoneCall.State.IDLE && mSwitchingFgAndBgCalls) {
+                    // The other call terminated in the midst of a switch before this call was held,
+                    // so resume the foreground call back to ACTIVE state since the switch failed.
+                    if (mForegroundCall.getState() == ImsPhoneCall.State.HOLDING) {
+                        sendEmptyMessage(EVENT_RESUME_BACKGROUND);
+                        mSwitchingFgAndBgCalls = false;
+                        mCallExpectedToResume = null;
+                    }
                 }
             }
+            mEventLog.writeOnImsCallHeld(imsCall.getCallSession());
         }
 
         @Override
@@ -1166,7 +1394,7 @@ public final class ImsPhoneCallTracker extends CallTracker {
                 if (reasonInfo.getCode() == ImsReasonInfo.CODE_LOCAL_CALL_TERMINATED) {
                     // disconnected while processing hold
                     if (mPendingMO != null) {
-                        sendEmptyMessage(EVENT_DIAL_PENDINGMO);
+                        dialPendingMO();
                     }
                 } else if (bgState == ImsPhoneCall.State.ACTIVE) {
                     mForegroundCall.switchWith(mBackgroundCall);
@@ -1176,7 +1404,9 @@ public final class ImsPhoneCallTracker extends CallTracker {
                         sendEmptyMessageDelayed(EVENT_HANGUP_PENDINGMO, TIMEOUT_HANGUP_PENDINGMO);
                     }
                 }
+                mPhone.notifySuppServiceFailed(Phone.SuppService.HOLD);
             }
+            mEventLog.writeOnImsCallHoldFailed(imsCall.getCallSession(), reasonInfo);
         }
 
         @Override
@@ -1186,43 +1416,71 @@ public final class ImsPhoneCallTracker extends CallTracker {
             // If we are the in midst of swapping FG and BG calls and the call we end up resuming
             // is not the one we expected, we likely had a resume failure and we need to swap the
             // FG and BG calls back.
-            if (mSwitchingFgAndBgCalls && imsCall != mCallExpectedToResume) {
-                if (DBG) {
-                    log("onCallResumed : switching " + mForegroundCall + " with "
-                            + mBackgroundCall);
+            if (mSwitchingFgAndBgCalls) {
+                if (imsCall != mCallExpectedToResume) {
+                    // If the call which resumed isn't as expected, we need to swap back to the
+                    // previous configuration; the swap has failed.
+                    if (DBG) {
+                        log("onCallResumed : switching " + mForegroundCall + " with "
+                                + mBackgroundCall);
+                    }
+                    mForegroundCall.switchWith(mBackgroundCall);
+                } else {
+                    // The call which resumed is the one we expected to resume, so we can clear out
+                    // the mSwitchingFgAndBgCalls flag.
+                    if (DBG) {
+                        log("onCallResumed : expected call resumed.");
+                    }
                 }
-                mForegroundCall.switchWith(mBackgroundCall);
                 mSwitchingFgAndBgCalls = false;
                 mCallExpectedToResume = null;
             }
             processCallStateChange(imsCall, ImsPhoneCall.State.ACTIVE,
                     DisconnectCause.NOT_DISCONNECTED);
+            mEventLog.writeOnImsCallResumed(imsCall.getCallSession());
         }
 
         @Override
         public void onCallResumeFailed(ImsCall imsCall, ImsReasonInfo reasonInfo) {
-            // If we are in the midst of swapping the FG and BG calls and we got a resume fail, we
-            // need to swap back the FG and BG calls.
-            if (mSwitchingFgAndBgCalls && imsCall == mCallExpectedToResume) {
-                if (DBG) {
-                    log("onCallResumeFailed : switching " + mForegroundCall + " with "
-                            + mBackgroundCall);
+            if (mSwitchingFgAndBgCalls) {
+                // If we are in the midst of swapping the FG and BG calls and
+                // we got a resume fail, we need to swap back the FG and BG calls.
+                // Since the FG call was held, will also try to resume the same.
+                if (imsCall == mCallExpectedToResume) {
+                    if (DBG) {
+                        log("onCallResumeFailed : switching " + mForegroundCall + " with "
+                                + mBackgroundCall);
+                    }
+                    mForegroundCall.switchWith(mBackgroundCall);
+                    if (mForegroundCall.getState() == ImsPhoneCall.State.HOLDING) {
+                            sendEmptyMessage(EVENT_RESUME_BACKGROUND);
+                    }
                 }
-                mForegroundCall.switchWith(mBackgroundCall);
+
+                //Call swap is done, reset the relevant variables
                 mCallExpectedToResume = null;
                 mSwitchingFgAndBgCalls = false;
             }
             mPhone.notifySuppServiceFailed(Phone.SuppService.RESUME);
+            mEventLog.writeOnImsCallResumeFailed(imsCall.getCallSession(), reasonInfo);
         }
 
         @Override
         public void onCallResumeReceived(ImsCall imsCall) {
             if (DBG) log("onCallResumeReceived");
-
-            if (mOnHoldToneStarted) {
-                mPhone.stopOnHoldTone();
+            ImsPhoneConnection conn = findConnection(imsCall);
+            if (conn != null && mOnHoldToneStarted) {
+                mPhone.stopOnHoldTone(conn);
                 mOnHoldToneStarted = false;
             }
+
+            SuppServiceNotification supp = new SuppServiceNotification();
+            // Type of notification: 0 = MO; 1 = MT
+            // Refer SuppServiceNotification class documentation.
+            supp.notificationType = 1;
+            supp.code = SuppServiceNotification.MT_CODE_CALL_RETRIEVED;
+            mPhone.notifySuppSvcNotification(supp);
+            mEventLog.writeOnImsCallResumeReceived(imsCall.getCallSession());
         }
 
         @Override
@@ -1232,10 +1490,34 @@ public final class ImsPhoneCallTracker extends CallTracker {
             ImsPhoneConnection conn = findConnection(imsCall);
             if (conn != null && conn.getState() == ImsPhoneCall.State.ACTIVE) {
                 if (!mOnHoldToneStarted && ImsPhoneCall.isLocalTone(imsCall)) {
-                    mPhone.startOnHoldTone();
+                    mPhone.startOnHoldTone(conn);
                     mOnHoldToneStarted = true;
+                    mOnHoldToneId = System.identityHashCode(conn);
                 }
             }
+
+            SuppServiceNotification supp = new SuppServiceNotification();
+            // Type of notification: 0 = MO; 1 = MT
+            // Refer SuppServiceNotification class documentation.
+            supp.notificationType = 1;
+            supp.code = SuppServiceNotification.MT_CODE_CALL_ON_HOLD;
+            mPhone.notifySuppSvcNotification(supp);
+            mEventLog.writeOnImsCallHoldReceived(imsCall.getCallSession());
+        }
+
+        @Override
+        public void onCallSuppServiceReceived(ImsCall call,
+                ImsSuppServiceNotification suppServiceInfo) {
+            if (DBG) log("onCallSuppServiceReceived: suppServiceInfo=" + suppServiceInfo);
+
+            SuppServiceNotification supp = new SuppServiceNotification();
+            supp.notificationType = suppServiceInfo.notificationType;
+            supp.code = suppServiceInfo.code;
+            supp.index = suppServiceInfo.index;
+            supp.number = suppServiceInfo.number;
+            supp.history = suppServiceInfo.history;
+
+            mPhone.notifySuppSvcNotification(supp);
         }
 
         @Override
@@ -1252,24 +1534,15 @@ public final class ImsPhoneCallTracker extends CallTracker {
             }
             foregroundImsPhoneCall.merge(peerImsPhoneCall, ImsPhoneCall.State.ACTIVE);
 
-            // TODO Temporary code. Remove the try-catch block from the runnable once thread
-            // synchronization is fixed.
-            Runnable r = new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        final ImsPhoneConnection conn = findConnection(call);
-                        log("onCallMerged: ImsPhoneConnection=" + conn);
-                        log("onCallMerged: CurrentVideoProvider=" + conn.getVideoProvider());
-                        setVideoCallProvider(conn, call);
-                        log("onCallMerged: CurrentVideoProvider=" + conn.getVideoProvider());
-                    } catch (Exception e) {
-                        loge("onCallMerged: exception " + e);
-                    }
-                }
-            };
-
-            ImsPhoneCallTracker.this.post(r);
+            try {
+                final ImsPhoneConnection conn = findConnection(call);
+                log("onCallMerged: ImsPhoneConnection=" + conn);
+                log("onCallMerged: CurrentVideoProvider=" + conn.getVideoProvider());
+                setVideoCallProvider(conn, call);
+                log("onCallMerged: CurrentVideoProvider=" + conn.getVideoProvider());
+            } catch (Exception e) {
+                loge("onCallMerged: exception " + e);
+            }
 
             // After merge complete, update foreground as Active
             // and background call as Held, if background call exists
@@ -1339,6 +1612,8 @@ public final class ImsPhoneCallTracker extends CallTracker {
                 log("onCallHandover ::  srcAccessTech=" + srcAccessTech + ", targetAccessTech=" +
                     targetAccessTech + ", reasonInfo=" + reasonInfo);
             }
+            mEventLog.writeOnImsCallHandover(imsCall.getCallSession(),
+                    srcAccessTech, targetAccessTech, reasonInfo);
         }
 
         @Override
@@ -1348,6 +1623,8 @@ public final class ImsPhoneCallTracker extends CallTracker {
                 log("onCallHandoverFailed :: srcAccessTech=" + srcAccessTech +
                     ", targetAccessTech=" + targetAccessTech + ", reasonInfo=" + reasonInfo);
             }
+            mEventLog.writeOnImsCallHandoverFailed(imsCall.getCallSession(),
+                    srcAccessTech, targetAccessTech, reasonInfo);
         }
 
         /**
@@ -1442,6 +1719,8 @@ public final class ImsPhoneCallTracker extends CallTracker {
             if (DBG) log("onImsConnected");
             mPhone.setServiceState(ServiceState.STATE_IN_SERVICE);
             mPhone.setImsRegistered(true);
+            mEventLog.writeOnImsConnectionState(
+                    TelephonyEventLog.IMS_CONNECTION_STATE_CONNECTED, null);
         }
 
         @Override
@@ -1450,23 +1729,33 @@ public final class ImsPhoneCallTracker extends CallTracker {
             mPhone.setServiceState(ServiceState.STATE_OUT_OF_SERVICE);
             mPhone.setImsRegistered(false);
             mPhone.processDisconnectReason(imsReasonInfo);
+            mEventLog.writeOnImsConnectionState(
+                    TelephonyEventLog.IMS_CONNECTION_STATE_DISCONNECTED, imsReasonInfo);
         }
 
         @Override
         public void onImsProgressing() {
             if (DBG) log("onImsProgressing");
+            mPhone.setServiceState(ServiceState.STATE_OUT_OF_SERVICE);
+            mPhone.setImsRegistered(false);
+            mEventLog.writeOnImsConnectionState(
+                    TelephonyEventLog.IMS_CONNECTION_STATE_PROGRESSING, null);
         }
 
         @Override
         public void onImsResumed() {
             if (DBG) log("onImsResumed");
             mPhone.setServiceState(ServiceState.STATE_IN_SERVICE);
+            mEventLog.writeOnImsConnectionState(
+                    TelephonyEventLog.IMS_CONNECTION_STATE_RESUMED, null);
         }
 
         @Override
         public void onImsSuspended() {
             if (DBG) log("onImsSuspended");
             mPhone.setServiceState(ServiceState.STATE_OUT_OF_SERVICE);
+            mEventLog.writeOnImsConnectionState(
+                    TelephonyEventLog.IMS_CONNECTION_STATE_SUSPENDED, null);
         }
 
         @Override
@@ -1475,24 +1764,41 @@ public final class ImsPhoneCallTracker extends CallTracker {
             if (serviceClass == ImsServiceClass.MMTEL) {
                 boolean tmpIsVideoCallEnabled = isVideoCallEnabled();
                 // Check enabledFeatures to determine capabilities. We ignore disabledFeatures.
+                StringBuilder sb;
+                if (DBG) {
+                    sb = new StringBuilder(120);
+                    sb.append("onFeatureCapabilityChanged: ");
+                }
                 for (int  i = ImsConfig.FeatureConstants.FEATURE_TYPE_VOICE_OVER_LTE;
-                        i <= ImsConfig.FeatureConstants.FEATURE_TYPE_VIDEO_OVER_WIFI; i++) {
+                        i <= ImsConfig.FeatureConstants.FEATURE_TYPE_UT_OVER_WIFI &&
+                        i < enabledFeatures.length; i++) {
                     if (enabledFeatures[i] == i) {
                         // If the feature is set to its own integer value it is enabled.
-                        if (DBG) log("onFeatureCapabilityChanged(" + i + ", " + mImsFeatureStrings[i] + "): value=true");
+                        if (DBG) {
+                            sb.append(mImsFeatureStrings[i]);
+                            sb.append(":true ");
+                        }
+
                         mImsFeatureEnabled[i] = true;
                     } else if (enabledFeatures[i]
                             == ImsConfig.FeatureConstants.FEATURE_TYPE_UNKNOWN) {
                         // FEATURE_TYPE_UNKNOWN indicates that a feature is disabled.
-                        if (DBG) log("onFeatureCapabilityChanged(" + i + ", " + mImsFeatureStrings[i] + "): value=false");
+                        if (DBG) {
+                            sb.append(mImsFeatureStrings[i]);
+                            sb.append(":false ");
+                        }
+
                         mImsFeatureEnabled[i] = false;
                     } else {
                         // Feature has unknown state; it is not its own value or -1.
                         if (DBG) {
-                            loge("onFeatureCapabilityChanged(" + i + ", " +mImsFeatureStrings[i] + "): unexpectedValue="
-                                + enabledFeatures[i]);
+                            loge("onFeatureCapabilityChanged(" + i + ", " + mImsFeatureStrings[i]
+                                    + "): unexpectedValue=" + enabledFeatures[i]);
                         }
                     }
+                }
+                if (DBG) {
+                    log(sb.toString());
                 }
                 if (tmpIsVideoCallEnabled != isVideoCallEnabled()) {
                     mPhone.notifyForVideoCapabilityChanged(isVideoCallEnabled());
@@ -1501,18 +1807,45 @@ public final class ImsPhoneCallTracker extends CallTracker {
                 // TODO: Use the ImsCallSession or ImsCallProfile to tell the initial Wifi state and
                 // {@link ImsCallSession.Listener#callSessionHandover} to listen for changes to
                 // wifi capability caused by a handover.
-                if (DBG) log("onFeatureCapabilityChanged: isVowifiEnabled=" + isVowifiEnabled());
+                if (DBG) log("onFeatureCapabilityChanged: isVolteEnabled=" + isVolteEnabled()
+                            + ", isVideoCallEnabled=" + isVideoCallEnabled()
+                            + ", isVowifiEnabled=" + isVowifiEnabled()
+                            + ", isUtEnabled=" + isUtEnabled());
                 for (ImsPhoneConnection connection : mConnections) {
                     connection.updateWifiState();
                 }
 
                 mPhone.onFeatureCapabilityChanged();
+
+                mEventLog.writeOnImsCapabilities(mImsFeatureEnabled);
             }
+        }
+
+        @Override
+        public void onVoiceMessageCountChanged(int count) {
+            if (DBG) log("onVoiceMessageCountChanged :: count=" + count);
+            mPhone.mDefaultPhone.setVoiceMessageCount(count);
         }
     };
 
-    /* package */
-    ImsUtInterface getUtInterface() throws ImsException {
+    private ImsConfigListener.Stub mImsConfigListener = new ImsConfigListener.Stub() {
+        @Override
+        public void onGetFeatureResponse(int feature, int network, int value, int status) {}
+
+        @Override
+        public void onSetFeatureResponse(int feature, int network, int value, int status) {
+            mEventLog.writeImsSetFeatureValue(feature, network, value, status);
+        }
+
+        @Override
+        public void onGetVideoQuality(int status, int quality) {}
+
+        @Override
+        public void onSetVideoQuality(int status) {}
+
+    };
+
+    public ImsUtInterface getUtInterface() throws ImsException {
         if (mImsManager == null) {
             throw new ImsException("no ims manager", ImsReasonInfo.CODE_UNSPECIFIED);
         }
@@ -1578,7 +1911,7 @@ public final class ImsPhoneCallTracker extends CallTracker {
                     removeConnection(mPendingMO);
                     mPendingMO = null;
                 }
-
+                mPendingIntentExtras = null;
                 updatePhoneState();
                 mPhone.notifyPreciseCallStateChanged();
                 break;
@@ -1592,14 +1925,32 @@ public final class ImsPhoneCallTracker extends CallTracker {
                 }
                 break;
             case EVENT_DIAL_PENDINGMO:
-                dialInternal(mPendingMO, mClirMode, mPendingCallVideoState);
+                dialInternal(mPendingMO, mClirMode, mPendingCallVideoState, mPendingIntentExtras);
+                mPendingIntentExtras = null;
+                break;
+
+            case EVENT_EXIT_ECBM_BEFORE_PENDINGMO:
+                if (mPendingMO != null) {
+                    //Send ECBM exit request
+                    try {
+                        getEcbmInterface().exitEmergencyCallbackMode();
+                        mPhone.setOnEcbModeExitResponse(this, EVENT_EXIT_ECM_RESPONSE_CDMA, null);
+                        pendingCallClirMode = mClirMode;
+                        pendingCallInEcm = true;
+                    } catch (ImsException e) {
+                        e.printStackTrace();
+                        mPendingMO.setDisconnectCause(DisconnectCause.ERROR_UNSPECIFIED);
+                        sendEmptyMessageDelayed(EVENT_HANGUP_PENDINGMO, TIMEOUT_HANGUP_PENDINGMO);
+                    }
+                }
                 break;
 
             case EVENT_EXIT_ECM_RESPONSE_CDMA:
                 // no matter the result, we still do the same here
                 if (pendingCallInEcm) {
                     dialInternal(mPendingMO, pendingCallClirMode,
-                            mPendingCallVideoState);
+                            mPendingCallVideoState, mPendingIntentExtras);
+                    mPendingIntentExtras = null;
                     pendingCallInEcm = false;
                 }
                 mPhone.unsetOnEcbModeExitResponse(this);
@@ -1658,6 +2009,27 @@ public final class ImsPhoneCallTracker extends CallTracker {
         pw.println(" mPhone=" + mPhone);
         pw.println(" mDesiredMute=" + mDesiredMute);
         pw.println(" mState=" + mState);
+        for (int i = 0; i < mImsFeatureEnabled.length; i++) {
+            pw.println(" " + mImsFeatureStrings[i] + ": "
+                    + ((mImsFeatureEnabled[i]) ? "enabled" : "disabled"));
+        }
+        pw.flush();
+        pw.println("++++++++++++++++++++++++++++++++");
+
+        try {
+            if (mImsManager != null) {
+                mImsManager.dump(fd, pw, args);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        if (mConnections != null && mConnections.size() > 0) {
+            pw.println("mConnections:");
+            for (int i = 0; i < mConnections.size(); i++) {
+                pw.println("  [" + i + "]: " + mConnections.get(i));
+            }
+        }
     }
 
     @Override
@@ -1672,6 +2044,16 @@ public final class ImsPhoneCallTracker extends CallTracker {
 
         ImsEcbm ecbm = mImsManager.getEcbmInterface(mServiceId);
         return ecbm;
+    }
+
+    /* package */
+    ImsMultiEndpoint getMultiEndpointInterface() throws ImsException {
+        if (mImsManager == null) {
+            throw new ImsException("no ims manager", ImsReasonInfo.CODE_UNSPECIFIED);
+        }
+
+        ImsMultiEndpoint multiendpoint = mImsManager.getMultiEndpointInterface(mServiceId);
+        return multiendpoint;
     }
 
     public boolean isInEmergencyCall() {
@@ -1704,6 +2086,100 @@ public final class ImsPhoneCallTracker extends CallTracker {
             ImsVideoCallProviderWrapper imsVideoCallProviderWrapper =
                     new ImsVideoCallProviderWrapper(imsVideoCallProvider);
             conn.setVideoProvider(imsVideoCallProviderWrapper);
+        }
+    }
+
+    public boolean isUtEnabled() {
+        return (mImsFeatureEnabled[ImsConfig.FeatureConstants.FEATURE_TYPE_UT_OVER_LTE]
+            || mImsFeatureEnabled[ImsConfig.FeatureConstants.FEATURE_TYPE_UT_OVER_WIFI]);
+    }
+
+    /**
+     * Given a call subject, removes any characters considered by the current carrier to be
+     * invalid, as well as escaping (using \) any characters which the carrier requires to be
+     * escaped.
+     *
+     * @param callSubject The call subject.
+     * @return The call subject with invalid characters removed and escaping applied as required.
+     */
+    private String cleanseInstantLetteringMessage(String callSubject) {
+        if (TextUtils.isEmpty(callSubject)) {
+            return callSubject;
+        }
+
+        // Get the carrier config for the current sub.
+        CarrierConfigManager configMgr = (CarrierConfigManager)
+                mPhone.getContext().getSystemService(Context.CARRIER_CONFIG_SERVICE);
+        // Bail if we can't find the carrier config service.
+        if (configMgr == null) {
+            return callSubject;
+        }
+
+        PersistableBundle carrierConfig = configMgr.getConfigForSubId(mPhone.getSubId());
+        // Bail if no carrier config found.
+        if (carrierConfig == null) {
+            return callSubject;
+        }
+
+        // Try to replace invalid characters
+        String invalidCharacters = carrierConfig.getString(
+                CarrierConfigManager.KEY_CARRIER_INSTANT_LETTERING_INVALID_CHARS_STRING);
+        if (!TextUtils.isEmpty(invalidCharacters)) {
+            callSubject = callSubject.replaceAll(invalidCharacters, "");
+        }
+
+        // Try to escape characters which need to be escaped.
+        String escapedCharacters = carrierConfig.getString(
+                CarrierConfigManager.KEY_CARRIER_INSTANT_LETTERING_ESCAPED_CHARS_STRING);
+        if (!TextUtils.isEmpty(escapedCharacters)) {
+            callSubject = escapeChars(escapedCharacters, callSubject);
+        }
+        return callSubject;
+    }
+
+    /**
+     * Given a source string, return a string where a set of characters are escaped using the
+     * backslash character.
+     *
+     * @param toEscape The characters to escape with a backslash.
+     * @param source The source string.
+     * @return The source string with characters escaped.
+     */
+    private String escapeChars(String toEscape, String source) {
+        StringBuilder escaped = new StringBuilder();
+        for (char c : source.toCharArray()) {
+            if (toEscape.contains(Character.toString(c))) {
+                escaped.append("\\");
+            }
+            escaped.append(c);
+        }
+
+        return escaped.toString();
+    }
+
+    /**
+     * Initiates a pull of an external call.
+     *
+     * Initiates a pull by making a dial request with the {@link ImsCallProfile#EXTRA_IS_CALL_PULL}
+     * extra specified.  We call {@link ImsPhone#notifyUnknownConnection(Connection)} which notifies
+     * Telecom of the new dialed connection.  The
+     * {@code PstnIncomingCallNotifier#maybeSwapWithUnknownConnection} logic ensures that the new
+     * {@link ImsPhoneConnection} resulting from the dial gets swapped with the
+     * {@link ImsExternalConnection}, which effectively makes the external call become a regular
+     * call.  Magic!
+     *
+     * @param number The phone number of the call to be pulled.
+     * @param videoState The desired video state of the pulled call.
+     */
+    @Override
+    public void pullExternalCall(String number, int videoState) {
+        Bundle extras = new Bundle();
+        extras.putBoolean(ImsCallProfile.EXTRA_IS_CALL_PULL, true);
+        try {
+            Connection connection = dial(number, videoState, extras);
+            mPhone.notifyUnknownConnection(connection);
+        } catch (CallStateException e) {
+            loge("pullExternalCall failed - " + e);
         }
     }
 }

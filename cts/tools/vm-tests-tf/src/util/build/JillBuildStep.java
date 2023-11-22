@@ -16,11 +16,8 @@
 
 package util.build;
 
-import com.android.jill.Jill;
-import com.android.jill.Main;
-import com.android.jill.Options;
-
 import java.io.File;
+import java.io.IOException;
 
 public class JillBuildStep extends BuildStep {
 
@@ -31,29 +28,52 @@ public class JillBuildStep extends BuildStep {
     @Override
     boolean build() {
         if (super.build()) {
-
-            File outDir = outputFile.fileName.getParentFile();
-            if (!outDir.exists() && !outDir.mkdirs()) {
-                System.err.println("failed to create output dir: "
-                        + outDir.getAbsolutePath());
-                return false;
-            }
-
-            int args = 3;
-            String[] commandLine = new String[args];
-            commandLine[0] = "--output";
-            commandLine[1] = outputFile.fileName.getAbsolutePath();
-            commandLine[2] = inputFile.fileName.getAbsolutePath();
-
+            File tmpInputJar = new File(inputFile.fileName.getPath() + ".jar");
             try {
-                Options options = Main.getOptions(commandLine);
-                Jill.process(options);
-            } catch (Throwable ex) {
-                ex.printStackTrace();
-                return false;
-            }
 
-            return true;
+                File outDir = outputFile.fileName.getParentFile();
+                if (!outDir.exists() && !outDir.mkdirs()) {
+                    System.err.println("failed to create output dir: "
+                            + outDir.getAbsolutePath());
+                    return false;
+                }
+
+                // input file is a class file but jack supports only jar
+                JarBuildStep jarStep = new JarBuildStep(
+                    inputFile,
+                    inputFile.fileName.getName(),
+                    new BuildFile(tmpInputJar),
+                    /* deleteInputFileAfterBuild = */ false);
+                if (!jarStep.build()) {
+                  throw new IOException("Failed to make jar: " + outputFile.getPath());
+                }
+
+
+                String[] commandLine = new String[] {
+                    "--verbose",
+                    "error",
+                    "--import",
+                    tmpInputJar.getAbsolutePath(),
+                    "--output-jack",
+                    outputFile.fileName.getAbsolutePath(),
+                  };
+
+                ExecuteFile exec = new ExecuteFile(JackBuildDalvikSuite.JACK, commandLine);
+                exec.setErr(System.err);
+                exec.setOut(System.out);
+                if (!exec.run()) {
+                    return false;
+                }
+
+                return true;
+            } catch (Throwable ex) {
+                System.err.println("exception while transforming jack file from jar "
+                        + inputFile.fileName.getAbsolutePath() + " to "
+                        + outputFile.fileName.getAbsolutePath());
+                ex.printStackTrace();
+            } finally {
+                tmpInputJar.delete();
+            }
         }
         return false;
     }

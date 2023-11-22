@@ -12,8 +12,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * along with this program; if not, see <http://www.gnu.org/licenses>.
  */
 /*
  * Author:
@@ -32,5 +31,7 @@ int tnl_del_ioctl(const char *basedev, const char *name, void *p);
 int tnl_prl_ioctl(int cmd, const char *name, void *p);
 int tnl_6rd_ioctl(int cmd, const char *name, void *p);
 int tnl_ioctl_get_6rd(const char *name, void *p);
+__be32 tnl_parse_key(const char *name, const char *key);
+void tnl_print_stats(const char *buf);
 
 #endif

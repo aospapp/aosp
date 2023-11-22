@@ -49,6 +49,9 @@ page.title=Contributors to Audio Latency
   system designer then increases buffer sizes or buffer counts.
   This has the desired result of eliminating the underruns or overruns, but it also
   has the undesired side effect of increasing latency.
+  For more information about buffer sizes, see the video
+  <a href="https://youtu.be/PnDK17zP9BI">Audio latency: buffer sizes</a>.
+
 </p>
 
 <p>
@@ -64,6 +67,7 @@ page.title=Contributors to Audio Latency
 <ul>
   <li>Linux CFS (Completely Fair Scheduler)</li>
   <li>high-priority threads with SCHED_FIFO scheduling</li>
+  <li>priority inversion</li>
   <li>long scheduling latency</li>
   <li>long-running interrupt handlers</li>
   <li>long interrupt disable time</li>
@@ -121,6 +125,18 @@ page.title=Contributors to Audio Latency
   a periodic thread (for example it could execute with unbounded frequency or unbounded computation
   per execution), then it should not be assigned a fixed priority as that would be incompatible
   with the scheduling of true periodic threads.
+</p>
+
+<h3 id="priorityInversion">Priority inversion</h3>
+<p>
+  <a href="http://en.wikipedia.org/wiki/Priority_inversion">Priority inversion</a>
+  is a classic failure mode of real-time systems,
+  where a higher-priority task is blocked for an unbounded time waiting
+  for a lower-priority task to release a resource such as (shared
+  state protected by) a
+  <a href="http://en.wikipedia.org/wiki/Mutual_exclusion">mutex</a>.
+  See the article "<a href="avoiding_pi.html">Avoiding priority inversion</a>" for techniques to
+  mitigate it.
 </p>
 
 <h3 id="schedLatency">Scheduling latency</h3>

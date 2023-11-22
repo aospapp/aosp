@@ -16,5 +16,9 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 LOCAL_PACKAGE_NAME := android.core.tests.libcore.package.libcore
-LOCAL_STATIC_JAVA_LIBRARIES := core-tests
+# Note that we're not pulling in junit4 here because it's provided by
+# android.test.runner (which might pull in a different version from the
+# one that would be pulled in here).
+LOCAL_STATIC_JAVA_LIBRARIES := core-tests mockito-target-minus-junit4
+LOCAL_JAVA_LANGUAGE_VERSION := 1.8
 include $(BUILD_CTSCORE_PACKAGE)

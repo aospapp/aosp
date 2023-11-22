@@ -17,15 +17,29 @@
 package com.android.settings;
 
 import android.os.Bundle;
-import android.preference.PreferenceActivity;
+import android.os.UserManager;
+import android.support.v7.preference.PreferenceScreen;
 
-public class TestingSettings extends PreferenceActivity {
+import com.android.internal.logging.MetricsProto.MetricsEvent;
+
+public class TestingSettings extends SettingsPreferenceFragment {
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
         addPreferencesFromResource(R.xml.testing_settings);
+
+        final UserManager um = UserManager.get(getContext());
+        if (!um.isAdminUser()) {
+            PreferenceScreen preferenceScreen = (PreferenceScreen)
+                    findPreference("radio_info_settings");
+            getPreferenceScreen().removePreference(preferenceScreen);
+        }
     }
 
+    @Override
+    protected int getMetricsCategory() {
+        return MetricsEvent.TESTING;
+    }
 }

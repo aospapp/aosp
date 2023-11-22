@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2005-2013 Apple Inc.
+   Copyright (C) 2005-2015 Apple Inc.
       Greg Parker  gparker@apple.com
 
    This program is free software; you can redistribute it and/or
@@ -412,7 +412,7 @@ void wqthread_hijack(Addr self, Addr kport, Addr stackaddr, Addr workitem,
       out just the relevant parts.  Hence: */
 #  if DARWIN_VERS <= DARWIN_10_7
    Bool is_reuse = reuse != 0;
-#  elif DARWIN_VERS == DARWIN_10_8 || DARWIN_VERS == DARWIN_10_9 || DARWIN_VERS == DARWIN_10_10
+#  elif DARWIN_VERS > DARWIN_10_7
    Bool is_reuse = (reuse & 0x20000 /* == WQ_FLAG_THREAD_REUSE */) != 0;
 #  else
 #    error "Unsupported Darwin version"
@@ -429,6 +429,8 @@ void wqthread_hijack(Addr self, Addr kport, Addr stackaddr, Addr workitem,
       UWord magic_delta = 0x48;
 #     elif DARWIN_VERS == DARWIN_10_9 || DARWIN_VERS == DARWIN_10_10
       UWord magic_delta = 0xB0;
+#     elif DARWIN_VERS == DARWIN_10_11
+      UWord magic_delta = 0x100;
 #     else
 #       error "magic_delta: to be computed on new OS version"
         // magic_delta = tst->os_state.pthread - self
@@ -444,7 +446,7 @@ void wqthread_hijack(Addr self, Addr kport, Addr stackaddr, Addr workitem,
 
       tst = VG_(get_ThreadState)(tid);
 
-      if (0) VG_(printf)("wqthread_hijack reuse %s: tid %d, tst %p, "
+      if (0) VG_(printf)("wqthread_hijack reuse %s: tid %u, tst %p, "
                          "tst->os_state.pthread %#lx, self %#lx\n",
                          tst->os_state.pthread == self ? "SAME" : "DIFF",
                          tid, tst, tst->os_state.pthread, self);

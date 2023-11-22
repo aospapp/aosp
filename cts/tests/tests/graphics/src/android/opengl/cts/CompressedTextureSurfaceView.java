@@ -27,7 +27,7 @@ import java.util.HashMap;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
-import com.android.cts.graphics.R;
+import android.graphics.cts.R;
 
 import android.content.Context;
 import android.content.res.Resources;

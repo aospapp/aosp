@@ -32,10 +32,10 @@ import android.test.ActivityInstrumentationTestCase2;
 
 public class MovieTest extends ActivityInstrumentationTestCase2<MockActivity> {
     private Movie mMovie;
-    private final int MOVIE = com.android.cts.graphics.R.drawable.animated;
+    private final int MOVIE = android.graphics.cts.R.drawable.animated;
 
     public MovieTest() {
-        super("com.android.cts.graphics", MockActivity.class);
+        super("android.graphics.cts", MockActivity.class);
     }
 
     @Override

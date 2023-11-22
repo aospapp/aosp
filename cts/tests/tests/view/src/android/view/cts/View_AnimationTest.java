@@ -24,7 +24,7 @@ import android.view.animation.Animation;
 import android.view.animation.TranslateAnimation;
 import android.view.animation.cts.AnimationTestUtils;
 
-import com.android.cts.view.R;
+import android.view.cts.R;
 
 
 /**
@@ -40,7 +40,7 @@ public class View_AnimationTest extends ActivityInstrumentationTestCase2<ViewTes
     private TranslateAnimation mAnimation;
 
     public View_AnimationTest() {
-        super("com.android.cts.view", ViewTestCtsActivity.class);
+        super("android.view.cts", ViewTestCtsActivity.class);
     }
 
     @Override

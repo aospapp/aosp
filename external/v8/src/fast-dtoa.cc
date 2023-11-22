@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "include/v8stdint.h"
+#include <stdint.h>
 #include "src/base/logging.h"
 #include "src/utils.h"
 
@@ -712,4 +712,5 @@ bool FastDtoa(double v,
   return result;
 }
 
-} }  // namespace v8::internal
+}  // namespace internal
+}  // namespace v8

@@ -17,26 +17,60 @@
 package com.android.tv.settings;
 
 import android.content.Context;
+import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.provider.Settings;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.PreferenceGroup;
+
+import java.util.List;
 
 /**
  * Utilities for saving and loading shared prefs.
  */
 public final class PreferenceUtils {
 
-    private final Context mContext;
+    public static final int FLAG_SET_TITLE = 1;
 
-    public PreferenceUtils(Context context) {
-        mContext = context;
+    public static void resolveSystemActivityOrRemove(Context context, PreferenceGroup parent,
+            Preference preference, int flags) {
+        if (preference == null) {
+            return;
+        }
+
+        Intent intent = preference.getIntent();
+        if (intent != null) {
+            // Find the activity that is in the system image
+            PackageManager pm = context.getPackageManager();
+            List<ResolveInfo> list = pm.queryIntentActivities(intent, 0);
+            for (final ResolveInfo resolveInfo : list) {
+                if ((resolveInfo.activityInfo.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM)
+                        != 0) {
+
+                    // Replace the intent with this specific activity
+                    preference.setIntent(new Intent().setClassName(
+                            resolveInfo.activityInfo.packageName,
+                            resolveInfo.activityInfo.name));
+
+                    if ((flags & FLAG_SET_TITLE) != 0) {
+                        // Set the preference title to the activity's label
+                        preference.setTitle(resolveInfo.loadLabel(pm));
+                    }
+
+                    return;
+                }
+            }
+        }
+
+        // Did not find a matching activity, so remove the preference
+        parent.removePreference(preference);
     }
 
-    public boolean isDeveloperEnabled() {
-        return Settings.Global.getInt(mContext.getContentResolver(),
-                Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) == 1;
-    }
-
-    public void setDeveloperEnabled(boolean enabled) {
-        Settings.Global.putInt(mContext.getContentResolver(),
-                Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, enabled ? 1 : 0);
+    public static boolean isDeveloperEnabled(Context context) {
+        return Settings.Global.getInt(context.getContentResolver(),
+                Settings.Global.DEVELOPMENT_SETTINGS_ENABLED,
+                android.os.Build.TYPE.equals("eng") ? 1 : 0) == 1;
     }
 }

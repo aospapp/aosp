@@ -27,7 +27,7 @@
 #include <netinet/in.h>
 #include <stdio.h>
 
-#include "gki.h"
+#include "bt_common.h"
 #include "bt_types.h"
 
 #include "l2cdefs.h"
@@ -120,10 +120,8 @@ tCONN_CB *sdpu_allocate_ccb (void)
     {
         if (p_ccb->con_state == SDP_STATE_IDLE)
         {
-            memset (p_ccb, 0, sizeof (tCONN_CB));
-
-            p_ccb->timer_entry.param = (UINT32) p_ccb;
-
+            memset(p_ccb, 0, sizeof(tCONN_CB));
+            p_ccb->sdp_conn_timer = alarm_new("sdp.sdp_conn_timer");
             return (p_ccb);
         }
     }
@@ -145,7 +143,8 @@ tCONN_CB *sdpu_allocate_ccb (void)
 void sdpu_release_ccb (tCONN_CB *p_ccb)
 {
     /* Ensure timer is stopped */
-    btu_stop_timer (&p_ccb->timer_entry);
+    alarm_free(p_ccb->sdp_conn_timer);
+    p_ccb->sdp_conn_timer = NULL;
 
     /* Drop any response pointer we may be holding */
     p_ccb->con_state = SDP_STATE_IDLE;
@@ -155,12 +154,8 @@ void sdpu_release_ccb (tCONN_CB *p_ccb)
 
     /* Free the response buffer */
     if (p_ccb->rsp_list)
-    {
-       SDP_TRACE_DEBUG("releasing SDP rsp_list");
-
-        GKI_freebuf(p_ccb->rsp_list);
-        p_ccb->rsp_list = NULL;
-    }
+        SDP_TRACE_DEBUG("releasing SDP rsp_list");
+    osi_free_and_reset((void **)&p_ccb->rsp_list);
 }
 
 
@@ -318,23 +313,18 @@ void sdpu_build_n_send_error (tCONN_CB *p_ccb, UINT16 trans_num, UINT16 error_co
 {
     UINT8           *p_rsp, *p_rsp_start, *p_rsp_param_len;
     UINT16          rsp_param_len;
-    BT_HDR          *p_buf;
+    BT_HDR          *p_buf = (BT_HDR *)osi_malloc(SDP_DATA_BUF_SIZE);
 
 
     SDP_TRACE_WARNING ("SDP - sdpu_build_n_send_error  code: 0x%x  CID: 0x%x",
                         error_code, p_ccb->connection_id);
 
-    /* Get a buffer to use to build and send the packet to L2CAP */
-    if ((p_buf = (BT_HDR *)GKI_getpoolbuf (SDP_POOL_ID)) == NULL)
-    {
-        SDP_TRACE_ERROR ("SDP - no buf for err msg");
-        return;
-    }
+    /* Send the packet to L2CAP */
     p_buf->offset = L2CAP_MIN_OFFSET;
     p_rsp = p_rsp_start = (UINT8 *)(p_buf + 1) + L2CAP_MIN_OFFSET;
 
-    UINT8_TO_BE_STREAM  (p_rsp, SDP_PDU_ERROR_RESPONSE);
-    UINT16_TO_BE_STREAM  (p_rsp, trans_num);
+    UINT8_TO_BE_STREAM(p_rsp, SDP_PDU_ERROR_RESPONSE);
+    UINT16_TO_BE_STREAM(p_rsp, trans_num);
 
     /* Skip the parameter length, we need to add it at the end */
     p_rsp_param_len = p_rsp;
@@ -344,18 +334,17 @@ void sdpu_build_n_send_error (tCONN_CB *p_ccb, UINT16 trans_num, UINT16 error_co
 
     /* Unplugfest example traces do not have any error text */
     if (p_error_text)
-        ARRAY_TO_BE_STREAM (p_rsp, p_error_text, (int) strlen (p_error_text));
+        ARRAY_TO_BE_STREAM(p_rsp, p_error_text, (int)strlen(p_error_text));
 
     /* Go back and put the parameter length into the buffer */
     rsp_param_len = p_rsp - p_rsp_param_len - 2;
-    UINT16_TO_BE_STREAM (p_rsp_param_len, rsp_param_len);
+    UINT16_TO_BE_STREAM(p_rsp_param_len, rsp_param_len);
 
     /* Set the length of the SDP data in the buffer */
     p_buf->len = p_rsp - p_rsp_start;
 
-
     /* Send the buffer through L2CAP */
-    L2CA_DataWrite (p_ccb->connection_id, p_buf);
+    L2CA_DataWrite(p_ccb->connection_id, p_buf);
 }
 
 
@@ -1010,29 +999,24 @@ UINT16 sdpu_get_attrib_entry_len(tSDP_ATTRIBUTE *p_attr)
 *******************************************************************************/
 UINT8 *sdpu_build_partial_attrib_entry (UINT8 *p_out, tSDP_ATTRIBUTE *p_attr, UINT16 len, UINT16 *offset)
 {
-    UINT8   *p_attr_buff;
-    UINT8   *p_tmp_attr;
-    size_t  len_to_copy;
-    UINT16  attr_len;
+    UINT8 *p_attr_buff = (UINT8 *)osi_malloc(sizeof(UINT8) * SDP_MAX_ATTR_LEN);
+    sdpu_build_attrib_entry(p_attr_buff, p_attr);
 
-    if ((p_attr_buff = (UINT8 *) GKI_getbuf(sizeof(UINT8) * SDP_MAX_ATTR_LEN )) == NULL)
+    UINT16 attr_len = sdpu_get_attrib_entry_len(p_attr);
+
+    if (len > SDP_MAX_ATTR_LEN)
     {
-        SDP_TRACE_ERROR("sdpu_build_partial_attrib_entry cannot get a buffer!");
-        return NULL;
+        SDP_TRACE_ERROR("%s len %d exceeds SDP_MAX_ATTR_LEN", __func__, len);
+        len = SDP_MAX_ATTR_LEN;
     }
-    p_tmp_attr = p_attr_buff;
 
-    sdpu_build_attrib_entry(p_tmp_attr, p_attr);
-    attr_len = sdpu_get_attrib_entry_len(p_attr);
-
-    len_to_copy = ((attr_len - *offset) < len) ? (attr_len - *offset): len;
-
+    size_t len_to_copy = ((attr_len - *offset) < len) ? (attr_len - *offset) : len;
     memcpy(p_out, &p_attr_buff[*offset], len_to_copy);
 
     p_out = &p_out[len_to_copy];
     *offset += len_to_copy;
 
-    GKI_freebuf(p_attr_buff);
+    osi_free(p_attr_buff);
     return p_out;
 }
 

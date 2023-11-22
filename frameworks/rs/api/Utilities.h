@@ -51,7 +51,7 @@ double maxDoubleForInteger(int numberOfIntegerBits, int mantissaSize);
  * use the additionalAttribute.  An empty string will be returned if there are no attributes.
  */
 std::string makeAttributeTag(const std::string& userAttribute,
-                             const std::string& additionalAttribute, int deprecatedApiLevel,
+                             const std::string& additionalAttribute, unsigned int deprecatedApiLevel,
                              const std::string& deprecatedMessage);
 
 /* This class is used to generate one source file.  There will be one instance

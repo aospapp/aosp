@@ -49,6 +49,7 @@ class KeyFactory {
                                         AuthorizationSet* sw_enforced) const = 0;
 
     virtual keymaster_error_t LoadKey(const KeymasterKeyBlob& key_material,
+                                      const AuthorizationSet& additional_params,
                                       const AuthorizationSet& hw_enforced,
                                       const AuthorizationSet& sw_enforced,
                                       UniquePtr<Key>* key) const = 0;

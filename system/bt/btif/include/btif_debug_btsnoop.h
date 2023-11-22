@@ -20,7 +20,7 @@
 
 #include <stdint.h>
 
-#define BTSNOOZ_CURRENT_VERSION 0x01
+#define BTSNOOZ_CURRENT_VERSION 0x02
 
 // The preamble is stored un-encrypted as the first part
 // of the file.
@@ -32,6 +32,7 @@ typedef struct btsnooz_preamble_t {
 // One header for each HCI packet
 typedef struct btsnooz_header_t {
   uint16_t length;
+  uint16_t packet_length;
   uint32_t delta_time_ms;
   uint8_t type;
 } __attribute__((__packed__)) btsnooz_header_t;

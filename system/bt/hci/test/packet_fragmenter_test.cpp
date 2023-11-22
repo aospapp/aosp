@@ -23,11 +23,11 @@
 extern "C" {
 #include <stdint.h>
 
-#include "allocator.h"
 #include "device/include/controller.h"
+#include "osi/include/allocator.h"
+#include "osi/include/osi.h"
 #include "hci_internals.h"
 #include "packet_fragmenter.h"
-#include "osi.h"
 #include "test_stubs.h"
 }
 

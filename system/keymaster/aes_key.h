@@ -33,6 +33,7 @@ class AesKeyFactory : public SymmetricKeyFactory {
     keymaster_algorithm_t registry_key() const { return KM_ALGORITHM_AES; }
 
     keymaster_error_t LoadKey(const KeymasterKeyBlob& key_material,
+                              const AuthorizationSet& additional_params,
                               const AuthorizationSet& hw_enforced,
                               const AuthorizationSet& sw_enforced,
                               UniquePtr<Key>* key) const override;

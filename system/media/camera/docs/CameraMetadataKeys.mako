@@ -53,14 +53,14 @@ ${concatenated_info | javadoc(metadata)}\
   % if entry.deprecated:
      * @deprecated
   % endif
-  % if entry.applied_visibility == 'hidden':
+  % if entry.applied_visibility in ('hidden', 'ndk_public'):
      * @hide
   % endif
      */
   % if entry.deprecated:
     @Deprecated
   % endif
-  % if entry.applied_visibility == 'public':
+  % if entry.applied_visibility in ('public', 'java_public'):
     @PublicKey
   % endif
   % if entry.synthetic:
@@ -75,17 +75,17 @@ ${concatenated_info | javadoc(metadata)}\
 % for outer_namespace in metadata.outer_namespaces: ## assumes single 'android' namespace
   % for section in outer_namespace.sections:
     % if section.find_first(lambda x: isinstance(x, metadata_model.Entry) and x.kind == xml_name) and \
-         any_visible(section, xml_name, ('public','hidden') ):
+         any_visible(section, xml_name, ('public','hidden','ndk_public','java_public') ):
       % for inner_namespace in get_children_by_filtering_kind(section, xml_name, 'namespaces'):
 ## We only support 1 level of inner namespace, i.e. android.a.b and android.a.b.c works, but not android.a.b.c.d
 ## If we need to support more, we should use a recursive function here instead.. but the indentation gets trickier.
-        % for entry in filter_visibility(inner_namespace.merged_entries, ('hidden','public')):
+        % for entry in filter_visibility(inner_namespace.merged_entries, ('hidden','public', 'ndk_public', 'java_public')):
 ${generate_key(entry)}
        % endfor
     % endfor
     % for entry in filter_visibility( \
         get_children_by_filtering_kind(section, xml_name, 'merged_entries'), \
-                                         ('hidden', 'public')):
+                                         ('hidden', 'public', 'ndk_public', 'java_public')):
 ${generate_key(entry)}
     % endfor
     % endif

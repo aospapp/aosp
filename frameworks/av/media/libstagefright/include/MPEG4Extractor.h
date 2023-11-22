@@ -53,11 +53,12 @@ public:
     MPEG4Extractor(const sp<DataSource> &source);
 
     virtual size_t countTracks();
-    virtual sp<MediaSource> getTrack(size_t index);
+    virtual sp<IMediaSource> getTrack(size_t index);
     virtual sp<MetaData> getTrackMetaData(size_t index, uint32_t flags);
 
     virtual sp<MetaData> getMetaData();
     virtual uint32_t flags() const;
+    virtual const char * name() { return "MPEG4Extractor"; }
 
     // for DRM
     virtual char* getDrmTrackInfo(size_t trackID, int *len);
@@ -109,6 +110,7 @@ private:
     status_t readMetaData();
     status_t parseChunk(off64_t *offset, int depth);
     status_t parseITunesMetaData(off64_t offset, size_t size);
+    status_t parseColorInfo(off64_t offset, size_t size);
     status_t parse3GPPMetaData(off64_t offset, size_t size, int depth);
     void parseID3v2MetaData(off64_t offset);
     status_t parseQTMetaKey(off64_t data_offset, size_t data_size);

@@ -9,6 +9,7 @@
 #define SkColorShader_DEFINED
 
 #include "SkShader.h"
+#include "SkPM4f.h"
 
 /** \class SkColorShader
     A Shader that represents a single color. In general, this effect can be
@@ -25,7 +26,7 @@ public:
 
     bool isOpaque() const override;
 
-    size_t contextSize() const override {
+    size_t contextSize(const ContextRec&) const override {
         return sizeof(ColorShaderContext);
     }
 
@@ -34,29 +35,24 @@ public:
         ColorShaderContext(const SkColorShader& shader, const ContextRec&);
 
         uint32_t getFlags() const override;
-        uint8_t getSpan16Alpha() const override;
         void shadeSpan(int x, int y, SkPMColor span[], int count) override;
-        void shadeSpan16(int x, int y, uint16_t span[], int count) override;
         void shadeSpanAlpha(int x, int y, uint8_t alpha[], int count) override;
+        void shadeSpan4f(int x, int y, SkPM4f[], int count) override;
 
     private:
+        SkPM4f      fPM4f;
         SkPMColor   fPMColor;
         uint32_t    fFlags;
-        uint16_t    fColor16;
 
         typedef SkShader::Context INHERITED;
     };
 
-    // we return false for this, use asAGradient
-    virtual BitmapType asABitmap(SkBitmap* outTexture,
-                                 SkMatrix* outMatrix,
-                                 TileMode xy[2]) const override;
-
     GradientType asAGradient(GradientInfo* info) const override;
 
-    virtual bool asFragmentProcessor(GrContext*, const SkPaint&, const SkMatrix& viewM,
-                                     const SkMatrix*, GrColor*,
-                                     GrFragmentProcessor**) const override;
+#if SK_SUPPORT_GPU
+    const GrFragmentProcessor* asFragmentProcessor(GrContext*, const SkMatrix& viewM,
+                                                   const SkMatrix*, SkFilterQuality) const override;
+#endif
 
     SK_TO_STRING_OVERRIDE()
     SK_DECLARE_PUBLIC_FLATTENABLE_DESERIALIZATION_PROCS(SkColorShader)

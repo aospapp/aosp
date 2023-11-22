@@ -1,12 +1,26 @@
+/*
+ * Copyright (C) 2015 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package com.android.server.wifi;
 
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
-import android.util.Log;
 import android.os.SystemClock;
+import android.util.Log;
 
-import com.android.server.wifi.ScanDetail;
 import com.android.server.wifi.hotspot2.PasspointMatch;
 import com.android.server.wifi.hotspot2.PasspointMatchInfo;
 import com.android.server.wifi.hotspot2.pps.HomeSP;
@@ -15,22 +29,25 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
-class ScanDetailCache {
+/**
+ * Maps BSSIDs to their individual ScanDetails for a given WifiConfiguration.
+ */
+public class ScanDetailCache {
 
     private static final String TAG = "ScanDetailCache";
+    private static final boolean DBG = false;
 
     private WifiConfiguration mConfig;
-    private HashMap<String, ScanDetail> mMap;
-    private HashMap<String, PasspointMatchInfo> mPasspointMatches;
-    private static boolean DBG=false;
+    private ConcurrentHashMap<String, ScanDetail> mMap;
+    private ConcurrentHashMap<String, PasspointMatchInfo> mPasspointMatches;
+
     ScanDetailCache(WifiConfiguration config) {
         mConfig = config;
-        mMap = new HashMap();
-        mPasspointMatches = new HashMap();
+        mMap = new ConcurrentHashMap(16, 0.75f, 2);
+        mPasspointMatches = new ConcurrentHashMap(16, 0.75f, 2);
     }
 
     void put(ScanDetail scanDetail) {
@@ -81,6 +98,11 @@ class ScanDetailCache {
         return mMap.values();
     }
 
+    /**
+     * Method to reduce the cache to the given size by removing the oldest entries.
+     *
+     * @param num int target cache size
+     */
     public void trim(int num) {
         int currentSize = mMap.size();
         if (currentSize <= num) {
@@ -103,7 +125,7 @@ class ScanDetailCache {
                 }
             });
         }
-        for (int i = 0; i < currentSize - num ; i++) {
+        for (int i = 0; i < currentSize - num; i++) {
             // Remove oldest results from scan cache
             ScanDetail result = list.get(i);
             mMap.remove(result.getBSSIDString());
@@ -117,8 +139,8 @@ class ScanDetailCache {
         if (list.size() != 0) {
             Collections.sort(list, new Comparator() {
                 public int compare(Object o1, Object o2) {
-                    ScanResult a = ((ScanDetail)o1).getScanResult();
-                    ScanResult b = ((ScanDetail)o2).getScanResult();
+                    ScanResult a = ((ScanDetail) o1).getScanResult();
+                    ScanResult b = ((ScanDetail) o2).getScanResult();
                     if (a.numIpConfigFailures > b.numIpConfigFailures) {
                         return 1;
                     }
@@ -144,15 +166,22 @@ class ScanDetailCache {
         return list;
     }
 
+    /**
+     * Method to get cached scan results that are less than 'age' old.
+     *
+     * @param age long Time window of desired results.
+     * @return WifiConfiguration.Visibility matches in the given visibility
+     */
     public WifiConfiguration.Visibility getVisibilityByRssi(long age) {
         WifiConfiguration.Visibility status = new WifiConfiguration.Visibility();
 
         long now_ms = System.currentTimeMillis();
         long now_elapsed_ms = SystemClock.elapsedRealtime();
-        for(ScanDetail scanDetail : values()) {
+        for (ScanDetail scanDetail : values()) {
             ScanResult result = scanDetail.getScanResult();
-            if (scanDetail.getSeen() == 0)
+            if (scanDetail.getSeen() == 0) {
                 continue;
+            }
 
             if (result.is5GHz()) {
                 //strictly speaking: [4915, 5825]
@@ -167,12 +196,12 @@ class ScanDetailCache {
             if (result.timestamp != 0) {
                 if (DBG) {
                     Log.e("getVisibilityByRssi", " considering " + result.SSID + " " + result.BSSID
-                        + " elapsed=" + now_elapsed_ms + " timestamp=" + result.timestamp
-                        + " age = " + age);
+                            + " elapsed=" + now_elapsed_ms + " timestamp=" + result.timestamp
+                            + " age = " + age);
                 }
-                if ((now_elapsed_ms - (result.timestamp/1000)) > age) continue;
+                if ((now_elapsed_ms - (result.timestamp / 1000)) > age) continue;
             } else {
-                // This check the time at which we have received the scan result from supplicant
+                // This checks the time at which we have received the scan result from supplicant
                 if ((now_ms - result.seen) > age) continue;
             }
 
@@ -194,19 +223,24 @@ class ScanDetailCache {
         return status;
     }
 
+    /**
+     * Method returning the Visibility based on passpoint match time.
+     *
+     * @param age long Desired time window for matches.
+     * @return WifiConfiguration.Visibility matches in the given visibility
+     */
     public WifiConfiguration.Visibility getVisibilityByPasspointMatch(long age) {
 
         long now_ms = System.currentTimeMillis();
         PasspointMatchInfo pmiBest24 = null, pmiBest5 = null;
 
-        for(PasspointMatchInfo pmi : mPasspointMatches.values()) {
+        for (PasspointMatchInfo pmi : mPasspointMatches.values()) {
             ScanDetail scanDetail = pmi.getScanDetail();
             if (scanDetail == null) continue;
             ScanResult result = scanDetail.getScanResult();
             if (result == null) continue;
 
-            if (scanDetail.getSeen() == 0)
-                continue;
+            if (scanDetail.getSeen() == 0) continue;
 
             if ((now_ms - result.seen) > age) continue;
 
@@ -243,6 +277,13 @@ class ScanDetailCache {
         return status;
     }
 
+    /**
+     * Method to get scan matches for the desired time window.  Returns matches by passpoint time if
+     * the WifiConfiguration is passpoint.
+     *
+     * @param age long desired time for matches.
+     * @return WifiConfiguration.Visibility matches in the given visibility
+     */
     public WifiConfiguration.Visibility getVisibility(long age) {
         if (mConfig.isPasspoint()) {
             return getVisibilityByPasspointMatch(age);
@@ -272,15 +313,12 @@ class ScanDetailCache {
                 if (now_ms > scanDetail.getSeen() && scanDetail.getSeen() > 0) {
                     ageMilli = milli % 1000;
                     ageSec   = (milli / 1000) % 60;
-                    ageMin   = (milli / (60*1000)) % 60;
-                    ageHour  = (milli / (60*60*1000)) % 24;
-                    ageDay   = (milli / (24*60*60*1000));
+                    ageMin   = (milli / (60 * 1000)) % 60;
+                    ageHour  = (milli / (60 * 60 * 1000)) % 24;
+                    ageDay   = (milli / (24 * 60 * 60 * 1000));
                 }
                 sbuf.append("{").append(result.BSSID).append(",").append(result.frequency);
                 sbuf.append(",").append(String.format("%3d", result.level));
-                if (result.autoJoinStatus > 0) {
-                    sbuf.append(",st=").append(result.autoJoinStatus);
-                }
                 if (ageSec > 0 || ageMilli > 0) {
                     sbuf.append(String.format(",%4d.%02d.%02d.%02d.%03dms", ageDay,
                             ageHour, ageMin, ageSec, ageMilli));

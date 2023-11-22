@@ -1,7 +1,7 @@
 /*
  *******************************************************************************
- * Copyright (C) 1996-2014, International Business Machines Corporation and    *
- * others. All Rights Reserved.                                                *
+ * Copyright (C) 1996-2016, International Business Machines Corporation and
+ * others. All Rights Reserved.
  *******************************************************************************
  */
 package com.ibm.icu.text;
@@ -13,7 +13,6 @@ import com.ibm.icu.impl.CharacterIteratorWrapper;
 import com.ibm.icu.impl.ReplaceableUCharacterIterator;
 import com.ibm.icu.impl.UCharArrayIterator;
 import com.ibm.icu.impl.UCharacterIteratorWrapper;
-import com.ibm.icu.impl.UCharacterProperty;
 
 
 /**
@@ -159,9 +158,7 @@ public abstract class UCharacterIterator
             if(UTF16.isTrailSurrogate((char)ch2)){
                 // we found a surrogate pair 
                 // return the codepoint
-                return UCharacterProperty.getRawSupplementary(
-                                                          (char)ch,(char)ch2
-                                                             );
+                return Character.toCodePoint((char)ch, (char)ch2);
             }
         }
         return ch;
@@ -210,8 +207,7 @@ public abstract class UCharacterIterator
         if(UTF16.isLeadSurrogate((char)ch1)){
             int ch2 = next();
             if(UTF16.isTrailSurrogate((char)ch2)){
-                return UCharacterProperty.getRawSupplementary((char)ch1,
-                                                              (char)ch2);
+                return Character.toCodePoint((char)ch1, (char)ch2);
             }else if (ch2 != DONE) {
                 // unmatched surrogate so back out
                 previous();
@@ -248,8 +244,7 @@ public abstract class UCharacterIterator
         if(UTF16.isTrailSurrogate((char)ch1)){
             int ch2 = previous();
             if(UTF16.isLeadSurrogate((char)ch2)){
-                return UCharacterProperty.getRawSupplementary((char)ch2,
-                                                              (char)ch1);
+                return Character.toCodePoint((char)ch2, (char)ch1);
             }else if (ch2 != DONE) {
                 //unmatched trail surrogate so back out
                 next();
@@ -290,7 +285,6 @@ public abstract class UCharacterIterator
      * iterator obtained by calling <code>getLength()</code>).
      * <b>Usage:</b>
      * 
-     * <code>
      * <pre>
      *         UChacterIterator iter = new UCharacterIterator.getInstance(text);
      *         char[] buf = new char[iter.getLength()];
@@ -308,14 +302,13 @@ public abstract class UCharacterIterator
      *             }
      *         }
      * </pre>
-     * </code>
-     *             
+     *
      * @param fillIn an array of chars to fill with the underlying UTF-16 code 
      *         units.
      * @param offset the position within the array to start putting the data.
      * @return the number of code units added to fillIn, as a convenience
      * @exception IndexOutOfBoundsException exception if there is not enough
-     *            room after offset in the array, or if offset < 0.
+     *            room after offset in the array, or if offset &lt; 0.
      * @stable ICU 2.4  
      */
     public abstract int getText(char[] fillIn, int offset); 

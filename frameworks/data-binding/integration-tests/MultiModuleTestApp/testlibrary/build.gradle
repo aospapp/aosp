@@ -15,17 +15,19 @@
  */
 
 apply plugin: 'com.android.library'
-apply plugin: 'com.android.databinding'
 
 android {
-    compileSdkVersion 21
-    buildToolsVersion "21.1.2"
+    compileSdkVersion dataBindingConfig.compileSdkVersion
+    buildToolsVersion dataBindingConfig.buildToolsVersion
 
     defaultConfig {
         minSdkVersion 7
         targetSdkVersion 21
         versionCode 1
         versionName "1.0"
+    }
+    dataBinding {
+        enabled = true
     }
     buildTypes {
         release {

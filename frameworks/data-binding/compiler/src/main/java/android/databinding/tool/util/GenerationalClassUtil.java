@@ -80,7 +80,9 @@ public class GenerationalClassUtil {
                     // assume it is a zip file
                     loadFomZipFile(file);
                 }
-            } catch (IOException | URISyntaxException e) {
+            } catch (IOException e) {
+                L.d("cannot open zip file from %s", url);
+            } catch (URISyntaxException e) {
                 L.d("cannot open zip file from %s", url);
             }
         }

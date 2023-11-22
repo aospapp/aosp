@@ -33,7 +33,7 @@
  */
 
 #if !defined(GR_CACHE_STATS)
-  #ifdef SK_DEVELOPER
+  #if defined(SK_DEVELOPER) || defined(SK_DUMP_STATS)
       #define GR_CACHE_STATS  1
   #else
       #define GR_CACHE_STATS  0
@@ -41,7 +41,7 @@
 #endif
 
 #if !defined(GR_GPU_STATS)
-  #ifdef SK_DEVELOPER
+  #if defined(SK_DEVELOPER) || defined(SK_DUMP_STATS)
       #define GR_GPU_STATS    1
   #else
       #define GR_GPU_STATS    0
@@ -75,23 +75,6 @@ typedef unsigned __int64 uint64_t;
 #endif
 #include <stdint.h>
 #endif
-
-/*
- *  The "user config" file can be empty, and everything should work. It is
- *  meant to store a given platform/client's overrides of our guess-work.
- *
- *  A alternate user config file can be specified by defining
- *  GR_USER_CONFIG_FILE. It should be defined relative to GrConfig.h
- *
- *  e.g. it can change the BUILD target or supply its own defines for anything
- *  else (e.g. GR_DEFAULT_RESOURCE_CACHE_MB_LIMIT)
- */
-#if !defined(GR_USER_CONFIG_FILE)
-    #include "GrUserConfig.h"
-#else
-    #include GR_USER_CONFIG_FILE
-#endif
-
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -203,41 +186,10 @@ typedef unsigned __int64 uint64_t;
 #endif
 
 /**
- * GR_GEOM_BUFFER_MAP_THRESHOLD gives a threshold (in bytes) for when Gr should
- * map a GrGeometryBuffer to update its contents. It will use map() if the
- * size of the updated region is greater than the threshold. Otherwise it will
- * use updateData().
+ * Set to 1 to enable pixel local storage path rendering on supported devices.
  */
-#if !defined(GR_GEOM_BUFFER_MAP_THRESHOLD)
-    #define GR_GEOM_BUFFER_MAP_THRESHOLD (1 << 15)
-#endif
-
-/**
- * GR_STROKE_PATH_RENDERING controls whether or not the GrStrokePathRenderer can be selected
- * as a path renderer. GrStrokePathRenderer is currently an experimental path renderer.
- */
-#if !defined(GR_STROKE_PATH_RENDERING)
-    #define GR_STROKE_PATH_RENDERING                 0
-#endif
-
-/**
- * GR_ALWAYS_ALLOCATE_ON_HEAP determines whether various temporary buffers created
- * in the GPU backend are always allocated on the heap or are allowed to be
- * allocated on the stack for smaller memory requests.
- *
- * This is only used for memory buffers that are created and then passed through to the
- * 3D API (e.g. as texture or geometry data)
- */
-#if !defined(GR_ALWAYS_ALLOCATE_ON_HEAP)
-    #define GR_ALWAYS_ALLOCATE_ON_HEAP 0
-#endif
-
-/**
- * GR_FORCE_GPU_TRACE_DEBUGGING will force gpu tracing/debug markers to be turned on. The trace
- * markers will be printed out instead of making the backend calls to push and pop them.
- */
-#if !defined(GR_FORCE_GPU_TRACE_DEBUGGING)
-    #define GR_FORCE_GPU_TRACE_DEBUGGING 0
+#if !defined(GR_ENABLE_PLS_PATH_RENDERING)
+    #define GR_ENABLE_PLS_PATH_RENDERING 0
 #endif
 
 #endif

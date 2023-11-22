@@ -23,11 +23,14 @@ LOCAL_MODULE := CtsOsHostTestCases
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed-prebuilt
+LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed-prebuilt compatibility-host-util cts-migration-lib
 
 LOCAL_CTS_TEST_PACKAGE := android.host.os
 
-LOCAL_CTS_MODULE_CONFIG := $(LOCAL_PATH)/$(CTS_MODULE_TEST_CONFIG)
+LOCAL_CTS_MODULE_CONFIG := $(LOCAL_PATH)/Old$(CTS_MODULE_TEST_CONFIG)
+
+# Tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
 
 include $(BUILD_CTS_HOST_JAVA_LIBRARY)
 

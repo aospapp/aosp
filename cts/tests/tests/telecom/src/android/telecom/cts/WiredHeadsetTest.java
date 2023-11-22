@@ -110,16 +110,6 @@ public class WiredHeadsetTest extends BaseTelecomTestWithMockServices {
         assertConnectionState(connection, Connection.STATE_DISCONNECTED);
     }
 
-    public void testStartCallWithSpeakerphoneNotProvided_SpeakerphoneOffByDefault() {
-        if (!mShouldTestTelecom) {
-            return;
-        }
-
-        placeAndVerifyCall();
-        verifyConnectionForOutgoingCall();
-        assertAudioRoute(mInCallCallbacks.getService(), CallAudioState.ROUTE_EARPIECE);
-    }
-
     private void sendMediaButtonShortPress() throws Exception {
         sendMediaButtonPress(false /* longPress */);
     }

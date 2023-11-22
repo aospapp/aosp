@@ -30,6 +30,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.UserHandle;
+import android.os.storage.StorageManager;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -41,17 +42,15 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.internal.widget.LockPatternUtils;
 import com.android.settings.ConfirmDeviceCredentialActivity;
 import com.android.settings.R;
 import com.android.settings.widget.ToggleSwitch;
 import com.android.settings.widget.ToggleSwitch.OnBeforeCheckedChangeListener;
+import com.android.settingslib.accessibility.AccessibilityUtils;
 
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 public class ToggleAccessibilityServicePreferenceFragment
         extends ToggleFeaturePreferenceFragment implements DialogInterface.OnClickListener {
@@ -77,7 +76,7 @@ public class ToggleAccessibilityServicePreferenceFragment
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.ACCESSIBILITY_SERVICE;
+        return MetricsEvent.ACCESSIBILITY_SERVICE;
     }
 
     @Override
@@ -101,56 +100,8 @@ public class ToggleAccessibilityServicePreferenceFragment
 
     @Override
     public void onPreferenceToggled(String preferenceKey, boolean enabled) {
-        // Parse the enabled services.
-        Set<ComponentName> enabledServices = AccessibilityUtils.getEnabledServicesFromSettings(
-                getActivity());
-
-        if (enabledServices == (Set<?>) Collections.emptySet()) {
-            enabledServices = new HashSet<ComponentName>();
-        }
-
-        // Determine enabled services and accessibility state.
         ComponentName toggledService = ComponentName.unflattenFromString(preferenceKey);
-        boolean accessibilityEnabled = false;
-        if (enabled) {
-            enabledServices.add(toggledService);
-            // Enabling at least one service enables accessibility.
-            accessibilityEnabled = true;
-        } else {
-            enabledServices.remove(toggledService);
-            // Check how many enabled and installed services are present.
-            Set<ComponentName> installedServices = AccessibilitySettings.sInstalledServices;
-            for (ComponentName enabledService : enabledServices) {
-                if (installedServices.contains(enabledService)) {
-                    // Disabling the last service disables accessibility.
-                    accessibilityEnabled = true;
-                    break;
-                }
-            }
-        }
-
-        // Update the enabled services setting.
-        StringBuilder enabledServicesBuilder = new StringBuilder();
-        // Keep the enabled services even if they are not installed since we
-        // have no way to know whether the application restore process has
-        // completed. In general the system should be responsible for the
-        // clean up not settings.
-        for (ComponentName enabledService : enabledServices) {
-            enabledServicesBuilder.append(enabledService.flattenToString());
-            enabledServicesBuilder.append(
-                    AccessibilitySettings.ENABLED_ACCESSIBILITY_SERVICES_SEPARATOR);
-        }
-        final int enabledServicesBuilderLength = enabledServicesBuilder.length();
-        if (enabledServicesBuilderLength > 0) {
-            enabledServicesBuilder.deleteCharAt(enabledServicesBuilderLength - 1);
-        }
-        Settings.Secure.putString(getContentResolver(),
-                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
-                enabledServicesBuilder.toString());
-
-        // Update accessibility enabled.
-        Settings.Secure.putInt(getContentResolver(),
-                Settings.Secure.ACCESSIBILITY_ENABLED, accessibilityEnabled ? 1 : 0);
+        AccessibilityUtils.setAccessibilityServiceState(getActivity(), toggledService, enabled);
     }
 
     // IMPORTANT: Refresh the info since there are dynamically changing
@@ -241,6 +192,16 @@ public class ToggleAccessibilityServicePreferenceFragment
         mSwitchBar.setCheckedInternal(checked);
     }
 
+    /**
+     * Return whether the device is encrypted with legacy full disk encryption. Newer devices
+     * should be using File Based Encryption.
+     *
+     * @return true if device is encrypted
+     */
+    private boolean isFullDiskEncrypted() {
+        return StorageManager.isNonDefaultBlockEncrypted();
+    }
+
     private View createEnableDialogContentView(AccessibilityServiceInfo info) {
         LayoutInflater inflater = (LayoutInflater) getSystemService(
                 Context.LAYOUT_INFLATER_SERVICE);
@@ -250,7 +211,7 @@ public class ToggleAccessibilityServicePreferenceFragment
 
         TextView encryptionWarningView = (TextView) content.findViewById(
                 R.id.encryption_warning);
-        if (LockPatternUtils.isDeviceEncrypted()) {
+        if (isFullDiskEncrypted()) {
             String text = getString(R.string.enable_service_encryption_warning,
                     info.getResolveInfo().loadLabel(getPackageManager()));
             encryptionWarningView.setText(text);
@@ -323,7 +284,7 @@ public class ToggleAccessibilityServicePreferenceFragment
                 // The user confirmed that they accept weaker encryption when
                 // enabling the accessibility service, so change encryption.
                 // Since we came here asynchronously, check encryption again.
-                if (LockPatternUtils.isDeviceEncrypted()) {
+                if (isFullDiskEncrypted()) {
                     mLockPatternUtils.clearEncryptionPassword();
                     Settings.Global.putInt(getContentResolver(),
                             Settings.Global.REQUIRE_PASSWORD_TO_DECRYPT, 0);
@@ -340,7 +301,7 @@ public class ToggleAccessibilityServicePreferenceFragment
         switch (which) {
             case DialogInterface.BUTTON_POSITIVE:
                 if (mShownDialogId == DIALOG_ID_ENABLE_WARNING) {
-                    if (LockPatternUtils.isDeviceEncrypted()) {
+                    if (isFullDiskEncrypted()) {
                         String title = createConfirmCredentialReasonMessage();
                         Intent intent = ConfirmDeviceCredentialActivity.createIntent(title, null);
                         startActivityForResult(intent,

@@ -29,5 +29,10 @@ LOCAL_PACKAGE_NAME := CtsAlarmClockTestCases
 
 LOCAL_SDK_VERSION := current
 
+LOCAL_CTS_MODULE_CONFIG := $(LOCAL_PATH)/Old$(CTS_MODULE_TEST_CONFIG)
+
+# Tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
+
 include $(BUILD_CTS_PACKAGE)
 include $(call all-makefiles-under,$(LOCAL_PATH))

@@ -1,5 +1,5 @@
 #pragma version(1)
-#pragma rs java_package_name(com.android.cts.uirendering)
+#pragma rs java_package_name(android.uirendering.cts)
 
 int REGION_SIZE;
 int WIDTH;

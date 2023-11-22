@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,5 +38,25 @@ float3 __attribute__((kernel)) testFdimFloat3Float3Float3(float3 inA, unsigned i
 
 float4 __attribute__((kernel)) testFdimFloat4Float4Float4(float4 inA, unsigned int x) {
     float4 inB = rsGetElementAt_float4(gAllocInB, x);
+    return fdim(inA, inB);
+}
+
+half __attribute__((kernel)) testFdimHalfHalfHalf(half inA, unsigned int x) {
+    half inB = rsGetElementAt_half(gAllocInB, x);
+    return fdim(inA, inB);
+}
+
+half2 __attribute__((kernel)) testFdimHalf2Half2Half2(half2 inA, unsigned int x) {
+    half2 inB = rsGetElementAt_half2(gAllocInB, x);
+    return fdim(inA, inB);
+}
+
+half3 __attribute__((kernel)) testFdimHalf3Half3Half3(half3 inA, unsigned int x) {
+    half3 inB = rsGetElementAt_half3(gAllocInB, x);
+    return fdim(inA, inB);
+}
+
+half4 __attribute__((kernel)) testFdimHalf4Half4Half4(half4 inA, unsigned int x) {
+    half4 inB = rsGetElementAt_half4(gAllocInB, x);
     return fdim(inA, inB);
 }

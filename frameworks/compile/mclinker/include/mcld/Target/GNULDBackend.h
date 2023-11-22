@@ -189,6 +189,9 @@ class GNULDBackend : public TargetLDBackend {
   /// Different concrete target backend may overlap this function.
   virtual bool allocateCommonSymbols(Module& pModule);
 
+  /// mergeFlags - update set of ELF header flags
+  virtual void mergeFlags(Input& pInput, const char* ELF_hdr) {}
+
   /// updateSectionFlags - update pTo's flags when merging pFrom
   /// update the output section flags based on input section flags.
   virtual bool updateSectionFlags(LDSection& pTo, const LDSection& pFrom);
@@ -307,11 +310,14 @@ class GNULDBackend : public TargetLDBackend {
 
   /// maxFwdBranchOffset - return the max forward branch offset of the backend.
   /// Target can override this function if needed.
-  virtual int64_t maxFwdBranchOffset() { return INT64_MAX; }
+  virtual int64_t maxFwdBranchOffset() const { return INT64_MAX; }
 
   /// maxBwdBranchOffset - return the max backward branch offset of the backend.
   /// Target can override this function if needed.
-  virtual int64_t maxBwdBranchOffset() { return 0; }
+  virtual int64_t maxBwdBranchOffset() const { return 0; }
+
+  /// stubGroupSize - return the group size to place stubs between sections.
+  virtual unsigned stubGroupSize() const;
 
   /// checkAndSetHasTextRel - check pSection flag to set HasTextRel
   void checkAndSetHasTextRel(const LDSection& pSection);

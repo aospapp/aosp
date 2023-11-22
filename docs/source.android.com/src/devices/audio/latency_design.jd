@@ -232,6 +232,5 @@ in server.
 </p>
 
 <p>
-<code>TRACK_FAST</code> is a client -> server concept.
+<code>TRACK_FAST</code> is a client -&gt; server concept.
 </p>
-

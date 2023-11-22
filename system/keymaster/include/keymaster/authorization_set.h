@@ -79,6 +79,26 @@ class AuthorizationSet : public Serializable, public keymaster_key_param_set_t {
     AuthorizationSet(const AuthorizationSet& set) : Serializable(), indirect_data_(nullptr) {
         elems_ = nullptr;
         Reinitialize(set.elems_, set.elems_size_);
+        error_ = set.error_;
+    }
+
+    // Move constructor.
+    AuthorizationSet(AuthorizationSet&& set) : Serializable() {
+        MoveFrom(set);
+    }
+
+    // Copy assignment.
+    AuthorizationSet& operator=(const AuthorizationSet& set) {
+        Reinitialize(set.elems_, set.elems_size_);
+        error_ = set.error_;
+        return *this;
+    }
+
+    // Move assignment.
+    AuthorizationSet& operator=(AuthorizationSet&& set) {
+        FreeData();
+        MoveFrom(set);
+        return *this;
     }
 
     /**
@@ -118,6 +138,11 @@ class AuthorizationSet : public Serializable, public keymaster_key_param_set_t {
     size_t size() const { return elems_size_; }
 
     /**
+     * Returns true if the set is empty.
+     */
+    bool empty() const { return size() == 0; }
+
+    /**
      * Returns the total size of all indirect data referenced by set elements.
      */
     size_t indirect_size() const { return indirect_data_size_; }
@@ -126,6 +151,11 @@ class AuthorizationSet : public Serializable, public keymaster_key_param_set_t {
      * Returns the data in the set, directly. Be careful with this.
      */
     const keymaster_key_param_t* data() const { return elems_; }
+
+    /**
+     * Sorts the set
+     */
+    void Sort();
 
     /**
      * Sorts the set and removes duplicates (inadvertently duplicating tags is easy to do with the
@@ -147,6 +177,12 @@ class AuthorizationSet : public Serializable, public keymaster_key_param_set_t {
     int find(keymaster_tag_t tag, int begin = -1) const;
 
     /**
+     * Removes the entry at the specified index. Returns true if successful, false if the index was
+     * out of bounds.
+     */
+    bool erase(int index);
+
+    /**
      * Returns iterator (pointer) to beginning of elems array, to enable STL-style iteration
      */
     const keymaster_key_param_t* begin() const { return elems_; }
@@ -159,7 +195,19 @@ class AuthorizationSet : public Serializable, public keymaster_key_param_set_t {
     /**
      * Returns the nth element of the set.
      */
+    keymaster_key_param_t& operator[](int n);
+
+    /**
+     * Returns the nth element of the set.
+     */
     keymaster_key_param_t operator[](int n) const;
+
+    /**
+     * Returns true if the set contains at least one instance of \p tag
+     */
+    bool Contains(keymaster_tag_t tag) const {
+        return find(tag) != -1;
+    }
 
     /**
      * Returns the number of \p tag entries.
@@ -180,6 +228,14 @@ class AuthorizationSet : public Serializable, public keymaster_key_param_set_t {
     template <keymaster_tag_t Tag, typename T>
     bool Contains(TypedEnumTag<KM_ENUM, Tag, T> tag, T val) const {
         return ContainsEnumValue(tag, val);
+    }
+
+    /**
+     * Returns true if the set contains the specified tag and value.
+     */
+    template <keymaster_tag_t Tag>
+    bool Contains(TypedTag<KM_UINT, Tag> tag, uint32_t val) const {
+        return ContainsIntValue(tag, val);
     }
 
     /**
@@ -371,10 +427,9 @@ class AuthorizationSet : public Serializable, public keymaster_key_param_set_t {
     size_t SerializedSizeOfElements() const;
 
   private:
-    // Disallow assignment
-    void operator=(const AuthorizationSet&);
-
     void FreeData();
+    void MoveFrom(AuthorizationSet& set);
+
     void set_invalid(Error err);
 
     static size_t ComputeIndirectDataSize(const keymaster_key_param_t* elems, size_t count);
@@ -395,8 +450,9 @@ class AuthorizationSet : public Serializable, public keymaster_key_param_set_t {
     bool GetTagValueBool(keymaster_tag_t tag) const;
 
     bool ContainsEnumValue(keymaster_tag_t tag, uint32_t val) const;
+    bool ContainsIntValue(keymaster_tag_t tag, uint32_t val) const;
 
-    // Define elems_ and elems_size_ as aliases to params and length, respectivley.  This is to
+    // Define elems_ and elems_size_ as aliases to params and length, respectively.  This is to
     // avoid using the variables without the trailing underscore in the implementation.
     keymaster_key_param_t*& elems_ = keymaster_key_param_set_t::params;
     size_t& elems_size_ = keymaster_key_param_set_t::length;

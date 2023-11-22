@@ -174,7 +174,7 @@ page.title=Dalvik bytecode
   <td>nop</td>
   <td>&nbsp;</td>
   <td>Waste cycles.
-    <p><b>Note:</b>
+    <p class="note"><strong>Note:</strong>
     Data-bearing pseudo-instructions are tagged with this opcode, in which
     case the high-order byte of the opcode unit indicates the nature of
     the data. See "<code>packed-switch-payload</code> Format",
@@ -209,7 +209,7 @@ page.title=Dalvik bytecode
   <td><code>A:</code> destination register pair (4 bits)<br/>
     <code>B:</code> source register pair (4 bits)</td>
   <td>Move the contents of one register-pair to another.
-    <p><b>Note:</b>
+    <p class="note"><strong>Note:</strong>
     It is legal to move from <code>v<i>N</i></code> to either
     <code>v<i>N-1</i></code> or <code>v<i>N+1</i></code>, so implementations
     must arrange for both halves of a register pair to be read before
@@ -222,7 +222,7 @@ page.title=Dalvik bytecode
   <td><code>A:</code> destination register pair (8 bits)<br/>
     <code>B:</code> source register pair (16 bits)</td>
   <td>Move the contents of one register-pair to another.
-    <p><b>Note:</b>
+    <p class="note"><strong>Note:</strong>
     Implementation considerations are the same as <code>move-wide</code>,
     above.</p>
   </td>
@@ -233,7 +233,7 @@ page.title=Dalvik bytecode
   <td><code>A:</code> destination register pair (16 bits)<br/>
     <code>B:</code> source register pair (16 bits)</td>
   <td>Move the contents of one register-pair to another.
-    <p><b>Note:</b>
+    <p class="note"><strong>Note:</strong>
     Implementation considerations are the same as <code>move-wide</code>,
     above.</p>
   </td>
@@ -425,7 +425,7 @@ page.title=Dalvik bytecode
   <td>monitor-exit vAA</td>
   <td><code>A:</code> reference-bearing register (8 bits)</td>
   <td>Release the monitor for the indicated object.
-    <p><b>Note:</b>
+    <p class="note"><strong>Note:</strong>
     If this instruction needs to throw an exception, it must do
     so as if the pc has already advanced past the instruction.
     It may be useful to think of this as the instruction successfully
@@ -446,7 +446,7 @@ page.title=Dalvik bytecode
     <code>B:</code> type index (16 bits)</td>
   <td>Throw a <code>ClassCastException</code> if the reference in the
     given register cannot be cast to the indicated type.
-    <p><b>Note:</b> Since <code>A</code> must always be a reference
+    <p class="note"><strong>Note:</strong> Since <code>A</code> must always be a reference
     (and not a primitive value), this will necessarily fail at runtime
     (that is, it will throw an exception) if <code>B</code> refers to a
     primitive type.</p>
@@ -461,7 +461,7 @@ page.title=Dalvik bytecode
   <td>Store in the given destination register <code>1</code>
     if the indicated reference is an instance of the given type,
     or <code>0</code> if not.
-    <p><b>Note:</b> Since <code>B</code> must always be a reference
+    <p class="note"><strong>Note:</strong> Since <code>B</code> must always be a reference
     (and not a primitive value), this will always result
     in <code>0</code> being stored if <code>C</code> refers to a primitive
     type.</td>
@@ -547,7 +547,7 @@ page.title=Dalvik bytecode
   <td>goto +AA</td>
   <td><code>A:</code> signed branch offset (8 bits)</td>
   <td>Unconditionally jump to the indicated instruction.
-    <p><b>Note:</b>
+    <p class="note"><strong>Note:</strong>
     The branch offset must not be <code>0</code>. (A spin
     loop may be legally constructed either with <code>goto/32</code> or
     by including a <code>nop</code> as a target before the branch.)</p>
@@ -558,7 +558,7 @@ page.title=Dalvik bytecode
   <td>goto/16 +AAAA</td>
   <td><code>A:</code> signed branch offset (16 bits)<br/></td>
   <td>Unconditionally jump to the indicated instruction.
-    <p><b>Note:</b>
+    <p class="note"><strong>Note:</strong>
     The branch offset must not be <code>0</code>. (A spin
     loop may be legally constructed either with <code>goto/32</code> or
     by including a <code>nop</code> as a target before the branch.)</p>
@@ -640,7 +640,7 @@ page.title=Dalvik bytecode
     <code>C:</code> signed branch offset (16 bits)</td>
   <td>Branch to the given destination if the given two registers' values
     compare as specified.
-    <p><b>Note:</b>
+    <p class="note"><strong>Note:</strong>
     The branch offset must not be <code>0</code>. (A spin
     loop may be legally constructed either by branching around a
     backward <code>goto</code> or by including a <code>nop</code> as
@@ -661,7 +661,7 @@ page.title=Dalvik bytecode
     <code>B:</code> signed branch offset (16 bits)</td>
   <td>Branch to the given destination if the given register's value compares
     with 0 as specified.
-    <p><b>Note:</b>
+    <p class="note"><strong>Note:</strong>
     The branch offset must not be <code>0</code>. (A spin
     loop may be legally constructed either by branching around a
     backward <code>goto</code> or by including a <code>nop</code> as
@@ -723,7 +723,7 @@ page.title=Dalvik bytecode
     <code>C:</code> instance field reference index (16 bits)</td>
   <td>Perform the identified object instance field operation with
     the identified field, loading or storing into the value register.
-    <p><b>Note:</b> These opcodes are reasonable candidates for static linking,
+    <p class="note"><strong>Note:</strong> These opcodes are reasonable candidates for static linking,
     altering the field argument to be a more direct offset.</p>
   </td>
 </tr>
@@ -750,7 +750,7 @@ page.title=Dalvik bytecode
     <code>B:</code> static field reference index (16 bits)</td>
   <td>Perform the identified object static field operation with the identified
     static field, loading or storing into the value register.
-    <p><b>Note:</b> These opcodes are reasonable candidates for static linking,
+    <p class="note"><strong>Note:</strong> These opcodes are reasonable candidates for static linking,
     altering the field argument to be a more direct offset.</p>
   </td>
 </tr>
@@ -774,21 +774,29 @@ page.title=Dalvik bytecode
     <p><code>invoke-virtual</code> is used to invoke a normal virtual
     method (a method that is not <code>private</code>, <code>static</code>,
     or <code>final</code>, and is also not a constructor).</p>
-    <p><code>invoke-super</code> is used to invoke the closest superclass's
+    <p>When the <code>method_id</code> references a method of a non-interface
+    class, <code>invoke-super</code> is used to invoke the closest superclass's
     virtual method (as opposed to the one with the same <code>method_id</code>
     in the calling class). The same method restrictions hold as for
     <code>invoke-virtual</code>.</p>
+    <p>In Dex files version <code>037</code> or later, if the
+    <code>method_id</code> refers to an interface method,
+    <code>invoke-super</code> is used to invoke the most specific,
+    non-overridden version of that method defined on that interface.  The same
+    method restrictions hold as for <code>invoke-virtual</code>. In Dex files
+    prior to version <code>037</code>, having an interface
+    <code>method_id</code> is illegal and undefined.</p>
     <p><code>invoke-direct</code> is used to invoke a non-<code>static</code>
     direct method (that is, an instance method that is by its nature
-    non-overridable, namely either a <code>private</code> instance method
-    or a constructor).</p>
+    non-overridable, namely either a <code>private</code> instance method or a
+    constructor).</p>
     <p><code>invoke-static</code> is used to invoke a <code>static</code>
     method (which is always considered a direct method).</p>
     <p><code>invoke-interface</code> is used to invoke an
     <code>interface</code> method, that is, on an object whose concrete
     class isn't known, using a <code>method_id</code> that refers to
     an <code>interface</code>.</p>
-    <p><b>Note:</b> These opcodes are reasonable candidates for static linking,
+    <p class="note"><strong>Note:</strong> These opcodes are reasonable candidates for static linking,
     altering the method argument to be a more direct offset
     (or pair thereof).</p>
   </td>
@@ -955,7 +963,7 @@ page.title=Dalvik bytecode
   <td>Perform the indicated binary op on the indicated register (first
     argument) and literal value (second argument), storing the result in
     the destination register.
-    <p><b>Note:</b>
+    <p class="note"><strong>Note:</strong>
     <code>rsub-int</code> does not have a suffix since this version is the
     main opcode of its family. Also, see below for details on its semantics.
     </p>
@@ -982,7 +990,7 @@ page.title=Dalvik bytecode
   <td>Perform the indicated binary op on the indicated register (first
     argument) and literal value (second argument), storing the result
     in the destination register.
-    <p><b>Note:</b> See below for details on the semantics of
+    <p class="note"><strong>Note:</strong> See below for details on the semantics of
     <code>rsub-int</code>.</p>
   </td>
 </tr>
@@ -1031,7 +1039,7 @@ page.title=Dalvik bytecode
 </tbody>
 </table>
 
-<p><b>Note:</b> The total number of code units for an instance of this
+<p class="note"><strong>Note:</strong> The total number of code units for an instance of this
 table is <code>(size * 2) + 4</code>.</p>
 
 <h2 id="sparse-switch">sparse-switch-payload format</h2>
@@ -1071,7 +1079,7 @@ table is <code>(size * 2) + 4</code>.</p>
 </tbody>
 </table>
 
-<p><b>Note:</b> The total number of code units for an instance of this
+<p class="note"><strong>Note:</strong> The total number of code units for an instance of this
 table is <code>(size * 4) + 2</code>.</p>
 
 <h2 id="fill-array">fill-array-data-payload format</h2>
@@ -1108,13 +1116,13 @@ table is <code>(size * 4) + 2</code>.</p>
 </tbody>
 </table>
 
-<p><b>Note:</b> The total number of code units for an instance of this
+<p class="note"><strong>Note:</strong> The total number of code units for an instance of this
 table is <code>(size * element_width + 1) / 2 + 4</code>.</p>
 
 
 <h2 id="math">Mathematical operation details</h2>
 
-<p><b>Note:</b> Floating point operations must follow IEEE 754 rules, using
+<p class="note"><strong>Note:</strong> Floating point operations must follow IEEE 754 rules, using
 round-to-nearest and gradual underflow, except where stated otherwise.</p>
 
 <table class="math">

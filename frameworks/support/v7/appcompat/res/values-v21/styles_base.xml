@@ -42,10 +42,6 @@
            parent="android:Widget.Material.Light.ActionBar.TabText">
     </style>
 
-    <style name="Base.TextAppearance.AppCompat.Widget.ActionBar.Menu"
-           parent="android:TextAppearance.Material.Widget.ActionBar.Menu">
-    </style>
-
     <style name="Base.TextAppearance.AppCompat.Widget.ActionBar.Title"
            parent="android:TextAppearance.Material.Widget.ActionBar.Title">
     </style>
@@ -113,7 +109,7 @@
 
     <style name="Base.Widget.AppCompat.Spinner" parent="android:Widget.Material.Spinner" />
 
-    <style name="Base.Widget.AppCompat.Spinner.Underlined" parent="android:Widget.Material.Spinner.Underlined" />
+    <!-- Base.Widget.AppCompat.Spinner.Underlined is overridden in ldltr-v21 and v23 -->
 
     <style name="Base.Widget.AppCompat.ListView" parent="android:Widget.Material.ListView" />
     <style name="Base.Widget.AppCompat.ListView.Menu" />
@@ -156,6 +152,12 @@
         parent="android:TextAppearance.Material.Widget.PopupMenu.Small">
     </style>
 
+    <style name="Base.TextAppearance.AppCompat.Widget.PopupMenu.Header" parent="TextAppearance.AppCompat">
+        <item name="android:fontFamily">@string/abc_font_family_title_material</item>
+        <item name="android:textSize">@dimen/abc_text_size_menu_header_material</item>
+        <item name="android:textColor">?android:attr/textColorSecondary</item>
+    </style>
+
     <!-- Search View result styles -->
 
     <style name="Base.TextAppearance.AppCompat.SearchResult.Title"
@@ -166,11 +168,17 @@
            parent="android:TextAppearance.Material.SearchResult.Subtitle">
     </style>
 
-    <style name="Base.Widget.AppCompat.AutoCompleteTextView" parent="android:Widget.Material.AutoCompleteTextView" />
+    <style name="Base.Widget.AppCompat.AutoCompleteTextView" parent="android:Widget.Material.AutoCompleteTextView">
+        <item name="android:background">?attr/editTextBackground</item>
+    </style>
 
-    <style name="Base.Widget.AppCompat.EditText" parent="android:Widget.Material.EditText" />
+    <style name="Base.Widget.AppCompat.EditText" parent="android:Widget.Material.EditText">
+        <item name="android:background">?attr/editTextBackground</item>
+    </style>
 
     <style name="Base.Widget.AppCompat.RatingBar" parent="android:Widget.Material.RatingBar" />
+
+    <style name="Base.Widget.AppCompat.SeekBar" parent="android:Widget.Material.SeekBar" />
 
     <style name="Base.Widget.AppCompat.Button" parent="android:Widget.Material.Button" />
 
@@ -178,13 +186,17 @@
 
     <style name="Base.Widget.AppCompat.Button.Borderless" parent="android:Widget.Material.Button.Borderless" />
 
-    <style name="Base.Widget.AppCompat.Button.Borderless.Colored" parent="android:Widget.Material.Button.Borderless.Colored" />
+    <style name="Base.Widget.AppCompat.Button.Borderless.Colored" parent="android:Widget.Material.Button.Borderless.Colored">
+        <item name="android:textColor">@color/abc_btn_colored_borderless_text_material</item>
+    </style>
 
     <style name="Base.Widget.AppCompat.ButtonBar" parent="android:Widget.Material.ButtonBar" />
 
     <style name="Base.Widget.AppCompat.CompoundButton.CheckBox" parent="android:Widget.Material.CompoundButton.CheckBox" />
 
     <style name="Base.Widget.AppCompat.CompoundButton.RadioButton" parent="android:Widget.Material.CompoundButton.RadioButton" />
+
+    <style name="Base.Widget.AppCompat.ImageButton" parent="android:Widget.Material.ImageButton" />
 
     <!-- Progress Bar -->
 

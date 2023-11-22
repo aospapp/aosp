@@ -16,8 +16,10 @@
 
 package com.android.settings;
 
-import android.preference.PreferenceFragment;
 import com.android.internal.logging.MetricsLogger;
+
+import android.os.Bundle;
+import android.support.v14.preference.PreferenceFragment;
 
 /**
  * Instrumented fragment that logs visibility state.
@@ -26,14 +28,21 @@ public abstract class InstrumentedFragment extends PreferenceFragment {
     // Declare new temporary categories here, starting after this value.
     public static final int UNDECLARED = 100000;
 
+    // Used by PreferenceActivity for the dummy fragment it adds, no useful data here.
+    public static final int PREFERENCE_ACTIVITY_FRAGMENT = UNDECLARED + 1;
+
     /**
      * Declare the view of this category.
      *
-     * Categories are defined in {@link com.android.internal.logging.MetricsLogger}
+     * Categories are defined in {@link com.android.internal.logging.MetricsProto.MetricsEvent}
      * or if there is no relevant existing category you may define one in
      * {@link com.android.settings.InstrumentedFragment}.
      */
     protected abstract int getMetricsCategory();
+
+    @Override
+    public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
+    }
 
     @Override
     public void onResume() {

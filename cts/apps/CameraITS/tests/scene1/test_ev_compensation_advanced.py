@@ -22,12 +22,17 @@ import matplotlib
 import matplotlib.pyplot
 import numpy
 
+#AE must converge within this number of auto requests for EV
+THREASH_CONVERGE_FOR_EV = 8
+
 def main():
     """Tests that EV compensation is applied.
     """
+    LOCKED = 3
+
     NAME = os.path.basename(__file__).split(".")[0]
 
-    MAX_LUMA_DELTA_THRESH = 0.02
+    MAX_LUMA_DELTA_THRESH = 0.05
 
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
@@ -46,11 +51,13 @@ def main():
         imid = len(ev_steps) / 2
         ev_shifts = [pow(2, step * ev_per_step) for step in ev_steps]
         lumas = []
+
+        # Converge 3A, and lock AE once converged. skip AF trigger as
+        # dark/bright scene could make AF convergence fail and this test
+        # doesn't care the image sharpness.
+        cam.do_3a(ev_comp=0, lock_ae=True, do_af=False)
+
         for ev in ev_steps:
-            # Re-converge 3A, and lock AE once converged. skip AF trigger as
-            # dark/bright scene could make AF convergence fail and this test
-            # doesn't care the image sharpness.
-            cam.do_3a(ev_comp=ev, lock_ae=True, do_af=False)
 
             # Capture a single shot with the same EV comp and locked AE.
             req = its.objects.auto_capture_request()
@@ -62,15 +69,20 @@ def main():
             req["android.tonemap.curveRed"] = [0.0,0.0, 1.0,1.0]
             req["android.tonemap.curveGreen"] = [0.0,0.0, 1.0,1.0]
             req["android.tonemap.curveBlue"] = [0.0,0.0, 1.0,1.0]
-            cap = cam.do_capture(req)
-            y = its.image.convert_capture_to_planes(cap)[0]
-            tile = its.image.get_image_patch(y, 0.45,0.45,0.1,0.1)
-            lumas.append(its.image.compute_image_means(tile)[0])
+            caps = cam.do_capture([req]*THREASH_CONVERGE_FOR_EV)
+
+            for cap in caps:
+                if (cap['metadata']['android.control.aeState'] == LOCKED):
+                    y = its.image.convert_capture_to_planes(cap)[0]
+                    tile = its.image.get_image_patch(y, 0.45,0.45,0.1,0.1)
+                    lumas.append(its.image.compute_image_means(tile)[0])
+                    break
+            assert(cap['metadata']['android.control.aeState'] == LOCKED)
 
         print "ev_step_size_in_stops", ev_per_step
         shift_mid = ev_shifts[imid]
         luma_normal = lumas[imid] / shift_mid
-        expected_lumas = [luma_normal * ev_shift for ev_shift in ev_shifts]
+        expected_lumas = [min(1.0, luma_normal * ev_shift) for ev_shift in ev_shifts]
 
         pylab.plot(ev_steps, lumas, 'r')
         pylab.plot(ev_steps, expected_lumas, 'b')

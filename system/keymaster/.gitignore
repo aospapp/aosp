@@ -5,14 +5,6 @@
 *.run
 *.memcheck
 *.massif
-/abstract_factory_registry_test
-/android_keymaster_messages_test
-/android_keymaster_test
-/authorization_set_test
+/*_test
 /coverage.info
 /coverage/
-/hkdf_test
-/hmac_test
-/key_blob_test
-/keymaster_enforcement_test
-/trusty_keymaster_device_test

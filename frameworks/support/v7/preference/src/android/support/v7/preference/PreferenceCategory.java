@@ -17,6 +17,9 @@
 package android.support.v7.preference;
 
 import android.content.Context;
+import android.support.v4.content.res.TypedArrayUtils;
+import android.support.v4.view.accessibility.AccessibilityNodeInfoCompat;
+import android.support.v4.view.accessibility.AccessibilityNodeInfoCompat.CollectionItemInfoCompat;
 import android.util.AttributeSet;
 
 /**
@@ -43,7 +46,8 @@ public class PreferenceCategory extends PreferenceGroup {
     }
 
     public PreferenceCategory(Context context, AttributeSet attrs) {
-        this(context, attrs, R.attr.preferenceCategoryStyle);
+        this(context, attrs, TypedArrayUtils.getAttr(context, R.attr.preferenceCategoryStyle,
+                android.R.attr.preferenceCategoryStyle));
     }
 
     public PreferenceCategory(Context context) {
@@ -68,5 +72,24 @@ public class PreferenceCategory extends PreferenceGroup {
     @Override
     public boolean shouldDisableDependents() {
         return !super.isEnabled();
+    }
+
+    @Override
+    public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfoCompat info) {
+        super.onInitializeAccessibilityNodeInfo(info);
+
+        CollectionItemInfoCompat existingItemInfo = info.getCollectionItemInfo();
+        if (existingItemInfo == null) {
+            return;
+        }
+
+        final CollectionItemInfoCompat newItemInfo = CollectionItemInfoCompat.obtain(
+                existingItemInfo.getRowIndex(),
+                existingItemInfo.getRowSpan(),
+                existingItemInfo.getColumnIndex(),
+                existingItemInfo.getColumnSpan(),
+                true /* heading */,
+                existingItemInfo.isSelected());
+        info.setCollectionItemInfo(newItemInfo);
     }
 }

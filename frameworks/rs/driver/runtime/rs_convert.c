@@ -38,6 +38,7 @@ extern typeout##4 __attribute__((const, overloadable))   \
                         CVT_FUNC_2(type, int)       \
                         CVT_FUNC_2(type, ulong)     \
                         CVT_FUNC_2(type, long)      \
+                        CVT_FUNC_2(type, half)      \
                         CVT_FUNC_2(type, float)     \
                         CVT_FUNC_2(type, double)
 
@@ -49,6 +50,7 @@ CVT_FUNC(int)
 CVT_FUNC(uint)
 CVT_FUNC(long)
 CVT_FUNC(ulong)
+CVT_FUNC(half)
 CVT_FUNC(float)
 CVT_FUNC(double)
 

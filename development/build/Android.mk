@@ -61,7 +61,7 @@ stub_timestamp := $(OUT_DOCS)/api-stubs-timestamp
 include $(LOCAL_PATH)/build_android_stubs.mk
 
 .PHONY: android_stubs
-android_stubs: $(full_target)
+android_stubs: $(full_target) $(full_src_target)
 
 # The real rules create a javalib.jar that contains a classes.dex file.  This
 # code is never going to be run anywhere, so just make a copy of the file.
@@ -73,15 +73,30 @@ $(dir $(full_target))javalib.jar: $(full_target)
 # android.jar is what we put in the SDK package.
 android_jar_intermediates := $(TARGET_OUT_COMMON_INTERMEDIATES)/PACKAGING/android_jar_intermediates
 android_jar_full_target := $(android_jar_intermediates)/android.jar
+android_jar_src_target := $(android_jar_intermediates)/android-stubs-src.jar
 
 $(android_jar_full_target): $(full_target)
 	@echo Package SDK Stubs: $@
 	$(hide)mkdir -p $(dir $@)
 	$(hide)$(ACP) $< $@
 
+$(android_jar_src_target): $(full_src_target)
+	@echo Package SDK Stubs Source: $@
+	$(hide)mkdir -p $(dir $@)
+	$(hide)$(ACP) $< $@
+
 ALL_SDK_FILES += $(android_jar_full_target)
+ALL_SDK_FILES += $(android_jar_src_target)
 
 # ====================================================
+
+# The Jack & Jill compiler jars
+ALL_SDK_FILES += prebuilts/sdk/tools/jacks/jack-$(JACK_SDKTOOL_VERSION).jar
+ALL_SDK_FILES += prebuilts/sdk/tools/jills/jill-$(JACK_SDKTOOL_VERSION).jar
+
+# The Jack reporter tool for code coverage
+ALL_SDK_FILES += prebuilts/sdk/tools/jack-jacoco-reporter.jar
+ALL_SDK_FILES += prebuilts/sdk/tools/jack-coverage-plugin.jar
 
 # The uiautomator stubs
 ALL_SDK_FILES += $(TARGET_OUT_COMMON_INTERMEDIATES)/JAVA_LIBRARIES/android_uiautomator_intermediates/javalib.jar
@@ -97,6 +112,8 @@ $(_psm_packaging_target) : $(_psm_build_module) | $(ACP)
 	@echo "Package $(1).jar: $$@"
 	$(hide) mkdir -p $$(dir $$@)
 	$(hide) $(ACP) $$< $$@
+	@# Delete resource generated classes from the jar files.
+	$(hide) zip -d $$@ "*/R.class" "*/R\$$$$*.class" "*/Manifest.class" "*/Manifest\$$$$*.class" >/dev/null 2>&1 || true
 
 ALL_SDK_FILES += $(_psm_packaging_target)
 $(eval _psm_build_module :=)
@@ -111,13 +128,21 @@ ANDROID_SUPPORT_LIBRARIES := \
     android-support-v7-gridlayout \
     android-support-v7-mediarouter \
     android-support-v7-palette \
+    android-support-v7-preference \
     android-support-v7-recyclerview \
     android-support-v13 \
+    android-support-v14-preference \
     android-support-v17-leanback \
+    android-support-v17-preference-leanback \
     android-support-multidex \
     android-support-multidex-instrumentation \
     android-support-design \
-    android-support-percent
+    android-support-percent \
+    android-support-recommendation \
+    android-support-customtabs \
+    android-support-documents-archive \
+    android-support-vectordrawable \
+    android-support-animatedvectordrawable
 
 $(foreach lib, $(ANDROID_SUPPORT_LIBRARIES), $(eval $(call _package_sdk_library,$(lib))))
 
@@ -125,20 +150,23 @@ $(foreach lib, $(ANDROID_SUPPORT_LIBRARIES), $(eval $(call _package_sdk_library,
 
 ALL_SDK_FILES += $(HOST_OUT)/development/sdk/generated-api-versions.xml
 
-api_gen_jar := $(TOPDIR)prebuilts/tools/common/api-generator/api-generator-22.9.2.jar
+api_gen_jar := $(TOPDIR)prebuilts/tools/common/api-generator/api-generator-25.0.0.jar
 api_gen_deps := \
-  $(TOPDIR)prebuilts/tools/common/kxml2-tools/kxml2-2.3.0.jar \
-  $(TOPDIR)prebuilts/tools/common/asm-tools/asm-4.0.jar \
-  $(TOPDIR)prebuilts/tools/common/asm-tools/asm-tree-4.0.jar \
-  $(TOPDIR)prebuilts/devtools/tools/lib/common.jar
+  $(TOPDIR)prebuilts/tools/common/m2/repository/net/sf/kxml/kxml2/2.3.0/kxml2-2.3.0.jar \
+  $(TOPDIR)prebuilts/tools/common/m2/repository/org/ow2/asm/asm/5.0.4/asm-5.0.4.jar \
+  $(TOPDIR)prebuilts/tools/common/m2/repository/org/ow2/asm/asm-tree/5.0.4/asm-tree-5.0.4.jar \
+  $(TOPDIR)prebuilts/tools/common/m2/repository/com/google/guava/guava/17.0/guava-17.0.jar
 api_gen_classpath := $(subst $(space),:,$(api_gen_jar) $(api_gen_deps))
 
 
-$(HOST_OUT)/development/sdk/generated-api-versions.xml :
+$(HOST_OUT)/development/sdk/generated-api-versions.xml: $(android_jar_full_target)
 	java -cp $(api_gen_classpath) \
 	  com.android.apigenerator.Main \
 	  --pattern $(TOPDIR)prebuilts/tools/common/api-versions/android-%/android.jar \
 	  --pattern $(TOPDIR)prebuilts/sdk/%/android.jar \
+	  --current-version $(PLATFORM_SDK_VERSION) \
+	  --current-codename $(PLATFORM_VERSION_CODENAME) \
+	  --current-jar $(android_jar_full_target) \
 	  $@
 
 
@@ -152,3 +180,14 @@ android_system_stubs: $(full_target)
 
 # Build and store the android_system.jar.
 $(call dist-for-goals,sdk win_sdk,$(full_target):android_system.jar)
+
+# ============ Test SDK ============
+sdk_stub_name := android_test_stubs_current
+stub_timestamp := $(OUT_DOCS)/test-api-stubs-timestamp
+include $(LOCAL_PATH)/build_android_stubs.mk
+
+.PHONY: android_test_stubs
+android_test_stubs: $(full_target)
+
+# Build and store the android_test.jar.
+$(call dist-for-goals,sdk win_sdk,$(full_target):android_test.jar)

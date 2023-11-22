@@ -25,15 +25,16 @@ public class AnimationFilter {
     boolean animateAlpha;
     boolean animateY;
     boolean animateZ;
-    boolean animateScale;
     boolean animateHeight;
     boolean animateTopInset;
     boolean animateDimmed;
     boolean animateDark;
     boolean animateHideSensitive;
+    public boolean animateShadowAlpha;
     boolean hasDelays;
     boolean hasGoToFullShadeEvent;
     boolean hasDarkEvent;
+    boolean hasHeadsUpDisappearClickEvent;
     int darkAnimationOriginIndex;
 
     public AnimationFilter animateAlpha() {
@@ -53,11 +54,6 @@ public class AnimationFilter {
 
     public AnimationFilter animateZ() {
         animateZ = true;
-        return this;
-    }
-
-    public AnimationFilter animateScale() {
-        animateScale = true;
         return this;
     }
 
@@ -86,6 +82,11 @@ public class AnimationFilter {
         return this;
     }
 
+    public AnimationFilter animateShadowAlpha() {
+        animateShadowAlpha = true;
+        return this;
+    }
+
     /**
      * Combines multiple filters into {@code this} filter, using or as the operand .
      *
@@ -106,6 +107,10 @@ public class AnimationFilter {
                 hasDarkEvent = true;
                 darkAnimationOriginIndex = ev.darkAnimationOriginIndex;
             }
+            if (ev.animationType == NotificationStackScrollLayout.AnimationEvent
+                    .ANIMATION_TYPE_HEADS_UP_DISAPPEAR_CLICK) {
+                hasHeadsUpDisappearClickEvent = true;
+            }
         }
     }
 
@@ -113,12 +118,12 @@ public class AnimationFilter {
         animateAlpha |= filter.animateAlpha;
         animateY |= filter.animateY;
         animateZ |= filter.animateZ;
-        animateScale |= filter.animateScale;
         animateHeight |= filter.animateHeight;
         animateTopInset |= filter.animateTopInset;
         animateDimmed |= filter.animateDimmed;
         animateDark |= filter.animateDark;
         animateHideSensitive |= filter.animateHideSensitive;
+        animateShadowAlpha |= filter.animateShadowAlpha;
         hasDelays |= filter.hasDelays;
     }
 
@@ -126,8 +131,8 @@ public class AnimationFilter {
         animateAlpha = false;
         animateY = false;
         animateZ = false;
-        animateScale = false;
         animateHeight = false;
+        animateShadowAlpha = false;
         animateTopInset = false;
         animateDimmed = false;
         animateDark = false;
@@ -135,6 +140,7 @@ public class AnimationFilter {
         hasDelays = false;
         hasGoToFullShadeEvent = false;
         hasDarkEvent = false;
+        hasHeadsUpDisappearClickEvent = false;
         darkAnimationOriginIndex =
                 NotificationStackScrollLayout.AnimationEvent.DARK_ANIMATION_ORIGIN_INDEX_ABOVE;
     }

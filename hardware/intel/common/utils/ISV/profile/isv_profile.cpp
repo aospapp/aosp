@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  */
-#include <libexpat/expat.h>
+#include <expat.h>
 #include <string.h>
 #include <stdio.h>
 #include <utils/Log.h>

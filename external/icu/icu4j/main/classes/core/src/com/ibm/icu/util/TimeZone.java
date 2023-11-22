@@ -150,8 +150,8 @@ abstract public class TimeZone implements Serializable, Cloneable, Freezable<Tim
      */
     public static final int TIMEZONE_ICU = 0;
     /**
-     * {@icu} A time zone implementation type indicating JDK TimeZone used by
-     * <code>getTimeZone</code>, <code>setDefaultTimeZoneType</code>
+     * {@icu} A time zone implementation type indicating the {@link java.util.TimeZone}
+     * used by <code>getTimeZone</code>, <code>setDefaultTimeZoneType</code>
      * and <code>getDefaultTimeZoneType</code>.
      * @stable ICU 4.0
      */
@@ -654,16 +654,16 @@ abstract public class TimeZone implements Serializable, Cloneable, Freezable<Tim
      * <p>The default implementation in this class returns <code>true</code> if {@link #useDaylightTime()}
      * or {@link #inDaylightTime(Date) inDaylightTime(new Date())} returns <code>true</code>.
      * <p>
-     * <strong>Note:</strong> This method was added for JDK compatibility support.
-     * The JDK's <code>useDaylightTime()</code> only checks the last known rule(s), therefore
-     * it may return false even the zone observes daylight saving time currently. JDK added
-     * <code>observesDaylightTime()</code> to resolve the issue. In ICU, {@link #useDaylightTime()}
-     * works differently. The ICU implementation checks if the zone uses daylight saving time
-     * in the current calendar year. Therefore, it will never return <code>false</code> if
-     * daylight saving time is currently used.
+     * <strong>Note:</strong> This method was added for {@link java.util.TimeZone} compatibility
+     * support. The {@link java.util.TimeZone#useDaylightTime()} method only checks the last known
+     * rule(s), therefore it may return false even the zone observes daylight saving time currently.
+     * {@link java.util.TimeZone} added <code>observesDaylightTime()</code> to resolve the issue.
+     * In ICU, {@link #useDaylightTime()} works differently. The ICU implementation checks if the
+     * zone uses daylight saving time in the current calendar year. Therefore, it will never return
+     * <code>false</code> if daylight saving time is currently used.
      * <p>
      * ICU's TimeZone subclass implementations override this method to support the same behavior
-     * with JDK's <code>observesDaylightSavingTime()</code>. Unlike {@link #useDaylightTime()},
+     * with {@link java.util.TimeZone#observesDaylightTime()}. Unlike {@link #useDaylightTime()},
      * the implementation does not take past daylight saving time into account, so
      * that this method may return <code>false</code> even when {@link #useDaylightTime()} returns
      * <code>true</code>.
@@ -877,7 +877,7 @@ abstract public class TimeZone implements Serializable, Cloneable, Freezable<Tim
      * includes the given ID.  An equivalency group contains zones
      * that have the same GMT offset and rules.
      *
-     * <p>The returned count includes the given ID; it is always >= 1
+     * <p>The returned count includes the given ID; it is always &gt;= 1
      * for valid IDs.  The given ID must be a system time zone.  If it
      * is not, returns zero.
      * @param id a system time zone ID
@@ -935,6 +935,18 @@ abstract public class TimeZone implements Serializable, Cloneable, Freezable<Tim
         }
         return defaultZone.cloneAsThawed();
     }
+
+    // Android patch (http://b/28949992) start.
+    // ICU TimeZone.setDefault() not supported on Android.
+    /**
+     * Clears the cached default time zone.
+     * This causes {@link #getDefault()} to re-request the default time zone
+     * from {@link java.util.TimeZone}.
+     */
+    public static synchronized void clearCachedDefault() {
+        defaultZone = null;
+    }
+    // Android patch (http://b/28949992) end.
 
     /**
      * Sets the <code>TimeZone</code> that is
@@ -1132,7 +1144,7 @@ abstract public class TimeZone implements Serializable, Cloneable, Freezable<Tim
      * method returns <code>null</code>.
      * 
      * <p>This implementation utilizes <a href="http://unicode.org/cldr/charts/supplemental/zone_tzid.html">
-     * Zone-Tzid mapping data<a>. The mapping data is updated time to time. To get the latest changes,
+     * Zone-Tzid mapping data</a>. The mapping data is updated time to time. To get the latest changes,
      * please read the ICU user guide section <a href="http://userguide.icu-project.org/datetime/timezone#TOC-Updating-the-Time-Zone-Data">
      * Updating the Time Zone Data</a>.
      * 
@@ -1192,7 +1204,7 @@ abstract public class TimeZone implements Serializable, Cloneable, Freezable<Tim
      * method returns <code>null</code>.
      *
      * <p>This implementation utilizes <a href="http://unicode.org/cldr/charts/supplemental/zone_tzid.html">
-     * Zone-Tzid mapping data<a>. The mapping data is updated time to time. To get the latest changes,
+     * Zone-Tzid mapping data</a>. The mapping data is updated time to time. To get the latest changes,
      * please read the ICU user guide section <a href="http://userguide.icu-project.org/datetime/timezone#TOC-Updating-the-Time-Zone-Data">
      * Updating the Time Zone Data</a>.
      *

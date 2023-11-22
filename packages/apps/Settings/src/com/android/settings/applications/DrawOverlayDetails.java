@@ -18,30 +18,24 @@ package com.android.settings.applications;
 import android.app.AlertDialog;
 import android.app.AppOpsManager;
 import android.content.ActivityNotFoundException;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.UserHandle;
-import android.preference.Preference;
-import android.preference.Preference.OnPreferenceChangeListener;
-import android.preference.Preference.OnPreferenceClickListener;
-import android.preference.SwitchPreference;
 import android.provider.Settings;
+import android.support.v14.preference.SwitchPreference;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.Preference.OnPreferenceChangeListener;
+import android.support.v7.preference.Preference.OnPreferenceClickListener;
 import android.util.Log;
 
-import com.android.internal.logging.MetricsLogger;
-import com.android.settings.InstrumentedFragment;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.R;
 import com.android.settings.applications.AppStateAppOpsBridge.PermissionState;
 import com.android.settings.applications.AppStateOverlayBridge.OverlayState;
-import com.android.settingslib.applications.ApplicationsState;
 import com.android.settingslib.applications.ApplicationsState.AppEntry;
-
-import java.util.List;
 
 public class DrawOverlayDetails extends AppInfoWithHeader implements OnPreferenceChangeListener,
         OnPreferenceClickListener {
@@ -158,17 +152,21 @@ public class DrawOverlayDetails extends AppInfoWithHeader implements OnPreferenc
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.SYSTEM_ALERT_WINDOW_APPS;
+        return MetricsEvent.SYSTEM_ALERT_WINDOW_APPS;
     }
 
     public static CharSequence getSummary(Context context, AppEntry entry) {
-        if (entry.extraInfo != null) {
-            return getSummary(context, new OverlayState((PermissionState)entry.extraInfo));
+        OverlayState state;
+        if (entry.extraInfo instanceof OverlayState) {
+            state = (OverlayState) entry.extraInfo;
+        } else if (entry.extraInfo instanceof PermissionState) {
+            state = new OverlayState((PermissionState) entry.extraInfo);
+        } else {
+            state = new AppStateOverlayBridge(context, null, null).getOverlayInfo(
+                    entry.info.packageName, entry.info.uid);
         }
 
-        // fallback if for whatever reason entry.extrainfo is null - the result
-        // may be less accurate
-        return getSummary(context, entry.info.packageName);
+        return getSummary(context, state);
     }
 
     public static CharSequence getSummary(Context context, OverlayState overlayState) {

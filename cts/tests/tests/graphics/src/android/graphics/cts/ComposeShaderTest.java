@@ -23,8 +23,8 @@ import android.graphics.Color;
 import android.graphics.ComposeShader;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
-import android.graphics.PixelXorXfermode;
 import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
 import android.graphics.Shader;
 import android.graphics.Xfermode;
 import android.graphics.Bitmap.Config;
@@ -71,17 +71,17 @@ public class ComposeShaderTest extends TestCase {
     }
 
     public void testXfermode() {
-        Bitmap greenBitmap = Bitmap.createBitmap(1, 1, Config.ARGB_8888);
-        greenBitmap.eraseColor(Color.GREEN);
+        Bitmap redBitmap = Bitmap.createBitmap(1, 1, Config.ARGB_8888);
+        redBitmap.eraseColor(Color.RED);
         Bitmap cyanBitmap = Bitmap.createBitmap(1, 1, Config.ARGB_8888);
         cyanBitmap.eraseColor(Color.CYAN);
 
-        BitmapShader blueShader = new BitmapShader(greenBitmap, TileMode.CLAMP, TileMode.CLAMP);
-        BitmapShader redShader = new BitmapShader(cyanBitmap, TileMode.CLAMP, TileMode.CLAMP);
+        BitmapShader redShader = new BitmapShader(redBitmap, TileMode.CLAMP, TileMode.CLAMP);
+        BitmapShader cyanShader = new BitmapShader(cyanBitmap, TileMode.CLAMP, TileMode.CLAMP);
 
-        PixelXorXfermode xferMode = new PixelXorXfermode(Color.WHITE);
+        PorterDuffXfermode xferMode = new PorterDuffXfermode(PorterDuff.Mode.ADD);
 
-        ComposeShader shader = new ComposeShader(blueShader, redShader, xferMode);
+        ComposeShader shader = new ComposeShader(redShader, cyanShader, xferMode);
 
         Bitmap bitmap = Bitmap.createBitmap(1, 1, Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
@@ -89,7 +89,7 @@ public class ComposeShaderTest extends TestCase {
         paint.setShader(shader);
         canvas.drawPaint(paint);
 
-        // white ^ green ^ cyan = yellow
-        assertEquals(Color.YELLOW, bitmap.getPixel(0, 0));
+        // green + cyan = white
+        assertEquals(Color.WHITE, bitmap.getPixel(0, 0));
     }
 }

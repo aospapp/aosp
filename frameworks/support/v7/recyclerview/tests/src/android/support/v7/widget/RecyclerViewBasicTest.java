@@ -16,11 +16,19 @@
 
 package android.support.v7.widget;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import android.app.Instrumentation;
 import android.content.Context;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.SystemClock;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.runner.AndroidJUnit4;
 import android.test.AndroidTestCase;
+import android.test.suitebuilder.annotation.SmallTest;
 import android.util.AttributeSet;
 import android.util.SparseArray;
 import android.view.MotionEvent;
@@ -28,19 +36,29 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import static org.junit.Assert.*;
 
-public class RecyclerViewBasicTest extends AndroidTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class RecyclerViewBasicTest {
 
     RecyclerView mRecyclerView;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mRecyclerView = new RecyclerView(mContext);
+
+    @Before
+    public void setUp() throws Exception {
+        mRecyclerView = new RecyclerView(getContext());
     }
 
-    public void testMeasureWithoutLayoutManager() {
+    private Context getContext() {
+        return InstrumentationRegistry.getContext();
+    }
+
+    @Test
+    public void measureWithoutLayoutManager() {
         measure();
     }
 
@@ -56,7 +74,8 @@ public class RecyclerViewBasicTest extends AndroidTestCase {
         mRecyclerView.focusSearch(1);
     }
 
-    public void testLayoutWithoutAdapter() throws InterruptedException {
+    @Test
+    public void layoutWithoutAdapter() throws InterruptedException {
         MockLayoutManager layoutManager = new MockLayoutManager();
         mRecyclerView.setLayoutManager(layoutManager);
         layout();
@@ -69,48 +88,55 @@ public class RecyclerViewBasicTest extends AndroidTestCase {
                 + "handle it properly", true, mRecyclerView.isScrollContainer());
     }
 
-    public void testLayoutWithoutLayoutManager() throws InterruptedException {
+    @Test
+    public void layoutWithoutLayoutManager() throws InterruptedException {
         mRecyclerView.setAdapter(new MockAdapter(20));
         measure();
         layout();
     }
 
-    public void testFocusWithoutLayoutManager() throws InterruptedException {
+    @Test
+    public void focusWithoutLayoutManager() throws InterruptedException {
         mRecyclerView.setAdapter(new MockAdapter(20));
         measure();
         layout();
         focusSearch();
     }
 
-    public void testScrollWithoutLayoutManager() throws InterruptedException {
+    @Test
+    public void scrollWithoutLayoutManager() throws InterruptedException {
         mRecyclerView.setAdapter(new MockAdapter(20));
         measure();
         layout();
         mRecyclerView.scrollBy(10, 10);
     }
 
-    public void testSmoothScrollWithoutLayoutManager() throws InterruptedException {
+    @Test
+    public void smoothScrollWithoutLayoutManager() throws InterruptedException {
         mRecyclerView.setAdapter(new MockAdapter(20));
         measure();
         layout();
         mRecyclerView.smoothScrollBy(10, 10);
     }
 
-    public void testScrollToPositionWithoutLayoutManager() throws InterruptedException {
+    @Test
+    public void scrollToPositionWithoutLayoutManager() throws InterruptedException {
         mRecyclerView.setAdapter(new MockAdapter(20));
         measure();
         layout();
         mRecyclerView.scrollToPosition(5);
     }
 
-    public void testSmoothScrollToPositionWithoutLayoutManager() throws InterruptedException {
+    @Test
+    public void smoothScrollToPositionWithoutLayoutManager() throws InterruptedException {
         mRecyclerView.setAdapter(new MockAdapter(20));
         measure();
         layout();
         mRecyclerView.smoothScrollToPosition(5);
     }
 
-    public void testInterceptTouchWithoutLayoutManager() {
+    @Test
+    public void interceptTouchWithoutLayoutManager() {
         mRecyclerView.setAdapter(new MockAdapter(20));
         measure();
         layout();
@@ -119,7 +145,8 @@ public class RecyclerViewBasicTest extends AndroidTestCase {
                         SystemClock.uptimeMillis(), MotionEvent.ACTION_DOWN, 10, 10, 0)));
     }
 
-    public void testOnTouchWithoutLayoutManager() {
+    @Test
+    public void onTouchWithoutLayoutManager() {
         mRecyclerView.setAdapter(new MockAdapter(20));
         measure();
         layout();
@@ -127,7 +154,8 @@ public class RecyclerViewBasicTest extends AndroidTestCase {
                 SystemClock.uptimeMillis(), MotionEvent.ACTION_DOWN, 10, 10, 0)));
     }
 
-    public void testLayout() throws InterruptedException {
+    @Test
+    public void layoutSimple() throws InterruptedException {
         MockLayoutManager layoutManager = new MockLayoutManager();
         mRecyclerView.setLayoutManager(layoutManager);
         mRecyclerView.setAdapter(new MockAdapter(3));
@@ -136,7 +164,8 @@ public class RecyclerViewBasicTest extends AndroidTestCase {
                 + " layout manager's layout method", 1, layoutManager.mLayoutCount);
     }
 
-    public void testObservingAdapters() {
+    @Test
+    public void observingAdapters() {
         MockAdapter adapterOld = new MockAdapter(1);
         mRecyclerView.setAdapter(adapterOld);
         assertTrue("attached adapter should have observables", adapterOld.hasObservers());
@@ -152,7 +181,8 @@ public class RecyclerViewBasicTest extends AndroidTestCase {
                 adapterNew.hasObservers());
     }
 
-    public void testAdapterChangeCallbacks() {
+    @Test
+    public void adapterChangeCallbacks() {
         MockLayoutManager layoutManager = new MockLayoutManager();
         mRecyclerView.setLayoutManager(layoutManager);
         MockAdapter adapterOld = new MockAdapter(1);
@@ -170,7 +200,53 @@ public class RecyclerViewBasicTest extends AndroidTestCase {
                 adapterNew, null);
     }
 
-    public void testSavedStateWithStatelessLayoutManager() throws InterruptedException {
+    @Test
+    public void recyclerOffsetsOnMove() {
+        MockLayoutManager  layoutManager = new MockLayoutManager();
+        final List<RecyclerView.ViewHolder> recycledVhs = new ArrayList<>();
+        mRecyclerView.setLayoutManager(layoutManager);
+        MockAdapter adapter = new MockAdapter(100) {
+            @Override
+            public void onViewRecycled(RecyclerView.ViewHolder holder) {
+                super.onViewRecycled(holder);
+                recycledVhs.add(holder);
+            }
+        };
+        MockViewHolder mvh = new MockViewHolder(new TextView(getContext()));
+        mRecyclerView.setAdapter(adapter);
+        adapter.bindViewHolder(mvh, 20);
+        mRecyclerView.mRecycler.mCachedViews.add(mvh);
+        mRecyclerView.offsetPositionRecordsForRemove(10, 9, false);
+
+        mRecyclerView.offsetPositionRecordsForRemove(11, 1, false);
+        assertEquals(1, recycledVhs.size());
+        assertSame(mvh, recycledVhs.get(0));
+    }
+
+    @Test
+    public void recyclerOffsetsOnAdd() {
+        MockLayoutManager  layoutManager = new MockLayoutManager();
+        final List<RecyclerView.ViewHolder> recycledVhs = new ArrayList<>();
+        mRecyclerView.setLayoutManager(layoutManager);
+        MockAdapter adapter = new MockAdapter(100) {
+            @Override
+            public void onViewRecycled(RecyclerView.ViewHolder holder) {
+                super.onViewRecycled(holder);
+                recycledVhs.add(holder);
+            }
+        };
+        MockViewHolder mvh = new MockViewHolder(new TextView(getContext()));
+        mRecyclerView.setAdapter(adapter);
+        adapter.bindViewHolder(mvh, 20);
+        mRecyclerView.mRecycler.mCachedViews.add(mvh);
+        mRecyclerView.offsetPositionRecordsForRemove(10, 9, false);
+
+        mRecyclerView.offsetPositionRecordsForInsert(15, 10);
+        assertEquals(11, mvh.mPosition);
+    }
+
+    @Test
+    public void savedStateWithStatelessLayoutManager() throws InterruptedException {
         mRecyclerView.setLayoutManager(new MockLayoutManager() {
             @Override
             public Parcelable onSaveInstanceState() {
@@ -186,7 +262,7 @@ public class RecyclerViewBasicTest extends AndroidTestCase {
 
         // reset position for reading
         parcel.setDataPosition(0);
-        RecyclerView restored = new RecyclerView(mContext);
+        RecyclerView restored = new RecyclerView(getContext());
         restored.setLayoutManager(new MockLayoutManager());
         mRecyclerView.setAdapter(new MockAdapter(3));
         // restore
@@ -199,7 +275,8 @@ public class RecyclerViewBasicTest extends AndroidTestCase {
 
     }
 
-    public void testSavedState() throws InterruptedException {
+    @Test
+    public void savedState() throws InterruptedException {
         MockLayoutManager mlm = new MockLayoutManager();
         mRecyclerView.setLayoutManager(mlm);
         mRecyclerView.setAdapter(new MockAdapter(3));
@@ -216,7 +293,7 @@ public class RecyclerViewBasicTest extends AndroidTestCase {
         // re-create
         savedState = RecyclerView.SavedState.CREATOR.createFromParcel(parcel);
 
-        RecyclerView restored = new RecyclerView(mContext);
+        RecyclerView restored = new RecyclerView(getContext());
         MockLayoutManager mlmRestored = new MockLayoutManager();
         restored.setLayoutManager(mlmRestored);
         restored.setAdapter(new MockAdapter(3));
@@ -233,7 +310,8 @@ public class RecyclerViewBasicTest extends AndroidTestCase {
     }
 
 
-    public void testDontSaveChildrenState() throws InterruptedException {
+    @Test
+    public void dontSaveChildrenState() throws InterruptedException {
         MockLayoutManager mlm = new MockLayoutManager() {
             @Override
             public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
@@ -249,6 +327,7 @@ public class RecyclerViewBasicTest extends AndroidTestCase {
             @Override
             public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
                 final LoggingView itemView = new LoggingView(parent.getContext());
+                //noinspection ResourceType
                 itemView.setId(3);
                 return new MockViewHolder(itemView);
             }

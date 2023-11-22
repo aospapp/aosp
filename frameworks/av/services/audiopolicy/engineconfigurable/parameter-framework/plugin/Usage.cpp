@@ -23,16 +23,16 @@ using android::routing_strategy;
 
 Usage::Usage(const string &mappingValue,
                    CInstanceConfigurableElement *instanceConfigurableElement,
-                   const CMappingContext &context)
+                   const CMappingContext &context, core::log::Logger &logger)
     : CFormattedSubsystemObject(instanceConfigurableElement,
+                                logger,
                                 mappingValue,
                                 MappingKeyAmend1,
                                 (MappingKeyAmendEnd - MappingKeyAmend1 + 1),
                                 context),
       mPolicySubsystem(static_cast<const PolicySubsystem *>(
                            instanceConfigurableElement->getBelongingSubsystem())),
-      mPolicyPluginInterface(mPolicySubsystem->getPolicyPluginInterface()),
-      mApplicableStrategy(mDefaultApplicableStrategy)
+      mPolicyPluginInterface(mPolicySubsystem->getPolicyPluginInterface())
 {
     mId = static_cast<audio_usage_t>(context.getItemAsInteger(MappingKeyIdentifier));
 
@@ -40,17 +40,10 @@ Usage::Usage(const string &mappingValue,
     mPolicyPluginInterface->addUsage(getFormattedMappingValue(), mId);
 }
 
-bool Usage::receiveFromHW(string & /*error*/)
-{
-    blackboardWrite(&mApplicableStrategy, sizeof(mApplicableStrategy));
-    return true;
-}
-
 bool Usage::sendToHW(string & /*error*/)
 {
     uint32_t applicableStrategy;
     blackboardRead(&applicableStrategy, sizeof(applicableStrategy));
-    mApplicableStrategy = applicableStrategy;
     return mPolicyPluginInterface->setStrategyForUsage(mId,
-                                              static_cast<routing_strategy>(mApplicableStrategy));
+                                              static_cast<routing_strategy>(applicableStrategy));
 }

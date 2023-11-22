@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-*   Copyright (C) 2010-2014, International Business Machines
+*   Copyright (C) 2010-2016, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *******************************************************************************
 *   created on: 2010aug21
@@ -63,13 +63,14 @@ import com.ibm.icu.util.ICUCloneNotSupportedException;
  *   <li>Literal output text is not represented directly by "parts" but accessed
  *       between parts of a message, from one part's getLimit() to the next part's getIndex().
  *   <li><code>ARG_START.CHOICE</code> stands for an ARG_START Part with ArgType CHOICE.
- *   <li>In the choiceStyle, the ARG_SELECTOR has the '<', the '#' or
+ *   <li>In the choiceStyle, the ARG_SELECTOR has the '&lt;', the '#' or
  *       the less-than-or-equal-to sign (U+2264).
  *   <li>In the pluralStyle, the first, optional numeric Part has the "offset:" value.
  *       The optional numeric Part between each (ARG_SELECTOR, message) pair
  *       is the value of an explicit-number selector like "=2",
  *       otherwise the selector is a non-numeric identifier.
  *   <li>The REPLACE_NUMBER Part can occur only in an immediate sub-message of the pluralStyle.
+ * </ul>
  * <p>
  * This class is not intended for public subclassing.
  *
@@ -87,7 +88,7 @@ public final class MessagePattern implements Cloneable, Freezable<MessagePattern
      * <p>
      * The following table shows examples of desired MessageFormat.format() output
      * with the pattern strings that yield that output.
-     * <p>
+     *
      * <table>
      *   <tr>
      *     <th>Desired output</th>
@@ -130,7 +131,7 @@ public final class MessagePattern implements Cloneable, Freezable<MessagePattern
          * a double apostrophe pattern character.
          * A single apostrophe always starts quoted literal text.
          * <p>
-         * This is the behavior of ICU 4.6 and earlier, and of the JDK.
+         * This is the behavior of ICU 4.6 and earlier, and of {@link java.text.MessageFormat}.
          * @stable ICU 4.8
          */
         DOUBLE_REQUIRED
@@ -528,7 +529,7 @@ public final class MessagePattern implements Cloneable, Freezable<MessagePattern
      * Returns the index of the ARG|MSG_LIMIT part corresponding to the ARG|MSG_START at start.
      * @param start The index of some Part data (0..countParts()-1);
      *        this Part should be of Type ARG_START or MSG_START.
-     * @return The first i>start where getPart(i).getType()==ARG|MSG_LIMIT at the same nesting level,
+     * @return The first i&gt;start where getPart(i).getType()==ARG|MSG_LIMIT at the same nesting level,
      *         or start itself if getPartType(msgStart)!=ARG|MSG_START.
      * @throws IndexOutOfBoundsException if start is outside the (0..countParts()-1) range
      * @stable ICU 4.8

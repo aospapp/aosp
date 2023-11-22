@@ -86,13 +86,24 @@ int is_rb_name_match(struct rb_info *rb_info, char *name)
 }
 
 wifi_error ring_buffer_write(struct rb_info *rb_info, u8 *buf, size_t length,
-                             int no_of_records)
+                             int no_of_records, size_t record_length)
 {
-    if (rb_write(rb_info->rb_ctx, buf, length, 0) != RB_SUCCESS) {
-        ALOGE("Failed to write into rb, RB migght be full");
-        /* TODO Probably the data can be read from here the RB and then
-         * rb_write can be tried */
-        return WIFI_ERROR_OUT_OF_MEMORY;
+    enum rb_status status;
+
+    status = rb_write(rb_info->rb_ctx, buf, length, 0, record_length);
+    if ((status == RB_FULL) || (status == RB_RETRY)) {
+         push_out_rb_data(rb_info);
+         /* Try writing the data after reading it out */
+        status = rb_write(rb_info->rb_ctx, buf, length, 0, record_length);
+        if (status != RB_SUCCESS) {
+            ALOGE("Failed to rewrite %zu bytes to rb %s with error %d", length,
+                  rb_info->name, status);
+            return WIFI_ERROR_UNKNOWN;
+        }
+    } else if (status == RB_FAILURE) {
+        ALOGE("Failed to write %zu bytes to rb %s with error %d", length,
+              rb_info->name, status);
+        return WIFI_ERROR_UNKNOWN;
     }
 
     rb_info->written_records += no_of_records;
@@ -104,11 +115,7 @@ void push_out_rb_data(void *cb_ctx)
     struct rb_info *rb_info = (struct rb_info *)cb_ctx;
     hal_info *info = (hal_info *)rb_info->ctx;
     wifi_ring_buffer_status rbs;
-
-    if (info->on_ring_buffer_data == NULL) {
-        ALOGE("on_ring_buffer_data handle is not set yet");
-        return;
-    }
+    wifi_ring_buffer_data_handler handler;
 
     while (1) {
         size_t length = 0;
@@ -119,7 +126,13 @@ void push_out_rb_data(void *cb_ctx)
             break;
         }
         get_rb_status(rb_info, &rbs);
-        info->on_ring_buffer_data(rb_info->name, (char *)buf, length, &rbs);
+        pthread_mutex_lock(&info->lh_lock);
+        handler.on_ring_buffer_data = info->on_ring_buffer_data;
+        pthread_mutex_unlock(&info->lh_lock);
+        if (handler.on_ring_buffer_data) {
+            handler.on_ring_buffer_data(rb_info->name, (char *)buf,
+                                        length, &rbs);
+        }
         free(buf);
     };
     gettimeofday(&rb_info->last_push_time, NULL);

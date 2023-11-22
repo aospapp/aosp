@@ -17,14 +17,14 @@
 package android.view.cts;
 
 import android.content.Context;
+import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.content.res.Resources.Theme;
 import android.test.AndroidTestCase;
 import android.view.ContextThemeWrapper;
 
-import com.android.cts.view.R;
-
+import android.view.cts.R;
 
 public class ContextThemeWrapperTest extends AndroidTestCase {
     private static final int SYSTEM_DEFAULT_THEME = 0;
@@ -101,6 +101,22 @@ public class ContextThemeWrapperTest extends AndroidTestCase {
                 return true;
             }
         }).test());
+    }
+
+    public void testApplyOverrideConfiguration() {
+        Context context = getContext();
+        final int realDensity = context.getResources().getConfiguration().densityDpi;
+        final int expectedDensity = realDensity + 1;
+
+        ContextThemeWrapper contextThemeWrapper = new ContextThemeWrapper(
+                context, SYSTEM_DEFAULT_THEME);
+
+        Configuration overrideConfig = new Configuration();
+        overrideConfig.densityDpi = expectedDensity;
+        contextThemeWrapper.applyOverrideConfiguration(overrideConfig);
+
+        Configuration actualConfiguration = contextThemeWrapper.getResources().getConfiguration();
+        assertEquals(expectedDensity, actualConfiguration.densityDpi);
     }
 
     private void assertEqualsTextAppearanceStyle(TypedArray ta) {

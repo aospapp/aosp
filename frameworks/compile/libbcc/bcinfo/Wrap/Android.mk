@@ -16,7 +16,7 @@
 
 LOCAL_PATH:= $(call my-dir)
 
-LLVM_ROOT_PATH := $(LOCAL_PATH)/../../../../../external/llvm
+LLVM_ROOT_PATH := external/llvm
 include $(LLVM_ROOT_PATH)/llvm.mk
 
 llvm_wrap_SRC_FILES := \
@@ -33,7 +33,7 @@ llvm_wrap_C_INCLUDES := $(LOCAL_PATH)/../../include
 include $(CLEAR_VARS)
 
 LOCAL_MODULE:= libLLVMWrap
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_HOST_OS := darwin linux windows
 
 LOCAL_SRC_FILES := $(llvm_wrap_SRC_FILES)
 LOCAL_CFLAGS += -D__HOST__
@@ -49,7 +49,6 @@ ifneq (true,$(DISABLE_LLVM_DEVICE_BUILDS))
 include $(CLEAR_VARS)
 
 LOCAL_MODULE:= libLLVMWrap
-LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := $(llvm_wrap_SRC_FILES)
 LOCAL_C_INCLUDES := $(llvm_wrap_C_INCLUDES)

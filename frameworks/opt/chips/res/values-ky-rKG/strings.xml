@@ -21,5 +21,9 @@
     <string name="copy_number" msgid="530057841276106843">"Телефон номурун көчүрүү"</string>
     <string name="action_label" msgid="1318401633653605424">"Кайтуу"</string>
     <string name="accessbility_suggestion_dropdown_opened" msgid="3231589819168382515">"Байланыш сунуштары ачылды"</string>
+    <string name="accessbility_suggestion_dropdown_closed" msgid="5545766162855459747">"Сунуштар жок"</string>
     <string name="dropdown_delete_button_desc" msgid="8506791557733906887">"Алуучулардан <xliff:g id="CONTACT">%s</xliff:g> дегенди алып салуу"</string>
+    <string name="chips_action_copy" msgid="1929144660075507103">"Көчүрүү"</string>
+    <string name="chips_action_cancel" msgid="6077877438943543501">"Жокко чыгаруу"</string>
+    <string name="chips_permission_text" msgid="1978301259208877495">"Байланыштарды сунуштоого уруксат"</string>
 </resources>

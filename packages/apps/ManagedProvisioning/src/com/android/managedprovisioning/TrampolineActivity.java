@@ -43,9 +43,13 @@ public class TrampolineActivity extends Activity {
     }
 
     public static void startActivity(Context context, Intent target) {
+        context.startActivity(createIntent(context, target));
+    }
+
+    public static Intent createIntent(Context context, Intent target) {
         Intent intent = new Intent(context, TrampolineActivity.class);
         intent.putExtra(EXTRA_INTENT, target);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        context.startActivity(intent);
+        return intent;
     }
 }

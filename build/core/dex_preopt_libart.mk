@@ -3,18 +3,19 @@
 #
 ####################################
 
+# Default to debug version to help find bugs.
+# Set USE_DEX2OAT_DEBUG to false for only building non-debug versions.
+ifeq ($(USE_DEX2OAT_DEBUG),false)
 DEX2OAT := $(HOST_OUT_EXECUTABLES)/dex2oat$(HOST_EXECUTABLE_SUFFIX)
-DEX2OATD := $(HOST_OUT_EXECUTABLES)/dex2oatd$(HOST_EXECUTABLE_SUFFIX)
+else
+DEX2OAT := $(HOST_OUT_EXECUTABLES)/dex2oatd$(HOST_EXECUTABLE_SUFFIX)
+endif
 
-# By default, do not run rerun dex2oat if the tool changes.
-# Comment out the | to force dex2oat to rerun on after all changes.
-DEX2OAT_DEPENDENCY := art/runtime/oat.cc # dependency on oat version number
-DEX2OAT_DEPENDENCY += art/runtime/image.cc # dependency on image version number
-DEX2OAT_DEPENDENCY += |
+# Pass special classpath to skip uses library check.
+# Should modify build system to pass used libraries properly later.
+DEX2OAT_CLASSPATH := "&"
+
 DEX2OAT_DEPENDENCY += $(DEX2OAT)
-
-DEX2OATD_DEPENDENCY := $(DEX2OAT_DEPENDENCY)
-DEX2OATD_DEPENDENCY += $(DEX2OATD)
 
 # Use the first preloaded-classes file in PRODUCT_COPY_FILES.
 PRELOADED_CLASSES := $(call word-colon,1,$(firstword \
@@ -23,13 +24,6 @@ PRELOADED_CLASSES := $(call word-colon,1,$(firstword \
 # Use the first compiled-classes file in PRODUCT_COPY_FILES.
 COMPILED_CLASSES := $(call word-colon,1,$(firstword \
     $(filter %system/etc/compiled-classes,$(PRODUCT_COPY_FILES))))
-
-# Default to debug version to help find bugs.
-# Set USE_DEX2OAT_DEBUG to false for only building non-debug versions.
-ifneq ($(USE_DEX2OAT_DEBUG), false)
-DEX2OAT = $(DEX2OATD)
-DEX2OAT_DEPENDENCY = $(DEX2OATD_DEPENDENCY)
-endif
 
 # start of image reserved address space
 LIBART_IMG_HOST_BASE_ADDRESS   := 0x60000000
@@ -77,6 +71,13 @@ LIBART_TARGET_BOOT_JARS := $(patsubst core, core-libart,$(DEXPREOPT_BOOT_JARS_MO
 LIBART_TARGET_BOOT_DEX_LOCATIONS := $(foreach jar,$(LIBART_TARGET_BOOT_JARS),/$(DEXPREOPT_BOOT_JAR_DIR)/$(jar).jar)
 LIBART_TARGET_BOOT_DEX_FILES := $(foreach jar,$(LIBART_TARGET_BOOT_JARS),$(call intermediates-dir-for,JAVA_LIBRARIES,$(jar),,COMMON)/javalib.jar)
 
+# dex preopt on the bootclasspath produces multiple files.  The first dex file
+# is converted into to boot.art (to match the legacy assumption that boot.art
+# exists), and the rest are converted to boot-<name>.art.
+# In addition, each .art file has an associated .oat file.
+LIBART_TARGET_BOOT_ART_EXTRA_FILES := $(foreach jar,$(wordlist 2,999,$(LIBART_TARGET_BOOT_JARS)),boot-$(jar).art boot-$(jar).oat)
+LIBART_TARGET_BOOT_ART_EXTRA_FILES += boot.oat
+
 my_2nd_arch_prefix :=
 include $(BUILD_SYSTEM)/dex_preopt_libart_boot.mk
 
@@ -95,8 +96,9 @@ endif
 define dex2oat-one-file
 $(hide) rm -f $(2)
 $(hide) mkdir -p $(dir $(2))
-$(hide) $(DEX2OAT) \
+$(hide) ANDROID_LOG_TAGS="*:e" $(DEX2OAT) \
 	--runtime-arg -Xms$(DEX2OAT_XMS) --runtime-arg -Xmx$(DEX2OAT_XMX) \
+	--runtime-arg -classpath --runtime-arg $(DEX2OAT_CLASSPATH) \
 	--boot-image=$(PRIVATE_DEX_PREOPT_IMAGE_LOCATION) \
 	--dex-file=$(1) \
 	--dex-location=$(PRIVATE_DEX_LOCATION) \
@@ -107,5 +109,7 @@ $(hide) $(DEX2OAT) \
 	--instruction-set-features=$($(PRIVATE_2ND_ARCH_VAR_PREFIX)DEX2OAT_TARGET_INSTRUCTION_SET_FEATURES) \
 	--include-patch-information --runtime-arg -Xnorelocate --no-generate-debug-info \
 	--abort-on-hard-verifier-error \
-	$(PRIVATE_DEX_PREOPT_FLAGS)
+	--no-inline-from=core-oj.jar \
+	$(PRIVATE_DEX_PREOPT_FLAGS) \
+	$(GLOBAL_DEXPREOPT_FLAGS)
 endef

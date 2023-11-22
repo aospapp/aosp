@@ -1,71 +1,80 @@
 /**
  * Helper build script that reads data binding variables and sets up the projects.
  */
-def root = ext.rootFolder
+def root = ext.dataBindingRootFolder
 Properties databindingProperties = new Properties()
 databindingProperties.load(new FileInputStream("${root}/databinding.properties"))
-def repoBase = databindingProperties.mavenRepoAbsolutePath == "." ? root : databindingProperties.mavenRepoAbsolutePath
-databindingProperties.mavenRepoDir = "${repoBase}/${databindingProperties.mavenRepoName}"
-databindingProperties.extraPluginsRepoDir = "${root}/${databindingProperties.extraPluginsRepoName}"
 
+// load android gradle plugin's version file
+apply from: "${root}/../buildSrc/base/version.gradle"
+
+databindingProperties.version = ext.buildVersion
+databindingProperties.compileSdkVersion = Integer.parseInt(databindingProperties.compileSdkVersionStr)
+def repoBase = databindingProperties.mavenRepoAbsolutePath == "." ? root : databindingProperties.mavenRepoAbsolutePath
+databindingProperties.androidGradlePluginRepoDir = "${root}/../../${databindingProperties.androidGradlePluginOutRepo}"
+databindingProperties.mavenRepoDir = "${databindingProperties.androidGradlePluginRepoDir}"
+databindingProperties.internalPrebuiltsRepoDir = "${root}/${databindingProperties.internalPrebuiltsRepoName}"
+databindingProperties.runProguard = project.hasProperty('runProguard') && project.getProperty('runProguard').equals("true")
+
+databindingProperties.inReleaseBuild = project.ext.hasProperty('release') && project.ext.release
+// load version from gradle build file
+apply from: "$root/../buildSrc/base/version.gradle"
+databindingProperties.androidPluginVersion=ext.buildVersion
+databindingProperties.isIndependent = rootProject.name.equals("data-binding")
 databindingProperties.eapOutDir = "${root}/${databindingProperties.eapOutFolderName}"
 databindingProperties.prebuildFolder = "${root}/${databindingProperties.prebuildFolderName}" +
         "/${databindingProperties.releaseVersion}"
 
-ext.config = databindingProperties
-ext.config.externalPrebuiltsBase = "${root}/../../prebuilts"
+ext.dataBindingConfig = databindingProperties
+ext.dataBindingConfig.externalPrebuiltsBase = "${root}/../../prebuilts"
 databindingProperties.megaRepoDir = "${databindingProperties.externalPrebuiltsBase}/tools/common/m2/repository"
 
-println "local maven repo is ${ext.config.mavenRepoDir}."
-println "local pre-build folder is ${ext.config.prebuildFolder}."
-println "mega-repo folder is ${ext.config.megaRepoDir}."
+new File(ext.dataBindingConfig.mavenRepoDir).mkdir()
+new File(ext.dataBindingConfig.prebuildFolder).mkdir()
 
-new File(ext.config.mavenRepoDir).mkdir()
-new File(ext.config.prebuildFolder).mkdir()
-
-def addRemoteRepos = !project.hasProperty('addRemoteRepos') || project.getProperty('addRemoteRepos').equals("true")
-ext.config.addRemoteRepos = addRemoteRepos
-def config = ext.config
-def localRepositories = ["${config.extraPluginsRepoDir}",
-                         "${config.megaRepoDir}",
-                         "${config.mavenRepoDir}",
-                         "${config.externalPrebuiltsBase}/maven_repo/android",
-                         "${config.externalPrebuiltsBase}/gradle-plugin",
-                         "${config.externalPrebuiltsBase}/tools/common/m2/repository"]
-ext.config.localRepositories = localRepositories
+def addRemoteRepos = project.hasProperty('addRemoteRepos') && project.getProperty('addRemoteRepos').equals("true")
+ext.dataBindingConfig.addRemoteRepos = addRemoteRepos
+ext.dataBindingConfig.sharedSupportRepoDir = "${ext.dataBindingConfig.externalPrebuiltsBase}/maven_repo/android"
+ext.dataBindingConfig.forGradlePlugin = project.hasProperty('forGradlePlugin') && project.getProperty('forGradlePlugin').equals("true")
+def dataBindingConfig = ext.dataBindingConfig
+def localRepositories = ["${dataBindingConfig.internalPrebuiltsRepoDir}",
+                         "${dataBindingConfig.megaRepoDir}",
+                         "${dataBindingConfig.mavenRepoDir}",
+                         "${dataBindingConfig.externalPrebuiltsBase}/tools/common/offline-m2",
+                         dataBindingConfig.sharedSupportRepoDir,
+                         "${dataBindingConfig.externalPrebuiltsBase}/gradle-plugin",
+                         "${dataBindingConfig.externalPrebuiltsBase}/tools/common/m2/repository",
+                         "${databindingProperties.androidGradlePluginRepoDir}"]
+ext.dataBindingConfig.localRepositories = localRepositories
 def addRepos(RepositoryHandler handler) {
-    config.localRepositories.each { repo ->
+    dataBindingConfig.localRepositories.each { repo ->
         handler.maven {
             url repo
         }
     }
-    handler.jcenter()
-    handler.mavenCentral()
+    if (dataBindingConfig.addRemoteRepos) {
+        handler.jcenter()
+        handler.mavenCentral()
+    }
 }
 ext.addRepos = this.&addRepos
 subprojects {
     buildscript {
-        config.localRepositories.each { repo ->
-            repositories.maven {
-                url repo
-            }
-        }
-        repositories {
-            if (config.addRemoteRepos) {
-                jcenter()
-                mavenCentral()
-            }
-        }
+        addRepos(repositories)
     }
     repositories {
-        config.localRepositories.each { repo ->
-            repositories.maven {
-                url repo
-            }
-        }
-        if (config.addRemoteRepos) {
-            jcenter()
-            mavenCentral()
-        }
+        addRepos(repositories)
     }
 }
+
+def enablePublishing(p, addJavadoc) {
+    if (!ext.dataBindingConfig.isIndependent) {
+        p.apply from: "$dataBindingRootFolder/../buildSrc/base/publish.gradle"
+        p.apply from: "$dataBindingRootFolder/../buildSrc/base/bintray.gradle"
+        if (addJavadoc) {
+            p.apply from: "$dataBindingRootFolder/../buildSrc/base/javadoc.gradle"
+        }
+        rootProject.project(":base:gradle-core").publishLocal.dependsOn p.publishLocal
+    }
+}
+ext.enablePublishing = this.&enablePublishing

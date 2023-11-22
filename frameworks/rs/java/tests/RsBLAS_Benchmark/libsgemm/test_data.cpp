@@ -6,10 +6,6 @@
 const int m = 256;
 const int n = 192;
 const int k = 1152;
-const int a_offset = 0;
-const int b_offset = 84;
-const int c_mult_int = 3401;
-const int c_offset = 74980;
 
 const int a_count = (m * k);
 const int b_count = (n * k);

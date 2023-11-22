@@ -5,6 +5,7 @@ import android.util.Log;
 import com.android.server.wifi.SIMAccessor;
 import com.android.server.wifi.anqp.ANQPElement;
 import com.android.server.wifi.anqp.CellularNetwork;
+import com.android.server.wifi.anqp.Constants;
 import com.android.server.wifi.anqp.DomainNameElement;
 import com.android.server.wifi.anqp.NAIRealmElement;
 import com.android.server.wifi.anqp.RoamingConsortiumElement;
@@ -24,6 +25,12 @@ import java.util.Set;
 
 import static com.android.server.wifi.anqp.Constants.ANQPElementType;
 
+/**
+ * This object describes the Home SP sub tree in the "PerProviderSubscription MO" described in
+ * the Hotspot 2.0 specification, section 9.1.
+ * As a convenience, the object also refers to the other sub-parts of the full
+ * PerProviderSubscription tree.
+ */
 public class HomeSP {
     private final Map<String, Long> mSSIDs;        // SSID, HESSID, [0,N]
     private final String mFQDN;
@@ -39,6 +46,14 @@ public class HomeSP {
     private final String mFriendlyName;             // [1]
     private final String mIconURL;                  // [0,1]
 
+    private final Policy mPolicy;
+    private final int mCredentialPriority;
+    private final Map<String, String> mAAATrustRoots;
+    private final UpdateInfo mSubscriptionUpdate;
+    private final SubscriptionParameters mSubscriptionParameters;
+    private final int mUpdateIdentifier;
+
+    @Deprecated
     public HomeSP(Map<String, Long> ssidMap,
                    /*@NotNull*/ String fqdn,
                    /*@NotNull*/ HashSet<Long> roamingConsortiums,
@@ -63,23 +78,65 @@ public class HomeSP {
         mFriendlyName = friendlyName;
         mIconURL = iconURL;
         mCredential = credential;
+
+        mPolicy = null;
+        mCredentialPriority = -1;
+        mAAATrustRoots = null;
+        mSubscriptionUpdate = null;
+        mSubscriptionParameters = null;
+        mUpdateIdentifier = -1;
     }
 
-    public HomeSP getClone(String password) {
-        if (getCredential().hasDisregardPassword()) {
-            return new HomeSP(mSSIDs,
-                    mFQDN,
-                    mRoamingConsortiums,
-                    mOtherHomePartners,
-                    mMatchAnyOIs,
-                    mMatchAllOIs,
-                    mFriendlyName,
-                    mIconURL,
-                    new Credential(mCredential, password));
+    public HomeSP(Map<String, Long> ssidMap,
+                   /*@NotNull*/ String fqdn,
+                   /*@NotNull*/ HashSet<Long> roamingConsortiums,
+                   /*@NotNull*/ Set<String> otherHomePartners,
+                   /*@NotNull*/ Set<Long> matchAnyOIs,
+                   /*@NotNull*/ List<Long> matchAllOIs,
+                   String friendlyName,
+                   String iconURL,
+                   Credential credential,
+
+                  Policy policy,
+                  int credentialPriority,
+                  Map<String, String> AAATrustRoots,
+                  UpdateInfo subscriptionUpdate,
+                  SubscriptionParameters subscriptionParameters,
+                  int updateIdentifier) {
+
+        mSSIDs = ssidMap;
+        List<List<String>> otherPartners = new ArrayList<>(otherHomePartners.size());
+        for (String otherPartner : otherHomePartners) {
+            otherPartners.add(Utils.splitDomain(otherPartner));
         }
-        else {
-            return this;
-        }
+        mOtherHomePartners = otherHomePartners;
+        mFQDN = fqdn;
+        mDomainMatcher = new DomainMatcher(Utils.splitDomain(fqdn), otherPartners);
+        mRoamingConsortiums = roamingConsortiums;
+        mMatchAnyOIs = matchAnyOIs;
+        mMatchAllOIs = matchAllOIs;
+        mFriendlyName = friendlyName;
+        mIconURL = iconURL;
+        mCredential = credential;
+
+        mPolicy = policy;
+        mCredentialPriority = credentialPriority;
+        mAAATrustRoots = AAATrustRoots;
+        mSubscriptionUpdate = subscriptionUpdate;
+        mSubscriptionParameters = subscriptionParameters;
+        mUpdateIdentifier = updateIdentifier;
+    }
+
+    public int getUpdateIdentifier() {
+        return mUpdateIdentifier;
+    }
+
+    public UpdateInfo getSubscriptionUpdate() {
+        return mSubscriptionUpdate;
+    }
+
+    public Policy getPolicy() {
+        return mPolicy;
     }
 
     public PasspointMatch match(NetworkDetail networkDetail,
@@ -143,7 +200,11 @@ public class HomeSP {
                 anOIs.add(oi);
             }
         }
-        RoamingConsortiumElement rcElement = anqpElementMap != null ?
+
+        boolean validANQP = anqpElementMap != null &&
+                Constants.hasBaseANQPElements(anqpElementMap.keySet());
+
+        RoamingConsortiumElement rcElement = validANQP ?
                 (RoamingConsortiumElement) anqpElementMap.get(ANQPElementType.ANQPRoamingConsortium)
                 : null;
         if (rcElement != null) {
@@ -168,7 +229,7 @@ public class HomeSP {
                 roamingMatch = true;
             }
             else {
-                if (anqpElementMap != null || networkDetail.getAnqpOICount() == 0) {
+                if (validANQP || networkDetail.getAnqpOICount() == 0) {
                     return PasspointMatch.Declined;
                 }
                 else {
@@ -183,7 +244,7 @@ public class HomeSP {
             roamingMatch = true;
         }
 
-        if (anqpElementMap == null) {
+        if (!validANQP) {
             return PasspointMatch.Incomplete;
         }
 
@@ -298,16 +359,16 @@ public class HomeSP {
     @Override
     public String toString() {
         return "HomeSP{" +
-                "mSSIDs=" + mSSIDs +
-                ", mFQDN='" + mFQDN + '\'' +
-                ", mDomainMatcher=" + mDomainMatcher +
-                ", mRoamingConsortiums={" + Utils.roamingConsortiumsToString(mRoamingConsortiums) +
+                "SSIDs=" + mSSIDs +
+                ", FQDN='" + mFQDN + '\'' +
+                ", DomainMatcher=" + mDomainMatcher +
+                ", RoamingConsortiums={" + Utils.roamingConsortiumsToString(mRoamingConsortiums) +
                 '}' +
-                ", mMatchAnyOIs={" + Utils.roamingConsortiumsToString(mMatchAnyOIs) + '}' +
-                ", mMatchAllOIs={" + Utils.roamingConsortiumsToString(mMatchAllOIs) + '}' +
-                ", mCredential=" + mCredential +
-                ", mFriendlyName='" + mFriendlyName + '\'' +
-                ", mIconURL='" + mIconURL + '\'' +
+                ", MatchAnyOIs={" + Utils.roamingConsortiumsToString(mMatchAnyOIs) + '}' +
+                ", MatchAllOIs={" + Utils.roamingConsortiumsToString(mMatchAllOIs) + '}' +
+                ", Credential=" + mCredential +
+                ", FriendlyName='" + mFriendlyName + '\'' +
+                ", IconURL='" + mIconURL + '\'' +
                 '}';
     }
 }

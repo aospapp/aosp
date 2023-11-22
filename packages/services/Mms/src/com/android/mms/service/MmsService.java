@@ -132,7 +132,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
             throw new RuntimeException("Invalid subId " + subId);
         }
         if (subId == SubscriptionManager.DEFAULT_SUBSCRIPTION_ID) {
-            return SubscriptionManager.getDefaultSmsSubId();
+            return SubscriptionManager.getDefaultSmsSubscriptionId();
         }
         return subId;
     }

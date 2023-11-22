@@ -19,7 +19,7 @@
     A simple app with a tracing section to test that apps tracing signals are
     emitted by atrace.
     -->
-    <application>
+    <application android:debuggable="true"> <!-- Debuggable to enable tracing -->
         <activity android:name=".AtraceTestAppActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

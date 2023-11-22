@@ -17,14 +17,11 @@
 package com.android.server.telecom;
 
 import android.content.Context;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.UserHandle;
 import android.telecom.PhoneAccountHandle;
 import android.telephony.TelephonyManager;
-import android.telephony.PhoneStateListener;
-import android.telephony.ServiceState;
 
 import java.util.Collection;
 import java.util.Objects;
@@ -32,7 +29,7 @@ import java.util.Objects;
 /**
  * Registers a timeout for a call and disconnects the call when the timeout expires.
  */
-final class CreateConnectionTimeout extends PhoneStateListener implements Runnable {
+final class CreateConnectionTimeout extends Runnable {
     private final Context mContext;
     private final PhoneAccountRegistrar mPhoneAccountRegistrar;
     private final ConnectionServiceWrapper mConnectionService;
@@ -43,7 +40,7 @@ final class CreateConnectionTimeout extends PhoneStateListener implements Runnab
 
     CreateConnectionTimeout(Context context, PhoneAccountRegistrar phoneAccountRegistrar,
             ConnectionServiceWrapper service, Call call) {
-        super(Looper.getMainLooper());
+        super("CCT");
         mContext = context;
         mPhoneAccountRegistrar = phoneAccountRegistrar;
         mConnectionService = service;
@@ -53,13 +50,14 @@ final class CreateConnectionTimeout extends PhoneStateListener implements Runnab
     boolean isTimeoutNeededForCall(Collection<PhoneAccountHandle> accounts,
             PhoneAccountHandle currentAccount) {
         // Non-emergency calls timeout automatically at the radio layer. No need for a timeout here.
-        if (!TelephonyUtil.shouldProcessAsEmergency(mContext, mCall.getHandle())) {
+        if (!mCall.isEmergencyCall()) {
             return false;
         }
 
         // If there's no connection manager to fallback on then there's no point in having a
         // timeout.
-        PhoneAccountHandle connectionManager = mPhoneAccountRegistrar.getSimCallManager();
+        PhoneAccountHandle connectionManager =
+                mPhoneAccountRegistrar.getSimCallManagerFromCall(mCall);
         if (!accounts.contains(connectionManager)) {
             return false;
         }
@@ -69,33 +67,34 @@ final class CreateConnectionTimeout extends PhoneStateListener implements Runnab
             return false;
         }
 
-        // To reduce the number of scenarios where a timeout is needed, only use a timeout if
-        // we're connected to Wi-Fi. This ensures that the fallback connection manager has an
-        // alternate route to place the call. TODO: remove this condition or allow connection
-        // managers to specify transports. See http://b/19199181.
-        if (!isConnectedToWifi()) {
+        // Timeout is only supported for SIM call managers that are set by the carrier.
+        if (!Objects.equals(connectionManager.getComponentName(),
+                mPhoneAccountRegistrar.getSystemSimCallManagerComponent())) {
+            Log.d(this, "isTimeoutNeededForCall, not a system sim call manager");
             return false;
         }
 
-        Log.d(this, "isTimeoutNeededForCall, returning true");
+        Log.i(this, "isTimeoutNeededForCall, returning true");
         return true;
     }
 
     void registerTimeout() {
         Log.d(this, "registerTimeout");
         mIsRegistered = true;
-        // First find out the cellular service state. Based on the state we decide whether a timeout
-        // will actually be enforced and if so how long it should be.
-        TelephonyManager telephonyManager =
-            (TelephonyManager) mContext.getSystemService(Context.TELEPHONY_SERVICE);
-        telephonyManager.listen(this, PhoneStateListener.LISTEN_SERVICE_STATE);
-        telephonyManager.listen(this, 0);
+
+        long timeoutLengthMillis = getTimeoutLengthMillis();
+        if (timeoutLengthMillis <= 0) {
+            Log.d(this, "registerTimeout, timeout set to %d, skipping", timeoutLengthMillis);
+        } else {
+            mHandler.postDelayed(prepare(), timeoutLengthMillis);
+        }
     }
 
     void unregisterTimeout() {
         Log.d(this, "unregisterTimeout");
         mIsRegistered = false;
         mHandler.removeCallbacksAndMessages(null);
+        cancel();
     }
 
     boolean isCallTimedOut() {
@@ -103,24 +102,9 @@ final class CreateConnectionTimeout extends PhoneStateListener implements Runnab
     }
 
     @Override
-    public void onServiceStateChanged(ServiceState serviceState) {
-        long timeoutLengthMillis = getTimeoutLengthMillis(serviceState);
-        if (!mIsRegistered) {
-            Log.d(this, "onServiceStateChanged, timeout no longer registered, skipping");
-        } else if (timeoutLengthMillis  <= 0) {
-            Log.d(this, "onServiceStateChanged, timeout set to %d, skipping", timeoutLengthMillis);
-        } else if (serviceState.getState() == ServiceState.STATE_IN_SERVICE) {
-            // If cellular service is available then don't bother with a timeout.
-            Log.d(this, "onServiceStateChanged, cellular service available, skipping");
-        } else {
-            mHandler.postDelayed(this, timeoutLengthMillis);
-        }
-    }
-
-    @Override
-    public void run() {
+    public void loggedRun() {
         if (mIsRegistered && isCallBeingPlaced(mCall)) {
-            Log.d(this, "run, call timed out, calling disconnect");
+            Log.i(this, "run, call timed out, calling disconnect");
             mIsCallTimedOut = true;
             mConnectionService.disconnect(mCall);
         }
@@ -133,24 +117,16 @@ final class CreateConnectionTimeout extends PhoneStateListener implements Runnab
             || state == CallState.DIALING;
     }
 
-    private long getTimeoutLengthMillis(ServiceState serviceState) {
+    private long getTimeoutLengthMillis() {
         // If the radio is off then use a longer timeout. This gives us more time to power on the
         // radio.
-        if (serviceState.getState() == ServiceState.STATE_POWER_OFF) {
+        TelephonyManager telephonyManager =
+            (TelephonyManager) mContext.getSystemService(Context.TELEPHONY_SERVICE);
+        if (telephonyManager.isRadioOn()) {
+            return Timeouts.getEmergencyCallTimeoutMillis(mContext.getContentResolver());
+        } else {
             return Timeouts.getEmergencyCallTimeoutRadioOffMillis(
                     mContext.getContentResolver());
-        } else {
-            return Timeouts.getEmergencyCallTimeoutMillis(mContext.getContentResolver());
         }
-    }
-
-    private boolean isConnectedToWifi() {
-        ConnectivityManager cm = (ConnectivityManager) mContext.getSystemService(
-            Context.CONNECTIVITY_SERVICE);
-        if (cm != null) {
-          NetworkInfo ni = cm.getActiveNetworkInfo();
-          return ni != null && ni.isConnected() && ni.getType() == ConnectivityManager.TYPE_WIFI;
-        }
-        return false;
     }
 }

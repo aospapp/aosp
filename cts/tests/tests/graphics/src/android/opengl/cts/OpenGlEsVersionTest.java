@@ -48,7 +48,7 @@ public class OpenGlEsVersionTest
     private OpenGlEsVersionCtsActivity mActivity;
 
     public OpenGlEsVersionTest() {
-        super("com.android.cts.graphics", OpenGlEsVersionCtsActivity.class);
+        super("android.graphics.cts", OpenGlEsVersionCtsActivity.class);
     }
 
     @Override
@@ -80,8 +80,8 @@ public class OpenGlEsVersionTest
 
     public void testRequiredExtensions() throws InterruptedException {
         int reportedVersion = getVersionFromActivityManager(mActivity);
-        // We only have required extensions on ES3.1
-        if (getMajorVersion(reportedVersion) != 3 || getMinorVersion(reportedVersion) != 1)
+        // We only have required extensions on ES3.1+
+        if (getMajorVersion(reportedVersion) != 3 || getMinorVersion(reportedVersion) < 1)
             return;
 
         restartActivityWithClientVersion(3);
@@ -97,7 +97,7 @@ public class OpenGlEsVersionTest
         };
 
         for (int i = 0; i < requiredList.length; ++i) {
-            assertTrue("OpenGL ES version 3.1 is missing extension " + requiredList[i],
+            assertTrue("OpenGL ES version 3.1+ is missing extension " + requiredList[i],
                     hasExtension(extensions, requiredList[i]));
         }
     }
@@ -105,19 +105,17 @@ public class OpenGlEsVersionTest
     public void testExtensionPack() throws InterruptedException {
         // Requirements:
         // 1. If the device claims support for the system feature, the extension must be available.
-        // 2. If the extension is available, it must be correct:
-        //    - ES 3.1 must be supported
+        // 2. If the extension is available, the device must claim support for it.
+        // 3. If the extension is available, it must be correct:
+        //    - ES 3.1+ must be supported
         //    - All included extensions must be available
-        //
-        // Supporting the extension but not claiming support for the system feature is allowed,
-        // just like the ES context version can be higher than the ro.opengles.version property.
 
         int reportedVersion = getVersionFromActivityManager(mActivity);
         boolean hasAepFeature = mActivity.getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_OPENGLES_EXTENSION_PACK);
 
-        if (getMajorVersion(reportedVersion) != 3 || getMinorVersion(reportedVersion) != 1) {
-            assertFalse("FEATURE_OPENGLES_EXTENSION_PACK is available without OpenGL ES 3.1",
+        if (getMajorVersion(reportedVersion) != 3 || getMinorVersion(reportedVersion) < 1) {
+            assertFalse("FEATURE_OPENGLES_EXTENSION_PACK is available without OpenGL ES 3.1+",
                     hasAepFeature);
             return;
         }
@@ -133,6 +131,56 @@ public class OpenGlEsVersionTest
 
         assertTrue("ANDROID_extension_pack_es31a is present, but support is incomplete",
                 mActivity.getAepEs31Support());
+    }
+
+    public void testOpenGlEsVersionForVrHighPerformance() throws InterruptedException {
+        if (!supportsVrHighPerformance())
+            return;
+        restartActivityWithClientVersion(3);
+
+        int reportedVersion = getVersionFromActivityManager(mActivity);
+        int major = getMajorVersion(reportedVersion);
+        int minor = getMinorVersion(reportedVersion);
+
+        assertTrue("OpenGL ES version 3.2 or higher is required for VR high-performance devices " +
+            " but this device supports only version " + major + "." + minor,
+            (major == 3 && minor >= 2) || major > 3);
+    }
+
+    public void testRequiredExtensionsForVrHighPerformance() throws InterruptedException {
+        if (!supportsVrHighPerformance())
+            return;
+        restartActivityWithClientVersion(3);
+
+        String extensions = mActivity.getExtensionsString();
+        final String requiredList[] = {
+            "EXT_protected_textures",
+            "EXT_multisampled_render_to_texture",
+            "OVR_multiview",
+            "OVR_multiview_multisampled_render_to_texture",
+            "OVR_multiview2",
+        };
+
+        for (int i = 0; i < requiredList.length; ++i) {
+            assertTrue("Required extension for VR high-performance is missing: " + requiredList[i],
+                    hasExtension(extensions, requiredList[i]));
+        }
+
+        EGL10 egl = (EGL10) EGLContext.getEGL();
+        EGLDisplay display = egl.eglGetDisplay(EGL10.EGL_DEFAULT_DISPLAY);
+        extensions = egl.eglQueryString(display, EGL10.EGL_EXTENSIONS);
+        final String requiredEglList[] = {
+            "EGL_ANDROID_create_native_client_buffer",
+            "EGL_ANDROID_front_buffer_auto_refresh",
+            "EGL_EXT_protected_content",
+            "EGL_KHR_mutable_render_buffer",
+            "EGL_KHR_wait_sync",
+        };
+
+        for (int i = 0; i < requiredList.length; ++i) {
+            assertTrue("Required EGL extension for VR high-performance is missing: " +
+                requiredEglList[i], hasExtension(extensions, requiredEglList[i]));
+        }
     }
 
     private static boolean hasExtension(String extensions, String name) {
@@ -263,5 +311,14 @@ public class OpenGlEsVersionTest
         } finally {
             setActivityIntent(null);
         }
+    }
+
+    /**
+     * Return whether the system supports FEATURE_VR_MODE and
+     * FEATURE_VR_MODE_HIGH_PERFORMANCE. This is used to skip some tests.
+     */
+    private boolean supportsVrHighPerformance() {
+        PackageManager pm = mActivity.getPackageManager();
+        return pm.hasSystemFeature(PackageManager.FEATURE_VR_MODE_HIGH_PERFORMANCE);
     }
 }

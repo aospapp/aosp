@@ -321,6 +321,23 @@ public class PlaybackControlsRow extends Row {
     }
 
     /**
+     * An action displaying an icon for picture-in-picture.
+     */
+    public static class PictureInPictureAction extends Action {
+        /**
+         * Constructor
+         * @param context Context used for loading resources.
+         */
+        public PictureInPictureAction(Context context) {
+            super(R.id.lb_control_picture_in_picture);
+            setIcon(getStyledDrawable(context,
+                    R.styleable.lbPlaybackControlsActionIcons_picture_in_picture));
+            setLabel1(context.getString(R.string.lb_playback_controls_picture_in_picture));
+            addKeyCode(KeyEvent.KEYCODE_WINDOW);
+        }
+    }
+
+    /**
      * An action displaying an icon for "more actions".
      */
     public static class MoreActions extends Action {
@@ -554,7 +571,7 @@ public class PlaybackControlsRow extends Row {
          * @param highlightColor Color for the highlighted icon state.
          */
         public ClosedCaptioningAction(Context context, int highlightColor) {
-            super(R.id.lb_control_high_quality);
+            super(R.id.lb_control_closed_captioning);
             BitmapDrawable uncoloredDrawable = (BitmapDrawable) getStyledDrawable(context,
                     R.styleable.lbPlaybackControlsActionIcons_closed_captioning);
             Drawable[] drawables = new Drawable[2];

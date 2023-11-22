@@ -145,14 +145,16 @@ public abstract class MemberInfo extends DocInfo implements Comparable, Scoped {
 
   /**
    * Returns {@code true} if the member's scope is above the minimum requested scope passed to
-   * Doclava, <emph>or</emph> if the member is tagged with an annotation which was specified in a
-   * "-showAnnotation" argument to Doclava
+   * Doclava.  Provided that the {@code -showAnnotationOverridesVisibility} argument was passed to
+   * Doclava, this will <emph>also</emph> return {@code true} if the member is tagged with an
+   * annotation which was specified in a {@code -showAnnotation} argument to Doclava
    */
   public boolean checkLevel() {
     if (Doclava.checkLevel(mIsPublic, mIsProtected, mIsPackagePrivate, mIsPrivate,
         isHiddenOrRemoved())) {
       return true;
-    } else if (mShowAnnotations != null && !mShowAnnotations.isEmpty()) {
+    } else if (Doclava.showAnnotationOverridesVisibility &&
+        mShowAnnotations != null && !mShowAnnotations.isEmpty()) {
       return true;
     }
 

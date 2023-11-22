@@ -15,12 +15,13 @@
  */
 package com.android.settings.nfc;
 
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.preference.DialogPreference;
+import android.support.v7.preference.PreferenceViewHolder;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -29,13 +30,16 @@ import android.widget.BaseAdapter;
 import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.RadioButton;
+
+import com.android.settings.CustomDialogPreference;
 import com.android.settings.R;
+import com.android.settings.dashboard.SummaryLoader;
 import com.android.settings.nfc.PaymentBackend.PaymentAppInfo;
 
 import java.util.List;
 
-public class NfcPaymentPreference extends DialogPreference implements
-        DialogInterface.OnClickListener, PaymentBackend.Callback, View.OnClickListener {
+public class NfcPaymentPreference extends CustomDialogPreference implements
+        PaymentBackend.Callback, View.OnClickListener {
 
     private static final String TAG = "NfcPaymentPreference";
 
@@ -61,8 +65,8 @@ public class NfcPaymentPreference extends DialogPreference implements
     }
 
     @Override
-    protected void onBindView(View view) {
-        super.onBindView(view);
+    public void onBindViewHolder(PreferenceViewHolder view) {
+        super.onBindViewHolder(view);
 
         mSettingsButtonView = (ImageView) view.findViewById(R.id.settings_button);
         mSettingsButtonView.setOnClickListener(this);
@@ -90,10 +94,11 @@ public class NfcPaymentPreference extends DialogPreference implements
     }
 
     @Override
-    protected void onPrepareDialogBuilder(AlertDialog.Builder builder) {
-        super.onPrepareDialogBuilder(builder);
+    protected void onPrepareDialogBuilder(AlertDialog.Builder builder,
+            DialogInterface.OnClickListener listener) {
+        super.onPrepareDialogBuilder(builder, listener);
 
-        builder.setSingleChoiceItems(mAdapter, 0, this);
+        builder.setSingleChoiceItems(mAdapter, 0, listener);
     }
 
     @Override

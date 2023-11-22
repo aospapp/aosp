@@ -45,7 +45,7 @@ public class GestureDetectorTest extends
     private MotionEvent mButtonPressSecondaryMotionEvent;
 
     public GestureDetectorTest() {
-        super("com.android.cts.view", GestureDetectorCtsActivity.class);
+        super("android.view.cts", GestureDetectorCtsActivity.class);
     }
 
     @Override

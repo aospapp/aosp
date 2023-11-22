@@ -43,7 +43,7 @@ to vary between devices based on the update method.</li>
 <p>Because block OTA ensures that each device uses the same partition, it
 enables the use of dm-verity to cryptographically sign the system partition.
 For details on dm-verity, see
-<a href="{@docRoot}devices/tech/security/verifiedboot/index.html">Verified Boot</a>.
+<a href="{@docRoot}security/verifiedboot/index.html">Verified Boot</a>.
 </p>
 
 <p class="note"><strong>Note:</strong> You must have a working block OTA

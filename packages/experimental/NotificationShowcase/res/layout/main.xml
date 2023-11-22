@@ -7,5 +7,7 @@
     <LinearLayout android:id="@+id/linearLayout1" android:orientation="vertical" android:layout_height="wrap_content" android:layout_gravity="center" android:layout_width="match_parent" android:layout_margin="35dp">
         <Button android:id="@+id/button1" android:text="@string/post_button_label" android:layout_height="wrap_content" android:layout_width="match_parent" android:onClick="doPost"></Button>
         <Button android:id="@+id/button2" android:text="@string/remove_button_label" android:layout_height="wrap_content" android:layout_width="match_parent" android:onClick="doRemove"></Button>
+        <Button android:id="@+id/button3" android:text="@string/prefs_button_label" android:layout_height="wrap_content" android:layout_width="match_parent" android:onClick="doPrefs"></Button>
+        <Button android:id="@+id/disable" android:text="@string/no_button_label" android:layout_height="wrap_content" android:layout_width="match_parent" android:onClick="doDisable"></Button>
     </LinearLayout>
 </FrameLayout>

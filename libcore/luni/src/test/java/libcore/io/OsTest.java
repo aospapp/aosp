@@ -22,6 +22,8 @@ import android.system.OsConstants;
 import android.system.PacketSocketAddress;
 import android.system.StructTimeval;
 import android.system.StructUcred;
+import android.system.UnixSocketAddress;
+
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
@@ -30,14 +32,14 @@ import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.InetUnixAddress;
 import java.net.NetworkInterface;
 import java.net.ServerSocket;
-import java.net.SocketAddress;
+import java.net.SocketOptions;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicReference;
 import junit.framework.TestCase;
 import static android.system.OsConstants.*;
 
@@ -49,7 +51,7 @@ public class OsTest extends TestCase {
     fis.close();
 
     ServerSocket s = new ServerSocket();
-    assertTrue(S_ISSOCK(Libcore.os.fstat(s.getImpl$().getFD$()).st_mode));
+    assertTrue(S_ISSOCK(Libcore.os.fstat(s.getImpl().getFD$()).st_mode));
     s.close();
   }
 
@@ -70,19 +72,25 @@ public class OsTest extends TestCase {
   public void testUnixDomainSockets_in_file_system() throws Exception {
     String path = System.getProperty("java.io.tmpdir") + "/test_unix_socket";
     new File(path).delete();
-    checkUnixDomainSocket(new InetUnixAddress(path), false);
+    checkUnixDomainSocket(UnixSocketAddress.createFileSystem(path), false);
   }
 
   public void testUnixDomainSocket_abstract_name() throws Exception {
     // Linux treats a sun_path starting with a NUL byte as an abstract name. See unix(7).
-    byte[] path = "/abstract_name_unix_socket".getBytes("UTF-8");
-    path[0] = 0;
-    checkUnixDomainSocket(new InetUnixAddress(path), true);
+    checkUnixDomainSocket(UnixSocketAddress.createAbstract("/abstract_name_unix_socket"), true);
   }
 
-  private void checkUnixDomainSocket(final InetUnixAddress address, final boolean isAbstract) throws Exception {
+  public void testUnixDomainSocket_unnamed() throws Exception {
+    final FileDescriptor fd = Libcore.os.socket(AF_UNIX, SOCK_STREAM, 0);
+    // unix(7) says an unbound socket is unnamed.
+    checkNoSockName(fd);
+    Libcore.os.close(fd);
+  }
+
+  private void checkUnixDomainSocket(final UnixSocketAddress address, final boolean isAbstract)
+      throws Exception {
     final FileDescriptor serverFd = Libcore.os.socket(AF_UNIX, SOCK_STREAM, 0);
-    Libcore.os.bind(serverFd, address, 0);
+    Libcore.os.bind(serverFd, address);
     Libcore.os.listen(serverFd, 5);
 
     checkSockName(serverFd, isAbstract, address);
@@ -90,7 +98,7 @@ public class OsTest extends TestCase {
     Thread server = new Thread(new Runnable() {
       public void run() {
         try {
-          InetSocketAddress peerAddress = new InetSocketAddress();
+          UnixSocketAddress peerAddress = UnixSocketAddress.createUnnamed();
           FileDescriptor clientFd = Libcore.os.accept(serverFd, peerAddress);
           checkSockName(clientFd, isAbstract, address);
           checkNoName(peerAddress);
@@ -119,7 +127,7 @@ public class OsTest extends TestCase {
 
     FileDescriptor clientFd = Libcore.os.socket(AF_UNIX, SOCK_STREAM, 0);
 
-    Libcore.os.connect(clientFd, address, 0);
+    Libcore.os.connect(clientFd, address);
     checkNoSockName(clientFd);
 
     String string = "hello, world!";
@@ -135,26 +143,25 @@ public class OsTest extends TestCase {
     Libcore.os.close(clientFd);
   }
 
-  private void checkSockName(FileDescriptor fd, boolean isAbstract, InetAddress address) throws Exception {
-    InetSocketAddress isa = (InetSocketAddress) Libcore.os.getsockname(fd);
+  private static void checkSockName(FileDescriptor fd, boolean isAbstract,
+      UnixSocketAddress address) throws Exception {
+    UnixSocketAddress isa = (UnixSocketAddress) Libcore.os.getsockname(fd);
+    assertEquals(address, isa);
     if (isAbstract) {
-      checkNoName(isa);
-    } else {
-      assertEquals(address, isa.getAddress());
+      assertEquals(0, isa.getSunPath()[0]);
     }
   }
 
-  private void checkNoName(SocketAddress sa) {
-    InetSocketAddress isa = (InetSocketAddress) sa;
-    assertEquals(0, isa.getAddress().getAddress().length);
+  private void checkNoName(UnixSocketAddress usa) {
+    assertEquals(0, usa.getSunPath().length);
   }
 
   private void checkNoPeerName(FileDescriptor fd) throws Exception {
-    checkNoName(Libcore.os.getpeername(fd));
+    checkNoName((UnixSocketAddress) Libcore.os.getpeername(fd));
   }
 
   private void checkNoSockName(FileDescriptor fd) throws Exception {
-    checkNoName(Libcore.os.getsockname(fd));
+    checkNoName((UnixSocketAddress) Libcore.os.getsockname(fd));
   }
 
   public void test_strsignal() throws Exception {
@@ -220,7 +227,7 @@ public class OsTest extends TestCase {
   }
 
   static void checkByteBufferPositions_sendto_recvfrom(
-          int family, InetAddress loopback) throws Exception {
+      int family, InetAddress loopback) throws Exception {
     final FileDescriptor serverFd = Libcore.os.socket(family, SOCK_STREAM, 0);
     Libcore.os.bind(serverFd, loopback, 0);
     Libcore.os.listen(serverFd, 5);
@@ -253,13 +260,13 @@ public class OsTest extends TestCase {
       }
     });
 
-
     server.start();
 
     FileDescriptor clientFd = Libcore.os.socket(family, SOCK_STREAM, 0);
     Libcore.os.connect(clientFd, address.getAddress(), address.getPort());
 
-    final byte[] bytes = "good bye, cruel black hole with fancy distortion".getBytes(StandardCharsets.US_ASCII);
+    final byte[] bytes = "good bye, cruel black hole with fancy distortion"
+        .getBytes(StandardCharsets.US_ASCII);
     assertTrue(bytes.length > 24);
 
     ByteBuffer input = ByteBuffer.wrap(bytes);
@@ -341,11 +348,11 @@ public class OsTest extends TestCase {
   }
 
   public void test_sendtoSocketAddress_af_inet() throws Exception {
-      checkSendToSocketAddress(AF_INET, InetAddress.getByName("127.0.0.1"));
+    checkSendToSocketAddress(AF_INET, InetAddress.getByName("127.0.0.1"));
   }
 
   public void test_sendtoSocketAddress_af_inet6() throws Exception {
-      checkSendToSocketAddress(AF_INET6, InetAddress.getByName("::1"));
+    checkSendToSocketAddress(AF_INET6, InetAddress.getByName("::1"));
   }
 
   public void test_socketFamilies() throws Exception {
@@ -373,11 +380,11 @@ public class OsTest extends TestCase {
 
   private static void assertArrayEquals(byte[] expected, byte[] actual) {
     assertTrue("Expected=" + Arrays.toString(expected) + ", actual=" + Arrays.toString(actual),
-               Arrays.equals(expected, actual));
+        Arrays.equals(expected, actual));
   }
 
   private static void checkSocketPing(FileDescriptor fd, InetAddress to, byte[] packet,
-          byte type, byte responseType, boolean useSendto) throws Exception {
+      byte type, byte responseType, boolean useSendto) throws Exception {
     int len = packet.length;
     packet[0] = type;
     if (useSendto) {
@@ -407,8 +414,8 @@ public class OsTest extends TestCase {
     final byte ICMP_ECHO = 8, ICMP_ECHOREPLY = 0;
     final byte ICMPV6_ECHO_REQUEST = (byte) 128, ICMPV6_ECHO_REPLY = (byte) 129;
     final byte[] packet = ("\000\000\000\000" +  // ICMP type, code.
-                           "\000\000\000\003" +  // ICMP ID (== port), sequence number.
-                           "Hello myself").getBytes(StandardCharsets.US_ASCII);
+        "\000\000\000\003" +  // ICMP ID (== port), sequence number.
+        "Hello myself").getBytes(StandardCharsets.US_ASCII);
 
     FileDescriptor fd = Libcore.os.socket(AF_INET6, SOCK_DGRAM, IPPROTO_ICMPV6);
     InetAddress ipv6Loopback = InetAddress.getByName("::1");
@@ -421,58 +428,155 @@ public class OsTest extends TestCase {
     checkSocketPing(fd, ipv4Loopback, packet, ICMP_ECHO, ICMP_ECHOREPLY, false);
   }
 
-    private static void assertPartial(byte[] expected, byte[] actual) {
-        for (int i = 0; i < expected.length; i++) {
-            if (expected[i] != actual[i]) {
-                fail("Expected " + Arrays.toString(expected) + " but found "
-                        + Arrays.toString(actual));
-            }
-        }
+  public void test_Ipv4Fallback() throws Exception {
+    // This number of iterations gives a ~60% chance of creating the conditions that caused
+    // http://b/23088314 without making test times too long. On a hammerhead running MRZ37C using
+    // vogar, this test takes about 4s.
+    final int ITERATIONS = 10000;
+    for (int i = 0; i < ITERATIONS; i++) {
+      FileDescriptor mUdpSock = Libcore.os.socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+      try {
+          Libcore.os.bind(mUdpSock, Inet4Address.ANY, 0);
+      } catch(ErrnoException e) {
+          fail("ErrnoException after " + i + " iterations: " + e);
+      } finally {
+          Libcore.os.close(mUdpSock);
+      }
     }
+  }
 
-    public void test_xattr() throws Exception {
-        final String NAME_TEST = "user.meow";
+  public void test_unlink() throws Exception {
+    File f = File.createTempFile("OsTest", "tst");
+    assertTrue(f.exists());
+    Libcore.os.unlink(f.getAbsolutePath());
+    assertFalse(f.exists());
 
-        final byte[] VALUE_CAKE = "cake cake cake".getBytes(StandardCharsets.UTF_8);
-        final byte[] VALUE_PIE = "pie".getBytes(StandardCharsets.UTF_8);
-
-        File file = File.createTempFile("xattr", "test");
-        String path = file.getAbsolutePath();
-
-        byte[] tmp = new byte[1024];
-        try {
-            try {
-                Libcore.os.getxattr(path, NAME_TEST, tmp);
-                fail("Expected ENODATA");
-            } catch (ErrnoException e) {
-                assertEquals(OsConstants.ENODATA, e.errno);
-            }
-
-            Libcore.os.setxattr(path, NAME_TEST, VALUE_CAKE, OsConstants.XATTR_CREATE);
-            assertEquals(VALUE_CAKE.length, Libcore.os.getxattr(path, NAME_TEST, tmp));
-            assertPartial(VALUE_CAKE, tmp);
-
-            try {
-                Libcore.os.setxattr(path, NAME_TEST, VALUE_PIE, OsConstants.XATTR_CREATE);
-                fail("Expected EEXIST");
-            } catch (ErrnoException e) {
-                assertEquals(OsConstants.EEXIST, e.errno);
-            }
-
-            Libcore.os.setxattr(path, NAME_TEST, VALUE_PIE, OsConstants.XATTR_REPLACE);
-            assertEquals(VALUE_PIE.length, Libcore.os.getxattr(path, NAME_TEST, tmp));
-            assertPartial(VALUE_PIE, tmp);
-
-            Libcore.os.removexattr(path, NAME_TEST);
-            try {
-                Libcore.os.getxattr(path, NAME_TEST, tmp);
-                fail("Expected ENODATA");
-            } catch (ErrnoException e) {
-                assertEquals(OsConstants.ENODATA, e.errno);
-            }
-
-        } finally {
-            file.delete();
-        }
+    try {
+      Libcore.os.unlink(f.getAbsolutePath());
+      fail();
+    } catch (ErrnoException e) {
+      assertEquals(OsConstants.ENOENT, e.errno);
     }
+  }
+
+  // b/27294715
+  public void test_recvfrom_concurrentShutdown() throws Exception {
+      final FileDescriptor serverFd = Libcore.os.socket(AF_INET, SOCK_DGRAM, 0);
+      Libcore.os.bind(serverFd, InetAddress.getByName("127.0.0.1"), 0);
+      // Set 4s timeout
+      IoBridge.setSocketOption(serverFd, SocketOptions.SO_TIMEOUT, new Integer(4000));
+
+      final AtomicReference<Exception> killerThreadException = new AtomicReference<Exception>(null);
+      final Thread killer = new Thread(new Runnable() {
+          public void run() {
+              try {
+                  Thread.sleep(2000);
+                  try {
+                      Libcore.os.shutdown(serverFd, SHUT_RDWR);
+                  } catch (ErrnoException expected) {
+                      if (OsConstants.ENOTCONN != expected.errno) {
+                          killerThreadException.set(expected);
+                      }
+                  }
+              } catch (Exception ex) {
+                  killerThreadException.set(ex);
+              }
+          }
+      });
+      killer.start();
+
+      ByteBuffer buffer = ByteBuffer.allocate(16);
+      InetSocketAddress srcAddress = new InetSocketAddress();
+      int received = Libcore.os.recvfrom(serverFd, buffer, 0, srcAddress);
+      assertTrue(received == 0);
+      Libcore.os.close(serverFd);
+
+      killer.join();
+      assertNull(killerThreadException.get());
+  }
+
+  public void test_xattr() throws Exception {
+    final String NAME_TEST = "user.meow";
+
+    final byte[] VALUE_CAKE = "cake cake cake".getBytes(StandardCharsets.UTF_8);
+    final byte[] VALUE_PIE = "pie".getBytes(StandardCharsets.UTF_8);
+
+    File file = File.createTempFile("xattr", "test");
+    String path = file.getAbsolutePath();
+
+    byte[] tmp = new byte[1024];
+    try {
+      try {
+        Libcore.os.getxattr(path, NAME_TEST, tmp);
+        fail("Expected ENODATA");
+      } catch (ErrnoException e) {
+        assertEquals(OsConstants.ENODATA, e.errno);
+      }
+
+      Libcore.os.setxattr(path, NAME_TEST, VALUE_CAKE, OsConstants.XATTR_CREATE);
+      assertEquals(VALUE_CAKE.length, Libcore.os.getxattr(path, NAME_TEST, tmp));
+      assertStartsWith(VALUE_CAKE, tmp);
+
+      try {
+        Libcore.os.setxattr(path, NAME_TEST, VALUE_PIE, OsConstants.XATTR_CREATE);
+        fail("Expected EEXIST");
+      } catch (ErrnoException e) {
+        assertEquals(OsConstants.EEXIST, e.errno);
+      }
+
+      Libcore.os.setxattr(path, NAME_TEST, VALUE_PIE, OsConstants.XATTR_REPLACE);
+      assertEquals(VALUE_PIE.length, Libcore.os.getxattr(path, NAME_TEST, tmp));
+      assertStartsWith(VALUE_PIE, tmp);
+
+      Libcore.os.removexattr(path, NAME_TEST);
+      try {
+        Libcore.os.getxattr(path, NAME_TEST, tmp);
+        fail("Expected ENODATA");
+      } catch (ErrnoException e) {
+        assertEquals(OsConstants.ENODATA, e.errno);
+      }
+
+    } finally {
+      file.delete();
+    }
+  }
+
+  public void test_realpath() throws Exception {
+      File tmpDir = new File(System.getProperty("java.io.tmpdir"));
+      // This is a chicken and egg problem. We have no way of knowing whether
+      // the temporary directory or one of its path elements were symlinked, so
+      // we'll need this call to realpath.
+      String canonicalTmpDir = Libcore.os.realpath(tmpDir.getAbsolutePath());
+
+      // Test that "." and ".." are resolved correctly.
+      assertEquals(canonicalTmpDir,
+          Libcore.os.realpath(canonicalTmpDir + "/./../" + tmpDir.getName()));
+
+      // Test that symlinks are resolved correctly.
+      File target = new File(tmpDir, "target");
+      File link = new File(tmpDir, "link");
+      try {
+          assertTrue(target.createNewFile());
+          Libcore.os.symlink(target.getAbsolutePath(), link.getAbsolutePath());
+
+          assertEquals(canonicalTmpDir + "/target",
+              Libcore.os.realpath(canonicalTmpDir + "/link"));
+      } finally {
+          boolean deletedTarget = target.delete();
+          boolean deletedLink = link.delete();
+          // Asserting this here to provide a definitive reason for
+          // a subsequent failure on the same run.
+          assertTrue("deletedTarget = " + deletedTarget + ", deletedLink =" + deletedLink,
+              deletedTarget && deletedLink);
+      }
+  }
+
+  private static void assertStartsWith(byte[] expectedContents, byte[] container) {
+    for (int i = 0; i < expectedContents.length; i++) {
+      if (expectedContents[i] != container[i]) {
+        fail("Expected " + Arrays.toString(expectedContents) + " but found "
+            + Arrays.toString(expectedContents));
+      }
+    }
+  }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2014 The Android Open Source Project
+ * Copyright (C) 2013-2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,19 @@
 
 #ifndef QCOM_AUDIO_PLATFORM_H
 #define QCOM_AUDIO_PLATFORM_H
+
+enum {
+    FLUENCE_DISABLE,                  /* Target dosent support fluence */
+    FLUENCE_ENABLE      = 0x1,        /* Target supports fluence */
+    FLUENCE_PRO_ENABLE  = 0x2,        /* Target supports fluence pro */
+};
+
+enum {
+    SOURCE_MONO_MIC  = 0x1,            /* Target contains 1 mic */
+    SOURCE_DUAL_MIC  = 0x2,            /* Target contains 2 mics */
+    SOURCE_THREE_MIC = 0x4,            /* Target contains 3 mics */
+    SOURCE_QUAD_MIC  = 0x8,            /* Target contains 4 mics */
+};
 
 /*
  * Below are the devices for which is back end is same, SLIMBUS_0_RX.
@@ -64,6 +77,7 @@ enum {
     SND_DEVICE_OUT_VOICE_TX,
     SND_DEVICE_OUT_SPEAKER_PROTECTED,
     SND_DEVICE_OUT_VOICE_SPEAKER_PROTECTED,
+    SND_DEVICE_OUT_VOICE_SPEAKER_HFP,
     SND_DEVICE_OUT_END,
 
     /*
@@ -105,6 +119,7 @@ enum {
     SND_DEVICE_IN_VOICE_DMIC,
     SND_DEVICE_IN_VOICE_DMIC_TMUS,
     SND_DEVICE_IN_VOICE_SPEAKER_MIC,
+    SND_DEVICE_IN_VOICE_SPEAKER_MIC_HFP,
     SND_DEVICE_IN_VOICE_SPEAKER_DMIC,
     SND_DEVICE_IN_VOICE_HEADSET_MIC,
     SND_DEVICE_IN_VOICE_TTY_FULL_HEADSET_MIC,
@@ -113,30 +128,49 @@ enum {
 
     SND_DEVICE_IN_VOICE_REC_MIC,
     SND_DEVICE_IN_VOICE_REC_MIC_NS,
+    SND_DEVICE_IN_VOICE_REC_MIC_AEC,
     SND_DEVICE_IN_VOICE_REC_DMIC_STEREO,
     SND_DEVICE_IN_VOICE_REC_DMIC_FLUENCE,
+    SND_DEVICE_IN_VOICE_REC_HEADSET_MIC,
+
+    SND_DEVICE_IN_UNPROCESSED_MIC,
+    SND_DEVICE_IN_UNPROCESSED_HEADSET_MIC,
+    SND_DEVICE_IN_UNPROCESSED_STEREO_MIC,
+    SND_DEVICE_IN_UNPROCESSED_THREE_MIC,
+    SND_DEVICE_IN_UNPROCESSED_QUAD_MIC,
 
     SND_DEVICE_IN_VOICE_RX,
 
+    SND_DEVICE_IN_THREE_MIC,
+    SND_DEVICE_IN_QUAD_MIC,
     SND_DEVICE_IN_CAPTURE_VI_FEEDBACK,
 
+    SND_DEVICE_IN_HANDSET_TMIC,
+    SND_DEVICE_IN_HANDSET_QMIC,
+    SND_DEVICE_IN_HANDSET_TMIC_AEC,
+    SND_DEVICE_IN_HANDSET_QMIC_AEC,
     SND_DEVICE_IN_END,
 
     SND_DEVICE_MAX = SND_DEVICE_IN_END,
 
 };
 
+#define DEVICE_NAME_MAX_SIZE   128
+#define HW_INFO_ARRAY_MAX_SIZE 32
+
 #define DEFAULT_OUTPUT_SAMPLING_RATE 48000
 
 #define ALL_SESSION_VSID                0xFFFFFFFF
 #define DEFAULT_MUTE_RAMP_DURATION_MS   20
 #define DEFAULT_VOLUME_RAMP_DURATION_MS 20
+#define MIXER_PATH_MAX_LENGTH 100
 
 #define ACDB_ID_VOICE_SPEAKER 15
 #define ACDB_ID_VOICE_HANDSET 7
 #define ACDB_ID_VOICE_HANDSET_TMUS 88
 #define ACDB_ID_VOICE_DMIC_EF_TMUS 89
 #define ACDB_ID_HEADSET_MIC_AEC 8
+#define ACDB_ID_VOICE_REC_MIC 62
 
 #define MAX_VOL_INDEX 5
 #define MIN_VOL_INDEX 0
@@ -185,18 +219,50 @@ enum {
 #define LOWLATENCY_PCM_DEVICE 15
 #define VOICE_VSID  0x10C01000
 
+#ifdef PLATFORM_MSM8x26
+#define VOICE_CALL_PCM_DEVICE 2
+#define VOICE2_CALL_PCM_DEVICE 14
+#define VOLTE_CALL_PCM_DEVICE 17
+#define QCHAT_CALL_PCM_DEVICE 18
+#define VOWLAN_CALL_PCM_DEVICE 30
+#elif PLATFORM_MSM8084
+#define VOICE_CALL_PCM_DEVICE 20
+#define VOICE2_CALL_PCM_DEVICE 25
+#define VOLTE_CALL_PCM_DEVICE 21
+#define QCHAT_CALL_PCM_DEVICE 33
+#define VOWLAN_CALL_PCM_DEVICE -1
+#elif PLATFORM_MSM8996
+#define VOICE_CALL_PCM_DEVICE 40
+#define VOICE2_CALL_PCM_DEVICE 41
+#define VOLTE_CALL_PCM_DEVICE 14
+#define QCHAT_CALL_PCM_DEVICE 20
+#define VOWLAN_CALL_PCM_DEVICE 33
+#else
 #define VOICE_CALL_PCM_DEVICE 2
 #define VOICE2_CALL_PCM_DEVICE 22
 #define VOLTE_CALL_PCM_DEVICE 14
 #define QCHAT_CALL_PCM_DEVICE 20
 #define VOWLAN_CALL_PCM_DEVICE 36
+#endif
+
+#ifdef PLATFORM_MSM8996
+#define VOICEMMODE1_CALL_PCM_DEVICE 2
+#define VOICEMMODE2_CALL_PCM_DEVICE 22
+#else
+#define VOICEMMODE1_CALL_PCM_DEVICE 44
+#define VOICEMMODE2_CALL_PCM_DEVICE 45
+#endif
 
 #define AFE_PROXY_PLAYBACK_PCM_DEVICE 7
 #define AFE_PROXY_RECORD_PCM_DEVICE 8
 
 #define HFP_PCM_RX 5
 #ifdef PLATFORM_MSM8x26
-#define HFP_SCO_RX 28
+#ifdef EXTERNAL_BT_SUPPORTED
+#define HFP_SCO_RX 10 // AUXPCM Hostless
+#else
+#define HFP_SCO_RX 28 // INT_HFP_BT Hostless
+#endif
 #define HFP_ASM_RX_TX 29
 #else
 #define HFP_SCO_RX 23
@@ -207,6 +273,8 @@ enum {
 #define LIB_MDM_DETECT "libmdmdetect.so"
 
 #define PLATFORM_CONFIG_KEY_SOUNDCARD_NAME "snd_card_name"
+#define PLATFORM_CONFIG_KEY_MAX_MIC_COUNT "input_mic_max_count"
+#define PLATFORM_DEFAULT_MIC_COUNT 2
 
 /* CSD-CLIENT related functions */
 typedef int (*init_t)(bool);
@@ -244,4 +312,6 @@ struct csd_data {
     get_sample_rate_t get_sample_rate;
 };
 
+#define PLATFORM_INFO_XML_PATH          "/system/etc/audio_platform_info.xml"
+#define PLATFORM_INFO_XML_BASE_STRING   "/system/etc/audio_platform_info"
 #endif // QCOM_AUDIO_PLATFORM_H

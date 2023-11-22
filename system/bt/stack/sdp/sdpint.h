@@ -26,6 +26,7 @@
 #define  SDP_INT_H
 
 #include "bt_target.h"
+#include "osi/include/alarm.h"
 #include "sdp_api.h"
 #include "l2c_api.h"
 
@@ -35,7 +36,7 @@
 #define SDP_MAX_CONTINUATION_LEN    16          /* As per the spec */
 
 /* Timeout definitions. */
-#define SDP_INACT_TIMEOUT       30              /* Inactivity timeout         */
+#define SDP_INACT_TIMEOUT_MS  (30 * 1000)    /* Inactivity timeout (in ms) */
 
 
 /* Define the Out-Flow default values. */
@@ -81,13 +82,11 @@
 #define     MAX_ATTR_PER_SEQ        16
 
 /* Max length we support for any attribute */
-// btla-specific ++
 #ifdef SDP_MAX_ATTR_LEN
 #define MAX_ATTR_LEN SDP_MAX_ATTR_LEN
 #else
 #define     MAX_ATTR_LEN            256
 #endif
-// btla-specific --
 
 /* Internal UUID sequence representation */
 typedef struct
@@ -178,7 +177,7 @@ typedef struct
     UINT8             con_flags;
 
     BD_ADDR           device_address;
-    TIMER_LIST_ENT    timer_entry;
+    alarm_t           *sdp_conn_timer;
     UINT16            rem_mtu_size;
     UINT16            connection_id;
     UINT16            list_len;                 /* length of the response in the GKI buffer */
@@ -264,7 +263,7 @@ extern void sdp_conn_rcv_l2e_conn_failed (BT_HDR *p_msg);
 extern void sdp_conn_rcv_l2e_connected (BT_HDR *p_msg);
 extern void sdp_conn_rcv_l2e_conn_failed (BT_HDR *p_msg);
 extern void sdp_conn_rcv_l2e_data (BT_HDR *p_msg);
-extern void sdp_conn_timeout (tCONN_CB *p_ccb);
+extern void sdp_conn_timer_timeout(void *data);
 
 extern tCONN_CB *sdp_conn_originate (UINT8 *p_bd_addr);
 

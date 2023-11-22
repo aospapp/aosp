@@ -20,10 +20,12 @@
 #include <binder/IInterface.h>
 #include <media/stagefright/foundation/ABase.h>
 #include <utils/Errors.h>
+#include <utils/String8.h>
 
 namespace android {
 
 class IMemory;
+class DecryptHandle;
 
 // A binder interface for implementing a stagefright DataSource remotely.
 class IDataSource : public IInterface {
@@ -41,6 +43,13 @@ public:
     // This should be called before deleting |this|. The other methods may
     // return errors if they're called after calling close().
     virtual void close() = 0;
+    // Get the flags of the source.
+    // Refer to DataSource:Flags for the definition of the flags.
+    virtual uint32_t getFlags() = 0;
+    // get a description of the source, e.g. the url or filename it is based on
+    virtual String8 toString() = 0;
+    // Initialize DRM and return a DecryptHandle.
+    virtual sp<DecryptHandle> DrmInitialization(const char *mime) = 0;
 
 private:
     DISALLOW_EVIL_CONSTRUCTORS(IDataSource);

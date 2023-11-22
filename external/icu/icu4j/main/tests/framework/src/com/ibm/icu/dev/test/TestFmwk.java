@@ -1547,14 +1547,14 @@ public class TestFmwk extends AbstractTestLog {
         private void msg(String message, int level, boolean incCount,
                 boolean newln) {
             int oldLevel = level;
-//            if (level == WARN && (!warnings && !nodata)){
-//                level = ERR;
-//            }
+            //            if (level == WARN && (!warnings && !nodata)){
+            //                level = ERR;
+            //            }
 
             if (incCount) {
                 if (level == WARN) {
                     warnCount++;
-//                    invalidCount++;
+                    //                    invalidCount++;
                 } else if (level == ERR) {
                     errorCount++;
                 }
@@ -1683,8 +1683,8 @@ public class TestFmwk extends AbstractTestLog {
                         + " failure(s)"
                         + ((warnDelta != 0) ? ", " + warnDelta
                                 + " warning(s)" : "")
-                        + ((invalidDelta != 0) ? ", " + invalidDelta
-                                + " test(s) skipped)" : ")"));
+                                + ((invalidDelta != 0) ? ", " + invalidDelta
+                                        + " test(s) skipped)" : ")"));
             } else if (warnDelta != 0) {
                 log.println(" ALERT ("
                         + warnDelta
@@ -1972,11 +1972,14 @@ public class TestFmwk extends AbstractTestLog {
     // Return the source code location of the caller located callDepth frames up the stack.
     public static String sourceLocation() {
         // Walk up the stack to the first call site outside this file
-        StackTraceElement[] st = new Throwable().getStackTrace();
-        for (int i = 0; i < st.length; ++i) {
-            String source = st[i].getFileName();
-            if (!source.equals("TestFmwk.java") && !source.equals("AbstractTestLog.java")) {
-                return "(" + st[i].getFileName() + ":" + st[i].getLineNumber() + ") ";
+        for (StackTraceElement st : new Throwable().getStackTrace()) {
+            String source = st.getFileName();
+            if (source != null && !source.equals("TestFmwk.java") && !source.equals("AbstractTestLog.java")) {
+                String methodName = st.getMethodName();
+                if (methodName != null && 
+                       (methodName.startsWith("Test") || methodName.startsWith("test") || methodName.equals("main"))) {
+                    return "(" + source + ":" + st.getLineNumber() + ") ";
+                }
             }
         }
         throw new InternalError();

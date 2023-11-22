@@ -6,7 +6,7 @@ header.hide=1
 @jd:body
 
 <!--
-    Copyright 2015 The Android Open Source Project
+    Copyright 2016 The Android Open Source Project
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -25,13 +25,15 @@ header.hide=1
   <div class="landing-banner">
       <h1 itemprop="name" style="margin-bottom:0;">Welcome to the Android Open Source Project!</h1>
 
-      <p>
-      Android is an open-source software stack for a wide range of mobile devices and a corresponding open-source project led by 
-      Google. Here you can find the information and source code you need to learn more about the Android platform. From there you can
-      create custom variants of the Android software stack, port devices and accessories to the Android platform,
-      and ensure your devices are compatible with the Android compatibility definition.
-      </p>
+<p>
+Android is an open source software stack for a wide range of mobile devices and
+a corresponding open source project led by Google. This site offers the
+information and source code you need to create custom variants of the Android
+stack, port devices and accessories to the Android platform, and ensure your
+devices meet compatibility requirements.
+</p>
 
+<h2 align="center">Android 6.0 Updates Available &mdash; see details below</h2>
   </div>
 
 </div>
@@ -41,60 +43,54 @@ header.hide=1
   <div class="landing-docs">
     <div class="col-8">
     <h3>What's New</h3>
-<a href="{@docRoot}devices/tech/debug/dumpsys.html">
-        <h4>Example Dumpsys Diagnostic Output</h4></a>
-        <p>In addition to the aforementioned <strong><a
-        href="{@docRoot}devices/input/diagnostics.html">Input
-        Diagnostics</a></strong>, you can now find Dumpsys examples of usage
-        data for <strong><a href="{@docRoot}devices/tech/ram/procstats.html">RAM
-        (procstats)</a></strong>, <strong><a
-        href="{@docRoot}devices/tech/netstats.html">network (netstats)</a></strong>,
-        and <strong><a
-        href="{@docRoot}devices/tech/power/batterystats.html">battery (batterystats)</a></strong>.</p>
+<a href="{@docRoot}source/build-numbers.html">
+        <h4>Lollipop and Marshmallow Build Numbers</h4></a>
+        <p>New <strong><a
+        href="{@docRoot}source/build-numbers.html#source-code-tags-and-builds">Build
+        Numbers</a></strong> have been published for Lollipop on Nexus 10 and
+        Marshmallow on Nexus 5, Nexus 5X, Nexus 6, Nexus 6P, Nexus 7 (flo/deb), Nexus 9
+        (volantis/volantisg), Nexus Player, and Pixel C.</p>
 
-<a href="{@docRoot}devices/audio/latency_measurements.html">
-        <h4>Audio Latency Measurements</h4></a>
-        <p>The Android audio team has published <strong><a
-        href="{@docRoot}devices/audio/latency_measurements.html">round-trip audio latency
-        measurements</a></strong> for select Nexus devices to help partners compare their
-        own devices and reduce latency further.</p>
-
-<a href="{@docRoot}devices/tech/power/index.html">
-        <h4>Power Profile Details</h4></a>
-        <p><strong><a
-        href="{@docRoot}devices/tech/power/index.html">Power</a></strong>
-        information has been moved and expanded to include details on
-        <code>cpu.awake</code> and <code>cpu.active</code>. The need to create a
-        <code>power_profile.xml</code> file is also emphasized throughout.</p>
+<a href="{@docRoot}compatibility/downloads.html">
+        <h4>Android 6.0, 5.1, and 5.0 CTS Downloads</h4></a>
+        <p>Android 6.0 R3, 5.1 R5, and 5.0 R4 Compatibility Test Suite (CTS)
+        and CTS Verifier are available for <strong><a
+        href="{@docRoot}compatibility/downloads.html">Download</a></strong>.</p>
 
 <a href="{@docRoot}source/initializing.html">
-        <h4>Initializing Improvements</h4></a>
-        <p>Build environment <strong><a
-        href="{@docRoot}source/initializing.html#setting-up-a-mac-os-x-build-environment">Initializing</a></strong>
-        instructions now explain how to resize and unmount Mac OS sparse
-        images. And the ccache section has been moved to an optional <strong><a
-        href="{@docRoot}source/initializing.html#optimizing-a-build-environment">Optimizing
-        a build environment</a></strong> section.</p>
+        <h4>JDK 8 for Latest Platform Development</h4></a>
+        <p>The master branch of Android now requires JDK 8 to build. See <strong><a
+        href="{@docRoot}source/requirements.html">Requirements</a></strong>
+        for a summary of Java versions by Android release. See <strong><a
+        href="{@docRoot}source/initializing.html#installing-the-jdk">Setting up
+        a Linux build environment</a></strong> or <strong><a
+        href="{@docRoot}source/initializing.html#installing-the-mac-jdk">Setting up a
+        Mac OS build environment</a></strong> for update instructions by operating system.</p>
 
-<a href="{@docRoot}devices/tech/security/selinux/index.html">
-        <h4>SELinux Permissive Declarations</h4></a>
-        <p>SELinux <strong><a
-        href="{@docRoot}devices/tech/security/selinux/customize.html">Customizing</a></strong>
-        and <strong><a
-        href="{@docRoot}devices/tech/security/selinux/implement.html">Implementing</a></strong>
-        instructions have been updated to recommend using permissive declarations
-        directly as <code>permissive_or_unconfined()</code> has been deprecated.
-        Similarly, <code>BOARD_SEPOLICY_UNION</code> has been removed, so
-        <code>BOARD_SEPOLICY_*</code> variables are suggested insead.</p>
+<a href="{@docRoot}source/read-bug-reports.html">
+        <h4>Reading Bug Reports</h4></a>
+        <p>Android Engineering has written a detailed guide for <strong><a
+        href="{@docRoot}source/read-bug-reports.html">understanding
+        device-generated bug reports</a></strong>. This guide describes and
+        provides examples of common errors and their associated causes, such as
+        <strong><a href="{@docRoot}source/read-bug-reports.html#memory">low
+        memory</a></strong>. It even explains how to establish a <strong><a
+        href="{@docRoot}source/read-bug-reports.html#narrative">narrative</a></strong>
+        of the issue by syncing timelines across logs.</p>
 
-<a href="{@docRoot}devices/bluetooth.html">
-        <h4>Android 5.0 Bluetooth HCI Requirements</h4></a>
-        <p><strong><a
-        href="{@docRoot}devices/Android-5.0-Bluetooth-HCI-Reqs.pdf">Bluetooth
-        Host Controller Interface (HCI) requirements</a></strong> to leverage
-        the Bluetooth Low Energy APIs in Android 5.0 have
-        been published and linked from the <strong><a
-        href="{@docRoot}devices/bluetooth.html">Bluetooth</a></strong> introduction.</p>
+<a href="{@docRoot}compatibility/cts/rotation-vector.html">
+        <h4>Rotation Vector CV Crosscheck</h4></a>
+        <p>Instructions now exist for the CTS Verifier <strong><a
+        href="{@docRoot}compatibility/cts/rotation-vector.html">Rotation Vector
+        CV Crosscheck</a></strong> used to properly test the compatibility of rotation
+        vector sensor implementations.</p>
+
+<a href="{@docRoot}security/bulletin/index.html">
+        <h4>Security Bulletins</h4></a>
+        <p>The Android security team now publishes monthly <strong><a
+        href="{@docRoot}security/bulletin/index.html">Nexus Security
+        Bulletins</a></strong> describing key vulnerabilities fixed in AOSP
+        with links to associated changes.</p>
     </div>
 
     <div class="col-8">
@@ -108,15 +104,17 @@ header.hide=1
         href="https://android.googlesource.com/">Android Open Source Project (AOSP)
         repository</a></strong> to make your changes available to everyone else
         in the Android ecosystem.</p>
-<a href="{@docRoot}source/index.html"><img border="0" src="images/android_framework_small.png" alt="Android framework summary" style="display:inline;float:left;margin:5px 10px"></a>
+<a href="{@docRoot}source/index.html"><img border="0" src="images/android_framework_small.png" alt="Android framework summary" style="display:inline;float:right;margin:5px 10px;width:42%;height:42%"></a>
       <a href="{@docRoot}devices/index.html">
         <h4>Port Android to Devices</h4></a>
         <p>Port the latest Android platform and
         create compelling devices that your customers want.</p>
 
-      <a href="{@docRoot}accessories/index.html">
-        <h4>Build Accessories</h4></a>
-        <p>Sometimes, a device can't do it all. Tap into Android's open accessory standard and build accessories to complement the wide variety of Android-powered devices.</p>
+      <a href="{@docRoot}security/index.html">
+        <h4>Make Secure</h4></a>
+	<p>Follow these examples and instructions to harden your Android
+          devices against malicious attacks. Find out how the Android security program
+          works and learn to implement the latest features.</p>
 
       <a href="{@docRoot}compatibility/index.html">
         <h4>Get Compatible</h4></a>
@@ -126,7 +124,10 @@ header.hide=1
 
       <a href="https://android.googlesource.com/platform/docs/source.android.com/">
         <h4>Help this Site</h4></a>
-        <p>Please note, source.android.com is maintained in the Android Open Source Project. See the <strong><a
+        <p>Use the <strong>Site Feedback</strong> button at the bottom of any
+        page to request improvements to the content or identify errors. In addition,
+        source.android.com is maintained in the Android Open Source Project. See the
+        <strong><a
         href="https://android.googlesource.com/platform/docs/source.android.com/+log/master">docs/source.android.com
         project log in AOSP</a></strong> for the complete list of changes to this site.
         Contribute your own updates to that same project and help maintain source.android.com.</p>

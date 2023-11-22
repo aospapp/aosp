@@ -48,6 +48,9 @@
     <attr name="type14" format="string"/>
     <attr name="type15" format="reference"/>
     <attr name="type16" format="string"/>
+    <attr name="type17" format="reference|color"/>
+    <attr name="typeEmpty" format="reference"/>
+    <attr name="typeUndefined" format="reference"/>
     <declare-styleable name="style1">
         <attr name="type1"/>
         <attr name="type2"/>
@@ -65,6 +68,9 @@
         <attr name="type14"/>
         <attr name="type15"/>
         <attr name="type16"/>
+        <attr name="type17"/>
+        <attr name="typeEmpty"/>
+        <attr name="typeUndefined"/>
     </declare-styleable>
     <attr name="testEnum">
         <enum name="val1" value="1" />

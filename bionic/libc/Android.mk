@@ -1,6 +1,6 @@
 LOCAL_PATH := $(call my-dir)
 
-bionic_coverage := false
+bionic_coverage ?= false
 
 # Make everything depend on any changes to included makefiles.
 libc_common_additional_dependencies := $(LOCAL_PATH)/Android.mk
@@ -39,15 +39,11 @@ endif
 # Define the common source files for all the libc instances
 # =========================================================
 libc_common_src_files := \
-    bionic/bindresvport.c \
     bionic/ether_aton.c \
     bionic/ether_ntoa.c \
     bionic/fts.c \
     bionic/getpriority.c \
-    bionic/if_indextoname.c \
-    bionic/if_nametoindex.c \
     bionic/initgroups.c \
-    bionic/ioctl.c \
     bionic/isatty.c \
     bionic/memmem.c \
     bionic/pututline.c \
@@ -57,11 +53,11 @@ libc_common_src_files := \
     bionic/siginterrupt.c \
     bionic/sigsetmask.c \
     bionic/system_properties_compat.c \
-    stdio/findfp.c \
     stdio/fread.c \
+    stdio/refill.c \
     stdio/snprintf.c\
     stdio/sprintf.c \
-    stdio/stdio.c \
+    stdio/stdio.cpp \
     stdio/stdio_ext.cpp \
     stdlib/atexit.c \
     stdlib/exit.c \
@@ -70,12 +66,17 @@ libc_common_src_files := \
 libc_common_src_files += \
     bionic/__FD_chk.cpp \
     bionic/__fgets_chk.cpp \
+    bionic/__fread_chk.cpp \
+    bionic/__fwrite_chk.cpp \
+    bionic/__getcwd_chk.cpp \
     bionic/__memchr_chk.cpp \
     bionic/__memmove_chk.cpp \
     bionic/__memrchr_chk.cpp \
     bionic/__poll_chk.cpp \
     bionic/__pread64_chk.cpp \
     bionic/__pread_chk.cpp \
+    bionic/__pwrite64_chk.cpp \
+    bionic/__pwrite_chk.cpp \
     bionic/__read_chk.cpp \
     bionic/__readlink_chk.cpp \
     bionic/__readlinkat_chk.cpp \
@@ -92,14 +93,17 @@ libc_common_src_files += \
     bionic/__umask_chk.cpp \
     bionic/__vsnprintf_chk.cpp \
     bionic/__vsprintf_chk.cpp \
+    bionic/__write_chk.cpp
 
 libc_bionic_ndk_src_files := \
     bionic/abort.cpp \
     bionic/accept.cpp \
     bionic/accept4.cpp \
     bionic/access.cpp \
+    bionic/arpa_inet.cpp \
     bionic/assert.cpp \
     bionic/atof.cpp \
+    bionic/bionic_netlink.cpp \
     bionic/bionic_systrace.cpp \
     bionic/bionic_time_conversions.cpp \
     bionic/brk.cpp \
@@ -130,6 +134,7 @@ libc_bionic_ndk_src_files := \
     bionic/fchmodat.cpp \
     bionic/ffs.cpp \
     bionic/fgetxattr.cpp \
+    bionic/flistxattr.cpp \
     bionic/flockfile.cpp \
     bionic/fpclassify.cpp \
     bionic/fsetxattr.cpp \
@@ -141,7 +146,9 @@ libc_bionic_ndk_src_files := \
     bionic/getpid.cpp \
     bionic/gettid.cpp \
     bionic/__gnu_basename.cpp \
+    bionic/ifaddrs.cpp \
     bionic/inotify_init.cpp \
+    bionic/ioctl.cpp \
     bionic/lchown.cpp \
     bionic/lfs64_support.cpp \
     bionic/__libc_current_sigrtmax.cpp \
@@ -151,6 +158,7 @@ libc_bionic_ndk_src_files := \
     bionic/libgen.cpp \
     bionic/link.cpp \
     bionic/locale.cpp \
+    bionic/lockf.cpp \
     bionic/lstat.cpp \
     bionic/malloc_info.cpp \
     bionic/mbrtoc16.cpp \
@@ -161,7 +169,10 @@ libc_bionic_ndk_src_files := \
     bionic/mkfifo.cpp \
     bionic/mknod.cpp \
     bionic/mntent.cpp \
+    bionic/mremap.cpp \
     bionic/NetdClientDispatch.cpp \
+    bionic/net_if.cpp \
+    bionic/netinet_in.cpp \
     bionic/open.cpp \
     bionic/pathconf.cpp \
     bionic/pause.cpp \
@@ -207,6 +218,7 @@ libc_bionic_ndk_src_files := \
     bionic/socket.cpp \
     bionic/stat.cpp \
     bionic/statvfs.cpp \
+    bionic/strchrnul.cpp \
     bionic/strerror.cpp \
     bionic/strerror_r.cpp \
     bionic/strsignal.cpp \
@@ -232,9 +244,11 @@ libc_bionic_ndk_src_files := \
 
 libc_bionic_src_files :=
 
-# The fork implementation depends on pthread data, so we can't include it in
-# libc_ndk.a.
-libc_bionic_src_files += bionic/fork.cpp
+# The following implementations depend on pthread data, so we can't include
+# them in libc_ndk.a.
+libc_bionic_src_files += \
+    bionic/__cxa_thread_atexit_impl.cpp \
+    bionic/fork.cpp \
 
 # The data that backs getauxval is initialized in the libc init functions which
 # are invoked by the linker. If this file is included in libc_ndk.a, only one of
@@ -242,10 +256,20 @@ libc_bionic_src_files += bionic/fork.cpp
 # dereferences.
 libc_bionic_src_files += bionic/getauxval.cpp
 
-# These three require getauxval, which isn't available on older platforms.
+# These four require getauxval, which isn't available on older platforms.
 libc_bionic_src_files += bionic/getentropy_linux.c
 libc_bionic_src_files += bionic/sysconf.cpp
 libc_bionic_src_files += bionic/vdso.cpp
+libc_bionic_src_files += bionic/setjmp_cookie.cpp
+
+libc_bionic_src_files += \
+    bionic/__memcpy_chk.cpp \
+    bionic/__memset_chk.cpp \
+    bionic/__strcat_chk.cpp \
+    bionic/__strcpy_chk.cpp \
+    bionic/strchr.cpp \
+    bionic/strnlen.c \
+    bionic/strrchr.cpp \
 
 libc_cxa_src_files := \
     bionic/__cxa_guard.cpp \
@@ -256,30 +280,33 @@ libc_upstream_freebsd_src_files := \
     upstream-freebsd/lib/libc/gen/ldexp.c \
     upstream-freebsd/lib/libc/gen/sleep.c \
     upstream-freebsd/lib/libc/gen/usleep.c \
-    upstream-freebsd/lib/libc/stdlib/abs.c \
     upstream-freebsd/lib/libc/stdlib/getopt_long.c \
-    upstream-freebsd/lib/libc/stdlib/imaxabs.c \
-    upstream-freebsd/lib/libc/stdlib/imaxdiv.c \
-    upstream-freebsd/lib/libc/stdlib/labs.c \
-    upstream-freebsd/lib/libc/stdlib/llabs.c \
     upstream-freebsd/lib/libc/stdlib/qsort.c \
     upstream-freebsd/lib/libc/stdlib/quick_exit.c \
     upstream-freebsd/lib/libc/stdlib/realpath.c \
     upstream-freebsd/lib/libc/string/wcpcpy.c \
     upstream-freebsd/lib/libc/string/wcpncpy.c \
     upstream-freebsd/lib/libc/string/wcscasecmp.c \
+    upstream-freebsd/lib/libc/string/wcscat.c \
+    upstream-freebsd/lib/libc/string/wcschr.c \
+    upstream-freebsd/lib/libc/string/wcscmp.c \
+    upstream-freebsd/lib/libc/string/wcscpy.c \
     upstream-freebsd/lib/libc/string/wcscspn.c \
     upstream-freebsd/lib/libc/string/wcsdup.c \
     upstream-freebsd/lib/libc/string/wcslcat.c \
+    upstream-freebsd/lib/libc/string/wcslen.c \
     upstream-freebsd/lib/libc/string/wcsncasecmp.c \
     upstream-freebsd/lib/libc/string/wcsncat.c \
     upstream-freebsd/lib/libc/string/wcsncmp.c \
     upstream-freebsd/lib/libc/string/wcsncpy.c \
     upstream-freebsd/lib/libc/string/wcsnlen.c \
     upstream-freebsd/lib/libc/string/wcspbrk.c \
+    upstream-freebsd/lib/libc/string/wcsrchr.c \
     upstream-freebsd/lib/libc/string/wcsspn.c \
     upstream-freebsd/lib/libc/string/wcstok.c \
     upstream-freebsd/lib/libc/string/wmemchr.c \
+    upstream-freebsd/lib/libc/string/wmemcmp.c \
+    upstream-freebsd/lib/libc/string/wmemmove.c \
     upstream-freebsd/lib/libc/string/wmemset.c \
 
 libc_upstream_netbsd_src_files := \
@@ -309,6 +336,7 @@ libc_upstream_netbsd_src_files := \
     upstream-netbsd/lib/libc/stdlib/nrand48.c \
     upstream-netbsd/lib/libc/stdlib/_rand48.c \
     upstream-netbsd/lib/libc/stdlib/rand_r.c \
+    upstream-netbsd/lib/libc/stdlib/reallocarr.c \
     upstream-netbsd/lib/libc/stdlib/seed48.c \
     upstream-netbsd/lib/libc/stdlib/srand48.c \
     upstream-netbsd/lib/libc/string/memccpy.c \
@@ -343,10 +371,24 @@ libc_upstream_openbsd_gdtoa_src_files_64 := \
     $(libc_upstream_openbsd_gdtoa_src_files) \
     upstream-openbsd/lib/libc/gdtoa/strtorQ.c \
 
-# These two depend on getentropy_linux.cpp, which isn't in libc_ndk.a.
+# These two depend on getentropy_linux.c, which isn't in libc_ndk.a.
 libc_upstream_openbsd_src_files := \
     upstream-openbsd/lib/libc/crypt/arc4random.c \
     upstream-openbsd/lib/libc/crypt/arc4random_uniform.c \
+
+libc_upstream_openbsd_src_files += \
+    upstream-openbsd/lib/libc/string/memchr.c \
+    upstream-openbsd/lib/libc/string/memmove.c \
+    upstream-openbsd/lib/libc/string/memrchr.c \
+    upstream-openbsd/lib/libc/string/stpcpy.c \
+    upstream-openbsd/lib/libc/string/stpncpy.c \
+    upstream-openbsd/lib/libc/string/strcat.c \
+    upstream-openbsd/lib/libc/string/strcpy.c \
+    upstream-openbsd/lib/libc/string/strlcat.c \
+    upstream-openbsd/lib/libc/string/strlcpy.c \
+    upstream-openbsd/lib/libc/string/strncat.c \
+    upstream-openbsd/lib/libc/string/strncmp.c \
+    upstream-openbsd/lib/libc/string/strncpy.c \
 
 libc_upstream_openbsd_ndk_src_files := \
     upstream-openbsd/lib/libc/compat-43/killpg.c \
@@ -390,46 +432,35 @@ libc_upstream_openbsd_ndk_src_files := \
     upstream-openbsd/lib/libc/locale/wctomb.c \
     upstream-openbsd/lib/libc/net/htonl.c \
     upstream-openbsd/lib/libc/net/htons.c \
-    upstream-openbsd/lib/libc/net/inet_addr.c \
     upstream-openbsd/lib/libc/net/inet_lnaof.c \
     upstream-openbsd/lib/libc/net/inet_makeaddr.c \
     upstream-openbsd/lib/libc/net/inet_netof.c \
-    upstream-openbsd/lib/libc/net/inet_network.c \
     upstream-openbsd/lib/libc/net/inet_ntoa.c \
     upstream-openbsd/lib/libc/net/inet_ntop.c \
     upstream-openbsd/lib/libc/net/inet_pton.c \
     upstream-openbsd/lib/libc/net/ntohl.c \
     upstream-openbsd/lib/libc/net/ntohs.c \
+    upstream-openbsd/lib/libc/net/res_random.c \
     upstream-openbsd/lib/libc/stdio/asprintf.c \
     upstream-openbsd/lib/libc/stdio/clrerr.c \
     upstream-openbsd/lib/libc/stdio/dprintf.c \
-    upstream-openbsd/lib/libc/stdio/fclose.c \
-    upstream-openbsd/lib/libc/stdio/fdopen.c \
     upstream-openbsd/lib/libc/stdio/feof.c \
     upstream-openbsd/lib/libc/stdio/ferror.c \
     upstream-openbsd/lib/libc/stdio/fflush.c \
     upstream-openbsd/lib/libc/stdio/fgetc.c \
     upstream-openbsd/lib/libc/stdio/fgetln.c \
-    upstream-openbsd/lib/libc/stdio/fgetpos.c \
     upstream-openbsd/lib/libc/stdio/fgets.c \
     upstream-openbsd/lib/libc/stdio/fgetwc.c \
     upstream-openbsd/lib/libc/stdio/fgetws.c \
-    upstream-openbsd/lib/libc/stdio/fileno.c \
     upstream-openbsd/lib/libc/stdio/flags.c \
     upstream-openbsd/lib/libc/stdio/fmemopen.c \
-    upstream-openbsd/lib/libc/stdio/fopen.c \
     upstream-openbsd/lib/libc/stdio/fprintf.c \
     upstream-openbsd/lib/libc/stdio/fpurge.c \
     upstream-openbsd/lib/libc/stdio/fputc.c \
     upstream-openbsd/lib/libc/stdio/fputs.c \
     upstream-openbsd/lib/libc/stdio/fputwc.c \
     upstream-openbsd/lib/libc/stdio/fputws.c \
-    upstream-openbsd/lib/libc/stdio/freopen.c \
     upstream-openbsd/lib/libc/stdio/fscanf.c \
-    upstream-openbsd/lib/libc/stdio/fseek.c \
-    upstream-openbsd/lib/libc/stdio/fsetpos.c \
-    upstream-openbsd/lib/libc/stdio/ftell.c \
-    upstream-openbsd/lib/libc/stdio/funopen.c \
     upstream-openbsd/lib/libc/stdio/fvwrite.c \
     upstream-openbsd/lib/libc/stdio/fwalk.c \
     upstream-openbsd/lib/libc/stdio/fwide.c \
@@ -454,7 +485,6 @@ libc_upstream_openbsd_ndk_src_files := \
     upstream-openbsd/lib/libc/stdio/puts.c \
     upstream-openbsd/lib/libc/stdio/putwc.c \
     upstream-openbsd/lib/libc/stdio/putwchar.c \
-    upstream-openbsd/lib/libc/stdio/refill.c \
     upstream-openbsd/lib/libc/stdio/remove.c \
     upstream-openbsd/lib/libc/stdio/rewind.c \
     upstream-openbsd/lib/libc/stdio/rget.c \
@@ -488,11 +518,16 @@ libc_upstream_openbsd_ndk_src_files := \
     upstream-openbsd/lib/libc/stdio/wprintf.c \
     upstream-openbsd/lib/libc/stdio/wscanf.c \
     upstream-openbsd/lib/libc/stdio/wsetup.c \
+    upstream-openbsd/lib/libc/stdlib/abs.c \
     upstream-openbsd/lib/libc/stdlib/atoi.c \
     upstream-openbsd/lib/libc/stdlib/atol.c \
     upstream-openbsd/lib/libc/stdlib/atoll.c \
     upstream-openbsd/lib/libc/stdlib/getenv.c \
     upstream-openbsd/lib/libc/stdlib/insque.c \
+    upstream-openbsd/lib/libc/stdlib/imaxabs.c \
+    upstream-openbsd/lib/libc/stdlib/imaxdiv.c \
+    upstream-openbsd/lib/libc/stdlib/labs.c \
+    upstream-openbsd/lib/libc/stdlib/llabs.c \
     upstream-openbsd/lib/libc/stdlib/lsearch.c \
     upstream-openbsd/lib/libc/stdlib/reallocarray.c \
     upstream-openbsd/lib/libc/stdlib/remque.c \
@@ -523,6 +558,7 @@ libc_upstream_openbsd_ndk_src_files := \
 libc_pthread_src_files := \
     bionic/pthread_atfork.cpp \
     bionic/pthread_attr.cpp \
+    bionic/pthread_barrier.cpp \
     bionic/pthread_cond.cpp \
     bionic/pthread_create.cpp \
     bionic/pthread_detach.cpp \
@@ -542,9 +578,7 @@ libc_pthread_src_files := \
     bionic/pthread_setname_np.cpp \
     bionic/pthread_setschedparam.cpp \
     bionic/pthread_sigmask.cpp \
-
-libc_thread_atexit_impl_src_files := \
-    bionic/__cxa_thread_atexit_impl.cpp \
+    bionic/pthread_spinlock.cpp \
 
 libc_arch_static_src_files := \
     bionic/dl_iterate_phdr_static.cpp \
@@ -574,13 +608,21 @@ libc_common_cflags := \
     -D_LIBC=1 \
     -Wall -Wextra -Wunused \
 
-ifneq ($(TARGET_USES_LOGD),false)
-libc_common_cflags += -DTARGET_USES_LOGD
+use_clang := $(USE_CLANG_PLATFORM_BUILD)
+
+# Clang/llvm has incompatible long double (fp128) for x86_64.
+# https://llvm.org/bugs/show_bug.cgi?id=23897
+ifeq ($(TARGET_ARCH),x86_64)
+  use_clang := false
 endif
 
-use_clang := $(USE_CLANG_PLATFORM_BUILD)
-ifeq ($(use_clang),)
+# b/25291096, Clang/llvm compiled libc.so for mips/mips64 failed to boot.
+ifeq ($(TARGET_ARCH),$(filter $(TARGET_ARCH),mips mips64))
   use_clang := false
+endif
+
+ifeq ($(use_clang),)
+  use_clang := true
 endif
 
 # Try to catch typical 32-bit assumptions that break with 64-bit pointers.
@@ -594,21 +636,8 @@ ifeq ($(strip $(DEBUG_BIONIC_LIBC)),true)
   libc_common_cflags += -DDEBUG
 endif
 
-ifeq ($(MALLOC_IMPL),dlmalloc)
-  libc_common_cflags += -DUSE_DLMALLOC
-  libc_malloc_src := bionic/dlmalloc.c
-else
-  libc_common_cflags += -DUSE_JEMALLOC
-  libc_malloc_src := bionic/jemalloc_wrapper.cpp
-  libc_common_c_includes += external/jemalloc/include
-endif
-
-# To customize dlmalloc's alignment, set BOARD_MALLOC_ALIGNMENT in
-# the appropriate BoardConfig.mk file.
-#
-ifneq ($(BOARD_MALLOC_ALIGNMENT),)
-  libc_common_cflags += -DMALLOC_ALIGNMENT=$(BOARD_MALLOC_ALIGNMENT)
-endif
+libc_malloc_src := bionic/jemalloc_wrapper.cpp
+libc_common_c_includes += external/jemalloc/include
 
 # Define some common conlyflags
 libc_common_conlyflags := \
@@ -616,7 +645,6 @@ libc_common_conlyflags := \
 
 # Define some common cppflags
 libc_common_cppflags := \
-    -std=gnu++11
 
 # Define some common includes
 # ========================================================
@@ -641,13 +669,21 @@ endef
 # libc_stack_protector.a - stack protector code
 # ========================================================
 #
-# The stack protector code needs to be compiled
-# with -fno-stack-protector, since it modifies the
-# stack canary.
+# Code that implements the stack protector (or that runs
+# before TLS has been set up) needs to be compiled with
+# -fno-stack-protector, since it accesses the stack canary
+# TLS slot.
 
 include $(CLEAR_VARS)
 
-LOCAL_SRC_FILES := bionic/__stack_chk_fail.cpp
+LOCAL_SRC_FILES := \
+    bionic/__libc_init_main_thread.cpp \
+    bionic/__stack_chk_fail.cpp \
+
+LOCAL_SRC_FILES_arm64 := arch-arm64/bionic/__set_tls.c
+LOCAL_SRC_FILES_x86 := arch-x86/bionic/__set_tls.c
+LOCAL_SRC_FILES_x86_64 := arch-x86_64/bionic/__set_tls.c
+
 LOCAL_CFLAGS := $(libc_common_cflags) -fno-stack-protector
 LOCAL_CONLYFLAGS := $(libc_common_conlyflags)
 LOCAL_CPPFLAGS := $(libc_common_cppflags)
@@ -657,7 +693,31 @@ LOCAL_CLANG := $(use_clang)
 LOCAL_ADDITIONAL_DEPENDENCIES := $(libc_common_additional_dependencies)
 LOCAL_CXX_STL := none
 LOCAL_SYSTEM_SHARED_LIBRARIES :=
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
+LOCAL_NATIVE_COVERAGE := $(bionic_coverage)
+
+$(eval $(call patch-up-arch-specific-flags,LOCAL_CFLAGS,libc_common_cflags))
+include $(BUILD_STATIC_LIBRARY)
+
+
+# libc_init_static.cpp also needs to be built without stack protector,
+# because it's responsible for setting up TLS for static executables.
+# This isn't the case for dynamic executables because the dynamic linker
+# has already set up the main thread's TLS.
+
+include $(CLEAR_VARS)
+
+LOCAL_SRC_FILES := bionic/libc_init_static.cpp
+LOCAL_CFLAGS := $(libc_common_cflags) -fno-stack-protector
+LOCAL_CONLYFLAGS := $(libc_common_conlyflags)
+LOCAL_CPPFLAGS := $(libc_common_cppflags)
+LOCAL_C_INCLUDES := $(libc_common_c_includes)
+LOCAL_MODULE := libc_init_static
+LOCAL_CLANG := $(use_clang)
+LOCAL_ADDITIONAL_DEPENDENCIES := $(libc_common_additional_dependencies)
+LOCAL_CXX_STL := none
+LOCAL_SYSTEM_SHARED_LIBRARIES :=
+LOCAL_SANITIZE := never
 LOCAL_NATIVE_COVERAGE := $(bionic_coverage)
 
 $(eval $(call patch-up-arch-specific-flags,LOCAL_CFLAGS,libc_common_cflags))
@@ -676,17 +736,22 @@ LOCAL_SRC_FILES += upstream-openbsd/lib/libc/time/wcsftime.c
 
 LOCAL_CFLAGS := $(libc_common_cflags) \
     -fvisibility=hidden \
+    -Wno-unused-parameter \
 
 # Don't use ridiculous amounts of stack.
 LOCAL_CFLAGS += -DALL_STATE
 # Include tzsetwall, timelocal, timegm, time2posix, and posix2time.
 LOCAL_CFLAGS += -DSTD_INSPIRED
+# Obviously, we want to be thread-safe.
+LOCAL_CFLAGS += -DTHREAD_SAFE
 # The name of the tm_gmtoff field in our struct tm.
 LOCAL_CFLAGS += -DTM_GMTOFF=tm_gmtoff
 # Where we store our tzdata.
 LOCAL_CFLAGS += -DTZDIR=\"/system/usr/share/zoneinfo\"
 # Include timezone and daylight globals.
 LOCAL_CFLAGS += -DUSG_COMPAT=1
+# Use the empty string (instead of "   ") as the timezone abbreviation fallback.
+LOCAL_CFLAGS += -DWILDABBR=\"\"
 LOCAL_CFLAGS += -DNO_RUN_TIME_WARNINGS_ABOUT_YEAR_2000_PROBLEMS_THANK_YOU
 LOCAL_CFLAGS += -Dlint
 
@@ -698,7 +763,7 @@ LOCAL_CLANG := $(use_clang)
 LOCAL_ADDITIONAL_DEPENDENCIES := $(libc_common_additional_dependencies)
 LOCAL_CXX_STL := none
 LOCAL_SYSTEM_SHARED_LIBRARIES :=
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_NATIVE_COVERAGE := $(bionic_coverage)
 
 $(eval $(call patch-up-arch-specific-flags,LOCAL_CFLAGS,libc_common_cflags))
@@ -716,12 +781,6 @@ LOCAL_SRC_FILES := \
     upstream-netbsd/lib/libc/isc/ev_streams.c \
     upstream-netbsd/lib/libc/isc/ev_timers.c \
     upstream-netbsd/lib/libc/resolv/mtctxres.c \
-
-# We use the OpenBSD res_random.
-LOCAL_CFLAGS += \
-    -Dres_randomid=__res_randomid
-LOCAL_SRC_FILES += \
-    upstream-openbsd/lib/libc/net/res_random.c \
 
 LOCAL_CFLAGS += \
     $(libc_common_cflags) \
@@ -744,7 +803,7 @@ LOCAL_CLANG := $(use_clang)
 LOCAL_ADDITIONAL_DEPENDENCIES := $(libc_common_additional_dependencies)
 LOCAL_CXX_STL := none
 LOCAL_SYSTEM_SHARED_LIBRARIES :=
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_NATIVE_COVERAGE := $(bionic_coverage)
 
 $(eval $(call patch-up-arch-specific-flags,LOCAL_CFLAGS,libc_common_cflags))
@@ -777,11 +836,11 @@ LOCAL_CLANG := $(use_clang)
 LOCAL_ADDITIONAL_DEPENDENCIES := $(libc_common_additional_dependencies)
 LOCAL_CXX_STL := none
 LOCAL_SYSTEM_SHARED_LIBRARIES :=
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_NATIVE_COVERAGE := $(bionic_coverage)
 
 $(eval $(call patch-up-arch-specific-flags,LOCAL_CFLAGS,libc_common_cflags))
-$(eval $(call patch-up-arch-specific-flags,LOCAL_SRC_FILES,libc_freebsd_src_files))
+$(eval $(call patch-up-arch-specific-flags,LOCAL_SRC_FILES_EXCLUDE,libc_freebsd_src_files_exclude))
 include $(BUILD_STATIC_LIBRARY)
 
 
@@ -797,7 +856,9 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(libc_upstream_netbsd_src_files)
 LOCAL_CFLAGS := \
     $(libc_common_cflags) \
-    -Wno-sign-compare -Wno-uninitialized \
+    -Wno-sign-compare \
+    -Wno-uninitialized \
+    -Wno-unused-parameter \
     -DPOSIX_MISTAKE \
     -include netbsd-compat.h \
 
@@ -812,7 +873,7 @@ LOCAL_CLANG := $(use_clang)
 LOCAL_ADDITIONAL_DEPENDENCIES := $(libc_common_additional_dependencies)
 LOCAL_CXX_STL := none
 LOCAL_SYSTEM_SHARED_LIBRARIES :=
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_NATIVE_COVERAGE := $(bionic_coverage)
 
 $(eval $(call patch-up-arch-specific-flags,LOCAL_CFLAGS,libc_common_cflags))
@@ -853,7 +914,7 @@ LOCAL_MODULE := libc_openbsd_ndk
 LOCAL_ADDITIONAL_DEPENDENCIES := $(libc_common_additional_dependencies)
 LOCAL_CXX_STL := none
 LOCAL_SYSTEM_SHARED_LIBRARIES :=
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_NATIVE_COVERAGE := $(bionic_coverage)
 
 $(eval $(call patch-up-arch-specific-flags,LOCAL_CFLAGS,libc_common_cflags))
@@ -891,11 +952,12 @@ LOCAL_MODULE := libc_openbsd
 LOCAL_ADDITIONAL_DEPENDENCIES := $(libc_common_additional_dependencies)
 LOCAL_CXX_STL := none
 LOCAL_SYSTEM_SHARED_LIBRARIES :=
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_NATIVE_COVERAGE := $(bionic_coverage)
 
 $(eval $(call patch-up-arch-specific-flags,LOCAL_CFLAGS,libc_common_cflags))
 $(eval $(call patch-up-arch-specific-flags,LOCAL_SRC_FILES,libc_openbsd_src_files))
+$(eval $(call patch-up-arch-specific-flags,LOCAL_SRC_FILES_EXCLUDE,libc_openbsd_src_files_exclude))
 include $(BUILD_STATIC_LIBRARY)
 
 
@@ -929,7 +991,7 @@ LOCAL_MODULE := libc_gdtoa
 LOCAL_ADDITIONAL_DEPENDENCIES := $(libc_common_additional_dependencies)
 LOCAL_CXX_STL := none
 LOCAL_SYSTEM_SHARED_LIBRARIES :=
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_NATIVE_COVERAGE := $(bionic_coverage)
 
 $(eval $(call patch-up-arch-specific-flags,LOCAL_CFLAGS,libc_common_cflags))
@@ -954,11 +1016,12 @@ LOCAL_CLANG := $(use_clang)
 LOCAL_ADDITIONAL_DEPENDENCIES := $(libc_common_additional_dependencies)
 LOCAL_CXX_STL := none
 LOCAL_SYSTEM_SHARED_LIBRARIES :=
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_NATIVE_COVERAGE := $(bionic_coverage)
 
 $(eval $(call patch-up-arch-specific-flags,LOCAL_CFLAGS,libc_common_cflags))
 $(eval $(call patch-up-arch-specific-flags,LOCAL_SRC_FILES,libc_bionic_src_files))
+$(eval $(call patch-up-arch-specific-flags,LOCAL_SRC_FILES_EXCLUDE,libc_bionic_src_files_exclude))
 include $(BUILD_STATIC_LIBRARY)
 
 
@@ -982,31 +1045,13 @@ LOCAL_CLANG := $(use_clang)
 LOCAL_ADDITIONAL_DEPENDENCIES := $(libc_common_additional_dependencies)
 LOCAL_CXX_STL := none
 LOCAL_SYSTEM_SHARED_LIBRARIES :=
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_NATIVE_COVERAGE := $(bionic_coverage)
 
 $(eval $(call patch-up-arch-specific-flags,LOCAL_CFLAGS,libc_common_cflags))
 $(eval $(call patch-up-arch-specific-flags,LOCAL_SRC_FILES,libc_bionic_ndk_src_files))
 include $(BUILD_STATIC_LIBRARY)
 
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(libc_thread_atexit_impl_src_files)
-LOCAL_CFLAGS := $(libc_common_cflags) -Wframe-larger-than=2048
-
-LOCAL_CONLYFLAGS := $(libc_common_conlyflags)
-LOCAL_CPPFLAGS := $(libc_common_cppflags) -Wold-style-cast
-LOCAL_C_INCLUDES := $(libc_common_c_includes)
-LOCAL_MODULE := libc_thread_atexit_impl
-# TODO: Clang tries to use __tls_get_addr which is not supported yet
-# remove after it is implemented.
-LOCAL_CLANG := false
-LOCAL_ADDITIONAL_DEPENDENCIES := $(libc_common_additional_dependencies)
-LOCAL_CXX_STL := none
-LOCAL_SYSTEM_SHARED_LIBRARIES :=
-LOCAL_ADDRESS_SANITIZER := false
-LOCAL_NATIVE_COVERAGE := $(bionic_coverage)
-
-include $(BUILD_STATIC_LIBRARY)
 
 # ========================================================
 # libc_pthread.a - pthreads parts that previously lived in
@@ -1030,7 +1075,7 @@ LOCAL_CLANG := $(use_clang)
 LOCAL_ADDITIONAL_DEPENDENCIES := $(libc_common_additional_dependencies)
 LOCAL_CXX_STL := none
 LOCAL_SYSTEM_SHARED_LIBRARIES :=
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_NATIVE_COVERAGE := $(bionic_coverage)
 
 include $(BUILD_STATIC_LIBRARY)
@@ -1054,7 +1099,7 @@ LOCAL_CLANG := true # GCC refuses to hide new/delete
 LOCAL_ADDITIONAL_DEPENDENCIES := $(libc_common_additional_dependencies)
 LOCAL_CXX_STL := none
 LOCAL_SYSTEM_SHARED_LIBRARIES :=
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 # b/17574078: Need to disable coverage until we have a prebuilt libprofile_rt.
 # Since this is a static library built with clang, it needs to link
 # libprofile_rt when it is linked into the final binary. Since the final binary
@@ -1082,7 +1127,7 @@ LOCAL_CLANG := $(use_clang)
 LOCAL_ADDITIONAL_DEPENDENCIES := $(libc_common_additional_dependencies)
 LOCAL_CXX_STL := none
 LOCAL_SYSTEM_SHARED_LIBRARIES :=
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_NATIVE_COVERAGE := $(bionic_coverage)
 
 include $(BUILD_STATIC_LIBRARY)
@@ -1104,7 +1149,7 @@ LOCAL_CFLAGS := $(libc_common_cflags) -fno-builtin
 LOCAL_ADDITIONAL_DEPENDENCIES := $(libc_common_additional_dependencies)
 LOCAL_CXX_STL := none
 LOCAL_SYSTEM_SHARED_LIBRARIES :=
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_NATIVE_COVERAGE := $(bionic_coverage)
 
 include $(BUILD_STATIC_LIBRARY)
@@ -1130,7 +1175,7 @@ LOCAL_CONLYFLAGS := $(libc_common_conlyflags)
 LOCAL_CFLAGS := $(libc_common_cflags) -fvisibility=hidden -O0
 LOCAL_CPPFLAGS := $(libc_common_cppflags)
 LOCAL_C_INCLUDES := $(libc_common_c_includes)
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_NATIVE_COVERAGE := $(bionic_coverage)
 LOCAL_SYSTEM_SHARED_LIBRARIES :=
 
@@ -1138,7 +1183,7 @@ LOCAL_SRC_FILES := \
     $(libc_common_src_files) \
     $(libc_arch_dynamic_src_files) \
     $(libc_ndk_stub_src_files) \
-    bionic/malloc_debug_common.cpp \
+    bionic/malloc_common.cpp \
 
 LOCAL_SRC_FILES_arm += \
     arch-common/bionic/crtbegin_so.c \
@@ -1160,13 +1205,10 @@ LOCAL_WHOLE_STATIC_LIBRARIES := \
     libc_syscalls \
     libc_tzcode \
     libm \
+    libjemalloc \
 
 LOCAL_WHOLE_STATIC_LIBRARIES_arm := libc_aeabi
 LOCAL_CXX_STL := none
-
-ifneq ($(MALLOC_IMPL),dlmalloc)
-LOCAL_WHOLE_STATIC_LIBRARIES += libjemalloc
-endif
 
 $(eval $(call patch-up-arch-specific-flags,LOCAL_CFLAGS,libc_common_cflags))
 $(eval $(call patch-up-arch-specific-flags,LOCAL_SRC_FILES,libc_common_src_files))
@@ -1204,7 +1246,6 @@ LOCAL_WHOLE_STATIC_LIBRARIES := \
     libc_pthread \
     libc_stack_protector \
     libc_syscalls \
-    libc_thread_atexit_impl \
     libc_tzcode \
 
 LOCAL_WHOLE_STATIC_LIBRARIES_arm := libc_aeabi
@@ -1214,7 +1255,7 @@ LOCAL_SYSTEM_SHARED_LIBRARIES :=
 
 # TODO: split out the asflags.
 LOCAL_ASFLAGS := $(LOCAL_CFLAGS)
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_NATIVE_COVERAGE := $(bionic_coverage)
 
 $(eval $(call patch-up-arch-specific-flags,LOCAL_CFLAGS,libc_common_cflags))
@@ -1237,7 +1278,6 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := \
     $(libc_arch_static_src_files) \
-    bionic/libc_init_static.cpp
 
 LOCAL_C_INCLUDES := $(libc_common_c_includes)
 LOCAL_CFLAGS := $(libc_common_cflags) \
@@ -1249,10 +1289,10 @@ LOCAL_CPPFLAGS := $(libc_common_cppflags)
 LOCAL_MODULE := libc_nomalloc
 LOCAL_CLANG := $(use_clang)
 LOCAL_ADDITIONAL_DEPENDENCIES := $(libc_common_additional_dependencies)
-LOCAL_WHOLE_STATIC_LIBRARIES := libc_common
+LOCAL_WHOLE_STATIC_LIBRARIES := libc_common libc_init_static
 LOCAL_CXX_STL := none
 LOCAL_SYSTEM_SHARED_LIBRARIES :=
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_NATIVE_COVERAGE := $(bionic_coverage)
 
 $(eval $(call patch-up-arch-specific-flags,LOCAL_CFLAGS,libc_common_cflags))
@@ -1275,7 +1315,7 @@ LOCAL_C_INCLUDES := $(libc_common_c_includes)
 LOCAL_MODULE := libc_malloc
 LOCAL_CLANG := $(use_clang)
 LOCAL_CXX_STL := none
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_NATIVE_COVERAGE := $(bionic_coverage)
 LOCAL_ADDITIONAL_DEPENDENCIES := $(libc_common_additional_dependencies)
 include $(BUILD_STATIC_LIBRARY)
@@ -1288,7 +1328,7 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := \
     $(libc_arch_static_src_files) \
-    bionic/malloc_debug_common.cpp \
+    bionic/malloc_common.cpp \
     bionic/libc_init_static.cpp \
 
 LOCAL_CFLAGS := $(libc_common_cflags) \
@@ -1300,15 +1340,11 @@ LOCAL_C_INCLUDES := $(libc_common_c_includes)
 LOCAL_MODULE := libc
 LOCAL_CLANG := $(use_clang)
 LOCAL_ADDITIONAL_DEPENDENCIES := $(libc_common_additional_dependencies)
-LOCAL_WHOLE_STATIC_LIBRARIES := libc_common
-
-ifneq ($(MALLOC_IMPL),dlmalloc)
-LOCAL_WHOLE_STATIC_LIBRARIES += libjemalloc
-endif
+LOCAL_WHOLE_STATIC_LIBRARIES := libc_common libc_init_static libjemalloc
 
 LOCAL_CXX_STL := none
 LOCAL_SYSTEM_SHARED_LIBRARIES :=
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_NATIVE_COVERAGE := $(bionic_coverage)
 
 $(eval $(call patch-up-arch-specific-flags,LOCAL_CFLAGS,libc_common_cflags))
@@ -1330,7 +1366,7 @@ LOCAL_SRC_FILES := \
     arch-common/bionic/crtbegin_so.c \
     arch-common/bionic/crtbrand.S \
     $(libc_arch_dynamic_src_files) \
-    bionic/malloc_debug_common.cpp \
+    bionic/malloc_common.cpp \
     bionic/libc_init_dynamic.cpp \
     bionic/NetdClient.cpp \
     arch-common/bionic/crtend_so.S \
@@ -1340,7 +1376,15 @@ LOCAL_CLANG := $(use_clang)
 LOCAL_REQUIRED_MODULES := tzdata
 LOCAL_ADDITIONAL_DEPENDENCIES := \
     $(libc_common_additional_dependencies) \
-    $(LOCAL_PATH)/libc.map \
+    $(LOCAL_PATH)/libc.arm.map \
+    $(LOCAL_PATH)/libc.arm64.map \
+    $(LOCAL_PATH)/libc.mips.map \
+    $(LOCAL_PATH)/libc.mips64.map \
+    $(LOCAL_PATH)/libc.x86.map \
+    $(LOCAL_PATH)/libc.x86_64.map \
+    $(LOCAL_PATH)/libc.arm.brillo.map \
+    $(LOCAL_PATH)/libc.mips.brillo.map \
+    $(LOCAL_PATH)/libc.x86.brillo.map \
 
 # Leave the symbols in the shared library so that stack unwinders can produce
 # meaningful name resolution.
@@ -1358,26 +1402,38 @@ LOCAL_PACK_MODULE_RELOCATIONS := false
 # you wanted!
 
 LOCAL_SHARED_LIBRARIES := libdl
-LOCAL_WHOLE_STATIC_LIBRARIES := libc_common
-
-ifneq ($(MALLOC_IMPL),dlmalloc)
-LOCAL_WHOLE_STATIC_LIBRARIES += libjemalloc
-endif
+LOCAL_WHOLE_STATIC_LIBRARIES := libc_common libjemalloc
 
 LOCAL_CXX_STL := none
 LOCAL_SYSTEM_SHARED_LIBRARIES :=
 
+# TODO: This is to work around b/24465209. Remove after root cause is fixed
+LOCAL_LDFLAGS_arm := -Wl,--hash-style=both
+LOCAL_LDFLAGS_x86 := -Wl,--hash-style=both
+
 # Don't re-export new/delete and friends, even if the compiler really wants to.
-LOCAL_LDFLAGS := -Wl,--version-script,$(LOCAL_PATH)/libc.map
+ifdef BRILLO
+LOCAL_LDFLAGS_arm    += -Wl,--version-script,$(LOCAL_PATH)/libc.arm.brillo.map
+LOCAL_LDFLAGS_mips   += -Wl,--version-script,$(LOCAL_PATH)/libc.mips.brillo.map
+LOCAL_LDFLAGS_x86    += -Wl,--version-script,$(LOCAL_PATH)/libc.x86.brillo.map
+else
+LOCAL_LDFLAGS_arm    += -Wl,--version-script,$(LOCAL_PATH)/libc.arm.map
+LOCAL_LDFLAGS_mips   += -Wl,--version-script,$(LOCAL_PATH)/libc.mips.map
+LOCAL_LDFLAGS_x86    += -Wl,--version-script,$(LOCAL_PATH)/libc.x86.map
+endif
+
+LOCAL_LDFLAGS_arm64  += -Wl,--version-script,$(LOCAL_PATH)/libc.arm64.map
+LOCAL_LDFLAGS_mips64 += -Wl,--version-script,$(LOCAL_PATH)/libc.mips64.map
+LOCAL_LDFLAGS_x86_64 += -Wl,--version-script,$(LOCAL_PATH)/libc.x86_64.map
 
 # We'd really like to do this for all architectures, but since this wasn't done
 # before, these symbols must continue to be exported on LP32 for binary
 # compatibility.
 LOCAL_LDFLAGS_64 := -Wl,--exclude-libs,libgcc.a
 
-# TODO: This is to work around b/19059885. Remove after root cause is fixed
-LOCAL_LDFLAGS_arm := -Wl,--hash-style=both
-LOCAL_LDFLAGS_x86 := -Wl,--hash-style=both
+# Unfortunately --exclude-libs clobbers our version script, so we have to
+# prevent the build system from using this flag.
+LOCAL_NO_EXCLUDE_LIBS := true
 
 $(eval $(call patch-up-arch-specific-flags,LOCAL_CFLAGS,libc_common_cflags))
 $(eval $(call patch-up-arch-specific-flags,LOCAL_SRC_FILES,libc_arch_dynamic_src_files))
@@ -1390,107 +1446,35 @@ LOCAL_CFLAGS_arm += -DCRT_LEGACY_WORKAROUND
 LOCAL_SRC_FILES_arm += \
     arch-arm/bionic/atexit_legacy.c
 
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_NATIVE_COVERAGE := $(bionic_coverage)
 
 include $(BUILD_SHARED_LIBRARY)
 
-
-# For all builds, except for the -user build we will enable memory
-# allocation checking (including memory leaks, buffer overwrites, etc.)
-# Note that all these checks are also controlled by env. settings
-# that can enable, or disable specific checks. Note also that some of
-# the checks are available only in emulator and are implemeted in
-# libc_malloc_qemu_instrumented.so.
-ifneq ($(TARGET_BUILD_VARIANT),user)
-
 # ========================================================
-# libc_malloc_debug_leak.so
+# libc_logging.a
 # ========================================================
 include $(CLEAR_VARS)
 
 LOCAL_CFLAGS := $(libc_common_cflags)
 LOCAL_CONLYFLAGS := $(libc_common_conlyflags)
 LOCAL_CPPFLAGS := $(libc_common_cppflags)
-
-# Make sure that unwind.h comes from libunwind.
-LOCAL_C_INCLUDES := \
-    $(libc_common_c_includes) \
-
-LOCAL_SRC_FILES := \
-    bionic/debug_mapinfo.cpp \
-    bionic/debug_stacktrace.cpp \
-    bionic/libc_logging.cpp \
-    bionic/malloc_debug_leak.cpp \
-    bionic/malloc_debug_check.cpp \
-
-LOCAL_MODULE := libc_malloc_debug_leak
-LOCAL_CLANG := $(use_clang)
-LOCAL_ADDITIONAL_DEPENDENCIES := \
-    $(libc_common_additional_dependencies) \
-    $(LOCAL_PATH)/version_script.txt \
-
-LOCAL_SHARED_LIBRARIES := libc libdl
-LOCAL_CXX_STL := none
-LOCAL_SYSTEM_SHARED_LIBRARIES :=
-# Only need this for arm since libc++ uses its own unwind code that
-# doesn't mix with the other default unwind code.
-LOCAL_STATIC_LIBRARIES_arm := libunwind_llvm
-LOCAL_STATIC_LIBRARIES += libc++abi
-LOCAL_ALLOW_UNDEFINED_SYMBOLS := true
-
-# Don't re-export new/delete and friends, even if the compiler really wants to.
-LOCAL_LDFLAGS := -Wl,--version-script,$(LOCAL_PATH)/version_script.txt
-
-# Don't install on release build
-LOCAL_MODULE_TAGS := eng debug
-LOCAL_ADDRESS_SANITIZER := false
-LOCAL_NATIVE_COVERAGE := $(bionic_coverage)
-
-$(eval $(call patch-up-arch-specific-flags,LOCAL_CFLAGS,libc_common_cflags))
-include $(BUILD_SHARED_LIBRARY)
-
-
-# ========================================================
-# libc_malloc_debug_qemu.so
-# ========================================================
-include $(CLEAR_VARS)
-
-LOCAL_CFLAGS := \
-    $(libc_common_cflags) \
-    -DMALLOC_QEMU_INSTRUMENT \
-
-LOCAL_CONLYFLAGS := $(libc_common_conlyflags)
-LOCAL_CPPFLAGS := $(libc_common_cppflags)
-
 LOCAL_C_INCLUDES := $(libc_common_c_includes)
 
 LOCAL_SRC_FILES := \
     bionic/libc_logging.cpp \
-    bionic/malloc_debug_qemu.cpp \
 
-LOCAL_MODULE := libc_malloc_debug_qemu
+LOCAL_MODULE := libc_logging
+
 LOCAL_CLANG := $(use_clang)
-LOCAL_ADDITIONAL_DEPENDENCIES := \
-    $(libc_common_additional_dependencies) \
-    $(LOCAL_PATH)/version_script.txt \
-
-LOCAL_SHARED_LIBRARIES := libc libdl
-LOCAL_CXX_STL := none
+LOCAL_ADDITIONAL_DEPENDENCIES := $(libc_common_additional_dependencies)
 LOCAL_SYSTEM_SHARED_LIBRARIES :=
 
-# Don't re-export new/delete and friends, even if the compiler really wants to.
-LOCAL_LDFLAGS := -Wl,--version-script,$(LOCAL_PATH)/version_script.txt
-
-# Don't install on release build
-LOCAL_MODULE_TAGS := eng debug
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_NATIVE_COVERAGE := $(bionic_coverage)
 
 $(eval $(call patch-up-arch-specific-flags,LOCAL_CFLAGS,libc_common_cflags))
-include $(BUILD_SHARED_LIBRARY)
-
-endif  #!user
+include $(BUILD_STATIC_LIBRARY)
 
 # ========================================================
 # libstdc++.so
@@ -1499,14 +1483,13 @@ libstdcxx_common_src_files := \
     bionic/__cxa_guard.cpp \
     bionic/__cxa_pure_virtual.cpp \
     bionic/new.cpp \
-    bionic/libc_logging.cpp \
 
 include $(CLEAR_VARS)
 LOCAL_C_INCLUDES := $(libc_common_c_includes) bionic/libstdc++/include
 LOCAL_CFLAGS := $(libc_common_cflags)
 LOCAL_CPPFLAGS := $(libc_common_cppflags)
 
-# TODO: This is to work around b/19059885. Remove after root cause is fixed
+# TODO: This is to work around b/24465209. Remove after root cause is fixed
 LOCAL_LDFLAGS_arm := -Wl,--hash-style=both
 LOCAL_LDFLAGS_x86 := -Wl,--hash-style=both
 
@@ -1515,7 +1498,8 @@ LOCAL_MODULE:= libstdc++
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_CXX_STL := none
 LOCAL_SYSTEM_SHARED_LIBRARIES := libc
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_STATIC_LIBRARIES := libc_logging
+LOCAL_SANITIZE := never
 LOCAL_NATIVE_COVERAGE := $(bionic_coverage)
 include $(BUILD_SHARED_LIBRARY)
 
@@ -1531,10 +1515,6 @@ LOCAL_MODULE:= libstdc++
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_CXX_STL := none
 LOCAL_SYSTEM_SHARED_LIBRARIES := libc
-LOCAL_ADDRESS_SANITIZER := false
+LOCAL_SANITIZE := never
 LOCAL_NATIVE_COVERAGE := $(bionic_coverage)
 include $(BUILD_STATIC_LIBRARY)
-
-
-# ========================================================
-include $(call all-makefiles-under,$(LOCAL_PATH))

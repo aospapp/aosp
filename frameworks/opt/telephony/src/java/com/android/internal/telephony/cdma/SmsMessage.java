@@ -483,7 +483,7 @@ public class SmsMessage extends SmsMessageBase {
      *  {@link com.android.internal.telephony.cdma.sms.SmsEnvelope#TELESERVICE_VMN},
      *  {@link com.android.internal.telephony.cdma.sms.SmsEnvelope#TELESERVICE_WAP}
     */
-    /* package */ int getTeleService() {
+    public int getTeleService() {
         return mEnvelope.teleService;
     }
 
@@ -494,7 +494,7 @@ public class SmsMessage extends SmsMessageBase {
      *  {@link com.android.internal.telephony.cdma.sms.SmsEnvelope#MESSAGE_TYPE_BROADCAST},
      *  {@link com.android.internal.telephony.cdma.sms.SmsEnvelope#MESSAGE_TYPE_ACKNOWLEDGE},
     */
-    /* package */ int getMessageType() {
+    public int getMessageType() {
         // NOTE: mEnvelope.messageType is not set correctly for cell broadcasts with some RILs.
         // Use the service category parameter to detect CMAS and other cell broadcast messages.
         if (mEnvelope.serviceCategory != 0) {
@@ -713,7 +713,7 @@ public class SmsMessage extends SmsMessageBase {
     /**
      * Parses a SMS message from its BearerData stream. (mobile-terminated only)
      */
-    protected void parseSms() {
+    public void parseSms() {
         // Message Waiting Info Record defined in 3GPP2 C.S-0005, 3.7.5.6
         // It contains only an 8-bit number with the number of messages waiting
         if (mEnvelope.teleService == SmsEnvelope.TELESERVICE_MWI) {
@@ -790,7 +790,7 @@ public class SmsMessage extends SmsMessageBase {
     /**
      * Parses a broadcast SMS, possibly containing a CMAS alert.
      */
-    SmsCbMessage parseBroadcastSms() {
+    public SmsCbMessage parseBroadcastSms() {
         BearerData bData = BearerData.decode(mEnvelope.bearerData, mEnvelope.serviceCategory);
         if (bData == null) {
             Rlog.w(LOG_TAG, "BearerData.decode() returned null");
@@ -830,18 +830,22 @@ public class SmsMessage extends SmsMessageBase {
      * binder-call, and hence should be thread-safe, it has been
      * synchronized.
      */
-    synchronized static int getNextMessageId() {
+    public synchronized static int getNextMessageId() {
         // Testing and dialog with partners has indicated that
         // msgId==0 is (sometimes?) treated specially by lower levels.
         // Specifically, the ID is not preserved for delivery ACKs.
         // Hence, avoid 0 -- constraining the range to 1..65535.
         int msgId = SystemProperties.getInt(TelephonyProperties.PROPERTY_CDMA_MSG_ID, 1);
         String nextMsgId = Integer.toString((msgId % 0xFFFF) + 1);
-        SystemProperties.set(TelephonyProperties.PROPERTY_CDMA_MSG_ID, nextMsgId);
-        if (Rlog.isLoggable(LOGGABLE_TAG, Log.VERBOSE)) {
-            Rlog.d(LOG_TAG, "next " + TelephonyProperties.PROPERTY_CDMA_MSG_ID + " = " + nextMsgId);
-            Rlog.d(LOG_TAG, "readback gets " +
-                    SystemProperties.get(TelephonyProperties.PROPERTY_CDMA_MSG_ID));
+        try{
+            SystemProperties.set(TelephonyProperties.PROPERTY_CDMA_MSG_ID, nextMsgId);
+            if (Rlog.isLoggable(LOGGABLE_TAG, Log.VERBOSE)) {
+                Rlog.d(LOG_TAG, "next " + TelephonyProperties.PROPERTY_CDMA_MSG_ID + " = " + nextMsgId);
+                Rlog.d(LOG_TAG, "readback gets " +
+                        SystemProperties.get(TelephonyProperties.PROPERTY_CDMA_MSG_ID));
+            }
+        } catch(RuntimeException ex) {
+            Rlog.e(LOG_TAG, "set nextMessage ID failed: " + ex);
         }
         return msgId;
     }
@@ -1019,7 +1023,7 @@ public class SmsMessage extends SmsMessageBase {
     /** This function  shall be called to get the number of voicemails.
      * @hide
      */
-    /*package*/ int getNumOfVoicemails() {
+    public int getNumOfVoicemails() {
         return mBearerData.numberOfMessages;
     }
 
@@ -1030,7 +1034,7 @@ public class SmsMessage extends SmsMessageBase {
      * @return byte array uniquely identifying the message.
      * @hide
      */
-    /* package */ byte[] getIncomingSmsFingerprint() {
+    public byte[] getIncomingSmsFingerprint() {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
 
         output.write(mEnvelope.serviceCategory);

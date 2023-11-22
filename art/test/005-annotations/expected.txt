@@ -89,10 +89,11 @@ annotations on TYPE class android.test.anno.FullyNoted(1):
   annotations on FIELD int android.test.anno.FullyNoted.mBar:
     @android.test.anno.AnnoFancyField(nombre=fubar)
       interface android.test.anno.AnnoFancyField
-    aff: @android.test.anno.AnnoFancyField(nombre=fubar) / class $Proxy13
+    aff: @android.test.anno.AnnoFancyField(nombre=fubar) / true
     --> nombre is 'fubar'
 
 SimplyNoted.get(AnnoSimpleType) = @android.test.anno.AnnoSimpleType()
+SimplyNoted.get(AnnoSimpleTypeInvis) = null
 SubNoted.get(AnnoSimpleType) = @android.test.anno.AnnoSimpleType()
 
 Package annotations:
@@ -101,3 +102,11 @@ Package annotations:
 Package declared annotations:
       @android.test.anno.AnnoSimplePackage()
         interface android.test.anno.AnnoSimplePackage
+
+Inner Classes:
+Canonical:android.test.anno.ClassWithInnerClasses.InnerClass Simple:InnerClass
+Canonical:null Simple:
+
+Get annotation with missing class should not throw
+Got expected TypeNotPresentException
+Got expected NoSuchFieldError

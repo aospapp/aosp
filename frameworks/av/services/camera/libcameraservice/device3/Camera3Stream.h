@@ -95,6 +95,8 @@ namespace camera3 {
  *    STATE_PREPARING      => STATE_CONFIGURED:
  *        When sufficient prepareNextBuffer calls have been made to allocate
  *        all stream buffers, or cancelPrepare is called.
+ *    STATE_CONFIGURED     => STATE_ABANDONED:
+ *        When the buffer queue of the stream is abandoned.
  *
  * Status Tracking:
  *    Each stream is tracked by StatusTracker as a separate component,
@@ -128,6 +130,11 @@ class Camera3Stream :
      * Get the stream's ID
      */
     int              getId() const;
+
+    /**
+     * Get the output stream set id.
+     */
+    int              getStreamSetId() const;
 
     /**
      * Get the stream's dimensions and format
@@ -188,7 +195,9 @@ class Camera3Stream :
 
     /**
      * Start stream preparation. May only be called in the CONFIGURED state,
-     * when no valid buffers have yet been returned to this stream.
+     * when no valid buffers have yet been returned to this stream. Prepares
+     * up to maxCount buffers, or the maximum number of buffers needed by the
+     * pipeline if maxCount is ALLOCATE_PIPELINE_MAX.
      *
      * If no prepartion is necessary, returns OK and does not transition to
      * PREPARING state. Otherwise, returns NOT_ENOUGH_DATA and transitions
@@ -204,7 +213,7 @@ class Camera3Stream :
      *    INVALID_OPERATION if called when not in CONFIGURED state, or a
      *        valid buffer has already been returned to this stream.
      */
-    status_t         startPrepare();
+    status_t         startPrepare(int maxCount);
 
     /**
      * Check if the stream is mid-preparing.
@@ -346,8 +355,28 @@ class Camera3Stream :
     void             removeBufferListener(
             const sp<Camera3StreamBufferListener>& listener);
 
+    /**
+     * Return if the buffer queue of the stream is abandoned.
+     */
+    bool             isAbandoned() const;
+
   protected:
     const int mId;
+    /**
+     * Stream set id, used to indicate which group of this stream belongs to for buffer sharing
+     * across multiple streams.
+     *
+     * The default value is set to CAMERA3_STREAM_SET_ID_INVALID, which indicates that this stream
+     * doesn't intend to share buffers with any other streams, and this stream will fall back to
+     * the existing BufferQueue mechanism to manage the buffer allocations and buffer circulation.
+     * When a valid stream set id is set, this stream intends to use the Camera3BufferManager to
+     * manage the buffer allocations; the BufferQueue will only handle the buffer transaction
+     * between the producer and consumer. For this case, upon successfully registration, the streams
+     * with the same stream set id will potentially share the buffers allocated by
+     * Camera3BufferManager.
+     */
+    const int mSetId;
+
     const String8 mName;
     // Zero for formats with fixed buffer size for given dimensions.
     const size_t mMaxSize;
@@ -358,14 +387,16 @@ class Camera3Stream :
         STATE_IN_CONFIG,
         STATE_IN_RECONFIG,
         STATE_CONFIGURED,
-        STATE_PREPARING
+        STATE_PREPARING,
+        STATE_ABANDONED
     } mState;
 
     mutable Mutex mLock;
 
     Camera3Stream(int id, camera3_stream_type type,
             uint32_t width, uint32_t height, size_t maxSize, int format,
-            android_dataspace dataSpace, camera3_stream_rotation_t rotation);
+            android_dataspace dataSpace, camera3_stream_rotation_t rotation,
+            int setId);
 
     /**
      * Interface to be implemented by derived classes
@@ -419,8 +450,8 @@ class Camera3Stream :
     bool mStreamUnpreparable;
 
   private:
-    uint32_t oldUsage;
-    uint32_t oldMaxBuffers;
+    uint32_t mOldUsage;
+    uint32_t mOldMaxBuffers;
     Condition mOutputBufferReturnedSignal;
     Condition mInputBufferReturnedSignal;
     static const nsecs_t kWaitForBufferDuration = 3000000000LL; // 3000 ms
@@ -434,6 +465,12 @@ class Camera3Stream :
 
     status_t        cancelPrepareLocked();
 
+    // Return whether the buffer is in the list of outstanding buffers.
+    bool isOutstandingBuffer(const camera3_stream_buffer& buffer);
+
+    // Remove the buffer from the list of outstanding buffers.
+    void removeOutstandingBuffer(const camera3_stream_buffer& buffer);
+
     // Tracking for PREPARING state
 
     // State of buffer preallocation. Only true if either prepareNextBuffer
@@ -443,6 +480,12 @@ class Camera3Stream :
 
     Vector<camera3_stream_buffer_t> mPreparedBuffers;
     size_t mPreparedBufferIdx;
+
+    // Number of buffers allocated on last prepare call.
+    size_t mLastMaxCount;
+
+    // Outstanding buffers dequeued from the stream's buffer queue.
+    List<buffer_handle_t> mOutstandingBuffers;
 
 }; // class Camera3Stream
 

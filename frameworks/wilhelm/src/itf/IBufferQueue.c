@@ -46,7 +46,6 @@ static SLuint32 getAssociatedState(IBufferQueue *thiz)
 SLresult IBufferQueue_Enqueue(SLBufferQueueItf self, const void *pBuffer, SLuint32 size)
 {
     SL_ENTER_INTERFACE
-    //SL_LOGV("IBufferQueue_Enqueue(%p, %p, %u)", self, pBuffer, size);
 
     // Note that Enqueue while a Clear is pending is equivalent to Enqueue followed by Clear
 
@@ -90,14 +89,15 @@ SLresult IBufferQueue_Clear(SLBufferQueueItf self)
         CAudioPlayer *audioPlayer = (CAudioPlayer *) thiz->mThis;
         // flush associated audio player
         result = android_audioPlayer_bufferQueue_onClear(audioPlayer);
-        if (SL_RESULT_SUCCESS == result) {
-            thiz->mFront = &thiz->mArray[0];
-            thiz->mRear = &thiz->mArray[0];
-            thiz->mState.count = 0;
-            thiz->mState.playIndex = 0;
-            thiz->mSizeConsumed = 0;
-            thiz->mCallbackPending = false;
-        }
+    }
+    // flush our buffers
+    if (SL_RESULT_SUCCESS == result) {
+        thiz->mFront = &thiz->mArray[0];
+        thiz->mRear = &thiz->mArray[0];
+        thiz->mState.count = 0;
+        thiz->mState.playIndex = 0;
+        thiz->mSizeConsumed = 0;
+        thiz->mCallbackPending = false;
     }
 #endif
 
@@ -112,6 +112,9 @@ SLresult IBufferQueue_Clear(SLBufferQueueItf self)
 
     interface_unlock_exclusive(thiz);
 
+    // there is a danger that a buffer is still held by the callback thread
+    // after we leave IBufferQueue_Clear().  This buffer will not be written
+    // into anymore, but it is possible that it will be returned via callback.
     SL_LEAVE_INTERFACE
 }
 

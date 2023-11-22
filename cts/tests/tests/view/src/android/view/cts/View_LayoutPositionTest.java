@@ -16,7 +16,7 @@
 
 package android.view.cts;
 
-import com.android.cts.view.R;
+import android.view.cts.R;
 
 
 import android.app.Activity;
@@ -36,7 +36,7 @@ public class View_LayoutPositionTest
     private Activity mActivity;
 
     public View_LayoutPositionTest() {
-        super("com.android.cts.view", ViewLayoutPositionTestCtsActivity.class);
+        super("android.view.cts", ViewLayoutPositionTestCtsActivity.class);
     }
 
     @Override

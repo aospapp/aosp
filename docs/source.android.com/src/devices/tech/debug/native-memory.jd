@@ -16,7 +16,7 @@ page.title=Debugging Native Memory Use
     See the License for the specific language governing permissions and
     limitations under the License.
 -->
-<p>This tip assume that you are working with an eng
+<p>This tip assumes that you are working with an eng
 or userdebug build of the platform, not on a production device.</p>
 <p>Android's native memory allocator has some useful debugging features.  You
 can turn on memory tracking with:</p>
@@ -25,7 +25,7 @@ can turn on memory tracking with:</p>
   $ adb shell start
 </code></pre>
 <p>You need to restart the runtime so that zygote and all processes launched from
-it are restarted with the property set.  Now all Dalvik processes have memory
+it are restarted with the property set.  Now all app processes have memory
 tracking turned on.  You can look at these with DDMS, but first you need to
 turn on its native memory UI:</p>
 <ul>

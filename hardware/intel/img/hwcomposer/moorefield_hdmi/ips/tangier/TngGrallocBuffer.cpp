@@ -15,6 +15,7 @@
 */
 #include <common/utils/HwcTrace.h>
 #include <ips/tangier/TngGrallocBuffer.h>
+#include <khronos/openmax/OMX_IntelVideoExt.h>
 
 namespace android {
 namespace intel {
@@ -47,7 +48,11 @@ void TngGrallocBuffer::initBuffer(uint32_t handle)
     }
 
     mFormat = grallocHandle->iFormat;
-    mWidth = grallocHandle->iWidth;
+    if (mFormat == OMX_INTEL_COLOR_FormatYUV420PackedSemiPlanar ||
+        mFormat == OMX_INTEL_COLOR_FormatYUV420PackedSemiPlanar_Tiled) {
+        mWidth = grallocHandle->aiStride[0];
+    } else
+        mWidth = grallocHandle->iWidth;
     mHeight = grallocHandle->iHeight;
     mUsage = grallocHandle->usage;
     mKey = grallocHandle->ui64Stamp;

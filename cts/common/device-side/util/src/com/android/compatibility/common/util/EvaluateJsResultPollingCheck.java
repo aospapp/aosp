@@ -18,7 +18,7 @@ package com.android.compatibility.common.util;
 
 import android.webkit.ValueCallback;
 
-public class EvaluateJsResultPollingCheck  extends PollingCheck
+public class EvaluateJsResultPollingCheck extends PollingCheck
         implements ValueCallback<String> {
     private String mActualResult;
     private String mExpectedResult;

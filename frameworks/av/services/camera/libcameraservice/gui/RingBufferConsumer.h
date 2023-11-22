@@ -133,7 +133,7 @@ class RingBufferConsumer : public ConsumerBase,
         }
 
         bool isEmpty() {
-            return mBufferItem.mBuf == BufferQueue::INVALID_BUFFER_SLOT;
+            return mBufferItem.mSlot == BufferQueue::INVALID_BUFFER_SLOT;
         }
 
         BufferItem& getBufferItem() { return mBufferItem; }
@@ -189,4 +189,4 @@ class RingBufferConsumer : public ConsumerBase,
 
 } // namespace android
 
-#endif // ANDROID_GUI_CPUCONSUMER_H
+#endif // ANDROID_GUI_RINGBUFFERCONSUMER_H

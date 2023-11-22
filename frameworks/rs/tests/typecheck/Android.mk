@@ -1,7 +1,7 @@
 LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
-LOCAL_SDK_VERSION := 8
+LOCAL_SDK_VERSION := 21
 LOCAL_NDK_STL_VARIANT := stlport_static
 
 LOCAL_SRC_FILES:= \

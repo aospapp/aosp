@@ -48,8 +48,18 @@ include $(CLEAR_VARS)
 
 LOCAL_PREBUILT_STATIC_JAVA_LIBRARIES := \
 	servlet-api:lib/javax.servlet-3.0.0.v201112011016.jar \
-	jetty-util:lib/jetty-util-6.1.26.jar \
 	slf4j-api:lib/slf4j-api-1.6.1.jar \
 	slf4j-jdk14:lib/slf4j-jdk14-1.6.1.jar \
 
 include $(BUILD_MULTI_PREBUILT)
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_CLASS := JAVA_LIBRARIES
+LOCAL_MODULE := jetty-util
+LOCAL_SRC_FILES := lib/jetty-util-6.1.26.jar
+LOCAL_JACK_FLAGS := -D jack.import.jar.debug-info=false
+LOCAL_UNINSTALLABLE_MODULE := true
+
+include $(BUILD_PREBUILT)

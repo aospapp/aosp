@@ -2,7 +2,7 @@ page.title=Key Character Map Files
 @jd:body
 
 <!--
-    Copyright 2013 The Android Open Source Project
+    Copyright 2015 The Android Open Source Project
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -16,6 +16,14 @@ page.title=Key Character Map Files
     See the License for the specific language governing permissions and
     limitations under the License.
 -->
+<div id="qv-wrapper">
+  <div id="qv">
+    <h2>In this document</h2>
+    <ol id="auto-toc">
+    </ol>
+  </div>
+</div>
+
 <p>Key character map files (<code>.kcm</code> files) are responsible for mapping combinations
 of Android key codes with modifiers to Unicode characters.</p>
 <p>Device-specific key layout files are <em>required</em> for all internal (built-in)
@@ -56,7 +64,7 @@ that is used by the virtual keyboard devices.</p>
 (see <code>KeyCharacterMap.VIRTUAL_KEYBOARD</code>).  It is present on all Android devices
 beginning with Android Honeycomb 3.0.  The purpose of the virtual keyboard device
 is to provide a known built-in input device that can be used for injecting
-keystokes into applications by the IME or by test instrumentation, even
+keystrokes into applications by the IME or by test instrumentation, even
 for devices that do not have built-in keyboards.</p>
 <p>The virtual keyboard is assumed to have a full QWERTY layout that is the
 same on all devices.  This makes it possible for applications to inject

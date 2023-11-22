@@ -28,6 +28,7 @@ namespace bcc {
 
 class RSScript;
 class Source;
+class CompilerConfig;
 
 typedef llvm::Module* (*RSLinkRuntimeCallback) (bcc::RSScript *, llvm::Module *, llvm::Module *);
 
@@ -69,6 +70,10 @@ public:
   static bool LinkRuntime(RSScript &pScript, const char *rt_path = nullptr);
 
   RSScript(Source &pSource);
+
+  // Passing in the CompilerConfig allows the optimization level to
+  // be derived rather than defaulted to aggressive (-O3)
+  RSScript(Source &pSource, const CompilerConfig * pCompilerConfig);
 
   virtual ~RSScript() { }
 

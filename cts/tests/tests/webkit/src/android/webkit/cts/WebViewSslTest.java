@@ -430,7 +430,7 @@ public class WebViewSslTest extends ActivityInstrumentationTestCase2<WebViewCtsA
     private WebViewOnUiThread mOnUiThread;
 
     public WebViewSslTest() {
-        super("com.android.cts.webkit", WebViewCtsActivity.class);
+        super("android.webkit.cts", WebViewCtsActivity.class);
     }
 
     @Override

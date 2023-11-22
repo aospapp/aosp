@@ -10,9 +10,7 @@
 
 #include "SkCodec.h"
 #include "SkCodecPriv.h"
-#include "SkJpegUtility.h"
-#include "SkSwizzler.h"
-#include "SkTemplates.h"
+#include "SkJpegUtility_codec.h"
 
 // stdio is needed for jpeglib
 #include <stdio.h>

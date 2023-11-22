@@ -21,5 +21,9 @@
     <string name="copy_number" msgid="530057841276106843">"Copiar número de teléfono"</string>
     <string name="action_label" msgid="1318401633653605424">"Volver"</string>
     <string name="accessbility_suggestion_dropdown_opened" msgid="3231589819168382515">"Suxestións de contactos abertas"</string>
+    <string name="accessbility_suggestion_dropdown_closed" msgid="5545766162855459747">"Non hai suxestións dispoñibles"</string>
     <string name="dropdown_delete_button_desc" msgid="8506791557733906887">"Eliminar <xliff:g id="CONTACT">%s</xliff:g> dos destinatarios"</string>
+    <string name="chips_action_copy" msgid="1929144660075507103">"Copiar"</string>
+    <string name="chips_action_cancel" msgid="6077877438943543501">"Cancelar"</string>
+    <string name="chips_permission_text" msgid="1978301259208877495">"Permitir suxestións de contactos"</string>
 </resources>

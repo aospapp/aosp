@@ -1,6 +1,8 @@
 /* modinfo.c - Display module info
  *
  * Copyright 2012 Andre Renaud <andre@bluewatersys.com>
+ *
+ * TODO: cleanup
 
 USE_MODINFO(NEWTOY(modinfo, "<1b:k:F:0", TOYFLAG_BIN))
 
@@ -48,7 +50,7 @@ static void modinfo_file(char *full_name)
   }
 
   if (!buf) {
-    perror_msg("%s", full_name);
+    perror_msg_raw(full_name);
     return;
   } 
 

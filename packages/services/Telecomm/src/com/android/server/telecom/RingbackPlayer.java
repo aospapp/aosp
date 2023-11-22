@@ -1,17 +1,17 @@
 /*
- * Copyright 2014, The Android Open Source Project
+ * Copyright (C) 2014 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License.
+ * limitations under the License
  */
 
 package com.android.server.telecom;
@@ -24,9 +24,7 @@ import com.android.internal.util.Preconditions;
  * able to turn off and on as the user switches between calls. This is why it is implemented as its
  * own class.
  */
-class RingbackPlayer extends CallsManagerListenerBase {
-
-    private final CallsManager mCallsManager;
+public class RingbackPlayer {
 
     private final InCallTonePlayer.Factory mPlayerFactory;
 
@@ -40,44 +38,8 @@ class RingbackPlayer extends CallsManagerListenerBase {
      */
     private InCallTonePlayer mTonePlayer;
 
-    RingbackPlayer(CallsManager callsManager, InCallTonePlayer.Factory playerFactory) {
-        mCallsManager = callsManager;
+    RingbackPlayer(InCallTonePlayer.Factory playerFactory) {
         mPlayerFactory = playerFactory;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void onForegroundCallChanged(Call oldForegroundCall, Call newForegroundCall) {
-        if (oldForegroundCall != null) {
-            stopRingbackForCall(oldForegroundCall);
-        }
-
-        if (shouldStartRinging(newForegroundCall)) {
-            startRingbackForCall(newForegroundCall);
-        }
-    }
-
-    @Override
-    public void onConnectionServiceChanged(
-            Call call,
-            ConnectionServiceWrapper oldService,
-            ConnectionServiceWrapper newService) {
-
-        // Treat as ending or begining dialing based on the state transition.
-        if (shouldStartRinging(call)) {
-            startRingbackForCall(call);
-        } else if (newService == null) {
-            stopRingbackForCall(call);
-        }
-    }
-
-    @Override
-    public void onRingbackRequested(Call call, boolean ignored) {
-        if (shouldStartRinging(call)) {
-            startRingbackForCall(call);
-        } else {
-            stopRingbackForCall(call);
-        }
     }
 
     /**
@@ -85,7 +47,7 @@ class RingbackPlayer extends CallsManagerListenerBase {
      *
      * @param call The call for which to ringback.
      */
-    private void startRingbackForCall(Call call) {
+    public void startRingbackForCall(Call call) {
         Preconditions.checkState(call.getState() == CallState.DIALING);
 
         if (mCall == call) {
@@ -112,7 +74,7 @@ class RingbackPlayer extends CallsManagerListenerBase {
      *
      * @param call The call for which to stop ringback.
      */
-    private void stopRingbackForCall(Call call) {
+    public void stopRingbackForCall(Call call) {
         if (mCall == call) {
             // The foreground call is no longer dialing or is no longer the foreground call. In
             // either case, stop the ringback tone.
@@ -126,12 +88,5 @@ class RingbackPlayer extends CallsManagerListenerBase {
                 mTonePlayer = null;
             }
         }
-    }
-
-    private boolean shouldStartRinging(Call call) {
-        return call != null
-                && mCallsManager.getForegroundCall() == call
-                && call.getState() == CallState.DIALING
-                && call.isRingbackRequested();
     }
 }

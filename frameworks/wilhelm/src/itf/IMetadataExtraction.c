@@ -150,7 +150,7 @@ static SLresult IMetadataExtraction_AddKeyFilter(SLMetadataExtractionItf self,
     SL_ENTER_INTERFACE
 
     if (NULL == pKey || NULL == pValueLangCountry || (filterMask & ~(SL_METADATA_FILTER_KEY |
-        SL_METADATA_FILTER_KEY | SL_METADATA_FILTER_KEY))) {
+            SL_METADATA_FILTER_LANG | SL_METADATA_FILTER_ENCODING))) {
         result = SL_RESULT_PARAMETER_INVALID;
     } else {
         IMetadataExtraction *thiz = (IMetadataExtraction *) self;

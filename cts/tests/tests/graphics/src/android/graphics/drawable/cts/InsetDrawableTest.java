@@ -16,23 +16,25 @@
 
 package android.graphics.drawable.cts;
 
-import com.android.cts.graphics.R;
-
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
 import android.content.res.Resources;
+import android.content.res.Resources.Theme;
+import android.content.res.XmlResourceParser;
 import android.graphics.Canvas;
 import android.graphics.ColorFilter;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
+import android.graphics.cts.R;
 import android.graphics.drawable.Drawable;
-import android.graphics.drawable.InsetDrawable;
 import android.graphics.drawable.Drawable.ConstantState;
+import android.graphics.drawable.InsetDrawable;
 import android.test.AndroidTestCase;
 import android.util.AttributeSet;
 import android.util.StateSet;
 import android.util.Xml;
+import android.view.InflateException;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -57,23 +59,25 @@ public class InsetDrawableTest extends AndroidTestCase {
 
         try {
             insetDrawable.inflate(r, parser, attrs);
-            fail("There should be a XmlPullParserException thrown out.");
-        } catch (XmlPullParserException e) {
+            fail("There should be an InflateException thrown out.");
+        } catch (InflateException e) {
             // expected, test success
         } catch (IOException e) {
             fail("There should not be an IOException thrown out.");
+        } catch (XmlPullParserException e) {
+            fail("There should not be a XmlPullParserException thrown out.");
         }
 
         // input null as params
         try {
             insetDrawable.inflate(null, null, null);
             fail("There should be a NullPointerException thrown out.");
-        } catch (XmlPullParserException e) {
-            fail("There should not be a XmlPullParserException thrown out.");
-        } catch (IOException e) {
-            fail("There should not be an IOException thrown out.");
         } catch (NullPointerException e) {
             // expected, test success
+        } catch (IOException e) {
+            fail("There should not be an IOException thrown out.");
+        } catch (XmlPullParserException e) {
+            fail("There should not be a XmlPullParserException thrown out.");
         }
     }
 
@@ -283,28 +287,48 @@ public class InsetDrawableTest extends AndroidTestCase {
         Drawable d = mContext.getDrawable(R.drawable.pass);
         InsetDrawable insetDrawable = new InsetDrawable(d, 0);
 
-        int expected = d.getIntrinsicWidth(); /* 31 */
+        int expected = d.getIntrinsicWidth();
         assertEquals(expected, insetDrawable.getIntrinsicWidth());
 
         d = mContext.getDrawable(R.drawable.scenery);
         insetDrawable = new InsetDrawable(d, 0);
 
-        expected = d.getIntrinsicWidth(); /* 170 */
+        expected = d.getIntrinsicWidth();
         assertEquals(expected, insetDrawable.getIntrinsicWidth());
+
+        d = mContext.getDrawable(R.drawable.scenery);
+        insetDrawable = new InsetDrawable(d, 20);
+
+        expected = d.getIntrinsicWidth() + 40;
+        assertEquals(expected, insetDrawable.getIntrinsicWidth());
+
+        d = mContext.getDrawable(R.drawable.inset_color);
+        expected = -1;
+        assertEquals(expected, d.getIntrinsicWidth());
     }
 
     public void testGetIntrinsicHeight() {
         Drawable d = mContext.getDrawable(R.drawable.pass);
         InsetDrawable insetDrawable = new InsetDrawable(d, 0);
 
-        int expected = d.getIntrinsicHeight(); /* 31 */
+        int expected = d.getIntrinsicHeight();
         assertEquals(expected, insetDrawable.getIntrinsicHeight());
 
         d = mContext.getDrawable(R.drawable.scenery);
         insetDrawable = new InsetDrawable(d, 0);
 
-        expected = d.getIntrinsicHeight(); /* 107 */
+        expected = d.getIntrinsicHeight();
         assertEquals(expected, insetDrawable.getIntrinsicHeight());
+
+        d = mContext.getDrawable(R.drawable.scenery);
+        insetDrawable = new InsetDrawable(d, 20);
+
+        expected = d.getIntrinsicHeight() + 40;
+        assertEquals(expected, insetDrawable.getIntrinsicHeight());
+
+        d = mContext.getDrawable(R.drawable.inset_color);
+        expected = -1;
+        assertEquals(expected, d.getIntrinsicHeight());
     }
 
     public void testGetConstantState() {
@@ -331,6 +355,60 @@ public class InsetDrawableTest extends AndroidTestCase {
         InsetDrawable post = (InsetDrawable) res.getDrawable(R.drawable.inset_mutate, null);
 
         assertEquals("Did not modify post-mutate() instance", 255, post.getDrawable().getAlpha());
+    }
+
+
+    public void testPreloadDensity() throws XmlPullParserException, IOException {
+        final Resources res = getContext().getResources();
+        final int densityDpi = res.getConfiguration().densityDpi;
+        try {
+            testPreloadDensityInner(res, densityDpi);
+        } finally {
+            DrawableTestUtils.setResourcesDensity(res, densityDpi);
+        }
+    }
+
+    private void testPreloadDensityInner(Resources res, int densityDpi)
+            throws XmlPullParserException, IOException {
+        // Capture initial state at default density.
+        final XmlResourceParser parser = DrawableTestUtils.getResourceParser(
+                res, R.drawable.inset_density);
+        final InsetDrawable preloadedDrawable = new InsetDrawable(null, 0);
+        preloadedDrawable.inflate(res, parser, Xml.asAttributeSet(parser));
+        final ConstantState preloadedConstantState = preloadedDrawable.getConstantState();
+        final int origInsetHoriz = preloadedDrawable.getIntrinsicWidth()
+                - preloadedDrawable.getDrawable().getIntrinsicWidth();
+
+        // Set density to half of original. Unlike offsets, which are
+        // truncated, dimensions are rounded to the nearest pixel.
+        DrawableTestUtils.setResourcesDensity(res, densityDpi / 2);
+        final InsetDrawable halfDrawable =
+                (InsetDrawable) preloadedConstantState.newDrawable(res);
+        assertEquals(Math.round(origInsetHoriz / 2f), halfDrawable.getIntrinsicWidth()
+                - halfDrawable.getDrawable().getIntrinsicWidth());
+
+        // Set density to double original.
+        DrawableTestUtils.setResourcesDensity(res, densityDpi * 2);
+        final InsetDrawable doubleDrawable =
+                (InsetDrawable) preloadedConstantState.newDrawable(res);
+        assertEquals(origInsetHoriz * 2, doubleDrawable.getIntrinsicWidth()
+                - doubleDrawable.getDrawable().getIntrinsicWidth());
+
+        // Restore original density.
+        DrawableTestUtils.setResourcesDensity(res, densityDpi);
+        final InsetDrawable origDrawable =
+                (InsetDrawable) preloadedConstantState.newDrawable();
+        assertEquals(origInsetHoriz, origDrawable.getIntrinsicWidth()
+                - origDrawable.getDrawable().getIntrinsicWidth());
+
+        // Ensure theme density is applied correctly.
+        final Theme t = res.newTheme();
+        halfDrawable.applyTheme(t);
+        assertEquals(origInsetHoriz, halfDrawable.getIntrinsicWidth()
+                - halfDrawable.getDrawable().getIntrinsicWidth());
+        doubleDrawable.applyTheme(t);
+        assertEquals(origInsetHoriz, doubleDrawable.getIntrinsicWidth()
+                - doubleDrawable.getDrawable().getIntrinsicWidth());
     }
 
     private class MockInsetDrawable extends InsetDrawable {

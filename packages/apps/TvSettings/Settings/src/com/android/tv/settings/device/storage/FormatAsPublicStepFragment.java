@@ -22,6 +22,7 @@ import android.os.storage.DiskInfo;
 import android.os.storage.StorageManager;
 import android.os.storage.VolumeInfo;
 import android.support.annotation.NonNull;
+import android.support.v17.leanback.app.GuidedStepFragment;
 import android.support.v17.leanback.widget.GuidanceStylist;
 import android.support.v17.leanback.widget.GuidedAction;
 import android.text.TextUtils;
@@ -30,8 +31,7 @@ import com.android.tv.settings.R;
 
 import java.util.List;
 
-public class FormatAsPublicStepFragment extends StorageGuidedStepFragment {
-    private static final int ACTION_ID_CANCEL = 0;
+public class FormatAsPublicStepFragment extends GuidedStepFragment {
     private static final int ACTION_ID_BACKUP = 1;
     private static final int ACTION_ID_FORMAT = 2;
 
@@ -72,22 +72,21 @@ public class FormatAsPublicStepFragment extends StorageGuidedStepFragment {
         return new GuidanceStylist.Guidance(
                 getString(R.string.storage_wizard_format_as_public_title),
                 getString(R.string.storage_wizard_format_as_public_description), "",
-                getActivity().getDrawable(R.drawable.ic_settings_warning));
+                getActivity().getDrawable(R.drawable.ic_warning_132dp));
     }
 
     @Override
     public void onCreateActions(@NonNull List<GuidedAction> actions, Bundle savedInstanceState) {
-        actions.add(new GuidedAction.Builder()
-                .id(ACTION_ID_CANCEL)
-                .title(getString(android.R.string.cancel))
+        actions.add(new GuidedAction.Builder(getContext())
+                .clickAction(GuidedAction.ACTION_ID_CANCEL)
                 .build());
         if (!TextUtils.isEmpty(mVolumeId)) {
-            actions.add(new GuidedAction.Builder()
+            actions.add(new GuidedAction.Builder(getContext())
                     .id(ACTION_ID_BACKUP)
                     .title(getString(R.string.storage_wizard_backup_apps_action))
                     .build());
         }
-        actions.add(new GuidedAction.Builder()
+        actions.add(new GuidedAction.Builder(getContext())
                 .id(ACTION_ID_FORMAT)
                 .title(getString(R.string.storage_wizard_format_action))
                 .build());
@@ -97,7 +96,7 @@ public class FormatAsPublicStepFragment extends StorageGuidedStepFragment {
     public void onGuidedActionClicked(GuidedAction action) {
         final long id = action.getId();
 
-        if (id == ACTION_ID_CANCEL) {
+        if (id == GuidedAction.ACTION_ID_CANCEL) {
             ((Callback) getActivity()).onCancelFormatDialog();
         } else if (id == ACTION_ID_BACKUP) {
             final Fragment f = BackupAppsStepFragment.newInstance(mVolumeId);

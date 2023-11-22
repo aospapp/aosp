@@ -16,8 +16,6 @@
 
 package com.example.android.supportv7.media;
 
-import com.example.android.supportv7.R;
-
 import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
@@ -30,7 +28,6 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.SystemClock;
-import android.support.v4.app.FragmentManager;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.view.MenuItemCompat;
 import android.support.v7.app.AppCompatActivity;
@@ -38,12 +35,10 @@ import android.support.v7.app.MediaRouteActionProvider;
 import android.support.v7.app.MediaRouteControllerDialog;
 import android.support.v7.app.MediaRouteControllerDialogFragment;
 import android.support.v7.app.MediaRouteDialogFactory;
-import android.support.v7.app.MediaRouteDiscoveryFragment;
 import android.support.v7.media.MediaControlIntent;
 import android.support.v7.media.MediaItemStatus;
 import android.support.v7.media.MediaRouteSelector;
 import android.support.v7.media.MediaRouter;
-import android.support.v7.media.MediaRouter.Callback;
 import android.support.v7.media.MediaRouter.ProviderInfo;
 import android.support.v7.media.MediaRouter.RouteInfo;
 import android.util.Log;
@@ -56,6 +51,7 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ArrayAdapter;
+import android.widget.CheckBox;
 import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.SeekBar;
@@ -64,6 +60,8 @@ import android.widget.TabHost;
 import android.widget.TabHost.OnTabChangeListener;
 import android.widget.TabHost.TabSpec;
 import android.widget.TextView;
+
+import com.example.android.supportv7.R;
 
 import java.io.File;
 
@@ -79,6 +77,7 @@ import java.io.File;
 public class SampleMediaRouterActivity extends AppCompatActivity {
     private static final String TAG = "SampleMediaRouterActivity";
     private static final String DISCOVERY_FRAGMENT_TAG = "DiscoveryFragment";
+    private static final boolean ENABLE_DEFAULT_CONTROL_CHECK_BOX = false;
 
     private MediaRouter mMediaRouter;
     private MediaRouteSelector mSelector;
@@ -87,6 +86,7 @@ public class SampleMediaRouterActivity extends AppCompatActivity {
     private TextView mInfoTextView;
     private ListView mLibraryView;
     private ListView mPlayListView;
+    private CheckBox mUseDefaultControlCheckBox;
     private ImageButton mPauseResumeButton;
     private ImageButton mStopButton;
     private SeekBar mSeekBar;
@@ -212,23 +212,7 @@ public class SampleMediaRouterActivity extends AppCompatActivity {
                 .addControlCategory(MediaControlIntent.CATEGORY_REMOTE_PLAYBACK)
                 .addControlCategory(SampleMediaRouteProvider.CATEGORY_SAMPLE_ROUTE)
                 .build();
-
-        // Add a fragment to take care of media route discovery.
-        // This fragment automatically adds or removes a callback whenever the activity
-        // is started or stopped.
-        FragmentManager fm = getSupportFragmentManager();
-        DiscoveryFragment fragment = (DiscoveryFragment)fm.findFragmentByTag(
-                DISCOVERY_FRAGMENT_TAG);
-        if (fragment == null) {
-            fragment = new DiscoveryFragment(mMediaRouterCB);
-            fragment.setRouteSelector(mSelector);
-            fm.beginTransaction()
-                    .add(fragment, DISCOVERY_FRAGMENT_TAG)
-                    .commit();
-        } else {
-            fragment.setCallback(mMediaRouterCB);
-            fragment.setRouteSelector(mSelector);
-        }
+        mMediaRouter.addCallback(mSelector, mMediaRouterCB);
 
         // Populate an array adapter with streaming media items.
         String[] mediaNames = getResources().getStringArray(R.array.media_names);
@@ -308,6 +292,10 @@ public class SampleMediaRouterActivity extends AppCompatActivity {
 
         mInfoTextView = (TextView) findViewById(R.id.info);
 
+        mUseDefaultControlCheckBox = (CheckBox) findViewById(R.id.custom_control_view_checkbox);
+        if (ENABLE_DEFAULT_CONTROL_CHECK_BOX) {
+            mUseDefaultControlCheckBox.setVisibility(View.VISIBLE);
+        }
         mPauseResumeButton = (ImageButton)findViewById(R.id.pause_resume_button);
         mPauseResumeButton.setOnClickListener(new OnClickListener() {
             @Override
@@ -512,13 +500,13 @@ public class SampleMediaRouterActivity extends AppCompatActivity {
         getMenuInflater().inflate(R.menu.sample_media_router_menu, menu);
 
         MenuItem mediaRouteMenuItem = menu.findItem(R.id.media_route_menu_item);
-        MediaRouteActionProvider mediaRouteActionProvider =
-                (MediaRouteActionProvider)MenuItemCompat.getActionProvider(mediaRouteMenuItem);
+        MyMediaRouteActionProvider mediaRouteActionProvider =
+                (MyMediaRouteActionProvider)MenuItemCompat.getActionProvider(mediaRouteMenuItem);
         mediaRouteActionProvider.setRouteSelector(mSelector);
         mediaRouteActionProvider.setDialogFactory(new MediaRouteDialogFactory() {
             @Override
             public MediaRouteControllerDialogFragment onCreateControllerDialogFragment() {
-                return new ControllerDialogFragment(mPlayer);
+                return new ControllerDialogFragment(mPlayer, mUseDefaultControlCheckBox);
             }
         });
 
@@ -596,38 +584,6 @@ public class SampleMediaRouterActivity extends AppCompatActivity {
             return mPlayListItems.getItem(index);
         }
         return null;
-    }
-
-    public static final class DiscoveryFragment extends MediaRouteDiscoveryFragment {
-        private static final String TAG = "DiscoveryFragment";
-        private Callback mCallback;
-
-        public DiscoveryFragment() {
-            mCallback = null;
-        }
-
-        public DiscoveryFragment(Callback cb) {
-            mCallback = cb;
-        }
-
-        public void setCallback(Callback cb) {
-            mCallback = cb;
-        }
-
-        @Override
-        public Callback onCreateCallback() {
-            return mCallback;
-        }
-
-        @Override
-        public int onPrepareCallbackFlags() {
-            // Add the CALLBACK_FLAG_UNFILTERED_EVENTS flag to ensure that we will
-            // observe and log all route events including those that are for routes
-            // that do not match our selector.  This is only for demonstration purposes
-            // and should not be needed by most applications.
-            return super.onPrepareCallbackFlags()
-                    | MediaRouter.CALLBACK_FLAG_UNFILTERED_EVENTS;
-        }
     }
 
     private static final class MediaItem {
@@ -731,23 +687,37 @@ public class SampleMediaRouterActivity extends AppCompatActivity {
     public static class LightWithDarkActionBar extends SampleMediaRouterActivity {
     }
 
+    public static class MyMediaRouteActionProvider extends MediaRouteActionProvider {
+        public MyMediaRouteActionProvider(Context context) {
+            super(context);
+        }
+
+        @Override
+        public boolean isVisible() {
+            return true;
+        }
+    }
+
     public static class ControllerDialogFragment extends MediaRouteControllerDialogFragment {
         private MediaRouteControllerDialog mControllerDialog;
         private Player mPlayer;
+        private CheckBox mUseDefaultControlCheckBox;
 
         public ControllerDialogFragment() {
             super();
         }
 
-        public ControllerDialogFragment(Player player) {
+        public ControllerDialogFragment(Player player, CheckBox customControlViewCheckBox) {
             mPlayer = player;
+            this.mUseDefaultControlCheckBox = customControlViewCheckBox;
         }
 
         @Override
         public MediaRouteControllerDialog onCreateControllerDialog(
                 Context context, Bundle savedInstanceState) {
-            mControllerDialog = super.onCreateControllerDialog(context,
-                    savedInstanceState);
+            mControllerDialog = this.mUseDefaultControlCheckBox.isChecked()
+                    ? super.onCreateControllerDialog(context, savedInstanceState)
+                    : new MyMediaRouteControllerDialog(context);
             mControllerDialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
                 @Override
                 public void onDismiss(DialogInterface dialog) {

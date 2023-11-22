@@ -11,11 +11,11 @@
 #include "GrResourceKey.h"
 #include "GrTypesPriv.h"
 #include "SkData.h"
-#include "SkInstCnt.h"
 
 class GrContext;
 class GrGpu;
 class GrResourceCache;
+class SkTraceMemoryDump;
 
 /**
  * Base class for GrGpuResource. Handles the various types of refs we need. Separated out as a base
@@ -46,8 +46,6 @@ class GrResourceCache;
  */
 template <typename DERIVED> class GrIORef : public SkNoncopyable {
 public:
-    SK_DECLARE_INST_COUNT(GrIORef)
-
     // Some of the signatures are written to mirror SkRefCnt so that GrGpuResource can work with
     // templated helper classes (e.g. SkAutoTUnref). However, we have different categories of
     // refs (e.g. pending reads). We also don't require thread safety as GrCacheable objects are
@@ -59,7 +57,7 @@ public:
 
     void unref() const {
         this->validate();
-        
+
         if (!(--fRefCnt)) {
             if (!static_cast<const DERIVED*>(this)->notifyRefCountIsZero()) {
                 return;
@@ -141,7 +139,7 @@ private:
  */
 class SK_API GrGpuResource : public GrIORef<GrGpuResource> {
 public:
-    SK_DECLARE_INST_COUNT(GrGpuResource)
+
 
     enum LifeCycle {
         /**
@@ -150,17 +148,24 @@ public:
          * The cache may release them whenever there are no refs.
          */
         kCached_LifeCycle,
+
         /**
          * The resource is uncached. As soon as there are no more refs to it, it is released. Under
          * the hood the cache may opaquely recycle it as a cached resource.
          */
         kUncached_LifeCycle,
+
         /**
          * Similar to uncached, but Skia does not manage the lifetime of the underlying backend
          * 3D API object(s). The client is responsible for freeing those. Used to inject client-
          * created GPU resources into Skia (e.g. to render to a client-created texture).
          */
-        kWrapped_LifeCycle,
+        kBorrowed_LifeCycle,
+
+        /**
+         * An external resource with ownership transfered into Skia. Skia will free the resource.
+         */
+        kAdopted_LifeCycle,
     };
 
     /**
@@ -248,6 +253,13 @@ public:
      */
     void abandon();
 
+    /**
+     * Dumps memory usage information for this GrGpuResource to traceMemoryDump.
+     * Typically, subclasses should not need to override this, and should only
+     * need to override setMemoryBacking.
+     **/
+    virtual void dumpMemoryStatistics(SkTraceMemoryDump* traceMemoryDump) const;
+
 protected:
     // This must be called by every GrGpuObject. It should be called once the object is fully
     // initialized (i.e. not in a base class constructor).
@@ -265,7 +277,12 @@ protected:
         backend API calls should be made. */
     virtual void onAbandon() { }
 
-    bool isWrapped() const { return kWrapped_LifeCycle == fLifeCycle; }
+    bool shouldFreeResources() const { return fLifeCycle != kBorrowed_LifeCycle; }
+
+    bool isExternal() const {
+        return GrGpuResource::kAdopted_LifeCycle == fLifeCycle ||
+               GrGpuResource::kBorrowed_LifeCycle == fLifeCycle;
+    }
 
     /**
      * This entry point should be called whenever gpuMemorySize() should report a different size.
@@ -278,6 +295,12 @@ protected:
      * By default resources are not usable as scratch. This should only be called once.
      **/
     void setScratchKey(const GrScratchKey& scratchKey);
+
+    /**
+     * Allows subclasses to add additional backing information to the SkTraceMemoryDump. Called by
+     * onMemoryDump. The default implementation adds no backing information.
+     **/
+    virtual void setMemoryBacking(SkTraceMemoryDump*, const SkString&) const {}
 
 private:
     /**

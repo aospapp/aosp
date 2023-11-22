@@ -12,6 +12,7 @@ import java.util.Locale;
 import java.util.Random;
 
 import com.ibm.icu.dev.test.TestFmwk;
+import com.ibm.icu.math.BigDecimal;
 import com.ibm.icu.text.DecimalFormat;
 import com.ibm.icu.text.DecimalFormatSymbols;
 import com.ibm.icu.text.DisplayContext;
@@ -579,7 +580,7 @@ public class RbnfTest extends TestFmwk {
         // We're trying to test the plural rules.
         String ruRules = "%spellout-numbering:"
                 + "-x: минус >>;"
-                + "x.x: << запятая >>;"
+                + "x.x: [<< $(cardinal,one{целый}other{целых})$ ]>%%fractions-feminine>;"
                 + "0: ноль;"
                 + "1: один;"
                 + "2: два;"
@@ -613,7 +614,10 @@ public class RbnfTest extends TestFmwk {
                 + "300: <<ста[ >>];"
                 + "500: <<сот[ >>];"
                 + "1000: << $(cardinal,one{тысяча}few{тысячи}other{тысяч})$[ >>];"
-                + "1000000: << $(cardinal,one{миллион}few{миллионы}other{миллионов})$[ >>];";
+                + "1000000: << $(cardinal,one{миллион}few{миллионы}other{миллионов})$[ >>];"
+                + "%%fractions-feminine:"
+                + "10: <%spellout-numbering< $(cardinal,one{десятая}other{десятых})$;"
+                + "100: <%spellout-numbering< $(cardinal,one{сотая}other{сотых})$;";
         RuleBasedNumberFormat ruFormatter = new RuleBasedNumberFormat(ruRules, new ULocale("ru"));
         String[][] ruTestData = {
                 { "1", "один" },
@@ -631,6 +635,12 @@ public class RbnfTest extends TestFmwk {
                 { "21,000", "двадцать один тысяча" },
                 { "22,000", "двадцать два тысячи" },
                 { "25,001", "двадцать пять тысяч один" },
+                { "0.1", "один десятая" },
+                { "0.2", "два десятых" },
+                { "0.21", "двадцать один сотая" },
+                { "0.22", "двадцать два сотых" },
+                { "21.1", "двадцать один целый один десятая" },
+                { "22.2", "двадцать два целых два десятых" },
         };
 
         doTest(ruFormatter, ruTestData, true);
@@ -1404,7 +1414,7 @@ public class RbnfTest extends TestFmwk {
         String[] ruleNames = rbnf.getRuleSetNames();
         try{
             // Test with "null" rules
-            rbnf.format(0.0,null);
+            rbnf.format(0.0, null);
             errln("This was suppose to return an exception for a null format");
         } catch(Exception e){}
         for(int i=0; i<ruleNames.length; i++){
@@ -1487,4 +1497,131 @@ public class RbnfTest extends TestFmwk {
         }
     }
 
+    public void TestInfinityNaN() {
+        String enRules = "%default:"
+                + "-x: minus >>;"
+                + "Inf: infinite;"
+                + "NaN: not a number;"
+                + "0: =#,##0=;";
+        RuleBasedNumberFormat enFormatter = new RuleBasedNumberFormat(enRules, ULocale.ENGLISH);
+        String[][] enTestData = {
+                {"1", "1"},
+                {"\u221E", "infinite"},
+                {"-\u221E", "minus infinite"},
+                {"NaN", "not a number"},
+
+        };
+
+        doTest(enFormatter, enTestData, true);
+
+        // Test the default behavior when the rules are undefined.
+        enRules = "%default:"
+                + "-x: ->>;"
+                + "0: =#,##0=;";
+        enFormatter = new RuleBasedNumberFormat(enRules, ULocale.ENGLISH);
+        String[][] enDefaultTestData = {
+                {"1", "1"},
+                {"\u221E", "∞"},
+                {"-\u221E", "-∞"},
+                {"NaN", "NaN"},
+
+        };
+
+        doTest(enFormatter, enDefaultTestData, true);
+    }
+
+    public void TestVariableDecimalPoint() {
+        String enRules = "%spellout-numbering:"
+                + "-x: minus >>;"
+                + "x.x: << point >>;"
+                + "x,x: << comma >>;"
+                + "0.x: xpoint >>;"
+                + "0,x: xcomma >>;"
+                + "0: zero;"
+                + "1: one;"
+                + "2: two;"
+                + "3: three;"
+                + "4: four;"
+                + "5: five;"
+                + "6: six;"
+                + "7: seven;"
+                + "8: eight;"
+                + "9: nine;";
+        RuleBasedNumberFormat enFormatter = new RuleBasedNumberFormat(enRules, ULocale.ENGLISH);
+        String[][] enTestPointData = {
+                {"1.1", "one point one"},
+                {"1.23", "one point two three"},
+                {"0.4", "xpoint four"},
+        };
+        doTest(enFormatter, enTestPointData, true);
+        DecimalFormatSymbols decimalFormatSymbols = new DecimalFormatSymbols(ULocale.ENGLISH);
+        decimalFormatSymbols.setDecimalSeparator(',');
+        enFormatter.setDecimalFormatSymbols(decimalFormatSymbols);
+        String[][] enTestCommaData = {
+                {"1.1", "one comma one"},
+                {"1.23", "one comma two three"},
+                {"0.4", "xcomma four"},
+        };
+        doTest(enFormatter, enTestCommaData, true);
+    }
+
+    public void TestRounding() {
+        RuleBasedNumberFormat enFormatter = new RuleBasedNumberFormat(ULocale.ENGLISH, RuleBasedNumberFormat.SPELLOUT);
+        String[][] enTestFullData = {
+                {"0", "zero"},
+                {"0.4", "zero point four"},
+                {"0.49", "zero point four nine"},
+                {"0.5", "zero point five"},
+                {"0.51", "zero point five one"},
+                {"0.99", "zero point nine nine"},
+                {"1", "one"},
+                {"1.01", "one point zero one"},
+                {"1.49", "one point four nine"},
+                {"1.5", "one point five"},
+                {"1.51", "one point five one"},
+                {"450359962737049.6", "four hundred fifty trillion three hundred fifty-nine billion nine hundred sixty-two million seven hundred thirty-seven thousand forty-nine point six"}, // 2^52 / 10
+                {"450359962737049.7", "four hundred fifty trillion three hundred fifty-nine billion nine hundred sixty-two million seven hundred thirty-seven thousand forty-nine point seven"}, // 2^52 + 1 / 10
+        };
+        doTest(enFormatter, enTestFullData, false);
+
+        enFormatter.setMaximumFractionDigits(0);
+        enFormatter.setRoundingMode(BigDecimal.ROUND_HALF_EVEN);
+        String[][] enTestIntegerData = {
+                {"0", "zero"},
+                {"0.4", "zero"},
+                {"0.49", "zero"},
+                {"0.5", "zero"},
+                {"0.51", "one"},
+                {"0.99", "one"},
+                {"1", "one"},
+                {"1.01", "one"},
+                {"1.49", "one"},
+                {"1.5", "two"},
+                {"1.51", "two"},
+        };
+        doTest(enFormatter, enTestIntegerData, false);
+
+        enFormatter.setMaximumFractionDigits(1);
+        enFormatter.setRoundingMode(BigDecimal.ROUND_HALF_EVEN);
+        String[][] enTestTwoDigitsData = {
+                {"0", "zero"},
+                {"0.04", "zero"},
+                {"0.049", "zero"},
+                {"0.05", "zero"},
+                {"0.051", "zero point one"},
+                {"0.099", "zero point one"},
+                {"10.11", "ten point one"},
+                {"10.149", "ten point one"},
+                {"10.15", "ten point two"},
+                {"10.151", "ten point two"},
+        };
+        doTest(enFormatter, enTestTwoDigitsData, false);
+
+        enFormatter.setMaximumFractionDigits(3);
+        enFormatter.setRoundingMode(BigDecimal.ROUND_DOWN);
+        String[][] enTestThreeDigitsDownData = {
+                {"4.3", "four point three"}, // Not 4.299!
+        };
+        doTest(enFormatter, enTestThreeDigitsDownData, false);
+    }
 }

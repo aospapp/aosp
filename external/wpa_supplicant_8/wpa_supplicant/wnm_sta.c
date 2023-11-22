@@ -37,12 +37,14 @@ static int ieee80211_11_get_tfs_ie(struct wpa_supplicant *wpa_s, u8 *buf,
 
 /* set the TFS IE to driver */
 static int ieee80211_11_set_tfs_ie(struct wpa_supplicant *wpa_s,
-				   const u8 *addr, u8 *buf, u16 *buf_len,
+				   const u8 *addr, const u8 *buf, u16 buf_len,
 				   enum wnm_oper oper)
 {
+	u16 len = buf_len;
+
 	wpa_printf(MSG_DEBUG, "%s: TFS set operation %d", __func__, oper);
 
-	return wpa_drv_wnm_oper(wpa_s, oper, addr, buf, buf_len);
+	return wpa_drv_wnm_oper(wpa_s, oper, addr, (u8 *) buf, &len);
 }
 
 
@@ -137,6 +139,8 @@ int ieee802_11_send_wnmsleep_req(struct wpa_supplicant *wpa_s,
 	if (res < 0)
 		wpa_printf(MSG_DEBUG, "Failed to send WNM-Sleep Request "
 			   "(action=%d, intval=%d)", action, intval);
+	else
+		wpa_s->wnmsleep_used = 1;
 
 	os_free(wnmsleep_ie);
 	os_free(wnmtfs_ie);
@@ -147,8 +151,8 @@ int ieee802_11_send_wnmsleep_req(struct wpa_supplicant *wpa_s,
 
 
 static void wnm_sleep_mode_enter_success(struct wpa_supplicant *wpa_s,
-					 u8 *tfsresp_ie_start,
-					 u8 *tfsresp_ie_end)
+					 const u8 *tfsresp_ie_start,
+					 const u8 *tfsresp_ie_end)
 {
 	wpa_drv_wnm_oper(wpa_s, WNM_SLEEP_ENTER_CONFIRM,
 			 wpa_s->bssid, NULL, NULL);
@@ -164,7 +168,7 @@ static void wnm_sleep_mode_enter_success(struct wpa_supplicant *wpa_s,
 		/* pass the TFS Resp IE(s) to driver for processing */
 		if (ieee80211_11_set_tfs_ie(wpa_s, wpa_s->bssid,
 					    tfsresp_ie_start,
-					    &tfsresp_ie_len,
+					    tfsresp_ie_len,
 					    WNM_SLEEP_TFS_RESP_IE_SET))
 			wpa_printf(MSG_DEBUG, "WNM: Fail to set TFS Resp IE");
 	}
@@ -187,8 +191,14 @@ static void wnm_sleep_mode_exit_success(struct wpa_supplicant *wpa_s,
 	end = ptr + key_len_total;
 	wpa_hexdump_key(MSG_DEBUG, "WNM: Key Data", ptr, key_len_total);
 
-	while (ptr + 1 < end) {
-		if (ptr + 2 + ptr[1] > end) {
+	if (key_len_total && !wpa_sm_pmf_enabled(wpa_s->wpa)) {
+		wpa_msg(wpa_s, MSG_INFO,
+			"WNM: Ignore Key Data in WNM-Sleep Mode Response - PMF not enabled");
+		return;
+	}
+
+	while (end - ptr > 1) {
+		if (2 + ptr[1] > end - ptr) {
 			wpa_printf(MSG_DEBUG, "WNM: Invalid Key Data element "
 				   "length");
 			if (end > ptr) {
@@ -239,13 +249,19 @@ static void ieee802_11_rx_wnmsleep_resp(struct wpa_supplicant *wpa_s,
 	 * Action [1] | Dialog Token [1] | Key Data Len [2] | Key Data |
 	 * WNM-Sleep Mode IE | TFS Response IE
 	 */
-	u8 *pos = (u8 *) frm; /* point to payload after the action field */
+	const u8 *pos = frm; /* point to payload after the action field */
 	u16 key_len_total;
 	struct wnm_sleep_element *wnmsleep_ie = NULL;
 	/* multiple TFS Resp IE (assuming consecutive) */
-	u8 *tfsresp_ie_start = NULL;
-	u8 *tfsresp_ie_end = NULL;
+	const u8 *tfsresp_ie_start = NULL;
+	const u8 *tfsresp_ie_end = NULL;
 	size_t left;
+
+	if (!wpa_s->wnmsleep_used) {
+		wpa_printf(MSG_DEBUG,
+			   "WNM: Ignore WNM-Sleep Mode Response frame since WNM-Sleep Mode has not been used in this association");
+		return;
+	}
 
 	if (len < 3)
 		return;
@@ -259,14 +275,14 @@ static void ieee802_11_rx_wnmsleep_resp(struct wpa_supplicant *wpa_s,
 		return;
 	}
 	pos += 3 + key_len_total;
-	while (pos - frm < len) {
+	while (pos - frm + 1 < len) {
 		u8 ie_len = *(pos + 1);
-		if (pos + 2 + ie_len > frm + len) {
+		if (2 + ie_len > frm + len - pos) {
 			wpa_printf(MSG_INFO, "WNM: Invalid IE len %u", ie_len);
 			break;
 		}
 		wpa_hexdump(MSG_DEBUG, "WNM: Element", pos, 2 + ie_len);
-		if (*pos == WLAN_EID_WNMSLEEP)
+		if (*pos == WLAN_EID_WNMSLEEP && ie_len >= 4)
 			wnmsleep_ie = (struct wnm_sleep_element *) pos;
 		else if (*pos == WLAN_EID_TFS_RESP) {
 			if (!tfsresp_ie_start)
@@ -413,6 +429,7 @@ static int wnm_nei_get_chan(struct wpa_supplicant *wpa_s, u8 op_class, u8 chan)
 {
 	struct wpa_bss *bss = wpa_s->current_bss;
 	const char *country = NULL;
+	int freq;
 
 	if (bss) {
 		const u8 *elem = wpa_bss_get_ie(bss, WLAN_EID_COUNTRY);
@@ -421,7 +438,21 @@ static int wnm_nei_get_chan(struct wpa_supplicant *wpa_s, u8 op_class, u8 chan)
 			country = (const char *) (elem + 2);
 	}
 
-	return ieee80211_chan_to_freq(country, op_class, chan);
+	freq = ieee80211_chan_to_freq(country, op_class, chan);
+	if (freq <= 0 && op_class == 0) {
+		/*
+		 * Some APs do not advertise correct operating class
+		 * information. Try to determine the most likely operating
+		 * frequency based on the channel number.
+		 */
+		if (chan >= 1 && chan <= 13)
+			freq = 2407 + chan * 5;
+		else if (chan == 14)
+			freq = 2484;
+		else if (chan >= 36 && chan <= 169)
+			freq = 5000 + chan * 5;
+	}
+	return freq;
 }
 
 
@@ -515,6 +546,25 @@ compare_scan_neighbor_results(struct wpa_supplicant *wpa_s)
 			continue;
 		}
 
+		if (wpa_s->current_ssid &&
+		    !wpa_scan_res_match(wpa_s, 0, target, wpa_s->current_ssid,
+					1)) {
+			wpa_printf(MSG_DEBUG, "Candidate BSS " MACSTR
+				   " (pref %d) does not match the current network profile",
+				   MAC2STR(nei->bssid),
+				   nei->preference_present ? nei->preference :
+				   -1);
+			continue;
+		}
+
+		if (wpa_is_bss_tmp_disallowed(wpa_s, target->bssid)) {
+			wpa_printf(MSG_DEBUG,
+				   "MBO: Candidate BSS " MACSTR
+				   " retry delay is not over yet",
+				   MAC2STR(nei->bssid));
+			continue;
+		}
+
 		if (target->level < bss->level && target->level < -80) {
 			wpa_printf(MSG_DEBUG, "Candidate BSS " MACSTR
 				   " (pref %d) does not have sufficient signal level (%d)",
@@ -536,12 +586,190 @@ compare_scan_neighbor_results(struct wpa_supplicant *wpa_s)
 }
 
 
+static int wpa_bss_ies_eq(struct wpa_bss *a, struct wpa_bss *b, u8 eid)
+{
+	const u8 *ie_a, *ie_b;
+
+	if (!a || !b)
+		return 0;
+
+	ie_a = wpa_bss_get_ie(a, eid);
+	ie_b = wpa_bss_get_ie(b, eid);
+
+	if (!ie_a || !ie_b || ie_a[1] != ie_b[1])
+		return 0;
+
+	return os_memcmp(ie_a, ie_b, ie_a[1]) == 0;
+}
+
+
+static u32 wnm_get_bss_info(struct wpa_supplicant *wpa_s, struct wpa_bss *bss)
+{
+	u32 info = 0;
+
+	info |= NEI_REP_BSSID_INFO_AP_UNKNOWN_REACH;
+
+	/*
+	 * Leave the security and key scope bits unset to indicate that the
+	 * security information is not available.
+	 */
+
+	if (bss->caps & WLAN_CAPABILITY_SPECTRUM_MGMT)
+		info |= NEI_REP_BSSID_INFO_SPECTRUM_MGMT;
+	if (bss->caps & WLAN_CAPABILITY_QOS)
+		info |= NEI_REP_BSSID_INFO_QOS;
+	if (bss->caps & WLAN_CAPABILITY_APSD)
+		info |= NEI_REP_BSSID_INFO_APSD;
+	if (bss->caps & WLAN_CAPABILITY_RADIO_MEASUREMENT)
+		info |= NEI_REP_BSSID_INFO_RM;
+	if (bss->caps & WLAN_CAPABILITY_DELAYED_BLOCK_ACK)
+		info |= NEI_REP_BSSID_INFO_DELAYED_BA;
+	if (bss->caps & WLAN_CAPABILITY_IMM_BLOCK_ACK)
+		info |= NEI_REP_BSSID_INFO_IMM_BA;
+	if (wpa_bss_ies_eq(bss, wpa_s->current_bss, WLAN_EID_MOBILITY_DOMAIN))
+		info |= NEI_REP_BSSID_INFO_MOBILITY_DOMAIN;
+	if (wpa_bss_ies_eq(bss, wpa_s->current_bss, WLAN_EID_HT_CAP))
+		info |= NEI_REP_BSSID_INFO_HT;
+
+	return info;
+}
+
+
+static int wnm_add_nei_rep(u8 *buf, size_t len, const u8 *bssid, u32 bss_info,
+			   u8 op_class, u8 chan, u8 phy_type, u8 pref)
+{
+	u8 *pos = buf;
+
+	if (len < 18) {
+		wpa_printf(MSG_DEBUG,
+			   "WNM: Not enough room for Neighbor Report element");
+		return -1;
+	}
+
+	*pos++ = WLAN_EID_NEIGHBOR_REPORT;
+	/* length: 13 for basic neighbor report + 3 for preference subelement */
+	*pos++ = 16;
+	os_memcpy(pos, bssid, ETH_ALEN);
+	pos += ETH_ALEN;
+	WPA_PUT_LE32(pos, bss_info);
+	pos += 4;
+	*pos++ = op_class;
+	*pos++ = chan;
+	*pos++ = phy_type;
+	*pos++ = WNM_NEIGHBOR_BSS_TRANSITION_CANDIDATE;
+	*pos++ = 1;
+	*pos++ = pref;
+	return pos - buf;
+}
+
+
+static int wnm_nei_rep_add_bss(struct wpa_supplicant *wpa_s,
+			       struct wpa_bss *bss, u8 *buf, size_t len,
+			       u8 pref)
+{
+	const u8 *ie;
+	u8 op_class, chan;
+	int sec_chan = 0, vht = 0;
+	enum phy_type phy_type;
+	u32 info;
+	struct ieee80211_ht_operation *ht_oper = NULL;
+	struct ieee80211_vht_operation *vht_oper = NULL;
+
+	ie = wpa_bss_get_ie(bss, WLAN_EID_HT_OPERATION);
+	if (ie && ie[1] >= 2) {
+		ht_oper = (struct ieee80211_ht_operation *) (ie + 2);
+
+		if (ht_oper->ht_param & HT_INFO_HT_PARAM_SECONDARY_CHNL_ABOVE)
+			sec_chan = 1;
+		else if (ht_oper->ht_param &
+			 HT_INFO_HT_PARAM_SECONDARY_CHNL_BELOW)
+			sec_chan = -1;
+	}
+
+	ie = wpa_bss_get_ie(bss, WLAN_EID_VHT_OPERATION);
+	if (ie && ie[1] >= 1) {
+		vht_oper = (struct ieee80211_vht_operation *) (ie + 2);
+
+		if (vht_oper->vht_op_info_chwidth == VHT_CHANWIDTH_80MHZ ||
+		    vht_oper->vht_op_info_chwidth == VHT_CHANWIDTH_160MHZ ||
+		    vht_oper->vht_op_info_chwidth == VHT_CHANWIDTH_80P80MHZ)
+			vht = vht_oper->vht_op_info_chwidth;
+	}
+
+	if (ieee80211_freq_to_channel_ext(bss->freq, sec_chan, vht, &op_class,
+					  &chan) == NUM_HOSTAPD_MODES) {
+		wpa_printf(MSG_DEBUG,
+			   "WNM: Cannot determine operating class and channel");
+		return -2;
+	}
+
+	phy_type = ieee80211_get_phy_type(bss->freq, (ht_oper != NULL),
+					  (vht_oper != NULL));
+	if (phy_type == PHY_TYPE_UNSPECIFIED) {
+		wpa_printf(MSG_DEBUG,
+			   "WNM: Cannot determine BSS phy type for Neighbor Report");
+		return -2;
+	}
+
+	info = wnm_get_bss_info(wpa_s, bss);
+
+	return wnm_add_nei_rep(buf, len, bss->bssid, info, op_class, chan,
+			       phy_type, pref);
+}
+
+
+static int wnm_add_cand_list(struct wpa_supplicant *wpa_s, u8 *buf, size_t len)
+{
+	u8 *pos = buf;
+	unsigned int i, pref = 255;
+	struct os_reltime now;
+	struct wpa_ssid *ssid = wpa_s->current_ssid;
+
+	if (!ssid)
+		return 0;
+
+	/*
+	 * TODO: Define when scan results are no longer valid for the candidate
+	 * list.
+	 */
+	os_get_reltime(&now);
+	if (os_reltime_expired(&now, &wpa_s->last_scan, 10))
+		return 0;
+
+	wpa_printf(MSG_DEBUG,
+		   "WNM: Add candidate list to BSS Transition Management Response frame");
+	for (i = 0; i < wpa_s->last_scan_res_used && pref; i++) {
+		struct wpa_bss *bss = wpa_s->last_scan_res[i];
+		int res;
+
+		if (wpa_scan_res_match(wpa_s, i, bss, ssid, 1)) {
+			res = wnm_nei_rep_add_bss(wpa_s, bss, pos, len, pref--);
+			if (res == -2)
+				continue; /* could not build entry for BSS */
+			if (res < 0)
+				break; /* no more room for candidates */
+			if (pref == 1)
+				break;
+
+			pos += res;
+			len -= res;
+		}
+	}
+
+	wpa_hexdump(MSG_DEBUG,
+		    "WNM: BSS Transition Management Response candidate list",
+		    buf, pos - buf);
+
+	return pos - buf;
+}
+
+
 static void wnm_send_bss_transition_mgmt_resp(
 	struct wpa_supplicant *wpa_s, u8 dialog_token,
 	enum bss_trans_mgmt_status_code status, u8 delay,
 	const u8 *target_bssid)
 {
-	u8 buf[1000], *pos;
+	u8 buf[2000], *pos;
 	struct ieee80211_mgmt *mgmt;
 	size_t len;
 	int res;
@@ -580,6 +808,17 @@ static void wnm_send_bss_transition_mgmt_resp(
 		os_memset(pos, 0, ETH_ALEN);
 		pos += ETH_ALEN;
 	}
+
+	if (status == WNM_BSS_TM_ACCEPT)
+		pos += wnm_add_cand_list(wpa_s, pos, buf + sizeof(buf) - pos);
+
+#ifdef CONFIG_MBO
+	if (status != WNM_BSS_TM_ACCEPT) {
+		pos += wpas_mbo_ie_bss_trans_reject(
+			wpa_s, pos, buf + sizeof(buf) - pos,
+			MBO_TRANSITION_REJECT_REASON_UNSPECIFIED);
+	}
+#endif /* CONFIG_MBO */
 
 	len = pos - (u8 *) &mgmt->u.action.category;
 
@@ -637,6 +876,7 @@ int wnm_scan_process(struct wpa_supplicant *wpa_s, int reply_on_fail)
 	if (bss == wpa_s->current_bss) {
 		wpa_printf(MSG_DEBUG,
 			   "WNM: Already associated with the preferred candidate");
+		wnm_deallocate_memory(wpa_s);
 		return 1;
 	}
 
@@ -789,8 +1029,11 @@ static void ieee802_11_rx_bss_trans_mgmt_req(struct wpa_supplicant *wpa_s,
 {
 	unsigned int beacon_int;
 	u8 valid_int;
+#ifdef CONFIG_MBO
+	const u8 *vendor;
+#endif /* CONFIG_MBO */
 
-	if (pos + 5 > end)
+	if (end - pos < 5)
 		return;
 
 	if (wpa_s->current_bss)
@@ -813,7 +1056,7 @@ static void ieee802_11_rx_bss_trans_mgmt_req(struct wpa_supplicant *wpa_s,
 	pos += 5;
 
 	if (wpa_s->wnm_mode & WNM_BSS_TM_REQ_BSS_TERMINATION_INCLUDED) {
-		if (pos + 12 > end) {
+		if (end - pos < 12) {
 			wpa_printf(MSG_DEBUG, "WNM: Too short BSS TM Request");
 			return;
 		}
@@ -824,7 +1067,7 @@ static void ieee802_11_rx_bss_trans_mgmt_req(struct wpa_supplicant *wpa_s,
 	if (wpa_s->wnm_mode & WNM_BSS_TM_REQ_ESS_DISASSOC_IMMINENT) {
 		char url[256];
 
-		if (pos + 1 > end || pos + 1 + pos[0] > end) {
+		if (end - pos < 1 || 1 + pos[0] > end - pos) {
 			wpa_printf(MSG_DEBUG, "WNM: Invalid BSS Transition "
 				   "Management Request (URL)");
 			return;
@@ -849,6 +1092,12 @@ static void ieee802_11_rx_bss_trans_mgmt_req(struct wpa_supplicant *wpa_s,
 		}
 	}
 
+#ifdef CONFIG_MBO
+	vendor = get_ie(pos, end - pos, WLAN_EID_VENDOR_SPECIFIC);
+	if (vendor)
+		wpas_mbo_ie_trans_req(wpa_s, vendor + 2, vendor[1]);
+#endif /* CONFIG_MBO */
+
 	if (wpa_s->wnm_mode & WNM_BSS_TM_REQ_PREF_CAND_LIST_INCLUDED) {
 		unsigned int valid_ms;
 
@@ -860,7 +1109,7 @@ static void ieee802_11_rx_bss_trans_mgmt_req(struct wpa_supplicant *wpa_s,
 		if (wpa_s->wnm_neighbor_report_elements == NULL)
 			return;
 
-		while (pos + 2 <= end &&
+		while (end - pos >= 2 &&
 		       wpa_s->wnm_num_neighbor_report < WNM_MAX_NEIGHBOR_REPORT)
 		{
 			u8 tag = *pos++;
@@ -868,7 +1117,7 @@ static void ieee802_11_rx_bss_trans_mgmt_req(struct wpa_supplicant *wpa_s,
 
 			wpa_printf(MSG_DEBUG, "WNM: Neighbor report tag %u",
 				   tag);
-			if (pos + len > end) {
+			if (len > end - pos) {
 				wpa_printf(MSG_DEBUG, "WNM: Truncated request");
 				return;
 			}
@@ -877,11 +1126,22 @@ static void ieee802_11_rx_bss_trans_mgmt_req(struct wpa_supplicant *wpa_s,
 				rep = &wpa_s->wnm_neighbor_report_elements[
 					wpa_s->wnm_num_neighbor_report];
 				wnm_parse_neighbor_report(wpa_s, pos, len, rep);
+				wpa_s->wnm_num_neighbor_report++;
 			}
 
 			pos += len;
-			wpa_s->wnm_num_neighbor_report++;
 		}
+
+		if (!wpa_s->wnm_num_neighbor_report) {
+			wpa_printf(MSG_DEBUG,
+				   "WNM: Candidate list included bit is set, but no candidates found");
+			wnm_send_bss_transition_mgmt_resp(
+				wpa_s, wpa_s->wnm_dialog_token,
+				WNM_BSS_TM_REJECT_NO_SUITABLE_CANDIDATES,
+				0, NULL);
+			return;
+		}
+
 		wnm_sort_cand_list(wpa_s);
 		wnm_dump_cand_list(wpa_s);
 		valid_ms = valid_int * beacon_int * 128 / 125;
@@ -910,6 +1170,14 @@ static void ieee802_11_rx_bss_trans_mgmt_req(struct wpa_supplicant *wpa_s,
 		}
 
 		wnm_set_scan_freqs(wpa_s);
+		if (wpa_s->wnm_num_neighbor_report == 1) {
+			os_memcpy(wpa_s->next_scan_bssid,
+				  wpa_s->wnm_neighbor_report_elements[0].bssid,
+				  ETH_ALEN);
+			wpa_printf(MSG_DEBUG,
+				   "WNM: Scan only for a specific BSSID since there is only a single candidate "
+				   MACSTR, MAC2STR(wpa_s->next_scan_bssid));
+		}
 		wpa_supplicant_req_scan(wpa_s, 0, 0);
 	} else if (reply) {
 		enum bss_trans_mgmt_status_code status;
@@ -927,16 +1195,17 @@ static void ieee802_11_rx_bss_trans_mgmt_req(struct wpa_supplicant *wpa_s,
 
 
 int wnm_send_bss_transition_mgmt_query(struct wpa_supplicant *wpa_s,
-				       u8 query_reason)
+				       u8 query_reason, int cand_list)
 {
-	u8 buf[1000], *pos;
+	u8 buf[2000], *pos;
 	struct ieee80211_mgmt *mgmt;
 	size_t len;
 	int ret;
 
 	wpa_printf(MSG_DEBUG, "WNM: Send BSS Transition Management Query to "
-		   MACSTR " query_reason=%u",
-		   MAC2STR(wpa_s->bssid), query_reason);
+		   MACSTR " query_reason=%u%s",
+		   MAC2STR(wpa_s->bssid), query_reason,
+		   cand_list ? " candidate list" : "");
 
 	mgmt = (struct ieee80211_mgmt *) buf;
 	os_memset(&buf, 0, sizeof(buf));
@@ -950,6 +1219,9 @@ int wnm_send_bss_transition_mgmt_query(struct wpa_supplicant *wpa_s,
 	mgmt->u.action.u.bss_tm_query.dialog_token = 1;
 	mgmt->u.action.u.bss_tm_query.query_reason = query_reason;
 	pos = mgmt->u.action.u.bss_tm_query.variable;
+
+	if (cand_list)
+		pos += wnm_add_cand_list(wpa_s, pos, buf + sizeof(buf) - pos);
 
 	len = pos - (u8 *) &mgmt->u.action.category;
 
@@ -971,7 +1243,7 @@ static void ieee802_11_rx_wnm_notif_req_wfa(struct wpa_supplicant *wpa_s,
 	pos = data;
 	end = data + len;
 
-	while (pos + 1 < end) {
+	while (end - pos > 1) {
 		ie = *pos++;
 		ie_len = *pos++;
 		wpa_printf(MSG_DEBUG, "WNM: WFA subelement %u len %u",
@@ -1009,7 +1281,7 @@ static void ieee802_11_rx_wnm_notif_req_wfa(struct wpa_supplicant *wpa_s,
 				url = NULL;
 				osu_method = 1;
 			} else {
-				if (pos + url_len + 1 > ie_end) {
+				if (url_len + 1 > ie_end - pos) {
 					wpa_printf(MSG_DEBUG, "WNM: Not enough room for Server URL (len=%u) and Server Method (left %d)",
 						   url_len,
 						   (int) (ie_end - pos));
@@ -1048,7 +1320,7 @@ static void ieee802_11_rx_wnm_notif_req_wfa(struct wpa_supplicant *wpa_s,
 				   "Imminent - Reason Code %u   "
 				   "Re-Auth Delay %u  URL Length %u",
 				   code, reauth_delay, url_len);
-			if (pos + url_len > ie_end)
+			if (url_len > ie_end - pos)
 				break;
 			url = os_malloc(url_len + 1);
 			if (url == NULL)

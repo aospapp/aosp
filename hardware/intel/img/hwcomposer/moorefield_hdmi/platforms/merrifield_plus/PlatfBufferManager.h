@@ -31,9 +31,8 @@ public:
     void deinitialize();
 
 protected:
-    DataBuffer* createDataBuffer(gralloc_module_t *module, uint32_t handle);
-    BufferMapper* createBufferMapper(gralloc_module_t *module,
-                                        DataBuffer& buffer);
+    DataBuffer* createDataBuffer(uint32_t handle);
+    BufferMapper* createBufferMapper(DataBuffer& buffer);
     bool blitGrallocBuffer(uint32_t srcHandle, uint32_t dstHandle,
                                   crop_t& srcCrop, uint32_t async);
 };

@@ -32,7 +32,7 @@ import com.android.tv.settings.form.FormPageResultListener;
 public class EditProxySettingsActivity extends WifiMultiPagedFormActivity
         implements SaveWifiConfigurationFragment.Listener, TimedMessageWizardFragment.Listener {
 
-    private static final String TAG = "EditProxySettingsActivity";
+    private static final String TAG = "EditProxySettings";
 
     public static final int NETWORK_ID_ETHERNET = WifiConfiguration.INVALID_NETWORK_ID;
     private static final String EXTRA_NETWORK_ID = "network_id";

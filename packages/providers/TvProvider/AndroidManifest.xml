@@ -17,7 +17,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.providers.tv" >
 
-    <!-- Allows an application to read (but not write) all the TV listings. -->
+    <!-- Allows an application to read (but not write) all the TV listings.
+         This is the only (soon-to-be) public permission among other permissions defined here.
+         TODO(jaeseo): Update when b/21959866 is resolved. -->
     <permission android:name="android.permission.READ_TV_LISTINGS"
         android:protectionLevel="dangerous"
         android:label="@string/permlab_readTvListings"
@@ -30,7 +32,10 @@
         android:label="@string/permlab_readEpgData"
         android:description="@string/permdesc_readEpgData" />
 
-    <!-- Allows an application to write (but not read) its own TV channel/program data. -->
+    <!-- Allows an application to write (but not read) its own TV channel/program data.
+         The write permission is still enforced but the application is not required to declare it as
+         the TV player/viewer app grants permission to write through the channel setup flow.
+         @hide -->
     <permission android:name="com.android.providers.tv.permission.WRITE_EPG_DATA"
         android:protectionLevel="normal"
         android:label="@string/permlab_writeEpgData"
@@ -65,5 +70,15 @@
         </provider>
 
         <service android:name="EpgDataCleanupService" />
+
+        <!-- Handles database upgrades after OTAs -->
+        <receiver android:name="TvProviderUpgradeReceiver">
+            <!-- This broadcast is sent after the core system has finished
+                 booting, before the home app is launched or BOOT_COMPLETED
+                 is sent. -->
+            <intent-filter>
+                <action android:name="android.intent.action.PRE_BOOT_COMPLETED"/>
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

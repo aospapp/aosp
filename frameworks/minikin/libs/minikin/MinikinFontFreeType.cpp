@@ -30,50 +30,50 @@ namespace android {
 int32_t MinikinFontFreeType::sIdCounter = 0;
 
 MinikinFontFreeType::MinikinFontFreeType(FT_Face typeface) : 
+    MinikinFont(sIdCounter++),
     mTypeface(typeface) {
-    mUniqueId = sIdCounter++;
 }
 
 MinikinFontFreeType::~MinikinFontFreeType() {
     FT_Done_Face(mTypeface);
 }
 
-bool MinikinFontFreeType::GetGlyph(uint32_t codepoint, uint32_t *glyph) const {
-    FT_UInt glyph_index = FT_Get_Char_Index(mTypeface, codepoint);
-    *glyph = glyph_index;
-    return !!glyph_index;
-}
-
 float MinikinFontFreeType::GetHorizontalAdvance(uint32_t glyph_id,
     const MinikinPaint &paint) const {
     FT_Set_Pixel_Sizes(mTypeface, 0, paint.size);
-	FT_UInt32 flags = FT_LOAD_DEFAULT;  // TODO: respect hinting settings
-	FT_Fixed advance;
+    FT_UInt32 flags = FT_LOAD_DEFAULT;  // TODO: respect hinting settings
+    FT_Fixed advance;
     FT_Get_Advance(mTypeface, glyph_id, flags, &advance);
     return advance * (1.0 / 65536);
 }
 
-void MinikinFontFreeType::GetBounds(MinikinRect* bounds, uint32_t glyph_id,
-    const MinikinPaint& paint) const {
+void MinikinFontFreeType::GetBounds(MinikinRect* /* bounds */, uint32_t /* glyph_id*/,
+        const MinikinPaint& /* paint */) const {
     // TODO: NYI
 }
 
-bool MinikinFontFreeType::GetTable(uint32_t tag, uint8_t *buf, size_t *size) {
-	FT_ULong ftsize = *size;
-	FT_Error error = FT_Load_Sfnt_Table(mTypeface, tag, 0, buf, &ftsize);
-	if (error != 0) {
-		return false;
-	}
-	*size = ftsize;
-	return true;
+const void* MinikinFontFreeType::GetTable(uint32_t tag, size_t* size, MinikinDestroyFunc* destroy) {
+    FT_ULong ftsize = 0;
+    FT_Error error = FT_Load_Sfnt_Table(mTypeface, tag, 0, nullptr, &ftsize);
+    if (error != 0) {
+        return nullptr;
+    }
+    FT_Byte* buf = reinterpret_cast<FT_Byte*>(malloc(ftsize));
+    if (buf == nullptr) {
+        return nullptr;
+    }
+    error = FT_Load_Sfnt_Table(mTypeface, tag, 0, buf, &ftsize);
+    if (error != 0) {
+        free(buf);
+        return nullptr;
+    }
+    *destroy = free;
+    *size = ftsize;
+    return buf;
 }
 
-int32_t MinikinFontFreeType::GetUniqueId() const {
-	return mUniqueId;
-}
-
-bool MinikinFontFreeType::Render(uint32_t glyph_id,
-    const MinikinPaint &paint, GlyphBitmap *result) {
+bool MinikinFontFreeType::Render(uint32_t glyph_id, const MinikinPaint& /* paint */,
+        GlyphBitmap *result) {
     FT_Error error;
     FT_Int32 load_flags = FT_LOAD_DEFAULT;  // TODO: respect hinting settings
     error = FT_Load_Glyph(mTypeface, glyph_id, load_flags);

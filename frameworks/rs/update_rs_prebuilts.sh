@@ -4,7 +4,7 @@
 MY_ANDROID_DIR=$PWD/../../
 cd $MY_ANDROID_DIR
 
-if [ $OSTYPE == 'darwin14' ];
+if [[ $OSTYPE == darwin* ]];
 then
 
   DARWIN=1
@@ -21,8 +21,8 @@ else
   SHORT_OSNAME=linux
   SONAME=so
   # Target architectures and their system library names.
-  TARGETS=(arm mips x86 arm64)
-  SYS_NAMES=(generic generic_mips generic_x86 generic_arm64)
+  TARGETS=(arm mips x86 arm64 x86_64)
+  SYS_NAMES=(generic generic_mips generic_x86 generic_arm64 generic_x86_64)
   NUM_CORES=`cat /proc/cpuinfo | grep processor | tail -n 1 | cut -f 2 -d :`
   NUM_CORES=$(($NUM_CORES+1))
 
@@ -34,14 +34,16 @@ echo "Using $NUM_CORES cores"
 export ANDROID_USE_BUILDCACHE=false
 export FORCE_BUILD_LLVM_COMPONENTS=true
 
+# Skip building LLVM and compiler-rt tests while updating prebuilts
+export SKIP_LLVM_TESTS=true
+
 # Ensure that we have constructed the latest "bcc" for the host. Without
 # this variable, we don't build the .so files, hence we never construct the
 # actual required compiler pieces.
 export FORCE_BUILD_RS_COMPAT=true
 
-# Disable JACK when buiding RS prebuilts. Without this variable, we won't be
-# able to get classes.jar.
-export UPDATE_RS_PREBUILTS_DISABLE_JACK=true
+# RENDERSCRIPT_V8_JAR is the generated JAVA static lib for RenderScript Support Lib.
+RENDERSCRIPT_V8_JAR=out/target/common/obj/JAVA_LIBRARIES/android-support-v8-renderscript_intermediates/classes.jar
 
 # ANDROID_HOST_OUT is where the new prebuilts will be constructed/copied from.
 ANDROID_HOST_OUT=$MY_ANDROID_DIR/out/host/$SHORT_OSNAME-x86/
@@ -70,10 +72,13 @@ build_rs_libs() {
   cd $MY_ANDROID_DIR/frameworks/rs/driver/runtime && mma -j$NUM_CORES && cd - || exit 1
   # Build a sample support application to ensure that all the pieces are up to date.
   cd $MY_ANDROID_DIR/frameworks/rs/java/tests/RSTest_CompatLib/ && mma -j$NUM_CORES && cd - || exit 2
+  # Build android-support-v8-renderscript.jar
+  # We need to explicitly do so, since JACK won't generate a jar by default.
+  cd $MY_ANDROID_DIR && make $RENDERSCRIPT_V8_JAR -j$NUM_CORES && cd - || exit 3
   # Build libcompiler-rt.a
-  cd $MY_ANDROID_DIR/external/compiler-rt && mma -j$NUM_CORES && cd - || exit 3
+  cd $MY_ANDROID_DIR/external/compiler-rt && mma -j$NUM_CORES && cd - || exit 4
   # Build the blas libraries.
-  cd $MY_ANDROID_DIR/external/cblas && mma -j$NUM_CORES && cd - || exit 4
+  cd $MY_ANDROID_DIR/external/cblas && mma -j$NUM_CORES && cd - || exit 5
 }
 
 # Build everything by default
@@ -132,7 +137,7 @@ if [ $DARWIN -eq 0 ]; then
   for i in $(seq 0 $((${#TARGETS[@]} - 1))); do
     t=${TARGETS[$i]}
     sys_name=${SYS_NAMES[$i]}
-    case "$sys_name" in 
+    case "$sys_name" in
       *64)
         sys_lib_dir=$MY_ANDROID_DIR/out/target/product/$sys_name/system/lib64
         ;;
@@ -161,7 +166,7 @@ if [ $DARWIN -eq 0 ]; then
   done
 
   # javalib.jar
-  cp $MY_ANDROID_DIR/out/target/common/obj/JAVA_LIBRARIES/android-support-v8-renderscript_intermediates/classes.jar renderscript/lib/javalib.jar
+  cp $MY_ANDROID_DIR/$RENDERSCRIPT_V8_JAR renderscript/lib/javalib.jar
 
 fi
 

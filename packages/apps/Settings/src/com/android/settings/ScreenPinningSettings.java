@@ -21,17 +21,17 @@ import android.content.Intent;
 import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.UserHandle;
-import android.preference.Preference;
-import android.preference.Preference.OnPreferenceChangeListener;
-import android.preference.PreferenceScreen;
-import android.preference.SwitchPreference;
 import android.provider.Settings;
+import android.support.v14.preference.SwitchPreference;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.Preference.OnPreferenceChangeListener;
+import android.support.v7.preference.PreferenceScreen;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Switch;
 
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.internal.widget.LockPatternUtils;
 import com.android.settings.search.BaseSearchIndexProvider;
 import com.android.settings.search.Indexable;
@@ -56,7 +56,7 @@ public class ScreenPinningSettings extends SettingsPreferenceFragment
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.SCREEN_PINNING;
+        return MetricsEvent.SCREEN_PINNING;
     }
 
     @Override
@@ -66,15 +66,21 @@ public class ScreenPinningSettings extends SettingsPreferenceFragment
         final SettingsActivity activity = (SettingsActivity) getActivity();
         mLockPatternUtils = new LockPatternUtils(activity);
 
-        View emptyView = LayoutInflater.from(activity)
-                .inflate(R.layout.screen_pinning_instructions, null);
-        ((ViewGroup) getListView().getParent()).addView(emptyView);
-        getListView().setEmptyView(emptyView);
 
         mSwitchBar = activity.getSwitchBar();
         mSwitchBar.addOnSwitchChangeListener(this);
         mSwitchBar.show();
         mSwitchBar.setChecked(isLockToAppEnabled(getActivity()));
+    }
+
+    @Override
+    public void onViewCreated(View view, Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        ViewGroup parent = (ViewGroup) view.findViewById(android.R.id.list_container);
+        View emptyView = LayoutInflater.from(getContext())
+                .inflate(R.layout.screen_pinning_instructions, parent, false);
+        parent.addView(emptyView);
+        setEmptyView(emptyView);
     }
 
     @Override
@@ -152,6 +158,7 @@ public class ScreenPinningSettings extends SettingsPreferenceFragment
             case DevicePolicyManager.PASSWORD_QUALITY_ALPHABETIC:
             case DevicePolicyManager.PASSWORD_QUALITY_ALPHANUMERIC:
             case DevicePolicyManager.PASSWORD_QUALITY_COMPLEX:
+            case DevicePolicyManager.PASSWORD_QUALITY_MANAGED:
                 return R.string.screen_pinning_unlock_password;
             case DevicePolicyManager.PASSWORD_QUALITY_SOMETHING:
                 if (mLockPatternUtils.isLockPatternEnabled(UserHandle.myUserId())) {

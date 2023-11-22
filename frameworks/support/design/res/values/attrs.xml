@@ -18,7 +18,6 @@
 
     <declare-styleable name="FloatingActionButton">
         <!-- Background for the FloatingActionButton -->
-        <attr name="android:background"/>
         <attr name="backgroundTint"/>
         <attr name="backgroundTintMode"/>
 
@@ -26,7 +25,11 @@
         <attr name="rippleColor" format="color"/>
         <!-- Size for the FAB. -->
         <attr name="fabSize">
+            <!-- A size which will change based on the window size. -->
+            <enum name="auto" value="-1"/>
+            <!-- The normal sized button. -->
             <enum name="normal" value="0"/>
+            <!-- The mini sized button. -->
             <enum name="mini" value="1"/>
         </attr>
         <!-- Elevation value for the FAB -->
@@ -35,6 +38,8 @@
         <attr name="pressedTranslationZ" format="dimension"/>
         <!-- The width of the border around the FAB. -->
         <attr name="borderWidth" format="dimension"/>
+        <!-- Enable compat padding. -->
+        <attr name="useCompatPadding" format="boolean"/>
     </declare-styleable>
 
     <declare-styleable name="ScrimInsetsFrameLayout">
@@ -56,38 +61,60 @@
         <attr name="headerLayout" format="reference"/>
     </declare-styleable>
 
+    <declare-styleable name="ForegroundLinearLayout">
+        <attr name="android:foreground" />
+        <attr name="android:foregroundGravity" />
+        <attr name="foregroundInsidePadding" format="boolean" />
+    </declare-styleable>
+
     <declare-styleable name="TabLayout">
+        <!-- Color of the indicator used to show the currently selected tab. -->
         <attr name="tabIndicatorColor" format="color"/>
+        <!-- Height of the indicator used to show the currently selected tab. -->
         <attr name="tabIndicatorHeight" format="dimension"/>
+        <!-- Position in the Y axis from the starting edge that tabs should be positioned from. -->
         <attr name="tabContentStart" format="dimension"/>
-
+        <!-- Reference to a background to be applied to tabs. -->
         <attr name="tabBackground" format="reference"/>
-
+        <!-- The behavior mode for the Tabs in this layout -->
         <attr name="tabMode">
             <enum name="scrollable" value="0"/>
             <enum name="fixed" value="1"/>
         </attr>
-
-        <!-- Standard gravity constant that a child supplies to its parent.
-             Defines how the child view should be positioned, on both the X and Y axes,
-             within its enclosing layout. -->
+        <!-- Gravity constant for tabs. -->
         <attr name="tabGravity">
             <enum name="fill" value="0"/>
             <enum name="center" value="1"/>
         </attr>
-
+        <!-- The minimum width for tabs. -->
         <attr name="tabMinWidth" format="dimension"/>
+        <!-- The maximum width for tabs. -->
         <attr name="tabMaxWidth" format="dimension"/>
-
+        <!-- A reference to a TextAppearance style to be applied to tabs. -->
         <attr name="tabTextAppearance" format="reference"/>
+        <!-- The default text color to be applied to tabs. -->
         <attr name="tabTextColor" format="color"/>
+        <!-- The text color to be applied to the currently selected tab. -->
         <attr name="tabSelectedTextColor" format="color"/>
-
+        <!-- The preferred padding along the start edge of tabs. -->
         <attr name="tabPaddingStart" format="dimension"/>
+        <!-- The preferred padding along the top edge of tabs. -->
         <attr name="tabPaddingTop" format="dimension"/>
+        <!-- The preferred padding along the end edge of tabs. -->
         <attr name="tabPaddingEnd" format="dimension"/>
+        <!-- The preferred padding along the bottom edge of tabs. -->
         <attr name="tabPaddingBottom" format="dimension"/>
+        <!-- The preferred padding along all edges of tabs. -->
         <attr name="tabPadding" format="dimension"/>
+    </declare-styleable>
+
+    <declare-styleable name="TabItem">
+        <!-- Text to display in the tab. -->
+        <attr name="android:text" />
+        <!-- Icon to display in the tab. -->
+        <attr name="android:icon" />
+        <!-- A reference to a layout resource to be displayed in the tab. -->
+        <attr name="android:layout" />
     </declare-styleable>
 
     <declare-styleable name="CoordinatorLayout">
@@ -101,7 +128,7 @@
         <attr name="statusBarBackground" format="reference"/>
     </declare-styleable>
 
-    <declare-styleable name="CoordinatorLayout_LayoutParams">
+    <declare-styleable name="CoordinatorLayout_Layout">
         <attr name="android:layout_gravity"/>
         <!-- The class name of a Behavior class defining special runtime behavior
              for this child view. -->
@@ -157,10 +184,20 @@
         <attr name="hintTextAppearance" format="reference"/>
         <!-- The hint to display in the floating label -->
         <attr name="android:hint"/>
+        <!-- Whether the layout's floating label functionality is enabled -->
+        <attr name="hintEnabled" format="boolean"/>
         <!-- Whether the layout is laid out as if an error will be displayed -->
         <attr name="errorEnabled" format="boolean"/>
         <!-- TextAppearance of any error message displayed -->
         <attr name="errorTextAppearance" format="reference"/>
+        <!-- Whether the layout is laid out as if the character counter will be displayed -->
+        <attr name="counterEnabled" format="boolean"/>
+        <!-- The max length to display in the character counter -->
+        <attr name="counterMaxLength" format="integer" />
+        <!-- TextAppearance of the character counter -->
+        <attr name="counterTextAppearance" format="reference"/>
+        <!-- TextAppearance of the character counter when the text is longer than the max -->
+        <attr name="counterOverflowTextAppearance" format="reference"/>
         <attr name="android:textColorHint"/>
         <!-- Whether to animate hint state changes. -->
         <attr name="hintAnimationEnabled" format="boolean"/>
@@ -173,6 +210,7 @@
     </declare-styleable>
 
     <declare-styleable name="AppBarLayout">
+        <!-- Deprecated. Elevation is now controlled via a state list animator. -->
         <attr name="elevation" />
         <attr name="android:background" />
         <!-- The initial expanded state for the AppBarLayout. This only takes effect when this
@@ -180,7 +218,16 @@
         <attr name="expanded" format="boolean" />
     </declare-styleable>
 
-    <declare-styleable name="AppBarLayout_LayoutParams">
+    <declare-styleable name="AppBarLayoutStates">
+        <!-- State value for {@link android.support.design.widget.AppBarLayout} set when the view
+             has been collapsed. -->
+        <attr name="state_collapsed" format="boolean" />
+        <!-- State value for {@link android.support.design.widget.AppBarLayout} set when the view
+             has children which are capable of being collapsed. -->
+        <attr name="state_collapsible" format="boolean" />
+    </declare-styleable>
+
+    <declare-styleable name="AppBarLayout_Layout">
         <attr name="layout_scrollFlags">
             <!-- The view will be scroll in direct relation to scroll events. This flag needs to be
                  set for any of the other flags to take effect. If any sibling views
@@ -201,6 +248,10 @@
                  reached the end of it's scroll range, the remainder of this view will be scrolled
                  into view. -->
             <flag name="enterAlwaysCollapsed" value="0x8"/>
+
+            <!-- Upon a scroll ending, if the view is only partially visible then it will be
+                 snapped and scrolled to it's closest edge. -->
+            <flag name="snap" value="0x10"/>
         </attr>
 
         <!-- An interpolator to use when scrolling this View. Only takes effect when View
@@ -208,7 +259,7 @@
         <attr name="layout_scrollInterpolator" format="reference" />
     </declare-styleable>
 
-    <declare-styleable name="ScrollingViewBehavior_Params">
+    <declare-styleable name="ScrollingViewBehavior_Layout">
         <!-- The amount that the scrolling view should overlap the bottom of any AppBarLayout -->
         <attr name="behavior_overlapTop" format="dimension" />
     </declare-styleable>
@@ -243,8 +294,14 @@
              Lollipop with the correct setup. -->
         <attr name="statusBarScrim" format="color" />
         <!-- The id of the primary Toolbar child that you wish to use for the purpose of collapsing.
-             If you do not set this then the first Toolbar child found will be used. -->
+             This Toolbar descendant view does not need to be a direct child of the layout.
+             If you do not set this, the first direct Toolbar child found will be used. -->
         <attr name="toolbarId" format="reference"/>
+        <!-- Specifies the amount of visible height in pixels used to define when to trigger a
+             scrim visibility change. -->
+        <attr name="scrimVisibleHeightTrigger" format="dimension"/>
+        <!-- Specifies the duration used for scrim visibility animations. -->
+        <attr name="scrimAnimationDuration" format="integer"/>
 
         <!-- Specifies how the title should be positioned when collapsed. -->
         <attr name="collapsedTitleGravity">
@@ -300,7 +357,7 @@
         <attr name="title"/>
     </declare-styleable>
 
-    <declare-styleable name="CollapsingAppBarLayout_LayoutParams">
+    <declare-styleable name="CollapsingToolbarLayout_Layout">
         <attr name="layout_collapseMode">
             <!-- The view will act as normal with no collapsing behavior. -->
             <enum name="none" value="0"/>
@@ -314,6 +371,25 @@
         <!-- The multiplier used when layout_collapseMode is set to 'parallax'. The value should
              be between 0.0 and 1.0. -->
         <attr name="layout_collapseParallaxMultiplier" format="float"/>
+    </declare-styleable>
+
+    <declare-styleable name="BottomSheetBehavior_Layout">
+        <!-- The height of the bottom sheet when it is collapsed. -->
+        <attr name="behavior_peekHeight" format="dimension"/>
+        <!-- Whether this bottom sheet can be hidden by dragging it further downwards -->
+        <attr name="behavior_hideable" format="boolean"/>
+        <!-- Skip the collapsed state once expanded; no effect unless it is hideable -->
+        <attr name="behavior_skipCollapsed" format="boolean"/>
+    </declare-styleable>
+
+    <declare-styleable name="DesignTheme">
+        <!-- Theme to use for modal bottom sheet dialogs spawned from this theme. -->
+        <attr name="bottomSheetDialogTheme" format="reference" />
+        <!-- Style to use for modal bottom sheets in this theme. -->
+        <attr name="bottomSheetStyle" format="reference" />
+
+        <!-- Text color used to indicate an error has occurred. -->
+        <attr name="textColorError" format="color" />
     </declare-styleable>
 
 </resources>

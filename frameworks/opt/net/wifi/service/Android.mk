@@ -23,7 +23,8 @@ include $(CLEAR_VARS)
 
 LOCAL_REQUIRED_MODULES :=
 
-LOCAL_CFLAGS += -Wno-unused-parameter
+LOCAL_CFLAGS += -Wall -Werror -Wextra -Wno-unused-parameter -Wno-unused-function \
+                -Wunused-variable -Winit-self -Wwrite-strings -Wshadow
 
 LOCAL_C_INCLUDES += \
 	external/libnl-headers \
@@ -43,7 +44,8 @@ include $(CLEAR_VARS)
 
 LOCAL_REQUIRED_MODULES :=
 
-LOCAL_CFLAGS += -Wno-unused-parameter
+LOCAL_CFLAGS += -Wall -Werror -Wextra -Wno-unused-parameter -Wno-unused-function \
+                -Wunused-variable -Winit-self -Wwrite-strings -Wshadow
 
 LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH)/jni \
@@ -78,9 +80,10 @@ endif
 # ============================================================
 include $(CLEAR_VARS)
 
-LOCAL_REQUIRED_MODULES := libandroid_runtime libhardware_legacy
+LOCAL_REQUIRED_MODULES := libhardware_legacy
 
-LOCAL_CFLAGS += -Wno-unused-parameter
+LOCAL_CFLAGS += -Wall -Werror -Wextra -Wno-unused-parameter -Wno-unused-function \
+                -Wunused-variable -Winit-self -Wwrite-strings -Wshadow
 
 LOCAL_C_INCLUDES += \
 	$(JNI_H_INCLUDE) \
@@ -94,9 +97,8 @@ LOCAL_SHARED_LIBRARIES += \
 	libutils \
 	libhardware \
 	libhardware_legacy \
-	libandroid_runtime \
 	libnl \
-    libdl
+	libdl
 
 LOCAL_STATIC_LIBRARIES += libwifi-hal-stub
 LOCAL_STATIC_LIBRARIES += $(LIB_WIFI_HAL)
@@ -105,7 +107,14 @@ LOCAL_SRC_FILES := \
 	jni/com_android_server_wifi_WifiNative.cpp \
 	jni/jni_helper.cpp
 
+ifdef INCLUDE_NAN_FEATURE
+LOCAL_SRC_FILES += \
+	jni/com_android_server_wifi_nan_WifiNanNative.cpp
+endif
+
 LOCAL_MODULE := libwifi-service
+# b/22172328
+LOCAL_CLANG := false
 
 include $(BUILD_SHARED_LIBRARY)
 
@@ -117,14 +126,19 @@ include $(CLEAR_VARS)
 LOCAL_AIDL_INCLUDES := $(LOCAL_PATH)/java
 LOCAL_SRC_FILES := $(call all-java-files-under, java) \
 	$(call all-Iaidl-files-under, java) \
-	$(call all-logtags-files-under, java)
+	$(call all-logtags-files-under, java) \
+	$(call all-proto-files-under, proto)
 
-LOCAL_JNI_SHARED_LIBRARIES := libandroid_runtime
+ifndef INCLUDE_NAN_FEATURE
+LOCAL_SRC_FILES := $(filter-out $(call all-java-files-under, \
+          java/com/android/server/wifi/nan),$(LOCAL_SRC_FILES))
+endif
+
 LOCAL_JAVA_LIBRARIES := bouncycastle conscrypt services
-LOCAL_STATIC_JAVA_LIBRARIES := ksoap2 android-support-v4
 LOCAL_REQUIRED_MODULES := services
 LOCAL_MODULE_TAGS :=
 LOCAL_MODULE := wifi-service
+LOCAL_PROTOC_OPTIMIZE_TYPE := nano
 
 include $(BUILD_JAVA_LIBRARY)
 

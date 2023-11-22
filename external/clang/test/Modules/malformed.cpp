@@ -3,29 +3,23 @@
 //
 // RUN: rm -rf %t
 // RUN: cd %S
-// RUN: not %clang_cc1 -fmodules -fmodules-cache-path=%t -I Inputs/malformed -DHEADER="a1.h" %s 2>&1 | FileCheck %s --check-prefix=CHECK-A
-// RUN: not %clang_cc1 -fmodules -fmodules-cache-path=%t -I Inputs/malformed -DHEADER="b1.h" %s 2>&1 | FileCheck %s --check-prefix=CHECK-B
-// RUN: not %clang_cc1 -fmodules -fmodules-cache-path=%t -I Inputs/malformed -DHEADER="c.h" malformed.cpp 2>&1 | FileCheck %s --check-prefix=CHECK-C
+// RUN: not %clang_cc1 -fmodules -fimplicit-module-maps -fmodules-cache-path=%t -I Inputs/malformed -DHEADER="a1.h" %s 2>&1 | FileCheck %s --check-prefix=CHECK-A
+// RUN: not %clang_cc1 -fmodules -fimplicit-module-maps -fmodules-cache-path=%t -I Inputs/malformed -DHEADER="b1.h" %s 2>&1 | FileCheck %s --check-prefix=CHECK-B
+// RUN: not %clang_cc1 -fmodules -fimplicit-module-maps -fmodules-cache-path=%t -I Inputs/malformed -DHEADER="c.h" malformed.cpp 2>&1 | FileCheck %s --check-prefix=CHECK-C
 
 #define STR2(x) #x
 #define STR(x) STR2(x)
 #include STR(HEADER)
 
 // CHECK-A: While building module 'malformed_a'
-// CHECK-A: {{^}}Inputs/malformed/a1.h:1:{{.*}} error: expected '}'
+// CHECK-A: {{^}}Inputs/malformed/a1.h:1:{{.*}} error: expected '}' at end of module
 // CHECK-A: {{^}}Inputs/malformed/a1.h:1:{{.*}} note: to match this '{'
 //
 // CHECK-A: While building module 'malformed_a'
 // CHECK-A: {{^}}Inputs/malformed/a2.h:1:{{.*}} error: extraneous closing brace
 
 // CHECK-B: While building module 'malformed_b'
-// CHECK-B: {{^}}Inputs/malformed/b1.h:2:{{.*}} error: expected '}'
-// CHECK-B: {{^}}Inputs/malformed/b1.h:1:{{.*}} note: to match this '{'
-// CHECK-B: {{^}}Inputs/malformed/b1.h:3:{{.*}} error: extraneous closing brace ('}')
-//
-// CHECK-B: While building module 'malformed_b'
-// CHECK-B: {{^}}Inputs/malformed/b2.h:1:{{.*}} error: redefinition of 'g'
-// CHECK-B: {{^}}Inputs/malformed/b2.h:1:{{.*}} note: previous definition is here
+// CHECK-B: {{^}}Inputs/malformed/b1.h:2:{{.*}} error: import of module 'malformed_b.b2' appears within 'S'
 
 void test() { f<int>(); }
 // Test that we use relative paths to name files within an imported module.

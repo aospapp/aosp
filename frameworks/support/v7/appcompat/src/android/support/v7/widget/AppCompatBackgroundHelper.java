@@ -17,36 +17,35 @@
 package android.support.v7.widget;
 
 import android.content.res.ColorStateList;
-import android.content.res.TypedArray;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
+import android.support.annotation.NonNull;
 import android.support.v4.view.ViewCompat;
 import android.support.v7.appcompat.R;
-import android.support.v7.graphics.drawable.DrawableUtils;
-import android.support.v7.internal.widget.TintInfo;
-import android.support.v7.internal.widget.TintManager;
 import android.util.AttributeSet;
 import android.view.View;
 
 class AppCompatBackgroundHelper {
 
     private final View mView;
-    private final TintManager mTintManager;
+    private final AppCompatDrawableManager mDrawableManager;
 
     private TintInfo mInternalBackgroundTint;
     private TintInfo mBackgroundTint;
+    private TintInfo mTmpInfo;
 
-    AppCompatBackgroundHelper(View view, TintManager tintManager) {
+    AppCompatBackgroundHelper(View view, AppCompatDrawableManager drawableManager) {
         mView = view;
-        mTintManager = tintManager;
+        mDrawableManager = drawableManager;
     }
 
     void loadFromAttributes(AttributeSet attrs, int defStyleAttr) {
-        TypedArray a = mView.getContext().obtainStyledAttributes(attrs,
+        TintTypedArray a = TintTypedArray.obtainStyledAttributes(mView.getContext(), attrs,
                 R.styleable.ViewBackgroundHelper, defStyleAttr, 0);
         try {
             if (a.hasValue(R.styleable.ViewBackgroundHelper_android_background)) {
-                ColorStateList tint = mTintManager.getTintList(
+                ColorStateList tint = mDrawableManager.getTintList(mView.getContext(),
                         a.getResourceId(R.styleable.ViewBackgroundHelper_android_background, -1));
                 if (tint != null) {
                     setInternalBackgroundTint(tint);
@@ -69,7 +68,9 @@ class AppCompatBackgroundHelper {
 
     void onSetBackgroundResource(int resId) {
         // Update the default background tint
-        setInternalBackgroundTint(mTintManager != null ? mTintManager.getTintList(resId) : null);
+        setInternalBackgroundTint(mDrawableManager != null
+                ? mDrawableManager.getTintList(mView.getContext(), resId)
+                : null);
     }
 
     void onSetBackgroundDrawable(Drawable background) {
@@ -106,11 +107,22 @@ class AppCompatBackgroundHelper {
     }
 
     void applySupportBackgroundTint() {
-        if (mView.getBackground() != null) {
+        final Drawable background = mView.getBackground();
+        if (background != null) {
+            if (Build.VERSION.SDK_INT == 21 && applyFrameworkTintUsingColorFilter(background)) {
+                // GradientDrawable doesn't implement setTintList on API 21, and since there is
+                // no nice way to unwrap DrawableContainers we have to blanket apply this
+                // on API 21. This needs to be called before the internal tints below so it takes
+                // effect on any widgets using the compat tint on API 21 (EditText)
+                return;
+            }
+
             if (mBackgroundTint != null) {
-                TintManager.tintViewBackground(mView, mBackgroundTint);
+                AppCompatDrawableManager.tintDrawable(background, mBackgroundTint,
+                        mView.getDrawableState());
             } else if (mInternalBackgroundTint != null) {
-                TintManager.tintViewBackground(mView, mInternalBackgroundTint);
+                AppCompatDrawableManager.tintDrawable(background, mInternalBackgroundTint,
+                        mView.getDrawableState());
             }
         }
     }
@@ -126,5 +138,36 @@ class AppCompatBackgroundHelper {
             mInternalBackgroundTint = null;
         }
         applySupportBackgroundTint();
+    }
+
+    /**
+     * Applies the framework background tint to a view, but using the compat method (ColorFilter)
+     *
+     * @return true if a tint was applied
+     */
+    private boolean applyFrameworkTintUsingColorFilter(@NonNull Drawable background) {
+        if (mTmpInfo == null) {
+            mTmpInfo = new TintInfo();
+        }
+        final TintInfo info = mTmpInfo;
+        info.clear();
+
+        final ColorStateList tintList = ViewCompat.getBackgroundTintList(mView);
+        if (tintList != null) {
+            info.mHasTintList = true;
+            info.mTintList = tintList;
+        }
+        final PorterDuff.Mode mode = ViewCompat.getBackgroundTintMode(mView);
+        if (mode != null) {
+            info.mHasTintMode = true;
+            info.mTintMode = mode;
+        }
+
+        if (info.mHasTintList || info.mHasTintMode) {
+            AppCompatDrawableManager.tintDrawable(background, info, mView.getDrawableState());
+            return true;
+        }
+
+        return false;
     }
 }

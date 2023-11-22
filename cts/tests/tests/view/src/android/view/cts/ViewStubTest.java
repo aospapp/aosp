@@ -16,7 +16,7 @@
 
 package android.view.cts;
 
-import com.android.cts.view.R;
+import android.view.cts.R;
 
 import org.xmlpull.v1.XmlPullParser;
 
@@ -40,7 +40,7 @@ public class ViewStubTest extends ActivityInstrumentationTestCase<ViewStubCtsAct
     private Activity mActivity;
 
     public ViewStubTest() {
-        super("com.android.cts.view", ViewStubCtsActivity.class);
+        super("android.view.cts", ViewStubCtsActivity.class);
     }
 
     @Override

@@ -43,7 +43,7 @@ DEF_TEST(RecordOpts_SingleNoopSaveRestore, r) {
     recorder.restore();
 
     SkRecordNoopSaveRestores(&record);
-    for (unsigned i = 0; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         assert_type<SkRecords::NoOp>(r, record, i);
     }
 }
@@ -66,7 +66,7 @@ DEF_TEST(RecordOpts_NoopSaveRestores, r) {
     recorder.restore();
 
     SkRecordNoopSaveRestores(&record);
-    for (unsigned index = 0; index < record.count(); index++) {
+    for (int index = 0; index < record.count(); index++) {
         assert_type<SkRecords::NoOp>(r, record, index);
     }
 }
@@ -77,7 +77,7 @@ DEF_TEST(RecordOpts_SaveSaveLayerRestoreRestore, r) {
 
     // A previous bug NoOp'd away the first 3 commands.
     recorder.save();
-        recorder.saveLayer(NULL, NULL);
+        recorder.saveLayer(nullptr, nullptr);
         recorder.restore();
     recorder.restore();
 
@@ -102,8 +102,22 @@ DEF_TEST(RecordOpts_SaveSaveLayerRestoreRestore, r) {
 
 static void assert_savelayer_restore(skiatest::Reporter* r,
                                      SkRecord* record,
-                                     unsigned i,
+                                     int i,
                                      bool shouldBeNoOped) {
+    SkRecordNoopSaveLayerDrawRestores(record);
+    if (shouldBeNoOped) {
+        assert_type<SkRecords::NoOp>(r, *record, i);
+        assert_type<SkRecords::NoOp>(r, *record, i+1);
+    } else {
+        assert_type<SkRecords::SaveLayer>(r, *record, i);
+        assert_type<SkRecords::Restore>(r, *record, i+1);
+    }
+}
+
+static void assert_savelayer_draw_restore(skiatest::Reporter* r,
+                                          SkRecord* record,
+                                          int i,
+                                          bool shouldBeNoOped) {
     SkRecordNoopSaveLayerDrawRestores(record);
     if (shouldBeNoOped) {
         assert_type<SkRecords::NoOp>(r, *record, i);
@@ -114,6 +128,7 @@ static void assert_savelayer_restore(skiatest::Reporter* r,
     }
 }
 
+#include "SkBlurImageFilter.h"
 DEF_TEST(RecordOpts_NoopSaveLayerDrawRestore, r) {
     SkRecord record;
     SkRecorder recorder(&record, W, H);
@@ -131,51 +146,58 @@ DEF_TEST(RecordOpts_NoopSaveLayerDrawRestore, r) {
     translucentDrawPaint.setColor(0x0F020202);  // Not opaque.
 
     // SaveLayer/Restore removed: No paint = no point.
-    recorder.saveLayer(NULL, NULL);
+    recorder.saveLayer(nullptr, nullptr);
         recorder.drawRect(draw, opaqueDrawPaint);
     recorder.restore();
-    assert_savelayer_restore(r, &record, 0, true);
+    assert_savelayer_draw_restore(r, &record, 0, true);
 
     // Bounds don't matter.
-    recorder.saveLayer(&bounds, NULL);
+    recorder.saveLayer(&bounds, nullptr);
         recorder.drawRect(draw, opaqueDrawPaint);
     recorder.restore();
-    assert_savelayer_restore(r, &record, 3, true);
+    assert_savelayer_draw_restore(r, &record, 3, true);
 
     // TODO(mtklein): test case with null draw paint
 
     // No change: layer paint isn't alpha-only.
-    recorder.saveLayer(NULL, &translucentLayerPaint);
+    recorder.saveLayer(nullptr, &translucentLayerPaint);
         recorder.drawRect(draw, opaqueDrawPaint);
     recorder.restore();
-    assert_savelayer_restore(r, &record, 6, false);
+    assert_savelayer_draw_restore(r, &record, 6, false);
 
     // No change: layer paint has an effect.
-    recorder.saveLayer(NULL, &xfermodeLayerPaint);
+    recorder.saveLayer(nullptr, &xfermodeLayerPaint);
         recorder.drawRect(draw, opaqueDrawPaint);
     recorder.restore();
-    assert_savelayer_restore(r, &record, 9, false);
+    assert_savelayer_draw_restore(r, &record, 9, false);
 
     // SaveLayer/Restore removed: we can fold in the alpha!
-    recorder.saveLayer(NULL, &alphaOnlyLayerPaint);
+    recorder.saveLayer(nullptr, &alphaOnlyLayerPaint);
         recorder.drawRect(draw, translucentDrawPaint);
     recorder.restore();
-    assert_savelayer_restore(r, &record, 12, true);
+    assert_savelayer_draw_restore(r, &record, 12, true);
 
     // SaveLayer/Restore removed: we can fold in the alpha!
-    recorder.saveLayer(NULL, &alphaOnlyLayerPaint);
+    recorder.saveLayer(nullptr, &alphaOnlyLayerPaint);
         recorder.drawRect(draw, opaqueDrawPaint);
     recorder.restore();
-    assert_savelayer_restore(r, &record, 15, true);
+    assert_savelayer_draw_restore(r, &record, 15, true);
 
     const SkRecords::DrawRect* drawRect = assert_type<SkRecords::DrawRect>(r, record, 16);
-    REPORTER_ASSERT(r, drawRect != NULL);
+    REPORTER_ASSERT(r, drawRect != nullptr);
     REPORTER_ASSERT(r, drawRect->paint.getColor() == 0x03020202);
+
+    // saveLayer w/ backdrop should NOT go away
+    SkAutoTUnref<SkImageFilter> filter(SkBlurImageFilter::Create(3, 3));
+    recorder.saveLayer({ nullptr, nullptr, filter, 0});
+        recorder.drawRect(draw, opaqueDrawPaint);
+    recorder.restore();
+    assert_savelayer_draw_restore(r, &record, 18, false);
 }
 
 static void assert_merge_svg_opacity_and_filter_layers(skiatest::Reporter* r,
                                                        SkRecord* record,
-                                                       unsigned i,
+                                                       int i,
                                                        bool shouldBeNoOped) {
     SkRecordMergeSvgOpacityAndFilterLayers(record);
     if (shouldBeNoOped) {
@@ -222,25 +244,38 @@ DEF_TEST(RecordOpts_MergeSvgOpacityAndFilterLayers, r) {
     int index = 0;
 
     {
+        SkAutoTUnref<SkImageFilter> filter(SkBlurImageFilter::Create(3, 3));
+        // first (null) should be optimized, 2nd should not
+        SkImageFilter* filters[] = { nullptr, filter.get() };
+
         // Any combination of these should cause the pattern to be optimized.
-        SkRect* firstBounds[] = { NULL, &bounds };
-        SkPaint* firstPaints[] = { NULL, &alphaOnlyLayerPaint };
-        SkRect* secondBounds[] = { NULL, &bounds };
+        SkRect* firstBounds[] = { nullptr, &bounds };
+        SkPaint* firstPaints[] = { nullptr, &alphaOnlyLayerPaint };
+        SkRect* secondBounds[] = { nullptr, &bounds };
         SkPaint* secondPaints[] = { &opaqueFilterLayerPaint, &translucentFilterLayerPaint };
 
-        for (size_t i = 0; i < SK_ARRAY_COUNT(firstBounds); ++ i) {
-            for (size_t j = 0; j < SK_ARRAY_COUNT(firstPaints); ++j) {
-                for (size_t k = 0; k < SK_ARRAY_COUNT(secondBounds); ++k) {
-                    for (size_t m = 0; m < SK_ARRAY_COUNT(secondPaints); ++m) {
-                        recorder.saveLayer(firstBounds[i], firstPaints[j]);
-                        recorder.save();
-                        recorder.clipRect(clip);
-                        recorder.saveLayer(secondBounds[k], secondPaints[m]);
-                        recorder.restore();
-                        recorder.restore();
-                        recorder.restore();
-                        assert_merge_svg_opacity_and_filter_layers(r, &record, index, true);
-                        index += 7;
+        for (auto outerF : filters) {
+            bool outerNoOped = !outerF;
+            for (auto innerF : filters) {
+                for (size_t i = 0; i < SK_ARRAY_COUNT(firstBounds); ++ i) {
+                    for (size_t j = 0; j < SK_ARRAY_COUNT(firstPaints); ++j) {
+                        for (size_t k = 0; k < SK_ARRAY_COUNT(secondBounds); ++k) {
+                            for (size_t m = 0; m < SK_ARRAY_COUNT(secondPaints); ++m) {
+                                bool innerNoOped = !secondBounds[k] && !secondPaints[m] && !innerF;
+
+                                recorder.saveLayer({firstBounds[i], firstPaints[j], outerF, 0});
+                                recorder.save();
+                                recorder.clipRect(clip);
+                                recorder.saveLayer({secondBounds[k], secondPaints[m], innerF, 0});
+                                recorder.restore();
+                                recorder.restore();
+                                recorder.restore();
+                                assert_merge_svg_opacity_and_filter_layers(r, &record, index,
+                                                                           outerNoOped);
+                                assert_savelayer_restore(r, &record, index + 3, innerNoOped);
+                                index += 7;
+                            }
+                        }
                     }
                 }
             }
@@ -252,8 +287,8 @@ DEF_TEST(RecordOpts_MergeSvgOpacityAndFilterLayers, r) {
         SkPaint* firstPaint;
         SkPaint* secondPaint;
     } noChangeTests[] = {
-        // No change: NULL filter layer paint not implemented.
-        { &alphaOnlyLayerPaint, NULL },
+        // No change: nullptr filter layer paint not implemented.
+        { &alphaOnlyLayerPaint, nullptr },
         // No change: layer paint is not alpha-only.
         { &translucentLayerPaint, &opaqueFilterLayerPaint },
         // No change: layer paint has an xfereffect.
@@ -268,10 +303,10 @@ DEF_TEST(RecordOpts_MergeSvgOpacityAndFilterLayers, r) {
     };
 
     for (size_t i = 0; i < SK_ARRAY_COUNT(noChangeTests); ++i) {
-        recorder.saveLayer(NULL, noChangeTests[i].firstPaint);
+        recorder.saveLayer(nullptr, noChangeTests[i].firstPaint);
         recorder.save();
         recorder.clipRect(clip);
-        recorder.saveLayer(NULL, noChangeTests[i].secondPaint);
+        recorder.saveLayer(nullptr, noChangeTests[i].secondPaint);
         recorder.restore();
         recorder.restore();
         recorder.restore();
@@ -280,25 +315,25 @@ DEF_TEST(RecordOpts_MergeSvgOpacityAndFilterLayers, r) {
     }
 
     // Test the folded alpha value.
-    recorder.saveLayer(NULL, &alphaOnlyLayerPaint);
+    recorder.saveLayer(nullptr, &alphaOnlyLayerPaint);
     recorder.save();
     recorder.clipRect(clip);
-    recorder.saveLayer(NULL, &opaqueFilterLayerPaint);
+    recorder.saveLayer(nullptr, &opaqueFilterLayerPaint);
     recorder.restore();
     recorder.restore();
     recorder.restore();
     assert_merge_svg_opacity_and_filter_layers(r, &record, index, true);
 
     const SkRecords::SaveLayer* saveLayer = assert_type<SkRecords::SaveLayer>(r, record, index + 3);
-    REPORTER_ASSERT(r, saveLayer != NULL);
+    REPORTER_ASSERT(r, saveLayer != nullptr);
     REPORTER_ASSERT(r, saveLayer->paint->getColor() == 0x03020202);
 
     index += 7;
 
     // Test that currently we do not fold alphas for patterns without the clip. This is just not
     // implemented.
-    recorder.saveLayer(NULL, &alphaOnlyLayerPaint);
-    recorder.saveLayer(NULL, &opaqueFilterLayerPaint);
+    recorder.saveLayer(nullptr, &alphaOnlyLayerPaint);
+    recorder.saveLayer(nullptr, &opaqueFilterLayerPaint);
     recorder.restore();
     recorder.restore();
     SkRecordMergeSvgOpacityAndFilterLayers(&record);

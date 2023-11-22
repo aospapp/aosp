@@ -77,14 +77,15 @@ public class SampleTestActivity extends PassFailButtons.Activity {
         double[] metricValues = new double[] {1, 11, 21, 1211, 111221};
 
         // Record metric results
-        getReportLog().setSummary(
-                "Sample Summary", 1.0, ResultType.HIGHER_BETTER, ResultUnit.BYTE);
-        getReportLog().addValues("Sample Values", metricValues, ResultType.NEUTRAL, ResultUnit.FPS);
+        getReportLog().setSummary("Sample Summary", 1.0, ResultType.HIGHER_BETTER,
+                ResultUnit.BYTE);
+        getReportLog().addValues("Sample Values", metricValues, ResultType.NEUTRAL,
+                ResultUnit.FPS);
 
         // Alternatively, activities can invoke TestResult directly to record metrics
         ReportLog reportLog = new PassFailButtons.CtsVerifierReportLog();
         reportLog.setSummary("Sample Summary", 1.0, ResultType.HIGHER_BETTER, ResultUnit.BYTE);
-        getReportLog().addValues("Sample Values", metricValues, ResultType.NEUTRAL, ResultUnit.FPS);
+        reportLog.addValues("Sample Values", metricValues, ResultType.NEUTRAL, ResultUnit.FPS);
         TestResult.setPassedResult(this, "manualSample", "manualDetails", reportLog);
     }
 

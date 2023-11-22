@@ -30,7 +30,7 @@
 #include "avdt_api.h"
 #include "avdtc_api.h"
 #include "avdt_int.h"
-#include "gki.h"
+#include "bt_common.h"
 #include "btu.h"
 
 /*****************************************************************************
@@ -165,7 +165,7 @@ const tAVDT_SCB_ACTION avdt_scb_action[] = {
     avdt_scb_free_pkt,
     avdt_scb_clr_pkt,
     avdt_scb_chk_snd_pkt,
-    avdt_scb_tc_timer,
+    avdt_scb_transport_channel_timer,
     avdt_scb_clr_vars,
     avdt_scb_dealloc
 };
@@ -598,16 +598,10 @@ tAVDT_SCB *avdt_scb_alloc(tAVDT_CS *p_cs)
             p_scb->allocated = TRUE;
             p_scb->p_ccb = NULL;
 
-            /* initialize sink as activated */
-            if (p_cs->tsep == AVDT_TSEP_SNK)
-            {
-                p_scb->sink_activated = TRUE;
-            }
-
             memcpy(&p_scb->cs, p_cs, sizeof(tAVDT_CS));
 #if AVDT_MULTIPLEXING == TRUE
             /* initialize fragments gueue */
-            GKI_init_q(&p_scb->frag_q);
+            p_scb->frag_q = fixed_queue_new(SIZE_MAX);
 
             if(p_cs->cfg.psc_mask & AVDT_PSC_MUX)
             {
@@ -620,7 +614,8 @@ tAVDT_SCB *avdt_scb_alloc(tAVDT_CS *p_cs)
 #endif
             }
 #endif
-            p_scb->timer_entry.param = (UINT32) p_scb;
+            p_scb->transport_channel_timer =
+                alarm_new("avdt_scb.transport_channel_timer");
             AVDT_TRACE_DEBUG("avdt_scb_alloc hdl=%d, psc_mask:0x%x", i+1, p_cs->cfg.psc_mask);
             break;
         }
@@ -648,18 +643,14 @@ tAVDT_SCB *avdt_scb_alloc(tAVDT_CS *p_cs)
 *******************************************************************************/
 void avdt_scb_dealloc(tAVDT_SCB *p_scb, tAVDT_SCB_EVT *p_data)
 {
-#if AVDT_MULTIPLEXING == TRUE
-    void *p_buf;
-#endif
     UNUSED(p_data);
 
     AVDT_TRACE_DEBUG("avdt_scb_dealloc hdl=%d", avdt_scb_to_hdl(p_scb));
-    btu_stop_timer(&p_scb->timer_entry);
+    alarm_free(p_scb->transport_channel_timer);
 
 #if AVDT_MULTIPLEXING == TRUE
     /* free fragments we're holding, if any; it shouldn't happen */
-    while ((p_buf = GKI_dequeue (&p_scb->frag_q)) != NULL)
-        GKI_freebuf(p_buf);
+    fixed_queue_free(p_scb->frag_q, osi_free);
 #endif
 
     memset(p_scb, 0, sizeof(tAVDT_SCB));

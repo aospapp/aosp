@@ -78,15 +78,13 @@ typedef struct {
     void (*on_significant_change)(wifi_request_id id,
                 unsigned num_results,
                 wifi_significant_change_result **results);
-    /* Reported when report_threshold is reached in scan cache */
-    void (*on_scan_results_available) (wifi_request_id id,
-                                    unsigned num_results_available);
     /* Reported when each probe response is received, if report_events
      * enabled in wifi_scan_cmd_params
      */
-    void (*on_full_scan_result) (wifi_request_id id, wifi_scan_result *result);
+    void (*on_full_scan_result) (wifi_request_id id, wifi_scan_result *result,
+                                                   unsigned buckets_scanned);
     /* Optional event - indicates progress of scanning statemachine */
-    void (*on_scan_event) (wifi_scan_event event, unsigned status);
+    void (*on_scan_event) (wifi_request_id id, wifi_scan_event event);
     void (*on_hotlist_ssid_found)(wifi_request_id id,
             unsigned num_results, wifi_scan_result *results);
     void (*on_hotlist_ssid_lost)(wifi_request_id id,
@@ -122,13 +120,12 @@ public:
     virtual int create();
     virtual int requestResponse();
     virtual int handleResponse(WifiEvent &reply);
-    virtual int setCallbackHandler(GScanCallbackHandler nHandler);
     virtual void setMaxChannels(int max_channels);
     virtual void setChannels(int *channels);
     virtual void setNumChannelsPtr(int *num_channels);
     virtual int allocRspParams(eGScanRspRarams cmd);
     virtual void freeRspParams(eGScanRspRarams cmd);
-    virtual void getGetCapabilitiesRspParams(
+    virtual wifi_error getGetCapabilitiesRspParams(
                     wifi_gscan_capabilities *capabilities);
     virtual wifi_error copyCachedScanResults(int *numResults,
                                              wifi_cached_scan_results *cached_results);

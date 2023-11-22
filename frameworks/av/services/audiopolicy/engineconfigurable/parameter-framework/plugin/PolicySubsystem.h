@@ -28,7 +28,7 @@ class AudioPolicyPluginInterface;
 class PolicySubsystem : public CSubsystem
 {
 public:
-    PolicySubsystem(const std::string &strName);
+    PolicySubsystem(const std::string &strName, core::log::Logger& logger);
 
     /**
      * Retrieve Route Manager interface.
@@ -56,5 +56,4 @@ private:
     static const char *const mStrategyComponentName;
     static const char *const mInputSourceComponentName;
     static const char *const mUsageComponentName;
-    static const char *const mVolumeProfileComponentName;
 };

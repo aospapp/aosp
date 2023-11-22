@@ -34,10 +34,6 @@ test_c_flags := \
     -Werror \
     -fno-builtin \
 
-ifneq ($(TARGET_USES_LOGD),false)
-test_c_flags += -DTARGET_USES_LOGD=1
-endif
-
 test_src_files := \
     logd_test.cpp
 
@@ -47,6 +43,6 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := $(test_module_prefix)unit-tests
 LOCAL_MODULE_TAGS := $(test_tags)
 LOCAL_CFLAGS += $(test_c_flags)
-LOCAL_SHARED_LIBRARIES := libcutils
+LOCAL_SHARED_LIBRARIES := libbase libcutils liblog
 LOCAL_SRC_FILES := $(test_src_files)
 include $(BUILD_NATIVE_TEST)

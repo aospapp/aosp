@@ -66,6 +66,11 @@ page.tags="IntentFilter"
       <li><a href="#PlaySearch">Play music based on a search query</a></li>
     </ol>
   </li>
+  <li><a href="#NewNote">New Note</a>
+    <ol>
+      <li><a href="#CreateNote">Create a note</a></li>
+    </ol>
+  </li>
   <li><a href="#Phone">Phone</a>
     <ol>
       <li><a href="#DialPhone">Initiate a phone call</a></li>
@@ -558,7 +563,7 @@ static final Uri mLocationForPhotos;
 public void capturePhoto(String targetFilename) {
     Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
     intent.putExtra(MediaStore.EXTRA_OUTPUT,
-            Uri.withAppendedPath(mLocationForPhotos, targetFilename);
+            Uri.withAppendedPath(mLocationForPhotos, targetFilename));
     if (intent.resolveActivity(getPackageManager()) != null) {
         startActivityForResult(intent, REQUEST_IMAGE_CAPTURE);
     }
@@ -881,7 +886,7 @@ action and specify the contact with a {@code content:} URI as the intent data.</
 <dd>{@link android.content.Intent#ACTION_VIEW}</dd>
 
 <dt><b>Data URI Scheme</b></dt>
-<dd>{@code content:&lt;URI>}</dd>
+<dd>{@code content:<URI>}</dd>
 
 <dt><b>MIME Type</b></dt>
 <dd>None. The type is inferred from contact URI.
@@ -922,7 +927,7 @@ constants in {@link android.provider.ContactsContract.Intents.Insert}.</p>
 <dd>{@link android.content.Intent#ACTION_EDIT}</dd>
 
 <dt><b>Data URI Scheme</b></dt>
-<dd>{@code content:&lt;URI>}</dd>
+<dd>{@code content:<URI>}</dd>
 
 <dt><b>MIME Type</b></dt>
 <dd>The type is inferred from contact URI.
@@ -1497,9 +1502,9 @@ specify the URI location of the file in the intent data.</p>
 <dt><b>Data URI Scheme</b></dt>
 <dd>
   <dl>
-    <dt>{@code file:<em>&lt;URI></em>}
-    <dt>{@code content:<em>&lt;URI></em>}
-    <dt>{@code http:<em>&lt;URL></em>}
+    <dt><code>file:<em>&lt;URI&gt;</em></code>
+    <dt><code>content:<em>&lt;URI&gt;</em></code>
+    <dt><code>http:<em>&lt;URL&gt;</em></code>
   </dl>
 </dd>
 
@@ -1780,6 +1785,72 @@ protected void onCreate(Bundle savedInstanceState) {
 
 
 
+<h2 id="NewNote">New Note</h2>
+
+<h3 id="CreateNote">Create a note</h3>
+
+<p>To create a new note, use the
+<a href="https://developers.google.com/android/reference/com/google/android/gms/actions/NoteIntents#ACTION_CREATE_NOTE">
+{@code ACTION_CREATE_NOTE}</a> action and specify note details such as the subject and text using extras defined below.</p>
+
+<p class="note"><strong>Note:</strong> Apps must ask for confirmation from the user
+before completing the action.</p>
+
+<dl>
+  <dt><b>Action</b></dt>
+  <dd><a href="https://developers.google.com/android/reference/com/google/android/gms/actions/NoteIntents#ACTION_CREATE_NOTE">
+  {@code ACTION_CREATE_NOTE}</a>
+</dd>
+
+  <dt><b>Data URI Scheme</b></dt>
+  <dd>None</dd>
+
+  <dt><b>MIME Type</b></dt>
+  <dd><a href="https://developer.android.com/reference/org/apache/http/protocol/HTTP.html#PLAIN_TEXT_TYPE">
+{@code PLAIN_TEXT_TYPE}</a></dd>
+  <dd>"*/*"</dd>
+
+
+<dt><b>Extras</b></dt>
+<dd>
+  <dl>
+    <dt><a href="https://developers.google.com/android/reference/com/google/android/gms/actions/NoteIntents#EXTRA_NAME">
+        {@code EXTRA_NAME}</a>
+      <dd>A string indicating the title or subject of the note.</dd>
+    <dt><a href="https://developers.google.com/android/reference/com/google/android/gms/actions/NoteIntents#EXTRA_TEXT">
+       {@code EXTRA_TEXT}</a>
+      <dd>A string indicating the text of the note.</dd>
+  </dl>
+</dd>
+
+
+<p><b>Example intent:</b></p>
+<pre>
+public void createNote(String subject, String text) {
+    Intent intent = new Intent(NoteIntents.ACTION_CREATE_NOTE)
+            .putExtra(NoteIntents.EXTRA_NAME, subject)
+            .putExtra(NoteIntents.EXTRA_TEXT, text);
+    if (intent.resolveActivity(getPackageManager()) != null) {
+        startActivity(intent);
+    }
+}</pre>
+
+
+<p><b>Example intent filter:</b></p>
+<pre>
+&lt;activity ...&gt;
+    &lt;intent-filter&gt;
+        &lt;action android:name="com.google.android.gms.actions.CREATE_NOTE" /&gt;
+        &lt;category android:name="android.intent.category.DEFAULT" /&gt;
+        &lt;data android:mimeType=”*/*”&gt;
+    &lt;/intent-filter&gt;
+&lt;/activity&gt;
+</pre>
+
+
+
+
+
 <h2 id="Phone">Phone</h2>
 
 
@@ -1830,8 +1901,8 @@ begins the phone call; the user does not need to press the <em>Call</em> button.
 <dt><b>Data URI Scheme</b></dt>
 <dd>
 <ul>
-  <li>{@code tel:&lt;phone-number>}</li>
-  <li>{@code voicemail:&lt;phone-number>}</li>
+  <li>{@code tel:<phone-number>}</li>
+  <li>{@code voicemail:<phone-number>}</li>
 </ul>
 </dd>
 
@@ -2042,10 +2113,10 @@ details such as the phone number, subject, and message body using the extra keys
 <dt><b>Data URI Scheme</b></dt>
 <dd>
   <dl>
-    <dt>{@code sms:<em>&lt;phone_number></em>}
-    <dt>{@code smsto:<em>&lt;phone_number></em>}
-    <dt>{@code mms:<em>&lt;phone_number></em>}
-    <dt>{@code mmsto:<em>&lt;phone_number></em>}
+    <dt><code>sms:<em>&lt;phone_number&gt;</em></code>
+    <dt><code>smsto:<em>&lt;phone_number&gt;</em></code>
+    <dt><code>mms:<em>&lt;phone_number&gt;</em></code>
+    <dt><code>mmsto:<em>&lt;phone_number&gt;</em></code>
   </dl>
   <p>Each of these schemes are handled the same.
 </dd>
@@ -2158,8 +2229,8 @@ and specify the web URL in the intent data.</p>
   <dd>{@link android.content.Intent#ACTION_VIEW}<dd>
 
   <dt><b>Data URI Scheme</b></dt>
-  <dd>{@code http:<em>&lt;URL></em>}<br/>
-    {@code https:<em>&lt;URL></em>}</dd>
+  <dd><code>http:<em>&lt;URL&gt;</em></code><br/>
+    <code>https:<em>&lt;URL&gt;</em></code></dd>
 
   <dt><b>MIME Type</b></dt>
   <dd>

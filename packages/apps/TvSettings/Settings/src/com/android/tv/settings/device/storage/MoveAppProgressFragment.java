@@ -16,10 +16,10 @@
 
 package com.android.tv.settings.device.storage;
 
-import android.annotation.Nullable;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.support.annotation.Nullable;
 import android.view.View;
 
 import com.android.tv.settings.R;
@@ -51,6 +51,8 @@ public class MoveAppProgressFragment extends ProgressDialogFragment {
         switch (returnCode) {
             case PackageManager.MOVE_FAILED_INSUFFICIENT_STORAGE:
                 return context.getString(R.string.insufficient_storage);
+            case PackageManager.MOVE_FAILED_DEVICE_ADMIN:
+                return context.getString(R.string.move_error_device_admin);
             case PackageManager.MOVE_FAILED_DOESNT_EXIST:
                 return context.getString(R.string.does_not_exist);
             case PackageManager.MOVE_FAILED_FORWARD_LOCKED:

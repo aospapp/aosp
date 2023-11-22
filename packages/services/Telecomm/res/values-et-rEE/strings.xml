@@ -16,10 +16,11 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="9166784827254469057">"Telefonikõnede haldus"</string>
+    <string name="telecommAppLabel" product="default" msgid="382363169988504520">"Kõnehaldus"</string>
     <string name="userCallActivityLabel" product="default" msgid="5415173590855187131">"Telefon"</string>
     <string name="unknown" msgid="6878797917991465859">"Tundmatu"</string>
     <string name="notification_missedCallTitle" msgid="7554385905572364535">"Vastamata kõne"</string>
+    <string name="notification_missedWorkCallTitle" msgid="6242489980390803090">"Vastamata kõne töölt"</string>
     <string name="notification_missedCallsTitle" msgid="1361677948941502522">"Vastamata kõned"</string>
     <string name="notification_missedCallsMsg" msgid="4575787816055205600">"<xliff:g id="NUM_MISSED_CALLS">%s</xliff:g> vastamata kõnet"</string>
     <string name="notification_missedCallTicker" msgid="504686252427747209">"Vastamata kõne helistajalt <xliff:g id="MISSED_CALL_FROM">%s</xliff:g>"</string>
@@ -37,15 +38,32 @@
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"Kiirvastus"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"Sõnum on saadetud numbrile <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
     <string name="enable_account_preference_title" msgid="2021848090086481720">"Kõnekontod"</string>
-    <string name="outgoing_call_not_allowed_user_restriction" msgid="8504993498756056279">"Seadme omanik on lubanud ainult hädaabikõned."</string>
+    <string name="outgoing_call_not_allowed_user_restriction" msgid="6872406278300131364">"Lubatud on ainult hädaabikõned."</string>
     <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"See rakendus ei saa ilma telefoni kasutamise loata välja helistada."</string>
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"Helistamiseks sisestage kehtiv number."</string>
     <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"Kõnet ei saa praegu lisada."</string>
-    <string name="video_call_not_allowed_if_tty_enabled" msgid="7593649283571253283">"Videokõnede tegemiseks keelake TTY-režiim."</string>
     <string name="no_vm_number" msgid="4164780423805688336">"Puudub kõnepostinumber"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"SIM-kaardile pole salvestatud ühtegi kõnepostinumbrit."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Lisa number"</string>
     <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"Kas muuta helistamise vaikerakendust?"</string>
     <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"Kas kasutada rakendust <xliff:g id="NEW_APP">%1$s</xliff:g> rakenduse <xliff:g id="CURRENT_APP">%2$s</xliff:g> asemel helistamise vaikerakendusena?"</string>
     <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"Kas kasutada rakendust <xliff:g id="NEW_APP">%s</xliff:g> helistamise vaikerakendusena?"</string>
+    <string name="blocked_numbers" msgid="2751843139572970579">"Blokeeritud numbrid"</string>
+    <string name="blocked_numbers_msg" msgid="1045015186124965643">"Te ei saa blokeeritud numbritelt kõnesid ega tekstsõnumeid."</string>
+    <string name="block_number" msgid="1101252256321306179">"Lisa number"</string>
+    <string name="unblock_dialog_body" msgid="1614238499771862793">"Kas deblokeerida number <xliff:g id="NUMBER_TO_BLOCK">%1$s</xliff:g>?"</string>
+    <string name="unblock_button" msgid="3078048901972674170">"Deblokeeri"</string>
+    <string name="add_blocked_dialog_body" msgid="9030243212265516828">"Blokeeri kõned ja tekstsõnumid numbrilt"</string>
+    <string name="add_blocked_number_hint" msgid="6847675097085433553">"Telefoninumber"</string>
+    <string name="block_button" msgid="8822290682524373357">"Blokeeri"</string>
+    <string name="non_primary_user" msgid="5180129233352533459">"Ainult seadme omanik saab blokeeritud numbreid vaadata ja hallata."</string>
+    <string name="delete_icon_description" msgid="8903995728252556724">"Deblokeerimine"</string>
+    <string name="blocked_numbers_butter_bar_title" msgid="438170866438793182">"Blokeerimine on ajutiselt välja lülitatud"</string>
+    <string name="blocked_numbers_butter_bar_body" msgid="2223244484319442431">"Kui helistate või saadate sõnumi hädaabinumbrile, lülitatakse blokeerimine välja, et hädaabiteenused saaksid teiega ühendust võtta."</string>
+    <string name="blocked_numbers_butter_bar_button" msgid="2197943354922010696">"Luba kohe uuesti"</string>
+    <string name="blocked_numbers_number_blocked_message" msgid="7678509606805029540">"Number <xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g> on blokeeritud"</string>
+    <string name="blocked_numbers_number_unblocked_message" msgid="977894647366750418">"Number <xliff:g id="UNBLOCKED_NUMBER">%1$s</xliff:g> on deblokeeritud"</string>
+    <string name="blocked_numbers_block_emergency_number_message" msgid="917851876780698387">"Hädaabinumbrit ei saa blokeerida."</string>
+    <string name="blocked_numbers_number_already_blocked_message" msgid="4392247814500811798">"Number <xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g> on juba blokeeritud."</string>
+    <string name="toast_personal_call_msg" msgid="5115361633476779723">"Helistamiseks kasutatakse isiklikku helistamisprogrammi"</string>
 </resources>

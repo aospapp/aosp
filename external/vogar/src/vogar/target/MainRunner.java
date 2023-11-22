@@ -17,8 +17,6 @@
 package vogar.target;
 
 import java.lang.reflect.Method;
-import java.util.concurrent.atomic.AtomicReference;
-import vogar.ClassAnalyzer;
 import vogar.Result;
 import vogar.monitor.TargetMonitor;
 
@@ -27,15 +25,15 @@ import vogar.monitor.TargetMonitor;
  */
 public final class MainRunner implements Runner {
 
-    private TargetMonitor monitor;
-    private Class<?> mainClass;
-    private Method main;
+    private final TargetMonitor monitor;
+    private final Class<?> mainClass;
+    private final String[] args;
+    private final Method main;
 
-    public void init(TargetMonitor monitor, String actionName, String qualification,
-            Class<?> mainClass, AtomicReference<String> skipPastReference,
-            TestEnvironment testEnvironment, int timeoutSeconds, boolean profile) {
+    public MainRunner(TargetMonitor monitor, Class<?> mainClass, String[] args) {
         this.monitor = monitor;
         this.mainClass = mainClass;
+        this.args = args;
         try {
             this.main = mainClass.getMethod("main", String[].class);
         } catch (NoSuchMethodException e) {
@@ -44,8 +42,8 @@ public final class MainRunner implements Runner {
         }
     }
 
-    public boolean run(String actionName, Profiler profiler, String[] args) {
-        monitor.outcomeStarted(this, mainClass.getName(), actionName);
+    public boolean run(Profiler profiler) {
+        monitor.outcomeStarted(getClass(), mainClass.getName());
         try {
             if (profiler != null) {
                 profiler.start();
@@ -61,10 +59,5 @@ public final class MainRunner implements Runner {
             }
         }
         return true;
-    }
-
-    public boolean supports(Class<?> klass) {
-        // public static void main(String[] args)
-        return new ClassAnalyzer(klass).hasMethod(true, void.class, "main", String[].class);
     }
 }

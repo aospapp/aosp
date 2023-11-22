@@ -19,7 +19,6 @@ package android.text.format.cts;
 import android.content.Context;
 import android.test.AndroidTestCase;
 import android.text.format.DateUtils;
-import dalvik.annotation.KnownFailure;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Formatter;
@@ -94,20 +93,20 @@ public class DateUtilsTest extends AndroidTestCase {
         final long ONE_SECOND_IN_MS = 1000;
         assertEquals("0 minutes ago",
                 DateUtils.getRelativeTimeSpanString(mBaseTime - ONE_SECOND_IN_MS));
-        assertEquals("in 0 minutes",
+        assertEquals("In 0 minutes",
                 DateUtils.getRelativeTimeSpanString(mBaseTime + ONE_SECOND_IN_MS));
 
         final long ONE_MINUTE_IN_MS = 60 * ONE_SECOND_IN_MS;
         assertEquals("1 minute ago", DateUtils.getRelativeTimeSpanString(0, ONE_MINUTE_IN_MS,
                 DateUtils.MINUTE_IN_MILLIS));
-        assertEquals("in 1 minute", DateUtils.getRelativeTimeSpanString(ONE_MINUTE_IN_MS, 0,
+        assertEquals("In 1 minute", DateUtils.getRelativeTimeSpanString(ONE_MINUTE_IN_MS, 0,
                 DateUtils.MINUTE_IN_MILLIS));
 
         final long ONE_HOUR_IN_MS = 60 * 60 * 1000;
         final long TWO_HOURS_IN_MS = 2 * ONE_HOUR_IN_MS;
         assertEquals("2 hours ago", DateUtils.getRelativeTimeSpanString(mBaseTime - TWO_HOURS_IN_MS,
                 mBaseTime, DateUtils.MINUTE_IN_MILLIS, DateUtils.FORMAT_NUMERIC_DATE));
-        assertEquals("in 2 hours", DateUtils.getRelativeTimeSpanString(mBaseTime + TWO_HOURS_IN_MS,
+        assertEquals("In 2 hours", DateUtils.getRelativeTimeSpanString(mBaseTime + TWO_HOURS_IN_MS,
                 mBaseTime, DateUtils.MINUTE_IN_MILLIS, DateUtils.FORMAT_NUMERIC_DATE));
     }
 

@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class BasicInCallServiceTest extends InstrumentationTestCase {
 
-    private static final Uri TEST_NUMBER = Uri.fromParts("tel", "7", null);
+    private static final Uri TEST_NUMBER = Uri.fromParts("tel", "555-1234", null);
 
     private Context mContext;
     private String mPreviousDefaultDialer = null;
@@ -77,7 +77,8 @@ public class BasicInCallServiceTest extends InstrumentationTestCase {
         mContext.startActivity(intent);
 
         try {
-            if (callbacks.lock.tryAcquire(3, TimeUnit.SECONDS)) {
+            if (callbacks.lock.tryAcquire(TestUtils.WAIT_FOR_CALL_ADDED_TIMEOUT_S,
+                        TimeUnit.SECONDS)) {
                 return;
             }
         } catch (InterruptedException e) {

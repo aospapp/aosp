@@ -60,6 +60,7 @@ private:
      * WifiVendorCommand::handleEvent()
      */
     u32 mSubCommandId;
+    bool mEventHandlingEnabled;
 
 public:
     GScanCommandEventHandler(wifi_handle handle, int id, u32 vendor_id,
@@ -69,6 +70,10 @@ public:
     virtual int get_request_id();
     virtual void set_request_id(int request_id);
     virtual int handleEvent(WifiEvent &event);
+    void enableEventHandling();
+    void disableEventHandling();
+    bool isEventHandlingEnabled();
+    void setCallbackHandler(GScanCallbackHandler handler);
     wifi_error gscan_parse_hotlist_ap_results(
             u32 num_results,
             wifi_scan_result *results,

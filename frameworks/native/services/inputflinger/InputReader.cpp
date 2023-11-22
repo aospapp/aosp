@@ -450,6 +450,11 @@ InputDevice* InputReader::createDeviceLocked(int32_t deviceId, int32_t controlle
         device->addMapper(new SwitchInputMapper(device));
     }
 
+    // Scroll wheel-like devices.
+    if (classes & INPUT_DEVICE_CLASS_ROTARY_ENCODER) {
+        device->addMapper(new RotaryEncoderInputMapper(device));
+    }
+
     // Vibrator-like devices.
     if (classes & INPUT_DEVICE_CLASS_VIBRATOR) {
         device->addMapper(new VibratorInputMapper(device));
@@ -690,6 +695,21 @@ int32_t InputReader::getStateLocked(int32_t deviceId, uint32_t sourceMask, int32
         }
     }
     return result;
+}
+
+void InputReader::toggleCapsLockState(int32_t deviceId) {
+    ssize_t deviceIndex = mDevices.indexOfKey(deviceId);
+    if (deviceIndex < 0) {
+        ALOGW("Ignoring toggleCapsLock for unknown deviceId %" PRId32 ".", deviceId);
+        return;
+    }
+
+    InputDevice* device = mDevices.valueAt(deviceIndex);
+    if (device->isIgnored()) {
+        return;
+    }
+
+    device->updateMetaState(AKEYCODE_CAPS_LOCK);
 }
 
 bool InputReader::hasKeys(int32_t deviceId, uint32_t sourceMask,
@@ -1165,6 +1185,13 @@ int32_t InputDevice::getMetaState() {
         result |= mapper->getMetaState();
     }
     return result;
+}
+
+void InputDevice::updateMetaState(int32_t keyCode) {
+    size_t numMappers = mMappers.size();
+    for (size_t i = 0; i < numMappers; i++) {
+        mMappers[i]->updateMetaState(keyCode);
+    }
 }
 
 void InputDevice::fadePointer() {
@@ -1875,6 +1902,9 @@ int32_t InputMapper::getMetaState() {
     return 0;
 }
 
+void InputMapper::updateMetaState(int32_t keyCode) {
+}
+
 void InputMapper::updateExternalStylusState(const StylusState& state) {
 
 }
@@ -2177,13 +2207,7 @@ void KeyboardInputMapper::process(const RawEvent* rawEvent) {
         mCurrentHidUsage = 0;
 
         if (isKeyboardOrGamepadKey(scanCode)) {
-            int32_t keyCode;
-            uint32_t flags;
-            if (getEventHub()->mapKey(getDeviceId(), scanCode, usageCode, &keyCode, &flags)) {
-                keyCode = AKEYCODE_UNKNOWN;
-                flags = 0;
-            }
-            processKey(rawEvent->when, rawEvent->value != 0, keyCode, scanCode, flags);
+            processKey(rawEvent->when, rawEvent->value != 0, scanCode, usageCode);
         }
         break;
     }
@@ -2208,8 +2232,18 @@ bool KeyboardInputMapper::isKeyboardOrGamepadKey(int32_t scanCode) {
         || (scanCode >= BTN_JOYSTICK && scanCode < BTN_DIGI);
 }
 
-void KeyboardInputMapper::processKey(nsecs_t when, bool down, int32_t keyCode,
-        int32_t scanCode, uint32_t policyFlags) {
+void KeyboardInputMapper::processKey(nsecs_t when, bool down, int32_t scanCode,
+        int32_t usageCode) {
+    int32_t keyCode;
+    int32_t keyMetaState;
+    uint32_t policyFlags;
+
+    if (getEventHub()->mapKey(getDeviceId(), scanCode, usageCode, mMetaState,
+                              &keyCode, &keyMetaState, &policyFlags)) {
+        keyCode = AKEYCODE_UNKNOWN;
+        keyMetaState = mMetaState;
+        policyFlags = 0;
+    }
 
     if (down) {
         // Rotate key codes according to orientation if needed.
@@ -2256,12 +2290,12 @@ void KeyboardInputMapper::processKey(nsecs_t when, bool down, int32_t keyCode,
         }
     }
 
-    int32_t oldMetaState = mMetaState;
-    int32_t newMetaState = updateMetaState(keyCode, down, oldMetaState);
-    bool metaStateChanged = oldMetaState != newMetaState;
-    if (metaStateChanged) {
-        mMetaState = newMetaState;
-        updateLedState(false);
+    if (updateMetaStateIfNeeded(keyCode, down)) {
+        // If global meta state changed send it along with the key.
+        // If it has not changed then we'll use what keymap gave us,
+        // since key replacement logic might temporarily reset a few
+        // meta bits for given key.
+        keyMetaState = mMetaState;
     }
 
     nsecs_t downTime = mDownTime;
@@ -2279,17 +2313,13 @@ void KeyboardInputMapper::processKey(nsecs_t when, bool down, int32_t keyCode,
         policyFlags |= POLICY_FLAG_DISABLE_KEY_REPEAT;
     }
 
-    if (metaStateChanged) {
-        getContext()->updateGlobalMetaState();
-    }
-
     if (down && !isMetaKey(keyCode)) {
         getContext()->fadePointer();
     }
 
     NotifyKeyArgs args(when, getDeviceId(), mSource, policyFlags,
             down ? AKEY_EVENT_ACTION_DOWN : AKEY_EVENT_ACTION_UP,
-            AKEY_EVENT_FLAG_FROM_SYSTEM, keyCode, scanCode, newMetaState, downTime);
+            AKEY_EVENT_FLAG_FROM_SYSTEM, keyCode, scanCode, keyMetaState, downTime);
     getListener()->notifyKey(&args);
 }
 
@@ -2318,6 +2348,24 @@ bool KeyboardInputMapper::markSupportedKeyCodes(uint32_t sourceMask, size_t numC
 
 int32_t KeyboardInputMapper::getMetaState() {
     return mMetaState;
+}
+
+void KeyboardInputMapper::updateMetaState(int32_t keyCode) {
+    updateMetaStateIfNeeded(keyCode, false);
+}
+
+bool KeyboardInputMapper::updateMetaStateIfNeeded(int32_t keyCode, bool down) {
+    int32_t oldMetaState = mMetaState;
+    int32_t newMetaState = android::updateMetaState(keyCode, down, oldMetaState);
+    bool metaStateChanged = oldMetaState != newMetaState;
+    if (metaStateChanged) {
+        mMetaState = newMetaState;
+        updateLedState(false);
+
+        getContext()->updateGlobalMetaState();
+    }
+
+    return metaStateChanged;
 }
 
 void KeyboardInputMapper::resetLedState() {
@@ -2599,6 +2647,8 @@ void CursorInputMapper::sync(nsecs_t when) {
         mPointerController->getPosition(&x, &y);
         pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_X, x);
         pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_Y, y);
+        pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_RELATIVE_X, deltaX);
+        pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_RELATIVE_Y, deltaY);
         displayId = ADISPLAY_ID_DEFAULT;
     } else {
         pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_X, deltaX);
@@ -2718,6 +2768,103 @@ void CursorInputMapper::fadePointer() {
     }
 }
 
+// --- RotaryEncoderInputMapper ---
+
+RotaryEncoderInputMapper::RotaryEncoderInputMapper(InputDevice* device) :
+        InputMapper(device) {
+    mSource = AINPUT_SOURCE_ROTARY_ENCODER;
+}
+
+RotaryEncoderInputMapper::~RotaryEncoderInputMapper() {
+}
+
+uint32_t RotaryEncoderInputMapper::getSources() {
+    return mSource;
+}
+
+void RotaryEncoderInputMapper::populateDeviceInfo(InputDeviceInfo* info) {
+    InputMapper::populateDeviceInfo(info);
+
+    if (mRotaryEncoderScrollAccumulator.haveRelativeVWheel()) {
+        float res = 0.0f;
+        if (!mDevice->getConfiguration().tryGetProperty(String8("device.res"), res)) {
+            ALOGW("Rotary Encoder device configuration file didn't specify resolution!\n");
+        }
+        if (!mDevice->getConfiguration().tryGetProperty(String8("device.scalingFactor"),
+            mScalingFactor)) {
+            ALOGW("Rotary Encoder device configuration file didn't specify scaling factor,"
+              "default to 1.0!\n");
+            mScalingFactor = 1.0f;
+        }
+        info->addMotionRange(AMOTION_EVENT_AXIS_SCROLL, mSource, -1.0f, 1.0f, 0.0f, 0.0f,
+            res * mScalingFactor);
+    }
+}
+
+void RotaryEncoderInputMapper::dump(String8& dump) {
+    dump.append(INDENT2 "Rotary Encoder Input Mapper:\n");
+    dump.appendFormat(INDENT3 "HaveWheel: %s\n",
+            toString(mRotaryEncoderScrollAccumulator.haveRelativeVWheel()));
+}
+
+void RotaryEncoderInputMapper::configure(nsecs_t when,
+        const InputReaderConfiguration* config, uint32_t changes) {
+    InputMapper::configure(when, config, changes);
+    if (!changes) {
+        mRotaryEncoderScrollAccumulator.configure(getDevice());
+    }
+}
+
+void RotaryEncoderInputMapper::reset(nsecs_t when) {
+    mRotaryEncoderScrollAccumulator.reset(getDevice());
+
+    InputMapper::reset(when);
+}
+
+void RotaryEncoderInputMapper::process(const RawEvent* rawEvent) {
+    mRotaryEncoderScrollAccumulator.process(rawEvent);
+
+    if (rawEvent->type == EV_SYN && rawEvent->code == SYN_REPORT) {
+        sync(rawEvent->when);
+    }
+}
+
+void RotaryEncoderInputMapper::sync(nsecs_t when) {
+    PointerCoords pointerCoords;
+    pointerCoords.clear();
+
+    PointerProperties pointerProperties;
+    pointerProperties.clear();
+    pointerProperties.id = 0;
+    pointerProperties.toolType = AMOTION_EVENT_TOOL_TYPE_UNKNOWN;
+
+    float scroll = mRotaryEncoderScrollAccumulator.getRelativeVWheel();
+    bool scrolled = scroll != 0;
+
+    // This is not a pointer, so it's not associated with a display.
+    int32_t displayId = ADISPLAY_ID_NONE;
+
+    // Moving the rotary encoder should wake the device (if specified).
+    uint32_t policyFlags = 0;
+    if (scrolled && getDevice()->isExternal()) {
+        policyFlags |= POLICY_FLAG_WAKE;
+    }
+
+    // Send motion event.
+    if (scrolled) {
+        int32_t metaState = mContext->getGlobalMetaState();
+        pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_SCROLL, scroll * mScalingFactor);
+
+        NotifyMotionArgs scrollArgs(when, getDeviceId(), mSource, policyFlags,
+                AMOTION_EVENT_ACTION_SCROLL, 0, 0, metaState, 0,
+                AMOTION_EVENT_EDGE_FLAG_NONE,
+                displayId, 1, &pointerProperties, &pointerCoords,
+                0, 0, 0);
+        getListener()->notifyMotion(&scrollArgs);
+    }
+
+    mRotaryEncoderScrollAccumulator.finishSync();
+}
 
 // --- TouchInputMapper ---
 
@@ -2952,15 +3099,15 @@ void TouchInputMapper::configureParameters() {
     // multitouch.  The spot-based presentation relies on being able to accurately
     // locate two or more fingers on the touch pad.
     mParameters.gestureMode = getEventHub()->hasInputProperty(getDeviceId(), INPUT_PROP_SEMI_MT)
-            ? Parameters::GESTURE_MODE_POINTER : Parameters::GESTURE_MODE_SPOTS;
+            ? Parameters::GESTURE_MODE_SINGLE_TOUCH : Parameters::GESTURE_MODE_MULTI_TOUCH;
 
     String8 gestureModeString;
     if (getDevice()->getConfiguration().tryGetProperty(String8("touch.gestureMode"),
             gestureModeString)) {
-        if (gestureModeString == "pointer") {
-            mParameters.gestureMode = Parameters::GESTURE_MODE_POINTER;
-        } else if (gestureModeString == "spots") {
-            mParameters.gestureMode = Parameters::GESTURE_MODE_SPOTS;
+        if (gestureModeString == "single-touch") {
+            mParameters.gestureMode = Parameters::GESTURE_MODE_SINGLE_TOUCH;
+        } else if (gestureModeString == "multi-touch") {
+            mParameters.gestureMode = Parameters::GESTURE_MODE_MULTI_TOUCH;
         } else if (gestureModeString != "default") {
             ALOGW("Invalid value for touch.gestureMode: '%s'", gestureModeString.string());
         }
@@ -3028,11 +3175,11 @@ void TouchInputMapper::dumpParameters(String8& dump) {
     dump.append(INDENT3 "Parameters:\n");
 
     switch (mParameters.gestureMode) {
-    case Parameters::GESTURE_MODE_POINTER:
-        dump.append(INDENT4 "GestureMode: pointer\n");
+    case Parameters::GESTURE_MODE_SINGLE_TOUCH:
+        dump.append(INDENT4 "GestureMode: single-touch\n");
         break;
-    case Parameters::GESTURE_MODE_SPOTS:
-        dump.append(INDENT4 "GestureMode: spots\n");
+    case Parameters::GESTURE_MODE_MULTI_TOUCH:
+        dump.append(INDENT4 "GestureMode: multi-touch\n");
         break;
     default:
         assert(false);
@@ -3543,8 +3690,10 @@ void TouchInputMapper::configureVirtualKeys() {
 
         virtualKey.scanCode = virtualKeyDefinition.scanCode;
         int32_t keyCode;
+        int32_t dummyKeyMetaState;
         uint32_t flags;
-        if (getEventHub()->mapKey(getDeviceId(), virtualKey.scanCode, 0, &keyCode, &flags)) {
+        if (getEventHub()->mapKey(getDeviceId(), virtualKey.scanCode, 0, 0,
+                                  &keyCode, &dummyKeyMetaState, &flags)) {
             ALOGW(INDENT "VirtualKey %d: could not obtain key code, ignoring",
                     virtualKey.scanCode);
             mVirtualKeys.pop(); // drop the key
@@ -4699,7 +4848,7 @@ void TouchInputMapper::cookPointerData() {
             bottom = float(mRawPointerAxes.x.maxValue - rawLeft) * mXScale + mXTranslate;
             top = float(mRawPointerAxes.x.maxValue - rawRight) * mXScale + mXTranslate;
             orientation -= M_PI_2;
-            if (orientation < mOrientedRanges.orientation.min) {
+            if (mOrientedRanges.haveOrientation && orientation < mOrientedRanges.orientation.min) {
                 orientation += (mOrientedRanges.orientation.max - mOrientedRanges.orientation.min);
             }
             break;
@@ -4711,7 +4860,7 @@ void TouchInputMapper::cookPointerData() {
             bottom = float(mRawPointerAxes.y.maxValue - rawTop) * mYScale + mYTranslate;
             top = float(mRawPointerAxes.y.maxValue - rawBottom) * mYScale + mYTranslate;
             orientation -= M_PI;
-            if (orientation < mOrientedRanges.orientation.min) {
+            if (mOrientedRanges.haveOrientation && orientation < mOrientedRanges.orientation.min) {
                 orientation += (mOrientedRanges.orientation.max - mOrientedRanges.orientation.min);
             }
             break;
@@ -4723,7 +4872,7 @@ void TouchInputMapper::cookPointerData() {
             bottom = float(rawRight - mRawPointerAxes.x.minValue) * mXScale + mXTranslate;
             top = float(rawLeft - mRawPointerAxes.x.minValue) * mXScale + mXTranslate;
             orientation += M_PI_2;
-            if (orientation > mOrientedRanges.orientation.max) {
+            if (mOrientedRanges.haveOrientation && orientation > mOrientedRanges.orientation.max) {
                 orientation -= (mOrientedRanges.orientation.max - mOrientedRanges.orientation.min);
             }
             break;
@@ -4826,14 +4975,17 @@ void TouchInputMapper::dispatchPointerGestures(nsecs_t when, uint32_t policyFlag
     }
 
     // Update the pointer presentation and spots.
-    if (mParameters.gestureMode == Parameters::GESTURE_MODE_SPOTS) {
-        mPointerController->setPresentation(PointerControllerInterface::PRESENTATION_SPOT);
+    if (mParameters.gestureMode == Parameters::GESTURE_MODE_MULTI_TOUCH) {
+        mPointerController->setPresentation(PointerControllerInterface::PRESENTATION_POINTER);
         if (finishPreviousGesture || cancelPreviousGesture) {
             mPointerController->clearSpots();
         }
-        mPointerController->setSpots(mPointerGesture.currentGestureCoords,
-                mPointerGesture.currentGestureIdToIndex,
-                mPointerGesture.currentGestureIdBits);
+
+        if (mPointerGesture.currentGestureMode == PointerGesture::FREEFORM) {
+            mPointerController->setSpots(mPointerGesture.currentGestureCoords,
+                     mPointerGesture.currentGestureIdToIndex,
+                     mPointerGesture.currentGestureIdBits);
+        }
     } else {
         mPointerController->setPresentation(PointerControllerInterface::PRESENTATION_POINTER);
     }
@@ -4842,9 +4994,8 @@ void TouchInputMapper::dispatchPointerGestures(nsecs_t when, uint32_t policyFlag
     switch (mPointerGesture.currentGestureMode) {
     case PointerGesture::NEUTRAL:
     case PointerGesture::QUIET:
-        if (mParameters.gestureMode == Parameters::GESTURE_MODE_SPOTS
-                && (mPointerGesture.lastGestureMode == PointerGesture::SWIPE
-                        || mPointerGesture.lastGestureMode == PointerGesture::FREEFORM)) {
+        if (mParameters.gestureMode == Parameters::GESTURE_MODE_MULTI_TOUCH
+                && mPointerGesture.lastGestureMode == PointerGesture::FREEFORM) {
             // Remind the user of where the pointer is after finishing a gesture with spots.
             mPointerController->unfade(PointerControllerInterface::TRANSITION_GRADUAL);
         }
@@ -4854,15 +5005,15 @@ void TouchInputMapper::dispatchPointerGestures(nsecs_t when, uint32_t policyFlag
     case PointerGesture::BUTTON_CLICK_OR_DRAG:
     case PointerGesture::HOVER:
     case PointerGesture::PRESS:
+    case PointerGesture::SWIPE:
         // Unfade the pointer when the current gesture manipulates the
         // area directly under the pointer.
         mPointerController->unfade(PointerControllerInterface::TRANSITION_IMMEDIATE);
         break;
-    case PointerGesture::SWIPE:
     case PointerGesture::FREEFORM:
         // Fade the pointer when the current gesture manipulates a different
         // area and there are spots to guide the user experience.
-        if (mParameters.gestureMode == Parameters::GESTURE_MODE_SPOTS) {
+        if (mParameters.gestureMode == Parameters::GESTURE_MODE_MULTI_TOUCH) {
             mPointerController->fade(PointerControllerInterface::TRANSITION_GRADUAL);
         } else {
             mPointerController->unfade(PointerControllerInterface::TRANSITION_IMMEDIATE);
@@ -5228,13 +5379,14 @@ bool TouchInputMapper::preparePointerGestures(nsecs_t when,
             }
         }
 
+        float deltaX = 0, deltaY = 0;
         if (activeTouchId >= 0 && mLastCookedState.fingerIdBits.hasBit(activeTouchId)) {
             const RawPointerData::Pointer& currentPointer =
                     mCurrentRawState.rawPointerData.pointerForId(activeTouchId);
             const RawPointerData::Pointer& lastPointer =
                     mLastRawState.rawPointerData.pointerForId(activeTouchId);
-            float deltaX = (currentPointer.x - lastPointer.x) * mPointerXMovementScale;
-            float deltaY = (currentPointer.y - lastPointer.y) * mPointerYMovementScale;
+            deltaX = (currentPointer.x - lastPointer.x) * mPointerXMovementScale;
+            deltaY = (currentPointer.y - lastPointer.y) * mPointerYMovementScale;
 
             rotateDelta(mSurfaceOrientation, &deltaX, &deltaY);
             mPointerVelocityControl.move(when, &deltaX, &deltaY);
@@ -5261,6 +5413,8 @@ bool TouchInputMapper::preparePointerGestures(nsecs_t when,
         mPointerGesture.currentGestureCoords[0].setAxisValue(AMOTION_EVENT_AXIS_X, x);
         mPointerGesture.currentGestureCoords[0].setAxisValue(AMOTION_EVENT_AXIS_Y, y);
         mPointerGesture.currentGestureCoords[0].setAxisValue(AMOTION_EVENT_AXIS_PRESSURE, 1.0f);
+        mPointerGesture.currentGestureCoords[0].setAxisValue(AMOTION_EVENT_AXIS_RELATIVE_X, deltaX);
+        mPointerGesture.currentGestureCoords[0].setAxisValue(AMOTION_EVENT_AXIS_RELATIVE_Y, deltaY);
     } else if (currentFingerCount == 0) {
         // Case 3. No fingers down and button is not pressed. (NEUTRAL)
         if (mPointerGesture.lastGestureMode != PointerGesture::NEUTRAL) {
@@ -5368,15 +5522,14 @@ bool TouchInputMapper::preparePointerGestures(nsecs_t when,
             mPointerGesture.currentGestureMode = PointerGesture::TAP_DRAG;
         }
 
+        float deltaX = 0, deltaY = 0;
         if (mLastCookedState.fingerIdBits.hasBit(activeTouchId)) {
             const RawPointerData::Pointer& currentPointer =
                     mCurrentRawState.rawPointerData.pointerForId(activeTouchId);
             const RawPointerData::Pointer& lastPointer =
                     mLastRawState.rawPointerData.pointerForId(activeTouchId);
-            float deltaX = (currentPointer.x - lastPointer.x)
-                    * mPointerXMovementScale;
-            float deltaY = (currentPointer.y - lastPointer.y)
-                    * mPointerYMovementScale;
+            deltaX = (currentPointer.x - lastPointer.x) * mPointerXMovementScale;
+            deltaY = (currentPointer.y - lastPointer.y) * mPointerYMovementScale;
 
             rotateDelta(mSurfaceOrientation, &deltaX, &deltaY);
             mPointerVelocityControl.move(when, &deltaX, &deltaY);
@@ -5420,6 +5573,10 @@ bool TouchInputMapper::preparePointerGestures(nsecs_t when,
         mPointerGesture.currentGestureCoords[0].setAxisValue(AMOTION_EVENT_AXIS_Y, y);
         mPointerGesture.currentGestureCoords[0].setAxisValue(AMOTION_EVENT_AXIS_PRESSURE,
                 down ? 1.0f : 0.0f);
+        mPointerGesture.currentGestureCoords[0].setAxisValue(
+                AMOTION_EVENT_AXIS_RELATIVE_X, deltaX);
+        mPointerGesture.currentGestureCoords[0].setAxisValue(
+                AMOTION_EVENT_AXIS_RELATIVE_Y, deltaY);
 
         if (lastFingerCount == 0 && currentFingerCount != 0) {
             mPointerGesture.resetTap();
@@ -5666,6 +5823,10 @@ bool TouchInputMapper::preparePointerGestures(nsecs_t when,
                     mPointerGesture.referenceGestureX);
             mPointerGesture.currentGestureCoords[0].setAxisValue(AMOTION_EVENT_AXIS_Y,
                     mPointerGesture.referenceGestureY);
+            mPointerGesture.currentGestureCoords[0].setAxisValue(AMOTION_EVENT_AXIS_RELATIVE_X,
+                    commonDeltaX);
+            mPointerGesture.currentGestureCoords[0].setAxisValue(AMOTION_EVENT_AXIS_RELATIVE_Y,
+                    commonDeltaY);
             mPointerGesture.currentGestureCoords[0].setAxisValue(AMOTION_EVENT_AXIS_PRESSURE, 1.0f);
         } else if (mPointerGesture.currentGestureMode == PointerGesture::FREEFORM) {
             // FREEFORM mode.
@@ -5762,6 +5923,10 @@ bool TouchInputMapper::preparePointerGestures(nsecs_t when,
                         AMOTION_EVENT_AXIS_Y, mPointerGesture.referenceGestureY + deltaY);
                 mPointerGesture.currentGestureCoords[i].setAxisValue(
                         AMOTION_EVENT_AXIS_PRESSURE, 1.0f);
+                mPointerGesture.currentGestureCoords[i].setAxisValue(
+                        AMOTION_EVENT_AXIS_RELATIVE_X, deltaX);
+                mPointerGesture.currentGestureCoords[i].setAxisValue(
+                        AMOTION_EVENT_AXIS_RELATIVE_Y, deltaY);
             }
 
             if (mPointerGesture.activeGestureId < 0) {
@@ -5855,12 +6020,13 @@ void TouchInputMapper::dispatchPointerMouse(nsecs_t when, uint32_t policyFlags) 
     if (!mCurrentCookedState.mouseIdBits.isEmpty()) {
         uint32_t id = mCurrentCookedState.mouseIdBits.firstMarkedBit();
         uint32_t currentIndex = mCurrentRawState.rawPointerData.idToIndex[id];
+        float deltaX = 0, deltaY = 0;
         if (mLastCookedState.mouseIdBits.hasBit(id)) {
             uint32_t lastIndex = mCurrentRawState.rawPointerData.idToIndex[id];
-            float deltaX = (mCurrentRawState.rawPointerData.pointers[currentIndex].x
+            deltaX = (mCurrentRawState.rawPointerData.pointers[currentIndex].x
                     - mLastRawState.rawPointerData.pointers[lastIndex].x)
                     * mPointerXMovementScale;
-            float deltaY = (mCurrentRawState.rawPointerData.pointers[currentIndex].y
+            deltaY = (mCurrentRawState.rawPointerData.pointers[currentIndex].y
                     - mLastRawState.rawPointerData.pointers[lastIndex].y)
                     * mPointerYMovementScale;
 
@@ -5883,6 +6049,8 @@ void TouchInputMapper::dispatchPointerMouse(nsecs_t when, uint32_t policyFlags) 
         mPointerSimple.currentCoords.setAxisValue(AMOTION_EVENT_AXIS_Y, y);
         mPointerSimple.currentCoords.setAxisValue(AMOTION_EVENT_AXIS_PRESSURE,
                 hovering ? 0.0f : 1.0f);
+        mPointerSimple.currentCoords.setAxisValue(AMOTION_EVENT_AXIS_RELATIVE_X, x);
+        mPointerSimple.currentCoords.setAxisValue(AMOTION_EVENT_AXIS_RELATIVE_Y, y);
         mPointerSimple.currentProperties.id = 0;
         mPointerSimple.currentProperties.toolType =
                 mCurrentCookedState.cookedPointerData.pointerProperties[currentIndex].toolType;

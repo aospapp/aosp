@@ -17,4 +17,5 @@
 /**
  * These are projects that requires a compiled version of data binding.
  */
+include ':library'
 include ':baseAdapters'

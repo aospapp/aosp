@@ -88,6 +88,8 @@ int GetNumValue(const char* name, void* p_value, unsigned long len);
 #define NAME_POWER_OFF_MODE             "POWER_OFF_MODE"
 #define NAME_GLOBAL_RESET               "DO_GLOBAL_RESET"
 #define NAME_NCI_HAL_MODULE             "NCI_HAL_MODULE"
+#define NAME_NFA_POLL_BAIL_OUT_MODE     "NFA_POLL_BAIL_OUT_MODE"
+#define NAME_NFA_PROPRIETARY_CFG        "NFA_PROPRIETARY_CFG"
 
 #define                     LPTD_PARAM_LEN (40)
 

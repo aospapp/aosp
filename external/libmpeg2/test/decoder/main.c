@@ -184,6 +184,7 @@ typedef struct
 
     void *cocodec_obj;
     UWORD32 share_disp_buf;
+    UWORD32 deinterlace;
     UWORD32 num_disp_buf;
     UWORD32 b_pic_present;
     WORD32 i4_degrade_type;
@@ -255,6 +256,7 @@ typedef enum
     NUM_CORES,
 
     SHARE_DISPLAY_BUF,
+    DEINTERLACE,
     LOOPBACK,
     DISPLAY,
     FULLSCREEN,
@@ -312,7 +314,8 @@ static const argument_t argument_mapping[] =
         "Number of cores to be used\n" },
     { "--", "--share_display_buf",      SHARE_DISPLAY_BUF,
         "Enable shared display buffer mode\n" },
-
+    { "--", "--deinterlace",      DEINTERLACE,
+        "Enable deinterlacing for interlaced pics\n" },
     { "--", "--loopback",      LOOPBACK,
         "Enable playback in a loop\n" },
     { "--", "--display",      DISPLAY,
@@ -350,6 +353,7 @@ static const argument_t argument_mapping[] =
 #define MAX_REF_FRAMES              16
 #define MAX_REORDER_FRAMES          16
 #define DEFAULT_SHARE_DISPLAY_BUF   0
+#define DEFAULT_DEINTERLACE         0
 #define STRIDE                      0
 #define DEFAULT_NUM_CORES           1
 
@@ -1232,6 +1236,9 @@ void parse_argument(vid_dec_ctx_t *ps_app_ctx, CHAR *argument, CHAR *value)
         case SHARE_DISPLAY_BUF:
             sscanf(value, "%d", &ps_app_ctx->share_disp_buf);
             break;
+        case DEINTERLACE:
+            sscanf(value, "%d", &ps_app_ctx->deinterlace);
+            break;
         case LOOPBACK:
             sscanf(value, "%d", &ps_app_ctx->loopback);
             break;
@@ -1848,6 +1855,7 @@ int main(WORD32 argc, CHAR *argv[])
 #ifdef PROFILE_ENABLE
     memset(peak_window, 0, sizeof(WORD32) * PEAK_WINDOW_SIZE);
 #endif
+    s_app_ctx.deinterlace = DEFAULT_DEINTERLACE;
     s_app_ctx.share_disp_buf = DEFAULT_SHARE_DISPLAY_BUF;
     s_app_ctx.u4_num_cores = DEFAULT_NUM_CORES;
     s_app_ctx.i4_degrade_type = 0;
@@ -1976,6 +1984,7 @@ int main(WORD32 argc, CHAR *argv[])
     s_app_ctx.i4_degrade_pics = 0;
     s_app_ctx.i4_degrade_type = 0;
     s_app_ctx.loopback = 0;
+    s_app_ctx.deinterlace = 0;
     s_app_ctx.share_disp_buf = 0;
     s_app_ctx.display = 0;
 #endif
@@ -2118,6 +2127,7 @@ int main(WORD32 argc, CHAR *argv[])
             s_fill_mem_rec_ip.s_ivd_fill_mem_rec_ip_t.u4_max_frm_ht =
                             (s_app_ctx.max_ht == 0) ? MAX_FRAME_HEIGHT : s_app_ctx.max_ht;
             s_fill_mem_rec_ip.u4_share_disp_buf = s_app_ctx.share_disp_buf;
+            s_fill_mem_rec_ip.u4_deinterlace = s_app_ctx.deinterlace;
             s_fill_mem_rec_ip.e_output_format =
                             (IV_COLOR_FORMAT_T)s_app_ctx.e_output_chroma_format;
 
@@ -2183,7 +2193,7 @@ int main(WORD32 argc, CHAR *argv[])
             s_init_ip.s_ivd_init_ip_t.u4_frm_max_ht = (s_app_ctx.max_ht == 0) ? MAX_FRAME_HEIGHT : s_app_ctx.max_ht;
 
             s_init_ip.u4_share_disp_buf = s_app_ctx.share_disp_buf;
-
+            s_init_ip.u4_deinterlace = s_app_ctx.deinterlace;
             s_init_ip.s_ivd_init_ip_t.u4_num_mem_rec = u4_num_mem_recs;
             s_init_ip.s_ivd_init_ip_t.e_output_format =
                             (IV_COLOR_FORMAT_T)s_app_ctx.e_output_chroma_format;
@@ -2588,6 +2598,8 @@ int main(WORD32 argc, CHAR *argv[])
                s_ctl_get_frame_dimensions_op.u4_y_offset[0]);
 */
     }
+
+
     /*************************************************************************/
     /* Get VUI parameters                                                    */
     /*************************************************************************/

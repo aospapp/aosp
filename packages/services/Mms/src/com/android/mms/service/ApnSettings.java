@@ -113,7 +113,8 @@ public class ApnSettings {
             if (cursor != null) {
                 String mmscUrl = null;
                 String proxyAddress = null;
-                int proxyPort = -1;
+                // Default proxy port to 80
+                int proxyPort = 80;
                 while (cursor.moveToNext()) {
                     // Read values from APN settings
                     if (isValidApnType(
@@ -133,12 +134,11 @@ public class ApnSettings {
                             proxyAddress = NetworkUtils.trimV4AddrZeros(proxyAddress);
                             final String portString =
                                     trimWithNullCheck(cursor.getString(COLUMN_MMSPORT));
-                            if (portString != null) {
+                            if (!TextUtils.isEmpty(portString)) {
                                 try {
                                     proxyPort = Integer.parseInt(portString);
                                 } catch (NumberFormatException e) {
-                                    LogUtil.e(requestId, "Invalid port " + portString);
-                                    throw new ApnException("Invalid port " + portString);
+                                    LogUtil.e(requestId, "Invalid port " + portString + ", use 80");
                                 }
                             }
                         }

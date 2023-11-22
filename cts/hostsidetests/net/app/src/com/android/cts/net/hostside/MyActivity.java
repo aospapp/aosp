@@ -18,13 +18,9 @@ package com.android.cts.net.hostside;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.net.VpnService;
 import android.os.Bundle;
-import android.os.ParcelFileDescriptor;
 import android.view.WindowManager;
 
-import java.util.Arrays;
-import java.util.ArrayList;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 

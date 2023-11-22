@@ -5,13 +5,13 @@
 #ifndef V8_BASE_SYS_INFO_H_
 #define V8_BASE_SYS_INFO_H_
 
-#include "include/v8stdint.h"
+#include <stdint.h>
 #include "src/base/compiler-specific.h"
 
 namespace v8 {
 namespace base {
 
-class SysInfo FINAL {
+class SysInfo final {
  public:
   // Returns the number of logical processors/core on the current machine.
   static int NumberOfProcessors();

@@ -12,6 +12,8 @@
 #include "SkTRegistry.h"
 
 class SkBitmap;
+class SkPixelSerializer;
+class SkPixmap;
 class SkData;
 class SkWStream;
 
@@ -64,10 +66,16 @@ public:
                               Type, int quality);
     static SkData* EncodeData(const SkBitmap&, Type, int quality);
 
+    static SkData* EncodeData(const SkPixmap&, Type, int quality);
+
     static bool EncodeFile(const char file[], const SkBitmap&, Type,
                            int quality);
     static bool EncodeStream(SkWStream*, const SkBitmap&, Type,
                            int quality);
+
+    /** Uses SkImageEncoder to serialize images that are not already
+        encoded as SkImageEncoder::kPNG_Type images. */
+    static SkPixelSerializer* CreatePixelSerializer();
 
 protected:
     /**
@@ -87,10 +95,8 @@ protected:
 
 // This macro defines the global creation entry point for each encoder. Each
 // encoder implementation that registers with the encoder factory must call it.
-#define DEFINE_ENCODER_CREATOR(codec)           \
-    SkImageEncoder *Create ## codec () {        \
-        return SkNEW( Sk ## codec );            \
-    }
+#define DEFINE_ENCODER_CREATOR(codec) \
+    SkImageEncoder* Create##codec() { return new Sk##codec; }
 
 // All the encoders known by Skia. Note that, depending on the compiler settings,
 // not all of these will be available

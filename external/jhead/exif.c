@@ -614,7 +614,7 @@ static void ProcessExifDir(unsigned char * DirStart, unsigned char * OffsetBase,
             unsigned OffsetVal;
             OffsetVal = Get32u(DirEntry+8);
             // If its bigger than 4 bytes, the dir entry contains an offset.
-            if (OffsetVal+ByteCount > ExifLength){
+            if (OffsetVal > UINT32_MAX - ByteCount || OffsetVal+ByteCount > ExifLength){
                 // Bogus pointer offset and / or bytecount value
                 ErrNonfatal("Illegal value pointer for tag %04x", Tag,0);
                 continue;
@@ -1081,7 +1081,7 @@ static void ProcessExifDir(unsigned char * DirStart, unsigned char * OffsetBase,
 //--------------------------------------------------------------------------
 void process_EXIF (unsigned char * ExifSection, unsigned int length)
 {
-    int FirstOffset;
+    unsigned FirstOffset;
 
     FocalplaneXRes = 0;
     FocalplaneUnits = 0;
@@ -1120,9 +1120,8 @@ void process_EXIF (unsigned char * ExifSection, unsigned int length)
     }
 
     FirstOffset = Get32u(ExifSection+12);
-    if (FirstOffset < 8 || FirstOffset > 16){
-        // Usually set to 8, but other values valid too.
-        ErrNonfatal("Suspicious offset of first IFD value",0,0);
+    if (FirstOffset < 8 || FirstOffset+8 >= length) {
+        ErrNonfatal("Invalid offset of first IFD value: %u", FirstOffset, 0);
         return;
     }
 
@@ -1748,7 +1747,7 @@ void ShowImageInfo(int ShowFileInfo)
 
     if (ImageInfo.DigitalZoomRatio > 1){
         // Digital zoom used.  Shame on you!
-        printf("Digital Zoom : %1.3fx\n", (double)ImageInfo.DigitalZoomRatio);
+        printf("Digital Zoom : %5.3fx\n", (double)ImageInfo.DigitalZoomRatio);
     }
 
     if (ImageInfo.CCDWidth){
@@ -1767,7 +1766,7 @@ void ShowImageInfo(int ShowFileInfo)
         printf("\n");
     }
     if (ImageInfo.ApertureFNumber){
-        printf("Aperture     : f/%3.3f\n",(double)ImageInfo.ApertureFNumber);
+        printf("Aperture     : f/%5.3f\n",(double)ImageInfo.ApertureFNumber);
     }
     if (ImageInfo.Distance){
         if (ImageInfo.Distance < 0){
@@ -1960,7 +1959,7 @@ void ShowConciseImageInfo(void)
         if (ImageInfo.ExposureTime <= 0.5){
             printf(" (1/%d)",(int)(0.5 + 1/ImageInfo.ExposureTime));
         }else{
-            printf(" (%1.1f)",ImageInfo.ExposureTime);
+            printf(" (%3.1f)",ImageInfo.ExposureTime);
         }
     }
 

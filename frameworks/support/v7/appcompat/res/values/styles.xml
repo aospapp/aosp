@@ -60,8 +60,7 @@
 
     <style name="Widget.AppCompat.ActionButton.CloseMode" parent="Base.Widget.AppCompat.ActionButton.CloseMode" />
 
-    <style name="Widget.AppCompat.ActionButton.Overflow"
-           parent="RtlOverlay.Widget.AppCompat.ActionButton.Overflow" />
+    <style name="Widget.AppCompat.ActionButton.Overflow" parent="Base.Widget.AppCompat.ActionButton.Overflow" />
 
     <style name="Widget.AppCompat.ActionBar.TabBar"
            parent="Base.Widget.AppCompat.ActionBar.TabBar">
@@ -144,34 +143,22 @@
            parent="Base.Widget.AppCompat.Light.PopupMenu.Overflow">
     </style>
 
-    <style name="Widget.AppCompat.PopupMenu" parent="Base.Widget.AppCompat.PopupMenu">
-    </style>
+    <style name="Widget.AppCompat.PopupMenu" parent="Base.Widget.AppCompat.PopupMenu" />
 
-    <style name="Widget.AppCompat.Light.PopupMenu"
-           parent="Base.Widget.AppCompat.Light.PopupMenu">
-    </style>
+    <style name="Widget.AppCompat.Light.PopupMenu" parent="Base.Widget.AppCompat.Light.PopupMenu" />
 
-    <style name="Widget.AppCompat.ListView.Menu" parent="Base.Widget.AppCompat.ListView.Menu">
-    </style>
+    <style name="Widget.AppCompat.ListView.Menu" parent="Base.Widget.AppCompat.ListView.Menu" />
+
+    <style name="Widget.AppCompat.ListMenuView" parent="Base.Widget.AppCompat.ListMenuView" />
 
     <style name="Widget.AppCompat.PopupWindow" parent="Base.Widget.AppCompat.PopupWindow">
     </style>
 
-    <style name="TextAppearance.AppCompat.Widget.PopupMenu.Large"
-           parent="Base.TextAppearance.AppCompat.Widget.PopupMenu.Large">
-    </style>
+    <style name="TextAppearance.AppCompat.Widget.PopupMenu.Large" parent="Base.TextAppearance.AppCompat.Widget.PopupMenu.Large" />
 
-    <style name="TextAppearance.AppCompat.Widget.PopupMenu.Small"
-           parent="Base.TextAppearance.AppCompat.Widget.PopupMenu.Small">
-    </style>
+    <style name="TextAppearance.AppCompat.Widget.PopupMenu.Small" parent="Base.TextAppearance.AppCompat.Widget.PopupMenu.Small" />
 
-    <style name="TextAppearance.AppCompat.Light.Widget.PopupMenu.Large"
-           parent="Base.TextAppearance.AppCompat.Light.Widget.PopupMenu.Large">
-    </style>
-
-    <style name="TextAppearance.AppCompat.Light.Widget.PopupMenu.Small"
-           parent="Base.TextAppearance.AppCompat.Light.Widget.PopupMenu.Small">
-    </style>
+    <style name="TextAppearance.AppCompat.Widget.PopupMenu.Header" parent="Base.TextAppearance.AppCompat.Widget.PopupMenu.Header" />
 
     <style name="TextAppearance.AppCompat.SearchResult.Title"
            parent="Base.TextAppearance.AppCompat.SearchResult.Title">
@@ -202,6 +189,10 @@
 
     <style name="Widget.AppCompat.RatingBar" parent="Base.Widget.AppCompat.RatingBar" />
 
+    <style name="Widget.AppCompat.RatingBar.Indicator" parent="Base.Widget.AppCompat.RatingBar.Indicator" />
+
+    <style name="Widget.AppCompat.RatingBar.Small" parent="Base.Widget.AppCompat.RatingBar.Small" />
+
     <style name="Widget.AppCompat.Button" parent="Base.Widget.AppCompat.Button" />
 
     <style name="Widget.AppCompat.Button.Small" parent="Base.Widget.AppCompat.Button.Small" />
@@ -218,11 +209,17 @@
 
     <style name="Widget.AppCompat.ButtonBar.AlertDialog" parent="Base.Widget.AppCompat.ButtonBar.AlertDialog" />
 
+    <style name="Widget.AppCompat.ImageButton" parent="Base.Widget.AppCompat.ImageButton" />
+
     <style name="Widget.AppCompat.TextView.SpinnerItem" parent="Base.Widget.AppCompat.TextView.SpinnerItem" />
 
     <style name="AlertDialog.AppCompat" parent="Base.AlertDialog.AppCompat" />
 
     <style name="AlertDialog.AppCompat.Light" parent="Base.AlertDialog.AppCompat.Light" />
+
+    <style name="Widget.AppCompat.SeekBar" parent="Base.Widget.AppCompat.SeekBar" />
+
+    <style name="Widget.AppCompat.SeekBar.Discrete" parent="Base.Widget.AppCompat.SeekBar.Discrete" />
 
     <!-- Toolbar -->
 
@@ -322,6 +319,8 @@
     <style name="Widget.AppCompat.Light.ListPopupWindow" parent="Widget.AppCompat.ListPopupWindow" />
     <style name="Widget.AppCompat.Light.AutoCompleteTextView" parent="Widget.AppCompat.AutoCompleteTextView" />
     <style name="Widget.AppCompat.Light.ActivityChooserView" parent="Widget.AppCompat.ActivityChooserView" />
+    <style name="TextAppearance.AppCompat.Light.Widget.PopupMenu.Large" parent="TextAppearance.AppCompat.Widget.PopupMenu.Large" />
+    <style name="TextAppearance.AppCompat.Light.Widget.PopupMenu.Small" parent="TextAppearance.AppCompat.Widget.PopupMenu.Small" />
 
     <!-- These styles didn't exist on v7. Since we only use the media template in later versions
          (ICS+), just define it here and use the correct references in values/v14 -->

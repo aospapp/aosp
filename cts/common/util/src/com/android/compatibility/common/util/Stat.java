@@ -22,6 +22,10 @@ import java.util.Arrays;
  * Utilities for doing statistics
  */
 public class Stat {
+    /**
+     * Private constructor for static class.
+     */
+    private Stat() {}
 
     /**
      * Collection of statistical propertirs like average, max, min, and stddev
@@ -48,10 +52,8 @@ public class Stat {
         double average = data[0];
         double min = data[0];
         double max = data[0];
-        double eX2 = data[0] * data[0]; // will become E[X^2]
         for (int i = 1; i < data.length; i++) {
             average += data[i];
-            eX2 += data[i] * data[i];
             if (data[i] > max) {
                 max = data[i];
             }
@@ -60,9 +62,13 @@ public class Stat {
             }
         }
         average /= data.length;
-        eX2 /= data.length;
-        // stddev = sqrt(E[X^2] - (E[X])^2)
-        double stddev = Math.sqrt(eX2 - average * average);
+        double sumOfSquares = 0.0;
+        for (int i = 0; i < data.length; i++) {
+            double diff = average - data[i];
+            sumOfSquares += diff * diff;
+        }
+        double variance = sumOfSquares / (data.length - 1);
+        double stddev = Math.sqrt(variance);
         return new StatResult(average, min, max, stddev, data.length);
     }
 
@@ -84,37 +90,16 @@ public class Stat {
         double thresholdMin = median * (1.0 - rejectionThreshold);
         double thresholdMax = median * (1.0 + rejectionThreshold);
 
-        double average = 0.0;
-        double min = median;
-        double max = median;
-        double eX2 = 0.0; // will become E[X^2]
-        int validDataCounter = 0;
+        double[] validData = new double[data.length];
+        int index = 0;
         for (int i = 0; i < data.length; i++) {
             if ((data[i] > thresholdMin) && (data[i] < thresholdMax)) {
-                validDataCounter++;
-                average += data[i];
-                eX2 += data[i] * data[i];
-                if (data[i] > max) {
-                    max = data[i];
-                }
-                if (data[i] < min) {
-                    min = data[i];
-                }
+                validData[index] = data[i];
+                index++;
             }
             // TODO report rejected data
         }
-        double stddev;
-        if (validDataCounter > 0) {
-            average /= validDataCounter;
-            eX2 /= validDataCounter;
-            // stddev = sqrt(E[X^2] - (E[X])^2)
-            stddev = Math.sqrt(eX2 - average * average);
-        } else { // both median is showing too much diff
-            average = median;
-            stddev = 0; // don't care
-        }
-
-        return new StatResult(average, min, max, stddev, validDataCounter);
+        return getStat(Arrays.copyOf(validData, index));
     }
 
     /**
@@ -159,7 +144,6 @@ public class Stat {
      * timeInSec with 0 value will be changed to small value to prevent divide by zero.
      * @param change total change of quality for the given duration timeInMSec.
      * @param timeInMSec
-     * @return
      */
     public static double calcRatePerSec(double change, double timeInMSec) {
         if (timeInMSec == 0) {
@@ -183,6 +167,16 @@ public class Stat {
             }
         }
         return result;
+    }
+
+    /**
+     * Get the value of the 95th percentile using nearest rank algorithm.
+     */
+    public static double get95PercentileValue(double[] values) {
+        Arrays.sort(values);
+        // zero-based array index
+        int index = (int) Math.round(values.length * 0.95 + .5) - 1;
+        return values[index];
     }
 
 }

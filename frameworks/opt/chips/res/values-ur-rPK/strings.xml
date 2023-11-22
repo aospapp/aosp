@@ -21,5 +21,9 @@
     <string name="copy_number" msgid="530057841276106843">"فون نمبر کاپی کریں"</string>
     <string name="action_label" msgid="1318401633653605424">"واپس جائیں"</string>
     <string name="accessbility_suggestion_dropdown_opened" msgid="3231589819168382515">"رابطہ کی تجاویز کھلی ہوئی ہیں"</string>
+    <string name="accessbility_suggestion_dropdown_closed" msgid="5545766162855459747">"کوئی تجاویز دستیاب نہیں ہیں"</string>
     <string name="dropdown_delete_button_desc" msgid="8506791557733906887">"<xliff:g id="CONTACT">%s</xliff:g> کو وصول کنندگان سے ہٹائیں"</string>
+    <string name="chips_action_copy" msgid="1929144660075507103">"کاپی کریں"</string>
+    <string name="chips_action_cancel" msgid="6077877438943543501">"منسوخ کریں"</string>
+    <string name="chips_permission_text" msgid="1978301259208877495">"رابطوں کی تجاویز کی اجازت دیں"</string>
 </resources>

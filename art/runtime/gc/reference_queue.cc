@@ -32,76 +32,74 @@ ReferenceQueue::ReferenceQueue(Mutex* lock) : lock_(lock), list_(nullptr) {
 void ReferenceQueue::AtomicEnqueueIfNotEnqueued(Thread* self, mirror::Reference* ref) {
   DCHECK(ref != nullptr);
   MutexLock mu(self, *lock_);
-  if (!ref->IsEnqueued()) {
-    EnqueuePendingReference(ref);
+  if (ref->IsUnprocessed()) {
+    EnqueueReference(ref);
   }
 }
 
 void ReferenceQueue::EnqueueReference(mirror::Reference* ref) {
-  CHECK(ref->IsEnqueuable());
-  EnqueuePendingReference(ref);
-}
-
-void ReferenceQueue::EnqueuePendingReference(mirror::Reference* ref) {
   DCHECK(ref != nullptr);
+  CHECK(ref->IsUnprocessed());
   if (IsEmpty()) {
     // 1 element cyclic queue, ie: Reference ref = ..; ref.pendingNext = ref;
     list_ = ref;
   } else {
     mirror::Reference* head = list_->GetPendingNext();
-    if (Runtime::Current()->IsActiveTransaction()) {
-      ref->SetPendingNext<true>(head);
-    } else {
-      ref->SetPendingNext<false>(head);
-    }
+    DCHECK(head != nullptr);
+    ref->SetPendingNext(head);
   }
-  if (Runtime::Current()->IsActiveTransaction()) {
-    list_->SetPendingNext<true>(ref);
-  } else {
-    list_->SetPendingNext<false>(ref);
-  }
+  // Add the reference in the middle to preserve the cycle.
+  list_->SetPendingNext(ref);
 }
 
 mirror::Reference* ReferenceQueue::DequeuePendingReference() {
   DCHECK(!IsEmpty());
-  mirror::Reference* head = list_->GetPendingNext();
-  DCHECK(head != nullptr);
-  mirror::Reference* ref;
+  mirror::Reference* ref = list_->GetPendingNext();
+  DCHECK(ref != nullptr);
   // Note: the following code is thread-safe because it is only called from ProcessReferences which
   // is single threaded.
-  if (list_ == head) {
-    ref = list_;
+  if (list_ == ref) {
     list_ = nullptr;
   } else {
-    mirror::Reference* next = head->GetPendingNext();
-    if (Runtime::Current()->IsActiveTransaction()) {
-      list_->SetPendingNext<true>(next);
-    } else {
-      list_->SetPendingNext<false>(next);
-    }
-    ref = head;
+    mirror::Reference* next = ref->GetPendingNext();
+    list_->SetPendingNext(next);
   }
-  if (Runtime::Current()->IsActiveTransaction()) {
-    ref->SetPendingNext<true>(nullptr);
-  } else {
-    ref->SetPendingNext<false>(nullptr);
-  }
+  ref->SetPendingNext(nullptr);
   Heap* heap = Runtime::Current()->GetHeap();
   if (kUseBakerOrBrooksReadBarrier && heap->CurrentCollectorType() == kCollectorTypeCC &&
       heap->ConcurrentCopyingCollector()->IsActive()) {
-    // Clear the gray ptr we left in ConcurrentCopying::ProcessMarkStack().
-    // We don't want to do this when the zygote compaction collector (SemiSpace) is running.
+    // Change the gray ptr we left in ConcurrentCopying::ProcessMarkStackRef() to black or white.
+    // We check IsActive() above because we don't want to do this when the zygote compaction
+    // collector (SemiSpace) is running.
     CHECK(ref != nullptr);
-    CHECK_EQ(ref->GetReadBarrierPointer(), ReadBarrier::GrayPtr())
-        << "ref=" << ref << " rb_ptr=" << ref->GetReadBarrierPointer();
-    if (heap->ConcurrentCopyingCollector()->RegionSpace()->IsInToSpace(ref)) {
-      // Moving objects.
-      ref->AtomicSetReadBarrierPointer(ReadBarrier::GrayPtr(), ReadBarrier::WhitePtr());
-      CHECK_EQ(ref->GetReadBarrierPointer(), ReadBarrier::WhitePtr());
+    collector::ConcurrentCopying* concurrent_copying = heap->ConcurrentCopyingCollector();
+    const bool is_moving = concurrent_copying->RegionSpace()->IsInToSpace(ref);
+    if (ref->GetReadBarrierPointer() == ReadBarrier::GrayPtr()) {
+      if (is_moving) {
+        ref->AtomicSetReadBarrierPointer(ReadBarrier::GrayPtr(), ReadBarrier::WhitePtr());
+        CHECK_EQ(ref->GetReadBarrierPointer(), ReadBarrier::WhitePtr());
+      } else {
+        ref->AtomicSetReadBarrierPointer(ReadBarrier::GrayPtr(), ReadBarrier::BlackPtr());
+        CHECK_EQ(ref->GetReadBarrierPointer(), ReadBarrier::BlackPtr());
+      }
     } else {
-      // Non-moving objects.
-      ref->AtomicSetReadBarrierPointer(ReadBarrier::GrayPtr(), ReadBarrier::BlackPtr());
-      CHECK_EQ(ref->GetReadBarrierPointer(), ReadBarrier::BlackPtr());
+      // In ConcurrentCopying::ProcessMarkStackRef() we may leave a black or white Reference in the
+      // queue and find it here, which is OK. Check that the color makes sense depending on whether
+      // the Reference is moving or not and that the referent has been marked.
+      if (is_moving) {
+        CHECK_EQ(ref->GetReadBarrierPointer(), ReadBarrier::WhitePtr())
+            << "ref=" << ref << " rb_ptr=" << ref->GetReadBarrierPointer();
+      } else {
+        CHECK_EQ(ref->GetReadBarrierPointer(), ReadBarrier::BlackPtr())
+            << "ref=" << ref << " rb_ptr=" << ref->GetReadBarrierPointer();
+      }
+      mirror::Object* referent = ref->GetReferent<kWithoutReadBarrier>();
+      // The referent could be null if it's cleared by a mutator (Reference.clear()).
+      if (referent != nullptr) {
+        CHECK(concurrent_copying->IsInToSpace(referent))
+            << "ref=" << ref << " rb_ptr=" << ref->GetReadBarrierPointer()
+            << " referent=" << referent;
+      }
     }
   }
   return ref;
@@ -137,36 +135,31 @@ size_t ReferenceQueue::GetLength() const {
 }
 
 void ReferenceQueue::ClearWhiteReferences(ReferenceQueue* cleared_references,
-                                          IsHeapReferenceMarkedCallback* preserve_callback,
-                                          void* arg) {
+                                          collector::GarbageCollector* collector) {
   while (!IsEmpty()) {
     mirror::Reference* ref = DequeuePendingReference();
     mirror::HeapReference<mirror::Object>* referent_addr = ref->GetReferentReferenceAddr();
-    if (referent_addr->AsMirrorPtr() != nullptr && !preserve_callback(referent_addr, arg)) {
+    if (referent_addr->AsMirrorPtr() != nullptr &&
+        !collector->IsMarkedHeapReference(referent_addr)) {
       // Referent is white, clear it.
       if (Runtime::Current()->IsActiveTransaction()) {
         ref->ClearReferent<true>();
       } else {
         ref->ClearReferent<false>();
       }
-      if (ref->IsEnqueuable()) {
-        cleared_references->EnqueuePendingReference(ref);
-      }
+      cleared_references->EnqueueReference(ref);
     }
   }
 }
 
 void ReferenceQueue::EnqueueFinalizerReferences(ReferenceQueue* cleared_references,
-                                                IsHeapReferenceMarkedCallback* is_marked_callback,
-                                                MarkObjectCallback* mark_object_callback,
-                                                void* arg) {
+                                                collector::GarbageCollector* collector) {
   while (!IsEmpty()) {
     mirror::FinalizerReference* ref = DequeuePendingReference()->AsFinalizerReference();
     mirror::HeapReference<mirror::Object>* referent_addr = ref->GetReferentReferenceAddr();
-    if (referent_addr->AsMirrorPtr() != nullptr && !is_marked_callback(referent_addr, arg)) {
-      mirror::Object* forward_address = mark_object_callback(referent_addr->AsMirrorPtr(), arg);
-      // If the referent is non-null the reference must queuable.
-      DCHECK(ref->IsEnqueuable());
+    if (referent_addr->AsMirrorPtr() != nullptr &&
+        !collector->IsMarkedHeapReference(referent_addr)) {
+      mirror::Object* forward_address = collector->MarkObject(referent_addr->AsMirrorPtr());
       // Move the updated referent to the zombie field.
       if (Runtime::Current()->IsActiveTransaction()) {
         ref->SetZombie<true>(forward_address);
@@ -180,8 +173,7 @@ void ReferenceQueue::EnqueueFinalizerReferences(ReferenceQueue* cleared_referenc
   }
 }
 
-void ReferenceQueue::ForwardSoftReferences(IsHeapReferenceMarkedCallback* preserve_callback,
-                                           void* arg) {
+void ReferenceQueue::ForwardSoftReferences(MarkObjectVisitor* visitor) {
   if (UNLIKELY(IsEmpty())) {
     return;
   }
@@ -190,15 +182,15 @@ void ReferenceQueue::ForwardSoftReferences(IsHeapReferenceMarkedCallback* preser
   do {
     mirror::HeapReference<mirror::Object>* referent_addr = ref->GetReferentReferenceAddr();
     if (referent_addr->AsMirrorPtr() != nullptr) {
-      UNUSED(preserve_callback(referent_addr, arg));
+      visitor->MarkHeapReference(referent_addr);
     }
     ref = ref->GetPendingNext();
   } while (LIKELY(ref != head));
 }
 
-void ReferenceQueue::UpdateRoots(IsMarkedCallback* callback, void* arg) {
+void ReferenceQueue::UpdateRoots(IsMarkedVisitor* visitor) {
   if (list_ != nullptr) {
-    list_ = down_cast<mirror::Reference*>(callback(list_, arg));
+    list_ = down_cast<mirror::Reference*>(visitor->IsMarked(list_));
   }
 }
 

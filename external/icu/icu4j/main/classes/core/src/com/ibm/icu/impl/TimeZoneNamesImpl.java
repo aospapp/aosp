@@ -1,7 +1,7 @@
 /*
  *******************************************************************************
- * Copyright (C) 2011-2014, International Business Machines Corporation and    *
- * others. All Rights Reserved.                                                *
+ * Copyright (C) 2011-2015, International Business Machines Corporation and
+ * others. All Rights Reserved.
  *******************************************************************************
  */
 package com.ibm.icu.impl;
@@ -25,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 import com.ibm.icu.impl.TextTrieMap.ResultHandler;
+import com.ibm.icu.impl.UResource.TableSink;
 import com.ibm.icu.text.TimeZoneNames;
 import com.ibm.icu.util.TimeZone;
 import com.ibm.icu.util.TimeZone.SystemTimeZoneType;
@@ -40,6 +41,7 @@ public class TimeZoneNamesImpl extends TimeZoneNames {
 
     private static final String ZONE_STRINGS_BUNDLE = "zoneStrings";
     private static final String MZ_PREFIX = "meta:";
+    private static final NameType[] NAME_TYPE_VALUES = NameType.values();
 
     private static volatile Set<String> METAZONE_IDS;
     private static final TZ2MZsCache TZ_TO_MZS_CACHE = new TZ2MZsCache();
@@ -52,7 +54,8 @@ public class TimeZoneNamesImpl extends TimeZoneNames {
     // and it's stored in SoftCache, so we do not need to worry about the
     // footprint much.
     private transient ConcurrentHashMap<String, ZNames> _mzNamesMap;
-    private transient ConcurrentHashMap<String, TZNames> _tzNamesMap;
+    private transient ConcurrentHashMap<String, ZNames> _tzNamesMap;
+    private transient boolean _namesFullyLoaded;
 
     private transient TextTrieMap<NameInfo> _namesTrie;
     private transient boolean _namesTrieFullyLoaded;
@@ -162,7 +165,7 @@ public class TimeZoneNamesImpl extends TimeZoneNames {
         if (mzID == null || mzID.length() == 0) {
             return null;
         }
-        return loadMetaZoneNames(mzID).getName(type);
+        return loadMetaZoneNames(null, mzID).getName(type);
     }
 
     /*
@@ -174,7 +177,7 @@ public class TimeZoneNamesImpl extends TimeZoneNames {
         if (tzID == null || tzID.length() == 0) {
             return null;
         }
-        return loadTimeZoneNames(tzID).getName(type);
+        return loadTimeZoneNames(null, tzID).getName(type);
     }
 
     /* (non-Javadoc)
@@ -185,7 +188,7 @@ public class TimeZoneNamesImpl extends TimeZoneNames {
         if (tzID == null || tzID.length() == 0) {
             return null;
         }
-        String locName = loadTimeZoneNames(tzID).getName(NameType.EXEMPLAR_LOCATION);
+        String locName = loadTimeZoneNames(null, tzID).getName(NameType.EXEMPLAR_LOCATION);
         return locName;
     }
 
@@ -200,22 +203,36 @@ public class TimeZoneNamesImpl extends TimeZoneNames {
         NameSearchHandler handler = new NameSearchHandler(nameTypes);
         _namesTrie.find(text, start, handler);
         if (handler.getMaxMatchLen() == (text.length() - start) || _namesTrieFullyLoaded) {
+            // perfect match, or no more names available
+            return handler.getMatches();
+        }
+
+        // All names are not yet loaded into the trie.
+        // We may have loaded names for formatting several time zones,
+        // and might be parsing one of those.
+        // Populate the parsing trie from all of the already-loaded names.
+        addAllNamesIntoTrie();
+        handler.resetResults();
+        _namesTrie.find(text, start, handler);
+        if (handler.getMaxMatchLen() == (text.length() - start)) {
             // perfect match
             return handler.getMatches();
         }
 
-        // All names are not yet loaded into the trie
+        // Still no match, load all names.
+        internalLoadAllDisplayNames();
+        addAllNamesIntoTrie();
 
-        // time zone names
+        // Set default time zone location names
+        // for time zones without explicit display names.
         Set<String> tzIDs = TimeZone.getAvailableIDs(SystemTimeZoneType.CANONICAL, null, null);
         for (String tzID : tzIDs) {
-            loadTimeZoneNames(tzID);
-        }
-
-        // meta zone names
-        Set<String> mzIDs = getAvailableMetaZoneIDs();
-        for (String mzID : mzIDs) {
-            loadMetaZoneNames(mzID);
+            if (!_tzNamesMap.containsKey(tzID)) {
+                tzID = tzID.intern();
+                ZNames tznames = ZNames.getInstance(null, tzID);
+                tznames.addNamesIntoTrie(null, tzID, _namesTrie);
+                _tzNamesMap.put(tzID, tznames);
+            }
         }
         _namesTrieFullyLoaded = true;
 
@@ -223,6 +240,151 @@ public class TimeZoneNamesImpl extends TimeZoneNames {
         handler.resetResults();
         _namesTrie.find(text, start, handler);
         return handler.getMatches();
+    }
+
+    @Override
+    public synchronized void loadAllDisplayNames() {
+        internalLoadAllDisplayNames();
+    }
+
+    @Override
+    public void getDisplayNames(String tzID, NameType[] types, long date,
+            String[] dest, int destOffset) {
+        if (tzID == null || tzID.length() == 0) {
+            return;
+        }
+        ZNames tzNames = loadTimeZoneNames(null, tzID);
+        ZNames mzNames = null;
+        for (int i = 0; i < types.length; ++i) {
+            NameType type = types[i];
+            String name = tzNames.getName(type);
+            if (name == null) {
+                if (mzNames == null) {
+                    String mzID = getMetaZoneID(tzID, date);
+                    if (mzID == null || mzID.length() == 0) {
+                        mzNames = ZNames.EMPTY_ZNAMES;
+                    } else {
+                        mzNames = loadMetaZoneNames(null, mzID);
+                    }
+                }
+                name = mzNames.getName(type);
+            }
+            dest[destOffset + i] = name;
+        }
+    }
+
+    /** Caller must synchronize. */
+    private void internalLoadAllDisplayNames() {
+        if (!_namesFullyLoaded) {
+            new ZoneStringsLoader().load();
+            _namesFullyLoaded = true;
+        }
+    }
+
+    /** Caller must synchronize. */
+    private void addAllNamesIntoTrie() {
+        for (Map.Entry<String, ZNames> entry : _tzNamesMap.entrySet()) {
+            entry.getValue().addNamesIntoTrie(null, entry.getKey(), _namesTrie);
+        }
+        for (Map.Entry<String, ZNames> entry : _mzNamesMap.entrySet()) {
+            entry.getValue().addNamesIntoTrie(entry.getKey(), null, _namesTrie);
+        }
+    }
+
+    /**
+     * Loads all meta zone and time zone names for this TimeZoneNames' locale.
+     */
+    private final class ZoneStringsLoader extends UResource.TableSink {
+        /**
+         * Prepare for several hundred time zones and meta zones.
+         * _zoneStrings.getSize() is ineffective in a sparsely populated locale like en-GB.
+         */
+        private static final int INITIAL_NUM_ZONES = 300;
+        private HashMap<UResource.Key, ZNamesLoader> keyToLoader =
+                new HashMap<UResource.Key, ZNamesLoader>(INITIAL_NUM_ZONES);
+        private StringBuilder sb = new StringBuilder(32);
+
+        /** Caller must synchronize. */
+        void load() {
+            _zoneStrings.getAllTableItemsWithFallback("", this);
+            for (Map.Entry<UResource.Key, ZNamesLoader> entry : keyToLoader.entrySet()) {
+                UResource.Key key = entry.getKey();
+                ZNamesLoader loader = entry.getValue();
+                if (loader == ZNamesLoader.DUMMY_LOADER) {
+                    // skip
+                } else if (key.startsWith(MZ_PREFIX)) {
+                    String mzID = mzIDFromKey(key).intern();
+                    ZNames mzNames = ZNames.getInstance(loader.getNames(), null);
+                    _mzNamesMap.put(mzID, mzNames);
+                } else {
+                    String tzID = tzIDFromKey(key).intern();
+                    ZNames tzNames = ZNames.getInstance(loader.getNames(), tzID);
+                    _tzNamesMap.put(tzID, tzNames);
+                }
+            }
+        }
+
+        @Override
+        public TableSink getOrCreateTableSink(UResource.Key key, int initialSize) {
+            ZNamesLoader loader = keyToLoader.get(key);
+            if (loader != null) {
+                if (loader == ZNamesLoader.DUMMY_LOADER) {
+                    return null;
+                }
+                return loader;
+            }
+            ZNamesLoader result = null;
+            if (key.startsWith(MZ_PREFIX)) {
+                String mzID = mzIDFromKey(key);
+                if (_mzNamesMap.containsKey(mzID)) {
+                    // We have already loaded the names for this meta zone.
+                    loader = ZNamesLoader.DUMMY_LOADER;
+                } else {
+                    result = loader = ZNamesLoader.forMetaZoneNames();
+                }
+            } else {
+                String tzID = tzIDFromKey(key);
+                if (_tzNamesMap.containsKey(tzID)) {
+                    // We have already loaded the names for this time zone.
+                    loader = ZNamesLoader.DUMMY_LOADER;
+                } else {
+                    result = loader = ZNamesLoader.forTimeZoneNames();
+                }
+            }
+            keyToLoader.put(key.clone(), loader);
+            return result;
+        }
+
+        @Override
+        public void putNoFallback(UResource.Key key) {
+            if (!keyToLoader.containsKey(key)) {
+                keyToLoader.put(key.clone(), ZNamesLoader.DUMMY_LOADER);
+            }
+        }
+
+        /**
+         * Equivalent to key.substring(MZ_PREFIX.length())
+         * except reuses our StringBuilder.
+         */
+        private String mzIDFromKey(UResource.Key key) {
+            sb.setLength(0);
+            for (int i = MZ_PREFIX.length(); i < key.length(); ++i) {
+                sb.append(key.charAt(i));
+            }
+            return sb.toString();
+        }
+
+        private String tzIDFromKey(UResource.Key key) {
+            sb.setLength(0);
+            for (int i = 0; i < key.length(); ++i) {
+                char c = key.charAt(i);
+                if (c == ':') {
+                    c = '/';
+                }
+                sb.append(c);
+            }
+            return sb.toString();
+        }
     }
 
     /**
@@ -236,8 +398,10 @@ public class TimeZoneNamesImpl extends TimeZoneNames {
                 ICUResourceBundle.ICU_ZONE_BASE_NAME, locale);
         _zoneStrings = (ICUResourceBundle)bundle.get(ZONE_STRINGS_BUNDLE);
 
-        _tzNamesMap = new ConcurrentHashMap<String, TZNames>();
+        // TODO: Access is synchronized, can we use a non-concurrent map?
+        _tzNamesMap = new ConcurrentHashMap<String, ZNames>();
         _mzNamesMap = new ConcurrentHashMap<String, ZNames>();
+        _namesFullyLoaded = false;
 
         _namesTrie = new TextTrieMap<NameInfo>(true);
         _namesTrieFullyLoaded = false;
@@ -260,12 +424,14 @@ public class TimeZoneNamesImpl extends TimeZoneNames {
         if (tzCanonicalID == null || tzCanonicalID.length() == 0) {
             return;
         }
-        loadTimeZoneNames(tzCanonicalID);
+        loadTimeZoneNames(null, tzCanonicalID);
 
+        ZNamesLoader loader = ZNamesLoader.forMetaZoneNames();
         Set<String> mzIDs = getAvailableMetaZoneIDs(tzCanonicalID);
         for (String mzID : mzIDs) {
-            loadMetaZoneNames(mzID);
+            loadMetaZoneNames(loader, mzID);
         }
+        addAllNamesIntoTrie();
     }
 
     /*
@@ -292,23 +458,18 @@ public class TimeZoneNamesImpl extends TimeZoneNames {
      * @param mzID the meta zone ID
      * @return An instance of ZNames that includes a set of meta zone display names.
      */
-    private synchronized ZNames loadMetaZoneNames(String mzID) {
+    private synchronized ZNames loadMetaZoneNames(ZNamesLoader loader, String mzID) {
         ZNames znames = _mzNamesMap.get(mzID);
         if (znames == null) {
-            znames = ZNames.getInstance(_zoneStrings, MZ_PREFIX + mzID);
-            // put names into the trie
-            mzID = mzID.intern();
-            for (NameType t : NameType.values()) {
-                String name = znames.getName(t);
-                if (name != null) {
-                    NameInfo info = new NameInfo();
-                    info.mzID = mzID;
-                    info.type = t;
-                    _namesTrie.put(name, info);
-                }
+            if (loader == null) {
+                loader = ZNamesLoader.forMetaZoneNames();
             }
-            ZNames tmpZnames = _mzNamesMap.putIfAbsent(mzID, znames);
-            znames = (tmpZnames == null) ? znames : tmpZnames;
+            znames = ZNames.getInstance(loader, _zoneStrings, MZ_PREFIX + mzID, null);
+            mzID = mzID.intern();
+            if (_namesTrieFullyLoaded) {
+                znames.addNamesIntoTrie(mzID, null, _namesTrie);
+            }
+            _mzNamesMap.put(mzID, znames);
         }
         return znames;
     }
@@ -319,23 +480,18 @@ public class TimeZoneNamesImpl extends TimeZoneNames {
      * @param tzID the canonical time zone ID
      * @return An instance of TZNames that includes a set of time zone display names.
      */
-    private synchronized TZNames loadTimeZoneNames(String tzID) {
-        TZNames tznames = _tzNamesMap.get(tzID);
+    private synchronized ZNames loadTimeZoneNames(ZNamesLoader loader, String tzID) {
+        ZNames tznames = _tzNamesMap.get(tzID);
         if (tznames == null) {
-            tznames = TZNames.getInstance(_zoneStrings, tzID.replace('/', ':'), tzID);
-            // put names into the trie
-            tzID = tzID.intern();
-            for (NameType t : NameType.values()) {
-                String name = tznames.getName(t);
-                if (name != null) {
-                    NameInfo info = new NameInfo();
-                    info.tzID = tzID;
-                    info.type = t;
-                    _namesTrie.put(name, info);
-                }
+            if (loader == null) {
+                loader = ZNamesLoader.forTimeZoneNames();
             }
-            TZNames tmpTznames = _tzNamesMap.putIfAbsent(tzID, tznames);
-            tznames = (tmpTznames == null) ? tznames : tmpTznames;
+            tznames = ZNames.getInstance(loader, _zoneStrings, tzID.replace('/', ':'), tzID);
+            tzID = tzID.intern();
+            if (_namesTrieFullyLoaded) {
+                tznames.addNamesIntoTrie(null, tzID, _namesTrie);
+            }
+            _tzNamesMap.put(tzID, tznames);
         }
         return tznames;
     }
@@ -416,138 +572,192 @@ public class TimeZoneNamesImpl extends TimeZoneNames {
         }
     }
 
+    private static final class ZNamesLoader extends UResource.TableSink {
+        private static int NUM_META_ZONE_NAMES = 6;
+        private static int NUM_TIME_ZONE_NAMES = 7;  // incl. EXEMPLAR_LOCATION
+
+        private static String NO_NAME = "";
+
+        /**
+         * Does not load any names, for no-fallback handling.
+         */
+        private static ZNamesLoader DUMMY_LOADER = new ZNamesLoader(0);
+
+        private String[] names;
+        private int numNames;
+
+        private ZNamesLoader(int numNames) {
+            this.numNames = numNames;
+        }
+
+        static ZNamesLoader forMetaZoneNames() {
+            return new ZNamesLoader(NUM_META_ZONE_NAMES);
+        }
+
+        static ZNamesLoader forTimeZoneNames() {
+            return new ZNamesLoader(NUM_TIME_ZONE_NAMES);
+        }
+
+        String[] load(ICUResourceBundle zoneStrings, String key) {
+            if (zoneStrings == null || key == null || key.length() == 0) {
+                return null;
+            }
+
+            try {
+                zoneStrings.getAllTableItemsWithFallback(key, this);
+            } catch (MissingResourceException e) {
+                return null;
+            }
+
+            return getNames();
+        }
+
+        private static NameType nameTypeFromKey(UResource.Key key) {
+            // Avoid key.toString() object creation.
+            if (key.length() != 2) {
+                return null;
+            }
+            char c0 = key.charAt(0);
+            char c1 = key.charAt(1);
+            if (c0 == 'l') {
+                return c1 == 'g' ? NameType.LONG_GENERIC :
+                        c1 == 's' ? NameType.LONG_STANDARD :
+                            c1 == 'd' ? NameType.LONG_DAYLIGHT : null;
+            } else if (c0 == 's') {
+                return c1 == 'g' ? NameType.SHORT_GENERIC :
+                        c1 == 's' ? NameType.SHORT_STANDARD :
+                            c1 == 'd' ? NameType.SHORT_DAYLIGHT : null;
+            } else if (c0 == 'e' && c1 == 'c') {
+                return NameType.EXEMPLAR_LOCATION;
+            }
+            return null;
+        }
+
+        @Override
+        public void put(UResource.Key key, UResource.Value value) {
+            if (value.getType() == UResourceBundle.STRING) {
+                if (names == null) {
+                    names = new String[numNames];
+                }
+                NameType type = nameTypeFromKey(key);
+                if (type != null && type.ordinal() < numNames && names[type.ordinal()] == null) {
+                    names[type.ordinal()] = value.getString();
+                }
+            }
+        }
+
+        @Override
+        public void putNoFallback(UResource.Key key) {
+            if (names == null) {
+                names = new String[numNames];
+            }
+            NameType type = nameTypeFromKey(key);
+            if (type != null && type.ordinal() < numNames && names[type.ordinal()] == null) {
+                names[type.ordinal()] = NO_NAME;
+            }
+        }
+
+        private String[] getNames() {
+            if (names == null) {
+                return null;
+            }
+            int length = 0;
+            for (int i = 0; i < numNames; ++i) {
+                String name = names[i];
+                if (name != null) {
+                    if (name == NO_NAME) {
+                        names[i] = null;
+                    } else {
+                        length = i + 1;
+                    }
+                }
+            }
+            if (length == 0) {
+                return null;
+            }
+            if (length == numNames || numNames == NUM_TIME_ZONE_NAMES) {
+                // Return the full array if the last name is set.
+                // Also return the full *time* zone names array,
+                // so that the exemplar location can be set.
+                String[] result = names;
+                names = null;
+                return result;
+            }
+            // Return a shorter array for permanent storage.
+            // *Move* all names into a minimal array.
+            String[] result = new String[length];
+            do {
+                --length;
+                result[length] = names[length];
+                names[length] = null;  // Reset for loading another set of names.
+            } while (length > 0);
+            return result;
+        }
+    }
+
     /**
-     * This class stores name data for a meta zone
+     * This class stores name data for a meta zone or time zone.
      */
     private static class ZNames {
         private static final ZNames EMPTY_ZNAMES = new ZNames(null);
+        // A meta zone names instance never has an exemplar location string.
+        private static final int EX_LOC_INDEX = NameType.EXEMPLAR_LOCATION.ordinal();
 
         private String[] _names;
-
-        private static final String[] KEYS = {"lg", "ls", "ld", "sg", "ss", "sd"};
+        private boolean didAddIntoTrie;
 
         protected ZNames(String[] names) {
             _names = names;
+            didAddIntoTrie = names == null;
         }
 
-        public static ZNames getInstance(ICUResourceBundle zoneStrings, String key) {
-            String[] names = loadData(zoneStrings, key);
+        public static ZNames getInstance(String[] names, String tzID) {
+            if (tzID != null && (names == null || names[EX_LOC_INDEX] == null)) {
+                String locationName = getDefaultExemplarLocationName(tzID);
+                if (locationName != null) {
+                    if (names == null) {
+                        names = new String[EX_LOC_INDEX + 1];
+                    }
+                    names[EX_LOC_INDEX] = locationName;
+                }
+            }
+
             if (names == null) {
                 return EMPTY_ZNAMES;
             }
             return new ZNames(names);
         }
 
-        public String getName(NameType type) {
-            if (_names == null) {
-                return null;
-            }
-            String name = null;
-            switch (type) {
-            case LONG_GENERIC:
-                name = _names[0];
-                break;
-            case LONG_STANDARD:
-                name = _names[1];
-                break;
-            case LONG_DAYLIGHT:
-                name = _names[2];
-                break;
-            case SHORT_GENERIC:
-                name = _names[3];
-                break;
-            case SHORT_STANDARD:
-                name = _names[4];
-                break;
-            case SHORT_DAYLIGHT:
-                name = _names[5];
-                break;
-            case EXEMPLAR_LOCATION:
-                name = null;    // implemented by subclass
-                break;
-            }
-
-            return name;
+        public static ZNames getInstance(ZNamesLoader loader,
+                ICUResourceBundle zoneStrings, String key, String tzID) {
+            return getInstance(loader.load(zoneStrings, key), tzID);
         }
 
-        protected static String[] loadData(ICUResourceBundle zoneStrings, String key) {
-            if (zoneStrings == null || key == null || key.length() == 0) {
+        public String getName(NameType type) {
+            if (_names != null && type.ordinal() < _names.length) {
+                return _names[type.ordinal()];
+            } else {
                 return null;
             }
+        }
 
-            ICUResourceBundle table = null;
-            try {
-                table = zoneStrings.getWithFallback(key);
-            } catch (MissingResourceException e) {
-                return null;
+        public void addNamesIntoTrie(String mzID, String tzID, TextTrieMap<NameInfo> trie) {
+            if (_names == null || didAddIntoTrie) {
+                return;
             }
-
-            boolean isEmpty = true;
-            String[] names = new String[KEYS.length];
-            for (int i = 0; i < names.length; i++) {
-                try {
-                    names[i] = table.getStringWithFallback(KEYS[i]);
-                    isEmpty = false;
-                } catch (MissingResourceException e) {
-                    names[i] = null;
+            for (int i = 0; i < _names.length; ++ i) {
+                String name = _names[i];
+                if (name != null) {
+                    NameInfo info = new NameInfo();
+                    info.mzID = mzID;
+                    info.tzID = tzID;
+                    info.type = NAME_TYPE_VALUES[i];
+                    trie.put(name, info);
                 }
             }
-
-            if (isEmpty) {
-                return null;
-            }
-
-            return names;
+            didAddIntoTrie = true;
         }
     }
-
-    /**
-     * This class stores name data for a single time zone
-     */
-    private static class TZNames extends ZNames {
-        private String _locationName;
-
-        private static final TZNames EMPTY_TZNAMES = new TZNames(null, null);
-
-        public static TZNames getInstance(ICUResourceBundle zoneStrings, String key, String tzID) {
-            if (zoneStrings == null || key == null || key.length() == 0) {
-                return EMPTY_TZNAMES;
-            }
-
-            String[] names = loadData(zoneStrings, key);
-            String locationName = null;
-
-            ICUResourceBundle table = null;
-            try {
-                table = zoneStrings.getWithFallback(key);
-                locationName = table.getStringWithFallback("ec");
-            } catch (MissingResourceException e) {
-                // fall through
-            }
-
-            if (locationName == null) {
-                locationName = getDefaultExemplarLocationName(tzID);
-            }
-
-            if (locationName == null && names == null) {
-                return EMPTY_TZNAMES;
-            }
-            return new TZNames(names, locationName);
-        }
-
-        public String getName(NameType type) {
-            if (type == NameType.EXEMPLAR_LOCATION) {
-                return _locationName;
-            }
-            return super.getName(type);
-        }
-
-        private TZNames(String[] names, String locationName) {
-            super(names);
-            _locationName = locationName;
-        }
-    }
-
 
     //
     // Canonical time zone ID -> meta zone ID

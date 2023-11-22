@@ -27,6 +27,7 @@ import static com.google.common.cache.TestingRemovalListeners.queuingRemovalList
 import static com.google.common.cache.TestingWeighers.constantWeigher;
 import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Maps.immutableEntry;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -2395,7 +2396,7 @@ public class LocalCacheTest extends TestCase {
         .weakKeys()
         .softValues()
         .expireAfterAccess(123, SECONDS)
-        .expireAfterWrite(60 * 456, SECONDS) // 456 minutes
+        .expireAfterWrite(456, MINUTES)
         .maximumWeight(789)
         .weigher(weigher)
         .concurrencyLevel(12)

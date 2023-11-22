@@ -23,7 +23,10 @@ import android.os.Parcelable;
 import android.util.ArrayMap;
 import android.util.Log;
 import android.util.SparseArray;
-import com.android.internal.app.ProcessStats;
+
+import com.android.internal.app.procstats.ProcessStats;
+import com.android.internal.app.procstats.ProcessState;
+import com.android.internal.app.procstats.ServiceState;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -51,14 +54,14 @@ public final class ProcStatsEntry implements Parcelable {
 
     ArrayMap<String, ArrayList<Service>> mServices = new ArrayMap<String, ArrayList<Service>>(1);
 
-    public ProcStatsEntry(ProcessStats.ProcessState proc, String packageName,
+    public ProcStatsEntry(ProcessState proc, String packageName,
             ProcessStats.ProcessDataCollection tmpBgTotals,
             ProcessStats.ProcessDataCollection tmpRunTotals, boolean useUss) {
-        ProcessStats.computeProcessData(proc, tmpBgTotals, 0);
-        ProcessStats.computeProcessData(proc, tmpRunTotals, 0);
-        mPackage = proc.mPackage;
-        mUid = proc.mUid;
-        mName = proc.mName;
+        proc.computeProcessData(tmpBgTotals, 0);
+        proc.computeProcessData(tmpRunTotals, 0);
+        mPackage = proc.getPackage();
+        mUid = proc.getUid();
+        mName = proc.getName();
         mPackages.add(packageName);
         mBgDuration = tmpBgTotals.totalTime;
         mAvgBgMem = useUss ? tmpBgTotals.avgUss : tmpBgTotals.avgPss;
@@ -68,17 +71,18 @@ public final class ProcStatsEntry implements Parcelable {
         mAvgRunMem = useUss ? tmpRunTotals.avgUss : tmpRunTotals.avgPss;
         mMaxRunMem = useUss ? tmpRunTotals.maxUss : tmpRunTotals.maxPss;
         mRunWeight = mAvgRunMem * (double) mRunDuration;
-        if (DEBUG) Log.d(TAG, "New proc entry " + proc.mName + ": dur=" + mBgDuration
+        if (DEBUG) Log.d(TAG, "New proc entry " + proc.getName() + ": dur=" + mBgDuration
                 + " avgpss=" + mAvgBgMem + " weight=" + mBgWeight);
     }
 
-    public ProcStatsEntry(String pkgName, int uid, String procName, long duration, long mem) {
+    public ProcStatsEntry(String pkgName, int uid, String procName, long duration, long mem,
+            long memDuration) {
         mPackage = pkgName;
         mUid = uid;
         mName = procName;
         mBgDuration = mRunDuration = duration;
         mAvgBgMem = mMaxBgMem = mAvgRunMem = mMaxRunMem = mem;
-        mBgWeight = mRunWeight = ((double)duration) * mem;
+        mBgWeight = mRunWeight = ((double)memDuration) * mem;
         if (DEBUG) Log.d(TAG, "New proc entry " + procName + ": dur=" + mBgDuration
                 + " avgpss=" + mAvgBgMem + " weight=" + mBgWeight);
     }
@@ -147,7 +151,7 @@ public final class ProcStatsEntry implements Parcelable {
                             + mUid + " in process " + mName);
                     continue;
                 }
-                ProcessStats.ProcessState pkgProc = pkgState.mProcesses.get(mName);
+                ProcessState pkgProc = pkgState.mProcesses.get(mName);
                 if (pkgProc == null) {
                     Log.w(TAG, "No process " + mName + " found in package state "
                             + mPackages.get(ipkg) + "/" + mUid);
@@ -250,11 +254,11 @@ public final class ProcStatsEntry implements Parcelable {
         }
     }
 
-    public void addService(ProcessStats.ServiceState svc) {
-        ArrayList<Service> services = mServices.get(svc.mPackage);
+    public void addService(ServiceState svc) {
+        ArrayList<Service> services = mServices.get(svc.getPackage());
         if (services == null) {
             services = new ArrayList<Service>();
-            mServices.put(svc.mPackage, services);
+            mServices.put(svc.getPackage(), services);
         }
         services.add(new Service(svc));
     }
@@ -304,13 +308,12 @@ public final class ProcStatsEntry implements Parcelable {
         final String mProcess;
         final long mDuration;
 
-        public Service(ProcessStats.ServiceState service) {
-            mPackage = service.mPackage;
-            mName = service.mName;
-            mProcess = service.mProcessName;
-            mDuration = ProcessStats.dumpSingleServiceTime(null, null, service,
-                    ProcessStats.ServiceState.SERVICE_RUN,
-                    ProcessStats.STATE_NOTHING, 0, 0);
+        public Service(ServiceState service) {
+            mPackage = service.getPackage();
+            mName = service.getName();
+            mProcess = service.getProcessName();
+            mDuration = service.dumpTime(null, null,
+                    ServiceState.SERVICE_RUN, ProcessStats.STATE_NOTHING, 0, 0);
         }
 
         public Service(Parcel in) {

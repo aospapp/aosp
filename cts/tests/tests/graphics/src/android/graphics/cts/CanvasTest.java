@@ -41,7 +41,7 @@ import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
 import android.text.SpannedString;
 
-import com.android.cts.graphics.R;
+import android.graphics.cts.R;
 
 import java.util.Vector;
 
@@ -346,6 +346,117 @@ public class CanvasTest extends InstrumentationTestCase {
             Canvas.ALL_SAVE_FLAG,
         };
         verifySaveFlagsSequence(flags);
+    }
+
+    // This test exercises the saveLayer flag that preserves the clip
+    // state across the matching restore call boundary. This is a vanilla
+    // test and doesn't exercise any interaction between the clip stack
+    // and SkCanvas' deferred save/restore system.
+    public void testSaveFlags9() {
+        Rect clip0 = new Rect();
+        assertTrue(mCanvas.getClipBounds(clip0));
+
+        mCanvas.save(Canvas.MATRIX_SAVE_FLAG);
+
+            // All clip elements should be preserved after restore
+            mCanvas.clipRect(0, 0, BITMAP_WIDTH / 2, BITMAP_HEIGHT);
+            Path path = new Path();
+            path.addOval(0.25f * BITMAP_WIDTH, 0.25f * BITMAP_HEIGHT,
+                         0.75f * BITMAP_WIDTH, 0.75f * BITMAP_HEIGHT,
+                         Path.Direction.CW);
+            mCanvas.clipPath(path);
+            mCanvas.clipRect(0, 0, BITMAP_WIDTH, BITMAP_HEIGHT / 2);
+
+            Rect clip1 = new Rect();
+            assertTrue(mCanvas.getClipBounds(clip1));
+            assertTrue(clip1 != clip0);
+            assertTrue(clip0.contains(clip1));
+
+        mCanvas.restore();
+
+        Rect clip2 = new Rect();
+        assertTrue(mCanvas.getClipBounds(clip2));
+        assertEquals(clip2, clip1);
+    }
+
+    // This test exercises the saveLayer MATRIX_SAVE_FLAG flag and its
+    // interaction with the clip stack and SkCanvas deferred save/restore
+    // system.
+    public void testSaveFlags10() {
+        RectF rect1 = new RectF(0, 0, BITMAP_WIDTH / 2, BITMAP_HEIGHT);
+        RectF rect2 = new RectF(0, 0, BITMAP_WIDTH, BITMAP_HEIGHT / 2);
+        Path path = new Path();
+        path.addOval(0.25f * BITMAP_WIDTH, 0.25f * BITMAP_HEIGHT,
+                     0.75f * BITMAP_WIDTH, 0.75f * BITMAP_HEIGHT,
+                     Path.Direction.CW);
+
+        Rect clip0 = new Rect();
+        assertTrue(mCanvas.getClipBounds(clip0));
+
+        // Exercise various Canvas lazy-save interactions.
+        mCanvas.save();
+            mCanvas.save();
+                mCanvas.clipRect(rect1);
+                mCanvas.clipPath(path);
+
+                Rect clip1 = new Rect();
+                assertTrue(mCanvas.getClipBounds(clip1));
+                assertTrue(clip1 != clip0);
+
+                mCanvas.save(Canvas.MATRIX_SAVE_FLAG);
+                    mCanvas.save(Canvas.MATRIX_SAVE_FLAG);
+                        mCanvas.clipRect(rect2);
+                        mCanvas.clipPath(path);
+
+                        Rect clip2 = new Rect();
+                        assertTrue(mCanvas.getClipBounds(clip2));
+                        assertTrue(clip2 != clip1);
+                        assertTrue(clip2 != clip0);
+
+                        mCanvas.save();
+                            mCanvas.translate(10, 5);
+                            mCanvas.save(Canvas.MATRIX_SAVE_FLAG);
+                                // An uncommitted save/restore frame: exercises
+                                // the partial save emulation, ensuring there
+                                // are no side effects.
+                                Rect clip3 = new Rect();
+                                assertTrue(mCanvas.getClipBounds(clip3));
+                                clip3.offset(10, 5); // adjust for local offset
+                                assertEquals(clip3, clip2);
+                            mCanvas.restore();
+
+                            Rect clip4 = new Rect();
+                            assertTrue(mCanvas.getClipBounds(clip4));
+                            clip4.offset(10, 5); // adjust for local offset
+                            assertEquals(clip4, clip2);
+                        mCanvas.restore();
+
+                        Rect clip5 = new Rect();
+                        assertTrue(mCanvas.getClipBounds(clip5));
+                        assertEquals(clip5, clip2);
+                    mCanvas.restore();
+
+                    // clip2 survives the preceding restore
+                    Rect clip6 = new Rect();
+                    assertTrue(mCanvas.getClipBounds(clip6));
+                    assertEquals(clip6, clip2);
+                mCanvas.restore();
+
+                // clip2 also survives the preceding restore
+                Rect clip7 = new Rect();
+                assertTrue(mCanvas.getClipBounds(clip7));
+                assertEquals(clip7, clip2);
+            mCanvas.restore();
+
+            // clip1 does _not_ survive the preceding restore
+            Rect clip8 = new Rect();
+            assertTrue(mCanvas.getClipBounds(clip8));
+            assertEquals(clip8, clip0);
+        mCanvas.restore();
+
+        Rect clip9 = new Rect();
+        assertTrue(mCanvas.getClipBounds(clip9));
+        assertEquals(clip9, clip0);
     }
 
     public void testSaveLayer1() {

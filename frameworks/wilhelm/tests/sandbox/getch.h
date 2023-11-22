@@ -17,3 +17,4 @@
 extern int kbhit();
 extern int getch(void);
 extern void set_conio_terminal_mode(void);
+extern void reset_terminal_mode(void);

@@ -17,7 +17,7 @@
 package com.android.settings.inputmethod;
 
 import android.content.Context;
-import android.preference.Preference;
+import android.support.v7.preference.Preference;
 import android.text.TextUtils;
 import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodSubtype;
@@ -41,8 +41,8 @@ class InputMethodSubtypePreference extends SwitchWithNoTextPreference {
         super(context);
         setPersistent(false);
         setKey(imi.getId() + subtype.hashCode());
-        final CharSequence subtypeLabel = subtype.getDisplayName(context,
-                imi.getPackageName(), imi.getServiceInfo().applicationInfo);
+        final CharSequence subtypeLabel =
+                InputMethodAndSubtypeUtil.getSubtypeLocaleNameAsSentence(subtype, context, imi);
         setTitle(subtypeLabel);
         final String subtypeLocaleString = subtype.getLocale();
         if (TextUtils.isEmpty(subtypeLocaleString)) {

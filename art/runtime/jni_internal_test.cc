@@ -18,7 +18,9 @@
 
 #include "art_method-inl.h"
 #include "common_compiler_test.h"
+#include "indirect_reference_table.h"
 #include "java_vm_ext.h"
+#include "jni_env_ext.h"
 #include "mirror/string-inl.h"
 #include "scoped_thread_state_change.h"
 #include "ScopedLocalRef.h"
@@ -607,11 +609,64 @@ class JniInternalTest : public CommonCompilerTest {
     EXPECT_EQ(check_jni, vm_->SetCheckJniEnabled(old_check_jni));
   }
 
+  void SetUpForTest(bool direct, const char* method_name, const char* method_sig,
+                    void* native_fnptr) {
+    // Initialize class loader and set generic JNI entrypoint.
+    // Note: this code is adapted from the jni_compiler_test, and taken with minimal modifications.
+    if (!runtime_->IsStarted()) {
+      {
+        ScopedObjectAccess soa(Thread::Current());
+        class_loader_ = LoadDex("MyClassNatives");
+        StackHandleScope<1> hs(soa.Self());
+        Handle<mirror::ClassLoader> loader(
+            hs.NewHandle(soa.Decode<mirror::ClassLoader*>(class_loader_)));
+        mirror::Class* c = class_linker_->FindClass(soa.Self(), "LMyClassNatives;", loader);
+        const auto pointer_size = class_linker_->GetImagePointerSize();
+        ArtMethod* method = direct ? c->FindDirectMethod(method_name, method_sig, pointer_size) :
+            c->FindVirtualMethod(method_name, method_sig, pointer_size);
+        ASSERT_TRUE(method != nullptr) << method_name << " " << method_sig;
+        method->SetEntryPointFromQuickCompiledCode(class_linker_->GetRuntimeQuickGenericJniStub());
+      }
+      // Start runtime.
+      Thread::Current()->TransitionFromSuspendedToRunnable();
+      bool started = runtime_->Start();
+      CHECK(started);
+    }
+    // JNI operations after runtime start.
+    env_ = Thread::Current()->GetJniEnv();
+    jklass_ = env_->FindClass("MyClassNatives");
+    ASSERT_TRUE(jklass_ != nullptr) << method_name << " " << method_sig;
+
+    if (direct) {
+      jmethod_ = env_->GetStaticMethodID(jklass_, method_name, method_sig);
+    } else {
+      jmethod_ = env_->GetMethodID(jklass_, method_name, method_sig);
+    }
+    ASSERT_TRUE(jmethod_ != nullptr) << method_name << " " << method_sig;
+
+    if (native_fnptr != nullptr) {
+      JNINativeMethod methods[] = { { method_name, method_sig, native_fnptr } };
+      ASSERT_EQ(JNI_OK, env_->RegisterNatives(jklass_, methods, 1))
+          << method_name << " " << method_sig;
+    } else {
+      env_->UnregisterNatives(jklass_);
+    }
+
+    jmethodID constructor = env_->GetMethodID(jklass_, "<init>", "()V");
+    jobj_ = env_->NewObject(jklass_, constructor);
+    ASSERT_TRUE(jobj_ != nullptr) << method_name << " " << method_sig;
+  }
+
   JavaVMExt* vm_;
   JNIEnv* env_;
   jclass aioobe_;
   jclass ase_;
   jclass sioobe_;
+
+  jclass jklass_;
+  jobject jobj_;
+  jobject class_loader_;
+  jmethodID jmethod_;
 };
 
 TEST_F(JniInternalTest, AllocObject) {
@@ -1024,6 +1079,12 @@ TEST_F(JniInternalTest, RegisterAndUnregisterNatives) {
   env_->set_region_fn(a, size - 1, size, nullptr); \
   ExpectException(aioobe_); \
   \
+  /* Regression test against integer overflow in range check. */ \
+  env_->get_region_fn(a, 0x7fffffff, 0x7fffffff, nullptr); \
+  ExpectException(aioobe_); \
+  env_->set_region_fn(a, 0x7fffffff, 0x7fffffff, nullptr); \
+  ExpectException(aioobe_); \
+  \
   /* It's okay for the buffer to be null as long as the length is 0. */ \
   env_->get_region_fn(a, 2, 0, nullptr); \
   /* Even if the offset is invalid... */ \
@@ -1238,7 +1299,7 @@ TEST_F(JniInternalTest, GetSuperclass) {
   ASSERT_NE(runnable_interface, nullptr);
   ASSERT_TRUE(env_->IsSameObject(object_class, env_->GetSuperclass(string_class)));
   ASSERT_EQ(env_->GetSuperclass(object_class), nullptr);
-  ASSERT_TRUE(env_->IsSameObject(object_class, env_->GetSuperclass(runnable_interface)));
+  ASSERT_EQ(env_->GetSuperclass(runnable_interface), nullptr);
 
   // Null as class should fail.
   CheckJniAbortCatcher jni_abort_catcher;
@@ -1454,6 +1515,9 @@ TEST_F(JniInternalTest, GetStringRegion_GetStringUTFRegion) {
   ExpectException(sioobe_);
   env_->GetStringRegion(s, 10, 1, nullptr);
   ExpectException(sioobe_);
+  // Regression test against integer overflow in range check.
+  env_->GetStringRegion(s, 0x7fffffff, 0x7fffffff, nullptr);
+  ExpectException(sioobe_);
 
   jchar chars[4] = { 'x', 'x', 'x', 'x' };
   env_->GetStringRegion(s, 1, 2, &chars[1]);
@@ -1475,6 +1539,9 @@ TEST_F(JniInternalTest, GetStringRegion_GetStringUTFRegion) {
   env_->GetStringUTFRegion(s, 0, 10, nullptr);
   ExpectException(sioobe_);
   env_->GetStringUTFRegion(s, 10, 1, nullptr);
+  ExpectException(sioobe_);
+  // Regression test against integer overflow in range check.
+  env_->GetStringUTFRegion(s, 0x7fffffff, 0x7fffffff, nullptr);
   ExpectException(sioobe_);
 
   char bytes[4] = { 'x', 'x', 'x', 'x' };
@@ -2024,8 +2091,7 @@ TEST_F(JniInternalTest, NewDirectBuffer_GetDirectBufferAddress_GetDirectBufferCa
   MakeExecutable(nullptr, "java.lang.Class");
   MakeExecutable(nullptr, "java.lang.Object");
   MakeExecutable(nullptr, "java.nio.DirectByteBuffer");
-  MakeExecutable(nullptr, "java.nio.MemoryBlock");
-  MakeExecutable(nullptr, "java.nio.MemoryBlock$UnmanagedBlock");
+  MakeExecutable(nullptr, "java.nio.Bits");
   MakeExecutable(nullptr, "java.nio.MappedByteBuffer");
   MakeExecutable(nullptr, "java.nio.ByteBuffer");
   MakeExecutable(nullptr, "java.nio.Buffer");
@@ -2109,6 +2175,128 @@ TEST_F(JniInternalTest, MonitorEnterExit) {
     env_->MonitorExit(nullptr);
     check_jni_abort_catcher.Check("in call to MonitorExit");
   }
+}
+
+void Java_MyClassNatives_foo_exit(JNIEnv* env, jobject thisObj) {
+  // Release the monitor on self. This should trigger an abort.
+  env->MonitorExit(thisObj);
+}
+
+TEST_F(JniInternalTest, MonitorExitLockedInDifferentCall) {
+  SetUpForTest(false, "foo", "()V", reinterpret_cast<void*>(&Java_MyClassNatives_foo_exit));
+  ASSERT_NE(jobj_, nullptr);
+
+  env_->MonitorEnter(jobj_);
+  EXPECT_FALSE(env_->ExceptionCheck());
+
+  CheckJniAbortCatcher check_jni_abort_catcher;
+  env_->CallNonvirtualVoidMethod(jobj_, jklass_, jmethod_);
+  check_jni_abort_catcher.Check("Unlocking monitor that wasn't locked here");
+}
+
+void Java_MyClassNatives_foo_enter_no_exit(JNIEnv* env, jobject thisObj) {
+  // Acquire but don't release the monitor on self. This should trigger an abort on return.
+  env->MonitorEnter(thisObj);
+}
+
+TEST_F(JniInternalTest, MonitorExitNotAllUnlocked) {
+  SetUpForTest(false,
+               "foo",
+               "()V",
+               reinterpret_cast<void*>(&Java_MyClassNatives_foo_enter_no_exit));
+  ASSERT_NE(jobj_, nullptr);
+
+  CheckJniAbortCatcher check_jni_abort_catcher;
+  env_->CallNonvirtualVoidMethod(jobj_, jklass_, jmethod_);
+  check_jni_abort_catcher.Check("Still holding a locked object on JNI end");
+}
+
+static bool IsLocked(JNIEnv* env, jobject jobj) {
+  ScopedObjectAccess soa(env);
+  LockWord lock_word = soa.Decode<mirror::Object*>(jobj)->GetLockWord(true);
+  switch (lock_word.GetState()) {
+    case LockWord::kHashCode:
+    case LockWord::kUnlocked:
+      return false;
+    case LockWord::kThinLocked:
+      return true;
+    case LockWord::kFatLocked:
+      return lock_word.FatLockMonitor()->IsLocked();
+    default: {
+      LOG(FATAL) << "Invalid monitor state " << lock_word.GetState();
+      UNREACHABLE();
+    }
+  }
+}
+
+TEST_F(JniInternalTest, DetachThreadUnlockJNIMonitors) {
+  // We need to lock an object, detach, reattach, and check the locks.
+  //
+  // As re-attaching will create a different thread, we need to use a global
+  // ref to keep the object around.
+
+  // Create an object to torture.
+  jobject global_ref;
+  {
+    jclass object_class = env_->FindClass("java/lang/Object");
+    ASSERT_NE(object_class, nullptr);
+    jobject object = env_->AllocObject(object_class);
+    ASSERT_NE(object, nullptr);
+    global_ref = env_->NewGlobalRef(object);
+  }
+
+  // Lock it.
+  env_->MonitorEnter(global_ref);
+  ASSERT_TRUE(IsLocked(env_, global_ref));
+
+  // Detach and re-attach.
+  jint detach_result = vm_->DetachCurrentThread();
+  ASSERT_EQ(detach_result, JNI_OK);
+  jint attach_result = vm_->AttachCurrentThread(&env_, nullptr);
+  ASSERT_EQ(attach_result, JNI_OK);
+
+  // Look at the global ref, check whether it's still locked.
+  ASSERT_FALSE(IsLocked(env_, global_ref));
+
+  // Delete the global ref.
+  env_->DeleteGlobalRef(global_ref);
+}
+
+// Test the offset computation of IndirectReferenceTable offsets. b/26071368.
+TEST_F(JniInternalTest, IndirectReferenceTableOffsets) {
+  // The segment_state_ field is private, and we want to avoid friend declaration. So we'll check
+  // by modifying memory.
+  // The parameters don't really matter here.
+  IndirectReferenceTable irt(5, 5, IndirectRefKind::kGlobal, true);
+  uint32_t old_state = irt.GetSegmentState();
+
+  // Write some new state directly. We invert parts of old_state to ensure a new value.
+  uint32_t new_state = old_state ^ 0x07705005;
+  ASSERT_NE(old_state, new_state);
+
+  uint8_t* base = reinterpret_cast<uint8_t*>(&irt);
+  int32_t segment_state_offset =
+      IndirectReferenceTable::SegmentStateOffset(sizeof(void*)).Int32Value();
+  *reinterpret_cast<uint32_t*>(base + segment_state_offset) = new_state;
+
+  // Read and compare.
+  EXPECT_EQ(new_state, irt.GetSegmentState());
+}
+
+// Test the offset computation of JNIEnvExt offsets. b/26071368.
+TEST_F(JniInternalTest, JNIEnvExtOffsets) {
+  EXPECT_EQ(OFFSETOF_MEMBER(JNIEnvExt, local_ref_cookie),
+            JNIEnvExt::LocalRefCookieOffset(sizeof(void*)).Uint32Value());
+
+  EXPECT_EQ(OFFSETOF_MEMBER(JNIEnvExt, self), JNIEnvExt::SelfOffset(sizeof(void*)).Uint32Value());
+
+  // segment_state_ is private in the IndirectReferenceTable. So this test isn't as good as we'd
+  // hope it to be.
+  uint32_t segment_state_now =
+      OFFSETOF_MEMBER(JNIEnvExt, locals) +
+      IndirectReferenceTable::SegmentStateOffset(sizeof(void*)).Uint32Value();
+  uint32_t segment_state_computed = JNIEnvExt::SegmentStateOffset(sizeof(void*)).Uint32Value();
+  EXPECT_EQ(segment_state_now, segment_state_computed);
 }
 
 }  // namespace art

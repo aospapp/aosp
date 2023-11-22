@@ -27,6 +27,14 @@
 
 #define NOUVEAU_DRM_HEADER_PATCHLEVEL 16
 
+/* reserved object handles when using deprecated object APIs - these
+ * are here so that libdrm can allow interoperability with the new
+ * object APIs
+ */
+#define NOUVEAU_ABI16_CLIENT   0xffffffff
+#define NOUVEAU_ABI16_DEVICE   0xdddddddd
+#define NOUVEAU_ABI16_CHAN(n) (0xcccc0000 | (n))
+
 struct drm_nouveau_channel_alloc {
 	uint32_t     fb_ctxdma_handle;
 	uint32_t     tt_ctxdma_handle;
@@ -96,6 +104,7 @@ struct drm_nouveau_setparam {
 #define NOUVEAU_GEM_DOMAIN_VRAM      (1 << 1)
 #define NOUVEAU_GEM_DOMAIN_GART      (1 << 2)
 #define NOUVEAU_GEM_DOMAIN_MAPPABLE  (1 << 3)
+#define NOUVEAU_GEM_DOMAIN_COHERENT  (1 << 4)
 
 #define NOUVEAU_GEM_TILE_LAYOUT_MASK 0x0000ff00
 #define NOUVEAU_GEM_TILE_16BPP       0x00000001
@@ -109,6 +118,12 @@ struct drm_nouveau_gem_info {
 	uint64_t size;
 	uint64_t offset;
 	uint64_t map_handle;
+	uint32_t tile_mode;
+	uint32_t tile_flags;
+};
+
+struct drm_nouveau_gem_set_tiling {
+	uint32_t handle;
 	uint32_t tile_mode;
 	uint32_t tile_flags;
 };
@@ -171,6 +186,21 @@ struct drm_nouveau_gem_pushbuf {
 	uint64_t gart_available;
 };
 
+#define NOUVEAU_GEM_PUSHBUF_2_FENCE_WAIT                             0x00000001
+#define NOUVEAU_GEM_PUSHBUF_2_FENCE_EMIT                             0x00000002
+struct drm_nouveau_gem_pushbuf_2 {
+	uint32_t channel;
+	uint32_t flags;
+	uint32_t nr_push;
+	uint32_t nr_buffers;
+	int32_t  fence; /* in/out, depends on flags */
+	uint32_t pad;
+	uint64_t push; /* in raw hw format */
+	uint64_t buffers; /* ptr to drm_nouveau_gem_pushbuf_bo */
+	uint64_t vram_available;
+	uint64_t gart_available;
+};
+
 #define NOUVEAU_GEM_CPU_PREP_NOWAIT                                  0x00000001
 #define NOUVEAU_GEM_CPU_PREP_NOBLOCK                                 0x00000002
 #define NOUVEAU_GEM_CPU_PREP_WRITE                                   0x00000004
@@ -183,6 +213,19 @@ struct drm_nouveau_gem_cpu_fini {
 	uint32_t handle;
 };
 
+#define NOUVEAU_GEM_AS_SPARSE	0x00000001
+struct drm_nouveau_gem_as_alloc {
+	uint64_t pages;     /* in, page length */
+	uint32_t page_size; /* in, byte page size */
+	uint32_t flags; /* in, flags of address space */
+	uint64_t align; /* in, requested alignment in bytes */
+	uint64_t address; /* in/out, non-zero for fixed address allocation */
+};
+
+struct drm_nouveau_gem_as_free {
+	uint64_t address;   /* in, byte address */
+};
+
 enum nouveau_bus_type {
 	NV_AGP     = 0,
 	NV_PCI     = 1,
@@ -192,6 +235,34 @@ enum nouveau_bus_type {
 struct drm_nouveau_sarea {
 };
 
+#define NOUVEAU_GEM_CHANNEL_FIFO_ERROR_IDLE_TIMEOUT	8
+#define NOUVEAU_GEM_CHANNEL_GR_ERROR_SW_NOTIFY		13
+#define NOUVEAU_GEM_CHANNEL_FIFO_ERROR_MMU_ERR_FLT	31
+#define NOUVEAU_GEM_CHANNEL_PBDMA_ERROR			32
+struct drm_nouveau_gem_set_error_notifier {
+	uint32_t channel;
+	uint32_t buffer;
+	uint32_t offset; /* in bytes, u32-aligned */
+};
+
+struct drm_nouveau_gem_map {
+	uint32_t handle;
+	uint32_t domain;
+	uint64_t offset;
+	uint64_t delta;
+	uint64_t length;
+	uint32_t tile_mode;
+	uint32_t tile_flags;
+};
+
+struct drm_nouveau_gem_unmap {
+	uint32_t handle;
+	uint32_t pad;
+	uint64_t offset;
+	uint64_t delta;
+	uint64_t length;
+};
+
 #define DRM_NOUVEAU_GETPARAM           0x00
 #define DRM_NOUVEAU_SETPARAM           0x01
 #define DRM_NOUVEAU_CHANNEL_ALLOC      0x02
@@ -199,6 +270,7 @@ struct drm_nouveau_sarea {
 #define DRM_NOUVEAU_GROBJ_ALLOC        0x04
 #define DRM_NOUVEAU_NOTIFIEROBJ_ALLOC  0x05
 #define DRM_NOUVEAU_GPUOBJ_FREE        0x06
+#define DRM_NOUVEAU_NVIF               0x07
 #define DRM_NOUVEAU_GEM_NEW            0x40
 #define DRM_NOUVEAU_GEM_PUSHBUF        0x41
 #define DRM_NOUVEAU_GEM_CPU_PREP       0x42
@@ -208,5 +280,11 @@ struct drm_nouveau_sarea {
 /* The ioctls below are marked as staging */
 #define DRM_NOUVEAU_GEM_SET_TILING     0x50
 #define DRM_NOUVEAU_GEM_PUSHBUF_2      0x51
+#define DRM_NOUVEAU_GEM_SET_INFO       0x52
+#define DRM_NOUVEAU_GEM_AS_ALLOC       0x53
+#define DRM_NOUVEAU_GEM_AS_FREE        0x54
+#define DRM_NOUVEAU_GEM_SET_ERROR_NOTIFIER 0x55
+#define DRM_NOUVEAU_GEM_MAP            0x56
+#define DRM_NOUVEAU_GEM_UNMAP          0x57
 
 #endif /* __NOUVEAU_DRM_H__ */

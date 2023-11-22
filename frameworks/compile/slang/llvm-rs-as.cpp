@@ -29,9 +29,8 @@
 #include "llvm/Support/SystemUtils.h"
 #include "llvm/Support/ToolOutputFile.h"
 
-#include "BitWriter_3_2/ReaderWriter_3_2.h"
-#include "BitWriter_2_9/ReaderWriter_2_9.h"
-#include "BitWriter_2_9_func/ReaderWriter_2_9_func.h"
+#include "slang_bitcode_gen.h"
+#include "slang_version.h"
 
 #include <memory>
 using namespace llvm;
@@ -49,6 +48,11 @@ Force("f", cl::desc("Enable binary output on terminals"));
 static cl::opt<bool>
 DisableOutput("disable-output", cl::desc("Disable output"), cl::init(false));
 
+static cl::opt<uint32_t>
+TargetAPI("target-api", cl::desc("Specify RenderScript target API version "
+                                 "(0 = development API) (default is 0)"),
+          cl::init(0));
+
 static cl::opt<bool>
 DumpAsm("d", cl::desc("Print assembly as parsed"), cl::Hidden);
 
@@ -56,20 +60,8 @@ static cl::opt<bool>
 DisableVerify("disable-verify", cl::Hidden,
               cl::desc("Do not run verifier on input LLVM (dangerous!)"));
 
-enum BCVersion {
-  BC29, BC29Func, BC32, BCHEAD
-};
 
-cl::opt<BCVersion> BitcodeVersion("bitcode-version",
-  cl::desc("Set the bitcode version to be written:"),
-  cl::values(
-    clEnumValN(BC29, "BC29", "Version 2.9"),
-     clEnumVal(BC29Func,     "Version 2.9 func"),
-     clEnumVal(BC32,         "Version 3.2"),
-     clEnumVal(BCHEAD,       "Most current version"),
-    clEnumValEnd), cl::init(BC32));
-
-static void WriteOutputFile(const Module *M) {
+static void WriteOutputFile(const Module *M, uint32_t ModuleTargetAPI) {
   // Infer the output filename if needed.
   if (OutputFilename.empty()) {
     if (InputFilename == "-") {
@@ -97,24 +89,16 @@ static void WriteOutputFile(const Module *M) {
   }
 
   if (Force || !CheckBitcodeOutputToConsole(Out->os(), true)) {
-    switch(BitcodeVersion) {
-      case BC29:
-        llvm_2_9::WriteBitcodeToFile(M, Out->os());
-        break;
-      case BC29Func:
-        llvm_2_9_func::WriteBitcodeToFile(M, Out->os());
-        break;
-      case BC32:
-        llvm_3_2::WriteBitcodeToFile(M, Out->os());
-        break;
-      case BCHEAD:
-        llvm::WriteBitcodeToFile(M, Out->os());
-        break;
+    slang::writeBitcode(Out->os(), *M,
+        /* TargetAPI = */ ModuleTargetAPI,
+        /* OptimizationLevel = */ 3,
+        /* GenerateDebugInfo = */ false);
+
+    if (!Out->os().has_error()) {
+      // Declare success.
+      Out->keep();
     }
   }
-
-  // Declare success.
-  Out->keep();
 }
 
 int main(int argc, char **argv) {
@@ -124,6 +108,18 @@ int main(int argc, char **argv) {
   LLVMContext &Context = getGlobalContext();
   llvm_shutdown_obj Y;  // Call llvm_shutdown() on exit.
   cl::ParseCommandLineOptions(argc, argv, "llvm .ll -> .bc assembler\n");
+
+  // Check target API.
+  uint32_t ActualTargetAPI = (TargetAPI == 0) ? RS_DEVELOPMENT_API : TargetAPI;
+
+  if (ActualTargetAPI != RS_DEVELOPMENT_API &&
+      (ActualTargetAPI < SLANG_MINIMUM_TARGET_API ||
+       ActualTargetAPI > SLANG_MAXIMUM_TARGET_API)) {
+    errs() << "target API level '" << ActualTargetAPI << "' is out of range "
+           << "('" << SLANG_MINIMUM_TARGET_API << "' - '"
+           << SLANG_MAXIMUM_TARGET_API << "')\n";
+    return 1;
+  }
 
   // Parse the file now...
   SMDiagnostic Err;
@@ -147,7 +143,7 @@ int main(int argc, char **argv) {
   if (DumpAsm) errs() << "Here's the assembly:\n" << *M.get();
 
   if (!DisableOutput)
-    WriteOutputFile(M.get());
+    WriteOutputFile(M.get(), ActualTargetAPI);
 
   return 0;
 }

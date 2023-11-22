@@ -182,4 +182,5 @@ I think so, so how about double this string, like copy and paste! </string>
     <string name="permlab_callAbroad">Call abroad</string>
     <string name="permdesc_callAbroad">Make calls abroad</string>
 
+    <string name="density_string">default</string>
 </resources>

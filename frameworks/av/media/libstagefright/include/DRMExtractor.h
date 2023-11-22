@@ -18,6 +18,7 @@
 
 #define DRM_EXTRACTOR_H_
 
+#include <media/IMediaSource.h>
 #include <media/stagefright/MediaExtractor.h>
 #include <drm/DrmManagerClient.h>
 
@@ -34,9 +35,10 @@ public:
     DRMExtractor(const sp<DataSource> &source, const char *mime);
 
     virtual size_t countTracks();
-    virtual sp<MediaSource> getTrack(size_t index);
+    virtual sp<IMediaSource> getTrack(size_t index);
     virtual sp<MetaData> getTrackMetaData(size_t index, uint32_t flags);
     virtual sp<MetaData> getMetaData();
+    virtual const char * name() { return "DRMExtractor"; }
 
 protected:
     virtual ~DRMExtractor();
@@ -44,7 +46,7 @@ protected:
 private:
     sp<DataSource> mDataSource;
 
-    sp<MediaExtractor> mOriginalExtractor;
+    sp<IMediaExtractor> mOriginalExtractor;
     sp<DecryptHandle> mDecryptHandle;
     DrmManagerClient* mDrmManagerClient;
 

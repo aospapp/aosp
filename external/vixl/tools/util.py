@@ -1,4 +1,4 @@
-# Copyright 2014, ARM Limited
+# Copyright 2015, ARM Limited
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -24,11 +24,17 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import glob
 import os
-import sys
-import subprocess
-import shlex
 import re
+import shlex
+import subprocess
+import sys
+
+
+def ListCCFilesWithoutExt(path):
+  return map(lambda x : os.path.splitext(os.path.basename(x))[0],
+             glob.glob(os.path.join(path, '*.cc')))
 
 
 def abort(message):
@@ -37,21 +43,23 @@ def abort(message):
 
 
 # Emulate python3 subprocess.getstatusoutput.
-def getstatusoutput(command):
+def getstatusoutput(command, shell=False):
   try:
     args = shlex.split(command)
-    output = subprocess.check_output(args, stderr=subprocess.STDOUT)
+    output = subprocess.check_output(args, stderr=subprocess.STDOUT, shell=shell)
     return 0, output.rstrip('\n')
   except subprocess.CalledProcessError as e:
     return e.returncode, e.output.rstrip('\n')
 
 
-def last_line(text):
-  lines = text.split('\n')
-  last = lines[-1].split('\r')
-  return last[-1]
+def ensure_dir(path_name):
+  if not os.path.exists(path_name):
+    os.makedirs(path_name)
 
 
-def has_compiler(compiler):
-  status, output = getstatusoutput('which ' + compiler)
-  return status == 0
+# Check that the specified program is available.
+def require_program(program_name):
+  rc, out = getstatusoutput('which %s' % program_name)
+  if rc != 0:
+    print('ERROR: The required program %s was not found.' % program_name)
+    sys.exit(rc)

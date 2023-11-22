@@ -2,7 +2,7 @@
  * drawElements Quality Program Tester Core
  * ----------------------------------------
  *
- * Copyright 2014 The Android Open Source Project
+ * Copyright 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,27 +23,27 @@
 
 #include "tcuWin32Platform.hpp"
 #include "tcuWGLContextFactory.hpp"
-
-#if defined(DEQP_SUPPORT_EGL)
-#	include "tcuWin32EGLNativeDisplayFactory.hpp"
-#	include "egluGLContextFactory.hpp"
-#endif
+#include "tcuWin32EGLNativeDisplayFactory.hpp"
+#include "egluGLContextFactory.hpp"
 
 namespace tcu
 {
+namespace win32
+{
 
-Win32Platform::Win32Platform (void)
-	: m_instance(GetModuleHandle(NULL))
+Platform::Platform (void)
+	: m_instance		(GetModuleHandle(NULL))
+	, m_vulkanPlatform	(m_instance)
 {
 	// Set process priority to lower.
 	SetPriorityClass(GetCurrentProcess(), BELOW_NORMAL_PRIORITY_CLASS);
 
 	{
-		WGLContextFactory* factory = DE_NULL;
+		wgl::ContextFactory* factory = DE_NULL;
 
 		try
 		{
-			factory = new WGLContextFactory(m_instance);
+			factory = new wgl::ContextFactory(m_instance);
 		}
 		catch (const std::exception& e)
 		{
@@ -64,17 +64,15 @@ Win32Platform::Win32Platform (void)
 		}
 	}
 
-#if defined(DEQP_SUPPORT_EGL)
-	m_nativeDisplayFactoryRegistry.registerFactory(new Win32EGLNativeDisplayFactory(m_instance));
+	m_nativeDisplayFactoryRegistry.registerFactory(new win32::EGLNativeDisplayFactory(m_instance));
 	m_contextFactoryRegistry.registerFactory(new eglu::GLContextFactory(m_nativeDisplayFactoryRegistry));
-#endif
 }
 
-Win32Platform::~Win32Platform (void)
+Platform::~Platform (void)
 {
 }
 
-bool Win32Platform::processEvents (void)
+bool Platform::processEvents (void)
 {
 	MSG msg;
 	while (PeekMessage(&msg, (HWND)-1, 0, 0, PM_REMOVE))
@@ -86,10 +84,11 @@ bool Win32Platform::processEvents (void)
 	return true;
 }
 
+} // win32
 } // tcu
 
 // Create platform
 tcu::Platform* createPlatform (void)
 {
-	return new tcu::Win32Platform();
+	return new tcu::win32::Platform();
 }

@@ -1,92 +1,179 @@
-const char* SimpleMovResults[] = {
+const char* const SimpleMovResults[] = {
   "   0:	0008      	movs	r0, r1\n",
-  "   2:	46c8      	mov	r8, r9\n",
-  "   4:	2001      	movs	r0, #1\n",
-  "   6:	f04f 0809 	mov.w	r8, #9\n",
+  "   2:	4608      	mov	r0, r1\n",
+  "   4:	46c8      	mov	r8, r9\n",
+  "   6:	2001      	movs	r0, #1\n",
+  "   8:	f04f 0809 	mov.w	r8, #9\n",
   nullptr
 };
-const char* SimpleMov32Results[] = {
+const char* const SimpleMov32Results[] = {
   "   0:	ea4f 0001 	mov.w	r0, r1\n",
   "   4:	ea4f 0809 	mov.w	r8, r9\n",
   nullptr
 };
-const char* SimpleMovAddResults[] = {
-  "   0:	0008      	movs	r0, r1\n",
+const char* const SimpleMovAddResults[] = {
+  "   0:	4608      	mov	r0, r1\n",
   "   2:	1888      	adds	r0, r1, r2\n",
   "   4:	1c08      	adds	r0, r1, #0\n",
   nullptr
 };
-const char* DataProcessingRegisterResults[] = {
-  "   0:	0008      	movs	r0, r1\n",
-  "   2:	43c8      	mvns	r0, r1\n",
-  "   4:	1888      	adds	r0, r1, r2\n",
-  "   6:	1a88      	subs	r0, r1, r2\n",
-  "   8:	ea01 0002 	and.w	r0, r1, r2\n",
-  "   c:	ea41 0002 	orr.w	r0, r1, r2\n",
-  "  10:	ea81 0002 	eor.w	r0, r1, r2\n",
-  "  14:	ea21 0002 	bic.w	r0, r1, r2\n",
-  "  18:	eb41 0002 	adc.w	r0, r1, r2\n",
-  "  1c:	eb61 0002 	sbc.w	r0, r1, r2\n",
-  "  20:	ebc1 0002 	rsb	r0, r1, r2\n",
-  "  24:	1c08      	adds	r0, r1, #0\n",
-  "  26:	1e08      	subs	r0, r1, #0\n",
-  "  28:	4008      	ands	r0, r1\n",
-  "  2a:	4308      	orrs	r0, r1\n",
-  "  2c:	4048      	eors	r0, r1\n",
-  "  2e:	4388      	bics	r0, r1\n",
-  "  30:	4148      	adcs	r0, r1\n",
-  "  32:	4188      	sbcs	r0, r1\n",
-  "  34:	4248      	negs	r0, r1\n",
-  "  36:	4208      	tst	r0, r1\n",
-  "  38:	ea90 0f01 	teq	r0, r1\n",
-  "  3c:	4288      	cmp	r0, r1\n",
-  "  3e:	42c8      	cmn	r0, r1\n",
-  "  40:	0008      	movs	r0, r1\n",
-  "  42:	43c8      	mvns	r0, r1\n",
-  "  44:	eb01 0c00   add.w	ip, r1, r0\n",
+const char* const DataProcessingRegisterResults[] = {
+  "   0:	ea6f 0001 	mvn.w	r0, r1\n",
+  "   4:	eb01 0002 	add.w	r0, r1, r2\n",
+  "   8:	eba1 0002 	sub.w	r0, r1, r2\n",
+  "   c:	ea01 0002 	and.w	r0, r1, r2\n",
+  "  10:	ea41 0002 	orr.w	r0, r1, r2\n",
+  "  14:	ea61 0002 	orn	r0, r1, r2\n",
+  "  18:	ea81 0002 	eor.w	r0, r1, r2\n",
+  "  1c:	ea21 0002 	bic.w	r0, r1, r2\n",
+  "  20:	eb41 0002 	adc.w	r0, r1, r2\n",
+  "  24:	eb61 0002 	sbc.w	r0, r1, r2\n",
+  "  28:	ebc1 0002 	rsb	r0, r1, r2\n",
+  "  2c:	ea90 0f01 	teq	r0, r1\n",
+  "  30:	0008      	movs	r0, r1\n",
+  "  32:	4608      	mov	r0, r1\n",
+  "  34:	43c8      	mvns	r0, r1\n",
+  "  36:	4408      	add	r0, r1\n",
+  "  38:	1888      	adds	r0, r1, r2\n",
+  "  3a:	1a88      	subs	r0, r1, r2\n",
+  "  3c:	4148      	adcs	r0, r1\n",
+  "  3e:	4188      	sbcs	r0, r1\n",
+  "  40:	4008      	ands	r0, r1\n",
+  "  42:	4308      	orrs	r0, r1\n",
+  "  44:	4048      	eors	r0, r1\n",
+  "  46:	4388      	bics	r0, r1\n",
+  "  48:	4208      	tst	r0, r1\n",
+  "  4a:	4288      	cmp	r0, r1\n",
+  "  4c:	42c8      	cmn	r0, r1\n",
+  "  4e:	4641		mov	r1, r8\n",
+  "  50:	4681		mov	r9, r0\n",
+  "  52:	46c8		mov	r8, r9\n",
+  "  54:	4441		add	r1, r8\n",
+  "  56:	4481		add	r9, r0\n",
+  "  58:	44c8		add	r8, r9\n",
+  "  5a:	4548		cmp	r0, r9\n",
+  "  5c:	4588		cmp	r8, r1\n",
+  "  5e:	45c1		cmp	r9, r8\n",
+  "  60:	4248   	   	negs	r0, r1\n",
+  "  62:	4240   	   	negs	r0, r0\n",
+  "  64:	ea5f 0008  	movs.w	r0, r8\n",
+  "  68:	ea7f 0008  	mvns.w	r0, r8\n",
+  "  6c:	eb01 0008 	add.w	r0, r1, r8\n",
+  "  70:	eb11 0008 	adds.w	r0, r1, r8\n",
+  "  74:	ebb1 0008 	subs.w	r0, r1, r8\n",
+  "  78:	eb50 0008 	adcs.w	r0, r0, r8\n",
+  "  7c:	eb70 0008 	sbcs.w	r0, r0, r8\n",
+  "  80:	ea10 0008 	ands.w	r0, r0, r8\n",
+  "  84:	ea50 0008 	orrs.w	r0, r0, r8\n",
+  "  88:	ea90 0008 	eors.w	r0, r0, r8\n",
+  "  8c:	ea30 0008 	bics.w	r0, r0, r8\n",
+  "  90:	ea10 0f08 	tst.w	r0, r8\n",
+  "  94:	eb10 0f08 	cmn.w	r0, r8\n",
+  "  98:	f1d8 0000 	rsbs	r0, r8, #0\n",
+  "  9c:	f1d8 0800 	rsbs	r8, r8, #0\n",
+  "  a0:	bf08       	it	eq\n",
+  "  a2:	ea7f 0001  	mvnseq.w	r0, r1\n",
+  "  a6:	bf08       	it	eq\n",
+  "  a8:	eb11 0002 	addseq.w	r0, r1, r2\n",
+  "  ac:	bf08       	it	eq\n",
+  "  ae:	ebb1 0002 	subseq.w	r0, r1, r2\n",
+  "  b2:	bf08       	it	eq\n",
+  "  b4:	eb50 0001 	adcseq.w	r0, r0, r1\n",
+  "  b8:	bf08       	it	eq\n",
+  "  ba:	eb70 0001 	sbcseq.w	r0, r0, r1\n",
+  "  be:	bf08       	it	eq\n",
+  "  c0:	ea10 0001 	andseq.w	r0, r0, r1\n",
+  "  c4:	bf08       	it	eq\n",
+  "  c6:	ea50 0001 	orrseq.w	r0, r0, r1\n",
+  "  ca:	bf08       	it	eq\n",
+  "  cc:	ea90 0001 	eorseq.w	r0, r0, r1\n",
+  "  d0:	bf08       	it	eq\n",
+  "  d2:	ea30 0001 	bicseq.w	r0, r0, r1\n",
+  "  d6:	bf08       	it	eq\n",
+  "  d8:	43c8      	mvneq	r0, r1\n",
+  "  da:	bf08       	it	eq\n",
+  "  dc:	1888      	addeq	r0, r1, r2\n",
+  "  de:	bf08       	it	eq\n",
+  "  e0:	1a88      	subeq	r0, r1, r2\n",
+  "  e2:	bf08       	it	eq\n",
+  "  e4:	4148      	adceq	r0, r1\n",
+  "  e6:	bf08       	it	eq\n",
+  "  e8:	4188      	sbceq	r0, r1\n",
+  "  ea:	bf08       	it	eq\n",
+  "  ec:	4008      	andeq	r0, r1\n",
+  "  ee:	bf08       	it	eq\n",
+  "  f0:	4308      	orreq	r0, r1\n",
+  "  f2:	bf08       	it	eq\n",
+  "  f4:	4048      	eoreq	r0, r1\n",
+  "  f6:	bf08       	it	eq\n",
+  "  f8:	4388      	biceq	r0, r1\n",
+  "  fa:	4608      	mov	r0, r1\n",
+  "  fc:	43c8      	mvns	r0, r1\n",
+  "  fe:	4408      	add	r0, r1\n",
+  " 100:	1888      	adds	r0, r1, r2\n",
+  " 102:	1a88      	subs	r0, r1, r2\n",
+  " 104:	4148      	adcs	r0, r1\n",
+  " 106:	4188      	sbcs	r0, r1\n",
+  " 108:	4008      	ands	r0, r1\n",
+  " 10a:	4308      	orrs	r0, r1\n",
+  " 10c:	4048      	eors	r0, r1\n",
+  " 10e:	4388      	bics	r0, r1\n",
+  " 110:	4641		mov	r1, r8\n",
+  " 112:	4681		mov	r9, r0\n",
+  " 114:	46c8		mov	r8, r9\n",
+  " 116:	4441		add	r1, r8\n",
+  " 118:	4481		add	r9, r0\n",
+  " 11a:	44c8		add	r8, r9\n",
+  " 11c:	4248   	   	negs	r0, r1\n",
+  " 11e:	4240   	   	negs	r0, r0\n",
+  " 120:	eb01 0c00 	add.w	ip, r1, r0\n",
   nullptr
 };
-const char* DataProcessingImmediateResults[] = {
+const char* const DataProcessingImmediateResults[] = {
   "   0:	2055      	movs	r0, #85	; 0x55\n",
   "   2:	f06f 0055 	mvn.w	r0, #85	; 0x55\n",
-  "   6:	f201 0055 	addw	r0, r1, #85	; 0x55\n",
-  "   a:	f2a1 0055 	subw	r0, r1, #85	; 0x55\n",
+  "   6:	f101 0055 	add.w	r0, r1, #85	; 0x55\n",
+  "   a:	f1a1 0055 	sub.w	r0, r1, #85	; 0x55\n",
   "   e:	f001 0055 	and.w	r0, r1, #85	; 0x55\n",
   "  12:	f041 0055 	orr.w	r0, r1, #85	; 0x55\n",
-  "  16:	f081 0055 	eor.w	r0, r1, #85	; 0x55\n",
-  "  1a:	f021 0055 	bic.w	r0, r1, #85	; 0x55\n",
-  "  1e:	f141 0055 	adc.w	r0, r1, #85	; 0x55\n",
-  "  22:	f161 0055 	sbc.w	r0, r1, #85	; 0x55\n",
-  "  26:	f1c1 0055 	rsb	r0, r1, #85	; 0x55\n",
-  "  2a:	f010 0f55 	tst.w	r0, #85	; 0x55\n",
-  "  2e:	f090 0f55 	teq	r0, #85	; 0x55\n",
-  "  32:	2855      	cmp	r0, #85	; 0x55\n",
-  "  34:	f110 0f55 	cmn.w	r0, #85	; 0x55\n",
-  "  38:	1d48      	adds	r0, r1, #5\n",
-  "  3a:	1f48      	subs	r0, r1, #5\n",
-  "  3c:	2055      	movs	r0, #85	; 0x55\n",
-  "  3e:	f07f 0055 	mvns.w	r0, #85	; 0x55\n",
+  "  16:	f061 0055 	orn	r0, r1, #85	; 0x55\n",
+  "  1a:	f081 0055 	eor.w	r0, r1, #85	; 0x55\n",
+  "  1e:	f021 0055 	bic.w	r0, r1, #85	; 0x55\n",
+  "  22:	f141 0055 	adc.w	r0, r1, #85	; 0x55\n",
+  "  26:	f161 0055 	sbc.w	r0, r1, #85	; 0x55\n",
+  "  2a:	f1c1 0055 	rsb	r0, r1, #85	; 0x55\n",
+  "  2e:	f010 0f55 	tst.w	r0, #85	; 0x55\n",
+  "  32:	f090 0f55 	teq	r0, #85	; 0x55\n",
+  "  36:	2855      	cmp	r0, #85	; 0x55\n",
+  "  38:	f110 0f55 	cmn.w	r0, #85	; 0x55\n",
+  "  3c:	1d48      	adds	r0, r1, #5\n",
+  "  3e:	1f48      	subs	r0, r1, #5\n",
+  "  40:	2055      	movs	r0, #85	; 0x55\n",
+  "  42:	f07f 0055 	mvns.w	r0, #85	; 0x55\n",
+  "  46:	1d48      	adds	r0, r1, #5\n",
+  "  48:	1f48      	subs	r0, r1, #5\n",
   nullptr
 };
-const char* DataProcessingModifiedImmediateResults[] = {
+const char* const DataProcessingModifiedImmediateResults[] = {
   "   0:	f04f 1055 	mov.w	r0, #5570645	; 0x550055\n",
   "   4:	f06f 1055 	mvn.w	r0, #5570645	; 0x550055\n",
   "   8:	f101 1055 	add.w	r0, r1, #5570645	; 0x550055\n",
   "   c:	f1a1 1055 	sub.w	r0, r1, #5570645	; 0x550055\n",
   "  10:	f001 1055 	and.w	r0, r1, #5570645	; 0x550055\n",
   "  14:	f041 1055 	orr.w	r0, r1, #5570645	; 0x550055\n",
-  "  18:	f081 1055 	eor.w	r0, r1, #5570645	; 0x550055\n",
-  "  1c:	f021 1055 	bic.w	r0, r1, #5570645	; 0x550055\n",
-  "  20:	f141 1055 	adc.w	r0, r1, #5570645	; 0x550055\n",
-  "  24:	f161 1055 	sbc.w	r0, r1, #5570645	; 0x550055\n",
-  "  28:	f1c1 1055 	rsb	r0, r1, #5570645	; 0x550055\n",
-  "  2c:	f010 1f55 	tst.w	r0, #5570645	; 0x550055\n",
-  "  30:	f090 1f55 	teq	r0, #5570645	; 0x550055\n",
-  "  34:	f1b0 1f55 	cmp.w	r0, #5570645	; 0x550055\n",
-  "  38:	f110 1f55 	cmn.w	r0, #5570645	; 0x550055\n",
+  "  18:	f061 1055 	orn	r0, r1, #5570645	; 0x550055\n",
+  "  1c:	f081 1055 	eor.w	r0, r1, #5570645	; 0x550055\n",
+  "  20:	f021 1055 	bic.w	r0, r1, #5570645	; 0x550055\n",
+  "  24:	f141 1055 	adc.w	r0, r1, #5570645	; 0x550055\n",
+  "  28:	f161 1055 	sbc.w	r0, r1, #5570645	; 0x550055\n",
+  "  2c:	f1c1 1055 	rsb	r0, r1, #5570645	; 0x550055\n",
+  "  30:	f010 1f55 	tst.w	r0, #5570645	; 0x550055\n",
+  "  34:	f090 1f55 	teq	r0, #5570645	; 0x550055\n",
+  "  38:	f1b0 1f55 	cmp.w	r0, #5570645	; 0x550055\n",
+  "  3c:	f110 1f55 	cmn.w	r0, #5570645	; 0x550055\n",
   nullptr
 };
-const char* DataProcessingModifiedImmediatesResults[] = {
+const char* const DataProcessingModifiedImmediatesResults[] = {
   "   0:	f04f 1055 	mov.w	r0, #5570645	; 0x550055\n",
   "   4:	f04f 2055 	mov.w	r0, #1426085120	; 0x55005500\n",
   "   8:	f04f 3055 	mov.w	r0, #1431655765	; 0x55555555\n",
@@ -96,20 +183,43 @@ const char* DataProcessingModifiedImmediatesResults[] = {
   "  18:	f44f 70d4 	mov.w	r0, #424	; 0x1a8\n",
   nullptr
 };
-const char* DataProcessingShiftedRegisterResults[] = {
+const char* const DataProcessingShiftedRegisterResults[] = {
   "   0:	0123      	lsls	r3, r4, #4\n",
   "   2:	0963      	lsrs	r3, r4, #5\n",
   "   4:	11a3      	asrs	r3, r4, #6\n",
-  "   6:	ea4f 13f4 	mov.w	r3, r4, ror #7\n",
-  "   a:	41e3      	rors	r3, r4\n",
-  "   c:	ea4f 1804 	mov.w	r8, r4, lsl #4\n",
-  "  10:	ea4f 1854 	mov.w	r8, r4, lsr #5\n",
-  "  14:	ea4f 18a4 	mov.w	r8, r4, asr #6\n",
-  "  18:	ea4f 18f4 	mov.w	r8, r4, ror #7\n",
-  "  1c:	ea4f 0834 	mov.w	r8, r4, rrx\n",
+  "   6:	ea5f 13f4 	movs.w	r3, r4, ror #7\n",
+  "   a:	ea5f 0334 	movs.w	r3, r4, rrx\n",
+  "   e:	ea4f 1304 	mov.w	r3, r4, lsl #4\n",
+  "  12:	ea4f 1354 	mov.w	r3, r4, lsr #5\n",
+  "  16:	ea4f 13a4 	mov.w	r3, r4, asr #6\n",
+  "  1a:	ea4f 13f4 	mov.w	r3, r4, ror #7\n",
+  "  1e:	ea4f 0334 	mov.w	r3, r4, rrx\n",
+  "  22:	ea5f 1804 	movs.w	r8, r4, lsl #4\n",
+  "  26:	ea5f 1854 	movs.w	r8, r4, lsr #5\n",
+  "  2a:	ea5f 18a4 	movs.w	r8, r4, asr #6\n",
+  "  2e:	ea5f 18f4 	movs.w	r8, r4, ror #7\n",
+  "  32:	ea5f 0834 	movs.w	r8, r4, rrx\n",
   nullptr
 };
-const char* BasicLoadResults[] = {
+const char* const ShiftImmediateResults[] = {
+  "   0:  0123        lsls  r3, r4, #4\n",
+  "   2:  0963        lsrs  r3, r4, #5\n",
+  "   4:  11a3        asrs  r3, r4, #6\n",
+  "   6:  ea4f 13f4   mov.w  r3, r4, ror #7\n",
+  "   a:  ea4f 0334   mov.w  r3, r4, rrx\n",
+  "   e:  ea4f 1304   mov.w r3, r4, lsl #4\n",
+  "  12:  ea4f 1354   mov.w r3, r4, lsr #5\n",
+  "  16:  ea4f 13a4   mov.w r3, r4, asr #6\n",
+  "  1a:  ea4f 13f4   mov.w r3, r4, ror #7\n",
+  "  1e:  ea4f 0334   mov.w r3, r4, rrx\n",
+  "  22:  ea5f 1804   movs.w  r8, r4, lsl #4\n",
+  "  26:  ea5f 1854   movs.w  r8, r4, lsr #5\n",
+  "  2a:  ea5f 18a4   movs.w  r8, r4, asr #6\n",
+  "  2e:  ea5f 18f4   movs.w  r8, r4, ror #7\n",
+  "  32:  ea5f 0834   movs.w  r8, r4, rrx\n",
+  nullptr
+};
+const char* const BasicLoadResults[] = {
   "   0:	69a3      	ldr	r3, [r4, #24]\n",
   "   2:	7e23      	ldrb	r3, [r4, #24]\n",
   "   4:	8b23      	ldrh	r3, [r4, #24]\n",
@@ -123,7 +233,7 @@ const char* BasicLoadResults[] = {
   "  20:	f9b4 8018 	ldrsh.w	r8, [r4, #24]\n",
   nullptr
 };
-const char* BasicStoreResults[] = {
+const char* const BasicStoreResults[] = {
   "   0:	61a3      	str	r3, [r4, #24]\n",
   "   2:	7623      	strb	r3, [r4, #24]\n",
   "   4:	8323      	strh	r3, [r4, #24]\n",
@@ -133,7 +243,7 @@ const char* BasicStoreResults[] = {
   "  10:	f8a4 8018 	strh.w	r8, [r4, #24]\n",
   nullptr
 };
-const char* ComplexLoadResults[] = {
+const char* const ComplexLoadResults[] = {
   "   0:	69a3      	ldr	r3, [r4, #24]\n",
   "   2:	f854 3f18 	ldr.w	r3, [r4, #24]!\n",
   "   6:	f854 3b18 	ldr.w	r3, [r4], #24\n",
@@ -166,7 +276,7 @@ const char* ComplexLoadResults[] = {
   "  6e:	f934 3918 	ldrsh.w	r3, [r4], #-24\n",
   nullptr
 };
-const char* ComplexStoreResults[] = {
+const char* const ComplexStoreResults[] = {
   "   0:	61a3      	str	r3, [r4, #24]\n",
   "   2:	f844 3f18 	str.w	r3, [r4, #24]!\n",
   "   6:	f844 3b18 	str.w	r3, [r4], #24\n",
@@ -187,7 +297,7 @@ const char* ComplexStoreResults[] = {
   "  3e:	f824 3918 	strh.w	r3, [r4], #-24\n",
   nullptr
 };
-const char* NegativeLoadStoreResults[] = {
+const char* const NegativeLoadStoreResults[] = {
   "   0:	f854 3c18 	ldr.w	r3, [r4, #-24]\n",
   "   4:	f854 3d18 	ldr.w	r3, [r4, #-24]!\n",
   "   8:	f854 3918 	ldr.w	r3, [r4], #-24\n",
@@ -238,12 +348,12 @@ const char* NegativeLoadStoreResults[] = {
   "  bc:	f824 3b18 	strh.w	r3, [r4], #24\n",
   nullptr
 };
-const char* SimpleLoadStoreDualResults[] = {
+const char* const SimpleLoadStoreDualResults[] = {
   "   0:	e9c0 2306 	strd	r2, r3, [r0, #24]\n",
   "   4:	e9d0 2306 	ldrd	r2, r3, [r0, #24]\n",
   nullptr
 };
-const char* ComplexLoadStoreDualResults[] = {
+const char* const ComplexLoadStoreDualResults[] = {
   "   0:	e9c0 2306 	strd	r2, r3, [r0, #24]\n",
   "   4:	e9e0 2306 	strd	r2, r3, [r0, #24]!\n",
   "   8:	e8e0 2306 	strd	r2, r3, [r0], #24\n",
@@ -258,7 +368,7 @@ const char* ComplexLoadStoreDualResults[] = {
   "  2c:	e870 2306 	ldrd	r2, r3, [r0], #-24\n",
   nullptr
 };
-const char* NegativeLoadStoreDualResults[] = {
+const char* const NegativeLoadStoreDualResults[] = {
   "   0:	e940 2306 	strd	r2, r3, [r0, #-24]\n",
   "   4:	e960 2306 	strd	r2, r3, [r0, #-24]!\n",
   "   8:	e860 2306 	strd	r2, r3, [r0], #-24\n",
@@ -273,7 +383,7 @@ const char* NegativeLoadStoreDualResults[] = {
   "  2c:	e8f0 2306 	ldrd	r2, r3, [r0], #24\n",
   nullptr
 };
-const char* SimpleBranchResults[] = {
+const char* const SimpleBranchResults[] = {
   "   0:	2002      	movs	r0, #2\n",
   "   2:	2101      	movs	r1, #1\n",
   "   4:	e7fd      	b.n	2 <SimpleBranch+0x2>\n",
@@ -293,7 +403,7 @@ const char* SimpleBranchResults[] = {
   "  20:	2006      	movs	r0, #6\n",
   nullptr
 };
-const char* LongBranchResults[] = {
+const char* const LongBranchResults[] = {
   "   0:	f04f 0002 	mov.w	r0, #2\n",
   "   4:	f04f 0101 	mov.w	r1, #1\n",
   "   8:	f7ff bffc 	b.w	4 <LongBranch+0x4>\n",
@@ -313,14 +423,14 @@ const char* LongBranchResults[] = {
   "  40:	f04f 0006 	mov.w	r0, #6\n",
   nullptr
 };
-const char* LoadMultipleResults[] = {
+const char* const LoadMultipleResults[] = {
   "   0:	cc09      	ldmia	r4!, {r0, r3}\n",
   "   2:	e934 4800 	ldmdb	r4!, {fp, lr}\n",
   "   6:	e914 4800 	ldmdb	r4, {fp, lr}\n",
   "   a:	f854 5b04 	ldr.w	r5, [r4], #4\n",
   nullptr
 };
-const char* StoreMultipleResults[] = {
+const char* const StoreMultipleResults[] = {
   "   0:	c409      	stmia	r4!, {r0, r3}\n",
   "   2:	e8a4 4800 	stmia.w	r4!, {fp, lr}\n",
   "   6:	e884 4800 	stmia.w	r4, {fp, lr}\n",
@@ -328,40 +438,132 @@ const char* StoreMultipleResults[] = {
   "   e:	f844 5d04 	str.w	r5, [r4, #-4]!\n",
   nullptr
 };
-const char* MovWMovTResults[] = {
-  "   0:	2400      	movs	r4, #0\n",
-  "   2:	2434      	movs	r4, #52	; 0x34\n",
-  "   4:	f240 0934 	movw	r9, #52	; 0x34\n",
-  "   8:	f241 2334 	movw	r3, #4660	; 0x1234\n",
-  "   c:	f64f 79ff 	movw	r9, #65535	; 0xffff\n",
-  "  10:	f2c0 0000 	movt	r0, #0\n",
-  "  14:	f2c1 2034 	movt	r0, #4660	; 0x1234\n",
-  "  18:	f6cf 71ff 	movt	r1, #65535	; 0xffff\n",
+const char* const MovWMovTResults[] = {
+  "   0:	f240 0400 	movw  r4, #0\n",
+  "   4:	f240 0434 	movw  r4, #52 ; 0x34\n",
+  "   8:	f240 0934 	movw	r9, #52	; 0x34\n",
+  "   c:	f241 2334 	movw	r3, #4660	; 0x1234\n",
+  "  10:	f64f 79ff 	movw	r9, #65535	; 0xffff\n",
+  "  14:	f2c0 0000 	movt	r0, #0\n",
+  "  18:	f2c1 2034 	movt	r0, #4660	; 0x1234\n",
+  "  1c:	f6cf 71ff 	movt	r1, #65535	; 0xffff\n",
   nullptr
 };
-const char* SpecialAddSubResults[] = {
+const char* const SpecialAddSubResults[] = {
   "   0:	aa14      	add	r2, sp, #80	; 0x50\n",
   "   2:	b014      	add	sp, #80		; 0x50\n",
-  "   4:	f20d 0850 	addw	r8, sp, #80	; 0x50\n",
-  "   8:	f60d 7200 	addw	r2, sp, #3840	; 0xf00\n",
-  "   c:	f60d 7d00 	addw	sp, sp, #3840	; 0xf00\n",
-  "  10:	b094      	sub	sp, #80		; 0x50\n",
-  "  12:	f2ad 0050 	subw	r0, sp, #80	; 0x50\n",
-  "  16:	f2ad 0850 	subw	r8, sp, #80	; 0x50\n",
-  "  1a:	f6ad 7d00 	subw	sp, sp, #3840	; 0xf00\n",
+  "   4:	f10d 0850 	add.w	r8, sp, #80	; 0x50\n",
+  "   8:	f50d 6270 	add.w	r2, sp, #3840	; 0xf00\n",
+  "   c:	f50d 6d70 	add.w	sp, sp, #3840	; 0xf00\n",
+  "  10:	f60d 7dfc 	addw	sp, sp, #4092	; 0xffc\n",
+  "  14:	b094      	sub	sp, #80		; 0x50\n",
+  "  16:	f1ad 0050 	sub.w	r0, sp, #80	; 0x50\n",
+  "  1a:	f1ad 0850 	sub.w	r8, sp, #80	; 0x50\n",
+  "  1e:	f5ad 6d70 	sub.w	sp, sp, #3840	; 0xf00\n",
+  "  22:	f6ad 7dfc 	subw	sp, sp, #4092	; 0xffc\n",
   nullptr
 };
-const char* StoreToOffsetResults[] = {
+const char* const LoadFromOffsetResults[] = {
+  "   0:	68e2      	ldr	r2, [r4, #12]\n",
+  "   2:	f8d4 2fff 	ldr.w	r2, [r4, #4095]	; 0xfff\n",
+  "   6:	f504 5280 	add.w	r2, r4, #4096	; 0x1000\n",
+  "   a:	6812      	ldr	r2, [r2, #0]\n",
+  "   c:	f504 1280 	add.w	r2, r4, #1048576	; 0x100000\n",
+  "  10:	f8d2 20a4 	ldr.w	r2, [r2, #164]	; 0xa4\n",
+  "  14:	f241 0200 	movw	r2, #4096	; 0x1000\n",
+  "  18:	f2c0 0210 	movt	r2, #16\n",
+  "  1c:	4422      	add	r2, r4\n",
+  "  1e:	6812      	ldr	r2, [r2, #0]\n",
+  "  20:	f241 0c00 	movw	ip, #4096	; 0x1000\n",
+  "  24:	f2c0 0c10 	movt	ip, #16\n",
+  "  28:	4464      	add	r4, ip\n",
+  "  2a:	6824      	ldr	r4, [r4, #0]\n",
+  "  2c:	89a2      	ldrh	r2, [r4, #12]\n",
+  "  2e:	f8b4 2fff 	ldrh.w	r2, [r4, #4095]	; 0xfff\n",
+  "  32:	f504 5280 	add.w	r2, r4, #4096	; 0x1000\n",
+  "  36:	8812      	ldrh	r2, [r2, #0]\n",
+  "  38:	f504 1280 	add.w	r2, r4, #1048576	; 0x100000\n",
+  "  3c:	f8b2 20a4 	ldrh.w	r2, [r2, #164]	; 0xa4\n",
+  "  40:	f241 0200 	movw	r2, #4096	; 0x1000\n",
+  "  44:	f2c0 0210 	movt	r2, #16\n",
+  "  48:	4422      	add	r2, r4\n",
+  "  4a:	8812      	ldrh	r2, [r2, #0]\n",
+  "  4c:	f241 0c00 	movw	ip, #4096	; 0x1000\n",
+  "  50:	f2c0 0c10 	movt	ip, #16\n",
+  "  54:	4464      	add	r4, ip\n",
+  "  56:	8824      	ldrh	r4, [r4, #0]\n",
+  "  58:	e9d4 2303 	ldrd	r2, r3, [r4, #12]\n",
+  "  5c:	e9d4 23ff 	ldrd	r2, r3, [r4, #1020]	; 0x3fc\n",
+  "  60:	f504 6280 	add.w	r2, r4, #1024	; 0x400\n",
+  "  64:	e9d2 2300 	ldrd	r2, r3, [r2]\n",
+  "  68:	f504 2280 	add.w	r2, r4, #262144	; 0x40000\n",
+  "  6c:	e9d2 2329 	ldrd	r2, r3, [r2, #164];	0xa4\n",
+  "  70:	f240 4200 	movw	r2, #1024	; 0x400\n",
+  "  74:	f2c0 0204 	movt	r2, #4\n",
+  "  78:	4422      	add	r2, r4\n",
+  "  7a:	e9d2 2300 	ldrd	r2, r3, [r2]\n",
+  "  7e:	f240 4c00 	movw	ip, #1024	; 0x400\n",
+  "  82:	f2c0 0c04 	movt	ip, #4\n",
+  "  86:	4464      	add	r4, ip\n",
+  "  88:	e9d4 4500 	ldrd	r4, r5, [r4]\n",
+  "  8c:	f8dc 000c 	ldr.w	r0, [ip, #12]\n",
+  "  90:	f5a4 1280 	sub.w	r2, r4, #1048576	; 0x100000\n",
+  "  94:	f8d2 20a4 	ldr.w	r2, [r2, #164]	; 0xa4\n",
+  "  98:	f994 200c 	ldrsb.w	r2, [r4, #12]\n",
+  "  9c:	7b22      	ldrb	r2, [r4, #12]\n",
+  "  9e:	f9b4 200c 	ldrsh.w	r2, [r4, #12]\n",
+  nullptr
+};
+const char* const StoreToOffsetResults[] = {
   "   0:	60e2      	str	r2, [r4, #12]\n",
-  "   2:	f44f 5c00 	mov.w	ip, #8192	; 0x2000\n",
-  "   6:	44a4      	add	ip, r4\n",
-  "   8:	f8cc 2000 	str.w	r2, [ip]\n",
-  "   c:	f8cc 000c 	str.w	r0, [ip, #12]\n",
-  "   10:	f8ac 000c 	strh.w	r0, [ip, #12]\n",
-  "   14:	f88c 200c 	strb.w	r2, [ip, #12]\n",
+  "   2:	f8c4 2fff 	str.w	r2, [r4, #4095]	; 0xfff\n",
+  "   6:	f504 5c80 	add.w	ip, r4, #4096	; 0x1000\n",
+  "   a:	f8cc 2000 	str.w	r2, [ip]\n",
+  "   e:	f504 1c80 	add.w	ip, r4, #1048576	; 0x100000\n",
+  "  12:	f8cc 20a4 	str.w	r2, [ip, #164]	; 0xa4\n",
+  "  16:	f241 0c00 	movw	ip, #4096	; 0x1000\n",
+  "  1a:	f2c0 0c10 	movt	ip, #16\n",
+  "  1e:	44a4      	add	ip, r4\n",
+  "  20:	f8cc 2000 	str.w	r2, [ip]\n",
+  "  24:	f241 0c00 	movw	ip, #4096	; 0x1000\n",
+  "  28:	f2c0 0c10 	movt	ip, #16\n",
+  "  2c:	44a4      	add	ip, r4\n",
+  "  2e:	f8cc 4000 	str.w	r4, [ip]\n",
+  "  32:	81a2      	strh	r2, [r4, #12]\n",
+  "  34:	f8a4 2fff 	strh.w	r2, [r4, #4095]	; 0xfff\n",
+  "  38:	f504 5c80 	add.w	ip, r4, #4096	; 0x1000\n",
+  "  3c:	f8ac 2000 	strh.w	r2, [ip]\n",
+  "  40:	f504 1c80 	add.w	ip, r4, #1048576	; 0x100000\n",
+  "  44:	f8ac 20a4 	strh.w	r2, [ip, #164]	; 0xa4\n",
+  "  48:	f241 0c00 	movw	ip, #4096	; 0x1000\n",
+  "  4c:	f2c0 0c10 	movt	ip, #16\n",
+  "  50:	44a4      	add	ip, r4\n",
+  "  52:	f8ac 2000 	strh.w	r2, [ip]\n",
+  "  56:	f241 0c00 	movw	ip, #4096	; 0x1000\n",
+  "  5a:	f2c0 0c10 	movt	ip, #16\n",
+  "  5e:	44a4      	add	ip, r4\n",
+  "  60:	f8ac 4000 	strh.w	r4, [ip]\n",
+  "  64:	e9c4 2303 	strd	r2, r3, [r4, #12]\n",
+  "  68:	e9c4 23ff 	strd	r2, r3, [r4, #1020]	; 0x3fc\n",
+  "  6c:	f504 6c80 	add.w	ip, r4, #1024	; 0x400\n",
+  "  70:	e9cc 2300 	strd	r2, r3, [ip]\n",
+  "  74:	f504 2c80 	add.w	ip, r4, #262144	; 0x40000\n",
+  "  78:	e9cc 2329 	strd	r2, r3, [ip, #164];	0xa4\n",
+  "  7c:	f240 4c00 	movw	ip, #1024	; 0x400\n",
+  "  80:	f2c0 0c04 	movt	ip, #4\n",
+  "  84:	44a4      	add	ip, r4\n",
+  "  86:	e9cc 2300 	strd	r2, r3, [ip]\n",
+  "  8a:	f240 4c00 	movw	ip, #1024	; 0x400\n",
+  "  8e:	f2c0 0c04 	movt	ip, #4\n",
+  "  92:	44a4      	add	ip, r4\n",
+  "  94:	e9cc 4500 	strd	r4, r5, [ip]\n",
+  "  98:	f8cc 000c 	str.w	r0, [ip, #12]\n",
+  "  9c:	f5a4 1c80 	sub.w	ip, r4, #1048576	; 0x100000\n",
+  "  a0:	f8cc 20a4 	str.w	r2, [ip, #164]	; 0xa4\n",
+  "  a4:	7322      	strb	r2, [r4, #12]\n",
   nullptr
 };
-const char* IfThenResults[] = {
+const char* const IfThenResults[] = {
   "   0:	bf08      	it	eq\n",
   "   2:	2101      	moveq	r1, #1\n",
   "   4:	bf04      	itt	eq\n",
@@ -385,7 +587,7 @@ const char* IfThenResults[] = {
   "  28:	2404      	movne	r4, #4\n",
   nullptr
 };
-const char* CbzCbnzResults[] = {
+const char* const CbzCbnzResults[] = {
   "   0:	b10a      	cbz	r2, 6 <CbzCbnz+0x6>\n",
   "   2:	2103      	movs	r1, #3\n",
   "   4:	2203      	movs	r2, #3\n",
@@ -396,7 +598,7 @@ const char* CbzCbnzResults[] = {
   "  10:	2204      	movs	r2, #4\n",
   nullptr
 };
-const char* MultiplyResults[] = {
+const char* const MultiplyResults[] = {
   "   0:	4348      	muls	r0, r1\n",
   "   2:	fb01 f002 	mul.w	r0, r1, r2\n",
   "   6:	fb09 f808 	mul.w	r8, r9, r8\n",
@@ -409,21 +611,21 @@ const char* MultiplyResults[] = {
   "  22:	fbaa 890b 	umull	r8, r9, sl, fp\n",
   nullptr
 };
-const char* DivideResults[] = {
+const char* const DivideResults[] = {
   "   0:	fb91 f0f2 	sdiv	r0, r1, r2\n",
   "   4:	fb99 f8fa 	sdiv	r8, r9, sl\n",
   "   8:	fbb1 f0f2 	udiv	r0, r1, r2\n",
   "   c:	fbb9 f8fa 	udiv	r8, r9, sl\n",
   nullptr
 };
-const char* VMovResults[] = {
+const char* const VMovResults[] = {
   "   0:	eef7 0a00 	vmov.f32	s1, #112	; 0x70\n",
   "   4:	eeb7 1b00 	vmov.f64	d1, #112	; 0x70\n",
   "   8:	eef0 0a41 	vmov.f32	s1, s2\n",
   "   c:	eeb0 1b42 	vmov.f64	d1, d2\n",
   nullptr
 };
-const char* BasicFloatingPointResults[] = {
+const char* const BasicFloatingPointResults[] = {
   "   0:	ee30 0a81 	vadd.f32	s0, s1, s2\n",
   "   4:	ee30 0ac1 	vsub.f32	s0, s1, s2\n",
   "   8:	ee20 0a81 	vmul.f32	s0, s1, s2\n",
@@ -444,7 +646,7 @@ const char* BasicFloatingPointResults[] = {
   "  44:	eeb1 0bc1 	vsqrt.f64	d0, d1\n",
   nullptr
 };
-const char* FloatingPointConversionsResults[] = {
+const char* const FloatingPointConversionsResults[] = {
   "   0:	eeb7 1bc2 	vcvt.f32.f64	s2, d2\n",
   "   4:	eeb7 2ac1 	vcvt.f64.f32	d2, s2\n",
   "   8:	eefd 0ac1 	vcvt.s32.f32	s1, s2\n",
@@ -457,35 +659,35 @@ const char* FloatingPointConversionsResults[] = {
   "  24:	eeb8 1b41 	vcvt.f64.u32	d1, s2\n",
   nullptr
 };
-const char* FloatingPointComparisonsResults[] = {
+const char* const FloatingPointComparisonsResults[] = {
   "   0:	eeb4 0a60 	vcmp.f32	s0, s1\n",
   "   4:	eeb4 0b41 	vcmp.f64	d0, d1\n",
   "   8:	eeb5 1a40 	vcmp.f32	s2, #0.0\n",
   "   c:	eeb5 2b40 	vcmp.f64	d2, #0.0\n",
   nullptr
 };
-const char* CallsResults[] = {
+const char* const CallsResults[] = {
   "   0:	47f0      	blx	lr\n",
   "   2:	4770      	bx	lr\n",
   nullptr
 };
-const char* BreakpointResults[] = {
+const char* const BreakpointResults[] = {
   "   0:	be00      	bkpt	0x0000\n",
   nullptr
 };
-const char* StrR1Results[] = {
+const char* const StrR1Results[] = {
   "   0:	9111      	str	r1, [sp, #68]	; 0x44\n",
   "   2:	f8cd 142c 	str.w	r1, [sp, #1068]	; 0x42c\n",
   nullptr
 };
-const char* VPushPopResults[] = {
+const char* const VPushPopResults[] = {
   "   0:	ed2d 1a04 	vpush	{s2-s5}\n",
   "   4:	ed2d 2b08 	vpush	{d2-d5}\n",
   "   8:	ecbd 1a04 	vpop	{s2-s5}\n",
   "   c:	ecbd 2b08 	vpop	{d2-d5}\n",
   nullptr
 };
-const char* Max16BitBranchResults[] = {
+const char* const Max16BitBranchResults[] = {
   "   0:	e3ff      	b.n	802 <Max16BitBranch+0x802>\n",
   "   2:	2300      	movs	r3, #0\n",
   "   4:	2302      	movs	r3, #2\n",
@@ -1511,10 +1713,10 @@ const char* Max16BitBranchResults[] = {
   " 7fc:	23fa      	movs	r3, #250	; 0xfa\n",
   " 7fe:	23fc      	movs	r3, #252	; 0xfc\n",
   " 800:	23fe      	movs	r3, #254	; 0xfe\n",
-  " 802:	0011      	movs	r1, r2\n",
+  " 802:	4611      	mov	r1, r2\n",
   nullptr
 };
-const char* Branch32Results[] = {
+const char* const Branch32Results[] = {
   "   0:	f000 bc01 	b.w	806 <Branch32+0x806>\n",
   "   4:	2300      	movs	r3, #0\n",
   "   6:	2302      	movs	r3, #2\n",
@@ -2541,10 +2743,10 @@ const char* Branch32Results[] = {
   " 800:	23fc      	movs	r3, #252	; 0xfc\n",
   " 802:	23fe      	movs	r3, #254	; 0xfe\n",
   " 804:	2300      	movs	r3, #0\n",
-  " 806:	0011      	movs	r1, r2\n",
+  " 806:	4611      	mov	r1, r2\n",
   nullptr
 };
-const char* CompareAndBranchMaxResults[] = {
+const char* const CompareAndBranchMaxResults[] = {
   "   0:	b3fc      	cbz	r4, 82 <CompareAndBranchMax+0x82>\n",
   "   2:	2300      	movs	r3, #0\n",
   "   4:	2302      	movs	r3, #2\n",
@@ -2610,10 +2812,10 @@ const char* CompareAndBranchMaxResults[] = {
   "  7c:	237a      	movs	r3, #122	; 0x7a\n",
   "  7e:	237c      	movs	r3, #124	; 0x7c\n",
   "  80:	237e      	movs	r3, #126	; 0x7e\n",
-  "  82:	0011      	movs	r1, r2\n",
+  "  82:	4611      	mov	r1, r2\n",
   nullptr
 };
-const char* CompareAndBranchRelocation16Results[] = {
+const char* const CompareAndBranchRelocation16Results[] = {
   "   0:	2c00      	cmp	r4, #0\n",
   "   2:	d040      	beq.n	86 <CompareAndBranchRelocation16+0x86>\n",
   "   4:	2300      	movs	r3, #0\n",
@@ -2681,10 +2883,10 @@ const char* CompareAndBranchRelocation16Results[] = {
   "  80:	237c      	movs	r3, #124	; 0x7c\n",
   "  82:	237e      	movs	r3, #126	; 0x7e\n",
   "  84:	2380      	movs	r3, #128	; 0x80\n",
-  "  86:	0011      	movs	r1, r2\n",
+  "  86:	4611      	mov	r1, r2\n",
   nullptr
 };
-const char* CompareAndBranchRelocation32Results[] = {
+const char* const CompareAndBranchRelocation32Results[] = {
   "   0:	2c00      	cmp	r4, #0\n",
   "   2:	f000 8401 	beq.w	808 <CompareAndBranchRelocation32+0x808>\n",
   "   6:	2300      	movs	r3, #0\n",
@@ -3712,10 +3914,10 @@ const char* CompareAndBranchRelocation32Results[] = {
   " 802:	23fc      	movs	r3, #252	; 0xfc\n",
   " 804:	23fe      	movs	r3, #254	; 0xfe\n",
   " 806:	2300      	movs	r3, #0\n",
-  " 808:	0011      	movs	r1, r2\n",
+  " 808:	4611      	mov	r1, r2\n",
   nullptr
 };
-const char* MixedBranch32Results[] = {
+const char* const MixedBranch32Results[] = {
   "   0:	f000 bc03 	b.w	80a <MixedBranch32+0x80a>\n",
   "   4:	2300      	movs	r3, #0\n",
   "   6:	2302      	movs	r3, #2\n",
@@ -4743,41 +4945,59 @@ const char* MixedBranch32Results[] = {
   " 802:	23fe      	movs	r3, #254	; 0xfe\n",
   " 804:	2300      	movs	r3, #0\n",
   " 806:	f7ff bbfd 	b.w	4 <MixedBranch32+0x4>\n",
-  " 80a:	0011      	movs	r1, r2\n",
+  " 80a:	4611      	mov	r1, r2\n",
   nullptr
 };
-const char* ShiftsResults[] = {
+const char* const ShiftsResults[] = {
   "   0:	0148      	lsls	r0, r1, #5\n",
   "   2:	0948      	lsrs	r0, r1, #5\n",
   "   4:	1148      	asrs	r0, r1, #5\n",
   "   6:	4088      	lsls	r0, r1\n",
   "   8:	40c8      	lsrs	r0, r1\n",
   "   a:	4108      	asrs	r0, r1\n",
-  "   c:	ea4f 1841 	mov.w	r8, r1, lsl #5\n",
-  "  10:	ea4f 1058 	mov.w	r0, r8, lsr #5\n",
-  "  14:	ea4f 1861 	mov.w	r8, r1, asr #5\n",
-  "  18:	ea4f 1078 	mov.w	r0, r8, ror #5\n",
-  "  1c:	fa01 f002 	lsl.w	r0, r1, r2\n",
-  "  20:	fa21 f002 	lsr.w	r0, r1, r2\n",
-  "  24:	fa41 f002 	asr.w	r0, r1, r2\n",
-  "  28:	fa61 f002 	ror.w	r0, r1, r2\n",
-  "  2c:	fa01 f802 	lsl.w	r8, r1, r2\n",
-  "  30:	fa28 f002 	lsr.w	r0, r8, r2\n",
-  "  34:	fa41 f008 	asr.w	r0, r1, r8\n",
-  "  38:	ea5f 1841 	movs.w	r8, r1, lsl #5\n",
-  "  3c:	ea5f 1058 	movs.w	r0, r8, lsr #5\n",
-  "  40:	ea5f 1861 	movs.w	r8, r1, asr #5\n",
-  "  44:	ea5f 1078 	movs.w	r0, r8, ror #5\n",
-  "  48:	fa11 f002 	lsls.w	r0, r1, r2\n",
-  "  4c:	fa31 f002 	lsrs.w	r0, r1, r2\n",
-  "  50:	fa51 f002 	asrs.w	r0, r1, r2\n",
-  "  54:	fa71 f002 	rors.w	r0, r1, r2\n",
-  "  58:	fa11 f802 	lsls.w	r8, r1, r2\n",
-  "  5c:	fa38 f002 	lsrs.w	r0, r8, r2\n",
-  "  60:	fa51 f008 	asrs.w	r0, r1, r8\n",
+  "   c:	41c8      	rors	r0, r1\n",
+  "   e:	0148      	lsls	r0, r1, #5\n",
+  "  10:	0948      	lsrs	r0, r1, #5\n",
+  "  12:	1148      	asrs	r0, r1, #5\n",
+  "  14:	4088      	lsls	r0, r1\n",
+  "  16:	40c8      	lsrs	r0, r1\n",
+  "  18:	4108      	asrs	r0, r1\n",
+  "  1a:	41c8      	rors	r0, r1\n",
+  "  1c:	ea4f 1041 	mov.w	r0, r1, lsl #5\n",
+  "  20:	ea4f 1051 	mov.w	r0, r1, lsr #5\n",
+  "  24:	ea4f 1061 	mov.w	r0, r1, asr #5\n",
+  "  28:	fa00 f001 	lsl.w	r0, r0, r1\n",
+  "  2c:	fa20 f001 	lsr.w	r0, r0, r1\n",
+  "  30:	fa40 f001 	asr.w	r0, r0, r1\n",
+  "  34:	fa60 f001 	ror.w	r0, r0, r1\n",
+  "  38:	ea4f 1071 	mov.w	r0, r1, ror #5\n",
+  "  3c:	ea5f 1071 	movs.w	r0, r1, ror #5\n",
+  "  40:	ea4f 1071 	mov.w	r0, r1, ror #5\n",
+  "  44:	ea4f 1841 	mov.w	r8, r1, lsl #5\n",
+  "  48:	ea4f 1058 	mov.w	r0, r8, lsr #5\n",
+  "  4c:	ea4f 1861 	mov.w	r8, r1, asr #5\n",
+  "  50:	ea4f 1078 	mov.w	r0, r8, ror #5\n",
+  "  54:	fa01 f002 	lsl.w	r0, r1, r2\n",
+  "  58:	fa21 f002 	lsr.w	r0, r1, r2\n",
+  "  5c:	fa41 f002 	asr.w	r0, r1, r2\n",
+  "  60:	fa61 f002 	ror.w	r0, r1, r2\n",
+  "  64:	fa01 f802 	lsl.w	r8, r1, r2\n",
+  "  68:	fa28 f002 	lsr.w	r0, r8, r2\n",
+  "  6c:	fa41 f008 	asr.w	r0, r1, r8\n",
+  "  70:	ea5f 1841 	movs.w	r8, r1, lsl #5\n",
+  "  74:	ea5f 1058 	movs.w	r0, r8, lsr #5\n",
+  "  78:	ea5f 1861 	movs.w	r8, r1, asr #5\n",
+  "  7c:	ea5f 1078 	movs.w	r0, r8, ror #5\n",
+  "  80:	fa11 f002 	lsls.w	r0, r1, r2\n",
+  "  84:	fa31 f002 	lsrs.w	r0, r1, r2\n",
+  "  88:	fa51 f002 	asrs.w	r0, r1, r2\n",
+  "  8c:	fa71 f002 	rors.w	r0, r1, r2\n",
+  "  90:	fa11 f802 	lsls.w	r8, r1, r2\n",
+  "  94:	fa38 f002 	lsrs.w	r0, r8, r2\n",
+  "  98:	fa51 f008 	asrs.w	r0, r1, r8\n",
   nullptr
 };
-const char* LoadStoreRegOffsetResults[] = {
+const char* const LoadStoreRegOffsetResults[] = {
   "   0:	5888      	ldr	r0, [r1, r2]\n",
   "   2:	5088      	str	r0, [r1, r2]\n",
   "   4:	f851 0012 	ldr.w	r0, [r1, r2, lsl #1]\n",
@@ -4792,7 +5012,7 @@ const char* LoadStoreRegOffsetResults[] = {
   "  28:	f841 0008 	str.w	r0, [r1, r8]\n",
   nullptr
 };
-const char* LoadStoreLiteralResults[] = {
+const char* const LoadStoreLiteralResults[] = {
   "   0:   4801            ldr     r0, [pc, #4]    ; (8 <LoadStoreLiteral+0x8>)\n",
   "   2:   f8cf 0004       str.w   r0, [pc, #4]    ; 8 <LoadStoreLiteral+0x8>\n",
   "   6:   f85f 0008       ldr.w   r0, [pc, #-8]   ; 0 <LoadStoreLiteral>\n",
@@ -4803,7 +5023,7 @@ const char* LoadStoreLiteralResults[] = {
   "  18:   f8cf 07ff       str.w   r0, [pc, #2047] ; 81b <LoadStoreLiteral+0x81b>\n",
   nullptr
 };
-const char* LoadStoreLimitsResults[] = {
+const char* const LoadStoreLimitsResults[] = {
   "   0:   6fe0            ldr     r0, [r4, #124]  ; 0x7c\n",
   "   2:   f8d4 0080       ldr.w   r0, [r4, #128]  ; 0x80\n",
   "   6:   7fe0            ldrb    r0, [r4, #31]\n",
@@ -4822,7 +5042,433 @@ const char* LoadStoreLimitsResults[] = {
   "  30:   f8a4 0040       strh.w  r0, [r4, #64]   ; 0x40\n",
   nullptr
 };
-std::map<std::string, const char**> test_results;
+const char* const CompareAndBranchResults[] = {
+  "  0: b130        cbz r0, 10 <CompareAndBranch+0x10>\n",
+  "  2: f1bb 0f00   cmp.w fp, #0\n",
+  "  6: d003        beq.n 10 <CompareAndBranch+0x10>\n",
+  "  8: b910        cbnz r0, 10 <CompareAndBranch+0x10>\n",
+  "  a: f1bb 0f00   cmp.w fp, #0\n",
+  "  e: d1ff        bne.n 10 <CompareAndBranch+0x10>\n",
+  nullptr
+};
+
+const char* const AddConstantResults[] = {
+  "   0:	4608      	mov	r0, r1\n",
+  "   2:	1c48      	adds	r0, r1, #1\n",
+  "   4:	1dc8      	adds	r0, r1, #7\n",
+  "   6:	f101 0008 	add.w	r0, r1, #8\n",
+  "   a:	f101 00ff 	add.w	r0, r1, #255	; 0xff\n",
+  "   e:	f501 7080 	add.w	r0, r1, #256	; 0x100\n",
+  "  12:	f201 1001 	addw	r0, r1, #257	; 0x101\n",
+  "  16:	f601 70ff 	addw	r0, r1, #4095	; 0xfff\n",
+  "  1a:	f501 5080 	add.w	r0, r1, #4096	; 0x1000\n",
+  "  1e:	f46f 5080 	mvn.w	r0, #4096	; 0x1000\n",
+  "  22:	1a08      	subs	r0, r1, r0\n",
+  "  24:	f241 0002 	movw	r0, #4098	; 0x1002\n",
+  "  28:	1808      	adds	r0, r1, r0\n",
+  "  2a:	f64f 70ff 	movw	r0, #65535	; 0xffff\n",
+  "  2e:	1808      	adds	r0, r1, r0\n",
+  "  30:	f501 3080 	add.w	r0, r1, #65536	; 0x10000\n",
+  "  34:	f101 1001 	add.w	r0, r1, #65537	; 0x10001\n",
+  "  38:	f06f 1001 	mvn.w	r0, #65537	; 0x10001\n",
+  "  3c:	1a08      	subs	r0, r1, r0\n",
+  "  3e:	f240 0003 	movw	r0, #3\n",
+  "  42:	f2c0 0001 	movt	r0, #1\n",
+  "  46:	1808      	adds	r0, r1, r0\n",
+  "  48:	1e48      	subs	r0, r1, #1\n",
+  "  4a:	1fc8      	subs	r0, r1, #7\n",
+  "  4c:	f1a1 0008 	sub.w	r0, r1, #8\n",
+  "  50:	f1a1 00ff 	sub.w	r0, r1, #255	; 0xff\n",
+  "  54:	f5a1 7080 	sub.w	r0, r1, #256	; 0x100\n",
+  "  58:	f2a1 1001 	subw	r0, r1, #257	; 0x101\n",
+  "  5c:	f6a1 70ff 	subw	r0, r1, #4095	; 0xfff\n",
+  "  60:	f5a1 5080 	sub.w	r0, r1, #4096	; 0x1000\n",
+  "  64:	f46f 5080 	mvn.w	r0, #4096	; 0x1000\n",
+  "  68:	1808      	adds	r0, r1, r0\n",
+  "  6a:	f241 0002 	movw	r0, #4098	; 0x1002\n",
+  "  6e:	1a08      	subs	r0, r1, r0\n",
+  "  70:	f64f 70ff 	movw	r0, #65535	; 0xffff\n",
+  "  74:	1a08      	subs	r0, r1, r0\n",
+  "  76:	f5a1 3080 	sub.w	r0, r1, #65536	; 0x10000\n",
+  "  7a:	f1a1 1001 	sub.w	r0, r1, #65537	; 0x10001\n",
+  "  7e:	f06f 1001 	mvn.w	r0, #65537	; 0x10001\n",
+  "  82:	1808      	adds	r0, r1, r0\n",
+  "  84:	f64f 70fd 	movw	r0, #65533	; 0xfffd\n",
+  "  88:	f6cf 70fe 	movt	r0, #65534	; 0xfffe\n",
+  "  8c:	1808      	adds	r0, r1, r0\n",
+  "  8e:	3101      	adds	r1, #1\n",
+  "  90:	3007      	adds	r0, #7\n",
+  "  92:	3108      	adds	r1, #8\n",
+  "  94:	30ff      	adds	r0, #255	; 0xff\n",
+  "  96:	f501 7180 	add.w	r1, r1, #256	; 0x100\n",
+  "  9a:	f200 1001 	addw	r0, r0, #257	; 0x101\n",
+  "  9e:	f601 71ff 	addw	r1, r1, #4095	; 0xfff\n",
+  "  a2:	f500 5080 	add.w	r0, r0, #4096	; 0x1000\n",
+  "  a6:	f46f 5c80 	mvn.w	ip, #4096	; 0x1000\n",
+  "  aa:	eba1 010c 	sub.w	r1, r1, ip\n",
+  "  ae:	f241 0c02 	movw	ip, #4098	; 0x1002\n",
+  "  b2:	4460      	add	r0, ip\n",
+  "  b4:	f64f 7cff 	movw	ip, #65535	; 0xffff\n",
+  "  b8:	4461      	add	r1, ip\n",
+  "  ba:	f500 3080 	add.w	r0, r0, #65536	; 0x10000\n",
+  "  be:	f101 1101 	add.w	r1, r1, #65537	; 0x10001\n",
+  "  c2:	f06f 1c01 	mvn.w	ip, #65537	; 0x10001\n",
+  "  c6:	eba0 000c 	sub.w	r0, r0, ip\n",
+  "  ca:	f240 0c03 	movw	ip, #3\n",
+  "  ce:	f2c0 0c01 	movt	ip, #1\n",
+  "  d2:	4461      	add	r1, ip\n",
+  "  d4:	3801      	subs	r0, #1\n",
+  "  d6:	3907      	subs	r1, #7\n",
+  "  d8:	3808      	subs	r0, #8\n",
+  "  da:	39ff      	subs	r1, #255	; 0xff\n",
+  "  dc:	f5a0 7080 	sub.w	r0, r0, #256	; 0x100\n",
+  "  e0:	f2a1 1101 	subw	r1, r1, #257	; 0x101\n",
+  "  e4:	f6a0 70ff 	subw	r0, r0, #4095	; 0xfff\n",
+  "  e8:	f5a1 5180 	sub.w	r1, r1, #4096	; 0x1000\n",
+  "  ec:	f46f 5c80 	mvn.w	ip, #4096	; 0x1000\n",
+  "  f0:	4460      	add	r0, ip\n",
+  "  f2:	f241 0c02 	movw	ip, #4098	; 0x1002\n",
+  "  f6:	eba1 010c 	sub.w	r1, r1, ip\n",
+  "  fa:	f64f 7cff 	movw	ip, #65535	; 0xffff\n",
+  "  fe:	eba0 000c 	sub.w	r0, r0, ip\n",
+  " 102:	f5a1 3180 	sub.w	r1, r1, #65536	; 0x10000\n",
+  " 106:	f1a0 1001 	sub.w	r0, r0, #65537	; 0x10001\n",
+  " 10a:	f06f 1c01 	mvn.w	ip, #65537	; 0x10001\n",
+  " 10e:	4461      	add	r1, ip\n",
+  " 110:	f64f 7cfd 	movw	ip, #65533	; 0xfffd\n",
+  " 114:	f6cf 7cfe 	movt	ip, #65534	; 0xfffe\n",
+  " 118:	4460      	add	r0, ip\n",
+  " 11a:	f101 0801 	add.w	r8, r1, #1\n",
+  " 11e:	f108 0007 	add.w	r0, r8, #7\n",
+  " 122:	f108 0808 	add.w	r8, r8, #8\n",
+  " 126:	f101 08ff 	add.w	r8, r1, #255	; 0xff\n",
+  " 12a:	f508 7080 	add.w	r0, r8, #256	; 0x100\n",
+  " 12e:	f208 1801 	addw	r8, r8, #257	; 0x101\n",
+  " 132:	f601 78ff 	addw	r8, r1, #4095	; 0xfff\n",
+  " 136:	f508 5080 	add.w	r0, r8, #4096	; 0x1000\n",
+  " 13a:	f46f 5c80 	mvn.w	ip, #4096	; 0x1000\n",
+  " 13e:	eba8 080c 	sub.w	r8, r8, ip\n",
+  " 142:	f241 0002 	movw	r0, #4098	; 0x1002\n",
+  " 146:	1808      	adds	r0, r1, r0\n",
+  " 148:	f64f 70ff 	movw	r0, #65535	; 0xffff\n",
+  " 14c:	eb08 0000 	add.w	r0, r8, r0\n",
+  " 150:	f508 3880 	add.w	r8, r8, #65536	; 0x10000\n",
+  " 154:	f101 1801 	add.w	r8, r1, #65537	; 0x10001\n",
+  " 158:	f06f 1001 	mvn.w	r0, #65537	; 0x10001\n",
+  " 15c:	eba8 0000 	sub.w	r0, r8, r0\n",
+  " 160:	f240 0003 	movw	r0, #3\n",
+  " 164:	f2c0 0001 	movt	r0, #1\n",
+  " 168:	eb08 0000 	add.w	r0, r8, r0\n",
+  " 16c:	f108 38ff 	add.w	r8, r8, #4294967295	; 0xffffffff\n",
+  " 170:	f1a1 0807 	sub.w	r8, r1, #7\n",
+  " 174:	f1a8 0008 	sub.w	r0, r8, #8\n",
+  " 178:	f1a8 08ff 	sub.w	r8, r8, #255	; 0xff\n",
+  " 17c:	f5a1 7880 	sub.w	r8, r1, #256	; 0x100\n",
+  " 180:	f2a8 1001 	subw	r0, r8, #257	; 0x101\n",
+  " 184:	f6a8 78ff 	subw	r8, r8, #4095	; 0xfff\n",
+  " 188:	f5a1 5880 	sub.w	r8, r1, #4096	; 0x1000\n",
+  " 18c:	f46f 5080 	mvn.w	r0, #4096	; 0x1000\n",
+  " 190:	eb08 0000 	add.w	r0, r8, r0\n",
+  " 194:	f241 0002 	movw	r0, #4098	; 0x1002\n",
+  " 198:	1a08      	subs	r0, r1, r0\n",
+  " 19a:	f64f 78ff 	movw	r8, #65535	; 0xffff\n",
+  " 19e:	eba1 0808 	sub.w	r8, r1, r8\n",
+  " 1a2:	f5a8 3080 	sub.w	r0, r8, #65536	; 0x10000\n",
+  " 1a6:	f1a8 1801 	sub.w	r8, r8, #65537	; 0x10001\n",
+  " 1aa:	f06f 1801 	mvn.w	r8, #65537	; 0x10001\n",
+  " 1ae:	eb01 0808 	add.w	r8, r1, r8\n",
+  " 1b2:	f64f 70fd 	movw	r0, #65533	; 0xfffd\n",
+  " 1b6:	f6cf 70fe 	movt	r0, #65534	; 0xfffe\n",
+  " 1ba:	eb08 0000 	add.w	r0, r8, r0\n",
+  " 1be:	4608      	mov	r0, r1\n",
+  " 1c0:	f101 0001 	add.w	r0, r1, #1\n",
+  " 1c4:	f101 0007 	add.w	r0, r1, #7\n",
+  " 1c8:	f101 0008 	add.w	r0, r1, #8\n",
+  " 1cc:	f101 00ff 	add.w	r0, r1, #255	; 0xff\n",
+  " 1d0:	f501 7080 	add.w	r0, r1, #256	; 0x100\n",
+  " 1d4:	f201 1001 	addw	r0, r1, #257	; 0x101\n",
+  " 1d8:	f601 70ff 	addw	r0, r1, #4095	; 0xfff\n",
+  " 1dc:	f501 5080 	add.w	r0, r1, #4096	; 0x1000\n",
+  " 1e0:	f46f 5080 	mvn.w	r0, #4096	; 0x1000\n",
+  " 1e4:	eba1 0000 	sub.w	r0, r1, r0\n",
+  " 1e8:	f241 0002 	movw	r0, #4098	; 0x1002\n",
+  " 1ec:	eb01 0000 	add.w	r0, r1, r0\n",
+  " 1f0:	f64f 70ff 	movw	r0, #65535	; 0xffff\n",
+  " 1f4:	eb01 0000 	add.w	r0, r1, r0\n",
+  " 1f8:	f501 3080 	add.w	r0, r1, #65536	; 0x10000\n",
+  " 1fc:	f101 1001 	add.w	r0, r1, #65537	; 0x10001\n",
+  " 200:	f06f 1001 	mvn.w	r0, #65537	; 0x10001\n",
+  " 204:	eba1 0000 	sub.w	r0, r1, r0\n",
+  " 208:	f240 0003 	movw	r0, #3\n",
+  " 20c:	f2c0 0001 	movt	r0, #1\n",
+  " 210:	eb01 0000 	add.w	r0, r1, r0\n",
+  " 214:	f101 30ff 	add.w	r0, r1, #4294967295	; 0xffffffff\n",
+  " 218:	f1a1 0007 	sub.w	r0, r1, #7\n",
+  " 21c:	f1a1 0008 	sub.w	r0, r1, #8\n",
+  " 220:	f1a1 00ff 	sub.w	r0, r1, #255	; 0xff\n",
+  " 224:	f5a1 7080 	sub.w	r0, r1, #256	; 0x100\n",
+  " 228:	f2a1 1001 	subw	r0, r1, #257	; 0x101\n",
+  " 22c:	f6a1 70ff 	subw	r0, r1, #4095	; 0xfff\n",
+  " 230:	f5a1 5080 	sub.w	r0, r1, #4096	; 0x1000\n",
+  " 234:	f46f 5080 	mvn.w	r0, #4096	; 0x1000\n",
+  " 238:	eb01 0000 	add.w	r0, r1, r0\n",
+  " 23c:	f241 0002 	movw	r0, #4098	; 0x1002\n",
+  " 240:	eba1 0000 	sub.w	r0, r1, r0\n",
+  " 244:	f64f 70ff 	movw	r0, #65535	; 0xffff\n",
+  " 248:	eba1 0000 	sub.w	r0, r1, r0\n",
+  " 24c:	f5a1 3080 	sub.w	r0, r1, #65536	; 0x10000\n",
+  " 250:	f1a1 1001 	sub.w	r0, r1, #65537	; 0x10001\n",
+  " 254:	f06f 1001 	mvn.w	r0, #65537	; 0x10001\n",
+  " 258:	eb01 0000 	add.w	r0, r1, r0\n",
+  " 25c:	f64f 70fd 	movw	r0, #65533	; 0xfffd\n",
+  " 260:	f6cf 70fe 	movt	r0, #65534	; 0xfffe\n",
+  " 264:	eb01 0000 	add.w	r0, r1, r0\n",
+  " 268:	f101 0101 	add.w	r1, r1, #1\n",
+  " 26c:	f100 0007 	add.w	r0, r0, #7\n",
+  " 270:	f101 0108 	add.w	r1, r1, #8\n",
+  " 274:	f100 00ff 	add.w	r0, r0, #255	; 0xff\n",
+  " 278:	f501 7180 	add.w	r1, r1, #256	; 0x100\n",
+  " 27c:	f200 1001 	addw	r0, r0, #257	; 0x101\n",
+  " 280:	f601 71ff 	addw	r1, r1, #4095	; 0xfff\n",
+  " 284:	f500 5080 	add.w	r0, r0, #4096	; 0x1000\n",
+  " 288:	f46f 5c80 	mvn.w	ip, #4096	; 0x1000\n",
+  " 28c:	eba1 010c 	sub.w	r1, r1, ip\n",
+  " 290:	f241 0c02 	movw	ip, #4098	; 0x1002\n",
+  " 294:	4460      	add	r0, ip\n",
+  " 296:	f64f 7cff 	movw	ip, #65535	; 0xffff\n",
+  " 29a:	4461      	add	r1, ip\n",
+  " 29c:	f500 3080 	add.w	r0, r0, #65536	; 0x10000\n",
+  " 2a0:	f101 1101 	add.w	r1, r1, #65537	; 0x10001\n",
+  " 2a4:	f06f 1c01 	mvn.w	ip, #65537	; 0x10001\n",
+  " 2a8:	eba0 000c 	sub.w	r0, r0, ip\n",
+  " 2ac:	f240 0c03 	movw	ip, #3\n",
+  " 2b0:	f2c0 0c01 	movt	ip, #1\n",
+  " 2b4:	4461      	add	r1, ip\n",
+  " 2b6:	f100 30ff 	add.w	r0, r0, #4294967295	; 0xffffffff\n",
+  " 2ba:	f1a1 0107 	sub.w	r1, r1, #7\n",
+  " 2be:	f1a0 0008 	sub.w	r0, r0, #8\n",
+  " 2c2:	f1a1 01ff 	sub.w	r1, r1, #255	; 0xff\n",
+  " 2c6:	f5a0 7080 	sub.w	r0, r0, #256	; 0x100\n",
+  " 2ca:	f2a1 1101 	subw	r1, r1, #257	; 0x101\n",
+  " 2ce:	f6a0 70ff 	subw	r0, r0, #4095	; 0xfff\n",
+  " 2d2:	f5a1 5180 	sub.w	r1, r1, #4096	; 0x1000\n",
+  " 2d6:	f46f 5c80 	mvn.w	ip, #4096	; 0x1000\n",
+  " 2da:	4460      	add	r0, ip\n",
+  " 2dc:	f241 0c02 	movw	ip, #4098	; 0x1002\n",
+  " 2e0:	eba1 010c 	sub.w	r1, r1, ip\n",
+  " 2e4:	f64f 7cff 	movw	ip, #65535	; 0xffff\n",
+  " 2e8:	eba0 000c 	sub.w	r0, r0, ip\n",
+  " 2ec:	f5a1 3180 	sub.w	r1, r1, #65536	; 0x10000\n",
+  " 2f0:	f1a0 1001 	sub.w	r0, r0, #65537	; 0x10001\n",
+  " 2f4:	f06f 1c01 	mvn.w	ip, #65537	; 0x10001\n",
+  " 2f8:	4461      	add	r1, ip\n",
+  " 2fa:	f64f 7cfd 	movw	ip, #65533	; 0xfffd\n",
+  " 2fe:	f6cf 7cfe 	movt	ip, #65534	; 0xfffe\n",
+  " 302:	4460      	add	r0, ip\n",
+  " 304:	1c08      	adds	r0, r1, #0\n",
+  " 306:	1c48      	adds	r0, r1, #1\n",
+  " 308:	1dc8      	adds	r0, r1, #7\n",
+  " 30a:	f111 0008 	adds.w	r0, r1, #8\n",
+  " 30e:	f111 00ff 	adds.w	r0, r1, #255	; 0xff\n",
+  " 312:	f511 7080 	adds.w	r0, r1, #256	; 0x100\n",
+  " 316:	f46f 7080 	mvn.w	r0, #256	; 0x100\n",
+  " 31a:	1a08      	subs	r0, r1, r0\n",
+  " 31c:	f640 70ff 	movw	r0, #4095	; 0xfff\n",
+  " 320:	1808      	adds	r0, r1, r0\n",
+  " 322:	f511 5080 	adds.w	r0, r1, #4096	; 0x1000\n",
+  " 326:	f46f 5080 	mvn.w	r0, #4096	; 0x1000\n",
+  " 32a:	1a08      	subs	r0, r1, r0\n",
+  " 32c:	f241 0002 	movw	r0, #4098	; 0x1002\n",
+  " 330:	1808      	adds	r0, r1, r0\n",
+  " 332:	f64f 70ff 	movw	r0, #65535	; 0xffff\n",
+  " 336:	1808      	adds	r0, r1, r0\n",
+  " 338:	f511 3080 	adds.w	r0, r1, #65536	; 0x10000\n",
+  " 33c:	f111 1001 	adds.w	r0, r1, #65537	; 0x10001\n",
+  " 340:	f06f 1001 	mvn.w	r0, #65537	; 0x10001\n",
+  " 344:	1a08      	subs	r0, r1, r0\n",
+  " 346:	f240 0003 	movw	r0, #3\n",
+  " 34a:	f2c0 0001 	movt	r0, #1\n",
+  " 34e:	1808      	adds	r0, r1, r0\n",
+  " 350:	1e48      	subs	r0, r1, #1\n",
+  " 352:	1fc8      	subs	r0, r1, #7\n",
+  " 354:	f1b1 0008 	subs.w	r0, r1, #8\n",
+  " 358:	f1b1 00ff 	subs.w	r0, r1, #255	; 0xff\n",
+  " 35c:	f5b1 7080 	subs.w	r0, r1, #256	; 0x100\n",
+  " 360:	f46f 7080 	mvn.w	r0, #256	; 0x100\n",
+  " 364:	1808      	adds	r0, r1, r0\n",
+  " 366:	f640 70ff 	movw	r0, #4095	; 0xfff\n",
+  " 36a:	1a08      	subs	r0, r1, r0\n",
+  " 36c:	f5b1 5080 	subs.w	r0, r1, #4096	; 0x1000\n",
+  " 370:	f46f 5080 	mvn.w	r0, #4096	; 0x1000\n",
+  " 374:	1808      	adds	r0, r1, r0\n",
+  " 376:	f241 0002 	movw	r0, #4098	; 0x1002\n",
+  " 37a:	1a08      	subs	r0, r1, r0\n",
+  " 37c:	f64f 70ff 	movw	r0, #65535	; 0xffff\n",
+  " 380:	1a08      	subs	r0, r1, r0\n",
+  " 382:	f5b1 3080 	subs.w	r0, r1, #65536	; 0x10000\n",
+  " 386:	f1b1 1001 	subs.w	r0, r1, #65537	; 0x10001\n",
+  " 38a:	f06f 1001 	mvn.w	r0, #65537	; 0x10001\n",
+  " 38e:	1808      	adds	r0, r1, r0\n",
+  " 390:	f64f 70fd 	movw	r0, #65533	; 0xfffd\n",
+  " 394:	f6cf 70fe 	movt	r0, #65534	; 0xfffe\n",
+  " 398:	1808      	adds	r0, r1, r0\n",
+  " 39a:	3000      	adds	r0, #0\n",
+  " 39c:	3101      	adds	r1, #1\n",
+  " 39e:	3007      	adds	r0, #7\n",
+  " 3a0:	3108      	adds	r1, #8\n",
+  " 3a2:	30ff      	adds	r0, #255	; 0xff\n",
+  " 3a4:	f511 7180 	adds.w	r1, r1, #256	; 0x100\n",
+  " 3a8:	f46f 7c80 	mvn.w	ip, #256	; 0x100\n",
+  " 3ac:	ebb0 000c 	subs.w	r0, r0, ip\n",
+  " 3b0:	f640 7cff 	movw	ip, #4095	; 0xfff\n",
+  " 3b4:	eb11 010c 	adds.w	r1, r1, ip\n",
+  " 3b8:	f510 5080 	adds.w	r0, r0, #4096	; 0x1000\n",
+  " 3bc:	f46f 5c80 	mvn.w	ip, #4096	; 0x1000\n",
+  " 3c0:	ebb1 010c 	subs.w	r1, r1, ip\n",
+  " 3c4:	f241 0c02 	movw	ip, #4098	; 0x1002\n",
+  " 3c8:	eb10 000c 	adds.w	r0, r0, ip\n",
+  " 3cc:	f64f 7cff 	movw	ip, #65535	; 0xffff\n",
+  " 3d0:	eb11 010c 	adds.w	r1, r1, ip\n",
+  " 3d4:	f510 3080 	adds.w	r0, r0, #65536	; 0x10000\n",
+  " 3d8:	f111 1101 	adds.w	r1, r1, #65537	; 0x10001\n",
+  " 3dc:	f06f 1c01 	mvn.w	ip, #65537	; 0x10001\n",
+  " 3e0:	ebb0 000c 	subs.w	r0, r0, ip\n",
+  " 3e4:	f240 0c03 	movw	ip, #3\n",
+  " 3e8:	f2c0 0c01 	movt	ip, #1\n",
+  " 3ec:	eb11 010c 	adds.w	r1, r1, ip\n",
+  " 3f0:	3801      	subs	r0, #1\n",
+  " 3f2:	3907      	subs	r1, #7\n",
+  " 3f4:	3808      	subs	r0, #8\n",
+  " 3f6:	39ff      	subs	r1, #255	; 0xff\n",
+  " 3f8:	f5b0 7080 	subs.w	r0, r0, #256	; 0x100\n",
+  " 3fc:	f46f 7c80 	mvn.w	ip, #256	; 0x100\n",
+  " 400:	eb11 010c 	adds.w	r1, r1, ip\n",
+  " 404:	f640 7cff 	movw	ip, #4095	; 0xfff\n",
+  " 408:	ebb0 000c 	subs.w	r0, r0, ip\n",
+  " 40c:	f5b1 5180 	subs.w	r1, r1, #4096	; 0x1000\n",
+  " 410:	f46f 5c80 	mvn.w	ip, #4096	; 0x1000\n",
+  " 414:	eb10 000c 	adds.w	r0, r0, ip\n",
+  " 418:	f241 0c02 	movw	ip, #4098	; 0x1002\n",
+  " 41c:	ebb1 010c 	subs.w	r1, r1, ip\n",
+  " 420:	f64f 7cff 	movw	ip, #65535	; 0xffff\n",
+  " 424:	ebb0 000c 	subs.w	r0, r0, ip\n",
+  " 428:	f5b1 3180 	subs.w	r1, r1, #65536	; 0x10000\n",
+  " 42c:	f1b0 1001 	subs.w	r0, r0, #65537	; 0x10001\n",
+  " 430:	f06f 1c01 	mvn.w	ip, #65537	; 0x10001\n",
+  " 434:	eb11 010c 	adds.w	r1, r1, ip\n",
+  " 438:	f64f 7cfd 	movw	ip, #65533	; 0xfffd\n",
+  " 43c:	f6cf 7cfe 	movt	ip, #65534	; 0xfffe\n",
+  " 440:	eb10 000c 	adds.w	r0, r0, ip\n",
+  " 444:	bf08      	it	eq\n",
+  " 446:	f111 0001 	addseq.w	r0, r1, #1\n",
+  " 44a:	bf18      	it	ne\n",
+  " 44c:	1c48      	addne	r0, r1, #1\n",
+  " 44e:	bfa8      	it	ge\n",
+  " 450:	f110 0001 	addsge.w	r0, r0, #1\n",
+  " 454:	bfd8      	it	le\n",
+  " 456:	3001      	addle	r0, #1\n",
+  nullptr
+};
+
+const char* const CmpConstantResults[] = {
+  "   0:	2800      	cmp	r0, #0\n",
+  "   2:	2901      	cmp	r1, #1\n",
+  "   4:	2807      	cmp	r0, #7\n",
+  "   6:	2908      	cmp	r1, #8\n",
+  "   8:	28ff      	cmp	r0, #255	; 0xff\n",
+  "   a:	f5b1 7f80 	cmp.w	r1, #256	; 0x100\n",
+  "   e:	f46f 7c80 	mvn.w	ip, #256	; 0x100\n",
+  "  12:	eb10 0f0c 	cmn.w	r0, ip\n",
+  "  16:	f640 7cff 	movw	ip, #4095	; 0xfff\n",
+  "  1a:	4561      	cmp	r1, ip\n",
+  "  1c:	f5b0 5f80 	cmp.w	r0, #4096	; 0x1000\n",
+  "  20:	f46f 5c80 	mvn.w	ip, #4096	; 0x1000\n",
+  "  24:	eb11 0f0c 	cmn.w	r1, ip\n",
+  "  28:	f241 0c02 	movw	ip, #4098	; 0x1002\n",
+  "  2c:	4560      	cmp	r0, ip\n",
+  "  2e:	f64f 7cff 	movw	ip, #65535	; 0xffff\n",
+  "  32:	4561      	cmp	r1, ip\n",
+  "  34:	f5b0 3f80 	cmp.w	r0, #65536	; 0x10000\n",
+  "  38:	f1b1 1f01 	cmp.w	r1, #65537	; 0x10001\n",
+  "  3c:	f06f 1c01 	mvn.w	ip, #65537	; 0x10001\n",
+  "  40:	eb10 0f0c 	cmn.w	r0, ip\n",
+  "  44:	f240 0c03 	movw	ip, #3\n",
+  "  48:	f2c0 0c01 	movt	ip, #1\n",
+  "  4c:	4561      	cmp	r1, ip\n",
+  "  4e:	f1b0 3fff 	cmp.w	r0, #4294967295	; 0xffffffff\n",
+  "  52:	f111 0f07 	cmn.w	r1, #7\n",
+  "  56:	f110 0f08 	cmn.w	r0, #8\n",
+  "  5a:	f111 0fff 	cmn.w	r1, #255	; 0xff\n",
+  "  5e:	f510 7f80 	cmn.w	r0, #256	; 0x100\n",
+  "  62:	f46f 7c80 	mvn.w	ip, #256	; 0x100\n",
+  "  66:	4561      	cmp	r1, ip\n",
+  "  68:	f640 7cff 	movw	ip, #4095	; 0xfff\n",
+  "  6c:	eb10 0f0c 	cmn.w	r0, ip\n",
+  "  70:	f511 5f80 	cmn.w	r1, #4096	; 0x1000\n",
+  "  74:	f46f 5c80 	mvn.w	ip, #4096	; 0x1000\n",
+  "  78:	4560      	cmp	r0, ip\n",
+  "  7a:	f241 0c02 	movw	ip, #4098	; 0x1002\n",
+  "  7e:	eb11 0f0c 	cmn.w	r1, ip\n",
+  "  82:	f64f 7cff 	movw	ip, #65535	; 0xffff\n",
+  "  86:	eb10 0f0c 	cmn.w	r0, ip\n",
+  "  8a:	f511 3f80 	cmn.w	r1, #65536	; 0x10000\n",
+  "  8e:	f110 1f01 	cmn.w	r0, #65537	; 0x10001\n",
+  "  92:	f06f 1c01 	mvn.w	ip, #65537	; 0x10001\n",
+  "  96:	4561      	cmp	r1, ip\n",
+  "  98:	f64f 7cfd 	movw	ip, #65533	; 0xfffd\n",
+  "  9c:	f6cf 7cfe 	movt	ip, #65534	; 0xfffe\n",
+  "  a0:	4560      	cmp	r0, ip\n",
+  "  a2:	f1b8 0f00 	cmp.w	r8, #0\n",
+  "  a6:	f1b9 0f01 	cmp.w	r9, #1\n",
+  "  aa:	f1b8 0f07 	cmp.w	r8, #7\n",
+  "  ae:	f1b9 0f08 	cmp.w	r9, #8\n",
+  "  b2:	f1b8 0fff 	cmp.w	r8, #255	; 0xff\n",
+  "  b6:	f5b9 7f80 	cmp.w	r9, #256	; 0x100\n",
+  "  ba:	f46f 7c80 	mvn.w	ip, #256	; 0x100\n",
+  "  be:	eb18 0f0c 	cmn.w	r8, ip\n",
+  "  c2:	f640 7cff 	movw	ip, #4095	; 0xfff\n",
+  "  c6:	45e1      	cmp	r9, ip\n",
+  "  c8:	f5b8 5f80 	cmp.w	r8, #4096	; 0x1000\n",
+  "  cc:	f46f 5c80 	mvn.w	ip, #4096	; 0x1000\n",
+  "  d0:	eb19 0f0c 	cmn.w	r9, ip\n",
+  "  d4:	f241 0c02 	movw	ip, #4098	; 0x1002\n",
+  "  d8:	45e0      	cmp	r8, ip\n",
+  "  da:	f64f 7cff 	movw	ip, #65535	; 0xffff\n",
+  "  de:	45e1      	cmp	r9, ip\n",
+  "  e0:	f5b8 3f80 	cmp.w	r8, #65536	; 0x10000\n",
+  "  e4:	f1b9 1f01 	cmp.w	r9, #65537	; 0x10001\n",
+  "  e8:	f06f 1c01 	mvn.w	ip, #65537	; 0x10001\n",
+  "  ec:	eb18 0f0c 	cmn.w	r8, ip\n",
+  "  f0:	f240 0c03 	movw	ip, #3\n",
+  "  f4:	f2c0 0c01 	movt	ip, #1\n",
+  "  f8:	45e1      	cmp	r9, ip\n",
+  "  fa:	f1b8 3fff 	cmp.w	r8, #4294967295	; 0xffffffff\n",
+  "  fe:	f119 0f07 	cmn.w	r9, #7\n",
+  " 102:	f118 0f08 	cmn.w	r8, #8\n",
+  " 106:	f119 0fff 	cmn.w	r9, #255	; 0xff\n",
+  " 10a:	f518 7f80 	cmn.w	r8, #256	; 0x100\n",
+  " 10e:	f46f 7c80 	mvn.w	ip, #256	; 0x100\n",
+  " 112:	45e1      	cmp	r9, ip\n",
+  " 114:	f640 7cff 	movw	ip, #4095	; 0xfff\n",
+  " 118:	eb18 0f0c 	cmn.w	r8, ip\n",
+  " 11c:	f519 5f80 	cmn.w	r9, #4096	; 0x1000\n",
+  " 120:	f46f 5c80 	mvn.w	ip, #4096	; 0x1000\n",
+  " 124:	45e0      	cmp	r8, ip\n",
+  " 126:	f241 0c02 	movw	ip, #4098	; 0x1002\n",
+  " 12a:	eb19 0f0c 	cmn.w	r9, ip\n",
+  " 12e:	f64f 7cff 	movw	ip, #65535	; 0xffff\n",
+  " 132:	eb18 0f0c 	cmn.w	r8, ip\n",
+  " 136:	f519 3f80 	cmn.w	r9, #65536	; 0x10000\n",
+  " 13a:	f118 1f01 	cmn.w	r8, #65537	; 0x10001\n",
+  " 13e:	f06f 1c01 	mvn.w	ip, #65537	; 0x10001\n",
+  " 142:	45e1      	cmp	r9, ip\n",
+  " 144:	f64f 7cfd 	movw	ip, #65533	; 0xfffd\n",
+  " 148:	f6cf 7cfe 	movt	ip, #65534	; 0xfffe\n",
+  " 14c:	45e0      	cmp	r8, ip\n",
+  nullptr
+};
+
+std::map<std::string, const char* const*> test_results;
 void setup_results() {
     test_results["SimpleMov"] = SimpleMovResults;
     test_results["SimpleMov32"] = SimpleMov32Results;
@@ -4832,6 +5478,7 @@ void setup_results() {
     test_results["DataProcessingModifiedImmediate"] = DataProcessingModifiedImmediateResults;
     test_results["DataProcessingModifiedImmediates"] = DataProcessingModifiedImmediatesResults;
     test_results["DataProcessingShiftedRegister"] = DataProcessingShiftedRegisterResults;
+    test_results["ShiftImmediate"] = ShiftImmediateResults;
     test_results["BasicLoad"] = BasicLoadResults;
     test_results["BasicStore"] = BasicStoreResults;
     test_results["ComplexLoad"] = ComplexLoadResults;
@@ -4846,6 +5493,7 @@ void setup_results() {
     test_results["StoreMultiple"] = StoreMultipleResults;
     test_results["MovWMovT"] = MovWMovTResults;
     test_results["SpecialAddSub"] = SpecialAddSubResults;
+    test_results["LoadFromOffset"] = LoadFromOffsetResults;
     test_results["StoreToOffset"] = StoreToOffsetResults;
     test_results["IfThen"] = IfThenResults;
     test_results["CbzCbnz"] = CbzCbnzResults;
@@ -4869,4 +5517,7 @@ void setup_results() {
     test_results["LoadStoreRegOffset"] = LoadStoreRegOffsetResults;
     test_results["LoadStoreLiteral"] = LoadStoreLiteralResults;
     test_results["LoadStoreLimits"] = LoadStoreLimitsResults;
+    test_results["CompareAndBranch"] = CompareAndBranchResults;
+    test_results["AddConstant"] = AddConstantResults;
+    test_results["CmpConstant"] = CmpConstantResults;
 }

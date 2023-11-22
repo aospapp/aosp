@@ -16,17 +16,51 @@
 #include <syslog.h>
 #include <fcntl.h>
 #include <sys/socket.h>
+#include <sys/param.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
 #include <math.h>
+#include <errno.h>
 
 #include "utils.h"
+#include "names.h"
 #include "tc_util.h"
+#include "tc_common.h"
 
 #ifndef LIBDIR
 #define LIBDIR "/usr/lib"
 #endif
+
+static struct db_names *cls_names = NULL;
+
+#define NAMES_DB "/etc/iproute2/tc_cls"
+
+int cls_names_init(char *path)
+{
+	int ret;
+
+	cls_names = db_names_alloc();
+	if (!cls_names)
+		return -1;
+
+	ret = db_names_load(cls_names, path ?: NAMES_DB);
+	if (ret == -ENOENT && path) {
+		fprintf(stderr, "Can't open class names file: %s\n", path);
+		return -1;
+	}
+	if (ret) {
+		db_names_free(cls_names);
+		cls_names = NULL;
+	}
+
+	return 0;
+}
+
+void cls_names_uninit(void)
+{
+	db_names_free(cls_names);
+}
 
 const char *get_tc_lib(void)
 {
@@ -94,22 +128,37 @@ ok:
 	return 0;
 }
 
-int print_tc_classid(char *buf, int len, __u32 h)
+int print_tc_classid(char *buf, int blen, __u32 h)
 {
+	SPRINT_BUF(handle) = {};
+	int hlen = SPRINT_BSIZE - 1;
+
 	if (h == TC_H_ROOT)
-		sprintf(buf, "root");
+		sprintf(handle, "root");
 	else if (h == TC_H_UNSPEC)
-		snprintf(buf, len, "none");
+		snprintf(handle, hlen, "none");
 	else if (TC_H_MAJ(h) == 0)
-		snprintf(buf, len, ":%x", TC_H_MIN(h));
+		snprintf(handle, hlen, ":%x", TC_H_MIN(h));
 	else if (TC_H_MIN(h) == 0)
-		snprintf(buf, len, "%x:", TC_H_MAJ(h)>>16);
+		snprintf(handle, hlen, "%x:", TC_H_MAJ(h) >> 16);
 	else
-		snprintf(buf, len, "%x:%x", TC_H_MAJ(h)>>16, TC_H_MIN(h));
+		snprintf(handle, hlen, "%x:%x", TC_H_MAJ(h) >> 16, TC_H_MIN(h));
+
+	if (use_names) {
+		char clname[IDNAME_MAX] = {};
+
+		if (id_to_name(cls_names, h, clname))
+			snprintf(buf, blen, "%s#%s", clname, handle);
+		else
+			snprintf(buf, blen, "%s", handle);
+	} else {
+		snprintf(buf, blen, "%s", handle);
+	}
+
 	return 0;
 }
 
-char * sprint_tc_classid(__u32 h, char *buf)
+char *sprint_tc_classid(__u32 h, char *buf)
 {
 	if (print_tc_classid(buf, SPRINT_BSIZE-1, h))
 		strcpy(buf, "???");
@@ -152,73 +201,72 @@ int get_rate(unsigned *rate, const char *str)
 	if (p == str)
 		return -1;
 
-	if (*p == '\0') {
-		*rate = bps / 8.;	/* assume bytes/sec */
-		return 0;
-	}
-
 	for (s = suffixes; s->name; ++s) {
 		if (strcasecmp(s->name, p) == 0) {
-			*rate = (bps * s->scale) / 8.;
-			return 0;
+			bps *= s->scale;
+			p += strlen(p);
+			break;
 		}
 	}
 
-	return -1;
-}
+	if (*p)
+		return -1; /* unknown suffix */
 
-int get_rate_and_cell(unsigned *rate, int *cell_log, char *str)
-{
-	char * slash = strchr(str, '/');
-
-	if (slash)
-		*slash = 0;
-
-	if (get_rate(rate, str))
+	bps /= 8; /* -> bytes per second */
+	*rate = bps;
+	/* detect if an overflow happened */
+	if (*rate != floor(bps))
 		return -1;
-
-	if (slash) {
-		int cell;
-		int i;
-
-		if (get_integer(&cell, slash+1, 0))
-			return -1;
-		*slash = '/';
-
-		for (i=0; i<32; i++) {
-			if ((1<<i) == cell) {
-				*cell_log = i;
-				return 0;
-			}
-		}
-		return -1;
-	}
 	return 0;
 }
 
-void print_rate(char *buf, int len, __u32 rate)
+int get_rate64(__u64 *rate, const char *str)
 {
-	double tmp = (double)rate*8;
-	extern int use_iec;
+	char *p;
+	double bps = strtod(str, &p);
+	const struct rate_suffix *s;
 
-	if (use_iec) {
-		if (tmp >= 1000.0*1024.0*1024.0)
-			snprintf(buf, len, "%.0fMibit", tmp/(1024.0*1024.0));
-		else if (tmp >= 1000.0*1024)
-			snprintf(buf, len, "%.0fKibit", tmp/1024);
-		else
-			snprintf(buf, len, "%.0fbit", tmp);
-	} else {
-		if (tmp >= 1000.0*1000000.0)
-			snprintf(buf, len, "%.0fMbit", tmp/1000000.0);
-		else if (tmp >= 1000.0 * 1000.0)
-			snprintf(buf, len, "%.0fKbit", tmp/1000.0);
-		else
-			snprintf(buf, len, "%.0fbit",  tmp);
+	if (p == str)
+		return -1;
+
+	for (s = suffixes; s->name; ++s) {
+		if (strcasecmp(s->name, p) == 0) {
+			bps *= s->scale;
+			p += strlen(p);
+			break;
+		}
 	}
+
+	if (*p)
+		return -1; /* unknown suffix */
+
+	bps /= 8; /* -> bytes per second */
+	*rate = bps;
+	return 0;
 }
 
-char * sprint_rate(__u32 rate, char *buf)
+void print_rate(char *buf, int len, __u64 rate)
+{
+	extern int use_iec;
+	unsigned long kilo = use_iec ? 1024 : 1000;
+	const char *str = use_iec ? "i" : "";
+	static char *units[5] = {"", "K", "M", "G", "T"};
+	int i;
+
+	rate <<= 3; /* bytes/sec -> bits/sec */
+
+	for (i = 0; i < ARRAY_SIZE(units) - 1; i++)  {
+		if (rate < kilo)
+			break;
+		if (((rate % kilo) != 0) && rate < 1000*kilo)
+			break;
+		rate /= kilo;
+	}
+
+	snprintf(buf, len, "%.0f%s%sbit", (double)rate, units[i], str);
+}
+
+char * sprint_rate(__u64 rate, char *buf)
 {
 	print_rate(buf, SPRINT_BSIZE-1, rate);
 	return buf;
@@ -485,9 +533,19 @@ void print_tcstats2_attr(FILE *fp, struct rtattr *rta, char *prefix, struct rtat
 			q.drops, q.overlimits, q.requeues);
 	}
 
-	if (tbs[TCA_STATS_RATE_EST]) {
+	if (tbs[TCA_STATS_RATE_EST64]) {
+		struct gnet_stats_rate_est64 re = {0};
+
+		memcpy(&re, RTA_DATA(tbs[TCA_STATS_RATE_EST64]),
+		       MIN(RTA_PAYLOAD(tbs[TCA_STATS_RATE_EST64]),
+			   sizeof(re)));
+		fprintf(fp, "\n%srate %s %llupps ",
+			prefix, sprint_rate(re.bps, b1), re.pps);
+	} else if (tbs[TCA_STATS_RATE_EST]) {
 		struct gnet_stats_rate_est re = {0};
-		memcpy(&re, RTA_DATA(tbs[TCA_STATS_RATE_EST]), MIN(RTA_PAYLOAD(tbs[TCA_STATS_RATE_EST]), sizeof(re)));
+
+		memcpy(&re, RTA_DATA(tbs[TCA_STATS_RATE_EST]),
+		       MIN(RTA_PAYLOAD(tbs[TCA_STATS_RATE_EST]), sizeof(re)));
 		fprintf(fp, "\n%srate %s %upps ",
 			prefix, sprint_rate(re.bps, b1), re.pps);
 	}
@@ -550,4 +608,3 @@ compat_xstats:
 	if (tb[TCA_XSTATS] && xstats)
 		*xstats = tb[TCA_XSTATS];
 }
-

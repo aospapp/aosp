@@ -44,6 +44,8 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 
+import foo.bar.print.R;
+
 /**
  * Simple sample of how to use the print APIs.
  */

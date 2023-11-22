@@ -25,20 +25,22 @@
  *
  ***********************************************************************************/
 
-#include <hardware/bluetooth.h>
-#include <hardware/bt_sdp.h>
+#define LOG_TAG "bt_btif_sdp_server"
+
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
 
-#define LOG_TAG "BTIF_SDP_SERVER"
-#include "allocator.h"
-#include "btif_common.h"
-#include "btif_util.h"
+#include <hardware/bluetooth.h>
+#include <hardware/bt_sdp.h>
+
 #include "bta_sdp_api.h"
 #include "bta_sys.h"
-#include "utl.h"
+#include "btif_common.h"
 #include "btif_sock_util.h"
+#include "btif_util.h"
+#include "osi/include/allocator.h"
+#include "utl.h"
 
 static pthread_mutex_t sdp_lock = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
@@ -184,7 +186,6 @@ void copy_sdp_records(bluetooth_sdp_record* in_records,
  *   user2_ptr. */
 static int alloc_sdp_slot(bluetooth_sdp_record* in_record) {
     int i;
-    char* tmp_ptr = NULL;
     int record_size = get_sdp_records_size(in_record, 1);
     bluetooth_sdp_record* record = osi_malloc(record_size);
 
@@ -271,7 +272,6 @@ static void set_sdp_handle(int id, int handle) {
     BTIF_TRACE_DEBUG("%s() id=%d to handle=0x%08x", __FUNCTION__, id, handle);
 }
 
-
 bt_status_t create_sdp_record(bluetooth_sdp_record *record, int* record_handle) {
     int handle;
 
@@ -281,7 +281,7 @@ bt_status_t create_sdp_record(bluetooth_sdp_record *record, int* record_handle) 
     if(handle < 0)
         return BT_STATUS_FAIL;
 
-    BTA_SdpCreateRecordByUser((void*) handle);
+    BTA_SdpCreateRecordByUser(INT_TO_PTR(handle));
 
     *record_handle = handle;
 
@@ -298,13 +298,12 @@ bt_status_t remove_sdp_record(int record_id) {
 
     /* Pass the actual record handle */
     if(handle > 0) {
-        BTA_SdpRemoveRecordByUser((void*) handle);
+        BTA_SdpRemoveRecordByUser(INT_TO_PTR(handle));
         return BT_STATUS_SUCCESS;
     }
     BTIF_TRACE_DEBUG("Sdp Server %s - record already removed - or never created", __FUNCTION__);
     return BT_STATUS_FAIL;
 }
-
 
 /******************************************************************************
  * CALLBACK FUNCTIONS
@@ -621,7 +620,6 @@ static int add_pbaps_sdp(const bluetooth_sdp_pse_record* rec)
     return sdp_handle;
 }
 
-
 /* Create a OPP Server SDP record based on information stored in a bluetooth_sdp_ops_record */
 static int add_opps_sdp(const bluetooth_sdp_ops_record* rec)
 {
@@ -778,4 +776,3 @@ static int add_saps_sdp(const bluetooth_sdp_sap_record* rec)
     }
     return sdp_handle;
 }
-

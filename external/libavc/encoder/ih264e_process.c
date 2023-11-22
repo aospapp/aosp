@@ -181,7 +181,7 @@ IH264E_ERROR_T ih264e_generate_sps_pps(codec_t *ps_codec)
     ps_entropy->i4_error_code = IH264E_SUCCESS;
 
     /* generate sps */
-    ps_entropy->i4_error_code |= ih264e_generate_sps(ps_bitstrm, ps_sps);
+    ps_entropy->i4_error_code |= ih264e_generate_sps(ps_bitstrm, ps_sps, &ps_codec->s_vui);
 
     /* generate pps */
     ps_entropy->i4_error_code |= ih264e_generate_pps(ps_bitstrm, ps_pps, ps_sps);
@@ -371,7 +371,7 @@ IH264E_ERROR_T ih264e_entropy(process_ctxt_t *ps_proc)
         if (1 == ps_entropy->i4_gen_header)
         {
             /* generate sps */
-            ps_entropy->i4_error_code |= ih264e_generate_sps(ps_bitstrm, ps_sps);
+            ps_entropy->i4_error_code |= ih264e_generate_sps(ps_bitstrm, ps_sps, &ps_codec->s_vui);
 
             /* generate pps */
             ps_entropy->i4_error_code |= ih264e_generate_pps(ps_bitstrm, ps_pps, ps_sps);
@@ -2008,7 +2008,6 @@ WORD32 ih264e_process(process_ctxt_t *ps_proc)
 
             /* force intra refresh ? */
             WORD32 i4_air_enable_inter = (ps_codec->s_cfg.e_air_mode == IVE_AIR_MODE_NONE) ||
-                            (ps_proc->pu1_is_intra_coded[i4_mb_id] != 0) ||
                             (ps_codec->pu2_intr_rfrsh_map[i4_mb_id] != ps_codec->i4_air_pic_cnt);
 
             /* evaluate inter 16x16 modes */

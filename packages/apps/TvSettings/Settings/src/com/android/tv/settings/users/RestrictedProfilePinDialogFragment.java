@@ -16,16 +16,16 @@
 
 package com.android.tv.settings.users;
 
-import android.app.Activity;
 import android.app.Fragment;
 import android.app.admin.DevicePolicyManager;
 import android.content.Context;
+import android.content.pm.UserInfo;
 import android.os.Bundle;
 import android.os.UserHandle;
+import android.os.UserManager;
 import android.preference.PreferenceManager;
 
 import com.android.tv.settings.dialog.PinDialogFragment;
-import com.android.tv.settings.dialog.PinDialogFragment.ResultListener;
 
 public class RestrictedProfilePinDialogFragment extends PinDialogFragment {
 
@@ -38,7 +38,7 @@ public class RestrictedProfilePinDialogFragment extends PinDialogFragment {
     private static final String PREF_DISABLE_PIN_UNTIL =
             "RestrictedProfileActivity$RestrictedProfilePinDialogFragment.disable_pin_until";
 
-    public static RestrictedProfilePinDialogFragment newInstance(int type) {
+    public static RestrictedProfilePinDialogFragment newInstance(@PinDialogType int type) {
         RestrictedProfilePinDialogFragment fragment = new RestrictedProfilePinDialogFragment();
         final Bundle b = new Bundle(1);
         b.putInt(PinDialogFragment.ARG_TYPE, type);
@@ -106,7 +106,9 @@ public class RestrictedProfilePinDialogFragment extends PinDialogFragment {
         }
 
         if (callback != null) {
-            return callback.checkPassword(pin, UserHandle.USER_OWNER);
+            UserInfo myUserInfo = UserManager.get(getActivity()).getUserInfo(UserHandle.myUserId());
+            return myUserInfo != null &&
+                    callback.checkPassword(pin, myUserInfo.restrictedProfileParentId);
         }
         return false;
     }
@@ -125,7 +127,8 @@ public class RestrictedProfilePinDialogFragment extends PinDialogFragment {
         }
 
         if (callback != null) {
-            return UserHandle.myUserId() != UserHandle.USER_OWNER ||
+            UserInfo myUserInfo = UserManager.get(getActivity()).getUserInfo(UserHandle.myUserId());
+            return (myUserInfo != null && myUserInfo.isRestricted()) ||
                     callback.hasLockscreenSecurity();
         } else {
             throw new IllegalStateException("Can't call isPinSet when not attached");

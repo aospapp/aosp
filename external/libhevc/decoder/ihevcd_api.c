@@ -32,8 +32,8 @@
 * - ihevcd_set_default_params()
 * - ihevcd_init()
 * - ihevcd_get_num_rec()
-* - ihevcd_fill_num_mem_rec()
-* - ihevcd_init_mem_rec()
+* - ihevcd_allocate_static_bufs()
+* - ihevcd_create()
 * - ihevcd_retrieve_memrec()
 * - ihevcd_set_display_frame()
 * - ihevcd_set_flush_mode()
@@ -92,12 +92,16 @@
 #include "ihevcd_job_queue.h"
 #include "ihevcd_statistics.h"
 
+
+#define ALIGNED_FREE(ps_codec, y) \
+if(y) {ps_codec->pf_aligned_free(ps_codec->pv_mem_ctxt, ((void *)y)); (y) = NULL;}
+
 /*****************************************************************************/
 /* Function Prototypes                                                       */
 /*****************************************************************************/
 IV_API_CALL_STATUS_T ihevcd_get_version(CHAR *pc_version_string,
                                         UWORD32 u4_version_buffer_size);
-
+WORD32 ihevcd_free_dynamic_bufs(codec_t *ps_codec);
 
 
 /**
@@ -133,7 +137,7 @@ static IV_API_CALL_STATUS_T api_check_struct_sanity(iv_obj_t *ps_handle,
     IVD_API_COMMAND_TYPE_T e_cmd;
     UWORD32 *pu4_api_ip;
     UWORD32 *pu4_api_op;
-    WORD32 i, j;
+    WORD32 i;
 
     if(NULL == pv_api_op)
         return (IV_FAIL);
@@ -149,31 +153,14 @@ static IV_API_CALL_STATUS_T api_check_struct_sanity(iv_obj_t *ps_handle,
     /* error checks on handle */
     switch((WORD32)e_cmd)
     {
-        case IV_CMD_GET_NUM_MEM_REC:
-        case IV_CMD_FILL_NUM_MEM_REC:
+        case IVD_CMD_CREATE:
             break;
-        case IV_CMD_INIT:
-            if(ps_handle == NULL)
-            {
-                *(pu4_api_op + 1) |= 1 << IVD_UNSUPPORTEDPARAM;
-                *(pu4_api_op + 1) |= IVD_HANDLE_NULL;
-                return IV_FAIL;
-            }
 
-            if(ps_handle->u4_size != sizeof(iv_obj_t))
-            {
-                *(pu4_api_op + 1) |= 1 << IVD_UNSUPPORTEDPARAM;
-                *(pu4_api_op + 1) |= IVD_HANDLE_STRUCT_SIZE_INCORRECT;
-                DEBUG("Sizes do not match. Expected: %d, Got: %d",
-                                sizeof(iv_obj_t), ps_handle->u4_size);
-                return IV_FAIL;
-            }
-            break;
         case IVD_CMD_REL_DISPLAY_FRAME:
         case IVD_CMD_SET_DISPLAY_FRAME:
         case IVD_CMD_GET_DISPLAY_FRAME:
         case IVD_CMD_VIDEO_DECODE:
-        case IV_CMD_RETRIEVE_MEMREC:
+        case IVD_CMD_DELETE:
         case IVD_CMD_VIDEO_CTL:
             if(ps_handle == NULL)
             {
@@ -205,538 +192,55 @@ static IV_API_CALL_STATUS_T api_check_struct_sanity(iv_obj_t *ps_handle,
 
     switch((WORD32)e_cmd)
     {
-        case IV_CMD_GET_NUM_MEM_REC:
+        case IVD_CMD_CREATE:
         {
-            ihevcd_cxa_num_mem_rec_ip_t *ps_ip =
-                            (ihevcd_cxa_num_mem_rec_ip_t *)pv_api_ip;
-            ihevcd_cxa_num_mem_rec_op_t *ps_op =
-                            (ihevcd_cxa_num_mem_rec_op_t *)pv_api_op;
-            ps_op->s_ivd_num_mem_rec_op_t.u4_error_code = 0;
+            ihevcd_cxa_create_ip_t *ps_ip = (ihevcd_cxa_create_ip_t *)pv_api_ip;
+            ihevcd_cxa_create_op_t *ps_op = (ihevcd_cxa_create_op_t *)pv_api_op;
 
-            if(ps_ip->s_ivd_num_mem_rec_ip_t.u4_size
-                            != sizeof(ihevcd_cxa_num_mem_rec_ip_t))
+
+            ps_op->s_ivd_create_op_t.u4_error_code = 0;
+
+            if((ps_ip->s_ivd_create_ip_t.u4_size > sizeof(ihevcd_cxa_create_ip_t))
+                            || (ps_ip->s_ivd_create_ip_t.u4_size
+                                            < sizeof(ivd_create_ip_t)))
             {
-                ps_op->s_ivd_num_mem_rec_op_t.u4_error_code |= 1
+                ps_op->s_ivd_create_op_t.u4_error_code |= 1
                                 << IVD_UNSUPPORTEDPARAM;
-                ps_op->s_ivd_num_mem_rec_op_t.u4_error_code |=
+                ps_op->s_ivd_create_op_t.u4_error_code |=
                                 IVD_IP_API_STRUCT_SIZE_INCORRECT;
+
                 return (IV_FAIL);
             }
 
-            if(ps_op->s_ivd_num_mem_rec_op_t.u4_size
-                            != sizeof(ihevcd_cxa_num_mem_rec_op_t))
+            if((ps_op->s_ivd_create_op_t.u4_size != sizeof(ihevcd_cxa_create_op_t))
+                            && (ps_op->s_ivd_create_op_t.u4_size
+                                            != sizeof(ivd_create_op_t)))
             {
-                ps_op->s_ivd_num_mem_rec_op_t.u4_error_code |= 1
+                ps_op->s_ivd_create_op_t.u4_error_code |= 1
                                 << IVD_UNSUPPORTEDPARAM;
-                ps_op->s_ivd_num_mem_rec_op_t.u4_error_code |=
+                ps_op->s_ivd_create_op_t.u4_error_code |=
                                 IVD_OP_API_STRUCT_SIZE_INCORRECT;
-                return (IV_FAIL);
-            }
-        }
-            break;
-        case IV_CMD_FILL_NUM_MEM_REC:
-        {
-            ihevcd_cxa_fill_mem_rec_ip_t *ps_ip =
-                            (ihevcd_cxa_fill_mem_rec_ip_t *)pv_api_ip;
-            ihevcd_cxa_fill_mem_rec_op_t *ps_op =
-                            (ihevcd_cxa_fill_mem_rec_op_t *)pv_api_op;
-            iv_mem_rec_t *ps_mem_rec;
-            WORD32 max_wd = ps_ip->s_ivd_fill_mem_rec_ip_t.u4_max_frm_wd;
-            WORD32 max_ht = ps_ip->s_ivd_fill_mem_rec_ip_t.u4_max_frm_ht;
 
-            max_wd = ALIGN64(max_wd);
-            max_ht = ALIGN64(max_ht);
-
-            ps_op->s_ivd_fill_mem_rec_op_t.u4_error_code = 0;
-
-            if((ps_ip->s_ivd_fill_mem_rec_ip_t.u4_size
-                            > sizeof(ihevcd_cxa_fill_mem_rec_ip_t))
-                            || (ps_ip->s_ivd_fill_mem_rec_ip_t.u4_size
-                                            < sizeof(iv_fill_mem_rec_ip_t)))
-            {
-                ps_op->s_ivd_fill_mem_rec_op_t.u4_error_code |= 1
-                                << IVD_UNSUPPORTEDPARAM;
-                ps_op->s_ivd_fill_mem_rec_op_t.u4_error_code |=
-                                IVD_IP_API_STRUCT_SIZE_INCORRECT;
                 return (IV_FAIL);
             }
 
-            if((ps_op->s_ivd_fill_mem_rec_op_t.u4_size
-                            != sizeof(ihevcd_cxa_fill_mem_rec_op_t))
-                            && (ps_op->s_ivd_fill_mem_rec_op_t.u4_size
-                                            != sizeof(iv_fill_mem_rec_op_t)))
-            {
-                ps_op->s_ivd_fill_mem_rec_op_t.u4_error_code |= 1
-                                << IVD_UNSUPPORTEDPARAM;
-                ps_op->s_ivd_fill_mem_rec_op_t.u4_error_code |=
-                                IVD_OP_API_STRUCT_SIZE_INCORRECT;
-                return (IV_FAIL);
-            }
 
-            if(max_wd < MIN_WD)
-            {
-                ps_op->s_ivd_fill_mem_rec_op_t.u4_error_code |= 1
-                                << IVD_UNSUPPORTEDPARAM;
-                ps_op->s_ivd_fill_mem_rec_op_t.u4_error_code |=
-                                IVD_REQUESTED_WIDTH_NOT_SUPPPORTED;
-                return (IV_FAIL);
-            }
-
-            if(max_wd > MAX_WD)
-            {
-                ps_op->s_ivd_fill_mem_rec_op_t.u4_error_code |= 1
-                                << IVD_UNSUPPORTEDPARAM;
-                ps_op->s_ivd_fill_mem_rec_op_t.u4_error_code |=
-                                IVD_REQUESTED_WIDTH_NOT_SUPPPORTED;
-                return (IV_FAIL);
-            }
-
-            if(max_ht < MIN_HT)
-            {
-                ps_op->s_ivd_fill_mem_rec_op_t.u4_error_code |= 1
-                                << IVD_UNSUPPORTEDPARAM;
-                ps_op->s_ivd_fill_mem_rec_op_t.u4_error_code |=
-                                IVD_REQUESTED_HEIGHT_NOT_SUPPPORTED;
-                return (IV_FAIL);
-            }
-
-            if((max_ht * max_wd) > (MAX_HT * MAX_WD))
-
-            {
-                ps_op->s_ivd_fill_mem_rec_op_t.u4_error_code |= 1
-                                << IVD_UNSUPPORTEDPARAM;
-                ps_op->s_ivd_fill_mem_rec_op_t.u4_error_code |=
-                                IVD_REQUESTED_HEIGHT_NOT_SUPPPORTED;
-                return (IV_FAIL);
-            }
-
-            if(NULL == ps_ip->s_ivd_fill_mem_rec_ip_t.pv_mem_rec_location)
-            {
-                ps_op->s_ivd_fill_mem_rec_op_t.u4_error_code |= 1
-                                << IVD_UNSUPPORTEDPARAM;
-                ps_op->s_ivd_fill_mem_rec_op_t.u4_error_code |=
-                                IVD_NUM_REC_NOT_SUFFICIENT;
-                return (IV_FAIL);
-            }
-
-            /* check memrecords sizes are correct */
-            ps_mem_rec = ps_ip->s_ivd_fill_mem_rec_ip_t.pv_mem_rec_location;
-            for(i = 0; i < MEM_REC_CNT; i++)
-            {
-                if(ps_mem_rec[i].u4_size != sizeof(iv_mem_rec_t))
-                {
-                    ps_op->s_ivd_fill_mem_rec_op_t.u4_error_code |= 1
-                                    << IVD_UNSUPPORTEDPARAM;
-                    ps_op->s_ivd_fill_mem_rec_op_t.u4_error_code |=
-                                    IVD_MEM_REC_STRUCT_SIZE_INCORRECT;
-                    return IV_FAIL;
-                }
-            }
-        }
-            break;
-
-        case IV_CMD_INIT:
-        {
-            ihevcd_cxa_init_ip_t *ps_ip = (ihevcd_cxa_init_ip_t *)pv_api_ip;
-            ihevcd_cxa_init_op_t *ps_op = (ihevcd_cxa_init_op_t *)pv_api_op;
-            iv_mem_rec_t *ps_mem_rec;
-            WORD32 max_wd = ps_ip->s_ivd_init_ip_t.u4_frm_max_wd;
-            WORD32 max_ht = ps_ip->s_ivd_init_ip_t.u4_frm_max_ht;
-
-            max_wd = ALIGN64(max_wd);
-            max_ht = ALIGN64(max_ht);
-
-            ps_op->s_ivd_init_op_t.u4_error_code = 0;
-
-            if((ps_ip->s_ivd_init_ip_t.u4_size > sizeof(ihevcd_cxa_init_ip_t))
-                            || (ps_ip->s_ivd_init_ip_t.u4_size
-                                            < sizeof(ivd_init_ip_t)))
-            {
-                ps_op->s_ivd_init_op_t.u4_error_code |= 1
-                                << IVD_UNSUPPORTEDPARAM;
-                ps_op->s_ivd_init_op_t.u4_error_code |=
-                                IVD_IP_API_STRUCT_SIZE_INCORRECT;
-                DEBUG("\n");
-                return (IV_FAIL);
-            }
-
-            if((ps_op->s_ivd_init_op_t.u4_size != sizeof(ihevcd_cxa_init_op_t))
-                            && (ps_op->s_ivd_init_op_t.u4_size
-                                            != sizeof(ivd_init_op_t)))
-            {
-                ps_op->s_ivd_init_op_t.u4_error_code |= 1
-                                << IVD_UNSUPPORTEDPARAM;
-                ps_op->s_ivd_init_op_t.u4_error_code |=
-                                IVD_OP_API_STRUCT_SIZE_INCORRECT;
-                DEBUG("\n");
-                return (IV_FAIL);
-            }
-
-            if(ps_ip->s_ivd_init_ip_t.u4_num_mem_rec != MEM_REC_CNT)
-            {
-                ps_op->s_ivd_init_op_t.u4_error_code |= 1
-                                << IVD_UNSUPPORTEDPARAM;
-                ps_op->s_ivd_init_op_t.u4_error_code |=
-                                IVD_INIT_DEC_NOT_SUFFICIENT;
-                DEBUG("\n");
-                return (IV_FAIL);
-            }
-
-            if(max_wd < MIN_WD)
-            {
-                ps_op->s_ivd_init_op_t.u4_error_code |= 1
-                                << IVD_UNSUPPORTEDPARAM;
-                ps_op->s_ivd_init_op_t.u4_error_code |=
-                                IVD_INIT_DEC_WIDTH_NOT_SUPPPORTED;
-                DEBUG("\n");
-                return (IV_FAIL);
-            }
-
-            if(max_wd > MAX_WD)
-            {
-                ps_op->s_ivd_init_op_t.u4_error_code |= 1
-                                << IVD_UNSUPPORTEDPARAM;
-                ps_op->s_ivd_init_op_t.u4_error_code |=
-                                IVD_INIT_DEC_WIDTH_NOT_SUPPPORTED;
-                DEBUG("\n");
-                return (IV_FAIL);
-            }
-
-            if(max_ht < MIN_HT)
-            {
-                ps_op->s_ivd_init_op_t.u4_error_code |= 1
-                                << IVD_UNSUPPORTEDPARAM;
-                ps_op->s_ivd_init_op_t.u4_error_code |=
-                                IVD_INIT_DEC_HEIGHT_NOT_SUPPPORTED;
-                DEBUG("\n");
-                return (IV_FAIL);
-            }
-
-            if((max_ht * max_wd) > (MAX_HT * MAX_WD))
-
-            {
-                ps_op->s_ivd_init_op_t.u4_error_code |= 1
-                                << IVD_UNSUPPORTEDPARAM;
-                ps_op->s_ivd_init_op_t.u4_error_code |=
-                                IVD_INIT_DEC_HEIGHT_NOT_SUPPPORTED;
-                DEBUG("\n");
-                return (IV_FAIL);
-            }
-
-            if(NULL == ps_ip->s_ivd_init_ip_t.pv_mem_rec_location)
-            {
-                ps_op->s_ivd_init_op_t.u4_error_code |= 1
-                                << IVD_UNSUPPORTEDPARAM;
-                ps_op->s_ivd_init_op_t.u4_error_code |=
-                                IVD_NUM_REC_NOT_SUFFICIENT;
-                DEBUG("\n");
-                return (IV_FAIL);
-            }
-
-            if((ps_ip->s_ivd_init_ip_t.e_output_format != IV_YUV_420P)
-                            && (ps_ip->s_ivd_init_ip_t.e_output_format
+            if((ps_ip->s_ivd_create_ip_t.e_output_format != IV_YUV_420P)
+                            && (ps_ip->s_ivd_create_ip_t.e_output_format
                                             != IV_YUV_422ILE)
-                            && (ps_ip->s_ivd_init_ip_t.e_output_format
+                            && (ps_ip->s_ivd_create_ip_t.e_output_format
                                             != IV_RGB_565)
-                            && (ps_ip->s_ivd_init_ip_t.e_output_format
-                                            != IV_RGBA_8888)
-                            && (ps_ip->s_ivd_init_ip_t.e_output_format
+                            && (ps_ip->s_ivd_create_ip_t.e_output_format
                                             != IV_YUV_420SP_UV)
-                            && (ps_ip->s_ivd_init_ip_t.e_output_format
+                            && (ps_ip->s_ivd_create_ip_t.e_output_format
                                             != IV_YUV_420SP_VU))
             {
-                ps_op->s_ivd_init_op_t.u4_error_code |= 1
+                ps_op->s_ivd_create_op_t.u4_error_code |= 1
                                 << IVD_UNSUPPORTEDPARAM;
-                ps_op->s_ivd_init_op_t.u4_error_code |=
+                ps_op->s_ivd_create_op_t.u4_error_code |=
                                 IVD_INIT_DEC_COL_FMT_NOT_SUPPORTED;
-                DEBUG("\n");
+
                 return (IV_FAIL);
-            }
-
-            /* verify number of mem records */
-            if(ps_ip->s_ivd_init_ip_t.u4_num_mem_rec < MEM_REC_CNT)
-            {
-                ps_op->s_ivd_init_op_t.u4_error_code |= 1
-                                << IVD_UNSUPPORTEDPARAM;
-                ps_op->s_ivd_init_op_t.u4_error_code |=
-                                IVD_INIT_DEC_MEM_REC_NOT_SUFFICIENT;
-                DEBUG("\n");
-                return IV_FAIL;
-            }
-
-            ps_mem_rec = ps_ip->s_ivd_init_ip_t.pv_mem_rec_location;
-            /* check memrecords sizes are correct */
-            for(i = 0; i < (WORD32)ps_ip->s_ivd_init_ip_t.u4_num_mem_rec; i++)
-            {
-                if(ps_mem_rec[i].u4_size != sizeof(iv_mem_rec_t))
-                {
-                    ps_op->s_ivd_init_op_t.u4_error_code |= 1
-                                    << IVD_UNSUPPORTEDPARAM;
-                    ps_op->s_ivd_init_op_t.u4_error_code |=
-                                    IVD_MEM_REC_STRUCT_SIZE_INCORRECT;
-                    DEBUG("i: %d\n", i);
-                    return IV_FAIL;
-                }
-                /* check memrecords pointers are not NULL */
-
-                if(ps_mem_rec[i].pv_base == NULL)
-                {
-
-                    ps_op->s_ivd_init_op_t.u4_error_code |= 1
-                                    << IVD_UNSUPPORTEDPARAM;
-                    ps_op->s_ivd_init_op_t.u4_error_code |=
-                                    IVD_INIT_DEC_MEM_REC_BASE_NULL;
-                    DEBUG("i: %d\n", i);
-                    return IV_FAIL;
-
-                }
-
-            }
-
-            /* verify memtabs for overlapping regions */
-            {
-                void *start[MEM_REC_CNT];
-                void *end[MEM_REC_CNT];
-
-                start[0] = (ps_mem_rec[0].pv_base);
-                end[0] = (UWORD8 *)(ps_mem_rec[0].pv_base)
-                                + ps_mem_rec[0].u4_mem_size - 1;
-                for(i = 1; i < MEM_REC_CNT; i++)
-                {
-                    /* This array is populated to check memtab overlapp */
-                    start[i] = (ps_mem_rec[i].pv_base);
-                    end[i] = (UWORD8 *)(ps_mem_rec[i].pv_base)
-                                    + ps_mem_rec[i].u4_mem_size - 1;
-
-                    for(j = 0; j < i; j++)
-                    {
-                        if((start[i] >= start[j]) && (start[i] <= end[j]))
-                        {
-                            ps_op->s_ivd_init_op_t.u4_error_code |= 1
-                                            << IVD_UNSUPPORTEDPARAM;
-                            ps_op->s_ivd_init_op_t.u4_error_code |=
-                                            IVD_INIT_DEC_MEM_REC_OVERLAP_ERR;
-                            DEBUG("i: %d, j: %d\n", i, j);
-                            return IV_FAIL;
-                        }
-
-                        if((end[i] >= start[j]) && (end[i] <= end[j]))
-                        {
-                            ps_op->s_ivd_init_op_t.u4_error_code |= 1
-                                            << IVD_UNSUPPORTEDPARAM;
-                            ps_op->s_ivd_init_op_t.u4_error_code |=
-                                            IVD_INIT_DEC_MEM_REC_OVERLAP_ERR;
-                            DEBUG("i: %d, j: %d\n", i, j);
-                            return IV_FAIL;
-                        }
-
-                        if((start[i] < start[j]) && (end[i] > end[j]))
-                        {
-                            ps_op->s_ivd_init_op_t.u4_error_code |= 1
-                                            << IVD_UNSUPPORTEDPARAM;
-                            ps_op->s_ivd_init_op_t.u4_error_code |=
-                                            IVD_INIT_DEC_MEM_REC_OVERLAP_ERR;
-                            DEBUG("i: %d, j: %d\n", i, j);
-                            return IV_FAIL;
-                        }
-                    }
-
-                }
-            }
-
-            {
-                iv_mem_rec_t mem_rec_ittiam_api[MEM_REC_CNT];
-                ihevcd_cxa_fill_mem_rec_ip_t s_fill_mem_rec_ip;
-                ihevcd_cxa_fill_mem_rec_op_t s_fill_mem_rec_op;
-                IV_API_CALL_STATUS_T e_status;
-
-                WORD32 i;
-                s_fill_mem_rec_ip.s_ivd_fill_mem_rec_ip_t.e_cmd =
-                                IV_CMD_FILL_NUM_MEM_REC;
-                s_fill_mem_rec_ip.s_ivd_fill_mem_rec_ip_t.pv_mem_rec_location =
-                                mem_rec_ittiam_api;
-                s_fill_mem_rec_ip.s_ivd_fill_mem_rec_ip_t.u4_max_frm_wd =
-                                max_wd;
-                s_fill_mem_rec_ip.s_ivd_fill_mem_rec_ip_t.u4_max_frm_ht =
-                                max_ht;
-
-                if(ps_ip->s_ivd_init_ip_t.u4_size
-                                > offsetof(ihevcd_cxa_init_ip_t, i4_level))
-                {
-                    s_fill_mem_rec_ip.i4_level = ps_ip->i4_level;
-                }
-                else
-                {
-                    s_fill_mem_rec_ip.i4_level = IHEVC_LEVEL_31;
-                }
-
-                if(ps_ip->s_ivd_init_ip_t.u4_size
-                                > offsetof(ihevcd_cxa_init_ip_t,
-                                           u4_num_ref_frames))
-                {
-                    s_fill_mem_rec_ip.u4_num_ref_frames =
-                                    ps_ip->u4_num_ref_frames;
-                }
-                else
-                {
-                    s_fill_mem_rec_ip.u4_num_ref_frames = (MAX_REF_CNT + 1);
-                }
-
-                if(ps_ip->s_ivd_init_ip_t.u4_size
-                                > offsetof(ihevcd_cxa_init_ip_t,
-                                           u4_num_reorder_frames))
-                {
-                    s_fill_mem_rec_ip.u4_num_reorder_frames =
-                                    ps_ip->u4_num_reorder_frames;
-                }
-                else
-                {
-                    s_fill_mem_rec_ip.u4_num_reorder_frames = (MAX_REF_CNT + 1);
-                }
-
-                if(ps_ip->s_ivd_init_ip_t.u4_size
-                                > offsetof(ihevcd_cxa_init_ip_t,
-                                           u4_num_extra_disp_buf))
-                {
-                    s_fill_mem_rec_ip.u4_num_extra_disp_buf =
-                                    ps_ip->u4_num_extra_disp_buf;
-                }
-                else
-                {
-                    s_fill_mem_rec_ip.u4_num_extra_disp_buf = 0;
-                }
-
-                if(ps_ip->s_ivd_init_ip_t.u4_size
-                                > offsetof(ihevcd_cxa_init_ip_t,
-                                           u4_share_disp_buf))
-                {
-#ifndef LOGO_EN
-                    s_fill_mem_rec_ip.u4_share_disp_buf =
-                                    ps_ip->u4_share_disp_buf;
-#else
-                    s_fill_mem_rec_ip.u4_share_disp_buf = 0;
-#endif
-                }
-                else
-                {
-                    s_fill_mem_rec_ip.u4_share_disp_buf = 0;
-                }
-
-                s_fill_mem_rec_ip.e_output_format =
-                                ps_ip->s_ivd_init_ip_t.e_output_format;
-
-                if((s_fill_mem_rec_ip.e_output_format != IV_YUV_420P)
-                                && (s_fill_mem_rec_ip.e_output_format
-                                                != IV_YUV_420SP_UV)
-                                && (s_fill_mem_rec_ip.e_output_format
-                                                != IV_YUV_420SP_VU))
-                {
-                    s_fill_mem_rec_ip.u4_share_disp_buf = 0;
-                }
-
-                s_fill_mem_rec_ip.s_ivd_fill_mem_rec_ip_t.u4_size =
-                                sizeof(ihevcd_cxa_fill_mem_rec_ip_t);
-                s_fill_mem_rec_op.s_ivd_fill_mem_rec_op_t.u4_size =
-                                sizeof(ihevcd_cxa_fill_mem_rec_op_t);
-
-                for(i = 0; i < MEM_REC_CNT; i++)
-                    mem_rec_ittiam_api[i].u4_size = sizeof(iv_mem_rec_t);
-
-                e_status = ihevcd_cxa_api_function(NULL,
-                                                   (void *)&s_fill_mem_rec_ip,
-                                                   (void *)&s_fill_mem_rec_op);
-                if(IV_FAIL == e_status)
-                {
-                    ps_op->s_ivd_init_op_t.u4_error_code =
-                                    s_fill_mem_rec_op.s_ivd_fill_mem_rec_op_t.u4_error_code;
-                    DEBUG("Fail\n");
-                    return (IV_FAIL);
-                }
-
-                for(i = 0; i < MEM_REC_CNT; i++)
-                {
-#ifdef ARMRVDS
-                    if((UWORD32)(ps_mem_rec[i].pv_base) & (mem_rec_ittiam_api[i].u4_mem_alignment - 1))
-                    {
-                        ps_op->s_ivd_init_op_t.u4_error_code |= 1 << IVD_UNSUPPORTEDPARAM;
-                        ps_op->s_ivd_init_op_t.u4_error_code |= IVD_INIT_DEC_MEM_REC_ALIGNMENT_ERR;
-                        DEBUG("Fail\n");
-                        return IV_FAIL;
-                    }
-#endif
-
-                    if(ps_mem_rec[i].u4_mem_size
-                                    < mem_rec_ittiam_api[i].u4_mem_size)
-                    {
-                        ps_op->s_ivd_init_op_t.u4_error_code |= 1
-                                        << IVD_UNSUPPORTEDPARAM;
-                        ps_op->s_ivd_init_op_t.u4_error_code |=
-                                        IVD_INIT_DEC_MEM_REC_INSUFFICIENT_SIZE;
-                        DEBUG("i: %d \n", i);
-                        return IV_FAIL;
-                    }
-                    if(ps_mem_rec[i].u4_mem_alignment
-                                    != mem_rec_ittiam_api[i].u4_mem_alignment)
-                    {
-                        ps_op->s_ivd_init_op_t.u4_error_code |= 1
-                                        << IVD_UNSUPPORTEDPARAM;
-                        ps_op->s_ivd_init_op_t.u4_error_code |=
-                                        IVD_INIT_DEC_MEM_REC_ALIGNMENT_ERR;
-                        DEBUG("i: %d \n", i);
-                        return IV_FAIL;
-                    }
-                    if(ps_mem_rec[i].e_mem_type
-                                    != mem_rec_ittiam_api[i].e_mem_type)
-                    {
-                        UWORD32 check = IV_SUCCESS;
-                        UWORD32 diff = mem_rec_ittiam_api[i].e_mem_type
-                                        - ps_mem_rec[i].e_mem_type;
-
-                        if((ps_mem_rec[i].e_mem_type
-                                        <= IV_EXTERNAL_CACHEABLE_SCRATCH_MEM)
-                                        && (mem_rec_ittiam_api[i].e_mem_type
-                                                        >= IV_INTERNAL_NONCACHEABLE_PERSISTENT_MEM))
-                        {
-                            check = IV_FAIL;
-                        }
-                        if(3 != (mem_rec_ittiam_api[i].e_mem_type % 4))
-                        {
-                            /*
-                             * It is not IV_EXTERNAL_NONCACHEABLE_PERSISTENT_MEM or IV_EXTERNAL_CACHEABLE_PERSISTENT_MEM
-                             */
-                            if((diff < 1) || (diff > 3))
-                            {
-                                // Difference between 1 and 3 is okay for all cases other than the two filtered
-                                // with the MOD condition above
-                                check = IV_FAIL;
-                            }
-                        }
-                        else
-                        {
-                            if(diff == 1)
-                            {
-                                /*
-                                 * This particular case is when codec asked for External Persistent, but got
-                                 * Internal Scratch.
-                                 */
-                                check = IV_FAIL;
-                            }
-                            if((diff != 2) && (diff != 3))
-                            {
-                                check = IV_FAIL;
-                            }
-                        }
-                        if(check == IV_FAIL)
-                        {
-                            ps_op->s_ivd_init_op_t.u4_error_code |= 1
-                                            << IVD_UNSUPPORTEDPARAM;
-                            ps_op->s_ivd_init_op_t.u4_error_code |=
-                                            IVD_INIT_DEC_MEM_REC_INCORRECT_TYPE;
-                            DEBUG("i: %d \n", i);
-                            return IV_FAIL;
-                        }
-                    }
-                }
             }
 
         }
@@ -939,49 +443,35 @@ static IV_API_CALL_STATUS_T api_check_struct_sanity(iv_obj_t *ps_handle,
         }
             break;
 
-        case IV_CMD_RETRIEVE_MEMREC:
+        case IVD_CMD_DELETE:
         {
-            ihevcd_cxa_retrieve_mem_rec_ip_t *ps_ip =
-                            (ihevcd_cxa_retrieve_mem_rec_ip_t *)pv_api_ip;
-            ihevcd_cxa_retrieve_mem_rec_op_t *ps_op =
-                            (ihevcd_cxa_retrieve_mem_rec_op_t *)pv_api_op;
-            iv_mem_rec_t *ps_mem_rec;
+            ihevcd_cxa_delete_ip_t *ps_ip =
+                            (ihevcd_cxa_delete_ip_t *)pv_api_ip;
+            ihevcd_cxa_delete_op_t *ps_op =
+                            (ihevcd_cxa_delete_op_t *)pv_api_op;
 
-            ps_op->s_ivd_retrieve_mem_rec_op_t.u4_error_code = 0;
+            ps_op->s_ivd_delete_op_t.u4_error_code = 0;
 
-            if(ps_ip->s_ivd_retrieve_mem_rec_ip_t.u4_size
-                            != sizeof(ihevcd_cxa_retrieve_mem_rec_ip_t))
+            if(ps_ip->s_ivd_delete_ip_t.u4_size
+                            != sizeof(ihevcd_cxa_delete_ip_t))
             {
-                ps_op->s_ivd_retrieve_mem_rec_op_t.u4_error_code |= 1
+                ps_op->s_ivd_delete_op_t.u4_error_code |= 1
                                 << IVD_UNSUPPORTEDPARAM;
-                ps_op->s_ivd_retrieve_mem_rec_op_t.u4_error_code |=
+                ps_op->s_ivd_delete_op_t.u4_error_code |=
                                 IVD_IP_API_STRUCT_SIZE_INCORRECT;
                 return (IV_FAIL);
             }
 
-            if(ps_op->s_ivd_retrieve_mem_rec_op_t.u4_size
-                            != sizeof(ihevcd_cxa_retrieve_mem_rec_op_t))
+            if(ps_op->s_ivd_delete_op_t.u4_size
+                            != sizeof(ihevcd_cxa_delete_op_t))
             {
-                ps_op->s_ivd_retrieve_mem_rec_op_t.u4_error_code |= 1
+                ps_op->s_ivd_delete_op_t.u4_error_code |= 1
                                 << IVD_UNSUPPORTEDPARAM;
-                ps_op->s_ivd_retrieve_mem_rec_op_t.u4_error_code |=
+                ps_op->s_ivd_delete_op_t.u4_error_code |=
                                 IVD_OP_API_STRUCT_SIZE_INCORRECT;
                 return (IV_FAIL);
             }
 
-            ps_mem_rec = ps_ip->s_ivd_retrieve_mem_rec_ip_t.pv_mem_rec_location;
-            /* check memrecords sizes are correct */
-            for(i = 0; i < MEM_REC_CNT; i++)
-            {
-                if(ps_mem_rec[i].u4_size != sizeof(iv_mem_rec_t))
-                {
-                    ps_op->s_ivd_retrieve_mem_rec_op_t.u4_error_code |= 1
-                                    << IVD_UNSUPPORTEDPARAM;
-                    ps_op->s_ivd_retrieve_mem_rec_op_t.u4_error_code |=
-                                    IVD_MEM_REC_STRUCT_SIZE_INCORRECT;
-                    return IV_FAIL;
-                }
-            }
         }
             break;
 
@@ -1480,7 +970,7 @@ void ihevcd_update_function_ptr(codec_t *ps_codec)
 *******************************************************************************
 *
 * @brief
-*  Initialize the context. This will be called by  init_mem_rec and during
+*  Initialize the context. This will be called by  create and during
 * reset
 *
 * @par Description:
@@ -1501,12 +991,15 @@ WORD32 ihevcd_init(codec_t *ps_codec)
     WORD32 status = IV_SUCCESS;
     WORD32 i;
 
+    /* Free any dynamic buffers that are allocated */
+    ihevcd_free_dynamic_bufs(ps_codec);
 
+    ps_codec->u4_allocate_dynamic_done = 0;
     ps_codec->i4_num_disp_bufs = 1;
     ps_codec->i4_flush_mode = 0;
 
-    ps_codec->i4_ht = ps_codec->i4_disp_ht = ps_codec->i4_max_ht;
-    ps_codec->i4_wd = ps_codec->i4_disp_wd = ps_codec->i4_max_wd;
+    ps_codec->i4_ht = ps_codec->i4_disp_ht = 0;
+    ps_codec->i4_wd = ps_codec->i4_disp_wd = 0;
     ps_codec->i4_strd = 0;
     ps_codec->i4_disp_strd = 0;
     ps_codec->i4_num_cores = 1;
@@ -1572,23 +1065,6 @@ WORD32 ihevcd_init(codec_t *ps_codec)
     }
 
     ihevcd_set_default_params(ps_codec);
-    ps_codec->pv_proc_jobq = ihevcd_jobq_init(ps_codec->pv_proc_jobq_buf, ps_codec->i4_proc_jobq_buf_size);
-    RETURN_IF((ps_codec->pv_proc_jobq == NULL), IV_FAIL);
-
-    /* Update the jobq context to all the threads */
-    ps_codec->s_parse.pv_proc_jobq = ps_codec->pv_proc_jobq;
-    for(i = 0; i < MAX_PROCESS_THREADS; i++)
-    {
-        ps_codec->as_process[i].pv_proc_jobq = ps_codec->pv_proc_jobq;
-        ps_codec->as_process[i].i4_id = i;
-        ps_codec->as_process[i].ps_codec = ps_codec;
-
-        /* Set the following to zero assuming it is a single core solution
-         * When threads are launched these will be set appropriately
-         */
-        ps_codec->as_process[i].i4_check_parse_status = 0;
-        ps_codec->as_process[i].i4_check_proc_status = 0;
-    }
     /* Initialize MV Bank buffer manager */
     ihevc_buf_mgr_init((buf_mgr_t *)ps_codec->pv_mv_buf_mgr);
 
@@ -1623,11 +1099,10 @@ WORD32 ihevcd_init(codec_t *ps_codec)
 *******************************************************************************
 *
 * @brief
-*  Gets number of memory records required by the codec
+*  Allocate static memory for the codec
 *
 * @par Description:
-*  Gets codec mem record requirements and adds concealment  modules
-* requirements
+*  Allocates static memory for the codec
 *
 * @param[in] pv_api_ip
 *  Pointer to input argument structure
@@ -1642,1104 +1117,178 @@ WORD32 ihevcd_init(codec_t *ps_codec)
 *
 *******************************************************************************
 */
-WORD32 ihevcd_get_num_rec(void *pv_api_ip, void *pv_api_op)
+WORD32 ihevcd_allocate_static_bufs(iv_obj_t **pps_codec_obj,
+                                   ihevcd_cxa_create_ip_t *ps_create_ip,
+                                   ihevcd_cxa_create_op_t *ps_create_op)
 {
-
-    iv_num_mem_rec_op_t *ps_mem_q_op;
-
-    UNUSED(pv_api_ip);
-    ps_mem_q_op = (iv_num_mem_rec_op_t *)pv_api_op;
-    ps_mem_q_op->u4_num_mem_rec = MEM_REC_CNT;
-    DEBUG("Get num mem records without concealment %d\n",
-                    ps_mem_q_op->u4_num_mem_rec);
-#ifdef APPLY_CONCEALMENT
-    {
-        IV_API_CALL_STATUS_T status;
-        icncl_num_mem_rec_ip_t cncl_mem_ip;
-        icncl_num_mem_rec_op_t cncl_mem_op;
-
-        cncl_mem_ip.s_ivd_num_rec_ip_t.e_cmd = IV_CMD_GET_NUM_MEM_REC;
-        cncl_mem_ip.s_ivd_num_rec_ip_t.u4_size = sizeof(icncl_num_mem_rec_ip_t);
-
-        status = icncl_api_function(NULL, (void *)&cncl_mem_ip, (void *)&cncl_mem_op);
-
-        if(status == IV_SUCCESS)
-        {
-            /* Add the concealment library's memory requirements */
-            ps_mem_q_op->u4_num_mem_rec += cncl_mem_op.s_ivd_num_mem_rec_op_t.u4_num_mem_rec;
-            DEBUG("Get num mem records %d\n", ps_mem_q_op->u4_num_mem_rec);
-            return status; /* Nothing else to do, return */
-        }
-        else
-        {
-            /*
-             * Something went wrong with the concealment library call.
-             */
-            DEBUG("ERROR: Get num mem records %d\n", ps_mem_q_op->u4_num_mem_rec);
-            return status;
-        }
-
-    }
-#endif //APPLY_CONCEALMENT
-
-
-    return IV_SUCCESS;
-
-}
-
-/**
-*******************************************************************************
-*
-* @brief
-*  Fills memory requirements of the codec
-*
-* @par Description:
-*  Gets codec mem record requirements and adds concealment  modules
-* requirements
-*
-* @param[in] pv_api_ip
-*  Pointer to input argument structure
-*
-* @param[out] pv_api_op
-*  Pointer to output argument structure
-*
-* @returns  Status
-*
-* @remarks
-*
-*
-*******************************************************************************
-*/
-WORD32 ihevcd_fill_num_mem_rec(void *pv_api_ip, void *pv_api_op)
-{
-
-    ihevcd_cxa_fill_mem_rec_ip_t *ps_mem_q_ip;
-    ihevcd_cxa_fill_mem_rec_op_t *ps_mem_q_op;
-    WORD32 level;
-    WORD32 num_reorder_frames;
-    WORD32 num_ref_frames;
-    WORD32 num_extra_disp_bufs;
-    WORD32 max_dpb_size;
-
-    iv_mem_rec_t *ps_mem_rec;
-    iv_mem_rec_t *ps_mem_rec_base;
-    WORD32 no_of_mem_rec_filled;
-    WORD32 chroma_format, share_disp_buf;
-    WORD32 max_ctb_cnt;
-    WORD32 max_wd_luma, max_wd_chroma;
-    WORD32 max_ht_luma, max_ht_chroma;
-    WORD32 max_tile_cols, max_tile_rows;
-    WORD32 max_ctb_rows, max_ctb_cols;
-    WORD32 max_num_cu_cols;
+    WORD32 size;
+    void *pv_buf;
+    UWORD8 *pu1_buf;
     WORD32 i;
-    WORD32 max_num_4x4_cols;
+    codec_t *ps_codec;
     IV_API_CALL_STATUS_T status = IV_SUCCESS;
-    no_of_mem_rec_filled = 0;
-
-    //TODO: Remove as and when the following are used
-    UNUSED(num_extra_disp_bufs);
-    UNUSED(no_of_mem_rec_filled);
-    UNUSED(max_wd_chroma);
-    UNUSED(max_ht_chroma);
-
-    ps_mem_q_ip = (ihevcd_cxa_fill_mem_rec_ip_t *)pv_api_ip;
-    ps_mem_q_op = (ihevcd_cxa_fill_mem_rec_op_t *)pv_api_op;
-
-    if(ps_mem_q_ip->s_ivd_fill_mem_rec_ip_t.u4_size
-                    > offsetof(ihevcd_cxa_fill_mem_rec_ip_t, i4_level))
-    {
-        level = ps_mem_q_ip->i4_level;
-        /* Spec requires level should be multiplied by 30
-         * API has values where level is multiplied by 10. This keeps it consistent with H264
-         * Because of the above differences, level is multiplied by 3 here.
-         */
-        level *= 3;
-    }
-    else
-    {
-        level = MAX_LEVEL;
-    }
-
-    if(ps_mem_q_ip->s_ivd_fill_mem_rec_ip_t.u4_size
-                    > offsetof(ihevcd_cxa_fill_mem_rec_ip_t,
-                               u4_num_reorder_frames))
-    {
-        num_reorder_frames = ps_mem_q_ip->u4_num_reorder_frames;
-    }
-    else
-    {
-        num_reorder_frames = MAX_REF_CNT;
-    }
-
-    if(ps_mem_q_ip->s_ivd_fill_mem_rec_ip_t.u4_size
-                    > offsetof(ihevcd_cxa_fill_mem_rec_ip_t, u4_num_ref_frames))
-    {
-        num_ref_frames = ps_mem_q_ip->u4_num_ref_frames;
-    }
-    else
-    {
-        num_ref_frames = MAX_REF_CNT;
-    }
-
-    if(ps_mem_q_ip->s_ivd_fill_mem_rec_ip_t.u4_size
-                    > offsetof(ihevcd_cxa_fill_mem_rec_ip_t,
-                               u4_num_extra_disp_buf))
-    {
-        num_extra_disp_bufs = ps_mem_q_ip->u4_num_extra_disp_buf;
-    }
-    else
-    {
-        num_extra_disp_bufs = 0;
-    }
-
-    if(ps_mem_q_ip->s_ivd_fill_mem_rec_ip_t.u4_size
-                    > offsetof(ihevcd_cxa_fill_mem_rec_ip_t, u4_share_disp_buf))
-    {
-#ifndef LOGO_EN
-        share_disp_buf = ps_mem_q_ip->u4_share_disp_buf;
-#else
-        share_disp_buf = 0;
-#endif
-    }
-    else
-    {
-        share_disp_buf = 0;
-    }
-
-    if(ps_mem_q_ip->s_ivd_fill_mem_rec_ip_t.u4_size
-                    > offsetof(ihevcd_cxa_fill_mem_rec_ip_t, e_output_format))
-    {
-        chroma_format = ps_mem_q_ip->e_output_format;
-    }
-    else
-    {
-        chroma_format = -1;
-    }
-
-    /* Shared disp buffer mode is supported only for 420SP formats */
-    if((chroma_format != IV_YUV_420P) &&
-       (chroma_format != IV_YUV_420SP_UV) &&
-       (chroma_format != IV_YUV_420SP_VU))
-    {
-        share_disp_buf = 0;
-    }
-
-    {
-
-        max_ht_luma = ps_mem_q_ip->s_ivd_fill_mem_rec_ip_t.u4_max_frm_ht;
-        max_wd_luma = ps_mem_q_ip->s_ivd_fill_mem_rec_ip_t.u4_max_frm_wd;
-
-        max_ht_luma = ALIGN64(max_ht_luma);
-        max_wd_luma = ALIGN64(max_wd_luma);
-
-
-
-        max_tile_cols = (max_wd_luma + MIN_TILE_WD - 1) / MIN_TILE_WD;
-        max_tile_rows = (max_ht_luma + MIN_TILE_HT - 1) / MIN_TILE_HT;
-        max_ctb_rows  = max_ht_luma / MIN_CTB_SIZE;
-        max_ctb_cols  = max_wd_luma / MIN_CTB_SIZE;
-        max_ctb_cnt   = max_ctb_rows * max_ctb_cols;
-        max_num_cu_cols = max_wd_luma / MIN_CU_SIZE;
-        max_num_4x4_cols = max_wd_luma / 4;
-    }
-    /*
-     * If level is lesser than 31 and the resolution required is higher,
-     * then make the level at least 31.
-     */
-    /*    if (num_mbs > MAX_NUM_MBS_3_0 && level < MAX_LEVEL)
-     {
-     level           = MAX_LEVEL;
-     }
-     */
-    if((level < MIN_LEVEL) || (level > MAX_LEVEL))
-    {
-        ps_mem_q_op->s_ivd_fill_mem_rec_op_t.u4_error_code |=
-                        IHEVCD_LEVEL_UNSUPPORTED;
-        level = MAX_LEVEL;
-    }
-    if(num_ref_frames > MAX_REF_CNT)
-    {
-        ps_mem_q_op->s_ivd_fill_mem_rec_op_t.u4_error_code |=
-                        IHEVCD_NUM_REF_UNSUPPORTED;
-        num_ref_frames = MAX_REF_CNT;
-    }
-
-    if(num_reorder_frames > MAX_REF_CNT)
-    {
-        ps_mem_q_op->s_ivd_fill_mem_rec_op_t.u4_error_code |=
-                        IHEVCD_NUM_REORDER_UNSUPPORTED;
-        num_reorder_frames = MAX_REF_CNT;
-    }
-
-    max_dpb_size = ihevcd_get_dpb_size(level, max_wd_luma * max_ht_luma);
-    ps_mem_rec_base = ps_mem_q_ip->s_ivd_fill_mem_rec_ip_t.pv_mem_rec_location;
-
-    /* Set all memory reconds as persistent and alignment as 128
-     * by default
-     */
-    ps_mem_rec = ps_mem_rec_base;
-    for(i = 0; i < MEM_REC_CNT; i++)
-    {
-        ps_mem_rec->u4_mem_alignment = 128;
-        ps_mem_rec->e_mem_type = IV_EXTERNAL_CACHEABLE_PERSISTENT_MEM;
-        ps_mem_rec++;
-    }
+    void *(*pf_aligned_alloc)(void *pv_mem_ctxt, WORD32 alignment, WORD32 size);
+    void (*pf_aligned_free)(void *pv_mem_ctxt, void *pv_buf);
+    void *pv_mem_ctxt;
 
     /* Request memory for HEVCD object */
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_IV_OBJ];
-    ps_mem_rec->u4_mem_size = sizeof(iv_obj_t);
+    ps_create_op->s_ivd_create_op_t.pv_handle = NULL;
 
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_IV_OBJ,
-                    ps_mem_rec->u4_mem_size);
+    pf_aligned_alloc = ps_create_ip->s_ivd_create_ip_t.pf_aligned_alloc;
+    pf_aligned_free = ps_create_ip->s_ivd_create_ip_t.pf_aligned_free;
+    pv_mem_ctxt  = ps_create_ip->s_ivd_create_ip_t.pv_mem_ctxt;
 
-    /* Request memory for HEVC Codec context */
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_CODEC];
-    ps_mem_rec->u4_mem_size = sizeof(codec_t);
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_CODEC,
-                    ps_mem_rec->u4_mem_size);
 
-    /* Request memory for buffer which holds bitstream after emulation prevention */
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_BITSBUF];
-    ps_mem_rec->u4_mem_size = MAX((max_wd_luma * max_ht_luma), MIN_BITSBUF_SIZE);
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_BITSBUF,
-                    ps_mem_rec->u4_mem_size);
+    pv_buf = pf_aligned_alloc(pv_mem_ctxt, 128, sizeof(iv_obj_t));
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    *pps_codec_obj = (iv_obj_t *)pv_buf;
+    ps_create_op->s_ivd_create_op_t.pv_handle = *pps_codec_obj;
 
-    /* Request memory for buffer which holds TU structures and coeff data for
-     * a set of CTBs in the current picture */
-    /*TODO Currently the buffer is allocated at a frame level. Reduce this to
-     * allocate for s set of CTBs and add appropriate synchronization logic to
-     * ensure that this is data is not overwritten before consumption
-     */
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_TU_DATA];
-    ps_mem_rec->u4_mem_size = ihevcd_get_tu_data_size(max_wd_luma * max_ht_luma);
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_TU_DATA,
-                    ps_mem_rec->u4_mem_size);
 
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_MVBANK];
+    (*pps_codec_obj)->pv_codec_handle = NULL;
+    pv_buf = pf_aligned_alloc(pv_mem_ctxt, 128, sizeof(codec_t));
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    (*pps_codec_obj)->pv_codec_handle = (codec_t *)pv_buf;
+    ps_codec = (codec_t *)pv_buf;
 
-    ps_mem_rec->u4_mem_size = sizeof(buf_mgr_t);
-
-    /* Size for holding mv_buf_t for each MV Bank */
-    /* Note this allocation is done for BUF_MGR_MAX_CNT instead of
-     * max_dpb_size or MAX_DPB_SIZE for following reasons
-     * max_dpb_size will be based on max_wd and max_ht
-     * For higher max_wd and max_ht this number will be smaller than MAX_DPB_SIZE
-     * But during actual initialization number of buffers allocated can be more
-     *
-     * One extra MV Bank is needed to hold current pics MV bank.
-     * Since this is only a structure allocation and not actual buffer allocation,
-     * it is allocated for (MAX_DPB_SIZE + 1) entries
-     */
-    ps_mem_rec->u4_mem_size += (MAX_DPB_SIZE + 1) * sizeof(mv_buf_t);
-
-    {
-        /* Allocate for pu_map, pu_t and pic_pu_idx for each MV bank */
-        /* Note: Number of luma samples is not max_wd * max_ht here, instead it is
-         * set to maximum number of luma samples allowed at the given level.
-         * This is done to ensure that any stream with width and height lesser
-         * than max_wd and max_ht is supported. Number of buffers required can be greater
-         * for lower width and heights at a given level and this increased number of buffers
-         * might require more memory than what max_wd and max_ht buffer would have required
-         * Also note one extra buffer is allocted to store current pictures MV bank
-         * In case of asynchronous parsing and processing, number of buffers should increase here
-         * based on when parsing and processing threads are synchronized
-         */
-        WORD32 lvl_idx = ihevcd_get_lvl_idx(level);
-        WORD32 max_luma_samples = gai4_ihevc_max_luma_pic_size[lvl_idx];
-        ps_mem_rec->u4_mem_size += (max_dpb_size + 1) *
-                        ihevcd_get_pic_mv_bank_size(max_luma_samples);
-        DEBUG("\nMemory record Id %d = %d \n", MEM_REC_MVBANK,
-                        ps_mem_rec->u4_mem_size);
-    }
-    // TODO GPU : Have to creat ping-pong view for VPS,SPS,PPS.
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_VPS];
-    ps_mem_rec->u4_mem_size = MAX_VPS_CNT * sizeof(vps_t);
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_VPS,
-                    ps_mem_rec->u4_mem_size);
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_SPS];
-    ps_mem_rec->u4_mem_size = MAX_SPS_CNT * sizeof(sps_t);
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_SPS,
-                    ps_mem_rec->u4_mem_size);
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_PPS];
-    ps_mem_rec->u4_mem_size = MAX_PPS_CNT * sizeof(pps_t);
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_PPS,
-                    ps_mem_rec->u4_mem_size);
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_SLICE_HDR];
-    ps_mem_rec->u4_mem_size = MAX_SLICE_HDR_CNT * sizeof(slice_header_t);
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_SLICE_HDR,
-                    ps_mem_rec->u4_mem_size);
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_TILE];
-    {
-        WORD32 tile_size;
-
-        tile_size  = max_tile_cols * max_tile_rows;
-        tile_size  *= sizeof(tile_t);
-
-
-        ps_mem_rec->u4_mem_size = MAX_PPS_CNT * tile_size;
-    }
-
-
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_TILE,
-                    ps_mem_rec->u4_mem_size);
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_ENTRY_OFST];
-    {
-        WORD32 num_entry_points;
-
-        /* One entry point per tile */
-        num_entry_points  = max_tile_cols * max_tile_rows;
-
-        /* One entry point per row of CTBs */
-        /*********************************************************************/
-        /* Only tiles or entropy sync is enabled at a time in main           */
-        /* profile, but since memory required does not increase too much,    */
-        /* this allocation is done to handle both cases                      */
-        /*********************************************************************/
-        num_entry_points  += max_ctb_rows;
-
-
-        ps_mem_rec->u4_mem_size = sizeof(WORD32) * num_entry_points;
-    }
-
-
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_ENTRY_OFST,
-                    ps_mem_rec->u4_mem_size);
-
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_SCALING_MAT];
-    {
-        WORD32 scaling_mat_size;
-
-        SCALING_MAT_SIZE(scaling_mat_size)
-        ps_mem_rec->u4_mem_size = (MAX_SPS_CNT + MAX_PPS_CNT) * scaling_mat_size * sizeof(WORD16);
-    }
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_SCALING_MAT,
-                    ps_mem_rec->u4_mem_size);
-
-    /* Holds one row skip_flag at 8x8 level used during parsing */
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_PARSE_SKIP_FLAG];
-
-    /* 1 bit per 8x8 */
-    ps_mem_rec->u4_mem_size = max_num_cu_cols / 8;
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_PARSE_SKIP_FLAG,
-                  ps_mem_rec->u4_mem_size);
-
-    /* Holds one row skip_flag at 8x8 level used during parsing */
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_PARSE_CT_DEPTH];
-
-    /* 2 bits per 8x8 */
-    ps_mem_rec->u4_mem_size = max_num_cu_cols / 4;
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_PARSE_CT_DEPTH,
-                  ps_mem_rec->u4_mem_size);
-
-    /* Holds one row skip_flag at 8x8 level used during parsing */
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_PARSE_INTRA_PRED_MODE];
-
-    /* 8 bits per 4x4 */
-    /* 16 bytes each for top and left 64 pixels and 16 bytes for default mode */
-    ps_mem_rec->u4_mem_size = 3 * 16 * sizeof(UWORD8);
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_PARSE_INTRA_PRED_MODE,
-                  ps_mem_rec->u4_mem_size);
-
-    /* Holds one intra mode at 8x8 level for entire picture */
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_INTRA_FLAG];
-
-    /* 1 bit per 8x8 */
-    ps_mem_rec->u4_mem_size = (max_wd_luma / MIN_CU_SIZE) * (max_ht_luma / MIN_CU_SIZE) / 8;
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_INTRA_FLAG,
-                  ps_mem_rec->u4_mem_size);
-
-    /* Holds one transquant bypass flag at 8x8 level for entire picture */
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_TRANSQUANT_BYPASS_FLAG];
-
-    /* 1 bit per 8x8 */
-    /* Extra row and column are allocated for easy processing of top and left blocks while loop filtering */
-    ps_mem_rec->u4_mem_size = ((max_wd_luma + 64) / MIN_CU_SIZE) * ((max_ht_luma + 64) / MIN_CU_SIZE) / 8;
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_TRANSQUANT_BYPASS_FLAG,
-                  ps_mem_rec->u4_mem_size);
-
-    /* Request memory to hold thread handles for each processing thread */
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_THREAD_HANDLE];
-    ps_mem_rec->u4_mem_size = MAX_PROCESS_THREADS * ithread_get_handle_size();
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_THREAD_HANDLE,
-                    ps_mem_rec->u4_mem_size);
-
-
-    {
-        WORD32 job_queue_size;
-        WORD32 num_jobs;
-        ps_mem_rec = &ps_mem_rec_base[MEM_REC_PROC_JOBQ];
-
-
-        /* One job per row of CTBs */
-        num_jobs  = max_ctb_rows;
-
-        /* One each tile a row of CTBs, num_jobs has to incremented */
-        num_jobs  *= max_tile_cols;
-
-        /* One format convert/frame copy job per row of CTBs for non-shared mode*/
-        num_jobs  += max_ctb_rows;
-
-
-        job_queue_size = ihevcd_jobq_ctxt_size();
-        job_queue_size += num_jobs * sizeof(proc_job_t);
-        ps_mem_rec->u4_mem_size = job_queue_size;
-        DEBUG("\nMemory record Id %d = %d \n", MEM_REC_PROC_JOBQ,
-                        ps_mem_rec->u4_mem_size);
-    }
-
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_PARSE_MAP];
-    ps_mem_rec->u4_mem_size = max_ctb_cnt;
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_PARSE_MAP,
-                    ps_mem_rec->u4_mem_size);
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_PROC_MAP];
-    ps_mem_rec->u4_mem_size = max_ctb_cnt;
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_PROC_MAP,
-                    ps_mem_rec->u4_mem_size);
-
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_DISP_MGR];
-
-    /* size for holding display manager context */
-    ps_mem_rec->u4_mem_size = sizeof(buf_mgr_t);
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_DISP_MGR,
-                    ps_mem_rec->u4_mem_size);
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_DPB_MGR];
-
-    /* size for holding dpb manager context */
-    ps_mem_rec->u4_mem_size = sizeof(dpb_mgr_t);
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_DPB_MGR,
-                    ps_mem_rec->u4_mem_size);
-
-    /** Holds top and left neighbor's pu idx into picture level pu array */
-    /* Only one top row is enough but left has to be replicated for each process context */
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_PIC_PU_IDX_NEIGHBOR];
-
-    ps_mem_rec->u4_mem_size = (max_num_4x4_cols  /* left */ + MAX_PROCESS_THREADS * (MAX_CTB_SIZE / 4)/* top */ + 1/* top right */) * sizeof(WORD32);
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_PIC_PU_IDX_NEIGHBOR,
-                    ps_mem_rec->u4_mem_size);
-
-
-
-    /* TO hold scratch buffers needed for each process context */
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_PROC_SCRATCH];
-    {
-        WORD32 size = 0;
-        WORD32 inter_pred_tmp_buf_size;
-        WORD32 ntaps_luma;
-        WORD32 pu_map_size;
-        WORD32 sao_size = 0;
-        ntaps_luma = 8;
-
-        /* Max inter pred size (number of bytes) */
-        inter_pred_tmp_buf_size = sizeof(WORD16) * (MAX_CTB_SIZE + ntaps_luma) * MAX_CTB_SIZE;
-        inter_pred_tmp_buf_size = ALIGN64(inter_pred_tmp_buf_size);
-
-
-        /* To hold pu_index w.r.t. frame level pu_t array for a CTB at 4x4 level*/
-        /* 16 x 16 4x4 in a CTB of size 64 x 64 and two extra needed for holding
-         * neighbors
-         */
-        pu_map_size = sizeof(WORD32) * (18 * 18);
-
-        pu_map_size = ALIGN64(pu_map_size);
-        size += pu_map_size;
-
-        /* To hold inter pred temporary buffers */
-        size += 2 * inter_pred_tmp_buf_size;
-
-
-        /* Allocate for each process context */
-        size *= MAX_PROCESS_THREADS;
-
-
-        /* To hold SAO left buffer for luma */
-        sao_size += sizeof(UWORD8) * (MAX(max_ht_luma, max_wd_luma));
-
-        /* To hold SAO left buffer for chroma */
-        sao_size += sizeof(UWORD8) * (MAX(max_ht_luma, max_wd_luma));
-
-        /* To hold SAO top buffer for luma */
-        sao_size += sizeof(UWORD8) * max_wd_luma;
-
-        /* To hold SAO top buffer for chroma */
-        sao_size += sizeof(UWORD8) * max_wd_luma;
-
-        /* To hold SAO top left luma pixel value for last output ctb in a row*/
-        sao_size += sizeof(UWORD8) * max_ctb_rows;
-
-        /* To hold SAO top left chroma pixel value last output ctb in a row*/
-        sao_size += sizeof(UWORD8) * max_ctb_rows * 2;
-
-        /* To hold SAO top left pixel luma for current ctb - column array*/
-        sao_size += sizeof(UWORD8) * max_ctb_rows;
-
-        /* To hold SAO top left pixel chroma for current ctb-column array*/
-        sao_size += sizeof(UWORD8) * max_ctb_rows * 2;
-
-        /* To hold SAO top right pixel luma pixel value last output ctb in a row*/
-        sao_size += sizeof(UWORD8) * max_ctb_cols;
-
-        /* To hold SAO top right pixel chroma pixel value last output ctb in a row*/
-        sao_size += sizeof(UWORD8) * max_ctb_cols * 2;
-
-        /*To hold SAO botton bottom left pixels for luma*/
-        sao_size += sizeof(UWORD8) * max_ctb_rows;
-
-        /*To hold SAO botton bottom left pixels for luma*/
-        sao_size += sizeof(UWORD8) * max_ctb_rows * 2;
-        sao_size = ALIGN64(sao_size);
-        size += sao_size;
-        ps_mem_rec->u4_mem_size = size;
-    }
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_PROC_SCRATCH,
-                    ps_mem_rec->u4_mem_size);
-
-    /* TO hold scratch buffers needed for each SAO context */
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_SAO_SCRATCH];
-    {
-        WORD32 size = 0;
-
-        size = 4 * MAX_CTB_SIZE * MAX_CTB_SIZE;
-
-        /* 2 temporary buffers*/
-        size *= 2;
-
-        size *= MAX_PROCESS_THREADS;
-
-        ps_mem_rec->u4_mem_size = size;
-    }
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_SAO_SCRATCH,
-                    ps_mem_rec->u4_mem_size);
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_BS_QP];
-    {
-        WORD32 size = 0;
-        WORD32 vert_bs_size, horz_bs_size;
-        WORD32 qp_const_flag_size;
-        WORD32 qp_size, num_8x8;
-
-        /* Max Number of vertical edges */
-        vert_bs_size = max_wd_luma / 8 + 2 * MAX_CTB_SIZE / 8;
-
-        /* Max Number of horizontal edges - extra MAX_CTB_SIZE / 8 to handle the last 4 rows separately(shifted CTB processing) */
-        vert_bs_size *= (max_ht_luma + MAX_CTB_SIZE) / MIN_TU_SIZE;
-
-        /* Number of bytes */
-        vert_bs_size /= 8;
-
-        /* Two bits per edge */
-        vert_bs_size *= 2;
-
-        /* Max Number of horizontal edges */
-        horz_bs_size = max_ht_luma / 8 + MAX_CTB_SIZE / 8;
-
-        /* Max Number of vertical edges - extra MAX_CTB_SIZE / 8 to handle the last 4 columns separately(shifted CTB processing) */
-        horz_bs_size *= (max_wd_luma + MAX_CTB_SIZE) / MIN_TU_SIZE;
-
-        /* Number of bytes */
-        horz_bs_size /= 8;
-
-        /* Two bits per edge */
-        horz_bs_size *= 2;
-
-        /* Max CTBs in a row */
-        qp_const_flag_size = max_wd_luma / MIN_CTB_SIZE + 1 /* The last ctb row deblk is done in last ctb + 1 row.*/;
-
-        /* Max CTBs in a column */
-        qp_const_flag_size *= max_ht_luma / MIN_CTB_SIZE;
-
-        /* Number of bytes */
-        qp_const_flag_size = (qp_const_flag_size + 7) >> 3;
-
-        /* QP changes at CU level - So store at 8x8 level */
-        num_8x8 = (max_ht_luma * max_wd_luma) / (MIN_CU_SIZE * MIN_CU_SIZE);
-        qp_size = num_8x8;
-
-        /* To hold vertical boundary strength */
-        size += vert_bs_size;
-
-        /* To hold horizontal boundary strength */
-        size += horz_bs_size;
-
-        /* To hold QP */
-        size += qp_size;
-
-        /* To hold QP const in CTB flags */
-        size += qp_const_flag_size;
-
-        ps_mem_rec->u4_mem_size = size;
-    }
-
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_BS_QP,
-                    ps_mem_rec->u4_mem_size);
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_TILE_IDX];
-    {
-        WORD32 size = 0;
-        /* Max CTBs in a row */
-        size  = max_wd_luma / MIN_CTB_SIZE + 2 /* Top row and bottom row extra. This ensures accessing left,top in first row
-                                                  and right in last row will not result in invalid access*/;
-        /* Max CTBs in a column */
-        size *= max_ht_luma / MIN_CTB_SIZE;
-
-        size *= sizeof(UWORD16);
-        ps_mem_rec->u4_mem_size = size;
-    }
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_TILE_IDX,
-                    ps_mem_rec->u4_mem_size);
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_SAO];
-    {
-        UWORD32 size;
-
-        /* 4 bytes per color component per CTB */
-        size = 3 * 4;
-
-        /* MAX number of CTBs in a row */
-        size *= max_wd_luma / MIN_CTB_SIZE;
-
-        /* MAX number of CTBs in a column */
-        size *= max_ht_luma / MIN_CTB_SIZE;
-        ps_mem_rec->u4_mem_size = size;
-    }
-
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_SAO,
-                    ps_mem_rec->u4_mem_size);
-
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_REF_PIC];
-
-    /* size for holding buffer manager context */
-    ps_mem_rec->u4_mem_size = sizeof(buf_mgr_t);
-
-    /* Size for holding pic_buf_t for each reference picture */
-    /* Note this allocation is done for BUF_MGR_MAX_CNT instead of
-     * max_dpb_size or MAX_DPB_SIZE for following reasons
-     * max_dpb_size will be based on max_wd and max_ht
-     * For higher max_wd and max_ht this number will be smaller than MAX_DPB_SIZE
-     * But during actual initialization number of buffers allocated can be more
-     *
-     * Also to handle display depth application can allocate more than what
-     * codec asks for in case of non-shared mode
-     * Since this is only a structure allocation and not actual buffer allocation,
-     * it is allocated for BUF_MGR_MAX_CNT entries
-     */
-    ps_mem_rec->u4_mem_size += BUF_MGR_MAX_CNT * sizeof(pic_buf_t);
-
-    /* In case of non-shared mode allocate for reference picture buffers */
-    /* In case of shared and 420p output, allocate for chroma samples */
-    if((0 == share_disp_buf) || (chroma_format == IV_YUV_420P))
-    {
-        UWORD32 init_num_bufs;
-        UWORD32 init_extra_bufs;
-        WORD32 chroma_only;
-
-        chroma_only = 0;
-        init_extra_bufs = 0;
-        init_num_bufs = num_reorder_frames + num_ref_frames + 1;
-
-        /* In case of shared display buffers and chroma format 420P
-         * Allocate for chroma in reference buffers, luma buffer will be display buffer
-         */
-
-        if((1 == share_disp_buf) && (chroma_format == IV_YUV_420P))
-        {
-            chroma_only = 1;
-            init_extra_bufs = num_extra_disp_bufs;
-        }
-
-        /* Note: Number of luma samples is not max_wd * max_ht here, instead it is
-         * set to maximum number of luma samples allowed at the given level.
-         * This is done to ensure that any stream with width and height lesser
-         * than max_wd and max_ht is supported. Number of buffers required can be greater
-         * for lower width and heights at a given level and this increased number of buffers
-         * might require more memory than what max_wd and max_ht buffer would have required
-         * Number of buffers is doubled in order to return one frame at a time instead of sending
-         * multiple outputs during dpb full case.
-         * Also note one extra buffer is allocted to store current picture
-         * In case of asynchronous parsing and processing, number of buffers should increase here
-         * based on when parsing and processing threads are synchronized
-         */
-        ps_mem_rec->u4_mem_size +=
-                        ihevcd_get_total_pic_buf_size(max_wd_luma * max_ht_luma, level,  PAD_WD,  PAD_HT,
-                                                      init_num_bufs, init_extra_bufs, chroma_only);
-    }
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_REF_PIC,
-                    ps_mem_rec->u4_mem_size);
-
-    /* Request memory to hold mem records to be returned during retrieve call */
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_BACKUP];
-    ps_mem_rec->u4_mem_size = MEM_REC_CNT * sizeof(iv_mem_rec_t);
-    DEBUG("\nMemory record Id %d = %d \n", MEM_REC_BACKUP,
-                    ps_mem_rec->u4_mem_size);
-
-    /* Each memtab size is aligned to next multiple of 128 bytes */
-    /* This is to ensure all the memtabs start at different cache lines */
-    ps_mem_rec = ps_mem_rec_base;
-    for(i = 0; i < MEM_REC_CNT; i++)
-    {
-        ps_mem_rec->u4_mem_size = ALIGN128(ps_mem_rec->u4_mem_size);
-        ps_mem_rec++;
-    }
-    ps_mem_q_op->s_ivd_fill_mem_rec_op_t.u4_num_mem_rec_filled = MEM_REC_CNT;
-#ifdef APPLY_CONCEALMENT
-    {
-        IV_API_CALL_STATUS_T status;
-        icncl_fill_mem_rec_ip_t cncl_fill_ip;
-        icncl_fill_mem_rec_op_t cncl_fill_op;
-        UWORD8 mem_loc = MEM_REC_CNT;
-
-        cncl_fill_ip.s_ivd_fill_mem_rec_ip_t.e_cmd = IV_CMD_FILL_NUM_MEM_REC;
-        cncl_fill_ip.s_ivd_fill_mem_rec_ip_t.pv_mem_rec_location = &(memTab[mem_loc]);
-        cncl_fill_ip.s_ivd_fill_mem_rec_ip_t.u4_size = ps_mem_q_ip->s_ivd_fill_mem_rec_ip_t.u4_size;
-        cncl_fill_ip.s_ivd_fill_mem_rec_ip_t.u4_max_frm_wd = max_wd_luma;
-        cncl_fill_ip.s_ivd_fill_mem_rec_ip_t.u4_max_frm_ht = max_ht_luma;
-
-        status = icncl_api_function(NULL, (void *)&cncl_fill_ip, (void *)&cncl_fill_op);
-
-        if(IV_SUCCESS == status)
-        {
-            icncl_num_mem_rec_ip_t cncl_mem_ip;
-            icncl_num_mem_rec_op_t cncl_mem_op;
-
-            cncl_mem_ip.s_ivd_num_rec_ip_t.e_cmd = IV_CMD_GET_NUM_MEM_REC;
-            cncl_mem_ip.s_ivd_num_rec_ip_t.u4_size = sizeof(icncl_num_mem_rec_ip_t);
-
-            status = icncl_api_function(NULL, (void *)&cncl_mem_ip, (void *)&cncl_mem_op);
-            if(IV_SUCCESS == status)
-            {
-                ps_mem_q_op->s_ivd_fill_mem_rec_op_t.u4_num_mem_rec_filled += cncl_mem_op.s_ivd_num_mem_rec_op_t.u4_num_mem_rec;
-            }
-        }
-
-        return status;
-
-    }
-#endif //APPLY_CONCEALMENT
-    DEBUG("Num mem recs in fill call : %d\n",
-                    ps_mem_q_op->s_ivd_fill_mem_rec_op_t.u4_num_mem_rec_filled);
-
-
-    return (status);
-}
-
-
-/**
-*******************************************************************************
-*
-* @brief
-*  Initializes from mem records passed to the codec
-*
-* @par Description:
-*  Initializes pointers based on mem records passed
-*
-* @param[in] ps_codec_obj
-*  Pointer to codec object at API level
-*
-* @param[in] pv_api_ip
-*  Pointer to input argument structure
-*
-* @param[out] pv_api_op
-*  Pointer to output argument structure
-*
-* @returns  Status
-*
-* @remarks
-*
-*
-*******************************************************************************
-*/
-WORD32 ihevcd_init_mem_rec(iv_obj_t *ps_codec_obj,
-                           void *pv_api_ip,
-                           void *pv_api_op)
-{
-
-    ihevcd_cxa_init_ip_t *dec_init_ip;
-    ihevcd_cxa_init_op_t *dec_init_op;
-    WORD32 i;
-    iv_mem_rec_t *ps_mem_rec, *ps_mem_rec_base;
-    WORD32 status = IV_SUCCESS;
-    codec_t *ps_codec;
-    WORD32 max_tile_cols, max_tile_rows;
-
-    dec_init_ip = (ihevcd_cxa_init_ip_t *)pv_api_ip;
-    dec_init_op = (ihevcd_cxa_init_op_t *)pv_api_op;
-
-    ps_mem_rec_base = dec_init_ip->s_ivd_init_ip_t.pv_mem_rec_location;
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_CODEC];
-    ps_codec_obj->pv_codec_handle = ps_mem_rec->pv_base;
-
-    ps_codec = (codec_t *)(ps_codec_obj->pv_codec_handle);
-
-    /* Note this memset can not be done in init() call, since init will called
-    during reset as well. And calling this during reset will mean all pointers
-    need to reinitialized*/
     memset(ps_codec, 0, sizeof(codec_t));
 
-    if(dec_init_ip->s_ivd_init_ip_t.u4_size
-                    > offsetof(ihevcd_cxa_init_ip_t, i4_level))
-    {
-        ps_codec->i4_init_level = dec_init_ip->i4_level;
-
-        ps_codec->i4_init_level *= 3;
-    }
-    else
-    {
-        ps_codec->i4_init_level = MAX_LEVEL;
-    }
-
-    if(dec_init_ip->s_ivd_init_ip_t.u4_size
-                    > offsetof(ihevcd_cxa_init_ip_t, u4_num_ref_frames))
-    {
-        ps_codec->i4_init_num_ref = dec_init_ip->u4_num_ref_frames;
-    }
-    else
-    {
-        ps_codec->i4_init_num_ref = MAX_REF_CNT;
-    }
-
-    if(dec_init_ip->s_ivd_init_ip_t.u4_size
-                    > offsetof(ihevcd_cxa_init_ip_t, u4_num_reorder_frames))
-    {
-        ps_codec->i4_init_num_reorder = dec_init_ip->u4_num_reorder_frames;
-    }
-    else
-    {
-        ps_codec->i4_init_num_reorder = MAX_REF_CNT;
-    }
-
-    if(dec_init_ip->s_ivd_init_ip_t.u4_size
-                    > offsetof(ihevcd_cxa_init_ip_t, u4_num_extra_disp_buf))
-    {
-        ps_codec->i4_init_num_extra_disp_buf =
-                        dec_init_ip->u4_num_extra_disp_buf;
-    }
-    else
-    {
-        ps_codec->i4_init_num_extra_disp_buf = 0;
-    }
-
-    if(dec_init_ip->s_ivd_init_ip_t.u4_size
-                    > offsetof(ihevcd_cxa_init_ip_t, u4_share_disp_buf))
-    {
 #ifndef LOGO_EN
-        ps_codec->i4_share_disp_buf = dec_init_ip->u4_share_disp_buf;
+    ps_codec->i4_share_disp_buf = ps_create_ip->s_ivd_create_ip_t.u4_share_disp_buf;
 #else
-        ps_codec->i4_share_disp_buf = 0;
+    ps_codec->i4_share_disp_buf = 0;
 #endif
-    }
-    else
-    {
-        ps_codec->i4_share_disp_buf = 0;
-    }
+
     /* Shared display mode is supported only for 420SP and 420P formats */
-    if((dec_init_ip->s_ivd_init_ip_t.e_output_format != IV_YUV_420P) &&
-       (dec_init_ip->s_ivd_init_ip_t.e_output_format != IV_YUV_420SP_UV) &&
-       (dec_init_ip->s_ivd_init_ip_t.e_output_format != IV_YUV_420SP_VU))
+    if((ps_create_ip->s_ivd_create_ip_t.e_output_format != IV_YUV_420P) &&
+       (ps_create_ip->s_ivd_create_ip_t.e_output_format != IV_YUV_420SP_UV) &&
+       (ps_create_ip->s_ivd_create_ip_t.e_output_format != IV_YUV_420SP_VU))
     {
         ps_codec->i4_share_disp_buf = 0;
     }
 
-    if((ps_codec->i4_init_level < MIN_LEVEL)
-                    || (ps_codec->i4_init_level > MAX_LEVEL))
-    {
-        dec_init_op->s_ivd_init_op_t.u4_error_code |= IHEVCD_LEVEL_UNSUPPORTED;
-        return (IV_FAIL);
-    }
+    ps_codec->e_chroma_fmt = ps_create_ip->s_ivd_create_ip_t.e_output_format;
 
-    if(ps_codec->i4_init_num_ref > MAX_REF_CNT)
-    {
-        dec_init_op->s_ivd_init_op_t.u4_error_code |=
-                        IHEVCD_NUM_REF_UNSUPPORTED;
-        ps_codec->i4_init_num_ref = MAX_REF_CNT;
-    }
+    ps_codec->pf_aligned_alloc = pf_aligned_alloc;
+    ps_codec->pf_aligned_free = pf_aligned_free;
+    ps_codec->pv_mem_ctxt = pv_mem_ctxt;
 
-    if(ps_codec->i4_init_num_reorder > MAX_REF_CNT)
-    {
-        dec_init_op->s_ivd_init_op_t.u4_error_code |=
-                        IHEVCD_NUM_REORDER_UNSUPPORTED;
-        ps_codec->i4_init_num_reorder = MAX_REF_CNT;
-    }
+    /* Request memory to hold thread handles for each processing thread */
+    size = MAX_PROCESS_THREADS * ithread_get_handle_size();
+    pv_buf = pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
 
-    if(ps_codec->i4_init_num_extra_disp_buf > MAX_REF_CNT)
-    {
-        dec_init_op->s_ivd_init_op_t.u4_error_code |=
-                        IHEVCD_NUM_EXTRA_DISP_UNSUPPORTED;
-        ps_codec->i4_init_num_extra_disp_buf = 0;
-    }
-
-    ps_codec->e_chroma_fmt = dec_init_ip->s_ivd_init_ip_t.e_output_format;
-
-    ps_codec->i4_max_wd = dec_init_ip->s_ivd_init_ip_t.u4_frm_max_wd;
-    ps_codec->i4_max_ht = dec_init_ip->s_ivd_init_ip_t.u4_frm_max_ht;
-
-    ps_codec->i4_max_wd = ALIGN64(ps_codec->i4_max_wd);
-    ps_codec->i4_max_ht = ALIGN64(ps_codec->i4_max_ht);
-
-    ps_codec->i4_new_max_wd = ps_codec->i4_max_wd;
-    ps_codec->i4_new_max_ht = ps_codec->i4_max_ht;
-
-    max_tile_cols = (ps_codec->i4_max_wd + MIN_TILE_WD - 1) / MIN_TILE_WD;
-    max_tile_rows = (ps_codec->i4_max_ht + MIN_TILE_HT - 1) / MIN_TILE_HT;
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_BACKUP];
-    ps_codec->ps_mem_rec_backup = (iv_mem_rec_t *)ps_mem_rec->pv_base;
-
-    memcpy(ps_codec->ps_mem_rec_backup, ps_mem_rec_base,
-           MEM_REC_CNT * sizeof(iv_mem_rec_t));
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_BITSBUF];
-    ps_codec->pu1_bitsbuf = (UWORD8 *)ps_mem_rec->pv_base;
-    ps_codec->u4_bitsbuf_size = ps_mem_rec->u4_mem_size;
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_TU_DATA];
-    ps_codec->pv_tu_data = ps_mem_rec->pv_base;
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_MVBANK];
-    ps_codec->pv_mv_buf_mgr = ps_mem_rec->pv_base;
-    ps_codec->pv_mv_bank_buf_base = (UWORD8 *)ps_codec->pv_mv_buf_mgr + sizeof(buf_mgr_t);
-
-    ps_codec->i4_total_mv_bank_size = ps_mem_rec->u4_mem_size - sizeof(buf_mgr_t);
-
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_VPS];
-    ps_codec->ps_vps_base = (vps_t *)ps_mem_rec->pv_base;
-    ps_codec->s_parse.ps_vps_base = ps_codec->ps_vps_base;
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_SPS];
-    ps_codec->ps_sps_base = (sps_t *)ps_mem_rec->pv_base;
-    ps_codec->s_parse.ps_sps_base = ps_codec->ps_sps_base;
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_PPS];
-    ps_codec->ps_pps_base = (pps_t *)ps_mem_rec->pv_base;
-    ps_codec->s_parse.ps_pps_base = ps_codec->ps_pps_base;
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_SLICE_HDR];
-    ps_codec->ps_slice_hdr_base = (slice_header_t *)ps_mem_rec->pv_base;
-    ps_codec->s_parse.ps_slice_hdr_base = ps_codec->ps_slice_hdr_base;
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_TILE];
-    ps_codec->ps_tile = (tile_t *)ps_mem_rec->pv_base;
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_ENTRY_OFST];
-    ps_codec->pi4_entry_ofst = (WORD32 *)ps_mem_rec->pv_base;
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_SCALING_MAT];
-    ps_codec->pi2_scaling_mat = (WORD16 *)ps_mem_rec->pv_base;
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_PARSE_SKIP_FLAG];
-    ps_codec->s_parse.pu4_skip_cu_top = (UWORD32 *)ps_mem_rec->pv_base;
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_PARSE_CT_DEPTH];
-    ps_codec->s_parse.pu4_ct_depth_top = (UWORD32 *)ps_mem_rec->pv_base;
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_PARSE_INTRA_PRED_MODE];
-    ps_codec->s_parse.pu1_luma_intra_pred_mode_left =
-                    (UWORD8 *)ps_mem_rec->pv_base;
-    ps_codec->s_parse.pu1_luma_intra_pred_mode_top  =
-                    (UWORD8 *)ps_mem_rec->pv_base + 16;
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_INTRA_FLAG];
-
-    memset(ps_mem_rec->pv_base, 0, (ps_codec->i4_max_wd / MIN_CU_SIZE) * (ps_codec->i4_max_ht / MIN_CU_SIZE) / 8);
-
-    ps_codec->pu1_pic_intra_flag = (UWORD8 *)ps_mem_rec->pv_base;
-    ps_codec->s_parse.pu1_pic_intra_flag = ps_codec->pu1_pic_intra_flag;
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_TRANSQUANT_BYPASS_FLAG];
-
-    {
-        WORD32 loop_filter_size = ((ps_codec->i4_max_wd  + 64) / MIN_CU_SIZE) * ((ps_codec->i4_max_ht + 64) / MIN_CU_SIZE) / 8;
-        WORD32 loop_filter_strd = (ps_codec->i4_max_wd + 63) >> 6;
-
-        memset(ps_mem_rec->pv_base, 0, loop_filter_size);
-
-        /* The offset is added for easy processing of top and left blocks while loop filtering */
-        ps_codec->pu1_pic_no_loop_filter_flag = (UWORD8 *)ps_mem_rec->pv_base + loop_filter_strd + 1;
-        ps_codec->s_parse.pu1_pic_no_loop_filter_flag = ps_codec->pu1_pic_no_loop_filter_flag;
-        ps_codec->s_parse.s_deblk_ctxt.pu1_pic_no_loop_filter_flag = ps_codec->pu1_pic_no_loop_filter_flag;
-        ps_codec->s_parse.s_sao_ctxt.pu1_pic_no_loop_filter_flag = ps_codec->pu1_pic_no_loop_filter_flag;
-    }
-
-    /* Initialize pointers in PPS structures */
-    {
-        sps_t *ps_sps = ps_codec->ps_sps_base;
-        pps_t *ps_pps = ps_codec->ps_pps_base;
-        tile_t *ps_tile =  ps_codec->ps_tile;
-        WORD16 *pi2_scaling_mat =  ps_codec->pi2_scaling_mat;
-        WORD32 scaling_mat_size;
-
-        SCALING_MAT_SIZE(scaling_mat_size);
-
-        for(i = 0; i < MAX_SPS_CNT; i++)
-        {
-            ps_sps->pi2_scaling_mat  = pi2_scaling_mat;
-            pi2_scaling_mat += scaling_mat_size;
-            ps_sps++;
-        }
-
-        for(i = 0; i < MAX_PPS_CNT; i++)
-        {
-            ps_pps->ps_tile = ps_tile;
-            ps_tile += (max_tile_cols * max_tile_rows);
-
-            ps_pps->pi2_scaling_mat  = pi2_scaling_mat;
-            pi2_scaling_mat += scaling_mat_size;
-            ps_pps++;
-        }
-
-    }
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_THREAD_HANDLE];
     for(i = 0; i < MAX_PROCESS_THREADS; i++)
     {
         WORD32 handle_size = ithread_get_handle_size();
         ps_codec->apv_process_thread_handle[i] =
-                        (UWORD8 *)ps_mem_rec->pv_base + (i * handle_size);
+                        (UWORD8 *)pv_buf + (i * handle_size);
     }
 
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_PROC_JOBQ];
-    ps_codec->pv_proc_jobq_buf = ps_mem_rec->pv_base;
-    ps_codec->i4_proc_jobq_buf_size = ps_mem_rec->u4_mem_size;
+    /* Request memory for static bitstream buffer which holds bitstream after emulation prevention */
+    size = MIN_BITSBUF_SIZE;
+    pv_buf = pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    ps_codec->pu1_bitsbuf_static = pv_buf;
+    ps_codec->u4_bitsbuf_size_static = size;
 
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_PARSE_MAP];
-    ps_codec->pu1_parse_map = (UWORD8 *)ps_mem_rec->pv_base;
+    /* size for holding display manager context */
+    size = sizeof(buf_mgr_t);
+    pv_buf = pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    ps_codec->pv_disp_buf_mgr = pv_buf;
 
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_PROC_MAP];
-    ps_codec->pu1_proc_map = (UWORD8 *)ps_mem_rec->pv_base;
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_DISP_MGR];
-    ps_codec->pv_disp_buf_mgr = ps_mem_rec->pv_base;
+    /* size for holding dpb manager context */
+    size = sizeof(dpb_mgr_t);
+    pv_buf = pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    ps_codec->pv_dpb_mgr = pv_buf;
 
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_DPB_MGR];
-    ps_codec->pv_dpb_mgr = ps_mem_rec->pv_base;
+    /* size for holding buffer manager context */
+    size = sizeof(buf_mgr_t);
+    pv_buf = pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    ps_codec->pv_pic_buf_mgr = pv_buf;
+
+    /* size for holding mv buffer manager context */
+    size = sizeof(buf_mgr_t);
+    pv_buf = pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    ps_codec->pv_mv_buf_mgr = pv_buf;
+
+    size = MAX_VPS_CNT * sizeof(vps_t);
+    pv_buf = pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    ps_codec->ps_vps_base = pv_buf;
+    ps_codec->s_parse.ps_vps_base = ps_codec->ps_vps_base;
+
+    size = MAX_SPS_CNT * sizeof(sps_t);
+    pv_buf = pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    ps_codec->ps_sps_base = pv_buf;
+    ps_codec->s_parse.ps_sps_base = ps_codec->ps_sps_base;
+
+    size = MAX_PPS_CNT * sizeof(pps_t);
+    pv_buf = pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    ps_codec->ps_pps_base = pv_buf;
+    ps_codec->s_parse.ps_pps_base = ps_codec->ps_pps_base;
+
+    size = MAX_SLICE_HDR_CNT * sizeof(slice_header_t);
+    pv_buf = pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    memset(pv_buf, 0, size);
+    ps_codec->ps_slice_hdr_base = (slice_header_t *)pv_buf;
+    ps_codec->s_parse.ps_slice_hdr_base = ps_codec->ps_slice_hdr_base;
 
 
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_PIC_PU_IDX_NEIGHBOR];
+    SCALING_MAT_SIZE(size)
+    size = (MAX_SPS_CNT + MAX_PPS_CNT) * size * sizeof(WORD16);
+    pv_buf = pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    ps_codec->pi2_scaling_mat = (WORD16 *)pv_buf;
+
+
+    /* Size for holding pic_buf_t for each reference picture
+     * Since this is only a structure allocation and not actual buffer allocation,
+     * it is allocated for BUF_MGR_MAX_CNT entries
+     */
+    size = BUF_MGR_MAX_CNT * sizeof(pic_buf_t);
+    pv_buf = pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    ps_codec->pv_pic_buf_base = (UWORD8 *)pv_buf;
+
+    /* TO hold scratch buffers needed for each SAO context */
+    size = 4 * MAX_CTB_SIZE * MAX_CTB_SIZE;
+
+    /* 2 temporary buffers*/
+    size *= 2;
+    size *= MAX_PROCESS_THREADS;
+
+    pu1_buf = pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pu1_buf), IV_FAIL);
 
     for(i = 0; i < MAX_PROCESS_THREADS; i++)
     {
-        UWORD32 *pu4_buf = (UWORD32 *)ps_mem_rec->pv_base;
-        ps_codec->as_process[i].pu4_pic_pu_idx_left = pu4_buf + i * (MAX_CTB_SIZE / 4);
-        memset(ps_codec->as_process[i].pu4_pic_pu_idx_left, 0, sizeof(UWORD32) * MAX_CTB_SIZE / 4);
-        ps_codec->as_process[i].pu4_pic_pu_idx_top = pu4_buf + MAX_PROCESS_THREADS * (MAX_CTB_SIZE / 4);
+        ps_codec->as_process[i].s_sao_ctxt.pu1_tmp_buf_luma = (UWORD8 *)pu1_buf;
+        pu1_buf += 4 * MAX_CTB_SIZE * MAX_CTB_SIZE * sizeof(UWORD8);
+
+        ps_codec->as_process[i].s_sao_ctxt.pu1_tmp_buf_chroma = (UWORD8 *)pu1_buf;
+        pu1_buf += 4 * MAX_CTB_SIZE * MAX_CTB_SIZE * sizeof(UWORD8);
     }
-    memset(ps_codec->as_process[0].pu4_pic_pu_idx_top, 0, sizeof(UWORD32) * (ps_codec->i4_max_wd / 4 + 1));
 
+    /* Allocate intra pred modes buffer */
+    /* 8 bits per 4x4 */
+    /* 16 bytes each for top and left 64 pixels and 16 bytes for default mode */
+    size =  3 * 16 * sizeof(UWORD8);
+    pu1_buf = pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pu1_buf), IV_FAIL);
+    ps_codec->s_parse.pu1_luma_intra_pred_mode_left = pu1_buf;
+    ps_codec->s_parse.pu1_luma_intra_pred_mode_top  = pu1_buf + 16;
 
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_PROC_SCRATCH];
     {
-        UWORD8 *pu1_buf = (UWORD8 *)ps_mem_rec->pv_base;
-        WORD32 pic_pu_idx_map_size;
-
         WORD32 inter_pred_tmp_buf_size, ntaps_luma;
+        WORD32 pic_pu_idx_map_size;
 
         /* Max inter pred size */
         ntaps_luma = 8;
@@ -2750,6 +1299,15 @@ WORD32 ihevcd_init_mem_rec(iv_obj_t *ps_codec_obj,
         /* To hold pu_index w.r.t. frame level pu_t array for a CTB */
         pic_pu_idx_map_size = sizeof(WORD32) * (18 * 18);
         pic_pu_idx_map_size = ALIGN64(pic_pu_idx_map_size);
+
+        size =  inter_pred_tmp_buf_size * 2;
+        size += pic_pu_idx_map_size;
+        size *= MAX_PROCESS_THREADS;
+
+        pu1_buf = ps_codec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
+        RETURN_IF((NULL == pu1_buf), IV_FAIL);
+        memset(pu1_buf, 0, size);
+
         for(i = 0; i < MAX_PROCESS_THREADS; i++)
         {
             ps_codec->as_process[i].pi2_inter_pred_tmp_buf1 = (WORD16 *)pu1_buf;
@@ -2775,52 +1333,370 @@ WORD32 ihevcd_init_mem_rec(iv_obj_t *ps_codec_obj,
             ps_codec->as_process[i].i4_inter_pred_tmp_buf_strd = MAX_CTB_SIZE;
 
         }
+    }
+    /* Initialize pointers in PPS structures */
+    {
+        sps_t *ps_sps = ps_codec->ps_sps_base;
+        pps_t *ps_pps = ps_codec->ps_pps_base;
+        WORD16 *pi2_scaling_mat =  ps_codec->pi2_scaling_mat;
+        WORD32 scaling_mat_size;
+
+        SCALING_MAT_SIZE(scaling_mat_size);
+
+        for(i = 0; i < MAX_SPS_CNT; i++)
+        {
+            ps_sps->pi2_scaling_mat  = pi2_scaling_mat;
+            pi2_scaling_mat += scaling_mat_size;
+            ps_sps++;
+        }
+
+        for(i = 0; i < MAX_PPS_CNT; i++)
+        {
+            ps_pps->pi2_scaling_mat  = pi2_scaling_mat;
+            pi2_scaling_mat += scaling_mat_size;
+            ps_pps++;
+        }
+    }
+
+    return (status);
+}
+
+/**
+*******************************************************************************
+*
+* @brief
+*  Free static memory for the codec
+*
+* @par Description:
+*  Free static memory for the codec
+*
+* @param[in] ps_codec
+*  Pointer to codec context
+*
+* @returns  Status
+*
+* @remarks
+*
+*
+*******************************************************************************
+*/
+WORD32 ihevcd_free_static_bufs(iv_obj_t *ps_codec_obj)
+{
+    codec_t *ps_codec;
+
+    void (*pf_aligned_free)(void *pv_mem_ctxt, void *pv_buf);
+    void *pv_mem_ctxt;
+
+    ps_codec = (codec_t *)ps_codec_obj->pv_codec_handle;
+    pf_aligned_free = ps_codec->pf_aligned_free;
+    pv_mem_ctxt = ps_codec->pv_mem_ctxt;
+
+
+    ALIGNED_FREE(ps_codec, ps_codec->apv_process_thread_handle[0]);
+    ALIGNED_FREE(ps_codec, ps_codec->pu1_bitsbuf_static);
+
+    ALIGNED_FREE(ps_codec, ps_codec->pv_disp_buf_mgr);
+    ALIGNED_FREE(ps_codec, ps_codec->pv_dpb_mgr);
+    ALIGNED_FREE(ps_codec, ps_codec->pv_pic_buf_mgr);
+    ALIGNED_FREE(ps_codec, ps_codec->pv_mv_buf_mgr);
+    ALIGNED_FREE(ps_codec, ps_codec->ps_vps_base);
+    ALIGNED_FREE(ps_codec, ps_codec->ps_sps_base);
+    ALIGNED_FREE(ps_codec, ps_codec->ps_pps_base);
+    ALIGNED_FREE(ps_codec, ps_codec->ps_slice_hdr_base);
+    ALIGNED_FREE(ps_codec, ps_codec->pi2_scaling_mat);
+    ALIGNED_FREE(ps_codec, ps_codec->pv_pic_buf_base);
+    ALIGNED_FREE(ps_codec, ps_codec->s_parse.pu1_luma_intra_pred_mode_left);
+    ALIGNED_FREE(ps_codec, ps_codec->as_process[0].s_sao_ctxt.pu1_tmp_buf_luma);
+    ALIGNED_FREE(ps_codec, ps_codec->as_process[0].pi2_inter_pred_tmp_buf1);
+    ALIGNED_FREE(ps_codec, ps_codec_obj->pv_codec_handle);
+
+    if(ps_codec_obj)
+    {
+        pf_aligned_free(pv_mem_ctxt, ps_codec_obj);
+    }
+
+    return IV_SUCCESS;
+
+}
+
+
+/**
+*******************************************************************************
+*
+* @brief
+*  Allocate dynamic memory for the codec
+*
+* @par Description:
+*  Allocates dynamic memory for the codec
+*
+* @param[in] ps_codec
+*  Pointer to codec context
+*
+* @returns  Status
+*
+* @remarks
+*
+*
+*******************************************************************************
+*/
+WORD32 ihevcd_allocate_dynamic_bufs(codec_t *ps_codec)
+{
+    WORD32 max_tile_cols, max_tile_rows;
+    WORD32 max_ctb_rows, max_ctb_cols;
+    WORD32 max_num_cu_cols;
+    WORD32 max_num_cu_rows;
+    WORD32 max_num_4x4_cols;
+    WORD32 max_ctb_cnt;
+    WORD32 wd;
+    WORD32 ht;
+    WORD32 i;
+    WORD32 max_dpb_size;
+    void *pv_mem_ctxt = ps_codec->pv_mem_ctxt;
+    void *pv_buf;
+    UWORD8 *pu1_buf;
+    WORD32 size;
+
+    wd = ALIGN64(ps_codec->i4_wd);
+    ht = ALIGN64(ps_codec->i4_ht);
+
+    max_tile_cols = (wd + MIN_TILE_WD - 1) / MIN_TILE_WD;
+    max_tile_rows = (ht + MIN_TILE_HT - 1) / MIN_TILE_HT;
+    max_ctb_rows  = ht / MIN_CTB_SIZE;
+    max_ctb_cols  = wd / MIN_CTB_SIZE;
+    max_ctb_cnt   = max_ctb_rows * max_ctb_cols;
+    max_num_cu_cols = wd / MIN_CU_SIZE;
+    max_num_cu_rows = ht / MIN_CU_SIZE;
+    max_num_4x4_cols = wd / 4;
+
+    /* Allocate tile structures */
+    size = max_tile_cols * max_tile_rows;
+    size *= sizeof(tile_t);
+    size *= MAX_PPS_CNT;
+
+    pv_buf = ps_codec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    memset(pv_buf, 0, size);
+    ps_codec->ps_tile = (tile_t *)pv_buf;
+
+
+    /* Allocate memory to hold entry point offsets */
+    /* One entry point per tile */
+    size = max_tile_cols * max_tile_rows;
+
+    /* One entry point per row of CTBs */
+    /*********************************************************************/
+    /* Only tiles or entropy sync is enabled at a time in main           */
+    /* profile, but since memory required does not increase too much,    */
+    /* this allocation is done to handle both cases                      */
+    /*********************************************************************/
+    size  += max_ctb_rows;
+    size *= sizeof(WORD32);
+
+    pv_buf = ps_codec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    memset(pv_buf, 0, size);
+    ps_codec->pi4_entry_ofst = (WORD32 *)pv_buf;
+
+    /* Allocate parse skip flag buffer */
+    /* 1 bit per 8x8 */
+    size = max_num_cu_cols / 8;
+    size = ALIGN4(size);
+    pv_buf = ps_codec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    memset(pv_buf, 0, size);
+    ps_codec->s_parse.pu4_skip_cu_top = (UWORD32 *)pv_buf;
+
+    /* Allocate parse coding tree depth buffer */
+    /* 2 bits per 8x8 */
+    size =  max_num_cu_cols / 4;
+    size = ALIGN4(size);
+    pv_buf = ps_codec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    memset(pv_buf, 0, size);
+    ps_codec->s_parse.pu4_ct_depth_top = (UWORD32 *)pv_buf;
+
+    /* Allocate intra flag buffer */
+    /* 1 bit per 8x8 */
+    size =  max_num_cu_cols * max_num_cu_rows / 8;
+    size = ALIGN4(size);
+    pv_buf = ps_codec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    memset(pv_buf, 0, size);
+    ps_codec->pu1_pic_intra_flag = (UWORD8 *)pv_buf;
+    ps_codec->s_parse.pu1_pic_intra_flag = ps_codec->pu1_pic_intra_flag;
+
+    /* Allocate transquant bypass flag buffer */
+    /* 1 bit per 8x8 */
+    /* Extra row and column are allocated for easy processing of top and left blocks while loop filtering */
+    size =  ((max_num_cu_cols + 8) * (max_num_cu_rows + 8)) / 8;
+    size = ALIGN4(size);
+    pv_buf = ps_codec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    memset(pv_buf, 1, size);
+    {
+        WORD32 loop_filter_strd = (wd + 63) >> 6;
+        ps_codec->pu1_pic_no_loop_filter_flag_base = pv_buf;
+        /* The offset is added for easy processing of top and left blocks while loop filtering */
+        ps_codec->pu1_pic_no_loop_filter_flag = (UWORD8 *)pv_buf + loop_filter_strd + 1;
+        ps_codec->s_parse.pu1_pic_no_loop_filter_flag = ps_codec->pu1_pic_no_loop_filter_flag;
+        ps_codec->s_parse.s_deblk_ctxt.pu1_pic_no_loop_filter_flag = ps_codec->pu1_pic_no_loop_filter_flag;
+        ps_codec->s_parse.s_sao_ctxt.pu1_pic_no_loop_filter_flag = ps_codec->pu1_pic_no_loop_filter_flag;
+    }
+
+    /* Initialize pointers in PPS structures */
+    {
+        pps_t *ps_pps = ps_codec->ps_pps_base;
+        tile_t *ps_tile =  ps_codec->ps_tile;
+
+        for(i = 0; i < MAX_PPS_CNT; i++)
+        {
+            ps_pps->ps_tile = ps_tile;
+            ps_tile += (max_tile_cols * max_tile_rows);
+            ps_pps++;
+        }
+
+    }
+
+    /* Allocate memory for job queue */
+
+    /* One job per row of CTBs */
+    size  = max_ctb_rows;
+
+    /* One each tile a row of CTBs, num_jobs has to incremented */
+    size  *= max_tile_cols;
+
+    /* One format convert/frame copy job per row of CTBs for non-shared mode*/
+    size  += max_ctb_rows;
+
+    size *= sizeof(proc_job_t);
+
+    size += ihevcd_jobq_ctxt_size();
+    size = ALIGN4(size);
+
+    pv_buf = ps_codec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    ps_codec->pv_proc_jobq_buf = pv_buf;
+    ps_codec->i4_proc_jobq_buf_size = size;
+
+    size =  max_ctb_cnt;
+    size = ALIGN4(size);
+    pv_buf = ps_codec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    memset(pv_buf, 0, size);
+    ps_codec->pu1_parse_map = (UWORD8 *)pv_buf;
+
+    size =  max_ctb_cnt;
+    size = ALIGN4(size);
+    pv_buf = ps_codec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    memset(pv_buf, 0, size);
+    ps_codec->pu1_proc_map = (UWORD8 *)pv_buf;
+
+    /** Holds top and left neighbor's pu idx into picture level pu array */
+    /* Only one top row is enough but left has to be replicated for each process context */
+    size =  (max_num_4x4_cols  /* left */ + MAX_PROCESS_THREADS * (MAX_CTB_SIZE / 4)/* top */ + 1/* top right */) * sizeof(WORD32);
+    size = ALIGN4(size);
+    pv_buf = ps_codec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    memset(pv_buf, 0, size);
+
+    for(i = 0; i < MAX_PROCESS_THREADS; i++)
+    {
+        UWORD32 *pu4_buf = (UWORD32 *)pv_buf;
+        ps_codec->as_process[i].pu4_pic_pu_idx_left = pu4_buf + i * (MAX_CTB_SIZE / 4);
+        memset(ps_codec->as_process[i].pu4_pic_pu_idx_left, 0, sizeof(UWORD32) * MAX_CTB_SIZE / 4);
+        ps_codec->as_process[i].pu4_pic_pu_idx_top = pu4_buf + MAX_PROCESS_THREADS * (MAX_CTB_SIZE / 4);
+    }
+    memset(ps_codec->as_process[0].pu4_pic_pu_idx_top, 0, sizeof(UWORD32) * (wd / 4 + 1));
+
+    {
+        /* To hold SAO left buffer for luma */
+        size  = sizeof(UWORD8) * (MAX(ht, wd));
+
+        /* To hold SAO left buffer for chroma */
+        size += sizeof(UWORD8) * (MAX(ht, wd));
+
+        /* To hold SAO top buffer for luma */
+        size += sizeof(UWORD8) * wd;
+
+        /* To hold SAO top buffer for chroma */
+        size += sizeof(UWORD8) * wd;
+
+        /* To hold SAO top left luma pixel value for last output ctb in a row*/
+        size += sizeof(UWORD8) * max_ctb_rows;
+
+        /* To hold SAO top left chroma pixel value last output ctb in a row*/
+        size += sizeof(UWORD8) * max_ctb_rows * 2;
+
+        /* To hold SAO top left pixel luma for current ctb - column array*/
+        size += sizeof(UWORD8) * max_ctb_rows;
+
+        /* To hold SAO top left pixel chroma for current ctb-column array*/
+        size += sizeof(UWORD8) * max_ctb_rows * 2;
+
+        /* To hold SAO top right pixel luma pixel value last output ctb in a row*/
+        size += sizeof(UWORD8) * max_ctb_cols;
+
+        /* To hold SAO top right pixel chroma pixel value last output ctb in a row*/
+        size += sizeof(UWORD8) * max_ctb_cols * 2;
+
+        /*To hold SAO botton bottom left pixels for luma*/
+        size += sizeof(UWORD8) * max_ctb_rows;
+
+        /*To hold SAO botton bottom left pixels for luma*/
+        size += sizeof(UWORD8) * max_ctb_rows * 2;
+        size = ALIGN64(size);
+
+        pu1_buf = ps_codec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
+        RETURN_IF((NULL == pu1_buf), IV_FAIL);
+        memset(pu1_buf, 0, size);
+
         for(i = 0; i < MAX_PROCESS_THREADS; i++)
         {
             ps_codec->as_process[i].s_sao_ctxt.pu1_sao_src_left_luma = (UWORD8 *)pu1_buf;
         }
         ps_codec->s_parse.s_sao_ctxt.pu1_sao_src_left_luma = (UWORD8 *)pu1_buf;
-        pu1_buf += MAX(ps_codec->i4_max_ht, ps_codec->i4_max_wd);
+        pu1_buf += MAX(ht, wd);
 
         for(i = 0; i < MAX_PROCESS_THREADS; i++)
         {
             ps_codec->as_process[i].s_sao_ctxt.pu1_sao_src_left_chroma = (UWORD8 *)pu1_buf;
         }
         ps_codec->s_parse.s_sao_ctxt.pu1_sao_src_left_chroma = (UWORD8 *)pu1_buf;
-        pu1_buf += MAX(ps_codec->i4_max_ht, ps_codec->i4_max_wd);
+        pu1_buf += MAX(ht, wd);
         for(i = 0; i < MAX_PROCESS_THREADS; i++)
         {
             ps_codec->as_process[i].s_sao_ctxt.pu1_sao_src_top_luma = (UWORD8 *)pu1_buf;
         }
         ps_codec->s_parse.s_sao_ctxt.pu1_sao_src_top_luma = (UWORD8 *)pu1_buf;
-        pu1_buf += ps_codec->i4_max_wd;
+        pu1_buf += wd;
 
         for(i = 0; i < MAX_PROCESS_THREADS; i++)
         {
             ps_codec->as_process[i].s_sao_ctxt.pu1_sao_src_top_chroma = (UWORD8 *)pu1_buf;
         }
         ps_codec->s_parse.s_sao_ctxt.pu1_sao_src_top_chroma = (UWORD8 *)pu1_buf;
-        pu1_buf += ps_codec->i4_max_wd;
+        pu1_buf += wd;
         for(i = 0; i < MAX_PROCESS_THREADS; i++)
         {
             ps_codec->as_process[i].s_sao_ctxt.pu1_sao_src_luma_top_left_ctb = (UWORD8 *)pu1_buf;
         }
         ps_codec->s_parse.s_sao_ctxt.pu1_sao_src_luma_top_left_ctb = (UWORD8 *)pu1_buf;
-        pu1_buf += ps_codec->i4_max_ht / MIN_CTB_SIZE;
+        pu1_buf += ht / MIN_CTB_SIZE;
 
         for(i = 0; i < MAX_PROCESS_THREADS; i++)
         {
             ps_codec->as_process[i].s_sao_ctxt.pu1_sao_src_chroma_top_left_ctb = (UWORD8 *)pu1_buf;
         }
         ps_codec->s_parse.s_sao_ctxt.pu1_sao_src_chroma_top_left_ctb = (UWORD8 *)pu1_buf;
-        pu1_buf += (ps_codec->i4_max_ht / MIN_CTB_SIZE) * 2;
+        pu1_buf += (ht / MIN_CTB_SIZE) * 2;
 
         for(i = 0; i < MAX_PROCESS_THREADS; i++)
         {
             ps_codec->as_process[i].s_sao_ctxt.pu1_sao_src_top_left_luma_curr_ctb = (UWORD8 *)pu1_buf;
         }
         ps_codec->s_parse.s_sao_ctxt.pu1_sao_src_top_left_luma_curr_ctb = (UWORD8 *)pu1_buf;
-        pu1_buf += ps_codec->i4_max_ht / MIN_CTB_SIZE;
+        pu1_buf += ht / MIN_CTB_SIZE;
 
         for(i = 0; i < MAX_PROCESS_THREADS; i++)
         {
@@ -2828,21 +1704,21 @@ WORD32 ihevcd_init_mem_rec(iv_obj_t *ps_codec_obj,
         }
         ps_codec->s_parse.s_sao_ctxt.pu1_sao_src_top_left_chroma_curr_ctb = (UWORD8 *)pu1_buf;
 
-        pu1_buf += (ps_codec->i4_max_ht / MIN_CTB_SIZE) * 2;
+        pu1_buf += (ht / MIN_CTB_SIZE) * 2;
         for(i = 0; i < MAX_PROCESS_THREADS; i++)
         {
             ps_codec->as_process[i].s_sao_ctxt.pu1_sao_src_top_left_luma_top_right = (UWORD8 *)pu1_buf;
         }
         ps_codec->s_parse.s_sao_ctxt.pu1_sao_src_top_left_luma_top_right = (UWORD8 *)pu1_buf;
 
-        pu1_buf += ps_codec->i4_max_wd / MIN_CTB_SIZE;
+        pu1_buf += wd / MIN_CTB_SIZE;
         for(i = 0; i < MAX_PROCESS_THREADS; i++)
         {
             ps_codec->as_process[i].s_sao_ctxt.pu1_sao_src_top_left_chroma_top_right = (UWORD8 *)pu1_buf;
         }
         ps_codec->s_parse.s_sao_ctxt.pu1_sao_src_top_left_chroma_top_right = (UWORD8 *)pu1_buf;
 
-        pu1_buf += (ps_codec->i4_max_wd / MIN_CTB_SIZE) * 2;
+        pu1_buf += (wd / MIN_CTB_SIZE) * 2;
 
         /*Per CTB, Store 1 value for luma , 2 values for chroma*/
         for(i = 0; i < MAX_PROCESS_THREADS; i++)
@@ -2851,7 +1727,7 @@ WORD32 ihevcd_init_mem_rec(iv_obj_t *ps_codec_obj,
         }
         ps_codec->s_parse.s_sao_ctxt.pu1_sao_src_top_left_luma_bot_left = (UWORD8 *)pu1_buf;
 
-        pu1_buf += (ps_codec->i4_max_ht / MIN_CTB_SIZE);
+        pu1_buf += (ht / MIN_CTB_SIZE);
 
         for(i = 0; i < MAX_PROCESS_THREADS; i++)
         {
@@ -2859,35 +1735,22 @@ WORD32 ihevcd_init_mem_rec(iv_obj_t *ps_codec_obj,
         }
         ps_codec->s_parse.s_sao_ctxt.pu1_sao_src_top_left_chroma_bot_left = (UWORD8 *)pu1_buf;
 
-        pu1_buf += (ps_codec->i4_max_ht / MIN_CTB_SIZE) * 2;
+        pu1_buf += (ht / MIN_CTB_SIZE) * 2;
     }
 
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_SAO_SCRATCH];
-    {
-        UWORD8 *pu1_buf = (UWORD8 *)ps_mem_rec->pv_base;
-        for(i = 0; i < MAX_PROCESS_THREADS; i++)
-        {
-            ps_codec->as_process[i].s_sao_ctxt.pu1_tmp_buf_luma = (UWORD8 *)pu1_buf;
-            pu1_buf += 4 * MAX_CTB_SIZE * MAX_CTB_SIZE * sizeof(UWORD8);
 
-            ps_codec->as_process[i].s_sao_ctxt.pu1_tmp_buf_chroma = (UWORD8 *)pu1_buf;
-            pu1_buf += 4 * MAX_CTB_SIZE * MAX_CTB_SIZE * sizeof(UWORD8);
-        }
-    }
-
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_BS_QP];
     {
-        UWORD8 *pu1_buf = (UWORD8 *)ps_mem_rec->pv_base;
+        UWORD8 *pu1_buf = (UWORD8 *)pv_buf;
         WORD32 vert_bs_size, horz_bs_size;
         WORD32 qp_const_flag_size;
         WORD32 qp_size;
         WORD32 num_8x8;
 
         /* Max Number of vertical edges */
-        vert_bs_size = ps_codec->i4_max_wd / 8 + 2 * MAX_CTB_SIZE / 8;
+        vert_bs_size = wd / 8 + 2 * MAX_CTB_SIZE / 8;
 
         /* Max Number of horizontal edges - extra MAX_CTB_SIZE / 8 to handle the last 4 rows separately(shifted CTB processing) */
-        vert_bs_size *= (ps_codec->i4_max_ht + MAX_CTB_SIZE) / MIN_TU_SIZE;
+        vert_bs_size *= (ht + MAX_CTB_SIZE) / MIN_TU_SIZE;
 
         /* Number of bytes */
         vert_bs_size /= 8;
@@ -2896,10 +1759,10 @@ WORD32 ihevcd_init_mem_rec(iv_obj_t *ps_codec_obj,
         vert_bs_size *= 2;
 
         /* Max Number of horizontal edges */
-        horz_bs_size = ps_codec->i4_max_ht / 8 + MAX_CTB_SIZE / 8;
+        horz_bs_size = ht / 8 + MAX_CTB_SIZE / 8;
 
         /* Max Number of vertical edges - extra MAX_CTB_SIZE / 8 to handle the last 4 columns separately(shifted CTB processing) */
-        horz_bs_size *= (ps_codec->i4_max_wd + MAX_CTB_SIZE) / MIN_TU_SIZE;
+        horz_bs_size *= (wd + MAX_CTB_SIZE) / MIN_TU_SIZE;
 
         /* Number of bytes */
         horz_bs_size /= 8;
@@ -2908,18 +1771,34 @@ WORD32 ihevcd_init_mem_rec(iv_obj_t *ps_codec_obj,
         horz_bs_size *= 2;
 
         /* Max CTBs in a row */
-        qp_const_flag_size = ps_codec->i4_max_wd / MIN_CTB_SIZE + 1 /* The last ctb row deblk is done in last ctb + 1 row.*/;
+        qp_const_flag_size = wd / MIN_CTB_SIZE + 1 /* The last ctb row deblk is done in last ctb + 1 row.*/;
 
         /* Max CTBs in a column */
-        qp_const_flag_size *= ps_codec->i4_max_ht / MIN_CTB_SIZE;
+        qp_const_flag_size *= ht / MIN_CTB_SIZE;
 
         /* Number of bytes */
         qp_const_flag_size /= 8;
 
         /* QP changes at CU level - So store at 8x8 level */
-        num_8x8 = (ps_codec->i4_max_ht * ps_codec->i4_max_wd) / (MIN_CU_SIZE * MIN_CU_SIZE);
+        num_8x8 = (ht * wd) / (MIN_CU_SIZE * MIN_CU_SIZE);
         qp_size = num_8x8;
-        memset(pu1_buf, 0, vert_bs_size + horz_bs_size + qp_size + qp_const_flag_size);
+
+        /* To hold vertical boundary strength */
+        size += vert_bs_size;
+
+        /* To hold horizontal boundary strength */
+        size += horz_bs_size;
+
+        /* To hold QP */
+        size += qp_size;
+
+        /* To hold QP const in CTB flags */
+        size += qp_const_flag_size;
+
+        pu1_buf = ps_codec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
+        RETURN_IF((NULL == pu1_buf), IV_FAIL);
+
+        memset(pu1_buf, 0, size);
 
         for(i = 0; i < MAX_PROCESS_THREADS; i++)
         {
@@ -2959,73 +1838,194 @@ WORD32 ihevcd_init_mem_rec(iv_obj_t *ps_codec_obj,
 
     }
 
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_TILE_IDX];
-    {
-        UWORD8 *pu1_buf = (UWORD8 *)ps_mem_rec->pv_base;
+    /* Max CTBs in a row */
+    size  = wd / MIN_CTB_SIZE + 2 /* Top row and bottom row extra. This ensures accessing left,top in first row
+                                              and right in last row will not result in invalid access*/;
+    /* Max CTBs in a column */
+    size *= ht / MIN_CTB_SIZE;
 
-        for(i = 0; i < MAX_PROCESS_THREADS; i++)
-        {
-            ps_codec->as_process[i].pu1_tile_idx = (UWORD16 *)pu1_buf + ps_codec->i4_max_wd / MIN_CTB_SIZE /* Offset 1 row */;
-        }
+    size *= sizeof(UWORD16);
+    pv_buf = ps_codec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    memset(pv_buf, 0, size);
+
+    ps_codec->pu1_tile_idx_base = pv_buf;
+    for(i = 0; i < MAX_PROCESS_THREADS; i++)
+    {
+        ps_codec->as_process[i].pu1_tile_idx = (UWORD16 *)pv_buf + wd / MIN_CTB_SIZE /* Offset 1 row */;
     }
 
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_SAO];
-    ps_codec->s_parse.ps_pic_sao = (sao_t *)ps_mem_rec->pv_base;
-    ps_codec->s_parse.s_sao_ctxt.ps_pic_sao = (sao_t *)ps_mem_rec->pv_base;
+    /* 4 bytes per color component per CTB */
+    size = 3 * 4;
+
+    /* MAX number of CTBs in a row */
+    size *= wd / MIN_CTB_SIZE;
+
+    /* MAX number of CTBs in a column */
+    size *= ht / MIN_CTB_SIZE;
+    pv_buf = ps_codec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    memset(pv_buf, 0, size);
+
+    ps_codec->s_parse.ps_pic_sao = (sao_t *)pv_buf;
+    ps_codec->s_parse.s_sao_ctxt.ps_pic_sao = (sao_t *)pv_buf;
     for(i = 0; i < MAX_PROCESS_THREADS; i++)
     {
         ps_codec->as_process[i].s_sao_ctxt.ps_pic_sao = ps_codec->s_parse.ps_pic_sao;
     }
 
-    ps_mem_rec = &ps_mem_rec_base[MEM_REC_REF_PIC];
-    ps_codec->pv_pic_buf_mgr = ps_mem_rec->pv_base;
-    ps_codec->pv_pic_buf_base = (UWORD8 *)ps_codec->pv_pic_buf_mgr + sizeof(buf_mgr_t);
-    ps_codec->i4_total_pic_buf_size = ps_mem_rec->u4_mem_size - sizeof(buf_mgr_t);
-    ps_codec->pu1_cur_chroma_ref_buf = (UWORD8 *)ps_codec->pv_pic_buf_base + BUF_MGR_MAX_CNT * sizeof(pic_buf_t);
-    ps_codec->i4_remaining_pic_buf_size = ps_codec->i4_total_pic_buf_size - BUF_MGR_MAX_CNT * sizeof(pic_buf_t);
-
-
-
-
-#ifdef APPLY_CONCEALMENT
+    /* Only if width * height * 3 / 2 is greater than MIN_BITSBUF_SIZE,
+    then allocate dynamic bistream buffer */
+    ps_codec->pu1_bitsbuf_dynamic = NULL;
+    size = wd * ht;
+    if(size > MIN_BITSBUF_SIZE)
     {
+        pv_buf = ps_codec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
+        RETURN_IF((NULL == pv_buf), IV_FAIL);
+        ps_codec->pu1_bitsbuf_dynamic = pv_buf;
+        ps_codec->u4_bitsbuf_size_dynamic = size;
+    }
 
-        UWORD32 mem_loc;
+    size = ihevcd_get_tu_data_size(wd * ht);
+    pv_buf = ps_codec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    ps_codec->pv_tu_data = pv_buf;
 
-        icncl_init_ip_t cncl_init_ip;
-        icncl_init_op_t cncl_init_op;
-        iv_mem_rec_t *ps_mem_rec;
-        DecStruct *ps_codec;
+    {
+        sps_t *ps_sps = (ps_codec->s_parse.ps_sps_base + ps_codec->i4_sps_id);
 
-        ps_mem_rec = dec_init_ip->s_ivd_init_ip_t.pv_mem_rec_location;
-        mem_loc = MEM_REC_CNT;
 
-        ps_codec->ps_conceal = (iv_obj_t *)ps_mem_rec[mem_loc].pv_base;
-        ps_codec->i4_first_frame_done = 0;
+        /* Allocate for pu_map, pu_t and pic_pu_idx for each MV bank */
+        /* Note: Number of luma samples is not max_wd * max_ht here, instead it is
+         * set to maximum number of luma samples allowed at the given level.
+         * This is done to ensure that any stream with width and height lesser
+         * than max_wd and max_ht is supported. Number of buffers required can be greater
+         * for lower width and heights at a given level and this increased number of buffers
+         * might require more memory than what max_wd and max_ht buffer would have required
+         * Also note one extra buffer is allocted to store current pictures MV bank
+         * In case of asynchronous parsing and processing, number of buffers should increase here
+         * based on when parsing and processing threads are synchronized
+         */
+        max_dpb_size = ps_sps->ai1_sps_max_dec_pic_buffering[ps_sps->i1_sps_max_sub_layers - 1];
+        /* Size for holding mv_buf_t for each MV Bank
+         * One extra MV Bank is needed to hold current pics MV bank.
+         */
+        size = (max_dpb_size + 1) * sizeof(mv_buf_t);
 
-        cncl_init_ip.u4_size = sizeof(icncl_init_ip_t);
-        cncl_init_ip.pv_mem_rec_location = &(ps_mem_rec[mem_loc]);
-        cncl_init_ip.e_cmd = IV_CMD_INIT;
+        size += (max_dpb_size + 1) *
+                        ihevcd_get_pic_mv_bank_size(wd * ht);
 
-        status = icncl_api_function(ps_codec->ps_conceal, (void *)&cncl_init_ip, (void *)&cncl_init_op);
+        pv_buf = ps_codec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
+        RETURN_IF((NULL == pv_buf), IV_FAIL);
+
+        ps_codec->pv_mv_bank_buf_base = pv_buf;
+        ps_codec->i4_total_mv_bank_size = size;
 
     }
-#endif //APPLY_CONCEALMENT
 
-    status = ihevcd_init(ps_codec);
+    /* In case of non-shared mode allocate for reference picture buffers */
+    /* In case of shared and 420p output, allocate for chroma samples */
+    if(0 == ps_codec->i4_share_disp_buf)
+    {
+        /* Number of buffers is doubled in order to return one frame at a time instead of sending
+         * multiple outputs during dpb full case.
+         * Also note one extra buffer is allocted to store current picture
+         * In case of asynchronous parsing and processing, number of buffers should increase here
+         * based on when parsing and processing threads are synchronized
+         */
+        size = ihevcd_get_total_pic_buf_size(ps_codec, wd, ht);
+        pv_buf = ps_codec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
+        RETURN_IF((NULL == pv_buf), IV_FAIL);
 
-    TRACE_INIT(NULL);
-    STATS_INIT();
-    return status;
+
+        ps_codec->i4_total_pic_buf_size = size;
+        ps_codec->pu1_ref_pic_buf_base = (UWORD8 *)pv_buf;
+    }
+
+    ps_codec->pv_proc_jobq = ihevcd_jobq_init(ps_codec->pv_proc_jobq_buf, ps_codec->i4_proc_jobq_buf_size);
+    RETURN_IF((ps_codec->pv_proc_jobq == NULL), IV_FAIL);
+
+    /* Update the jobq context to all the threads */
+    ps_codec->s_parse.pv_proc_jobq = ps_codec->pv_proc_jobq;
+    for(i = 0; i < MAX_PROCESS_THREADS; i++)
+    {
+        ps_codec->as_process[i].pv_proc_jobq = ps_codec->pv_proc_jobq;
+        ps_codec->as_process[i].i4_id = i;
+        ps_codec->as_process[i].ps_codec = ps_codec;
+
+        /* Set the following to zero assuming it is a single core solution
+         * When threads are launched these will be set appropriately
+         */
+        ps_codec->as_process[i].i4_check_parse_status = 0;
+        ps_codec->as_process[i].i4_check_proc_status = 0;
+    }
+
+    ps_codec->u4_allocate_dynamic_done = 1;
+
+    return IV_SUCCESS;
 }
+
 /**
 *******************************************************************************
 *
 * @brief
-*  Retrieves mem records passed to the codec
+*  Free dynamic memory for the codec
 *
 * @par Description:
-*  Retrieves memrecs passed earlier
+*  Free dynamic memory for the codec
+*
+* @param[in] ps_codec
+*  Pointer to codec context
+*
+* @returns  Status
+*
+* @remarks
+*
+*
+*******************************************************************************
+*/
+WORD32 ihevcd_free_dynamic_bufs(codec_t *ps_codec)
+{
+
+    if(ps_codec->pv_proc_jobq)
+    {
+        ihevcd_jobq_deinit(ps_codec->pv_proc_jobq);
+        ps_codec->pv_proc_jobq = NULL;
+    }
+
+    ALIGNED_FREE(ps_codec, ps_codec->ps_tile);
+    ALIGNED_FREE(ps_codec, ps_codec->pi4_entry_ofst);
+    ALIGNED_FREE(ps_codec, ps_codec->s_parse.pu4_skip_cu_top);
+    ALIGNED_FREE(ps_codec, ps_codec->s_parse.pu4_ct_depth_top);
+    ALIGNED_FREE(ps_codec, ps_codec->pu1_pic_intra_flag);
+    ALIGNED_FREE(ps_codec, ps_codec->pu1_pic_no_loop_filter_flag_base);
+    ALIGNED_FREE(ps_codec, ps_codec->pv_proc_jobq_buf);
+    ALIGNED_FREE(ps_codec, ps_codec->pu1_parse_map);
+    ALIGNED_FREE(ps_codec, ps_codec->pu1_proc_map);
+    ALIGNED_FREE(ps_codec, ps_codec->as_process[0].pu4_pic_pu_idx_left);
+    ALIGNED_FREE(ps_codec, ps_codec->as_process[0].s_sao_ctxt.pu1_sao_src_left_luma);
+    ALIGNED_FREE(ps_codec, ps_codec->as_process[0].s_bs_ctxt.pu4_pic_vert_bs);
+    ALIGNED_FREE(ps_codec, ps_codec->pu1_tile_idx_base);
+    ALIGNED_FREE(ps_codec, ps_codec->s_parse.ps_pic_sao);
+    ALIGNED_FREE(ps_codec, ps_codec->pu1_bitsbuf_dynamic);
+    ALIGNED_FREE(ps_codec, ps_codec->pv_tu_data);
+    ALIGNED_FREE(ps_codec, ps_codec->pv_mv_bank_buf_base);
+    ALIGNED_FREE(ps_codec, ps_codec->pu1_ref_pic_buf_base);
+    ALIGNED_FREE(ps_codec, ps_codec->pu1_cur_chroma_ref_buf);
+
+    ps_codec->u4_allocate_dynamic_done = 0;
+    return IV_SUCCESS;
+}
+
+
+/**
+*******************************************************************************
+*
+* @brief
+*  Initializes from mem records passed to the codec
+*
+* @par Description:
+*  Initializes pointers based on mem records passed
 *
 * @param[in] ps_codec_obj
 *  Pointer to codec object at API level
@@ -3043,70 +2043,78 @@ WORD32 ihevcd_init_mem_rec(iv_obj_t *ps_codec_obj,
 *
 *******************************************************************************
 */
-WORD32 ihevcd_retrieve_memrec(iv_obj_t *ps_codec_obj,
-                              void *pv_api_ip,
-                              void *pv_api_op)
+WORD32 ihevcd_create(iv_obj_t *ps_codec_obj,
+                           void *pv_api_ip,
+                           void *pv_api_op)
 {
 
-    iv_retrieve_mem_rec_ip_t *dec_clr_ip;
-    iv_retrieve_mem_rec_op_t *dec_clr_op;
-    codec_t *ps_codec;
-    dec_clr_ip = (iv_retrieve_mem_rec_ip_t *)pv_api_ip;
-    dec_clr_op = (iv_retrieve_mem_rec_op_t *)pv_api_op;
-    ps_codec = (codec_t *)(ps_codec_obj->pv_codec_handle);
+    ihevcd_cxa_create_op_t *ps_create_op;
 
-    if(ps_codec->i4_init_done != 1)
+    WORD32 ret;
+    codec_t *ps_codec;
+    ps_create_op = (ihevcd_cxa_create_op_t *)pv_api_op;
+
+    ps_create_op->s_ivd_create_op_t.u4_error_code = 0;
+
+    ret = ihevcd_allocate_static_bufs(&ps_codec_obj, pv_api_ip, pv_api_op);
+
+    /* If allocation of some buffer fails, then free buffers allocated till then */
+    if((IV_FAIL == ret) && (NULL != ps_codec_obj))
     {
-        dec_clr_op->u4_error_code |= 1 << IVD_FATALERROR;
-        dec_clr_op->u4_error_code |= IHEVCD_INIT_NOT_DONE;
+        ihevcd_free_static_bufs(ps_codec_obj);
+        ps_create_op->s_ivd_create_op_t.u4_error_code = IVD_MEM_ALLOC_FAILED;
+        ps_create_op->s_ivd_create_op_t.u4_error_code = 1 << IVD_FATALERROR;
+
         return IV_FAIL;
     }
+    ps_codec = (codec_t *)ps_codec_obj->pv_codec_handle;
+    ret = ihevcd_init(ps_codec);
 
-    memcpy(dec_clr_ip->pv_mem_rec_location, ps_codec->ps_mem_rec_backup,
-           MEM_REC_CNT * (sizeof(iv_mem_rec_t)));
-    dec_clr_op->u4_num_mem_rec_filled = MEM_REC_CNT;
+    TRACE_INIT(NULL);
+    STATS_INIT();
 
-#ifdef APPLY_CONCEALMENT
-    {
-        IV_API_CALL_STATUS_T status;
-        icncl_fill_mem_rec_ip_t cncl_fill_ip;
-        icncl_fill_mem_rec_op_t cncl_fill_op;
-
-        iv_mem_rec_t *ps_mem_rec;
-
-        UWORD8 mem_loc = MEM_REC_CNT;
-        UWORD8 num_cncl_mem = 0;
-
-        ps_mem_rec = dec_clr_ip->pv_mem_rec_location;
-
-        cncl_fill_ip.s_ivd_fill_mem_rec_ip_t.e_cmd = IV_CMD_FILL_NUM_MEM_REC;
-        cncl_fill_ip.s_ivd_fill_mem_rec_ip_t.pv_mem_rec_location = &(ps_mem_rec[mem_loc]);
-        cncl_fill_ip.s_ivd_fill_mem_rec_ip_t.u4_size = sizeof(icncl_fill_mem_rec_ip_t);
-
-        status = icncl_api_function(NULL, (void *)&cncl_fill_ip, (void *)&cncl_fill_op);
-
-        cncl_fill_ip.s_ivd_fill_mem_rec_ip_t.e_cmd = IV_CMD_RETRIEVE_MEMREC;
-        cncl_fill_op.s_ivd_fill_mem_rec_op_t.u4_size = sizeof(icncl_fill_mem_rec_op_t);
-
-        status = icncl_api_function(ps_codec->ps_conceal, (void *)&cncl_fill_ip, (void *)&cncl_fill_op);
-
-        if(status == IV_SUCCESS)
-        {
-            /* Add the concealment library's memory requirements */
-            dec_clr_op->u4_num_mem_rec_filled += cncl_fill_op.s_ivd_fill_mem_rec_op_t.u4_num_mem_rec_filled;
-        }
-    }
-#endif //APPLY_CONCEALMENT
-    DEBUG("Retrieve num mem recs: %d\n",
-                    dec_clr_op->u4_num_mem_rec_filled);
-    STATS_PRINT();
-    ihevcd_jobq_free((jobq_t *)ps_codec->pv_proc_jobq);
-
-
-
-    return IV_SUCCESS;
-
+    return ret;
 }
+/**
+*******************************************************************************
+*
+* @brief
+*  Delete codec
+*
+* @par Description:
+*  Delete codec
+*
+* @param[in] ps_codec_obj
+*  Pointer to codec object at API level
+*
+* @param[in] pv_api_ip
+*  Pointer to input argument structure
+*
+* @param[out] pv_api_op
+*  Pointer to output argument structure
+*
+* @returns  Status
+*
+* @remarks
+*
+*
+*******************************************************************************
+*/
+WORD32 ihevcd_delete(iv_obj_t *ps_codec_obj, void *pv_api_ip, void *pv_api_op)
+{
+    codec_t *ps_dec;
+    ihevcd_cxa_delete_ip_t *ps_ip = (ihevcd_cxa_delete_ip_t *)pv_api_ip;
+    ihevcd_cxa_delete_op_t *ps_op = (ihevcd_cxa_delete_op_t *)pv_api_op;
+
+    ps_dec = (codec_t *)(ps_codec_obj->pv_codec_handle);
+    UNUSED(ps_ip);
+    ps_op->s_ivd_delete_op_t.u4_error_code = 0;
+    ihevcd_free_dynamic_bufs(ps_dec);
+    ihevcd_free_static_bufs(ps_codec_obj);
+    return IV_SUCCESS;
+}
+
+
 /**
 *******************************************************************************
 *
@@ -3155,31 +2163,38 @@ WORD32 ihevcd_set_display_frame(iv_obj_t *ps_codec_obj,
         pic_buf_t *ps_pic_buf;
         UWORD8 *pu1_buf;
         WORD32 buf_ret;
-        WORD32 strd;
-        strd = ps_codec->i4_strd;
-        if(0 == strd)
-            strd = ps_codec->i4_max_wd + PAD_WD;
+
+        UWORD8 *pu1_chroma_buf = NULL;
         num_bufs = MIN(num_bufs, BUF_MGR_MAX_CNT);
         ps_codec->i4_num_disp_bufs = num_bufs;
 
         ps_pic_buf = (pic_buf_t *)ps_codec->ps_pic_buf;
+
+        /* If color format is 420P, then allocate chroma buffers to hold semiplanar
+         * chroma data */
+        if(ps_codec->e_chroma_fmt == IV_YUV_420P)
+        {
+            WORD32 num_samples = ps_dec_disp_ip->s_disp_buffer[0].u4_min_out_buf_size[1] << 1;
+            WORD32 size = num_samples * num_bufs;
+            void *pv_mem_ctxt = ps_codec->pv_mem_ctxt;
+
+            pu1_chroma_buf = ps_codec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
+            RETURN_IF((NULL == pu1_chroma_buf), IV_FAIL);
+
+            ps_codec->pu1_cur_chroma_ref_buf = pu1_chroma_buf;
+        }
         for(i = 0; i < (WORD32)num_bufs; i++)
         {
+            /* Stride is not available in some cases here.
+               So store base pointers to buffer manager now,
+               and update these pointers once header is decoded */
             pu1_buf =  ps_dec_disp_ip->s_disp_buffer[i].pu1_bufs[0];
-            ps_pic_buf->pu1_luma = pu1_buf + strd * PAD_TOP + PAD_LEFT;
+            ps_pic_buf->pu1_luma = pu1_buf;
 
             if(ps_codec->e_chroma_fmt == IV_YUV_420P)
             {
-                pu1_buf =  ps_codec->pu1_cur_chroma_ref_buf;
-                ps_codec->pu1_cur_chroma_ref_buf += strd * (ps_codec->i4_ht / 2 + PAD_HT / 2);
-                ps_codec->i4_remaining_pic_buf_size -= strd * (ps_codec->i4_ht / 2 + PAD_HT / 2);
-
-                if(0 > ps_codec->i4_remaining_pic_buf_size)
-                {
-                    ps_codec->i4_error_code = IHEVCD_BUF_MGR_ERROR;
-                    return IHEVCD_BUF_MGR_ERROR;
-                }
-
+                pu1_buf = pu1_chroma_buf;
+                pu1_chroma_buf += ps_dec_disp_ip->s_disp_buffer[0].u4_min_out_buf_size[1] << 1;
             }
             else
             {
@@ -3187,7 +2202,7 @@ WORD32 ihevcd_set_display_frame(iv_obj_t *ps_codec_obj,
                 pu1_buf =  ps_dec_disp_ip->s_disp_buffer[i].pu1_bufs[1];
             }
 
-            ps_pic_buf->pu1_chroma = pu1_buf + strd * (PAD_TOP / 2) + PAD_LEFT;
+            ps_pic_buf->pu1_chroma = pu1_buf;
 
             buf_ret = ihevc_buf_mgr_add((buf_mgr_t *)ps_codec->pv_pic_buf_mgr, ps_pic_buf, i);
 
@@ -3330,7 +2345,9 @@ WORD32 ihevcd_get_status(iv_obj_t *ps_codec_obj,
 
     for(i = 0; i < (WORD32)ps_ctl_op->u4_min_num_in_bufs; i++)
     {
-        ps_ctl_op->u4_min_in_buf_size[i] = MAX((ps_codec->i4_wd * ps_codec->i4_ht), MIN_BITSBUF_SIZE);
+        wd = ALIGN64(ps_codec->i4_wd);
+        ht = ALIGN64(ps_codec->i4_ht);
+        ps_ctl_op->u4_min_in_buf_size[i] = MAX((wd * ht), MIN_BITSBUF_SIZE);
     }
 
     wd = ps_codec->i4_wd;
@@ -3350,19 +2367,6 @@ WORD32 ihevcd_get_status(iv_obj_t *ps_codec_obj,
             ht = ps_codec->i4_ht + PAD_HT;
         }
     }
-    else
-    {
-        if(0 == ps_codec->i4_share_disp_buf)
-        {
-            wd = ps_codec->i4_new_max_wd;
-            ht = ps_codec->i4_new_max_ht;
-        }
-        else
-        {
-            wd = ALIGN32(wd + PAD_WD);
-            ht += PAD_HT;
-        }
-    }
 
     if(ps_codec->i4_disp_strd > wd)
         wd = ps_codec->i4_disp_strd;
@@ -3371,36 +2375,22 @@ WORD32 ihevcd_get_status(iv_obj_t *ps_codec_obj,
         ps_ctl_op->u4_num_disp_bufs = 1;
     else
     {
-        WORD32 pic_size;
-        WORD32 max_dpb_size;
-
         if(ps_codec->i4_sps_done)
         {
             sps_t *ps_sps = (ps_codec->s_parse.ps_sps_base + ps_codec->i4_sps_id);
-            WORD32 reorder_pic_cnt;
-            WORD32 ref_pic_cnt;
-            WORD32 level;
+            WORD32 reorder_pic_cnt, ref_pic_cnt;
+            reorder_pic_cnt = 0;
+            if(ps_codec->e_frm_out_mode != IVD_DECODE_FRAME_OUT)
+                reorder_pic_cnt = ps_sps->ai1_sps_max_num_reorder_pics[ps_sps->i1_sps_max_sub_layers - 1];
+            ref_pic_cnt = ps_sps->ai1_sps_max_dec_pic_buffering[ps_sps->i1_sps_max_sub_layers - 1];
 
-            reorder_pic_cnt = MIN(ps_sps->ai1_sps_max_num_reorder_pics[0], ps_codec->i4_init_num_reorder);
-            pic_size = ps_sps->i2_pic_width_in_luma_samples * ps_sps->i2_pic_height_in_luma_samples;
-
-            level = ps_codec->i4_init_level;
-            max_dpb_size = ihevcd_get_dpb_size(level, pic_size);
-            ref_pic_cnt = max_dpb_size;
             ps_ctl_op->u4_num_disp_bufs = reorder_pic_cnt;
 
             ps_ctl_op->u4_num_disp_bufs += ref_pic_cnt + 1;
-
         }
         else
         {
-            pic_size = ps_codec->i4_max_wd * ps_codec->i4_max_ht;
-            max_dpb_size = ihevcd_get_dpb_size(ps_codec->i4_init_level, pic_size);
-            ps_ctl_op->u4_num_disp_bufs = 2 * max_dpb_size;
-
-            ps_ctl_op->u4_num_disp_bufs = MIN(ps_ctl_op->u4_num_disp_bufs,
-                            (UWORD32)(ps_codec->i4_init_num_ref + ps_codec->i4_init_num_reorder + 1));
-
+            ps_ctl_op->u4_num_disp_bufs = MAX_REF_CNT;
         }
 
         ps_ctl_op->u4_num_disp_bufs = MIN(
@@ -3515,11 +2505,14 @@ WORD32 ihevcd_get_buf_info(iv_obj_t *ps_codec_obj,
 
     for(i = 0; i < ps_ctl_op->u4_min_num_in_bufs; i++)
     {
-        ps_ctl_op->u4_min_in_buf_size[i] = MAX((ps_codec->i4_wd * ps_codec->i4_ht), MIN_BITSBUF_SIZE);
+        wd = ALIGN64(ps_codec->i4_wd);
+        ht = ALIGN64(ps_codec->i4_ht);
+
+        ps_ctl_op->u4_min_in_buf_size[i] = MAX((wd * ht), MIN_BITSBUF_SIZE);
     }
 
-    wd = ps_codec->i4_max_wd;
-    ht = ps_codec->i4_max_ht;
+    wd = 0;
+    ht = 0;
 
     if(ps_codec->i4_sps_done)
     {
@@ -3551,36 +2544,22 @@ WORD32 ihevcd_get_buf_info(iv_obj_t *ps_codec_obj,
         ps_ctl_op->u4_num_disp_bufs = 1;
     else
     {
-        WORD32 pic_size;
-        WORD32 max_dpb_size;
-
         if(ps_codec->i4_sps_done)
         {
             sps_t *ps_sps = (ps_codec->s_parse.ps_sps_base + ps_codec->i4_sps_id);
-            WORD32 reorder_pic_cnt;
-            WORD32 ref_pic_cnt;
-            WORD32 level;
+            WORD32 reorder_pic_cnt, ref_pic_cnt;
+            reorder_pic_cnt = 0;
+            if(ps_codec->e_frm_out_mode != IVD_DECODE_FRAME_OUT)
+                reorder_pic_cnt = ps_sps->ai1_sps_max_num_reorder_pics[ps_sps->i1_sps_max_sub_layers - 1];
+            ref_pic_cnt = ps_sps->ai1_sps_max_dec_pic_buffering[ps_sps->i1_sps_max_sub_layers - 1];
 
-            reorder_pic_cnt = MIN(ps_sps->ai1_sps_max_num_reorder_pics[0], ps_codec->i4_init_num_reorder);
-            pic_size = ps_sps->i2_pic_width_in_luma_samples * ps_sps->i2_pic_height_in_luma_samples;
-
-            level = ps_codec->i4_init_level;
-            max_dpb_size = ihevcd_get_dpb_size(level, pic_size);
-            ref_pic_cnt = max_dpb_size;
             ps_ctl_op->u4_num_disp_bufs = reorder_pic_cnt;
 
             ps_ctl_op->u4_num_disp_bufs += ref_pic_cnt + 1;
-
         }
         else
         {
-            pic_size = ps_codec->i4_max_wd * ps_codec->i4_max_ht;
-            max_dpb_size = ihevcd_get_dpb_size(ps_codec->i4_init_level, pic_size);
-            ps_ctl_op->u4_num_disp_bufs = 2 * max_dpb_size;
-
-            ps_ctl_op->u4_num_disp_bufs = MIN(ps_ctl_op->u4_num_disp_bufs,
-                            (UWORD32)(ps_codec->i4_init_num_ref + ps_codec->i4_init_num_reorder + 1));
-
+            ps_ctl_op->u4_num_disp_bufs = MAX_REF_CNT;
         }
 
         ps_ctl_op->u4_num_disp_bufs = MIN(
@@ -3690,18 +2669,8 @@ WORD32 ihevcd_set_params(iv_obj_t *ps_codec_obj,
     }
 
 
-    if((-1 != (WORD32)s_ctl_dynparams_ip->u4_disp_wd) &&
-                    (0  != s_ctl_dynparams_ip->u4_disp_wd) &&
-                    (0  != strd) &&
-                    ((WORD32)s_ctl_dynparams_ip->u4_disp_wd < strd))
     {
-        s_ctl_dynparams_op->u4_error_code |= (1 << IVD_UNSUPPORTEDPARAM);
-        s_ctl_dynparams_op->u4_error_code |= IHEVCD_INVALID_DISP_STRD;
-        ret = IV_FAIL;
-    }
-    else
-    {
-        if((WORD32)s_ctl_dynparams_ip->u4_disp_wd >= ps_codec->i4_wd)
+        if((WORD32)s_ctl_dynparams_ip->u4_disp_wd >= ps_codec->i4_disp_wd)
         {
             strd = s_ctl_dynparams_ip->u4_disp_wd;
         }
@@ -3740,6 +2709,15 @@ WORD32 ihevcd_set_params(iv_obj_t *ps_codec_obj,
         ret = IV_FAIL;
     }
 
+    ps_codec->e_frm_out_mode = IVD_DISPLAY_FRAME_OUT;
+
+    if((s_ctl_dynparams_ip->e_frm_out_mode != IVD_DECODE_FRAME_OUT) &&
+       (s_ctl_dynparams_ip->e_frm_out_mode != IVD_DISPLAY_FRAME_OUT))
+    {
+        s_ctl_dynparams_op->u4_error_code = (1 << IVD_UNSUPPORTEDPARAM);
+        ret = IV_FAIL;
+    }
+    ps_codec->e_frm_out_mode = s_ctl_dynparams_ip->e_frm_out_mode;
 
     return ret;
 
@@ -3948,8 +2926,8 @@ WORD32 ihevcd_get_frame_dimensions(iv_obj_t *ps_codec_obj,
     else
     {
 
-        disp_wd = ps_codec->i4_max_wd;
-        disp_ht = ps_codec->i4_max_ht;
+        disp_wd = 0;
+        disp_ht = 0;
 
         if(0 == ps_codec->i4_share_disp_buf)
         {
@@ -4455,17 +3433,11 @@ IV_API_CALL_STATUS_T ihevcd_cxa_api_function(iv_obj_t *ps_handle,
 
     switch(command)
     {
-        case IV_CMD_GET_NUM_MEM_REC:
-            ret = ihevcd_get_num_rec((void *)pv_api_ip, (void *)pv_api_op);
-
+        case IVD_CMD_CREATE:
+            ret = ihevcd_create(ps_handle, (void *)pv_api_ip, (void *)pv_api_op);
             break;
-        case IV_CMD_FILL_NUM_MEM_REC:
-
-            ret = ihevcd_fill_num_mem_rec((void *)pv_api_ip, (void *)pv_api_op);
-            break;
-        case IV_CMD_INIT:
-            ret = ihevcd_init_mem_rec(ps_handle, (void *)pv_api_ip,
-                                      (void *)pv_api_op);
+        case IVD_CMD_DELETE:
+            ret = ihevcd_delete(ps_handle, (void *)pv_api_ip, (void *)pv_api_op);
             break;
 
         case IVD_CMD_VIDEO_DECODE:
@@ -4485,11 +3457,6 @@ IV_API_CALL_STATUS_T ihevcd_cxa_api_function(iv_obj_t *ps_handle,
         case IVD_CMD_REL_DISPLAY_FRAME:
             ret = ihevcd_rel_display_frame(ps_handle, (void *)pv_api_ip,
                                            (void *)pv_api_op);
-            break;
-
-        case IV_CMD_RETRIEVE_MEMREC:
-            ret = ihevcd_retrieve_memrec(ps_handle, (void *)pv_api_ip,
-                                         (void *)pv_api_op);
             break;
 
         case IVD_CMD_VIDEO_CTL:

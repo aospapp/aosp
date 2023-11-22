@@ -14,8 +14,6 @@ PIXELFLINGER_SRC_FILES:= \
 	codeflinger/load_store.cpp \
 	codeflinger/blending.cpp \
 	codeflinger/texturing.cpp \
-	codeflinger/tinyutils/SharedBuffer.cpp \
-	codeflinger/tinyutils/VectorImpl.cpp \
 	fixed.cpp.arm \
 	picker.cpp.arm \
 	pixelflinger.cpp.arm \
@@ -52,6 +50,14 @@ PIXELFLINGER_SRC_FILES_mips := \
 	arch-mips/t32cb16blend.S \
 
 endif
+
+PIXELFLINGER_SRC_FILES_mips64 := \
+        codeflinger/MIPSAssembler.cpp \
+	codeflinger/MIPS64Assembler.cpp \
+	codeflinger/mips64_disassem.c \
+	arch-mips64/col32cb16blend.S \
+	arch-mips64/t32cb16blend.S \
+
 #
 # Shared library
 #
@@ -61,19 +67,17 @@ LOCAL_SRC_FILES := $(PIXELFLINGER_SRC_FILES)
 LOCAL_SRC_FILES_arm := $(PIXELFLINGER_SRC_FILES_arm)
 LOCAL_SRC_FILES_arm64 := $(PIXELFLINGER_SRC_FILES_arm64)
 LOCAL_SRC_FILES_mips := $(PIXELFLINGER_SRC_FILES_mips)
+LOCAL_SRC_FILES_mips64 := $(PIXELFLINGER_SRC_FILES_mips64)
 LOCAL_CFLAGS := $(PIXELFLINGER_CFLAGS)
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
-LOCAL_C_INCLUDES += $(LOCAL_EXPORT_C_INCLUDE_DIRS)
-LOCAL_SHARED_LIBRARIES := libcutils liblog
+LOCAL_C_INCLUDES += $(LOCAL_EXPORT_C_INCLUDE_DIRS) \
+		    external/safe-iop/include
+LOCAL_SHARED_LIBRARIES := libcutils liblog libutils
 
 # Really this should go away entirely or at least not depend on
 # libhardware, but this at least gets us built.
 LOCAL_SHARED_LIBRARIES += libhardware_legacy
 LOCAL_CFLAGS += -DWITH_LIB_HARDWARE
-# t32cb16blend.S does not compile with Clang.
-LOCAL_CLANG_ASFLAGS_arm += -no-integrated-as
-# arch-arm64/col32cb16blend.S does not compile with Clang.
-LOCAL_CLANG_ASFLAGS_arm64 += -no-integrated-as
 include $(BUILD_SHARED_LIBRARY)
 
 include $(call all-makefiles-under,$(LOCAL_PATH))

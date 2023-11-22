@@ -583,8 +583,8 @@ static void wpa_supplicant_wps_event_m2d(struct wpa_supplicant *wpa_s,
 		m2d->dev_password_id, m2d->config_error);
 	wpas_notify_wps_event_m2d(wpa_s, m2d);
 #ifdef CONFIG_P2P
-	if (wpa_s->parent && wpa_s->parent != wpa_s) {
-		wpa_msg(wpa_s->parent, MSG_INFO, WPS_EVENT_M2D
+	if (wpa_s->p2pdev && wpa_s->p2pdev != wpa_s) {
+		wpa_msg(wpa_s->p2pdev, MSG_INFO, WPS_EVENT_M2D
 			"dev_password_id=%d config_error=%d",
 			m2d->dev_password_id, m2d->config_error);
 	}
@@ -617,8 +617,8 @@ static void wpa_supplicant_wps_event_fail(struct wpa_supplicant *wpa_s,
 			WPS_EVENT_FAIL "msg=%d config_error=%d reason=%d (%s)",
 			fail->msg, fail->config_error, fail->error_indication,
 			wps_ei_str(fail->error_indication));
-		if (wpa_s->parent && wpa_s->parent != wpa_s)
-			wpa_msg(wpa_s->parent, MSG_INFO, WPS_EVENT_FAIL
+		if (wpa_s->p2pdev && wpa_s->p2pdev != wpa_s)
+			wpa_msg(wpa_s->p2pdev, MSG_INFO, WPS_EVENT_FAIL
 				"msg=%d config_error=%d reason=%d (%s)",
 				fail->msg, fail->config_error,
 				fail->error_indication,
@@ -627,8 +627,8 @@ static void wpa_supplicant_wps_event_fail(struct wpa_supplicant *wpa_s,
 		wpa_msg(wpa_s, MSG_INFO,
 			WPS_EVENT_FAIL "msg=%d config_error=%d",
 			fail->msg, fail->config_error);
-		if (wpa_s->parent && wpa_s->parent != wpa_s)
-			wpa_msg(wpa_s->parent, MSG_INFO, WPS_EVENT_FAIL
+		if (wpa_s->p2pdev && wpa_s->p2pdev != wpa_s)
+			wpa_msg(wpa_s->p2pdev, MSG_INFO, WPS_EVENT_FAIL
 				"msg=%d config_error=%d",
 				fail->msg, fail->config_error);
 	}
@@ -680,6 +680,13 @@ static void wpas_wps_reenable_networks_cb(void *eloop_ctx, void *timeout_ctx)
 	struct wpa_supplicant *wpa_s = eloop_ctx;
 	/* Enable the networks disabled during wpas_wps_reassoc */
 	wpas_wps_reenable_networks(wpa_s);
+}
+
+
+int wpas_wps_reenable_networks_pending(struct wpa_supplicant *wpa_s)
+{
+	return eloop_is_timeout_registered(wpas_wps_reenable_networks_cb,
+					   wpa_s, NULL);
 }
 
 
@@ -955,8 +962,20 @@ static void wpas_clear_wps(struct wpa_supplicant *wpa_s)
 static void wpas_wps_timeout(void *eloop_ctx, void *timeout_ctx)
 {
 	struct wpa_supplicant *wpa_s = eloop_ctx;
+	union wps_event_data data;
+
 	wpa_msg(wpa_s, MSG_INFO, WPS_EVENT_TIMEOUT "Requested operation timed "
 		"out");
+	os_memset(&data, 0, sizeof(data));
+	data.fail.config_error = WPS_CFG_MSG_TIMEOUT;
+	data.fail.error_indication = WPS_EI_NO_ERROR;
+	/*
+	 * Call wpas_notify_wps_event_fail() directly instead of through
+	 * wpa_supplicant_wps_event() which would end up registering unnecessary
+	 * timeouts (those are only for the case where the failure happens
+	 * during an EAP-WSC exchange).
+	 */
+	wpas_notify_wps_event_fail(wpa_s, &data.fail);
 	wpas_clear_wps(wpa_s);
 }
 
@@ -1130,6 +1149,10 @@ int wpas_wps_start_pbc(struct wpa_supplicant *wpa_s, const u8 *bssid,
 			ssid->ssid_len = wpa_s->go_params->ssid_len;
 			os_memcpy(ssid->ssid, wpa_s->go_params->ssid,
 				  ssid->ssid_len);
+			if (wpa_s->go_params->freq > 56160) {
+				/* P2P in 60 GHz uses PBSS */
+				ssid->pbss = 1;
+			}
 			wpa_hexdump_ascii(MSG_DEBUG, "WPS: Use specific AP "
 					  "SSID", ssid->ssid, ssid->ssid_len);
 		}
@@ -1197,6 +1220,10 @@ static int wpas_wps_start_dev_pw(struct wpa_supplicant *wpa_s,
 			ssid->ssid_len = wpa_s->go_params->ssid_len;
 			os_memcpy(ssid->ssid, wpa_s->go_params->ssid,
 				  ssid->ssid_len);
+			if (wpa_s->go_params->freq > 56160) {
+				/* P2P in 60 GHz uses PBSS */
+				ssid->pbss = 1;
+			}
 			wpa_hexdump_ascii(MSG_DEBUG, "WPS: Use specific AP "
 					  "SSID", ssid->ssid, ssid->ssid_len);
 		}
@@ -1209,7 +1236,10 @@ static int wpas_wps_start_dev_pw(struct wpa_supplicant *wpa_s,
 		os_snprintf(val, sizeof(val), "\"dev_pw_id=%u%s\"",
 			    dev_pw_id, hash);
 	} else {
-		rpin = wps_generate_pin();
+		if (wps_generate_pin(&rpin) < 0) {
+			wpa_printf(MSG_DEBUG, "WPS: Could not generate PIN");
+			return -1;
+		}
 		os_snprintf(val, sizeof(val), "\"pin=%08d dev_pw_id=%u%s\"",
 			    rpin, dev_pw_id, hash);
 	}
@@ -1235,6 +1265,22 @@ int wpas_wps_start_pin(struct wpa_supplicant *wpa_s, const u8 *bssid,
 				     dev_pw_id, NULL, NULL, 0, 0);
 }
 
+
+void wpas_wps_pbc_overlap(struct wpa_supplicant *wpa_s)
+{
+	union wps_event_data data;
+
+	os_memset(&data, 0, sizeof(data));
+	data.fail.config_error = WPS_CFG_MULTIPLE_PBC_DETECTED;
+	data.fail.error_indication = WPS_EI_NO_ERROR;
+	/*
+	 * Call wpas_notify_wps_event_fail() directly instead of through
+	 * wpa_supplicant_wps_event() which would end up registering unnecessary
+	 * timeouts (those are only for the case where the failure happens
+	 * during an EAP-WSC exchange).
+	 */
+	wpas_notify_wps_event_fail(wpa_s, &data.fail);
+}
 
 /* Cancel the wps pbc/pin requests */
 int wpas_wps_cancel(struct wpa_supplicant *wpa_s)

@@ -14,8 +14,7 @@
      limitations under the License.
 -->
 
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.effect">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="android.effect.cts">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <application>
@@ -24,7 +23,7 @@
 
     <!-- This is a self-instrumenting test package. -->
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.effect"
+                     android:targetPackage="android.effect.cts"
                      android:label="CTS tests of android.media.effect component">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

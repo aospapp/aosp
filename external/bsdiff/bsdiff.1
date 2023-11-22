@@ -33,20 +33,21 @@
 .Nd generate a patch between two binary files
 .Sh SYNOPSIS
 .Nm
-.Ao Ar oldfile Ac Ao Ar newfile Ac Ao Ar patchfile Ac
+.Ar oldfile newfile patchfile
 .Sh DESCRIPTION
 .Nm
 compares
-.Ao Ar oldfile Ac
+.Ar oldfile
 to
-.Ao Ar newfile Ac
+.Ar newfile
 and writes to
-.Ao Ar patchfile Ac
-a binary patch suitable for use by bspatch(1).
+.Ar patchfile
+a binary patch suitable for use by
+.Xr bspatch 1 .
 When
-.Ao Ar oldfile Ac
+.Ar oldfile
 and
-.Ao Ar newfile Ac
+.Ar newfile
 are two versions of an executable program, the
 patches produced are on average a factor of five smaller
 than those produced by any other binary patch tool known
@@ -54,7 +55,7 @@ to the author.
 .Pp
 .Nm
 uses memory equal to 17 times the size of 
-.Ao Ar oldfile Ac ,
+.Ar oldfile ,
 and requires
 an absolute minimum working set size of 8 times the size of oldfile.
 .Sh SEE ALSO

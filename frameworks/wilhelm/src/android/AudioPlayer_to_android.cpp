@@ -22,10 +22,13 @@
 #include "android/include/AacBqToPcmCbRenderer.h"
 #include "android/channels.h"
 
+#include <android_runtime/AndroidRuntime.h>
+
 #include <fcntl.h>
 #include <sys/stat.h>
 
 #include <system/audio.h>
+#include <SLES/OpenSLES_Android.h>
 
 template class android::KeyedVector<SLuint32,
                                     android::sp<android::AudioEffect> > ;
@@ -108,7 +111,7 @@ static size_t adecoder_writeToBufferQueue(const uint8_t *data, size_t size, CAud
         return 0;
     }
     size_t sizeConsumed = 0;
-    SL_LOGD("received %d bytes from decoder", size);
+    SL_LOGD("received %zu bytes from decoder", size);
     slBufferQueueCallback callback = NULL;
     void * callbackPContext = NULL;
 
@@ -873,47 +876,57 @@ const uint32_t kUnsupported =
         AUDIO_CHANNEL_OUT_TOP_BACK_CENTER |
         AUDIO_CHANNEL_OUT_TOP_BACK_RIGHT;
 
-//TODO(pmclean) This will need to be revisited when arbitrary N-channel support is added.
 static
 SLresult android_audioPlayer_validateChannelMask(uint32_t mask, uint32_t numChans) {
     // Check that the number of channels falls within bounds.
     if (numChans == 0 || numChans > FCC_8) {
+        SL_LOGE("Number of channels %u must be between one and %u inclusive", numChans, FCC_8);
         return SL_RESULT_CONTENT_UNSUPPORTED;
     }
     // Are there the right number of channels in the mask?
-    if (audio_channel_count_from_out_mask(mask) != numChans) {
+    if (sles_channel_count_from_mask(mask) != numChans) {
+        SL_LOGE("Channel mask %#x does not match channel count %u", mask, numChans);
         return SL_RESULT_CONTENT_UNSUPPORTED;
-    }
-    // check against unsupported channels
-    if (mask & kUnsupported) {
-        ALOGE("Unsupported channels (top or front left/right of center)");
-        return SL_RESULT_CONTENT_UNSUPPORTED;
-    }
-    // verify has FL/FR if more than one channel
-    if (numChans > 1 && (mask & AUDIO_CHANNEL_OUT_STEREO) != AUDIO_CHANNEL_OUT_STEREO) {
-        ALOGE("Front channels must be present");
-        return SL_RESULT_CONTENT_UNSUPPORTED;
-    }
-    // verify uses SIDE as a pair (ok if not using SIDE at all)
-    bool hasSides = false;
-    if ((mask & kSides) != 0) {
-        if ((mask & kSides) != kSides) {
-            ALOGE("Side channels must be used as a pair");
-            return SL_RESULT_CONTENT_UNSUPPORTED;
-        }
-        hasSides = true;
-    }
-    // verify uses BACK as a pair (ok if not using BACK at all)
-    bool hasBacks = false;
-    if ((mask & kBacks) != 0) {
-        if ((mask & kBacks) != kBacks) {
-            ALOGE("Back channels must be used as a pair");
-            return SL_RESULT_CONTENT_UNSUPPORTED;
-        }
-        hasBacks = true;
     }
 
-    return SL_RESULT_SUCCESS;
+    audio_channel_representation_t representation =
+            sles_to_audio_channel_mask_representation(mask);
+
+    if (representation == AUDIO_CHANNEL_REPRESENTATION_INDEX) {
+        return SL_RESULT_SUCCESS;
+    }
+
+    // If audio is positional we need to run a set of checks to make sure
+    // the positions can be handled by our HDMI-compliant downmixer. Compare with
+    // android.media.AudioTrack.isMultichannelConfigSupported
+    // and Downmix_foldGeneric (in libeffects).
+    if (representation == AUDIO_CHANNEL_REPRESENTATION_POSITION) {
+        // check against unsupported channels
+        if (mask & kUnsupported) {
+            SL_LOGE("Mask %#x is invalid: Unsupported channels (top or front left/right of center)",
+                    mask);
+            return SL_RESULT_CONTENT_UNSUPPORTED;
+        }
+        // verify that mask has FL/FR if more than one channel specified
+        if (numChans > 1 && (mask & AUDIO_CHANNEL_OUT_STEREO) != AUDIO_CHANNEL_OUT_STEREO) {
+            SL_LOGE("Mask %#x is invalid: Front channels must be present", mask);
+            return SL_RESULT_CONTENT_UNSUPPORTED;
+        }
+        // verify that SIDE is used as a pair (ok if not using SIDE at all)
+        if ((mask & kSides) != 0 && (mask & kSides) != kSides) {
+                SL_LOGE("Mask %#x is invalid: Side channels must be used as a pair", mask);
+                return SL_RESULT_CONTENT_UNSUPPORTED;
+        }
+        // verify that BACK is used as a pair (ok if not using BACK at all)
+        if ((mask & kBacks) != 0 && (mask & kBacks) != kBacks) {
+            SL_LOGE("Mask %#x is invalid: Back channels must be used as a pair", mask);
+            return SL_RESULT_CONTENT_UNSUPPORTED;
+        }
+        return SL_RESULT_SUCCESS;
+    }
+
+    SL_LOGE("Unrecognized channel mask representation %#x", representation);
+    return SL_RESULT_CONTENT_UNSUPPORTED;
 }
 
 //-----------------------------------------------------------------------------
@@ -932,7 +945,6 @@ SLresult android_audioPlayer_checkSourceSink(CAudioPlayer *pAudioPlayer)
     const SLuint32 sourceLocatorType = *(SLuint32 *)pAudioSrc->pLocator;
     const SLuint32 sinkLocatorType = *(SLuint32 *)pAudioSnk->pLocator;
     const SLuint32 sourceFormatType = *(SLuint32 *)pAudioSrc->pFormat;
-    const SLuint32 sinkFormatType = *(SLuint32 *)pAudioSnk->pFormat;
 
     const SLuint32 *df_representation = NULL; // pointer to representation field, if it exists
 
@@ -942,8 +954,6 @@ SLresult android_audioPlayer_checkSourceSink(CAudioPlayer *pAudioPlayer)
     case SL_DATALOCATOR_BUFFERQUEUE:
     case SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE:
         {
-        SLDataLocator_BufferQueue *dl_bq = (SLDataLocator_BufferQueue *) pAudioSrc->pLocator;
-
         // Buffer format
         switch (sourceFormatType) {
         //     currently only PCM buffer queues are supported,
@@ -1272,7 +1282,8 @@ void android_audioPlayer_create(CAudioPlayer *pAudioPlayer) {
     // FIXME Consolidate initializations (many of these already in IEngine_CreateAudioPlayer)
     // mAndroidObjType: see above comment
     pAudioPlayer->mAndroidObjState = ANDROID_UNINITIALIZED;
-    pAudioPlayer->mSessionId = android::AudioSystem::newAudioUniqueId();
+    pAudioPlayer->mSessionId = (audio_session_t) android::AudioSystem::newAudioUniqueId(
+            AUDIO_UNIQUE_ID_USE_SESSION);
 
     // placeholder: not necessary yet as session ID lifetime doesn't extend beyond player
     // android::AudioSystem::acquireAudioSessionId(pAudioPlayer->mSessionId);
@@ -1428,7 +1439,7 @@ static bool canUseFastTrack(CAudioPlayer *pAudioPlayer)
 compatible: ;
     }
     if (whitelistResult != blacklistResult) {
-        ALOGW("whitelistResult != blacklistResult");
+        SL_LOGW("whitelistResult != blacklistResult");
         // and use blacklistResult below
     }
 #endif
@@ -1451,36 +1462,55 @@ SLresult android_audioPlayer_realize(CAudioPlayer *pAudioPlayer, SLboolean async
 
     //-----------------------------------
     // AudioTrack
-    case AUDIOPLAYER_FROM_PCM_BUFFERQUEUE:
-        {
+    case AUDIOPLAYER_FROM_PCM_BUFFERQUEUE: {
         // initialize platform-specific CAudioPlayer fields
 
-        SLDataLocator_BufferQueue *dl_bq = (SLDataLocator_BufferQueue *)
-                pAudioPlayer->mDynamicSource.mDataSource;
         SLDataFormat_PCM *df_pcm = (SLDataFormat_PCM *)
                 pAudioPlayer->mDynamicSource.mDataSource->pFormat;
 
         uint32_t sampleRate = sles_to_android_sampleRate(df_pcm->samplesPerSec);
 
+        audio_channel_mask_t channelMask;
+        channelMask = sles_to_audio_output_channel_mask(df_pcm->channelMask);
+
+        // To maintain backward compatibility with previous releases, ignore
+        // channel masks that are not indexed.
+        if (channelMask == AUDIO_CHANNEL_INVALID
+                || audio_channel_mask_get_representation(channelMask)
+                        == AUDIO_CHANNEL_REPRESENTATION_POSITION) {
+            channelMask = audio_channel_out_mask_from_count(df_pcm->numChannels);
+            SL_LOGI("Emulating old channel mask behavior "
+                    "(ignoring positional mask %#x, using default mask %#x based on "
+                    "channel count of %d)", df_pcm->channelMask, channelMask,
+                    df_pcm->numChannels);
+        }
+        SL_LOGV("AudioPlayer: mapped SLES channel mask %#x to android channel mask %#x",
+            df_pcm->channelMask,
+            channelMask);
+
         audio_output_flags_t policy;
+        int32_t notificationFrames;
         if (canUseFastTrack(pAudioPlayer)) {
-            policy = AUDIO_OUTPUT_FLAG_FAST;
+            policy = (audio_output_flags_t)(AUDIO_OUTPUT_FLAG_FAST | AUDIO_OUTPUT_FLAG_RAW);
+            // negative notificationFrames is the number of notifications (sub-buffers) per track buffer
+            // for details see the explanation at frameworks/av/include/media/AudioTrack.h
+            notificationFrames = -pAudioPlayer->mBufferQueue.mNumBuffers;
         } else {
             policy = AUDIO_OUTPUT_FLAG_NONE;
+            // use default notifications
+            notificationFrames = 0;
         }
 
         pAudioPlayer->mAudioTrack = new android::AudioTrack(
                 pAudioPlayer->mStreamType,                           // streamType
                 sampleRate,                                          // sampleRate
                 sles_to_android_sampleFormat(df_pcm),                // format
-                // FIXME ignores df_pcm->channelMask and assumes positional
-                audio_channel_out_mask_from_count(df_pcm->numChannels),
-                                                                     // channel mask
+                channelMask,                                         // channel mask
                 0,                                                   // frameCount
                 policy,                                              // flags
                 audioTrack_callBack_pullFromBuffQueue,               // callback
                 (void *) pAudioPlayer,                               // user
-                0,     // FIXME find appropriate frame count         // notificationFrame
+                notificationFrames,                                  // see comment above
                 pAudioPlayer->mSessionId);
         android::status_t status = pAudioPlayer->mAudioTrack->initCheck();
         if (status != android::NO_ERROR) {
@@ -1498,7 +1528,26 @@ SLresult android_audioPlayer_realize(CAudioPlayer *pAudioPlayer, SLboolean async
 
         // This use case does not have a separate "prepare" step
         pAudioPlayer->mAndroidObjState = ANDROID_READY;
+
+        // If there is a JavaAudioRoutingProxy associated with this player, hook it up...
+        JNIEnv* j_env = NULL;
+        jclass clsAudioTrack = NULL;
+        jmethodID midRoutingProxy_connect = NULL;
+        if (pAudioPlayer->mAndroidConfiguration.mRoutingProxy != NULL &&
+                (j_env = android::AndroidRuntime::getJNIEnv()) != NULL &&
+                (clsAudioTrack = j_env->FindClass("android/media/AudioTrack")) != NULL &&
+                (midRoutingProxy_connect =
+                    j_env->GetMethodID(clsAudioTrack, "deferred_connect", "(J)V")) != NULL) {
+            j_env->ExceptionClear();
+            j_env->CallVoidMethod(pAudioPlayer->mAndroidConfiguration.mRoutingProxy,
+                                  midRoutingProxy_connect,
+                                  pAudioPlayer->mAudioTrack.get());
+            if (j_env->ExceptionCheck()) {
+                SL_LOGE("Java exception releasing recorder routing object.");
+                result = SL_RESULT_INTERNAL_ERROR;
+            }
         }
+    }
         break;
 
     //-----------------------------------
@@ -1961,7 +2010,6 @@ SLresult android_audioPlayer_metadata_getValue(CAudioPlayer *ap,
 void android_audioPlayer_setPlayState(CAudioPlayer *ap) {
 
     SLuint32 playState = ap->mPlay.mState;
-    AndroidObjectState objState = ap->mAndroidObjState;
 
     switch (ap->mAndroidObjType) {
     case AUDIOPLAYER_FROM_PCM_BUFFERQUEUE:

@@ -57,7 +57,7 @@ static future_t *clean_up(void) {
   return NULL;
 }
 
-const module_t profile_manager_module = {
+EXPORT_SYMBOL const module_t profile_manager_module = {
   .name = PROFILE_MANAGER_MODULE,
   .init = init,
   .start_up = NULL,

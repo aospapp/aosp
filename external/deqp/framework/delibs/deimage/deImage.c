@@ -76,7 +76,7 @@ deARGB deImage_getPixel (const deImage* image, int x, int y)
 		case DE_IMAGEFORMAT_XRGB8888:	return *(deARGB*)addr;
 		case DE_IMAGEFORMAT_ARGB8888:	return *(deARGB*)addr;
 		default:
-			DE_ASSERT(!"deImage_getPixel(): invalid format");
+			DE_FATAL("deImage_getPixel(): invalid format");
 			return deARGB_black();
 	}
 }
@@ -89,7 +89,7 @@ void deImage_setPixel (deImage* image, int x, int y, deARGB argb)
 		case DE_IMAGEFORMAT_XRGB8888:	*(deARGB*)addr = argb;	break;
 		case DE_IMAGEFORMAT_ARGB8888:	*(deARGB*)addr = argb;	break;
 		default:
-			DE_ASSERT(!"deImage_getPixel(): invalid format");
+			DE_FATAL("deImage_getPixel(): invalid format");
 	}
 }
 
@@ -125,8 +125,8 @@ deImage* deImage_scale (const deImage* srcImage, int dstWidth, int dstHeight)
 	{
 		for (x = 0; x < dstWidth; x++)
 		{
-			float	xFloat	= (float)(x + 0.5f) / (float)dstWidth * (float)srcImage->width - 0.5f;
-			float	yFloat	= (float)(y + 0.5f) / (float)dstHeight * (float)srcImage->height - 0.5f;
+			float	xFloat	= ((float)x + 0.5f) / (float)dstWidth * (float)srcImage->width - 0.5f;
+			float	yFloat	= ((float)y + 0.5f) / (float)dstHeight * (float)srcImage->height - 0.5f;
 			int		xFixed	= deFloorFloatToInt32(xFloat * 256.0f);
 			int		yFixed	= deFloorFloatToInt32(yFloat * 256.0f);
 			int		xFactor	= (xFixed & 0xFF);

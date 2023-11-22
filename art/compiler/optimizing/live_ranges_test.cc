@@ -27,25 +27,21 @@
 #include "prepare_for_register_allocation.h"
 #include "ssa_liveness_analysis.h"
 
-#include "gtest/gtest.h"
-
 namespace art {
 
+class LiveRangesTest : public CommonCompilerTest {};
+
 static HGraph* BuildGraph(const uint16_t* data, ArenaAllocator* allocator) {
-  HGraph* graph = CreateGraph(allocator);
-  HGraphBuilder builder(graph);
-  const DexFile::CodeItem* item = reinterpret_cast<const DexFile::CodeItem*>(data);
-  builder.BuildGraph(*item);
+  HGraph* graph = CreateCFG(allocator, data);
   // Suspend checks implementation may change in the future, and this test relies
   // on how instructions are ordered.
   RemoveSuspendChecks(graph);
-  graph->TryBuildingSsa();
   // `Inline` conditions into ifs.
   PrepareForRegisterAllocation(graph).Run();
   return graph;
 }
 
-TEST(LiveRangesTest, CFG1) {
+TEST_F(LiveRangesTest, CFG1) {
   /*
    * Test the following snippet:
    *  return 0;
@@ -77,13 +73,13 @@ TEST(LiveRangesTest, CFG1) {
   ASSERT_EQ(2u, range->GetStart());
   // Last use is the return instruction.
   ASSERT_EQ(8u, range->GetEnd());
-  HBasicBlock* block = graph->GetBlocks().Get(1);
+  HBasicBlock* block = graph->GetBlocks()[1];
   ASSERT_TRUE(block->GetLastInstruction()->IsReturn());
   ASSERT_EQ(8u, block->GetLastInstruction()->GetLifetimePosition());
   ASSERT_TRUE(range->GetNext() == nullptr);
 }
 
-TEST(LiveRangesTest, CFG2) {
+TEST_F(LiveRangesTest, CFG2) {
   /*
    * Test the following snippet:
    *  var a = 0;
@@ -125,13 +121,13 @@ TEST(LiveRangesTest, CFG2) {
   ASSERT_EQ(2u, range->GetStart());
   // Last use is the return instruction.
   ASSERT_EQ(22u, range->GetEnd());
-  HBasicBlock* block = graph->GetBlocks().Get(3);
+  HBasicBlock* block = graph->GetBlocks()[3];
   ASSERT_TRUE(block->GetLastInstruction()->IsReturn());
   ASSERT_EQ(22u, block->GetLastInstruction()->GetLifetimePosition());
   ASSERT_TRUE(range->GetNext() == nullptr);
 }
 
-TEST(LiveRangesTest, CFG3) {
+TEST_F(LiveRangesTest, CFG3) {
   /*
    * Test the following snippet:
    *  var a = 0;
@@ -204,7 +200,7 @@ TEST(LiveRangesTest, CFG3) {
   ASSERT_TRUE(range->GetNext() == nullptr);
 }
 
-TEST(LiveRangesTest, Loop1) {
+TEST_F(LiveRangesTest, Loop1) {
   /*
    * Test the following snippet:
    *  var a = 0;
@@ -215,8 +211,8 @@ TEST(LiveRangesTest, Loop1) {
    *
    * Which becomes the following graph (numbered by lifetime position):
    *       2: constant0
-   *       4: constant4
-   *       6: constant5
+   *       4: constant5
+   *       6: constant4
    *       8: goto
    *           |
    *       12: goto
@@ -251,7 +247,7 @@ TEST(LiveRangesTest, Loop1) {
   liveness.Analyze();
 
   // Test for the 0 constant.
-  LiveInterval* interval = liveness.GetInstructionFromSsaIndex(0)->GetLiveInterval();
+  LiveInterval* interval = graph->GetIntConstant(0)->GetLiveInterval();
   LiveRange* range = interval->GetFirstRange();
   ASSERT_EQ(2u, range->GetStart());
   // Last use is the loop phi so instruction is live until
@@ -260,31 +256,31 @@ TEST(LiveRangesTest, Loop1) {
   ASSERT_TRUE(range->GetNext() == nullptr);
 
   // Test for the 4 constant.
-  interval = liveness.GetInstructionFromSsaIndex(1)->GetLiveInterval();
+  interval = graph->GetIntConstant(4)->GetLiveInterval();
   range = interval->GetFirstRange();
   // The instruction is live until the end of the loop.
-  ASSERT_EQ(4u, range->GetStart());
+  ASSERT_EQ(6u, range->GetStart());
   ASSERT_EQ(24u, range->GetEnd());
   ASSERT_TRUE(range->GetNext() == nullptr);
 
   // Test for the 5 constant.
-  interval = liveness.GetInstructionFromSsaIndex(2)->GetLiveInterval();
+  interval = graph->GetIntConstant(5)->GetLiveInterval();
   range = interval->GetFirstRange();
   // The instruction is live until the return instruction after the loop.
-  ASSERT_EQ(6u, range->GetStart());
+  ASSERT_EQ(4u, range->GetStart());
   ASSERT_EQ(26u, range->GetEnd());
   ASSERT_TRUE(range->GetNext() == nullptr);
 
   // Test for the phi.
   interval = liveness.GetInstructionFromSsaIndex(3)->GetLiveInterval();
   range = interval->GetFirstRange();
-  // Instruction is consumed by the if.
+  // Instruction is input of non-materialized Equal and hence live until If.
   ASSERT_EQ(14u, range->GetStart());
-  ASSERT_EQ(17u, range->GetEnd());
+  ASSERT_EQ(19u, range->GetEnd());
   ASSERT_TRUE(range->GetNext() == nullptr);
 }
 
-TEST(LiveRangesTest, Loop2) {
+TEST_F(LiveRangesTest, Loop2) {
   /*
    * Test the following snippet:
    *  var a = 0;
@@ -303,13 +299,12 @@ TEST(LiveRangesTest, Loop2) {
    *       12: equal
    *       14: if +++++
    *        |       \ +
-   *        |     18: suspend
-   *        |     20: add
-   *        |     22: goto
+   *        |     18: add
+   *        |     20: goto
    *        |
-   *       26: return
+   *       24: return
    *         |
-   *       30: exit
+   *       28: exit
    *
    * We want to make sure the phi at 10 has a lifetime hole after the add at 20.
    */
@@ -345,22 +340,22 @@ TEST(LiveRangesTest, Loop2) {
   interval = phi->GetLiveInterval();
   range = interval->GetFirstRange();
   ASSERT_EQ(10u, range->GetStart());
-  ASSERT_EQ(21u, range->GetEnd());
+  ASSERT_EQ(19u, range->GetEnd());
   range = range->GetNext();
   ASSERT_TRUE(range != nullptr);
-  ASSERT_EQ(24u, range->GetStart());
-  ASSERT_EQ(26u, range->GetEnd());
+  ASSERT_EQ(22u, range->GetStart());
+  ASSERT_EQ(24u, range->GetEnd());
 
   // Test for the add instruction.
   HAdd* add = liveness.GetInstructionFromSsaIndex(2)->AsAdd();
   interval = add->GetLiveInterval();
   range = interval->GetFirstRange();
-  ASSERT_EQ(20u, range->GetStart());
-  ASSERT_EQ(24u, range->GetEnd());
+  ASSERT_EQ(18u, range->GetStart());
+  ASSERT_EQ(22u, range->GetEnd());
   ASSERT_TRUE(range->GetNext() == nullptr);
 }
 
-TEST(LiveRangesTest, CFG4) {
+TEST_F(LiveRangesTest, CFG4) {
   /*
    * Test the following snippet:
    *  var a = 0;
@@ -446,7 +441,7 @@ TEST(LiveRangesTest, CFG4) {
   ASSERT_TRUE(range->GetNext() == nullptr);
 
   HPhi* phi = liveness.GetInstructionFromSsaIndex(4)->AsPhi();
-  ASSERT_TRUE(phi->GetUses().HasOnlyOneUse());
+  ASSERT_TRUE(phi->GetUses().HasExactlyOneElement());
   interval = phi->GetLiveInterval();
   range = interval->GetFirstRange();
   ASSERT_EQ(26u, range->GetStart());

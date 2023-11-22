@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ package android.renderscript.cts;
 import android.renderscript.Allocation;
 import android.renderscript.RSRuntimeException;
 import android.renderscript.Element;
+import android.renderscript.cts.Target;
 
 import java.util.Arrays;
 
@@ -82,7 +83,7 @@ public class TestNativeDivide extends RSBaseCompute {
                 args.inLeftVector = arrayInLeftVector[i];
                 args.inRightVector = arrayInRightVector[i];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeNativeDivide(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -161,7 +162,7 @@ public class TestNativeDivide extends RSBaseCompute {
                 args.inLeftVector = arrayInLeftVector[i * 2 + j];
                 args.inRightVector = arrayInRightVector[i * 2 + j];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeNativeDivide(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -240,7 +241,7 @@ public class TestNativeDivide extends RSBaseCompute {
                 args.inLeftVector = arrayInLeftVector[i * 4 + j];
                 args.inRightVector = arrayInRightVector[i * 4 + j];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeNativeDivide(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -319,7 +320,7 @@ public class TestNativeDivide extends RSBaseCompute {
                 args.inLeftVector = arrayInLeftVector[i * 4 + j];
                 args.inRightVector = arrayInRightVector[i * 4 + j];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeNativeDivide(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -358,10 +359,358 @@ public class TestNativeDivide extends RSBaseCompute {
                 (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
     }
 
+    public class ArgumentsHalfHalfHalf {
+        public short inLeftVector;
+        public double inLeftVectorDouble;
+        public short inRightVector;
+        public double inRightVectorDouble;
+        public Target.Floaty out;
+    }
+
+    private void checkNativeDivideHalfHalfHalf() {
+        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xaeea6bb8l, false);
+        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xcf78e16dl, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
+            script.set_gAllocInRightVector(inRightVector);
+            script.forEach_testNativeDivideHalfHalfHalf(inLeftVector, out);
+            verifyResultsNativeDivideHalfHalfHalf(inLeftVector, inRightVector, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeDivideHalfHalfHalf: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
+            scriptRelaxed.set_gAllocInRightVector(inRightVector);
+            scriptRelaxed.forEach_testNativeDivideHalfHalfHalf(inLeftVector, out);
+            verifyResultsNativeDivideHalfHalfHalf(inLeftVector, inRightVector, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeDivideHalfHalfHalf: " + e.toString());
+        }
+    }
+
+    private void verifyResultsNativeDivideHalfHalfHalf(Allocation inLeftVector, Allocation inRightVector, Allocation out, boolean relaxed) {
+        short[] arrayInLeftVector = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayInLeftVector, (short) 42);
+        inLeftVector.copyTo(arrayInLeftVector);
+        short[] arrayInRightVector = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayInRightVector, (short) 42);
+        inRightVector.copyTo(arrayInRightVector);
+        short[] arrayOut = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 1 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalf args = new ArgumentsHalfHalfHalf();
+                args.inLeftVector = arrayInLeftVector[i];
+                args.inLeftVectorDouble = Float16Utils.convertFloat16ToDouble(args.inLeftVector);
+                args.inRightVector = arrayInRightVector[i];
+                args.inRightVectorDouble = Float16Utils.convertFloat16ToDouble(args.inRightVector);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeNativeDivide(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 1 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inLeftVector: ");
+                        appendVariableToMessage(message, args.inLeftVector);
+                        message.append("\n");
+                        message.append("Input inRightVector: ");
+                        appendVariableToMessage(message, args.inRightVector);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 1 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 1 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 1 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkNativeDivideHalfHalfHalf" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkNativeDivideHalf2Half2Half2() {
+        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x15982fb6l, false);
+        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xea8cd17l, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
+            script.set_gAllocInRightVector(inRightVector);
+            script.forEach_testNativeDivideHalf2Half2Half2(inLeftVector, out);
+            verifyResultsNativeDivideHalf2Half2Half2(inLeftVector, inRightVector, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeDivideHalf2Half2Half2: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
+            scriptRelaxed.set_gAllocInRightVector(inRightVector);
+            scriptRelaxed.forEach_testNativeDivideHalf2Half2Half2(inLeftVector, out);
+            verifyResultsNativeDivideHalf2Half2Half2(inLeftVector, inRightVector, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeDivideHalf2Half2Half2: " + e.toString());
+        }
+    }
+
+    private void verifyResultsNativeDivideHalf2Half2Half2(Allocation inLeftVector, Allocation inRightVector, Allocation out, boolean relaxed) {
+        short[] arrayInLeftVector = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayInLeftVector, (short) 42);
+        inLeftVector.copyTo(arrayInLeftVector);
+        short[] arrayInRightVector = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayInRightVector, (short) 42);
+        inRightVector.copyTo(arrayInRightVector);
+        short[] arrayOut = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 2 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalf args = new ArgumentsHalfHalfHalf();
+                args.inLeftVector = arrayInLeftVector[i * 2 + j];
+                args.inLeftVectorDouble = Float16Utils.convertFloat16ToDouble(args.inLeftVector);
+                args.inRightVector = arrayInRightVector[i * 2 + j];
+                args.inRightVectorDouble = Float16Utils.convertFloat16ToDouble(args.inRightVector);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeNativeDivide(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inLeftVector: ");
+                        appendVariableToMessage(message, args.inLeftVector);
+                        message.append("\n");
+                        message.append("Input inRightVector: ");
+                        appendVariableToMessage(message, args.inRightVector);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 2 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkNativeDivideHalf2Half2Half2" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkNativeDivideHalf3Half3Half3() {
+        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xc1c6525bl, false);
+        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xfa689ecel, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            script.set_gAllocInRightVector(inRightVector);
+            script.forEach_testNativeDivideHalf3Half3Half3(inLeftVector, out);
+            verifyResultsNativeDivideHalf3Half3Half3(inLeftVector, inRightVector, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeDivideHalf3Half3Half3: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            scriptRelaxed.set_gAllocInRightVector(inRightVector);
+            scriptRelaxed.forEach_testNativeDivideHalf3Half3Half3(inLeftVector, out);
+            verifyResultsNativeDivideHalf3Half3Half3(inLeftVector, inRightVector, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeDivideHalf3Half3Half3: " + e.toString());
+        }
+    }
+
+    private void verifyResultsNativeDivideHalf3Half3Half3(Allocation inLeftVector, Allocation inRightVector, Allocation out, boolean relaxed) {
+        short[] arrayInLeftVector = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInLeftVector, (short) 42);
+        inLeftVector.copyTo(arrayInLeftVector);
+        short[] arrayInRightVector = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInRightVector, (short) 42);
+        inRightVector.copyTo(arrayInRightVector);
+        short[] arrayOut = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 3 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalf args = new ArgumentsHalfHalfHalf();
+                args.inLeftVector = arrayInLeftVector[i * 4 + j];
+                args.inLeftVectorDouble = Float16Utils.convertFloat16ToDouble(args.inLeftVector);
+                args.inRightVector = arrayInRightVector[i * 4 + j];
+                args.inRightVectorDouble = Float16Utils.convertFloat16ToDouble(args.inRightVector);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeNativeDivide(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inLeftVector: ");
+                        appendVariableToMessage(message, args.inLeftVector);
+                        message.append("\n");
+                        message.append("Input inRightVector: ");
+                        appendVariableToMessage(message, args.inRightVector);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 4 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkNativeDivideHalf3Half3Half3" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkNativeDivideHalf4Half4Half4() {
+        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x6df47500l, false);
+        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xe6287085l, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            script.set_gAllocInRightVector(inRightVector);
+            script.forEach_testNativeDivideHalf4Half4Half4(inLeftVector, out);
+            verifyResultsNativeDivideHalf4Half4Half4(inLeftVector, inRightVector, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeDivideHalf4Half4Half4: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            scriptRelaxed.set_gAllocInRightVector(inRightVector);
+            scriptRelaxed.forEach_testNativeDivideHalf4Half4Half4(inLeftVector, out);
+            verifyResultsNativeDivideHalf4Half4Half4(inLeftVector, inRightVector, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeDivideHalf4Half4Half4: " + e.toString());
+        }
+    }
+
+    private void verifyResultsNativeDivideHalf4Half4Half4(Allocation inLeftVector, Allocation inRightVector, Allocation out, boolean relaxed) {
+        short[] arrayInLeftVector = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInLeftVector, (short) 42);
+        inLeftVector.copyTo(arrayInLeftVector);
+        short[] arrayInRightVector = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInRightVector, (short) 42);
+        inRightVector.copyTo(arrayInRightVector);
+        short[] arrayOut = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 4 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalf args = new ArgumentsHalfHalfHalf();
+                args.inLeftVector = arrayInLeftVector[i * 4 + j];
+                args.inLeftVectorDouble = Float16Utils.convertFloat16ToDouble(args.inLeftVector);
+                args.inRightVector = arrayInRightVector[i * 4 + j];
+                args.inRightVectorDouble = Float16Utils.convertFloat16ToDouble(args.inRightVector);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeNativeDivide(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inLeftVector: ");
+                        appendVariableToMessage(message, args.inLeftVector);
+                        message.append("\n");
+                        message.append("Input inRightVector: ");
+                        appendVariableToMessage(message, args.inRightVector);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 4 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkNativeDivideHalf4Half4Half4" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
     public void testNativeDivide() {
         checkNativeDivideFloatFloatFloat();
         checkNativeDivideFloat2Float2Float2();
         checkNativeDivideFloat3Float3Float3();
         checkNativeDivideFloat4Float4Float4();
+        checkNativeDivideHalfHalfHalf();
+        checkNativeDivideHalf2Half2Half2();
+        checkNativeDivideHalf3Half3Half3();
+        checkNativeDivideHalf4Half4Half4();
     }
 }

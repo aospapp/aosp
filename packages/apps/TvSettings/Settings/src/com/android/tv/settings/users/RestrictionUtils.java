@@ -49,7 +49,7 @@ public class RestrictionUtils {
      */
     public static ArrayList<RestrictionEntry> getRestrictions(Context context, UserHandle user) {
         Resources res = context.getResources();
-        ArrayList<RestrictionEntry> entries = new ArrayList<RestrictionEntry>();
+        ArrayList<RestrictionEntry> entries = new ArrayList<>();
         UserManager um = UserManager.get(context);
         Bundle userRestrictions = um.getUserRestrictions(user);
 
@@ -69,30 +69,9 @@ public class RestrictionUtils {
     public static void setRestrictions(Context context, ArrayList<RestrictionEntry> entries,
             UserHandle user) {
         UserManager um = UserManager.get(context);
-        Bundle userRestrictions = um.getUserRestrictions(user);
 
         for (RestrictionEntry entry : entries) {
-            userRestrictions.putBoolean(entry.getKey(), !entry.getSelectedState());
-            if (entry.getKey().equals(UserManager.DISALLOW_SHARE_LOCATION)
-                    && !entry.getSelectedState()) {
-                Secure.putIntForUser(context.getContentResolver(),
-                        Secure.LOCATION_MODE, Secure.LOCATION_MODE_OFF, user.getIdentifier());
-            }
+            um.setUserRestriction(entry.getKey(), !entry.getSelectedState(), user);
         }
-        um.setUserRestrictions(userRestrictions, user);
-    }
-
-    public static Bundle restrictionsToBundle(ArrayList<RestrictionEntry> entries) {
-        final Bundle bundle = new Bundle();
-        for (RestrictionEntry entry : entries) {
-            if (entry.getType() == RestrictionEntry.TYPE_BOOLEAN) {
-                bundle.putBoolean(entry.getKey(), entry.getSelectedState());
-            } else if (entry.getType() == RestrictionEntry.TYPE_MULTI_SELECT) {
-                bundle.putStringArray(entry.getKey(), entry.getAllSelectedStrings());
-            } else {
-                bundle.putString(entry.getKey(), entry.getSelectedString());
-            }
-        }
-        return bundle;
     }
 }

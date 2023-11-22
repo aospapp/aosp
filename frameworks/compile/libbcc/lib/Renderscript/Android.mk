@@ -22,9 +22,10 @@ LOCAL_PATH := $(call my-dir)
 #=====================================================================
 
 libbcc_renderscript_SRC_FILES := \
+  RSAddDebugInfoPass.cpp \
   RSCompilerDriver.cpp \
   RSEmbedInfo.cpp \
-  RSForEachExpand.cpp \
+  RSKernelExpand.cpp \
   RSGlobalInfoPass.cpp \
   RSInvariant.cpp \
   RSScript.cpp \
@@ -33,7 +34,8 @@ libbcc_renderscript_SRC_FILES := \
   RSScreenFunctionsPass.cpp \
   RSStubsWhiteList.cpp \
   RSScriptGroupFusion.cpp \
-  RSX86CallConvPass.cpp
+  RSX86CallConvPass.cpp \
+  RSX86TranslateGEPPass.cpp
 
 #=====================================================================
 # Device Static Library: libbccRenderscript
@@ -42,13 +44,14 @@ ifneq (true,$(DISABLE_LLVM_DEVICE_BUILDS))
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libbccRenderscript
-LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 
 LOCAL_SRC_FILES := $(libbcc_renderscript_SRC_FILES)
 
 include $(LIBBCC_DEVICE_BUILD_MK)
 include $(LLVM_DEVICE_BUILD_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
+include $(LLVM_GEN_INTRINSICS_MK)
 include $(BUILD_STATIC_LIBRARY)
 endif
 
@@ -59,7 +62,7 @@ endif
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libbccRenderscript
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_HOST_OS := darwin linux windows
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 LOCAL_IS_HOST_MODULE := true
 
@@ -67,4 +70,6 @@ LOCAL_SRC_FILES := $(libbcc_renderscript_SRC_FILES)
 
 include $(LIBBCC_HOST_BUILD_MK)
 include $(LLVM_HOST_BUILD_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
+include $(LLVM_GEN_INTRINSICS_MK)
 include $(BUILD_HOST_STATIC_LIBRARY)

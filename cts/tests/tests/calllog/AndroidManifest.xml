@@ -15,7 +15,7 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.cts.calllog">
+        package="android.calllog.cts">
     <uses-sdk android:minSdkVersion="21" />
 
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
@@ -29,7 +29,7 @@
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.calllog"
+                     android:targetPackage="android.calllog.cts"
                      android:label="CTS tests for android.calllog package">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

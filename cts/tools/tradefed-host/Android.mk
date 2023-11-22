@@ -22,10 +22,10 @@ LOCAL_SRC_FILES := \
 
 LOCAL_JAVA_RESOURCE_DIRS := res
 
-LOCAL_MODULE := cts-tradefed
+LOCAL_MODULE := old-cts-tradefed
 LOCAL_MODULE_TAGS := optional
 LOCAL_JAVA_LIBRARIES := tradefed-prebuilt hosttestlib
-LOCAL_STATIC_JAVA_LIBRARIES := ctsdeviceinfolib
+LOCAL_STATIC_JAVA_LIBRARIES := ctsdeviceinfolib compatibility-host-util
 
 LOCAL_JAR_MANIFEST := MANIFEST.mf
 

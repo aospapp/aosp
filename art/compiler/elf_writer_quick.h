@@ -17,46 +17,21 @@
 #ifndef ART_COMPILER_ELF_WRITER_QUICK_H_
 #define ART_COMPILER_ELF_WRITER_QUICK_H_
 
-#include "elf_utils.h"
+#include <memory>
+
+#include "arch/instruction_set.h"
 #include "elf_writer.h"
-#include "oat_writer.h"
+#include "os.h"
 
 namespace art {
 
-template <typename ElfTypes>
-class ElfWriterQuick FINAL : public ElfWriter {
- public:
-  // Write an ELF file. Returns true on success, false on failure.
-  static bool Create(File* file,
-                     OatWriter* oat_writer,
-                     const std::vector<const DexFile*>& dex_files,
-                     const std::string& android_root,
-                     bool is_host,
-                     const CompilerDriver& driver)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+class CompilerOptions;
+class InstructionSetFeatures;
 
-  static void EncodeOatPatches(const std::vector<uintptr_t>& locations,
-                               std::vector<uint8_t>* buffer);
-
- protected:
-  bool Write(OatWriter* oat_writer,
-             const std::vector<const DexFile*>& dex_files,
-             const std::string& android_root,
-             bool is_host)
-      OVERRIDE
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
-
- private:
-  ElfWriterQuick(const CompilerDriver& driver, File* elf_file)
-    : ElfWriter(driver, elf_file) {}
-  ~ElfWriterQuick() {}
-
-  DISALLOW_IMPLICIT_CONSTRUCTORS(ElfWriterQuick);
-};
-
-// Explicitly instantiated in elf_writer_quick.cc
-typedef ElfWriterQuick<ElfTypes32> ElfWriterQuick32;
-typedef ElfWriterQuick<ElfTypes64> ElfWriterQuick64;
+std::unique_ptr<ElfWriter> CreateElfWriterQuick(InstructionSet instruction_set,
+                                                const InstructionSetFeatures* features,
+                                                const CompilerOptions* compiler_options,
+                                                File* elf_file);
 
 }  // namespace art
 

@@ -299,7 +299,7 @@ void GLContext::copyTexImage1D (deUint32 target, int level, deUint32 internalFor
 		m_log << TestLog::Message << "glCopyTexImage1D("
 								  << glu::getTextureTargetStr(target) << ", "
 								  << level << ", "
-								  << glu::getPixelFormatStr(internalFormat) << ", "
+								  << glu::getTextureFormatStr(internalFormat) << ", "
 								  << x << ", " << y << ", "
 								  << width << ", " << border << ")"
 			  << TestLog::EndMessage;
@@ -315,7 +315,7 @@ void GLContext::copyTexImage2D (deUint32 target, int level, deUint32 internalFor
 		m_log << TestLog::Message << "glCopyTexImage2D("
 								  << glu::getTextureTargetStr(target) << ", "
 								  << level << ", "
-								  << glu::getPixelFormatStr(internalFormat) << ", "
+								  << glu::getTextureFormatStr(internalFormat) << ", "
 								  << x << ", " << y << ", "
 								  << width << ", " << height
 								  << ", " << border << ")"
@@ -579,12 +579,12 @@ void GLContext::blendColor (float red, float green, float blue, float alpha)
 
 void GLContext::colorMask (deBool r, deBool g, deBool b, deBool a)
 {
-	m_wrapper->glColorMask(r, g, b, a);
+	m_wrapper->glColorMask((glw::GLboolean)r, (glw::GLboolean)g, (glw::GLboolean)b, (glw::GLboolean)a);
 }
 
 void GLContext::depthMask (deBool mask)
 {
-	m_wrapper->glDepthMask(mask);
+	m_wrapper->glDepthMask((glw::GLboolean)mask);
 }
 
 void GLContext::stencilMask (deUint32 mask)
@@ -655,7 +655,7 @@ void GLContext::deleteVertexArrays (int numArrays, const deUint32* vertexArrays)
 
 void GLContext::vertexAttribPointer (deUint32 index, int size, deUint32 type, deBool normalized, int stride, const void *pointer)
 {
-	m_wrapper->glVertexAttribPointer(index, size, type, normalized, stride, pointer);
+	m_wrapper->glVertexAttribPointer(index, size, type, (glw::GLboolean)normalized, stride, pointer);
 }
 
 void GLContext::vertexAttribIPointer (deUint32 index, int size, deUint32 type, int stride, const void *pointer)
@@ -763,14 +763,14 @@ void GLContext::uniform4iv (deInt32 location, deInt32 count, const deInt32* valu
 	m_wrapper->glUniform4iv(location, count, value);
 }
 
-void GLContext::uniformMatrix3fv (deInt32 location, deInt32 count, deInt32 transpose, const float *value)
+void GLContext::uniformMatrix3fv (deInt32 location, deInt32 count, deBool transpose, const float *value)
 {
-	m_wrapper->glUniformMatrix3fv(location, count, transpose, value);
+	m_wrapper->glUniformMatrix3fv(location, count, (glw::GLboolean)transpose, value);
 }
 
-void GLContext::uniformMatrix4fv (deInt32 location, deInt32 count, deInt32 transpose, const float *value)
+void GLContext::uniformMatrix4fv (deInt32 location, deInt32 count, deBool transpose, const float *value)
 {
-	m_wrapper->glUniformMatrix4fv(location, count, transpose, value);
+	m_wrapper->glUniformMatrix4fv(location, count, (glw::GLboolean)transpose, value);
 }
 deInt32 GLContext::getUniformLocation (deUint32 program, const char *name)
 {
@@ -887,7 +887,7 @@ void GLContext::deleteProgram (deUint32 program)
 		}
 	}
 
-	DE_ASSERT(!"invalid delete");
+	DE_FATAL("invalid delete");
 }
 
 void GLContext::useProgram (deUint32 program)
@@ -901,7 +901,7 @@ void GLContext::readPixels (int x, int y, int width, int height, deUint32 format
 	if ((m_logFlags & GLCONTEXT_LOG_CALLS) != 0)
 		m_log << TestLog::Message << "glReadPixels("
 								  << x << ", " << y << ", " << width << ", " << height << ", "
-								  << glu::getPixelFormatStr(format) << ", "
+								  << glu::getTextureFormatStr(format) << ", "
 								  << glu::getTypeStr(type) << ", " << data << ")"
 			  << TestLog::EndMessage;
 

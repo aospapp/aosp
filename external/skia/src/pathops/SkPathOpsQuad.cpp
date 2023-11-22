@@ -119,7 +119,8 @@ and using the roots
 int SkDQuad::RootsReal(const double A, const double B, const double C, double s[2]) {
     const double p = B / (2 * A);
     const double q = C / A;
-    if (approximately_zero(A) && (approximately_zero_inverse(p) || approximately_zero_inverse(q))) {
+    if (!A || (approximately_zero(A) && (approximately_zero_inverse(p)
+            || approximately_zero_inverse(q)))) {
         if (approximately_zero(B)) {
             s[0] = 0;
             return C == 0;
@@ -161,6 +162,14 @@ SkDVector SkDQuad::dxdyAtT(double t) const {
     double c = t;
     SkDVector result = { a * fPts[0].fX + b * fPts[1].fX + c * fPts[2].fX,
             a * fPts[0].fY + b * fPts[1].fY + c * fPts[2].fY };
+    if (result.fX == 0 && result.fY == 0) {
+        if (zero_or_one(t)) {
+            result = fPts[2] - fPts[0];
+        } else {
+            // incomplete
+            SkDebugf("!q");
+        }
+    }
     return result;
 }
 

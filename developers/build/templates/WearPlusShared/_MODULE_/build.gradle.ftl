@@ -19,7 +19,7 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:1.2.0'
+        classpath 'com.android.tools.build:gradle:2.1.2'
     }
 }
 
@@ -98,20 +98,3 @@ android {
     }
 
 }
-// BEGIN_EXCLUDE
-// Tasks below this line will be hidden from release output
-
-task preflight (dependsOn: parent.preflight) {
-    project.afterEvaluate {
-        // Inject a preflight task into each variant so we have a place to hook tasks
-        // that need to run before any of the android build tasks.
-        //
-        android.applicationVariants.each { variant ->
-        <#noparse>
-            tasks.getByPath("prepare${variant.name.capitalize()}Dependencies").dependsOn preflight
-        </#noparse>
-        }
-    }
-}
-
-// END_EXCLUDE

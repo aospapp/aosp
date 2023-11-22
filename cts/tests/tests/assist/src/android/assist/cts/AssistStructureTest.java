@@ -67,7 +67,7 @@ public class AssistStructureTest extends AssistTestBase {
         }
         mReceiver = new AssistStructureTestBroadcastReceiver();
         IntentFilter filter = new IntentFilter();
-        filter.addAction(Utils.ASSIST_STRUCTURE_HASRESUMED);
+        filter.addAction(Utils.APP_3P_HASRESUMED);
         filter.addAction(Utils.ASSIST_RECEIVER_REGISTERED);
         mContext.registerReceiver(mReceiver, filter);
     }
@@ -79,24 +79,32 @@ public class AssistStructureTest extends AssistTestBase {
         }
     }
 
-    public void testAssistStructure() throws Exception {
+    public void testAssistStructure() throws Throwable {
+        if (mActivityManager.isLowRamDevice()) {
+            Log.d(TAG, "Not running assist tests on low-RAM device.");
+            return;
+        }
         mTestActivity.start3pApp(TEST_CASE_TYPE);
         mTestActivity.startTest(TEST_CASE_TYPE);
         waitForAssistantToBeReady(mReadyLatch);
         waitForOnResume();
         startSession();
         waitForContext();
-        verifyAssistDataNullness(false, false, false, false);
-
-        verifyAssistStructure(Utils.getTestAppComponent(TEST_CASE_TYPE),
-                false /*FLAG_SECURE set*/);
+        getInstrumentation().waitForIdleSync();
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                verifyAssistDataNullness(false, false, false, false);
+                verifyAssistStructure(Utils.getTestAppComponent(TEST_CASE_TYPE), false /*FLAG_SECURE set*/);
+            }
+        });
     }
 
     private class AssistStructureTestBroadcastReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
-            if (action.equals(Utils.ASSIST_STRUCTURE_HASRESUMED)) {
+            if (action.equals(Utils.APP_3P_HASRESUMED)) {
                 if (mHasResumedLatch != null) {
                     mHasResumedLatch.countDown();
                 }

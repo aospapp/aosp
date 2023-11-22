@@ -676,6 +676,7 @@ def  : Pat <(int_hexagon_A2_tfrih (I32:$Rs), u16_0ImmPred:$Is),
 //  Transfer Register/immediate.
 def : T_R_pat <A2_tfr, int_hexagon_A2_tfr>;
 def : T_I_pat <A2_tfrsi, int_hexagon_A2_tfrsi>;
+def : T_I_pat <A2_tfrpi, int_hexagon_A2_tfrpi>;
 
 // Assembler mapped from Rdd32=Rss32 to Rdd32=combine(Rss.H32,Rss.L32)
 def : Pat<(int_hexagon_A2_tfrp DoubleRegs:$src),
@@ -922,6 +923,10 @@ def: qi_CRInst_qiqi_pat<C2_andn,  int_hexagon_C2_andn>;
 def: qi_CRInst_qiqi_pat<C2_or,    int_hexagon_C2_or>;
 def: qi_CRInst_qiqi_pat<C2_orn,   int_hexagon_C2_orn>;
 def: qi_CRInst_qiqi_pat<C2_xor,   int_hexagon_C2_xor>;
+
+// Assembler mapped from  Pd4=Ps4 to Pd4=or(Ps4,Ps4)
+def : Pat<(int_hexagon_C2_pxfer_map PredRegs:$src),
+          (C2_pxfer_map PredRegs:$src)>;
 
 // Multiply 32x32 and use lower result
 def : T_RRI_pat <M2_macsip, int_hexagon_M2_macsip>;
@@ -1284,3 +1289,5 @@ def: T_stc_pat<S2_storerf_pci_pseudo, int_hexagon_circ_sthhi, s4_1ImmPred, I32>;
 include "HexagonIntrinsicsV3.td"
 include "HexagonIntrinsicsV4.td"
 include "HexagonIntrinsicsV5.td"
+include "HexagonIntrinsicsV60.td"
+

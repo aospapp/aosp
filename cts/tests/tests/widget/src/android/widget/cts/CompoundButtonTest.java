@@ -22,7 +22,7 @@ import android.graphics.ColorFilter;
 import android.graphics.PorterDuff;
 import android.view.LayoutInflater;
 import android.widget.ToggleButton;
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 
 import org.xmlpull.v1.XmlPullParser;
@@ -172,7 +172,7 @@ public class CompoundButtonTest extends AndroidTestCase {
         compoundButton.drawableStateChanged();
 
         // drawableStateChanged when CheckMarkDrawable is not null.
-        Drawable drawable = mResources.getDrawable(R.drawable.scenery);
+        Drawable drawable = mResources.getDrawable(R.drawable.statelistdrawable);
         compoundButton.setButtonDrawable(drawable);
         drawable.setState(null);
         assertNull(drawable.getState());

@@ -287,6 +287,9 @@ public class MediaSessionService extends SystemService implements Monitor {
      * 6. We need to tell the session to do any final cleanup (onDestroy)
      */
     private void destroySessionLocked(MediaSessionRecord session) {
+        if (DEBUG) {
+            Log.d(TAG, "Destroying session : " + session.toString());
+        }
         int userId = session.getUserId();
         UserRecord user = mUserRecords.get(userId);
         if (user != null) {
@@ -764,7 +767,7 @@ public class MediaSessionService extends SystemService implements Monitor {
                 synchronized (mLock) {
                     // If we don't have a media button receiver to fall back on
                     // include non-playing sessions for dispatching
-                    UserRecord ur = mUserRecords.get(ActivityManager.getCurrentUser());
+                    UserRecord ur = mUserRecords.get(mCurrentUserId);
                     boolean useNotPlayingSessions = (ur == null) ||
                             (ur.mLastMediaButtonReceiver == null
                                 && ur.mRestoredMediaButtonReceiver == null);
@@ -943,13 +946,13 @@ public class MediaSessionService extends SystemService implements Monitor {
                 // won't release it later
                 session.sendMediaButton(keyEvent,
                         needWakeLock ? mKeyEventReceiver.mLastTimeoutId : -1,
-                        mKeyEventReceiver);
+                        mKeyEventReceiver, getContext().getApplicationInfo().uid,
+                        getContext().getPackageName());
             } else {
                 // Launch the last PendingIntent we had with priority
-                int userId = ActivityManager.getCurrentUser();
-                UserRecord user = mUserRecords.get(userId);
-                if (user.mLastMediaButtonReceiver != null
-                        || user.mRestoredMediaButtonReceiver != null) {
+                UserRecord user = mUserRecords.get(mCurrentUserId);
+                if (user != null && (user.mLastMediaButtonReceiver != null
+                        || user.mRestoredMediaButtonReceiver != null)) {
                     if (DEBUG) {
                         Log.d(TAG, "Sending media key to last known PendingIntent "
                                 + user.mLastMediaButtonReceiver + " or restored Intent "
@@ -959,16 +962,17 @@ public class MediaSessionService extends SystemService implements Monitor {
                         mKeyEventReceiver.aquireWakeLockLocked();
                     }
                     Intent mediaButtonIntent = new Intent(Intent.ACTION_MEDIA_BUTTON);
+                    mediaButtonIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
                     mediaButtonIntent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
                     try {
                         if (user.mLastMediaButtonReceiver != null) {
                             user.mLastMediaButtonReceiver.send(getContext(),
                                     needWakeLock ? mKeyEventReceiver.mLastTimeoutId : -1,
-                                    mediaButtonIntent, mKeyEventReceiver, null);
+                                    mediaButtonIntent, mKeyEventReceiver, mHandler);
                         } else {
                             mediaButtonIntent.setComponent(user.mRestoredMediaButtonReceiver);
                             getContext().sendBroadcastAsUser(mediaButtonIntent,
-                                    new UserHandle(userId));
+                                    new UserHandle(mCurrentUserId));
                         }
                     } catch (CanceledException e) {
                         Log.i(TAG, "Error sending key event to media button receiver "
@@ -983,6 +987,7 @@ public class MediaSessionService extends SystemService implements Monitor {
                     }
                     // Fallback to legacy behavior
                     Intent keyIntent = new Intent(Intent.ACTION_MEDIA_BUTTON, null);
+                    keyIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
                     keyIntent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
                     if (needWakeLock) {
                         keyIntent.putExtra(EXTRA_WAKELOCK_ACQUIRED,

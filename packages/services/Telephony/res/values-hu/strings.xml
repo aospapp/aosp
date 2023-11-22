@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="phoneAppLabel" product="tablet" msgid="1107073389495104784">"Mobiladatok"</string>
-    <string name="phoneAppLabel" product="default" msgid="906161039445636857">"Telefon"</string>
+    <string name="phoneAppLabel" product="default" msgid="6790717591729922998">"Telefonszolgáltatás"</string>
     <string name="emergencyDialerIconLabel" msgid="7812140032168171053">"Segélyhívó tárcsázó"</string>
     <string name="phoneIconLabel" msgid="2331230813161304895">"Telefon"</string>
     <string name="fdnListLabel" msgid="8630418672279521003">"Fix hívószámok listája"</string>
@@ -63,6 +63,7 @@
     <string name="phone_accounts_make_calls_with" msgid="1969188078933152231">"Hívásindítás a következővel:"</string>
     <string name="phone_accounts_make_sip_calls_with" msgid="4677789312053828493">"SIP-hívások indítása a következővel:"</string>
     <string name="phone_accounts_ask_every_time" msgid="4346499067149985702">"Először kérdezze meg"</string>
+    <string name="phone_accounts_default_account_label" msgid="4183772241814460014">"Nincs elérhető hálózat"</string>
     <string name="phone_accounts_settings_header" msgid="4141710640883261094">"Beállítások"</string>
     <string name="phone_accounts_choose_accounts" msgid="5232948804226424002">"Fiókok kiválasztása"</string>
     <string name="phone_accounts_selection_header" msgid="1365215726106915865">"Telefonos fiókok"</string>
@@ -117,14 +118,17 @@
     <string name="sum_cfnrc_disabled" msgid="7222141261321276464">"Kikapcsolva"</string>
     <string name="disable_cfnrc_forbidden" msgid="5646361343094064333">"Szolgáltatója nem támogatja a hívásátirányítás letiltását, ha a telefon nem érhető el."</string>
     <string name="updating_title" msgid="6146755386174019046">"Hívásbeállítások"</string>
-    <string name="call_settings_primary_user_only" msgid="5679923943740900965">"A hívásbeállításokat csak az elsődleges felhasználó módosíthatja."</string>
-    <string name="call_settings_with_label" msgid="89359812614544532">"Hívásbeállítások (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
+    <string name="call_settings_admin_user_only" msgid="4526094783818216374">"A hívásbeállításokat csak a rendszergazda módosíthatja."</string>
+    <string name="call_settings_with_label" msgid="3401177261468593519">"Beállítások (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="7970259216988931777">"Hiba a hívásbeállításokban"</string>
     <string name="reading_settings" msgid="1920291699287055284">"Beállítások olvasása..."</string>
     <string name="updating_settings" msgid="8171225533884883252">"Beállítások frissítése..."</string>
     <string name="reverting_settings" msgid="4752151682666912828">"Beállítások visszaállítása..."</string>
     <string name="response_error" msgid="6674110501330139405">"Nem várt válasz a hálózattól."</string>
     <string name="exception_error" msgid="7027667130619518211">"Hiba a hálózatban vagy a SIM kártyánál."</string>
+    <string name="stk_cc_ss_to_dial_error" msgid="2816779198916570502">"Az SS-kérés módosítva DIAL-kérésre."</string>
+    <string name="stk_cc_ss_to_ussd_error" msgid="7490626178582654236">"Az SS-kérés módosítva USSD-kérésre."</string>
+    <string name="stk_cc_ss_to_ss_error" msgid="5057846756489053759">"Az USSD-kérés módosítva új SS-kérésre."</string>
     <string name="fdn_check_failure" msgid="18200614306525434">"Telefonja alkalmazásának Fix hívószámok beállítása be van kapcsolva. Ennek eredményeként bizonyos hívásfunkciók nem működnek."</string>
     <string name="radio_off_error" msgid="2304459933248513376">"Kapcsolja be a rádiót a beállítások megtekintése előtt."</string>
     <string name="close_dialog" msgid="2365884406356986917">"OK"</string>
@@ -177,6 +181,7 @@
     <string name="preferred_network_mode_lte_wcdma_summary" msgid="9180775701594742750">"Preferált hálózati mód: LTE/WCDMA"</string>
     <string name="preferred_network_mode_lte_gsm_umts_summary" msgid="633315028976225026">"Előnyben részesített hálózati mód: LTE / GSM / UMTS"</string>
     <string name="preferred_network_mode_lte_cdma_summary" msgid="3722647806454528426">"Preferált hálózati mód: LTE/CDMA"</string>
+    <string name="preferred_network_mode_tdscdma_summary" msgid="8021016193718678775">"Preferált hálózati mód: TDSCDMA"</string>
   <string-array name="preferred_network_mode_choices">
     <item msgid="7886739962255042385">"LTE/WCDMA"</item>
     <item msgid="577652050447385699">"LTE"</item>
@@ -196,6 +201,7 @@
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"LTE-szolgáltatások használata hang- és egyéb kommunikáció javításához (ajánlott)"</string>
     <string name="data_enabled" msgid="5972538663568715366">"Adatok engedélyezése"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"Adatforgalom engedélyezése"</string>
+    <string name="dialog_alert_title" msgid="6751344986194435476">"Figyelem"</string>
     <string name="roaming" msgid="8871412572928323707">"Adatbarangolás"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"Csatlakozás adatszolgáltatásokhoz barangolás során"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"Csatlakozás adatszolgáltatásokhoz barangolás során"</string>
@@ -339,7 +345,7 @@
     <string name="enable_fdn_ok" msgid="7215588870329688132">"Fix hívószám letiltása"</string>
     <string name="disable_fdn_ok" msgid="5727046928930740173">"Fix hívószám engedélyezése"</string>
     <string name="sum_fdn" msgid="1959399454900272878">"Fix hívószámok kezelése"</string>
-    <string name="sum_fdn_change_pin" msgid="6666549734792827932">"A fix hívószámok eléréséhez szükséges PIN kód módosítása"</string>
+    <string name="sum_fdn_change_pin" msgid="6666549734792827932">"A fix hívószámok eléréséhez szükséges PIN-kód módosítása"</string>
     <string name="sum_fdn_manage_list" msgid="8431088265332628316">"Telefonszámok listájának kezelése"</string>
     <string name="voice_privacy" msgid="3776841382844614716">"Adatvédelem"</string>
     <string name="voice_privacy_summary" msgid="3159383389833516214">"Fokozott adatvédelmi mód engedélyezése"</string>
@@ -378,17 +384,17 @@
     <string name="oldPinLabel" msgid="5287773661246368314">"Régi PIN-kód"</string>
     <string name="newPinLabel" msgid="207488227285336897">"Új PIN-kód"</string>
     <string name="confirmPinLabel" msgid="257597715098070206">"Erősítse meg az új PIN-kódot"</string>
-    <string name="badPin" msgid="8955102849303984935">"A megadott régi PIN kód helytelen. Próbálja újra."</string>
+    <string name="badPin" msgid="8955102849303984935">"A megadott régi PIN-kód helytelen. Próbálja újra."</string>
     <string name="mismatchPin" msgid="5923253370683071889">"A beírt PIN kódok nem egyeznek. Próbálja újra."</string>
     <string name="invalidPin" msgid="5981171102258684792">"Írjon be egy 4-8 számjegyű PIN-kódot."</string>
     <string name="disable_sim_pin" msgid="3419351358300716472">"SIM kártya PIN kódjának törlése"</string>
     <string name="enable_sim_pin" msgid="4845145659651484248">"SIM kártya PIN kódjának beállítása"</string>
-    <string name="enable_in_progress" msgid="3417917024688497010">"PIN kód beállítása…"</string>
-    <string name="enable_pin_ok" msgid="2918545971413270063">"PIN kód beállítva"</string>
-    <string name="disable_pin_ok" msgid="2109571368635883688">"PIN kód törölve"</string>
-    <string name="pin_failed" msgid="5644377896213584760">"A PIN kód helytelen"</string>
-    <string name="pin_changed" msgid="4455736268023261662">"PIN kód frissítve"</string>
-    <string name="puk_requested" msgid="5921393215789090200">"A jelszó helytelen. PIN kód letiltva. Adja meg a PUK kódot."</string>
+    <string name="enable_in_progress" msgid="3417917024688497010">"PIN-kód beállítása…"</string>
+    <string name="enable_pin_ok" msgid="2918545971413270063">"PIN-kód beállítva"</string>
+    <string name="disable_pin_ok" msgid="2109571368635883688">"PIN-kód törölve"</string>
+    <string name="pin_failed" msgid="5644377896213584760">"A PIN-kód helytelen"</string>
+    <string name="pin_changed" msgid="4455736268023261662">"PIN-kód frissítve"</string>
+    <string name="puk_requested" msgid="5921393215789090200">"A jelszó helytelen. PIN-kód letiltva. Adja meg a PUK kódot."</string>
     <string name="enter_pin2_text" msgid="8339444124477720345">"PIN2"</string>
     <string name="oldPin2Label" msgid="8559146795026261502">"Régi PIN2 kód"</string>
     <string name="newPin2Label" msgid="4573956902204349054">"Új PIN2 kód"</string>
@@ -424,11 +430,12 @@
     <string name="notification_network_selection_text" msgid="2607085729661923269">"A kiválasztott hálózat (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) nem érhető el"</string>
     <string name="incall_error_power_off" msgid="2947938060513306698">"Repülős üzemmód kikapcsolása hívás indításához."</string>
     <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"Hívás indításához kapcsolja ki a repülős üzemmódot, illetve csatlakozzon egy vezeték nélküli hálózathoz."</string>
+    <string name="incall_error_ecm_emergency_only" msgid="738708660612388692">"Lépjen ki a Segélykérő visszahívása módból nem vészjellegű hívás kezdeményezéséhez."</string>
     <string name="incall_error_emergency_only" msgid="4678640422710818317">"Nincs regisztrálva a hálózaton."</string>
     <string name="incall_error_out_of_service" msgid="4100065333878929223">"A mobilhálózat nem érhető el."</string>
     <string name="incall_error_out_of_service_wfc" msgid="323851839058697057">"A mobilhálózat nem érhető el. Hívás indításához csatlakozzon egy vezeték nélküli hálózathoz."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"Hívásindításhoz adjon meg egy érvényes számot."</string>
-    <string name="incall_error_call_failed" msgid="6302746943230078197">"A hívás sikertelen."</string>
+    <string name="incall_error_call_failed" msgid="5891978320269774095">"Sikertelen hívás."</string>
     <string name="incall_status_dialed_mmi" msgid="3672498861336189563">"MMI-sorozat indítása..."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"A szolgáltatás nem támogatott"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"A hívások közötti váltás sikertelen."</string>
@@ -437,10 +444,12 @@
     <string name="incall_error_supp_service_conference" msgid="2505727299596357312">"Nem lehet konferenciahívást folytatni."</string>
     <string name="incall_error_supp_service_reject" msgid="8998568661508655638">"A híváselutasítás sikertelen."</string>
     <string name="incall_error_supp_service_hangup" msgid="7434513517153834426">"A tartásban lévő hívás(ok) folytatása sikertelen."</string>
+    <string name="incall_error_supp_service_hold" msgid="7967020511232222078">"A hívások nem tarthatók."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="1782466780452640089">"Hívás indításához csatlakozzon egy vezeték nélküli hálózathoz."</string>
     <string name="emergency_enable_radio_dialog_title" msgid="4627849966634578257">"Segélyhívás"</string>
     <string name="emergency_enable_radio_dialog_message" msgid="207613549344420291">"Rádió bekapcsolása..."</string>
     <string name="emergency_enable_radio_dialog_retry" msgid="5960061579996526883">"Nincs szolgáltatás. Újrapróbálkozás folyamatban…"</string>
+    <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"Vészhívás során nem engedélyezheti a Repülős üzemmódot."</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"A hívás sikertelen. A(z) <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> szám nem segélyhívószám."</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"A hívás sikertelen. Tárcsázzon segélyhívószámot."</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"A tárcsázáshoz használja a billentyűzetet"</string>
@@ -459,6 +468,8 @@
     <string name="importAllSimEntries" msgid="1503181169636198673">"Összes importálása"</string>
     <string name="importingSimContacts" msgid="7374056215462575769">"SIM kártya névjegyeinek importálása"</string>
     <string name="importToFDNfromContacts" msgid="2130620207013368580">"Importálás a Címtárból"</string>
+    <string name="singleContactImportedMsg" msgid="6868483416182599206">"Importált névjegy"</string>
+    <string name="failedToImportSingleContactMsg" msgid="415399285420353917">"Névjegy importálása sikertelen"</string>
     <string name="hac_mode_title" msgid="8740268574688743289">"Hallókészülékek"</string>
     <string name="hac_mode_summary" msgid="6833851160514929341">"Hallókészülék-kompatibilitás bekapcsolása"</string>
   <string-array name="tty_mode_entries">
@@ -520,7 +531,7 @@
     <string name="voicemail_settings" msgid="72448049107749316">"Beállítás"</string>
     <string name="voicemail_number_not_set" msgid="6724904736891087856">"&lt;Nincs megadva&gt;"</string>
     <string name="other_settings" msgid="3672912580359716394">"Egyéb hívásbeállítások"</string>
-    <string name="calling_via_template" msgid="4839419581866928142">"Hívás a(z) <xliff:g id="PROVIDER_NAME">%s</xliff:g> szolgáltatón keresztül"</string>
+    <string name="calling_via_template" msgid="4839419581866928142">"Hívás (<xliff:g id="PROVIDER_NAME">%s</xliff:g>)"</string>
     <string name="contactPhoto" msgid="4713193418046639466">"ismerős fotója"</string>
     <string name="goPrivate" msgid="865837794424530980">"magánbeszélgetés"</string>
     <string name="selectContact" msgid="781975788478987237">"névjegy kijelölése"</string>
@@ -542,7 +553,8 @@
     <string name="accessibility_settings_activity_title" msgid="8562004288733103868">"Kisegítő lehetőségek"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="8772915926382037499">"Beérkező Wi-Fi-hívás"</string>
     <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"Wi-Fi-hívás"</string>
-    <string name="emergency_action_launch_hint" msgid="5841511849007540970">"Érintse meg ismét a megnyitáshoz"</string>
+    <string name="emergency_action_launch_hint" msgid="4906759256275562674">"Koppintson rá ismét a megnyitáshoz"</string>
     <string name="message_decode_error" msgid="3456481534066924855">"Hiba történt az üzenet dekódolása közben."</string>
     <string name="callFailed_cdma_activation" msgid="2307989779233262164">"Egy SIM kártya aktiválta a szolgáltatást, valamint frissítette a telefon barangolási képességeit."</string>
+    <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"Túl sok aktív hívás van. Új hívás indítása előtt fejezzen be vagy vonjon össze meglévő hívásokat."</string>
 </resources>

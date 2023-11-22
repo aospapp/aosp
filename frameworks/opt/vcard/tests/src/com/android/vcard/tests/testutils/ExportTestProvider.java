@@ -155,7 +155,7 @@ public class ExportTestProvider extends MockContentProvider {
 
             @Override
             public int getColumnIndex(String columnName) {
-                TestCase.assertEquals(Contacts._ID, columnName);
+                TestCase.assertEquals(Data.CONTACT_ID, columnName);
                 return 0;
             }
 
@@ -165,6 +165,11 @@ public class ExportTestProvider extends MockContentProvider {
                 TestCase.assertTrue(mCurrentPosition >= 0
                         && mCurrentPosition < mContactEntryList.size());
                 return mCurrentPosition;
+            }
+
+            @Override
+            public long getLong(int columnIndex) {
+                return getInt(columnIndex);
             }
 
             @Override

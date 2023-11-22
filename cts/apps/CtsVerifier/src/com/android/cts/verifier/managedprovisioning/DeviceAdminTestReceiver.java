@@ -22,7 +22,12 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.provider.Settings;
 import android.util.Log;
+
+import com.android.cts.verifier.R;
+import com.android.cts.verifier.location.LocationListenerActivity;
+import com.android.cts.verifier.managedprovisioning.Utils;
 
 /**
  * Profile owner receiver for BYOD flow test.
@@ -47,6 +52,27 @@ public class DeviceAdminTestReceiver extends DeviceAdminReceiver {
             setupProfile(context);
         }
 
+        @Override
+        public void onBugreportSharingDeclined(Context context, Intent intent) {
+            Log.i(TAG, "Bugreport sharing declined");
+            Utils.showBugreportNotification(context, context.getString(
+                    R.string.bugreport_sharing_declined), Utils.BUGREPORT_NOTIFICATION_ID);
+        }
+
+        @Override
+        public void onBugreportShared(Context context, Intent intent, String bugreportFileHash) {
+            Log.i(TAG, "Bugreport shared");
+            Utils.showBugreportNotification(context, context.getString(
+                    R.string.bugreport_shared_successfully), Utils.BUGREPORT_NOTIFICATION_ID);
+        }
+
+        @Override
+        public void onBugreportFailed(Context context, Intent intent, int failureCode) {
+            Log.i(TAG, "Bugreport collection operation failed, code: " + failureCode);
+            Utils.showBugreportNotification(context, context.getString(
+                    R.string.bugreport_failed_completing), Utils.BUGREPORT_NOTIFICATION_ID);
+        }
+
         private void setupProfile(Context context) {
             DevicePolicyManager dpm = (DevicePolicyManager) context.getSystemService(Context.DEVICE_POLICY_SERVICE);
             dpm.setProfileEnabled(new ComponentName(context.getApplicationContext(), getClass()));
@@ -55,25 +81,37 @@ public class DeviceAdminTestReceiver extends DeviceAdminReceiver {
             // Primary -> work direction
             IntentFilter filter = new IntentFilter();
             filter.addAction(ByodHelperActivity.ACTION_QUERY_PROFILE_OWNER);
-            filter.addAction(ByodHelperActivity.ACTION_REMOVE_PROFILE_OWNER);
+            filter.addAction(ByodHelperActivity.ACTION_REMOVE_MANAGED_PROFILE);
             filter.addAction(ByodHelperActivity.ACTION_INSTALL_APK);
             filter.addAction(ByodHelperActivity.ACTION_CHECK_INTENT_FILTERS);
             filter.addAction(ByodHelperActivity.ACTION_CAPTURE_AND_CHECK_IMAGE);
-            filter.addAction(ByodHelperActivity.ACTION_CAPTURE_AND_CHECK_VIDEO);
+            filter.addAction(ByodHelperActivity.ACTION_CAPTURE_AND_CHECK_VIDEO_WITH_EXTRA_OUTPUT);
+            filter.addAction(ByodHelperActivity.ACTION_CAPTURE_AND_CHECK_VIDEO_WITHOUT_EXTRA_OUTPUT);
             filter.addAction(ByodHelperActivity.ACTION_CAPTURE_AND_CHECK_AUDIO);
             filter.addAction(ByodHelperActivity.ACTION_KEYGUARD_DISABLED_FEATURES);
             filter.addAction(ByodHelperActivity.ACTION_LOCKNOW);
             filter.addAction(ByodHelperActivity.ACTION_TEST_NFC_BEAM);
             filter.addAction(ByodHelperActivity.ACTION_TEST_CROSS_PROFILE_INTENTS_DIALOG);
             filter.addAction(ByodHelperActivity.ACTION_TEST_APP_LINKING_DIALOG);
+            filter.addAction(ByodHelperActivity.ACTION_NOTIFICATION);
+            filter.addAction(ByodHelperActivity.ACTION_NOTIFICATION_ON_LOCKSCREEN);
+            filter.addAction(ByodHelperActivity.ACTION_CLEAR_NOTIFICATION);
+            filter.addAction(ByodHelperActivity.ACTION_SET_USER_RESTRICTION);
+            filter.addAction(ByodHelperActivity.ACTION_CLEAR_USER_RESTRICTION);
             filter.addAction(CrossProfileTestActivity.ACTION_CROSS_PROFILE_TO_WORK);
-            filter.addAction(WorkNotificationTestActivity.ACTION_WORK_NOTIFICATION);
-            filter.addAction(WorkNotificationTestActivity.ACTION_WORK_NOTIFICATION_ON_LOCKSCREEN);
-            filter.addAction(WorkNotificationTestActivity.ACTION_CLEAR_WORK_NOTIFICATION);
             filter.addAction(WorkStatusTestActivity.ACTION_WORK_STATUS_TOAST);
             filter.addAction(WorkStatusTestActivity.ACTION_WORK_STATUS_ICON);
             filter.addAction(
                     PermissionLockdownTestActivity.ACTION_MANAGED_PROFILE_CHECK_PERMISSION_LOCKDOWN);
+            filter.addAction(AuthenticationBoundKeyTestActivity.ACTION_AUTH_BOUND_KEY_TEST);
+            filter.addAction(ByodHelperActivity.ACTION_BYOD_SET_LOCATION_AND_CHECK_UPDATES);
+            filter.addAction(VpnTestActivity.ACTION_VPN);
+            filter.addAction(ByodHelperActivity.ACTION_TEST_SELECT_WORK_CHALLENGE);
+            filter.addAction(ByodHelperActivity.ACTION_LAUNCH_CONFIRM_WORK_CREDENTIALS);
+            filter.addAction(ByodHelperActivity.ACTION_SET_ORGANIZATION_INFO);
+            filter.addAction(ByodHelperActivity.ACTION_TEST_PARENT_PROFILE_PASSWORD);
+            filter.addAction(SetSupportMessageActivity.ACTION_SET_SUPPORT_MSG);
+            filter.addAction(CommandReceiverActivity.ACTION_EXECUTE_COMMAND);
             dpm.addCrossProfileIntentFilter(getWho(context), filter,
                     DevicePolicyManager.FLAG_MANAGED_CAN_ACCESS_PARENT);
 
@@ -81,6 +119,7 @@ public class DeviceAdminTestReceiver extends DeviceAdminReceiver {
             filter = new IntentFilter();
             filter.addAction(ByodHelperActivity.ACTION_PROFILE_OWNER_STATUS);
             filter.addAction(CrossProfileTestActivity.ACTION_CROSS_PROFILE_TO_PERSONAL);
+            filter.addAction(LocationListenerActivity.ACTION_SET_LOCATION_AND_CHECK_UPDATES);
             dpm.addCrossProfileIntentFilter(getWho(context), filter,
                     DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED);
 
@@ -89,4 +128,5 @@ public class DeviceAdminTestReceiver extends DeviceAdminReceiver {
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             context.startActivity(intent);
         }
+
 }

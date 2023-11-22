@@ -2,26 +2,17 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "src/compiler/graph-inl.h"
 #include "src/compiler/js-builtin-reducer.h"
+#include "src/compiler/js-graph.h"
 #include "src/compiler/node-matchers.h"
-#include "src/compiler/node-properties-inl.h"
+#include "src/compiler/node-properties.h"
+#include "src/compiler/simplified-operator.h"
+#include "src/objects-inl.h"
 #include "src/types.h"
 
 namespace v8 {
 namespace internal {
 namespace compiler {
-
-
-// Helper method that assumes replacement nodes are pure values that don't
-// produce an effect. Replaces {node} with {reduction} and relaxes effects.
-static Reduction ReplaceWithPureReduction(Node* node, Reduction reduction) {
-  if (reduction.Changed()) {
-    NodeProperties::ReplaceWithValue(node, reduction.replacement());
-    return reduction;
-  }
-  return Reducer::NoChange();
-}
 
 
 // Helper class to access JSCallFunction nodes that are potential candidates
@@ -34,17 +25,17 @@ class JSCallReduction {
   // constant callee being a well-known builtin with a BuiltinFunctionId.
   bool HasBuiltinFunctionId() {
     if (node_->opcode() != IrOpcode::kJSCallFunction) return false;
-    HeapObjectMatcher<Object> m(NodeProperties::GetValueInput(node_, 0));
-    if (!m.HasValue() || !m.Value().handle()->IsJSFunction()) return false;
-    Handle<JSFunction> function = Handle<JSFunction>::cast(m.Value().handle());
+    HeapObjectMatcher m(NodeProperties::GetValueInput(node_, 0));
+    if (!m.HasValue() || !m.Value()->IsJSFunction()) return false;
+    Handle<JSFunction> function = Handle<JSFunction>::cast(m.Value());
     return function->shared()->HasBuiltinFunctionId();
   }
 
   // Retrieves the BuiltinFunctionId as described above.
   BuiltinFunctionId GetBuiltinFunctionId() {
     DCHECK_EQ(IrOpcode::kJSCallFunction, node_->opcode());
-    HeapObjectMatcher<Object> m(NodeProperties::GetValueInput(node_, 0));
-    Handle<JSFunction> function = Handle<JSFunction>::cast(m.Value().handle());
+    HeapObjectMatcher m(NodeProperties::GetValueInput(node_, 0));
+    Handle<JSFunction> function = Handle<JSFunction>::cast(m.Value());
     return function->shared()->builtin_function_id();
   }
 
@@ -54,20 +45,20 @@ class JSCallReduction {
   // Determines whether the call takes one input of the given type.
   bool InputsMatchOne(Type* t1) {
     return GetJSCallArity() == 1 &&
-           NodeProperties::GetBounds(GetJSCallInput(0)).upper->Is(t1);
+           NodeProperties::GetType(GetJSCallInput(0))->Is(t1);
   }
 
   // Determines whether the call takes two inputs of the given types.
   bool InputsMatchTwo(Type* t1, Type* t2) {
     return GetJSCallArity() == 2 &&
-           NodeProperties::GetBounds(GetJSCallInput(0)).upper->Is(t1) &&
-           NodeProperties::GetBounds(GetJSCallInput(1)).upper->Is(t2);
+           NodeProperties::GetType(GetJSCallInput(0))->Is(t1) &&
+           NodeProperties::GetType(GetJSCallInput(1))->Is(t2);
   }
 
   // Determines whether the call takes inputs all of the given type.
   bool InputsMatchAll(Type* t) {
     for (int i = 0; i < GetJSCallArity(); i++) {
-      if (!NodeProperties::GetBounds(GetJSCallInput(i)).upper->Is(t)) {
+      if (!NodeProperties::GetType(GetJSCallInput(i))->Is(t)) {
         return false;
       }
     }
@@ -80,7 +71,7 @@ class JSCallReduction {
   int GetJSCallArity() {
     DCHECK_EQ(IrOpcode::kJSCallFunction, node_->opcode());
     // Skip first (i.e. callee) and second (i.e. receiver) operand.
-    return OperatorProperties::GetValueInputCount(node_->op()) - 2;
+    return node_->op()->ValueInputCount() - 2;
   }
 
   Node* GetJSCallInput(int index) {
@@ -95,16 +86,8 @@ class JSCallReduction {
 };
 
 
-// ECMA-262, section 15.8.2.17.
-Reduction JSBuiltinReducer::ReduceMathSqrt(Node* node) {
-  JSCallReduction r(node);
-  if (r.InputsMatchOne(Type::Number())) {
-    // Math.sqrt(a:number) -> Float64Sqrt(a)
-    Node* value = graph()->NewNode(machine()->Float64Sqrt(), r.left());
-    return Replace(value);
-  }
-  return NoChange();
-}
+JSBuiltinReducer::JSBuiltinReducer(Editor* editor, JSGraph* jsgraph)
+    : AdvancedReducer(editor), jsgraph_(jsgraph) {}
 
 
 // ECMA-262, section 15.8.2.11.
@@ -122,16 +105,11 @@ Reduction JSBuiltinReducer::ReduceMathMax(Node* node) {
     // Math.max(a:int32, b:int32, ...)
     Node* value = r.GetJSCallInput(0);
     for (int i = 1; i < r.GetJSCallArity(); i++) {
-      Node* p = r.GetJSCallInput(i);
-      Node* control = graph()->start();
-      Node* tag = graph()->NewNode(simplified()->NumberLessThan(), value, p);
-
-      Node* branch = graph()->NewNode(common()->Branch(), tag, control);
-      Node* if_true = graph()->NewNode(common()->IfTrue(), branch);
-      Node* if_false = graph()->NewNode(common()->IfFalse(), branch);
-      Node* merge = graph()->NewNode(common()->Merge(2), if_true, if_false);
-
-      value = graph()->NewNode(common()->Phi(kMachNone, 2), p, value, merge);
+      Node* const input = r.GetJSCallInput(i);
+      value = graph()->NewNode(
+          common()->Select(MachineRepresentation::kNone),
+          graph()->NewNode(simplified()->NumberLessThan(), input, value), value,
+          input);
     }
     return Replace(value);
   }
@@ -151,22 +129,65 @@ Reduction JSBuiltinReducer::ReduceMathImul(Node* node) {
 }
 
 
+// ES6 draft 08-24-14, section 20.2.2.17.
+Reduction JSBuiltinReducer::ReduceMathFround(Node* node) {
+  JSCallReduction r(node);
+  if (r.InputsMatchOne(Type::Number())) {
+    // Math.fround(a:number) -> TruncateFloat64ToFloat32(a)
+    Node* value =
+        graph()->NewNode(machine()->TruncateFloat64ToFloat32(), r.left());
+    return Replace(value);
+  }
+  return NoChange();
+}
+
+
 Reduction JSBuiltinReducer::Reduce(Node* node) {
+  Reduction reduction = NoChange();
   JSCallReduction r(node);
 
   // Dispatch according to the BuiltinFunctionId if present.
   if (!r.HasBuiltinFunctionId()) return NoChange();
   switch (r.GetBuiltinFunctionId()) {
-    case kMathSqrt:
-      return ReplaceWithPureReduction(node, ReduceMathSqrt(node));
     case kMathMax:
-      return ReplaceWithPureReduction(node, ReduceMathMax(node));
+      reduction = ReduceMathMax(node);
+      break;
     case kMathImul:
-      return ReplaceWithPureReduction(node, ReduceMathImul(node));
+      reduction = ReduceMathImul(node);
+      break;
+    case kMathFround:
+      reduction = ReduceMathFround(node);
+      break;
     default:
       break;
   }
-  return NoChange();
+
+  // Replace builtin call assuming replacement nodes are pure values that don't
+  // produce an effect. Replaces {node} with {reduction} and relaxes effects.
+  if (reduction.Changed()) ReplaceWithValue(node, reduction.replacement());
+
+  return reduction;
+}
+
+
+Graph* JSBuiltinReducer::graph() const { return jsgraph()->graph(); }
+
+
+Isolate* JSBuiltinReducer::isolate() const { return jsgraph()->isolate(); }
+
+
+CommonOperatorBuilder* JSBuiltinReducer::common() const {
+  return jsgraph()->common();
+}
+
+
+MachineOperatorBuilder* JSBuiltinReducer::machine() const {
+  return jsgraph()->machine();
+}
+
+
+SimplifiedOperatorBuilder* JSBuiltinReducer::simplified() const {
+  return jsgraph()->simplified();
 }
 
 }  // namespace compiler

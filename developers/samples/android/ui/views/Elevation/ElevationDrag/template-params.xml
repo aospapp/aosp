@@ -22,11 +22,8 @@
     <group>UI</group>
     <package>com.example.android.elevationdrag</package>
 
-
     <!-- change minSdk if needed-->
     <minSdk>21</minSdk>
-    <compileSdkVersion>21</compileSdkVersion>
-
 
     <strings>
         <intro>

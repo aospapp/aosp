@@ -27,13 +27,13 @@ import android.content.pm.UserInfo;
 import android.content.res.Resources;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.RemoteException;
 import android.os.Process;
+import android.os.RemoteException;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.security.Credentials;
-import android.security.KeyChain.KeyChainConnection;
 import android.security.KeyChain;
+import android.security.KeyChain.KeyChainConnection;
 import android.security.KeyStore;
 import android.text.Editable;
 import android.text.TextUtils;
@@ -48,7 +48,8 @@ import com.android.internal.widget.LockPatternUtils;
 import com.android.org.bouncycastle.asn1.ASN1InputStream;
 import com.android.org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
 
-import org.apache.harmony.security.utils.AlgNameMapper;
+import sun.security.util.ObjectIdentifier;
+import sun.security.x509.AlgorithmId;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -102,14 +103,9 @@ public final class CredentialStorage extends Activity {
     static final int MIN_PASSWORD_QUALITY = DevicePolicyManager.PASSWORD_QUALITY_SOMETHING;
 
     private static final int CONFIRM_KEY_GUARD_REQUEST = 1;
+    private static final int CONFIRM_CLEAR_SYSTEM_CREDENTIAL_REQUEST = 2;
 
     private final KeyStore mKeyStore = KeyStore.getInstance();
-
-    /**
-     * The UIDs that are used for system credential storage in keystore.
-     */
-    private static final int[] SYSTEM_CREDENTIAL_UIDS = {Process.WIFI_UID, Process.VPN_UID,
-        Process.ROOT_UID, Process.SYSTEM_UID};
 
     /**
      * When non-null, the bundle containing credentials to install.
@@ -196,7 +192,7 @@ public final class CredentialStorage extends Activity {
             return;
         }
         // force key guard confirmation
-        if (confirmKeyGuard()) {
+        if (confirmKeyGuard(CONFIRM_KEY_GUARD_REQUEST)) {
             // will return password value via onActivityResult
             return;
         }
@@ -207,9 +203,9 @@ public final class CredentialStorage extends Activity {
      * Returns true if the currently set key guard matches our minimum quality requirements.
      */
     private boolean checkKeyGuardQuality() {
-        UserInfo parent = UserManager.get(this).getProfileParent(UserHandle.myUserId());
-        int quality = new LockPatternUtils(this).getActivePasswordQuality(
-                parent != null ? parent.id : UserHandle.myUserId());
+        int credentialOwner =
+                UserManager.get(this).getCredentialOwnerProfile(UserHandle.myUserId());
+        int quality = new LockPatternUtils(this).getActivePasswordQuality(credentialOwner);
         return (quality >= MIN_PASSWORD_QUALITY);
     }
 
@@ -217,8 +213,8 @@ public final class CredentialStorage extends Activity {
         try {
             ASN1InputStream bIn = new ASN1InputStream(new ByteArrayInputStream(keyData));
             PrivateKeyInfo pki = PrivateKeyInfo.getInstance(bIn.readObject());
-            String algId = pki.getAlgorithmId().getAlgorithm().getId();
-            String algName = AlgNameMapper.map2AlgName(algId);
+            String algOid = pki.getAlgorithmId().getAlgorithm().getId();
+            String algName = new AlgorithmId(new ObjectIdentifier(algOid)).getName();
 
             return KeyChain.isBoundKeyAlgorithm(algName);
         } catch (IOException e) {
@@ -327,8 +323,10 @@ public final class CredentialStorage extends Activity {
         @Override public void onDismiss(DialogInterface dialog) {
             if (mResetConfirmed) {
                 mResetConfirmed = false;
-                new ResetKeyStoreAndKeyChain().execute();
-                return;
+                if (confirmKeyGuard(CONFIRM_CLEAR_SYSTEM_CREDENTIAL_REQUEST)) {
+                    // will return password value via onActivityResult
+                    return;
+                }
             }
             finish();
         }
@@ -342,13 +340,7 @@ public final class CredentialStorage extends Activity {
         @Override protected Boolean doInBackground(Void... unused) {
 
             // Clear all the users credentials could have been installed in for this user.
-            final UserManager um = (UserManager) getSystemService(USER_SERVICE);
-            for (UserInfo pi : um.getProfiles(UserHandle.getUserId(Process.myUid()))) {
-                for (int uid : SYSTEM_CREDENTIAL_UIDS) {
-                    mKeyStore.clearUid(UserHandle.getUid(pi.id, uid));
-                }
-            }
-
+            new LockPatternUtils(CredentialStorage.this).resetKeyStore(UserHandle.myUserId());
 
             try {
                 KeyChainConnection keyChainConnection = KeyChain.bind(CredentialStorage.this);
@@ -454,10 +446,10 @@ public final class CredentialStorage extends Activity {
     /**
      * Confirm existing key guard, returning password via onActivityResult.
      */
-    private boolean confirmKeyGuard() {
+    private boolean confirmKeyGuard(int requestCode) {
         Resources res = getResources();
         boolean launched = new ChooseLockSettingsHelper(this)
-                .launchConfirmationActivity(CONFIRM_KEY_GUARD_REQUEST,
+                .launchConfirmationActivity(requestCode,
                         res.getText(R.string.credentials_title), true);
         return launched;
     }
@@ -478,6 +470,13 @@ public final class CredentialStorage extends Activity {
                     // return to onResume
                     return;
                 }
+            }
+            // failed confirmation, bail
+            finish();
+        } else if (requestCode == CONFIRM_CLEAR_SYSTEM_CREDENTIAL_REQUEST) {
+            if (resultCode == Activity.RESULT_OK) {
+                new ResetKeyStoreAndKeyChain().execute();
+                return;
             }
             // failed confirmation, bail
             finish();

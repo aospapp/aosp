@@ -23,6 +23,7 @@
 #include "NdkMediaFormatPriv.h"
 
 
+#include <inttypes.h>
 #include <utils/Log.h>
 #include <utils/StrongPointer.h>
 #include <media/hardware/CryptoAPI.h>
@@ -72,7 +73,7 @@ media_status_t AMediaExtractor_delete(AMediaExtractor *mData) {
 EXPORT
 media_status_t AMediaExtractor_setDataSourceFd(AMediaExtractor *mData, int fd, off64_t offset,
         off64_t length) {
-    ALOGV("setDataSource(%d, %lld, %lld)", fd, offset, length);
+    ALOGV("setDataSource(%d, %" PRId64 ", %" PRId64 ")", fd, offset, length);
     return translate_error(mData->mImpl->setDataSource(fd, offset, length));
 }
 
@@ -243,15 +244,27 @@ PsshInfo* AMediaExtractor_getPsshInfo(AMediaExtractor *ex) {
     while (len > 0) {
         numentries++;
 
+        if (len < 16) {
+            ALOGE("invalid PSSH data");
+            return NULL;
+        }
         // skip uuid
         data += 16;
         len -= 16;
 
         // get data length
+        if (len < 4) {
+            ALOGE("invalid PSSH data");
+            return NULL;
+        }
         uint32_t datalen = *((uint32_t*)data);
         data += 4;
         len -= 4;
 
+        if (len < datalen) {
+            ALOGE("invalid PSSH data");
+            return NULL;
+        }
         // skip the data
         data += datalen;
         len -= datalen;
@@ -265,6 +278,10 @@ PsshInfo* AMediaExtractor_getPsshInfo(AMediaExtractor *ex) {
     // extra pointer for each entry, and an extra size_t for the entire PsshInfo.
     size_t newsize = buffer->size() - (sizeof(uint32_t) * numentries) + sizeof(size_t)
             + ((sizeof(void*) + sizeof(size_t)) * numentries);
+    if (newsize <= buffer->size()) {
+        ALOGE("invalid PSSH data");
+        return NULL;
+    }
     ex->mPsshBuf = new ABuffer(newsize);
     ex->mPsshBuf->setRange(0, newsize);
 

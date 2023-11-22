@@ -17,6 +17,8 @@
 package com.android.settings;
 
 import com.android.settings.applications.AppOpsSummary;
+import com.android.settings.fingerprint.FingerprintEnrollIntroduction;
+import com.android.settings.fingerprint.FingerprintSettings;
 
 /**
  * Top-level Settings activity
@@ -39,7 +41,9 @@ public class Settings extends SettingsActivity {
     public static class WifiSettingsActivity extends SettingsActivity { /* empty */ }
     public static class WifiP2pSettingsActivity extends SettingsActivity { /* empty */ }
     public static class InputMethodAndLanguageSettingsActivity extends SettingsActivity { /* empty */ }
+    public static class AvailableVirtualKeyboardActivity extends SettingsActivity { /* empty */ }
     public static class KeyboardLayoutPickerActivity extends SettingsActivity { /* empty */ }
+    public static class PhysicalKeyboardActivity extends SettingsActivity { /* empty */ }
     public static class InputMethodAndSubtypeEnablerActivity extends SettingsActivity { /* empty */ }
     public static class SpellCheckersSettingsActivity extends SettingsActivity { /* empty */ }
     public static class LocalePickerActivity extends SettingsActivity { /* empty */ }
@@ -61,6 +65,7 @@ public class Settings extends SettingsActivity {
             return super.isValidFragment(className);
             }
     }
+    public static class BackgroundCheckSummaryActivity extends SettingsActivity { /* empty */ }
     public static class StorageUseActivity extends SettingsActivity { /* empty */ }
     public static class DevelopmentSettingsActivity extends SettingsActivity { /* empty */ }
     public static class AccessibilitySettingsActivity extends SettingsActivity { /* empty */ }
@@ -91,6 +96,7 @@ public class Settings extends SettingsActivity {
     public static class NotificationStationActivity extends SettingsActivity { /* empty */ }
     public static class UserSettingsActivity extends SettingsActivity { /* empty */ }
     public static class NotificationAccessSettingsActivity extends SettingsActivity { /* empty */ }
+    public static class VrListenersSettingsActivity extends SettingsActivity { /* empty */ }
     public static class ZenAccessSettingsActivity extends SettingsActivity { /* empty */ }
     public static class ConditionProviderSettingsActivity extends SettingsActivity { /* empty */ }
     public static class UsbSettingsActivity extends SettingsActivity { /* empty */ }
@@ -104,7 +110,9 @@ public class Settings extends SettingsActivity {
     public static class ZenModeScheduleRuleSettingsActivity extends SettingsActivity { /* empty */ }
     public static class ZenModeEventRuleSettingsActivity extends SettingsActivity { /* empty */ }
     public static class ZenModeExternalRuleSettingsActivity extends SettingsActivity { /* empty */ }
-    public static class NotificationSettingsActivity extends SettingsActivity { /* empty */ }
+    public static class ZenModeVisualInterruptionSettingsActivity extends SettingsActivity { /* empty */}
+    public static class SoundSettingsActivity extends SettingsActivity { /* empty */ }
+    public static class ConfigureNotificationSettingsActivity extends SettingsActivity { /* empty */ }
     public static class NotificationAppListActivity extends SettingsActivity { /* empty */ }
     public static class AppNotificationSettingsActivity extends SettingsActivity { /* empty */ }
     public static class OtherSoundSettingsActivity extends SettingsActivity { /* empty */ }
@@ -114,8 +122,37 @@ public class Settings extends SettingsActivity {
     public static class ApnSettingsActivity extends SettingsActivity { /* empty */ }
     public static class WifiCallingSettingsActivity extends SettingsActivity { /* empty */ }
     public static class MemorySettingsActivity extends SettingsActivity { /* empty */ }
+    public static class AppMemoryUsageActivity extends SettingsActivity { /* empty */ }
     public static class OverlaySettingsActivity extends SettingsActivity { /* empty */ }
     public static class WriteSettingsActivity extends SettingsActivity { /* empty */ }
     public static class AppDrawOverlaySettingsActivity extends SettingsActivity { /* empty */ }
     public static class AppWriteSettingsActivity extends SettingsActivity { /* empty */ }
+    public static class AdvancedAppsActivity extends SettingsActivity { /* empty */ }
+
+    public static class WifiCallingSuggestionActivity extends SettingsActivity { /* empty */ }
+    public static class ZenModeAutomationSuggestionActivity extends SettingsActivity { /* empty */ }
+    public static class WallpaperSuggestionActivity extends SettingsActivity { /* empty */ }
+    public static class FingerprintSuggestionActivity extends FingerprintSettings { /* empty */ }
+    public static class FingerprintEnrollSuggestionActivity extends FingerprintEnrollIntroduction {
+        /* empty */
+    }
+    public static class ScreenLockSuggestionActivity extends ChooseLockGeneric { /* empty */ }
+    public static class WallpaperSettingsActivity extends SettingsActivity { /* empty */ }
+    public static class ManagedProfileSettingsActivity extends SettingsActivity { /* empty */ }
+
+    public static class ApnEditorActivity extends SettingsActivity { /* empty */ }
+    public static class ChooseAccountActivity extends SettingsActivity { /* empty */ }
+    public static class IccLockSettingsActivity extends SettingsActivity { /* empty */ }
+    public static class ImeiInformationActivity extends SettingsActivity { /* empty */ }
+    public static class SimStatusActivity extends SettingsActivity { /* empty */ }
+    public static class StatusActivity extends SettingsActivity { /* empty */ }
+    public static class TestingSettingsActivity extends SettingsActivity { /* empty */ }
+    public static class WifiAPITestActivity extends SettingsActivity { /* empty */ }
+    public static class WifiInfoActivity extends SettingsActivity { /* empty */ }
+
+    // Categories.
+    public static class WirelessSettings extends SettingsActivity { /* empty */ }
+    public static class DeviceSettings extends SettingsActivity { /* empty */ }
+    public static class PersonalSettings extends SettingsActivity { /* empty */ }
+    public static class SystemSettings extends SettingsActivity { /* empty */ }
 }

@@ -1,7 +1,6 @@
 LOCAL_PATH:= $(call my-dir)
 
 debuginfo_dwarf_SRC_FILES := \
-  DIContext.cpp \
   DWARFAbbreviationDeclaration.cpp \
   DWARFAcceleratorTable.cpp \
   DWARFCompileUnit.cpp \
@@ -13,10 +12,12 @@ debuginfo_dwarf_SRC_FILES := \
   DWARFDebugInfoEntry.cpp \
   DWARFDebugLine.cpp \
   DWARFDebugLoc.cpp \
+  DWARFDebugMacro.cpp \
   DWARFDebugRangeList.cpp \
   DWARFFormValue.cpp \
   DWARFTypeUnit.cpp \
   DWARFUnit.cpp \
+  DWARFUnitIndex.cpp \
   SyntaxHighlighting.cpp
 
 # For the host
@@ -29,7 +30,7 @@ LOCAL_SRC_FILES := $(debuginfo_dwarf_SRC_FILES)
 
 LOCAL_MODULE:= libLLVMDebugInfoDWARF
 
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_HOST_OS := darwin linux windows
 
 include $(LLVM_HOST_BUILD_MK)
 include $(LLVM_GEN_INTRINSICS_MK)
@@ -45,8 +46,6 @@ REQUIRES_RTTI := 1
 LOCAL_SRC_FILES := $(debuginfo_dwarf_SRC_FILES)
 
 LOCAL_MODULE:= libLLVMDebugInfoDWARF
-
-LOCAL_MODULE_TAGS := optional
 
 include $(LLVM_DEVICE_BUILD_MK)
 include $(LLVM_GEN_INTRINSICS_MK)

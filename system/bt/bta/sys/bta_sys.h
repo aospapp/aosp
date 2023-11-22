@@ -25,7 +25,8 @@
 #define BTA_SYS_H
 
 #include "bt_target.h"
-#include "gki.h"
+#include "osi/include/alarm.h"
+#include "bt_common.h"
 
 /*****************************************************************************
 **  Constants and data types
@@ -227,10 +228,9 @@ extern void bta_sys_deregister(UINT8 id);
 extern BOOLEAN bta_sys_is_register(UINT8 id);
 extern UINT16 bta_sys_get_sys_features(void);
 extern void bta_sys_sendmsg(void *p_msg);
-extern void bta_sys_start_timer(TIMER_LIST_ENT *p_tle, UINT16 type, INT32 timeout_ms);
-extern void bta_sys_stop_timer(TIMER_LIST_ENT *p_tle);
+extern void bta_sys_start_timer(alarm_t *alarm, period_ms_t interval,
+                                uint16_t event, uint16_t layer_specific);
 extern void bta_sys_disable(tBTA_SYS_HW_MODULE module);
-extern UINT32 bta_sys_get_remaining_ticks(TIMER_LIST_ENT *p_target_tle);
 
 extern void bta_sys_hw_register( tBTA_SYS_HW_MODULE module, tBTA_SYS_HW_CBACK *cback);
 extern void bta_sys_hw_unregister( tBTA_SYS_HW_MODULE module );
@@ -278,7 +278,6 @@ extern void bta_sys_set_policy (UINT8 id, UINT8 policy, BD_ADDR peer_addr);
 extern void bta_sys_clear_policy (UINT8 id, UINT8 policy, BD_ADDR peer_addr);
 extern void bta_sys_set_default_policy (UINT8 id, UINT8 policy);
 extern void bta_sys_clear_default_policy (UINT8 id, UINT8 policy);
-extern BOOLEAN bta_sys_vs_hdl(UINT16 evt, void *p);
 
 #ifdef __cplusplus
 }

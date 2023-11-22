@@ -35,7 +35,3 @@ void bar() {
     mS = localStruct;
 }
 
-int root(int num) {
-    return 10;
-}
-

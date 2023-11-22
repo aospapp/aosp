@@ -16,8 +16,13 @@
 
 package com.android.sysapp.janktests;
 
+import java.io.File;
+import java.io.IOException;
+
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Bundle;
+import android.os.Environment;
 import android.os.RemoteException;
 import android.os.SystemClock;
 import android.support.test.jank.GfxMonitor;
@@ -30,8 +35,9 @@ import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.UiObjectNotFoundException;
 import android.support.test.uiautomator.Until;
-
 import junit.framework.Assert;
+import android.platform.test.helpers.ChromeHelperImpl;
+import android.support.test.timeresulthelper.TimeResultLogger;
 
 /**
  * Jank test for Chorme apps
@@ -45,6 +51,11 @@ public class ChromeJankTests extends JankTestBase {
     private static final int EXPECTED_FRAMES = 100;
     private static final String PACKAGE_NAME = "com.android.chrome";
     private UiDevice mDevice;
+    private ChromeHelperImpl chromeHelper;
+    private static final File TIMESTAMP_FILE = new File(Environment.getExternalStorageDirectory()
+            .getAbsolutePath(), "autotester.log");
+    private static final File RESULTS_FILE = new File(Environment.getExternalStorageDirectory()
+            .getAbsolutePath(), "results.log");
 
     @Override
     public void setUp() throws Exception {
@@ -71,13 +82,26 @@ public class ChromeJankTests extends JankTestBase {
         SystemClock.sleep(SHORT_TIMEOUT);
     }
 
-    public void launchChrome() throws UiObjectNotFoundException{
+    public void launchChrome() throws UiObjectNotFoundException, IOException{
         launchApp(PACKAGE_NAME);
+        chromeHelper = new ChromeHelperImpl(getInstrumentation());
+        chromeHelper.dismissInitialDialogs();
         getOverflowMenu();
+        TimeResultLogger.writeTimeStampLogStart(String.format("%s-%s",
+                getClass().getSimpleName(), getName()), TIMESTAMP_FILE);
+    }
+
+    public void afterTestChromeOverflowMenuTap(Bundle metrics) throws IOException {
+        TimeResultLogger.writeTimeStampLogEnd(String.format("%s-%s",
+                getClass().getSimpleName(), getName()), TIMESTAMP_FILE);
+        TimeResultLogger.writeResultToFile(String.format("%s-%s",
+                getClass().getSimpleName(), getName()), RESULTS_FILE, metrics);
+        super.afterTest(metrics);
     }
 
     // Measures jank window render for overflow menu tap
-    @JankTest(beforeTest="launchChrome", expectedFrames=EXPECTED_FRAMES)
+    @JankTest(beforeTest="launchChrome", expectedFrames=EXPECTED_FRAMES,
+            afterTest="afterTestChromeOverflowMenuTap")
     @GfxMonitor(processName=PACKAGE_NAME)
     public void testChromeOverflowMenuTap() {
         for (int i = 0; i < INNER_LOOP; i++) {

@@ -21,6 +21,7 @@ import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.test.suitebuilder.annotation.Suppress;
@@ -38,7 +39,7 @@ public class NoActivityRelatedPermissionTest
     private PermissionStubActivity mActivity;
 
     public NoActivityRelatedPermissionTest() {
-        super("com.android.cts.permission", PermissionStubActivity.class);
+        super("android.permission.cts", PermissionStubActivity.class);
     }
 
     @Override
@@ -64,8 +65,27 @@ public class NoActivityRelatedPermissionTest
 
         List<ActivityManager.RecentTaskInfo> recentTasks = manager.getRecentTasks(10,
                 ActivityManager.RECENT_WITH_EXCLUDED);
-        // Current implementation should only return tasks for home and the caller.
-        // We'll be done and task this to mean it shouldn't return more than 2.
-        assertTrue("Found tasks: " + recentTasks, recentTasks == null || recentTasks.size() <= 2);
+        // Current implementation should only return tasks for home and the caller. Since there can
+        // be multiple home tasks, we remove them from the list and then check that there is one or
+        // less task left in the list.
+        removeHomeTasks(recentTasks);
+        assertTrue("Found tasks: " + recentTasks, recentTasks == null || recentTasks.size() <= 1);
+    }
+
+    private void removeHomeTasks(List<ActivityManager.RecentTaskInfo> tasks) {
+        for (int i = tasks.size() -1; i >= 0; i--) {
+            ActivityManager.RecentTaskInfo task = tasks.get(i);
+            if (task.baseIntent != null && isHomeIntent(task.baseIntent)) {
+                tasks.remove(i);
+            }
+        }
+    }
+
+    private boolean isHomeIntent(Intent intent) {
+        return Intent.ACTION_MAIN.equals(intent.getAction())
+                && intent.hasCategory(Intent.CATEGORY_HOME)
+                && intent.getCategories().size() == 1
+                && intent.getData() == null
+                && intent.getType() == null;
     }
 }

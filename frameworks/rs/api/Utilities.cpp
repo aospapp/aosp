@@ -24,7 +24,7 @@ using namespace std;
 
 const char LEGAL_NOTICE[] =
             "/*\n"
-            " * Copyright (C) 2015 The Android Open Source Project\n"
+            " * Copyright (C) 2016 The Android Open Source Project\n"
             " *\n"
             " * Licensed under the Apache License, Version 2.0 (the \"License\");\n"
             " * you may not use this file except in compliance with the License.\n"
@@ -145,8 +145,8 @@ double maxDoubleForInteger(int numberOfIntegerBits, int mantissaSize) {
      * to create smaller values to avoid a round up.  Same for floats and halfs.
      */
     int lowZeroBits = max(0, numberOfIntegerBits - mantissaSize);
-    unsigned long l = (0xffffffffffffffff >> (64 - numberOfIntegerBits + lowZeroBits))
-                      << lowZeroBits;
+    uint64_t l = (0xffffffffffffffff >> (64 - numberOfIntegerBits + lowZeroBits))
+                 << lowZeroBits;
     return (double)l;
 }
 
@@ -163,7 +163,7 @@ static void addCommaSeparated(const string& value, ostringstream* stream, bool* 
 }
 
 string makeAttributeTag(const string& userAttribute, const string& additionalAttribute,
-                        int deprecatedApiLevel, const string& deprecatedMessage) {
+                        unsigned int deprecatedApiLevel, const string& deprecatedMessage) {
     ostringstream stream;
     bool needComma = false;
     if (userAttribute[0] == '=') {

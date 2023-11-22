@@ -35,6 +35,14 @@ package android.support.v7.preference {
     method public abstract android.support.v7.preference.Preference findPreference(java.lang.CharSequence);
   }
 
+  public class DropDownPreference extends android.support.v7.preference.ListPreference {
+    ctor public DropDownPreference(android.content.Context);
+    ctor public DropDownPreference(android.content.Context, android.util.AttributeSet);
+    ctor public DropDownPreference(android.content.Context, android.util.AttributeSet, int);
+    ctor public DropDownPreference(android.content.Context, android.util.AttributeSet, int, int);
+    method protected android.widget.ArrayAdapter createAdapter();
+  }
+
   public class EditTextPreference extends android.support.v7.preference.DialogPreference {
     ctor public EditTextPreference(android.content.Context, android.util.AttributeSet, int, int);
     ctor public EditTextPreference(android.content.Context, android.util.AttributeSet, int);
@@ -47,7 +55,6 @@ package android.support.v7.preference {
   public class EditTextPreferenceDialogFragmentCompat extends android.support.v7.preference.PreferenceDialogFragmentCompat {
     ctor public EditTextPreferenceDialogFragmentCompat();
     method public static android.support.v7.preference.EditTextPreferenceDialogFragmentCompat newInstance(java.lang.String);
-    method protected void onAddEditTextToDialogView(android.view.View, android.widget.EditText);
     method public void onDialogClosed(boolean);
   }
 
@@ -75,7 +82,7 @@ package android.support.v7.preference {
     method public void onDialogClosed(boolean);
   }
 
-  public class Preference {
+  public class Preference implements java.lang.Comparable {
     ctor public Preference(android.content.Context, android.util.AttributeSet, int, int);
     ctor public Preference(android.content.Context, android.util.AttributeSet, int);
     ctor public Preference(android.content.Context, android.util.AttributeSet);
@@ -118,7 +125,9 @@ package android.support.v7.preference {
     method public void onBindViewHolder(android.support.v7.preference.PreferenceViewHolder);
     method protected void onClick();
     method public void onDependencyChanged(android.support.v7.preference.Preference, boolean);
+    method public void onDetached();
     method protected java.lang.Object onGetDefaultValue(android.content.res.TypedArray, int);
+    method public void onInitializeAccessibilityNodeInfo(android.support.v4.view.accessibility.AccessibilityNodeInfoCompat);
     method public void onParentChanged(android.support.v7.preference.Preference, boolean);
     method protected void onPrepareForRemoval();
     method protected void onRestoreInstanceState(android.os.Parcelable);
@@ -151,6 +160,7 @@ package android.support.v7.preference {
     method public void setSummary(int);
     method public void setTitle(java.lang.CharSequence);
     method public void setTitle(int);
+    method public void setViewId(int);
     method public final void setVisible(boolean);
     method public void setWidgetLayoutResource(int);
     method public boolean shouldDisableDependents();
@@ -204,6 +214,10 @@ package android.support.v7.preference {
     method public void onDisplayPreferenceDialog(android.support.v7.preference.Preference);
     method public void onNavigateToScreen(android.support.v7.preference.PreferenceScreen);
     method public boolean onPreferenceTreeClick(android.support.v7.preference.Preference);
+    method public void scrollToPreference(java.lang.String);
+    method public void scrollToPreference(android.support.v7.preference.Preference);
+    method public void setDivider(android.graphics.drawable.Drawable);
+    method public void setDividerHeight(int);
     method public void setPreferenceScreen(android.support.v7.preference.PreferenceScreen);
     method public void setPreferencesFromResource(int, java.lang.String);
     field public static final java.lang.String ARG_PREFERENCE_ROOT = "android.support.v7.preference.PreferenceFragmentCompat.PREFERENCE_ROOT";
@@ -240,6 +254,11 @@ package android.support.v7.preference {
     method public void setOrderingAsAdded(boolean);
   }
 
+  public static abstract interface PreferenceGroup.PreferencePositionCallback {
+    method public abstract int getPreferenceAdapterPosition(java.lang.String);
+    method public abstract int getPreferenceAdapterPosition(android.support.v7.preference.Preference);
+  }
+
   public class PreferenceManager {
     method public android.support.v7.preference.PreferenceScreen createPreferenceScreen(android.content.Context);
     method public android.support.v7.preference.Preference findPreference(java.lang.CharSequence);
@@ -252,6 +271,8 @@ package android.support.v7.preference {
     method public android.content.SharedPreferences getSharedPreferences();
     method public int getSharedPreferencesMode();
     method public java.lang.String getSharedPreferencesName();
+    method public boolean isStorageDefault();
+    method public boolean isStorageDeviceProtected();
     method public static void setDefaultValues(android.content.Context, int, boolean);
     method public static void setDefaultValues(android.content.Context, java.lang.String, int, int, boolean);
     method public void setOnDisplayPreferenceDialogListener(android.support.v7.preference.PreferenceManager.OnDisplayPreferenceDialogListener);
@@ -260,6 +281,8 @@ package android.support.v7.preference {
     method public boolean setPreferences(android.support.v7.preference.PreferenceScreen);
     method public void setSharedPreferencesMode(int);
     method public void setSharedPreferencesName(java.lang.String);
+    method public void setStorageDefault();
+    method public void setStorageDeviceProtected();
     method public void showDialog(android.support.v7.preference.Preference);
     field public static final java.lang.String KEY_HAS_SET_DEFAULT_VALUES = "_has_set_default_values";
   }
@@ -277,10 +300,16 @@ package android.support.v7.preference {
   }
 
   public final class PreferenceScreen extends android.support.v7.preference.PreferenceGroup {
+    method public void setShouldUseGeneratedIds(boolean);
+    method public boolean shouldUseGeneratedIds();
   }
 
   public class PreferenceViewHolder extends android.support.v7.widget.RecyclerView.ViewHolder {
     method public android.view.View findViewById(int);
+    method public boolean isDividerAllowedAbove();
+    method public boolean isDividerAllowedBelow();
+    method public void setDividerAllowedAbove(boolean);
+    method public void setDividerAllowedBelow(boolean);
   }
 
   public class SwitchPreferenceCompat extends android.support.v7.preference.TwoStatePreference {

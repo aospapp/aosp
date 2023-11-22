@@ -15,7 +15,7 @@
  */
 
 #ifndef LEARNINGFW_JNI_MULTICLASS_PA_H
-#define LEAENINGFW_JNI_MULTICLASS_PA_H
+#define LEARNINGFW_JNI_MULTICLASS_PA_H
 
 #include <jni.h>
 
@@ -56,4 +56,4 @@ Java_android_bordeaux_learning_MulticlassPA_nativeSparseGetClass(JNIEnv* env,
 }
 #endif
 
-#endif /* ANDROID_LERNINGFW_JNI_MULTICLASS_PA_H */
+#endif /* ANDROID_LEARNINGFW_JNI_MULTICLASS_PA_H */

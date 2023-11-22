@@ -17,6 +17,8 @@
 package android.telecom.cts;
 
 import static android.telecom.CallAudioState.*;
+
+import android.os.Bundle;
 import android.telecom.CallAudioState;
 import android.telecom.Connection;
 import android.telecom.DisconnectCause;
@@ -32,6 +34,9 @@ import android.util.SparseArray;
  */
 public class MockConnection extends Connection {
     public static final int ON_POST_DIAL_WAIT = 1;
+    public static final int ON_CALL_EVENT = 2;
+    public static final int ON_PULL_EXTERNAL_CALL = 3;
+    public static final int ON_EXTRAS_CHANGED = 4;
 
     private CallAudioState mCallAudioState =
             new CallAudioState(false, CallAudioState.ROUTE_EARPIECE, ROUTE_EARPIECE | ROUTE_SPEAKER);
@@ -63,6 +68,16 @@ public class MockConnection extends Connection {
     public void onReject() {
         super.onReject();
         setDisconnected(new DisconnectCause(DisconnectCause.REJECTED));
+        if (mRemoteConnection != null) {
+            mRemoteConnection.reject();
+        }
+        destroy();
+    }
+
+    @Override
+    public void onReject(String reason) {
+        super.onReject();
+        setDisconnected(new DisconnectCause(DisconnectCause.REJECTED, reason));
         if (mRemoteConnection != null) {
             mRemoteConnection.reject();
         }
@@ -229,6 +244,12 @@ public class MockConnection extends Connection {
         switch (counterIndex) {
             case ON_POST_DIAL_WAIT:
                 return "onPostDialWait";
+            case ON_CALL_EVENT:
+                return "onCallEvent";
+            case ON_PULL_EXTERNAL_CALL:
+                return "onPullExternalCall";
+            case ON_EXTRAS_CHANGED:
+                return "onExtrasChanged";
             default:
                 return "Callback";
         }

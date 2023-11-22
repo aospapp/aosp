@@ -14,7 +14,7 @@
       'dependencies': [
         'core.gyp:*',
         'giflib.gyp:giflib',
-        'libjpeg.gyp:*',
+        'libjpeg-turbo-selector.gyp:libjpeg-turbo-selector',
         'etc1.gyp:libetc1',
         'ktx.gyp:libSkKTX',
         'libwebp.gyp:libwebp',
@@ -22,6 +22,7 @@
       ],
       'include_dirs': [
         '../include/images',
+        '../include/private',
         '../src/lazy',
         # for access to SkErrorInternals.h
         '../src/core/',
@@ -29,7 +30,6 @@
         '../src/image/',
       ],
       'sources': [
-        '../include/images/SkDecodingImageGenerator.h',
         '../include/images/SkForceLinking.h',
         '../src/images/SkJpegUtility.h',
         '../include/images/SkMovie.h',
@@ -38,7 +38,6 @@
         '../src/images/bmpdecoderhelper.cpp',
         '../src/images/bmpdecoderhelper.h',
 
-        '../src/images/SkDecodingImageGenerator.cpp',
         '../src/images/SkForceLinking.cpp',
         '../src/images/SkImageDecoder.cpp',
         '../src/images/SkImageDecoder_FactoryDefault.cpp',
@@ -75,8 +74,6 @@
         '../src/images/SkPageFlipper.cpp',
         '../src/images/SkScaledBitmapSampler.cpp',
         '../src/images/SkScaledBitmapSampler.h',
-
-        '../src/ports/SkImageGenerator_skia.cpp',
 
         '../src/ports/SkImageDecoder_CG.cpp',
         '../src/ports/SkImageDecoder_WIC.cpp',
@@ -115,9 +112,6 @@
           ],
         }],
         [ 'skia_os in ["linux", "freebsd", "openbsd", "solaris"]', {
-          'export_dependent_settings': [
-            'libpng.gyp:libpng',
-          ],
           'dependencies': [
             'libpng.gyp:libpng',
           ],
@@ -128,15 +122,10 @@
              '../src/utils',
           ],
           'dependencies': [
-             'android_deps.gyp:png',
+            'libpng.gyp:libpng',
           ],
           'conditions': [
-            [ 'skia_android_framework == 0', {
-              'export_dependent_settings': [
-                'android_deps.gyp:png',
-                'libjpeg.gyp:*'
-              ],
-            }, {
+            [ 'skia_android_framework == 1', {
               # The android framework disables these decoders as they are of little use to
               # Java applications that can't take advantage of the compressed formats.
               'sources!': [

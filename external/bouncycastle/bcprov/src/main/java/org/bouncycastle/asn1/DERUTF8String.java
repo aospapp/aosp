@@ -12,7 +12,7 @@ public class DERUTF8String
     extends ASN1Primitive
     implements ASN1String
 {
-    private byte[]  string;
+    private final byte[]  string;
 
     /**
      * Return an UTF8 string from the passed in object.
@@ -73,7 +73,7 @@ public class DERUTF8String
         }
     }
 
-    /**
+    /*
      * Basic constructor - byte encoded string.
      */
     DERUTF8String(byte[] string)
@@ -83,6 +83,8 @@ public class DERUTF8String
 
     /**
      * Basic constructor
+     *
+     * @param string the string to be carried in the UTF8String object,
      */
     public DERUTF8String(String string)
     {

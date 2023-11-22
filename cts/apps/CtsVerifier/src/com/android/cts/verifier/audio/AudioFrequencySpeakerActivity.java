@@ -54,7 +54,7 @@ import android.widget.ProgressBar;
 /**
  * Tests Audio Device roundtrip latency by using a loopback plug.
  */
-public class AudioFrequencySpeakerActivity extends PassFailButtons.Activity implements Runnable,
+public class AudioFrequencySpeakerActivity extends AudioFrequencyActivity implements Runnable,
     AudioRecord.OnRecordPositionUpdateListener {
     private static final String TAG = "AudioFrequencySpeakerActivity";
 
@@ -110,13 +110,14 @@ public class AudioFrequencySpeakerActivity extends PassFailButtons.Activity impl
     AudioBandSpecs[] bandSpecsArray = new AudioBandSpecs[mBands];
     AudioBandSpecs[] baseBandSpecsArray = new AudioBandSpecs[mBands];
 
-    int mMaxLevel;
     private class OnBtnClickListener implements OnClickListener {
         @Override
         public void onClick(View v) {
             switch (v.getId()) {
             case R.id.audio_frequency_speaker_mic_ready_btn:
                 testUSB();
+                setMaxLevel();
+                testMaxLevel();
                 break;
             case R.id.audio_frequency_speaker_test_btn:
                 startAudioTest();
@@ -165,7 +166,7 @@ public class AudioFrequencySpeakerActivity extends PassFailButtons.Activity impl
         //Init bands for Left/Right test
         bandSpecsArray[0] = new AudioBandSpecs(
                 50, 500,        /* frequency start,stop */
-                -20.0, -50,     /* start top,bottom value */
+                4.0, -50,     /* start top,bottom value */
                 4.0, -4.0       /* stop top,bottom value */);
 
         bandSpecsArray[1] = new AudioBandSpecs(
@@ -225,17 +226,6 @@ public class AudioFrequencySpeakerActivity extends PassFailButtons.Activity impl
         } else {
             mProgressBar.setVisibility(View.INVISIBLE);
         }
-    }
-
-    private void setMaxLevel() {
-        AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-        mMaxLevel = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-        am.setStreamVolume(AudioManager.STREAM_MUSIC, (int)(mMaxLevel), 0);
-    }
-
-    private void setMinLevel() {
-        AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-        am.setStreamVolume(AudioManager.STREAM_MUSIC, 0, 0);
     }
 
     /**
@@ -354,7 +344,7 @@ public class AudioFrequencySpeakerActivity extends PassFailButtons.Activity impl
         public String toString() {
             StringBuilder sb = new StringBuilder();
             sb.append(String.format("Channel %s\n", mLabel));
-            sb.append("Level in Band 1 : " + (testLevel() ? "OK" :"FAILED") +
+            sb.append("Level in Band 1 : " + (testLevel() ? "OK" :"Not Optimal") +
                     (mIsBaseMeasurement ? " (Base Meas.)" : "") + "\n");
             for (int b = 0; b < mBands; b++) {
                 double percent = 0;
@@ -367,7 +357,7 @@ public class AudioFrequencySpeakerActivity extends PassFailButtons.Activity impl
                         mInBoundPointsPerBand[b],
                         mPointsPerBand[b],
                         percent,
-                        (testInBand(b) ? "OK" : "FAILED")));
+                        (testInBand(b) ? "OK" : "Not Optimal")));
             }
             return sb.toString();
         }
@@ -416,8 +406,15 @@ public class AudioFrequencySpeakerActivity extends PassFailButtons.Activity impl
         computeResultsForVector(mFreqAverageRight, resultsRight, false, bandSpecsArray);
         if (resultsLeft.testAll() && resultsRight.testAll() && resultsBase.testAll()) {
             //enable button
-            getPassButton().setEnabled(true);
+            String strSuccess = getResources().getString(R.string.audio_general_test_passed);
+            appendResultsToScreen(strSuccess);
+        } else {
+            String strFailed = getResources().getString(R.string.audio_general_test_failed);
+            appendResultsToScreen(strFailed + "\n");
+            String strWarning = getResources().getString(R.string.audio_general_deficiency_found);
+            appendResultsToScreen(strWarning);
         }
+        getPassButton().setEnabled(true); //Everybody passes! (for now...)
     }
 
     private void computeResultsForVector(VectorAverage freqAverage,Results results, boolean isBase,

@@ -185,7 +185,7 @@ public:
 								Create					(MovePtr<ImageSource> imgSource) : m_imgSource(imgSource) {}
 		string					getRequiredExtension	(void) const { return m_imgSource->getRequiredExtension(); }
 		bool					invokeGLES2				(GLES2ImageApi& api, MovePtr<UniqueImage>& image, tcu::Texture2D& ref) const;
-		glw::GLenum				getFormat				(void) const { return m_imgSource->getFormat(); }
+		glw::GLenum				getEffectiveFormat		(void) const { return m_imgSource->getEffectiveFormat(); }
 
 	private:
 		UniquePtr<ImageSource>	m_imgSource;
@@ -216,6 +216,7 @@ public:
 							ModifyTexSubImage		(GLenum format, GLenum type) : m_format(format), m_type(type) {}
 		bool				invokeGLES2				(GLES2ImageApi& api, MovePtr<UniqueImage>& image, tcu::Texture2D& ref) const;
 		GLenum				getFormat				(void) const { return m_format; }
+		GLenum				getType					(void) const { return m_type; }
 
 	private:
 		GLenum				m_format;
@@ -533,7 +534,7 @@ bool GLES2ImageApi::RenderDepthbuffer::invokeGLES2 (GLES2ImageApi& api, MovePtr<
 	for (int level = 0; level < DE_LENGTH_OF_ARRAY(depthLevelColors); level++)
 	{
 		const tcu::Vec4	color		= depthLevelColors[level];
-		const float		clipDepth	= ((level + 1) * 0.1f) * 2.0f - 1.0f; // depth in clip coords
+		const float		clipDepth	= ((float)(level + 1) * 0.1f) * 2.0f - 1.0f; // depth in clip coords
 
 		GLU_CHECK_GLW_CALL(gl, uniform4f(colorLoc, color.x(), color.y(), color.z(), color.w()));
 		GLU_CHECK_GLW_CALL(gl, uniform1f(depthLoc, clipDepth));
@@ -558,7 +559,7 @@ bool GLES2ImageApi::RenderDepthbuffer::invokeGLES2 (GLES2ImageApi& api, MovePtr<
 
 			for (int level = 0; level < DE_LENGTH_OF_ARRAY(depthLevelColors); level++)
 			{
-				if ((level + 1) * 0.1f < refAccess.getPixDepth(x, y))
+				if ((float)(level + 1) * 0.1f < refAccess.getPixDepth(x, y))
 					result = depthLevelColors[level];
 			}
 
@@ -653,7 +654,7 @@ bool GLES2ImageApi::RenderStencilbuffer::invokeGLES2 (GLES2ImageApi& api, MovePt
 	for (int level = 0; level < DE_LENGTH_OF_ARRAY(stencilLevelColors); level++)
 	{
 		const tcu::Vec4	color	= stencilLevelColors[level];
-		const int		stencil	= (int)(((level + 1) * 0.1f) * maxStencil);
+		const int		stencil	= (int)(((float)(level + 1) * 0.1f) * (float)maxStencil);
 
 		GLU_CHECK_GLW_CALL(gl, stencilFunc(GL_LESS, stencil, 0xFFFFFFFFu));
 		GLU_CHECK_GLW_CALL(gl, uniform4f(colorLoc, color.x(), color.y(), color.z(), color.w()));
@@ -676,7 +677,7 @@ bool GLES2ImageApi::RenderStencilbuffer::invokeGLES2 (GLES2ImageApi& api, MovePt
 
 		for (int level = 0; level < DE_LENGTH_OF_ARRAY(stencilLevelColors); level++)
 		{
-			const int levelStencil = (int)(((level + 1) * 0.1f) * maxStencil);
+			const int levelStencil = (int)(((float)(level + 1) * 0.1f) * (float)maxStencil);
 			if (levelStencil < refAccess.getPixStencil(x, y))
 				result = stencilLevelColors[level];
 		}
@@ -923,7 +924,7 @@ void ImageFormatCase::checkExtensions (void)
 	const EGLDisplay		dpy		= m_display;
 	set<string>				exts;
 	const vector<string>	glExts	= de::splitString((const char*) m_gl.getString(GL_EXTENSIONS));
-	const vector<string>	eglExts	= eglu::getClientExtensions(egl, dpy);
+	const vector<string>	eglExts	= eglu::getDisplayExtensions(egl, dpy);
 
 	exts.insert(glExts.begin(), glExts.end());
 	exts.insert(eglExts.begin(), eglExts.end());
@@ -1072,20 +1073,20 @@ protected:
 					ImageTests						(EglTestContext& eglTestCtx, const string& name, const string& desc)
 						: TestCaseGroup(eglTestCtx, name.c_str(), desc.c_str()) {}
 
-	void			addCreateTexture				(const string& name, EGLenum source, GLenum format, GLenum type);
+	void			addCreateTexture				(const string& name, EGLenum source, GLenum internalFormat, GLenum format, GLenum type);
 	void			addCreateRenderbuffer			(const string& name, GLenum format);
 	void			addCreateAndroidNative			(const string& name, GLenum format);
 	void			addCreateTexture2DActions		(const string& prefix);
-	void			addCreateTextureCubemapActions	(const string& suffix, GLenum format, GLenum type);
+	void			addCreateTextureCubemapActions	(const string& suffix, GLenum internalFormat, GLenum format, GLenum type);
 	void			addCreateRenderbufferActions	(void);
 	void			addCreateAndroidNativeActions	(void);
 
 	LabeledActions	m_createActions;
 };
 
-void ImageTests::addCreateTexture (const string& name, EGLenum source, GLenum format, GLenum type)
+void ImageTests::addCreateTexture (const string& name, EGLenum source, GLenum internalFormat, GLenum format, GLenum type)
 {
-	m_createActions.add(name, MovePtr<Action>(new GLES2ImageApi::Create(createTextureImageSource(source, format, type))));
+	m_createActions.add(name, MovePtr<Action>(new GLES2ImageApi::Create(createTextureImageSource(source, internalFormat, format, type))));
 }
 
 void ImageTests::addCreateRenderbuffer (const string& name, GLenum format)
@@ -1100,21 +1101,21 @@ void ImageTests::addCreateAndroidNative (const string& name, GLenum format)
 
 void ImageTests::addCreateTexture2DActions (const string& prefix)
 {
-	addCreateTexture(prefix + "rgb8", 		EGL_GL_TEXTURE_2D_KHR,	GL_RGB,		GL_UNSIGNED_BYTE);
-	addCreateTexture(prefix + "rgb565",		EGL_GL_TEXTURE_2D_KHR,	GL_RGB,		GL_UNSIGNED_SHORT_5_6_5);
-	addCreateTexture(prefix + "rgba8",		EGL_GL_TEXTURE_2D_KHR,	GL_RGBA,	GL_UNSIGNED_BYTE);
-	addCreateTexture(prefix + "rgba5_a1",	EGL_GL_TEXTURE_2D_KHR,	GL_RGBA,	GL_UNSIGNED_SHORT_5_5_5_1);
-	addCreateTexture(prefix + "rgba4",		EGL_GL_TEXTURE_2D_KHR,	GL_RGBA,	GL_UNSIGNED_SHORT_4_4_4_4);
+	addCreateTexture(prefix + "rgb8", 		EGL_GL_TEXTURE_2D_KHR,	GL_RGB,		GL_RGB,		GL_UNSIGNED_BYTE);
+	addCreateTexture(prefix + "rgb565",		EGL_GL_TEXTURE_2D_KHR,	GL_RGB,		GL_RGB,		GL_UNSIGNED_SHORT_5_6_5);
+	addCreateTexture(prefix + "rgba8",		EGL_GL_TEXTURE_2D_KHR,	GL_RGBA,	GL_RGBA,	GL_UNSIGNED_BYTE);
+	addCreateTexture(prefix + "rgb5_a1",	EGL_GL_TEXTURE_2D_KHR,	GL_RGBA,	GL_RGBA,	GL_UNSIGNED_SHORT_5_5_5_1);
+	addCreateTexture(prefix + "rgba4",		EGL_GL_TEXTURE_2D_KHR,	GL_RGBA,	GL_RGBA,	GL_UNSIGNED_SHORT_4_4_4_4);
 }
 
-void ImageTests::addCreateTextureCubemapActions (const string& suffix, GLenum format, GLenum type)
+void ImageTests::addCreateTextureCubemapActions (const string& suffix, GLenum internalFormat, GLenum format, GLenum type)
 {
-	addCreateTexture("cubemap_positive_x" + suffix,	EGL_GL_TEXTURE_CUBE_MAP_POSITIVE_X_KHR,	format,	type);
-	addCreateTexture("cubemap_positive_y" + suffix,	EGL_GL_TEXTURE_CUBE_MAP_POSITIVE_Y_KHR,	format,	type);
-	addCreateTexture("cubemap_positive_z" + suffix,	EGL_GL_TEXTURE_CUBE_MAP_POSITIVE_Z_KHR,	format,	type);
-	addCreateTexture("cubemap_negative_x" + suffix,	EGL_GL_TEXTURE_CUBE_MAP_NEGATIVE_X_KHR,	format,	type);
-	addCreateTexture("cubemap_negative_y" + suffix,	EGL_GL_TEXTURE_CUBE_MAP_NEGATIVE_Y_KHR,	format,	type);
-	addCreateTexture("cubemap_negative_z" + suffix,	EGL_GL_TEXTURE_CUBE_MAP_NEGATIVE_Z_KHR,	format,	type);
+	addCreateTexture("cubemap_positive_x" + suffix,	EGL_GL_TEXTURE_CUBE_MAP_POSITIVE_X_KHR, internalFormat,	format,	type);
+	addCreateTexture("cubemap_positive_y" + suffix,	EGL_GL_TEXTURE_CUBE_MAP_POSITIVE_Y_KHR, internalFormat,	format,	type);
+	addCreateTexture("cubemap_positive_z" + suffix,	EGL_GL_TEXTURE_CUBE_MAP_POSITIVE_Z_KHR, internalFormat,	format,	type);
+	addCreateTexture("cubemap_negative_x" + suffix,	EGL_GL_TEXTURE_CUBE_MAP_NEGATIVE_X_KHR, internalFormat,	format,	type);
+	addCreateTexture("cubemap_negative_y" + suffix,	EGL_GL_TEXTURE_CUBE_MAP_NEGATIVE_Y_KHR, internalFormat,	format,	type);
+	addCreateTexture("cubemap_negative_z" + suffix,	EGL_GL_TEXTURE_CUBE_MAP_NEGATIVE_Z_KHR, internalFormat,	format,	type);
 }
 
 void ImageTests::addCreateRenderbufferActions (void)
@@ -1214,7 +1215,7 @@ bool isCompatibleCreateAndRenderActions (const Action& create, const Action& ren
 {
 	if (const GLES2ImageApi::Create* gles2Create = dynamic_cast<const GLES2ImageApi::Create*>(&create))
 	{
-		const GLenum createFormat = gles2Create->getFormat();
+		const GLenum createFormat = gles2Create->getEffectiveFormat();
 
 		if (dynamic_cast<const GLES2ImageApi::RenderTexture2D*>(&render))
 		{
@@ -1257,8 +1258,8 @@ bool isCompatibleCreateAndRenderActions (const Action& create, const Action& ren
 void SimpleCreationTests::init (void)
 {
 	addCreateTexture2DActions("texture_");
-	addCreateTextureCubemapActions("_rgba", GL_RGBA, GL_UNSIGNED_BYTE);
-	addCreateTextureCubemapActions("_rgb", GL_RGB, GL_UNSIGNED_BYTE);
+	addCreateTextureCubemapActions("_rgba", GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE);
+	addCreateTextureCubemapActions("_rgb", GL_RGB, GL_RGB, GL_UNSIGNED_BYTE);
 	addCreateRenderbufferActions();
 	addCreateAndroidNativeActions();
 	addRenderActions();
@@ -1291,38 +1292,84 @@ TestCaseGroup* createSimpleCreationTests (EglTestContext& eglTestCtx, const stri
 	return new SimpleCreationTests(eglTestCtx, name, desc);
 }
 
-bool isCompatibleFormats (GLenum createFormat, GLenum modifyFormat)
+bool isCompatibleFormats (GLenum createFormat, GLenum modifyFormat, GLenum modifyType)
 {
-	switch (createFormat)
+	switch (modifyFormat)
 	{
 		case GL_RGB:
-		case GL_RGB8:
-		case GL_RGB565:
-			if (modifyFormat == GL_RGB
-				|| modifyFormat == GL_RGB8
-				|| modifyFormat == GL_RGB565)
-				return true;
-			else
-				return false;
+			switch (modifyType)
+			{
+				case GL_UNSIGNED_BYTE:
+					return createFormat == GL_RGB
+							|| createFormat == GL_RGB8
+							|| createFormat == GL_RGB565
+							|| createFormat == GL_SRGB8;
+
+				case GL_BYTE:
+					return createFormat == GL_RGB8_SNORM;
+
+				case GL_UNSIGNED_SHORT_5_6_5:
+					return createFormat == GL_RGB
+							|| createFormat == GL_RGB565;
+
+				case GL_UNSIGNED_INT_10F_11F_11F_REV:
+					return createFormat == GL_R11F_G11F_B10F;
+
+				case GL_UNSIGNED_INT_5_9_9_9_REV:
+					return createFormat == GL_RGB9_E5;
+
+				case GL_HALF_FLOAT:
+					return createFormat == GL_RGB16F
+							|| createFormat == GL_R11F_G11F_B10F
+							|| createFormat == GL_RGB9_E5;
+
+				case GL_FLOAT:
+					return createFormat == GL_RGB16F
+							|| createFormat == GL_RGB32F
+							|| createFormat == GL_R11F_G11F_B10F
+							|| createFormat == GL_RGB9_E5;
+
+				default:
+					DE_FATAL("Unknown modify type");
+					return false;
+			}
 
 		case GL_RGBA:
-		case GL_RGBA4:
-		case GL_RGBA8:
-		case GL_RGB5_A1:
-			if (modifyFormat == GL_RGBA
-				|| modifyFormat == GL_RGBA8
-				|| modifyFormat == GL_RGBA4
-				|| modifyFormat == GL_RGB5_A1)
-				return true;
-			else
-				return false;
+			switch (modifyType)
+			{
+				case GL_UNSIGNED_BYTE:
+					return createFormat == GL_RGBA8
+						|| createFormat == GL_RGB5_A1
+						|| createFormat == GL_RGBA4
+						|| createFormat == GL_SRGB8_ALPHA8
+						|| createFormat == GL_RGBA;
 
-		case GL_DEPTH_COMPONENT16:
-		case GL_STENCIL_INDEX8:
-			return false;
+				case GL_UNSIGNED_SHORT_4_4_4_4:
+					return createFormat == GL_RGBA4
+						|| createFormat == GL_RGBA;
+
+				case GL_UNSIGNED_SHORT_5_5_5_1:
+					return createFormat == GL_RGB5_A1
+						|| createFormat == GL_RGBA;
+
+				case GL_UNSIGNED_INT_2_10_10_10_REV:
+					return createFormat == GL_RGB10_A2
+						|| createFormat == GL_RGB5_A1;
+
+				case GL_HALF_FLOAT:
+					return createFormat == GL_RGBA16F;
+
+				case GL_FLOAT:
+					return createFormat == GL_RGBA16F
+						|| createFormat == GL_RGBA32F;
+
+				default:
+					DE_FATAL("Unknown modify type");
+					return false;
+			};
 
 		default:
-			DE_ASSERT(false);
+			DE_FATAL("Unknown modify format");
 			return false;
 	}
 }
@@ -1331,13 +1378,14 @@ bool isCompatibleCreateAndModifyActions (const Action& create, const Action& mod
 {
 	if (const GLES2ImageApi::Create* gles2Create = dynamic_cast<const GLES2ImageApi::Create*>(&create))
 	{
-		const GLenum createFormat = gles2Create->getFormat();
+		const GLenum createFormat = gles2Create->getEffectiveFormat();
 
 		if (const GLES2ImageApi::ModifyTexSubImage* gles2TexSubImageModify = dynamic_cast<const GLES2ImageApi::ModifyTexSubImage*>(&modify))
 		{
-			const GLenum modifyFormat  = gles2TexSubImageModify->getFormat();
+			const GLenum modifyFormat 	= gles2TexSubImageModify->getFormat();
+			const GLenum modifyType		= gles2TexSubImageModify->getType();
 
-			return isCompatibleFormats(createFormat, modifyFormat);
+			return isCompatibleFormats(createFormat, modifyFormat, modifyType);
 		}
 
 		if (dynamic_cast<const GLES2ImageApi::ModifyRenderbufferClearColor*>(&modify))
@@ -1394,8 +1442,8 @@ void MultiContextRenderTests::addClearActions (void)
 void MultiContextRenderTests::init (void)
 {
 	addCreateTexture2DActions("texture_");
-	addCreateTextureCubemapActions("_rgba8", GL_RGBA, GL_UNSIGNED_BYTE);
-	addCreateTextureCubemapActions("_rgb8", GL_RGB, GL_UNSIGNED_BYTE);
+	addCreateTextureCubemapActions("_rgba8", GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE);
+	addCreateTextureCubemapActions("_rgb8", GL_RGB, GL_RGB, GL_UNSIGNED_BYTE);
 	addCreateRenderbufferActions();
 	addCreateAndroidNativeActions();
 	addRenderActions();
@@ -1457,7 +1505,7 @@ void ModifyTests::addModifyActions (void)
 	m_modifyActions.add("tex_subimage_rgb8",			MovePtr<Action>(new GLES2ImageApi::ModifyTexSubImage(GL_RGB,	GL_UNSIGNED_BYTE)));
 	m_modifyActions.add("tex_subimage_rgb565",			MovePtr<Action>(new GLES2ImageApi::ModifyTexSubImage(GL_RGB, 	GL_UNSIGNED_SHORT_5_6_5)));
 	m_modifyActions.add("tex_subimage_rgba8",			MovePtr<Action>(new GLES2ImageApi::ModifyTexSubImage(GL_RGBA,	GL_UNSIGNED_BYTE)));
-	m_modifyActions.add("tex_subimage_rgba5_a1",		MovePtr<Action>(new GLES2ImageApi::ModifyTexSubImage(GL_RGBA,	GL_UNSIGNED_SHORT_5_5_5_1)));
+	m_modifyActions.add("tex_subimage_rgb5_a1",			MovePtr<Action>(new GLES2ImageApi::ModifyTexSubImage(GL_RGBA,	GL_UNSIGNED_SHORT_5_5_5_1)));
 	m_modifyActions.add("tex_subimage_rgba4",			MovePtr<Action>(new GLES2ImageApi::ModifyTexSubImage(GL_RGBA,	GL_UNSIGNED_SHORT_4_4_4_4)));
 
 	m_modifyActions.add("renderbuffer_clear_color",		MovePtr<Action>(new GLES2ImageApi::ModifyRenderbufferClearColor(tcu::Vec4(0.3f, 0.5f, 0.3f, 1.0f))));

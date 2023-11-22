@@ -17,7 +17,7 @@
 package android.app.uiautomation.cts;
 
 import android.app.Activity;
-import android.app.cts.uiautomation.R;
+import android.app.uiautomation.cts.R;
 import android.os.Bundle;
 import android.view.WindowManager;
 import android.widget.ArrayAdapter;

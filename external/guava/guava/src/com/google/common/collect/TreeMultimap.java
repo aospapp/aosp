@@ -25,9 +25,9 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
-import java.util.SortedMap;
+import java.util.NavigableMap;
+import java.util.NavigableSet;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -169,64 +169,72 @@ public class TreeMultimap<K, V> extends AbstractSortedKeySortedSetMultimap<K, V>
    */
   
   @Override
-  SortedMap<K, Collection<V>> backingMap() {
-    return (SortedMap<K, Collection<V>>) super.backingMap();
+  @GwtIncompatible("NavigableMap")
+  NavigableMap<K, Collection<V>> backingMap() {
+    return (NavigableMap<K, Collection<V>>) super.backingMap();
   }
   
   /**
    * @since 14.0 (present with return type {@code SortedSet} since 2.0)
    */
   @Override
-  public SortedSet<V> get(@Nullable K key) {
-    return (SortedSet<V>) super.get(key);
+  @GwtIncompatible("NavigableSet")
+  public NavigableSet<V> get(@Nullable K key) {
+    return (NavigableSet<V>) super.get(key);
   }
 
   @Override
+  @GwtIncompatible("NavigableSet")
   Collection<V> unmodifiableCollectionSubclass(Collection<V> collection) {
-    return Collections.unmodifiableSortedSet((SortedSet<V>) collection);
+    return Sets.unmodifiableNavigableSet((NavigableSet<V>) collection);
   }
 
   @Override
+  @GwtIncompatible("NavigableSet")
   Collection<V> wrapCollection(K key, Collection<V> collection) {
-    return new WrappedSortedSet(key, (SortedSet<V>) collection, null);
+    return new WrappedNavigableSet(key, (NavigableSet<V>) collection, null);
   }
 
   /**
    * {@inheritDoc}
    *
    * <p>Because a {@code TreeMultimap} has unique sorted keys, this method
-   * returns a {@link SortedSet}, instead of the {@link java.util.Set} specified
+   * returns a {@link NavigableSet}, instead of the {@link java.util.Set} specified
    * in the {@link Multimap} interface.
    * 
    * @since 14.0 (present with return type {@code SortedSet} since 2.0)
    */
   @Override
-  public SortedSet<K> keySet() {
-    return (SortedSet<K>) super.keySet();
+  @GwtIncompatible("NavigableSet") 
+  public NavigableSet<K> keySet() {
+    return (NavigableSet<K>) super.keySet();
   }
 
   @Override
-  SortedSet<K> createKeySet() {
-    return new SortedKeySet(backingMap());
+  @GwtIncompatible("NavigableSet")
+  NavigableSet<K> createKeySet() {
+    return new NavigableKeySet(backingMap());
   }
 
   /**
    * {@inheritDoc}
    *
    * <p>Because a {@code TreeMultimap} has unique sorted keys, this method
-   * returns a {@link SortedMap}, instead of the {@link java.util.Map} specified
+   * returns a {@link NavigableMap}, instead of the {@link java.util.Map} specified
    * in the {@link Multimap} interface.
    * 
    * @since 14.0 (present with return type {@code SortedMap} since 2.0)
    */
   @Override 
-  public SortedMap<K, Collection<V>> asMap() {
-    return (SortedMap<K, Collection<V>>) super.asMap();
+  @GwtIncompatible("NavigableMap")
+  public NavigableMap<K, Collection<V>> asMap() {
+    return (NavigableMap<K, Collection<V>>) super.asMap();
   }
 
   @Override
-  SortedMap<K, Collection<V>> createAsMap() {
-    return new SortedAsMap(backingMap());
+  @GwtIncompatible("NavigableMap")
+  NavigableMap<K, Collection<V>> createAsMap() {
+    return new NavigableAsMap(backingMap());
   }
 
   /**

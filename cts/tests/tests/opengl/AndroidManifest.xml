@@ -14,7 +14,7 @@
      limitations under the License.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.opengl"
+    package="android.opengl.cts"
     android:versionCode="1"
     android:versionName="1.0" >
 
@@ -23,7 +23,7 @@
     <uses-feature android:glEsVersion="0x00020000"/>
     <instrumentation
         android:name="android.support.test.runner.AndroidJUnitRunner"
-        android:targetPackage="com.android.cts.opengl" >
+        android:targetPackage="android.opengl.cts" >
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />
     </instrumentation>

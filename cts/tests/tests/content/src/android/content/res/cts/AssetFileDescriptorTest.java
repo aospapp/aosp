@@ -24,9 +24,11 @@ import java.io.IOException;
 import java.util.Arrays;
 
 import android.content.res.AssetFileDescriptor;
+import android.os.Bundle;
 import android.os.Parcel;
 import android.os.ParcelFileDescriptor;
 import android.test.AndroidTestCase;
+import android.test.suitebuilder.annotation.SmallTest;
 
 public class AssetFileDescriptorTest extends AndroidTestCase {
     private static final long START_OFFSET = 0;
@@ -66,6 +68,31 @@ public class AssetFileDescriptorTest extends AndroidTestCase {
         getContext().deleteFile(FILE_NAME);
     }
 
+    @SmallTest
+    public void testConstructor() throws IOException {
+        ParcelFileDescriptor fd = ParcelFileDescriptor.open(
+                mFile, ParcelFileDescriptor.MODE_READ_WRITE);
+        AssetFileDescriptor assetFileDes;
+        Bundle extras;
+
+        assetFileDes = new AssetFileDescriptor(fd, START_OFFSET, LENGTH);
+        assertNotNull(assetFileDes);
+        assetFileDes.close();
+
+        extras = null;
+        assetFileDes = new AssetFileDescriptor(fd, START_OFFSET, LENGTH, extras);
+        assertEquals(extras, assetFileDes.getExtras());
+        assertNotNull(assetFileDes);
+        assetFileDes.close();
+
+        extras = new Bundle();
+        assetFileDes = new AssetFileDescriptor(fd, START_OFFSET, LENGTH, extras);
+        assertEquals(extras, assetFileDes.getExtras());
+        assertNotNull(assetFileDes);
+        assetFileDes.close();
+    }
+
+    @SmallTest
     public void testInputOutputStream() throws IOException {
         /*
          * test createOutputStream() and createInputStrean()
@@ -150,6 +177,7 @@ public class AssetFileDescriptorTest extends AndroidTestCase {
         }
     }
 
+    @SmallTest
     public void testMiscMethod() {
         // test getLength()
         assertEquals(LENGTH, mAssetFileDes.getLength());

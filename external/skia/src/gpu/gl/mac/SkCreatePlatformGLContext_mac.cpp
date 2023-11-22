@@ -5,27 +5,35 @@
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
+#include "SkTypes.h"
+#if defined(SK_BUILD_FOR_MAC)
+
 #include "gl/SkGLContext.h"
 #include "AvailabilityMacros.h"
 
 #include <OpenGL/OpenGL.h>
+#include <dlfcn.h>
 
 namespace {
 class MacGLContext : public SkGLContext {
 public:
     MacGLContext();
     ~MacGLContext() override;
-    void makeCurrent() const override;
-    void swapBuffers() const override;
 
 private:
     void destroyGLContext();
 
+    void onPlatformMakeCurrent() const override;
+    void onPlatformSwapBuffers() const override;
+    GrGLFuncPtr onPlatformGetProcAddress(const char*) const override;
+
     CGLContextObj fContext;
+    void* fGLLibrary;
 };
 
 MacGLContext::MacGLContext()
-    : fContext(NULL) {
+    : fContext(nullptr)
+    , fGLLibrary(RTLD_DEFAULT) {
     CGLPixelFormatAttribute attributes[] = {
 #if MAC_OS_X_VERSION_10_7
         kCGLPFAOpenGLProfile, (CGLPixelFormatAttribute) kCGLOGLPVersion_3_2_Core,
@@ -38,64 +46,84 @@ MacGLContext::MacGLContext()
 
     CGLChoosePixelFormat(attributes, &pixFormat, &npix);
 
-    if (NULL == pixFormat) {
+    if (nullptr == pixFormat) {
         SkDebugf("CGLChoosePixelFormat failed.");
         return;
     }
 
-    CGLCreateContext(pixFormat, NULL, &fContext);
+    CGLCreateContext(pixFormat, nullptr, &fContext);
     CGLReleasePixelFormat(pixFormat);
 
-    if (NULL == fContext) {
+    if (nullptr == fContext) {
         SkDebugf("CGLCreateContext failed.");
         return;
     }
 
     CGLSetCurrentContext(fContext);
 
-    fGL.reset(GrGLCreateNativeInterface());
-    if (NULL == fGL.get()) {
+    SkAutoTUnref<const GrGLInterface> gl(GrGLCreateNativeInterface());
+    if (nullptr == gl.get()) {
         SkDebugf("Context could not create GL interface.\n");
         this->destroyGLContext();
         return;
     }
-    if (!fGL->validate()) {
+    if (!gl->validate()) {
         SkDebugf("Context could not validate GL interface.\n");
         this->destroyGLContext();
         return;
     }
+
+    fGLLibrary = dlopen(
+        "/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib",
+        RTLD_LAZY);
+
+    this->init(gl.detach());
 }
 
 MacGLContext::~MacGLContext() {
+    this->teardown();
     this->destroyGLContext();
 }
 
 void MacGLContext::destroyGLContext() {
-    fGL.reset(NULL);
     if (fContext) {
         CGLReleaseContext(fContext);
-        fContext = NULL;
+        fContext = nullptr;
+    }
+    if (RTLD_DEFAULT != fGLLibrary) {
+        dlclose(fGLLibrary);
     }
 }
 
-void MacGLContext::makeCurrent() const {
+void MacGLContext::onPlatformMakeCurrent() const {
     CGLSetCurrentContext(fContext);
 }
 
-void MacGLContext::swapBuffers() const {
+void MacGLContext::onPlatformSwapBuffers() const {
     CGLFlushDrawable(fContext);
+}
+
+GrGLFuncPtr MacGLContext::onPlatformGetProcAddress(const char* procName) const {
+    return reinterpret_cast<GrGLFuncPtr>(dlsym(fGLLibrary, procName));
 }
 
 } // anonymous namespace
 
-SkGLContext* SkCreatePlatformGLContext(GrGLStandard forcedGpuAPI) {
-    if (kGLES_GrGLStandard == forcedGpuAPI) {
-        return NULL;
+SkGLContext* SkCreatePlatformGLContext(GrGLStandard forcedGpuAPI, SkGLContext* shareContext) {
+    SkASSERT(!shareContext);
+    if (shareContext) {
+        return nullptr;
     }
-    MacGLContext* ctx = SkNEW(MacGLContext);
+
+    if (kGLES_GrGLStandard == forcedGpuAPI) {
+        return nullptr;
+    }
+    MacGLContext* ctx = new MacGLContext;
     if (!ctx->isValid()) {
-        SkDELETE(ctx);
-        return NULL;
+        delete ctx;
+        return nullptr;
     }
     return ctx;
 }
+
+#endif//defined(SK_BUILD_FOR_MAC)

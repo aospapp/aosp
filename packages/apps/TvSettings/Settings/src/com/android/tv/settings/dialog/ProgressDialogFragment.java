@@ -16,12 +16,12 @@
 
 package com.android.tv.settings.dialog;
 
-import android.annotation.DrawableRes;
-import android.annotation.Nullable;
-import android.annotation.StringRes;
 import android.app.Fragment;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
+import android.support.annotation.DrawableRes;
+import android.support.annotation.Nullable;
+import android.support.annotation.StringRes;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -36,9 +36,10 @@ public class ProgressDialogFragment extends Fragment {
 
     private ImageView mIconView;
     private TextView mTitleView;
-    private TextView mTitleEndView;
+    private TextView mExtraTextView;
     private TextView mSummaryView;
     private ProgressBar mProgressBar;
+    private int mWidth = -1;
 
     @Override
     public @Nullable View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
@@ -48,9 +49,15 @@ public class ProgressDialogFragment extends Fragment {
 
         mIconView = (ImageView) view.findViewById(android.R.id.icon);
         mTitleView = (TextView) view.findViewById(android.R.id.title);
-        mTitleEndView = (TextView) view.findViewById(R.id.title_end);
+        mExtraTextView = (TextView) view.findViewById(R.id.extra);
         mSummaryView = (TextView) view.findViewById(android.R.id.summary);
         mProgressBar = (ProgressBar) view.findViewById(android.R.id.progress);
+
+        if (mWidth != -1) {
+            final ViewGroup.LayoutParams params = view.getLayoutParams();
+            params.width = mWidth;
+            view.setLayoutParams(params);
+        }
 
         return view;
     }
@@ -73,21 +80,21 @@ public class ProgressDialogFragment extends Fragment {
         mTitleView.setText(title);
     }
 
-    public void setTitleEnd(@StringRes int resId) {
-        mTitleEndView.setText(resId);
+    public void setExtraText(@StringRes int resId) {
+        mExtraTextView.setText(resId);
     }
 
-    public void setTitleEnd(CharSequence title) {
-        mTitleEndView.setText(title);
-        mTitleEndView.setVisibility(TextUtils.isEmpty(title) ? View.GONE : View.VISIBLE);
+    public void setExtraText(CharSequence text) {
+        mExtraTextView.setText(text);
+        mExtraTextView.setVisibility(TextUtils.isEmpty(text) ? View.GONE : View.VISIBLE);
     }
 
     public void setSummary(@StringRes int resId) {
         mSummaryView.setText(resId);
     }
 
-    public void setSummary(CharSequence title) {
-        mSummaryView.setText(title);
+    public void setSummary(CharSequence summary) {
+        mSummaryView.setText(summary);
     }
 
     public void setIndeterminte(boolean indeterminte) {
@@ -100,5 +107,16 @@ public class ProgressDialogFragment extends Fragment {
 
     public void setProgressMax(int max) {
         mProgressBar.setMax(max);
+    }
+
+    public void setContentWidth(int width) {
+        mWidth = width;
+        final View root = getView();
+        if (root == null) {
+            return;
+        }
+        final ViewGroup.LayoutParams params = root.getLayoutParams();
+        params.width = width;
+        root.setLayoutParams(params);
     }
 }

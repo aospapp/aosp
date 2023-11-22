@@ -27,6 +27,6 @@ public class FailTest extends TestCase {
     }
 
     public void testThrowException() {
-        throw new RuntimeException("exceptrion");
+        throw new RuntimeException("exception");
     }
 }

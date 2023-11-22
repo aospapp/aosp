@@ -134,7 +134,7 @@ static bool isValidMotionAction(int32_t action, int32_t actionButton, int32_t po
     case AMOTION_EVENT_ACTION_POINTER_DOWN:
     case AMOTION_EVENT_ACTION_POINTER_UP: {
         int32_t index = getMotionEventActionPointerIndex(action);
-        return index >= 0 && size_t(index) < pointerCount;
+        return index >= 0 && index < pointerCount;
     }
     case AMOTION_EVENT_ACTION_BUTTON_PRESS:
     case AMOTION_EVENT_ACTION_BUTTON_RELEASE:
@@ -902,7 +902,7 @@ void InputDispatcher::logOutboundMotionDetailsLocked(const char* prefix, const M
         ALOGD("  Pointer %d: id=%d, toolType=%d, "
                 "x=%f, y=%f, pressure=%f, size=%f, "
                 "touchMajor=%f, touchMinor=%f, toolMajor=%f, toolMinor=%f, "
-                "orientation=%f",
+                "orientation=%f, relativeX=%f, relativeY=%f",
                 i, entry->pointerProperties[i].id,
                 entry->pointerProperties[i].toolType,
                 entry->pointerCoords[i].getAxisValue(AMOTION_EVENT_AXIS_X),
@@ -913,7 +913,9 @@ void InputDispatcher::logOutboundMotionDetailsLocked(const char* prefix, const M
                 entry->pointerCoords[i].getAxisValue(AMOTION_EVENT_AXIS_TOUCH_MINOR),
                 entry->pointerCoords[i].getAxisValue(AMOTION_EVENT_AXIS_TOOL_MAJOR),
                 entry->pointerCoords[i].getAxisValue(AMOTION_EVENT_AXIS_TOOL_MINOR),
-                entry->pointerCoords[i].getAxisValue(AMOTION_EVENT_AXIS_ORIENTATION));
+                entry->pointerCoords[i].getAxisValue(AMOTION_EVENT_AXIS_ORIENTATION),
+                entry->pointerCoords[i].getAxisValue(AMOTION_EVENT_AXIS_RELATIVE_X),
+                entry->pointerCoords[i].getAxisValue(AMOTION_EVENT_AXIS_RELATIVE_Y));
     }
 #endif
 }
@@ -1225,6 +1227,8 @@ int32_t InputDispatcher::findTouchedWindowTargetsLocked(nsecs_t currentTime,
                     int32_t outsideTargetFlags = InputTarget::FLAG_DISPATCH_AS_OUTSIDE;
                     if (isWindowObscuredAtPointLocked(windowHandle, x, y)) {
                         outsideTargetFlags |= InputTarget::FLAG_WINDOW_IS_OBSCURED;
+                    } else if (isWindowObscuredLocked(windowHandle)) {
+                        outsideTargetFlags |= InputTarget::FLAG_WINDOW_IS_PARTIALLY_OBSCURED;
                     }
 
                     mTempTouchState.addOrUpdateWindow(
@@ -1262,6 +1266,8 @@ int32_t InputDispatcher::findTouchedWindowTargetsLocked(nsecs_t currentTime,
         }
         if (isWindowObscuredAtPointLocked(newTouchedWindowHandle, x, y)) {
             targetFlags |= InputTarget::FLAG_WINDOW_IS_OBSCURED;
+        } else if (isWindowObscuredLocked(newTouchedWindowHandle)) {
+            targetFlags |= InputTarget::FLAG_WINDOW_IS_PARTIALLY_OBSCURED;
         }
 
         // Update hover state.
@@ -1437,6 +1443,7 @@ int32_t InputDispatcher::findTouchedWindowTargetsLocked(nsecs_t currentTime,
                                 == InputWindowInfo::TYPE_WALLPAPER) {
                     mTempTouchState.addOrUpdateWindow(windowHandle,
                             InputTarget::FLAG_WINDOW_IS_OBSCURED
+                                    | InputTarget::FLAG_WINDOW_IS_PARTIALLY_OBSCURED
                                     | InputTarget::FLAG_DISPATCH_AS_IS,
                             BitSet32(0));
                 }
@@ -1625,6 +1632,27 @@ bool InputDispatcher::isWindowObscuredAtPointLocked(
         if (otherInfo->displayId == displayId
                 && otherInfo->visible && !otherInfo->isTrustedOverlay()
                 && otherInfo->frameContainsPoint(x, y)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+bool InputDispatcher::isWindowObscuredLocked(const sp<InputWindowHandle>& windowHandle) const {
+    int32_t displayId = windowHandle->getInfo()->displayId;
+    const InputWindowInfo* windowInfo = windowHandle->getInfo();
+    size_t numWindows = mWindowHandles.size();
+    for (size_t i = 0; i < numWindows; i++) {
+        sp<InputWindowHandle> otherHandle = mWindowHandles.itemAt(i);
+        if (otherHandle == windowHandle) {
+            break;
+        }
+
+        const InputWindowInfo* otherInfo = otherHandle->getInfo();
+        if (otherInfo->displayId == displayId
+                && otherInfo->visible && !otherInfo->isTrustedOverlay()
+                && otherInfo->overlaps(windowInfo)) {
             return true;
         }
     }
@@ -1904,6 +1932,9 @@ void InputDispatcher::enqueueDispatchEntryLocked(
         dispatchEntry->resolvedFlags = motionEntry->flags;
         if (dispatchEntry->targetFlags & InputTarget::FLAG_WINDOW_IS_OBSCURED) {
             dispatchEntry->resolvedFlags |= AMOTION_EVENT_FLAG_WINDOW_IS_OBSCURED;
+        }
+        if (dispatchEntry->targetFlags & InputTarget::FLAG_WINDOW_IS_PARTIALLY_OBSCURED) {
+            dispatchEntry->resolvedFlags |= AMOTION_EVENT_FLAG_WINDOW_IS_PARTIALLY_OBSCURED;
         }
 
         if (!connection->inputState.trackMotion(motionEntry,

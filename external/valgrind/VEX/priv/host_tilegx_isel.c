@@ -7,7 +7,7 @@
   This file is part of Valgrind, a dynamic binary instrumentation
   framework.
 
-  Copyright (C) 2010-2013 Tilera Corp.
+  Copyright (C) 2010-2015 Tilera Corp.
 
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -247,7 +247,7 @@ static void doHelperCall ( ISelEnv * env, IRExpr * guard, IRCallee * cee,
   }
 
   if (nVECRETs || nBBPTRs)
-    vex_printf("nVECRETs=%d, nBBPTRs=%d\n",
+    vex_printf("nVECRETs=%u, nBBPTRs=%u\n",
                nVECRETs, nBBPTRs);
 
   if (TILEGX_N_REGPARMS < n_args) {
@@ -369,12 +369,13 @@ static void doHelperCall ( ISelEnv * env, IRExpr * guard, IRCallee * cee,
    result.  The expression may only be a word-size one.
 */
 
-static Bool uInt_fits_in_16_bits ( UInt u )
+static Bool uInt_fits_in_16_bits ( UInt u ) 
 {
-  Int i = u & 0xFFFF;
-  i <<= 16;
-  i >>= 16;
-  return toBool(u == (UInt) i);
+   UInt v = u & 0xFFFF;
+
+   v = (Int)(v << 16) >> 16;   /* sign extend */
+
+   return u == v;
 }
 
 static Bool sane_AMode ( ISelEnv * env, TILEGXAMode * am )

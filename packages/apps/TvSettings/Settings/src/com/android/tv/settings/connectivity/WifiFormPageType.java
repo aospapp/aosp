@@ -32,13 +32,13 @@ import java.util.ArrayList;
 public enum WifiFormPageType implements FormPageDisplayer.FormPageInfo {
     CHOOSE_NETWORK(FormPageDisplayer.DISPLAY_TYPE_LIST_CHOICE, R.string.title_select_wifi_network,
             0, new int[] { R.string.other_network },
-            new int[] { R.drawable.ic_menu_add }),
+            new int[] { R.drawable.ic_wifi_add}),
     ENTER_SSID(FormPageDisplayer.DISPLAY_TYPE_TEXT_INPUT, R.string.title_ssid, 0,
             TextInputWizardFragment.INPUT_TYPE_NO_SUGGESTIONS),
     CHOOSE_SECURITY(FormPageDisplayer.DISPLAY_TYPE_LIST_CHOICE, R.string.security_type, 0,
             new int[] { R.string.wifi_security_type_none, R.string.wifi_security_type_wep,
             R.string.wifi_security_type_wpa, R.string.wifi_security_type_eap }),
-    ENTER_PASSWORD(FormPageDisplayer.DISPLAY_TYPE_PASSWORD_INPUT,
+    ENTER_PASSWORD(FormPageDisplayer.DISPLAY_TYPE_PSK_INPUT,
             R.string.wifi_setup_input_password, 0, 0),
     CONNECT(FormPageDisplayer.DISPLAY_TYPE_LOADING, R.string.wifi_connecting, 0),
     CONNECT_FAILED(FormPageDisplayer.DISPLAY_TYPE_LIST_CHOICE,
@@ -73,24 +73,34 @@ public enum WifiFormPageType implements FormPageDisplayer.FormPageInfo {
             R.string.proxy_warning_limited_support, new int[] { R.string.wifi_action_proxy_none,
             R.string.wifi_action_proxy_manual }),
     PROXY_HOSTNAME(FormPageDisplayer.DISPLAY_TYPE_TEXT_INPUT, R.string.title_wifi_proxy_hostname,
-            R.string.proxy_hostname_hint, TextInputWizardFragment.INPUT_TYPE_NO_SUGGESTIONS),
+            R.string.proxy_hostname_description, TextInputWizardFragment.INPUT_TYPE_NO_SUGGESTIONS,
+            R.string.proxy_hostname_hint),
     PROXY_PORT(FormPageDisplayer.DISPLAY_TYPE_TEXT_INPUT, R.string.title_wifi_proxy_port,
-            R.string.proxy_port_hint, TextInputWizardFragment.INPUT_TYPE_NUMERIC),
+            R.string.proxy_port_description, TextInputWizardFragment.INPUT_TYPE_NUMERIC,
+            R.string.proxy_port_hint),
     PROXY_BYPASS(FormPageDisplayer.DISPLAY_TYPE_TEXT_INPUT, R.string.title_wifi_proxy_bypass,
-            R.string.proxy_exclusionlist_hint, TextInputWizardFragment.INPUT_TYPE_NO_SUGGESTIONS),
+            R.string.proxy_exclusionlist_description,
+            TextInputWizardFragment.INPUT_TYPE_NO_SUGGESTIONS,
+            R.string.proxy_exclusionlist_hint),
     IP_SETTINGS(FormPageDisplayer.DISPLAY_TYPE_LIST_CHOICE, R.string.title_wifi_ip_settings, 0,
             new int[] { R.string.wifi_action_dhcp, R.string.wifi_action_static }),
     IP_ADDRESS(FormPageDisplayer.DISPLAY_TYPE_TEXT_INPUT, R.string.title_wifi_ip_address,
-            R.string.wifi_ip_address_hint, TextInputWizardFragment.INPUT_TYPE_NO_SUGGESTIONS),
+            R.string.wifi_ip_address_description, TextInputWizardFragment.INPUT_TYPE_NO_SUGGESTIONS,
+            R.string.wifi_ip_address_hint),
     GATEWAY(FormPageDisplayer.DISPLAY_TYPE_TEXT_INPUT, R.string.title_wifi_gateway,
-            R.string.wifi_gateway_hint, TextInputWizardFragment.INPUT_TYPE_NO_SUGGESTIONS),
+            R.string.wifi_gateway_description, TextInputWizardFragment.INPUT_TYPE_NO_SUGGESTIONS,
+            R.string.wifi_gateway_hint),
     NETWORK_PREFIX_LENGTH(FormPageDisplayer.DISPLAY_TYPE_TEXT_INPUT,
-            R.string.title_wifi_network_prefix_length, R.string.wifi_network_prefix_length_hint,
-            TextInputWizardFragment.INPUT_TYPE_NO_SUGGESTIONS),
+            R.string.title_wifi_network_prefix_length,
+            R.string.wifi_network_prefix_length_description,
+            TextInputWizardFragment.INPUT_TYPE_NO_SUGGESTIONS,
+            R.string.wifi_network_prefix_length_hint),
     DNS1(FormPageDisplayer.DISPLAY_TYPE_TEXT_INPUT, R.string.title_wifi_dns1,
-            R.string.wifi_dns1_hint, TextInputWizardFragment.INPUT_TYPE_NO_SUGGESTIONS),
+            R.string.wifi_dns1_description, TextInputWizardFragment.INPUT_TYPE_NO_SUGGESTIONS,
+            R.string.wifi_dns1_hint),
     DNS2(FormPageDisplayer.DISPLAY_TYPE_TEXT_INPUT, R.string.title_wifi_dns2,
-            R.string.wifi_dns2_hint, TextInputWizardFragment.INPUT_TYPE_NO_SUGGESTIONS),
+            R.string.wifi_dns2_description, TextInputWizardFragment.INPUT_TYPE_NO_SUGGESTIONS,
+            R.string.wifi_dns2_hint),
     PROXY_SETTINGS_INVALID(FormPageDisplayer.DISPLAY_TYPE_LIST_CHOICE,
             R.string.title_wifi_proxy_settings_invalid, 0, new int[] {
             R.string.wifi_action_try_again }),
@@ -107,28 +117,35 @@ public enum WifiFormPageType implements FormPageDisplayer.FormPageInfo {
     private final int mInputType;
     private final int[] mDefaultListItemTitles;
     private final int[] mDefaultListItemIcons;
+    private final int mDefaultPrefillResource;
 
-    private WifiFormPageType(int displayType, int titleResource, int descriptionResource) {
+    WifiFormPageType(int displayType, int titleResource, int descriptionResource) {
         this(displayType, titleResource, descriptionResource,
                 TextInputWizardFragment.INPUT_TYPE_NORMAL);
     }
 
-    private WifiFormPageType(int displayType, int titleResource, int descriptionResource,
+    WifiFormPageType(int displayType, int titleResource, int descriptionResource,
             int textType) {
+        this(displayType, titleResource, descriptionResource, textType, 0);
+    }
+
+    WifiFormPageType(int displayType, int titleResource, int descriptionResource,
+            int textType, int defaultPrefillResource) {
         mDisplayType = displayType;
         mTitleResource = titleResource;
         mDescriptionResource = descriptionResource;
         mInputType = textType;
         mDefaultListItemTitles = null;
         mDefaultListItemIcons = null;
+        mDefaultPrefillResource = defaultPrefillResource;
     }
 
-    private WifiFormPageType(int displayType, int titleResource, int descriptionResource,
+    WifiFormPageType(int displayType, int titleResource, int descriptionResource,
             int[] defaultListItemTitles) {
         this(displayType, titleResource, descriptionResource, defaultListItemTitles, null);
     }
 
-    private WifiFormPageType(int displayType, int titleResource, int descriptionResource,
+    WifiFormPageType(int displayType, int titleResource, int descriptionResource,
             int[] defaultListItemTitles, int[] defaultListItemIcons) {
         mDisplayType = displayType;
         mTitleResource = titleResource;
@@ -143,6 +160,7 @@ public enum WifiFormPageType implements FormPageDisplayer.FormPageInfo {
                     + "The title array had length " + mDefaultListItemTitles.length
                     + " but the icon array had length " + mDefaultListItemIcons.length + "!");
         }
+        mDefaultPrefillResource = 0;
     }
 
     @Override
@@ -166,18 +184,40 @@ public enum WifiFormPageType implements FormPageDisplayer.FormPageInfo {
     }
 
     @Override
+    public int getDefaultPrefillResourceId() {
+        return mDefaultPrefillResource;
+    }
+
+
+    @Override
     public ArrayList<SelectFromListWizardFragment.ListItem> getChoices(
             Context context, ArrayList<SelectFromListWizardFragment.ListItem> extraChoices) {
-        ArrayList<SelectFromListWizardFragment.ListItem> choices = new ArrayList<
-                SelectFromListWizardFragment.ListItem>();
+        ArrayList<SelectFromListWizardFragment.ListItem> choices = new ArrayList<>();
         if (extraChoices != null) {
             choices.addAll(extraChoices);
         }
+
         if (mDefaultListItemTitles != null) {
+            // Find the largest priority of the items placed at the end of the list and place
+            // default items after.
+            int largestLastPriority = Integer.MIN_VALUE;
+            if (extraChoices != null) {
+                for (SelectFromListWizardFragment.ListItem item : extraChoices) {
+                    if (item.getPinnedPosition()
+                            == SelectFromListWizardFragment.PinnedListItem.LAST) {
+                        SelectFromListWizardFragment.PinnedListItem pinnedItem =
+                                (SelectFromListWizardFragment.PinnedListItem) item;
+                        largestLastPriority = java.lang.Math.max(
+                                largestLastPriority, pinnedItem.getPinnedPriority());
+                    }
+                }
+            }
+
             for (int i = 0; i < mDefaultListItemTitles.length; i++) {
-                choices.add(new SelectFromListWizardFragment.ListItem(
-                        context.getString(mDefaultListItemTitles[i]).toUpperCase(),
-                        mDefaultListItemIcons == null ? 0 : mDefaultListItemIcons[i]));
+                choices.add(new SelectFromListWizardFragment.PinnedListItem(
+                        context.getString(mDefaultListItemTitles[i]),
+                        mDefaultListItemIcons == null ? 0 : mDefaultListItemIcons[i],
+                        SelectFromListWizardFragment.PinnedListItem.LAST, i + largestLastPriority));
             }
         }
         return choices;

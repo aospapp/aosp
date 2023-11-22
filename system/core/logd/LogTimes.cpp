@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <errno.h>
 #include <sys/prctl.h>
 
 #include "FlushCommand.h"
@@ -26,7 +27,7 @@ pthread_mutex_t LogTimeEntry::timesLock = PTHREAD_MUTEX_INITIALIZER;
 LogTimeEntry::LogTimeEntry(LogReader &reader, SocketClient *client,
                            bool nonBlock, unsigned long tail,
                            unsigned int logMask, pid_t pid,
-                           uint64_t start) :
+                           uint64_t start, uint64_t timeout) :
         mRefCount(1),
         mRelease(false),
         mError(false),
@@ -42,6 +43,8 @@ LogTimeEntry::LogTimeEntry(LogReader &reader, SocketClient *client,
         mStart(start),
         mNonBlock(nonBlock),
         mEnd(LogBufferElement::getCurrentSequence()) {
+    mTimeout.tv_sec = timeout / NS_PER_SEC;
+    mTimeout.tv_nsec = timeout % NS_PER_SEC;
     pthread_cond_init(&threadTriggeredCondition, NULL);
     cleanSkip_Locked();
 }
@@ -87,7 +90,7 @@ void LogTimeEntry::threadStop(void *obj) {
         while(it != times.end()) {
             if (*it == me) {
                 times.erase(it);
-                me->release_Locked();
+                me->release_nodelete_Locked();
                 break;
             }
             it++;
@@ -123,27 +126,44 @@ void *LogTimeEntry::threadStart(void *obj) {
     LogBuffer &logbuf = me->mReader.logbuf();
 
     bool privileged = FlushCommand::hasReadLogs(client);
+    bool security = FlushCommand::hasSecurityLogs(client);
 
     me->leadingDropped = true;
 
     lock();
 
+    uint64_t start = me->mStart;
+
     while (me->threadRunning && !me->isError_Locked()) {
-        uint64_t start = me->mStart;
+
+        if (me->mTimeout.tv_sec || me->mTimeout.tv_nsec) {
+            if (pthread_cond_timedwait(&me->threadTriggeredCondition,
+                                       &timesLock,
+                                       &me->mTimeout) == ETIMEDOUT) {
+                me->mTimeout.tv_sec = 0;
+                me->mTimeout.tv_nsec = 0;
+            }
+            if (!me->threadRunning || me->isError_Locked()) {
+                break;
+            }
+        }
 
         unlock();
 
         if (me->mTail) {
-            logbuf.flushTo(client, start, privileged, FilterFirstPass, me);
+            logbuf.flushTo(client, start, privileged, security, FilterFirstPass, me);
             me->leadingDropped = true;
         }
-        start = logbuf.flushTo(client, start, privileged, FilterSecondPass, me);
+        start = logbuf.flushTo(client, start, privileged, security, FilterSecondPass, me);
 
         lock();
 
         if (start == LogBufferElement::FLUSH_ERROR) {
             me->error_Locked();
+            break;
         }
+
+        me->mStart = start + 1;
 
         if (me->mNonBlock || !me->threadRunning || me->isError_Locked()) {
             break;
@@ -151,7 +171,9 @@ void *LogTimeEntry::threadStart(void *obj) {
 
         me->cleanSkip_Locked();
 
-        pthread_cond_wait(&me->threadTriggeredCondition, &timesLock);
+        if (!me->mTimeout.tv_sec && !me->mTimeout.tv_nsec) {
+            pthread_cond_wait(&me->threadTriggeredCondition, &timesLock);
+        }
     }
 
     unlock();

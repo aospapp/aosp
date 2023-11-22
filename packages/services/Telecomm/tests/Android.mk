@@ -39,9 +39,13 @@ LOCAL_AAPT_FLAGS := \
     --auto-add-overlay \
     --extra-packages com.android.server.telecom
 
+LOCAL_PROGUARD_ENABLED := disabled
+
 LOCAL_PACKAGE_NAME := TelecomUnitTests
 LOCAL_CERTIFICATE := platform
 
 LOCAL_MODULE_TAGS := tests
+
+include frameworks/base/packages/SettingsLib/common.mk
 
 include $(BUILD_PACKAGE)

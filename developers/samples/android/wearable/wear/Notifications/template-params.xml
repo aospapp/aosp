@@ -23,7 +23,8 @@
     <package>com.example.android.support.wearable.notifications</package>
 
     <minSdk>18</minSdk>
-    <targetSdkVersion>22</targetSdkVersion>
+    <targetSdkVersion>23</targetSdkVersion>
+    <targetSdkVersionWear>22</targetSdkVersionWear>
 
     <wearable>
         <has_handheld_app>true</has_handheld_app>

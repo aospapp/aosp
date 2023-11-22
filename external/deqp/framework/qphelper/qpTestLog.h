@@ -132,7 +132,9 @@ typedef enum qpImageFormat_e
 /* Test log flags. */
 typedef enum qpTestLogFlag_e
 {
-	QP_TEST_LOG_EXCLUDE_IMAGES	= (1<<0)		/*!< Do not log images. This reduces log size considerably.		*/
+	QP_TEST_LOG_EXCLUDE_IMAGES			= (1<<0),		/*!< Do not log images. This reduces log size considerably.			*/
+	QP_TEST_LOG_EXCLUDE_SHADER_SOURCES	= (1<<1),		/*!< Do not log shader sources. Helps to reduce log size further.	*/
+	QP_TEST_LOG_NO_FLUSH				= (1<<2)		/*!< Do not do a fflush after writing the log.						*/
 } qpTestLogFlag;
 
 /* Shader type. */
@@ -215,6 +217,7 @@ deBool			qpTestLog_endShaderProgram		(qpTestLog* log);
 deBool 			qpTestLog_writeShader			(qpTestLog* log, qpShaderType type, const char* source, deBool compileOk, const char* infoLog);
 
 deBool 			qpTestLog_writeKernelSource		(qpTestLog* log, const char* source);
+deBool 			qpTestLog_writeSpirVAssemblySource	(qpTestLog* log, const char* source);
 deBool 			qpTestLog_writeCompileInfo		(qpTestLog* log, const char* name, const char* description, deBool compileOk, const char* infoLog);
 
 deBool			qpTestLog_startSampleList		(qpTestLog* log, const char* name, const char* description);

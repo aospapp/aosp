@@ -27,7 +27,7 @@
 #include <stdio.h>
 
 #include "bt_target.h"
-#include "gki.h"
+#include "bt_common.h"
 #include "l2cdefs.h"
 #include "hcidefs.h"
 #include "hcimsgs.h"
@@ -56,6 +56,7 @@ static UINT8         *add_attr (UINT8 *p, tSDP_DISCOVERY_DB *p_db, tSDP_DISC_REC
 /* Safety check in case we go crazy */
 #define MAX_NEST_LEVELS     5
 
+extern fixed_queue_t *btu_general_alarm_queue;
 
 /*******************************************************************************
 **
@@ -119,16 +120,10 @@ static UINT8 *sdpu_build_uuid_seq (UINT8 *p_out, UINT16 num_uuids, tSDP_UUID *p_
 static void sdp_snd_service_search_req(tCONN_CB *p_ccb, UINT8 cont_len, UINT8 * p_cont)
 {
     UINT8           *p, *p_start, *p_param_len;
-    BT_HDR          *p_cmd;
+    BT_HDR          *p_cmd = (BT_HDR *) osi_malloc(SDP_DATA_BUF_SIZE);
     UINT16          param_len;
 
-    /* Get a buffer to send the packet to L2CAP */
-    if ((p_cmd = (BT_HDR *) GKI_getpoolbuf (SDP_POOL_ID)) == NULL)
-    {
-        sdp_disconnect (p_ccb, SDP_NO_RESOURCES);
-        return;
-    }
-
+    /* Prepare the buffer for sending the packet to L2CAP */
     p_cmd->offset = L2CAP_MIN_OFFSET;
     p = p_start = (UINT8 *)(p_cmd + 1) + L2CAP_MIN_OFFSET;
 
@@ -178,8 +173,8 @@ static void sdp_snd_service_search_req(tCONN_CB *p_ccb, UINT8 cont_len, UINT8 * 
     L2CA_DataWrite (p_ccb->connection_id, p_cmd);
 
     /* Start inactivity timer */
-    btu_start_timer (&p_ccb->timer_entry, BTU_TTYPE_SDP, SDP_INACT_TIMEOUT);
-
+    alarm_set_on_queue(p_ccb->sdp_conn_timer, SDP_INACT_TIMEOUT_MS,
+                       sdp_conn_timer_timeout, p_ccb, btu_general_alarm_queue);
 }
 
 /*******************************************************************************
@@ -232,7 +227,7 @@ void sdp_disc_server_rsp (tCONN_CB *p_ccb, BT_HDR *p_msg)
 #endif
 
     /* stop inactivity timer when we receive a response */
-    btu_stop_timer (&p_ccb->timer_entry);
+    alarm_cancel(p_ccb->sdp_conn_timer);
 
     /* Got a reply!! Check what we got back */
     p = (UINT8 *)(p_msg + 1) + p_msg->offset;
@@ -436,16 +431,8 @@ static void process_service_attr_rsp (tCONN_CB *p_ccb, UINT8 *p_reply)
             p_ccb->list_len, list_byte_count);
 #endif
         if (p_ccb->rsp_list == NULL)
-        {
-            p_ccb->rsp_list = (UINT8 *)GKI_getbuf (SDP_MAX_LIST_BYTE_COUNT);
-            if (p_ccb->rsp_list == NULL)
-            {
-                SDP_TRACE_ERROR ("SDP - no gki buf to save rsp");
-                sdp_disconnect (p_ccb, SDP_NO_RESOURCES);
-                return;
-            }
-        }
-        memcpy (&p_ccb->rsp_list[p_ccb->list_len], p_reply, list_byte_count);
+            p_ccb->rsp_list = (UINT8 *)osi_malloc(SDP_MAX_LIST_BYTE_COUNT);
+        memcpy(&p_ccb->rsp_list[p_ccb->list_len], p_reply, list_byte_count);
         p_ccb->list_len += list_byte_count;
         p_reply         += list_byte_count;
 #if (SDP_DEBUG_RAW == TRUE)
@@ -485,14 +472,8 @@ static void process_service_attr_rsp (tCONN_CB *p_ccb, UINT8 *p_reply)
     /* Now, ask for the next handle. Re-use the buffer we just got. */
     if (p_ccb->cur_handle < p_ccb->num_handles)
     {
-        BT_HDR  *p_msg = (BT_HDR *) GKI_getpoolbuf (SDP_POOL_ID);
+        BT_HDR  *p_msg = (BT_HDR *)osi_malloc(SDP_DATA_BUF_SIZE);
         UINT8   *p;
-
-        if (!p_msg)
-        {
-            sdp_disconnect (p_ccb, SDP_NO_RESOURCES);
-            return;
-        }
 
         p_msg->offset = L2CAP_MIN_OFFSET;
         p = p_start = (UINT8 *)(p_msg + 1) + L2CAP_MIN_OFFSET;
@@ -537,7 +518,9 @@ static void process_service_attr_rsp (tCONN_CB *p_ccb, UINT8 *p_reply)
         L2CA_DataWrite (p_ccb->connection_id, p_msg);
 
         /* Start inactivity timer */
-        btu_start_timer (&p_ccb->timer_entry, BTU_TTYPE_SDP, SDP_INACT_TIMEOUT);
+        alarm_set_on_queue(p_ccb->sdp_conn_timer, SDP_INACT_TIMEOUT_MS,
+                           sdp_conn_timer_timeout, p_ccb,
+                           btu_general_alarm_queue);
     }
     else
     {
@@ -595,15 +578,7 @@ static void process_service_search_attr_rsp (tCONN_CB *p_ccb, UINT8 *p_reply)
             p_ccb->list_len, lists_byte_count);
 #endif
         if (p_ccb->rsp_list == NULL)
-        {
-            p_ccb->rsp_list = (UINT8 *)GKI_getbuf (SDP_MAX_LIST_BYTE_COUNT);
-            if (p_ccb->rsp_list == NULL)
-            {
-                SDP_TRACE_ERROR ("SDP - no gki buf to save rsp");
-                sdp_disconnect (p_ccb, SDP_NO_RESOURCES);
-                return;
-            }
-        }
+            p_ccb->rsp_list = (UINT8 *)osi_malloc(SDP_MAX_LIST_BYTE_COUNT);
         memcpy (&p_ccb->rsp_list[p_ccb->list_len], p_reply, lists_byte_count);
         p_ccb->list_len += lists_byte_count;
         p_reply         += lists_byte_count;
@@ -631,14 +606,8 @@ static void process_service_search_attr_rsp (tCONN_CB *p_ccb, UINT8 *p_reply)
     /* If continuation request (or first time request) */
     if ((cont_request_needed) || (!p_reply))
     {
-        BT_HDR  *p_msg = (BT_HDR *) GKI_getpoolbuf (SDP_POOL_ID);
+        BT_HDR  *p_msg = (BT_HDR *)osi_malloc(SDP_DATA_BUF_SIZE);
         UINT8   *p;
-
-        if (!p_msg)
-        {
-            sdp_disconnect (p_ccb, SDP_NO_RESOURCES);
-            return;
-        }
 
         p_msg->offset = L2CAP_MIN_OFFSET;
         p = p_start = (UINT8 *)(p_msg + 1) + L2CAP_MIN_OFFSET;
@@ -688,7 +657,9 @@ static void process_service_search_attr_rsp (tCONN_CB *p_ccb, UINT8 *p_reply)
         L2CA_DataWrite (p_ccb->connection_id, p_msg);
 
         /* Start inactivity timer */
-        btu_start_timer (&p_ccb->timer_entry, BTU_TTYPE_SDP, SDP_INACT_TIMEOUT);
+        alarm_set_on_queue(p_ccb->sdp_conn_timer, SDP_INACT_TIMEOUT_MS,
+                           sdp_conn_timer_timeout, p_ccb,
+                           btu_general_alarm_queue);
 
         return;
     }

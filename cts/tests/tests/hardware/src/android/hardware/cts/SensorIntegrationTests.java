@@ -34,7 +34,7 @@ import java.util.concurrent.TimeUnit;
  *
  * To execute these test cases, the following command can be used:
  *      $ adb shell am instrument -e class android.hardware.cts.SensorIntegrationTests \
- *          -w com.android.cts.hardware/android.test.InstrumentationCtsTestRunner
+ *          -w android.hardware.cts/android.test.InstrumentationCtsTestRunner
  */
 public class SensorIntegrationTests extends SensorTestCase {
     private static final String TAG = "SensorIntegrationTests";
@@ -90,6 +90,7 @@ public class SensorIntegrationTests extends SensorTestCase {
                     context,
                     sensorType,
                     shouldEmulateSensorUnderLoad(),
+                    true, /* isIntegrationTest */
                     sensor.getMinDelay(),
                     MAX_REPORTING_LATENCY_US);
             TestSensorOperation batchingOperation =
@@ -143,6 +144,7 @@ public class SensorIntegrationTests extends SensorTestCase {
                             context,
                             sensorType,
                             shouldEmulateSensorUnderLoad(),
+                            true, /* isIntegrationTest */
                             generateSamplingRateInUs(sensorType),
                             generateReportLatencyInUs());
                     TestSensorOperation sensorOperation =

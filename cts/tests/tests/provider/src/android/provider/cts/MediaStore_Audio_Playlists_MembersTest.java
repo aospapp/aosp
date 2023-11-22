@@ -454,7 +454,7 @@ public class MediaStore_Audio_Playlists_MembersTest extends InstrumentationTestC
     public void testStoreAudioPlaylistsMembersInternal() {
         ContentValues values = new ContentValues();
         values.put(Playlists.NAME, "My favourites");
-        values.put(Playlists.DATA, "/data/data/com.android.cts.provider/files/my_favorites.pl");
+        values.put(Playlists.DATA, "/data/data/android.provider.cts/files/my_favorites.pl");
         long dateAdded = System.currentTimeMillis();
         values.put(Playlists.DATE_ADDED, dateAdded);
         long dateModified = System.currentTimeMillis();

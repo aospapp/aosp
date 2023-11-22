@@ -45,10 +45,7 @@ static pid_t gettid() {
 using namespace android;
 using namespace android::renderscript;
 
-typedef void (*outer_foreach_t)(
-    const RsExpandKernelDriverInfo *,
-    uint32_t x1, uint32_t x2, uint32_t outstep);
-
+#define REDUCE_ALOGV(mtls, level, ...) do { if ((mtls)->logReduce >= (level)) ALOGV(__VA_ARGS__); } while(0)
 
 static pthread_key_t gThreadTLSKey = 0;
 static uint32_t gThreadTLSKeyCount = 0;
@@ -61,8 +58,7 @@ RsdCpuReference::~RsdCpuReference() {
 
 RsdCpuReference * RsdCpuReference::create(Context *rsc, uint32_t version_major,
         uint32_t version_minor, sym_lookup_t lfn, script_lookup_t slfn
-        , bcc::RSLinkRuntimeCallback pLinkRuntimeCallback,
-        RSSelectRTCallback pSelectRTCallback,
+        , RSSelectRTCallback pSelectRTCallback,
         const char *pBccPluginName
         ) {
 
@@ -75,7 +71,6 @@ RsdCpuReference * RsdCpuReference::create(Context *rsc, uint32_t version_major,
         return nullptr;
     }
 
-    cpu->setLinkRuntimeCallback(pLinkRuntimeCallback);
     cpu->setSelectRTCallback(pSelectRTCallback);
     if (pBccPluginName) {
         cpu->setBccPluginName(pBccPluginName);
@@ -105,13 +100,11 @@ RsdCpuReferenceImpl::RsdCpuReferenceImpl(Context *rsc) {
 
     version_major = 0;
     version_minor = 0;
-    mInForEach = false;
+    mInKernel = false;
     memset(&mWorkers, 0, sizeof(mWorkers));
     memset(&mTlsStruct, 0, sizeof(mTlsStruct));
     mExit = false;
-    mLinkRuntimeCallback = nullptr;
     mSelectRTCallback = nullptr;
-    mSetupCompilerCallback = nullptr;
     mEmbedGlobalInfo = true;
     mEmbedGlobalInfoSkipConstant = true;
 }
@@ -157,13 +150,15 @@ void * RsdCpuReferenceImpl::helperThreadProc(void *vrsc) {
     return nullptr;
 }
 
+// Launch a kernel.
+// The callback function is called to execute the kernel.
 void RsdCpuReferenceImpl::launchThreads(WorkerCallback_t cbk, void *data) {
     mWorkers.mLaunchData = data;
     mWorkers.mLaunchCallback = cbk;
 
     // fast path for very small launches
-    MTLaunchStruct *mtls = (MTLaunchStruct *)data;
-    if (mtls && mtls->fep.dim.y <= 1 && mtls->end.x <= mtls->start.x + mtls->mSliceSize) {
+    MTLaunchStructCommon *mtls = (MTLaunchStructCommon *)data;
+    if (mtls && mtls->dimPtr->y <= 1 && mtls->end.x <= mtls->start.x + mtls->mSliceSize) {
         if (mWorkers.mLaunchCallback) {
             mWorkers.mLaunchCallback(mWorkers.mLaunchData, 0);
         }
@@ -224,7 +219,6 @@ static void GetCpuInfo() {
 
 bool RsdCpuReferenceImpl::init(uint32_t version_major, uint32_t version_minor,
                                sym_lookup_t lfn, script_lookup_t slfn) {
-
     mSymLookupFn = lfn;
     mScriptLookupFn = slfn;
 
@@ -247,6 +241,9 @@ bool RsdCpuReferenceImpl::init(uint32_t version_major, uint32_t version_minor,
         ALOGE("pthread_setspecific %i", status);
     }
 
+    mPageSize = sysconf(_SC_PAGE_SIZE);
+    // ALOGV("page size = %ld", mPageSize);
+
     GetCpuInfo();
 
     int cpu = sysconf(_SC_NPROCESSORS_CONF);
@@ -261,7 +258,9 @@ bool RsdCpuReferenceImpl::init(uint32_t version_major, uint32_t version_minor,
     // Subtract one from the cpu count because we also use the command thread as a worker.
     mWorkers.mCount = (uint32_t)(cpu - 1);
 
-    ALOGV("%p Launching thread(s), CPUs %i", mRSC, mWorkers.mCount + 1);
+    if (mRSC->props.mLogScripts) {
+      ALOGV("%p Launching thread(s), CPUs %i", mRSC, mWorkers.mCount + 1);
+    }
 
     mWorkers.mThreadId = (pthread_t *) calloc(mWorkers.mCount, sizeof(pthread_t));
     mWorkers.mNativeThreadId = (pid_t *) calloc(mWorkers.mCount, sizeof(pid_t));
@@ -332,18 +331,33 @@ RsdCpuReferenceImpl::~RsdCpuReferenceImpl() {
 
 }
 
-static inline void FepPtrSetup(const MTLaunchStruct *mtls, RsExpandKernelDriverInfo *fep,
+// Set up the appropriate input and output pointers to the kernel driver info structure.
+// Inputs:
+//   mtls - The MTLaunchStruct holding information about the kernel launch
+//   fep - The forEach parameters (driver info structure)
+//   x, y, z, lod, face, a1, a2, a3, a4 - The start offsets into each dimension
+static inline void FepPtrSetup(const MTLaunchStructForEach *mtls, RsExpandKernelDriverInfo *fep,
                                uint32_t x, uint32_t y,
                                uint32_t z = 0, uint32_t lod = 0,
                                RsAllocationCubemapFace face = RS_ALLOCATION_CUBEMAP_FACE_POSITIVE_X,
                                uint32_t a1 = 0, uint32_t a2 = 0, uint32_t a3 = 0, uint32_t a4 = 0) {
-
     for (uint32_t i = 0; i < fep->inLen; i++) {
         fep->inPtr[i] = (const uint8_t *)mtls->ains[i]->getPointerUnchecked(x, y, z, lod, face, a1, a2, a3, a4);
     }
-
     if (mtls->aout[0] != nullptr) {
         fep->outPtr[0] = (uint8_t *)mtls->aout[0]->getPointerUnchecked(x, y, z, lod, face, a1, a2, a3, a4);
+    }
+}
+
+// Set up the appropriate input and output pointers to the kernel driver info structure.
+// Inputs:
+//   mtls - The MTLaunchStruct holding information about the kernel launch
+//   redp - The reduce parameters (driver info structure)
+//   x, y, z - The start offsets into each dimension
+static inline void RedpPtrSetup(const MTLaunchStructReduce *mtls, RsExpandKernelDriverInfo *redp,
+                                uint32_t x, uint32_t y, uint32_t z) {
+    for (uint32_t i = 0; i < redp->inLen; i++) {
+        redp->inPtr[i] = (const uint8_t *)mtls->ains[i]->getPointerUnchecked(x, y, z);
     }
 }
 
@@ -360,26 +374,27 @@ static uint32_t sliceInt(uint32_t *p, uint32_t val, uint32_t start, uint32_t end
     return n;
 }
 
-static bool SelectOuterSlice(const MTLaunchStruct *mtls, RsExpandKernelDriverInfo* fep, uint32_t sliceNum) {
-
+static bool SelectOuterSlice(const MTLaunchStructCommon *mtls, RsExpandKernelDriverInfo* info, uint32_t sliceNum) {
     uint32_t r = sliceNum;
-    r = sliceInt(&fep->current.z, r, mtls->start.z, mtls->end.z);
-    r = sliceInt(&fep->current.lod, r, mtls->start.lod, mtls->end.lod);
-    r = sliceInt(&fep->current.face, r, mtls->start.face, mtls->end.face);
-    r = sliceInt(&fep->current.array[0], r, mtls->start.array[0], mtls->end.array[0]);
-    r = sliceInt(&fep->current.array[1], r, mtls->start.array[1], mtls->end.array[1]);
-    r = sliceInt(&fep->current.array[2], r, mtls->start.array[2], mtls->end.array[2]);
-    r = sliceInt(&fep->current.array[3], r, mtls->start.array[3], mtls->end.array[3]);
+    r = sliceInt(&info->current.z, r, mtls->start.z, mtls->end.z);
+    r = sliceInt(&info->current.lod, r, mtls->start.lod, mtls->end.lod);
+    r = sliceInt(&info->current.face, r, mtls->start.face, mtls->end.face);
+    r = sliceInt(&info->current.array[0], r, mtls->start.array[0], mtls->end.array[0]);
+    r = sliceInt(&info->current.array[1], r, mtls->start.array[1], mtls->end.array[1]);
+    r = sliceInt(&info->current.array[2], r, mtls->start.array[2], mtls->end.array[2]);
+    r = sliceInt(&info->current.array[3], r, mtls->start.array[3], mtls->end.array[3]);
     return r == 0;
 }
 
+static bool SelectZSlice(const MTLaunchStructCommon *mtls, RsExpandKernelDriverInfo* info, uint32_t sliceNum) {
+    return sliceInt(&info->current.z, sliceNum, mtls->start.z, mtls->end.z) == 0;
+}
 
-static void walk_general(void *usr, uint32_t idx) {
-    MTLaunchStruct *mtls = (MTLaunchStruct *)usr;
+static void walk_general_foreach(void *usr, uint32_t idx) {
+    MTLaunchStructForEach *mtls = (MTLaunchStructForEach *)usr;
     RsExpandKernelDriverInfo fep = mtls->fep;
     fep.lid = idx;
-    outer_foreach_t fn = (outer_foreach_t) mtls->kernel;
-
+    ForEachFunc_t fn = mtls->kernel;
 
     while(1) {
         uint32_t slice = (uint32_t)__sync_fetch_and_add(&mtls->mSliceNum, 1);
@@ -400,14 +415,13 @@ static void walk_general(void *usr, uint32_t idx) {
             fn(&fep, mtls->start.x, mtls->end.x, mtls->fep.outStride[0]);
         }
     }
-
 }
 
-static void walk_2d(void *usr, uint32_t idx) {
-    MTLaunchStruct *mtls = (MTLaunchStruct *)usr;
+static void walk_2d_foreach(void *usr, uint32_t idx) {
+    MTLaunchStructForEach *mtls = (MTLaunchStructForEach *)usr;
     RsExpandKernelDriverInfo fep = mtls->fep;
     fep.lid = idx;
-    outer_foreach_t fn = (outer_foreach_t) mtls->kernel;
+    ForEachFunc_t fn = mtls->kernel;
 
     while (1) {
         uint32_t slice  = (uint32_t)__sync_fetch_and_add(&mtls->mSliceNum, 1);
@@ -428,11 +442,11 @@ static void walk_2d(void *usr, uint32_t idx) {
     }
 }
 
-static void walk_1d(void *usr, uint32_t idx) {
-    MTLaunchStruct *mtls = (MTLaunchStruct *)usr;
+static void walk_1d_foreach(void *usr, uint32_t idx) {
+    MTLaunchStructForEach *mtls = (MTLaunchStructForEach *)usr;
     RsExpandKernelDriverInfo fep = mtls->fep;
     fep.lid = idx;
-    outer_foreach_t fn = (outer_foreach_t) mtls->kernel;
+    ForEachFunc_t fn = mtls->kernel;
 
     while (1) {
         uint32_t slice  = (uint32_t)__sync_fetch_and_add(&mtls->mSliceNum, 1);
@@ -451,11 +465,371 @@ static void walk_1d(void *usr, uint32_t idx) {
     }
 }
 
-void RsdCpuReferenceImpl::launchThreads(const Allocation ** ains,
+// The function format_bytes() is an auxiliary function to assist in logging.
+//
+// Bytes are read from an input (inBuf) and written (as pairs of hex digits)
+// to an output (outBuf).
+//
+// Output format:
+// - starts with ": "
+// - each input byte is translated to a pair of hex digits
+// - bytes are separated by "." except that every fourth separator is "|"
+// - if the input is sufficiently long, the output is truncated and terminated with "..."
+//
+// Arguments:
+// - outBuf  -- Pointer to buffer of type "FormatBuf" into which output is written
+// - inBuf   -- Pointer to bytes which are to be formatted into outBuf
+// - inBytes -- Number of bytes in inBuf
+//
+// Constant:
+// - kFormatInBytesMax -- Only min(kFormatInBytesMax, inBytes) bytes will be read
+//                        from inBuf
+//
+// Return value:
+// - pointer (const char *) to output (which is part of outBuf)
+//
+static const int kFormatInBytesMax = 16;
+// ": " + 2 digits per byte + 1 separator between bytes + "..." + null
+typedef char FormatBuf[2 + kFormatInBytesMax*2 + (kFormatInBytesMax - 1) + 3 + 1];
+static const char *format_bytes(FormatBuf *outBuf, const uint8_t *inBuf, const int inBytes) {
+  strcpy(*outBuf, ": ");
+  int pos = 2;
+  const int lim = std::min(kFormatInBytesMax, inBytes);
+  for (int i = 0; i < lim; ++i) {
+    if (i) {
+      sprintf(*outBuf + pos, (i % 4 ? "." : "|"));
+      ++pos;
+    }
+    sprintf(*outBuf + pos, "%02x", inBuf[i]);
+    pos += 2;
+  }
+  if (kFormatInBytesMax < inBytes)
+    strcpy(*outBuf + pos, "...");
+  return *outBuf;
+}
+
+static void reduce_get_accumulator(uint8_t *&accumPtr, const MTLaunchStructReduce *mtls,
+                                   const char *walkerName, uint32_t threadIdx) {
+  rsAssert(!accumPtr);
+
+  uint32_t accumIdx = (uint32_t)__sync_fetch_and_add(&mtls->accumCount, 1);
+  if (mtls->outFunc) {
+    accumPtr = mtls->accumAlloc + mtls->accumStride * accumIdx;
+  } else {
+    if (accumIdx == 0) {
+      accumPtr = mtls->redp.outPtr[0];
+    } else {
+      accumPtr = mtls->accumAlloc + mtls->accumStride * (accumIdx - 1);
+    }
+  }
+  REDUCE_ALOGV(mtls, 2, "%s(%p): idx = %u got accumCount %u and accumPtr %p",
+               walkerName, mtls->accumFunc, threadIdx, accumIdx, accumPtr);
+  // initialize accumulator
+  if (mtls->initFunc) {
+    mtls->initFunc(accumPtr);
+  } else {
+    memset(accumPtr, 0, mtls->accumSize);
+  }
+}
+
+static void walk_1d_reduce(void *usr, uint32_t idx) {
+  const MTLaunchStructReduce *mtls = (const MTLaunchStructReduce *)usr;
+  RsExpandKernelDriverInfo redp = mtls->redp;
+
+  // find accumulator
+  uint8_t *&accumPtr = mtls->accumPtr[idx];
+  if (!accumPtr) {
+    reduce_get_accumulator(accumPtr, mtls, __func__, idx);
+  }
+
+  // accumulate
+  const ReduceAccumulatorFunc_t fn = mtls->accumFunc;
+  while (1) {
+    uint32_t slice  = (uint32_t)__sync_fetch_and_add(&mtls->mSliceNum, 1);
+    uint32_t xStart = mtls->start.x + slice * mtls->mSliceSize;
+    uint32_t xEnd   = xStart + mtls->mSliceSize;
+
+    xEnd = rsMin(xEnd, mtls->end.x);
+
+    if (xEnd <= xStart) {
+      return;
+    }
+
+    RedpPtrSetup(mtls, &redp, xStart, 0, 0);
+    fn(&redp, xStart, xEnd, accumPtr);
+
+    // Emit log line after slice has been run, so that we can include
+    // the results of the run on that line.
+    FormatBuf fmt;
+    if (mtls->logReduce >= 3) {
+      format_bytes(&fmt, accumPtr, mtls->accumSize);
+    } else {
+      fmt[0] = 0;
+    }
+    REDUCE_ALOGV(mtls, 2, "walk_1d_reduce(%p): idx = %u, x in [%u, %u)%s",
+                 mtls->accumFunc, idx, xStart, xEnd, fmt);
+  }
+}
+
+static void walk_2d_reduce(void *usr, uint32_t idx) {
+  const MTLaunchStructReduce *mtls = (const MTLaunchStructReduce *)usr;
+  RsExpandKernelDriverInfo redp = mtls->redp;
+
+  // find accumulator
+  uint8_t *&accumPtr = mtls->accumPtr[idx];
+  if (!accumPtr) {
+    reduce_get_accumulator(accumPtr, mtls, __func__, idx);
+  }
+
+  // accumulate
+  const ReduceAccumulatorFunc_t fn = mtls->accumFunc;
+  while (1) {
+    uint32_t slice  = (uint32_t)__sync_fetch_and_add(&mtls->mSliceNum, 1);
+    uint32_t yStart = mtls->start.y + slice * mtls->mSliceSize;
+    uint32_t yEnd   = yStart + mtls->mSliceSize;
+
+    yEnd = rsMin(yEnd, mtls->end.y);
+
+    if (yEnd <= yStart) {
+      return;
+    }
+
+    for (redp.current.y = yStart; redp.current.y < yEnd; redp.current.y++) {
+      RedpPtrSetup(mtls, &redp, mtls->start.x, redp.current.y, 0);
+      fn(&redp, mtls->start.x, mtls->end.x, accumPtr);
+    }
+
+    FormatBuf fmt;
+    if (mtls->logReduce >= 3) {
+      format_bytes(&fmt, accumPtr, mtls->accumSize);
+    } else {
+      fmt[0] = 0;
+    }
+    REDUCE_ALOGV(mtls, 2, "walk_2d_reduce(%p): idx = %u, y in [%u, %u)%s",
+                 mtls->accumFunc, idx, yStart, yEnd, fmt);
+  }
+}
+
+static void walk_3d_reduce(void *usr, uint32_t idx) {
+  const MTLaunchStructReduce *mtls = (const MTLaunchStructReduce *)usr;
+  RsExpandKernelDriverInfo redp = mtls->redp;
+
+  // find accumulator
+  uint8_t *&accumPtr = mtls->accumPtr[idx];
+  if (!accumPtr) {
+    reduce_get_accumulator(accumPtr, mtls, __func__, idx);
+  }
+
+  // accumulate
+  const ReduceAccumulatorFunc_t fn = mtls->accumFunc;
+  while (1) {
+    uint32_t slice  = (uint32_t)__sync_fetch_and_add(&mtls->mSliceNum, 1);
+
+    if (!SelectZSlice(mtls, &redp, slice)) {
+      return;
+    }
+
+    for (redp.current.y = mtls->start.y; redp.current.y < mtls->end.y; redp.current.y++) {
+      RedpPtrSetup(mtls, &redp, mtls->start.x, redp.current.y, redp.current.z);
+      fn(&redp, mtls->start.x, mtls->end.x, accumPtr);
+    }
+
+    FormatBuf fmt;
+    if (mtls->logReduce >= 3) {
+      format_bytes(&fmt, accumPtr, mtls->accumSize);
+    } else {
+      fmt[0] = 0;
+    }
+    REDUCE_ALOGV(mtls, 2, "walk_3d_reduce(%p): idx = %u, z = %u%s",
+                 mtls->accumFunc, idx, redp.current.z, fmt);
+  }
+}
+
+// Launch a general reduce-style kernel.
+// Inputs:
+//   ains[0..inLen-1]: Array of allocations that contain the inputs
+//   aout:             The allocation that will hold the output
+//   mtls:             Holds launch parameters
+void RsdCpuReferenceImpl::launchReduce(const Allocation ** ains,
+                                       uint32_t inLen,
+                                       Allocation * aout,
+                                       MTLaunchStructReduce *mtls) {
+  mtls->logReduce = mRSC->props.mLogReduce;
+  if ((mWorkers.mCount >= 1) && mtls->isThreadable && !mInKernel) {
+    launchReduceParallel(ains, inLen, aout, mtls);
+  } else {
+    launchReduceSerial(ains, inLen, aout, mtls);
+  }
+}
+
+// Launch a general reduce-style kernel, single-threaded.
+// Inputs:
+//   ains[0..inLen-1]: Array of allocations that contain the inputs
+//   aout:             The allocation that will hold the output
+//   mtls:             Holds launch parameters
+void RsdCpuReferenceImpl::launchReduceSerial(const Allocation ** ains,
+                                             uint32_t inLen,
+                                             Allocation * aout,
+                                             MTLaunchStructReduce *mtls) {
+  REDUCE_ALOGV(mtls, 1, "launchReduceSerial(%p): %u x %u x %u", mtls->accumFunc,
+               mtls->redp.dim.x, mtls->redp.dim.y, mtls->redp.dim.z);
+
+  // In the presence of outconverter, we allocate temporary memory for
+  // the accumulator.
+  //
+  // In the absence of outconverter, we use the output allocation as the
+  // accumulator.
+  uint8_t *const accumPtr = (mtls->outFunc
+                             ? static_cast<uint8_t *>(malloc(mtls->accumSize))
+                             : mtls->redp.outPtr[0]);
+
+  // initialize
+  if (mtls->initFunc) {
+    mtls->initFunc(accumPtr);
+  } else {
+    memset(accumPtr, 0, mtls->accumSize);
+  }
+
+  // accumulate
+  const ReduceAccumulatorFunc_t fn = mtls->accumFunc;
+  uint32_t slice = 0;
+  while (SelectOuterSlice(mtls, &mtls->redp, slice++)) {
+    for (mtls->redp.current.y = mtls->start.y;
+         mtls->redp.current.y < mtls->end.y;
+         mtls->redp.current.y++) {
+      RedpPtrSetup(mtls, &mtls->redp, mtls->start.x, mtls->redp.current.y, mtls->redp.current.z);
+      fn(&mtls->redp, mtls->start.x, mtls->end.x, accumPtr);
+    }
+  }
+
+  // outconvert
+  if (mtls->outFunc) {
+    mtls->outFunc(mtls->redp.outPtr[0], accumPtr);
+    free(accumPtr);
+  }
+}
+
+// Launch a general reduce-style kernel, multi-threaded.
+// Inputs:
+//   ains[0..inLen-1]: Array of allocations that contain the inputs
+//   aout:             The allocation that will hold the output
+//   mtls:             Holds launch parameters
+void RsdCpuReferenceImpl::launchReduceParallel(const Allocation ** ains,
+                                               uint32_t inLen,
+                                               Allocation * aout,
+                                               MTLaunchStructReduce *mtls) {
+  // For now, we don't know how to go parallel in the absence of a combiner.
+  if (!mtls->combFunc) {
+    launchReduceSerial(ains, inLen, aout, mtls);
+    return;
+  }
+
+  // Number of threads = "main thread" + number of other (worker) threads
+  const uint32_t numThreads = mWorkers.mCount + 1;
+
+  // In the absence of outconverter, we use the output allocation as
+  // an accumulator, and therefore need to allocate one fewer accumulator.
+  const uint32_t numAllocAccum = numThreads - (mtls->outFunc == nullptr);
+
+  // If mDebugReduceSplitAccum, then we want each accumulator to start
+  // on a page boundary.  (TODO: Would some unit smaller than a page
+  // be sufficient to avoid false sharing?)
+  if (mRSC->props.mDebugReduceSplitAccum) {
+    // Round up accumulator size to an integral number of pages
+    mtls->accumStride =
+        (unsigned(mtls->accumSize) + unsigned(mPageSize)-1) &
+        ~(unsigned(mPageSize)-1);
+    // Each accumulator gets its own page.  Alternatively, if we just
+    // wanted to make sure no two accumulators are on the same page,
+    // we could instead do
+    //   allocSize = mtls->accumStride * (numAllocation - 1) + mtls->accumSize
+    const size_t allocSize = mtls->accumStride * numAllocAccum;
+    mtls->accumAlloc = static_cast<uint8_t *>(memalign(mPageSize, allocSize));
+  } else {
+    mtls->accumStride = mtls->accumSize;
+    mtls->accumAlloc = static_cast<uint8_t *>(malloc(mtls->accumStride * numAllocAccum));
+  }
+
+  const size_t accumPtrArrayBytes = sizeof(uint8_t *) * numThreads;
+  mtls->accumPtr = static_cast<uint8_t **>(malloc(accumPtrArrayBytes));
+  memset(mtls->accumPtr, 0, accumPtrArrayBytes);
+
+  mtls->accumCount = 0;
+
+  rsAssert(!mInKernel);
+  mInKernel = true;
+  REDUCE_ALOGV(mtls, 1, "launchReduceParallel(%p): %u x %u x %u, %u threads, accumAlloc = %p",
+               mtls->accumFunc,
+               mtls->redp.dim.x, mtls->redp.dim.y, mtls->redp.dim.z,
+               numThreads, mtls->accumAlloc);
+  if (mtls->redp.dim.z > 1) {
+    mtls->mSliceSize = 1;
+    launchThreads(walk_3d_reduce, mtls);
+  } else if (mtls->redp.dim.y > 1) {
+    mtls->mSliceSize = rsMax(1U, mtls->redp.dim.y / (numThreads * 4));
+    launchThreads(walk_2d_reduce, mtls);
+  } else {
+    mtls->mSliceSize = rsMax(1U, mtls->redp.dim.x / (numThreads * 4));
+    launchThreads(walk_1d_reduce, mtls);
+  }
+  mInKernel = false;
+
+  // Combine accumulators and identify final accumulator
+  uint8_t *finalAccumPtr = (mtls->outFunc ? nullptr : mtls->redp.outPtr[0]);
+  //   Loop over accumulators, combining into finalAccumPtr.  If finalAccumPtr
+  //   is null, then the first accumulator I find becomes finalAccumPtr.
+  for (unsigned idx = 0; idx < mtls->accumCount; ++idx) {
+    uint8_t *const thisAccumPtr = mtls->accumPtr[idx];
+    if (finalAccumPtr) {
+      if (finalAccumPtr != thisAccumPtr) {
+        if (mtls->combFunc) {
+          if (mtls->logReduce >= 3) {
+            FormatBuf fmt;
+            REDUCE_ALOGV(mtls, 3, "launchReduceParallel(%p): accumulating into%s",
+                         mtls->accumFunc,
+                         format_bytes(&fmt, finalAccumPtr, mtls->accumSize));
+            REDUCE_ALOGV(mtls, 3, "launchReduceParallel(%p):    accumulator[%d]%s",
+                         mtls->accumFunc, idx,
+                         format_bytes(&fmt, thisAccumPtr, mtls->accumSize));
+          }
+          mtls->combFunc(finalAccumPtr, thisAccumPtr);
+        } else {
+          rsAssert(!"expected combiner");
+        }
+      }
+    } else {
+      finalAccumPtr = thisAccumPtr;
+    }
+  }
+  rsAssert(finalAccumPtr != nullptr);
+  if (mtls->logReduce >= 3) {
+    FormatBuf fmt;
+    REDUCE_ALOGV(mtls, 3, "launchReduceParallel(%p): final accumulator%s",
+                 mtls->accumFunc, format_bytes(&fmt, finalAccumPtr, mtls->accumSize));
+  }
+
+  // Outconvert
+  if (mtls->outFunc) {
+    mtls->outFunc(mtls->redp.outPtr[0], finalAccumPtr);
+    if (mtls->logReduce >= 3) {
+      FormatBuf fmt;
+      REDUCE_ALOGV(mtls, 3, "launchReduceParallel(%p): final outconverted result%s",
+                   mtls->accumFunc,
+                   format_bytes(&fmt, mtls->redp.outPtr[0], mtls->redp.outStride[0]));
+    }
+  }
+
+  // Clean up
+  free(mtls->accumPtr);
+  free(mtls->accumAlloc);
+}
+
+
+void RsdCpuReferenceImpl::launchForEach(const Allocation ** ains,
                                         uint32_t inLen,
                                         Allocation* aout,
                                         const RsScriptCall* sc,
-                                        MTLaunchStruct* mtls) {
+                                        MTLaunchStructForEach* mtls) {
 
     //android::StopWatch kernel_time("kernel time");
 
@@ -467,14 +841,14 @@ void RsdCpuReferenceImpl::launchThreads(const Allocation ** ains,
                      (mtls->start.array[2] != mtls->end.array[2]) ||
                      (mtls->start.array[3] != mtls->end.array[3]);
 
-    if ((mWorkers.mCount >= 1) && mtls->isThreadable && !mInForEach) {
+    if ((mWorkers.mCount >= 1) && mtls->isThreadable && !mInKernel) {
         const size_t targetByteChunk = 16 * 1024;
-        mInForEach = true;
+        mInKernel = true;  // NOTE: The guard immediately above ensures this was !mInKernel
 
         if (outerDims) {
             // No fancy logic for chunk size
             mtls->mSliceSize = 1;
-            launchThreads(walk_general, mtls);
+            launchThreads(walk_general_foreach, mtls);
         } else if (mtls->fep.dim.y > 1) {
             uint32_t s1 = mtls->fep.dim.y / ((mWorkers.mCount + 1) * 4);
             uint32_t s2 = 0;
@@ -496,7 +870,7 @@ void RsdCpuReferenceImpl::launchThreads(const Allocation ** ains,
                 mtls->mSliceSize = 1;
             }
 
-            launchThreads(walk_2d, mtls);
+            launchThreads(walk_2d_foreach, mtls);
         } else {
             uint32_t s1 = mtls->fep.dim.x / ((mWorkers.mCount + 1) * 4);
             uint32_t s2 = 0;
@@ -518,12 +892,12 @@ void RsdCpuReferenceImpl::launchThreads(const Allocation ** ains,
                 mtls->mSliceSize = 1;
             }
 
-            launchThreads(walk_1d, mtls);
+            launchThreads(walk_1d_foreach, mtls);
         }
-        mInForEach = false;
+        mInKernel = false;
 
     } else {
-        outer_foreach_t fn = (outer_foreach_t) mtls->kernel;
+        ForEachFunc_t fn = mtls->kernel;
         uint32_t slice = 0;
 
 

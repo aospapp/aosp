@@ -28,13 +28,16 @@
 
 package org.jf.smali;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Ordering;
 import org.antlr.runtime.CommonTokenStream;
 import org.antlr.runtime.Token;
 import org.antlr.runtime.TokenSource;
 import org.antlr.runtime.tree.CommonTree;
 import org.antlr.runtime.tree.CommonTreeNodeStream;
 import org.apache.commons.cli.*;
+import org.jf.dexlib2.Opcodes;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.jf.dexlib2.writer.io.FileDataStore;
 import org.jf.util.ConsoleUtil;
@@ -43,10 +46,7 @@ import org.jf.util.SmaliHelpFormatter;
 import javax.annotation.Nonnull;
 import java.io.*;
 import java.util.*;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.*;
 
 /**
  * Main class for smali. It recognizes enough options to be able to dispatch
@@ -90,6 +90,95 @@ public class main {
     }
 
     /**
+     * A more programmatic-friendly entry point for smali
+     *
+     * @param options a SmaliOptions object with the options to run smali with
+     * @param input The files/directories to process
+     * @return true if assembly completed with no errors, or false if errors were encountered
+     */
+    public static boolean run(final SmaliOptions options, String... input) throws IOException {
+        LinkedHashSet<File> filesToProcessSet = new LinkedHashSet<File>();
+
+        for (String fileToProcess: input) {
+            File argFile = new File(fileToProcess);
+
+            if (!argFile.exists()) {
+                throw new IllegalArgumentException("Cannot find file or directory \"" + fileToProcess + "\"");
+            }
+
+            if (argFile.isDirectory()) {
+                getSmaliFilesInDir(argFile, filesToProcessSet);
+            } else if (argFile.isFile()) {
+                filesToProcessSet.add(argFile);
+            }
+        }
+
+        boolean errors = false;
+
+        final DexBuilder dexBuilder = DexBuilder.makeDexBuilder(
+                Opcodes.forApi(options.apiLevel, options.experimental));
+
+        ExecutorService executor = Executors.newFixedThreadPool(options.jobs);
+        List<Future<Boolean>> tasks = Lists.newArrayList();
+
+        for (final File file: filesToProcessSet) {
+            tasks.add(executor.submit(new Callable<Boolean>() {
+                @Override public Boolean call() throws Exception {
+                    return assembleSmaliFile(file, dexBuilder, options);
+                }
+            }));
+        }
+
+        for (Future<Boolean> task: tasks) {
+            while(true) {
+                try {
+                    try {
+                        if (!task.get()) {
+                            errors = true;
+                        }
+                    } catch (ExecutionException ex) {
+                        throw new RuntimeException(ex);
+                    }
+                } catch (InterruptedException ex) {
+                    continue;
+                }
+                break;
+            }
+        }
+
+        executor.shutdown();
+
+        if (errors) {
+            return false;
+        }
+
+        if (options.listMethods) {
+            if (Strings.isNullOrEmpty(options.methodListFilename)) {
+                options.methodListFilename = options.outputDexFile + ".methods";
+            }
+            writeReferences(dexBuilder.getMethodReferences(), options.methodListFilename);
+        }
+
+        if (options.listFields) {
+            if (Strings.isNullOrEmpty(options.fieldListFilename)) {
+                options.fieldListFilename = options.outputDexFile + ".fields";
+            }
+            writeReferences(dexBuilder.getFieldReferences(), options.fieldListFilename);
+        }
+
+        if (options.listTypes) {
+            if (Strings.isNullOrEmpty(options.typeListFilename)) {
+                options.typeListFilename = options.outputDexFile + ".types";
+            }
+            writeReferences(dexBuilder.getTypeReferences(), options.typeListFilename);
+        }
+
+        dexBuilder.writeTo(new FileDataStore(new File(options.outputDexFile)));
+
+        return true;
+    }
+
+    /**
      * Run!
      */
     public static void main(String[] args) {
@@ -106,14 +195,7 @@ public class main {
             return;
         }
 
-        int jobs = -1;
-        boolean allowOdex = false;
-        boolean verboseErrors = false;
-        boolean printTokens = false;
-
-        int apiLevel = 15;
-
-        String outputDexFile = "out.dex";
+        SmaliOptions smaliOptions = new SmaliOptions();
 
         String[] remainingArgs = commandLine.getArgs();
 
@@ -137,22 +219,37 @@ public class main {
                     usage(false);
                     return;
                 case 'o':
-                    outputDexFile = commandLine.getOptionValue("o");
+                    smaliOptions.outputDexFile = commandLine.getOptionValue("o");
                     break;
                 case 'x':
-                    allowOdex = true;
+                    smaliOptions.allowOdex = true;
+                    break;
+                case 'X':
+                    smaliOptions.experimental = true;
                     break;
                 case 'a':
-                    apiLevel = Integer.parseInt(commandLine.getOptionValue("a"));
+                    smaliOptions.apiLevel = Integer.parseInt(commandLine.getOptionValue("a"));
                     break;
                 case 'j':
-                    jobs = Integer.parseInt(commandLine.getOptionValue("j"));
+                    smaliOptions.jobs = Integer.parseInt(commandLine.getOptionValue("j"));
+                    break;
+                case 'm':
+                    smaliOptions.listMethods = true;
+                    smaliOptions.methodListFilename = commandLine.getOptionValue("m");
+                    break;
+                case 'f':
+                    smaliOptions.listFields = true;
+                    smaliOptions.fieldListFilename = commandLine.getOptionValue("f");
+                    break;
+                case 't':
+                    smaliOptions.listTypes = true;
+                    smaliOptions.typeListFilename = commandLine.getOptionValue("t");
                     break;
                 case 'V':
-                    verboseErrors = true;
+                    smaliOptions.verboseErrors = true;
                     break;
                 case 'T':
-                    printTokens = true;
+                    smaliOptions.printTokens = true;
                     break;
                 default:
                     assert false;
@@ -165,68 +262,9 @@ public class main {
         }
 
         try {
-            LinkedHashSet<File> filesToProcess = new LinkedHashSet<File>();
-
-            for (String arg: remainingArgs) {
-                    File argFile = new File(arg);
-
-                    if (!argFile.exists()) {
-                        throw new RuntimeException("Cannot find file or directory \"" + arg + "\"");
-                    }
-
-                    if (argFile.isDirectory()) {
-                        getSmaliFilesInDir(argFile, filesToProcess);
-                    } else if (argFile.isFile()) {
-                        filesToProcess.add(argFile);
-                    }
-            }
-
-            if (jobs <= 0) {
-                jobs = Runtime.getRuntime().availableProcessors();
-                if (jobs > 6) {
-                    jobs = 6;
-                }
-            }
-
-            boolean errors = false;
-
-            final DexBuilder dexBuilder = DexBuilder.makeDexBuilder(apiLevel);
-            ExecutorService executor = Executors.newFixedThreadPool(jobs);
-            List<Future<Boolean>> tasks = Lists.newArrayList();
-
-            final boolean finalVerboseErrors = verboseErrors;
-            final boolean finalPrintTokens = printTokens;
-            final boolean finalAllowOdex = allowOdex;
-            final int finalApiLevel = apiLevel;
-            for (final File file: filesToProcess) {
-                tasks.add(executor.submit(new Callable<Boolean>() {
-                    @Override public Boolean call() throws Exception {
-                        return assembleSmaliFile(file, dexBuilder, finalVerboseErrors, finalPrintTokens,
-                                finalAllowOdex, finalApiLevel);
-                    }
-                }));
-            }
-
-            for (Future<Boolean> task: tasks) {
-                while(true) {
-                    try {
-                        if (!task.get()) {
-                            errors = true;
-                        }
-                    } catch (InterruptedException ex) {
-                        continue;
-                    }
-                    break;
-                }
-            }
-
-            executor.shutdown();
-
-            if (errors) {
+            if (!run(smaliOptions, remainingArgs)) {
                 System.exit(1);
             }
-
-            dexBuilder.writeTo(new FileDataStore(new File(outputDexFile)));
         } catch (RuntimeException ex) {
             System.err.println("\nUNEXPECTED TOP-LEVEL EXCEPTION:");
             ex.printStackTrace();
@@ -235,6 +273,23 @@ public class main {
             System.err.println("\nUNEXPECTED TOP-LEVEL ERROR:");
             ex.printStackTrace();
             System.exit(3);
+        }
+    }
+
+    private static void writeReferences(List<String> references, String filename) {
+        PrintWriter writer = null;
+        try {
+            writer = new PrintWriter(new BufferedWriter(new FileWriter(filename)));
+
+            for (String reference: Ordering.natural().sortedCopy(references)) {
+                writer.println(reference);
+            }
+        } catch (IOException ex) {
+            throw new RuntimeException(ex);
+        } finally {
+            if (writer != null) {
+                writer.close();
+            }
         }
     }
 
@@ -251,23 +306,22 @@ public class main {
         }
     }
 
-    private static boolean assembleSmaliFile(File smaliFile, DexBuilder dexBuilder, boolean verboseErrors,
-                                             boolean printTokens, boolean allowOdex, int apiLevel)
+    private static boolean assembleSmaliFile(File smaliFile, DexBuilder dexBuilder, SmaliOptions options)
             throws Exception {
         CommonTokenStream tokens;
 
         LexerErrorInterface lexer;
 
-        FileInputStream fis = new FileInputStream(smaliFile.getAbsolutePath());
+        FileInputStream fis = new FileInputStream(smaliFile);
         InputStreamReader reader = new InputStreamReader(fis, "UTF-8");
 
         lexer = new smaliFlexLexer(reader);
         ((smaliFlexLexer)lexer).setSourceFile(smaliFile);
         tokens = new CommonTokenStream((TokenSource)lexer);
 
-        if (printTokens) {
+        if (options.printTokens) {
             tokens.getTokens();
-            
+
             for (int i=0; i<tokens.size(); i++) {
                 Token token = tokens.get(i);
                 if (token.getChannel() == smaliParser.HIDDEN) {
@@ -276,12 +330,14 @@ public class main {
 
                 System.out.println(smaliParser.tokenNames[token.getType()] + ": " + token.getText());
             }
+
+            System.out.flush();
         }
 
         smaliParser parser = new smaliParser(tokens);
-        parser.setVerboseErrors(verboseErrors);
-        parser.setAllowOdex(allowOdex);
-        parser.setApiLevel(apiLevel);
+        parser.setVerboseErrors(options.verboseErrors);
+        parser.setAllowOdex(options.allowOdex);
+        parser.setApiLevel(options.apiLevel, options.experimental);
 
         smaliParser.smali_file_return result = parser.smali_file();
 
@@ -294,8 +350,14 @@ public class main {
         CommonTreeNodeStream treeStream = new CommonTreeNodeStream(t);
         treeStream.setTokenStream(tokens);
 
+        if (options.printTokens) {
+            System.out.println(t.toStringTree());
+        }
+
         smaliTreeWalker dexGen = new smaliTreeWalker(treeStream);
-        dexGen.setVerboseErrors(verboseErrors);
+        dexGen.setApiLevel(options.apiLevel, options.experimental);
+
+        dexGen.setVerboseErrors(options.verboseErrors);
         dexGen.setDexBuilder(dexBuilder);
         dexGen.smali_file();
 
@@ -363,6 +425,32 @@ public class main {
                 .withArgName("API_LEVEL")
                 .create("a");
 
+        Option listMethodsOption = OptionBuilder.withLongOpt("list-methods")
+                .withDescription("Lists all the method references to FILE" +
+                        " (<output_dex_filename>.methods by default)")
+                .hasOptionalArg()
+                .withArgName("FILE")
+                .create("m");
+
+        Option listFieldsOption = OptionBuilder.withLongOpt("list-fields")
+                .withDescription("Lists all the field references to FILE" +
+                        " (<output_dex_filename>.fields by default)")
+                .hasOptionalArg()
+                .withArgName("FILE")
+                .create("f");
+
+        Option listClassesOption = OptionBuilder.withLongOpt("list-types")
+                .withDescription("Lists all the type references to FILE" +
+                        " (<output_dex_filename>.types by default)")
+                .hasOptionalArg()
+                .withArgName("FILE")
+                .create("t");
+
+        Option experimentalOption = OptionBuilder.withLongOpt("experimental")
+                .withDescription("enable experimental opcodes to be assembled, even if they " +
+                        " aren't necessarily supported by the Android runtime yet")
+                .create("X");
+
         Option jobsOption = OptionBuilder.withLongOpt("jobs")
                 .withDescription("The number of threads to use. Defaults to the number of cores available, up to a " +
                         "maximum of 6")
@@ -383,7 +471,11 @@ public class main {
         basicOptions.addOption(outputOption);
         basicOptions.addOption(allowOdexOption);
         basicOptions.addOption(apiLevelOption);
+        basicOptions.addOption(experimentalOption);
         basicOptions.addOption(jobsOption);
+        basicOptions.addOption(listMethodsOption);
+        basicOptions.addOption(listFieldsOption);
+        basicOptions.addOption(listClassesOption);
 
         debugOptions.addOption(verboseErrorsOption);
         debugOptions.addOption(printTokensOption);

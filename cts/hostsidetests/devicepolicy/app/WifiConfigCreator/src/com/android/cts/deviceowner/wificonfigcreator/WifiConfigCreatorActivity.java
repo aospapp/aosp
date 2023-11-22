@@ -64,6 +64,8 @@ public class WifiConfigCreatorActivity extends Activity {
             } else {
                 Log.i(TAG, "Unknown command: " + action);
             }
+        } catch (InterruptedException ie) {
+            Log.e(TAG, "Interrupted while changing wifi settings", ie);
         } finally {
             finish();
         }

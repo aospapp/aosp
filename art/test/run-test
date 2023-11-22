@@ -39,14 +39,14 @@ if [ -z "$TMPDIR" ]; then
 else
   tmp_dir="${TMPDIR}/$USER/${test_dir}"
 fi
-checker="${progdir}/../tools/checker.py"
-
+checker="${progdir}/../tools/checker/checker.py"
 export JAVA="java"
-export JAVAC="javac -g"
+export JAVAC="javac -g -source 1.7 -target 1.7 -Xlint:-options"
 export RUN="${progdir}/etc/run-test-jar"
 export DEX_LOCATION=/data/run-test/${test_dir}
 export NEED_DEX="true"
-export USE_JACK="false"
+export USE_JACK="true"
+export SMALI_ARGS="--experimental"
 
 # If dx was not set by the environment variable, assume it is in the path.
 if [ -z "$DX" ]; then
@@ -73,41 +73,17 @@ if [ -z "$JACK" ]; then
   export JACK="jack"
 fi
 
-# If the tree is compiled with Jack, build test with Jack by default.
-if [ "$ANDROID_COMPILE_WITH_JACK" = "true" ]; then
-  USE_JACK="true"
-fi
-
 # ANDROID_BUILD_TOP is not set in a build environment.
 if [ -z "$ANDROID_BUILD_TOP" ]; then
     export ANDROID_BUILD_TOP=$oldwd
 fi
 
-# If JACK_VM_COMMAND is not set, assume it launches the prebuilt jack-launcher.
-if [ -z "$JACK_VM_COMMAND" ]; then
-  if [ ! -z "$TMPDIR" ]; then
-    jack_temp_dir="-Djava.io.tmpdir=$TMPDIR"
-  fi
-  export JACK_VM_COMMAND="java -Dfile.encoding=UTF-8 -Xms2560m -XX:+TieredCompilation $jack_temp_dir -jar $ANDROID_BUILD_TOP/prebuilts/sdk/tools/jack-launcher.jar"
-fi
-
 # If JACK_CLASSPATH is not set, assume it only contains core-libart.
 if [ -z "$JACK_CLASSPATH" ]; then
-  export JACK_CLASSPATH="$ANDROID_BUILD_TOP/out/host/common/obj/JAVA_LIBRARIES/core-libart-hostdex_intermediates/classes.jack"
-fi
-
-# If JACK_JAR is not set, assume it is located in the prebuilts directory.
-if [ -z "$JACK_JAR" ]; then
-  export JACK_JAR="$ANDROID_BUILD_TOP/prebuilts/sdk/tools/jack.jar"
-fi
-
-# If JILL_JAR is not set, assume it is located in the prebuilts directory.
-if [ -z "$JILL_JAR" ]; then
-  export JILL_JAR="$ANDROID_BUILD_TOP/prebuilts/sdk/tools/jill.jar"
+  export JACK_CLASSPATH="${OUT_DIR:-$ANDROID_BUILD_TOP/out}/host/common/obj/JAVA_LIBRARIES/core-libart-hostdex_intermediates/classes.jack:${OUT_DIR:-$ANDROID_BUILD_TOP/out}/host/common/obj/JAVA_LIBRARIES/core-oj-hostdex_intermediates/classes.jack"
 fi
 
 export JACK="$JACK -g -cp $JACK_CLASSPATH"
-export JILL="java -jar $JILL_JAR"
 
 info="info.txt"
 build="build"
@@ -116,11 +92,14 @@ expected="expected.txt"
 check_cmd="check"
 output="output.txt"
 build_output="build-output.txt"
-cfg_output="cfg-output.txt"
+cfg_output="graph.cfg"
+strace_output="strace-output.txt"
 lib="libartd.so"
+testlib="arttestd"
 run_args="--quiet"
 build_args=""
 
+quiet="no"
 debuggable="no"
 prebuild_mode="yes"
 target_mode="yes"
@@ -137,12 +116,15 @@ trace_stream="false"
 basic_verify="false"
 gc_verify="false"
 gc_stress="false"
+strace="false"
 always_clean="no"
+never_clean="no"
 have_dex2oat="yes"
 have_patchoat="yes"
 have_image="yes"
 image_suffix=""
 pic_image_suffix=""
+multi_image_suffix=""
 android_root="/system"
 
 while true; do
@@ -151,6 +133,18 @@ while true; do
         DEX_LOCATION=$tmp_dir
         run_args="${run_args} --host"
         shift
+    elif [ "x$1" = "x--quiet" ]; then
+        quiet="yes"
+        shift
+    elif [ "x$1" = "x--use-java-home" ]; then
+        if [ -n "${JAVA_HOME}" ]; then
+          export JAVA="${JAVA_HOME}/bin/java"
+          export JAVAC="${JAVA_HOME}/bin/javac -g"
+        else
+          echo "Passed --use-java-home without JAVA_HOME variable set!"
+          usage="yes"
+        fi
+        shift
     elif [ "x$1" = "x--jvm" ]; then
         target_mode="no"
         runtime="jvm"
@@ -158,9 +152,11 @@ while true; do
         NEED_DEX="false"
         USE_JACK="false"
         run_args="${run_args} --jvm"
+        build_args="${build_args} --jvm"
         shift
     elif [ "x$1" = "x-O" ]; then
         lib="libart.so"
+        testlib="arttest"
         shift
     elif [ "x$1" = "x--dalvik" ]; then
         lib="libdvm.so"
@@ -178,6 +174,9 @@ while true; do
     elif [ "x$1" = "x--pic-image" ]; then
         pic_image_suffix="-pic"
         shift
+    elif [ "x$1" = "x--multi-image" ]; then
+        multi_image_suffix="-multi"
+        shift
     elif [ "x$1" = "x--pic-test" ]; then
         run_args="${run_args} --pic-test"
         shift
@@ -190,6 +189,9 @@ while true; do
     elif [ "x$1" = "x--prebuild" ]; then
         run_args="${run_args} --prebuild"
         prebuild_mode="yes"
+        shift;
+    elif [ "x$1" = "x--strip-dex" ]; then
+        run_args="${run_args} --strip-dex"
         shift;
     elif [ "x$1" = "x--debuggable" ]; then
         run_args="${run_args} -Xcompiler-option --debuggable"
@@ -234,26 +236,31 @@ while true; do
         run_args="${run_args} --gdb"
         dev_mode="yes"
         shift
+    elif [ "x$1" = "x--strace" ]; then
+        strace="yes"
+        run_args="${run_args} --invoke-with strace --invoke-with -o --invoke-with $tmp_dir/$strace_output"
+        shift
     elif [ "x$1" = "x--zygote" ]; then
         run_args="${run_args} --zygote"
         shift
     elif [ "x$1" = "x--interpreter" ]; then
-        run_args="${run_args} --interpreter"
+        run_args="${run_args} --interpreter --runtime-option -XOatFileManagerCompilerFilter:verify-at-runtime"
         image_suffix="-interpreter"
         shift
     elif [ "x$1" = "x--jit" ]; then
-        run_args="${run_args} --jit"
-        image_suffix="-interpreter"
+        run_args="${run_args} --jit --runtime-option -XOatFileManagerCompilerFilter:verify-at-runtime"
+        image_suffix="-jit"
         shift
     elif [ "x$1" = "x--optimizing" ]; then
         run_args="${run_args} -Xcompiler-option --compiler-backend=Optimizing"
         image_suffix="-optimizing"
         shift
-    elif [ "x$1" = "x--quick" ]; then
-        run_args="${run_args} -Xcompiler-option --compiler-backend=Quick"
-        shift
     elif [ "x$1" = "x--no-verify" ]; then
-        run_args="${run_args} --no-verify"
+        run_args="${run_args} --no-verify --runtime-option -XOatFileManagerCompilerFilter:verify-none"
+        shift
+    elif [ "x$1" = "x--verify-soft-fail" ]; then
+        run_args="${run_args} --verify-soft-fail --runtime-option -XOatFileManagerCompilerFilter:verify-at-runtime"
+        image_suffix="-interp-ac"
         shift
     elif [ "x$1" = "x--no-optimize" ]; then
         run_args="${run_args} --no-optimize"
@@ -322,8 +329,15 @@ while true; do
     elif [ "x$1" = "x--always-clean" ]; then
         always_clean="yes"
         shift
+    elif [ "x$1" = "x--never-clean" ]; then
+        never_clean="yes"
+        shift
     elif [ "x$1" = "x--dex2oat-swap" ]; then
         run_args="${run_args} --dex2oat-swap"
+        shift
+    elif [ "x$1" = "x--instruction-set-features" ]; then
+        shift
+        run_args="${run_args} --instruction-set-features $1"
         shift
     elif expr "x$1" : "x--" >/dev/null 2>&1; then
         echo "unknown $0 option: $1" 1>&2
@@ -333,6 +347,29 @@ while true; do
         break
     fi
 done
+
+# Allocate file descriptor real_stderr and redirect it to the shell's error
+# output (fd 2).
+if [ ${BASH_VERSINFO[1]} -ge 4 ] && [ ${BASH_VERSINFO[2]} -ge 1 ]; then
+  exec {real_stderr}>&2
+else
+  # In bash before version 4.1 we need to do a manual search for free file
+  # descriptors.
+  FD=3
+  while [ -e /dev/fd/$FD ]; do FD=$((FD + 1)); done
+  real_stderr=$FD
+  eval "exec ${real_stderr}>&2"
+fi
+if [ "$quiet" = "yes" ]; then
+  # Force the default standard output and error to go to /dev/null so we will
+  # not print them.
+  exec 1>/dev/null
+  exec 2>/dev/null
+fi
+
+function err_echo() {
+  echo "$@" 1>&${real_stderr}
+}
 
 # tmp_dir may be relative, resolve.
 #
@@ -352,7 +389,7 @@ if [ "$gc_verify" = "true" ]; then
   run_args="${run_args} --runtime-option -Xgc:preverify_rosalloc --runtime-option -Xgc:postverify_rosalloc"
 fi
 if [ "$gc_stress" = "true" ]; then
-  run_args="${run_args} --runtime-option -Xgc:SS --runtime-option -Xms2m --runtime-option -Xmx2m"
+  run_args="${run_args} --gc-stress --runtime-option -Xgc:SS,gcstress --runtime-option -Xms2m --runtime-option -Xmx16m"
 fi
 if [ "$trace" = "true" ]; then
     run_args="${run_args} --runtime-option -Xmethod-trace --runtime-option -Xmethod-trace-file-size:2000000"
@@ -366,13 +403,13 @@ if [ "$trace" = "true" ]; then
         run_args="${run_args} --runtime-option -Xmethod-trace-file:${DEX_LOCATION}/trace.bin"
     fi
 elif [ "$trace_stream" = "true" ]; then
-    echo "Cannot use --stream without --trace."
+    err_echo "Cannot use --stream without --trace."
     exit 1
 fi
 
 # Most interesting target architecture variables are Makefile variables, not environment variables.
 # Try to map the suffix64 flag and what we find in ${ANDROID_PRODUCT_OUT}/data/art-test to an architecture name.
-function guess_arch_name() {
+function guess_target_arch_name() {
     grep32bit=`ls ${ANDROID_PRODUCT_OUT}/data/art-test | grep -E '^(arm|x86|mips)$'`
     grep64bit=`ls ${ANDROID_PRODUCT_OUT}/data/art-test | grep -E '^(arm64|x86_64|mips64)$'`
     if [ "x${suffix64}" = "x64" ]; then
@@ -382,10 +419,18 @@ function guess_arch_name() {
     fi
 }
 
+function guess_host_arch_name() {
+    if [ "x${suffix64}" = "x64" ]; then
+        host_arch_name="x86_64"
+    else
+        host_arch_name="x86"
+    fi
+}
+
 if [ "$target_mode" = "no" ]; then
     if [ "$runtime" = "jvm" ]; then
         if [ "$prebuild_mode" = "yes" ]; then
-            echo "--prebuild with --jvm is unsupported";
+            err_echo "--prebuild with --jvm is unsupported"
             exit 1;
         fi
     fi
@@ -406,8 +451,8 @@ fi
 if [ "$runtime" = "dalvik" ]; then
     if [ "$target_mode" = "no" ]; then
         framework="${ANDROID_PRODUCT_OUT}/system/framework"
-        bpath="${framework}/core.jar:${framework}/conscrypt.jar:${framework}/okhttp.jar:${framework}/core-junit.jar:${framework}/bouncycastle.jar:${framework}/ext.jar"
-        run_args="${run_args} --boot -Xbootclasspath:${bpath}"
+        bpath="${framework}/core-libart.jar:${framework}/core-oj.jar:${framework}/conscrypt.jar:${framework}/okhttp.jar:${framework}/bouncycastle.jar:${framework}/ext.jar"
+        run_args="${run_args} --boot --runtime-option -Xbootclasspath:${bpath}"
     else
         true # defaults to using target BOOTCLASSPATH
     fi
@@ -415,14 +460,15 @@ elif [ "$runtime" = "art" ]; then
     if [ "$target_mode" = "no" ]; then
         # ANDROID_HOST_OUT is not set in a build environment.
         if [ -z "$ANDROID_HOST_OUT" ]; then
-            export ANDROID_HOST_OUT=$ANDROID_BUILD_TOP/out/host/linux-x86
+            export ANDROID_HOST_OUT=${OUT_DIR:-$ANDROID_BUILD_TOP/out/}host/linux-x86
         fi
-        run_args="${run_args} --boot ${ANDROID_HOST_OUT}/framework/core${image_suffix}${pic_image_suffix}.art"
+        guess_host_arch_name
+        run_args="${run_args} --boot ${ANDROID_HOST_OUT}/framework/core${image_suffix}${pic_image_suffix}${multi_image_suffix}.art"
         run_args="${run_args} --runtime-option -Djava.library.path=${ANDROID_HOST_OUT}/lib${suffix64}"
     else
-        guess_arch_name
-        run_args="${run_args} --runtime-option -Djava.library.path=/data/art-test/${target_arch_name}"
-        run_args="${run_args} --boot /data/art-test/core${image_suffix}${pic_image_suffix}.art"
+        guess_target_arch_name
+        run_args="${run_args} --runtime-option -Djava.library.path=/data/art-test/${target_arch_name}:/system/lib${suffix64}"
+        run_args="${run_args} --boot /data/art-test/core${image_suffix}${pic_image_suffix}${multi_image_suffix}.art"
     fi
     if [ "$relocate" = "yes" ]; then
       run_args="${run_args} --relocate"
@@ -436,7 +482,7 @@ fi
 
 if [ "$have_image" = "no" ]; then
     if [ "$runtime" != "art" ]; then
-        echo "--no-image is only supported on the art runtime"
+        err_echo "--no-image is only supported on the art runtime"
         exit 1
     fi
     if [ "$target_mode" = "no" ]; then
@@ -449,9 +495,9 @@ if [ "$have_image" = "no" ]; then
     # TODO If the target was compiled WITH_DEXPREOPT=true then these tests will
     # fail since these jar files will be stripped.
     bpath="${framework}/core-libart${bpath_suffix}.jar"
+    bpath="${bpath}:${framework}/core-oj${bpath_suffix}.jar"
     bpath="${bpath}:${framework}/conscrypt${bpath_suffix}.jar"
     bpath="${bpath}:${framework}/okhttp${bpath_suffix}.jar"
-    bpath="${bpath}:${framework}/core-junit${bpath_suffix}.jar"
     bpath="${bpath}:${framework}/bouncycastle${bpath_suffix}.jar"
     # Pass down the bootclasspath
     run_args="${run_args} --runtime-option -Xbootclasspath:${bpath}"
@@ -459,7 +505,12 @@ if [ "$have_image" = "no" ]; then
 fi
 
 if [ "$dev_mode" = "yes" -a "$update_mode" = "yes" ]; then
-    echo "--dev and --update are mutually exclusive" 1>&2
+    err_echo "--dev and --update are mutually exclusive"
+    usage="yes"
+fi
+
+if [ "$dev_mode" = "yes" -a "$quiet" = "yes" ]; then
+    err_echo "--dev and --quiet are mutually exclusive"
     usage="yes"
 fi
 
@@ -473,7 +524,7 @@ if [ "$usage" = "no" ]; then
     if [ '!' -d "$test_dir" ]; then
         td2=`echo ${test_dir}-*`
         if [ '!' -d "$td2" ]; then
-            echo "${test_dir}: no such test directory" 1>&2
+            err_echo "${test_dir}: no such test directory"
             usage="yes"
         fi
         test_dir="$td2"
@@ -502,14 +553,17 @@ if [ "$usage" = "yes" ]; then
         echo "    --debug               Wait for a debugger to attach."
         echo "    --debuggable          Whether to compile Java code for a debugger."
         echo "    --gdb                 Run under gdb; incompatible with some tests."
+        echo "    --gdb-arg             Pass an option to gdb."
         echo "    --build-only          Build test files only (off by default)."
         echo "    --build-with-javac-dx Build test files with javac and dx (on by default)."
         echo "    --build-with-jack     Build test files with jack and jill (off by default)."
         echo "    --interpreter         Enable interpreter only mode (off by default)."
         echo "    --jit                 Enable jit (off by default)."
         echo "    --optimizing          Enable optimizing compiler (default)."
-        echo "    --quick               Use Quick compiler (off by default)."
         echo "    --no-verify           Turn off verification (on by default)."
+        echo "    --verify-soft-fail    Force soft fail verification (off by default)."
+        echo "                          Verification is enabled if neither --no-verify"
+        echo "                          nor --verify-soft-fail is specified."
         echo "    --no-optimize         Turn off optimization (on by default)."
         echo "    --no-precise          Turn off precise GC (on by default)."
         echo "    --zygote              Spawn the process from the Zygote." \
@@ -520,25 +574,41 @@ if [ "$usage" = "yes" ]; then
         echo "    --prebuild            Run dex2oat on the files before starting test. (default)"
         echo "    --no-prebuild         Do not run dex2oat on the files before starting"
         echo "                          the test."
+        echo "    --strip-dex           Strip the dex files before starting test."
         echo "    --relocate            Force the use of relocating in the test, making"
         echo "                          the image and oat files be relocated to a random"
         echo "                          address before running. (default)"
         echo "    --no-relocate         Force the use of no relocating in the test"
+        echo "    --image               Run the test using a precompiled boot image. (default)"
+        echo "    --no-image            Run the test without a precompiled boot image."
         echo "    --host                Use the host-mode virtual machine."
         echo "    --invoke-with         Pass --invoke-with option to runtime."
         echo "    --dalvik              Use Dalvik (off by default)."
         echo "    --jvm                 Use a host-local RI virtual machine."
+        echo "    --use-java-home       Use the JAVA_HOME environment variable"
+        echo "                          to find the java compiler and runtime"
+        echo "                          (if applicable) to run the test with."
         echo "    --output-path [path]  Location where to store the build" \
              "files."
         echo "    --64                  Run the test in 64-bit mode"
         echo "    --trace               Run with method tracing"
+        echo "    --strace              Run with syscall tracing from strace."
         echo "    --stream              Run method tracing in streaming mode (requires --trace)"
         echo "    --gcstress            Run with gc stress testing"
         echo "    --gcverify            Run with gc verification"
         echo "    --always-clean        Delete the test files even if the test fails."
+        echo "    --never-clean         Keep the test files even if the test succeeds."
         echo "    --android-root [path] The path on target for the android root. (/system by default)."
         echo "    --dex2oat-swap        Use a dex2oat swap file."
-    ) 1>&2
+        echo "    --instruction-set-features [string]"
+        echo "                          Set instruction-set-features for compilation."
+        echo "    --pic-image           Use an image compiled with position independent code for the"
+        echo "                          boot class path."
+        echo "    --multi-image         Use a set of images compiled with dex2oat multi-image for"
+        echo "                          the boot class path."
+        echo "    --pic-test            Compile the test code position independent."
+        echo "    --quiet               Don't print anything except failure messages"
+    ) 1>&2  # Direct to stderr so usage is not printed if --quiet is set.
     exit 1
 fi
 
@@ -549,12 +619,12 @@ td_info="${test_dir}/${info}"
 td_expected="${test_dir}/${expected}"
 
 if [ ! -r $td_info ]; then
-    echo "${test_dir}: missing file $td_info" 1>&2
+    err_echo "${test_dir}: missing file $td_info"
     exit 1
 fi
 
 if [ ! -r $td_expected ]; then
-    echo "${test_dir}: missing file $td_expected" 1>&2
+    err_echo "${test_dir}: missing file $td_expected"
     exit 1
 fi
 
@@ -568,14 +638,20 @@ cd "$tmp_dir"
 
 if [ '!' -r "$build" ]; then
     cp "${progdir}/etc/default-build" build
+else
+    cp "${progdir}/etc/default-build" .
 fi
 
 if [ '!' -r "$run" ]; then
     cp "${progdir}/etc/default-run" run
+else
+    cp "${progdir}/etc/default-run" .
 fi
 
 if [ '!' -r "$check_cmd" ]; then
     cp "${progdir}/etc/default-check" check
+else
+    cp "${progdir}/etc/default-check" .
 fi
 
 chmod 755 "$build"
@@ -584,39 +660,81 @@ chmod 755 "$check_cmd"
 
 export TEST_NAME=`basename ${test_dir}`
 
+# arch_supports_read_barrier ARCH
+# -------------------------------
+# Return whether the Optimizing compiler has read barrier support for ARCH.
+function arch_supports_read_barrier() {
+  # Optimizing has read barrier support for ARM, ARM64, x86 and x86-64 at the
+  # moment.
+  [ "x$1" = xarm ] || [ "x$1" = xarm64 ] || [ "x$1" = xx86 ] || [ "x$1" = xx86_64 ]
+}
+
 # Tests named '<number>-checker-*' will also have their CFGs verified with
 # Checker when compiled with Optimizing on host.
 if [[ "$TEST_NAME" =~ ^[0-9]+-checker- ]]; then
-  # Build Checker DEX files without dx's optimizations so the input to dex2oat
-  # better resembles the Java source. We always build the DEX the same way, even
-  # if Checker is not invoked and the test only runs the program.
-  build_args="${build_args} --dx-option --no-optimize"
+  if [ "$runtime" = "art" -a "$image_suffix" = "-optimizing" -a "$USE_JACK" = "true" ]; then
+    # Optimizing has read barrier support for certain architectures
+    # only. On other architectures, compiling is disabled when read
+    # barriers are enabled, meaning that we do not produce a CFG file
+    # as a side-effect of compilation, thus the Checker assertions
+    # cannot be checked. Disable Checker for those cases.
+    #
+    # TODO: Enable Checker when read barrier support is added to more
+    # architectures (b/12687968).
+    if [ "x$ART_USE_READ_BARRIER" = xtrue ]                    \
+       && (([ "x$host_mode" = "xyes" ]                         \
+            && ! arch_supports_read_barrier "$host_arch_name") \
+           || ([ "x$target_mode" = "xyes" ]                    \
+               && ! arch_supports_read_barrier "$target_arch_name")); then
+      run_checker="no"
+    # In no-prebuild mode, the compiler is only invoked if both dex2oat and
+    # patchoat are available. Disable Checker otherwise (b/22552692).
+    elif [ "$prebuild_mode" = "yes" ] \
+         || [ "$have_patchoat" = "yes" -a "$have_dex2oat" = "yes" ]; then
+      run_checker="yes"
 
-  # Jack does not necessarily generate the same DEX output than dx. Because these tests depend
-  # on a particular DEX output, keep building them with dx for now (b/19467889).
-  USE_JACK="false"
+      if [ "$target_mode" = "no" ]; then
+        cfg_output_dir="$tmp_dir"
+        checker_args="--arch=${host_arch_name^^}"
+      else
+        cfg_output_dir="$DEX_LOCATION"
+        checker_args="--arch=${target_arch_name^^}"
+      fi
 
-  if [ "$runtime" = "art" -a "$image_suffix" = "-optimizing" -a "$target_mode" = "no" -a "$debuggable" = "no" ]; then
-    run_checker="yes"
-    run_args="${run_args} -Xcompiler-option --dump-cfg=$tmp_dir/$cfg_output \
-                          -Xcompiler-option -j1"
+      if [ "$debuggable" = "yes" ]; then
+        checker_args="$checker_args --debuggable"
+      fi
+
+      run_args="${run_args} -Xcompiler-option --dump-cfg=$cfg_output_dir/$cfg_output \
+                            -Xcompiler-option -j1"
+    fi
   fi
+fi
+
+if [ "$runtime" != "jvm" ]; then
+  run_args="${run_args} --testlib ${testlib}"
 fi
 
 # To cause tests to fail fast, limit the file sizes created by dx, dex2oat and ART output to 2MB.
 build_file_size_limit=2048
 run_file_size_limit=2048
-if echo "$test_dir" | grep 089; then
+
+# Add tests requiring a higher ulimit to this list. Ulimits might need to be raised to deal with
+# large amounts of expected output or large generated files.
+if echo "$test_dir" | grep -Eq "(083|089|961|964|971)" > /dev/null; then
   build_file_size_limit=5120
   run_file_size_limit=5120
-elif echo "$test_dir" | grep 083; then
-  build_file_size_limit=5120
-  run_file_size_limit=5120
+fi
+if [ "$run_checker" = "yes" -a "$target_mode" = "yes" ]; then
+  # We will need to `adb pull` the .cfg output from the target onto the host to
+  # run checker on it. This file can be big.
+  build_file_size_limit=24576
+  run_file_size_limit=24576
 fi
 if [ ${USE_JACK} = "false" ]; then
   # Set ulimit if we build with dx only, Jack can generate big temp files.
   if ! ulimit -S "$build_file_size_limit"; then
-    echo "ulimit file size setting failed"
+    err_echo "ulimit file size setting failed"
   fi
 fi
 
@@ -629,7 +747,7 @@ if [ "$dev_mode" = "yes" ]; then
     echo "build exit status: $build_exit" 1>&2
     if [ "$build_exit" = '0' ]; then
         if ! ulimit -S "$run_file_size_limit"; then
-          echo "ulimit file size setting failed"
+          err_echo "ulimit file size setting failed"
         fi
         echo "${test_dir}: running..." 1>&2
         "./${run}" $run_args "$@" 2>&1
@@ -637,12 +755,15 @@ if [ "$dev_mode" = "yes" ]; then
 
         if [ "$run_exit" = "0" ]; then
             if [ "$run_checker" = "yes" ]; then
-                "$checker" "$cfg_output" "$tmp_dir" 2>&1
+                if [ "$target_mode" = "yes" ]; then
+                  adb pull $cfg_output_dir/$cfg_output &> /dev/null
+                fi
+                "$checker" $checker_args "$cfg_output" "$tmp_dir" 2>&1
                 checker_exit="$?"
                 if [ "$checker_exit" = "0" ]; then
                     good="yes"
                 fi
-                echo "checker exit status: $checker_exit" 1>&2
+                err_echo "checker exit status: $checker_exit"
             else
                 good="yes"
             fi
@@ -654,18 +775,21 @@ elif [ "$update_mode" = "yes" ]; then
     build_exit="$?"
     if [ "$build_exit" = '0' ]; then
         if ! ulimit -S "$run_file_size_limit"; then
-          echo "ulimit file size setting failed"
+          err_echo "ulimit file size setting failed"
         fi
         echo "${test_dir}: running..." 1>&2
         "./${run}" $run_args "$@" >"$output" 2>&1
         if [ "$run_checker" = "yes" ]; then
-          "$checker" -q "$cfg_output" "$tmp_dir" >> "$output" 2>&1
+          if [ "$target_mode" = "yes" ]; then
+            adb pull $cfg_output_dir/$cfg_output &> /dev/null
+          fi
+          "$checker" -q $checker_args "$cfg_output" "$tmp_dir" >> "$output" 2>&1
         fi
         sed -e 's/[[:cntrl:]]$//g' < "$output" >"${td_expected}"
         good="yes"
     else
-        cat "$build_output" 1>&2
-        echo "build exit status: $build_exit" 1>&2
+        cat "$build_output" 1>&${real_stderr} 1>&2
+        err_echo "build exit status: $build_exit"
     fi
 elif [ "$build_only" = "yes" ]; then
     good="yes"
@@ -677,7 +801,7 @@ elif [ "$build_only" = "yes" ]; then
         diff --strip-trailing-cr -q "$expected" "$output" >/dev/null
         if [ "$?" '!=' "0" ]; then
             good="no"
-            echo "BUILD FAILED For ${TEST_NAME}"
+            err_echo "BUILD FAILED For ${TEST_NAME}"
         fi
     fi
     # Clean up extraneous files that are not used by tests.
@@ -688,19 +812,22 @@ else
     build_exit="$?"
     if [ "$build_exit" = '0' ]; then
         if ! ulimit -S "$run_file_size_limit"; then
-          echo "ulimit file size setting failed"
+          err_echo "ulimit file size setting failed"
         fi
         echo "${test_dir}: running..." 1>&2
         "./${run}" $run_args "$@" >"$output" 2>&1
         run_exit="$?"
         if [ "$run_exit" != "0" ]; then
-            echo "run exit status: $run_exit" 1>&2
+            err_echo "run exit status: $run_exit"
             good_run="no"
         elif [ "$run_checker" = "yes" ]; then
-            "$checker" -q "$cfg_output" "$tmp_dir" >> "$output" 2>&1
+            if [ "$target_mode" = "yes" ]; then
+              adb pull $cfg_output_dir/$cfg_output &> /dev/null
+            fi
+            "$checker" -q $checker_args "$cfg_output" "$tmp_dir" >> "$output" 2>&1
             checker_exit="$?"
             if [ "$checker_exit" != "0" ]; then
-                echo "checker exit status: $checker_exit" 1>&2
+                err_echo "checker exit status: $checker_exit"
                 good_run="no"
             else
                 good_run="yes"
@@ -737,15 +864,20 @@ fi
         echo '#################### info'
         cat "${td_info}" | sed 's/^/# /g'
         echo '#################### diffs'
-        diff --strip-trailing-cr -u "$expected" "$output" | tail -n 2000
+        diff --strip-trailing-cr -u "$expected" "$output" | tail -n 3000
         echo '####################'
+        if [ "$strace" = "yes" ]; then
+            echo '#################### strace output'
+            tail -n 3000 "$tmp_dir/$strace_output"
+            echo '####################'
+        fi
         echo ' '
     fi
 
-) 1>&2
+) 2>&${real_stderr} 1>&2
 
 # Clean up test files.
-if [ "$always_clean" = "yes" -o "$good" = "yes" ]; then
+if [ "$always_clean" = "yes" -o "$good" = "yes" ] && [ "$never_clean" = "no" ]; then
     cd "$oldwd"
     rm -rf "$tmp_dir"
     if [ "$target_mode" = "yes" -a "$build_exit" = "0" ]; then
@@ -770,6 +902,6 @@ fi
         fi
     fi
 
-) 1>&2
+) 2>&${real_stderr} 1>&2
 
 exit 1

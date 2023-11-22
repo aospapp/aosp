@@ -12,7 +12,3 @@ fs_types.fs:27:13: error: Builtin types > 32 bits in size are forbidden in Filte
 fs_types.fs:28:15: error: Builtin types > 32 bits in size are forbidden in Filterscript: 'm'
 fs_types.fs:29:13: error: Builtin types > 32 bits in size are forbidden in Filterscript
 fs_types.fs:30:7: error: Builtin types > 32 bits in size are forbidden in Filterscript
-fs_types.fs:33:13: error: Builtin types > 32 bits in size are forbidden in Filterscript: 'l'
-fs_types.fs:34:17: error: Builtin types > 32 bits in size are forbidden in Filterscript: 'm'
-fs_types.fs:35:15: error: Builtin types > 32 bits in size are forbidden in Filterscript
-fs_types.fs:36:7: error: Builtin types > 32 bits in size are forbidden in Filterscript

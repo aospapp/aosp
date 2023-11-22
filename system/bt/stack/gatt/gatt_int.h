@@ -21,7 +21,7 @@
 
 #include "bt_target.h"
 
-
+#include "osi/include/fixed_queue.h"
 #include "bt_trace.h"
 #include "gatt_api.h"
 #include "btm_ble_api.h"
@@ -75,8 +75,8 @@ typedef UINT8 tGATT_SEC_ACTION;
 #define GATT_HDR_SIZE           3 /* 1B opcode + 2B handle */
 
 /* wait for ATT cmd response timeout value */
-#define GATT_WAIT_FOR_RSP_TOUT       30
-#define GATT_WAIT_FOR_DISC_RSP_TOUT  5
+#define GATT_WAIT_FOR_RSP_TIMEOUT_MS      (30 * 1000)
+#define GATT_WAIT_FOR_DISC_RSP_TIMEOUT_MS (5 * 1000)
 #define GATT_REQ_RETRY_LIMIT         2
 
 /* characteristic descriptor type */
@@ -217,7 +217,7 @@ typedef struct
     void            *p_attr_list;               /* pointer to the first attribute,
                                                   either tGATT_ATTR16 or tGATT_ATTR128 */
     UINT8           *p_free_mem;                /* Pointer to free memory       */
-    BUFFER_Q        svc_buffer;                 /* buffer queue used for service database */
+    fixed_queue_t   *svc_buffer;                /* buffer queue used for service database */
     UINT32          mem_free;                   /* Memory still available       */
     UINT16          end_handle;                 /* Last handle number           */
     UINT16          next_handle;                /* Next usable handle value     */
@@ -284,7 +284,7 @@ typedef struct
     BT_HDR          *p_rsp_msg;
     UINT32           trans_id;
     tGATT_READ_MULTI multi_req;
-    BUFFER_Q         multi_rsp_q;
+    fixed_queue_t   *multi_rsp_q;
     UINT16           handle;
     UINT8            op_code;
     UINT8            status;
@@ -348,7 +348,7 @@ typedef struct
 
 typedef struct
 {
-    BUFFER_Q        pending_enc_clcb;   /* pending encryption channel q */
+    fixed_queue_t   *pending_enc_clcb;   /* pending encryption channel q */
     tGATT_SEC_ACTION sec_act;
     BD_ADDR         peer_bda;
     tBT_TRANSPORT   transport;
@@ -360,23 +360,23 @@ typedef struct
     tGATT_CH_STATE  ch_state;
     UINT8           ch_flags;
 
-    tGATT_IF         app_hold_link[GATT_MAX_APPS];
+    tGATT_IF        app_hold_link[GATT_MAX_APPS];
 
     /* server needs */
     /* server response data */
     tGATT_SR_CMD    sr_cmd;
     UINT16          indicate_handle;
-    BUFFER_Q        pending_ind_q;
+    fixed_queue_t   *pending_ind_q;
 
-    TIMER_LIST_ENT  conf_timer_ent;     /* peer confirm to indication timer */
+    alarm_t         *conf_timer;         /* peer confirm to indication timer */
 
-    UINT8            prep_cnt[GATT_MAX_APPS];
-    UINT8            ind_count;
+    UINT8           prep_cnt[GATT_MAX_APPS];
+    UINT8           ind_count;
 
-    tGATT_CMD_Q       cl_cmd_q[GATT_CL_MAX_LCB];
-    TIMER_LIST_ENT    ind_ack_timer_ent;    /* local app confirm to indication timer */
-    UINT8             pending_cl_req;
-    UINT8             next_slot_inq;    /* index of next available slot in queue */
+    tGATT_CMD_Q     cl_cmd_q[GATT_CL_MAX_LCB];
+    alarm_t         *ind_ack_timer;   /* local app confirm to indication timer */
+    UINT8           pending_cl_req;
+    UINT8           next_slot_inq;    /* index of next available slot in queue */
 
     BOOLEAN         in_use;
     UINT8           tcb_idx;
@@ -410,7 +410,7 @@ typedef struct
     BOOLEAN                 first_read_blob_after_read;
     tGATT_READ_INC_UUID128  read_uuid128;
     BOOLEAN                 in_use;
-    TIMER_LIST_ENT          rsp_timer_ent;  /* peer response timer */
+    alarm_t                 *gatt_rsp_timer_ent;  /* peer response timer */
     UINT8                   retry_count;
 
 } tGATT_CLCB;
@@ -419,25 +419,6 @@ typedef struct
 {
     tGATT_CLCB  *p_clcb;
 }tGATT_PENDING_ENC_CLCB;
-
-
-#define GATT_SIGN_WRITE             1
-#define GATT_VERIFY_SIGN_DATA       2
-
-typedef struct
-{
-    BT_HDR      hdr;
-    tGATT_CLCB  *p_clcb;
-}tGATT_SIGN_WRITE_OP;
-
-typedef struct
-{
-    BT_HDR      hdr;
-    tGATT_TCB   *p_tcb;
-    BT_HDR      *p_data;
-
-}tGATT_VERIFY_SIGN_OP;
-
 
 typedef struct
 {
@@ -484,7 +465,7 @@ typedef struct
 typedef struct
 {
     tGATT_TCB           tcb[GATT_MAX_PHY_CHANNEL];
-    BUFFER_Q            sign_op_queue;
+    fixed_queue_t       *sign_op_queue;
 
     tGATT_SR_REG        sr_reg[GATT_MAX_SR_PROFILES];
     UINT16              next_handle;    /* next available handle */
@@ -495,8 +476,8 @@ typedef struct
     tGATT_SRV_LIST_INFO srv_list_info;
     tGATT_SRV_LIST_ELEM srv_list[GATT_MAX_SR_PROFILES];
 
-    BUFFER_Q            srv_chg_clt_q;   /* service change clients queue */
-    BUFFER_Q            pending_new_srv_start_q; /* pending new service start queue */
+    fixed_queue_t       *srv_chg_clt_q; /* service change clients queue */
+    fixed_queue_t       *pending_new_srv_start_q; /* pending new service start queue */
     tGATT_REG           cl_rcb[GATT_MAX_APPS];
     tGATT_CLCB          clcb[GATT_CL_MAX_LCB];  /* connection link control block*/
     tGATT_SCCB          sccb[GATT_MAX_SCCB];    /* sign complete callback function GATT_MAX_SCCB <= GATT_CL_MAX_LCB */
@@ -585,8 +566,9 @@ extern void gatt_convert_uuid32_to_uuid128(UINT8 uuid_128[LEN_UUID_128], UINT32 
 extern void gatt_sr_get_sec_info(BD_ADDR rem_bda, tBT_TRANSPORT transport, UINT8 *p_sec_flag, UINT8 *p_key_size);
 extern void gatt_start_rsp_timer(UINT16 clcb_idx);
 extern void gatt_start_conf_timer(tGATT_TCB    *p_tcb);
-extern void gatt_rsp_timeout(TIMER_LIST_ENT *p_tle);
-extern void gatt_ind_ack_timeout(TIMER_LIST_ENT *p_tle);
+extern void gatt_rsp_timeout(void *data);
+extern void gatt_indication_confirmation_timeout(void *data);
+extern void gatt_ind_ack_timeout(void *data);
 extern void gatt_start_ind_ack_timer(tGATT_TCB *p_tcb);
 extern tGATT_STATUS gatt_send_error_rsp(tGATT_TCB *p_tcb, UINT8 err_code, UINT8 op_code, UINT16 handle, BOOLEAN deq);
 extern void gatt_dbg_display_uuid(tBT_UUID bt_uuid);

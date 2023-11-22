@@ -29,14 +29,14 @@ public:
                                 audio_channel_mask_t channelMask,
                                 size_t frameCount,
                                 void *buffer,
-                                int sessionId,
+                                audio_session_t sessionId,
                                 int uid,
                                 IAudioFlinger::track_flags_t flags,
                                 track_type type);
     virtual             ~RecordTrack();
     virtual status_t    initCheck() const;
 
-    virtual status_t    start(AudioSystem::sync_event_t event, int triggerSession);
+    virtual status_t    start(AudioSystem::sync_event_t event, audio_session_t triggerSession);
     virtual void        stop();
 
             void        destroy();
@@ -54,6 +54,10 @@ public:
             void        handleSyncStartEvent(const sp<SyncEvent>& event);
             void        clearSyncStartEvent();
 
+            void        updateTrackFrameInfo(int64_t trackFramesReleased,
+                                             int64_t sourceFramesRead,
+                                             uint32_t halSampleRate,
+                                             const ExtendedTimestamp &timestamp);
 private:
     friend class AudioFlinger;  // for mState
 
@@ -61,8 +65,7 @@ private:
                         RecordTrack& operator = (const RecordTrack&);
 
     // AudioBufferProvider interface
-    virtual status_t getNextBuffer(AudioBufferProvider::Buffer* buffer,
-                                   int64_t pts = kInvalidPTS);
+    virtual status_t getNextBuffer(AudioBufferProvider::Buffer* buffer);
     // releaseBuffer() not overridden
 
     bool                mOverflow;  // overflow on most recent attempt to fill client buffer
@@ -99,8 +102,7 @@ public:
     virtual             ~PatchRecord();
 
     // AudioBufferProvider interface
-    virtual status_t getNextBuffer(AudioBufferProvider::Buffer* buffer,
-                                   int64_t pts);
+    virtual status_t getNextBuffer(AudioBufferProvider::Buffer* buffer);
     virtual void releaseBuffer(AudioBufferProvider::Buffer* buffer);
 
     // PatchProxyBufferProvider interface

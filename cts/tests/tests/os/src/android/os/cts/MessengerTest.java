@@ -30,6 +30,7 @@ import android.os.Message;
 import android.os.Messenger;
 import android.os.Parcel;
 import android.os.RemoteException;
+import android.os.ResultReceiver;
 import android.test.AndroidTestCase;
 
 import java.io.FileDescriptor;
@@ -86,6 +87,11 @@ public class MessengerTest extends AndroidTestCase {
         }
 
         public void dumpAsync(FileDescriptor fd, String[] args) throws RemoteException {
+        }
+
+        @Override
+        public void shellCommand(FileDescriptor in, FileDescriptor out, FileDescriptor err,
+                String[] args, ResultReceiver resultReceiver) {
         }
 
     };

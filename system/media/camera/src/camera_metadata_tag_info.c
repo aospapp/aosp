@@ -212,6 +212,10 @@ static tag_info_t android_control[ANDROID_CONTROL_END -
     { "awbLockAvailable",              TYPE_BYTE   },
     [ ANDROID_CONTROL_AVAILABLE_MODES - ANDROID_CONTROL_START ] =
     { "availableModes",                TYPE_BYTE   },
+    [ ANDROID_CONTROL_POST_RAW_SENSITIVITY_BOOST_RANGE - ANDROID_CONTROL_START ] =
+    { "postRawSensitivityBoostRange",  TYPE_INT32  },
+    [ ANDROID_CONTROL_POST_RAW_SENSITIVITY_BOOST - ANDROID_CONTROL_START ] =
+    { "postRawSensitivityBoost",       TYPE_INT32  },
 };
 
 static tag_info_t android_demosaic[ANDROID_DEMOSAIC_END -
@@ -492,6 +496,14 @@ static tag_info_t android_sensor[ANDROID_SENSOR_END -
     { "availableTestPatternModes",     TYPE_INT32  },
     [ ANDROID_SENSOR_ROLLING_SHUTTER_SKEW - ANDROID_SENSOR_START ] =
     { "rollingShutterSkew",            TYPE_INT64  },
+    [ ANDROID_SENSOR_OPTICAL_BLACK_REGIONS - ANDROID_SENSOR_START ] =
+    { "opticalBlackRegions",           TYPE_INT32  },
+    [ ANDROID_SENSOR_DYNAMIC_BLACK_LEVEL - ANDROID_SENSOR_START ] =
+    { "dynamicBlackLevel",             TYPE_FLOAT  },
+    [ ANDROID_SENSOR_DYNAMIC_WHITE_LEVEL - ANDROID_SENSOR_START ] =
+    { "dynamicWhiteLevel",             TYPE_INT32  },
+    [ ANDROID_SENSOR_OPAQUE_RAW_SIZE - ANDROID_SENSOR_START ] =
+    { "opaqueRawSize",                 TYPE_INT32  },
 };
 
 static tag_info_t android_sensor_info[ANDROID_SENSOR_INFO_END -
@@ -1137,6 +1149,14 @@ int camera_metadata_enum_snprint(uint32_t tag,
                     msg = "FACE_PRIORITY_LOW_LIGHT";
                     ret = 0;
                     break;
+                case ANDROID_CONTROL_SCENE_MODE_DEVICE_CUSTOM_START:
+                    msg = "DEVICE_CUSTOM_START";
+                    ret = 0;
+                    break;
+                case ANDROID_CONTROL_SCENE_MODE_DEVICE_CUSTOM_END:
+                    msg = "DEVICE_CUSTOM_END";
+                    ret = 0;
+                    break;
                 default:
                     msg = "error: enum value out of range";
             }
@@ -1322,6 +1342,12 @@ int camera_metadata_enum_snprint(uint32_t tag,
             break;
         }
         case ANDROID_CONTROL_AVAILABLE_MODES: {
+            break;
+        }
+        case ANDROID_CONTROL_POST_RAW_SENSITIVITY_BOOST_RANGE: {
+            break;
+        }
+        case ANDROID_CONTROL_POST_RAW_SENSITIVITY_BOOST: {
             break;
         }
 
@@ -2088,6 +2114,18 @@ int camera_metadata_enum_snprint(uint32_t tag,
         case ANDROID_SENSOR_ROLLING_SHUTTER_SKEW: {
             break;
         }
+        case ANDROID_SENSOR_OPTICAL_BLACK_REGIONS: {
+            break;
+        }
+        case ANDROID_SENSOR_DYNAMIC_BLACK_LEVEL: {
+            break;
+        }
+        case ANDROID_SENSOR_DYNAMIC_WHITE_LEVEL: {
+            break;
+        }
+        case ANDROID_SENSOR_OPAQUE_RAW_SIZE: {
+            break;
+        }
 
         case ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE: {
             break;
@@ -2454,6 +2492,10 @@ int camera_metadata_enum_snprint(uint32_t tag,
                     break;
                 case ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY:
                     msg = "LEGACY";
+                    ret = 0;
+                    break;
+                case ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_3:
+                    msg = "3";
                     ret = 0;
                     break;
                 default:

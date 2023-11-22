@@ -126,15 +126,20 @@ public class VideoProviderProxy extends Connection.VideoProvider {
          */
         @Override
         public void receiveSessionModifyRequest(VideoProfile videoProfile) {
-            synchronized (mLock) {
-                logFromVideoProvider("receiveSessionModifyRequest: " + videoProfile);
+            try {
+                Log.startSession("VPP.rSMR");
+                synchronized (mLock) {
+                    logFromVideoProvider("receiveSessionModifyRequest: " + videoProfile);
 
-                // Inform other Telecom components of the session modification request.
-                for (Listener listener : mListeners) {
-                    listener.onSessionModifyRequestReceived(mCall, videoProfile);
+                    // Inform other Telecom components of the session modification request.
+                    for (Listener listener : mListeners) {
+                        listener.onSessionModifyRequestReceived(mCall, videoProfile);
+                    }
+
+                    VideoProviderProxy.this.receiveSessionModifyRequest(videoProfile);
                 }
-
-                VideoProviderProxy.this.receiveSessionModifyRequest(videoProfile);
+            } finally {
+                Log.endSession();
             }
         }
 
@@ -206,6 +211,9 @@ public class VideoProviderProxy extends Connection.VideoProvider {
          * Proxies a request from the {@link #mConectionServiceVideoProvider} to the
          * {@link InCallService} when the call data usage changes.
          *
+         * Also tracks the current call data usage on the {@link Call} for use when writing to the
+         * call log.
+         *
          * @param dataUsage The data usage.
          */
         @Override
@@ -213,6 +221,7 @@ public class VideoProviderProxy extends Connection.VideoProvider {
             synchronized (mLock) {
                 logFromVideoProvider("changeCallDataUsage: " + dataUsage);
                 VideoProviderProxy.this.setCallDataUsage(dataUsage);
+                mCall.setCallDataUsage(dataUsage);
             }
         }
 

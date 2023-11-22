@@ -4,8 +4,3 @@
 struct {
     int i;
 } myStruct;
-
-int root(int num) {
-    return 10;
-}
-

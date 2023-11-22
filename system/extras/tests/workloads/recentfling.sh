@@ -18,10 +18,12 @@ function processLocalOption {
 	(-A) unset appList;;
 	(-L) appList=$2; shift; ret=1;;
 	(-T) capturesystrace=1;;
+	(-B) echo $$ > /dev/cpuset/background/tasks;;
 	(*)
 		echo "$0: unrecognized option: $1"
 		echo; echo "Usage: $0 [options]"
 		echo "-A : use all known applications"
+		echo "-B : run in background cpuset"
 		echo "-L applist : list of applications"
 		echo "   default: $appList"
 		echo "-N : no app startups, just fling"
@@ -44,6 +46,12 @@ case $DEVICE in
 	upCount=6
 	UP="70 400 70 100 $flingtime"
 	DOWN="70 100 70 400 $flingtime";;
+(angler|ariel|mtp8996)
+	flingtime=150
+	downCount=4
+	upCount=3
+	UP="500 1200 500 550 $flingtime"
+	DOWN="500 550 500 1200 $flingtime";;
 (bullhead)
 	flingtime=200
 	downCount=5
@@ -122,7 +130,6 @@ do
 	latency99=$5
 	if [ ${totalDiff:=0} -eq 0 ]; then
 		echo Error: could not read frame info with \"dumpsys gfxinfo\"
-		exit 1
 	fi
 
 	((frameSum=frameSum+totalDiff))
@@ -132,7 +139,6 @@ do
 	((latency99Sum=latency99Sum+latency99))
 	if [ "$totalDiff" -eq 0 ]; then
 		echo Error: no frames detected. Is the display off?
-		exit 1
 	fi
 	((jankPct=jankyDiff*100/totalDiff))
 	resetJankyFrames

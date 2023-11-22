@@ -203,11 +203,9 @@ typedef struct
 #define RFC_EVENT_DATA                  14
 #define RFC_EVENT_SEC_COMPLETE          15
 
-// btla-specific ++
 #define RFC_T1_TIMEOUT                  20   /* seconds to wait for reply with Poll bit */
 #define RFC_PORT_T1_TIMEOUT             60   /* seconds to wait for reply with Poll bit other than MX */
 #define RFC_T2_TIMEOUT                  20   /* timeout to wait for Mx UIH */
-// btla-specific --
 #define RFC_DISC_TIMEOUT                3    /* If something goes wrong and we send DISC we should not wait for min */
 #define RFC_CLOSE_TIMEOUT               10
 #define RFCOMM_CONN_TIMEOUT            120   /* first connection to be established on Mx */

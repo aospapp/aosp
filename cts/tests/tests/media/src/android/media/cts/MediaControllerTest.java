@@ -214,6 +214,32 @@ public class MediaControllerTest extends AndroidTestCase {
             mWaitLock.wait(TIME_OUT_MS);
             assertTrue(mCallback.mOnSkipToQueueItemCalled);
             assertEquals(queueItemId, mCallback.mQueueItemId);
+
+            mCallback.reset();
+            controls.prepare();
+            mWaitLock.wait(TIME_OUT_MS);
+            assertTrue(mCallback.mOnPrepareCalled);
+
+            mCallback.reset();
+            controls.prepareFromMediaId(mediaId, extras);
+            mWaitLock.wait(TIME_OUT_MS);
+            assertTrue(mCallback.mOnPrepareFromMediaIdCalled);
+            assertEquals(mediaId, mCallback.mMediaId);
+            assertEquals(EXTRAS_VALUE, mCallback.mExtras.getString(EXTRAS_KEY));
+
+            mCallback.reset();
+            controls.prepareFromSearch(query, extras);
+            mWaitLock.wait(TIME_OUT_MS);
+            assertTrue(mCallback.mOnPrepareFromSearchCalled);
+            assertEquals(query, mCallback.mQuery);
+            assertEquals(EXTRAS_VALUE, mCallback.mExtras.getString(EXTRAS_KEY));
+
+            mCallback.reset();
+            controls.prepareFromUri(uri, extras);
+            mWaitLock.wait(TIME_OUT_MS);
+            assertTrue(mCallback.mOnPrepareFromUriCalled);
+            assertEquals(uri, mCallback.mUri);
+            assertEquals(EXTRAS_VALUE, mCallback.mExtras.getString(EXTRAS_KEY));
         }
     }
 
@@ -244,6 +270,10 @@ public class MediaControllerTest extends AndroidTestCase {
         private boolean mOnPlayFromUriCalled;
         private boolean mOnCustomActionCalled;
         private boolean mOnCommandCalled;
+        private boolean mOnPrepareCalled;
+        private boolean mOnPrepareFromMediaIdCalled;
+        private boolean mOnPrepareFromSearchCalled;
+        private boolean mOnPrepareFromUriCalled;
 
         public void reset() {
             mSeekPosition = -1;
@@ -272,6 +302,10 @@ public class MediaControllerTest extends AndroidTestCase {
             mOnPlayFromUriCalled = false;
             mOnCustomActionCalled = false;
             mOnCommandCalled = false;
+            mOnPrepareCalled = false;
+            mOnPrepareFromMediaIdCalled = false;
+            mOnPrepareFromSearchCalled = false;
+            mOnPrepareFromUriCalled = false;
         }
 
         @Override
@@ -404,6 +438,44 @@ public class MediaControllerTest extends AndroidTestCase {
                 mCommand = command;
                 mExtras = extras;
                 mCommandCallback = cb;
+                mWaitLock.notify();
+            }
+        }
+
+        @Override
+        public void onPrepare() {
+            synchronized (mWaitLock) {
+                mOnPrepareCalled = true;
+                mWaitLock.notify();
+            }
+        }
+
+        @Override
+        public void onPrepareFromMediaId(String mediaId, Bundle extras) {
+            synchronized (mWaitLock) {
+                mOnPrepareFromMediaIdCalled = true;
+                mMediaId = mediaId;
+                mExtras = extras;
+                mWaitLock.notify();
+            }
+        }
+
+        @Override
+        public void onPrepareFromSearch(String query, Bundle extras) {
+            synchronized (mWaitLock) {
+                mOnPrepareFromSearchCalled = true;
+                mQuery = query;
+                mExtras = extras;
+                mWaitLock.notify();
+            }
+        }
+
+        @Override
+        public void onPrepareFromUri(Uri uri, Bundle extras) {
+            synchronized (mWaitLock) {
+                mOnPrepareFromUriCalled = true;
+                mUri = uri;
+                mExtras = extras;
                 mWaitLock.notify();
             }
         }

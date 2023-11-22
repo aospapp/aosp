@@ -19,6 +19,7 @@
 #pragma once
 
 #include <stddef.h>
+#include <stdint.h>
 #include <stdlib.h>
 
 typedef void *(*alloc_fn)(size_t size);
@@ -34,7 +35,14 @@ extern const allocator_t allocator_malloc;
 extern const allocator_t allocator_calloc;
 
 char *osi_strdup(const char *str);
+char *osi_strndup(const char *str, size_t len);
 
 void *osi_malloc(size_t size);
 void *osi_calloc(size_t size);
 void osi_free(void *ptr);
+
+// Free a buffer that was previously allocated with function |osi_malloc|
+// or |osi_calloc| and reset the pointer to that buffer to NULL.
+// |p_ptr| is a pointer to the buffer pointer to be reset.
+// |p_ptr| cannot be NULL.
+void osi_free_and_reset(void **p_ptr);

@@ -16,14 +16,11 @@ import vars_dict_lib
 
 SKIA_RESOURCES = (
 """
-# Setup directory to store skia's resources in the directory structure that
-# the Android testing infrastructure expects
-skia_res_dir := $(call intermediates-dir-for,PACKAGING,skia_resources)/DATA
-$(shell mkdir -p $(skia_res_dir))
-$(shell cp -r $(LOCAL_PATH)/../resources/. $(skia_res_dir)/skia_resources)
-LOCAL_PICKUP_FILES := $(skia_res_dir)
-skia_res_dir :=
-
+# Store skia's resources in the directory structure that the Android testing
+# infrastructure expects.  This requires that Skia maintain a symlinked
+# subdirectory in the DATA folder that points to the top level skia resources...
+#  i.e. external/skia/DATA/skia_resources --> ../resources
+LOCAL_PICKUP_FILES := $(LOCAL_PATH)/../DATA
 """
 )
 
@@ -38,12 +35,15 @@ def write_tool_android_mk(target_dir, var_dict):
   with open(target_file, 'w') as f:
     f.write(makefile_writer.AUTOGEN_WARNING)
 
-    makefile_writer.write_local_path(f)
-    makefile_writer.write_clear_vars(f)
+    f.write(makefile_writer.LOCAL_PATH)
+    f.write(makefile_writer.CLEAR_VARS)
 
     makefile_writer.write_local_vars(f, var_dict, False, None)
 
     f.write(SKIA_RESOURCES)
+    f.write('include $(LOCAL_PATH)/../skia_static_deps.mk\n')
+    if 'libhwui_static' in var_dict['LOCAL_STATIC_LIBRARIES']:
+      f.write('include frameworks/base/libs/hwui/hwui_static_deps.mk\n')
     f.write('include $(BUILD_NATIVE_TEST)\n')
 
 

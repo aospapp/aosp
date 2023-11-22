@@ -12,6 +12,7 @@ support_SRC_FILES := \
   Atomic.cpp \
   BlockFrequency.cpp \
   BranchProbability.cpp \
+  COM.cpp \
   CommandLine.cpp \
   Compression.cpp \
   ConvertUTF.c \
@@ -35,6 +36,7 @@ support_SRC_FILES := \
   IntervalMap.cpp \
   IntEqClasses.cpp \
   IntrusiveRefCntPtr.cpp \
+  JamCRC.cpp \
   LEB128.cpp \
   LineIterator.cpp \
   Locale.cpp \
@@ -67,8 +69,10 @@ support_SRC_FILES := \
   StringExtras.cpp \
   StringMap.cpp \
   StringPool.cpp \
+  StringSaver.cpp \
   StringRef.cpp \
   SystemUtils.cpp \
+  TargetParser.cpp \
   TargetRegistry.cpp \
   Threading.cpp \
   ThreadLocal.cpp \
@@ -105,7 +109,7 @@ LOCAL_MODULE:= libLLVMSupport
 
 LOCAL_CFLAGS := -D__android__
 
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_HOST_OS := darwin linux windows
 
 include $(LLVM_HOST_BUILD_MK)
 include $(BUILD_HOST_STATIC_LIBRARY)
@@ -120,8 +124,6 @@ LOCAL_SRC_FILES := $(support_SRC_FILES)
 LOCAL_MODULE:= libLLVMSupport
 
 LOCAL_CFLAGS := -D__android__
-
-LOCAL_MODULE_TAGS := optional
 
 include $(LLVM_DEVICE_BUILD_MK)
 include $(BUILD_STATIC_LIBRARY)

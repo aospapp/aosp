@@ -21,10 +21,9 @@ public class DetailsActivity extends Activity
     public static final String EXTRA_ITEM = "item";
     public static final String SHARED_ELEMENT_NAME = "hero";
 
-    public static boolean USE_LEGACY_PRESENTER = false;
-
     private boolean useLegacyFragment() {
-        return (USE_LEGACY_PRESENTER && !(this instanceof SearchDetailsActivity));
+        return (DetailsPresenterSelectionActivity.USE_LEGACY_PRESENTER
+                && !(this instanceof SearchDetailsActivity));
     }
 
     /** Called when the activity is first created. */

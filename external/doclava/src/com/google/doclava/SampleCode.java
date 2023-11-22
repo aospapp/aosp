@@ -72,7 +72,7 @@ public class SampleCode {
   *
   * @param offlineMode Ignored -- offline-docs mode is not currently supported for
   *        browsable sample code projects.
-  * @return A root Node for the project containing its metadata and tree structure. 
+  * @return A root Node for the project containing its metadata and tree structure.
   */
   public Node setSamplesTOC(boolean offlineMode) {
     List<Node> filelist = new ArrayList<Node>();
@@ -124,7 +124,7 @@ public class SampleCode {
     boolean writeFiles = true;
     String link = "samples/" + name + "/index" + Doclava.htmlExtension;
     //Write root _index.jd to out and add metadata to Node.
-    writeSampleIndexCs(hdf, f, 
+    writeSampleIndexCs(hdf, f,
         new Node.Builder().setLabel(mProjectDir).setLink(link).build(), true);
   }
 
@@ -135,7 +135,7 @@ public class SampleCode {
   * the root project node.
   *
   * @param parent The root Node that represents this sample code project.
-  * @param dir The current dir being processed. 
+  * @param dir The current dir being processed.
   * @param relative Relative path for creating links to this file.
   */
   public void setProjectStructure(List<Node> parent, File dir, String relative) {
@@ -158,7 +158,7 @@ public class SampleCode {
         String dirpath = relative + name + "/";
         setProjectStructure(mchildren, f, dirpath);
         if (mchildren.size() > 0) {
-          parent.add(new Node.Builder().setLabel(name).setLink(ClearPage.toroot 
+          parent.add(new Node.Builder().setLabel(name).setLink(ClearPage.toroot
             + dirpath).setChildren(mchildren).build());
         }
       }
@@ -185,7 +185,7 @@ public class SampleCode {
     int i = 0;
     String expansion = ".Sub.";
     String key = newkey;
-
+    String prefixRoot = Doclava.USE_DEVSITE_LOCALE_OUTPUT_PATHS ? "en/" : "";
     if (recursed) {
       key = (key + expansion);
     } else {
@@ -200,17 +200,22 @@ public class SampleCode {
         continue;
       }
       if (f.isFile() && name.contains(".")) {
-        String path = relative + name;
+        String baseRelative = relative;
+        if (Doclava.USE_DEVSITE_LOCALE_OUTPUT_PATHS) {
+          // don't nest root path
+          baseRelative = baseRelative.replaceFirst("^en/", "");
+        }
+        String path = baseRelative + name;
         type = mapTypes(name);
         link = convertExtension(path, Doclava.htmlExtension);
         if (inList(path, IMAGES)) {
           type = "img";
           if (f.length() < MAX_FILE_SIZE_BYTES) {
-            ClearPage.copyFile(false, f, path);
-            writeImageVideoPage(f, convertExtension(path, Doclava.htmlExtension),
+            ClearPage.copyFile(false, f, prefixRoot + path, false);
+            writeImageVideoPage(f, convertExtension(prefixRoot + path, Doclava.htmlExtension),
                 relative, type, true);
           } else {
-            writeImageVideoPage(f, convertExtension(path, Doclava.htmlExtension),
+            writeImageVideoPage(f, convertExtension(prefixRoot + path, Doclava.htmlExtension),
                 relative, type, false);
           }
           hdf.setValue(key + i + ".Type", "img");
@@ -220,11 +225,11 @@ public class SampleCode {
         } else if (inList(path, VIDEOS)) {
           type = "video";
           if (f.length() < MAX_FILE_SIZE_BYTES) {
-            ClearPage.copyFile(false, f, path);
-            writeImageVideoPage(f, convertExtension(path, Doclava.htmlExtension),
+            ClearPage.copyFile(false, f, prefixRoot + path, false);
+            writeImageVideoPage(f, convertExtension(prefixRoot + path, Doclava.htmlExtension),
                 relative, type, true);
           } else {
-            writeImageVideoPage(f, convertExtension(path, Doclava.htmlExtension),
+            writeImageVideoPage(f, convertExtension(prefixRoot + path, Doclava.htmlExtension),
                 relative, type, false);
           }
           hdf.setValue(key + i + ".Type", "video");
@@ -232,7 +237,7 @@ public class SampleCode {
           hdf.setValue(key + i + ".Href", link);
           hdf.setValue(key + i + ".RelPath", relative);
         } else if (inList(path, TEMPLATED)) {
-          writePage(f, convertExtension(path, Doclava.htmlExtension), relative, hdf);
+          writePage(f, convertExtension(prefixRoot + path, Doclava.htmlExtension), relative, hdf);
           hdf.setValue(key + i + ".Type", type);
           hdf.setValue(key + i + ".Name", name);
           hdf.setValue(key + i + ".Href", link);
@@ -258,7 +263,7 @@ public class SampleCode {
     setParentDirs(hdf, relative, name, false);
     //Generate an index.html page for each dir being processed
     if (FULL_TREE_NAVIGATION) {
-      ClearPage.write(hdf, "sampleindex.cs", relative + "/index" + Doclava.htmlExtension);
+      ClearPage.write(hdf, "sampleindex.cs", prefixRoot + relative + "/index" + Doclava.htmlExtension);
     }
   }
 
@@ -282,6 +287,7 @@ public class SampleCode {
     String mGroup = "";
     File f = new File(filename);
     String rel = dir.getPath();
+    String prefixRoot = Doclava.USE_DEVSITE_LOCALE_OUTPUT_PATHS ? "en/" : "";
     if (writeFiles) {
 
       hdf.setValue("samples", "true");
@@ -293,9 +299,9 @@ public class SampleCode {
       hdf.setValue("samplesProjectIndex", "true");
       if (!f.isFile()) {
         //The directory didn't have an _index.jd, so create a stub.
-        ClearPage.write(hdf, "sampleindex.cs", mDest + "index" + Doclava.htmlExtension);
+        ClearPage.write(hdf, "sampleindex.cs", prefixRoot + mDest + "index" + Doclava.htmlExtension);
       } else {
-        DocFile.writePage(filename, rel, mDest + "index" + Doclava.htmlExtension, hdf);
+        DocFile.writePage(filename, rel, prefixRoot + mDest + "index" + Doclava.htmlExtension, hdf);
       }
     } else if (f.isFile()) {
       //gather metadata for toc and jd_lists_unified
@@ -320,11 +326,12 @@ public class SampleCode {
   * @param hdf The data to read/write for files in this project.
   */
   public void writeProjectStructure(String dir, Data hdf) {
+    String prefixRoot = Doclava.USE_DEVSITE_LOCALE_OUTPUT_PATHS ? "en/" : "";
     hdf.setValue("projectStructure", "true");
     hdf.setValue("projectDir", mProjectDir);
     hdf.setValue("page.title", mProjectDir + " Structure");
     hdf.setValue("projectTitle", mTitle);
-    ClearPage.write(hdf, "sampleindex.cs", mDest + "project" + Doclava.htmlExtension);
+    ClearPage.write(hdf, "sampleindex.cs", prefixRoot + mDest + "project" + Doclava.htmlExtension);
     hdf.setValue("projectStructure", "");
   }
 
@@ -401,7 +408,6 @@ public class SampleCode {
     hdf.setValue("subdir", subdir);
     hdf.setValue("resType", resourceType);
     hdf.setValue("realFile", name);
-
     ClearPage.write(hdf, "sample.cs", out);
   }
 
@@ -438,11 +444,17 @@ public class SampleCode {
     }
 
     StringBuilder buf = new StringBuilder();
-    node.renderGroupNodesTOC(buf);
-    if (Doclava.samplesNavTree != null) {
-          Doclava.samplesNavTree.setValue("samples_toc_tree", buf.toString());
+    if (Doclava.USE_DEVSITE_LOCALE_OUTPUT_PATHS) {
+      node.renderGroupNodesTOCYaml(buf, "", false);
+    } else {
+      node.renderGroupNodesTOC(buf);
     }
-
+    if (Doclava.samplesNavTree != null) {
+      Doclava.samplesNavTree.setValue("samples_toc_tree", buf.toString());
+      if (Doclava.USE_DEVSITE_LOCALE_OUTPUT_PATHS) {
+        ClearPage.write(Doclava.samplesNavTree, "samples_navtree_data.cs", "en/samples/_book.yaml");
+      }
+    }
   }
 
   /**
@@ -598,9 +610,51 @@ public class SampleCode {
     }
 
     /**
+    * Renders browsable sample groups and projects to a _book.yaml file, starting
+    * from the group nodes and then rendering their project nodes and finally their
+    * child dirs and files.
+    */
+    void renderGroupNodesTOCYaml(StringBuilder buf, String indent, Boolean isChild) {
+      List<Node> list = mChildren;
+      if (list == null || list.size() == 0) {
+        return;
+      } else {
+        final int n = list.size();
+        if (indent.length() > 0) {
+          buf.append(indent + "section:\n");
+        } // else append 'toc:\n' if needed
+        for (int i = 0; i < n; i++) {
+          if (isChild == true && list.get(i).getChildren() != null) {
+            buf.append(indent + "- title: " + list.get(i).getLabel() + "/\n");
+            if (list.get(i).getLink().indexOf(".html") > -1) {
+              buf.append(indent + "  path: " + list.get(i).getLink() + "\n");
+              buf.append(indent + "  path_attributes:\n");
+              buf.append(indent + "  - name: title\n");
+              buf.append(indent + "    value: " + list.get(i).getLabel() + "\n");
+            } else {
+              buf.append(indent + "  path: \"#\"\n");
+              buf.append(indent + "  path_attributes:\n");
+              buf.append(indent + "  - name: onclick\n");
+              buf.append(indent + "    value: return false;\n");
+              buf.append(indent + "  - name: title\n");
+              buf.append(indent + "    value: " + list.get(i).getLabel() + "\n");
+            }
+          } else {
+            String xmlToHtmlPath = list.get(i).getLink().replace(".xml", ".html");
+            buf.append(indent + "- title: " + list.get(i).getLabel() + "\n");
+            buf.append(indent + "  path: " + xmlToHtmlPath + "\n");
+          }
+          if (list.get(i).getChildren() != null) {
+            list.get(i).renderGroupNodesTOCYaml(buf, indent + "  ", true);
+          }
+        }
+      }
+    }
+
+    /**
     * Renders browsable sample groups and projects to an html list, starting
     * from the group nodes and then rendering their project nodes and finally their
-    * child dirs and files. 
+    * child dirs and files.
     */
     void renderGroupNodesTOC(StringBuilder buf) {
       List<Node> list = mChildren;

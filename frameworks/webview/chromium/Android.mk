@@ -69,6 +69,7 @@ LOCAL_CFLAGS := \
 LOCAL_SHARED_LIBRARIES += \
         libdl \
         liblog \
+        libnativeloader \
 
 LOCAL_MODULE_TAGS := optional
 

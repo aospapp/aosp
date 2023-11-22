@@ -44,7 +44,8 @@ uptr internal_prctl(int option, uptr arg2, uptr arg3, uptr arg4, uptr arg5);
 // internal_sigaction instead.
 int internal_sigaction_norestorer(int signum, const void *act, void *oldact);
 void internal_sigdelset(__sanitizer_sigset_t *set, int signum);
-#if defined(__x86_64__) || defined(__mips__)
+#if defined(__x86_64__) || defined(__mips__) || defined(__aarch64__) \
+  || defined(__powerpc64__)
 uptr internal_clone(int (*fn)(void *), void *child_stack, int flags, void *arg,
                     int *parent_tidptr, void *newtls, int *child_tidptr);
 #endif
@@ -80,9 +81,6 @@ uptr ThreadSelfOffset();
 // Matches a library's file name against a base name (stripping path and version
 // information).
 bool LibraryNameIs(const char *full_name, const char *base_name);
-
-// Cache the value of /proc/self/exe.
-void CacheBinaryName();
 
 // Call cb for each region mapped by map.
 void ForEachMappedRegion(link_map *map, void (*cb)(const void *, uptr));

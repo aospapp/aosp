@@ -24,6 +24,7 @@ import android.provider.ContactsContract;
 import android.provider.ContactsContract.AggregationExceptions;
 import android.provider.ContactsContract.CommonDataKinds.StructuredName;
 import android.provider.ContactsContract.Contacts;
+import android.provider.ContactsContract.Data;
 import android.provider.ContactsContract.DisplayNameSources;
 import android.provider.ContactsContract.RawContacts;
 import android.provider.cts.ContactsContract_TestDataBuilder.TestContact;
@@ -70,6 +71,12 @@ public class ContactsContract_StructuredPhoneticName extends AndroidTestCase {
         TestContact contact = rawContact1.getContact().load();
         contact.assertColumn(Contacts.DISPLAY_NAME_SOURCE,
                 DisplayNameSources.STRUCTURED_PHONETIC_NAME);
+    }
+
+    public void testPhoneticNameStyleColumnName() throws Exception {
+        // Make sure the column name is data11 and not phonetic_name_style
+        // from the parent class.
+        assertEquals(Data.DATA11, StructuredName.PHONETIC_NAME_STYLE);
     }
 
     public void testPhoneticStructuredName_phoneticPriority1() throws Exception {

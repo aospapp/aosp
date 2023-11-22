@@ -33,6 +33,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.ServerSocket;
+import java.net.UnknownHostException;
 
 import org.apache.harmony.jpda.tests.framework.DebuggeeSynchronizer;
 import org.apache.harmony.jpda.tests.framework.LogWriter;
@@ -161,16 +162,32 @@ public class JPDADebuggeeSynchronizer implements DebuggeeSynchronizer {
     /**
      * Returns socket address for connecting to the server.
      * 
+     * If <code>serverAddress.getPort()</code> returns 0 (i.e.,
+     * <code>org.apache.harmony.jpda.tests.framework.TestOptions.DEFAULT_SYNC_PORT</code>),
+     * a port will automatically be chosen by the OS when the server is bound to a socket.
+     * 
      * @return socket address
      */
     public InetSocketAddress getSyncServerAddress() {
         // Use the LOOPBACK directly instead of doing a DNS lookup.
         int port = settings.getSyncPortNumber();
-        return new InetSocketAddress(InetAddress.getLoopbackAddress(), port);
+        try {
+            // Use IPv4 to ensure we do not depend on IPv6 to run these tests.
+            // TODO(25178637): Use InetAddress.getLoopbackAddress() instead.
+            return new InetSocketAddress(
+                InetAddress.getByAddress(new byte[] { 127, 0, 0, 1 }), port);
+        } catch (UnknownHostException e) {
+            throw new TestErrorException(
+                    "[SYNC] Exception in binding for socket sync connection", e);
+        }
     }
 
     /**
      * Binds server to listen socket port.
+     * 
+     * If <code>serverAddress.getPort()</code> returns 0 (i.e.,
+     * <code>org.apache.harmony.jpda.tests.framework.TestOptions.DEFAULT_SYNC_PORT</code>),
+     * the OS will choose a port automatically for this server socket.
      * 
      * @return port number
      */
@@ -179,8 +196,10 @@ public class JPDADebuggeeSynchronizer implements DebuggeeSynchronizer {
         try {
             logWriter.println("[SYNC] Binding socket on: " + serverAddress);
             serverSocket = new ServerSocket(serverAddress.getPort(), 0, serverAddress.getAddress());
-            logWriter.println("[SYNC] Bound socket on: " + serverAddress);
-            return serverAddress.getPort();
+            int localPort = serverSocket.getLocalPort();
+            logWriter.println("[SYNC] Bound socket on: " + serverAddress
+                    + " (local port: " + localPort + ")" );
+            return localPort;
         } catch (IOException e) {
             throw new TestErrorException(
                     "[SYNC] Exception in binding for socket sync connection", e);

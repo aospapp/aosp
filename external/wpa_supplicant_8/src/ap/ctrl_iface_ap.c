@@ -12,6 +12,7 @@
 #include "common/ieee802_11_defs.h"
 #include "common/sae.h"
 #include "eapol_auth/eapol_auth_sm.h"
+#include "fst/fst_ctrl_iface.h"
 #include "hostapd.h"
 #include "ieee802_1x.h"
 #include "wpa_auth.h"
@@ -21,6 +22,7 @@
 #include "p2p_hostapd.h"
 #include "ctrl_iface_ap.h"
 #include "ap_drv_ops.h"
+#include "mbo_ap.h"
 
 
 static int hostapd_get_sta_tx_rx(struct hostapd_data *hapd,
@@ -34,7 +36,7 @@ static int hostapd_get_sta_tx_rx(struct hostapd_data *hapd,
 		return 0;
 
 	ret = os_snprintf(buf, buflen, "rx_packets=%lu\ntx_packets=%lu\n"
-			  "rx_bytes=%lu\ntx_bytes=%lu\n",
+			  "rx_bytes=%llu\ntx_bytes=%llu\n",
 			  data.rx_packets, data.tx_packets,
 			  data.rx_bytes, data.tx_bytes);
 	if (os_snprintf_error(buflen, ret))
@@ -160,6 +162,19 @@ static int hostapd_ctrl_iface_sta_mib(struct hostapd_data *hapd,
 			len += res;
 	}
 
+	res = mbo_ap_get_info(sta, buf + len, buflen - len);
+	if (res >= 0)
+		len += res;
+
+	if (sta->supp_op_classes &&
+	    buflen - len > (unsigned) (17 + 2 * sta->supp_op_classes[0])) {
+		len += os_snprintf(buf + len, buflen - len, "supp_op_classes=");
+		len += wpa_snprintf_hex(buf + len, buflen - len,
+					sta->supp_op_classes + 1,
+					sta->supp_op_classes[0]);
+		len += os_snprintf(buf + len, buflen - len, "\n");
+	}
+
 	return len;
 }
 
@@ -206,7 +221,10 @@ int hostapd_ctrl_iface_sta(struct hostapd_data *hapd, const char *txtaddr,
 		return -1;
 	}
 
-	return hostapd_ctrl_iface_sta_mib(hapd, sta, buf, buflen);
+	ret = hostapd_ctrl_iface_sta_mib(hapd, sta, buf, buflen);
+	ret += fst_ctrl_iface_mb_info(addr, buf + ret, buflen - ret);
+
+	return ret;
 }
 
 
@@ -549,4 +567,17 @@ int hostapd_parse_csa_settings(const char *pos,
 int hostapd_ctrl_iface_stop_ap(struct hostapd_data *hapd)
 {
 	return hostapd_drv_stop_ap(hapd);
+}
+
+
+int hostapd_ctrl_iface_pmksa_list(struct hostapd_data *hapd, char *buf,
+				  size_t len)
+{
+	return wpa_auth_pmksa_list(hapd->wpa_auth, buf, len);
+}
+
+
+void hostapd_ctrl_iface_pmksa_flush(struct hostapd_data *hapd)
+{
+	wpa_auth_pmksa_flush(hapd->wpa_auth);
 }

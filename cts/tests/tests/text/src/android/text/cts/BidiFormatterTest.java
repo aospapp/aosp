@@ -33,7 +33,7 @@ public class BidiFormatterTest extends AndroidTestCase {
             new BidiFormatter.Builder(true /* RTL context */).stereoReset(false).build();
 
     private static final String EN = "abba";
-    private static final String HE = "\u05e0\u05e1";
+    private static final String HE = "\u05E0\u05E1";
 
     private static final String LRM = "\u200E";
     private static final String RLM = "\u200F";
@@ -47,6 +47,18 @@ public class BidiFormatterTest extends AndroidTestCase {
 
         assertEquals(false, BidiFormatter.getInstance(Locale.ENGLISH).isRtlContext());
         assertEquals(true, BidiFormatter.getInstance(true).isRtlContext());
+    }
+
+    public void testCachedInstances() {
+        // Test that we get the same cached static instances for simple cases
+        BidiFormatter defaultFormatterInstance = BidiFormatter.getInstance();
+        assertTrue(defaultFormatterInstance == LTR_FMT || defaultFormatterInstance == RTL_FMT);
+
+        assertEquals(LTR_FMT, BidiFormatter.getInstance(false));
+        assertEquals(RTL_FMT, BidiFormatter.getInstance(true));
+
+        assertEquals(LTR_FMT, BidiFormatter.getInstance(false));
+        assertEquals(RTL_FMT, BidiFormatter.getInstance(Locale.forLanguageTag("ar")));
     }
 
     public void testBuilderIsRtlContext() {

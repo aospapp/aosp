@@ -15,6 +15,7 @@
 #endif /* CONFIG_MESH */
 
 #include "list.h"
+#include "vlan.h"
 
 /* STA flags */
 #define WLAN_STA_AUTH BIT(0)
@@ -44,6 +45,21 @@
  * Supported Rates IEs). */
 #define WLAN_SUPP_RATES_MAX 32
 
+
+struct mbo_non_pref_chan_info {
+	struct mbo_non_pref_chan_info *next;
+	u8 op_class;
+	u8 pref;
+	u8 reason_code;
+	u8 reason_detail;
+	u8 num_channels;
+	u8 channels[];
+};
+
+struct pending_eapol_rx {
+	struct wpabuf *buf;
+	struct os_reltime rx_time;
+};
 
 struct sta_info {
 	struct sta_info *next; /* next entry in sta list */
@@ -86,6 +102,8 @@ struct sta_info {
 	unsigned int hs20_deauth_requested:1;
 	unsigned int session_timeout_set:1;
 	unsigned int radius_das_match:1;
+	unsigned int ecsa_supported:1;
+	unsigned int added_unassoc:1;
 
 	u16 auth_alg;
 
@@ -100,17 +118,20 @@ struct sta_info {
 	/* IEEE 802.1X related data */
 	struct eapol_state_machine *eapol_sm;
 
-	u32 acct_session_id_hi;
-	u32 acct_session_id_lo;
+	struct pending_eapol_rx *pending_eapol_rx;
+
+	u64 acct_session_id;
 	struct os_reltime acct_session_start;
 	int acct_session_started;
 	int acct_terminate_cause; /* Acct-Terminate-Cause */
 	int acct_interim_interval; /* Acct-Interim-Interval */
+	unsigned int acct_interim_errors;
 
-	unsigned long last_rx_bytes;
-	unsigned long last_tx_bytes;
-	u32 acct_input_gigawords; /* Acct-Input-Gigawords */
-	u32 acct_output_gigawords; /* Acct-Output-Gigawords */
+	/* For extending 32-bit driver counters to 64-bit counters */
+	u32 last_rx_bytes_hi;
+	u32 last_rx_bytes_lo;
+	u32 last_tx_bytes_hi;
+	u32 last_tx_bytes_lo;
 
 	u8 *challenge; /* IEEE 802.11 Shared Key Authentication Challenge */
 
@@ -118,6 +139,7 @@ struct sta_info {
 	struct rsn_preauth_interface *preauth_iface;
 
 	int vlan_id; /* 0: none, >0: VID */
+	struct vlan_description *vlan_desc;
 	int vlan_id_bound; /* updated by ap_sta_bind_vlan() */
 	 /* PSKs from RADIUS authentication server */
 	struct hostapd_sta_wpa_psk_short *psk;
@@ -153,11 +175,15 @@ struct sta_info {
 	struct wpabuf *hs20_deauth_req;
 	char *hs20_session_info_url;
 	int hs20_disassoc_timer;
+#ifdef CONFIG_FST
+	struct wpabuf *mb_ies; /* MB IEs from (Re)Association Request */
+#endif /* CONFIG_FST */
 
 	struct os_reltime connected_time;
 
 #ifdef CONFIG_SAE
 	struct sae_data *sae;
+	unsigned int mesh_sae_pmksa_caching:1;
 #endif /* CONFIG_SAE */
 
 	u32 session_timeout; /* valid only if session_timeout_set == 1 */
@@ -167,6 +193,15 @@ struct sta_info {
 	u16 last_seq_ctrl;
 	/* Last Authentication/(Re)Association Request/Action frame subtype */
 	u8 last_subtype;
+
+#ifdef CONFIG_MBO
+	u8 cell_capa; /* 0 = unknown (not an MBO STA); otherwise,
+		       * enum mbo_cellular_capa values */
+	struct mbo_non_pref_chan_info *non_pref_chan;
+#endif /* CONFIG_MBO */
+
+	u8 *supp_op_classes; /* Supported Operating Classes element, if
+			      * received, starting from the Length field */
 };
 
 
@@ -177,7 +212,7 @@ struct sta_info {
  * AP_DISASSOC_DELAY seconds. Similarly, the station will be deauthenticated
  * after AP_DEAUTH_DELAY seconds has passed after disassociation. */
 #define AP_MAX_INACTIVITY (5 * 60)
-#define AP_DISASSOC_DELAY (1)
+#define AP_DISASSOC_DELAY (3)
 #define AP_DEAUTH_DELAY (1)
 /* Number of seconds to keep STA entry with Authenticated flag after it has
  * been disassociated. */
@@ -217,6 +252,8 @@ int ap_sta_wps_cancel(struct hostapd_data *hapd,
 		      struct sta_info *sta, void *ctx);
 #endif /* CONFIG_WPS */
 int ap_sta_bind_vlan(struct hostapd_data *hapd, struct sta_info *sta);
+int ap_sta_set_vlan(struct hostapd_data *hapd, struct sta_info *sta,
+		    struct vlan_description *vlan_desc);
 void ap_sta_start_sa_query(struct hostapd_data *hapd, struct sta_info *sta);
 void ap_sta_stop_sa_query(struct hostapd_data *hapd, struct sta_info *sta);
 int ap_check_sa_query_timeout(struct hostapd_data *hapd, struct sta_info *sta);
@@ -232,6 +269,8 @@ static inline int ap_sta_is_authorized(struct sta_info *sta)
 
 void ap_sta_deauth_cb(struct hostapd_data *hapd, struct sta_info *sta);
 void ap_sta_disassoc_cb(struct hostapd_data *hapd, struct sta_info *sta);
+void ap_sta_clear_disconnect_timeouts(struct hostapd_data *hapd,
+				      struct sta_info *sta);
 
 int ap_sta_flags_txt(u32 flags, char *buf, size_t buflen);
 

@@ -27,6 +27,7 @@
 #include "tcuCommandLine.hpp"
 
 #include <string>
+#include <ostream>
 
 #include <android/native_activity.h>
 
@@ -48,6 +49,41 @@ std::string			getIntentStringExtra		(ANativeActivity* activity, const char* name
 void				setRequestedOrientation		(ANativeActivity* activity, ScreenOrientation orientation);
 
 ScreenOrientation	mapScreenRotation			(ScreenRotation rotation);
+
+void				describePlatform			(ANativeActivity* activity, std::ostream& dst);
+
+bool				hasSystemFeature			(ANativeActivity* activity, const char* name);
+
+//! android.util.DisplayMetrics
+struct DisplayMetrics
+{
+	float		density;
+	float		scaledDensity;
+	int			densityDpi;
+
+	int			widthPixels;
+	int			heightPixels;
+
+	float		xdpi;
+	float		ydpi;
+
+	DisplayMetrics (void)
+		: density		(0.0f)
+		, scaledDensity	(0.0f)
+		, densityDpi	(0)
+		, widthPixels	(0)
+		, heightPixels	(0)
+		, xdpi			(0.0f)
+		, ydpi			(0.0f)
+	{
+	}
+};
+
+DisplayMetrics		getDisplayMetrics			(ANativeActivity* activity);
+
+//! Get minimum required system memory that must be available to kernel and
+//! userspace according to Android CDD.
+size_t				getCDDRequiredSystemMemory	(ANativeActivity* activity);
 
 } // Android
 } // tcu

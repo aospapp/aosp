@@ -68,11 +68,10 @@ def ExecTest(dirname):
   stdout_file = open('stdout.txt', 'w+')
   stderr_file = open('stderr.txt', 'w+')
 
-  cmd_string = ('../../../../../out/host/linux-x86/bin/llvm-rs-cc '
-                '-o tmp/ -p tmp/ '
-                '-MD '
+  out_dir = os.environ['ANDROID_HOST_OUT']
+  cmd_string = ('%s/bin/llvm-rs-cc -o tmp/ -p tmp/ -MD '
                 '-I ../../../../../frameworks/rs/scriptc/ '
-                '-I ../../../../../external/clang/lib/Headers/')
+                '-I ../../../../../external/clang/lib/Headers/') % out_dir
   base_args = cmd_string.split()
   rs_files = glob.glob('*.rs')
   fs_files = glob.glob('*.fs')
@@ -142,6 +141,21 @@ def ExecTest(dirname):
     passed = False
     if Options.verbose:
       print 'stderr is different'
+  java_expect = glob.glob('Script*.java.expect');
+  for expect in java_expect:
+    expect_base = expect[:-7] # strip ".expect" suffix
+    if Options.verbose:
+      print 'Comparing ' + expect_base
+    find = 'tmp/*/' + expect_base
+    found = glob.glob(find)
+    if len(found) != 1:
+      passed = False
+      if Options.verbose:
+        print 'unique ' + find + ' not found'
+    elif not CompareFiles(found[0], expect):
+      passed = False
+      if Options.verbose:
+        print expect_base + ' is different'
 
   if Options.updateCTS:
     # Copy resulting files to appropriate CTS directory (if different).
@@ -213,6 +227,7 @@ def main():
     for f in tmp_files:
       if os.path.isdir(f) and (f[0:2] == 'F_' or f[0:2] == 'P_'):
         files.append(f)
+    files.sort()
 
   for f in files:
     if os.path.isdir(f):

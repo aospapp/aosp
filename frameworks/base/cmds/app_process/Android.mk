@@ -20,6 +20,7 @@ LOCAL_SHARED_LIBRARIES := \
     libutils \
     liblog \
     libbinder \
+    libnativeloader \
     libandroid_runtime \
     $(app_process_common_shared_libs) \
 
@@ -65,7 +66,7 @@ LOCAL_MULTILIB := both
 LOCAL_MODULE_STEM_32 := app_process32
 LOCAL_MODULE_STEM_64 := app_process64
 
-LOCAL_ADDRESS_SANITIZER := true
+LOCAL_SANITIZE := address
 LOCAL_CLANG := true
 LOCAL_MODULE_PATH := $(TARGET_OUT_EXECUTABLES)/asan
 

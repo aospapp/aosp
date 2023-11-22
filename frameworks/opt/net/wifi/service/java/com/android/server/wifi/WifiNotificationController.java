@@ -29,6 +29,7 @@ import android.net.NetworkInfo;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiManager;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.os.UserHandle;
 import android.provider.Settings;
@@ -90,12 +91,18 @@ final class WifiNotificationController {
     private final Context mContext;
     private final WifiStateMachine mWifiStateMachine;
     private NetworkInfo mNetworkInfo;
+    private NetworkInfo.DetailedState mDetailedState;
     private volatile int mWifiState;
+    private FrameworkFacade mFrameworkFacade;
 
-    WifiNotificationController(Context context, WifiStateMachine wsm) {
+    WifiNotificationController(Context context, Looper looper, WifiStateMachine wsm,
+            FrameworkFacade framework, Notification.Builder builder) {
         mContext = context;
         mWifiStateMachine = wsm;
+        mFrameworkFacade = framework;
+        mNotificationBuilder = builder;
         mWifiState = WifiManager.WIFI_STATE_UNKNOWN;
+        mDetailedState = NetworkInfo.DetailedState.IDLE;
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(WifiManager.WIFI_STATE_CHANGED_ACTION);
@@ -114,13 +121,19 @@ final class WifiNotificationController {
                                 WifiManager.NETWORK_STATE_CHANGED_ACTION)) {
                             mNetworkInfo = (NetworkInfo) intent.getParcelableExtra(
                                     WifiManager.EXTRA_NETWORK_INFO);
-                            // reset & clear notification on a network connect & disconnect
-                            switch(mNetworkInfo.getDetailedState()) {
-                                case CONNECTED:
-                                case DISCONNECTED:
-                                case CAPTIVE_PORTAL_CHECK:
-                                    resetNotification();
-                                    break;
+                            NetworkInfo.DetailedState detailedState =
+                                    mNetworkInfo.getDetailedState();
+                            if (detailedState != NetworkInfo.DetailedState.SCANNING
+                                    && detailedState != mDetailedState) {
+                                mDetailedState = detailedState;
+                                // reset & clear notification on a network connect & disconnect
+                                switch(mDetailedState) {
+                                    case CONNECTED:
+                                    case DISCONNECTED:
+                                    case CAPTIVE_PORTAL_CHECK:
+                                        resetNotification();
+                                        break;
+                                }
                             }
                         } else if (intent.getAction().equals(
                                 WifiManager.SCAN_RESULTS_AVAILABLE_ACTION)) {
@@ -131,9 +144,10 @@ final class WifiNotificationController {
                 }, filter);
 
         // Setting is in seconds
-        NOTIFICATION_REPEAT_DELAY_MS = Settings.Global.getInt(context.getContentResolver(),
+        NOTIFICATION_REPEAT_DELAY_MS = mFrameworkFacade.getIntegerSetting(context,
                 Settings.Global.WIFI_NETWORKS_AVAILABLE_REPEAT_DELAY, 900) * 1000l;
-        mNotificationEnabledSettingObserver = new NotificationEnabledSettingObserver(new Handler());
+        mNotificationEnabledSettingObserver = new NotificationEnabledSettingObserver(
+                new Handler(looper));
         mNotificationEnabledSettingObserver.register();
     }
 
@@ -294,9 +308,8 @@ final class WifiNotificationController {
         }
 
         private boolean getValue() {
-            return Settings.Global.getInt(mContext.getContentResolver(),
+            return mFrameworkFacade.getIntegerSetting(mContext,
                     Settings.Global.WIFI_NETWORKS_AVAILABLE_NOTIFICATION_ON, 1) == 1;
         }
     }
-
 }

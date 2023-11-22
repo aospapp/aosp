@@ -36,7 +36,7 @@ namespace art {
  */
 
 static void ThrowArrayStoreException_NotAnArray(const char* identifier, mirror::Object* array)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   std::string actualType(PrettyTypeOf(array));
   Thread* self = Thread::Current();
   self->ThrowNewExceptionF("Ljava/lang/ArrayStoreException;",
@@ -105,14 +105,20 @@ static void System_arraycopy(JNIEnv* env, jclass, jobject javaSrc, jint srcPos, 
         dstArray->AsShortSizedArray()->Memmove(dstPos, srcArray->AsShortSizedArray(), srcPos, count);
         return;
       case Primitive::kPrimInt:
-      case Primitive::kPrimFloat:
         DCHECK_EQ(Primitive::ComponentSize(dstComponentPrimitiveType), 4U);
         dstArray->AsIntArray()->Memmove(dstPos, srcArray->AsIntArray(), srcPos, count);
         return;
+      case Primitive::kPrimFloat:
+        DCHECK_EQ(Primitive::ComponentSize(dstComponentPrimitiveType), 4U);
+        dstArray->AsFloatArray()->Memmove(dstPos, srcArray->AsFloatArray(), srcPos, count);
+        return;
       case Primitive::kPrimLong:
-      case Primitive::kPrimDouble:
         DCHECK_EQ(Primitive::ComponentSize(dstComponentPrimitiveType), 8U);
         dstArray->AsLongArray()->Memmove(dstPos, srcArray->AsLongArray(), srcPos, count);
+        return;
+      case Primitive::kPrimDouble:
+        DCHECK_EQ(Primitive::ComponentSize(dstComponentPrimitiveType), 8U);
+        dstArray->AsDoubleArray()->Memmove(dstPos, srcArray->AsDoubleArray(), srcPos, count);
         return;
       case Primitive::kPrimNot: {
         mirror::ObjectArray<mirror::Object>* dstObjArray = dstArray->AsObjectArray<mirror::Object>();
@@ -143,7 +149,9 @@ static void System_arraycopy(JNIEnv* env, jclass, jobject javaSrc, jint srcPos, 
     dstObjArray->AssignableMemcpy(dstPos, srcObjArray, srcPos, count);
     return;
   }
-  dstObjArray->AssignableCheckingMemcpy(dstPos, srcObjArray, srcPos, count, true);
+  // This code is never run under a transaction.
+  DCHECK(!Runtime::Current()->IsActiveTransaction());
+  dstObjArray->AssignableCheckingMemcpy<false>(dstPos, srcObjArray, srcPos, count, true);
 }
 
 // Template to convert general array to that of its specific primitive type.

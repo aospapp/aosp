@@ -23,8 +23,12 @@
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
 
-    <application>
+    <!-- Add a network security config that trusts user added CAs for tests -->
+    <application android:networkSecurityConfig="@xml/network_security_config"
+        android:testOnly="true">
+
         <uses-library android:name="android.test.runner" />
         <receiver
             android:name="com.android.cts.deviceowner.BaseDeviceOwnerTest$BasicAdminReceiver"
@@ -35,9 +39,19 @@
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
             </intent-filter>
         </receiver>
+        <receiver
+            android:name="com.android.cts.deviceowner.CreateAndManageUserTest$TestProfileOwner"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data android:name="android.app.device_admin"
+                       android:resource="@xml/device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
 
         <activity
-            android:name="com.android.cts.deviceowner.KeyManagementActivity" />
+            android:name="com.android.cts.deviceowner.KeyManagementActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <activity
             android:name="com.android.cts.deviceowner.LockTaskUtilityActivity" />

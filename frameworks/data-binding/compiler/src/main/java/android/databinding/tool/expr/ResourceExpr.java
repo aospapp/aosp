@@ -17,7 +17,7 @@ package android.databinding.tool.expr;
 
 import android.databinding.tool.reflection.ModelAnalyzer;
 import android.databinding.tool.reflection.ModelClass;
-import android.databinding.tool.writer.WriterPackage;
+import android.databinding.tool.writer.KCode;
 
 import java.util.HashMap;
 import java.util.List;
@@ -27,7 +27,7 @@ public class ResourceExpr extends Expr {
 
     private final static Map<String, String> RESOURCE_TYPE_TO_R_OBJECT;
     static {
-        RESOURCE_TYPE_TO_R_OBJECT = new HashMap<>();
+        RESOURCE_TYPE_TO_R_OBJECT = new HashMap<String, String>();
         RESOURCE_TYPE_TO_R_OBJECT.put("colorStateList", "color  ");
         RESOURCE_TYPE_TO_R_OBJECT.put("dimenOffset", "dimen  ");
         RESOURCE_TYPE_TO_R_OBJECT.put("dimenSize", "dimen  ");
@@ -60,7 +60,7 @@ public class ResourceExpr extends Expr {
     private Map<String, ModelClass> getResourceToTypeMapping(ModelAnalyzer modelAnalyzer) {
         if (mResourceToTypeMapping == null) {
             final Map<String, String> imports = getModel().getImports();
-            mResourceToTypeMapping = new HashMap<>();
+            mResourceToTypeMapping = new HashMap<String, ModelClass>();
             mResourceToTypeMapping.put("anim", modelAnalyzer.findClass("android.view.animation.Animation",
                             imports));
             mResourceToTypeMapping.put("animator", modelAnalyzer.findClass("android.animation.Animator",
@@ -129,8 +129,19 @@ public class ResourceExpr extends Expr {
         return join(base, computeChildrenKey());
     }
 
+    @Override
+    protected KCode generateCode(boolean expand) {
+        return new KCode(toJava());
+    }
+
     public String getResourceId() {
         return mPackage + "R." + getResourceObject() + "." + mResourceId;
+    }
+
+    @Override
+    public String getInvertibleError() {
+        return "Resources may not be the target of a two-way binding expression: " +
+                computeUniqueKey();
     }
 
     public String toJava() {
@@ -140,12 +151,12 @@ public class ResourceExpr extends Expr {
         if ("anim".equals(mResourceType)) return "android.view.animation.AnimationUtils.loadAnimation(" + context + ", " + resourceName + ")";
         if ("animator".equals(mResourceType)) return "android.animation.AnimatorInflater.loadAnimator(" + context + ", " + resourceName + ")";
         if ("bool".equals(mResourceType)) return resources + ".getBoolean(" + resourceName + ")";
-        if ("color".equals(mResourceType)) return resources + ".getColor(" + resourceName + ")";
-        if ("colorStateList".equals(mResourceType)) return resources + ".getColorStateList(" + resourceName + ")";
+        if ("color".equals(mResourceType)) return "android.databinding.DynamicUtil.getColorFromResource(getRoot(), " + resourceName + ")";
+        if ("colorStateList".equals(mResourceType)) return "getColorStateListFromResource(" + resourceName + ")";
         if ("dimen".equals(mResourceType)) return resources + ".getDimension(" + resourceName + ")";
         if ("dimenOffset".equals(mResourceType)) return resources + ".getDimensionPixelOffset(" + resourceName + ")";
         if ("dimenSize".equals(mResourceType)) return resources + ".getDimensionPixelSize(" + resourceName + ")";
-        if ("drawable".equals(mResourceType)) return resources + ".getDrawable(" + resourceName + ")";
+        if ("drawable".equals(mResourceType)) return "getDrawableFromResource(" + resourceName + ")";
         if ("fraction".equals(mResourceType)) {
             String base = getChildCode(0, "1");
             String pbase = getChildCode(1, "1");
@@ -179,7 +190,7 @@ public class ResourceExpr extends Expr {
         if (getChildren().size() <= childIndex) {
             return defaultValue;
         } else {
-            return WriterPackage.toCode(getChildren().get(childIndex), false).generate();
+            return getChildren().get(childIndex).toCode().generate();
         }
     }
 
@@ -187,7 +198,7 @@ public class ResourceExpr extends Expr {
         StringBuilder sb = new StringBuilder("getRoot().getResources().");
         sb.append(methodCall).append("(").append(resourceName);
         for (Expr expr : getChildren()) {
-            sb.append(", ").append(WriterPackage.toCode(expr, false).generate());
+            sb.append(", ").append(expr.toCode().generate());
         }
         sb.append(")");
         return sb.toString();

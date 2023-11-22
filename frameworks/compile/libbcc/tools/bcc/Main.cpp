@@ -232,30 +232,6 @@ bool ConfigCompiler(RSCompilerDriver &pRSCD) {
     return false;
   }
 
-  // llvm3.5 has removed the auto-detect feature for x86 subtarget,
-  // so set features explicitly in bcc.
-  if ((config->getTriple().find("i686") != std::string::npos) ||
-    (config->getTriple().find("x86_64") != std::string::npos)) {
-    std::vector<std::string> fv;
-
-#if defined(__SSE3__)
-    fv.push_back("+sse3");
-#endif
-#if defined(__SSSE3__)
-    fv.push_back("+ssse3");
-#endif
-#if defined(__SSE4_1__)
-    fv.push_back("+sse4.1");
-#endif
-#if defined(__SSE4_2__)
-    fv.push_back("+sse4.2");
-#endif
-
-    if (fv.size()) {
-      config->setFeatureString(fv);
-    }
-  }
-
   if (OptPIC) {
     config->setRelocationModel(llvm::Reloc::PIC_);
 
@@ -365,7 +341,14 @@ int main(int argc, char **argv) {
     // into the .rs.info symbol.
     Source *source = Source::CreateFromBuffer(context, OptInputFilenames[0].c_str(),
                                               bitcode, bitcodeSize);
-    RSScript *s = new (std::nothrow) RSScript(*source);
+
+    // If the bitcode fails verification in the bitcode loader, the returned Source is set to NULL.
+    if (!source) {
+      ALOGE("Failed to load source from file %s", OptInputFilenames[0].c_str());
+      return EXIT_FAILURE;
+    }
+
+    std::unique_ptr<RSScript> s(new (std::nothrow) RSScript(*source, RSCD.getConfig()));
     if (s == nullptr) {
       llvm::errs() << "Out of memory when creating script for file `"
                    << OptInputFilenames[0] << "'!\n";

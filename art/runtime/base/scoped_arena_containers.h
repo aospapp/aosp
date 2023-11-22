@@ -20,10 +20,12 @@
 #include <deque>
 #include <queue>
 #include <set>
+#include <type_traits>
 #include <unordered_map>
-#include <vector>
+#include <utility>
 
 #include "arena_containers.h"  // For ArenaAllocatorAdapterKind.
+#include "base/dchecked_vector.h"
 #include "scoped_arena_allocator.h"
 #include "safe_map.h"
 
@@ -47,7 +49,7 @@ template <typename T>
 using ScopedArenaQueue = std::queue<T, ScopedArenaDeque<T>>;
 
 template <typename T>
-using ScopedArenaVector = std::vector<T, ScopedArenaAllocatorAdapter<T>>;
+using ScopedArenaVector = dchecked_vector<T, ScopedArenaAllocatorAdapter<T>>;
 
 template <typename T, typename Comparator = std::less<T>>
 using ScopedArenaSet = std::set<T, Comparator, ScopedArenaAllocatorAdapter<T>>;
@@ -145,26 +147,27 @@ class ScopedArenaAllocatorAdapter
   pointer address(reference x) const { return &x; }
   const_pointer address(const_reference x) const { return &x; }
 
-  pointer allocate(size_type n, ScopedArenaAllocatorAdapter<void>::pointer hint = nullptr) {
-    UNUSED(hint);
+  pointer allocate(size_type n,
+                   ScopedArenaAllocatorAdapter<void>::pointer hint ATTRIBUTE_UNUSED = nullptr) {
     DCHECK_LE(n, max_size());
     DebugStackIndirectTopRef::CheckTop();
     return reinterpret_cast<T*>(arena_stack_->Alloc(n * sizeof(T),
                                                     ArenaAllocatorAdapterKind::Kind()));
   }
   void deallocate(pointer p, size_type n) {
-    UNUSED(p);
-    UNUSED(n);
     DebugStackIndirectTopRef::CheckTop();
+    arena_stack_->MakeInaccessible(p, sizeof(T) * n);
   }
 
-  void construct(pointer p, const_reference val) {
+  template <typename U, typename... Args>
+  void construct(U* p, Args&&... args) {
     // Don't CheckTop(), allow reusing existing capacity of a vector/deque below the top.
-    new (static_cast<void*>(p)) value_type(val);
+    ::new (static_cast<void*>(p)) U(std::forward<Args>(args)...);
   }
-  void destroy(pointer p) {
+  template <typename U>
+  void destroy(U* p) {
     // Don't CheckTop(), allow reusing existing capacity of a vector/deque below the top.
-    p->~value_type();
+    p->~U();
   }
 
  private:
@@ -193,6 +196,56 @@ inline bool operator!=(const ScopedArenaAllocatorAdapter<T>& lhs,
 inline ScopedArenaAllocatorAdapter<void> ScopedArenaAllocator::Adapter(ArenaAllocKind kind) {
   return ScopedArenaAllocatorAdapter<void>(this, kind);
 }
+
+// Special deleter that only calls the destructor. Also checks for double free errors.
+template <typename T>
+class ArenaDelete {
+  static constexpr uint8_t kMagicFill = 0xCE;
+
+ protected:
+  // Used for variable sized objects such as RegisterLine.
+  ALWAYS_INLINE void ProtectMemory(T* ptr, size_t size) const {
+    if (RUNNING_ON_MEMORY_TOOL > 0) {
+      // Writing to the memory will fail ift we already destroyed the pointer with
+      // DestroyOnlyDelete since we make it no access.
+      memset(ptr, kMagicFill, size);
+      MEMORY_TOOL_MAKE_NOACCESS(ptr, size);
+    } else if (kIsDebugBuild) {
+      CHECK(ArenaStack::ArenaTagForAllocation(reinterpret_cast<void*>(ptr)) == ArenaFreeTag::kUsed)
+          << "Freeing invalid object " << ptr;
+      ArenaStack::ArenaTagForAllocation(reinterpret_cast<void*>(ptr)) = ArenaFreeTag::kFree;
+      // Write a magic value to try and catch use after free error.
+      memset(ptr, kMagicFill, size);
+    }
+  }
+
+ public:
+  void operator()(T* ptr) const {
+    if (ptr != nullptr) {
+      ptr->~T();
+      ProtectMemory(ptr, sizeof(T));
+    }
+  }
+};
+
+// In general we lack support for arrays. We would need to call the destructor on each element,
+// which requires access to the array size. Support for that is future work.
+//
+// However, we can support trivially destructible component types, as then a destructor doesn't
+// need to be called.
+template <typename T>
+class ArenaDelete<T[]> {
+ public:
+  void operator()(T* ptr ATTRIBUTE_UNUSED) const {
+    static_assert(std::is_trivially_destructible<T>::value,
+                  "ArenaUniquePtr does not support non-trivially-destructible arrays.");
+    // TODO: Implement debug checks, and MEMORY_TOOL support.
+  }
+};
+
+// Arena unique ptr that only calls the destructor of the element.
+template <typename T>
+using ArenaUniquePtr = std::unique_ptr<T, ArenaDelete<T>>;
 
 }  // namespace art
 

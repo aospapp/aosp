@@ -12,17 +12,19 @@
 #include "SkImageGeneratorPriv.h"
 #include "SkMatrixUtils.h"
 #include "SkPaint.h"
+#include "SkPath.h"
+#include "SkPixelRef.h"
 #include "SkRandom.h"
 #include "SkShader.h"
 #include "SkSurface.h"
 #include "Test.h"
 
-// A BitmapFactory that always fails when asked to return pixels.
-class FailureImageGenerator : public SkImageGenerator {
+class FailurePixelRef : public SkPixelRef {
 public:
-    FailureImageGenerator() : SkImageGenerator(SkImageInfo::MakeN32Premul(100, 100)) {}
+    FailurePixelRef(const SkImageInfo& info) : SkPixelRef(info) {}
 protected:
-    // default onGetPixels() returns kUnimplemented, which is what we want.
+    bool onNewLockPixels(LockRec*) override { return false; }
+    void onUnlockPixels() override {}
 };
 
 // crbug.com/295895
@@ -31,10 +33,12 @@ protected:
 static void test_faulty_pixelref(skiatest::Reporter* reporter) {
     // need a cache, but don't expect to use it, so the budget is not critical
     SkAutoTUnref<SkDiscardableMemoryPool> pool(
-        SkDiscardableMemoryPool::Create(10 * 1000, NULL));
+        SkDiscardableMemoryPool::Create(10 * 1000, nullptr));
+
     SkBitmap bm;
-    bool installSuccess = SkInstallDiscardablePixelRef(SkNEW(FailureImageGenerator), &bm, pool);
-    REPORTER_ASSERT(reporter, installSuccess);
+    const SkImageInfo info = SkImageInfo::MakeN32Premul(100, 100);
+    bm.setInfo(info);
+    bm.setPixelRef(new FailurePixelRef(info), 0, 0)->unref();
     // now our bitmap has a pixelref, but we know it will fail to lock
 
     SkAutoTUnref<SkSurface> surface(SkSurface::NewRasterN32Premul(200, 200));
@@ -78,24 +82,22 @@ static void rand_size(SkISize* size, SkRandom& rand) {
     size->set(rand.nextU() & 0xFFFF, rand.nextU() & 0xFFFF);
 }
 
-static bool treat_as_sprite(const SkMatrix& mat, const SkISize& size,
-                            unsigned bits) {
-    return SkTreatAsSprite(mat, size.width(), size.height(), bits);
-}
-
 static void test_treatAsSprite(skiatest::Reporter* reporter) {
-    const unsigned bilerBits = kSkSubPixelBitsForBilerp;
 
     SkMatrix mat;
     SkISize  size;
     SkRandom rand;
 
-    // assert: translate-only no-filter can always be treated as sprite
+    SkPaint noaaPaint;
+    SkPaint aaPaint;
+    aaPaint.setAntiAlias(true);
+
+    // assert: translate-only no-aa can always be treated as sprite
     for (int i = 0; i < 1000; ++i) {
         rand_matrix(&mat, rand, SkMatrix::kTranslate_Mask);
         for (int j = 0; j < 1000; ++j) {
             rand_size(&size, rand);
-            REPORTER_ASSERT(reporter, treat_as_sprite(mat, size, 0));
+            REPORTER_ASSERT(reporter, SkTreatAsSprite(mat, size, noaaPaint));
         }
     }
 
@@ -104,8 +106,8 @@ static void test_treatAsSprite(skiatest::Reporter* reporter) {
         rand_matrix(&mat, rand, SkMatrix::kAffine_Mask | SkMatrix::kPerspective_Mask);
         for (int j = 0; j < 1000; ++j) {
             rand_size(&size, rand);
-            REPORTER_ASSERT(reporter, !treat_as_sprite(mat, size, 0));
-            REPORTER_ASSERT(reporter, !treat_as_sprite(mat, size, bilerBits));
+            REPORTER_ASSERT(reporter, !SkTreatAsSprite(mat, size, noaaPaint));
+            REPORTER_ASSERT(reporter, !SkTreatAsSprite(mat, size, aaPaint));
         }
     }
 
@@ -113,33 +115,33 @@ static void test_treatAsSprite(skiatest::Reporter* reporter) {
 
     const SkScalar tooMuchSubpixel = 100.1f;
     mat.setTranslate(tooMuchSubpixel, 0);
-    REPORTER_ASSERT(reporter, !treat_as_sprite(mat, size, bilerBits));
+    REPORTER_ASSERT(reporter, !SkTreatAsSprite(mat, size, aaPaint));
     mat.setTranslate(0, tooMuchSubpixel);
-    REPORTER_ASSERT(reporter, !treat_as_sprite(mat, size, bilerBits));
+    REPORTER_ASSERT(reporter, !SkTreatAsSprite(mat, size, aaPaint));
 
     const SkScalar tinySubPixel = 100.02f;
     mat.setTranslate(tinySubPixel, 0);
-    REPORTER_ASSERT(reporter, treat_as_sprite(mat, size, bilerBits));
+    REPORTER_ASSERT(reporter, SkTreatAsSprite(mat, size, aaPaint));
     mat.setTranslate(0, tinySubPixel);
-    REPORTER_ASSERT(reporter, treat_as_sprite(mat, size, bilerBits));
+    REPORTER_ASSERT(reporter, SkTreatAsSprite(mat, size, aaPaint));
 
     const SkScalar twoThirds = SK_Scalar1 * 2 / 3;
     const SkScalar bigScale = (size.width() + twoThirds) / size.width();
     mat.setScale(bigScale, bigScale);
-    REPORTER_ASSERT(reporter, !treat_as_sprite(mat, size, false));
-    REPORTER_ASSERT(reporter, !treat_as_sprite(mat, size, bilerBits));
+    REPORTER_ASSERT(reporter, !SkTreatAsSprite(mat, size, noaaPaint));
+    REPORTER_ASSERT(reporter, !SkTreatAsSprite(mat, size, aaPaint));
 
     const SkScalar oneThird = SK_Scalar1 / 3;
     const SkScalar smallScale = (size.width() + oneThird) / size.width();
     mat.setScale(smallScale, smallScale);
-    REPORTER_ASSERT(reporter, treat_as_sprite(mat, size, false));
-    REPORTER_ASSERT(reporter, !treat_as_sprite(mat, size, bilerBits));
+    REPORTER_ASSERT(reporter, SkTreatAsSprite(mat, size, noaaPaint));
+    REPORTER_ASSERT(reporter, !SkTreatAsSprite(mat, size, aaPaint));
 
     const SkScalar oneFortyth = SK_Scalar1 / 40;
     const SkScalar tinyScale = (size.width() + oneFortyth) / size.width();
     mat.setScale(tinyScale, tinyScale);
-    REPORTER_ASSERT(reporter, treat_as_sprite(mat, size, false));
-    REPORTER_ASSERT(reporter, treat_as_sprite(mat, size, bilerBits));
+    REPORTER_ASSERT(reporter, SkTreatAsSprite(mat, size, noaaPaint));
+    REPORTER_ASSERT(reporter, SkTreatAsSprite(mat, size, aaPaint));
 }
 
 static void assert_ifDrawnTo(skiatest::Reporter* reporter,
@@ -299,7 +301,7 @@ DEF_TEST(DrawBitmapRect, reporter) {
     SkIRect srcR = { gWidth, 0, gWidth + 16, 16 };
     SkRect  dstR = { 0, 0, SkIntToScalar(16), SkIntToScalar(16) };
 
-    canvas.drawBitmapRect(src, &srcR, dstR, NULL);
+    canvas.drawBitmapRect(src, srcR, dstR, nullptr);
 
     // ensure that we draw nothing if srcR does not intersect the bitmap
     REPORTER_ASSERT(reporter, check_for_all_zeros(dst));

@@ -34,12 +34,13 @@ struct MPEG2PSExtractor : public MediaExtractor {
     MPEG2PSExtractor(const sp<DataSource> &source);
 
     virtual size_t countTracks();
-    virtual sp<MediaSource> getTrack(size_t index);
+    virtual sp<IMediaSource> getTrack(size_t index);
     virtual sp<MetaData> getTrackMetaData(size_t index, uint32_t flags);
 
     virtual sp<MetaData> getMetaData();
 
     virtual uint32_t flags() const;
+    virtual const char * name() { return "MPEG2PSExtractor"; }
 
 protected:
     virtual ~MPEG2PSExtractor();

@@ -16,14 +16,25 @@
  */
 package org.apache.harmony.tests.java.util;
 
+import libcore.java.util.SpliteratorTester;
 import tests.support.Support_UnmodifiableCollectionTest;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
+import java.util.Spliterator;
+import java.util.function.Consumer;
+import java.util.function.DoubleConsumer;
+import java.util.function.IntConsumer;
+import java.util.function.LongConsumer;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ForkJoinPool;
 
 public class ArraysTest extends junit.framework.TestCase {
 
@@ -2217,7 +2228,7 @@ public class ArraysTest extends junit.framework.TestCase {
                 long[] b = new long[a.length];
 
                 for (int i = 0; i < a.length; i++) {
-                    b[i] = (int) a[i];
+                    b[i] = (long) a[i];
                 }
                 return b;
             }
@@ -4189,6 +4200,1297 @@ public class ArraysTest extends junit.framework.TestCase {
         assertEquals(0,
                 Arrays.copyOfRange(objArray, 0, 0, LinkedList[].class).length);
     }
+
+    public void test_asList_spliterator() {
+        List<String> list = Arrays.asList(
+                "a", "b", "c", "d", "e", "f", "g", "h",
+                "i", "j", "k", "l", "m", "n", "o", "p");
+        ArrayList<String> expected = new ArrayList<>(list);
+
+        SpliteratorTester.runBasicIterationTests(list.spliterator(), expected);
+        SpliteratorTester.runBasicSplitTests(list, expected);
+        SpliteratorTester.testSpliteratorNPE(list.spliterator());
+
+        assertTrue(list.spliterator().hasCharacteristics(Spliterator.ORDERED));
+
+        SpliteratorTester.runOrderedTests(list);
+    }
+
+    public void test_spliterator_ref() {
+        String[] elements = {
+                "a", "b", "c", "d", "e", "f", "g", "h",
+                "i", "j", "k", "l", "m", "n", "o", "p" };
+
+        ArrayList<String> expected = new ArrayList<>(Arrays.asList(elements));
+
+        SpliteratorTester.runBasicIterationTests(Arrays.spliterator(elements), expected);
+        SpliteratorTester.testSpliteratorNPE(Arrays.spliterator(elements));
+
+        Spliterator<String> sp = Arrays.spliterator(elements);
+        assertTrue(sp.hasCharacteristics(Spliterator.ORDERED));
+
+        // Basic split tests.
+        Spliterator<String> sp1 =  sp.trySplit();
+        assertNotNull(sp1);
+
+        ArrayList<String> recorder = new ArrayList<>();
+        sp1.forEachRemaining(value -> recorder.add(value));
+        sp.forEachRemaining(value -> recorder.add(value));
+        Collections.sort(recorder);
+        assertEquals(expected, recorder);
+    }
+
+    public void test_spliterator_ref_bounds() {
+        String[] elements = { "BAD", "EVIL", "a", "b", "c", "d", "e", "f", "g", "h",
+                "i", "j", "k", "l", "m", "n", "o", "p", "DO", "NOT", "INCLUDE" };
+
+        ArrayList<String> expected = new ArrayList<>(
+                Arrays.asList(Arrays.copyOfRange(elements, 2, 16)));
+
+        SpliteratorTester.runBasicIterationTests(Arrays.spliterator(elements, 2, 16), expected);
+        SpliteratorTester.testSpliteratorNPE(Arrays.spliterator(elements, 2, 16));
+
+        Spliterator<String> sp = Arrays.spliterator(elements, 2, 16);
+        assertTrue(sp.hasCharacteristics(Spliterator.ORDERED));
+
+        // Basic split tests.
+        Spliterator<String> sp1 =  sp.trySplit();
+        assertNotNull(sp1);
+
+        ArrayList<String> recorder = new ArrayList<>();
+        sp1.forEachRemaining(value -> recorder.add(value));
+        sp.forEachRemaining(value -> recorder.add(value));
+        Collections.sort(recorder);
+        assertEquals(expected, recorder);
+    }
+
+    private static class PrimitiveIntArrayList {
+        final int[] array;
+        int idx;
+
+        PrimitiveIntArrayList(int size) {
+            array = new int[size];
+        }
+
+        public void add(int element) {
+            array[idx++] = element;
+        }
+
+        public int[] toSortedArray() {
+            Arrays.sort(array);
+            return array;
+        }
+    }
+
+    private static class PrimitiveLongArrayList {
+        final long[] array;
+        int idx;
+
+        PrimitiveLongArrayList(int size) {
+            array = new long[size];
+        }
+
+        public void add(long element) {
+            array[idx++] = element;
+        }
+
+        public long[] toSortedArray() {
+            Arrays.sort(array);
+            return array;
+        }
+    }
+
+    private static class PrimitiveDoubleArrayList {
+        final double[] array;
+        int idx;
+
+        PrimitiveDoubleArrayList(int size) {
+            array = new double[size];
+        }
+
+        public void add(double element) {
+            array[idx++] = element;
+        }
+
+        public double[] toSortedArray() {
+            Arrays.sort(array);
+            return array;
+        }
+    }
+
+    public void test_spliterator_int() {
+        int[] elements = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+
+        Spliterator.OfInt intSp = Arrays.spliterator(elements);
+
+        assertEquals(16, intSp.estimateSize());
+        assertEquals(16, intSp.getExactSizeIfKnown());
+        assertTrue(intSp.hasCharacteristics(Spliterator.ORDERED));
+
+        assertTrue(intSp.tryAdvance((Integer value) -> assertEquals(1, (int) value)));
+        assertTrue(intSp.tryAdvance((int value) -> assertEquals(2, (int) value)));
+
+        PrimitiveIntArrayList recorder = new PrimitiveIntArrayList(16);
+        // Record elements observed by previous tests.
+        recorder.add(1);
+        recorder.add(2);
+
+        Spliterator.OfInt split1 = intSp.trySplit();
+        assertNotNull(split1);
+        assertTrue(split1.tryAdvance((int value) -> recorder.add(value)));
+        assertTrue(split1.tryAdvance((Integer value) -> recorder.add(value)));
+
+        // Assert that splits can themselves resplit.
+        Spliterator.OfInt split2 = split1.trySplit();
+        assertNotNull(split2);
+        split2.forEachRemaining((int value) -> recorder.add(value));
+        assertFalse(split2.tryAdvance((int value) -> fail()));
+        assertFalse(split2.tryAdvance((Integer value) -> fail()));
+
+        // Iterate over the remaning elements so we can make sure we've looked at
+        // everything.
+        split1.forEachRemaining((int value) -> recorder.add(value));
+        intSp.forEachRemaining((int value) -> recorder.add(value));
+
+        int[] recorded = recorder.toSortedArray();
+        assertEquals(Arrays.toString(elements), Arrays.toString(recorded));
+    }
+
+    public void test_spliterator_intOffsetBasic() {
+        int[] elements = { 123123, 131321312, 1, 2, 3, 4, 32323232, 45454};
+        Spliterator.OfInt sp = Arrays.spliterator(elements, 2, 6);
+
+        PrimitiveIntArrayList recorder = new PrimitiveIntArrayList(4);
+        sp.tryAdvance((Integer value) -> recorder.add((int) value));
+        sp.tryAdvance((int value) -> recorder.add(value));
+        sp.forEachRemaining((int value) -> recorder.add(value));
+
+        int[] recorded = recorder.toSortedArray();
+        assertEquals(Arrays.toString(new int[] { 1, 2, 3, 4 }), Arrays.toString(recorded));
+    }
+
+    public void test_spliterator_longOffsetBasic() {
+        long[] elements = { 123123, 131321312, 1, 2, 3, 4, 32323232, 45454};
+        Spliterator.OfLong sp = Arrays.spliterator(elements, 2, 6);
+
+        PrimitiveLongArrayList recorder = new PrimitiveLongArrayList(4);
+        sp.tryAdvance((Long value) -> recorder.add((long) value));
+        sp.tryAdvance((long value) -> recorder.add(value));
+        sp.forEachRemaining((long value) -> recorder.add(value));
+
+        long[] recorded = recorder.toSortedArray();
+        assertEquals(Arrays.toString(new long[] { 1, 2, 3, 4 }), Arrays.toString(recorded));
+    }
+
+    public void test_spliterator_doubleOffsetBasic() {
+        double[] elements = { 123123, 131321312, 1, 2, 3, 4, 32323232, 45454};
+        Spliterator.OfDouble sp = Arrays.spliterator(elements, 2, 6);
+
+        PrimitiveDoubleArrayList recorder = new PrimitiveDoubleArrayList(4);
+        sp.tryAdvance((Double value) -> recorder.add((double) value));
+        sp.tryAdvance((double value) -> recorder.add(value));
+        sp.forEachRemaining((double value) -> recorder.add(value));
+
+        double[] recorded = recorder.toSortedArray();
+        assertEquals(Arrays.toString(new double[] { 1, 2, 3, 4 }), Arrays.toString(recorded));
+    }
+
+    public void test_spliterator_long() {
+        long[] elements = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+
+        Spliterator.OfLong longSp = Arrays.spliterator(elements);
+
+        assertEquals(16, longSp.estimateSize());
+        assertEquals(16, longSp.getExactSizeIfKnown());
+        assertTrue(longSp.hasCharacteristics(Spliterator.ORDERED));
+
+        assertTrue(longSp.tryAdvance((Long value) -> assertEquals(1, (long) value)));
+        assertTrue(longSp.tryAdvance((long value) -> assertEquals(2, (long) value)));
+
+        PrimitiveLongArrayList recorder = new PrimitiveLongArrayList(16);
+        // Record elements observed by previous tests.
+        recorder.add(1);
+        recorder.add(2);
+
+        Spliterator.OfLong split1 = longSp.trySplit();
+        assertNotNull(split1);
+        assertTrue(split1.tryAdvance((long value) -> recorder.add(value)));
+        assertTrue(split1.tryAdvance((Long value) -> recorder.add(value)));
+
+        // Assert that splits can themselves resplit.
+        Spliterator.OfLong split2 = split1.trySplit();
+        assertNotNull(split2);
+        split2.forEachRemaining((long value) -> recorder.add(value));
+        assertFalse(split2.tryAdvance((long value) -> fail()));
+        assertFalse(split2.tryAdvance((Long value) -> fail()));
+
+        // Iterate over the remaning elements so we can make sure we've looked at
+        // everything.
+        split1.forEachRemaining((long value) -> recorder.add(value));
+        longSp.forEachRemaining((long value) -> recorder.add(value));
+
+        long[] recorded = recorder.toSortedArray();
+        assertEquals(Arrays.toString(elements), Arrays.toString(recorded));
+    }
+
+
+    public void test_spliterator_double() {
+        double[] elements = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+
+        Spliterator.OfDouble doubleSp = Arrays.spliterator(elements);
+
+        assertEquals(16, doubleSp.estimateSize());
+        assertEquals(16, doubleSp.getExactSizeIfKnown());
+        assertTrue(doubleSp.hasCharacteristics(Spliterator.ORDERED));
+
+        assertTrue(doubleSp.tryAdvance((Double value) -> assertEquals(1.0, (double) value)));
+        assertTrue(doubleSp.tryAdvance((double value) -> assertEquals(2.0, (double) value)));
+
+        PrimitiveDoubleArrayList recorder = new PrimitiveDoubleArrayList(16);
+        // Record elements observed by previous tests.
+        recorder.add(1);
+        recorder.add(2);
+
+        Spliterator.OfDouble split1 = doubleSp.trySplit();
+        assertNotNull(split1);
+        assertTrue(split1.tryAdvance((double value) -> recorder.add(value)));
+        assertTrue(split1.tryAdvance((Double value) -> recorder.add(value)));
+
+        // Assert that splits can themselves resplit.
+        Spliterator.OfDouble split2 = split1.trySplit();
+        assertNotNull(split2);
+        split2.forEachRemaining((double value) -> recorder.add(value));
+        assertFalse(split2.tryAdvance((double value) -> fail()));
+        assertFalse(split2.tryAdvance((Double value) -> fail()));
+
+        // Iterate over the remaining elements so we can make sure we've looked at
+        // everything.
+        split1.forEachRemaining((double value) -> recorder.add(value));
+        doubleSp.forEachRemaining((double value) -> recorder.add(value));
+
+        double[] recorded = recorder.toSortedArray();
+        assertEquals(Arrays.toString(elements), Arrays.toString(recorded));
+    }
+
+    public void test_primitive_spliterators_NPE() {
+        final int[] elements = { 1, 2, 3, 4, 5, 6};
+        Spliterator.OfInt intSp = Arrays.spliterator(elements);
+        try {
+            intSp.forEachRemaining((Consumer<Integer>) null);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+
+        try {
+            intSp.tryAdvance((Consumer<Integer>) null);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+
+        try {
+            intSp.forEachRemaining((IntConsumer) null);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+
+        try {
+            intSp.tryAdvance((IntConsumer) null);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+
+        final long[] longElements = { 1, 2, 3, 4, 5, 6};
+        Spliterator.OfLong longSp = Arrays.spliterator(longElements);
+        try {
+            longSp.forEachRemaining((Consumer<Long>) null);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+
+        try {
+            longSp.tryAdvance((Consumer<Long>) null);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+
+        try {
+            longSp.forEachRemaining((LongConsumer) null);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+
+        try {
+            longSp.tryAdvance((LongConsumer) null);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+
+        final double[] doubleElements = { 1, 2, 3, 4, 5, 6};
+        Spliterator.OfDouble doubleSp = Arrays.spliterator(doubleElements);
+        try {
+            doubleSp.forEachRemaining((Consumer<Double>) null);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+
+        try {
+            doubleSp.tryAdvance((Consumer<Double>) null);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+
+        try {
+            doubleSp.forEachRemaining((DoubleConsumer) null);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+
+        try {
+            doubleSp.tryAdvance((DoubleConsumer) null);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+    }
+
+    private void test_parallelSort$B(int size) {
+        if (size % 256 != 0) {
+            fail("test_parallelSort$B size needs to be dividable by 256");
+        }
+        int mul256Count = size / 256;
+        byte[] sortedArray = new byte[size];
+        byte curentValue = Byte.MIN_VALUE;
+        for (int counter = 0; counter < size; counter++) {
+            sortedArray[counter] = curentValue;
+            if (counter != 0 && counter % mul256Count == 0) {
+                curentValue++;
+            }
+        }
+        byte[] reversedArray = new byte[size];
+        for (int counter = 0; counter < size; counter++) {
+            reversedArray[counter] = sortedArray[size - counter - 1];
+        }
+
+        Arrays.parallelSort(reversedArray);
+        assertTrue(Arrays.equals(sortedArray, reversedArray));
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(byte[])
+     */
+    public void test_parallelSort$B() {
+        // This will result in single thread sort
+        assertTrue(256 <= Arrays.MIN_ARRAY_SORT_GRAN);
+        test_parallelSort$B(256);
+        // This should trigger true parallel sort
+        if (ForkJoinPool.getCommonPoolParallelism() > 1) {
+            assertTrue(256 * 64 > Arrays.MIN_ARRAY_SORT_GRAN);
+            test_parallelSort$B(256 * 64);
+        }
+    }
+
+    private void test_parallelSort$BII(int size) {
+        int startIndex = 100;
+        int endIndex = size - 100;
+        byte[] reversedArray = new byte[size];
+        byte[] originalReversedArray = new byte[size];
+        Arrays.fill(reversedArray, 0 , startIndex, (byte)100);
+        Arrays.fill(reversedArray, endIndex, size, (byte)100);
+        for (int counter = startIndex; counter < endIndex; counter++) {
+            reversedArray[counter] = (byte) (size - counter - startIndex - 1);
+        }
+        System.arraycopy(reversedArray, 0, originalReversedArray, 0, size);
+
+        Arrays.parallelSort(reversedArray, startIndex, endIndex);
+        for (int counter = 0; counter < startIndex; counter++)
+            assertTrue("Array modified outside of bounds",
+                 reversedArray[counter] == originalReversedArray[counter]);
+        for (int counter = startIndex; counter < endIndex - 1; counter++)
+            assertTrue("Array not sorted within bounds",
+                       reversedArray[counter] <= reversedArray[counter + 1]);
+        for (int counter = endIndex; counter < arraySize; counter++)
+            assertTrue("Array modified outside of bounds",
+                       reversedArray[counter] == originalReversedArray[counter]);
+
+        //exception testing
+        try {
+            Arrays.parallelSort(reversedArray, startIndex + 1, startIndex);
+            fail("IllegalArgumentException expected");
+        } catch (IllegalArgumentException ignore) {
+        }
+
+        try {
+            Arrays.parallelSort(reversedArray, -1, startIndex);
+            fail("ArrayIndexOutOfBoundsException expected (1)");
+        } catch (ArrayIndexOutOfBoundsException ignore) {
+        }
+
+        try {
+            Arrays.parallelSort(reversedArray, startIndex, reversedArray.length + 1);
+            fail("ArrayIndexOutOfBoundsException expected (2)");
+        } catch (ArrayIndexOutOfBoundsException ignore) {
+        }
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(byte[], int, int)
+     */
+    public void test_parallelSort$BII() {
+        // This will result in single thread sort
+        assertTrue(256 <= Arrays.MIN_ARRAY_SORT_GRAN);
+        test_parallelSort$BII(256);
+        // This should trigger true parallel sort
+        if (ForkJoinPool.getCommonPoolParallelism() > 1) {
+            assertTrue(256 * 64 > Arrays.MIN_ARRAY_SORT_GRAN);
+            test_parallelSort$BII(256 * 64);
+        }
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(byte[]) & (byte[], int, int) NPE
+     */
+    public void test_parallelSort$B_NPE() {
+        byte[] byte_array_null = null;
+        try {
+            java.util.Arrays.parallelSort(byte_array_null);
+            fail("Should throw java.lang.NullPointerException");
+        } catch (NullPointerException expected) {
+        }
+        try {
+            java.util.Arrays.parallelSort(byte_array_null, (int) -1, (int) 1);
+            fail("Should throw java.lang.NullPointerException");
+        } catch (NullPointerException expected) {
+        }
+    }
+
+    private void test_parallelSort$C(int size) {
+        char[] sortedArray = new char[size];
+        for (int counter = 0; counter < size; counter++)
+            sortedArray[counter] = (char)(Short.MIN_VALUE + counter);
+        char[] reversedArray = new char[size];
+        for (int counter = 0; counter < size; counter++) {
+            reversedArray[counter] = sortedArray[size - counter - 1];
+        }
+        Arrays.parallelSort(reversedArray);
+        assertTrue(Arrays.equals(sortedArray, reversedArray));
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(char[])
+     */
+    public void test_parallelSort$C() {
+        // This will result in single thread sort
+        assertTrue(256 <= Arrays.MIN_ARRAY_SORT_GRAN);
+        test_parallelSort$C(256);
+        // This should trigger true parallel sort
+        if (ForkJoinPool.getCommonPoolParallelism() > 1) {
+            assertTrue(256 * 64 > Arrays.MIN_ARRAY_SORT_GRAN);
+            test_parallelSort$C(256 * 64);
+        }
+    }
+
+    private void test_parallelSort$CII(int size) {
+        int startIndex = 100;
+        int endIndex = size - 100;
+        char[] reversedArray = new char[size];
+        char[] originalReversedArray = new char[size];
+
+        Arrays.fill(reversedArray, 0 , startIndex, (char)100);
+        Arrays.fill(reversedArray, endIndex, size, (char)100);
+        for (int counter = startIndex; counter < endIndex; counter++) {
+            reversedArray[counter] = (char)(size - counter - startIndex - 1);
+        }
+        System.arraycopy(reversedArray, 0, originalReversedArray, 0, size);
+
+        Arrays.parallelSort(reversedArray, startIndex, endIndex);
+        for (int counter = 0; counter < startIndex; counter++)
+            assertTrue("Array modified outside of bounds",
+                 reversedArray[counter] == originalReversedArray[counter]);
+        for (int counter = startIndex; counter < endIndex - 1; counter++)
+            assertTrue("Array not sorted within bounds",
+                       reversedArray[counter] <= reversedArray[counter + 1]);
+        for (int counter = endIndex; counter < arraySize; counter++)
+            assertTrue("Array modified outside of bounds",
+                       reversedArray[counter] == originalReversedArray[counter]);
+
+        //exception testing
+        try {
+            Arrays.parallelSort(reversedArray, startIndex + 1, startIndex);
+            fail("IllegalArgumentException expected");
+        } catch (IllegalArgumentException ignore) {
+        }
+
+        try {
+            Arrays.parallelSort(reversedArray, -1, startIndex);
+            fail("ArrayIndexOutOfBoundsException expected (1)");
+        } catch (ArrayIndexOutOfBoundsException ignore) {
+        }
+
+        try {
+            Arrays.parallelSort(reversedArray, startIndex, reversedArray.length + 1);
+            fail("ArrayIndexOutOfBoundsException expected (2)");
+        } catch (ArrayIndexOutOfBoundsException ignore) {
+        }
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(char[], int, int)
+     */
+    public void test_parallelSort$CII() {
+        // This will result in single thread sort
+        assertTrue(256 <= Arrays.MIN_ARRAY_SORT_GRAN);
+        test_parallelSort$CII(256);
+        // This should trigger true parallel sort
+        if (ForkJoinPool.getCommonPoolParallelism() > 1) {
+            assertTrue(256 * 64 > Arrays.MIN_ARRAY_SORT_GRAN);
+            test_parallelSort$CII(256 * 64);
+        }
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(char[]) & (char[], int, int) NPE
+     */
+    public void test_parallelSort$C_NPE() {
+        char[] char_array_null = null;
+        try {
+            java.util.Arrays.parallelSort(char_array_null);
+            fail("Should throw java.lang.NullPointerException");
+        } catch (NullPointerException expected) {
+        }
+        try {
+            java.util.Arrays.parallelSort(char_array_null, (int) -1, (int) 1);
+            fail("Should throw java.lang.NullPointerException");
+        } catch (NullPointerException expected) {
+        }
+    }
+
+    private void test_parallelSort$S(int size) {
+        short[] sortedArray = new short[size];
+        for (int counter = 0; counter < size; counter++)
+            sortedArray[counter] = (short)(Short.MIN_VALUE + counter);
+        short[] reversedArray = new short[size];
+        for (int counter = 0; counter < size; counter++) {
+            reversedArray[counter] = sortedArray[size - counter - 1];
+        }
+        Arrays.parallelSort(reversedArray);
+        assertTrue(Arrays.equals(sortedArray, reversedArray));
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(short[])
+     */
+    public void test_parallelSort$S() {
+        // This will result in single thread sort
+        assertTrue(256 <= Arrays.MIN_ARRAY_SORT_GRAN);
+        test_parallelSort$S(256);
+        // This should trigger true parallel sort
+        if (ForkJoinPool.getCommonPoolParallelism() > 1) {
+            assertTrue(256 * 64 > Arrays.MIN_ARRAY_SORT_GRAN);
+            test_parallelSort$S(256 * 64);
+        }
+    }
+
+    private void test_parallelSort$SII(int size) {
+        int startIndex = 100;
+        int endIndex = size - 100;
+        short[] reversedArray = new short[size];
+        short[] originalReversedArray = new short[size];
+
+        Arrays.fill(reversedArray, 0 , startIndex, (short)100);
+        Arrays.fill(reversedArray, endIndex, size, (short)100);
+        for (int counter = startIndex; counter < endIndex; counter++) {
+            reversedArray[counter] = (short)(size - counter - startIndex - 1);
+        }
+        System.arraycopy(reversedArray, 0, originalReversedArray, 0, size);
+
+        Arrays.parallelSort(reversedArray, startIndex, endIndex);
+        for (int counter = 0; counter < startIndex; counter++)
+            assertTrue("Array modified outside of bounds",
+                 reversedArray[counter] == originalReversedArray[counter]);
+        for (int counter = startIndex; counter < endIndex - 1; counter++)
+            assertTrue("Array not sorted within bounds",
+                       reversedArray[counter] <= reversedArray[counter + 1]);
+        for (int counter = endIndex; counter < arraySize; counter++)
+            assertTrue("Array modified outside of bounds",
+                       reversedArray[counter] == originalReversedArray[counter]);
+
+        //exception testing
+        try {
+            Arrays.parallelSort(reversedArray, startIndex + 1, startIndex);
+            fail("IllegalArgumentException expected");
+        } catch (IllegalArgumentException ignore) {
+        }
+
+        try {
+            Arrays.parallelSort(reversedArray, -1, startIndex);
+            fail("ArrayIndexOutOfBoundsException expected (1)");
+        } catch (ArrayIndexOutOfBoundsException ignore) {
+        }
+
+        try {
+            Arrays.parallelSort(reversedArray, startIndex, reversedArray.length + 1);
+            fail("ArrayIndexOutOfBoundsException expected (2)");
+        } catch (ArrayIndexOutOfBoundsException ignore) {
+        }
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(short[], int, int)
+     */
+    public void test_parallelSort$SII() {
+        // This will result in single thread sort
+        assertTrue(256 <= Arrays.MIN_ARRAY_SORT_GRAN);
+        test_parallelSort$SII(256);
+        // This should trigger true parallel sort
+        if (ForkJoinPool.getCommonPoolParallelism() > 1) {
+            assertTrue(256 * 64 > Arrays.MIN_ARRAY_SORT_GRAN);
+            test_parallelSort$SII(256 * 64);
+        }
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(short[]) & (short[], int, int) NPE
+     */
+    public void test_parallelSort$S_NPE() {
+        short[] array_null = null;
+        try {
+            java.util.Arrays.parallelSort(array_null);
+            fail("Should throw java.lang.NullPointerException");
+        } catch (NullPointerException expected) {
+        }
+        try {
+            java.util.Arrays.parallelSort(array_null, (int) -1, (int) 1);
+            fail("Should throw java.lang.NullPointerException");
+        } catch (NullPointerException expected) {
+        }
+    }
+
+    private void test_parallelSort$I(int size) {
+        int[] sortedArray = new int[size];
+        for (int counter = 0; counter < size; counter++)
+            sortedArray[counter] = (int)(Integer.MIN_VALUE + counter);
+        int[] reversedArray = new int[size];
+        for (int counter = 0; counter < size; counter++) {
+            reversedArray[counter] = sortedArray[size - counter - 1];
+        }
+        Arrays.parallelSort(reversedArray);
+        assertTrue(Arrays.equals(sortedArray, reversedArray));
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(int[])
+     */
+    public void test_parallelSort$I() {
+        // This will result in single thread sort
+        assertTrue(256 <= Arrays.MIN_ARRAY_SORT_GRAN);
+        test_parallelSort$I(256);
+        // This should trigger true parallel sort
+        if (ForkJoinPool.getCommonPoolParallelism() > 1) {
+            assertTrue(256 * 64 > Arrays.MIN_ARRAY_SORT_GRAN);
+            test_parallelSort$I(256 * 64);
+        }
+    }
+
+    private void test_parallelSort$III(int size) {
+        int startIndex = 100;
+        int endIndex = size - 100;
+        int[] reversedArray = new int[size];
+        int[] originalReversedArray = new int[size];
+
+        Arrays.fill(reversedArray, 0 , startIndex, (int)100);
+        Arrays.fill(reversedArray, endIndex, size, (int)100);
+        for (int counter = startIndex; counter < endIndex; counter++) {
+            reversedArray[counter] = (int)(size - counter - startIndex - 1);
+        }
+        System.arraycopy(reversedArray, 0, originalReversedArray, 0, size);
+
+        Arrays.parallelSort(reversedArray, startIndex, endIndex);
+        for (int counter = 0; counter < startIndex; counter++)
+            assertTrue("Array modified outside of bounds",
+                 reversedArray[counter] == originalReversedArray[counter]);
+        for (int counter = startIndex; counter < endIndex - 1; counter++)
+            assertTrue("Array not sorted within bounds",
+                       reversedArray[counter] <= reversedArray[counter + 1]);
+        for (int counter = endIndex; counter < arraySize; counter++)
+            assertTrue("Array modified outside of bounds",
+                       reversedArray[counter] == originalReversedArray[counter]);
+
+        //exception testing
+        try {
+            Arrays.parallelSort(reversedArray, startIndex + 1, startIndex);
+            fail("IllegalArgumentException expected");
+        } catch (IllegalArgumentException ignore) {
+        }
+
+        try {
+            Arrays.parallelSort(reversedArray, -1, startIndex);
+            fail("ArrayIndexOutOfBoundsException expected (1)");
+        } catch (ArrayIndexOutOfBoundsException ignore) {
+        }
+
+        try {
+            Arrays.parallelSort(reversedArray, startIndex, reversedArray.length + 1);
+            fail("ArrayIndexOutOfBoundsException expected (2)");
+        } catch (ArrayIndexOutOfBoundsException ignore) {
+        }
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(int[], int, int)
+     */
+    public void test_parallelSort$III() {
+        // This will result in single thread sort
+        assertTrue(256 <= Arrays.MIN_ARRAY_SORT_GRAN);
+        test_parallelSort$III(256);
+        // This should trigger true parallel sort
+        if (ForkJoinPool.getCommonPoolParallelism() > 1) {
+            assertTrue(256 * 64 > Arrays.MIN_ARRAY_SORT_GRAN);
+            test_parallelSort$III(256 * 64);
+        }
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(int[]) & (int[], int, int) NPE
+     */
+    public void test_parallelSort$I_NPE() {
+        int[] array_null = null;
+        try {
+            java.util.Arrays.parallelSort(array_null);
+            fail("Should throw java.lang.NullPointerException");
+        } catch (NullPointerException expected) {
+        }
+        try {
+            java.util.Arrays.parallelSort(array_null, (int) -1, (int) 1);
+            fail("Should throw java.lang.NullPointerException");
+        } catch (NullPointerException expected) {
+        }
+    }
+
+    private void test_parallelSort$J(int size) {
+        long[] reversedArray = new long[size];
+        for (int counter = 0; counter < size; counter++)
+            reversedArray[counter] = (long)(size - counter - 1);
+        Arrays.parallelSort(reversedArray);
+
+        for (int counter = 0; counter < size; counter++)
+            assertTrue("Resulting array not sorted",
+                    reversedArray[counter] == (long) counter);
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(long[])
+     */
+    public void test_parallelSort$J() {
+        // This will result in single thread sort
+        assertTrue(256 <= Arrays.MIN_ARRAY_SORT_GRAN);
+        test_parallelSort$J(256);
+        // This should trigger true parallel sort
+        if (ForkJoinPool.getCommonPoolParallelism() > 1) {
+            assertTrue(256 * 64 > Arrays.MIN_ARRAY_SORT_GRAN);
+            test_parallelSort$J(256 * 64);
+        }
+    }
+
+    private void test_parallelSort$JII(int size) {
+        int startIndex = 100;
+        int endIndex = size - 100;
+        long[] reversedArray = new long[size];
+        long[] originalReversedArray = new long[size];
+
+        Arrays.fill(reversedArray, 0 , startIndex, (long)100);
+        Arrays.fill(reversedArray, endIndex, size, (long)100);
+        for (int counter = startIndex; counter < endIndex; counter++) {
+            reversedArray[counter] = (long)(size - counter - startIndex - 1);
+        }
+        System.arraycopy(reversedArray, 0, originalReversedArray, 0, size);
+
+        Arrays.parallelSort(reversedArray, startIndex, endIndex);
+        for (int counter = 0; counter < startIndex; counter++)
+            assertTrue("Array modified outside of bounds",
+                 reversedArray[counter] == originalReversedArray[counter]);
+        for (int counter = startIndex; counter < endIndex - 1; counter++)
+            assertTrue("Array not sorted within bounds",
+                       reversedArray[counter] <= reversedArray[counter + 1]);
+        for (int counter = endIndex; counter < arraySize; counter++)
+            assertTrue("Array modified outside of bounds",
+                       reversedArray[counter] == originalReversedArray[counter]);
+
+        //exception testing
+        try {
+            Arrays.parallelSort(reversedArray, startIndex + 1, startIndex);
+            fail("IllegalArgumentException expected");
+        } catch (IllegalArgumentException ignore) {
+        }
+
+        try {
+            Arrays.parallelSort(reversedArray, -1, startIndex);
+            fail("ArrayIndexOutOfBoundsException expected (1)");
+        } catch (ArrayIndexOutOfBoundsException ignore) {
+        }
+
+        try {
+            Arrays.parallelSort(reversedArray, startIndex, reversedArray.length + 1);
+            fail("ArrayIndexOutOfBoundsException expected (2)");
+        } catch (ArrayIndexOutOfBoundsException ignore) {
+        }
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(long[], int, int)
+     */
+    public void test_parallelSort$JII() {
+        // This will result in single thread sort
+        assertTrue(256 <= Arrays.MIN_ARRAY_SORT_GRAN);
+        test_parallelSort$JII(256);
+        // This should trigger true parallel sort
+        if (ForkJoinPool.getCommonPoolParallelism() > 1) {
+            assertTrue(256 * 64 > Arrays.MIN_ARRAY_SORT_GRAN);
+            test_parallelSort$JII(256 * 64);
+        }
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(long[]) & (long[], int, int) NPE
+     */
+    public void test_parallelSort$J_NPE() {
+        long[] array_null = null;
+        try {
+            java.util.Arrays.parallelSort(array_null);
+            fail("Should throw java.lang.NullPointerException");
+        } catch (NullPointerException expected) {
+        }
+        try {
+            java.util.Arrays.parallelSort(array_null, (int) -1, (int) 1);
+            fail("Should throw java.lang.NullPointerException");
+        } catch (NullPointerException expected) {
+        }
+    }
+
+    private void test_parallelSort$D(int size) {
+        double[] sortedArray = new double[size];
+        for (int counter = 0; counter < size; counter++)
+            sortedArray[counter] = (double)(counter);
+        double[] reversedArray = new double[size];
+        for (int counter = 0; counter < size; counter++) {
+            reversedArray[counter] = sortedArray[size - counter - 1];
+        }
+        Arrays.parallelSort(reversedArray);
+        assertTrue(Arrays.equals(sortedArray, reversedArray));
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(double[])
+     */
+    public void test_parallelSort$D() {
+        // This will result in single thread sort
+        assertTrue(256 <= Arrays.MIN_ARRAY_SORT_GRAN);
+        test_parallelSort$D(256);
+        // This should trigger true parallel sort
+        if (ForkJoinPool.getCommonPoolParallelism() > 1) {
+            assertTrue(256 * 64 > Arrays.MIN_ARRAY_SORT_GRAN);
+            test_parallelSort$D(256 * 64);
+        }
+    }
+
+    private void test_parallelSort$DII(int size) {
+        int startIndex = 100;
+        int endIndex = size-100;
+        double[] reversedArray = new double[size];
+        double[] originalReversedArray = new double[size];
+
+        Arrays.fill(reversedArray, 0 , startIndex, (double)100);
+        Arrays.fill(reversedArray, endIndex, size, (double)100);
+        for (int counter = startIndex; counter < endIndex; counter++) {
+            reversedArray[counter] = (double) (size - counter - startIndex - 1);
+        }
+        System.arraycopy(reversedArray, 0, originalReversedArray, 0, size);
+
+        Arrays.parallelSort(reversedArray, startIndex, endIndex);
+        for (int counter = 0; counter < startIndex; counter++)
+            assertTrue("Array modified outside of bounds",
+                 reversedArray[counter] == originalReversedArray[counter]);
+        for (int counter = startIndex; counter < endIndex - 1; counter++)
+            assertTrue("Array not sorted within bounds",
+                       reversedArray[counter] <= reversedArray[counter + 1]);
+        for (int counter = endIndex; counter < arraySize; counter++)
+            assertTrue("Array modified outside of bounds",
+                       reversedArray[counter] == originalReversedArray[counter]);
+
+        //exception testing
+        try {
+            Arrays.parallelSort(reversedArray, startIndex + 1, startIndex);
+            fail("IllegalArgumentException expected");
+        } catch (IllegalArgumentException ignore) {
+        }
+
+        try {
+            Arrays.parallelSort(reversedArray, -1, startIndex);
+            fail("ArrayIndexOutOfBoundsException expected (1)");
+        } catch (ArrayIndexOutOfBoundsException ignore) {
+        }
+
+        try {
+            Arrays.parallelSort(reversedArray, startIndex, reversedArray.length + 1);
+            fail("ArrayIndexOutOfBoundsException expected (2)");
+        } catch (ArrayIndexOutOfBoundsException ignore) {
+        }
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(double[], int, int)
+     */
+    public void test_parallelSort$DII() {
+        // This will result in single thread sort
+        assertTrue(256 <= Arrays.MIN_ARRAY_SORT_GRAN);
+        test_parallelSort$DII(256);
+        // This should trigger true parallel sort
+        if (ForkJoinPool.getCommonPoolParallelism() > 1) {
+            assertTrue(256 * 64 > Arrays.MIN_ARRAY_SORT_GRAN);
+            test_parallelSort$DII(64*256);
+        }
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(double[]) & (double[], int, int) NPE
+     */
+    public void test_parallelSort$D_NPE() {
+        double[] array_null = null;
+        try {
+            java.util.Arrays.parallelSort(array_null);
+            fail("Should throw java.lang.NullPointerException");
+        } catch (NullPointerException expected) {
+        }
+        try {
+            java.util.Arrays.parallelSort(array_null, (int) -1, (int) 1);
+            fail("Should throw java.lang.NullPointerException");
+        } catch (NullPointerException expected) {
+        }
+    }
+
+    private void test_parallelSort$F(int size) {
+        float[] sortedArray = new float[size];
+        for (int counter = 0; counter < size; counter++)
+            sortedArray[counter] = (float)(counter);
+        float[] reversedArray = new float[size];
+        for (int counter = 0; counter < size; counter++) {
+            reversedArray[counter] = sortedArray[size - counter - 1];
+        }
+        Arrays.parallelSort(reversedArray);
+        assertTrue(Arrays.equals(sortedArray, reversedArray));
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(float[])
+     */
+    public void test_parallelSort$F() {
+        // This will result in single thread sort
+        assertTrue(256 <= Arrays.MIN_ARRAY_SORT_GRAN);
+        test_parallelSort$F(256);
+        // This should trigger true parallel sort
+        if (ForkJoinPool.getCommonPoolParallelism() > 1) {
+            assertTrue(256 * 64 > Arrays.MIN_ARRAY_SORT_GRAN);
+            test_parallelSort$F(256 * 64);
+        }
+    }
+
+    private void test_parallelSort$FII(int size) {
+        int startIndex = 100;
+        int endIndex = size-100;
+        float[] reversedArray = new float[size];
+        float[] originalReversedArray = new float[size];
+
+        Arrays.fill(reversedArray, 0 , startIndex, (float)100);
+        Arrays.fill(reversedArray, endIndex, size, (float)100);
+        for (int counter = startIndex; counter < endIndex; counter++) {
+            reversedArray[counter] = (float) (size - counter - startIndex - 1);
+        }
+        System.arraycopy(reversedArray, 0, originalReversedArray, 0, size);
+
+        Arrays.parallelSort(reversedArray, startIndex, endIndex);
+        for (int counter = 0; counter < startIndex; counter++)
+            assertTrue("Array modified outside of bounds",
+                 reversedArray[counter] == originalReversedArray[counter]);
+        for (int counter = startIndex; counter < endIndex - 1; counter++)
+            assertTrue("Array not sorted within bounds",
+                       reversedArray[counter] <= reversedArray[counter + 1]);
+        for (int counter = endIndex; counter < arraySize; counter++)
+            assertTrue("Array modified outside of bounds",
+                       reversedArray[counter] == originalReversedArray[counter]);
+
+        //exception testing
+        try {
+            Arrays.parallelSort(reversedArray, startIndex + 1, startIndex);
+            fail("IllegalArgumentException expected");
+        } catch (IllegalArgumentException ignore) {
+        }
+
+        try {
+            Arrays.parallelSort(reversedArray, -1, startIndex);
+            fail("ArrayIndexOutOfBoundsException expected (1)");
+        } catch (ArrayIndexOutOfBoundsException ignore) {
+        }
+
+        try {
+            Arrays.parallelSort(reversedArray, startIndex, reversedArray.length + 1);
+            fail("ArrayIndexOutOfBoundsException expected (2)");
+        } catch (ArrayIndexOutOfBoundsException ignore) {
+        }
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(float[], int, int)
+     */
+    public void test_parallelSort$FII() {
+        // This will result in single thread sort
+        assertTrue(256 <= Arrays.MIN_ARRAY_SORT_GRAN);
+        test_parallelSort$FII(256);
+        // This should trigger true parallel sort
+        if (ForkJoinPool.getCommonPoolParallelism() > 1) {
+            assertTrue(256 * 64 > Arrays.MIN_ARRAY_SORT_GRAN);
+            test_parallelSort$FII(64*256);
+        }
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(float[]) & (float[], int, int) NPE
+     */
+    public void test_parallelSort$F_NPE() {
+        float[] array_null = null;
+        try {
+            java.util.Arrays.parallelSort(array_null);
+            fail("Should throw java.lang.NullPointerException");
+        } catch (NullPointerException expected) {
+
+        }
+        try {
+            java.util.Arrays.parallelSort(array_null, (int) -1, (int) 1);
+            fail("Should throw java.lang.NullPointerException");
+        } catch (NullPointerException expected) {
+        }
+    }
+
+    private void test_parallelSort$Ljava_lang_Comparable(int size) {
+        Comparable[] sortedArray = new Comparable[size];
+        for (int counter = 0; counter < size; counter++)
+            sortedArray[counter] = new Integer(counter);
+        Comparable[] reversedArray = new Comparable[size];
+        for (int counter = 0; counter < size; counter++) {
+            reversedArray[counter] = sortedArray[size - counter - 1];
+        }
+        Arrays.parallelSort(reversedArray);
+        assertTrue(Arrays.equals(sortedArray, reversedArray));
+
+        Arrays.fill(reversedArray, 0, reversedArray.length/2, "String");
+        Arrays.fill(reversedArray, reversedArray.length/2, reversedArray.length, new Integer(1));
+
+        try {
+            Arrays.sort(reversedArray);
+            fail("ClassCastException expected");
+        } catch (ClassCastException expected) {
+        }
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(java.lang.Comparable[])
+     */
+    public void test_parallelSort$Ljava_lang_Comparable() {
+        // This will result in single thread sort
+        assertTrue(256 <= Arrays.MIN_ARRAY_SORT_GRAN);
+        test_parallelSort$Ljava_lang_Comparable(256);
+        // This should trigger true parallel sort
+        if (ForkJoinPool.getCommonPoolParallelism() > 1) {
+            assertTrue(256 * 64 > Arrays.MIN_ARRAY_SORT_GRAN);
+            test_parallelSort$Ljava_lang_Comparable(256 * 64);
+        }
+    }
+
+    private void test_parallelSort$Ljava_lang_ComparableII(int size) {
+        int startIndex = 100;
+        int endIndex = size-100;
+        Comparable[] reversedArray = new Comparable[size];
+        Comparable[] originalReversedArray = new Comparable[size];
+        Arrays.fill(reversedArray, 0 , startIndex, new Integer(100));
+        Arrays.fill(reversedArray, endIndex, size, new Integer(100));
+        for (int counter = startIndex; counter < endIndex; counter++) {
+            reversedArray[counter] = new Integer(size - counter - startIndex - 1);
+        }
+        System.arraycopy(reversedArray, 0, originalReversedArray, 0, size);
+
+        Arrays.parallelSort(reversedArray, startIndex, endIndex);
+        for (int counter = 0; counter < startIndex; counter++)
+            assertTrue("Array modified outside of bounds",
+                 reversedArray[counter] == originalReversedArray[counter]);
+        for (int counter = startIndex; counter < endIndex - 1; counter++)
+            assertTrue("Array not sorted within bounds",
+                       (int)(Integer)reversedArray[counter] <= (int)reversedArray[counter + 1]);
+        for (int counter = endIndex; counter < arraySize; counter++)
+            assertTrue("Array modified outside of bounds",
+                       reversedArray[counter] == originalReversedArray[counter]);
+
+        //exception testing
+        try {
+            Arrays.parallelSort(reversedArray, startIndex + 1, startIndex);
+            fail("IllegalArgumentException expected");
+        } catch (IllegalArgumentException ignore) {
+        }
+
+        try {
+            Arrays.parallelSort(reversedArray, -1, startIndex);
+            fail("ArrayIndexOutOfBoundsException expected (1)");
+        } catch (ArrayIndexOutOfBoundsException ignore) {
+        }
+
+        try {
+            Arrays.parallelSort(reversedArray, startIndex, reversedArray.length + 1);
+            fail("ArrayIndexOutOfBoundsException expected (2)");
+        } catch (ArrayIndexOutOfBoundsException ignore) {
+        }
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(java.lang.Comparable[], int, int)
+     */
+    public void test_parallelSort$Ljava_lang_ComparableII() {
+        // This will result in single thread sort
+        assertTrue(256 <= Arrays.MIN_ARRAY_SORT_GRAN);
+        test_parallelSort$Ljava_lang_ComparableII(256);
+        // This should trigger true parallel sort
+        if (ForkJoinPool.getCommonPoolParallelism() > 1) {
+            assertTrue(256 * 64 > Arrays.MIN_ARRAY_SORT_GRAN);
+            test_parallelSort$Ljava_lang_ComparableII(64*256);
+        }
+    }
+
+
+    /**
+     * java.util.Arrays#parallelSort(java_lang_Comparable[]) & (java_lang_Comparable[], int, int) NPE
+     */
+    public void test_parallelSort$Ljava_lang_Comparable_NPE() {
+        Comparable[] array_null = null;
+        try {
+            java.util.Arrays.parallelSort(array_null);
+            fail("Should throw java.lang.NullPointerException");
+        } catch (NullPointerException expected) {
+
+        }
+        try {
+            java.util.Arrays.parallelSort(array_null, (int) -1, (int) 1);
+            fail("Should throw java.lang.NullPointerException");
+        } catch (NullPointerException expected) {
+        }
+    }
+
+    private void test_parallelSort$Ljava_lang_ObjectLjava_util_Comparator(int size) {
+        Object[] reversedArray = new Object[size];
+        for (int counter = 0; counter < size; counter++)
+            reversedArray[counter] = new Integer(counter);
+        Comparator comparator = new ReversedIntegerComparator();
+        Arrays.parallelSort(reversedArray, comparator);
+
+        for (int counter = 0; counter < size; counter++)
+            assertTrue("Resulting array not sorted",
+                       (int)(reversedArray[counter]) == (size - counter -1 ));
+
+        Arrays.fill(reversedArray, 0, reversedArray.length/2, "String");
+        Arrays.fill(reversedArray, reversedArray.length/2, reversedArray.length, new Integer(1));
+
+        try {
+            Arrays.sort(reversedArray, comparator);
+            fail("ClassCastException expected");
+        } catch (ClassCastException expected) {
+        }
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(java.lang.Object[], java.util.Comparator)
+     */
+    public void test_parallelSort$Ljava_lang_Objectjava_util_Comparator() {
+        // This will result in single thread sort
+        assertTrue(256 <= Arrays.MIN_ARRAY_SORT_GRAN);
+        test_parallelSort$Ljava_lang_ObjectLjava_util_Comparator(256);
+        // This should trigger true parallel sort
+        if (ForkJoinPool.getCommonPoolParallelism() > 1) {
+            assertTrue(256 * 64 > Arrays.MIN_ARRAY_SORT_GRAN);
+            test_parallelSort$Ljava_lang_ObjectLjava_util_Comparator(256 * 64);
+        }
+    }
+
+    private void test_parallelSort$Ljava_lang_ObjectLjava_util_ComparatorII(int size) {
+        int startIndex = 100;
+        int endIndex = size-100;
+        Integer[] reversedArray = new Integer[size];
+        Integer[] originalReversedArray = new Integer[size];
+        Arrays.fill(reversedArray, 0 , startIndex, new Integer(100));
+        Arrays.fill(reversedArray, endIndex, size, new Integer(100));
+        for (int counter = startIndex; counter < endIndex; counter++) {
+            reversedArray[counter] = new Integer(counter - startIndex);
+        }
+        System.arraycopy(reversedArray, 0, originalReversedArray, 0, size);
+
+        Comparator comparator = new ReversedIntegerComparator();
+        Arrays.parallelSort(reversedArray, startIndex, endIndex, comparator);
+        for (int counter = 0; counter < startIndex; counter++)
+            assertTrue("Array modified outside of bounds",
+                 reversedArray[counter] == originalReversedArray[counter]);
+        for (int counter = startIndex; counter < endIndex - 1; counter++)
+            assertTrue("Array not sorted within bounds",
+                       (int)(Integer)reversedArray[counter] >= (int)reversedArray[counter + 1]);
+        for (int counter = endIndex; counter < arraySize; counter++)
+            assertTrue("Array modified outside of bounds",
+                       reversedArray[counter] == originalReversedArray[counter]);
+
+        //exception testing
+        try {
+            Arrays.parallelSort(reversedArray, startIndex + 1, startIndex, comparator);
+            fail("IllegalArgumentException expected");
+        } catch (IllegalArgumentException ignore) {
+        }
+
+        try {
+            Arrays.parallelSort(reversedArray, -1, startIndex, comparator);
+            fail("ArrayIndexOutOfBoundsException expected (1)");
+        } catch (ArrayIndexOutOfBoundsException ignore) {
+        }
+
+        try {
+            Arrays.parallelSort(reversedArray, startIndex, reversedArray.length + 1, comparator);
+            fail("ArrayIndexOutOfBoundsException expected (2)");
+        } catch (ArrayIndexOutOfBoundsException ignore) {
+        }
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(java.lang.Object[], int, int, java.util.Comparator)
+     */
+    public void test_parallelSort$Ljava_lang_ObjectLjava_util_ComparatorII() {
+        // This will result in single thread sort
+        assertTrue(256 <= Arrays.MIN_ARRAY_SORT_GRAN);
+        test_parallelSort$Ljava_lang_ObjectLjava_util_ComparatorII(256);
+        // This should trigger true parallel sort
+        if (ForkJoinPool.getCommonPoolParallelism() > 1) {
+            assertTrue(256 * 64 > Arrays.MIN_ARRAY_SORT_GRAN);
+            test_parallelSort$Ljava_lang_ObjectLjava_util_ComparatorII(64*256);
+        }
+    }
+
+    /**
+     * java.util.Arrays#parallelSort(Object[],Comparator) & (Object[], int, int, Comparator) NPE
+     */
+    public void test_parallelSort$Ljava_lang_ObjectLjava_util_Comparator_NPE() {
+        Object[] array_null = null;
+        Comparator comparator = new ReversedIntegerComparator();
+        try {
+            java.util.Arrays.parallelSort(array_null, comparator);
+            fail("Should throw java.lang.NullPointerException");
+        } catch (NullPointerException expected) {
+
+        }
+        try {
+            java.util.Arrays.parallelSort(array_null, (int) -1, (int) 1, comparator);
+            fail("Should throw java.lang.NullPointerException");
+        } catch (NullPointerException expected) {
+        }
+    }
+
 
     /**
      * Tears down the fixture, for example, close a network connection. This

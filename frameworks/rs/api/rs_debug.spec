@@ -67,6 +67,15 @@ test: none
 end:
 
 function: rsDebug
+version: 24
+w: 1, 2, 3, 4
+ret: void
+arg: const char* message
+arg: half#1 a
+test: none
+end:
+
+function: rsDebug
 version: 17
 w: 1, 2, 3, 4
 t: i8, u8, i16, u16

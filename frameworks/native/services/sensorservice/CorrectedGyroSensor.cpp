@@ -30,15 +30,26 @@ namespace android {
 // ---------------------------------------------------------------------------
 
 CorrectedGyroSensor::CorrectedGyroSensor(sensor_t const* list, size_t count)
-    : mSensorDevice(SensorDevice::getInstance()),
-      mSensorFusion(SensorFusion::getInstance())
-{
+    : VirtualSensor() {
     for (size_t i=0 ; i<count ; i++) {
         if (list[i].type == SENSOR_TYPE_GYROSCOPE) {
             mGyro = Sensor(list + i);
             break;
         }
     }
+
+    const sensor_t sensor = {
+            .name       = "Corrected Gyroscope Sensor",
+            .vendor     = "AOSP",
+            .version    = 1,
+            .handle     = '_cgy',
+            .type       = SENSOR_TYPE_GYROSCOPE,
+            .maxRange   = mGyro.getMaxValue(),
+            .resolution = mGyro.getResolution(),
+            .power      = mSensorFusion.getPowerUsage(),
+            .minDelay   = mGyro.getMinDelay(),
+    };
+    mSensor = Sensor(&sensor);
 }
 
 bool CorrectedGyroSensor::process(sensors_event_t* outEvent,
@@ -58,27 +69,12 @@ bool CorrectedGyroSensor::process(sensors_event_t* outEvent,
 
 status_t CorrectedGyroSensor::activate(void* ident, bool enabled) {
     mSensorDevice.activate(ident, mGyro.getHandle(), enabled);
-    return mSensorFusion.activate(ident, enabled);
+    return mSensorFusion.activate(FUSION_9AXIS, ident, enabled);
 }
 
 status_t CorrectedGyroSensor::setDelay(void* ident, int /*handle*/, int64_t ns) {
     mSensorDevice.setDelay(ident, mGyro.getHandle(), ns);
-    return mSensorFusion.setDelay(ident, ns);
-}
-
-Sensor CorrectedGyroSensor::getSensor() const {
-    sensor_t hwSensor;
-    hwSensor.name       = "Corrected Gyroscope Sensor";
-    hwSensor.vendor     = "AOSP";
-    hwSensor.version    = 1;
-    hwSensor.handle     = '_cgy';
-    hwSensor.type       = SENSOR_TYPE_GYROSCOPE;
-    hwSensor.maxRange   = mGyro.getMaxValue();
-    hwSensor.resolution = mGyro.getResolution();
-    hwSensor.power      = mSensorFusion.getPowerUsage();
-    hwSensor.minDelay   = mGyro.getMinDelay();
-    Sensor sensor(&hwSensor);
-    return sensor;
+    return mSensorFusion.setDelay(FUSION_9AXIS, ident, ns);
 }
 
 // ---------------------------------------------------------------------------

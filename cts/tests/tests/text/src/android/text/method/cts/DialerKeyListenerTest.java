@@ -19,7 +19,6 @@ package android.text.method.cts;
 import android.text.InputType;
 import android.text.Spannable;
 import android.text.SpannableString;
-import android.text.method.cts.KeyListenerTestCase;
 import android.text.method.DialerKeyListener;
 import android.view.KeyEvent;
 

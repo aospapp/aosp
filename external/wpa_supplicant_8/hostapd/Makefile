@@ -6,17 +6,38 @@ ifndef CFLAGS
 CFLAGS = -MMD -O2 -Wall -g
 endif
 
+ifdef LIBS
+# If LIBS is set with some global build system defaults, clone those for
+# LIBS_c, LIBS_h, and LIBS_n to cover hostapd_cli, hlr_auc_gw, and
+# nt_password_hash as well.
+ifndef LIBS_c
+LIBS_c := $(LIBS)
+endif
+ifndef LIBS_h
+LIBS_h := $(LIBS)
+endif
+ifndef LIBS_n
+LIBS_n := $(LIBS)
+endif
+endif
+
 CFLAGS += $(EXTRA_CFLAGS)
 CFLAGS += -I$(abspath ../src)
 CFLAGS += -I$(abspath ../src/utils)
 
 export BINDIR ?= /usr/local/bin/
 
-# Uncomment following line and set the path to your kernel tree include
-# directory if your C library does not include all header files.
-# CFLAGS += -DUSE_KERNEL_HEADERS -I/usr/src/linux/include
-
 -include .config
+
+ifndef CONFIG_NO_GITVER
+# Add VERSION_STR postfix for builds from a git repository
+ifeq ($(wildcard ../.git),../.git)
+GITVER := $(shell git describe --dirty=+)
+ifneq ($(GITVER),)
+CFLAGS += -DGIT_VERSION_STR_POSTFIX=\"-$(GITVER)\"
+endif
+endif
+endif
 
 ifdef CONFIG_TESTING_OPTIONS
 CFLAGS += -DCONFIG_TESTING_OPTIONS
@@ -107,6 +128,18 @@ LIBS_h += -lrt
 LIBS_n += -lrt
 endif
 
+ifdef CONFIG_ELOOP_POLL
+CFLAGS += -DCONFIG_ELOOP_POLL
+endif
+
+ifdef CONFIG_ELOOP_EPOLL
+CFLAGS += -DCONFIG_ELOOP_EPOLL
+endif
+
+ifdef CONFIG_ELOOP_KQUEUE
+CFLAGS += -DCONFIG_ELOOP_KQUEUE
+endif
+
 OBJS += ../src/utils/common.o
 OBJS_c += ../src/utils/common.o
 OBJS += ../src/utils/wpa_debug.o
@@ -157,22 +190,53 @@ ifdef CONFIG_NO_VLAN
 CFLAGS += -DCONFIG_NO_VLAN
 else
 OBJS += ../src/ap/vlan_init.o
-ifdef CONFIG_VLAN_NETLINK
+OBJS += ../src/ap/vlan_ifconfig.o
+OBJS += ../src/ap/vlan.o
 ifdef CONFIG_FULL_DYNAMIC_VLAN
+# Define CONFIG_FULL_DYNAMIC_VLAN to have hostapd manipulate bridges
+# and VLAN interfaces for the VLAN feature.
+CFLAGS += -DCONFIG_FULL_DYNAMIC_VLAN
+OBJS += ../src/ap/vlan_full.o
+ifdef CONFIG_VLAN_NETLINK
 OBJS += ../src/ap/vlan_util.o
+else
+OBJS += ../src/ap/vlan_ioctl.o
 endif
-CFLAGS += -DCONFIG_VLAN_NETLINK
 endif
 endif
 
 ifdef CONFIG_NO_CTRL_IFACE
 CFLAGS += -DCONFIG_NO_CTRL_IFACE
 else
+ifeq ($(CONFIG_CTRL_IFACE), udp)
+CFLAGS += -DCONFIG_CTRL_IFACE_UDP
+else
+ifeq ($(CONFIG_CTRL_IFACE), udp6)
+CFLAGS += -DCONFIG_CTRL_IFACE_UDP
+CFLAGS += -DCONFIG_CTRL_IFACE_UDP_IPV6
+else
+ifeq ($(CONFIG_CTRL_IFACE), udp-remote)
+CFLAGS += -DCONFIG_CTRL_IFACE_UDP
+CFLAGS += -DCONFIG_CTRL_IFACE_UDP_REMOTE
+else
+ifeq ($(CONFIG_CTRL_IFACE), udp6-remote)
+CFLAGS += -DCONFIG_CTRL_IFACE_UDP
+CFLAGS += -DCONFIG_CTRL_IFACE_UDP_REMOTE
+CFLAGS += -DCONFIG_CTRL_IFACE_UDP_IPV6
+else
+CFLAGS += -DCONFIG_CTRL_IFACE_UNIX
+endif
+endif
+endif
+endif
+OBJS += ../src/common/ctrl_iface_common.o
 OBJS += ctrl_iface.o
 OBJS += ../src/ap/ctrl_iface_ap.o
 endif
 
-CFLAGS += -DCONFIG_CTRL_IFACE -DCONFIG_CTRL_IFACE_UNIX
+ifndef CONFIG_NO_CTRL_IFACE
+CFLAGS += -DCONFIG_CTRL_IFACE
+endif
 
 ifdef CONFIG_IAPP
 CFLAGS += -DCONFIG_IAPP
@@ -242,6 +306,11 @@ endif
 
 ifdef CONFIG_IEEE80211AC
 CFLAGS += -DCONFIG_IEEE80211AC
+endif
+
+ifdef CONFIG_MBO
+CFLAGS += -DCONFIG_MBO
+OBJS += ../src/ap/mbo_ap.o
 endif
 
 include ../src/drivers/drivers.mak
@@ -526,6 +595,7 @@ endif
 ifeq ($(CONFIG_TLS), openssl)
 ifdef TLS_FUNCS
 OBJS += ../src/crypto/tls_openssl.o
+OBJS += ../src/crypto/tls_openssl_ocsp.o
 LIBS += -lssl
 endif
 OBJS += ../src/crypto/crypto_openssl.o
@@ -533,8 +603,14 @@ HOBJS += ../src/crypto/crypto_openssl.o
 ifdef NEED_FIPS186_2_PRF
 OBJS += ../src/crypto/fips_prf_openssl.o
 endif
+NEED_SHA256=y
+NEED_TLS_PRF_SHA256=y
 LIBS += -lcrypto
 LIBS_h += -lcrypto
+ifdef CONFIG_TLS_ADD_DL
+LIBS += -ldl
+LIBS_h += -ldl
+endif
 endif
 
 ifeq ($(CONFIG_TLS), gnutls)
@@ -620,6 +696,8 @@ CONFIG_INTERNAL_SHA1=y
 CONFIG_INTERNAL_MD4=y
 CONFIG_INTERNAL_MD5=y
 CONFIG_INTERNAL_SHA256=y
+CONFIG_INTERNAL_SHA384=y
+CONFIG_INTERNAL_SHA512=y
 CONFIG_INTERNAL_RC4=y
 CONFIG_INTERNAL_DH_GROUP5=y
 endif
@@ -747,9 +825,15 @@ OBJS += ../src/crypto/des-internal.o
 endif
 endif
 
+ifdef CONFIG_NO_RC4
+CFLAGS += -DCONFIG_NO_RC4
+endif
+
 ifdef NEED_RC4
 ifdef CONFIG_INTERNAL_RC4
+ifndef CONFIG_NO_RC4
 OBJS += ../src/crypto/rc4.o
+endif
 endif
 endif
 
@@ -771,6 +855,17 @@ endif
 endif
 ifdef NEED_SHA384
 CFLAGS += -DCONFIG_SHA384
+OBJS += ../src/crypto/sha384-prf.o
+endif
+
+ifdef CONFIG_INTERNAL_SHA384
+CFLAGS += -DCONFIG_INTERNAL_SHA384
+OBJS += ../src/crypto/sha384-internal.o
+endif
+
+ifdef CONFIG_INTERNAL_SHA512
+CFLAGS += -DCONFIG_INTERNAL_SHA512
+OBJS += ../src/crypto/sha512-internal.o
 endif
 
 ifdef NEED_DH_GROUPS
@@ -812,12 +907,6 @@ endif
 
 ifdef CONFIG_DRIVER_RADIUS_ACL
 CFLAGS += -DCONFIG_DRIVER_RADIUS_ACL
-endif
-
-ifdef CONFIG_FULL_DYNAMIC_VLAN
-# define CONFIG_FULL_DYNAMIC_VLAN to have hostapd manipulate bridges
-# and vlan interfaces for the vlan feature.
-CFLAGS += -DCONFIG_FULL_DYNAMIC_VLAN
 endif
 
 ifdef NEED_BASE64
@@ -898,6 +987,21 @@ LIBS += -lsqlite3
 LIBS_h += -lsqlite3
 endif
 
+ifdef CONFIG_FST
+CFLAGS += -DCONFIG_FST
+OBJS += ../src/fst/fst.o
+OBJS += ../src/fst/fst_group.o
+OBJS += ../src/fst/fst_iface.o
+OBJS += ../src/fst/fst_session.o
+OBJS += ../src/fst/fst_ctrl_aux.o
+ifdef CONFIG_FST_TEST
+CFLAGS += -DCONFIG_FST_TEST
+endif
+ifndef CONFIG_NO_CTRL_IFACE
+OBJS += ../src/fst/fst_ctrl_iface.o
+endif
+endif
+
 ALL=hostapd hostapd_cli
 
 all: verify_config $(ALL)
@@ -960,7 +1064,9 @@ NOBJS = nt_password_hash.o ../src/crypto/ms_funcs.o $(SHA1OBJS)
 NOBJS += ../src/utils/common.o
 ifdef NEED_RC4
 ifdef CONFIG_INTERNAL_RC4
+ifndef CONFIG_NO_RC4
 NOBJS += ../src/crypto/rc4.o
+endif
 endif
 endif
 ifdef CONFIG_INTERNAL_MD5

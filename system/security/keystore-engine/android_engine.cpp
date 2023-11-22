@@ -220,6 +220,7 @@ const struct rsa_meth_st keystore_rsa_method = {
   RSA_FLAG_CACHE_PUBLIC | RSA_FLAG_OPAQUE | RSA_FLAG_EXT_PKEY,
 
   NULL /* keygen */,
+  NULL /* multi_prime_keygen */,
   NULL /* supports_digest */,
 };
 

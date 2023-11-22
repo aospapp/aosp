@@ -50,19 +50,15 @@ struct timespec;
 #ifdef __mips__
 #define SOCK_DGRAM      1
 #define SOCK_STREAM     2
+#else
+#define SOCK_STREAM     1
+#define SOCK_DGRAM      2
+#endif
 #define SOCK_RAW        3
 #define SOCK_RDM        4
 #define SOCK_SEQPACKET  5
 #define SOCK_DCCP       6
 #define SOCK_PACKET     10
-#else
-#define SOCK_STREAM      1
-#define SOCK_DGRAM       2
-#define SOCK_RAW         3
-#define SOCK_RDM         4
-#define SOCK_SEQPACKET   5
-#define SOCK_PACKET      10
-#endif
 
 #define SOCK_CLOEXEC O_CLOEXEC
 #define SOCK_NONBLOCK O_NONBLOCK
@@ -109,7 +105,7 @@ struct cmsghdr {
 
 #define CMSG_NXTHDR(mhdr, cmsg) __cmsg_nxthdr((mhdr), (cmsg))
 #define CMSG_ALIGN(len) ( ((len)+sizeof(long)-1) & ~(sizeof(long)-1) )
-#define CMSG_DATA(cmsg) ((void*)((char*)(cmsg) + CMSG_ALIGN(sizeof(struct cmsghdr))))
+#define CMSG_DATA(cmsg) (((unsigned char*)(cmsg) + CMSG_ALIGN(sizeof(struct cmsghdr))))
 #define CMSG_SPACE(len) (CMSG_ALIGN(sizeof(struct cmsghdr)) + CMSG_ALIGN(len))
 #define CMSG_LEN(len) (CMSG_ALIGN(sizeof(struct cmsghdr)) + (len))
 #define CMSG_FIRSTHDR(msg) \
@@ -168,7 +164,9 @@ struct ucred {
 #define AF_IEEE802154 36
 #define AF_CAIF 37
 #define AF_ALG 38
-#define AF_MAX 39
+#define AF_NFC 39
+#define AF_VSOCK 40
+#define AF_MAX 41
 
 #define PF_UNSPEC AF_UNSPEC
 #define PF_UNIX AF_UNIX
@@ -209,6 +207,8 @@ struct ucred {
 #define PF_IEEE802154 AF_IEEE802154
 #define PF_CAIF AF_CAIF
 #define PF_ALG AF_ALG
+#define PF_NFC AF_NFC
+#define PF_VSOCK AF_VSOCK
 #define PF_MAX AF_MAX
 
 #define SOMAXCONN 128

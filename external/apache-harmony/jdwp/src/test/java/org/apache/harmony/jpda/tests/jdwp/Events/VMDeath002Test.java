@@ -63,9 +63,7 @@ public class VMDeath002Test extends JDWPSyncTestCase {
 
         //check capability, relevant for this test
         logWriter.println("=> Check capability: canRequestVMDeathEvent");
-        debuggeeWrapper.vmMirror.capabilities();
-        boolean isCapability = debuggeeWrapper.vmMirror.targetVMCapabilities.canRequestVMDeathEvent;
-        if (!isCapability) {
+        if (!debuggeeWrapper.vmMirror.canRequestVMDeathEvent()) {
             logWriter.println("##WARNING: this VM doesn't possess capability: canRequestVMDeathEvent");
             return;
         }

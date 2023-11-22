@@ -34,7 +34,7 @@ class BitmapSetSlowPathVisitor {
   void operator()(const mirror::Object* obj) const {
     CHECK(!semi_space_->to_space_->HasAddress(obj)) << "Marking " << obj << " in to_space_";
     // Marking a large object, make sure its aligned as a sanity check.
-    CHECK(IsAligned<kPageSize>(obj));
+    CHECK_ALIGNED(obj, kPageSize);
   }
 
  private:
@@ -74,12 +74,21 @@ inline void SemiSpace::MarkObject(
       MarkStackPush(forward_address);
     }
     obj_ptr->Assign(forward_address);
-  } else if (!collect_from_space_only_ && !immune_region_.ContainsObject(obj)) {
+  } else if (!collect_from_space_only_ && !immune_spaces_.IsInImmuneRegion(obj)) {
+    DCHECK(!to_space_->HasAddress(obj)) << "Tried to mark " << obj << " in to-space";
     BitmapSetSlowPathVisitor visitor(this);
     if (!mark_bitmap_->Set(obj, visitor)) {
       // This object was not previously marked.
       MarkStackPush(obj);
     }
+  }
+}
+
+template<bool kPoisonReferences>
+inline void SemiSpace::MarkObjectIfNotInToSpace(
+    mirror::ObjectReference<kPoisonReferences, mirror::Object>* obj_ptr) {
+  if (!to_space_->HasAddress(obj_ptr->AsMirrorPtr())) {
+    MarkObject(obj_ptr);
   }
 }
 

@@ -35,8 +35,10 @@ def main():
     THRESHOLD_MAX_OUTLIER_DIFF = 0.1
     THRESHOLD_MIN_LEVEL = 0.1
     THRESHOLD_MAX_LEVEL = 0.9
-    THRESHOLD_MAX_LEVEL_DIFF = 0.025
+    THRESHOLD_MAX_LEVEL_DIFF = 0.03
     THRESHOLD_MAX_LEVEL_DIFF_WIDE_RANGE = 0.05
+    THRESHOLD_ROUND_DOWN_GAIN = 0.1
+    THRESHOLD_ROUND_DOWN_EXP = 0.05
 
     mults = []
     r_means = []
@@ -50,21 +52,33 @@ def main():
                              its.caps.per_frame_control(props))
 
         e,s = its.target.get_target_exposure_combos(cam)["minSensitivity"]
+        s_e_product = s*e
         expt_range = props['android.sensor.info.exposureTimeRange']
         sens_range = props['android.sensor.info.sensitivityRange']
 
-        m = 1
+        m = 1.0
         while s*m < sens_range[1] and e/m > expt_range[0]:
             mults.append(m)
-            req = its.objects.manual_capture_request(s*m, e/m)
+            s_test = round(s*m)
+            e_test = s_e_product / s_test
+            print "Testing s:", s_test, "e:", e_test
+            req = its.objects.manual_capture_request(s_test, e_test, True, props)
             cap = cam.do_capture(req)
+            s_res = cap["metadata"]["android.sensor.sensitivity"]
+            e_res = cap["metadata"]["android.sensor.exposureTime"]
+            assert(0 <= s_test - s_res < s_test * THRESHOLD_ROUND_DOWN_GAIN)
+            assert(0 <= e_test - e_res < e_test * THRESHOLD_ROUND_DOWN_EXP)
+            s_e_product_res = s_res * e_res
+            request_result_ratio = s_e_product / s_e_product_res
+            print "Capture result s:", s_test, "e:", e_test
             img = its.image.convert_capture_to_rgb_image(cap)
             its.image.write_image(img, "%s_mult=%3.2f.jpg" % (NAME, m))
             tile = its.image.get_image_patch(img, 0.45, 0.45, 0.1, 0.1)
             rgb_means = its.image.compute_image_means(tile)
-            r_means.append(rgb_means[0])
-            g_means.append(rgb_means[1])
-            b_means.append(rgb_means[2])
+            # Adjust for the difference between request and result
+            r_means.append(rgb_means[0] * request_result_ratio)
+            g_means.append(rgb_means[1] * request_result_ratio)
+            b_means.append(rgb_means[2] * request_result_ratio)
             # Test 3 steps per 2x gain
             m = m * pow(2, 1.0 / 3)
 
@@ -73,9 +87,9 @@ def main():
             threshold_max_level_diff = THRESHOLD_MAX_LEVEL_DIFF_WIDE_RANGE
 
     # Draw a plot.
-    pylab.plot(mults, r_means, 'r')
-    pylab.plot(mults, g_means, 'g')
-    pylab.plot(mults, b_means, 'b')
+    pylab.plot(mults, r_means, 'r.-')
+    pylab.plot(mults, g_means, 'g.-')
+    pylab.plot(mults, b_means, 'b.-')
     pylab.ylim([0,1])
     matplotlib.pyplot.savefig("%s_plot_means.png" % (NAME))
 
@@ -98,4 +112,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

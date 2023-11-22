@@ -12,6 +12,7 @@ LOCAL_JAVA_LIBRARIES := \
 
 LOCAL_MODULE := android-support-recommendation
 
+LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
 # ===========================================================
@@ -20,7 +21,6 @@ recommendation.docs.src_files := \
     $(call all-java-files-under, src) \
     $(call all-html-files-under, src)
 recommendation.docs.java_libraries := \
-    framework \
     android-support-v4 \
     android-support-recommendation
 

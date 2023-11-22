@@ -13,19 +13,22 @@
 # limitations under the License.
 
 LOCAL_PATH := $(call my-dir)
-include $(CLEAR_VARS)
 
+# Target library.
+include $(CLEAR_VARS)
 LOCAL_MODULE := jsr305
 LOCAL_SDK_VERSION := 8
 LOCAL_SRC_FILES := $(call all-java-files-under, ri/src/main/java)
-
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
-# Also build a host side library
+# Also build a host side library (Java)
 include $(CLEAR_VARS)
-
 LOCAL_SRC_FILES := $(call all-java-files-under, ri/src/main/java)
-
 LOCAL_MODULE := jsr305lib
-
 include $(BUILD_HOST_JAVA_LIBRARY)
+
+# Also build a host side library (Dalvik)
+include $(CLEAR_VARS)
+LOCAL_SRC_FILES := $(call all-java-files-under, ri/src/main/java)
+LOCAL_MODULE := jsr305-hostdex
+include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)

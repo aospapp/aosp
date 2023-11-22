@@ -4,10 +4,23 @@ ifneq ($(BOARD_HAVE_BLUETOOTH_BCM),)
 
 include $(CLEAR_VARS)
 
+ifneq ($(BOARD_BLUETOOTH_BDROID_BUILDCFG_INCLUDE_DIR),)
+  bdroid_C_INCLUDES := $(BOARD_BLUETOOTH_BDROID_BUILDCFG_INCLUDE_DIR)
+  bdroid_CFLAGS += -DHAS_BDROID_BUILDCFG
+else
+  bdroid_C_INCLUDES :=
+  bdroid_CFLAGS += -DHAS_NO_BDROID_BUILDCFG
+endif
+
 BDROID_DIR := $(TOP_DIR)system/bt
+
+ifeq ($(strip $(USE_BLUETOOTH_BCM4343)),true)
+LOCAL_CFLAGS += -DUSE_BLUETOOTH_BCM4343
+endif
 
 LOCAL_SRC_FILES := \
         src/bt_vendor_brcm.c \
+        src/bt_vendor_brcm_a2dp.c \
         src/hardware.c \
         src/userial_vendor.c \
         src/upio.c \
@@ -15,7 +28,13 @@ LOCAL_SRC_FILES := \
 
 LOCAL_C_INCLUDES += \
         $(LOCAL_PATH)/include \
-        $(BDROID_DIR)/hci/include
+        $(BDROID_DIR)/hci/include \
+        $(BDROID_DIR)/include \
+        $(BDROID_DIR)/stack/include \
+        $(BDROID_DIR)/gki/ulinux
+
+LOCAL_C_INCLUDES += $(bdroid_C_INCLUDES)
+LOCAL_CFLAGS += $(bdroid_CFLAGS)
 
 LOCAL_SHARED_LIBRARIES := \
         libcutils \
@@ -42,6 +61,9 @@ ifeq ($(TARGET_PRODUCT), full_crespo4g)
 endif
 ifeq ($(TARGET_PRODUCT), full_wingray)
     include $(LOCAL_PATH)/conf/moto/wingray/Android.mk
+endif
+ifeq ($(TARGET_PRODUCT), gce_x86_phone)
+    include $(LOCAL_PATH)/conf/google/gce_x86/Android.mk
 endif
 
 endif # BOARD_HAVE_BLUETOOTH_BCM

@@ -70,6 +70,10 @@ public class ScreenshotTest extends AssistTestBase {
     }
 
     public void testRedScreenshot() throws Exception {
+        if (mActivityManager.isLowRamDevice()) {
+            Log.d(TAG, "Not running assist tests on low-RAM device.");
+            return;
+        }
         Log.i(TAG, "Starting screenshot test");
         mTestActivity.startTest(TEST_CASE_TYPE);
         Log.i(TAG, "start waitForAssistantToBeReady()");
@@ -81,6 +85,10 @@ public class ScreenshotTest extends AssistTestBase {
     }
 
     public void testGreenScreenshot() throws Exception {
+        if (mActivityManager.isLowRamDevice()) {
+            Log.d(TAG, "Not running assist tests on low-RAM device.");
+            return;
+        }
         Log.i(TAG, "Starting screenshot test");
         mTestActivity.startTest(TEST_CASE_TYPE);
         Log.i(TAG, "start waitForAssistantToBeReady()");
@@ -92,6 +100,10 @@ public class ScreenshotTest extends AssistTestBase {
     }
 
     public void testBlueScreenshot() throws Exception {
+        if (mActivityManager.isLowRamDevice()) {
+            Log.d(TAG, "Not running assist tests on low-RAM device.");
+            return;
+        }
         Log.i(TAG, "Starting screenshot test");
         mTestActivity.startTest(TEST_CASE_TYPE);
         Log.i(TAG, "start waitForAssistantToBeReady()");

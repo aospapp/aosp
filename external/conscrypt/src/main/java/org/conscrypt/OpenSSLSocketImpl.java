@@ -17,6 +17,8 @@
 package org.conscrypt;
 
 import org.conscrypt.util.ArrayUtils;
+import org.conscrypt.ct.CTVerifier;
+import org.conscrypt.ct.CTVerificationResult;
 import dalvik.system.BlockGuard;
 import dalvik.system.CloseGuard;
 import java.io.FileDescriptor;
@@ -24,7 +26,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.SocketAddress;
 import java.net.SocketException;
 import java.security.InvalidKeyException;
 import java.security.PrivateKey;
@@ -39,6 +43,7 @@ import javax.net.ssl.HandshakeCompletedEvent;
 import javax.net.ssl.HandshakeCompletedListener;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLHandshakeException;
+import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLProtocolException;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.X509KeyManager;
@@ -130,15 +135,11 @@ public class OpenSSLSocketImpl
     private final boolean autoClose;
 
     /**
-     * The peer's DNS hostname if it was supplied during creation.
+     * The peer's DNS hostname if it was supplied during creation. Note that
+     * this may be a raw IP address, so it should be checked before use with
+     * extensions that don't use it like Server Name Indication (SNI).
      */
     private String peerHostname;
-
-    /**
-     * The DNS hostname from reverse lookup on the socket. Should never be used
-     * for Server Name Indication (SNI).
-     */
-    private String resolvedHostname;
 
     /**
      * The peer's port if it was supplied during creation. Should only be set if
@@ -147,7 +148,11 @@ public class OpenSSLSocketImpl
     private final int peerPort;
 
     private final SSLParametersImpl sslParameters;
-    private final CloseGuard guard = CloseGuard.get();
+
+    /*
+     * A CloseGuard object on Android. On other platforms, this is nothing.
+     */
+    private final Object guard = Platform.closeGuardGet();
 
     private ArrayList<HandshakeCompletedListener> listeners;
 
@@ -242,6 +247,24 @@ public class OpenSSLSocketImpl
         // to wrapped socket
     }
 
+    @Override
+    public void connect(SocketAddress endpoint) throws IOException {
+        connect(endpoint, 0);
+    }
+
+    /**
+     * Try to extract the peer's hostname if it's available from the endpoint address.
+     */
+    @Override
+    public void connect(SocketAddress endpoint, int timeout) throws IOException {
+        if (peerHostname == null && endpoint instanceof InetSocketAddress) {
+            peerHostname = Platform.getHostStringFromInetSocketAddress(
+                    (InetSocketAddress) endpoint);
+        }
+
+        super.connect(endpoint, timeout);
+    }
+
     private void checkOpen() throws SocketException {
         if (isClosed()) {
             throw new SocketException("Socket is closed");
@@ -268,13 +291,18 @@ public class OpenSSLSocketImpl
             }
         }
 
-        // note that this modifies the global seed, not something specific to the connection
-        final int seedLengthInBytes = NativeCrypto.RAND_SEED_LENGTH_IN_BYTES;
-        final SecureRandom secureRandom = sslParameters.getSecureRandomMember();
-        if (secureRandom == null) {
-            NativeCrypto.RAND_load_file("/dev/urandom", seedLengthInBytes);
-        } else {
-            NativeCrypto.RAND_seed(secureRandom.generateSeed(seedLengthInBytes));
+        // For BoringSSL, RAND_seed and RAND_load_file are no-ops since the RNG
+        // reads directly from the random device node.
+        if (!NativeCrypto.isBoringSSL) {
+            // note that this modifies the global seed, not something specific
+            // to the connection
+            final int seedLengthInBytes = NativeCrypto.RAND_SEED_LENGTH_IN_BYTES;
+            final SecureRandom secureRandom = sslParameters.getSecureRandomMember();
+            if (secureRandom == null) {
+                NativeCrypto.RAND_load_file("/dev/urandom", seedLengthInBytes);
+            } else {
+                NativeCrypto.RAND_seed(secureRandom.generateSeed(seedLengthInBytes));
+            }
         }
 
         final boolean client = sslParameters.getUseClientMode();
@@ -285,7 +313,7 @@ public class OpenSSLSocketImpl
             final AbstractSessionContext sessionContext = sslParameters.getSessionContext();
             final long sslCtxNativePointer = sessionContext.sslCtxNativePointer;
             sslNativePointer = NativeCrypto.SSL_new(sslCtxNativePointer);
-            guard.open("close");
+            Platform.closeGuardOpen(guard, "close");
 
             boolean enableSessionCreation = getEnableSessionCreation();
             if (!enableSessionCreation) {
@@ -298,10 +326,15 @@ public class OpenSSLSocketImpl
             // certain protocols.
             NativeCrypto.SSL_set_reject_peer_renegotiations(sslNativePointer, false);
 
+            if (client && sslParameters.isCTVerificationEnabled(getHostname())) {
+                NativeCrypto.SSL_enable_signed_cert_timestamps(sslNativePointer);
+                NativeCrypto.SSL_enable_ocsp_stapling(sslNativePointer);
+            }
+
             final OpenSSLSessionImpl sessionToReuse = sslParameters.getSessionToReuse(
-                    sslNativePointer, getHostname(), getPort());
+                    sslNativePointer, getHostnameOrIP(), getPort());
             sslParameters.setSSLParameters(sslCtxNativePointer, sslNativePointer, this, this,
-                    peerHostname);
+                    getHostname());
             sslParameters.setCertificateValidation(sslNativePointer);
             sslParameters.setTlsChannelId(sslNativePointer, channelIdPrivateKey);
 
@@ -347,7 +380,7 @@ public class OpenSSLSocketImpl
                 // Must match error string of SSL_R_UNEXPECTED_CCS
                 if (message.contains("unexpected CCS")) {
                     String logMessage = String.format("ssl_unexpected_ccs: host=%s",
-                            getHostname());
+                            getHostnameOrIP());
                     Platform.logEvent(logMessage);
                 }
 
@@ -364,7 +397,7 @@ public class OpenSSLSocketImpl
             }
 
             sslSession = sslParameters.setupSession(sslSessionNativePointer, sslNativePointer,
-                    sessionToReuse, getHostname(), getPort(), handshakeCompleted);
+                    sessionToReuse, getHostnameOrIP(), getPort(), handshakeCompleted);
 
             // Restore the original timeout now that the handshake is complete
             if (handshakeTimeoutMilliseconds >= 0) {
@@ -418,22 +451,29 @@ public class OpenSSLSocketImpl
     }
 
     /**
-     * Returns the hostname that was supplied during socket creation or tries to
-     * look up the hostname via the supplied socket address if possible. This
-     * may result in the return of a IP address and should not be used for
-     * Server Name Indication (SNI).
+     * Returns the hostname that was supplied during socket creation. No DNS resolution is
+     * attempted before returning the hostname.
      */
-    private String getHostname() {
+    public String getHostname() {
+        return peerHostname;
+    }
+
+    /**
+     * For the purposes of an SSLSession, we want a way to represent the supplied hostname
+     * or the IP address in a textual representation. We do not want to perform reverse DNS
+     * lookups on this address.
+     */
+    public String getHostnameOrIP() {
         if (peerHostname != null) {
             return peerHostname;
         }
-        if (resolvedHostname == null) {
-            InetAddress inetAddress = super.getInetAddress();
-            if (inetAddress != null) {
-                resolvedHostname = inetAddress.getHostName();
-            }
+
+        InetAddress peerAddress = getInetAddress();
+        if (peerAddress != null) {
+            return peerAddress.getHostAddress();
         }
-        return resolvedHostname;
+
+        return null;
     }
 
     @Override
@@ -549,14 +589,27 @@ public class OpenSSLSocketImpl
 
             // Used for verifyCertificateChain callback
             handshakeSession = new OpenSSLSessionImpl(sslSessionNativePtr, null, peerCertChain,
-                    getHostname(), getPort(), null);
+                    getHostnameOrIP(), getPort(), null);
 
             boolean client = sslParameters.getUseClientMode();
             if (client) {
-                Platform.checkServerTrusted(x509tm, peerCertChain, authMethod, getHostname());
+                Platform.checkServerTrusted(x509tm, peerCertChain, authMethod, this);
+                if (sslParameters.isCTVerificationEnabled(getHostname())) {
+                    byte[] tlsData = NativeCrypto.SSL_get_signed_cert_timestamp_list(
+                                        sslNativePointer);
+                    byte[] ocspData = NativeCrypto.SSL_get_ocsp_response(sslNativePointer);
+
+                    CTVerifier ctVerifier = sslParameters.getCTVerifier();
+                    CTVerificationResult result =
+                        ctVerifier.verifySignedCertificateTimestamps(peerCertChain, tlsData, ocspData);
+
+                    if (result.getValidSCTs().size() == 0) {
+                        throw new CertificateException("No valid SCT found");
+                    }
+                }
             } else {
                 String authType = peerCertChain[0].getPublicKey().getAlgorithm();
-                x509tm.checkClientTrusted(peerCertChain, authType);
+                Platform.checkClientTrusted(x509tm, peerCertChain, authType, this);
             }
         } catch (CertificateException e) {
             throw e;
@@ -685,7 +738,7 @@ public class OpenSSLSocketImpl
          */
         @Override
         public int read(byte[] buf, int offset, int byteCount) throws IOException {
-            BlockGuard.getThreadPolicy().onNetwork();
+            Platform.blockGuardOnNetwork();
 
             checkOpen();
             ArrayUtils.checkOffsetAndCount(buf.length, offset, byteCount);
@@ -752,7 +805,7 @@ public class OpenSSLSocketImpl
          */
         @Override
         public void write(byte[] buf, int offset, int byteCount) throws IOException {
-            BlockGuard.getThreadPolicy().onNetwork();
+            Platform.blockGuardOnNetwork();
             checkOpen();
             ArrayUtils.checkOffsetAndCount(buf.length, offset, byteCount);
             if (byteCount == 0) {
@@ -797,7 +850,13 @@ public class OpenSSLSocketImpl
                 return SSLNullSession.getNullSession();
             }
         }
-        return sslSession;
+        return Platform.wrapSSLSession(sslSession);
+    }
+
+    // Comment annotation to compile Conscrypt unbundled with Java 6.
+    /* @Override */
+    public SSLSession getHandshakeSession() {
+        return handshakeSession;
     }
 
     @Override
@@ -894,7 +953,6 @@ public class OpenSSLSocketImpl
      *
      * @throws IllegalStateException if this is a client socket or if the handshake has already
      *         started.
-
      */
     public void setChannelIdEnabled(boolean enabled) {
         if (getUseClientMode()) {
@@ -1031,7 +1089,12 @@ public class OpenSSLSocketImpl
 
     @Override
     public void setSoTimeout(int readTimeoutMilliseconds) throws SocketException {
-        super.setSoTimeout(readTimeoutMilliseconds);
+        if (socket != this) {
+            socket.setSoTimeout(readTimeoutMilliseconds);
+        } else {
+            super.setSoTimeout(readTimeoutMilliseconds);
+        }
+
         this.readTimeoutMilliseconds = readTimeoutMilliseconds;
     }
 
@@ -1128,7 +1191,7 @@ public class OpenSSLSocketImpl
 
     private void shutdownAndFreeSslNative() throws IOException {
         try {
-            BlockGuard.getThreadPolicy().onNetwork();
+            Platform.blockGuardOnNetwork();
             NativeCrypto.SSL_shutdown(sslNativePointer, Platform.getFileDescriptor(socket),
                     this);
         } catch (IOException ignored) {
@@ -1162,7 +1225,7 @@ public class OpenSSLSocketImpl
         }
         NativeCrypto.SSL_free(sslNativePointer);
         sslNativePointer = 0;
-        guard.close();
+        Platform.closeGuardClose(guard);
     }
 
     @Override
@@ -1185,7 +1248,7 @@ public class OpenSSLSocketImpl
              * reader.
              */
             if (guard != null) {
-                guard.warnIfOpen();
+                Platform.closeGuardWarnIfOpen(guard);
             }
             free();
         } finally {
@@ -1249,6 +1312,19 @@ public class OpenSSLSocketImpl
             throw new IllegalArgumentException("alpnProtocols.length == 0");
         }
         sslParameters.alpnProtocols = alpnProtocols;
+    }
+
+    @Override
+    public SSLParameters getSSLParameters() {
+        SSLParameters params = super.getSSLParameters();
+        Platform.getSSLParameters(params, sslParameters, this);
+        return params;
+    }
+
+    @Override
+    public void setSSLParameters(SSLParameters p) {
+        super.setSSLParameters(p);
+        Platform.setSSLParameters(p, sslParameters, this);
     }
 
     @Override

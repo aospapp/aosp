@@ -61,11 +61,8 @@ public class ConstantPoolTest extends JDWPSyncTestCase {
 
         // Check capability, relevant for this test
         logWriter.println("=> Check capability: canGetConstantPool");
-        debuggeeWrapper.vmMirror.capabilities();
-        boolean isCapability = debuggeeWrapper.vmMirror.targetVMCapabilities.canGetConstantPool;
-        if (!isCapability) {
-            logWriter
-                    .println("##WARNING: this VM dosn't possess capability: canGetConstantPool");
+        if (!debuggeeWrapper.vmMirror.canGetConstantPool()) {
+            logWriter.println("##WARNING: this VM dosn't possess capability: canGetConstantPool");
             return;
         }
 

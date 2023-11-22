@@ -43,10 +43,11 @@ import static com.android.internal.telephony.uicc.IccConstants.EF_PCSCF;
 /**
  * {@hide}
  */
-public final class IsimUiccRecords extends IccRecords implements IsimRecords {
+public class IsimUiccRecords extends IccRecords implements IsimRecords {
     protected static final String LOG_TAG = "IsimUiccRecords";
 
     private static final boolean DBG = true;
+    private static final boolean VDBG = false; // STOPSHIP if true
     private static final boolean DUMP_RECORDS = false;  // Note: PII is logged when this is true
                                                         // STOPSHIP if true
     public static final String INTENT_ISIM_REFRESH = "com.android.intent.isim_refresh";
@@ -277,7 +278,9 @@ public final class IsimUiccRecords extends IccRecords implements IsimRecords {
             }
         } while (tlv.nextObject());
 
-        Rlog.e(LOG_TAG, "[ISIM] can't find TLV tag in ISIM record, returning null");
+        if (VDBG) {
+            Rlog.d(LOG_TAG, "[ISIM] can't find TLV. record = " + IccUtils.bytesToHexString(record));
+        }
         return null;
     }
 

@@ -22,9 +22,9 @@
 #include <sstream>
 
 #include "arch/instruction_set.h"
-#include "dwarf/dwarf_constants.h"
-#include "dwarf/dwarf_test.h"
-#include "dwarf/headers.h"
+#include "debug/dwarf/dwarf_constants.h"
+#include "debug/dwarf/dwarf_test.h"
+#include "debug/dwarf/headers.h"
 #include "disassembler/disassembler.h"
 #include "gtest/gtest.h"
 
@@ -48,14 +48,16 @@ class CFITest : public dwarf::DwarfTest {
     // Pretty-print CFI opcodes.
     constexpr bool is64bit = false;
     dwarf::DebugFrameOpCodeWriter<> initial_opcodes;
-    dwarf::WriteDebugFrameCIE(is64bit, dwarf::DW_EH_PE_absptr, dwarf::Reg(8),
-                              initial_opcodes, kCFIFormat, &debug_frame_data_);
+    dwarf::WriteCIE(is64bit, dwarf::Reg(8),
+                    initial_opcodes, kCFIFormat, &debug_frame_data_);
     std::vector<uintptr_t> debug_frame_patches;
-    dwarf::WriteDebugFrameFDE(is64bit, 0, 0, actual_asm.size(), &actual_cfi,
-                              kCFIFormat, &debug_frame_data_, &debug_frame_patches);
+    dwarf::WriteFDE(is64bit, 0, 0, 0, actual_asm.size(), ArrayRef<const uint8_t>(actual_cfi),
+                    kCFIFormat, 0, &debug_frame_data_, &debug_frame_patches);
     ReformatCfi(Objdump(false, "-W"), &lines);
     // Pretty-print assembly.
-    auto* opts = new DisassemblerOptions(false, actual_asm.data(), true);
+    const uint8_t* asm_base = actual_asm.data();
+    const uint8_t* asm_end = asm_base + actual_asm.size();
+    auto* opts = new DisassemblerOptions(false, asm_base, asm_end, true);
     std::unique_ptr<Disassembler> disasm(Disassembler::Create(isa, opts));
     std::stringstream stream;
     const uint8_t* base = actual_asm.data() + (isa == kThumb2 ? 1 : 0);

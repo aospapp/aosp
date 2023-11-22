@@ -13,5 +13,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-vogar_jar=${ANDROID_BUILD_TOP}/out/target/common/obj/JAVA_LIBRARIES/vogar.jar_intermediates/javalib.jar
+vogar_jar=${OUT_DIR-${ANDROID_BUILD_TOP}/out}/host/linux-x86/framework/vogar.jar
 exec java -classpath ${vogar_jar} vogar.Vogar "$@"

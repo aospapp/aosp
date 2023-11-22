@@ -26,6 +26,14 @@ import android.provider.Settings;
  * These methods are safe to call from any thread, including the UI thread.
  */
 public final class Timeouts {
+    public static class Adapter {
+        public Adapter() { }
+
+        public long getCallScreeningTimeoutMillis(ContentResolver cr) {
+            return Timeouts.getCallScreeningTimeoutMillis(cr);
+        }
+    }
+
     /** A prefix to use for all keys so to not clobber the global namespace. */
     private static final String PREFIX = "telecom.";
 
@@ -97,5 +105,47 @@ public final class Timeouts {
     public static long getCallRemoveUnbindInCallServicesDelay(ContentResolver contentResolver) {
         return get(contentResolver, "call_remove_unbind_in_call_services_delay",
                 2000L /* 2 seconds */);
+    }
+
+    /**
+     * Returns the amount of time for which bluetooth is considered connected after requesting
+     * connection. This compensates for the amount of time it takes for the audio route to
+     * actually change to bluetooth.
+     */
+    public static long getBluetoothPendingTimeoutMillis(ContentResolver contentResolver) {
+        return get(contentResolver, "bluetooth_pending_timeout_millis", 5000L);
+    }
+
+    /**
+     * Returns the amount of time to wait before retrying the connectAudio call. This is
+     * necessary to account for the HeadsetStateMachine sometimes not being ready when we want to
+     * connect to bluetooth audio immediately after a device connects.
+     */
+    public static long getRetryBluetoothConnectAudioBackoffMillis(ContentResolver contentResolver) {
+        return get(contentResolver, "retry_bluetooth_connect_audio_backoff_millis", 500L);
+    }
+
+    /**
+     * Returns the amount of time after a Logging session has been started that Telecom is set to
+     * perform a sweep to check and make sure that the session is still not incomplete (stale).
+     */
+    public static long getStaleSessionCleanupTimeoutMillis(ContentResolver contentResolver) {
+        return get(contentResolver, "stale_session_cleanup_timeout_millis",
+                Log.DEFAULT_SESSION_TIMEOUT_MS);
+    }
+
+    /**
+     * Returns the amount of time to wait for the call screening service to allow or disallow a
+     * call.
+     */
+    public static long getCallScreeningTimeoutMillis(ContentResolver contentResolver) {
+        return get(contentResolver, "call_screening_timeout", 5000L /* 5 seconds */);
+    }
+
+    /**
+     * Returns the amount of time to wait for the block checker to allow or disallow a call.
+     */
+    public static long getBlockCheckTimeoutMillis(ContentResolver contentResolver) {
+        return get(contentResolver, "block_check_timeout_millis", 500L);
     }
 }

@@ -142,6 +142,30 @@
                                         </TD>
                                     </TR>
                                     <TR>
+                                        <TD class="rowtitle">Low RAM Device</TD>
+                                        <TD>
+                                            <xsl:value-of select="TestResult/DeviceInfo/MemoryInfo/@is_low_ram_device"/>
+                                        </TD>
+                                    </TR>
+                                    <TR>
+                                        <TD class="rowtitle">Memory Class</TD>
+                                        <TD>
+                                            <xsl:value-of select="TestResult/DeviceInfo/MemoryInfo/@memory_class"/>
+                                        </TD>
+                                    </TR>
+                                    <TR>
+                                        <TD class="rowtitle">Large Memory Class</TD>
+                                        <TD>
+                                            <xsl:value-of select="TestResult/DeviceInfo/MemoryInfo/@large_memory_class"/>
+                                        </TD>
+                                    </TR>
+                                    <TR>
+                                        <TD class="rowtitle">Total Memory</TD>
+                                        <TD>
+                                            <xsl:value-of select="TestResult/DeviceInfo/MemoryInfo/@total_memory"/>
+                                        </TD>
+                                    </TR>
+                                    <TR>
                                         <TD class="rowtitle">Screen Size</TD>
                                         <TD>
                                             <xsl:value-of select="TestResult/DeviceInfo/Screen/@screen_size"/>

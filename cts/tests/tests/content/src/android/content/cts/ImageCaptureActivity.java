@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.android.cts.content;
+package android.content.cts;
 
 import android.app.Activity;
 import android.content.ClipData;
@@ -30,7 +30,7 @@ import java.io.IOException;
 import java.io.Writer;
 
 public class ImageCaptureActivity extends Activity {
-    public static final String ACTION_FILE_READY = "com.android.cts.content.action.file_ready";
+    public static final String ACTION_FILE_READY = "android.content.cts.action.file_ready";
     private static final String TAG = ImageCaptureUriExtraToClipDataTest.TAG;
 
     protected void onCreate(Bundle savedInstanceState) {

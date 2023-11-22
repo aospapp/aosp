@@ -23,6 +23,7 @@
 #include <utils/RefBase.h>
 
 #include <OMX_Core.h>
+#include <VideoAPI.h>
 #include "../include/OMXNodeInstance.h"
 #include <media/stagefright/foundation/ABase.h>
 #include <media/stagefright/foundation/AHandlerReflector.h>
@@ -72,6 +73,9 @@ public:
     sp<IGraphicBufferProducer> getIGraphicBufferProducer() const {
         return mProducer;
     }
+
+    // Sets the default buffer data space
+    void setDefaultDataSpace(android_dataspace dataSpace);
 
     // This is called when OMX transitions to OMX_StateExecuting, which means
     // we can start handing it buffers.  If we already have buffers of data
@@ -130,16 +134,22 @@ public:
     // When set, the max frame rate fed to the encoder will be capped at maxFps.
     status_t setMaxFps(float maxFps);
 
+    struct TimeLapseConfig {
+        int64_t mTimePerFrameUs;   // the time (us) between two frames for playback
+        int64_t mTimePerCaptureUs; // the time (us) between two frames for capture
+    };
+
     // Sets the time lapse (or slow motion) parameters.
-    // data[0] is the time (us) between two frames for playback
-    // data[1] is the time (us) between two frames for capture
     // When set, the sample's timestamp will be modified to playback framerate,
     // and capture timestamp will be modified to capture rate.
-    status_t setTimeLapseUs(int64_t* data);
+    status_t setTimeLapseConfig(const TimeLapseConfig &config);
 
     // Sets the start time us (in system time), samples before which should
     // be dropped and not submitted to encoder
     void setSkipFramesBeforeUs(int64_t startTimeUs);
+
+    // Sets the desired color aspects, e.g. to be used when producer does not specify a dataspace.
+    void setColorAspects(const ColorAspects &aspects);
 
 protected:
     // BufferQueue::ConsumerListener interface, called when a new frame of
@@ -195,7 +205,7 @@ private:
         uint64_t mFrameNumber;
 
         // buffer producer's buffer slot for buffer
-        int mBuf;
+        int mSlot;
 
         sp<GraphicBuffer> mGraphicBuffer;
     };
@@ -238,6 +248,9 @@ private:
     bool repeatLatestBuffer_l();
     int64_t getTimestamp(const BufferItem &item);
 
+    // called when the data space of the input buffer changes
+    void onDataSpaceChanged_l(android_dataspace dataSpace, android_pixel_format pixelFormat);
+
     // Lock, covers all member variables.
     mutable Mutex mMutex;
 
@@ -251,6 +264,9 @@ private:
     bool mExecuting;
 
     bool mSuspended;
+
+    // Last dataspace seen
+    android_dataspace mLastDataSpace;
 
     // Our BufferQueue interfaces. mProducer is passed to the producer through
     // getIGraphicBufferProducer, and mConsumer is used internally to retrieve
@@ -321,6 +337,7 @@ private:
     int64_t mPrevFrameUs;
 
     MetadataBufferType mMetadataBufferType;
+    ColorAspects mColorAspects;
 
     void onMessageReceived(const sp<AMessage> &msg);
 

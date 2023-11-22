@@ -1,6 +1,10 @@
 #pragma version(1)
 #pragma rs java_package_name(foo)
 
+half h = (half) 1.2f;
+half2 h2 = {(half) 1.2f, (half) 2.3f};
+half3 h3 = {(half) 1.2f, (half) 2.3f, (half) 3.4f};
+half4 h4 = {(half) 1.2f, (half) 2.3f, (half) 3.4f, (half) 4.5f};
 float f = 9.9999f;
 double d = 7.0;
 char c = 'a';

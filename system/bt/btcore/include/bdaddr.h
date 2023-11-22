@@ -30,6 +30,8 @@
 // both uppercase and lowercase digits but will only ever produce lowercase
 // digits.
 
+typedef char bdstr_t[sizeof("xx:xx:xx:xx:xx:xx")];
+
 // Returns true if |addr| is the empty address (00:00:00:00:00:00).
 // |addr| may not be NULL.
 bool bdaddr_is_empty(const bt_bdaddr_t *addr);

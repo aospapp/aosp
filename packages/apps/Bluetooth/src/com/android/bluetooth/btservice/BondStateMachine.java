@@ -23,6 +23,8 @@ import android.bluetooth.BluetoothDevice;
 import com.android.bluetooth.a2dp.A2dpService;
 import com.android.bluetooth.hid.HidService;
 import com.android.bluetooth.hfp.HeadsetService;
+
+import android.bluetooth.OobData;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Message;
@@ -65,6 +67,8 @@ final class BondStateMachine extends StateMachine {
 
     private PendingCommandState mPendingCommandState = new PendingCommandState();
     private StableState mStableState = new StableState();
+
+    public static final String OOBDATA = "oobdata";
 
     private BondStateMachine(AdapterService service,
             AdapterProperties prop, RemoteDevices remoteDevices) {
@@ -110,7 +114,11 @@ final class BondStateMachine extends StateMachine {
             switch(msg.what) {
 
               case CREATE_BOND:
-                  createBond(dev, msg.arg1, true);
+                  OobData oobData = null;
+                  if (msg.getData() != null)
+                      oobData = msg.getData().getParcelable(OOBDATA);
+
+                  createBond(dev, msg.arg1, oobData, true);
                   break;
               case REMOVE_BOND:
                   removeBond(dev, true);
@@ -171,7 +179,11 @@ final class BondStateMachine extends StateMachine {
 
             switch (msg.what) {
                 case CREATE_BOND:
-                    result = createBond(dev, msg.arg1, false);
+                    OobData oobData = null;
+                    if (msg.getData() != null)
+                        oobData = msg.getData().getParcelable(OOBDATA);
+
+                    result = createBond(dev, msg.arg1, oobData, false);
                     break;
                 case REMOVE_BOND:
                     result = removeBond(dev, false);
@@ -204,15 +216,7 @@ final class BondStateMachine extends StateMachine {
                             mAdapterService.setSimAccessPermission(dev,
                                     BluetoothDevice.ACCESS_UNKNOWN);
                             // Set the profile Priorities to undefined
-                            clearProfilePriorty(dev);
-                        }
-                        else if (newState == BluetoothDevice.BOND_BONDED)
-                        {
-                           // Do not set profile priority
-                           // Profile priority should be set after SDP completion
-
-                           // Restore the profile priorty settings
-                           //setProfilePriorty(dev);
+                            clearProfilePriority(dev);
                         }
                     }
                     else if(!mDevices.contains(dev))
@@ -288,11 +292,19 @@ final class BondStateMachine extends StateMachine {
         return false;
     }
 
-    private boolean createBond(BluetoothDevice dev, int transport, boolean transition) {
+    private boolean createBond(BluetoothDevice dev, int transport, OobData oobData,
+                               boolean transition) {
         if (dev.getBondState() == BluetoothDevice.BOND_NONE) {
             infoLog("Bond address is:" + dev);
             byte[] addr = Utils.getBytesFromAddress(dev.getAddress());
-            if (!mAdapterService.createBondNative(addr, transport)) {
+            boolean result;
+            if (oobData != null) {
+                result = mAdapterService.createBondOutOfBandNative(addr, transport, oobData);
+            } else {
+                result = mAdapterService.createBondNative(addr, transport);
+            }
+
+            if (!result) {
                 sendIntent(dev, BluetoothDevice.BOND_NONE,
                            BluetoothDevice.UNBOND_REASON_REMOVED);
                 return false;
@@ -430,28 +442,7 @@ final class BondStateMachine extends StateMachine {
         sendMessage(msg);
     }
 
-    private void setProfilePriorty (BluetoothDevice device){
-        HidService hidService = HidService.getHidService();
-        A2dpService a2dpService = A2dpService.getA2dpService();
-        HeadsetService headsetService = HeadsetService.getHeadsetService();
-
-        if ((hidService != null) &&
-            (hidService.getPriority(device) == BluetoothProfile.PRIORITY_UNDEFINED)){
-            hidService.setPriority(device,BluetoothProfile.PRIORITY_ON);
-        }
-
-        if ((a2dpService != null) &&
-            (a2dpService.getPriority(device) == BluetoothProfile.PRIORITY_UNDEFINED)){
-            a2dpService.setPriority(device,BluetoothProfile.PRIORITY_ON);
-        }
-
-        if ((headsetService != null) &&
-            (headsetService.getPriority(device) == BluetoothProfile.PRIORITY_UNDEFINED)){
-            headsetService.setPriority(device,BluetoothProfile.PRIORITY_ON);
-        }
-    }
-
-    private void clearProfilePriorty (BluetoothDevice device){
+    private void clearProfilePriority(BluetoothDevice device) {
         HidService hidService = HidService.getHidService();
         A2dpService a2dpService = A2dpService.getA2dpService();
         HeadsetService headsetService = HeadsetService.getHeadsetService();
@@ -462,6 +453,10 @@ final class BondStateMachine extends StateMachine {
             a2dpService.setPriority(device,BluetoothProfile.PRIORITY_UNDEFINED);
         if(headsetService != null)
             headsetService.setPriority(device,BluetoothProfile.PRIORITY_UNDEFINED);
+
+        // Clear Absolute Volume black list
+        if(a2dpService != null)
+            a2dpService.resetAvrcpBlacklist(device);
     }
 
     private void infoLog(String msg) {

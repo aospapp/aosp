@@ -32,19 +32,6 @@
 #endif
 
 /* still unfinished */
-#define	sys_bpf			printargs
-#define	sys_execveat		printargs
-#define	sys_ioperm		printargs
-#define	sys_iopl		printargs
-#define	sys_kcmp		printargs
-#define	sys_kexec_file_load	printargs
-#define	sys_lookup_dcookie	printargs
-#define	sys_memfd_create	printargs
-#define	sys_name_to_handle_at	printargs
-#define	sys_open_by_handle_at	printargs
-#define	sys_sched_getattr	printargs
-#define	sys_sched_setattr	printargs
-#define	sys_sysfs		printargs
 #define	sys_vm86		printargs
 #define	sys_vm86old		printargs
 
@@ -63,6 +50,7 @@
 #define	sys_acct		sys_chdir
 #define	sys_chroot		sys_chdir
 #define	sys_clock_getres	sys_clock_gettime
+#define	sys_connect		sys_bind
 #define	sys_fchdir		sys_close
 #define	sys_fdatasync		sys_close
 #define	sys_fsync		sys_close
@@ -113,13 +101,16 @@
 #define	sys_gettid		printargs
 #define	sys_idle		printargs
 #define	sys_inotify_init	printargs
+#define	sys_ipc			printargs
 #define	sys_munlockall		printargs
 #define	sys_pause		printargs
+#define	sys_printargs		printargs
 #define	sys_rt_sigreturn	printargs
 #define	sys_sched_yield		printargs
 #define	sys_setsid		printargs
 #define	sys_set_tid_address	printargs
 #define	sys_setup		printargs
+#define	sys_socketcall		printargs
 #define	sys_sync		printargs
 #define	sys_timer_delete	printargs
 #define	sys_timer_getoverrun	printargs
@@ -138,13 +129,16 @@
 #define	sys_break		printargs
 #define	sys_ftime		printargs
 #define	sys_get_kernel_syms	printargs
+#define	sys_getpmsg		printargs
 #define	sys_gtty		printargs
 #define	sys_lock		printargs
 #define	sys_mpx			printargs
 #define	sys_nfsservctl		printargs
 #define	sys_phys		printargs
-#define	sys_profil		printargs
 #define	sys_prof		printargs
+#define	sys_profil		printargs
+#define	sys_putpmsg		printargs
+#define	sys_query_module	printargs
 #define	sys_security		printargs
 #define	sys_stty		printargs
 #define	sys_tuxcall		printargs
@@ -156,22 +150,4 @@
 #define	sys_bdflush		printargs
 #define	sys_oldolduname		printargs
 #define	sys_olduname		printargs
-
-/* no library support */
-#ifndef HAVE_SENDMSG
-#define	sys_recvmsg		printargs
-#define	sys_sendmsg		printargs
-#endif
-
-/* Who has STREAMS syscalls?
- * Linux hasn't. Solaris has (had?).
- * Just in case I miss something, retain in for Sparc.
- * Note: SYS_get/putpmsg may be defined even though syscalls
- * return ENOSYS. Can't just check defined(SYS_getpmsg).
- */
-#if (!defined(SPARC) && !defined(SPARC64)) || !defined(SYS_getpmsg)
-#define	sys_getpmsg		printargs
-#endif
-#if (!defined(SPARC) && !defined(SPARC64)) || !defined(SYS_putpmsg)
-#define	sys_putpmsg		printargs
-#endif
+#define	sys_sysfs		printargs

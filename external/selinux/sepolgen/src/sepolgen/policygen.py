@@ -24,17 +24,18 @@ classes and algorithms for the generation of SELinux policy.
 import itertools
 import textwrap
 
-import refpolicy
-import objectmodel
-import access
-import interfaces
-import matching
 import selinux.audit2why as audit2why
 try:
     from setools import *
 except:
     pass
 
+from . import refpolicy
+from . import objectmodel
+from . import access
+from . import interfaces
+from . import matching
+from . import util
 # Constants for the level of explanation from the generation
 # routines
 NO_EXPLANATION    = 0
@@ -167,14 +168,14 @@ class PolicyGenerator:
 
             if av.type == audit2why.BOOLEAN:
                 if len(av.data) > 1:
-                    rule.comment += "\n#!!!! This avc can be allowed using one of the these booleans:\n#     %s" % ", ".join(map(lambda x: x[0], av.data))
+                    rule.comment += "\n#!!!! This avc can be allowed using one of the these booleans:\n#     %s" % ", ".join([x[0] for x in av.data])
                 else:
                     rule.comment += "\n#!!!! This avc can be allowed using the boolean '%s'" % av.data[0][0]
 
             if av.type == audit2why.CONSTRAINT:
                 rule.comment += "\n#!!!! This avc is a constraint violation.  You would need to modify the attributes of either the source or target types to allow this access."
                 rule.comment += "\n#Constraint rule: "
-                rule.comment += "\n\t" + av.data[0]
+                rule.comment += "\n#\t" + av.data[0]
                 for reason in av.data[1:]:
                     rule.comment += "\n#\tPossible cause is the source %s and target %s are different." % reason
 
@@ -186,7 +187,7 @@ class PolicyGenerator:
                         self.domains = seinfo(ATTRIBUTE, name="domain")[0]["types"]
                     types=[]
 
-                    for i in map(lambda x: x[TCONTEXT], sesearch([ALLOW], {SCONTEXT: av.src_type, CLASS: av.obj_class, PERMS: av.perms})):
+                    for i in [x[TCONTEXT] for x in sesearch([ALLOW], {SCONTEXT: av.src_type, CLASS: av.obj_class, PERMS: av.perms})]:
                         if i not in self.domains:
                             types.append(i)
                     if len(types) == 1:
@@ -275,15 +276,12 @@ def explain_access(av, ml=None, verbosity=SHORT_EXPLANATION):
         explain_interfaces()
     return s
 
-def param_comp(a, b):
-    return cmp(b.num, a.num)
-
 def call_interface(interface, av):
     params = []
     args = []
 
     params.extend(interface.params.values())
-    params.sort(param_comp)
+    params.sort(key=lambda param: param.num, reverse=True)
 
     ifcall = refpolicy.InterfaceCall()
     ifcall.ifname = interface.name
@@ -296,7 +294,7 @@ def call_interface(interface, av):
         elif params[i].type == refpolicy.OBJ_CLASS:
             ifcall.args.append(av.obj_class)
         else:
-            print params[i].type
+            print(params[i].type)
             assert(0)
 
     assert(len(ifcall.args) > 0)
@@ -318,7 +316,7 @@ class InterfaceGenerator:
         for x in ifs.interfaces.values():
             params = []
             params.extend(x.params.values())
-            params.sort(param_comp)
+            params.sort(key=lambda param: param.num, reverse=True)
             for i in range(len(params)):
                 # Check that the paramater position matches
                 # the number (e.g., $1 is the first arg). This

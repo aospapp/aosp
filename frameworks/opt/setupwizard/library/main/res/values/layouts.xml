@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!--
     Copyright (C) 2015 The Android Open Source Project
 
@@ -24,4 +24,9 @@
     <item name="suw_no_scroll_template" type="layout">@layout/suw_no_scroll_template_header</item>
     <item name="suw_no_scroll_template_short" type="layout">@layout/suw_no_scroll_template_header_collapsed</item>
 
+    <item name="suw_glif_template" type="layout">@layout/suw_glif_template_compact</item>
+    <item name="suw_glif_list_template" type="layout">@layout/suw_glif_list_template_compact</item>
+    <item name="suw_glif_blank_template" type="layout">@layout/suw_glif_blank_template_compact</item>
+
 </resources>
+

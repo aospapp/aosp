@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ package android.renderscript.cts;
 import android.renderscript.Allocation;
 import android.renderscript.RSRuntimeException;
 import android.renderscript.Element;
+import android.renderscript.cts.Target;
 
 import java.util.Arrays;
 
@@ -82,7 +83,7 @@ public class TestNativeAtan2 extends RSBaseCompute {
                 args.inNumerator = arrayInNumerator[i];
                 args.inDenominator = arrayInDenominator[i];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeNativeAtan2(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -161,7 +162,7 @@ public class TestNativeAtan2 extends RSBaseCompute {
                 args.inNumerator = arrayInNumerator[i * 2 + j];
                 args.inDenominator = arrayInDenominator[i * 2 + j];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeNativeAtan2(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -240,7 +241,7 @@ public class TestNativeAtan2 extends RSBaseCompute {
                 args.inNumerator = arrayInNumerator[i * 4 + j];
                 args.inDenominator = arrayInDenominator[i * 4 + j];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeNativeAtan2(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -319,7 +320,7 @@ public class TestNativeAtan2 extends RSBaseCompute {
                 args.inNumerator = arrayInNumerator[i * 4 + j];
                 args.inDenominator = arrayInDenominator[i * 4 + j];
                 // Figure out what the outputs should have been.
-                Target target = new Target(relaxed);
+                Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.FLOAT, relaxed);
                 CoreMathVerifier.computeNativeAtan2(args, target);
                 // Validate the outputs.
                 boolean valid = true;
@@ -358,10 +359,358 @@ public class TestNativeAtan2 extends RSBaseCompute {
                 (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
     }
 
+    public class ArgumentsHalfHalfHalf {
+        public short inNumerator;
+        public double inNumeratorDouble;
+        public short inDenominator;
+        public double inDenominatorDouble;
+        public Target.Floaty out;
+    }
+
+    private void checkNativeAtan2HalfHalfHalf() {
+        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xe3d252c0l, false);
+        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xe16255f9l, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
+            script.set_gAllocInDenominator(inDenominator);
+            script.forEach_testNativeAtan2HalfHalfHalf(inNumerator, out);
+            verifyResultsNativeAtan2HalfHalfHalf(inNumerator, inDenominator, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAtan2HalfHalfHalf: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
+            scriptRelaxed.set_gAllocInDenominator(inDenominator);
+            scriptRelaxed.forEach_testNativeAtan2HalfHalfHalf(inNumerator, out);
+            verifyResultsNativeAtan2HalfHalfHalf(inNumerator, inDenominator, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAtan2HalfHalfHalf: " + e.toString());
+        }
+    }
+
+    private void verifyResultsNativeAtan2HalfHalfHalf(Allocation inNumerator, Allocation inDenominator, Allocation out, boolean relaxed) {
+        short[] arrayInNumerator = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayInNumerator, (short) 42);
+        inNumerator.copyTo(arrayInNumerator);
+        short[] arrayInDenominator = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayInDenominator, (short) 42);
+        inDenominator.copyTo(arrayInDenominator);
+        short[] arrayOut = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 1 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalf args = new ArgumentsHalfHalfHalf();
+                args.inNumerator = arrayInNumerator[i];
+                args.inNumeratorDouble = Float16Utils.convertFloat16ToDouble(args.inNumerator);
+                args.inDenominator = arrayInDenominator[i];
+                args.inDenominatorDouble = Float16Utils.convertFloat16ToDouble(args.inDenominator);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeNativeAtan2(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 1 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inNumerator: ");
+                        appendVariableToMessage(message, args.inNumerator);
+                        message.append("\n");
+                        message.append("Input inDenominator: ");
+                        appendVariableToMessage(message, args.inDenominator);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 1 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 1 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 1 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkNativeAtan2HalfHalfHalf" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkNativeAtan2Half2Half2Half2() {
+        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x51d7124l, false);
+        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x58f0d63dl, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
+            script.set_gAllocInDenominator(inDenominator);
+            script.forEach_testNativeAtan2Half2Half2Half2(inNumerator, out);
+            verifyResultsNativeAtan2Half2Half2Half2(inNumerator, inDenominator, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAtan2Half2Half2Half2: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
+            scriptRelaxed.set_gAllocInDenominator(inDenominator);
+            scriptRelaxed.forEach_testNativeAtan2Half2Half2Half2(inNumerator, out);
+            verifyResultsNativeAtan2Half2Half2Half2(inNumerator, inDenominator, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAtan2Half2Half2Half2: " + e.toString());
+        }
+    }
+
+    private void verifyResultsNativeAtan2Half2Half2Half2(Allocation inNumerator, Allocation inDenominator, Allocation out, boolean relaxed) {
+        short[] arrayInNumerator = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayInNumerator, (short) 42);
+        inNumerator.copyTo(arrayInNumerator);
+        short[] arrayInDenominator = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayInDenominator, (short) 42);
+        inDenominator.copyTo(arrayInDenominator);
+        short[] arrayOut = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 2 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalf args = new ArgumentsHalfHalfHalf();
+                args.inNumerator = arrayInNumerator[i * 2 + j];
+                args.inNumeratorDouble = Float16Utils.convertFloat16ToDouble(args.inNumerator);
+                args.inDenominator = arrayInDenominator[i * 2 + j];
+                args.inDenominatorDouble = Float16Utils.convertFloat16ToDouble(args.inDenominator);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeNativeAtan2(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inNumerator: ");
+                        appendVariableToMessage(message, args.inNumerator);
+                        message.append("\n");
+                        message.append("Input inDenominator: ");
+                        appendVariableToMessage(message, args.inDenominator);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 2 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkNativeAtan2Half2Half2Half2" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkNativeAtan2Half3Half3Half3() {
+        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x508fa193l, false);
+        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x44b0a7f4l, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            script.set_gAllocInDenominator(inDenominator);
+            script.forEach_testNativeAtan2Half3Half3Half3(inNumerator, out);
+            verifyResultsNativeAtan2Half3Half3Half3(inNumerator, inDenominator, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAtan2Half3Half3Half3: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            scriptRelaxed.set_gAllocInDenominator(inDenominator);
+            scriptRelaxed.forEach_testNativeAtan2Half3Half3Half3(inNumerator, out);
+            verifyResultsNativeAtan2Half3Half3Half3(inNumerator, inDenominator, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAtan2Half3Half3Half3: " + e.toString());
+        }
+    }
+
+    private void verifyResultsNativeAtan2Half3Half3Half3(Allocation inNumerator, Allocation inDenominator, Allocation out, boolean relaxed) {
+        short[] arrayInNumerator = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInNumerator, (short) 42);
+        inNumerator.copyTo(arrayInNumerator);
+        short[] arrayInDenominator = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInDenominator, (short) 42);
+        inDenominator.copyTo(arrayInDenominator);
+        short[] arrayOut = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 3 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalf args = new ArgumentsHalfHalfHalf();
+                args.inNumerator = arrayInNumerator[i * 4 + j];
+                args.inNumeratorDouble = Float16Utils.convertFloat16ToDouble(args.inNumerator);
+                args.inDenominator = arrayInDenominator[i * 4 + j];
+                args.inDenominatorDouble = Float16Utils.convertFloat16ToDouble(args.inDenominator);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeNativeAtan2(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inNumerator: ");
+                        appendVariableToMessage(message, args.inNumerator);
+                        message.append("\n");
+                        message.append("Input inDenominator: ");
+                        appendVariableToMessage(message, args.inDenominator);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 4 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkNativeAtan2Half3Half3Half3" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkNativeAtan2Half4Half4Half4() {
+        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x9c01d202l, false);
+        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x307079abl, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            script.set_gAllocInDenominator(inDenominator);
+            script.forEach_testNativeAtan2Half4Half4Half4(inNumerator, out);
+            verifyResultsNativeAtan2Half4Half4Half4(inNumerator, inDenominator, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAtan2Half4Half4Half4: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            scriptRelaxed.set_gAllocInDenominator(inDenominator);
+            scriptRelaxed.forEach_testNativeAtan2Half4Half4Half4(inNumerator, out);
+            verifyResultsNativeAtan2Half4Half4Half4(inNumerator, inDenominator, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAtan2Half4Half4Half4: " + e.toString());
+        }
+    }
+
+    private void verifyResultsNativeAtan2Half4Half4Half4(Allocation inNumerator, Allocation inDenominator, Allocation out, boolean relaxed) {
+        short[] arrayInNumerator = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInNumerator, (short) 42);
+        inNumerator.copyTo(arrayInNumerator);
+        short[] arrayInDenominator = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInDenominator, (short) 42);
+        inDenominator.copyTo(arrayInDenominator);
+        short[] arrayOut = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            for (int j = 0; j < 4 ; j++) {
+                // Extract the inputs.
+                ArgumentsHalfHalfHalf args = new ArgumentsHalfHalfHalf();
+                args.inNumerator = arrayInNumerator[i * 4 + j];
+                args.inNumeratorDouble = Float16Utils.convertFloat16ToDouble(args.inNumerator);
+                args.inDenominator = arrayInDenominator[i * 4 + j];
+                args.inDenominatorDouble = Float16Utils.convertFloat16ToDouble(args.inDenominator);
+                // Figure out what the outputs should have been.
+                Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.HALF, relaxed);
+                CoreMathVerifier.computeNativeAtan2(args, target);
+                // Validate the outputs.
+                boolean valid = true;
+                if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                    valid = false;
+                }
+                if (!valid) {
+                    if (!errorFound) {
+                        errorFound = true;
+                        message.append("Input inNumerator: ");
+                        appendVariableToMessage(message, args.inNumerator);
+                        message.append("\n");
+                        message.append("Input inDenominator: ");
+                        appendVariableToMessage(message, args.inDenominator);
+                        message.append("\n");
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 4 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]));
+                        if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                        message.append("Errors at");
+                    }
+                    message.append(" [");
+                    message.append(Integer.toString(i));
+                    message.append(", ");
+                    message.append(Integer.toString(j));
+                    message.append("]");
+                }
+            }
+        }
+        assertFalse("Incorrect output for checkNativeAtan2Half4Half4Half4" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
     public void testNativeAtan2() {
         checkNativeAtan2FloatFloatFloat();
         checkNativeAtan2Float2Float2Float2();
         checkNativeAtan2Float3Float3Float3();
         checkNativeAtan2Float4Float4Float4();
+        checkNativeAtan2HalfHalfHalf();
+        checkNativeAtan2Half2Half2Half2();
+        checkNativeAtan2Half3Half3Half3();
+        checkNativeAtan2Half4Half4Half4();
     }
 }

@@ -36,38 +36,41 @@ class ArtMethod;
 
 class ScopedQuickEntrypointChecks {
  public:
-  explicit ScopedQuickEntrypointChecks(Thread *self) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      : self_(self) {
+  explicit ScopedQuickEntrypointChecks(Thread *self,
+                                       bool entry_check = kIsDebugBuild,
+                                       bool exit_check = kIsDebugBuild)
+      SHARED_REQUIRES(Locks::mutator_lock_) : self_(self), exit_check_(exit_check) {
+    if (entry_check) {
+      TestsOnEntry();
+    }
+  }
+
+  ScopedQuickEntrypointChecks() SHARED_REQUIRES(Locks::mutator_lock_)
+      : self_(kIsDebugBuild ? Thread::Current() : nullptr), exit_check_(kIsDebugBuild) {
     if (kIsDebugBuild) {
       TestsOnEntry();
     }
   }
 
-  explicit ScopedQuickEntrypointChecks() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      : self_(kIsDebugBuild ? Thread::Current() : nullptr) {
-    if (kIsDebugBuild) {
-      TestsOnEntry();
-    }
-  }
-
-  ~ScopedQuickEntrypointChecks() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-    if (kIsDebugBuild) {
+  ~ScopedQuickEntrypointChecks() SHARED_REQUIRES(Locks::mutator_lock_) {
+    if (exit_check_) {
       TestsOnExit();
     }
   }
 
  private:
-  void TestsOnEntry() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+  void TestsOnEntry() SHARED_REQUIRES(Locks::mutator_lock_) {
     Locks::mutator_lock_->AssertSharedHeld(self_);
     self_->VerifyStack();
   }
 
-  void TestsOnExit() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+  void TestsOnExit() SHARED_REQUIRES(Locks::mutator_lock_) {
     Locks::mutator_lock_->AssertSharedHeld(self_);
     self_->VerifyStack();
   }
 
   Thread* const self_;
+  bool exit_check_;
 };
 
 static constexpr size_t GetCalleeSaveFrameSize(InstructionSet isa, Runtime::CalleeSaveType type) {

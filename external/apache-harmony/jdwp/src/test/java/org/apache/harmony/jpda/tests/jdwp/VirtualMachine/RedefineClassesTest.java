@@ -110,9 +110,7 @@ public class RedefineClassesTest extends JDWPSyncTestCase {
 
         //check capability, relevant for this test
         logWriter.println("=> Check capability: canRedefineClasses");
-        debuggeeWrapper.vmMirror.capabilities();
-        boolean isCapability = debuggeeWrapper.vmMirror.targetVMCapabilities.canRedefineClasses;
-        if (!isCapability) {
+        if (!debuggeeWrapper.vmMirror.canRedefineClasses()) {
             logWriter.println("##WARNING: this VM doesn't possess capability: canRedefineClasses");
             return;
         }

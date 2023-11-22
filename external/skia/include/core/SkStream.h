@@ -65,17 +65,18 @@ public:
 
     /**
      *  Attempt to peek at size bytes.
-     *  If this stream supports peeking, and it can peek size bytes, copy size
-     *  bytes into buffer, and return true.
-     *  If the stream does not support peeking, or cannot peek size bytes,
-     *  return false and leave buffer unchanged.
+     *  If this stream supports peeking, copy min(size, peekable bytes) into
+     *  buffer, and return the number of bytes copied.
+     *  If the stream does not support peeking, or cannot peek any bytes,
+     *  return 0 and leave buffer unchanged.
      *  The stream is guaranteed to be in the same visible state after this
      *  call, regardless of success or failure.
-     *  @param buffer Must not be NULL. Destination to copy bytes.
+     *  @param buffer Must not be NULL, and must be at least size bytes. Destination
+     *      to copy bytes.
      *  @param size Number of bytes to copy.
-     *  @return Whether the peek was performed.
+     *  @return The number of bytes peeked/copied.
      */
-    virtual bool peek(void* /* buffer */, size_t /* size */) const { return false; }
+    virtual size_t peek(void* /*buffer*/, size_t /*size*/) const { return 0; }
 
     /** Returns true when all the bytes in the stream have been read.
      *  This may return true early (when there are no more bytes to be read)
@@ -181,8 +182,6 @@ public:
 
 class SK_API SkWStream : SkNoncopyable {
 public:
-    SK_DECLARE_INST_COUNT(SkWStream)
-
     virtual ~SkWStream();
 
     /** Called to write bytes to a SkWStream. Returns true on success
@@ -226,13 +225,9 @@ public:
 #include "SkString.h"
 #include <stdio.h>
 
-struct SkFILE;
-
 /** A stream that wraps a C FILE* file stream. */
 class SK_API SkFILEStream : public SkStreamAsset {
 public:
-    SK_DECLARE_INST_COUNT(SkFILEStream)
-
     /** Initialize the stream by calling sk_fopen on the specified path.
      *  This internal stream will be closed in the destructor.
      */
@@ -275,7 +270,7 @@ public:
     const void* getMemoryBase() override;
 
 private:
-    SkFILE*     fFILE;
+    FILE*     fFILE;
     SkString    fName;
     Ownership   fOwnership;
     // fData is lazilly initialized when needed.
@@ -286,8 +281,6 @@ private:
 
 class SK_API SkMemoryStream : public SkStreamMemory {
 public:
-    SK_DECLARE_INST_COUNT(SkMemoryStream)
-
     SkMemoryStream();
 
     /** We allocate (and free) the memory. Write to it via getMemoryBase() */
@@ -333,7 +326,7 @@ public:
     size_t read(void* buffer, size_t size) override;
     bool isAtEnd() const override;
 
-    bool peek(void* buffer, size_t size) const override;
+    size_t peek(void* buffer, size_t size) const override;
 
     bool rewind() override;
     SkMemoryStream* duplicate() const override;
@@ -358,8 +351,6 @@ private:
 
 class SK_API SkFILEWStream : public SkWStream {
 public:
-    SK_DECLARE_INST_COUNT(SkFILEWStream)
-
     SkFILEWStream(const char path[]);
     virtual ~SkFILEWStream();
 
@@ -369,18 +360,17 @@ public:
 
     bool write(const void* buffer, size_t size) override;
     void flush() override;
+    void fsync();
     size_t bytesWritten() const override;
 
 private:
-    SkFILE* fFILE;
+    FILE* fFILE;
 
     typedef SkWStream INHERITED;
 };
 
 class SkMemoryWStream : public SkWStream {
 public:
-    SK_DECLARE_INST_COUNT(SkMemoryWStream)
-
     SkMemoryWStream(void* buffer, size_t size);
     bool write(const void* buffer, size_t size) override;
     size_t bytesWritten() const override { return fBytesWritten; }
@@ -395,8 +385,6 @@ private:
 
 class SK_API SkDynamicMemoryWStream : public SkWStream {
 public:
-    SK_DECLARE_INST_COUNT(SkDynamicMemoryWStream)
-
     SkDynamicMemoryWStream();
     virtual ~SkDynamicMemoryWStream();
 
@@ -444,7 +432,6 @@ private:
 class SK_API SkDebugWStream : public SkWStream {
 public:
     SkDebugWStream() : fBytesWritten(0) {}
-    SK_DECLARE_INST_COUNT(SkDebugWStream)
 
     // overrides
     bool write(const void* buffer, size_t size) override;

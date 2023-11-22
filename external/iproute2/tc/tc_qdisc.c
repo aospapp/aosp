@@ -26,17 +26,15 @@
 #include "tc_util.h"
 #include "tc_common.h"
 
-static int usage(void);
-
 static int usage(void)
 {
 	fprintf(stderr, "Usage: tc qdisc [ add | del | replace | change | show ] dev STRING\n");
-	fprintf(stderr, "       [ handle QHANDLE ] [ root | ingress | parent CLASSID ]\n");
+	fprintf(stderr, "       [ handle QHANDLE ] [ root | ingress | clsact | parent CLASSID ]\n");
 	fprintf(stderr, "       [ estimator INTERVAL TIME_CONSTANT ]\n");
 	fprintf(stderr, "       [ stab [ help | STAB_OPTIONS] ]\n");
 	fprintf(stderr, "       [ [ QDISC_KIND ] [ help | OPTIONS ] ]\n");
 	fprintf(stderr, "\n");
-	fprintf(stderr, "       tc qdisc show [ dev STRING ] [ingress]\n");
+	fprintf(stderr, "       tc qdisc show [ dev STRING ] [ ingress | clsact ]\n");
 	fprintf(stderr, "Where:\n");
 	fprintf(stderr, "QDISC_KIND := { [p|b]fifo | tbf | prio | cbq | red | etc. }\n");
 	fprintf(stderr, "OPTIONS := ... try tc qdisc add <desired QDISC_KIND> help\n");
@@ -44,7 +42,7 @@ static int usage(void)
 	return -1;
 }
 
-int tc_qdisc_modify(int cmd, unsigned flags, int argc, char **argv)
+static int tc_qdisc_modify(int cmd, unsigned flags, int argc, char **argv)
 {
 	struct qdisc_util *q = NULL;
 	struct tc_estimator est;
@@ -83,7 +81,7 @@ int tc_qdisc_modify(int cmd, unsigned flags, int argc, char **argv)
 				duparg("handle", *argv);
 			NEXT_ARG();
 			if (get_qdisc_handle(&handle, *argv))
-				invarg(*argv, "invalid qdisc ID");
+				invarg("invalid qdisc ID", *argv);
 			req.t.tcm_handle = handle;
 		} else if (strcmp(*argv, "root") == 0) {
 			if (req.t.tcm_parent) {
@@ -91,27 +89,35 @@ int tc_qdisc_modify(int cmd, unsigned flags, int argc, char **argv)
 				return -1;
 			}
 			req.t.tcm_parent = TC_H_ROOT;
-#ifdef TC_H_INGRESS
+		} else if (strcmp(*argv, "clsact") == 0) {
+			if (req.t.tcm_parent) {
+				fprintf(stderr, "Error: \"clsact\" is a duplicate parent ID\n");
+				return -1;
+			}
+			req.t.tcm_parent = TC_H_CLSACT;
+			strncpy(k, "clsact", sizeof(k) - 1);
+			q = get_qdisc_kind(k);
+			req.t.tcm_handle = TC_H_MAKE(TC_H_CLSACT, 0);
+			NEXT_ARG_FWD();
+			break;
 		} else if (strcmp(*argv, "ingress") == 0) {
 			if (req.t.tcm_parent) {
 				fprintf(stderr, "Error: \"ingress\" is a duplicate parent ID\n");
 				return -1;
 			}
 			req.t.tcm_parent = TC_H_INGRESS;
-			strncpy(k, "ingress", sizeof(k)-1);
+			strncpy(k, "ingress", sizeof(k) - 1);
 			q = get_qdisc_kind(k);
-			req.t.tcm_handle = 0xffff0000;
-
-			argc--; argv++;
+			req.t.tcm_handle = TC_H_MAKE(TC_H_INGRESS, 0);
+			NEXT_ARG_FWD();
 			break;
-#endif
 		} else if (strcmp(*argv, "parent") == 0) {
 			__u32 handle;
 			NEXT_ARG();
 			if (req.t.tcm_parent)
 				duparg("parent", *argv);
 			if (get_tc_classid(&handle, *argv))
-				invarg(*argv, "invalid parent ID");
+				invarg("invalid parent ID", *argv);
 			req.t.tcm_parent = handle;
 		} else if (matches(*argv, "estimator") == 0) {
 			if (parse_estimator(&argc, &argv, &est))
@@ -138,12 +144,13 @@ int tc_qdisc_modify(int cmd, unsigned flags, int argc, char **argv)
 		addattr_l(&req.n, sizeof(req), TCA_RATE, &est, sizeof(est));
 
 	if (q) {
-		if (!q->parse_qopt) {
+		if (q->parse_qopt) {
+			if (q->parse_qopt(q, argc, argv, &req.n))
+				return 1;
+		} else if (argc) {
 			fprintf(stderr, "qdisc '%s' does not support option parsing\n", k);
 			return -1;
 		}
-		if (q->parse_qopt(q, argc, argv, &req.n))
-			return 1;
 	} else {
 		if (argc) {
 			if (matches(*argv, "help") == 0)
@@ -177,7 +184,7 @@ int tc_qdisc_modify(int cmd, unsigned flags, int argc, char **argv)
 	if (d[0])  {
 		int idx;
 
- 		ll_init_map(&rth);
+		ll_init_map(&rth);
 
 		if ((idx = ll_name_to_index(d)) == 0) {
 			fprintf(stderr, "Cannot find device \"%s\"\n", d);
@@ -186,7 +193,7 @@ int tc_qdisc_modify(int cmd, unsigned flags, int argc, char **argv)
 		req.t.tcm_ifindex = idx;
 	}
 
-	if (rtnl_talk(&rth, &req.n, 0, 0, NULL) < 0)
+	if (rtnl_talk(&rth, &req.n, NULL, 0) < 0)
 		return 2;
 
 	return 0;
@@ -276,8 +283,7 @@ int print_qdisc(const struct sockaddr_nl *who,
 	return 0;
 }
 
-
-int tc_qdisc_list(int argc, char **argv)
+static int tc_qdisc_list(int argc, char **argv)
 {
 	struct tcmsg t;
 	char d[16];
@@ -290,14 +296,13 @@ int tc_qdisc_list(int argc, char **argv)
 		if (strcmp(*argv, "dev") == 0) {
 			NEXT_ARG();
 			strncpy(d, *argv, sizeof(d)-1);
-#ifdef TC_H_INGRESS
-                } else if (strcmp(*argv, "ingress") == 0) {
+                } else if (strcmp(*argv, "ingress") == 0 ||
+			   strcmp(*argv, "clsact") == 0) {
                              if (t.tcm_parent) {
                                      fprintf(stderr, "Duplicate parent ID\n");
                                      usage();
                              }
                              t.tcm_parent = TC_H_INGRESS;
-#endif
 		} else if (matches(*argv, "help") == 0) {
 			usage();
 		} else {
@@ -308,7 +313,7 @@ int tc_qdisc_list(int argc, char **argv)
 		argc--; argv++;
 	}
 
- 	ll_init_map(&rth);
+	ll_init_map(&rth);
 
 	if (d[0]) {
 		if ((t.tcm_ifindex = ll_name_to_index(d)) == 0) {
@@ -318,12 +323,12 @@ int tc_qdisc_list(int argc, char **argv)
 		filter_ifindex = t.tcm_ifindex;
 	}
 
- 	if (rtnl_dump_request(&rth, RTM_GETQDISC, &t, sizeof(t)) < 0) {
+	if (rtnl_dump_request(&rth, RTM_GETQDISC, &t, sizeof(t)) < 0) {
 		perror("Cannot send dump request");
 		return 1;
 	}
 
- 	if (rtnl_dump_filter(&rth, print_qdisc, stdout) < 0) {
+	if (rtnl_dump_filter(&rth, print_qdisc, stdout) < 0) {
 		fprintf(stderr, "Dump terminated\n");
 		return 1;
 	}

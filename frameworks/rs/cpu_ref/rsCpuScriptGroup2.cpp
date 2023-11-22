@@ -75,10 +75,15 @@ void groupRoot(const RsExpandKernelDriverInfo *kinfo, uint32_t xstart,
         rsAssert(kinfo->outLen <= 1);
         mutable_kinfo->outPtr[0] = const_cast<uint8_t*>(ptr);
 
+        // The implementation of an intrinsic relies on kinfo->usr being
+        // the "this" pointer to the intrinsic (an RsdCpuScriptIntrinsic object)
+        mutable_kinfo->usr = cpuClosure->mSi;
+
         cpuClosure->mFunc(kinfo, xstart, xend, ostep);
     }
 
     mutable_kinfo->inLen = oldInLen;
+    mutable_kinfo->usr = &closures;
     memcpy(&mutable_kinfo->inStride, &oldInStride, sizeof(oldInStride));
 }
 
@@ -165,7 +170,7 @@ CpuScriptGroup2Impl::CpuScriptGroup2Impl(RsdCpuReferenceImpl *cpuRefImpl,
         RsdCpuScriptImpl* si =
                 (RsdCpuScriptImpl *)mCpuRefImpl->lookupScript(funcID->mScript);
         if (closure->mIsKernel) {
-            MTLaunchStruct mtls;
+            MTLaunchStructForEach mtls;
             si->forEachKernelSetup(funcID->mSlot, &mtls);
             cc = new CPUClosure(closure, si, (ExpandFuncTy)mtls.kernel);
         } else {
@@ -252,7 +257,7 @@ void setupCompileArguments(
         const char* outputDir, const char* outputFileName,
         const char* coreLibPath, const char* coreLibRelaxedPath,
         const bool emitGlobalInfo, const bool emitGlobalInfoSkipConstant,
-        vector<const char*>* args) {
+        int optLevel, vector<const char*>* args) {
     args->push_back(RsdCpuScriptImpl::BCC_EXE_PATH);
     args->push_back("-fPIC");
     args->push_back("-embedRSInfo");
@@ -281,6 +286,20 @@ void setupCompileArguments(
     }
     args->push_back("-output_path");
     args->push_back(outputDir);
+
+    args->push_back("-O");
+    switch (optLevel) {
+    case 0:
+        args->push_back("0");
+        break;
+    case 3:
+        args->push_back("3");
+        break;
+    default:
+        ALOGW("Expected optimization level of 0 or 3. Received %d", optLevel);
+        args->push_back("3");
+        break;
+    }
 
     // The output filename has to be the last, in case we need to pop it out and
     // replace with a different name.
@@ -372,13 +391,15 @@ void CpuScriptGroup2Impl::compile(const char* cacheDir) {
     const string& coreLibPath = getCoreLibPath(getCpuRefImpl()->getContext(),
                                                &coreLibRelaxedPath);
 
+    int optLevel = getCpuRefImpl()->getContext()->getOptLevel();
+
     vector<const char*> arguments;
     bool emitGlobalInfo = getCpuRefImpl()->getEmbedGlobalInfo();
     bool emitGlobalInfoSkipConstant = getCpuRefImpl()->getEmbedGlobalInfoSkipConstant();
     setupCompileArguments(inputs, kernelBatches, invokeBatches, cacheDir,
                           resName, coreLibPath.c_str(), coreLibRelaxedPath.c_str(),
                           emitGlobalInfo, emitGlobalInfoSkipConstant,
-                          &arguments);
+                          optLevel, &arguments);
 
     std::unique_ptr<const char> cmdLine(rsuJoinStrings(arguments.size() - 1,
                                                        arguments.data()));
@@ -411,7 +432,7 @@ void CpuScriptGroup2Impl::compile(const char* cacheDir) {
         // cacheDir, and loaded with the handle stored in mScriptObj.
 
         mExecutable = ScriptExecutable::createFromSharedObject(
-            getCpuRefImpl()->getContext(), mScriptObj, checksum);
+            mScriptObj, checksum);
 
         if (mExecutable != nullptr) {
             // The loaded shared library in mScriptObj has a matching checksum.
@@ -484,9 +505,7 @@ void CpuScriptGroup2Impl::compile(const char* cacheDir) {
         unlink(cloneFilePath.c_str());
     }
 
-    mExecutable = ScriptExecutable::createFromSharedObject(
-        getCpuRefImpl()->getContext(),
-        mScriptObj);
+    mExecutable = ScriptExecutable::createFromSharedObject(mScriptObj);
 
 #endif  // RS_COMPATIBILITY_LIB
 }
@@ -504,9 +523,9 @@ void Batch::setGlobalsForBatch() {
         const IDBase* funcID = closure->mFunctionID.get();
         Script* s = funcID->mScript;;
         for (const auto& p : closure->mGlobals) {
-            const void* value = p.second.first;
+            const int64_t value = p.second.first;
             int size = p.second.second;
-            if (value == nullptr && size == 0) {
+            if (value == 0 && size == 0) {
                 // This indicates the current closure depends on another closure for a
                 // global in their shared module (script). In this case we don't need to
                 // copy the value. For example, an invoke intializes a global variable
@@ -515,6 +534,7 @@ void Batch::setGlobalsForBatch() {
             }
             rsAssert(p.first != nullptr);
             Script* script = p.first->mScript;
+            rsAssert(script == s);
             RsdCpuReferenceImpl* ctxt = mGroup->getCpuRefImpl();
             const RsdCpuScriptImpl *cpuScript =
                     (const RsdCpuScriptImpl *)ctxt->lookupScript(script);
@@ -563,7 +583,7 @@ void Batch::run() {
     }
 
     if (mFunc != nullptr) {
-        MTLaunchStruct mtls;
+        MTLaunchStructForEach mtls;
         const CPUClosure* firstCpuClosure = mClosures.front();
         const CPUClosure* lastCpuClosure = mClosures.back();
 
@@ -577,7 +597,7 @@ void Batch::run() {
         mtls.fep.usr = nullptr;
         mtls.kernel = (ForEachFunc_t)mFunc;
 
-        mGroup->getCpuRefImpl()->launchThreads(
+        mGroup->getCpuRefImpl()->launchForEach(
                 (const Allocation**)firstCpuClosure->mClosure->mArgs,
                 firstCpuClosure->mClosure->mNumArg,
                 lastCpuClosure->mClosure->mReturnValue,
@@ -598,7 +618,7 @@ void Batch::run() {
 
     const CPUClosure* cpuClosure = mClosures.front();
     const Closure* closure = cpuClosure->mClosure;
-    MTLaunchStruct mtls;
+    MTLaunchStructForEach mtls;
 
     if (cpuClosure->mSi->forEachMtlsSetup((const Allocation**)closure->mArgs,
                                           closure->mNumArg,
@@ -606,10 +626,10 @@ void Batch::run() {
                                           nullptr, 0, nullptr, &mtls)) {
 
         mtls.script = nullptr;
-        mtls.kernel = (void (*)())&groupRoot;
+        mtls.kernel = &groupRoot;
         mtls.fep.usr = &mClosures;
 
-        mGroup->getCpuRefImpl()->launchThreads(nullptr, 0, nullptr, nullptr, &mtls);
+        mGroup->getCpuRefImpl()->launchForEach(nullptr, 0, nullptr, nullptr, &mtls);
     }
 
     for (CPUClosure* cpuClosure : mClosures) {

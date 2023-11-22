@@ -28,6 +28,9 @@ LOCAL_AAPT_FLAGS := --version-code 100 --version-name OneHundred --replace-versi
 
 LOCAL_MODULE_TAGS := tests
 
+# tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
+
 featureOf := CtsSplitApp
 featureOfApk := $(call intermediates-dir-for,APPS,$(featureOf))/package.apk
 localRStamp := $(call intermediates-dir-for,APPS,$(LOCAL_PACKAGE_NAME),,COMMON)/src/R.stamp

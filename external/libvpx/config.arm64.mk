@@ -3,7 +3,9 @@
 # libvpx_codec_srcs_c_arm64
 # libvpx_codec_srcs_asm_arm64
 
-libvpx_target := generic
+libvpx_target := config/arm64
+
+LOCAL_ARM_MODE := arm
 
 libvpx_config_dir_arm64 := $(LOCAL_PATH)/$(libvpx_target)
 libvpx_codec_srcs := $(sort $(shell cat $(libvpx_config_dir_arm64)/libvpx_srcs.txt))

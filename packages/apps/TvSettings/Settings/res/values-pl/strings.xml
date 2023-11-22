@@ -24,30 +24,35 @@
     <string name="header_category_preferences" msgid="175105555164713972">"Ustawienia"</string>
     <string name="header_category_accessories" msgid="823295909353025991">"Pilot i akcesoria"</string>
     <string name="header_category_personal" msgid="8893959635328775096">"Osobiste"</string>
+    <string name="accounts_category_title" msgid="7591072907146317425">"Konta"</string>
     <string name="add_account" msgid="4098060223200619258">"Dodaj konto"</string>
-    <string name="account_header_sync" msgid="2679585471372319471">"Synchronizuj"</string>
     <string name="account_header_remove_account" msgid="3288957118207682685">"Usuń konto"</string>
     <string name="account_sync" msgid="773808124331714965">"Wybierz synchronizowane aplikacje"</string>
     <string name="sync_now" msgid="8732244492880016471">"Synchronizuj teraz"</string>
-    <string name="sync_cancel" msgid="5839264070098894371">"Anuluj synchronizację"</string>
     <string name="sync_in_progress" msgid="1330721038775646022">"Synchronizuję…"</string>
     <string name="last_synced" msgid="6178494892357077274">"Ostatnia synchronizacja: <xliff:g id="TIME">%1s</xliff:g>"</string>
     <string name="sync_disabled" msgid="3089360175872892781">"Wyłączona"</string>
-    <string name="sync_is_failing" msgid="8229476000384257186">"Synchronizacja w tej chwili nie działa. Wkrótce zostanie wznowiona."</string>
     <string name="account_remove" msgid="4313580520737295272">"Usuń konto"</string>
     <string name="account_remove_failed" msgid="980654375770693544">"Nie można usunąć konta"</string>
+    <!-- no translation found for sync_item_title (2716687595867726981) -->
+    <skip />
+    <string name="sync_one_time_sync" msgid="3575080833667908804">"Zsynchronizuj teraz<xliff:g id="LAST_SYNC_TIME">
+%1$s</xliff:g>"</string>
+    <string name="sync_failed" msgid="5514824149810480551">"Błąd synchronizacji"</string>
+    <string name="sync_active" msgid="6891115263481154378">"Synchronizacja aktywna"</string>
     <string name="connectivity_network" msgid="8321537111272398501">"Sieć"</string>
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Skanowanie zawsze dostępne"</string>
     <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Zezwalaj usłudze lokalizacyjnej Google i innym aplikacjom na skanowanie w poszukiwaniu sieci nawet przy wyłączonym Wi‑Fi"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
-    <string name="device_daydream" msgid="4933581408059561077">"Wygaszacz ekranu"</string>
+    <string name="device_daydream" msgid="3354366974209179614">"Wygaszacz ekranu"</string>
     <string name="device_display" msgid="101455384386372747">"Ekran"</string>
+    <string name="device_sound" msgid="9214182566287657481">"Dźwięk"</string>
+    <string name="device_surround_sound" msgid="6272196310566546860">"Dźwięk przestrzenny"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"Dźwięki systemowe"</string>
     <string name="device_apps" msgid="9180435229638772838">"Aplikacje"</string>
     <string name="device_storage_reset" msgid="1425978936501134425">"Pamięć i resetowanie"</string>
-    <string name="device_storage" msgid="5536683600091277826">"Pamięć"</string>
     <string name="device_backup_restore" msgid="5627523987587511884">"Tworzenie i przywracanie kopii zapasowej"</string>
     <string name="device_reset" msgid="2827002349560023125">"Przywracanie danych fabrycznych"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Kalibracja"</string>
@@ -57,14 +62,12 @@
     <string name="apps_system" msgid="2499191125802829425">"Aplikacje systemowe"</string>
     <string name="apps_running" msgid="6430310491739956228">"Uruchomione aplikacje"</string>
     <string name="accessories_add" msgid="1347802656349218830">"Dodaj akcesoria"</string>
-    <string name="accessories_wifi_display" msgid="1107690327150126038">"Wyświetlacz Wi-Fi"</string>
     <string name="accessory_state_pairing" msgid="7501989679637780963">"Paruję…"</string>
     <string name="accessory_state_connecting" msgid="8777884957977608529">"Łączę…"</string>
     <string name="accessory_state_error" msgid="4529815543328841909">"Nie udało się sparować"</string>
     <string name="accessory_state_canceled" msgid="4419328837733619447">"Anulowano"</string>
     <string name="accessory_state_paired" msgid="1959238931866401476">"Sparowane"</string>
     <string name="accessory_options" msgid="4799658564005710297">"Akcesorium"</string>
-    <string name="accessory_rename" msgid="3250766501262581206">"Zmień nazwę"</string>
     <string name="accessory_unpair" msgid="8242725516604465355">"Anuluj sparowanie"</string>
     <string name="accessory_battery" msgid="7021788232835772126">"Bateria <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Anuluję sparowanie urządzenia…"</string>
@@ -72,9 +75,6 @@
     <string name="accessories_add_title" msgid="6940361421891873321">"Szukam akcesoriów…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Przed parowaniem urządzeń Bluetooth upewnij się, że są w trybie parowania"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"Wykryto urządzenie. Zostanie ono sparowane za <xliff:g id="COUNTDOWN">%1$s</xliff:g> s"</string>
-    <string name="accessories_add_title_multiple" msgid="8455249961819802466">"Znaleziono wiele urządzeń"</string>
-    <string name="accessories_add_multiple" msgid="3900633668371061399">"Aby wybrać inne urządzenie, naciśnij przycisk parowania na tym urządzeniu"</string>
-    <string name="accessories_add_multiple_select" msgid="3696794187001405647">"Aby sparować wybrane urządzenie, naciśnij i przytrzymaj przycisk parowania tego urządzenia przez 5 sekund"</string>
     <string name="error_action_not_supported" msgid="300552308104354666">"Ta czynność nie jest dostępna"</string>
     <string name="bluetooth_pairing_request" msgid="4523088117471287665">"Żądanie parowania Bluetooth"</string>
     <string name="bluetooth_confirm_passkey_msg" msgid="7031117992819855434">"Aby sparować z urządzeniem &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;, upewnij się, że pokazuje ono ten klucz dostępu: &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt;"</string>
@@ -83,7 +83,7 @@
     <string name="bluetooth_enter_pin_msg" msgid="7443458826667686394">"Aby sparować z urządzeniem &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;, &lt;br&gt;wpisz wymagany dla niego PIN:"</string>
     <string name="bluetooth_enter_passkey_msg" msgid="7980787196089653577">"Aby sparować z urządzeniem &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;, &lt;br&gt;wpisz wymagane dla niego hasło."</string>
     <string name="bluetooth_pin_values_hint" msgid="2319900367581543300">"Zazwyczaj 0000 lub 1234"</string>
-    <string name="bluetooth_pair" msgid="7836818609620478122">"Paruj"</string>
+    <string name="bluetooth_pair" msgid="7836818609620478122">"Sparuj"</string>
     <string name="bluetooth_cancel" msgid="4152153558528588479">"Anuluj"</string>
     <string name="system_cast" msgid="6421567823845207156">"Google Cast"</string>
     <string name="system_date_time" msgid="8898457978560618950">"Data i godzina"</string>
@@ -97,6 +97,7 @@
     <string name="system_accessibility" msgid="6215431399759498005">"Ułatwienia dostępu"</string>
     <string name="system_developer_options" msgid="3237985523474863638">"Opcje programistyczne"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Brak"</string>
+    <string name="system_diagnostic" msgid="7269638365915225701">"Użycie i diagnostyka"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Aktualizacje systemu"</string>
     <string name="about_preference" msgid="4131396784531360434">"Informacje"</string>
     <string name="device_name" msgid="2670488158531273028">"Nazwa urządzenia"</string>
@@ -118,6 +119,36 @@
     <string name="about_ads" msgid="3364786994943748337">"Reklamy"</string>
     <string name="show_dev_on" msgid="8997172736024819952">"Jesteś teraz programistą!"</string>
     <string name="show_dev_already" msgid="7525967300421794483">"Nie ma potrzeby, już jesteś programistą"</string>
+    <string name="device_info_default" msgid="4519181343309136050">"Nieznany"</string>
+    <string name="selinux_status" msgid="8000422283341040360">"Stan SELinux"</string>
+    <string name="selinux_status_disabled" msgid="4925733135520787807">"Wyłączony"</string>
+    <string name="selinux_status_permissive" msgid="4806219236988993826">"Pobłażliwy"</string>
+    <string name="selinux_status_enforcing" msgid="8839484208185347776">"Restrykcyjny"</string>
+    <string name="additional_system_update_settings_list_item_title" msgid="6285273598178967613">"Dodatkowe aktualizacje systemu"</string>
+    <string name="device_status" msgid="4379924151946190768">"Stan"</string>
+    <string name="device_status_summary" msgid="180586140242936323">"Sieć, numery seryjne i inne informacje"</string>
+    <string name="manual" msgid="4957388668881541669">"Instrukcja"</string>
+    <string name="regulatory_information" msgid="5448865708097003189">"Informacje prawne"</string>
+    <string name="device_feedback" msgid="209146642122579479">"Prześlij opinię o tym urządzeniu"</string>
+    <string name="fcc_equipment_id" msgid="8295142996591094301">"Identyfikator sprzętu"</string>
+    <string name="baseband_version" msgid="2229081246529676107">"Wersja pasma podstawowego"</string>
+    <string name="kernel_version" msgid="2418845475938044903">"Wersja jądra"</string>
+    <string name="status_unavailable" msgid="831018565485085059">"Niedostępny"</string>
+    <string name="device_status_title" msgid="1629253652287243543">"Stan"</string>
+    <string name="battery_status_title" msgid="2557264957661087826">"Stan baterii"</string>
+    <string name="battery_level_title" msgid="100046129713781009">"Poziom naładowania baterii"</string>
+    <string name="sim_status_title" msgid="498929467188844611">"Stan karty SIM"</string>
+    <string name="imei_information_title" msgid="5208860549282877136">"Informacje o IMEI"</string>
+    <string name="status_bt_address" msgid="1571721865060122393">"Adres Bluetooth"</string>
+    <string name="status_up_time" msgid="1674116490191446110">"Czas działania"</string>
+    <string name="status_wimax_mac_address" msgid="1102907383444152052">"Adres MAC 4G"</string>
+    <string name="legal_information" msgid="2346024659831852038">"Informacje prawne"</string>
+    <string name="copyright_title" msgid="5564228453228549353">"Prawa autorskie"</string>
+    <string name="license_title" msgid="4482927105870812604">"Licencja"</string>
+    <string name="terms_title" msgid="8480859222932736291">"Warunki korzystania z usługi"</string>
+    <string name="webview_license_title" msgid="8843666223583780825">"Systemowa licencja na WebView"</string>
+    <string name="wallpaper_attributions" msgid="8622098625739634898">"Tapety"</string>
+    <string name="wallpaper_attributions_values" msgid="1565931506291182879">"Dostawcy zdjęć satelitarnych:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"Słaba"</item>
     <item msgid="5986166866411161790">"Dostateczna"</item>
@@ -131,10 +162,10 @@
     <string name="title_internet_connection" msgid="8710084774588697646">"Połączenie internetowe"</string>
     <string name="connected" msgid="7563100162902079938">"Połączono"</string>
     <string name="not_connected" msgid="6858480380326923017">"Nie połączono"</string>
-    <string name="wifi_setting_header_available_networks" msgid="6244107218643835636">"Wi-Fi"</string>
-    <string name="wifi_setting_header_other_options" msgid="1530334691232749342">"INNE OPCJE"</string>
+    <string name="wifi_setting_header_other_options" msgid="3638677601577777216">"Inne opcje"</string>
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"Pokaż wszystkie"</string>
-    <string name="wifi_setting_available_networks" msgid="1244646604369133314">"DOSTĘPNE SIECI"</string>
+    <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"Pokaż mniej"</string>
+    <string name="wifi_setting_available_networks" msgid="6713791371350513043">"Dostępne sieci"</string>
     <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"Połącz przez WPS"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"Dodaj nową sieć"</string>
     <string name="security_type" msgid="524443802004143058">"Typ zabezpieczeń"</string>
@@ -187,20 +218,20 @@
     <string name="wifi_ip_settings_invalid_gateway" msgid="3292444764474145026">"Wpisz prawidłowy adres bramy"</string>
     <string name="wifi_ip_settings_invalid_dns" msgid="6172189835428184828">"Wpisz prawidłowy adres DNS"</string>
     <string name="wifi_ip_settings_invalid_network_prefix_length" msgid="6209978918929182270">"Wpisz długość prefiksu sieci z zakresu 0-32"</string>
-    <string name="wifi_ip_address_hint" msgid="1895267564692073689">"Wpisz prawidłowy adres IP.\nNa przykład: 192.168.1.128"</string>
-    <string name="wifi_dns1_hint" msgid="214345156394229347">"Wpisz prawidłowy adres IP lub pozostaw to pole puste.\nNa przykład: 8.8.8.8"</string>
-    <string name="wifi_dns2_hint" msgid="1075709328208368894">"Wpisz prawidłowy adres IP lub pozostaw to pole puste.\nNa przykład: 8.8.4.4"</string>
-    <string name="wifi_gateway_hint" msgid="7687219682024189028">"Wpisz prawidłowy adres IP lub pozostaw to pole puste.\nNa przykład: 192.168.1.1"</string>
-    <string name="wifi_network_prefix_length_hint" msgid="332915798888599682">"Wpisz prawidłową długość przedrostka sieci.\nNa przykład: 24"</string>
+    <string name="wifi_ip_address_description" msgid="6548838784556001283">"Wpisz prawidłowy adres IP.\nNa przykład: <xliff:g id="ID_1">192.168.1.128</xliff:g>"</string>
+    <string name="wifi_dns1_description" msgid="2463500547232077393">"Wpisz prawidłowy adres IP lub pozostaw to pole puste.\nNa przykład: <xliff:g id="ID_1">8.8.8.8</xliff:g>"</string>
+    <string name="wifi_dns2_description" msgid="8005473174044015359">"Wpisz prawidłowy adres IP lub pozostaw to pole puste.\nNa przykład: <xliff:g id="ID_1">8.8.4.4</xliff:g>"</string>
+    <string name="wifi_gateway_description" msgid="4773751224452216231">"Wpisz prawidłowy adres IP lub pozostaw to pole puste.\nNa przykład: <xliff:g id="ID_1">192.168.1.1</xliff:g>"</string>
+    <string name="wifi_network_prefix_length_description" msgid="4849589333293194414">"Wpisz prawidłową długość przedrostka sieci.\nNa przykład: <xliff:g id="ID_1">24</xliff:g>"</string>
     <string name="proxy_error_invalid_host" msgid="3660415920668138953">"Nieprawidłowa nazwa hosta"</string>
     <string name="proxy_error_invalid_exclusion_list" msgid="4921547051724987804">"Ta lista wykluczeń jest nieprawidłowa. Podaj listę rozdzielonych przecinkami nazw wykluczonych domen."</string>
     <string name="proxy_error_empty_port" msgid="6835658067776408062">"Pole portu nie może być puste"</string>
     <string name="proxy_error_empty_host_set_port" msgid="4428793978424303244">"Jeśli pole hosta jest puste, pozostaw też puste pole portu"</string>
     <string name="proxy_error_invalid_port" msgid="1434922103959603993">"Nieprawidłowy port"</string>
     <string name="proxy_warning_limited_support" msgid="6160239282535986523">"Serwer proxy HTTP jest używany przez przeglądarkę, ale może nie być używany przez inne aplikacje"</string>
-    <string name="proxy_port_hint" msgid="8532733797275927007">"Wpisz prawidłowy port.\nNa przykład: 8080"</string>
-    <string name="proxy_exclusionlist_hint" msgid="86175095050438325">"Wpisz listę wykluczonych domen rozdzielonych przecinkami lub pozostaw to pole puste.\nNa przykład: example.com,mycomp.test.com,localhost"</string>
-    <string name="proxy_hostname_hint" msgid="3719688422767210803">"Wpisz prawidłową nazwę hosta.\nNa przykład: proxy.example.com"</string>
+    <string name="proxy_port_description" msgid="6791098212244367568">"Wpisz prawidłowy port.\nNa przykład: <xliff:g id="ID_1">8080</xliff:g>"</string>
+    <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"Wpisz listę wykluczonych domen rozdzielonych przecinkami lub pozostaw to pole puste.\nNa przykład: <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>"</string>
+    <string name="proxy_hostname_description" msgid="5824391500254472447">"Wpisz prawidłową nazwę hosta.\nNa przykład: <xliff:g id="ID_1">proxy.example.com</xliff:g>"</string>
     <string name="wifi_summary_title_connected" msgid="8329216588732277139">"Masz połączenie z siecią"</string>
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"Brak połączenia z siecią"</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"Połączono już z <xliff:g id="SSID">%1$s</xliff:g>. Połączyć z inną siecią?"</string>
@@ -219,27 +250,33 @@
     <string name="storage_media_cache_usage" msgid="5906737163212649904">"Dane w pamięci podręcznej"</string>
     <string name="storage_eject" msgid="113476702798691558">"Odłącz"</string>
     <string name="storage_format" msgid="3759273736493279595">"Wykasuj i sformatuj"</string>
+    <string name="storage_format_as_private" msgid="4169495230765116075">"Wykasuj dane i sformatuj jako pamięć urządzenia"</string>
+    <string name="storage_format_as_public" msgid="8568317076021814054">"Wykasuj dane i sformatuj jako pamięć wymienną"</string>
     <string name="storage_format_for_private" msgid="7095270113028182032">"Sformatuj jako pamięć urządzenia"</string>
     <string name="storage_not_connected" msgid="6378589497819596096">"Nie podłączono"</string>
-    <string name="storage_migrate" msgid="658894157418304023">"Przenieś dane"</string>
-    <string name="storage_forget" msgid="8541387048014779836">"Zapomnij tę pamięć wewnętrzną"</string>
+    <string name="storage_migrate" msgid="1304058078948715456">"Przenieś dane do tej pamięci"</string>
+    <string name="storage_migrate_away" msgid="3410590501311323877">"Przenieś dane do innej pamięci"</string>
+    <string name="storage_no_apps" msgid="579118619398668670">"Brak aplikacji do utworzenia kopii zapasowych"</string>
+    <string name="storage_forget" msgid="8731986045697320463">"Zapomnij tę pamięć urządzenia"</string>
     <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"Aby korzystać z aplikacji lub danych znajdujących się na tym dysku, podłącz go ponownie. Jeśli ten dysk jest niedostępny, to masz też inną możliwość – możesz wybrać, by ta pamięć została zapomniana.\n\nJeśli wybierzesz Zapomnij, wszystkie dane zapisane na tym dysku zostaną trwale usunięte.\n\nPóźniej możesz ponownie zainstalować aplikacje, ale danych zapisanych na tym dysku już nie odzyskasz."</string>
     <string name="storage_device_storage_section" msgid="7797805634316822741">"Pamięć urządzenia"</string>
     <string name="storage_removable_storage_section" msgid="3264955106565590076">"Pamięć wymienna"</string>
     <string name="storage_reset_section" msgid="7324235036547192861">"Resetowanie"</string>
     <string name="storage_mount_success" msgid="4624254886950093443">"Podłączono: <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_mount_failure" msgid="2469026716895846633">"Nie udało się podłączyć: <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_mount_adopted" msgid="3360994581083675640">"Ponownie podłączono pamięć USB"</string>
     <string name="storage_unmount_success" msgid="7921627277443856151">"Bezpiecznie odłączono: <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_unmount_failure" msgid="6322048355281833871">"Nie udało się bezpiecznie odłączyć: <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_unmount_failure_cant_find" msgid="240731723168567217">"Nie udało się znaleźć napędu do wysunięcia"</string>
     <string name="storage_format_success" msgid="6252068844653804319">"Sformatowano: <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_format_failure" msgid="7336977074523932399">"Nie udało się sformatować: <xliff:g id="NAME">%1$s</xliff:g>"</string>
-    <string name="storage_wizard_format_as_private_title" msgid="1433086533563409114">"Sformatuj jako pamięć wewnętrzną"</string>
+    <string name="storage_wizard_format_as_private_title" msgid="1887035626526247913">"Sformatuj jako pamięć urządzenia"</string>
     <string name="storage_wizard_format_as_private_description" msgid="5814513630861655168">"Aby ten dysk USB był bezpieczny, musi zostać sformatowany. Po sformatowaniu dysk będzie działać tylko na tym urządzeniu. Sformatowanie spowoduje wykasowanie wszystkich danych znajdujących się na dysku. Aby uniknąć utraty danych, utwórz ich kopię zapasową."</string>
     <string name="storage_wizard_format_as_public_title" msgid="977475385015522171">"Wykasuj i sformatuj"</string>
-    <string name="storage_wizard_format_as_public_description" msgid="8591201523650249337">"Po sformatowaniu możesz używać tego dysku USB na innych urządzeniach. Wszystkie dane zostaną wykasowane. Aby utworzyć kopię zapasową, przenieś aplikacje na inną pamięć wewnętrzną."</string>
+    <string name="storage_wizard_format_as_public_description" msgid="184405877453834449">"Po sformatowaniu możesz używać tego dysku USB na innych urządzeniach. Wszystkie dane zostaną wykasowane. Aby utworzyć kopię zapasową, przenieś aplikacje do innej pamięci urządzenia."</string>
     <string name="storage_wizard_format_progress_title" msgid="143911640282435570">"Formatuję dysk USB…"</string>
     <string name="storage_wizard_format_progress_description" msgid="5320980721352781920">"Może to chwilę potrwać. Nie odłączaj dysku."</string>
+    <string name="storage_wizard_migrate_choose_title" msgid="4247584708563925746">"Wybierz pamięć, do której chcesz przenieść dane"</string>
     <string name="storage_wizard_migrate_confirm_title" msgid="369820166257265495">"Przenieś dane na: <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_wizard_migrate_confirm_description" msgid="2916497196106413598">"Przenieś swoje zdjęcia, pliki i dane aplikacji na: <xliff:g id="NAME">%1$s</xliff:g>. Może to potrwać kilka minut. W trakcie przenoszenia niektóre aplikacje nie będą działać prawidłowo."</string>
     <string name="storage_wizard_migrate_confirm_action_move_now" msgid="512504294066473542">"Przenieś teraz"</string>
@@ -255,18 +292,18 @@
     <string name="storage_wizard_back_up_apps_title" msgid="452805102278225533">"Aplikacje przechowywane na <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_wizard_back_up_apps_and_data_title" msgid="1738767666148200795">"Aplikacje i dane przechowywane na <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_wizard_back_up_apps_space_available" msgid="7209210725057470544">"Dostępne: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
-    <string name="storage_wizard_eject_internal_title" msgid="3717872796166039893">"Odłącz pamięć wewnętrzną"</string>
-    <string name="storage_wizard_eject_internal_description" msgid="6107781224687080575">"Gdy ten nośnik pamięci zostanie odłączony, znajdujące się na nim aplikacje przestaną działać. Ten dysk USB jest sformatowany w taki sposób, że będzie działać tylko na tym urządzeniu. Nie będzie działać na żadnych innych urządzeniach."</string>
-    <string name="sotrage_wizard_eject_progress_title" msgid="8034235439954334978">"Wysuwam <xliff:g id="NAME">%1$s</xliff:g>…"</string>
+    <string name="storage_wizard_eject_private_title" msgid="2844023177159233031">"Odłącz pamięć urządzenia"</string>
+    <string name="storage_wizard_eject_private_description" msgid="8966427719795472538">"Gdy odłączysz ten nośnik pamięci, znajdujące się na nim aplikacje przestaną działać. Ten dysk USB jest sformatowany w taki sposób, że będzie działać tylko na tym urządzeniu. Nie będzie działać na żadnych innych urządzeniach."</string>
+    <string name="storage_wizard_eject_progress_title" msgid="8823133087157003820">"Wyuwam dysk <xliff:g id="NAME">%1$s</xliff:g>..."</string>
     <string name="storage_wizard_move_app_title" msgid="37057801779891287">"Wykorzystane miejsce"</string>
     <string name="storage_wizard_move_app_progress_title" msgid="7807062446517628864">"Przenoszę <xliff:g id="NAME">%1$s</xliff:g>…"</string>
     <string name="storage_wizard_move_app_progress_description" msgid="3693104566187904724">"Nie wyjmuj dysku w trakcie przenoszenia danych.\nAplikacja <xliff:g id="APPNAME">%1$s</xliff:g> na tym urządzeniu będzie niedostępna, dopóki przenoszenie się nie zakończy."</string>
-    <string name="storage_wizard_forget_confirm_title" msgid="1183642893909026951">"Zapomnieć pamięć wewnętrzną?"</string>
+    <string name="storage_wizard_forget_confirm_title" msgid="4321200084208420221">"Zapomnieć pamięć urządzenia?"</string>
     <string name="storage_wizard_forget_confirm_description" msgid="4264263982217111372">"Gdy klikniesz „Zapomnij”, utracisz na zawsze wszystkie dane znajdujące się na tym dysku. Chcesz kontynuować?"</string>
     <string name="storage_wizard_forget_action" msgid="2532812620271112355">"Zapomnij"</string>
     <string name="storage_new_title" msgid="3098495209500607438">"Dysk USB podłączony"</string>
     <string name="storage_new_action_browse" msgid="9041125660441839453">"Przeglądaj"</string>
-    <string name="storage_new_action_adopt" msgid="1903427557119380415">"Skonfiguruj jako pamięć wewnętrzną"</string>
+    <string name="storage_new_action_adopt" msgid="880224317112988974">"Skonfiguruj jako pamięć urządzenia"</string>
     <string name="storage_new_action_format_public" msgid="5604328981214071670">"Skonfiguruj jako pamięć wymienną"</string>
     <string name="storage_new_action_eject" msgid="4069294152676217949">"Odłącz"</string>
     <string name="storage_missing_title" msgid="2803464623922381858">"Usunięto: <xliff:g id="NAME">%1$s</xliff:g>"</string>
@@ -276,6 +313,7 @@
     <string name="app_forward_locked" msgid="6078781450044847966">"Aplikacja jest zabezpieczona przed kopiowaniem."</string>
     <string name="invalid_location" msgid="5269044848535157307">"Lokalizacja instalacji jest nieprawidłowa."</string>
     <string name="system_package" msgid="9200255718634512790">"Aktualizacji systemu nie można instalować na nośniku zewnętrznym."</string>
+    <string name="move_error_device_admin" msgid="2060627704270836951">"Administratora urządzenia nie można przenieść na nośnik zewnętrzny."</string>
     <string name="learn_more_action" msgid="7015991954404958779">"Więcej informacji"</string>
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"Ponów próbę"</string>
     <string name="wifi_wps_title" msgid="1872305810119408482">"Szukam routera WPS…"</string>
@@ -295,7 +333,15 @@
     <string name="system_set_time_format" msgid="4447882066895090612">"Format 24-godzinny"</string>
     <string name="desc_set_time_format" msgid="3131006238681763219">"<xliff:g id="STATE">%1$s</xliff:g> (<xliff:g id="SAMPLE">%2$s</xliff:g>)"</string>
     <string name="system_auto_date_time" msgid="3629668599205033272">"Automatyczna data i godzina"</string>
-    <string name="desc_auto_date_time" msgid="6997571927680580633">"Użyj czasu podanego przez sieć."</string>
+  <string-array name="auto_date_time_entries">
+    <item msgid="4590792581242018007">"Użyj czasu podanego przez sieć"</item>
+    <item msgid="3807025813081244357">"Wył."</item>
+  </string-array>
+  <string-array name="auto_date_time_ts_entries">
+    <item msgid="8463479794795616025">"Użyj czasu podanego przez sieć"</item>
+    <item msgid="2475903014233987786">"Użyj czasu podanego przez strumień transportu"</item>
+    <item msgid="150957081326946463">"Wył."</item>
+  </string-array>
     <string name="system_location" msgid="502463575930545806">"Lokalizacja"</string>
     <string name="system_desc_location" msgid="4243551425631207495">"Zezwalaj aplikacjom, które zapytały o pozwolenie, na korzystanie z informacji o lokalizacji."</string>
     <string name="system_network_location_confirm" msgid="8435144328428634060">"Zgoda na usługę lokalizacyjną"</string>
@@ -319,6 +365,7 @@
     <string name="delete_location_history_desc" msgid="4142806827237093397">"Spowoduje to nieodwracalne usunięcie całej Historii lokalizacji tego urządzenia zapisanej na tym koncie Google. Przestaną działać niektóre aplikacje, w tym Google Now."</string>
     <string name="system_services" msgid="7230571820151215779">"Usługi"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Ustawienia usługi"</string>
+    <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Tekst o dużym kontraście"</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Napisy"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Ustawienia napisów nałożonych na film"</string>
     <string name="captions_display" msgid="735692527287125548">"Wyświetlanie"</string>
@@ -326,7 +373,7 @@
     <string name="captions_display_off" msgid="496953007835201523">"Wyłączone"</string>
     <string name="display_options" msgid="5504549024985225774">"Opcje wyświetlania"</string>
     <string name="captions_configure" msgid="5537548915977371014">"Konfiguracja"</string>
-    <string name="captions_lanaguage" msgid="3291057448460880449">"Język"</string>
+    <string name="captions_language" msgid="2835554055388996343">"Język"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"Rozmiar tekstu"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"Styl napisów"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"Opcje niestandardowe"</string>
@@ -334,12 +381,19 @@
     <string name="captions_textcolor" msgid="3233568269335050287">"Kolor tekstu"</string>
     <string name="captions_edgetype" msgid="841331274533086103">"Typ krawędzi"</string>
     <string name="captions_edgecolor" msgid="845125757332620884">"Kolor krawędzi"</string>
+    <string name="captions_backgroundshow" msgid="9177987321551275698">"Pokaż tło"</string>
     <string name="captions_backgroundcolor" msgid="448518890988125453">"Kolor tła"</string>
     <string name="captions_backgroundopacity" msgid="2643722493273126220">"Przezroczystość tła"</string>
     <string name="captioning_preview_text" msgid="72080729155950127">"Tak będą wyglądać napisy"</string>
     <string name="captions_textopacity" msgid="5536765490446288641">"Przezroczystość tekstu"</string>
+    <string name="captions_windowshow" msgid="5716898740522196707">"Pokaż okno"</string>
     <string name="captions_windowcolor" msgid="8986165172260903279">"Kolor okna"</string>
     <string name="captions_windowopacity" msgid="2784473496224936703">"Przezroczystość okna"</string>
+    <string name="captions_style_0" msgid="2068865433439146533">"Biały na czarnym"</string>
+    <string name="captions_style_1" msgid="8878565905353923498">"Czarny na białym"</string>
+    <string name="captions_style_2" msgid="1486695984924671199">"Żółty na czarnym"</string>
+    <string name="captions_style_3" msgid="3217829874170162074">"Żółty na niebieskim"</string>
+    <string name="captions_style_custom" msgid="3645114505000714364">"Niestandardowy"</string>
     <string name="color_white" msgid="65537523012024751">"Biały"</string>
     <string name="color_black" msgid="8804213372565106403">"Czarny"</string>
     <string name="color_red" msgid="5630553203246525989">"Czerwony"</string>
@@ -348,13 +402,14 @@
     <string name="color_cyan" msgid="796226330055745">"Cyjan"</string>
     <string name="color_yellow" msgid="1023390829879874964">"Żółty"</string>
     <string name="color_magenta" msgid="6395786485839439122">"Amarantowy"</string>
-    <string name="system_accessibility_status" msgid="4389074529913575327">"Stan"</string>
+    <string name="system_accessibility_status" msgid="6150600992901856367">"Włączono"</string>
     <string name="system_accessibility_config" msgid="3216531917536720277">"Konfiguracja"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="8200707259067035823">"Użyć <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
     <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"<xliff:g id="SERVICE">%1$s</xliff:g> może gromadzić cały wpisywany tekst z wyjątkiem haseł. Dotyczy to także danych osobistych, np. numerów kart kredytowych."</string>
     <string name="system_accessibility_service_off_confirm_title" msgid="963297812889694832">"Zatrzymać <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
     <string name="system_accessibility_service_off_confirm_desc" msgid="6714782635926048678">"Wybierając OK, zatrzymasz <xliff:g id="SERVICE">%1$s</xliff:g>."</string>
     <string name="system_accessibility_tts_output" msgid="8905477795536714590">"Przetwarzanie tekstu na mowę"</string>
+    <string name="system_accessibility_tts_engine_config" msgid="5331139536083054552">"Konfiguracja funkcji"</string>
     <string name="system_speak_passwords" msgid="5264650214879185873">"Wypowiadaj hasła na głos"</string>
     <string name="system_preferred_engine" msgid="8258210139854655567">"Preferowany mechanizm"</string>
     <string name="system_speech_rate" msgid="8099856582088545576">"Szybkość mowy"</string>
@@ -423,6 +478,7 @@
     <string name="disagree" msgid="9170636026862400981">"Nie zgadzam się"</string>
     <string name="security_unknown_sources_title" msgid="769762478057744545">"Nieznane źródła"</string>
     <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Zezwalaj na instalowanie aplikacji ze źródeł innych niż Sklep Play."</string>
+    <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"Zezwalaj na nieznane źródła"</string>
     <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"Twoje urządzenie i dane osobowe są bardziej narażone na ataki aplikacji z nieznanych źródeł. Akceptujesz fakt, że ponosisz wyłączną odpowiedzialność za wszelkie uszkodzenia urządzenia i utratę danych wynikające z korzystania z tych aplikacji."</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"Weryfikuj aplikacje"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"Blokuj instalowanie potencjalnie szkodliwych aplikacji lub wyświetlaj ostrzeżenie przed ich instalacją."</string>
@@ -481,32 +537,33 @@
     <string name="inputs_game" msgid="1114086481110094757">"Konsola do gier"</string>
     <string name="inputs_aux" msgid="5704676433978730340">"Dodatkowe"</string>
     <string name="inputs_custom_name" msgid="5584925321693432362">"Własna nazwa"</string>
+    <string name="inputs_custom_name_description_fmt" msgid="7123031859468901866">"Wpisz nazwę dla wejścia <xliff:g id="INPUT">%1$s</xliff:g>."</string>
     <string name="inputs_hide" msgid="1575971556150395486">"Ukryj"</string>
-    <string name="inputs_hide_desc" msgid="8172670556559886526">"Niepokazywane podczas przełączania urządzeń wejściowych"</string>
-    <string name="inputs_custom_title" msgid="374036983231176581">"Własna nazwa:"</string>
+    <string name="inputs_show" msgid="5069718540369447778">"Pokaż to wejście"</string>
+    <string name="input_header_names" msgid="6958427658951236078">"Nazwa"</string>
     <string name="inputs_hdmi_control" msgid="2462240356665628563">"Sterowanie HDMI"</string>
     <string name="inputs_hdmi_control_desc" msgid="2300590479729796132">"Pozwala telewizorowi sterować urządzeniami HDMI"</string>
     <string name="inputs_device_auto_off" msgid="7510049770946999285">"Automat. wyłączanie urządzenia"</string>
     <string name="inputs_device_auto_off_desc" msgid="2679638131351116942">"Wyłączanie urządzeń HDMI za pomocą TV"</string>
     <string name="inputs_tv_auto_on" msgid="2627932269256793797">"Autom. wyłączanie TV włączone"</string>
     <string name="inputs_tv_auto_on_desc" msgid="7658625130577708249">"Włączanie TV za pomocą urządzenia HDMI"</string>
-    <plurals name="inputs_header_connected_input" formatted="false" msgid="4694899943180976672">
-      <item quantity="few">PODŁĄCZONE WEJŚCIA</item>
-      <item quantity="many">PODŁĄCZONE WEJŚCIA</item>
-      <item quantity="other">PODŁĄCZONE WEJŚCIA</item>
-      <item quantity="one">PODŁĄCZONE WEJŚCIE</item>
+    <plurals name="inputs_header_connected_input" formatted="false" msgid="3158173055262045630">
+      <item quantity="few">Podłączone wejścia</item>
+      <item quantity="many">Podłączone wejścia</item>
+      <item quantity="other">Podłączone wejścia</item>
+      <item quantity="one">Podłączone wejście</item>
     </plurals>
-    <plurals name="inputs_header_standby_input" formatted="false" msgid="1903575597797993135">
-      <item quantity="few">WEJŚCIA ZAPASOWE</item>
-      <item quantity="many">WEJŚCIA ZAPASOWE</item>
-      <item quantity="other">WEJŚCIA ZAPASOWE</item>
-      <item quantity="one">WEJŚCIE ZAPASOWE</item>
+    <plurals name="inputs_header_standby_input" formatted="false" msgid="8614849472167217134">
+      <item quantity="few">Wejścia zapasowe</item>
+      <item quantity="many">Wejścia zapasowe</item>
+      <item quantity="other">Wejścia zapasowe</item>
+      <item quantity="one">Wejście zapasowe</item>
     </plurals>
-    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="2979766871256996256">
-      <item quantity="few">NIEPODŁĄCZONE WEJŚCIA</item>
-      <item quantity="many">NIEPODŁĄCZONE WEJŚCIA</item>
-      <item quantity="other">NIEPODŁĄCZONE WEJŚCIA</item>
-      <item quantity="one">NIEPODŁĄCZONE WEJŚCIE</item>
+    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="1092697966171944243">
+      <item quantity="few">Niepodłączone wejścia</item>
+      <item quantity="many">Niepodłączone wejścia</item>
+      <item quantity="other">Niepodłączone wejścia</item>
+      <item quantity="one">Niepodłączone wejście</item>
     </plurals>
     <string name="user_add_profile_item_summary" msgid="2946168478936086933">"Ogranicz dostęp do aplikacji i innych treści na swoim koncie"</string>
     <string name="user_new_profile_name" msgid="336521054830056189">"Profil ograniczony"</string>
@@ -518,6 +575,7 @@
     <string name="restricted_profile_switch_to" msgid="1926433350907032138">"Przełącz na profil o ograniczonym dostępie"</string>
     <string name="restricted_profile_switch_out" msgid="1893784095623209495">"Wyjdź z profilu o ograniczonym dostępie"</string>
     <string name="restricted_profile_delete_title" msgid="3445944923018324707">"Usuń profil z ograniczonym dostępem"</string>
+    <string name="restricted_profile_create_title" msgid="1392190365829029390">"Utwórz profil z ograniczonym dostępem"</string>
     <string name="restricted_profile_configure_title" msgid="4684188123147519620">"Ustawienia"</string>
     <string name="restricted_profile_configure_apps_title" msgid="11507255932348492">"Dozwolone aplikacje"</string>
     <plurals name="restricted_profile_configure_apps_description" formatted="false" msgid="1138147479259808487">
@@ -532,6 +590,7 @@
     <string name="restricted_profile_configure_apps_description_loading" msgid="5269477581791409700">"Chwileczkę…"</string>
     <string name="restricted_profile_change_password_title" msgid="2848537651211816659">"Zmień kod PIN"</string>
     <string name="restriction_description" msgid="3104855945910233028">"<xliff:g id="DESCRIPTION">%1$s</xliff:g>\n<xliff:g id="VALUE">%2$s</xliff:g>"</string>
+    <string name="app_sees_restricted_accounts_and_controlled_by" msgid="6677671440081319908">"Ta aplikacja może uzyskiwać dostęp do Twoich kont. Kontrolowane przez: <xliff:g id="APP">%1$s</xliff:g>"</string>
     <string name="pin_enter_unlock_channel" msgid="5980400420298506069">"Aby oglądać ten kanał, wpisz kod PIN"</string>
     <string name="pin_enter_unlock_program" msgid="52453773316071511">"Aby oglądać ten program, wpisz kod PIN"</string>
     <string name="pin_enter_pin" msgid="821552376577935497">"Wpisz PIN"</string>
@@ -542,9 +601,9 @@
     <string name="pin_toast_wrong" msgid="4628358195224633248">"Nieprawidłowy kod PIN. Spróbuj ponownie"</string>
     <string name="pin_toast_not_match" msgid="5886041789737632996">"Spróbuj ponownie. Niezgodny kod PIN"</string>
     <string name="wifi_setup_input_password" msgid="1596168874369038536">"Podaj hasło do sieci <xliff:g id="SSID">%1$s</xliff:g>"</string>
-    <string name="wifi_setup_connection_success" msgid="6262755735033937164">"Połączono."</string>
-    <string name="wifi_setup_save_success" msgid="4829154865874318015">"Zapisano."</string>
-    <string name="device_apps_app_management_version" msgid="1004679024556315208">"wersja <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
+    <string name="wifi_setup_connection_success" msgid="3846993789166071184">"Połączono"</string>
+    <string name="wifi_setup_save_success" msgid="4785799603638549254">"Zapisano"</string>
+    <string name="device_apps_app_management_version" msgid="2267065043941006486">"Wersja <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
     <string name="device_apps_app_management_open" msgid="8009823973422120839">"Otwórz"</string>
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Wymuś zatrzymanie"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Jeśli wymusisz zatrzymanie aplikacji, może ona zadziałać nieprawidłowo."</string>
@@ -570,13 +629,13 @@
     <string name="settings_cancel" msgid="304280412158061225">"Anuluj"</string>
     <string name="settings_on" msgid="6892236264945435013">"Wł."</string>
     <string name="settings_off" msgid="449272161738237637">"Wył."</string>
-    <string name="device_daydreams_none" msgid="7364189761517824834">"Brak"</string>
-    <string name="device_daydreams_select" msgid="3691552535056569158">"Wygaszacz ekranu"</string>
+    <string name="device_daydreams_none" msgid="2767107052779579259">"Wyłącz ekran"</string>
+    <string name="device_daydreams_select" msgid="2112338101206187695">"Wygaszacz ekranu"</string>
     <string name="device_daydreams_test" msgid="9038920213402659591">"Włącz teraz"</string>
-    <string name="device_daydreams_sleep" msgid="8766795993034660366">"Ustawienia wygaszacza ekranu"</string>
-    <string name="device_daydreams_sleep_description" msgid="5269460120567642259">"Wygaszacz ekranu włączy się po wybranym okresie braku aktywności. Jeśli nie wybierzesz wygaszacza, ekran po prostu się wyłączy."</string>
+    <string name="device_daydreams_sleep" msgid="7676938708373592766">"Włącz po:"</string>
+    <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"Wygaszacz ekranu włączy się po tym okresie braku aktywności. Jeśli nie wybierzesz wygaszacza, ekran po prostu się wyłączy."</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"Po <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> braku aktywności"</string>
-    <string name="device_daydreams_screen_off" msgid="5002473979169042970">"Uśpienie"</string>
+    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Uśpij urządzenie"</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"Ekran wyłączy się po tym okresie braku aktywności."</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"Dane kopii zapasowej nie są aktualnie przechowywane na żadnym koncie"</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
@@ -588,8 +647,8 @@
     <string name="factory_reset_description" msgid="5381170999141355891">"Spowoduje to wymazanie wszystkich danych z pamięci wewnętrznej Twojego urządzenia, w tym konta Google, ustawień i danych systemu i aplikacji, a także pobranych aplikacji"</string>
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Wymazać wszystkie Twoje informacje osobiste i pobrane aplikacje? Nie można tego cofnąć."</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Wymaż wszystko"</string>
-    <string name="select_title" msgid="3905067953686121845">"Wybierz nazwę dla urządzenia ^1"</string>
-    <string name="select_description" msgid="4070142015460337658">"Nazwa pozwala rozpoznać urządzenie ^1, gdy chcesz uzyskać do niego dostęp z innego urządzenia, np. telefonu, tabletu czy komputera."</string>
+    <string name="select_device_name_title" msgid="5165800500130943604">"Wybierz nazwę urządzenia <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
+    <string name="select_device_name_description" msgid="2697127827643821315">"Nazwa pozwala rozpoznać urządzenie <xliff:g id="DEVICEMODEL">%1$s</xliff:g>, gdy chcesz uzyskać dostęp z innego urządzenia, np. telefonu, tabletu czy komputera."</string>
   <string-array name="rooms">
     <item msgid="7085399612393981553">"Salon"</item>
     <item msgid="3722089849939477581">"Pokój multimedialny"</item>
@@ -600,12 +659,18 @@
     <item msgid="8120010459866284578">"Kuchnia"</item>
   </string-array>
     <string name="custom_room" msgid="8991561978321502549">"Wpisz własną nazwę…"</string>
-    <string name="settings_status_title" msgid="3890412726442124167">"To urządzenie ^1 ma nazwę"</string>
-    <string name="settings_status_description" msgid="3600745966132434139">"„^1” to nazwa tego urządzenia ^2. Chcesz ją zmienić?"</string>
+    <string name="device_rename_title" msgid="2629557295786267185">"Zmień nazwę tego urządzenia <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
+    <string name="device_rename_description" msgid="2461752788563877107">"To urządzenie <xliff:g id="DEVICEMODEL">%1$s</xliff:g> ma nazwę „<xliff:g id="DEVICENAME">%2$s</xliff:g>”"</string>
     <string name="change_setting" msgid="2047402388786162246">"Zmień"</string>
     <string name="keep_settings" msgid="6798327196645732517">"Nie zmieniaj"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"Uprawnienia"</string>
     <string name="device_apps_permissions" msgid="2966387603529725982">"Uprawnienia aplikacji"</string>
     <string name="app_permissions_group_summary" msgid="7906834786705287901">"Dozwolone: <xliff:g id="COUNT_0">%d</xliff:g> z <xliff:g id="COUNT_1">%d</xliff:g> aplikacji"</string>
-    <string name="security_patch" msgid="2131617390189164481">"Poziom poprawek zabezpieczeń Androida"</string>
+    <string name="bluetooth_permission_request" msgid="6649813878683015301">"Prośba o pozwolenie na włączenie modułu Bluetooth"</string>
+    <string name="security_patch" msgid="2131617390189164481">"Stan aktualizacji zabezpieczeń"</string>
+    <string name="choose_application" msgid="5662960665577780353">"Wybierz aplikację"</string>
+    <string name="experimental_preference" msgid="1137673985823581797">"(Funkcja eksperymentalna)"</string>
+    <string name="reboot_safemode_action" msgid="8129550438717110406">"Uruchom w trybie awaryjnym"</string>
+    <string name="reboot_safemode_confirm" msgid="3329475617645192086">"Chcesz uruchomić urządzenie w trybie awaryjnym?"</string>
+    <string name="reboot_safemode_desc" msgid="5031024337104679492">"W ten sposób wyłączysz wszystkie zainstalowane aplikacje innych firm. Zostaną one przywrócone po zrestartowaniu urządzenia."</string>
 </resources>

@@ -24,7 +24,7 @@
  ******************************************************************************/
 
 #include "bt_target.h"
-#include "gki.h"
+#include "bt_common.h"
 #include "hcidefs.h"
 #include "hcimsgs.h"
 #include "hcidefs.h"
@@ -37,13 +37,8 @@
 
 BOOLEAN btsnd_hcic_ble_set_local_used_feat (UINT8 feat_set[8])
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_SET_USED_FEAT_CMD)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_SET_USED_FEAT_CMD;
     p->offset = 0;
@@ -57,13 +52,8 @@ BOOLEAN btsnd_hcic_ble_set_local_used_feat (UINT8 feat_set[8])
 
 BOOLEAN btsnd_hcic_ble_set_random_addr (BD_ADDR random_bda)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_WRITE_RANDOM_ADDR_CMD)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_WRITE_RANDOM_ADDR_CMD;
     p->offset = 0;
@@ -82,13 +72,8 @@ BOOLEAN btsnd_hcic_ble_write_adv_params (UINT16 adv_int_min, UINT16 adv_int_max,
                                        UINT8 addr_type_dir, BD_ADDR direct_bda,
                                        UINT8 channel_map, UINT8 adv_filter_policy)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_BLE_WRITE_ADV_PARAMS)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_BLE_WRITE_ADV_PARAMS ;
     p->offset = 0;
@@ -110,13 +95,8 @@ BOOLEAN btsnd_hcic_ble_write_adv_params (UINT16 adv_int_min, UINT16 adv_int_max,
 }
 BOOLEAN btsnd_hcic_ble_read_adv_chnl_tx_power (void)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_READ_CMD)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_READ_CMD;
     p->offset = 0;
@@ -131,13 +111,8 @@ BOOLEAN btsnd_hcic_ble_read_adv_chnl_tx_power (void)
 
 BOOLEAN btsnd_hcic_ble_set_adv_data (UINT8 data_len, UINT8 *p_data)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_BLE_WRITE_ADV_DATA + 1)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_BLE_WRITE_ADV_DATA + 1;
     p->offset = 0;
@@ -162,13 +137,8 @@ BOOLEAN btsnd_hcic_ble_set_adv_data (UINT8 data_len, UINT8 *p_data)
 }
 BOOLEAN btsnd_hcic_ble_set_scan_rsp_data (UINT8 data_len, UINT8 *p_scan_rsp)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_BLE_WRITE_SCAN_RSP + 1)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_BLE_WRITE_SCAN_RSP + 1;
     p->offset = 0;
@@ -196,13 +166,8 @@ BOOLEAN btsnd_hcic_ble_set_scan_rsp_data (UINT8 data_len, UINT8 *p_scan_rsp)
 
 BOOLEAN btsnd_hcic_ble_set_adv_enable (UINT8 adv_enable)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_WRITE_ADV_ENABLE)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_WRITE_ADV_ENABLE;
     p->offset = 0;
@@ -219,13 +184,8 @@ BOOLEAN btsnd_hcic_ble_set_scan_params (UINT8 scan_type,
                                           UINT16 scan_int, UINT16 scan_win,
                                           UINT8 addr_type_own, UINT8 scan_filter_policy)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_BLE_WRITE_SCAN_PARAM)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_BLE_WRITE_SCAN_PARAM;
     p->offset = 0;
@@ -245,13 +205,8 @@ BOOLEAN btsnd_hcic_ble_set_scan_params (UINT8 scan_type,
 
 BOOLEAN btsnd_hcic_ble_set_scan_enable (UINT8 scan_enable, UINT8 duplicate)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_BLE_WRITE_SCAN_ENABLE)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_BLE_WRITE_SCAN_ENABLE;
     p->offset = 0;
@@ -275,13 +230,8 @@ BOOLEAN btsnd_hcic_ble_create_ll_conn (UINT16 scan_int, UINT16 scan_win,
                                        UINT16 conn_latency, UINT16 conn_timeout,
                                        UINT16 min_ce_len, UINT16 max_ce_len)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_BLE_CREATE_LL_CONN)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_BLE_CREATE_LL_CONN;
     p->offset = 0;
@@ -311,13 +261,8 @@ BOOLEAN btsnd_hcic_ble_create_ll_conn (UINT16 scan_int, UINT16 scan_win,
 
 BOOLEAN btsnd_hcic_ble_create_conn_cancel (void)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_BLE_CREATE_CONN_CANCEL)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_BLE_CREATE_CONN_CANCEL;
     p->offset = 0;
@@ -331,13 +276,8 @@ BOOLEAN btsnd_hcic_ble_create_conn_cancel (void)
 
 BOOLEAN btsnd_hcic_ble_clear_white_list (void)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_CLEAR_WHITE_LIST)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_CLEAR_WHITE_LIST;
     p->offset = 0;
@@ -351,13 +291,8 @@ BOOLEAN btsnd_hcic_ble_clear_white_list (void)
 
 BOOLEAN btsnd_hcic_ble_add_white_list (UINT8 addr_type, BD_ADDR bda)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_ADD_WHITE_LIST)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_ADD_WHITE_LIST;
     p->offset = 0;
@@ -374,13 +309,8 @@ BOOLEAN btsnd_hcic_ble_add_white_list (UINT8 addr_type, BD_ADDR bda)
 
 BOOLEAN btsnd_hcic_ble_remove_from_white_list (UINT8 addr_type, BD_ADDR bda)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_REMOVE_WHITE_LIST)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_REMOVE_WHITE_LIST;
     p->offset = 0;
@@ -400,13 +330,8 @@ BOOLEAN btsnd_hcic_ble_upd_ll_conn_params (UINT16 handle,
                                            UINT16 conn_latency, UINT16 conn_timeout,
                                            UINT16 min_ce_len, UINT16 max_ce_len)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_BLE_UPD_LL_CONN_PARAMS)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_BLE_UPD_LL_CONN_PARAMS;
     p->offset = 0;
@@ -429,13 +354,8 @@ BOOLEAN btsnd_hcic_ble_upd_ll_conn_params (UINT16 handle,
 
 BOOLEAN btsnd_hcic_ble_set_host_chnl_class (UINT8  chnl_map[HCIC_BLE_CHNL_MAP_SIZE])
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_SET_HOST_CHNL_CLASS)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_SET_HOST_CHNL_CLASS;
     p->offset = 0;
@@ -451,13 +371,8 @@ BOOLEAN btsnd_hcic_ble_set_host_chnl_class (UINT8  chnl_map[HCIC_BLE_CHNL_MAP_SI
 
 BOOLEAN btsnd_hcic_ble_read_chnl_map (UINT16 handle)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_READ_CHNL_MAP)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_READ_CHNL_MAP;
     p->offset = 0;
@@ -473,13 +388,8 @@ BOOLEAN btsnd_hcic_ble_read_chnl_map (UINT16 handle)
 
 BOOLEAN btsnd_hcic_ble_read_remote_feat (UINT16 handle)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_BLE_READ_REMOTE_FEAT)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_BLE_READ_REMOTE_FEAT;
     p->offset = 0;
@@ -498,14 +408,8 @@ BOOLEAN btsnd_hcic_ble_encrypt (UINT8 *key, UINT8 key_len,
                                 UINT8 *plain_text, UINT8 pt_len,
                                 void *p_cmd_cplt_cback)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(sizeof(BT_HDR) + sizeof (void *) +
-                            HCIC_PARAM_SIZE_BLE_ENCRYPT)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_BLE_ENCRYPT;
     p->offset = sizeof(void *);
@@ -532,14 +436,8 @@ BOOLEAN btsnd_hcic_ble_encrypt (UINT8 *key, UINT8 key_len,
 
 BOOLEAN btsnd_hcic_ble_rand (void *p_cmd_cplt_cback)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(sizeof(BT_HDR) + sizeof (void *) +
-                        HCIC_PARAM_SIZE_BLE_RAND)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_BLE_RAND;
     p->offset = sizeof(void *);
@@ -557,13 +455,8 @@ BOOLEAN btsnd_hcic_ble_rand (void *p_cmd_cplt_cback)
 BOOLEAN btsnd_hcic_ble_start_enc (UINT16 handle, UINT8 rand[HCIC_BLE_RAND_DI_SIZE],
                                 UINT16 ediv, UINT8 ltk[HCIC_BLE_ENCRYT_KEY_SIZE])
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_BLE_START_ENC)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_BLE_START_ENC;
     p->offset = 0;
@@ -582,13 +475,8 @@ BOOLEAN btsnd_hcic_ble_start_enc (UINT16 handle, UINT8 rand[HCIC_BLE_RAND_DI_SIZ
 
 BOOLEAN btsnd_hcic_ble_ltk_req_reply (UINT16 handle, UINT8 ltk[HCIC_BLE_ENCRYT_KEY_SIZE])
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_LTK_REQ_REPLY)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_LTK_REQ_REPLY;
     p->offset = 0;
@@ -605,13 +493,8 @@ BOOLEAN btsnd_hcic_ble_ltk_req_reply (UINT16 handle, UINT8 ltk[HCIC_BLE_ENCRYT_K
 
 BOOLEAN btsnd_hcic_ble_ltk_req_neg_reply (UINT16 handle)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_LTK_REQ_NEG_REPLY)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_LTK_REQ_NEG_REPLY;
     p->offset = 0;
@@ -627,13 +510,8 @@ BOOLEAN btsnd_hcic_ble_ltk_req_neg_reply (UINT16 handle)
 
 BOOLEAN btsnd_hcic_ble_receiver_test(UINT8 rx_freq)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_WRITE_PARAM1)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_WRITE_PARAM1;
     p->offset = 0;
@@ -649,13 +527,8 @@ BOOLEAN btsnd_hcic_ble_receiver_test(UINT8 rx_freq)
 
 BOOLEAN btsnd_hcic_ble_transmitter_test(UINT8 tx_freq, UINT8 test_data_len, UINT8 payload)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_WRITE_PARAM3)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_WRITE_PARAM3;
     p->offset = 0;
@@ -673,13 +546,8 @@ BOOLEAN btsnd_hcic_ble_transmitter_test(UINT8 tx_freq, UINT8 test_data_len, UINT
 
 BOOLEAN btsnd_hcic_ble_test_end(void)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_READ_CMD)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_READ_CMD;
     p->offset = 0;
@@ -693,13 +561,8 @@ BOOLEAN btsnd_hcic_ble_test_end(void)
 
 BOOLEAN btsnd_hcic_ble_read_host_supported (void)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_READ_CMD)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_READ_CMD;
     p->offset = 0;
@@ -718,13 +581,8 @@ BOOLEAN btsnd_hcic_ble_rc_param_req_reply(  UINT16 handle,
                                             UINT16 conn_latency, UINT16 conn_timeout,
                                             UINT16 min_ce_len, UINT16 max_ce_len  )
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_BLE_RC_PARAM_REQ_REPLY)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_BLE_RC_PARAM_REQ_REPLY;
     p->offset = 0;
@@ -746,13 +604,8 @@ BOOLEAN btsnd_hcic_ble_rc_param_req_reply(  UINT16 handle,
 
 BOOLEAN btsnd_hcic_ble_rc_param_req_neg_reply(UINT16 handle, UINT8 reason)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_BLE_RC_PARAM_REQ_NEG_REPLY)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len    = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_BLE_RC_PARAM_REQ_NEG_REPLY;
     p->offset = 0;
@@ -772,13 +625,8 @@ BOOLEAN btsnd_hcic_ble_add_device_resolving_list (UINT8 addr_type_peer, BD_ADDR 
     UINT8 irk_peer[HCIC_BLE_IRK_SIZE],
     UINT8 irk_local[HCIC_BLE_IRK_SIZE])
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF (HCIC_PARAM_SIZE_BLE_ADD_DEV_RESOLVING_LIST)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_BLE_ADD_DEV_RESOLVING_LIST;
     p->offset = 0;
@@ -797,13 +645,8 @@ BOOLEAN btsnd_hcic_ble_add_device_resolving_list (UINT8 addr_type_peer, BD_ADDR 
 
 BOOLEAN btsnd_hcic_ble_rm_device_resolving_list (UINT8 addr_type_peer, BD_ADDR bda_peer)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF (HCIC_PARAM_SIZE_BLE_RM_DEV_RESOLVING_LIST)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_BLE_RM_DEV_RESOLVING_LIST;
     p->offset = 0;
@@ -820,13 +663,8 @@ BOOLEAN btsnd_hcic_ble_rm_device_resolving_list (UINT8 addr_type_peer, BD_ADDR b
 
 BOOLEAN btsnd_hcic_ble_clear_resolving_list (void)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF (HCIC_PARAM_SIZE_BLE_CLEAR_RESOLVING_LIST)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_BLE_CLEAR_RESOLVING_LIST;
     p->offset = 0;
@@ -841,13 +679,8 @@ BOOLEAN btsnd_hcic_ble_clear_resolving_list (void)
 
 BOOLEAN btsnd_hcic_ble_read_resolvable_addr_peer (UINT8 addr_type_peer, BD_ADDR bda_peer)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF (HCIC_PARAM_SIZE_BLE_READ_RESOLVABLE_ADDR_PEER)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_BLE_READ_RESOLVABLE_ADDR_PEER;
     p->offset = 0;
@@ -864,13 +697,8 @@ BOOLEAN btsnd_hcic_ble_read_resolvable_addr_peer (UINT8 addr_type_peer, BD_ADDR 
 
 BOOLEAN btsnd_hcic_ble_read_resolvable_addr_local (UINT8 addr_type_peer, BD_ADDR bda_peer)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF (HCIC_PARAM_SIZE_BLE_READ_RESOLVABLE_ADDR_LOCAL)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_BLE_READ_RESOLVABLE_ADDR_LOCAL;
     p->offset = 0;
@@ -887,13 +715,8 @@ BOOLEAN btsnd_hcic_ble_read_resolvable_addr_local (UINT8 addr_type_peer, BD_ADDR
 
 BOOLEAN btsnd_hcic_ble_set_addr_resolution_enable (UINT8 addr_resolution_enable)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF (HCIC_PARAM_SIZE_BLE_SET_ADDR_RESOLUTION_ENABLE)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_BLE_SET_ADDR_RESOLUTION_ENABLE;
     p->offset = 0;
@@ -909,13 +732,8 @@ BOOLEAN btsnd_hcic_ble_set_addr_resolution_enable (UINT8 addr_resolution_enable)
 
 BOOLEAN btsnd_hcic_ble_set_rand_priv_addr_timeout (UINT16 rpa_timout)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF (HCIC_PARAM_SIZE_BLE_SET_RAND_PRIV_ADDR_TIMOUT)) == NULL)
-        return (FALSE);
-
-    pp = (UINT8 *)(p + 1);
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_BLE_SET_RAND_PRIV_ADDR_TIMOUT;
     p->offset = 0;
@@ -931,13 +749,8 @@ BOOLEAN btsnd_hcic_ble_set_rand_priv_addr_timeout (UINT16 rpa_timout)
 
 BOOLEAN btsnd_hcic_ble_set_data_length(UINT16 conn_handle, UINT16 tx_octets, UINT16 tx_time)
 {
-    BT_HDR *p;
-    UINT8 *pp;
-
-    if ((p = HCI_GET_CMD_BUF(HCIC_PARAM_SIZE_BLE_SET_DATA_LENGTH)) == NULL)
-        return FALSE;
-
-    pp = p->data;
+    BT_HDR *p = (BT_HDR *)osi_malloc(HCI_CMD_BUF_SIZE);
+    UINT8 *pp = (UINT8 *)(p + 1);
 
     p->len = HCIC_PREAMBLE_SIZE + HCIC_PARAM_SIZE_BLE_SET_DATA_LENGTH;
     p->offset = 0;

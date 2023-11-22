@@ -45,7 +45,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_AllocationCopyTo_1D_Padded_Byte Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_Byte3_1D Failed, output array does not match input",
                    result);
     }
 
@@ -54,7 +54,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
         int width = random.nextInt(128);
         int height = random.nextInt(128);
         int arr_len = width * height * 3;
-        
+
         byte[] inArray = new byte[arr_len];
         byte[] outArray = new byte[arr_len];
         random.nextBytes(inArray);
@@ -73,7 +73,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_2D_AllocationCopyTo_Padded_Byte Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_Byte3_2D Failed, output array does not match input",
                    result);
     }
 
@@ -102,11 +102,11 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_AllocationCopyTo_3D_Padded_Byte Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_Byte3_3D Failed, output array does not match input",
                    result);
     }
 
-    public void test_AllocationPadded_Short3_1D() {
+    void test_AllocationPadded_Short3_1D_Helper(Element element) {
         Random random = new Random(0x172d8ab9);
         int width = random.nextInt(512);
         int arr_len = width * 3;
@@ -118,7 +118,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
             inArray[i] = (short)random.nextInt();
         }
 
-        Type.Builder typeBuilder = new Type.Builder(mRS, Element.I16_3(mRS));
+        Type.Builder typeBuilder = new Type.Builder(mRS, element);
         typeBuilder.setX(width);
         Allocation alloc = Allocation.createTyped(mRS, typeBuilder.create());
         alloc.setAutoPadding(true);
@@ -132,16 +132,21 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_AllocationCopyTo_1D_Padded_Short Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_Short3_1D_Helper Failed, output array does not match input",
                    result);
     }
 
-    public void test_AllocationPadded_Short3_2D() {
+    public void test_AllocationPadded_Short3_1D() {
+        test_AllocationPadded_Short3_1D_Helper(Element.I16_3(mRS));
+        test_AllocationPadded_Short3_1D_Helper(Element.F16_3(mRS));
+    }
+
+    void test_AllocationPadded_Short3_2D_Helper(Element element) {
         Random random = new Random(0x172d8ab9);
         int width = random.nextInt(128);
         int height = random.nextInt(128);
         int arr_len = width * height * 3;
-        
+
         short[] inArray = new short[arr_len];
         short[] outArray = new short[arr_len];
 
@@ -149,7 +154,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
             inArray[i] = (short)random.nextInt();
         }
 
-        Type.Builder typeBuilder = new Type.Builder(mRS, Element.I16_3(mRS));
+        Type.Builder typeBuilder = new Type.Builder(mRS, element);
         typeBuilder.setX(width).setY(height);
         Allocation alloc = Allocation.createTyped(mRS, typeBuilder.create());
         alloc.setAutoPadding(true);
@@ -163,11 +168,16 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_AllocationCopyTo_2D_Padded_Short Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_Short3_2D_Helper Failed, output array does not match input",
                    result);
     }
 
-    public void test_AllocationPadded_Short3_3D() {
+    public void test_AllocationPadded_Short3_2D() {
+        test_AllocationPadded_Short3_2D_Helper(Element.I16_3(mRS));
+        test_AllocationPadded_Short3_2D_Helper(Element.F16_3(mRS));
+    }
+
+    void test_AllocationPadded_Short3_3D_Helper(Element element) {
         Random random = new Random(0x172d8ab9);
         int w = random.nextInt(32);
         int h = random.nextInt(32);
@@ -181,7 +191,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
             inArray[i] = (short)random.nextInt();
         }
 
-        Type.Builder typeBuilder = new Type.Builder(mRS, Element.I16_3(mRS));
+        Type.Builder typeBuilder = new Type.Builder(mRS, element);
         typeBuilder.setX(w).setY(h).setZ(d);
         Allocation alloc = Allocation.createTyped(mRS, typeBuilder.create());
         alloc.setAutoPadding(true);
@@ -195,8 +205,13 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_AllocationCopyTo_3D_Padded_Short Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_Short3_3D_Helper Failed, output array does not match input",
                    result);
+    }
+
+    public void test_AllocationPadded_Short3_3D() {
+        test_AllocationPadded_Short3_3D_Helper(Element.I16_3(mRS));
+        test_AllocationPadded_Short3_3D_Helper(Element.F16_3(mRS));
     }
 
     public void test_AllocationPadded_Int3_1D() {
@@ -225,7 +240,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_AllocationCopyTo_1D_Padded_Int Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_Int3_1D Failed, output array does not match input",
                    result);
     }
 
@@ -234,7 +249,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
         int width = random.nextInt(128);
         int height = random.nextInt(128);
         int arr_len = width * height * 3;
-        
+
         int[] inArray = new int[arr_len];
         int[] outArray = new int[arr_len];
 
@@ -256,7 +271,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_AllocationCopyTo_2D_Padded_Int Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_Int3_2D Failed, output array does not match input",
                    result);
     }
 
@@ -288,7 +303,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_AllocationCopyTo_3D_Padded_Int Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_Int3_3D Failed, output array does not match input",
                    result);
     }
 
@@ -318,7 +333,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_AllocationCopyTo_1D_Padded_Float Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_Float3_1D Failed, output array does not match input",
                    result);
     }
     public void test_AllocationPadded_Float3_2D() {
@@ -348,7 +363,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_AllocationCopyTo_2D_Padded_Float Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_Float3_2D Failed, output array does not match input",
                    result);
     }
     public void test_AllocationPadded_Float3_3D() {
@@ -379,7 +394,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_AllocationCopyTo_3D_Padded_Float Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_Float3_3D Failed, output array does not match input",
                    result);
     }
 
@@ -409,7 +424,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_AllocationCopyTo_1D_Padded_Double Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_Double3_1D Failed, output array does not match input",
                    result);
     }
     public void test_AllocationPadded_Double3_2D() {
@@ -439,7 +454,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_AllocationCopyTo_2D_Padded_Double Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_Double3_2D Failed, output array does not match input",
                    result);
     }
     public void test_AllocationPadded_Double3_3D() {
@@ -470,7 +485,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_AllocationCopyTo_3D_Padded_Double Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_Double3_3D Failed, output array does not match input",
                    result);
     }
 
@@ -500,7 +515,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_AllocationCopyTo_1D_Padded_Long Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_Long3_1D Failed, output array does not match input",
                    result);
     }
 
@@ -509,7 +524,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
         int width = random.nextInt(128);
         int height = random.nextInt(128);
         int arr_len = width * height * 3;
-        
+
         long[] inArray = new long[arr_len];
         long[] outArray = new long[arr_len];
 
@@ -531,7 +546,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_AllocationCopyTo_2D_Padded_Long Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_Long3_2D Failed, output array does not match input",
                    result);
     }
 
@@ -563,7 +578,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_AllocationCopyTo_3D_Padded_Long Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_Long3_3D Failed, output array does not match input",
                    result);
     }
 
@@ -599,23 +614,23 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_copy1DRangeTo_Padded_Byte Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_copy1DRangeTo_Byte3, output array does not match input",
                    result);
     }
 
-    public void test_AllocationPadded_copy1DRangeTo_Short3() {
+    void test_AllocationPadded_copy1DRangeTo_Short3_Helper(Element element) {
         Random random = new Random(0x172d8ab9);
         int width = random.nextInt(512);
         int arr_len = width * 3;
 
         short[] inArray = new short[arr_len];
         short[] outArray = new short[arr_len];
-        
+
         for (int i = 0; i < arr_len; i++) {
             inArray[i] = (short)random.nextInt();
         }
 
-        Type.Builder typeBuilder = new Type.Builder(mRS, Element.I16_3(mRS));
+        Type.Builder typeBuilder = new Type.Builder(mRS, element);
         typeBuilder.setX(width);
         Allocation alloc = Allocation.createTyped(mRS, typeBuilder.create());
         alloc.setAutoPadding(true);
@@ -637,8 +652,13 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_copy1DRangeTo_Padded_Short Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_copy1DRangeTo_Short3_Helper Failed, output array does not match input",
                    result);
+    }
+
+    public void test_AllocationPadded_copy1DRangeTo_Short3() {
+        test_AllocationPadded_copy1DRangeTo_Short3_Helper(Element.I16_3(mRS));
+        test_AllocationPadded_copy1DRangeTo_Short3_Helper(Element.F16_3(mRS));
     }
 
     public void test_AllocationPadded_copy1DRangeTo_Int3() {
@@ -675,7 +695,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_copy1DRangeTo_Padded_Int Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_copy1DRangeTo_Int3 Failed, output array does not match input",
                    result);
     }
 
@@ -713,7 +733,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_copy1DRangeTo_Padded_Float Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_copy1DRangeTo_Float3 Failed, output array does not match input",
                    result);
     }
 
@@ -751,7 +771,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_copy1DRangeTo_Padded_Long Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_copy1DRangeTo_Long3 Failed, output array does not match input",
                    result);
     }
 
@@ -783,11 +803,11 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_copy2DRangeTo_Padded_Byte Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_copy2DRangeTo_Byte3 Failed, output array does not match input",
                    result);
     }
 
-    public void test_AllocationPadded_copy2DRangeTo_Short3() {
+    void test_AllocationPadded_copy2DRangeTo_Short3_Helper(Element element) {
         Random random = new Random(0x172d8ab9);
         int width = random.nextInt(128);
         int height = random.nextInt(128);
@@ -799,12 +819,12 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
 
         short[] inArray = new short[arr_len];
         short[] outArray = new short[arr_len];
-        
+
         for (int i = 0; i < arr_len; i++) {
             inArray[i] = (short)random.nextInt();
         }
 
-        Type.Builder typeBuilder = new Type.Builder(mRS, Element.I16_3(mRS));
+        Type.Builder typeBuilder = new Type.Builder(mRS, element);
         typeBuilder.setX(width).setY(height);
         Allocation alloc = Allocation.createTyped(mRS, typeBuilder.create());
         alloc.setAutoPadding(true);
@@ -818,8 +838,13 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_copy2DRangeTo_Padded_Short Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_copy2DRangeTo_Short3_Helper Failed, output array does not match input",
                    result);
+    }
+
+    public void test_AllocationPadded_copy2DRangeTo_Short3() {
+        test_AllocationPadded_copy2DRangeTo_Short3_Helper(Element.I16_3(mRS));
+        test_AllocationPadded_copy2DRangeTo_Short3_Helper(Element.F16_3(mRS));
     }
 
     public void test_AllocationPadded_copy2DRangeTo_Int3() {
@@ -853,7 +878,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_copy2DRangeTo_Padded_Int Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_copy2DRangeTo_Int3 Failed, output array does not match input",
                    result);
     }
 
@@ -888,7 +913,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_copy2DRangeTo_Padded_Float Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_copy2DRangeTo_Float3 Failed, output array does not match input",
                    result);
     }
 
@@ -923,7 +948,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_copy2DRangeTo_Padded_Long Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_copy2DRangeTo_Long3 Failed, output array does not match input",
                    result);
     }
 
@@ -959,23 +984,23 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_copy1DRangeToUnchecked_Padded_Byte Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_copy1DRangeToUnchecked_Byte3 Failed, output array does not match input",
                    result);
     }
 
-    public void test_AllocationPadded_copy1DRangeToUnchecked_Short3() {
+    void test_AllocationPadded_copy1DRangeToUnchecked_Short3_Helper(Element element) {
         Random random = new Random(0x172d8ab9);
         int width = random.nextInt(512);
         int arr_len = width * 3;
 
         short[] inArray = new short[arr_len];
         short[] outArray = new short[arr_len];
-        
+
         for (int i = 0; i < arr_len; i++) {
             inArray[i] = (short)random.nextInt();
         }
 
-        Type.Builder typeBuilder = new Type.Builder(mRS, Element.I16_3(mRS));
+        Type.Builder typeBuilder = new Type.Builder(mRS, element);
         typeBuilder.setX(width);
         Allocation alloc = Allocation.createTyped(mRS, typeBuilder.create());
         alloc.setAutoPadding(true);
@@ -997,8 +1022,13 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_copy1DRangeToUnchecked_Padded_Short Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_copy1DRangeToUnchecked_Short3_Helper Failed, output array does not match input",
                    result);
+    }
+
+    public void test_AllocationPadded_copy1DRangeToUnchecked_Short3() {
+        test_AllocationPadded_copy1DRangeToUnchecked_Short3_Helper(Element.I16_3(mRS));
+        test_AllocationPadded_copy1DRangeToUnchecked_Short3_Helper(Element.F16_3(mRS));
     }
 
     public void test_AllocationPadded_copy1DRangeToUnchecked_Int3() {
@@ -1035,7 +1065,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_copy1DRangeToUnchecked_1D_Padded_Int Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_copy1DRangeToUnchecked_Int3 Failed, output array does not match input",
                    result);
     }
 
@@ -1073,7 +1103,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_copy1DRangeToUnchecked_Padded_Float Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_copy1DRangeToUnchecked_Float3 Failed, output array does not match input",
                    result);
     }
 
@@ -1111,7 +1141,7 @@ public class AllocationCopyPaddedTest extends RSBaseCompute {
                 break;
             }
         }
-        assertTrue("test_copy1DRangeToUnchecked_Padded_Long Failed, output array does not match input",
+        assertTrue("test_AllocationPadded_copy1DRangeToUnchecked_Long3 Failed, output array does not match input",
                    result);
     }
 }

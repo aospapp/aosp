@@ -9,17 +9,18 @@
 #ifndef GrGLProgram_DEFINED
 #define GrGLProgram_DEFINED
 
-#include "builders/GrGLProgramBuilder.h"
 #include "GrGLContext.h"
 #include "GrGLProgramDesc.h"
-#include "GrGLSL.h"
 #include "GrGLTexture.h"
 #include "GrGLProgramDataManager.h"
+#include "glsl/GrGLSLProgramDataManager.h"
+#include "glsl/GrGLSLUniformHandler.h"
 
 #include "SkString.h"
 #include "SkXfermode.h"
 
-class GrGLProcessor;
+#include "builders/GrGLProgramBuilder.h"
+
 class GrGLInstalledProcessors;
 class GrGLProgramBuilder;
 class GrPipeline;
@@ -35,11 +36,9 @@ class GrPipeline;
  */
 class GrGLProgram : public SkRefCnt {
 public:
-    SK_DECLARE_INST_COUNT(GrGLProgram)
+    typedef GrGLSLProgramBuilder::BuiltinUniformHandles BuiltinUniformHandles;
 
-    typedef GrGLProgramBuilder::BuiltinUniformHandles BuiltinUniformHandles;
-
-    virtual ~GrGLProgram();
+    ~GrGLProgram();
 
     /**
      * Call to abandon GL objects owned by this program.
@@ -74,9 +73,9 @@ public:
          * coords. Assuming the transformed position, pos, is a homogeneous vec3, the vec, v, is
          * applied as such:
          * pos.x = dot(v.xy, pos.xz)
-         * pos.y = dot(v.zq, pos.yz)
+         * pos.y = dot(v.zw, pos.yz)
          */
-        void getRTAdjustmentVec(GrGLfloat* destVec) {
+        void getRTAdjustmentVec(float* destVec) {
             destVec[0] = 2.f / fRenderTargetSize.fWidth;
             destVec[1] = -1.f;
             if (kBottomLeft_GrSurfaceOrigin == fRenderTargetOrigin) {
@@ -90,101 +89,58 @@ public:
     };
 
     /**
-     * This function uploads uniforms and calls each GrGLProcessor's setData. It is called before a
-     * draw occurs using the program after the program has already been bound. It also uses the
-     * GrGLGpu object to bind the textures required by the GrGLProcessors. The color and coverage
-     * stages come from GrGLProgramDesc::Build().
+     * This function uploads uniforms, calls each GrGL*Processor's setData, and retrieves the
+     * textures that need to be bound on each unit. It is the caller's responsibility to ensure
+     * the program is bound before calling, and to bind the outgoing textures to their respective
+     * units upon return. (Each index in the array corresponds to its matching GL texture unit.)
      */
-    void setData(const GrPrimitiveProcessor&, const GrPipeline&, const GrBatchTracker&);
+    void setData(const GrPrimitiveProcessor&, const GrPipeline&,
+                 SkTArray<const GrTextureAccess*>* textureBindings);
 
 protected:
-    typedef GrGLProgramDataManager::UniformHandle UniformHandle;
+    typedef GrGLSLProgramDataManager::UniformHandle UniformHandle;
     typedef GrGLProgramDataManager::UniformInfoArray UniformInfoArray;
+    typedef GrGLProgramDataManager::VaryingInfoArray VaryingInfoArray;
 
     GrGLProgram(GrGLGpu*,
                 const GrProgramDesc&,
                 const BuiltinUniformHandles&,
                 GrGLuint programID,
                 const UniformInfoArray&,
-                GrGLInstalledGeoProc* geometryProcessor,
-                GrGLInstalledXferProc* xferProcessor,
-                GrGLInstalledFragProcs* fragmentProcessors);
-
-    // Sets the texture units for samplers.
-    void initSamplerUniforms();
-    template <class Proc>
-    void initSamplers(Proc*, int* texUnitIdx);
+                const VaryingInfoArray&, // used for NVPR only currently
+                GrGLSLPrimitiveProcessor* geometryProcessor,
+                GrGLSLXferProcessor* xferProcessor,
+                const GrGLSLFragProcs& fragmentProcessors,
+                SkTArray<UniformHandle>* passSamplerUniforms);
 
     // A templated helper to loop over effects, set the transforms(via subclass) and bind textures
-    void setFragmentData(const GrPrimitiveProcessor&, const GrPipeline&);
-    virtual void setTransformData(const GrPrimitiveProcessor&,
-                                  const GrPendingFragmentStage&,
-                                  int index,
-                                  GrGLInstalledFragProc*);
-    template <class Proc>
-    void bindTextures(const Proc*, const GrProcessor&);
-
-    /*
-     * Legacy NVPR needs a hook here to flush path tex gen settings.
-     * TODO when legacy nvpr is removed, remove this call.
-     */
-    virtual void didSetData() {}
+    void setFragmentData(const GrPrimitiveProcessor&, const GrPipeline&,
+                         SkTArray<const GrTextureAccess*>* textureBindings);
+    void setTransformData(const GrPrimitiveProcessor&,
+                          const GrFragmentProcessor&,
+                          int index);
 
     // Helper for setData() that sets the view matrix and loads the render target height uniform
     void setRenderTargetState(const GrPrimitiveProcessor&, const GrPipeline&);
-    virtual void onSetRenderTargetState(const GrPrimitiveProcessor&, const GrPipeline&);
 
     // these reflect the current values of uniforms (GL uniform values travel with program)
     RenderTargetState fRenderTargetState;
-    GrColor fColor;
-    uint8_t fCoverage;
-    int fDstCopyTexUnit;
     BuiltinUniformHandles fBuiltinUniformHandles;
     GrGLuint fProgramID;
 
     // the installed effects
-    SkAutoTDelete<GrGLInstalledGeoProc> fGeometryProcessor;
-    SkAutoTDelete<GrGLInstalledXferProc> fXferProcessor;
-    SkAutoTUnref<GrGLInstalledFragProcs> fFragmentProcessors;
+    SkAutoTDelete<GrGLSLPrimitiveProcessor> fGeometryProcessor;
+    SkAutoTDelete<GrGLSLXferProcessor> fXferProcessor;
+    GrGLSLFragProcs fFragmentProcessors;
 
     GrProgramDesc fDesc;
     GrGLGpu* fGpu;
     GrGLProgramDataManager fProgramDataManager;
+    SkTArray<UniformHandle> fSamplerUniforms;
 
     friend class GrGLProgramBuilder;
 
     typedef SkRefCnt INHERITED;
-};
-
-/*
- * Below are slight specializations of the program object for the different types of programs
- * The default GrGL programs consist of at the very least a vertex and fragment shader.
- * Legacy Nvpr only has a fragment shader, 1.3+ Nvpr ignores the vertex shader, but both require
- * specialized methods for setting transform data. Both types of NVPR also require setting the
- * projection matrix through a special function call
- */
-class GrGLNvprProgram : public GrGLProgram {
-protected:
-    GrGLNvprProgram(GrGLGpu*,
-                    const GrProgramDesc&,
-                    const BuiltinUniformHandles&,
-                    GrGLuint programID,
-                    const UniformInfoArray&,
-                    GrGLInstalledGeoProc*,
-                    GrGLInstalledXferProc* xferProcessor,
-                    GrGLInstalledFragProcs* fragmentProcessors);
-
-private:
-    void didSetData() override;
-    virtual void setTransformData(const GrPrimitiveProcessor&,
-                                  const GrPendingFragmentStage&,
-                                  int index,
-                                  GrGLInstalledFragProc*) override;
-    virtual void onSetRenderTargetState(const GrPrimitiveProcessor&, const GrPipeline&);
-
-    friend class GrGLNvprProgramBuilder;
-
-    typedef GrGLProgram INHERITED;
 };
 
 #endif

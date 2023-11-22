@@ -33,7 +33,7 @@ import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 
 /**
@@ -44,7 +44,7 @@ public class TableRowTest extends ActivityInstrumentationTestCase2<TableCtsActiv
     Context mTargetContext;
 
     public TableRowTest() {
-        super("com.android.cts.widget", TableCtsActivity.class);
+        super("android.widget.cts", TableCtsActivity.class);
     }
 
     @Override
@@ -83,9 +83,9 @@ public class TableRowTest extends ActivityInstrumentationTestCase2<TableCtsActiv
     @UiThreadTest
     public void testGetVirtualChildAt() {
         TableCtsActivity activity = getActivity();
-        activity.setContentView(com.android.cts.widget.R.layout.table_layout_1);
+        activity.setContentView(android.widget.cts.R.layout.table_layout_1);
         TableLayout tableLayout = (TableLayout) activity
-                .findViewById(com.android.cts.widget.R.id.table1);
+                .findViewById(android.widget.cts.R.id.table1);
 
         TableRow tableRow = (TableRow) tableLayout.getChildAt(0);
         Resources resources = activity.getResources();
@@ -96,8 +96,8 @@ public class TableRowTest extends ActivityInstrumentationTestCase2<TableCtsActiv
         assertEquals(resources.getString(R.string.table_layout_third),
                 ((TextView) tableRow.getVirtualChildAt(2)).getText().toString());
 
-        activity.setContentView(com.android.cts.widget.R.layout.table_layout_2);
-        tableLayout = (TableLayout) activity.findViewById(com.android.cts.widget.R.id.table2);
+        activity.setContentView(android.widget.cts.R.layout.table_layout_2);
+        tableLayout = (TableLayout) activity.findViewById(android.widget.cts.R.id.table2);
 
         tableRow = (TableRow) tableLayout.getChildAt(0);
         assertNull(tableRow.getVirtualChildAt(0));
@@ -114,15 +114,15 @@ public class TableRowTest extends ActivityInstrumentationTestCase2<TableCtsActiv
     @UiThreadTest
     public void testGetVirtualChildCount() {
         TableCtsActivity activity = getActivity();
-        activity.setContentView(com.android.cts.widget.R.layout.table_layout_1);
+        activity.setContentView(android.widget.cts.R.layout.table_layout_1);
         TableLayout tableLayout = (TableLayout) activity
-                .findViewById(com.android.cts.widget.R.id.table1);
+                .findViewById(android.widget.cts.R.id.table1);
 
         TableRow tableRow = (TableRow) tableLayout.getChildAt(0);
         assertEquals(3, tableRow.getVirtualChildCount());
 
-        activity.setContentView(com.android.cts.widget.R.layout.table_layout_2);
-        tableLayout = (TableLayout) activity.findViewById(com.android.cts.widget.R.id.table2);
+        activity.setContentView(android.widget.cts.R.layout.table_layout_2);
+        tableLayout = (TableLayout) activity.findViewById(android.widget.cts.R.id.table2);
 
         tableRow = (TableRow) tableLayout.getChildAt(0);
         assertEquals(5, tableRow.getVirtualChildCount());

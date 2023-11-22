@@ -244,7 +244,6 @@ extern void bta_dm_co_ble_io_req(BD_ADDR bd_addr,  tBTA_IO_CAP *p_io_cap,
 extern void bta_dm_co_ble_load_local_keys (tBTA_DM_BLE_LOCAL_KEY_MASK *p_key_mask, BT_OCTET16 er,
                                            tBTA_BLE_LOCAL_ID_KEYS *p_id_keys);
 
-// btla-specific ++
 /*******************************************************************************
 **
 ** Function         bta_dm_co_ble_io_req
@@ -269,6 +268,5 @@ extern void bta_dm_co_ble_io_req(BD_ADDR bd_addr,  tBTA_IO_CAP *p_io_cap,
                                  UINT8 *p_max_key_size,
                                  tBTA_LE_KEY_TYPE *p_init_key,
                                  tBTA_LE_KEY_TYPE  *p_resp_key );
-// btla-specific --
 
 #endif

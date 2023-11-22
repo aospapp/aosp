@@ -1,6 +1,6 @@
 /*
  ***************************************************************************
- * Copyright (C) 2008-2014, Google, International Business Machines Corporation
+ * Copyright (C) 2008-2016, Google, International Business Machines Corporation
  * and others. All Rights Reserved.
  ***************************************************************************
  */
@@ -109,7 +109,7 @@ public class IdentifierInfo {
         clear();
         BitSet scriptsForCP = new BitSet();
         int cp;
-        for (int i = 0; i < identifier.length(); i += Character.charCount(i)) {
+        for (int i = 0; i < identifier.length(); i += Character.charCount(cp)) {
             cp = Character.codePointAt(identifier, i);
             // Store a representative character for each kind of decimal digit
             if (UCharacter.getType(cp) == UCharacterCategory.DECIMAL_DIGIT_NUMBER) {
@@ -285,7 +285,7 @@ public class IdentifierInfo {
      *         to be of a script that already appears elsewhere in the identifier
      *         when possible.
      *         The alternate script computation may not be perfect. The distinction
-     *         between 0, 1 and > 1 scripts will be valid, however.
+     *         between 0, 1 and &gt; 1 scripts will be valid, however.
      * @return the number of scripts.
      * @internal
      * @deprecated This API is ICU internal only.

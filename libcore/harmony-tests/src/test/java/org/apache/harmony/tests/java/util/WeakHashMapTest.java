@@ -19,14 +19,21 @@ package org.apache.harmony.tests.java.util;
 
 import java.util.AbstractMap;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.ConcurrentModificationException;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Spliterator;
 import java.util.WeakHashMap;
 import libcore.java.lang.ref.FinalizationTester;
 
+import libcore.java.util.SpliteratorTester;
 import tests.support.Support_MapTest2;
 
 public class WeakHashMapTest extends junit.framework.TestCase {
@@ -57,8 +64,7 @@ public class WeakHashMapTest extends junit.framework.TestCase {
         for (int i = 0; i < 100; i++)
             whm.put(keyArray[i], valueArray[i]);
         for (int i = 0; i < 100; i++)
-            assertTrue("Incorrect value retrieved",
-                    whm.get(keyArray[i]) == valueArray[i]);
+            assertTrue("Incorrect value retrieved", whm.get(keyArray[i]) == valueArray[i]);
 
     }
 
@@ -71,8 +77,7 @@ public class WeakHashMapTest extends junit.framework.TestCase {
         for (int i = 0; i < 100; i++)
             whm.put(keyArray[i], valueArray[i]);
         for (int i = 0; i < 100; i++)
-            assertTrue("Incorrect value retrieved",
-                    whm.get(keyArray[i]) == valueArray[i]);
+            assertTrue("Incorrect value retrieved", whm.get(keyArray[i]) == valueArray[i]);
 
         WeakHashMap empty = new WeakHashMap(0);
         assertNull("Empty weakhashmap access", empty.get("nothing"));
@@ -96,8 +101,7 @@ public class WeakHashMapTest extends junit.framework.TestCase {
         for (int i = 0; i < 100; i++)
             whm.put(keyArray[i], valueArray[i]);
         for (int i = 0; i < 100; i++)
-            assertTrue("Incorrect value retrieved",
-                    whm.get(keyArray[i]) == valueArray[i]);
+            assertTrue("Incorrect value retrieved", whm.get(keyArray[i]) == valueArray[i]);
 
         WeakHashMap empty = new WeakHashMap(0, 0.75f);
         assertNull("Empty hashtable access", empty.get("nothing"));
@@ -139,8 +143,7 @@ public class WeakHashMapTest extends junit.framework.TestCase {
         whm.clear();
         assertTrue("Cleared map should be empty", whm.isEmpty());
         for (int i = 0; i < 100; i++)
-            assertNull("Cleared map should only return null", whm
-                    .get(keyArray[i]));
+            assertNull("Cleared map should only return null", whm.get(keyArray[i]));
 
     }
 
@@ -153,8 +156,7 @@ public class WeakHashMapTest extends junit.framework.TestCase {
         for (int i = 0; i < 100; i++)
             whm.put(keyArray[i], valueArray[i]);
         for (int i = 0; i < 100; i++)
-            assertTrue("Should contain referenced key", whm
-                    .containsKey(keyArray[i]));
+            assertTrue("Should contain referenced key", whm.containsKey(keyArray[i]));
         keyArray[25] = null;
         keyArray[50] = null;
     }
@@ -168,8 +170,7 @@ public class WeakHashMapTest extends junit.framework.TestCase {
         for (int i = 0; i < 100; i++)
             whm.put(keyArray[i], valueArray[i]);
         for (int i = 0; i < 100; i++)
-            assertTrue("Should contain referenced value", whm
-                    .containsValue(valueArray[i]));
+            assertTrue("Should contain referenced value", whm.containsValue(valueArray[i]));
         keyArray[25] = null;
         keyArray[50] = null;
     }
@@ -185,15 +186,13 @@ public class WeakHashMapTest extends junit.framework.TestCase {
         List keys = Arrays.asList(keyArray);
         List values = Arrays.asList(valueArray);
         Set entrySet = whm.entrySet();
-        assertTrue("Incorrect number of entries returned--wanted 100, got: "
-                + entrySet.size(), entrySet.size() == 100);
+        assertTrue("Incorrect number of entries returned--wanted 100, got: " + entrySet.size(),
+            entrySet.size() == 100);
         Iterator it = entrySet.iterator();
         while (it.hasNext()) {
             Map.Entry entry = (Map.Entry) it.next();
-            assertTrue("Invalid map entry returned--bad key", keys
-                    .contains(entry.getKey()));
-            assertTrue("Invalid map entry returned--bad key", values
-                    .contains(entry.getValue()));
+            assertTrue("Invalid map entry returned--bad key", keys.contains(entry.getKey()));
+            assertTrue("Invalid map entry returned--bad key", values.contains(entry.getValue()));
         }
         keys = null;
         values = null;
@@ -201,7 +200,7 @@ public class WeakHashMapTest extends junit.framework.TestCase {
 
         FinalizationTester.induceFinalization();
         long startTime = System.currentTimeMillis();
-        // We use a busy wait loop here since we can not know when the ReferenceQueue
+        // We use a busy wait loop here since we cannot know when the ReferenceQueue
         // daemon will enqueue the cleared references on their internal reference
         // queues. The current timeout is 5 seconds.
         do {
@@ -212,9 +211,7 @@ public class WeakHashMapTest extends junit.framework.TestCase {
         } while (entrySet.size() != 99 &&
                  System.currentTimeMillis() - startTime < 5000);
 
-        assertTrue(
-                "Incorrect number of entries returned after gc--wanted 99, got: "
-                        + entrySet.size(), entrySet.size() == 99);
+        assertEquals("Incorrect number of keys returned after gc,", 99, entrySet.size());
     }
 
     /**
@@ -273,10 +270,8 @@ public class WeakHashMapTest extends junit.framework.TestCase {
         for (int i = 0; i < 100; i++)
             whm.put(keyArray[i], valueArray[i]);
 
-        assertTrue("Remove returned incorrect value",
-                whm.remove(keyArray[25]) == valueArray[25]);
-        assertNull("Remove returned incorrect value",
-                whm.remove(keyArray[25]));
+        assertTrue("Remove returned incorrect value", whm.remove(keyArray[25]) == valueArray[25]);
+        assertNull("Remove returned incorrect value", whm.remove(keyArray[25]));
         assertEquals("Size should be 99 after remove", 99, whm.size());
     }
 
@@ -305,23 +300,26 @@ public class WeakHashMapTest extends junit.framework.TestCase {
         Iterator it = keySet.iterator();
         while (it.hasNext()) {
             Object key = it.next();
-            assertTrue("Invalid map entry returned--bad key", keys
-                    .contains(key));
+            assertTrue("Invalid map entry returned--bad key", keys.contains(key));
         }
         keys = null;
         values = null;
         keyArray[50] = null;
 
-        int count = 0;
+        FinalizationTester.induceFinalization();
+        long startTime = System.currentTimeMillis();
+        // We use a busy wait loop here since we cannot know when the ReferenceQueue
+        // daemon will enqueue the cleared references on their internal reference
+        // queues. The current timeout is 5 seconds.
         do {
-            System.gc();
-            System.gc();
-            FinalizationTester.induceFinalization();
-            count++;
-        } while (count <= 5 && keySet.size() == 100);
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+            }
+        } while (keySet.size() != 99 &&
+                 System.currentTimeMillis() - startTime < 5000);
 
-        assertEquals("Incorrect number of keys returned after gc,", 99, keySet
-                .size());
+        assertEquals("Incorrect number of keys returned after gc,", 99, keySet.size());
     }
 
     /**
@@ -378,28 +376,232 @@ public class WeakHashMapTest extends junit.framework.TestCase {
         List values = Arrays.asList(valueArray);
 
         Collection valuesCollection = whm.values();
-        assertEquals("Incorrect number of keys returned,", 100,
-                valuesCollection.size());
+        assertEquals("Incorrect number of keys returned,", 100, valuesCollection.size());
         Iterator it = valuesCollection.iterator();
         while (it.hasNext()) {
             Object value = it.next();
-            assertTrue("Invalid map entry returned--bad value", values
-                    .contains(value));
+            assertTrue("Invalid map entry returned--bad value", values.contains(value));
         }
         keys = null;
         values = null;
         keyArray[50] = null;
 
-        int count = 0;
+        FinalizationTester.induceFinalization();
+        long startTime = System.currentTimeMillis();
+        // We use a busy wait loop here since we cannot know when the ReferenceQueue
+        // daemon will enqueue the cleared references on their internal reference
+        // queues. The current timeout is 5 seconds.
         do {
-            System.gc();
-            System.gc();
-            FinalizationTester.induceFinalization();
-            count++;
-        } while (count <= 5 && valuesCollection.size() == 100);
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+            }
+        } while (valuesCollection.size() != 99 &&
+                 System.currentTimeMillis() - startTime < 5000);
 
-        assertEquals("Incorrect number of keys returned after gc,", 99,
-                valuesCollection.size());
+        assertEquals("Incorrect number of keys returned after gc,", 99, valuesCollection.size());
+    }
+
+    public void test_forEach() throws Exception {
+        WeakHashMap map = new WeakHashMap();
+        for (int i = 0; i < 100; i++)
+            map.put(keyArray[i], valueArray[i]);
+
+        WeakHashMap output = new WeakHashMap();
+        map.forEach((k, v) -> output.put(k,v));
+        assertEquals(map, output);
+
+        HashSet setOutput = new HashSet();
+        map.keySet().forEach((k) -> setOutput.add(k));
+        assertEquals(map.keySet(), setOutput);
+
+        setOutput.clear();
+        map.values().forEach((v) -> setOutput.add(v));
+        assertEquals(new HashSet(map.values()), setOutput);
+
+        HashSet entrySetOutput = new HashSet();
+        map.entrySet().forEach((v) -> entrySetOutput.add(v));
+        assertEquals(map.entrySet(), entrySetOutput);
+    }
+
+    public void test_forEach_NPE() throws Exception {
+        WeakHashMap map = new WeakHashMap();
+        try {
+            map.forEach(null);
+            fail();
+        } catch(NullPointerException expected) {}
+
+        try {
+            map.keySet().forEach(null);
+            fail();
+        } catch(NullPointerException expected) {}
+
+        try {
+            map.values().forEach(null);
+            fail();
+        } catch(NullPointerException expected) {}
+
+        try {
+            map.entrySet().forEach(null);
+            fail();
+        } catch(NullPointerException expected) {}
+
+    }
+
+    public void test_forEach_CME() throws Exception {
+        WeakHashMap map = new WeakHashMap();
+        for (int i = 0; i < 100; i++)
+            map.put(keyArray[i], valueArray[i]);
+        ArrayList<Object> processed = new ArrayList<>();
+        try {
+            map.forEach(new java.util.function.BiConsumer<Object, Object>() {
+                    @Override
+                    public void accept(Object k, Object v) {
+                        processed.add(k);
+                        map.put("foo", v);
+                    }
+                });
+            fail();
+        } catch(ConcurrentModificationException expected) {}
+        // We should get a CME and DO NOT continue forEach evaluation
+        assertEquals(1, processed.size());
+
+        processed.clear();
+        try {
+            map.keySet().forEach(new java.util.function.Consumer<Object>() {
+                    @Override
+                    public void accept(Object k) {
+                        processed.add(k);
+                        map.put("foo2", "boo");
+                    }
+                });
+            fail();
+        } catch(ConcurrentModificationException expected) {}
+        // We should get a CME and DO NOT continue forEach evaluation
+        assertEquals(1, processed.size());
+
+        processed.clear();
+        try {
+            map.values().forEach(new java.util.function.Consumer<Object>() {
+                    @Override
+                    public void accept(Object k) {
+                        processed.add(k);
+                        map.put("foo3", "boo");
+                    }
+                });
+            fail();
+        } catch(ConcurrentModificationException expected) {}
+        // We should get a CME and DO NOT continue forEach evaluation
+        assertEquals(1, processed.size());
+
+        processed.clear();
+        try {
+            map.entrySet().forEach(new java.util.function.Consumer<Map.Entry<Object, Object>>() {
+                    @Override
+                    public void accept(Map.Entry<Object, Object> k) {
+                        processed.add(k.getKey());
+                        map.put("foo4", "boo");
+                    }
+                });
+            fail();
+        } catch(ConcurrentModificationException expected) {}
+        // We should get a CME and DO NOT continue forEach evaluation
+        assertEquals(1, processed.size());
+    }
+
+    public void test_spliterator_keySet() {
+        WeakHashMap<String, String> hashMap = new WeakHashMap<>();
+        hashMap.put("a", "1");
+        hashMap.put("b", "2");
+        hashMap.put("c", "3");
+        hashMap.put("d", "4");
+        hashMap.put("e", "5");
+        hashMap.put("f", "6");
+        hashMap.put("g", "7");
+        hashMap.put("h", "8");
+        hashMap.put("i", "9");
+        hashMap.put("j", "10");
+        hashMap.put("k", "11");
+        hashMap.put("l", "12");
+        hashMap.put("m", "13");
+        hashMap.put("n", "14");
+        hashMap.put("o", "15");
+        hashMap.put("p", "16");
+
+        Set<String> keys = hashMap.keySet();
+        ArrayList<String> expectedKeys = new ArrayList<>(keys);
+
+        SpliteratorTester.runBasicIterationTests_unordered(keys.spliterator(), expectedKeys,
+                String::compareTo);
+        SpliteratorTester.runBasicSplitTests(keys, expectedKeys);
+        SpliteratorTester.testSpliteratorNPE(keys.spliterator());
+
+        assertTrue(keys.spliterator().hasCharacteristics(Spliterator.DISTINCT));
+
+        SpliteratorTester.runDistinctTests(keys);
+    }
+
+    public void test_spliterator_valueSet() {
+        WeakHashMap<String, String> hashMap = new WeakHashMap<>();
+        hashMap.put("a", "1");
+        hashMap.put("b", "2");
+        hashMap.put("c", "3");
+        hashMap.put("d", "4");
+        hashMap.put("e", "5");
+        hashMap.put("f", "6");
+        hashMap.put("g", "7");
+        hashMap.put("h", "8");
+        hashMap.put("i", "9");
+        hashMap.put("j", "10");
+        hashMap.put("k", "11");
+        hashMap.put("l", "12");
+        hashMap.put("m", "13");
+        hashMap.put("n", "14");
+        hashMap.put("o", "15");
+        hashMap.put("p", "16");
+
+        Collection<String> values = hashMap.values();
+        ArrayList<String> expectedValues = new ArrayList<>(values);
+
+        SpliteratorTester.runBasicIterationTests_unordered(
+                values.spliterator(), expectedValues, String::compareTo);
+        SpliteratorTester.runBasicSplitTests(values, expectedValues);
+        SpliteratorTester.testSpliteratorNPE(values.spliterator());
+    }
+
+    public void test_spliterator_entrySet() {
+        WeakHashMap<String, String> hashMap = new WeakHashMap<>();
+        hashMap.put("a", "1");
+        hashMap.put("b", "2");
+        hashMap.put("c", "3");
+        hashMap.put("d", "4");
+        hashMap.put("e", "5");
+        hashMap.put("f", "6");
+        hashMap.put("g", "7");
+        hashMap.put("h", "8");
+        hashMap.put("i", "9");
+        hashMap.put("j", "10");
+        hashMap.put("k", "11");
+        hashMap.put("l", "12");
+        hashMap.put("m", "13");
+        hashMap.put("n", "14");
+        hashMap.put("o", "15");
+        hashMap.put("p", "16");
+
+        Set<Map.Entry<String, String>> values = hashMap.entrySet();
+        ArrayList<Map.Entry<String, String>> expectedValues = new ArrayList<>(values);
+
+        Comparator<Map.Entry<String, String>> comparator =
+                (a, b) -> (a.getKey().compareTo(b.getKey()));
+
+        SpliteratorTester.runBasicIterationTests_unordered(values.spliterator(), expectedValues,
+                (a, b) -> (a.getKey().compareTo(b.getKey())));
+        SpliteratorTester.runBasicSplitTests(values, expectedValues, comparator);
+        SpliteratorTester.testSpliteratorNPE(values.spliterator());
+
+        assertTrue(values.spliterator().hasCharacteristics(Spliterator.DISTINCT));
+
+        SpliteratorTester.runDistinctTests(values);
     }
 
     /**

@@ -28,10 +28,11 @@ import android.media.tv.TvContentRating;
 import android.media.tv.TvContract;
 import android.media.tv.TvContract.Channels;
 import android.media.tv.TvContract.Programs.Genres;
+import android.media.tv.TvContract.RecordedPrograms;
 import android.net.Uri;
 import android.test.AndroidTestCase;
-
-import com.android.cts.tv.R;
+import android.test.MoreAsserts;
+import android.tv.cts.R;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -63,8 +64,9 @@ public class TvContractTest extends AndroidTestCase {
         TvContract.Programs._ID,
         TvContract.Programs.COLUMN_CHANNEL_ID,
         TvContract.Programs.COLUMN_TITLE,
-        TvContract.Programs.COLUMN_SEASON_NUMBER,
-        TvContract.Programs.COLUMN_EPISODE_NUMBER,
+        TvContract.Programs.COLUMN_SEASON_DISPLAY_NUMBER,
+        TvContract.Programs.COLUMN_SEASON_TITLE,
+        TvContract.Programs.COLUMN_EPISODE_DISPLAY_NUMBER,
         TvContract.Programs.COLUMN_EPISODE_TITLE,
         TvContract.Programs.COLUMN_START_TIME_UTC_MILLIS,
         TvContract.Programs.COLUMN_END_TIME_UTC_MILLIS,
@@ -88,6 +90,17 @@ public class TvContractTest extends AndroidTestCase {
             + "," + Genres.DRAMA + "," + Genres.EDUCATION + "," + Genres.FAMILY_KIDS + ","
             + Genres.GAMING + "," + Genres.MOVIES + "," + Genres.NEWS + "," + Genres.SHOPPING + ","
             + Genres.SPORTS + "," + Genres.TRAVEL;
+
+    // Delimiter for genre.
+    private static final String DELIMITER = ",";
+    private static final String EMPTY_GENRE = "";
+    private static final String COMMA = ",";
+    private static final String COMMA_ENCODED = "\",";
+    private static final String QUOTE = "\"";
+    private static final String QUOTE_ENCODED = "\"\"";
+    private static final String WHITE_SPACES = " \r \n \t \f ";
+
+    private static final String PARAM_CANONICAL_GENRE = "canonical_genre";
 
     private String mInputId;
     private ContentResolver mContentResolver;
@@ -123,6 +136,7 @@ public class TvContractTest extends AndroidTestCase {
             }
         }
         mContentResolver.delete(mChannelsUri, null, null);
+        mContentResolver.delete(RecordedPrograms.CONTENT_URI, null, null);
         super.tearDown();
     }
 
@@ -141,12 +155,53 @@ public class TvContractTest extends AndroidTestCase {
     private static ContentValues createDummyProgramValues(long channelId) {
         ContentValues values = new ContentValues();
         values.put(TvContract.Programs.COLUMN_CHANNEL_ID, channelId);
-        values.put(TvContract.Programs.COLUMN_EPISODE_TITLE, "Title");
+        values.put(TvContract.Programs.COLUMN_EPISODE_DISPLAY_NUMBER , "1A");
+        values.put(TvContract.Programs.COLUMN_EPISODE_TITLE, "episode_title");
+        values.put(TvContract.Programs.COLUMN_SEASON_DISPLAY_NUMBER , "2B");
+        values.put(TvContract.Programs.COLUMN_SEASON_TITLE, "season_title");
         values.put(TvContract.Programs.COLUMN_CANONICAL_GENRE, TvContract.Programs.Genres.encode(
                 TvContract.Programs.Genres.MOVIES, TvContract.Programs.Genres.DRAMA));
         TvContentRating rating = TvContentRating.createRating("android.media.tv", "US_TVPG",
                 "US_TVPG_TV_MA", "US_TVPG_S", "US_TVPG_V");
         values.put(TvContract.Programs.COLUMN_CONTENT_RATING, rating.flattenToString());
+
+        return values;
+    }
+
+    private static ContentValues createDummyRecordedProgramValues(String inputId, long channelId) {
+        ContentValues values = new ContentValues();
+        values.put(TvContract.RecordedPrograms.COLUMN_INPUT_ID, inputId);
+        values.put(TvContract.RecordedPrograms.COLUMN_CHANNEL_ID, channelId);
+        values.put(TvContract.RecordedPrograms.COLUMN_SEASON_DISPLAY_NUMBER , "3B");
+        values.put(TvContract.RecordedPrograms.COLUMN_SEASON_TITLE, "season_title");
+        values.put(TvContract.RecordedPrograms.COLUMN_EPISODE_DISPLAY_NUMBER , "2A");
+        values.put(TvContract.RecordedPrograms.COLUMN_EPISODE_TITLE, "episode_title");
+        values.put(TvContract.RecordedPrograms.COLUMN_START_TIME_UTC_MILLIS, 1000);
+        values.put(TvContract.RecordedPrograms.COLUMN_END_TIME_UTC_MILLIS, 2000);
+        values.put(TvContract.RecordedPrograms.COLUMN_CANONICAL_GENRE,
+                TvContract.Programs.Genres.encode(
+                        TvContract.Programs.Genres.MOVIES, TvContract.Programs.Genres.DRAMA));
+        values.put(TvContract.RecordedPrograms.COLUMN_SHORT_DESCRIPTION, "short_description");
+        values.put(TvContract.RecordedPrograms.COLUMN_LONG_DESCRIPTION, "long_description");
+        values.put(TvContract.RecordedPrograms.COLUMN_VIDEO_WIDTH, 1920);
+        values.put(TvContract.RecordedPrograms.COLUMN_VIDEO_HEIGHT, 1080);
+        values.put(TvContract.RecordedPrograms.COLUMN_AUDIO_LANGUAGE, "en");
+        TvContentRating rating = TvContentRating.createRating("android.media.tv", "US_TVPG",
+                "US_TVPG_TV_MA", "US_TVPG_S", "US_TVPG_V");
+        values.put(TvContract.RecordedPrograms.COLUMN_CONTENT_RATING, rating.flattenToString());
+        values.put(TvContract.RecordedPrograms.COLUMN_POSTER_ART_URI, "http://foo.com/artwork.png");
+        values.put(TvContract.RecordedPrograms.COLUMN_THUMBNAIL_URI, "http://foo.com/thumbnail.jpg");
+        values.put(TvContract.RecordedPrograms.COLUMN_SEARCHABLE, 1);
+        values.put(TvContract.RecordedPrograms.COLUMN_RECORDING_DATA_URI, "file:///sdcard/foo/");
+        values.put(TvContract.RecordedPrograms.COLUMN_RECORDING_DATA_BYTES, 1024 * 1024);
+        values.put(TvContract.RecordedPrograms.COLUMN_RECORDING_DURATION_MILLIS, 60 * 60 * 1000);
+        values.put(TvContract.RecordedPrograms.COLUMN_RECORDING_EXPIRE_TIME_UTC_MILLIS, 1454480880L);
+        values.put(TvContract.RecordedPrograms.COLUMN_INTERNAL_PROVIDER_DATA,
+                "internal_provider_data".getBytes());
+        values.put(TvContract.RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG1, 4);
+        values.put(TvContract.RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG2, 3);
+        values.put(TvContract.RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG3, 2);
+        values.put(TvContract.RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG4, 1);
 
         return values;
     }
@@ -252,8 +307,11 @@ public class TvContractTest extends AndroidTestCase {
             assertEquals(programId, cursor.getLong(cursor.getColumnIndex(TvContract.Programs._ID)));
             verifyLongColumn(cursor, expectedValues, TvContract.Programs.COLUMN_CHANNEL_ID);
             verifyStringColumn(cursor, expectedValues, TvContract.Programs.COLUMN_TITLE);
-            verifyIntegerColumn(cursor, expectedValues, TvContract.Programs.COLUMN_SEASON_NUMBER);
-            verifyIntegerColumn(cursor, expectedValues, TvContract.Programs.COLUMN_EPISODE_NUMBER);
+            verifyStringColumn(cursor, expectedValues,
+                    TvContract.Programs.COLUMN_SEASON_DISPLAY_NUMBER);
+            verifyStringColumn(cursor, expectedValues, TvContract.Programs.COLUMN_SEASON_TITLE);
+            verifyStringColumn(cursor, expectedValues,
+                    TvContract.Programs.COLUMN_EPISODE_DISPLAY_NUMBER);
             verifyStringColumn(cursor, expectedValues, TvContract.Programs.COLUMN_EPISODE_TITLE);
             verifyLongColumn(cursor, expectedValues,
                     TvContract.Programs.COLUMN_START_TIME_UTC_MILLIS);
@@ -273,6 +331,21 @@ public class TvContractTest extends AndroidTestCase {
             verifyBlobColumn(cursor, expectedValues,
                     TvContract.Programs.COLUMN_INTERNAL_PROVIDER_DATA);
             verifyIntegerColumn(cursor, expectedValues, TvContract.Programs.COLUMN_VERSION_NUMBER);
+        }
+    }
+
+    private void verifyDeprecatedColumsInProgram(Uri programUri, ContentValues expectedValues) {
+        final String[] DEPRECATED_COLUMNS_PROJECTION = {
+            TvContract.Programs.COLUMN_SEASON_NUMBER,
+            TvContract.Programs.COLUMN_EPISODE_NUMBER,
+        };
+        try (Cursor cursor = mContentResolver.query(
+                programUri, DEPRECATED_COLUMNS_PROJECTION, null, null, null)) {
+            assertNotNull(cursor);
+            assertEquals(cursor.getCount(), 1);
+            assertTrue(cursor.moveToNext());
+            verifyIntegerColumn(cursor, expectedValues, TvContract.Programs.COLUMN_SEASON_NUMBER);
+            verifyIntegerColumn(cursor, expectedValues, TvContract.Programs.COLUMN_EPISODE_NUMBER);
         }
     }
 
@@ -340,6 +413,45 @@ public class TvContractTest extends AndroidTestCase {
         }
     }
 
+    public void verifyProgramsTableWithDeprecatedColumns(Uri programsUri, long channelId) {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        // Test: insert
+        ContentValues expected = createDummyProgramValues(channelId);
+        expected.put(TvContract.Programs.COLUMN_SEASON_DISPLAY_NUMBER, "3");
+        expected.put(TvContract.Programs.COLUMN_EPISODE_DISPLAY_NUMBER, "9");
+
+        ContentValues input = new ContentValues(expected);
+        input.remove(TvContract.Programs.COLUMN_SEASON_DISPLAY_NUMBER);
+        input.remove(TvContract.Programs.COLUMN_EPISODE_DISPLAY_NUMBER);
+        input.put(TvContract.Programs.COLUMN_SEASON_NUMBER, 3);
+        input.put(TvContract.Programs.COLUMN_EPISODE_NUMBER, 9);
+
+        Uri rowUri = mContentResolver.insert(programsUri, input);
+        long programId = ContentUris.parseId(rowUri);
+        Uri programUri = TvContract.buildProgramUri(programId);
+        verifyProgram(programUri, expected, programId);
+        verifyDeprecatedColumsInProgram(programUri, input);
+
+        // Test: update
+        expected.put(TvContract.Programs.COLUMN_SEASON_DISPLAY_NUMBER, "4");
+        expected.put(TvContract.Programs.COLUMN_EPISODE_DISPLAY_NUMBER, "10");
+        input.put(TvContract.Programs.COLUMN_SEASON_NUMBER, 4);
+        input.put(TvContract.Programs.COLUMN_EPISODE_NUMBER, 10);
+
+        mContentResolver.update(programUri, input, null, null);
+        verifyProgram(programUri, expected, programId);
+        verifyDeprecatedColumsInProgram(programUri, input);
+
+        // Test: delete
+        mContentResolver.delete(programsUri, null, null);
+        try (Cursor cursor = mContentResolver.query(
+                programsUri, PROGRAMS_PROJECTION, null, null, null)) {
+            assertEquals(0, cursor.getCount());
+        }
+    }
+
     public void testProgramsTable() throws Exception {
         if (!Utils.hasTvInputFramework(getContext())) {
             return;
@@ -351,6 +463,10 @@ public class TvContractTest extends AndroidTestCase {
 
         verifyProgramsTable(TvContract.buildProgramsUriForChannel(channelId), channelId);
         verifyProgramsTable(TvContract.buildProgramsUriForChannel(channelUri), channelId);
+        verifyProgramsTableWithDeprecatedColumns(TvContract.buildProgramsUriForChannel(channelId),
+                channelId);
+        verifyProgramsTableWithDeprecatedColumns(TvContract.buildProgramsUriForChannel(channelUri),
+                channelId);
     }
 
     private void verifyOverlap(long startMillis, long endMillis, int expectedCount,
@@ -403,6 +519,92 @@ public class TvContractTest extends AndroidTestCase {
         // Non-overlap 2: starts too late
         verifyOverlap(programEndMillis + hour, programEndMillis + hour * 2, 0,
                 channelId, channelUri);
+    }
+
+    private void verifyRecordedProgram(Uri recordedProgramUri, ContentValues expectedValues,
+                long recordedProgramId) {
+        try (Cursor cursor = mContentResolver.query(recordedProgramUri, null, null, null, null)) {
+            assertNotNull(cursor);
+            assertEquals(cursor.getCount(), 1);
+            assertTrue(cursor.moveToNext());
+            assertEquals(recordedProgramId, cursor.getLong(cursor.getColumnIndex(
+                    RecordedPrograms._ID)));
+            verifyLongColumn(cursor, expectedValues, RecordedPrograms.COLUMN_CHANNEL_ID);
+            verifyStringColumn(cursor, expectedValues,
+                    RecordedPrograms.COLUMN_SEASON_DISPLAY_NUMBER);
+            verifyStringColumn(cursor, expectedValues, RecordedPrograms.COLUMN_SEASON_TITLE);
+            verifyStringColumn(cursor, expectedValues,
+                    RecordedPrograms.COLUMN_EPISODE_DISPLAY_NUMBER);
+            verifyStringColumn(cursor, expectedValues, RecordedPrograms.COLUMN_EPISODE_TITLE);
+            verifyLongColumn(cursor, expectedValues, RecordedPrograms.COLUMN_START_TIME_UTC_MILLIS);
+            verifyLongColumn(cursor, expectedValues, RecordedPrograms.COLUMN_END_TIME_UTC_MILLIS);
+            verifyStringColumn(cursor, expectedValues, RecordedPrograms.COLUMN_BROADCAST_GENRE);
+            verifyStringColumn(cursor, expectedValues, RecordedPrograms.COLUMN_CANONICAL_GENRE);
+            verifyStringColumn(cursor, expectedValues, RecordedPrograms.COLUMN_SHORT_DESCRIPTION);
+            verifyStringColumn(cursor, expectedValues, RecordedPrograms.COLUMN_LONG_DESCRIPTION);
+            verifyIntegerColumn(cursor, expectedValues, RecordedPrograms.COLUMN_VIDEO_WIDTH);
+            verifyIntegerColumn(cursor, expectedValues, RecordedPrograms.COLUMN_VIDEO_HEIGHT);
+            verifyStringColumn(cursor, expectedValues, RecordedPrograms.COLUMN_AUDIO_LANGUAGE);
+            verifyStringColumn(cursor, expectedValues, RecordedPrograms.COLUMN_CONTENT_RATING);
+            verifyStringColumn(cursor, expectedValues, RecordedPrograms.COLUMN_POSTER_ART_URI);
+            verifyStringColumn(cursor, expectedValues, RecordedPrograms.COLUMN_THUMBNAIL_URI);
+            verifyIntegerColumn(cursor, expectedValues, RecordedPrograms.COLUMN_SEARCHABLE);
+            verifyStringColumn(cursor, expectedValues, RecordedPrograms.COLUMN_RECORDING_DATA_URI);
+            verifyIntegerColumn(cursor, expectedValues,
+                    RecordedPrograms.COLUMN_RECORDING_DATA_BYTES);
+            verifyIntegerColumn(cursor, expectedValues,
+                    RecordedPrograms.COLUMN_RECORDING_DURATION_MILLIS);
+            verifyIntegerColumn(cursor, expectedValues,
+                    RecordedPrograms.COLUMN_RECORDING_EXPIRE_TIME_UTC_MILLIS);
+            verifyBlobColumn(cursor, expectedValues,
+                    RecordedPrograms.COLUMN_INTERNAL_PROVIDER_DATA);
+            verifyIntegerColumn(cursor, expectedValues,
+                    RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG1);
+            verifyIntegerColumn(cursor, expectedValues,
+                    RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG2);
+            verifyIntegerColumn(cursor, expectedValues,
+                    RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG3);
+            verifyIntegerColumn(cursor, expectedValues,
+                    RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG4);
+            verifyIntegerColumn(cursor, expectedValues, RecordedPrograms.COLUMN_VERSION_NUMBER);
+        }
+    }
+
+    private void verifyRecordedProgramsTable(Uri recordedProgramsUri, long channelId) {
+        // Test: insert
+        ContentValues values = createDummyRecordedProgramValues(mInputId, channelId);
+
+        Uri rowUri = mContentResolver.insert(recordedProgramsUri, values);
+        long recordedProgramId = ContentUris.parseId(rowUri);
+        Uri recordedProgramUri = TvContract.buildRecordedProgramUri(recordedProgramId);
+        verifyRecordedProgram(recordedProgramUri, values, recordedProgramId);
+
+        // Test: update
+        values.put(TvContract.RecordedPrograms.COLUMN_EPISODE_TITLE, "episode_title1");
+        values.put(TvContract.RecordedPrograms.COLUMN_SHORT_DESCRIPTION, "short_description1");
+        values.put(TvContract.RecordedPrograms.COLUMN_INTERNAL_PROVIDER_DATA,
+                "internal_provider_data1".getBytes());
+
+        mContentResolver.update(recordedProgramUri, values, null, null);
+        verifyRecordedProgram(recordedProgramUri, values, recordedProgramId);
+
+        // Test: delete
+        mContentResolver.delete(recordedProgramUri, null, null);
+        try (Cursor cursor = mContentResolver.query(recordedProgramsUri, null, null, null, null)) {
+            assertEquals(0, cursor.getCount());
+        }
+    }
+
+    public void testRecordedProgramsTable() throws Exception {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        // Set-up: add a channel.
+        ContentValues values = createDummyChannelValues(mInputId);
+        Uri channelUri = mContentResolver.insert(mChannelsUri, values);
+        long channelId = ContentUris.parseId(channelUri);
+
+        verifyRecordedProgramsTable(TvContract.RecordedPrograms.CONTENT_URI, channelId);
     }
 
     private void verifyQueryWithSortOrder(Uri uri, final String[] projection,
@@ -583,5 +785,204 @@ public class TvContractTest extends AndroidTestCase {
         assertEquals(ENCODED_GENRE_STRING, Genres.encode(Genres.ANIMAL_WILDLIFE,
                 Genres.COMEDY, Genres.DRAMA, Genres.EDUCATION, Genres.FAMILY_KIDS, Genres.GAMING,
                 Genres.MOVIES, Genres.NEWS, Genres.SHOPPING, Genres.SPORTS, Genres.TRAVEL));
+    }
+
+    public void testProgramsGenresEncodeDecode_empty() {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        String[] genres = new String[] {EMPTY_GENRE};
+        String expectedEncoded = EMPTY_GENRE;
+        checkGenreEncodeDecode(genres, expectedEncoded, 0);
+
+        genres = new String[] {EMPTY_GENRE, EMPTY_GENRE, EMPTY_GENRE};
+        expectedEncoded = DELIMITER + DELIMITER;
+        checkGenreEncodeDecode(genres, expectedEncoded, 0);
+    }
+
+    public void testProgramsGenresEncodeDecode_simpleDelimiter() {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        String[] genres = new String[] {EMPTY_GENRE,
+                COMMA,
+                QUOTE,
+                COMMA + QUOTE,
+                QUOTE + COMMA,
+                COMMA + COMMA,
+                QUOTE + QUOTE,
+                COMMA + QUOTE + COMMA,
+                QUOTE + COMMA + QUOTE};
+        String expectedEncoded =
+                DELIMITER + COMMA_ENCODED
+                + DELIMITER + QUOTE_ENCODED
+                + DELIMITER + COMMA_ENCODED + QUOTE_ENCODED
+                + DELIMITER + QUOTE_ENCODED + COMMA_ENCODED
+                + DELIMITER + COMMA_ENCODED + COMMA_ENCODED
+                + DELIMITER + QUOTE_ENCODED + QUOTE_ENCODED
+                + DELIMITER + COMMA_ENCODED + QUOTE_ENCODED + COMMA_ENCODED
+                + DELIMITER + QUOTE_ENCODED + COMMA_ENCODED + QUOTE_ENCODED;
+        checkGenreEncodeDecode(genres, expectedEncoded, genres.length - 1);
+    }
+
+    public void testProgramsGenresEncodeDecode_delimiterWithWhiteSpace() {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        String[] genres = new String[] {EMPTY_GENRE,
+                COMMA + WHITE_SPACES,
+                QUOTE + WHITE_SPACES,
+                WHITE_SPACES + COMMA,
+                WHITE_SPACES + QUOTE,
+                WHITE_SPACES + COMMA + WHITE_SPACES,
+                WHITE_SPACES + QUOTE + WHITE_SPACES};
+        String expectedEncoded =
+                DELIMITER + COMMA_ENCODED + WHITE_SPACES
+                + DELIMITER + QUOTE_ENCODED + WHITE_SPACES
+                + DELIMITER + WHITE_SPACES + COMMA_ENCODED
+                + DELIMITER + WHITE_SPACES + QUOTE_ENCODED
+                + DELIMITER + WHITE_SPACES + COMMA_ENCODED + WHITE_SPACES
+                + DELIMITER + WHITE_SPACES + QUOTE_ENCODED + WHITE_SPACES;
+        checkGenreEncodeDecode(genres, expectedEncoded, genres.length - 1);
+    }
+
+    public void testProgramsGenresEncodeDecode_all() {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        String[] genres = new String[] {EMPTY_GENRE,
+                Genres.COMEDY,
+                Genres.COMEDY + COMMA,
+                Genres.COMEDY + COMMA + Genres.COMEDY,
+                COMMA + Genres.COMEDY + COMMA,
+                QUOTE + Genres.COMEDY + QUOTE,
+                Genres.COMEDY + COMMA + WHITE_SPACES,
+                Genres.COMEDY + COMMA + Genres.COMEDY + WHITE_SPACES,
+                COMMA + Genres.COMEDY + COMMA + WHITE_SPACES,
+                QUOTE + Genres.COMEDY + QUOTE + WHITE_SPACES
+        };
+        String expectedEncoded =
+                DELIMITER + Genres.COMEDY
+                + DELIMITER + Genres.COMEDY + COMMA_ENCODED
+                + DELIMITER + Genres.COMEDY + COMMA_ENCODED + Genres.COMEDY
+                + DELIMITER + COMMA_ENCODED + Genres.COMEDY + COMMA_ENCODED
+                + DELIMITER + QUOTE_ENCODED + Genres.COMEDY + QUOTE_ENCODED
+                + DELIMITER + Genres.COMEDY + COMMA_ENCODED + WHITE_SPACES
+                + DELIMITER + Genres.COMEDY + COMMA_ENCODED + Genres.COMEDY + WHITE_SPACES
+                + DELIMITER + COMMA_ENCODED + Genres.COMEDY + COMMA_ENCODED + WHITE_SPACES
+                + DELIMITER + QUOTE_ENCODED + Genres.COMEDY + QUOTE_ENCODED + WHITE_SPACES;
+        checkGenreEncodeDecode(genres, expectedEncoded, genres.length - 1);
+    }
+
+    private void checkGenreEncodeDecode(String[] genres, String expectedEncoded,
+            int expectedDecodedLength) {
+        String encoded = Genres.encode(genres);
+        assertEquals(expectedEncoded, encoded);
+        String[] decoded = Genres.decode(encoded);
+        assertEquals(expectedDecodedLength, decoded.length);
+        int decodedIndex = 0;
+        for (int i = 0; i < genres.length; ++i) {
+            String original = genres[i].trim();
+            if (!original.isEmpty()) {
+                assertEquals(original, decoded[decodedIndex++]);
+            }
+        }
+    }
+
+    private Uri insertProgramWithBroadcastGenre(String[] broadcastGenre) {
+        ContentValues values = createDummyChannelValues(mInputId);
+        Uri channelUri = mContentResolver.insert(Channels.CONTENT_URI, values);
+        long channelId = ContentUris.parseId(channelUri);
+        long curTime = System.currentTimeMillis();
+        values = new ContentValues();
+        values.put(TvContract.Programs.COLUMN_CHANNEL_ID, channelId);
+        values.put(TvContract.Programs.COLUMN_BROADCAST_GENRE, Genres.encode(broadcastGenre));
+        values.put(TvContract.Programs.COLUMN_START_TIME_UTC_MILLIS, curTime - 60000);
+        values.put(TvContract.Programs.COLUMN_END_TIME_UTC_MILLIS, curTime + 60000);
+        Uri programUri = mContentResolver.insert(TvContract.Programs.CONTENT_URI, values);
+        assertNotNull(programUri);
+        return programUri;
+    }
+
+    private void verifyChannelCountWithCanonicalGenre(String canonicalGenre, int expectedCount) {
+        Uri channelUri = TvContract.buildChannelsUriForInput(mInputId).buildUpon()
+                .appendQueryParameter(PARAM_CANONICAL_GENRE, canonicalGenre).build();
+        try (Cursor c = mContentResolver.query(channelUri, new String[] {Channels._ID}, null, null,
+                null)) {
+            assertNotNull(c);
+            assertEquals("Query:{Uri=" + channelUri + "}", expectedCount, c.getCount());
+        }
+    }
+
+    public void testBroadcastGenreEncodeDecode() {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        String[] broadcastGenre = new String[] {"Animation", "Classic, opera"};
+        insertProgramWithBroadcastGenre(broadcastGenre);
+        try (Cursor c = mContentResolver.query(TvContract.Programs.CONTENT_URI,
+                new String[] {TvContract.Programs.COLUMN_BROADCAST_GENRE}, null, null, null)) {
+            assertNotNull(c);
+            assertEquals(1, c.getCount());
+            c.moveToNext();
+            MoreAsserts.assertEquals(broadcastGenre, Genres.decode(c.getString(0)));
+        }
+    }
+
+    public void testBroadcastGenreQueryChannel() {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        // "Animation" is mapped to Genres.MOVIES
+        // "Classic, opera" is mapped to Genres.MUSIC
+        insertProgramWithBroadcastGenre(new String[]{"Animation"});
+        insertProgramWithBroadcastGenre(new String[] {"Classic, opera"});
+        insertProgramWithBroadcastGenre(new String[]{"Animation", "Classic, opera"});
+        // There are two channels which belong to MOVIES genre - channel 1 and 3.
+        verifyChannelCountWithCanonicalGenre(Genres.MOVIES, 2);
+        // There are two channels which belong to MUSIC genre - channel 2 and 3.
+        verifyChannelCountWithCanonicalGenre(Genres.MUSIC, 2);
+    }
+
+    public void testGenresIsCanonical() {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        assertTrue(Genres.isCanonical(Genres.DRAMA));
+        assertFalse(Genres.isCanonical("Not a genre"));
+    }
+
+    public void testUriUtils() {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        final Uri CHANNEL_URI_FOR_TUNER = TvContract.buildChannelUri(0);
+        final Uri CHANNEL_URI_FOR_PASSTHROUGH_INPUT =
+                TvContract.buildChannelUriForPassthroughInput("inputId");
+        final Uri PROGRAM_URI = TvContract.buildProgramUri(0);
+
+        // Test isChannelUri
+        assertTrue(TvContract.isChannelUri(CHANNEL_URI_FOR_TUNER));
+        assertTrue(TvContract.isChannelUri(CHANNEL_URI_FOR_PASSTHROUGH_INPUT));
+        assertFalse(TvContract.isChannelUri(PROGRAM_URI));
+        assertFalse(TvContract.isChannelUri(null));
+
+        // Test isChannelUriForPassthroughInput
+        assertFalse(TvContract.isChannelUriForPassthroughInput(CHANNEL_URI_FOR_TUNER));
+        assertTrue(TvContract.isChannelUriForPassthroughInput(CHANNEL_URI_FOR_PASSTHROUGH_INPUT));
+        assertFalse(TvContract.isChannelUriForPassthroughInput(PROGRAM_URI));
+        assertFalse(TvContract.isChannelUriForPassthroughInput(null));
+
+        // Test isChannelUriForTunerInput
+        assertTrue(TvContract.isChannelUriForTunerInput(CHANNEL_URI_FOR_TUNER));
+        assertFalse(TvContract.isChannelUriForTunerInput(CHANNEL_URI_FOR_PASSTHROUGH_INPUT));
+        assertFalse(TvContract.isChannelUriForTunerInput(PROGRAM_URI));
+        assertFalse(TvContract.isChannelUriForTunerInput(null));
+
+        // Test isProgramUri
+        assertFalse(TvContract.isProgramUri(CHANNEL_URI_FOR_TUNER));
+        assertFalse(TvContract.isProgramUri(CHANNEL_URI_FOR_PASSTHROUGH_INPUT));
+        assertTrue(TvContract.isProgramUri(PROGRAM_URI));
+        assertFalse(TvContract.isProgramUri(null));
     }
 }

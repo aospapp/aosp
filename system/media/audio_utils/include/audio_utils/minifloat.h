@@ -20,29 +20,31 @@
 #include <stdint.h>
 #include <sys/cdefs.h>
 
+/** \cond */
 __BEGIN_DECLS
+/** \endcond */
 
-/* A single gain expressed as minifloat */
+/** A single gain expressed as minifloat */
 typedef uint16_t gain_minifloat_t;
 
-/* A pair of gain_minifloat_t packed into a single word */
+/** A pair of gain_minifloat_t packed into a single word */
 typedef uint32_t gain_minifloat_packed_t;
 
-/* The nominal range of a gain, expressed as a float */
+/** The nominal range of a gain, expressed as a float */
 #define GAIN_FLOAT_ZERO         0.0f
 #define GAIN_FLOAT_UNITY        1.0f
 
-/* Unity gain expressed as a minifloat */
+/** Unity gain expressed as a minifloat */
 #define GAIN_MINIFLOAT_UNITY    0xE000
 
-/* Pack a pair of gain_mini_float_t into a combined gain_minifloat_packed_t */
+/** Pack a pair of gain_mini_float_t into a combined gain_minifloat_packed_t */
 static inline gain_minifloat_packed_t gain_minifloat_pack(gain_minifloat_t left,
         gain_minifloat_t right)
 {
     return (right << 16) | left;
 }
 
-/* Unpack a gain_minifloat_packed_t into the two gain_minifloat_t components */
+/** Unpack a gain_minifloat_packed_t into the two gain_minifloat_t components */
 static inline gain_minifloat_t gain_minifloat_unpack_left(gain_minifloat_packed_t packed)
 {
     return packed & 0xFFFF;
@@ -53,10 +55,11 @@ static inline gain_minifloat_t gain_minifloat_unpack_right(gain_minifloat_packed
     return packed >> 16;
 }
 
-/* A pair of unity gains expressed as a gain_minifloat_packed_t */
+/** A pair of unity gains expressed as a gain_minifloat_packed_t */
 #define GAIN_MINIFLOAT_PACKED_UNITY gain_minifloat_pack(GAIN_MINIFLOAT_UNITY, GAIN_MINIFLOAT_UNITY)
 
-/* Convert a float to the internal representation used for gains.
+/**
+ * Convert a float to the internal representation used for gains.
  * The nominal range [0.0, 1.0], but the hard range is [0.0, 2.0).
  * Negative and underflow values are converted to 0.0,
  * and values larger than the hard maximum are truncated to the hard maximum.
@@ -73,9 +76,11 @@ static inline gain_minifloat_t gain_minifloat_unpack_right(gain_minifloat_packed
  */
 gain_minifloat_t gain_from_float(float f);
 
-/* Convert the internal representation used for gains to float */
+/** Convert the internal representation used for gains to float */
 float float_from_gain(gain_minifloat_t gain);
 
+/** \cond */
 __END_DECLS
+/** \endcond */
 
 #endif  // ANDROID_AUDIO_MINIFLOAT_H

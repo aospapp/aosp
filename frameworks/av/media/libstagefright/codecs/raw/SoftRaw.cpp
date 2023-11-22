@@ -42,7 +42,9 @@ SoftRaw::SoftRaw(
     : SimpleSoftOMXComponent(name, callbacks, appData, component),
       mSignalledError(false),
       mChannelCount(2),
-      mSampleRate(44100) {
+      mSampleRate(44100),
+      mNumericalData(OMX_NumericalDataSigned),
+      mBitsPerSample(16) {
     initPorts();
     CHECK_EQ(initDecoder(), (status_t)OK);
 }
@@ -103,14 +105,18 @@ OMX_ERRORTYPE SoftRaw::internalGetParameter(
             OMX_AUDIO_PARAM_PCMMODETYPE *pcmParams =
                 (OMX_AUDIO_PARAM_PCMMODETYPE *)params;
 
+            if (!isValidOMXParam(pcmParams)) {
+                return OMX_ErrorBadParameter;
+            }
+
             if (pcmParams->nPortIndex != 0 && pcmParams->nPortIndex != 1) {
                 return OMX_ErrorUndefined;
             }
 
-            pcmParams->eNumData = OMX_NumericalDataSigned;
+            pcmParams->eNumData = (OMX_NUMERICALDATATYPE)mNumericalData;
             pcmParams->eEndian = OMX_EndianBig;
             pcmParams->bInterleaved = OMX_TRUE;
-            pcmParams->nBitPerSample = 16;
+            pcmParams->nBitPerSample = mBitsPerSample;
             pcmParams->ePCMMode = OMX_AUDIO_PCMModeLinear;
             pcmParams->eChannelMapping[0] = OMX_AUDIO_ChannelLF;
             pcmParams->eChannelMapping[1] = OMX_AUDIO_ChannelRF;
@@ -134,6 +140,10 @@ OMX_ERRORTYPE SoftRaw::internalSetParameter(
             const OMX_PARAM_COMPONENTROLETYPE *roleParams =
                 (const OMX_PARAM_COMPONENTROLETYPE *)params;
 
+            if (!isValidOMXParam(roleParams)) {
+                return OMX_ErrorBadParameter;
+            }
+
             if (strncmp((const char *)roleParams->cRole,
                         "audio_decoder.raw",
                         OMX_MAX_STRINGNAME_SIZE - 1)) {
@@ -148,18 +158,33 @@ OMX_ERRORTYPE SoftRaw::internalSetParameter(
             const OMX_AUDIO_PARAM_PCMMODETYPE *pcmParams =
                 (OMX_AUDIO_PARAM_PCMMODETYPE *)params;
 
+            if (!isValidOMXParam(pcmParams)) {
+                return OMX_ErrorBadParameter;
+            }
+
             if (pcmParams->nPortIndex != 0) {
                 return OMX_ErrorUndefined;
             }
 
             mChannelCount = pcmParams->nChannels;
             mSampleRate = pcmParams->nSamplingRate;
+            mNumericalData = pcmParams->eNumData;
+            mBitsPerSample = pcmParams->nBitPerSample;
 
             return OMX_ErrorNone;
         }
 
         default:
-            return SimpleSoftOMXComponent::internalSetParameter(index, params);
+        {
+            OMX_ERRORTYPE err = SimpleSoftOMXComponent::internalSetParameter(
+                    index, params);
+            // In case inPort->mDef.nBufferSize changed, the output buffer size
+            // should match the input buffer size.
+            PortInfo *inPort = editPortInfo(0);
+            PortInfo *outPort = editPortInfo(1);
+            outPort->mDef.nBufferSize = inPort->mDef.nBufferSize;
+            return err;
+        }
     }
 }
 

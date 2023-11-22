@@ -27,7 +27,7 @@
  */
 
 #ifndef __WIFI_HAL_WIFILOGGER_COMMAND_H__
-#define __WIFH_HAL_WIFILOGGER_COMMAND_H__
+#define __WIFI_HAL_WIFILOGGER_COMMAND_H__
 
 #include "common.h"
 #include "cpp_bindings.h"
@@ -81,6 +81,7 @@ private:
     int                       mRequestId;
     bool                      mWaitforRsp;
     bool                      mMoreData;
+    WLAN_DRIVER_WAKE_REASON_CNT *mGetWakeStats;
 public:
 
     WifiLoggerCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd);
@@ -103,6 +104,8 @@ public:
     virtual void waitForRsp(bool wait);
     virtual void setVersionInfo(char *buffer, int buffer_size);
     virtual void setFeatureSet(u32 *support);
+    virtual void getWakeStatsRspParams(
+                    WLAN_DRIVER_WAKE_REASON_CNT *wifi_wake_reason_cnt);
 };
 void rb_timerhandler(hal_info *info);
 wifi_error wifi_logger_ring_buffers_init(hal_info *info);
@@ -112,4 +115,4 @@ void send_alert(hal_info *info, int reason_code);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-#endif /* __WIFH_HAL_WIFILOGGER_COMMAND_H__ */
+#endif /* __WIFI_HAL_WIFILOGGER_COMMAND_H__ */

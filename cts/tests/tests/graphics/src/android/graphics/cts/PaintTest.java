@@ -28,12 +28,14 @@ import android.graphics.Paint.Style;
 import android.graphics.Path;
 import android.graphics.PathEffect;
 import android.graphics.Rasterizer;
+import android.graphics.Rect;
 import android.graphics.Shader;
 import android.graphics.Bitmap;
 import android.graphics.BitmapShader;
 import android.graphics.Typeface;
 import android.graphics.Xfermode;
 import android.os.Build;
+import android.os.LocaleList;
 import android.test.AndroidTestCase;
 import android.text.SpannedString;
 import android.util.Log;
@@ -600,30 +602,73 @@ public class PaintTest extends AndroidTestCase {
         // Check default
         assertEquals(defaultLocale, p.getTextLocale());
 
-        // Check setter / getter
+        // Check setter / getters
         p.setTextLocale(Locale.US);
         assertEquals(Locale.US, p.getTextLocale());
+        assertEquals(new LocaleList(Locale.US), p.getTextLocales());
 
         p.setTextLocale(Locale.CHINESE);
         assertEquals(Locale.CHINESE, p.getTextLocale());
+        assertEquals(new LocaleList(Locale.CHINESE), p.getTextLocales());
 
         p.setTextLocale(Locale.JAPANESE);
         assertEquals(Locale.JAPANESE, p.getTextLocale());
+        assertEquals(new LocaleList(Locale.JAPANESE), p.getTextLocales());
 
         p.setTextLocale(Locale.KOREAN);
         assertEquals(Locale.KOREAN, p.getTextLocale());
+        assertEquals(new LocaleList(Locale.KOREAN), p.getTextLocales());
 
         // Check reverting back to default
         p.setTextLocale(defaultLocale);
         assertEquals(defaultLocale, p.getTextLocale());
+        assertEquals(new LocaleList(defaultLocale), p.getTextLocales());
 
         // Check that we cannot pass a null locale
         try {
             p.setTextLocale(null);
-            assertFalse(true);
+            fail("Setting the text locale to null should throw");
+        } catch (Throwable e) {
+            assertEquals(IllegalArgumentException.class, e.getClass());
         }
-        catch (IllegalArgumentException iae) {
-            // OK !!
+    }
+
+    public void testAccessTextLocales() {
+        Paint p = new Paint();
+
+        final LocaleList defaultLocales = LocaleList.getDefault();
+
+        // Check default
+        assertEquals(defaultLocales, p.getTextLocales());
+
+        // Check setter / getters for a one-member locale list
+        p.setTextLocales(new LocaleList(Locale.CHINESE));
+        assertEquals(Locale.CHINESE, p.getTextLocale());
+        assertEquals(new LocaleList(Locale.CHINESE), p.getTextLocales());
+
+        // Check setter / getters for a two-member locale list
+        p.setTextLocales(LocaleList.forLanguageTags("fr,de"));
+        assertEquals(Locale.forLanguageTag("fr"), p.getTextLocale());
+        assertEquals(LocaleList.forLanguageTags("fr,de"), p.getTextLocales());
+
+        // Check reverting back to default
+        p.setTextLocales(defaultLocales);
+        assertEquals(defaultLocales, p.getTextLocales());
+
+        // Check that we cannot pass a null locale list
+        try {
+            p.setTextLocales(null);
+            fail("Setting the text locale list to null should throw");
+        } catch (Throwable e) {
+            assertEquals(IllegalArgumentException.class, e.getClass());
+        }
+
+        // Check that we cannot pass an empty locale list
+        try {
+            p.setTextLocales(new LocaleList());
+            fail("Setting the text locale list to an empty list should throw");
+        } catch (Throwable e) {
+            assertEquals(IllegalArgumentException.class, e.getClass());
         }
     }
 
@@ -806,6 +851,57 @@ public class PaintTest extends AndroidTestCase {
         // set value must greater or equal to 0, set -10.0f has no effect
         p.setStrokeWidth(-10.0f);
         assertEquals(10.0f, p.getStrokeWidth());
+    }
+
+    public void testSetFontFeatureSettings() {
+        Paint p = new Paint();
+        // Roboto font (system default) has "fi" ligature
+        String text = "fi";
+        float[] widths = new float[text.length()];
+        p.getTextWidths(text, widths);
+        assertTrue(widths[0] > 0.0f);
+        assertEquals(0.0f, widths[1]);
+
+        // Disable ligature using OpenType feature
+        p.setFontFeatureSettings("'liga' off");
+        p.getTextWidths(text, widths);
+        assertTrue(widths[0] > 0.0f);
+        assertTrue(widths[1] > 0.0f);
+
+        // Re-enable ligature
+        p.setFontFeatureSettings("'liga' on");
+        p.getTextWidths(text, widths);
+        assertTrue(widths[0] > 0.0f);
+        assertEquals(0.0f, widths[1]);
+    }
+
+    public void testGetTextBounds() {
+        Paint p = new Paint();
+        p.setTextSize(10);
+        String text1 = "hello";
+        Rect bounds1 = new Rect();
+        Rect bounds2 = new Rect();
+        p.getTextBounds(text1, 0, text1.length(), bounds1);
+        char[] textChars1 = text1.toCharArray();
+        p.getTextBounds(textChars1, 0, textChars1.length, bounds2);
+        // verify that string and char array methods produce consistent results
+        assertEquals(bounds1, bounds2);
+        String text2 = "hello world";
+
+        // verify substring produces consistent results
+        p.getTextBounds(text2, 0, text1.length(), bounds2);
+        assertEquals(bounds1, bounds2);
+
+        // longer string is expected to have same left edge but be wider
+        p.getTextBounds(text2, 0, text2.length(), bounds2);
+        assertEquals(bounds1.left, bounds2.left);
+        assertTrue(bounds2.right > bounds1.right);
+
+        // bigger size implies bigger bounding rect
+        p.setTextSize(20);
+        p.getTextBounds(text1, 0, text1.length(), bounds2);
+        assertTrue(bounds2.right > bounds1.right);
+        assertTrue(bounds2.bottom - bounds2.top > bounds1.bottom - bounds1.top);
     }
 
     public void testReset() {
@@ -1075,6 +1171,11 @@ public class PaintTest extends AndroidTestCase {
         }
 
         // TODO: when we support variation selectors, add positive tests
+
+        // Unicode 7.0, 8.0, and 9.0 emoji should be supported.
+        assertTrue(p.hasGlyph("\uD83D\uDD75"));  // SLEUTH OR SPY is introduced in Unicode 7.0
+        assertTrue(p.hasGlyph("\uD83C\uDF2E"));  // TACO is introduced in Unicode 8.0
+        assertTrue(p.hasGlyph("\uD83E\uDD33"));  // SELFIE is introduced in Unicode 9.0
     }
 
     public void testGetRunAdvance() {
@@ -1086,6 +1187,13 @@ public class PaintTest extends AndroidTestCase {
                 final float width = p.getRunAdvance(string, 0, string.length(), 0,
                         string.length(), false, 0);
                 assertEquals(0.0f, width);
+            }
+            {
+                for (int i = 0; i < string.length(); i++) {
+                    final float width = p.getRunAdvance(string, i, i + 1, 0, string.length(),
+                            false, i);
+                    assertEquals(0.0f, width);
+                }
             }
             {
                 final float widthToMid = p.getRunAdvance(string, 0, string.length(), 0,
@@ -1102,10 +1210,31 @@ public class PaintTest extends AndroidTestCase {
                         string.length(), false, string.length());
                 assertTrue(widthFromHead > widthFromSecond);
             }
+            {
+                float width = 0.0f;
+                for (int i = 0; i < string.length(); i++) {
+                    width += p.getRunAdvance(string, i, i + 1, 0, string.length(), false, i + 1);
+                }
+                final float totalWidth = p.getRunAdvance(string, 0, string.length(), 0,
+                        string.length(), false, string.length());
+                assertEquals(totalWidth, width, 1.0f);
+            }
         }
         {
             // RTL
             String string = "\u0644\u063A\u0629 \u0639\u0631\u0628\u064A\u0629"; // Arabic
+            {
+                final float width = p.getRunAdvance(string, 0, string.length(), 0,
+                        string.length(), true, 0);
+                assertEquals(0.0f, width);
+            }
+            {
+                for (int i = 0; i < string.length(); i++) {
+                    final float width = p.getRunAdvance(string, i, i + 1, 0, string.length(),
+                            true, i);
+                    assertEquals(0.0f, width);
+                }
+            }
             {
                 final float widthToMid = p.getRunAdvance(string, 0, string.length(), 0,
                         string.length(), true, string.length() / 2);

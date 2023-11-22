@@ -36,7 +36,8 @@ public class WizardManagerHelperTest extends AndroidTestCase {
         final Intent data = new Intent();
         data.putExtra("extraData", "shazam");
 
-        final Intent nextIntent = WizardManagerHelper.getNextIntent(intent, Activity.RESULT_OK, data);
+        final Intent nextIntent =
+                WizardManagerHelper.getNextIntent(intent, Activity.RESULT_OK, data);
         assertEquals("Next intent action should be NEXT", "com.android.wizard.NEXT",
                 nextIntent.getAction());
         assertEquals("Script URI should be the same as original intent",
@@ -117,6 +118,26 @@ public class WizardManagerHelperTest extends AndroidTestCase {
     }
 
     @SmallTest
+    public void testGlifIsDarkTheme() {
+        final Intent intent = new Intent();
+        intent.putExtra("theme", "glif");
+        assertFalse("Theme glif should be dark theme",
+                WizardManagerHelper.isLightTheme(intent, false));
+        assertFalse("Theme glif should be dark theme",
+                WizardManagerHelper.isLightTheme(intent, true));
+    }
+
+    @SmallTest
+    public void testGlifLightIsLightTheme() {
+        final Intent intent = new Intent();
+        intent.putExtra("theme", "glif_light");
+        assertTrue("Theme glif_light should be light theme",
+                WizardManagerHelper.isLightTheme(intent, false));
+        assertTrue("Theme glif_light should be light theme",
+                WizardManagerHelper.isLightTheme(intent, true));
+    }
+
+    @SmallTest
     public void testIsLightThemeDefault() {
         final Intent intent = new Intent();
         intent.putExtra("theme", "abracadabra");
@@ -133,5 +154,21 @@ public class WizardManagerHelperTest extends AndroidTestCase {
                 WizardManagerHelper.isLightTheme(intent, true));
         assertFalse("isLightTheme should return default value false",
                 WizardManagerHelper.isLightTheme(intent, false));
+    }
+
+    @SmallTest
+    public void testIsLightThemeString() {
+        assertTrue("isLightTheme should return true for material_light",
+                WizardManagerHelper.isLightTheme("material_light", false));
+        assertFalse("isLightTheme should return false for material",
+                WizardManagerHelper.isLightTheme("material", false));
+        assertTrue("isLightTheme should return true for holo_light",
+                WizardManagerHelper.isLightTheme("holo_light", false));
+        assertFalse("isLightTheme should return false for holo",
+                WizardManagerHelper.isLightTheme("holo", false));
+        assertTrue("isLightTheme should return default value true",
+                WizardManagerHelper.isLightTheme("abracadabra", true));
+        assertFalse("isLightTheme should return default value false",
+                WizardManagerHelper.isLightTheme("abracadabra", false));
     }
 }

@@ -8,7 +8,7 @@
    This file is part of MemCheck, a heavyweight Valgrind tool for
    detecting memory errors.
 
-   Copyright (C) 2000-2013 Julian Seward 
+   Copyright (C) 2000-2015 Julian Seward 
       jseward@acm.org
 
    This program is free software; you can redistribute it and/or
@@ -3785,6 +3785,10 @@ IRAtom* expr2vbits_Binop ( MCEnv* mce,
          /* I32(rm) x D128 -> D128 */
          return mkLazy2(mce, Ity_I128, vatom1, vatom2);
 
+      case Iop_RoundF128toInt:
+         /* I32(rm) x F128 -> F128 */
+         return mkLazy2(mce, Ity_I128, vatom1, vatom2);
+
       case Iop_D64toI64S:
       case Iop_D64toI64U:
       case Iop_I64StoD64:
@@ -4728,7 +4732,7 @@ IRAtom* expr2vbits_Load_WRK ( MCEnv* mce,
       di->guard = guard;
       /* Ideally the didn't-happen return value here would be all-ones
          (all-undefined), so it'd be obvious if it got used
-         inadvertantly.  We can get by with the IR-mandated default
+         inadvertently.  We can get by with the IR-mandated default
          value (0b01 repeating, 0x55 etc) as that'll still look pretty
          undefined if it ever leaks out. */
    }
@@ -6073,12 +6077,13 @@ static void do_shadow_LoadG ( MCEnv* mce, IRLoadG* lg )
    IROp   vwiden   = Iop_INVALID;
    IRType loadedTy = Ity_INVALID;
    switch (lg->cvt) {
-      case ILGop_Ident64: loadedTy = Ity_I64; vwiden = Iop_INVALID; break;
-      case ILGop_Ident32: loadedTy = Ity_I32; vwiden = Iop_INVALID; break;
-      case ILGop_16Uto32: loadedTy = Ity_I16; vwiden = Iop_16Uto32; break;
-      case ILGop_16Sto32: loadedTy = Ity_I16; vwiden = Iop_16Sto32; break;
-      case ILGop_8Uto32:  loadedTy = Ity_I8;  vwiden = Iop_8Uto32;  break;
-      case ILGop_8Sto32:  loadedTy = Ity_I8;  vwiden = Iop_8Sto32;  break;
+      case ILGop_IdentV128: loadedTy = Ity_V128; vwiden = Iop_INVALID; break;
+      case ILGop_Ident64:   loadedTy = Ity_I64;  vwiden = Iop_INVALID; break;
+      case ILGop_Ident32:   loadedTy = Ity_I32;  vwiden = Iop_INVALID; break;
+      case ILGop_16Uto32:   loadedTy = Ity_I16;  vwiden = Iop_16Uto32; break;
+      case ILGop_16Sto32:   loadedTy = Ity_I16;  vwiden = Iop_16Sto32; break;
+      case ILGop_8Uto32:    loadedTy = Ity_I8;   vwiden = Iop_8Uto32;  break;
+      case ILGop_8Sto32:    loadedTy = Ity_I8;   vwiden = Iop_8Sto32;  break;
       default: VG_(tool_panic)("do_shadow_LoadG");
    }
 
@@ -6251,7 +6256,6 @@ IRSB* MC_(instrument) ( VgCallbackClosure* closure,
                         IRType gWordTy, IRType hWordTy )
 {
    Bool    verboze = 0||False;
-   Bool    bogus;
    Int     i, j, first_stmt;
    IRStmt* st;
    MCEnv   mce;
@@ -6313,32 +6317,35 @@ IRSB* MC_(instrument) ( VgCallbackClosure* closure,
    }
    tl_assert( VG_(sizeXA)( mce.tmpMap ) == sb_in->tyenv->types_used );
 
-   /* Make a preliminary inspection of the statements, to see if there
-      are any dodgy-looking literals.  If there are, we generate
-      extra-detailed (hence extra-expensive) instrumentation in
-      places.  Scan the whole bb even if dodgyness is found earlier,
-      so that the flatness assertion is applied to all stmts. */
+   if (MC_(clo_expensive_definedness_checks)) {
+      /* For expensive definedness checking skip looking for bogus
+         literals. */
+      mce.bogusLiterals = True;
+   } else {
+      /* Make a preliminary inspection of the statements, to see if there
+         are any dodgy-looking literals.  If there are, we generate
+         extra-detailed (hence extra-expensive) instrumentation in
+         places.  Scan the whole bb even if dodgyness is found earlier,
+         so that the flatness assertion is applied to all stmts. */
+      Bool bogus = False;
 
-   bogus = False;
+      for (i = 0; i < sb_in->stmts_used; i++) {
+         st = sb_in->stmts[i];
+         tl_assert(st);
+         tl_assert(isFlatIRStmt(st));
 
-   for (i = 0; i < sb_in->stmts_used; i++) {
-
-      st = sb_in->stmts[i];
-      tl_assert(st);
-      tl_assert(isFlatIRStmt(st));
-
-      if (!bogus) {
-         bogus = checkForBogusLiterals(st);
-         if (0 && bogus) {
-            VG_(printf)("bogus: ");
-            ppIRStmt(st);
-            VG_(printf)("\n");
+         if (!bogus) {
+            bogus = checkForBogusLiterals(st);
+            if (0 && bogus) {
+               VG_(printf)("bogus: ");
+               ppIRStmt(st);
+               VG_(printf)("\n");
+            }
+            if (bogus) break;
          }
       }
-
+      mce.bogusLiterals = bogus;
    }
-
-   mce.bogusLiterals = bogus;
 
    /* Copy verbatim any IR preamble preceding the first IMark */
 
@@ -6786,7 +6793,7 @@ static IRAtom* gen_guarded_load_b ( MCEnv* mce, Int szB,
       di->guard = guard;
       /* Ideally the didn't-happen return value here would be
          all-zeroes (unknown-origin), so it'd be harmless if it got
-         used inadvertantly.  We slum it out with the IR-mandated
+         used inadvertently.  We slum it out with the IR-mandated
          default value (0b01 repeating, 0x55 etc) as that'll probably
          trump all legitimate otags via Max32, and it's pretty
          obviously bogus. */
@@ -7309,12 +7316,13 @@ static void do_origins_LoadG ( MCEnv* mce, IRLoadG* lg )
 {
    IRType loadedTy = Ity_INVALID;
    switch (lg->cvt) {
-      case ILGop_Ident64: loadedTy = Ity_I64; break;
-      case ILGop_Ident32: loadedTy = Ity_I32; break;
-      case ILGop_16Uto32: loadedTy = Ity_I16; break;
-      case ILGop_16Sto32: loadedTy = Ity_I16; break;
-      case ILGop_8Uto32:  loadedTy = Ity_I8;  break;
-      case ILGop_8Sto32:  loadedTy = Ity_I8;  break;
+      case ILGop_IdentV128: loadedTy = Ity_V128; break;
+      case ILGop_Ident64:   loadedTy = Ity_I64;  break;
+      case ILGop_Ident32:   loadedTy = Ity_I32;  break;
+      case ILGop_16Uto32:   loadedTy = Ity_I16;  break;
+      case ILGop_16Sto32:   loadedTy = Ity_I16;  break;
+      case ILGop_8Uto32:    loadedTy = Ity_I8;   break;
+      case ILGop_8Sto32:    loadedTy = Ity_I8;   break;
       default: VG_(tool_panic)("schemeS.IRLoadG");
    }
    IRAtom* ori_alt

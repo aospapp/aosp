@@ -5,10 +5,15 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
+import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
@@ -20,9 +25,8 @@ import org.bouncycastle.asn1.DERSet;
 import org.bouncycastle.asn1.cms.ContentInfo;
 import org.bouncycastle.asn1.cms.SignedData;
 import org.bouncycastle.asn1.cms.SignerInfo;
-import org.bouncycastle.operator.DefaultSignatureAlgorithmIdentifierFinder;
+import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.operator.OperatorCreationException;
-import org.bouncycastle.operator.SignatureAlgorithmIdentifierFinder;
 import org.bouncycastle.util.Encodable;
 import org.bouncycastle.util.Store;
 
@@ -184,11 +188,18 @@ public class CMSSignedData
         // this can happen if the signed message is sent simply to send a
         // certificate chain.
         //
-        if (signedData.getEncapContentInfo().getContent() != null)
+        ASN1Encodable content = signedData.getEncapContentInfo().getContent();
+        if (content != null)
         {
-            this.signedContent = new CMSProcessableByteArray(signedData.getEncapContentInfo().getContentType(),
-                    ((ASN1OctetString)(signedData.getEncapContentInfo()
-                                                .getContent())).getOctets());
+            if (content instanceof ASN1OctetString)
+            {
+                this.signedContent = new CMSProcessableByteArray(signedData.getEncapContentInfo().getContentType(),
+                    ((ASN1OctetString)content).getOctets());
+            }
+            else
+            {
+                this.signedContent = new PKCS7ProcessableObject(signedData.getEncapContentInfo().getContentType(), content);
+            }
         }
         else
         {
@@ -231,7 +242,6 @@ public class CMSSignedData
         {
             ASN1Set         s = signedData.getSignerInfos();
             List            signerInfos = new ArrayList();
-            SignatureAlgorithmIdentifierFinder sigAlgFinder = new DefaultSignatureAlgorithmIdentifierFinder();
 
             for (int i = 0; i != s.size(); i++)
             {
@@ -255,6 +265,26 @@ public class CMSSignedData
         }
 
         return signerInfoStore;
+    }
+
+    /**
+     * Return if this is object represents a detached signature.
+     *
+     * @return true if this message represents a detached signature, false otherwise.
+     */
+    public boolean isDetachedSignature()
+    {
+        return signedData.getEncapContentInfo().getContent() == null && signedData.getSignerInfos().size() > 0;
+    }
+
+    /**
+     * Return if this is object represents a certificate management message.
+     *
+     * @return true if the message has no signers or content, false otherwise.
+     */
+    public boolean isCertificateManagementMessage()
+    {
+        return signedData.getEncapContentInfo().getContent() == null && signedData.getSignerInfos().size() == 0;
     }
 
     /**
@@ -301,6 +331,23 @@ public class CMSSignedData
     //     return HELPER.getOtherRevocationInfo(otherRevocationInfoFormat, signedData.getCRLs());
     // }
     // END android-removed
+
+    /**
+     * Return the digest algorithm identifiers for the SignedData object
+     *
+     * @return the set of digest algorithm identifiers
+     */
+    public Set<AlgorithmIdentifier> getDigestAlgorithmIDs()
+    {
+        Set<AlgorithmIdentifier> digests = new HashSet<AlgorithmIdentifier>(signedData.getDigestAlgorithms().size());
+
+        for (Enumeration en = signedData.getDigestAlgorithms().getObjects(); en.hasMoreElements();)
+        {
+            digests.add(AlgorithmIdentifier.getInstance(en.nextElement()));
+        }
+
+        return Collections.unmodifiableSet(digests);
+    }
 
     /**
      * Return the a string representation of the OID associated with the

@@ -16,16 +16,18 @@
 
 package android.graphics.drawable.shapes.cts;
 
+import junit.framework.TestCase;
 
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Paint;
-import android.graphics.RectF;
 import android.graphics.Bitmap.Config;
+import android.graphics.Canvas;
+import android.graphics.Outline;
+import android.graphics.Paint;
 import android.graphics.Paint.Style;
+import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.drawable.shapes.RoundRectShape;
-
-import junit.framework.TestCase;
+import android.test.suitebuilder.annotation.SmallTest;
 
 public class RoundRectShapeTest extends TestCase {
     private static final int TEST_WIDTH  = 100;
@@ -90,5 +92,65 @@ public class RoundRectShapeTest extends TestCase {
         assertNotSame(roundRectShape, clonedShape);
         assertEquals(roundRectShape.getWidth(), clonedShape.getWidth());
         assertEquals(roundRectShape.getHeight(), clonedShape.getHeight());
+    }
+
+    @SmallTest
+    public void testGetOutline() {
+        Outline outline = new Outline();
+        Rect rect = new Rect();
+        RoundRectShape shape;
+
+        // All null.
+        shape = new RoundRectShape(null, null, null);
+        shape.getOutline(outline);
+        assertTrue(outline.isEmpty());
+        assertTrue(outline.getRadius() < 0);
+        assertFalse(outline.getRect(rect));
+
+        shape.resize(100, 100);
+        shape.getOutline(outline);
+        assertFalse(outline.isEmpty());
+        assertEquals(0.0f, outline.getRadius());
+        assertTrue(outline.getRect(rect));
+        assertEquals(0, rect.left);
+        assertEquals(0, rect.top);
+        assertEquals(100, rect.right);
+        assertEquals(100, rect.bottom);
+
+        // Consistent outer radius gives a rounded rect outline.
+        shape = new RoundRectShape(new float[] { 10, 10, 10, 10, 10, 10, 10, 10 }, null, null);
+        shape.getOutline(outline);
+        assertTrue(outline.isEmpty());
+        assertTrue(outline.getRadius() < 0);
+        assertFalse(outline.getRect(rect));
+
+        shape.resize(100, 100);
+        shape.getOutline(outline);
+        assertFalse(outline.isEmpty());
+        assertEquals(10.0f, outline.getRadius(), 0.01f);
+        assertTrue(outline.getRect(rect));
+        assertEquals(0, rect.left);
+        assertEquals(0, rect.top);
+        assertEquals(100, rect.right);
+        assertEquals(100, rect.bottom);
+
+        // Inconsistent outer radius gives a path outline.
+        shape = new RoundRectShape(new float[] { 10, 10, 0, 0, 0, 0, 0, 0 }, null, null);
+        shape.getOutline(outline);
+        assertTrue(outline.isEmpty());
+        assertTrue(outline.getRadius() < 0);
+        assertFalse(outline.getRect(rect));
+
+        shape.resize(100, 100);
+        shape.getOutline(outline);
+        assertFalse(outline.isEmpty());
+        assertTrue(outline.getRadius() < 0);
+        assertFalse(outline.getRect(rect));
+
+        // Inset can't produce a valid outline, so the resulting behavior is
+        // undefined. Just verify that it doesn't crash.
+        shape = new RoundRectShape(new float[] { 10, 10, 0, 0, 0, 0, 0, 0 },
+                new RectF(100, 100, 100, 100), new float[] { 10, 10, 0, 0, 0, 0, 0, 0 });
+        shape.getOutline(outline);
     }
 }

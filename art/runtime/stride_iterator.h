@@ -19,6 +19,8 @@
 
 #include <iterator>
 
+#include "base/logging.h"
+
 namespace art {
 
 template<typename T>
@@ -29,11 +31,12 @@ class StrideIterator : public std::iterator<std::forward_iterator_tag, T> {
   StrideIterator& operator=(const StrideIterator&) = default;
   StrideIterator& operator=(StrideIterator&&) = default;
 
-  StrideIterator(uintptr_t ptr, size_t stride)
-      : ptr_(ptr), stride_(stride) {
-  }
+  StrideIterator(T* ptr, size_t stride)
+      : ptr_(reinterpret_cast<uintptr_t>(ptr)),
+        stride_(stride) {}
 
   bool operator==(const StrideIterator& other) const {
+    DCHECK_EQ(stride_, other.stride_);
     return ptr_ == other.ptr_;
   }
 
@@ -47,9 +50,20 @@ class StrideIterator : public std::iterator<std::forward_iterator_tag, T> {
   }
 
   StrideIterator operator++(int) {
-    auto temp = *this;
+    StrideIterator<T> temp = *this;
     ptr_ += stride_;
     return temp;
+  }
+
+  StrideIterator operator+(ssize_t delta) const {
+    StrideIterator<T> temp = *this;
+    temp += delta;
+    return temp;
+  }
+
+  StrideIterator& operator+=(ssize_t delta) {
+    ptr_ += static_cast<ssize_t>(stride_) * delta;
+    return *this;
   }
 
   T& operator*() const {
@@ -62,6 +76,7 @@ class StrideIterator : public std::iterator<std::forward_iterator_tag, T> {
 
  private:
   uintptr_t ptr_;
+  // Not const for operator=.
   size_t stride_;
 };
 

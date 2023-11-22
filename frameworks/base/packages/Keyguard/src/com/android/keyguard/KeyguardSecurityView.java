@@ -22,7 +22,36 @@ public interface KeyguardSecurityView {
     static public final int VIEW_REVEALED = 2;
 
     int PROMPT_REASON_NONE = 0;
+
+    /**
+     * Strong auth is required because the device has just booted.
+     */
     int PROMPT_REASON_RESTART = 1;
+
+    /**
+     * Strong auth is required because the user hasn't used strong auth since a while.
+     */
+    int PROMPT_REASON_TIMEOUT = 2;
+
+    /**
+     * Strong auth is required because a device admin requested it.
+     */
+    int PROMPT_REASON_DEVICE_ADMIN = 3;
+
+    /**
+     * Some auth is required because the user force locked.
+     */
+    int PROMPT_REASON_USER_REQUEST = 4;
+
+    /**
+     * Some auth is required because too many wrong credentials led to a lockout.
+     */
+    int PROMPT_REASON_AFTER_LOCKOUT = 5;
+
+    /**
+     * Some auth is required because a single wrong credential has been tried.
+     */
+    int PROMPT_REASON_WRONG_CREDENTIAL = 6;
 
     /**
      * Interface back to keyguard to tell it when security
@@ -75,6 +104,14 @@ public interface KeyguardSecurityView {
      *               and {@link #PROMPT_REASON_RESTART}
      */
     void showPromptReason(int reason);
+
+    /**
+     * Show a message on the security view with a specified color
+     *
+     * @param message the message to show
+     * @param color the color to use
+     */
+    void showMessage(String message, int color);
 
     /**
      * Instruct the view to show usability hints, if any.

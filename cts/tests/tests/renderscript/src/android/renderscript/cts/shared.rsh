@@ -21,6 +21,9 @@ do { \
 \
 } while (0)
 
+#define _RS_ASSERT_EQU(e1, e2) \
+  (((e1) != (e2)) ? (failed = true, rsDebug(#e1 " != " #e2, (e1), (e2)), false) : true)
+
 /* These constants must match those in UnitTest.java */
 static const int RS_MSG_TEST_PASSED = 100;
 static const int RS_MSG_TEST_FAILED = 101;

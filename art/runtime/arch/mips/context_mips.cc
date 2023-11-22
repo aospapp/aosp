@@ -16,7 +16,6 @@
 
 #include "context_mips.h"
 
-#include "art_method-inl.h"
 #include "base/bit_utils.h"
 #include "quick/quick_method_frame_info.h"
 
@@ -29,27 +28,27 @@ void MipsContext::Reset() {
   std::fill_n(gprs_, arraysize(gprs_), nullptr);
   std::fill_n(fprs_, arraysize(fprs_), nullptr);
   gprs_[SP] = &sp_;
-  gprs_[RA] = &ra_;
+  gprs_[T9] = &t9_;
+  gprs_[A0] = &arg0_;
   // Initialize registers with easy to spot debug values.
   sp_ = MipsContext::kBadGprBase + SP;
-  ra_ = MipsContext::kBadGprBase + RA;
+  t9_ = MipsContext::kBadGprBase + T9;
+  arg0_ = 0;
 }
 
-void MipsContext::FillCalleeSaves(const StackVisitor& fr) {
-  ArtMethod* method = fr.GetMethod();
-  const QuickMethodFrameInfo frame_info = method->GetQuickFrameInfo();
+void MipsContext::FillCalleeSaves(uint8_t* frame, const QuickMethodFrameInfo& frame_info) {
   int spill_pos = 0;
 
   // Core registers come first, from the highest down to the lowest.
   for (uint32_t core_reg : HighToLowBits(frame_info.CoreSpillMask())) {
-    gprs_[core_reg] = fr.CalleeSaveAddress(spill_pos, frame_info.FrameSizeInBytes());
+    gprs_[core_reg] = CalleeSaveAddress(frame, spill_pos, frame_info.FrameSizeInBytes());
     ++spill_pos;
   }
   DCHECK_EQ(spill_pos, POPCOUNT(frame_info.CoreSpillMask()));
 
   // FP registers come second, from the highest down to the lowest.
   for (uint32_t fp_reg : HighToLowBits(frame_info.FpSpillMask())) {
-    fprs_[fp_reg] = fr.CalleeSaveAddress(spill_pos, frame_info.FrameSizeInBytes());
+    fprs_[fp_reg] = CalleeSaveAddress(frame, spill_pos, frame_info.FrameSizeInBytes());
     ++spill_pos;
   }
   DCHECK_EQ(spill_pos, POPCOUNT(frame_info.CoreSpillMask()) + POPCOUNT(frame_info.FpSpillMask()));
@@ -76,6 +75,11 @@ void MipsContext::SmashCallerSaves() {
   gprs_[A1] = nullptr;
   gprs_[A2] = nullptr;
   gprs_[A3] = nullptr;
+
+  fprs_[F12] = nullptr;
+  fprs_[F13] = nullptr;
+  fprs_[F14] = nullptr;
+  fprs_[F15] = nullptr;
 }
 
 extern "C" NO_RETURN void art_quick_do_long_jump(uint32_t*, uint32_t*);

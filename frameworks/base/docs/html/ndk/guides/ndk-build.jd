@@ -8,7 +8,6 @@ page.title=ndk-build
       <ol>
         <li><a href="#int">Internals</a></li>
          <li><a href="#ifc">Invoking from the Command Line</a></li>
-         <li><a href="#ife">Invoking from Eclipse</a></li>
          <li><a href="#6432">64-Bit and 32-Bit Toolchains</a></li>
          <li><a href="#req">Requirements</a></li>
           </ol>
@@ -77,37 +76,14 @@ $ ndk-build clean
   <dt>{@code NDK_HOST_32BIT=1}</dt>
   <dd>Always use the toolchain in 32-bit mode (see <a href="#6432">64-bit and 32-bit
   Toolchains</a>).</dd>
-  <dt>{@code NDK_APPLICATION_MK=&lt;file&gt;}</dt>
+  <dt>{@code NDK_APPLICATION_MK=<file>}</dt>
   <dd>Build, using a specific <code>Application.mk</code> file pointed to by the
   {@code NDK_APPLICATION_MK} variable.</dd>
-  <dt>{@code -C &lt;project&gt;}</dt>
-  <dd>Build the native code for the project path located at {@code &lt;project&gt;}. Useful if you
+  <dt>{@code -C <project>}</dt>
+  <dd>Build the native code for the project path located at {@code <project>}. Useful if you
   don't want to {@code cd} to it in your terminal.</dd>
 </dl>
 
-<h2 id="ife">Invoking from Eclipse</h2>
-<p>To build from Eclipse, make sure that you have configured it as described in
-<a href="{@docRoot}ndk/guides/setup.html#configure">Setup</a>. If you
-wish to build using the default <code>ndk-build</code> command, with no
-options, you can just build your project just as you would any Android project.
-To get Eclipse to add any of the options described above, follow these steps:</p>
-<ol type="1">
-<li>In the <em>Project Explorer</em> pane, right-click your project name.</li>
-<li>Select <strong>Properties</strong>.</li>
-<li>Click <strong>C/C++ Build</strong>.</li>
-<li>Under the <em>Builder Settings</em> tab, uncheck <strong>Use default build command</strong>.</li>
-<li>In the <em>Build command</em> field, enter the entire build string as if you were typing it on
-the command line.</li>
-<li>Click <strong>OK</strong>.</li>
-</ol>
-Figure 1 shows an example of an entered string.<br>
-<br>
-<img src="./images/NDK_build_string.png"
-    srcset="./images/NDK_build_string@2x.png 2x"
-    alt="enter the build string next to 'Build command'"
-    height="152" width="501">
-<p style="clear:both"><b>Figure 1.</b> Specifying a debug build from within
-Eclipse</p>
 <p><a class="anchor" id="dvr"></a> </p>
 <h3>Debuggable versus Release builds</h3>
 <p>Use the <code>NDK_DEBUG</code> option and, in certain cases,
@@ -159,8 +135,8 @@ pick the native debug files generated with {@code NDK_DEBUG=1}.
 
 <h2 id="6432">64-Bit and 32-Bit Toolchains</h2>
 <p>Some toolchains come with both 64-bit and 32-bit versions. For example,
-directories {@code &lt;ndk&gt;/toolchain/&lt;name&gt;/prebuilt/} and
-{@code &lt;ndk&gt;/prebuilt/} may contain both {@code linux-x86} and
+directories {@code <ndk>/toolchain/<name>/prebuilt/} and
+{@code <ndk>/prebuilt/} may contain both {@code linux-x86} and
 {@code linux-x86_64} folders for Linux tools in 32-bit and 64-bit modes,
 respectively. The ndk-build script automatically chooses a 64-bit version of
 the toolchain if the host OS supports it. You can force the use of a 32-bit
@@ -182,7 +158,7 @@ $ export GNUMAKE=/usr/local/bin/gmake
 $ ndk-build
 </pre>
 
-<p>You can override other host prebuilt tools in {@code $NDK/prebuilt/&lt;OS&gt;/bin/}
+<p>You can override other host prebuilt tools in {@code $NDK/prebuilt/<OS>/bin/}
 with the following environment variables: </p>
 
 <pre class="no-pretty-print">

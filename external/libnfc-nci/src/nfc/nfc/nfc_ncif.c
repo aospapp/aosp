@@ -624,10 +624,10 @@ UINT8 * nfc_ncif_decode_rf_params (tNFC_RF_TECH_PARAMS *p_param, UINT8 *p)
     len             = *p++;
     p_start         = p;
     memset ( &p_param->param, 0, sizeof (tNFC_RF_TECH_PARAMU));
-    switch (p_param->mode)
+
+    if (  NCI_DISCOVERY_TYPE_POLL_A == p_param->mode
+       || NCI_DISCOVERY_TYPE_POLL_A_ACTIVE == p_param->mode  )
     {
-    case NCI_DISCOVERY_TYPE_POLL_A:
-    case NCI_DISCOVERY_TYPE_POLL_A_ACTIVE:
         p_pa        = &p_param->param.pa;
         /*
 SENS_RES Response   2 bytes Defined in [DIGPROT] Available after Technology Detection
@@ -654,9 +654,9 @@ HRx 0 or 2 Octets   If present, the first byte SHALL contain HR0 and the second 
                 p_pa->hr[1]  = *p;
             }
         }
-        break;
-
-    case NCI_DISCOVERY_TYPE_POLL_B:
+    }
+    else if (NCI_DISCOVERY_TYPE_POLL_B == p_param->mode)
+    {
         /*
 SENSB_RES Response length (n)   1 byte  Length of SENSB_RES Response (Byte 2 - Byte 12 or 13)Available after Technology Detection
 SENSB_RES Response Byte 2 - Byte 12 or 13   11 or 12 bytes  Defined in [DIGPROT] Available after Technology Detection
@@ -667,10 +667,10 @@ SENSB_RES Response Byte 2 - Byte 12 or 13   11 or 12 bytes  Defined in [DIGPROT]
             p_pb->sensb_res_len = NCI_MAX_SENSB_RES_LEN;
         STREAM_TO_ARRAY (p_pb->sensb_res, p, p_pb->sensb_res_len);
         memcpy (p_pb->nfcid0, p_pb->sensb_res, NFC_NFCID0_MAX_LEN);
-        break;
-
-    case NCI_DISCOVERY_TYPE_POLL_F:
-    case NCI_DISCOVERY_TYPE_POLL_F_ACTIVE:
+    }
+    else if (  NCI_DISCOVERY_TYPE_POLL_F == p_param->mode
+            || NCI_DISCOVERY_TYPE_POLL_F_ACTIVE == p_param->mode  )
+    {
         /*
 Bit Rate    1 byte  1   212 kbps/2   424 kbps/0 and 3 to 255  RFU
 SENSF_RES Response length.(n) 1 byte  Length of SENSF_RES (Byte 2 - Byte 17 or 19).Available after Technology Detection
@@ -685,26 +685,26 @@ SENSF_RES Response Byte 2 - Byte 17 or 19  n bytes Defined in [DIGPROT] Availabl
         memcpy (p_pf->nfcid2, p_pf->sensf_res, NCI_NFCID2_LEN);
         p_pf->mrti_check    = p_pf->sensf_res[NCI_MRTI_CHECK_INDEX];
         p_pf->mrti_update   = p_pf->sensf_res[NCI_MRTI_UPDATE_INDEX];
-        break;
-
-    case NCI_DISCOVERY_TYPE_LISTEN_F:
-    case NCI_DISCOVERY_TYPE_LISTEN_F_ACTIVE:
+    }
+    else if (  NCI_DISCOVERY_TYPE_LISTEN_F == p_param->mode
+            || NCI_DISCOVERY_TYPE_LISTEN_F_ACTIVE == p_param->mode  )
+    {
         p_lf                = &p_param->param.lf;
         u8                  = *p++;
         if (u8)
         {
             STREAM_TO_ARRAY (p_lf->nfcid2, p, NCI_NFCID2_LEN);
         }
-        break;
-
-    case NCI_DISCOVERY_TYPE_POLL_ISO15693:
+    }
+    else if (NCI_DISCOVERY_TYPE_POLL_ISO15693 == p_param->mode)
+    {
         p_i93               = &p_param->param.pi93;
         p_i93->flag         = *p++;
         p_i93->dsfid        = *p++;
         STREAM_TO_ARRAY (p_i93->uid, p, NFC_ISO15693_UID_LEN);
-        break;
-
-    case NCI_DISCOVERY_TYPE_POLL_KOVIO:
+    }
+    else if (NCI_DISCOVERY_TYPE_POLL_KOVIO == p_param->mode)
+    {
         p_param->param.pk.uid_len = *p++;
         if (p_param->param.pk.uid_len > NFC_KOVIO_MAX_LEN)
         {
@@ -712,7 +712,6 @@ SENSF_RES Response Byte 2 - Byte 17 or 19  n bytes Defined in [DIGPROT] Availabl
             p_param->param.pk.uid_len = NFC_KOVIO_MAX_LEN;
         }
         STREAM_TO_ARRAY (p_param->param.pk.uid, p, p_param->param.pk.uid_len);
-        break;
     }
 
     return (p_start + len);
@@ -742,7 +741,7 @@ void nfc_ncif_proc_discover_ntf (UINT8 *p, UINT16 plen)
         evt_data.result.rf_tech_param.mode  = *p++;
         p = nfc_ncif_decode_rf_params (&evt_data.result.rf_tech_param, p);
 
-        evt_data.result.more            = *p++;
+        evt_data.result.more = *p++;
         (*nfc_cb.p_discv_cback) (NFC_RESULT_DEVT, &evt_data);
     }
 }

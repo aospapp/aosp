@@ -29,7 +29,7 @@ import java.util.Date;
  * This is similar to {@link com.android.internal.telephony.SMSDispatcher.SmsTracker} used for
  * outgoing messages.
  */
-public final class InboundSmsTracker {
+public class InboundSmsTracker {
 
     // Fields for single and multi-part messages
     private final byte[] mPdu;
@@ -37,9 +37,11 @@ public final class InboundSmsTracker {
     private final int mDestPort;
     private final boolean mIs3gpp2;
     private final boolean mIs3gpp2WapPdu;
+    private final String mMessageBody;
+    // Copied from SmsMessageBase#getDisplayOriginatingAddress used for blocking messages.
+    private final String mAddress;
 
     // Fields for concatenating multi-part SMS messages
-    private final String mAddress;
     private final int mReferenceNumber;
     private final int mSequenceNumber;
     private final int mMessageCount;
@@ -65,21 +67,24 @@ public final class InboundSmsTracker {
 
     /**
      * Create a tracker for a single-part SMS.
+     *
      * @param pdu the message PDU
      * @param timestamp the message timestamp
      * @param destPort the destination port
      * @param is3gpp2 true for 3GPP2 format; false for 3GPP format
      * @param is3gpp2WapPdu true for 3GPP2 format WAP PDU; false otherwise
+     * @param address originating address, or email if this message was from an email gateway
      */
-    InboundSmsTracker(byte[] pdu, long timestamp, int destPort, boolean is3gpp2,
-            boolean is3gpp2WapPdu) {
+    public InboundSmsTracker(byte[] pdu, long timestamp, int destPort, boolean is3gpp2,
+            boolean is3gpp2WapPdu, String address, String messageBody) {
         mPdu = pdu;
         mTimestamp = timestamp;
         mDestPort = destPort;
         mIs3gpp2 = is3gpp2;
         mIs3gpp2WapPdu = is3gpp2WapPdu;
+        mMessageBody = messageBody;
+        mAddress = address;
         // fields for multi-part SMS
-        mAddress = null;
         mReferenceNumber = -1;
         mSequenceNumber = getIndexOffset();     // 0 or 1, depending on type
         mMessageCount = 1;
@@ -87,16 +92,16 @@ public final class InboundSmsTracker {
 
     /**
      * Create a tracker for a multi-part SMS. Sequence numbers start at 1 for 3GPP and regular
-     * concatenated 3GPP2 messages, but CDMA WAP push sequence numbers start at 0. The caller
-     * will subtract 1 if necessary so that the sequence number is always 0-based. When loading
-     * and saving to the raw table, the sequence number is adjusted if necessary for backwards
+     * concatenated 3GPP2 messages, but CDMA WAP push sequence numbers start at 0. The caller will
+     * subtract 1 if necessary so that the sequence number is always 0-based. When loading and
+     * saving to the raw table, the sequence number is adjusted if necessary for backwards
      * compatibility.
      *
      * @param pdu the message PDU
      * @param timestamp the message timestamp
      * @param destPort the destination port
      * @param is3gpp2 true for 3GPP2 format; false for 3GPP format
-     * @param address the originating address
+     * @param address originating address, or email if this message was from an email gateway
      * @param referenceNumber the concatenated reference number
      * @param sequenceNumber the sequence number of this segment (0-based)
      * @param messageCount the total number of segments
@@ -104,14 +109,15 @@ public final class InboundSmsTracker {
      */
     public InboundSmsTracker(byte[] pdu, long timestamp, int destPort, boolean is3gpp2,
             String address, int referenceNumber, int sequenceNumber, int messageCount,
-            boolean is3gpp2WapPdu) {
+            boolean is3gpp2WapPdu, String messageBody) {
         mPdu = pdu;
         mTimestamp = timestamp;
         mDestPort = destPort;
         mIs3gpp2 = is3gpp2;
         mIs3gpp2WapPdu = is3gpp2WapPdu;
-        // fields for multi-part SMS
+        mMessageBody = messageBody;
         mAddress = address;
+        // fields for multi-part SMS
         mReferenceNumber = referenceNumber;
         mSequenceNumber = sequenceNumber;
         mMessageCount = messageCount;
@@ -122,7 +128,7 @@ public final class InboundSmsTracker {
      * Since this constructor is used only for recovery during startup, the Dispatcher is null.
      * @param cursor a Cursor pointing to the row to construct this SmsTracker for
      */
-    InboundSmsTracker(Cursor cursor, boolean isCurrentFormat3gpp2) {
+    public InboundSmsTracker(Cursor cursor, boolean isCurrentFormat3gpp2) {
         mPdu = HexDump.hexStringToByteArray(cursor.getString(InboundSmsHandler.PDU_COLUMN));
 
         if (cursor.isNull(InboundSmsHandler.DESTINATION_PORT_COLUMN)) {
@@ -143,11 +149,11 @@ public final class InboundSmsTracker {
         }
 
         mTimestamp = cursor.getLong(InboundSmsHandler.DATE_COLUMN);
+        mAddress = cursor.getString(InboundSmsHandler.ADDRESS_COLUMN);
 
         if (cursor.isNull(InboundSmsHandler.COUNT_COLUMN)) {
             // single-part message
             long rowId = cursor.getLong(InboundSmsHandler.ID_COLUMN);
-            mAddress = null;
             mReferenceNumber = -1;
             mSequenceNumber = getIndexOffset();     // 0 or 1, depending on type
             mMessageCount = 1;
@@ -155,7 +161,6 @@ public final class InboundSmsTracker {
             mDeleteWhereArgs = new String[]{Long.toString(rowId)};
         } else {
             // multi-part message
-            mAddress = cursor.getString(InboundSmsHandler.ADDRESS_COLUMN);
             mReferenceNumber = cursor.getInt(InboundSmsHandler.REFERENCE_NUMBER_COLUMN);
             mMessageCount = cursor.getInt(InboundSmsHandler.COUNT_COLUMN);
 
@@ -172,9 +177,10 @@ public final class InboundSmsTracker {
             mDeleteWhereArgs = new String[]{mAddress,
                     Integer.toString(mReferenceNumber), Integer.toString(mMessageCount)};
         }
+        mMessageBody = cursor.getString(InboundSmsHandler.MESSAGE_BODY_COLUMN);
     }
 
-    ContentValues getContentValues() {
+    public ContentValues getContentValues() {
         ContentValues values = new ContentValues();
         values.put("pdu", HexDump.toHexString(mPdu));
         values.put("date", mTimestamp);
@@ -201,6 +207,7 @@ public final class InboundSmsTracker {
             values.put("sequence", mSequenceNumber);
             values.put("count", mMessageCount);
         }
+        values.put("message_body", mMessageBody);
         return values;
     }
 
@@ -209,7 +216,7 @@ public final class InboundSmsTracker {
      * @param destPort the destination port value, with flags
      * @return the real destination port, or -1 for no port
      */
-    static int getRealDestPort(int destPort) {
+    public static int getRealDestPort(int destPort) {
         if ((destPort & DEST_PORT_FLAG_NO_PORT) != 0) {
             return -1;
         } else {
@@ -222,7 +229,7 @@ public final class InboundSmsTracker {
      * @param deleteWhere the selection to use
      * @param deleteWhereArgs the selection args to use
      */
-    void setDeleteWhere(String deleteWhere, String[] deleteWhereArgs) {
+    public void setDeleteWhere(String deleteWhere, String[] deleteWhereArgs) {
         mDeleteWhere = deleteWhere;
         mDeleteWhereArgs = deleteWhereArgs;
     }
@@ -247,23 +254,23 @@ public final class InboundSmsTracker {
         return builder.toString();
     }
 
-    byte[] getPdu() {
+    public byte[] getPdu() {
         return mPdu;
     }
 
-    long getTimestamp() {
+    public long getTimestamp() {
         return mTimestamp;
     }
 
-    int getDestPort() {
+    public int getDestPort() {
         return mDestPort;
     }
 
-    boolean is3gpp2() {
+    public boolean is3gpp2() {
         return mIs3gpp2;
     }
 
-    String getFormat() {
+    public String getFormat() {
         return mIs3gpp2 ? SmsConstants.FORMAT_3GPP2 : SmsConstants.FORMAT_3GPP;
     }
 
@@ -272,31 +279,35 @@ public final class InboundSmsTracker {
      * messages, which use a 0-based index.
      * @return the offset to use to convert between mIndex and the sequence number
      */
-    int getIndexOffset() {
+    public int getIndexOffset() {
         return (mIs3gpp2 && mIs3gpp2WapPdu) ? 0 : 1;
     }
 
-    String getAddress() {
+    public String getAddress() {
         return mAddress;
     }
 
-    int getReferenceNumber() {
+    public String getMessageBody() {
+        return mMessageBody;
+    }
+
+    public int getReferenceNumber() {
         return mReferenceNumber;
     }
 
-    int getSequenceNumber() {
+    public int getSequenceNumber() {
         return mSequenceNumber;
     }
 
-    int getMessageCount() {
+    public int getMessageCount() {
         return mMessageCount;
     }
 
-    String getDeleteWhere() {
+    public String getDeleteWhere() {
         return mDeleteWhere;
     }
 
-    String[] getDeleteWhereArgs() {
+    public String[] getDeleteWhereArgs() {
         return mDeleteWhereArgs;
     }
 }

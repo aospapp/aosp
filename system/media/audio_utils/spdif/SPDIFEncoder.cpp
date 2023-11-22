@@ -34,7 +34,8 @@ static int32_t sEndianDetector = 1;
 #define isLittleEndian()  (*((uint8_t *)&sEndianDetector))
 
 SPDIFEncoder::SPDIFEncoder(audio_format_t format)
-  : mSampleRate(48000)
+  : mFramer(NULL)
+  , mSampleRate(48000)
   , mBurstBuffer(NULL)
   , mBurstBufferSizeBytes(0)
   , mRateMultiplier(1)
@@ -54,16 +55,18 @@ SPDIFEncoder::SPDIFEncoder(audio_format_t format)
             mFramer = new DTSFrameScanner();
             break;
         default:
-            ALOGE("SPDIFEncoder: ERROR invalid audio format = 0x%08X", format);
-            mFramer = NULL;
             break;
     }
+
+    // This a programmer error. Call isFormatSupported() first.
+    LOG_ALWAYS_FATAL_IF((mFramer == NULL),
+        "SPDIFEncoder: invalid audio format = 0x%08X", format);
 
     mBurstBufferSizeBytes = sizeof(uint16_t)
             * SPDIF_ENCODED_CHANNEL_COUNT
             * mFramer->getMaxSampleFramesPerSyncFrame();
 
-    ALOGI("SPDIFEncoder: mBurstBufferSizeBytes = %d, littleEndian = %d",
+    ALOGI("SPDIFEncoder: mBurstBufferSizeBytes = %zu, littleEndian = %d",
             mBurstBufferSizeBytes, isLittleEndian());
     mBurstBuffer = new uint16_t[mBurstBufferSizeBytes >> 1];
     clearBurstBuffer();
@@ -100,10 +103,12 @@ int SPDIFEncoder::getBytesPerOutputFrame()
 
 void SPDIFEncoder::writeBurstBufferShorts(const uint16_t *buffer, size_t numShorts)
 {
+    // avoid static analyser warning
+    LOG_ALWAYS_FATAL_IF((mBurstBuffer == NULL), "mBurstBuffer never allocated");
     mByteCursor = (mByteCursor + 1) & ~1; // round up to even byte
     size_t bytesToWrite = numShorts * sizeof(uint16_t);
     if ((mByteCursor + bytesToWrite) > mBurstBufferSizeBytes) {
-        ALOGE("SPDIFEncoder: Burst buffer overflow!\n");
+        ALOGE("SPDIFEncoder: Burst buffer overflow!");
         reset();
         return;
     }
@@ -123,7 +128,7 @@ void SPDIFEncoder::writeBurstBufferBytes(const uint8_t *buffer, size_t numBytes)
 {
     size_t bytesToWrite = numBytes;
     if ((mByteCursor + bytesToWrite) > mBurstBufferSizeBytes) {
-        ALOGE("SPDIFEncoder: Burst buffer overflow!\n");
+        ALOGE("SPDIFEncoder: Burst buffer overflow!");
         clearBurstBuffer();
         return;
     }
@@ -224,7 +229,7 @@ ssize_t SPDIFEncoder::write( const void *buffer, size_t numBytes )
 {
     size_t bytesLeft = numBytes;
     const uint8_t *data = (const uint8_t *)buffer;
-    ALOGV("SPDIFEncoder: mScanning = %d, write(buffer[0] = 0x%02X, numBytes = %u)",
+    ALOGV("SPDIFEncoder: mScanning = %d, write(buffer[0] = 0x%02X, numBytes = %zu)",
         mScanning, (uint) *data, numBytes);
     while (bytesLeft > 0) {
         if (mScanning) {

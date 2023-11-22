@@ -21,10 +21,11 @@ import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.preference.Preference;
-import android.preference.Preference.OnPreferenceChangeListener;
-import android.preference.Preference.OnPreferenceClickListener;
-import android.preference.SwitchPreference;
+import android.os.UserHandle;
+import android.support.v14.preference.SwitchPreference;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.Preference.OnPreferenceChangeListener;
+import android.support.v7.preference.Preference.OnPreferenceClickListener;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.inputmethod.InputMethodInfo;
@@ -34,10 +35,13 @@ import android.widget.Toast;
 
 import com.android.internal.inputmethod.InputMethodUtils;
 import com.android.settings.R;
+import com.android.settingslib.RestrictedLockUtils;
+import com.android.settingslib.RestrictedSwitchPreference;
 
 import java.text.Collator;
-import java.util.ArrayList;
 import java.util.List;
+
+import static com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
 
 /**
  * Input method preference.
@@ -46,10 +50,11 @@ import java.util.List;
  * is used to enable or disable the IME. 2) An instance without a switch is used to invoke the
  * setting activity of the IME.
  */
-class InputMethodPreference extends SwitchPreference implements OnPreferenceClickListener,
+class InputMethodPreference extends RestrictedSwitchPreference implements OnPreferenceClickListener,
         OnPreferenceChangeListener {
     private static final String TAG = InputMethodPreference.class.getSimpleName();
     private static final String EMPTY_TEXT = "";
+    private static final int NO_WIDGET = 0;
 
     interface OnSavePreferenceListener {
         /**
@@ -80,7 +85,7 @@ class InputMethodPreference extends SwitchPreference implements OnPreferenceClic
      * @param isImeEnabler true if this preference is the IME enabler that has enable/disable
      *     switches for all available IMEs, not the list of enabled IMEs.
      * @param isAllowedByOrganization false if the IME has been disabled by a device or profile
-           owner.
+     *     owner.
      * @param onSaveListener The listener called when this preference has been changed and needs
      *     to save the state to shared preference.
      */
@@ -93,8 +98,8 @@ class InputMethodPreference extends SwitchPreference implements OnPreferenceClic
         mIsAllowedByOrganization = isAllowedByOrganization;
         mOnSaveListener = onSaveListener;
         if (!isImeEnabler) {
-            // Hide switch widget.
-            setWidgetLayoutResource(0 /* widgetLayoutResId */);
+            // Remove switch widget.
+            setWidgetLayoutResource(NO_WIDGET);
         }
         // Disable on/off switch texts.
         setSwitchTextOn(EMPTY_TEXT);
@@ -124,7 +129,7 @@ class InputMethodPreference extends SwitchPreference implements OnPreferenceClic
     private boolean isImeEnabler() {
         // If this {@link SwitchPreference} doesn't have a widget layout, we explicitly hide the
         // switch widget at constructor.
-        return getWidgetLayoutResource() != 0;
+        return getWidgetLayoutResource() != NO_WIDGET;
     }
 
     @Override
@@ -181,11 +186,25 @@ class InputMethodPreference extends SwitchPreference implements OnPreferenceClic
     void updatePreferenceViews() {
         final boolean isAlwaysChecked = mInputMethodSettingValues.isAlwaysCheckedIme(
                 mImi, getContext());
-        // Only when this preference has a switch and an input method should be always enabled,
+        // When this preference has a switch and an input method should be always enabled,
         // this preference should be disabled to prevent accidentally disabling an input method.
-        setEnabled(!((isAlwaysChecked && isImeEnabler()) || (!mIsAllowedByOrganization)));
+        // This preference should also be disabled in case the admin does not allow this input
+        // method.
+        if (isAlwaysChecked && isImeEnabler()) {
+            setDisabledByAdmin(null);
+            setEnabled(false);
+        } else if (!mIsAllowedByOrganization) {
+            EnforcedAdmin admin =
+                    RestrictedLockUtils.checkIfInputMethodDisallowed(getContext(),
+                            mImi.getPackageName(), UserHandle.myUserId());
+            setDisabledByAdmin(admin);
+        } else {
+            setEnabled(true);
+        }
         setChecked(mInputMethodSettingValues.isEnabledImi(mImi));
-        setSummary(getSummaryString());
+        if (!isDisabledByAdmin()) {
+            setSummary(getSummaryString());
+        }
     }
 
     private InputMethodManager getInputMethodManager() {
@@ -193,20 +212,10 @@ class InputMethodPreference extends SwitchPreference implements OnPreferenceClic
     }
 
     private String getSummaryString() {
-        final Context context = getContext();
-        if (!mIsAllowedByOrganization) {
-            return context.getString(R.string.accessibility_feature_or_input_method_not_allowed);
-        }
         final InputMethodManager imm = getInputMethodManager();
         final List<InputMethodSubtype> subtypes = imm.getEnabledInputMethodSubtypeList(mImi, true);
-        final ArrayList<CharSequence> subtypeLabels = new ArrayList<>();
-        for (final InputMethodSubtype subtype : subtypes) {
-            final CharSequence label = subtype.getDisplayName(
-                  context, mImi.getPackageName(), mImi.getServiceInfo().applicationInfo);
-            subtypeLabels.add(label);
-        }
-        // TODO: A delimiter of subtype labels should be localized.
-        return TextUtils.join(", ", subtypeLabels);
+        return InputMethodAndSubtypeUtil.getSubtypeLocaleNameListAsSentence(
+                subtypes, getContext(), mImi);
     }
 
     private void showSecurityWarnDialog(final InputMethodInfo imi) {

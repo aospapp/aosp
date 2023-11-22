@@ -15,13 +15,16 @@
 class GlyphGenerator : public GrPathRange::PathGenerator {
 public:
     GlyphGenerator(const SkTypeface& typeface, const SkDescriptor& desc)
-        : fDesc(desc.copy()),
-          fScalerContext(typeface.createScalerContext(fDesc)) {
-        fFlipMatrix.setScale(1, -1);
-    }
+        : fScalerContext(typeface.createScalerContext(&desc))
+#ifdef SK_DEBUG
+        , fDesc(desc.copy())
+#endif
+    {}
 
     virtual ~GlyphGenerator() {
+#ifdef SK_DEBUG
         SkDescriptor::Free(fDesc);
+#endif
     }
 
     int getNumPaths() override {
@@ -34,29 +37,29 @@ public:
         fScalerContext->getMetrics(&skGlyph);
 
         fScalerContext->getPath(skGlyph, out);
-        out->transform(fFlipMatrix); // Load glyphs with the inverted y-direction.
     }
-
+#ifdef SK_DEBUG
     bool isEqualTo(const SkDescriptor& desc) const override {
         return fDesc->equals(desc);
     }
-
+#endif
 private:
-    SkDescriptor* const fDesc;
     const SkAutoTDelete<SkScalerContext> fScalerContext;
-    SkMatrix fFlipMatrix;
+#ifdef SK_DEBUG
+    SkDescriptor* const fDesc;
+#endif
 };
 
 GrPathRange* GrPathRendering::createGlyphs(const SkTypeface* typeface,
                                            const SkDescriptor* desc,
-                                           const SkStrokeRec& stroke) {
-    if (NULL == typeface) {
+                                           const GrStrokeInfo& stroke) {
+    if (nullptr == typeface) {
         typeface = SkTypeface::GetDefaultTypeface();
-        SkASSERT(NULL != typeface);
+        SkASSERT(nullptr != typeface);
     }
 
     if (desc) {
-        SkAutoTUnref<GlyphGenerator> generator(SkNEW_ARGS(GlyphGenerator, (*typeface, *desc)));
+        SkAutoTUnref<GlyphGenerator> generator(new GlyphGenerator(*typeface, *desc));
         return this->createPathRange(generator, stroke);
     }
 
@@ -74,6 +77,6 @@ GrPathRange* GrPathRendering::createGlyphs(const SkTypeface* typeface,
     genericDesc->addEntry(kRec_SkDescriptorTag, sizeof(rec), &rec);
     genericDesc->computeChecksum();
 
-    SkAutoTUnref<GlyphGenerator> generator(SkNEW_ARGS(GlyphGenerator, (*typeface, *genericDesc)));
+    SkAutoTUnref<GlyphGenerator> generator(new GlyphGenerator(*typeface, *genericDesc));
     return this->createPathRange(generator, stroke);
 }

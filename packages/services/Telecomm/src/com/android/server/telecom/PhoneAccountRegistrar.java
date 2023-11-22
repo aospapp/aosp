@@ -16,7 +16,6 @@
 
 package com.android.server.telecom;
 
-import android.app.ActivityManager;
 import android.Manifest;
 import android.content.ComponentName;
 import android.content.Context;
@@ -29,7 +28,8 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
-import android.os.Binder;
+import android.os.Bundle;
+import android.os.AsyncTask;
 import android.os.PersistableBundle;
 import android.os.Process;
 import android.os.UserHandle;
@@ -74,7 +74,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
@@ -95,20 +97,16 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * 3) The user running the app that is requesting the phone account information.
  *
  * For example, I have a device with 2 users, primary (A) and secondary (B), and the secondary user
- * has a work profile running as another user (B2). Lets say that user B opens the phone settings
- * (not currently supported, but theoretically speaking), and phone settings queries for a phone
- * account list. Lets also say that an app running in the work profile has registered a phone
- * account. This means that:
- *
- * Since phone settings always runs as the primary user, We have the following situation:
- * User A (settings) is requesting a list of phone accounts while the active user is User B, and
- * that list contains a phone account for profile User B2.
+ * has a work profile running as another user (B2). Each user/profile only have the visibility of
+ * phone accounts owned by them. Lets say, user B (settings) is requesting a list of phone accounts,
+ * and the list only contains phone accounts owned by user B and accounts with
+ * {@link PhoneAccount#CAPABILITY_MULTI_USER}.
  *
  * In practice, (2) is stored with the phone account handle and is part of the handle's ID. (1) is
  * saved in {@link #mCurrentUserHandle} and (3) we get from Binder.getCallingUser(). We check these
  * users for visibility before returning any phone accounts.
  */
-public final class PhoneAccountRegistrar {
+public class PhoneAccountRegistrar {
 
     public static final PhoneAccountHandle NO_ACCOUNT_SELECTED =
             new PhoneAccountHandle(new ComponentName("null", "null"), "NO_ACCOUNT_SELECTED");
@@ -121,7 +119,7 @@ public final class PhoneAccountRegistrar {
 
     private static final String FILE_NAME = "phone-account-registrar-state.xml";
     @VisibleForTesting
-    public static final int EXPECTED_STATE_VERSION = 8;
+    public static final int EXPECTED_STATE_VERSION = 9;
 
     /** Keep in sync with the same in SipSettings.java */
     private static final String SIP_SHARED_PREFERENCES = "SIP_PREFERENCES";
@@ -133,6 +131,9 @@ public final class PhoneAccountRegistrar {
     private final SubscriptionManager mSubscriptionManager;
     private State mState;
     private UserHandle mCurrentUserHandle;
+    private interface PhoneAccountRegistrarWriteLock {}
+    private final PhoneAccountRegistrarWriteLock mWriteLock =
+            new PhoneAccountRegistrarWriteLock() {};
 
     @VisibleForTesting
     public PhoneAccountRegistrar(Context context) {
@@ -168,7 +169,7 @@ public final class PhoneAccountRegistrar {
      * @return The value of the subscription id or -1 if it does not exist or is not valid.
      */
     public int getSubscriptionIdForPhoneAccount(PhoneAccountHandle accountHandle) {
-        PhoneAccount account = getPhoneAccountCheckCallingUser(accountHandle);
+        PhoneAccount account = getPhoneAccountUnchecked(accountHandle);
 
         if (account != null && account.hasCapabilities(PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION)) {
             TelephonyManager tm =
@@ -186,19 +187,21 @@ public final class PhoneAccountRegistrar {
      * @param uriScheme The URI scheme for the outgoing call.
      * @return The {@link PhoneAccountHandle} to use.
      */
-    public PhoneAccountHandle getOutgoingPhoneAccountForScheme(String uriScheme) {
-        final PhoneAccountHandle userSelected = getUserSelectedOutgoingPhoneAccount();
+    public PhoneAccountHandle getOutgoingPhoneAccountForScheme(String uriScheme,
+            UserHandle userHandle) {
+        final PhoneAccountHandle userSelected = getUserSelectedOutgoingPhoneAccount(userHandle);
 
         if (userSelected != null) {
             // If there is a default PhoneAccount, ensure it supports calls to handles with the
             // specified uriScheme.
-            final PhoneAccount userSelectedAccount = getPhoneAccountCheckCallingUser(userSelected);
+            final PhoneAccount userSelectedAccount = getPhoneAccountUnchecked(userSelected);
             if (userSelectedAccount.supportsUriScheme(uriScheme)) {
                 return userSelected;
             }
         }
 
-        List<PhoneAccountHandle> outgoing = getCallCapablePhoneAccounts(uriScheme, false);
+        List<PhoneAccountHandle> outgoing = getCallCapablePhoneAccounts(uriScheme, false,
+                userHandle);
         switch (outgoing.size()) {
             case 0:
                 // There are no accounts, so there can be no default
@@ -212,14 +215,30 @@ public final class PhoneAccountRegistrar {
         }
     }
 
+    public PhoneAccountHandle getOutgoingPhoneAccountForSchemeOfCurrentUser(String uriScheme) {
+        return getOutgoingPhoneAccountForScheme(uriScheme, mCurrentUserHandle);
+    }
+
     /**
      * @return The user-selected outgoing {@link PhoneAccount}, or null if it hasn't been set (or
      *      if it was set by another user).
      */
-    PhoneAccountHandle getUserSelectedOutgoingPhoneAccount() {
-        PhoneAccount account = getPhoneAccountCheckCallingUser(mState.defaultOutgoing);
+    @VisibleForTesting
+    public PhoneAccountHandle getUserSelectedOutgoingPhoneAccount(UserHandle userHandle) {
+        if (userHandle == null) {
+            return null;
+        }
+        DefaultPhoneAccountHandle defaultPhoneAccountHandle = mState.defaultOutgoingAccountHandles
+                .get(userHandle);
+        if (defaultPhoneAccountHandle == null) {
+            return null;
+        }
+        // Make sure the account is still registered and owned by the user.
+        PhoneAccount account = getPhoneAccount(defaultPhoneAccountHandle.phoneAccountHandle,
+                userHandle);
+
         if (account != null) {
-            return mState.defaultOutgoing;
+            return defaultPhoneAccountHandle.phoneAccountHandle;
         }
         return null;
     }
@@ -228,13 +247,16 @@ public final class PhoneAccountRegistrar {
      * Sets the phone account with which to place all calls by default. Set by the user
      * within phone settings.
      */
-    public void setUserSelectedOutgoingPhoneAccount(PhoneAccountHandle accountHandle) {
+    public void setUserSelectedOutgoingPhoneAccount(PhoneAccountHandle accountHandle,
+            UserHandle userHandle) {
+        if (userHandle == null) {
+            return;
+        }
         if (accountHandle == null) {
             // Asking to clear the default outgoing is a valid request
-            mState.defaultOutgoing = null;
+            mState.defaultOutgoingAccountHandles.remove(userHandle);
         } else {
-            // TODO: Do we really want to return for *any* user?
-            PhoneAccount account = getPhoneAccount(accountHandle);
+            PhoneAccount account = getPhoneAccount(accountHandle, userHandle);
             if (account == null) {
                 Log.w(this, "Trying to set nonexistent default outgoing %s",
                         accountHandle);
@@ -254,7 +276,8 @@ public final class PhoneAccountRegistrar {
                 mSubscriptionManager.setDefaultVoiceSubId(subId);
             }
 
-            mState.defaultOutgoing = accountHandle;
+            mState.defaultOutgoingAccountHandles
+                    .put(userHandle, new DefaultPhoneAccountHandle(userHandle, accountHandle));
         }
 
         write();
@@ -263,43 +286,10 @@ public final class PhoneAccountRegistrar {
 
     boolean isUserSelectedSmsPhoneAccount(PhoneAccountHandle accountHandle) {
         return getSubscriptionIdForPhoneAccount(accountHandle) ==
-                SubscriptionManager.getDefaultSmsSubId();
+                SubscriptionManager.getDefaultSmsSubscriptionId();
     }
 
-    /**
-     * Returns the {@link PhoneAccountHandle} corresponding to the currently active SIM Call
-     * Manager. SIM Call Manager returned corresponds to the following priority order:
-     * 1. If a SIM Call Manager {@link PhoneAccount} is registered for the same package as the
-     * default dialer, then that one is returned.
-     * 2. If there is a SIM Call Manager {@link PhoneAccount} registered which matches the
-     * carrier configuration's default, then that one is returned.
-     * 3. Otherwise, we return null.
-     */
-    public PhoneAccountHandle getSimCallManager() {
-        long token = Binder.clearCallingIdentity();
-        int user;
-        try {
-            user = ActivityManager.getCurrentUser();
-        } finally {
-            Binder.restoreCallingIdentity(token);
-        }
-        return getSimCallManager(user);
-    }
-
-    /**
-     * Returns the {@link PhoneAccountHandle} corresponding to the currently active SIM Call
-     * Manager. SIM Call Manager returned corresponds to the following priority order:
-     * 1. If a SIM Call Manager {@link PhoneAccount} is registered for the same package as the
-     * default dialer, then that one is returned.
-     * 2. If there is a SIM Call Manager {@link PhoneAccount} registered which matches the
-     * carrier configuration's default, then that one is returned.
-     * 3. Otherwise, we return null.
-     */
-    public PhoneAccountHandle getSimCallManager(int user) {
-        // Get the default dialer in case it has a connection manager associated with it.
-        String dialerPackage = DefaultDialerManager.getDefaultDialerApplication(mContext, user);
-
-        // Check carrier config.
+    public ComponentName getSystemSimCallManagerComponent() {
         String defaultSimCallManager = null;
         CarrierConfigManager configManager = (CarrierConfigManager) mContext.getSystemService(
                 Context.CARRIER_CONFIG_SERVICE);
@@ -308,9 +298,30 @@ public final class PhoneAccountRegistrar {
             defaultSimCallManager = configBundle.getString(
                     CarrierConfigManager.KEY_DEFAULT_SIM_CALL_MANAGER_STRING);
         }
+        return TextUtils.isEmpty(defaultSimCallManager)
+            ?  null : ComponentName.unflattenFromString(defaultSimCallManager);
+    }
 
-        ComponentName systemSimCallManagerComponent = TextUtils.isEmpty(defaultSimCallManager) ?
-                null : ComponentName.unflattenFromString(defaultSimCallManager);
+    public PhoneAccountHandle getSimCallManagerOfCurrentUser() {
+        return getSimCallManager(mCurrentUserHandle);
+    }
+
+    /**
+     * Returns the {@link PhoneAccountHandle} corresponding to the currently active SIM Call
+     * Manager. SIM Call Manager returned corresponds to the following priority order:
+     * 1. If a SIM Call Manager {@link PhoneAccount} is registered for the same package as the
+     * default dialer, then that one is returned.
+     * 2. If there is a SIM Call Manager {@link PhoneAccount} registered which matches the
+     * carrier configuration's default, then that one is returned.
+     * 3. Otherwise, we return null.
+     */
+    public PhoneAccountHandle getSimCallManager(UserHandle userHandle) {
+        // Get the default dialer in case it has a connection manager associated with it.
+        String dialerPackage = DefaultDialerManager
+                .getDefaultDialerApplication(mContext, userHandle.getIdentifier());
+
+        // Check carrier config.
+        ComponentName systemSimCallManagerComponent = getSystemSimCallManagerComponent();
 
         PhoneAccountHandle dialerSimCallManager = null;
         PhoneAccountHandle systemSimCallManager = null;
@@ -319,7 +330,7 @@ public final class PhoneAccountRegistrar {
             // loop through and look for any connection manager in the same package.
             List<PhoneAccountHandle> allSimCallManagers = getPhoneAccountHandles(
                     PhoneAccount.CAPABILITY_CONNECTION_MANAGER, null, null,
-                    true /* includeDisabledAccounts */);
+                    true /* includeDisabledAccounts */, userHandle);
             for (PhoneAccountHandle accountHandle : allSimCallManagers) {
                 ComponentName component = accountHandle.getComponentName();
 
@@ -347,6 +358,23 @@ public final class PhoneAccountRegistrar {
     }
 
     /**
+     * If it is a outgoing call, sim call manager of call-initiating user is returned.
+     * Otherwise, we return the sim call manager of the user associated with the
+     * target phone account.
+     * @return phone account handle of sim call manager based on the ongoing call.
+     */
+    public PhoneAccountHandle getSimCallManagerFromCall(Call call) {
+        if (call == null) {
+            return null;
+        }
+        UserHandle userHandle = call.getInitiatingUser();
+        if (userHandle == null) {
+            userHandle = call.getTargetPhoneAccount().getUserHandle();
+        }
+        return getSimCallManager(userHandle);
+    }
+
+    /**
      * Update the current UserHandle to track when users are switched. This will allow the
      * PhoneAccountRegistar to self-filter the PhoneAccounts to make sure we don't leak anything
      * across users.
@@ -370,7 +398,7 @@ public final class PhoneAccountRegistrar {
      *         otherwise.
      */
     public boolean enablePhoneAccount(PhoneAccountHandle accountHandle, boolean isEnabled) {
-        PhoneAccount account = getPhoneAccount(accountHandle);
+        PhoneAccount account = getPhoneAccountUnchecked(accountHandle);
         if (account == null) {
             Log.w(this, "Could not find account to enable: " + accountHandle);
             return false;
@@ -382,14 +410,35 @@ public final class PhoneAccountRegistrar {
 
         if (account.isEnabled() != isEnabled) {
             account.setIsEnabled(isEnabled);
+            if (!isEnabled) {
+                // If the disabled account is the default, remove it.
+                removeDefaultPhoneAccountHandle(accountHandle);
+            }
             write();
             fireAccountsChanged();
         }
         return true;
     }
 
-    private boolean isVisibleForUser(PhoneAccount account) {
+    private void removeDefaultPhoneAccountHandle(PhoneAccountHandle phoneAccountHandle) {
+        Iterator<Map.Entry<UserHandle, DefaultPhoneAccountHandle>> iterator =
+                mState.defaultOutgoingAccountHandles.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<UserHandle, DefaultPhoneAccountHandle> entry = iterator.next();
+            if (phoneAccountHandle.equals(entry.getValue().phoneAccountHandle)) {
+                iterator.remove();
+            }
+        }
+    }
+
+    private boolean isVisibleForUser(PhoneAccount account, UserHandle userHandle,
+            boolean acrossProfiles) {
         if (account == null) {
+            return false;
+        }
+
+        if (userHandle == null) {
+            Log.w(this, "userHandle is null in isVisibleForUser");
             return false;
         }
 
@@ -405,34 +454,22 @@ public final class PhoneAccountRegistrar {
         }
 
         if (mCurrentUserHandle == null) {
+            // In case we need to have emergency phone calls from the lock screen.
             Log.d(this, "Current user is null; assuming true");
             return true;
         }
 
-        if (phoneAccountUserHandle.equals(Binder.getCallingUserHandle())) {
-            return true;
+        if (acrossProfiles) {
+            return UserManager.get(mContext).isSameProfileGroup(userHandle.getIdentifier(),
+                    phoneAccountUserHandle.getIdentifier());
+        } else {
+            return phoneAccountUserHandle.equals(userHandle);
         }
-
-        // Special check for work profiles.
-        // Unlike in TelecomServiceImpl, we only care about *profiles* here. We want to make sure
-        // that we don't resolve PhoneAccount across *users*, but resolving across *profiles* is
-        // fine.
-        if (UserHandle.getCallingUserId() == UserHandle.USER_OWNER) {
-            List<UserInfo> profileUsers =
-                    mUserManager.getProfiles(mCurrentUserHandle.getIdentifier());
-            for (UserInfo profileInfo : profileUsers) {
-                if (profileInfo.getUserHandle().equals(phoneAccountUserHandle)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 
     private List<ResolveInfo> resolveComponent(PhoneAccountHandle phoneAccountHandle) {
         return resolveComponent(phoneAccountHandle.getComponentName(),
-                    phoneAccountHandle.getUserHandle());
+                phoneAccountHandle.getUserHandle());
     }
 
     private List<ResolveInfo> resolveComponent(ComponentName componentName,
@@ -458,12 +495,16 @@ public final class PhoneAccountRegistrar {
      *
      * @return The list of {@link PhoneAccountHandle}s.
      */
-    public List<PhoneAccountHandle> getAllPhoneAccountHandles() {
-        return getPhoneAccountHandles(0, null, null, false);
+    public List<PhoneAccountHandle> getAllPhoneAccountHandles(UserHandle userHandle) {
+        return getPhoneAccountHandles(0, null, null, false, userHandle);
     }
 
-    public List<PhoneAccount> getAllPhoneAccounts() {
-        return getPhoneAccounts(0, null, null, false);
+    public List<PhoneAccount> getAllPhoneAccounts(UserHandle userHandle) {
+        return getPhoneAccounts(0, null, null, false, userHandle);
+    }
+
+    public List<PhoneAccount> getAllPhoneAccountsOfCurrentUser() {
+        return getAllPhoneAccounts(mCurrentUserHandle);
     }
 
     /**
@@ -474,28 +515,40 @@ public final class PhoneAccountRegistrar {
      * @return The phone account handles.
      */
     public List<PhoneAccountHandle> getCallCapablePhoneAccounts(
-            String uriScheme, boolean includeDisabledAccounts) {
+            String uriScheme, boolean includeDisabledAccounts, UserHandle userHandle) {
         return getPhoneAccountHandles(
-                PhoneAccount.CAPABILITY_CALL_PROVIDER, uriScheme, null, includeDisabledAccounts);
+                PhoneAccount.CAPABILITY_CALL_PROVIDER,
+                PhoneAccount.CAPABILITY_EMERGENCY_CALLS_ONLY /*excludedCapabilities*/,
+                uriScheme, null, includeDisabledAccounts, userHandle);
+    }
+
+    public List<PhoneAccountHandle> getCallCapablePhoneAccountsOfCurrentUser(
+            String uriScheme, boolean includeDisabledAccounts) {
+        return getCallCapablePhoneAccounts(uriScheme, includeDisabledAccounts, mCurrentUserHandle);
     }
 
     /**
      * Retrieves a list of all the SIM-based phone accounts.
      */
-    public List<PhoneAccountHandle> getSimPhoneAccounts() {
+    public List<PhoneAccountHandle> getSimPhoneAccounts(UserHandle userHandle) {
         return getPhoneAccountHandles(
                 PhoneAccount.CAPABILITY_CALL_PROVIDER | PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION,
-                null, null, false);
+                null, null, false, userHandle);
     }
 
-    /**
-     * Retrieves a list of all phone accounts registered by a specified package.
-     *
-     * @param packageName The name of the package that registered the phone accounts.
-     * @return The phone account handles.
-     */
-    public List<PhoneAccountHandle> getPhoneAccountsForPackage(String packageName) {
-        return getPhoneAccountHandles(0, null, packageName, false);
+    public List<PhoneAccountHandle> getSimPhoneAccountsOfCurrentUser() {
+        return getSimPhoneAccounts(mCurrentUserHandle);
+    }
+
+        /**
+         * Retrieves a list of all phone accounts registered by a specified package.
+         *
+         * @param packageName The name of the package that registered the phone accounts.
+         * @return The phone account handles.
+         */
+    public List<PhoneAccountHandle> getPhoneAccountsForPackage(String packageName,
+            UserHandle userHandle) {
+        return getPhoneAccountHandles(0, null, packageName, false, userHandle);
     }
 
     // TODO: Should we implement an artificial limit for # of accounts associated with a single
@@ -528,7 +581,7 @@ public final class PhoneAccountRegistrar {
         // source app provides or else an third party app could enable itself.
         boolean isEnabled = false;
 
-        PhoneAccount oldAccount = getPhoneAccount(account.getAccountHandle());
+        PhoneAccount oldAccount = getPhoneAccountUnchecked(account.getAccountHandle());
         if (oldAccount != null) {
             mState.accounts.remove(oldAccount);
             isEnabled = oldAccount.isEnabled();
@@ -548,7 +601,7 @@ public final class PhoneAccountRegistrar {
     }
 
     public void unregisterPhoneAccount(PhoneAccountHandle accountHandle) {
-        PhoneAccount account = getPhoneAccount(accountHandle);
+        PhoneAccount account = getPhoneAccountUnchecked(accountHandle);
         if (account != null) {
             if (mState.accounts.remove(account)) {
                 write();
@@ -607,12 +660,6 @@ public final class PhoneAccountRegistrar {
     private void fireDefaultOutgoingChanged() {
         for (Listener l : mListeners) {
             l.onDefaultOutgoingChanged(this);
-        }
-    }
-
-    private void fireSimCallManagerChanged() {
-        for (Listener l : mListeners) {
-            l.onSimCallManagerChanged(this);
         }
     }
 
@@ -691,7 +738,7 @@ public final class PhoneAccountRegistrar {
      * @param handle
      * @return The corresponding phone account if one exists.
      */
-    PhoneAccount getPhoneAccount(PhoneAccountHandle handle) {
+    public PhoneAccount getPhoneAccountUnchecked(PhoneAccountHandle handle) {
         for (PhoneAccount m : mState.accounts) {
             if (Objects.equals(handle, m.getAccountHandle())) {
                 return m;
@@ -705,12 +752,31 @@ public final class PhoneAccountRegistrar {
      * account before returning it. The current user is the active user on the actual android
      * device.
      */
-    public PhoneAccount getPhoneAccountCheckCallingUser(PhoneAccountHandle handle) {
-        PhoneAccount account = getPhoneAccount(handle);
-        if (account != null && isVisibleForUser(account)) {
+    public PhoneAccount getPhoneAccount(PhoneAccountHandle handle, UserHandle userHandle) {
+        return getPhoneAccount(handle, userHandle, /* acrossProfiles */ false);
+    }
+
+    public PhoneAccount getPhoneAccount(PhoneAccountHandle handle,
+            UserHandle userHandle, boolean acrossProfiles) {
+        PhoneAccount account = getPhoneAccountUnchecked(handle);
+        if (account != null && (isVisibleForUser(account, userHandle, acrossProfiles))) {
             return account;
         }
         return null;
+    }
+
+    public PhoneAccount getPhoneAccountOfCurrentUser(PhoneAccountHandle handle) {
+        return getPhoneAccount(handle, mCurrentUserHandle);
+    }
+
+    private List<PhoneAccountHandle> getPhoneAccountHandles(
+            int capabilities,
+            String uriScheme,
+            String packageName,
+            boolean includeDisabledAccounts,
+            UserHandle userHandle) {
+        return getPhoneAccountHandles(capabilities, 0 /*excludedCapabilities*/, uriScheme,
+                packageName, includeDisabledAccounts, userHandle);
     }
 
     /**
@@ -719,16 +785,29 @@ public final class PhoneAccountRegistrar {
      */
     private List<PhoneAccountHandle> getPhoneAccountHandles(
             int capabilities,
+            int excludedCapabilities,
             String uriScheme,
             String packageName,
-            boolean includeDisabledAccounts) {
+            boolean includeDisabledAccounts,
+            UserHandle userHandle) {
         List<PhoneAccountHandle> handles = new ArrayList<>();
 
         for (PhoneAccount account : getPhoneAccounts(
-                capabilities, uriScheme, packageName, includeDisabledAccounts)) {
+                capabilities, excludedCapabilities, uriScheme, packageName,
+                includeDisabledAccounts, userHandle)) {
             handles.add(account.getAccountHandle());
         }
         return handles;
+    }
+
+    private List<PhoneAccount> getPhoneAccounts(
+            int capabilities,
+            String uriScheme,
+            String packageName,
+            boolean includeDisabledAccounts,
+            UserHandle userHandle) {
+        return getPhoneAccounts(capabilities, 0 /*excludedCapabilities*/, uriScheme, packageName,
+                includeDisabledAccounts, userHandle);
     }
 
     /**
@@ -736,19 +815,28 @@ public final class PhoneAccountRegistrar {
      * URI scheme, within the specified package name.
      *
      * @param capabilities Capabilities which the {@code PhoneAccount} must have. Ignored if 0.
+     * @param excludedCapabilities Capabilities which the {@code PhoneAccount} must not have.
+     *                             Ignored if 0.
      * @param uriScheme URI schemes the PhoneAccount must handle.  {@code null} bypasses the
      *                  URI scheme check.
      * @param packageName Package name of the PhoneAccount. {@code null} bypasses packageName check.
      */
     private List<PhoneAccount> getPhoneAccounts(
             int capabilities,
+            int excludedCapabilities,
             String uriScheme,
             String packageName,
-            boolean includeDisabledAccounts) {
+            boolean includeDisabledAccounts,
+            UserHandle userHandle) {
         List<PhoneAccount> accounts = new ArrayList<>(mState.accounts.size());
         for (PhoneAccount m : mState.accounts) {
             if (!(m.isEnabled() || includeDisabledAccounts)) {
                 // Do not include disabled accounts.
+                continue;
+            }
+
+            if ((m.getCapabilities() & excludedCapabilities) != 0) {
+                // If an excluded capability is present, skip.
                 continue;
             }
 
@@ -771,7 +859,7 @@ public final class PhoneAccountRegistrar {
                 // Not the right package name; skip this one.
                 continue;
             }
-            if (!isVisibleForUser(m)) {
+            if (!isVisibleForUser(m, userHandle, false)) {
                 // Account is not visible for the current user; skip this one.
                 continue;
             }
@@ -790,10 +878,11 @@ public final class PhoneAccountRegistrar {
     @VisibleForTesting
     public static class State {
         /**
-         * The account selected by the user to be employed by default for making outgoing calls.
-         * If the user has not made such a selection, then this is null.
+         * Store the default phone account handle of users. If no record of a user can be found in
+         * the map, it means that no default phone account handle is set in that user.
          */
-        public PhoneAccountHandle defaultOutgoing = null;
+        public final Map<UserHandle, DefaultPhoneAccountHandle> defaultOutgoingAccountHandles
+                = new ConcurrentHashMap<>();
 
         /**
          * The complete list of {@code PhoneAccount}s known to the Telecom subsystem.
@@ -807,6 +896,22 @@ public final class PhoneAccountRegistrar {
     }
 
     /**
+     * The default {@link PhoneAccountHandle} of a user.
+     */
+    public static class DefaultPhoneAccountHandle {
+
+        public final UserHandle userHandle;
+
+        public final PhoneAccountHandle phoneAccountHandle;
+
+        public DefaultPhoneAccountHandle(UserHandle userHandle,
+                PhoneAccountHandle phoneAccountHandle) {
+            this.userHandle = userHandle;
+            this.phoneAccountHandle = phoneAccountHandle;
+        }
+    }
+
+    /**
      * Dumps the state of the {@link CallsManager}.
      *
      * @param pw The {@code IndentingPrintWriter} to write the state to.
@@ -814,9 +919,11 @@ public final class PhoneAccountRegistrar {
     public void dump(IndentingPrintWriter pw) {
         if (mState != null) {
             pw.println("xmlVersion: " + mState.versionNumber);
-            pw.println("defaultOutgoing: " + (mState.defaultOutgoing == null ? "none" :
-                    mState.defaultOutgoing));
-            pw.println("simCallManager: " + getSimCallManager());
+            DefaultPhoneAccountHandle defaultPhoneAccountHandle
+                    = mState.defaultOutgoingAccountHandles.get(Process.myUserHandle());
+            pw.println("defaultOutgoing: " + (defaultPhoneAccountHandle == null ? "none" :
+                    defaultPhoneAccountHandle.phoneAccountHandle));
+            pw.println("simCallManager: " + getSimCallManager(mCurrentUserHandle));
             pw.println("phoneAccounts:");
             pw.increaseIndent();
             for (PhoneAccount phoneAccount : mState.accounts) {
@@ -831,26 +938,35 @@ public final class PhoneAccountRegistrar {
     // State management
     //
 
-    private void write() {
-        final FileOutputStream os;
-        try {
-            os = mAtomicFile.startWrite();
-            boolean success = false;
+    private class AsyncXmlWriter extends AsyncTask<ByteArrayOutputStream, Void, Void> {
+        @Override
+        public Void doInBackground(ByteArrayOutputStream... args) {
+            final ByteArrayOutputStream buffer = args[0];
+            FileOutputStream fileOutput = null;
             try {
-                XmlSerializer serializer = new FastXmlSerializer();
-                serializer.setOutput(new BufferedOutputStream(os), "utf-8");
-                writeToXml(mState, serializer, mContext);
-                serializer.flush();
-                success = true;
-            } finally {
-                if (success) {
-                    mAtomicFile.finishWrite(os);
-                } else {
-                    mAtomicFile.failWrite(os);
+                synchronized (mWriteLock) {
+                    fileOutput = mAtomicFile.startWrite();
+                    buffer.writeTo(fileOutput);
+                    mAtomicFile.finishWrite(fileOutput);
                 }
+            } catch (IOException e) {
+                Log.e(this, e, "Writing state to XML file");
+                mAtomicFile.failWrite(fileOutput);
             }
+            return null;
+        }
+    }
+
+    private void write() {
+        try {
+            ByteArrayOutputStream os = new ByteArrayOutputStream();
+            XmlSerializer serializer = new FastXmlSerializer();
+            serializer.setOutput(os, "utf-8");
+            writeToXml(mState, serializer, mContext);
+            serializer.flush();
+            new AsyncXmlWriter().execute(os);
         } catch (IOException e) {
-            Log.e(this, e, "Writing state to XML file");
+            Log.e(this, e, "Writing state to XML buffer");
         }
     }
 
@@ -921,8 +1037,13 @@ public final class PhoneAccountRegistrar {
 
     @VisibleForTesting
     public abstract static class XmlSerialization<T> {
-        private static final String LENGTH_ATTRIBUTE = "length";
-        private static final String VALUE_TAG = "value";
+        private static final String TAG_VALUE = "value";
+        private static final String ATTRIBUTE_LENGTH = "length";
+        private static final String ATTRIBUTE_KEY = "key";
+        private static final String ATTRIBUTE_VALUE_TYPE = "type";
+        private static final String VALUE_TYPE_STRING = "string";
+        private static final String VALUE_TYPE_INTEGER = "integer";
+        private static final String VALUE_TYPE_BOOLEAN = "boolean";
 
         /**
          * Write the supplied object to XML
@@ -963,16 +1084,51 @@ public final class PhoneAccountRegistrar {
 
             serializer.startTag(null, tagName);
             if (values != null) {
-                serializer.attribute(null, LENGTH_ATTRIBUTE, Objects.toString(values.size()));
+                serializer.attribute(null, ATTRIBUTE_LENGTH, Objects.toString(values.size()));
                 for (String toSerialize : values) {
-                    serializer.startTag(null, VALUE_TAG);
+                    serializer.startTag(null, TAG_VALUE);
                     if (toSerialize != null ){
                         serializer.text(toSerialize);
                     }
-                    serializer.endTag(null, VALUE_TAG);
+                    serializer.endTag(null, TAG_VALUE);
                 }
             } else {
-                serializer.attribute(null, LENGTH_ATTRIBUTE, "0");
+                serializer.attribute(null, ATTRIBUTE_LENGTH, "0");
+            }
+            serializer.endTag(null, tagName);
+        }
+
+        protected void writeBundle(String tagName, Bundle values, XmlSerializer serializer)
+            throws IOException {
+
+            serializer.startTag(null, tagName);
+            if (values != null) {
+                for (String key : values.keySet()) {
+                    Object value = values.get(key);
+
+                    if (value == null) {
+                        continue;
+                    }
+
+                    String valueType;
+                    if (value instanceof String) {
+                        valueType = VALUE_TYPE_STRING;
+                    } else if (value instanceof Integer) {
+                        valueType = VALUE_TYPE_INTEGER;
+                    } else if (value instanceof Boolean) {
+                        valueType = VALUE_TYPE_BOOLEAN;
+                    } else {
+                        Log.w(this,
+                                "PhoneAccounts support only string, integer and boolean extras TY.");
+                        continue;
+                    }
+
+                    serializer.startTag(null, TAG_VALUE);
+                    serializer.attribute(null, ATTRIBUTE_KEY, key);
+                    serializer.attribute(null, ATTRIBUTE_VALUE_TYPE, valueType);
+                    serializer.text(Objects.toString(value));
+                    serializer.endTag(null, TAG_VALUE);
+                }
             }
             serializer.endTag(null, tagName);
         }
@@ -1009,7 +1165,7 @@ public final class PhoneAccountRegistrar {
         protected List<String> readStringList(XmlPullParser parser)
                 throws IOException, XmlPullParserException {
 
-            int length = Integer.parseInt(parser.getAttributeValue(null, LENGTH_ATTRIBUTE));
+            int length = Integer.parseInt(parser.getAttributeValue(null, ATTRIBUTE_LENGTH));
             List<String> arrayEntries = new ArrayList<String>(length);
             String value = null;
 
@@ -1019,7 +1175,7 @@ public final class PhoneAccountRegistrar {
 
             int outerDepth = parser.getDepth();
             while (XmlUtils.nextElementWithin(parser, outerDepth)) {
-                if (parser.getName().equals(VALUE_TAG)) {
+                if (parser.getName().equals(TAG_VALUE)) {
                     parser.next();
                     value = parser.getText();
                     arrayEntries.add(value);
@@ -1027,6 +1183,55 @@ public final class PhoneAccountRegistrar {
             }
 
             return arrayEntries;
+        }
+
+        /**
+         * Reads a bundle from the XML parser.
+         *
+         * @param parser The XML parser.
+         * @return Bundle containing the parsed values.
+         * @throws IOException Exception related to IO.
+         * @throws XmlPullParserException Exception related to parsing.
+         */
+        protected Bundle readBundle(XmlPullParser parser)
+                throws IOException, XmlPullParserException {
+
+            Bundle bundle = null;
+            int outerDepth = parser.getDepth();
+            while (XmlUtils.nextElementWithin(parser, outerDepth)) {
+                if (parser.getName().equals(TAG_VALUE)) {
+                    String valueType = parser.getAttributeValue(null, ATTRIBUTE_VALUE_TYPE);
+                    String key = parser.getAttributeValue(null, ATTRIBUTE_KEY);
+                    parser.next();
+                    String value = parser.getText();
+
+                    if (bundle == null) {
+                        bundle = new Bundle();
+                    }
+
+                    // Do not write null values to the bundle.
+                    if (value == null) {
+                        continue;
+                    }
+
+                    if (VALUE_TYPE_STRING.equals(valueType)) {
+                        bundle.putString(key, value);
+                    } else if (VALUE_TYPE_INTEGER.equals(valueType)) {
+                        try {
+                            int intValue = Integer.parseInt(value);
+                            bundle.putInt(key, intValue);
+                        } catch (NumberFormatException nfe) {
+                            Log.w(this, "Invalid integer PhoneAccount extra.");
+                        }
+                    } else if (VALUE_TYPE_BOOLEAN.equals(valueType)) {
+                        boolean boolValue = Boolean.parseBoolean(value);
+                        bundle.putBoolean(key, boolValue);
+                    } else {
+                        Log.w(this, "Invalid type " + valueType + " for PhoneAccount bundle.");
+                    }
+                }
+            }
+            return bundle;
         }
 
         protected Bitmap readBitmap(XmlPullParser parser) {
@@ -1056,11 +1261,13 @@ public final class PhoneAccountRegistrar {
                 serializer.startTag(null, CLASS_STATE);
                 serializer.attribute(null, VERSION, Objects.toString(EXPECTED_STATE_VERSION));
 
-                if (o.defaultOutgoing != null) {
-                    serializer.startTag(null, DEFAULT_OUTGOING);
-                    sPhoneAccountHandleXml.writeToXml(o.defaultOutgoing, serializer, context);
-                    serializer.endTag(null, DEFAULT_OUTGOING);
+                serializer.startTag(null, DEFAULT_OUTGOING);
+                for (DefaultPhoneAccountHandle defaultPhoneAccountHandle : o
+                        .defaultOutgoingAccountHandles.values()) {
+                    sDefaultPhoneAcountHandleXml
+                            .writeToXml(defaultPhoneAccountHandle, serializer, context);
                 }
+                serializer.endTag(null, DEFAULT_OUTGOING);
 
                 serializer.startTag(null, ACCOUNTS);
                 for (PhoneAccount m : o.accounts) {
@@ -1079,15 +1286,39 @@ public final class PhoneAccountRegistrar {
                 State s = new State();
 
                 String rawVersion = parser.getAttributeValue(null, VERSION);
-                s.versionNumber = TextUtils.isEmpty(rawVersion) ? 1 :
-                        Integer.parseInt(rawVersion);
+                s.versionNumber = TextUtils.isEmpty(rawVersion) ? 1 : Integer.parseInt(rawVersion);
 
                 int outerDepth = parser.getDepth();
                 while (XmlUtils.nextElementWithin(parser, outerDepth)) {
                     if (parser.getName().equals(DEFAULT_OUTGOING)) {
-                        parser.nextTag();
-                        s.defaultOutgoing = sPhoneAccountHandleXml.readFromXml(parser,
-                                s.versionNumber, context);
+                        if (s.versionNumber < 9) {
+                            // Migration old default phone account handle here by assuming the
+                            // default phone account handle is belong to primary user.
+                            parser.nextTag();
+                            PhoneAccountHandle phoneAccountHandle = sPhoneAccountHandleXml
+                                    .readFromXml(parser, s.versionNumber, context);
+                            UserManager userManager = UserManager.get(context);
+                            UserInfo primaryUser = userManager.getPrimaryUser();
+                            if (primaryUser != null) {
+                                UserHandle userHandle = primaryUser.getUserHandle();
+                                DefaultPhoneAccountHandle defaultPhoneAccountHandle
+                                        = new DefaultPhoneAccountHandle(userHandle,
+                                        phoneAccountHandle);
+                                s.defaultOutgoingAccountHandles
+                                        .put(userHandle, defaultPhoneAccountHandle);
+                            }
+                        } else {
+                            int defaultAccountHandlesDepth = parser.getDepth();
+                            while (XmlUtils.nextElementWithin(parser, defaultAccountHandlesDepth)) {
+                                DefaultPhoneAccountHandle accountHandle
+                                        = sDefaultPhoneAcountHandleXml
+                                        .readFromXml(parser, s.versionNumber, context);
+                                if (accountHandle != null && s.accounts != null) {
+                                    s.defaultOutgoingAccountHandles
+                                            .put(accountHandle.userHandle, accountHandle);
+                                }
+                            }
+                        }
                     } else if (parser.getName().equals(ACCOUNTS)) {
                         int accountsDepth = parser.getDepth();
                         while (XmlUtils.nextElementWithin(parser, accountsDepth)) {
@@ -1107,6 +1338,70 @@ public final class PhoneAccountRegistrar {
     };
 
     @VisibleForTesting
+    public static final XmlSerialization<DefaultPhoneAccountHandle> sDefaultPhoneAcountHandleXml  =
+            new XmlSerialization<DefaultPhoneAccountHandle>() {
+                private static final String CLASS_DEFAULT_OUTGOING_PHONE_ACCOUNT_HANDLE
+                        = "default_outgoing_phone_account_handle";
+                private static final String USER_SERIAL_NUMBER = "user_serial_number";
+                private static final String ACCOUNT_HANDLE = "account_handle";
+
+                @Override
+                public void writeToXml(DefaultPhoneAccountHandle o, XmlSerializer serializer,
+                        Context context) throws IOException {
+                    if (o != null) {
+                        final UserManager userManager = UserManager.get(context);
+                        final long serialNumber = userManager.getSerialNumberForUser(o.userHandle);
+                        if (serialNumber != -1) {
+                            serializer.startTag(null, CLASS_DEFAULT_OUTGOING_PHONE_ACCOUNT_HANDLE);
+                            writeLong(USER_SERIAL_NUMBER, serialNumber, serializer);
+                            serializer.startTag(null, ACCOUNT_HANDLE);
+                            sPhoneAccountHandleXml.writeToXml(o.phoneAccountHandle, serializer,
+                                    context);
+                            serializer.endTag(null, ACCOUNT_HANDLE);
+                            serializer.endTag(null, CLASS_DEFAULT_OUTGOING_PHONE_ACCOUNT_HANDLE);
+                        }
+                    }
+                }
+
+                @Override
+                public DefaultPhoneAccountHandle readFromXml(XmlPullParser parser, int version,
+                        Context context)
+                        throws IOException, XmlPullParserException {
+                    if (parser.getName().equals(CLASS_DEFAULT_OUTGOING_PHONE_ACCOUNT_HANDLE)) {
+                        int outerDepth = parser.getDepth();
+                        PhoneAccountHandle accountHandle = null;
+                        String userSerialNumberString = null;
+                        while (XmlUtils.nextElementWithin(parser, outerDepth)) {
+                            if (parser.getName().equals(ACCOUNT_HANDLE)) {
+                                parser.nextTag();
+                                accountHandle = sPhoneAccountHandleXml.readFromXml(parser, version,
+                                        context);
+                            } else if (parser.getName().equals(USER_SERIAL_NUMBER)) {
+                                parser.next();
+                                userSerialNumberString = parser.getText();
+                            }
+                        }
+                        UserHandle userHandle = null;
+                        if (userSerialNumberString != null) {
+                            try {
+                                long serialNumber = Long.parseLong(userSerialNumberString);
+                                userHandle = UserManager.get(context)
+                                        .getUserForSerialNumber(serialNumber);
+                            } catch (NumberFormatException e) {
+                                Log.e(this, e,
+                                        "Could not parse UserHandle " + userSerialNumberString);
+                            }
+                        }
+                        if (accountHandle != null && userHandle != null) {
+                            return new DefaultPhoneAccountHandle(userHandle, accountHandle);
+                        }
+                    }
+                    return null;
+                }
+            };
+
+
+    @VisibleForTesting
     public static final XmlSerialization<PhoneAccount> sPhoneAccountXml =
             new XmlSerialization<PhoneAccount>() {
         private static final String CLASS_PHONE_ACCOUNT = "phone_account";
@@ -1123,6 +1418,7 @@ public final class PhoneAccountRegistrar {
         private static final String SHORT_DESCRIPTION = "short_description";
         private static final String SUPPORTED_URI_SCHEMES = "supported_uri_schemes";
         private static final String ICON = "icon";
+        private static final String EXTRAS = "extras";
         private static final String ENABLED = "enabled";
 
         @Override
@@ -1146,6 +1442,7 @@ public final class PhoneAccountRegistrar {
                 writeTextIfNonNull(LABEL, o.getLabel(), serializer);
                 writeTextIfNonNull(SHORT_DESCRIPTION, o.getShortDescription(), serializer);
                 writeStringList(SUPPORTED_URI_SCHEMES, o.getSupportedUriSchemes(), serializer);
+                writeBundle(EXTRAS, o.getExtras(), serializer);
                 writeTextIfNonNull(ENABLED, o.isEnabled() ? "true" : "false" , serializer);
 
                 serializer.endTag(null, CLASS_PHONE_ACCOUNT);
@@ -1170,6 +1467,7 @@ public final class PhoneAccountRegistrar {
                 List<String> supportedUriSchemes = null;
                 Icon icon = null;
                 boolean enabled = false;
+                Bundle extras = null;
 
                 while (XmlUtils.nextElementWithin(parser, outerDepth)) {
                     if (parser.getName().equals(ACCOUNT_HANDLE)) {
@@ -1215,6 +1513,8 @@ public final class PhoneAccountRegistrar {
                     } else if (parser.getName().equals(ENABLED)) {
                         parser.next();
                         enabled = "true".equalsIgnoreCase(parser.getText());
+                    } else if (parser.getName().equals(EXTRAS)) {
+                        extras = readBundle(parser);
                     }
                 }
 
@@ -1280,6 +1580,7 @@ public final class PhoneAccountRegistrar {
                         .setShortDescription(shortDescription)
                         .setSupportedUriSchemes(supportedUriSchemes)
                         .setHighlightColor(highlightColor)
+                        .setExtras(extras)
                         .setIsEnabled(enabled);
 
                 if (icon != null) {

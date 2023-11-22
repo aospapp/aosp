@@ -16,7 +16,7 @@
 
 package android.text.style.cts;
 
-import com.android.cts.text.R;
+import android.text.cts.R;
 
 import android.app.Activity;
 import android.os.Bundle;

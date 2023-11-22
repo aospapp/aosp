@@ -50,10 +50,12 @@
 /* #include <ctype.h> */
 #include <string.h>
 #include <errno.h>
-#include <signal.h>
 #include <time.h>
 #include <sys/time.h>
 #include <sys/syscall.h>
+
+#include "mpers_type.h"
+#include "gcc_compat.h"
 
 #ifndef HAVE_STRERROR
 const char *strerror(int);
@@ -65,48 +67,6 @@ const char *strerror(int);
 #undef stpcpy
 #define stpcpy strace_stpcpy
 extern char *stpcpy(char *dst, const char *src);
-#endif
-
-#if defined __GNUC__ && defined __GNUC_MINOR__
-# define GNUC_PREREQ(maj, min)	\
-	((__GNUC__ << 16) + __GNUC_MINOR__ >= ((maj) << 16) + (min))
-#else
-# define __attribute__(x)	/* empty */
-# define GNUC_PREREQ(maj, min)	0
-#endif
-
-#if GNUC_PREREQ(2, 5)
-# define ATTRIBUTE_NORETURN	__attribute__((__noreturn__))
-#else
-# define ATTRIBUTE_NORETURN	/* empty */
-#endif
-
-#if GNUC_PREREQ(2, 7)
-# define ATTRIBUTE_FORMAT(args)	__attribute__((__format__ args))
-# define ATTRIBUTE_ALIGNED(arg)	__attribute__((__aligned__(arg)))
-# define ATTRIBUTE_PACKED	__attribute__((__packed__))
-#else
-# define ATTRIBUTE_FORMAT(args)	/* empty */
-# define ATTRIBUTE_ALIGNED(arg)	/* empty */
-# define ATTRIBUTE_PACKED	/* empty */
-#endif
-
-#if GNUC_PREREQ(3, 0)
-# define ATTRIBUTE_MALLOC	__attribute__((__malloc__))
-#else
-# define ATTRIBUTE_MALLOC	/* empty */
-#endif
-
-#if GNUC_PREREQ(3, 1)
-# define ATTRIBUTE_NOINLINE	__attribute__((__noinline__))
-#else
-# define ATTRIBUTE_NOINLINE	/* empty */
-#endif
-
-#if GNUC_PREREQ(4, 3)
-# define ATTRIBUTE_ALLOC_SIZE(args)	__attribute__((__alloc_size__ args))
-#else
-# define ATTRIBUTE_ALLOC_SIZE(args)	/* empty */
 #endif
 
 #ifndef offsetof
@@ -193,6 +153,11 @@ extern char *stpcpy(char *dst, const char *src);
 # if defined(SPARC64)
 #  define SUPPORTED_PERSONALITIES 2
 #  define PERSONALITY1_WORDSIZE 8
+#  ifdef HAVE_M32_MPERS
+#   define PERSONALITY1_INCLUDE_FUNCS "m32_funcs.h"
+#   define PERSONALITY1_INCLUDE_PRINTERS_DECLS "m32_printer_decls.h"
+#   define PERSONALITY1_INCLUDE_PRINTERS_DEFS "m32_printer_defs.h"
+#  endif
 # endif
 #endif
 
@@ -201,12 +166,27 @@ extern char *stpcpy(char *dst, const char *src);
 # define PERSONALITY0_WORDSIZE 8
 # define PERSONALITY1_WORDSIZE 4
 # define PERSONALITY2_WORDSIZE 4
+# ifdef HAVE_M32_MPERS
+#  define PERSONALITY1_INCLUDE_FUNCS "m32_funcs.h"
+#  define PERSONALITY1_INCLUDE_PRINTERS_DECLS "m32_printer_decls.h"
+#  define PERSONALITY1_INCLUDE_PRINTERS_DEFS "m32_printer_defs.h"
+# endif
+# ifdef HAVE_MX32_MPERS
+#  define PERSONALITY2_INCLUDE_FUNCS "mx32_funcs.h"
+#  define PERSONALITY2_INCLUDE_PRINTERS_DECLS "mx32_printer_decls.h"
+#  define PERSONALITY2_INCLUDE_PRINTERS_DEFS "mx32_printer_defs.h"
+# endif
 #endif
 
 #ifdef X32
 # define SUPPORTED_PERSONALITIES 2
 # define PERSONALITY0_WORDSIZE 4
 # define PERSONALITY1_WORDSIZE 4
+# ifdef HAVE_M32_MPERS
+#  define PERSONALITY1_INCLUDE_FUNCS "m32_funcs.h"
+#  define PERSONALITY1_INCLUDE_PRINTERS_DECLS "m32_printer_decls.h"
+#  define PERSONALITY1_INCLUDE_PRINTERS_DEFS "m32_printer_defs.h"
+# endif
 #endif
 
 #ifdef ARM
@@ -216,15 +196,24 @@ extern char *stpcpy(char *dst, const char *src);
 #ifdef AARCH64
 /* The existing ARM personality, then AArch64 */
 # define SUPPORTED_PERSONALITIES 2
-# define PERSONALITY0_WORDSIZE 4
-# define PERSONALITY1_WORDSIZE 8
-# define DEFAULT_PERSONALITY 1
+# define PERSONALITY0_WORDSIZE 8
+# define PERSONALITY1_WORDSIZE 4
+# ifdef HAVE_M32_MPERS
+#  define PERSONALITY1_INCLUDE_FUNCS "m32_funcs.h"
+#  define PERSONALITY1_INCLUDE_PRINTERS_DECLS "m32_printer_decls.h"
+#  define PERSONALITY1_INCLUDE_PRINTERS_DEFS "m32_printer_defs.h"
+# endif
 #endif
 
 #ifdef POWERPC64
 # define SUPPORTED_PERSONALITIES 2
 # define PERSONALITY0_WORDSIZE 8
 # define PERSONALITY1_WORDSIZE 4
+# ifdef HAVE_M32_MPERS
+#  define PERSONALITY1_INCLUDE_FUNCS "m32_funcs.h"
+#  define PERSONALITY1_INCLUDE_PRINTERS_DECLS "m32_printer_decls.h"
+#  define PERSONALITY1_INCLUDE_PRINTERS_DEFS "m32_printer_defs.h"
+# endif
 #endif
 
 #ifdef TILE
@@ -233,6 +222,11 @@ extern char *stpcpy(char *dst, const char *src);
 # define PERSONALITY1_WORDSIZE 4
 # ifdef __tilepro__
 #  define DEFAULT_PERSONALITY 1
+# endif
+# ifdef HAVE_M32_MPERS
+#  define PERSONALITY1_INCLUDE_FUNCS "m32_funcs.h"
+#  define PERSONALITY1_INCLUDE_PRINTERS_DECLS "m32_printer_decls.h"
+#  define PERSONALITY1_INCLUDE_PRINTERS_DEFS "m32_printer_defs.h"
 # endif
 #endif
 
@@ -246,9 +240,38 @@ extern char *stpcpy(char *dst, const char *src);
 # define PERSONALITY0_WORDSIZE SIZEOF_LONG
 #endif
 
+#ifndef PERSONALITY0_INCLUDE_PRINTERS_DECLS
+# define PERSONALITY0_INCLUDE_PRINTERS_DECLS "native_printer_decls.h"
+#endif
+#ifndef PERSONALITY0_INCLUDE_PRINTERS_DEFS
+# define PERSONALITY0_INCLUDE_PRINTERS_DEFS "native_printer_defs.h"
+#endif
+
+#ifndef PERSONALITY1_INCLUDE_PRINTERS_DECLS
+# define PERSONALITY1_INCLUDE_PRINTERS_DECLS "native_printer_decls.h"
+#endif
+#ifndef PERSONALITY1_INCLUDE_PRINTERS_DEFS
+# define PERSONALITY1_INCLUDE_PRINTERS_DEFS "native_printer_defs.h"
+#endif
+
+#ifndef PERSONALITY2_INCLUDE_PRINTERS_DECLS
+# define PERSONALITY2_INCLUDE_PRINTERS_DECLS "native_printer_decls.h"
+#endif
+#ifndef PERSONALITY2_INCLUDE_PRINTERS_DEFS
+# define PERSONALITY2_INCLUDE_PRINTERS_DEFS "native_printer_defs.h"
+#endif
+
+#ifndef PERSONALITY1_INCLUDE_FUNCS
+# define PERSONALITY1_INCLUDE_FUNCS "empty.h"
+#endif
+#ifndef PERSONALITY2_INCLUDE_FUNCS
+# define PERSONALITY2_INCLUDE_FUNCS "empty.h"
+#endif
+
 typedef struct sysent {
 	unsigned nargs;
 	int	sys_flags;
+	int	sen;
 	int	(*sys_func)();
 	const char *sys_name;
 } struct_sysent;
@@ -274,6 +297,7 @@ struct tcb {
 #if SUPPORTED_PERSONALITIES > 1
 	unsigned int currpers;	/* Personality at the time of scno update */
 #endif
+	int sys_func_rval;	/* Syscall entry parser's return value */
 	int curcol;		/* Output column for this process */
 	FILE *outf;		/* Output file for this process */
 	const char *auxstr;	/* Auxiliary info from syscall (see RVAL_STR) */
@@ -345,8 +369,10 @@ struct xlat {
 
 extern const struct xlat addrfams[];
 extern const struct xlat at_flags[];
+extern const struct xlat dirent_types[];
 extern const struct xlat open_access_modes[];
 extern const struct xlat open_mode_flags[];
+extern const struct xlat resource_flags[];
 extern const struct xlat whence_codes[];
 
 /* Format of syscall return values */
@@ -368,6 +394,8 @@ extern const struct xlat whence_codes[];
 #define RVAL_STR	020	/* Print `auxstr' field after return val */
 #define RVAL_NONE	040	/* Print nothing */
 
+#define RVAL_DECODED	0100	/* syscall decoding finished */
+
 #define TRACE_FILE	001	/* Trace file-related syscalls. */
 #define TRACE_IPC	002	/* Trace IPC-related syscalls. */
 #define TRACE_NETWORK	004	/* Trace network-related syscalls. */
@@ -379,6 +407,12 @@ extern const struct xlat whence_codes[];
 #define STACKTRACE_INVALIDATE_CACHE 0400  /* Trigger proc/maps cache updating */
 #define STACKTRACE_CAPTURE_ON_ENTER 01000 /* Capture stacktrace on "entering" stage */
 #define TRACE_INDIRECT_SUBCALL	02000	/* Syscall is an indirect socket/ipc subcall. */
+
+#define IOCTL_NUMBER_UNKNOWN 0
+#define IOCTL_NUMBER_HANDLED 1
+#define IOCTL_NUMBER_STOP_LOOKUP 010
+
+#define indirect_ipccall(tcp) (tcp->s_ent->sys_flags & TRACE_INDIRECT_SUBCALL)
 
 #if defined(ARM) || defined(AARCH64) \
  || defined(I386) || defined(X32) || defined(X86_64) \
@@ -424,15 +458,22 @@ extern unsigned os_release;
 #undef KERNEL_VERSION
 #define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
 
-enum bitness_t { BITNESS_CURRENT = 0, BITNESS_32 };
-
 void error_msg(const char *fmt, ...) ATTRIBUTE_FORMAT((printf, 1, 2));
 void perror_msg(const char *fmt, ...) ATTRIBUTE_FORMAT((printf, 1, 2));
 void error_msg_and_die(const char *fmt, ...)
 	ATTRIBUTE_FORMAT((printf, 1, 2)) ATTRIBUTE_NORETURN;
+void error_msg_and_help(const char *fmt, ...)
+	ATTRIBUTE_FORMAT((printf, 1, 2)) ATTRIBUTE_NORETURN;
 void perror_msg_and_die(const char *fmt, ...)
 	ATTRIBUTE_FORMAT((printf, 1, 2)) ATTRIBUTE_NORETURN;
 void die_out_of_memory(void) ATTRIBUTE_NORETURN;
+
+void *xmalloc(size_t size) ATTRIBUTE_MALLOC ATTRIBUTE_ALLOC_SIZE((1));
+void *xcalloc(size_t nmemb, size_t size)
+	ATTRIBUTE_MALLOC ATTRIBUTE_ALLOC_SIZE((1, 2));
+void *xreallocarray(void *ptr, size_t nmemb, size_t size)
+	ATTRIBUTE_ALLOC_SIZE((2, 3));
+char *xstrdup(const char *str) ATTRIBUTE_MALLOC;
 
 #if USE_CUSTOM_PRINTF
 /*
@@ -455,10 +496,20 @@ extern void call_summary(FILE *);
 extern void clear_regs(void);
 extern void get_regs(pid_t pid);
 extern int get_scno(struct tcb *tcp);
+extern const char *syscall_name(long scno);
+
+extern bool is_erestart(struct tcb *);
+extern void temporarily_clear_syserror(struct tcb *);
+extern void restore_cleared_syserror(struct tcb *);
 
 extern int umoven(struct tcb *, long, unsigned int, void *);
 #define umove(pid, addr, objp)	\
 	umoven((pid), (addr), sizeof(*(objp)), (void *) (objp))
+extern int umoven_or_printaddr(struct tcb *, long, unsigned int, void *);
+#define umove_or_printaddr(pid, addr, objp)	\
+	umoven_or_printaddr((pid), (addr), sizeof(*(objp)), (void *) (objp))
+extern int umove_ulong_or_printaddr(struct tcb *, long, unsigned long *);
+extern int umove_ulong_array_or_printaddr(struct tcb *, long, unsigned long *, size_t);
 extern int umovestr(struct tcb *, long, unsigned int, char *);
 extern int upeek(int pid, long, long *);
 
@@ -490,18 +541,20 @@ extern int print_quoted_string(const char *, unsigned int, unsigned int);
 /* a refers to the lower numbered u_arg,
  * b refers to the higher numbered u_arg
  */
-#if HAVE_LITTLE_ENDIAN_LONG_LONG
-# define LONG_LONG(a,b) \
-	((long long)((unsigned long long)(unsigned)(a) | ((unsigned long long)(b)<<32)))
-#else
+#ifdef WORDS_BIGENDIAN
 # define LONG_LONG(a,b) \
 	((long long)((unsigned long long)(unsigned)(b) | ((unsigned long long)(a)<<32)))
+#else
+# define LONG_LONG(a,b) \
+	((long long)((unsigned long long)(unsigned)(a) | ((unsigned long long)(b)<<32)))
 #endif
 extern int getllval(struct tcb *, unsigned long long *, int);
 extern int printllval(struct tcb *, const char *, int)
 	ATTRIBUTE_FORMAT((printf, 2, 0));
 
-extern void printxval(const struct xlat *, const unsigned int, const char *);
+extern void printaddr(long);
+extern void printxvals(const unsigned int, const char *, const struct xlat *, ...);
+#define printxval(xlat, val, dflt) printxvals(val, dflt, xlat, NULL)
 extern int printargs(struct tcb *);
 extern int printargs_lu(struct tcb *);
 extern int printargs_ld(struct tcb *);
@@ -515,32 +568,58 @@ extern void dumpiov_in_mmsghdr(struct tcb *, long);
 extern void dumpiov(struct tcb *, int, long);
 extern void dumpstr(struct tcb *, long, int);
 extern void printstr(struct tcb *, long, long);
-extern void printnum_int(struct tcb *, long, const char *)
+extern bool printnum_short(struct tcb *, long, const char *)
 	ATTRIBUTE_FORMAT((printf, 3, 0));
-extern void printnum_long(struct tcb *, long, const char *)
+extern bool printnum_int(struct tcb *, long, const char *)
+	ATTRIBUTE_FORMAT((printf, 3, 0));
+extern bool printnum_int64(struct tcb *, long, const char *)
+	ATTRIBUTE_FORMAT((printf, 3, 0));
+
+#if SUPPORTED_PERSONALITIES > 1 && SIZEOF_LONG > 4
+extern bool printnum_long_int(struct tcb *, long, const char *, const char *)
+	ATTRIBUTE_FORMAT((printf, 3, 0))
+	ATTRIBUTE_FORMAT((printf, 4, 0));
+# define printnum_slong(tcp, addr) \
+	printnum_long_int((tcp), (addr), "%" PRId64, "%d")
+# define printnum_ulong(tcp, addr) \
+	printnum_long_int((tcp), (addr), "%" PRIu64, "%u")
+# define printnum_ptr(tcp, addr) \
+	printnum_long_int((tcp), (addr), "%#" PRIx64, "%#x")
+#elif SIZEOF_LONG > 4
+# define printnum_slong(tcp, addr) \
+	printnum_int64((tcp), (addr), "%" PRId64)
+# define printnum_ulong(tcp, addr) \
+	printnum_int64((tcp), (addr), "%" PRIu64)
+# define printnum_ptr(tcp, addr) \
+	printnum_int64((tcp), (addr), "%#" PRIx64)
+#else
+# define printnum_slong(tcp, addr) \
+	printnum_int((tcp), (addr), "%d")
+# define printnum_ulong(tcp, addr) \
+	printnum_int((tcp), (addr), "%u")
+# define printnum_ptr(tcp, addr) \
+	printnum_int((tcp), (addr), "%#x")
+#endif
+
+extern bool printpair_int(struct tcb *, long, const char *)
+	ATTRIBUTE_FORMAT((printf, 3, 0));
+extern bool printpair_int64(struct tcb *, long, const char *)
 	ATTRIBUTE_FORMAT((printf, 3, 0));
 extern void printpath(struct tcb *, long);
 extern void printpathn(struct tcb *, long, unsigned int);
-#define TIMESPEC_TEXT_BUFSIZE (sizeof(long)*3 * 2 + sizeof("{%u, %u}"))
-#define TIMEVAL_TEXT_BUFSIZE  TIMESPEC_TEXT_BUFSIZE
-extern void printtv_bitness(struct tcb *, long, enum bitness_t, int);
-#define printtv(tcp, addr)	\
-	printtv_bitness((tcp), (addr), BITNESS_CURRENT, 0)
-#define printtv_special(tcp, addr)	\
-	printtv_bitness((tcp), (addr), BITNESS_CURRENT, 1)
-extern char *sprinttv(char *, struct tcb *, long, enum bitness_t, int special);
-extern void print_timespec(struct tcb *, long);
-extern void sprint_timespec(char *, struct tcb *, long);
-extern void printsiginfo(const siginfo_t *, bool);
-extern void printsiginfo_at(struct tcb *tcp, long addr);
+#define TIMESPEC_TEXT_BUFSIZE \
+		(sizeof(intmax_t)*3 * 2 + sizeof("{tv_sec=%jd, tv_nsec=%jd}"))
 extern void printfd(struct tcb *, int);
 extern bool print_sockaddr_by_inode(const unsigned long, const char *);
 extern void print_dirfd(struct tcb *, int);
 extern void printsock(struct tcb *, long, int);
 extern void print_sock_optmgmt(struct tcb *, long, int);
-extern void printrusage(struct tcb *, long);
 #ifdef ALPHA
 extern void printrusage32(struct tcb *, long);
+extern const char *sprint_timeval32(struct tcb *tcp, long);
+extern void print_timeval32(struct tcb *tcp, long);
+extern void print_timeval32_pair(struct tcb *tcp, long);
+extern void print_itimerval32(struct tcb *tcp, long);
 #endif
 extern void printuid(const char *, const unsigned int);
 extern void print_sigset_addr_len(struct tcb *, long, long);
@@ -552,14 +631,8 @@ extern void tprint_iov(struct tcb *, unsigned long, unsigned long, int decode_io
 extern void tprint_iov_upto(struct tcb *, unsigned long, unsigned long, int decode_iov, unsigned long);
 extern void tprint_open_modes(int);
 extern const char *sprint_open_modes(int);
-extern void print_loff_t(struct tcb *, long);
 extern void print_seccomp_filter(struct tcb *tcp, unsigned long);
 
-extern const struct_ioctlent *ioctl_lookup(const unsigned int);
-extern const struct_ioctlent *ioctl_next_match(const struct_ioctlent *);
-extern void ioctl_print_code(const unsigned int);
-extern int ioctl_decode(struct tcb *, const unsigned int, long);
-extern int ioctl_decode_command_number(const unsigned int);
 extern int block_ioctl(struct tcb *, const unsigned int, long);
 extern int evdev_ioctl(struct tcb *, const unsigned int, long);
 extern int loop_ioctl(struct tcb *, const unsigned int, long);
@@ -647,6 +720,7 @@ extern const char *const signalent0[];
 extern const struct_ioctlent ioctlent0[];
 extern qualbits_t *qual_vec[SUPPORTED_PERSONALITIES];
 #define qual_flags (qual_vec[current_personality])
+
 #if SUPPORTED_PERSONALITIES > 1
 extern const struct_sysent *sysent;
 extern const char *const *errnoent;
@@ -658,11 +732,18 @@ extern const struct_ioctlent *ioctlent;
 # define signalent  signalent0
 # define ioctlent   ioctlent0
 #endif
+
 extern unsigned nsyscalls;
 extern unsigned nerrnos;
 extern unsigned nsignals;
 extern unsigned nioctlents;
 extern unsigned num_quals;
+
+#if SUPPORTED_PERSONALITIES > 1
+# include "printers.h"
+#else
+# include "native_printer_decls.h"
+#endif
 
 /*
  * If you need non-NULL sysent[scno].sys_func and sysent[scno].sys_name
@@ -674,8 +755,12 @@ extern unsigned num_quals;
 #define SCNO_IN_RANGE(scno) \
 	((unsigned long)(scno) < nsyscalls)
 
-#ifndef SYS_FUNC_NAME
-# define SYS_FUNC_NAME(syscall_name) sys_ ## syscall_name
-#endif
+#define MPERS_FUNC_NAME__(prefix, name) prefix ## name
+#define MPERS_FUNC_NAME_(prefix, name) MPERS_FUNC_NAME__(prefix, name)
+#define MPERS_FUNC_NAME(name) MPERS_FUNC_NAME_(MPERS_PREFIX, name)
 
-#define SYS_FUNC(syscall_name) int SYS_FUNC_NAME(syscall_name)(struct tcb *tcp)
+#define SYS_FUNC_NAME(syscall_name) MPERS_FUNC_NAME(syscall_name)
+
+#define SYS_FUNC(syscall_name) int SYS_FUNC_NAME(sys_ ## syscall_name)(struct tcb *tcp)
+
+#define MPERS_PRINTER_DECL(type, name) type MPERS_FUNC_NAME(name)

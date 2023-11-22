@@ -18,35 +18,69 @@
 -->
 
 <!-- These resources are around just to allow their values to be customized
-     for different hardware and product builds.  Do not translate. -->
+     for different hardware and product builds.  Do not translate.
+
+     NOTE: The naming convention is "config_camelCaseValue". Some legacy
+     entries do not follow the convention, but all new entries should. -->
+
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!-- Do not translate. Defines the slots for the right-hand side icons.  That is to say, the
          icons in the status bar that are not notifications. -->
     <string-array name="config_statusBarIcons">
-       <item><xliff:g id="id">managed_profile</xliff:g></item>
-       <item><xliff:g id="id">ime</xliff:g></item>
-       <item><xliff:g id="id">sync_failing</xliff:g></item>
-       <item><xliff:g id="id">sync_active</xliff:g></item>
-       <item><xliff:g id="id">cast</xliff:g></item>
-       <item><xliff:g id="id">hotspot</xliff:g></item>
-       <item><xliff:g id="id">location</xliff:g></item>
-       <item><xliff:g id="id">bluetooth</xliff:g></item>
-       <item><xliff:g id="id">nfc</xliff:g></item>
-       <item><xliff:g id="id">tty</xliff:g></item>
-       <item><xliff:g id="id">speakerphone</xliff:g></item>
-       <item><xliff:g id="id">zen</xliff:g></item>
-       <item><xliff:g id="id">mute</xliff:g></item>
-       <item><xliff:g id="id">volume</xliff:g></item>
-       <item><xliff:g id="id">wifi</xliff:g></item>
-       <item><xliff:g id="id">cdma_eri</xliff:g></item>
-       <item><xliff:g id="id">data_connection</xliff:g></item>
-       <item><xliff:g id="id">phone_evdo_signal</xliff:g></item>
-       <item><xliff:g id="id">phone_signal</xliff:g></item>
-       <item><xliff:g id="id">battery</xliff:g></item>
-       <item><xliff:g id="id">alarm_clock</xliff:g></item>
-       <item><xliff:g id="id">secure</xliff:g></item>
-       <item><xliff:g id="id">clock</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_rotate</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_headset</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_data_saver</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_managed_profile</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_ime</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_sync_failing</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_sync_active</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_cast</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_hotspot</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_location</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_bluetooth</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_nfc</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_tty</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_speakerphone</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_zen</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_mute</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_volume</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_wifi</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_cdma_eri</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_data_connection</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_phone_evdo_signal</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_phone_signal</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_battery</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_alarm_clock</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_secure</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_clock</xliff:g></item>
     </string-array>
+
+    <string translatable="false" name="status_bar_rotate">rotate</string>
+    <string translatable="false" name="status_bar_headset">headset</string>
+    <string translatable="false" name="status_bar_data_saver">data_saver</string>
+    <string translatable="false" name="status_bar_managed_profile">managed_profile</string>
+    <string translatable="false" name="status_bar_ime">ime</string>
+    <string translatable="false" name="status_bar_sync_failing">sync_failing</string>
+    <string translatable="false" name="status_bar_sync_active">sync_active</string>
+    <string translatable="false" name="status_bar_cast">cast</string>
+    <string translatable="false" name="status_bar_hotspot">hotspot</string>
+    <string translatable="false" name="status_bar_location">location</string>
+    <string translatable="false" name="status_bar_bluetooth">bluetooth</string>
+    <string translatable="false" name="status_bar_nfc">nfc</string>
+    <string translatable="false" name="status_bar_tty">tty</string>
+    <string translatable="false" name="status_bar_speakerphone">speakerphone</string>
+    <string translatable="false" name="status_bar_zen">zen</string>
+    <string translatable="false" name="status_bar_mute">mute</string>
+    <string translatable="false" name="status_bar_volume">volume</string>
+    <string translatable="false" name="status_bar_wifi">wifi</string>
+    <string translatable="false" name="status_bar_cdma_eri">cdma_eri</string>
+    <string translatable="false" name="status_bar_data_connection">data_connection</string>
+    <string translatable="false" name="status_bar_phone_evdo_signal">phone_evdo_signal</string>
+    <string translatable="false" name="status_bar_phone_signal">phone_signal</string>
+    <string translatable="false" name="status_bar_battery">battery</string>
+    <string translatable="false" name="status_bar_alarm_clock">alarm_clock</string>
+    <string translatable="false" name="status_bar_secure">secure</string>
+    <string translatable="false" name="status_bar_clock">clock</string>
 
     <!-- Flag indicating whether the surface flinger has limited
          alpha compositing functionality in hardware.  If set, the window
@@ -166,6 +200,21 @@
          so that applications can still use their own mechanisms. -->
     <bool name="config_enableAutoPowerModes">false</bool>
 
+    <!-- The threshold angle for any motion detection in auto-power save modes.
+         In hundreths of a degree. -->
+    <integer name="config_autoPowerModeThresholdAngle">200</integer>
+
+    <!-- The sensor id of an "any motion" sensor used in auto-power save modes.
+         0 indicates this sensor is not available. -->
+    <integer name="config_autoPowerModeAnyMotionSensor">0</integer>
+
+    <!-- If an any motion sensor is not available, prefer the wrist tilt detector over the
+         SMD. -->
+    <bool name="config_autoPowerModePreferWristTilt">false</bool>
+
+    <!-- If a location should be pre-fetched when going into device idle. -->
+    <bool name="config_autoPowerModePrefetchLocation">true</bool>
+
     <!-- The duration (in milliseconds) that the radio will scan for a signal
          when there's no network connection. If the scan doesn't timeout, use zero -->
     <integer name="config_radioScanningTimeout">0</integer>
@@ -216,24 +265,11 @@
         <item>"0,1"</item>
     </string-array>
 
-    <!-- Set of NetworkInfo.getType() that reflect data usage. -->
-    <integer-array translatable="false" name="config_data_usage_network_types">
-        <item>0</item> <!-- TYPE_MOBILE -->
-        <item>2</item> <!-- TYPE_MOBILE_MMS -->
-        <item>3</item> <!-- TYPE_MOBILE_SUPL -->
-        <item>4</item> <!-- TYPE_MOBILE_DUN -->
-        <item>5</item> <!-- TYPE_MOBILE_HIPRI -->
-        <item>10</item> <!-- TYPE_MOBILE_FOTA -->
-        <item>11</item> <!-- TYPE_MOBILE_IMS -->
-        <item>12</item> <!-- TYPE_MOBILE_CBS -->
-        <item>14</item> <!-- TYPE_MOBILE_IA -->
-    </integer-array>
-
     <!-- The maximum duration (in milliseconds) we expect a network transition to take -->
     <integer name="config_networkTransitionTimeout">60000</integer>
 
     <!-- List of regexpressions describing the interface (if any) that represent tetherable
-         USB interfaces.  If the device doesn't want to support tething over USB this should
+         USB interfaces.  If the device doesn't want to support tethering over USB this should
          be empty.  An example would be "usb.*" -->
     <string-array translatable="false" name="config_tether_usb_regexs">
     </string-array>
@@ -384,25 +420,37 @@
     <!-- Boolean indicating we re-try re-associating once upon disconnection and RSSI is high failure  -->
     <bool translatable="true" name="config_wifi_enable_disconnection_debounce">true</bool>
 
-    <!-- Boolean indicating autojoin will prefer 5GHz and choose 5GHz BSSIDs -->
-    <bool translatable="true" name="config_wifi_enable_5GHz_preference">true</bool>
+    <!-- Boolean indicating whether or not to revert to default country code when cellular
+         radio is unable to find any MCC information to infer wifi country code from -->
+    <bool translatable="false" name="config_wifi_revert_country_code_on_cellular_loss">false</bool>
+
+    <!-- Boolean indicating whether or not wifi firmware debugging is enabled -->
+    <bool translatable="false" name="config_wifi_enable_wifi_firmware_debugging">true</bool>
+
+    <!-- Integer size limit, in KB, for a single WifiLogger ringbuffer -->
+    <integer translatable="false" name="config_wifi_logger_ring_buffer_size_limit_kb">32</integer>
+
+    <!-- Boolean indicating whether or not wifi should turn off when emergency call is made -->
+    <bool translatable="false" name="config_wifi_turn_off_during_emergency_call">false</bool>
 
     <!-- Integer specifying the basic autojoin parameters -->
     <integer translatable="false" name="config_wifi_framework_5GHz_preference_boost_threshold">-65</integer>
-    <integer translatable="false" name="config_wifi_framework_5GHz_preference_boost_factor">5</integer>
-    <integer translatable="false" name="config_wifi_framework_current_association_hysteresis_high">16</integer>
-    <integer translatable="false" name="config_wifi_framework_current_association_hysteresis_low">10</integer>
+    <integer translatable="false" name="config_wifi_framework_5GHz_preference_boost_factor">40</integer>
     <integer translatable="false" name="config_wifi_framework_5GHz_preference_penalty_threshold">-75</integer>
-    <integer translatable="false" name="config_wifi_framework_5GHz_preference_penalty_factor">2</integer>
-
+    <integer translatable="false" name="config_wifi_framework_RSSI_SCORE_OFFSET">85</integer>
+    <integer translatable="false" name="config_wifi_framework_RSSI_SCORE_SLOPE">4</integer>
+    <integer translatable="false" name="config_wifi_framework_SAME_BSSID_AWARD">24</integer>
+    <integer translatable="false" name="config_wifi_framework_LAST_SELECTION_AWARD">480</integer>
+    <integer translatable="false" name="config_wifi_framework_PASSPOINT_SECURITY_AWARD">40</integer>
+    <integer translatable="false" name="config_wifi_framework_SECURITY_AWARD">80</integer>
     <!-- Integer parameters of the wifi to cellular handover feature
          wifi should not stick to bad networks -->
     <integer translatable="false" name="config_wifi_framework_wifi_score_bad_rssi_threshold_5GHz">-82</integer>
-    <integer translatable="false" name="config_wifi_framework_wifi_score_low_rssi_threshold_5GHz">-72</integer>
-    <integer translatable="false" name="config_wifi_framework_wifi_score_good_rssi_threshold_5GHz">-60</integer>
-    <integer translatable="false" name="config_wifi_framework_wifi_score_bad_rssi_threshold_24GHz">-87</integer>
-    <integer translatable="false" name="config_wifi_framework_wifi_score_low_rssi_threshold_24GHz">-77</integer>
-    <integer translatable="false" name="config_wifi_framework_wifi_score_good_rssi_threshold_24GHz">-65</integer>
+    <integer translatable="false" name="config_wifi_framework_wifi_score_low_rssi_threshold_5GHz">-70</integer>
+    <integer translatable="false" name="config_wifi_framework_wifi_score_good_rssi_threshold_5GHz">-57</integer>
+    <integer translatable="false" name="config_wifi_framework_wifi_score_bad_rssi_threshold_24GHz">-85</integer>
+    <integer translatable="false" name="config_wifi_framework_wifi_score_low_rssi_threshold_24GHz">-73</integer>
+    <integer translatable="false" name="config_wifi_framework_wifi_score_good_rssi_threshold_24GHz">-60</integer>
     <integer translatable="false" name="config_wifi_framework_wifi_score_bad_link_speed_24">6</integer>
     <integer translatable="false" name="config_wifi_framework_wifi_score_bad_link_speed_5">12</integer>
     <integer translatable="false" name="config_wifi_framework_wifi_score_good_link_speed_24">24</integer>
@@ -442,14 +490,8 @@
     <!-- Integer indicating disconnect mode short scan interval in milliseconds -->
     <integer translatable="false" name="config_wifi_disconnected_short_scan_interval">15000</integer>
 
-    <!-- Integer indicating disconnect mode long scan interval in milliseconds -->
-    <integer translatable="false" name="config_wifi_disconnected_long_scan_interval">120000</integer>
-
     <!-- Integer indicating associated partial scan short interval in milliseconds -->
     <integer translatable="false" name="config_wifi_associated_short_scan_interval">20000</integer>
-
-    <!-- Integer indicating associated partial scan long interval in milliseconds -->
-    <integer translatable="false" name="config_wifi_associated_long_scan_interval">180000</integer>
 
     <!-- Integer indicating associated full scan backoff, representing a fraction: xx/8 -->
     <integer translatable="false" name="config_wifi_framework_associated_full_scan_backoff">12</integer>
@@ -463,20 +505,8 @@
     <!-- Integer indicating associated full scan max num active channels -->
     <integer translatable="false" name="config_wifi_framework_associated_partial_scan_max_num_active_channels">6</integer>
 
-    <!-- Integer indicating associated full scan max num passive channels -->
-    <integer translatable="false" name="config_wifi_framework_associated_partial_scan_max_num_passive_channels">3</integer>
-
-    <!-- Integer indicating number of association errors leading to blacklisting of the network -->
-    <integer translatable="false" name="config_wifi_framework_max_connection_errors_to_blacklist">4</integer>
-
-    <!-- Integer indicating number of authentication errors leading to blacklisting of the network -->
-    <integer translatable="false" name="config_wifi_framework_max_auth_errors_to_blacklist">4</integer>
-
-    <!-- Integer indicating minimum blacklisting delay of a wofo configuration due to connectin or auth errors -->
-    <integer translatable="false" name="config_wifi_framework_network_black_list_min_time_milli">120000</integer>
-
     <!-- Integer indicating RSSI boost given to current network -->
-    <integer translatable="false" name="config_wifi_framework_current_network_boost">25</integer>
+    <integer translatable="false" name="config_wifi_framework_current_network_boost">16</integer>
 
     <!-- Integer indicating how to handle beacons with uninitialized RSSI value of 0 -->
     <integer translatable="false" name="config_wifi_framework_scan_result_rssi_level_patchup_value">-85</integer>
@@ -487,18 +517,8 @@
     <!-- Boolean indicating that wifi only link configuratios that have exact same credentials (i.e PSK) -->
     <bool translatable="false" name="config_wifi_only_link_same_credential_configurations">true</bool>
 
-    <!-- Wifi driver stop delay, in milliseconds.
-         Default value is 2 minutes. -->
-    <integer translatable="false" name="config_wifi_driver_stop_delay">120000</integer>
-
     <!-- Wifi driver supports batched scan -->
     <bool translatable="false" name="config_wifi_batched_scan_supported">false</bool>
-
-    <!-- Wifi HAL supported PNO -->
-    <bool translatable="false" name="config_wifi_hal_pno_enable">false</bool>
-
-    <!-- Wifi SSID white list (can't be enabled if config_wifi_hal_pno_enable is not) -->
-    <bool translatable="false" name="config_wifi_ssid_white_list_enable">true</bool>
 
     <!-- Idle Receive current for wifi radio. 0 by default-->
     <integer translatable="false" name="config_wifi_idle_receive_cur_ma">0</integer>
@@ -516,6 +536,9 @@
          Software implementation will be used if config_hardware_auto_brightness_available is not set -->
     <bool name="config_automatic_brightness_available">false</bool>
 
+    <!-- Fast brightness animation ramp rate -->
+    <integer translatable="false" name="config_brightness_ramp_rate_fast">200</integer>
+
     <!-- Don't name config resources like this.  It should look like config_annoyDianne -->
     <bool name="config_annoy_dianne">true</bool>
 
@@ -523,6 +546,9 @@
 
     <!-- If this is true, the screen will come on when you unplug usb/power/whatever. -->
     <bool name="config_unplugTurnsOnScreen">false</bool>
+
+    <!-- If this is true, the message that USB is only being used for charging will be shown. -->
+    <bool name="config_usbChargingMessage">true</bool>
 
     <!-- Set this true only if the device has separate attention and notification lights. -->
     <bool name="config_useAttentionLight">false</bool>
@@ -637,6 +663,10 @@
          closed.  The default is 0. -->
     <integer name="config_lidNavigationAccessibility">0</integer>
 
+    <!-- Indicate whether closing the lid causes the lockscreen to appear.
+         The default is false. -->
+    <bool name="config_lidControlsScreenLock">false</bool>
+
     <!-- Indicate whether closing the lid causes the device to go to sleep and opening
          it causes the device to wake up.
          The default is false. -->
@@ -680,6 +710,13 @@
 
     <bool name="config_carDockEnablesAccelerometer">true</bool>
 
+    <!--  Control whether to launch Car dock home app when user presses home button or when
+          car dock intent is fired.
+          In mobile device, usually separate home app is expected in car mode, and this should be
+          enabled. But in environments like real car, default home app may be enough, and in that
+          case, this can be disabled (set to false). -->
+    <bool name="config_enableCarDockHomeLaunch">true</bool>
+
     <!-- HDMI behavior -->
 
     <!-- The number of degrees to rotate the display when the device has HDMI connected
@@ -696,6 +733,15 @@
              6  UI_MODE_TYPE_WATCH
          Any other values will have surprising consequences. -->
     <integer name="config_defaultUiModeType">1</integer>
+
+    <!--  Control whether to lock UI mode to what is selected from config_defaultUiModeType.
+          Once UI mode is locked, applications cannot change it anymore. -->
+    <bool name="config_lockUiMode">false</bool>
+
+    <!--  Control whether to lock day/night mode change from normal application. When it is
+          true, day / night mode change is only allowed to apps with MODIFY_DAY_NIGHT_MODE
+          permission. -->
+    <bool name="config_lockDayNightMode">false</bool>
 
     <!-- Control the default night mode to use when there is no other mode override set.
          One of the following values (see UiModeManager.java):
@@ -719,6 +765,13 @@
             3 - Power off (without confirmation)
     -->
     <integer name="config_longPressOnPowerBehavior">1</integer>
+
+    <!-- Control the behavior when the user long presses the back button.  Non-zero values are only
+         valid for watches as part of CDD/CTS.
+            0 - Nothing
+            1 - Go to voice assist
+    -->
+    <integer name="config_longPressOnBackBehavior">0</integer>
 
     <!-- Control the behavior when the user short presses the power button.
             0 - Nothing
@@ -902,6 +955,9 @@
     <!-- Is the device capable of hot swapping an UICC Card -->
     <bool name="config_hotswapCapable">false</bool>
 
+    <!-- Component name of the ICC hotswap prompt for restart dialog -->
+    <string name="config_iccHotswapPromptForRestartDialogComponent" translateable="false">@null</string>
+
     <!-- Enable puk unlockscreen by default.
          If unlock screen is disabled, the puk should be unlocked through Emergency Dialer -->
     <bool name="config_enable_puk_unlock_screen">true</bool>
@@ -959,6 +1015,10 @@
     <!-- Light sensor event rate in milliseconds for automatic brightness control. -->
     <integer name="config_autoBrightnessLightSensorRate">250</integer>
 
+    <!-- The maximum range of gamma adjustment possible using the screen
+         auto-brightness adjustment setting. -->
+    <fraction name="config_autoBrightnessAdjustmentMaxGamma">300%</fraction>
+
     <!-- If we allow automatic adjustment of screen brightness while dozing, how many times we want
          to reduce it to preserve the battery. Value of 100% means no scaling. -->
     <fraction name="config_screenAutoBrightnessDozeScaleFactor">100%</fraction>
@@ -975,6 +1035,9 @@
          brightening or dimming debounce thresholds.  As a result, it may take somewhat longer to
          adapt to the environment.  This mode may be better suited for watches. -->
     <bool name="config_autoBrightnessResetAmbientLuxAfterWarmUp">true</bool>
+
+    <!-- Period of time in which to consider light samples in milliseconds. -->
+    <integer name="config_autoBrightnessAmbientLightHorizon">10000</integer>
 
     <!-- Screen brightness used to dim the screen when the user activity
          timeout expires.  May be less than the minimum allowed brightness setting
@@ -1052,9 +1115,20 @@
          This feature should be disabled for most devices. -->
     <integer name="config_virtualKeyQuietTimeMillis">0</integer>
 
+    <!-- A list of potential packages, in priority order, that may contain an
+         ephemeral resolver. Each package will be be queried for a component
+         that has been granted the PACKAGE_EPHEMERAL_AGENT permission.
+         This may be empty if ephemeral apps are not supported. -->
+    <string-array name="config_ephemeralResolverPackage" translatable="false">
+        <!-- Add packages here -->
+    </string-array>
+
     <!-- Component name of the default wallpaper. This will be ImageWallpaper if not
          specified -->
     <string name="default_wallpaper_component" translatable="false">@null</string>
+
+    <!-- By default a product has no distinct default lock wallpaper -->
+    <item name="default_lock_wallpaper" type="drawable">@null</item>
 
     <!-- Component name of the built in wallpaper used to display bitmap wallpapers. This must not be null. -->
     <string name="image_wallpaper_component" translatable="false">com.android.systemui/com.android.systemui.ImageWallpaper</string>
@@ -1210,6 +1284,9 @@
     <!-- Operating volatage for bluetooth controller. 0 by default-->
     <integer translatable="false" name="config_bluetooth_operating_voltage_mv">4</integer>
 
+    <!-- Whether supported profiles should be reloaded upon enabling bluetooth -->
+    <bool name="config_bluetooth_reload_supported_profiles_when_enabled">false</bool>
+
     <!-- The default data-use polling period. -->
     <integer name="config_datause_polling_period_sec">600</integer>
 
@@ -1245,6 +1322,10 @@
          available on *any* device with a telephony radio, even if the
          device is data-only. -->
     <bool name="config_voice_capable">true</bool>
+
+    <!-- Flag indicating that an outbound call must have a call capable phone account
+         that has declared it can process the call's handle. -->
+    <bool name="config_requireCallCapableAccountForHandle">false</bool>
 
     <!-- Flag indicating if the user is notified when the mobile network access is restricted -->
     <bool name="config_user_notification_of_restrictied_mobile_access">true</bool>
@@ -1467,11 +1548,6 @@
          it should be disabled in that locale's resources. -->
     <bool name="config_actionMenuItemAllCaps">true</bool>
 
-    <!-- Whether action menu items should obey the "withText" showAsAction
-         flag. This may be set to false for situations where space is
-         extremely limited. -->
-    <bool name="config_allowActionMenuItemTextWithIcon">false</bool>
-
     <!-- Remote server that can provide NTP responses. -->
     <string translatable="false" name="config_ntpServer">2.android.pool.ntp.org</string>
     <!-- Normal polling frequency in milliseconds -->
@@ -1484,8 +1560,8 @@
     <!-- If the time difference is greater than this threshold in milliseconds,
          then update the time. -->
     <integer name="config_ntpThreshold">5000</integer>
-    <!-- Timeout to wait for NTP server response. -->
-    <integer name="config_ntpTimeout">20000</integer>
+    <!-- Timeout to wait for NTP server response in milliseconds. -->
+    <integer name="config_ntpTimeout">5000</integer>
 
     <!-- Default network policy warning threshold, in megabytes. -->
     <integer name="config_networkPolicyDefaultWarning">2048</integer>
@@ -1664,6 +1740,7 @@
 
     <!--  Maximum number of supported users -->
     <integer name="config_multiuserMaximumUsers">1</integer>
+
     <!-- Whether UI for multi user should be shown -->
     <bool name="config_enableMultiUserUI">false</bool>
 
@@ -1724,6 +1801,32 @@
          * The device must be provisioned with HDCP keys (for protected content).
     -->
     <bool name="config_enableWifiDisplay">false</bool>
+
+    <!-- The color transform values that correspond to each respective configuration mode for the
+         built-in display, or -1 if the mode is unsupported by the device. The possible
+         configuration modes are:
+            1. Wide-gamut ("Vibrant")
+            2. Adobe RGB ("Natural")
+            3. sRGB ("Standard")
+
+        For example, if a device had Wide-gamut as color transform mode 1, sRGB mode as color
+        transform mode 7, and did not support Adobe RGB at all this would look like:
+
+            <integer-array name="config_colorTransforms">
+                <item>1</item>
+                <item>-1</item>
+                <item>7</item>
+            </integer-array>
+    -->
+    <integer-array name="config_colorTransforms">
+        <item>-1</item>
+        <item>-1</item>
+        <item>-1</item>
+    </integer-array>
+
+    <!-- When true, local displays that do not contain any of their own content will automatically
+         mirror the content of the default display. -->
+    <bool name="config_localDisplaysMirrorContent">true</bool>
 
     <!-- When true use the linux /dev/input/event subsystem to detect the switch changes
          on the headphone/microphone jack. When false use the older uevent framework. -->
@@ -1869,9 +1972,10 @@
      See {@link com.android.server.notification.NotificationSignalExtractor} -->
     <string-array name="config_notificationSignalExtractors">
         <item>com.android.server.notification.ValidateNotificationPeople</item>
-        <item>com.android.server.notification.PackagePriorityExtractor</item>
+        <item>com.android.server.notification.PriorityExtractor</item>
+        <item>com.android.server.notification.ImportanceExtractor</item>
         <item>com.android.server.notification.NotificationIntrusivenessExtractor</item>
-        <item>com.android.server.notification.PackageVisibilityExtractor</item>
+        <item>com.android.server.notification.VisibilityExtractor</item>
     </string-array>
 
     <!-- Flag indicating that this device does not rotate and will always remain in its default
@@ -2017,10 +2121,6 @@
         IMS service implementation will do both.i.e.hold followed by merge. -->
     <bool name="skipHoldBeforeMerge">true</bool>
 
-    <!-- Flag indicating emergency calls will always use IMS irrespective of the state of
-    the IMS connection -->
-    <bool name="useImsAlwaysForEmergencyCall">true</bool>
-
     <!-- Flag indicating whether the IMS service can be turned off. If false then
         the service will not be turned-off completely (the ImsManager.turnOffIms() will
         be disabled) but individual Features can be disabled using ImsConfig.setFeatureValue() -->
@@ -2064,9 +2164,6 @@
     <!--Support decoding the user data payload as pack GSM 8-bit (a GSM alphabet
         string that's stored in 8-bit unpacked format) characters.-->
     <bool translatable="false" name="config_sms_decode_gsm_8bit_data">false</bool>
-
-    <!-- Package name providing WebView implementation. -->
-    <string name="config_webViewPackageName" translatable="false">com.android.webview</string>
 
     <!-- If EMS is not supported, framework breaks down EMS into single segment SMS
          and adds page info " x/y". This config is used to set which carrier doesn't
@@ -2158,6 +2255,10 @@
     <!-- Flags enabling default window features. See Window.java -->
     <bool name="config_defaultWindowFeatureOptionsPanel">true</bool>
     <bool name="config_defaultWindowFeatureContextMenu">true</bool>
+
+    <!-- If true, the transition for a RemoteViews is read from a resource instead of using the
+         default scale-up transition. -->
+    <bool name="config_overrideRemoteViewsActivityTransition">false</bool>
 
     <!-- This config is used to check if the carrier requires converting destination
          number before sending out a SMS.
@@ -2257,9 +2358,12 @@
          (range of 18 - 21 kHz). -->
     <bool name="config_supportSpeakerNearUltrasound">true</bool>
 
+    <!-- Whether the Unprocessed audio source supports the required frequency range and level -->
+    <bool name="config_supportAudioSourceUnprocessed">false</bool>
+
     <!-- Flag indicating device support for EAP SIM, AKA, AKA' -->
     <bool name="config_eap_sim_based_auth_supported">true</bool>
- 
+
     <!-- How long history of previous vibrations should be kept for the dumpsys. -->
     <integer name="config_previousVibrationsDumpLimit">20</integer>
 
@@ -2268,6 +2372,118 @@
          Error codes not listed will not lead to modem restarts.
          Array of "code#,retry#"  -->
     <string-array name="config_cell_retries_per_error_code">
+    </string-array>
+
+    <!-- Set initial MaxRetry value for operators -->
+    <integer name="config_mdc_initial_max_retry">1</integer>
+
+    <!-- The OEM specified sensor type for the gesture to launch the camera app. -->
+    <integer name="config_cameraLaunchGestureSensorType">-1</integer>
+    <!-- The OEM specified sensor string type for the gesture to launch camera app, this value
+         must match the value of config_cameraLaunchGestureSensorType in OEM's HAL -->
+    <string translatable="false" name="config_cameraLaunchGestureSensorStringType"></string>
+
+    <!-- Allow the gesture to double tap the power button twice to start the camera while the device
+         is non-interactive. -->
+    <bool name="config_cameraDoubleTapPowerGestureEnabled">true</bool>
+
+    <!-- Name of the component to handle network policy notifications. If present,
+         disables NetworkPolicyManagerService's presentation of data-usage notifications. -->
+    <string translatable="false" name="config_networkPolicyNotificationComponent"></string>
+
+    <!-- The BT name of the keyboard packaged with the device. If this is defined, SystemUI will
+         automatically try to pair with it when the device exits tablet mode. -->
+    <string translatable="false" name="config_packagedKeyboardName"></string>
+
+    <!-- The device supports freeform window management. Windows have title bars and can be moved
+         and resized. If you set this to true, you also need to add
+         PackageManager.FEATURE_FREEFORM_WINDOW_MANAGEMENT feature to your device specification.
+         The duplication is necessary, because this information is used before the features are
+         available to the system.-->
+    <bool name="config_freeformWindowManagement">false</bool>
+
+    <!-- If set, this will force all windows to draw the status bar background, including the apps
+         that have not requested doing so (via the WindowManager.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS
+         flag). -->
+    <bool name="config_forceWindowDrawsStatusBarBackground">true</bool>
+
+    <!-- Controls the opacity of the navigation bar depending on the visibility of the
+         various workspace stacks.
+         0 - Nav bar is always opaque when either the freeform stack or docked stack is visible.
+         1 - Nav bar is always translucent when the freeform stack is visible, otherwise always
+         opaque.
+         -->
+    <integer name="config_navBarOpacityMode">0</integer>
+
+    <!-- Default bounds [left top right bottom] on screen for picture-in-picture windows. -->
+    <string translatable="false" name="config_defaultPictureInPictureBounds">"0 0 100 100"</string>
+
+    <!-- Controls the snap mode for the docked stack divider
+             0 - 3 snap targets: left/top has 16:9 ratio, 1:1, and right/bottom has 16:9 ratio
+             1 - 3 snap targets: fixed ratio, 1:1, (1 - fixed ratio)
+             2 - 1 snap target: 1:1
+    -->
+    <integer name="config_dockedStackDividerSnapMode">0</integer>
+
+    <!-- List of comma separated package names for which we the system will not show crash, ANR,
+         etc. dialogs. -->
+    <string translatable="false" name="config_appsNotReportingCrashes"></string>
+
+    <!-- Inactivity threshold (in milliseconds) used in JobScheduler. JobScheduler will consider
+         the device to be "idle" after being inactive for this long. -->
+    <integer name="config_jobSchedulerInactivityIdleThreshold">4260000</integer>
+    <!-- The alarm window (in milliseconds) that JobScheduler uses to enter the idle state -->
+    <integer name="config_jobSchedulerIdleWindowSlop">300000</integer>
+
+    <!-- If true, all guest users created on the device will be ephemeral. -->
+    <bool name="config_guestUserEphemeral">false</bool>
+
+    <!-- Enforce strong auth on boot. Setting this to false represents a security risk and should
+         not be ordinarily done. The only case in which this might be permissible is in a car head
+         unit where there are hardware mechanisms to protect the device (physical keys) and not
+         much in the way of user data.
+    -->
+    <bool name="config_strongAuthRequiredOnBoot">true</bool>
+
+    <!-- Wallpaper cropper package. Used as the default cropper if the active launcher doesn't
+         handle wallpaper cropping.
+    -->
+    <string name="config_wallpaperCropperPackage" translatable="false">com.android.wallpapercropper</string>
+
+    <!-- True if the device supports at least one form of multi-window.
+         E.g. freeform, split-screen, picture-in-picture. -->
+    <bool name="config_supportsMultiWindow">true</bool>
+
+    <!-- True if the device requires AppWidgetService even if it does not have
+         the PackageManager.FEATURE_APP_WIDGETS feature -->
+    <bool name="config_enableAppWidgetService">false</bool>
+
+    <!-- True if the device supports Sustained Performance Mode-->
+    <bool name="config_sustainedPerformanceModeSupported">false</bool>
+
+    <!-- Controls how we deal with externally connected physical keyboards.
+         0 - When using this device, it is not clear for users to recognize when the physical
+             keyboard is (should be) connected and when it is (should be) disconnected.  Most of
+             phones and tablets with Bluetooth keyboard would fall into this category because the
+             connected Bluetooth keyboard may or may not be nearby the host device.
+         1 - When using this device, it is clear for users to recognize when the physical
+             keyboard is (should be) connected and when it is (should be) disconnected.
+             Devices with wired USB keyboard is one clear example.  Some 2-in-1 convertible
+             tablets with dedicated keyboards may have the same affordance to wired USB keyboard.
+    -->
+    <integer name="config_externalHardKeyboardBehavior">0</integer>
+
+    <!-- Package of the unbundled tv remote service which can connect to tv
+         remote provider -->
+    <string name="config_tvRemoteServicePackage" translatable="false"></string>
+
+    <!-- True if the device supports persisting security logs across reboots.
+         This requires the device's kernel to have pstore and pmsg enabled,
+         and DRAM to be powered and refreshed through all stages of reboot. -->
+    <bool name="config_supportPreRebootSecurityLogs">false</bool>
+
+    <!-- Default files to pin via Pinner Service -->
+    <string-array translatable="false" name="config_defaultPinnerServiceFiles">
     </string-array>
 
 </resources>

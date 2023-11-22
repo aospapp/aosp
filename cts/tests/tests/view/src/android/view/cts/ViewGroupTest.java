@@ -16,19 +16,16 @@
 
 package android.view.cts;
 
-import android.view.cts.util.XmlUtils;
-
-
 import android.content.Context;
 import android.content.Intent;
-import android.cts.util.CTSResult;
 import android.content.res.XmlResourceParser;
+import android.cts.util.CTSResult;
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.Region;
-import android.graphics.Bitmap.Config;
 import android.graphics.drawable.BitmapDrawable;
 import android.os.Parcelable;
 import android.os.SystemClock;
@@ -44,19 +41,20 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.ViewGroup;
-import android.view.WindowManager;
 import android.view.View.BaseSavedState;
 import android.view.View.MeasureSpec;
 import android.view.View.OnTouchListener;
+import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 import android.view.ViewGroup.OnHierarchyChangeListener;
+import android.view.WindowManager;
 import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
+import android.view.animation.Animation.AnimationListener;
 import android.view.animation.LayoutAnimationController;
 import android.view.animation.RotateAnimation;
 import android.view.animation.Transformation;
-import android.view.animation.Animation.AnimationListener;
+import android.view.cts.util.XmlUtils;
 import android.widget.TextView;
 
 import java.util.ArrayList;
@@ -338,23 +336,23 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
 
         Canvas canvas = new Canvas();
         MockViewGroup vg = new MockViewGroup(mContext);
-        MockViewGroup son = new MockViewGroup(mContext);
-        son.setAnimation(new MockAnimation());
-        vg.addView(son);
+        MockViewGroup child = new MockViewGroup(mContext);
+        child.setAnimation(new MockAnimation());
+        vg.addView(child);
         assertEquals(1, vg.getChildCount());
 
-        assertNotNull(son.getAnimation());
+        assertNotNull(child.getAnimation());
         vg.dispatchDraw(canvas);
         assertEquals(1, vg.drawChildCalledTime);
 
-        son.setAnimation(new MockAnimation());
+        child.setAnimation(new MockAnimation());
         vg.removeAllViewsInLayout();
 
         vg.drawChildCalledTime = 0;
         vg.dispatchDraw(canvas);
         assertEquals(1, vg.drawChildCalledTime);
 
-        son.setAnimation(new MockAnimation());
+        child.setAnimation(new MockAnimation());
         vg.clearDisappearingChildren();
 
         vg.drawChildCalledTime = 0;
@@ -535,6 +533,7 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
         MockTextView textView = new MockTextView(mContext);
         mMotionEvent = null;
         textView.setOnTouchListener(new OnTouchListener() {
+            @Override
             public boolean onTouch(View v, MotionEvent event) {
                 mMotionEvent = event;
                 return true;
@@ -683,11 +682,11 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
 
     public void testFocusableViewAvailable() {
         MockViewGroup vg = new MockViewGroup(mContext);
-        MockView son = new MockView(mContext);
-        vg.addView(son);
+        MockView child = new MockView(mContext);
+        vg.addView(child);
 
-        son.setDescendantFocusability(ViewGroup.FOCUS_BEFORE_DESCENDANTS);
-        son.focusableViewAvailable(vg);
+        child.setDescendantFocusability(ViewGroup.FOCUS_BEFORE_DESCENDANTS);
+        child.focusableViewAvailable(vg);
 
         assertTrue(vg.isFocusableViewAvailable);
     }
@@ -695,11 +694,11 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
     public void testFocusSearch() {
         MockViewGroup vg = new MockViewGroup(mContext);
         MockTextView textView = new MockTextView(mContext);
-        MockView son = new MockView(mContext);
-        vg.addView(son);
-        son.addView(textView);
-        assertNotNull(son.focusSearch(textView, 1));
-        assertSame(textView, son.focusSearch(textView, 1));
+        MockView child = new MockView(mContext);
+        vg.addView(child);
+        child.addView(textView);
+        assertNotNull(child.focusSearch(textView, 1));
+        assertSame(textView, child.focusSearch(textView, 1));
     }
 
     public void testGatherTransparentRegion() {
@@ -726,7 +725,7 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
     public void testGenerateLayoutParamsWithParaAttributeSet() throws Exception{
         MockViewGroup vg = new MockViewGroup(mContext);
         XmlResourceParser set = mContext.getResources().getLayout(
-                com.android.cts.view.R.layout.abslistview_layout);
+                android.view.cts.R.layout.abslistview_layout);
         XmlUtils.beginDocument(set, "ViewGroup_Layout");
         LayoutParams lp = vg.generateLayoutParams(set);
         assertNotNull(lp);
@@ -738,7 +737,10 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
         MockViewGroup vg = new MockViewGroup(mContext);
         LayoutParams p = new LayoutParams(LayoutParams.WRAP_CONTENT,
                 LayoutParams.MATCH_PARENT);
-        assertSame(p, vg.generateLayoutParams(p));
+        LayoutParams generatedParams = vg.generateLayoutParams(p);
+        assertEquals(generatedParams.getClass(), p.getClass());
+        assertEquals(p.width, generatedParams.width);
+        assertEquals(p.height, generatedParams.height);
     }
 
     public void testGetChildDrawingOrder() {
@@ -808,12 +810,15 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
 
         AnimationListener al = new AnimationListener() {
 
+            @Override
             public void onAnimationEnd(Animation animation) {
             }
 
+            @Override
             public void onAnimationRepeat(Animation animation) {
             }
 
+            @Override
             public void onAnimationStart(Animation animation) {
             }
         };
@@ -924,18 +929,18 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
         final int width = 100;
         final int height = 200;
         MockViewGroup vg = new MockViewGroup(mContext);
-        MockView son = new MockView(mContext);
-        son.setLayoutParams(new LayoutParams(width, height));
-        son.forceLayout();
-        vg.addView(son);
+        MockView child = new MockView(mContext);
+        child.setLayoutParams(new LayoutParams(width, height));
+        child.forceLayout();
+        vg.addView(child);
 
         final int parentWidthMeasureSpec = 1;
         final int parentHeightMeasureSpec = 2;
-        vg.measureChild(son, parentWidthMeasureSpec, parentHeightMeasureSpec);
+        vg.measureChild(child, parentWidthMeasureSpec, parentHeightMeasureSpec);
         assertEquals(ViewGroup.getChildMeasureSpec(parentWidthMeasureSpec, 0, width),
-                son.mWidthMeasureSpec);
+                child.mWidthMeasureSpec);
         assertEquals(ViewGroup.getChildMeasureSpec(parentHeightMeasureSpec, 0, height),
-                son.mHeightMeasureSpec);
+                child.mHeightMeasureSpec);
     }
 
     public void testMeasureChildren() {
@@ -966,24 +971,24 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
         final int parentHeightMeasureSpec = 3;
         final int heightUsed = 4;
         MockViewGroup vg = new MockViewGroup(mContext);
-        MockView son = new MockView(mContext);
+        MockView child = new MockView(mContext);
 
-        vg.addView(son);
-        son.setLayoutParams(new ViewGroup.LayoutParams(width, height));
+        vg.addView(child);
+        child.setLayoutParams(new ViewGroup.LayoutParams(width, height));
         try {
-            vg.measureChildWithMargins(son, parentWidthMeasureSpec, widthUsed,
+            vg.measureChildWithMargins(child, parentWidthMeasureSpec, widthUsed,
                     parentHeightMeasureSpec, heightUsed);
             fail("measureChildWithMargins should throw out class cast exception");
         } catch (RuntimeException e) {
         }
-        son.setLayoutParams(new ViewGroup.MarginLayoutParams(width, height));
+        child.setLayoutParams(new ViewGroup.MarginLayoutParams(width, height));
 
-        vg.measureChildWithMargins(son, parentWidthMeasureSpec, widthUsed, parentHeightMeasureSpec,
+        vg.measureChildWithMargins(child, parentWidthMeasureSpec, widthUsed, parentHeightMeasureSpec,
                 heightUsed);
         assertEquals(ViewGroup.getChildMeasureSpec(parentWidthMeasureSpec, parentHeightMeasureSpec,
-                width), son.mWidthMeasureSpec);
+                width), child.mWidthMeasureSpec);
         assertEquals(ViewGroup.getChildMeasureSpec(widthUsed, heightUsed, height),
-                son.mHeightMeasureSpec);
+                child.mHeightMeasureSpec);
     }
 
     public void testOffsetDescendantRectToMyCoords() {
@@ -1032,16 +1037,16 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
 
     public void testOnAnimationEnd() {
         // this function is a call back function it should be tested in ViewGroup#drawChild.
-        MockViewGroup father = new MockViewGroup(mContext);
-        MockViewGroup son = new MockViewGroup(mContext);
-        son.setAnimation(new MockAnimation());
+        MockViewGroup parent = new MockViewGroup(mContext);
+        MockViewGroup child = new MockViewGroup(mContext);
+        child.setAnimation(new MockAnimation());
         // this call will make mPrivateFlags |= ANIMATION_STARTED;
-        son.onAnimationStart();
-        father.addView(son);
+        child.onAnimationStart();
+        parent.addView(child);
 
         MockCanvas canvas = new MockCanvas();
-        assertFalse(father.drawChild(canvas, son, 100));
-        assertTrue(son.isOnAnimationEndCalled);
+        assertFalse(parent.drawChild(canvas, child, 100));
+        assertTrue(child.isOnAnimationEndCalled);
     }
 
     private class MockAnimation extends Animation {
@@ -1062,22 +1067,22 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
 
     public void testOnAnimationStart() {
         // This is a call back method. It should be tested in ViewGroup#drawChild.
-        MockViewGroup father = new MockViewGroup(mContext);
-        MockViewGroup son = new MockViewGroup(mContext);
+        MockViewGroup parent = new MockViewGroup(mContext);
+        MockViewGroup child = new MockViewGroup(mContext);
 
-        father.addView(son);
+        parent.addView(child);
 
         MockCanvas canvas = new MockCanvas();
         try {
-            assertFalse(father.drawChild(canvas, son, 100));
-            assertFalse(son.isOnAnimationStartCalled);
+            assertFalse(parent.drawChild(canvas, child, 100));
+            assertFalse(child.isOnAnimationStartCalled);
         } catch (Exception e) {
             // expected
         }
 
-        son.setAnimation(new MockAnimation());
-        assertFalse(father.drawChild(canvas, son, 100));
-        assertTrue(son.isOnAnimationStartCalled);
+        child.setAnimation(new MockAnimation());
+        assertFalse(parent.drawChild(canvas, child, 100));
+        assertTrue(child.isOnAnimationStartCalled);
     }
 
     public void testOnCreateDrawableState() {
@@ -1132,35 +1137,35 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
     }
 
     public void testRemoveAllViewsInLayout() {
-        MockViewGroup father = new MockViewGroup(mContext);
-        MockViewGroup son = new MockViewGroup(mContext);
+        MockViewGroup parent = new MockViewGroup(mContext);
+        MockViewGroup child = new MockViewGroup(mContext);
         MockTextView textView = new MockTextView(mContext);
 
-        assertEquals(0, father.getChildCount());
+        assertEquals(0, parent.getChildCount());
 
-        son.addView(textView);
-        father.addView(son);
-        assertEquals(1, father.getChildCount());
+        child.addView(textView);
+        parent.addView(child);
+        assertEquals(1, parent.getChildCount());
 
-        father.removeAllViewsInLayout();
-        assertEquals(0, father.getChildCount());
-        assertEquals(1, son.getChildCount());
-        assertNull(son.getParent());
-        assertSame(son, textView.getParent());
+        parent.removeAllViewsInLayout();
+        assertEquals(0, parent.getChildCount());
+        assertEquals(1, child.getChildCount());
+        assertNull(child.getParent());
+        assertSame(child, textView.getParent());
     }
 
     public void testRemoveDetachedView() {
-        MockViewGroup father = new MockViewGroup(mContext);
-        MockViewGroup son1 = new MockViewGroup(mContext);
-        MockViewGroup son2 = new MockViewGroup(mContext);
+        MockViewGroup parent = new MockViewGroup(mContext);
+        MockViewGroup child1 = new MockViewGroup(mContext);
+        MockViewGroup child2 = new MockViewGroup(mContext);
         MockOnHierarchyChangeListener listener = new MockOnHierarchyChangeListener();
-        father.setOnHierarchyChangeListener(listener);
-        father.addView(son1);
-        father.addView(son2);
+        parent.setOnHierarchyChangeListener(listener);
+        parent.addView(child1);
+        parent.addView(child2);
 
-        father.removeDetachedView(son1, false);
-        assertSame(father, listener.sParent);
-        assertSame(son1, listener.sChild);
+        parent.removeDetachedView(child1, false);
+        assertSame(parent, listener.sParent);
+        assertSame(child1, listener.sChild);
     }
 
     static class MockOnHierarchyChangeListener implements OnHierarchyChangeListener {
@@ -1168,9 +1173,11 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
         public View sParent;
         public View sChild;
 
+        @Override
         public void onChildViewAdded(View parent, View child) {
         }
 
+        @Override
         public void onChildViewRemoved(View parent, View child) {
             sParent = parent;
             sChild = child;
@@ -1178,93 +1185,123 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
     }
 
     public void testRemoveView() {
-        MockViewGroup father = new MockViewGroup(mContext);
-        MockViewGroup son = new MockViewGroup(mContext);
+        MockViewGroup parent = new MockViewGroup(mContext);
+        MockViewGroup child = new MockViewGroup(mContext);
 
-        assertEquals(0, father.getChildCount());
+        assertEquals(0, parent.getChildCount());
 
-        father.addView(son);
-        assertEquals(1, father.getChildCount());
+        parent.addView(child);
+        assertEquals(1, parent.getChildCount());
 
-        father.removeView(son);
-        assertEquals(0, father.getChildCount());
-        assertNull(son.getParent());
+        parent.removeView(child);
+        assertEquals(0, parent.getChildCount());
+        assertNull(child.getParent());
     }
 
     public void testRemoveViewAt() {
-        MockViewGroup father = new MockViewGroup(mContext);
-        MockViewGroup son = new MockViewGroup(mContext);
+        MockViewGroup parent = new MockViewGroup(mContext);
+        MockViewGroup child = new MockViewGroup(mContext);
 
-        assertEquals(0, father.getChildCount());
+        assertEquals(0, parent.getChildCount());
 
-        father.addView(son);
-        assertEquals(1, father.getChildCount());
+        parent.addView(child);
+        assertEquals(1, parent.getChildCount());
 
         try {
-            father.removeViewAt(2);
+            parent.removeViewAt(2);
             fail("should throw out null pointer exception");
         } catch (RuntimeException e) {
             // expected
         }
-        assertEquals(1, father.getChildCount());
+        assertEquals(1, parent.getChildCount());
 
-        father.removeViewAt(0);
-        assertEquals(0, father.getChildCount());
-        assertNull(son.getParent());
+        parent.removeViewAt(0);
+        assertEquals(0, parent.getChildCount());
+        assertNull(child.getParent());
     }
 
     public void testRemoveViewInLayout() {
-        MockViewGroup father = new MockViewGroup(mContext);
-        MockViewGroup son = new MockViewGroup(mContext);
+        MockViewGroup parent = new MockViewGroup(mContext);
+        MockViewGroup child = new MockViewGroup(mContext);
 
-        assertEquals(0, father.getChildCount());
+        assertEquals(0, parent.getChildCount());
 
-        father.addView(son);
-        assertEquals(1, father.getChildCount());
+        parent.addView(child);
+        assertEquals(1, parent.getChildCount());
 
-        father.removeViewInLayout(son);
-        assertEquals(0, father.getChildCount());
-        assertNull(son.getParent());
+        parent.removeViewInLayout(child);
+        assertEquals(0, parent.getChildCount());
+        assertNull(child.getParent());
     }
 
     public void testRemoveViews() {
-        MockViewGroup father = new MockViewGroup(mContext);
-        MockViewGroup son1 = new MockViewGroup(mContext);
-        MockViewGroup son2 = new MockViewGroup(mContext);
+        MockViewGroup parent = new MockViewGroup(mContext);
+        MockViewGroup child1 = new MockViewGroup(mContext);
+        MockViewGroup child2 = new MockViewGroup(mContext);
 
-        assertEquals(0, father.getChildCount());
+        assertEquals(0, parent.getChildCount());
+        parent.addView(child1);
+        parent.addView(child2);
+        assertEquals(2, parent.getChildCount());
 
-        father.addView(son1);
-        father.addView(son2);
-        assertEquals(2, father.getChildCount());
+        try {
+            parent.removeViews(-1, 1); // negative begin
+            fail("should fail with IndexOutOfBoundsException");
+        } catch (IndexOutOfBoundsException e) {}
 
-        father.removeViews(0, 1);
-        assertEquals(1, father.getChildCount());
-        assertNull(son1.getParent());
+        try {
+            parent.removeViews(0, -1); // negative count
+            fail("should fail with IndexOutOfBoundsException");
+        } catch (IndexOutOfBoundsException e) {}
 
-        father.removeViews(0, 1);
-        assertEquals(0, father.getChildCount());
-        assertNull(son2.getParent());
+        try {
+            parent.removeViews(1, 2); // past end
+            fail("should fail with IndexOutOfBoundsException");
+        } catch (IndexOutOfBoundsException e) {}
+        assertEquals(2, parent.getChildCount()); // child list unmodified
+
+        parent.removeViews(0, 1);
+        assertEquals(1, parent.getChildCount());
+        assertNull(child1.getParent());
+
+        parent.removeViews(0, 1);
+        assertEquals(0, parent.getChildCount());
+        assertNull(child2.getParent());
     }
 
     public void testRemoveViewsInLayout() {
-        MockViewGroup father = new MockViewGroup(mContext);
-        MockViewGroup son1 = new MockViewGroup(mContext);
-        MockViewGroup son2 = new MockViewGroup(mContext);
+        MockViewGroup parent = new MockViewGroup(mContext);
+        MockViewGroup child1 = new MockViewGroup(mContext);
+        MockViewGroup child2 = new MockViewGroup(mContext);
 
-        assertEquals(0, father.getChildCount());
+        assertEquals(0, parent.getChildCount());
+        parent.addView(child1);
+        parent.addView(child2);
+        assertEquals(2, parent.getChildCount());
 
-        father.addView(son1);
-        father.addView(son2);
-        assertEquals(2, father.getChildCount());
+        try {
+            parent.removeViewsInLayout(-1, 1); // negative begin
+            fail("should fail with IndexOutOfBoundsException");
+        } catch (IndexOutOfBoundsException e) {}
 
-        father.removeViewsInLayout(0, 1);
-        assertEquals(1, father.getChildCount());
-        assertNull(son1.getParent());
+        try {
+            parent.removeViewsInLayout(0, -1); // negative count
+            fail("should fail with IndexOutOfBoundsException");
+        } catch (IndexOutOfBoundsException e) {}
 
-        father.removeViewsInLayout(0, 1);
-        assertEquals(0, father.getChildCount());
-        assertNull(son2.getParent());
+        try {
+            parent.removeViewsInLayout(1, 2); // past end
+            fail("should fail with IndexOutOfBoundsException");
+        } catch (IndexOutOfBoundsException e) {}
+        assertEquals(2, parent.getChildCount()); // child list unmodified
+
+        parent.removeViewsInLayout(0, 1);
+        assertEquals(1, parent.getChildCount());
+        assertNull(child1.getParent());
+
+        parent.removeViewsInLayout(0, 1);
+        assertEquals(0, parent.getChildCount());
+        assertNull(child2.getParent());
     }
 
     public void testRequestChildFocus() {
@@ -1286,13 +1323,13 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
     }
 
     public void testRequestDisallowInterceptTouchEvent() {
-        MockViewGroup father = new MockViewGroup(mContext);
-        MockView son = new MockView(mContext);
+        MockViewGroup parent = new MockViewGroup(mContext);
+        MockView child = new MockView(mContext);
 
-        father.addView(son);
-        son.requestDisallowInterceptTouchEvent(true);
-        son.requestDisallowInterceptTouchEvent(false);
-        assertTrue(father.isRequestDisallowInterceptTouchEventCalled);
+        parent.addView(child);
+        child.requestDisallowInterceptTouchEvent(true);
+        child.requestDisallowInterceptTouchEvent(false);
+        assertTrue(parent.isRequestDisallowInterceptTouchEventCalled);
     }
 
     public void testRequestFocus() {
@@ -1303,13 +1340,13 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
     }
 
     public void testRequestTransparentRegion() {
-        MockViewGroup father = new MockViewGroup(mContext);
-        MockView son1 = new MockView(mContext);
-        MockView son2 = new MockView(mContext);
-        son1.addView(son2);
-        father.addView(son1);
-        son1.requestTransparentRegion(son2);
-        assertTrue(father.isRequestTransparentRegionCalled);
+        MockViewGroup parent = new MockViewGroup(mContext);
+        MockView child1 = new MockView(mContext);
+        MockView child2 = new MockView(mContext);
+        child1.addView(child2);
+        parent.addView(child1);
+        child1.requestTransparentRegion(child2);
+        assertTrue(parent.isRequestTransparentRegionCalled);
     }
 
     public void testScheduleLayoutAnimation() {
@@ -1476,15 +1513,15 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
     }
 
     public void testSetOnHierarchyChangeListener() {
-        MockViewGroup father = new MockViewGroup(mContext);
-        MockViewGroup son = new MockViewGroup(mContext);
+        MockViewGroup parent = new MockViewGroup(mContext);
+        MockViewGroup child = new MockViewGroup(mContext);
         MockOnHierarchyChangeListener listener = new MockOnHierarchyChangeListener();
-        father.setOnHierarchyChangeListener(listener);
-        father.addView(son);
+        parent.setOnHierarchyChangeListener(listener);
+        parent.addView(child);
 
-        father.removeDetachedView(son, false);
-        assertSame(father, listener.sParent);
-        assertSame(son, listener.sChild);
+        parent.removeDetachedView(child, false);
+        assertSame(parent, listener.sParent);
+        assertSame(child, listener.sChild);
     }
 
     public void testSetPadding() {
@@ -1595,12 +1632,21 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
     }
 
     public void testShowContextMenuForChild() {
-        MockViewGroup father = new MockViewGroup(mContext);
-        MockViewGroup son = new MockViewGroup(mContext);
-        father.addView(son);
+        MockViewGroup parent = new MockViewGroup(mContext);
+        MockViewGroup child = new MockViewGroup(mContext);
+        parent.addView(child);
 
-        son.showContextMenuForChild(null);
-        assertTrue(father.isShowContextMenuForChildCalled);
+        child.showContextMenuForChild(null);
+        assertTrue(parent.isShowContextMenuForChildCalled);
+    }
+
+    public void testShowContextMenuForChild_WithXYCoords() {
+        MockViewGroup parent = new MockViewGroup(mContext);
+        MockViewGroup child = new MockViewGroup(mContext);
+        parent.addView(child);
+
+        child.showContextMenuForChild(null, 48, 48);
+        assertTrue(parent.isShowContextMenuForChildCalledWithXYCoords);
     }
 
     public void testStartLayoutAnimation() {
@@ -1616,24 +1662,24 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
     }
 
     public void testUpdateViewLayout() {
-        MockViewGroup father = new MockViewGroup(mContext);
-        MockViewGroup son = new MockViewGroup(mContext);
+        MockViewGroup parent = new MockViewGroup(mContext);
+        MockViewGroup child = new MockViewGroup(mContext);
 
-        father.addView(son);
+        parent.addView(child);
         LayoutParams param = new LayoutParams(100, 200);
-        father.updateViewLayout(son, param);
-        assertEquals(param.width, son.getLayoutParams().width);
-        assertEquals(param.height, son.getLayoutParams().height);
+        parent.updateViewLayout(child, param);
+        assertEquals(param.width, child.getLayoutParams().width);
+        assertEquals(param.height, child.getLayoutParams().height);
     }
 
     public void testDebug() {
         final int EXPECTED = 100;
-        MockViewGroup father = new MockViewGroup(mContext);
-        MockViewGroup son = new MockViewGroup(mContext);
-        father.addView(son);
+        MockViewGroup parent = new MockViewGroup(mContext);
+        MockViewGroup child = new MockViewGroup(mContext);
+        parent.addView(child);
 
-        father.debug(EXPECTED);
-        assertEquals(EXPECTED + 1, son.debugDepth);
+        parent.debug(EXPECTED);
+        assertEquals(EXPECTED + 1, child.debugDepth);
     }
 
     public void testDispatchKeyEventPreIme() {
@@ -1721,6 +1767,164 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
         assertTrue(vg.isStartActionModeForChildTypedCalled);
         assertTrue(vg.isStartActionModeForChildTypelessCalled);
         assertTrue(vgParent.isStartActionModeForChildTypedCalled);
+    }
+
+    public void testTemporaryDetach() {
+        // [vgParent]
+        //   - [viewParent1]
+        //   - [viewParent1]
+        //   - [vg]
+        //     - [view1]
+        //     - [view2]
+        MockViewGroupSubclass vgParent = new MockViewGroupSubclass(mContext);
+        TemporaryDetachingMockView viewParent1 = new TemporaryDetachingMockView(mContext);
+        TemporaryDetachingMockView viewParent2 = new TemporaryDetachingMockView(mContext);
+        vgParent.addView(viewParent1);
+        vgParent.addView(viewParent2);
+        MockViewGroupSubclass vg = new MockViewGroupSubclass(mContext);
+        vgParent.addView(vg);
+        TemporaryDetachingMockView view1 = new TemporaryDetachingMockView(mContext);
+        TemporaryDetachingMockView view2 = new TemporaryDetachingMockView(mContext);
+        vg.addView(view1);
+        vg.addView(view2);
+
+        // Make sure that no View is temporarity detached in the initial state.
+        assertFalse(viewParent1.isTemporarilyDetached());
+        assertEquals(0, viewParent1.getDispatchStartTemporaryDetachCount());
+        assertEquals(0, viewParent1.getDispatchFinishTemporaryDetachCount());
+        assertEquals(0, viewParent1.getOnStartTemporaryDetachCount());
+        assertEquals(0, viewParent1.getOnFinishTemporaryDetachCount());
+        assertFalse(viewParent2.isTemporarilyDetached());
+        assertEquals(0, viewParent2.getDispatchStartTemporaryDetachCount());
+        assertEquals(0, viewParent2.getDispatchFinishTemporaryDetachCount());
+        assertEquals(0, viewParent2.getOnStartTemporaryDetachCount());
+        assertEquals(0, viewParent2.getOnFinishTemporaryDetachCount());
+        assertFalse(view1.isTemporarilyDetached());
+        assertEquals(0, view1.getDispatchStartTemporaryDetachCount());
+        assertEquals(0, view1.getDispatchFinishTemporaryDetachCount());
+        assertEquals(0, view1.getOnStartTemporaryDetachCount());
+        assertEquals(0, view1.getOnFinishTemporaryDetachCount());
+        assertFalse(view2.isTemporarilyDetached());
+        assertEquals(0, view2.getDispatchStartTemporaryDetachCount());
+        assertEquals(0, view2.getDispatchFinishTemporaryDetachCount());
+        assertEquals(0, view2.getOnStartTemporaryDetachCount());
+        assertEquals(0, view2.getOnFinishTemporaryDetachCount());
+
+        // [vgParent]
+        //   - [viewParent1]
+        //   - [viewParent1]
+        //   - [vg]           <- dispatchStartTemporaryDetach()
+        //     - [view1]
+        //     - [view2]
+        vg.dispatchStartTemporaryDetach();
+
+        assertFalse(viewParent1.isTemporarilyDetached());
+        assertEquals(0, viewParent1.getDispatchStartTemporaryDetachCount());
+        assertEquals(0, viewParent1.getDispatchFinishTemporaryDetachCount());
+        assertEquals(0, viewParent1.getOnStartTemporaryDetachCount());
+        assertEquals(0, viewParent1.getOnFinishTemporaryDetachCount());
+        assertFalse(viewParent2.isTemporarilyDetached());
+        assertEquals(0, viewParent2.getDispatchStartTemporaryDetachCount());
+        assertEquals(0, viewParent2.getDispatchFinishTemporaryDetachCount());
+        assertEquals(0, viewParent2.getOnStartTemporaryDetachCount());
+        assertEquals(0, viewParent2.getOnFinishTemporaryDetachCount());
+        assertTrue(view1.isTemporarilyDetached());
+        assertEquals(1, view1.getDispatchStartTemporaryDetachCount());
+        assertEquals(0, view1.getDispatchFinishTemporaryDetachCount());
+        assertEquals(1, view1.getOnStartTemporaryDetachCount());
+        assertEquals(0, view1.getOnFinishTemporaryDetachCount());
+        assertTrue(view2.isTemporarilyDetached());
+        assertEquals(1, view2.getDispatchStartTemporaryDetachCount());
+        assertEquals(0, view2.getDispatchFinishTemporaryDetachCount());
+        assertEquals(1, view2.getOnStartTemporaryDetachCount());
+        assertEquals(0, view2.getOnFinishTemporaryDetachCount());
+
+        // [vgParent]
+        //   - [viewParent1]
+        //   - [viewParent1]
+        //   - [vg]           <- dispatchFinishTemporaryDetach()
+        //     - [view1]
+        //     - [view2]
+        vg.dispatchFinishTemporaryDetach();
+
+        assertFalse(viewParent1.isTemporarilyDetached());
+        assertEquals(0, viewParent1.getDispatchStartTemporaryDetachCount());
+        assertEquals(0, viewParent1.getDispatchFinishTemporaryDetachCount());
+        assertEquals(0, viewParent1.getOnStartTemporaryDetachCount());
+        assertEquals(0, viewParent1.getOnFinishTemporaryDetachCount());
+        assertFalse(viewParent2.isTemporarilyDetached());
+        assertEquals(0, viewParent2.getDispatchStartTemporaryDetachCount());
+        assertEquals(0, viewParent2.getDispatchFinishTemporaryDetachCount());
+        assertEquals(0, viewParent2.getOnStartTemporaryDetachCount());
+        assertEquals(0, viewParent2.getOnFinishTemporaryDetachCount());
+        assertFalse(view1.isTemporarilyDetached());
+        assertEquals(1, view1.getDispatchStartTemporaryDetachCount());
+        assertEquals(1, view1.getDispatchFinishTemporaryDetachCount());
+        assertEquals(1, view1.getOnStartTemporaryDetachCount());
+        assertEquals(1, view1.getOnFinishTemporaryDetachCount());
+        assertFalse(view2.isTemporarilyDetached());
+        assertEquals(1, view2.getDispatchStartTemporaryDetachCount());
+        assertEquals(1, view2.getDispatchFinishTemporaryDetachCount());
+        assertEquals(1, view2.getOnStartTemporaryDetachCount());
+        assertEquals(1, view2.getOnFinishTemporaryDetachCount());
+
+        // [vgParent]         <- dispatchStartTemporaryDetach()
+        //   - [viewParent1]
+        //   - [viewParent1]
+        //   - [vg]
+        //     - [view1]
+        //     - [view2]
+        vgParent.dispatchStartTemporaryDetach();
+
+        assertTrue(viewParent1.isTemporarilyDetached());
+        assertEquals(1, viewParent1.getDispatchStartTemporaryDetachCount());
+        assertEquals(0, viewParent1.getDispatchFinishTemporaryDetachCount());
+        assertEquals(1, viewParent1.getOnStartTemporaryDetachCount());
+        assertEquals(0, viewParent1.getOnFinishTemporaryDetachCount());
+        assertTrue(viewParent2.isTemporarilyDetached());
+        assertEquals(1, viewParent2.getDispatchStartTemporaryDetachCount());
+        assertEquals(0, viewParent2.getDispatchFinishTemporaryDetachCount());
+        assertEquals(1, viewParent2.getOnStartTemporaryDetachCount());
+        assertEquals(0, viewParent2.getOnFinishTemporaryDetachCount());
+        assertTrue(view1.isTemporarilyDetached());
+        assertEquals(2, view1.getDispatchStartTemporaryDetachCount());
+        assertEquals(1, view1.getDispatchFinishTemporaryDetachCount());
+        assertEquals(2, view1.getOnStartTemporaryDetachCount());
+        assertEquals(1, view1.getOnFinishTemporaryDetachCount());
+        assertTrue(view2.isTemporarilyDetached());
+        assertEquals(2, view2.getDispatchStartTemporaryDetachCount());
+        assertEquals(1, view2.getDispatchFinishTemporaryDetachCount());
+        assertEquals(2, view2.getOnStartTemporaryDetachCount());
+        assertEquals(1, view2.getOnFinishTemporaryDetachCount());
+
+        // [vgParent]         <- dispatchFinishTemporaryDetach()
+        //   - [viewParent1]
+        //   - [viewParent1]
+        //   - [vg]
+        //     - [view1]
+        //     - [view2]
+        vgParent.dispatchFinishTemporaryDetach();
+
+        assertFalse(viewParent1.isTemporarilyDetached());
+        assertEquals(1, viewParent1.getDispatchStartTemporaryDetachCount());
+        assertEquals(1, viewParent1.getDispatchFinishTemporaryDetachCount());
+        assertEquals(1, viewParent1.getOnStartTemporaryDetachCount());
+        assertEquals(1, viewParent1.getOnFinishTemporaryDetachCount());
+        assertFalse(viewParent2.isTemporarilyDetached());
+        assertEquals(1, viewParent2.getDispatchStartTemporaryDetachCount());
+        assertEquals(1, viewParent2.getDispatchFinishTemporaryDetachCount());
+        assertEquals(1, viewParent2.getOnStartTemporaryDetachCount());
+        assertEquals(1, viewParent2.getOnFinishTemporaryDetachCount());
+        assertFalse(view1.isTemporarilyDetached());
+        assertEquals(2, view1.getDispatchStartTemporaryDetachCount());
+        assertEquals(2, view1.getDispatchFinishTemporaryDetachCount());
+        assertEquals(2, view1.getOnStartTemporaryDetachCount());
+        assertEquals(2, view1.getOnFinishTemporaryDetachCount());
+        assertFalse(view2.isTemporarilyDetached());
+        assertEquals(2, view2.getDispatchStartTemporaryDetachCount());
+        assertEquals(2, view2.getDispatchFinishTemporaryDetachCount());
+        assertEquals(2, view2.getOnStartTemporaryDetachCount());
+        assertEquals(2, view2.getOnFinishTemporaryDetachCount());
     }
 
     private static final ActionMode.Callback NO_OP_ACTION_MODE_CALLBACK =
@@ -1960,6 +2164,7 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
 
         public boolean isRecomputeViewAttributesCalled;
         public boolean isShowContextMenuForChildCalled;
+        public boolean isShowContextMenuForChildCalledWithXYCoords;
         public boolean isRefreshDrawableStateCalled;
         public boolean isOnRestoreInstanceStateCalled;
         public boolean isOnCreateDrawableStateCalled;
@@ -1977,7 +2182,6 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
         public int debugDepth;
         public int drawChildCalledTime;
         public Canvas canvas;
-        public boolean isInvalidateChildInParentCalled;
         public boolean isDrawableStateChangedCalled;
         public boolean isRequestLayoutCalled;
         public boolean isOnLayoutCalled;
@@ -2221,6 +2425,12 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
         }
 
         @Override
+        public boolean showContextMenuForChild(View originalView, float x, float y) {
+            isShowContextMenuForChildCalledWithXYCoords = true;
+            return super.showContextMenuForChild(originalView, x, y);
+        }
+
+        @Override
         public boolean isInTouchMode() {
             super.isInTouchMode();
             return false;
@@ -2370,6 +2580,58 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
         }
     }
 
+    static final class TemporaryDetachingMockView extends View {
+        private int mDispatchStartTemporaryDetachCount = 0;
+        private int mDispatchFinishTemporaryDetachCount = 0;
+        private int mOnStartTemporaryDetachCount = 0;
+        private int mOnFinishTemporaryDetachCount = 0;
+
+        public TemporaryDetachingMockView(Context context) {
+            super(context);
+        }
+
+        @Override
+        public void dispatchStartTemporaryDetach() {
+            super.dispatchStartTemporaryDetach();
+            mDispatchStartTemporaryDetachCount += 1;
+        }
+
+        @Override
+        public void dispatchFinishTemporaryDetach() {
+            super.dispatchFinishTemporaryDetach();
+            mDispatchFinishTemporaryDetachCount += 1;
+        }
+
+        @Override
+        public void onStartTemporaryDetach() {
+            super.onStartTemporaryDetach();
+            mOnStartTemporaryDetachCount += 1;
+        }
+
+        @Override
+        public void onFinishTemporaryDetach() {
+            super.onFinishTemporaryDetach();
+            mOnFinishTemporaryDetachCount += 1;
+        }
+
+        public int getDispatchStartTemporaryDetachCount() {
+            return mDispatchStartTemporaryDetachCount;
+        }
+
+        public int getDispatchFinishTemporaryDetachCount() {
+            return mDispatchFinishTemporaryDetachCount;
+        }
+
+        public int getOnStartTemporaryDetachCount() {
+            return mOnStartTemporaryDetachCount;
+        }
+
+        public int getOnFinishTemporaryDetachCount() {
+            return mOnFinishTemporaryDetachCount;
+        }
+    }
+
+    @Override
     public void setResult(int resultCode) {
         synchronized (mSync) {
             mSync.mHasNotify = true;

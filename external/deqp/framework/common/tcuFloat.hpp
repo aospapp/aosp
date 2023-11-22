@@ -106,7 +106,7 @@ public:
 	float					asFloat			(void) const;
 	double					asDouble		(void) const;
 
-	inline int				signBit			(void) const	{ return (m_value >> (ExponentBits+MantissaBits)) & 1;						}
+	inline int				signBit			(void) const	{ return (int)(m_value >> (ExponentBits+MantissaBits)) & 1;					}
 	inline StorageType		exponentBits	(void) const	{ return (m_value >> MantissaBits) & ((StorageType(1)<<ExponentBits)-1);	}
 	inline StorageType		mantissaBits	(void) const	{ return m_value & ((StorageType(1)<<MantissaBits)-1);						}
 
@@ -211,7 +211,7 @@ Float<StorageType, ExponentBits, MantissaBits, ExponentBias, Flags>::construct
 	// Handles the typical notation for zero (min exponent, mantissa 0). Note that the exponent usually used exponent (-ExponentBias) for zero/subnormals is not used.
 	// Instead zero/subnormals have the (normally implicit) leading mantissa bit set to zero.
 	const bool			isDenormOrZero	= (exponent == 1 - ExponentBias) && (mantissa >> MantissaBits == 0);
-	const StorageType	s				= StorageType(sign < 0 ? 1 : 0) << (ExponentBits+MantissaBits);
+	const StorageType	s				= StorageType((StorageType(sign < 0 ? 1 : 0)) << (StorageType(ExponentBits+MantissaBits)));
 	const StorageType	exp				= (isShorthandZero  || isDenormOrZero) ? StorageType(0) : StorageType(exponent + ExponentBias);
 
 	DE_ASSERT(sign == +1 || sign == -1);
@@ -264,7 +264,7 @@ Float<StorageType, ExponentBits, MantissaBits, ExponentBias, Flags>::convert
 		const int			eMin	= 1 - ExponentBias;
 		const int			eMax	= ((1<<ExponentBits)-2) - ExponentBias;
 
-		const StorageType	s		= StorageType(other.signBit()) << (ExponentBits+MantissaBits); // \note Not sign, but sign bit.
+		const StorageType	s		= StorageType((StorageType(other.signBit())) << (StorageType(ExponentBits+MantissaBits))); // \note Not sign, but sign bit.
 		int					e		= other.exponent();
 		deUint64			m		= other.mantissa();
 

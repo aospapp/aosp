@@ -22,10 +22,12 @@ import org.xml.sax.XMLReader;
 import org.xml.sax.helpers.XMLReaderFactory;
 
 import java.io.File;
+import java.io.FilenameFilter;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,6 +38,13 @@ import javax.xml.transform.TransformerException;
  * set of APKS. See the {@link #printUsage()} method for more details.
  */
 public class CtsApiCoverage {
+
+    private static final FilenameFilter SUPPORTED_FILE_NAME_FILTER = new FilenameFilter() {
+        public boolean accept(File dir, String name) {
+            String fileName = name.toLowerCase();
+            return fileName.endsWith(".apk") || fileName.endsWith(".jar");
+        }
+    };
 
     private static final int FORMAT_TXT = 0;
 
@@ -101,7 +110,12 @@ public class CtsApiCoverage {
                     printUsage();
                 }
             } else {
-                testApks.add(new File(args[i]));
+                File file = new File(args[i]);
+                if (file.isDirectory()) {
+                    testApks.addAll(Arrays.asList(file.listFiles(SUPPORTED_FILE_NAME_FILTER)));
+                } else {
+                    testApks.add(file);
+                }
             }
         }
 

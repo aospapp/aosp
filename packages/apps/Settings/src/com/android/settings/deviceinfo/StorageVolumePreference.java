@@ -22,7 +22,8 @@ import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.os.storage.StorageManager;
 import android.os.storage.VolumeInfo;
-import android.preference.Preference;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.PreferenceViewHolder;
 import android.text.format.Formatter;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -74,7 +75,9 @@ public class StorageVolumePreference extends Preference {
             final String used = Formatter.formatFileSize(context, usedBytes);
             final String total = Formatter.formatFileSize(context, totalBytes);
             setSummary(context.getString(R.string.storage_volume_summary, used, total));
-            mUsedPercent = (int) ((usedBytes * 100) / totalBytes);
+            if (totalBytes > 0) {
+                mUsedPercent = (int) ((usedBytes * 100) / totalBytes);
+            }
 
             if (freeBytes < mStorageManager.getStorageLowBytes(path)) {
                 mColor = StorageSettings.COLOR_WARNING;
@@ -97,7 +100,7 @@ public class StorageVolumePreference extends Preference {
     }
 
     @Override
-    protected void onBindView(View view) {
+    public void onBindViewHolder(PreferenceViewHolder view) {
         final ImageView unmount = (ImageView) view.findViewById(R.id.unmount);
         if (unmount != null) {
             unmount.setImageTintList(ColorStateList.valueOf(Color.parseColor("#8a000000")));
@@ -113,7 +116,7 @@ public class StorageVolumePreference extends Preference {
             progress.setVisibility(View.GONE);
         }
 
-        super.onBindView(view);
+        super.onBindViewHolder(view);
     }
 
     private final View.OnClickListener mUnmountListener = new OnClickListener() {

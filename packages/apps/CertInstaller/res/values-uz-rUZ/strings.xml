@@ -34,7 +34,6 @@
     <string name="password_empty_error" msgid="591713406761723025">"Parolni kiriting."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"Nomini kiriting."</string>
     <string name="name_char_error" msgid="3176618568784938968">"Nom faqat harf va belgilardan iborat bo‘lishi lozim."</string>
-    <string name="storage_error" msgid="8306802455802770779">"Sertifikatni saqlab bo‘lmadi. Qayta urinish uchun OK tugmasini bosing."</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"Sertifikatni saqlab bo‘lmadi. Hisob ma’lumotlari ombori yoqilmagan yoki to‘g‘ri ishga tushirilmagan."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"Sertifikat o‘rnatilmadi."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"O‘rnatish uchun sertifikat yo‘q."</string>

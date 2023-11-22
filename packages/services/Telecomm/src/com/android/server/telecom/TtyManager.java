@@ -112,15 +112,20 @@ final class TtyManager implements WiredHeadsetManager.Listener {
     private final class TtyBroadcastReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            Log.v(TtyManager.this, "onReceive, action: %s", action);
-            if (action.equals(TelecomManager.ACTION_TTY_PREFERRED_MODE_CHANGED)) {
-                int newPreferredTtyMode = intent.getIntExtra(
-                        TelecomManager.EXTRA_TTY_PREFERRED_MODE, TelecomManager.TTY_MODE_OFF);
-                if (mPreferredTtyMode != newPreferredTtyMode) {
-                    mPreferredTtyMode = newPreferredTtyMode;
-                    updateCurrentTtyMode();
+            Log.startSession("TBR.oR");
+            try {
+                String action = intent.getAction();
+                Log.v(TtyManager.this, "onReceive, action: %s", action);
+                if (action.equals(TelecomManager.ACTION_TTY_PREFERRED_MODE_CHANGED)) {
+                    int newPreferredTtyMode = intent.getIntExtra(
+                            TelecomManager.EXTRA_TTY_PREFERRED_MODE, TelecomManager.TTY_MODE_OFF);
+                    if (mPreferredTtyMode != newPreferredTtyMode) {
+                        mPreferredTtyMode = newPreferredTtyMode;
+                        updateCurrentTtyMode();
+                    }
                 }
+            } finally {
+                Log.endSession();
             }
         }
     }

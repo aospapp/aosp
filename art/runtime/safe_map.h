@@ -19,6 +19,7 @@
 
 #include <map>
 #include <memory>
+#include <type_traits>
 
 #include "base/allocator.h"
 #include "base/logging.h"
@@ -92,24 +93,48 @@ class SafeMap {
     DCHECK(result.second);  // Check we didn't accidentally overwrite an existing value.
     return result.first;
   }
+  iterator Put(const K& k, V&& v) {
+    std::pair<iterator, bool> result = map_.emplace(k, std::move(v));
+    DCHECK(result.second);  // Check we didn't accidentally overwrite an existing value.
+    return result.first;
+  }
 
   // Used to insert a new mapping at a known position for better performance.
-  iterator PutBefore(iterator pos, const K& k, const V& v) {
+  iterator PutBefore(const_iterator pos, const K& k, const V& v) {
     // Check that we're using the correct position and the key is not in the map.
     DCHECK(pos == map_.end() || map_.key_comp()(k, pos->first));
-    DCHECK(pos == map_.begin() || map_.key_comp()((--iterator(pos))->first, k));
+    DCHECK(pos == map_.begin() || map_.key_comp()((--const_iterator(pos))->first, k));
     return map_.emplace_hint(pos, k, v);
+  }
+  iterator PutBefore(const_iterator pos, const K& k, V&& v) {
+    // Check that we're using the correct position and the key is not in the map.
+    DCHECK(pos == map_.end() || map_.key_comp()(k, pos->first));
+    DCHECK(pos == map_.begin() || map_.key_comp()((--const_iterator(pos))->first, k));
+    return map_.emplace_hint(pos, k, std::move(v));
   }
 
   // Used to insert a new mapping or overwrite an existing mapping. Note that if the value type
   // of this container is a pointer, any overwritten pointer will be lost and if this container
-  // was the owner, you have a leak.
-  void Overwrite(const K& k, const V& v) {
+  // was the owner, you have a leak. Returns iterator pointing to the new or overwritten entry.
+  iterator Overwrite(const K& k, const V& v) {
     std::pair<iterator, bool> result = map_.insert(std::make_pair(k, v));
     if (!result.second) {
       // Already there - update the value for the existing key
       result.first->second = v;
     }
+    return result.first;
+  }
+
+  template <typename CreateFn>
+  V GetOrCreate(const K& k, CreateFn create) {
+    static_assert(std::is_same<V, typename std::result_of<CreateFn()>::type>::value,
+                  "Argument `create` should return a value of type V.");
+    auto lb = lower_bound(k);
+    if (lb != end() && !key_comp()(k, lb->first)) {
+      return lb->second;
+    }
+    auto it = PutBefore(lb, k, create());
+    return it->second;
   }
 
   bool Equals(const Self& rhs) const {
@@ -134,7 +159,7 @@ bool operator!=(const SafeMap<K, V, Comparator, Allocator>& lhs,
 
 template<class Key, class T, AllocatorTag kTag, class Compare = std::less<Key>>
 class AllocationTrackingSafeMap : public SafeMap<
-    Key, T, Compare, TrackingAllocator<std::pair<Key, T>, kTag>> {
+    Key, T, Compare, TrackingAllocator<std::pair<const Key, T>, kTag>> {
 };
 
 }  // namespace art

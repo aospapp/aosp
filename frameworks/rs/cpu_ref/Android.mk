@@ -1,7 +1,7 @@
 LOCAL_PATH:=$(call my-dir)
 
-rs_base_CFLAGS := -Werror -Wall -Wno-unused-parameter -Wno-unused-variable \
-                  -fno-exceptions -std=c++11
+rs_base_CFLAGS := -Werror -Wall -Wextra -Wno-unused-parameter \
+                  -Wno-unused-variable -fno-exceptions -std=c++11
 ifeq ($(TARGET_BUILD_PDK), true)
   rs_base_CFLAGS += -D__RS_PDK__
 endif
@@ -22,7 +22,6 @@ LOCAL_SRC_FILES:= \
         rsCpuExecutable.cpp \
         rsCpuScript.cpp \
         rsCpuRuntimeMath.cpp \
-        rsCpuRuntimeMathFuncs.cpp \
         rsCpuScriptGroup.cpp \
         rsCpuScriptGroup2.cpp \
         rsCpuIntrinsic.cpp \
@@ -50,11 +49,8 @@ LOCAL_SRC_FILES_arm64 += \
     rsCpuIntrinsics_advsimd_Blur.S \
     rsCpuIntrinsics_advsimd_ColorMatrix.S \
     rsCpuIntrinsics_advsimd_Resize.S \
-    rsCpuIntrinsics_advsimd_YuvToRGB.S
-#    rsCpuIntrinsics_advsimd_Blend.S \
-
-# Clang does not compile rsCpuIntrinsics_advsimd_3DLUT.S.
-LOCAL_CLANG_ASFLAGS_arm64 += -no-integrated-as
+    rsCpuIntrinsics_advsimd_YuvToRGB.S \
+    rsCpuIntrinsics_advsimd_Blend.S
 
 ifeq ($(ARCH_ARM_HAVE_NEON),true)
     LOCAL_CFLAGS_arm += -DARCH_ARM_HAVE_NEON
@@ -72,8 +68,6 @@ ifeq ($(ARCH_ARM_HAVE_VFP),true)
     rsCpuIntrinsics_neon_YuvToRGB.S \
 
     LOCAL_ASFLAGS_arm := -mfpu=neon
-    # Clang does not compile rsCpuIntrinsics_neon_3DLUT.S.
-    LOCAL_CLANG_ASFLAGS_arm += -no-integrated-as
 endif
 
 ifeq ($(ARCH_X86_HAVE_SSSE3),true)
@@ -82,14 +76,15 @@ ifeq ($(ARCH_X86_HAVE_SSSE3),true)
     rsCpuIntrinsics_x86.cpp
 endif
 
-LOCAL_SHARED_LIBRARIES += libRS libcutils libutils liblog libsync libc++ libdl libz
+LOCAL_SHARED_LIBRARIES += libRS_internal libcutils libutils liblog libsync libc++ libdl libz
 
-LOCAL_SHARED_LIBRARIES += libbcc libbcinfo libblas
-
+LOCAL_SHARED_LIBRARIES += libbcinfo libblas
+LOCAL_STATIC_LIBRARIES := libbnnmlowp
 
 LOCAL_C_INCLUDES += frameworks/compile/libbcc/include
 LOCAL_C_INCLUDES += frameworks/rs
 LOCAL_C_INCLUDES += external/cblas/include
+LOCAL_C_INCLUDES += external/gemmlowp/eight_bit_int_gemm
 LOCAL_C_INCLUDES += external/zlib
 
 include frameworks/compile/libbcc/libbcc-targets.mk

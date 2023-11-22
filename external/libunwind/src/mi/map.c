@@ -122,6 +122,10 @@ map_destroy_list (struct map_info *map_info)
         munmap (map->ei.u.mapped.image, map->ei.u.mapped.size);
       if (map->path)
         free (map->path);
+      if (map->ei.mini_debug_info_data) {
+        Debug(1, "Freed cached .gnu_debugdata");
+        free (map->ei.mini_debug_info_data);
+      }
       map_free_info (map);
     }
 }

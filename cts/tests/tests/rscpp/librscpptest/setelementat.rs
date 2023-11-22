@@ -1,5 +1,5 @@
 #pragma version(1)
-#pragma rs java_package_name(com.android.cts.rscpp)
+#pragma rs java_package_name(android.rscpp.cts)
 #pragma rs_fp_relaxed
 
 int memset_toValue = 0;

@@ -23,6 +23,10 @@ namespace llvm {
   class Module;
 }
 
+namespace bcinfo {
+  class MetadataExtractor;
+}
+
 namespace bcc {
 
 class BCCContext;
@@ -33,8 +37,14 @@ private:
   BCCContext &mContext;
   llvm::Module *mModule;
 
+  bcinfo::MetadataExtractor *mMetadata;
+
   // If true, destructor won't destroy the mModule.
   bool mNoDelete;
+
+  // Keep track of whether mModule is destroyed (possibly as a consequence of
+  // getting linked with a different llvm::Module).
+  bool mIsModuleDestroyed;
 
 private:
   Source(const char* name, BCCContext &pContext, llvm::Module &pModule,
@@ -81,6 +91,18 @@ public:
   const std::string &getIdentifier() const;
 
   void addBuildChecksumMetadata(const char *) const;
+
+  // Get whether debugging has been enabled for this module by checking
+  // for presence of debug info in the module.
+  bool getDebugInfoEnabled() const;
+
+  // Extract metadata from mModule using MetadataExtractor.
+  bool extractMetadata();
+  bcinfo::MetadataExtractor* getMetadata() const { return mMetadata; }
+
+  // Mark mModule was destroyed in the process of linking with a different
+  // llvm::Module
+  void markModuleDestroyed() { mIsModuleDestroyed = true; }
 
   ~Source();
 };

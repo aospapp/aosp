@@ -66,7 +66,7 @@ status_t AudioRecord::getMinFrameCount(
 // ---------------------------------------------------------------------------
 
 AudioRecord::AudioRecord(const String16 &opPackageName)
-    : mStatus(NO_INIT), mOpPackageName(opPackageName), mSessionId(AUDIO_SESSION_ALLOCATE),
+    : mActive(false), mStatus(NO_INIT), mOpPackageName(opPackageName), mSessionId(AUDIO_SESSION_ALLOCATE),
       mPreviousPriority(ANDROID_PRIORITY_NORMAL), mPreviousSchedulingGroup(SP_DEFAULT),
       mSelectedDeviceId(AUDIO_PORT_HANDLE_NONE)
 {
@@ -82,13 +82,14 @@ AudioRecord::AudioRecord(
         callback_t cbf,
         void* user,
         uint32_t notificationFrames,
-        int sessionId,
+        audio_session_t sessionId,
         transfer_type transferType,
         audio_input_flags_t flags,
         int uid,
         pid_t pid,
         const audio_attributes_t* pAttributes)
-    : mStatus(NO_INIT),
+    : mActive(false),
+      mStatus(NO_INIT),
       mOpPackageName(opPackageName),
       mSessionId(AUDIO_SESSION_ALLOCATE),
       mPreviousPriority(ANDROID_PRIORITY_NORMAL),
@@ -139,7 +140,7 @@ status_t AudioRecord::set(
         void* user,
         uint32_t notificationFrames,
         bool threadCanCallJava,
-        int sessionId,
+        audio_session_t sessionId,
         transfer_type transferType,
         audio_input_flags_t flags,
         int uid,
@@ -191,10 +192,6 @@ status_t AudioRecord::set(
               mAttributes.source, mAttributes.flags, mAttributes.tags);
     }
 
-    if (sampleRate == 0) {
-        ALOGE("Invalid sample rate %u", sampleRate);
-        return BAD_VALUE;
-    }
     mSampleRate = sampleRate;
 
     // these below should probably come from the audioFlinger too...
@@ -231,7 +228,7 @@ status_t AudioRecord::set(
     // mNotificationFramesAct is initialized in openRecord_l
 
     if (sessionId == AUDIO_SESSION_ALLOCATE) {
-        mSessionId = AudioSystem::newAudioUniqueId();
+        mSessionId = (audio_session_t) AudioSystem::newAudioUniqueId(AUDIO_UNIQUE_ID_USE_SESSION);
     } else {
         mSessionId = sessionId;
     }
@@ -250,7 +247,7 @@ status_t AudioRecord::set(
         mClientPid = pid;
     }
 
-    mFlags = flags;
+    mOrigFlags = mFlags = flags;
     mCbf = cbf;
 
     if (cbf != NULL) {
@@ -272,10 +269,9 @@ status_t AudioRecord::set(
     }
 
     mStatus = NO_ERROR;
-    mActive = false;
     mUserData = user;
     // TODO: add audio hardware input latency here
-    mLatency = (1000*mFrameCount) / sampleRate;
+    mLatency = (1000 * mFrameCount) / mSampleRate;
     mMarkerPosition = 0;
     mMarkerReached = false;
     mNewPosition = 0;
@@ -284,13 +280,15 @@ status_t AudioRecord::set(
     mSequence = 1;
     mObservedSequence = mSequence;
     mInOverrun = false;
+    mFramesRead = 0;
+    mFramesReadServerOffset = 0;
 
     return NO_ERROR;
 }
 
 // -------------------------------------------------------------------------
 
-status_t AudioRecord::start(AudioSystem::sync_event_t event, int triggerSession)
+status_t AudioRecord::start(AudioSystem::sync_event_t event, audio_session_t triggerSession)
 {
     ALOGV("start, sync event %d trigger session %d", event, triggerSession);
 
@@ -298,6 +296,12 @@ status_t AudioRecord::start(AudioSystem::sync_event_t event, int triggerSession)
     if (mActive) {
         return NO_ERROR;
     }
+
+    // discard data in buffer
+    const uint32_t framesFlushed = mProxy->flush();
+    mFramesReadServerOffset -= mFramesRead + framesFlushed;
+    mFramesRead = 0;
+    mProxy->clearTimestamp();  // timestamp is invalid until next server push
 
     // reset current position as seen by client to 0
     mProxy->setEpoch(mProxy->getEpoch() - mProxy->getPosition());
@@ -308,6 +312,10 @@ status_t AudioRecord::start(AudioSystem::sync_event_t event, int triggerSession)
     mNewPosition = mProxy->getPosition() + mUpdatePeriod;
     int32_t flags = android_atomic_acquire_load(&mCblk->mFlags);
 
+    // we reactivate markers (mMarkerPosition != 0) as the position is reset to 0.
+    // This is legacy behavior.  This is not done in stop() to avoid a race condition
+    // where the last marker event is issued twice.
+    mMarkerReached = false;
     mActive = true;
 
     status_t status = NO_ERROR;
@@ -348,9 +356,10 @@ void AudioRecord::stop()
     mActive = false;
     mProxy->interrupt();
     mAudioRecord->stop();
-    // the record head position will reset to 0, so if a marker is set, we need
-    // to activate it again
-    mMarkerReached = false;
+
+    // Note: legacy handling - stop does not clear record marker and
+    // periodic update position; we update those on start().
+
     sp<AudioRecordThread> t = mAudioRecordThread;
     if (t != 0) {
         t->pause();
@@ -391,7 +400,7 @@ status_t AudioRecord::getMarkerPosition(uint32_t *marker) const
     }
 
     AutoMutex lock(mLock);
-    *marker = mMarkerPosition;
+    mMarkerPosition.getValue(marker);
 
     return NO_ERROR;
 }
@@ -433,7 +442,7 @@ status_t AudioRecord::getPosition(uint32_t *position) const
     }
 
     AutoMutex lock(mLock);
-    *position = mProxy->getPosition();
+    mProxy->getPosition().getValue(position);
 
     return NO_ERROR;
 }
@@ -442,6 +451,27 @@ uint32_t AudioRecord::getInputFramesLost() const
 {
     // no need to check mActive, because if inactive this will return 0, which is what we want
     return AudioSystem::getInputFramesLost(getInputPrivate());
+}
+
+status_t AudioRecord::getTimestamp(ExtendedTimestamp *timestamp)
+{
+    if (timestamp == nullptr) {
+        return BAD_VALUE;
+    }
+    AutoMutex lock(mLock);
+    status_t status = mProxy->getTimestamp(timestamp);
+    if (status == OK) {
+        timestamp->mPosition[ExtendedTimestamp::LOCATION_CLIENT] = mFramesRead;
+        timestamp->mTimeNs[ExtendedTimestamp::LOCATION_CLIENT] = 0;
+        // server side frame offset in case AudioRecord has been restored.
+        for (int i = ExtendedTimestamp::LOCATION_SERVER;
+                i < ExtendedTimestamp::LOCATION_MAX; ++i) {
+            if (timestamp->mTimeNs[i] >= 0) {
+                timestamp->mPosition[i] += mFramesReadServerOffset;
+            }
+        }
+    }
+    return status;
 }
 
 // ---- Explicit Routing ---------------------------------------------------
@@ -475,7 +505,7 @@ audio_port_handle_t AudioRecord::getRoutedDeviceId() {
 // -------------------------------------------------------------------------
 
 // must be called with mLock held
-status_t AudioRecord::openRecord_l(size_t epoch, const String16& opPackageName)
+status_t AudioRecord::openRecord_l(const Modulo<uint32_t> &epoch, const String16& opPackageName)
 {
     const sp<IAudioFlinger>& audioFlinger = AudioSystem::get_audio_flinger();
     if (audioFlinger == 0) {
@@ -483,27 +513,85 @@ status_t AudioRecord::openRecord_l(size_t epoch, const String16& opPackageName)
         return NO_INIT;
     }
 
-    // Fast tracks must be at the primary _output_ [sic] sampling rate,
-    // because there is currently no concept of a primary input sampling rate
-    uint32_t afSampleRate = AudioSystem::getPrimaryOutputSamplingRate();
-    if (afSampleRate == 0) {
-        ALOGW("getPrimaryOutputSamplingRate failed");
+    if (mDeviceCallback != 0 && mInput != AUDIO_IO_HANDLE_NONE) {
+        AudioSystem::removeAudioDeviceCallback(mDeviceCallback, mInput);
+    }
+    audio_io_handle_t input;
+
+    // mFlags (not mOrigFlags) is modified depending on whether fast request is accepted.
+    // After fast request is denied, we will request again if IAudioRecord is re-created.
+
+    status_t status;
+
+    // Not a conventional loop, but a retry loop for at most two iterations total.
+    // Try first maybe with FAST flag then try again without FAST flag if that fails.
+    // Exits loop normally via a return at the bottom, or with error via a break.
+    // The sp<> references will be dropped when re-entering scope.
+    // The lack of indentation is deliberate, to reduce code churn and ease merges.
+    for (;;) {
+
+    status = AudioSystem::getInputForAttr(&mAttributes, &input,
+                                        mSessionId,
+                                        // FIXME compare to AudioTrack
+                                        mClientPid,
+                                        mClientUid,
+                                        mSampleRate, mFormat, mChannelMask,
+                                        mFlags, mSelectedDeviceId);
+
+    if (status != NO_ERROR || input == AUDIO_IO_HANDLE_NONE) {
+        ALOGE("Could not get audio input for session %d, record source %d, sample rate %u, "
+              "format %#x, channel mask %#x, flags %#x",
+              mSessionId, mAttributes.source, mSampleRate, mFormat, mChannelMask, mFlags);
+        return BAD_VALUE;
+    }
+
+    // Now that we have a reference to an I/O handle and have not yet handed it off to AudioFlinger,
+    // we must release it ourselves if anything goes wrong.
+
+#if 0
+    size_t afFrameCount;
+    status = AudioSystem::getFrameCount(input, &afFrameCount);
+    if (status != NO_ERROR) {
+        ALOGE("getFrameCount(input=%d) status %d", input, status);
+        break;
+    }
+#endif
+
+    uint32_t afSampleRate;
+    status = AudioSystem::getSamplingRate(input, &afSampleRate);
+    if (status != NO_ERROR) {
+        ALOGE("getSamplingRate(input=%d) status %d", input, status);
+        break;
+    }
+    if (mSampleRate == 0) {
+        mSampleRate = afSampleRate;
     }
 
     // Client can only express a preference for FAST.  Server will perform additional tests.
-    if ((mFlags & AUDIO_INPUT_FLAG_FAST) && !((
+    if (mFlags & AUDIO_INPUT_FLAG_FAST) {
+        bool useCaseAllowed =
             // either of these use cases:
             // use case 1: callback transfer mode
             (mTransfer == TRANSFER_CALLBACK) ||
             // use case 2: obtain/release mode
-            (mTransfer == TRANSFER_OBTAIN)) &&
-            // matching sample rate
-            (mSampleRate == afSampleRate))) {
-        ALOGW("AUDIO_INPUT_FLAG_FAST denied by client; transfer %d, track %u Hz, primary %u Hz",
+            (mTransfer == TRANSFER_OBTAIN);
+        // sample rates must also match
+        bool fastAllowed = useCaseAllowed && (mSampleRate == afSampleRate);
+        if (!fastAllowed) {
+            ALOGW("AUDIO_INPUT_FLAG_FAST denied by client; transfer %d, "
+                "track %u Hz, input %u Hz",
                 mTransfer, mSampleRate, afSampleRate);
-        // once denied, do not request again if IAudioRecord is re-created
-        mFlags = (audio_input_flags_t) (mFlags & ~AUDIO_INPUT_FLAG_FAST);
+            mFlags = (audio_input_flags_t) (mFlags & ~(AUDIO_INPUT_FLAG_FAST |
+                    AUDIO_INPUT_FLAG_RAW));
+            AudioSystem::releaseInput(input, mSessionId);
+            continue;   // retry
+        }
     }
+
+    // The notification frame count is the period between callbacks, as suggested by the client
+    // but moderated by the server.  For record, the calculations are done entirely on server side.
+    size_t notificationFrames = mNotificationFramesReq;
+    size_t frameCount = mReqFrameCount;
 
     IAudioFlinger::track_flags_t trackFlags = IAudioFlinger::TRACK_DEFAULT;
 
@@ -515,34 +603,9 @@ status_t AudioRecord::openRecord_l(size_t epoch, const String16& opPackageName)
         }
     }
 
-    if (mDeviceCallback != 0 && mInput != AUDIO_IO_HANDLE_NONE) {
-        AudioSystem::removeAudioDeviceCallback(mDeviceCallback, mInput);
-    }
-
-    audio_io_handle_t input;
-    status_t status = AudioSystem::getInputForAttr(&mAttributes, &input,
-                                        (audio_session_t)mSessionId,
-                                        IPCThreadState::self()->getCallingUid(),
-                                        mSampleRate, mFormat, mChannelMask,
-                                        mFlags, mSelectedDeviceId);
-
-    if (status != NO_ERROR) {
-        ALOGE("Could not get audio input for record source %d, sample rate %u, format %#x, "
-              "channel mask %#x, session %d, flags %#x",
-              mAttributes.source, mSampleRate, mFormat, mChannelMask, mSessionId, mFlags);
-        return BAD_VALUE;
-    }
-    {
-    // Now that we have a reference to an I/O handle and have not yet handed it off to AudioFlinger,
-    // we must release it ourselves if anything goes wrong.
-
-    size_t frameCount = mReqFrameCount;
     size_t temp = frameCount;   // temp may be replaced by a revised value of frameCount,
                                 // but we will still need the original value also
-    int originalSessionId = mSessionId;
-
-    // The notification frame count is the period between callbacks, as suggested by the server.
-    size_t notificationFrames = mNotificationFramesReq;
+    audio_session_t originalSessionId = mSessionId;
 
     sp<IMemory> iMem;           // for cblk
     sp<IMemory> bufferMem;
@@ -553,6 +616,7 @@ status_t AudioRecord::openRecord_l(size_t epoch, const String16& opPackageName)
                                                        opPackageName,
                                                        &temp,
                                                        &trackFlags,
+                                                       mClientPid,
                                                        tid,
                                                        mClientUid,
                                                        &mSessionId,
@@ -565,12 +629,25 @@ status_t AudioRecord::openRecord_l(size_t epoch, const String16& opPackageName)
 
     if (status != NO_ERROR) {
         ALOGE("AudioFlinger could not create record track, status: %d", status);
-        goto release;
+        break;
     }
     ALOG_ASSERT(record != 0);
 
     // AudioFlinger now owns the reference to the I/O handle,
     // so we are no longer responsible for releasing it.
+
+    mAwaitBoost = false;
+    if (mFlags & AUDIO_INPUT_FLAG_FAST) {
+        if (trackFlags & IAudioFlinger::TRACK_FAST) {
+            ALOGI("AUDIO_INPUT_FLAG_FAST successful; frameCount %zu", frameCount);
+            mAwaitBoost = true;
+        } else {
+            ALOGW("AUDIO_INPUT_FLAG_FAST denied by server; frameCount %zu", frameCount);
+            mFlags = (audio_input_flags_t) (mFlags & ~(AUDIO_INPUT_FLAG_FAST |
+                    AUDIO_INPUT_FLAG_RAW));
+            continue;   // retry
+        }
+    }
 
     if (iMem == 0) {
         ALOGE("Could not get control block");
@@ -614,23 +691,13 @@ status_t AudioRecord::openRecord_l(size_t epoch, const String16& opPackageName)
     }
     frameCount = temp;
 
-    mAwaitBoost = false;
-    if (mFlags & AUDIO_INPUT_FLAG_FAST) {
-        if (trackFlags & IAudioFlinger::TRACK_FAST) {
-            ALOGV("AUDIO_INPUT_FLAG_FAST successful; frameCount %zu", frameCount);
-            mAwaitBoost = true;
-        } else {
-            ALOGV("AUDIO_INPUT_FLAG_FAST denied by server; frameCount %zu", frameCount);
-            // once denied, do not request again if IAudioRecord is re-created
-            mFlags = (audio_input_flags_t) (mFlags & ~AUDIO_INPUT_FLAG_FAST);
-        }
+    // Make sure that application is notified with sufficient margin before overrun.
+    // The computation is done on server side.
+    if (mNotificationFramesReq > 0 && notificationFrames != mNotificationFramesReq) {
+        ALOGW("Server adjusted notificationFrames from %u to %zu for frameCount %zu",
+                mNotificationFramesReq, notificationFrames, frameCount);
     }
-
-    // Make sure that application is notified with sufficient margin before overrun
-    if (notificationFrames == 0 || notificationFrames > frameCount) {
-        ALOGW("Received notificationFrames %zu for frameCount %zu", notificationFrames, frameCount);
-    }
-    mNotificationFramesAct = notificationFrames;
+    mNotificationFramesAct = (uint32_t) notificationFrames;
 
     // We retain a copy of the I/O handle, but don't own the reference
     mInput = input;
@@ -656,10 +723,13 @@ status_t AudioRecord::openRecord_l(size_t epoch, const String16& opPackageName)
     }
 
     return NO_ERROR;
+
+    // End of retry loop.
+    // The lack of indentation is deliberate, to reduce code churn and ease merges.
     }
 
-release:
-    AudioSystem::releaseInput(input, (audio_session_t)mSessionId);
+// Arrive here on error, via a break
+    AudioSystem::releaseInput(input, mSessionId);
     if (status == NO_ERROR) {
         status = NO_INIT;
     }
@@ -832,7 +902,10 @@ ssize_t AudioRecord::read(void* buffer, size_t userSize, bool blocking)
 
         releaseBuffer(&audioBuffer);
     }
-
+    if (read > 0) {
+        mFramesRead += read / mFrameSize;
+        // mFramesReadTime = systemTime(SYSTEM_TIME_MONOTONIC); // not provided at this time.
+    }
     return read;
 }
 
@@ -885,23 +958,23 @@ nsecs_t AudioRecord::processAudioBuffer()
     }
 
     // Get current position of server
-    size_t position = mProxy->getPosition();
+    Modulo<uint32_t> position(mProxy->getPosition());
 
     // Manage marker callback
     bool markerReached = false;
-    size_t markerPosition = mMarkerPosition;
+    Modulo<uint32_t> markerPosition(mMarkerPosition);
     // FIXME fails for wraparound, need 64 bits
-    if (!mMarkerReached && (markerPosition > 0) && (position >= markerPosition)) {
+    if (!mMarkerReached && markerPosition.value() > 0 && position >= markerPosition) {
         mMarkerReached = markerReached = true;
     }
 
     // Determine the number of new position callback(s) that will be needed, while locked
     size_t newPosCount = 0;
-    size_t newPosition = mNewPosition;
+    Modulo<uint32_t> newPosition(mNewPosition);
     uint32_t updatePeriod = mUpdatePeriod;
     // FIXME fails for wraparound, need 64 bits
     if (updatePeriod > 0 && position >= newPosition) {
-        newPosCount = ((position - newPosition) / updatePeriod) + 1;
+        newPosCount = ((position - newPosition).value() / updatePeriod) + 1;
         mNewPosition += updatePeriod * newPosCount;
     }
 
@@ -928,7 +1001,7 @@ nsecs_t AudioRecord::processAudioBuffer()
         mCbf(EVENT_MARKER, mUserData, &markerPosition);
     }
     while (newPosCount > 0) {
-        size_t temp = newPosition;
+        size_t temp = newPosition.value(); // FIXME size_t != uint32_t
         mCbf(EVENT_NEW_POS, mUserData, &temp);
         newPosition += updatePeriod;
         newPosCount--;
@@ -946,10 +1019,10 @@ nsecs_t AudioRecord::processAudioBuffer()
     // Compute the estimated time until the next timed event (position, markers)
     uint32_t minFrames = ~0;
     if (!markerReached && position < markerPosition) {
-        minFrames = markerPosition - position;
+        minFrames = (markerPosition - position).value();
     }
     if (updatePeriod > 0) {
-        uint32_t remaining = newPosition - position;
+        uint32_t remaining = (newPosition - position).value();
         if (remaining < minFrames) {
             minFrames = remaining;
         }
@@ -983,6 +1056,7 @@ nsecs_t AudioRecord::processAudioBuffer()
         requested = &timeout;
     }
 
+    size_t readFrames = 0;
     while (mRemainingFrames > 0) {
 
         Buffer audioBuffer;
@@ -1044,6 +1118,7 @@ nsecs_t AudioRecord::processAudioBuffer()
         }
 
         releaseBuffer(&audioBuffer);
+        readFrames += releasedFrames;
 
         // FIXME here is where we would repeat EVENT_MORE_DATA again on same advanced buffer
         // if callback doesn't like to accept the full chunk
@@ -1067,6 +1142,11 @@ nsecs_t AudioRecord::processAudioBuffer()
 #endif
 
     }
+    if (readFrames > 0) {
+        AutoMutex lock(mLock);
+        mFramesRead += readFrames;
+        // mFramesReadTime = systemTime(SYSTEM_TIME_MONOTONIC); // not provided at this time.
+    }
     mRemainingFrames = notificationFrames;
     mRetryOnPartialBuffer = true;
 
@@ -1079,18 +1159,21 @@ status_t AudioRecord::restoreRecord_l(const char *from)
     ALOGW("dead IAudioRecord, creating a new one from %s()", from);
     ++mSequence;
 
+    mFlags = mOrigFlags;
+
     // if the new IAudioRecord is created, openRecord_l() will modify the
     // following member variables: mAudioRecord, mCblkMemory, mCblk, mBufferMemory.
     // It will also delete the strong references on previous IAudioRecord and IMemory
-    size_t position = mProxy->getPosition();
+    Modulo<uint32_t> position(mProxy->getPosition());
     mNewPosition = position + mUpdatePeriod;
     status_t result = openRecord_l(position, mOpPackageName);
     if (result == NO_ERROR) {
         if (mActive) {
             // callback thread or sync event hasn't changed
             // FIXME this fails if we have a new AudioFlinger instance
-            result = mAudioRecord->start(AudioSystem::SYNC_EVENT_SAME, 0);
+            result = mAudioRecord->start(AudioSystem::SYNC_EVENT_SAME, AUDIO_SESSION_NONE);
         }
+        mFramesReadServerOffset = mFramesRead; // server resets to zero so we need an offset.
     }
     if (result != NO_ERROR) {
         ALOGW("restoreRecord_l() failed status %d", result);

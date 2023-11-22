@@ -27,12 +27,16 @@ def main():
 
     THRESHOLD_MAX_RMS_DIFF = 0.01
 
-    fmt_yuv =  {"format":"yuv"}
-    fmt_jpeg = {"format":"jpeg"}
-
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
         its.caps.skip_unless(its.caps.compute_target_exposure(props))
+
+        max_jpeg_size = \
+                its.objects.get_available_output_sizes("jpeg", props)[0]
+        w,h = its.objects.get_available_output_sizes(
+                "yuv", props, (1920, 1080), max_jpeg_size)[0]
+        fmt_yuv =  {"format":"yuv", "width":w, "height":h}
+        fmt_jpeg = {"format":"jpeg"}
 
         # Use a manual request with a linear tonemap so that the YUV and JPEG
         # should look the same (once converted by the its.image module).

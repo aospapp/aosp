@@ -24,22 +24,43 @@
 
     <PreferenceCategory android:key="tts_general_section"
          android:title="@string/tts_general_section_title">
-        <ListPreference
+        <!-- The max value for seek bars here should be kept in sync
+             with the max value specified in TextToSpeechSettings class. -->
+        <com.android.settings.SeekBarPreference
             android:key="tts_default_rate"
             android:title="@string/tts_default_rate_title"
             android:summary="@string/tts_default_rate_summary"
+            android:defaultValue="50"
+            android:max="600"
+            android:layout="@layout/preference_iconless_slider" />
+
+        <com.android.settings.SeekBarPreference
+            android:key="tts_default_pitch"
+            android:title="@string/tts_default_pitch_title"
+            android:summary="@string/tts_default_pitch_summary"
+            android:defaultValue="100"
+            android:max="400"
+            android:layout="@layout/preference_iconless_slider" />
+
+        <Preference android:key="reset_speech_rate"
             android:persistent="false"
-            android:entries="@array/tts_rate_entries"
-            android:entryValues="@array/tts_rate_values" />
+            android:title="@string/tts_reset_speech_rate_title"
+            android:summary="@string/tts_reset_speech_rate_summary" />
+
+        <Preference android:key="reset_speech_pitch"
+            android:persistent="false"
+            android:title="@string/tts_reset_speech_pitch_title"
+            android:summary="@string/tts_reset_speech_pitch_summary" />
+
+        <Preference android:key="tts_play_example"
+            android:persistent="false"
+            android:title="@string/tts_play_example_title"
+            android:summary="@string/tts_play_example_summary" />
+
+       <Preference android:key="tts_status"
+            android:enabled="false"
+            android:shouldDisableView="false"
+            android:persistent="false"
+            android:title="@string/tts_status_title"/>
     </PreferenceCategory>
-
-    <Preference android:key="tts_play_example"
-         android:persistent="false"
-         android:title="@string/tts_play_example_title"
-         android:summary="@string/tts_play_example_summary" />
-
-    <Preference android:key="tts_status"
-         style="?android:attr/preferenceInformationStyle"
-         android:persistent="false"
-         android:title="@string/tts_status_title"/>
 </PreferenceScreen>

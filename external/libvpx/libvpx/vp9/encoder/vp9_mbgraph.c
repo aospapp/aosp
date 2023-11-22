@@ -10,13 +10,17 @@
 
 #include <limits.h>
 
+#include "./vp9_rtcd.h"
+#include "./vpx_dsp_rtcd.h"
+
+#include "vpx_dsp/vpx_dsp_common.h"
 #include "vpx_mem/vpx_mem.h"
+#include "vpx_ports/system_state.h"
 #include "vp9/encoder/vp9_segmentation.h"
 #include "vp9/encoder/vp9_mcomp.h"
 #include "vp9/common/vp9_blockd.h"
 #include "vp9/common/vp9_reconinter.h"
 #include "vp9/common/vp9_reconintra.h"
-#include "vp9/common/vp9_systemdependent.h"
 
 
 static unsigned int do_16x16_motion_iteration(VP9_COMP *cpi,
@@ -24,9 +28,10 @@ static unsigned int do_16x16_motion_iteration(VP9_COMP *cpi,
                                               MV *dst_mv,
                                               int mb_row,
                                               int mb_col) {
-  MACROBLOCK *const x = &cpi->mb;
+  MACROBLOCK *const x = &cpi->td.mb;
   MACROBLOCKD *const xd = &x->e_mbd;
-  const MV_SPEED_FEATURES *const mv_sf = &cpi->sf.mv;
+  MV_SPEED_FEATURES *const mv_sf = &cpi->sf.mv;
+  const SEARCH_METHODS old_search_method = mv_sf->search_method;
   const vp9_variance_fn_ptr_t v_fn_ptr = cpi->fn_ptr[BLOCK_16X16];
 
   const int tmp_col_min = x->mv_col_min;
@@ -34,19 +39,22 @@ static unsigned int do_16x16_motion_iteration(VP9_COMP *cpi,
   const int tmp_row_min = x->mv_row_min;
   const int tmp_row_max = x->mv_row_max;
   MV ref_full;
+  int cost_list[5];
 
   // Further step/diamond searches as necessary
   int step_param = mv_sf->reduce_first_step_size;
-  step_param = MIN(step_param, MAX_MVSEARCH_STEPS - 2);
+  step_param = VPXMIN(step_param, MAX_MVSEARCH_STEPS - 2);
 
   vp9_set_mv_search_range(x, ref_mv);
 
   ref_full.col = ref_mv->col >> 3;
   ref_full.row = ref_mv->row >> 3;
 
-  /*cpi->sf.search_method == HEX*/
-  vp9_hex_search(x, &ref_full, step_param, x->errorperbit, 0, &v_fn_ptr, 0,
-                 ref_mv, dst_mv);
+  mv_sf->search_method = HEX;
+  vp9_full_pixel_search(cpi, x, BLOCK_16X16, &ref_full, step_param,
+                        x->errorperbit, cond_cost_list(cpi, cost_list), ref_mv,
+                        dst_mv, 0, 0);
+  mv_sf->search_method = old_search_method;
 
   // Try sub-pixel MC
   // if (bestsme > error_thresh && bestsme < INT_MAX)
@@ -55,8 +63,10 @@ static unsigned int do_16x16_motion_iteration(VP9_COMP *cpi,
     unsigned int sse;
     cpi->find_fractional_mv_step(
         x, dst_mv, ref_mv, cpi->common.allow_high_precision_mv, x->errorperbit,
-        &v_fn_ptr, 0, mv_sf->subpel_iters_per_step, NULL, NULL, &distortion,
-        &sse, NULL, 0, 0);
+        &v_fn_ptr, 0, mv_sf->subpel_iters_per_step,
+        cond_cost_list(cpi, cost_list),
+        NULL, NULL,
+        &distortion, &sse, NULL, 0, 0);
   }
 
   xd->mi[0]->mbmi.mode = NEWMV;
@@ -70,20 +80,20 @@ static unsigned int do_16x16_motion_iteration(VP9_COMP *cpi,
   x->mv_row_min = tmp_row_min;
   x->mv_row_max = tmp_row_max;
 
-  return vp9_sad16x16(x->plane[0].src.buf, x->plane[0].src.stride,
-          xd->plane[0].dst.buf, xd->plane[0].dst.stride);
+  return vpx_sad16x16(x->plane[0].src.buf, x->plane[0].src.stride,
+                      xd->plane[0].dst.buf, xd->plane[0].dst.stride);
 }
 
 static int do_16x16_motion_search(VP9_COMP *cpi, const MV *ref_mv,
                                   int_mv *dst_mv, int mb_row, int mb_col) {
-  MACROBLOCK *const x = &cpi->mb;
+  MACROBLOCK *const x = &cpi->td.mb;
   MACROBLOCKD *const xd = &x->e_mbd;
   unsigned int err, tmp_err;
   MV tmp_mv;
 
   // Try zero MV first
   // FIXME should really use something like near/nearest MV and/or MV prediction
-  err = vp9_sad16x16(x->plane[0].src.buf, x->plane[0].src.stride,
+  err = vpx_sad16x16(x->plane[0].src.buf, x->plane[0].src.stride,
                      xd->plane[0].pre[0].buf, xd->plane[0].pre[0].stride);
   dst_mv->as_int = 0;
 
@@ -113,13 +123,13 @@ static int do_16x16_motion_search(VP9_COMP *cpi, const MV *ref_mv,
 }
 
 static int do_16x16_zerozero_search(VP9_COMP *cpi, int_mv *dst_mv) {
-  MACROBLOCK *const x = &cpi->mb;
+  MACROBLOCK *const x = &cpi->td.mb;
   MACROBLOCKD *const xd = &x->e_mbd;
   unsigned int err;
 
   // Try zero MV first
   // FIXME should really use something like near/nearest MV and/or MV prediction
-  err = vp9_sad16x16(x->plane[0].src.buf, x->plane[0].src.stride,
+  err = vpx_sad16x16(x->plane[0].src.buf, x->plane[0].src.stride,
                      xd->plane[0].pre[0].buf, xd->plane[0].pre[0].stride);
 
   dst_mv->as_int = 0;
@@ -127,7 +137,7 @@ static int do_16x16_zerozero_search(VP9_COMP *cpi, int_mv *dst_mv) {
   return err;
 }
 static int find_best_16x16_intra(VP9_COMP *cpi, PREDICTION_MODE *pbest_mode) {
-  MACROBLOCK   *const x  = &cpi->mb;
+  MACROBLOCK   *const x  = &cpi->td.mb;
   MACROBLOCKD *const xd = &x->e_mbd;
   PREDICTION_MODE best_mode = -1, mode;
   unsigned int best_err = INT_MAX;
@@ -138,11 +148,11 @@ static int find_best_16x16_intra(VP9_COMP *cpi, PREDICTION_MODE *pbest_mode) {
     unsigned int err;
 
     xd->mi[0]->mbmi.mode = mode;
-    vp9_predict_intra_block(xd, 0, 2, TX_16X16, mode,
+    vp9_predict_intra_block(xd, 2, TX_16X16, mode,
                             x->plane[0].src.buf, x->plane[0].src.stride,
                             xd->plane[0].dst.buf, xd->plane[0].dst.stride,
                             0, 0, 0);
-    err = vp9_sad16x16(x->plane[0].src.buf, x->plane[0].src.stride,
+    err = vpx_sad16x16(x->plane[0].src.buf, x->plane[0].src.stride,
                        xd->plane[0].dst.buf, xd->plane[0].dst.stride);
 
     // find best
@@ -170,7 +180,7 @@ static void update_mbgraph_mb_stats
   int mb_row,
   int mb_col
 ) {
-  MACROBLOCK *const x = &cpi->mb;
+  MACROBLOCK *const x = &cpi->td.mb;
   MACROBLOCKD *const xd = &x->e_mbd;
   int intra_error;
   VP9_COMMON *cm = &cpi->common;
@@ -225,7 +235,7 @@ static void update_mbgraph_frame_stats(VP9_COMP *cpi,
                                        YV12_BUFFER_CONFIG *buf,
                                        YV12_BUFFER_CONFIG *golden_ref,
                                        YV12_BUFFER_CONFIG *alt_ref) {
-  MACROBLOCK *const x = &cpi->mb;
+  MACROBLOCK *const x = &cpi->td.mb;
   MACROBLOCKD *const xd = &x->e_mbd;
   VP9_COMMON *const cm = &cpi->common;
 
@@ -372,6 +382,8 @@ void vp9_update_mbgraph_stats(VP9_COMP *cpi) {
   int i, n_frames = vp9_lookahead_depth(cpi->lookahead);
   YV12_BUFFER_CONFIG *golden_ref = get_ref_frame_buffer(cpi, GOLDEN_FRAME);
 
+  assert(golden_ref != NULL);
+
   // we need to look ahead beyond where the ARF transitions into
   // being a GF - so exit if we don't look ahead beyond that
   if (n_frames <= cpi->rc.frames_till_gf_update_due)
@@ -383,9 +395,8 @@ void vp9_update_mbgraph_stats(VP9_COMP *cpi) {
   cpi->mbgraph_n_frames = n_frames;
   for (i = 0; i < n_frames; i++) {
     MBGRAPH_FRAME_STATS *frame_stats = &cpi->mbgraph_stats[i];
-    vpx_memset(frame_stats->mb_stats, 0,
-               cm->mb_rows * cm->mb_cols *
-               sizeof(*cpi->mbgraph_stats[i].mb_stats));
+    memset(frame_stats->mb_stats, 0,
+           cm->mb_rows * cm->mb_cols * sizeof(*cpi->mbgraph_stats[i].mb_stats));
   }
 
   // do motion search to find contribution of each reference to data
@@ -402,7 +413,7 @@ void vp9_update_mbgraph_stats(VP9_COMP *cpi) {
                                golden_ref, cpi->Source);
   }
 
-  vp9_clear_system_state();
+  vpx_clear_system_state();
 
   separate_arf_mbs(cpi);
 }

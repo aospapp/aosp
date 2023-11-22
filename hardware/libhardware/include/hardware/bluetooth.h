@@ -89,8 +89,10 @@ typedef enum {
     BT_STATUS_UNHANDLED,
     BT_STATUS_AUTH_FAILURE,
     BT_STATUS_RMT_DEV_DOWN,
-    BT_STATUS_AUTH_REJECTED
-
+    BT_STATUS_AUTH_REJECTED,
+    BT_STATUS_JNI_ENVIRONMENT_ERROR,
+    BT_STATUS_JNI_THREAD_ATTACH_ERROR,
+    BT_STATUS_WAKELOCK_ERROR
 } bt_status_t;
 
 /** Bluetooth PinKey Code */
@@ -106,6 +108,12 @@ typedef struct {
     uint64_t idle_time;     /* in ms */
     uint64_t energy_used;   /* a product of mA, V and ms */
 } __attribute__((packed))bt_activity_energy_info;
+
+typedef struct {
+    int32_t app_uid;
+    uint64_t tx_bytes;
+    uint64_t rx_bytes;
+} __attribute__((packed))bt_uid_traffic_t;
 
 /** Bluetooth Adapter Discovery state */
 typedef enum {
@@ -256,6 +264,19 @@ typedef struct
     void *val;
 } bt_property_t;
 
+/** Bluetooth Out Of Band data for bonding */
+typedef struct
+{
+   uint8_t c192[16]; /* Simple Pairing Hash C-192 */
+   uint8_t r192[16]; /* Simple Pairing Randomizer R-192 */
+   uint8_t c256[16]; /* Simple Pairing Hash C-256 */
+   uint8_t r256[16]; /* Simple Pairing Randomizer R-256 */
+   uint8_t sm_tk[16]; /* Security Manager TK Value */
+   uint8_t le_sc_c[16]; /* LE Secure Connections Random Value */
+   uint8_t le_sc_r[16]; /* LE Secure Connections Random Value */
+} bt_out_of_band_data_t;
+
+
 
 /** Bluetooth Device Type */
 typedef enum {
@@ -365,8 +386,12 @@ typedef void (*le_test_mode_callback)(bt_status_t status, uint16_t num_packets);
  * If the ctrl_state value is 0, it means the API call failed
  * Time values-In milliseconds as returned by the controller
  * Energy used-Value as returned by the controller
- * Status-Provides the status of the read_energy_info API call */
-typedef void (*energy_info_callback)(bt_activity_energy_info *energy_info);
+ * Status-Provides the status of the read_energy_info API call
+ * uid_data provides an array of bt_uid_traffic_t, where the array is terminated by an element with
+ * app_uid set to -1.
+ */
+typedef void (*energy_info_callback)(bt_activity_energy_info *energy_info,
+                                     bt_uid_traffic_t *uid_data);
 
 /** TODO: Add callbacks for Link Up/Down and other generic
   *  notifications/callbacks */
@@ -438,7 +463,7 @@ typedef struct {
     int (*init)(bt_callbacks_t* callbacks );
 
     /** Enable Bluetooth. */
-    int (*enable)(void);
+    int (*enable)(bool guest_mode);
 
     /** Disable Bluetooth. */
     int (*disable)(void);
@@ -484,6 +509,10 @@ typedef struct {
 
     /** Create Bluetooth Bonding */
     int (*create_bond)(const bt_bdaddr_t *bd_addr, int transport);
+
+    /** Create Bluetooth Bond using out of band data */
+    int (*create_bond_out_of_band)(const bt_bdaddr_t *bd_addr, int transport,
+                                   const bt_out_of_band_data_t *oob_data);
 
     /** Remove Bond */
     int (*remove_bond)(const bt_bdaddr_t *bd_addr);
@@ -540,14 +569,27 @@ typedef struct {
     /**
      * Native support for dumpsys function
      * Function is synchronous and |fd| is owned by caller.
+     * |arguments| are arguments which may affect the output, encoded as
+     * UTF-8 strings.
      */
-    void (*dump)(int fd);
+    void (*dump)(int fd, const char **arguments);
 
     /**
      * Clear /data/misc/bt_config.conf and erase all stored connections
      */
     int (*config_clear)(void);
 
+    /**
+     * Clear (reset) the dynamic portion of the device interoperability database.
+     */
+    void (*interop_database_clear)(void);
+
+    /**
+     * Add a new device interoperability workaround for a remote device whose
+     * first |len| bytes of the its device address match |addr|.
+     * NOTE: |feature| has to match an item defined in interop_feature_t (interop.h).
+     */
+    void (*interop_database_add)(uint16_t feature, const bt_bdaddr_t *addr, size_t len);
 } bt_interface_t;
 
 /** TODO: Need to add APIs for Service Discovery, Service authorization and

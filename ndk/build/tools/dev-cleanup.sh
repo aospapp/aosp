@@ -34,8 +34,6 @@ fi
 
 # Remove generated directories
 rm -rf $DIR/platforms
-rm -rf $DIR/toolchains/*/prebuilt
-rm -rf $DIR/samples
 rm -rf $DIR/prebuilt
 
 # Remove prebuilt binaries
@@ -44,13 +42,13 @@ rm -rf $DIR/$GABIXX_SUBDIR/libs
 for VERSION in $DEFAULT_GCC_VERSION_LIST; do
     rm -rf $DIR/$GNUSTL_SUBDIR/$VERSION
 done
-rm -rf $DIR/$LIBPORTABLE_SUBDIR
 rm -rf $DIR/$COMPILER_RT_SUBDIR/libs
 rm -rf $DIR/$GCCUNWIND_SUBDIR/libs
 rm -rf $DIR/$LIBCXX_SUBDIR/libs
+rm -rf $DIR/$SUPPORT_SUBDIR/libs
 
-rm -f $DIR/ndk-stack*
-rm -f $DIR/ndk-depends*
+# Remove the temp directory.
+rm -rf $TMPDIR
 
 clean_dir ()
 {
@@ -93,9 +91,3 @@ if [ ! -d $DIR ] ; then
     echo "WARNING: Development directory missing: $DIR"
     exit 0
 fi
-for PROJECT in $DIR/samples/*; do
-    cleanup_project $PROJECT
-done
-for PROJECT in $DIR/platforms/android-*/samples/*; do
-    cleanup_project $PROJECT
-done

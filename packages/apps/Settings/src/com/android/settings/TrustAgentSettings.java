@@ -16,8 +16,6 @@
 
 package com.android.settings;
 
-import java.util.List;
-
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
@@ -27,15 +25,21 @@ import android.content.pm.ResolveInfo;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.UserHandle;
-import android.preference.Preference;
-import android.preference.PreferenceGroup;
-import android.preference.SwitchPreference;
 import android.service.trust.TrustAgentService;
+import android.support.v14.preference.SwitchPreference;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.PreferenceGroup;
 import android.util.ArrayMap;
 import android.util.ArraySet;
 
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.internal.widget.LockPatternUtils;
+import com.android.settingslib.RestrictedLockUtils;
+import com.android.settingslib.RestrictedSwitchPreference;
+
+import java.util.List;
+
+import static com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
 
 public class TrustAgentSettings extends SettingsPreferenceFragment implements
         Preference.OnPreferenceChangeListener {
@@ -67,7 +71,7 @@ public class TrustAgentSettings extends SettingsPreferenceFragment implements
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.TRUST_AGENT;
+        return MetricsEvent.TRUST_AGENT;
     }
 
     @Override
@@ -96,13 +100,15 @@ public class TrustAgentSettings extends SettingsPreferenceFragment implements
                 (PreferenceGroup) getPreferenceScreen().findPreference("trust_agents");
         category.removeAll();
 
-        boolean disabledByDevicePolicy = (mDpm.getKeyguardDisabledFeatures(null)
-                & DevicePolicyManager.KEYGUARD_DISABLE_TRUST_AGENTS) != 0;
+        final EnforcedAdmin admin = RestrictedLockUtils.checkIfKeyguardFeaturesDisabled(context,
+                DevicePolicyManager.KEYGUARD_DISABLE_TRUST_AGENTS, UserHandle.myUserId());
 
         final int count = mAvailableAgents.size();
         for (int i = 0; i < count; i++) {
             AgentInfo agent = mAvailableAgents.valueAt(i);
-            final SwitchPreference preference = new SwitchPreference(context);
+            final RestrictedSwitchPreference preference =
+                    new RestrictedSwitchPreference(getPrefContext());
+            preference.useAdminDisabledSummary(true);
             agent.preference = preference;
             preference.setPersistent(false);
             preference.setTitle(agent.label);
@@ -111,11 +117,10 @@ public class TrustAgentSettings extends SettingsPreferenceFragment implements
             preference.setOnPreferenceChangeListener(this);
             preference.setChecked(mActiveAgents.contains(agent.component));
 
-            if (disabledByDevicePolicy
+            if (admin != null
                     && mDpm.getTrustAgentConfiguration(null, agent.component) == null) {
                 preference.setChecked(false);
-                preference.setEnabled(false);
-                preference.setSummary(R.string.trust_agent_disabled_device_admin);
+                preference.setDisabledByAdmin(admin);
             }
 
             category.addPreference(agent.preference);

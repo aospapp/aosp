@@ -29,13 +29,19 @@
 namespace android {
 // ---------------------------------------------------------------------------
 
-OrientationSensor::OrientationSensor()
-    : mSensorDevice(SensorDevice::getInstance()),
-      mSensorFusion(SensorFusion::getInstance())
-{
-    // FIXME: instead of using the SensorFusion code, we should use
-    // the SENSOR_TYPE_ROTATION_VECTOR instead. This way we could use the
-    // HAL's implementation.
+OrientationSensor::OrientationSensor() {
+    const sensor_t sensor = {
+        .name       = "Orientation Sensor",
+        .vendor     = "AOSP",
+        .version    = 1,
+        .handle     = '_ypr',
+        .type       = SENSOR_TYPE_ORIENTATION,
+        .maxRange   = 360.0f,
+        .resolution = 1.0f/256.0f, // FIXME: real value here
+        .power      = mSensorFusion.getPowerUsage(),
+        .minDelay   = mSensorFusion.getMinDelay(),
+    };
+    mSensor = Sensor(&sensor);
 }
 
 bool OrientationSensor::process(sensors_event_t* outEvent,
@@ -66,26 +72,11 @@ bool OrientationSensor::process(sensors_event_t* outEvent,
 }
 
 status_t OrientationSensor::activate(void* ident, bool enabled) {
-    return mSensorFusion.activate(ident, enabled);
+    return mSensorFusion.activate(FUSION_9AXIS, ident, enabled);
 }
 
 status_t OrientationSensor::setDelay(void* ident, int /*handle*/, int64_t ns) {
-    return mSensorFusion.setDelay(ident, ns);
-}
-
-Sensor OrientationSensor::getSensor() const {
-    sensor_t hwSensor;
-    hwSensor.name       = "Orientation Sensor";
-    hwSensor.vendor     = "AOSP";
-    hwSensor.version    = 1;
-    hwSensor.handle     = '_ypr';
-    hwSensor.type       = SENSOR_TYPE_ORIENTATION;
-    hwSensor.maxRange   = 360.0f;
-    hwSensor.resolution = 1.0f/256.0f; // FIXME: real value here
-    hwSensor.power      = mSensorFusion.getPowerUsage();
-    hwSensor.minDelay   = mSensorFusion.getMinDelay();
-    Sensor sensor(&hwSensor);
-    return sensor;
+    return mSensorFusion.setDelay(FUSION_9AXIS, ident, ns);
 }
 
 // ---------------------------------------------------------------------------

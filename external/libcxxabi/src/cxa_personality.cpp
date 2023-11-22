@@ -14,6 +14,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 #include <typeinfo>
 
 #include "config.h"
@@ -21,10 +22,6 @@
 #include "cxa_handlers.hpp"
 #include "private_typeinfo.h"
 #include "unwind.h"
-
-#if LIBCXXABI_ARM_EHABI
-#include "Unwind/libunwind_ext.h"
-#endif
 
 /*
     Exception Header Layout:
@@ -141,6 +138,19 @@ Notes:
 namespace __cxxabiv1
 {
 
+namespace
+{
+
+template <class AsType>
+uintptr_t readPointerHelper(const uint8_t*& p) {
+    AsType value;
+    memcpy(&value, p, sizeof(AsType));
+    p += sizeof(AsType);
+    return static_cast<uintptr_t>(value);
+}
+
+} // end namespace
+
 extern "C"
 {
 
@@ -235,8 +245,7 @@ readEncodedPointer(const uint8_t** data, uint8_t encoding)
     switch (encoding & 0x0F)
     {
     case DW_EH_PE_absptr:
-        result = *((uintptr_t*)p);
-        p += sizeof(uintptr_t);
+        result = readPointerHelper<uintptr_t>(p);
         break;
     case DW_EH_PE_uleb128:
         result = readULEB128(&p);
@@ -245,28 +254,22 @@ readEncodedPointer(const uint8_t** data, uint8_t encoding)
         result = static_cast<uintptr_t>(readSLEB128(&p));
         break;
     case DW_EH_PE_udata2:
-        result = *((uint16_t*)p);
-        p += sizeof(uint16_t);
+        result = readPointerHelper<uint16_t>(p);
         break;
     case DW_EH_PE_udata4:
-        result = *((uint32_t*)p);
-        p += sizeof(uint32_t);
+        result = readPointerHelper<uint32_t>(p);
         break;
     case DW_EH_PE_udata8:
-        result = static_cast<uintptr_t>(*((uint64_t*)p));
-        p += sizeof(uint64_t);
+        result = readPointerHelper<uint64_t>(p);
         break;
     case DW_EH_PE_sdata2:
-        result = static_cast<uintptr_t>(*((int16_t*)p));
-        p += sizeof(int16_t);
+        result = readPointerHelper<int16_t>(p);
         break;
     case DW_EH_PE_sdata4:
-        result = static_cast<uintptr_t>(*((int32_t*)p));
-        p += sizeof(int32_t);
+        result = readPointerHelper<int32_t>(p);
         break;
     case DW_EH_PE_sdata8:
-        result = static_cast<uintptr_t>(*((int64_t*)p));
-        p += sizeof(int64_t);
+        result = readPointerHelper<int64_t>(p);
         break;
     default:
         // not supported 
@@ -1012,9 +1015,8 @@ __gxx_personality_v0
 }
 #else
 
-#if !LIBCXXABI_USE_LLVM_UNWINDER
-extern "C" _Unwind_Reason_Code __gnu_unwind_frame(_Unwind_Exception*, _Unwind_Context*);
-#endif
+extern "C" _Unwind_Reason_Code __gnu_unwind_frame(_Unwind_Exception*,
+                                                  _Unwind_Context*);
 
 // Helper function to unwind one frame.
 // ARM EHABI 7.3 and 7.4: If the personality function returns _URC_CONTINUE_UNWIND, the
@@ -1023,37 +1025,8 @@ extern "C" _Unwind_Reason_Code __gnu_unwind_frame(_Unwind_Exception*, _Unwind_Co
 static _Unwind_Reason_Code continue_unwind(_Unwind_Exception* unwind_exception,
                                            _Unwind_Context* context)
 {
-#if LIBCXXABI_USE_LLVM_UNWINDER
-    // ARM EHABI # 6.2, # 9.2
-    //
-    //  +---- ehtp
-    //  v
-    // +--------------------------------------+
-    // | +--------+--------+--------+-------+ |
-    // | |0| prel31 to __gxx_personality_v0 | |
-    // | +--------+--------+--------+-------+ |
-    // | |      N |      unwind opcodes     | |  <-- unwind_opcodes
-    // | +--------+--------+--------+-------+ |
-    // | | Word 2        unwind opcodes     | |
-    // | +--------+--------+--------+-------+ |
-    // | ...                                  |
-    // | +--------+--------+--------+-------+ |
-    // | | Word N        unwind opcodes     | |
-    // | +--------+--------+--------+-------+ |
-    // | | LSDA                             | |  <-- lsda
-    // | | ...                              | |
-    // | +--------+--------+--------+-------+ |
-    // +--------------------------------------+
-
-    uint32_t *unwind_opcodes = unwind_exception->pr_cache.ehtp + 1;
-    size_t opcode_words = ((*unwind_opcodes >> 24) & 0xff) + 1;
-    if (_Unwind_VRS_Interpret(context, unwind_opcodes, 1, opcode_words * 4) !=
-        _URC_CONTINUE_UNWIND)
-        return _URC_FAILURE;
-#else
     if (__gnu_unwind_frame(unwind_exception, context) != _URC_OK)
         return _URC_FAILURE;
-#endif
     return _URC_CONTINUE_UNWIND;
 }
 

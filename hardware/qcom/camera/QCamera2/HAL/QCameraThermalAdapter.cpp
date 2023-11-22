@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,12 +29,17 @@
 
 #define LOG_TAG "QCameraThermalAdapter"
 
+// System dependencies
 #include <dlfcn.h>
-#include <stdlib.h>
 #include <utils/Errors.h>
 
+// Camera dependencies
 #include "QCamera2HWI.h"
 #include "QCameraThermalAdapter.h"
+
+extern "C" {
+#include "mm_camera_dbg.h"
+}
 
 using namespace android;
 
@@ -62,28 +67,28 @@ int QCameraThermalAdapter::init(QCameraThermalCallback *thermalCb)
     const char *error = NULL;
     int rc = NO_ERROR;
 
-    CDBG("%s E", __func__);
+    LOGD("E");
     mHandle = dlopen("/vendor/lib/libthermalclient.so", RTLD_NOW);
     if (!mHandle) {
         error = dlerror();
-        ALOGE("%s: dlopen failed with error %s",
-                    __func__, error ? error : "");
+        LOGE("dlopen failed with error %s",
+                     error ? error : "");
         rc = UNKNOWN_ERROR;
         goto error;
     }
     *(void **)&mRegister = dlsym(mHandle, "thermal_client_register_callback");
     if (!mRegister) {
         error = dlerror();
-        ALOGE("%s: dlsym failed with error code %s",
-                    __func__, error ? error: "");
+        LOGE("dlsym failed with error code %s",
+                     error ? error: "");
         rc = UNKNOWN_ERROR;
         goto error2;
     }
     *(void **)&mUnregister = dlsym(mHandle, "thermal_client_unregister_callback");
     if (!mUnregister) {
         error = dlerror();
-        ALOGE("%s: dlsym failed with error code %s",
-                    __func__, error ? error: "");
+        LOGE("dlsym failed with error code %s",
+                     error ? error: "");
         rc = UNKNOWN_ERROR;
         goto error2;
     }
@@ -93,20 +98,20 @@ int QCameraThermalAdapter::init(QCameraThermalCallback *thermalCb)
     // Register camera and camcorder callbacks
     mCameraHandle = mRegister(mStrCamera, thermalCallback, NULL);
     if (mCameraHandle < 0) {
-        ALOGE("%s: thermal_client_register_callback failed %d",
-                        __func__, mCameraHandle);
+        LOGE("thermal_client_register_callback failed %d",
+                         mCameraHandle);
         rc = UNKNOWN_ERROR;
         goto error2;
     }
     mCamcorderHandle = mRegister(mStrCamcorder, thermalCallback, NULL);
     if (mCamcorderHandle < 0) {
-        ALOGE("%s: thermal_client_register_callback failed %d",
-                        __func__, mCamcorderHandle);
+        LOGE("thermal_client_register_callback failed %d",
+                         mCamcorderHandle);
         rc = UNKNOWN_ERROR;
         goto error3;
     }
 
-    CDBG("%s X", __func__);
+    LOGD("X");
     return rc;
 
 error3:
@@ -117,13 +122,13 @@ error2:
     dlclose(mHandle);
     mHandle = NULL;
 error:
-    CDBG("%s X", __func__);
+    LOGD("X");
     return rc;
 }
 
 void QCameraThermalAdapter::deinit()
 {
-    CDBG("%s E", __func__);
+    LOGD("E");
     if (mUnregister) {
         if (mCameraHandle) {
             mUnregister(mCameraHandle);
@@ -141,7 +146,7 @@ void QCameraThermalAdapter::deinit()
     mRegister = NULL;
     mUnregister = NULL;
     mCallback = NULL;
-    CDBG("%s X", __func__);
+    LOGD("X");
 }
 
 char QCameraThermalAdapter::mStrCamera[] = "camera";
@@ -151,14 +156,14 @@ int QCameraThermalAdapter::thermalCallback(int level,
                 void *userdata, void *data)
 {
     int rc = 0;
-    CDBG("%s E", __func__);
+    LOGD("E");
     QCameraThermalCallback *mcb = getInstance().mCallback;
 
     if (mcb) {
         mcb->setThermalLevel((qcamera_thermal_level_enum_t) level);
         rc = mcb->thermalEvtHandle(mcb->getThermalLevel(), userdata, data);
     }
-    CDBG("%s X", __func__);
+    LOGD("X");
     return rc;
 }
 

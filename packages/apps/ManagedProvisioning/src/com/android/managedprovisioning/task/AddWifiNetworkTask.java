@@ -24,15 +24,16 @@ import android.net.wifi.WifiManager;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
+import android.support.annotation.Nullable;
 import android.text.TextUtils;
 
 import java.lang.Thread;
 
 import com.android.managedprovisioning.NetworkMonitor;
-import com.android.managedprovisioning.ProvisioningParams.WifiInfo;
 import com.android.managedprovisioning.ProvisionLogger;
 import com.android.managedprovisioning.WifiConfig;
-
+import com.android.managedprovisioning.common.Utils;
+import com.android.managedprovisioning.model.WifiInfo;
 
 /**
  * Adds a wifi network to system.
@@ -44,6 +45,7 @@ public class AddWifiNetworkTask implements NetworkMonitor.Callback {
     private static final int RECONNECT_TIMEOUT_MS = 60000;
 
     private final Context mContext;
+    @Nullable
     private final WifiInfo mWifiInfo;
     private final Callback mCallback;
 
@@ -56,6 +58,8 @@ public class AddWifiNetworkTask implements NetworkMonitor.Callback {
 
     private int mDurationNextSleep = RETRY_SLEEP_DURATION_BASE_MS;
     private int mRetriesLeft = MAX_RETRIES;
+
+    private final Utils mUtils = new Utils();
 
     /**
      * @throws IllegalArgumentException if the {@code ssid} parameter is empty.
@@ -75,7 +79,7 @@ public class AddWifiNetworkTask implements NetworkMonitor.Callback {
     }
 
     public void run() {
-        if (TextUtils.isEmpty(mWifiInfo.ssid)) {
+        if (mWifiInfo == null) {
             mCallback.onSuccess();
             return;
         }
@@ -179,18 +183,10 @@ public class AddWifiNetworkTask implements NetworkMonitor.Callback {
     }
 
     private boolean isConnectedToSpecifiedWifi() {
-        return NetworkMonitor.isConnectedToWifi(mContext)
+        return mUtils.isConnectedToWifi(mContext)
                 && mWifiManager != null
                 && mWifiManager.getConnectionInfo() != null
                 && mWifiInfo.ssid.equals(mWifiManager.getConnectionInfo().getSSID());
-    }
-
-    public static Intent getWifiPickIntent() {
-        Intent wifiIntent = new Intent(WifiManager.ACTION_PICK_WIFI_NETWORK);
-        wifiIntent.putExtra("only_access_points", true);
-        wifiIntent.putExtra("extra_prefs_show_button_bar", true);
-        wifiIntent.putExtra("wifi_enable_next_on_connect", true);
-        return wifiIntent;
     }
 
     public abstract static class Callback {

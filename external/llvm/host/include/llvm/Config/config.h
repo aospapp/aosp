@@ -20,7 +20,7 @@
 #define ENABLE_PIC 1
 
 /* Define if timestamp information (e.g., __DATE___) is allowed */
-#define ENABLE_TIMESTAMPS 1
+/* #undef ENABLE_TIMESTAMPS */
 
 /* Directory where gcc is installed. */
 #define GCC_INSTALL_PREFIX ""
@@ -252,7 +252,11 @@
 #endif
 
 /* Define to 1 if you have the <malloc.h> header file. */
-/* #define HAVE_MALLOC_H 1 */ /* Defined by AndroidConfig.h */
+#if !defined(__APPLE__)
+#define HAVE_MALLOC_H 1
+#else
+/* #undef HAVE_MALLOC_H */
+#endif
 
 /* Define to 1 if you have the <malloc/malloc.h> header file. */
 /* #undef HAVE_MALLOC_MALLOC_H */
@@ -344,7 +348,11 @@
 #define HAVE_READDIR 1
 
 /* Define to 1 if you have the `realpath' function. */
+#if !defined(_WIN32) && !defined(_WIN64)
 #define HAVE_REALPATH 1
+#else
+// Do not define HAVE_REALPATH
+#endif
 
 /* Define to 1 if you have the `rindex' function. */
 /* #undef HAVE_RINDEX */
@@ -582,13 +590,17 @@
 #define LLVM_DATADIR "/opt/llvm-android/share/llvm"
 
 /* Target triple LLVM will generate code for by default */
-#define LLVM_DEFAULT_TARGET_TRIPLE "i386-unknown-linux"
+#define LLVM_DEFAULT_TARGET_TRIPLE "x86_64-unknown-linux"
 
 /* Installation directory for documentation */
 #define LLVM_DOCSDIR "/opt/llvm-android/share/doc/llvm"
 
 /* Define if threads enabled */
+#if !defined(_WIN32) && !defined(_WIN64)
 #define LLVM_ENABLE_THREADS 1
+#else
+#define LLVM_ENABLE_THREADS 0
+#endif
 
 /* Installation directory for config files */
 #define LLVM_ETCDIR "/opt/llvm-android/etc/llvm"
@@ -656,7 +668,10 @@
 #define LLVM_VERSION_MAJOR 3
 
 /* Minor version of the LLVM API */
-#define LLVM_VERSION_MINOR 6
+#define LLVM_VERSION_MINOR 8
+
+/* Patch version of the LLVM API */
+#define LLVM_VERSION_PATCH 256229
 
 /* Define if the OS needs help to load dependent libraries for dlopen(). */
 /* #undef LTDL_DLOPEN_DEPLIBS */
@@ -689,13 +704,13 @@
 #define PACKAGE_NAME "LLVM"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "LLVM 3.6.svn"
+#define PACKAGE_STRING "LLVM 3.8.256229"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "llvm"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "3.6"
+#define PACKAGE_VERSION "3.8.256229"
 
 /* Define as the return type of signal handlers (`int' or `void'). */
 #define RETSIGTYPE void

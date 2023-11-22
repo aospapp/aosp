@@ -23,7 +23,7 @@
     <package>com.example.android.wearable.elizachat</package>
 
     <minSdk>18</minSdk>
-    <targetSdkVersion>22</targetSdkVersion>
+    <targetSdkVersion>23</targetSdkVersion>
 
     <strings>
         <intro>
@@ -39,7 +39,7 @@
     <template src="base"/>
 
     <metadata>
-        <status>PUBLISHED</status>
+        <status>DEPRECATED</status>
         <categories>Wearable</categories>
         <technologies>Android</technologies>
         <languages>Java</languages>

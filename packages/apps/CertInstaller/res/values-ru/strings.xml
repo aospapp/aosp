@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="9095072584761066851">"Программа установки сертификата"</string>
+    <string name="app_name" msgid="9095072584761066851">"Установщик сертификатов"</string>
     <string name="pick_file_title" msgid="4481949485108233297">"Выбор сертификата"</string>
     <string name="pkcs12_password_dialog_title" msgid="5997624645207427161">"Извлечение сертификата"</string>
     <string name="extracting_pkcs12" msgid="1881267738821799771">"Загрузка..."</string>
@@ -34,7 +34,6 @@
     <string name="password_empty_error" msgid="591713406761723025">"Введите пароль."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"Введите название."</string>
     <string name="name_char_error" msgid="3176618568784938968">"Можно использовать только буквы и цифры."</string>
-    <string name="storage_error" msgid="8306802455802770779">"Не удалось сохранить сертификат. Чтобы повторить попытку, нажмите \"ОК\"."</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"Не удалось сохранить сертификат, поскольку хранилище учетных данных не включено или не инициализировано."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"Сертификат не установлен"</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"Отсутствует сертификат для установки."</string>

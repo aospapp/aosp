@@ -15,6 +15,7 @@
 #include "rsn_supp/wpa.h"
 #include "eap_peer/eap.h"
 #include "p2p/p2p.h"
+#include "fst/fst.h"
 #include "config.h"
 
 
@@ -31,7 +32,11 @@ struct parse_data {
 	/* Configuration variable name */
 	char *name;
 
-	/* Parser function for this variable */
+	/* Parser function for this variable. The parser functions return 0 or 1
+	 * to indicate success. Value 0 indicates that the parameter value may
+	 * have changed while value 1 means that the value did not change.
+	 * Error cases (failure to parse the string) are indicated by returning
+	 * -1. */
 	int (*parser)(const struct parse_data *data, struct wpa_ssid *ssid,
 		      int line, const char *value);
 
@@ -58,7 +63,7 @@ static int wpa_config_parse_str(const struct parse_data *data,
 				struct wpa_ssid *ssid,
 				int line, const char *value)
 {
-	size_t res_len, *dst_len;
+	size_t res_len, *dst_len, prev_len;
 	char **dst, *tmp;
 
 	if (os_strcmp(value, "NULL") == 0) {
@@ -104,6 +109,21 @@ static int wpa_config_parse_str(const struct parse_data *data,
 set:
 	dst = (char **) (((u8 *) ssid) + (long) data->param1);
 	dst_len = (size_t *) (((u8 *) ssid) + (long) data->param2);
+
+	if (data->param2)
+		prev_len = *dst_len;
+	else if (*dst)
+		prev_len = os_strlen(*dst);
+	else
+		prev_len = 0;
+	if ((*dst == NULL && tmp == NULL) ||
+	    (*dst && tmp && prev_len == res_len &&
+	     os_memcmp(*dst, tmp, res_len) == 0)) {
+		/* No change to the previously configured value */
+		os_free(tmp);
+		return 1;
+	}
+
 	os_free(*dst);
 	*dst = tmp;
 	if (data->param2)
@@ -189,6 +209,9 @@ static int wpa_config_parse_int(const struct parse_data *data,
 			   line, value);
 		return -1;
 	}
+
+	if (*dst == val)
+		return 1;
 	*dst = val;
 	wpa_printf(MSG_MSGDUMP, "%s=%d (0x%x)", data->name, *dst, *dst);
 
@@ -456,8 +479,10 @@ static int wpa_config_parse_psk(const struct parse_data *data,
 		wpa_hexdump_ascii_key(MSG_MSGDUMP, "PSK (ASCII passphrase)",
 				      (u8 *) value, len);
 		if (ssid->passphrase && os_strlen(ssid->passphrase) == len &&
-		    os_memcmp(ssid->passphrase, value, len) == 0)
-			return 0;
+		    os_memcmp(ssid->passphrase, value, len) == 0) {
+			/* No change to the previously configured value */
+			return 1;
+		}
 		ssid->psk_set = 0;
 		str_clear_free(ssid->passphrase);
 		ssid->passphrase = dup_binstr(value, len);
@@ -568,6 +593,8 @@ static int wpa_config_parse_proto(const struct parse_data *data,
 		errors++;
 	}
 
+	if (!errors && ssid->proto == val)
+		return 1;
 	wpa_printf(MSG_MSGDUMP, "proto: 0x%x", val);
 	ssid->proto = val;
 	return errors ? -1 : 0;
@@ -704,6 +731,8 @@ static int wpa_config_parse_key_mgmt(const struct parse_data *data,
 		errors++;
 	}
 
+	if (!errors && ssid->key_mgmt == val)
+		return 1;
 	wpa_printf(MSG_MSGDUMP, "key_mgmt: 0x%x", val);
 	ssid->key_mgmt = val;
 	return errors ? -1 : 0;
@@ -898,6 +927,9 @@ static char * wpa_config_write_key_mgmt(const struct parse_data *data,
 
 static int wpa_config_parse_cipher(int line, const char *value)
 {
+#ifdef CONFIG_NO_WPA
+	return -1;
+#else /* CONFIG_NO_WPA */
 	int val = wpa_parse_cipher(value);
 	if (val < 0) {
 		wpa_printf(MSG_ERROR, "Line %d: invalid cipher '%s'.",
@@ -910,12 +942,16 @@ static int wpa_config_parse_cipher(int line, const char *value)
 		return -1;
 	}
 	return val;
+#endif /* CONFIG_NO_WPA */
 }
 
 
 #ifndef NO_CONFIG_WRITE
 static char * wpa_config_write_cipher(int cipher)
 {
+#ifdef CONFIG_NO_WPA
+	return NULL;
+#else /* CONFIG_NO_WPA */
 	char *buf = os_zalloc(50);
 	if (buf == NULL)
 		return NULL;
@@ -926,6 +962,7 @@ static char * wpa_config_write_cipher(int cipher)
 	}
 
 	return buf;
+#endif /* CONFIG_NO_WPA */
 }
 #endif /* NO_CONFIG_WRITE */
 
@@ -944,6 +981,8 @@ static int wpa_config_parse_pairwise(const struct parse_data *data,
 		return -1;
 	}
 
+	if (ssid->pairwise_cipher == val)
+		return 1;
 	wpa_printf(MSG_MSGDUMP, "pairwise: 0x%x", val);
 	ssid->pairwise_cipher = val;
 	return 0;
@@ -980,6 +1019,8 @@ static int wpa_config_parse_group(const struct parse_data *data,
 		return -1;
 	}
 
+	if (ssid->group_cipher == val)
+		return 1;
 	wpa_printf(MSG_MSGDUMP, "group: 0x%x", val);
 	ssid->group_cipher = val;
 	return 0;
@@ -1041,6 +1082,8 @@ static int wpa_config_parse_auth_alg(const struct parse_data *data,
 		errors++;
 	}
 
+	if (!errors && ssid->auth_alg == val)
+		return 1;
 	wpa_printf(MSG_MSGDUMP, "auth_alg: 0x%x", val);
 	ssid->auth_alg = val;
 	return errors ? -1 : 0;
@@ -1295,6 +1338,32 @@ static int wpa_config_parse_eap(const struct parse_data *data,
 	methods[num_methods].method = EAP_TYPE_NONE;
 	num_methods++;
 
+	if (!errors && ssid->eap.eap_methods) {
+		struct eap_method_type *prev_m;
+		size_t i, j, prev_methods, match = 0;
+
+		prev_m = ssid->eap.eap_methods;
+		for (i = 0; prev_m[i].vendor != EAP_VENDOR_IETF ||
+			     prev_m[i].method != EAP_TYPE_NONE; i++) {
+			/* Count the methods */
+		}
+		prev_methods = i + 1;
+
+		for (i = 0; prev_methods == num_methods && i < prev_methods;
+		     i++) {
+			for (j = 0; j < num_methods; j++) {
+				if (prev_m[i].vendor == methods[j].vendor &&
+				    prev_m[i].method == methods[j].method) {
+					match++;
+					break;
+				}
+			}
+		}
+		if (match == num_methods) {
+			os_free(methods);
+			return 1;
+		}
+	}
 	wpa_hexdump(MSG_MSGDUMP, "eap methods",
 		    (u8 *) methods, num_methods * sizeof(*methods));
 	os_free(ssid->eap.eap_methods);
@@ -1347,6 +1416,8 @@ static int wpa_config_parse_password(const struct parse_data *data,
 	u8 *hash;
 
 	if (os_strcmp(value, "NULL") == 0) {
+		if (!ssid->eap.password)
+			return 1; /* Already unset */
 		wpa_printf(MSG_DEBUG, "Unset configuration string 'password'");
 		bin_clear_free(ssid->eap.password, ssid->eap.password_len);
 		ssid->eap.password = NULL;
@@ -1410,6 +1481,12 @@ static int wpa_config_parse_password(const struct parse_data *data,
 
 	wpa_hexdump_key(MSG_MSGDUMP, data->name, hash, 16);
 
+	if (ssid->eap.password && ssid->eap.password_len == 16 &&
+	    os_memcmp(ssid->eap.password, hash, 16) == 0 &&
+	    (ssid->eap.flags & EAP_CONFIG_FLAGS_PASSWORD_NTHASH)) {
+		bin_clear_free(hash, 16);
+		return 1;
+	}
 	bin_clear_free(ssid->eap.password, ssid->eap.password_len);
 	ssid->eap.password = hash;
 	ssid->eap.password_len = 16;
@@ -1836,6 +1913,8 @@ static const struct parse_data ssid_fields[] = {
 	{ FUNC(auth_alg) },
 	{ FUNC(scan_freq) },
 	{ FUNC(freq_list) },
+	{ INT_RANGE(max_oper_chwidth, VHT_CHANWIDTH_USE_HT,
+		    VHT_CHANWIDTH_80P80MHZ) },
 #ifdef IEEE8021X_EAPOL
 	{ FUNC(eap) },
 	{ STR_LENe(identity) },
@@ -1909,6 +1988,9 @@ static const struct parse_data ssid_fields[] = {
 	{ INT_RANGE(mixed_cell, 0, 1) },
 	{ INT_RANGE(frequency, 0, 65000) },
 	{ INT_RANGE(fixed_freq, 0, 1) },
+#ifdef CONFIG_ACS
+	{ INT_RANGE(acs, 0, 1) },
+#endif /* CONFIG_ACS */
 #ifdef CONFIG_MESH
 	{ FUNC(mesh_basic_rates) },
 	{ INT(dot11MeshMaxRetries) },
@@ -1966,6 +2048,7 @@ static const struct parse_data ssid_fields[] = {
 	{ INT(update_identifier) },
 #endif /* CONFIG_HS20 */
 	{ INT_RANGE(mac_addr, 0, 2) },
+	{ INT_RANGE(pbss, 0, 1) },
 };
 
 #undef OFFSET
@@ -2269,6 +2352,12 @@ void wpa_config_free(struct wpa_config *config)
 	os_free(config->osu_dir);
 	os_free(config->bgscan);
 	os_free(config->wowlan_triggers);
+	os_free(config->fst_group_id);
+	os_free(config->sched_scan_plans);
+#ifdef CONFIG_MBO
+	os_free(config->non_pref_chan);
+#endif /* CONFIG_MBO */
+
 	os_free(config);
 }
 
@@ -2451,7 +2540,8 @@ void wpa_config_set_network_defaults(struct wpa_ssid *ssid)
  * @var: Variable name, e.g., "ssid"
  * @value: Variable value
  * @line: Line number in configuration file or 0 if not used
- * Returns: 0 on success, -1 on failure
+ * Returns: 0 on success with possible change in the value, 1 on success with
+ * no change to previously configured value, or -1 on failure
  *
  * This function can be used to set network configuration variables based on
  * both the configuration file and management interface input. The value
@@ -2472,7 +2562,8 @@ int wpa_config_set(struct wpa_ssid *ssid, const char *var, const char *value,
 		if (os_strcmp(var, field->name) != 0)
 			continue;
 
-		if (field->parser(field, ssid, line, value)) {
+		ret = field->parser(field, ssid, line, value);
+		if (ret < 0) {
 			if (line) {
 				wpa_printf(MSG_ERROR, "Line %d: failed to "
 					   "parse %s '%s'.", line, var, value);
@@ -2602,8 +2693,18 @@ char * wpa_config_get(struct wpa_ssid *ssid, const char *var)
 
 	for (i = 0; i < NUM_SSID_FIELDS; i++) {
 		const struct parse_data *field = &ssid_fields[i];
-		if (os_strcmp(var, field->name) == 0)
-			return field->writer(field, ssid);
+		if (os_strcmp(var, field->name) == 0) {
+			char *ret = field->writer(field, ssid);
+			if (ret != NULL && (os_strchr(ret, '\r') != NULL ||
+				os_strchr(ret, '\n') != NULL)) {
+				wpa_printf(MSG_ERROR,
+					"Found newline in value for %s; "
+					"not returning it", var);
+				os_free(ret);
+				ret = NULL;
+			}
+			return ret;
+		}
 	}
 
 	return NULL;
@@ -3515,9 +3616,12 @@ struct wpa_config * wpa_config_alloc_empty(const char *ctrl_interface,
 	config->user_mpm = DEFAULT_USER_MPM;
 	config->max_peer_links = DEFAULT_MAX_PEER_LINKS;
 	config->mesh_max_inactivity = DEFAULT_MESH_MAX_INACTIVITY;
+	config->dot11RSNASAERetransPeriod =
+		DEFAULT_DOT11_RSNA_SAE_RETRANS_PERIOD;
 	config->fast_reauth = DEFAULT_FAST_REAUTH;
 	config->p2p_go_intent = DEFAULT_P2P_GO_INTENT;
 	config->p2p_intra_bss = DEFAULT_P2P_INTRA_BSS;
+	config->p2p_go_freq_change_policy = DEFAULT_P2P_GO_FREQ_MOVE;
 	config->p2p_go_max_inactivity = DEFAULT_P2P_GO_MAX_INACTIVITY;
 	config->p2p_optimize_listen_chan = DEFAULT_P2P_OPTIMIZE_LISTEN_CHAN;
 	config->p2p_go_ctwindow = DEFAULT_P2P_GO_CTWINDOW;
@@ -3535,6 +3639,11 @@ struct wpa_config * wpa_config_alloc_empty(const char *ctrl_interface,
 	config->rand_addr_lifetime = DEFAULT_RAND_ADDR_LIFETIME;
 	config->key_mgmt_offload = DEFAULT_KEY_MGMT_OFFLOAD;
 	config->cert_in_cb = DEFAULT_CERT_IN_CB;
+	config->wpa_rsc_relaxation = DEFAULT_WPA_RSC_RELAXATION;
+
+#ifdef CONFIG_MBO
+	config->mbo_cell_capa = DEFAULT_MBO_CELL_CAPA;
+#endif /* CONFIG_MBO */
 
 	if (ctrl_interface)
 		config->ctrl_interface = os_strdup(ctrl_interface);
@@ -4128,6 +4237,7 @@ static const struct global_parse_data global_fields[] = {
 	{ INT(user_mpm), 0 },
 	{ INT_RANGE(max_peer_links, 0, 255), 0 },
 	{ INT(mesh_max_inactivity), 0 },
+	{ INT(dot11RSNASAERetransPeriod), 0 },
 #endif /* CONFIG_MESH */
 	{ INT(disable_scan_offload), 0 },
 	{ INT(fast_reauth), 0 },
@@ -4162,8 +4272,8 @@ static const struct global_parse_data global_fields[] = {
 #endif /* CONFIG_WPS */
 #ifdef CONFIG_P2P
 	{ FUNC(sec_device_type), CFG_CHANGED_SEC_DEVICE_TYPE },
-	{ INT(p2p_listen_reg_class), 0 },
-	{ INT(p2p_listen_channel), 0 },
+	{ INT(p2p_listen_reg_class), CFG_CHANGED_P2P_LISTEN_CHANNEL },
+	{ INT(p2p_listen_channel), CFG_CHANGED_P2P_LISTEN_CHANNEL },
 	{ INT(p2p_oper_reg_class), CFG_CHANGED_P2P_OPER_CHANNEL },
 	{ INT(p2p_oper_channel), CFG_CHANGED_P2P_OPER_CHANNEL },
 	{ INT_RANGE(p2p_go_intent, 0, 15), 0 },
@@ -4171,6 +4281,7 @@ static const struct global_parse_data global_fields[] = {
 	{ INT_RANGE(persistent_reconnect, 0, 1), 0 },
 	{ INT_RANGE(p2p_intra_bss, 0, 1), CFG_CHANGED_P2P_INTRA_BSS },
 	{ INT(p2p_group_idle), 0 },
+	{ INT_RANGE(p2p_go_freq_change_policy, 0, P2P_GO_FREQ_MOVE_MAX), 0 },
 	{ INT_RANGE(p2p_passphrase_len, 8, 63),
 	  CFG_CHANGED_P2P_PASSPHRASE_LEN },
 	{ FUNC(p2p_pref_chan), CFG_CHANGED_P2P_PREF_CHAN },
@@ -4234,6 +4345,18 @@ static const struct global_parse_data global_fields[] = {
 	{ INT(passive_scan), 0 },
 	{ INT(reassoc_same_bss_optim), 0 },
 	{ INT(wps_priority), 0},
+#ifdef CONFIG_FST
+	{ STR_RANGE(fst_group_id, 1, FST_MAX_GROUP_ID_LEN), 0 },
+	{ INT_RANGE(fst_priority, 1, FST_MAX_PRIO_VALUE), 0 },
+	{ INT_RANGE(fst_llt, 1, FST_MAX_LLT_MS), 0 },
+#endif /* CONFIG_FST */
+	{ INT_RANGE(wpa_rsc_relaxation, 0, 1), 0 },
+	{ STR(sched_scan_plans), CFG_CHANGED_SCHED_SCAN_PLANS },
+#ifdef CONFIG_MBO
+	{ STR(non_pref_chan), 0 },
+	{ INT_RANGE(mbo_cell_capa, MBO_CELL_CAPA_AVAILABLE,
+		    MBO_CELL_CAPA_NOT_SUPPORTED), 0 },
+#endif /*CONFIG_MBO */
 };
 
 #undef FUNC
@@ -4289,6 +4412,23 @@ int wpa_config_get_value(const char *name, struct wpa_config *config,
 	}
 
 	return -1;
+}
+
+
+int wpa_config_get_num_global_field_names(void)
+{
+	return NUM_GLOBAL_FIELDS;
+}
+
+
+const char * wpa_config_get_global_field_name(unsigned int i, int *no_var)
+{
+	if (i >= NUM_GLOBAL_FIELDS)
+		return NULL;
+
+	if (no_var)
+		*no_var = !global_fields[i].param1;
+	return global_fields[i].name;
 }
 
 

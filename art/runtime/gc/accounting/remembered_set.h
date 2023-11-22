@@ -29,6 +29,7 @@ namespace art {
 namespace gc {
 
 namespace collector {
+  class GarbageCollector;
   class MarkSweep;
 }  // namespace collector
 namespace space {
@@ -53,11 +54,10 @@ class RememberedSet {
   void ClearCards();
 
   // Mark through all references to the target space.
-  void UpdateAndMarkReferences(MarkHeapReferenceCallback* callback,
-                               DelayReferenceReferentCallback* ref_callback,
-                               space::ContinuousSpace* target_space, void* arg)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  void UpdateAndMarkReferences(space::ContinuousSpace* target_space,
+                               collector::GarbageCollector* collector)
+      REQUIRES(Locks::heap_bitmap_lock_)
+      SHARED_REQUIRES(Locks::mutator_lock_);
 
   void Dump(std::ostream& os);
 

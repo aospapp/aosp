@@ -1,4 +1,5 @@
 AM_CFLAGS = \
+	$(WARN_CFLAGS)\
 	-I $(top_srcdir)/include/drm \
 	-I $(top_srcdir)
 
@@ -10,5 +11,4 @@ noinst_PROGRAMS = \
 radeon_ttm_SOURCES = \
 	rbo.c \
 	rbo.h \
-	list.h \
 	radeon_ttm.c

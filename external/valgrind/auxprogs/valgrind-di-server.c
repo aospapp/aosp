@@ -17,7 +17,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2013-2013 Mozilla Foundation
+   Copyright (C) 2013-2015 Mozilla Foundation
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License as
@@ -89,7 +89,9 @@
 #include "pub_core_libcfile.h"      // For VG_CLO_DEFAULT_LOGPORT
 
 /* Needed to get a definition for pread() from unistd.h */
-#define _XOPEN_SOURCE 500
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE 600
+#endif
 
 #include <stdio.h>
 #include <unistd.h>

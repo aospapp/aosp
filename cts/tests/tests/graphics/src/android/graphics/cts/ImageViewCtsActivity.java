@@ -16,7 +16,7 @@
 
 package android.graphics.cts;
 
-import com.android.cts.graphics.R;
+import android.graphics.cts.R;
 
 import android.app.Activity;
 import android.os.Bundle;

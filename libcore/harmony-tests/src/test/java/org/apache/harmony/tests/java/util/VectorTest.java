@@ -17,15 +17,24 @@
 
 package org.apache.harmony.tests.java.util;
 
+import libcore.java.util.ForEachRemainingTester;
+import libcore.java.util.SpliteratorTester;
 import tests.support.Support_ListTest;
+
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.ConcurrentModificationException;
 import java.util.Enumeration;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Spliterator;
 import java.util.Vector;
+
+import static libcore.java.util.RemoveIfTester.*;
 
 public class VectorTest extends junit.framework.TestCase {
 
@@ -1381,6 +1390,131 @@ public class VectorTest extends junit.framework.TestCase {
         public void removeRange(int start, int end) {
             super.removeRange(start, end);
         }
+    }
+
+    public void test_forEach() throws Exception {
+      Vector<Integer> vector = new Vector<Integer>();
+      vector.add(0);
+      vector.add(1);
+      vector.add(2);
+
+      Vector<Integer> output = new Vector<Integer>();
+      vector.forEach ( k -> output.add(k) );
+
+      assertEquals(vector, output);
+    }
+
+
+    public void test_forEach_NPE() throws Exception {
+        Vector<Integer> vector = new Vector<>();
+        try {
+            vector.forEach(null);
+            fail();
+        } catch(NullPointerException expected) {}
+    }
+
+    public void test_forEach_CME() throws Exception {
+        Vector<Integer> vector = new Vector<>();
+        vector.add(1);
+        vector.add(2);
+        try {
+            vector.forEach(new java.util.function.Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer t) {vector.add(t);}
+                });
+            fail();
+        } catch(ConcurrentModificationException expected) {}
+    }
+
+    public void test_forEachRemaining_iterator() throws Exception {
+        ForEachRemainingTester.runTests(Vector.class, new String[] { "foo", "bar", "baz" });
+        ForEachRemainingTester.runTests(Vector.class, new String[] { "foo" });
+    }
+
+    public void test_spliterator() throws Exception {
+        ArrayList<Integer> testElements = new ArrayList<>(
+                Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16));
+        Vector<Integer> list = new Vector<>();
+        list.addAll(testElements);
+
+        SpliteratorTester.runBasicIterationTests(list.spliterator(), testElements);
+        SpliteratorTester.runBasicSplitTests(list, testElements);
+        SpliteratorTester.testSpliteratorNPE(list.spliterator());
+
+        assertTrue(list.spliterator().hasCharacteristics(
+                Spliterator.ORDERED | Spliterator.SIZED | Spliterator.SUBSIZED));
+
+        SpliteratorTester.runOrderedTests(list);
+        SpliteratorTester.runSizedTests(list, 16 /* expected size */);
+        SpliteratorTester.runSubSizedTests(list, 16 /* expected size */);
+    }
+
+    public void test_spliterator_CME() throws Exception {
+        Vector<Integer> list = new Vector<>();
+        list.add(52);
+
+        Spliterator<Integer> sp = list.spliterator();
+        try {
+            sp.tryAdvance(value -> list.add(value));
+            fail();
+        } catch (ConcurrentModificationException expected) {
+        }
+
+        try {
+            sp.forEachRemaining(value -> list.add(value));
+            fail();
+        } catch (ConcurrentModificationException expected) {
+        }
+    }
+
+    public void test_removeIf() {
+        runBasicRemoveIfTests(Vector<Integer>::new);
+        runBasicRemoveIfTestsUnordered(Vector<Integer>::new);
+        runRemoveIfOnEmpty(Vector<Integer>::new);
+        testRemoveIfNPE(Vector<Integer>::new);
+        testRemoveIfCME(Vector<Integer>::new);
+    }
+
+    // http://b/25867131 et al.
+    public void testIteratorAddAfterCompleteIteration() {
+        Vector<String> strings = new Vector<>();
+        strings.add("string1");
+        Iterator<String> it = strings.iterator();
+        assertTrue(it.hasNext());
+        assertEquals("string1", it.next());
+        assertFalse(it.hasNext());
+        strings.add("string2");
+        // The value of hasNext() must not flap between true and false. If we returned "true"
+        // here, we'd fail with a CME on the next call to next() anyway.
+        assertFalse(it.hasNext());
+    }
+
+    public void testHasNextAfterRemoval() {
+        Vector<String> strings = new Vector<>();
+        strings.add("string1");
+        Iterator<String> it = strings.iterator();
+        it.next();
+        it.remove();
+        assertFalse(it.hasNext());
+
+        strings = new Vector<>();
+        strings.add("string1");
+        strings.add("string2");
+        it = strings.iterator();
+        it.next();
+        it.remove();
+        assertTrue(it.hasNext());
+        assertEquals("string2", it.next());
+    }
+
+    // http://b/27430229
+    public void testRemoveAllDuringIteration() {
+        Vector<String> vector = new Vector<>();
+        vector.add("food");
+        Iterator<String> vectorIterator = vector.iterator();
+        vectorIterator.next();
+        vector.removeAllElements();
+        assertFalse(vectorIterator.hasNext());
     }
 
     /**

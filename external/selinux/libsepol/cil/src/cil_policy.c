@@ -598,7 +598,7 @@ int cil_avrule_to_policy(FILE **file_arr, uint32_t file_index, struct cil_avrule
 		return SEPOL_ERR;
 	}
 
-	cil_avrule_to_policy_helper(file_arr, file_index, kind_str, src_str, tgt_str, rule->classperms);
+	cil_avrule_to_policy_helper(file_arr, file_index, kind_str, src_str, tgt_str, rule->perms.classperms);
 
 	return SEPOL_OK;
 }
@@ -1154,11 +1154,6 @@ int __cil_gen_policy_node_helper(struct cil_tree_node *node, uint32_t *finished,
 		switch (node->flavor) {
 		case CIL_USER:
 			cil_multimap_insert(users, node->data, NULL, CIL_USERROLE, CIL_NONE);
-			break;
-		case CIL_USERROLE: {
-			struct cil_userrole *userrole = node->data;
-			cil_multimap_insert(users, &userrole->user->datum, (struct cil_symtab_datum *)userrole->role, CIL_USERROLE, CIL_ROLE);
-		}
 			break;
 		case CIL_CATALIAS: {
 			struct cil_alias *alias = node->data;

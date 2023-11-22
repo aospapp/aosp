@@ -20,8 +20,8 @@
 #include "VolumeManager.h"
 #include "ResponseCode.h"
 
-#include <base/stringprintf.h>
-#include <base/logging.h>
+#include <android-base/stringprintf.h>
+#include <android-base/logging.h>
 #include <cutils/properties.h>
 #include <fs_mgr.h>
 #include <private/android_filesystem_config.h>
@@ -37,7 +37,7 @@
 /* From a would-be kernel header */
 #define FIDTRIM         _IOWR('f', 128, struct fstrim_range)    /* Deep discard trim */
 
-#define BENCHMARK_ENABLED 0
+#define BENCHMARK_ENABLED 1
 
 using android::base::StringPrintf;
 

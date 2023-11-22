@@ -29,7 +29,7 @@ import android.util.Log;
 
 public class BluetoothA2dpConnector implements BluetoothDevicePairer.BluetoothConnector {
 
-    public static final String TAG = "aah.BluetoothA2dpConnector";
+    public static final String TAG = "BluetoothA2dpConnector";
 
     private static final boolean DEBUG = false;
 

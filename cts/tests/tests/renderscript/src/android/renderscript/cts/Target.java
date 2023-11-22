@@ -28,6 +28,31 @@ import junit.framework.Assert;
  */
 public class Target {
     /**
+     * Broad classification of the type of function being tested.
+     */
+    public enum FunctionType {
+        NORMAL,
+        HALF,
+        NATIVE,
+        FAST,
+    }
+
+    /**
+     * Floating point precision of the result of the function being tested.
+     */
+    public enum ReturnType {
+        HALF,
+        FLOAT,
+        DOUBLE
+    }
+
+    /* The classification of the function being tested */
+    private FunctionType mFunctionType;
+
+    /* The floating point precision of the result of the function being tested */
+    private ReturnType mReturnType;
+
+    /*
      * In relaxed precision mode, we allow:
      * - less precision in the computation
      * - using only normalized values
@@ -36,18 +61,11 @@ public class Target {
      */
     private boolean mIsRelaxedPrecision;
 
-    /*
-     * The following two fields are set just before the expected values are computed for a specific
-     * RenderScript function.  Hence, we can't use one instance of this class to test two APIs
-     * in parallel.  The generated Test*.java code uses one instance of Target per test, so we're
-     * safe.
-     */
+    /* If false, zero or the closest normal value are also accepted for subnormal results. */
+    private boolean mHandleSubnormal;
 
-    /**
-     * For native, we allow the same things as relaxed precision, plus:
-     * - operations don't have to return +/- infinity
-     */
-    private boolean mIsNative;
+    /* Number of bits in mReturnType */
+    private int mFloatSize;
 
     /**
      * How much we'll allow the values tested to diverge from the values
@@ -55,17 +73,61 @@ public class Target {
      */
     private int mUlpFactor;
 
-    Target(boolean relaxed) {
+    Target(FunctionType functionType, ReturnType returnType, boolean relaxed) {
+        mFunctionType = functionType;
+        mReturnType = returnType;
         mIsRelaxedPrecision = relaxed;
+
+        if (mReturnType == ReturnType.HALF) {
+            // HALF accepts relaxed precision by default - subnormal numbers need not be handled.
+            // 'relaxed' parameter is ignored.
+            mHandleSubnormal = false;
+            mFloatSize = 16;
+        } else if (mReturnType == ReturnType.FLOAT) {
+            // NORMAL functions, when in non-relaxed mode, need to handle subnormals.  Subnormals
+            // need not be handled in any other mode.
+            mHandleSubnormal = (mFunctionType == FunctionType.NORMAL) && !relaxed;
+            mFloatSize = 32;
+        } else if (mReturnType == ReturnType.DOUBLE) {
+            // We only have NORMAL functions for DOUBLE, with no relaxed precison - subnormal values
+            // must always be handled.  'relaxed' parameter is ignored.
+            assert(mFunctionType == FunctionType.NORMAL);
+            mHandleSubnormal = true;
+            mFloatSize = 64;
+        }
     }
 
     /**
      * Sets whether we are testing a native_* function and how many ulp we allow
      * for full and relaxed precision.
      */
-    void setPrecision(int fullUlpFactor, int relaxedUlpFactor, boolean isNative) {
-        mIsNative = isNative;
+    void setPrecision(int fullUlpFactor, int relaxedUlpFactor) {
         mUlpFactor = mIsRelaxedPrecision ? relaxedUlpFactor : fullUlpFactor;
+    }
+
+    /**
+     * Helper functions to create a new Floaty with the current expected level of precision.
+     * We have variations that expect one to five arguments.  Any of the passed arguments are
+     * considered valid values for that Floaty.
+     */
+    Floaty newFloaty(double a) {
+        return new Floaty(mFloatSize, new double [] { a });
+    }
+
+    Floaty newFloaty(double a, double b) {
+        return new Floaty(mFloatSize, new double [] { a, b });
+    }
+
+    Floaty newFloaty(double a, double b, double c) {
+        return new Floaty(mFloatSize, new double [] { a, b, c });
+    }
+
+    Floaty newFloaty(double a, double b, double c, double d) {
+        return new Floaty(mFloatSize, new double [] { a, b, c, d });
+    }
+
+    Floaty newFloaty(double a, double b, double c, double d, double e) {
+        return new Floaty(mFloatSize, new double [] { a, b, c, d, e });
     }
 
     /**
@@ -287,13 +349,18 @@ public class Target {
                 // For relaxed mode, we don't require support of subnormal values.
                 // If we have a subnormal value, we'll allow both the normalized value and zero,
                 // to cover the two ways this small value might be handled.
-                if (mIsRelaxedPrecision || mIsNative) {
+                if (!mHandleSubnormal) {
                     if (IsSubnormal(f)) {
                         updateMinAndMax(0.f);
                         updateMinAndMax(smallestNormal(f));
                     }
                 }
             }
+
+            // Expand the range to the closest value representable in the desired floating-point
+            // format
+            ExpandRangeToTargetPrecision();
+
             // Expand the range by one ulp factor to cover for the different rounding modes.
             ExpandRangeByUlpFactor();
             //Log.w("Floaty(double[], ulp)", "output: " +  toString());
@@ -313,6 +380,34 @@ public class Target {
                 mMinValue = f;
                 mMaxValue = f;
             }
+        }
+
+        /** Return (as double) the next highest value representable in Float16 precision */
+        private double roundFloat16Up(double value) {
+            return Float16Utils.roundToFloat16(value)[1];
+        }
+
+        /** Return (as double) the next lowest value representable in Float16 precision */
+        private double roundFloat16Down(double value) {
+            return Float16Utils.roundToFloat16(value)[0];
+        }
+
+        /**
+         * Modify mMinValue and mMaxValue to the closest value representable in mNumberOfBits.
+         * mMinValue is rounded down and mMaxValue is rounded u
+         */
+        void ExpandRangeToTargetPrecision() {
+            if (!mHasRange) return;
+
+            if (mNumberOfBits != 16) return; // For now, this function is only needed for Float16.
+
+            // Log.w("ExpandRangeToFloat16Precision", "Before: " + Double.toString(mMinValue) + " " + Double.toString(mValue) + " " + Double.toString(mMaxValue));
+
+            // TODO Should we adjust mValue to Float16-representable value?
+            mMaxValue = roundFloat16Up(mMaxValue);
+            mMinValue = roundFloat16Down(mMinValue);
+
+            //Log.w("ExpandRangeToFloat16Precision", "After: " + Double.toString(mMinValue) + " " + Double.toString(mValue) + " " + Double.toString(mMaxValue));
         }
 
         /** Modify mMinValue and mMaxValue to allow one extra ulp factor of error on each side. */
@@ -349,12 +444,18 @@ public class Target {
                 mMinValue = newValue;
             }
             // If subnormal, also allow the normalized value if it's smaller.
-            if ((mIsRelaxedPrecision || mIsNative) && IsSubnormal(mMinValue)) {
+            if (!mHandleSubnormal && IsSubnormal(mMinValue)) {
                 if (mMinValue < 0) {
                     mMinValue = smallestNormal(-1.0f);
                 } else {
                     mMinValue = 0.f;
                 }
+            }
+
+            // If Float16, round minValue down to maintain invariant that the range is always
+            // representable in Float16.
+            if (mNumberOfBits == 16) {
+                mMinValue = roundFloat16Down(mMinValue);
             }
             //Log.w("ExpandMin", "ulp " + java.lang.Double.toString(ulp) + ", delta " + java.lang.Double.toString(delta) + " for " + java.lang.Double.toString(mMinValue));
         }
@@ -384,12 +485,18 @@ public class Target {
                 mMaxValue = newValue;
             }
             // If subnormal, also allow the normalized value if it's smaller.
-            if ((mIsRelaxedPrecision || mIsNative) && IsSubnormal(mMaxValue)) {
+            if (!mHandleSubnormal && IsSubnormal(mMaxValue)) {
                 if (mMaxValue > 0) {
                     mMaxValue = smallestNormal(1.0f);
                 } else {
                     mMaxValue = 0.f;
                 }
+            }
+
+            // If Float16, round mMaxValue up to maintain invariant that the range is always
+            // representable in Float16.
+            if (mNumberOfBits == 16 && mMaxValue != 0) {
+                mMaxValue = roundFloat16Up(mMaxValue);
             }
             //Log.w("ExpandMax", "ulp " + java.lang.Double.toString(ulp) + ", delta " + java.lang.Double.toString(delta) + " for " + java.lang.Double.toString(mMaxValue));
         }
@@ -408,7 +515,14 @@ public class Target {
          * sign as f.
          */
         private double smallestNormal(double f) {
-            double answer = (mNumberOfBits == 32) ? Float.MIN_NORMAL : Double.MIN_NORMAL;
+            double answer;
+            if (mNumberOfBits == 16) {
+                answer = Float16Utils.MIN_NORMAL;
+            } else if (mNumberOfBits == 32) {
+                answer = Float.MIN_NORMAL;
+            } else {
+                answer = Double.MIN_NORMAL;
+            }
             if (f < 0) {
                 answer = -answer;
             }
@@ -418,12 +532,14 @@ public class Target {
         /** Returns the unit of least precision for the maximum value allowed. */
         private double Ulp() {
             double u;
-            if (mNumberOfBits == 32) {
+            if (mNumberOfBits == 16) {
+                u = Float16Utils.float16Ulp(mMaxValue);
+            } else if (mNumberOfBits == 32) {
                 u = Math.ulp((float)mMaxValue);
             } else {
                 u = Math.ulp(mMaxValue);
             }
-            if (mIsRelaxedPrecision || mIsNative) {
+            if (!mHandleSubnormal) {
                 u = Math.max(u, smallestNormal(1.f));
             }
             return u;
@@ -432,12 +548,14 @@ public class Target {
         /** Returns the negative of the unit of least precision for the minimum value allowed. */
         private double NegativeUlp() {
             double u;
-            if (mNumberOfBits == 32) {
+            if (mNumberOfBits == 16) {
+                u = -Float16Utils.float16Ulp(mMinValue);
+            } else if (mNumberOfBits == 32) {
                 u = -Math.ulp((float)mMinValue);
             } else {
                 u = -Math.ulp(mMinValue);
             }
-            if (mIsRelaxedPrecision || mIsNative) {
+            if (!mHandleSubnormal) {
                 u = Math.min(u, smallestNormal(-1.f));
             }
             return u;
@@ -469,7 +587,7 @@ public class Target {
             }
             // For native, we don't require returning +/- infinity.  If that's what we expect,
             // allow all answers.
-            if (mIsNative) {
+            if (mFunctionType == FunctionType.NATIVE) {
                 if (mMinValue == Double.NEGATIVE_INFINITY &&
                     mMaxValue == Double.NEGATIVE_INFINITY) {
                     return true;
@@ -482,6 +600,12 @@ public class Target {
             return false;
         }
 
+
+        // TODO simplify: remove 32() and 64()
+        public double get() { return mValue; }
+        public double mid() { return mid64(); }
+        public double min() { return mMinValue; }
+        public double max() { return mMaxValue; }
 
         public double get64() { return mValue; }
         public double min64() { return mMinValue; }

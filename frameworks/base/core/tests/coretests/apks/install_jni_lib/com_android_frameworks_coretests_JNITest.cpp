@@ -22,7 +22,7 @@ static jint checkFunction(JNIEnv*, jclass) {
     return 1;
 }
 
-static JNINativeMethod sMethods[] = {
+static const JNINativeMethod sMethods[] = {
     /* name, signature, funcPtr */
     { "checkFunction", "()I", (void*) checkFunction },
 };
@@ -37,7 +37,7 @@ int register_com_android_frameworks_coretests_JNITests(JNIEnv* env) {
 /*
  * JNI Initialization
  */
-jint JNI_OnLoad(JavaVM *jvm, void *reserved) {
+jint JNI_OnLoad(JavaVM *jvm, void */* reserved */) {
     JNIEnv *e;
     int status;
 

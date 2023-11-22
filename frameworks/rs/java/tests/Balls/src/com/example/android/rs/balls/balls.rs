@@ -4,9 +4,6 @@
 
 #include "balls.rsh"
 
-#pragma stateVertex(parent)
-#pragma stateStore(parent)
-
 rs_program_fragment gPFPoints;
 rs_mesh partMesh;
 

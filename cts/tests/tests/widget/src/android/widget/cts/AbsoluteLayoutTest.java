@@ -16,7 +16,7 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 
 import org.xmlpull.v1.XmlPullParser;
@@ -46,7 +46,7 @@ public class AbsoluteLayoutTest extends ActivityInstrumentationTestCase2<CtsActi
     private LayoutParams mAbsoluteLayoutParams;
 
     public AbsoluteLayoutTest() {
-        super("com.android.cts.widget", CtsActivity.class);
+        super("android.widget.cts", CtsActivity.class);
     }
 
     @Override

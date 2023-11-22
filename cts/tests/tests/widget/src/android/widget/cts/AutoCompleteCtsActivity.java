@@ -19,7 +19,7 @@ package android.widget.cts;
 import android.app.Activity;
 import android.os.Bundle;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 /**
  * A minimal application for AutoCompleteTextView test.

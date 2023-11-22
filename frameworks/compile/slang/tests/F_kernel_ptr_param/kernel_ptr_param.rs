@@ -4,3 +4,6 @@
 void RS_KERNEL root(int *i) {
 }
 
+void RS_KERNEL voidptr(void *v) {
+}
+

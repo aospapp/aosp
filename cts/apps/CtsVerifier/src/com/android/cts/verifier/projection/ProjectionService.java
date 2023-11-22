@@ -104,6 +104,10 @@ public class ProjectionService extends Service {
                         mPresentation.dismiss();
                         mPresentation = null;
                     }
+                    if (mDisplay != null) {
+                        mDisplay.release();
+                        mDisplay = null;
+                    }
                 }
 
             });

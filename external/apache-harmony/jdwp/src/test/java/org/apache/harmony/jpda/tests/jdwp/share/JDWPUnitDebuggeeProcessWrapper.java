@@ -46,6 +46,11 @@ public class JDWPUnitDebuggeeProcessWrapper extends JDWPDebuggeeWrapper {
     protected StreamRedirector outRedir;
 
     /**
+     * The expected exit code for the debuggee process.
+     */
+    private int expectedExitCode = 0;
+
+    /**
      * Creates new instance with given data.
      * 
      * @param settings
@@ -55,6 +60,14 @@ public class JDWPUnitDebuggeeProcessWrapper extends JDWPDebuggeeWrapper {
      */
     public JDWPUnitDebuggeeProcessWrapper(JPDATestOptions settings, LogWriter logWriter) {
         super(settings, logWriter);
+    }
+
+    /**
+     * Sets the expected exit code. This is meant to be used by tests that will request target
+     * VM termination with VirtualMachine.Exit command.
+     */
+    public void setExpectedExitCode(int expectedExitCode) {
+        this.expectedExitCode = expectedExitCode;
     }
 
     /**
@@ -77,7 +90,7 @@ public class JDWPUnitDebuggeeProcessWrapper extends JDWPDebuggeeWrapper {
     }
 
     /**
-     * Waits for process to exit and closes uotput redirectors
+     * Waits for process to exit and closes output redirectors
      */
     public void finishProcessAndRedirectors() {
         if (process != null) {
@@ -271,20 +284,26 @@ public class JDWPUnitDebuggeeProcessWrapper extends JDWPDebuggeeWrapper {
         }
 
         if (thrd.isAlive()) {
+            // ProcessWaiter thread is still running (after we wait until a timeout) but is
+            // waiting for the debuggee process to exit. We send an interrupt request to
+            // that thread so it receives an InterrupedException and terminates.
             thrd.interrupt();
         }
 
         try {
             int exitCode = process.exitValue();
             logWriter.println("Finished debuggee with exit code: " + exitCode);
+            if (exitCode != expectedExitCode) {
+                throw new TestErrorException("Debuggee exited with code " + exitCode +
+                        " but we expected code " + expectedExitCode);
+            }
         } catch (IllegalThreadStateException e) {
             logWriter.printError("Terminate debuggee process");
-            process.destroy();
             throw new TestErrorException("Debuggee process did not finish during timeout", e);
+        } finally {
+            // dispose any resources of the process
+            process.destroy();
         }
-
-        // dispose any resources of the process
-        process.destroy();
     }
 
     /**

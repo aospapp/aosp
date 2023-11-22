@@ -34,7 +34,7 @@ const int8_t gExponents[128] = {
 class UlawCodec : public AudioCodec
 {
 public:
-    int set(int sampleRate, const char *fmtp) {
+    int set(int sampleRate, const char */* fmtp */) {
         mSampleCount = sampleRate / 50;
         return mSampleCount;
     }
@@ -85,7 +85,7 @@ int UlawCodec::decode(int16_t *samples, int count, void *payload, int length)
 class AlawCodec : public AudioCodec
 {
 public:
-    int set(int sampleRate, const char *fmtp) {
+    int set(int sampleRate, const char */* fmtp */) {
         mSampleCount = sampleRate / 50;
         return mSampleCount;
     }

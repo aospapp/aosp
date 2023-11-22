@@ -67,4 +67,19 @@ public class MyHorizontalScrollView extends HorizontalScrollView {
         super.measureChildWithMargins(child, parentWidthMeasureSpec,
                 widthUsed, parentHeightMeasureSpec, heightUsed);
     }
+
+    @Override
+    public int computeVerticalScrollRange() {
+        return super.computeVerticalScrollRange();
+    }
+
+    @Override
+    public int computeVerticalScrollOffset() {
+        return super.computeVerticalScrollOffset();
+    }
+
+    @Override
+    public int computeVerticalScrollExtent() {
+        return super.computeVerticalScrollExtent();
+    }
 }

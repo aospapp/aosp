@@ -10,13 +10,14 @@
 #ifndef SkTypeface_DEFINED
 #define SkTypeface_DEFINED
 
+#include "../private/SkOncePtr.h"
+#include "../private/SkWeakRefCnt.h"
 #include "SkFontStyle.h"
-#include "SkLazyPtr.h"
 #include "SkRect.h"
 #include "SkString.h"
-#include "SkWeakRefCnt.h"
 
 class SkDescriptor;
+class SkFontData;
 class SkFontDescriptor;
 class SkScalerContext;
 struct SkScalerContextRec;
@@ -40,8 +41,6 @@ typedef uint32_t SkFontTableTag;
 */
 class SK_API SkTypeface : public SkWeakRefCnt {
 public:
-    SK_DECLARE_INST_COUNT(SkTypeface)
-
     /** Style specifies the intrinsic style attributes of a given typeface
     */
     enum Style {
@@ -134,14 +133,16 @@ public:
     */
     static SkTypeface* CreateFromStream(SkStreamAsset* stream, int index = 0);
 
+    /** Return a new typeface given font data and configuration. If the data
+        is not valid font data, returns null. Ownership of the font data is
+        transferred, so the caller must not reference it again.
+    */
+    static SkTypeface* CreateFromFontData(SkFontData*);
+
     /** Write a unique signature to a stream, sufficient to reconstruct a
         typeface referencing the same font when Deserialize is called.
      */
     void serialize(SkWStream*) const;
-
-    /** Like serialize, but write the whole font (not just a signature) if possible.
-     */
-    void serializeForcingEmbedding(SkWStream*) const;
 
     /** Given the data previously written by serialize(), return a new instance
         to a typeface referring to the same font. If that font is not available,
@@ -258,7 +259,7 @@ public:
     public:
         virtual ~LocalizedStrings() { }
         virtual bool next(LocalizedString* localizedString) = 0;
-        void unref() { SkDELETE(this); }
+        void unref() { delete this; }
     };
     /**
      *  Returns an iterator which will attempt to enumerate all of the
@@ -282,6 +283,12 @@ public:
      *  The caller is responsible for deleting the stream.
      */
     SkStreamAsset* openStream(int* ttcIndex) const;
+
+    /**
+     *  Return the font data, or NULL on failure.
+     *  The caller is responsible for deleting the font data.
+     */
+    SkFontData* createFontData() const;
 
     /**
      *  Return a scalercontext for the given descriptor. If this fails, then
@@ -337,6 +344,9 @@ protected:
                         uint32_t glyphIDsCount) const = 0;
 
     virtual SkStreamAsset* onOpenStream(int* ttcIndex) const = 0;
+    // TODO: make pure virtual.
+    virtual SkFontData* onCreateFontData() const;
+
     virtual void onGetFontDescriptor(SkFontDescriptor*, bool* isLocal) const = 0;
 
     virtual int onCharsToGlyphs(const void* chars, Encoding, uint16_t glyphs[],
@@ -363,6 +373,7 @@ protected:
 
 private:
     friend class SkGTypeface;
+    friend class SkRandomTypeface;
     friend class SkPDFFont;
     friend class SkPDFCIDFont;
     friend class GrPathRendering;
@@ -387,10 +398,7 @@ private:
     static SkTypeface* CreateDefault(int style);  // SkLazyPtr requires an int, not a Style.
     static void        DeleteDefault(SkTypeface*);
 
-    struct BoundsComputer;
-//    friend struct BoundsComputer;
-
-    SkLazyPtr<SkRect>   fLazyBounds;
+    SkOncePtr<SkRect>   fLazyBounds;
     SkFontID            fUniqueID;
     SkFontStyle         fStyle;
     bool                fIsFixedPitch;

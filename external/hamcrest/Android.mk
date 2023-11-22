@@ -24,6 +24,14 @@ LOCAL_MODULE := hamcrest-host
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_HOST_JAVA_LIBRARY)
 
+# build for the host dalvik
+# -------------------------
+include $(CLEAR_VARS)
+LOCAL_SRC_FILES := $(call all-java-files-under, src)
+LOCAL_MODULE := hamcrest-hostdex
+LOCAL_MODULE_TAGS := optional
+include $(BUILD_HOST_DALVIK_STATIC_JAVA_LIBRARY)
+
 #-------------------------------
 # build a target jar
 

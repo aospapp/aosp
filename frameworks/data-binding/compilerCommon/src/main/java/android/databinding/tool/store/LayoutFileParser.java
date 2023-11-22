@@ -13,35 +13,36 @@
 
 package android.databinding.tool.store;
 
-import org.antlr.v4.runtime.ANTLRInputStream;
-import org.antlr.v4.runtime.CommonTokenStream;
-import org.antlr.v4.runtime.ParserRuleContext;
-import org.antlr.v4.runtime.misc.NotNull;
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang3.StringEscapeUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.w3c.dom.Document;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import org.xml.sax.SAXException;
-
 import android.databinding.parser.XMLLexer;
 import android.databinding.parser.XMLParser;
 import android.databinding.parser.XMLParserBaseVisitor;
+import android.databinding.tool.LayoutXmlProcessor;
 import android.databinding.tool.processing.ErrorMessages;
 import android.databinding.tool.processing.Scope;
 import android.databinding.tool.processing.scopes.FileScopeProvider;
 import android.databinding.tool.util.L;
 import android.databinding.tool.util.ParserHelper;
 import android.databinding.tool.util.Preconditions;
+import android.databinding.tool.util.StringUtils;
 import android.databinding.tool.util.XmlEditor;
 
+import com.google.common.base.Strings;
+
+import org.antlr.v4.runtime.ANTLRInputStream;
+import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.misc.NotNull;
+import org.apache.commons.io.FileUtils;
+import org.mozilla.universalchardet.UniversalDetector;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
+
 import java.io.File;
-import java.io.FileReader;
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URISyntaxException;
-import java.net.URL;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -67,31 +68,29 @@ public class LayoutFileParser {
 
     private static final String LAYOUT_PREFIX = "@layout/";
 
-    public ResourceBundle.LayoutFileBundle parseXml(final File xml, String pkg, int minSdk)
+    public ResourceBundle.LayoutFileBundle parseXml(final File inputFile, final File outputFile,
+            String pkg, final LayoutXmlProcessor.OriginalFileLookup originalFileLookup)
             throws ParserConfigurationException, IOException, SAXException,
             XPathExpressionException {
+        File originalFileFor = originalFileLookup.getOriginalFileFor(inputFile);
+        final String originalFilePath = originalFileFor.getAbsolutePath();
         try {
             Scope.enter(new FileScopeProvider() {
                 @Override
                 public String provideScopeFilePath() {
-                    return xml.getAbsolutePath();
+                    return originalFilePath;
                 }
             });
-            final String xmlNoExtension = ParserHelper.stripExtension(xml.getName());
-            final String newTag = xml.getParentFile().getName() + '/' + xmlNoExtension;
-            File original = stripFileAndGetOriginal(xml, newTag);
-            if (original == null) {
-                L.d("assuming the file is the original for %s", xml.getAbsoluteFile());
-                original = xml;
-            }
-            return parseXml(original, pkg);
+            final String encoding = findEncoding(inputFile);
+            stripFile(inputFile, outputFile, encoding, originalFileLookup);
+            return parseOriginalXml(originalFileFor, pkg, encoding);
         } finally {
             Scope.exit();
         }
     }
 
-    private ResourceBundle.LayoutFileBundle parseXml(final File original, String pkg)
-            throws IOException {
+    private ResourceBundle.LayoutFileBundle parseOriginalXml(final File original, String pkg,
+            String encoding) throws IOException {
         try {
             Scope.enter(new FileScopeProvider() {
                 @Override
@@ -100,7 +99,9 @@ public class LayoutFileParser {
                 }
             });
             final String xmlNoExtension = ParserHelper.stripExtension(original.getName());
-            ANTLRInputStream inputStream = new ANTLRInputStream(new FileReader(original));
+            FileInputStream fin = new FileInputStream(original);
+            InputStreamReader reader = new InputStreamReader(fin, encoding);
+            ANTLRInputStream inputStream = new ANTLRInputStream(reader);
             XMLLexer lexer = new XMLLexer(inputStream);
             CommonTokenStream tokenStream = new CommonTokenStream(lexer);
             XMLParser parser = new XMLParser(tokenStream);
@@ -129,10 +130,22 @@ public class LayoutFileParser {
         }
     }
 
+    private static boolean isProcessedElement(String name) {
+        if (Strings.isNullOrEmpty(name)) {
+            return false;
+        }
+        if ("view".equals(name) || "include".equals(name) || name.indexOf('.') >= 0) {
+            return true;
+        }
+        return !name.toLowerCase().equals(name);
+    }
+
     private void parseExpressions(String newTag, final XMLParser.ElementContext rootView,
             final boolean isMerge, ResourceBundle.LayoutFileBundle bundle) {
-        final List<XMLParser.ElementContext> bindingElements = new ArrayList<>();
-        final List<XMLParser.ElementContext> otherElementsWithIds = new ArrayList<>();
+        final List<XMLParser.ElementContext> bindingElements
+                = new ArrayList<XMLParser.ElementContext>();
+        final List<XMLParser.ElementContext> otherElementsWithIds
+                = new ArrayList<XMLParser.ElementContext>();
         rootView.accept(new XMLParserBaseVisitor<Void>() {
             @Override
             public Void visitElement(@NotNull XMLParser.ElementContext ctx) {
@@ -140,7 +153,7 @@ public class LayoutFileParser {
                     bindingElements.add(ctx);
                 } else {
                     String name = ctx.elmName.getText();
-                    if (!"include".equals(name) && !"fragment".equals(name) &&
+                    if (isProcessedElement(name) &&
                             attributeMap(ctx).containsKey("android:id")) {
                         otherElementsWithIds.add(ctx);
                     }
@@ -158,13 +171,8 @@ public class LayoutFileParser {
                 } else if (ctx == rootView) {
                     return true;
                 }
-                if (hasIncludeChild(ctx)) {
-                    return true;
-                }
-                if (XmlEditor.hasExpressionAttributes(ctx)) {
-                    return true;
-                }
-                return false;
+                return hasIncludeChild(ctx) || XmlEditor.hasExpressionAttributes(ctx) ||
+                        "include".equals(ctx.elmName.getText());
             }
 
             private boolean hasIncludeChild(XMLParser.ElementContext ctx) {
@@ -192,7 +200,7 @@ public class LayoutFileParser {
             if ("include".equals(nodeName)) {
                 // get the layout attribute
                 final String includeValue = attributes.get("layout");
-                if (StringUtils.isEmpty(includeValue)) {
+                if (Strings.isNullOrEmpty(includeValue)) {
                     L.e("%s must include a layout", parent);
                 }
                 if (!includeValue.startsWith(LAYOUT_PREFIX)) {
@@ -201,8 +209,7 @@ public class LayoutFileParser {
                 }
                 // if user is binding something there, there MUST be a layout file to be
                 // generated.
-                String layoutName = includeValue.substring(LAYOUT_PREFIX.length());
-                includedLayoutName = layoutName;
+                includedLayoutName = includeValue.substring(LAYOUT_PREFIX.length());
                 final ParserRuleContext myParentContent = parent.getParent();
                 Preconditions.check(myParentContent instanceof XMLParser.ContentContext,
                         "parent of an include tag must be a content context but it is %s",
@@ -214,7 +221,9 @@ public class LayoutFileParser {
                 //noinspection SuspiciousMethodCalls
                 tag = nodeTagMap.get(grandParent);
             } else if ("fragment".equals(nodeName)) {
-                L.e("fragments do not support data binding expressions.");
+                if (XmlEditor.hasExpressionAttributes(parent)) {
+                    L.e("fragments do not support data binding expressions.");
+                }
                 continue;
             } else {
                 viewName = getViewName(parent);
@@ -234,9 +243,15 @@ public class LayoutFileParser {
 
             for (XMLParser.AttributeContext attr : XmlEditor.expressionAttributes(parent)) {
                 String value = escapeQuotes(attr.attrValue.getText(), true);
-                if (value.charAt(0) == '@' && value.charAt(1) == '{' &&
-                        value.charAt(value.length() - 1) == '}') {
-                    final String strippedValue = value.substring(2, value.length() - 1);
+                final boolean isOneWay = value.startsWith("@{");
+                final boolean isTwoWay = value.startsWith("@={");
+                if (isOneWay || isTwoWay) {
+                    if (value.charAt(value.length() - 1) != '}') {
+                        L.e("Expecting '}' in expression '%s'", attr.attrValue.getText());
+                    }
+                    final int startIndex = isTwoWay ? 3 : 2;
+                    final int endIndex = value.length() - 1;
+                    final String strippedValue = value.substring(startIndex, endIndex);
                     Location attrLocation = new Location(attr);
                     Location valueLocation = new Location();
                     // offset to 0 based
@@ -245,8 +260,8 @@ public class LayoutFileParser {
                             attr.attrValue.getText().indexOf(strippedValue);
                     valueLocation.endLine = attrLocation.endLine;
                     valueLocation.endOffset = attrLocation.endOffset - 2; // account for: "}
-                    bindingTargetBundle.addBinding(escapeQuotes(attr.attrName.getText(), false)
-                            , strippedValue, attrLocation, valueLocation);
+                    bindingTargetBundle.addBinding(escapeQuotes(attr.attrName.getText(), false),
+                            strippedValue, isTwoWay, attrLocation, valueLocation);
                 }
             }
         }
@@ -262,10 +277,12 @@ public class LayoutFileParser {
         String viewName = elm.elmName.getText();
         if ("view".equals(viewName)) {
             String classNode = attributeMap(elm).get("class");
-            if (StringUtils.isEmpty(classNode)) {
+            if (Strings.isNullOrEmpty(classNode)) {
                 L.e("No class attribute for 'view' node");
             }
             viewName = classNode;
+        } else if ("include".equals(viewName) && !XmlEditor.hasExpressionAttributes(elm)) {
+            viewName = "android.view.View";
         }
         return viewName;
     }
@@ -281,9 +298,8 @@ public class LayoutFileParser {
             String alias = attrMap.get("alias");
             Preconditions.check(StringUtils.isNotBlank(type), "Type of an import cannot be empty."
                     + " %s in %s", imp.toStringTree(), xml);
-            if (StringUtils.isEmpty(alias)) {
-                final String[] split = StringUtils.split(type, '.');
-                alias = split[split.length - 1];
+            if (Strings.isNullOrEmpty(alias)) {
+                alias = type.substring(type.lastIndexOf('.') + 1);
             }
             bundle.addImport(alias, type, new Location(imp));
         }
@@ -296,7 +312,7 @@ public class LayoutFileParser {
                     variable.toStringTree(), xml);
             Preconditions.checkNotNull(name, "variable must have a name %s in %s",
                     variable.toStringTree(), xml);
-            bundle.addVariable(name, type, new Location(variable));
+            bundle.addVariable(name, type, new Location(variable), true);
         }
         final XMLParser.AttributeContext className = findAttribute(data, "class");
         if (className != null) {
@@ -331,7 +347,7 @@ public class LayoutFileParser {
 
     private List<XMLParser.ElementContext> filter(XMLParser.ElementContext root,
             String name) {
-        List<XMLParser.ElementContext> result = new ArrayList<>();
+        List<XMLParser.ElementContext> result = new ArrayList<XMLParser.ElementContext>();
         if (root == null) {
             return result;
         }
@@ -349,7 +365,7 @@ public class LayoutFileParser {
 
     private List<XMLParser.ElementContext> filterNot(XMLParser.ElementContext root,
             String name) {
-        List<XMLParser.ElementContext> result = new ArrayList<>();
+        List<XMLParser.ElementContext> result = new ArrayList<XMLParser.ElementContext>();
         if (root == null) {
             return result;
         }
@@ -369,40 +385,31 @@ public class LayoutFileParser {
         return "merge".equals(rootView.elmName.getText()) && filter(rootView, "include").size() > 0;
     }
 
-    private File stripFileAndGetOriginal(File xml, String binderId)
+    private void stripFile(File xml, File out, String encoding,
+            LayoutXmlProcessor.OriginalFileLookup originalFileLookup)
             throws ParserConfigurationException, IOException, SAXException,
             XPathExpressionException {
-        L.d("parsing resource file %s", xml.getAbsolutePath());
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         DocumentBuilder builder = factory.newDocumentBuilder();
         Document doc = builder.parse(xml);
         XPathFactory xPathFactory = XPathFactory.newInstance();
         XPath xPath = xPathFactory.newXPath();
-        final XPathExpression commentElementExpr = xPath
-                .compile("//comment()[starts-with(., \" From: file:\")][last()]");
-        final NodeList commentElementNodes = (NodeList) commentElementExpr
-                .evaluate(doc, XPathConstants.NODESET);
-        L.d("comment element nodes count %s", commentElementNodes.getLength());
-        if (commentElementNodes.getLength() == 0) {
-            L.d("cannot find comment element to find the actual file");
-            return null;
+        File actualFile = originalFileLookup == null ? null
+                : originalFileLookup.getOriginalFileFor(xml);
+        // TODO get rid of original file lookup
+        if (actualFile == null) {
+            actualFile = xml;
         }
-        final Node first = commentElementNodes.item(0);
-        String actualFilePath = first.getNodeValue().substring(" From:".length()).trim();
-        L.d("actual file to parse: %s", actualFilePath);
-        File actualFile = urlToFile(new java.net.URL(actualFilePath));
-        if (!actualFile.canRead()) {
-            L.d("cannot find original, skipping. %s", actualFile.getAbsolutePath());
-            return null;
-        }
-
+        // always create id from actual file when available. Gradle may duplicate files.
+        String noExt = ParserHelper.stripExtension(actualFile.getName());
+        String binderId = actualFile.getParentFile().getName() + '/' + noExt;
         // now if file has any binding expressions, find and delete them
-        // TODO we should rely on namespace to avoid parsing file twice
         boolean changed = isBindingLayout(doc, xPath);
         if (changed) {
-            stripBindingTags(xml, binderId);
+            stripBindingTags(xml, out, binderId, encoding);
+        } else if (!xml.equals(out)){
+            FileUtils.copyFile(xml, out);
         }
-        return actualFile;
     }
 
     private boolean isBindingLayout(Document doc, XPath xPath) throws XPathExpressionException {
@@ -423,28 +430,40 @@ public class LayoutFileParser {
         return result;
     }
 
-    private void stripBindingTags(File xml, String newTag) throws IOException {
-        String res = XmlEditor.strip(xml, newTag);
+    private void stripBindingTags(File xml, File output, String newTag, String encoding) throws IOException {
+        String res = XmlEditor.strip(xml, newTag, encoding);
+        Preconditions.checkNotNull(res, "layout file should've changed %s", xml.getAbsolutePath());
         if (res != null) {
             L.d("file %s has changed, overwriting %s", xml.getName(), xml.getAbsolutePath());
-            FileUtils.writeStringToFile(xml, res);
+            FileUtils.writeStringToFile(output, res, encoding);
         }
     }
 
-    public static File urlToFile(URL url) throws MalformedURLException {
+    private static String findEncoding(File f) throws IOException {
+        FileInputStream fin = new FileInputStream(f);
         try {
-            return new File(url.toURI());
-        } catch (IllegalArgumentException e) {
-            MalformedURLException ex = new MalformedURLException(e.getLocalizedMessage());
-            ex.initCause(e);
-            throw ex;
-        } catch (URISyntaxException e) {
-            return new File(url.getPath());
+            UniversalDetector universalDetector = new UniversalDetector(null);
+
+            byte[] buf = new byte[4096];
+            int nread;
+            while ((nread = fin.read(buf)) > 0 && !universalDetector.isDone()) {
+                universalDetector.handleData(buf, 0, nread);
+            }
+
+            universalDetector.dataEnd();
+
+            String encoding = universalDetector.getDetectedCharset();
+            if (encoding == null) {
+                encoding = "utf-8";
+            }
+            return encoding;
+        } finally {
+            fin.close();
         }
     }
 
     private static Map<String, String> attributeMap(XMLParser.ElementContext root) {
-        final Map<String, String> result = new HashMap<>();
+        final Map<String, String> result = new HashMap<String, String>();
         for (XMLParser.AttributeContext attr : XmlEditor.attributes(root)) {
             result.put(escapeQuotes(attr.attrName.getText(), false),
                     escapeQuotes(attr.attrValue.getText(), true));
@@ -474,7 +493,7 @@ public class LayoutFileParser {
         }
         String val = textWithQuotes.substring(start, end);
         if (unescapeValue) {
-            return StringEscapeUtils.unescapeXml(val);
+            return StringUtils.unescapeXml(val);
         } else {
             return val;
         }

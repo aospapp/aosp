@@ -16,12 +16,13 @@
 
 package android.keystore.cts;
 
+import android.platform.test.annotations.Presubmit;
 import android.security.keystore.KeyProperties;
 import android.security.keystore.KeyProtection;
 import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
 
-import com.android.cts.keystore.R;
+import android.keystore.cts.R;
 
 import java.security.AlgorithmParameters;
 import java.security.InvalidKeyException;
@@ -221,6 +222,7 @@ public class CipherTest extends AndroidTestCase {
     private static final byte[] AES256_KAT_KEY_BYTES =
             HexEncoding.decode("cf601cc10aaf434d1f01747136aff222af7fb426d101901712214c3fea18125f");
 
+    @Presubmit
     public void testAlgorithmList() {
         // Assert that Android Keystore Provider exposes exactly the expected Cipher
         // transformations. We don't care whether the transformations are exposed via aliases, as
@@ -441,12 +443,24 @@ public class CipherTest extends AndroidTestCase {
                         if (!"SHA-1".equalsIgnoreCase(
                                 ((MGF1ParameterSpec) spec.getMGFParameters())
                                         .getDigestAlgorithm())) {
+                            // Create a new instance of Cipher because Bouncy Castle's RSA Cipher
+                            // caches AlgorithmParameters returned by Cipher.getParameters and does
+                            // not invalidate the cache when reinitialized with different
+                            // parameters.
+                            cipher = Cipher.getInstance(algorithm, encryptionProvider);
                             cipher.init(Cipher.ENCRYPT_MODE, encryptionKey, new OAEPParameterSpec(
                                     spec.getDigestAlgorithm(),
                                     "MGF1",
                                     MGF1ParameterSpec.SHA1,
                                     PSource.PSpecified.DEFAULT));
                             params = cipher.getParameters();
+                            OAEPParameterSpec newSpec =
+                                    params.getParameterSpec(OAEPParameterSpec.class);
+                            assertEquals(spec.getDigestAlgorithm(), newSpec.getDigestAlgorithm());
+                            assertEquals(
+                                    "SHA-1",
+                                    ((MGF1ParameterSpec) newSpec.getMGFParameters())
+                                            .getDigestAlgorithm());
                         }
                     }
 

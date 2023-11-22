@@ -24,12 +24,12 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#include <selinux/android.h>
 #include <selinux/label.h>
 #include <selinux/selinux.h>
 
 #include "android.h"
 #include "private/android_filesystem_config.h"
+#include "private/canned_fs_config.h"
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
@@ -43,10 +43,14 @@ void alloc_mounted_path(const char *mount_point, const char *subpath, char **mou
     strcat(*mounted_path, subpath);
 }
 
-void android_fs_config(const char *path, struct stat *stat, const char *target_out_path) {
-    unsigned long capabilities = 0;
-    fs_config(path, S_ISDIR(stat->st_mode), target_out_path,
-              &stat->st_uid, &stat->st_gid, &stat->st_mode, &capabilities);
+void android_fs_config(fs_config_func_t fs_config_func, const char *path, struct stat *stat,
+        const char *target_out_path, uint64_t *capabilities) {
+    // filesystem_config does not preserve file type bits
+    mode_t stat_file_type_mask = stat->st_mode & S_IFMT;
+    if (fs_config_func)
+        fs_config_func(path, S_ISDIR(stat->st_mode), target_out_path,
+                  &stat->st_uid, &stat->st_gid, &stat->st_mode, capabilities);
+    stat->st_mode |= stat_file_type_mask;
 }
 
 
@@ -90,4 +94,20 @@ char *set_selabel(const char *path, unsigned int mode, struct selabel_handle *se
     }
     perror("Selabel handle is NULL.");
     exit(EXIT_FAILURE);
+}
+
+struct vfs_cap_data set_caps(uint64_t capabilities) {
+    struct vfs_cap_data cap_data;
+    memset(&cap_data, 0, sizeof(cap_data));
+
+    if (capabilities == 0)
+        return cap_data;
+
+    cap_data.magic_etc = VFS_CAP_REVISION | VFS_CAP_FLAGS_EFFECTIVE;
+    cap_data.data[0].permitted = (uint32_t) capabilities;
+    cap_data.data[0].inheritable = 0;
+    cap_data.data[1].permitted = (uint32_t) (capabilities >> 32);
+    cap_data.data[1].inheritable = 0;
+
+    return cap_data;
 }

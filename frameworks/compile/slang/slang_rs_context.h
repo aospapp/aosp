@@ -20,7 +20,10 @@
 #include <cstdio>
 #include <list>
 #include <map>
+#include <set>
 #include <string>
+#include <unordered_set>
+#include <vector>
 
 #include "clang/Lex/Preprocessor.h"
 #include "clang/AST/Mangle.h"
@@ -28,7 +31,7 @@
 #include "llvm/ADT/StringSet.h"
 #include "llvm/ADT/StringMap.h"
 
-#include "slang_pragma_recorder.h"
+#include "slang_pragma_list.h"
 
 namespace llvm {
   class LLVMContext;
@@ -40,14 +43,19 @@ namespace clang {
   class ASTContext;
   class TargetInfo;
   class FunctionDecl;
+  class QualType;
   class SourceManager;
+  class TypeDecl;
+  class FunctionDecl;
 }   // namespace clang
 
 namespace slang {
+  class Backend;
   class RSExportable;
   class RSExportVar;
   class RSExportFunc;
   class RSExportForEach;
+  class RSExportReduce;
   class RSExportType;
 
 class RSContext {
@@ -59,7 +67,12 @@ class RSContext {
   typedef std::list<RSExportable*> ExportableList;
   typedef std::list<RSExportVar*> ExportVarList;
   typedef std::list<RSExportFunc*> ExportFuncList;
-  typedef std::list<RSExportForEach*> ExportForEachList;
+  typedef std::vector<RSExportForEach*> ExportForEachVector;
+  typedef std::list<RSExportReduce*> ExportReduceList;
+
+  // WARNING: Sorted by pointer value, resulting in unpredictable order
+  typedef std::unordered_set<RSExportType*> ExportReduceResultTypeSet;
+
   typedef llvm::StringMap<RSExportType*> ExportTypeMap;
 
  private:
@@ -95,12 +108,26 @@ class RSContext {
   bool processExportFunc(const clang::FunctionDecl *FD);
   bool processExportType(const llvm::StringRef &Name);
 
-  void cleanupForEach();
+  int getForEachSlotNumber(const clang::StringRef& funcName);
+  unsigned mNextSlot;
 
   ExportVarList mExportVars;
   ExportFuncList mExportFuncs;
-  ExportForEachList mExportForEach;
+  std::map<llvm::StringRef, unsigned> mExportForEachMap;
+  ExportForEachVector mExportForEach;
+  ExportForEachVector::iterator mFirstOldStyleKernel;
+  ExportReduceList mExportReduce;
+  ExportReduceResultTypeSet mExportReduceResultType;
   ExportTypeMap mExportTypes;
+
+  clang::QualType mAllocationType;
+  clang::QualType mScriptCallType;
+
+  std::set<const clang::FunctionDecl *> mUsedByReducePragmaFns;
+
+  // Populated by markUsedByReducePragma().
+  // Consumed by processReducePragmas().
+  std::vector<clang::VarDecl *> mUsedByReducePragmaDummyVars;
 
  public:
   RSContext(clang::Preprocessor &PP,
@@ -109,6 +136,10 @@ class RSContext {
             PragmaList *Pragmas,
             unsigned int TargetAPI,
             bool Verbose);
+
+  enum CheckName { CheckNameNo, CheckNameYes };
+
+  static bool isSyntheticName(const llvm::StringRef Name) { return Name.startswith(".rs."); }
 
   inline clang::Preprocessor &getPreprocessor() const { return mPP; }
   inline clang::ASTContext &getASTContext() const { return mCtx; }
@@ -156,7 +187,18 @@ class RSContext {
 
   inline const std::string &getRSPackageName() const { return mRSPackageName; }
 
-  bool processExport();
+  void setAllocationType(const clang::TypeDecl* TD);
+  inline const clang::QualType& getAllocationType() const {
+    return mAllocationType;
+  }
+
+  void setScriptCallType(const clang::TypeDecl* TD);
+  inline const clang::QualType& getScriptCallType() const {
+    return mScriptCallType;
+  }
+
+  bool addForEach(const clang::FunctionDecl* FD);
+  bool processExports();
   inline void newExportable(RSExportable *E) {
     if (E != nullptr)
       mExportables.push_back(E);
@@ -189,7 +231,7 @@ class RSContext {
   }
   inline bool hasExportFunc() const { return !mExportFuncs.empty(); }
 
-  typedef ExportForEachList::const_iterator const_export_foreach_iterator;
+  typedef ExportForEachVector::const_iterator const_export_foreach_iterator;
   const_export_foreach_iterator export_foreach_begin() const {
     return mExportForEach.begin();
   }
@@ -197,6 +239,37 @@ class RSContext {
     return mExportForEach.end();
   }
   inline bool hasExportForEach() const { return !mExportForEach.empty(); }
+  int getForEachSlotNumber(const clang::FunctionDecl* FD);
+
+  typedef ExportReduceList::const_iterator const_export_reduce_iterator;
+  const_export_reduce_iterator export_reduce_begin() const {
+    return mExportReduce.begin();
+  }
+  const_export_reduce_iterator export_reduce_end() const {
+    return mExportReduce.end();
+  }
+  inline bool hasExportReduce() const { return !mExportReduce.empty(); }
+  void addExportReduce(RSExportReduce *Reduce) {
+    mExportReduce.push_back(Reduce);
+  }
+  bool processReducePragmas(Backend *BE);
+  void markUsedByReducePragma(clang::FunctionDecl *FD, CheckName Check);
+
+  // If the type has already been inserted, has no effect.
+  void insertExportReduceResultType(RSExportType *Type) { mExportReduceResultType.insert(Type); }
+
+  template <class FilterIn, class Compare>
+  std::vector<RSExportType *> getReduceResultTypes(FilterIn Filt, Compare Comp) const {
+    std::vector<RSExportType *> Return;
+    std::copy_if(mExportReduceResultType.begin(), mExportReduceResultType.end(), std::back_inserter(Return), Filt);
+    std::sort(Return.begin(), Return.end(), Comp);
+    auto ReturnNewEndIter = std::unique(Return.begin(), Return.end(),
+                                        [Comp](const RSExportType *a, const RSExportType *b) {
+                                          return !Comp(a, b) && !Comp(b, a);
+                                        });
+    Return.erase(ReturnNewEndIter, Return.end());
+    return Return;
+  }
 
   typedef ExportTypeMap::iterator export_type_iterator;
   typedef ExportTypeMap::const_iterator const_export_type_iterator;
@@ -245,7 +318,7 @@ class RSContext {
                                              const char (&Message)[N]) {
   clang::DiagnosticsEngine *DiagEngine = getDiagnostics();
   return DiagEngine->Report(DiagEngine->getCustomDiagID(Level, Message));
-}
+  }
 
   template <unsigned N>
   clang::DiagnosticBuilder Report(clang::DiagnosticsEngine::Level Level,
@@ -255,7 +328,7 @@ class RSContext {
   const clang::SourceManager *SM = getSourceManager();
   return DiagEngine->Report(clang::FullSourceLoc(Loc, *SM),
                             DiagEngine->getCustomDiagID(Level, Message));
-}
+  }
 
   // Utility functions to report errors and warnings to make the calling code
   // easier to read.

@@ -33,41 +33,38 @@
 
 package com.android.bluetooth.pbap;
 
+import com.android.bluetooth.R;
+import com.android.bluetooth.util.DevicePolicyUtils;
+import com.android.vcard.VCardComposer;
+import com.android.vcard.VCardConfig;
+import com.android.vcard.VCardPhoneNumberTranslationCallback;
+
 import android.content.ContentResolver;
 import android.content.Context;
-import android.database.CursorWindowAllocationException;
 import android.database.Cursor;
+import android.database.CursorWindowAllocationException;
 import android.database.MatrixCursor;
 import android.net.Uri;
 import android.provider.CallLog;
-import android.provider.ContactsContract;
 import android.provider.CallLog.Calls;
 import android.provider.ContactsContract.CommonDataKinds;
+import android.provider.ContactsContract.CommonDataKinds.Phone;
 import android.provider.ContactsContract.Contacts;
 import android.provider.ContactsContract.Data;
-import android.provider.ContactsContract.CommonDataKinds.Phone;
 import android.provider.ContactsContract.PhoneLookup;
 import android.provider.ContactsContract.RawContactsEntity;
 import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
 import android.util.Log;
 
-import com.android.bluetooth.R;
-import com.android.vcard.VCardComposer;
-import com.android.vcard.VCardConfig;
-import com.android.vcard.VCardPhoneNumberTranslationCallback;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 
-import javax.obex.ServerOperation;
 import javax.obex.Operation;
 import javax.obex.ResponseCodes;
-
-import com.android.bluetooth.Utils;
-import com.android.bluetooth.util.DevicePolicyUtils;
+import javax.obex.ServerOperation;
 
 public class BluetoothPbapVcardManager {
     private static final String TAG = "BluetoothPbapVcardManager";
@@ -261,23 +258,23 @@ public class BluetoothPbapVcardManager {
 
         final Uri myUri = DevicePolicyUtils.getEnterprisePhoneUri(mContext);
         Cursor contactCursor = null;
+        // By default order is indexed
+        String orderBy = Phone.CONTACT_ID;
         try {
-            contactCursor = mResolver.query(myUri, PHONES_CONTACTS_PROJECTION, CLAUSE_ONLY_VISIBLE,
-                    null, Phone.CONTACT_ID);
+            if (orderByWhat == BluetoothPbapObexServer.ORDER_BY_ALPHABETICAL) {
+                orderBy = Phone.DISPLAY_NAME;
+            }
+            contactCursor = mResolver.query(myUri, PHONES_CONTACTS_PROJECTION,
+                CLAUSE_ONLY_VISIBLE, null, orderBy);
             if (contactCursor != null) {
                 appendDistinctNameIdList(nameList,
                         mContext.getString(android.R.string.unknownName),
                         contactCursor);
-                if (orderByWhat == BluetoothPbapObexServer.ORDER_BY_INDEXED) {
-                    if (V) Log.v(TAG, "getPhonebookNameList, order by index");
-                    // Do not need to do anything, as we sort it by index already
-                } else if (orderByWhat == BluetoothPbapObexServer.ORDER_BY_ALPHABETICAL) {
-                    if (V) Log.v(TAG, "getPhonebookNameList, order by alpha");
-                    Collections.sort(nameList);
-                }
             }
+        } catch (CursorWindowAllocationException e) {
+            Log.e(TAG, "CursorWindowAllocationException while getting phonebook name list");
         } catch (Exception e) {
-            Log.e(TAG, "Exception while getting Phonebook name list", e);
+            Log.e(TAG, "Exception while getting phonebook name list", e);
         } finally {
             if (contactCursor != null) {
                 contactCursor.close();
@@ -445,17 +442,22 @@ public class BluetoothPbapVcardManager {
         Cursor contactIdCursor = new MatrixCursor(new String[] {
             Phone.CONTACT_ID
         });
+        // By default order is indexed
+        String orderBy = Phone.CONTACT_ID;
         try {
+            if (orderByWhat == BluetoothPbapObexServer.ORDER_BY_ALPHABETICAL) {
+                orderBy = Phone.DISPLAY_NAME;
+            }
             contactCursor = mResolver.query(myUri, PHONES_CONTACTS_PROJECTION,
-                    CLAUSE_ONLY_VISIBLE, null, Phone.CONTACT_ID);
-            contactIdCursor = ContactCursorFilter.filterByOffset(contactCursor, offset);
-
+                CLAUSE_ONLY_VISIBLE, null, orderBy);
         } catch (CursorWindowAllocationException e) {
             Log.e(TAG,
-                    "CursorWindowAllocationException while composing phonebook one vcard");
+                "CursorWindowAllocationException while composing phonebook one vcard");
         } finally {
             if (contactCursor != null) {
+                contactIdCursor = ContactCursorFilter.filterByOffset(contactCursor, offset);
                 contactCursor.close();
+                contactCursor = null;
             }
         }
         return composeContactsAndSendVCards(op, contactIdCursor, vcardType21, ownerVCard,
@@ -623,7 +625,6 @@ public class BluetoothPbapVcardManager {
         HandlerForStringBuffer buffer = null;
         try {
 
-            VCardFilter vcardfilter = new VCardFilter(ignorefilter ? null : filter);
             composer = new BluetoothPbapCallLogComposer(mContext);
             buffer = new HandlerForStringBuffer(op, ownerVCard);
             if (!composer.init(CallLog.Calls.CONTENT_URI, selection, null, CALLLOG_SORT_ORDER)
@@ -638,9 +639,6 @@ public class BluetoothPbapVcardManager {
                     break;
                 }
                 String vcard = composer.createOneEntry(vcardType21);
-                if (vcard != null) {
-                    vcard = vcardfilter.apply(vcard, vcardType21);
-                }
                 if (vcard == null) {
                     Log.e(TAG,
                             "Failed to read a contact. Error reason: " + composer.getErrorReason());
@@ -747,18 +745,18 @@ public class BluetoothPbapVcardManager {
 
     public static class VCardFilter {
         private static enum FilterBit {
-            //       bit  property    onlyCheckV21  excludeForV21
-            FN (       1, "FN",       true,         false),
-            PHOTO(     3, "PHOTO",    false,        false),
-            BDAY(      4, "BDAY",     false,        false),
-            ADR(       5, "ADR",      false,        false),
-            EMAIL(     8, "EMAIL",    false,        false),
-            TITLE(    12, "TITLE",    false,        false),
-            ORG(      16, "ORG",      false,        false),
-            NOTE(     17, "NOTE",     false,        false),
-            URL(      20, "URL",      false,        false),
-            NICKNAME( 23, "NICKNAME", false,        true),
-            DATETIME( 28, "DATETIME", false,        true);
+            //       bit  property                  onlyCheckV21  excludeForV21
+            FN (       1, "FN",                       true,         false),
+            PHOTO(     3, "PHOTO",                    false,        false),
+            BDAY(      4, "BDAY",                     false,        false),
+            ADR(       5, "ADR",                      false,        false),
+            EMAIL(     8, "EMAIL",                    false,        false),
+            TITLE(    12, "TITLE",                    false,        false),
+            ORG(      16, "ORG",                      false,        false),
+            NOTE(     17, "NOTE",                     false,        false),
+            URL(      20, "URL",                      false,        false),
+            NICKNAME( 23, "NICKNAME",                 false,        true),
+            DATETIME( 28, "X-IRMC-CALL-DATETIME",     false,        false);
 
             public final int pos;
             public final String prop;
@@ -816,12 +814,19 @@ public class BluetoothPbapVcardManager {
 
                     // Since PBAP does not have filter bits for IM and SIP,
                     // exclude them by default. Easiest way is to exclude all
-                    // X- fields....
-                    if (currentProp.startsWith("X-")) filteredIn = false;
+                    // X- fields, except date time....
+                    if (currentProp.startsWith("X-")) {
+                        filteredIn = false;
+                        if (currentProp.equals("X-IRMC-CALL-DATETIME")) {
+                            filteredIn = true;
+                        }
+                    }
                 }
 
                 // Build filtered vCard
-                if (filteredIn) filteredVCard.append(line + SEPARATOR);
+                if (filteredIn) {
+                    filteredVCard.append(line + SEPARATOR);
+                }
             }
 
             return filteredVCard.toString();
@@ -834,7 +839,7 @@ public class BluetoothPbapVcardManager {
 
     /**
      * Get size of the cursor without duplicated contact id. This assumes the
-     * given cursor is sorted by CONATCT_ID.
+     * given cursor is sorted by CONTACT_ID.
      */
     private static final int getDistinctContactIdSize(Cursor cursor) {
         final int contactIdColumn = cursor.getColumnIndex(Data.CONTACT_ID);
@@ -857,14 +862,13 @@ public class BluetoothPbapVcardManager {
 
     /**
      * Append "display_name,contact_id" string array from cursor to ArrayList.
-     * This assumes the given cursor is sorted by CONATCT_ID.
+     * This assumes the given cursor is sorted by CONTACT_ID.
      */
     private static void appendDistinctNameIdList(ArrayList<String> resultList,
             String defaultName, Cursor cursor) {
         final int contactIdColumn = cursor.getColumnIndex(Data.CONTACT_ID);
         final int idColumn = cursor.getColumnIndex(Data._ID);
         final int nameColumn = cursor.getColumnIndex(Data.DISPLAY_NAME);
-        long previousContactId = -1;
         cursor.moveToPosition(-1);
         while (cursor.moveToNext()) {
             final long contactId = cursor.getLong(contactIdColumn != -1 ? contactIdColumn : idColumn);
@@ -873,9 +877,9 @@ public class BluetoothPbapVcardManager {
                 displayName = defaultName;
             }
 
-            if (previousContactId != contactId) {
-                previousContactId = contactId;
-                resultList.add(displayName + "," + contactId);
+            String newString = displayName + "," + contactId;
+            if (!resultList.contains(newString)) {
+                resultList.add(newString);
             }
         }
         if (V) {

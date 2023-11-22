@@ -20,11 +20,16 @@ import android.app.Notification;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
 import android.os.ServiceManager;
+import android.os.UserHandle;
 import android.service.notification.NotificationListenerService;
 import android.util.Log;
+
+import com.android.internal.widget.LockPatternUtils;
+import com.android.settingslib.Utils;
 
 public class NotificationBackend {
     private static final String TAG = "NotificationBackend";
@@ -32,7 +37,7 @@ public class NotificationBackend {
     static INotificationManager sINM = INotificationManager.Stub.asInterface(
             ServiceManager.getService(Context.NOTIFICATION_SERVICE));
 
-    public AppRow loadAppRow(PackageManager pm, ApplicationInfo app) {
+    public AppRow loadAppRow(Context context, PackageManager pm, ApplicationInfo app) {
         final AppRow row = new AppRow();
         row.pkg = app.packageName;
         row.uid = app.uid;
@@ -44,20 +49,18 @@ public class NotificationBackend {
         }
         row.icon = app.loadIcon(pm);
         row.banned = getNotificationsBanned(row.pkg, row.uid);
-        row.priority = getHighPriority(row.pkg, row.uid);
-        row.peekable = getPeekable(row.pkg, row.uid);
-        row.sensitive = getSensitive(row.pkg, row.uid);
+        row.appImportance = getImportance(row.pkg, row.uid);
+        row.appBypassDnd = getBypassZenMode(row.pkg, row.uid);
+        row.appVisOverride = getVisibilityOverride(row.pkg, row.uid);
+        row.lockScreenSecure = new LockPatternUtils(context).isSecure(
+                UserHandle.myUserId());
         return row;
     }
 
-    public boolean setNotificationsBanned(String pkg, int uid, boolean banned) {
-        try {
-            sINM.setNotificationsEnabledForPackage(pkg, uid, !banned);
-            return true;
-        } catch (Exception e) {
-           Log.w(TAG, "Error calling NoMan", e);
-           return false;
-        }
+    public AppRow loadAppRow(Context context, PackageManager pm, PackageInfo app) {
+        final AppRow row = loadAppRow(context, pm, app.applicationInfo);
+        row.systemApp = Utils.isSystemPackage(pm, app);
+        return row;
     }
 
     public boolean getNotificationsBanned(String pkg, int uid) {
@@ -70,19 +73,19 @@ public class NotificationBackend {
         }
     }
 
-    public boolean getHighPriority(String pkg, int uid) {
+    public boolean getBypassZenMode(String pkg, int uid) {
         try {
-            return sINM.getPackagePriority(pkg, uid) == Notification.PRIORITY_MAX;
+            return sINM.getPriority(pkg, uid) == Notification.PRIORITY_MAX;
         } catch (Exception e) {
             Log.w(TAG, "Error calling NoMan", e);
             return false;
         }
     }
 
-    public boolean setHighPriority(String pkg, int uid, boolean highPriority) {
+    public boolean setBypassZenMode(String pkg, int uid, boolean bypassZen) {
         try {
-            sINM.setPackagePriority(pkg, uid,
-                    highPriority ? Notification.PRIORITY_MAX : Notification.PRIORITY_DEFAULT);
+            sINM.setPriority(pkg, uid,
+                    bypassZen ? Notification.PRIORITY_MAX : Notification.PRIORITY_DEFAULT);
             return true;
         } catch (Exception e) {
             Log.w(TAG, "Error calling NoMan", e);
@@ -90,43 +93,41 @@ public class NotificationBackend {
         }
     }
 
-    public boolean getPeekable(String pkg, int uid) {
+    public int getVisibilityOverride(String pkg, int uid) {
         try {
-            return sINM.getPackagePeekable(pkg, uid);
+            return sINM.getVisibilityOverride(pkg, uid);
         } catch (Exception e) {
             Log.w(TAG, "Error calling NoMan", e);
-            return false;
+            return NotificationListenerService.Ranking.VISIBILITY_NO_OVERRIDE;
         }
     }
 
-    public boolean setPeekable(String pkg, int uid, boolean peekable) {
+    public boolean setVisibilityOverride(String pkg, int uid, int override) {
         try {
-            sINM.setPackagePeekable(pkg, uid, peekable);
-            return true;
-        } catch (Exception e) {
-           Log.w(TAG, "Error calling NoMan", e);
-           return false;
-        }
-    }
-
-    public boolean getSensitive(String pkg, int uid) {
-        try {
-            return sINM.getPackageVisibilityOverride(pkg, uid) == Notification.VISIBILITY_PRIVATE;
-        } catch (Exception e) {
-            Log.w(TAG, "Error calling NoMan", e);
-            return false;
-        }
-    }
-
-    public boolean setSensitive(String pkg, int uid, boolean sensitive) {
-        try {
-            sINM.setPackageVisibilityOverride(pkg, uid,
-                    sensitive ? Notification.VISIBILITY_PRIVATE
-                            : NotificationListenerService.Ranking.VISIBILITY_NO_OVERRIDE);
+            sINM.setVisibilityOverride(pkg, uid, override);
             return true;
         } catch (Exception e) {
             Log.w(TAG, "Error calling NoMan", e);
             return false;
+        }
+    }
+
+    public boolean setImportance(String pkg, int uid, int importance) {
+        try {
+            sINM.setImportance(pkg, uid, importance);
+            return true;
+        } catch (Exception e) {
+            Log.w(TAG, "Error calling NoMan", e);
+            return false;
+        }
+    }
+
+    public int getImportance(String pkg, int uid) {
+        try {
+            return sINM.getImportance(pkg, uid);
+        } catch (Exception e) {
+            Log.w(TAG, "Error calling NoMan", e);
+            return NotificationListenerService.Ranking.IMPORTANCE_UNSPECIFIED;
         }
     }
 
@@ -141,10 +142,11 @@ public class NotificationBackend {
         public CharSequence label;
         public Intent settingsIntent;
         public boolean banned;
-        public boolean priority;
-        public boolean peekable;
-        public boolean sensitive;
         public boolean first;  // first app in section
+        public boolean systemApp;
+        public int appImportance;
+        public boolean appBypassDnd;
+        public int appVisOverride;
+        public boolean lockScreenSecure;
     }
-
 }

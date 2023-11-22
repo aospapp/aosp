@@ -100,8 +100,8 @@ function cleanup_tokens {
   [[ -f "$TOKEN_FILE" ]] && rm "$TOKEN_FILE"
 }
 
-generate_file "$SCRIPT_DIR/src/main/java/org/jf/smali/smaliParser.java" "$SCRIPT_DIR/src/main/antlr3/smaliParser.g"
-generate_file "$SCRIPT_DIR/src/main/java/org/jf/smali/smaliTreeWalker.java" "$SCRIPT_DIR/src/main/antlr3/smaliTreeWalker.g"
+generate_file "$SCRIPT_DIR/src/main/java/org/jf/smali/smaliParser.java" "$SCRIPT_DIR/src/main/antlr/smaliParser.g"
+generate_file "$SCRIPT_DIR/src/main/java/org/jf/smali/smaliTreeWalker.java" "$SCRIPT_DIR/src/main/antlr/smaliTreeWalker.g"
 
 # Clean up the tokens, no longer necessary once the tree walker is generated
 cleanup_tokens "$SCRIPT_DIR/src/main/java/org/jf/smali/smaliParser.java"

@@ -91,11 +91,11 @@ WIFI_DRIVER_FW_PATH_STA     := "/vendor/firmware/fw_bcmdhd.bin"
 WIFI_DRIVER_FW_PATH_AP      := "/vendor/firmware/fw_bcmdhd_apsta.bin"
 
 BOARD_SEPOLICY_DIRS += device/htc/flounder/sepolicy
+BOARD_SECCOMP_POLICY += device/htc/flounder/seccomp
 
 TARGET_USES_64_BIT_BCMDHD := true
 TARGET_USES_64_BIT_BINDER := true
 
-TARGET_USES_LOGD := true
 BOARD_WIDEVINE_OEMCRYPTO_LEVEL := 1
 
 # HACK: Build apps as 64b for volantis_64_only
@@ -105,26 +105,21 @@ TARGET_SUPPORTS_32_BIT_APPS :=
 TARGET_SUPPORTS_64_BIT_APPS := true
 endif
 
-# Enable dex-preoptimization to speed up first boot sequence
-ifeq ($(HOST_OS),linux)
-  ifeq ($(TARGET_BUILD_VARIANT),user)
-    ifeq ($(WITH_DEXPREOPT),)
-      WITH_DEXPREOPT := true
-    endif
-  endif
-endif
+# Don't dex preopt apps to avoid I/O congestion due to paging larger sized
+# pre-compiled .odex files as opposed to background generated interpret-only
+# odex files.
+WITH_DEXPREOPT_BOOT_IMG_ONLY := true
 
 TARGET_RELEASETOOLS_EXTENSIONS := device/htc/flounder
 
 ART_USE_HSPACE_COMPACT=true
 
-# Include an expanded selection of fonts
-EXTENDED_FONT_FOOTPRINT := true
-
 # let charger mode enter suspend
 BOARD_CHARGER_ENABLE_SUSPEND := true
 
-MALLOC_IMPL := dlmalloc
+MALLOC_SVELTE := true
+
+USE_CLANG_PLATFORM_BUILD := true
 
 # Use the non-open-source parts, if they're present
 -include vendor/htc/flounder/BoardConfigVendor.mk

@@ -1,7 +1,7 @@
 package org.bouncycastle.util;
 
 import java.math.BigInteger;
-import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 /**
  * General array utilities.
@@ -324,7 +324,7 @@ public final class Arrays
 
         return hc;
     }
-    
+
     public static int hashCode(byte[] data, int off, int len)
     {
         if (data == null)
@@ -413,6 +413,50 @@ public final class Arrays
         return hc;
     }
 
+    public static int hashCode(long[] data)
+    {
+        if (data == null)
+        {
+            return 0;
+        }
+
+        int i = data.length;
+        int hc = i + 1;
+
+        while (--i >= 0)
+        {
+            long di = data[i];
+            hc *= 257;
+            hc ^= (int)di;
+            hc *= 257;
+            hc ^= (int)(di >>> 32);
+        }
+
+        return hc;
+    }
+
+    public static int hashCode(long[] data, int off, int len)
+    {
+        if (data == null)
+        {
+            return 0;
+        }
+
+        int i = len;
+        int hc = i + 1;
+
+        while (--i >= 0)
+        {
+            long di = data[off + i];
+            hc *= 257;
+            hc ^= (int)di;
+            hc *= 257;
+            hc ^= (int)(di >>> 32);
+        }
+
+        return hc;
+    }
+
     public static int hashCode(short[][][] shorts)
     {
         int hc = 0;
@@ -482,6 +526,19 @@ public final class Arrays
             return null;
         }
         byte[] copy = new byte[data.length];
+
+        System.arraycopy(data, 0, copy, 0, data.length);
+
+        return copy;
+    }
+
+    public static char[] clone(char[] data)
+    {
+        if (data == null)
+        {
+            return null;
+        }
+        char[] copy = new char[data.length];
 
         System.arraycopy(data, 0, copy, 0, data.length);
 
@@ -852,6 +909,10 @@ public final class Arrays
 
             return rv;
         }
+        else if (a == null)
+        {
+            return concatenate(b, c);
+        }
         else if (b == null)
         {
             return concatenate(a, c);
@@ -970,6 +1031,24 @@ public final class Arrays
         return result;
     }
 
+    public static int[] reverse(int[] a)
+    {
+        if (a == null)
+        {
+            return null;
+        }
+
+        int p1 = 0, p2 = a.length;
+        int[] result = new int[p2];
+
+        while (--p2 >= 0)
+        {
+            result[p2] = a[p1++];
+        }
+
+        return result;
+    }
+
     /**
      * Iterator backed by a specific array.
      */
@@ -1000,6 +1079,11 @@ public final class Arrays
 
         public T next()
         {
+            if (position == dataArray.length)
+            {
+                throw new NoSuchElementException("Out of elements: " + position);
+            }
+
             return dataArray[position++];
         }
 

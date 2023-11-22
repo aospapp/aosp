@@ -16,10 +16,14 @@
 
 package android.databinding.tool.processing;
 
-import org.apache.commons.lang3.StringUtils;
+
+import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
 
 import android.databinding.tool.store.Location;
 import android.databinding.tool.util.L;
+import android.databinding.tool.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,7 +44,8 @@ public class ScopedException extends RuntimeException {
     private String mScopeLog;
 
     public ScopedException(String message, Object... args) {
-        super(message == null ? "unknown data binding exception" : String.format(message, args));
+        super(message == null ? "unknown data binding exception" :
+                args.length == 0 ? message : String.format(message, args));
         mScopedErrorReport = Scope.createReport();
         mScopeLog = L.isDebugEnabled() ? Scope.produceScopeLog() : null;
     }
@@ -84,7 +89,7 @@ public class ScopedException extends RuntimeException {
             }
         }
         sb.append(ERROR_LOG_SUFFIX);
-        return StringUtils.join(StringUtils.split(sb.toString(), System.lineSeparator()), " ");
+        return Joiner.on(' ').join(Splitter.on(StringUtils.LINE_SEPARATOR).split(sb));
     }
 
     public ScopedErrorReport getScopedErrorReport() {
@@ -98,7 +103,7 @@ public class ScopedException extends RuntimeException {
     public static ScopedException createFromOutput(String output) {
         String message = "";
         String file = "";
-        List<Location> locations = new ArrayList<>();
+        List<Location> locations = new ArrayList<Location>();
         int msgStart = output.indexOf(MSG_KEY);
         if (msgStart < 0) {
             message = output;
@@ -133,11 +138,11 @@ public class ScopedException extends RuntimeException {
             }
         }
         return new ScopedException(message.trim(),
-                new ScopedErrorReport(StringUtils.isEmpty(file) ? null : file.trim(), locations));
+                new ScopedErrorReport(Strings.isNullOrEmpty(file) ? null : file.trim(), locations));
     }
 
     public static List<ScopedException> extractErrors(String output) {
-        List<ScopedException> errors = new ArrayList<>();
+        List<ScopedException> errors = new ArrayList<ScopedException>();
         int index = output.indexOf(ERROR_LOG_PREFIX);
         final int limit = output.length();
         while (index >= 0 && index < limit) {
@@ -156,5 +161,9 @@ public class ScopedException extends RuntimeException {
 
     public static void encodeOutput(boolean encodeOutput) {
         sEncodeOutput = encodeOutput;
+    }
+
+    public static boolean issEncodeOutput() {
+        return sEncodeOutput;
     }
 }

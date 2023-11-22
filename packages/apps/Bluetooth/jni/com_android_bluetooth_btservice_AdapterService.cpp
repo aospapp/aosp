@@ -31,6 +31,8 @@
 
 namespace android {
 
+#define OOB_TK_SIZE 16
+
 #define ADDITIONAL_NREFS 50
 static jmethodID method_stateChangeCallback;
 static jmethodID method_adapterPropertyChangedCallback;
@@ -45,6 +47,11 @@ static jmethodID method_setWakeAlarm;
 static jmethodID method_acquireWakeLock;
 static jmethodID method_releaseWakeLock;
 static jmethodID method_energyInfo;
+
+static struct {
+    jclass clazz;
+    jmethodID constructor;
+} android_bluetooth_UidTraffic;
 
 static const bt_interface_t *sBluetoothInterface = NULL;
 static const btsock_interface_t *sBluetoothSocketInterface = NULL;
@@ -287,7 +294,6 @@ static void device_found_callback(int num_properties, bt_property_t *properties)
 static void bond_state_changed_callback(bt_status_t status, bt_bdaddr_t *bd_addr,
                                         bt_bond_state_t state) {
     jbyteArray addr;
-    int i;
     if (!checkCallbackThread()) {
        ALOGE("Callback: '%s' is not called on the correct thread", __FUNCTION__);
        return;
@@ -313,7 +319,6 @@ static void acl_state_changed_callback(bt_status_t status, bt_bdaddr_t *bd_addr,
                                        bt_acl_state_t state)
 {
     jbyteArray addr;
-    int i;
     if (!checkCallbackThread()) {
        ALOGE("Callback: '%s' is not called on the correct thread", __FUNCTION__);
        return;
@@ -336,7 +341,6 @@ static void acl_state_changed_callback(bt_status_t status, bt_bdaddr_t *bd_addr,
 }
 
 static void discovery_state_changed_callback(bt_discovery_state_t state) {
-    jbyteArray addr;
     if (!checkCallbackThread()) {
        ALOGE("Callback: '%s' is not called on the correct thread", __FUNCTION__);
        return;
@@ -352,7 +356,8 @@ static void discovery_state_changed_callback(bt_discovery_state_t state) {
 
 static void pin_request_callback(bt_bdaddr_t *bd_addr, bt_bdname_t *bdname, uint32_t cod,
         bool min_16_digits) {
-    jbyteArray addr, devname;
+    jbyteArray addr = NULL;
+    jbyteArray devname = NULL;
     if (!checkCallbackThread()) {
        ALOGE("Callback: '%s' is not called on the correct thread", __FUNCTION__);
        return;
@@ -387,7 +392,8 @@ Fail:
 
 static void ssp_request_callback(bt_bdaddr_t *bd_addr, bt_bdname_t *bdname, uint32_t cod,
                                  bt_ssp_variant_t pairing_variant, uint32_t pass_key) {
-    jbyteArray addr, devname;
+    jbyteArray addr = NULL;
+    jbyteArray devname = NULL;
     if (!checkCallbackThread()) {
        ALOGE("Callback: '%s' is not called on the correct thread", __FUNCTION__);
        return;
@@ -447,18 +453,36 @@ static void le_test_mode_recv_callback (bt_status_t status, uint16_t packet_coun
     ALOGV("%s: status:%d packet_count:%d ", __FUNCTION__, status, packet_count);
 }
 
-static void energy_info_recv_callback(bt_activity_energy_info *p_energy_info)
+static void energy_info_recv_callback(bt_activity_energy_info *p_energy_info,
+                                      bt_uid_traffic_t* uid_data)
 {
     if (!checkCallbackThread()) {
        ALOGE("Callback: '%s' is not called on the correct thread", __FUNCTION__);
        return;
     }
 
+    jsize len = 0;
+    for (bt_uid_traffic_t* data = uid_data; data->app_uid != -1; data++) {
+        len++;
+    }
+
+    jobjectArray array = callbackEnv->NewObjectArray(len, android_bluetooth_UidTraffic.clazz, NULL);
+    jsize i = 0;
+    for (bt_uid_traffic_t* data = uid_data; data->app_uid != -1; data++) {
+        jobject uidObj = callbackEnv->NewObject(android_bluetooth_UidTraffic.clazz,
+                                                android_bluetooth_UidTraffic.constructor,
+                                                (jint) data->app_uid, (jlong) data->rx_bytes,
+                                                (jlong) data->tx_bytes);
+        callbackEnv->SetObjectArrayElement(array, i++, uidObj);
+        callbackEnv->DeleteLocalRef(uidObj);
+    }
+
     callbackEnv->CallVoidMethod(sJniAdapterServiceObj, method_energyInfo, p_energy_info->status,
         p_energy_info->ctrl_state, p_energy_info->tx_time, p_energy_info->rx_time,
-        p_energy_info->idle_time, p_energy_info->energy_used);
+        p_energy_info->idle_time, p_energy_info->energy_used, array);
 
     checkAndClearExceptionFromCallback(callbackEnv, __FUNCTION__);
+    callbackEnv->DeleteLocalRef(array);
 }
 
 static bt_callbacks_t sBluetoothCallbacks = {
@@ -486,7 +510,7 @@ static void *sAlarmCallbackData;
 
 static JavaVMAttachArgs sAttachArgs = {
   .version = JNI_VERSION_1_6,
-  .name = "bluedroid wake/alarm thread",
+  .name = "bluetooth wake",
   .group = NULL
 };
 
@@ -530,54 +554,62 @@ static int acquire_wake_lock_callout(const char *lock_name) {
     jint status = vm->GetEnv((void **)&env, JNI_VERSION_1_6);
     if (status != JNI_OK && status != JNI_EDETACHED) {
         ALOGE("%s unable to get environment for JNI call", __func__);
-        return BT_STATUS_FAIL;
+        return BT_STATUS_JNI_ENVIRONMENT_ERROR;
     }
     if (status == JNI_EDETACHED && vm->AttachCurrentThread(&env, &sAttachArgs) != 0) {
         ALOGE("%s unable to attach thread to VM", __func__);
-        return BT_STATUS_FAIL;
+        return BT_STATUS_JNI_THREAD_ATTACH_ERROR;
     }
 
-    jboolean ret = JNI_FALSE;
+    jint ret = BT_STATUS_SUCCESS;
     jstring lock_name_jni = env->NewStringUTF(lock_name);
     if (lock_name_jni) {
-        ret = env->CallBooleanMethod(sJniAdapterServiceObj, method_acquireWakeLock, lock_name_jni);
+        bool acquired = env->CallBooleanMethod(sJniAdapterServiceObj,
+                            method_acquireWakeLock, lock_name_jni);
+        if (!acquired) ret = BT_STATUS_WAKELOCK_ERROR;
         env->DeleteLocalRef(lock_name_jni);
     } else {
         ALOGE("%s unable to allocate string: %s", __func__, lock_name);
+        ret = BT_STATUS_NOMEM;
     }
 
     if (status == JNI_EDETACHED) {
         vm->DetachCurrentThread();
     }
 
-    return ret ? BT_STATUS_SUCCESS : BT_STATUS_FAIL;
+    return ret;
 }
 
 static int release_wake_lock_callout(const char *lock_name) {
     JNIEnv *env;
     JavaVM *vm = AndroidRuntime::getJavaVM();
     jint status = vm->GetEnv((void **)&env, JNI_VERSION_1_6);
-
     if (status != JNI_OK && status != JNI_EDETACHED) {
         ALOGE("%s unable to get environment for JNI call", __func__);
-        return BT_STATUS_FAIL;
+        return BT_STATUS_JNI_ENVIRONMENT_ERROR;
     }
     if (status == JNI_EDETACHED && vm->AttachCurrentThread(&env, &sAttachArgs) != 0) {
         ALOGE("%s unable to attach thread to VM", __func__);
-        return BT_STATUS_FAIL;
+        return BT_STATUS_JNI_THREAD_ATTACH_ERROR;
     }
-    jboolean ret = JNI_FALSE;
+
+    jint ret = BT_STATUS_SUCCESS;
     jstring lock_name_jni = env->NewStringUTF(lock_name);
     if (lock_name_jni) {
-        ret = env->CallBooleanMethod(sJniAdapterServiceObj, method_releaseWakeLock, lock_name_jni);
+        bool released = env->CallBooleanMethod(sJniAdapterServiceObj,
+                            method_releaseWakeLock, lock_name_jni);
+        if (!released) ret = BT_STATUS_WAKELOCK_ERROR;
         env->DeleteLocalRef(lock_name_jni);
     } else {
         ALOGE("%s unable to allocate string: %s", __func__, lock_name);
+        ret = BT_STATUS_NOMEM;
     }
+
     if (status == JNI_EDETACHED) {
         vm->DetachCurrentThread();
     }
-    return ret ? BT_STATUS_SUCCESS : BT_STATUS_FAIL;
+
+    return ret;
 }
 
 // Called by Java code when alarm is fired. A wake lock is held by the caller
@@ -602,6 +634,11 @@ static bt_os_callouts_t sBluetoothOsCallouts = {
 static void classInitNative(JNIEnv* env, jclass clazz) {
     int err;
     hw_module_t* module;
+
+
+    jclass jniUidTrafficClass = env->FindClass("android/bluetooth/UidTraffic");
+    android_bluetooth_UidTraffic.constructor = env->GetMethodID(jniUidTrafficClass,
+                                                                "<init>", "(IJJ)V");
 
     jclass jniCallbackClass =
         env->FindClass("com/android/bluetooth/btservice/JniCallbacks");
@@ -634,7 +671,7 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
     method_setWakeAlarm = env->GetMethodID(clazz, "setWakeAlarm", "(JZ)Z");
     method_acquireWakeLock = env->GetMethodID(clazz, "acquireWakeLock", "(Ljava/lang/String;)Z");
     method_releaseWakeLock = env->GetMethodID(clazz, "releaseWakeLock", "(Ljava/lang/String;)Z");
-    method_energyInfo = env->GetMethodID(clazz, "energyInfoCallback", "(IIJJJJ)V");
+    method_energyInfo = env->GetMethodID(clazz, "energyInfoCallback", "(IIJJJJ[Landroid/bluetooth/UidTraffic;)V");
 
     char value[PROPERTY_VALUE_MAX];
     property_get("bluetooth.mock_stack", value, "");
@@ -659,6 +696,9 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
 
 static bool initNative(JNIEnv* env, jobject obj) {
     ALOGV("%s:",__FUNCTION__);
+
+    android_bluetooth_UidTraffic.clazz = (jclass) env->NewGlobalRef(
+            env->FindClass("android/bluetooth/UidTraffic"));
 
     sJniAdapterServiceObj = env->NewGlobalRef(obj);
     sJniCallbacksObj = env->NewGlobalRef(env->GetObjectField(obj, sJniCallbacksField));
@@ -699,16 +739,17 @@ static bool cleanupNative(JNIEnv *env, jobject obj) {
 
     env->DeleteGlobalRef(sJniCallbacksObj);
     env->DeleteGlobalRef(sJniAdapterServiceObj);
+    env->DeleteGlobalRef(android_bluetooth_UidTraffic.clazz);
+    android_bluetooth_UidTraffic.clazz = NULL;
     return JNI_TRUE;
 }
 
-static jboolean enableNative(JNIEnv* env, jobject obj) {
+static jboolean enableNative(JNIEnv* env, jobject obj, jboolean isGuest) {
     ALOGV("%s:",__FUNCTION__);
 
     jboolean result = JNI_FALSE;
     if (!sBluetoothInterface) return result;
-
-    int ret = sBluetoothInterface->enable();
+    int ret = sBluetoothInterface->enable(isGuest == JNI_TRUE ? 1 : 0);
     result = (ret == BT_STATUS_SUCCESS || ret == BT_STATUS_DONE) ? JNI_TRUE : JNI_FALSE;
     return result;
 }
@@ -767,6 +808,56 @@ static jboolean createBondNative(JNIEnv* env, jobject obj, jbyteArray address, j
     int ret = sBluetoothInterface->create_bond((bt_bdaddr_t *)addr, transport);
     env->ReleaseByteArrayElements(address, addr, 0);
     result = (ret == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
+
+    return result;
+}
+
+static jbyteArray callByteArrayGetter(JNIEnv* env, jobject object,
+                                      const char* className,
+                                      const char* methodName) {
+    jclass myClass = env->FindClass(className);
+    jmethodID myMethod = env->GetMethodID(myClass, methodName, "()[B");
+    return (jbyteArray) env->CallObjectMethod(object, myMethod);
+}
+
+static jboolean createBondOutOfBandNative(JNIEnv* env, jobject obj, jbyteArray address,
+                jint transport, jobject oobData) {
+    jbyte *addr;
+    jboolean result = JNI_FALSE;
+    bt_out_of_band_data_t oob_data;
+
+    memset(&oob_data, 0, sizeof(oob_data));
+
+    if (!sBluetoothInterface) return result;
+
+    addr = env->GetByteArrayElements(address, NULL);
+    if (addr == NULL) {
+        jniThrowIOException(env, EINVAL);
+        return result;
+    }
+
+    jbyte* smTKBytes = NULL;
+    jbyteArray smTK = callByteArrayGetter(env, oobData, "android/bluetooth/OobData", "getSecurityManagerTk");
+    if (smTK != NULL) {
+        smTKBytes = env->GetByteArrayElements(smTK, NULL);
+        int len = env->GetArrayLength(smTK);
+        if (len != OOB_TK_SIZE) {
+            ALOGI("%s: wrong length of smTK, should be empty or %d bytes.", __FUNCTION__, OOB_TK_SIZE);
+            jniThrowIOException(env, EINVAL);
+            goto done;
+        }
+        memcpy(oob_data.sm_tk, smTKBytes, len);
+    }
+
+    if (sBluetoothInterface->create_bond_out_of_band((bt_bdaddr_t *)addr, transport, &oob_data)
+        == BT_STATUS_SUCCESS)
+        result = JNI_TRUE;
+
+done:
+    env->ReleaseByteArrayElements(address, addr, 0);
+
+    if (smTK != NULL)
+        env->ReleaseByteArrayElements(smTK, smTKBytes, 0);
 
     return result;
 }
@@ -1002,7 +1093,7 @@ static jboolean getRemoteServicesNative(JNIEnv *env, jobject obj, jbyteArray add
 }
 
 static int connectSocketNative(JNIEnv *env, jobject object, jbyteArray address, jint type,
-                                   jbyteArray uuidObj, jint channel, jint flag) {
+                                   jbyteArray uuidObj, jint channel, jint flag, jint callingUid) {
     jbyte *addr = NULL, *uuid = NULL;
     int socket_fd;
     bt_status_t status;
@@ -1024,7 +1115,8 @@ static int connectSocketNative(JNIEnv *env, jobject object, jbyteArray address, 
     }
 
     if ( (status = sBluetoothSocketInterface->connect((bt_bdaddr_t *) addr, (btsock_type_t) type,
-                       (const uint8_t*) uuid, channel, &socket_fd, flag)) != BT_STATUS_SUCCESS) {
+                       (const uint8_t*) uuid, channel, &socket_fd, flag, callingUid))
+            != BT_STATUS_SUCCESS) {
         ALOGE("Socket connection failed: %d", status);
         goto Fail;
     }
@@ -1047,7 +1139,7 @@ Fail:
 
 static int createSocketChannelNative(JNIEnv *env, jobject object, jint type,
                                      jstring name_str, jbyteArray uuidObj,
-                                     jint channel, jint flag) {
+                                     jint channel, jint flag, jint callingUid) {
     const char *service_name = NULL;
     jbyte *uuid = NULL;
     int socket_fd;
@@ -1069,7 +1161,8 @@ static int createSocketChannelNative(JNIEnv *env, jobject object, jint type,
         }
     }
     if ( (status = sBluetoothSocketInterface->listen((btsock_type_t) type, service_name,
-                       (const uint8_t*) uuid, channel, &socket_fd, flag)) != BT_STATUS_SUCCESS) {
+                       (const uint8_t*) uuid, channel, &socket_fd, flag, callingUid))
+            != BT_STATUS_SUCCESS) {
         ALOGE("Socket listen failed: %d", status);
         goto Fail;
     }
@@ -1112,7 +1205,8 @@ static int readEnergyInfo()
     return result;
 }
 
-static void dumpNative(JNIEnv *env, jobject obj, jobject fdObj)
+static void dumpNative(JNIEnv *env, jobject obj, jobject fdObj,
+                       jobjectArray argArray)
 {
     ALOGV("%s()", __FUNCTION__);
     if (!sBluetoothInterface) return;
@@ -1120,7 +1214,26 @@ static void dumpNative(JNIEnv *env, jobject obj, jobject fdObj)
     int fd = jniGetFDFromFileDescriptor(env, fdObj);
     if (fd < 0) return;
 
-    sBluetoothInterface->dump(fd);
+    int numArgs = env->GetArrayLength(argArray);
+
+    jstring *argObjs = new jstring[numArgs];
+    const char **args = nullptr;
+    if (numArgs > 0)
+      args = new const char*[numArgs];
+
+    for (int i = 0; i < numArgs; i++) {
+      argObjs[i] = (jstring) env->GetObjectArrayElement(argArray, i);
+      args[i] = env->GetStringUTFChars(argObjs[i], NULL);
+    }
+
+    sBluetoothInterface->dump(fd, args);
+
+    for (int i = 0; i < numArgs; i++) {
+      env->ReleaseStringUTFChars(argObjs[i], args[i]);
+    }
+
+    delete[] args;
+    delete[] argObjs;
 }
 
 static jboolean factoryResetNative(JNIEnv *env, jobject obj) {
@@ -1130,12 +1243,33 @@ static jboolean factoryResetNative(JNIEnv *env, jobject obj) {
     return (ret == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
 }
 
+static void interopDatabaseClearNative(JNIEnv *env, jobject obj) {
+    ALOGV("%s()", __FUNCTION__);
+    if (!sBluetoothInterface) return;
+    sBluetoothInterface->interop_database_clear();
+}
+
+static void interopDatabaseAddNative(JNIEnv *env, jobject obj, int feature,
+                                      jbyteArray address, int length) {
+    ALOGV("%s()", __FUNCTION__);
+    if (!sBluetoothInterface) return;
+
+    jbyte *addr = env->GetByteArrayElements(address, NULL);
+    if (addr == NULL) {
+        jniThrowIOException(env, EINVAL);
+        return;
+    }
+
+    sBluetoothInterface->interop_database_add(feature, (bt_bdaddr_t *)addr, length);
+    env->ReleaseByteArrayElements(address, addr, 0);
+}
+
 static JNINativeMethod sMethods[] = {
     /* name, signature, funcPtr */
     {"classInitNative", "()V", (void *) classInitNative},
     {"initNative", "()Z", (void *) initNative},
     {"cleanupNative", "()V", (void*) cleanupNative},
-    {"enableNative", "()Z",  (void*) enableNative},
+    {"enableNative", "(Z)Z",  (void*) enableNative},
     {"disableNative", "()Z",  (void*) disableNative},
     {"setAdapterPropertyNative", "(I[B)Z", (void*) setAdapterPropertyNative},
     {"getAdapterPropertiesNative", "()Z", (void*) getAdapterPropertiesNative},
@@ -1145,20 +1279,23 @@ static JNINativeMethod sMethods[] = {
     {"startDiscoveryNative", "()Z", (void*) startDiscoveryNative},
     {"cancelDiscoveryNative", "()Z", (void*) cancelDiscoveryNative},
     {"createBondNative", "([BI)Z", (void*) createBondNative},
+    {"createBondOutOfBandNative", "([BILandroid/bluetooth/OobData;)Z", (void*) createBondOutOfBandNative},
     {"removeBondNative", "([B)Z", (void*) removeBondNative},
     {"cancelBondNative", "([B)Z", (void*) cancelBondNative},
     {"getConnectionStateNative", "([B)I", (void*) getConnectionStateNative},
     {"pinReplyNative", "([BZI[B)Z", (void*) pinReplyNative},
     {"sspReplyNative", "([BIZI)Z", (void*) sspReplyNative},
     {"getRemoteServicesNative", "([B)Z", (void*) getRemoteServicesNative},
-    {"connectSocketNative", "([BI[BII)I", (void*) connectSocketNative},
-    {"createSocketChannelNative", "(ILjava/lang/String;[BII)I",
+    {"connectSocketNative", "([BI[BIII)I", (void*) connectSocketNative},
+    {"createSocketChannelNative", "(ILjava/lang/String;[BIII)I",
      (void*) createSocketChannelNative},
     {"configHciSnoopLogNative", "(Z)Z", (void*) configHciSnoopLogNative},
     {"alarmFiredNative", "()V", (void *) alarmFiredNative},
     {"readEnergyInfo", "()I", (void*) readEnergyInfo},
-    {"dumpNative", "(Ljava/io/FileDescriptor;)V", (void*) dumpNative},
-    {"factoryResetNative", "()Z", (void*)factoryResetNative}
+    {"dumpNative", "(Ljava/io/FileDescriptor;[Ljava/lang/String;)V", (void*) dumpNative},
+    {"factoryResetNative", "()Z", (void*)factoryResetNative},
+    {"interopDatabaseClearNative", "()V", (void*) interopDatabaseClearNative},
+    {"interopDatabaseAddNative", "(I[BI)V", (void*) interopDatabaseAddNative}
 };
 
 int register_com_android_bluetooth_btservice_AdapterService(JNIEnv* env)

@@ -16,26 +16,38 @@
 
 package com.android.server.wifi;
 
-import com.android.internal.app.IBatteryStats;
-import com.android.internal.util.Protocol;
-
-import android.support.v4.util.CircularArray;
 import android.util.Base64;
-import android.util.LocalLog;
 import android.util.Log;
 
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.server.wifi.util.ByteArrayRingBuffer;
+import com.android.server.wifi.util.StringUtil;
+
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.FileDescriptor;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.lang.StringBuilder;
+import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.zip.Deflater;
 
 /**
- * Tracks various logs for framework
+ * Tracks various logs for framework.
  */
-class WifiLogger  {
+class WifiLogger extends BaseWifiLogger {
+    /**
+     * Thread-safety:
+     * 1) All non-private methods are |synchronized|.
+     * 2) Callbacks into WifiLogger use non-private (and hence, synchronized) methods. See, e.g,
+     *    onRingBufferData(), onWifiAlert().
+     */
 
     private static final String TAG = "WifiLogger";
     private static final boolean DBG = false;
@@ -66,9 +78,6 @@ class WifiLogger  {
     public static final int REPORT_REASON_SCAN_FAILURE              = 6;
     public static final int REPORT_REASON_USER_ACTION               = 7;
 
-    /** number of ring buffer entries to cache */
-    public static final int MAX_RING_BUFFERS                        = 10;
-
     /** number of bug reports to hold */
     public static final int MAX_BUG_REPORTS                         = 4;
 
@@ -80,38 +89,68 @@ class WifiLogger  {
     /** minimum buffer size for each of the log levels */
     private static final int MinBufferSizes[] = new int[] { 0, 16384, 16384, 65536 };
 
+    @VisibleForTesting public static final int RING_BUFFER_BYTE_LIMIT_SMALL = 32 * 1024;
+    @VisibleForTesting public static final int RING_BUFFER_BYTE_LIMIT_LARGE = 1024 * 1024;
+    @VisibleForTesting public static final String FIRMWARE_DUMP_SECTION_HEADER =
+            "FW Memory dump";
+    @VisibleForTesting public static final String DRIVER_DUMP_SECTION_HEADER =
+            "Driver state dump";
+
     private int mLogLevel = VERBOSE_NO_LOG;
-    private String mFirmwareVersion;
-    private String mDriverVersion;
-    private int mSupportedFeatureSet;
+    private boolean mIsLoggingEventHandlerRegistered;
     private WifiNative.RingBufferStatus[] mRingBuffers;
     private WifiNative.RingBufferStatus mPerPacketRingBuffer;
     private WifiStateMachine mWifiStateMachine;
+    private final WifiNative mWifiNative;
+    private final BuildProperties mBuildProperties;
+    private int mMaxRingBufferSizeBytes = RING_BUFFER_BYTE_LIMIT_SMALL;
 
-    public WifiLogger(WifiStateMachine wifiStateMachine) {
+    public WifiLogger(
+            WifiStateMachine wifiStateMachine, WifiNative wifiNative,
+            BuildProperties buildProperties) {
         mWifiStateMachine = wifiStateMachine;
+        mWifiNative = wifiNative;
+        mBuildProperties = buildProperties;
+        mIsLoggingEventHandlerRegistered = false;
     }
 
+    @Override
     public synchronized void startLogging(boolean verboseEnabled) {
-        mFirmwareVersion = WifiNative.getFirmwareVersion();
-        mDriverVersion = WifiNative.getDriverVersion();
-        mSupportedFeatureSet = WifiNative.getSupportedLoggerFeatureSet();
+        mFirmwareVersion = mWifiNative.getFirmwareVersion();
+        mDriverVersion = mWifiNative.getDriverVersion();
+        mSupportedFeatureSet = mWifiNative.getSupportedLoggerFeatureSet();
 
-        if (mLogLevel == VERBOSE_NO_LOG)
-            WifiNative.setLoggingEventHandler(mHandler);
+        if (!mIsLoggingEventHandlerRegistered) {
+            mIsLoggingEventHandlerRegistered = mWifiNative.setLoggingEventHandler(mHandler);
+        }
 
         if (verboseEnabled) {
             mLogLevel = VERBOSE_LOG_WITH_WAKEUP;
+            mMaxRingBufferSizeBytes = RING_BUFFER_BYTE_LIMIT_LARGE;
         } else {
             mLogLevel = VERBOSE_NORMAL_LOG;
+            mMaxRingBufferSizeBytes = enableVerboseLoggingForDogfood()
+                    ? RING_BUFFER_BYTE_LIMIT_LARGE : RING_BUFFER_BYTE_LIMIT_SMALL;
+            clearVerboseLogs();
         }
+
         if (mRingBuffers == null) {
-            if (fetchRingBuffers()) {
-                startLoggingAllExceptPerPacketBuffers();
-            }
+            fetchRingBuffers();
+        }
+
+        if (mRingBuffers != null) {
+            /* log level may have changed, so restart logging with new levels */
+            stopLoggingAllBuffers();
+            resizeRingBuffers();
+            startLoggingAllExceptPerPacketBuffers();
+        }
+
+        if (!mWifiNative.startPktFateMonitoring()) {
+            Log.e(TAG, "Failed to start packet fate monitoring");
         }
     }
 
+    @Override
     public synchronized void startPacketLog() {
         if (mPerPacketRingBuffer != null) {
             startLoggingRingBuffer(mPerPacketRingBuffer);
@@ -120,6 +159,7 @@ class WifiLogger  {
         }
     }
 
+    @Override
     public synchronized void stopPacketLog() {
         if (mPerPacketRingBuffer != null) {
             stopLoggingRingBuffer(mPerPacketRingBuffer);
@@ -128,37 +168,46 @@ class WifiLogger  {
         }
     }
 
+    @Override
     public synchronized void stopLogging() {
-        if (mLogLevel != VERBOSE_NO_LOG) {
-            //resetLogHandler only can be used when you terminate all logging since all handler will
-            //be removed. This also stop alert logging
-            if(!WifiNative.resetLogHandler()) {
+        if (mIsLoggingEventHandlerRegistered) {
+            if (!mWifiNative.resetLogHandler()) {
                 Log.e(TAG, "Fail to reset log handler");
             } else {
-                if (DBG) Log.d(TAG,"Reset log handler");
+                if (DBG) Log.d(TAG, "Reset log handler");
             }
+            // Clear mIsLoggingEventHandlerRegistered even if resetLogHandler() failed, because
+            // the log handler is in an indeterminate state.
+            mIsLoggingEventHandlerRegistered = false;
+        }
+        if (mLogLevel != VERBOSE_NO_LOG) {
             stopLoggingAllBuffers();
             mRingBuffers = null;
             mLogLevel = VERBOSE_NO_LOG;
         }
     }
 
+    @Override
+    synchronized void reportConnectionFailure() {
+        mPacketFatesForLastFailure = fetchPacketFates();
+    }
+
+    @Override
     public synchronized void captureBugReportData(int reason) {
-        BugReport report = captureBugreport(reason, true);
+        BugReport report = captureBugreport(reason, isVerboseLoggingEnabled());
         mLastBugReports.addLast(report);
     }
 
+    @Override
     public synchronized void captureAlertData(int errorCode, byte[] alertData) {
-        BugReport report = captureBugreport(errorCode, /* captureFWDump = */ true);
+        BugReport report = captureBugreport(errorCode, isVerboseLoggingEnabled());
         report.alertData = alertData;
         mLastAlerts.addLast(report);
     }
 
+    @Override
     public synchronized void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
-        pw.println("Chipset information :-----------------------------------------------");
-        pw.println("FW Version is: " + mFirmwareVersion);
-        pw.println("Driver Version is: " + mDriverVersion);
-        pw.println("Supported Feature set: " + mSupportedFeatureSet);
+        super.dump(pw);
 
         for (int i = 0; i < mLastAlerts.size(); i++) {
             pw.println("--------------------------------------------------------------------");
@@ -174,17 +223,27 @@ class WifiLogger  {
             pw.println("--------------------------------------------------------------------");
         }
 
+        dumpPacketFates(pw);
+
         pw.println("--------------------------------------------------------------------");
     }
 
     /* private methods and data */
-    private static class BugReport {
+    class BugReport {
         long systemTimeMs;
         long kernelTimeNanos;
         int errorCode;
         HashMap<String, byte[][]> ringBuffers = new HashMap();
         byte[] fwMemoryDump;
+        byte[] mDriverStateDump;
         byte[] alertData;
+        LimitedCircularArray<String> kernelLogLines;
+        ArrayList<String> logcatLines;
+
+        void clearVerboseLogs() {
+            fwMemoryDump = null;
+            mDriverStateDump = null;
+        }
 
         public String toString() {
             StringBuilder builder = new StringBuilder();
@@ -204,6 +263,22 @@ class WifiLogger  {
                 builder.append("errorCode = ").append(errorCode);
                 builder.append("data \n");
                 builder.append(compressToBase64(alertData)).append("\n");
+            }
+
+            if (kernelLogLines != null) {
+                builder.append("kernel log: \n");
+                for (int i = 0; i < kernelLogLines.size(); i++) {
+                    builder.append(kernelLogLines.get(i)).append("\n");
+                }
+                builder.append("\n");
+            }
+
+            if (logcatLines != null) {
+                builder.append("system log: \n");
+                for (int i = 0; i < logcatLines.size(); i++) {
+                    builder.append(logcatLines.get(i)).append("\n");
+                }
+                builder.append("\n");
             }
 
             for (HashMap.Entry<String, byte[][]> e : ringBuffers.entrySet()) {
@@ -228,34 +303,48 @@ class WifiLogger  {
             }
 
             if (fwMemoryDump != null) {
-                builder.append("FW Memory dump \n");
+                builder.append(FIRMWARE_DUMP_SECTION_HEADER);
+                builder.append("\n");
                 builder.append(compressToBase64(fwMemoryDump));
+                builder.append("\n");
+            }
+
+            if (mDriverStateDump != null) {
+                builder.append(DRIVER_DUMP_SECTION_HEADER);
+                if (StringUtil.isAsciiPrintable(mDriverStateDump)) {
+                    builder.append(" (ascii)\n");
+                    builder.append(new String(mDriverStateDump, Charset.forName("US-ASCII")));
+                    builder.append("\n");
+                } else {
+                    builder.append(" (base64)\n");
+                    builder.append(compressToBase64(mDriverStateDump));
+                }
             }
 
             return builder.toString();
         }
     }
 
-    static class LimitedCircularArray<E> {
-        private CircularArray<E> mArray;
+    class LimitedCircularArray<E> {
+        private ArrayList<E> mArrayList;
         private int mMax;
         LimitedCircularArray(int max) {
-            mArray = new CircularArray<E>();
+            mArrayList = new ArrayList<E>(max);
             mMax = max;
         }
 
         public final void addLast(E e) {
-            if (mArray.size() >= mMax)
-                mArray.popFirst();
-            mArray.addLast(e);
+            if (mArrayList.size() >= mMax)
+                mArrayList.remove(0);
+            mArrayList.add(e);
         }
 
         public final int size() {
-            return mArray.size();
+            return mArrayList.size();
         }
 
         public final E get(int i) {
-            return mArray.get(i);
+            return mArrayList.get(i);
         }
     }
 
@@ -263,7 +352,7 @@ class WifiLogger  {
             new LimitedCircularArray<BugReport>(MAX_ALERT_REPORTS);
     private final LimitedCircularArray<BugReport> mLastBugReports =
             new LimitedCircularArray<BugReport>(MAX_BUG_REPORTS);
-    private final HashMap<String, LimitedCircularArray<byte[]>> mRingBufferData = new HashMap();
+    private final HashMap<String, ByteArrayRingBuffer> mRingBufferData = new HashMap();
 
     private final WifiNative.WifiLoggerEventHandler mHandler =
             new WifiNative.WifiLoggerEventHandler() {
@@ -279,9 +368,9 @@ class WifiLogger  {
     };
 
     synchronized void onRingBufferData(WifiNative.RingBufferStatus status, byte[] buffer) {
-        LimitedCircularArray<byte[]> ring = mRingBufferData.get(status.name);
+        ByteArrayRingBuffer ring = mRingBufferData.get(status.name);
         if (ring != null) {
-            ring.addLast(buffer);
+            ring.appendBuffer(buffer);
         }
     }
 
@@ -292,16 +381,32 @@ class WifiLogger  {
         }
     }
 
+    private boolean isVerboseLoggingEnabled() {
+        return mLogLevel > VERBOSE_NORMAL_LOG;
+    }
+
+    private void clearVerboseLogs() {
+        mPacketFatesForLastFailure = null;
+
+        for (int i = 0; i < mLastAlerts.size(); i++) {
+            mLastAlerts.get(i).clearVerboseLogs();
+        }
+
+        for (int i = 0; i < mLastBugReports.size(); i++) {
+            mLastBugReports.get(i).clearVerboseLogs();
+        }
+    }
+
     private boolean fetchRingBuffers() {
         if (mRingBuffers != null) return true;
 
-        mRingBuffers = WifiNative.getRingBufferStatus();
+        mRingBuffers = mWifiNative.getRingBufferStatus();
         if (mRingBuffers != null) {
             for (WifiNative.RingBufferStatus buffer : mRingBuffers) {
                 if (DBG) Log.d(TAG, "RingBufferStatus is: \n" + buffer.name);
                 if (mRingBufferData.containsKey(buffer.name) == false) {
                     mRingBufferData.put(buffer.name,
-                            new LimitedCircularArray<byte[]>(MAX_RING_BUFFERS));
+                            new ByteArrayRingBuffer(mMaxRingBufferSizeBytes));
                 }
                 if ((buffer.flag & RING_BUFFER_FLAG_HAS_PER_PACKET_ENTRIES) != 0) {
                     mPerPacketRingBuffer = buffer;
@@ -312,6 +417,12 @@ class WifiLogger  {
         }
 
         return mRingBuffers != null;
+    }
+
+    private void resizeRingBuffers() {
+        for (ByteArrayRingBuffer byteArrayRingBuffer : mRingBufferData.values()) {
+            byteArrayRingBuffer.resize(mMaxRingBufferSizeBytes);
+        }
     }
 
     private boolean startLoggingAllExceptPerPacketBuffers() {
@@ -340,7 +451,7 @@ class WifiLogger  {
         int minInterval = MinWakeupIntervals[mLogLevel];
         int minDataSize = MinBufferSizes[mLogLevel];
 
-        if (WifiNative.startLoggingRingBuffer(
+        if (mWifiNative.startLoggingRingBuffer(
                 mLogLevel, 0, minInterval, minDataSize, buffer.name) == false) {
             if (DBG) Log.e(TAG, "Could not start logging ring " + buffer.name);
             return false;
@@ -350,7 +461,7 @@ class WifiLogger  {
     }
 
     private boolean stopLoggingRingBuffer(WifiNative.RingBufferStatus buffer) {
-        if (WifiNative.startLoggingRingBuffer(0, 0, 0, 0, buffer.name) == false) {
+        if (mWifiNative.startLoggingRingBuffer(0, 0, 0, 0, buffer.name) == false) {
             if (DBG) Log.e(TAG, "Could not stop logging ring " + buffer.name);
         }
         return true;
@@ -372,7 +483,7 @@ class WifiLogger  {
         }
 
         for (WifiNative.RingBufferStatus element : mRingBuffers){
-            boolean result = WifiNative.getRingBufferData(element.name);
+            boolean result = mWifiNative.getRingBufferData(element.name);
             if (!result) {
                 Log.e(TAG, "Fail to get ring buffer data of: " + element.name);
                 return false;
@@ -381,6 +492,10 @@ class WifiLogger  {
 
         Log.d(TAG, "getAllRingBufferData Successfully!");
         return true;
+    }
+
+    private boolean enableVerboseLoggingForDogfood() {
+        return false;
     }
 
     private BugReport captureBugreport(int errorCode, boolean captureFWDump) {
@@ -392,20 +507,29 @@ class WifiLogger  {
         if (mRingBuffers != null) {
             for (WifiNative.RingBufferStatus buffer : mRingBuffers) {
                 /* this will push data in mRingBuffers */
-                WifiNative.getRingBufferData(buffer.name);
-                LimitedCircularArray<byte[]> data = mRingBufferData.get(buffer.name);
-                byte[][] buffers = new byte[data.size()][];
-                for (int i = 0; i < data.size(); i++) {
-                    buffers[i] = data.get(i).clone();
+                mWifiNative.getRingBufferData(buffer.name);
+                ByteArrayRingBuffer data = mRingBufferData.get(buffer.name);
+                byte[][] buffers = new byte[data.getNumBuffers()][];
+                for (int i = 0; i < data.getNumBuffers(); i++) {
+                    buffers[i] = data.getBuffer(i).clone();
                 }
                 report.ringBuffers.put(buffer.name, buffers);
             }
         }
 
+        report.logcatLines = getLogcat(127);
+        report.kernelLogLines = getKernelLog(127);
+
         if (captureFWDump) {
-            report.fwMemoryDump = WifiNative.getFwMemoryDump();
+            report.fwMemoryDump = mWifiNative.getFwMemoryDump();
+            report.mDriverStateDump = mWifiNative.getDriverStateDump();
         }
         return report;
+    }
+
+    @VisibleForTesting
+    LimitedCircularArray<BugReport> getBugReports() {
+        return mLastBugReports;
     }
 
     private static String compressToBase64(byte[] input) {
@@ -446,5 +570,110 @@ class WifiLogger  {
         }
 
         return result;
+    }
+
+    private ArrayList<String> getLogcat(int maxLines) {
+        ArrayList<String> lines = new ArrayList<String>(maxLines);
+        try {
+            Process process = Runtime.getRuntime().exec(String.format("logcat -t %d", maxLines));
+            BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream()));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                lines.add(line);
+            }
+            reader = new BufferedReader(
+                    new InputStreamReader(process.getErrorStream()));
+            while ((line = reader.readLine()) != null) {
+                lines.add(line);
+            }
+            process.waitFor();
+        } catch (InterruptedException|IOException e) {
+            Log.e(TAG, "Exception while capturing logcat" + e);
+        }
+        return lines;
+    }
+
+    private LimitedCircularArray<String> getKernelLog(int maxLines) {
+        if (DBG) Log.d(TAG, "Reading kernel log ...");
+        LimitedCircularArray<String> lines = new LimitedCircularArray<String>(maxLines);
+        String log = mWifiNative.readKernelLog();
+        String logLines[] = log.split("\n");
+        for (int i = 0; i < logLines.length; i++) {
+            lines.addLast(logLines[i]);
+        }
+        if (DBG) Log.d(TAG, "Added " + logLines.length + " lines");
+        return lines;
+    }
+
+    /** Packet fate reporting */
+    private ArrayList<WifiNative.FateReport> mPacketFatesForLastFailure;
+
+    private ArrayList<WifiNative.FateReport> fetchPacketFates() {
+        ArrayList<WifiNative.FateReport> mergedFates = new ArrayList<WifiNative.FateReport>();
+        WifiNative.TxFateReport[] txFates =
+                new WifiNative.TxFateReport[WifiLoggerHal.MAX_FATE_LOG_LEN];
+        if (mWifiNative.getTxPktFates(txFates)) {
+            for (int i = 0; i < txFates.length && txFates[i] != null; i++) {
+                mergedFates.add(txFates[i]);
+            }
+        }
+
+        WifiNative.RxFateReport[] rxFates =
+                new WifiNative.RxFateReport[WifiLoggerHal.MAX_FATE_LOG_LEN];
+        if (mWifiNative.getRxPktFates(rxFates)) {
+            for (int i = 0; i < rxFates.length && rxFates[i] != null; i++) {
+                mergedFates.add(rxFates[i]);
+            }
+        }
+
+        Collections.sort(mergedFates, new Comparator<WifiNative.FateReport>() {
+            @Override
+            public int compare(WifiNative.FateReport lhs, WifiNative.FateReport rhs) {
+                return Long.compare(lhs.mDriverTimestampUSec, rhs.mDriverTimestampUSec);
+            }
+        });
+
+        return mergedFates;
+    }
+
+    private void dumpPacketFates(PrintWriter pw) {
+        dumpPacketFatesInternal(pw, "Last failed connection fates", mPacketFatesForLastFailure,
+                isVerboseLoggingEnabled());
+        dumpPacketFatesInternal(pw, "Latest fates", fetchPacketFates(), isVerboseLoggingEnabled());
+    }
+
+    private static void dumpPacketFatesInternal(PrintWriter pw, String description,
+            ArrayList<WifiNative.FateReport> fates, boolean verbose) {
+        if (fates == null) {
+            pw.format("No fates fetched for \"%s\"\n", description);
+            return;
+        }
+
+        if (fates.size() == 0) {
+            pw.format("HAL provided zero fates for \"%s\"\n", description);
+            return;
+        }
+
+        pw.format("--------------------- %s ----------------------\n", description);
+
+        StringBuilder verboseOutput = new StringBuilder();
+        pw.print(WifiNative.FateReport.getTableHeader());
+        for (WifiNative.FateReport fate : fates) {
+            pw.print(fate.toTableRowString());
+            if (verbose) {
+                // Important: only print Personally Identifiable Information (PII) if verbose
+                // logging is turned on.
+                verboseOutput.append(fate.toVerboseStringWithPiiAllowed());
+                verboseOutput.append("\n");
+            }
+        }
+
+        if (verbose) {
+            pw.format("\n>>> VERBOSE PACKET FATE DUMP <<<\n\n");
+            pw.print(verboseOutput.toString());
+        }
+
+        pw.println("--------------------------------------------------------------------");
     }
 }

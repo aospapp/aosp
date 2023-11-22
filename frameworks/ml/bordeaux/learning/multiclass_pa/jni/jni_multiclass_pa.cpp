@@ -33,8 +33,8 @@ void CreateIndexValuePairs(const int* indices, const float* values,
   }
 }
 
-jlong Java_android_bordeaux_learning_MulticlassPA_initNativeClassifier(JNIEnv* env,
-                                                       jobject thiz,
+jlong Java_android_bordeaux_learning_MulticlassPA_initNativeClassifier(JNIEnv* /* env */,
+                                                       jobject /* thiz */,
                                                        jint num_classes,
                                                        jint num_dims,
                                                        jfloat aggressiveness) {
@@ -45,8 +45,8 @@ jlong Java_android_bordeaux_learning_MulticlassPA_initNativeClassifier(JNIEnv* e
 }
 
 
-jboolean Java_android_bordeaux_learning_MulticlassPA_deleteNativeClassifier(JNIEnv* env,
-                                                             jobject thiz,
+jboolean Java_android_bordeaux_learning_MulticlassPA_deleteNativeClassifier(JNIEnv* /* env */,
+                                                             jobject /* thiz */,
                                                              jlong paPtr) {
   MulticlassPA* classifier = (MulticlassPA*) paPtr;
   delete classifier;
@@ -54,7 +54,7 @@ jboolean Java_android_bordeaux_learning_MulticlassPA_deleteNativeClassifier(JNIE
 }
 
 jboolean Java_android_bordeaux_learning_MulticlassPA_nativeSparseTrainOneExample(JNIEnv* env,
-                                                                  jobject thiz,
+                                                                  jobject /* thiz */,
                                                                   jintArray index_array,
                                                                   jfloatArray value_array,
                                                                   jint target,
@@ -87,7 +87,7 @@ jboolean Java_android_bordeaux_learning_MulticlassPA_nativeSparseTrainOneExample
 
 
 jint Java_android_bordeaux_learning_MulticlassPA_nativeSparseGetClass(JNIEnv* env,
-                                                       jobject thiz,
+                                                       jobject /* thiz */,
                                                        jintArray index_array,
                                                        jfloatArray value_array,
                                                        jlong paPtr) {

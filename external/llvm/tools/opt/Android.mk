@@ -45,16 +45,16 @@ llvm_opt_STATIC_LIBRARIES := \
   libLLVMAsmPrinter \
   libLLVMSelectionDAG \
   libLLVMCodeGen \
-  libLLVMInstrumentation \
   libLLVMTransformObjCARC \
   libLLVMVectorize \
   libLLVMScalarOpts \
   libLLVMPasses \
-  libLLVMAnalysis \
   libLLVMipo \
-  libLLVMipa \
+  libLLVMLinker \
   libLLVMInstCombine \
+  libLLVMInstrumentation \
   libLLVMTransformUtils \
+  libLLVMAnalysis \
   libLLVMTarget \
   libLLVMMC \
   libLLVMMCParser \
@@ -75,19 +75,18 @@ LOCAL_IS_HOST_MODULE := true
 
 LOCAL_SRC_FILES := $(llvm_opt_SRC_FILES)
 LOCAL_STATIC_LIBRARIES := $(llvm_opt_STATIC_LIBRARIES)
-LOCAL_LDLIBS += -lpthread -lm -ldl
-ifeq ($(HOST_OS),darwin)
-LOCAL_LDFLAGS += -Wl,-export_dynamic
-else
-LOCAL_LDFLAGS += -Wl,--export-dynamic
-endif
+LOCAL_LDLIBS += -lpthread -ldl
+LOCAL_LDFLAGS_darwin := -Wl,-export_dynamic
+LOCAL_LDFLAGS_linux := -Wl,--export-dynamic
 
 include $(LLVM_ROOT_PATH)/llvm.mk
 include $(LLVM_HOST_BUILD_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
 include $(LLVM_GEN_INTRINSICS_MK)
 include $(BUILD_HOST_EXECUTABLE)
 
 
+ifneq (true,$(DISABLE_LLVM_DEVICE_BUILDS))
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := opt
@@ -96,9 +95,10 @@ LOCAL_MODULE_CLASS := EXECUTABLES
 
 LOCAL_SRC_FILES := $(llvm_opt_SRC_FILES)
 LOCAL_STATIC_LIBRARIES := $(llvm_opt_STATIC_LIBRARIES)
-LOCAL_SHARED_LIBRARIES := libdl
 
 include $(LLVM_ROOT_PATH)/llvm.mk
 include $(LLVM_DEVICE_BUILD_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
 include $(LLVM_GEN_INTRINSICS_MK)
 include $(BUILD_EXECUTABLE)
+endif

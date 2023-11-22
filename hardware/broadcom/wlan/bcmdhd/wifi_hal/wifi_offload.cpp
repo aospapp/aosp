@@ -205,8 +205,9 @@ wifi_error wifi_start_sending_offloaded_packet(wifi_request_id index, wifi_inter
             && (ip_packet_len <= MKEEP_ALIVE_IP_PKT_MAX)) {
         MKeepAliveCommand *cmd = new MKeepAliveCommand(iface, index, ip_packet, ip_packet_len,
                 src_mac_addr, dst_mac_addr, period_msec, START_MKEEP_ALIVE);
+        NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
         wifi_error result = (wifi_error)cmd->start();
-        delete cmd;
+        cmd->releaseRef();
         return result;
     } else {
         ALOGE("Invalid mkeep_alive parameters");
@@ -219,8 +220,9 @@ wifi_error wifi_stop_sending_offloaded_packet(wifi_request_id index, wifi_interf
 {
     if (index > 0 && index <= N_AVAIL_ID) {
         MKeepAliveCommand *cmd = new MKeepAliveCommand(iface, index, STOP_MKEEP_ALIVE);
+        NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
         wifi_error result = (wifi_error)cmd->start();
-        delete cmd;
+        cmd->releaseRef();
         return result;
     } else {
         ALOGE("Invalid mkeep_alive parameters");

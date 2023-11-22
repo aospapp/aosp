@@ -53,6 +53,10 @@ description:
 
  This function should only be called between 1D allocations.  Calling it
  on other allocations is undefined.
+
+ This function should not be called from inside a kernel, or from any function
+ that may be called directly or indirectly from a kernel. Doing so would cause a
+ runtime error.
 test: none
 end:
 
@@ -84,6 +88,10 @@ description:
 
  This function should only be called between 2D allocations.  Calling it
  on other allocations is undefined.
+
+ This function should not be called from inside a kernel, or from any function
+ that may be called directly or indirectly from a kernel. Doing so would cause a
+ runtime error.
 test: none
 end:
 
@@ -167,7 +175,7 @@ description:
  mono dimensional allocations.
 
  For efficiency, this function does not validate the inputs.  Trying to wrap the
- X index, exceeding the size of the allocation, or using indexes incompatible
+ X index, exceeding the size of the allocation, or using indices incompatible
  with the dimensionality of the allocation yiels undefined results.
 
  See also @rsAllocationVLoadX().

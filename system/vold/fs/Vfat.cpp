@@ -37,8 +37,8 @@
 
 #define LOG_TAG "Vold"
 
-#include <base/logging.h>
-#include <base/stringprintf.h>
+#include <android-base/logging.h>
+#include <android-base/stringprintf.h>
 #include <cutils/log.h>
 #include <cutils/properties.h>
 #include <selinux/selinux.h>
@@ -108,6 +108,11 @@ status_t Check(const std::string& source) {
             errno = EIO;
             return -1;
 
+        case 8:
+            SLOGE("Filesystem check failed (no filesystem)");
+            errno = ENODATA;
+            return -1;
+
         default:
             SLOGE("Filesystem check failed (unknown exit code %d)", rc);
             errno = EIO;
@@ -133,20 +138,6 @@ status_t Mount(const std::string& source, const std::string& target, bool ro,
     flags |= (executable ? 0 : MS_NOEXEC);
     flags |= (ro ? MS_RDONLY : 0);
     flags |= (remount ? MS_REMOUNT : 0);
-
-    /*
-     * Note: This is a temporary hack. If the sampling profiler is enabled,
-     * we make the SD card world-writable so any process can write snapshots.
-     *
-     * TODO: Remove this code once we have a drop box in system_server.
-     */
-    char value[PROPERTY_VALUE_MAX];
-    property_get("persist.sampling_profiler", value, "");
-    if (value[0] == '1') {
-        SLOGW("The SD card is world-writable because the"
-            " 'persist.sampling_profiler' system property is set to '1'.");
-        permMask = 0;
-    }
 
     sprintf(mountData,
             "utf8,uid=%d,gid=%d,fmask=%o,dmask=%o,shortname=mixed",
@@ -178,7 +169,7 @@ status_t Mount(const std::string& source, const std::string& target, bool ro,
     return rc;
 }
 
-status_t Format(const std::string& source, unsigned int numSectors) {
+status_t Format(const std::string& source, unsigned long numSectors) {
     std::vector<std::string> cmd;
     cmd.push_back(kMkfsPath);
     cmd.push_back("-F");
@@ -191,7 +182,7 @@ status_t Format(const std::string& source, unsigned int numSectors) {
 
     if (numSectors) {
         cmd.push_back("-s");
-        cmd.push_back(StringPrintf("%u", numSectors));
+        cmd.push_back(StringPrintf("%lu", numSectors));
     }
 
     cmd.push_back(source);

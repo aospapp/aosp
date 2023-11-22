@@ -48,7 +48,8 @@ public class AppWidgetsRestoredReceiver extends BroadcastReceiver {
             final AppWidgetProviderInfo provider = widgets.getAppWidgetInfo(newWidgetIds[i]);
             final int state;
             if (LauncherModel.isValidProvider(provider)) {
-                state = LauncherAppWidgetInfo.RESTORE_COMPLETED;
+                // This will ensure that we show 'Click to setup' UI if required.
+                state = LauncherAppWidgetInfo.FLAG_UI_NOT_READY;
             } else {
                 state = LauncherAppWidgetInfo.FLAG_PROVIDER_NOT_READY;
             }
@@ -88,7 +89,7 @@ public class AppWidgetsRestoredReceiver extends BroadcastReceiver {
                     }
                     return null;
                 }
-            }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, (Void) null);
+            }.executeOnExecutor(Utilities.THREAD_POOL_EXECUTOR);
         }
 
         LauncherAppState app = LauncherAppState.getInstanceNoCreate();

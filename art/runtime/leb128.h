@@ -101,7 +101,7 @@ static inline int32_t DecodeSignedLeb128(const uint8_t** data) {
 static inline uint32_t UnsignedLeb128Size(uint32_t data) {
   // bits_to_encode = (data != 0) ? 32 - CLZ(x) : 1  // 32 - CLZ(data | 1)
   // bytes = ceil(bits_to_encode / 7.0);             // (6 + bits_to_encode) / 7
-  uint32_t x = 6 + 32 - CLZ(data | 1);
+  uint32_t x = 6 + 32 - CLZ(data | 1U);
   // Division by 7 is done by (x * 37) >> 8 where 37 = ceil(256 / 7).
   // This works for 0 <= x < 256 / (7 * 37 - 256), i.e. 0 <= x <= 85.
   return (x * 37) >> 8;
@@ -111,7 +111,7 @@ static inline uint32_t UnsignedLeb128Size(uint32_t data) {
 static inline uint32_t SignedLeb128Size(int32_t data) {
   // Like UnsignedLeb128Size(), but we need one bit beyond the highest bit that differs from sign.
   data = data ^ (data >> 31);
-  uint32_t x = 1 /* we need to encode the sign bit */ + 6 + 32 - CLZ(data | 1);
+  uint32_t x = 1 /* we need to encode the sign bit */ + 6 + 32 - CLZ(data | 1U);
   return (x * 37) >> 8;
 }
 
@@ -127,8 +127,9 @@ static inline uint8_t* EncodeUnsignedLeb128(uint8_t* dest, uint32_t value) {
   return dest;
 }
 
-template<typename Allocator>
-static inline void EncodeUnsignedLeb128(std::vector<uint8_t, Allocator>* dest, uint32_t value) {
+template <typename Vector>
+static inline void EncodeUnsignedLeb128(Vector* dest, uint32_t value) {
+  static_assert(std::is_same<typename Vector::value_type, uint8_t>::value, "Invalid value type");
   uint8_t out = value & 0x7f;
   value >>= 7;
   while (value != 0) {
@@ -165,8 +166,9 @@ static inline uint8_t* EncodeSignedLeb128(uint8_t* dest, int32_t value) {
   return dest;
 }
 
-template<typename Allocator>
-static inline void EncodeSignedLeb128(std::vector<uint8_t, Allocator>* dest, int32_t value) {
+template<typename Vector>
+static inline void EncodeSignedLeb128(Vector* dest, int32_t value) {
+  static_assert(std::is_same<typename Vector::value_type, uint8_t>::value, "Invalid value type");
   uint32_t extra_bits = static_cast<uint32_t>(value ^ (value >> 31)) >> 6;
   uint8_t out = value & 0x7f;
   while (extra_bits != 0u) {
@@ -178,10 +180,13 @@ static inline void EncodeSignedLeb128(std::vector<uint8_t, Allocator>* dest, int
   dest->push_back(out);
 }
 
-// An encoder that pushed uint32_t data onto the given std::vector.
+// An encoder that pushes int32_t/uint32_t data onto the given std::vector.
+template <typename Vector = std::vector<uint8_t>>
 class Leb128Encoder {
+  static_assert(std::is_same<typename Vector::value_type, uint8_t>::value, "Invalid value type");
+
  public:
-  explicit Leb128Encoder(std::vector<uint8_t>* data) : data_(data) {
+  explicit Leb128Encoder(Vector* data) : data_(data) {
     DCHECK(data != nullptr);
   }
 
@@ -211,22 +216,29 @@ class Leb128Encoder {
     }
   }
 
-  const std::vector<uint8_t>& GetData() const {
+  const Vector& GetData() const {
     return *data_;
   }
 
  protected:
-  std::vector<uint8_t>* const data_;
+  Vector* const data_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(Leb128Encoder);
 };
 
 // An encoder with an API similar to vector<uint32_t> where the data is captured in ULEB128 format.
-class Leb128EncodingVector FINAL : private std::vector<uint8_t>, public Leb128Encoder {
+template <typename Vector = std::vector<uint8_t>>
+class Leb128EncodingVector FINAL : private Vector,
+                                   public Leb128Encoder<Vector> {
+  static_assert(std::is_same<typename Vector::value_type, uint8_t>::value, "Invalid value type");
+
  public:
-  Leb128EncodingVector() : Leb128Encoder(this) {
-  }
+  Leb128EncodingVector() : Leb128Encoder<Vector>(this) { }
+
+  explicit Leb128EncodingVector(const typename Vector::allocator_type& alloc)
+    : Vector(alloc),
+      Leb128Encoder<Vector>(this) { }
 
  private:
   DISALLOW_COPY_AND_ASSIGN(Leb128EncodingVector);

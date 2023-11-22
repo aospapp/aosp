@@ -47,7 +47,7 @@
 #include <selinux/label.h>
 
 #include <fs_mgr.h>
-#include <base/file.h>
+#include <android-base/file.h>
 #include "bootimg.h"
 
 #include "property_service.h"
@@ -60,43 +60,21 @@
 #define RECOVERY_MOUNT_POINT "/recovery"
 
 static int persistent_properties_loaded = 0;
-static bool property_area_initialized = false;
 
 static int property_set_fd = -1;
 
-struct workspace {
-    size_t size;
-    int fd;
-};
-
-static workspace pa_workspace;
-
 void property_init() {
-    if (property_area_initialized) {
-        return;
-    }
-
-    property_area_initialized = true;
-
     if (__system_property_area_init()) {
-        return;
-    }
-
-    pa_workspace.size = 0;
-    pa_workspace.fd = open(PROP_FILENAME, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
-    if (pa_workspace.fd == -1) {
-        ERROR("Failed to open %s: %s\n", PROP_FILENAME, strerror(errno));
-        return;
+        ERROR("Failed to initialize property area\n");
+        exit(1);
     }
 }
 
-static int check_mac_perms(const char *name, char *sctx)
+static int check_mac_perms(const char *name, char *sctx, struct ucred *cr)
 {
-    if (is_selinux_enabled() <= 0)
-        return 1;
-
     char *tctx = NULL;
     int result = 0;
+    property_audit_data audit_data;
 
     if (!sctx)
         goto err;
@@ -107,7 +85,10 @@ static int check_mac_perms(const char *name, char *sctx)
     if (selabel_lookup(sehandle_prop, &tctx, name, 1) != 0)
         goto err;
 
-    if (selinux_check_access(sctx, tctx, "property_service", "set", (void*) name) == 0)
+    audit_data.name = name;
+    audit_data.cr = cr;
+
+    if (selinux_check_access(sctx, tctx, "property_service", "set", reinterpret_cast<void*>(&audit_data)) == 0)
         result = 1;
 
     freecon(tctx);
@@ -115,7 +96,7 @@ static int check_mac_perms(const char *name, char *sctx)
     return result;
 }
 
-static int check_control_mac_perms(const char *name, char *sctx)
+static int check_control_mac_perms(const char *name, char *sctx, struct ucred *cr)
 {
     /*
      *  Create a name prefix out of ctl.<service name>
@@ -129,24 +110,13 @@ static int check_control_mac_perms(const char *name, char *sctx)
     if (ret < 0 || (size_t) ret >= sizeof(ctl_name))
         return 0;
 
-    return check_mac_perms(ctl_name, sctx);
+    return check_mac_perms(ctl_name, sctx, cr);
 }
 
-/*
- * Checks permissions for setting system properties.
- * Returns 1 if uid allowed, 0 otherwise.
- */
-static int check_perms(const char *name, char *sctx)
-{
-    if(!strncmp(name, "ro.", 3))
-        name +=3;
-
-    return check_mac_perms(name, sctx);
-}
-
-int __property_get(const char *name, char *value)
-{
-    return __system_property_get(name, value);
+std::string property_get(const char* name) {
+    char value[PROP_VALUE_MAX] = {0};
+    __system_property_get(name, value);
+    return value;
 }
 
 static void write_persistent_property(const char *name, const char *value)
@@ -323,14 +293,14 @@ static void handle_property_set_fd()
             // Keep the old close-socket-early behavior when handling
             // ctl.* properties.
             close(s);
-            if (check_control_mac_perms(msg.value, source_ctx)) {
+            if (check_control_mac_perms(msg.value, source_ctx, &cr)) {
                 handle_control_message((char*) msg.name + 4, (char*) msg.value);
             } else {
                 ERROR("sys_prop: Unable to %s service ctl [%s] uid:%d gid:%d pid:%d\n",
                         msg.name + 4, msg.value, cr.uid, cr.gid, cr.pid);
             }
         } else {
-            if (check_perms(msg.name, source_ctx)) {
+            if (check_mac_perms(msg.name, source_ctx, &cr)) {
                 property_set((char*) msg.name, (char*) msg.value);
             } else {
                 ERROR("sys_prop: permission denied uid:%d  name:%s\n",
@@ -349,12 +319,6 @@ static void handle_property_set_fd()
         close(s);
         break;
     }
-}
-
-void get_property_workspace(int *fd, int *sz)
-{
-    *fd = pa_workspace.fd;
-    *sz = pa_workspace.size;
 }
 
 static void load_properties_from_file(const char *, const char *);
@@ -495,15 +459,10 @@ void property_load_boot_defaults() {
     load_properties_from_file(PROP_PATH_RAMDISK_DEFAULT, NULL);
 }
 
-bool properties_initialized() {
-    return property_area_initialized;
-}
-
 static void load_override_properties() {
     if (ALLOW_LOCAL_PROP_OVERRIDE) {
-        char debuggable[PROP_VALUE_MAX];
-        int ret = property_get("ro.debuggable", debuggable);
-        if (ret && (strcmp(debuggable, "1") == 0)) {
+        std::string debuggable = property_get("ro.debuggable");
+        if (debuggable == "1") {
             load_properties_from_file(PROP_PATH_LOCAL_OVERRIDE, NULL);
         }
     }
@@ -521,19 +480,17 @@ void load_persist_props(void) {
 }
 
 void load_recovery_id_prop() {
-    char fstab_filename[PROP_VALUE_MAX + sizeof(FSTAB_PREFIX)];
-    char propbuf[PROP_VALUE_MAX];
-    int ret = property_get("ro.hardware", propbuf);
-    if (!ret) {
+    std::string ro_hardware = property_get("ro.hardware");
+    if (ro_hardware.empty()) {
         ERROR("ro.hardware not set - unable to load recovery id\n");
         return;
     }
-    snprintf(fstab_filename, sizeof(fstab_filename), FSTAB_PREFIX "%s", propbuf);
+    std::string fstab_filename = FSTAB_PREFIX + ro_hardware;
 
-    std::unique_ptr<fstab, void(*)(fstab*)> tab(fs_mgr_read_fstab(fstab_filename),
+    std::unique_ptr<fstab, void(*)(fstab*)> tab(fs_mgr_read_fstab(fstab_filename.c_str()),
             fs_mgr_free_fstab);
     if (!tab) {
-        ERROR("unable to read fstab %s: %s\n", fstab_filename, strerror(errno));
+        ERROR("unable to read fstab %s: %s\n", fstab_filename.c_str(), strerror(errno));
         return;
     }
 
@@ -560,16 +517,10 @@ void load_recovery_id_prop() {
     close(fd);
 }
 
-void load_all_props() {
+void load_system_props() {
     load_properties_from_file(PROP_PATH_SYSTEM_BUILD, NULL);
     load_properties_from_file(PROP_PATH_VENDOR_BUILD, NULL);
     load_properties_from_file(PROP_PATH_FACTORY, "ro.*");
-
-    load_override_properties();
-
-    /* Read persistent properties after all default values have been loaded. */
-    load_persistent_properties();
-
     load_recovery_id_prop();
 }
 

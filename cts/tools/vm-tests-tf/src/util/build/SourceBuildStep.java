@@ -16,7 +16,13 @@
 
 package util.build;
 
+import java.io.File;
+
 public abstract class SourceBuildStep extends BuildStep {
+
+  SourceBuildStep(File destFile) {
+    super(destFile);
+  }
 
   public abstract void addSourceFile(String sourceFile);
 

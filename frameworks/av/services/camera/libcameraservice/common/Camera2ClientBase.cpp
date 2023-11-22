@@ -31,7 +31,7 @@
 
 #include "api2/CameraDeviceClient.h"
 
-#include "CameraDeviceFactory.h"
+#include "device3/Camera3Device.h"
 
 namespace android {
 using namespace camera2;
@@ -55,13 +55,14 @@ Camera2ClientBase<TClientBase>::Camera2ClientBase(
         TClientBase(cameraService, remoteCallback, clientPackageName,
                 cameraId, cameraFacing, clientPid, clientUid, servicePid),
         mSharedCameraCallbacks(remoteCallback),
-        mDeviceVersion(cameraService->getDeviceVersion(cameraId))
+        mDeviceVersion(cameraService->getDeviceVersion(cameraId)),
+        mDeviceActive(false)
 {
     ALOGI("Camera %d: Opened. Client: %s (PID %d, UID %d)", cameraId,
             String8(clientPackageName).string(), clientPid, clientUid);
 
     mInitialClientPid = clientPid;
-    mDevice = CameraDeviceFactory::createDevice(cameraId);
+    mDevice = new Camera3Device(cameraId);
     LOG_ALWAYS_FATAL_IF(mDevice == 0, "Device should never be NULL here.");
 }
 
@@ -123,7 +124,7 @@ Camera2ClientBase<TClientBase>::~Camera2ClientBase() {
 }
 
 template <typename TClientBase>
-status_t Camera2ClientBase<TClientBase>::dump(int fd,
+status_t Camera2ClientBase<TClientBase>::dumpClient(int fd,
                                               const Vector<String16>& args) {
     String8 result;
     result.appendFormat("Camera2ClientBase[%d] (%p) PID: %d, dump:\n",
@@ -168,14 +169,15 @@ status_t Camera2ClientBase<TClientBase>::dumpDevice(
 
 
 template <typename TClientBase>
-void Camera2ClientBase<TClientBase>::disconnect() {
+binder::Status Camera2ClientBase<TClientBase>::disconnect() {
     ATRACE_CALL();
     Mutex::Autolock icl(mBinderSerializationLock);
 
+    binder::Status res = binder::Status::ok();
     // Allow both client and the media server to disconnect at all times
     int callingPid = getCallingPid();
     if (callingPid != TClientBase::mClientPid &&
-        callingPid != TClientBase::mServicePid) return;
+        callingPid != TClientBase::mServicePid) return res;
 
     ALOGV("Camera %d: Shutting down", TClientBase::mCameraId);
 
@@ -184,6 +186,8 @@ void Camera2ClientBase<TClientBase>::disconnect() {
     CameraService::BasicClient::disconnect();
 
     ALOGV("Camera %d: Shut down complete complete", TClientBase::mCameraId);
+
+    return res;
 }
 
 template <typename TClientBase>
@@ -227,7 +231,7 @@ status_t Camera2ClientBase<TClientBase>::connect(
 
 template <typename TClientBase>
 void Camera2ClientBase<TClientBase>::notifyError(
-        ICameraDeviceCallbacks::CameraErrorCode errorCode,
+        int32_t errorCode,
         const CaptureResultExtras& resultExtras) {
     ALOGE("Error condition %d reported by HAL, requestId %" PRId32, errorCode,
           resultExtras.requestId);
@@ -235,6 +239,13 @@ void Camera2ClientBase<TClientBase>::notifyError(
 
 template <typename TClientBase>
 void Camera2ClientBase<TClientBase>::notifyIdle() {
+    if (mDeviceActive) {
+        getCameraService()->updateProxyDeviceState(
+            ICameraServiceProxy::CAMERA_STATE_IDLE,
+            String8::format("%d", TClientBase::mCameraId));
+    }
+    mDeviceActive = false;
+
     ALOGV("Camera device is now idle");
 }
 
@@ -243,6 +254,13 @@ void Camera2ClientBase<TClientBase>::notifyShutter(const CaptureResultExtras& re
                                                    nsecs_t timestamp) {
     (void)resultExtras;
     (void)timestamp;
+
+    if (!mDeviceActive) {
+        getCameraService()->updateProxyDeviceState(
+            ICameraServiceProxy::CAMERA_STATE_ACTIVE,
+            String8::format("%d", TClientBase::mCameraId));
+    }
+    mDeviceActive = true;
 
     ALOGV("%s: Shutter notification for request id %" PRId32 " at time %" PRId64,
             __FUNCTION__, resultExtras.requestId, timestamp);
@@ -285,6 +303,14 @@ void Camera2ClientBase<TClientBase>::notifyPrepared(int streamId) {
 
     ALOGV("%s: Stream %d now prepared",
             __FUNCTION__, streamId);
+}
+
+template <typename TClientBase>
+void Camera2ClientBase<TClientBase>::notifyRepeatingRequestError(long lastFrameNumber) {
+    (void)lastFrameNumber;
+
+    ALOGV("%s: Repeating request was stopped. Last frame number is %ld",
+            __FUNCTION__, lastFrameNumber);
 }
 
 template <typename TClientBase>

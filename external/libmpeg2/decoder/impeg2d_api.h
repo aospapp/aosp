@@ -50,7 +50,7 @@
 
 
 
-#define NUM_MEM_RECORDS                 4 *MAX_THREADS+NUM_INT_FRAME_BUFFERS + 5
+#define NUM_MEM_RECORDS                 4 * MAX_THREADS + NUM_INT_FRAME_BUFFERS + 5 + 2
 
 
 #define SETBIT(a,i)   ((a) |= (1 << i))

@@ -17,6 +17,9 @@ LOCAL_PATH := $(call my-dir)
 
 apache-commons-math_src_files := $(call all-java-files-under,src/main/java)
 
+# build target jar
+# ============================================================
+
 include $(CLEAR_VARS)
 LOCAL_MODULE := apache-commons-math
 LOCAL_MODULE_TAGS := optional
@@ -24,3 +27,15 @@ LOCAL_SRC_FILES := $(apache-commons-math_src_files)
 LOCAL_JAVACFLAGS := -encoding UTF-8
 LOCAL_SDK_VERSION := current
 include $(BUILD_STATIC_JAVA_LIBRARY)
+
+# build host jar
+# ============================================================
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := apache-commons-math-host
+LOCAL_MODULE_TAGS := optional
+LOCAL_SRC_FILES := $(apache-commons-math_src_files)
+LOCAL_JAVACFLAGS := -encoding UTF-8
+LOCAL_SDK_VERSION := current
+LOCAL_JAVA_LANGUAGE_VERSION := 1.7
+include $(BUILD_HOST_JAVA_LIBRARY)

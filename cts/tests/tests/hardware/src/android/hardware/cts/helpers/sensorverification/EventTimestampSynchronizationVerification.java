@@ -38,7 +38,8 @@ public class EventTimestampSynchronizationVerification extends AbstractSensorVer
     // number of indices to print in assertion message before truncating
     private static final int TRUNCATE_MESSAGE_LENGTH = 3;
 
-    private static final long DEFAULT_THRESHOLD_NS = TimeUnit.MILLISECONDS.toNanos(500);
+    private static final long DEFAULT_THRESHOLD_NS = TimeUnit.MILLISECONDS.toNanos(1000);
+    private static final float ALLOWED_LATENCY_ERROR = 0.1f; //10%
 
     private final ArrayList<TestSensorEvent> mCollectedEvents = new ArrayList<TestSensorEvent>();
 
@@ -87,9 +88,11 @@ public class EventTimestampSynchronizationVerification extends AbstractSensorVer
         }
         // Add an additional filter delay which is a function of the samplingPeriod.
         long filterDelayUs = (long)(2.5 * maximumExpectedSamplingPeriodUs);
+
         long expectedSyncLatencyNs = TimeUnit.MICROSECONDS.toNanos(reportLatencyUs + filterDelayUs);
-        return new EventTimestampSynchronizationVerification(DEFAULT_THRESHOLD_NS,
-                                                              expectedSyncLatencyNs);
+        return new EventTimestampSynchronizationVerification(
+                (long) (DEFAULT_THRESHOLD_NS + ALLOWED_LATENCY_ERROR * reportLatencyUs * 1000),
+                expectedSyncLatencyNs);
     }
 
     @Override

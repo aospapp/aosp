@@ -81,12 +81,12 @@ bool DTSFrameScanner::parseHeader()
 
     // These variables are named after the fields in the DTS spec 5.3.1
     // Extract field in order.
-    uint32_t ftype = parser.readBits(1);
-    uint32_t deficit = parser.readBits(5); // "short"
+    (void) /* uint32_t ftype = */ parser.readBits(1);
+    (void) /* uint32_t deficit = */ parser.readBits(5); // "short"
     uint32_t cpf = parser.readBits(1);
     uint32_t nblks = parser.readBits(7);
     uint32_t fsize = parser.readBits(14);
-    uint32_t amode = parser.readBits(6);
+    (void) /* uint32_t amode = */ parser.readBits(6);
     uint32_t sfreq = parser.readBits(4);
     // make sure we did not read past collected data
     ALOG_ASSERT((mSyncLength + ((parser.getBitCursor() + 7) >> 3))
@@ -129,7 +129,7 @@ bool DTSFrameScanner::parseHeader()
 
     mRateMultiplier = 1; // TODO what about "frequency extension"?
     ALOGI_IF((mFormatDumpCount == 0),
-            "DTS frame rate = %d * %d, size = %d\n",
+            "DTS frame rate = %d * %d, size = %zu",
             mSampleRate, mRateMultiplier, mFrameSizeBytes);
     mFormatDumpCount++;
     return true;

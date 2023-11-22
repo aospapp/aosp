@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2013-2013 OpenWorks
+   Copyright (C) 2013-2015 OpenWorks
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -198,7 +198,7 @@ static void assign_guest_tls(ThreadId ctid, Addr tlsptr);
             
 /* 
    When a client clones, we need to keep track of the new thread.  This means:
-   1. allocate a ThreadId+ThreadState+stack for the the thread
+   1. allocate a ThreadId+ThreadState+stack for the thread
 
    2. initialize the thread's new VCPU state
 
@@ -431,7 +431,7 @@ DECL_TEMPLATE(arm64_linux, sys_rt_sigreturn);
 // ARM64 FIXME is this correct?
 PRE(sys_fadvise64)
 {
-   PRINT("sys_fadvise64 ( %ld, %ld, %lu, %ld )", ARG1,ARG2,ARG3,ARG4);
+   PRINT("sys_fadvise64 ( %ld, %ld, %lu, %ld )", SARG1, SARG2, ARG3, SARG4);
    PRE_REG_READ4(long, "fadvise64",
                  int, fd, vki_loff_t, offset, vki_size_t, len, int, advice);
 }
@@ -441,8 +441,8 @@ PRE(sys_mmap)
 {
    SysRes r;
 
-   PRINT("sys_mmap ( %#lx, %llu, %ld, %ld, %d, %ld )",
-         ARG1, (ULong)ARG2, ARG3, ARG4, (Int)ARG5, ARG6 );
+   PRINT("sys_mmap ( %#lx, %lu, %lu, %#lx, %lu, %lu )",
+         ARG1, ARG2, ARG3, ARG4, ARG5, ARG6 );
    PRE_REG_READ6(long, "mmap",
                  unsigned long, start, unsigned long, length,
                  unsigned long, prot,  unsigned long, flags,
@@ -855,8 +855,18 @@ PRE(sys_rt_sigreturn)
 // (unknown).
 
 static SyscallTableEntry syscall_main_table[] = {
+   LINX_(__NR_setxattr,          sys_setxattr),          // 5
+   LINX_(__NR_lsetxattr,         sys_lsetxattr),         // 6
+   LINX_(__NR_fsetxattr,         sys_fsetxattr),         // 7
    LINXY(__NR_getxattr,          sys_getxattr),          // 8
    LINXY(__NR_lgetxattr,         sys_lgetxattr),         // 9
+   LINXY(__NR_fgetxattr,         sys_fgetxattr),         // 10
+   LINXY(__NR_listxattr,         sys_listxattr),         // 11
+   LINXY(__NR_llistxattr,        sys_llistxattr),        // 12
+   LINXY(__NR_flistxattr,        sys_flistxattr),        // 13
+   LINX_(__NR_removexattr,       sys_removexattr),       // 14
+   LINX_(__NR_lremovexattr,      sys_lremovexattr),      // 15
+   LINX_(__NR_fremovexattr,      sys_fremovexattr),      // 16
    GENXY(__NR_getcwd,            sys_getcwd),            // 17
    LINXY(__NR_eventfd2,          sys_eventfd2),          // 19
    LINXY(__NR_epoll_create1,     sys_epoll_create1),     // 20
@@ -949,6 +959,7 @@ static SyscallTableEntry syscall_main_table[] = {
    LINX_(__NR_rt_sigsuspend,     sys_rt_sigsuspend),     // 133
    LINXY(__NR_rt_sigaction,      sys_rt_sigaction),      // 134
    LINXY(__NR_rt_sigprocmask,    sys_rt_sigprocmask),    // 135
+   LINXY(__NR_rt_sigpending,     sys_rt_sigpending),     // 136
    LINXY(__NR_rt_sigtimedwait,   sys_rt_sigtimedwait),   // 137
    LINXY(__NR_rt_sigqueueinfo,   sys_rt_sigqueueinfo),   // 138
    PLAX_(__NR_rt_sigreturn,      sys_rt_sigreturn),      // 139
@@ -957,8 +968,10 @@ static SyscallTableEntry syscall_main_table[] = {
    GENX_(__NR_setregid,          sys_setregid),          // 143
    GENX_(__NR_setgid,            sys_setgid),            // 144
    GENX_(__NR_setreuid,          sys_setreuid),          // 145
+   GENX_(__NR_setuid,            sys_setuid),            // 146
    LINX_(__NR_setresuid,         sys_setresuid),         // 147
    LINXY(__NR_getresuid,         sys_getresuid),         // 148
+   LINX_(__NR_setresgid,         sys_setresgid),         // 149
    LINXY(__NR_getresgid,         sys_getresgid),         // 150
    GENXY(__NR_times,             sys_times),             // 153
    GENX_(__NR_setpgid,           sys_setpgid),           // 154
@@ -1219,7 +1232,6 @@ static SyscallTableEntry syscall_main_table[] = {
 //ZZ    LINXY(__NR_prctl,             sys_prctl),          // 172
 //ZZ    LINXY(__NR_rt_sigaction,      sys_rt_sigaction),   // 174
 //ZZ 
-//ZZ    LINXY(__NR_rt_sigpending,     sys_rt_sigpending),  // 176
 //ZZ    LINXY(__NR_rt_sigtimedwait,   sys_rt_sigtimedwait),// 177
 //ZZ 
 //ZZ    LINX_(__NR_chown,             sys_chown16),        // 182
@@ -1265,18 +1277,6 @@ static SyscallTableEntry syscall_main_table[] = {
 //ZZ //   GENX_(222,                    sys_ni_syscall),     // 222
 //ZZ //   PLAXY(223,                    sys_syscall223),     // 223 // sys_bproc?
 //ZZ 
-//ZZ    LINX_(__NR_setxattr,          sys_setxattr),       // 226
-//ZZ    LINX_(__NR_lsetxattr,         sys_lsetxattr),      // 227
-//ZZ    LINX_(__NR_fsetxattr,         sys_fsetxattr),      // 228
-//ZZ 
-//ZZ    LINXY(__NR_fgetxattr,         sys_fgetxattr),      // 231
-//ZZ    LINXY(__NR_listxattr,         sys_listxattr),      // 232
-//ZZ    LINXY(__NR_llistxattr,        sys_llistxattr),     // 233
-//ZZ    LINXY(__NR_flistxattr,        sys_flistxattr),     // 234
-//ZZ 
-//ZZ    LINX_(__NR_removexattr,       sys_removexattr),    // 235
-//ZZ    LINX_(__NR_lremovexattr,      sys_lremovexattr),   // 236
-//ZZ    LINX_(__NR_fremovexattr,      sys_fremovexattr),   // 237
 //ZZ    LINXY(__NR_tkill,             sys_tkill),          // 238 */Linux
 //ZZ    LINXY(__NR_sendfile64,        sys_sendfile64),     // 239
 //ZZ 

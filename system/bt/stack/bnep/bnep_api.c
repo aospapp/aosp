@@ -26,6 +26,9 @@
 #include "bnep_api.h"
 #include "bnep_int.h"
 
+
+extern fixed_queue_t *btu_general_alarm_queue;
+
 /*******************************************************************************
 **
 ** Function         BNEP_Init
@@ -45,9 +48,6 @@ void BNEP_Init (void)
 #else
     bnep_cb.trace_level = BT_TRACE_LEVEL_NONE;    /* No traces */
 #endif
-
-    /* Start a timer to read our BD address */
-    btu_start_timer (&bnep_cb.bnep_tle, BTU_TTYPE_BNEP, 2);
 }
 
 
@@ -208,7 +208,9 @@ tBNEP_RESULT BNEP_Connect (BD_ADDR p_rem_bda,
         }
 
         /* Start timer waiting for connect */
-        btu_start_timer (&p_bcb->conn_tle, BTU_TTYPE_BNEP, BNEP_CONN_TIMEOUT);
+        alarm_set_on_queue(p_bcb->conn_timer, BNEP_CONN_TIMEOUT_MS,
+                           bnep_conn_timer_timeout, p_bcb,
+                           btu_general_alarm_queue);
     }
 
     *p_handle = p_bcb->handle;
@@ -290,8 +292,7 @@ tBNEP_RESULT BNEP_ConnectResp (UINT16 handle, tBNEP_RESULT resp)
             p = bnep_process_control_packet (p_bcb, p, &rem_len, TRUE);
         }
 
-        GKI_freebuf (p_bcb->p_pending_data);
-        p_bcb->p_pending_data = NULL;
+        osi_free_and_reset((void **)&p_bcb->p_pending_data);
     }
     return (BNEP_SUCCESS);
 }
@@ -364,7 +365,7 @@ tBNEP_RESULT BNEP_WriteBuf (UINT16 handle,
 
     if ((!handle) || (handle > BNEP_MAX_CONNECTIONS))
     {
-        GKI_freebuf (p_buf);
+        osi_free(p_buf);
         return (BNEP_WRONG_HANDLE);
     }
 
@@ -373,7 +374,7 @@ tBNEP_RESULT BNEP_WriteBuf (UINT16 handle,
     if (p_buf->len > BNEP_MTU_SIZE)
     {
         BNEP_TRACE_ERROR ("BNEP_Write() length %d exceeded MTU %d", p_buf->len, BNEP_MTU_SIZE);
-        GKI_freebuf (p_buf);
+        osi_free(p_buf);
         return (BNEP_MTU_EXCEDED);
     }
 
@@ -402,7 +403,7 @@ tBNEP_RESULT BNEP_WriteBuf (UINT16 handle,
 
                 if (new_len > org_len)
                 {
-                    GKI_freebuf (p_buf);
+                    osi_free(p_buf);
                     return BNEP_IGNORE_CMD;
                 }
 
@@ -420,15 +421,15 @@ tBNEP_RESULT BNEP_WriteBuf (UINT16 handle,
         }
         else
         {
-            GKI_freebuf (p_buf);
+            osi_free(p_buf);
             return BNEP_IGNORE_CMD;
         }
     }
 
     /* Check transmit queue */
-    if (GKI_queue_length(&p_bcb->xmit_q) >= BNEP_MAX_XMITQ_DEPTH)
+    if (fixed_queue_length(p_bcb->xmit_q) >= BNEP_MAX_XMITQ_DEPTH)
     {
-        GKI_freebuf (p_buf);
+        osi_free(p_buf);
         return (BNEP_Q_SIZE_EXCEEDED);
     }
 
@@ -472,7 +473,6 @@ tBNEP_RESULT  BNEP_Write (UINT16 handle,
                           UINT8 *p_src_addr,
                           BOOLEAN fw_ext_present)
 {
-    BT_HDR       *p_buf;
     tBNEP_CONN   *p_bcb;
     UINT8        *p;
 
@@ -532,15 +532,11 @@ tBNEP_RESULT  BNEP_Write (UINT16 handle,
     }
 
     /* Check transmit queue */
-    if (GKI_queue_length(&p_bcb->xmit_q) >= BNEP_MAX_XMITQ_DEPTH)
+    if (fixed_queue_length(p_bcb->xmit_q) >= BNEP_MAX_XMITQ_DEPTH)
         return (BNEP_Q_SIZE_EXCEEDED);
 
-    /* Get a buffer to copy teh data into */
-    if ((p_buf = (BT_HDR *)GKI_getpoolbuf (BNEP_POOL_ID)) == NULL)
-    {
-        BNEP_TRACE_ERROR ("BNEP_Write() not able to get buffer");
-        return (BNEP_NO_RESOURCES);
-    }
+    /* Get a buffer to copy the data into */
+    BT_HDR *p_buf = (BT_HDR *)osi_malloc(BNEP_BUF_SIZE);
 
     p_buf->len = len;
     p_buf->offset = BNEP_MINIMUM_OFFSET;
@@ -729,7 +725,7 @@ tBNEP_RESULT BNEP_GetStatus (UINT16 handle, tBNEP_STATUS *p_status)
     p_status->con_status            = BNEP_STATUS_CONNECTED;
     p_status->l2cap_cid             = p_bcb->l2cap_cid;
     p_status->rem_mtu_size          = p_bcb->rem_mtu_size;
-    p_status->xmit_q_depth          = GKI_queue_length(&p_bcb->xmit_q);
+    p_status->xmit_q_depth          = fixed_queue_length(p_bcb->xmit_q);
     p_status->sent_num_filters      = p_bcb->sent_num_filters;
     p_status->sent_mcast_filters    = p_bcb->sent_mcast_filters;
     p_status->rcvd_num_filters      = p_bcb->rcvd_num_filters;

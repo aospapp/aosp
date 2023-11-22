@@ -16,7 +16,7 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.widget">
+    package="android.widget.cts">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <application android:label="Android TestCase"
@@ -27,6 +27,14 @@
             android:supportsRtl="true">
 
         <uses-library android:name="android.test.runner" />
+
+        <activity android:name="android.widget.cts.EmptyCtsActivity"
+                  android:label="EmptyCtsActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
 
         <activity android:name="android.widget.cts.TwoLineListItemCtsActivity"
             android:label="TwoLineListItemCtsActivity">
@@ -69,7 +77,24 @@
         </activity>
 
         <activity android:name="android.widget.cts.ImageViewCtsActivity"
-            android:label="ImageViewCtsActivity">
+                  android:label="ImageViewCtsActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.widget.cts.SwitchCtsActivity"
+                  android:label="SwitchCtsActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.widget.cts.ToolbarCtsActivity"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar"
+            android:label="ToolbarCtsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
@@ -196,8 +221,24 @@
             </intent-filter>
         </activity>
 
-        <activity android:name="android.widget.cts.MockPopupWindowCtsActivity"
-            android:label="MockPopupWindowCtsActivity">
+        <activity android:name="android.widget.cts.PopupWindowCtsActivity"
+            android:label="PopupWindowCtsActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.widget.cts.PopupMenuCtsActivity"
+                  android:label="PopupMenuCtsActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.widget.cts.ListPopupWindowCtsActivity"
+                  android:label="ListPopupWindowCtsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
@@ -213,7 +254,9 @@
         </activity>
 
         <activity android:name="android.widget.cts.TextViewCtsActivity"
-            android:label="TextViewCtsActivity">
+            android:label="TextViewCtsActivity"
+            android:screenOrientation="nosensor"
+            android:windowSoftInputMode="stateAlwaysHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
@@ -245,7 +288,7 @@
         </activity>
 
         <activity android:name="android.widget.cts.VideoViewCtsActivity"
-            android:configChanges="keyboardHidden|orientation|screenSize">
+            android:configChanges="keyboardHidden|orientation|screenSize"
             android:label="VideoViewCtsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -254,7 +297,9 @@
         </activity>
 
         <activity android:name="android.widget.cts.AutoCompleteCtsActivity"
-            android:label="AutoCompleteCtsActivity">
+            android:label="AutoCompleteCtsActivity"
+            android:screenOrientation="nosensor"
+            android:windowSoftInputMode="stateAlwaysHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
@@ -335,6 +380,14 @@
             </intent-filter>
         </activity>
 
+        <activity android:name="android.widget.cts.CalendarViewCtsActivity"
+                  android:label="CalendarViewCtsActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
         <activity android:name="android.app.ActivityGroup"
             android:label="ActivityGroup" />
 
@@ -355,7 +408,7 @@
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.widget"
+                     android:targetPackage="android.widget.cts"
                      android:label="CTS tests of android.widget">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

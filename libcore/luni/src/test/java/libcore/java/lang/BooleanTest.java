@@ -33,4 +33,30 @@ public class BooleanTest extends junit.framework.TestCase {
         assertTrue(Boolean.compare(false, true) < 0);
         assertTrue(Boolean.compare(true, false) > 0);
     }
+
+    public void testStaticHashCode() {
+        assertEquals(Boolean.TRUE.hashCode(), Boolean.hashCode(true));
+        assertEquals(Boolean.FALSE.hashCode(), Boolean.hashCode(false));
+    }
+
+    public void testLogicalAnd() {
+        assertTrue(Boolean.logicalAnd(Boolean.TRUE, Boolean.TRUE));
+        assertFalse(Boolean.logicalAnd(Boolean.TRUE, Boolean.FALSE));
+        assertFalse(Boolean.logicalAnd(Boolean.FALSE, Boolean.TRUE));
+        assertFalse(Boolean.logicalAnd(Boolean.FALSE, Boolean.FALSE));
+    }
+
+    public void testLogicalOr() {
+        assertTrue(Boolean.logicalOr(Boolean.TRUE, Boolean.TRUE));
+        assertTrue(Boolean.logicalOr(Boolean.TRUE, Boolean.FALSE));
+        assertTrue(Boolean.logicalOr(Boolean.FALSE, Boolean.TRUE));
+        assertFalse(Boolean.logicalOr(Boolean.FALSE, Boolean.FALSE));
+    }
+
+    public void testLogicalXor() {
+        assertFalse(Boolean.logicalXor(Boolean.TRUE, Boolean.TRUE));
+        assertTrue(Boolean.logicalXor(Boolean.TRUE, Boolean.FALSE));
+        assertTrue(Boolean.logicalXor(Boolean.FALSE, Boolean.TRUE));
+        assertFalse(Boolean.logicalXor(Boolean.FALSE, Boolean.FALSE));
+    }
 }

@@ -33,11 +33,13 @@ import android.bluetooth.client.map.utils.BmsgTokenizer.Property;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 
 class BluetoothMapBmessageParser {
 
     private final static String TAG = "BluetoothMapBmessageParser";
+    private final static boolean DBG = false;
 
     private final static String CRLF = "\r\n";
 
@@ -74,6 +76,10 @@ class BluetoothMapBmessageParser {
 
     static public BluetoothMapBmessage createBmessage(String str) {
         BluetoothMapBmessageParser p = new BluetoothMapBmessageParser();
+
+        if (DBG) {
+            Log.d(TAG, "actual wired contents: " + str);
+        }
 
         try {
             p.parse(str);
@@ -281,7 +287,7 @@ class BluetoothMapBmessageParser {
 
             } else if (prop.name.equals("LENGTH")) {
                 try {
-                    mBmsg.mBbodyLength = Integer.valueOf(prop.value);
+                    mBmsg.mBbodyLength = Integer.parseInt(prop.value);
                 } catch (NumberFormatException e) {
                     throw new ParseException("Invalid LENGTH value", mParser.pos());
                 }
@@ -289,6 +295,17 @@ class BluetoothMapBmessageParser {
             }
 
         } while (!prop.equals(BEGIN_MSG));
+
+        /*
+         * check that the charset is always set to UTF-8. We expect only text transfer (in lieu with
+         * the MAPv12 specifying only RFC2822 (text only) for MMS/EMAIL and SMS do not support
+         * non-text content. If the charset is not set to UTF-8, it is safe to set the message as
+         * empty. We force the getMessage (see BluetoothMasClient) to only call getMessage with
+         * UTF-8 as the MCE is not obliged to support native charset.
+         */
+        if (!mBmsg.mBbodyCharset.equals("UTF-8")) {
+            Log.e(TAG, "The charset was not set to charset UTF-8: " + mBmsg.mBbodyCharset);
+        }
 
         /*
          * <bmessage-body-content>::={ "BEGIN:MSG"<CRLF> 'message'<CRLF>
@@ -314,7 +331,11 @@ class BluetoothMapBmessageParser {
 
         if (prop != null) {
             if (prop.equals(END_MSG)) {
-                mBmsg.mMessage = new String(data, 0, messageLen);
+                if (mBmsg.mBbodyCharset.equals("UTF-8")) {
+                    mBmsg.mMessage = new String(data, 0, messageLen, StandardCharsets.UTF_8);
+                } else {
+                    mBmsg.mMessage = null;
+                }
             } else {
                 /* Handle possible exception for incorrect LENGTH value
                  * from MSE while parsing  GET Message response */
@@ -346,7 +367,11 @@ class BluetoothMapBmessageParser {
                 throw expected(END_MSG);
             }
 
-            mBmsg.mMessage = remng.substring(0, messageLen);
+            if (mBmsg.mBbodyCharset.equals("UTF-8")) {
+                mBmsg.mMessage = remng.substring(0, messageLen);
+            } else {
+                mBmsg.mMessage = null;
+            }
         }
 
         prop = mParser.next();

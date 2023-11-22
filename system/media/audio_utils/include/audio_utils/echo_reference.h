@@ -22,7 +22,7 @@
 
 __BEGIN_DECLS
 
-/* Buffer descriptor used by read() and write() methods, including the time stamp and delay. */
+/** Buffer descriptor used by read() and write() methods, including the time stamp and delay. */
 struct echo_reference_buffer {
     void *raw;                  // pointer to audio frame
     size_t frame_count;         // number of frames in buffer
@@ -30,6 +30,7 @@ struct echo_reference_buffer {
     struct timespec time_stamp; // time stamp for this buffer (see comment below)
                                 // default ALSA gettimeofday() format
 };
+
 /**
  * + as input:
  *      - delay_ns is the delay introduced by playback buffers

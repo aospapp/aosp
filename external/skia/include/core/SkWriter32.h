@@ -10,6 +10,7 @@
 #ifndef SkWriter32_DEFINED
 #define SkWriter32_DEFINED
 
+#include "../private/SkTemplates.h"
 #include "SkData.h"
 #include "SkMatrix.h"
 #include "SkPath.h"
@@ -19,7 +20,6 @@
 #include "SkRegion.h"
 #include "SkScalar.h"
 #include "SkStream.h"
-#include "SkTemplates.h"
 #include "SkTypes.h"
 
 class SK_API SkWriter32 : SkNoncopyable {
@@ -165,7 +165,7 @@ public:
      */
     void write(const void* values, size_t size) {
         SkASSERT(SkAlign4(size) == size);
-        memcpy(this->reserve(size), values, size);
+        sk_careful_memcpy(this->reserve(size), values, size);
     }
 
     /**
@@ -186,7 +186,7 @@ public:
      *  Write size bytes from src, and pad to 4 byte alignment with zeroes.
      */
     void writePad(const void* src, size_t size) {
-        memcpy(this->reservePad(size), src, size);
+        sk_careful_memcpy(this->reservePad(size), src, size);
     }
 
     /**

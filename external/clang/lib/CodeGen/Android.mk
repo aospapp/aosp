@@ -61,6 +61,7 @@ clang_codegen_SRC_FILES := \
   ItaniumCXXABI.cpp \
   MicrosoftCXXABI.cpp \
   ModuleBuilder.cpp \
+  ObjectFilePCHContainerOperations.cpp \
   SanitizerMetadata.cpp \
   TargetInfo.cpp
 
@@ -77,6 +78,7 @@ TBLGEN_TABLES := $(clang_codegen_TBLGEN_TABLES)
 include $(CLANG_HOST_BUILD_MK)
 include $(CLANG_VERSION_INC_MK)
 include $(CLANG_TBLGEN_RULES_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
 include $(LLVM_GEN_INTRINSICS_MK)
 include $(BUILD_HOST_STATIC_LIBRARY)
 
@@ -93,5 +95,6 @@ TBLGEN_TABLES := $(clang_codegen_TBLGEN_TABLES)
 include $(CLANG_DEVICE_BUILD_MK)
 include $(CLANG_VERSION_INC_MK)
 include $(CLANG_TBLGEN_RULES_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
 include $(LLVM_GEN_INTRINSICS_MK)
 include $(BUILD_STATIC_LIBRARY)

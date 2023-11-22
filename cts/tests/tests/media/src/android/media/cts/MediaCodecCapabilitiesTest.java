@@ -185,6 +185,7 @@ public class MediaCodecCapabilitiesTest extends MediaPlayerTestBase {
         if (!checkDecoder(MIMETYPE_VIDEO_AVC, AVCProfileBaseline, AVCLevel3)) {
             return; // skip
         }
+
         playVideoWithRetries("http://redirector.c.youtube.com/videoplayback?id=271de9756065677e"
                 + "&itag=18&source=youtube&user=android-device-test"
                 + "&sparams=ip,ipbits,expire,id,itag,source,user"
@@ -198,6 +199,7 @@ public class MediaCodecCapabilitiesTest extends MediaPlayerTestBase {
         if (!checkDecoder(MIMETYPE_VIDEO_AVC, AVCProfileHigh, AVCLevel31)) {
             return; // skip
         }
+
         playVideoWithRetries("http://redirector.c.youtube.com/videoplayback?id=271de9756065677e"
                 + "&itag=22&source=youtube&user=android-device-test"
                 + "&sparams=ip,ipbits,expire,id,itag,source,user"
@@ -215,6 +217,7 @@ public class MediaCodecCapabilitiesTest extends MediaPlayerTestBase {
             MediaUtils.skipTest(TAG, "fragmented mp4 not supported");
             return;
         }
+
         playVideoWithRetries("http://redirector.c.youtube.com/videoplayback?id=271de9756065677e"
                 + "&itag=137&source=youtube&user=android-device-test"
                 + "&sparams=ip,ipbits,expire,id,itag,source,user"
@@ -600,6 +603,29 @@ public class MediaCodecCapabilitiesTest extends MediaPlayerTestBase {
         return actualMax;
     }
 
+    private boolean knownTypes(String type) {
+        return (type.equalsIgnoreCase(MediaFormat.MIMETYPE_AUDIO_AAC  ) ||
+            type.equalsIgnoreCase(MediaFormat.MIMETYPE_AUDIO_AC3      ) ||
+            type.equalsIgnoreCase(MediaFormat.MIMETYPE_AUDIO_AMR_NB   ) ||
+            type.equalsIgnoreCase(MediaFormat.MIMETYPE_AUDIO_AMR_WB   ) ||
+            type.equalsIgnoreCase(MediaFormat.MIMETYPE_AUDIO_EAC3     ) ||
+            type.equalsIgnoreCase(MediaFormat.MIMETYPE_AUDIO_FLAC     ) ||
+            type.equalsIgnoreCase(MediaFormat.MIMETYPE_AUDIO_G711_ALAW) ||
+            type.equalsIgnoreCase(MediaFormat.MIMETYPE_AUDIO_G711_MLAW) ||
+            type.equalsIgnoreCase(MediaFormat.MIMETYPE_AUDIO_MPEG     ) ||
+            type.equalsIgnoreCase(MediaFormat.MIMETYPE_AUDIO_MSGSM    ) ||
+            type.equalsIgnoreCase(MediaFormat.MIMETYPE_AUDIO_OPUS     ) ||
+            type.equalsIgnoreCase(MediaFormat.MIMETYPE_AUDIO_RAW      ) ||
+            type.equalsIgnoreCase(MediaFormat.MIMETYPE_AUDIO_VORBIS   ) ||
+            type.equalsIgnoreCase(MediaFormat.MIMETYPE_VIDEO_AVC      ) ||
+            type.equalsIgnoreCase(MediaFormat.MIMETYPE_VIDEO_H263     ) ||
+            type.equalsIgnoreCase(MediaFormat.MIMETYPE_VIDEO_HEVC     ) ||
+            type.equalsIgnoreCase(MediaFormat.MIMETYPE_VIDEO_MPEG2    ) ||
+            type.equalsIgnoreCase(MediaFormat.MIMETYPE_VIDEO_MPEG4    ) ||
+            type.equalsIgnoreCase(MediaFormat.MIMETYPE_VIDEO_VP8      ) ||
+            type.equalsIgnoreCase(MediaFormat.MIMETYPE_VIDEO_VP9      ));
+    }
+
     public void testGetMaxSupportedInstances() {
         final int MAX_INSTANCES = 32;
         StringBuilder xmlOverrides = new StringBuilder();
@@ -610,6 +636,10 @@ public class MediaCodecCapabilitiesTest extends MediaPlayerTestBase {
 
             String[] types = info.getSupportedTypes();
             for (int j = 0; j < types.length; ++j) {
+                if (!knownTypes(types[j])) {
+                    Log.d(TAG, "skipping unknown type " + types[j]);
+                    continue;
+                }
                 Log.d(TAG, "calling getCapabilitiesForType " + types[j]);
                 CodecCapabilities caps = info.getCapabilitiesForType(types[j]);
                 int max = caps.getMaxSupportedInstances();

@@ -74,7 +74,7 @@ public class SimRestrictedApisTest extends AndroidTestCase {
     public void testSetLine1NumberForDisplay2() {
         try {
             if (isSimCardPresent()) {
-                TelephonyManager.getDefault().setLine1NumberForDisplayForSubscriber(0, "", "");
+                TelephonyManager.getDefault().setLine1NumberForDisplay(0, "", "");
                 fail("Expected SecurityException. App doesn't have carrier privileges.");
             }
         } catch (SecurityException expected) {

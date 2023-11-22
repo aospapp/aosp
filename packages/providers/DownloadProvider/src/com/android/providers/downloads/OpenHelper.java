@@ -30,6 +30,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.StrictMode;
+import android.provider.DocumentsContract;
 import android.provider.Downloads.Impl.RequestHeaders;
 import android.util.Log;
 
@@ -49,11 +51,14 @@ public class OpenHelper {
 
         intent.addFlags(intentFlags);
         try {
+            StrictMode.disableDeathOnFileUriExposure();
             context.startActivity(intent);
             return true;
         } catch (ActivityNotFoundException e) {
             Log.w(TAG, "Failed to start " + intent + ": " + e);
             return false;
+        } finally {
+            StrictMode.enableDeathOnFileUriExposure();
         }
     }
 
@@ -65,6 +70,7 @@ public class OpenHelper {
         final DownloadManager downManager = (DownloadManager) context.getSystemService(
                 Context.DOWNLOAD_SERVICE);
         downManager.setAccessAllDownloads(true);
+        downManager.setAccessFilename(true);
 
         final Cursor cursor = downManager.query(new DownloadManager.Query().setFilterById(id));
         try {
@@ -77,6 +83,9 @@ public class OpenHelper {
             String mimeType = getCursorString(cursor, COLUMN_MEDIA_TYPE);
             mimeType = DownloadDrmHelper.getOriginalMimeType(context, file, mimeType);
 
+            final Uri documentUri = DocumentsContract.buildDocumentUri(
+                    Constants.STORAGE_AUTHORITY, String.valueOf(id));
+
             final Intent intent = new Intent(Intent.ACTION_VIEW);
 
             if ("application/vnd.android.package-archive".equals(mimeType)) {
@@ -88,14 +97,10 @@ public class OpenHelper {
                 intent.putExtra(Intent.EXTRA_ORIGINATING_URI, remoteUri);
                 intent.putExtra(Intent.EXTRA_REFERRER, getRefererUri(context, id));
                 intent.putExtra(Intent.EXTRA_ORIGINATING_UID, getOriginatingUid(context, id));
-            } else if ("file".equals(localUri.getScheme())) {
+            } else {
+                intent.setDataAndType(documentUri, mimeType);
                 intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
                         | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-                intent.setDataAndType(
-                        ContentUris.withAppendedId(ALL_DOWNLOADS_CONTENT_URI, id), mimeType);
-            } else {
-                intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                intent.setDataAndType(localUri, mimeType);
             }
 
             return intent;

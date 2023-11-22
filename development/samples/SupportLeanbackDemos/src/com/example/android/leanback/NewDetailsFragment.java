@@ -68,8 +68,7 @@ public class NewDetailsFragment extends android.support.v17.leanback.app.Details
     private FullWidthDetailsOverviewSharedElementHelper mHelper;
 
     private void initializeTest() {
-        Activity activity = getActivity();
-        TEST_SHARED_ELEMENT_TRANSITION = null != activity.getWindow().getSharedElementEnterTransition();
+        TEST_SHARED_ELEMENT_TRANSITION = null != getActivity().getWindow().getSharedElementEnterTransition();
         TEST_OVERVIEW_ROW_ON_SECOND = !TEST_SHARED_ELEMENT_TRANSITION;
         TEST_ENTRANCE_TRANSITION = true;
     }

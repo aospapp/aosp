@@ -6,9 +6,15 @@
  */
 
 #include "SkBBHFactory.h"
+#include "SkRect.h"
 #include "SkRTree.h"
+#include "SkScalar.h"
 
 SkBBoxHierarchy* SkRTreeFactory::operator()(const SkRect& bounds) const {
     SkScalar aspectRatio = bounds.width() / bounds.height();
-    return SkNEW_ARGS(SkRTree, (aspectRatio));
+    return new SkRTree(aspectRatio);
+}
+
+// TODO(thakis@chromium): remove once HTTP://llvm.org/26506 is fixed
+SkRTreeFactory::SkRTreeFactory() {
 }

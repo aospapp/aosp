@@ -27,12 +27,8 @@ define void @foo1(<4 x float> %val, <4 x float> %test, <4 x double>* %p) nounwin
 ; CHECK-NEXT: .long 1                       ## 0x1
 ; CHECK-NEXT: .long 1                       ## 0x1
 ; CHECK-LABEL: foo1:
-;   FIXME: The operation gets scalarized. If/when the compiler learns to better
-;          use [V]CVTDQ2PD, this will need updated.
-; CHECK: cvtsi2sdq
-; CHECK: cvtsi2sdq
-; CHECK: cvtsi2sdq
-; CHECK: cvtsi2sdq
+; CHECK: cvtdq2pd
+; CHECK: cvtdq2pd
   %cmp = fcmp oeq <4 x float> %val, %test
   %ext = zext <4 x i1> %cmp to <4 x i32>
   %result = sitofp <4 x i32> %ext to <4 x double>
@@ -43,10 +39,10 @@ define void @foo1(<4 x float> %val, <4 x float> %test, <4 x double>* %p) nounwin
 ; Also test the general purpose constant folding of int->fp.
 define void @foo2(<4 x float>* noalias %result) nounwind {
 ; CHECK-LABEL: LCPI2_0:
-; CHECK-NEXT: .long 1082130432              ## float 4.000000e+00
-; CHECK-NEXT: .long 1084227584              ## float 5.000000e+00
-; CHECK-NEXT: .long 1086324736              ## float 6.000000e+00
-; CHECK-NEXT: .long 1088421888              ## float 7.000000e+00
+; CHECK-NEXT: .long 1082130432              ## float 4
+; CHECK-NEXT: .long 1084227584              ## float 5
+; CHECK-NEXT: .long 1086324736              ## float 6
+; CHECK-NEXT: .long 1088421888              ## float 7
 ; CHECK-LABEL: foo2:
 ; CHECK:  movaps LCPI2_0(%rip), %xmm0
 
@@ -76,10 +72,10 @@ define <4 x float> @foo3(<4 x float> %val, <4 x float> %test) nounwind {
 ; Test the general purpose constant folding of uint->fp.
 define void @foo4(<4 x float>* noalias %result) nounwind {
 ; CHECK-LABEL: LCPI4_0:
-; CHECK-NEXT: .long 1065353216              ## float 1.000000e+00
-; CHECK-NEXT: .long 1123942400              ## float 1.270000e+02
-; CHECK-NEXT: .long 1124073472              ## float 1.280000e+02
-; CHECK-NEXT: .long 1132396544              ## float 2.550000e+02
+; CHECK-NEXT: .long 1065353216              ## float 1
+; CHECK-NEXT: .long 1123942400              ## float 127
+; CHECK-NEXT: .long 1124073472              ## float 128
+; CHECK-NEXT: .long 1132396544              ## float 255
 ; CHECK-LABEL: foo4:
 ; CHECK:  movaps LCPI4_0(%rip), %xmm0
 

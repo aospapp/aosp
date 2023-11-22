@@ -146,7 +146,7 @@ extern void bta_pan_co_tx_write(UINT16 handle, UINT8 app_id, BD_ADDR src, BD_ADD
 ** Description      This function is called by PAN to send data to the phone
 **                  when the TX path is configured to use a push interface with
 **                  zero copy.  The phone must free the buffer using function
-**                  GKI_freebuf() when it is through processing the buffer.
+**                  osi_free() when it is through processing the buffer.
 **
 **
 ** Returns          void

@@ -15,29 +15,31 @@
  */
 package android.support.v17.leanback.widget;
 
+import android.app.Instrumentation;
+import android.content.Intent;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Rect;
+import android.graphics.drawable.ColorDrawable;
+import android.os.Parcelable;
 import android.support.v17.leanback.tests.R;
+import android.support.v4.view.accessibility.AccessibilityNodeInfoCompat;
+import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.RecyclerViewAccessibilityDelegate;
 import android.test.ActivityInstrumentationTestCase2;
 import android.text.Selection;
 import android.text.Spannable;
-import android.util.Log;
 import android.util.SparseArray;
+import android.util.SparseIntArray;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
-import android.support.v4.view.accessibility.AccessibilityNodeInfoCompat;
-import android.support.v7.widget.RecyclerViewAccessibilityDelegate;
-
-import android.app.Instrumentation;
-import android.content.Intent;
-import android.os.Parcelable;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.Iterator;
 
 /**
  * @hide from javadoc
@@ -103,6 +105,23 @@ public class GridWidgetTest extends ActivityInstrumentationTestCase2<GridActivit
             }
         });
         Thread.sleep(500);
+    }
+
+    protected void waitForScrollIdleAndItemAnimation(Runnable verify) throws Throwable {
+        waitForScrollIdle();
+        waitForItemAnimation();
+        verify.run();
+    }
+
+    protected void waitForItemAnimation() throws Throwable {
+        Thread.sleep(100);
+        while (mGridView.getItemAnimator() != null && mGridView.getItemAnimator().isRunning()) {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException ex) {
+                break;
+            }
+        }
     }
 
     /**
@@ -366,6 +385,175 @@ public class GridWidgetTest extends ActivityInstrumentationTestCase2<GridActivit
         verifyBeginAligned();
     }
 
+    static class DividerDecoration extends RecyclerView.ItemDecoration {
+
+        private ColorDrawable mTopDivider;
+        private ColorDrawable mBottomDivider;
+        private int mLeftOffset;
+        private int mRightOffset;
+        private int mTopOffset;
+        private int mBottomOffset;
+
+        DividerDecoration(int leftOffset, int topOffset, int rightOffset, int bottomOffset) {
+            mLeftOffset = leftOffset;
+            mTopOffset = topOffset;
+            mRightOffset = rightOffset;
+            mBottomOffset = bottomOffset;
+        }
+
+        @Override
+        public void onDrawOver(Canvas c, RecyclerView parent, RecyclerView.State state) {
+            if (mTopDivider == null) {
+                mTopDivider = new ColorDrawable(Color.RED);
+            }
+            if (mBottomDivider == null) {
+                mBottomDivider = new ColorDrawable(Color.BLUE);
+            }
+            final int childCount = parent.getChildCount();
+            final int width = parent.getWidth();
+            for (int childViewIndex = 0; childViewIndex < childCount; childViewIndex++) {
+                final View view = parent.getChildAt(childViewIndex);
+                mTopDivider.setBounds(0, (int) view.getY() - mTopOffset, width, (int) view.getY());
+                mTopDivider.draw(c);
+                mBottomDivider.setBounds(0, (int) view.getY() + view.getHeight(), width,
+                        (int) view.getY() + view.getHeight() + mBottomOffset);
+                mBottomDivider.draw(c);
+            }
+        }
+
+        @Override
+        public void getItemOffsets(Rect outRect, View view, RecyclerView parent,
+                                   RecyclerView.State state) {
+            outRect.left = mLeftOffset;
+            outRect.top = mTopOffset;
+            outRect.right = mRightOffset;
+            outRect.bottom = mBottomOffset;
+        }
+    }
+
+    public void testItemDecorationAndMargins() throws Throwable {
+
+        final int leftMargin = 3;
+        final int topMargin = 4;
+        final int rightMargin = 7;
+        final int bottomMargin = 8;
+        final int itemHeight = 100;
+
+        mInstrumentation = getInstrumentation();
+        Intent intent = new Intent(mInstrumentation.getContext(), GridActivity.class);
+        intent.putExtra(GridActivity.EXTRA_LAYOUT_RESOURCE_ID, R.layout.vertical_linear);
+        intent.putExtra(GridActivity.EXTRA_ITEMS, new int[]{itemHeight, itemHeight, itemHeight});
+        intent.putExtra(GridActivity.EXTRA_LAYOUT_MARGINS,
+                new int[]{leftMargin, topMargin, rightMargin, bottomMargin});
+        initActivity(intent);
+        mOrientation = BaseGridView.VERTICAL;
+        mNumRows = 1;
+
+        final int paddingLeft = mGridView.getPaddingLeft();
+        final int paddingTop = mGridView.getPaddingTop();
+        final int verticalSpace = mGridView.getVerticalMargin();
+        final int decorationLeft = 17;
+        final int decorationTop = 1;
+        final int decorationRight = 19;
+        final int decorationBottom = 2;
+
+        runTestOnUiThread(new Runnable() {
+            public void run() {
+                mGridView.addItemDecoration(new DividerDecoration(decorationLeft, decorationTop,
+                        decorationRight, decorationBottom));
+            }
+        });
+        waitForScrollIdle();
+
+        View child0 = mGridView.getChildAt(0);
+        View child1 = mGridView.getChildAt(1);
+        View child2 = mGridView.getChildAt(2);
+
+        assertEquals(itemHeight, child0.getBottom() - child0.getTop());
+
+        // verify left margins
+        assertEquals(paddingLeft + leftMargin + decorationLeft, child0.getLeft());
+        assertEquals(paddingLeft + leftMargin + decorationLeft, child1.getLeft());
+        assertEquals(paddingLeft + leftMargin + decorationLeft, child2.getLeft());
+        // verify top bottom margins and decoration offset
+        assertEquals(paddingTop + topMargin + decorationTop, child0.getTop());
+        assertEquals(bottomMargin + decorationBottom + verticalSpace + decorationTop + topMargin,
+                child1.getTop() - child0.getBottom());
+        assertEquals(bottomMargin + decorationBottom + verticalSpace + decorationTop + topMargin,
+                child2.getTop() - child1.getBottom());
+
+    }
+
+    public void testItemDecorationAndMarginsAndOpticalBounds() throws Throwable {
+        final int leftMargin = 3;
+        final int topMargin = 4;
+        final int rightMargin = 7;
+        final int bottomMargin = 8;
+        final int itemHeight = 100;
+        final int ninePatchDrawableResourceId = R.drawable.lb_card_shadow_focused;
+
+        mInstrumentation = getInstrumentation();
+        Intent intent = new Intent(mInstrumentation.getContext(), GridActivity.class);
+        intent.putExtra(GridActivity.EXTRA_LAYOUT_RESOURCE_ID, R.layout.vertical_linear);
+        intent.putExtra(GridActivity.EXTRA_ITEMS, new int[]{itemHeight, itemHeight, itemHeight});
+        intent.putExtra(GridActivity.EXTRA_CHILD_LAYOUT_ID, R.layout.relative_layout);
+        intent.putExtra(GridActivity.EXTRA_LAYOUT_MARGINS,
+                new int[]{leftMargin, topMargin, rightMargin, bottomMargin});
+        intent.putExtra(GridActivity.EXTRA_NINEPATCH_SHADOW, ninePatchDrawableResourceId);
+        initActivity(intent);
+        mOrientation = BaseGridView.VERTICAL;
+        mNumRows = 1;
+
+        final int paddingLeft = mGridView.getPaddingLeft();
+        final int paddingTop = mGridView.getPaddingTop();
+        final int verticalSpace = mGridView.getVerticalMargin();
+        final int decorationLeft = 17;
+        final int decorationTop = 1;
+        final int decorationRight = 19;
+        final int decorationBottom = 2;
+
+        final Rect opticalPaddings = new Rect();
+        mGridView.getContext().getDrawable(ninePatchDrawableResourceId).getPadding(opticalPaddings);
+        final int opticalInsetsLeft = opticalPaddings.left;
+        final int opticalInsetsTop = opticalPaddings.top;
+        final int opticalInsetsRight = opticalPaddings.right;
+        final int opticalInsetsBottom = opticalPaddings.bottom;
+        assertTrue(opticalInsetsLeft > 0);
+        assertTrue(opticalInsetsTop > 0);
+        assertTrue(opticalInsetsRight > 0);
+        assertTrue(opticalInsetsBottom > 0);
+
+        runTestOnUiThread(new Runnable() {
+            public void run() {
+                mGridView.addItemDecoration(new DividerDecoration(decorationLeft, decorationTop,
+                        decorationRight, decorationBottom));
+            }
+        });
+        waitForScrollIdle();
+
+        View child0 = mGridView.getChildAt(0);
+        View child1 = mGridView.getChildAt(1);
+        View child2 = mGridView.getChildAt(2);
+
+        assertEquals(itemHeight + opticalInsetsTop + opticalInsetsBottom,
+                child0.getBottom() - child0.getTop());
+
+        // verify left margins decoration and optical insets
+        assertEquals(paddingLeft + leftMargin + decorationLeft - opticalInsetsLeft,
+                child0.getLeft());
+        assertEquals(paddingLeft + leftMargin + decorationLeft - opticalInsetsLeft,
+                child1.getLeft());
+        assertEquals(paddingLeft + leftMargin + decorationLeft - opticalInsetsLeft,
+                child2.getLeft());
+        // verify top bottom margins decoration offset and optical insets
+        assertEquals(paddingTop + topMargin + decorationTop, child0.getTop() + opticalInsetsTop);
+        assertEquals(bottomMargin + decorationBottom + verticalSpace + decorationTop + topMargin,
+                (child1.getTop() + opticalInsetsTop) - (child0.getBottom() - opticalInsetsBottom));
+        assertEquals(bottomMargin + decorationBottom + verticalSpace + decorationTop + topMargin,
+                (child2.getTop() + opticalInsetsTop) - (child1.getBottom() - opticalInsetsBottom));
+
+    }
+
     public void testThreeColumnVerticalBasic() throws Throwable {
 
         mInstrumentation = getInstrumentation();
@@ -535,6 +723,63 @@ public class GridWidgetTest extends ActivityInstrumentationTestCase2<GridActivit
 
         scrollToBegin(mVerifyLayout);
         verifyBeginAligned();
+    }
+
+    public void testSetSelectedPositionDetached() throws Throwable {
+
+        mInstrumentation = getInstrumentation();
+        Intent intent = new Intent(mInstrumentation.getContext(), GridActivity.class);
+        intent.putExtra(GridActivity.EXTRA_LAYOUT_RESOURCE_ID,
+                R.layout.horizontal_linear);
+        intent.putExtra(GridActivity.EXTRA_NUM_ITEMS, 50);
+        initActivity(intent);
+        mOrientation = BaseGridView.HORIZONTAL;
+        mNumRows = 1;
+
+        final int focusToIndex = 49;
+        final ViewGroup parent = (ViewGroup) mGridView.getParent();
+        runTestOnUiThread(new Runnable() {
+            public void run() {
+                parent.removeView(mGridView);
+            }
+        });
+        runTestOnUiThread(new Runnable() {
+            public void run() {
+                mGridView.setSelectedPositionSmooth(focusToIndex);
+            }
+        });
+        runTestOnUiThread(new Runnable() {
+            public void run() {
+                parent.addView(mGridView);
+                mGridView.requestFocus();
+            }
+        });
+        waitForTransientStateGone(null);
+        waitForScrollIdle();
+        assertEquals(mGridView.getSelectedPosition(), focusToIndex);
+        assertTrue(mGridView.getLayoutManager().findViewByPosition(focusToIndex).hasFocus());
+
+        final int focusToIndex2 = 0;
+        runTestOnUiThread(new Runnable() {
+            public void run() {
+                parent.removeView(mGridView);
+            }
+        });
+        runTestOnUiThread(new Runnable() {
+            public void run() {
+                mGridView.setSelectedPosition(focusToIndex2);
+            }
+        });
+        runTestOnUiThread(new Runnable() {
+            public void run() {
+                parent.addView(mGridView);
+                mGridView.requestFocus();
+            }
+        });
+        assertEquals(mGridView.getSelectedPosition(), focusToIndex2);
+        waitForTransientStateGone(null);
+        waitForScrollIdle();
+        assertTrue(mGridView.getLayoutManager().findViewByPosition(focusToIndex2).hasFocus());
     }
 
     public void testBug22209986() throws Throwable {
@@ -1082,6 +1327,58 @@ public class GridWidgetTest extends ActivityInstrumentationTestCase2<GridActivit
 
     }
 
+    public void testLtrFocusOutStartDisabled() throws Throwable {
+        final int numItems = 200;
+
+        mInstrumentation = getInstrumentation();
+        Intent intent = new Intent(mInstrumentation.getContext(), GridActivity.class);
+        intent.putExtra(GridActivity.EXTRA_LAYOUT_RESOURCE_ID, R.layout.vertical_grid_ltr);
+        intent.putExtra(GridActivity.EXTRA_NUM_ITEMS, numItems);
+        intent.putExtra(GridActivity.EXTRA_STAGGERED, false);
+        mOrientation = BaseGridView.VERTICAL;
+        mNumRows = 1;
+        initActivity(intent);
+
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mGridView.requestFocus();
+                mGridView.setSelectedPositionSmooth(0);
+            }
+        });
+        waitForScrollIdle(mVerifyLayout);
+
+        sendKeys(KeyEvent.KEYCODE_DPAD_LEFT);
+        waitForScrollIdle(mVerifyLayout);
+        assertTrue(mGridView.hasFocus());
+    }
+
+    public void testRtlFocusOutStartDisabled() throws Throwable {
+        final int numItems = 200;
+
+        mInstrumentation = getInstrumentation();
+        Intent intent = new Intent(mInstrumentation.getContext(), GridActivity.class);
+        intent.putExtra(GridActivity.EXTRA_LAYOUT_RESOURCE_ID, R.layout.vertical_grid_rtl);
+        intent.putExtra(GridActivity.EXTRA_NUM_ITEMS, numItems);
+        intent.putExtra(GridActivity.EXTRA_STAGGERED, false);
+        mOrientation = BaseGridView.VERTICAL;
+        mNumRows = 1;
+        initActivity(intent);
+
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mGridView.requestFocus();
+                mGridView.setSelectedPositionSmooth(0);
+            }
+        });
+        waitForScrollIdle(mVerifyLayout);
+
+        sendKeys(KeyEvent.KEYCODE_DPAD_RIGHT);
+        waitForScrollIdle(mVerifyLayout);
+        assertTrue(mGridView.hasFocus());
+    }
+
     public void testTransferFocusable() throws Throwable {
         final int numItems = 200;
         final int numColumns = 3;
@@ -1161,12 +1458,12 @@ public class GridWidgetTest extends ActivityInstrumentationTestCase2<GridActivit
         initActivity(intent);
 
         mGridView.setSelectedPositionSmooth(0);
-        waitForScrollIdle(mVerifyLayout);
+        waitForScrollIdleAndItemAnimation(mVerifyLayout);
 
         for (int i = 0; i < pressDown; i++) {
             sendKeys(KeyEvent.KEYCODE_DPAD_DOWN);
         }
-        waitForScrollIdle(mVerifyLayout);
+        waitForScrollIdleAndItemAnimation(mVerifyLayout);
         assertFalse(mGridView.isFocused());
 
     }
@@ -1570,6 +1867,40 @@ public class GridWidgetTest extends ActivityInstrumentationTestCase2<GridActivit
                 ((VerticalGridViewEx) mGridView).mSmoothScrollByCalled < 10);
     }
 
+    public void testSmoothscrollerCancelled() throws Throwable {
+        mInstrumentation = getInstrumentation();
+        Intent intent = new Intent(mInstrumentation.getContext(), GridActivity.class);
+        intent.putExtra(GridActivity.EXTRA_LAYOUT_RESOURCE_ID,
+                R.layout.vertical_linear);
+        intent.putExtra(GridActivity.EXTRA_REQUEST_FOCUS_ONLAYOUT, true);
+        int[] items = new int[100];
+        for (int i = 0; i < items.length; i++) {
+            items[i] = 680;
+        }
+        intent.putExtra(GridActivity.EXTRA_ITEMS, items);
+        intent.putExtra(GridActivity.EXTRA_STAGGERED, false);
+        mOrientation = BaseGridView.VERTICAL;
+        mNumRows = 1;
+
+        initActivity(intent);
+
+        mGridView.setSelectedPositionSmooth(0);
+        waitForScrollIdle(mVerifyLayout);
+        assertTrue(mGridView.getChildAt(0).hasFocus());
+
+        int targetPosition = items.length - 1;
+        mGridView.setSelectedPositionSmooth(targetPosition);
+        runTestOnUiThread(new Runnable() {
+            public void run() {
+                mGridView.stopScroll();
+            }
+        });
+        Thread.sleep(100);
+        assertEquals(mGridView.getSelectedPosition(), targetPosition);
+        assertSame(mGridView.getLayoutManager().findViewByPosition(targetPosition),
+                mGridView.findFocus());
+    }
+
     public void testSetNumRowsAndAddItem() throws Throwable {
         mInstrumentation = getInstrumentation();
         Intent intent = new Intent(mInstrumentation.getContext(), GridActivity.class);
@@ -1656,7 +1987,7 @@ public class GridWidgetTest extends ActivityInstrumentationTestCase2<GridActivit
                 mGridView.setSelectedPositionSmooth(0);
             }
         });
-        waitForScrollIdle(mVerifyLayout);
+        waitForScrollIdleAndItemAnimation(mVerifyLayout);
         verifyMargin();
 
         runTestOnUiThread(new Runnable() {
@@ -1664,8 +1995,31 @@ public class GridWidgetTest extends ActivityInstrumentationTestCase2<GridActivit
                 mGridView.setSelectedPositionSmooth(1);
             }
         });
-        waitForScrollIdle(mVerifyLayout);
+        waitForScrollIdleAndItemAnimation(mVerifyLayout);
         verifyMargin();
+    }
+
+    public void testWrapContent() throws Throwable {
+        mInstrumentation = getInstrumentation();
+        Intent intent = new Intent(mInstrumentation.getContext(), GridActivity.class);
+        intent.putExtra(GridActivity.EXTRA_LAYOUT_RESOURCE_ID,
+                R.layout.horizontal_grid_wrap);
+        int[] items = new int[200];
+        for (int i = 0; i < items.length; i++) {
+            items[i] = 300;
+        }
+        intent.putExtra(GridActivity.EXTRA_ITEMS, items);
+        mOrientation = BaseGridView.HORIZONTAL;
+        mNumRows = 1;
+
+        initActivity(intent);
+
+        runTestOnUiThread(new Runnable() {
+            public void run() {
+                mActivity.attachToNewAdapter(new int[0]);
+            }
+        });
+
     }
 
 
@@ -1735,7 +2089,7 @@ public class GridWidgetTest extends ActivityInstrumentationTestCase2<GridActivit
                 mGridView.setSelectedPositionSmooth(1);
             }
         });
-        waitForScrollIdle(mVerifyLayout);
+        waitForScrollIdleAndItemAnimation(mVerifyLayout);
         assertEquals(((TextView) mGridView.getChildAt(0)).getSelectionStart(), 1);
         assertEquals(((TextView) mGridView.getChildAt(0)).getSelectionEnd(), 2);
         assertEquals(((TextView) mGridView.getChildAt(1)).getSelectionStart(), 1);
@@ -1753,7 +2107,7 @@ public class GridWidgetTest extends ActivityInstrumentationTestCase2<GridActivit
                 mGridView.setSelectedPositionSmooth(0);
             }
         });
-        waitForScrollIdle(mVerifyLayout);
+        waitForScrollIdleAndItemAnimation(mVerifyLayout);
         assertEquals(((TextView) mGridView.getChildAt(0)).getSelectionStart(), 1);
         assertEquals(((TextView) mGridView.getChildAt(0)).getSelectionEnd(), 2);
         assertEquals(((TextView) mGridView.getChildAt(1)).getSelectionStart(), 1);
@@ -1832,6 +2186,20 @@ public class GridWidgetTest extends ActivityInstrumentationTestCase2<GridActivit
             } else {
                 return VIEW_TYPE_DEFAULT;
             }
+        }
+    }
+
+    static class ChangeableViewTypesProvider implements ViewTypeProvider {
+        static SparseIntArray sViewTypes = new SparseIntArray();
+        @Override
+        public int getViewType(int position) {
+            return sViewTypes.get(position);
+        }
+        public static void clear() {
+            sViewTypes.clear();
+        }
+        public static void setViewType(int position, int type) {
+            sViewTypes.put(position, type);
         }
     }
 
@@ -2050,6 +2418,38 @@ public class GridWidgetTest extends ActivityInstrumentationTestCase2<GridActivit
         assertEquals(0, mGridView.getSelectedPosition());
     }
 
+    public void testNotifyItemTypeChangedSelectionEvent() throws Throwable {
+        mInstrumentation = getInstrumentation();
+        Intent intent = new Intent(mInstrumentation.getContext(), GridActivity.class);
+        intent.putExtra(GridActivity.EXTRA_LAYOUT_RESOURCE_ID,
+                R.layout.vertical_linear);
+        intent.putExtra(GridActivity.EXTRA_NUM_ITEMS, 10);
+        intent.putExtra(GridActivity.EXTRA_VIEWTYPEPROVIDER_CLASS,
+                ChangeableViewTypesProvider.class.getName());
+        ChangeableViewTypesProvider.clear();
+        initActivity(intent);
+        mOrientation = BaseGridView.HORIZONTAL;
+        mNumRows = 1;
+
+        final ArrayList<Integer> selectedLog = new ArrayList<Integer>();
+        mGridView.setOnChildSelectedListener(new OnChildSelectedListener() {
+            public void onChildSelected(ViewGroup parent, View view, int position, long id) {
+                selectedLog.add(position);
+            }
+        });
+
+        runTestOnUiThread(new Runnable() {
+            public void run() {
+                ChangeableViewTypesProvider.setViewType(0, 1);
+                mGridView.getAdapter().notifyItemChanged(0, 1);
+            }
+        });
+        waitForTransientStateGone(null);
+        assertEquals(0, mGridView.getSelectedPosition());
+        assertEquals(selectedLog.size(), 1);
+        assertEquals((int) selectedLog.get(0), 0);
+    }
+
     public void testSelectionSmoothAndAddItemInOneCycle() throws Throwable {
         mInstrumentation = getInstrumentation();
         Intent intent = new Intent(mInstrumentation.getContext(), GridActivity.class);
@@ -2115,6 +2515,176 @@ public class GridWidgetTest extends ActivityInstrumentationTestCase2<GridActivit
         v = mGridView.getChildAt(mGridView.getChildCount() - 1);
         assertTrue(v.getTop() < windowSize);
         assertTrue(v.getBottom() >= windowSize - mGridView.getVerticalMargin());
+    }
+
+    public void testFocusFinder() throws Throwable {
+        mInstrumentation = getInstrumentation();
+        Intent intent = new Intent(mInstrumentation.getContext(), GridActivity.class);
+        intent.putExtra(GridActivity.EXTRA_LAYOUT_RESOURCE_ID,
+                R.layout.vertical_linear_with_button);
+        intent.putExtra(GridActivity.EXTRA_NUM_ITEMS, 3);
+        intent.putExtra(GridActivity.EXTRA_STAGGERED, false);
+        initActivity(intent);
+        mOrientation = BaseGridView.VERTICAL;
+        mNumRows = 1;
+
+        // test focus from button to vertical grid view
+        final View button = mActivity.findViewById(R.id.button);
+        assertTrue(button.isFocused());
+        sendKeys(KeyEvent.KEYCODE_DPAD_DOWN);
+        assertFalse(mGridView.isFocused());
+        assertTrue(mGridView.hasFocus());
+
+        // FocusFinder should find last focused(2nd) item on DPAD_DOWN
+        final View secondChild = mGridView.getChildAt(1);
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                secondChild.requestFocus();
+                button.requestFocus();
+            }
+        });
+        assertTrue(button.isFocused());
+        sendKeys(KeyEvent.KEYCODE_DPAD_DOWN);
+        assertTrue(secondChild.isFocused());
+
+        // Bug 26918143 Even VerticalGridView is not focusable, FocusFinder should find last focused
+        // (2nd) item on DPAD_DOWN.
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                button.requestFocus();
+            }
+        });
+        mGridView.setFocusable(false);
+        mGridView.setFocusableInTouchMode(false);
+        assertTrue(button.isFocused());
+        sendKeys(KeyEvent.KEYCODE_DPAD_DOWN);
+        assertTrue(secondChild.isFocused());
+    }
+
+    public void testRestoreIndexAndAddItems() throws Throwable {
+        mInstrumentation = getInstrumentation();
+        Intent intent = new Intent(mInstrumentation.getContext(), GridActivity.class);
+        intent.putExtra(GridActivity.EXTRA_LAYOUT_RESOURCE_ID,
+                R.layout.vertical_linear);
+        intent.putExtra(GridActivity.EXTRA_CHILD_LAYOUT_ID, R.layout.horizontal_item);
+        intent.putExtra(GridActivity.EXTRA_NUM_ITEMS, 4);
+        initActivity(intent);
+        mOrientation = BaseGridView.VERTICAL;
+        mNumRows = 1;
+
+        assertEquals(mGridView.getSelectedPosition(), 0);
+        final SparseArray states = new SparseArray();
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mGridView.saveHierarchyState(states);
+                mGridView.setAdapter(null);
+            }
+
+        });
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mGridView.restoreHierarchyState(states);
+                mActivity.attachToNewAdapter(new int[0]);
+                mActivity.addItems(0, new int[]{100, 100, 100, 100});
+            }
+
+        });
+        waitForTransientStateGone(null);
+        assertEquals(mGridView.getSelectedPosition(), 0);
+    }
+
+    public void test27766012() throws Throwable {
+        mInstrumentation = getInstrumentation();
+        Intent intent = new Intent(mInstrumentation.getContext(), GridActivity.class);
+        intent.putExtra(GridActivity.EXTRA_LAYOUT_RESOURCE_ID,
+                R.layout.vertical_linear_with_button_onleft);
+        intent.putExtra(GridActivity.EXTRA_CHILD_LAYOUT_ID, R.layout.horizontal_item);
+        intent.putExtra(GridActivity.EXTRA_NUM_ITEMS, 2);
+        intent.putExtra(GridActivity.EXTRA_STAGGERED, false);
+        intent.putExtra(GridActivity.EXTRA_UPDATE_SIZE, false);
+        initActivity(intent);
+        mOrientation = BaseGridView.VERTICAL;
+        mNumRows = 1;
+
+        // set remove animator two seconds
+        mGridView.getItemAnimator().setRemoveDuration(2000);
+        final View view = mGridView.getChildAt(1);
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                view.requestFocus();
+            }
+        });
+        assertTrue(view.hasFocus());
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mActivity.removeItems(0, 2);
+            }
+
+        });
+        // wait one second, removing second view is still attached to parent
+        Thread.sleep(1000);
+        assertSame(view.getParent(), mGridView);
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                // refocus to the removed item and do a focus search.
+                view.requestFocus();
+                view.focusSearch(View.FOCUS_UP);
+            }
+
+        });
+    }
+
+    public void testBug27258366() throws Throwable {
+        mInstrumentation = getInstrumentation();
+        Intent intent = new Intent(mInstrumentation.getContext(), GridActivity.class);
+        intent.putExtra(GridActivity.EXTRA_LAYOUT_RESOURCE_ID,
+                R.layout.vertical_linear_with_button_onleft);
+        intent.putExtra(GridActivity.EXTRA_CHILD_LAYOUT_ID, R.layout.horizontal_item);
+        intent.putExtra(GridActivity.EXTRA_NUM_ITEMS, 10);
+        intent.putExtra(GridActivity.EXTRA_STAGGERED, false);
+        intent.putExtra(GridActivity.EXTRA_UPDATE_SIZE, false);
+        initActivity(intent);
+        mOrientation = BaseGridView.VERTICAL;
+        mNumRows = 1;
+
+        // move item1 500 pixels right, when focus is on item1, default focus finder will pick
+        // item0 and item2 for the best match of focusSearch(FOCUS_LEFT).  The grid widget
+        // must override default addFocusables(), not to add item0 or item2.
+        mActivity.mAdapterListener = new GridActivity.AdapterListener() {
+            public void onBind(RecyclerView.ViewHolder vh, int position) {
+                if (position == 1) {
+                    vh.itemView.setPaddingRelative(500, 0, 0, 0);
+                } else {
+                    vh.itemView.setPaddingRelative(0, 0, 0, 0);
+                }
+            }
+        };
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mGridView.getAdapter().notifyDataSetChanged();
+            }
+        });
+        Thread.sleep(100);
+
+        final ViewGroup secondChild = (ViewGroup) mGridView.getChildAt(1);
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                secondChild.requestFocus();
+            }
+        });
+        sendKeys(KeyEvent.KEYCODE_DPAD_LEFT);
+        Thread.sleep(100);
+        final View button = mActivity.findViewById(R.id.button);
+        assertTrue(button.isFocused());
     }
 
     public void testAccessibility() throws Throwable {

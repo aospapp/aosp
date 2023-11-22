@@ -28,6 +28,8 @@
 
 namespace art {
 
+class SsaTest : public CommonCompilerTest {};
+
 class SsaPrettyPrinter : public HPrettyPrinter {
  public:
   explicit SsaPrettyPrinter(HGraph* graph) : HPrettyPrinter(graph), str_("") {}
@@ -64,8 +66,7 @@ class SsaPrettyPrinter : public HPrettyPrinter {
 
 static void ReNumberInstructions(HGraph* graph) {
   int id = 0;
-  for (size_t i = 0, e = graph->GetBlocks().Size(); i < e; ++i) {
-    HBasicBlock* block = graph->GetBlocks().Get(i);
+  for (HBasicBlock* block : graph->GetBlocks()) {
     for (HInstructionIterator it(block->GetPhis()); !it.Done(); it.Advance()) {
       it.Current()->SetId(id++);
     }
@@ -78,22 +79,15 @@ static void ReNumberInstructions(HGraph* graph) {
 static void TestCode(const uint16_t* data, const char* expected) {
   ArenaPool pool;
   ArenaAllocator allocator(&pool);
-  HGraph* graph = CreateGraph(&allocator);
-  HGraphBuilder builder(graph);
-  const DexFile::CodeItem* item = reinterpret_cast<const DexFile::CodeItem*>(data);
-  bool graph_built = builder.BuildGraph(*item);
-  ASSERT_TRUE(graph_built);
-
-  graph->BuildDominatorTree();
+  HGraph* graph = CreateCFG(&allocator, data);
   // Suspend checks implementation may change in the future, and this test relies
   // on how instructions are ordered.
   RemoveSuspendChecks(graph);
-  graph->TransformToSsa();
   ReNumberInstructions(graph);
 
   // Test that phis had their type set.
-  for (size_t i = 0, e = graph->GetBlocks().Size(); i < e; ++i) {
-    for (HInstructionIterator it(graph->GetBlocks().Get(i)->GetPhis()); !it.Done(); it.Advance()) {
+  for (HBasicBlock* block : graph->GetBlocks()) {
+    for (HInstructionIterator it(block->GetPhis()); !it.Done(); it.Advance()) {
       ASSERT_NE(it.Current()->GetType(), Primitive::kPrimVoid);
     }
   }
@@ -104,7 +98,7 @@ static void TestCode(const uint16_t* data, const char* expected) {
   ASSERT_STREQ(expected, printer.str().c_str());
 }
 
-TEST(SsaTest, CFG1) {
+TEST_F(SsaTest, CFG1) {
   // Test that we get rid of loads and stores.
   const char* expected =
     "BasicBlock 0, succ: 1\n"
@@ -132,7 +126,7 @@ TEST(SsaTest, CFG1) {
   TestCode(data, expected);
 }
 
-TEST(SsaTest, CFG2) {
+TEST_F(SsaTest, CFG2) {
   // Test that we create a phi for the join block of an if control flow instruction
   // when there is only code in the else branch.
   const char* expected =
@@ -163,14 +157,14 @@ TEST(SsaTest, CFG2) {
   TestCode(data, expected);
 }
 
-TEST(SsaTest, CFG3) {
+TEST_F(SsaTest, CFG3) {
   // Test that we create a phi for the join block of an if control flow instruction
   // when both branches update a local.
   const char* expected =
     "BasicBlock 0, succ: 1\n"
     "  0: IntConstant 0 [4, 4]\n"
-    "  1: IntConstant 4 [8]\n"
-    "  2: IntConstant 5 [8]\n"
+    "  1: IntConstant 5 [8]\n"
+    "  2: IntConstant 4 [8]\n"
     "  3: Goto\n"
     "BasicBlock 1, pred: 0, succ: 3, 2\n"
     "  4: Equal(0, 0) [5]\n"
@@ -180,7 +174,7 @@ TEST(SsaTest, CFG3) {
     "BasicBlock 3, pred: 1, succ: 4\n"
     "  7: Goto\n"
     "BasicBlock 4, pred: 2, 3, succ: 5\n"
-    "  8: Phi(1, 2) [9]\n"
+    "  8: Phi(2, 1) [9]\n"
     "  9: Return(8)\n"
     "BasicBlock 5, pred: 4\n"
     "  10: Exit\n";
@@ -196,7 +190,7 @@ TEST(SsaTest, CFG3) {
   TestCode(data, expected);
 }
 
-TEST(SsaTest, Loop1) {
+TEST_F(SsaTest, Loop1) {
   // Test that we create a phi for an initialized local at entry of a loop.
   const char* expected =
     "BasicBlock 0, succ: 1\n"
@@ -229,7 +223,7 @@ TEST(SsaTest, Loop1) {
   TestCode(data, expected);
 }
 
-TEST(SsaTest, Loop2) {
+TEST_F(SsaTest, Loop2) {
   // Simple loop with one preheader and one back edge.
   const char* expected =
     "BasicBlock 0, succ: 1\n"
@@ -259,24 +253,24 @@ TEST(SsaTest, Loop2) {
   TestCode(data, expected);
 }
 
-TEST(SsaTest, Loop3) {
+TEST_F(SsaTest, Loop3) {
   // Test that a local not yet defined at the entry of a loop is handled properly.
   const char* expected =
     "BasicBlock 0, succ: 1\n"
     "  0: IntConstant 0 [5]\n"
-    "  1: IntConstant 4 [5]\n"
-    "  2: IntConstant 5 [9]\n"
+    "  1: IntConstant 5 [9]\n"
+    "  2: IntConstant 4 [5]\n"
     "  3: Goto\n"
     "BasicBlock 1, pred: 0, succ: 2\n"
     "  4: Goto\n"
     "BasicBlock 2, pred: 1, 3, succ: 4, 3\n"
-    "  5: Phi(0, 1) [6, 6]\n"
+    "  5: Phi(0, 2) [6, 6]\n"
     "  6: Equal(5, 5) [7]\n"
     "  7: If(6)\n"
     "BasicBlock 3, pred: 2, succ: 2\n"
     "  8: Goto\n"
     "BasicBlock 4, pred: 2, succ: 5\n"
-    "  9: Return(2)\n"
+    "  9: Return(1)\n"
     "BasicBlock 5, pred: 4\n"
     "  10: Exit\n";
 
@@ -291,7 +285,7 @@ TEST(SsaTest, Loop3) {
   TestCode(data, expected);
 }
 
-TEST(SsaTest, Loop4) {
+TEST_F(SsaTest, Loop4) {
   // Make sure we support a preheader of a loop not being the first predecessor
   // in the predecessor list of the header.
   const char* expected =
@@ -326,14 +320,14 @@ TEST(SsaTest, Loop4) {
   TestCode(data, expected);
 }
 
-TEST(SsaTest, Loop5) {
+TEST_F(SsaTest, Loop5) {
   // Make sure we create a preheader of a loop when a header originally has two
   // incoming blocks and one back edge.
   const char* expected =
     "BasicBlock 0, succ: 1\n"
     "  0: IntConstant 0 [4, 4]\n"
-    "  1: IntConstant 4 [13]\n"
-    "  2: IntConstant 5 [13]\n"
+    "  1: IntConstant 5 [13]\n"
+    "  2: IntConstant 4 [13]\n"
     "  3: Goto\n"
     "BasicBlock 1, pred: 0, succ: 3, 2\n"
     "  4: Equal(0, 0) [5]\n"
@@ -352,7 +346,7 @@ TEST(SsaTest, Loop5) {
     "BasicBlock 7, pred: 6\n"
     "  12: Exit\n"
     "BasicBlock 8, pred: 2, 3, succ: 4\n"
-    "  13: Phi(1, 2) [8, 8, 11]\n"
+    "  13: Phi(2, 1) [11, 8, 8]\n"
     "  14: Goto\n";
 
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
@@ -368,7 +362,7 @@ TEST(SsaTest, Loop5) {
   TestCode(data, expected);
 }
 
-TEST(SsaTest, Loop6) {
+TEST_F(SsaTest, Loop6) {
   // Test a loop with one preheader and two back edges (e.g. continue).
   const char* expected =
     "BasicBlock 0, succ: 1\n"
@@ -407,7 +401,7 @@ TEST(SsaTest, Loop6) {
   TestCode(data, expected);
 }
 
-TEST(SsaTest, Loop7) {
+TEST_F(SsaTest, Loop7) {
   // Test a loop with one preheader, one back edge, and two exit edges (e.g. break).
   const char* expected =
     "BasicBlock 0, succ: 1\n"
@@ -449,7 +443,7 @@ TEST(SsaTest, Loop7) {
   TestCode(data, expected);
 }
 
-TEST(SsaTest, DeadLocal) {
+TEST_F(SsaTest, DeadLocal) {
   // Test that we correctly handle a local not being used.
   const char* expected =
     "BasicBlock 0, succ: 1\n"
@@ -467,7 +461,7 @@ TEST(SsaTest, DeadLocal) {
   TestCode(data, expected);
 }
 
-TEST(SsaTest, LocalInIf) {
+TEST_F(SsaTest, LocalInIf) {
   // Test that we do not create a phi in the join block when one predecessor
   // does not update the local.
   const char* expected =
@@ -497,12 +491,12 @@ TEST(SsaTest, LocalInIf) {
   TestCode(data, expected);
 }
 
-TEST(SsaTest, MultiplePredecessors) {
+TEST_F(SsaTest, MultiplePredecessors) {
   // Test that we do not create a phi when one predecessor
   // does not update the local.
   const char* expected =
     "BasicBlock 0, succ: 1\n"
-    "  0: IntConstant 0 [4, 8, 6, 6, 2, 2, 8, 4]\n"
+    "  0: IntConstant 0 [4, 4, 8, 8, 6, 6, 2, 2]\n"
     "  1: Goto\n"
     "BasicBlock 1, pred: 0, succ: 3, 2\n"
     "  2: Equal(0, 0) [3]\n"

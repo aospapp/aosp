@@ -16,15 +16,14 @@
 
 package android.text.method.cts;
 
-import com.android.cts.text.R;
+import android.text.cts.R;
 
 import android.app.Instrumentation;
 import android.test.ActivityInstrumentationTestCase2;
 import android.text.format.DateUtils;
-import android.text.method.cts.KeyListenerCtsActivity;
 import android.text.method.KeyListener;
-import android.view.WindowManager;
-import android.widget.TextView;
+import android.view.KeyEvent;
+import android.widget.EditText;
 
 /**
  * Base class for various KeyListener tests.
@@ -50,7 +49,7 @@ public abstract class KeyListenerTestCase extends
         ActivityInstrumentationTestCase2<KeyListenerCtsActivity> {
     protected KeyListenerCtsActivity mActivity;
     protected Instrumentation mInstrumentation;
-    protected TextView mTextView;
+    protected EditText mTextView;
 
     public KeyListenerTestCase() {
         super("com.android.cts.text", KeyListenerCtsActivity.class);
@@ -62,7 +61,7 @@ public abstract class KeyListenerTestCase extends
 
         mActivity = getActivity();
         mInstrumentation = getInstrumentation();
-        mTextView = (TextView) mActivity.findViewById(R.id.keylistener_textview);
+        mTextView = (EditText) mActivity.findViewById(R.id.keylistener_textview);
 
         mActivity.runOnUiThread(new Runnable() {
             public void run() {
@@ -70,7 +69,7 @@ public abstract class KeyListenerTestCase extends
                 mTextView.setKeepScreenOn(true);
             }
         });
-
+        mInstrumentation.waitForIdleSync();
         assertTrue(mActivity.waitForWindowFocus(5 * DateUtils.SECOND_IN_MILLIS));
     }
 
@@ -84,5 +83,11 @@ public abstract class KeyListenerTestCase extends
             }
         });
         mInstrumentation.waitForIdleSync();
+    }
+
+    protected static KeyEvent getKey(int keycode, int metaState) {
+        long currentTime = System.currentTimeMillis();
+        return new KeyEvent(currentTime, currentTime, KeyEvent.ACTION_DOWN, keycode,
+                0 /* repeat */, metaState);
     }
 }

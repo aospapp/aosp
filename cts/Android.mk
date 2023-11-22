@@ -14,6 +14,16 @@
 # limitations under the License.
 #
 
-include cts/CtsBuild.mk
+include cts/OldCtsBuild.mk
 include cts/CtsCoverage.mk
 include $(call all-subdir-makefiles)
+
+
+# Have the default build also build the tools for CTS so it is possible
+# to build individual tests with mmm without doing extra targets first.
+files: \
+    $(CTS_JAVA_TEST_SCANNER_DOCLET) \
+    $(CTS_JAVA_TEST_SCANNER) \
+    $(CTS_NATIVE_TEST_SCANNER) \
+    $(CTS_XML_GENERATOR)
+

@@ -181,6 +181,7 @@
 /**********************************************
  * NCI Interface Types
  **********************************************/
+#define NCI_INTERFACE_VS_MIFARE         0x80
 #define NCI_INTERFACE_VS_CALYPSO_CE     0x81
 #define NCI_INTERFACE_VS_T2T_CE         0x82    /* for Card Emulation side */
 #define NCI_INTERFACE_VS_15693          0x83    /* for both Reader/Writer and Card Emulation side */
@@ -252,6 +253,7 @@
 #define NCI_PARAM_LEN_PWR_SETTING_BITMAP    3
 #define NCI_PARAM_LEN_HOST_LISTEN_MASK      2
 #define NCI_PARAM_LEN_PLL325_CFG_PARAM      14
+#define NCI_PARAM_LEN_POWER_LEVEL           6
 
 /**********************************************
  * Snooze Mode

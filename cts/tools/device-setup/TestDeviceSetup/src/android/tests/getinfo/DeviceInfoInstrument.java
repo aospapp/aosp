@@ -17,6 +17,8 @@
 package android.tests.getinfo;
 
 import android.app.Activity;
+import android.app.ActivityManager;
+import android.app.ActivityManager.MemoryInfo;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.content.Intent;
@@ -27,6 +29,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.UserManager;
+import android.os.SystemProperties;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
@@ -77,6 +80,9 @@ public class DeviceInfoInstrument extends Instrumentation implements DeviceInfoC
         addResult(BUILD_ABIS_32, TextUtils.join(",", Build.SUPPORTED_32_BIT_ABIS));
         addResult(BUILD_ABIS_64, TextUtils.join(",", Build.SUPPORTED_64_BIT_ABIS));
         addResult(SERIAL_NUMBER, Build.SERIAL);
+
+        addResult(REFERENCE_BUILD_FINGERPRINT,
+            SystemProperties.get("ro.build.reference.fingerprint", ""));
 
         addResult(VERSION_RELEASE, Build.VERSION.RELEASE);
         addResult(VERSION_SDK, Build.VERSION.SDK);
@@ -156,6 +162,15 @@ public class DeviceInfoInstrument extends Instrumentation implements DeviceInfoC
 
         // Encrypted
         addResult(ENCRYPTED, getEncrypted());
+
+        // Memory Info
+        addResult(IS_LOW_RAM_DEVICE, isLowRamDevice());
+        addResult(MEMORY_CLASS, getMemoryClass());
+        addResult(LARGE_MEMORY_CLASS, getLargeMemoryClass());
+        addResult(TOTAL_MEMORY, getTotalMemory());
+
+        // CPU Info
+        addResult(AVAILABLE_PROCESSORS, Runtime.getRuntime().availableProcessors());
 
         finish(Activity.RESULT_OK, mResults);
     }
@@ -426,5 +441,32 @@ public class DeviceInfoInstrument extends Instrumentation implements DeviceInfoC
         }
 
         return 0;
+    }
+
+    private String isLowRamDevice() {
+        ActivityManager activityManager = (ActivityManager) getContext()
+                .getSystemService(Context.ACTIVITY_SERVICE);
+        return activityManager.isLowRamDevice() ? "true" : "false";
+    }
+
+    private String getMemoryClass() {
+        ActivityManager activityManager = (ActivityManager) getContext()
+                .getSystemService(Context.ACTIVITY_SERVICE);
+        return String.valueOf(activityManager.getMemoryClass());
+    }
+
+    private String getLargeMemoryClass() {
+        ActivityManager activityManager = (ActivityManager) getContext()
+                .getSystemService(Context.ACTIVITY_SERVICE);
+        return String.valueOf(activityManager.getLargeMemoryClass());
+    }
+
+    private String getTotalMemory() {
+        ActivityManager activityManager = (ActivityManager) getContext()
+                .getSystemService(Context.ACTIVITY_SERVICE);
+
+        MemoryInfo memoryInfo = new MemoryInfo();
+        activityManager.getMemoryInfo(memoryInfo);
+        return String.valueOf(memoryInfo.totalMem);
     }
 }

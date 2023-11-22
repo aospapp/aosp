@@ -15,8 +15,11 @@
  */
 
 #include <stdlib.h>
+#include <sys/mount.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <dirent.h>
@@ -27,12 +30,13 @@
 #include <string.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <ctype.h>
 
 #define LOG_TAG "VoldCmdListener"
 
-#include <base/stringprintf.h>
+#include <android-base/logging.h>
+#include <android-base/stringprintf.h>
 #include <cutils/fs.h>
-#include <cutils/log.h>
 
 #include <sysutils/SocketClient.h>
 #include <private/android_filesystem_config.h>
@@ -44,11 +48,11 @@
 #include "Process.h"
 #include "Loop.h"
 #include "Devmapper.h"
-#include "cryptfs.h"
 #include "MoveTask.h"
 #include "TrimTask.h"
 
 #define DUMP_ARGS 0
+#define DEBUG_APPFUSE 0
 
 CommandListener::CommandListener() :
                  FrameworkListener("vold", true) {
@@ -58,6 +62,7 @@ CommandListener::CommandListener() :
     registerCmd(new ObbCmd());
     registerCmd(new StorageCmd());
     registerCmd(new FstrimCmd());
+    registerCmd(new AppFuseCmd());
 }
 
 #if DUMP_ARGS
@@ -407,7 +412,7 @@ int CommandListener::AsecCmd::runCommand(SocketClient *cli,
             return 0;
         }
 
-        unsigned int numSectors = (atoi(argv[3]) * (1024 * 1024)) / 512;
+        unsigned long numSectors = (atoi(argv[3]) * (1024 * 1024)) / 512;
         const bool isExternal = (atoi(argv[7]) == 1);
         rc = vm->createAsec(argv[2], numSectors, argv[4], argv[5], atoi(argv[6]), isExternal);
     } else if (!strcmp(argv[1], "resize")) {
@@ -416,7 +421,7 @@ int CommandListener::AsecCmd::runCommand(SocketClient *cli,
             cli->sendMsg(ResponseCode::CommandSyntaxError, "Usage: asec resize <container-id> <size_mb> <key>", false);
             return 0;
         }
-        unsigned int numSectors = (atoi(argv[3]) * (1024 * 1024)) / 512;
+        unsigned long numSectors = (atoi(argv[3]) * (1024 * 1024)) / 512;
         rc = vm->resizeAsec(argv[2], numSectors, argv[4]);
     } else if (!strcmp(argv[1], "finalize")) {
         dumpArgs(argc, argv, -1);
@@ -619,4 +624,252 @@ int CommandListener::FstrimCmd::runCommand(SocketClient *cli,
 
     (new android::vold::TrimTask(flags))->start();
     return sendGenericOkFail(cli, 0);
+}
+
+static size_t kAppFuseMaxMountPointName = 32;
+
+static android::status_t getMountPath(uid_t uid, const std::string& name, std::string* path) {
+    if (name.size() > kAppFuseMaxMountPointName) {
+        LOG(ERROR) << "AppFuse mount name is too long.";
+        return -EINVAL;
+    }
+    for (size_t i = 0; i < name.size(); i++) {
+        if (!isalnum(name[i])) {
+            LOG(ERROR) << "AppFuse mount name contains invalid character.";
+            return -EINVAL;
+        }
+    }
+    *path = android::base::StringPrintf("/mnt/appfuse/%d_%s", uid, name.c_str());
+    return android::OK;
+}
+
+static android::status_t mountInNamespace(uid_t uid, int device_fd, const std::string& path) {
+    // Remove existing mount.
+    android::vold::ForceUnmount(path);
+
+    const auto opts = android::base::StringPrintf(
+            "fd=%i,"
+            "rootmode=40000,"
+            "default_permissions,"
+            "allow_other,"
+            "user_id=%d,group_id=%d,"
+            "context=\"u:object_r:app_fuse_file:s0\","
+            "fscontext=u:object_r:app_fusefs:s0",
+            device_fd,
+            uid,
+            uid);
+
+    const int result = TEMP_FAILURE_RETRY(mount(
+            "/dev/fuse", path.c_str(), "fuse",
+            MS_NOSUID | MS_NODEV | MS_NOEXEC | MS_NOATIME, opts.c_str()));
+    if (result != 0) {
+        PLOG(ERROR) << "Failed to mount " << path;
+        return -errno;
+    }
+
+    return android::OK;
+}
+
+static android::status_t runCommandInNamespace(const std::string& command,
+                                               uid_t uid,
+                                               pid_t pid,
+                                               const std::string& path,
+                                               int device_fd) {
+    if (DEBUG_APPFUSE) {
+        LOG(DEBUG) << "Run app fuse command " << command << " for the path " << path
+                   << " in namespace " << uid;
+    }
+
+    const android::vold::ScopedDir dir(opendir("/proc"));
+    if (dir.get() == nullptr) {
+        PLOG(ERROR) << "Failed to open /proc";
+        return -errno;
+    }
+
+    // Obtains process file descriptor.
+    const std::string pid_str = android::base::StringPrintf("%d", pid);
+    const android::vold::ScopedFd pid_fd(
+            openat(dirfd(dir.get()), pid_str.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC));
+    if (pid_fd.get() == -1) {
+        PLOG(ERROR) << "Failed to open /proc/" << pid;
+        return -errno;
+    }
+
+    // Check UID of process.
+    {
+        struct stat sb;
+        const int result = fstat(pid_fd.get(), &sb);
+        if (result == -1) {
+            PLOG(ERROR) << "Failed to stat /proc/" << pid;
+            return -errno;
+        }
+        if (sb.st_uid != uid) {
+            LOG(ERROR) << "Mismatch UID expected=" << uid << ", actual=" << sb.st_uid;
+            return -EPERM;
+        }
+    }
+
+    // Matches so far, but refuse to touch if in root namespace
+    {
+        char rootName[PATH_MAX];
+        char pidName[PATH_MAX];
+        const int root_result =
+                android::vold::SaneReadLinkAt(dirfd(dir.get()), "1/ns/mnt", rootName, PATH_MAX);
+        const int pid_result =
+                android::vold::SaneReadLinkAt(pid_fd.get(), "ns/mnt", pidName, PATH_MAX);
+        if (root_result == -1) {
+            LOG(ERROR) << "Failed to readlink for /proc/1/ns/mnt";
+            return -EPERM;
+        }
+        if (pid_result == -1) {
+            LOG(ERROR) << "Failed to readlink for /proc/" << pid << "/ns/mnt";
+            return -EPERM;
+        }
+        if (!strcmp(rootName, pidName)) {
+            LOG(ERROR) << "Don't mount appfuse in root namespace";
+            return -EPERM;
+        }
+    }
+
+    // We purposefully leave the namespace open across the fork
+    android::vold::ScopedFd ns_fd(openat(pid_fd.get(), "ns/mnt", O_RDONLY));
+    if (ns_fd.get() < 0) {
+        PLOG(ERROR) << "Failed to open namespace for /proc/" << pid << "/ns/mnt";
+        return -errno;
+    }
+
+    int child = fork();
+    if (child == 0) {
+        if (setns(ns_fd.get(), CLONE_NEWNS) != 0) {
+            PLOG(ERROR) << "Failed to setns";
+            _exit(-errno);
+        }
+
+        if (command == "mount") {
+            _exit(mountInNamespace(uid, device_fd, path));
+        } else if (command == "unmount") {
+            android::vold::ForceUnmount(path);
+            _exit(android::OK);
+        } else {
+            LOG(ERROR) << "Unknown appfuse command " << command;
+            _exit(-EPERM);
+        }
+    }
+
+    if (child == -1) {
+        PLOG(ERROR) << "Failed to folk child process";
+        return -errno;
+    }
+
+    android::status_t status;
+    TEMP_FAILURE_RETRY(waitpid(child, &status, 0));
+
+    return status;
+}
+
+CommandListener::AppFuseCmd::AppFuseCmd() : VoldCommand("appfuse") {}
+
+int CommandListener::AppFuseCmd::runCommand(SocketClient *cli, int argc, char **argv) {
+    if (argc < 2) {
+        cli->sendMsg(ResponseCode::CommandSyntaxError, "Missing argument", false);
+        return 0;
+    }
+
+    const std::string command(argv[1]);
+
+    if (command == "mount" && argc == 5) {
+        const uid_t uid = atoi(argv[2]);
+        const pid_t pid = atoi(argv[3]);
+        const std::string name(argv[4]);
+
+        // Check mount point name.
+        std::string path;
+        if (getMountPath(uid, name, &path) != android::OK) {
+            return cli->sendMsg(ResponseCode::CommandParameterError,
+                                "Invalid mount point name.",
+                                false);
+        }
+
+        // Create directories.
+        {
+            const android::status_t result = android::vold::PrepareDir(path, 0700, 0, 0);
+            if (result != android::OK) {
+                PLOG(ERROR) << "Failed to prepare directory " << path;
+                return sendGenericOkFail(cli, result);
+            }
+        }
+
+        // Open device FD.
+        android::vold::ScopedFd device_fd(open("/dev/fuse", O_RDWR));
+        if (device_fd.get() == -1) {
+            PLOG(ERROR) << "Failed to open /dev/fuse";
+            return sendGenericOkFail(cli, -errno);
+        }
+
+        // Mount.
+        {
+            const android::status_t result =
+                    runCommandInNamespace(command, uid, pid, path, device_fd.get());
+            if (result != android::OK) {
+                return sendGenericOkFail(cli, result);
+            }
+        }
+
+        return sendFd(cli, device_fd.get());
+    } else if (command == "unmount" && argc == 5) {
+        const uid_t uid = atoi(argv[2]);
+        const uid_t pid = atoi(argv[3]);
+        const std::string name(argv[4]);
+
+        // Check mount point name.
+        std::string path;
+        if (getMountPath(uid, name, &path) != android::OK) {
+            return cli->sendMsg(ResponseCode::CommandParameterError,
+                                "Invalid mount point name.",
+                                false);
+        }
+
+        const android::status_t result =
+                runCommandInNamespace(command, uid, pid, path, -1 /* device_fd */);
+        return sendGenericOkFail(cli, result);
+    }
+
+    return cli->sendMsg(ResponseCode::CommandSyntaxError,  "Unknown appfuse cmd", false);
+}
+
+android::status_t CommandListener::AppFuseCmd::sendFd(SocketClient *cli, int fd) {
+    struct iovec data;
+    char dataBuffer[128];
+    char controlBuffer[CMSG_SPACE(sizeof(int))];
+    struct msghdr message;
+
+    // Message.
+    memset(&message, 0, sizeof(struct msghdr));
+    message.msg_iov = &data;
+    message.msg_iovlen = 1;
+    message.msg_control = controlBuffer;
+    message.msg_controllen = CMSG_SPACE(sizeof(int));
+
+    // Data.
+    data.iov_base = dataBuffer;
+    data.iov_len = snprintf(dataBuffer,
+                            sizeof(dataBuffer),
+                            "200 %d AppFuse command succeeded",
+                            cli->getCmdNum()) + 1;
+
+    // Control.
+    struct cmsghdr* const controlMessage = CMSG_FIRSTHDR(&message);
+    memset(controlBuffer, 0, CMSG_SPACE(sizeof(int)));
+    controlMessage->cmsg_level = SOL_SOCKET;
+    controlMessage->cmsg_type = SCM_RIGHTS;
+    controlMessage->cmsg_len = CMSG_LEN(sizeof(int));
+    *((int *) CMSG_DATA(controlMessage)) = fd;
+
+    const int result = TEMP_FAILURE_RETRY(sendmsg(cli->getSocket(), &message, 0));
+    if (result == -1) {
+        PLOG(ERROR) << "Failed to send FD from vold";
+        return -errno;
+    }
+
+    return android::OK;
 }

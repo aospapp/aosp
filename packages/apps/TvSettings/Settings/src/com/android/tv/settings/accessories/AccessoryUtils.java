@@ -16,9 +16,9 @@
 
 package com.android.tv.settings.accessories;
 
-import android.annotation.DrawableRes;
 import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
+import android.support.annotation.DrawableRes;
 
 import com.android.tv.settings.R;
 
@@ -30,24 +30,24 @@ public class AccessoryUtils {
         int devClass = dev.getBluetoothClass().getDeviceClass();
 
         if (devClass == BluetoothClass.Device.AUDIO_VIDEO_WEARABLE_HEADSET) {
-            return R.drawable.ic_settings_headset;
+            return R.drawable.ic_headset_mic;
         } else if (devClass == BluetoothClass.Device.AUDIO_VIDEO_HEADPHONES ||
                 devClass == BluetoothClass.Device.AUDIO_VIDEO_LOUDSPEAKER ||
                 devClass == BluetoothClass.Device.AUDIO_VIDEO_PORTABLE_AUDIO ||
                 devClass == BluetoothClass.Device.AUDIO_VIDEO_HIFI_AUDIO) {
-            return R.drawable.ic_settings_headphones;
+            return R.drawable.ic_headset;
         } else if ((devClass & InputDeviceCriteria.MINOR_DEVICE_CLASS_POINTING) != 0) {
-            return R.drawable.ic_settings_mouse;
+            return R.drawable.ic_mouse;
         } else if ((devClass & InputDeviceCriteria.MINOR_DEVICE_CLASS_JOYSTICK) != 0) {
-            return R.drawable.ic_settings_gamepad;
+            return R.drawable.ic_games;
         } else if ((devClass & InputDeviceCriteria.MINOR_DEVICE_CLASS_GAMEPAD) != 0) {
-            return R.drawable.ic_settings_gamepad;
+            return R.drawable.ic_games;
         } else if ((devClass & InputDeviceCriteria.MINOR_DEVICE_CLASS_KEYBOARD) != 0) {
-            return R.drawable.ic_settings_keyboard;
+            return R.drawable.ic_keyboard;
         }
 
         // Default for now
-        return R.drawable.ic_settings_bt_misc_hid;
+        return R.drawable.ic_bluetooth;
     }
 
     private AccessoryUtils() {

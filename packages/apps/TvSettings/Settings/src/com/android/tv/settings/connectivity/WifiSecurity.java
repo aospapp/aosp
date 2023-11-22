@@ -16,15 +16,16 @@
 
 package com.android.tv.settings.connectivity;
 
-import com.android.tv.settings.R;
-
 import android.content.Context;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
-import android.net.wifi.WifiConfiguration.KeyMgmt;
+
+import com.android.settingslib.wifi.AccessPoint;
+import com.android.tv.settings.R;
 
 /**
  * Used to identify different wifi security types
+ * TODO: delete this
  */
 public enum WifiSecurity {
     WEP(R.string.wifi_security_type_wep),
@@ -44,36 +45,26 @@ public enum WifiSecurity {
     }
 
     public static WifiSecurity getSecurity(WifiConfiguration config) {
-        if (config.allowedKeyManagement.get(KeyMgmt.WPA_PSK)) {
+        if (config.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WPA_PSK)) {
             return PSK;
         }
-        if (config.allowedKeyManagement.get(KeyMgmt.WPA_EAP)
-                || config.allowedKeyManagement.get(KeyMgmt.IEEE8021X)) {
+        if (config.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WPA_EAP)
+                || config.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.IEEE8021X)) {
             return EAP;
         }
         return (config.wepKeys[0] != null) ? WEP : NONE;
     }
 
-    public static WifiSecurity getSecurity(Context context, String name) {
-        if (EAP.getName(context).equals(name)) {
-            return EAP;
-        } else if (WEP.getName(context).equals(name)) {
-            return WEP;
-        } else if (PSK.getName(context).equals(name)) {
-            return PSK;
-        } else {
-            return NONE;
+    public static WifiSecurity getSecurity(AccessPoint accessPoint) {
+        switch (accessPoint.getSecurity()) {
+            case AccessPoint.SECURITY_WEP: return WEP;
+            case AccessPoint.SECURITY_PSK: return PSK;
+            case AccessPoint.SECURITY_EAP: return EAP;
+            case AccessPoint.SECURITY_NONE: return NONE;
         }
-    }
 
-    public static boolean isOpen(ScanResult result) {
-        return WifiSecurity.NONE == getSecurity(result);
+        throw new IllegalArgumentException("Unknown security type");
     }
-
-    public static boolean isOpen(WifiConfiguration config) {
-        return WifiSecurity.NONE == getSecurity(config);
-    }
-
 
     private final int mNameResourceId;
 

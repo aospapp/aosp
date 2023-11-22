@@ -143,7 +143,7 @@ public interface ImsUtInterface {
     /**
      * Modifies the configuration of the call barring.
      */
-    public void updateCallBarring(int cbType, boolean enable,
+    public void updateCallBarring(int cbType, int action,
             Message result, String[] barrList);
 
     /**

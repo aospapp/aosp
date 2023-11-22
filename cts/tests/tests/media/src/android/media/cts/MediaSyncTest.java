@@ -15,9 +15,10 @@
  */
 package android.media.cts;
 
-import com.android.cts.media.R;
+import android.media.cts.R;
 
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
 import android.cts.util.MediaUtils;
@@ -42,6 +43,7 @@ import android.view.SurfaceHolder;
 
 import java.io.IOException;
 import java.lang.Long;
+import java.lang.Math;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.List;
@@ -73,7 +75,6 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
 
     private MediaSync mMediaSync = null;
     private Surface mSurface = null;
-    private AudioTrack mAudioTrack = null;
 
     private Decoder mDecoderVideo = null;
     private Decoder mDecoderAudio = null;
@@ -81,8 +82,10 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
     private boolean mHasVideo = false;
     private boolean mEosAudio = false;
     private boolean mEosVideo = false;
+    private int mTaggedAudioBufferIndex = -1;
     private final Object mConditionEos = new Object();
     private final Object mConditionEosAudio = new Object();
+    private final Object mConditionTaggedAudioBufferIndex = new Object();
 
     private int mNumBuffersReturned = 0;
 
@@ -130,6 +133,11 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
             mSurface = null;
         }
         mActivity = null;
+        mHasAudio = false;
+        mHasVideo = false;
+        mEosAudio = false;
+        mEosVideo = false;
+        mTaggedAudioBufferIndex = -1;
         super.tearDown();
     }
 
@@ -137,15 +145,23 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
         return ((!mHasVideo || mEosVideo) && (!mHasAudio || mEosAudio));
     }
 
+    public void onTaggedAudioBufferIndex(Decoder decoder, int index) {
+        synchronized (mConditionTaggedAudioBufferIndex) {
+            if (decoder == mDecoderAudio) {
+                mTaggedAudioBufferIndex = index;
+            }
+        }
+    }
+
     public void onEos(Decoder decoder) {
-        synchronized(mConditionEosAudio) {
+        synchronized (mConditionEosAudio) {
             if (decoder == mDecoderAudio) {
                 mEosAudio = true;
                 mConditionEosAudio.notify();
             }
         }
 
-        synchronized(mConditionEos) {
+        synchronized (mConditionEos) {
             if (decoder == mDecoderVideo) {
                 mEosVideo = true;
             }
@@ -153,6 +169,11 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
                 mConditionEos.notify();
             }
         }
+    }
+
+    private boolean hasAudioOutput() {
+        return mActivity.getPackageManager()
+            .hasSystemFeature(PackageManager.FEATURE_AUDIO_OUTPUT);
     }
 
     /**
@@ -167,12 +188,10 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
         }
 
         assertTrue("The stream in test file can not be decoded",
-                mDecoderAudio.setup(INPUT_RESOURCE_ID, null, Long.MAX_VALUE));
+                mDecoderAudio.setup(INPUT_RESOURCE_ID, null, Long.MAX_VALUE, NO_TIMESTAMP));
 
         // get audio track.
-        mAudioTrack = mDecoderAudio.getAudioTrack();
-
-        mMediaSync.setAudioTrack(mAudioTrack);
+        mMediaSync.setAudioTrack(mDecoderAudio.getAudioTrack());
 
         try {
             mMediaSync.setPlaybackParams(new PlaybackParams().setSpeed(rate));
@@ -216,14 +235,12 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
         final Object condition = new Object();
 
         mHasAudio = true;
-        if (mDecoderAudio.setup(inputResourceId, null, Long.MAX_VALUE) == false) {
+        if (mDecoderAudio.setup(inputResourceId, null, Long.MAX_VALUE, NO_TIMESTAMP) == false) {
             return true;
         }
 
         // get audio track.
-        mAudioTrack = mDecoderAudio.getAudioTrack();
-
-        mMediaSync.setAudioTrack(mAudioTrack);
+        mMediaSync.setAudioTrack(mDecoderAudio.getAudioTrack());
 
         mMediaSync.setCallback(new MediaSync.Callback() {
             @Override
@@ -277,14 +294,12 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
         returnedIndex[0] = -1;
 
         mHasAudio = true;
-        if (mDecoderAudio.setup(inputResourceId, null, Long.MAX_VALUE) == false) {
+        if (mDecoderAudio.setup(inputResourceId, null, Long.MAX_VALUE, NO_TIMESTAMP) == false) {
             return true;
         }
 
         // get audio track.
-        mAudioTrack = mDecoderAudio.getAudioTrack();
-
-        mMediaSync.setAudioTrack(mAudioTrack);
+        mMediaSync.setAudioTrack(mDecoderAudio.getAudioTrack());
 
         mMediaSync.setCallback(new MediaSync.Callback() {
             @Override
@@ -328,7 +343,7 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
     /**
      * Tests playing back audio successfully.
      */
-    public void testPlayVideo() throws InterruptedException {
+    public void testPlayVideo() throws Exception {
         playAV(INPUT_RESOURCE_ID, 5000 /* lastBufferTimestampMs */,
                false /* audio */, true /* video */, 10000 /* timeOutMs */);
     }
@@ -336,7 +351,13 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
     /**
      * Tests playing back video successfully.
      */
-    public void testPlayAudio() throws InterruptedException {
+    public void testPlayAudio() throws Exception {
+        if (!hasAudioOutput()) {
+            Log.w(LOG_TAG,"AUDIO_OUTPUT feature not found. This system might not have a valid "
+                    + "audio output HAL");
+            return;
+        }
+
         playAV(INPUT_RESOURCE_ID, 5000 /* lastBufferTimestampMs */,
                true /* audio */, false /* video */, 10000 /* timeOutMs */);
     }
@@ -344,7 +365,7 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
     /**
      * Tests playing back audio and video successfully.
      */
-    public void testPlayAudioAndVideo() throws InterruptedException {
+    public void testPlayAudioAndVideo() throws Exception {
         playAV(INPUT_RESOURCE_ID, 5000 /* lastBufferTimestampMs */,
                true /* audio */, true /* video */, 10000 /* timeOutMs */);
     }
@@ -352,17 +373,17 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
     /**
      * Tests playing at specified playback rate successfully.
      */
-    public void testPlaybackRateQuarter() throws InterruptedException {
+    public void testPlaybackRateQuarter() throws Exception {
         playAV(INPUT_RESOURCE_ID, 2000 /* lastBufferTimestampMs */,
                true /* audio */, true /* video */, 10000 /* timeOutMs */,
                0.25f /* playbackRate */);
     }
-    public void testPlaybackRateHalf() throws InterruptedException {
+    public void testPlaybackRateHalf() throws Exception {
         playAV(INPUT_RESOURCE_ID, 4000 /* lastBufferTimestampMs */,
                true /* audio */, true /* video */, 10000 /* timeOutMs */,
                0.5f /* playbackRate */);
     }
-    public void testPlaybackRateDouble() throws InterruptedException {
+    public void testPlaybackRateDouble() throws Exception {
         playAV(INPUT_RESOURCE_ID, 8000 /* lastBufferTimestampMs */,
                true /* audio */, true /* video */, 10000 /* timeOutMs */,
                (float)TEST_MAX_SPEED /* playbackRate */);
@@ -373,9 +394,16 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
             final long lastBufferTimestampMs,
             final boolean audio,
             final boolean video,
-            int timeOutMs) throws InterruptedException {
+            int timeOutMs) throws Exception {
         playAV(inputResourceId, lastBufferTimestampMs, audio, video, timeOutMs, 1.0f);
     }
+
+    private class PlayAVState {
+        boolean mTimeValid;
+        long mMediaDurationUs;
+        long mClockDurationUs;
+        float mSyncTolerance;
+    };
 
     private void playAV(
             final int inputResourceId,
@@ -383,19 +411,55 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
             final boolean audio,
             final boolean video,
             int timeOutMs,
-            final float playbackRate) throws InterruptedException {
-        final AtomicBoolean completed = new AtomicBoolean();
-        Thread decodingThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                completed.set(runPlayAV(inputResourceId, lastBufferTimestampMs * 1000,
-                        audio, video, playbackRate));
+            final float playbackRate) throws Exception {
+        final int limit = 5;
+        String info = "";
+        for (int tries = 0; ; ++tries) {
+            // Run test
+            final AtomicBoolean completed = new AtomicBoolean();
+            final PlayAVState state = new PlayAVState();
+            Thread decodingThread = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    completed.set(runPlayAV(inputResourceId, lastBufferTimestampMs * 1000,
+                            audio, video, playbackRate, state));
+                }
+            });
+            decodingThread.start();
+            decodingThread.join(timeOutMs);
+            assertTrue("timed out decoding to end-of-stream", completed.get());
+
+            // Examine results
+            if (!state.mTimeValid) return;
+
+            // sync.getTolerance() is MediaSync's tolerance of the playback rate, whereas
+            // FLOAT_PLAYBACK_RATE_TOLERANCE is our test's tolerance.
+            // We need to add both to get an upperbound for allowable error.
+            final double tolerance = state.mMediaDurationUs
+                    * (state.mSyncTolerance + FLOAT_PLAYBACK_RATE_TOLERANCE)
+                    + TIME_MEASUREMENT_TOLERANCE_US;
+            final double diff = state.mMediaDurationUs - state.mClockDurationUs * playbackRate ;
+            info += "[" + tries
+                    + "] playbackRate " + playbackRate
+                    + ", clockDurationUs " + state.mClockDurationUs
+                    + ", mediaDurationUs " + state.mMediaDurationUs
+                    + ", diff " + diff
+                    + ", tolerance " + tolerance + "\n";
+
+            // Good enough?
+            if (Math.abs(diff) <= tolerance) {
+                Log.d(LOG_TAG, info);
+                return;
             }
-        });
-        decodingThread.start();
-        decodingThread.join(timeOutMs);
-        if (!completed.get()) {
-            throw new RuntimeException("timed out decoding to end-of-stream");
+            assertTrue("bad playback\n" + info, tries < limit);
+
+            Log.d(LOG_TAG, "Trying again\n" + info);
+
+            // Try again (may throw Exception)
+            tearDown();
+            setUp();
+
+            Thread.sleep(1000 /* millis */);
         }
     }
 
@@ -404,9 +468,10 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
             long lastBufferTimestampUs,
             boolean audio,
             boolean video,
-            float playbackRate) {
-        // allow 250ms for playback to get to stable state.
-        final int PLAYBACK_RAMP_UP_TIME_MS = 250;
+            float playbackRate,
+            PlayAVState state) {
+        // allow 750ms for playback to get to stable state.
+        final int PLAYBACK_RAMP_UP_TIME_US = 750000;
 
         final Object conditionFirstAudioBuffer = new Object();
 
@@ -415,21 +480,21 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
             mSurface = mMediaSync.createInputSurface();
 
             if (mDecoderVideo.setup(
-                    inputResourceId, mSurface, lastBufferTimestampUs) == false) {
+                    inputResourceId, mSurface, lastBufferTimestampUs, NO_TIMESTAMP) == false) {
                 return true;
             }
             mHasVideo = true;
         }
 
         if (audio) {
-            if (mDecoderAudio.setup(inputResourceId, null, lastBufferTimestampUs) == false) {
+            if (mDecoderAudio.setup(
+                    inputResourceId, null, lastBufferTimestampUs,
+                    PLAYBACK_RAMP_UP_TIME_US) == false) {
                 return true;
             }
 
             // get audio track.
-            mAudioTrack = mDecoderAudio.getAudioTrack();
-
-            mMediaSync.setAudioTrack(mAudioTrack);
+            mMediaSync.setAudioTrack(mDecoderAudio.getAudioTrack());
 
             mMediaSync.setCallback(new MediaSync.Callback() {
                 @Override
@@ -440,7 +505,12 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
                         decoderAudio.releaseOutputBuffer(bufferIndex, NO_TIMESTAMP);
                     }
                     synchronized (conditionFirstAudioBuffer) {
-                        conditionFirstAudioBuffer.notify();
+                        synchronized (mConditionTaggedAudioBufferIndex) {
+                            if (mTaggedAudioBufferIndex >= 0
+                                    && mTaggedAudioBufferIndex == bufferIndex) {
+                                conditionFirstAudioBuffer.notify();
+                            }
+                        }
                     }
                 }
             }, null);
@@ -472,13 +542,6 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
         }
 
         if (audio) {
-            try {
-                Thread.sleep(PLAYBACK_RAMP_UP_TIME_MS);
-            } catch (InterruptedException e) {
-                Log.i(LOG_TAG, "worker thread is interrupted during sleeping.");
-                return true;
-            }
-
             MediaTimestamp mediaTimestamp = mMediaSync.getTimestamp();
             assertTrue("No timestamp available for starting", mediaTimestamp != null);
             long checkStartTimeRealUs = System.nanoTime() / 1000;
@@ -496,17 +559,10 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
             }
             mediaTimestamp = mMediaSync.getTimestamp();
             assertTrue("No timestamp available for ending", mediaTimestamp != null);
-            long playTimeUs = System.nanoTime() / 1000 - checkStartTimeRealUs;
-            long mediaDurationUs = mediaTimestamp.mediaTimeUs - checkStartTimeMediaUs;
-            assertEquals("Mediasync had error in playback rate " + playbackRate
-                    + ", play time is " + playTimeUs + " vs expected " + mediaDurationUs,
-                    mediaDurationUs,
-                    playTimeUs * playbackRate,
-                    // sync.getTolerance() is MediaSync's tolerance of the playback rate, whereas
-                    // FLOAT_PLAYBACK_RATE_TOLERANCE is our test's tolerance.
-                    // We need to add both to get an upperbound for allowable error.
-                    mediaDurationUs * (sync.getTolerance() + FLOAT_PLAYBACK_RATE_TOLERANCE)
-                            + TIME_MEASUREMENT_TOLERANCE_US);
+            state.mTimeValid = true;
+            state.mClockDurationUs = System.nanoTime() / 1000 - checkStartTimeRealUs;
+            state.mMediaDurationUs = mediaTimestamp.mediaTimeUs - checkStartTimeMediaUs;
+            state.mSyncTolerance = sync.getTolerance();
         }
 
         boolean completed = false;
@@ -530,6 +586,7 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
         private MediaSync mMediaSync = null;
         private boolean mIsAudio = false;
         private long mLastBufferTimestampUs = 0;
+        private long mStartingAudioTimestampUs = NO_TIMESTAMP;
 
         private Surface mSurface = null;
 
@@ -565,7 +622,9 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
             mIsAudio = isAudio;
         }
 
-        public boolean setup(int inputResourceId, Surface surface, long lastBufferTimestampUs) {
+        public boolean setup(
+                int inputResourceId, Surface surface, long lastBufferTimestampUs,
+                long startingAudioTimestampUs) {
             if (!mIsAudio) {
                 mSurface = surface;
                 // handle video callback in a separate thread as releaseOutputBuffer is blocking
@@ -574,6 +633,7 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
                 mHandler = new Handler(mHandlerThread.getLooper());
             }
             mLastBufferTimestampUs = lastBufferTimestampUs;
+            mStartingAudioTimestampUs = startingAudioTimestampUs;
             try {
                 // get extrator.
                 String type = mIsAudio ? "audio/" : "video/";
@@ -716,13 +776,18 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
                 if (info.size > 0) {
                     if (mIsAudio) {
                         ByteBuffer outputByteBuffer = codec.getOutputBuffer(index);
-                        synchronized(mAudioBufferLock) {
+                        synchronized (mAudioBufferLock) {
                             mAudioBuffers.add(new AudioBuffer(outputByteBuffer, index));
                         }
                         mMediaSync.queueAudio(
                                 outputByteBuffer,
                                 index,
                                 info.presentationTimeUs);
+                        if (mStartingAudioTimestampUs >= 0
+                                && info.presentationTimeUs >= mStartingAudioTimestampUs) {
+                            mMediaSyncTest.onTaggedAudioBufferIndex(this, index);
+                            mStartingAudioTimestampUs = NO_TIMESTAMP;
+                        }
                     } else {
                         codec.releaseOutputBuffer(index, info.presentationTimeUs * 1000);
                     }
@@ -741,7 +806,7 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
         }
 
         public void checkReturnedAudioBuffer(ByteBuffer byteBuffer, int bufferIndex) {
-            synchronized(mAudioBufferLock) {
+            synchronized (mAudioBufferLock) {
                 AudioBuffer audioBuffer = mAudioBuffers.get(0);
                 if (audioBuffer.mByteBuffer != byteBuffer
                         || audioBuffer.mBufferIndex != bufferIndex) {

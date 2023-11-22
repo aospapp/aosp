@@ -25,6 +25,7 @@ import android.os.Bundle;
 import android.support.v4.content.LocalBroadcastManager;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
+import android.telecom.VideoProfile;
 import android.util.Log;
 
 /**
@@ -44,8 +45,10 @@ public class CallNotificationReceiver extends BroadcastReceiver {
             "com.android.server.telecom.testapps.ACTION_REGISTER_PHONE_ACCOUNT";
     static final String ACTION_SHOW_ALL_PHONE_ACCOUNTS =
             "com.android.server.telecom.testapps.ACTION_SHOW_ALL_PHONE_ACCOUNTS";
-    static final String ACTION_VIDEO_CALL =
-            "com.android.server.telecom.testapps.ACTION_VIDEO_CALL";
+    static final String ACTION_ONE_WAY_VIDEO_CALL =
+            "com.android.server.telecom.testapps.ACTION_ONE_WAY_VIDEO_CALL";
+    static final String ACTION_TWO_WAY_VIDEO_CALL =
+            "com.android.server.telecom.testapps.ACTION_TWO_WAY_VIDEO_CALL";
     static final String ACTION_AUDIO_CALL =
             "com.android.server.telecom.testapps.ACTION_AUDIO_CALL";
 
@@ -59,10 +62,12 @@ public class CallNotificationReceiver extends BroadcastReceiver {
             CallServiceNotifier.getInstance().registerPhoneAccount(context);
         } else if (ACTION_SHOW_ALL_PHONE_ACCOUNTS.equals(action)) {
             CallServiceNotifier.getInstance().showAllPhoneAccounts(context);
-        } else if (ACTION_VIDEO_CALL.equals(action)) {
-            sendIncomingCallIntent(context, null, true);
+        } else if (ACTION_ONE_WAY_VIDEO_CALL.equals(action)) {
+            sendIncomingCallIntent(context, null, VideoProfile.STATE_RX_ENABLED);
+        } else if (ACTION_TWO_WAY_VIDEO_CALL.equals(action)) {
+            sendIncomingCallIntent(context, null, VideoProfile.STATE_BIDIRECTIONAL);
         } else if (ACTION_AUDIO_CALL.equals(action)) {
-            sendIncomingCallIntent(context, null, false);
+            sendIncomingCallIntent(context, null, VideoProfile.STATE_AUDIO_ONLY);
         }
     }
 
@@ -70,9 +75,9 @@ public class CallNotificationReceiver extends BroadcastReceiver {
      * Creates and sends the intent to add an incoming call through Telecom.
      *
      * @param context The current context.
-     * @param isVideoCall {@code True} if this is a video call.
+     * @param videoState The video state requested for the incoming call.
      */
-    public static void sendIncomingCallIntent(Context context, Uri handle, boolean isVideoCall) {
+    public static void sendIncomingCallIntent(Context context, Uri handle, int videoState) {
         PhoneAccountHandle phoneAccount = new PhoneAccountHandle(
                 new ComponentName(context, TestConnectionService.class),
                 CallServiceNotifier.SIM_SUBSCRIPTION_ID);
@@ -80,7 +85,7 @@ public class CallNotificationReceiver extends BroadcastReceiver {
         // For the purposes of testing, indicate whether the incoming call is a video call by
         // stashing an indicator in the EXTRA_INCOMING_CALL_EXTRAS.
         Bundle extras = new Bundle();
-        extras.putBoolean(TestConnectionService.EXTRA_IS_VIDEO_CALL, isVideoCall);
+        extras.putInt(TestConnectionService.EXTRA_START_VIDEO_STATE, videoState);
         if (handle != null) {
             extras.putParcelable(TestConnectionService.EXTRA_HANDLE, handle);
         }

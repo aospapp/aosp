@@ -17,8 +17,8 @@
 #define LOG_TAG "healthd"
 #define KLOG_LEVEL 6
 
-#include "healthd.h"
-#include "BatteryMonitor.h"
+#include <healthd/healthd.h>
+#include <healthd/BatteryMonitor.h>
 
 #include <errno.h>
 #include <libgen.h>
@@ -52,6 +52,8 @@ static struct healthd_config healthd_config = {
     .batteryCurrentNowPath = String8(String8::kEmptyString),
     .batteryCurrentAvgPath = String8(String8::kEmptyString),
     .batteryChargeCounterPath = String8(String8::kEmptyString),
+    .batteryFullChargePath = String8(String8::kEmptyString),
+    .batteryCycleCountPath = String8(String8::kEmptyString),
     .energyCounter = NULL,
     .boot_min_cap = 0,
     .screen_on = NULL,

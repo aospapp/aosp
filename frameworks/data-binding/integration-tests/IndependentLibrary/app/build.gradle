@@ -14,17 +14,19 @@
  */
 apply plugin: 'maven'
 apply plugin: 'com.android.library'
-apply plugin: 'com.android.databinding'
 
 android {
-    compileSdkVersion 21
-    buildToolsVersion "21.1.2"
+    compileSdkVersion dataBindingConfig.compileSdkVersion
+    buildToolsVersion dataBindingConfig.buildToolsVersion
 
     defaultConfig {
         minSdkVersion 7
         targetSdkVersion 21
         versionCode 1
         versionName "1.0"
+    }
+    dataBinding {
+        enabled = true
     }
     buildTypes {
         release {
@@ -47,10 +49,10 @@ dependencies {
 uploadArchives {
     repositories {
         mavenDeployer {
-            repository(url: "file://${config.mavenRepoDir}")
+            repository(url: "file://${dataBindingConfig.mavenRepoDir}")
             pom.artifactId = 'independent-library'
-            pom.version = config.version
-            pom.groupId = config.testGroup
+            pom.version = dataBindingConfig.version
+            pom.groupId = dataBindingConfig.testGroup
         }
     }
 }

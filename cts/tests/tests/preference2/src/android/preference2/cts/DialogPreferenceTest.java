@@ -20,7 +20,7 @@ import android.graphics.drawable.Drawable;
 import android.preference.DialogPreference;
 import android.test.ActivityInstrumentationTestCase2;
 
-import com.android.cts.preference2.R;
+import android.preference2.cts.R;
 
 public class DialogPreferenceTest
         extends ActivityInstrumentationTestCase2<PreferenceFromCodeActivity> {

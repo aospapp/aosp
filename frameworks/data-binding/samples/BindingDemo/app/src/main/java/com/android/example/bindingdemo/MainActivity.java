@@ -69,47 +69,34 @@ public class MainActivity extends ActionBarActivity implements Observable {
         mListeners.notifyChange(this, BR.selected);
     }
 
-    @Bindable
-    public View.OnClickListener onSave = new View.OnClickListener() {
-        @Override
-        public void onClick(View v) {
-            if (selected == null) {
-                return;
-            }
-            selected.setName(dataBinder.selectedName.getText().toString());
-            selected.setLastName(dataBinder.selectedLastname.getText().toString());
+    public void onSave(View v) {
+        if (selected == null) {
+            return;
         }
-    };
+        selected.setName(dataBinder.selectedName.getText().toString());
+        selected.setLastName(dataBinder.selectedLastname.getText().toString());
+    }
 
-    @Bindable
-    public View.OnClickListener onUnselect = new View.OnClickListener() {
+    public void onUnselect (View v) {
+        setSelected(null);
+    }
 
-        @Override
-        public void onClick(View v) {
-            setSelected(null);
+    public void onDelete(View v) {
+        if (selected == null) {
+            return;
         }
-    };
-
-    @Bindable
-    public View.OnClickListener onDelete = new View.OnClickListener() {
-        @Override
-        public void onClick(View v) {
-            if (selected == null) {
-                return;
-            }
-            if (selected.getGroup() == User.KITTEN) {
-                tkAdapter.remove(selected);
-                selected.setGroup(User.ROBOT);
-                robotAdapter.add(selected);
-                dataBinder.robotList.smoothScrollToPosition(robotAdapter.getItemCount() - 1);
-            } else {
-                tkAdapter.add(selected);
-                dataBinder.toolkittyList.smoothScrollToPosition(tkAdapter.getItemCount() - 1);
-                selected.setGroup(User.KITTEN);
-                robotAdapter.remove(selected);
-            }
+        if (selected.getGroup() == User.KITTEN) {
+            tkAdapter.remove(selected);
+            selected.setGroup(User.ROBOT);
+            robotAdapter.add(selected);
+            dataBinder.robotList.smoothScrollToPosition(robotAdapter.getItemCount() - 1);
+        } else {
+            tkAdapter.add(selected);
+            dataBinder.toolkittyList.smoothScrollToPosition(tkAdapter.getItemCount() - 1);
+            selected.setGroup(User.KITTEN);
+            robotAdapter.remove(selected);
         }
-    };
+    }
 
 
     @Override

@@ -45,6 +45,15 @@ static constexpr const char* x86_variants_with_sse4_2[] = {
     "silvermont",
 };
 
+static constexpr const char* x86_variants_prefer_locked_add_sync[] = {
+    "atom",
+    "silvermont",
+};
+
+static constexpr const char* x86_variants_with_popcnt[] = {
+    "silvermont",
+};
+
 const X86InstructionSetFeatures* X86InstructionSetFeatures::FromVariant(
     const std::string& variant, std::string* error_msg ATTRIBUTE_UNUSED,
     bool x86_64) {
@@ -60,6 +69,15 @@ const X86InstructionSetFeatures* X86InstructionSetFeatures::FromVariant(
   bool has_AVX = false;
   bool has_AVX2 = false;
 
+  bool prefers_locked_add = FindVariantInArray(x86_variants_prefer_locked_add_sync,
+                                               arraysize(x86_variants_prefer_locked_add_sync),
+                                               variant);
+
+  bool has_POPCNT = FindVariantInArray(x86_variants_with_popcnt,
+                                       arraysize(x86_variants_with_popcnt),
+                                       variant);
+
+  // Verify that variant is known.
   bool known_variant = FindVariantInArray(x86_known_variants, arraysize(x86_known_variants),
                                           variant);
   if (!known_variant && variant != "default") {
@@ -68,10 +86,10 @@ const X86InstructionSetFeatures* X86InstructionSetFeatures::FromVariant(
 
   if (x86_64) {
     return new X86_64InstructionSetFeatures(smp, has_SSSE3, has_SSE4_1, has_SSE4_2, has_AVX,
-                                            has_AVX2);
+                                            has_AVX2, prefers_locked_add, has_POPCNT);
   } else {
     return new X86InstructionSetFeatures(smp, has_SSSE3, has_SSE4_1, has_SSE4_2, has_AVX,
-                                            has_AVX2);
+                                            has_AVX2, prefers_locked_add, has_POPCNT);
   }
 }
 
@@ -83,11 +101,16 @@ const X86InstructionSetFeatures* X86InstructionSetFeatures::FromBitmap(uint32_t 
   bool has_SSE4_2 = (bitmap & kSse4_2Bitfield) != 0;
   bool has_AVX = (bitmap & kAvxBitfield) != 0;
   bool has_AVX2 = (bitmap & kAvxBitfield) != 0;
+  bool prefers_locked_add = (bitmap & kPrefersLockedAdd) != 0;
+  bool has_POPCNT = (bitmap & kPopCntBitfield) != 0;
   if (x86_64) {
-    return new X86_64InstructionSetFeatures(smp, has_SSSE3, has_SSE4_1, has_SSE4_2, has_AVX, has_AVX2);
+    return new X86_64InstructionSetFeatures(smp, has_SSSE3, has_SSE4_1, has_SSE4_2,
+                                            has_AVX, has_AVX2, prefers_locked_add,
+                                            has_POPCNT);
   } else {
-    return new X86InstructionSetFeatures(smp, has_SSSE3, has_SSE4_1, has_SSE4_2, has_AVX,
-                                            has_AVX2);
+    return new X86InstructionSetFeatures(smp, has_SSSE3, has_SSE4_1, has_SSE4_2,
+                                         has_AVX, has_AVX2, prefers_locked_add,
+                                         has_POPCNT);
   }
 }
 
@@ -124,11 +147,21 @@ const X86InstructionSetFeatures* X86InstructionSetFeatures::FromCppDefines(bool 
   const bool has_AVX2 = true;
 #endif
 
+  // No #define for memory synchronization preference.
+  const bool prefers_locked_add = false;
+
+#ifndef __POPCNT__
+  const bool has_POPCNT = false;
+#else
+  const bool has_POPCNT = true;
+#endif
+
   if (x86_64) {
-    return new X86_64InstructionSetFeatures(smp, has_SSSE3, has_SSE4_1, has_SSE4_2, has_AVX, has_AVX2);
+    return new X86_64InstructionSetFeatures(smp, has_SSSE3, has_SSE4_1, has_SSE4_2, has_AVX,
+                                            has_AVX2, prefers_locked_add, has_POPCNT);
   } else {
     return new X86InstructionSetFeatures(smp, has_SSSE3, has_SSE4_1, has_SSE4_2, has_AVX,
-                                            has_AVX2);
+                                         has_AVX2, prefers_locked_add, has_POPCNT);
   }
 }
 
@@ -141,6 +174,9 @@ const X86InstructionSetFeatures* X86InstructionSetFeatures::FromCpuInfo(bool x86
   bool has_SSE4_2 = false;
   bool has_AVX = false;
   bool has_AVX2 = false;
+  // No cpuinfo for memory synchronization preference.
+  const bool prefers_locked_add = false;
+  bool has_POPCNT = false;
 
   std::ifstream in("/proc/cpuinfo");
   if (!in.fail()) {
@@ -166,6 +202,9 @@ const X86InstructionSetFeatures* X86InstructionSetFeatures::FromCpuInfo(bool x86
           if (line.find("avx2") != std::string::npos) {
             has_AVX2 = true;
           }
+          if (line.find("popcnt") != std::string::npos) {
+            has_POPCNT = true;
+          }
         } else if (line.find("processor") != std::string::npos &&
             line.find(": 1") != std::string::npos) {
           smp = true;
@@ -177,10 +216,11 @@ const X86InstructionSetFeatures* X86InstructionSetFeatures::FromCpuInfo(bool x86
     LOG(ERROR) << "Failed to open /proc/cpuinfo";
   }
   if (x86_64) {
-    return new X86_64InstructionSetFeatures(smp, has_SSSE3, has_SSE4_1, has_SSE4_2, has_AVX, has_AVX2);
+    return new X86_64InstructionSetFeatures(smp, has_SSSE3, has_SSE4_1, has_SSE4_2, has_AVX,
+                                            has_AVX2, prefers_locked_add, has_POPCNT);
   } else {
     return new X86InstructionSetFeatures(smp, has_SSSE3, has_SSE4_1, has_SSE4_2, has_AVX,
-                                            has_AVX2);
+                                         has_AVX2, prefers_locked_add, has_POPCNT);
   }
 }
 
@@ -204,7 +244,9 @@ bool X86InstructionSetFeatures::Equals(const InstructionSetFeatures* other) cons
       (has_SSE4_1_ == other_as_x86->has_SSE4_1_) &&
       (has_SSE4_2_ == other_as_x86->has_SSE4_2_) &&
       (has_AVX_ == other_as_x86->has_AVX_) &&
-      (has_AVX2_ == other_as_x86->has_AVX2_);
+      (has_AVX2_ == other_as_x86->has_AVX2_) &&
+      (prefers_locked_add_ == other_as_x86->prefers_locked_add_) &&
+      (has_POPCNT_ == other_as_x86->has_POPCNT_);
 }
 
 uint32_t X86InstructionSetFeatures::AsBitmap() const {
@@ -213,7 +255,9 @@ uint32_t X86InstructionSetFeatures::AsBitmap() const {
       (has_SSE4_1_ ? kSse4_1Bitfield : 0) |
       (has_SSE4_2_ ? kSse4_2Bitfield : 0) |
       (has_AVX_ ? kAvxBitfield : 0) |
-      (has_AVX2_ ? kAvx2Bitfield : 0);
+      (has_AVX2_ ? kAvx2Bitfield : 0) |
+      (prefers_locked_add_ ? kPrefersLockedAdd : 0) |
+      (has_POPCNT_ ? kPopCntBitfield : 0);
 }
 
 std::string X86InstructionSetFeatures::GetFeatureString() const {
@@ -248,6 +292,16 @@ std::string X86InstructionSetFeatures::GetFeatureString() const {
   } else {
     result += ",-avx2";
   }
+  if (prefers_locked_add_) {
+    result += ",lock_add";
+  } else {
+    result += ",-lock_add";
+  }
+  if (has_POPCNT_) {
+    result += ",popcnt";
+  } else {
+    result += ",-popcnt";
+  }
   return result;
 }
 
@@ -259,6 +313,8 @@ const InstructionSetFeatures* X86InstructionSetFeatures::AddFeaturesFromSplitStr
   bool has_SSE4_2 = has_SSE4_2_;
   bool has_AVX = has_AVX_;
   bool has_AVX2 = has_AVX2_;
+  bool prefers_locked_add = prefers_locked_add_;
+  bool has_POPCNT = has_POPCNT_;
   for (auto i = features.begin(); i != features.end(); i++) {
     std::string feature = Trim(*i);
     if (feature == "ssse3") {
@@ -281,6 +337,14 @@ const InstructionSetFeatures* X86InstructionSetFeatures::AddFeaturesFromSplitStr
       has_AVX2 = true;
     } else if (feature == "-avx2") {
       has_AVX2 = false;
+    } else if (feature == "lock_add") {
+      prefers_locked_add = true;
+    } else if (feature == "-lock_add") {
+      prefers_locked_add = false;
+    } else if (feature == "popcnt") {
+      has_POPCNT = true;
+    } else if (feature == "-popcnt") {
+      has_POPCNT = false;
     } else {
       *error_msg = StringPrintf("Unknown instruction set feature: '%s'", feature.c_str());
       return nullptr;
@@ -288,10 +352,10 @@ const InstructionSetFeatures* X86InstructionSetFeatures::AddFeaturesFromSplitStr
   }
   if (x86_64) {
     return new X86_64InstructionSetFeatures(smp, has_SSSE3, has_SSE4_1, has_SSE4_2, has_AVX,
-                                            has_AVX2);
+                                            has_AVX2, prefers_locked_add, has_POPCNT);
   } else {
     return new X86InstructionSetFeatures(smp, has_SSSE3, has_SSE4_1, has_SSE4_2, has_AVX,
-                                            has_AVX2);
+                                         has_AVX2, prefers_locked_add, has_POPCNT);
   }
 }
 

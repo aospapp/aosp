@@ -26,7 +26,7 @@ import android.test.AndroidTestCase;
 import android.util.Printer;
 
 public class ResolveInfoTest extends AndroidTestCase {
-    private static final String PACKAGE_NAME = "com.android.cts.content";
+    private static final String PACKAGE_NAME = "android.content.cts";
     private static final String MAIN_ACTION_NAME = "android.intent.action.MAIN";
     private static final String ACTIVITY_NAME = "android.content.pm.cts.TestPmActivity";
     private static final String SERVICE_NAME = "android.content.pm.cts.activity.PMTEST_SERVICE";

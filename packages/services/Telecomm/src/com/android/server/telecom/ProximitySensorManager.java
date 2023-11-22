@@ -19,27 +19,21 @@ package com.android.server.telecom;
 import android.content.Context;
 import android.os.PowerManager;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 /**
  * This class manages the proximity sensor and allows callers to turn it on and off.
  */
 public class ProximitySensorManager extends CallsManagerListenerBase {
-    private static final String TAG = ProximitySensorManager.class.getSimpleName();
 
-    private final PowerManager.WakeLock mProximityWakeLock;
     private final CallsManager mCallsManager;
+    private final TelecomWakeLock mTelecomWakeLock;
 
-    public ProximitySensorManager(Context context, CallsManager callsManager) {
-        PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+    public ProximitySensorManager(TelecomWakeLock telecomWakeLock, CallsManager callsManager) {
 
-        if (pm.isWakeLockLevelSupported(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK)) {
-            mProximityWakeLock = pm.newWakeLock(
-                    PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK, TAG);
-        } else {
-            mProximityWakeLock = null;
-        }
-
+        mTelecomWakeLock = telecomWakeLock;
         mCallsManager = callsManager;
-        Log.d(this, "onCreate: mProximityWakeLock: ", mProximityWakeLock);
+        Log.d(this, "onCreate: mProximityWakeLock: ", mTelecomWakeLock);
     }
 
     @Override
@@ -54,38 +48,23 @@ public class ProximitySensorManager extends CallsManagerListenerBase {
     /**
      * Turn the proximity sensor on.
      */
-    void turnOn() {
+    @VisibleForTesting
+    public void turnOn() {
         if (mCallsManager.getCalls().isEmpty()) {
             Log.w(this, "Asking to turn on prox sensor without a call? I don't think so.");
             return;
         }
 
-        if (mProximityWakeLock == null) {
-            return;
-        }
-        if (!mProximityWakeLock.isHeld()) {
-            Log.i(this, "Acquiring proximity wake lock");
-            mProximityWakeLock.acquire();
-        } else {
-            Log.i(this, "Proximity wake lock already acquired");
-        }
+        mTelecomWakeLock.acquire();
     }
 
     /**
      * Turn the proximity sensor off.
      * @param screenOnImmediately
      */
-    void turnOff(boolean screenOnImmediately) {
-        if (mProximityWakeLock == null) {
-            return;
-        }
-        if (mProximityWakeLock.isHeld()) {
-            Log.i(this, "Releasing proximity wake lock");
-            int flags =
-                (screenOnImmediately ? 0 : PowerManager.RELEASE_FLAG_WAIT_FOR_NO_PROXIMITY);
-            mProximityWakeLock.release(flags);
-        } else {
-            Log.i(this, "Proximity wake lock already released");
-        }
+    @VisibleForTesting
+    public void turnOff(boolean screenOnImmediately) {
+        int flags = (screenOnImmediately ? 0 : PowerManager.RELEASE_FLAG_WAIT_FOR_NO_PROXIMITY);
+        mTelecomWakeLock.release(flags);
     }
 }

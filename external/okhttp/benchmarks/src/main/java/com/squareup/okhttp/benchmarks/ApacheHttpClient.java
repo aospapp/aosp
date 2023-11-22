@@ -15,10 +15,10 @@
  */
 package com.squareup.okhttp.benchmarks;
 
+import com.squareup.okhttp.HttpUrl;
 import com.squareup.okhttp.internal.SslContextBuilder;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPInputStream;
 import javax.net.ssl.SSLContext;
@@ -49,14 +49,14 @@ class ApacheHttpClient extends SynchronousHttpClient {
     client = new DefaultHttpClient(connectionManager);
   }
 
-  @Override public Runnable request(URL url) {
+  @Override public Runnable request(HttpUrl url) {
     return new ApacheHttpClientRequest(url);
   }
 
   class ApacheHttpClientRequest implements Runnable {
-    private final URL url;
+    private final HttpUrl url;
 
-    public ApacheHttpClientRequest(URL url) {
+    public ApacheHttpClientRequest(HttpUrl url) {
       this.url = url;
     }
 

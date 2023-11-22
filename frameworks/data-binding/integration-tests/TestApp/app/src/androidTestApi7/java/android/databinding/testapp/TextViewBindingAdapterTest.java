@@ -22,6 +22,7 @@ import android.annotation.TargetApi;
 import android.databinding.adapters.TextViewBindingAdapter;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Build;
+import android.test.UiThreadTest;
 import android.text.Editable;
 import android.text.InputFilter;
 import android.text.InputType;
@@ -301,4 +302,17 @@ public class TextViewBindingAdapterTest
         assertTrue(TextViewBindingObject.KeyListener2.class.isInstance(textView.getKeyListener()));
     }
 
+    @UiThreadTest
+    public void testTextWithTheme() throws Throwable {
+        TextView textView = mBinder.textWithTheme;
+        assertNotNull(textView.getTextColors());
+    }
+
+    @UiThreadTest
+    public void testTextWithColor() throws Throwable {
+        TextView textView = mBinder.textWithColor;
+        int expectedColor = mBinder.getRoot().getResources().getColor(
+                android.R.color.holo_blue_bright);
+        assertEquals(expectedColor, textView.getCurrentTextColor());
+    }
 }

@@ -39,6 +39,10 @@ else
 LOCAL_CFLAGS += -D__DISABLE_ASSERTS
 endif
 
+ifeq ($(FORCE_BUILD_LLVM_DISABLE_NDEBUG),true)
+LOCAL_CFLAGS += -DFORCE_BUILD_LLVM_DISABLE_NDEBUG
+endif
+
 #=====================================================================
 # Architecture Selection
 #=====================================================================

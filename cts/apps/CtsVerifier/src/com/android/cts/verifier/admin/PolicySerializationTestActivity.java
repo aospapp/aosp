@@ -16,6 +16,7 @@
 
 package com.android.cts.verifier.admin;
 
+import com.android.cts.verifier.managedprovisioning.DeviceAdminTestReceiver;
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 
@@ -73,7 +74,7 @@ public class PolicySerializationTestActivity extends PassFailButtons.ListActivit
         setPassFailButtonClickListeners();
 
         mDevicePolicyManager = (DevicePolicyManager) getSystemService(DEVICE_POLICY_SERVICE);
-        mAdmin = TestDeviceAdminReceiver.getComponent(this);
+        mAdmin = DeviceAdminTestReceiver.getReceiverComponentName();
 
         mGeneratePolicyButton = findViewById(R.id.generate_policy_button);
         mGeneratePolicyButton.setOnClickListener(new OnClickListener() {
@@ -136,7 +137,7 @@ public class PolicySerializationTestActivity extends PassFailButtons.ListActivit
     private void applyPolicy() {
         Intent intent = new Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN);
         intent.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN,
-                TestDeviceAdminReceiver.getComponent(this));
+                DeviceAdminTestReceiver.getReceiverComponentName());
         startActivityForResult(intent, ADD_DEVICE_ADMIN_REQUEST_CODE);
     }
 
@@ -152,7 +153,7 @@ public class PolicySerializationTestActivity extends PassFailButtons.ListActivit
 
     private void handleAddDeviceAdminResult(int resultCode, Intent data) {
         if (resultCode == RESULT_OK) {
-            ComponentName admin = TestDeviceAdminReceiver.getComponent(this);
+            ComponentName admin = DeviceAdminTestReceiver.getReceiverComponentName();
             for (PolicyItem<?> item : mPolicyItems) {
                 item.applyExpectedValue(mDevicePolicyManager, admin);
             }

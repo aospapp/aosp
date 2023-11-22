@@ -84,11 +84,10 @@ static bool canFallback(int usage, bool triedSystem)
  * read or written in software. Any combination with a _RARELY_ flag will be
  * treated as uncached. */
 static bool useUncached(const int& usage) {
-    if((usage & GRALLOC_USAGE_PRIVATE_UNCACHED) or
-            ((usage & GRALLOC_USAGE_SW_WRITE_MASK) ==
-            GRALLOC_USAGE_SW_WRITE_RARELY) or
-            ((usage & GRALLOC_USAGE_SW_READ_MASK) ==
-            GRALLOC_USAGE_SW_READ_RARELY))
+    if ((usage & GRALLOC_USAGE_PROTECTED) or
+       (usage & GRALLOC_USAGE_PRIVATE_UNCACHED) or
+       ((usage & GRALLOC_USAGE_SW_WRITE_MASK) == GRALLOC_USAGE_SW_WRITE_RARELY) or
+       ((usage & GRALLOC_USAGE_SW_READ_MASK) == GRALLOC_USAGE_SW_READ_RARELY))
         return true;
 
     return false;
@@ -137,12 +136,37 @@ int AdrenoMemInfo::isMacroTilingSupportedByGPU()
 }
 
 
+bool isUncompressedRgbFormat(int format)
+{
+    bool is_rgb_format = false;
+
+    switch (format)
+    {
+        case HAL_PIXEL_FORMAT_RGBA_8888:
+        case HAL_PIXEL_FORMAT_RGBX_8888:
+        case HAL_PIXEL_FORMAT_RGB_888:
+        case HAL_PIXEL_FORMAT_RGB_565:
+        case HAL_PIXEL_FORMAT_BGRA_8888:
+        case HAL_PIXEL_FORMAT_RGBA_5551:
+        case HAL_PIXEL_FORMAT_RGBA_4444:
+        case HAL_PIXEL_FORMAT_R_8:
+        case HAL_PIXEL_FORMAT_RG_88:
+        case HAL_PIXEL_FORMAT_BGRX_8888:    // Intentional fallthrough
+            is_rgb_format = true;
+            break;
+        default:
+            break;
+    }
+
+    return is_rgb_format;
+}
+
 void AdrenoMemInfo::getAlignedWidthAndHeight(int width, int height, int format,
                             int usage, int& aligned_w, int& aligned_h)
 {
 
     // Currently surface padding is only computed for RGB* surfaces.
-    if (format <= HAL_PIXEL_FORMAT_BGRA_8888) {
+    if (isUncompressedRgbFormat(format) == true) {
         int tileEnabled = isMacroTileEnabled(format, usage);
         AdrenoMemInfo::getInstance().getGpuAlignedWidthHeight(width,
             height, format, tileEnabled, aligned_w, aligned_h);
@@ -185,6 +209,7 @@ void AdrenoMemInfo::getAlignedWidthAndHeight(int width, int height, int format,
             aligned_h = VENUS_Y_SCANLINES(COLOR_FMT_NV12, height);
             break;
         case HAL_PIXEL_FORMAT_BLOB:
+        case HAL_PIXEL_FORMAT_RAW_OPAQUE:
             break;
         case HAL_PIXEL_FORMAT_NV21_ZSL:
             aligned_w = ALIGN(width, 64);
@@ -357,20 +382,13 @@ int IonController::allocate(alloc_data& data, int usage)
         ionFlags |= ION_HEAP(ION_IOMMU_HEAP_ID);
 
     if(usage & GRALLOC_USAGE_PROTECTED) {
-        if (usage & GRALLOC_USAGE_PRIVATE_MM_HEAP) {
-            ionFlags |= ION_HEAP(ION_CP_MM_HEAP_ID);
-            ionFlags |= ION_SECURE;
+        ionFlags |= ION_HEAP(ION_CP_MM_HEAP_ID);
+        ionFlags |= ION_SECURE;
 #ifdef ION_FLAG_ALLOW_NON_CONTIG
-            if (!(usage & GRALLOC_USAGE_PRIVATE_SECURE_DISPLAY)) {
-                ionFlags |= ION_FLAG_ALLOW_NON_CONTIG;
-            }
-#endif
-        } else {
-            // for targets/OEMs which do not need HW level protection
-            // do not set ion secure flag & MM heap. Fallback to IOMMU heap.
-            ionFlags |= ION_HEAP(ION_IOMMU_HEAP_ID);
-            data.allocType |= private_handle_t::PRIV_FLAGS_PROTECTED_BUFFER;
+        if (!(usage & GRALLOC_USAGE_PRIVATE_SECURE_DISPLAY)) {
+            ionFlags |= ION_FLAG_ALLOW_NON_CONTIG;
         }
+#endif
     } else if(usage & GRALLOC_USAGE_PRIVATE_MM_HEAP) {
         //MM Heap is exclusively a secure heap.
         //If it is used for non secure cases, fallback to IOMMU heap
@@ -526,8 +544,9 @@ unsigned int getSize(int format, int width, int height, int usage,
             size = VENUS_BUFFER_SIZE(COLOR_FMT_NV12, width, height);
             break;
         case HAL_PIXEL_FORMAT_BLOB:
+        case HAL_PIXEL_FORMAT_RAW_OPAQUE:
             if(height != 1) {
-                ALOGE("%s: Buffers with format HAL_PIXEL_FORMAT_BLOB \
+                ALOGE("%s: Buffers with RAW_OPAQUE/blob formats \
                       must have height==1 ", __FUNCTION__);
                 return 0;
             }
@@ -567,7 +586,7 @@ unsigned int getSize(int format, int width, int height, int usage,
             size = alignedw * alignedh * ASTC_BLOCK_SIZE;
             break;
         default:
-            ALOGE("Unrecognized pixel format: 0x%x", __FUNCTION__, format);
+            ALOGE("%s: Unrecognized pixel format: 0x%x", __FUNCTION__, format);
             return 0;
     }
     return size;

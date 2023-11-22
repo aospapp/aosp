@@ -16,109 +16,137 @@
 
 package com.android.tv.settings.accounts;
 
-import com.android.tv.settings.R;
-import com.android.tv.settings.dialog.old.Action;
-import com.android.tv.settings.dialog.old.ActionFragment;
-import com.android.tv.settings.dialog.old.ContentFragment;
-import com.android.tv.settings.dialog.old.DialogActivity;
-import com.android.tv.settings.widget.SettingsToast;
-
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.accounts.AccountManagerCallback;
 import android.accounts.AccountManagerFuture;
 import android.accounts.AuthenticatorException;
 import android.accounts.OperationCanceledException;
+import android.app.Activity;
 import android.app.ActivityManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.support.annotation.NonNull;
+import android.support.v17.leanback.app.GuidedStepFragment;
+import android.support.v17.leanback.widget.GuidanceStylist;
+import android.support.v17.leanback.widget.GuidedAction;
 import android.util.Log;
 
+import com.android.tv.settings.R;
+import com.android.tv.settings.widget.SettingsToast;
+
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.List;
 
 /**
  * OK / Cancel dialog.
  */
-public class RemoveAccountDialog extends DialogActivity implements AccountManagerCallback<Boolean> {
+public class RemoveAccountDialog extends Activity implements AccountManagerCallback<Bundle> {
 
     private static final String TAG = "RemoveAccountDialog";
-
-    private static final String KEY_OK = "ok";
-    private static final String KEY_CANCEL = "cancel";
-    private String mAccountName;
-    private boolean mIsRemoving;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        mAccountName = getIntent().getStringExtra(AccountSettingsActivity.EXTRA_ACCOUNT);
-        setContentAndActionFragments(ContentFragment.newInstance(
-                getString(R.string.account_remove), mAccountName, "",
-                R.drawable.ic_settings_remove, getResources().getColor(R.color.icon_background)),
-            ActionFragment.newInstance(getActions()));
-    }
-
-    @Override
-    public void onActionClicked(Action action) {
-        if (KEY_OK.equals(action.getKey())) {
-            if (ActivityManager.isUserAMonkey()) {
-                // Don't let the monkey remove accounts.
-                finish();
-                return;
-            }
-            // Block this from happening more than once.
-            if (mIsRemoving) {
-                return;
-            }
-            mIsRemoving = true;
-            AccountManager manager = AccountManager.get(getApplicationContext());
-            Account account = null;
-            for (Account accountLoop : manager.getAccounts()) {
-                if (accountLoop.name.equals(mAccountName)) {
-                    account = accountLoop;
-                    break;
-                }
-            }
-            manager.removeAccount(account, this, new Handler());
-        } else {
-            finish();
+        if (savedInstanceState == null) {
+            GuidedStepFragment.addAsRoot(this, RemoveAccountFragment.newInstance(
+                    getIntent().getStringExtra(AccountSyncActivity.EXTRA_ACCOUNT)),
+                    android.R.id.content);
         }
     }
 
-    private ArrayList<Action> getActions() {
-        ArrayList<Action> actions = new ArrayList<Action>();
-        actions.add(new Action.Builder()
-            .key(KEY_CANCEL)
-            .title(getString(R.string.settings_cancel))
-            .build());
-        actions.add(new Action.Builder()
-            .key(KEY_OK)
-            .title(getString(R.string.settings_ok))
-            .build());
-        return actions;
-    }
-
-
     @Override
-    public void run(AccountManagerFuture<Boolean> future) {
+    public void run(AccountManagerFuture<Bundle> future) {
         if (!isResumed()) {
+            if (!isFinishing()) {
+                finish();
+            }
             return;
         }
         try {
-            if (!future.getResult()) {
+            if (!future.getResult().getBoolean(AccountManager.KEY_BOOLEAN_RESULT)) {
                 // Wasn't removed, toast this.
                 SettingsToast.makeText(this, R.string.account_remove_failed,
                         SettingsToast.LENGTH_LONG)
                         .show();
             }
-        } catch (OperationCanceledException e) {
-            Log.e(TAG, "Could not remove", e);
-        } catch (AuthenticatorException e) {
-            Log.e(TAG, "Could not remove", e);
-        } catch (IOException e) {
+        } catch (OperationCanceledException | AuthenticatorException | IOException e) {
             Log.e(TAG, "Could not remove", e);
         }
         finish();
+    }
+
+    public static class RemoveAccountFragment extends GuidedStepFragment {
+        private static final String ARG_ACCOUNT_NAME = "accountName";
+        private static final int ID_OK = 1;
+        private static final int ID_CANCEL = 0;
+        private String mAccountName;
+        private boolean mIsRemoving;
+
+        public static RemoveAccountFragment newInstance(String accountName) {
+            final RemoveAccountFragment f = new RemoveAccountFragment();
+            final Bundle b = new Bundle(1);
+            b.putString(ARG_ACCOUNT_NAME, accountName);
+            f.setArguments(b);
+            return f;
+        }
+
+        @Override
+        public void onCreate(Bundle savedInstanceState) {
+            mAccountName = getArguments().getString(ARG_ACCOUNT_NAME);
+
+            super.onCreate(savedInstanceState);
+        }
+
+        @NonNull
+        @Override
+        public GuidanceStylist.Guidance onCreateGuidance(Bundle savedInstanceState) {
+            return new GuidanceStylist.Guidance(
+                    getString(R.string.account_remove),
+                    null,
+                    mAccountName,
+                    getActivity().getDrawable(R.drawable.ic_delete_132dp));
+        }
+
+        @Override
+        public void onGuidedActionClicked(GuidedAction action) {
+            final RemoveAccountDialog activity = (RemoveAccountDialog) getActivity();
+            if (action.getId() == ID_OK) {
+                if (ActivityManager.isUserAMonkey()) {
+                    // Don't let the monkey remove accounts.
+                    activity.finish();
+                    return;
+                }
+                // Block this from happening more than once.
+                if (mIsRemoving) {
+                    return;
+                }
+                mIsRemoving = true;
+                AccountManager manager = AccountManager.get(activity.getApplicationContext());
+                Account account = null;
+                for (Account accountLoop : manager.getAccounts()) {
+                    if (accountLoop.name.equals(mAccountName)) {
+                        account = accountLoop;
+                        break;
+                    }
+                }
+                manager.removeAccount(account, activity, activity, new Handler());
+            } else {
+                activity.finish();
+            }
+        }
+
+        @Override
+        public void onCreateActions(@NonNull List<GuidedAction> actions,
+                Bundle savedInstanceState) {
+            actions.add(new GuidedAction.Builder()
+                    .id(ID_CANCEL)
+                    .title(getString(android.R.string.cancel))
+                    .build());
+            actions.add(new GuidedAction.Builder()
+                    .id(ID_OK)
+                    .title(getString(android.R.string.ok))
+                    .build());
+        }
     }
 }

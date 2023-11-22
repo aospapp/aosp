@@ -20,7 +20,7 @@
     <string name="sms_cb_settings" msgid="971917159442705371">"Ustawienia komunikatów z sieci komórkowej"</string>
     <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"Ustawienia komunikatów z sieci komórkowej nie są dostępne dla tego użytkownika"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"OK"</string>
-    <string name="no_cell_broadcasts" msgid="5409324337492758562">"Nie ma aktywnych alertów w Twojej okolicy. Alerty możesz zmodyfikować w menu Ustawienia."</string>
+    <string name="no_cell_broadcasts" msgid="5409324337492758562">"Nie ma aktywnych alertów w Twojej okolicy. Alerty możesz zmodyfikować w menu Ustawienia."</string>
     <string name="menu_preferences" msgid="3596514894131599202">"Ustawienia"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"Usuń transmisje"</string>
     <string name="message_options" msgid="3178489901903589574">"Opcje wiadomości"</string>

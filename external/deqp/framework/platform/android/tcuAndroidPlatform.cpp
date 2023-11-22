@@ -22,6 +22,7 @@
  *//*--------------------------------------------------------------------*/
 
 #include "tcuAndroidPlatform.hpp"
+#include "tcuAndroidUtil.hpp"
 #include "gluRenderContext.hpp"
 #include "egluNativeDisplay.hpp"
 #include "egluNativeWindow.hpp"
@@ -29,6 +30,8 @@
 #include "egluUtil.hpp"
 #include "eglwLibrary.hpp"
 #include "eglwEnums.hpp"
+#include "tcuFunctionLibrary.hpp"
+#include "vkWsiPlatform.hpp"
 
 // Assume no call translation is needed
 #include <android/native_window.h>
@@ -158,7 +161,6 @@ eglu::NativeWindow* NativeWindowFactory::createWindow (eglu::NativeDisplay* nati
 	return createWindow(params, format);
 }
 
-
 eglu::NativeWindow* NativeWindowFactory::createWindow (const eglu::WindowParams& params, int32_t format) const
 {
 	Window* window = m_windowRegistry.tryAcquireWindow();
@@ -183,9 +185,111 @@ eglu::NativeDisplay* NativeDisplayFactory::createDisplay (const EGLAttrib* attri
 	return new NativeDisplay();
 }
 
+// Vulkan
+
+class VulkanLibrary : public vk::Library
+{
+public:
+	VulkanLibrary (void)
+		: m_library	("libvulkan.so")
+		, m_driver	(m_library)
+	{
+	}
+
+	const vk::PlatformInterface& getPlatformInterface (void) const
+	{
+		return m_driver;
+	}
+
+private:
+	const tcu::DynamicFunctionLibrary	m_library;
+	const vk::PlatformDriver			m_driver;
+};
+
+DE_STATIC_ASSERT(sizeof(vk::pt::AndroidNativeWindowPtr) == sizeof(ANativeWindow*));
+
+class VulkanWindow : public vk::wsi::AndroidWindowInterface
+{
+public:
+	VulkanWindow (tcu::Android::Window& window)
+		: vk::wsi::AndroidWindowInterface	(vk::pt::AndroidNativeWindowPtr(window.getNativeWindow()))
+		, m_window							(window)
+	{
+	}
+
+	~VulkanWindow (void)
+	{
+		m_window.release();
+	}
+
+private:
+	tcu::Android::Window&	m_window;
+};
+
+class VulkanDisplay : public vk::wsi::Display
+{
+public:
+	VulkanDisplay (WindowRegistry& windowRegistry)
+		: m_windowRegistry(windowRegistry)
+	{
+	}
+
+	vk::wsi::Window* createWindow (const Maybe<UVec2>& initialSize) const
+	{
+		Window* const	window	= m_windowRegistry.tryAcquireWindow();
+
+		if (window)
+		{
+			try
+			{
+				if (initialSize)
+					window->setBuffersGeometry((int)initialSize->x(), (int)initialSize->y(), WINDOW_FORMAT_RGBA_8888);
+
+				return new VulkanWindow(*window);
+			}
+			catch (...)
+			{
+				window->release();
+				throw;
+			}
+		}
+		else
+			TCU_THROW(ResourceError, "Native window is not available");
+	}
+
+private:
+	WindowRegistry&		m_windowRegistry;
+};
+
+static size_t getTotalSystemMemory (ANativeActivity* activity)
+{
+	const size_t	MiB		= (size_t)(1<<20);
+
+	try
+	{
+		const size_t	cddRequiredSize	= getCDDRequiredSystemMemory(activity);
+
+		print("Device has at least %.2f MiB total system memory per Android CDD\n", double(cddRequiredSize) / double(MiB));
+
+		return cddRequiredSize;
+	}
+	catch (const std::exception& e)
+	{
+		// Use relatively high fallback size to encourage CDD-compliant behavior
+		const size_t	fallbackSize	= (sizeof(void*) == sizeof(deUint64)) ? 2048*MiB : 1024*MiB;
+
+		print("WARNING: Failed to determine system memory size required by CDD: %s\n", e.what());
+		print("WARNING: Using fall-back size of %.2f MiB\n", double(fallbackSize) / double(MiB));
+
+		return fallbackSize;
+	}
+}
+
 // Platform
 
-Platform::Platform (void)
+Platform::Platform (NativeActivity& activity)
+	: m_activity			(activity)
+	, m_totalSystemMemory	(getTotalSystemMemory(activity.getNativeActivity()))
 {
 	m_nativeDisplayFactoryRegistry.registerFactory(new NativeDisplayFactory(m_windowRegistry));
 	m_contextFactoryRegistry.registerFactory(new eglu::GLContextFactory(m_nativeDisplayFactoryRegistry));
@@ -199,6 +303,43 @@ bool Platform::processEvents (void)
 {
 	m_windowRegistry.garbageCollect();
 	return true;
+}
+
+vk::Library* Platform::createLibrary (void) const
+{
+	return new VulkanLibrary();
+}
+
+void Platform::describePlatform (std::ostream& dst) const
+{
+	tcu::Android::describePlatform(m_activity.getNativeActivity(), dst);
+}
+
+void Platform::getMemoryLimits (vk::PlatformMemoryLimits& limits) const
+{
+	// Worst-case estimates
+	const size_t	MiB				= (size_t)(1<<20);
+	const size_t	baseMemUsage	= 400*MiB;
+	const double	safeUsageRatio	= 0.25;
+
+	limits.totalSystemMemory					= de::max((size_t)(double(deInt64(m_totalSystemMemory)-deInt64(baseMemUsage)) * safeUsageRatio), 16*MiB);
+
+	// Assume UMA architecture
+	limits.totalDeviceLocalMemory				= 0;
+
+	// Reasonable worst-case estimates
+	limits.deviceMemoryAllocationGranularity	= 64*1024;
+	limits.devicePageSize						= 4096;
+	limits.devicePageTableEntrySize				= 8;
+	limits.devicePageTableHierarchyLevels		= 3;
+}
+
+vk::wsi::Display* Platform::createWsiDisplay (vk::wsi::Type wsiType) const
+{
+	if (wsiType == vk::wsi::TYPE_ANDROID)
+		return new VulkanDisplay(const_cast<WindowRegistry&>(m_windowRegistry));
+	else
+		TCU_THROW(NotSupportedError, "WSI type not supported on Android");
 }
 
 } // Android

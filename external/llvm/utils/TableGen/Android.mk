@@ -6,6 +6,7 @@ tablegen_SRC_FILES := \
   AsmMatcherEmitter.cpp \
   AsmWriterEmitter.cpp \
   AsmWriterInst.cpp \
+  Attributes.cpp \
   CallingConvEmitter.cpp \
   CodeEmitterGen.cpp \
   CodeGenDAGPatterns.cpp \
@@ -50,11 +51,9 @@ LOCAL_STATIC_LIBRARIES := \
   libLLVMSupport
 
 LOCAL_LDLIBS += -lm
-ifeq ($(HOST_OS),windows)
-  LOCAL_LDLIBS += -limagehlp -lpsapi
-else
-  LOCAL_LDLIBS += -lpthread -ldl
-endif
+LOCAL_LDLIBS_windows := -limagehlp -lpsapi
+LOCAL_LDLIBS_darwin := -lpthread -ldl
+LOCAL_LDLIBS_linux := -lpthread -ldl
 
 include $(LLVM_HOST_BUILD_MK)
 include $(BUILD_HOST_EXECUTABLE)

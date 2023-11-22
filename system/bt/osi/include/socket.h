@@ -58,20 +58,24 @@ socket_t *socket_accept(const socket_t *socket);
 // block. This function returns a positive integer representing the number
 // of bytes copied into |buf| on success, 0 if the socket has disconnected,
 // and -1 on error. This function may return a value less than |count| if not
-// enough data is currently available. If this function returns -1, errno will also
-// be set (see recv(2) for possible errno values). If there were no bytes available
-// to be read, this function returns -1 and sets errno to EWOULDBLOCK. Neither
-// |socket| nor |buf| may be NULL.
+// enough data is currently available. If this function returns -1, errno will
+// also be set (see recv(2) for possible errno values). However, if the reading
+// system call was interrupted with errno of EINTR, the read operation is
+// restarted internally without propagating EINTR back to the caller. If there
+// were no bytes available to be read, this function returns -1 and sets errno
+// to EWOULDBLOCK. Neither |socket| nor |buf| may be NULL.
 ssize_t socket_read(const socket_t *socket, void *buf, size_t count);
 
 // Writes up to |count| bytes from |buf| into |socket|. This function will not
 // block. Returns a positive integer representing the number of bytes written
-// to |socket| on success, 0 if the socket has disconnected, and -1 on error. This
-// function may return a value less than |count| if writing more bytes would result
-// in blocking. If this function returns -1, errno will also be set (see send(2) for
-// possible errno values). If no bytes could be written without blocking, this
-// function will return -1 and set errno to EWOULDBLOCK. Neither |socket| nor |buf|
-// may be NULL.
+// to |socket| on success, 0 if the socket has disconnected, and -1 on error.
+// This function may return a value less than |count| if writing more bytes
+// would result in blocking. If this function returns -1, errno will also be
+// set (see send(2) for possible errno values). However, if the writing system
+// call was interrupted with errno of EINTR, the write operation is restarted
+// internally without propagating EINTR back to the caller. If no bytes could
+// be written without blocking, this function will return -1 and set errno to
+// EWOULDBLOCK. Neither |socket| nor |buf| may be NULL.
 ssize_t socket_write(const socket_t *socket, const void *buf, size_t count);
 
 // This function performs the same write operation as |socket_write| and also

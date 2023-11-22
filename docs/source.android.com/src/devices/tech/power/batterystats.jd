@@ -1,4 +1,4 @@
-page.title=Viewing Battery Usage Data
+page.title=Viewing Battery Use Data
 @jd:body
 
 <!--
@@ -42,41 +42,67 @@ page.title=Viewing Battery Usage Data
     <li>App UID aggregated statistics</li>
   </ul>
 
-  <p class="note">You can use the <a href=
-  "https://github.com/google/battery-historian">Battery Historian</a> tool on
-  the output of the dumpsys command to generate an HTML visualization of
-  power-related events from the logs. This information makes it easier for
-  you to understand and diagnose any battery-related issues.</p>
+  <p>Use the <a href="https://github.com/google/battery-historian">Battery
+  Historian</a> tool on the output of the dumpsys command to generate an HTML
+  visualization of power-related events from the logs. This information makes it
+  easier to understand and diagnose battery-related issues.</p>
 
-  <h2 id="command-line_options">Command line options</h2>
-
-  <p>Use the <code>--help</code> option to learn about the various options
-  for tailoring the output.</p>
-
-  <p>Use the <code>--checkin</code> option to get the results in
-  machine-readable csv format.</p>
-
-  <p>To print battery usage statistics for a given app package since the
-  device was last charged, run this command:</p>
+  <h2 id="command-line_options">Command input</h2>
+  <p>The basic <code>batterystats</code> command is:</p>
   <pre class="prettyprint">
-$ adb shell dumpsys batterystats --charged &lt;package-name&gt;
-  </pre>
-
-  <h2 id="sample_input">Input</h2>
-
-  <p>To print battery usage statistics for all apps since the device was last
-  charged, in machine-readable format, run this command:</p>
+$ adb shell dumpsys batterystats</pre>
+  <p>Supported options:</p>
+  <ul>
+  <li><code>--help</code> displays additional options for tailoring the output.
+  </li>
+  <li><code>--checkin</code> exports results in machine-readable csv format.
+  </li>
+  </ul>
+  <p>For example, to print battery usage statistics in csv format for all apps
+  since the device was last charged, run the command:</p>
   <pre class="prettyprint">
-$ adb shell dumpsys batterystats --charged --checkin
-  </pre>
+$ adb shell dumpsys batterystats --charged --checkin</pre>
+  <p>You can also specify a package name to get statistics for a single app. For
+  example, to print battery usage statistics for a given app package
+  since the device was last charged, run the command:</p>
+  <pre class="prettyprint">
+$ adb shell dumpsys batterystats --charged &lt;package-name&gt;</pre>
 
-  <h2 id="output">Output</h2>
+  <h2 id="output">Command output</h2>
 
-  <p>The output looks like this:</p>
+  <p>The <code>batterystats</code> command generates aggregated observations
+  about battery use on the device since it was last charged. Observations may be
+  per-UID or system-level; data is selected for inclusion based on its
+  usefulness in analyzing battery performance. Output includes one (1) entry
+  per observation, and each entry consists of a comma-separated list of values
+  in the format:
+  <em>int</em>,<em>uid</em>,<em>mode</em>,<em>section</em>,<em>fields</em>
+  (one or more).</p>
 
-  <p>$ adb shell dumpsys batterystats --charged --checkin</p>
+  <p>The first four values correspond to the following:</p>
 
-  <pre class="no-pretty=print">
+  <ul>
+    <li>Dummy integer</li>
+
+    <li>UID</li>
+
+    <li>Aggregation mode
+
+      <ul>
+        <li>"i" for information not tied to charged/uncharged status.</li>
+        <li>"l" for --charged (usage since last charge).</li>
+        <li>"u" for --unplugged (usage since last unplugged). Deprecated in
+        Android 5.1.1.</li>
+      </ul>
+    </li>
+
+    <li><a href="#interpreting_the_output">Section identifier</a>, which
+    determines how to interpret subsequent values in the line.</li>
+  </ul>
+
+<p>Sample output:</p>
+
+  <pre class="no-pretty-print">
   9,0,i,vers,11,116,K,L 9,0,i,uid,1000,android
   9,0,i,uid,1000,com.android.providers.settings
   9,0,i,uid,1000,com.android.inputdevices
@@ -177,6 +203,8 @@ $ adb shell dumpsys batterystats --charged --checkin
   9,0,l,pwi,idle,8.73 9,0,l,pwi,uid,5.46 9,1000,l,pwi,uid,5.11
   9,0,l,pwi,wifi,3.28 9,10019,l,pwi,uid,0.847 9,10069,l,pwi,uid,0.408
   9,0,l,pwi,scrn,0.385 9,10034,l,pwi,uid,0.322 9,10025,l,pwi,uid,0.185
+  9,0,l,pwi,blue,0.0273
+  9,0,l,pwi,cell,14.0
   9,10002,l,pwi,uid,0.180 9,10023,l,pwi,uid,0.168 9,1001,l,pwi,uid,0.0297
   9,10068,l,pwi,uid,0.0296 9,10057,l,pwi,uid,0.0234 9,1027,l,pwi,uid,0.0157
   9,10079,l,pwi,uid,0.00905 9,10054,l,pwi,uid,0.00527
@@ -227,811 +255,322 @@ $ adb shell dumpsys batterystats --charged --checkin
   9,10068,l,nt,0,0,11929,8383,0,0,50,47,0,0
   9,10069,l,nt,0,0,41553,22886,0,0,85,91,0,0</pre>
 
-  <h2 id="interpreting_the_output">Interpreting the output</h2>
+  <h2 id="interpreting_the_output">Section identifiers</h2>
 
-  <p>The sample output is in CSV format. Each line in the output contains
-  statistics related to battery usage.</p>
+  <p>Command output for <code>batterystats</code> supports the following
+  sections:</p>
 
-  <p>The first four values in each line correspond to the following:</p>
+  <table id="batterystats-section-ids">
 
-  <ul>
-    <li>Dummy integer</li>
-
-    <li>UID</li>
-
-    <li>Aggregation mode
-
-      <ul>
-        <li>"l" for --charged, means usage since last charge.</li>
-        <li>"u" for --unplugged, which means usage since last unplugged.</li>
-        <li>"i" for information that is not
-        tied to charged/uncharged status.</li>
-      </ul>
-    </li>
-
-    <li>Section identifier, which determines how to interpret the fifth
-        value and the following ones in the line.</li>
-  </ul>
-
-  <p>Currently, there are 41 sections and the interpretation for each section
-  is shown in the following table:</p>
-
-  <table>
     <tr>
-      <td>
-        <p><strong>Order</strong></p>
-      </td>
-
-      <td class="tab0">
-        <p><strong>Section Identifier</strong></p>
-      </td>
-
-      <td class="tab0">
-        <p><strong>Description</strong></p>
-      </td>
-
-      <td class="tab0">
-        <p><strong>Remaining Fields</strong></p>
-      </td>
+      <th width="10%">Section Identifier</th>
+      <th width="20%">Description</th>
+      <th width="70%">Remaining Fields</th>
     </tr>
 
     <tr>
-      <td>
-        <p>1</p>
-      </td>
-
-      <td class="tab0">
-        <p>vers</p>
-      </td>
-
-      <td class="tab0">
-        <p>Version</p>
-      </td>
-
-      <td class="tab0">
-        <p>checkin version, parcel version, start platform version, end
-        platform version</p>
-      </td>
+      <td><p>vers</p></td>
+      <td><p>Version</p></td>
+      <td><p>checkin version, parcel version, start platform version, end
+        platform version</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>2</p>
-      </td>
-
-      <td class="tab0">
-        <p>uid</p>
-      </td>
-
-      <td class="tab0">
-        <p>UID</p>
-      </td>
-
-      <td class="tab0">
-        <p>uid, package name</p>
-      </td>
+      <td><p>uid</p></td>
+      <td><p>UID</p></td>
+      <td><p>uid, package name</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>3</p>
-      </td>
-
-      <td class="tab0">
-        <p>apk</p>
-      </td>
-
-      <td class="tab0">
-        <p>APK</p>
-      </td>
-
-      <td class="tab0">
-        <p>wakeups, APK, service, start time, starts, launches</p>
-      </td>
+      <td><p>apk</p></td>
+      <td><p>APK</p></td>
+      <td><p>wakeups, APK, service, start time, starts, launches</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>4</p>
-      </td>
-
-      <td class="tab0">
-        <p>pr</p>
-      </td>
-
-      <td class="tab0">
-        <p>Process</p>
-      </td>
-
-      <td class="tab0">
-        <p>process, user, system, foreground, starts</p>
-      </td>
+      <td><p>pr</p></td>
+      <td><p>Process</p></td>
+      <td><p>process, user, system, foreground, starts</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>5</p>
-      </td>
-
-      <td class="tab0">
-        <p>sr</p>
-      </td>
-
-      <td class="tab0">
-        <p>Sensor</p>
-      </td>
-
-      <td class="tab0">
-        <p>sensor number, time, count</p>
-      </td>
+      <td><p>sr</p></td>
+      <td><p>Sensor</p></td>
+      <td><p>sensor number, time, count</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>6</p>
-      </td>
-
-      <td class="tab0">
-        <p>vib</p>
-      </td>
-
-      <td class="tab0">
-        <p>Vibrator</p>
-      </td>
-
-      <td class="tab0">
-        <p>time, count</p>
-      </td>
+      <td><p>vib</p></td>
+      <td><p>Vibrator</p></td>
+      <td><p>time, count</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>7</p>
-      </td>
-
-      <td class="tab0">
-        <p>fg</p>
-      </td>
-
-      <td class="tab0">
-        <p>Foreground</p>
-      </td>
-
-      <td class="tab0">
-        <p>time, count</p>
-      </td>
+      <td><p>fg</p></td>
+      <td><p>Foreground</p></td>
+      <td><p>time, count</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>8</p>
-      </td>
-
-      <td class="tab0">
-        <p>st</p>
-      </td>
-
-      <td class="tab0">
-        <p>State Time</p>
-      </td>
-
-      <td class="tab0">
-        <p>foreground, active, running</p>
-      </td>
+      <td><p>st</p></td>
+      <td><p>State Time</p></td>
+      <td><p>foreground, active, running</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>9</p>
-      </td>
-
-      <td class="tab0">
-        <p>wl</p>
-      </td>
-
-      <td class="tab0">
-        <p>Wake lock</p>
-      </td>
-
-      <td class="tab0">
-        <p>wake lock, full time, 'f', full count, partial time, 'p', partial
-        count, window time, 'w', window count</p>
-      </td>
+      <td><p>wl</p></td>
+      <td><p>Wake lock</p></td>
+      <td><p>wake lock, full time, 'f', full count, partial time, 'p', partial
+        count, window time, 'w', window count</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>10</p>
-      </td>
-
-      <td class="tab0">
-        <p>sy</p>
-      </td>
-
-      <td class="tab0">
-        <p>Sync</p>
-      </td>
-
-      <td class="tab0">
-        <p>sync, time, count</p>
-      </td>
+      <td><p>sy</p></td>
+      <td><p>Sync</p></td>
+      <td><p>sync, time, count</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>11</p>
-      </td>
-
-      <td class="tab0">
-        <p>jb</p>
-      </td>
-
-      <td class="tab0">
-        <p>Job</p>
-      </td>
-
-      <td class="tab0">
-        <p>job, time, count</p>
-      </td>
+      <td><p>jb</p></td>
+      <td><p>Job</p></td>
+      <td><p>job, time, count</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>12</p>
-      </td>
-
-      <td class="tab0">
-        <p>kwl</p>
-      </td>
-
-      <td class="tab0">
-        <p>Kernel Wake Lock</p>
-      </td>
-
-      <td class="tab0">
-        <p>kernel wake lock, time, count</p>
-      </td>
+      <td><p>kwl</p></td>
+      <td><p>Kernel Wake Lock</p></td>
+      <td><p>kernel wake lock, time, count</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>13</p>
-      </td>
-
-      <td class="tab0">
-        <p>wr</p>
-      </td>
-
-      <td class="tab0">
-        <p>Wakeup Reason</p>
-      </td>
-
-      <td class="tab0">
-        <p>wakeup reason, time, count</p>
-      </td>
+      <td><p>wr</p></td>
+      <td><p>Wakeup Reason</p></td>
+      <td><p>wakeup reason, time, count</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>14</p>
-      </td>
-
-      <td class="tab0">
-        <p>nt</p>
-      </td>
-
-      <td class="tab0">
-        <p>Network</p>
-      </td>
-
-      <td class="tab0">
-        <p>mobile bytes RX, mobile bytes TX, Wi-Fi bytes RX, Wi-Fi bytes TX,
+      <td><p>nt</p></td>
+      <td><p>Network</p></td>
+      <td><p>mobile bytes RX, mobile bytes TX, Wi-Fi bytes RX, Wi-Fi bytes TX,
         mobile packets RX, mobile packets TX, Wi-Fi packets RX, Wi-Fi packets
-        TX, mobile active time, mobile active count</p>
-      </td>
+        TX, mobile active time, mobile active count</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>15</p>
-      </td>
-
-      <td class="tab0">
-        <p>ua</p>
-      </td>
-
-      <td class="tab0">
-        <p>User Activity</p>
-      </td>
-
-      <td class="tab0">
-        <p>other, button, touch</p>
-      </td>
+      <td><p>ua</p></td>
+      <td><p>User Activity</p></td>
+      <td><p>other, button, touch</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>16</p>
-      </td>
-
-      <td class="tab0">
-        <p>bt</p>
-      </td>
-
-      <td class="tab0">
-        <p>Battery</p>
-      </td>
-
-      <td class="tab0">
-        <p>start count, battery realtime, battery uptime, total realtime,
+      <td><p>bt</p></td>
+      <td><p>Battery</p></td>
+      <td><p>start count, battery realtime, battery uptime, total realtime,
         total uptime, start clock time, battery screen off realtime, battery
-        screen off uptime</p>
+        screen off uptime</p></td>
+    </tr>
+
+    <tr>
+      <td><p>dc</p></td>
+      <td><p>Battery Discharge</p></td>
+      <td><p>low, high, screen on, screen off</p></td>
+    </tr>
+
+    <tr>
+      <td><p>lv</p></td>
+      <td><p>Battery Level</p></td>
+      <td><p>start level, current level</p></td>
+    </tr>
+
+    <tr>
+      <td><p>wfl</p></td>
+      <td><p>Wi-Fi</p></td>
+      <td><p>full Wi-Fi lock on time, Wi-Fi scan time, Wi-Fi running time, Wi-Fi
+        scan count, Wi-Fi idle time, Wi-Fi receive time, Wi-Fi transmit time</p>
       </td>
     </tr>
 
     <tr>
-      <td>
-        <p>17</p>
-      </td>
+      <td><p>gwfl</p></td>
+      <td><p>Global Wi-Fi</p></td>
+      <td><p>Wi-Fi on time, Wi-Fi running time, Wi-Fi idle time, Wi-Fi receive
+      time, Wi-Fi transmit time, Wi-Fi power (mAh)</p></td>
+    </tr>
 
-      <td class="tab0">
-        <p>dc</p>
-      </td>
-
-      <td class="tab0">
-        <p>Battery Discharge</p>
-      </td>
-
-      <td class="tab0">
-        <p>low, high, screen on, screen off</p>
+    <tr>
+      <td><p>gble</p></td>
+      <td><p>Global Bluetooth</p></td>
+      <td><p>BT idle time, BT receive time, BT transmit time, BT power (mAh)</p>
       </td>
     </tr>
 
     <tr>
-      <td>
-        <p>18</p>
-      </td>
-
-      <td class="tab0">
-        <p>lv</p>
-      </td>
-
-      <td class="tab0">
-        <p>Battery Level</p>
-      </td>
-
-      <td class="tab0">
-        <p>start level, current level</p>
-      </td>
+      <td><p>m</p></td>
+      <td><p>Misc</p></td>
+      <td><p>screen on time, phone on time, full wakelock time total, partial
+        wakelock time total, mobile radio active time, mobile radio active
+        adjusted time, interactive time, power save mode enabled time,
+        connectivity changes, device idle mode enabled time, device idle mode
+        enabled count, device idling time, device idling count, mobile radio
+        active count, mobile radio active unknown time</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>19</p>
-      </td>
-
-      <td class="tab0">
-        <p>wfl</p>
-      </td>
-
-      <td class="tab0">
-        <p>Wi-Fi</p>
-      </td>
-
-      <td class="tab0">
-        <p>full Wi-Fi lock on time, Wi-Fi scan time, Wi-Fi running time</p>
-      </td>
-    </tr>
-
-    <tr>
-      <td>
-        <p>20</p>
-      </td>
-
-      <td class="tab0">
-        <p>m</p>
-      </td>
-
-      <td class="tab0">
-        <p>Misc</p>
-      </td>
-
-      <td class="tab0">
-        <p>screen on time, phone on time, Wi-Fi on time, Wi-Fi running time,
-        Bluetooth on time, mobile RX total bytes, mobile TX total bytes,
-        Wi-Fi RX total bytes, Wi-Fi TX total bytes, full wake lock time
-        total, partial wake lock time total, legacy input event count, mobile
-        radio active time, mobile radio active adjusted time, interactive
-        time, low-power mode enabled time</p>
-      </td>
-    </tr>
-
-    <tr>
-      <td>
-        <p>21</p>
-      </td>
-
-      <td class="tab0">
-        <p>gn</p>
-      </td>
-
-      <td class="tab0">
-        <p>Global Network</p>
-      </td>
-
-      <td class="tab0">
-        <p>mobile RX total bytes, mobile TX total bytes, Wi-Fi RX total
+      <td><p>gn</p></td>
+      <td><p>Global Network</p></td>
+      <td><p>mobile RX total bytes, mobile TX total bytes, Wi-Fi RX total
         bytes, Wi-Fi TX total bytes, mobile RX total packets, mobile TX total
-        packets, Wi-Fi RX total packets, Wi-Fi TX total packets</p>
-      </td>
+        packets, Wi-Fi RX total packets, Wi-Fi TX total packets</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>22</p>
-      </td>
-
-      <td class="tab0">
-        <p>br</p>
-      </td>
-
-      <td class="tab0">
-        <p>Screen Brightness</p>
-      </td>
-
-      <td class="tab0">
-        <p>dark, dim, medium, light, bright</p>
-      </td>
+      <td><p>br</p></td>
+      <td><p>Screen Brightness</p></td>
+      <td><p>dark, dim, medium, light, bright</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>23</p>
-      </td>
-
-      <td class="tab0">
-        <p>sst</p>
-      </td>
-
-      <td class="tab0">
-        <p>Signal Scanning Time</p>
-      </td>
-
-      <td class="tab0">
-        <p>signal scanning time</p>
-      </td>
+      <td><p>sst</p></td>
+      <td><p>Signal Scanning Time</p></td>
+      <td><p>signal scanning time</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>24</p>
-      </td>
-
-      <td class="tab0">
-        <p>sgt</p>
-      </td>
-
-      <td class="tab0">
-        <p>Signal Strength Time</p>
-      </td>
-
-      <td class="tab0">
-        <p>none, poor, moderate, good, great</p>
-      </td>
+      <td><p>sgt</p></td>
+      <td><p>Signal Strength Time</p></td>
+      <td><p>none, poor, moderate, good, great</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>25</p>
-      </td>
-
-      <td class="tab0">
-        <p>sgc</p>
-      </td>
-
-      <td class="tab0">
-        <p>Signal Strength Count</p>
-      </td>
-
-      <td class="tab0">
-        <p>none, poor, moderate, good, great</p>
-      </td>
+      <td><p>sgc</p></td>
+      <td><p>Signal Strength Count</p></td>
+      <td><p>none, poor, moderate, good, great</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>26</p>
-      </td>
-
-      <td class="tab0">
-        <p>dct</p>
-      </td>
-
-      <td class="tab0">
-        <p>Data Connection Time</p>
-      </td>
-
-      <td class="tab0">
-        <p>none, GPRS, EDGE, UMTS, CDMA, EVDO_0, EVDO_A, 1xRTT, HSDPA, HSUPA,
-        HSPA, IDEN, EVDO_B, LTE, EHRPD, HSPAP, other</p>
-      </td>
+      <td><p>dct</p></td>
+      <td><p>Data Connection Time</p></td>
+      <td><p>none, GPRS, EDGE, UMTS, CDMA, EVDO_0, EVDO_A, 1xRTT, HSDPA, HSUPA,
+        HSPA, IDEN, EVDO_B, LTE, EHRPD, HSPAP, other</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>27</p>
-      </td>
-
-      <td class="tab0">
-        <p>dcc</p>
-      </td>
-
-      <td class="tab0">
-        <p>Data Connection Count</p>
-      </td>
-
-      <td class="tab0">
-        <p>none, GPRS, EDGE, UMTS, CDMA, EVDO_0, EVDO_A, 1xRTT, HSDPA, HSUPA,
-        HSPA, IDEN, EVDO_B, LTE, EHRPD, HSPAP, other</p>
-      </td>
+      <td><p>dcc</p></td>
+      <td><p>Data Connection Count</p></td>
+      <td><p>none, GPRS, EDGE, UMTS, CDMA, EVDO_0, EVDO_A, 1xRTT, HSDPA, HSUPA,
+        HSPA, IDEN, EVDO_B, LTE, EHRPD, HSPAP, other</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>28</p>
-      </td>
-
-      <td class="tab0">
-        <p>wst</p>
-      </td>
-
-      <td class="tab0">
-        <p>Wi-Fi State Time</p>
-      </td>
-
-      <td class="tab0">
-        <p>off, off scanning, on no networks, on disconnected, on connected
-        STA, on connected P2P, on connected STA P2P, soft AP</p>
-      </td>
+      <td><p>wst</p></td>
+      <td><p>Wi-Fi State Time</p></td>
+      <td><p>off, off scanning, on no networks, on disconnected, on connected
+        STA, on connected P2P, on connected STA P2P, soft AP</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>29</p>
-      </td>
-
-      <td class="tab0">
-        <p>wsc</p>
-      </td>
-
-      <td class="tab0">
-        <p>Wi-Fi State Count</p>
-      </td>
-
-      <td class="tab0">
-        <p>off, off scanning, on no networks, on disconnected, on connected
-        STA, on connected P2P, on connected STA P2P, soft AP</p>
-      </td>
+      <td><p>wsc</p></td>
+      <td><p>Wi-Fi State Count</p></td>
+      <td><p>off, off scanning, on no networks, on disconnected, on connected
+        STA, on connected P2P, on connected STA P2P, soft AP</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>30</p>
-      </td>
-
-      <td class="tab0">
-        <p>wsst</p>
-      </td>
-
-      <td class="tab0">
-        <p>Wi-Fi Supplicant State Time</p>
-      </td>
-
-      <td class="tab0">
-        <p>invalid, disconnected, interface disabled, inactive, scanning,
+      <td><p>wsst</p></td>
+      <td><p>Wi-Fi Supplicant State Time</p></td>
+      <td><p>invalid, disconnected, interface disabled, inactive, scanning,
         authenticating, associating, associated, four-way handshake, group
-        handshake, completed, dormant, uninitialized</p>
-      </td>
+        handshake, completed, dormant, uninitialized</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>31</p>
-      </td>
-
-      <td class="tab0">
-        <p>wssc</p>
-      </td>
-
-      <td class="tab0">
-        <p>Wi-Fi Supplicant State Count</p>
-      </td>
-
-      <td class="tab0">
-        <p>invalid, disconnected, interface disabled, inactive, scanning,
+      <td><p>wssc</p></td>
+      <td><p>Wi-Fi Supplicant State Count</p></td>
+      <td><p>invalid, disconnected, interface disabled, inactive, scanning,
         authenticating, associating, associated, four-way handshake, group
-        handshake, completed, dormant, uninitialized</p>
-      </td>
+        handshake, completed, dormant, uninitialized</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>32</p>
-      </td>
-
-      <td class="tab0">
-        <p>wsgt</p>
-      </td>
-
-      <td class="tab0">
-        <p>Wi-Fi Signal Strength Time</p>
-      </td>
-
-      <td class="tab0">
-        <p>none, poor, moderate, good, great</p>
-      </td>
+      <td><p>wsgt</p></td>
+      <td><p>Wi-Fi Signal Strength Time</p></td>
+      <td><p>none, poor, moderate, good, great</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>33</p>
-      </td>
-
-      <td class="tab0">
-        <p>wsgc</p>
-      </td>
-
-      <td class="tab0">
-        <p>Wi-Fi Signal Strength Count</p>
-      </td>
-
-      <td class="tab0">
-        <p>none, poor, moderate, good, great</p>
-      </td>
+      <td><p>wsgc</p></td>
+      <td><p>Wi-Fi Signal Strength Count</p></td>
+      <td><p>none, poor, moderate, good, great</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>34</p>
-      </td>
+      <td><p>bst</p></td>
+      <td><p>Bluetooth State Time</p></td>
+      <td><p>inactive, low, med, high</p></td>
+      </tr>
 
-      <td class="tab0">
-        <p>bst</p>
-      </td>
-
-      <td class="tab0">
-        <p>Bluetooth State Time</p>
-      </td>
-
-      <td class="tab0">
-        <p>inactive, low, med, high</p>
-      </td>
+    <tr>
+      <td><p>bsc</p></td>
+      <td><p>Bluetooth State Count</p></td>
+      <td><p>inactive, low, med, high</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>35</p>
-      </td>
-
-      <td class="tab0">
-        <p>bsc</p>
-      </td>
-
-      <td class="tab0">
-        <p>Bluetooth State Count</p>
-      </td>
-
-      <td class="tab0">
-        <p>inactive, low, med, high</p>
-      </td>
+      <td><p>pws</p></td>
+      <td><p>Power Use Summary</p></td>
+      <td><p>battery capacity, computed power, minimum drained power, maximum
+        drained power</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>36</p>
-      </td>
-
-      <td class="tab0">
-        <p>pws</p>
-      </td>
-
-      <td class="tab0">
-        <p>Power Use Summary</p>
-      </td>
-
-      <td class="tab0">
-        <p>battery capacity, computed power, minimum drained power, maximum
-        drained power</p>
-      </td>
+      <td><p>pwi</p></td>
+      <td><p>Power Use Item</p></td>
+      <td><p>label, mAh</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>37</p>
-      </td>
-
-      <td class="tab0">
-        <p>pwi</p>
-      </td>
-
-      <td class="tab0">
-        <p>Power Use Item</p>
-      </td>
-
-      <td class="tab0">
-        <p>label, mAh</p>
-      </td>
+      <td><p>dsd</p></td>
+      <td><p>Discharge Step</p></td>
+      <td><p>duration, level, screen, power-save</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>38</p>
-      </td>
-
-      <td class="tab0">
-        <p>dsd</p>
-      </td>
-
-      <td class="tab0">
-        <p>Discharge Step</p>
-      </td>
-
-      <td class="tab0">
-        <p>duration, level, screen, power-save</p>
-      </td>
+      <td><p>csd</p></td>
+      <td><p>Charge Step</p></td>
+      <td><p>duration, level, screen, power-save</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>39</p>
-      </td>
-
-      <td class="tab0">
-        <p>csd</p>
-      </td>
-
-      <td class="tab0">
-        <p>Charge Step</p>
-      </td>
-
-      <td class="tab0">
-        <p>duration, level, screen, power-save</p>
-      </td>
+      <td><p>dtr</p></td>
+      <td><p>Discharge Time Remaining</p></td>
+      <td><p>battery time remaining</p></td>
     </tr>
 
     <tr>
-      <td>
-        <p>40</p>
-      </td>
-
-      <td class="tab0">
-        <p>dtr</p>
-      </td>
-
-      <td class="tab0">
-        <p>Discharge Time Remaining</p>
-      </td>
-
-      <td class="tab0">
-        <p>battery time remaining</p>
-      </td>
+      <td><p>ctr</p></td>
+      <td><p>Charge Time Remaining</p></td>
+      <td><p>charge time remaining</p></td>
     </tr>
 
-    <tr>
-      <td>
-        <p>41</p>
-      </td>
-
-      <td class="tab0">
-        <p>ctr</p>
-      </td>
-
-      <td class="tab0">
-        <p>Charge Time Remaining</p>
-      </td>
-
-      <td class="tab0">
-        <p>charge time remaining</p>
-      </td>
-    </tr>
   </table>
+
+<h2 id="wifi-reqs">Bluetooth, cellular, and Wi-Fi usage</h2>
+
+<p>Support for battery usage data on Bluetooth, cellular, and Wi-Fi data
+requires the device Bluetooth, cellular, and Wif-Fi chipsets implement radio
+support and the chipset firmware passes usage data to the framework. OEMs must
+work with their chipset providers to facilitate in-field firmware updates on
+existing chipsets and compatible firmware on new chipsets.</p>
+
+<p>Additionally, OEMs must continue to configure and submit the power profile
+for their devices. However, when the platform detects that Wi-Fi and Bluetooth
+radio power data is available from the chipset, it uses chipset data instead of
+power profile data (cell radio power data is not yet used). For details, see
+<a href="{@docRoot}devices/tech/power/values.html#chipset-data">Devices with
+Bluetooth and Wi-Fi controllers</a>.</p>
+
+<p class="note"><strong>Note</strong>: Prior to Android 6.0, power use for Wi-Fi
+radio, Bluetooth radio, and cellular radio was tracked in the <em>m</em> (Misc)
+section category. In Android 6.0 and higher, power use for these components is
+tracked in the <em>pwi</em> (Power Use Item) section with individual labels
+(<em>wifi</em>, <em>blue</em>, <em>cell</em>) for each component.</p>

@@ -16,8 +16,6 @@
 
 package libcore.java.lang;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.ReadOnlyBufferException;
@@ -173,6 +171,7 @@ public class StringTest extends TestCase {
     }
 
     /**
+
      * Test that strings interned manually and then later loaded as literals
      * maintain reference equality. http://b/3098960
      */
@@ -316,6 +315,24 @@ public class StringTest extends TestCase {
         assertEquals("-h-e-l-l-o- -w-o-r-l-d-", "hello world".replace("", "-"));
         assertEquals("-w-o-r-l-d-", "hello world".substring(6).replace("", "-"));
         assertEquals("-*-w-*-o-*-r-*-l-*-d-*-", "hello world".substring(6).replace("", "-*-"));
+
+        // Replace on an empty string with an empty target should insert the pattern
+        // precisely once.
+        assertEquals("", "".replace("", ""));
+        assertEquals("food", "".replace("", "food"));
+    }
+
+    public void test_replace() {
+        // Replace on an empty string is a no-op.
+        assertEquals("", "".replace("foo", "bar"));
+        // Replace on a string which doesn't contain the target sequence is a no-op.
+        assertEquals("baz", "baz".replace("foo", "bar"));
+        // Test that we iterate forward on the string.
+        assertEquals("mmmba", "bababa".replace("baba", "mmm"));
+        // Test replacements at the end of the string.
+        assertEquals("foodie", "foolish".replace("lish", "die"));
+        // Test a string that has multiple replacements.
+        assertEquals("hahahaha", "kkkk".replace("k", "ha"));
     }
 
     public void test_String_getBytes() throws Exception {
@@ -401,5 +418,133 @@ public class StringTest extends TestCase {
         assertEquals(2, "azz".compareToIgnoreCase("a"));
         assertEquals(3, "aaaa".compareToIgnoreCase("a"));
         assertEquals(3, "azzz".compareToIgnoreCase("a"));
+    }
+
+    // http://b/25943996
+    public void testSplit_trailingSeparators() {
+        String[] splits = "test\0message\0\0\0\0\0\0".split("\0", -1);
+        assertEquals("test", splits[0]);
+        assertEquals("message", splits[1]);
+        assertEquals("", splits[2]);
+        assertEquals("", splits[3]);
+        assertEquals("", splits[4]);
+        assertEquals("", splits[5]);
+        assertEquals("", splits[6]);
+        assertEquals("", splits[7]);
+    }
+
+    // http://b/26126818
+    public void testCodePointCount() {
+        String hello = "Hello, fools";
+
+        assertEquals(5, hello.codePointCount(0, 5));
+        assertEquals(7, hello.codePointCount(5, 12));
+        assertEquals(2, hello.codePointCount(10, 12));
+    }
+
+    // http://b/26444984
+    public void testGetCharsOverflow() {
+        int srcBegin = Integer.MAX_VALUE; //2147483647
+        int srcEnd = srcBegin + 10;  //-2147483639
+        try {
+            // The output array size must be larger than |srcEnd - srcBegin|.
+            "yes".getChars(srcBegin, srcEnd, new char[256], 0);
+            fail();
+        } catch (StringIndexOutOfBoundsException expected) {
+        }
+    }
+
+    // http://b/28998511
+    public void testGetCharsBoundsChecks() {
+        // This is the explicit case from the bug: dstBegin == srcEnd - srcBegin
+        assertGetCharsThrowsAIOOBException("abcd", 0, 4, new char[0], -4);
+
+        // Some valid cases.
+        char[] dst = new char[1];
+        "abcd".getChars(0, 1, dst, 0);
+        assertEquals('a', dst[0]);
+        "abcd".getChars(3, 4, dst, 0);
+        assertEquals('d', dst[0]);
+        dst = new char[4];
+        "abcd".getChars(0, 4, dst, 0);
+        assertTrue(Arrays.equals("abcd".toCharArray(), dst));
+
+        // Zero length src.
+        "abcd".getChars(0, 0, new char[0], 0);  // dstBegin == 0 is ok if copying zero chars
+        "abcd".getChars(0, 0, new char[1], 1);  // dstBegin == 1 is ok if copying zero chars
+        "".getChars(0, 0, new char[0], 0);
+        "abcd".getChars(1, 1, new char[1], 0);
+        "abcd".getChars(1, 1, new char[1], 1);
+
+        // Valid src args, invalid dst args.
+        assertGetCharsThrowsAIOOBException("abcd", 3, 4, new char[1], 1); // Out of range dstBegin
+        assertGetCharsThrowsAIOOBException("abcd", 0, 4, new char[3], 0); // Small dst
+        assertGetCharsThrowsAIOOBException("abcd", 0, 4, new char[4], -1); // Negative dstBegin
+
+        // dstBegin + (srcEnd - srcBegin) -> integer overflow OR dstBegin >= dst.length
+        assertGetCharsThrowsAIOOBException("abcd", 0, 4, new char[4], Integer.MAX_VALUE - 1);
+
+        // Invalid src args, valid dst args.
+        assertGetCharsThrowsSIOOBException("abcd", 2, 1, new char[4], 0); // srcBegin > srcEnd
+        assertGetCharsThrowsSIOOBException("abcd", -1, 3, new char[4], 0); // Negative srcBegin
+        assertGetCharsThrowsSIOOBException("abcd", 0, 5, new char[4], 0); // Out of range srcEnd
+        assertGetCharsThrowsSIOOBException("abcd", 0, -1, new char[4], 0); // Negative srcEnd
+
+        // Valid src args, invalid dst args.
+        assertGetCharsThrowsAIOOBException("abcd", 0, 4, new char[4], 1); // Bad dstBegin
+
+        // Zero length src copy, invalid dst args.
+        assertGetCharsThrowsAIOOBException("abcd", 0, 0, new char[4], -1); // Negative dstBegin
+        assertGetCharsThrowsAIOOBException("abcd", 0, 0, new char[0], 1); // Out of range dstBegin
+        assertGetCharsThrowsAIOOBException("abcd", 0, 0, new char[1], 2);  // Out of range dstBegin
+        assertGetCharsThrowsAIOOBException("abcd", 0, 0, new char[4], 5); // Out of range dstBegin
+    }
+
+    private static void assertGetCharsThrowsAIOOBException(String s, int srcBegin, int srcEnd,
+            char[] dst, int dstBegin) {
+        try {
+            s.getChars(srcBegin, srcEnd, dst, dstBegin);
+            fail();
+        } catch (ArrayIndexOutOfBoundsException expected) {
+        }
+    }
+
+    private static void assertGetCharsThrowsSIOOBException(String s, int srcBegin, int srcEnd,
+            char[] dst, int dstBegin) {
+        try {
+            s.getChars(srcBegin, srcEnd, dst, dstBegin);
+            fail();
+        } catch (StringIndexOutOfBoundsException expected) {
+        }
+    }
+
+    public void testChars() {
+        String s = "Hello\n\tworld";
+        int[] expected = new int[s.length()];
+        for (int i = 0; i < s.length(); ++i) {
+            expected[i] = (int) s.charAt(i);
+        }
+        assertTrue(Arrays.equals(expected, s.chars().toArray()));
+
+        // Surrogate code point
+        char high = '\uD83D', low = '\uDE02';
+        String surrogateCP = new String(new char[]{high, low, low});
+        assertTrue(Arrays.equals(new int[]{high, low, low}, surrogateCP.chars().toArray()));
+    }
+
+    public void testCodePoints() {
+        String s = "Hello\n\tworld";
+        int[] expected = new int[s.length()];
+        for (int i = 0; i < s.length(); ++i) {
+            expected[i] = (int) s.charAt(i);
+        }
+        assertTrue(Arrays.equals(expected, s.codePoints().toArray()));
+
+        // Surrogate code point
+        char high = '\uD83D', low = '\uDE02';
+        String surrogateCP = new String(new char[]{high, low, low, '0'});
+        assertEquals(Character.toCodePoint(high, low), surrogateCP.codePoints().toArray()[0]);
+        assertEquals((int) low, surrogateCP.codePoints().toArray()[1]); // Unmatched surrogate.
+        assertEquals((int) '0', surrogateCP.codePoints().toArray()[2]);
     }
 }

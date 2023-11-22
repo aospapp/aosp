@@ -75,7 +75,7 @@ int configure_packet_socket(int sock) {
   struct sockaddr_ll sll = {
     .sll_family   = AF_PACKET,
     .sll_protocol = htons(ETH_P_IPV6),
-    .sll_ifindex  = if_nametoindex((char *) &Global_Clatd_Config.default_pdp_interface),
+    .sll_ifindex  = if_nametoindex(Global_Clatd_Config.default_pdp_interface),
     .sll_pkttype  = PACKET_OTHERHOST,  // The 464xlat IPv6 address is not assigned to the kernel.
   };
   if (bind(sock, (struct sockaddr *) &sll, sizeof(sll))) {

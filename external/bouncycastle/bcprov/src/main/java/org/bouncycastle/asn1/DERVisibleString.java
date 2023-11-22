@@ -15,7 +15,7 @@ public class DERVisibleString
     extends ASN1Primitive
     implements ASN1String
 {
-    private byte[]  string;
+    private final byte[]  string;
 
     /**
      * Return a Visible String from the passed in object.
@@ -73,7 +73,7 @@ public class DERVisibleString
         }
     }
 
-    /**
+    /*
      * Basic constructor - byte encoded string.
      */
     DERVisibleString(
@@ -84,6 +84,8 @@ public class DERVisibleString
 
     /**
      * Basic constructor
+     *
+     * @param string the string to be carried in the VisibleString object,
      */
     public DERVisibleString(
         String   string)

@@ -11,6 +11,7 @@
 #include "SkColorPriv.h"
 #include "SkColor_opts_SSE2.h"
 #include "SkDither.h"
+#include "SkMSAN.h"
 #include "SkUtils.h"
 
 /* SSE2 version of S32_Blend_BlitRow32()
@@ -69,6 +70,8 @@ void S32_Blend_BlitRow32_SSE2(SkPMColor* SK_RESTRICT dst,
 void S32A_Opaque_BlitRow32_SSE2(SkPMColor* SK_RESTRICT dst,
                                 const SkPMColor* SK_RESTRICT src,
                                 int count, U8CPU alpha) {
+    sk_msan_assert_initialized(src, src+count);
+
     SkASSERT(alpha == 255);
     if (count <= 0) {
         return;
@@ -299,54 +302,6 @@ void Color32A_D565_SSE2(uint16_t dst[], SkPMColor src, int count, int x, int y) 
         dst += 1;
         count--;
     }
-}
-
-void SkARGB32_A8_BlitMask_SSE2(void* device, size_t dstRB, const void* maskPtr,
-                               size_t maskRB, SkColor origColor,
-                               int width, int height) {
-    SkPMColor color = SkPreMultiplyColor(origColor);
-    size_t dstOffset = dstRB - (width << 2);
-    size_t maskOffset = maskRB - width;
-    SkPMColor* dst = (SkPMColor *)device;
-    const uint8_t* mask = (const uint8_t*)maskPtr;
-    do {
-        int count = width;
-        if (count >= 4) {
-            while (((size_t)dst & 0x0F) != 0 && (count > 0)) {
-                *dst = SkBlendARGB32(color, *dst, *mask);
-                mask++;
-                dst++;
-                count--;
-            }
-            __m128i *d = reinterpret_cast<__m128i*>(dst);
-            __m128i src_pixel = _mm_set1_epi32(color);
-            while (count >= 4) {
-                // Load 4 dst pixels
-                __m128i dst_pixel = _mm_load_si128(d);
-
-                // Set the alpha value
-                __m128i alpha_wide = _mm_cvtsi32_si128(*reinterpret_cast<const uint32_t*>(mask));
-                alpha_wide = _mm_unpacklo_epi8(alpha_wide, _mm_setzero_si128());
-                alpha_wide = _mm_unpacklo_epi16(alpha_wide, _mm_setzero_si128());
-
-                __m128i result = SkBlendARGB32_SSE2(src_pixel, dst_pixel, alpha_wide);
-                _mm_store_si128(d, result);
-                // Load the next 4 dst pixels and alphas
-                mask = mask + 4;
-                d++;
-                count -= 4;
-            }
-            dst = reinterpret_cast<SkPMColor*>(d);
-        }
-        while (count > 0) {
-            *dst= SkBlendARGB32(color, *dst, *mask);
-            dst += 1;
-            mask++;
-            count --;
-        }
-        dst = (SkPMColor *)((char*)dst + dstOffset);
-        mask += maskOffset;
-    } while (--height != 0);
 }
 
 // The following (left) shifts cause the top 5 bits of the mask components to

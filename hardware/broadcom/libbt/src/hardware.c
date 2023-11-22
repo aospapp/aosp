@@ -30,6 +30,7 @@
 
 #include <utils/Log.h>
 #include <sys/types.h>
+#include <stdbool.h>
 #include <sys/stat.h>
 #include <signal.h>
 #include <time.h>
@@ -257,7 +258,8 @@ static uint8_t sco_bus_wbs_clock_rate = INVALID_SCO_CLOCK_RATE;
 /******************************************************************************
 **  Static functions
 ******************************************************************************/
-static void hw_sco_i2spcm_config(void *p_mem, uint16_t codec);
+static void hw_sco_i2spcm_config(uint16_t codec);
+static void hw_sco_i2spcm_config_from_command(void *p_mem, uint16_t codec);
 
 /******************************************************************************
 **  Controller Initialization Static Functions
@@ -676,6 +678,15 @@ void hw_config_cback(void *p_mem)
                     strncpy(hw_cfg_cb.local_chip_name, p_name, \
                             LOCAL_NAME_BUFFER_LEN-1);
                 }
+#ifdef USE_BLUETOOTH_BCM4343
+                else if ((p_name = strstr(p_tmp, "4343")) != NULL)
+                {
+                    snprintf(hw_cfg_cb.local_chip_name,
+                             LOCAL_NAME_BUFFER_LEN-1, "BCM%s", p_name);
+                    strncpy(p_name, hw_cfg_cb.local_chip_name,
+                            LOCAL_NAME_BUFFER_LEN-1);
+                }
+#endif
                 else
                 {
                     strncpy(hw_cfg_cb.local_chip_name, "UNKNOWN", \
@@ -1061,7 +1072,7 @@ static void hw_set_MSBC_codec_cback(void *p_mem)
 {
     /* whenever update the codec enable/disable, need to update I2SPCM */
     ALOGI("SCO I2S interface change the sample rate to 16K");
-    hw_sco_i2spcm_config(p_mem, SCO_CODEC_MSBC);
+    hw_sco_i2spcm_config_from_command(p_mem, SCO_CODEC_MSBC);
 }
 
 /*******************************************************************************
@@ -1077,7 +1088,7 @@ static void hw_set_CVSD_codec_cback(void *p_mem)
 {
     /* whenever update the codec enable/disable, need to update I2SPCM */
     ALOGI("SCO I2S interface change the sample rate to 8K");
-    hw_sco_i2spcm_config(p_mem, SCO_CODEC_CVSD);
+    hw_sco_i2spcm_config_from_command(p_mem, SCO_CODEC_CVSD);
 }
 
 #endif // SCO_CFG_INCLUDED
@@ -1211,9 +1222,10 @@ uint32_t hw_lpm_get_idle_timeout(void)
      */
     timeout_ms = (uint32_t)lpm_param.host_stack_idle_threshold \
                             * LPM_IDLE_TIMEOUT_MULTIPLE;
-
     if (strstr(hw_cfg_cb.local_chip_name, "BCM4325") != NULL)
         timeout_ms *= 25; // 12.5 or 25 ?
+    else if (strstr(hw_cfg_cb.local_chip_name, "BCM4358") != NULL)
+        timeout_ms *= 50;
     else
         timeout_ms *= 300;
 
@@ -1282,13 +1294,34 @@ void hw_sco_config(void)
      *  and FM on the same PCM pins, we defer Bluetooth audio (SCO/eSCO)
      *  configuration till SCO/eSCO is being established;
      *  i.e. in hw_set_audio_state() call.
+     *  When configured as I2S only, Bluetooth audio configuration is executed
+     *  immediately with SCO_CODEC_CVSD by default.
      */
+
+    if (SCO_INTERFACE_I2S == sco_bus_interface) {
+        hw_sco_i2spcm_config(SCO_CODEC_CVSD);
+    }
 
     if (bt_vendor_cbacks)
     {
         bt_vendor_cbacks->scocfg_cb(BT_VND_OP_RESULT_SUCCESS);
     }
 }
+
+static void hw_sco_i2spcm_config_from_command(void *p_mem, uint16_t codec) {
+    HC_BT_HDR *p_evt_buf = (HC_BT_HDR *)p_mem;
+    bool command_success = *((uint8_t *)(p_evt_buf + 1) + HCI_EVT_CMD_CMPL_STATUS_RET_BYTE) == 0;
+
+    /* Free the RX event buffer */
+    if (bt_vendor_cbacks)
+        bt_vendor_cbacks->dealloc(p_evt_buf);
+
+    if (command_success)
+        hw_sco_i2spcm_config(codec);
+    else if (bt_vendor_cbacks)
+        bt_vendor_cbacks->audio_state_cb(BT_VND_OP_RESULT_FAIL);
+}
+
 
 /*******************************************************************************
 **
@@ -1299,76 +1332,57 @@ void hw_sco_config(void)
 ** Returns          None
 **
 *******************************************************************************/
-static void hw_sco_i2spcm_config(void *p_mem, uint16_t codec)
+static void hw_sco_i2spcm_config(uint16_t codec)
 {
-    HC_BT_HDR *p_evt_buf = (HC_BT_HDR *)p_mem;
-    bt_vendor_op_result_t status = BT_VND_OP_RESULT_FAIL;
+    HC_BT_HDR *p_buf = NULL;
+    uint8_t *p, ret;
+    uint16_t cmd_u16 = HCI_CMD_PREAMBLE_SIZE + SCO_I2SPCM_PARAM_SIZE;
 
-    if (*((uint8_t *)(p_evt_buf + 1) + HCI_EVT_CMD_CMPL_STATUS_RET_BYTE) == 0)
-    {
-        status = BT_VND_OP_RESULT_SUCCESS;
-    }
-
-    /* Free the RX event buffer */
     if (bt_vendor_cbacks)
-        bt_vendor_cbacks->dealloc(p_evt_buf);
+        p_buf = (HC_BT_HDR *)bt_vendor_cbacks->alloc(BT_HC_HDR_SIZE + cmd_u16);
 
-    if (status == BT_VND_OP_RESULT_SUCCESS)
+    if (p_buf)
     {
-        HC_BT_HDR *p_buf = NULL;
-        uint8_t *p, ret;
-        uint16_t cmd_u16 = HCI_CMD_PREAMBLE_SIZE + SCO_I2SPCM_PARAM_SIZE;
+        p_buf->event = MSG_STACK_TO_HC_HCI_CMD;
+        p_buf->offset = 0;
+        p_buf->layer_specific = 0;
+        p_buf->len = cmd_u16;
 
-        if (bt_vendor_cbacks)
-            p_buf = (HC_BT_HDR *)bt_vendor_cbacks->alloc(BT_HC_HDR_SIZE + cmd_u16);
+        p = (uint8_t *)(p_buf + 1);
 
-        if (p_buf)
+        UINT16_TO_STREAM(p, HCI_VSC_WRITE_I2SPCM_INTERFACE_PARAM);
+        *p++ = SCO_I2SPCM_PARAM_SIZE;
+        if (codec == SCO_CODEC_CVSD)
         {
-            p_buf->event = MSG_STACK_TO_HC_HCI_CMD;
-            p_buf->offset = 0;
-            p_buf->layer_specific = 0;
-            p_buf->len = cmd_u16;
-
-            p = (uint8_t *)(p_buf + 1);
-
-            UINT16_TO_STREAM(p, HCI_VSC_WRITE_I2SPCM_INTERFACE_PARAM);
-            *p++ = SCO_I2SPCM_PARAM_SIZE;
-            if (codec == SCO_CODEC_CVSD)
-            {
-                bt_sco_i2spcm_param[2] = 0; /* SCO_I2SPCM_IF_SAMPLE_RATE  8k */
-                bt_sco_i2spcm_param[3] = bt_sco_param[1] = sco_bus_clock_rate;
-            }
-            else if (codec == SCO_CODEC_MSBC)
-            {
-                bt_sco_i2spcm_param[2] = wbs_sample_rate; /* SCO_I2SPCM_IF_SAMPLE_RATE 16K */
-                bt_sco_i2spcm_param[3] = bt_sco_param[1] = sco_bus_wbs_clock_rate;
-            }
-            else
-            {
-                bt_sco_i2spcm_param[2] = 0; /* SCO_I2SPCM_IF_SAMPLE_RATE  8k */
-                bt_sco_i2spcm_param[3] = bt_sco_param[1] = sco_bus_clock_rate;
-                ALOGE("wrong codec is use in hw_sco_i2spcm_config, goes default NBS");
-            }
-            memcpy(p, &bt_sco_i2spcm_param, SCO_I2SPCM_PARAM_SIZE);
-            cmd_u16 = HCI_VSC_WRITE_I2SPCM_INTERFACE_PARAM;
-            ALOGI("I2SPCM config {0x%x, 0x%x, 0x%x, 0x%x}",
-                    bt_sco_i2spcm_param[0], bt_sco_i2spcm_param[1],
-                    bt_sco_i2spcm_param[2], bt_sco_i2spcm_param[3]);
-
-            if ((ret = bt_vendor_cbacks->xmit_cb(cmd_u16, p_buf, hw_sco_i2spcm_cfg_cback)) == FALSE)
-            {
-                bt_vendor_cbacks->dealloc(p_buf);
-            }
-            else
-                return;
+            bt_sco_i2spcm_param[2] = 0; /* SCO_I2SPCM_IF_SAMPLE_RATE  8k */
+            bt_sco_i2spcm_param[3] = bt_sco_param[1] = sco_bus_clock_rate;
         }
-        status = BT_VND_OP_RESULT_FAIL;
+        else if (codec == SCO_CODEC_MSBC)
+        {
+            bt_sco_i2spcm_param[2] = wbs_sample_rate; /* SCO_I2SPCM_IF_SAMPLE_RATE 16K */
+            bt_sco_i2spcm_param[3] = bt_sco_param[1] = sco_bus_wbs_clock_rate;
+        }
+        else
+        {
+            bt_sco_i2spcm_param[2] = 0; /* SCO_I2SPCM_IF_SAMPLE_RATE  8k */
+            bt_sco_i2spcm_param[3] = bt_sco_param[1] = sco_bus_clock_rate;
+            ALOGE("wrong codec is use in hw_sco_i2spcm_config, goes default NBS");
+        }
+        memcpy(p, &bt_sco_i2spcm_param, SCO_I2SPCM_PARAM_SIZE);
+        cmd_u16 = HCI_VSC_WRITE_I2SPCM_INTERFACE_PARAM;
+        ALOGI("I2SPCM config {0x%x, 0x%x, 0x%x, 0x%x}",
+                bt_sco_i2spcm_param[0], bt_sco_i2spcm_param[1],
+                bt_sco_i2spcm_param[2], bt_sco_i2spcm_param[3]);
+
+        if ((ret = bt_vendor_cbacks->xmit_cb(cmd_u16, p_buf, hw_sco_i2spcm_cfg_cback)) == FALSE)
+        {
+            bt_vendor_cbacks->dealloc(p_buf);
+        }
+        else
+            return;
     }
 
-    if (bt_vendor_cbacks)
-    {
-        bt_vendor_cbacks->audio_state_cb(status);
-    }
+    bt_vendor_cbacks->audio_state_cb(BT_VND_OP_RESULT_FAIL);
 }
 
 /*******************************************************************************

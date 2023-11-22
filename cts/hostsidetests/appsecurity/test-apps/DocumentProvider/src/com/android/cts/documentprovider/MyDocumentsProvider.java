@@ -16,12 +16,16 @@
 
 package com.android.cts.documentprovider;
 
+import android.content.res.AssetFileDescriptor;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.database.MatrixCursor.RowBuilder;
+import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.os.ParcelFileDescriptor;
+import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
 import android.provider.DocumentsContract.Root;
 import android.provider.DocumentsProvider;
@@ -89,11 +93,13 @@ public class MyDocumentsProvider extends DocumentsProvider {
     private Doc mLocalRoot;
     private Doc mCreateRoot;
 
-    private Doc buildDoc(String docId, String displayName, String mimeType) {
+    private Doc buildDoc(String docId, String displayName, String mimeType,
+            String[] streamTypes) {
         final Doc doc = new Doc();
         doc.docId = docId;
         doc.displayName = displayName;
         doc.mimeType = mimeType;
+        doc.streamTypes = streamTypes;
         mDocs.put(doc.docId, doc);
         return doc;
     }
@@ -103,13 +109,13 @@ public class MyDocumentsProvider extends DocumentsProvider {
 
         mDocs.clear();
 
-        mLocalRoot = buildDoc("doc:local", null, Document.MIME_TYPE_DIR);
+        mLocalRoot = buildDoc("doc:local", null, Document.MIME_TYPE_DIR, null);
 
-        mCreateRoot = buildDoc("doc:create", null, Document.MIME_TYPE_DIR);
+        mCreateRoot = buildDoc("doc:create", null, Document.MIME_TYPE_DIR, null);
         mCreateRoot.flags = Document.FLAG_DIR_SUPPORTS_CREATE;
 
         {
-            Doc file1 = buildDoc("doc:file1", "FILE1", "mime1/file1");
+            Doc file1 = buildDoc("doc:file1", "FILE1", "mime1/file1", null);
             file1.contents = "fileone".getBytes();
             file1.flags = Document.FLAG_SUPPORTS_WRITE;
             mLocalRoot.children.add(file1);
@@ -117,31 +123,46 @@ public class MyDocumentsProvider extends DocumentsProvider {
         }
 
         {
-            Doc file2 = buildDoc("doc:file2", "FILE2", "mime2/file2");
+            Doc file2 = buildDoc("doc:file2", "FILE2", "mime2/file2", null);
             file2.contents = "filetwo".getBytes();
             file2.flags = Document.FLAG_SUPPORTS_WRITE;
             mLocalRoot.children.add(file2);
             mCreateRoot.children.add(file2);
         }
 
-        Doc dir1 = buildDoc("doc:dir1", "DIR1", Document.MIME_TYPE_DIR);
+        {
+            Doc virtualFile = buildDoc("doc:virtual-file", "VIRTUAL_FILE", "application/icecream",
+                    new String[] { "text/plain" });
+            virtualFile.flags = Document.FLAG_VIRTUAL_DOCUMENT;
+            virtualFile.contents = "Converted contents.".getBytes();
+            mLocalRoot.children.add(virtualFile);
+            mCreateRoot.children.add(virtualFile);
+        }
+
+        Doc dir1 = buildDoc("doc:dir1", "DIR1", Document.MIME_TYPE_DIR, null);
         mLocalRoot.children.add(dir1);
 
         {
-            Doc file3 = buildDoc("doc:file3", "FILE3", "mime3/file3");
+            Doc file3 = buildDoc("doc:file3", "FILE3", "mime3/file3", null);
             file3.contents = "filethree".getBytes();
             file3.flags = Document.FLAG_SUPPORTS_WRITE;
             dir1.children.add(file3);
         }
 
-        Doc dir2 = buildDoc("doc:dir2", "DIR2", Document.MIME_TYPE_DIR);
+        Doc dir2 = buildDoc("doc:dir2", "DIR2", Document.MIME_TYPE_DIR, null);
         mCreateRoot.children.add(dir2);
 
         {
-            Doc file4 = buildDoc("doc:file4", "FILE4", "mime4/file4");
+            Doc file4 = buildDoc("doc:file4", "FILE4", "mime4/file4", null);
             file4.contents = "filefour".getBytes();
-            file4.flags = Document.FLAG_SUPPORTS_WRITE;
+            file4.flags = Document.FLAG_SUPPORTS_WRITE |
+                    Document.FLAG_SUPPORTS_COPY |
+                    Document.FLAG_SUPPORTS_MOVE |
+                    Document.FLAG_SUPPORTS_REMOVE;
             dir2.children.add(file4);
+
+            Doc subDir2 = buildDoc("doc:sub_dir2", "SUB_DIR2", Document.MIME_TYPE_DIR, null);
+            dir2.children.add(subDir2);
         }
     }
 
@@ -151,6 +172,7 @@ public class MyDocumentsProvider extends DocumentsProvider {
         public String displayName;
         public long size;
         public String mimeType;
+        public String[] streamTypes;
         public long lastModified;
         public byte[] contents;
         public List<Doc> children = new ArrayList<>();
@@ -173,7 +195,9 @@ public class MyDocumentsProvider extends DocumentsProvider {
                 return true;
             }
             if (Document.MIME_TYPE_DIR.equals(doc.mimeType)) {
-                return isChildDocument(doc.docId, documentId);
+                if (isChildDocument(doc.docId, documentId)) {
+                    return true;
+                }
             }
         }
         return false;
@@ -183,7 +207,7 @@ public class MyDocumentsProvider extends DocumentsProvider {
     public String createDocument(String parentDocumentId, String mimeType, String displayName)
             throws FileNotFoundException {
         final String docId = "doc:" + System.currentTimeMillis();
-        final Doc doc = buildDoc(docId, displayName, mimeType);
+        final Doc doc = buildDoc(docId, displayName, mimeType, null);
         doc.flags = Document.FLAG_SUPPORTS_WRITE | Document.FLAG_SUPPORTS_RENAME;
         mDocs.get(parentDocumentId).children.add(doc);
         return docId;
@@ -198,10 +222,45 @@ public class MyDocumentsProvider extends DocumentsProvider {
 
     @Override
     public void deleteDocument(String documentId) throws FileNotFoundException {
-        mDocs.remove(documentId);
-        for (Doc doc : mDocs.values()) {
-            doc.children.remove(documentId);
+        final Doc doc = mDocs.get(documentId);
+        mDocs.remove(doc);
+        for (Doc parentDoc : mDocs.values()) {
+            parentDoc.children.remove(doc);
         }
+    }
+
+    @Override
+    public void removeDocument(String documentId, String parentDocumentId)
+            throws FileNotFoundException {
+        // There are no multi-parented documents in this provider, so it's safe to remove the
+        // document from mDocs.
+        final Doc doc = mDocs.get(documentId);
+        mDocs.remove(doc);
+        mDocs.get(parentDocumentId).children.remove(doc);
+    }
+
+    @Override
+    public String copyDocument(String sourceDocumentId, String targetParentDocumentId)
+            throws FileNotFoundException {
+        final Doc doc = mDocs.get(sourceDocumentId);
+        if (doc.children.size() > 0) {
+            throw new UnsupportedOperationException("Recursive copy not supported for tests.");
+        }
+
+        final Doc docCopy = buildDoc(doc.docId + "_copy", doc.displayName + "_COPY", doc.mimeType,
+                doc.streamTypes);
+        mDocs.get(targetParentDocumentId).children.add(docCopy);
+        return docCopy.docId;
+    }
+
+    @Override
+    public String moveDocument(String sourceDocumentId, String sourceParentDocumentId,
+            String targetParentDocumentId)
+            throws FileNotFoundException {
+        final Doc doc = mDocs.get(sourceDocumentId);
+        mDocs.get(sourceParentDocumentId).children.remove(doc);
+        mDocs.get(targetParentDocumentId).children.add(doc);
+        return doc.docId;
     }
 
     @Override
@@ -229,6 +288,14 @@ public class MyDocumentsProvider extends DocumentsProvider {
         if (doc == null) {
             throw new FileNotFoundException();
         }
+        if ((doc.flags & Document.FLAG_VIRTUAL_DOCUMENT) != 0) {
+            throw new IllegalArgumentException("Tried to open a virtual file.");
+        }
+        return openDocumentUnchecked(doc, mode, signal);
+    }
+
+    private ParcelFileDescriptor openDocumentUnchecked(final Doc doc, String mode,
+            CancellationSignal signal) throws FileNotFoundException {
         final ParcelFileDescriptor[] pipe;
         try {
             pipe = ParcelFileDescriptor.createPipe();
@@ -252,7 +319,7 @@ public class MyDocumentsProvider extends DocumentsProvider {
                     }
                     return null;
                 }
-            }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+            }.executeOnExecutor(AsyncTask.SERIAL_EXECUTOR);
             return pipe[1];
         } else {
             new AsyncTask<Void, Void, Void>() {
@@ -275,9 +342,51 @@ public class MyDocumentsProvider extends DocumentsProvider {
                     }
                     return null;
                 }
-            }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+            }.executeOnExecutor(AsyncTask.SERIAL_EXECUTOR);
             return pipe[0];
         }
+    }
+
+    @Override
+    public String[] getStreamTypes(Uri documentUri, String mimeTypeFilter) {
+        // TODO: Add enforceTree(uri); b/27156282
+        final String documentId = DocumentsContract.getDocumentId(documentUri);
+
+        if (!"*/*".equals(mimeTypeFilter)) {
+            throw new UnsupportedOperationException(
+                    "Unsupported MIME type filter supported for tests.");
+        }
+
+        final Doc doc = mDocs.get(documentId);
+        if (doc == null) {
+            return null;
+        }
+
+        return doc.streamTypes;
+    }
+
+    @Override
+    public AssetFileDescriptor openTypedDocument(
+            String documentId, String mimeTypeFilter, Bundle opts, CancellationSignal signal)
+            throws FileNotFoundException {
+        final Doc doc = mDocs.get(documentId);
+        if (doc == null) {
+            throw new FileNotFoundException();
+        }
+
+        if (mimeTypeFilter.contains("*")) {
+            throw new UnsupportedOperationException(
+                    "MIME type filters with Wildcards not supported for tests.");
+        }
+
+        for (String streamType : doc.streamTypes) {
+            if (streamType.equals(mimeTypeFilter)) {
+                return new AssetFileDescriptor(openDocumentUnchecked(
+                        doc, "r", signal), 0, doc.contents.length);
+            }
+        }
+
+        throw new UnsupportedOperationException("Unsupported MIME type filter for tests.");
     }
 
     private static byte[] readFullyNoClose(InputStream in) throws IOException {

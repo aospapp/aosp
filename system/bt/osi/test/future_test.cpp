@@ -21,9 +21,9 @@
 #include "AllocationTestHarness.h"
 
 extern "C" {
-#include "future.h"
-#include "osi.h"
-#include "thread.h"
+#include "osi/include/future.h"
+#include "osi/include/osi.h"
+#include "osi/include/thread.h"
 }
 
 static const char *pass_back_data0 = "fancy a sandwich? it's a fancy sandwich";

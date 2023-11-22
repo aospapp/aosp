@@ -19,7 +19,7 @@ LOCAL_PACKAGE_NAME := SystemAppJankTests
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_MODULE_TAGS := tests
 
-LOCAL_STATIC_JAVA_LIBRARIES := ub-uiautomator ub-janktesthelper
+LOCAL_STATIC_JAVA_LIBRARIES := ub-uiautomator ub-janktesthelper timeresult-helper-lib app-helpers
 
 LOCAK_SDK_VERSION := current
 

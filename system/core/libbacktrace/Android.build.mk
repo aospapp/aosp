@@ -20,17 +20,23 @@ LOCAL_MODULE := $(module)
 LOCAL_MODULE_TAGS := $(module_tag)
 LOCAL_MULTILIB := $($(module)_multilib)
 ifeq ($(LOCAL_MULTILIB),both)
-ifneq ($(build_target),$(filter $(build_target),SHARED_LIBRARY STATIC_LIBRRARY))
+ifneq ($(build_target),$(filter $(build_target),SHARED_LIBRARY STATIC_LIBRARY))
   LOCAL_MODULE_STEM_32 := $(LOCAL_MODULE)32
   LOCAL_MODULE_STEM_64 := $(LOCAL_MODULE)64
 endif
 endif
 
-LOCAL_ADDITIONAL_DEPENDENCIES := \
+ifeq ($(build_type),target)
+  include $(LLVM_DEVICE_BUILD_MK)
+else
+  include $(LLVM_HOST_BUILD_MK)
+endif
+
+LOCAL_ADDITIONAL_DEPENDENCIES += \
     $(LOCAL_PATH)/Android.mk \
     $(LOCAL_PATH)/Android.build.mk \
 
-LOCAL_CFLAGS := \
+LOCAL_CFLAGS += \
     $(libbacktrace_common_cflags) \
     $($(module)_cflags) \
     $($(module)_cflags_$(build_type)) \
@@ -48,7 +54,7 @@ LOCAL_CPPFLAGS += \
     $($(module)_cppflags) \
     $($(module)_cppflags_$(build_type)) \
 
-LOCAL_C_INCLUDES := \
+LOCAL_C_INCLUDES += \
     $(libbacktrace_common_c_includes) \
     $($(module)_c_includes) \
     $($(module)_c_includes_$(build_type)) \
@@ -57,17 +63,19 @@ LOCAL_SRC_FILES := \
     $($(module)_src_files) \
     $($(module)_src_files_$(build_type)) \
 
-LOCAL_STATIC_LIBRARIES := \
+LOCAL_STATIC_LIBRARIES += \
     $($(module)_static_libraries) \
     $($(module)_static_libraries_$(build_type)) \
 
-LOCAL_SHARED_LIBRARIES := \
+LOCAL_SHARED_LIBRARIES += \
     $($(module)_shared_libraries) \
     $($(module)_shared_libraries_$(build_type)) \
 
-LOCAL_LDLIBS := \
+LOCAL_LDLIBS += \
     $($(module)_ldlibs) \
     $($(module)_ldlibs_$(build_type)) \
+
+LOCAL_STRIP_MODULE := $($(module)_strip_module)
 
 ifeq ($(build_type),target)
   include $(BUILD_$(build_target))
@@ -76,6 +84,11 @@ endif
 ifeq ($(build_type),host)
   # Only build if host builds are supported.
   ifeq ($(build_host),true)
+    # -fno-omit-frame-pointer should be set for host build. Because currently
+    # libunwind can't recognize .debug_frame using dwarf version 4, and it relies
+    # on stack frame pointer to do unwinding on x86.
+    # $(LLVM_HOST_BUILD_MK) overwrites -fno-omit-frame-pointer. so the below line
+    # must be after the include.
     LOCAL_CFLAGS += -Wno-extern-c-compat -fno-omit-frame-pointer
     include $(BUILD_HOST_$(build_target))
   endif

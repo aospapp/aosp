@@ -12,6 +12,7 @@
 
 #include "MCTargetDesc/MipsABIFlagsSection.h"
 #include "MCTargetDesc/MipsABIInfo.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/MC/MCELFStreamer.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCStreamer.h"
@@ -72,28 +73,27 @@ public:
   virtual void emitDirectiveSetNoDsp();
   virtual void emitDirectiveSetPop();
   virtual void emitDirectiveSetPush();
+  virtual void emitDirectiveSetSoftFloat();
+  virtual void emitDirectiveSetHardFloat();
 
   // PIC support
   virtual void emitDirectiveCpLoad(unsigned RegNo);
+  virtual void emitDirectiveCpRestore(SmallVector<MCInst, 3> &StoreInsts,
+                                      int Offset);
   virtual void emitDirectiveCpsetup(unsigned RegNo, int RegOrOffset,
                                     const MCSymbol &Sym, bool IsReg);
+  virtual void emitDirectiveCpreturn(unsigned SaveLocation,
+                                     bool SaveLocationIsRegister);
 
-  /// Emit a '.module fp=value' directive using the given values.
-  /// Updates the .MIPS.abiflags section
-  virtual void emitDirectiveModuleFP(MipsABIFlagsSection::FpABIKind Value,
-                                     bool Is32BitABI) {
-    ABIFlagsSection.setFpABI(Value, Is32BitABI);
-  }
-
-  /// Emit a '.module fp=value' directive using the current values of the
-  /// .MIPS.abiflags section.
-  void emitDirectiveModuleFP() {
-    emitDirectiveModuleFP(ABIFlagsSection.getFpABI(),
-                          ABIFlagsSection.Is32BitABI);
-  }
-
-  virtual void emitDirectiveModuleOddSPReg(bool Enabled, bool IsO32ABI);
+  // FP abiflags directives
+  virtual void emitDirectiveModuleFP();
+  virtual void emitDirectiveModuleOddSPReg();
+  virtual void emitDirectiveModuleSoftFloat();
+  virtual void emitDirectiveModuleHardFloat();
   virtual void emitDirectiveSetFp(MipsABIFlagsSection::FpABIKind Value);
+  virtual void emitDirectiveSetOddSPReg();
+  virtual void emitDirectiveSetNoOddSPReg();
+
   void forbidModuleDirective() { ModuleDirectiveAllowed = false; }
   void reallowModuleDirective() { ModuleDirectiveAllowed = true; }
   bool isModuleDirectiveAllowed() { return ModuleDirectiveAllowed; }
@@ -102,18 +102,18 @@ public:
   // structure values.
   template <class PredicateLibrary>
   void updateABIInfo(const PredicateLibrary &P) {
-    ABI = &P.getABI();
+    ABI = P.getABI();
     ABIFlagsSection.setAllFromPredicates(P);
   }
 
   MipsABIFlagsSection &getABIFlagsSection() { return ABIFlagsSection; }
   const MipsABIInfo &getABI() const {
-    assert(ABI && "ABI hasn't been set!");
+    assert(ABI.hasValue() && "ABI hasn't been set!");
     return *ABI;
   }
 
 protected:
-  const MipsABIInfo *ABI;
+  llvm::Optional<MipsABIInfo> ABI;
   MipsABIFlagsSection ABIFlagsSection;
 
   bool GPRInfoSet;
@@ -188,17 +188,26 @@ public:
   void emitDirectiveSetNoDsp() override;
   void emitDirectiveSetPop() override;
   void emitDirectiveSetPush() override;
+  void emitDirectiveSetSoftFloat() override;
+  void emitDirectiveSetHardFloat() override;
 
   // PIC support
   void emitDirectiveCpLoad(unsigned RegNo) override;
+  void emitDirectiveCpRestore(SmallVector<MCInst, 3> &StoreInsts,
+                              int Offset) override;
   void emitDirectiveCpsetup(unsigned RegNo, int RegOrOffset,
                             const MCSymbol &Sym, bool IsReg) override;
+  void emitDirectiveCpreturn(unsigned SaveLocation,
+                             bool SaveLocationIsRegister) override;
 
-  // ABI Flags
-  void emitDirectiveModuleFP(MipsABIFlagsSection::FpABIKind Value,
-                             bool Is32BitABI) override;
-  void emitDirectiveModuleOddSPReg(bool Enabled, bool IsO32ABI) override;
+  // FP abiflags directives
+  void emitDirectiveModuleFP() override;
+  void emitDirectiveModuleOddSPReg() override;
+  void emitDirectiveModuleSoftFloat() override;
+  void emitDirectiveModuleHardFloat() override;
   void emitDirectiveSetFp(MipsABIFlagsSection::FpABIKind Value) override;
+  void emitDirectiveSetOddSPReg() override;
+  void emitDirectiveSetNoOddSPReg() override;
 };
 
 // This part is for ELF object output
@@ -237,11 +246,13 @@ public:
 
   // PIC support
   void emitDirectiveCpLoad(unsigned RegNo) override;
+  void emitDirectiveCpRestore(SmallVector<MCInst, 3> &StoreInsts,
+                              int Offset) override;
   void emitDirectiveCpsetup(unsigned RegNo, int RegOrOffset,
                             const MCSymbol &Sym, bool IsReg) override;
+  void emitDirectiveCpreturn(unsigned SaveLocation,
+                             bool SaveLocationIsRegister) override;
 
-  // ABI Flags
-  void emitDirectiveModuleOddSPReg(bool Enabled, bool IsO32ABI) override;
   void emitMipsAbiFlags();
 };
 }

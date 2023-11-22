@@ -32,4 +32,11 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content" />
 
+    <SeekBar
+        android:id="@+id/tick_mark_tint"
+        android:tickMarkTint="@android:color/white"
+        android:tickMarkTintMode="src_over"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
 </LinearLayout>

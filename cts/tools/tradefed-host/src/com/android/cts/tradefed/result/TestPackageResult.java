@@ -15,9 +15,10 @@
  */
 package com.android.cts.tradefed.result;
 
+import com.android.compatibility.common.util.AbiUtils;
+import com.android.compatibility.common.util.MetricsStore;
+import com.android.compatibility.common.util.ReportLog;
 import com.android.cts.tradefed.testtype.CtsTest;
-import com.android.cts.tradefed.util.CtsHostStore;
-import com.android.cts.util.AbiUtils;
 import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.log.LogUtil.CLog;
 
@@ -33,8 +34,6 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Data structure for a CTS test package result.
@@ -45,7 +44,7 @@ class TestPackageResult extends AbstractXmlPullParser {
 
     static final String TAG = "TestPackage";
 
-    public static final String CTS_RESULT_KEY = "CTS_TEST_RESULT";
+    public static final String RESULT_KEY = "COMPATIBILITY_TEST_RESULT";
 
     private static final String DIGEST_ATTR = "digest";
     private static final String APP_PACKAGE_NAME_ATTR = "appPackageName";
@@ -53,8 +52,6 @@ class TestPackageResult extends AbstractXmlPullParser {
     private static final String ABI_ATTR = "abi";
     private static final String ns = CtsXmlResultReporter.ns;
     private static final String SIGNATURE_TEST_PKG = "android.tests.sigtest";
-
-    private static final Pattern mCtsLogPattern = Pattern.compile("(.*)\\+\\+\\+\\+(.*)");
 
     private String mDeviceSerial;
     private String mAppPackageName;
@@ -249,23 +246,19 @@ class TestPackageResult extends AbstractXmlPullParser {
         // Collect performance results
         for (TestIdentifier test : mTestMetrics.keySet()) {
             // device test can have performance results in test metrics
-            String perfResult = mTestMetrics.get(test).get(CTS_RESULT_KEY);
-            // host test should be checked in CtsHostStore.
-            if (perfResult == null) {
-                perfResult = CtsHostStore.removeCtsResult(mDeviceSerial, mAbi, test.toString());
-            }
+            String perfResult = mTestMetrics.get(test).get(RESULT_KEY);
+            ReportLog report = null;
             if (perfResult != null) {
-                // CTS result is passed in Summary++++Details format.
-                // Extract Summary and Details, and pass them.
-                Matcher m = mCtsLogPattern.matcher(perfResult);
-                if (m.find()) {
-                    Test result = findTest(test);
-                    result.setResultStatus(CtsTestStatus.PASS);
-                    result.setSummary(m.group(1));
-                    result.setDetails(m.group(2));
-                } else {
-                    CLog.e("CTS Result unrecognizable:" + perfResult);
+                try {
+                    report = ReportLog.parse(perfResult);
+                } catch (XmlPullParserException | IOException e) {
+                    e.printStackTrace();
                 }
+            }
+            Test result = findTest(test);
+            if (report != null && !result.getResult().equals(CtsTestStatus.FAIL)) {
+                result.setResultStatus(CtsTestStatus.PASS);
+                result.setReportLog(report);
             }
         }
     }

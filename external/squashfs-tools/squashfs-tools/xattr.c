@@ -22,6 +22,14 @@
  * xattr.c
  */
 
+#ifndef linux
+#define __BYTE_ORDER BYTE_ORDER
+#define __BIG_ENDIAN BIG_ENDIAN
+#define __LITTLE_ENDIAN LITTLE_ENDIAN
+#else
+#include <endian.h>
+#endif
+
 #define TRUE 1
 #define FALSE 0
 
@@ -36,6 +44,13 @@
 #include <stdlib.h>
 #include <sys/xattr.h>
 
+#ifdef XATTR_NOFOLLOW /* Apple's xattrs */
+    #define llistxattr(path_, buf_, sz_) \
+        listxattr(path_, buf_, sz_, XATTR_NOFOLLOW)
+    #define lgetxattr(path_, name_, val_, sz_) \
+        getxattr(path_, name_, val_, sz_, 0, XATTR_NOFOLLOW)
+#endif
+
 #include "squashfs_fs.h"
 #include "squashfs_swap.h"
 #include "mksquashfs.h"
@@ -46,6 +61,11 @@
 /* ANDROID CHANGES START*/
 #ifdef ANDROID
 #include "android.h"
+#ifdef __ANDROID__
+#include <linux/capability.h>
+#else
+#include <private/android_filesystem_capability.h>
+#endif
 static struct selabel_handle *sehnd = NULL;
 #endif
 /* ANDROID CHANGES END */
@@ -129,20 +149,35 @@ static int get_prefix(struct xattr_list *xattr, char *name)
 
 /* ANDROID CHANGES START*/
 #ifdef ANDROID
-static int read_xattrs_from_context_file(char *filename, int mode,
-	struct selabel_handle *sehnd, struct xattr_list **xattrs)
+static struct xattr_list *next_xattr_list(int *xattr_count, struct xattr_list **xattrs) {
+	struct xattr_list *x;
+	x = realloc(*xattrs, ++*xattr_count * sizeof(struct xattr_list));
+	if (x == NULL) MEM_ERROR();
+	*xattrs = x;
+	return &x[*xattr_count - 1];
+}
+
+static void read_selinux_xattr_from_sehnd(char *filename, int mode,
+	struct selabel_handle *sehnd, struct xattr_list *xattrs)
 {
 	char *attr_val;
-	struct xattr_list *x = malloc(sizeof(*x));
-	if(x == NULL)
-		MEM_ERROR();
 
-	x->type = get_prefix(x, "security.selinux");
+	xattrs->type = get_prefix(xattrs, "security.selinux");
 	attr_val = set_selabel(filename, mode, sehnd);
-	x->value = (void *)attr_val;
-	x->vsize = strlen(attr_val);
-	*xattrs = x;
-	return 1;
+	xattrs->value = (void *)attr_val;
+	xattrs->vsize = strlen(attr_val);
+}
+
+static void set_caps_xattr(uint64_t caps, struct xattr_list *xattrs)
+{
+	struct vfs_cap_data *attr_val;
+	attr_val = malloc(sizeof(*attr_val));
+	if (attr_val == NULL) MEM_ERROR();
+
+	xattrs->type = get_prefix(xattrs, "security.capability");
+	*attr_val = set_caps(caps);
+	xattrs->value = attr_val;
+	xattrs->vsize = sizeof(*attr_val);
 }
 #endif
 /* ANDROID CHANGES END */
@@ -645,8 +680,16 @@ int read_xattrs(void *d)
 	struct dir_ent *dir_ent = d;
 	struct inode_info *inode = dir_ent->inode;
 	char *filename = pathname(dir_ent);
+/* ANDROID CHANGES START*/
+#ifdef ANDROID
+    // NOTE: xattr_list has to point to an array of xattr_list elements
+	struct xattr_list *xattr_list = NULL, *next_xattr = NULL;
+	int xattrs = 0;
+#else
 	struct xattr_list *xattr_list;
 	int xattrs;
+#endif
+/* ANDROID CHANGES END */
 
 	if(no_xattrs || IS_PSEUDO(inode) || inode->root_entry)
 		return SQUASHFS_INVALID_XATTR;
@@ -659,15 +702,19 @@ int read_xattrs(void *d)
 		if (mount_point) {
 			char *mounted_path;
 			alloc_mounted_path(mount_point, subpathname(dir_ent), &mounted_path);
-			xattrs = read_xattrs_from_context_file(mounted_path, inode->buf.st_mode,
-					sehnd, &xattr_list);
+			next_xattr = next_xattr_list(&xattrs, &xattr_list);
+			read_selinux_xattr_from_sehnd(mounted_path, inode->buf.st_mode,
+					sehnd, next_xattr);
 			free(mounted_path);
 		} else {
-			xattrs = read_xattrs_from_context_file(filename, inode->buf.st_mode,
-					sehnd, &xattr_list);
+			next_xattr = next_xattr_list(&xattrs, &xattr_list);
+			read_selinux_xattr_from_sehnd(filename, inode->buf.st_mode,
+					sehnd, next_xattr);
 		}
-	} else {
-		xattrs = read_xattrs_from_system(filename, &xattr_list);
+	}
+	if (dir_ent->capabilities != 0) {
+		next_xattr = next_xattr_list(&xattrs, &xattr_list);
+		set_caps_xattr(dir_ent->capabilities, next_xattr);
 	}
 #else
 	xattrs = read_xattrs_from_system(filename, &xattr_list);

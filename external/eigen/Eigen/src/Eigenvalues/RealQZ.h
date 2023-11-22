@@ -240,21 +240,21 @@ namespace Eigen {
             m_S.coeffRef(i,j) = Scalar(0.0);
             m_S.rightCols(dim-j-1).applyOnTheLeft(i-1,i,G.adjoint());
             m_T.rightCols(dim-i+1).applyOnTheLeft(i-1,i,G.adjoint());
+            // update Q
+            if (m_computeQZ)
+              m_Q.applyOnTheRight(i-1,i,G);
           }
           // update Q
-          if (m_computeQZ)
-            m_Q.applyOnTheRight(i-1,i,G);
-          // kill T(i,i-1)
           if(m_T.coeff(i,i-1)!=Scalar(0))
           {
             G.makeGivens(m_T.coeff(i,i), m_T.coeff(i,i-1), &m_T.coeffRef(i,i));
             m_T.coeffRef(i,i-1) = Scalar(0.0);
             m_S.applyOnTheRight(i,i-1,G);
             m_T.topRows(i).applyOnTheRight(i,i-1,G);
+            // update Z
+            if (m_computeQZ)
+              m_Z.applyOnTheLeft(i,i-1,G.adjoint());
           }
-          // update Z
-          if (m_computeQZ)
-            m_Z.applyOnTheLeft(i,i-1,G.adjoint());
         }
       }
     }

@@ -9,7 +9,7 @@
 # These defines will apply to all source files
 # Think again before changing it
 MY_WEBRTC_COMMON_DEFS := \
-    '-DWEBRTC_TARGET_PC' \
+    '-DWEBRTC_POSIX' \
     '-DWEBRTC_LINUX' \
     '-DWEBRTC_THREAD_RR' \
     '-DWEBRTC_CLOCK_TYPE_REALTIME' \
@@ -24,23 +24,23 @@ MY_WEBRTC_COMMON_DEFS_arm := \
 #    '-DWEBRTC_DETECT_ARM_NEON' # only used in a build configuration without Neon
 # TODO(kma): figure out if the above define could be moved to NDK build only.
 
-# TODO(kma): test if the code under next two macros works with generic GCC compilers
-ifeq ($(ARCH_ARM_HAVE_NEON),true)
-MY_WEBRTC_COMMON_DEFS_arm += \
-    '-DWEBRTC_ARCH_ARM_NEON'
-MY_ARM_CFLAGS_NEON := \
-    -flax-vector-conversions
-endif
 
-ifneq (,$(filter '-DWEBRTC_DETECT_ARM_NEON' '-DWEBRTC_ARCH_ARM_NEON', \
-    $(MY_WEBRTC_COMMON_DEFS_arm)))
-WEBRTC_BUILD_NEON_LIBS := true
-endif
-
-ifeq ($(ARCH_ARM_HAVE_ARMV7A),true)
-MY_WEBRTC_COMMON_DEFS_arm += \
-    '-DWEBRTC_ARCH_ARM_V7A'
-endif
-
-MY_WEBRTC_COMMON_DEFS_x86 := \
-    '-DWEBRTC_USE_SSE2'
+# The following upstram ARM_NEON and ARMV7A defintions do not work on AOSP yet.
+# They should be fixed in the next merge from upstream.
+## TODO(kma): test if the code under next two macros works with generic GCC compilers
+#ifeq ($(ARCH_ARM_HAVE_NEON),true)
+#MY_WEBRTC_COMMON_DEFS_arm += \
+#    '-DWEBRTC_ARCH_ARM_NEON'
+#MY_ARM_CFLAGS_NEON := \
+#    -flax-vector-conversions
+#endif
+#
+#ifneq (,$(filter '-DWEBRTC_DETECT_ARM_NEON' '-DWEBRTC_ARCH_ARM_NEON', \
+#    $(MY_WEBRTC_COMMON_DEFS_arm)))
+#WEBRTC_BUILD_NEON_LIBS := true
+#endif
+#
+#ifeq ($(ARCH_ARM_HAVE_ARMV7A),true)
+#MY_WEBRTC_COMMON_DEFS_arm += \
+#    '-DWEBRTC_ARCH_ARM_V7A'
+#endif

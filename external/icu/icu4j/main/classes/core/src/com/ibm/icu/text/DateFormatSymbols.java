@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (C) 1996-2015, International Business Machines Corporation and
+ * Copyright (C) 1996-2016, International Business Machines Corporation and
  * others. All Rights Reserved.
  *******************************************************************************
  */
@@ -573,6 +573,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
      * <li><code>zoneStrings[i][5]</code> - location name of zone</li>
      * <li><code>zoneStrings[i][6]</code> - long generic name of zone</li>
      * <li><code>zoneStrings[i][7]</code> - short generic of zone</li>
+    *  </ul>
      * The zone ID is <em>not</em> localized; it corresponds to the ID
      * value associated with a system time zone object.  All other entries
      * are localized names.  If a zone does not implement daylight savings
@@ -592,7 +593,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
      * Unlocalized date-time pattern characters. For example: 'y', 'd', etc.
      * All locales use the same unlocalized pattern characters.
      */
-    static final String patternChars = "GyMdkHmsSEDFwWahKzYeugAZvcLQqVUOXxr:";
+    static final String patternChars = "GyMdkHmsSEDFwWahKzYeugAZvcLQqVUOXxr";
 
     /**
      * Localized date-time pattern characters. For example, a locale may
@@ -1072,8 +1073,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
      * @param width     The requested name width: WIDE, ABBREVIATED, SHORT, NARROW.
      * @return          The year name strings, or null if they are not
      *                  available for this calendar.
-     * @draft ICU 54
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 54
      */
     public String[] getYearNames(int context, int width) {
         // context & width ignored for now, one set of names for all uses
@@ -1088,8 +1088,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
      * @param yearNames The new cyclic year name strings.
      * @param context   The usage context: FORMAT, STANDALONE (currently only FORMAT is supported).
      * @param width     The name width: WIDE, ABBREVIATED, NARROW (currently only ABBREVIATED is supported).
-     * @draft ICU 54
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 54
      */
     public void setYearNames(String[] yearNames, int context, int width) {
         if (context == FORMAT && width == ABBREVIATED) {
@@ -1104,8 +1103,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
      * @param width     The requested name width: WIDE, ABBREVIATED, SHORT, NARROW.
      * @return          The zodiac name strings, or null if they are not
      *                  available for this calendar.
-     * @draft ICU 54
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 54
      */
     public String[] getZodiacNames(int context, int width) {
         // context & width ignored for now, one set of names for all uses
@@ -1120,8 +1118,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
      * @param zodiacNames   The new zodiac name strings.
      * @param context   The usage context: FORMAT, STANDALONE (currently only FORMAT is supported).
      * @param width     The name width: WIDE, ABBREVIATED, NARROW (currently only ABBREVIATED is supported).
-     * @draft ICU 54
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 54
      */
     public void setZodiacNames(String[] zodiacNames, int context, int width) {
         if (context == FORMAT && width == ABBREVIATED) {
@@ -1292,12 +1289,13 @@ public class DateFormatSymbols implements Serializable, Cloneable {
      * When a localized display name is not available, the corresponding
      * array element will be <code>null</code>.
      * <p>
-     * <b>Note</b>: ICU implements time zone display name formatting algorithm
+     * <b>Note</b>: ICU implements the time zone display name formatting algorithm
      * specified by <a href="http://www.unicode.org/reports/tr35/">UTS#35 Unicode
      * Locale Data Markup Language(LDML)</a>. The algorithm supports historic
-     * display name changes and various different type of names not available in
-     * JDK. For accessing the full set of time zone string data used by ICU implementation,
-     * you should use {@link TimeZoneNames} APIs instead.
+     * display name changes and various different types of names not available in
+     * {@link java.text.DateFormatSymbols#getZoneStrings()}. For accessing the full
+     * set of time zone string data used by ICU implementation, you should use
+     * {@link TimeZoneNames} APIs instead.
      * 
      * @return the time zone strings.
      * @stable ICU 2.0
@@ -1309,6 +1307,11 @@ public class DateFormatSymbols implements Serializable, Cloneable {
 
         String[] tzIDs = TimeZone.getAvailableIDs();
         TimeZoneNames tznames = TimeZoneNames.getInstance(validLocale);
+        tznames.loadAllDisplayNames();
+        NameType types[] = {
+            NameType.LONG_STANDARD, NameType.SHORT_STANDARD,
+            NameType.LONG_DAYLIGHT, NameType.SHORT_DAYLIGHT
+        };
         long now = System.currentTimeMillis();
         String[][] array = new String[tzIDs.length][5];
         for (int i = 0; i < tzIDs.length; i++) {
@@ -1318,10 +1321,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
             }
 
             array[i][0] = tzIDs[i];
-            array[i][1] = tznames.getDisplayName(canonicalID, NameType.LONG_STANDARD, now);
-            array[i][2] = tznames.getDisplayName(canonicalID, NameType.SHORT_STANDARD, now);
-            array[i][3] = tznames.getDisplayName(canonicalID, NameType.LONG_DAYLIGHT, now);
-            array[i][4] = tznames.getDisplayName(canonicalID, NameType.SHORT_DAYLIGHT, now);
+            tznames.getDisplayNames(canonicalID, types, now, array[i], 1);
         }
 
         zoneStrings = array;

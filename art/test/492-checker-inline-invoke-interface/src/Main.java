@@ -18,10 +18,33 @@ interface Itf {
   public void $inline$foo();
 }
 
+class ForceStatic {
+  static {
+    System.out.println("Hello from clinit");
+    new Exception().printStackTrace();
+  }
+  static int field;
+}
+
 public class Main implements Itf {
   public void $inline$foo() {
+    int a = ForceStatic.field;
   }
 
+  /// CHECK-START: void Main.main(java.lang.String[]) builder (after)
+  /// CHECK:           InvokeStaticOrDirect {{.*Main.<init>.*}}
+  /// CHECK:           InvokeInterface
+
+  /// CHECK-START: void Main.main(java.lang.String[]) inliner (before)
+  /// CHECK-NOT:       ClinitCheck
+
+  /// CHECK-START: void Main.main(java.lang.String[]) inliner (after)
+  /// CHECK-NOT:       InvokeStaticOrDirect {{.*Main.<init>.*}}
+  /// CHECK-NOT:       InvokeVirtual
+  /// CHECK-NOT:       InvokeInterface
+
+  /// CHECK-START: void Main.main(java.lang.String[]) inliner (after)
+  /// CHECK:           ClinitCheck
   public static void main(String[] args) {
     Itf itf = new Main();
     itf.$inline$foo();

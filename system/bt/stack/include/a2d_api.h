@@ -102,7 +102,6 @@ typedef struct
 {
     UINT32              db_len;  /* Length, in bytes, of the discovery database */
     UINT16              num_attr;/* The number of attributes in p_attrs */
-    tSDP_DISCOVERY_DB  *p_db;    /* Pointer to the discovery database */
     UINT16             *p_attrs; /* The attributes filter. If NULL, A2DP API sets the attribute filter
                                   * to be ATTR_ID_SERVICE_CLASS_ID_LIST, ATTR_ID_BT_PROFILE_DESC_LIST,
                                   * ATTR_ID_SUPPORTED_FEATURES, ATTR_ID_SERVICE_NAME and ATTR_ID_PROVIDER_NAME.

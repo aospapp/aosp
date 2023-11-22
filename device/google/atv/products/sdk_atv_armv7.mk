@@ -20,6 +20,7 @@ PRODUCT_PACKAGES := \
     EmulatorSmokeTests \
     LeanbackSampleApp \
     TelephonyProvider \
+    SdkSetup \
     audio.primary.goldfish \
     rild
 
@@ -30,8 +31,12 @@ DEVICE_PACKAGE_OVERLAYS := \
 PRODUCT_COPY_FILES := \
     device/generic/goldfish/data/etc/apns-conf.xml:system/etc/apns-conf.xml \
     device/generic/goldfish/camera/media_codecs.xml:system/etc/media_codecs.xml \
+    device/google/atv/init.goldfish.rc:root/init.goldfish.rc \
+    device/google/atv/init.ranchu.rc:root/init.ranchu.rc \
     frameworks/av/media/libstagefright/data/media_codecs_google_audio.xml:system/etc/media_codecs_google_audio.xml \
+    frameworks/native/data/etc/android.hardware.ethernet.xml:system/etc/permissions/android.hardware.ethernet.xml \
     frameworks/av/media/libstagefright/data/media_codecs_google_telephony.xml:system/etc/media_codecs_google_telephony.xml \
+    frameworks/av/media/libstagefright/data/media_codecs_google_tv.xml:system/etc/media_codecs_google_tv.xml \
     frameworks/av/media/libstagefright/data/media_codecs_google_video.xml:system/etc/media_codecs_google_video.xml \
     hardware/libhardware_legacy/audio/audio_policy.conf:system/etc/audio_policy.conf
 

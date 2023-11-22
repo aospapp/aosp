@@ -5,13 +5,14 @@
  *
  * See http://opengroup.org/onlinepubs/9699919799/utilities/ls.html
 
-USE_LS(NEWTOY(ls, USE_LS_COLOR("(color):;")USE_LS_Z("Z")"goACFHLRSacdfiklmnpqrstux1[-Cxm1][-Cxml][-Cxmo][-Cxmg][-cu][-ftS][-HL]", TOYFLAG_BIN|TOYFLAG_LOCALE))
+USE_LS(NEWTOY(ls, USE_LS_COLOR("(color):;")"ZgoACFHLRSacdfhiklmnpqrstux1[-Cxm1][-Cxml][-Cxmo][-Cxmg][-cu][-ftS][-HL]", TOYFLAG_BIN|TOYFLAG_LOCALE))
 
 config LS
   bool "ls"
   default y
   help
-    usage: ls [-ACFHLRSacdfiklmnpqrstux1] [directory...]
+    usage: ls [-ACFHLRSZacdfhiklmnpqrstux1] [directory...]
+
     list files
 
     what to show:
@@ -22,24 +23,17 @@ config LS
     -u	use access time for timestamps		-A  list all files but . and ..
     -H	follow command line symlinks		-L  follow symlinks
     -R	recursively list files in subdirs	-F  append /dir *exe @sym |FIFO
+    -Z	security context
 
     output formats:
     -1	list one file per line			-C  columns (sorted vertically)
-    -g	like -l but no owner			-l  long (show full details)
-    -m	comma separated				-n  like -l but numeric uid/gid
-    -o	like -l but no group			-x  columns (horizontal sort)
+    -g	like -l but no owner			-h  human readable sizes
+    -l	long (show full details)		-m  comma separated
+    -n	like -l but numeric uid/gid		-o  like -l but no group
+    -x	columns (horizontal sort)
 
     sorting (default is alphabetical):
     -f	unsorted	-r  reverse	-t  timestamp	-S  size
-
-config LS_Z
-  bool
-  default y
-  depends on LS && (TOYBOX_SELINUX || TOYBOX_SMACK)
-  help
-    usage: ls [-Z]
-
-    -Z	security context
 
 config LS_COLOR
   bool "ls --color"
@@ -63,7 +57,7 @@ config LS_COLOR
 GLOBALS(
   char *color;
 
-  struct dirtree *files;
+  struct dirtree *files, *singledir;
 
   unsigned screen_width;
   int nl_title;
@@ -129,50 +123,13 @@ static int numlen(long long ll)
   return snprintf(0, 0, "%llu", ll);
 }
 
-// measure/print SELinux/smack security label. (If pad=0, just measure.)
-static unsigned seclabel(struct dirtree *dt, int pad)
-{
-  if (CFG_TOYBOX_SELINUX) {
-    char* path = dirtree_path(dt, 0);
-    char* label = 0;
-    size_t len;
-
-    lgetfilecon(path, &label);
-    if (!label) {
-      label = strdup("?");
-    }
-
-    len = strlen(label);
-    if (pad) printf(" %*s "+(pad>0), pad, label);
-
-    free(label);
-    free(path);
-    return len;
-  } else if (CFG_TOYBOX_SMACK) {
-    int fd = openat(dirtree_parentfd(dt), dt->name, O_PATH|O_NOFOLLOW);
-    char buf[SMACK_LABEL_LEN+1];
-    ssize_t len = 1;
-
-    strcpy(buf, "?");
-    if (fd != -1) {
-      len = fgetxattr(fd, XATTR_NAME_SMACK, pad?buf:0, pad?SMACK_LABEL_LEN:0);
-      close(fd);
-
-      if (len<1 || len>SMACK_LABEL_LEN) len = 0;
-      else buf[len] = 0;
-    }
-    if (pad) printf(" %*s "+(pad>0), pad, buf);
-
-    return len;
-  }
-}
-
 // Figure out size of printable entry fields for display indent/wrap
 
 static void entrylen(struct dirtree *dt, unsigned *len)
 {
   struct stat *st = &(dt->st);
   unsigned flags = toys.optflags;
+  char tmp[64];
 
   *len = strwidth(dt->name);
   if (endtype(st)) ++*len;
@@ -188,11 +145,14 @@ static void entrylen(struct dirtree *dt, unsigned *len)
       // cheating slightly here: assuming minor is always 3 digits to avoid
       // tracking another column
       len[5] = numlen(major(st->st_rdev))+5;
+    } else if (flags & FLAG_h) {
+        human_readable(tmp, st->st_size, 0);
+        len[5] = strwidth(tmp);
     } else len[5] = numlen(st->st_size);
   }
 
   len[6] = (flags & FLAG_s) ? numlen(st->st_blocks) : 0;
-  len[7] = (CFG_LS_Z && (flags & FLAG_Z)) ? seclabel(dt, 0) : 0;
+  len[7] = (flags & FLAG_Z) ? strwidth((char *)dt->extra) : 0;
 }
 
 static int compare(void *a, void *b)
@@ -223,6 +183,35 @@ static int filter(struct dirtree *new)
   if (flags == (FLAG_1|FLAG_f)) {
     xprintf("%s\n", new->name);
     return 0;
+  }
+
+  if (flags & FLAG_Z) {
+    if (!CFG_TOYBOX_LSM_NONE) {
+
+      // (Wouldn't it be nice if the lsm functions worked like openat(),
+      // fchmodat(), mknodat(), readlinkat() so we could do this without
+      // even O_PATH? But no, this is 1990's tech.)
+      int fd = openat(dirtree_parentfd(new), new->name,
+        O_PATH|(O_NOFOLLOW*!(toys.optflags&FLAG_L)));
+
+      if (fd != -1) {
+        if (-1 == lsm_fget_context(fd, (char **)&new->extra) && errno == EBADF)
+        {
+          char hack[32];
+
+          // Work around kernel bug that won't let us read this "metadata" from
+          // the filehandle unless we have permission to read the data. (We can
+          // query the same data in by path, but can't do it through an O_PATH
+          // filehandle, because reasons. But for some reason, THIS is ok? If
+          // they ever fix the kernel, this should stop triggering.)
+
+          sprintf(hack, "/proc/self/fd/%d", fd);
+          lsm_lget_context(hack, (char **)&new->extra);
+        }
+        close(fd);
+      }
+    }
+    if (CFG_TOYBOX_LSM_NONE || !new->extra) new->extra = (long)xstrdup("?");
   }
 
   if (flags & FLAG_u) new->st.st_mtime = new->st.st_atime;
@@ -300,22 +289,37 @@ static void listfiles(int dirfd, struct dirtree *indir)
   unsigned long dtlen, ul = 0;
   unsigned width, flags = toys.optflags, totals[8], len[8], totpad = 0,
     *colsizes = (unsigned *)(toybuf+260), columns = (sizeof(toybuf)-260)/4;
+  char tmp[64];
+
+  if (-1 == dirfd) {
+    strwidth(indir->name);
+    perror_msg_raw(indir->name);
+
+    return;
+  }
 
   memset(totals, 0, sizeof(totals));
+  if (CFG_TOYBOX_ON_ANDROID || CFG_TOYBOX_DEBUG) memset(len, 0, sizeof(len));
 
-  // Silently descend into single directory listed by itself on command line.
-  // In this case only show dirname/total header when given -R.
+  // Top level directory was already populated by main()
   if (!indir->parent) {
-    if (!(dt = indir->child)) return;
-    if (S_ISDIR(dt->st.st_mode) && !dt->next && !(flags & FLAG_d)) {
-      dt->extra = 1;
-      listfiles(open(dt->name, 0), dt);
+    // Silently descend into single directory listed by itself on command line.
+    // In this case only show dirname/total header when given -R.
+    dt = indir->child;
+    if (dt && S_ISDIR(dt->st.st_mode) && !dt->next && !(flags&(FLAG_d|FLAG_R)))
+    {
+      listfiles(open(dt->name, 0), TT.singledir = dt);
 
       return;
     }
+
+    // Do preprocessing (Dirtree didn't populate, so callback wasn't called.)
+    for (;dt; dt = dt->next) filter(dt);
+    if (flags == (FLAG_1|FLAG_f)) return;
   } else {
     // Read directory contents. We dup() the fd because this will close it.
-    indir->data = dup(dirfd);
+    // This reads/saves contents to display later, except for in "ls -1f" mode.
+    indir->dirfd = dup(dirfd);
     dirtree_recurse(indir, filter, DIRTREE_SYMFOLLOW*!!(flags&FLAG_L));
   }
 
@@ -325,11 +329,11 @@ static void listfiles(int dirfd, struct dirtree *indir)
   for (sort = 0;;sort = xmalloc(dtlen*sizeof(void *))) {
     for (dtlen = 0, dt = indir->child; dt; dt = dt->next, dtlen++)
       if (sort) sort[dtlen] = dt;
-    if (sort) break;
+    if (sort || !dtlen) break;
   }
 
   // Label directory if not top of tree, or if -R
-  if (indir->parent && (!indir->extra || (flags & FLAG_R)))
+  if (indir->parent && (TT.singledir!=indir || (flags&FLAG_R)))
   {
     char *path = dirtree_path(indir, 0);
 
@@ -350,8 +354,12 @@ static void listfiles(int dirfd, struct dirtree *indir)
       blocks += sort[ul]->st.st_blocks;
     }
     totpad = totals[1]+!!totals[1]+totals[6]+!!totals[6]+totals[7]+!!totals[7];
-    if (flags & (FLAG_l|FLAG_o|FLAG_n|FLAG_g|FLAG_s) && indir->parent)
-      xprintf("total %llu\n", blocks);
+    if ((flags&(FLAG_h|FLAG_l|FLAG_o|FLAG_n|FLAG_g|FLAG_s)) && indir->parent) {
+      if (flags&FLAG_h) {
+        human_readable(tmp, blocks*512, 0);
+        xprintf("total %s\n", tmp);
+      } else xprintf("total %llu\n", blocks);
+    }
   }
 
   // Find largest entry in each field for display alignment
@@ -420,38 +428,43 @@ static void listfiles(int dirfd, struct dirtree *indir)
 
     if (flags & (FLAG_l|FLAG_o|FLAG_n|FLAG_g)) {
       struct tm *tm;
-      char perm[11], thyme[64], *usr, *upad, *grp, *grpad;
+      char *ss;
 
-      mode_to_string(mode, perm);
+      // (long) is to coerce the st types into something we know we can print.
+      mode_to_string(mode, tmp);
+      printf("%s% *ld", tmp, totals[2]+1, (long)st->st_nlink);
 
-      if (flags&FLAG_o) grp = grpad = toybuf+256;
-      else {
-        if (flags&FLAG_n) sprintf(grp = thyme, "%u", (unsigned)st->st_gid);
-        else strwidth(grp = getgroupname(st->st_gid));
-        grpad = toybuf+256-(totals[4]-len[4]);
+      // print user
+      if (!(flags&FLAG_g)) {
+        if (flags&FLAG_n) sprintf(ss = tmp, "%u", (unsigned)st->st_uid);
+        else strwidth(ss = getusername(st->st_uid));
+        printf(" %-*s", (int)totals[3], ss);
       }
 
-      if (flags&FLAG_g) usr = upad = toybuf+256;
-      else {
-        upad = toybuf+255-(totals[3]-len[3]);
-        if (flags&FLAG_n) sprintf(usr = TT.uid_buf, "%u", (unsigned)st->st_uid);
-        else strwidth(usr = getusername(st->st_uid));
+      // print group
+      if (!(flags&FLAG_o)) {
+        if (flags&FLAG_n) sprintf(ss = tmp, "%u", (unsigned)st->st_gid);
+        else strwidth(ss = getgroupname(st->st_gid));
+        printf(" %-*s", (int)totals[4], ss);
       }
 
-      // Coerce the st types into something we know we can print.
-      printf("%s% *ld %s%s%s%s", perm, totals[2]+1, (long)st->st_nlink,
-             usr, upad, grp, grpad);
+      if (flags & FLAG_Z)
+        printf(" %-*s", -(int)totals[7], (char *)sort[next]->extra);
 
-      if (CFG_LS_Z && (flags & FLAG_Z)) seclabel(sort[next], -(int)totals[7]);
-
+      // print major/minor, or size
       if (S_ISCHR(st->st_mode) || S_ISBLK(st->st_mode))
         printf("% *d,% 4d", totals[5]-4, major(st->st_rdev),minor(st->st_rdev));
-      else printf("% *lld", totals[5]+1, (long long)st->st_size);
+      else if (flags&FLAG_h) {
+        human_readable(tmp, st->st_size, 0);
+        xprintf("%*s", totals[5]+1, tmp);
+      } else printf("% *lld", totals[5]+1, (long long)st->st_size);
 
+      // print time, always in --time-style=long-iso
       tm = localtime(&(st->st_mtime));
-      strftime(thyme, sizeof(thyme), "%F %H:%M", tm);
-      xprintf(" %s ", thyme);
-    } else if (CFG_LS_Z && (flags & FLAG_Z)) seclabel(sort[next], totals[7]);
+      strftime(tmp, sizeof(tmp), "%F %H:%M", tm);
+      xprintf(" %s ", tmp);
+    } else if (flags & FLAG_Z)
+      printf("%-*s ", (int)totals[7], (char *)sort[next]->extra);
 
     if (flags & FLAG_color) {
       color = color_from_mode(st->st_mode);
@@ -493,12 +506,12 @@ static void listfiles(int dirfd, struct dirtree *indir)
   // Free directory entries, recursing first if necessary.
 
   for (ul = 0; ul<dtlen; free(sort[ul++])) {
-    if ((flags & FLAG_d) || !S_ISDIR(sort[ul]->st.st_mode)
-      || !dirtree_notdotdot(sort[ul])) continue;
+    if ((flags & FLAG_d) || !S_ISDIR(sort[ul]->st.st_mode)) continue;
 
     // Recurse into dirs if at top of the tree or given -R
-    if (!indir->parent || (flags & FLAG_R))
+    if (!indir->parent || ((flags&FLAG_R) && dirtree_notdotdot(sort[ul])))
       listfiles(openat(dirfd, sort[ul]->name, 0), sort[ul]);
+    free((void *)sort[ul]->extra);
   }
   free(sort);
   if (dirfd != AT_FDCWD) close(dirfd);
@@ -515,7 +528,7 @@ void ls_main(void)
 
   // Do we have an implied -1
   if (!isatty(1)) {
-    toys.optflags |= FLAG_1;
+    if (!(toys.optflags & FLAG_m)) toys.optflags |= FLAG_1;
     if (TT.color) toys.optflags ^= FLAG_color;
   } else if (toys.optflags&(FLAG_l|FLAG_o|FLAG_n|FLAG_g))
     toys.optflags |= FLAG_1;
@@ -528,6 +541,7 @@ void ls_main(void)
   // Iterate through command line arguments, collecting directories and files.
   // Non-absolute paths are relative to current directory.
   TT.files = dirtree_start(0, 0);
+  TT.files->dirfd = AT_FDCWD;
   for (s = *toys.optargs ? toys.optargs : noargs; *s; s++) {
     dt = dirtree_start(*s, !(toys.optflags&(FLAG_l|FLAG_d|FLAG_F)) ||
                             (toys.optflags&(FLAG_L|FLAG_H)));

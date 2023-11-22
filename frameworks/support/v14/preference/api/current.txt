@@ -3,7 +3,6 @@ package android.support.v14.preference {
   public class EditTextPreferenceDialogFragment extends android.support.v14.preference.PreferenceDialogFragment {
     ctor public EditTextPreferenceDialogFragment();
     method public static android.support.v14.preference.EditTextPreferenceDialogFragment newInstance(java.lang.String);
-    method protected void onAddEditTextToDialogView(android.view.View, android.widget.EditText);
     method public void onDialogClosed(boolean);
   }
 
@@ -61,6 +60,10 @@ package android.support.v14.preference {
     method public void onDisplayPreferenceDialog(android.support.v7.preference.Preference);
     method public void onNavigateToScreen(android.support.v7.preference.PreferenceScreen);
     method public boolean onPreferenceTreeClick(android.support.v7.preference.Preference);
+    method public void scrollToPreference(java.lang.String);
+    method public void scrollToPreference(android.support.v7.preference.Preference);
+    method public void setDivider(android.graphics.drawable.Drawable);
+    method public void setDividerHeight(int);
     method public void setPreferenceScreen(android.support.v7.preference.PreferenceScreen);
     method public void setPreferencesFromResource(int, java.lang.String);
     field public static final java.lang.String ARG_PREFERENCE_ROOT = "android.support.v7.preference.PreferenceFragmentCompat.PREFERENCE_ROOT";

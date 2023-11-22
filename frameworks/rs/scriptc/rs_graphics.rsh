@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -169,7 +169,7 @@ deprecated
  */
 #ifndef __LP64__
 #if !defined(RS_VERSION) || (defined(RS_DECLARE_EXPIRED_APIS) || RS_VERSION <= 22)
-typedef _RS_HANDLE __attribute__((
+typedef struct rs_font _RS_OBJECT_DECL __attribute__((
 #if (defined(RS_VERSION) && (RS_VERSION >= 22))
 deprecated
 #endif
@@ -187,7 +187,7 @@ deprecated
  */
 #ifndef __LP64__
 #if !defined(RS_VERSION) || (defined(RS_DECLARE_EXPIRED_APIS) || RS_VERSION <= 22)
-typedef _RS_HANDLE __attribute__((
+typedef struct rs_mesh _RS_OBJECT_DECL __attribute__((
 #if (defined(RS_VERSION) && (RS_VERSION >= 22))
 deprecated
 #endif
@@ -205,7 +205,7 @@ deprecated
  */
 #ifndef __LP64__
 #if !defined(RS_VERSION) || (defined(RS_DECLARE_EXPIRED_APIS) || RS_VERSION <= 22)
-typedef _RS_HANDLE __attribute__((
+typedef struct rs_program_fragment _RS_OBJECT_DECL __attribute__((
 #if (defined(RS_VERSION) && (RS_VERSION >= 22))
 deprecated
 #endif
@@ -223,7 +223,7 @@ deprecated
  */
 #ifndef __LP64__
 #if !defined(RS_VERSION) || (defined(RS_DECLARE_EXPIRED_APIS) || RS_VERSION <= 22)
-typedef _RS_HANDLE __attribute__((
+typedef struct rs_program_vertex _RS_OBJECT_DECL __attribute__((
 #if (defined(RS_VERSION) && (RS_VERSION >= 22))
 deprecated
 #endif
@@ -241,7 +241,7 @@ deprecated
  */
 #ifndef __LP64__
 #if !defined(RS_VERSION) || (defined(RS_DECLARE_EXPIRED_APIS) || RS_VERSION <= 22)
-typedef _RS_HANDLE __attribute__((
+typedef struct rs_program_raster _RS_OBJECT_DECL __attribute__((
 #if (defined(RS_VERSION) && (RS_VERSION >= 22))
 deprecated
 #endif
@@ -259,7 +259,7 @@ deprecated
  */
 #ifndef __LP64__
 #if !defined(RS_VERSION) || (defined(RS_DECLARE_EXPIRED_APIS) || RS_VERSION <= 22)
-typedef _RS_HANDLE __attribute__((
+typedef struct rs_program_store _RS_OBJECT_DECL __attribute__((
 #if (defined(RS_VERSION) && (RS_VERSION >= 22))
 deprecated
 #endif
@@ -1037,7 +1037,7 @@ extern void __attribute__((overloadable
 
 #ifndef __LP64__
 #if !defined(RS_VERSION) || (defined(RS_DECLARE_EXPIRED_APIS) || RS_VERSION <= 22)
-static inline void __attribute__((always_inline, overloadable
+static inline void __attribute__((overloadable
 #if (defined(RS_VERSION) && (RS_VERSION >= 22))
 , deprecated
 #endif

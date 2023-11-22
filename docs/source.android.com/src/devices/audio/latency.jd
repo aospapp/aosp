@@ -50,4 +50,8 @@ page.title=Audio Latency
   <td>Round-trip audio latency results</td>
   <td><a href="latency_measurements.html">Audio Latency Measurements</a></td>
 </tr>
+<tr>
+  <td>Applications</td>
+  <td><a href="latency_app.html">Audio Latency for App Developers</a></td>
+</tr>
 </table>

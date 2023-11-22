@@ -22,6 +22,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import junit.framework.AssertionFailedError;
 import org.junit.After;
@@ -45,21 +46,22 @@ public final class Junit4 {
      * Creates lazy vogar test instances from the given test case or test
      * suite.
      *
-     * @param args if non-empty, this is the list of test method names.
+     * @param methodNames if non-empty, this is the list of test method names.
      */
-    public static List<VogarTest> classToVogarTests(Class<?> testClass, String... args) {
+    static List<VogarTest> classToVogarTests(Class<?> testClass, Collection<String> methodNames) {
         List<VogarTest> result = new ArrayList<VogarTest>();
-        getSuiteMethods(result, testClass, args);
+        getSuiteMethods(result, testClass, methodNames);
         return result;
     }
 
-    private static void getSuiteMethods(List<VogarTest> out, Class<?> testClass, String... args) {
+    private static void getSuiteMethods(
+        List<VogarTest> out, Class<?> testClass, Collection<String> methodNames) {
         boolean isJunit4TestClass = false;
 
         Collection<Object[]> argCollection = findParameters(testClass);
 
         /* JUnit 4.x: methods marked with @Test annotation. */
-        if (args.length == 0) {
+        if (methodNames.isEmpty()) {
             for (Method m : testClass.getMethods()) {
                 if (!m.isAnnotationPresent(org.junit.Test.class)) continue;
 
@@ -75,12 +77,12 @@ public final class Junit4 {
                 }
             }
         } else {
-            for (String arg : args) {
+            for (String methodName : methodNames) {
                 try {
-                    addAllParameterizedTests(out, testClass, testClass.getMethod(arg),
+                    addAllParameterizedTests(out, testClass, testClass.getMethod(methodName),
                             argCollection);
                 } catch (final NoSuchMethodException e) {
-                    out.add(new ConfigurationError(testClass.getName() + "#" + arg, e));
+                    out.add(new ConfigurationError(testClass.getName() + "#" + methodName, e));
                 }
             }
         }
@@ -133,11 +135,13 @@ public final class Junit4 {
         for (Annotation a : klass.getAnnotations()) {
             Class<?> annotationClass = a.annotationType();
 
-            if (Parameterized.class.isAssignableFrom(annotationClass)) {
-                return true;
-            } else if (RunWith.class.isAssignableFrom(annotationClass)
-                    && Suite.class.isAssignableFrom(((RunWith) a).value())) {
-                isTestSuite = true;
+            if (RunWith.class.isAssignableFrom(annotationClass)) {
+                Class<?> runnerClass = ((RunWith) a).value();
+                if (Suite.class.isAssignableFrom(runnerClass)) {
+                    isTestSuite = true;
+                } else if (Parameterized.class.isAssignableFrom(runnerClass)) {
+                    return true;
+                }
             } else if (Suite.SuiteClasses.class.isAssignableFrom(annotationClass)) {
                 hasSuiteClasses = true;
             }
@@ -183,7 +187,7 @@ public final class Junit4 {
         for (Annotation a : suite.getAnnotations()) {
             if (SuiteClasses.class.isAssignableFrom(a.annotationType())) {
                 for (Class<?> clazz : ((SuiteClasses) a).value()) {
-                    getSuiteMethods(out, clazz);
+                    getSuiteMethods(out, clazz, Collections.<String>emptySet());
                 }
             }
         }

@@ -66,6 +66,11 @@ CFLAGS="$CFLAGS $(cat generated/cflags)"
 BUILD="$(echo ${CROSS_COMPILE}${CC} $CFLAGS -I . $OPTIMIZE $GITHASH)"
 FILES="$(echo lib/*.c main.c $TOYFILES)"
 
+if [ "${TOYFILES/pending//}" != "$TOYFILES" ]
+then
+  echo -e "\n\033[1;31mwarning: using unfinished code from toys/pending\033[0m"
+fi
+
 genbuildsh()
 {
   # Write a canned build line for use on crippled build machines.
@@ -93,13 +98,14 @@ then
   # for it.
 
   > generated/optlibs.dat
-  for i in util crypt m resolv selinux smack attr
+  for i in util crypt m resolv selinux smack attr rt
   do
     echo "int main(int argc, char *argv[]) {return 0;}" | \
-    ${CROSS_COMPILE}${CC} $CFLAGS -xc - -o /dev/null -Wl,--as-needed -l$i > /dev/null 2>/dev/null &&
+    ${CROSS_COMPILE}${CC} $CFLAGS -xc - -o generated/libprobe -Wl,--as-needed -l$i > /dev/null 2>/dev/null &&
     echo -l$i >> generated/optlibs.dat
     echo -n .
   done
+  rm -f generated/libprobe
   echo
 fi
 
@@ -177,7 +183,7 @@ do
 # If no pair (because command's disabled in config), use " " for flags
 # so allflags can define the appropriate zero macros.
 
-done | sort -s | sed -n 's/ A / /;t pair;h;s/\([^ ]*\).*/\1 " "/;x;b single;:pair;h;n;:single;s/[^ ]* B //;H;g;s/\n/ /;p' |\
+done | sort -s | sed -n 's/ A / /;t pair;h;s/\([^ ]*\).*/\1 " "/;x;b single;:pair;h;n;:single;s/[^ ]* B //;H;g;s/\n/ /;p' | tee generated/flags.raw | \
 generated/mkflags > generated/flags.h || exit 1
 
 # Extract global structure definitions and flag definitions from toys/*/*.c
@@ -207,6 +213,19 @@ then
       sed -n 's/struct \(.*\)_data {/	struct \1_data \1;/p'
     echo "} this;"
   ) > generated/globals.h
+fi
+
+if [ generated/mktags -ot scripts/mktags.c ]
+then
+  do_loudly $HOSTCC scripts/mktags.c -o generated/mktags || exit 1
+fi
+
+if isnewer generated/tags.h toys
+then
+  echo -n "generated/tags.h "
+
+  sed -n '/TAGGED_ARRAY(/,/^)/{s/.*TAGGED_ARRAY[(]\([^,]*\),/\1/;p}' \
+    toys/*/*.c lib/*.c | generated/mktags > generated/tags.h
 fi
 
 echo "generated/help.h"
@@ -271,12 +290,16 @@ done
 [ $DONE -ne 0 ] && exit 1
 
 do_loudly $BUILD $LFILES $LINK || exit 1
-if ! do_loudly ${CROSS_COMPILE}strip toybox_unstripped -o toybox
+if [ ! -z "$NOSTRIP" ] || ! do_loudly ${CROSS_COMPILE}strip toybox_unstripped -o toybox
 then
   echo "strip failed, using unstripped" && cp toybox_unstripped toybox ||
   exit 1
 fi
+
 # gcc 4.4's strip command is buggy, and doesn't set the executable bit on
-# its output the way SUSv4 suggests it do so.
-do_loudly chmod +x toybox || exit 1
+# its output the way SUSv4 suggests it do so. While we're at it, make sure
+# we don't have the "w" bit set so things like bzip2's "cp -f" install don't
+# overwrite our binary through the symlink.
+do_loudly chmod 555 toybox || exit 1
+
 echo

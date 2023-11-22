@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,6 +41,26 @@ float4 __attribute__((kernel)) testMinFloat4Float4Float4(float4 inA, unsigned in
     return min(inA, inB);
 }
 
+half __attribute__((kernel)) testMinHalfHalfHalf(half inA, unsigned int x) {
+    half inB = rsGetElementAt_half(gAllocInB, x);
+    return min(inA, inB);
+}
+
+half2 __attribute__((kernel)) testMinHalf2Half2Half2(half2 inA, unsigned int x) {
+    half2 inB = rsGetElementAt_half2(gAllocInB, x);
+    return min(inA, inB);
+}
+
+half3 __attribute__((kernel)) testMinHalf3Half3Half3(half3 inA, unsigned int x) {
+    half3 inB = rsGetElementAt_half3(gAllocInB, x);
+    return min(inA, inB);
+}
+
+half4 __attribute__((kernel)) testMinHalf4Half4Half4(half4 inA, unsigned int x) {
+    half4 inB = rsGetElementAt_half4(gAllocInB, x);
+    return min(inA, inB);
+}
+
 float2 __attribute__((kernel)) testMinFloat2FloatFloat2(float2 inA, unsigned int x) {
     float inB = rsGetElementAt_float(gAllocInB, x);
     return min(inA, inB);
@@ -53,6 +73,21 @@ float3 __attribute__((kernel)) testMinFloat3FloatFloat3(float3 inA, unsigned int
 
 float4 __attribute__((kernel)) testMinFloat4FloatFloat4(float4 inA, unsigned int x) {
     float inB = rsGetElementAt_float(gAllocInB, x);
+    return min(inA, inB);
+}
+
+half2 __attribute__((kernel)) testMinHalf2HalfHalf2(half2 inA, unsigned int x) {
+    half inB = rsGetElementAt_half(gAllocInB, x);
+    return min(inA, inB);
+}
+
+half3 __attribute__((kernel)) testMinHalf3HalfHalf3(half3 inA, unsigned int x) {
+    half inB = rsGetElementAt_half(gAllocInB, x);
+    return min(inA, inB);
+}
+
+half4 __attribute__((kernel)) testMinHalf4HalfHalf4(half4 inA, unsigned int x) {
+    half inB = rsGetElementAt_half(gAllocInB, x);
     return min(inA, inB);
 }
 

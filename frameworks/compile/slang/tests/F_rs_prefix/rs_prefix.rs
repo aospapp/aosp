@@ -4,8 +4,3 @@
 void rs_foo() {
     return;
 }
-
-int root(int num) {
-    return 10;
-}
-

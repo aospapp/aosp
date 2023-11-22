@@ -39,6 +39,8 @@ namespace overlay {
 using namespace utils;
 using namespace qdutils;
 
+static bool is_delta_panel = false;
+
 Overlay::Overlay() {
     int numPipes = qdutils::MDPVersion::getInstance().getTotalPipes();
     PipeBook::NUM_PIPES = (numPipes <= utils::OV_MAX)? numPipes : utils::OV_MAX;
@@ -49,6 +51,15 @@ Overlay::Overlay() {
     mDumpStr[0] = '\0';
     initScalar();
     setDMAMultiplexingSupported();
+
+#ifdef DELTA_PANEL
+    char property[PROPERTY_VALUE_MAX];
+    if((property_get("ro.hwc.is_delta_panel", property, NULL) > 0) &&
+            (!strncmp(property, "1", PROPERTY_VALUE_MAX ) ||
+                    (!strncasecmp(property,"true", PROPERTY_VALUE_MAX )))) {
+        is_delta_panel = true;
+    }
+#endif
 }
 
 Overlay::~Overlay() {
@@ -214,14 +225,22 @@ utils::eDest Overlay::getPipe_8x26(const PipeSpecs& pipeSpecs) {
     } else { //FB layer
         //For 8x26 Secondary we use DMA always for FB for inline rotation
         if(pipeSpecs.dpy == DPY_PRIMARY) {
-            dest = nextPipe(OV_MDP_PIPE_RGB, pipeSpecs.dpy, pipeSpecs.mixer);
-            if(dest == OV_INVALID) {
+            if (is_delta_panel && not pipeSpecs.needsScaling) {
+                /* For wearable targets, secondary display is not applicable
+                   Try for DMA pipe for FB first, if FB does not have scaling*/
+                dest = nextPipe(OV_MDP_PIPE_DMA, pipeSpecs.dpy, pipeSpecs.mixer);
+            }
+            if (dest == OV_INVALID) {
+                dest = nextPipe(OV_MDP_PIPE_RGB, pipeSpecs.dpy, pipeSpecs.mixer);
+            }
+            if (dest == OV_INVALID) {
+                // FB needs scaling, and RGB pipe is not available - try VG
                 dest = nextPipe(OV_MDP_PIPE_VG, pipeSpecs.dpy, pipeSpecs.mixer);
             }
         }
         if(dest == OV_INVALID and (not pipeSpecs.needsScaling) and
-          (not (pipeSpecs.numActiveDisplays > 1 &&
-                pipeSpecs.dpy == DPY_PRIMARY))) {
+                (not (pipeSpecs.numActiveDisplays > 1 &&
+                      pipeSpecs.dpy == DPY_PRIMARY))) {
             dest = nextPipe(OV_MDP_PIPE_DMA, pipeSpecs.dpy, pipeSpecs.mixer);
         }
     }

@@ -100,14 +100,14 @@ void btm_ble_batchscan_filter_track_adv_vse_cback(UINT8 len, UINT8 *p)
                 STREAM_TO_UINT8(adv_data.adv_pkt_len, p);
                 if (adv_data.adv_pkt_len > 0)
                 {
-                    adv_data.p_adv_pkt_data = GKI_getbuf(adv_data.adv_pkt_len);
+                    adv_data.p_adv_pkt_data = osi_malloc(adv_data.adv_pkt_len);
                     memcpy(adv_data.p_adv_pkt_data, p, adv_data.adv_pkt_len);
                 }
 
                 STREAM_TO_UINT8(adv_data.scan_rsp_len, p);
                 if (adv_data.scan_rsp_len > 0)
                 {
-                    adv_data.p_scan_rsp_data = GKI_getbuf(adv_data.scan_rsp_len);
+                    adv_data.p_scan_rsp_data = osi_malloc(adv_data.scan_rsp_len);
                     memcpy(adv_data.p_scan_rsp_data, p, adv_data.scan_rsp_len);
                 }
             }
@@ -196,8 +196,7 @@ tBTM_STATUS btm_ble_batchscan_enq_rep_q(UINT8 report_format, tBTM_BLE_REF_VALUE 
 void btm_ble_batchscan_enq_rep_data(UINT8 report_format, UINT8 num_records, UINT8 *p_data,
                                     UINT8 data_len)
 {
-    int index = 0, len = 0;
-    UINT8 *p_orig_data = NULL, *p_app_data = NULL;
+    int index = 0;
 
     for (index = 0; index < BTM_BLE_BATCH_REP_MAIN_Q_SIZE; index++)
     {
@@ -210,21 +209,23 @@ void btm_ble_batchscan_enq_rep_data(UINT8 report_format, UINT8 num_records, UINT
 
     if (index < BTM_BLE_BATCH_REP_MAIN_Q_SIZE && data_len > 0 && num_records > 0)
     {
-        len = ble_batchscan_cb.main_rep_q.data_len[index];
-        p_orig_data = ble_batchscan_cb.main_rep_q.p_data[index];
+        int len = ble_batchscan_cb.main_rep_q.data_len[index];
+        UINT8 *p_orig_data = ble_batchscan_cb.main_rep_q.p_data[index];
+        UINT8 *p_app_data;
+
         if (NULL != p_orig_data)
         {
-            p_app_data = GKI_getbuf(len + data_len);
+            p_app_data = osi_malloc(len + data_len);
             memcpy(p_app_data, p_orig_data, len);
             memcpy(p_app_data+len, p_data, data_len);
-            GKI_freebuf(p_orig_data);
+            osi_free(p_orig_data);
             ble_batchscan_cb.main_rep_q.p_data[index] = p_app_data;
             ble_batchscan_cb.main_rep_q.num_records[index] += num_records;
             ble_batchscan_cb.main_rep_q.data_len[index] += data_len;
         }
         else
         {
-            p_app_data = GKI_getbuf(data_len);
+            p_app_data = osi_malloc(data_len);
             memcpy(p_app_data, p_data, data_len);
             ble_batchscan_cb.main_rep_q.p_data[index] = p_app_data;
             ble_batchscan_cb.main_rep_q.num_records[index] = num_records;
@@ -959,11 +960,7 @@ void btm_ble_batchscan_cleanup(void)
     BTM_TRACE_EVENT (" btm_ble_batchscan_cleanup");
 
     for (index = 0; index < BTM_BLE_BATCH_REP_MAIN_Q_SIZE; index++)
-    {
-        if (NULL != ble_batchscan_cb.main_rep_q.p_data[index])
-            GKI_freebuf(ble_batchscan_cb.main_rep_q.p_data[index]);
-        ble_batchscan_cb.main_rep_q.p_data[index] = NULL;
-    }
+        osi_free_and_reset((void **)&ble_batchscan_cb.main_rep_q.p_data[index]);
 
     memset(&ble_batchscan_cb, 0, sizeof(tBTM_BLE_BATCH_SCAN_CB));
     memset(&ble_advtrack_cb, 0, sizeof(tBTM_BLE_ADV_TRACK_CB));

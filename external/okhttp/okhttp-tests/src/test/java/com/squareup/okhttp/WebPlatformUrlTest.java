@@ -15,16 +15,12 @@
  */
 package com.squareup.okhttp;
 
-import com.squareup.okhttp.WebPlatformTestRun.SubtestResult;
 import com.squareup.okhttp.internal.Util;
 import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import okio.BufferedSource;
 import okio.Okio;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -40,25 +36,9 @@ public final class WebPlatformUrlTest {
   @Parameterized.Parameters(name = "{0}")
   public static List<Object[]> parameters() {
     try {
-      List<WebPlatformUrlTestData> tests = loadTests();
-
-      // The web platform tests are run in both HTML and XHTML variants. Major browsers pass more
-      // tests in HTML mode, so that's what we'll attempt to match.
-      String testName = "/url/a-element.html";
-      WebPlatformTestRun firefoxTestRun
-          = loadTestRun("/web-platform-test-results-url-firefox-37.0.json");
-      WebPlatformTestRun chromeTestRun
-          = loadTestRun("/web-platform-test-results-url-chrome-42.0.json");
-      WebPlatformTestRun safariTestRun
-          = loadTestRun("/web-platform-test-results-url-safari-7.1.json");
-
       List<Object[]> result = new ArrayList<>();
-      for (WebPlatformUrlTestData urlTestData : tests) {
-        String subtestName = urlTestData.toString();
-        SubtestResult firefoxResult = firefoxTestRun.get(testName, subtestName);
-        SubtestResult chromeResult = chromeTestRun.get(testName, subtestName);
-        SubtestResult safariResult = safariTestRun.get(testName, subtestName);
-        result.add(new Object[] { urlTestData, firefoxResult, chromeResult, safariResult });
+      for (WebPlatformUrlTestData urlTestData : loadTests()) {
+        result.add(new Object[] { urlTestData });
       }
       return result;
     } catch (IOException e) {
@@ -69,89 +49,47 @@ public final class WebPlatformUrlTest {
   @Parameter(0)
   public WebPlatformUrlTestData testData;
 
-  @Parameter(1)
-  public SubtestResult firefoxResult;
-
-  @Parameter(2)
-  public SubtestResult chromeResultResult;
-
-  @Parameter(3)
-  public SubtestResult safariResult;
-
-  private static final List<String> JAVA_NET_URL_SCHEMES
-      = Util.immutableList("file", "ftp", "http", "https", "mailto");
   private static final List<String> HTTP_URL_SCHEMES
       = Util.immutableList("http", "https");
-
-  /** Test how {@link URL} does against the web platform test suite. */
-  @Ignore // java.net.URL is broken. Not much we can do about that.
-  @Test public void javaNetUrl() throws Exception {
-    if (!testData.scheme.isEmpty() && !JAVA_NET_URL_SCHEMES.contains(testData.scheme)) {
-      System.out.println("Ignoring unsupported scheme " + testData.scheme);
-      return;
-    }
-
-    try {
-      testJavaNetUrl();
-    } catch (AssertionError e) {
-      if (tolerateFailure()) {
-        System.out.println("Tolerable failure: " + e.getMessage());
-        return;
-      }
-      throw e;
-    }
-  }
-
-  private void testJavaNetUrl() {
-    URL url = null;
-    String failureMessage = "";
-    try {
-      if (testData.base.equals("about:blank")) {
-        url = new URL(testData.input);
-      } else {
-        URL baseUrl = new URL(testData.base);
-        url = new URL(baseUrl, testData.input);
-      }
-    } catch (MalformedURLException e) {
-      failureMessage = e.getMessage();
-    }
-
-    if (testData.expectParseFailure()) {
-      assertNull("Expected URL to fail parsing", url);
-    } else {
-      assertNotNull("Expected URL to parse successfully, but was " + failureMessage, url);
-      String effectivePort = url.getPort() != -1 ? Integer.toString(url.getPort()) : "";
-      String effectiveQuery = url.getQuery() != null ? "?" + url.getQuery() : "";
-      String effectiveFragment = url.getRef() != null ? "#" + url.getRef() : "";
-      assertEquals("scheme", testData.scheme, url.getProtocol());
-      assertEquals("host", testData.host, url.getHost());
-      assertEquals("port", testData.port, effectivePort);
-      assertEquals("path", testData.path, url.getPath());
-      assertEquals("query", testData.query, effectiveQuery);
-      assertEquals("fragment", testData.fragment, effectiveFragment);
-    }
-  }
+  private static final List<String> KNOWN_FAILURES = Util.immutableList(
+      "Parsing: <http://example\t.\norg> against <http://example.org/foo/bar>",
+      "Parsing: <http://f:0/c> against <http://example.org/foo/bar>",
+      "Parsing: <http://f:00000000000000/c> against <http://example.org/foo/bar>",
+      "Parsing: <http://f:\n/c> against <http://example.org/foo/bar>",
+      "Parsing: <http://f:999999/c> against <http://example.org/foo/bar>",
+      "Parsing: <http://192.0x00A80001> against <about:blank>",
+      // This test fails on Java 7 but passes on Java 8. See HttpUrlTest.hostWithTrailingDot().
+      "Parsing: <http://%30%78%63%30%2e%30%32%35%30.01%2e> against <http://other.com/>",
+      "Parsing: <http://%30%78%63%30%2e%30%32%35%30.01> against <http://other.com/>",
+      "Parsing: <http://192.168.0.257> against <http://other.com/>",
+      "Parsing: <http://０Ｘｃ０．０２５０．０１> against <http://other.com/>"
+  );
 
   /** Test how {@link HttpUrl} does against the web platform test suite. */
-  @Ignore // TODO(jwilson): implement character encoding.
   @Test public void httpUrl() throws Exception {
     if (!testData.scheme.isEmpty() && !HTTP_URL_SCHEMES.contains(testData.scheme)) {
-      System.out.println("Ignoring unsupported scheme " + testData.scheme);
+      System.err.println("Ignoring unsupported scheme " + testData.scheme);
       return;
     }
-    if (!testData.base.startsWith("https:") && !testData.base.startsWith("http:")) {
-      System.out.println("Ignoring unsupported base " + testData.base);
+    if (!testData.base.startsWith("https:")
+        && !testData.base.startsWith("http:")
+        && !testData.base.equals("about:blank")) {
+      System.err.println("Ignoring unsupported base " + testData.base);
       return;
     }
 
     try {
       testHttpUrl();
-    } catch (AssertionError e) {
-      if (tolerateFailure()) {
-        System.out.println("Tolerable failure: " + e.getMessage());
-        return;
+      if (KNOWN_FAILURES.contains(testData.toString())) {
+        System.err.println("Expected failure but was success: " + testData);
       }
-      throw e;
+    } catch (Throwable e) {
+      if (KNOWN_FAILURES.contains(testData.toString())) {
+        System.err.println("Ignoring known failure: " + testData);
+        e.printStackTrace();
+      } else {
+        throw e;
+      }
     }
   }
 
@@ -171,34 +109,23 @@ public final class WebPlatformUrlTest {
       String effectivePort = url.port() != HttpUrl.defaultPort(url.scheme())
           ? Integer.toString(url.port())
           : "";
-      String effectiveQuery = url.query() != null ? "?" + url.query() : "";
-      String effectiveFragment = url.fragment() != null ? "#" + url.fragment() : "";
+      String effectiveQuery = url.encodedQuery() != null ? "?" + url.encodedQuery() : "";
+      String effectiveFragment = url.encodedFragment() != null ? "#" + url.encodedFragment() : "";
+      String effectiveHost = url.host().contains(":")
+          ? ("[" + url.host() + "]")
+          : url.host();
       assertEquals("scheme", testData.scheme, url.scheme());
-      assertEquals("host", testData.host, url.host());
+      assertEquals("host", testData.host, effectiveHost);
       assertEquals("port", testData.port, effectivePort);
-      assertEquals("path", testData.path, url.path());
+      assertEquals("path", testData.path, url.encodedPath());
       assertEquals("query", testData.query, effectiveQuery);
       assertEquals("fragment", testData.fragment, effectiveFragment);
     }
-  }
-
-  /**
-   * Returns true if several major browsers also fail this test, in which case the test itself is
-   * questionable.
-   */
-  private boolean tolerateFailure() {
-    return !firefoxResult.isPass()
-        && !chromeResultResult.isPass()
-        && !safariResult.isPass();
   }
 
   private static List<WebPlatformUrlTestData> loadTests() throws IOException {
     BufferedSource source = Okio.buffer(Okio.source(
         WebPlatformUrlTest.class.getResourceAsStream("/web-platform-test-urltestdata.txt")));
     return WebPlatformUrlTestData.load(source);
-  }
-
-  private static WebPlatformTestRun loadTestRun(String name) throws IOException {
-    return WebPlatformTestRun.load(WebPlatformUrlTest.class.getResourceAsStream(name));
   }
 }

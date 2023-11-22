@@ -26,7 +26,7 @@ namespace llvm {
 
   namespace X86ISD {
     // X86 Specific DAG Nodes
-    enum NodeType {
+    enum NodeType : unsigned {
       // Start the numbering where the builtin ops leave off.
       FIRST_NUMBER = ISD::BUILTIN_OP_END,
 
@@ -55,10 +55,6 @@ namespace llvm {
       ///  Bitwise logical ANDNOT of floating point values. This
       /// corresponds to X86::ANDNPS or X86::ANDNPD.
       FANDN,
-
-      /// Bitwise logical right shift of floating point values. This
-      /// corresponds to X86::PSRLDQ.
-      FSRL,
 
       /// These operations represent an abstract X86 call
       /// instruction, which includes a bunch of information.  In particular the
@@ -130,6 +126,9 @@ namespace llvm {
       /// 1 is the number of bytes of stack to pop.
       RET_FLAG,
 
+      /// Return from interrupt. Operand 0 is the number of bytes to pop.
+      IRET,
+
       /// Repeat fill, corresponds to X86::REP_STOSx.
       REP_STOS,
 
@@ -184,6 +183,11 @@ namespace llvm {
       /// Shuffle 16 8-bit values within a vector.
       PSHUFB,
 
+      /// Compute Sum of Absolute Differences.
+      PSADBW,
+      /// Compute Double Block Packed Sum-Absolute-Differences
+      DBPSADBW,
+
       /// Bitwise Logical AND NOT of Packed FP values.
       ANDNP,
 
@@ -200,15 +204,30 @@ namespace llvm {
 
       /// Combined add and sub on an FP vector.
       ADDSUB,
+
       //  FP vector ops with rounding mode.
       FADD_RND,
       FSUB_RND,
       FMUL_RND,
       FDIV_RND,
-      
-      // Integer sub with unsigned saturation.
-      SUBUS,
+      FMAX_RND,
+      FMIN_RND,
+      FSQRT_RND,
 
+      // FP vector get exponent 
+      FGETEXP_RND,
+      // Extract Normalized Mantissas
+      VGETMANT,
+      // FP Scale
+      SCALEF,
+      // Integer add/sub with unsigned saturation.
+      ADDUS,
+      SUBUS,
+      // Integer add/sub with signed saturation.
+      ADDS,
+      SUBS,
+      // Unsigned Integer average 
+      AVG,
       /// Integer horizontal add.
       HADD,
 
@@ -221,11 +240,11 @@ namespace llvm {
       /// Floating point horizontal sub.
       FHSUB,
 
-      /// Unsigned integer max and min.
-      UMAX, UMIN,
+      // Integer absolute value
+      ABS,
 
-      /// Signed integer max and min.
-      SMAX, SMIN,
+      // Detect Conflicts Within a Vector
+      CONFLICT,
 
       /// Floating point max and min.
       FMAX, FMIN,
@@ -273,15 +292,17 @@ namespace llvm {
 
       // Vector integer truncate.
       VTRUNC,
-
-      // Vector integer truncate with mask.
-      VTRUNCM,
+      // Vector integer truncate with unsigned/signed saturation.
+      VTRUNCUS, VTRUNCS,
 
       // Vector FP extend.
       VFPEXT,
 
       // Vector FP round.
       VFPROUND,
+
+      // Vector signed/unsigned integer to double.
+      CVTDQ2PD, CVTUDQ2PD,
 
       // 128-bit vector logical left / right shift
       VSHLDQ, VSRLDQ,
@@ -304,6 +325,8 @@ namespace llvm {
       /// integer signed and unsigned data types.
       CMPM,
       CMPMU,
+      // Vector comparison with rounding mode for FP values
+      CMPM_RND,
 
       // Arithmetic operations with FLAGS results.
       ADD, SUB, ADC, SBB, SMUL,
@@ -335,6 +358,7 @@ namespace llvm {
 
       // OR/AND test for masks
       KORTEST,
+      KTEST,
 
       // Several flavors of instructions with vector shuffle behaviors.
       PACKSS,
@@ -347,6 +371,8 @@ namespace llvm {
       PSHUFHW,
       PSHUFLW,
       SHUFP,
+      //Shuffle Packed Values at 128-bit granularity
+      SHUF128,
       MOVDDUP,
       MOVSHDUP,
       MOVSLDUP,
@@ -366,18 +392,48 @@ namespace llvm {
       VPERMIV3,
       VPERMI,
       VPERM2X128,
+      // Bitwise ternary logic
+      VPTERNLOG,
+      // Fix Up Special Packed Float32/64 values
+      VFIXUPIMM,
+      // Range Restriction Calculation For Packed Pairs of Float32/64 values
+      VRANGE,
+      // Reduce - Perform Reduction Transformation on scalar\packed FP
+      VREDUCE,
+      // RndScale - Round FP Values To Include A Given Number Of Fraction Bits
+      VRNDSCALE,
+      // VFPCLASS - Tests Types Of a FP Values for packed types.
+      VFPCLASS, 
+      // VFPCLASSS - Tests Types Of a FP Values for scalar types.
+      VFPCLASSS, 
+      // Broadcast scalar to vector
       VBROADCAST,
-      // masked broadcast
+      // Broadcast mask to vector
       VBROADCASTM,
+      // Broadcast subvector to vector
+      SUBV_BROADCAST,
       // Insert/Extract vector element
       VINSERT,
       VEXTRACT,
+
+      /// SSE4A Extraction and Insertion.
+      EXTRQI, INSERTQI,
+
+      // XOP variable/immediate rotations
+      VPROT, VPROTI,
+      // XOP arithmetic/logical shifts
+      VPSHA, VPSHL,
+      // XOP signed/unsigned integer comparisons
+      VPCOM, VPCOMU,
 
       // Vector multiply packed unsigned doubleword integers
       PMULUDQ,
       // Vector multiply packed signed doubleword integers
       PMULDQ,
-
+      // Vector Multiply Packed UnsignedIntegers with Round and Scale
+      MULHRS,
+      // Multiply and Add Packed Integers
+      VPMADDUBSW, VPMADDWD,
       // FMA nodes
       FMADD,
       FNMADD,
@@ -392,12 +448,18 @@ namespace llvm {
       FNMSUB_RND,
       FMADDSUB_RND,
       FMSUBADD_RND,
-      RNDSCALE,
 
       // Compress and expand
       COMPRESS,
       EXPAND,
 
+      //Convert Unsigned/Integer to Scalar Floating-Point Value
+      //with rounding mode
+      SINT_TO_FP_RND,
+      UINT_TO_FP_RND,
+
+      // Vector float/double to signed/unsigned integer.
+      FP_TO_SINT_RND, FP_TO_UINT_RND,
       // Save xmm argument registers to the stack, according to %al. An operator
       // is needed so that this can be expanded with control flow.
       VASTART_SAVE_XMM_REGS,
@@ -409,9 +471,6 @@ namespace llvm {
       // segmented stacks. Check if the current stacklet has enough space, and
       // falls back to heap allocation if not.
       SEG_ALLOCA,
-
-      // Windows's _ftol2 runtime routine to do fptoui.
-      WIN_FTOL,
 
       // Memory barrier
       MEMBARRIER,
@@ -566,8 +625,11 @@ namespace llvm {
                                const X86Subtarget &STI);
 
     unsigned getJumpTableEncoding() const override;
+    bool useSoftFloat() const override;
 
-    MVT getScalarShiftAmountTy(EVT LHSTy) const override { return MVT::i8; }
+    MVT getScalarShiftAmountTy(const DataLayout &, EVT) const override {
+      return MVT::i8;
+    }
 
     const MCExpr *
     LowerCustomJumpTableEntry(const MachineJumpTableInfo *MJTI,
@@ -585,7 +647,8 @@ namespace llvm {
     /// function arguments in the caller parameter area. For X86, aggregates
     /// that contains are placed at 16-byte boundaries while the rest are at
     /// 4-byte boundaries.
-    unsigned getByValTypeAlignment(Type *Ty) const override;
+    unsigned getByValTypeAlignment(Type *Ty,
+                                   const DataLayout &DL) const override;
 
     /// Returns the target specific optimal type for load
     /// and store operations as a result of memset, memcpy, and memmove
@@ -610,9 +673,8 @@ namespace llvm {
     /// legal as the hook is used before type legalization.
     bool isSafeMemOpType(MVT VT) const override;
 
-    /// Returns true if the target allows
-    /// unaligned memory accesses. of the specified type. Returns whether it
-    /// is "fast" by reference in the second argument.
+    /// Returns true if the target allows unaligned memory accesses of the
+    /// specified type. Returns whether it is "fast" in the last argument.
     bool allowsMisalignedMemoryAccesses(EVT VT, unsigned AS, unsigned Align,
                                        bool *Fast) const override;
 
@@ -654,7 +716,8 @@ namespace llvm {
     bool isCheapToSpeculateCtlz() const override;
 
     /// Return the value type to use for ISD::SETCC.
-    EVT getSetCCResultType(LLVMContext &Context, EVT VT) const override;
+    EVT getSetCCResultType(const DataLayout &DL, LLVMContext &Context,
+                           EVT VT) const override;
 
     /// Determine which of the bits specified in Mask are known to be either
     /// zero or one and return them in the KnownZero/KnownOne bitsets.
@@ -676,8 +739,7 @@ namespace llvm {
 
     bool ExpandInlineAsm(CallInst *CI) const override;
 
-    ConstraintType
-      getConstraintType(const std::string &Constraint) const override;
+    ConstraintType getConstraintType(StringRef Constraint) const override;
 
     /// Examine constraint string and operand type and determine a weight value.
     /// The operand object must already have been set up with the operand type.
@@ -695,10 +757,17 @@ namespace llvm {
                                       std::vector<SDValue> &Ops,
                                       SelectionDAG &DAG) const override;
 
-    unsigned getInlineAsmMemConstraint(
-        const std::string &ConstraintCode) const override {
-      // FIXME: Map different constraints differently.
-      return InlineAsm::Constraint_m;
+    unsigned
+    getInlineAsmMemConstraint(StringRef ConstraintCode) const override {
+      if (ConstraintCode == "i")
+        return InlineAsm::Constraint_i;
+      else if (ConstraintCode == "o")
+        return InlineAsm::Constraint_o;
+      else if (ConstraintCode == "v")
+        return InlineAsm::Constraint_v;
+      else if (ConstraintCode == "X")
+        return InlineAsm::Constraint_X;
+      return TargetLowering::getInlineAsmMemConstraint(ConstraintCode);
     }
 
     /// Given a physical register constraint
@@ -707,12 +776,12 @@ namespace llvm {
     /// error, this returns a register number of 0.
     std::pair<unsigned, const TargetRegisterClass *>
     getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
-                                 const std::string &Constraint,
-                                 MVT VT) const override;
+                                 StringRef Constraint, MVT VT) const override;
 
     /// Return true if the addressing mode represented
     /// by AM is legal for this target, for a load/store of the specified type.
-    bool isLegalAddressingMode(const AddrMode &AM, Type *Ty) const override;
+    bool isLegalAddressingMode(const DataLayout &DL, const AddrMode &AM,
+                               Type *Ty, unsigned AS) const override;
 
     /// Return true if the specified immediate is legal
     /// icmp immediate, that is the target has icmp instructions which can
@@ -731,7 +800,8 @@ namespace llvm {
     /// of the specified type.
     /// If the AM is supported, the return value must be >= 0.
     /// If the AM is not supported, it returns a negative value.
-    int getScalingFactorCost(const AddrMode &AM, Type *Ty) const override;
+    int getScalingFactorCost(const DataLayout &DL, const AddrMode &AM, Type *Ty,
+                             unsigned AS) const override;
 
     bool isVectorShiftByScalarCheap(Type *Ty) const override;
 
@@ -806,16 +876,7 @@ namespace llvm {
     /// register, not on the X87 floating point stack.
     bool isScalarFPTypeInSSEReg(EVT VT) const {
       return (VT == MVT::f64 && X86ScalarSSEf64) || // f64 is when SSE2
-      (VT == MVT::f32 && X86ScalarSSEf32);   // f32 is when SSE1
-    }
-
-    /// Return true if the target uses the MSVC _ftol2 routine for fptoui.
-    bool isTargetFTOL() const;
-
-    /// Return true if the MSVC _ftol2 routine should be used for fptoui to the
-    /// given type.
-    bool isIntegerTypeFTOL(EVT VT) const {
-      return isTargetFTOL() && VT == MVT::i64;
+             (VT == MVT::f32 && X86ScalarSSEf32);   // f32 is when SSE1
     }
 
     /// \brief Returns true if it is beneficial to convert a load of a constant
@@ -832,7 +893,18 @@ namespace llvm {
       return nullptr; // nothing to do, move along.
     }
 
-    unsigned getRegisterByName(const char* RegName, EVT VT) const override;
+    unsigned getRegisterByName(const char* RegName, EVT VT,
+                               SelectionDAG &DAG) const override;
+
+    /// If a physical register, this returns the register that receives the
+    /// exception address on entry to an EH pad.
+    unsigned
+    getExceptionPointerRegister(const Constant *PersonalityFn) const override;
+
+    /// If a physical register, this returns the register that receives the
+    /// exception typeid on entry to a landing pad.
+    unsigned
+    getExceptionSelectorRegister(const Constant *PersonalityFn) const override;
 
     /// This method returns a target specific FastISel object,
     /// or null if the target does not support "fast" ISel.
@@ -845,6 +917,11 @@ namespace llvm {
     bool getStackCookieLocation(unsigned &AddressSpace,
                                 unsigned &Offset) const override;
 
+    /// Return true if the target stores SafeStack pointer at a fixed offset in
+    /// some non-standard address space, and populates the address space and
+    /// offset as appropriate.
+    Value *getSafeStackPointerLocation(IRBuilder<> &IRB) const override;
+
     SDValue BuildFILD(SDValue Op, EVT SrcVT, SDValue Chain, SDValue StackSlot,
                       SelectionDAG &DAG) const;
 
@@ -853,6 +930,11 @@ namespace llvm {
     bool useLoadStackGuardNode() const override;
     /// \brief Customize the preferred legalization strategy for certain types.
     LegalizeTypeAction getPreferredVectorAction(EVT VT) const override;
+
+    bool isIntDivCheap(EVT VT, AttributeSet Attr) const override;
+
+    void markInRegArguments(SelectionDAG &DAG, TargetLowering::ArgListTy& Args)
+      const override;
 
   protected:
     std::pair<const TargetRegisterClass *, uint8_t>
@@ -863,7 +945,6 @@ namespace llvm {
     /// Keep a pointer to the X86Subtarget around so that we can
     /// make the right decision when generating code for different targets.
     const X86Subtarget *Subtarget;
-    const DataLayout *TD;
 
     /// Select between SSE or x87 floating point ops.
     /// When SSE is available, use it for f32 operations.
@@ -910,7 +991,6 @@ namespace llvm {
                                     const SmallVectorImpl<SDValue> &OutVals,
                                     const SmallVectorImpl<ISD::InputArg> &Ins,
                                            SelectionDAG& DAG) const;
-    bool IsCalleePop(bool isVarArg, CallingConv::ID CallConv) const;
     SDValue EmitTailCallLoadRetAddr(SelectionDAG &DAG, SDValue &OutRetAddr,
                                 SDValue Chain, bool IsTailCall, bool Is64Bit,
                                 int FPDiff, SDLoc dl) const;
@@ -924,7 +1004,6 @@ namespace llvm {
 
     SDValue LowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerBUILD_VECTORvXi1(SDValue Op, SelectionDAG &DAG) const;
-    SDValue LowerVECTOR_SHUFFLE(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerVSELECT(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerEXTRACT_VECTOR_ELT(SDValue Op, SelectionDAG &DAG) const;
     SDValue ExtractBitFromMaskVector(SDValue Op, SelectionDAG &DAG) const;
@@ -949,9 +1028,9 @@ namespace llvm {
     SDValue LowerToBT(SDValue And, ISD::CondCode CC,
                       SDLoc dl, SelectionDAG &DAG) const;
     SDValue LowerSETCC(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerSETCCE(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerSELECT(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerBRCOND(SDValue Op, SelectionDAG &DAG) const;
-    SDValue LowerMEMSET(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerJumpTable(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerDYNAMIC_STACKALLOC(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerVASTART(SDValue Op, SelectionDAG &DAG) const;
@@ -965,6 +1044,8 @@ namespace llvm {
     SDValue LowerINIT_TRAMPOLINE(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerFLT_ROUNDS_(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerWin64_i128OP(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerGC_TRANSITION_START(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerGC_TRANSITION_END(SDValue Op, SelectionDAG &DAG) const;
 
     SDValue
       LowerFormalArguments(SDValue Chain,
@@ -995,27 +1076,16 @@ namespace llvm {
 
     const MCPhysReg *getScratchRegisters(CallingConv::ID CC) const override;
 
-    bool shouldExpandAtomicLoadInIR(LoadInst *SI) const override;
+    TargetLoweringBase::AtomicExpansionKind
+    shouldExpandAtomicLoadInIR(LoadInst *SI) const override;
     bool shouldExpandAtomicStoreInIR(StoreInst *SI) const override;
-    TargetLoweringBase::AtomicRMWExpansionKind
+    TargetLoweringBase::AtomicExpansionKind
     shouldExpandAtomicRMWInIR(AtomicRMWInst *AI) const override;
 
     LoadInst *
     lowerIdempotentRMWIntoFencedLoad(AtomicRMWInst *AI) const override;
 
-    bool needsCmpXchgNb(const Type *MemType) const;
-
-    /// Utility function to emit atomic-load-arith operations (and, or, xor,
-    /// nand, max, min, umax, umin). It takes the corresponding instruction to
-    /// expand, the associated machine basic block, and the associated X86
-    /// opcodes for reg/reg.
-    MachineBasicBlock *EmitAtomicLoadArith(MachineInstr *MI,
-                                           MachineBasicBlock *MBB) const;
-
-    /// Utility function to emit atomic-load-arith operations (and, or, xor,
-    /// nand, add, sub, swap) for 64-bit operands on 32-bit target.
-    MachineBasicBlock *EmitAtomicLoadArith6432(MachineInstr *MI,
-                                               MachineBasicBlock *MBB) const;
+    bool needsCmpXchgNb(Type *MemType) const;
 
     // Utility function to emit the low-level va_arg code for X86-64.
     MachineBasicBlock *EmitVAARG64WithCustomInserter(
@@ -1030,16 +1100,22 @@ namespace llvm {
     MachineBasicBlock *EmitLoweredSelect(MachineInstr *I,
                                          MachineBasicBlock *BB) const;
 
+    MachineBasicBlock *EmitLoweredAtomicFP(MachineInstr *I,
+                                           MachineBasicBlock *BB) const;
+
     MachineBasicBlock *EmitLoweredWinAlloca(MachineInstr *MI,
                                               MachineBasicBlock *BB) const;
+
+    MachineBasicBlock *EmitLoweredCatchRet(MachineInstr *MI,
+                                           MachineBasicBlock *BB) const;
+
+    MachineBasicBlock *EmitLoweredCatchPad(MachineInstr *MI,
+                                           MachineBasicBlock *BB) const;
 
     MachineBasicBlock *EmitLoweredSegAlloca(MachineInstr *MI,
                                             MachineBasicBlock *BB) const;
 
     MachineBasicBlock *EmitLoweredTLSCall(MachineInstr *MI,
-                                          MachineBasicBlock *BB) const;
-
-    MachineBasicBlock *emitLoweredTLSAddr(MachineInstr *MI,
                                           MachineBasicBlock *BB) const;
 
     MachineBasicBlock *emitEHSjLjSetJmp(MachineInstr *MI,
@@ -1074,7 +1150,7 @@ namespace llvm {
                              unsigned &RefinementSteps) const override;
 
     /// Reassociate floating point divisions into multiply by reciprocal.
-    bool combineRepeatedFPDivisors(unsigned NumUsers) const override;
+    unsigned combineRepeatedFPDivisors() const override;
   };
 
   namespace X86 {

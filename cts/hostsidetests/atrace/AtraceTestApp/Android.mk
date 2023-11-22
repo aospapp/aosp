@@ -30,4 +30,7 @@ LOCAL_PACKAGE_NAME := CtsAtraceTestApp
 
 #LOCAL_DEX_PREOPT := false
 
+# Tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
+
 include $(BUILD_CTS_SUPPORT_PACKAGE)

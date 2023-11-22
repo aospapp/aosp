@@ -71,7 +71,7 @@ static keymaster_error_t DeserializeUnversionedBlob(const KeymasterKeyBlob& key_
         !copy_from_buf(buf_ptr, end, tag->peek_write(), OCB_TAG_LENGTH) ||
         !hw_enforced->Deserialize(buf_ptr, end) ||  //
         !sw_enforced->Deserialize(buf_ptr, end)) {
-        LOG_I("Failed to deserialize unversioned blob (may be a HW-backed key)", 0);
+        LOG_D("Failed to deserialize unversioned blob (may be a HW-backed key)", 0);
         return KM_ERROR_INVALID_KEY_BLOB;
     }
     if (!nonce->advance_write(OCB_NONCE_LENGTH) || !tag->advance_write(OCB_TAG_LENGTH))
@@ -127,7 +127,7 @@ keymaster_error_t DeserializeAuthEncryptedBlob(const KeymasterKeyBlob& key_blob,
         // Based on those two checks alone, the probability of interpreting an unversioned blob as a
         // version 0 blob is 1/2^40.  That's small enough to be negligible, but there are additional
         // checks which lower it further.
-        LOG_I("Failed to deserialize versioned key blob.  Assuming unversioned.", 0);
+        LOG_D("Failed to deserialize versioned key blob.  Assuming unversioned.", 0);
         return DeserializeUnversionedBlob(key_blob, encrypted_key_material, hw_enforced,
                                           sw_enforced, nonce, tag);
     }

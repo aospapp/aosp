@@ -14,6 +14,8 @@ LOCAL_C_INCLUDES := \
 LOCAL_SRC_FILES := \
 	camera_metadata_tests.cpp
 
+LOCAL_CFLAGS += -Wall -Wextra -Werror
+
 LOCAL_MODULE := camera_metadata_tests
 LOCAL_MODULE_TAGS := tests
 LOCAL_MODULE_STEM_32 := camera_metadata_tests

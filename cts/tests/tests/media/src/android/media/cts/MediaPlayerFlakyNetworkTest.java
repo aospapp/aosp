@@ -23,8 +23,6 @@ import android.os.Message;
 import android.os.SystemClock;
 import android.webkit.cts.CtsTestServer;
 
-import com.android.cts.util.TimeoutReq;
-
 import org.apache.http.HttpServerConnection;
 
 import org.apache.http.impl.DefaultHttpServerConnection;
@@ -46,7 +44,7 @@ import java.util.concurrent.FutureTask;
  * from an HTTP server over a simulated "flaky" network.
  */
 public class MediaPlayerFlakyNetworkTest extends MediaPlayerTestBase {
-    private static final String PKG = "com.android.cts.media";
+    private static final String PKG = "android.media.cts";
 
     private static final String[] TEST_VIDEOS = {
         "raw/video_480x360_mp4_h264_1350kbps_30fps_aac_stereo_192kbps_44100hz",
@@ -69,37 +67,30 @@ public class MediaPlayerFlakyNetworkTest extends MediaPlayerTestBase {
         super.tearDown();
     }
 
-    @TimeoutReq(minutes = 5)
     public void test_S0P0() throws Throwable {
         doPlayStreams(0, 0);
     }
 
-    @TimeoutReq(minutes = 10)
     public void test_S1P000005() throws Throwable {
         doPlayStreams(1, 0.000005f);
     }
 
-    @TimeoutReq(minutes = 10)
     public void test_S2P00001() throws Throwable {
         doPlayStreams(2, 0.00001f);
     }
 
-    @TimeoutReq(minutes = 10)
     public void test_S3P00001() throws Throwable {
         doPlayStreams(3, 0.00001f);
     }
 
-    @TimeoutReq(minutes = 10)
     public void test_S4P00001() throws Throwable {
         doPlayStreams(4, 0.00001f);
     }
 
-    @TimeoutReq(minutes = 10)
     public void test_S5P00001() throws Throwable {
         doPlayStreams(5, 0.00001f);
     }
 
-    @TimeoutReq(minutes = 10)
     public void test_S6P00002() throws Throwable {
         doPlayStreams(6, 0.00002f);
     }

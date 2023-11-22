@@ -22,26 +22,27 @@ import java.util.HashSet;
 import java.util.Set;
 import vogar.FileCache;
 import vogar.Log;
+import vogar.commands.Command;
 
 public class DeviceFileCache implements FileCache {
     private final Log log;
     private final File cacheRoot;
-    private AndroidSdk androidSdk;
+    private DeviceFilesystem deviceFilesystem;
 
     /** filled lazily */
     private Set<File> cachedFiles;
 
-    public DeviceFileCache(Log log, File deviceDir, AndroidSdk androidSdk) {
+    public DeviceFileCache(Log log, File deviceDir, DeviceFilesystem deviceFilesystem) {
         this.log = log;
         this.cacheRoot = new File(deviceDir, "md5-cache");
-        this.androidSdk = androidSdk;
+        this.deviceFilesystem = deviceFilesystem;
     }
 
     public boolean existsInCache(String key) {
         if (cachedFiles == null) {
             try {
                 cachedFiles = new HashSet<File>();
-                cachedFiles.addAll(androidSdk.deviceFilesystem.ls(cacheRoot));
+                cachedFiles.addAll(deviceFilesystem.ls(cacheRoot));
                 log.verbose("indexed on-device cache: " + cachedFiles.size() + " entries.");
             } catch (FileNotFoundException e) {
                 // cacheRoot probably just hasn't been created yet.
@@ -54,16 +55,26 @@ public class DeviceFileCache implements FileCache {
 
     public void copyFromCache(String key, File destination) {
         File cachedFile = new File(cacheRoot, key);
-        androidSdk.cp(cachedFile, destination);
+        cp(cachedFile, destination);
     }
 
     public void copyToCache(File source, String key) {
         File cachedFile = new File(cacheRoot, key);
-        androidSdk.deviceFilesystem.mkdirs(cacheRoot);
+        deviceFilesystem.mkdirs(cacheRoot);
         // Copy it onto the same file system first, then atomically move it into place.
         // That way, if we fail, we don't leave anything dangerous lying around.
         File temporary = new File(cachedFile + ".tmp");
-        androidSdk.cp(source, temporary);
-        androidSdk.mv(temporary, cachedFile);
+        cp(source, temporary);
+        mv(cachedFile, temporary);
+    }
+
+    private void mv(File cachedFile, File temporary) {
+        new Command(log, "adb", "shell", "mv", temporary.getPath(), cachedFile.getPath()).execute();
+    }
+
+    private void cp(File source, File temporary) {
+        // adb doesn't support "cp" command directly
+        new Command(log, "adb", "shell", "cat", source.getPath(), ">", temporary.getPath())
+                .execute();
     }
 }

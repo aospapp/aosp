@@ -73,15 +73,16 @@ IsGlobalInSmallSection(const GlobalValue *GV, const TargetMachine &TM,
   if (!GVA)
     return false;
 
-  if (Kind.isBSS() || Kind.isDataNoRel() || Kind.isCommon()) {
+  if (Kind.isBSS() || Kind.isData() || Kind.isCommon()) {
     Type *Ty = GV->getType()->getElementType();
-    return IsInSmallSection(TM.getDataLayout()->getTypeAllocSize(Ty));
+    return IsInSmallSection(
+        GV->getParent()->getDataLayout().getTypeAllocSize(Ty));
   }
 
   return false;
 }
 
-const MCSection *
+MCSection *
 HexagonTargetObjectFile::SelectSectionForGlobal(const GlobalValue *GV,
                                                 SectionKind Kind, Mangler &Mang,
                                                 const TargetMachine &TM) const {
@@ -89,7 +90,7 @@ HexagonTargetObjectFile::SelectSectionForGlobal(const GlobalValue *GV,
   // Handle Small Section classification here.
   if (Kind.isBSS() && IsGlobalInSmallSection(GV, TM, Kind))
     return SmallBSSSection;
-  if (Kind.isDataNoRel() && IsGlobalInSmallSection(GV, TM, Kind))
+  if (Kind.isData() && IsGlobalInSmallSection(GV, TM, Kind))
     return SmallDataSection;
 
   // Otherwise, we work the same as ELF.

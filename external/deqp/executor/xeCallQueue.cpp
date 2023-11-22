@@ -38,7 +38,8 @@ namespace xe
 // CallQueue
 
 CallQueue::CallQueue (void)
-	: m_callSem		(0)
+	: m_canceled	(false)
+	, m_callSem		(0)
 	, m_callQueue	(64)
 {
 }
@@ -50,12 +51,21 @@ CallQueue::~CallQueue (void)
 		delete *i;
 }
 
+void CallQueue::cancel (void)
+{
+	m_canceled = true;
+	m_callSem.increment();
+}
+
 void CallQueue::callNext (void)
 {
 	Call* call = DE_NULL;
 
 	// Wait for a call.
 	m_callSem.decrement();
+
+	if (m_canceled)
+		return;
 
 	// Acquire call from buffer.
 	{
@@ -66,7 +76,12 @@ void CallQueue::callNext (void)
 	try
 	{
 		// \note Enqueue lock is not held during call so it is possible to enqueue more work from dispatched call.
-		call->getFunction()(CallReader(call));
+		CallReader reader(call);
+
+		call->getFunction()(reader);
+
+		// check callee consumed all
+		DE_ASSERT(reader.isDataConsumed());
 		call->clear();
 	}
 	catch (const std::exception&)
@@ -160,14 +175,14 @@ CallReader::CallReader (Call* call)
 {
 }
 
-void CallReader::read (deUint8* bytes, int numBytes)
+void CallReader::read (deUint8* bytes, size_t numBytes)
 {
 	DE_ASSERT(m_curPos + numBytes <= m_call->getDataSize());
 	deMemcpy(bytes, m_call->getData()+m_curPos, numBytes);
 	m_curPos += numBytes;
 }
 
-const deUint8* CallReader::getDataBlock (int numBytes)
+const deUint8* CallReader::getDataBlock (size_t numBytes)
 {
 	DE_ASSERT(m_curPos + numBytes <= m_call->getDataSize());
 
@@ -175,6 +190,11 @@ const deUint8* CallReader::getDataBlock (int numBytes)
 	m_curPos += numBytes;
 
 	return ptr;
+}
+
+bool CallReader::isDataConsumed (void) const
+{
+	return m_curPos == m_call->getDataSize();
 }
 
 CallReader& operator>> (CallReader& reader, std::string& value)
@@ -209,10 +229,10 @@ CallWriter::~CallWriter (void)
 		m_queue->freeCall(m_call);
 }
 
-void CallWriter::write (const deUint8* bytes, int numBytes)
+void CallWriter::write (const deUint8* bytes, size_t numBytes)
 {
 	DE_ASSERT(!m_enqueued);
-	int curPos = m_call->getDataSize();
+	size_t curPos = m_call->getDataSize();
 	m_call->setDataSize(curPos+numBytes);
 	deMemcpy(m_call->getData()+curPos, bytes, numBytes);
 }

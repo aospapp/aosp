@@ -29,6 +29,10 @@
 
         <TextView style="@style/ChipSubtitleStyle" />
 
+        <TextView
+            android:id="@+id/chip_indicator_text"
+            style="@style/ChipIndicatorTextStyle" />
+
     </LinearLayout>
 
     <ImageView style="@style/ChipDeleteIconStyle" />

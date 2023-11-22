@@ -23,20 +23,12 @@ LOCAL_SHARED_LIBRARIES := libLLVM
 
 LOCAL_LDLIBS += -lpthread -lm -ldl
 
+# Create symlink llvm-lib and llvm-ranlib pointing to llvm-ar.
+# Use "=" (instead of ":=") to defer the evaluation.
+LOCAL_POST_INSTALL_CMD = $(hide) ln -sf llvm-ar $(dir $(LOCAL_INSTALLED_MODULE))llvm-lib \
+						 && ln -sf llvm-ar $(dir $(LOCAL_INSTALLED_MODULE))llvm-ranlib
+
 include $(LLVM_ROOT_PATH)/llvm.mk
 include $(LLVM_HOST_BUILD_MK)
+include $(LLVM_GEN_ATTRIBUTES_MK)
 include $(BUILD_HOST_EXECUTABLE)
-
-LLVM_RANLIB = $(HOST_OUT)/bin/llvm-ranlib
-
-# Make sure if llvm-ar (i.e. $(LOCAL_MODULE)) get installed,
-# llvm-ranlib will get installed as well.
-ALL_MODULES.$(LOCAL_MODULE).INSTALLED := \
-    $(ALL_MODULES.$(LOCAL_MODULE).INSTALLED) $(LLVM_RANLIB)
-# the additional dependency is needed when you run mm/mmm.
-$(LOCAL_MODULE) : $(LLVM_RANLIB)
-
-# Symlink for llvm-ranlib
-$(LLVM_RANLIB) : $(LOCAL_INSTALLED_MODULE)
-	@echo "Symlink $@ -> $<"
-	$(hide) ln -sf $(notdir $<) $@

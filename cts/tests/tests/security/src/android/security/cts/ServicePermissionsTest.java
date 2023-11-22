@@ -17,6 +17,7 @@
 package android.security.cts;
 
 import android.os.IBinder;
+import android.os.DeadObjectException;
 import android.os.TransactionTooLargeException;
 import android.test.AndroidTestCase;
 import android.util.Log;
@@ -108,7 +109,7 @@ public class ServicePermissionsTest extends AndroidTestCase {
                     // probably not checking for DUMP.
                     throw e;
                 }
-            } catch (TransactionTooLargeException e) {
+            } catch (TransactionTooLargeException | DeadObjectException e) {
                 // SELinux likely prevented the dump - assume safe
                 continue;
             } finally {

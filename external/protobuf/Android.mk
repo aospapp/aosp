@@ -23,18 +23,13 @@ CC_LITE_SRC_FILES := \
     src/google/protobuf/stubs/atomicops_internals_x86_msvc.cc        \
     src/google/protobuf/stubs/common.cc                              \
     src/google/protobuf/stubs/once.cc                                \
-    src/google/protobuf/stubs/hash.h                                 \
-    src/google/protobuf/stubs/map_util.h                             \
-    src/google/protobuf/stubs/shared_ptr.h                           \
     src/google/protobuf/stubs/stringprintf.cc                        \
-    src/google/protobuf/stubs/stringprintf.h                         \
     src/google/protobuf/extension_set.cc                             \
     src/google/protobuf/generated_message_util.cc                    \
     src/google/protobuf/message_lite.cc                              \
     src/google/protobuf/repeated_field.cc                            \
     src/google/protobuf/wire_format_lite.cc                          \
     src/google/protobuf/io/coded_stream.cc                           \
-    src/google/protobuf/io/coded_stream_inl.h                        \
     src/google/protobuf/io/zero_copy_stream.cc                       \
     src/google/protobuf/io/zero_copy_stream_impl_lite.cc
 
@@ -177,6 +172,7 @@ LOCAL_SDK_VERSION := 8
 LOCAL_SRC_FILES := $(call all-java-files-under, java/src/main/java/com/google/protobuf/nano)
 LOCAL_SRC_FILES += $(call all-java-files-under, java/src/device/main/java/com/google/protobuf/nano)
 
+LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
 # Java nano library (for host-side users)
@@ -188,6 +184,7 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := $(call all-java-files-under, java/src/main/java/com/google/protobuf/nano)
 
+LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 include $(BUILD_HOST_JAVA_LIBRARY)
 
 # Java micro library (for device-side users)
@@ -200,6 +197,7 @@ LOCAL_SDK_VERSION := 8
 
 LOCAL_SRC_FILES := $(call all-java-files-under, java/src/main/java/com/google/protobuf/micro)
 
+LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
 # Java micro library (for host-side users)
@@ -211,6 +209,7 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := $(call all-java-files-under, java/src/main/java/com/google/protobuf/micro)
 
+LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 include $(BUILD_HOST_JAVA_LIBRARY)
 
 # Java lite library (for device-side users)
@@ -223,6 +222,7 @@ LOCAL_SDK_VERSION := 9
 
 LOCAL_SRC_FILES := $(JAVA_LITE_SRC_FILES)
 
+LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
 # Java lite library (for host-side users)
@@ -234,6 +234,7 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := $(JAVA_LITE_SRC_FILES)
 
+LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 include $(BUILD_HOST_JAVA_LIBRARY)
 
 # Java full library (for host-side users)
@@ -245,14 +246,14 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := $(JAVA_FULL_SRC_FILES)
 
+LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 include $(BUILD_HOST_JAVA_LIBRARY)
 
-# C++ lite library
+# C++ lite library for the NDK.
 # =======================================================
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := libprotobuf-cpp-lite
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE := libprotobuf-cpp-lite-ndk
 
 LOCAL_CPP_EXTENSION := .cc
 
@@ -262,21 +263,9 @@ LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/android \
     $(LOCAL_PATH)/src
 
-# Define the header files to be copied
-#LOCAL_COPY_HEADERS := \
-#    src/google/protobuf/stubs/once.h \
-#    src/google/protobuf/stubs/common.h \
-#    src/google/protobuf/io/coded_stream.h \
-#    src/google/protobuf/generated_message_util.h \
-#    src/google/protobuf/repeated_field.h \
-#    src/google/protobuf/extension_set.h \
-#    src/google/protobuf/wire_format_lite_inl.h
-#
-#LOCAL_COPY_HEADERS_TO := $(LOCAL_MODULE)
-
 LOCAL_CFLAGS := -DGOOGLE_PROTOBUF_NO_RTTI $(IGNORED_WARNINGS)
 
-# These are the minimum versions and don't need to be update.
+# These are the minimum versions and don't need to be updated.
 ifeq ($(TARGET_ARCH),arm)
 LOCAL_SDK_VERSION := 8
 else
@@ -285,14 +274,15 @@ LOCAL_SDK_VERSION := 9
 endif
 LOCAL_NDK_STL_VARIANT := stlport_static
 
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/src
+
 include $(BUILD_STATIC_LIBRARY)
 
-# C++ lite library (libc++ flavored for the platform)
+# C++ lite library for the platform.
 # =======================================================
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libprotobuf-cpp-lite
-LOCAL_MODULE_TAGS := optional
 
 LOCAL_CPP_EXTENSION := .cc
 
@@ -304,16 +294,96 @@ LOCAL_C_INCLUDES := \
 
 LOCAL_CFLAGS := -DGOOGLE_PROTOBUF_NO_RTTI $(IGNORED_WARNINGS)
 
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/src
+
 include $(BUILD_SHARED_LIBRARY)
+
+# C++ lite static library for host tools.
+# =======================================================
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libprotobuf-cpp-lite_static
+
+LOCAL_MODULE_HOST_OS := darwin linux windows
+
+LOCAL_CPP_EXTENSION := .cc
+
+LOCAL_SRC_FILES := $(CC_LITE_SRC_FILES)
+
+LOCAL_C_INCLUDES := \
+    $(LOCAL_PATH)/android \
+    $(LOCAL_PATH)/src
+
+LOCAL_CFLAGS := -DGOOGLE_PROTOBUF_NO_RTTI $(IGNORED_WARNINGS)
+
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/src
+
+include $(BUILD_HOST_STATIC_LIBRARY)
+
+# C++ lite library for the host.
+# =======================================================
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libprotobuf-cpp-lite
+
+LOCAL_MODULE_HOST_OS := darwin linux windows
+
+LOCAL_WHOLE_STATIC_LIBRARIES := libprotobuf-cpp-lite_static
+
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/src
+
+include $(BUILD_HOST_SHARED_LIBRARY)
+
+# C++ lite library + rtti (libc++ flavored for the platform)
+# =======================================================
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libprotobuf-cpp-lite-rtti
+LOCAL_MODULE_TAGS := optional
+
+LOCAL_CPP_EXTENSION := .cc
+
+LOCAL_SRC_FILES := $(CC_LITE_SRC_FILES)
+
+LOCAL_C_INCLUDES := \
+    $(LOCAL_PATH)/android \
+    $(LOCAL_PATH)/src
+
+LOCAL_RTTI_FLAG := -frtti
+LOCAL_CFLAGS := $(IGNORED_WARNINGS)
+
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/src
+
+include $(BUILD_SHARED_LIBRARY)
+
+# C++ lite library + rtti (libc++ flavored for the host)
+# =======================================================
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libprotobuf-cpp-lite-rtti
+LOCAL_MODULE_TAGS := optional
+
+LOCAL_CPP_EXTENSION := .cc
+
+LOCAL_SRC_FILES := $(CC_LITE_SRC_FILES)
+
+LOCAL_C_INCLUDES := \
+    $(LOCAL_PATH)/android \
+    $(LOCAL_PATH)/src
+
+LOCAL_RTTI_FLAG := -frtti
+LOCAL_CFLAGS := $(IGNORED_WARNINGS)
+
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/src
+
+include $(BUILD_HOST_SHARED_LIBRARY)
 
 # C++ full library
 # =======================================================
 protobuf_cc_full_src_files := \
     $(CC_LITE_SRC_FILES)                                             \
     src/google/protobuf/stubs/strutil.cc                             \
-    src/google/protobuf/stubs/strutil.h                              \
     src/google/protobuf/stubs/substitute.cc                          \
-    src/google/protobuf/stubs/substitute.h                           \
     src/google/protobuf/stubs/structurally_valid.cc                  \
     src/google/protobuf/descriptor.cc                                \
     src/google/protobuf/descriptor.pb.cc                             \
@@ -335,12 +405,11 @@ protobuf_cc_full_src_files := \
     src/google/protobuf/compiler/importer.cc                         \
     src/google/protobuf/compiler/parser.cc
 
-# C++ full library - stlport version
+# C++ full library for the NDK.
 # =======================================================
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := libprotobuf-cpp-full
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE := libprotobuf-cpp-full-ndk
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := $(protobuf_cc_full_src_files)
 LOCAL_C_INCLUDES := \
@@ -348,21 +417,9 @@ LOCAL_C_INCLUDES := \
     external/zlib \
     $(LOCAL_PATH)/src
 
-# Define the header files to be copied
-#LOCAL_COPY_HEADERS := \
-#    src/google/protobuf/stubs/once.h \
-#    src/google/protobuf/stubs/common.h \
-#    src/google/protobuf/io/coded_stream.h \
-#    src/google/protobuf/generated_message_util.h \
-#    src/google/protobuf/repeated_field.h \
-#    src/google/protobuf/extension_set.h \
-#    src/google/protobuf/wire_format_lite_inl.h
-#
-#LOCAL_COPY_HEADERS_TO := $(LOCAL_MODULE)
-
 LOCAL_CFLAGS := -DGOOGLE_PROTOBUF_NO_RTTI $(IGNORED_WARNINGS)
 
-# These are the minimum versions and don't need to be update.
+# These are the minimum versions and don't need to be updated.
 ifeq ($(TARGET_ARCH),arm)
 LOCAL_SDK_VERSION := 8
 else
@@ -371,13 +428,15 @@ LOCAL_SDK_VERSION := 9
 endif
 LOCAL_NDK_STL_VARIANT := stlport_static
 
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/src
+
 include $(BUILD_STATIC_LIBRARY)
 
-# C++ full library - Gnustl+rtti version
+# C++ full library for the NDK, Gnustl+rtti version.
 # =======================================================
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := libprotobuf-cpp-full-gnustl-rtti
+LOCAL_MODULE := libprotobuf-cpp-full-ndk-gnustl-rtti
 LOCAL_MODULE_TAGS := optional
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := $(protobuf_cc_full_src_files)
@@ -390,9 +449,11 @@ LOCAL_CFLAGS := -frtti $(IGNORED_WARNINGS)
 LOCAL_SDK_VERSION := 14
 LOCAL_NDK_STL_VARIANT := gnustl_static
 
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/src
+
 include $(BUILD_STATIC_LIBRARY)
 
-# C++ full library - libc++ version for the platform
+# C++ full library for the platform.
 # =======================================================
 include $(CLEAR_VARS)
 
@@ -408,7 +469,71 @@ LOCAL_C_INCLUDES := \
 LOCAL_CFLAGS := -DGOOGLE_PROTOBUF_NO_RTTI $(IGNORED_WARNINGS)
 LOCAL_SHARED_LIBRARIES := libz
 
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/src
+
 include $(BUILD_SHARED_LIBRARY)
+
+# C++ full library for the host
+# =======================================================
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libprotobuf-cpp-full
+LOCAL_MODULE_TAGS := optional
+LOCAL_CPP_EXTENSION := .cc
+LOCAL_SRC_FILES := $(protobuf_cc_full_src_files)
+LOCAL_C_INCLUDES := \
+    $(LOCAL_PATH)/android \
+    external/zlib \
+    $(LOCAL_PATH)/src
+
+LOCAL_CFLAGS := -DGOOGLE_PROTOBUF_NO_RTTI $(IGNORED_WARNINGS)
+LOCAL_SHARED_LIBRARIES := libz-host
+
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/src
+
+include $(BUILD_HOST_SHARED_LIBRARY)
+
+# C++ full library + rtti for the platform.
+# =======================================================
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libprotobuf-cpp-full-rtti
+LOCAL_MODULE_TAGS := optional
+LOCAL_CPP_EXTENSION := .cc
+LOCAL_SRC_FILES := $(protobuf_cc_full_src_files)
+LOCAL_C_INCLUDES := \
+    $(LOCAL_PATH)/android \
+    external/zlib \
+    $(LOCAL_PATH)/src
+
+LOCAL_RTTI_FLAG := -frtti
+LOCAL_CFLAGS := $(IGNORED_WARNINGS)
+LOCAL_SHARED_LIBRARIES := libz
+
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/src
+
+include $(BUILD_SHARED_LIBRARY)
+
+# C++ full library + rtti for the host.
+# =======================================================
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libprotobuf-cpp-full-rtti
+LOCAL_MODULE_TAGS := optional
+LOCAL_CPP_EXTENSION := .cc
+LOCAL_SRC_FILES := $(protobuf_cc_full_src_files)
+LOCAL_C_INCLUDES := \
+    $(LOCAL_PATH)/android \
+    external/zlib \
+    $(LOCAL_PATH)/src
+
+LOCAL_RTTI_FLAG := -frtti
+LOCAL_CFLAGS := $(IGNORED_WARNINGS)
+LOCAL_SHARED_LIBRARIES := libz-host
+
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/src
+
+include $(BUILD_HOST_SHARED_LIBRARY)
 
 # Clean temp vars
 protobuf_cc_full_src_files :=
@@ -421,26 +546,23 @@ protobuf_cc_full_src_files :=
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := aprotoc
-LOCAL_MODULE_CLASS := EXECUTABLES
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_HOST_OS := darwin linux windows
 
-# Use the system's libstdc++ (libc++ on mac) because we copy aprotoc to
-# unbundled projects where libc++.so may not be available.
-LOCAL_CXX_STL := libstdc++
+# Statically link libc++ because we copy aprotoc to unbundled projects where
+# libc++.so may not be available.
+LOCAL_CXX_STL := libc++_static
 
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := $(COMPILER_SRC_FILES)
 
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/android \
-    external/zlib \
     $(LOCAL_PATH)/src
 
 LOCAL_STATIC_LIBRARIES += libz
 
-ifneq ($(HOST_OS),windows)
-LOCAL_LDLIBS := -lpthread
-endif
+LOCAL_LDLIBS_darwin := -lpthread
+LOCAL_LDLIBS_linux := -lpthread
 
 LOCAL_CFLAGS := $(IGNORED_WARNINGS)
 
@@ -469,6 +591,7 @@ LOCAL_PROTO_JAVA_OUTPUT_PARAMS := \
         java_package = $(LOCAL_PATH)/src/google/protobuf/unittest_import_nano.proto|com.google.protobuf.nano, \
         java_outer_classname = $(LOCAL_PATH)/src/google/protobuf/unittest_import_nano.proto|UnittestImportNano
 
+LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
 # To test Android-specific nanoproto features.
@@ -514,6 +637,7 @@ LOCAL_PROTO_JAVA_OUTPUT_PARAMS := \
         generate_intdefs = true, \
         store_unknown_fields = true
 
+LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
 include $(CLEAR_VARS)
@@ -536,4 +660,3 @@ LOCAL_STATIC_JAVA_LIBRARIES := libprotobuf-java-nano \
 LOCAL_DEX_PREOPT := false
 
 include $(BUILD_PACKAGE)
-

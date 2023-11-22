@@ -17,8 +17,9 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := \
-	src/android/media/cts/CodecImage.java \
-	src/android/media/cts/CodecUtils.java
+  src/android/media/cts/CodecImage.java \
+  src/android/media/cts/YUVImage.java \
+  src/android/media/cts/CodecUtils.java
 
 LOCAL_MODULE_TAGS := optional
 
@@ -32,16 +33,23 @@ include $(CLEAR_VARS)
 
 # don't include this package in any target
 LOCAL_MODULE_TAGS := optional
+
 # and when built explicitly put it in the data partition
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
+
+LOCAL_DEX_PREOPT := false
+
+LOCAL_PROGUARD_ENABLED := disabled
 
 # include both the 32 and 64 bit versions
 LOCAL_MULTILIB := both
 
-LOCAL_STATIC_JAVA_LIBRARIES := \
-    ctsmediautil ctsdeviceutil ctstestserver ctstestrunner
+LOCAL_STATIC_JAVA_LIBRARIES := ctsmediautil ctsdeviceutil compatibility-device-util ctstestserver ctstestrunner ndkaudio
 
-LOCAL_JNI_SHARED_LIBRARIES := libctsmediacodec_jni libaudio_jni
+LOCAL_JNI_SHARED_LIBRARIES := libctsmediacodec_jni libaudio_jni libnativehelper_compat_libc++ libndkaudioLib
+
+# do not compress VP9 video files
+LOCAL_AAPT_FLAGS := -0 .vp9
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
@@ -49,7 +57,11 @@ LOCAL_PACKAGE_NAME := CtsMediaTestCases
 
 # uncomment when b/13249737 is fixed
 #LOCAL_SDK_VERSION := current
+
 LOCAL_JAVA_LIBRARIES += android.test.runner org.apache.http.legacy
+
+# Tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
 
 include $(BUILD_CTS_PACKAGE)
 

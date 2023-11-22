@@ -27,6 +27,7 @@ import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.ActivityManager.RecentTaskInfo;
 import android.app.ActivityManager.RunningAppProcessInfo;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -40,8 +41,10 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.os.PowerManager;
+import android.os.SystemProperties;
 import android.provider.Settings;
 import android.telephony.TelephonyManager;
+import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -77,6 +80,7 @@ import com.android.internal.telephony.uicc.UiccController;
 import com.android.internal.telephony.GsmAlphabet;
 import com.android.internal.telephony.cat.CatService;
 
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.lang.System;
 import java.util.List;
@@ -248,6 +252,9 @@ public class StkAppService extends Service implements Runnable {
             this.slotId = slotId;
         }
     }
+
+    // system property to set the STK specific default url for launch browser proactive cmds
+    private static final String STK_BROWSER_DEFAULT_URL_SYSPROP = "persist.radio.stk.default_url";
 
     @Override
     public void onCreate() {
@@ -574,7 +581,9 @@ public class StkAppService extends Service implements Runnable {
                 break;
             case OP_LOCALE_CHANGED:
                 CatLog.d(this, "Locale Changed");
-                checkForSetupEvent(LANGUAGE_SELECTION_EVENT,(Bundle) msg.obj, slotId);
+                for (int slot = PhoneConstants.SIM_ID_1; slot < mSimCount; slot++) {
+                    checkForSetupEvent(LANGUAGE_SELECTION_EVENT, (Bundle) msg.obj, slot);
+                }
                 break;
             case OP_ALPHA_NOTIFY:
                 handleAlphaNotify((Bundle) msg.obj);
@@ -682,9 +691,9 @@ public class StkAppService extends Service implements Runnable {
     private void sendResponse(int resId, int slotId, boolean confirm) {
         Message msg = mServiceHandler.obtainMessage();
         msg.arg1 = OP_RESPONSE;
+        msg.arg2 = slotId;
         Bundle args = new Bundle();
         args.putInt(StkAppService.RES_ID, resId);
-        args.putInt(SLOT_ID, slotId);
         args.putBoolean(StkAppService.CONFIRMATION, confirm);
         msg.obj = args;
         mServiceHandler.sendMessage(msg);
@@ -909,7 +918,22 @@ public class StkAppService extends Service implements Runnable {
             launchEventMessage(slotId);
             break;
         case LAUNCH_BROWSER:
-            launchConfirmationDialog(mStkContext[slotId].mCurrentCmd.geTextMessage(), slotId);
+            TextMessage alphaId = mStkContext[slotId].mCurrentCmd.geTextMessage();
+            if ((mStkContext[slotId].mCurrentCmd.getBrowserSettings().mode
+                    == LaunchBrowserMode.LAUNCH_IF_NOT_ALREADY_LAUNCHED) &&
+                    ((alphaId == null) || TextUtils.isEmpty(alphaId.text))) {
+                // don't need user confirmation in this case
+                // just launch the browser or spawn a new tab
+                CatLog.d(this, "Browser mode is: launch if not already launched " +
+                        "and user confirmation is not currently needed.\n" +
+                        "supressing confirmation dialogue and confirming silently...");
+                mStkContext[slotId].launchBrowser = true;
+                mStkContext[slotId].mBrowserSettings =
+                        mStkContext[slotId].mCurrentCmd.getBrowserSettings();
+                sendResponse(RES_ID_CONFIRM, slotId, true);
+            } else {
+                launchConfirmationDialog(alphaId, slotId);
+            }
             break;
         case SET_UP_CALL:
             TextMessage mesg = mStkContext[slotId].mCurrentCmd.getCallSettings().confirmMsg;
@@ -1003,7 +1027,8 @@ public class StkAppService extends Service implements Runnable {
                 if (helpRequired) {
                     resMsg.setResultCode(ResultCode.HELP_INFO_REQUIRED);
                 } else {
-                    resMsg.setResultCode(ResultCode.OK);
+                    resMsg.setResultCode(mStkContext[slotId].mCurrentCmd.hasIconLoadFailed() ?
+                            ResultCode.PRFRMD_ICON_NOT_DISPLAYED : ResultCode.OK);
                 }
                 resMsg.setMenuSelection(menuSelection);
                 break;
@@ -1021,7 +1046,8 @@ public class StkAppService extends Service implements Runnable {
                 if (helpRequired) {
                     resMsg.setResultCode(ResultCode.HELP_INFO_REQUIRED);
                 } else {
-                    resMsg.setResultCode(ResultCode.OK);
+                    resMsg.setResultCode(mStkContext[slotId].mCurrentCmd.hasIconLoadFailed() ?
+                            ResultCode.PRFRMD_ICON_NOT_DISPLAYED : ResultCode.OK);
                     resMsg.setInput(input);
                 }
             }
@@ -1031,8 +1057,12 @@ public class StkAppService extends Service implements Runnable {
             confirmed = args.getBoolean(CONFIRMATION);
             switch (mStkContext[slotId].mCurrentCmd.getCmdType()) {
             case DISPLAY_TEXT:
-                resMsg.setResultCode(confirmed ? ResultCode.OK
-                    : ResultCode.UICC_SESSION_TERM_BY_USER);
+                if (confirmed) {
+                    resMsg.setResultCode(mStkContext[slotId].mCurrentCmd.hasIconLoadFailed() ?
+                            ResultCode.PRFRMD_ICON_NOT_DISPLAYED : ResultCode.OK);
+                } else {
+                    resMsg.setResultCode(ResultCode.UICC_SESSION_TERM_BY_USER);
+                }
                 break;
             case LAUNCH_BROWSER:
                 resMsg.setResultCode(confirmed ? ResultCode.OK
@@ -1406,7 +1436,14 @@ public class StkAppService extends Service implements Runnable {
         } else {
             iv.setVisibility(View.GONE);
         }
-        if (!msg.iconSelfExplanatory) {
+        /* In case of 'self explanatory' stkapp should display the specified
+         * icon in proactive command (but not the alpha string).
+         * If icon is non-self explanatory and if the icon could not be displayed
+         * then alpha string or text data should be displayed
+         * Ref: ETSI 102.223,section 6.5.4
+         */
+        if (mStkContext[slotId].mCurrentCmd.hasIconLoadFailed() ||
+                msg.icon == null || !msg.iconSelfExplanatory) {
             tv.setText(msg.text);
         }
 
@@ -1442,30 +1479,31 @@ public class StkAppService extends Service implements Runnable {
             return;
         }
 
-        Intent intent = null;
         Uri data = null;
-
-        if (settings.url != null) {
-            CatLog.d(LOG_TAG, "settings.url = " + settings.url);
-            if ((settings.url.startsWith("http://") || (settings.url.startsWith("https://")))) {
-                data = Uri.parse(settings.url);
-            } else {
-                String modifiedUrl = "http://" + settings.url;
-                CatLog.d(LOG_TAG, "modifiedUrl = " + modifiedUrl);
-                data = Uri.parse(modifiedUrl);
-            }
-        }
-        if (data != null) {
-            intent = new Intent(Intent.ACTION_VIEW);
-            intent.setData(data);
-        } else {
+        String url;
+        if (settings.url == null) {
             // if the command did not contain a URL,
             // launch the browser to the default homepage.
-            CatLog.d(LOG_TAG, "launch browser with default URL ");
-            intent = Intent.makeMainSelectorActivity(Intent.ACTION_MAIN,
-                    Intent.CATEGORY_APP_BROWSER);
+            CatLog.d(this, "no url data provided by proactive command." +
+                       " launching browser with stk default URL ... ");
+            url = SystemProperties.get(STK_BROWSER_DEFAULT_URL_SYSPROP,
+                    "http://www.google.com");
+        } else {
+            CatLog.d(this, "launch browser command has attached url = " + settings.url);
+            url = settings.url;
         }
 
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+            data = Uri.parse(url);
+            CatLog.d(this, "launching browser with url = " + url);
+        } else {
+            String modifiedUrl = "http://" + url;
+            data = Uri.parse(modifiedUrl);
+            CatLog.d(this, "launching browser with modified url = " + modifiedUrl);
+        }
+
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setData(data);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         switch (settings.mode) {
         case USE_EXISTING_BROWSER:
@@ -1517,7 +1555,8 @@ public class StkAppService extends Service implements Runnable {
             notificationBuilder.setContentIntent(pendingIntent);
             notificationBuilder.setOngoing(true);
             // Set text and icon for the status bar and notification body.
-            if (!msg.iconSelfExplanatory) {
+            if (mStkContext[slotId].mIdleModeTextCmd.hasIconLoadFailed() ||
+                    !msg.iconSelfExplanatory) {
                 notificationBuilder.setContentText(msg.text);
                 notificationBuilder.setTicker(msg.text);
             }
@@ -1552,7 +1591,7 @@ public class StkAppService extends Service implements Runnable {
         startActivity(newIntent);
     }
 
-    private void launchOpenChannelDialog(int slotId) {
+    private void launchOpenChannelDialog(final int slotId) {
         TextMessage msg = mStkContext[slotId].mCurrentCmd.geTextMessage();
         if (msg == null) {
             CatLog.d(LOG_TAG, "msg is null, return here");
@@ -1577,6 +1616,7 @@ public class StkAppService extends Service implements Runnable {
                             args.putInt(CHOICE, YES);
                             Message message = mServiceHandler.obtainMessage();
                             message.arg1 = OP_RESPONSE;
+                            message.arg2 = slotId;
                             message.obj = args;
                             mServiceHandler.sendMessage(message);
                         }
@@ -1589,6 +1629,7 @@ public class StkAppService extends Service implements Runnable {
                             args.putInt(CHOICE, NO);
                             Message message = mServiceHandler.obtainMessage();
                             message.arg1 = OP_RESPONSE;
+                            message.arg2 = slotId;
                             message.obj = args;
                             mServiceHandler.sendMessage(message);
                         }

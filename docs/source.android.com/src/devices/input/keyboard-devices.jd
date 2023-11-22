@@ -2,7 +2,7 @@ page.title=Keyboard Devices
 @jd:body
 
 <!--
-    Copyright 2013 The Android Open Source Project
+    Copyright 2015 The Android Open Source Project
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -16,10 +16,18 @@ page.title=Keyboard Devices
     See the License for the specific language governing permissions and
     limitations under the License.
 -->
+<div id="qv-wrapper">
+  <div id="qv">
+    <h2>In this document</h2>
+    <ol id="auto-toc">
+    </ol>
+  </div>
+</div>
+
 <p>Android supports a variety of keyboard devices including special function
 keypads (volume and power controls), compact embedded QWERTY keyboards,
 and fully featured PC-style external keyboards.</p>
-<p>This document decribes physical keyboards only.  Refer to the Android SDK
+<p>This document describes physical keyboards only.  Refer to the Android SDK
 for information about soft keyboards (Input Method Editors).</p>
 <h2 id="keyboard-classification">Keyboard Classification</h2>
 <p>An input device is classified as a keyboard if either of the following

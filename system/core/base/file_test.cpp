@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "base/file.h"
+#include "android-base/file.h"
 
 #include <gtest/gtest.h>
 
@@ -24,7 +24,7 @@
 
 #include <string>
 
-#include "test_utils.h"
+#include "android-base/test_utils.h"
 
 TEST(file, ReadFileToString_ENOENT) {
   std::string s("hello");
@@ -34,73 +34,79 @@ TEST(file, ReadFileToString_ENOENT) {
   EXPECT_EQ("", s);  // s was cleared.
 }
 
-TEST(file, ReadFileToString_success) {
-  std::string s("hello");
-  ASSERT_TRUE(android::base::ReadFileToString("/proc/version", &s)) << errno;
-  EXPECT_GT(s.length(), 6U);
-  EXPECT_EQ('\n', s[s.length() - 1]);
-  s[5] = 0;
-  EXPECT_STREQ("Linux", s.c_str());
-}
-
-TEST(file, WriteStringToFile) {
+TEST(file, ReadFileToString_WriteStringToFile) {
   TemporaryFile tf;
   ASSERT_TRUE(tf.fd != -1);
-  ASSERT_TRUE(android::base::WriteStringToFile("abc", tf.filename)) << errno;
+  ASSERT_TRUE(android::base::WriteStringToFile("abc", tf.path))
+    << strerror(errno);
   std::string s;
-  ASSERT_TRUE(android::base::ReadFileToString(tf.filename, &s)) << errno;
+  ASSERT_TRUE(android::base::ReadFileToString(tf.path, &s))
+    << strerror(errno);
   EXPECT_EQ("abc", s);
 }
 
+// WriteStringToFile2 is explicitly for setting Unix permissions, which make no
+// sense on Windows.
+#if !defined(_WIN32)
 TEST(file, WriteStringToFile2) {
   TemporaryFile tf;
   ASSERT_TRUE(tf.fd != -1);
-  ASSERT_TRUE(android::base::WriteStringToFile("abc", tf.filename, 0660,
+  ASSERT_TRUE(android::base::WriteStringToFile("abc", tf.path, 0660,
                                                getuid(), getgid()))
-      << errno;
+      << strerror(errno);
   struct stat sb;
-  ASSERT_EQ(0, stat(tf.filename, &sb));
+  ASSERT_EQ(0, stat(tf.path, &sb));
   ASSERT_EQ(0660U, static_cast<unsigned int>(sb.st_mode & ~S_IFMT));
   ASSERT_EQ(getuid(), sb.st_uid);
   ASSERT_EQ(getgid(), sb.st_gid);
   std::string s;
-  ASSERT_TRUE(android::base::ReadFileToString(tf.filename, &s)) << errno;
+  ASSERT_TRUE(android::base::ReadFileToString(tf.path, &s))
+    << strerror(errno);
   EXPECT_EQ("abc", s);
 }
+#endif
 
 TEST(file, WriteStringToFd) {
   TemporaryFile tf;
   ASSERT_TRUE(tf.fd != -1);
   ASSERT_TRUE(android::base::WriteStringToFd("abc", tf.fd));
 
-  ASSERT_EQ(0, lseek(tf.fd, 0, SEEK_SET)) << errno;
+  ASSERT_EQ(0, lseek(tf.fd, 0, SEEK_SET)) << strerror(errno);
 
   std::string s;
-  ASSERT_TRUE(android::base::ReadFdToString(tf.fd, &s)) << errno;
+  ASSERT_TRUE(android::base::ReadFdToString(tf.fd, &s)) << strerror(errno);
   EXPECT_EQ("abc", s);
-}
-
-TEST(file, ReadFully) {
-  int fd = open("/proc/version", O_RDONLY);
-  ASSERT_NE(-1, fd) << strerror(errno);
-
-  char buf[1024];
-  memset(buf, 0, sizeof(buf));
-  ASSERT_TRUE(android::base::ReadFully(fd, buf, 5));
-  ASSERT_STREQ("Linux", buf);
-
-  ASSERT_EQ(0, lseek(fd, 0, SEEK_SET)) << strerror(errno);
-
-  ASSERT_FALSE(android::base::ReadFully(fd, buf, sizeof(buf)));
-
-  close(fd);
 }
 
 TEST(file, WriteFully) {
   TemporaryFile tf;
   ASSERT_TRUE(tf.fd != -1);
   ASSERT_TRUE(android::base::WriteFully(tf.fd, "abc", 3));
+
+  ASSERT_EQ(0, lseek(tf.fd, 0, SEEK_SET)) << strerror(errno);
+
   std::string s;
-  ASSERT_TRUE(android::base::ReadFileToString(tf.filename, &s)) << errno;
+  s.resize(3);
+  ASSERT_TRUE(android::base::ReadFully(tf.fd, &s[0], s.size()))
+    << strerror(errno);
   EXPECT_EQ("abc", s);
+
+  ASSERT_EQ(0, lseek(tf.fd, 0, SEEK_SET)) << strerror(errno);
+
+  s.resize(1024);
+  ASSERT_FALSE(android::base::ReadFully(tf.fd, &s[0], s.size()));
+}
+
+TEST(file, RemoveFileIfExist) {
+  TemporaryFile tf;
+  ASSERT_TRUE(tf.fd != -1);
+  close(tf.fd);
+  tf.fd = -1;
+  std::string err;
+  ASSERT_TRUE(android::base::RemoveFileIfExists(tf.path, &err)) << err;
+  ASSERT_TRUE(android::base::RemoveFileIfExists(tf.path));
+  TemporaryDir td;
+  ASSERT_FALSE(android::base::RemoveFileIfExists(td.path));
+  ASSERT_FALSE(android::base::RemoveFileIfExists(td.path, &err));
+  ASSERT_EQ("is not a regular or symbol link file", err);
 }

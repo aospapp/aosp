@@ -40,13 +40,14 @@
 #include "clang/Frontend/DependencyOutputOptions.h"
 #include "clang/Frontend/FrontendDiagnostic.h"
 #include "clang/Frontend/FrontendOptions.h"
+#include "clang/Frontend/PCHContainerOperations.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "clang/Frontend/Utils.h"
 
-#include "clang/Lex/Preprocessor.h"
-#include "clang/Lex/PreprocessorOptions.h"
 #include "clang/Lex/HeaderSearch.h"
 #include "clang/Lex/HeaderSearchOptions.h"
+#include "clang/Lex/Preprocessor.h"
+#include "clang/Lex/PreprocessorOptions.h"
 
 #include "clang/Parse/ParseAST.h"
 
@@ -99,6 +100,7 @@ namespace slang {
 
 /* RS_HEADER_ENTRY(name) */
 #define ENUM_RS_HEADER()  \
+  RS_HEADER_ENTRY(rs_allocation_create) \
   RS_HEADER_ENTRY(rs_allocation_data) \
   RS_HEADER_ENTRY(rs_atomic) \
   RS_HEADER_ENTRY(rs_convert) \
@@ -173,17 +175,13 @@ void Slang::createSourceManager() {
 
 void Slang::createPreprocessor() {
   // Default only search header file in current dir
-  llvm::IntrusiveRefCntPtr<clang::HeaderSearchOptions> HSOpts =
-      new clang::HeaderSearchOptions();
-  clang::HeaderSearch *HeaderInfo = new clang::HeaderSearch(HSOpts,
+  clang::HeaderSearch *HeaderInfo = new clang::HeaderSearch(&getHeaderSearchOpts(),
                                                             *mSourceMgr,
                                                             *mDiagEngine,
                                                             LangOpts,
                                                             mTarget.get());
 
-  llvm::IntrusiveRefCntPtr<clang::PreprocessorOptions> PPOpts =
-      new clang::PreprocessorOptions();
-  mPP.reset(new clang::Preprocessor(PPOpts,
+  mPP.reset(new clang::Preprocessor(&getPreprocessorOpts(),
                                     *mDiagEngine,
                                     LangOpts,
                                     *mSourceMgr,
@@ -194,10 +192,15 @@ void Slang::createPreprocessor() {
   // Initialize the preprocessor
   mPP->Initialize(getTargetInfo());
   clang::FrontendOptions FEOpts;
-  clang::InitializePreprocessor(*mPP, *PPOpts, FEOpts);
+
+  auto *Reader = mPCHContainerOperations->getReaderOrNull(
+      getHeaderSearchOpts().ModuleFormat);
+  clang::InitializePreprocessor(*mPP, getPreprocessorOpts(), *Reader, FEOpts);
+
+  clang::ApplyHeaderSearchOptions(*HeaderInfo, getHeaderSearchOpts(), LangOpts,
+      mPP->getTargetInfo().getTriple());
 
   mPragmas.clear();
-  mPP->AddPragmaHandler(new PragmaRecorder(&mPragmas));
 
   std::vector<clang::DirectoryLookup> SearchList;
   for (unsigned i = 0, e = mIncludePaths.size(); i != e; i++) {
@@ -226,18 +229,24 @@ void Slang::createASTContext() {
 }
 
 clang::ASTConsumer *
-Slang::createBackend(const clang::CodeGenOptions &CodeGenOpts,
+Slang::createBackend(const RSCCOptions &Opts, const clang::CodeGenOptions &CodeGenOpts,
                      llvm::raw_ostream *OS, OutputType OT) {
-  return new Backend(mRSContext, &getDiagnostics(), CodeGenOpts,
-                     getTargetOptions(), &mPragmas, OS, OT, getSourceManager(),
-                     mAllowRSPrefix, mIsFilterscript);
+  auto *B = new Backend(mRSContext, &getDiagnostics(), Opts,
+                        getHeaderSearchOpts(), getPreprocessorOpts(),
+                        CodeGenOpts, getTargetOptions(), &mPragmas, OS, OT,
+                        getSourceManager(), mAllowRSPrefix, mIsFilterscript);
+  B->Initialize(getASTContext());
+  return B;
 }
 
 Slang::Slang(uint32_t BitWidth, clang::DiagnosticsEngine *DiagEngine,
              DiagnosticBuffer *DiagClient)
     : mDiagEngine(DiagEngine), mDiagClient(DiagClient),
-      mTargetOpts(new clang::TargetOptions()), mOT(OT_Default),
-      mRSContext(nullptr), mAllowRSPrefix(false), mTargetAPI(0),
+      mTargetOpts(new clang::TargetOptions()),
+      mHSOpts(new clang::HeaderSearchOptions()),
+      mPPOpts(new clang::PreprocessorOptions()),
+      mPCHContainerOperations(std::make_shared<clang::PCHContainerOperations>()),
+      mOT(OT_Default), mRSContext(nullptr), mAllowRSPrefix(false), mTargetAPI(0),
       mVerbose(false), mIsFilterscript(false) {
   // Please refer to include/clang/Basic/LangOptions.h to setup
   // the options.
@@ -249,6 +258,14 @@ Slang::Slang(uint32_t BitWidth, clang::DiagnosticsEngine *DiagEngine,
   LangOpts.CharIsSigned = 1;  // Signed char is our default.
 
   CodeGenOpts.OptimizationLevel = 3;
+
+  // We must set StackRealignment, because the default is for the actual
+  // Clang driver to pass this option (-mstackrealign) directly to cc1.
+  // Since we don't use Clang's driver, we need to similarly supply it.
+  // If StackRealignment is zero (i.e. the option wasn't set), then the
+  // backend assumes that it can't adjust the stack in any way, which breaks
+  // alignment for vector loads/stores.
+  CodeGenOpts.StackRealignment = 1;
 
   createTarget(BitWidth);
   createFileManager();
@@ -339,7 +356,7 @@ bool Slang::setDepOutput(const char *OutputFile) {
   return true;
 }
 
-int Slang::generateDepFile() {
+int Slang::generateDepFile(bool PhonyTarget) {
   if (mDiagEngine->hasErrorOccurred())
     return 1;
   if (mDOS.get() == nullptr)
@@ -348,6 +365,8 @@ int Slang::generateDepFile() {
   // Initialize options for generating dependency file
   clang::DependencyOutputOptions DepOpts;
   DepOpts.IncludeSystemHeaders = 1;
+  if (PhonyTarget)
+    DepOpts.UsePhonyTargets = 1;
   DepOpts.OutputFile = mDepOutputFileName;
   DepOpts.Targets = mAdditionalDepTargets;
   DepOpts.Targets.push_back(mDepTargetBCFileName);
@@ -386,7 +405,7 @@ int Slang::generateDepFile() {
   return mDiagEngine->hasErrorOccurred() ? 1 : 0;
 }
 
-int Slang::compile() {
+int Slang::compile(const RSCCOptions &Opts) {
   if (mDiagEngine->hasErrorOccurred())
     return 1;
   if (mOS.get() == nullptr)
@@ -396,7 +415,7 @@ int Slang::compile() {
   createPreprocessor();
   createASTContext();
 
-  mBackend.reset(createBackend(CodeGenOpts, &mOS->os(), mOT));
+  mBackend.reset(createBackend(Opts, CodeGenOpts, &mOS->os(), mOT));
 
   // Inform the diagnostic client we are processing a source file
   mDiagClient->BeginSourceFile(LangOpts, mPP.get());
@@ -534,8 +553,9 @@ bool Slang::checkODR(const char *CurInputFile) {
           llvm::StringMapEntry<ReflectedDefinitionTy>::Create(RDKey);
       ME->setValue(std::make_pair(ERT, CurInputFile));
 
-      if (!ReflectedDefinitions.insert(ME))
-        delete ME;
+      if (!ReflectedDefinitions.insert(ME)) {
+        slangAssert(false && "Type shouldn't be in map yet!");
+      }
 
       // Take the ownership of ERT such that it won't be freed in ~RSContext().
       ERT->keep();
@@ -669,7 +689,9 @@ bool Slang::compile(
 
     mIsFilterscript = isFilterscript(InputFile);
 
-    if (Slang::compile() > 0)
+    CodeGenOpts.MainFileName = mInputFileName;
+
+    if (Slang::compile(Opts) > 0)
       return false;
 
     if (!Opts.mJavaReflectionPackageName.empty()) {
@@ -745,7 +767,7 @@ bool Slang::compile(
       if (SuppressAllWarnings) {
         getDiagnostics().setSuppressAllDiagnostics(true);
       }
-      if (generateDepFile() > 0)
+      if (generateDepFile(Opts.mEmitPhonyDependency) > 0)
         return false;
       if (SuppressAllWarnings) {
         getDiagnostics().setSuppressAllDiagnostics(false);

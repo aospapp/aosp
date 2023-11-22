@@ -6,7 +6,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2014-2014 Philippe Waroquiers philippe.waroquiers@skynet.be
+   Copyright (C) 2014-2015 Philippe Waroquiers philippe.waroquiers@skynet.be
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License as
@@ -201,7 +201,7 @@ static Word cmp_pool_elt (const void* node1, const void* node2 )
 static void print_stats (DedupPoolAlloc *ddpa)
 {
    VG_(message)(Vg_DebugMsg,
-                "dedupPA:%s %ld allocs (%d uniq)"
+                "dedupPA:%s %ld allocs (%u uniq)"
                 " %ld pools (%ld bytes free in last pool)\n",
                 ddpa->cc,
                 (long int) ddpa->nr_alloc_calls,

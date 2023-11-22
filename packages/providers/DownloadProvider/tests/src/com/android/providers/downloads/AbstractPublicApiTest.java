@@ -22,6 +22,8 @@ import static android.text.format.DateUtils.MINUTE_IN_MILLIS;
 import static android.text.format.DateUtils.SECOND_IN_MILLIS;
 
 import android.app.DownloadManager;
+import android.content.ContentResolver;
+import android.content.ContextWrapper;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
@@ -113,13 +115,13 @@ public abstract class AbstractPublicApiTest extends AbstractDownloadProviderFunc
 
         void runUntilStatus(int status) throws TimeoutException {
             final long startMillis = mSystemFacade.currentTimeMillis();
-            startService(null);
+            startDownload(mId);
             waitForStatus(status, startMillis);
         }
 
         void runUntilStatus(int status, long timeout) throws TimeoutException {
             final long startMillis = mSystemFacade.currentTimeMillis();
-            startService(null);
+            startDownload(mId);
             waitForStatus(status, startMillis, timeout);
         }
 
@@ -167,7 +169,7 @@ public abstract class AbstractPublicApiTest extends AbstractDownloadProviderFunc
 
         // waits until progress_so_far is >= (progress)%
         boolean runUntilProgress(int progress) throws InterruptedException {
-            startService(null);
+            startDownload(mId);
 
             int sleepCounter = MAX_TIME_TO_WAIT_FOR_OPERATION * 1000 / TIME_TO_SLEEP;
             int numBytesReceivedSoFar = 0;
@@ -217,7 +219,18 @@ public abstract class AbstractPublicApiTest extends AbstractDownloadProviderFunc
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mManager = new DownloadManager(mResolver, PACKAGE_NAME);
+        mManager = new DownloadManager(new ContextWrapper(mContext) {
+            @Override
+            public ContentResolver getContentResolver() {
+                return mResolver;
+            }
+
+            @Override
+            public String getPackageName() {
+                return PACKAGE_NAME;
+            }
+        });
+        mManager.setAccessFilename(true);
     }
 
     protected DownloadManager.Request getRequest()

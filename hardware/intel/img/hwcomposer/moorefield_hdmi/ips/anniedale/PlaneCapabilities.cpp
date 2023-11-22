@@ -25,6 +25,9 @@
 #define SPRITE_PLANE_MAX_STRIDE_TILED      16384
 #define SPRITE_PLANE_MAX_STRIDE_LINEAR     16384
 
+#define SPRITE_PLANE_MAX_WIDTH             4096
+#define SPRITE_PLANE_MAX_HEIGHT            4096
+
 #define OVERLAY_PLANE_MAX_STRIDE_PACKED    4096
 #define OVERLAY_PLANE_MAX_STRIDE_LINEAR    8192
 
@@ -58,7 +61,7 @@ bool PlaneCapabilities::isFormatSupported(int planeType, HwcLayer *hwcLayer)
                 WLOGTRACE("180 degree rotation is not supported yet");
             }
             return trans ? false : true;
-        case HAL_PIXEL_FORMAT_YV12:
+        case HAL_PIXEL_FORMAT_INTEL_YV12:
             return trans ? false: true;
         case HAL_PIXEL_FORMAT_NV12:
         case OMX_INTEL_COLOR_FormatYUV420PackedSemiPlanar:
@@ -101,7 +104,7 @@ bool PlaneCapabilities::isSizeSupported(int planeType, HwcLayer *hwcLayer)
         }
     } else if (planeType == DisplayPlane::PLANE_OVERLAY) {
         switch (format) {
-        case HAL_PIXEL_FORMAT_YV12:
+        case HAL_PIXEL_FORMAT_INTEL_YV12:
         case HAL_PIXEL_FORMAT_I420:
         case HAL_PIXEL_FORMAT_NV12:
         case OMX_INTEL_COLOR_FormatYUV420PackedSemiPlanar:
@@ -173,6 +176,14 @@ bool PlaneCapabilities::isScalingSupported(int planeType, HwcLayer *hwcLayer)
     dstH = dest.bottom - dest.top;
 
     if (planeType == DisplayPlane::PLANE_SPRITE || planeType == DisplayPlane::PLANE_PRIMARY) {
+        if ((dstW - 1) <= 0 || (dstH - 1) <= 0 ||
+            (dstW - 1) >= SPRITE_PLANE_MAX_WIDTH ||
+            (dstH - 1) >= SPRITE_PLANE_MAX_HEIGHT) {
+            // Should check size in isSizeSupported().
+            DLOGTRACE("invalid destination size: %d x %d, fall back to GLES", dstW, dstH);
+            return false;
+        }
+
         // no scaling is supported
         return ((srcW == dstW) && (srcH == dstH)) ? true : false;
 

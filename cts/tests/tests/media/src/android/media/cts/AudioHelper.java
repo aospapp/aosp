@@ -67,6 +67,23 @@ public class AudioHelper {
         return vaf;
     }
 
+    /**
+     * Create and fill a short array with complete sine waves so we can
+     * hear buffer underruns more easily.
+     */
+    public static short[] createSineWavesShort(int numFrames, int samplesPerFrame,
+            int numCycles, double amplitude) {
+        final short[] data = new short[numFrames * samplesPerFrame];
+        final double rad = numCycles * 2.0 * Math.PI / numFrames;
+        for (int j = 0; j < data.length;) {
+            short sample = (short)(amplitude * Math.sin(j * rad) * Short.MAX_VALUE);
+            for (int sampleIndex = 0; sampleIndex < samplesPerFrame; sampleIndex++) {
+                data[j++] = sample;
+            }
+        }
+        return data;
+    }
+
     public static int frameSizeFromFormat(AudioFormat format) {
         return format.getChannelCount()
                 * format.getBytesPerSample(format.getEncoding());

@@ -40,6 +40,7 @@ enum GLSLVersion
 	GLSL_VERSION_100_ES = 0,	//!< GLSL ES 1.0
 	GLSL_VERSION_300_ES,		//!< GLSL ES 3.0
 	GLSL_VERSION_310_ES,		//!< GLSL ES 3.1
+	GLSL_VERSION_320_ES,		//!< GLSL ES 3.2
 
 	GLSL_VERSION_130,			//!< GLSL 1.3
 	GLSL_VERSION_140,			//!< GLSL 1.4
@@ -50,6 +51,7 @@ enum GLSLVersion
 	GLSL_VERSION_420,			//!< GLSL 4.2
 	GLSL_VERSION_430,			//!< GLSL 4.3
 	GLSL_VERSION_440,			//!< GLSL 4.4
+	GLSL_VERSION_450,			//!< GLSL 4.5
 
 	GLSL_VERSION_LAST
 };
@@ -176,6 +178,18 @@ enum DataType
 
 	TYPE_UINT_ATOMIC_COUNTER,
 
+	TYPE_SAMPLER_BUFFER,
+	TYPE_INT_SAMPLER_BUFFER,
+	TYPE_UINT_SAMPLER_BUFFER,
+
+	TYPE_SAMPLER_2D_MULTISAMPLE_ARRAY,
+	TYPE_INT_SAMPLER_2D_MULTISAMPLE_ARRAY,
+	TYPE_UINT_SAMPLER_2D_MULTISAMPLE_ARRAY,
+
+	TYPE_IMAGE_BUFFER,
+	TYPE_INT_IMAGE_BUFFER,
+	TYPE_UINT_IMAGE_BUFFER,
+
 	TYPE_LAST
 };
 
@@ -203,6 +217,9 @@ inline bool		isDataTypeSampler			(DataType dataType)	{ return (dataType >= TYPE_
 inline bool		isDataTypeImage				(DataType dataType)	{ return (dataType >= TYPE_IMAGE_2D) && (dataType <= TYPE_UINT_IMAGE_3D); }
 inline bool		isDataTypeSamplerMultisample(DataType dataType)	{ return (dataType >= TYPE_SAMPLER_2D_MULTISAMPLE) && (dataType <= TYPE_UINT_SAMPLER_2D_MULTISAMPLE); }
 inline bool		isDataTypeAtomicCounter		(DataType dataType)	{ return dataType == TYPE_UINT_ATOMIC_COUNTER; }
+inline bool		isDataTypeSamplerBuffer		(DataType dataType)	{ return (dataType >= TYPE_SAMPLER_BUFFER) && (dataType <= TYPE_UINT_SAMPLER_BUFFER); }
+inline bool		isDataTypeSamplerMSArray	(DataType dataType)	{ return (dataType >= TYPE_SAMPLER_2D_MULTISAMPLE_ARRAY) && (dataType <= TYPE_UINT_SAMPLER_2D_MULTISAMPLE_ARRAY); }
+inline bool		isDataTypeImageBuffer		(DataType dataType)	{ return (dataType >= TYPE_IMAGE_BUFFER) && (dataType <= TYPE_UINT_IMAGE_BUFFER); }
 
 int				getDataTypeMatrixNumRows	(DataType dataType);
 int				getDataTypeMatrixNumColumns	(DataType dataType);

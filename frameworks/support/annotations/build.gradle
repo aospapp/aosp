@@ -1,10 +1,14 @@
 apply plugin: 'java'
-
+sourceCompatibility = JavaVersion.VERSION_1_7
+targetCompatibility = JavaVersion.VERSION_1_7
 archivesBaseName = 'support-annotations'
 
 sourceSets {
     main.java.srcDir 'src'
 }
+
+sourceCompatibility = JavaVersion.VERSION_1_7
+targetCompatibility = JavaVersion.VERSION_1_7
 
 jar {
     from sourceSets.main.output
@@ -48,6 +52,13 @@ uploadArchives {
 // configuration for the javadoc to include all source sets.
 javadoc {
     source    sourceSets.main.allJava
+}
+
+// Disable strict javadoc lint checks with javadoc v8 builds on Mac. http://b/26744780
+if (JavaVersion.current().isJava8Compatible()) {
+    tasks.withType(Javadoc) {
+        options.addBooleanOption('Xdoclint:none', true)
+    }
 }
 
 // custom tasks for creating source/javadoc jars

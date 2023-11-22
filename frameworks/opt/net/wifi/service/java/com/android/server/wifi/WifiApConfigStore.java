@@ -20,15 +20,9 @@ import android.content.Context;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiConfiguration.KeyMgmt;
 import android.os.Environment;
-import android.os.Handler;
-import android.os.Message;
-import android.os.Messenger;
 import android.util.Log;
 
-import com.android.internal.util.AsyncChannel;
 import com.android.internal.R;
-import com.android.internal.util.State;
-import com.android.internal.util.StateMachine;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -41,132 +35,104 @@ import java.util.ArrayList;
 import java.util.UUID;
 
 /**
- * Provides API to the WifiStateMachine for doing read/write access
- * to soft access point configuration
+ * Provides API for reading/writing soft access point configuration.
  */
-class WifiApConfigStore extends StateMachine {
+public class WifiApConfigStore {
 
-    private Context mContext;
     private static final String TAG = "WifiApConfigStore";
 
-    private static final String AP_CONFIG_FILE = Environment.getDataDirectory() +
-        "/misc/wifi/softap.conf";
+    private static final String DEFAULT_AP_CONFIG_FILE =
+            Environment.getDataDirectory() + "/misc/wifi/softap.conf";
 
     private static final int AP_CONFIG_FILE_VERSION = 2;
 
-    private State mDefaultState = new DefaultState();
-    private State mInactiveState = new InactiveState();
-    private State mActiveState = new ActiveState();
-
     private WifiConfiguration mWifiApConfig = null;
-    private AsyncChannel mReplyChannel = new AsyncChannel();
-    public ArrayList <Integer> allowed2GChannel = null;
 
-    WifiApConfigStore(Context context, Handler target) {
-        super(TAG, target.getLooper());
+    private ArrayList<Integer> mAllowed2GChannel = null;
 
+    private final Context mContext;
+    private final String mApConfigFile;
+    private final BackupManagerProxy mBackupManagerProxy;
+
+    WifiApConfigStore(Context context, BackupManagerProxy backupManagerProxy) {
+        this(context, backupManagerProxy, DEFAULT_AP_CONFIG_FILE);
+    }
+
+    WifiApConfigStore(Context context,
+                      BackupManagerProxy backupManagerProxy,
+                      String apConfigFile) {
         mContext = context;
-        addState(mDefaultState);
-            addState(mInactiveState, mDefaultState);
-            addState(mActiveState, mDefaultState);
+        mBackupManagerProxy = backupManagerProxy;
+        mApConfigFile = apConfigFile;
 
-        setInitialState(mInactiveState);
-        String ap2GChannelListStr = (mContext.getResources().getString(
-                R.string.config_wifi_framework_sap_2G_channel_list));
+        String ap2GChannelListStr = mContext.getResources().getString(
+                R.string.config_wifi_framework_sap_2G_channel_list);
         Log.d(TAG, "2G band allowed channels are:" + ap2GChannelListStr);
 
         if (ap2GChannelListStr != null) {
-            allowed2GChannel = new ArrayList<Integer>();
+            mAllowed2GChannel = new ArrayList<Integer>();
             String channelList[] = ap2GChannelListStr.split(",");
             for (String tmp : channelList) {
-                allowed2GChannel.add(Integer.parseInt(tmp));
+                mAllowed2GChannel.add(Integer.parseInt(tmp));
             }
         }
-    }
 
-    public static WifiApConfigStore makeWifiApConfigStore(Context context, Handler target) {
-        WifiApConfigStore s = new WifiApConfigStore(context, target);
-        s.start();
-        return s;
-    }
+        /* Load AP configuration from persistent storage. */
+        mWifiApConfig = loadApConfiguration(mApConfigFile);
+        if (mWifiApConfig == null) {
+            /* Use default configuration. */
+            Log.d(TAG, "Fallback to use default AP configuration");
+            mWifiApConfig = getDefaultApConfiguration();
 
-    class DefaultState extends State {
-        public boolean processMessage(Message message) {
-            switch (message.what) {
-                case WifiStateMachine.CMD_SET_AP_CONFIG:
-                case WifiStateMachine.CMD_SET_AP_CONFIG_COMPLETED:
-                    Log.e(TAG, "Unexpected message: " + message);
-                    break;
-                case WifiStateMachine.CMD_REQUEST_AP_CONFIG:
-                    mReplyChannel.replyToMessage(message,
-                            WifiStateMachine.CMD_RESPONSE_AP_CONFIG, mWifiApConfig);
-                    break;
-                default:
-                    Log.e(TAG, "Failed to handle " + message);
-                    break;
-            }
-            return HANDLED;
+            /* Save the default configuration to persistent storage. */
+            writeApConfiguration(mApConfigFile, mWifiApConfig);
         }
     }
 
-    class InactiveState extends State {
-        public boolean processMessage(Message message) {
-            switch (message.what) {
-                case WifiStateMachine.CMD_SET_AP_CONFIG:
-                     WifiConfiguration config = (WifiConfiguration)message.obj;
-                    if (config.SSID != null) {
-                        mWifiApConfig = config;
-                        transitionTo(mActiveState);
-                    } else {
-                        Log.e(TAG, "Try to setup AP config without SSID: " + message);
-                    }
-                    break;
-                default:
-                    return NOT_HANDLED;
-            }
-            return HANDLED;
-        }
+    /**
+     * Return the current soft access point configuration.
+     */
+    public synchronized WifiConfiguration getApConfiguration() {
+        return mWifiApConfig;
     }
 
-    class ActiveState extends State {
-        public void enter() {
-            new Thread(new Runnable() {
-                public void run() {
-                    writeApConfiguration(mWifiApConfig);
-                    sendMessage(WifiStateMachine.CMD_SET_AP_CONFIG_COMPLETED);
-                }
-            }).start();
+    /**
+     * Update the current soft access point configuration.
+     * Restore to default AP configuration if null is provided.
+     * This can be invoked under context of binder threads (WifiManager.setWifiApConfiguration)
+     * and WifiStateMachine thread (CMD_START_AP).
+     */
+    public synchronized void setApConfiguration(WifiConfiguration config) {
+        if (config == null) {
+            mWifiApConfig = getDefaultApConfiguration();
+        } else {
+            mWifiApConfig = config;
         }
+        writeApConfiguration(mApConfigFile, mWifiApConfig);
 
-        public boolean processMessage(Message message) {
-            switch (message.what) {
-                //TODO: have feedback to the user when we do this
-                //to indicate the write is currently in progress
-                case WifiStateMachine.CMD_SET_AP_CONFIG:
-                    deferMessage(message);
-                    break;
-                case WifiStateMachine.CMD_SET_AP_CONFIG_COMPLETED:
-                    transitionTo(mInactiveState);
-                    break;
-                default:
-                    return NOT_HANDLED;
-            }
-            return HANDLED;
-        }
+        // Stage the backup of the SettingsProvider package which backs this up
+        mBackupManagerProxy.notifyDataChanged();
     }
 
-    void loadApConfiguration() {
+    public ArrayList<Integer> getAllowed2GChannel() {
+        return mAllowed2GChannel;
+    }
+
+    /**
+     * Load AP configuration from persistent storage.
+     */
+    private static WifiConfiguration loadApConfiguration(final String filename) {
+        WifiConfiguration config = null;
         DataInputStream in = null;
         try {
-            WifiConfiguration config = new WifiConfiguration();
-            in = new DataInputStream(new BufferedInputStream(new FileInputStream(
-                            AP_CONFIG_FILE)));
+            config = new WifiConfiguration();
+            in = new DataInputStream(
+                    new BufferedInputStream(new FileInputStream(filename)));
 
             int version = in.readInt();
             if ((version != 1) && (version != 2)) {
-                Log.e(TAG, "Bad version on hotspot configuration file, set defaults");
-                setDefaultApConfiguration();
-                return;
+                Log.e(TAG, "Bad version on hotspot configuration file");
+                return null;
             }
             config.SSID = in.readUTF();
 
@@ -180,60 +146,56 @@ class WifiApConfigStore extends StateMachine {
             if (authType != KeyMgmt.NONE) {
                 config.preSharedKey = in.readUTF();
             }
-
-            mWifiApConfig = config;
-        } catch (IOException ignore) {
-            setDefaultApConfiguration();
+        } catch (IOException e) {
+            Log.e(TAG, "Error reading hotspot configuration " + e);
+            config = null;
         } finally {
             if (in != null) {
                 try {
                     in.close();
-                } catch (IOException e) {}
+                } catch (IOException e) {
+                    Log.e(TAG, "Error closing hotspot configuration during read" + e);
+                }
             }
         }
+        return config;
     }
 
-    Messenger getMessenger() {
-        return new Messenger(getHandler());
-    }
-
-    private void writeApConfiguration(final WifiConfiguration config) {
-        DataOutputStream out = null;
-        try {
-            out = new DataOutputStream(new BufferedOutputStream(
-                        new FileOutputStream(AP_CONFIG_FILE)));
-
+    /**
+     * Write AP configuration to persistent storage.
+     */
+    private static void writeApConfiguration(final String filename,
+                                             final WifiConfiguration config) {
+        try (DataOutputStream out = new DataOutputStream(new BufferedOutputStream(
+                        new FileOutputStream(filename)))) {
             out.writeInt(AP_CONFIG_FILE_VERSION);
             out.writeUTF(config.SSID);
             out.writeInt(config.apBand);
             out.writeInt(config.apChannel);
             int authType = config.getAuthType();
             out.writeInt(authType);
-            if(authType != KeyMgmt.NONE) {
+            if (authType != KeyMgmt.NONE) {
                 out.writeUTF(config.preSharedKey);
             }
         } catch (IOException e) {
             Log.e(TAG, "Error writing hotspot configuration" + e);
-        } finally {
-            if (out != null) {
-                try {
-                    out.close();
-                } catch (IOException e) {}
-            }
         }
     }
 
-    /* Generate a default WPA2 based configuration with a random password.
-       We are changing the Wifi Ap configuration storage from secure settings to a
-       flat file accessible only by the system. A WPA2 based default configuration
-       will keep the device secure after the update */
-    private void setDefaultApConfiguration() {
+    /**
+     * Generate a default WPA2 based configuration with a random password.
+     * We are changing the Wifi Ap configuration storage from secure settings to a
+     * flat file accessible only by the system. A WPA2 based default configuration
+     * will keep the device secure after the update.
+     */
+    private WifiConfiguration getDefaultApConfiguration() {
         WifiConfiguration config = new WifiConfiguration();
-        config.SSID = mContext.getString(R.string.wifi_tether_configure_ssid_default);
+        config.SSID = mContext.getResources().getString(
+                R.string.wifi_tether_configure_ssid_default);
         config.allowedKeyManagement.set(KeyMgmt.WPA2_PSK);
         String randomUUID = UUID.randomUUID().toString();
         //first 12 chars from xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
-        config.preSharedKey = randomUUID.substring(0, 8) + randomUUID.substring(9,13);
-        sendMessage(WifiStateMachine.CMD_SET_AP_CONFIG, config);
+        config.preSharedKey = randomUUID.substring(0, 8) + randomUUID.substring(9, 13);
+        return config;
     }
 }

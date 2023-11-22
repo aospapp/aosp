@@ -20,7 +20,7 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.util.Log;
-import com.android.cts.view.R;
+import android.view.cts.R;
 
 public class ViewTestCtsActivity extends Activity {
     private boolean mHasWindowFocus = false;

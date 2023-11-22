@@ -79,6 +79,13 @@ public class Test_invoke_virtual extends DxTestCase {
     }
 
     /**
+     * @title invoke default interface method
+     */
+    public void testN7() {
+        loadAndRun("dot.junit.opcodes.invoke_virtual.d.T_invoke_virtual_28", null);
+    }
+
+    /**
      * @title expected NullPointerException
      */
     public void testE1() {
@@ -102,6 +109,23 @@ public class Test_invoke_virtual extends DxTestCase {
         loadAndRun("dot.junit.opcodes.invoke_virtual.d.T_invoke_virtual_6",
                    AbstractMethodError.class);
     }
+
+    /**
+     * @title Attempt to invoke conflict method
+     */
+    public void testE5() {
+        loadAndRun("dot.junit.opcodes.invoke_virtual.d.T_invoke_virtual_26",
+                   IncompatibleClassChangeError.class);
+    }
+
+    /**
+     * @title Attempt to invoke abstract method
+     */
+    public void testE6() {
+        loadAndRun("dot.junit.opcodes.invoke_virtual.d.T_invoke_virtual_27",
+                   AbstractMethodError.class);
+    }
+
 
     /**
      * @constraint A13

@@ -44,6 +44,7 @@
 #include "gatt_int.h"
 #endif /* BLE_INCLUDED */
 
+extern fixed_queue_t *btu_general_alarm_queue;
 extern thread_t *bt_workqueue_thread;
 
 /********************************************************************************/
@@ -54,8 +55,8 @@ extern thread_t *bt_workqueue_thread;
 #define BTM_DEV_RESET_TIMEOUT   4
 #endif
 
-#define BTM_DEV_REPLY_TIMEOUT   2    /* 1 second expiration time is not good. Timer may start between 0 and 1 second. */
-                                     /* if it starts at the very end of the 0 second, timer will expire really easily. */
+// TODO: Reevaluate this value in the context of timers with ms granularity
+#define BTM_DEV_NAME_REPLY_TIMEOUT_MS (2 * 1000) /* 2 seconds for name reply */
 
 #define BTM_INFO_TIMEOUT        5   /* 5 seconds for info response */
 
@@ -85,8 +86,15 @@ void btm_dev_init (void)
     memset(btm_cb.cfg.bd_name, 0, sizeof(tBTM_LOC_BD_NAME));
 #endif
 
-    btm_cb.devcb.reset_timer.param  = (TIMER_PARAM_TYPE)TT_DEV_RESET;
-    btm_cb.devcb.rln_timer.param    = (TIMER_PARAM_TYPE)TT_DEV_RLN;
+    btm_cb.devcb.read_local_name_timer =
+        alarm_new("btm.read_local_name_timer");
+    btm_cb.devcb.read_rssi_timer = alarm_new("btm.read_rssi_timer");
+    btm_cb.devcb.read_link_quality_timer =
+        alarm_new("btm.read_link_quality_timer");
+    btm_cb.devcb.read_inq_tx_power_timer =
+        alarm_new("btm.read_inq_tx_power_timer");
+    btm_cb.devcb.qos_setup_timer = alarm_new("btm.qos_setup_timer");
+    btm_cb.devcb.read_tx_power_timer = alarm_new("btm.read_tx_power_timer");
 
     btm_cb.btm_acl_pkt_types_supported = BTM_ACL_PKT_TYPES_MASK_DH1 + BTM_ACL_PKT_TYPES_MASK_DM1 +
                                          BTM_ACL_PKT_TYPES_MASK_DH3 + BTM_ACL_PKT_TYPES_MASK_DM3 +
@@ -138,6 +146,13 @@ static void btm_db_reset (void)
     }
 }
 
+bool set_sec_state_idle(void *data, void *context)
+{
+    tBTM_SEC_DEV_REC *p_dev_rec = data;
+    p_dev_rec->sec_state = BTM_SEC_STATE_IDLE;
+    return true;
+}
+
 static void reset_complete(void *result) {
   assert(result == FUTURE_SUCCESS);
   const controller_t *controller = controller_get_interface();
@@ -146,9 +161,7 @@ static void reset_complete(void *result) {
   l2cu_device_reset ();
 
   /* Clear current security state */
-  for (int devinx = 0; devinx < BTM_SEC_MAX_DEVICE_RECORDS; devinx++) {
-    btm_cb.sec_dev_rec[devinx].sec_state = BTM_SEC_STATE_IDLE;
-  }
+  list_foreach(btm_cb.sec_dev_rec, set_sec_state_idle, NULL);
 
   /* After the reset controller should restore all parameters to defaults. */
   btm_cb.btm_inq_vars.inq_counter       = 1;
@@ -179,7 +192,7 @@ static void reset_complete(void *result) {
       controller->get_ble_resolving_list_max_size() > 0) {
       btm_ble_resolving_list_init(controller->get_ble_resolving_list_max_size());
       /* set the default random private address timeout */
-      btsnd_hcic_ble_set_rand_priv_addr_timeout(BTM_BLE_PRIVATE_ADDR_INT);
+      btsnd_hcic_ble_set_rand_priv_addr_timeout(BTM_BLE_PRIVATE_ADDR_INT_MS / 1000);
   }
 #endif
 
@@ -229,26 +242,19 @@ BOOLEAN BTM_IsDeviceUp (void)
 
 /*******************************************************************************
 **
-** Function         btm_dev_timeout
+** Function         btm_read_local_name_timeout
 **
-** Description      This function is called when a timer list entry expires.
+** Description      Callback when reading the local name times out.
 **
 ** Returns          void
 **
 *******************************************************************************/
-void btm_dev_timeout (TIMER_LIST_ENT  *p_tle)
+void btm_read_local_name_timeout(UNUSED_ATTR void *data)
 {
-    TIMER_PARAM_TYPE timer_type = (TIMER_PARAM_TYPE)p_tle->param;
-
-    if (timer_type == (TIMER_PARAM_TYPE)TT_DEV_RLN)
-    {
-        tBTM_CMPL_CB  *p_cb = btm_cb.devcb.p_rln_cmpl_cb;
-
-        btm_cb.devcb.p_rln_cmpl_cb = NULL;
-
-        if (p_cb)
-            (*p_cb)((void *) NULL);
-    }
+    tBTM_CMPL_CB  *p_cb = btm_cb.devcb.p_rln_cmpl_cb;
+    btm_cb.devcb.p_rln_cmpl_cb = NULL;
+    if (p_cb)
+        (*p_cb)((void *) NULL);
 }
 
 /*******************************************************************************
@@ -262,9 +268,6 @@ void btm_dev_timeout (TIMER_LIST_ENT  *p_tle)
 *******************************************************************************/
 static void btm_decode_ext_features_page (UINT8 page_number, const UINT8 *p_features)
 {
-    UINT8 last;
-    UINT8 first;
-
     BTM_TRACE_DEBUG ("btm_decode_ext_features_page page: %d", page_number);
     switch (page_number)
     {
@@ -452,10 +455,7 @@ tBTM_STATUS BTM_SetLocalDeviceName (char *p_name)
     /* Save the device name if local storage is enabled */
     p = (UINT8 *)btm_cb.cfg.bd_name;
     if (p != (UINT8 *)p_name)
-    {
-        BCM_STRNCPY_S(btm_cb.cfg.bd_name, sizeof(btm_cb.cfg.bd_name), p_name, BTM_MAX_LOC_BD_NAME_LEN);
-        btm_cb.cfg.bd_name[BTM_MAX_LOC_BD_NAME_LEN] = '\0';
-    }
+        strlcpy(btm_cb.cfg.bd_name, p_name, BTM_MAX_LOC_BD_NAME_LEN);
 #else
     p = (UINT8 *)p_name;
 #endif
@@ -513,7 +513,10 @@ tBTM_STATUS BTM_ReadLocalDeviceNameFromController (tBTM_CMPL_CB *p_rln_cmpl_cbac
     btm_cb.devcb.p_rln_cmpl_cb = p_rln_cmpl_cback;
 
     btsnd_hcic_read_name();
-    btu_start_timer (&btm_cb.devcb.rln_timer, BTU_TTYPE_BTM_DEV_CTL, BTM_DEV_REPLY_TIMEOUT);
+    alarm_set_on_queue(btm_cb.devcb.read_local_name_timer,
+                       BTM_DEV_NAME_REPLY_TIMEOUT_MS,
+                       btm_read_local_name_timeout, NULL,
+                       btu_general_alarm_queue);
 
     return BTM_CMD_STARTED;
 }
@@ -534,7 +537,7 @@ void btm_read_local_name_complete (UINT8 *p, UINT16 evt_len)
     UINT8           status;
     UNUSED(evt_len);
 
-    btu_stop_timer (&btm_cb.devcb.rln_timer);
+    alarm_cancel(btm_cb.devcb.read_local_name_timer);
 
     /* If there was a callback address for read local name, call it */
     btm_cb.devcb.p_rln_cmpl_cb = NULL;
@@ -647,27 +650,21 @@ tBTM_DEV_STATUS_CB *BTM_RegisterForDeviceStatusNotif (tBTM_DEV_STATUS_CB *p_cb)
 tBTM_STATUS BTM_VendorSpecificCommand(UINT16 opcode, UINT8 param_len,
                                       UINT8 *p_param_buf, tBTM_VSC_CMPL_CB *p_cb)
 {
-    void *p_buf;
-
-    BTM_TRACE_EVENT ("BTM: BTM_VendorSpecificCommand: Opcode: 0x%04X, ParamLen: %i.",
-                      opcode, param_len);
-
     /* Allocate a buffer to hold HCI command plus the callback function */
-    if ((p_buf = GKI_getbuf((UINT16)(sizeof(BT_HDR) + sizeof (tBTM_CMPL_CB *) +
-                            param_len + HCIC_PREAMBLE_SIZE))) != NULL)
-    {
-        /* Send the HCI command (opcode will be OR'd with HCI_GRP_VENDOR_SPECIFIC) */
-        btsnd_hcic_vendor_spec_cmd (p_buf, opcode, param_len, p_param_buf, (void *)p_cb);
+    void *p_buf = osi_malloc(sizeof(BT_HDR) + sizeof(tBTM_CMPL_CB *) +
+                             param_len + HCIC_PREAMBLE_SIZE);
 
-        /* Return value */
-        if (p_cb != NULL)
-            return (BTM_CMD_STARTED);
-        else
-            return (BTM_SUCCESS);
-    }
+    BTM_TRACE_EVENT("BTM: %s: Opcode: 0x%04X, ParamLen: %i.", __func__,
+                    opcode, param_len);
+
+    /* Send the HCI command (opcode will be OR'd with HCI_GRP_VENDOR_SPECIFIC) */
+    btsnd_hcic_vendor_spec_cmd(p_buf, opcode, param_len, p_param_buf, (void *)p_cb);
+
+    /* Return value */
+    if (p_cb != NULL)
+        return (BTM_CMD_STARTED);
     else
-        return (BTM_NO_RESOURCES);
-
+        return (BTM_SUCCESS);
 }
 
 
@@ -862,16 +859,15 @@ tBTM_STATUS BTM_EnableTestMode(void)
     }
 
     /* put device to connectable mode */
-    if (!BTM_SetConnectability(BTM_CONNECTABLE, BTM_DEFAULT_CONN_WINDOW,
-                               BTM_DEFAULT_CONN_INTERVAL) == BTM_SUCCESS)
-    {
+    if (BTM_SetConnectability(BTM_CONNECTABLE, BTM_DEFAULT_CONN_WINDOW,
+                              BTM_DEFAULT_CONN_INTERVAL) != BTM_SUCCESS) {
         return BTM_NO_RESOURCES;
     }
 
     /* put device to discoverable mode */
-    if (!BTM_SetDiscoverability(BTM_GENERAL_DISCOVERABLE, BTM_DEFAULT_DISC_WINDOW,
-                                BTM_DEFAULT_DISC_INTERVAL) == BTM_SUCCESS)
-    {
+    if (BTM_SetDiscoverability(BTM_GENERAL_DISCOVERABLE,
+                               BTM_DEFAULT_DISC_WINDOW,
+                               BTM_DEFAULT_DISC_INTERVAL) != BTM_SUCCESS) {
         return BTM_NO_RESOURCES;
     }
 

@@ -19,15 +19,18 @@ package android.text.format.cts;
 
 import android.content.ContentResolver;
 import android.content.Context;
+import android.cts.util.SystemUtil;
 import android.os.ParcelFileDescriptor;
 import android.provider.Settings;
 import android.test.InstrumentationTestCase;
 import android.text.format.DateFormat;
 
+import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -36,6 +39,8 @@ import java.util.Scanner;
 import java.util.TimeZone;
 
 public class DateFormatTest extends InstrumentationTestCase {
+    private static final String TIME_FORMAT_12 = "12";
+    private static final String TIME_FORMAT_24 = "24";
 
     private Context mContext;
     private ContentResolver mContentResolver;
@@ -92,7 +97,7 @@ public class DateFormatTest extends InstrumentationTestCase {
     @Override
     protected void tearDown() throws Exception {
         if (!mIs24HourFormat) {
-            Settings.System.putString(mContentResolver, Settings.System.TIME_12_24, "12");
+            setTimeFormat(TIME_FORMAT_12);
         }
         if (!Locale.getDefault().equals(mDefaultLocale)) {
             Locale.setDefault(mDefaultLocale);
@@ -101,11 +106,10 @@ public class DateFormatTest extends InstrumentationTestCase {
         super.tearDown();
     }
 
-
-    public void test_is24HourFormat() {
-        Settings.System.putString(mContentResolver, Settings.System.TIME_12_24, "24");
+    public void test_is24HourFormat() throws Exception {
+        setTimeFormat(TIME_FORMAT_24);
         assertTrue(DateFormat.is24HourFormat(mContext));
-        Settings.System.putString(mContentResolver, Settings.System.TIME_12_24, "12");
+        setTimeFormat(TIME_FORMAT_12);
         assertFalse(DateFormat.is24HourFormat(mContext));
     }
 
@@ -256,5 +260,42 @@ public class DateFormatTest extends InstrumentationTestCase {
         checkFormat( "0", "K", 24);
         checkFormat("12", "h", 24);
         checkFormat( "0", "H", 24);
+    }
+
+    public void test_bug_82144() {
+        for (Locale locale : Locale.getAvailableLocales()) {
+            if (locale.toString().startsWith("haw")) {
+                // http://b/26397197 - remove this when fixed.
+                continue;
+            }
+            Locale.setDefault(locale);
+            char[] order = DateFormat.getDateFormatOrder(mContext);
+            boolean seenDay = false, seenMonth = false, seenYear = false;
+            for (char c : order) {
+                switch (c) {
+                    case 'd':
+                        seenDay = true;
+                        break;
+                    case 'M':
+                        seenMonth = true;
+                        break;
+                    case 'y':
+                        seenYear = true;
+                        break;
+                    default:
+                        fail("Unknown character: " + c + " in " + Arrays.toString(order)
+                                + " for " + locale);
+                        break;
+                }
+            }
+            assertTrue(locale.toString() + " day not found", seenDay);
+            assertTrue(locale.toString() + " month not found", seenMonth);
+            assertTrue(locale.toString() + " year not found", seenYear);
+        }
+    }
+
+    private void setTimeFormat(String timeFormat) throws IOException {
+        SystemUtil.runShellCommand(getInstrumentation(), "settings put system "
+                + Settings.System.TIME_12_24 + " " + timeFormat);
     }
 }

@@ -64,9 +64,6 @@
 #include <openssl/x509.h>
 
 
-extern const ASN1_ITEM RSAPrivateKey_it;
-extern const ASN1_ITEM RSAPublicKey_it;
-
 int X509_verify(X509 *a, EVP_PKEY *r)
 	{
 	if (X509_ALGOR_cmp(a->sig_alg, a->cert_info->signature))
@@ -96,14 +93,6 @@ int X509_sign_ctx(X509 *x, EVP_MD_CTX *ctx)
 		x->sig_alg, x->signature, x->cert_info, ctx);
 	}
 
-/* TODO(fork)
-int X509_http_nbio(OCSP_REQ_CTX *rctx, X509 **pcert)
-	{
-	return OCSP_REQ_CTX_nbio_d2i(rctx,
-				(ASN1_VALUE **)pcert, ASN1_ITEM_rptr(X509));
-	}
-*/
-
 int X509_REQ_sign(X509_REQ *x, EVP_PKEY *pkey, const EVP_MD *md)
 	{
 	return(ASN1_item_sign(ASN1_ITEM_rptr(X509_REQ_INFO),x->sig_alg, NULL,
@@ -130,18 +119,16 @@ int X509_CRL_sign_ctx(X509_CRL *x, EVP_MD_CTX *ctx)
 		x->crl->sig_alg, x->sig_alg, x->signature, x->crl, ctx);
 	}
 
-/* TODO(fork)
-int X509_CRL_http_nbio(OCSP_REQ_CTX *rctx, X509_CRL **pcrl)
-	{
-	return OCSP_REQ_CTX_nbio_d2i(rctx,
-				(ASN1_VALUE **)pcrl, ASN1_ITEM_rptr(X509_CRL));
-	}
-*/
-
 int NETSCAPE_SPKI_sign(NETSCAPE_SPKI *x, EVP_PKEY *pkey, const EVP_MD *md)
 	{
 	return(ASN1_item_sign(ASN1_ITEM_rptr(NETSCAPE_SPKAC), x->sig_algor,NULL,
 		x->signature, x->spkac,pkey,md));
+	}
+
+int NETSCAPE_SPKI_verify(NETSCAPE_SPKI *x, EVP_PKEY *pkey)
+	{
+	return (ASN1_item_verify(ASN1_ITEM_rptr(NETSCAPE_SPKAC), x->sig_algor,
+		x->signature, x->spkac, pkey));
 	}
 
 #ifndef OPENSSL_NO_FP_API
@@ -188,31 +175,6 @@ int i2d_X509_CRL_bio(BIO *bp, X509_CRL *crl)
 	return ASN1_item_i2d_bio(ASN1_ITEM_rptr(X509_CRL), bp, crl);
 	}
 
-/* TODO(fork) */
-#if 0
-#ifndef OPENSSL_NO_FP_API
-PKCS7 *d2i_PKCS7_fp(FILE *fp, PKCS7 **p7)
-	{
-	return ASN1_item_d2i_fp(ASN1_ITEM_rptr(PKCS7), fp, p7);
-	}
-
-int i2d_PKCS7_fp(FILE *fp, PKCS7 *p7)
-	{
-	return ASN1_item_i2d_fp(ASN1_ITEM_rptr(PKCS7), fp, p7);
-	}
-#endif
-
-PKCS7 *d2i_PKCS7_bio(BIO *bp, PKCS7 **p7)
-	{
-	return ASN1_item_d2i_bio(ASN1_ITEM_rptr(PKCS7), bp, p7);
-	}
-
-int i2d_PKCS7_bio(BIO *bp, PKCS7 *p7)
-	{
-	return ASN1_item_i2d_bio(ASN1_ITEM_rptr(PKCS7), bp, p7);
-	}
-#endif
-
 #ifndef OPENSSL_NO_FP_API
 X509_REQ *d2i_X509_REQ_fp(FILE *fp, X509_REQ **req)
 	{
@@ -239,17 +201,17 @@ int i2d_X509_REQ_bio(BIO *bp, X509_REQ *req)
 #ifndef OPENSSL_NO_FP_API
 RSA *d2i_RSAPrivateKey_fp(FILE *fp, RSA **rsa)
 	{
-	return ASN1_item_d2i_fp(ASN1_ITEM_rptr(RSAPrivateKey), fp, rsa);
+	return ASN1_d2i_fp_of(RSA, RSA_new, d2i_RSAPrivateKey, fp, rsa);
 	}
 
 int i2d_RSAPrivateKey_fp(FILE *fp, RSA *rsa)
 	{
-	return ASN1_item_i2d_fp(ASN1_ITEM_rptr(RSAPrivateKey), fp, rsa);
+	return ASN1_i2d_fp_of_const(RSA, i2d_RSAPrivateKey, fp, rsa);
 	}
 
 RSA *d2i_RSAPublicKey_fp(FILE *fp, RSA **rsa)
 	{
-	return ASN1_item_d2i_fp(ASN1_ITEM_rptr(RSAPublicKey), fp, rsa);
+	return ASN1_d2i_fp_of(RSA, RSA_new, d2i_RSAPublicKey, fp, rsa);
 	}
 
 RSA *d2i_RSA_PUBKEY_fp(FILE *fp, RSA **rsa)
@@ -261,7 +223,7 @@ RSA *d2i_RSA_PUBKEY_fp(FILE *fp, RSA **rsa)
 
 int i2d_RSAPublicKey_fp(FILE *fp, RSA *rsa)
 	{
-	return ASN1_item_i2d_fp(ASN1_ITEM_rptr(RSAPublicKey), fp, rsa);
+	return ASN1_i2d_fp_of_const(RSA, i2d_RSAPublicKey, fp, rsa);
 	}
 
 int i2d_RSA_PUBKEY_fp(FILE *fp, RSA *rsa)
@@ -272,17 +234,17 @@ int i2d_RSA_PUBKEY_fp(FILE *fp, RSA *rsa)
 
 RSA *d2i_RSAPrivateKey_bio(BIO *bp, RSA **rsa)
 	{
-	return ASN1_item_d2i_bio(ASN1_ITEM_rptr(RSAPrivateKey), bp, rsa);
+	return ASN1_d2i_bio_of(RSA, RSA_new, d2i_RSAPrivateKey, bp, rsa);
 	}
 
 int i2d_RSAPrivateKey_bio(BIO *bp, RSA *rsa)
 	{
-	return ASN1_item_i2d_bio(ASN1_ITEM_rptr(RSAPrivateKey), bp, rsa);
+	return ASN1_i2d_bio_of_const(RSA, i2d_RSAPrivateKey, bp, rsa);
 	}
 
 RSA *d2i_RSAPublicKey_bio(BIO *bp, RSA **rsa)
 	{
-	return ASN1_item_d2i_bio(ASN1_ITEM_rptr(RSAPublicKey), bp, rsa);
+	return ASN1_d2i_bio_of(RSA, RSA_new, d2i_RSAPublicKey, bp, rsa);
 	}
 
 
@@ -293,7 +255,7 @@ RSA *d2i_RSA_PUBKEY_bio(BIO *bp, RSA **rsa)
 
 int i2d_RSAPublicKey_bio(BIO *bp, RSA *rsa)
 	{
-	return ASN1_item_i2d_bio(ASN1_ITEM_rptr(RSAPublicKey), bp, rsa);
+	return ASN1_i2d_bio_of_const(RSA, i2d_RSAPublicKey, bp, rsa);
 	}
 
 int i2d_RSA_PUBKEY_bio(BIO *bp, RSA *rsa)
@@ -421,15 +383,6 @@ int X509_NAME_digest(const X509_NAME *data, const EVP_MD *type, unsigned char *m
 	{
 	return(ASN1_item_digest(ASN1_ITEM_rptr(X509_NAME),type,(char *)data,md,len));
 	}
-
-#if 0 /* TODO(fork): remove */
-int PKCS7_ISSUER_AND_SERIAL_digest(PKCS7_ISSUER_AND_SERIAL *data, const EVP_MD *type,
-	     unsigned char *md, unsigned int *len)
-	{
-	return(ASN1_item_digest(ASN1_ITEM_rptr(PKCS7_ISSUER_AND_SERIAL),type,
-		(char *)data,md,len));
-	}
-#endif
 
 #ifndef OPENSSL_NO_FP_API
 X509_SIG *d2i_PKCS8_fp(FILE *fp, X509_SIG **p8)

@@ -30,60 +30,10 @@ import com.android.tv.settings.R;
 
 public class SettingsHelper {
 
-    private static final String TAG = "SettingsHelper";
-    private static final boolean DEBUG = false;
-
     private final Resources mResources;
 
     public SettingsHelper(Context context) {
         mResources = context.getResources();
-    }
-
-    public static void setSystemProperties(String setting, String value) {
-        SystemProperties.set(setting, value);
-        pokeSystemProperties();
-    }
-
-    public static void setSystemProperties(String setting, boolean value) {
-        setSystemProperties(setting, Boolean.toString(value));
-    }
-
-    public static String getSystemProperties(String setting) {
-        return SystemProperties.get(setting);
-    }
-
-    private static void pokeSystemProperties() {
-        (new SystemPropPoker()).execute();
-    }
-
-    static class SystemPropPoker extends AsyncTask<Void, Void, Void> {
-        @Override
-        protected Void doInBackground(Void... params) {
-            String[] services;
-            try {
-                services = ServiceManager.listServices();
-            } catch (RemoteException e) {
-                return null;
-            }
-            for (String service : services) {
-                IBinder obj = ServiceManager.checkService(service);
-                if (obj != null) {
-                    Parcel data = Parcel.obtain();
-                    try {
-                        obj.transact(IBinder.SYSPROPS_TRANSACTION, data, null, 0);
-                    } catch (RemoteException e) {
-                        if (DEBUG) {
-                            Log.d(TAG, "SystemPropPoker", e);
-                        }
-                    } catch (Exception e) {
-                        Log.i(TAG, "Somone wrote a bad service '" + service
-                                + "' that doesn't like to be poked: " + e);
-                    }
-                    data.recycle();
-                }
-            }
-            return null;
-        }
     }
 
     public String getStatusStringFromBoolean(boolean status) {

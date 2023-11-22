@@ -26,9 +26,12 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_JAVA_LIBRARIES := android.test.runner cts-junit
 
-LOCAL_STATIC_JAVA_LIBRARIES = android-support-v4 ctstestrunner compatibility-device-util_v2 \
+LOCAL_STATIC_JAVA_LIBRARIES = android-support-v4 ctstestrunner compatibility-device-util \
 	ub-uiautomator
 
 LOCAL_SDK_VERSION := current
+
+# tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
 
 include $(BUILD_CTS_PACKAGE)

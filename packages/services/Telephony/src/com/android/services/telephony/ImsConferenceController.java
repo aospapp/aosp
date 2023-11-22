@@ -16,14 +16,16 @@
 
 package com.android.services.telephony;
 
-import com.android.internal.telephony.imsphone.ImsPhoneConnection;
+import com.android.internal.telephony.Phone;
+import com.android.internal.telephony.PhoneConstants;
+import com.android.phone.PhoneUtils;
 
-import android.net.Uri;
 import android.telecom.Conference;
 import android.telecom.Connection;
 import android.telecom.ConnectionService;
 import android.telecom.DisconnectCause;
 import android.telecom.Conferenceable;
+import android.telecom.PhoneAccountHandle;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -74,7 +76,7 @@ public class ImsConferenceController {
         @Override
         public void onConferenceStarted() {
             Log.v(this, "onConferenceStarted");
-            recalculateConference();
+            recalculate();
         }
     };
 
@@ -152,9 +154,10 @@ public class ImsConferenceController {
         List<Conferenceable> backgroundConnections = new ArrayList<>(mTelephonyConnections.size());
 
         // Loop through and collect all calls which are active or holding
-        for (Connection connection : mTelephonyConnections) {
+        for (TelephonyConnection connection : mTelephonyConnections) {
             if (Log.DEBUG) {
-                Log.d(this, "recalc - %s %s", connection.getState(), connection);
+                Log.d(this, "recalc - %s %s supportsConf? %s", connection.getState(), connection,
+                        connection.isConferenceSupported());
             }
 
             // If this connection is a member of a conference hosted on another device, it is not
@@ -163,6 +166,12 @@ public class ImsConferenceController {
                 if (Log.VERBOSE) {
                     Log.v(this, "Skipping connection in peer conference: %s", connection);
                 }
+                continue;
+            }
+
+            // If this connection does not support being in a conference call, then it is not
+            // conferenceable with any other connection.
+            if (!connection.isConferenceSupported()) {
                 continue;
             }
 
@@ -239,8 +248,8 @@ public class ImsConferenceController {
 
             List<Connection> nonConferencedConnections =
                 new ArrayList<>(mTelephonyConnections.size());
-            for (Connection c : mTelephonyConnections) {
-                if (c.getConference() == null) {
+            for (TelephonyConnection c : mTelephonyConnections) {
+                if (c.getConference() == null && c.isConferenceSupported()) {
                     nonConferencedConnections.add(c);
                 }
             }
@@ -264,12 +273,9 @@ public class ImsConferenceController {
         TelephonyConnection telephonyConnection = (TelephonyConnection) connection;
         com.android.internal.telephony.Connection originalConnection =
                 telephonyConnection.getOriginalConnection();
-        if (!(originalConnection instanceof ImsPhoneConnection)) {
-            return false;
-        }
 
-        ImsPhoneConnection imsPhoneConnection = (ImsPhoneConnection) originalConnection;
-        return imsPhoneConnection.isMultiparty() && !imsPhoneConnection.isConferenceHost();
+        return originalConnection != null && originalConnection.isMultiparty() &&
+                originalConnection.isMemberOfPeerConference();
     }
 
     /**
@@ -315,12 +321,25 @@ public class ImsConferenceController {
         // from Telecom.  Instead we create a new instance and remove the old one from telecom.
         TelephonyConnection conferenceHostConnection = connection.cloneConnection();
 
-        // Create conference and add to telecom
-        ImsConference conference = new ImsConference(mConnectionService, conferenceHostConnection);
+        PhoneAccountHandle phoneAccountHandle = null;
+
+        // Attempt to determine the phone account associated with the conference host connection.
+        if (connection.getPhone() != null &&
+                connection.getPhone().getPhoneType() == PhoneConstants.PHONE_TYPE_IMS) {
+            Phone imsPhone = connection.getPhone();
+            // The phone account handle for an ImsPhone is based on the default phone (ie the
+            // base GSM or CDMA phone, not on the ImsPhone itself).
+            phoneAccountHandle =
+                    PhoneUtils.makePstnPhoneAccountHandle(imsPhone.getDefaultPhone());
+        }
+
+        ImsConference conference = new ImsConference(mConnectionService, conferenceHostConnection,
+                phoneAccountHandle);
         conference.setState(conferenceHostConnection.getState());
         conference.addListener(mConferenceListener);
         conference.updateConferenceParticipantsAfterCreation();
         mConnectionService.addConference(conference);
+        conferenceHostConnection.setTelecomCallId(conference.getTelecomCallId());
 
         // Cleanup TelephonyConnection which backed the original connection and remove from telecom.
         // Use the "Other" disconnect cause to ensure the call is logged to the call log but the

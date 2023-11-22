@@ -16,8 +16,6 @@
 
 package libcore.net;
 
-import libcore.net.url.FtpURLConnection;
-
 /**
  * Network security policy for this process/application.
  *
@@ -28,13 +26,27 @@ import libcore.net.url.FtpURLConnection;
  * <p>The policy currently consists of a single flag: whether cleartext network traffic is
  * permitted. See {@link #isCleartextTrafficPermitted()}.
  */
-public class NetworkSecurityPolicy {
+public abstract class NetworkSecurityPolicy {
 
-    private static volatile boolean cleartextTrafficPermitted = true;
+    private static volatile NetworkSecurityPolicy instance = new DefaultNetworkSecurityPolicy();
+
+    public static NetworkSecurityPolicy getInstance() {
+        return instance;
+    }
+
+    public static void setInstance(NetworkSecurityPolicy policy) {
+        if (policy == null) {
+            throw new NullPointerException("policy == null");
+        }
+        instance = policy;
+    }
 
     /**
-     * Returns whether cleartext network traffic (e.g. HTTP, FTP, XMPP, IMAP, SMTP -- without TLS or
-     * STARTTLS) is permitted for this process.
+     * Returns {@code true} if cleartext network traffic (e.g. HTTP, FTP, XMPP, IMAP, SMTP --
+     * without TLS or STARTTLS) is permitted for all network communications of this process.
+     *
+     * <p>{@link #isCleartextTrafficPermitted(String)} should be used to determine if cleartext
+     * traffic is permitted for a specific host.
      *
      * <p>When cleartext network traffic is not permitted, the platform's components (e.g. HTTP
      * stacks, {@code WebView}, {@code MediaPlayer}) will refuse this process's requests to use
@@ -47,20 +59,27 @@ public class NetworkSecurityPolicy {
      * can be made to honor this flag. Platform-provided network stacks (e.g. HTTP and FTP) honor
      * this flag from day one, and well-established third-party network stacks will eventually
      * honor it.
-     *
-     * <p>See {@link FtpURLConnection} for an example of honoring this flag.
      */
-    public static boolean isCleartextTrafficPermitted() {
-        return cleartextTrafficPermitted;
-    }
+    public abstract boolean isCleartextTrafficPermitted();
 
     /**
-     * Sets whether cleartext network traffic (e.g. HTTP, FTP, XMPP, IMAP, SMTP -- without TLS or
-     * STARTTLS) is permitted for this process.
+     * Returns {@code true} if cleartext network traffic (e.g. HTTP, FTP, XMPP, IMAP, SMTP --
+     * without TLS or STARTTLS) is permitted for communicating with {@code hostname} for this
+     * process.
      *
-     * @see #isCleartextTrafficPermitted()
+     * <p>See {@link #isCleartextTrafficPermitted} for more details.
      */
-    public static void setCleartextTrafficPermitted(boolean permitted) {
-        cleartextTrafficPermitted = permitted;
+    public abstract boolean isCleartextTrafficPermitted(String hostname);
+
+    public static final class DefaultNetworkSecurityPolicy extends NetworkSecurityPolicy {
+        @Override
+        public boolean isCleartextTrafficPermitted() {
+            return true;
+        }
+
+        @Override
+        public boolean isCleartextTrafficPermitted(String hostname) {
+            return isCleartextTrafficPermitted();
+        }
     }
 }

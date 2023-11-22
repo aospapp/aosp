@@ -16,25 +16,43 @@
 
 package com.android.server.telecom;
 
+import android.annotation.Nullable;
 import android.content.Context;
 import android.content.Intent;
+import android.location.Country;
+import android.location.CountryDetector;
+import android.location.CountryListener;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Looper;
+import android.os.UserHandle;
+import android.os.PersistableBundle;
 import android.provider.CallLog.Calls;
 import android.telecom.DisconnectCause;
+import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.VideoProfile;
+import android.telephony.CarrierConfigManager;
 import android.telephony.PhoneNumberUtils;
 
 // TODO: Needed for move to system service: import com.android.internal.R;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.CallerInfo;
+
+import java.util.Locale;
 
 /**
  * Helper class that provides functionality to write information about calls and their associated
  * caller details to the call log. All logging activity will be performed asynchronously in a
  * background thread to avoid blocking on the main thread.
  */
-final class CallLogManager extends CallsManagerListenerBase {
+@VisibleForTesting
+public final class CallLogManager extends CallsManagerListenerBase {
+
+    public interface LogCallCompletedListener {
+        void onLogCompleted(@Nullable Uri uri);
+    }
+
     /**
      * Parameter object to hold the arguments to add a call in the call log DB.
      */
@@ -50,13 +68,18 @@ final class CallLogManager extends CallsManagerListenerBase {
          * @param creationDate Time when the call was created (milliseconds since epoch).
          * @param durationInMillis Duration of the call (milliseconds).
          * @param dataUsage Data usage in bytes, or null if not applicable.
+         * @param logCallCompletedListener optional callback called after the call is logged.
          */
         public AddCallArgs(Context context, CallerInfo callerInfo, String number,
-                int presentation, int callType, int features, PhoneAccountHandle accountHandle,
-                long creationDate, long durationInMillis, Long dataUsage) {
+                String postDialDigits, String viaNumber, int presentation, int callType,
+                int features, PhoneAccountHandle accountHandle, long creationDate,
+                long durationInMillis, Long dataUsage, UserHandle initiatingUser,
+                @Nullable LogCallCompletedListener logCallCompletedListener) {
             this.context = context;
             this.callerInfo = callerInfo;
             this.number = number;
+            this.postDialDigits = postDialDigits;
+            this.viaNumber = viaNumber;
             this.presentation = presentation;
             this.callType = callType;
             this.features = features;
@@ -64,12 +87,16 @@ final class CallLogManager extends CallsManagerListenerBase {
             this.timestamp = creationDate;
             this.durationInSec = (int)(durationInMillis / 1000);
             this.dataUsage = dataUsage;
+            this.initiatingUser = initiatingUser;
+            this.logCallCompletedListener = logCallCompletedListener;
         }
         // Since the members are accessed directly, we don't use the
         // mXxxx notation.
         public final Context context;
         public final CallerInfo callerInfo;
         public final String number;
+        public final String postDialDigits;
+        public final String viaNumber;
         public final int presentation;
         public final int callType;
         public final int features;
@@ -77,11 +104,17 @@ final class CallLogManager extends CallsManagerListenerBase {
         public final long timestamp;
         public final int durationInSec;
         public final Long dataUsage;
+        public final UserHandle initiatingUser;
+
+        @Nullable
+        public final LogCallCompletedListener logCallCompletedListener;
     }
 
     private static final String TAG = CallLogManager.class.getSimpleName();
 
     private final Context mContext;
+    private final PhoneAccountRegistrar mPhoneAccountRegistrar;
+    private final MissedCallNotifier mMissedCallNotifier;
     private static final String ACTION_CALLS_TABLE_ADD_ENTRY =
                 "com.android.server.telecom.intent.action.CALLS_ADD_ENTRY";
     private static final String PERMISSION_PROCESS_CALLLOG_INFO =
@@ -89,8 +122,15 @@ final class CallLogManager extends CallsManagerListenerBase {
     private static final String CALL_TYPE = "callType";
     private static final String CALL_DURATION = "duration";
 
-    public CallLogManager(Context context) {
+    private Object mLock;
+    private String mCurrentCountryIso;
+
+    public CallLogManager(Context context, PhoneAccountRegistrar phoneAccountRegistrar,
+            MissedCallNotifier missedCallNotifier) {
         mContext = context;
+        mPhoneAccountRegistrar = phoneAccountRegistrar;
+        mMissedCallNotifier = missedCallNotifier;
+        mLock = new Object();
     }
 
     @Override
@@ -116,7 +156,21 @@ final class CallLogManager extends CallsManagerListenerBase {
             } else {
                 type = Calls.INCOMING_TYPE;
             }
-            logCall(call, type);
+            logCall(call, type, true /*showNotificationForMissedCall*/);
+        }
+    }
+
+    void logCall(Call call, int type, boolean showNotificationForMissedCall) {
+        if (type == Calls.MISSED_TYPE && showNotificationForMissedCall) {
+            logCall(call, Calls.MISSED_TYPE,
+                    new LogCallCompletedListener() {
+                        @Override
+                        public void onLogCompleted(@Nullable Uri uri) {
+                            mMissedCallNotifier.showMissedCallNotification(call);
+                        }
+                    });
+        } else {
+            logCall(call, type, null);
         }
     }
 
@@ -128,8 +182,10 @@ final class CallLogManager extends CallsManagerListenerBase {
      *     {@link android.provider.CallLog.Calls#INCOMING_TYPE}
      *     {@link android.provider.CallLog.Calls#OUTGOING_TYPE}
      *     {@link android.provider.CallLog.Calls#MISSED_TYPE}
+     * @param logCallCompletedListener optional callback called after the call is logged.
      */
-    void logCall(Call call, int callLogType) {
+    void logCall(Call call, int callLogType,
+        @Nullable LogCallCompletedListener logCallCompletedListener) {
         final long creationTime = call.getCreationTimeMillis();
         final long age = call.getAgeMillis();
 
@@ -140,15 +196,24 @@ final class CallLogManager extends CallsManagerListenerBase {
         final PhoneAccountHandle emergencyAccountHandle =
                 TelephonyUtil.getDefaultEmergencyPhoneAccount().getAccountHandle();
 
+        String formattedViaNumber = PhoneNumberUtils.formatNumber(call.getViaNumber(),
+                getCountryIso());
+        formattedViaNumber = (formattedViaNumber != null) ?
+                formattedViaNumber : call.getViaNumber();
+
         PhoneAccountHandle accountHandle = call.getTargetPhoneAccount();
         if (emergencyAccountHandle.equals(accountHandle)) {
             accountHandle = null;
         }
 
-        // TODO(vt): Once data usage is available, wire it up here.
+        Long callDataUsage = call.getCallDataUsage() == Call.DATA_USAGE_NOT_SET ? null :
+                call.getCallDataUsage();
+
         int callFeatures = getCallFeatures(call.getVideoStateHistory());
-        logCall(call.getCallerInfo(), logNumber, call.getHandlePresentation(),
-                callLogType, callFeatures, accountHandle, creationTime, age, null);
+        logCall(call.getCallerInfo(), logNumber, call.getPostDialDigits(), formattedViaNumber,
+                call.getHandlePresentation(), callLogType, callFeatures, accountHandle,
+                creationTime, age, callDataUsage, call.isEmergencyCall(), call.getInitiatingUser(),
+                logCallCompletedListener);
     }
 
     /**
@@ -156,33 +221,47 @@ final class CallLogManager extends CallsManagerListenerBase {
      *
      * @param callerInfo Caller details.
      * @param number The number the call was made to or from.
+     * @param postDialDigits The post-dial digits that were dialed after the number,
+     *                       if it was an outgoing call. Otherwise ''.
      * @param presentation
      * @param callType The type of call.
      * @param features The features of the call.
      * @param start The start time of the call, in milliseconds.
      * @param duration The duration of the call, in milliseconds.
      * @param dataUsage The data usage for the call, null if not applicable.
+     * @param isEmergency {@code true} if this is an emergency call, {@code false} otherwise.
+     * @param logCallCompletedListener optional callback called after the call is logged.
      */
     private void logCall(
             CallerInfo callerInfo,
             String number,
+            String postDialDigits,
+            String viaNumber,
             int presentation,
             int callType,
             int features,
             PhoneAccountHandle accountHandle,
             long start,
             long duration,
-            Long dataUsage) {
-        boolean isEmergencyNumber = PhoneNumberUtils.isLocalEmergencyNumber(mContext, number);
+            Long dataUsage,
+            boolean isEmergency,
+            UserHandle initiatingUser,
+            @Nullable LogCallCompletedListener logCallCompletedListener) {
 
         // On some devices, to avoid accidental redialing of emergency numbers, we *never* log
         // emergency calls to the Call Log.  (This behavior is set on a per-product basis, based
         // on carrier requirements.)
-        final boolean okToLogEmergencyNumber =
-                mContext.getResources().getBoolean(R.bool.allow_emergency_numbers_in_call_log);
+        boolean okToLogEmergencyNumber = false;
+        CarrierConfigManager configManager = (CarrierConfigManager) mContext.getSystemService(
+                Context.CARRIER_CONFIG_SERVICE);
+        PersistableBundle configBundle = configManager.getConfig();
+        if (configBundle != null) {
+            okToLogEmergencyNumber = configBundle.getBoolean(
+                    CarrierConfigManager.KEY_ALLOW_EMERGENCY_NUMBERS_IN_CALL_LOG_BOOL);
+        }
 
         // Don't log emergency numbers if the device doesn't allow it.
-        final boolean isOkToLogThisCall = !isEmergencyNumber || okToLogEmergencyNumber;
+        final boolean isOkToLogThisCall = !isEmergency || okToLogEmergencyNumber;
 
         sendAddCallBroadcast(callType, duration);
 
@@ -190,8 +269,9 @@ final class CallLogManager extends CallsManagerListenerBase {
             Log.d(TAG, "Logging Calllog entry: " + callerInfo + ", "
                     + Log.pii(number) + "," + presentation + ", " + callType
                     + ", " + start + ", " + duration);
-            AddCallArgs args = new AddCallArgs(mContext, callerInfo, number, presentation,
-                    callType, features, accountHandle, start, duration, dataUsage);
+            AddCallArgs args = new AddCallArgs(mContext, callerInfo, number, postDialDigits,
+                    viaNumber, presentation, callType, features, accountHandle, start, duration,
+                    dataUsage, initiatingUser, logCallCompletedListener);
             logCallAsync(args);
         } else {
           Log.d(TAG, "Not adding emergency call to call log.");
@@ -249,18 +329,20 @@ final class CallLogManager extends CallsManagerListenerBase {
      * its own thread pool.
      */
     private class LogCallAsyncTask extends AsyncTask<AddCallArgs, Void, Uri[]> {
+
+        private LogCallCompletedListener[] mListeners;
+
         @Override
         protected Uri[] doInBackground(AddCallArgs... callList) {
             int count = callList.length;
             Uri[] result = new Uri[count];
+            mListeners = new LogCallCompletedListener[count];
             for (int i = 0; i < count; i++) {
                 AddCallArgs c = callList[i];
-
+                mListeners[i] = c.logCallCompletedListener;
                 try {
                     // May block.
-                    result[i] = Calls.addCall(c.callerInfo, c.context, c.number, c.presentation,
-                            c.callType, c.features, c.accountHandle, c.timestamp, c.durationInSec,
-                            c.dataUsage, true /* addForAllUsers */);
+                    result[i] = addCall(c);
                 } catch (Exception e) {
                     // This is very rare but may happen in legitimate cases.
                     // E.g. If the phone is encrypted and thus write request fails, it may cause
@@ -276,15 +358,50 @@ final class CallLogManager extends CallsManagerListenerBase {
             return result;
         }
 
+        private Uri addCall(AddCallArgs c) {
+            PhoneAccount phoneAccount = mPhoneAccountRegistrar
+                    .getPhoneAccountUnchecked(c.accountHandle);
+            if (phoneAccount != null &&
+                    phoneAccount.hasCapabilities(PhoneAccount.CAPABILITY_MULTI_USER)) {
+                if (c.initiatingUser != null &&
+                        UserUtil.isManagedProfile(mContext, c.initiatingUser)) {
+                    return addCall(c, c.initiatingUser);
+                } else {
+                    return addCall(c, null);
+                }
+            } else {
+                return addCall(c, c.accountHandle == null ? null : c.accountHandle.getUserHandle());
+            }
+        }
+
         /**
-         * Performs a simple sanity check to make sure the call was written in the database.
-         * Typically there is only one result per call so it is easy to identify which one failed.
+         * Insert the call to a specific user or all users except managed profile.
+         * @param c context
+         * @param userToBeInserted user handle of user that the call going be inserted to. null
+         *                         if insert to all users except managed profile.
          */
+        private Uri addCall(AddCallArgs c, UserHandle userToBeInserted) {
+            return Calls.addCall(c.callerInfo, c.context, c.number, c.postDialDigits, c.viaNumber,
+                    c.presentation, c.callType, c.features, c.accountHandle, c.timestamp,
+                    c.durationInSec, c.dataUsage, userToBeInserted == null,
+                    userToBeInserted);
+        }
+
+
         @Override
         protected void onPostExecute(Uri[] result) {
-            for (Uri uri : result) {
+            for (int i = 0; i < result.length; i++) {
+                Uri uri = result[i];
+                /*
+                 Performs a simple sanity check to make sure the call was written in the database.
+                 Typically there is only one result per call so it is easy to identify which one
+                 failed.
+                 */
                 if (uri == null) {
                     Log.w(TAG, "Failed to write call to the log.");
+                }
+                if (mListeners[i] != null) {
+                    mListeners[i].onLogCompleted(uri);
                 }
             }
         }
@@ -295,5 +412,48 @@ final class CallLogManager extends CallsManagerListenerBase {
         callAddIntent.putExtra(CALL_TYPE, callType);
         callAddIntent.putExtra(CALL_DURATION, duration);
         mContext.sendBroadcast(callAddIntent, PERMISSION_PROCESS_CALLLOG_INFO);
+    }
+
+    private String getCountryIsoFromCountry(Country country) {
+        if(country == null) {
+            // Fallback to Locale if there are issues with CountryDetector
+            Log.w(TAG, "Value for country was null. Falling back to Locale.");
+            return Locale.getDefault().getCountry();
+        }
+
+        return country.getCountryIso();
+    }
+
+    /**
+     * Get the current country code
+     *
+     * @return the ISO 3166-1 two letters country code of current country.
+     */
+    public String getCountryIso() {
+        synchronized (mLock) {
+            if (mCurrentCountryIso == null) {
+                Log.i(TAG, "Country cache is null. Detecting Country and Setting Cache...");
+                final CountryDetector countryDetector =
+                        (CountryDetector) mContext.getSystemService(Context.COUNTRY_DETECTOR);
+                Country country = null;
+                if (countryDetector != null) {
+                    country = countryDetector.detectCountry();
+
+                    countryDetector.addCountryListener((newCountry) -> {
+                        Log.startSession("CLM.oCD");
+                        try {
+                            synchronized (mLock) {
+                                Log.i(TAG, "Country ISO changed. Retrieving new ISO...");
+                                mCurrentCountryIso = getCountryIsoFromCountry(newCountry);
+                            }
+                        } finally {
+                            Log.endSession();
+                        }
+                    }, Looper.getMainLooper());
+                }
+                mCurrentCountryIso = getCountryIsoFromCountry(country);
+            }
+            return mCurrentCountryIso;
+        }
     }
 }

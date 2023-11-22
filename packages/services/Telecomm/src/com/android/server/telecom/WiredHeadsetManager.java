@@ -16,12 +16,12 @@
 
 package com.android.server.telecom;
 
-import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
+import android.media.AudioDeviceCallback;
+import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.IndentingPrintWriter;
 
 import java.util.Collections;
@@ -29,25 +29,54 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Listens for and caches headset state. */
-class WiredHeadsetManager {
-    interface Listener {
+@VisibleForTesting
+public class WiredHeadsetManager {
+    @VisibleForTesting
+    public interface Listener {
         void onWiredHeadsetPluggedInChanged(boolean oldIsPluggedIn, boolean newIsPluggedIn);
     }
 
     /** Receiver for wired headset plugged and unplugged events. */
-    private class WiredHeadsetBroadcastReceiver extends BroadcastReceiver {
+    private class WiredHeadsetCallback extends AudioDeviceCallback {
         @Override
-        public void onReceive(Context context, Intent intent) {
-            if (intent.getAction().equals(Intent.ACTION_HEADSET_PLUG)) {
-                boolean isPluggedIn = intent.getIntExtra("state", 0) == 1;
-                Log.v(WiredHeadsetManager.this, "ACTION_HEADSET_PLUG event, plugged in: %b",
-                        isPluggedIn);
-                onHeadsetPluggedInChanged(isPluggedIn);
+        public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) {
+            Log.startSession("WHC.oADA");
+            try {
+                updateHeadsetStatus();
+            } finally {
+                Log.endSession();
             }
+        }
+
+        @Override
+        public void onAudioDevicesRemoved(AudioDeviceInfo[] devices) {
+            Log.startSession("WHC.oADR");
+            try {
+                updateHeadsetStatus();
+            } finally {
+                Log.endSession();
+            }
+        }
+
+        private void updateHeadsetStatus() {
+            AudioDeviceInfo[] devices = mAudioManager.getDevices(AudioManager.GET_DEVICES_ALL);
+            boolean isPluggedIn = false;
+            for (AudioDeviceInfo device : devices) {
+                switch (device.getType()) {
+                    case AudioDeviceInfo.TYPE_WIRED_HEADPHONES:
+                    case AudioDeviceInfo.TYPE_WIRED_HEADSET:
+                    case AudioDeviceInfo.TYPE_USB_DEVICE:
+                        isPluggedIn = true;
+                }
+            }
+
+            Log.i(WiredHeadsetManager.this, "ACTION_HEADSET_PLUG event, plugged in: %b, ",
+                    isPluggedIn);
+            onHeadsetPluggedInChanged(isPluggedIn);
         }
     }
 
-    private final WiredHeadsetBroadcastReceiver mReceiver;
+    private final AudioManager mAudioManager;
     private boolean mIsPluggedIn;
     /**
      * ConcurrentHashMap constructor params: 8 is initial table size, 0.9f is
@@ -55,20 +84,17 @@ class WiredHeadsetManager {
      * access the map so make only a single shard
      */
     private final Set<Listener> mListeners = Collections.newSetFromMap(
-            new ConcurrentHashMap<Listener, Boolean>(8, 0.9f, 1));
+            new ConcurrentHashMap<>(8, 0.9f, 1));
 
-    WiredHeadsetManager(Context context) {
-        mReceiver = new WiredHeadsetBroadcastReceiver();
+    public WiredHeadsetManager(Context context) {
+        mAudioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+        mIsPluggedIn = mAudioManager.isWiredHeadsetOn();
 
-        AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-        mIsPluggedIn = audioManager.isWiredHeadsetOn();
-
-        // Register for misc other intent broadcasts.
-        IntentFilter intentFilter = new IntentFilter(Intent.ACTION_HEADSET_PLUG);
-        context.registerReceiver(mReceiver, intentFilter);
+        mAudioManager.registerAudioDeviceCallback(new WiredHeadsetCallback(), null);
     }
 
-    void addListener(Listener listener) {
+    @VisibleForTesting
+    public void addListener(Listener listener) {
         mListeners.add(listener);
     }
 
@@ -78,7 +104,8 @@ class WiredHeadsetManager {
         }
     }
 
-    boolean isPluggedIn() {
+    @VisibleForTesting
+    public boolean isPluggedIn() {
         return mIsPluggedIn;
     }
 

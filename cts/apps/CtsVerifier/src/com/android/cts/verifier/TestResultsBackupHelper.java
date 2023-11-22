@@ -53,7 +53,7 @@ class TestResultsBackupHelper implements BackupHelper {
         ContentResolver resolver = mContext.getContentResolver();
         Cursor cursor = null;
         try {
-            cursor = resolver.query(TestResultsProvider.RESULTS_CONTENT_URI,
+            cursor = resolver.query(TestResultsProvider.getResultContentUri(mContext),
                     null, null, null, null);
             int nameIndex = cursor.getColumnIndex(TestResultsProvider.COLUMN_TEST_NAME);
             int resultIndex = cursor.getColumnIndex(TestResultsProvider.COLUMN_TEST_RESULT);
@@ -128,7 +128,7 @@ class TestResultsBackupHelper implements BackupHelper {
                 }
 
                 ContentResolver resolver = mContext.getContentResolver();
-                resolver.bulkInsert(TestResultsProvider.RESULTS_CONTENT_URI, values);
+                resolver.bulkInsert(TestResultsProvider.getResultContentUri(mContext), values);
             } else {
                 Log.e(TAG, "Skipping key: " + data.getKey());
             }

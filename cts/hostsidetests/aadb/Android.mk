@@ -19,11 +19,15 @@ include $(CLEAR_VARS)
 # Only compile source java files in this apk.
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_MODULE := CtsAdbTests
+# Adb test cases, but name 'aadb' ensures adb tests run before all other modules depending on adb
+LOCAL_MODULE := CtsAadbHostTestCases
 
 LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed-prebuilt
 
 LOCAL_CTS_TEST_PACKAGE := android.aadb
+
+# tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
 
 include $(BUILD_CTS_HOST_JAVA_LIBRARY)
 

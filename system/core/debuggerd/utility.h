@@ -21,6 +21,8 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
+#include <string>
+
 #include <backtrace/Backtrace.h>
 
 // Figure out the abi based on defined macros.
@@ -42,10 +44,10 @@
 
 
 struct log_t{
-    /* tombstone file descriptor */
+    // Tombstone file descriptor.
     int tfd;
-    /* Activity Manager socket file descriptor */
-    int amfd;
+    // Data to be sent to the Activity Manager.
+    std::string* amfd_data;
     // The tid of the thread that crashed.
     pid_t crashed_tid;
     // The tid of the thread we are currently working with.
@@ -54,12 +56,12 @@ struct log_t{
     bool should_retrieve_logcat;
 
     log_t()
-        : tfd(-1), amfd(-1), crashed_tid(-1), current_tid(-1), should_retrieve_logcat(true) {}
+        : tfd(-1), amfd_data(nullptr), crashed_tid(-1), current_tid(-1),
+          should_retrieve_logcat(true) {}
 };
 
 // List of types of logs to simplify the logging decision in _LOG
 enum logtype {
-  ERROR,
   HEADER,
   THREAD,
   REGISTERS,
@@ -75,7 +77,7 @@ enum logtype {
 void _LOG(log_t* log, logtype ltype, const char *fmt, ...)
         __attribute__ ((format(printf, 3, 4)));
 
-int wait_for_sigstop(pid_t, int*, bool*);
+int wait_for_signal(pid_t tid, int* total_sleep_time_usec);
 
 void dump_memory(log_t* log, Backtrace* backtrace, uintptr_t addr, const char* fmt, ...);
 

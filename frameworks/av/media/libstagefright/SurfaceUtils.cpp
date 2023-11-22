@@ -26,8 +26,25 @@ namespace android {
 
 status_t setNativeWindowSizeFormatAndUsage(
         ANativeWindow *nativeWindow /* nonnull */,
-        int width, int height, int format, int rotation, int usage) {
-    status_t err = native_window_set_buffers_dimensions(nativeWindow, width, height);
+        int width, int height, int format, int rotation, int usage, bool reconnect) {
+    status_t err = NO_ERROR;
+
+    // In some cases we need to reconnect so that we can dequeue all buffers
+    if (reconnect) {
+        err = native_window_api_disconnect(nativeWindow, NATIVE_WINDOW_API_MEDIA);
+        if (err != NO_ERROR) {
+            ALOGE("native_window_api_disconnect failed: %s (%d)", strerror(-err), -err);
+            return err;
+        }
+
+        err = native_window_api_connect(nativeWindow, NATIVE_WINDOW_API_MEDIA);
+        if (err != NO_ERROR) {
+            ALOGE("native_window_api_connect failed: %s (%d)", strerror(-err), -err);
+            return err;
+        }
+    }
+
+    err = native_window_set_buffers_dimensions(nativeWindow, width, height);
     if (err != NO_ERROR) {
         ALOGE("native_window_set_buffers_dimensions failed: %s (%d)", strerror(-err), -err);
         return err;
@@ -55,11 +72,17 @@ status_t setNativeWindowSizeFormatAndUsage(
         return err;
     }
 
+    int consumerUsage = 0;
+    err = nativeWindow->query(nativeWindow, NATIVE_WINDOW_CONSUMER_USAGE_BITS, &consumerUsage);
+    if (err != NO_ERROR) {
+        ALOGW("failed to get consumer usage bits. ignoring");
+        err = NO_ERROR;
+    }
+
     // Make sure to check whether either Stagefright or the video decoder
     // requested protected buffers.
     if (usage & GRALLOC_USAGE_PROTECTED) {
-        // Verify that the ANativeWindow sends images directly to
-        // SurfaceFlinger.
+        // Check if the ANativeWindow sends images directly to SurfaceFlinger.
         int queuesToNativeWindow = 0;
         err = nativeWindow->query(
                 nativeWindow, NATIVE_WINDOW_QUEUES_TO_WINDOW_COMPOSER, &queuesToNativeWindow);
@@ -67,17 +90,12 @@ status_t setNativeWindowSizeFormatAndUsage(
             ALOGE("error authenticating native window: %s (%d)", strerror(-err), -err);
             return err;
         }
-        if (queuesToNativeWindow != 1) {
+
+        // Check if the ANativeWindow uses hardware protected buffers.
+        if (queuesToNativeWindow != 1 && !(consumerUsage & GRALLOC_USAGE_PROTECTED)) {
             ALOGE("native window could not be authenticated");
             return PERMISSION_DENIED;
         }
-    }
-
-    int consumerUsage = 0;
-    err = nativeWindow->query(nativeWindow, NATIVE_WINDOW_CONSUMER_USAGE_BITS, &consumerUsage);
-    if (err != NO_ERROR) {
-        ALOGW("failed to get consumer usage bits. ignoring");
-        err = NO_ERROR;
     }
 
     int finalUsage = usage | consumerUsage;
@@ -123,7 +141,8 @@ status_t pushBlankBuffersToNativeWindow(ANativeWindow *nativeWindow /* nonnull *
     }
 
     err = setNativeWindowSizeFormatAndUsage(
-            nativeWindow, 1, 1, HAL_PIXEL_FORMAT_RGBX_8888, 0, GRALLOC_USAGE_SW_WRITE_OFTEN);
+            nativeWindow, 1, 1, HAL_PIXEL_FORMAT_RGBX_8888, 0, GRALLOC_USAGE_SW_WRITE_OFTEN,
+            false /* reconnect */);
     if (err != NO_ERROR) {
         goto error;
     }

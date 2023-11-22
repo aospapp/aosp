@@ -15,8 +15,8 @@
  */
 package com.android.cts.tradefed.result;
 
+import com.android.compatibility.common.util.AbiUtils;
 import com.android.cts.tradefed.build.CtsBuildProvider;
-import com.android.cts.util.AbiUtils;
 import com.android.tradefed.log.LogUtil.CLog;
 
 import org.kxml2.io.KXmlSerializer;

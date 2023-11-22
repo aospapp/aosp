@@ -15,6 +15,7 @@
  */
 package com.google.common.util.concurrent;
 
+import static com.google.common.truth.Truth.assertThat;
 import static java.util.Arrays.asList;
 
 import com.google.common.collect.ImmutableMap;
@@ -62,10 +63,10 @@ public class ServiceManagerTest extends TestCase {
    * A NoOp service that will delay the startup and shutdown notification for a configurable amount
    * of time.
    */
-  private static class NoOpDelayedSerivce extends NoOpService {
+  private static class NoOpDelayedService extends NoOpService {
     private long delay;
 
-    public NoOpDelayedSerivce(long delay) {
+    public NoOpDelayedService(long delay) {
       this.delay = delay;
     }
 
@@ -108,14 +109,44 @@ public class ServiceManagerTest extends TestCase {
   }
 
   public void testServiceStartupTimes() {
-    Service a = new NoOpDelayedSerivce(150);
-    Service b = new NoOpDelayedSerivce(353);
+    Service a = new NoOpDelayedService(150);
+    Service b = new NoOpDelayedService(353);
     ServiceManager serviceManager = new ServiceManager(asList(a, b));
     serviceManager.startAsync().awaitHealthy();
     ImmutableMap<Service, Long> startupTimes = serviceManager.startupTimes();
     assertEquals(2, startupTimes.size());
-    assertTrue(startupTimes.get(a) >= 150);
-    assertTrue(startupTimes.get(b) >= 353);
+    assertThat(startupTimes.get(a)).isInclusivelyInRange(150, Long.MAX_VALUE);
+    assertThat(startupTimes.get(b)).isInclusivelyInRange(353, Long.MAX_VALUE);
+  }
+
+  public void testServiceStartupTimes_selfStartingServices() {
+    // This tests to ensure that:
+    // 1. service times are accurate when the service is started by the manager
+    // 2. service times are recorded when the service is not started by the manager (but they may
+    // not be accurate).
+    final Service b = new NoOpDelayedService(353) {
+      @Override protected void doStart() {
+        super.doStart();
+        // This will delay service listener execution at least 150 milliseconds
+        Uninterruptibles.sleepUninterruptibly(150, TimeUnit.MILLISECONDS);
+      }
+    };
+    Service a = new NoOpDelayedService(150) {
+      @Override protected void doStart() {
+        b.startAsync();
+        super.doStart();
+      }
+    };
+    ServiceManager serviceManager = new ServiceManager(asList(a, b));
+    serviceManager.startAsync().awaitHealthy();
+    ImmutableMap<Service, Long> startupTimes = serviceManager.startupTimes();
+    assertEquals(2, startupTimes.size());
+    assertThat(startupTimes.get(a)).isInclusivelyInRange(150, Long.MAX_VALUE);
+    // Service b startup takes at least 353 millis, but starting the timer is delayed by at least
+    // 150 milliseconds. so in a perfect world the timing would be 353-150=203ms, but since either
+    // of our sleep calls can be arbitrarily delayed we should just assert that there is a time
+    // recorded.
+    assertThat(startupTimes.get(b)).isNotNull();
   }
 
   public void testServiceStartStop() {
@@ -217,7 +248,7 @@ public class ServiceManagerTest extends TestCase {
   }
 
   public void testTimeouts() throws Exception {
-    Service a = new NoOpDelayedSerivce(50);
+    Service a = new NoOpDelayedService(50);
     ServiceManager manager = new ServiceManager(asList(a));
     manager.startAsync();
     try {
@@ -311,7 +342,7 @@ public class ServiceManagerTest extends TestCase {
     logger.addHandler(logHandler);
     ServiceManager manager = new ServiceManager(Arrays.<Service>asList());
     RecordingListener listener = new RecordingListener();
-    manager.addListener(listener, MoreExecutors.sameThreadExecutor());
+    manager.addListener(listener);
     manager.startAsync().awaitHealthy();
     assertTrue(manager.isHealthy());
     assertTrue(listener.healthyCalled);
@@ -369,7 +400,7 @@ public class ServiceManagerTest extends TestCase {
         // block until after the service manager is shutdown
         Uninterruptibles.awaitUninterruptibly(failLeave);
       }
-    }, MoreExecutors.sameThreadExecutor());
+    });
     manager.startAsync();
     afterStarted.countDown();
     // We do not call awaitHealthy because, due to races, that method may throw an exception.  But
@@ -431,22 +462,6 @@ public class ServiceManagerTest extends TestCase {
 
       @Override public final Service stopAsync() {
         return delegate.stopAsync();
-      }
-
-      @Override public final ListenableFuture<State> start() {
-        return delegate.start();
-      }
-
-      @Override public final ListenableFuture<State> stop() {
-        return delegate.stop();
-      }
-
-      @Override public State startAndWait() {
-        return delegate.startAndWait();
-      }
-
-      @Override public State stopAndWait() {
-        return delegate.stopAndWait();
       }
 
       @Override public final void awaitRunning() {

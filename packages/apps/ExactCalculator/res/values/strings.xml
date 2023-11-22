@@ -118,6 +118,10 @@
     <string name="eq" translatable="false">=</string>
     <!-- Clear button to clear the currently entered expression. [CHAR_LIMIT=4] -->
     <string name="clr">clr</string>
+    <!--
+      Announced when all characters are removed from Formula, e.g. after clear. [CHAR_LIMIT=NONE]
+      -->
+    <string name="cleared">cleared</string>
     <!-- Delete button to remove last entered token. [CHAR_LIMIT=4] -->
     <string name="del">del</string>
     <!-- Toggle button to show/hide inverse functions. [CHAR_LIMIT=4] -->
@@ -197,9 +201,12 @@
 
     <!-- Content description for '=' button. [CHAR_LIMIT=NONE] -->
     <string name="desc_eq">equals</string>
-    <!-- Content description for "clr" button. [CHAR_LIMIT=NONE] -->
+    <!-- Content description for "clr" button. Deletes entire formula. [CHAR_LIMIT=NONE] -->
     <string name="desc_clr">clear</string>
-    <!-- Content description for "del" button. [CHAR_LIMIT=NONE] -->
+    <!--
+      Content description for "del" button. Deletes single character. Should differ
+      from desc_clr. [CHAR_LIMIT=NONE]
+      -->
     <string name="desc_del">delete</string>
     <!-- Content description for "inv" button to show inverse functions. [CHAR_LIMIT=NONE] -->
     <string name="desc_inv_off">show inverse functions</string>
@@ -221,7 +228,7 @@
       be used, e.g. "Division by 0". Exceeding the limit will result in a truncated string.
 
       [CHAR_LIMIT=20]
-    -->
+      -->
     <string name="error_zero_divide">Can\'t divide by 0</string>
 
     <!-- Toast shown when text is copied to the clipboard. [CHAR_LIMIT=40] -->
@@ -239,7 +246,7 @@
       "timing out".
 
       [CHAR_LIMIT=40]
-    -->
+      -->
     <string name="ok_remove_timeout">Use longer timeouts</string>
     <!-- Button label to dismiss informative text message. [CHAR_LIMIT=40] -->
     <string name="dismiss">Dismiss</string>

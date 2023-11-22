@@ -21,9 +21,12 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.List;
 
+import junit.framework.AssertionFailedError;
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
@@ -90,11 +93,11 @@ public final class Junit3 {
      * Creates lazy vogar test instances from the given test case or test
      * suite.
      *
-     * @param args if non-empty, this is the list of test method names.
+     * @param methodNames if non-empty, this is the list of test method names.
      */
-    public static List<VogarTest> classToVogarTests(Class<?> testClass, String... args) {
+    static List<VogarTest> classToVogarTests(Class<?> testClass, Collection<String> methodNames) {
         List<VogarTest> result = new ArrayList<VogarTest>();
-        getSuiteMethods(result, testClass, args);
+        getSuiteMethods(result, testClass, methodNames);
         return result;
     }
 
@@ -108,7 +111,8 @@ public final class Junit3 {
                 || new ClassAnalyzer(klass).hasMethod(true, Test.class, "suite");
     }
 
-    private static void getSuiteMethods(List<VogarTest> out, Class<?> testClass, String... args) {
+    private static void getSuiteMethods(
+        List<VogarTest> out, Class<?> testClass, Collection<String> methodNames) {
         /*
          * Handle classes assignable to TestCase
          */
@@ -116,7 +120,7 @@ public final class Junit3 {
             @SuppressWarnings("unchecked")
             Class<? extends TestCase> testCaseClass = (Class<? extends TestCase>) testClass;
 
-            if (args.length == 0) {
+            if (methodNames.isEmpty()) {
                 for (Method m : testClass.getMethods()) {
                     if (!m.getName().startsWith("test")) {
                         continue;
@@ -128,11 +132,16 @@ public final class Junit3 {
                     }
                 }
             } else {
-                for (String arg : args) {
+                for (String methodName : methodNames) {
                     try {
-                        out.add(TestMethod.create(testCaseClass, testClass.getMethod(arg)));
+                        out.add(TestMethod.create(testCaseClass, testClass.getMethod(methodName)));
                     } catch (final NoSuchMethodException e) {
-                        out.add(new ConfigurationError(testClass.getName() + "#" + arg, e));
+                        AssertionFailedError cause = new AssertionFailedError(
+                                "Method \"" + methodName + "\" not found");
+                        ConfigurationError error = new ConfigurationError(
+                                testClass.getName() + "#" + methodName,
+                                cause);
+                        out.add(error);
                     }
                 }
             }
@@ -154,9 +163,9 @@ public final class Junit3 {
             }
 
             if (test instanceof TestCase) {
-                out.add(createForTestCase((TestCase) test));
+                getTestCaseTest(out, (TestCase) test, methodNames);
             } else if (test instanceof TestSuite) {
-                getTestSuiteTests(out, (TestSuite) test);
+                getTestSuiteTests(out, (TestSuite) test, methodNames);
             } else {
                 out.add(new ConfigurationError(testClass.getName() + "#suite",
                         new IllegalStateException("Unknown suite() result: " + test)));
@@ -169,40 +178,57 @@ public final class Junit3 {
                 new IllegalStateException("Not a test case: " + testClass)));
     }
 
-    private static void getTestSuiteTests(List<VogarTest> out, TestSuite suite) {
-        for (Object testsOrSuite : suite.getTestsAndSuites()) {
-            if (testsOrSuite instanceof Class) {
-                getSuiteMethods(out, (Class<?>) testsOrSuite);
-            } else if (testsOrSuite instanceof TestCase) {
-                out.add(createForTestCase((TestCase) testsOrSuite));
-            } else if (testsOrSuite instanceof TestSuite) {
-                getTestSuiteTests(out, (TestSuite) testsOrSuite);
-            } else if (testsOrSuite != null) {
-                out.add(new ConfigurationError(testsOrSuite.getClass().getName() + "#getClass",
-                        new IllegalStateException("Unknown test: " + testsOrSuite)));
+    private static void getTestSuiteTests(List<VogarTest> out, TestSuite suite,
+            Collection<String> methodNames) {
+      for (Object testsOrSuite : getTestsAndSuites(suite)) {
+          if (testsOrSuite instanceof Class) {
+              getSuiteMethods(out, (Class<?>) testsOrSuite, methodNames);
+          } else if (testsOrSuite instanceof TestCase) {
+              getTestCaseTest(out, (TestCase) testsOrSuite, methodNames);
+          } else if (testsOrSuite instanceof TestSuite) {
+              getTestSuiteTests(out, (TestSuite) testsOrSuite, methodNames);
+          } else if (testsOrSuite != null) {
+              out.add(new ConfigurationError(testsOrSuite.getClass().getName() + "#getClass",
+                      new IllegalStateException("Unknown test: " + testsOrSuite)));
+          }
+      }
+    }
+
+    private static List<Object> getTestsAndSuites(TestSuite suite) {
+        try {
+            return suite.getTestsAndSuites();
+        } catch (NoSuchMethodError e) {
+            // This is running with the standard JUnit TestSuite class and not the Vogar specific
+            // one so the getTestsAndSuites() method is not available. Fall back to using the
+            // tests() method.
+            if (!e.getMessage().contains("getTestsAndSuites()Ljava/util/List;")) {
+                throw e;
             }
+
+            // Create a list from the enumeration, cannot use Collections.list() without a lot of
+            // ugly casting.
+            Enumeration<?> enumeration = suite.tests();
+            List<Object> tests = new ArrayList<Object>();
+            while (enumeration.hasMoreElements()) {
+                tests.add(enumeration.nextElement());
+            }
+            return tests;
         }
     }
 
-    private static VogarTest createForTestCase(TestCase testCase) {
-        return new TestCaseInstance(testCase, testCase.getMethod());
-    }
 
-    private static class ConfigurationError implements VogarTest {
-        private final String name;
-        private final Throwable cause;
+    private static void getTestCaseTest(List<VogarTest> out, TestCase testCase,
+            Collection<String> methodNames) {
+        if (methodNames.isEmpty() || methodNames.contains(testCase.getName())) {
+            try {
+                out.add(new TestCaseInstance(testCase, testCase.getMethod()));
+            } catch (NoSuchMethodError e) {
+                if (!e.getMessage().contains("getMethod()Ljava/lang/reflect/Method;")) {
+                    throw e;
+                }
 
-        private ConfigurationError(String name, Throwable cause) {
-            this.name = name;
-            this.cause = cause;
-        }
-
-        @Override public void run() throws Throwable {
-            throw cause;
-        }
-
-        @Override public String toString() {
-            return name;
+                out.add(new TestCaseInstance(testCase, runTest));
+            }
         }
     }
 
@@ -276,7 +302,13 @@ public final class Junit3 {
         }
 
         @Override protected TestCase getTestCase() throws Exception {
-            return constructor.newInstance(constructorArgs);
+            TestCase testCase = constructor.newInstance(constructorArgs);
+            // If the test case used the no argument constructor then make sure to set its name
+            // correctly.
+            if (constructor.getParameterTypes().length == 0) {
+                testCase.setName(method.getName());
+            }
+            return testCase;
         }
 
         @Override public String toString() {

@@ -16,17 +16,27 @@
 
 package com.android.services.telephony;
 
+import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
 
 import android.net.Uri;
 import android.telecom.Connection;
 import android.telecom.ConferenceParticipant;
 import android.telecom.DisconnectCause;
+import android.telecom.PhoneAccount;
+import android.telephony.PhoneNumberUtils;
+import android.telephony.SubscriptionInfo;
+import android.text.TextUtils;
 
 /**
  * Represents a participant in a conference call.
  */
 public class ConferenceParticipantConnection extends Connection {
+    /**
+     * RFC5767 states that a SIP URI with an unknown number should use an address of
+     * {@code anonymous@anonymous.invalid}.  E.g. the host name is anonymous.invalid.
+     */
+    private static final String ANONYMOUS_INVALID_HOST = "anonymous.invalid";
 
     /**
      * The user entity URI For the conference participant.
@@ -53,11 +63,21 @@ public class ConferenceParticipantConnection extends Connection {
             ConferenceParticipant participant) {
 
         mParentConnection = parentConnection;
-        setAddress(participant.getHandle(), PhoneConstants.PRESENTATION_ALLOWED);
-        setCallerDisplayName(participant.getDisplayName(), PhoneConstants.PRESENTATION_ALLOWED);
+
+        int presentation = getParticipantPresentation(participant);
+        Uri address;
+        if (presentation != PhoneConstants.PRESENTATION_ALLOWED) {
+            address = null;
+        } else {
+            String countryIso = getCountryIso(parentConnection.getCall().getPhone());
+            address = getParticipantAddress(participant, countryIso);
+        }
+        setAddress(address, presentation);
+        setCallerDisplayName(participant.getDisplayName(), presentation);
 
         mUserEntity = participant.getHandle();
         mEndpoint = participant.getEndpoint();
+
         setCapabilities();
     }
 
@@ -137,6 +157,127 @@ public class ConferenceParticipantConnection extends Connection {
     private void setCapabilities() {
         int capabilities = CAPABILITY_DISCONNECT_FROM_CONFERENCE;
         setConnectionCapabilities(capabilities);
+    }
+
+    /**
+     * Determines the number presentation for a conference participant.  Per RFC5767, if the host
+     * name contains {@code anonymous.invalid} we can assume that there is no valid caller ID
+     * information for the caller, otherwise we'll assume that the URI can be shown.
+     *
+     * @param participant The conference participant.
+     * @return The number presentation.
+     */
+    private int getParticipantPresentation(ConferenceParticipant participant) {
+        Uri address = participant.getHandle();
+        if (address == null) {
+            return PhoneConstants.PRESENTATION_RESTRICTED;
+        }
+
+        String number = address.getSchemeSpecificPart();
+        // If no number, bail early and set restricted presentation.
+        if (TextUtils.isEmpty(number)) {
+            return PhoneConstants.PRESENTATION_RESTRICTED;
+        }
+
+        String numberParts[] = number.split("[@]");
+        // If we can't parse the host name out of the URI, then there is probably other data
+        // present, and is likely a valid SIP URI.
+        if (numberParts.length != 2) {
+            return PhoneConstants.PRESENTATION_ALLOWED;
+        }
+        String hostName = numberParts[1];
+
+        // If the hostname portion of the SIP URI is the invalid host string, presentation is
+        // restricted.
+        if (hostName.equals(ANONYMOUS_INVALID_HOST)) {
+            return PhoneConstants.PRESENTATION_RESTRICTED;
+        }
+
+        return PhoneConstants.PRESENTATION_ALLOWED;
+    }
+
+    /**
+     * Attempts to build a tel: style URI from a conference participant.
+     * Conference event package data contains SIP URIs, so we try to extract the phone number and
+     * format into a typical tel: style URI.
+     *
+     * @param participant The conference participant.
+     * @param countryIso The country ISO of the current subscription; used when formatting the
+     *                   participant phone number to E.164 format.
+     * @return The participant's address URI.
+     */
+    private Uri getParticipantAddress(ConferenceParticipant participant, String countryIso) {
+        Uri address = participant.getHandle();
+        if (address == null) {
+            return address;
+        }
+
+        // If the participant's address is already a TEL scheme, just return it as is.
+        if (PhoneAccount.SCHEME_TEL.equals(address.getScheme())) {
+            return address;
+        }
+
+        // Conference event package participants are identified using SIP URIs (see RFC3261).
+        // A valid SIP uri has the format: sip:user:password@host:port;uri-parameters?headers
+        // Per RFC3261, the "user" can be a telephone number.
+        // For example: sip:1650555121;phone-context=blah.com@host.com
+        // In this case, the phone number is in the user field of the URI, and the parameters can be
+        // ignored.
+        //
+        // A SIP URI can also specify a phone number in a format similar to:
+        // sip:+1-212-555-1212@something.com;user=phone
+        // In this case, the phone number is again in user field and the parameters can be ignored.
+        // We can get the user field in these instances by splitting the string on the @, ;, or :
+        // and looking at the first found item.
+        String number = address.getSchemeSpecificPart();
+        if (TextUtils.isEmpty(number)) {
+            return address;
+        }
+
+        String numberParts[] = number.split("[@;:]");
+        if (numberParts.length == 0) {
+            return address;
+        }
+        number = numberParts[0];
+
+        // Attempt to format the number in E.164 format and use that as part of the TEL URI.
+        // RFC2806 recommends to format telephone numbers using E.164 since it is independent of
+        // how the dialing of said numbers takes place.
+        // If conversion to E.164 fails, the returned value is null.  In that case, fallback to the
+        // number which was in the CEP data.
+        String formattedNumber = null;
+        if (!TextUtils.isEmpty(countryIso)) {
+            formattedNumber = PhoneNumberUtils.formatNumberToE164(number, countryIso);
+        }
+
+        return Uri.fromParts(PhoneAccount.SCHEME_TEL,
+                formattedNumber != null ? formattedNumber : number, null);
+    }
+
+    /**
+     * Given a {@link Phone} instance, determines the country ISO associated with the phone's
+     * subscription.
+     *
+     * @param phone The phone instance.
+     * @return The country ISO.
+     */
+    private String getCountryIso(Phone phone) {
+        if (phone == null) {
+            return null;
+        }
+
+        int subId = phone.getSubId();
+
+        SubscriptionInfo subInfo = TelecomAccountRegistry.getInstance(null).
+                getSubscriptionManager().getActiveSubscriptionInfo(subId);
+
+        if (subInfo == null) {
+            return null;
+        }
+        // The SubscriptionInfo reports ISO country codes in lower case.  Convert to upper case,
+        // since ultimately we use this ISO when formatting the CEP phone number, and the phone
+        // number formatting library expects uppercase ISO country codes.
+        return subInfo.getCountryIso().toUpperCase();
     }
 
     /**

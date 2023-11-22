@@ -225,7 +225,9 @@ struct wpa_ssid {
 	 *
 	 * scan_ssid can be used to scan for APs using hidden SSIDs.
 	 * Note: Many drivers do not support this. ap_mode=2 can be used with
-	 * such drivers to use hidden SSIDs.
+	 * such drivers to use hidden SSIDs. Note2: Most nl80211-based drivers
+	 * do support scan_ssid=1 and that should be used with them instead of
+	 * ap_scan=2.
 	 */
 	int scan_ssid;
 
@@ -358,6 +360,15 @@ struct wpa_ssid {
 	} mode;
 
 	/**
+	 * pbss - Whether to use PBSS. Relevant to DMG networks only.
+	 * Used together with mode configuration. When mode is AP, it
+	 * means to start a PCP instead of a regular AP. When mode is INFRA it
+	 * means connect to a PCP instead of AP. P2P_GO and P2P_GROUP_FORMATION
+	 * modes must use PBSS in DMG network.
+	 */
+	int pbss;
+
+	/**
 	 * disabled - Whether this network is currently disabled
 	 *
 	 * 0 = this network can be used (default).
@@ -429,6 +440,18 @@ struct wpa_ssid {
 	 */
 	int fixed_freq;
 
+#ifdef CONFIG_ACS
+	/**
+	 * ACS - Automatic Channel Selection for AP mode
+	 *
+	 * If present, it will be handled together with frequency.
+	 * frequency will be used to determine hardware mode only, when it is
+	 * used for both hardware mode and channel when used alone. This will
+	 * force the channel to be set to 0, thus enabling ACS.
+	 */
+	int acs;
+#endif /* CONFIG_ACS */
+
 	/**
 	 * mesh_basic_rates - BSS Basic rate set for mesh network
 	 *
@@ -446,6 +469,10 @@ struct wpa_ssid {
 	int ht40;
 
 	int vht;
+
+	u8 max_oper_chwidth;
+
+	unsigned int vht_center_freq2;
 
 	/**
 	 * wpa_ptk_rekey - Maximum lifetime for PTK in seconds

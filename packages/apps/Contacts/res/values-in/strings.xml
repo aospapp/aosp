@@ -18,6 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="applicationLabel" msgid="3906689777043645443">"Kontak"</string>
     <string name="launcherActivityLabel" msgid="6497230399032392417">"Kontak"</string>
+    <string name="quickContactActivityLabel" msgid="7985456650689347268">"Lihat Kontak"</string>
+    <string name="editContactActivityLabel" msgid="1129944572070802839">"Edit Kontak"</string>
     <string name="contactsList" msgid="8661624236494819731">"Kontak"</string>
     <string name="shortcutContact" msgid="749243779392912958">"Kontak"</string>
     <string name="shortcutDialContact" msgid="746622101599186779">"Panggilan langsung"</string>
@@ -50,36 +52,48 @@
     <string name="menu_create_contact_shortcut" msgid="1217971915748509640">"Letakkan di layar Utama"</string>
     <string name="menu_call" msgid="3992595586042260618">"Hubungi kontak"</string>
     <string name="menu_sendSMS" msgid="5535886767547006515">"SMS kontak"</string>
-    <string name="menu_splitAggregate" msgid="8368636463748691868">"Pisahkan"</string>
+    <string name="menu_splitAggregate" msgid="2627252205317945563">"Batalkan tautan"</string>
     <string name="menu_editGroup" msgid="5062005185370983720">"Edit"</string>
     <string name="menu_deleteGroup" msgid="3486380004411482874">"Hapus"</string>
     <string name="menu_new_contact_action_bar" msgid="7263362129442119188">"Tambahkan Kenalan"</string>
     <string name="menu_new_group_action_bar" msgid="3520232877587377175">"Tambahkan Grup"</string>
-    <string name="splitConfirmation_title" msgid="633640935430370530">"Pisahkan kontak?"</string>
-    <string name="splitConfirmation" msgid="740190210499587175">"Kontak ini akan dipisahkan menjadi beberapa kontak."</string>
-    <string name="menu_joinAggregate" msgid="4050157483569357666">"Gabungkan"</string>
+    <string name="splitConfirmation" msgid="7342030840130187290">"Batalkan tautannya menjadi beberapa kontak?"</string>
+    <string name="splitConfirmation_positive_button" msgid="9129409098807939699">"Batalkan tautan"</string>
+    <string name="splitConfirmationWithPendingChanges" msgid="7719062163511895696">"Ingin menyimpan perubahan yang sudah dilakukan dan membatalkan tautan dengan kontak ini menjadi beberapa kontak?"</string>
+    <string name="splitConfirmationWithPendingChanges_positive_button" msgid="9073444264887244032">"Simpan dan Batalkan Tautan"</string>
+    <string name="joinConfirmation" msgid="8262614843581924365">"Ingin menyimpan perubahan yang sudah dilakukan dan menautkan dengan kontak yang dipilih?"</string>
+    <string name="joinConfirmation_positive_button" msgid="4573092849769149516">"Simpan dan Tautkan"</string>
+    <string name="menu_joinAggregate" msgid="3599512127797513606">"Tautkan"</string>
     <string name="menu_save" msgid="1727844363591825909">"Simpan"</string>
-    <string name="titleJoinContactDataWith" msgid="7684875775798635354">"Gabungkan kontak"</string>
-    <string name="blurbJoinContactDataWith" msgid="8736488417422708236">"Pilih kontak ingin Anda gabungkan dengan <xliff:g id="NAME">%s</xliff:g>:"</string>
+    <string name="titleJoinContactDataWith" msgid="6825255752748313944">"Tautkan kontak"</string>
+    <string name="blurbJoinContactDataWith" msgid="5864256698061641841">"Pilih kontak yang ingin Anda tautkan dengan <xliff:g id="NAME">%s</xliff:g>:"</string>
     <string name="showAllContactsJoinItem" msgid="2189695051430392383">"Tampilkan semua kontak"</string>
     <string name="separatorJoinAggregateSuggestions" msgid="2831414448851313345">"Kontak yang disarankan"</string>
     <string name="separatorJoinAggregateAll" msgid="7939932265026181043">"Semua kontak"</string>
-    <string name="contactsJoinedMessage" msgid="656936718666768589">"Kontak digabungkan"</string>
-    <string name="contacts_deleted_toast" msgid="286851430992788215">"Kontak dihapus"</string>
+    <string name="contactsJoinedMessage" msgid="3343535986195643136">"Kontak ditautkan"</string>
+    <plurals name="contacts_deleted_toast" formatted="false" msgid="1477708624197262295">
+      <item quantity="other">Kontak dihapus</item>
+      <item quantity="one">Kontak dihapus</item>
+    </plurals>
     <string name="menu_set_ring_tone" msgid="8728345772068064946">"Setel nada dering"</string>
     <string name="menu_redirect_calls_to_vm" msgid="4181789196416396656">"Panggilan masuk kotak pesan"</string>
-    <string name="readOnlyContactWarning" msgid="7808825687289848259">"Anda tidak dapat menghapus kontak dari akun hanya-baca, namun Anda dapat menyembunyikannya dalam daftar kontak Anda."</string>
-    <string name="readOnlyContactDeleteConfirmation" msgid="2137170726670196909">"Kontak ini berisi informasi dari beberapa akun. Informasi dari akun hanya-baca akan disembunyikan dalam daftar kontak Anda, tidak dihapus."</string>
-    <string name="batch_merge_single_contact_warning" msgid="982585201970392110">"Anda perlu memilih sedikitnya dua kontak untuk menggabungkan."</string>
-    <string name="batch_merge_confirmation" msgid="8551299480317422420">"Kontak yang dipilih akan digabung menjadi satu kontak."</string>
-    <string name="batch_delete_confirmation" msgid="2564172328268885394">"Kontak yang dipilih akan dihapus."</string>
-    <string name="batch_delete_read_only_contact_confirmation" msgid="6614878716815412523">"Informasi dari akun hanya-baca akan disembunyikan dalam daftar kontak Anda, tidak dihapus."</string>
-    <string name="batch_delete_multiple_accounts_confirmation" msgid="5189722181586680185">"Kontak ini berisi informasi dari beberapa akun. Informasi dari akun hanya-baca akan disembunyikan dalam daftar kontak Anda, tidak dihapus."</string>
-    <string name="multipleContactDeleteConfirmation" msgid="938900978442960800">"Menghapus kontak ini akan menghapus informasi dari beberapa akun."</string>
-    <string name="deleteConfirmation" msgid="811706994761610640">"Kontak ini akan dihapus."</string>
+    <string name="readOnlyContactWarning" msgid="5526727661978307833">"Kontak dari akun hanya-baca tidak dapat dihapus, tetapi dapat disembunyikan."</string>
+    <string name="readOnlyContactWarning_positive_button" msgid="6541862607313811926">"Sembunyikan"</string>
+    <string name="readOnlyContactDeleteConfirmation" msgid="8782086424739664753">"Kontak yang akan dihapus memiliki detail dari beberapa akun. Detail dari akun hanya-baca akan disembunyikan, tidak dihapus."</string>
+    <string name="batch_link_single_contact_warning" msgid="1346058571502058767">"Anda perlu memilih sedikitnya dua kontak untuk menautkan."</string>
+    <string name="batch_link_confirmation" msgid="5845237114309114908">"Tautkan kontak yang dipilih?"</string>
+    <string name="batch_link_confirmation_positive_button" msgid="5018899675473363525">"Tautkan"</string>
+    <string name="single_delete_confirmation" msgid="3106905986948679720">"Hapus kontak ini?"</string>
+    <string name="batch_delete_confirmation" msgid="3984346060324014108">"Hapus kontak yang dipilih?"</string>
+    <string name="batch_delete_read_only_contact_confirmation" msgid="8411117621035639964">"Kontak dari akun hanya-baca tidak dapat dihapus, tetapi dapat disembunyikan."</string>
+    <string name="batch_delete_multiple_accounts_confirmation" msgid="8207205649127030030">"Kontak yang akan dihapus memiliki detail dari beberapa akun. Detail dari akun hanya-baca akan disembunyikan, tidak dihapus."</string>
+    <string name="multipleContactDeleteConfirmation" msgid="5235324124905653550">"Menghapus kontak ini akan menghapus detail dari beberapa akun."</string>
+    <string name="deleteConfirmation" msgid="3512271779086656043">"Hapus kontak ini?"</string>
+    <string name="deleteConfirmation_positive_button" msgid="7857888845028586365">"Hapus"</string>
     <string name="menu_discard" msgid="6854657936970228164">"Buang perubahan"</string>
     <string name="invalidContactMessage" msgid="8215051456181842274">"Kontak tidak ada."</string>
-    <string name="createContactShortcutSuccessful" msgid="7874133287558150877">"Widget kontak ditambahkan ke layar Utama."</string>
+    <string name="createContactShortcutSuccessful_NoName" msgid="8831303345367275472">"Kontak ditambahkan ke layar Utama."</string>
+    <string name="createContactShortcutSuccessful" msgid="953651153238790069">"<xliff:g id="NAME">%s</xliff:g> ditambahkan ke layar Utama."</string>
     <string name="pickerNewContactHeader" msgid="7750705279843568147">"Buat kontak baru"</string>
     <string name="pickerNewContactText" msgid="6166997164401048211">"Buat kontak baru"</string>
   <string-array name="otherLabels">
@@ -92,14 +106,18 @@
     <string name="customLabelPickerTitle" msgid="1081475101983255212">"Nama label khusus"</string>
     <string name="send_to_voicemail_checkbox" msgid="9001686764070676353">"Kirim panggilan ke kotak pesan secara langsung"</string>
     <string name="removePhoto" msgid="4898105274130284565">"Hapus foto"</string>
-    <string name="noContacts" msgid="8579310973261953559">"Tidak ada kontak."</string>
+    <string name="noContacts" msgid="4955659076981974652">"Tidak ada kontak"</string>
     <string name="noGroups" msgid="8614664663561385253">"Tidak ada grup."</string>
     <string name="noAccounts" msgid="7768267764545265909">"Untuk membuat grup, Anda memerlukan sebuah akun."</string>
     <string name="emptyGroup" msgid="7502116218697177370">"Tidak ada orang dalam grup ini."</string>
     <string name="addPeopleToGroup" msgid="7879585947222263516">"Untuk menambah beberapa orang, edit grup tersebut."</string>
     <string name="savingContact" msgid="4075751076741924939">"Menyimpan kontak..."</string>
-    <string name="contactSavedToast" msgid="7152589189385441091">"Kontak disimpan."</string>
+    <string name="contactSavedToast" msgid="9171862279493213075">"Kontak disimpan"</string>
+    <string name="contactUnlinkedToast" msgid="7122823195786012553">"Kontak dibatalkan tautannya"</string>
     <string name="contactSavedErrorToast" msgid="3207250533172944892">"Tidak dapat menyimpan perubahan kontak."</string>
+    <string name="contactUnlinkErrorToast" msgid="2758070702785994171">"Tidak dapat membatalkan tautan kontak."</string>
+    <string name="contactJoinErrorToast" msgid="3977932531264809035">"Tidak dapat menautkan kontak."</string>
+    <string name="contactGenericErrorToast" msgid="7774911165341591714">"Kesalahan saat menyimpan kontak."</string>
     <string name="contactPhotoSavedErrorToast" msgid="4079032272022979114">"Tidak dapat menyimpan perubahan foto kontak."</string>
     <string name="groupSavedToast" msgid="1168756874239833756">"Grup disimpan."</string>
     <string name="groupSavedErrorToast" msgid="7984466936615304740">"Tidak dapat menyimpan perubahan grup."</string>
@@ -117,7 +135,7 @@
       <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> ditemukan</item>
       <item quantity="one">1 ditemukan</item>
     </plurals>
-    <string name="all_contacts_tab_label" msgid="6250372293594147703">"Semua kontak"</string>
+    <string name="all_contacts_tab_label" msgid="5948889261993124839">"Semua"</string>
     <string name="favorites_tab_label" msgid="1524869648904016414">"Favorit"</string>
     <string name="callBack" msgid="5498224409038809224">"Hubungi kembali"</string>
     <string name="callAgain" msgid="3197312117049874778">"Hubungi sekali lagi"</string>
@@ -166,11 +184,7 @@
     <string name="primary_photo" msgid="8517942231868516999">"Foto utama"</string>
     <string name="description_star" msgid="2605854427360036550">"favorit"</string>
     <string name="edit_contact" msgid="7529281274005689512">"Edit kontak"</string>
-    <plurals name="merge_info" formatted="false" msgid="2489323424994280962">
-      <item quantity="other">digabungkan dari <xliff:g id="COUNT">%0$d</xliff:g> sumber</item>
-      <item quantity="one">tidak digabungkan</item>
-    </plurals>
-    <string name="aggregation_suggestion_join_dialog_message" msgid="3842757977671434836">"Gabungkan kontak ini dengan kontak yang dipilih?"</string>
+    <string name="aggregation_suggestion_join_dialog_message" msgid="6786192560870357912">"Tautkan kontak ini dengan kontak yang dipilih?"</string>
     <string name="aggregation_suggestion_edit_dialog_message" msgid="6549585283910518095">"Beralih ke mengedit kontak yang dipilih? Informasi yang telah Anda masukkan sejauh ini akan disalin."</string>
     <string name="menu_copyContact" msgid="1573960845106822639">"Salin ke Kontak Saya"</string>
     <string name="add_to_my_contacts" msgid="1068274916793627723">"Tambahkan ke Kontak Saya"</string>
@@ -186,11 +200,11 @@
     <string name="activity_title_confirm_add_detail" msgid="4065089866210730616">"Tambahkan ke kontak"</string>
     <string name="non_phone_close" msgid="7608506439725515667">"Tutup"</string>
     <string name="widget_name_and_phonetic" msgid="8739586586600099979">"<xliff:g id="DISPLAY_NAME">%1$s</xliff:g> (<xliff:g id="PHONETIC_NAME">%2$s</xliff:g>)"</string>
-    <string name="date_year_toggle" msgid="7356532842767854606">"Berikan tahun"</string>
+    <string name="date_year_toggle" msgid="7122002148518724139">"Sertakan tahun"</string>
     <string name="social_widget_label" msgid="6378905543028924592">"Kontak"</string>
     <string name="social_widget_loading" msgid="5327336597364074608">"Memuat..."</string>
     <string name="contacts_unavailable_create_contact" msgid="7014525713871959208">"Buat kontak baru"</string>
-    <string name="contacts_unavailable_add_account" msgid="7911101713860139754">"Masuk ke akun."</string>
+    <string name="contacts_unavailable_add_account" msgid="4347232421410561500">"Tambahkan akun"</string>
     <string name="contacts_unavailable_import_contacts" msgid="4957393255392437529">"Impor kontak"</string>
     <string name="create_group_dialog_title" msgid="6874527142828424475">"Buat grup baru"</string>
     <string name="create_group_item_label" msgid="4411981763169654825">"Buat grup baru"</string>
@@ -207,12 +221,14 @@
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> orang</item>
       <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> orang</item>
     </plurals>
-    <string name="toast_join_with_empty_contact" msgid="2238581529864542985">"Ketik nama kontak sebelum menggabungkan dengan lainnya."</string>
+    <string name="toast_join_with_empty_contact" msgid="1215465657839085613">"Ketik nama kontak sebelum menautkan dengan lainnya."</string>
     <string name="copy_text" msgid="3257145021583508761">"Salin ke papan klip"</string>
     <string name="set_default" msgid="4417505153468300351">"Setel sebagai default"</string>
     <string name="clear_default" msgid="7193185801596678067">"Hapus default"</string>
     <string name="toast_text_copied" msgid="5143776250008541719">"Teks disalin"</string>
-    <string name="cancel_confirmation_dialog_message" msgid="5885724679874403115">"Buang perubahan Anda?"</string>
+    <string name="cancel_confirmation_dialog_message" msgid="5058226498605989285">"Buang perubahan dan berhenti mengedit?"</string>
+    <string name="cancel_confirmation_dialog_cancel_editing_button" msgid="3057023972074640671">"Buang"</string>
+    <string name="cancel_confirmation_dialog_keep_editing_button" msgid="7737724111972855348">"Simpan pengeditan"</string>
     <string name="call_type_and_date" msgid="747163730039311423">"<xliff:g id="CALL_TYPE">%1$s</xliff:g> <xliff:g id="CALL_SHORT_DATE">%2$s</xliff:g>"</string>
     <string name="profile_display_name" msgid="4127389543625918771">"Siapkan profil saya"</string>
     <string name="enter_contact_name" msgid="1738391320566349924">"Ketik nama seseorang"</string>
@@ -220,12 +236,11 @@
     <string name="local_profile_title" msgid="2021416826991393684">"Profil lokal saya"</string>
     <string name="external_profile_title" msgid="8034998767621359438">"Profil <xliff:g id="EXTERNAL_SOURCE">%1$s</xliff:g> saya"</string>
     <string name="toast_displaying_all_contacts" msgid="2737388783898593875">"Menampilkan semua kontak"</string>
-    <string name="no_account_prompt" msgid="6424883302325061025">"Kontak bekerja lebih baik dengan Akun Google.\n\n• Akses dari browser web apa pun.\n• Cadangkan kontak Anda dengan aman."</string>
     <string name="generic_no_account_prompt" msgid="7218827704367325460">"Tetap amankan kontak Anda jika kehilangan ponsel: sinkronkan dengan layanan online."</string>
     <string name="generic_no_account_prompt_title" msgid="753783911899054860">"Tambahkan akun"</string>
     <string name="contact_editor_prompt_zero_accounts" msgid="1785345895691886499">"Kontak baru Anda tidak akan dicadangkan. Tambahkan akun yang mencadangkan kontak secara online?"</string>
-    <string name="contact_editor_prompt_one_account" msgid="8669032699767375976">"Kontak baru Anda akan disinkronkan dengan <xliff:g id="ACCOUNT_NAME">%1$s</xliff:g>."</string>
-    <string name="contact_editor_prompt_multiple_accounts" msgid="611828200100438242">"Anda dapat menyinkronkan kontak baru dengan salah satu akun berikut. Akun mana yang ingin Anda gunakan?"</string>
+    <string name="contact_editor_prompt_one_account" msgid="3087691056345099310">"Kontak baru akan disimpan ke <xliff:g id="ACCOUNT_NAME">%1$s</xliff:g>."</string>
+    <string name="contact_editor_prompt_multiple_accounts" msgid="8565761674283473549">"Pilih akun default untuk kontak baru:"</string>
     <string name="contact_editor_title_new_contact" msgid="7192223018128934940">"Tambah kontak baru"</string>
     <string name="contact_editor_title_existing_contact" msgid="4898475703683187798">"Edit kontak"</string>
     <string name="keep_local" msgid="1258761699192993322">"Simpan secara lokal"</string>
@@ -270,7 +285,47 @@
     <string name="content_description_recent_call" msgid="5183800406316723676">"panggilan telepon terbaru. <xliff:g id="CALL_TYPE">%s</xliff:g>. <xliff:g id="PHONE_NUMBER">%s</xliff:g>. <xliff:g id="DATE">%s</xliff:g>. klik untuk menelepon balik"</string>
     <string name="message_from_you_prefix" msgid="7180706529908434482">"Anda: <xliff:g id="SMS_BODY">%s</xliff:g>"</string>
     <string name="contact_editor_hangouts_im_alert" msgid="114855385615225735">"Hangouts bekerja lebih baik jika Anda memasukkan pengidentifikasi Hangouts orang tersebut ke bidang email atau bidang ponsel."</string>
-    <string name="compact_editor_more_fields" msgid="2874181192382284115">"Bidang Lainnya"</string>
+    <string name="compact_editor_more_fields" msgid="5987638193568699600">"Bidang lainnya"</string>
     <string name="compact_editor_change_photo_content_description" msgid="5495487714301211540">"Ganti foto"</string>
+    <string name="compact_editor_failed_to_load" msgid="4557094426388044958">"Gagal membuka editor."</string>
+    <string name="compact_editor_account_selector_title" msgid="5119592614151786601">"Menyimpan ke"</string>
+    <string name="compact_editor_account_selector_description" msgid="2127184829759350507">"Saat ini menyimpan ke <xliff:g id="ACCOUNT_NAME">%s</xliff:g>. Ketuk dua kali untuk memilih akun lain."</string>
+    <plurals name="compact_editor_linked_contacts_selector_title" formatted="false" msgid="9156207930915878316">
+      <item quantity="other">Kontak tertaut (<xliff:g id="COUNT">%d</xliff:g>)</item>
+      <item quantity="one">Kontak tertaut</item>
+    </plurals>
+    <string name="quickcontact_contacts_number" msgid="6036916944287597682">"<xliff:g id="COUNT">%d</xliff:g> kontak tertaut"</string>
     <string name="quick_contact_display_name_with_phonetic" msgid="3692038078718876610">"<xliff:g id="DISPLAY_NAME">%s</xliff:g> (<xliff:g id="PHONETIC_NAME">%s</xliff:g>)"</string>
+    <string name="quickcontact_suggestion_link_button" msgid="3244619714781727946">"TAUTKAN KONTAK"</string>
+    <string name="quickcontact_suggestion_cancel_button" msgid="8236954313106630862">"BATAL"</string>
+    <plurals name="quickcontact_suggestion_card_title" formatted="false" msgid="2660005966628746406">
+      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> Kemungkinan duplikat</item>
+      <item quantity="one">1 Kemungkinan duplikat</item>
+    </plurals>
+    <plurals name="quickcontact_suggestions_number" formatted="false" msgid="495992931510695330">
+      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> kontak tertaut</item>
+      <item quantity="one">1 kontak tertaut</item>
+    </plurals>
+    <plurals name="quickcontact_suggestion_account_type_number" formatted="false" msgid="3001681298924002373">
+      <item quantity="other">(<xliff:g id="COUNT">%d</xliff:g>)</item>
+      <item quantity="one"></item>
+    </plurals>
+    <string name="quickcontact_suggestion_account_type" msgid="5878263654735376962">"<xliff:g id="ACCOUNT_TYPE_0">%s</xliff:g><xliff:g id="ACCOUNT_TYPE_NUMBER">%s</xliff:g>"</string>
+    <string name="suggestion_card_this_contact_title" msgid="3039457405374454914">"Kontak ini"</string>
+    <string name="suggestion_card_duplicates_title" msgid="9107788743178980902">"Kemungkinan duplikat"</string>
+    <string name="suggestion_card_help_message" msgid="4474061044387181093">"Semua kontak ini mungkin orang yang sama. Anda dapat menautkannya sebagai satu kontak."</string>
+    <string name="compact_editor_linked_contacts_title" msgid="4417919183651782674">"Kontak yang ditautkan"</string>
+    <string name="from_your_accounts" msgid="1746293107836889912">"Dari akun Anda"</string>
+    <string name="take_a_photo_button" msgid="6268693854069113488">"Jepret foto"</string>
+    <string name="all_photos_button" msgid="1943122929420111351">"Semua foto"</string>
+    <string name="photo_picker_title" msgid="5272832995550042801">"Pilih foto"</string>
+    <string name="contact_from_account_name" msgid="2078526819634079406">"Dari <xliff:g id="ACCOUNT_NAME">%s</xliff:g>"</string>
+    <string name="editor_delete_view_description" msgid="8583095381562991959">"Hapus <xliff:g id="DATA_TYPE">%s </xliff:g><xliff:g id="DATA_KIND">%s</xliff:g>"</string>
+    <string name="editor_delete_view_description_short" msgid="7335518371270844912">"Hapus <xliff:g id="DATA_KIND">%s</xliff:g>"</string>
+    <string name="photo_view_description_not_checked" msgid="8876314195990885177">"Foto dari <xliff:g id="ACCOUNT_TYPE">%s </xliff:g><xliff:g id="USER_NAME">%s </xliff:g>tidak dicentang"</string>
+    <string name="photo_view_description_checked" msgid="3906597168607472795">"Foto dari <xliff:g id="ACCOUNT_TYPE">%s </xliff:g><xliff:g id="USER_NAME">%s </xliff:g>dicentang"</string>
+    <string name="photo_view_description_not_checked_no_info" msgid="2749154927006406981">"Foto dari akun tak dikenal tidak dicentang"</string>
+    <string name="photo_view_description_checked_no_info" msgid="4974335987092590591">"Foto dari akun tak dikenal dicentang"</string>
+    <string name="locale_change_in_progress" msgid="1124266507671178413">"Daftar kontak sedang diperbarui untuk mencerminkan perubahan bahasa.\n\nHarap tunggu..."</string>
+    <string name="menu_blocked_numbers" msgid="5272951629083025995">"Nomor yang diblokir"</string>
 </resources>

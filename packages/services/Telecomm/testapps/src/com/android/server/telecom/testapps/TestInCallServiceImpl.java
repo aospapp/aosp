@@ -16,6 +16,8 @@
 
 package com.android.server.telecom.testapps;
 
+import android.content.Context;
+import android.content.Intent;
 import android.telecom.Call;
 import android.telecom.InCallService;
 import android.telecom.Phone;
@@ -37,7 +39,12 @@ public class TestInCallServiceImpl extends InCallService {
         @Override
         public void onCallAdded(Phone phone, Call call) {
             Log.i(TAG, "onCallAdded: " + call.toString());
-            TestCallList.getInstance().addCall(call);
+            TestCallList callList = TestCallList.getInstance();
+            callList.addCall(call);
+
+            if (callList.size() == 1) {
+                startInCallUI();
+            }
         }
 
         @Override
@@ -61,5 +68,12 @@ public class TestInCallServiceImpl extends InCallService {
         mPhone.removeListener(mPhoneListener);
         mPhone = null;
         TestCallList.getInstance().clearCalls();
+    }
+
+    private void startInCallUI() {
+        Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NO_USER_ACTION | Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.setClass(this, TestInCallUI.class);
+        startActivity(intent);
     }
 }

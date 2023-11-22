@@ -10,11 +10,11 @@ This manual page documents briefly the
 command.
 .PP
 .B rtmon
-listens on 
-.I netlink 
+listens on
+.I netlink
 socket and monitors routing table changes.
 
-.I rtmon 
+.I rtmon
 can be started before the first network configuration command is issued.
 For example if you insert:
 
@@ -34,7 +34,7 @@ Show summary of options.
 .TP
 .B file FILE [ all | LISTofOBJECTS ]
 Log output to FILE. LISTofOBJECTS is the list of object types that we
-want to monitor.  It may contain 'link', 'address', 'route'
+want to monitor. It may contain 'link', 'address', 'route'
 and 'all'. 'link' specifies the network device, 'address' the protocol
 (IP or IPv6) address on a device, 'route' the routing table entry
 and 'all' does what the name says.
@@ -61,7 +61,7 @@ to display logged output from file.
 .SH SEE ALSO
 .BR ip (8)
 .SH AUTHOR
-.B rtmon 
+.B rtmon
 was written by Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>.
 .PP
 This manual page was written by Michael Prokop <mika@grml.org>,

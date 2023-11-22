@@ -1,5 +1,5 @@
 # touch_fusion
-type touch_fusion, domain;
+type touch_fusion, domain, domain_deprecated;
 type touch_fusion_exec, exec_type, file_type;
 
 # Why net_admin?

@@ -27,12 +27,18 @@ import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.CompoundButton;
 import android.widget.LinearLayout;
 import android.widget.Switch;
 import android.widget.TextView;
 
+import com.android.internal.logging.MetricsLogger;
 import com.android.settings.R;
+import com.android.settingslib.RestrictedLockUtils;
+
+import static com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
 
 import java.util.ArrayList;
 
@@ -52,15 +58,22 @@ public class SwitchBar extends LinearLayout implements CompoundButton.OnCheckedC
     private final TextAppearanceSpan mSummarySpan;
 
     private ToggleSwitch mSwitch;
+    private View mRestrictedIcon;
     private TextView mTextView;
     private String mLabel;
     private String mSummary;
 
+    private boolean mDisabledByAdmin = false;
+    private EnforcedAdmin mEnforcedAdmin = null;
+
+    private String mMetricsTag;
+
     private ArrayList<OnSwitchChangeListener> mSwitchChangeListeners =
             new ArrayList<OnSwitchChangeListener>();
 
-    private static int[] MARGIN_ATTRIBUTES = {
-            R.attr.switchBarMarginStart, R.attr.switchBarMarginEnd};
+    private static int[] XML_ATTRIBUTES = {
+            R.attr.switchBarMarginStart, R.attr.switchBarMarginEnd,
+            R.attr.switchBarBackgroundColor};
 
     public SwitchBar(Context context) {
         this(context, null);
@@ -79,12 +92,14 @@ public class SwitchBar extends LinearLayout implements CompoundButton.OnCheckedC
 
         LayoutInflater.from(context).inflate(R.layout.switch_bar, this);
 
-        final TypedArray a = context.obtainStyledAttributes(attrs, MARGIN_ATTRIBUTES);
+        final TypedArray a = context.obtainStyledAttributes(attrs, XML_ATTRIBUTES);
         int switchBarMarginStart = (int) a.getDimension(0, 0);
         int switchBarMarginEnd = (int) a.getDimension(1, 0);
+        int switchBarBackgroundColor = (int) a.getColor(2, 0);
         a.recycle();
 
         mTextView = (TextView) findViewById(R.id.switch_text);
+        mTextView.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
         mLabel = getResources().getString(R.string.switch_off_text);
         mSummarySpan = new TextAppearanceSpan(mContext, R.style.TextAppearance_Small_SwitchBar);
         updateText();
@@ -95,8 +110,11 @@ public class SwitchBar extends LinearLayout implements CompoundButton.OnCheckedC
         // Prevent onSaveInstanceState() to be called as we are managing the state of the Switch
         // on our own
         mSwitch.setSaveEnabled(false);
+        mSwitch.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
         lp = (MarginLayoutParams) mSwitch.getLayoutParams();
         lp.setMarginEnd(switchBarMarginEnd);
+        setBackgroundColor(switchBarBackgroundColor);
+        mSwitch.setBackgroundColor(switchBarBackgroundColor);
 
         addOnSwitchChangeListener(new OnSwitchChangeListener() {
             @Override
@@ -105,10 +123,16 @@ public class SwitchBar extends LinearLayout implements CompoundButton.OnCheckedC
             }
         });
 
+        mRestrictedIcon = findViewById(R.id.restricted_icon);
+
         setOnClickListener(this);
 
         // Default is hide
         setVisibility(View.GONE);
+    }
+
+    public void setMetricsTag(String tag) {
+        mMetricsTag = tag;
     }
 
     public void setTextViewLabel(boolean isChecked) {
@@ -149,9 +173,35 @@ public class SwitchBar extends LinearLayout implements CompoundButton.OnCheckedC
     }
 
     public void setEnabled(boolean enabled) {
+        if (enabled && mDisabledByAdmin) {
+            setDisabledByAdmin(null);
+            return;
+        }
         super.setEnabled(enabled);
         mTextView.setEnabled(enabled);
         mSwitch.setEnabled(enabled);
+    }
+
+    /**
+     * If admin is not null, disables the text and switch but keeps the view clickable.
+     * Otherwise, calls setEnabled which will enables the entire view including
+     * the text and switch.
+     */
+    public void setDisabledByAdmin(EnforcedAdmin admin) {
+        mEnforcedAdmin = admin;
+        if (admin != null) {
+            super.setEnabled(true);
+            mDisabledByAdmin = true;
+            mTextView.setEnabled(false);
+            mSwitch.setEnabled(false);
+            mSwitch.setVisibility(View.GONE);
+            mRestrictedIcon.setVisibility(View.VISIBLE);
+        } else {
+            mDisabledByAdmin = false;
+            mSwitch.setVisibility(View.VISIBLE);
+            mRestrictedIcon.setVisibility(View.GONE);
+            setEnabled(true);
+        }
     }
 
     public final ToggleSwitch getSwitch() {
@@ -178,8 +228,14 @@ public class SwitchBar extends LinearLayout implements CompoundButton.OnCheckedC
 
     @Override
     public void onClick(View v) {
-        final boolean isChecked = !mSwitch.isChecked();
-        setChecked(isChecked);
+        if (mDisabledByAdmin) {
+            MetricsLogger.count(mContext, mMetricsTag + "/switch_bar|restricted", 1);
+            RestrictedLockUtils.sendShowAdminSupportDetailsIntent(mContext, mEnforcedAdmin);
+        } else {
+            final boolean isChecked = !mSwitch.isChecked();
+            MetricsLogger.count(mContext, mMetricsTag + "/switch_bar|" + isChecked, 1);
+            setChecked(isChecked);
+        }
     }
 
     public void propagateChecked(boolean isChecked) {
@@ -274,5 +330,30 @@ public class SwitchBar extends LinearLayout implements CompoundButton.OnCheckedC
         mSwitch.setOnCheckedChangeListener(ss.visible ? this : null);
 
         requestLayout();
+    }
+
+    @Override
+    public CharSequence getAccessibilityClassName() {
+        return Switch.class.getName();
+    }
+
+    /** @hide */
+    @Override
+    public void onInitializeAccessibilityNodeInfoInternal(AccessibilityNodeInfo info) {
+        super.onInitializeAccessibilityNodeInfoInternal(info);
+        info.setText(mTextView.getText());
+        info.setCheckable(true);
+        info.setChecked(mSwitch.isChecked());
+    }
+
+    /** @hide */
+    @Override
+    public void onInitializeAccessibilityEventInternal(AccessibilityEvent event) {
+        super.onInitializeAccessibilityEventInternal(event);
+        // Don't say "on on" or "off off" - rather, speak the state only once. We need to specify
+        // this explicitly as each of our children (the textview and the checkbox) contribute to
+        // the state once, giving us duplicate text by default.
+        event.setContentDescription(mTextView.getText());
+        event.setChecked(mSwitch.isChecked());
     }
 }

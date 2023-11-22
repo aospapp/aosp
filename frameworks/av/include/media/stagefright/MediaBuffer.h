@@ -22,6 +22,7 @@
 
 #include <pthread.h>
 
+#include <binder/MemoryDealer.h>
 #include <utils/Errors.h>
 #include <utils/RefBase.h>
 
@@ -47,6 +48,9 @@ private:
 
 class MediaBuffer : public MediaBufferBase {
 public:
+    // allocations larger than or equal to this will use shared memory.
+    static const size_t kSharedMemThreshold = 64 * 1024;
+
     // The underlying data remains the responsibility of the caller!
     MediaBuffer(void *data, size_t size);
 
@@ -93,6 +97,8 @@ protected:
 private:
     friend class MediaBufferGroup;
     friend class OMXDecoder;
+    friend class BnMediaSource;
+    friend class BpMediaSource;
 
     // For use by OMXDecoder, reference count must be 1, drop reference
     // count to 0 without signalling the observer.
@@ -118,6 +124,7 @@ private:
 
     MediaBuffer(const MediaBuffer &);
     MediaBuffer &operator=(const MediaBuffer &);
+    sp<IMemory> mMemory;
 };
 
 }  // namespace android

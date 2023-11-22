@@ -120,7 +120,7 @@ static float andyBody(float3 img) {
         p2.z = size * 0.4f;
         v = max(v, pill(p1, p2, radius, 144, img));
         float3 normal = { 0.0f, 0.0f, 1.0f };
-        v -= circle(p1, radius*0.9f, normal, size * 0.05, 144, img);
+        v -= circle(p1, radius*0.9f, normal, size * 0.05f, 144, img);
     }
     float armOffset = 0.27f;
     { // arm 1
@@ -146,7 +146,7 @@ static float andyBody(float3 img) {
     float3 p1 = { size * 0.5f, size * 0.5f, size * 0.3f };
     ;
     { // antenna
-        float spacex = .1;
+        float spacex = .1f;
 
         float3 p2 = { size * (0.5f - spacex), size * 0.5f, size * 0.07f };
         v = max(v, pill(p1, p2, size * 0.017f, 400, img));
@@ -154,7 +154,7 @@ static float andyBody(float3 img) {
         v = max(v, pill(p1, p3, size * 0.017f, 400, img));
     }
     { // eyes
-        float spacex = .105;
+        float spacex = .105f;
         float3 p2 = { size * (0.5f - spacex), size * 0.4f, size * 0.2f };
         float3 p3 = { size * (0.5f + spacex), size * 0.4f, size * 0.2f };
         v -= pill(p2, p2, size * 0.018f, 144, img);
@@ -174,13 +174,13 @@ static float andySkeleton(float3 img) {
 
         float3 normal = { 0.0f, 0.0f, 1.0f };
         for (int i = 0; i < 5; i++) {
-            p1.z += size * 0.04;
-            v += circle(p1, radius, normal, size * 0.07, 400, img);
+            p1.z += size * 0.04f;
+            v += circle(p1, radius, normal, size * 0.07f, 400, img);
         }
         p1.z = size * 0.3f;
         float3 p2 = { size * 0.5f, size * 0.5f, size * 0.6f };
-        v = max(v, cogDisk(p2, radius*0.7f, normal, size * 0.07, 400, img));
-        v = max(v, cogCylinder(p1, p2, size * 0.04, 400, img));
+        v = max(v, cogDisk(p2, radius * 0.7f, normal, size * 0.07f, 400, img));
+        v = max(v, cogCylinder(p1, p2, size * 0.04f, 400, img));
     }
 
     float armOffset = 0.27f;
@@ -210,7 +210,6 @@ static float andySkeleton(float3 img) {
         float3 p2 = { size * 0.4f, size * 0.5f, size * 0.8f };
         v = max(v, pill(p1, p2, size * 0.02f, 400, img));
     }
-
     return v;
 }
 

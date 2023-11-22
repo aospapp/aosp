@@ -30,6 +30,7 @@ import android.content.pm.ResolveInfo;
 import android.os.Bundle;
 import android.os.PersistableBundle;
 import android.os.UserHandle;
+import android.os.UserManager;
 import android.preference.CheckBoxPreference;
 import android.preference.ListPreference;
 import android.preference.Preference;
@@ -82,8 +83,6 @@ public class CallFeaturesSetting extends PreferenceActivity
         implements Preference.OnPreferenceChangeListener {
     private static final String LOG_TAG = "CallFeaturesSetting";
     private static final boolean DBG = (PhoneGlobals.DBG_LEVEL >= 2);
-    // STOPSHIP if true. Flag to override behavior default behavior to hide VT setting.
-    private static final boolean ENABLE_VT_FLAG = true;
 
     // String keys for preference lookup
     // TODO: Naming these "BUTTON_*" is confusing since they're not actually buttons(!)
@@ -171,9 +170,9 @@ public class CallFeaturesSetting extends PreferenceActivity
         super.onCreate(icicle);
         if (DBG) log("onCreate: Intent is " + getIntent());
 
-        // Make sure we are running as the primary user.
-        if (UserHandle.myUserId() != UserHandle.USER_OWNER) {
-            Toast.makeText(this, R.string.call_settings_primary_user_only,
+        // Make sure we are running as an admin user.
+        if (!UserManager.get(this).isAdminUser()) {
+            Toast.makeText(this, R.string.call_settings_admin_user_only,
                     Toast.LENGTH_SHORT).show();
             finish();
             return;
@@ -263,7 +262,7 @@ public class CallFeaturesSetting extends PreferenceActivity
             }
         }
 
-        if (ImsManager.isVtEnabledByPlatform(mPhone.getContext()) && ENABLE_VT_FLAG) {
+        if (ImsManager.isVtEnabledByPlatform(mPhone.getContext())) {
             boolean currentValue =
                     ImsManager.isEnhanced4gLteModeSettingEnabledByUser(mPhone.getContext())
                     ? PhoneGlobals.getInstance().phoneMgr.isVideoCallingEnabled(
@@ -289,9 +288,15 @@ public class CallFeaturesSetting extends PreferenceActivity
             Intent intent = PhoneAccountSettingsFragment.buildPhoneAccountConfigureIntent(
                     this, simCallManager);
             if (intent != null) {
-                wifiCallingSettings.setTitle(R.string.wifi_calling);
-                wifiCallingSettings.setSummary(null);
-                wifiCallingSettings.setIntent(intent);
+                PackageManager pm = mPhone.getContext().getPackageManager();
+                List<ResolveInfo> resolutions = pm.queryIntentActivities(intent, 0);
+                if (!resolutions.isEmpty()) {
+                    wifiCallingSettings.setTitle(resolutions.get(0).loadLabel(pm));
+                    wifiCallingSettings.setSummary(null);
+                    wifiCallingSettings.setIntent(intent);
+                } else {
+                    prefSet.removePreference(wifiCallingSettings);
+                }
             } else {
                 prefSet.removePreference(wifiCallingSettings);
             }

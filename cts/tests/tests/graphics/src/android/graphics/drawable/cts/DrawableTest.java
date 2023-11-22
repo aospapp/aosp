@@ -16,8 +16,10 @@
 
 package android.graphics.drawable.cts;
 
+import android.content.res.Resources.Theme;
+import android.graphics.drawable.Drawable.Callback;
 import android.view.View;
-import com.android.cts.graphics.R;
+import android.graphics.cts.R;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -46,6 +48,8 @@ import android.util.StateSet;
 import android.util.TypedValue;
 import android.util.Xml;
 
+import static org.mockito.Mockito.mock;
+
 public class DrawableTest extends AndroidTestCase {
     Resources mResources;
 
@@ -57,7 +61,7 @@ public class DrawableTest extends AndroidTestCase {
     }
 
     public void testClearColorFilter() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new MockDrawable();
         mockDrawable.clearColorFilter();
         assertNull(mockDrawable.getColorFilter());
 
@@ -70,7 +74,7 @@ public class DrawableTest extends AndroidTestCase {
     }
 
     public void testCopyBounds() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new MockDrawable();
         Rect rect1 = mockDrawable.copyBounds();
         Rect r1 = new Rect();
         mockDrawable.copyBounds(r1);
@@ -301,9 +305,23 @@ public class DrawableTest extends AndroidTestCase {
     public void testCreateFromXml() throws XmlPullParserException, IOException {
         XmlPullParser parser = mResources.getXml(R.drawable.gradientdrawable);
         Drawable drawable = Drawable.createFromXml(mResources, parser);
-        // values from gradientdrawable.xml
-        assertEquals(42, drawable.getIntrinsicWidth());
-        assertEquals(63, drawable.getIntrinsicHeight());
+        assertNotNull(drawable);
+
+        Drawable expected = mResources.getDrawable(R.drawable.gradientdrawable, null);
+        assertEquals(expected.getIntrinsicWidth(), drawable.getIntrinsicWidth());
+        assertEquals(expected.getIntrinsicHeight(), drawable.getIntrinsicHeight());
+    }
+
+    public void testCreateFromXmlThemed() throws XmlPullParserException, IOException {
+        XmlPullParser parser = mResources.getXml(R.drawable.gradientdrawable_theme);
+        Theme theme = mResources.newTheme();
+        theme.applyStyle(R.style.Theme_ThemedDrawableTest, true);
+        Drawable drawable = Drawable.createFromXml(mResources, parser, theme);
+        assertNotNull(drawable);
+
+        Drawable expected = mResources.getDrawable(R.drawable.gradientdrawable_theme, theme);
+        assertEquals(expected.getIntrinsicWidth(), drawable.getIntrinsicWidth());
+        assertEquals(expected.getIntrinsicHeight(), drawable.getIntrinsicHeight());
     }
 
     public void testCreateFromXmlInner() throws XmlPullParserException, IOException {
@@ -315,14 +333,29 @@ public class DrawableTest extends AndroidTestCase {
         Drawable drawable = Drawable.createFromXmlInner(mResources, parser, attrs);
         assertNotNull(drawable);
 
-        Drawable expected = mResources.getDrawable(R.drawable.gradientdrawable);
+        Drawable expected = mResources.getDrawable(R.drawable.gradientdrawable, null);
+        assertEquals(expected.getIntrinsicWidth(), drawable.getIntrinsicWidth());
+        assertEquals(expected.getIntrinsicHeight(), drawable.getIntrinsicHeight());
+    }
 
+    public void testCreateFromXmlInnerThemed() throws XmlPullParserException, IOException {
+        XmlPullParser parser = mResources.getXml(R.drawable.gradientdrawable_theme);
+        while (parser.next() != XmlPullParser.START_TAG) {
+            // ignore event, just seek to first tag
+        }
+        AttributeSet attrs = Xml.asAttributeSet(parser);
+        Theme theme = mResources.newTheme();
+        theme.applyStyle(R.style.Theme_ThemedDrawableTest, true);
+        Drawable drawable = Drawable.createFromXmlInner(mResources, parser, attrs, theme);
+        assertNotNull(drawable);
+
+        Drawable expected = mResources.getDrawable(R.drawable.gradientdrawable_theme, theme);
         assertEquals(expected.getIntrinsicWidth(), drawable.getIntrinsicWidth());
         assertEquals(expected.getIntrinsicHeight(), drawable.getIntrinsicHeight());
     }
 
     public void testAccessBounds() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new MockDrawable();
         mockDrawable.setBounds(0, 0, 100, 100);
         Rect r = mockDrawable.getBounds();
         assertEquals(0, r.left);
@@ -345,7 +378,7 @@ public class DrawableTest extends AndroidTestCase {
     }
 
     public void testAccessChangingConfigurations() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new MockDrawable();
         assertEquals(0, mockDrawable.getChangingConfigurations());
 
         mockDrawable.setChangingConfigurations(1);
@@ -359,27 +392,27 @@ public class DrawableTest extends AndroidTestCase {
     }
 
     public void testGetConstantState() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new MockDrawable();
         assertNull(mockDrawable.getConstantState());
     }
 
     public void testGetCurrent() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new MockDrawable();
         assertSame(mockDrawable, mockDrawable.getCurrent());
     }
 
     public void testGetIntrinsicHeight() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new MockDrawable();
         assertEquals(-1, mockDrawable.getIntrinsicHeight());
     }
 
     public void testGetIntrinsicWidth() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new MockDrawable();
         assertEquals(-1, mockDrawable.getIntrinsicWidth());
     }
 
     public void testAccessLevel() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new MockDrawable();
         assertEquals(0, mockDrawable.getLevel());
 
         assertFalse(mockDrawable.setLevel(10));
@@ -396,17 +429,17 @@ public class DrawableTest extends AndroidTestCase {
     }
 
     public void testGetMinimumHeight() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new MockDrawable();
         assertEquals(0, mockDrawable.getMinimumHeight());
     }
 
     public void testGetMinimumWidth() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new MockDrawable();
         assertEquals(0, mockDrawable.getMinimumWidth());
     }
 
     public void testGetPadding() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new MockDrawable();
         Rect r = new Rect(10, 10, 20, 20);
         assertFalse(mockDrawable.getPadding(r));
         assertEquals(0, r.bottom);
@@ -422,7 +455,7 @@ public class DrawableTest extends AndroidTestCase {
     }
 
     public void testAccessState() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new MockDrawable();
         assertEquals(StateSet.WILD_CARD, mockDrawable.getState());
 
         int[] states = new int[] {1, 2, 3};
@@ -433,12 +466,12 @@ public class DrawableTest extends AndroidTestCase {
     }
 
     public void testGetTransparentRegion() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new MockDrawable();
         assertNull(mockDrawable.getTransparentRegion());
     }
 
     public void testInflate() throws XmlPullParserException, IOException {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new MockDrawable();
 
         XmlPullParser parser = mResources.getXml(R.xml.drawable_test);
         while (parser.next() != XmlPullParser.START_TAG) {
@@ -452,7 +485,7 @@ public class DrawableTest extends AndroidTestCase {
     }
 
     public void testInvalidateSelf() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new MockDrawable();
         // if setCallback() is not called, invalidateSelf() would do nothing,
         // so just call it to check whether it throws exceptions.
         mockDrawable.invalidateSelf();
@@ -464,12 +497,12 @@ public class DrawableTest extends AndroidTestCase {
     }
 
     public void testIsStateful() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new MockDrawable();
         assertFalse(mockDrawable.isStateful());
     }
 
     public void testVisible() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new MockDrawable();
         assertTrue(mockDrawable.isVisible());
 
         assertTrue(mockDrawable.setVisible(false, false));
@@ -485,7 +518,7 @@ public class DrawableTest extends AndroidTestCase {
     public void testOnBoundsChange() {
         MockDrawable mockDrawable = new MockDrawable();
 
-        // onBoundsChange is a non-operation function.
+        // No-op in the Drawable superclass.
         mockDrawable.onBoundsChange(new Rect(0, 0, 10, 10));
     }
 
@@ -522,56 +555,45 @@ public class DrawableTest extends AndroidTestCase {
         assertEquals(1000L, mockCallback.getWhen());
     }
 
-    public void testSetCallback() {
-        MockDrawable mockDrawable = new MockDrawable();
+    public void testAccessCallback() {
+        Drawable mockDrawable = new MockDrawable();
+        Callback mockCallback = mock(Callback.class);
 
-        MockCallback mockCallback = new MockCallback();
         mockDrawable.setCallback(mockCallback);
-        mockDrawable.scheduleSelf(null, 1000L);
-        assertEquals(mockDrawable, mockCallback.getScheduleDrawable());
-        assertNull(mockCallback.getRunnable());
-        assertEquals(1000L, mockCallback.getWhen());
+        assertEquals(mockCallback, mockDrawable.getCallback());
+
+        mockDrawable.setCallback(null);
+        assertEquals(null, mockDrawable.getCallback());
     }
 
     public void testSetColorFilter() {
-        MockDrawable mockDrawable = new MockDrawable();
-
+        Drawable mockDrawable = new MockDrawable();
         mockDrawable.setColorFilter(5, PorterDuff.Mode.CLEAR);
     }
 
     public void testSetDither() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new MockDrawable();
 
-        // setDither is a non-operation function.
+        // No-op in the Drawable superclass.
         mockDrawable.setDither(false);
     }
 
     public void testSetHotspotBounds() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new MockDrawable();
 
-        // setHotspotBounds is a non-operation function.
+        // No-op in the Drawable superclass.
         mockDrawable.setHotspotBounds(10, 15, 100, 150);
     }
 
     public void testGetHotspotBounds() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new MockDrawable();
 
-        // getHotspotBounds doesn't do anything interesting in the Drawable superclass
+        // No-op in the Drawable superclass.
         mockDrawable.getHotspotBounds(new Rect());
     }
 
-    public void testSetLayoutDirection() {
-        MockDrawable mockDrawable = new MockDrawable();
-
-        mockDrawable.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
-        assertEquals(View.LAYOUT_DIRECTION_LTR, mockDrawable.getLayoutDirection());
-
-        mockDrawable.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
-        assertEquals(View.LAYOUT_DIRECTION_RTL, mockDrawable.getLayoutDirection());
-    }
-
-    public void testGetLayoutDirection() {
-        MockDrawable mockDrawable = new MockDrawable();
+    public void testAccessLayoutDirection() {
+        Drawable mockDrawable = new MockDrawable();
 
         mockDrawable.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
         assertEquals(View.LAYOUT_DIRECTION_LTR, mockDrawable.getLayoutDirection());
@@ -581,28 +603,28 @@ public class DrawableTest extends AndroidTestCase {
     }
 
     public void testOnLayoutDirectionChanged() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new MockDrawable();
 
-        // onLayoutDirectionChanged is a non-operation function.
+        // No-op in the Drawable superclass.
         mockDrawable.onLayoutDirectionChanged(View.LAYOUT_DIRECTION_LTR);
     }
 
     public void testSetFilterBitmap() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new MockDrawable();
 
-        // setFilterBitmap is a non-operation function.
+        // No-op in the Drawable superclass.
         mockDrawable.setFilterBitmap(false);
     }
 
     public void testIsFilterBitmap() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new MockDrawable();
 
-        // setFilterBitmap is a non-operation function.
+        // No-op in the Drawable superclass.
         mockDrawable.isFilterBitmap();
     }
 
     public void testUnscheduleSelf() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new MockDrawable();
         MockCallback mockCallback = new MockCallback();
         mockDrawable.setCallback(mockCallback);
         mockDrawable.unscheduleSelf(null);
@@ -611,8 +633,7 @@ public class DrawableTest extends AndroidTestCase {
     }
 
     public void testMutate() {
-        MockDrawable mockDrawable = new MockDrawable();
-
+        Drawable mockDrawable = new MockDrawable();
         assertSame(mockDrawable, mockDrawable.mutate());
     }
 

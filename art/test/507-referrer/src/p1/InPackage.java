@@ -17,7 +17,7 @@
 package p1;
 
 public class InPackage {
-  public static int foo() {
+  public static int $inline$foo() {
     return myField;
   }
 

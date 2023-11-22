@@ -16,7 +16,7 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 import android.content.Context;
 import android.content.res.XmlResourceParser;
@@ -42,7 +42,7 @@ public class TableLayoutTest extends ActivityInstrumentationTestCase2<TableCtsAc
     private Context mContext;
 
     public TableLayoutTest() {
-        super("com.android.cts.widget", TableCtsActivity.class);
+        super("android.widget.cts", TableCtsActivity.class);
     }
 
     @Override
@@ -58,14 +58,14 @@ public class TableLayoutTest extends ActivityInstrumentationTestCase2<TableCtsAc
         new TableLayout(mContext, null);
 
         TableCtsActivity activity = getActivity();
-        activity.setContentView(com.android.cts.widget.R.layout.table_layout_1);
+        activity.setContentView(android.widget.cts.R.layout.table_layout_1);
         TableLayout tableLayout = (TableLayout) activity
-                .findViewById(com.android.cts.widget.R.id.table1);
+                .findViewById(android.widget.cts.R.id.table1);
         assertTrue(tableLayout.isColumnCollapsed(0));
         assertTrue(tableLayout.isColumnStretchable(2));
 
-        activity.setContentView(com.android.cts.widget.R.layout.table_layout_2);
-        tableLayout = (TableLayout) activity.findViewById(com.android.cts.widget.R.id.table2);
+        activity.setContentView(android.widget.cts.R.layout.table_layout_2);
+        tableLayout = (TableLayout) activity.findViewById(android.widget.cts.R.id.table2);
         assertTrue(tableLayout.isColumnShrinkable(1));
     }
 
@@ -205,12 +205,12 @@ public class TableLayoutTest extends ActivityInstrumentationTestCase2<TableCtsAc
         final TableCtsActivity activity = getActivity();
         getInstrumentation().runOnMainSync(new Runnable() {
             public void run() {
-                activity.setContentView(com.android.cts.widget.R.layout.table_layout_1);
+                activity.setContentView(android.widget.cts.R.layout.table_layout_1);
             }
         });
         getInstrumentation().waitForIdleSync();
         final TableLayout tableLayout =
-                (TableLayout) activity.findViewById(com.android.cts.widget.R.id.table1);
+                (TableLayout) activity.findViewById(android.widget.cts.R.id.table1);
 
         // Preparation: remove Collapsed mark for column 0.
         getInstrumentation().runOnMainSync(new Runnable() {

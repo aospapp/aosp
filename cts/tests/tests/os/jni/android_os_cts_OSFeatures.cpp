@@ -89,23 +89,6 @@ jboolean android_os_cts_OSFeatures_needsSeccompSupport(JNIEnv*, jobject)
     // This define is controlled by the Android.mk.
     return false;
 #endif
-
-    int major;
-    int minor;
-    struct utsname uts;
-    if (uname(&uts) == -1) {
-        return false;
-    }
-
-    if (sscanf(uts.release, "%d.%d", &major, &minor) != 2) {
-        return false;
-    }
-
-    // Kernels before 3.8 don't have seccomp
-    if ((major < 3) || ((major == 3) && (minor < 8))) {
-        return false;
-    }
-
     return true;
 }
 

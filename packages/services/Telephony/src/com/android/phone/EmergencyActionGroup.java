@@ -76,13 +76,20 @@ public class EmergencyActionGroup extends FrameLayout implements View.OnClickLis
     @Override
     protected void onFinishInflate() {
         super.onFinishInflate();
-        setupAssistActions();
 
         mSelectedContainer = (ViewGroup) findViewById(R.id.selected_container);
         mSelectedContainer.setOnClickListener(this);
         mSelectedLabel = (TextView) findViewById(R.id.selected_label);
         mRippleView = findViewById(R.id.ripple_view);
         mLaunchHint = findViewById(R.id.launch_hint);
+    }
+
+    @Override
+    protected void onWindowVisibilityChanged(int visibility) {
+        super.onWindowVisibilityChanged(visibility);
+        if (visibility == View.VISIBLE) {
+            setupAssistActions();
+        }
     }
 
     /**
@@ -165,11 +172,9 @@ public class EmergencyActionGroup extends FrameLayout implements View.OnClickLis
                 } catch (PackageManager.NameNotFoundException e) {
                     continue;
                 }
-                // Get earliest installed app, but prioritize system apps.
-                if (bestMatch == null
-                        || !isSystemApp(bestMatch) && isSystemApp(packageInfo)
-                        || isSystemApp(bestMatch) == isSystemApp(packageInfo)
-                                && bestMatch.firstInstallTime > packageInfo.firstInstallTime) {
+                // Get earliest installed system app.
+                if (isSystemApp(packageInfo) && (bestMatch == null ||
+                        bestMatch.firstInstallTime > packageInfo.firstInstallTime)) {
                     bestMatch = packageInfo;
                 }
             }

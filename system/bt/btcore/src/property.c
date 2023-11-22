@@ -29,9 +29,6 @@ static bt_property_t *property_new_(void *val, size_t len, bt_property_type_t ty
 bt_property_t *property_copy_array(const bt_property_t *properties, size_t count) {
   assert(properties != NULL);
   bt_property_t *clone = osi_calloc(sizeof(bt_property_t) * count);
-  if (!clone) {
-    return NULL;
-  }
 
   memcpy(&clone[0], &properties[0], sizeof(bt_property_t) * count);
   for (size_t i = 0; i < count; ++i) {
@@ -210,11 +207,8 @@ const bt_uuid_t *property_as_uuids(const bt_property_t *property, size_t *count)
 
 static bt_property_t *property_new_(void *val, size_t len, bt_property_type_t type) {
   bt_property_t *property = osi_calloc(sizeof(bt_property_t));
-  assert(property != NULL);
 
   property->val = osi_malloc(len);
-  assert(property->val != NULL);
-
   memcpy(property->val, val, len);
 
   property->type = type;

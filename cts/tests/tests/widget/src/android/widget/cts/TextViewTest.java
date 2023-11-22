@@ -16,16 +16,14 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
-
-import org.xmlpull.v1.XmlPullParserException;
-
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.app.Instrumentation.ActivityMonitor;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.content.res.Resources.NotFoundException;
+import android.cts.util.KeyEventUtil;
 import android.cts.util.PollingCheck;
 import android.cts.util.WidgetTestUtils;
 import android.graphics.Bitmap;
@@ -37,14 +35,17 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.LocaleList;
 import android.os.Parcelable;
 import android.test.ActivityInstrumentationTestCase2;
-import android.test.MoreAsserts;
 import android.test.TouchUtils;
 import android.test.UiThreadTest;
+import android.test.suitebuilder.annotation.MediumTest;
+import android.test.suitebuilder.annotation.SmallTest;
 import android.text.Editable;
 import android.text.InputFilter;
 import android.text.InputType;
@@ -52,6 +53,7 @@ import android.text.Layout;
 import android.text.Selection;
 import android.text.Spannable;
 import android.text.SpannableString;
+import android.text.Spanned;
 import android.text.TextPaint;
 import android.text.TextUtils;
 import android.text.TextUtils.TruncateAt;
@@ -71,13 +73,15 @@ import android.text.method.TextKeyListener;
 import android.text.method.TextKeyListener.Capitalize;
 import android.text.method.TimeKeyListener;
 import android.text.method.TransformationMethod;
+import android.text.style.ImageSpan;
 import android.text.style.URLSpan;
+import android.text.style.UnderlineSpan;
 import android.text.util.Linkify;
 import android.util.DisplayMetrics;
 import android.util.TypedValue;
+import android.view.ActionMode;
 import android.view.ContextMenu;
 import android.view.ContextMenu.ContextMenuInfo;
-import android.view.ActionMode;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.Menu;
@@ -100,6 +104,8 @@ import android.widget.TextView;
 import android.widget.TextView.BufferType;
 import android.widget.TextView.OnEditorActionListener;
 
+import org.xmlpull.v1.XmlPullParserException;
+
 import java.io.IOException;
 import java.util.Locale;
 
@@ -118,9 +124,10 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
             + "this text, I would love to see the kind of devices you guys now use!";
     private static final long TIMEOUT = 5000;
     private CharSequence mTransformedText;
+    private KeyEventUtil mKeyEventUtil;
 
     public TextViewTest() {
-        super("com.android.cts.widget", TextViewCtsActivity.class);
+        super("android.widget.cts", TextViewCtsActivity.class);
     }
 
     @Override
@@ -134,6 +141,7 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
             }
         }.run();
         mInstrumentation = getInstrumentation();
+        mKeyEventUtil = new KeyEventUtil(mInstrumentation);
     }
 
     /**
@@ -819,6 +827,39 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         assertEquals(0, mTextView.getLineHeight());
     }
 
+    public void testSetElegantLineHeight() {
+        mTextView = findTextView(R.id.textview_text);
+        assertFalse(mTextView.getPaint().isElegantTextHeight());
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                mTextView.setWidth(mTextView.getWidth() / 3);
+                mTextView.setPadding(1, 2, 3, 4);
+                mTextView.setGravity(Gravity.BOTTOM);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+
+        int oldHeight = mTextView.getHeight();
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                mTextView.setElegantTextHeight(true);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+
+        assertTrue(mTextView.getPaint().isElegantTextHeight());
+        assertTrue(mTextView.getHeight() > oldHeight);
+
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                mTextView.setElegantTextHeight(false);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+        assertFalse(mTextView.getPaint().isElegantTextHeight());
+        assertTrue(mTextView.getHeight() == oldHeight);
+    }
+
     public void testInstanceState() {
         // Do not test. Implementation details.
     }
@@ -1265,11 +1306,104 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         }
     }
 
+    @MediumTest
+    public void testSetText_updatesHeightAfterRemovingImageSpan() {
+        // Height calculation had problems when TextView had width: match_parent
+        final int textViewWidth = ViewGroup.LayoutParams.MATCH_PARENT;
+        final Spannable text = new SpannableString("some text");
+        final int spanHeight = 100;
+
+        // prepare TextView, width: MATCH_PARENT
+        TextView textView = new TextView(getActivity());
+        textView.setSingleLine(true);
+        textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 2);
+        textView.setPadding(0, 0, 0, 0);
+        textView.setIncludeFontPadding(false);
+        textView.setText(text);
+        final FrameLayout layout = new FrameLayout(mActivity);
+        final ViewGroup.LayoutParams layoutParams = new ViewGroup.LayoutParams(textViewWidth,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        layout.addView(textView, layoutParams);
+        layout.setLayoutParams(layoutParams);
+        mActivity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                getActivity().setContentView(layout);
+            }
+        });
+        getInstrumentation().waitForIdleSync();
+
+        // measure height of text with no span
+        final int heightWithoutSpan = textView.getHeight();
+        assertTrue("Text height should be smaller than span height",
+                heightWithoutSpan < spanHeight);
+
+        // add ImageSpan to text
+        Drawable drawable = mInstrumentation.getContext().getDrawable(R.drawable.scenery);
+        drawable.setBounds(0, 0, spanHeight, spanHeight);
+        ImageSpan span = new ImageSpan(drawable);
+        text.setSpan(span, 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        mActivity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                textView.setText(text);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+
+        // measure height with span
+        final int heightWithSpan = textView.getHeight();
+        assertTrue("Text height should be greater or equal than span height",
+                heightWithSpan >= spanHeight);
+
+        // remove the span
+        text.removeSpan(span);
+        mActivity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                textView.setText(text);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+
+        final int heightAfterRemoveSpan = textView.getHeight();
+        assertEquals("Text height should be same after removing the span",
+                heightWithoutSpan, heightAfterRemoveSpan);
+    }
+
+    public void testRemoveSelectionWithSelectionHandles() {
+        initTextViewForTyping();
+
+        mActivity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mTextView.setTextIsSelectable(true);
+                mTextView.setText("abcd", BufferType.EDITABLE);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+
+        // Long click on the text selects all text and shows selection handlers. The view has an
+        // attribute layout_width="wrap_content", so clicked location (the center of the view)
+        // should be on the text.
+        TouchUtils.longClickView(this, mTextView);
+
+        mActivity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Selection.removeSelection((Spannable) mTextView.getText());
+            }
+        });
+
+        // Make sure that a crash doesn't happen with {@link Selection#removeSelection}.
+        mInstrumentation.waitForIdleSync();
+    }
+
     public void testUndo_insert() {
         initTextViewForTyping();
 
         // Type some text.
-        mInstrumentation.sendStringSync("abc");
+        mKeyEventUtil.sendString(mTextView, "abc");
         mActivity.runOnUiThread(new Runnable() {
             public void run() {
                 // Precondition: The cursor is at the end of the text.
@@ -1301,8 +1435,9 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         initTextViewForTyping();
 
         // Simulate deleting text and undoing it.
-        mInstrumentation.sendStringSync("xyz");
-        sendKeys(KeyEvent.KEYCODE_DEL, KeyEvent.KEYCODE_DEL, KeyEvent.KEYCODE_DEL);
+        mKeyEventUtil.sendString(mTextView, "xyz");
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_DEL, KeyEvent.KEYCODE_DEL,
+                KeyEvent.KEYCODE_DEL);
         mActivity.runOnUiThread(new Runnable() {
             public void run() {
                 // Precondition: The text was actually deleted.
@@ -1432,8 +1567,9 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         initTextViewForTyping();
 
         // Create two undo operations, an insert and a delete.
-        mInstrumentation.sendStringSync("xyz");
-        sendKeys(KeyEvent.KEYCODE_DEL, KeyEvent.KEYCODE_DEL, KeyEvent.KEYCODE_DEL);
+        mKeyEventUtil.sendString(mTextView, "xyz");
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_DEL, KeyEvent.KEYCODE_DEL,
+                KeyEvent.KEYCODE_DEL);
         mActivity.runOnUiThread(new Runnable() {
             public void run() {
                 // Calling setText() clears both undo operations, so undo doesn't happen.
@@ -1454,7 +1590,7 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         initTextViewForTyping();
 
         // Type some text. This creates an undo entry.
-        mInstrumentation.sendStringSync("abc");
+        mKeyEventUtil.sendString(mTextView, "abc");
         mActivity.runOnUiThread(new Runnable() {
             public void run() {
                 // Undo the typing to create a redo entry.
@@ -1473,7 +1609,7 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         initTextViewForTyping();
 
         // Type some text.
-        mInstrumentation.sendStringSync("abc");
+        mKeyEventUtil.sendString(mTextView, "abc");
         mActivity.runOnUiThread(new Runnable() {
             public void run() {
                 // Programmatically append some text.
@@ -1496,7 +1632,7 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         initTextViewForTyping();
 
         // Type some text.
-        mInstrumentation.sendStringSync("abc");
+        mKeyEventUtil.sendString(mTextView, "abc");
         mActivity.runOnUiThread(new Runnable() {
             public void run() {
                 // Directly modify the underlying Editable to insert some text.
@@ -1545,7 +1681,7 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         mTextView.addTextChangedListener(new ConvertToSpacesTextWatcher());
 
         // Type some text.
-        mInstrumentation.sendStringSync("abc");
+        mKeyEventUtil.sendString(mTextView, "abc");
         mActivity.runOnUiThread(new Runnable() {
             public void run() {
                 // TextWatcher altered the text.
@@ -1583,7 +1719,7 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         initTextViewForTyping();
 
         // Type some text.
-        mInstrumentation.sendStringSync("abc");
+        mKeyEventUtil.sendString(mTextView, "abc");
         mActivity.runOnUiThread(new Runnable() {
             public void run() {
                 // Pressing Control-Z triggers undo.
@@ -1606,7 +1742,7 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         initTextViewForTyping();
 
         // Type some text to create an undo operation.
-        mInstrumentation.sendStringSync("abc");
+        mKeyEventUtil.sendString(mTextView, "abc");
         mActivity.runOnUiThread(new Runnable() {
             public void run() {
                 // Parcel and unparcel the TextView.
@@ -1617,7 +1753,7 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         mInstrumentation.waitForIdleSync();
 
         // Delete a character to create a new undo operation.
-        sendKeys(KeyEvent.KEYCODE_DEL);
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_DEL);
         mActivity.runOnUiThread(new Runnable() {
             public void run() {
                 assertEquals("ab", mTextView.getText().toString());
@@ -1644,8 +1780,8 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         initTextViewForTyping();
 
         // Type and delete to create two new undo operations.
-        mInstrumentation.sendStringSync("a");
-        sendKeys(KeyEvent.KEYCODE_DEL);
+        mKeyEventUtil.sendString(mTextView, "a");
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_DEL);
         mActivity.runOnUiThread(new Runnable() {
             public void run() {
                 // Empty the undo stack then parcel and unparcel the TextView. While the undo
@@ -1659,8 +1795,8 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         mInstrumentation.waitForIdleSync();
 
         // Create two more undo operations.
-        mInstrumentation.sendStringSync("b");
-        sendKeys(KeyEvent.KEYCODE_DEL);
+        mKeyEventUtil.sendString(mTextView, "b");
+        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_DEL);
         mActivity.runOnUiThread(new Runnable() {
             public void run() {
                 // Verify undo still works.
@@ -1698,6 +1834,65 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         mInstrumentation.waitForIdleSync();
     }
 
+    public void testCopyAndPaste_byKey() {
+        initTextViewForTyping();
+
+        // Type "abc".
+        mInstrumentation.sendStringSync("abc");
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                // Select "bc"
+                Selection.setSelection((Spannable) mTextView.getText(), 1, 3);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+        // Copy "bc"
+        sendKeys(KeyEvent.KEYCODE_COPY);
+
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                // Set cursor between 'b' and 'c'.
+                Selection.setSelection((Spannable) mTextView.getText(), 2, 2);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+        // Paste "bc"
+        sendKeys(KeyEvent.KEYCODE_PASTE);
+        assertEquals("abbcc", mTextView.getText().toString());
+
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                Selection.selectAll((Spannable) mTextView.getText());
+                KeyEvent copyWithMeta = new KeyEvent(0, 0, KeyEvent.ACTION_DOWN,
+                        KeyEvent.KEYCODE_COPY, 0, KeyEvent.META_SHIFT_LEFT_ON);
+                // Shift + copy doesn't perform copy.
+                mTextView.onKeyDown(KeyEvent.KEYCODE_COPY, copyWithMeta);
+                Selection.setSelection((Spannable) mTextView.getText(), 0, 0);
+                mTextView.onTextContextMenuItem(android.R.id.paste);
+                assertEquals("bcabbcc", mTextView.getText().toString());
+
+                Selection.selectAll((Spannable) mTextView.getText());
+                copyWithMeta = new KeyEvent(0, 0, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_COPY, 0,
+                        KeyEvent.META_CTRL_LEFT_ON);
+                // Control + copy doesn't perform copy.
+                mTextView.onKeyDown(KeyEvent.KEYCODE_COPY, copyWithMeta);
+                Selection.setSelection((Spannable) mTextView.getText(), 0, 0);
+                mTextView.onTextContextMenuItem(android.R.id.paste);
+                assertEquals("bcbcabbcc", mTextView.getText().toString());
+
+                Selection.selectAll((Spannable) mTextView.getText());
+                copyWithMeta = new KeyEvent(0, 0, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_COPY, 0,
+                        KeyEvent.META_SHIFT_LEFT_ON | KeyEvent.META_CTRL_LEFT_ON);
+                // Control + Shift + copy doesn't perform copy.
+                mTextView.onKeyDown(KeyEvent.KEYCODE_COPY, copyWithMeta);
+                Selection.setSelection((Spannable) mTextView.getText(), 0, 0);
+                mTextView.onTextContextMenuItem(android.R.id.paste);
+                assertEquals("bcbcbcabbcc", mTextView.getText().toString());
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+    }
+
     public void testCutAndPaste() {
         initTextViewForTyping();
         mActivity.runOnUiThread(new Runnable() {
@@ -1721,6 +1916,57 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
             }
         });
         mInstrumentation.waitForIdleSync();
+    }
+
+    public void testCutAndPaste_byKey() {
+        initTextViewForTyping();
+
+        // Type "abc".
+        mInstrumentation.sendStringSync("abc");
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                // Select "bc"
+                Selection.setSelection((Spannable) mTextView.getText(), 1, 3);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+        // Cut "bc"
+        sendKeys(KeyEvent.KEYCODE_CUT);
+
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                assertEquals("a", mTextView.getText().toString());
+                // Move cursor to the head
+                Selection.setSelection((Spannable) mTextView.getText(), 0, 0);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+        // Paste "bc"
+        sendKeys(KeyEvent.KEYCODE_PASTE);
+        assertEquals("bca", mTextView.getText().toString());
+
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                Selection.selectAll((Spannable) mTextView.getText());
+                KeyEvent cutWithMeta = new KeyEvent(0, 0, KeyEvent.ACTION_DOWN,
+                        KeyEvent.KEYCODE_CUT, 0, KeyEvent.META_SHIFT_LEFT_ON);
+                // Shift + cut doesn't perform cut.
+                mTextView.onKeyDown(KeyEvent.KEYCODE_CUT, cutWithMeta);
+                assertEquals("bca", mTextView.getText().toString());
+
+                cutWithMeta = new KeyEvent(0, 0, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_CUT, 0,
+                        KeyEvent.META_CTRL_LEFT_ON);
+                // Control + cut doesn't perform cut.
+                mTextView.onKeyDown(KeyEvent.KEYCODE_CUT, cutWithMeta);
+                assertEquals("bca", mTextView.getText().toString());
+
+                cutWithMeta = new KeyEvent(0, 0, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_CUT, 0,
+                        KeyEvent.META_SHIFT_LEFT_ON | KeyEvent.META_CTRL_LEFT_ON);
+                // Control + Shift + cut doesn't perform cut.
+                mTextView.onKeyDown(KeyEvent.KEYCODE_CUT, cutWithMeta);
+                assertEquals("bca", mTextView.getText().toString());
+            }
+        });
     }
 
     private static boolean hasSpansAtMiddleOfText(final TextView textView, final Class<?> type) {
@@ -1765,6 +2011,7 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
 
     @UiThreadTest
     public void testSaveInstanceState() {
+        // should save text when freezesText=true
         TextView originalTextView = new TextView(mActivity);
         final String text = "This is a string";
         originalTextView.setText(text);
@@ -1777,23 +2024,104 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
     }
 
     @UiThreadTest
-    public void testSaveInstanceStateSelection() {
-        TextView originalTextView = new TextView(mActivity);
+    public void testOnSaveInstanceState_whenFreezesTextIsFalse() {
         final String text = "This is a string";
-        final Spannable spannable = new SpannableString(text);
-        originalTextView.setText(spannable);
-        originalTextView.setTextIsSelectable(true);
-        Selection.setSelection((Spannable) originalTextView.getText(), 5, 7);
-        originalTextView.setFreezesText(true);  // needed to actually save state
-        Parcelable state = originalTextView.onSaveInstanceState();
+        { // should not save text when freezesText=false
+            // prepare TextView for before saveInstanceState
+            TextView textView1 = new TextView(mActivity);
+            textView1.setFreezesText(false);
+            textView1.setText(text);
 
-        TextView restoredTextView = new TextView(mActivity);
-        // Setting a selection only has an effect on a TextView when it is selectable.
-        restoredTextView.setTextIsSelectable(true);
-        restoredTextView.onRestoreInstanceState(state);
-        assertEquals(text, restoredTextView.getText().toString());
-        assertEquals(5, restoredTextView.getSelectionStart());
-        assertEquals(7, restoredTextView.getSelectionEnd());
+            // prepare TextView for after saveInstanceState
+            TextView textView2 = new TextView(mActivity);
+            textView2.setFreezesText(false);
+
+            textView2.onRestoreInstanceState(textView1.onSaveInstanceState());
+
+            assertEquals("", textView2.getText().toString());
+        }
+
+        { // should not save text even when textIsSelectable=true
+            // prepare TextView for before saveInstanceState
+            TextView textView1 = new TextView(mActivity);
+            textView1.setFreezesText(false);
+            textView1.setTextIsSelectable(true);
+            textView1.setText(text);
+
+            // prepare TextView for after saveInstanceState
+            TextView textView2 = new TextView(mActivity);
+            textView2.setFreezesText(false);
+            textView2.setTextIsSelectable(true);
+
+            textView2.onRestoreInstanceState(textView1.onSaveInstanceState());
+
+            assertEquals("", textView2.getText().toString());
+        }
+    }
+
+    @UiThreadTest
+    @SmallTest
+    public void testOnSaveInstanceState_doesNotSaveSelectionWhenDoesNotExist() {
+        // prepare TextView for before saveInstanceState
+        final String text = "This is a string";
+        TextView textView1 = new TextView(mActivity);
+        textView1.setFreezesText(true);
+        textView1.setText(text);
+
+        // prepare TextView for after saveInstanceState
+        TextView textView2 = new TextView(mActivity);
+        textView2.setFreezesText(true);
+
+        textView2.onRestoreInstanceState(textView1.onSaveInstanceState());
+
+        assertEquals(-1, textView2.getSelectionStart());
+        assertEquals(-1, textView2.getSelectionEnd());
+    }
+
+    @UiThreadTest
+    @SmallTest
+    public void testOnSaveInstanceState_doesNotRestoreSelectionWhenTextIsAbsent() {
+        // prepare TextView for before saveInstanceState
+        final String text = "This is a string";
+        TextView textView1 = new TextView(mActivity);
+        textView1.setFreezesText(false);
+        textView1.setTextIsSelectable(true);
+        textView1.setText(text);
+        Selection.setSelection((Spannable) textView1.getText(), 2, text.length() - 2);
+
+        // prepare TextView for after saveInstanceState
+        TextView textView2 = new TextView(mActivity);
+        textView2.setFreezesText(false);
+        textView2.setTextIsSelectable(true);
+
+        textView2.onRestoreInstanceState(textView1.onSaveInstanceState());
+
+        assertEquals("", textView2.getText().toString());
+        //when textIsSelectable, selection start and end are initialized to 0
+        assertEquals(0, textView2.getSelectionStart());
+        assertEquals(0, textView2.getSelectionEnd());
+    }
+
+    @UiThreadTest
+    @SmallTest
+    public void testOnSaveInstanceState_savesSelectionWhenExists() {
+        final String text = "This is a string";
+        // prepare TextView for before saveInstanceState
+        TextView textView1 = new TextView(mActivity);
+        textView1.setFreezesText(true);
+        textView1.setTextIsSelectable(true);
+        textView1.setText(text);
+        Selection.setSelection((Spannable) textView1.getText(), 2, text.length() - 2);
+
+        // prepare TextView for after saveInstanceState
+        TextView textView2 = new TextView(mActivity);
+        textView2.setFreezesText(true);
+        textView2.setTextIsSelectable(true);
+
+        textView2.onRestoreInstanceState(textView1.onSaveInstanceState());
+
+        assertEquals(textView1.getSelectionStart(), textView2.getSelectionStart());
+        assertEquals(textView1.getSelectionEnd(), textView2.getSelectionEnd());
     }
 
     @UiThreadTest
@@ -2150,6 +2478,7 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
 
     public void testSetIncludeFontPadding() {
         mTextView = findTextView(R.id.textview_text);
+        assertTrue(mTextView.getIncludeFontPadding());
         mActivity.runOnUiThread(new Runnable() {
             public void run() {
                 mTextView.setWidth(mTextView.getWidth() / 3);
@@ -2168,6 +2497,7 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         mInstrumentation.waitForIdleSync();
 
         assertTrue(mTextView.getHeight() < oldHeight);
+        assertFalse(mTextView.getIncludeFontPadding());
     }
 
     public void testScroll() {
@@ -2265,6 +2595,80 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
 
         assertSame(TextUtils.TruncateAt.START, mTextView.getEllipsize());
         // there is no method to check if '...yLongVeryLongWord' is painted in the screen.
+    }
+
+    public void testEllipsizeEndAndNoEllipsizeHasSameBaselineForSingleLine() {
+        int textWidth = calculateTextWidth(LONG_TEXT);
+
+        TextView tvEllipsizeEnd = new TextView(getActivity());
+        tvEllipsizeEnd.setEllipsize(TruncateAt.END);
+        tvEllipsizeEnd.setMaxLines(1);
+        tvEllipsizeEnd.setWidth(textWidth >> 2);
+        tvEllipsizeEnd.setText(LONG_TEXT);
+
+        TextView tvEllipsizeNone = new TextView(getActivity());
+        tvEllipsizeNone.setWidth(textWidth >> 2);
+        tvEllipsizeNone.setText("a");
+
+        final FrameLayout layout = new FrameLayout(mActivity);
+        ViewGroup.LayoutParams layoutParams = new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT);
+        layout.addView(tvEllipsizeEnd, layoutParams);
+        layout.addView(tvEllipsizeNone, layoutParams);
+        layout.setLayoutParams(layoutParams);
+
+        mActivity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                getActivity().setContentView(layout);
+            }
+        });
+        getInstrumentation().waitForIdleSync();
+
+        assertEquals("Ellipsized and non ellipsized single line texts should have the same " +
+                        "baseline",
+                tvEllipsizeEnd.getLayout().getLineBaseline(0),
+                tvEllipsizeNone.getLayout().getLineBaseline(0));
+    }
+
+    public void testEllipsizeEndAndNoEllipsizeHasSameBaselineForMultiLine() {
+        int textWidth = calculateTextWidth(LONG_TEXT);
+
+        TextView tvEllipsizeEnd = new TextView(getActivity());
+        tvEllipsizeEnd.setEllipsize(TruncateAt.END);
+        tvEllipsizeEnd.setMaxLines(2);
+        tvEllipsizeEnd.setWidth(textWidth >> 2);
+        tvEllipsizeEnd.setText(LONG_TEXT);
+
+        TextView tvEllipsizeNone = new TextView(getActivity());
+        tvEllipsizeNone.setMaxLines(2);
+        tvEllipsizeNone.setWidth(textWidth >> 2);
+        tvEllipsizeNone.setText(LONG_TEXT);
+
+        final FrameLayout layout = new FrameLayout(mActivity);
+        ViewGroup.LayoutParams layoutParams = new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT);
+
+        layout.addView(tvEllipsizeEnd, layoutParams);
+        layout.addView(tvEllipsizeNone, layoutParams);
+        layout.setLayoutParams(layoutParams);
+
+        mActivity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                getActivity().setContentView(layout);
+            }
+        });
+        getInstrumentation().waitForIdleSync();
+
+        for (int i = 0; i < tvEllipsizeEnd.getLineCount(); i++) {
+            assertEquals("Ellipsized and non ellipsized multi line texts should have the same " +
+                            "baseline for line " + i,
+                    tvEllipsizeEnd.getLayout().getLineBaseline(i),
+                    tvEllipsizeNone.getLayout().getLineBaseline(i));
+        }
     }
 
     public void testSetCursorVisible() {
@@ -2425,6 +2829,129 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         } catch (NullPointerException e) {
         }
     }
+
+    @UiThreadTest
+    public void testAppend_doesNotAddLinksWhenAppendedTextDoesNotContainLinks() {
+        mTextView = new TextView(mActivity);
+        mTextView.setAutoLinkMask(Linkify.ALL);
+        mTextView.setText("text without URL");
+
+        mTextView.append(" another text without URL");
+
+        Spannable text = (Spannable) mTextView.getText();
+        URLSpan[] urlSpans = text.getSpans(0, text.length(), URLSpan.class);
+        assertEquals("URLSpan count should be zero", 0, urlSpans.length);
+        assertEquals("text without URL another text without URL", text.toString());
+    }
+
+    @UiThreadTest
+    public void testAppend_doesNotAddLinksWhenAutoLinkIsNotEnabled() {
+        mTextView = new TextView(mActivity);
+        mTextView.setText("text without URL");
+
+        mTextView.append(" text with URL http://android.com");
+
+        Spannable text = (Spannable) mTextView.getText();
+        URLSpan[] urlSpans = text.getSpans(0, text.length(), URLSpan.class);
+        assertEquals("URLSpan count should be zero", 0, urlSpans.length);
+        assertEquals("text without URL text with URL http://android.com", text.toString());
+    }
+
+    @UiThreadTest
+    public void testAppend_addsLinksWhenAutoLinkIsEnabled() {
+        mTextView = new TextView(mActivity);
+        mTextView.setAutoLinkMask(Linkify.ALL);
+        mTextView.setText("text without URL");
+
+        mTextView.append(" text with URL http://android.com");
+
+        Spannable text = (Spannable) mTextView.getText();
+        URLSpan[] urlSpans = text.getSpans(0, text.length(), URLSpan.class);
+        assertEquals("URLSpan count should be one after appending a URL", 1, urlSpans.length);
+        assertEquals("URLSpan URL should be same as the appended URL",
+                urlSpans[0].getURL(), "http://android.com");
+        assertEquals("text without URL text with URL http://android.com", text.toString());
+    }
+
+    @UiThreadTest
+    public void testAppend_addsLinksEvenWhenThereAreUrlsSetBefore() {
+        mTextView = new TextView(mActivity);
+        mTextView.setAutoLinkMask(Linkify.ALL);
+        mTextView.setText("text with URL http://android.com/before");
+
+        mTextView.append(" text with URL http://android.com");
+
+        Spannable text = (Spannable) mTextView.getText();
+        URLSpan[] urlSpans = text.getSpans(0, text.length(), URLSpan.class);
+        assertEquals("URLSpan count should be two after appending another URL", 2, urlSpans.length);
+        assertEquals("First URLSpan URL should be same",
+                urlSpans[0].getURL(), "http://android.com/before");
+        assertEquals("URLSpan URL should be same as the appended URL",
+                urlSpans[1].getURL(), "http://android.com");
+        assertEquals("text with URL http://android.com/before text with URL http://android.com",
+                text.toString());
+    }
+
+    @UiThreadTest
+    public void testAppend_setsMovementMethodWhenTextContainsUrlAndAutoLinkIsEnabled() {
+        mTextView = new TextView(mActivity);
+        mTextView.setAutoLinkMask(Linkify.ALL);
+        mTextView.setText("text without a URL");
+
+        mTextView.append(" text with a url: http://android.com");
+
+        assertNotNull("MovementMethod should not be null when text contains url",
+                mTextView.getMovementMethod());
+        assertTrue("MovementMethod should be instance of LinkMovementMethod when text contains url",
+                mTextView.getMovementMethod() instanceof LinkMovementMethod);
+    }
+
+    @UiThreadTest
+    public void testAppend_addsLinksWhenTextIsSpannableAndContainsUrlAndAutoLinkIsEnabled() {
+        mTextView = new TextView(mActivity);
+        mTextView.setAutoLinkMask(Linkify.ALL);
+        mTextView.setText("text without a URL");
+
+        mTextView.append(new SpannableString(" text with a url: http://android.com"));
+
+        Spannable text = (Spannable) mTextView.getText();
+        URLSpan[] urlSpans = text.getSpans(0, text.length(), URLSpan.class);
+        assertEquals("URLSpan count should be one after appending a URL", 1, urlSpans.length);
+        assertEquals("URLSpan URL should be same as the appended URL",
+                urlSpans[0].getURL(), "http://android.com");
+    }
+
+    @UiThreadTest
+    public void testAppend_addsLinkIfAppendedTextCompletesPartialUrlAtTheEndOfExistingText() {
+        mTextView = new TextView(mActivity);
+        mTextView.setAutoLinkMask(Linkify.ALL);
+        mTextView.setText("text with a partial url android.");
+
+        mTextView.append("com");
+
+        Spannable text = (Spannable) mTextView.getText();
+        URLSpan[] urlSpans = text.getSpans(0, text.length(), URLSpan.class);
+        assertEquals("URLSpan count should be one after appending to partial URL",
+                1, urlSpans.length);
+        assertEquals("URLSpan URL should be same as the appended URL",
+                urlSpans[0].getURL(), "http://android.com");
+    }
+
+    @UiThreadTest
+    public void testAppend_addsLinkIfAppendedTextUpdatesUrlAtTheEndOfExistingText() {
+        mTextView = new TextView(mActivity);
+        mTextView.setAutoLinkMask(Linkify.ALL);
+        mTextView.setText("text with a url http://android.com");
+
+        mTextView.append("/textview");
+
+        Spannable text = (Spannable) mTextView.getText();
+        URLSpan[] urlSpans = text.getSpans(0, text.length(), URLSpan.class);
+        assertEquals("URLSpan count should still be one after extending a URL", 1, urlSpans.length);
+        assertEquals("URLSpan URL should be same as the new URL",
+                urlSpans[0].getURL(), "http://android.com/textview");
+    }
+
 
     public void testAccessTransformationMethod() {
         // check the password attribute in xml
@@ -3021,6 +3548,23 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         mTextView.setCompoundDrawableTintMode(PorterDuff.Mode.XOR);
         assertSame(colors, mTextView.getCompoundDrawableTintList());
         assertEquals(PorterDuff.Mode.XOR, mTextView.getCompoundDrawableTintMode());
+
+        // Ensure the tint is preserved across drawable changes.
+        mTextView.setCompoundDrawablesRelative(null, null, null, null);
+        assertSame(colors, mTextView.getCompoundDrawableTintList());
+        assertEquals(PorterDuff.Mode.XOR, mTextView.getCompoundDrawableTintMode());
+
+        mTextView.setCompoundDrawables(null, null, null, null);
+        assertSame(colors, mTextView.getCompoundDrawableTintList());
+        assertEquals(PorterDuff.Mode.XOR, mTextView.getCompoundDrawableTintMode());
+
+        ColorDrawable dr1 = new ColorDrawable(Color.RED);
+        ColorDrawable dr2 = new ColorDrawable(Color.GREEN);
+        ColorDrawable dr3 = new ColorDrawable(Color.BLUE);
+        ColorDrawable dr4 = new ColorDrawable(Color.YELLOW);
+        mTextView.setCompoundDrawables(dr1, dr2, dr3, dr4);
+        assertSame(colors, mTextView.getCompoundDrawableTintList());
+        assertEquals(PorterDuff.Mode.XOR, mTextView.getCompoundDrawableTintMode());
     }
 
     public void testSetHorizontallyScrolling() {
@@ -3131,46 +3675,6 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         assertEquals(-1, textView.getFrameBottom());
     }
 
-    public void testGetFadingEdgeStrength() {
-        final MockTextView textViewLeft = (MockTextView) mActivity.findViewById(
-                R.id.mock_textview_left);
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                textViewLeft.setEllipsize(null);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
-
-        // fading is shown on right side if the text aligns left
-        assertEquals(0.0f, textViewLeft.getLeftFadingEdgeStrength(), 0.01f);
-        assertEquals(1.0f, textViewLeft.getRightFadingEdgeStrength(), 0.01f);
-
-        final MockTextView textViewRight = (MockTextView) mActivity.findViewById(
-                R.id.mock_textview_right);
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                textViewRight.setEllipsize(null);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
-        // fading is shown on left side if the text aligns right
-        assertEquals(1.0f, textViewRight.getLeftFadingEdgeStrength(), 0.01f);
-        assertEquals(0.0f, textViewRight.getRightFadingEdgeStrength(), 0.01f);
-
-        final MockTextView textViewCenter = (MockTextView) mActivity.findViewById(
-                R.id.mock_textview_center);
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                textViewCenter.setEllipsize(null);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
-        // fading is shown on both sides if the text aligns center
-        assertEquals(1.0f, textViewCenter.getLeftFadingEdgeStrength(), 0.01f);
-        assertEquals(1.0f, textViewCenter.getRightFadingEdgeStrength(), 0.01f);
-    }
-
-
     public void testMarquee() {
         final MockTextView textView = new MockTextView(mActivity);
         textView.setText(LONG_TEXT);
@@ -3212,17 +3716,11 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
             }
         }.run();
 
-        final float leftFadingEdgeStrength = textView.getLeftFadingEdgeStrength();
-        final float rightFadingEdgeStrength = textView.getRightFadingEdgeStrength();
-
-        // wait for the marquee to continue
-        // the left fading becomes thicker while the right fading becomes thiner
-        // as the text moves towards left
+        // wait for left marquee to fully apply
         new PollingCheck(TIMEOUT) {
             @Override
             protected boolean check() {
-                return leftFadingEdgeStrength < textView.getLeftFadingEdgeStrength()
-                        && rightFadingEdgeStrength > textView.getRightFadingEdgeStrength();
+                return textView.getLeftFadingEdgeStrength() > 0.99f;
             }
         }.run();
         assertFalse(runnable.getIsSelected1());
@@ -3511,19 +4009,26 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         assertEquals(1, mTextView.getImeActionId());
     }
 
-    public void testSetTextLong() {
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                final int MAX_COUNT = 1 << 21;
-                char[] longText = new char[MAX_COUNT];
-                for (int n = 0; n < MAX_COUNT; n++) {
-                    longText[n] = 'm';
-                }
-                mTextView = findTextView(R.id.textview_text);
-                mTextView.setText(new String(longText));
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+    public void testAccessImeHintLocales() {
+        final TextView textView = new TextView(mActivity);
+        textView.setText("", BufferType.EDITABLE);
+        textView.setKeyListener(null);
+        textView.setRawInputType(InputType.TYPE_CLASS_TEXT);
+        assertNull(textView.getImeHintLocales());
+        {
+            final EditorInfo editorInfo = new EditorInfo();
+            textView.onCreateInputConnection(editorInfo);
+            assertNull(editorInfo.hintLocales);
+        }
+
+        final LocaleList localeList = LocaleList.forLanguageTags("en-PH,en-US");
+        textView.setImeHintLocales(localeList);
+        assertEquals(localeList, textView.getImeHintLocales());
+        {
+            final EditorInfo editorInfo = new EditorInfo();
+            textView.onCreateInputConnection(editorInfo);
+            assertEquals(localeList, editorInfo.hintLocales);
+        }
     }
 
     @UiThreadTest
@@ -3533,10 +4038,53 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
                 mTextView.getText().toString());
 
         ExtractedText et = new ExtractedText();
+
+        // Update text and selection.
         et.text = "test";
+        et.selectionStart = 0;
+        et.selectionEnd = 2;
 
         mTextView.setExtractedText(et);
         assertEquals("test", mTextView.getText().toString());
+        assertEquals(0, mTextView.getSelectionStart());
+        assertEquals(2, mTextView.getSelectionEnd());
+
+        // Use partialStartOffset and partialEndOffset
+        et.partialStartOffset = 2;
+        et.partialEndOffset = 3;
+        et.text = "x";
+        et.selectionStart = 2;
+        et.selectionEnd = 3;
+
+        mTextView.setExtractedText(et);
+        assertEquals("text", mTextView.getText().toString());
+        assertEquals(2, mTextView.getSelectionStart());
+        assertEquals(3, mTextView.getSelectionEnd());
+
+        // Update text with spans.
+        final SpannableString ss = new SpannableString("ex");
+        ss.setSpan(new UnderlineSpan(), 0, 2, 0);
+        ss.setSpan(new URLSpan("ctstest://TextView/test"), 1, 2, 0);
+
+        et.text = ss;
+        et.partialStartOffset = 1;
+        et.partialEndOffset = 3;
+        mTextView.setExtractedText(et);
+
+        assertEquals("text", mTextView.getText().toString());
+        final Editable editable = mTextView.getEditableText();
+        final UnderlineSpan[] underlineSpans = mTextView.getEditableText().getSpans(
+                0, editable.length(), UnderlineSpan.class);
+        assertEquals(1, underlineSpans.length);
+        assertEquals(1, editable.getSpanStart(underlineSpans[0]));
+        assertEquals(3, editable.getSpanEnd(underlineSpans[0]));
+
+        final URLSpan[] urlSpans = mTextView.getEditableText().getSpans(
+                0, editable.length(), URLSpan.class);
+        assertEquals(1, urlSpans.length);
+        assertEquals(2, editable.getSpanStart(urlSpans[0]));
+        assertEquals(3, editable.getSpanEnd(urlSpans[0]));
+        assertEquals("ctstest://TextView/test", urlSpans[0].getURL());
     }
 
     public void testMoveCursorToVisibleOffset() throws Throwable {
@@ -3690,6 +4238,12 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
 
         // Tap the view to show InsertPointController.
         TouchUtils.tapView(this, mTextView);
+        // bad workaround for waiting onStartInputView of LeanbackIme.apk done
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
 
         // Execute SelectAll context menu.
         mActivity.runOnUiThread(new Runnable() {
@@ -3701,6 +4255,7 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
 
         // The selection must be whole of the text contents.
         assertEquals(0, mTextView.getSelectionStart());
+        assertEquals("Hello, World.", mTextView.getText().toString());
         assertEquals(mTextView.length(), mTextView.getSelectionEnd());
     }
 
@@ -4037,6 +4592,41 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
             tv.onPreDraw();  // For freezing layout.
             Layout layout = tv.getLayout();
             assertEquals(Layout.DIR_RIGHT_TO_LEFT, layout.getParagraphDirection(0));
+        }
+    }
+
+    public void testTextLocales() {
+        TextView tv = new TextView(mActivity);
+        assertEquals(Locale.getDefault(), tv.getTextLocale());
+        assertEquals(LocaleList.getDefault(), tv.getTextLocales());
+
+        tv.setTextLocale(Locale.CHINESE);
+        assertEquals(Locale.CHINESE, tv.getTextLocale());
+        assertEquals(new LocaleList(Locale.CHINESE), tv.getTextLocales());
+
+        tv.setTextLocales(LocaleList.forLanguageTags("en,ja"));
+        assertEquals(Locale.forLanguageTag("en"), tv.getTextLocale());
+        assertEquals(LocaleList.forLanguageTags("en,ja"), tv.getTextLocales());
+
+        try {
+            tv.setTextLocale(null);
+            fail("Setting the text locale to null should throw");
+        } catch (Throwable e) {
+            assertEquals(IllegalArgumentException.class, e.getClass());
+        }
+
+        try {
+            tv.setTextLocales(null);
+            fail("Setting the text locales to null should throw");
+        } catch (Throwable e) {
+            assertEquals(IllegalArgumentException.class, e.getClass());
+        }
+
+        try {
+            tv.setTextLocales(new LocaleList());
+            fail("Setting the text locale to an empty list should throw");
+        } catch (Throwable e) {
+            assertEquals(IllegalArgumentException.class, e.getClass());
         }
     }
 
@@ -4416,9 +5006,18 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
     public void testSetGetBreakStrategy() {
         TextView tv = new TextView(mActivity);
 
+        final PackageManager pm = getInstrumentation().getTargetContext().getPackageManager();
+
         // The default value is from the theme, here the default is BREAK_STRATEGY_HIGH_QUALITY for
-        // TextView.
-        assertEquals(Layout.BREAK_STRATEGY_HIGH_QUALITY, tv.getBreakStrategy());
+        // TextView except for Android Wear. The default value for Android Wear is
+        // BREAK_STRATEGY_BALANCED.
+        if (pm.hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            // Android Wear
+            assertEquals(Layout.BREAK_STRATEGY_BALANCED, tv.getBreakStrategy());
+        } else {
+            // All other form factor.
+            assertEquals(Layout.BREAK_STRATEGY_HIGH_QUALITY, tv.getBreakStrategy());
+        }
 
         tv.setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE);
         assertEquals(Layout.BREAK_STRATEGY_SIMPLE, tv.getBreakStrategy());

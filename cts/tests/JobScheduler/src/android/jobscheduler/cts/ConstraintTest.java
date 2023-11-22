@@ -21,6 +21,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.jobscheduler.MockJobService;
+import android.jobscheduler.TriggerContentJobService;
 import android.test.AndroidTestCase;
 
 /**
@@ -35,14 +36,21 @@ public abstract class ConstraintTest extends AndroidTestCase {
     /** Environment that notifies of JobScheduler callbacks. */
     static MockJobService.TestEnvironment kTestEnvironment =
             MockJobService.TestEnvironment.getTestEnvironment();
+    static TriggerContentJobService.TestEnvironment kTriggerTestEnvironment =
+            TriggerContentJobService.TestEnvironment.getTestEnvironment();
     /** Handle for the service which receives the execution callbacks from the JobScheduler. */
     static ComponentName kJobServiceComponent;
+    static ComponentName kTriggerContentServiceComponent;
     JobScheduler mJobScheduler;
 
     @Override
     public void setUp() throws Exception {
+        super.setUp();
         kTestEnvironment.setUp();
+        kTriggerTestEnvironment.setUp();
         kJobServiceComponent = new ComponentName(getContext(), MockJobService.class);
+        kTriggerContentServiceComponent = new ComponentName(getContext(),
+                TriggerContentJobService.class);
         mJobScheduler = (JobScheduler) getContext().getSystemService(Context.JOB_SCHEDULER_SERVICE);
         mJobScheduler.cancelAll();
     }

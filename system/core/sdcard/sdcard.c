@@ -24,6 +24,7 @@
 #include <limits.h>
 #include <linux/fuse.h>
 #include <pthread.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,6 +35,7 @@
 #include <sys/stat.h>
 #include <sys/statfs.h>
 #include <sys/time.h>
+#include <sys/types.h>
 #include <sys/uio.h>
 #include <unistd.h>
 
@@ -41,8 +43,13 @@
 #include <cutils/hashmap.h>
 #include <cutils/log.h>
 #include <cutils/multiuser.h>
+#include <cutils/properties.h>
+#include <packagelistparser/packagelistparser.h>
 
 #include <private/android_filesystem_config.h>
+
+/* FUSE_CANONICAL_PATH is not currently upstreamed */
+#define FUSE_CANONICAL_PATH 2016
 
 /* README
  *
@@ -86,6 +93,9 @@
 
 #define ERROR(x...) ALOGE(x)
 
+#define PROP_SDCARDFS_DEVICE "ro.sys.sdcardfs"
+#define PROP_SDCARDFS_USER "persist.sys.sdcardfs"
+
 #define FUSE_UNKNOWN_INO 0xffffffff
 
 /* Maximum number of bytes to write in one request. */
@@ -102,9 +112,6 @@
 /* Pseudo-error constant used to indicate that no fuse status is needed
  * or that a reply has already been written. */
 #define NO_STATUS 1
-
-/* Path to system-provided mapping of package name to appIds */
-static const char* const kPackagesListFile = "/data/system/packages.list";
 
 /* Supplementary groups to execute with */
 static const gid_t kGroups[1] = { AID_PACKAGE_INFO };
@@ -244,7 +251,7 @@ struct fuse_handler {
      * buffer at the same time.  This allows us to share the underlying storage. */
     union {
         __u8 request_buffer[MAX_REQUEST_SIZE];
-        __u8 read_buffer[MAX_READ + PAGESIZE];
+        __u8 read_buffer[MAX_READ + PAGE_SIZE];
     };
 };
 
@@ -337,7 +344,7 @@ static ssize_t get_node_path_locked(struct node* node, char* buf, size_t bufsize
 
     ssize_t pathlen = 0;
     if (node->parent && node->graft_path == NULL) {
-        pathlen = get_node_path_locked(node->parent, buf, bufsize - namelen - 2);
+        pathlen = get_node_path_locked(node->parent, buf, bufsize - namelen - 1);
         if (pathlen < 0) {
             return -1;
         }
@@ -504,6 +511,16 @@ static void derive_permissions_locked(struct fuse* fuse, struct node *parent,
             node->uid = multiuser_get_uid(parent->userid, appid);
         }
         break;
+    }
+}
+
+static void derive_permissions_recursive_locked(struct fuse* fuse, struct node *parent) {
+    struct node *node;
+    for (node = parent->child; node; node = node->next) {
+        derive_permissions_locked(fuse, parent, node);
+        if (node->child) {
+            derive_permissions_recursive_locked(fuse, node);
+        }
     }
 }
 
@@ -1145,6 +1162,8 @@ static int handle_rename(struct fuse* fuse, struct fuse_handler* handler,
     res = rename_node_locked(child_node, new_name, new_actual_name);
     if (!res) {
         remove_node_from_parent_locked(child_node);
+        derive_permissions_locked(fuse, new_parent_node, child_node);
+        derive_permissions_recursive_locked(fuse, child_node);
         add_node_to_parent_locked(child_node, new_parent_node);
     }
     goto done;
@@ -1215,7 +1234,7 @@ static int handle_read(struct fuse* fuse, struct fuse_handler* handler,
     __u32 size = req->size;
     __u64 offset = req->offset;
     int res;
-    __u8 *read_buffer = (__u8 *) ((uintptr_t)(handler->read_buffer + PAGESIZE) & ~((uintptr_t)PAGESIZE-1));
+    __u8 *read_buffer = (__u8 *) ((uintptr_t)(handler->read_buffer + PAGE_SIZE) & ~((uintptr_t)PAGE_SIZE-1));
 
     /* Don't access any other fields of hdr or req beyond this point, the read buffer
      * overlaps the request buffer and will clobber data in the request.  This
@@ -1241,7 +1260,7 @@ static int handle_write(struct fuse* fuse, struct fuse_handler* handler,
     struct fuse_write_out out;
     struct handle *h = id_to_ptr(req->fh);
     int res;
-    __u8 aligned_buffer[req->size] __attribute__((__aligned__(PAGESIZE)));
+    __u8 aligned_buffer[req->size] __attribute__((__aligned__(PAGE_SIZE)));
 
     if (req->flags & O_DIRECT) {
         memcpy(aligned_buffer, buffer, req->size);
@@ -1455,6 +1474,35 @@ static int handle_init(struct fuse* fuse, struct fuse_handler* handler,
     return NO_STATUS;
 }
 
+static int handle_canonical_path(struct fuse* fuse, struct fuse_handler* handler,
+        const struct fuse_in_header *hdr)
+{
+    struct node* node;
+    char path[PATH_MAX];
+    int len;
+
+    pthread_mutex_lock(&fuse->global->lock);
+    node = lookup_node_and_path_by_id_locked(fuse, hdr->nodeid,
+            path, sizeof(path));
+    TRACE("[%d] CANONICAL_PATH @ %" PRIx64 " (%s)\n", handler->token, hdr->nodeid,
+        node ? node->name : "?");
+    pthread_mutex_unlock(&fuse->global->lock);
+
+    if (!node) {
+        return -ENOENT;
+    }
+    if (!check_caller_access_to_node(fuse, hdr, node, R_OK)) {
+        return -EACCES;
+    }
+    len = strlen(path);
+    if (len + 1 > PATH_MAX)
+        len = PATH_MAX - 1;
+    path[PATH_MAX - 1] = 0;
+    fuse_reply(fuse, hdr->unique, path, len + 1);
+    return NO_STATUS;
+}
+
+
 static int handle_fuse_request(struct fuse *fuse, struct fuse_handler* handler,
         const struct fuse_in_header *hdr, const void *data, size_t data_len)
 {
@@ -1570,6 +1618,10 @@ static int handle_fuse_request(struct fuse *fuse, struct fuse_handler* handler,
         return handle_init(fuse, handler, hdr, req);
     }
 
+    case FUSE_CANONICAL_PATH: { /* nodeid -> bytez[] */
+        return handle_canonical_path(fuse, handler, hdr);
+    }
+
     default: {
         TRACE("[%d] NOTIMPL op=%d uniq=%"PRIx64" nid=%"PRIx64"\n",
                 handler->token, hdr->opcode, hdr->unique, hdr->nodeid);
@@ -1636,35 +1688,30 @@ static bool remove_str_to_int(void *key, void *value, void *context) {
     return true;
 }
 
-static int read_package_list(struct fuse_global* global) {
+static bool package_parse_callback(pkg_info *info, void *userdata) {
+    struct fuse_global *global = (struct fuse_global *)userdata;
+
+    char* name = strdup(info->name);
+    hashmapPut(global->package_to_appid, name, (void*) (uintptr_t) info->uid);
+    packagelist_free(info);
+    return true;
+}
+
+static bool read_package_list(struct fuse_global* global) {
     pthread_mutex_lock(&global->lock);
 
     hashmapForEach(global->package_to_appid, remove_str_to_int, global->package_to_appid);
 
-    FILE* file = fopen(kPackagesListFile, "r");
-    if (!file) {
-        ERROR("failed to open package list: %s\n", strerror(errno));
-        pthread_mutex_unlock(&global->lock);
-        return -1;
-    }
-
-    char buf[512];
-    while (fgets(buf, sizeof(buf), file) != NULL) {
-        char package_name[512];
-        int appid;
-        char gids[512];
-
-        if (sscanf(buf, "%s %d %*d %*s %*s %s", package_name, &appid, gids) == 3) {
-            char* package_name_dup = strdup(package_name);
-            hashmapPut(global->package_to_appid, package_name_dup, (void*) (uintptr_t) appid);
-        }
-    }
-
+    bool rc = packagelist_parse(package_parse_callback, global);
     TRACE("read_package_list: found %zu packages\n",
             hashmapSize(global->package_to_appid));
-    fclose(file);
+
+    /* Regenerate ownership details using newly loaded mapping */
+    derive_permissions_recursive_locked(global->fuse_default, &global->root);
+
     pthread_mutex_unlock(&global->lock);
-    return 0;
+
+    return rc;
 }
 
 static void watch_package_list(struct fuse_global* global) {
@@ -1680,11 +1727,11 @@ static void watch_package_list(struct fuse_global* global) {
     bool active = false;
     while (1) {
         if (!active) {
-            int res = inotify_add_watch(nfd, kPackagesListFile, IN_DELETE_SELF);
+            int res = inotify_add_watch(nfd, PACKAGES_LIST_FILE, IN_DELETE_SELF);
             if (res == -1) {
                 if (errno == ENOENT || errno == EACCES) {
                     /* Framework may not have created yet, sleep and retry */
-                    ERROR("missing packages.list; retrying\n");
+                    ERROR("missing \"%s\"; retrying\n", PACKAGES_LIST_FILE);
                     sleep(3);
                     continue;
                 } else {
@@ -1695,8 +1742,8 @@ static void watch_package_list(struct fuse_global* global) {
 
             /* Watch above will tell us about any future changes, so
              * read the current state. */
-            if (read_package_list(global) == -1) {
-                ERROR("read_package_list failed: %s\n", strerror(errno));
+            if (read_package_list(global) == false) {
+                ERROR("read_package_list failed\n");
                 return;
             }
             active = true;
@@ -1887,6 +1934,128 @@ static void run(const char* source_path, const char* label, uid_t uid,
     exit(1);
 }
 
+static int sdcardfs_setup(const char *source_path, const char *dest_path, uid_t fsuid,
+                        gid_t fsgid, bool multi_user, userid_t userid, gid_t gid, mode_t mask) {
+    char opts[256];
+
+    snprintf(opts, sizeof(opts),
+            "fsuid=%d,fsgid=%d,%smask=%d,userid=%d,gid=%d",
+            fsuid, fsgid, multi_user?"multiuser,":"", mask, userid, gid);
+
+    if (mount(source_path, dest_path, "sdcardfs",
+                        MS_NOSUID | MS_NODEV | MS_NOEXEC | MS_NOATIME, opts) != 0) {
+        ERROR("failed to mount sdcardfs filesystem: %s\n", strerror(errno));
+        return -1;
+    }
+
+    return 0;
+}
+
+static void run_sdcardfs(const char* source_path, const char* label, uid_t uid,
+        gid_t gid, userid_t userid, bool multi_user, bool full_write) {
+    char dest_path_default[PATH_MAX];
+    char dest_path_read[PATH_MAX];
+    char dest_path_write[PATH_MAX];
+    char obb_path[PATH_MAX];
+    snprintf(dest_path_default, PATH_MAX, "/mnt/runtime/default/%s", label);
+    snprintf(dest_path_read, PATH_MAX, "/mnt/runtime/read/%s", label);
+    snprintf(dest_path_write, PATH_MAX, "/mnt/runtime/write/%s", label);
+
+    umask(0);
+    if (multi_user) {
+        /* Multi-user storage is fully isolated per user, so "other"
+         * permissions are completely masked off. */
+        if (sdcardfs_setup(source_path, dest_path_default, uid, gid, multi_user, userid,
+                                                      AID_SDCARD_RW, 0006)
+                || sdcardfs_setup(source_path, dest_path_read, uid, gid, multi_user, userid,
+                                                      AID_EVERYBODY, 0027)
+                || sdcardfs_setup(source_path, dest_path_write, uid, gid, multi_user, userid,
+                                                      AID_EVERYBODY, full_write ? 0007 : 0027)) {
+            ERROR("failed to fuse_setup\n");
+            exit(1);
+        }
+    } else {
+        /* Physical storage is readable by all users on device, but
+         * the Android directories are masked off to a single user
+         * deep inside attr_from_stat(). */
+        if (sdcardfs_setup(source_path, dest_path_default, uid, gid, multi_user, userid,
+                                                      AID_SDCARD_RW, 0006)
+                || sdcardfs_setup(source_path, dest_path_read, uid, gid, multi_user, userid,
+                                                      AID_EVERYBODY, full_write ? 0027 : 0022)
+                || sdcardfs_setup(source_path, dest_path_write, uid, gid, multi_user, userid,
+                                                      AID_EVERYBODY, full_write ? 0007 : 0022)) {
+            ERROR("failed to fuse_setup\n");
+            exit(1);
+        }
+    }
+
+    /* Drop privs */
+    if (setgroups(sizeof(kGroups) / sizeof(kGroups[0]), kGroups) < 0) {
+        ERROR("cannot setgroups: %s\n", strerror(errno));
+        exit(1);
+    }
+    if (setgid(gid) < 0) {
+        ERROR("cannot setgid: %s\n", strerror(errno));
+        exit(1);
+    }
+    if (setuid(uid) < 0) {
+        ERROR("cannot setuid: %s\n", strerror(errno));
+        exit(1);
+    }
+
+    if (multi_user) {
+        snprintf(obb_path, sizeof(obb_path), "%s/obb", source_path);
+        fs_prepare_dir(&obb_path[0], 0775, uid, gid);
+    }
+
+    exit(0);
+}
+
+static bool supports_sdcardfs(void) {
+    FILE *fp;
+    char *buf = NULL;
+    size_t buflen = 0;
+
+    fp = fopen("/proc/filesystems", "r");
+    if (!fp) {
+        ERROR("Could not read /proc/filesystems, error: %s\n", strerror(errno));
+        return false;
+    }
+    while ((getline(&buf, &buflen, fp)) > 0) {
+        if (strstr(buf, "sdcardfs\n")) {
+            free(buf);
+            fclose(fp);
+            return true;
+        }
+    }
+    free(buf);
+    fclose(fp);
+    return false;
+}
+
+static bool should_use_sdcardfs(void) {
+    char property[PROPERTY_VALUE_MAX];
+
+    // Allow user to have a strong opinion about state
+    property_get(PROP_SDCARDFS_USER, property, "");
+    if (!strcmp(property, "force_on")) {
+        ALOGW("User explicitly enabled sdcardfs");
+        return supports_sdcardfs();
+    } else if (!strcmp(property, "force_off")) {
+        ALOGW("User explicitly disabled sdcardfs");
+        return false;
+    }
+
+    // Fall back to device opinion about state
+    if (property_get_bool(PROP_SDCARDFS_DEVICE, false)) {
+        ALOGW("Device explicitly enabled sdcardfs");
+        return supports_sdcardfs();
+    } else {
+        ALOGW("Device explicitly disabled sdcardfs");
+        return false;
+    }
+}
+
 int main(int argc, char **argv) {
     const char *source_path = NULL;
     const char *label = NULL;
@@ -1959,6 +2128,10 @@ int main(int argc, char **argv) {
         sleep(1);
     }
 
-    run(source_path, label, uid, gid, userid, multi_user, full_write);
+    if (should_use_sdcardfs()) {
+        run_sdcardfs(source_path, label, uid, gid, userid, multi_user, full_write);
+    } else {
+        run(source_path, label, uid, gid, userid, multi_user, full_write);
+    }
     return 1;
 }

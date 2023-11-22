@@ -16,7 +16,7 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.database">
+    package="android.database.cts">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <application>
@@ -24,7 +24,7 @@
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.database"
+                     android:targetPackage="android.database.cts"
                      android:label="CTS tests of android.database">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

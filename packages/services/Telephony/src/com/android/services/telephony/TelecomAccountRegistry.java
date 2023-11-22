@@ -18,16 +18,16 @@ package com.android.services.telephony;
 
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.PersistableBundle;
+import android.os.ServiceManager;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
@@ -40,9 +40,9 @@ import android.telephony.SubscriptionManager.OnSubscriptionsChangedListener;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 
+import com.android.internal.telephony.IPhoneSubInfo;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneFactory;
-import com.android.internal.telephony.PhoneProxy;
 import com.android.phone.PhoneGlobals;
 import com.android.phone.PhoneUtils;
 import com.android.phone.R;
@@ -68,15 +68,17 @@ final class TelecomAccountRegistry {
         private final PstnIncomingCallNotifier mIncomingCallNotifier;
         private final PstnPhoneCapabilitiesNotifier mPhoneCapabilitiesNotifier;
         private boolean mIsVideoCapable;
+        private boolean mIsVideoPresenceSupported;
         private boolean mIsVideoPauseSupported;
+        private boolean mIsMergeCallSupported;
 
         AccountEntry(Phone phone, boolean isEmergency, boolean isDummy) {
             mPhone = phone;
             mAccount = registerPstnPhoneAccount(isEmergency, isDummy);
             Log.i(this, "Registered phoneAccount: %s with handle: %s",
                     mAccount, mAccount.getAccountHandle());
-            mIncomingCallNotifier = new PstnIncomingCallNotifier((PhoneProxy) mPhone);
-            mPhoneCapabilitiesNotifier = new PstnPhoneCapabilitiesNotifier((PhoneProxy) mPhone,
+            mIncomingCallNotifier = new PstnIncomingCallNotifier((Phone) mPhone);
+            mPhoneCapabilitiesNotifier = new PstnPhoneCapabilitiesNotifier((Phone) mPhone,
                     this);
         }
 
@@ -100,12 +102,11 @@ final class TelecomAccountRegistry {
             int subId = mPhone.getSubId();
             int color = PhoneAccount.NO_HIGHLIGHT_COLOR;
             int slotId = SubscriptionManager.INVALID_SIM_SLOT_INDEX;
-            String line1Number = mTelephonyManager.getLine1NumberForSubscriber(subId);
+            String line1Number = mTelephonyManager.getLine1Number(subId);
             if (line1Number == null) {
                 line1Number = "";
             }
-            String subNumber = mPhone.getPhoneSubInfo().getLine1Number(
-                    mPhone.getContext().getOpPackageName());
+            String subNumber = mPhone.getLine1Number();
             if (subNumber == null) {
                 subNumber = "";
             }
@@ -161,15 +162,37 @@ final class TelecomAccountRegistry {
             // By default all SIM phone accounts can place emergency calls.
             int capabilities = PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION |
                     PhoneAccount.CAPABILITY_CALL_PROVIDER |
-                    PhoneAccount.CAPABILITY_PLACE_EMERGENCY_CALLS |
                     PhoneAccount.CAPABILITY_MULTI_USER;
+
+            if (mContext.getResources().getBoolean(R.bool.config_pstnCanPlaceEmergencyCalls)) {
+                capabilities |= PhoneAccount.CAPABILITY_PLACE_EMERGENCY_CALLS;
+            }
 
             mIsVideoCapable = mPhone.isVideoEnabled();
             if (mIsVideoCapable) {
                 capabilities |= PhoneAccount.CAPABILITY_VIDEO_CALLING;
             }
-            if (record != null) {
-                updateVideoPauseSupport(record);
+
+            mIsVideoPresenceSupported = isCarrierVideoPresenceSupported();
+            if (mIsVideoCapable && mIsVideoPresenceSupported) {
+                capabilities |= PhoneAccount.CAPABILITY_VIDEO_CALLING_RELIES_ON_PRESENCE;
+            }
+
+            if (mIsVideoCapable && isCarrierEmergencyVideoCallsAllowed()) {
+                capabilities |= PhoneAccount.CAPABILITY_EMERGENCY_VIDEO_CALLING;
+            }
+
+            mIsVideoPauseSupported = isCarrierVideoPauseSupported();
+            Bundle instantLetteringExtras = null;
+            if (isCarrierInstantLetteringSupported()) {
+                capabilities |= PhoneAccount.CAPABILITY_CALL_SUBJECT;
+                instantLetteringExtras = getPhoneAccountExtras();
+            }
+            mIsMergeCallSupported = isCarrierMergeCallSupported();
+
+            if (isEmergency && mContext.getResources().getBoolean(
+                    R.bool.config_emergency_account_emergency_calls_only)) {
+                capabilities |= PhoneAccount.CAPABILITY_EMERGENCY_CALLS_ONLY;
             }
 
             if (icon == null) {
@@ -199,10 +222,12 @@ final class TelecomAccountRegistry {
                     .setShortDescription(description)
                     .setSupportedUriSchemes(Arrays.asList(
                             PhoneAccount.SCHEME_TEL, PhoneAccount.SCHEME_VOICEMAIL))
+                    .setExtras(instantLetteringExtras)
                     .build();
 
             // Register with Telecom and put into the account entry.
             mTelecomManager.registerPhoneAccount(account);
+
             return account;
         }
 
@@ -211,34 +236,80 @@ final class TelecomAccountRegistry {
         }
 
         /**
-         * Updates indicator for this {@link AccountEntry} to determine if the carrier supports
-         * pause/resume signalling for IMS video calls.  The carrier setting is stored in MNC/MCC
-         * configuration files.
+         * Determines from carrier configuration whether pausing of IMS video calls is supported.
          *
-         * @param subscriptionInfo The subscription info.
+         * @return {@code true} if pausing IMS video calls is supported.
          */
-        private void updateVideoPauseSupport(SubscriptionInfo subscriptionInfo) {
-            // Get the configuration for the MNC/MCC specified in the current subscription info.
-            Configuration configuration = new Configuration();
-            if (subscriptionInfo.getMcc() == 0 && subscriptionInfo.getMnc() == 0) {
-                Configuration config = mContext.getResources().getConfiguration();
-                configuration.mcc = config.mcc;
-                configuration.mnc = config.mnc;
-                Log.i(this, "updateVideoPauseSupport -- no mcc/mnc for sub: " + subscriptionInfo +
-                        " using mcc/mnc from main context: " + configuration.mcc + "/" +
-                        configuration.mnc);
-            } else {
-                Log.i(this, "updateVideoPauseSupport -- mcc/mnc for sub: " + subscriptionInfo);
-
-                configuration.mcc = subscriptionInfo.getMcc();
-                configuration.mnc = subscriptionInfo.getMnc();
-            }
-
+        private boolean isCarrierVideoPauseSupported() {
             // Check if IMS video pause is supported.
             PersistableBundle b =
                     PhoneGlobals.getInstance().getCarrierConfigForSubId(mPhone.getSubId());
-            mIsVideoPauseSupported
-                    = b.getBoolean(CarrierConfigManager.KEY_SUPPORT_PAUSE_IMS_VIDEO_CALLS_BOOL);
+            return b.getBoolean(CarrierConfigManager.KEY_SUPPORT_PAUSE_IMS_VIDEO_CALLS_BOOL);
+        }
+
+        /**
+         * Determines from carrier configuration whether RCS presence indication for video calls is
+         * supported.
+         *
+         * @return {@code true} if RCS presence indication for video calls is supported.
+         */
+        private boolean isCarrierVideoPresenceSupported() {
+            PersistableBundle b =
+                    PhoneGlobals.getInstance().getCarrierConfigForSubId(mPhone.getSubId());
+            return b.getBoolean(CarrierConfigManager.KEY_USE_RCS_PRESENCE_BOOL);
+        }
+
+        /**
+         * Determines from carrier config whether instant lettering is supported.
+         *
+         * @return {@code true} if instant lettering is supported, {@code false} otherwise.
+         */
+        private boolean isCarrierInstantLetteringSupported() {
+            PersistableBundle b =
+                    PhoneGlobals.getInstance().getCarrierConfigForSubId(mPhone.getSubId());
+            return b.getBoolean(CarrierConfigManager.KEY_CARRIER_INSTANT_LETTERING_AVAILABLE_BOOL);
+        }
+
+        /**
+         * Determines from carrier config whether merging calls is supported.
+         *
+         * @return {@code true} if merging calls is supported, {@code false} otherwise.
+         */
+        private boolean isCarrierMergeCallSupported() {
+            PersistableBundle b =
+                    PhoneGlobals.getInstance().getCarrierConfigForSubId(mPhone.getSubId());
+            return b.getBoolean(CarrierConfigManager.KEY_SUPPORT_CONFERENCE_CALL_BOOL);
+        }
+
+        /**
+         * Determines from carrier config whether emergency video calls are supported.
+         *
+         * @return {@code true} if emergency video calls are allowed, {@code false} otherwise.
+         */
+        private boolean isCarrierEmergencyVideoCallsAllowed() {
+            PersistableBundle b =
+                    PhoneGlobals.getInstance().getCarrierConfigForSubId(mPhone.getSubId());
+            return b.getBoolean(CarrierConfigManager.KEY_ALLOW_EMERGENCY_VIDEO_CALLS_BOOL);
+        }
+
+        /**
+         * @return The {@linke PhoneAccount} extras associated with the current subscription.
+         */
+        private Bundle getPhoneAccountExtras() {
+            PersistableBundle b =
+                    PhoneGlobals.getInstance().getCarrierConfigForSubId(mPhone.getSubId());
+
+            int instantLetteringMaxLength = b.getInt(
+                    CarrierConfigManager.KEY_CARRIER_INSTANT_LETTERING_LENGTH_LIMIT_INT);
+            String instantLetteringEncoding = b.getString(
+                    CarrierConfigManager.KEY_CARRIER_INSTANT_LETTERING_ENCODING_STRING);
+
+            Bundle phoneAccountExtras = new Bundle();
+            phoneAccountExtras.putInt(PhoneAccount.EXTRA_CALL_SUBJECT_MAX_LENGTH,
+                    instantLetteringMaxLength);
+            phoneAccountExtras.putString(PhoneAccount.EXTRA_CALL_SUBJECT_CHARACTER_ENCODING,
+                    instantLetteringEncoding);
+            return phoneAccountExtras;
         }
 
         /**
@@ -259,6 +330,14 @@ final class TelecomAccountRegistry {
          */
         public boolean isVideoPauseSupported() {
             return mIsVideoCapable && mIsVideoPauseSupported;
+        }
+
+        /**
+         * Indicates whether this account supports merging calls (i.e. conferencing).
+         * @return {@code true} if the account supports merging calls, {@code false} otherwise.
+         */
+        public boolean isMergeCallSupported() {
+            return mIsMergeCallSupported;
         }
     }
 
@@ -335,6 +414,44 @@ final class TelecomAccountRegistry {
     }
 
     /**
+     * Determines if the {@link AccountEntry} associated with a {@link PhoneAccountHandle} supports
+     * merging calls.
+     *
+     * @param handle The {@link PhoneAccountHandle}.
+     * @return {@code True} if merging calls is supported.
+     */
+    boolean isMergeCallSupported(PhoneAccountHandle handle) {
+        for (AccountEntry entry : mAccounts) {
+            if (entry.getPhoneAccountHandle().equals(handle)) {
+                return entry.isMergeCallSupported();
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @return Reference to the {@code TelecomAccountRegistry}'s subscription manager.
+     */
+    SubscriptionManager getSubscriptionManager() {
+        return mSubscriptionManager;
+    }
+
+    /**
+     * Returns the address (e.g. the phone number) associated with a subscription.
+     *
+     * @param handle The phone account handle to find the subscription address for.
+     * @return The address.
+     */
+    Uri getAddress(PhoneAccountHandle handle) {
+        for (AccountEntry entry : mAccounts) {
+            if (entry.getPhoneAccountHandle().equals(handle)) {
+                return entry.mAccount.getAddress();
+            }
+        }
+        return null;
+    }
+
+    /**
      * Sets up all the phone accounts for SIMs on first boot.
      */
     void setupOnBoot() {
@@ -360,7 +477,7 @@ final class TelecomAccountRegistry {
      * @param handle The {@link PhoneAccountHandle}.
      * @return {@code True} if an entry exists.
      */
-    private boolean hasAccountEntryForPhoneAccount(PhoneAccountHandle handle) {
+    boolean hasAccountEntryForPhoneAccount(PhoneAccountHandle handle) {
         for (AccountEntry entry : mAccounts) {
             if (entry.getPhoneAccountHandle().equals(handle)) {
                 return true;
@@ -376,8 +493,14 @@ final class TelecomAccountRegistry {
     private void cleanupPhoneAccounts() {
         ComponentName telephonyComponentName =
                 new ComponentName(mContext, TelephonyConnectionService.class);
-        List<PhoneAccountHandle> accountHandles =
-                mTelecomManager.getCallCapablePhoneAccounts(true /* includeDisabled */);
+        // This config indicates whether the emergency account was flagged as emergency calls only
+        // in which case we need to consider all phone accounts, not just the call capable ones.
+        final boolean emergencyCallsOnlyEmergencyAccount = mContext.getResources().getBoolean(
+                R.bool.config_emergency_account_emergency_calls_only);
+        List<PhoneAccountHandle> accountHandles = emergencyCallsOnlyEmergencyAccount
+                ? mTelecomManager.getAllPhoneAccountHandles()
+                : mTelecomManager.getCallCapablePhoneAccounts(true /* includeDisabled */);
+
         for (PhoneAccountHandle handle : accountHandles) {
             if (telephonyComponentName.equals(handle.getComponentName()) &&
                     !hasAccountEntryForPhoneAccount(handle)) {
@@ -392,11 +515,18 @@ final class TelecomAccountRegistry {
         // will cause the existing entry to be replaced.
         Phone[] phones = PhoneFactory.getPhones();
         Log.d(this, "Found %d phones.  Attempting to register.", phones.length);
-        for (Phone phone : phones) {
-            long subscriptionId = phone.getSubId();
-            Log.d(this, "Phone with subscription id %d", subscriptionId);
-            if (subscriptionId >= 0) {
-                mAccounts.add(new AccountEntry(phone, false /* emergency */, false /* isDummy */));
+
+        final boolean phoneAccountsEnabled = mContext.getResources().getBoolean(
+                R.bool.config_pstn_phone_accounts_enabled);
+
+        if (phoneAccountsEnabled) {
+            for (Phone phone : phones) {
+                int subscriptionId = phone.getSubId();
+                Log.d(this, "Phone with subscription id %d", subscriptionId);
+                if (subscriptionId >= 0) {
+                    mAccounts.add(new AccountEntry(phone, false /* emergency */,
+                            false /* isDummy */));
+                }
             }
         }
 

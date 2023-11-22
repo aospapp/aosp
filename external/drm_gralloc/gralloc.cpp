@@ -62,7 +62,7 @@ static int drm_mod_perform(const struct gralloc_module_t *mod, int op, ...)
 
 	va_start(args, op);
 	switch (op) {
-	case GRALLOC_MODULE_PERFORM_GET_DRM_FD:
+	case static_cast<int>(GRALLOC_MODULE_PERFORM_GET_DRM_FD):
 		{
 			int *fd = va_arg(args, int *);
 			*fd = gralloc_drm_get_fd(dmod->drm);
@@ -108,6 +108,46 @@ static int drm_mod_lock(const gralloc_module_t *mod, buffer_handle_t handle,
 		return -EINVAL;
 
 	return gralloc_drm_bo_lock(bo, usage, x, y, w, h, ptr);
+}
+
+static int drm_mod_lock_ycbcr(const gralloc_module_t *mod, buffer_handle_t bhandle,
+		int usage, int x, int y, int w, int h, struct android_ycbcr *ycbcr)
+{
+	struct gralloc_drm_handle_t *handle;
+	struct gralloc_drm_bo_t *bo;
+	void *ptr;
+	int err;
+
+	bo = gralloc_drm_bo_from_handle(bhandle);
+	if (!bo)
+		return -EINVAL;
+	handle = bo->handle;
+
+	switch(handle->format) {
+	case HAL_PIXEL_FORMAT_YCbCr_420_888:
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	err = gralloc_drm_bo_lock(bo, usage, x, y, w, h, &ptr);
+	if (err)
+		return err;
+
+	switch(handle->format) {
+	case HAL_PIXEL_FORMAT_YCbCr_420_888:
+		ycbcr->y = ptr;
+		ycbcr->cb = (uint8_t *)ptr + handle->stride * handle->height;
+		ycbcr->cr = (uint8_t *)ycbcr->cb + 1;
+		ycbcr->ystride = handle->stride;
+		ycbcr->cstride = handle->stride;
+		ycbcr->chroma_step = 2;
+		break;
+	default:
+		break;
+	}
+
+	return 0;
 }
 
 static int drm_mod_unlock(const gralloc_module_t *mod, buffer_handle_t handle)
@@ -231,7 +271,8 @@ struct drm_module_t HAL_MODULE_INFO_SYM = {
 		.unregisterBuffer = drm_mod_unregister_buffer,
 		.lock = drm_mod_lock,
 		.unlock = drm_mod_unlock,
-		.perform = drm_mod_perform
+		.perform = drm_mod_perform,
+		.lock_ycbcr = drm_mod_lock_ycbcr,
 	},
 
 	.mutex = PTHREAD_MUTEX_INITIALIZER,

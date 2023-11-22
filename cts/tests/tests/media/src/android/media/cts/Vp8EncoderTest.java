@@ -21,7 +21,7 @@ import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.media.MediaFormat;
 import android.util.Log;
-import com.android.cts.media.R;
+import android.media.cts.R;
 
 import java.io.File;
 import java.util.ArrayList;

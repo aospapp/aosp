@@ -34,8 +34,7 @@ import org.bouncycastle.jce.interfaces.ECPointEncoder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jce.spec.ECNamedCurveSpec;
 import org.bouncycastle.math.ec.ECCurve;
-import org.bouncycastle.math.ec.custom.sec.SecP256K1Point;
-import org.bouncycastle.math.ec.custom.sec.SecP256R1Point;
+import org.bouncycastle.util.Strings;
 
 public class BCECPublicKey
     implements ECPublicKey, org.bouncycastle.jce.interfaces.ECPublicKey, ECPointEncoder
@@ -202,46 +201,8 @@ public class BCECPublicKey
     private void populateFromPubKeyInfo(SubjectPublicKeyInfo info)
     {
         X962Parameters params = new X962Parameters((ASN1Primitive)info.getAlgorithm().getParameters());
-        ECCurve                 curve;
-        EllipticCurve           ellipticCurve;
-
-        if (params.isNamedCurve())
-        {
-            ASN1ObjectIdentifier oid = (ASN1ObjectIdentifier)params.getParameters();
-            X9ECParameters ecP = ECUtil.getNamedCurveByOid(oid);
-
-            curve = ecP.getCurve();
-            ellipticCurve = EC5Util.convertCurve(curve, ecP.getSeed());
-
-            ecSpec = new ECNamedCurveSpec(
-                    ECUtil.getCurveName(oid),
-                    ellipticCurve,
-                    new ECPoint(
-                            ecP.getG().getAffineXCoord().toBigInteger(),
-                            ecP.getG().getAffineYCoord().toBigInteger()),
-                    ecP.getN(),
-                    ecP.getH());
-        }
-        else if (params.isImplicitlyCA())
-        {
-            ecSpec = null;
-            curve = configuration.getEcImplicitlyCa().getCurve();
-        }
-        else
-        {
-            X9ECParameters          ecP = X9ECParameters.getInstance(params.getParameters());
-
-            curve = ecP.getCurve();
-            ellipticCurve = EC5Util.convertCurve(curve, ecP.getSeed());
-
-            this.ecSpec = new ECParameterSpec(
-                    ellipticCurve,
-                    new ECPoint(
-                            ecP.getG().getAffineXCoord().toBigInteger(),
-                            ecP.getG().getAffineYCoord().toBigInteger()),
-                    ecP.getN(),
-                    ecP.getH().intValue());
-        }
+        ECCurve curve = EC5Util.getCurve(configuration, params);
+        ecSpec = EC5Util.convertToSpec(params, curve);
 
         DERBitString    bits = info.getPublicKeyData();
         byte[]          data = bits.getBytes();
@@ -267,6 +228,7 @@ public class BCECPublicKey
                 }
             }
         }
+
         X9ECPoint derQ = new X9ECPoint(curve, key);
 
         this.q = derQ.getPoint();
@@ -398,7 +360,7 @@ public class BCECPublicKey
     public String toString()
     {
         StringBuffer    buf = new StringBuffer();
-        String          nl = System.getProperty("line.separator");
+        String          nl = Strings.lineSeparator();
 
         buf.append("EC Public Key").append(nl);
         buf.append("            X: ").append(this.q.getAffineXCoord().toBigInteger().toString(16)).append(nl);

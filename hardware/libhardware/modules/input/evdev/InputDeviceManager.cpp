@@ -17,14 +17,15 @@
 #define LOG_TAG "InputDeviceManager"
 //#define LOG_NDEBUG 0
 
+#include "InputDeviceManager.h"
+
 #include <utils/Log.h>
 
 #include "InputDevice.h"
-#include "InputDeviceManager.h"
 
 namespace android {
 
-void InputDeviceManager::onInputEvent(std::shared_ptr<InputDeviceNode> node, InputEvent& event,
+void InputDeviceManager::onInputEvent(const std::shared_ptr<InputDeviceNode>& node, InputEvent& event,
         nsecs_t event_time) {
     if (mDevices[node] == nullptr) {
         ALOGE("got input event for unknown node %s", node->getPath().c_str());
@@ -33,17 +34,18 @@ void InputDeviceManager::onInputEvent(std::shared_ptr<InputDeviceNode> node, Inp
     mDevices[node]->processInput(event, event_time);
 }
 
-void InputDeviceManager::onDeviceAdded(std::shared_ptr<InputDeviceNode> node) {
-    mDevices[node] = std::make_shared<EvdevDevice>(node);
+void InputDeviceManager::onDeviceAdded(const std::shared_ptr<InputDeviceNode>& node) {
+    mDevices[node] = std::make_shared<EvdevDevice>(mHost, node);
 }
 
-void InputDeviceManager::onDeviceRemoved(std::shared_ptr<InputDeviceNode> node) {
+void InputDeviceManager::onDeviceRemoved(const std::shared_ptr<InputDeviceNode>& node) {
     if (mDevices[node] == nullptr) {
         ALOGE("could not remove unknown node %s", node->getPath().c_str());
         return;
     }
     // TODO: tell the InputDevice and InputDeviceNode that they are being
-    // removed so they can run any cleanup.
+    // removed so they can run any cleanup, including unregistering from the
+    // host.
     mDevices.erase(node);
 }
 

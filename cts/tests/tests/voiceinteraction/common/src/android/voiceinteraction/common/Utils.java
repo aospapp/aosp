@@ -61,6 +61,9 @@ public class Utils {
     public static final String COMMANDREQUEST_CANCEL_SUCCESS = "commandrequest cancel ok";
     public static final String TEST_ERROR = "Error In Test:";
 
+    public static final String PRIVATE_OPTIONS_KEY = "private_key";
+    public static final String PRIVATE_OPTIONS_VALUE = "private_value";
+
     public static final String toBundleString(Bundle bundle) {
         if (bundle == null) {
             return "*** Bundle is null ****";

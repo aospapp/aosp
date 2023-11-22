@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+#include <android/log.h>
 #include <jni.h>
 #include <stdio.h>
-#include <cutils/log.h>
 #include <linux/xattr.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -104,7 +104,8 @@ static jboolean isPermittedCapBitSet(JNIEnv* env, jstring path, size_t capId)
                               sizeof(capData));
     if (result <= 0)
     {
-          ALOGD("isPermittedCapBitSet(): getxattr(\"%s\") call failed: "
+          __android_log_print(ANDROID_LOG_DEBUG, NULL,
+                  "isPermittedCapBitSet(): getxattr(\"%s\") call failed: "
                   "return %d (error: %s (%d))\n",
                   cPath.c_str(), result, strerror(errno), errno);
           return false;
@@ -132,7 +133,8 @@ static bool throwNamedException(JNIEnv* env, const char* className,
     ScopedLocalRef<jclass> eClazz(env, env->FindClass(className));
     if (eClazz.get() == NULL)
     {
-        ALOGE("throwNamedException(): failed to find class %s, cannot throw",
+        __android_log_print(ANDROID_LOG_ERROR, NULL,
+                "throwNamedException(): failed to find class %s, cannot throw",
                 className);
         return false;
     }
@@ -186,7 +188,8 @@ jboolean android_permission_cts_FileUtils_CapabilitySet_fileHasOnly(JNIEnv* env,
             sizeof(actualCapData));
     if (result <= 0)
     {
-        ALOGD("fileHasOnly(): getxattr(\"%s\") call failed: "
+        __android_log_print(ANDROID_LOG_DEBUG, NULL,
+                "fileHasOnly(): getxattr(\"%s\") call failed: "
                 "return %d (error: %s (%d))\n",
                 cPath.c_str(), result, strerror(errno), errno);
         return false;

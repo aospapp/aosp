@@ -96,7 +96,7 @@ ssize_t BufferQueueSource::readAt(off64_t offset, void *data, size_t size) {
         //assert(mStreamToBqOffset <= offset);
         CHECK_LE(mStreamToBqOffset, offset);
 
-        if (offset + size <= mStreamToBqOffset + oldFront->mDataSize) {
+        if (offset + (off64_t) size <= mStreamToBqOffset + oldFront->mDataSize) {
             pSrc = ((char*)oldFront->mDataBuffer) + (offset - mStreamToBqOffset);
 
             if (offset - mStreamToBqOffset + size == oldFront->mDataSize) {

@@ -21,6 +21,7 @@ include $(CLEAR_VARS)
 LOCAL_PACKAGE_NAME := SupportDesignDemos
 LOCAL_MODULE_TAGS := samples
 LOCAL_SDK_VERSION := current
+LOCAL_MIN_SDK_VERSION := 7
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_STATIC_JAVA_LIBRARIES := \
         android-support-v4 \
@@ -36,5 +37,7 @@ LOCAL_AAPT_FLAGS := \
         --auto-add-overlay \
         --extra-packages android.support.v7.appcompat \
         --extra-packages android.support.v7.recyclerview \
-        --extra-packages android.support.design
+        --extra-packages android.support.design \
+        --no-version-vectors
+LOCAL_PROGUARD_FLAG_FILES := proguard.flags
 include $(BUILD_PACKAGE)

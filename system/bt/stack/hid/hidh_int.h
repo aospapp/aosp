@@ -69,7 +69,8 @@ extern tHID_STATUS hidh_conn_reg (void);
 extern void hidh_conn_dereg( void );
 extern tHID_STATUS hidh_conn_disconnect (UINT8 dhandle);
 extern tHID_STATUS hidh_conn_initiate (UINT8 dhandle);
-extern void hidh_proc_repage_timeout (TIMER_LIST_ENT *p_tle);
+extern void hidh_process_repage_timer_timeout(void *data);
+extern void hidh_try_repage(UINT8 dhandle);
 
 #ifdef __cplusplus
 extern "C"

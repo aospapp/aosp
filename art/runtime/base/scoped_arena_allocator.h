@@ -31,11 +31,27 @@ class ScopedArenaAllocator;
 template <typename T>
 class ScopedArenaAllocatorAdapter;
 
+// Tag associated with each allocation to help prevent double free.
+enum class ArenaFreeTag : uint8_t {
+  // Allocation is used and has not yet been destroyed.
+  kUsed,
+  // Allocation has been destroyed.
+  kFree,
+};
+
+static constexpr size_t kArenaAlignment = 8;
+
 // Holds a list of Arenas for use by ScopedArenaAllocator stack.
-class ArenaStack : private DebugStackRefCounter {
+// The memory is returned to the ArenaPool when the ArenaStack is destroyed.
+class ArenaStack : private DebugStackRefCounter, private ArenaAllocatorMemoryTool {
  public:
   explicit ArenaStack(ArenaPool* arena_pool);
   ~ArenaStack();
+
+  using ArenaAllocatorMemoryTool::IsRunningOnMemoryTool;
+  using ArenaAllocatorMemoryTool::MakeDefined;
+  using ArenaAllocatorMemoryTool::MakeUndefined;
+  using ArenaAllocatorMemoryTool::MakeInaccessible;
 
   void Reset();
 
@@ -44,6 +60,12 @@ class ArenaStack : private DebugStackRefCounter {
   }
 
   MemStats GetPeakStats() const;
+
+  // Return the arena tag associated with a pointer.
+  static ArenaFreeTag& ArenaTagForAllocation(void* ptr) {
+    DCHECK(kIsDebugBuild) << "Only debug builds have tags";
+    return *(reinterpret_cast<ArenaFreeTag*>(ptr) - 1);
+  }
 
  private:
   struct Peak;
@@ -64,31 +86,34 @@ class ArenaStack : private DebugStackRefCounter {
 
   // Private - access via ScopedArenaAllocator or ScopedArenaAllocatorAdapter.
   void* Alloc(size_t bytes, ArenaAllocKind kind) ALWAYS_INLINE {
-    if (UNLIKELY(running_on_valgrind_)) {
-      return AllocValgrind(bytes, kind);
+    if (UNLIKELY(IsRunningOnMemoryTool())) {
+      return AllocWithMemoryTool(bytes, kind);
     }
-    size_t rounded_bytes = RoundUp(bytes, 8);
+    // Add kArenaAlignment for the free or used tag. Required to preserve alignment.
+    size_t rounded_bytes = RoundUp(bytes + (kIsDebugBuild ? kArenaAlignment : 0u), kArenaAlignment);
     uint8_t* ptr = top_ptr_;
     if (UNLIKELY(static_cast<size_t>(top_end_ - ptr) < rounded_bytes)) {
       ptr = AllocateFromNextArena(rounded_bytes);
     }
     CurrentStats()->RecordAlloc(bytes, kind);
     top_ptr_ = ptr + rounded_bytes;
+    if (kIsDebugBuild) {
+      ptr += kArenaAlignment;
+      ArenaTagForAllocation(ptr) = ArenaFreeTag::kUsed;
+    }
     return ptr;
   }
 
   uint8_t* AllocateFromNextArena(size_t rounded_bytes);
   void UpdatePeakStatsAndRestore(const ArenaAllocatorStats& restore_stats);
   void UpdateBytesAllocated();
-  void* AllocValgrind(size_t bytes, ArenaAllocKind kind);
+  void* AllocWithMemoryTool(size_t bytes, ArenaAllocKind kind);
 
   StatsAndPool stats_and_pool_;
   Arena* bottom_arena_;
   Arena* top_arena_;
   uint8_t* top_ptr_;
   uint8_t* top_end_;
-
-  const bool running_on_valgrind_;
 
   friend class ScopedArenaAllocator;
   template <typename T>
@@ -97,6 +122,12 @@ class ArenaStack : private DebugStackRefCounter {
   DISALLOW_COPY_AND_ASSIGN(ArenaStack);
 };
 
+// Fast single-threaded allocator. Allocated chunks are _not_ guaranteed to be zero-initialized.
+//
+// Unlike the ArenaAllocator, ScopedArenaAllocator is intended for relatively short-lived
+// objects and allows nesting multiple allocators. Only the top allocator can be used but
+// once it's destroyed, its memory can be reused by the next ScopedArenaAllocator on the
+// stack. This is facilitated by returning the memory to the ArenaStack.
 class ScopedArenaAllocator
     : private DebugStackReference, private DebugStackRefCounter, private ArenaAllocatorStats {
  public:
@@ -121,6 +152,11 @@ class ScopedArenaAllocator
   }
 
   template <typename T>
+  T* Alloc(ArenaAllocKind kind = kArenaAllocMisc) {
+    return AllocArray<T>(1, kind);
+  }
+
+  template <typename T>
   T* AllocArray(size_t length, ArenaAllocKind kind = kArenaAllocMisc) {
     return static_cast<T*>(Alloc(length * sizeof(T), kind));
   }
@@ -129,7 +165,7 @@ class ScopedArenaAllocator
   ScopedArenaAllocatorAdapter<void> Adapter(ArenaAllocKind kind = kArenaAllocSTL);
 
   // Allow a delete-expression to destroy but not deallocate allocators created by Create().
-  static void operator delete(void* ptr) { UNUSED(ptr); }
+  static void operator delete(void* ptr ATTRIBUTE_UNUSED) {}
 
  private:
   ArenaStack* const arena_stack_;

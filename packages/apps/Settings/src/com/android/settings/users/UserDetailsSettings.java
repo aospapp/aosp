@@ -23,12 +23,13 @@ import android.content.pm.UserInfo;
 import android.os.Bundle;
 import android.os.UserHandle;
 import android.os.UserManager;
-import android.preference.Preference;
-import android.preference.SwitchPreference;
+import android.support.v14.preference.SwitchPreference;
+import android.support.v7.preference.Preference;
 
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.R;
 import com.android.settings.SettingsPreferenceFragment;
+import com.android.settingslib.RestrictedLockUtils;
 
 import java.util.List;
 
@@ -67,7 +68,7 @@ public class UserDetailsSettings extends SettingsPreferenceFragment
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.USER_DETAILS;
+        return MetricsEvent.USER_DETAILS;
     }
 
     @Override
@@ -102,7 +103,8 @@ public class UserDetailsSettings extends SettingsPreferenceFragment
             mPhonePref.setChecked(
                     !mDefaultGuestRestrictions.getBoolean(UserManager.DISALLOW_OUTGOING_CALLS));
         }
-        if (mUserManager.hasUserRestriction(UserManager.DISALLOW_REMOVE_USER)) {
+        if (RestrictedLockUtils.hasBaseUserRestriction(context,
+                UserManager.DISALLOW_REMOVE_USER, UserHandle.myUserId())) {
             removePreference(KEY_REMOVE_USER);
         }
         mPhonePref.setOnPreferenceChangeListener(this);
@@ -111,8 +113,8 @@ public class UserDetailsSettings extends SettingsPreferenceFragment
     @Override
     public boolean onPreferenceClick(Preference preference) {
         if (preference == mRemoveUserPref) {
-            if (UserHandle.myUserId() != UserHandle.USER_OWNER) {
-                throw new RuntimeException("Only the owner can remove a user");
+            if (!mUserManager.isAdminUser()) {
+                throw new RuntimeException("Only admins can remove a user");
             }
             showDialog(DIALOG_CONFIRM_REMOVE);
             return true;
@@ -123,7 +125,8 @@ public class UserDetailsSettings extends SettingsPreferenceFragment
     @Override
     public boolean onPreferenceChange(Preference preference, Object newValue) {
         if (Boolean.TRUE.equals(newValue)) {
-            showDialog(mGuestUser? DIALOG_CONFIRM_ENABLE_CALLING : DIALOG_CONFIRM_ENABLE_CALLING_AND_SMS);
+            showDialog(mGuestUser ? DIALOG_CONFIRM_ENABLE_CALLING
+                    : DIALOG_CONFIRM_ENABLE_CALLING_AND_SMS);
             return false;
         }
         enableCallsAndSms(false);
@@ -137,18 +140,22 @@ public class UserDetailsSettings extends SettingsPreferenceFragment
             // SMS is always disabled for guest
             mDefaultGuestRestrictions.putBoolean(UserManager.DISALLOW_SMS, true);
             mUserManager.setDefaultGuestRestrictions(mDefaultGuestRestrictions);
+
             // Update the guest's restrictions, if there is a guest
+            // TODO: Maybe setDefaultGuestRestrictions() can internally just set the restrictions
+            // on any existing guest rather than do it here with multiple Binder calls.
             List<UserInfo> users = mUserManager.getUsers(true);
             for (UserInfo user: users) {
                 if (user.isGuest()) {
-                    UserHandle userHandle = new UserHandle(user.id);
-                    Bundle userRestrictions = mUserManager.getUserRestrictions(userHandle);
-                    userRestrictions.putAll(mDefaultGuestRestrictions);
-                    mUserManager.setUserRestrictions(userRestrictions, userHandle);
+                    UserHandle userHandle = UserHandle.of(user.id);
+                    for (String key : mDefaultGuestRestrictions.keySet()) {
+                        mUserManager.setUserRestriction(
+                                key, mDefaultGuestRestrictions.getBoolean(key), userHandle);
+                    }
                 }
             }
         } else {
-            UserHandle userHandle = new UserHandle(mUserInfo.id);
+            UserHandle userHandle = UserHandle.of(mUserInfo.id);
             mUserManager.setUserRestriction(UserManager.DISALLOW_OUTGOING_CALLS, !enabled,
                     userHandle);
             mUserManager.setUserRestriction(UserManager.DISALLOW_SMS, !enabled, userHandle);

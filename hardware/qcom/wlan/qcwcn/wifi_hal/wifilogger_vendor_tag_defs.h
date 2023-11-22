@@ -108,4 +108,28 @@ typedef struct {
     u8 fInitiator;
 } __attribute__((packed)) addba_failed_vendor_data_t;
 
+typedef struct {
+    u32 hotlist_mon_table_id;
+    u32 wlan_hotlist_entry_size;
+    u32 cache_cap_table_id;
+    u32 max_scan_cache_entries;
+    u32 requestor_id;
+    u32 vdev_id;
+    u32 num_extscan_cache_tables;
+    u32 num_wlan_change_monitor_tables;
+    u32 num_hotlist_monitor_tables;
+    u32 rtt_one_sided_supported;
+    u32 rtt_11v_supported;
+    u32 rtt_ftm_supported;
+    u32 num_extscan_cache_capabilities;
+    u32 num_extscan_wlan_change_capabilities;
+    u32 num_extscan_hotlist_capabilities;
+    u32 num_roam_bssid_blacklist;
+    u32 num_roam_bssid_preferred_list;
+} __attribute__((packed)) gscan_capabilities_vendor_data_t;
+
+typedef struct
+{
+    resource_failure_type event_sub_type;
+} __attribute__((packed)) resource_failure_vendor_data_t;
 #endif /* __WIFI_HAL_WIFILOGGER_VENDOR_EVENTS_H__ */

@@ -23,7 +23,7 @@
 
       <activity android:name="TestApp"
                 android:label="Voice Interaction Test App"
-                android:theme="@android:style/Theme.Material.Light">
+                android:theme="@android:style/Theme.DeviceDefault">
           <intent-filter>
               <action android:name="android.intent.action.TEST_APP" />
               <category android:name="android.intent.category.DEFAULT" />

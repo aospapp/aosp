@@ -5,8 +5,10 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1EncodableVector;
@@ -16,6 +18,7 @@ import org.bouncycastle.asn1.ASN1Set;
 import org.bouncycastle.asn1.ASN1TaggedObject;
 import org.bouncycastle.asn1.BEROctetStringGenerator;
 import org.bouncycastle.asn1.BERSet;
+import org.bouncycastle.asn1.DERNull;
 import org.bouncycastle.asn1.DERSet;
 import org.bouncycastle.asn1.DERTaggedObject;
 import org.bouncycastle.asn1.cms.CMSObjectIdentifiers;
@@ -24,7 +27,10 @@ import org.bouncycastle.asn1.cms.ContentInfo;
 // import org.bouncycastle.asn1.cms.OtherRevocationInfoFormat;
 // import org.bouncycastle.asn1.ocsp.OCSPResponse;
 // import org.bouncycastle.asn1.ocsp.OCSPResponseStatus;
+// import org.bouncycastle.asn1.oiw.OIWObjectIdentifiers;
+// import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 // END android-removed
+import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.cert.X509AttributeCertificateHolder;
 import org.bouncycastle.cert.X509CRLHolder;
 import org.bouncycastle.cert.X509CertificateHolder;
@@ -37,6 +43,49 @@ import org.bouncycastle.util.io.TeeOutputStream;
 
 class CMSUtils
 {
+    private static final Set<String> des = new HashSet<String>();
+
+    static
+    {
+        des.add("DES");
+        des.add("DESEDE");
+        // BEGIN android-removed
+        // des.add(OIWObjectIdentifiers.desCBC.getId());
+        // des.add(PKCSObjectIdentifiers.des_EDE3_CBC.getId());
+        // des.add(PKCSObjectIdentifiers.des_EDE3_CBC.getId());
+        // des.add(PKCSObjectIdentifiers.id_alg_CMS3DESwrap.getId());
+        // END android-removed
+    }
+
+    static boolean isDES(String algorithmID)
+    {
+        String name = Strings.toUpperCase(algorithmID);
+
+        return des.contains(name);
+    }
+
+    static boolean isEquivalent(AlgorithmIdentifier algId1, AlgorithmIdentifier algId2)
+    {
+        if (algId1 == null || algId2 == null)
+        {
+            return false;
+        }
+
+        if (!algId1.getAlgorithm().equals(algId2.getAlgorithm()))
+        {
+            return false;
+        }
+
+        ASN1Encodable params1 = algId1.getParameters();
+        ASN1Encodable params2 = algId2.getParameters();
+        if (params1 != null)
+        {
+            return params1.equals(params2) || (params1.equals(DERNull.INSTANCE) && params2 == null);
+        }
+
+        return params2 == null || params2.equals(DERNull.INSTANCE);
+    }
+
     static ContentInfo readContentInfo(
         byte[] input)
         throws CMSException
@@ -226,63 +275,6 @@ class CMSUtils
         catch (IllegalArgumentException e)
         {
             throw new CMSException("Malformed content.", e);
-        }
-    }
-
-    static byte[] getPasswordBytes(int scheme, char[] password)
-    {
-        if (scheme == PasswordRecipient.PKCS5_SCHEME2)
-        {
-            return PKCS5PasswordToBytes(password);
-        }
-
-        return PKCS5PasswordToUTF8Bytes(password);
-    }
-
-    /**
-     * converts a password to a byte array according to the scheme in
-     * PKCS5 (ascii, no padding)
-     *
-     * @param password a character array representing the password.
-     * @return a byte array representing the password.
-     */
-    private static byte[] PKCS5PasswordToBytes(
-        char[]  password)
-    {
-        if (password != null)
-        {
-            byte[]  bytes = new byte[password.length];
-
-            for (int i = 0; i != bytes.length; i++)
-            {
-                bytes[i] = (byte)password[i];
-            }
-
-            return bytes;
-        }
-        else
-        {
-            return new byte[0];
-        }
-    }
-
-    /**
-     * converts a password to a byte array according to the scheme in
-     * PKCS5 (UTF-8, no padding)
-     *
-     * @param password a character array representing the password.
-     * @return a byte array representing the password.
-     */
-    private static byte[] PKCS5PasswordToUTF8Bytes(
-        char[]  password)
-    {
-        if (password != null)
-        {
-            return Strings.toUTF8ByteArray(password);
-        }
-        else
-        {
-            return new byte[0];
         }
     }
 

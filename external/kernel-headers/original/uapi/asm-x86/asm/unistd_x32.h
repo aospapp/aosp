@@ -279,6 +279,9 @@
 #define __NR_memfd_create (__X32_SYSCALL_BIT + 319)
 #define __NR_kexec_file_load (__X32_SYSCALL_BIT + 320)
 #define __NR_bpf (__X32_SYSCALL_BIT + 321)
+#define __NR_userfaultfd (__X32_SYSCALL_BIT + 323)
+#define __NR_membarrier (__X32_SYSCALL_BIT + 324)
+#define __NR_mlock2 (__X32_SYSCALL_BIT + 325)
 #define __NR_rt_sigaction (__X32_SYSCALL_BIT + 512)
 #define __NR_rt_sigreturn (__X32_SYSCALL_BIT + 513)
 #define __NR_ioctl (__X32_SYSCALL_BIT + 514)
@@ -312,5 +315,6 @@
 #define __NR_getsockopt (__X32_SYSCALL_BIT + 542)
 #define __NR_io_setup (__X32_SYSCALL_BIT + 543)
 #define __NR_io_submit (__X32_SYSCALL_BIT + 544)
+#define __NR_execveat (__X32_SYSCALL_BIT + 545)
 
 #endif /* _ASM_X86_UNISTD_X32_H */

@@ -18,10 +18,10 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
   <string-array name="sleep_timeout_entries">
     <item msgid="1213527366819650274">"5 นาที"</item>
-    <item msgid="3695675702735844029">"10 นาที"</item>
-    <item msgid="5742541267966746817">"15 นาที"</item>
-    <item msgid="4333958225402992378">"30 นาที"</item>
-    <item msgid="3103819305854192542">"1 ชม."</item>
+    <item msgid="6561800022721381078">"15 นาที"</item>
+    <item msgid="7718735533503035428">"30 นาที"</item>
+    <item msgid="8784595382489738498">"1 ชั่วโมง"</item>
+    <item msgid="1529312035777735084">"2 ชั่วโมง"</item>
   </string-array>
   <string-array name="screen_off_timeout_entries">
     <item msgid="8244337465472020927">"30 นาที"</item>
@@ -62,11 +62,9 @@
     <item msgid="1626485489418859846">"75%"</item>
     <item msgid="1811192455405034366">"100%"</item>
   </string-array>
-  <string-array name="captioning_preset_selector_titles">
-    <item msgid="7937747884375690010">"สีขาวบนพื้นสีดำ"</item>
-    <item msgid="5187532965364561774">"สีดำบนพื้นสีขาว"</item>
-    <item msgid="7275908232441066633">"สีเหลืองบนพื้นสีดำ"</item>
-    <item msgid="3907210401785295669">"สีเหลืองบนพื้นสีน้ำเงิน"</item>
-    <item msgid="7050475937183962123">"กำหนดเอง"</item>
+  <string-array name="surround_sound_entries">
+    <item msgid="5639265918353416799">"อัตโนมัติ"</item>
+    <item msgid="5990497479384785807">"ทุกครั้ง"</item>
+    <item msgid="6178602073308944697">"ไม่ใช้เลย"</item>
   </string-array>
 </resources>

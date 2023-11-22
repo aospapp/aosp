@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -76,27 +77,32 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
                 {DateFormat.YEAR_QUARTER, "yQQQQ", "en", "QQQQ y"}, 
                 {DateFormat.YEAR_ABBR_QUARTER, "yQQQ", "en", "QQQ y"},
                 
-                {DateFormat.NUM_MONTH, "M", "en", "L"},
-                {DateFormat.ABBR_MONTH, "MMM", "en", "LLL"},
                 {DateFormat.MONTH, "MMMM", "en", "LLLL"},
-                {DateFormat.YEAR_NUM_MONTH, "yM","en","M/y"}, 
-                {DateFormat.YEAR_ABBR_MONTH, "yMMM","en","MMM y"},
+                {DateFormat.ABBR_MONTH, "MMM", "en", "LLL"},
+                {DateFormat.NUM_MONTH, "M", "en", "L"},
                 {DateFormat.YEAR_MONTH, "yMMMM","en","MMMM y"},
+                {DateFormat.YEAR_ABBR_MONTH, "yMMM","en","MMM y"},
+                {DateFormat.YEAR_NUM_MONTH, "yM","en","M/y"}, 
                 
                 {DateFormat.DAY, "d","en","d"},
-                {DateFormat.YEAR_NUM_MONTH_DAY, "yMd", "en", "M/d/y"}, 
-                {DateFormat.YEAR_ABBR_MONTH_DAY, "yMMMd", "en", "MMM d, y"},
                 {DateFormat.YEAR_MONTH_DAY, "yMMMMd", "en", "MMMM d, y"},
-                {DateFormat.YEAR_NUM_MONTH_WEEKDAY_DAY, "yMEd", "en", "EEE, M/d/y"}, 
-                {DateFormat.YEAR_ABBR_MONTH_WEEKDAY_DAY, "yMMMEd", "en", "EEE, MMM d, y"},
-                {DateFormat.YEAR_MONTH_WEEKDAY_DAY, "yMMMMEEEEd", "en", "EEEE, MMMM d, y"},
+                {DateFormat.YEAR_ABBR_MONTH_DAY, "yMMMd", "en", "MMM d, y"},
+                {DateFormat.YEAR_NUM_MONTH_DAY, "yMd", "en", "M/d/y"}, 
                 
-                {DateFormat.NUM_MONTH_DAY, "Md","en","M/d"},
-                {DateFormat.ABBR_MONTH_DAY, "MMMd","en","MMM d"},
+                {DateFormat.WEEKDAY, "EEEE", "en", "cccc"},
+                {DateFormat.ABBR_WEEKDAY, "E", "en", "ccc"}, 
+
+                {DateFormat.YEAR_MONTH_WEEKDAY_DAY, "yMMMMEEEEd", "en", "EEEE, MMMM d, y"},
+                {DateFormat.YEAR_ABBR_MONTH_WEEKDAY_DAY, "yMMMEd", "en", "EEE, MMM d, y"},
+                {DateFormat.YEAR_NUM_MONTH_WEEKDAY_DAY, "yMEd", "en", "EEE, M/d/y"}, 
+                
                 {DateFormat.MONTH_DAY, "MMMMd","en","MMMM d"},
-                {DateFormat.NUM_MONTH_WEEKDAY_DAY, "MEd","en","EEE, M/d"},
-                {DateFormat.ABBR_MONTH_WEEKDAY_DAY, "MMMEd","en","EEE, MMM d"},
+                {DateFormat.ABBR_MONTH_DAY, "MMMd","en","MMM d"},
+                {DateFormat.NUM_MONTH_DAY, "Md","en","M/d"},
+                
                 {DateFormat.MONTH_WEEKDAY_DAY, "MMMMEEEEd","en","EEEE, MMMM d"},
+                {DateFormat.ABBR_MONTH_WEEKDAY_DAY, "MMMEd","en","EEE, MMM d"},
+                {DateFormat.NUM_MONTH_WEEKDAY_DAY, "MEd","en","EEE, M/d"},
 
                 {DateFormat.HOUR, "j", "en", "h a"}, // (fixed expected result per ticket 6872<-6626)
                 {DateFormat.HOUR24, "H", "en", "HH"}, // (fixed expected result per ticket 6872<-6626
@@ -117,15 +123,31 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
                 {DateFormat.ABBR_SPECIFIC_TZ, "z", "en", "z"},
                 {DateFormat.ABBR_UTC_TZ, "ZZZZ", "en", "ZZZZ"},
 
+                {}, // marker for starting combinations
+                
                 {DateFormat.YEAR_NUM_MONTH_DAY + DateFormat.ABBR_UTC_TZ, "yMdZZZZ", "en", "M/d/y, ZZZZ"},
                 {DateFormat.MONTH_DAY + DateFormat.LOCATION_TZ, "MMMMdVVVV", "en", "MMMM d, VVVV"},
         };
         Date testDate = new Date(2012-1900, 6, 1, 14, 58, 59); // just for verbose log
-
+        
+        List<String> expectedSkeletons = new ArrayList<String>(DateFormat.DATE_SKELETONS);
+        expectedSkeletons.addAll(DateFormat.TIME_SKELETONS);
+        expectedSkeletons.addAll(DateFormat.ZONE_SKELETONS);
+        boolean combinations = false;
+        
+        List<String> testedSkeletons = new ArrayList<String>();
+        
         for (int i = 0; i < EXPECTED.length; i++) {
+            if (EXPECTED[i].length == 0) {
+                combinations = true;
+                continue;
+            }
             boolean ok = true;
             // Verify that patterns have the correct values
             String actualPattern = EXPECTED[i][0];
+            if (!combinations) {
+                testedSkeletons.add(actualPattern);
+            }
             String expectedPattern = EXPECTED[i][1];
             ULocale locale = new ULocale(EXPECTED[i][2], "", "");
             if (!actualPattern.equals(expectedPattern)) {
@@ -158,6 +180,9 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
                 logln(date1.format(testDate) + "\t\t" + Arrays.asList(EXPECTED[i]));
             }
         }
+        assertEquals("All skeletons are tested (and in an iterable list)", 
+                new HashSet<String>(expectedSkeletons), new HashSet<String>(testedSkeletons));
+        assertEquals("All skeletons are tested (and in an iterable list), and in the right order.", expectedSkeletons, testedSkeletons);
     }
 
     // Test written by Wally Wedel and emailed to me.
@@ -319,8 +344,8 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
         }
         
         assertTrue("DATEFORMAT_FIELD_NAMES", DATEFORMAT_FIELD_NAMES.length == DateFormat.FIELD_COUNT);
-        if(DateFormat.FIELD_COUNT != PATTERN_CHARS.length()){
-            errln("Did not get the correct value for DateFormat.FIELD_COUNT. Expected:  "+ PATTERN_CHARS.length());
+        if(DateFormat.FIELD_COUNT != PATTERN_CHARS.length() + 1){ // +1 for missing TIME_SEPARATOR pattern char
+            errln("Did not get the correct value for DateFormat.FIELD_COUNT. Expected:  "+ PATTERN_CHARS.length() + 1);
         }
 
         // Create test formatters
@@ -348,22 +373,22 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
              "", "1997", "August", "13", "", "", "34", "12", "", "Wednesday",
              "", "", "", "", "PM", "2", "", "Pacific Daylight Time", "", "",
              "", "", "", "", "", "", "", "", "", "",
-             "", "", "", "", "", ":",
+             "", "", "", "", "", "",
 
              "", "1997", "ao\u00FBt", "13", "", "14", "34", "12", "", "mercredi",
              "", "", "", "", "", "", "", "heure d\u2019\u00E9t\u00E9 du Pacifique", "", "",
              "", "", "", "", "", "", "", "", "", "",
-             "", "", "", "", "", ":",
+             "", "", "", "", "", "",
 
             "AD", "1997", "8", "13", "14", "14", "34", "12", "5", "Wed",
             "225", "2", "33", "3", "PM", "2", "2", "PDT", "1997", "4",
             "1997", "2450674", "52452513", "-0700", "PT", "4", "8", "3", "3", "uslax",
-            "1997", "GMT-7", "-07", "-07", "1997", ":",
+            "1997", "GMT-7", "-07", "-07", "1997", "",
 
             "Anno Domini", "1997", "August", "0013", "0014", "0014", "0034", "0012", "5130", "Wednesday",
             "0225", "0002", "0033", "0003", "PM", "0002", "0002", "Pacific Daylight Time", "1997", "Wednesday",
             "1997", "2450674", "52452513", "GMT-07:00", "Pacific Time", "Wednesday", "August", "3rd quarter", "3rd quarter", "Los Angeles Time",
-            "1997", "GMT-07:00", "-0700", "-0700", "1997", ":",
+            "1997", "GMT-07:00", "-0700", "-0700", "1997", "",
         };
 
         assertTrue("data size", EXPECTED.length == COUNT * DateFormat.FIELD_COUNT);
@@ -466,7 +491,7 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
     /**
      * This MUST be kept in sync with DateFormatSymbols.patternChars.
      */
-    static final String PATTERN_CHARS = "GyMdkHmsSEDFwWahKzYeugAZvcLQqVUOXxr:";
+    static final String PATTERN_CHARS = "GyMdkHmsSEDFwWahKzYeugAZvcLQqVUOXxr";
 
     /**
      * A list of the DateFormat.Field.
@@ -508,7 +533,7 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
         DateFormat.Field.TIME_ZONE,     // X
         DateFormat.Field.TIME_ZONE,     // x
         DateFormat.Field.RELATED_YEAR,  // r
-        DateFormat.Field.TIME_SEPARATOR,// :
+        DateFormat.Field.TIME_SEPARATOR,// (no pattern character currently specified for this)
     };
 
     /**
@@ -1257,8 +1282,8 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
         { "bg", "Europe/London", "2004-07-15T00:00:00Z", "ZZZZ", GMT_BG+"+01:00", "+1:00" },
         { "bg", "Europe/London", "2004-07-15T00:00:00Z", "z", GMT_BG+"+1", "+1:00" },
         { "bg", "Europe/London", "2004-07-15T00:00:00Z", "zzzz", "\u0411\u0440\u0438\u0442\u0430\u043d\u0441\u043a\u043e \u043b\u044f\u0442\u043d\u043e \u0447\u0430\u0441\u043e\u0432\u043e \u0432\u0440\u0435\u043c\u0435", "+1:00" },
-        { "bg", "Europe/London", "2004-07-15T00:00:00Z", "v", "\u0412\u0435\u043b\u0438\u043a\u043e\u0431\u0440\u0438\u0442\u0430\u043d\u0438\u044f", "Europe/London" },
-        { "bg", "Europe/London", "2004-07-15T00:00:00Z", "vvvv", "\u0412\u0435\u043b\u0438\u043a\u043e\u0431\u0440\u0438\u0442\u0430\u043d\u0438\u044f", "Europe/London" },
+        { "bg", "Europe/London", "2004-07-15T00:00:00Z", "v", "\u041e\u0431\u0435\u0434\u0438\u043d\u0435\u043d\u043e\u0442\u043e \u043a\u0440\u0430\u043b\u0441\u0442\u0432\u043e", "Europe/London" },
+        { "bg", "Europe/London", "2004-07-15T00:00:00Z", "vvvv", "\u041e\u0431\u0435\u0434\u0438\u043d\u0435\u043d\u043e\u0442\u043e \u043a\u0440\u0430\u043b\u0441\u0442\u0432\u043e", "Europe/London" },
 
         { "bg", "Etc/GMT+3", "2004-01-15T00:00:00Z", "Z", "-0300", "-3:00" },
         { "bg", "Etc/GMT+3", "2004-01-15T00:00:00Z", "ZZZZ", GMT_BG+"-03:00", "-3:00" },
@@ -1981,7 +2006,7 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
         TimeZone tz = TimeZone.getTimeZone("PST");
         dfFrench.setTimeZone(tz);
         dfUS.setTimeZone(tz);
-        String expectedFRENCH_JDK12 = "lundi 15 septembre 1997 00:00:00 heure d\u2019\u00E9t\u00E9 du Pacifique";
+        String expectedFRENCH_JDK12 = "lundi 15 septembre 1997 \u00E0 00:00:00 heure d\u2019\u00E9t\u00E9 du Pacifique";
         //String expectedFRENCH = "lundi 15 septembre 1997 00 h 00 PDT";
         String expectedUS = "Monday, September 15, 1997 at 12:00:00 AM Pacific Daylight Time";
         logln("Date set to : " + testDate);
@@ -2016,7 +2041,7 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
         dfArab.setTimeZone(tz);
         dfLatn.setTimeZone(tz);
 
-        String expectedArab = "\u0669\u060C\u0665\u0662 \u0645";
+        String expectedArab = "\u0669:\u0665\u0662 \u0645";
         String expectedLatn = "9:52 \u0645";
 
         String actualArab = dfArab.format(date);
@@ -2138,8 +2163,10 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
 
             "hh:mm:ss a", "12:34:56 PM", "1970 01 01 12:34:56",
             null,         "12:34:56PM",  "1970 01 01 12:34:56",
-            null,         "12.34.56PM",  "1970 01 01 12:34:56",
-            null,         "12 : 34 : 56  PM", "1970 01 01 12:34:56",
+            // parsing the following comes with using a TIME_SEPARATOR
+            // pattern character, which has been withdrawn.
+            //null,         "12.34.56PM",  "1970 01 01 12:34:56",
+            //null,         "12 : 34 : 56  PM", "1970 01 01 12:34:56",
         };
 
         expectParse(DATA, new Locale("en", "", ""));
@@ -2835,8 +2862,8 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
             "EEEEEE d MMM y",  "fp", "2013 01 13 0:00:00", "s\u00F6 13 jan. 2013", "2013 01 13 0:00:00",
             "EEEEEE d MMM y",  "fp", "2013 01 16 0:00:00", "on 16 jan. 2013",      "2013 01 16 0:00:00",
             "EEEEEE d",        "fp", "1970 01 17 0:00:00", "l\u00F6 17",          "1970 01 17 0:00:00",
-            "cccccc d",        "fp", "1970 01 17 0:00:00", "L\u00F6 17",          "1970 01 17 0:00:00",
-            "cccccc",          "fp", "1970 01 03 0:00:00", "L\u00F6",             "1970 01 03 0:00:00",
+            "cccccc d",        "fp", "1970 01 17 0:00:00", "l\u00F6 17",          "1970 01 17 0:00:00",
+            "cccccc",          "fp", "1970 01 03 0:00:00", "l\u00F6",             "1970 01 03 0:00:00",
         };
         
         expect(EN_DATA, new Locale("en", "", ""));
@@ -2947,8 +2974,8 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
                 "ccccc", "1970 01 02 0:00:00", "P",
                 "ccccc", "1970 01 03 0:00:00", "S",
             
-                "h:mm a",     "2015 01 01 10:00:00", "10:00 dopoledne",
-                "h:mm a",     "2015 01 01 22:00:00", "10:00 odpoledne",
+                "h:mm a",     "2015 01 01 10:00:00", "10:00 dop.",
+                "h:mm a",     "2015 01 01 22:00:00", "10:00 odp.",
                 "h:mm aaaaa", "2015 01 01 10:00:00", "10:00 dop.",
                 "h:mm aaaaa", "2015 01 01 22:00:00", "10:00 odp.",
             };
@@ -2958,8 +2985,8 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
 
                 "h:mm a",     "2015 01 01 10:00:00", "10:00 a. m.",
                 "h:mm a",     "2015 01 01 22:00:00", "10:00 p. m.",
-                "h:mm aaaaa", "2015 01 01 10:00:00", "10:00 a.m.",
-                "h:mm aaaaa", "2015 01 01 22:00:00", "10:00 p.m.",
+                "h:mm aaaaa", "2015 01 01 10:00:00", "10:00 a. m.",
+                "h:mm aaaaa", "2015 01 01 22:00:00", "10:00 p. m.",
             };
 
             expectFormat(EN_DATA, new Locale("en", "", ""));
@@ -2985,7 +3012,7 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
         
         expect(EN_DATA, new Locale("en", "", ""));
     }
-/*    
+
     public void TestQuarters()
     {
         String EN_DATA[] = {
@@ -3000,11 +3027,13 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
             "qq",   "fp", "1970 04 01", "02",          "1970 04 01",
             "qqq",  "fp", "1970 07 01", "Q3",          "1970 07 01",
             "qqqq", "fp", "1970 10 01", "4th quarter", "1970 10 01",
-       };
+
+            "Qyy",  "fp", "2015 04 01", "215",         "2015 04 01",
+            "QQyy", "fp", "2015 07 01", "0315",        "2015 07 01",
+        };
         
         expect(EN_DATA, new Locale("en", "", ""));
     }
-*/
 
     /**
      * Test DateFormat's parsing of default GMT variants.  See ticket#6135
@@ -4579,7 +4608,7 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
             SimpleDateFormat sdfmt = new SimpleDateFormat(item.pattern, item.locale);
             sdfmt.setBooleanAttribute(BooleanAttribute.PARSE_ALLOW_WHITESPACE, item.leniency)
                     .setBooleanAttribute(BooleanAttribute.PARSE_ALLOW_NUMERIC, item.leniency)
-                    .setBooleanAttribute(BooleanAttribute.PARSE_PARTIAL_MATCH, item.leniency);
+                    .setBooleanAttribute(BooleanAttribute.PARSE_PARTIAL_LITERAL_MATCH, item.leniency);
 
             ParsePosition p = new ParsePosition(0);
             Date d = sdfmt.parse(item.parseString, p);
@@ -4743,7 +4772,7 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
         assertTrue("isCalendarLenient default", fmt.isCalendarLenient());
         assertTrue("ALLOW_WHITESPACE default", fmt.getBooleanAttribute(BooleanAttribute.PARSE_ALLOW_WHITESPACE));
         assertTrue("ALLOW_NUMERIC default", fmt.getBooleanAttribute(BooleanAttribute.PARSE_ALLOW_NUMERIC));
-        assertTrue("PARTIAL_MATCH default", fmt.getBooleanAttribute(BooleanAttribute.PARSE_PARTIAL_MATCH));
+        assertTrue("PARTIAL_MATCH default", fmt.getBooleanAttribute(BooleanAttribute.PARSE_PARTIAL_LITERAL_MATCH));
         assertTrue("MULTIPLE_PATTERNS default", fmt.getBooleanAttribute(BooleanAttribute.PARSE_MULTIPLE_PATTERNS_FOR_MATCH));
 
         // Set calendar to strict
@@ -4762,7 +4791,7 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
         assertFalse("ALLOW_WHITESPACE after setLenient(FALSE)", fmt.getBooleanAttribute(BooleanAttribute.PARSE_ALLOW_WHITESPACE));
         assertFalse("ALLOW_NUMERIC  after setLenient(FALSE)", fmt.getBooleanAttribute(BooleanAttribute.PARSE_ALLOW_NUMERIC));
         // These two boolean attributes are NOT affected according to the API specification
-        assertTrue("PARTIAL_MATCH after setLenient(FALSE)", fmt.getBooleanAttribute(BooleanAttribute.PARSE_PARTIAL_MATCH));
+        assertTrue("PARTIAL_MATCH after setLenient(FALSE)", fmt.getBooleanAttribute(BooleanAttribute.PARSE_PARTIAL_LITERAL_MATCH));
         assertTrue("MULTIPLE_PATTERNS after setLenient(FALSE)", fmt.getBooleanAttribute(BooleanAttribute.PARSE_MULTIPLE_PATTERNS_FOR_MATCH));
 
         // Allow white space leniency

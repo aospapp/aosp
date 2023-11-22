@@ -20,6 +20,7 @@
 #include "IntelMetadataBuffer.h"
 #include <cutils/properties.h>
 #include <wrs_omxil_core/log.h>
+#include <media/stagefright/foundation/AUtils.h>
 
 static const char *RAW_MIME_TYPE = "video/raw";
 
@@ -195,7 +196,13 @@ OMX_ERRORTYPE OMXVideoEncoderBase::InitOutputPort(void) {
     mParamVideoRefresh.nAirMBs = 0;
     mParamVideoRefresh.nAirRef = 0;
     mParamVideoRefresh.nCirMBs = 0;
-    
+
+    // OMX_VIDEO_CONFIG_ANDROID_INTRAREFRESH
+    memset(&mConfigAndroidIntraRefresh, 0, sizeof(mConfigAndroidIntraRefresh));
+    SetTypeHeader(&mConfigAndroidIntraRefresh, sizeof(mConfigAndroidIntraRefresh));
+    mConfigAndroidIntraRefresh.nPortIndex = OUTPORT_INDEX;
+    mConfigAndroidIntraRefresh.nRefreshPeriod = 0; // default feature closed
+
     // OMX_CONFIG_FRAMERATETYPE
     memset(&mConfigFramerate, 0, sizeof(mConfigFramerate));
     SetTypeHeader(&mConfigFramerate, sizeof(mConfigFramerate));
@@ -406,6 +413,7 @@ OMX_ERRORTYPE OMXVideoEncoderBase::BuildHandlerList(void) {
     AddHandler((OMX_INDEXTYPE)OMX_IndexExtTemporalLayer, GetTemporalLayer,SetTemporalLayer);
     AddHandler((OMX_INDEXTYPE)OMX_IndexConfigVideoBitrate, GetConfigVideoBitrate, SetConfigVideoBitrate);
     AddHandler((OMX_INDEXTYPE)OMX_IndexExtRequestBlackFramePointer, GetBlackFramePointer, GetBlackFramePointer);
+    AddHandler((OMX_INDEXTYPE)OMX_IndexConfigAndroidIntraRefresh, GetConfigAndroidIntraRefresh, SetConfigAndroidIntraRefresh);
     return OMX_ErrorNone;
 }
 
@@ -971,4 +979,56 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigVideoBitrate(OMX_PTR pStructure){
         LOGW("failed to set IntelBitrate");
     }
     return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE OMXVideoEncoderBase::GetConfigAndroidIntraRefresh(OMX_PTR pStructure) {
+    OMX_ERRORTYPE ret;
+    OMX_VIDEO_CONFIG_ANDROID_INTRAREFRESHTYPE *p = (OMX_VIDEO_CONFIG_ANDROID_INTRAREFRESHTYPE *)pStructure;
+
+    CHECK_TYPE_HEADER(p);
+    CHECK_PORT_INDEX(p, OUTPORT_INDEX);
+
+    memcpy(p, &mConfigAndroidIntraRefresh, sizeof(*p));
+    return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigAndroidIntraRefresh(OMX_PTR pStructure) {
+    OMX_ERRORTYPE ret;
+
+    OMX_VIDEO_CONFIG_ANDROID_INTRAREFRESHTYPE *p = (OMX_VIDEO_CONFIG_ANDROID_INTRAREFRESHTYPE *)pStructure;
+
+    CHECK_TYPE_HEADER(p);
+    CHECK_PORT_INDEX(p, OUTPORT_INDEX);
+
+    // set in either Loaded state (ComponentSetParam) or Executing state (ComponentSetConfig)
+    mConfigAndroidIntraRefresh = *p;
+
+    // return OMX_ErrorNone if not in Executing state
+    // TODO: return OMX_ErrorIncorrectStateOperation?
+    CHECK_SET_PARAM_STATE();
+
+    OMX_VIDEO_PARAM_INTRAREFRESHTYPE intraRefresh;
+    memset(&intraRefresh, 0, sizeof(intraRefresh));
+    intraRefresh.nSize = sizeof(intraRefresh);
+    intraRefresh.nVersion = p->nVersion;
+    intraRefresh.nPortIndex = mConfigAndroidIntraRefresh.nPortIndex;
+    intraRefresh.eRefreshMode = OMX_VIDEO_IntraRefreshCyclic;
+    intraRefresh.nAirMBs = 0;
+    intraRefresh.nAirRef = 0;
+
+    if (0 == mConfigAndroidIntraRefresh.nRefreshPeriod) {
+        intraRefresh.nCirMBs = 0;
+    } else {
+        OMX_PARAM_PORTDEFINITIONTYPE def;
+
+        if (intraRefresh.nPortIndex < nr_ports) {
+            memcpy(&def, ports[intraRefresh.nPortIndex]->GetPortDefinition(),sizeof(def));
+        } else {
+            LOGW("Failed tp set AIR config, bad port index");
+            return OMX_ErrorBadPortIndex;
+        }
+
+        intraRefresh.nCirMBs = divUp((divUp(def.format.video.nFrameWidth, 16u) * divUp(def.format.video.nFrameHeight,16u)), mConfigAndroidIntraRefresh.nRefreshPeriod);
+    }
+    return SetParamVideoIntraRefresh(&intraRefresh);
 }

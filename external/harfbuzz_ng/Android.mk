@@ -75,9 +75,10 @@ HARFBUZZ_SRC_FILES = \
 	src/hb-ot-shape-complex-indic.cc \
 	src/hb-ot-shape-complex-indic-table.cc \
 	src/hb-ot-shape-complex-myanmar.cc \
-	src/hb-ot-shape-complex-sea.cc \
 	src/hb-ot-shape-complex-thai.cc \
 	src/hb-ot-shape-complex-tibetan.cc \
+	src/hb-ot-shape-complex-use.cc \
+	src/hb-ot-shape-complex-use-table.cc \
 	src/hb-ot-shape-normalize.cc \
 	src/hb-ot-shape-fallback.cc \
 	$(NULL)
@@ -100,6 +101,7 @@ LOCAL_SHARED_LIBRARIES := \
 	liblog
 LOCAL_C_INCLUDES += \
         $(LOCAL_PATH)/src
-LOCAL_CFLAGS += -DHB_NO_MT -DHAVE_OT -DHAVE_ICU -DHAVE_ICU_BUILTIN
+LOCAL_CFLAGS += -DHB_NO_MT -DHAVE_OT -DHAVE_ICU -DHAVE_ICU_BUILTIN -Werror -Wno-unused-parameter \
+	-Wno-missing-field-initializers
 LOCAL_MODULE:= libharfbuzz_ng
 include $(BUILD_SHARED_LIBRARY)

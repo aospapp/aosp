@@ -595,6 +595,11 @@ OMX_ERRORTYPE PortBase::WaitPortBufferCompletionTimeout(int64_t milliseconds)
         clock_gettime(CLOCK_REALTIME, &tv);
         tv.tv_sec += milliseconds/1000;
         tv.tv_nsec+= (milliseconds%1000) * 1000000;
+        if (tv.tv_nsec >= 1000000000) {
+            tv.tv_sec += 1;
+            tv.tv_nsec -= 1000000000;
+        }
+
         rc = pthread_cond_timedwait(&hdrs_wait, &hdrs_lock, &tv);
     }
     if (rc == ETIMEDOUT) {

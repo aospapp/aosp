@@ -23,8 +23,8 @@
 #include "ResponseCode.h"
 #include "cryptfs.h"
 
-#include <base/stringprintf.h>
-#include <base/logging.h>
+#include <android-base/stringprintf.h>
+#include <android-base/logging.h>
 #include <cutils/fs.h>
 #include <private/android_filesystem_config.h>
 
@@ -158,6 +158,7 @@ status_t PrivateVolume::doMount() {
     // Verify that common directories are ready to roll
     if (PrepareDir(mPath + "/app", 0771, AID_SYSTEM, AID_SYSTEM) ||
             PrepareDir(mPath + "/user", 0711, AID_SYSTEM, AID_SYSTEM) ||
+            PrepareDir(mPath + "/user_de", 0711, AID_SYSTEM, AID_SYSTEM) ||
             PrepareDir(mPath + "/media", 0770, AID_MEDIA_RW, AID_MEDIA_RW) ||
             PrepareDir(mPath + "/media/0", 0770, AID_MEDIA_RW, AID_MEDIA_RW) ||
             PrepareDir(mPath + "/local", 0751, AID_ROOT, AID_ROOT) ||

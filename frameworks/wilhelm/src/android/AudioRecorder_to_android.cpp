@@ -14,13 +14,16 @@
  * limitations under the License.
  */
 
-
 #include "sles_allinclusive.h"
 #include "android_prompts.h"
+#include "channels.h"
 
 #include <utils/String16.h>
 
 #include <system/audio.h>
+#include <SLES/OpenSLES_Android.h>
+
+#include <android_runtime/AndroidRuntime.h>
 
 #define KEY_RECORDING_SOURCE_PARAMSIZE  sizeof(SLuint32)
 #define KEY_RECORDING_PRESET_PARAMSIZE  sizeof(SLuint32)
@@ -46,6 +49,9 @@ SLresult audioRecorder_setPreset(CAudioRecorder* ar, SLuint32 recordPreset) {
     case SL_ANDROID_RECORDING_PRESET_VOICE_COMMUNICATION:
         newRecordSource = AUDIO_SOURCE_VOICE_COMMUNICATION;
         break;
+    case SL_ANDROID_RECORDING_PRESET_UNPROCESSED:
+            newRecordSource = AUDIO_SOURCE_UNPROCESSED;
+            break;
     case SL_ANDROID_RECORDING_PRESET_NONE:
         // it is an error to set preset "none"
     default:
@@ -87,6 +93,9 @@ SLresult audioRecorder_getPreset(CAudioRecorder* ar, SLuint32* pPreset) {
         break;
     case AUDIO_SOURCE_VOICE_COMMUNICATION:
         *pPreset = SL_ANDROID_RECORDING_PRESET_VOICE_COMMUNICATION;
+        break;
+    case AUDIO_SOURCE_UNPROCESSED:
+        *pPreset = SL_ANDROID_RECORDING_PRESET_UNPROCESSED;
         break;
     default:
         *pPreset = SL_ANDROID_RECORDING_PRESET_NONE;
@@ -172,10 +181,7 @@ SLresult android_audioRecorder_checkSourceSink(CAudioRecorder* ar) {
         } // SL_ANDROID_DATAFORMAT_PCM_EX - fall through to next test.
         case SL_DATAFORMAT_PCM: {
             const SLDataFormat_PCM *df_pcm = (const SLDataFormat_PCM *) pAudioSnk->pFormat;
-            // FIXME validate channel mask and number of channels
-
-            // checkDataFormat already checked sample rate
-
+            // checkDataFormat already checked sample rate, channels, and mask
             ar->mNumChannels = df_pcm->numChannels;
 
             if (df_pcm->endianness != ar->mObject.mEngine->mEngine.mNativeEndianness) {
@@ -419,7 +425,6 @@ SLresult android_audioRecorder_realize(CAudioRecorder* ar, SLboolean async) {
     // already checked in created and checkSourceSink
     assert(ar->mDataSink.mLocator.mLocatorType == SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE);
 
-    const SLDataLocator_BufferQueue *dl_bq = &ar->mDataSink.mLocator.mBufferQueue;
     const SLDataFormat_PCM *df_pcm = &ar->mDataSink.mFormat.mPCM;
 
     //  the following platform-independent fields have been initialized in CreateAudioRecorder()
@@ -431,21 +436,40 @@ SLresult android_audioRecorder_realize(CAudioRecorder* ar, SLboolean async) {
     // currently nothing analogous to canUseFastTrack() for recording
     audio_input_flags_t policy = AUDIO_INPUT_FLAG_FAST;
 
+    SL_LOGV("Audio Record format: %dch(0x%x), %dbit, %dKHz",
+            df_pcm->numChannels,
+            df_pcm->channelMask,
+            df_pcm->bitsPerSample,
+            df_pcm->samplesPerSec / 1000000);
+
+    // note that df_pcm->channelMask has already been validated during object creation.
+    audio_channel_mask_t channelMask = sles_to_audio_input_channel_mask(df_pcm->channelMask);
+
+    // To maintain backward compatibility with previous releases, ignore
+    // channel masks that are not indexed.
+    if (channelMask == AUDIO_CHANNEL_INVALID
+            || audio_channel_mask_get_representation(channelMask)
+                == AUDIO_CHANNEL_REPRESENTATION_POSITION) {
+        channelMask = audio_channel_in_mask_from_count(df_pcm->numChannels);
+        SL_LOGI("Emulating old channel mask behavior "
+                "(ignoring positional mask %#x, using default mask %#x based on "
+                "channel count of %d)", df_pcm->channelMask, channelMask,
+                df_pcm->numChannels);
+    }
+    SL_LOGV("SLES channel mask %#x converted to Android mask %#x", df_pcm->channelMask, channelMask);
+
     // initialize platform-specific CAudioRecorder fields
     ar->mAudioRecord = new android::AudioRecord(
             ar->mRecordSource,     // source
             sampleRate,            // sample rate in Hertz
             sles_to_android_sampleFormat(df_pcm),               // format
-            // FIXME ignores df_pcm->channelMask,
-            //       and assumes positional mask for mono or stereo,
-            //       or indexed mask for > 2 channels
-            audio_channel_in_mask_from_count(df_pcm->numChannels),
+            channelMask,           // channel mask
             android::String16(),   // app ops
             0,                     // frameCount
             audioRecorder_callback,// callback_t
             (void*)ar,             // user, callback data, here the AudioRecorder
             0,                     // notificationFrames
-            0,                     // session ID
+            AUDIO_SESSION_ALLOCATE,
             android::AudioRecord::TRANSFER_CALLBACK,
                                    // transfer type
             policy);               // audio_input_flags_t
@@ -458,6 +482,25 @@ SLresult android_audioRecorder_realize(CAudioRecorder* ar, SLboolean async) {
         result = SL_RESULT_CONTENT_UNSUPPORTED;
         ar->mAudioRecord.clear();
     }
+
+    // If there is a JavaAudioRoutingProxy associated with this recorder, hook it up...
+    JNIEnv* j_env = NULL;
+    jclass clsAudioRecord = NULL;
+    jmethodID midRoutingProxy_connect = NULL;
+    if (ar->mAndroidConfiguration.mRoutingProxy != NULL &&
+            (j_env = android::AndroidRuntime::getJNIEnv()) != NULL &&
+            (clsAudioRecord = j_env->FindClass("android/media/AudioRecord")) != NULL &&
+            (midRoutingProxy_connect =
+                j_env->GetMethodID(clsAudioRecord, "deferred_connect", "(J)V")) != NULL) {
+        j_env->ExceptionClear();
+        j_env->CallVoidMethod(ar->mAndroidConfiguration.mRoutingProxy,
+                              midRoutingProxy_connect,
+                              ar->mAudioRecord.get());
+        if (j_env->ExceptionCheck()) {
+            SL_LOGE("Java exception releasing recorder routing object.");
+            result = SL_RESULT_INTERNAL_ERROR;
+        }
+   }
 
     return result;
 }

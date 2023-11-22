@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 The Android Open Source Project
+ * Copyright (C) 2015 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -13,20 +13,15 @@
  */
 package android.support.v17.leanback.widget;
 
-import android.support.v17.leanback.R;
-import android.content.res.Resources;
-import android.graphics.Color;
 import android.graphics.Outline;
-import android.graphics.drawable.ColorDrawable;
-import android.graphics.drawable.Drawable;
-import android.view.ViewGroup;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
 
 class ShadowHelperApi21 {
 
     static class ShadowImpl {
-        ViewGroup mShadowContainer;
+        View mShadowContainer;
         float mNormalZ;
         float mFocusedZ;
     }
@@ -41,9 +36,10 @@ class ShadowHelperApi21 {
 
     /* add shadows and return a implementation detail object */
     public static Object addDynamicShadow(
-            ViewGroup shadowContainer, float unfocusedZ, float focusedZ, boolean roundedCorners) {
-        if (roundedCorners) {
-            RoundedRectHelperApi21.setClipToRoundedOutline(shadowContainer, true);
+            View shadowContainer, float unfocusedZ, float focusedZ, int roundedCornerRadius) {
+        if (roundedCornerRadius > 0) {
+            RoundedRectHelperApi21.setClipToRoundedOutline(shadowContainer, true,
+                    roundedCornerRadius);
         } else {
             shadowContainer.setOutlineProvider(sOutlineProvider);
         }
@@ -52,7 +48,6 @@ class ShadowHelperApi21 {
         impl.mNormalZ = unfocusedZ;
         impl.mFocusedZ = focusedZ;
         shadowContainer.setZ(impl.mNormalZ);
-        shadowContainer.setTransitionGroup(true);
         return impl;
     }
 

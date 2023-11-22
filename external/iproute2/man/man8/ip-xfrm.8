@@ -43,6 +43,10 @@ ip-xfrm \- transform configuration
 .IR SEQ " ]"
 .RB "[ " replay-oseq
 .IR SEQ " ]"
+.RB "[ " replay-seq-hi
+.IR SEQ " ]"
+.RB "[ " replay-oseq-hi
+.IR SEQ " ]"
 .RB "[ " flag
 .IR FLAG-LIST " ]"
 .RB "[ " sel
@@ -117,25 +121,29 @@ ip-xfrm \- transform configuration
 
 .ti -8
 .IR ALGO " :="
-.RB "{ " enc " | " auth " | " comp " } " 
-.IR ALGO-NAME " " ALGO-KEY " |"
-.br
-.B  aead
-.IR ALGO-NAME " " ALGO-KEY " " ALGO-ICV-LEN  " |"
+.RB "{ " enc " | " auth " } "
+.IR ALGO-NAME " " ALGO-KEYMAT " |"
 .br
 .B auth-trunc
-.IR ALGO-NAME " " ALGO-KEY " " ALGO-TRUNC-LEN
+.IR ALGO-NAME " " ALGO-KEYMAT " " ALGO-TRUNC-LEN " |"
+.br
+.B aead
+.IR ALGO-NAME " " ALGO-KEYMAT " " ALGO-ICV-LEN " |"
+.br
+.B comp
+.IR ALGO-NAME
 
 .ti -8
 .IR MODE " := "
-.BR transport " | " tunnel " | " ro " | " in_trigger " | " beet
+.BR transport " | " tunnel " | " beet " | " ro " | " in_trigger
 
 .ti -8
 .IR FLAG-LIST " := [ " FLAG-LIST " ] " FLAG
 
 .ti -8
 .IR FLAG " :="
-.BR noecn " | " decap-dscp " | " nopmtudisc " | " wildrecv " | " icmp " | " af-unspec " | " align4
+.BR noecn " | " decap-dscp " | " nopmtudisc " | " wildrecv " | " icmp " | "
+.BR af-unspec " | " align4 " | " esn
 
 .ti -8
 .IR SELECTOR " :="
@@ -249,6 +257,13 @@ ip-xfrm \- transform configuration
 .B "ip xfrm policy count"
 
 .ti -8
+.B "ip xfrm policy set"
+.RB "[ " hthresh4
+.IR LBITS " " RBITS " ]"
+.RB "[ " hthresh6
+.IR LBITS " " RBITS " ]"
+
+.ti -8
 .IR SELECTOR " :="
 .RB "[ " src
 .IR ADDR "[/" PLEN "] ]"
@@ -342,15 +357,26 @@ ip-xfrm \- transform configuration
 
 .ti -8
 .IR MODE " := "
-.BR transport " | " tunnel " | " ro " | " in_trigger " | " beet
+.BR transport " | " tunnel " | " beet " | " ro " | " in_trigger
 
 .ti -8
 .IR LEVEL " :="
 .BR required " | " use
 
 .ti -8
-.BR "ip xfrm monitor" " [ " all " |"
+.BR "ip xfrm monitor" " ["
+.BI all-nsid
+] [
+.BI all
+ |
 .IR LISTofXFRM-OBJECTS " ]"
+
+.ti -8
+.IR LISTofXFRM-OBJECTS " := [ " LISTofXFRM-OBJECTS " ] " XFRM-OBJECT
+
+.ti -8
+.IR XFRM-OBJECT " := "
+.BR acquire " | " expire " | " SA " | " policy " | " aevent " | " report
 
 .in -8
 .ad b
@@ -366,23 +392,18 @@ object operating on the Security Association Database, and the
 object operating on the Security Policy Database). It is also used for
 the IP Payload Compression Protocol and features of Mobile IPv6.
 
-.SS ip xfrm state add - add new state into xfrm
-
-.SS ip xfrm state update - update existing state in xfrm
-
-.SS ip xfrm state allocspi - allocate an SPI value
-
-.SS ip xfrm state delete - delete existing state in xfrm
-
-.SS ip xfrm state get - get existing state in xfrm
-
-.SS ip xfrm state deleteall - delete all existing state in xfrm
-
-.SS ip xfrm state list - print out the list of existing state in xfrm
-
-.SS ip xfrm state flush - flush all state in xfrm
-
-.SS ip xfrm state count - count all existing state in xfrm
+.TS
+l l.
+ip xfrm state add	add new state into xfrm
+ip xfrm state update	update existing state in xfrm
+ip xfrm state allocspi	allocate an SPI value
+ip xfrm state delete	delete existing state in xfrm
+ip xfrm state get	get existing state in xfrm
+ip xfrm state deleteall	delete all existing state in xfrm
+ip xfrm state list	print out the list of existing state in xfrm
+ip xfrm state flush	flush all state in xfrm
+ip xfrm state count	count all existing state in xfrm
+.TE
 
 .TP
 .IR ID
@@ -390,6 +411,8 @@ is specified by a source address, destination address,
 .RI "transform protocol " XFRM-PROTO ","
 and/or Security Parameter Index
 .IR SPI "."
+(For IP Payload Compression, the Compression Parameter Index or CPI is used for
+.IR SPI ".)"
 
 .TP
 .I XFRM-PROTO
@@ -402,43 +425,74 @@ specifies a transform protocol:
 
 .TP
 .I ALGO-LIST
-specifies one or more algorithms
-.IR ALGO
-to use. Algorithm types include
+contains one or more algorithms to use. Each algorithm
+.I ALGO
+is specified by:
+.RS
+.IP \[bu]
+the algorithm type:
 .RB "encryption (" enc "),"
-.RB "authentication (" auth "),"
-.RB "authentication with a specified truncation length (" auth-trunc "),"
-.RB "authenticated encryption with associated data (" aead "), and"
-.RB "compression (" comp ")."
-For each algorithm used, the algorithm type, the algorithm name
-.IR ALGO-NAME ","
-and the key
-.I ALGO-KEY
-must be specified. For
-.BR aead ","
+.RB "authentication (" auth " or " auth-trunc "),"
+.RB "authenticated encryption with associated data (" aead "), or"
+.RB "compression (" comp ")"
+.IP \[bu]
+the algorithm name
+.IR ALGO-NAME
+(see below)
+.IP \[bu]
+.RB "(for all except " comp ")"
+the keying material
+.IR ALGO-KEYMAT ","
+which may include both a key and a salt or nonce value; refer to the
+corresponding RFC
+.IP \[bu]
+.RB "(for " auth-trunc " only)"
+the truncation length
+.I ALGO-TRUNC-LEN
+in bits
+.IP \[bu]
+.RB "(for " aead " only)"
 the Integrity Check Value length
 .I ALGO-ICV-LEN
-must additionally be specified.
-For
-.BR auth-trunc ","
-the signature truncation length
-.I ALGO-TRUNC-LEN
-must additionally be specified.
+in bits
+.RE
+
+.nh
+.RS
+Encryption algorithms include
+.BR ecb(cipher_null) ", " cbc(des) ", " cbc(des3_ede) ", " cbc(cast5) ","
+.BR cbc(blowfish) ", " cbc(aes) ", " cbc(serpent) ", " cbc(camellia) ","
+.BR cbc(twofish) ", and " rfc3686(ctr(aes)) "."
+
+Authentication algorithms include
+.BR digest_null ", " hmac(md5) ", " hmac(sha1) ", " hmac(sha256) ","
+.BR hmac(sha384) ", " hmac(sha512) ", " hmac(rmd610) ", and " xcbc(aes) "."
+
+Authenticated encryption with associated data (AEAD) algorithms include
+.BR rfc4106(gcm(aes)) ", " rfc4309(ccm(aes)) ", and " rfc4543(gcm(aes)) "."
+
+Compression algorithms include
+.BR deflate ", " lzs ", and " lzjh "."
+.RE
+.hy
 
 .TP
 .I MODE
-specifies a mode of operation:
-.RB "IPsec transport mode (" transport "), "
-.RB "IPsec tunnel mode (" tunnel "), "
-.RB "Mobile IPv6 route optimization mode (" ro "), "
-.RB "Mobile IPv6 inbound trigger mode (" in_trigger "), or "
-.RB "IPsec ESP Bound End-to-End Tunnel Mode (" beet ")."
+specifies a mode of operation for the transform protocol. IPsec and IP Payload
+Compression modes are
+.BR transport ", " tunnel ","
+and (for IPsec ESP only) Bound End-to-End Tunnel
+.RB "(" beet ")."
+Mobile IPv6 modes are route optimization
+.RB "(" ro ")"
+and inbound trigger
+.RB "(" in_trigger ")."
 
 .TP
 .I FLAG-LIST
 contains one or more of the following optional flags:
 .BR noecn ", " decap-dscp ", " nopmtudisc ", " wildrecv ", " icmp ", "
-.BR af-unspec ", or " align4 "."
+.BR af-unspec ", " align4 ", or " esn "."
 
 .TP
 .IR SELECTOR
@@ -471,21 +525,18 @@ encapsulates packets with protocol
 .RI "using source port " SPORT ", destination port "  DPORT
 .RI ", and original address " OADDR "."
 
-.SS ip xfrm policy add - add a new policy
-
-.SS ip xfrm policy update - update an existing policy
-
-.SS ip xfrm policy delete - delete an existing policy
-
-.SS ip xfrm policy get - get an existing policy
-
-.SS ip xfrm policy deleteall - delete all existing xfrm policies
-
-.SS ip xfrm policy list - print out the list of xfrm policies
-
-.SS ip xfrm policy flush - flush policies
-
-.SS ip xfrm policy count - count existing policies
+.sp
+.PP
+.TS
+l l.
+ip xfrm policy add	add a new policy
+ip xfrm policy update	update an existing policy
+ip xfrm policy delete	delete an existing policy
+ip xfrm policy get	get an existing policy
+ip xfrm policy deleteall	delete all existing xfrm policies
+ip xfrm policy list	print out the list of xfrm policies
+ip xfrm policy flush	flush policies
+.TE
 
 .TP
 .IR SELECTOR
@@ -550,6 +601,8 @@ is specified by a source address, destination address,
 .RI "transform protocol " XFRM-PROTO ","
 and/or Security Parameter Index
 .IR SPI "."
+(For IP Payload Compression, the Compression Parameter Index or CPI is used for
+.IR SPI ".)"
 
 .TP
 .I XFRM-PROTO
@@ -562,20 +615,80 @@ specifies a transform protocol:
 
 .TP
 .I MODE
-specifies a mode of operation:
-.RB "IPsec transport mode (" transport "), "
-.RB "IPsec tunnel mode (" tunnel "), "
-.RB "Mobile IPv6 route optimization mode (" ro "), "
-.RB "Mobile IPv6 inbound trigger mode (" in_trigger "), or "
-.RB "IPsec ESP Bound End-to-End Tunnel Mode (" beet ")."
+specifies a mode of operation for the transform protocol. IPsec and IP Payload
+Compression modes are
+.BR transport ", " tunnel ","
+and (for IPsec ESP only) Bound End-to-End Tunnel
+.RB "(" beet ")."
+Mobile IPv6 modes are route optimization
+.RB "(" ro ")"
+and inbound trigger
+.RB "(" in_trigger ")."
 
 .TP
 .I LEVEL
 can be
 .BR required " (default) or " use "."
 
-.SS ip xfrm monitor - state monitoring for xfrm objects
+.sp
+.PP
+.TS
+l l.
+ip xfrm policy count	count existing policies
+.TE
+
+.PP
+Use one or more -s options to display more details, including policy hash table
+information.
+
+.sp
+.PP
+.TS
+l l.
+ip xfrm policy set	configure the policy hash table
+.TE
+
+.PP
+Security policies whose address prefix lengths are greater than or equal
+policy hash table thresholds are hashed. Others are stored in the
+policy_inexact chained list.
+
+.TP
+.I LBITS
+specifies the minimum local address prefix length of policies that are
+stored in the Security Policy Database hash table.
+
+.TP
+.I RBITS
+specifies the minimum remote address prefix length of policies that are
+stored in the Security Policy Database hash table.
+
+.sp
+.PP
+.TS
+l l.
+ip xfrm monitor 	state monitoring for xfrm objects
+.TE
+
+.PP
 The xfrm objects to monitor can be optionally specified.
 
+.P
+If the
+.BI all-nsid
+option is set, the program listens to all network namespaces that have a
+nsid assigned into the network namespace were the program is running.
+A prefix is displayed to show the network namespace where the message
+originates. Example:
+.sp
+.in +2
+[nsid 1]Flushed state proto 0
+.in -2
+.sp
+
 .SH AUTHOR
-Manpage by David Ward
+Manpage revised by David Ward <david.ward@ll.mit.edu>
+.br
+Manpage revised by Christophe Gouault <christophe.gouault@6wind.com>
+.br
+Manpage revised by Nicolas Dichtel <nicolas.dichtel@6wind.com>

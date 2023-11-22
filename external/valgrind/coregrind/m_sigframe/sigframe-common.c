@@ -10,9 +10,9 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2000-2013 Nicholas Nethercote
+   Copyright (C) 2000-2015 Nicholas Nethercote
       njn@valgrind.org
-   Copyright (C) 2006-2013 OpenWorks Ltd
+   Copyright (C) 2006-2015 OpenWorks Ltd
       info@open-works.co.uk
 
    This program is free software; you can redistribute it and/or
@@ -49,7 +49,7 @@ static void track_frame_memory ( Addr addr, SizeT size, ThreadId tid )
    VG_TRACK( new_mem_stack_signal, addr - VG_STACK_REDZONE_SZB, size, tid );
 }
 
-#if defined(VGO_linux)
+#if defined(VGO_linux) || defined(VGO_solaris)
 
 /* Extend the stack segment downwards if needed so as to ensure the
    new signal frames are mapped to something.  Return a Bool
@@ -83,7 +83,7 @@ Bool ML_(sf_maybe_extend_stack) ( const ThreadState *tst, Addr addr,
 
    if (stackseg == NULL || !stackseg->hasR || !stackseg->hasW) {
       VG_(umsg)("Can't extend stack to %#lx during signal delivery for "
-                "thread %d:\n", addr, tid);
+                "thread %u:\n", addr, tid);
       if (stackseg == NULL)
          VG_(umsg)("  no stack segment\n");
       else

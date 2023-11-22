@@ -58,6 +58,8 @@ extern void RIL_register_socket (RIL_RadioFunctions *(*rilUimInit)
 extern void RIL_onRequestComplete(RIL_Token t, RIL_Errno e,
         void *response, size_t responselen);
 
+extern void RIL_onRequestAck(RIL_Token t);
+
 extern void RIL_setRilSocketName(char *);
 
 #if defined(ANDROID_MULTI_SIM)
@@ -75,7 +77,8 @@ extern void RIL_requestTimedCallback (RIL_TimedCallback callback,
 static struct RIL_Env s_rilEnv = {
     RIL_onRequestComplete,
     RIL_onUnsolicitedResponse,
-    RIL_requestTimedCallback
+    RIL_requestTimedCallback,
+    RIL_onRequestAck
 };
 
 extern void RIL_startEventLoop();
@@ -102,7 +105,10 @@ void switchUser() {
     char debuggable[PROP_VALUE_MAX];
 
     prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);
-    setuid(AID_RADIO);
+    if (setresuid(AID_RADIO, AID_RADIO, AID_RADIO) == -1) {
+        RLOGE("setresuid failed: %s", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
 
     struct __user_cap_header_struct header;
     memset(&header, 0, sizeof(header));
@@ -177,7 +183,8 @@ int main(int argc, char **argv) {
         exit(0);
     }
     if (strncmp(clientId, "0", MAX_CLIENT_ID_LENGTH)) {
-        RIL_setRilSocketName(strncat(rild, clientId, MAX_SOCKET_NAME_LENGTH));
+        strlcat(rild, clientId, MAX_SOCKET_NAME_LENGTH);
+        RIL_setRilSocketName(rild);
     }
 
     if (rilLibPath == NULL) {
@@ -200,7 +207,7 @@ int main(int argc, char **argv) {
 #define  REFERENCE_RIL_PATH  "libreference-ril.so"
 
         /* first, read /proc/cmdline into memory */
-        char          buffer[1024], *p, *q;
+        char          buffer[1024] = {'\0'}, *p, *q;
         int           len;
         int           fd = open("/proc/cmdline",O_RDONLY);
 

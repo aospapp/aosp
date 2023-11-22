@@ -18,6 +18,7 @@ package android.support.v7.app;
 
 import android.app.Dialog;
 import android.content.Context;
+import android.content.res.Configuration;
 import android.os.Bundle;
 import android.support.v4.app.DialogFragment;
 
@@ -29,6 +30,7 @@ import android.support.v4.app.DialogFragment;
  * </p>
  */
 public class MediaRouteControllerDialogFragment extends DialogFragment {
+    private MediaRouteControllerDialog mDialog;
     /**
      * Creates a media route controller dialog fragment.
      * <p>
@@ -52,6 +54,23 @@ public class MediaRouteControllerDialogFragment extends DialogFragment {
 
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
-        return onCreateControllerDialog(getActivity(), savedInstanceState);
+        mDialog = onCreateControllerDialog(getContext(), savedInstanceState);
+        return mDialog;
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        if (mDialog != null) {
+            mDialog.clearGroupListAnimation(false);
+        }
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        if (mDialog != null) {
+            mDialog.updateLayout();
+        }
     }
 }

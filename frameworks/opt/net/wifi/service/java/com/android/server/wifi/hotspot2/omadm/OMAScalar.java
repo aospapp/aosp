@@ -1,18 +1,28 @@
 package com.android.server.wifi.hotspot2.omadm;
 
-import android.util.Log;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.Map;
 
 public class OMAScalar extends OMANode {
     private final String mValue;
 
-    public OMAScalar(OMANode parent, String name, String context, String value) {
-        super(parent, name, context);
+    public OMAScalar(OMAConstructed parent, String name, String context, String value,
+                     String ... avps) {
+        this(parent, name, context, value, buildAttributes(avps));
+    }
+
+    public OMAScalar(OMAConstructed parent, String name, String context, String value,
+                     Map<String, String> avps) {
+        super(parent, name, context, avps);
         mValue = value;
+    }
+
+    @Override
+    public OMAScalar reparent(OMAConstructed parent) {
+        return new OMAScalar(parent, getName(), getContext(), mValue, getAttributes());
     }
 
     public String getScalarValue(Iterator<String> path) throws OMAException {
@@ -20,7 +30,7 @@ public class OMAScalar extends OMANode {
     }
 
     @Override
-    public OMAConstructed getListValue(Iterator<String> path) throws OMAException {
+    public OMANode getListValue(Iterator<String> path) throws OMAException {
         throw new OMAException("Scalar encountered in list path: " + getPathString());
     }
 
@@ -40,8 +50,8 @@ public class OMAScalar extends OMANode {
     }
 
     @Override
-    public OMANode getChild(String name) {
-        throw new UnsupportedOperationException();
+    public OMANode getChild(String name) throws OMAException {
+        throw new OMAException("'" + getName() + "' is a scalar node");
     }
 
     @Override
@@ -66,5 +76,12 @@ public class OMAScalar extends OMANode {
         out.write((byte) '=');
         OMAConstants.serializeString(getValue(), out);
         out.write((byte) '\n');
+    }
+
+    @Override
+    public void fillPayload(StringBuilder sb) {
+        sb.append('<').append(MOTree.ValueTag).append('>');
+        sb.append(escape(mValue));
+        sb.append("</").append(MOTree.ValueTag).append(">\n");
     }
 }

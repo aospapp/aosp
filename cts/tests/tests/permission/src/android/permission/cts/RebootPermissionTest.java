@@ -40,6 +40,7 @@ public class RebootPermissionTest extends AndroidTestCase {
     public void testBroadcastReboot() {
         try {
             mContext.sendBroadcast(new Intent(Intent.ACTION_REBOOT));
+            fail("SecurityException expected!");
         } catch (SecurityException e) {
             // expected
         }

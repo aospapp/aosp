@@ -1,8 +1,16 @@
-; RUN: opt < %s -loop-vectorize -force-vector-width=4 -S -pass-remarks-missed='loop-vectorize' -pass-remarks-analysis='loop-vectorize' 2>&1 | FileCheck %s
+; RUN: opt < %s -loop-vectorize -force-vector-width=4 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -loop-vectorize -force-vector-width=1 -S 2>&1 | FileCheck %s -check-prefix=NOANALYSIS
+; RUN: opt < %s -loop-vectorize -force-vector-width=4 -pass-remarks-missed='loop-vectorize' -S 2>&1 | FileCheck %s -check-prefix=MOREINFO
 
 ; CHECK: remark: source.cpp:4:5: loop not vectorized: loop contains a switch statement
-; CHECK: remark: source.cpp:4:5: loop not vectorized: use -Rpass-analysis=loop-vectorize for more info (Force=true, Vector Width=4)
 ; CHECK: warning: source.cpp:4:5: loop not vectorized: failed explicitly specified loop vectorization
+
+; NOANALYSIS-NOT: remark: {{.*}}
+; NOANALYSIS: warning: source.cpp:4:5: loop not interleaved: failed explicitly specified loop interleaving
+
+; MOREINFO: remark: source.cpp:4:5: loop not vectorized: loop contains a switch statement
+; MOREINFO: remark: source.cpp:4:5: loop not vectorized: use -Rpass-analysis=loop-vectorize for more info (Force=true, Vector Width=4)
+; MOREINFO: warning: source.cpp:4:5: loop not vectorized: failed explicitly specified loop vectorization
 
 ; CHECK: _Z11test_switchPii
 ; CHECK-NOT: x i32>
@@ -11,7 +19,7 @@
 target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"
 
 ; Function Attrs: nounwind optsize ssp uwtable
-define void @_Z11test_switchPii(i32* nocapture %A, i32 %Length) #0 {
+define void @_Z11test_switchPii(i32* nocapture %A, i32 %Length) #0 !dbg !4 {
 entry:
   %cmp18 = icmp sgt i32 %Length, 0, !dbg !10
   br i1 %cmp18, label %for.body.preheader, label %for.end, !dbg !10, !llvm.loop !12
@@ -59,28 +67,28 @@ attributes #0 = { nounwind }
 !llvm.module.flags = !{!7, !8}
 !llvm.ident = !{!9}
 
-!0 = !MDCompileUnit(language: DW_LANG_C_plus_plus, producer: "clang version 3.5.0", isOptimized: true, runtimeVersion: 6, emissionKind: 2, file: !1, enums: !2, retainedTypes: !2, subprograms: !3, globals: !2, imports: !2)
-!1 = !MDFile(filename: "source.cpp", directory: ".")
+!0 = distinct !DICompileUnit(language: DW_LANG_C_plus_plus, producer: "clang version 3.5.0", isOptimized: true, runtimeVersion: 6, emissionKind: 2, file: !1, enums: !2, retainedTypes: !2, subprograms: !3, globals: !2, imports: !2)
+!1 = !DIFile(filename: "source.cpp", directory: ".")
 !2 = !{}
 !3 = !{!4}
-!4 = !MDSubprogram(name: "test_switch", line: 1, isLocal: false, isDefinition: true, virtualIndex: 6, flags: DIFlagPrototyped, isOptimized: true, scopeLine: 1, file: !1, scope: !5, type: !6, function: void (i32*, i32)* @_Z11test_switchPii, variables: !2)
-!5 = !MDFile(filename: "source.cpp", directory: ".")
-!6 = !MDSubroutineType(types: !2)
+!4 = distinct !DISubprogram(name: "test_switch", line: 1, isLocal: false, isDefinition: true, virtualIndex: 6, flags: DIFlagPrototyped, isOptimized: true, scopeLine: 1, file: !1, scope: !5, type: !6, variables: !2)
+!5 = !DIFile(filename: "source.cpp", directory: ".")
+!6 = !DISubroutineType(types: !2)
 !7 = !{i32 2, !"Dwarf Version", i32 2}
 !8 = !{i32 2, !"Debug Info Version", i32 3}
 !9 = !{!"clang version 3.5.0"}
-!10 = !MDLocation(line: 3, column: 8, scope: !11)
-!11 = distinct !MDLexicalBlock(line: 3, column: 3, file: !1, scope: !4)
+!10 = !DILocation(line: 3, column: 8, scope: !11)
+!11 = distinct !DILexicalBlock(line: 3, column: 3, file: !1, scope: !4)
 !12 = !{!12, !13, !13}
 !13 = !{!"llvm.loop.vectorize.enable", i1 true}
-!14 = !MDLocation(line: 4, column: 5, scope: !15)
-!15 = distinct !MDLexicalBlock(line: 3, column: 36, file: !1, scope: !11)
+!14 = !DILocation(line: 4, column: 5, scope: !15)
+!15 = distinct !DILexicalBlock(line: 3, column: 36, file: !1, scope: !11)
 !16 = !{!17, !17, i64 0}
 !17 = !{!"int", !18, i64 0}
 !18 = !{!"omnipotent char", !19, i64 0}
 !19 = !{!"Simple C/C++ TBAA"}
-!20 = !MDLocation(line: 6, column: 7, scope: !21)
-!21 = distinct !MDLexicalBlock(line: 4, column: 18, file: !1, scope: !15)
-!22 = !MDLocation(line: 7, column: 5, scope: !21)
-!23 = !MDLocation(line: 9, column: 7, scope: !21)
-!24 = !MDLocation(line: 14, column: 1, scope: !4)
+!20 = !DILocation(line: 6, column: 7, scope: !21)
+!21 = distinct !DILexicalBlock(line: 4, column: 18, file: !1, scope: !15)
+!22 = !DILocation(line: 7, column: 5, scope: !21)
+!23 = !DILocation(line: 9, column: 7, scope: !21)
+!24 = !DILocation(line: 14, column: 1, scope: !4)

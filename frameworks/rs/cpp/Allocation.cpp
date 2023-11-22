@@ -143,7 +143,6 @@ void Allocation::updateFromNative() {
 
     const void *typeID = RS::dispatch->AllocationGetType(mRS->getContext(), getID());
     if(typeID != nullptr) {
-        sp<const Type> old = mType;
         sp<Type> t = new Type((void *)typeID, mRS);
         t->updateFromNative();
         updateCacheInfo(t);

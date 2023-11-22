@@ -54,7 +54,7 @@ import android.widget.ProgressBar;
 /**
  * Tests Audio built in Microphone response using external speakers and USB reference microphone.
  */
-public class AudioFrequencyMicActivity extends PassFailButtons.Activity implements Runnable,
+public class AudioFrequencyMicActivity extends AudioFrequencyActivity implements Runnable,
     AudioRecord.OnRecordPositionUpdateListener {
     private static final String TAG = "AudioFrequencyMicActivity";
 
@@ -71,6 +71,9 @@ public class AudioFrequencyMicActivity extends PassFailButtons.Activity implemen
 
     final OnBtnClickListener mBtnClickListener = new OnBtnClickListener();
     Context mContext;
+
+    Button mHeadsetPortYes;
+    Button mHeadsetPortNo;
 
     Button mSpeakersReady;              //user signal to have connected external speakers
     Button mTest1Button;                //execute test 1
@@ -120,13 +123,14 @@ public class AudioFrequencyMicActivity extends PassFailButtons.Activity implemen
     AudioBandSpecs[] bandSpecsArray = new AudioBandSpecs[mBands];
     AudioBandSpecs[] baseBandSpecsArray = new AudioBandSpecs[mBands];
 
-    int mMaxLevel;
     private class OnBtnClickListener implements OnClickListener {
         @Override
         public void onClick(View v) {
             switch (v.getId()) {
             case R.id.audio_frequency_mic_speakers_ready_btn:
                 testSpeakersReady();
+                setMaxLevel();
+                testMaxLevel();
                 break;
             case R.id.audio_frequency_mic_test1_btn:
                 startTest1();
@@ -137,6 +141,20 @@ public class AudioFrequencyMicActivity extends PassFailButtons.Activity implemen
             case R.id.audio_frequency_mic_test2_btn:
                 startTest2();
                 break;
+            case R.id.audio_general_headset_yes:
+                Log.i(TAG, "User confirms Headset Port existence");
+                mSpeakersReady.setEnabled(true);
+                recordHeasetPortFound(true);
+                mHeadsetPortYes.setEnabled(false);
+                mHeadsetPortNo.setEnabled(false);
+                break;
+            case R.id.audio_general_headset_no:
+                Log.i(TAG, "User denies Headset Port existence");
+                recordHeasetPortFound(false);
+                getPassButton().setEnabled(true);
+                mHeadsetPortYes.setEnabled(false);
+                mHeadsetPortNo.setEnabled(false);
+                break;
             }
         }
     }
@@ -146,10 +164,17 @@ public class AudioFrequencyMicActivity extends PassFailButtons.Activity implemen
         super.onCreate(savedInstanceState);
         setContentView(R.layout.audio_frequency_mic_activity);
         mContext = this;
+
+        mHeadsetPortYes = (Button)findViewById(R.id.audio_general_headset_yes);
+        mHeadsetPortYes.setOnClickListener(mBtnClickListener);
+        mHeadsetPortNo = (Button)findViewById(R.id.audio_general_headset_no);
+        mHeadsetPortNo.setOnClickListener(mBtnClickListener);
+
         mSpeakerReadyText = (TextView) findViewById(R.id.audio_frequency_mic_speakers_ready_status);
 
         mSpeakersReady  = (Button)findViewById(R.id.audio_frequency_mic_speakers_ready_btn);
         mSpeakersReady.setOnClickListener(mBtnClickListener);
+        mSpeakersReady.setEnabled(false);
         mTest1Button = (Button)findViewById(R.id.audio_frequency_mic_test1_btn);
         mTest1Button.setOnClickListener(mBtnClickListener);
         mTest1Result = (TextView)findViewById(R.id.audio_frequency_mic_results1_text);
@@ -191,7 +216,7 @@ public class AudioFrequencyMicActivity extends PassFailButtons.Activity implemen
         //Init bands for BuiltIn/Reference test
         bandSpecsArray[0] = new AudioBandSpecs(
                 50, 500,        /* frequency start,stop */
-                -20.0, -50,     /* start top,bottom value */
+                4.0, -50,     /* start top,bottom value */
                 4.0, -4.0       /* stop top,bottom value */);
 
         bandSpecsArray[1] = new AudioBandSpecs(
@@ -251,17 +276,6 @@ public class AudioFrequencyMicActivity extends PassFailButtons.Activity implemen
         } else {
             mProgressBar.setVisibility(View.INVISIBLE);
         }
-    }
-
-    private void setMaxLevel() {
-        AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-        mMaxLevel = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-        am.setStreamVolume(AudioManager.STREAM_MUSIC, (int)(mMaxLevel), 0);
-    }
-
-    private void setMinLevel() {
-        AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-        am.setStreamVolume(AudioManager.STREAM_MUSIC, 0, 0);
     }
 
     /**
@@ -452,7 +466,7 @@ public class AudioFrequencyMicActivity extends PassFailButtons.Activity implemen
         public String toString() {
             StringBuilder sb = new StringBuilder();
             sb.append(String.format("Channel %s\n", mLabel));
-            sb.append("Level in Band 1 : " + (testLevel() ? "OK" :"FAILED") +
+            sb.append("Level in Band 1 : " + (testLevel() ? "OK" :"Not Optimal") +
                     (mIsBaseMeasurement ? " (Base Meas.)" : "") + "\n");
             for (int b = 0; b < mBands; b++) {
                 double percent = 0;
@@ -465,7 +479,7 @@ public class AudioFrequencyMicActivity extends PassFailButtons.Activity implemen
                         mInBoundPointsPerBand[b],
                         mPointsPerBand[b],
                         percent,
-                        (testInBand(b) ? "OK" : "FAILED")));
+                        (testInBand(b) ? "OK" : "Not Optimal")));
             }
             return sb.toString();
         }
@@ -642,6 +656,14 @@ public class AudioFrequencyMicActivity extends PassFailButtons.Activity implemen
                 ResultUnit.NONE);
 
         Log.v(TAG, "Results Recorded");
+    }
+
+    private void recordHeasetPortFound(boolean found) {
+        getReportLog().addValue(
+                "User Reported Headset Port",
+                found ? 1.0 : 0,
+                ResultType.NEUTRAL,
+                ResultUnit.NONE);
     }
 
     private void startRecording() {

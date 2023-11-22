@@ -16,7 +16,10 @@
 
 package android.graphics.drawable.cts;
 
-import com.android.cts.graphics.R;
+import android.content.res.Resources.Theme;
+import android.graphics.BitmapFactory;
+import android.graphics.Rect;
+import android.graphics.cts.R;
 
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -34,17 +37,30 @@ import android.graphics.Bitmap.Config;
 import android.graphics.PorterDuff.Mode;
 import android.graphics.Shader.TileMode;
 import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Drawable.ConstantState;
 import android.test.InstrumentationTestCase;
 import android.util.AttributeSet;
-import android.util.DisplayMetrics;
+import android.util.Xml;
 import android.view.Gravity;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
 public class BitmapDrawableTest extends InstrumentationTestCase {
+    // A small value is actually making sure that the values are matching
+    // exactly with the golden image.
+    // We can increase the threshold if the Skia is drawing with some variance
+    // on different devices. So far, the tests show they are matching correctly.
+    private static final float PIXEL_ERROR_THRESHOLD = 0.03f;
+    private static final float PIXEL_ERROR_COUNT_THRESHOLD = 0.005f;
+
+    // Set true to generate golden images, false for normal tests.
+    private static final boolean DBG_DUMP_PNG = false;
+
     // The target context.
     private Context mContext;
 
@@ -106,6 +122,17 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
 
         bitmapDrawable.setGravity(Integer.MAX_VALUE);
         assertEquals(Integer.MAX_VALUE, bitmapDrawable.getGravity());
+    }
+
+    public void testAccessMipMap() {
+        Bitmap source = BitmapFactory.decodeResource(mContext.getResources(), R.raw.testimage);
+        BitmapDrawable bitmapDrawable = new BitmapDrawable(source);
+
+        bitmapDrawable.setMipMap(true);
+        assertTrue(source.hasMipMap());
+
+        bitmapDrawable.setMipMap(false);
+        assertFalse(source.hasMipMap());
     }
 
     public void testSetAntiAlias() {
@@ -263,7 +290,7 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
 
         d.setTint(Color.BLACK);
         d.setTintMode(Mode.SRC_OVER);
-        assertEquals("Nine-patch is tinted", Color.BLACK, DrawableTestingUtils.getPixel(d, 0, 0));
+        assertEquals("Nine-patch is tinted", Color.BLACK, DrawableTestUtils.getPixel(d, 0, 0));
 
         d.setTintList(null);
         d.setTintMode(null);
@@ -316,29 +343,62 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
 
         InputStream source = mContext.getResources().openRawResource(R.drawable.size_48x48);
         bitmapDrawable = new BitmapDrawable(source);
-        bitmapDrawable.setTargetDensity(mContext.getResources().getDisplayMetrics().densityDpi);
+        bitmapDrawable.setTargetDensity(bitmapDrawable.getBitmap().getDensity());
         assertEquals(48, bitmapDrawable.getIntrinsicWidth());
         assertEquals(48, bitmapDrawable.getIntrinsicHeight());
     }
 
     @SuppressWarnings("deprecation")
     public void testSetTargetDensity() {
-        BitmapDrawable bitmapDrawable = new BitmapDrawable();
+        int sourceWidth, targetWidth;
+        int sourceHeight, targetHeight;
+        int sourceDensity, targetDensity;
+        BitmapDrawable bitmapDrawable;
+        Bitmap bitmap;
 
-        Bitmap bitmap = Bitmap.createBitmap(200, 300, Config.RGB_565);
+        sourceWidth = 200;
+        sourceHeight = 300;
+        bitmap = Bitmap.createBitmap(sourceWidth, sourceHeight, Config.RGB_565);
         Canvas canvas = new Canvas(bitmap);
         bitmapDrawable = new BitmapDrawable(bitmap);
-        bitmapDrawable.setTargetDensity(canvas.getDensity());
-        assertEquals(200, bitmapDrawable.getIntrinsicWidth());
-        assertEquals(300, bitmapDrawable.getIntrinsicHeight());
+        sourceDensity = bitmap.getDensity();
+        targetDensity = canvas.getDensity();
+        bitmapDrawable.setTargetDensity(canvas);
+        targetWidth = DrawableTestUtils.scaleBitmapFromDensity(
+                sourceWidth, sourceDensity, targetDensity);
+        targetHeight = DrawableTestUtils.scaleBitmapFromDensity(
+                sourceHeight, sourceDensity, targetDensity);
+        assertEquals(targetWidth, bitmapDrawable.getIntrinsicWidth());
+        assertEquals(targetHeight, bitmapDrawable.getIntrinsicHeight());
 
-        DisplayMetrics disMetrics = new DisplayMetrics();
-        disMetrics = getInstrumentation().getTargetContext().getResources().getDisplayMetrics();
+        sourceWidth = 200;
+        sourceHeight = 300;
+        bitmap = Bitmap.createBitmap(sourceWidth, sourceHeight, Config.RGB_565);
+        bitmapDrawable = new BitmapDrawable(bitmap);
+        sourceDensity = bitmap.getDensity();
+        targetDensity = mContext.getResources().getDisplayMetrics().densityDpi;
+        bitmapDrawable.setTargetDensity(mContext.getResources().getDisplayMetrics());
+        targetWidth = DrawableTestUtils.scaleBitmapFromDensity(
+                sourceWidth, sourceDensity, targetDensity);
+        targetHeight = DrawableTestUtils.scaleBitmapFromDensity(
+                sourceHeight, sourceDensity, targetDensity);
+        assertEquals(targetWidth, bitmapDrawable.getIntrinsicWidth());
+        assertEquals(targetHeight, bitmapDrawable.getIntrinsicHeight());
+
+        sourceWidth = 48;
+        sourceHeight = 48;
         InputStream source = mContext.getResources().openRawResource(R.drawable.size_48x48);
         bitmapDrawable = new BitmapDrawable(source);
-        bitmapDrawable.setTargetDensity(disMetrics.densityDpi);
-        assertEquals(48, bitmapDrawable.getIntrinsicWidth());
-        assertEquals(48, bitmapDrawable.getIntrinsicHeight());
+        bitmap = bitmapDrawable.getBitmap();
+        sourceDensity = bitmap.getDensity();
+        targetDensity = sourceDensity * 2;
+        bitmapDrawable.setTargetDensity(targetDensity);
+        targetWidth = DrawableTestUtils.scaleBitmapFromDensity(
+                sourceWidth, sourceDensity, targetDensity);
+        targetHeight = DrawableTestUtils.scaleBitmapFromDensity(
+                sourceHeight, sourceDensity, targetDensity);
+        assertEquals(targetWidth, bitmapDrawable.getIntrinsicWidth());
+        assertEquals(targetHeight, bitmapDrawable.getIntrinsicHeight());
     }
 
     @SuppressWarnings("deprecation")
@@ -439,5 +499,136 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
         assertEquals(200, d1.getPaint().getAlpha());
         assertEquals(50, d2.getPaint().getAlpha());
         assertEquals(50, d3.getPaint().getAlpha());
+    }
+
+    private static final int[] DENSITY_VALUES = new int[] {
+            160, 80, 320
+    };
+
+    private static final int[] DENSITY_IMAGES = new int[] {
+            R.drawable.bitmap_density
+    };
+
+    private static final int[][] DENSITY_GOLDEN_IMAGES = new int[][] {
+            {
+                    R.drawable.bitmap_density_golden_160,
+                    R.drawable.bitmap_density_golden_80,
+                    R.drawable.bitmap_density_golden_320,
+            }
+    };
+
+    public void testPreloadDensity() throws XmlPullParserException, IOException {
+        final Resources res = mContext.getResources();
+        final int densityDpi = res.getConfiguration().densityDpi;
+        try {
+            testPreloadDensityInner(res, DENSITY_IMAGES[0], DENSITY_VALUES, DENSITY_GOLDEN_IMAGES[0]);
+        } finally {
+            DrawableTestUtils.setResourcesDensity(res, densityDpi);
+        }
+    }
+
+    private void testPreloadDensityInner(Resources res, int sourceResId, int[] densities,
+            int[] goldenResIds) throws XmlPullParserException, IOException {
+        final Rect tempPadding = new Rect();
+
+        // Capture initial state at preload density.
+        final int preloadDensityDpi = densities[0];
+        DrawableTestUtils.setResourcesDensity(res, preloadDensityDpi);
+
+        final XmlResourceParser parser = DrawableTestUtils.getResourceParser(res, sourceResId);
+        final BitmapDrawable preloadedDrawable = new BitmapDrawable();
+        preloadedDrawable.inflate(res, parser, Xml.asAttributeSet(parser));
+
+        final ConstantState preloadedConstantState = preloadedDrawable.getConstantState();
+        final int origWidth = preloadedDrawable.getIntrinsicWidth();
+        final int origHeight = preloadedDrawable.getIntrinsicHeight();
+        assertFalse(preloadedDrawable.getPadding(tempPadding));
+
+        compareOrSave(preloadedDrawable, preloadDensityDpi, sourceResId, goldenResIds[0]);
+
+        for (int i = 1; i < densities.length; i++) {
+            final int scaledDensityDpi = densities[i];
+            final float scale = scaledDensityDpi / (float) preloadDensityDpi;
+            DrawableTestUtils.setResourcesDensity(res, scaledDensityDpi);
+
+            final BitmapDrawable scaledDrawable =
+                    (BitmapDrawable) preloadedConstantState.newDrawable(res);
+
+            // Sizes are rounded.
+            assertEquals(Math.round(origWidth * scale), scaledDrawable.getIntrinsicWidth());
+            assertEquals(Math.round(origHeight * scale), scaledDrawable.getIntrinsicHeight());
+
+            // Bitmaps have no padding.
+            assertFalse(scaledDrawable.getPadding(tempPadding));
+
+            compareOrSave(scaledDrawable, scaledDensityDpi, sourceResId, goldenResIds[i]);
+
+            // Ensure theme density is applied correctly. Unlike most
+            // drawables, we don't have any loss of accuracy because density
+            // changes are re-computed from the source every time.
+            DrawableTestUtils.setResourcesDensity(res, preloadDensityDpi);
+
+            final Theme t = res.newTheme();
+            scaledDrawable.applyTheme(t);
+            assertEquals(origWidth, scaledDrawable.getIntrinsicWidth());
+            assertEquals(origHeight, scaledDrawable.getIntrinsicHeight());
+            assertFalse(scaledDrawable.getPadding(tempPadding));
+        }
+    }
+
+    private void compareOrSave(Drawable dr, int densityDpi, int sourceResId, int goldenResId) {
+        final int width = dr.getIntrinsicWidth();
+        final int height = dr.getIntrinsicHeight();
+        final Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        bitmap.setDensity(0);
+
+        final Canvas canvas = new Canvas(bitmap);
+        dr.setBounds(0, 0, width, height);
+        dr.draw(canvas);
+
+        if (DBG_DUMP_PNG) {
+            saveGoldenImage(bitmap, sourceResId, densityDpi);
+        } else {
+            final Bitmap golden = BitmapFactory.decodeResource(
+                    mContext.getResources(), goldenResId);
+            DrawableTestUtils.compareImages(densityDpi + " dpi", golden, bitmap,
+                    PIXEL_ERROR_THRESHOLD, PIXEL_ERROR_COUNT_THRESHOLD, 0 /* tolerance */);
+        }
+    }
+
+    private void saveGoldenImage(Bitmap bitmap, int sourceResId, int densityDpi) {
+        // Save the image to the disk.
+        FileOutputStream out = null;
+
+        try {
+            final String outputFolder = "/sdcard/temp/";
+            final File folder = new File(outputFolder);
+            if (!folder.exists()) {
+                folder.mkdir();
+            }
+
+            final String sourceFilename = new File(
+                    mContext.getResources().getString(sourceResId)).getName();
+            final String sourceTitle = sourceFilename.substring(0, sourceFilename.lastIndexOf("."));
+            final String outputTitle = sourceTitle + "_golden_" + densityDpi;
+            final String outputFilename = outputFolder + outputTitle + ".png";
+            final File outputFile = new File(outputFilename);
+            if (!outputFile.exists()) {
+                outputFile.createNewFile();
+            }
+
+            out = new FileOutputStream(outputFile, false);
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            if (out != null) {
+                try {
+                    out.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
     }
 }

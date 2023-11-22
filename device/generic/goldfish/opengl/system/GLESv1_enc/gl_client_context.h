@@ -5,6 +5,8 @@
 
 #include "gl_client_proc.h"
 
+#include "gl_types.h"
+
 
 struct gl_client_context_t {
 

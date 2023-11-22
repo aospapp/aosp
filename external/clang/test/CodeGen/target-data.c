@@ -8,11 +8,11 @@
 
 // RUN: %clang_cc1 -triple i686-unknown-win32 -emit-llvm -o - %s | \
 // RUN:     FileCheck --check-prefix=I686-WIN32 %s
-// I686-WIN32: target datalayout = "e-m:x-p:32:32-i64:64-f80:32-n8:16:32-S32"
+// I686-WIN32: target datalayout = "e-m:x-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32"
 
 // RUN: %clang_cc1 -triple i686-unknown-cygwin -emit-llvm -o - %s | \
 // RUN:     FileCheck --check-prefix=I686-CYGWIN %s
-// I686-CYGWIN: target datalayout = "e-m:x-p:32:32-i64:64-f80:32-n8:16:32-S32"
+// I686-CYGWIN: target datalayout = "e-m:x-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32"
 
 // RUN: %clang_cc1 -triple x86_64-unknown-unknown -emit-llvm -o - %s | \
 // RUN:     FileCheck --check-prefix=X86_64 %s
@@ -77,6 +77,14 @@
 // RUN: %clang_cc1 -triple le32-nacl -o - -emit-llvm %s | \
 // RUN: FileCheck %s -check-prefix=LE32-NACL
 // LE32-NACL: target datalayout = "e-p:32:32-i64:64"
+
+// RUN: %clang_cc1 -triple wasm32-unknown-unknown -o - -emit-llvm %s | \
+// RUN: FileCheck %s -check-prefix=WEBASSEMBLY32
+// WEBASSEMBLY32: target datalayout = "e-p:32:32-i64:64-n32:64-S128"
+
+// RUN: %clang_cc1 -triple wasm64-unknown-unknown -o - -emit-llvm %s | \
+// RUN: FileCheck %s -check-prefix=WEBASSEMBLY64
+// WEBASSEMBLY64: target datalayout = "e-p:64:64-i64:64-n32:64-S128"
 
 // RUN: %clang_cc1 -triple powerpc-unknown -o - -emit-llvm %s | \
 // RUN: FileCheck %s -check-prefix=PPC
@@ -149,11 +157,15 @@
 
 // RUN: %clang_cc1 -triple hexagon-unknown -o - -emit-llvm %s | \
 // RUN: FileCheck %s -check-prefix=HEXAGON
-// HEXAGON: target datalayout = "e-m:e-p:32:32-i1:32-i64:64-a:0-n32"
+// HEXAGON: target datalayout = "e-m:e-p:32:32:32-i64:64:64-i32:32:32-i16:16:16-i1:8:8-f64:64:64-f32:32:32-v64:64:64-v32:32:32-a:0-n16:32"
 
 // RUN: %clang_cc1 -triple s390x-unknown -o - -emit-llvm %s | \
 // RUN: FileCheck %s -check-prefix=SYSTEMZ
 // SYSTEMZ: target datalayout = "E-m:e-i1:8:16-i8:8:16-i64:64-f128:64-a:8:16-n32:64"
+
+// RUN: %clang_cc1 -triple s390x-unknown -target-cpu z13 -o - -emit-llvm %s | \
+// RUN: FileCheck %s -check-prefix=SYSTEMZ-VECTOR
+// SYSTEMZ-VECTOR: target datalayout = "E-m:e-i1:8:16-i8:8:16-i64:64-f128:64-v128:64-a:8:16-n32:64"
 
 // RUN: %clang_cc1 -triple msp430-unknown -o - -emit-llvm %s | \
 // RUN: FileCheck %s -check-prefix=MSP430
@@ -170,3 +182,11 @@
 // RUN: %clang_cc1 -triple spir64-unknown -o - -emit-llvm %s | \
 // RUN: FileCheck %s -check-prefix=SPIR64
 // SPIR64: target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
+
+// RUN: %clang_cc1 -triple bpfel -o - -emit-llvm %s | \
+// RUN: FileCheck %s -check-prefix=BPFEL
+// BPFEL: target datalayout = "e-m:e-p:64:64-i64:64-n32:64-S128"
+
+// RUN: %clang_cc1 -triple bpfeb -o - -emit-llvm %s | \
+// RUN: FileCheck %s -check-prefix=BPFEB
+// BPFEB: target datalayout = "E-m:e-p:64:64-i64:64-n32:64-S128"

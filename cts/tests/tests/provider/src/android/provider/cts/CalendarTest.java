@@ -3279,7 +3279,7 @@ public class CalendarTest extends InstrumentationTestCase {
     @MediumTest
     public void testMutatorSetCorrectly() {
         String account = "ec_account";
-        String packageName = "com.android.cts.provider";
+        String packageName = "android.provider.cts";
         int seed = 0;
 
         // Clean up just in case

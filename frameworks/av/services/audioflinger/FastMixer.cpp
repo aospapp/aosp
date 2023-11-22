@@ -37,18 +37,16 @@
 #include <cpustats/ThreadCpuUsage.h>
 #endif
 #endif
+#include <audio_utils/conversion.h>
 #include <audio_utils/format.h>
 #include "AudioMixer.h"
 #include "FastMixer.h"
-
-#define FCC_2                       2   // fixed channel count assumption
 
 namespace android {
 
 /*static*/ const FastMixerState FastMixer::sInitial;
 
 FastMixer::FastMixer() : FastThread(),
-    mSlopNs(0),
     // mFastTrackNames
     // mGenerations
     mOutputSink(NULL),
@@ -66,7 +64,8 @@ FastMixer::FastMixer() : FastThread(),
     mFastTracksGen(0),
     mTotalNativeFramesWritten(0),
     // timestamp
-    mNativeFramesWrittenButNotPresented(0)   // the = 0 is to silence the compiler
+    mNativeFramesWrittenButNotPresented(0),   // the = 0 is to silence the compiler
+    mMasterMono(false)
 {
     // FIXME pass sInitial as parameter to base class constructor, and make it static local
     mPrevious = &sInitial;
@@ -78,7 +77,7 @@ FastMixer::FastMixer() : FastThread(),
     mSinkChannelMask = audio_channel_out_mask_from_count(mSinkChannelCount);
 
     unsigned i;
-    for (i = 0; i < FastMixerState::kMaxFastTracks; ++i) {
+    for (i = 0; i < FastMixerState::sMaxFastTracks; ++i) {
         mFastTrackNames[i] = -1;
         mGenerations[i] = 0;
     }
@@ -141,6 +140,10 @@ void FastMixer::onStateChange()
     FastMixerDumpState * const dumpState = (FastMixerDumpState *) mDumpState;
     const size_t frameCount = current->mFrameCount;
 
+    // update boottime offset, in case it has changed
+    mTimestamp.mTimebaseOffset[ExtendedTimestamp::TIMEBASE_BOOTTIME] =
+            mBoottimeOffset.load();
+
     // handle state change here, but since we want to diff the state,
     // we're prepared for previous == &sInitial the first time through
     unsigned previousTrackMask;
@@ -184,7 +187,7 @@ void FastMixer::onStateChange()
             // FIXME new may block for unbounded time at internal mutex of the heap
             //       implementation; it would be better to have normal mixer allocate for us
             //       to avoid blocking here and to prevent possible priority inversion
-            mMixer = new AudioMixer(frameCount, mSampleRate, FastMixerState::kMaxFastTracks);
+            mMixer = new AudioMixer(frameCount, mSampleRate, FastMixerState::sMaxFastTracks);
             const size_t mixerFrameSize = mSinkChannelCount
                     * audio_bytes_per_sample(mMixerBufferFormat);
             mMixerBufferSize = mixerFrameSize * frameCount;
@@ -211,7 +214,7 @@ void FastMixer::onStateChange()
         }
         mMixerBufferState = UNDEFINED;
 #if !LOG_NDEBUG
-        for (unsigned i = 0; i < FastMixerState::kMaxFastTracks; ++i) {
+        for (unsigned i = 0; i < FastMixerState::sMaxFastTracks; ++i) {
             mFastTrackNames[i] = -1;
         }
 #endif
@@ -334,6 +337,11 @@ void FastMixer::onWork()
 
     if ((command & FastMixerState::MIX) && (mMixer != NULL) && mIsWarm) {
         ALOG_ASSERT(mMixerBuffer != NULL);
+
+        // AudioMixer::mState.enabledTracks is undefined if mState.hook == process__validate,
+        // so we keep a side copy of enabledTracks
+        bool anyEnabledTracks = false;
+
         // for each track, update volume and check for underrun
         unsigned currentTrackMask = current->mTrackMask;
         while (currentTrackMask != 0) {
@@ -341,21 +349,23 @@ void FastMixer::onWork()
             currentTrackMask &= ~(1 << i);
             const FastTrack* fastTrack = &current->mFastTracks[i];
 
-            // Refresh the per-track timestamp
-            if (mTimestampStatus == NO_ERROR) {
-                uint32_t trackFramesWrittenButNotPresented =
-                    mNativeFramesWrittenButNotPresented;
-                uint32_t trackFramesWritten = fastTrack->mBufferProvider->framesReleased();
-                // Can't provide an AudioTimestamp before first frame presented,
-                // or during the brief 32-bit wraparound window
-                if (trackFramesWritten >= trackFramesWrittenButNotPresented) {
-                    AudioTimestamp perTrackTimestamp;
-                    perTrackTimestamp.mPosition =
-                            trackFramesWritten - trackFramesWrittenButNotPresented;
-                    perTrackTimestamp.mTime = mTimestamp.mTime;
-                    fastTrack->mBufferProvider->onTimestamp(perTrackTimestamp);
-                }
+            const int64_t trackFramesWrittenButNotPresented =
+                mNativeFramesWrittenButNotPresented;
+            const int64_t trackFramesWritten = fastTrack->mBufferProvider->framesReleased();
+            ExtendedTimestamp perTrackTimestamp(mTimestamp);
+
+            // Can't provide an ExtendedTimestamp before first frame presented.
+            // Also, timestamp may not go to very last frame on stop().
+            if (trackFramesWritten >= trackFramesWrittenButNotPresented &&
+                    perTrackTimestamp.mTimeNs[ExtendedTimestamp::LOCATION_KERNEL] > 0) {
+                perTrackTimestamp.mPosition[ExtendedTimestamp::LOCATION_KERNEL] =
+                        trackFramesWritten - trackFramesWrittenButNotPresented;
+            } else {
+                perTrackTimestamp.mPosition[ExtendedTimestamp::LOCATION_KERNEL] = 0;
+                perTrackTimestamp.mTimeNs[ExtendedTimestamp::LOCATION_KERNEL] = -1;
             }
+            perTrackTimestamp.mPosition[ExtendedTimestamp::LOCATION_SERVER] = trackFramesWritten;
+            fastTrack->mBufferProvider->onTimestamp(perTrackTimestamp);
 
             int name = mFastTrackNames[i];
             ALOG_ASSERT(name >= 0);
@@ -392,24 +402,26 @@ void FastMixer::onWork()
                     underruns.mBitFields.mPartial++;
                     underruns.mBitFields.mMostRecent = UNDERRUN_PARTIAL;
                     mMixer->enable(name);
+                    anyEnabledTracks = true;
                 }
             } else {
                 underruns.mBitFields.mFull++;
                 underruns.mBitFields.mMostRecent = UNDERRUN_FULL;
                 mMixer->enable(name);
+                anyEnabledTracks = true;
             }
             ftDump->mUnderruns = underruns;
             ftDump->mFramesReady = framesReady;
         }
 
-        int64_t pts;
-        if (mOutputSink == NULL || (OK != mOutputSink->getNextWriteTimestamp(&pts))) {
-            pts = AudioBufferProvider::kInvalidPTS;
+        if (anyEnabledTracks) {
+            // process() is CPU-bound
+            mMixer->process();
+            mMixerBufferState = MIXED;
+        } else if (mMixerBufferState != ZEROED) {
+            mMixerBufferState = UNDEFINED;
         }
 
-        // process() is CPU-bound
-        mMixer->process(pts);
-        mMixerBufferState = MIXED;
     } else if (mMixerBufferState == MIXED) {
         mMixerBufferState = UNDEFINED;
     }
@@ -418,6 +430,11 @@ void FastMixer::onWork()
         if (mMixerBufferState == UNDEFINED) {
             memset(mMixerBuffer, 0, mMixerBufferSize);
             mMixerBufferState = ZEROED;
+        }
+
+        if (mMasterMono.load()) {  // memory_order_seq_cst
+            mono_blend(mMixerBuffer, mMixerBufferFormat, Format_channelCount(mFormat), frameCount,
+                    true /*limit*/);
         }
         // prepare the buffer used to write to sink
         void *buffer = mSinkBuffer != NULL ? mSinkBuffer : mMixerBuffer;
@@ -450,16 +467,35 @@ void FastMixer::onWork()
         mAttemptedWrite = true;
         // FIXME count # of writes blocked excessively, CPU usage, etc. for dump
 
-        mTimestampStatus = mOutputSink->getTimestamp(mTimestamp);
-        if (mTimestampStatus == NO_ERROR) {
-            uint32_t totalNativeFramesPresented = mTimestamp.mPosition;
+        ExtendedTimestamp timestamp; // local
+        status_t status = mOutputSink->getTimestamp(timestamp);
+        if (status == NO_ERROR) {
+            const int64_t totalNativeFramesPresented =
+                    timestamp.mPosition[ExtendedTimestamp::LOCATION_KERNEL];
             if (totalNativeFramesPresented <= mTotalNativeFramesWritten) {
                 mNativeFramesWrittenButNotPresented =
                     mTotalNativeFramesWritten - totalNativeFramesPresented;
+                mTimestamp.mPosition[ExtendedTimestamp::LOCATION_KERNEL] =
+                        timestamp.mPosition[ExtendedTimestamp::LOCATION_KERNEL];
+                mTimestamp.mTimeNs[ExtendedTimestamp::LOCATION_KERNEL] =
+                        timestamp.mTimeNs[ExtendedTimestamp::LOCATION_KERNEL];
             } else {
                 // HAL reported that more frames were presented than were written
-                mTimestampStatus = INVALID_OPERATION;
+                mNativeFramesWrittenButNotPresented = 0;
+                status = INVALID_OPERATION;
             }
+        }
+        if (status == NO_ERROR) {
+            mTimestamp.mTimeNs[ExtendedTimestamp::LOCATION_SERVER] =
+                    mTimestamp.mTimeNs[ExtendedTimestamp::LOCATION_KERNEL];
+        } else {
+            // fetch server time if we can't get timestamp
+            mTimestamp.mTimeNs[ExtendedTimestamp::LOCATION_SERVER] =
+                    systemTime(SYSTEM_TIME_MONOTONIC);
+            // clear out kernel cached position as this may get rapidly stale
+            // if we never get a new valid timestamp
+            mTimestamp.mPosition[ExtendedTimestamp::LOCATION_KERNEL] = 0;
+            mTimestamp.mTimeNs[ExtendedTimestamp::LOCATION_KERNEL] = -1;
         }
     }
 }

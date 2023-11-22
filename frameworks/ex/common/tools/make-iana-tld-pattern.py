@@ -25,6 +25,29 @@ URL_PREFIX = r"""
 """
 
 URL_SUFFIX = ';'
+TAB = '        '
+
+class BucketOutput:
+    def __init__(self):
+        self.buffer = TAB
+        self.lineLength = len(TAB)
+
+    def __iadd__(self, other):
+        self.buffer += other
+        self.lineLength += len(other)
+        return self
+
+    def addPipe(self):
+        if self.lineLength > 90:
+            self.buffer += '"\n'
+            self.buffer += TAB
+            self.buffer += '+ "'
+            self.lineLength = len(TAB)
+
+        self += '|'
+
+    def value(self):
+        return self.buffer
 
 class Bucket:
     def __init__(self, baseLetter):
@@ -39,7 +62,7 @@ class Bucket:
         self.words.sort()
         self.letters.sort()
 
-        output = '        ';
+        output = BucketOutput()
 
         if isFirst:
             if isWebUrl:
@@ -58,7 +81,7 @@ class Bucket:
         firstWord = 1
         for word in self.words:
             if firstWord == 0:
-                output += '|'
+                output.addPipe()
             firstWord = 0
             for letter in word:
                 if letter == '-':
@@ -66,7 +89,7 @@ class Bucket:
                 output += letter
 
         if len(self.words) > 0 and len(self.letters) > 0:
-            output += '|'
+            output.addPipe()
 
         if len(self.letters) == 1:
             output += '%c%c' % (self.base, self.letters[0])
@@ -85,7 +108,7 @@ class Bucket:
             output += '"'
             output += '\n'
 
-        return output;
+        return output.value();
 
     def add(self, line):
         length = len(line)

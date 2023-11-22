@@ -18,6 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="applicationLabel" msgid="3906689777043645443">"Харилцагчид"</string>
     <string name="launcherActivityLabel" msgid="6497230399032392417">"Харилцагчид"</string>
+    <string name="quickContactActivityLabel" msgid="7985456650689347268">"Харилцагчийн хаягийг харах"</string>
+    <string name="editContactActivityLabel" msgid="1129944572070802839">"Харилцагчийн хаягийг засварлах"</string>
     <string name="contactsList" msgid="8661624236494819731">"Харилцагчид"</string>
     <string name="shortcutContact" msgid="749243779392912958">"Харилцагч"</string>
     <string name="shortcutDialContact" msgid="746622101599186779">"Шууд залгах"</string>
@@ -50,36 +52,48 @@
     <string name="menu_create_contact_shortcut" msgid="1217971915748509640">"Үндсэн дэлгэц дээр байршуулах"</string>
     <string name="menu_call" msgid="3992595586042260618">"Харилцагч руу залгах"</string>
     <string name="menu_sendSMS" msgid="5535886767547006515">"Харилцагч руу зурвас илгээх"</string>
-    <string name="menu_splitAggregate" msgid="8368636463748691868">"Салгах"</string>
+    <string name="menu_splitAggregate" msgid="2627252205317945563">"Холбоосыг салгах"</string>
     <string name="menu_editGroup" msgid="5062005185370983720">"Засах"</string>
     <string name="menu_deleteGroup" msgid="3486380004411482874">"Устгах"</string>
     <string name="menu_new_contact_action_bar" msgid="7263362129442119188">"Харилцагч нэмэх"</string>
     <string name="menu_new_group_action_bar" msgid="3520232877587377175">"Бүлгэм нэмэх"</string>
-    <string name="splitConfirmation_title" msgid="633640935430370530">"Харилцагчийг хуваах уу?"</string>
-    <string name="splitConfirmation" msgid="740190210499587175">"Энэ харилцагч олон харилцагчид хуваагдах болно."</string>
-    <string name="menu_joinAggregate" msgid="4050157483569357666">"Нэгтгэх"</string>
+    <string name="splitConfirmation" msgid="7342030840130187290">"Энэ харилцагчийн хаягийг олон харилцагч болгон салгах уу?"</string>
+    <string name="splitConfirmation_positive_button" msgid="9129409098807939699">"Салгах"</string>
+    <string name="splitConfirmationWithPendingChanges" msgid="7719062163511895696">"Та энэ харилцагчийн жагсаалтыг салгаад, олон харилцагч болгосон өөрчлөлтийг хадгалах уу?"</string>
+    <string name="splitConfirmationWithPendingChanges_positive_button" msgid="9073444264887244032">"Хадгалаад холбоосыг салгах"</string>
+    <string name="joinConfirmation" msgid="8262614843581924365">"Та хийсэн өөрчлөлтөө хадгалж, сонгосон харилцагчтай холбох уу?"</string>
+    <string name="joinConfirmation_positive_button" msgid="4573092849769149516">"Хадгалаад холбох"</string>
+    <string name="menu_joinAggregate" msgid="3599512127797513606">"Холбох"</string>
     <string name="menu_save" msgid="1727844363591825909">"Хадгалах"</string>
-    <string name="titleJoinContactDataWith" msgid="7684875775798635354">"Харилцагчдыг холбох"</string>
-    <string name="blurbJoinContactDataWith" msgid="8736488417422708236">"<xliff:g id="NAME">%s</xliff:g>-тай холбохыг хүсэж буй харилцагчийг сонгоно уу:"</string>
+    <string name="titleJoinContactDataWith" msgid="6825255752748313944">"Харилцагчийн жагсаалтыг холбох"</string>
+    <string name="blurbJoinContactDataWith" msgid="5864256698061641841">"<xliff:g id="NAME">%s</xliff:g> харилцагчтай холбохыг хүсэж буй харилцагчийг сонгоно уу:"</string>
     <string name="showAllContactsJoinItem" msgid="2189695051430392383">"Бүх харилцагчдыг харуулах"</string>
     <string name="separatorJoinAggregateSuggestions" msgid="2831414448851313345">"Санал болгосон харилцагчид"</string>
     <string name="separatorJoinAggregateAll" msgid="7939932265026181043">"Бүх харилцагчид"</string>
-    <string name="contactsJoinedMessage" msgid="656936718666768589">"Холбоо барих хаягуудыг нэгтгэсэн"</string>
-    <string name="contacts_deleted_toast" msgid="286851430992788215">"Холбоо барих хаягуудыг устгасан"</string>
+    <string name="contactsJoinedMessage" msgid="3343535986195643136">"Холбосон харилцагчид"</string>
+    <plurals name="contacts_deleted_toast" formatted="false" msgid="1477708624197262295">
+      <item quantity="other">Харилцагчийг устгасан</item>
+      <item quantity="one">Харилцагчийг устгасан</item>
+    </plurals>
     <string name="menu_set_ring_tone" msgid="8728345772068064946">"Хонхны ая суулгах"</string>
     <string name="menu_redirect_calls_to_vm" msgid="4181789196416396656">"Бүх дуудлагыг дуут шуудан руу"</string>
-    <string name="readOnlyContactWarning" msgid="7808825687289848259">"Та зөвхөн-унших акаунтаас харилцагчдыг устгаж чадахгүй, харин харилцагчдын жагсаалтаасаас нууцлаж болно."</string>
-    <string name="readOnlyContactDeleteConfirmation" msgid="2137170726670196909">"Энэ харилцагчид олон акаунтын мэдээлэл агуулагдаж байна. Зөвхөн-унших акаунтуудын мэдээллийг харилцагчийн жагсаалтаас устгахгүйгээр нууцлах болно."</string>
-    <string name="batch_merge_single_contact_warning" msgid="982585201970392110">"Та нэгтгэх үйлдэл хийхдээ доод тал нь хоёр хаяг сонгох ёстой."</string>
-    <string name="batch_merge_confirmation" msgid="8551299480317422420">"Сонгосон хаягуудыг нэг хаяг руу нэгтгэнэ."</string>
-    <string name="batch_delete_confirmation" msgid="2564172328268885394">"Сонгосон харилцах хаягуудыг устгах болно."</string>
-    <string name="batch_delete_read_only_contact_confirmation" msgid="6614878716815412523">"Зөвхөн унших зориулалттай акаунтуудын мэдээлэл таны харилцах жагсаалтанд нуугдсан байдалтай үлдэх бөгөөд устгагдахгүй."</string>
-    <string name="batch_delete_multiple_accounts_confirmation" msgid="5189722181586680185">"Эдгээр харилцах хаягууд нь олон тооны акаунтын мэдээллийг агуулж байна. Зөвхөн унших зориулалттай акаунтуудын мэдээлэл таны харилцах жагсаалтанд нуугдсан байдалтай үлдэх бөгөөд устгагдахгүй."</string>
-    <string name="multipleContactDeleteConfirmation" msgid="938900978442960800">"Энэ харилцагчийг устгаснаар олон акаунтаас мэдээллийг устгах болно."</string>
-    <string name="deleteConfirmation" msgid="811706994761610640">"Энэ харилцагч устгагдах болно."</string>
+    <string name="readOnlyContactWarning" msgid="5526727661978307833">"Таны зөвхөн унших боломжтой бүртгэлийн харилцагчийг устгах боломжгүй, харин нуух боломжтой."</string>
+    <string name="readOnlyContactWarning_positive_button" msgid="6541862607313811926">"Нуух"</string>
+    <string name="readOnlyContactDeleteConfirmation" msgid="8782086424739664753">"Энэхүү устгах гэж байгаа харилцагчийн хаяг нь хэд хэдэн бүртгэлийн дэлгэрэнгүй мэдээллийг агуулсан байна. Зөвхөн унших боломжтой бүртгэлийн мэдээллийг нууж болно, харин устгах боломжгүй."</string>
+    <string name="batch_link_single_contact_warning" msgid="1346058571502058767">"Холбохын тулд та доод тал нь хоёр харилцагч сонгох ёстой."</string>
+    <string name="batch_link_confirmation" msgid="5845237114309114908">"Сонгосон харилцагчийг холбох уу?"</string>
+    <string name="batch_link_confirmation_positive_button" msgid="5018899675473363525">"Холбох"</string>
+    <string name="single_delete_confirmation" msgid="3106905986948679720">"Энэ харилцагчийн хаягийг устгах уу?"</string>
+    <string name="batch_delete_confirmation" msgid="3984346060324014108">"Сонгосон харилцагч хаягийг устгах уу?"</string>
+    <string name="batch_delete_read_only_contact_confirmation" msgid="8411117621035639964">"Зөвхөн унших боломжтой бүртгэлийн харилцагчийг устгах боломжгүй, харин нуух боломжтой."</string>
+    <string name="batch_delete_multiple_accounts_confirmation" msgid="8207205649127030030">"Энэ харилцагчийн хаягт хэд хэдэн бүртгэлийн мэдээллийг агуулсан учир устгах боломжгүй.Зөвхөн унших боломжтой бүртгэлийг нуух боломжтой ч, устгах боломжгүй."</string>
+    <string name="multipleContactDeleteConfirmation" msgid="5235324124905653550">"Энэ харилцагчийг устгаснаар хэд хэдэн бүртгэлийн мэдээллийг устгах болно."</string>
+    <string name="deleteConfirmation" msgid="3512271779086656043">"Энэ харилцагчийг устгах уу?"</string>
+    <string name="deleteConfirmation_positive_button" msgid="7857888845028586365">"Устгах"</string>
     <string name="menu_discard" msgid="6854657936970228164">"Өөрчлөлтүүдийг цуцлах"</string>
     <string name="invalidContactMessage" msgid="8215051456181842274">"Харилцагч байхгүй байна."</string>
-    <string name="createContactShortcutSuccessful" msgid="7874133287558150877">"Харилцагчийн виджетийг Үндсэн дэлгэцэнд нэмсэн."</string>
+    <string name="createContactShortcutSuccessful_NoName" msgid="8831303345367275472">"Харилцагчийг нүүр хуудсанд нэмсэн."</string>
+    <string name="createContactShortcutSuccessful" msgid="953651153238790069">"<xliff:g id="NAME">%s</xliff:g>-г нүүр хуудсанд нэмсэн."</string>
     <string name="pickerNewContactHeader" msgid="7750705279843568147">"Шинэ харилцагч үүсгэх"</string>
     <string name="pickerNewContactText" msgid="6166997164401048211">"Шинэ харилцагч үүсгэх"</string>
   <string-array name="otherLabels">
@@ -92,14 +106,18 @@
     <string name="customLabelPickerTitle" msgid="1081475101983255212">"Захиалгат шошгын нэр"</string>
     <string name="send_to_voicemail_checkbox" msgid="9001686764070676353">"Дуут шуудан руу шууд дуудлага хийх"</string>
     <string name="removePhoto" msgid="4898105274130284565">"Зургийг арилгах"</string>
-    <string name="noContacts" msgid="8579310973261953559">"Харилцагч байхгүй."</string>
+    <string name="noContacts" msgid="4955659076981974652">"Харилцагч байхгүй"</string>
     <string name="noGroups" msgid="8614664663561385253">"Бүлгэм байхгүй байна."</string>
-    <string name="noAccounts" msgid="7768267764545265909">"Бүлгэм үүсгэхийн тулд танд акаунт хэрэгтэй."</string>
+    <string name="noAccounts" msgid="7768267764545265909">"Бүлгэм үүсгэхийн тулд танд бүртгэл хэрэгтэй."</string>
     <string name="emptyGroup" msgid="7502116218697177370">"Энэ бүлгэмд хүн алга."</string>
     <string name="addPeopleToGroup" msgid="7879585947222263516">"Нэмэхийн тулд бүлгэмд өөрчлөлт оруулна уу."</string>
     <string name="savingContact" msgid="4075751076741924939">"Харилцагчийг хадгалж байна…"</string>
-    <string name="contactSavedToast" msgid="7152589189385441091">"Харилцагчийг хадгалсан."</string>
+    <string name="contactSavedToast" msgid="9171862279493213075">"Харилцагчийг хадгалсан"</string>
+    <string name="contactUnlinkedToast" msgid="7122823195786012553">"Харилцагчийг салгасан"</string>
     <string name="contactSavedErrorToast" msgid="3207250533172944892">"Харилцагчийн өөрчлөлтүүдийг хадгалж чадсангүй."</string>
+    <string name="contactUnlinkErrorToast" msgid="2758070702785994171">"Харилцагчийг салгаж чадсангүй."</string>
+    <string name="contactJoinErrorToast" msgid="3977932531264809035">"Харилцагчийг холбож чадсангүй."</string>
+    <string name="contactGenericErrorToast" msgid="7774911165341591714">"Харилцагчийн хаягийг хадгалахад алдаа гарлаа."</string>
     <string name="contactPhotoSavedErrorToast" msgid="4079032272022979114">"Харилцагчийн зургийн өөрчлөлтийг хадгалж чадсангүй."</string>
     <string name="groupSavedToast" msgid="1168756874239833756">"Бүлгэм хадгалагдлаа."</string>
     <string name="groupSavedErrorToast" msgid="7984466936615304740">"Бүлгэмийн өөрчлөлтүүдийг хадгалж чадсангүй."</string>
@@ -117,7 +135,7 @@
       <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> олдсон байна</item>
       <item quantity="one">1 олсон байна</item>
     </plurals>
-    <string name="all_contacts_tab_label" msgid="6250372293594147703">"Бүх харилцагчид"</string>
+    <string name="all_contacts_tab_label" msgid="5948889261993124839">"Бүгд"</string>
     <string name="favorites_tab_label" msgid="1524869648904016414">"Дуртай"</string>
     <string name="callBack" msgid="5498224409038809224">"Буцааж залгах"</string>
     <string name="callAgain" msgid="3197312117049874778">"Дахин залгана уу"</string>
@@ -135,7 +153,7 @@
     <string name="menu_share" msgid="943789700636542260">"Хуваалцах"</string>
     <string name="menu_add_contact" msgid="3198704337220892684">"Харилцагчдад нэмэх"</string>
     <string name="share_via" msgid="563121028023030093">"Харилцагчийг дараахаар хуваалцах"</string>
-    <string name="dialog_new_group_account" msgid="2318032089273496830">"Акаунт дотор бүлгэм үүсгэх"</string>
+    <string name="dialog_new_group_account" msgid="2318032089273496830">"Бүртгэл дотор бүлгэм үүсгэх"</string>
     <string name="audio_chat" msgid="2535716629358298691">"Дуут чат"</string>
     <string name="video_chat" msgid="1872255818640336072">"Видео чат"</string>
     <string name="connections" msgid="8098440723172028350">"Холболтууд"</string>
@@ -166,11 +184,7 @@
     <string name="primary_photo" msgid="8517942231868516999">"Ерөнхий зураг"</string>
     <string name="description_star" msgid="2605854427360036550">"дуртай"</string>
     <string name="edit_contact" msgid="7529281274005689512">"Харилцагчийг засварлах"</string>
-    <plurals name="merge_info" formatted="false" msgid="2489323424994280962">
-      <item quantity="other"> <xliff:g id="COUNT">%0$d</xliff:g> эх үүсвэрээс нэгтгэлийг хийсэн байна</item>
-      <item quantity="one">нэгтгэгдээгүй байна</item>
-    </plurals>
-    <string name="aggregation_suggestion_join_dialog_message" msgid="3842757977671434836">"Энэ харилцагчийг сонгосон харилцагчтай холбох уу?"</string>
+    <string name="aggregation_suggestion_join_dialog_message" msgid="6786192560870357912">"Энэ харилцагчийг сонгосон харилцагчтай холбох уу?"</string>
     <string name="aggregation_suggestion_edit_dialog_message" msgid="6549585283910518095">"Сонгосон харилцагчийг засварлах руу шилжих үү? Таны оруулсан мэдээллүүд хуулагдах болно."</string>
     <string name="menu_copyContact" msgid="1573960845106822639">"Миний Харилцагчид руу хуулах"</string>
     <string name="add_to_my_contacts" msgid="1068274916793627723">"Миний харилцагчдад нэмэх"</string>
@@ -178,7 +192,7 @@
     <string name="list_filter_custom" msgid="8910173055702057002">"Тохируулсан"</string>
     <string name="activity_title_settings" msgid="5464130076132770781">"Тохиргоо"</string>
     <string name="menu_settings" msgid="377929915873428211">"Тохиргоо"</string>
-    <string name="menu_help" msgid="1680178646764069976">"Тусламж &amp; санал хүсэлт"</string>
+    <string name="menu_help" msgid="1680178646764069976">"Тусламж, санал хүсэлт"</string>
     <string name="preference_displayOptions" msgid="1341720270148252393">"Харуулах сонголтууд"</string>
     <string name="organization_company_and_title" msgid="6718207751363732025">"<xliff:g id="COMPANY_0">%2$s</xliff:g>, <xliff:g id="COMPANY_1">%1$s</xliff:g>"</string>
     <string name="non_phone_caption" msgid="1541655052330027380">"Утасны дугаар"</string>
@@ -186,12 +200,12 @@
     <string name="activity_title_confirm_add_detail" msgid="4065089866210730616">"Харилцагчид нэмэх"</string>
     <string name="non_phone_close" msgid="7608506439725515667">"Хаах"</string>
     <string name="widget_name_and_phonetic" msgid="8739586586600099979">"<xliff:g id="DISPLAY_NAME">%1$s</xliff:g> (<xliff:g id="PHONETIC_NAME">%2$s</xliff:g>)"</string>
-    <string name="date_year_toggle" msgid="7356532842767854606">"Жилийг оруулах"</string>
+    <string name="date_year_toggle" msgid="7122002148518724139">"Жил оруулах"</string>
     <string name="social_widget_label" msgid="6378905543028924592">"Харилцагч"</string>
     <string name="social_widget_loading" msgid="5327336597364074608">"Ачаалж байна..."</string>
-    <string name="contacts_unavailable_create_contact" msgid="7014525713871959208">"Шинэ акаунт үүсгэх"</string>
-    <string name="contacts_unavailable_add_account" msgid="7911101713860139754">"Акаунт руу нэвтрэн орох"</string>
-    <string name="contacts_unavailable_import_contacts" msgid="4957393255392437529">"Харилцагчид импорт хийх"</string>
+    <string name="contacts_unavailable_create_contact" msgid="7014525713871959208">"Шинэ харилцагч үүсгэх"</string>
+    <string name="contacts_unavailable_add_account" msgid="4347232421410561500">"Бүртгэл нэмэх"</string>
+    <string name="contacts_unavailable_import_contacts" msgid="4957393255392437529">"Харилцагчид импортлох"</string>
     <string name="create_group_dialog_title" msgid="6874527142828424475">"Шинэ бүлгэм үүсгэх"</string>
     <string name="create_group_item_label" msgid="4411981763169654825">"Шинэ бүлгэм үүсгэх"</string>
     <plurals name="num_groups_in_account" formatted="false" msgid="6189297639209663469">
@@ -207,30 +221,31 @@
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> хүн</item>
       <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> хүн</item>
     </plurals>
-    <string name="toast_join_with_empty_contact" msgid="2238581529864542985">"Өөр харилцагчтай холбохын өмнө харилцагчийн нэрийг оруулна уу."</string>
+    <string name="toast_join_with_empty_contact" msgid="1215465657839085613">"Өөр харилцагчийн жагсаалттай холбохын тулд харилцагчийн нэрийг бичнэ үү."</string>
     <string name="copy_text" msgid="3257145021583508761">"Түр санах ойд хуулах"</string>
     <string name="set_default" msgid="4417505153468300351">"Үндсэн болгох"</string>
     <string name="clear_default" msgid="7193185801596678067">"Үндсэнээс хасах"</string>
     <string name="toast_text_copied" msgid="5143776250008541719">"Текст хуулагдав"</string>
-    <string name="cancel_confirmation_dialog_message" msgid="5885724679874403115">"Өөрчлөлтүүдээ цуцлах уу?"</string>
+    <string name="cancel_confirmation_dialog_message" msgid="5058226498605989285">"Таны өөрчлөлтийн устгал, засварыг болих уу?"</string>
+    <string name="cancel_confirmation_dialog_cancel_editing_button" msgid="3057023972074640671">"Устгах"</string>
+    <string name="cancel_confirmation_dialog_keep_editing_button" msgid="7737724111972855348">"Үргэлжлүүлэн засах"</string>
     <string name="call_type_and_date" msgid="747163730039311423">"<xliff:g id="CALL_TYPE">%1$s</xliff:g> <xliff:g id="CALL_SHORT_DATE">%2$s</xliff:g>"</string>
-    <string name="profile_display_name" msgid="4127389543625918771">"Миний профайлийн тохиргоо"</string>
+    <string name="profile_display_name" msgid="4127389543625918771">"Миний профайлын тохиргоо"</string>
     <string name="enter_contact_name" msgid="1738391320566349924">"Хүний нэрийг бичнэ үү"</string>
     <string name="group_name_hint" msgid="238359485263401293">"Бүлгэмийн Нэр"</string>
     <string name="local_profile_title" msgid="2021416826991393684">"Миний дотоод профайл"</string>
     <string name="external_profile_title" msgid="8034998767621359438">"Миний <xliff:g id="EXTERNAL_SOURCE">%1$s</xliff:g> профайл"</string>
     <string name="toast_displaying_all_contacts" msgid="2737388783898593875">"Бүх харилцагчийг харуулж байна"</string>
-    <string name="no_account_prompt" msgid="6424883302325061025">"Харилцагчид нь Google акаунттай сайн тохирдог.\n\n• Дурын веб хөтчөөс хандах боломжтой.\n• Өөрийн харилцагчдыг найдвартай нөөшлөнө."</string>
     <string name="generic_no_account_prompt" msgid="7218827704367325460">"Утсаа гээсэн ч харилцагчдаа найдвартай хадгалаарай: онлайн үйлчилгээгээр синк хийгээрэй."</string>
-    <string name="generic_no_account_prompt_title" msgid="753783911899054860">"Акаунт нэмэх"</string>
+    <string name="generic_no_account_prompt_title" msgid="753783911899054860">"Бүртгэл нэмэх"</string>
     <string name="contact_editor_prompt_zero_accounts" msgid="1785345895691886499">"Таны шинэ харилцагч нөөцлөгдөхгүй. Харилцагчдыг онлайнаар нөөцөлдөг акаунтыг нэмэх үү?"</string>
-    <string name="contact_editor_prompt_one_account" msgid="8669032699767375976">"Таны шинэ харилцагч <xliff:g id="ACCOUNT_NAME">%1$s</xliff:g>-тай синк хийгдэх болно."</string>
-    <string name="contact_editor_prompt_multiple_accounts" msgid="611828200100438242">"Та өөрийн шинэ харилцагчийг дараах акаунтуудын нэгтэй нь синк хийж болно. Алийг нь ашиглах вэ?"</string>
+    <string name="contact_editor_prompt_one_account" msgid="3087691056345099310">"Шинэ харилцагчийн хаягийг <xliff:g id="ACCOUNT_NAME">%1$s</xliff:g>-д хадгална."</string>
+    <string name="contact_editor_prompt_multiple_accounts" msgid="8565761674283473549">"Шинэ харилцагчид өгөгдмөл бүртгэл сонгох:"</string>
     <string name="contact_editor_title_new_contact" msgid="7192223018128934940">"Шинэ харилцагч нэмэх"</string>
     <string name="contact_editor_title_existing_contact" msgid="4898475703683187798">"Харилцагчийг засварлах"</string>
-    <string name="keep_local" msgid="1258761699192993322">"Төхөөрөмжид хадгалах"</string>
-    <string name="add_account" msgid="8201790677994503186">"Акаунт нэмэх"</string>
-    <string name="add_new_account" msgid="5748627740680940264">"Шинэ акаунт нэмэх"</string>
+    <string name="keep_local" msgid="1258761699192993322">"Дотор хадгалах"</string>
+    <string name="add_account" msgid="8201790677994503186">"Бүртгэл нэмэх"</string>
+    <string name="add_new_account" msgid="5748627740680940264">"Шинэ бүртгэл нэмэх"</string>
     <string name="menu_export_database" msgid="2659719297530170820">"Өгөгдлийн сангийн файлуудыг экспорт хийх"</string>
     <string name="action_menu_add_new_contact_button" msgid="3180222523336380017">"шинэ харилцагч нэмэх"</string>
     <string name="expanding_entry_card_view_see_more" msgid="3779194067124758079">"Дэлгэрэнгүй үзэх"</string>
@@ -255,7 +270,7 @@
     <string name="header_website_entry" msgid="1411467850000824745">"Вебсайт"</string>
     <string name="header_event_entry" msgid="6738250422744401460">"Үйл явдал"</string>
     <string name="header_relation_entry" msgid="1520292958088146460">"Хамаарал"</string>
-    <string name="header_account_entry" msgid="2684318506427891827">"Акаунт"</string>
+    <string name="header_account_entry" msgid="2684318506427891827">"Бүртгэл"</string>
     <string name="header_name_entry" msgid="1592791008096288306">"Нэр"</string>
     <string name="header_email_entry" msgid="8666093061171624478">"Имэйл"</string>
     <string name="header_phone_entry" msgid="8450980572274173570">"Утас"</string>
@@ -270,7 +285,47 @@
     <string name="content_description_recent_call" msgid="5183800406316723676">"саяхны дуудлага. <xliff:g id="CALL_TYPE">%s</xliff:g>. <xliff:g id="PHONE_NUMBER">%s</xliff:g>. <xliff:g id="DATE">%s</xliff:g>. буцааж залгахын тулд товшино уу"</string>
     <string name="message_from_you_prefix" msgid="7180706529908434482">"Та: <xliff:g id="SMS_BODY">%s</xliff:g>"</string>
     <string name="contact_editor_hangouts_im_alert" msgid="114855385615225735">"Hangouts апликейшн нь таныг найзуудынхаа мэдээллийг харилцагчийн и-мэйл эсвэл гар утасны талбарт оруулбал илүү сайн ажилладаг."</string>
-    <string name="compact_editor_more_fields" msgid="2874181192382284115">"Нэмэлт талбарууд"</string>
+    <string name="compact_editor_more_fields" msgid="5987638193568699600">"Нэмэлт талбар"</string>
     <string name="compact_editor_change_photo_content_description" msgid="5495487714301211540">"Зураг солих"</string>
+    <string name="compact_editor_failed_to_load" msgid="4557094426388044958">"Засварлагчийг нээж чадсангүй."</string>
+    <string name="compact_editor_account_selector_title" msgid="5119592614151786601">"Дараахад хадгалж байна"</string>
+    <string name="compact_editor_account_selector_description" msgid="2127184829759350507">"Одоогоор <xliff:g id="ACCOUNT_NAME">%s</xliff:g>-д хадгалж байна. Өөр бүртгэл сонгохын тулд хоёр товшино уу."</string>
+    <plurals name="compact_editor_linked_contacts_selector_title" formatted="false" msgid="9156207930915878316">
+      <item quantity="other">Холбосон харилцагч (<xliff:g id="COUNT">%d</xliff:g>)</item>
+      <item quantity="one">Холбосон харилцагч</item>
+    </plurals>
+    <string name="quickcontact_contacts_number" msgid="6036916944287597682">"<xliff:g id="COUNT">%d</xliff:g> холбосон харилцагч"</string>
     <string name="quick_contact_display_name_with_phonetic" msgid="3692038078718876610">"<xliff:g id="DISPLAY_NAME">%s</xliff:g> (<xliff:g id="PHONETIC_NAME">%s</xliff:g>)"</string>
+    <string name="quickcontact_suggestion_link_button" msgid="3244619714781727946">"ХАРИЛЦАГЧДЫГ ХОЛБОХ"</string>
+    <string name="quickcontact_suggestion_cancel_button" msgid="8236954313106630862">"ЦУЦЛАХ"</string>
+    <plurals name="quickcontact_suggestion_card_title" formatted="false" msgid="2660005966628746406">
+      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> боломжит хуулбар</item>
+      <item quantity="one">1 боломжит хуулбар</item>
+    </plurals>
+    <plurals name="quickcontact_suggestions_number" formatted="false" msgid="495992931510695330">
+      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> холбогдсон харилцагч</item>
+      <item quantity="one">1 холбогдсон харилцагч</item>
+    </plurals>
+    <plurals name="quickcontact_suggestion_account_type_number" formatted="false" msgid="3001681298924002373">
+      <item quantity="other">(<xliff:g id="COUNT">%d</xliff:g>)</item>
+      <item quantity="one"></item>
+    </plurals>
+    <string name="quickcontact_suggestion_account_type" msgid="5878263654735376962">"<xliff:g id="ACCOUNT_TYPE_0">%s</xliff:g><xliff:g id="ACCOUNT_TYPE_NUMBER">%s</xliff:g>"</string>
+    <string name="suggestion_card_this_contact_title" msgid="3039457405374454914">"Энэ харилцагч"</string>
+    <string name="suggestion_card_duplicates_title" msgid="9107788743178980902">"Боломжит хуулбар"</string>
+    <string name="suggestion_card_help_message" msgid="4474061044387181093">"Эдгээр харилцагчийн хаяг нь ижил хүн байж болзошгүй. Та нэг харилцагчийн хаяг болгон холбох боломжтой."</string>
+    <string name="compact_editor_linked_contacts_title" msgid="4417919183651782674">"Холбосон харилцагчид"</string>
+    <string name="from_your_accounts" msgid="1746293107836889912">"Таны бүртгэлээс"</string>
+    <string name="take_a_photo_button" msgid="6268693854069113488">"Зураг авах"</string>
+    <string name="all_photos_button" msgid="1943122929420111351">"Бүх зураг"</string>
+    <string name="photo_picker_title" msgid="5272832995550042801">"Зураг сонгох"</string>
+    <string name="contact_from_account_name" msgid="2078526819634079406">"Илгээгч: <xliff:g id="ACCOUNT_NAME">%s</xliff:g>"</string>
+    <string name="editor_delete_view_description" msgid="8583095381562991959">"<xliff:g id="DATA_TYPE">%s </xliff:g><xliff:g id="DATA_KIND">%s</xliff:g>-г устгах"</string>
+    <string name="editor_delete_view_description_short" msgid="7335518371270844912">"<xliff:g id="DATA_KIND">%s</xliff:g>-г устгах"</string>
+    <string name="photo_view_description_not_checked" msgid="8876314195990885177">"<xliff:g id="ACCOUNT_TYPE">%s </xliff:g><xliff:g id="USER_NAME">%s </xliff:g>-н зургийг сонгоогүй"</string>
+    <string name="photo_view_description_checked" msgid="3906597168607472795">"<xliff:g id="ACCOUNT_TYPE">%s </xliff:g><xliff:g id="USER_NAME">%s </xliff:g>-н зургийг сонгосон"</string>
+    <string name="photo_view_description_not_checked_no_info" msgid="2749154927006406981">"Үл мэдэгдэх бүртгэлийн зургийг сонгоогүй"</string>
+    <string name="photo_view_description_checked_no_info" msgid="4974335987092590591">"Үл мэдэгдэх бүртгэлийн зургийг сонгосон"</string>
+    <string name="locale_change_in_progress" msgid="1124266507671178413">"Хэлний өөрчлөлтийг тусгахын тулд харилцагчдын жагсаалтыг шинэчилж байна.\n\nТүр хүлээнэ үү..."</string>
+    <string name="menu_blocked_numbers" msgid="5272951629083025995">"Блоклосон дугаар"</string>
 </resources>

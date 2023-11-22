@@ -18,6 +18,7 @@ package android.support.annotation;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
+import static java.lang.annotation.ElementType.ANNOTATION_TYPE;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.LOCAL_VARIABLE;
 import static java.lang.annotation.ElementType.METHOD;
@@ -31,13 +32,13 @@ import static java.lang.annotation.RetentionPolicy.CLASS;
  * <p>
  * Example:
  * <pre>{@code
- *  public void getLocationInWindow(&#64;Size(2) int[] location) {
+ *  public void getLocationInWindow(@Size(2) int[] location) {
  *      ...
  *  }
  * }</pre>
  */
 @Retention(CLASS)
-@Target({PARAMETER,LOCAL_VARIABLE,METHOD,FIELD})
+@Target({PARAMETER,LOCAL_VARIABLE,METHOD,FIELD,ANNOTATION_TYPE})
 public @interface Size {
     /** An exact size (or -1 if not specified) */
     long value() default -1;

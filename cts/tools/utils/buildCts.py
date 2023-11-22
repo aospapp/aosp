@@ -20,6 +20,7 @@ import glob
 import os
 import re
 import shutil
+import string
 import subprocess
 import sys
 import xml.dom.minidom as dom
@@ -34,6 +35,16 @@ def ReadFileLines(filePath):
   """Reads a file and returns its contents as a line list."""
   f = open(filePath, 'r');
   lines = [line.strip() for line in f.readlines()]
+  f.close()
+  return lines
+
+def ReadDeqpTestList(testRoot, file):
+  """Reads a file, converts test names from deqp to CTS format, and returns
+  its contents as a line list.
+  """
+  REPO_ROOT = os.path.join(testRoot, "../../..")
+  f = open(os.path.join(REPO_ROOT, "external/deqp/android/cts", file), 'r');
+  lines = [string.join(line.strip().rsplit('.',1),'#') for line in f.readlines()]
   f.close()
   return lines
 
@@ -107,17 +118,20 @@ class CtsBuilder(object):
     packages.sort()
 
     plan = tools.TestPlan(packages)
+    plan.Exclude('android\.car')
     plan.Exclude('android\.performance.*')
     self.__WritePlan(plan, 'CTS')
     self.__WritePlan(plan, 'CTS-TF')
 
     plan = tools.TestPlan(packages)
+    plan.Exclude('android\.car')
     plan.Exclude('android\.performance.*')
     plan.Exclude('android\.media\.cts\.StreamingMediaPlayerTest.*')
     # Test plan to not include media streaming tests
     self.__WritePlan(plan, 'CTS-No-Media-Stream')
 
     plan = tools.TestPlan(packages)
+    plan.Exclude('android\.car')
     plan.Exclude('android\.performance.*')
     self.__WritePlan(plan, 'SDK')
 
@@ -127,12 +141,12 @@ class CtsBuilder(object):
 
     plan = tools.TestPlan(packages)
     plan.Include(r'android\.core\.tests.*')
-    plan.Exclude(r'android\.core\.tests\.libcore.\package.\harmony*')
+    plan.Exclude(r'android\.core\.tests\.libcore\.package\.harmony*')
     self.__WritePlan(plan, 'Java')
 
     # TODO: remove this once the tests are fixed and merged into Java plan above.
     plan = tools.TestPlan(packages)
-    plan.Include(r'android\.core\.tests\.libcore.\package.\harmony*')
+    plan.Include(r'android\.core\.tests\.libcore\.package\.harmony*')
     self.__WritePlan(plan, 'Harmony')
 
     plan = tools.TestPlan(packages)
@@ -157,6 +171,7 @@ class CtsBuilder(object):
     plan.Include('android\.telephony')
     plan.Include('android\.nativemedia.*')
     plan.Include('com\.android\.cts\..*')#TODO(stuartscott): Should PDK have all these?
+    plan.Exclude('android\.car')
     self.__WritePlan(plan, 'PDK')
 
     temporarily_known_failure_tests = BuildCtsTemporarilyKnownFailureList();
@@ -165,7 +180,8 @@ class CtsBuilder(object):
 
     # CTS Stable plan
     plan = tools.TestPlan(packages)
-    plan.Exclude(r'com\.android\.cts\.browserbench')
+    plan.Exclude('android\.car')
+    plan.Exclude(r'android\.browser')
     for package, test_list in flaky_tests.iteritems():
       plan.ExcludeTests(package, test_list)
     for package, test_list in releasekey_tests.iteritems():
@@ -175,7 +191,7 @@ class CtsBuilder(object):
     # CTS Flaky plan - list of tests known to be flaky in lab environment
     plan = tools.TestPlan(packages)
     plan.Exclude('.*')
-    plan.Include(r'com\.android\.cts\.browserbench')
+    plan.Include(r'android\.browser')
     for package, test_list in flaky_tests.iteritems():
       plan.Include(package+'$')
       plan.IncludeTests(package, test_list)
@@ -190,7 +206,7 @@ class CtsBuilder(object):
     plan.Exclude('.*')
     for package, test_list in small_tests.iteritems():
       plan.Include(package+'$')
-    plan.Exclude(r'com\.android\.cts\.browserbench')
+    plan.Exclude(r'android\.browser')
     for package, test_list in flaky_tests.iteritems():
       plan.ExcludeTests(package, test_list)
     for package, test_list in releasekey_tests.iteritems():
@@ -203,7 +219,7 @@ class CtsBuilder(object):
     plan.Exclude('.*')
     for package, test_list in medium_tests.iteritems():
       plan.Include(package+'$')
-    plan.Exclude(r'com\.android\.cts\.browserbench')
+    plan.Exclude(r'android\.browser')
     for package, test_list in flaky_tests.iteritems():
       plan.ExcludeTests(package, test_list)
     for package, test_list in releasekey_tests.iteritems():
@@ -215,19 +231,33 @@ class CtsBuilder(object):
     plan = tools.TestPlan(packages)
     plan.Exclude('.*')
     plan.Include(r'android\.hardware$')
-    plan.Exclude(r'com\.android\.cts\.browserbench')
+    plan.Exclude(r'android\.browser')
     for package, test_list in flaky_tests.iteritems():
       plan.ExcludeTests(package, test_list)
     for package, test_list in releasekey_tests.iteritems():
       plan.ExcludeTests(package, test_list)
     self.__WritePlan(plan, 'CTS-hardware')
 
+    # CTS - sub plan for camera tests which is public, large
+    plan = tools.TestPlan(packages)
+    plan.Exclude('.*')
+    plan.Include(r'android\.camera$')
+    misc_camera_tests = BuildCtsMiscCameraList()
+    for package, test_list in misc_camera_tests.iteritems():
+      plan.Include(package+'$')
+      plan.IncludeTests(package, test_list)
+    for package, test_list in flaky_tests.iteritems():
+      plan.ExcludeTests(package, test_list)
+    for package, test_list in releasekey_tests.iteritems():
+      plan.ExcludeTests(package, test_list)
+    self.__WritePlan(plan, 'CTS-camera')
+
     # CTS - sub plan for media tests which is public, large
     plan = tools.TestPlan(packages)
     plan.Exclude('.*')
     plan.Include(r'android\.media$')
     plan.Include(r'android\.view$')
-    plan.Exclude(r'com\.android\.cts\.browserbench')
+    plan.Exclude(r'android\.browser')
     for package, test_list in flaky_tests.iteritems():
       plan.ExcludeTests(package, test_list)
     for package, test_list in releasekey_tests.iteritems():
@@ -238,7 +268,7 @@ class CtsBuilder(object):
     plan = tools.TestPlan(packages)
     plan.Exclude('.*')
     plan.Include(r'android\.mediastress$')
-    plan.Exclude(r'com\.android\.cts\.browserbench')
+    plan.Exclude(r'android\.browser')
     for package, test_list in flaky_tests.iteritems():
       plan.ExcludeTests(package, test_list)
     for package, test_list in releasekey_tests.iteritems():
@@ -250,7 +280,7 @@ class CtsBuilder(object):
     plan.Exclude('.*')
     for package, test_list in new_test_packages.iteritems():
       plan.Include(package+'$')
-    plan.Exclude(r'com\.android\.cts\.browserbench')
+    plan.Exclude(r'android\.browser')
     for package, test_list in flaky_tests.iteritems():
       plan.ExcludeTests(package, test_list)
     for package, test_list in releasekey_tests.iteritems():
@@ -261,7 +291,20 @@ class CtsBuilder(object):
     plan = tools.TestPlan(packages)
     plan.Exclude('.*')
     plan.Include(r'com\.drawelements\.')
+    plan.IncludeTests('com.drawelements.deqp.egl', ReadDeqpTestList(self.test_root, 'mnc/egl-master.txt'))
+    plan.IncludeTests('com.drawelements.deqp.gles2', ReadDeqpTestList(self.test_root, 'mnc/gles2-master.txt'))
+    plan.IncludeTests('com.drawelements.deqp.gles3', ReadDeqpTestList(self.test_root, 'mnc/gles3-master.txt'))
+    plan.IncludeTests('com.drawelements.deqp.gles31', ReadDeqpTestList(self.test_root, 'mnc/gles31-master.txt'))
     self.__WritePlan(plan, 'CTS-DEQP')
+
+    plan = tools.TestPlan(packages)
+    plan.Exclude('.*')
+    plan.Include(r'com\.drawelements\.')
+    plan.ExcludeTests('com.drawelements.deqp.egl', ReadDeqpTestList(self.test_root, 'mnc/egl-master.txt'))
+    plan.ExcludeTests('com.drawelements.deqp.gles2', ReadDeqpTestList(self.test_root, 'mnc/gles2-master.txt'))
+    plan.ExcludeTests('com.drawelements.deqp.gles3', ReadDeqpTestList(self.test_root, 'mnc/gles3-master.txt'))
+    plan.ExcludeTests('com.drawelements.deqp.gles31', ReadDeqpTestList(self.test_root, 'mnc/gles31-master.txt'))
+    self.__WritePlan(plan, 'CTS-DEQP-for-next-rel')
 
     # CTS - sub plan for new test packages added for staging
     plan = tools.TestPlan(packages)
@@ -276,7 +319,8 @@ class CtsBuilder(object):
     plan.Exclude(r'android\.media$')
     plan.Exclude(r'android\.view$')
     plan.Exclude(r'android\.mediastress$')
-    plan.Exclude(r'com\.android\.cts\.browserbench')
+    plan.Exclude(r'android\.browser')
+    plan.Exclude('android\.car')
     for package, test_list in flaky_tests.iteritems():
       plan.ExcludeTests(package, test_list)
     for package, test_list in releasekey_tests.iteritems():
@@ -296,6 +340,13 @@ class CtsBuilder(object):
     plan.Exclude('.*')
     self.__WritePlan(plan, 'CTS-webview')
 
+    # CTS - sub plan for Security
+    plan = tools.TestPlan(packages)
+    plan.Exclude('.*')
+    plan.Include(r'android\.security$')
+    plan.Include('android\.host\.jdwpsecurity$')
+    plan.Include('android\.host\.abioverride$')
+    self.__WritePlan(plan, 'Security')
 
 def BuildAospMediumSizeTestList():
   """ Construct a defaultdic that lists package names of medium tests
@@ -314,7 +365,7 @@ def BuildAospMediumSizeTestList():
       'android.telephony' : [],
       'android.webkit' : [],
       'android.widget' : [],
-      'com.android.cts.browserbench' : []}
+      'android.browser' : []}
 
 def BuildAospSmallSizeTestList():
   """ Construct a default dict that lists packages names of small tests
@@ -327,6 +378,7 @@ def BuildAospSmallSizeTestList():
       'android.accounts' : [],
       'android.admin' : [],
       'android.animation' : [],
+      'android.appsecurity' : [],
       'android.bionic' : [],
       'android.bluetooth' : [],
       'android.calendarcommon' : [],
@@ -337,9 +389,11 @@ def BuildAospSmallSizeTestList():
       'android.core.tests.libcore.package.sun' : [],
       'android.core.tests.libcore.package.tests' : [],
       'android.database' : [],
+      'android.dram' : [],
       'android.dreams' : [],
       'android.drm' : [],
       'android.effect' : [],
+      'android.filesystem' : [],
       'android.gesture' : [],
       'android.graphics' : [],
       'android.graphics2' : [],
@@ -348,7 +402,6 @@ def BuildAospSmallSizeTestList():
       'android.location' : [],
       'android.nativemedia.sl' : [],
       'android.nativemedia.xa' : [],
-      'android.nativeopengl' : [],
       'android.ndef' : [],
       'android.opengl' : [],
       'android.openglperf' : [],
@@ -360,23 +413,22 @@ def BuildAospSmallSizeTestList():
       'android.rscpp' : [],
       'android.rsg' : [],
       'android.sax' : [],
+      'android.server' : [],
       'android.signature' : [],
+      'android.simplecpu' : [],
+      'android.simpleperf' : [],
       'android.speech' : [],
-      'android.tests.appsecurity' : [],
       'android.text' : [],
       'android.textureview' : [],
       'android.theme' : [],
       'android.usb' : [],
       'android.util' : [],
-      'com.android.cts.dram' : [],
-      'com.android.cts.filesystemperf' : [],
+      'android.video' : [],
       'com.android.cts.jank' : [],
       'com.android.cts.jank2' : [],
       'com.android.cts.opengl' : [],
-      'com.android.cts.simplecpu' : [],
       'com.android.cts.ui' : [],
       'com.android.cts.uihost' : [],
-      'com.android.cts.videoperf' : [],
       'zzz.android.monkey' : []}
 
 def BuildCtsVettedNewPackagesList():
@@ -434,7 +486,7 @@ def BuildCtsFlakyTestList():
   """ Construct a defaultdict that maps package name to a list of tests
       that flaky during dev cycle and cause other subsequent tests to fail. """
   return {
-      'android.hardware' : [
+      'android.camera' : [
           'android.hardware.cts.CameraTest#testVideoSnapshot',
           'android.hardware.cts.CameraGLTest#testCameraToSurfaceTextureMetadata',
           'android.hardware.cts.CameraGLTest#testSetPreviewTextureBothCallbacks',
@@ -471,9 +523,13 @@ def BuildCtsTemporarilyKnownFailureList():
           'android.alarmclock.cts.SnoozeAlarmTest#testAll',
       ],
       'android.assist' : [
-          'android.assist.cts.ExtraAssistDataTest',
           'android.assist.cts.AssistantContentViewTest',
+          'android.assist.cts.ExtraAssistDataTest',
+          'android.assist.cts.FocusChangeTest',
+          'android.assist.cts.LargeViewHierarchyTest',
           'android.assist.cts.ScreenshotTest',
+          'android.assist.cts.TextViewTest',
+          'android.assist.cts.WebViewTest',
       ],
       'android.calllog' : [
           'android.calllog.cts.CallLogBackupTest#testSingleCallBackup',
@@ -492,12 +548,28 @@ def BuildCtsTemporarilyKnownFailureList():
       'android.voicesettings' : [
           'android.voicesettings.cts.ZenModeTest#testAll',
       ],
+      'android.systemui.cts' : [
+          'android.systemui.cts.LightStatusBarTests#testLightStatusBarIcons',
+      ],
       'com.android.cts.app.os' : [
           'com.android.cts.app.os.OsHostTests#testNonExportedActivities',
       ],
       'com.android.cts.devicepolicy' : [
           'com.android.cts.devicepolicy.MixedDeviceOwnerTest#testPackageInstallUserRestrictions',
           'com.android.cts.devicepolicy.MixedProfileOwnerTest#testPackageInstallUserRestrictions',
+      ],
+      '' : []}
+
+def BuildCtsMiscCameraList():
+  """ Construct a defaultdict that maps package name to a list of tests
+      that are relevant to camera but does not reside in camera test package """
+  return {
+      'android.app' : [
+          'android.app.cts.SystemFeaturesTest#testCameraFeatures',
+      ],
+      'android.permission' : [
+          'android.permission.cts.CameraPermissionTest',
+          'android.permission.cts.Camera2PermissionTest',
       ],
       '' : []}
 
@@ -510,4 +582,3 @@ if __name__ == '__main__':
   if result != 0:
     sys.exit(result)
   builder.GenerateTestPlans()
-

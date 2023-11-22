@@ -29,8 +29,6 @@ class IOMXObserver;
 struct OMXMaster;
 class GraphicBufferSource;
 
-status_t StatusFromOMXError(OMX_ERRORTYPE err);
-
 struct OMXNodeInstance {
     OMXNodeInstance(
             OMX *owner, const sp<IOMXObserver> &observer, const char *name);
@@ -54,7 +52,7 @@ struct OMXNodeInstance {
 
     status_t getState(OMX_STATETYPE* state);
 
-    status_t enableGraphicBuffers(OMX_U32 portIndex, OMX_BOOL enable);
+    status_t enableNativeBuffers(OMX_U32 portIndex, OMX_BOOL graphic, OMX_BOOL enable);
 
     status_t getGraphicBufferUsage(OMX_U32 portIndex, OMX_U32* usage);
 
@@ -81,8 +79,13 @@ struct OMXNodeInstance {
             OMX_U32 portIndex, const sp<GraphicBuffer> &graphicBuffer,
             OMX::buffer_id buffer);
 
+    status_t updateNativeHandleInMeta(
+            OMX_U32 portIndex, const sp<NativeHandle> &nativeHandle,
+            OMX::buffer_id buffer);
+
     status_t createInputSurface(
-            OMX_U32 portIndex, sp<IGraphicBufferProducer> *bufferProducer,
+            OMX_U32 portIndex, android_dataspace dataSpace,
+            sp<IGraphicBufferProducer> *bufferProducer,
             MetadataBufferType *type);
 
     static status_t createPersistentInputSurface(
@@ -95,9 +98,11 @@ struct OMXNodeInstance {
 
     status_t signalEndOfInputStream();
 
-    status_t allocateBuffer(
+    void signalEvent(OMX_EVENTTYPE event, OMX_U32 arg1, OMX_U32 arg2);
+
+    status_t allocateSecureBuffer(
             OMX_U32 portIndex, size_t size, OMX::buffer_id *buffer,
-            void **buffer_data);
+            void **buffer_data, sp<NativeHandle> *native_handle);
 
     status_t allocateBufferWithBackup(
             OMX_U32 portIndex, const sp<IMemory> &params,
@@ -125,6 +130,10 @@ struct OMXNodeInstance {
             const void *data,
             size_t size);
 
+    bool isSecure() const {
+        return mIsSecure;
+    }
+
     // handles messages and removes them from the list
     void onMessages(std::list<omx_message> &messages);
     void onMessage(const omx_message &msg);
@@ -142,6 +151,7 @@ private:
     OMX_HANDLETYPE mHandle;
     sp<IOMXObserver> mObserver;
     bool mDying;
+    bool mIsSecure;
 
     // Lock only covers mGraphicBufferSource.  We can't always use mLock
     // because of rare instances where we'd end up locking it recursively.
@@ -160,7 +170,15 @@ private:
     uint32_t mBufferIDCount;
     KeyedVector<OMX::buffer_id, OMX_BUFFERHEADERTYPE *> mBufferIDToBufferHeader;
     KeyedVector<OMX_BUFFERHEADERTYPE *, OMX::buffer_id> mBufferHeaderToBufferID;
+
+    // metadata and secure buffer type tracking
     MetadataBufferType mMetadataType[2];
+    enum SecureBufferType {
+        kSecureBufferTypeUnknown,
+        kSecureBufferTypeOpaque,
+        kSecureBufferTypeNativeHandle,
+    };
+    SecureBufferType mSecureBufferType[2];
 
     // For debug support
     char *mName;
@@ -182,7 +200,7 @@ private:
 
     // For buffer id management
     OMX::buffer_id makeBufferID(OMX_BUFFERHEADERTYPE *bufferHeader);
-    OMX_BUFFERHEADERTYPE *findBufferHeader(OMX::buffer_id buffer);
+    OMX_BUFFERHEADERTYPE *findBufferHeader(OMX::buffer_id buffer, OMX_U32 portIndex);
     OMX::buffer_id findBufferID(OMX_BUFFERHEADERTYPE *bufferHeader);
     void invalidateBufferID(OMX::buffer_id buffer);
 
@@ -223,9 +241,14 @@ private:
             OMX_BUFFERHEADERTYPE *header,
             OMX_U32 flags, OMX_TICKS timestamp, intptr_t debugAddr, int fenceFd);
 
+    // Updates the graphic buffer handle in the metadata buffer for |buffer| and |header| to
+    // |graphicBuffer|'s handle. If |updateCodecBuffer| is true, the update will happen in
+    // the actual codec buffer (use this if not using emptyBuffer (with no _l) later to
+    // pass the buffer to the codec, as only emptyBuffer copies the backup buffer to the codec
+    // buffer.)
     status_t updateGraphicBufferInMeta_l(
             OMX_U32 portIndex, const sp<GraphicBuffer> &graphicBuffer,
-            OMX::buffer_id buffer, OMX_BUFFERHEADERTYPE *header);
+            OMX::buffer_id buffer, OMX_BUFFERHEADERTYPE *header, bool updateCodecBuffer);
 
     status_t createGraphicBufferSource(
             OMX_U32 portIndex, sp<IGraphicBufferConsumer> consumer /* nullable */,

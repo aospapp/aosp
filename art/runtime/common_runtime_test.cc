@@ -42,6 +42,7 @@
 #include "mirror/class-inl.h"
 #include "mirror/class_loader.h"
 #include "mem_map.h"
+#include "native/dalvik_system_DexFile.h"
 #include "noop_compiler_callbacks.h"
 #include "os.h"
 #include "primitive.h"
@@ -71,7 +72,7 @@ ScratchFile::ScratchFile() {
   filename_ = getenv("ANDROID_DATA");
   filename_ += "/TmpFile-XXXXXX";
   int fd = mkstemp(&filename_[0]);
-  CHECK_NE(-1, fd);
+  CHECK_NE(-1, fd) << strerror(errno) << " for " << filename_;
   file_.reset(new File(fd, GetFilename(), true));
 }
 
@@ -116,14 +117,15 @@ void ScratchFile::Unlink() {
 
 static bool unstarted_initialized_ = false;
 
-CommonRuntimeTest::CommonRuntimeTest() {}
-CommonRuntimeTest::~CommonRuntimeTest() {
+CommonRuntimeTestImpl::CommonRuntimeTestImpl() {}
+
+CommonRuntimeTestImpl::~CommonRuntimeTestImpl() {
   // Ensure the dex files are cleaned up before the runtime.
   loaded_dex_files_.clear();
   runtime_.reset();
 }
 
-void CommonRuntimeTest::SetUpAndroidRoot() {
+void CommonRuntimeTestImpl::SetUpAndroidRoot() {
   if (IsHost()) {
     // $ANDROID_ROOT is set on the device, but not necessarily on the host.
     // But it needs to be set so that icu4c can find its locale data.
@@ -165,7 +167,7 @@ void CommonRuntimeTest::SetUpAndroidRoot() {
   }
 }
 
-void CommonRuntimeTest::SetUpAndroidData(std::string& android_data) {
+void CommonRuntimeTestImpl::SetUpAndroidData(std::string& android_data) {
   // On target, Cannot use /mnt/sdcard because it is mounted noexec, so use subdir of dalvik-cache
   if (IsHost()) {
     const char* tmpdir = getenv("TMPDIR");
@@ -184,7 +186,8 @@ void CommonRuntimeTest::SetUpAndroidData(std::string& android_data) {
   setenv("ANDROID_DATA", android_data.c_str(), 1);
 }
 
-void CommonRuntimeTest::TearDownAndroidData(const std::string& android_data, bool fail_on_error) {
+void CommonRuntimeTestImpl::TearDownAndroidData(const std::string& android_data,
+                                                bool fail_on_error) {
   if (fail_on_error) {
     ASSERT_EQ(rmdir(android_data.c_str()), 0);
   } else {
@@ -229,18 +232,18 @@ static std::string GetAndroidToolsDir(const std::string& subdir1,
   }
 
   if (founddir.empty()) {
-    ADD_FAILURE() << "Can not find Android tools directory.";
+    ADD_FAILURE() << "Cannot find Android tools directory.";
   }
   return founddir;
 }
 
-std::string CommonRuntimeTest::GetAndroidHostToolsDir() {
+std::string CommonRuntimeTestImpl::GetAndroidHostToolsDir() {
   return GetAndroidToolsDir("prebuilts/gcc/linux-x86/host",
                             "x86_64-linux-glibc2.15",
                             "x86_64-linux");
 }
 
-std::string CommonRuntimeTest::GetAndroidTargetToolsDir(InstructionSet isa) {
+std::string CommonRuntimeTestImpl::GetAndroidTargetToolsDir(InstructionSet isa) {
   switch (isa) {
     case kArm:
     case kThumb2:
@@ -268,15 +271,16 @@ std::string CommonRuntimeTest::GetAndroidTargetToolsDir(InstructionSet isa) {
   return "";
 }
 
-std::string CommonRuntimeTest::GetCoreArtLocation() {
+std::string CommonRuntimeTestImpl::GetCoreArtLocation() {
   return GetCoreFileLocation("art");
 }
 
-std::string CommonRuntimeTest::GetCoreOatLocation() {
+std::string CommonRuntimeTestImpl::GetCoreOatLocation() {
   return GetCoreFileLocation("oat");
 }
 
-std::unique_ptr<const DexFile> CommonRuntimeTest::LoadExpectSingleDexFile(const char* location) {
+std::unique_ptr<const DexFile> CommonRuntimeTestImpl::LoadExpectSingleDexFile(
+    const char* location) {
   std::vector<std::unique_ptr<const DexFile>> dex_files;
   std::string error_msg;
   MemMap::Init();
@@ -289,7 +293,7 @@ std::unique_ptr<const DexFile> CommonRuntimeTest::LoadExpectSingleDexFile(const 
   }
 }
 
-void CommonRuntimeTest::SetUp() {
+void CommonRuntimeTestImpl::SetUp() {
   SetUpAndroidRoot();
   SetUpAndroidData(android_data_);
   dalvik_cache_.append(android_data_.c_str());
@@ -302,7 +306,12 @@ void CommonRuntimeTest::SetUp() {
 
 
   RuntimeOptions options;
-  std::string boot_class_path_string = "-Xbootclasspath:" + GetLibCoreDexFileName();
+  std::string boot_class_path_string = "-Xbootclasspath";
+  for (const std::string &core_dex_file_name : GetLibCoreDexFileNames()) {
+    boot_class_path_string += ":";
+    boot_class_path_string += core_dex_file_name;
+  }
+
   options.push_back(std::make_pair(boot_class_path_string, nullptr));
   options.push_back(std::make_pair("-Xcheck:jni", nullptr));
   options.push_back(std::make_pair(min_heap_string, nullptr));
@@ -327,6 +336,19 @@ void CommonRuntimeTest::SetUp() {
   class_linker_ = runtime_->GetClassLinker();
   class_linker_->FixupDexCaches(runtime_->GetResolutionMethod());
 
+  // Runtime::Create acquired the mutator_lock_ that is normally given away when we
+  // Runtime::Start, give it away now and then switch to a more managable ScopedObjectAccess.
+  Thread::Current()->TransitionFromRunnableToSuspended(kNative);
+
+  // Get the boot class path from the runtime so it can be used in tests.
+  boot_class_path_ = class_linker_->GetBootClassPath();
+  ASSERT_FALSE(boot_class_path_.empty());
+  java_lang_dex_file_ = boot_class_path_[0];
+
+  FinalizeSetup();
+}
+
+void CommonRuntimeTestImpl::FinalizeSetup() {
   // Initialize maps for unstarted runtime. This needs to be here, as running clinits needs this
   // set up.
   if (!unstarted_initialized_) {
@@ -334,14 +356,10 @@ void CommonRuntimeTest::SetUp() {
     unstarted_initialized_ = true;
   }
 
-  class_linker_->RunRootClinits();
-  boot_class_path_ = class_linker_->GetBootClassPath();
-  java_lang_dex_file_ = boot_class_path_[0];
-
-
-  // Runtime::Create acquired the mutator_lock_ that is normally given away when we
-  // Runtime::Start, give it away now and then switch to a more managable ScopedObjectAccess.
-  Thread::Current()->TransitionFromRunnableToSuspended(kNative);
+  {
+    ScopedObjectAccess soa(Thread::Current());
+    class_linker_->RunRootClinits();
+  }
 
   // We're back in native, take the opportunity to initialize well known classes.
   WellKnownClasses::Init(Thread::Current()->GetJniEnv());
@@ -352,14 +370,9 @@ void CommonRuntimeTest::SetUp() {
   runtime_->GetHeap()->VerifyHeap();  // Check for heap corruption before the test
   // Reduce timinig-dependent flakiness in OOME behavior (eg StubTest.AllocObject).
   runtime_->GetHeap()->SetMinIntervalHomogeneousSpaceCompactionByOom(0U);
-
-  // Get the boot class path from the runtime so it can be used in tests.
-  boot_class_path_ = class_linker_->GetBootClassPath();
-  ASSERT_FALSE(boot_class_path_.empty());
-  java_lang_dex_file_ = boot_class_path_[0];
 }
 
-void CommonRuntimeTest::ClearDirectory(const char* dirpath) {
+void CommonRuntimeTestImpl::ClearDirectory(const char* dirpath) {
   ASSERT_TRUE(dirpath != nullptr);
   DIR* dir = opendir(dirpath);
   ASSERT_TRUE(dir != nullptr);
@@ -386,13 +399,14 @@ void CommonRuntimeTest::ClearDirectory(const char* dirpath) {
   closedir(dir);
 }
 
-void CommonRuntimeTest::TearDown() {
+void CommonRuntimeTestImpl::TearDown() {
   const char* android_data = getenv("ANDROID_DATA");
   ASSERT_TRUE(android_data != nullptr);
   ClearDirectory(dalvik_cache_.c_str());
   int rmdir_cache_result = rmdir(dalvik_cache_.c_str());
   ASSERT_EQ(0, rmdir_cache_result);
   TearDownAndroidData(android_data_, true);
+  dalvik_cache_.clear();
 
   // icu4c has a fixed 10-element array "gCommonICUDataArray".
   // If we run > 10 tests, we fill that array and u_setCommonData fails.
@@ -406,20 +420,29 @@ void CommonRuntimeTest::TearDown() {
   Runtime::Current()->GetHeap()->VerifyHeap();  // Check for heap corruption after the test
 }
 
-std::string CommonRuntimeTest::GetLibCoreDexFileName() {
-  return GetDexFileName("core-libart");
-}
-
-std::string CommonRuntimeTest::GetDexFileName(const std::string& jar_prefix) {
-  if (IsHost()) {
+static std::string GetDexFileName(const std::string& jar_prefix, bool host) {
+  std::string path;
+  if (host) {
     const char* host_dir = getenv("ANDROID_HOST_OUT");
     CHECK(host_dir != nullptr);
-    return StringPrintf("%s/framework/%s-hostdex.jar", host_dir, jar_prefix.c_str());
+    path = host_dir;
+  } else {
+    path = GetAndroidRoot();
   }
-  return StringPrintf("%s/framework/%s.jar", GetAndroidRoot(), jar_prefix.c_str());
+
+  std::string suffix = host
+      ? "-hostdex"                 // The host version.
+      : "-testdex";                // The unstripped target version.
+
+  return StringPrintf("%s/framework/%s%s.jar", path.c_str(), jar_prefix.c_str(), suffix.c_str());
 }
 
-std::string CommonRuntimeTest::GetTestAndroidRoot() {
+std::vector<std::string> CommonRuntimeTestImpl::GetLibCoreDexFileNames() {
+  return std::vector<std::string>({GetDexFileName("core-oj", IsHost()),
+                                   GetDexFileName("core-libart", IsHost())});
+}
+
+std::string CommonRuntimeTestImpl::GetTestAndroidRoot() {
   if (IsHost()) {
     const char* host_dir = getenv("ANDROID_HOST_OUT");
     CHECK(host_dir != nullptr);
@@ -439,7 +462,7 @@ std::string CommonRuntimeTest::GetTestAndroidRoot() {
 #define ART_TARGET_NATIVETEST_DIR_STRING ""
 #endif
 
-std::string CommonRuntimeTest::GetTestDexFileName(const char* name) {
+std::string CommonRuntimeTestImpl::GetTestDexFileName(const char* name) {
   CHECK(name != nullptr);
   std::string filename;
   if (IsHost()) {
@@ -454,7 +477,8 @@ std::string CommonRuntimeTest::GetTestDexFileName(const char* name) {
   return filename;
 }
 
-std::vector<std::unique_ptr<const DexFile>> CommonRuntimeTest::OpenTestDexFiles(const char* name) {
+std::vector<std::unique_ptr<const DexFile>> CommonRuntimeTestImpl::OpenTestDexFiles(
+    const char* name) {
   std::string filename = GetTestDexFileName(name);
   std::string error_msg;
   std::vector<std::unique_ptr<const DexFile>> dex_files;
@@ -467,13 +491,13 @@ std::vector<std::unique_ptr<const DexFile>> CommonRuntimeTest::OpenTestDexFiles(
   return dex_files;
 }
 
-std::unique_ptr<const DexFile> CommonRuntimeTest::OpenTestDexFile(const char* name) {
+std::unique_ptr<const DexFile> CommonRuntimeTestImpl::OpenTestDexFile(const char* name) {
   std::vector<std::unique_ptr<const DexFile>> vector = OpenTestDexFiles(name);
   EXPECT_EQ(1U, vector.size());
   return std::move(vector[0]);
 }
 
-std::vector<const DexFile*> CommonRuntimeTest::GetDexFiles(jobject jclass_loader) {
+std::vector<const DexFile*> CommonRuntimeTestImpl::GetDexFiles(jobject jclass_loader) {
   std::vector<const DexFile*> ret;
 
   ScopedObjectAccess soa(Thread::Current());
@@ -516,7 +540,7 @@ std::vector<const DexFile*> CommonRuntimeTest::GetDexFiles(jobject jclass_loader
           mirror::LongArray* long_array = cookie_field->GetObject(dex_file)->AsLongArray();
           DCHECK(long_array != nullptr);
           int32_t long_array_size = long_array->GetLength();
-          for (int32_t j = 0; j < long_array_size; ++j) {
+          for (int32_t j = kDexFileIndexStart; j < long_array_size; ++j) {
             const DexFile* cp_dex_file = reinterpret_cast<const DexFile*>(static_cast<uintptr_t>(
                 long_array->GetWithoutChecks(j)));
             if (cp_dex_file == nullptr) {
@@ -533,7 +557,7 @@ std::vector<const DexFile*> CommonRuntimeTest::GetDexFiles(jobject jclass_loader
   return ret;
 }
 
-const DexFile* CommonRuntimeTest::GetFirstDexFile(jobject jclass_loader) {
+const DexFile* CommonRuntimeTestImpl::GetFirstDexFile(jobject jclass_loader) {
   std::vector<const DexFile*> tmp(GetDexFiles(jclass_loader));
   DCHECK(!tmp.empty());
   const DexFile* ret = tmp[0];
@@ -541,7 +565,7 @@ const DexFile* CommonRuntimeTest::GetFirstDexFile(jobject jclass_loader) {
   return ret;
 }
 
-jobject CommonRuntimeTest::LoadDex(const char* dex_name) {
+jobject CommonRuntimeTestImpl::LoadDex(const char* dex_name) {
   std::vector<std::unique_ptr<const DexFile>> dex_files = OpenTestDexFiles(dex_name);
   std::vector<const DexFile*> class_path;
   CHECK_NE(0U, dex_files.size());
@@ -551,12 +575,13 @@ jobject CommonRuntimeTest::LoadDex(const char* dex_name) {
   }
 
   Thread* self = Thread::Current();
-  jobject class_loader = Runtime::Current()->GetClassLinker()->CreatePathClassLoader(self,                                                                                   class_path);
+  jobject class_loader = Runtime::Current()->GetClassLinker()->CreatePathClassLoader(self,
+                                                                                     class_path);
   self->SetClassLoaderOverride(class_loader);
   return class_loader;
 }
 
-std::string CommonRuntimeTest::GetCoreFileLocation(const char* suffix) {
+std::string CommonRuntimeTestImpl::GetCoreFileLocation(const char* suffix) {
   CHECK(suffix != nullptr);
 
   std::string location;

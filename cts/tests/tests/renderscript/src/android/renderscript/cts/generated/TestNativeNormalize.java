@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ package android.renderscript.cts;
 import android.renderscript.Allocation;
 import android.renderscript.RSRuntimeException;
 import android.renderscript.Element;
+import android.renderscript.cts.Target;
 
 import java.util.Arrays;
 
@@ -73,7 +74,7 @@ public class TestNativeNormalize extends RSBaseCompute {
             // Create the appropriate sized arrays in args
             // Fill args with the input values
             args.inV = arrayInV[i];
-            Target target = new Target(relaxed);
+            Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.FLOAT, relaxed);
             CoreMathVerifier.computeNativeNormalize(args, target);
 
             // Compare the expected outputs to the actual values returned by RS.
@@ -148,7 +149,7 @@ public class TestNativeNormalize extends RSBaseCompute {
             for (int j = 0; j < 2 ; j++) {
                 args.inV[j] = arrayInV[i * 2 + j];
             }
-            Target target = new Target(relaxed);
+            Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.FLOAT, relaxed);
             CoreMathVerifier.computeNativeNormalize(args, target);
 
             // Compare the expected outputs to the actual values returned by RS.
@@ -224,7 +225,7 @@ public class TestNativeNormalize extends RSBaseCompute {
             for (int j = 0; j < 3 ; j++) {
                 args.inV[j] = arrayInV[i * 4 + j];
             }
-            Target target = new Target(relaxed);
+            Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.FLOAT, relaxed);
             CoreMathVerifier.computeNativeNormalize(args, target);
 
             // Compare the expected outputs to the actual values returned by RS.
@@ -300,7 +301,7 @@ public class TestNativeNormalize extends RSBaseCompute {
             for (int j = 0; j < 4 ; j++) {
                 args.inV[j] = arrayInV[i * 4 + j];
             }
-            Target target = new Target(relaxed);
+            Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.FLOAT, relaxed);
             CoreMathVerifier.computeNativeNormalize(args, target);
 
             // Compare the expected outputs to the actual values returned by RS.
@@ -340,10 +341,339 @@ public class TestNativeNormalize extends RSBaseCompute {
                 (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
     }
 
+    public class ArgumentsHalfHalf {
+        public short inV;
+        public double inVDouble;
+        public Target.Floaty out;
+    }
+
+    private void checkNativeNormalizeHalfHalf() {
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x96cffbd5l, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
+            script.forEach_testNativeNormalizeHalfHalf(inV, out);
+            verifyResultsNativeNormalizeHalfHalf(inV, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeNormalizeHalfHalf: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
+            scriptRelaxed.forEach_testNativeNormalizeHalfHalf(inV, out);
+            verifyResultsNativeNormalizeHalfHalf(inV, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeNormalizeHalfHalf: " + e.toString());
+        }
+    }
+
+    private void verifyResultsNativeNormalizeHalfHalf(Allocation inV, Allocation out, boolean relaxed) {
+        short[] arrayInV = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayInV, (short) 42);
+        inV.copyTo(arrayInV);
+        short[] arrayOut = new short[INPUTSIZE * 1];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            ArgumentsHalfHalf args = new ArgumentsHalfHalf();
+            // Create the appropriate sized arrays in args
+            // Fill args with the input values
+            args.inV = arrayInV[i];
+            args.inVDouble = Float16Utils.convertFloat16ToDouble(args.inV);
+            Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.HALF, relaxed);
+            CoreMathVerifier.computeNativeNormalize(args, target);
+
+            // Compare the expected outputs to the actual values returned by RS.
+            boolean valid = true;
+            if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i]))) {
+                valid = false;
+            }
+            if (!valid) {
+                if (!errorFound) {
+                    errorFound = true;
+                    message.append("Input inV: ");
+                    appendVariableToMessage(message, arrayInV[i]);
+                    message.append("\n");
+                    message.append("Expected output out: ");
+                    appendVariableToMessage(message, args.out);
+                    message.append("\n");
+                    message.append("Actual   output out: ");
+                    appendVariableToMessage(message, arrayOut[i]);
+                    message.append("\n");
+                    message.append("Actual   output out (in double): ");
+                    appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i]));
+                    if (!args.out.couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i]))) {
+                        message.append(" FAIL");
+                    }
+                    message.append("\n");
+                    message.append("Errors at");
+                }
+                message.append(" [");
+                message.append(Integer.toString(i));
+                message.append("]");
+            }
+        }
+        assertFalse("Incorrect output for checkNativeNormalizeHalfHalf" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    public class ArgumentsHalfNHalfN {
+        public short[] inV;
+        public double[] inVDouble;
+        public Target.Floaty[] out;
+    }
+
+    private void checkNativeNormalizeHalf2Half2() {
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xeb68f38fl, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
+            script.forEach_testNativeNormalizeHalf2Half2(inV, out);
+            verifyResultsNativeNormalizeHalf2Half2(inV, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeNormalizeHalf2Half2: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
+            scriptRelaxed.forEach_testNativeNormalizeHalf2Half2(inV, out);
+            verifyResultsNativeNormalizeHalf2Half2(inV, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeNormalizeHalf2Half2: " + e.toString());
+        }
+    }
+
+    private void verifyResultsNativeNormalizeHalf2Half2(Allocation inV, Allocation out, boolean relaxed) {
+        short[] arrayInV = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayInV, (short) 42);
+        inV.copyTo(arrayInV);
+        short[] arrayOut = new short[INPUTSIZE * 2];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            ArgumentsHalfNHalfN args = new ArgumentsHalfNHalfN();
+            // Create the appropriate sized arrays in args
+            args.inV = new short[2];
+            args.inVDouble = new double[2];
+            args.out = new Target.Floaty[2];
+            // Fill args with the input values
+            for (int j = 0; j < 2 ; j++) {
+                args.inV[j] = arrayInV[i * 2 + j];
+                args.inVDouble[j] = Float16Utils.convertFloat16ToDouble(args.inV[j]);
+            }
+            Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.HALF, relaxed);
+            CoreMathVerifier.computeNativeNormalize(args, target);
+
+            // Compare the expected outputs to the actual values returned by RS.
+            boolean valid = true;
+            for (int j = 0; j < 2 ; j++) {
+                if (!args.out[j].couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]))) {
+                    valid = false;
+                }
+            }
+            if (!valid) {
+                if (!errorFound) {
+                    errorFound = true;
+                    for (int j = 0; j < 2 ; j++) {
+                        message.append("Input inV: ");
+                        appendVariableToMessage(message, arrayInV[i * 2 + j]);
+                        message.append("\n");
+                    }
+                    for (int j = 0; j < 2 ; j++) {
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out[j]);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 2 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]));
+                        if (!args.out[j].couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 2 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                    }
+                    message.append("Errors at");
+                }
+                message.append(" [");
+                message.append(Integer.toString(i));
+                message.append("]");
+            }
+        }
+        assertFalse("Incorrect output for checkNativeNormalizeHalf2Half2" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkNativeNormalizeHalf3Half3() {
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x4a70b883l, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            script.forEach_testNativeNormalizeHalf3Half3(inV, out);
+            verifyResultsNativeNormalizeHalf3Half3(inV, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeNormalizeHalf3Half3: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
+            scriptRelaxed.forEach_testNativeNormalizeHalf3Half3(inV, out);
+            verifyResultsNativeNormalizeHalf3Half3(inV, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeNormalizeHalf3Half3: " + e.toString());
+        }
+    }
+
+    private void verifyResultsNativeNormalizeHalf3Half3(Allocation inV, Allocation out, boolean relaxed) {
+        short[] arrayInV = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInV, (short) 42);
+        inV.copyTo(arrayInV);
+        short[] arrayOut = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            ArgumentsHalfNHalfN args = new ArgumentsHalfNHalfN();
+            // Create the appropriate sized arrays in args
+            args.inV = new short[3];
+            args.inVDouble = new double[3];
+            args.out = new Target.Floaty[3];
+            // Fill args with the input values
+            for (int j = 0; j < 3 ; j++) {
+                args.inV[j] = arrayInV[i * 4 + j];
+                args.inVDouble[j] = Float16Utils.convertFloat16ToDouble(args.inV[j]);
+            }
+            Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.HALF, relaxed);
+            CoreMathVerifier.computeNativeNormalize(args, target);
+
+            // Compare the expected outputs to the actual values returned by RS.
+            boolean valid = true;
+            for (int j = 0; j < 3 ; j++) {
+                if (!args.out[j].couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                    valid = false;
+                }
+            }
+            if (!valid) {
+                if (!errorFound) {
+                    errorFound = true;
+                    for (int j = 0; j < 3 ; j++) {
+                        message.append("Input inV: ");
+                        appendVariableToMessage(message, arrayInV[i * 4 + j]);
+                        message.append("\n");
+                    }
+                    for (int j = 0; j < 3 ; j++) {
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out[j]);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 4 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]));
+                        if (!args.out[j].couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                    }
+                    message.append("Errors at");
+                }
+                message.append(" [");
+                message.append(Integer.toString(i));
+                message.append("]");
+            }
+        }
+        assertFalse("Incorrect output for checkNativeNormalizeHalf3Half3" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
+    private void checkNativeNormalizeHalf4Half4() {
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xa9787d77l, false);
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            script.forEach_testNativeNormalizeHalf4Half4(inV, out);
+            verifyResultsNativeNormalizeHalf4Half4(inV, out, false);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeNormalizeHalf4Half4: " + e.toString());
+        }
+        try {
+            Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
+            scriptRelaxed.forEach_testNativeNormalizeHalf4Half4(inV, out);
+            verifyResultsNativeNormalizeHalf4Half4(inV, out, true);
+        } catch (Exception e) {
+            throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeNormalizeHalf4Half4: " + e.toString());
+        }
+    }
+
+    private void verifyResultsNativeNormalizeHalf4Half4(Allocation inV, Allocation out, boolean relaxed) {
+        short[] arrayInV = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayInV, (short) 42);
+        inV.copyTo(arrayInV);
+        short[] arrayOut = new short[INPUTSIZE * 4];
+        Arrays.fill(arrayOut, (short) 42);
+        out.copyTo(arrayOut);
+        StringBuilder message = new StringBuilder();
+        boolean errorFound = false;
+        for (int i = 0; i < INPUTSIZE; i++) {
+            ArgumentsHalfNHalfN args = new ArgumentsHalfNHalfN();
+            // Create the appropriate sized arrays in args
+            args.inV = new short[4];
+            args.inVDouble = new double[4];
+            args.out = new Target.Floaty[4];
+            // Fill args with the input values
+            for (int j = 0; j < 4 ; j++) {
+                args.inV[j] = arrayInV[i * 4 + j];
+                args.inVDouble[j] = Float16Utils.convertFloat16ToDouble(args.inV[j]);
+            }
+            Target target = new Target(Target.FunctionType.NATIVE, Target.ReturnType.HALF, relaxed);
+            CoreMathVerifier.computeNativeNormalize(args, target);
+
+            // Compare the expected outputs to the actual values returned by RS.
+            boolean valid = true;
+            for (int j = 0; j < 4 ; j++) {
+                if (!args.out[j].couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                    valid = false;
+                }
+            }
+            if (!valid) {
+                if (!errorFound) {
+                    errorFound = true;
+                    for (int j = 0; j < 4 ; j++) {
+                        message.append("Input inV: ");
+                        appendVariableToMessage(message, arrayInV[i * 4 + j]);
+                        message.append("\n");
+                    }
+                    for (int j = 0; j < 4 ; j++) {
+                        message.append("Expected output out: ");
+                        appendVariableToMessage(message, args.out[j]);
+                        message.append("\n");
+                        message.append("Actual   output out: ");
+                        appendVariableToMessage(message, arrayOut[i * 4 + j]);
+                        message.append("\n");
+                        message.append("Actual   output out (in double): ");
+                        appendVariableToMessage(message, Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]));
+                        if (!args.out[j].couldBe(Float16Utils.convertFloat16ToDouble(arrayOut[i * 4 + j]))) {
+                            message.append(" FAIL");
+                        }
+                        message.append("\n");
+                    }
+                    message.append("Errors at");
+                }
+                message.append(" [");
+                message.append(Integer.toString(i));
+                message.append("]");
+            }
+        }
+        assertFalse("Incorrect output for checkNativeNormalizeHalf4Half4" +
+                (relaxed ? "_relaxed" : "") + ":\n" + message.toString(), errorFound);
+    }
+
     public void testNativeNormalize() {
         checkNativeNormalizeFloatFloat();
         checkNativeNormalizeFloat2Float2();
         checkNativeNormalizeFloat3Float3();
         checkNativeNormalizeFloat4Float4();
+        checkNativeNormalizeHalfHalf();
+        checkNativeNormalizeHalf2Half2();
+        checkNativeNormalizeHalf3Half3();
+        checkNativeNormalizeHalf4Half4();
     }
 }

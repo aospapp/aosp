@@ -23,11 +23,12 @@
 #include "NdkMediaFormatPriv.h"
 
 
+#include <cutils/properties.h>
 #include <utils/Log.h>
 #include <utils/StrongPointer.h>
 #include <binder/IServiceManager.h>
 #include <media/ICrypto.h>
-#include <media/IMediaPlayerService.h>
+#include <media/IMediaDrmService.h>
 #include <android_runtime/AndroidRuntime.h>
 #include <android_util_Binder.h>
 
@@ -35,34 +36,19 @@
 
 using namespace android;
 
-static media_status_t translate_error(status_t err) {
-    if (err == OK) {
-        return AMEDIA_OK;
-    }
-    ALOGE("sf error code: %d", err);
-    return AMEDIA_ERROR_UNKNOWN;
-}
-
-
 static sp<ICrypto> makeCrypto() {
     sp<IServiceManager> sm = defaultServiceManager();
+    sp<IBinder> binder = sm->getService(String16("media.drm"));
 
-    sp<IBinder> binder =
-        sm->getService(String16("media.player"));
-
-    sp<IMediaPlayerService> service =
-        interface_cast<IMediaPlayerService>(binder);
-
+    sp<IMediaDrmService> service = interface_cast<IMediaDrmService>(binder);
     if (service == NULL) {
         return NULL;
     }
 
     sp<ICrypto> crypto = service->makeCrypto();
-
     if (crypto == NULL || (crypto->initCheck() != OK && crypto->initCheck() != NO_INIT)) {
         return NULL;
     }
-
     return crypto;
 }
 

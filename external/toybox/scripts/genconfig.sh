@@ -83,6 +83,13 @@ EOF
     #error nope
     #endif
 EOF
+
+  # nommu support
+  probesymbol TOYBOX_FORK << EOF
+    #include <unistd.h>
+    int main(int argc, char *argv[]) { return fork(); }
+EOF
+  echo -e '\tdepends on !TOYBOX_MUSL_NOMMU_IS_BROKEN'
 }
 
 genconfig()
@@ -112,3 +119,32 @@ genconfig()
 
 probeconfig > generated/Config.probed || rm generated/Config.probed
 genconfig > generated/Config.in || rm generated/Config.in
+
+# Find names of commands that can be built standalone in these C files
+toys()
+{
+  grep 'TOY(.*)' "$@" | grep -v TOYFLAG_NOFORK | grep -v "0))" | \
+    sed -rn 's/([^:]*):.*(OLD|NEW)TOY\( *([a-zA-Z][^,]*) *,.*/\1:\3/p'
+}
+
+WORKING=
+PENDING=
+toys toys/*/*.c | (
+while IFS=":" read FILE NAME
+do
+  [ "$NAME" == help ] && continue
+  [ "$NAME" == install ] && continue
+  echo -e "$NAME: $FILE *.[ch] lib/*.[ch]\n\tscripts/single.sh $NAME\n"
+  echo -e "test_$NAME:\n\tscripts/test.sh $NAME\n"
+  [ "${FILE/pending//}" != "$FILE" ] &&
+    PENDING="$PENDING $NAME" ||
+    WORKING="$WORKING $NAME"
+done > .singlemake &&
+echo -e "clean::\n\trm -f $WORKING $PENDING" >> .singlemake &&
+echo -e "list:\n\t@echo $(echo $WORKING $PENDING | tr ' ' '\n' | sort | xargs)"\
+  >> .singlemake &&
+echo -e "list_working:\n\t@echo $(echo $WORKING | tr ' ' '\n' | sort | xargs)" \
+  >> .singlemake &&
+echo -e "list_pending:\n\t@echo $(echo $PENDING | tr ' ' '\n' | sort | xargs)" \
+  >> .singlemake
+)

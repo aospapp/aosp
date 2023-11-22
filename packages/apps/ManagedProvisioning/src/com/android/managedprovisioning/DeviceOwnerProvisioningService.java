@@ -16,28 +16,33 @@
 
 package com.android.managedprovisioning;
 
+import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_SHAREABLE_DEVICE;
+
 import android.app.AlarmManager;
 import android.app.Service;
-import android.content.BroadcastReceiver;
+import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.os.Process;
 import android.os.UserHandle;
+import android.os.UserManager;
 import android.support.v4.content.LocalBroadcastManager;
-import android.text.TextUtils;
 
 import com.android.internal.app.LocalePicker;
-import com.android.managedprovisioning.ProvisioningParams.PackageDownloadInfo;
+import com.android.managedprovisioning.common.IllegalProvisioningArgumentException;
+import com.android.managedprovisioning.common.Utils;
+import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.task.AddWifiNetworkTask;
 import com.android.managedprovisioning.task.DeleteNonRequiredAppsTask;
+import com.android.managedprovisioning.task.DisallowAddUserTask;
 import com.android.managedprovisioning.task.DownloadPackageTask;
 import com.android.managedprovisioning.task.InstallPackageTask;
 import com.android.managedprovisioning.task.SetDevicePolicyTask;
 
-import java.lang.Runnable;
 import java.util.Locale;
 
 /**
@@ -54,7 +59,6 @@ public class DeviceOwnerProvisioningService extends Service {
     private static final boolean DEBUG = false; // To control logging.
 
     private static final String DEVICE_OWNER = "deviceOwner";
-    private static final String DEVICE_INITIALIZER = "deviceInitializer";
 
     /**
      * Intent action to activate the CDMA phone connection by OTASP.
@@ -80,11 +84,6 @@ public class DeviceOwnerProvisioningService extends Service {
     protected static final String ACTION_REQUEST_WIFI_PICK =
             "com.android.managedprovisioning.request_wifi_pick";
 
-    // Intent action used by the HomeReceiverActivity to notify this Service that a HOME intent was
-    // received, which indicates that the Setup wizard has closed after provisioning completed.
-    protected static final String ACTION_HOME_INDIRECT =
-            "com.android.managedprovisioning.home_indirect";
-
     // Indicates whether provisioning has started.
     private boolean mProvisioningInFlight = false;
 
@@ -107,8 +106,11 @@ public class DeviceOwnerProvisioningService extends Service {
     private InstallPackageTask mInstallPackageTask;
     private SetDevicePolicyTask mSetDevicePolicyTask;
     private DeleteNonRequiredAppsTask mDeleteNonRequiredAppsTask;
+    private DisallowAddUserTask mDisallowAddUserTask;
 
     private ProvisioningParams mParams;
+
+    private final Utils mUtils = new Utils();
 
     @Override
     public int onStartCommand(final Intent intent, int flags, int startId) {
@@ -181,10 +183,6 @@ public class DeviceOwnerProvisioningService extends Service {
                         mInstallPackageTask.addInstallIfNecessary(
                                 params.inferDeviceAdminPackageName(),
                                 mDownloadPackageTask.getDownloadedPackageLocation(DEVICE_OWNER));
-                        mInstallPackageTask.addInstallIfNecessary(
-                                params.getDeviceInitializerPackageName(),
-                                mDownloadPackageTask.getDownloadedPackageLocation(
-                                        DEVICE_INITIALIZER));
                         mInstallPackageTask.run();
                     }
 
@@ -207,8 +205,6 @@ public class DeviceOwnerProvisioningService extends Service {
         // Add packages to download to the DownloadPackageTask.
         mDownloadPackageTask.addDownloadIfNecessary(params.inferDeviceAdminPackageName(),
                 params.deviceAdminDownloadInfo, DEVICE_OWNER);
-        mDownloadPackageTask.addDownloadIfNecessary(params.getDeviceInitializerPackageName(),
-                params.deviceInitializerDownloadInfo, DEVICE_INITIALIZER);
 
         mInstallPackageTask = new InstallPackageTask(this,
                 new InstallPackageTask.Callback() {
@@ -220,7 +216,7 @@ public class DeviceOwnerProvisioningService extends Service {
                             // component in it.
                             mSetDevicePolicyTask.run(mParams.inferDeviceAdminComponentName(
                                     DeviceOwnerProvisioningService.this));
-                        } catch (Utils.IllegalProvisioningArgumentException e) {
+                        } catch (IllegalProvisioningArgumentException e) {
                             error(R.string.device_owner_error_general);
                             ProvisionLogger.loge("Failed to infer the device admin component name",
                                     e);
@@ -237,9 +233,6 @@ public class DeviceOwnerProvisioningService extends Service {
                             case InstallPackageTask.ERROR_INSTALLATION_FAILED:
                                 error(R.string.device_owner_error_installation_failed);
                                 break;
-                            case InstallPackageTask.ERROR_PACKAGE_NAME_INVALID:
-                                error(R.string.device_owner_error_package_name_invalid);
-                                break;
                             default:
                                 error(R.string.device_owner_error_general);
                                 break;
@@ -249,7 +242,6 @@ public class DeviceOwnerProvisioningService extends Service {
 
         mSetDevicePolicyTask = new SetDevicePolicyTask(this,
                 getResources().getString(R.string.default_owned_device_username),
-                params.deviceInitializerComponentName,
                 new SetDevicePolicyTask.Callback() {
                     @Override
                     public void onSuccess() {
@@ -257,28 +249,26 @@ public class DeviceOwnerProvisioningService extends Service {
                     }
 
                     @Override
-                    public void onError(int errorCode) {
-                        switch(errorCode) {
-                            case SetDevicePolicyTask.ERROR_PACKAGE_NOT_INSTALLED:
-                                error(R.string.device_owner_error_package_not_installed);
-                                break;
-                            case SetDevicePolicyTask.ERROR_NO_RECEIVER:
-                                error(R.string.device_owner_error_package_invalid);
-                                break;
-                            default:
-                                error(R.string.device_owner_error_general);
-                                break;
-                        }
+                    public void onError() {
+                        error(R.string.device_owner_error_general);
                     }
                 });
 
+        // For split system user devices that will have a system device owner, don't adjust the set
+        // of enabled packages in the system user as we expect the right set of packages to be
+        // enabled for the system user out of the box. For other devices, the set of available
+        // packages can vary depending on management state.
+        boolean leaveAllSystemAppsEnabled = params.leaveAllSystemAppsEnabled ||
+                params.provisioningAction.equals(ACTION_PROVISION_MANAGED_SHAREABLE_DEVICE);
         mDeleteNonRequiredAppsTask = new DeleteNonRequiredAppsTask(
-                this, params.inferDeviceAdminPackageName(), DeleteNonRequiredAppsTask.DEVICE_OWNER,
-                true /* creating new profile */,
-                UserHandle.USER_OWNER, params.leaveAllSystemAppsEnabled,
+                this, params.inferDeviceAdminPackageName(),
+                DeleteNonRequiredAppsTask.DEVICE_OWNER, true /* creating new profile */,
+                UserHandle.myUserId(), leaveAllSystemAppsEnabled,
                 new DeleteNonRequiredAppsTask.Callback() {
                     @Override
                     public void onSuccess() {
+                        mDisallowAddUserTask.maybeDisallowAddUsers();
+
                         // Done with provisioning. Success.
                         onProvisioningSuccess();
                     }
@@ -288,6 +278,9 @@ public class DeviceOwnerProvisioningService extends Service {
                         error(R.string.device_owner_error_general);
                     }
                 });
+
+        mDisallowAddUserTask = new DisallowAddUserTask((UserManager) getSystemService(USER_SERVICE),
+                UserHandle.myUserId(), UserManager.isSplitSystemUser());
 
         // Start first task, which starts next task in its callback, etc.
         progressUpdate(R.string.progress_connect_to_wifi);
@@ -336,28 +329,32 @@ public class DeviceOwnerProvisioningService extends Service {
     }
 
     private void onProvisioningSuccess() {
+        // Copying an account needs to happen late in the provisioning process to allow the current
+        // user to be started, but before we tell the MDM that provisioning succeeded.
+        maybeCopyAccount();
+
         if (DEBUG) ProvisionLogger.logd("Reporting success.");
         mDone = true;
 
-        // Persist mParams so HomeReceiverActivity can later retrieve them to finalize provisioning.
-        // This is necessary to deal with accidental reboots during DIA setup, which happens between
-        // the end of this method and HomeReceiverActivity captures the home intent.
-        IntentStore store = BootReminder.getDeviceOwnerFinalizingIntentStore(this);
-        Bundle resumeBundle = new Bundle();
-        (new MessageParser()).addProvisioningParamsToBundle(resumeBundle, mParams);
-        store.save(resumeBundle);
-
-        // Enable the HomeReceiverActivity, since the DeviceOwnerProvisioningActivity will shutdown
-        // the Setup wizard soon, which will result in a home intent that should be caught by the
-        // HomeReceiverActivity.
-        PackageManager pm = getPackageManager();
-        pm.setComponentEnabledSetting(new ComponentName(this, HomeReceiverActivity.class),
-                PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP);
+        // Set DPM userProvisioningState appropriately and persists mParams for use during
+        // FinalizationActivity if necessary.
+        mUtils.markUserProvisioningStateInitiallyDone(this, mParams);
 
         Intent successIntent = new Intent(ACTION_PROVISIONING_SUCCESS);
         successIntent.setClass(this, DeviceOwnerProvisioningActivity.ServiceMessageReceiver.class);
         LocalBroadcastManager.getInstance(this).sendBroadcast(successIntent);
         // Wait for stopService() call from the activity.
+    }
+
+    private void maybeCopyAccount() {
+        if (!UserManager.isSplitSystemUser()) {
+            // Only one user involved in this case.
+            return;
+        }
+
+        mUtils.maybeCopyAccount(DeviceOwnerProvisioningService.this,
+                mParams.accountToMigrate, UserHandle.SYSTEM,
+                Process.myUserHandle());
     }
 
     private void initializeProvisioningEnvironment(ProvisioningParams params) {

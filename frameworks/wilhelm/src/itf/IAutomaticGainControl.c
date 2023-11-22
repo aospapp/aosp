@@ -57,7 +57,6 @@ SLresult IAndroidAutomaticGainControl_IsEnabled(SLAndroidAutomaticGainControlItf
     } else {
         IAndroidAutomaticGainControl *thiz = (IAndroidAutomaticGainControl *) self;
         interface_lock_exclusive(thiz);
-        SLboolean enabled = thiz->mEnabled;
         if (NO_AUTOGAIN(thiz)) {
             result = SL_RESULT_CONTROL_LOST;
         } else {

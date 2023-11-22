@@ -28,13 +28,19 @@ import java.util.Arrays;
  */
 public class SamplePointVerifier extends BitmapVerifier {
     private static final String TAG = "SamplePoint";
-    private Point[] mTestPoints;
-    private int[] mExpectedColors;
-    private int mTolerance = 20;
+    private static final int DEFAULT_TOLERANCE = 20;
+    private final Point[] mTestPoints;
+    private final int[] mExpectedColors;
+    private final int mTolerance;
 
     public SamplePointVerifier(Point[] testPoints, int[] expectedColors) {
+        this(testPoints, expectedColors, DEFAULT_TOLERANCE);
+    }
+
+    public SamplePointVerifier(Point[] testPoints, int[] expectedColors, int tolerance) {
         mTestPoints = testPoints;
         mExpectedColors = expectedColors;
+        mTolerance = tolerance;
     }
 
     @Override

@@ -19,7 +19,16 @@
 #include <cutils/log.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 
+#include <hb.h>
+#include <hb-ot.h>
+
+#include <utils/JenkinsHash.h>
+
+#include "FontLanguage.h"
+#include "FontLanguageListCache.h"
+#include "HbFontCache.h"
 #include "MinikinInternal.h"
 #include <minikin/MinikinFont.h>
 #include <minikin/AnalyzeStyle.h>
@@ -31,67 +40,35 @@ using std::vector;
 
 namespace android {
 
-// Parse bcp-47 language identifier into internal structure
-FontLanguage::FontLanguage(const char* buf, size_t size) {
-    uint32_t bits = 0;
-    size_t i;
-    for (i = 0; i < size; i++) {
-        uint16_t c = buf[i];
-        if (c == '-' || c == '_') break;
-    }
-    if (i == 2) {
-        bits = (uint8_t(buf[0]) << 8) | uint8_t(buf[1]);
-    }
-    size_t next;
-    for (i++; i < size; i = next + 1) {
-        for (next = i; next < size; next++) {
-            uint16_t c = buf[next];
-            if (c == '-' || c == '_') break;
-        }
-        if (next - i == 4 && buf[i] == 'H' && buf[i+1] == 'a' && buf[i+2] == 'n') {
-            if (buf[i+3] == 's') {
-                bits |= kHansFlag;
-            } else if (buf[i+3] == 't') {
-                bits |= kHantFlag;
-            }
-        }
-        // TODO: this might be a good place to infer script from country (zh_TW -> Hant),
-        // but perhaps it's up to the client to do that, before passing a string.
-    }
-    mBits = bits;
+FontStyle::FontStyle(int variant, int weight, bool italic)
+        : FontStyle(FontLanguageListCache::kEmptyListId, variant, weight, italic) {
 }
 
-std::string FontLanguage::getString() const {
-  char buf[16];
-  size_t i = 0;
-  if (mBits & kBaseLangMask) {
-    buf[i++] = (mBits >> 8) & 0xFFu;
-    buf[i++] = mBits & 0xFFu;
-  }
-  if (mBits & kScriptMask) {
-    if (!i)
-      buf[i++] = 'x';
-    buf[i++] = '-';
-    buf[i++] = 'H';
-    buf[i++] = 'a';
-    buf[i++] = 'n';
-    if (mBits & kHansFlag)
-      buf[i++] = 's';
-    else
-      buf[i++] = 't';
-  }
-  return std::string(buf, i);
+FontStyle::FontStyle(uint32_t languageListId, int variant, int weight, bool italic)
+        : bits(pack(variant, weight, italic)), mLanguageListId(languageListId) {
 }
 
-int FontLanguage::match(const FontLanguage other) const {
-    int result = 0;
-    if ((mBits & kBaseLangMask) == (other.mBits & kBaseLangMask)) {
-        result++;
-        if ((mBits & kScriptMask) != 0 && (mBits & kScriptMask) == (other.mBits & kScriptMask)) {
-            result++;
-        }
-    }
-    return result;
+hash_t FontStyle::hash() const {
+    uint32_t hash = JenkinsHashMix(0, bits);
+    hash = JenkinsHashMix(hash, mLanguageListId);
+    return JenkinsHashWhiten(hash);
+}
+
+// static
+uint32_t FontStyle::registerLanguageList(const std::string& languages) {
+    AutoMutex _l(gMinikinLock);
+    return FontLanguageListCache::getId(languages);
+}
+
+// static
+uint32_t FontStyle::pack(int variant, int weight, bool italic) {
+    return (weight & kWeightMask) | (italic ? kItalicMask : 0) | (variant << kVariantShift);
+}
+
+FontFamily::FontFamily() : FontFamily(0 /* variant */) {
+}
+
+FontFamily::FontFamily(int variant) : FontFamily(FontLanguageListCache::kEmptyListId, variant) {
 }
 
 FontFamily::~FontFamily() {
@@ -103,15 +80,11 @@ FontFamily::~FontFamily() {
 bool FontFamily::addFont(MinikinFont* typeface) {
     AutoMutex _l(gMinikinLock);
     const uint32_t os2Tag = MinikinFont::MakeTag('O', 'S', '/', '2');
-    size_t os2Size = 0;
-    bool ok = typeface->GetTable(os2Tag, NULL, &os2Size);
-    if (!ok) return false;
-    UniquePtr<uint8_t[]> os2Data(new uint8_t[os2Size]);
-    ok = typeface->GetTable(os2Tag, os2Data.get(), &os2Size);
-    if (!ok) return false;
+    HbBlob os2Table(getFontTable(typeface, os2Tag));
+    if (os2Table.get() == nullptr) return false;
     int weight;
     bool italic;
-    if (analyzeStyle(os2Data.get(), os2Size, &weight, &italic)) {
+    if (analyzeStyle(os2Table.get(), os2Table.size(), &weight, &italic)) {
         //ALOGD("analyzed weight = %d, italic = %s", weight, italic ? "true" : "false");
         FontStyle style(weight, italic);
         addFontLocked(typeface, style);
@@ -127,7 +100,8 @@ void FontFamily::addFont(MinikinFont* typeface, FontStyle style) {
     addFontLocked(typeface, style);
 }
 
-void FontFamily::addFontLocked(MinikinFont* typeface, FontStyle style) {    typeface->RefLocked();
+void FontFamily::addFontLocked(MinikinFont* typeface, FontStyle style) {
+    typeface->RefLocked();
     mFonts.push_back(Font(typeface, style));
     mCoverageValid = false;
 }
@@ -185,31 +159,59 @@ FontStyle FontFamily::getStyle(size_t index) const {
     return mFonts[index].style;
 }
 
+bool FontFamily::isColorEmojiFamily() const {
+    const FontLanguages& languageList = FontLanguageListCache::getById(mLangId);
+    for (size_t i = 0; i < languageList.size(); ++i) {
+        if (languageList[i].hasEmojiFlag()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 const SparseBitSet* FontFamily::getCoverage() {
     if (!mCoverageValid) {
         const FontStyle defaultStyle;
         MinikinFont* typeface = getClosestMatch(defaultStyle).font;
         const uint32_t cmapTag = MinikinFont::MakeTag('c', 'm', 'a', 'p');
-        size_t cmapSize = 0;
-        if (!typeface->GetTable(cmapTag, NULL, &cmapSize)) {
+        HbBlob cmapTable(getFontTable(typeface, cmapTag));
+        if (cmapTable.get() == nullptr) {
             ALOGE("Could not get cmap table size!\n");
             // Note: This means we will retry on the next call to getCoverage, as we can't store
             //       the failure. This is fine, as we assume this doesn't really happen in practice.
             return nullptr;
         }
-        UniquePtr<uint8_t[]> cmapData(new uint8_t[cmapSize]);
-        if (!typeface->GetTable(cmapTag, cmapData.get(), &cmapSize)) {
-            ALOGE("Unexpected failure to read cmap table!\n");
-            return nullptr;
-        }
-        CmapCoverage::getCoverage(mCoverage, cmapData.get(), cmapSize);  // TODO: Error check?
+        // TODO: Error check?
+        CmapCoverage::getCoverage(mCoverage, cmapTable.get(), cmapTable.size(), &mHasVSTable);
 #ifdef VERBOSE_DEBUG
-        ALOGD("font coverage length=%d, first ch=%x\n", mCoverage->length(),
-                mCoverage->nextSetBit(0));
+        ALOGD("font coverage length=%d, first ch=%x\n", mCoverage.length(),
+                mCoverage.nextSetBit(0));
 #endif
         mCoverageValid = true;
     }
     return &mCoverage;
+}
+
+bool FontFamily::hasGlyph(uint32_t codepoint, uint32_t variationSelector) {
+    assertMinikinLocked();
+    if (variationSelector != 0 && !mHasVSTable) {
+        // Early exit if the variation selector is specified but the font doesn't have a cmap format
+        // 14 subtable.
+        return false;
+    }
+
+    const FontStyle defaultStyle;
+    MinikinFont* minikinFont = getClosestMatch(defaultStyle).font;
+    hb_font_t* font = getHbFontLocked(minikinFont);
+    uint32_t unusedGlyph;
+    bool result = hb_font_get_glyph(font, codepoint, variationSelector, &unusedGlyph);
+    hb_font_destroy(font);
+    return result;
+}
+
+bool FontFamily::hasVSTable() const {
+    LOG_ALWAYS_FATAL_IF(!mCoverageValid, "Do not call this method before getCoverage() call");
+    return mHasVSTable;
 }
 
 }  // namespace android

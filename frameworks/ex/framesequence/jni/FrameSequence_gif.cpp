@@ -23,11 +23,6 @@
 
 #define GIF_DEBUG 0
 
-// These constants are chosen to imitate common browser behavior
-// Note that 0 delay is undefined behavior in the gif standard
-static const long MIN_DELAY_MS = 20;
-static const long DEFAULT_DELAY_MS = 100;
-
 static int streamReader(GifFileType* fileType, GifByteType* out, int size) {
     Stream* stream = (Stream*) fileType->UserData;
     return (int) stream->read(out, size);
@@ -38,11 +33,7 @@ static Color8888 gifColorToColor8888(const GifColorType& color) {
 }
 
 static long getDelayMs(GraphicsControlBlock& gcb) {
-    long delayMs = gcb.DelayTime * 10;
-    if (delayMs < MIN_DELAY_MS) {
-        return DEFAULT_DELAY_MS;
-    }
-    return delayMs;
+    return gcb.DelayTime * 10;
 }
 
 static bool willBeCleared(const GraphicsControlBlock& gcb) {
@@ -63,7 +54,7 @@ FrameSequence_gif::FrameSequence_gif(Stream* stream) :
 
     if (DGifSlurp(mGif) != GIF_OK) {
         ALOGW("Gif slurp failed");
-        DGifCloseFile(mGif);
+        DGifCloseFile(mGif, NULL);
         mGif = NULL;
         return;
     }
@@ -132,7 +123,7 @@ FrameSequence_gif::FrameSequence_gif(Stream* stream) :
 
 FrameSequence_gif::~FrameSequence_gif() {
     if (mGif) {
-        DGifCloseFile(mGif);
+        DGifCloseFile(mGif, NULL);
     }
     delete[] mPreservedFrames;
     delete[] mRestoringFrames;

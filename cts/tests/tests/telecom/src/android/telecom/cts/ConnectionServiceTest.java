@@ -77,6 +77,7 @@ public class ConnectionServiceTest extends BaseTelecomTestWithMockServices {
 
         // Add second connection (add existing connection)
         final Connection connection2 = new MockConnection();
+        connection2.setActive();
         CtsConnectionService.addExistingConnectionToTelecom(TEST_PHONE_ACCOUNT_HANDLE, connection2);
         assertNumCalls(mInCallCallbacks.getService(), 2);
         mInCallCallbacks.lock.drainPermits();

@@ -28,6 +28,17 @@ static bool basic_test(uint32_t index) {
     // This test focuses primarily on compilation-time, not run-time.
     // For this reason, none of the outputs are actually checked.
 
+    // http://b/27526302 - globals of half type cannot be exported and fail compilation
+    half halfTest = (half) 1.5f;
+    half2 half2Test = {(half) 1.5f, (half) 2.5f};
+    half3 half3Test = {(half) 1.5f, (half) 2.5f, (half) 3.5f};
+    half4 half4Test = {(half) 0.f, (half) -0.f, (half) 1.f/0.f, (half) 0.f/0.f};
+
+    rsDebug("halfTest", halfTest);
+    rsDebug("half2Test", half2Test);
+    rsDebug("half3Test", half3Test);
+    rsDebug("half4Test", half4Test);
+
     rsDebug("floatTest", floatTest);
     rsDebug("float2Test", float2Test);
     rsDebug("float3Test", float3Test);

@@ -23,6 +23,8 @@ import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telephony.PhoneNumberUtils;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 /**
  * Utilities to deal with the system telephony services. The system telephony services are treated
  * differently from 3rd party services in some situations (emergency calls, audio focus, etc...).
@@ -45,7 +47,8 @@ public final class TelephonyUtil {
      * account are not expected to be displayed in the UI, so the description, etc are not
      * populated.
      */
-    static PhoneAccount getDefaultEmergencyPhoneAccount() {
+    @VisibleForTesting
+    public static PhoneAccount getDefaultEmergencyPhoneAccount() {
         return PhoneAccount.builder(DEFAULT_EMERGENCY_PHONE_ACCOUNT_HANDLE, "E")
                 .setCapabilities(PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION |
                         PhoneAccount.CAPABILITY_CALL_PROVIDER |

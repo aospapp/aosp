@@ -15,6 +15,7 @@
 // Should only be initialized once via init(). Immutable afterwards.
 struct TwoPtRadial {
     enum {
+        // This value is outside the range SK_FixedMin to SK_FixedMax.
         kDontDrawT  = 0x80000000
     };
 
@@ -45,7 +46,7 @@ public:
                               bool flippedGrad, const Descriptor&);
 
 
-    size_t contextSize() const override;
+    size_t contextSize(const ContextRec&) const override;
 
     class TwoPointConicalGradientContext : public SkGradientShaderBase::GradientShaderBaseContext {
     public:
@@ -58,12 +59,13 @@ public:
         typedef SkGradientShaderBase::GradientShaderBaseContext INHERITED;
     };
 
-    virtual BitmapType asABitmap(SkBitmap* bitmap,
-                                 SkMatrix* matrix,
-                                 TileMode* xy) const override;
     SkShader::GradientType asAGradient(GradientInfo* info) const  override;
-    virtual bool asFragmentProcessor(GrContext*, const SkPaint&, const SkMatrix&, const SkMatrix*,
-                                     GrColor*, GrFragmentProcessor**) const override;
+#if SK_SUPPORT_GPU
+    const GrFragmentProcessor* asFragmentProcessor(GrContext*,
+                                                   const SkMatrix&,
+                                                   const SkMatrix*,
+                                                   SkFilterQuality) const override;
+#endif
     bool isOpaque() const override;
 
     SkScalar getCenterX1() const { return SkPoint::Distance(fCenter1, fCenter2); }

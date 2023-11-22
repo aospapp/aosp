@@ -24,12 +24,20 @@
 #define NATIVE_METHOD(className, functionName, signature) \
   { #functionName, signature, reinterpret_cast<void*>(className ## _ ## functionName) }
 #endif
+
+// TODO: Can we do a better job of supporting overloading ?
+#ifndef OVERLOADED_NATIVE_METHOD
+#define OVERLOADED_NATIVE_METHOD(className, functionName, signature, identifier) \
+    { #functionName, signature, reinterpret_cast<void*>(className ## _ ## identifier) }
+#endif
+
 #define REGISTER_NATIVE_METHODS(jni_class_name) \
   RegisterNativeMethods(env, jni_class_name, gMethods, arraysize(gMethods))
 
 namespace art {
 
 const JNINativeInterface* GetJniNativeInterface();
+const JNINativeInterface* GetRuntimeShutdownNativeInterface();
 
 // Similar to RegisterNatives except its passed a descriptor for a class name and failures are
 // fatal.

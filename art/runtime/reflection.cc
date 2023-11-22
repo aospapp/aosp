@@ -21,7 +21,6 @@
 #include "class_linker.h"
 #include "common_throws.h"
 #include "dex_file-inl.h"
-#include "entrypoints/entrypoint_utils.h"
 #include "indirect_reference_table-inl.h"
 #include "jni_internal.h"
 #include "mirror/abstract_method.h"
@@ -36,7 +35,7 @@ namespace art {
 
 class ArgArray {
  public:
-  explicit ArgArray(const char* shorty, uint32_t shorty_len)
+  ArgArray(const char* shorty, uint32_t shorty_len)
       : shorty_(shorty), shorty_len_(shorty_len), num_bytes_(0) {
     size_t num_slots = shorty_len + 1;  // +1 in case of receiver.
     if (LIKELY((num_slots * 2) < kSmallArgArraySize)) {
@@ -72,7 +71,7 @@ class ArgArray {
     num_bytes_ += 4;
   }
 
-  void Append(mirror::Object* obj) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+  void Append(mirror::Object* obj) SHARED_REQUIRES(Locks::mutator_lock_) {
     Append(StackReference<mirror::Object>::FromMirrorPtr(obj).AsVRegValue());
   }
 
@@ -96,7 +95,7 @@ class ArgArray {
 
   void BuildArgArrayFromVarArgs(const ScopedObjectAccessAlreadyRunnable& soa,
                                 mirror::Object* receiver, va_list ap)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     // Set receiver if non-null (method is not static)
     if (receiver != nullptr) {
       Append(receiver);
@@ -132,7 +131,7 @@ class ArgArray {
 
   void BuildArgArrayFromJValues(const ScopedObjectAccessAlreadyRunnable& soa,
                                 mirror::Object* receiver, jvalue* args)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     // Set receiver if non-null (method is not static)
     if (receiver != nullptr) {
       Append(receiver);
@@ -171,7 +170,7 @@ class ArgArray {
   }
 
   void BuildArgArrayFromFrame(ShadowFrame* shadow_frame, uint32_t arg_offset)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     // Set receiver if non-null (method is not static)
     size_t cur_arg = arg_offset;
     if (!shadow_frame->GetMethod()->IsStatic()) {
@@ -206,7 +205,7 @@ class ArgArray {
 
   static void ThrowIllegalPrimitiveArgumentException(const char* expected,
                                                      const char* found_descriptor)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     ThrowIllegalArgumentException(
         StringPrintf("Invalid primitive conversion from %s to %s", expected,
                      PrettyDescriptor(found_descriptor).c_str()).c_str());
@@ -214,7 +213,7 @@ class ArgArray {
 
   bool BuildArgArrayFromObjectArray(mirror::Object* receiver,
                                     mirror::ObjectArray<mirror::Object>* args, ArtMethod* m)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+      SHARED_REQUIRES(Locks::mutator_lock_) {
     const DexFile::TypeList* classes = m->GetParameterTypeList();
     // Set receiver if non-null (method is not static)
     if (receiver != nullptr) {
@@ -223,8 +222,11 @@ class ArgArray {
     for (size_t i = 1, args_offset = 0; i < shorty_len_; ++i, ++args_offset) {
       mirror::Object* arg = args->Get(args_offset);
       if (((shorty_[i] == 'L') && (arg != nullptr)) || ((arg == nullptr && shorty_[i] != 'L'))) {
+        size_t pointer_size = Runtime::Current()->GetClassLinker()->GetImagePointerSize();
         mirror::Class* dst_class =
-            m->GetClassFromTypeIndex(classes->GetTypeItem(args_offset).type_idx_, true);
+            m->GetClassFromTypeIndex(classes->GetTypeItem(args_offset).type_idx_,
+                                     true /* resolve */,
+                                     pointer_size);
         if (UNLIKELY(arg == nullptr || !arg->InstanceOf(dst_class))) {
           ThrowIllegalArgumentException(
               StringPrintf("method %s argument %zd has type %s, got %s",
@@ -343,7 +345,7 @@ class ArgArray {
 };
 
 static void CheckMethodArguments(JavaVMExt* vm, ArtMethod* m, uint32_t* args)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   const DexFile::TypeList* params = m->GetParameterTypeList();
   if (params == nullptr) {
     return;  // No arguments so nothing to check.
@@ -356,9 +358,12 @@ static void CheckMethodArguments(JavaVMExt* vm, ArtMethod* m, uint32_t* args)
   }
   // TODO: If args contain object references, it may cause problems.
   Thread* const self = Thread::Current();
+  size_t pointer_size = Runtime::Current()->GetClassLinker()->GetImagePointerSize();
   for (uint32_t i = 0; i < num_params; i++) {
     uint16_t type_idx = params->GetTypeItem(i).type_idx_;
-    mirror::Class* param_type = m->GetClassFromTypeIndex(type_idx, true);
+    mirror::Class* param_type = m->GetClassFromTypeIndex(type_idx,
+                                                         true /* resolve*/,
+                                                         pointer_size);
     if (param_type == nullptr) {
       CHECK(self->IsExceptionPending());
       LOG(ERROR) << "Internal error: unresolvable type for argument type in JNI invoke: "
@@ -418,7 +423,7 @@ static void CheckMethodArguments(JavaVMExt* vm, ArtMethod* m, uint32_t* args)
 }
 
 static ArtMethod* FindVirtualMethod(mirror::Object* receiver, ArtMethod* method)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   return receiver->GetClass()->FindVirtualMethodForVirtualOrInterface(method, sizeof(void*));
 }
 
@@ -426,7 +431,7 @@ static ArtMethod* FindVirtualMethod(mirror::Object* receiver, ArtMethod* method)
 static void InvokeWithArgArray(const ScopedObjectAccessAlreadyRunnable& soa,
                                ArtMethod* method, ArgArray* arg_array, JValue* result,
                                const char* shorty)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   uint32_t* args = arg_array->GetArray();
   if (UNLIKELY(soa.Env()->check_jni)) {
     CheckMethodArguments(soa.Vm(), method->GetInterfaceMethodIfProxy(sizeof(void*)), args);
@@ -436,7 +441,7 @@ static void InvokeWithArgArray(const ScopedObjectAccessAlreadyRunnable& soa,
 
 JValue InvokeWithVarArgs(const ScopedObjectAccessAlreadyRunnable& soa, jobject obj, jmethodID mid,
                          va_list args)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   // We want to make sure that the stack is not within a small distance from the
   // protected region in case we are calling into a leaf function whose stack
   // check has been elided.
@@ -453,7 +458,7 @@ JValue InvokeWithVarArgs(const ScopedObjectAccessAlreadyRunnable& soa, jobject o
   }
   mirror::Object* receiver = method->IsStatic() ? nullptr : soa.Decode<mirror::Object*>(obj);
   uint32_t shorty_len = 0;
-  const char* shorty = method->GetShorty(&shorty_len);
+  const char* shorty = method->GetInterfaceMethodIfProxy(sizeof(void*))->GetShorty(&shorty_len);
   JValue result;
   ArgArray arg_array(shorty, shorty_len);
   arg_array.BuildArgArrayFromVarArgs(soa, receiver, args);
@@ -483,7 +488,7 @@ JValue InvokeWithJValues(const ScopedObjectAccessAlreadyRunnable& soa, jobject o
   }
   mirror::Object* receiver = method->IsStatic() ? nullptr : soa.Decode<mirror::Object*>(obj);
   uint32_t shorty_len = 0;
-  const char* shorty = method->GetShorty(&shorty_len);
+  const char* shorty = method->GetInterfaceMethodIfProxy(sizeof(void*))->GetShorty(&shorty_len);
   JValue result;
   ArgArray arg_array(shorty, shorty_len);
   arg_array.BuildArgArrayFromJValues(soa, receiver, args);
@@ -514,7 +519,7 @@ JValue InvokeVirtualOrInterfaceWithJValues(const ScopedObjectAccessAlreadyRunnab
     receiver = nullptr;
   }
   uint32_t shorty_len = 0;
-  const char* shorty = method->GetShorty(&shorty_len);
+  const char* shorty = method->GetInterfaceMethodIfProxy(sizeof(void*))->GetShorty(&shorty_len);
   JValue result;
   ArgArray arg_array(shorty, shorty_len);
   arg_array.BuildArgArrayFromJValues(soa, receiver, args);
@@ -545,7 +550,7 @@ JValue InvokeVirtualOrInterfaceWithVarArgs(const ScopedObjectAccessAlreadyRunnab
     receiver = nullptr;
   }
   uint32_t shorty_len = 0;
-  const char* shorty = method->GetShorty(&shorty_len);
+  const char* shorty = method->GetInterfaceMethodIfProxy(sizeof(void*))->GetShorty(&shorty_len);
   JValue result;
   ArgArray arg_array(shorty, shorty_len);
   arg_array.BuildArgArrayFromVarArgs(soa, receiver, args);
@@ -730,7 +735,7 @@ mirror::Object* BoxPrimitive(Primitive::Type src_class, const JValue& value) {
 }
 
 static std::string UnboxingFailureKind(ArtField* f)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   if (f != nullptr) {
     return "field " + PrettyField(f, false);
   }
@@ -740,7 +745,7 @@ static std::string UnboxingFailureKind(ArtField* f)
 static bool UnboxPrimitive(mirror::Object* o,
                            mirror::Class* dst_class, ArtField* f,
                            JValue* unboxed_value)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   bool unbox_for_result = (f == nullptr);
   if (!dst_class->IsPrimitive()) {
     if (UNLIKELY(o != nullptr && !o->InstanceOf(dst_class))) {
@@ -780,7 +785,7 @@ static bool UnboxPrimitive(mirror::Object* o,
   mirror::Class* klass = o->GetClass();
   mirror::Class* src_class = nullptr;
   ClassLinker* const class_linker = Runtime::Current()->GetClassLinker();
-  ArtField* primitive_field = &klass->GetIFields()[0];
+  ArtField* primitive_field = &klass->GetIFieldsPtr()->At(0);
   if (klass->DescriptorEquals("Ljava/lang/Boolean;")) {
     src_class = class_linker->FindPrimitiveClass('Z');
     boxed_value.SetZ(primitive_field->GetBoolean(o));

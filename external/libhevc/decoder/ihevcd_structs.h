@@ -196,21 +196,21 @@ typedef struct
     /**
      * Absolute POCs of reference List 0 for all slices in the frame from which this frame is reconstructed
      */
-    WORD32 ai4_l0_collocated_poc[MAX_SLICE_SEGMENTS_IN_FRAME][MAX_DPB_SIZE];
+    WORD32 ai4_l0_collocated_poc[MAX_SLICE_HDR_CNT][MAX_DPB_SIZE];
 
     /**
      * Flag to indicate Long Term reference for POCs of reference List 0 for all slices in the frame from which this frame is reconstructed
      */
-    WORD8 ai1_l0_collocated_poc_lt[MAX_SLICE_SEGMENTS_IN_FRAME][MAX_DPB_SIZE];
+    WORD8 ai1_l0_collocated_poc_lt[MAX_SLICE_HDR_CNT][MAX_DPB_SIZE];
 
     /**
      * Absolute POCs of reference List 1 for all slices in the frame from which this frame is reconstructed
      */
-    WORD32 ai4_l1_collocated_poc[MAX_SLICE_SEGMENTS_IN_FRAME][MAX_DPB_SIZE];
+    WORD32 ai4_l1_collocated_poc[MAX_SLICE_HDR_CNT][MAX_DPB_SIZE];
     /**
      * Flag to indicate Long Term reference for POCs of reference List 1 for all slices in the frame from which this frame is reconstructed
      */
-    WORD8 ai1_l1_collocated_poc_lt[MAX_SLICE_SEGMENTS_IN_FRAME][MAX_DPB_SIZE];
+    WORD8 ai1_l1_collocated_poc_lt[MAX_SLICE_HDR_CNT][MAX_DPB_SIZE];
 
 }mv_buf_t;
 
@@ -1627,16 +1627,6 @@ typedef void (*pf_sao_chroma)(UWORD8 *,
 struct _codec_t
 {
     /**
-     * Max width the codec can support
-     */
-    WORD32 i4_max_wd;
-
-    /**
-     * Max height the codec can support
-     */
-    WORD32 i4_max_ht;
-
-    /**
      * Width : pic_width_in_luma_samples
      */
     WORD32 i4_wd;
@@ -1661,46 +1651,11 @@ struct _codec_t
      */
     WORD32 i4_disp_strd;
 
-    /*
-     * In case stream width/height is greater than max_wd/max_ht used during init,
-     * it is stored in the following and in order to decode the current stream
-     * decoder has to be recreated with these dimensions.
-     */
-    /**
-     * Stream width if it is greater than i4_max_wd
-     */
-    WORD32 i4_new_max_wd;
-
-    /**
-     * Stream height if it is greater than i4_max_ht
-     */
-    WORD32 i4_new_max_ht;
-
     /**
      * Stride of reference buffers.
      * For shared mode even display buffer will use the same stride
      */
     WORD32 i4_strd;
-
-    /**
-     * Level specified during init
-     */
-    WORD32 i4_init_level;
-
-    /**
-     * number of reference frames specified during init
-     */
-    WORD32 i4_init_num_ref;
-
-    /**
-     * number of reorder frames specified during init
-     */
-    WORD32 i4_init_num_reorder;
-
-    /**
-     * Number of extra display buffers allocated by application
-     */
-    WORD32 i4_init_num_extra_disp_buf;
 
     /**
      * Number of cores to be used
@@ -1904,19 +1859,36 @@ struct _codec_t
     UWORD8 *pu1_bitsbuf;
 
     /**
+     * Pointer to static bitstream after emulation prevention
+     * This is a fixed size buffer used initially till SPS is decoded
+     */
+    UWORD8 *pu1_bitsbuf_static;
+
+    /**
+     * Pointer to dynamic bitstream after emulation prevention
+     * This is allocated after SPS is done, based on width and height
+     */
+    UWORD8 *pu1_bitsbuf_dynamic;
+
+    /**
      * Size of intermediate bitstream buffer
      */
     UWORD32 u4_bitsbuf_size;
 
     /**
+     * Size of intermediate static bitstream buffer
+     */
+    UWORD32 u4_bitsbuf_size_static;
+
+    /**
+     * Size of intermediate dynamic bitstream buffer
+     */
+    UWORD32 u4_bitsbuf_size_dynamic;
+
+    /**
      * Pointer to hold TU data for a set of CTBs or a picture
      */
     void *pv_tu_data;
-    /**
-     * Holds mem records passed during init.
-     * This will be used to return the mem records during retrieve call
-     */
-    iv_mem_rec_t *ps_mem_rec_backup;
 
     /**
      * Process Job queue buffer base
@@ -1937,6 +1909,12 @@ struct _codec_t
      * Current pictures intra mode map at 8x8 level
      */
     UWORD8 *pu1_pic_intra_flag;
+
+    /**
+     * No LPF buffer base
+     */
+    UWORD8 *pu1_pic_no_loop_filter_flag_base;
+
     /**
      * Current pictures loop filter flag map at 8x8 level
      */
@@ -1980,11 +1958,6 @@ struct _codec_t
      * Total pic buffer size allocated
      */
     WORD32 i4_total_pic_buf_size;
-
-    /**
-     * Remaining pic buffer size - used for shared mode with 420p support
-     */
-    WORD32 i4_remaining_pic_buf_size;
 
     /**
      * Current chroma buffer base - used for shared mode with 420p output
@@ -2124,6 +2097,28 @@ struct _codec_t
 
     /** Mask used to change MVs to full pel when configured to run in reduced complexity mode */
     WORD32 i4_mv_frac_mask;
+
+    /** Memory holding tile indices */
+    UWORD8 *pu1_tile_idx_base;
+
+    /** Callback for aligned allocation */
+    void *(*pf_aligned_alloc)(void *pv_mem_ctxt, WORD32 alignment, WORD32 size);
+
+    /** Callback for aligned free */
+    void (*pf_aligned_free)(void *pv_mem_ctxt, void *pv_buf);
+
+    /** Memory context passed from application */
+    void *pv_mem_ctxt;
+
+    /** Base address of reference buffrers allocated */
+    UWORD8 *pu1_ref_pic_buf_base;
+
+    /** Flag to indicate if dynamic buffers are allocated */
+    UWORD32 u4_allocate_dynamic_done;
+
+    /** Flag to signal display order */
+    IVD_DISPLAY_FRAME_OUT_MODE_T  e_frm_out_mode;
+
     /**  Funtion pointers for inter_pred leaf level functions */
     pf_inter_pred apf_inter_pred[22];
 

@@ -39,6 +39,7 @@ public class MockAccountAuthenticator extends AbstractAccountAuthenticator {
     public static String KEY_ACCOUNT_INFO = "key_account_info";
     public static String KEY_ACCOUNT_AUTHENTICATOR_RESPONSE = "key_account_authenticator_response";
     public static String ACCOUNT_NAME_FOR_NEW_REMOVE_API = "call new removeAccount api";
+    public static String ACCOUNT_NAME_FOR_DEFAULT_IMPL = "call super api";
     // Key for triggering return intent flow
     public static String KEY_RETURN_INTENT = "return an intent";
     public static String ACCOUNT_NAME_FOR_NEW_REMOVE_API1 = "call new removeAccount api";
@@ -290,9 +291,25 @@ public class MockAccountAuthenticator extends AbstractAccountAuthenticator {
             // requests
             // coming from old removeAccount API.
             result.putBoolean(AccountManager.KEY_BOOLEAN_RESULT, false);
+        } else if (ACCOUNT_NAME_FOR_DEFAULT_IMPL.equals(account.name)) {
+            return super.getAccountRemovalAllowed(response, account);
         } else {
             result.putBoolean(AccountManager.KEY_BOOLEAN_RESULT, true);
         }
         return result;
     }
+
+    @Override
+    public Bundle addAccountFromCredentials(final AccountAuthenticatorResponse response,
+            Account account,
+            Bundle accountCredentials) throws NetworkErrorException {
+        return super.addAccountFromCredentials(response, account, accountCredentials);
+    }
+
+    @Override
+    public Bundle getAccountCredentialsForCloning(final AccountAuthenticatorResponse response,
+            final Account account) throws NetworkErrorException {
+        return super.getAccountCredentialsForCloning(response, account);
+    }
+
 }

@@ -11,21 +11,22 @@ namespace v8 {
 namespace internal {
 namespace compiler {
 
-class ValueNumberingReducer FINAL : public Reducer {
+class ValueNumberingReducer final : public Reducer {
  public:
   explicit ValueNumberingReducer(Zone* zone);
   ~ValueNumberingReducer();
 
-  virtual Reduction Reduce(Node* node) OVERRIDE;
+  Reduction Reduce(Node* node) override;
 
  private:
+  enum { kInitialCapacity = 256u, kCapacityToSizeRatio = 2u };
+
+  void Grow();
   Zone* zone() const { return zone_; }
 
-  // TODO(turbofan): We currently use separate chaining with linked lists here,
-  // we may want to replace that with a more sophisticated data structure at
-  // some point in the future.
-  class Entry;
-  Entry* buckets_[117u];
+  Node** entries_;
+  size_t capacity_;
+  size_t size_;
   Zone* zone_;
 };
 

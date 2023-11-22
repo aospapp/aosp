@@ -18,24 +18,20 @@ package android.text.method.cts;
 
 
 import android.app.Activity;
-import android.content.Context;
-import android.os.Bundle;
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.UiThreadTest;
 import android.text.Editable;
 import android.text.Selection;
 import android.text.method.CharacterPickerDialog;
 import android.view.View;
-import android.widget.AdapterView;
 import android.widget.Gallery;
-import android.widget.TextView;
 
 public class CharacterPickerDialogTest extends
         ActivityInstrumentationTestCase2<CtsActivity> {
     private Activity mActivity;
 
     public CharacterPickerDialogTest() {
-        super("com.android.cts.text", CtsActivity.class);
+        super("android.text.cts", CtsActivity.class);
     }
 
     @Override
@@ -48,7 +44,7 @@ public class CharacterPickerDialogTest extends
     public void testConstructor() {
         final CharSequence str = "123456";
         final Editable content = Editable.Factory.getInstance().newEditable(str);
-        final View view = new TextView(mActivity);
+        final View view = new TextViewNoIme(mActivity);
         new CharacterPickerDialog(view.getContext(), view, content, "\u00A1", false);
 
         try {
@@ -68,7 +64,7 @@ public class CharacterPickerDialogTest extends
         final Gallery parent = new Gallery(mActivity);
         final CharSequence str = "123456";
         Editable text = Editable.Factory.getInstance().newEditable(str);
-        final View view = new TextView(mActivity);
+        final View view = new TextViewNoIme(mActivity);
         CharacterPickerDialog replacePickerDialog =
                 new CharacterPickerDialog(view.getContext(), view, text, "abc", false);
 
@@ -109,7 +105,7 @@ public class CharacterPickerDialogTest extends
     public void testOnClick() {
         final CharSequence str = "123456";
         final Editable content = Editable.Factory.getInstance().newEditable(str);
-        final View view = new TextView(mActivity);
+        final View view = new TextViewNoIme(mActivity);
         CharacterPickerDialog characterPickerDialog =
                 new CharacterPickerDialog(view.getContext(), view, content, "\u00A1", false);
 

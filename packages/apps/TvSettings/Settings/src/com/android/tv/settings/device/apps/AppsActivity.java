@@ -16,49 +16,49 @@
 
 package com.android.tv.settings.device.apps;
 
-import android.graphics.drawable.Drawable;
+import android.app.Fragment;
 import android.os.Bundle;
 
-import com.android.tv.settings.BrowseInfoFactory;
-import com.android.tv.settings.MenuActivity;
-import com.android.tv.settings.R;
+import com.android.tv.settings.BaseSettingsFragment;
+import com.android.tv.settings.TvSettingsActivity;
 
 /**
  * Activity allowing the management of apps settings.
  */
-public class AppsActivity extends MenuActivity {
+public class AppsActivity extends TvSettingsActivity {
 
     // Used for storage only.
     public static final String EXTRA_VOLUME_UUID = "volumeUuid";
     public static final String EXTRA_VOLUME_NAME = "volumeName";
 
-    private String mVolumeUuid;
-    private String mVolumeName; // TODO: surface this to the user somewhere
-
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected Fragment createSettingsFragment() {
         final Bundle args = getIntent().getExtras();
+        String volumeUuid = null;
+        String volumeName = null;
         if (args != null && args.containsKey(EXTRA_VOLUME_UUID)) {
-            mVolumeUuid = args.getString(EXTRA_VOLUME_UUID);
-            mVolumeName = args.getString(EXTRA_VOLUME_NAME);
+            volumeUuid = args.getString(EXTRA_VOLUME_UUID);
+            volumeName = args.getString(EXTRA_VOLUME_NAME);
         }
-        super.onCreate(savedInstanceState);
+        return SettingsFragment.newInstance(volumeUuid, volumeName);
     }
 
-    @Override
-    protected String getBrowseTitle() {
-        return getString(R.string.device_apps);
-    }
-    
-    @Override
-    protected Drawable getBadgeImage() {
-        return getDrawable(R.drawable.ic_settings_apps);
-    }
-    
-    @Override
-    protected BrowseInfoFactory getBrowseInfoFactory() {
-        AppsBrowseInfo appsBrowseInfo = new AppsBrowseInfo(this, mVolumeUuid, mVolumeName);
-        appsBrowseInfo.init();
-        return appsBrowseInfo;
+    public static class SettingsFragment extends BaseSettingsFragment {
+
+        public static SettingsFragment newInstance(String volumeUuid, String volumeName) {
+            final Bundle b = new Bundle(2);
+            b.putString(EXTRA_VOLUME_UUID, volumeUuid);
+            b.putString(EXTRA_VOLUME_NAME, volumeName);
+            final SettingsFragment f = new SettingsFragment();
+            f.setArguments(b);
+            return f;
+        }
+
+        @Override
+        public void onPreferenceStartInitialScreen() {
+            final String volumeUuid = getArguments().getString(EXTRA_VOLUME_UUID);
+            final String volumeName = getArguments().getString(EXTRA_VOLUME_NAME);
+            startPreferenceFragment(AppsFragment.newInstance(volumeUuid, volumeName));
+        }
     }
 }

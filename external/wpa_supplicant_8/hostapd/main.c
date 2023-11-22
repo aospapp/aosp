@@ -1,6 +1,6 @@
 /*
  * hostapd / main()
- * Copyright (c) 2002-2015, Jouni Malinen <j@w1.fi>
+ * Copyright (c) 2002-2016, Jouni Malinen <j@w1.fi>
  *
  * This software may be distributed under the terms of the BSD license.
  * See README for more details.
@@ -24,6 +24,7 @@
 #include "ap/hostapd.h"
 #include "ap/ap_config.h"
 #include "ap/ap_drv_ops.h"
+#include "fst/fst.h"
 #include "config_file.h"
 #include "eap_register.h"
 #include "ctrl_iface.h"
@@ -170,7 +171,8 @@ static int hostapd_driver_init(struct hostapd_iface *iface)
 
 		if (global.drv_priv[i] == NULL &&
 		    wpa_drivers[i]->global_init) {
-			global.drv_priv[i] = wpa_drivers[i]->global_init();
+			global.drv_priv[i] =
+				wpa_drivers[i]->global_init(iface->interfaces);
 			if (global.drv_priv[i] == NULL) {
 				wpa_printf(MSG_ERROR, "Failed to initialize "
 					   "driver '%s'",
@@ -407,9 +409,16 @@ static int hostapd_global_run(struct hapd_interfaces *ifaces, int daemonize,
 	}
 #endif /* EAP_SERVER_TNC */
 
-	if (daemonize && os_daemonize(pid_file)) {
-		wpa_printf(MSG_ERROR, "daemon: %s", strerror(errno));
-		return -1;
+	if (daemonize) {
+		if (os_daemonize(pid_file)) {
+			wpa_printf(MSG_ERROR, "daemon: %s", strerror(errno));
+			return -1;
+		}
+		if (eloop_sock_requeue()) {
+			wpa_printf(MSG_ERROR, "eloop_sock_requeue: %s",
+				   strerror(errno));
+			return -1;
+		}
 	}
 
 	eloop_run();
@@ -424,7 +433,7 @@ static void show_version(void)
 		"hostapd v" VERSION_STR "\n"
 		"User space daemon for IEEE 802.11 AP management,\n"
 		"IEEE 802.1X/WPA/WPA2/EAP/RADIUS Authenticator\n"
-		"Copyright (c) 2002-2015, Jouni Malinen <j@w1.fi> "
+		"Copyright (c) 2002-2016, Jouni Malinen <j@w1.fi> "
 		"and contributors\n");
 }
 
@@ -455,6 +464,7 @@ static void usage(void)
 		"   -T = record to Linux tracing in addition to logging\n"
 		"        (records all messages regardless of debug verbosity)\n"
 #endif /* CONFIG_DEBUG_LINUX_TRACING */
+		"   -S   start all the interfaces synchronously\n"
 		"   -t   include timestamps in some debug messages\n"
 		"   -v   show hostapd version\n");
 
@@ -465,9 +475,8 @@ static void usage(void)
 static const char * hostapd_msg_ifname_cb(void *ctx)
 {
 	struct hostapd_data *hapd = ctx;
-	if (hapd && hapd->iconf && hapd->iconf->bss &&
-	    hapd->iconf->num_bss > 0 && hapd->iconf->bss[0])
-		return hapd->iconf->bss[0]->iface;
+	if (hapd && hapd->conf)
+		return hapd->conf->iface;
 	return NULL;
 }
 
@@ -475,11 +484,16 @@ static const char * hostapd_msg_ifname_cb(void *ctx)
 static int hostapd_get_global_ctrl_iface(struct hapd_interfaces *interfaces,
 					 const char *path)
 {
+#ifndef CONFIG_CTRL_IFACE_UDP
 	char *pos;
+#endif /* !CONFIG_CTRL_IFACE_UDP */
+
 	os_free(interfaces->global_iface_path);
 	interfaces->global_iface_path = os_strdup(path);
 	if (interfaces->global_iface_path == NULL)
 		return -1;
+
+#ifndef CONFIG_CTRL_IFACE_UDP
 	pos = os_strrchr(interfaces->global_iface_path, '/');
 	if (pos == NULL) {
 		wpa_printf(MSG_ERROR, "No '/' in the global control interface "
@@ -491,6 +505,7 @@ static int hostapd_get_global_ctrl_iface(struct hapd_interfaces *interfaces,
 
 	*pos = '\0';
 	interfaces->global_iface_name = pos + 1;
+#endif /* !CONFIG_CTRL_IFACE_UDP */
 
 	return 0;
 }
@@ -533,6 +548,28 @@ static int gen_uuid(const char *txt_addr)
 #endif /* CONFIG_WPS */
 
 
+#ifndef HOSTAPD_CLEANUP_INTERVAL
+#define HOSTAPD_CLEANUP_INTERVAL 10
+#endif /* HOSTAPD_CLEANUP_INTERVAL */
+
+static int hostapd_periodic_call(struct hostapd_iface *iface, void *ctx)
+{
+	hostapd_periodic_iface(iface);
+	return 0;
+}
+
+
+/* Periodic cleanup tasks */
+static void hostapd_periodic(void *eloop_ctx, void *timeout_ctx)
+{
+	struct hapd_interfaces *interfaces = eloop_ctx;
+
+	eloop_register_timeout(HOSTAPD_CLEANUP_INTERVAL, 0,
+			       hostapd_periodic, interfaces, NULL);
+	hostapd_for_each_interface(interfaces, hostapd_periodic_call, NULL);
+}
+
+
 int main(int argc, char *argv[])
 {
 	struct hapd_interfaces interfaces;
@@ -547,6 +584,7 @@ int main(int argc, char *argv[])
 #ifdef CONFIG_DEBUG_LINUX_TRACING
 	int enable_trace_dbg = 0;
 #endif /* CONFIG_DEBUG_LINUX_TRACING */
+	int start_ifaces_in_sync = 0;
 
 	if (os_program_init())
 		return -1;
@@ -561,9 +599,10 @@ int main(int argc, char *argv[])
 	interfaces.global_iface_path = NULL;
 	interfaces.global_iface_name = NULL;
 	interfaces.global_ctrl_sock = -1;
+	dl_list_init(&interfaces.global_ctrl_dst);
 
 	for (;;) {
-		c = getopt(argc, argv, "b:Bde:f:hKP:Ttu:vg:G:");
+		c = getopt(argc, argv, "b:Bde:f:hKP:STtu:vg:G:");
 		if (c < 0)
 			break;
 		switch (c) {
@@ -620,6 +659,9 @@ int main(int argc, char *argv[])
 			bss_config = tmp_bss;
 			bss_config[num_bss_configs++] = optarg;
 			break;
+		case 'S':
+			start_ifaces_in_sync = 1;
+			break;
 #ifdef CONFIG_WPS
 		case 'u':
 			return gen_uuid(optarg);
@@ -665,6 +707,20 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
+	eloop_register_timeout(HOSTAPD_CLEANUP_INTERVAL, 0,
+			       hostapd_periodic, &interfaces, NULL);
+
+	if (fst_global_init()) {
+		wpa_printf(MSG_ERROR,
+			   "Failed to initialize global FST context");
+		goto out;
+	}
+
+#if defined(CONFIG_FST) && defined(CONFIG_CTRL_IFACE)
+	if (!fst_global_add_ctrl(fst_ctrl_cli))
+		wpa_printf(MSG_WARNING, "Failed to add CLI FST ctrl");
+#endif /* CONFIG_FST && CONFIG_CTRL_IFACE */
+
 	/* Allocate and parse configuration for full interface files */
 	for (i = 0; i < interfaces.count; i++) {
 		interfaces.iface[i] = hostapd_interface_init(&interfaces,
@@ -674,6 +730,8 @@ int main(int argc, char *argv[])
 			wpa_printf(MSG_ERROR, "Failed to initialize interface");
 			goto out;
 		}
+		if (start_ifaces_in_sync)
+			interfaces.iface[i]->need_to_start_in_sync = 1;
 	}
 
 	/* Allocate and parse configuration for per-BSS files */
@@ -749,6 +807,7 @@ int main(int argc, char *argv[])
 	}
 	os_free(interfaces.iface);
 
+	eloop_cancel_timeout(hostapd_periodic, &interfaces, NULL);
 	hostapd_global_deinit(pid_file);
 	os_free(pid_file);
 
@@ -757,6 +816,8 @@ int main(int argc, char *argv[])
 	wpa_debug_close_linux_tracing();
 
 	os_free(bss_config);
+
+	fst_global_deinit();
 
 	os_program_deinit();
 

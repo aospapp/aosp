@@ -428,6 +428,9 @@ static void wiphy_info_feature_flags(struct wiphy_info_data *info,
 
 	if (flags & NL80211_FEATURE_HT_IBSS)
 		capa->flags |= WPA_DRIVER_FLAGS_HT_IBSS;
+
+	if (flags & NL80211_FEATURE_FULL_AP_CLIENT_STATE)
+		capa->flags |= WPA_DRIVER_FLAGS_FULL_AP_CLIENT_STATE;
 }
 
 
@@ -487,6 +490,9 @@ static int wiphy_info_handler(struct nl_msg *msg, void *arg)
 	nla_parse(tb, NL80211_ATTR_MAX, genlmsg_attrdata(gnlh, 0),
 		  genlmsg_attrlen(gnlh, 0), NULL);
 
+	if (tb[NL80211_ATTR_WIPHY])
+		drv->wiphy_idx = nla_get_u32(tb[NL80211_ATTR_WIPHY]);
+
 	if (tb[NL80211_ATTR_WIPHY_NAME])
 		os_strlcpy(drv->phyname,
 			   nla_get_string(tb[NL80211_ATTR_WIPHY_NAME]),
@@ -498,6 +504,19 @@ static int wiphy_info_handler(struct nl_msg *msg, void *arg)
 	if (tb[NL80211_ATTR_MAX_NUM_SCHED_SCAN_SSIDS])
 		capa->max_sched_scan_ssids =
 			nla_get_u8(tb[NL80211_ATTR_MAX_NUM_SCHED_SCAN_SSIDS]);
+
+	if (tb[NL80211_ATTR_MAX_NUM_SCHED_SCAN_PLANS] &&
+	    tb[NL80211_ATTR_MAX_SCAN_PLAN_INTERVAL] &&
+	    tb[NL80211_ATTR_MAX_SCAN_PLAN_ITERATIONS]) {
+		capa->max_sched_scan_plans =
+			nla_get_u32(tb[NL80211_ATTR_MAX_NUM_SCHED_SCAN_PLANS]);
+
+		capa->max_sched_scan_plan_interval =
+			nla_get_u32(tb[NL80211_ATTR_MAX_SCAN_PLAN_INTERVAL]);
+
+		capa->max_sched_scan_plan_iterations =
+			nla_get_u32(tb[NL80211_ATTR_MAX_SCAN_PLAN_ITERATIONS]);
+	}
 
 	if (tb[NL80211_ATTR_MAX_MATCH_SETS])
 		capa->max_match_sets =
@@ -580,6 +599,7 @@ static int wiphy_info_handler(struct nl_msg *msg, void *arg)
 				case QCA_NL80211_VENDOR_SUBCMD_TEST:
 					drv->vendor_cmd_test_avail = 1;
 					break;
+#ifdef CONFIG_DRIVER_NL80211_QCA
 				case QCA_NL80211_VENDOR_SUBCMD_ROAMING:
 					drv->roaming_vendor_cmd_avail = 1;
 					break;
@@ -589,10 +609,23 @@ static int wiphy_info_handler(struct nl_msg *msg, void *arg)
 				case QCA_NL80211_VENDOR_SUBCMD_GET_FEATURES:
 					drv->get_features_vendor_cmd_avail = 1;
 					break;
+				case QCA_NL80211_VENDOR_SUBCMD_GET_PREFERRED_FREQ_LIST:
+					drv->get_pref_freq_list = 1;
+					break;
+				case QCA_NL80211_VENDOR_SUBCMD_SET_PROBABLE_OPER_CHANNEL:
+					drv->set_prob_oper_freq = 1;
+					break;
 				case QCA_NL80211_VENDOR_SUBCMD_DO_ACS:
 					drv->capa.flags |=
 						WPA_DRIVER_FLAGS_ACS_OFFLOAD;
 					break;
+				case QCA_NL80211_VENDOR_SUBCMD_SETBAND:
+					drv->setband_vendor_cmd_avail = 1;
+					break;
+				case QCA_NL80211_VENDOR_SUBCMD_TRIGGER_SCAN:
+					drv->scan_vendor_cmd_avail = 1;
+					break;
+#endif /* CONFIG_DRIVER_NL80211_QCA */
 				}
 			}
 
@@ -623,6 +656,10 @@ static int wiphy_info_handler(struct nl_msg *msg, void *arg)
 	if (tb[NL80211_ATTR_MAX_AP_ASSOC_STA])
 		capa->max_stations =
 			nla_get_u32(tb[NL80211_ATTR_MAX_AP_ASSOC_STA]);
+
+	if (tb[NL80211_ATTR_MAX_CSA_COUNTERS])
+		capa->max_csa_counters =
+			nla_get_u8(tb[NL80211_ATTR_MAX_CSA_COUNTERS]);
 
 	return NL_SKIP;
 }
@@ -680,8 +717,6 @@ static int wpa_driver_nl80211_get_info(struct wpa_driver_nl80211_data *drv,
 	if (!drv->capa.max_remain_on_chan)
 		drv->capa.max_remain_on_chan = 5000;
 
-	if (info->channel_switch_supported)
-		drv->capa.flags |= WPA_DRIVER_FLAGS_AP_CSA;
 	drv->capa.wmm_ac_supported = info->wmm_ac_supported;
 
 	drv->capa.mac_addr_rand_sched_scan_supported =
@@ -689,9 +724,23 @@ static int wpa_driver_nl80211_get_info(struct wpa_driver_nl80211_data *drv,
 	drv->capa.mac_addr_rand_scan_supported =
 		info->mac_addr_rand_scan_supported;
 
+	if (info->channel_switch_supported) {
+		drv->capa.flags |= WPA_DRIVER_FLAGS_AP_CSA;
+		if (!drv->capa.max_csa_counters)
+			drv->capa.max_csa_counters = 1;
+	}
+
+	if (!drv->capa.max_sched_scan_plans) {
+		drv->capa.max_sched_scan_plans = 1;
+		drv->capa.max_sched_scan_plan_interval = UINT32_MAX;
+		drv->capa.max_sched_scan_plan_iterations = 0;
+	}
+
 	return 0;
 }
 
+
+#ifdef CONFIG_DRIVER_NL80211_QCA
 
 static int dfs_info_handler(struct nl_msg *msg, void *arg)
 {
@@ -748,6 +797,7 @@ static void qca_nl80211_check_dfs_capa(struct wpa_driver_nl80211_data *drv)
 struct features_info {
 	u8 *flags;
 	size_t flags_len;
+	struct wpa_driver_capa *capa;
 };
 
 
@@ -773,6 +823,19 @@ static int features_info_handler(struct nl_msg *msg, void *arg)
 			info->flags = nla_data(attr);
 			info->flags_len = nla_len(attr);
 		}
+		attr = tb_vendor[QCA_WLAN_VENDOR_ATTR_CONCURRENCY_CAPA];
+		if (attr)
+			info->capa->conc_capab = nla_get_u32(attr);
+
+		attr = tb_vendor[
+			QCA_WLAN_VENDOR_ATTR_MAX_CONCURRENT_CHANNELS_2_4_BAND];
+		if (attr)
+			info->capa->max_conc_chan_2_4 = nla_get_u32(attr);
+
+		attr = tb_vendor[
+			QCA_WLAN_VENDOR_ATTR_MAX_CONCURRENT_CHANNELS_5_0_BAND];
+		if (attr)
+			info->capa->max_conc_chan_5_0 = nla_get_u32(attr);
 	}
 
 	return NL_SKIP;
@@ -807,6 +870,7 @@ static void qca_nl80211_get_features(struct wpa_driver_nl80211_data *drv)
 	}
 
 	os_memset(&info, 0, sizeof(info));
+	info.capa = &drv->capa;
 	ret = send_and_recv_msgs(drv, msg, features_info_handler, &info);
 	if (ret || !info.flags)
 		return;
@@ -816,7 +880,13 @@ static void qca_nl80211_get_features(struct wpa_driver_nl80211_data *drv)
 
 	if (check_feature(QCA_WLAN_VENDOR_FEATURE_SUPPORT_HW_MODE_ANY, &info))
 		drv->capa.flags |= WPA_DRIVER_FLAGS_SUPPORT_HW_MODE_ANY;
+
+	if (check_feature(QCA_WLAN_VENDOR_FEATURE_OFFCHANNEL_SIMULTANEOUS,
+			  &info))
+		drv->capa.flags |= WPA_DRIVER_FLAGS_OFFCHANNEL_SIMULTANEOUS;
 }
+
+#endif /* CONFIG_DRIVER_NL80211_QCA */
 
 
 int wpa_driver_nl80211_capa(struct wpa_driver_nl80211_data *drv)
@@ -898,8 +968,20 @@ int wpa_driver_nl80211_capa(struct wpa_driver_nl80211_data *drv)
 	if (!drv->use_monitor && !info.data_tx_status)
 		drv->capa.flags &= ~WPA_DRIVER_FLAGS_EAPOL_TX_STATUS;
 
+#ifdef CONFIG_DRIVER_NL80211_QCA
 	qca_nl80211_check_dfs_capa(drv);
 	qca_nl80211_get_features(drv);
+
+	/*
+	 * To enable offchannel simultaneous support in wpa_supplicant, the
+	 * underlying driver needs to support the same along with offchannel TX.
+	 * Offchannel TX support is needed since remain_on_channel and
+	 * action_tx use some common data structures and hence cannot be
+	 * scheduled simultaneously.
+	 */
+	if (!(drv->capa.flags & WPA_DRIVER_FLAGS_OFFCHANNEL_TX))
+		drv->capa.flags &= ~WPA_DRIVER_FLAGS_OFFCHANNEL_SIMULTANEOUS;
+#endif /* CONFIG_DRIVER_NL80211_QCA */
 
 	return 0;
 }
@@ -909,6 +991,7 @@ struct phy_info_arg {
 	u16 *num_modes;
 	struct hostapd_hw_modes *modes;
 	int last_mode, last_chan_idx;
+	int failed;
 };
 
 static void phy_info_ht_capa(struct hostapd_hw_modes *mode, struct nlattr *capa,
@@ -1026,7 +1109,7 @@ static int phy_info_freqs(struct phy_info_arg *phy_info,
 				   mode->num_channels + new_channels,
 				   sizeof(struct hostapd_channel_data));
 	if (!channel)
-		return NL_SKIP;
+		return NL_STOP;
 
 	mode->channels = channel;
 	mode->num_channels += new_channels;
@@ -1072,7 +1155,7 @@ static int phy_info_rates(struct hostapd_hw_modes *mode, struct nlattr *tb)
 
 	mode->rates = os_calloc(mode->num_rates, sizeof(int));
 	if (!mode->rates)
-		return NL_SKIP;
+		return NL_STOP;
 
 	idx = 0;
 
@@ -1101,8 +1184,10 @@ static int phy_info_band(struct phy_info_arg *phy_info, struct nlattr *nl_band)
 		mode = os_realloc_array(phy_info->modes,
 					*phy_info->num_modes + 1,
 					sizeof(*mode));
-		if (!mode)
-			return NL_SKIP;
+		if (!mode) {
+			phy_info->failed = 1;
+			return NL_STOP;
+		}
 		phy_info->modes = mode;
 
 		mode = &phy_info->modes[*(phy_info->num_modes)];
@@ -1138,11 +1223,12 @@ static int phy_info_band(struct phy_info_arg *phy_info, struct nlattr *nl_band)
 	phy_info_vht_capa(mode, tb_band[NL80211_BAND_ATTR_VHT_CAPA],
 			  tb_band[NL80211_BAND_ATTR_VHT_MCS_SET]);
 	ret = phy_info_freqs(phy_info, mode, tb_band[NL80211_BAND_ATTR_FREQS]);
-	if (ret != NL_OK)
+	if (ret == NL_OK)
+		ret = phy_info_rates(mode, tb_band[NL80211_BAND_ATTR_RATES]);
+	if (ret != NL_OK) {
+		phy_info->failed = 1;
 		return ret;
-	ret = phy_info_rates(mode, tb_band[NL80211_BAND_ATTR_RATES]);
-	if (ret != NL_OK)
-		return ret;
+	}
 
 	return NL_OK;
 }
@@ -1357,7 +1443,7 @@ static void nl80211_reg_rule_sec(struct nlattr *tb[],
 
 
 static void nl80211_set_vht_mode(struct hostapd_hw_modes *mode, int start,
-				 int end)
+				 int end, int max_bw)
 {
 	int c;
 
@@ -1374,6 +1460,32 @@ static void nl80211_set_vht_mode(struct hostapd_hw_modes *mode, int start,
 
 		if (chan->freq - 70 >= start && chan->freq + 10 <= end)
 			chan->flag |= HOSTAPD_CHAN_VHT_70_10;
+
+		if (max_bw >= 160) {
+			if (chan->freq - 10 >= start && chan->freq + 150 <= end)
+				chan->flag |= HOSTAPD_CHAN_VHT_10_150;
+
+			if (chan->freq - 30 >= start && chan->freq + 130 <= end)
+				chan->flag |= HOSTAPD_CHAN_VHT_30_130;
+
+			if (chan->freq - 50 >= start && chan->freq + 110 <= end)
+				chan->flag |= HOSTAPD_CHAN_VHT_50_110;
+
+			if (chan->freq - 70 >= start && chan->freq + 90 <= end)
+				chan->flag |= HOSTAPD_CHAN_VHT_70_90;
+
+			if (chan->freq - 90 >= start && chan->freq + 70 <= end)
+				chan->flag |= HOSTAPD_CHAN_VHT_90_70;
+
+			if (chan->freq - 110 >= start && chan->freq + 50 <= end)
+				chan->flag |= HOSTAPD_CHAN_VHT_110_50;
+
+			if (chan->freq - 130 >= start && chan->freq + 30 <= end)
+				chan->flag |= HOSTAPD_CHAN_VHT_130_30;
+
+			if (chan->freq - 150 >= start && chan->freq + 10 <= end)
+				chan->flag |= HOSTAPD_CHAN_VHT_150_10;
+		}
 	}
 }
 
@@ -1404,7 +1516,7 @@ static void nl80211_reg_rule_vht(struct nlattr *tb[],
 		if (!results->modes[m].vht_capab)
 			continue;
 
-		nl80211_set_vht_mode(&results->modes[m], start, end);
+		nl80211_set_vht_mode(&results->modes[m], start, end, max_bw);
 	}
 }
 
@@ -1542,6 +1654,7 @@ nl80211_get_hw_feature_data(void *priv, u16 *num_modes, u16 *flags)
 		.num_modes = num_modes,
 		.modes = NULL,
 		.last_mode = -1,
+		.failed = 0,
 	};
 
 	*num_modes = 0;
@@ -1558,6 +1671,16 @@ nl80211_get_hw_feature_data(void *priv, u16 *num_modes, u16 *flags)
 
 	if (send_and_recv_msgs(drv, msg, phy_info_handler, &result) == 0) {
 		nl80211_set_regulatory_flags(drv, &result);
+		if (result.failed) {
+			int i;
+
+			for (i = 0; result.modes && i < *num_modes; i++) {
+				os_free(result.modes[i].channels);
+				os_free(result.modes[i].rates);
+			}
+			os_free(result.modes);
+			return NULL;
+		}
 		return wpa_driver_nl80211_postprocess_modes(result.modes,
 							    num_modes);
 	}

@@ -20,9 +20,9 @@
     <string name="button_etws_normal_type" msgid="3852703138521119537">"发送地震海啸警报系统的常规广播"</string>
     <string name="button_etws_cancel_type" msgid="7194264116649371175">"发送地震海啸警报系统取消广播"</string>
     <string name="button_etws_test_type" msgid="6353906188028139901">"发送地震海啸警报系统测试广播"</string>
-    <string name="button_cmas_pres_alert" msgid="5905111586384766558">"发送 CMAS 总统警报"</string>
-    <string name="button_cmas_extreme_alert" msgid="6111658124447111920">"发送 CMAS 极端情况警报"</string>
-    <string name="button_cmas_severe_alert" msgid="9051731172452500819">"发送 CMAS 严重情况警报"</string>
+    <string name="button_cmas_pres_alert" msgid="5905111586384766558">"发送 CMAS 国家级警报"</string>
+    <string name="button_cmas_extreme_alert" msgid="6111658124447111920">"发送 CMAS 极严重警报"</string>
+    <string name="button_cmas_severe_alert" msgid="9051731172452500819">"发送 CMAS 严重警报"</string>
     <string name="button_cmas_amber_alert" msgid="4217147800913845288">"发送 CMAS 安珀警报"</string>
     <string name="button_cmas_monthly_test" msgid="1609320625517248393">"发送 CMAS 每月测试警报"</string>
     <string name="button_gsm_7bit_type" msgid="4757698592787955850">"发送GSM 7位测试广播"</string>

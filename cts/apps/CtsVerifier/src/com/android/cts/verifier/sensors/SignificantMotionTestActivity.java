@@ -287,14 +287,18 @@ public class SignificantMotionTestActivity extends SensorCtsVerifierTestActivity
 
     @Override
     protected void activityCleanUp() {
-        mScreenManipulator.turnScreenOff();
+        if (mScreenManipulator != null) {
+            mScreenManipulator.turnScreenOff();
+        }
         LocalBroadcastManager.getInstance(this).unregisterReceiver(myBroadCastReceiver);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        mScreenManipulator.close();
+        if (mScreenManipulator != null){
+            mScreenManipulator.close();
+        }
     }
 
     /**

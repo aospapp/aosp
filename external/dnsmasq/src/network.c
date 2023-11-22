@@ -16,6 +16,8 @@
 
 #include "dnsmasq.h"
 
+static const char SEPARATOR[] = "|";
+
 #ifdef HAVE_LINUX_NETWORK
 
 int indextoname(int fd, int index, char *name)
@@ -102,7 +104,9 @@ int iface_check(int family, struct all_addr *addr, char *name, int *indexp)
 #ifdef HAVE_IPV6
 	    else if (family == AF_INET6 &&
 		     IN6_ARE_ADDR_EQUAL(&tmp->addr.in6.sin6_addr, 
-					&addr->addr.addr6))
+					&addr->addr.addr6) &&
+		     (!IN6_IS_ADDR_LINKLOCAL(&addr->addr.addr6) ||
+		      (tmp->addr.in6.sin6_scope_id == (uint32_t) *indexp)))
 	      ret = tmp->used = 1;
 #endif
 	  }          
@@ -182,8 +186,9 @@ static int iface_allowed(struct irec **irecp, int if_index,
       dhcp_ok = 0;
   
 #ifdef HAVE_IPV6
+  int ifindex = (int) addr->in6.sin6_scope_id;
   if (addr->sa.sa_family == AF_INET6 &&
-      !iface_check(AF_INET6, (struct all_addr *)&addr->in6.sin6_addr, ifr.ifr_name, NULL))
+      !iface_check(AF_INET6, (struct all_addr *)&addr->in6.sin6_addr, ifr.ifr_name, &ifindex))
     return 1;
 #endif
 
@@ -219,7 +224,15 @@ static int iface_allowed_v6(struct in6_addr *local,
   addr.in6.sin6_family = AF_INET6;
   addr.in6.sin6_addr = *local;
   addr.in6.sin6_port = htons(daemon->port);
-  addr.in6.sin6_scope_id = scope;
+  /**
+   * Only populate the scope ID if the address is link-local.
+   * Scope IDs are not meaningful for global addresses. Also, we do not want to
+   * think that two addresses are different if they differ only in scope ID,
+   * because the kernel will treat them as if they are the same.
+   */
+  if (IN6_IS_ADDR_LINKLOCAL(local)) {
+    addr.in6.sin6_scope_id = scope;
+  }
   
   return iface_allowed((struct irec **)vparam, if_index, &addr, netmask);
 }
@@ -445,6 +458,8 @@ void create_bound_listener(struct listener **listeners, struct irec *iface)
       /* An interface may have an IPv6 address which is still undergoing DAD.
          If so, the bind will fail until the DAD completes, so we try over 20 seconds
          before failing. */
+      /* TODO: What to do here? 20 seconds is way too long. We use optimistic addresses, so bind()
+         will only fail if the address has already failed DAD, in which case retrying won't help. */
       if (iface->addr.sa.sa_family == AF_INET6 && (errno == ENODEV || errno == EADDRNOTAVAIL) &&
           dad_count++ < DAD_WAIT)
       {
@@ -506,33 +521,20 @@ void fixup_possible_existing_listener(struct irec *new_iface) {
 }
 
 /**
- * Close the sockets listening on the given interface
+ * Closes the sockets of the specified listener, deletes it from the list, and frees it.
  *
- * This new function is needed as we're dynamically changing the interfaces
- * we listen on.  Before they'd be opened once in create_bound_listeners and stay
- * until we exited.  Now, if an interface moves off the to-listen list we need to
- * close out the listeners and keep trucking.
- *
- * interface - input of the interface details to listen on
  */
-int close_bound_listener(struct irec *interface)
+int delete_listener(struct listener **l)
 {
-  /* find the listener */
-  struct listener **l, *listener;
-  for (l = &(daemon->listeners); *l; l = &((*l)->next)) {
-    struct irec *listener_iface = (*l)->iface;
-    if (listener_iface && interface) {
-      if (sockaddr_isequal(&listener_iface->addr, &interface->addr)) {
-        break;
-      }
-    } else {
-      if (interface == NULL && listener_iface == NULL) {
-        break;
-      }
-    }
-  }
-  listener = *l;
+  struct listener *listener = *l;
   if (listener == NULL) return 0;
+
+  if (listener->iface) {
+    int port = prettyprint_addr(&listener->iface->addr, daemon->namebuff);
+    my_syslog(LOG_INFO, _("Closing listener [%s]:%d"), daemon->namebuff, port);
+  } else {
+    my_syslog(LOG_INFO, _("Closing wildcard listener family=%d"), listener->family);
+  }
 
   if (listener->tftpfd != -1)
   {
@@ -552,6 +554,39 @@ int close_bound_listener(struct irec *interface)
   *l = listener->next;
   free(listener);
   return -1;
+}
+
+/**
+ * Close the sockets listening on the given interface
+ *
+ * This new function is needed as we're dynamically changing the interfaces
+ * we listen on.  Before they'd be opened once in create_bound_listeners and stay
+ * until we exited.  Now, if an interface moves off the to-listen list we need to
+ * close out the listeners and keep trucking.
+ *
+ * interface - input of the interface details to listen on
+ */
+int close_bound_listener(struct irec *iface)
+{
+  /* find the listener */
+  int ret = 0;
+  struct listener **l = &daemon->listeners;
+  while (*l) {
+    struct irec *listener_iface = (*l)->iface;
+    struct listener **next = &((*l)->next);
+    if (iface && listener_iface && sockaddr_isequal(&listener_iface->addr, &iface->addr)) {
+      // Listener bound to an IP address. There can be only one of these.
+      ret = delete_listener(l);
+      break;
+    }
+    if (iface == NULL && listener_iface == NULL) {
+      // Wildcard listener. There is one of these per address family.
+      ret = delete_listener(l);
+      continue;
+    }
+    l = next;
+  }
+  return ret;
 }
 #endif /* __ANDROID__ */
 
@@ -916,13 +951,13 @@ void check_servers(void)
   daemon->servers = ret;
 }
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) && !defined(__BRILLO__)
 /* #define __ANDROID_DEBUG__ 1 */
 /*
  * Ingests a new list of interfaces and starts to listen on them, adding only the new
  * and stopping to listen to any interfaces not on the new list.
  *
- * interfaces - input in the format "bt-pan:eth0:wlan0:..>" up to 1024 bytes long
+ * interfaces - input in the format "bt-pan|eth0|wlan0|..>" up to 1024 bytes long
  */
 void set_interfaces(const char *interfaces)
 {
@@ -947,7 +982,7 @@ void set_interfaces(const char *interfaces)
         die(_("interface string too long: %s"), NULL, EC_BADNET);
     }
     strncpy(s, interfaces, sizeof(s));
-    while((interface = strsep(&next, ":"))) {
+    while((interface = strsep(&next, SEPARATOR))) {
         if_tmp = safe_malloc(sizeof(struct iname));
         memset(if_tmp, 0, sizeof(struct iname));
         if ((if_tmp->name = strdup(interface)) == NULL) {
@@ -1034,7 +1069,7 @@ void set_interfaces(const char *interfaces)
 }
 
 /*
- * Takes a string in the format "0x100b:1.2.3.4:1.2.3.4:..." - up to 1024 bytes in length
+ * Takes a string in the format "0x100b|1.2.3.4|1.2.3.4|..." - up to 1024 bytes in length
  *  - The first element is the socket mark to set on sockets that forward DNS queries.
  *  - The subsequent elements are the DNS servers to forward queries to.
  */
@@ -1074,32 +1109,26 @@ int set_servers(const char *servers)
   char *saddr;
 
   /* Parse the mark. */
-  mark_string = strsep(&next, ":");
+  mark_string = strsep(&next, SEPARATOR);
   mark = strtoul(mark_string, NULL, 0);
 
-  while ((saddr = strsep(&next, ":"))) {
+  while ((saddr = strsep(&next, SEPARATOR))) {
       union mysockaddr addr, source_addr;
       memset(&addr, 0, sizeof(addr));
       memset(&source_addr, 0, sizeof(source_addr));
 
-      if ((addr.in.sin_addr.s_addr = inet_addr(saddr)) != (in_addr_t) -1)
+      if (parse_addr(AF_INET, saddr, &addr) == 0)
 	{
-#ifdef HAVE_SOCKADDR_SA_LEN
-	  source_addr.in.sin_len = addr.in.sin_len = sizeof(source_addr.in);
-#endif
-	  source_addr.in.sin_family = addr.in.sin_family = AF_INET;
 	  addr.in.sin_port = htons(NAMESERVER_PORT);
+	  source_addr.in.sin_family = AF_INET;
 	  source_addr.in.sin_addr.s_addr = INADDR_ANY;
 	  source_addr.in.sin_port = htons(daemon->query_port);
 	}
 #ifdef HAVE_IPV6
-      else if (inet_pton(AF_INET6, saddr, &addr.in6.sin6_addr) > 0)
+      else if (parse_addr(AF_INET6, saddr, &addr) == 0)
 	{
-#ifdef HAVE_SOCKADDR_SA_LEN
-	  source_addr.in6.sin6_len = addr.in6.sin6_len = sizeof(source_addr.in6);
-#endif
-	  source_addr.in6.sin6_family = addr.in6.sin6_family = AF_INET6;
 	  addr.in6.sin6_port = htons(NAMESERVER_PORT);
+	  source_addr.in6.sin6_family = AF_INET6;
 	  source_addr.in6.sin6_addr = in6addr_any;
 	  source_addr.in6.sin6_port = htons(daemon->query_port);
 	}
@@ -1195,25 +1224,19 @@ int reload_servers(char *fname)
       
       memset(&addr, 0, sizeof(addr));
       memset(&source_addr, 0, sizeof(source_addr));
-      
-      if ((addr.in.sin_addr.s_addr = inet_addr(token)) != (in_addr_t) -1)
+
+      if (parse_addr(AF_INET, token, &addr) == 0)
 	{
-#ifdef HAVE_SOCKADDR_SA_LEN
-	  source_addr.in.sin_len = addr.in.sin_len = sizeof(source_addr.in);
-#endif
-	  source_addr.in.sin_family = addr.in.sin_family = AF_INET;
 	  addr.in.sin_port = htons(NAMESERVER_PORT);
+	  source_addr.in.sin_family = AF_INET;
 	  source_addr.in.sin_addr.s_addr = INADDR_ANY;
 	  source_addr.in.sin_port = htons(daemon->query_port);
 	}
 #ifdef HAVE_IPV6
-      else if (inet_pton(AF_INET6, token, &addr.in6.sin6_addr) > 0)
+      else if (parse_addr(AF_INET6, token, &addr) == 0)
 	{
-#ifdef HAVE_SOCKADDR_SA_LEN
-	  source_addr.in6.sin6_len = addr.in6.sin6_len = sizeof(source_addr.in6);
-#endif
-	  source_addr.in6.sin6_family = addr.in6.sin6_family = AF_INET6;
 	  addr.in6.sin6_port = htons(NAMESERVER_PORT);
+	  source_addr.in6.sin6_family = AF_INET6;
 	  source_addr.in6.sin6_addr = in6addr_any;
 	  source_addr.in6.sin6_port = htons(daemon->query_port);
 	}

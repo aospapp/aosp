@@ -4,6 +4,7 @@ LOCAL_PATH:= $(call my-dir)
 debuginfo_pdb_SRC_FILES := \
   IPDBSourceFile.cpp \
   PDB.cpp \
+  PDBContext.cpp \
   PDBExtras.cpp \
   PDBInterfaceAnchors.cpp \
   PDBSymbolAnnotation.cpp \
@@ -50,7 +51,7 @@ LOCAL_SRC_FILES := $(debuginfo_pdb_SRC_FILES)
 
 LOCAL_MODULE:= libLLVMDebugInfoPDB
 
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_HOST_OS := darwin linux windows
 
 include $(LLVM_HOST_BUILD_MK)
 include $(LLVM_GEN_INTRINSICS_MK)
@@ -66,8 +67,6 @@ REQUIRES_RTTI := 1
 LOCAL_SRC_FILES := $(debuginfo_pdb_SRC_FILES)
 
 LOCAL_MODULE:= libLLVMDebugInfoPDB
-
-LOCAL_MODULE_TAGS := optional
 
 include $(LLVM_DEVICE_BUILD_MK)
 include $(LLVM_GEN_INTRINSICS_MK)

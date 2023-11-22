@@ -20,10 +20,13 @@ import android.content.Context;
 import android.graphics.Rect;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.provider.ContactsContract;
 import android.text.Editable;
 import android.text.InputType;
+import android.text.Spannable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
+import android.text.style.TtsSpan;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.TypedValue;
@@ -37,6 +40,7 @@ import android.widget.LinearLayout;
 
 import com.android.contacts.R;
 import com.android.contacts.common.model.RawContactDelta;
+import com.android.contacts.common.compat.PhoneNumberUtilsCompat;
 import com.android.contacts.common.ContactsUtils;
 import com.android.contacts.common.model.ValuesDelta;
 import com.android.contacts.common.model.account.AccountType.EditField;
@@ -152,16 +156,6 @@ public class TextFieldsEditorView extends LabeledEditorView {
             if (getEditorListener() != null) {
                 getEditorListener().onRequest(EditorListener.EDITOR_FOCUS_CHANGED);
             }
-            // Check whether this field contains focus by calling findFocus() instead of
-            // hasFocus(). The hasFocus() value is not necessarily up to date.
-            final boolean foundFocus = TextFieldsEditorView.this.findFocus() != null;
-            if (foundFocus && !isTypeVisible()) {
-                // We just got focus and the types are not visible
-                showType();
-            } else if (isEmpty()) {
-                // We just lost focus and the field is empty
-                hideType();
-            }
             // Rebuild the label spinner using the new colors.
             rebuildLabel();
         }
@@ -213,7 +207,7 @@ public class TextFieldsEditorView extends LabeledEditorView {
         }
         boolean hidePossible = false;
 
-        int fieldCount = kind.fieldList.size();
+        int fieldCount = kind.fieldList == null ? 0 : kind.fieldList.size();
         mFieldEditTexts = new EditText[fieldCount];
         for (int index = 0; index < fieldCount; index++) {
             final EditField field = kind.fieldList.get(index);
@@ -231,9 +225,11 @@ public class TextFieldsEditorView extends LabeledEditorView {
             int inputType = field.inputType;
             fieldView.setInputType(inputType);
             if (inputType == InputType.TYPE_CLASS_PHONE) {
-                PhoneNumberFormatter.setPhoneNumberFormattingTextWatcher(getContext(), fieldView);
+                PhoneNumberFormatter.setPhoneNumberFormattingTextWatcher(
+                        getContext(), fieldView, /* formatAfterWatcherSet =*/ false);
                 fieldView.setTextDirection(View.TEXT_DIRECTION_LTR);
             }
+            fieldView.setTextAlignment(View.TEXT_ALIGNMENT_VIEW_START);
 
             // Set either a minimum line requirement or a minimum height (because {@link TextView}
             // only takes one or the other at a single time).
@@ -253,15 +249,14 @@ public class TextFieldsEditorView extends LabeledEditorView {
             // Read current value from state
             final String column = field.column;
             final String value = entry.getAsString(column);
-            fieldView.setText(value);
-
-            // Show the type drop down if we have a non-empty value.
-            if (!isTypeVisible() && !TextUtils.isEmpty(value)) {
-                showType();
+            if (ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE.equals(kind.mimeType)) {
+                fieldView.setText(PhoneNumberUtilsCompat.createTtsSpannable(value));
+            } else {
+                fieldView.setText(value);
             }
 
-            // Show the delete button if we have a non-null value
-            setDeleteButtonVisible(value != null);
+            // Show the delete button if we have a non-empty value
+            setDeleteButtonVisible(!TextUtils.isEmpty(value));
 
             // Prepare listener for writing changes
             fieldView.addTextChangedListener(new TextWatcher() {
@@ -277,6 +272,16 @@ public class TextFieldsEditorView extends LabeledEditorView {
 
                 @Override
                 public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    if (!ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE.equals(
+                            getKind().mimeType) || !(s instanceof Spannable)) {
+                        return;
+                    }
+                    final Spannable spannable = (Spannable) s;
+                    final TtsSpan[] spans = spannable.getSpans(0, s.length(), TtsSpan.class);
+                    for (int i = 0; i < spans.length; i++) {
+                        spannable.removeSpan(spans[i]);
+                    }
+                    PhoneNumberUtilsCompat.addTtsSpan(spannable, 0, s.length());
                 }
             });
 

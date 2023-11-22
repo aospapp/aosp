@@ -37,7 +37,7 @@
 		return ret; \
 	}
 
-int test_bo(struct kms_driver *kms)
+static int test_bo(struct kms_driver *kms)
 {
 	struct kms_bo *bo;
 	int ret;
@@ -56,12 +56,16 @@ int test_bo(struct kms_driver *kms)
 	return 0;
 }
 
-char *drivers[] = {
+static const char *drivers[] = {
 	"i915",
 	"radeon",
 	"nouveau",
 	"vmwgfx",
 	"exynos",
+	"amdgpu",
+	"imx-drm",
+	"rockchip",
+	"atmel-hlcdc",
 	NULL
 };
 

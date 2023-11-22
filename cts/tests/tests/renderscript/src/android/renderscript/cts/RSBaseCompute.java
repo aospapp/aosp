@@ -80,6 +80,8 @@ public class RSBaseCompute extends RSBase {
                 element = Element.F64(rs);
             } else if (dataType == Element.DataType.FLOAT_32) {
                 element = Element.F32(rs);
+            } else if (dataType == Element.DataType.FLOAT_16) {
+                element = Element.F16(rs);
             } else if (dataType == Element.DataType.SIGNED_64) {
                 element = Element.I64(rs);
             } else if (dataType == Element.DataType.UNSIGNED_64) {
@@ -125,6 +127,12 @@ public class RSBaseCompute extends RSBase {
             float max = 4.0f * (float) Math.PI;
             RSUtils.genRandomFloats(seed, min, max, inArray, includeExtremes);
             alloc.copy1DRangeFrom(0, INPUTSIZE, inArray);
+        } else if (dataType == Element.DataType.FLOAT_16) {
+            short[] inArray = new short[INPUTSIZE * width];
+            double min = -4.0 * Math.PI;
+            double max = 4.0 * Math.PI;
+            RSUtils.genRandomFloat16s(seed, min, max, inArray, includeExtremes);
+            alloc.copyFrom(inArray);
         } else if (dataType == Element.DataType.SIGNED_64) {
             long[] inArray = new long[INPUTSIZE * width];
             RSUtils.genRandomLongs(seed, inArray, true, 63);
@@ -176,6 +184,10 @@ public class RSBaseCompute extends RSBase {
         } else if (dataType == Element.DataType.FLOAT_32) {
             float[] inArray = new float[INPUTSIZE * width];
             RSUtils.genRandomFloats(seed, (float) minValue, (float) maxValue, inArray, false);
+            alloc.copy1DRangeFrom(0, INPUTSIZE, inArray);
+        } else if (dataType == Element.DataType.FLOAT_16) {
+            short[] inArray = new short[INPUTSIZE * width];
+            RSUtils.genRandomFloat16s(seed, minValue, maxValue, inArray, false);
             alloc.copy1DRangeFrom(0, INPUTSIZE, inArray);
         } else {
             android.util.Log.e("RenderscriptCTS",
@@ -250,6 +262,22 @@ public class RSBaseCompute extends RSBase {
             for (int i = 0; i < size; i++) {
                 if (minArray[i] > maxArray[i]) {
                     float temp = minArray[i];
+                    minArray[i] = maxArray[i];
+                    maxArray[i] = temp;
+                }
+            }
+            minAlloc.copyFrom(minArray);
+            maxAlloc.copyFrom(maxArray);
+        } else if (dataType == Element.DataType.FLOAT_16) {
+            short[] minArray = new short[size];
+            short[] maxArray = new short[size];
+            minAlloc.copyTo(minArray);
+            maxAlloc.copyTo(maxArray);
+            for (int i = 0; i < size; i++) {
+                double minValue = Float16Utils.convertFloat16ToDouble(minArray[i]);
+                double maxValue = Float16Utils.convertFloat16ToDouble(maxArray[i]);
+                if (minValue > maxValue) {
+                    short temp = minArray[i];
                     minArray[i] = maxArray[i];
                     maxArray[i] = temp;
                 }

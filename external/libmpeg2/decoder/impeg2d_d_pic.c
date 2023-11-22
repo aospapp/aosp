@@ -172,7 +172,8 @@ IMPEG2D_ERROR_CODES_T impeg2d_dec_d_slice(dec_state_t *ps_dec)
         /*------------------------------------------------------------------*/
         /* Discard the Macroblock stuffing in case of MPEG-1 stream         */
         /*------------------------------------------------------------------*/
-        while(impeg2d_bit_stream_nxt(ps_stream,MB_STUFFING_CODE_LEN) == MB_STUFFING_CODE)
+        while(impeg2d_bit_stream_nxt(ps_stream,MB_STUFFING_CODE_LEN) == MB_STUFFING_CODE &&
+                ps_stream->u4_offset < ps_stream->u4_max_offset)
             impeg2d_bit_stream_flush(ps_stream,MB_STUFFING_CODE_LEN);
 
         /*------------------------------------------------------------------*/

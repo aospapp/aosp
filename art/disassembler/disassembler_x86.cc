@@ -928,6 +928,21 @@ DISASSEMBLER_ENTRY(cmp,
         has_modrm = true;
         load = true;
         break;
+      case 0xBC:
+        opcode1 = "bsf";
+        has_modrm = true;
+        load = true;
+        break;
+      case 0xBD:
+        opcode1 = "bsr";
+        has_modrm = true;
+        load = true;
+        break;
+      case 0xB8:
+        opcode1 = "popcnt";
+        has_modrm = true;
+        load = true;
+        break;
       case 0xBE:
         opcode1 = "movsxb";
         has_modrm = true;
@@ -1116,6 +1131,12 @@ DISASSEMBLER_ENTRY(cmp,
       opcode_tmp = StringPrintf("unknown opcode '%02X'", *instr);
       opcode1 = opcode_tmp.c_str();
     }
+    break;
+  case 0xA5:
+    opcode1 = (prefix[2] == 0x66 ? "movsw" : "movsl");
+    break;
+  case 0xA7:
+    opcode1 = (prefix[2] == 0x66 ? "cmpsw" : "cmpsl");
     break;
   case 0xAF:
     opcode1 = (prefix[2] == 0x66 ? "scasw" : "scasl");

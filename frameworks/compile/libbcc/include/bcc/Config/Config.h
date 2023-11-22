@@ -81,6 +81,13 @@
 #define DEFAULT_X86_TRIPLE_STRING      "i686-unknown-linux"
 #define DEFAULT_X86_64_TRIPLE_STRING   "x86_64-unknown-linux"
 
+// Custom DataLayout string for X86 with i64 and f64 set to match the ARM32
+// alignment requirement of 64-bits.
+#define X86_CUSTOM_DL_STRING "e-m:e-p:32:32-i64:64-f64:64:64-f80:32-n8:16:32-S128"
+// Default DataLayout string for X86.  Present to detect future LLVM datalayout
+// changes so X86_CUSTOM_DL_STRING above can be modified appropriately.
+#define X86_DEFAULT_DL_STRING "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
+
 #if defined(DEFAULT_ARM_CODEGEN)
   #define DEFAULT_TARGET_TRIPLE_STRING DEFAULT_ARM_TRIPLE_STRING
 #elif defined(DEFAULT_ARM64_CODEGEN)

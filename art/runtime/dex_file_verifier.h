@@ -48,7 +48,9 @@ class DexFileVerifier {
   bool CheckList(size_t element_size, const char* label, const uint8_t* *ptr);
   // Checks whether the offset is zero (when size is zero) or that the offset falls within the area
   // claimed by the file.
-  bool CheckValidOffsetAndSize(uint32_t offset, uint32_t size, const char* label);
+  bool CheckValidOffsetAndSize(uint32_t offset, uint32_t size, size_t alignment, const char* label);
+  // Checks whether the size is less than the limit.
+  bool CheckSizeLimit(uint32_t size, uint32_t limit, const char* label);
   bool CheckIndex(uint32_t field, uint32_t limit, const char* label);
 
   bool CheckHeader();
@@ -57,15 +59,48 @@ class DexFileVerifier {
   uint32_t ReadUnsignedLittleEndian(uint32_t size);
   bool CheckAndGetHandlerOffsets(const DexFile::CodeItem* code_item,
                                  uint32_t* handler_offsets, uint32_t handlers_size);
-  bool CheckClassDataItemField(uint32_t idx, uint32_t access_flags, bool expect_static);
-  bool CheckClassDataItemMethod(uint32_t idx, uint32_t access_flags, uint32_t code_offset,
+  bool CheckClassDataItemField(uint32_t idx,
+                               uint32_t access_flags,
+                               uint32_t class_access_flags,
+                               uint16_t class_type_index,
+                               bool expect_static);
+  bool CheckClassDataItemMethod(uint32_t idx,
+                                uint32_t access_flags,
+                                uint32_t class_access_flags,
+                                uint16_t class_type_index,
+                                uint32_t code_offset,
+                                std::unordered_set<uint32_t>* direct_method_indexes,
                                 bool expect_direct);
+  bool CheckOrderAndGetClassFlags(bool is_field,
+                                  const char* type_descr,
+                                  uint32_t curr_index,
+                                  uint32_t prev_index,
+                                  bool* have_class,
+                                  uint16_t* class_type_index,
+                                  uint32_t* class_access_flags);
+
   bool CheckPadding(size_t offset, uint32_t aligned_offset);
   bool CheckEncodedValue();
   bool CheckEncodedArray();
   bool CheckEncodedAnnotation();
 
   bool CheckIntraClassDataItem();
+  // Check all fields of the given type from the given iterator. Load the class data from the first
+  // field, if necessary (and return it), or use the given values.
+  template <bool kStatic>
+  bool CheckIntraClassDataItemFields(ClassDataItemIterator* it,
+                                     bool* have_class,
+                                     uint16_t* class_type_index,
+                                     uint32_t* class_access_flags);
+  // Check all methods of the given type from the given iterator. Load the class data from the first
+  // method, if necessary (and return it), or use the given values.
+  template <bool kDirect>
+  bool CheckIntraClassDataItemMethods(ClassDataItemIterator* it,
+                                      std::unordered_set<uint32_t>* direct_method_indexes,
+                                      bool* have_class,
+                                      uint16_t* class_type_index,
+                                      uint32_t* class_access_flags);
+
   bool CheckIntraCodeItem();
   bool CheckIntraStringDataItem();
   bool CheckIntraDebugInfoItem();
@@ -111,13 +146,67 @@ class DexFileVerifier {
   void ErrorStringPrintf(const char* fmt, ...)
       __attribute__((__format__(__printf__, 2, 3))) COLD_ATTR;
 
+  // Retrieve class index and class access flag from the given member. index is the member index,
+  // which is taken as either a field or a method index (as designated by is_field). The result,
+  // if the member and declaring class could be found, is stored in class_type_index and
+  // class_access_flags.
+  // This is an expensive lookup, as we have to find the class-def by type index, which is a
+  // linear search. The output values should thus be cached by the caller.
+  bool FindClassFlags(uint32_t index,
+                      bool is_field,
+                      uint16_t* class_type_index,
+                      uint32_t* class_access_flags);
+
+  // Check validity of the given access flags, interpreted for a field in the context of a class
+  // with the given second access flags.
+  bool CheckFieldAccessFlags(uint32_t idx,
+                             uint32_t field_access_flags,
+                             uint32_t class_access_flags,
+                             std::string* error_msg);
+  // Check validity of the given method and access flags, in the context of a class with the given
+  // second access flags.
+  bool CheckMethodAccessFlags(uint32_t method_index,
+                              uint32_t method_access_flags,
+                              uint32_t class_access_flags,
+                              bool has_code,
+                              bool expect_direct,
+                              std::string* error_msg);
+
   const DexFile* const dex_file_;
   const uint8_t* const begin_;
   const size_t size_;
   const char* const location_;
   const DexFile::Header* const header_;
 
-  AllocationTrackingSafeMap<uint32_t, uint16_t, kAllocatorTagDexFileVerifier> offset_to_type_map_;
+  struct OffsetTypeMapEmptyFn {
+    // Make a hash map slot empty by making the offset 0. Offset 0 is a valid dex file offset that
+    // is in the offset of the dex file header. However, we only store data section items in the
+    // map, and these are after the header.
+    void MakeEmpty(std::pair<uint32_t, uint16_t>& pair) const {
+      pair.first = 0u;
+    }
+    // Check if a hash map slot is empty.
+    bool IsEmpty(const std::pair<uint32_t, uint16_t>& pair) const {
+      return pair.first == 0;
+    }
+  };
+  struct OffsetTypeMapHashCompareFn {
+    // Hash function for offset.
+    size_t operator()(const uint32_t key) const {
+      return key;
+    }
+    // std::equal function for offset.
+    bool operator()(const uint32_t a, const uint32_t b) const {
+      return a == b;
+    }
+  };
+  // Map from offset to dex file type, HashMap for performance reasons.
+  AllocationTrackingHashMap<uint32_t,
+                            uint16_t,
+                            OffsetTypeMapEmptyFn,
+                            kAllocatorTagDexFileVerifier,
+                            OffsetTypeMapHashCompareFn,
+                            OffsetTypeMapHashCompareFn> offset_to_type_map_;
   const uint8_t* ptr_;
   const void* previous_item_;
 

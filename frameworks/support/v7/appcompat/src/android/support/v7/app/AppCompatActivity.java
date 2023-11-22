@@ -18,16 +18,25 @@ package android.support.v7.app;
 
 import android.content.Intent;
 import android.content.res.Configuration;
+import android.content.res.Resources;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.CallSuper;
+import android.support.annotation.IdRes;
 import android.support.annotation.LayoutRes;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.StyleRes;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.NavUtils;
 import android.support.v4.app.TaskStackBuilder;
+import android.support.v4.view.KeyEventCompat;
 import android.support.v7.view.ActionMode;
 import android.support.v7.widget.Toolbar;
+import android.support.v7.widget.VectorEnabledTintResources;
+import android.util.DisplayMetrics;
+import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.View;
@@ -53,12 +62,34 @@ public class AppCompatActivity extends FragmentActivity implements AppCompatCall
         TaskStackBuilder.SupportParentable, ActionBarDrawerToggle.DelegateProvider {
 
     private AppCompatDelegate mDelegate;
+    private int mThemeId = 0;
+    private boolean mEatKeyUpEvent;
+    private Resources mResources;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
-        getDelegate().installViewFactory();
-        getDelegate().onCreate(savedInstanceState);
+        final AppCompatDelegate delegate = getDelegate();
+        delegate.installViewFactory();
+        delegate.onCreate(savedInstanceState);
+        if (delegate.applyDayNight() && mThemeId != 0) {
+            // If DayNight has been applied, we need to re-apply the theme for
+            // the changes to take effect. On API 23+, we should bypass
+            // setTheme(), which will no-op if the theme ID is identical to the
+            // current theme ID.
+            if (Build.VERSION.SDK_INT >= 23) {
+                onApplyThemeResource(getTheme(), mThemeId, false);
+            } else {
+                setTheme(mThemeId);
+            }
+        }
         super.onCreate(savedInstanceState);
+    }
+
+    @Override
+    public void setTheme(@StyleRes final int resid) {
+        super.setTheme(resid);
+        // Keep hold of the theme id so that we can re-set it later if needed
+        mThemeId = resid;
     }
 
     @Override
@@ -80,20 +111,20 @@ public class AppCompatActivity extends FragmentActivity implements AppCompatCall
     }
 
     /**
-     * Set a {@link android.widget.Toolbar Toolbar} to act as the {@link android.support.v7.app.ActionBar} for this
-     * Activity window.
+     * Set a {@link android.widget.Toolbar Toolbar} to act as the
+     * {@link android.support.v7.app.ActionBar} for this Activity window.
      *
      * <p>When set to a non-null value the {@link #getActionBar()} method will return
-     * an {@link android.support.v7.app.ActionBar} object that can be used to control the given toolbar as if it were
-     * a traditional window decor action bar. The toolbar's menu will be populated with the
-     * Activity's options menu and the navigation button will be wired through the standard
-     * {@link android.R.id#home home} menu select action.</p>
+     * an {@link android.support.v7.app.ActionBar} object that can be used to control the given
+     * toolbar as if it were a traditional window decor action bar. The toolbar's menu will be
+     * populated with the Activity's options menu and the navigation button will be wired through
+     * the standard {@link android.R.id#home home} menu select action.</p>
      *
      * <p>In order to use a Toolbar within the Activity's window content the application
      * must not request the window feature
      * {@link android.view.Window#FEATURE_ACTION_BAR FEATURE_SUPPORT_ACTION_BAR}.</p>
      *
-     * @param toolbar Toolbar to set as the Activity's action bar
+     * @param toolbar Toolbar to set as the Activity's action bar, or {@code null} to clear it
      */
     public void setSupportActionBar(@Nullable Toolbar toolbar) {
         getDelegate().setSupportActionBar(toolbar);
@@ -128,6 +159,12 @@ public class AppCompatActivity extends FragmentActivity implements AppCompatCall
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         getDelegate().onConfigurationChanged(newConfig);
+        if (mResources != null) {
+            // The real (and thus managed) resources object was already updated
+            // by ResourcesManager, so pull the current metrics from there.
+            final DisplayMetrics newMetrics = super.getResources().getDisplayMetrics();
+            mResources.updateConfiguration(newConfig, newMetrics);
+        }
     }
 
     @Override
@@ -140,6 +177,10 @@ public class AppCompatActivity extends FragmentActivity implements AppCompatCall
     protected void onPostResume() {
         super.onPostResume();
         getDelegate().onPostResume();
+    }
+
+    public View findViewById(@IdRes int id) {
+        return getDelegate().findViewById(id);
     }
 
     @Override
@@ -205,7 +246,7 @@ public class AppCompatActivity extends FragmentActivity implements AppCompatCall
      * @param mode The new action mode.
      */
     @CallSuper
-    public void onSupportActionModeStarted(ActionMode mode) {
+    public void onSupportActionModeStarted(@NonNull ActionMode mode) {
     }
 
     /**
@@ -215,7 +256,7 @@ public class AppCompatActivity extends FragmentActivity implements AppCompatCall
      * @param mode The action mode that just finished.
      */
     @CallSuper
-    public void onSupportActionModeFinished(ActionMode mode) {
+    public void onSupportActionModeFinished(@NonNull ActionMode mode) {
     }
 
     /**
@@ -229,11 +270,18 @@ public class AppCompatActivity extends FragmentActivity implements AppCompatCall
      */
     @Nullable
     @Override
-    public ActionMode onWindowStartingSupportActionMode(ActionMode.Callback callback) {
+    public ActionMode onWindowStartingSupportActionMode(@NonNull ActionMode.Callback callback) {
         return null;
     }
 
-    public ActionMode startSupportActionMode(ActionMode.Callback callback) {
+    /**
+     * Start an action mode.
+     *
+     * @param callback Callback that will manage lifecycle events for this context mode
+     * @return The ContextMode that was started, or null if it was canceled
+     */
+    @Nullable
+    public ActionMode startSupportActionMode(@NonNull ActionMode.Callback callback) {
         return getDelegate().startSupportActionMode(callback);
     }
 
@@ -288,7 +336,7 @@ public class AppCompatActivity extends FragmentActivity implements AppCompatCall
      * @param builder An empty TaskStackBuilder - the application should add intents representing
      *                the desired task stack
      */
-    public void onCreateSupportNavigateUpTaskStack(TaskStackBuilder builder) {
+    public void onCreateSupportNavigateUpTaskStack(@NonNull TaskStackBuilder builder) {
         builder.addParentStack(this);
     }
 
@@ -307,7 +355,7 @@ public class AppCompatActivity extends FragmentActivity implements AppCompatCall
      * @param builder A TaskStackBuilder that has been populated with Intents by
      *                onCreateNavigateUpTaskStack.
      */
-    public void onPrepareSupportNavigateUpTaskStack(TaskStackBuilder builder) {
+    public void onPrepareSupportNavigateUpTaskStack(@NonNull TaskStackBuilder builder) {
     }
 
     /**
@@ -387,7 +435,7 @@ public class AppCompatActivity extends FragmentActivity implements AppCompatCall
      * @return true if navigating up should recreate a new task stack, false if the same task
      *         should be used for the destination
      */
-    public boolean supportShouldUpRecreateTask(Intent targetIntent) {
+    public boolean supportShouldUpRecreateTask(@NonNull Intent targetIntent) {
         return NavUtils.shouldUpRecreateTask(this, targetIntent);
     }
 
@@ -403,7 +451,7 @@ public class AppCompatActivity extends FragmentActivity implements AppCompatCall
      *
      * @param upIntent An intent representing the target destination for up navigation
      */
-    public void supportNavigateUpTo(Intent upIntent) {
+    public void supportNavigateUpTo(@NonNull Intent upIntent) {
         NavUtils.navigateUpTo(this, upIntent);
     }
 
@@ -448,13 +496,48 @@ public class AppCompatActivity extends FragmentActivity implements AppCompatCall
         super.onPanelClosed(featureId, menu);
     }
 
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        getDelegate().onSaveInstanceState(outState);
+    }
+
     /**
      * @return The {@link AppCompatDelegate} being used by this Activity.
      */
+    @NonNull
     public AppCompatDelegate getDelegate() {
         if (mDelegate == null) {
             mDelegate = AppCompatDelegate.create(this, this);
         }
         return mDelegate;
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (KeyEventCompat.isCtrlPressed(event) &&
+                event.getUnicodeChar(event.getMetaState() & ~KeyEvent.META_CTRL_MASK) == '<') {
+            // Capture the Control-< and send focus to the ActionBar
+            final int action = event.getAction();
+            if (action == KeyEvent.ACTION_DOWN) {
+                final ActionBar actionBar = getSupportActionBar();
+                if (actionBar != null && actionBar.isShowing() && actionBar.requestFocus()) {
+                    mEatKeyUpEvent = true;
+                    return true;
+                }
+            } else if (action == KeyEvent.ACTION_UP && mEatKeyUpEvent) {
+                mEatKeyUpEvent = false;
+                return true;
+            }
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
+    @Override
+    public Resources getResources() {
+        if (mResources == null && VectorEnabledTintResources.shouldBeUsed()) {
+            mResources = new VectorEnabledTintResources(this, super.getResources());
+        }
+        return mResources == null ? super.getResources() : mResources;
     }
 }

@@ -44,6 +44,8 @@ public final class PrepareTarget extends Task {
         for (int i = 0; i < Vogar.NUM_PROCESSORS; i++) {
             target.forwardTcp(run.firstMonitorPort + i);
         }
+        // Only forward port if we need to bind to a remote port ourselves. In app debugging DDMS
+        // takes care of opening a port on the device and forwarding it.
         if (run.debugPort != null) {
             target.forwardTcp(run.debugPort);
         }

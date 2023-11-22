@@ -326,6 +326,12 @@ music, <a href="http://en.wikipedia.org/wiki/Bluetooth_protocols#Synchronous_con
 Digital display interface by the Video Electronics Standards Association (VESA).
 </dd>
 
+<dt>dongle</dt>
+<dd>
+A <a href="https://en.wikipedia.org/wiki/Dongle">dongle</a>
+is a small gadget, especially one that hangs off another device.
+</dd>
+
 <dt>HDMI</dt>
 <dd>
 High-Definition Multimedia Interface. Interface for transferring audio and
@@ -339,6 +345,19 @@ audio</em> or <em>high-resolution audio</em>). Specification for a front-panel
 connector. For details, refer to
 <a href="http://en.wikipedia.org/wiki/Intel_High_Definition_Audio">Intel High
 Definition Audio</a>.
+</dd>
+
+<dt>interface</dt>
+<dd>
+An <a href="https://en.wikipedia.org/wiki/Interface_(computing)">interface</a>
+converts a signal from one representation to another.  Common interfaces
+include a USB audio interface and MIDI interface.
+</dd>
+
+<dt>line level</dt>
+<dd>
+<a href="http://en.wikipedia.org/wiki/Line_level">Line level</a> is the strength
+of an analog audio signal that passes between audio components, not transducers.
 </dd>
 
 <dt>MHL</dt>
@@ -362,12 +381,19 @@ Adapter from micro-USB to HDMI.
 <dd>
 Sony/Philips Digital Interface Format. Interconnect for uncompressed PCM. For
 details, refer to <a href="http://en.wikipedia.org/wiki/S/PDIF">S/PDIF</a>.
+S/PDIF is the consumer grade variant of <a href="https://en.wikipedia.org/wiki/AES3">AES3</a>.
 </dd>
 
 <dt>Thunderbolt</dt>
 <dd>
 Multimedia interface that competes with USB and HDMI for connecting to high-end
 peripherals. For details, refer to <a href="http://en.wikipedia.org/wiki/Thunderbolt_%28interface%29">Thunderbolt</a>.
+</dd>
+
+<dt>TOSLINK</dt>
+<dd>
+<a href="https://en.wikipedia.org/wiki/TOSLINK">TOSLINK</a> is an optical audio cable
+used with <em>S/PDIF</em>.
 </dd>
 
 <dt>USB</dt>
@@ -389,11 +415,22 @@ on intra-device interconnections, refer to the following articles:
 <ul>
 <li><a href="http://en.wikipedia.org/wiki/General-purpose_input/output">GPIO</a></li>
 <li><a href="http://en.wikipedia.org/wiki/I%C2%B2C">I²C</a>, for control channel</li>
-<li><a href="http://en.wikipedia.org/wiki/I%C2%B2S">I²S</a>, for audio data</li>
+<li><a href="http://en.wikipedia.org/wiki/I%C2%B2S">I²S</a>, for audio data, simpler than SLIMbus</li>
 <li><a href="http://en.wikipedia.org/wiki/McASP">McASP</a></li>
 <li><a href="http://en.wikipedia.org/wiki/SLIMbus">SLIMbus</a></li>
 <li><a href="http://en.wikipedia.org/wiki/Serial_Peripheral_Interface_Bus">SPI</a></li>
+<li><a href="http://en.wikipedia.org/wiki/AC%2797">AC'97</a></li>
+<li><a href="http://en.wikipedia.org/wiki/Intel_High_Definition_Audio">Intel HDA</a></li>
+<li><a href="http://mipi.org/specifications/soundwire">SoundWire</a></li>
 </ul>
+
+<p>
+In
+<a href="http://www.alsa-project.org/main/index.php/ASoC">ALSA System on Chip (ASoC)</a>,
+these are collectively called
+<a href="https://www.kernel.org/doc/Documentation/sound/alsa/soc/DAI.txt">Digital Audio Interfaces</a>
+(DAI).
+</p>
 
 <h3 id="signalTerms">Audio Signal Path</h3>
 

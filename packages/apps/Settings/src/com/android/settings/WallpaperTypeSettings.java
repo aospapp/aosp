@@ -22,9 +22,10 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Bundle;
-import android.preference.Preference;
-import android.preference.PreferenceScreen;
-import com.android.internal.logging.MetricsLogger;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.PreferenceScreen;
+
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.search.BaseSearchIndexProvider;
 import com.android.settings.search.Indexable;
 import com.android.settings.search.SearchIndexableRaw;
@@ -36,7 +37,7 @@ public class WallpaperTypeSettings extends SettingsPreferenceFragment implements
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.WALLPAPER_TYPE;
+        return MetricsEvent.WALLPAPER_TYPE;
     }
 
     @Override
@@ -63,7 +64,8 @@ public class WallpaperTypeSettings extends SettingsPreferenceFragment implements
         parent.setOrderingAsAdded(false);
         // Add Preference items for each of the matching activities
         for (ResolveInfo info : rList) {
-            Preference pref = new Preference(getActivity());
+            Preference pref = new Preference(getPrefContext());
+            pref.setLayoutResource(R.layout.preference_wallpaper_type);
             Intent prefIntent = new Intent(intent);
             prefIntent.setComponent(new ComponentName(
                     info.activityInfo.packageName, info.activityInfo.name));
@@ -71,6 +73,7 @@ public class WallpaperTypeSettings extends SettingsPreferenceFragment implements
             CharSequence label = info.loadLabel(pm);
             if (label == null) label = info.activityInfo.packageName;
             pref.setTitle(label);
+            pref.setIcon(info.loadIcon(pm));
             parent.addPreference(pref);
         }
     }

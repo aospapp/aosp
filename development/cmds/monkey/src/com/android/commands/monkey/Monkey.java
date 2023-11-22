@@ -669,7 +669,7 @@ public class Monkey {
         }
 
         try {
-            mAm.setActivityController(null);
+            mAm.setActivityController(null, true);
             mNetworkMonitor.unregister(mAm);
         } catch (RemoteException e) {
             // just in case this was latent (after mCount cycles), make sure
@@ -952,7 +952,7 @@ public class Monkey {
         }
 
         try {
-            mAm.setActivityController(new ActivityController());
+            mAm.setActivityController(new ActivityController(), true);
             mNetworkMonitor.register(mAm);
         } catch (RemoteException e) {
             System.err.println("** Failed talking with activity manager!");
@@ -979,7 +979,7 @@ public class Monkey {
                     intent.addCategory(category);
                 }
                 List<ResolveInfo> mainApps = mPm.queryIntentActivities(intent, null, 0,
-                        UserHandle.myUserId());
+                        UserHandle.myUserId()).getList();
                 if (mainApps == null || mainApps.size() == 0) {
                     System.err.println("// Warning: no activities found for category " + category);
                     continue;

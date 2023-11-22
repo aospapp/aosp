@@ -17,8 +17,9 @@ define void @left_reassociate(i32 %a, i32 %b, i32 %c) {
   call void @foo(i32 %1)
   %2 = add i32 %b, %c
   %3 = add i32 %a, %2
-; CHECK: add i32 [[BASE]], %b
+; CHECK: [[RESULT:%[a-zA-Z0-9]+]] = add i32 [[BASE]], %b
   call void @foo(i32 %3)
+; CHECK-NEXT: call void @foo(i32 [[RESULT]])
   ret void
 }
 
@@ -35,8 +36,9 @@ define void @right_reassociate(i32 %a, i32 %b, i32 %c) {
   call void @foo(i32 %1)
   %2 = add i32 %a, %b
   %3 = add i32 %2, %c
-; CHECK: add i32 [[BASE]], %b
+; CHECK: [[RESULT:%[a-zA-Z0-9]+]] = add i32 [[BASE]], %b
   call void @foo(i32 %3)
+; CHECK-NEXT: call void @foo(i32 [[RESULT]])
   ret void
 }
 
@@ -194,5 +196,16 @@ define void @iterative(i32 %a, i32 %b, i32 %c) {
   call void @foo(i32 %ab3c)
 ; CHECK-NEXT: call void @foo(i32 %ab3c)
 
+  ret void
+}
+
+define void @avoid_infinite_loop(i32 %a, i32 %b) {
+; CHECK-LABEL: @avoid_infinite_loop
+  %ab = add i32 %a, %b
+; CHECK-NEXT: %ab
+  %ab2 = add i32 %ab, %b
+; CHECK-NEXT: %ab2
+  call void @foo(i32 %ab2)
+; CHECK-NEXT: @foo(i32 %ab2)
   ret void
 }

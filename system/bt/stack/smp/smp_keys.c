@@ -58,20 +58,6 @@ static void smp_process_private_key(tSMP_CB *p_cb);
 static void smp_finish_nonce_generation(tSMP_CB *p_cb);
 static void smp_process_new_nonce(tSMP_CB *p_cb);
 
-static const tSMP_ACT smp_encrypt_action[] =
-{
-    smp_generate_compare,           /* SMP_GEN_COMPARE */
-    smp_generate_confirm,          /* SMP_GEN_CONFIRM*/
-    smp_generate_stk,               /* SMP_GEN_STK*/
-    smp_generate_ltk_cont,          /* SMP_GEN_LTK */
-    smp_generate_ltk,               /* SMP_GEN_DIV_LTK */
-    smp_generate_rand_vector,        /* SMP_GEN_RAND_V */
-    smp_generate_y,                  /* SMP_GEN_EDIV */
-    smp_generate_passkey,           /* SMP_GEN_TK */
-    smp_generate_srand_mrand_confirm, /* SMP_GEN_SRAND_MRAND */
-    smp_generate_rand_cont         /* SMP_GEN_SRAND_MRAND_CONT */
-};
-
 #define SMP_PASSKEY_MASK    0xfff00000
 
 void smp_debug_print_nbyte_little_endian(UINT8 *p, const UINT8 *key_name, UINT8 len)
@@ -105,13 +91,13 @@ void smp_debug_print_nbyte_big_endian (UINT8 *p, const UINT8 *key_name, UINT8 le
 
     SMP_TRACE_WARNING("%s(MSB ~ LSB):", key_name);
     memset(p_buf, 0, sizeof(p_buf));
-    nrows = len % ncols ? len / ncols + 1: len / ncols;
 
     int ind = 0;
     int  ncols = 32; /* num entries in one line */
     int  nrows;      /* num lines */
     int  x;
 
+    nrows = len % ncols ? len / ncols + 1: len / ncols;
     for (int row = 0; row <  nrows; row++)
     {
         for (int col = 0, x = 0; (ind < len) && (col < ncols); col++, ind++)
@@ -152,16 +138,11 @@ BOOLEAN smp_encrypt_data (UINT8 *key, UINT8 key_len,
         return FALSE;
     }
 
-    if ((p_start = (UINT8 *)GKI_getbuf((SMP_ENCRYT_DATA_SIZE*4))) == NULL)
-    {
-        SMP_TRACE_ERROR ("%s failed unable to allocate buffer", __func__);
-        return FALSE;
-    }
+    p_start = (UINT8 *)osi_calloc(SMP_ENCRYT_DATA_SIZE * 4);
 
     if (pt_len > SMP_ENCRYT_DATA_SIZE)
         pt_len = SMP_ENCRYT_DATA_SIZE;
 
-    memset(p_start, 0, SMP_ENCRYT_DATA_SIZE * 4);
     p = p_start;
     ARRAY_TO_STREAM (p, plain_text, pt_len); /* byte 0 to byte 15 */
     p_rev_data = p = p_start + SMP_ENCRYT_DATA_SIZE; /* start at byte 16 */
@@ -187,7 +168,7 @@ BOOLEAN smp_encrypt_data (UINT8 *key, UINT8 key_len,
     p_out->status = HCI_SUCCESS;
     p_out->opcode =  HCI_BLE_ENCRYPT;
 
-    GKI_freebuf(p_start);
+    osi_free(p_start);
 
     return TRUE;
 }

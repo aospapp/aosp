@@ -24,13 +24,13 @@ include:
 
  // Opaque handle to a RenderScript object. Do not use this directly.
  #ifndef __LP64__
- #define _RS_HANDLE \
- struct {\
+ #define _RS_OBJECT_DECL \
+ {\
    const int* const p;\
  } __attribute__((packed, aligned(4)))
  #else
- #define _RS_HANDLE \
- struct {\
+ #define _RS_OBJECT_DECL \
+ {\
    const long* const p;\
    const long* const r;\
    const long* const v1;\
@@ -40,7 +40,7 @@ include:
 end:
 
 type: rs_element
-simple: _RS_HANDLE
+rs_object:
 summary: Handle to an element
 description:
  An opaque handle to a RenderScript element.
@@ -49,7 +49,7 @@ description:
 end:
 
 type: rs_type
-simple: _RS_HANDLE
+rs_object:
 summary: Handle to a Type
 description:
  An opaque handle to a RenderScript type.
@@ -58,7 +58,7 @@ description:
 end:
 
 type: rs_allocation
-simple: _RS_HANDLE
+rs_object:
 summary: Handle to an allocation
 description:
  An opaque handle to a RenderScript allocation.
@@ -67,7 +67,7 @@ description:
 end:
 
 type: rs_sampler
-simple: _RS_HANDLE
+rs_object:
 summary: Handle to a Sampler
 description:
  An opaque handle to a RenderScript sampler object.
@@ -76,7 +76,7 @@ description:
 end:
 
 type: rs_script
-simple: _RS_HANDLE
+rs_object:
 summary: Handle to a Script
 description:
  An opaque handle to a RenderScript script object.
@@ -102,7 +102,7 @@ type: rs_allocation_usage_type
 version: 14
 enum:
 value: RS_ALLOCATION_USAGE_SCRIPT = 0x0001, "Allocation is bound to and accessed by scripts."
-value: RS_ALLOCATION_USAGE_GRAPHICS_TEXTURE = 0x0002, "Deprecated."
+value: RS_ALLOCATION_USAGE_GRAPHICS_TEXTURE = 0x0002, "Allocation is used as a texture source."
 value: RS_ALLOCATION_USAGE_GRAPHICS_VERTEX = 0x0004, "Deprecated."
 value: RS_ALLOCATION_USAGE_GRAPHICS_CONSTANTS = 0x0008, "Deprecated."
 value: RS_ALLOCATION_USAGE_GRAPHICS_RENDER_TARGET = 0x0010, "Deprecated."
@@ -119,7 +119,8 @@ type: rs_data_type
 version: 16
 enum:
 value: RS_TYPE_NONE = 0, "Element is a complex type, i.e. a struct."
-value: RS_TYPE_FLOAT_32 = 2, "A 32 bit float point value."
+value: RS_TYPE_FLOAT_16 = 1, "A 16 bit floating point value."
+value: RS_TYPE_FLOAT_32 = 2, "A 32 bit floating point value."
 value: RS_TYPE_FLOAT_64 = 3, "A 64 bit floating point value."
 value: RS_TYPE_SIGNED_8 = 4, "An 8 bit signed integer."
 value: RS_TYPE_SIGNED_16 = 5, "A 16 bit signed integer."
@@ -180,6 +181,20 @@ description:
  texture formats.
 
  See the <a href='http://developer.android.com/reference/android/renderscript/Element.html#createPixel(android.renderscript.RenderScript,%20android.renderscript.Element.DataType, android.renderscript.Element.DataKind)'>Element.createPixel()</a> method.
+end:
+
+type: rs_yuv_format
+version: 24
+enum:
+value: RS_YUV_NONE = 0
+value: RS_YUV_YV12 = 0x32315659
+value: RS_YUV_NV21 = 0x11
+value: RS_YUV_420_888 = 0x23
+summary: YUV format
+description:
+  Android YUV formats that can be associated with a RenderScript Type.
+
+  See <a href='http://developer.android.com/reference/android/graphics/ImageFormat.html'>android.graphics.ImageFormat</a> for a description of each format.
 end:
 
 type: rs_sampler_value

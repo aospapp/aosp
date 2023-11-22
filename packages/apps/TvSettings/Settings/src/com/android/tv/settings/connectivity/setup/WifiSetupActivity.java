@@ -35,6 +35,7 @@ import android.os.Message;
 import android.text.TextUtils;
 import android.util.Pair;
 
+import com.android.settingslib.wifi.WifiTracker;
 import com.android.tv.settings.R;
 import com.android.tv.settings.connectivity.AdvancedWifiOptionsFlow;
 import com.android.tv.settings.connectivity.ConnectToWifiFragment;
@@ -63,8 +64,8 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
         implements ConnectToWifiFragment.Listener, TimedMessageWizardFragment.Listener {
 
     private static final String TAG = "WifiSetupActivity";
-    private static final int MSG_NETWORK_REFRESH = 1;
-    private static final int NETWORK_REFRESH_TIMEOUT = 5000;
+    private static final int NETWORK_REFRESH_BUFFER_DURATION = 5000;
+
     private static final String EXTRA_SHOW_SUMMARY = "extra_show_summary";
     private static final String EXTRA_SHOW_SKIP_NETWORK = "extra_show_skip_network";
     private static final String EXTRA_SHOW_WPS_AT_TOP = "extra_show_wps_at_top";
@@ -74,11 +75,10 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
     private boolean mShowSkipNetwork;
     private boolean mShowWpsAtTop;
     private AdvancedWifiOptionsFlow mAdvancedWifiOptionsFlow;
-    private WifiManager mWifiManager;
+    private WifiTracker mWifiTracker;
     private WifiConfiguration mConfiguration;
     private String mConnectedNetwork;
     private WifiSecurity mWifiSecurity;
-    private Handler mHandler;
     private FormPageDisplayer.UserActivityListener mUserActivityListener;
     private FormPage mChooseNetworkPage;
     private FormPage mSsidPage;
@@ -87,29 +87,39 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
     private SelectFromListWizardFragment mNetworkListFragment;
     private FormPage mConnectPage;
     private FormPage mSuccessPage;
+    private long mNextNetworkRefreshTime;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         setTheme(ThemeHelper.getThemeResource(getIntent()));
 
-        mWifiManager = (WifiManager) getSystemService(Context.WIFI_SERVICE);
         mConfiguration = new WifiConfiguration();
 
-        mHandler = new Handler() {
+        WifiTracker.WifiListener wifiListener = new WifiTracker.WifiListener() {
             @Override
-            public void handleMessage(Message msg) {
-                if (mNetworkListFragment != null) {
+            public void onWifiStateChanged(int state) {}
+
+            @Override
+            public void onConnectedChanged() {}
+
+            @Override
+            public void onAccessPointsChanged() {
+                long currentTime = System.currentTimeMillis();
+                if (mNetworkListFragment != null && currentTime >= mNextNetworkRefreshTime) {
                     mNetworkListFragment.update(WifiFormPageType.CHOOSE_NETWORK.getChoices(
                             WifiSetupActivity.this, getNetworks()));
-                    mHandler.sendEmptyMessageDelayed(MSG_NETWORK_REFRESH, NETWORK_REFRESH_TIMEOUT);
+                    mNextNetworkRefreshTime = currentTime + NETWORK_REFRESH_BUFFER_DURATION;
                 }
             }
         };
+        mWifiTracker = new WifiTracker(this, wifiListener, true, true);
+        mNextNetworkRefreshTime = System.currentTimeMillis() + NETWORK_REFRESH_BUFFER_DURATION;
+
         mUserActivityListener = new FormPageDisplayer.UserActivityListener() {
             @Override
             public void onUserActivity() {
-                mHandler.removeMessages(MSG_NETWORK_REFRESH);
-                mHandler.sendEmptyMessageDelayed(MSG_NETWORK_REFRESH, NETWORK_REFRESH_TIMEOUT);
+                mNextNetworkRefreshTime =
+                        System.currentTimeMillis() + NETWORK_REFRESH_BUFFER_DURATION;
             }
         };
 
@@ -130,6 +140,18 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
                 true);
         animator.setTarget(getContentView());
         animator.start();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        mWifiTracker.startTracking();
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        mWifiTracker.stopTracking();
     }
 
     @Override
@@ -205,7 +227,7 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
                     WifiConfigHelper.forgetWifiNetwork(this);
                     setResult(RESULT_NETWORK_SKIPPED);
                 } else {
-                    mHandler.removeMessages(MSG_NETWORK_REFRESH);
+                    mWifiTracker.pauseScanning();
                     mNetworkListFragment = null;
                     mChooseNetworkPage = formPage;
                     addPageBasedOnNetworkChoice(mChooseNetworkPage);
@@ -357,13 +379,15 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
                             .isEmptyTextAllowed(formPageType) : false);
             if (formPageType == WifiFormPageType.CHOOSE_NETWORK) {
                 mNetworkListFragment = (SelectFromListWizardFragment) fragment;
-                mHandler.sendEmptyMessageDelayed(MSG_NETWORK_REFRESH, NETWORK_REFRESH_TIMEOUT);
+                mWifiTracker.resumeScanning();
             }
         }
     }
 
     @Override
     protected void undisplayCurrentPage() {
+        mWifiTracker.pauseScanning();
+
         FragmentManager fragMan = getFragmentManager();
         Fragment target = fragMan.findFragmentById(R.id.content);
         FragmentTransaction transaction = fragMan.beginTransaction();
@@ -410,18 +434,17 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
     }
 
     private ArrayList<ListItem> getNetworks() {
-        ArrayList<SelectFromListWizardFragment.ListItem> listItems = new ArrayList<
-                SelectFromListWizardFragment.ListItem>();
-        final List<ScanResult> results = mWifiManager.getScanResults();
-        final HashMap<Pair<String, WifiSecurity>, ScanResult> consolidatedScanResults = new HashMap<
-                Pair<String, WifiSecurity>, ScanResult>();
+        ArrayList<SelectFromListWizardFragment.ListItem> listItems = new ArrayList<>();
+        final List<ScanResult> results = mWifiTracker.getManager().getScanResults();
+        final HashMap<Pair<String, WifiSecurity>, ScanResult> consolidatedScanResults =
+                new HashMap<>();
         for (ScanResult result : results) {
             if (TextUtils.isEmpty(result.SSID)) {
                 continue;
             }
 
-            Pair<String, WifiSecurity> key = new Pair<String, WifiSecurity>(
-                    result.SSID, WifiSecurity.getSecurity(result));
+            Pair<String, WifiSecurity> key =
+                    new Pair<>(result.SSID, WifiSecurity.getSecurity(result));
             ScanResult existing = consolidatedScanResults.get(key);
             if (existing == null || existing.level < result.level) {
                 consolidatedScanResults.put(key, result);
@@ -430,19 +453,20 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
         for (ScanResult result : consolidatedScanResults.values()) {
             listItems.add(new SelectFromListWizardFragment.ListItem(result));
         }
-        Collections.sort(listItems, new SelectFromListWizardFragment.ListItemComparator());
 
-        SelectFromListWizardFragment.ListItem wpsItem = new SelectFromListWizardFragment.ListItem(
-                getString(R.string.wps_network).toUpperCase(), R.drawable.ic_setup_wps);
-        if (mShowWpsAtTop) {
-            listItems.add(0, wpsItem);
-        } else {
-            listItems.add(wpsItem);
-        }
+        int wpsPinnedPos = mShowWpsAtTop ? SelectFromListWizardFragment.PinnedListItem.FIRST
+                                         : SelectFromListWizardFragment.PinnedListItem.LAST;
+
+        SelectFromListWizardFragment.PinnedListItem wpsItem =
+                new SelectFromListWizardFragment.PinnedListItem(
+                        getString(R.string.wps_network), R.drawable.setup_wps, wpsPinnedPos, 0);
+
+        listItems.add(wpsItem);
 
         if (mShowSkipNetwork) {
-            listItems.add(new SelectFromListWizardFragment.ListItem(
-                   getString(R.string.skip_network).toUpperCase(), 0));
+            listItems.add(new SelectFromListWizardFragment.PinnedListItem(
+                    getString(R.string.skip_network), R.drawable.ic_arrow_forward,
+                    SelectFromListWizardFragment.PinnedListItem.LAST, 1));
         }
 
         return listItems;
@@ -457,7 +481,17 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
                     .putExtras(getIntent().getExtras()));
         } else {
             ScanResult scanResult = getListItem(chooseNetworkPage).getScanResult();
-            mConfiguration = WifiConfigHelper.getConfigurationForNetwork(this, scanResult);
+
+            // If we are entering password for an AP that is different from the previously saved AP,
+            // clear out the saved password.
+            if (mPasswordPage != null
+                    && (mConfiguration == null
+                               || !scanResult.SSID.equals(mConfiguration.getPrintableSsid()))) {
+                mPasswordPage.clearData();
+            }
+
+            mConfiguration = WifiConfigHelper.getConfiguration(this, scanResult.SSID,
+                    WifiSecurity.getSecurity(scanResult));
             mWifiSecurity = WifiSecurity.getSecurity(scanResult);
 
             if (WifiConfigHelper.isNetworkSaved(mConfiguration)) {
@@ -484,7 +518,7 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
         boolean isConnected = (currentConnection != null) && currentConnection.isConnected();
         if (isConnected) {
             if (currentConnection.getType() == ConnectivityManager.TYPE_WIFI) {
-                WifiInfo currentWifiConnection = mWifiManager.getConnectionInfo();
+                WifiInfo currentWifiConnection = mWifiTracker.getManager().getConnectionInfo();
                 mConnectedNetwork = WifiInfo.removeDoubleQuotes(
                         currentWifiConnection.getSSID());
                 if (mConnectedNetwork == null) {

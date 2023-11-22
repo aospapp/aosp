@@ -28,7 +28,11 @@
 
 #ifdef __STRICT_ANSI__
 #define _BSD_SOURCE
+#define _POSIX_SOURCE
+#define _XOPEN_SOURCE 600
 #endif
+
+#include <stdio.h>
 #include <string.h>
 #include <rfb/rfb.h>
 #include <rfb/rfbregion.h>
@@ -39,6 +43,9 @@
 #endif
 
 #ifdef WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <io.h>
 #define write(sock,buf,len) send(sock,buf,len,0)
 #else
 #ifdef LIBVNCSERVER_HAVE_UNISTD_H
@@ -68,8 +75,12 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#ifndef WIN32
 /* readdir() */
 #include <dirent.h>
+#endif
+
 /* errno */
 #include <errno.h>
 /* strftime() */
@@ -79,12 +90,21 @@
 #include "rfbssl.h"
 #endif
 
+#ifdef _MSC_VER
+#define snprintf _snprintf /* Missing in MSVC */
+/* Prevent POSIX deprecation warnings */
+#define close _close
+#define strdup _strdup 
+#endif
+
+#ifdef WIN32
 #ifdef __MINGW32__
-static int compat_mkdir(const char *path, int mode)
-{
-	return mkdir(path);
-}
-#define mkdir compat_mkdir
+#define mkdir(path, perms) mkdir(path) /* Omit the perms argument to match POSIX signature */
+#else /* MSVC and other windows compilers */
+#define mkdir(path, perms) _mkdir(path) /* Omit the perms argument to match POSIX signature */
+#endif /* __MINGW32__ else... */
+#define S_ISDIR(m)	(((m) & S_IFDIR) == S_IFDIR)
+#include <direct.h>
 #endif
 
 #ifdef LIBVNCSERVER_HAVE_LIBJPEG
@@ -309,12 +329,14 @@ rfbNewTCPOrUDPClient(rfbScreenInfoPtr rfbScreen,
 
     if(isUDP) {
       rfbLog(" accepted UDP client\n");
-    } else {
+	} else {
+#ifdef LIBVNCSERVER_IPv6
+		char host[1024];
+#endif
       int one=1;
 
       getpeername(sock, (struct sockaddr *)&addr, &addrlen);
 #ifdef LIBVNCSERVER_IPv6
-      char host[1024];
       if(getnameinfo((struct sockaddr*)&addr, addrlen, host, sizeof(host), NULL, 0, NI_NUMERICHOST) != 0) {
 	rfbLogPerror("rfbNewClient: error in getnameinfo");
 	cl->host = strdup("");
@@ -929,7 +951,7 @@ rfbSendSupportedMessages(rfbClientPtr cl)
     rfbSetBit(msgs.client2server, rfbSetScale);
     /*rfbSetBit(msgs.client2server, rfbSetServerInput);  */
     /*rfbSetBit(msgs.client2server, rfbSetSW);           */
-    rfbSetBit(msgs.client2server, rfbTextChat);        
+    /*rfbSetBit(msgs.client2server, rfbTextChat);        */
     rfbSetBit(msgs.client2server, rfbPalmVNCSetScaleFactor);
     rfbSetBit(msgs.client2server, rfbXvp);
 
@@ -1237,12 +1259,19 @@ typedef struct {
 #define RFB_FILE_ATTRIBUTE_TEMPORARY  0x100
 #define RFB_FILE_ATTRIBUTE_COMPRESSED 0x800
 
-rfbBool rfbFilenameTranslate2UNIX(rfbClientPtr cl, char *path, char *unixPath)
+rfbBool rfbFilenameTranslate2UNIX(rfbClientPtr cl, /* in */ char *path, /* out */ char *unixPath, size_t unixPathMaxLen)
 {
     int x;
     char *home=NULL;
 
     FILEXFER_ALLOWED_OR_CLOSE_AND_RETURN("", cl, FALSE);
+
+    /*
+     * Do not use strncpy() - truncating the file name would probably have undesirable side effects
+     * Instead check if destination buffer is big enough
+     */
+    if (strlen(path) >= unixPathMaxLen)
+      return FALSE;
 
     /* C: */
     if (path[0]=='C' && path[1]==':')
@@ -1252,6 +1281,10 @@ rfbBool rfbFilenameTranslate2UNIX(rfbClientPtr cl, char *path, char *unixPath)
       home = getenv("HOME");
       if (home!=NULL)
       {
+        /* Re-check buffer size */
+        if ((strlen(path) + strlen(home) + 1) >= unixPathMaxLen)
+          return FALSE;
+
         strcpy(unixPath, home);
         strcat(unixPath,"/");
         strcat(unixPath, path);
@@ -1283,33 +1316,85 @@ rfbBool rfbSendDirContent(rfbClientPtr cl, int length, char *buffer)
     struct stat statbuf;
     RFB_FIND_DATA win32filename;
     int nOptLen = 0, retval=0;
+#ifdef WIN32
+    WIN32_FIND_DATAA winFindData;
+    HANDLE findHandle;
+    int pathLen, basePathLength;
+    char *basePath;
+#else
     DIR *dirp=NULL;
     struct dirent *direntp=NULL;
+#endif
 
     FILEXFER_ALLOWED_OR_CLOSE_AND_RETURN("", cl, FALSE);
 
     /* Client thinks we are Winblows */
-    rfbFilenameTranslate2UNIX(cl, buffer, path);
+    if (!rfbFilenameTranslate2UNIX(cl, buffer, path, sizeof(path)))
+        return FALSE;
 
     if (DB) rfbLog("rfbProcessFileTransfer() rfbDirContentRequest: rfbRDirContent: \"%s\"->\"%s\"\n",buffer, path);
 
+#ifdef WIN32
+    // Create a search string, like C:\folder\*
+
+    pathLen = strlen(path);
+    basePath = malloc(pathLen + 3);
+    memcpy(basePath, path, pathLen);
+    basePathLength = pathLen;
+    basePath[basePathLength] = '\\';
+    basePath[basePathLength + 1] = '*';
+    basePath[basePathLength + 2] = '\0';
+
+    // Start a search
+    memset(&winFindData, 0, sizeof(winFindData));
+    findHandle = FindFirstFileA(path, &winFindData);
+    free(basePath);
+
+    if (findHandle == INVALID_HANDLE_VALUE)
+#else
     dirp=opendir(path);
     if (dirp==NULL)
+#endif
         return rfbSendFileTransferMessage(cl, rfbDirPacket, rfbADirectory, 0, 0, NULL);
+
     /* send back the path name (necessary for links) */
     if (rfbSendFileTransferMessage(cl, rfbDirPacket, rfbADirectory, 0, length, buffer)==FALSE) return FALSE;
+
+#ifdef WIN32
+    while (findHandle != INVALID_HANDLE_VALUE)
+#else
     for (direntp=readdir(dirp); direntp!=NULL; direntp=readdir(dirp))
+#endif
     {
         /* get stats */
-        snprintf(retfilename,sizeof(retfilename),"%s/%s", path, direntp->d_name);
+#ifdef WIN32
+    snprintf(retfilename,sizeof(retfilename),"%s/%s", path, winFindData.cFileName);
+#else
+    snprintf(retfilename,sizeof(retfilename),"%s/%s", path, direntp->d_name);
+#endif
         retval = stat(retfilename, &statbuf);
 
         if (retval==0)
         {
             memset((char *)&win32filename, 0, sizeof(win32filename));
+#ifdef WIN32
+            win32filename.dwFileAttributes = winFindData.dwFileAttributes;
+            win32filename.ftCreationTime.dwLowDateTime = winFindData.ftCreationTime.dwLowDateTime;
+            win32filename.ftCreationTime.dwHighDateTime = winFindData.ftCreationTime.dwHighDateTime;
+            win32filename.ftLastAccessTime.dwLowDateTime = winFindData.ftLastAccessTime.dwLowDateTime;
+            win32filename.ftLastAccessTime.dwHighDateTime = winFindData.ftLastAccessTime.dwHighDateTime;
+            win32filename.ftLastWriteTime.dwLowDateTime = winFindData.ftLastWriteTime.dwLowDateTime;
+            win32filename.ftLastWriteTime.dwHighDateTime = winFindData.ftLastWriteTime.dwHighDateTime;
+            win32filename.nFileSizeLow = winFindData.nFileSizeLow;
+            win32filename.nFileSizeHigh = winFindData.nFileSizeHigh;
+            win32filename.dwReserved0 = winFindData.dwReserved0;
+            win32filename.dwReserved1 = winFindData.dwReserved1;
+            strcpy((char *)win32filename.cFileName, winFindData.cFileName);
+            strcpy((char *)win32filename.cAlternateFileName, winFindData.cAlternateFileName);
+#else
             win32filename.dwFileAttributes = Swap32IfBE(RFB_FILE_ATTRIBUTE_NORMAL);
             if (S_ISDIR(statbuf.st_mode))
-              win32filename.dwFileAttributes = Swap32IfBE(RFB_FILE_ATTRIBUTE_DIRECTORY);
+                win32filename.dwFileAttributes = Swap32IfBE(RFB_FILE_ATTRIBUTE_DIRECTORY);
             win32filename.ftCreationTime.dwLowDateTime = Swap32IfBE(statbuf.st_ctime);   /* Intel Order */
             win32filename.ftCreationTime.dwHighDateTime = 0;
             win32filename.ftLastAccessTime.dwLowDateTime = Swap32IfBE(statbuf.st_atime); /* Intel Order */
@@ -1324,9 +1409,10 @@ rfbBool rfbSendDirContent(rfbClientPtr cl, int length, char *buffer)
             /* If this had the full path, we would need to translate to DOS format ("C:\") */
             /* rfbFilenameTranslate2DOS(cl, retfilename, win32filename.cFileName); */
             strcpy((char *)win32filename.cFileName, direntp->d_name);
+#endif
             
             /* Do not show hidden files (but show how to move up the tree) */
-            if ((strcmp(direntp->d_name, "..")==0) || (direntp->d_name[0]!='.'))
+            if ((strcmp((char *)win32filename.cFileName, "..")==0) || (win32filename.cFileName[0]!='.'))
             {
                 nOptLen = sizeof(RFB_FIND_DATA) - MAX_PATH - 14 + strlen((char *)win32filename.cFileName);
                 /*
@@ -1334,13 +1420,32 @@ rfbBool rfbSendDirContent(rfbClientPtr cl, int length, char *buffer)
                 */
                 if (rfbSendFileTransferMessage(cl, rfbDirPacket, rfbADirectory, 0, nOptLen, (char *)&win32filename)==FALSE)
                 {
+#ifdef WIN32
+                    FindClose(findHandle);
+#else
                     closedir(dirp);
+#endif
                     return FALSE;
                 }
             }
         }
+
+#ifdef WIN32
+        if (FindNextFileA(findHandle, &winFindData) == 0)
+        {
+            FindClose(findHandle);
+            findHandle = INVALID_HANDLE_VALUE;
+        }
+#endif
     }
+#ifdef WIN32
+    if (findHandle != INVALID_HANDLE_VALUE)
+    {
+        FindClose(findHandle);
+    }
+#else
     closedir(dirp);
+#endif
     /* End of the transfer */
     return rfbSendFileTransferMessage(cl, rfbDirPacket, 0, 0, 0, NULL);
 }
@@ -1566,7 +1671,8 @@ rfbBool rfbProcessFileTransfer(rfbClientPtr cl, uint8_t contentType, uint8_t con
         /* add some space to the end of the buffer as we will be adding a timespec to it */
         if ((buffer = rfbProcessFileTransferReadBuffer(cl, length))==NULL) return FALSE;
         /* The client requests a File */
-        rfbFilenameTranslate2UNIX(cl, buffer, filename1);
+        if (!rfbFilenameTranslate2UNIX(cl, buffer, filename1, sizeof(filename1)))
+            goto fail;
         cl->fileTransfer.fd=open(filename1, O_RDONLY, 0744);
 
         /*
@@ -1664,7 +1770,8 @@ rfbBool rfbProcessFileTransfer(rfbClientPtr cl, uint8_t contentType, uint8_t con
         p = strrchr(buffer, ',');
         if (p!=NULL) {
             *p = '\0';
-            strcpy(szFileTime, p+1);
+            strncpy(szFileTime, p+1, sizeof(szFileTime));
+            szFileTime[sizeof(szFileTime)-1] = '\x00'; /* ensure NULL terminating byte is present, even if copy overflowed */
         } else
             szFileTime[0]=0;
 
@@ -1681,7 +1788,8 @@ rfbBool rfbProcessFileTransfer(rfbClientPtr cl, uint8_t contentType, uint8_t con
         }
         sizeHtmp = Swap32IfLE(sizeHtmp);
         
-        rfbFilenameTranslate2UNIX(cl, buffer, filename1);
+        if (!rfbFilenameTranslate2UNIX(cl, buffer, filename1, sizeof(filename1)))
+            goto fail;
 
         /* If the file exists... We can send a rfbFileChecksums back to the client before we send an rfbFileAcceptHeader */
         /* TODO: Delta Transfer */
@@ -1810,7 +1918,8 @@ rfbBool rfbProcessFileTransfer(rfbClientPtr cl, uint8_t contentType, uint8_t con
         if ((buffer = rfbProcessFileTransferReadBuffer(cl, length))==NULL) return FALSE;
         switch (contentParam) {
         case rfbCDirCreate:  /* Client requests the creation of a directory */
-            rfbFilenameTranslate2UNIX(cl, buffer, filename1);
+            if (!rfbFilenameTranslate2UNIX(cl, buffer, filename1, sizeof(filename1)))
+                goto fail;
             retval = mkdir(filename1, 0755);
             if (DB) rfbLog("rfbProcessFileTransfer() rfbCommand: rfbCDirCreate(\"%s\"->\"%s\") %s\n", buffer, filename1, (retval==-1?"Failed":"Success"));
             /*
@@ -1819,7 +1928,8 @@ rfbBool rfbProcessFileTransfer(rfbClientPtr cl, uint8_t contentType, uint8_t con
             if (buffer!=NULL) free(buffer);
             return retval;
         case rfbCFileDelete: /* Client requests the deletion of a file */
-            rfbFilenameTranslate2UNIX(cl, buffer, filename1);
+            if (!rfbFilenameTranslate2UNIX(cl, buffer, filename1, sizeof(filename1)))
+                goto fail;
             if (stat(filename1,&statbuf)==0)
             {
                 if (S_ISDIR(statbuf.st_mode))
@@ -1837,8 +1947,10 @@ rfbBool rfbProcessFileTransfer(rfbClientPtr cl, uint8_t contentType, uint8_t con
             {
                 /* Split into 2 filenames ('*' is a seperator) */
                 *p = '\0';
-                rfbFilenameTranslate2UNIX(cl, buffer, filename1);
-                rfbFilenameTranslate2UNIX(cl, p+1,    filename2);
+                if (!rfbFilenameTranslate2UNIX(cl, buffer, filename1, sizeof(filename1)))
+                    goto fail;
+                if (!rfbFilenameTranslate2UNIX(cl, p+1,    filename2, sizeof(filename2)))
+                    goto fail;
                 retval = rename(filename1,filename2);
                 if (DB) rfbLog("rfbProcessFileTransfer() rfbCommand: rfbCFileRename(\"%s\"->\"%s\" -->> \"%s\"->\"%s\") %s\n", buffer, filename1, p+1, filename2, (retval==-1?"Failed":"Success"));
                 /*
@@ -1858,6 +1970,10 @@ rfbBool rfbProcessFileTransfer(rfbClientPtr cl, uint8_t contentType, uint8_t con
     /* NOTE: don't forget to free(buffer) if you return early! */
     if (buffer!=NULL) free(buffer);
     return TRUE;
+
+fail:
+    if (buffer!=NULL) free(buffer);
+    return FALSE;
 }
 
 /*
@@ -2457,6 +2573,11 @@ rfbProcessClientNormalMessage(rfbClientPtr cl)
 	msg.cct.length = Swap32IfLE(msg.cct.length);
 
 	str = (char *)malloc(msg.cct.length);
+	if (str == NULL) {
+		rfbLogPerror("rfbProcessClientNormalMessage: not enough memory");
+		rfbCloseClient(cl);
+		return;
+	}
 
 	if ((n = rfbReadExact(cl, str, msg.cct.length)) <= 0) {
 	    if (n != 0)
@@ -2482,6 +2603,13 @@ rfbProcessClientNormalMessage(rfbClientPtr cl)
           rfbCloseClient(cl);
           return;
       }
+
+      if (msg.ssc.scale == 0) {
+          rfbLogPerror("rfbProcessClientNormalMessage: will not accept a scale factor of zero");
+          rfbCloseClient(cl);
+          return;
+      }
+
       rfbStatRecordMessageRcvd(cl, msg.type, sz_rfbSetScaleMsg, sz_rfbSetScaleMsg);
       rfbLog("rfbSetScale(%d)\n", msg.ssc.scale);
       rfbScalingSetup(cl,cl->screen->width/msg.ssc.scale, cl->screen->height/msg.ssc.scale);
@@ -2498,6 +2626,13 @@ rfbProcessClientNormalMessage(rfbClientPtr cl)
           rfbCloseClient(cl);
           return;
       }
+
+      if (msg.ssc.scale == 0) {
+          rfbLogPerror("rfbProcessClientNormalMessage: will not accept a scale factor of zero");
+          rfbCloseClient(cl);
+          return;
+      }
+
       rfbStatRecordMessageRcvd(cl, msg.type, sz_rfbSetScaleMsg, sz_rfbSetScaleMsg);
       rfbLog("rfbSetScale(%d)\n", msg.ssc.scale);
       rfbScalingSetup(cl,cl->screen->width/msg.ssc.scale, cl->screen->height/msg.ssc.scale);

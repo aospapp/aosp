@@ -127,7 +127,6 @@ public class LiveWallpaperListAdapter extends BaseAdapter implements ListAdapter
     public class LiveWallpaperInfo {
         public Drawable thumbnail;
         public WallpaperInfo info;
-        public Intent intent;
     }
 
     private class ViewHolder {
@@ -185,8 +184,6 @@ public class LiveWallpaperListAdapter extends BaseAdapter implements ListAdapter
                 }
 
                 LiveWallpaperInfo wallpaper = new LiveWallpaperInfo();
-                wallpaper.intent = new Intent(WallpaperService.SERVICE_INTERFACE);
-                wallpaper.intent.setClassName(info.getPackageName(), info.getServiceName());
                 wallpaper.info = info;
 
                 Drawable thumb = info.loadThumbnail(packageManager);

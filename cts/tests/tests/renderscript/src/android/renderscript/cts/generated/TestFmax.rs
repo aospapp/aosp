@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,6 +41,26 @@ float4 __attribute__((kernel)) testFmaxFloat4Float4Float4(float4 inA, unsigned i
     return fmax(inA, inB);
 }
 
+half __attribute__((kernel)) testFmaxHalfHalfHalf(half inA, unsigned int x) {
+    half inB = rsGetElementAt_half(gAllocInB, x);
+    return fmax(inA, inB);
+}
+
+half2 __attribute__((kernel)) testFmaxHalf2Half2Half2(half2 inA, unsigned int x) {
+    half2 inB = rsGetElementAt_half2(gAllocInB, x);
+    return fmax(inA, inB);
+}
+
+half3 __attribute__((kernel)) testFmaxHalf3Half3Half3(half3 inA, unsigned int x) {
+    half3 inB = rsGetElementAt_half3(gAllocInB, x);
+    return fmax(inA, inB);
+}
+
+half4 __attribute__((kernel)) testFmaxHalf4Half4Half4(half4 inA, unsigned int x) {
+    half4 inB = rsGetElementAt_half4(gAllocInB, x);
+    return fmax(inA, inB);
+}
+
 float2 __attribute__((kernel)) testFmaxFloat2FloatFloat2(float2 inA, unsigned int x) {
     float inB = rsGetElementAt_float(gAllocInB, x);
     return fmax(inA, inB);
@@ -53,5 +73,20 @@ float3 __attribute__((kernel)) testFmaxFloat3FloatFloat3(float3 inA, unsigned in
 
 float4 __attribute__((kernel)) testFmaxFloat4FloatFloat4(float4 inA, unsigned int x) {
     float inB = rsGetElementAt_float(gAllocInB, x);
+    return fmax(inA, inB);
+}
+
+half2 __attribute__((kernel)) testFmaxHalf2HalfHalf2(half2 inA, unsigned int x) {
+    half inB = rsGetElementAt_half(gAllocInB, x);
+    return fmax(inA, inB);
+}
+
+half3 __attribute__((kernel)) testFmaxHalf3HalfHalf3(half3 inA, unsigned int x) {
+    half inB = rsGetElementAt_half(gAllocInB, x);
+    return fmax(inA, inB);
+}
+
+half4 __attribute__((kernel)) testFmaxHalf4HalfHalf4(half4 inA, unsigned int x) {
+    half inB = rsGetElementAt_half(gAllocInB, x);
     return fmax(inA, inB);
 }

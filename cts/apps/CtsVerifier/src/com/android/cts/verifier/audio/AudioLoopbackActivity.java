@@ -58,8 +58,14 @@ public class AudioLoopbackActivity extends PassFailButtons.Activity {
     private static final double CONFIDENCE_THRESHOLD = 0.6;
     private Correlation mCorrelation = new Correlation();
 
+    // TODO: remove this when no longer necessary
+    private int mNumFramesToIgnore = mSamplingRate / 10; // ignore first 100 ms
+
     OnBtnClickListener mBtnClickListener = new OnBtnClickListener();
     Context mContext;
+
+    Button mHeadsetPortYes;
+    Button mHeadsetPortNo;
 
     Button mLoopbackPlugReady;
     TextView mAudioLevelText;
@@ -83,7 +89,20 @@ public class AudioLoopbackActivity extends PassFailButtons.Activity {
                     Log.i(TAG, "audio loopback test");
                     startAudioTest();
                     break;
-
+                case R.id.audio_general_headset_yes:
+                    Log.i(TAG, "User confirms Headset Port existence");
+                    mLoopbackPlugReady.setEnabled(true);
+                    recordHeasetPortFound(true);
+                    mHeadsetPortYes.setEnabled(false);
+                    mHeadsetPortNo.setEnabled(false);
+                    break;
+                case R.id.audio_general_headset_no:
+                    Log.i(TAG, "User denies Headset Port existence");
+                    recordHeasetPortFound(false);
+                    getPassButton().setEnabled(true);
+                    mHeadsetPortYes.setEnabled(false);
+                    mHeadsetPortNo.setEnabled(false);
+                    break;
             }
         }
     }
@@ -95,8 +114,14 @@ public class AudioLoopbackActivity extends PassFailButtons.Activity {
 
         mContext = this;
 
+        mHeadsetPortYes = (Button)findViewById(R.id.audio_general_headset_yes);
+        mHeadsetPortYes.setOnClickListener(mBtnClickListener);
+        mHeadsetPortNo = (Button)findViewById(R.id.audio_general_headset_no);
+        mHeadsetPortNo.setOnClickListener(mBtnClickListener);
+
         mLoopbackPlugReady = (Button)findViewById(R.id.audio_loopback_plug_ready_btn);
         mLoopbackPlugReady.setOnClickListener(mBtnClickListener);
+        mLoopbackPlugReady.setEnabled(false);
         mLinearLayout = (LinearLayout)findViewById(R.id.audio_loopback_layout);
         mAudioLevelText = (TextView)findViewById(R.id.audio_loopback_level_text);
         mAudioLevelSeekbar = (SeekBar)findViewById(R.id.audio_loopback_level_seekbar);
@@ -135,7 +160,7 @@ public class AudioLoopbackActivity extends PassFailButtons.Activity {
 
         setPassFailButtonClickListeners();
         getPassButton().setEnabled(false);
-        setInfoResources(R.string.sample_test, R.string.audio_loopback_info, -1);
+        setInfoResources(R.string.audio_loopback_test, R.string.audio_loopback_info, -1);
     }
 
     /**
@@ -199,7 +224,8 @@ public class AudioLoopbackActivity extends PassFailButtons.Activity {
             nativeAudioThread.setParams(mSamplingRate,
                     minBufferSizeInBytes,
                     minBufferSizeInBytes,
-                    0x03 /*voice recognition*/);
+                    0x03 /*voice recognition*/,
+                    mNumFramesToIgnore);
             nativeAudioThread.start();
 
             try {
@@ -303,5 +329,13 @@ public class AudioLoopbackActivity extends PassFailButtons.Activity {
                 ResultUnit.NONE);
 
         Log.v(TAG,"Results Recorded");
+    }
+
+    private void recordHeasetPortFound(boolean found) {
+        getReportLog().addValue(
+                "User Reported Headset Port",
+                found ? 1.0 : 0,
+                ResultType.NEUTRAL,
+                ResultUnit.NONE);
     }
 }

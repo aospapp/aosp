@@ -115,7 +115,7 @@
 #  define PLAT_ppc32_linux 1
 #elif defined(__linux__) && defined(__powerpc__) && defined(__powerpc64__)
 #  define PLAT_ppc64_linux 1
-#elif defined(__linux__) && defined(__arm__)
+#elif defined(__linux__) && defined(__arm__) && !defined(__ARM_ARCH_5__)
 #  define PLAT_arm_linux 1
 #else
 /* If we're not compiling for our target platform, don't generate

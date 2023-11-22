@@ -21,10 +21,9 @@
 #include "GLSharedGroup.h"
 #include "FixedBuffer.h"
 
-
 class GL2Encoder : public gl2_encoder_context_t {
 public:
-    GL2Encoder(IOStream *stream);
+    GL2Encoder(IOStream *stream, ChecksumCalculator* protocol);
     virtual ~GL2Encoder();
     void setClientState(GLClientState *state) {
         m_state = state;
@@ -54,10 +53,16 @@ private:
     GLint m_num_compressedTextureFormats;
     GLint *getCompressedTextureFormats();
 
+    GLint m_max_cubeMapTextureSize;
+    GLint m_max_renderBufferSize;
+    GLint m_max_textureSize;
     FixedBuffer m_fixedBuffer;
 
     void sendVertexAttributes(GLint first, GLsizei count);
     bool updateHostTexture2DBinding(GLenum texUnit, GLenum newTarget);
+    void checkValidUniformParam(void * self, GLsizei count, GLboolean transpose);
+    void getHostLocation(void *self, GLint location, GLint *hostLoc);
+
 
     glGetError_client_proc_t    m_glGetError_enc;
     static GLenum s_glGetError(void * self);
@@ -221,6 +226,7 @@ private:
     glTexParameteri_client_proc_t m_glTexParameteri_enc;
     glTexParameteriv_client_proc_t m_glTexParameteriv_enc;
     glTexImage2D_client_proc_t m_glTexImage2D_enc;
+    glTexSubImage2D_client_proc_t m_glTexSubImage2D_enc;
 
     static void s_glActiveTexture(void* self, GLenum texture);
     static void s_glBindTexture(void* self, GLenum target, GLuint texture);
@@ -234,6 +240,12 @@ private:
     static void s_glTexImage2D(void* self, GLenum target, GLint level, GLint internalformat,
             GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type,
             const GLvoid* pixels);
+    static void s_glTexSubImage2D(void* self, GLenum target, GLint level, GLint xoffset,
+            GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type,
+            const GLvoid* pixels);
+
+public:
+    glEGLImageTargetTexture2DOES_client_proc_t m_glEGLImageTargetTexture2DOES_enc;
 
 };
 #endif

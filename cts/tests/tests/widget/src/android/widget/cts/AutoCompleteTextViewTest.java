@@ -16,7 +16,7 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 
 import org.xmlpull.v1.XmlPullParser;
@@ -53,7 +53,7 @@ public class AutoCompleteTextViewTest extends
      * Instantiates a new text view test.
      */
     public AutoCompleteTextViewTest() {
-        super("com.android.cts.widget", AutoCompleteCtsActivity.class);
+        super("android.widget.cts", AutoCompleteCtsActivity.class);
     }
 
     /** The m activity. */

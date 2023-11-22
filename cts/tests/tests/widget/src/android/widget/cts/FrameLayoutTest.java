@@ -16,22 +16,19 @@
 
 package android.widget.cts;
 
-import android.content.res.ColorStateList;
-import android.cts.util.WidgetTestUtils;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.ColorFilter;
-import android.graphics.PorterDuff;
-
-import com.android.cts.widget.R;
-
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.cts.util.PollingCheck;
+import android.cts.util.WidgetTestUtils;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.ColorFilter;
+import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.Region;
 import android.graphics.drawable.BitmapDrawable;
@@ -47,6 +44,8 @@ import android.widget.FrameLayout;
 import android.widget.FrameLayout.LayoutParams;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.cts.R;
+import android.widget.cts.util.ViewTestUtils;
 
 import java.io.IOException;
 
@@ -56,7 +55,7 @@ public class FrameLayoutTest extends ActivityInstrumentationTestCase2<FrameLayou
     private FrameLayout mFrameLayout;
 
     public FrameLayoutTest() {
-        super("com.android.cts.widget", FrameLayoutCtsActivity.class);
+        super("android.widget.cts", FrameLayoutCtsActivity.class);
     }
 
     @Override
@@ -88,12 +87,8 @@ public class FrameLayoutTest extends ActivityInstrumentationTestCase2<FrameLayou
         assertTrue(mFrameLayout.getWidth() > foreground.getIntrinsicWidth());
         assertNull(mFrameLayout.getForeground());
 
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                mFrameLayout.setForeground(foreground);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mFrameLayout,
+                () -> mFrameLayout.setForeground(foreground));
         assertSame(foreground, mFrameLayout.getForeground());
         // check the default gravity FILL, it completely fills its container
         assertTrue(foreground.isVisible());
@@ -108,18 +103,16 @@ public class FrameLayoutTest extends ActivityInstrumentationTestCase2<FrameLayou
         assertEquals(mFrameLayout.getWidth(), rect.right - rect.left);
 
         // should get a new foreground again, because former foreground has been stretched
-        final BitmapDrawable newForeground
-                = (BitmapDrawable) mActivity.getResources().getDrawable(R.drawable.size_48x48);
+        final BitmapDrawable newForeground =
+                (BitmapDrawable) mActivity.getResources().getDrawable(R.drawable.size_48x48);
         compareScaledPixels(48, newForeground.getIntrinsicHeight());
         compareScaledPixels(48, newForeground.getIntrinsicWidth());
         assertTrue(mFrameLayout.getHeight() > newForeground.getIntrinsicHeight());
         assertTrue(mFrameLayout.getWidth() > foreground.getIntrinsicWidth());
 
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                mFrameLayout.setForeground(newForeground);
-                mFrameLayout.setForegroundGravity(Gravity.CENTER);
-            }
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mFrameLayout, () -> {
+            mFrameLayout.setForeground(newForeground);
+            mFrameLayout.setForegroundGravity(Gravity.CENTER);
         });
         mInstrumentation.waitForIdleSync();
         assertSame(newForeground, mFrameLayout.getForeground());
@@ -132,24 +125,19 @@ public class FrameLayoutTest extends ActivityInstrumentationTestCase2<FrameLayou
     }
 
     public void testGatherTransparentRegion() {
-        final LinearLayout container
-                = (LinearLayout) mActivity.findViewById(R.id.framelayout_container);
+        final LinearLayout container =
+                (LinearLayout) mActivity.findViewById(R.id.framelayout_container);
         final Drawable foreground = mActivity.getResources().getDrawable(R.drawable.size_48x48);
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                mFrameLayout.setForeground(foreground);
-                mFrameLayout.setForegroundGravity(Gravity.CENTER);
-            }
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mFrameLayout, () -> {
+            mFrameLayout.setForeground(foreground);
+            mFrameLayout.setForegroundGravity(Gravity.CENTER);
         });
         mInstrumentation.waitForIdleSync();
         Region region = new Region(foreground.getBounds());
         assertTrue(mFrameLayout.gatherTransparentRegion(region));
 
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                container.requestTransparentRegion(mFrameLayout);
-            }
-        });
+        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mFrameLayout,
+                () -> container.requestTransparentRegion(mFrameLayout));
         mInstrumentation.waitForIdleSync();
         region = new Region(foreground.getBounds());
         assertTrue(mFrameLayout.gatherTransparentRegion(region));
@@ -168,11 +156,9 @@ public class FrameLayoutTest extends ActivityInstrumentationTestCase2<FrameLayou
         assertEquals(textView.getMeasuredWidth(), frameLayout.getMeasuredWidth());
 
         // measureAll is false and text view is GONE, text view will NOT be measured
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                textView.setVisibility(View.GONE);
-                frameLayout.requestLayout();
-            }
+        mActivity.runOnUiThread(() -> {
+            textView.setVisibility(View.GONE);
+            frameLayout.requestLayout();
         });
         mInstrumentation.waitForIdleSync();
         assertFalse(frameLayout.getConsiderGoneChildrenWhenMeasuring());
@@ -183,11 +169,9 @@ public class FrameLayoutTest extends ActivityInstrumentationTestCase2<FrameLayou
         assertEquals(button.getMeasuredWidth(), frameLayout.getMeasuredWidth());
 
         // measureAll is true and text view is GONE, text view will be measured
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                frameLayout.setMeasureAllChildren(true);
-                frameLayout.requestLayout();
-            }
+        mActivity.runOnUiThread(() -> {
+            frameLayout.setMeasureAllChildren(true);
+            frameLayout.requestLayout();
         });
         mInstrumentation.waitForIdleSync();
         assertTrue(frameLayout.getConsiderGoneChildrenWhenMeasuring());
@@ -235,6 +219,24 @@ public class FrameLayoutTest extends ActivityInstrumentationTestCase2<FrameLayou
 
         FrameLayout.LayoutParams params2 = new FrameLayout.LayoutParams(width, height);
         assertTrue(myFrameLayout.checkLayoutParams(params2));
+    }
+
+    public void testGenerateLayoutParamsFromMarginParams() {
+        MyFrameLayout myFrameLayout = new MyFrameLayout(mActivity);
+        ViewGroup.MarginLayoutParams lp = new ViewGroup.MarginLayoutParams(3, 5);
+        lp.leftMargin = 1;
+        lp.topMargin = 2;
+        lp.rightMargin = 3;
+        lp.bottomMargin = 4;
+        LayoutParams generated = (LayoutParams) myFrameLayout.generateLayoutParams(lp);
+        assertNotNull(generated);
+        assertEquals(3, generated.width);
+        assertEquals(5, generated.height);
+
+        assertEquals(1, generated.leftMargin);
+        assertEquals(2, generated.topMargin);
+        assertEquals(3, generated.rightMargin);
+        assertEquals(4, generated.bottomMargin);
     }
 
     public void testDrawableStateChanged() {

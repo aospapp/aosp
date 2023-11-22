@@ -20,9 +20,9 @@ import android.content.SharedPreferences;
 import android.os.Build;
 import android.support.annotation.NonNull;
 
-public class SharedPreferencesCompat {
+public final class SharedPreferencesCompat {
 
-    public static class EditorCompat {
+    public final static class EditorCompat {
 
         private static EditorCompat sInstance;
 
@@ -67,5 +67,7 @@ public class SharedPreferencesCompat {
             mHelper.apply(editor);
         }
     }
+
+    private SharedPreferencesCompat() {}
 
 }

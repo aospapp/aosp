@@ -14,10 +14,9 @@
 #include "SkPath.h"
 #include "SkPoint.h"
 #include "SkRect.h"
-#include "SkStrokeRec.h"
-#include "SkTDArray.h"
 
 class SkPath;
+class SkStrokeRec;
 
 /** \class SkPathEffect
 
@@ -29,8 +28,6 @@ class SkPath;
 */
 class SK_API SkPathEffect : public SkFlattenable {
 public:
-    SK_DECLARE_INST_COUNT(SkPathEffect)
-
     /**
      *  Given a src path (input) and a stroke-rec (input and output), apply
      *  this effect to the src path, returning the new path in dst, and return
@@ -168,7 +165,7 @@ protected:
     // these are visible to our subclasses
     SkPathEffect* fPE0, *fPE1;
 
-    SK_TO_STRING_OVERRIDE()    
+    SK_TO_STRING_OVERRIDE()
 
 private:
     typedef SkPathEffect INHERITED;
@@ -186,14 +183,20 @@ public:
         The reference counts for outer and inner are both incremented in the constructor,
         and decremented in the destructor.
     */
-    static SkComposePathEffect* Create(SkPathEffect* outer, SkPathEffect* inner) {
-        return SkNEW_ARGS(SkComposePathEffect, (outer, inner));
+    static SkPathEffect* Create(SkPathEffect* outer, SkPathEffect* inner) {
+        if (!outer) {
+            return SkSafeRef(inner);
+        }
+        if (!inner) {
+            return SkSafeRef(outer);
+        }
+        return new SkComposePathEffect(outer, inner);
     }
 
     virtual bool filterPath(SkPath* dst, const SkPath& src,
                             SkStrokeRec*, const SkRect*) const override;
 
-    SK_TO_STRING_OVERRIDE()    
+    SK_TO_STRING_OVERRIDE()
     SK_DECLARE_PUBLIC_FLATTENABLE_DESERIALIZATION_PROCS(SkComposePathEffect)
 
 #ifdef SK_BUILD_FOR_ANDROID_FRAMEWORK
@@ -223,14 +226,20 @@ public:
         The reference counts for first and second are both incremented in the constructor,
         and decremented in the destructor.
     */
-    static SkSumPathEffect* Create(SkPathEffect* first, SkPathEffect* second) {
-        return SkNEW_ARGS(SkSumPathEffect, (first, second));
+    static SkPathEffect* Create(SkPathEffect* first, SkPathEffect* second) {
+        if (!first) {
+            return SkSafeRef(second);
+        }
+        if (!second) {
+            return SkSafeRef(first);
+        }
+        return new SkSumPathEffect(first, second);
     }
 
     virtual bool filterPath(SkPath* dst, const SkPath& src,
                             SkStrokeRec*, const SkRect*) const override;
 
-    SK_TO_STRING_OVERRIDE()    
+    SK_TO_STRING_OVERRIDE()
     SK_DECLARE_PUBLIC_FLATTENABLE_DESERIALIZATION_PROCS(SkSumPathEffect)
 
 #ifdef SK_BUILD_FOR_ANDROID_FRAMEWORK

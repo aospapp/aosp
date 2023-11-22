@@ -16,7 +16,7 @@
 
 package android.atrace.cts;
 
-import com.android.cts.tradefed.build.CtsBuildHelper;
+import com.android.cts.migration.MigrationHelper;
 import com.android.ddmlib.Log;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.ITestDevice;
@@ -118,14 +118,14 @@ public class AtraceHostTest extends DeviceTestCase implements IBuildReceiver {
         }
     }
 
-    private CtsBuildHelper mCtsBuild;
+    private IBuildInfo mCtsBuild;
 
     /**
      * {@inheritDoc}
      */
     @Override
     public void setBuild(IBuildInfo buildInfo) {
-        mCtsBuild = CtsBuildHelper.createBuildHelper(buildInfo);
+        mCtsBuild = buildInfo;
     }
 
     // Collection of all userspace tags, and 'sched'
@@ -201,7 +201,7 @@ public class AtraceHostTest extends DeviceTestCase implements IBuildReceiver {
             getDevice().uninstallPackage(TEST_PKG);
 
             // install the test app
-            File testAppFile = mCtsBuild.getTestApp(TEST_APK);
+            File testAppFile = MigrationHelper.getTestFile(mCtsBuild, TEST_APK);
             String installResult = getDevice().installPackage(testAppFile, false);
             assertNull(
                     String.format("failed to install atrace test app. Reason: %s", installResult),

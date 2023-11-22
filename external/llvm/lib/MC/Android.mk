@@ -14,13 +14,13 @@ mc_SRC_FILES := \
   MCCodeGenInfo.cpp \
   MCContext.cpp \
   MCDwarf.cpp \
-  MCELF.cpp \
   MCELFObjectTargetWriter.cpp \
   MCELFStreamer.cpp \
   MCExpr.cpp \
   MCInst.cpp \
   MCInstPrinter.cpp \
   MCInstrAnalysis.cpp \
+  MCInstrDesc.cpp \
   MCLabel.cpp \
   MCLinkerOptimizationHint.cpp \
   MCMachOStreamer.cpp \
@@ -30,6 +30,7 @@ mc_SRC_FILES := \
   MCObjectStreamer.cpp \
   MCObjectWriter.cpp \
   MCRegisterInfo.cpp \
+  MCSchedule.cpp \
   MCSection.cpp \
   MCSectionCOFF.cpp \
   MCSectionELF.cpp \
@@ -37,6 +38,7 @@ mc_SRC_FILES := \
   MCStreamer.cpp \
   MCSubtargetInfo.cpp \
   MCSymbol.cpp \
+  MCSymbolELF.cpp \
   MCSymbolizer.cpp \
   MCTargetOptions.cpp \
   MCValue.cpp \
@@ -57,7 +59,7 @@ LOCAL_SRC_FILES := $(mc_SRC_FILES)
 
 LOCAL_MODULE:= libLLVMMC
 
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_HOST_OS := darwin linux windows
 
 
 include $(LLVM_HOST_BUILD_MK)
@@ -71,8 +73,6 @@ ifneq (true,$(DISABLE_LLVM_DEVICE_BUILDS))
 LOCAL_SRC_FILES := $(mc_SRC_FILES)
 
 LOCAL_MODULE:= libLLVMMC
-
-LOCAL_MODULE_TAGS := optional
 
 include $(LLVM_DEVICE_BUILD_MK)
 include $(BUILD_STATIC_LIBRARY)

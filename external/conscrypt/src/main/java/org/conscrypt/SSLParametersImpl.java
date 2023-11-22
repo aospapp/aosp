@@ -17,6 +17,8 @@
 
 package org.conscrypt;
 
+import org.conscrypt.ct.CTVerifier;
+import org.conscrypt.ct.CTLogStoreImpl;
 import org.conscrypt.util.EmptyArray;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -28,16 +30,20 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
+import java.security.Security;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import javax.crypto.SecretKey;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLException;
+import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
@@ -64,6 +70,8 @@ public class SSLParametersImpl implements Cloneable {
     private static volatile SecureRandom defaultSecureRandom;
     // default SSL parameters
     private static volatile SSLParametersImpl defaultParameters;
+    // default CT Verifier
+    private static volatile CTVerifier defaultCTVerifier;
 
     // client session context contains the set of reusable
     // client-side SSL sessions
@@ -93,7 +101,19 @@ public class SSLParametersImpl implements Cloneable {
     private boolean want_client_auth = false;
     // if the peer with this parameters allowed to cteate new SSL session
     private boolean enable_session_creation = true;
+    // Endpoint identification algorithm (e.g., HTTPS)
     private String endpointIdentificationAlgorithm;
+    // Whether to use the local cipher suites order
+    private boolean useCipherSuitesOrder;
+
+    // client-side only, bypasses the property based configuration, used for tests
+    private boolean ctVerificationEnabled;
+    // client-side only, if null defaultCTVerifier is used instead. Used for tests
+    private CTVerifier ctVerifier;
+
+    // server-side only. SCT and OCSP data to send to clients which request it
+    private byte[] sctExtension;
+    private byte[] ocspResponse;
 
     byte[] npnProtocols;
     byte[] alpnProtocols;
@@ -234,6 +254,22 @@ public class SSLParametersImpl implements Cloneable {
     }
 
     /**
+     * @return certificate transparency verifier
+     */
+    protected CTVerifier getCTVerifier() {
+        if (ctVerifier != null) {
+            return ctVerifier;
+        }
+        CTVerifier result = defaultCTVerifier;
+        if (result == null) {
+            // single-check idiom
+            defaultCTVerifier = result = new CTVerifier(new CTLogStoreImpl());
+        }
+        ctVerifier = result;
+        return ctVerifier;
+    }
+
+    /**
      * @return the names of enabled cipher suites
      */
     protected String[] getEnabledCipherSuites() {
@@ -344,6 +380,22 @@ public class SSLParametersImpl implements Cloneable {
         return useSni != null ? useSni.booleanValue() : isSniEnabledByDefault();
     }
 
+    public void setCTVerifier(CTVerifier verifier) {
+        ctVerifier = verifier;
+    }
+
+    public void setCTVerificationEnabled(boolean enabled) {
+        ctVerificationEnabled = enabled;
+    }
+
+    public void setSCTExtension(byte[] extension) {
+        sctExtension = extension;
+    }
+
+    public void setOCSPResponse(byte[] response) {
+        ocspResponse = response;
+    }
+
     static byte[][] encodeIssuerX509Principals(X509Certificate[] certificates)
             throws CertificateEncodingException {
         byte[][] principalBytes = new byte[certificates.length][];
@@ -371,17 +423,25 @@ public class SSLParametersImpl implements Cloneable {
 
     OpenSSLSessionImpl getSessionToReuse(long sslNativePointer, String hostname, int port)
             throws SSLException {
-        final OpenSSLSessionImpl sessionToReuse;
+        OpenSSLSessionImpl sessionToReuse = null;
+
         if (client_mode) {
             // look for client session to reuse
-            sessionToReuse = getCachedClientSession(clientSessionContext, hostname, port);
-            if (sessionToReuse != null) {
-                NativeCrypto.SSL_set_session(sslNativePointer,
-                        sessionToReuse.sslSessionNativePointer);
+            SSLSession cachedSession = getCachedClientSession(clientSessionContext, hostname, port);
+            if (cachedSession != null) {
+                if (cachedSession instanceof OpenSSLSessionImpl) {
+                    sessionToReuse = (OpenSSLSessionImpl) cachedSession;
+                } else if (cachedSession instanceof OpenSSLExtendedSessionImpl) {
+                    sessionToReuse = ((OpenSSLExtendedSessionImpl) cachedSession).getDelegate();
+                }
+
+                if (sessionToReuse != null) {
+                    NativeCrypto.SSL_set_session(sslNativePointer,
+                            sessionToReuse.sslSessionNativePointer);
+                }
             }
-        } else {
-            sessionToReuse = null;
         }
+
         return sessionToReuse;
     }
 
@@ -492,6 +552,18 @@ public class SSLParametersImpl implements Cloneable {
                     }
                 }
             }
+
+            if (sctExtension != null) {
+                NativeCrypto.SSL_CTX_set_signed_cert_timestamp_list(sslCtxNativePointer,
+                                                                    sctExtension);
+            }
+
+            if (ocspResponse != null) {
+                NativeCrypto.SSL_CTX_set_ocsp_response(sslCtxNativePointer, ocspResponse);
+            }
+
+            NativeCrypto.SSL_set_options(sslNativePointer,
+                    NativeConstants.SSL_OP_CIPHER_SERVER_PREFERENCE);
         }
 
         // Enable Pre-Shared Key (PSK) key exchange if requested
@@ -588,8 +660,7 @@ public class SSLParametersImpl implements Cloneable {
             final OpenSSLSessionImpl sessionToReuse, String hostname, int port,
             boolean handshakeCompleted) throws IOException {
         OpenSSLSessionImpl sslSession = null;
-        byte[] sessionId = NativeCrypto.SSL_SESSION_session_id(sslSessionNativePointer);
-        if (sessionToReuse != null && Arrays.equals(sessionToReuse.getId(), sessionId)) {
+        if (sessionToReuse != null && NativeCrypto.SSL_session_reused(sslNativePointer)) {
             sslSession = sessionToReuse;
             sslSession.lastAccessedTime = System.currentTimeMillis();
             NativeCrypto.SSL_SESSION_free(sslSessionNativePointer);
@@ -703,12 +774,13 @@ public class SSLParametersImpl implements Cloneable {
     /**
      * Gets the suitable session reference from the session cache container.
      */
-    OpenSSLSessionImpl getCachedClientSession(ClientSessionContext sessionContext, String hostName,
+    SSLSession getCachedClientSession(ClientSessionContext sessionContext, String hostName,
             int port) {
         if (hostName == null) {
             return null;
         }
-        OpenSSLSessionImpl session = (OpenSSLSessionImpl) sessionContext.getSession(hostName, port);
+
+        SSLSession session = sessionContext.getSession(hostName, port);
         if (session == null) {
             return null;
         }
@@ -839,7 +911,7 @@ public class SSLParametersImpl implements Cloneable {
 
     /**
      * Gets the default X.509 trust manager.
-     *
+     * <p>
      * TODO: Move this to a published API under dalvik.system.
      */
     public static X509TrustManager getDefaultX509TrustManager()
@@ -874,9 +946,11 @@ public class SSLParametersImpl implements Cloneable {
     }
 
     /**
-     * Finds the first {@link X509TrustManager} element in the provided array.
+     * Finds the first {@link X509ExtendedTrustManager} or
+     * {@link X509TrustManager} element in the provided array.
      *
-     * @return the first {@code X509TrustManager} or {@code null} if not found.
+     * @return the first {@code X509ExtendedTrustManager} or
+     *         {@code X509TrustManager} or {@code null} if not found.
      */
     private static X509TrustManager findFirstX509TrustManager(TrustManager[] tms) {
         for (TrustManager tm : tms) {
@@ -893,6 +967,14 @@ public class SSLParametersImpl implements Cloneable {
 
     public void setEndpointIdentificationAlgorithm(String endpointIdentificationAlgorithm) {
         this.endpointIdentificationAlgorithm = endpointIdentificationAlgorithm;
+    }
+
+    public boolean getUseCipherSuitesOrder() {
+        return useCipherSuitesOrder;
+    }
+
+    public void setUseCipherSuitesOrder(boolean useCipherSuitesOrder) {
+        this.useCipherSuitesOrder = useCipherSuitesOrder;
     }
 
     /** Key type: RSA certificate. */
@@ -937,7 +1019,7 @@ public class SSLParametersImpl implements Cloneable {
      * ClientCertificateType byte values from a CertificateRequest
      * message for use with X509KeyManager.chooseClientAlias or
      * X509ExtendedKeyManager.chooseEngineClientAlias.
-     *
+     * <p>
      * Visible for testing.
      */
     public static String getClientKeyType(byte clientCertificateType) {
@@ -1027,5 +1109,60 @@ public class SSLParametersImpl implements Cloneable {
             resultOffset += array.length;
         }
         return result;
+    }
+
+    /**
+     * Check if SCT verification is enforced for a given hostname.
+     *
+     * SCT Verification is enabled using {@code Security} properties.
+     * The "conscrypt.ct.enable" property must be true, as well as a per domain property.
+     * The reverse notation of the domain name, prefixed with "conscrypt.ct.enforce."
+     * is used as the property name.
+     * Basic globbing is also supported.
+     *
+     * For example, for the domain foo.bar.com, the following properties will be
+     * looked up, in order of precedence.
+     * - conscrypt.ct.enforce.com.bar.foo
+     * - conscrypt.ct.enforce.com.bar.*
+     * - conscrypt.ct.enforce.com.*
+     * - conscrypt.ct.enforce.*
+     */
+    public boolean isCTVerificationEnabled(String hostname) {
+        if (hostname == null) {
+            return false;
+        }
+
+        // Bypass the normal property based check. This is used for testing only
+        if (ctVerificationEnabled) {
+            return true;
+        }
+
+        String property = Security.getProperty("conscrypt.ct.enable");
+        if (property == null || Boolean.valueOf(property.toLowerCase()) == false) {
+            return false;
+        }
+
+        List<String> parts = Arrays.asList(hostname.split("\\."));
+        Collections.reverse(parts);
+
+        boolean enable = false;
+        String propertyName = "conscrypt.ct.enforce";
+        // The loop keeps going on even once we've found a match
+        // This allows for finer grained settings on subdomains
+        for (String part: parts) {
+            property = Security.getProperty(propertyName + ".*");
+            if (property != null) {
+                enable = Boolean.valueOf(property.toLowerCase());
+            }
+
+            propertyName = propertyName + "." + part;
+        }
+
+        property = Security.getProperty(propertyName);
+        if (property != null) {
+            enable = Boolean.valueOf(property.toLowerCase());
+        }
+
+        return enable;
     }
 }

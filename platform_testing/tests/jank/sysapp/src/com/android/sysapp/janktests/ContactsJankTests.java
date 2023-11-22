@@ -16,9 +16,14 @@
 
 package com.android.sysapp.janktests;
 
+import java.io.File;
+import java.io.IOException;
+
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.os.Bundle;
+import android.os.Environment;
 import android.os.RemoteException;
 import android.os.SystemClock;
 import android.provider.ContactsContract;
@@ -34,8 +39,8 @@ import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.UiObjectNotFoundException;
 import android.support.test.uiautomator.Until;
 import android.widget.TextView;
-
 import junit.framework.Assert;
+import android.support.test.timeresulthelper.TimeResultLogger;
 
 /**
  * Jank test for Contacts
@@ -52,6 +57,10 @@ public class ContactsJankTests extends JankTestBase {
     private static final String RES_PACKAGE_NAME = "com.android.contacts";
     private static final String PM_PACKAGE_NAME = "com.android.packageinstaller";
     private UiDevice mDevice;
+    private static final File TIMESTAMP_FILE = new File(Environment.getExternalStorageDirectory()
+            .getAbsolutePath(), "autotester.log");
+    private static final File RESULTS_FILE = new File(Environment.getExternalStorageDirectory()
+            .getAbsolutePath(), "results.log");
 
     @Override
     public void setUp() throws Exception {
@@ -74,7 +83,7 @@ public class ContactsJankTests extends JankTestBase {
         SystemClock.sleep(SHORT_TIMEOUT);
     }
 
-    public void launchContacts () throws UiObjectNotFoundException {
+    public void launchContacts () throws UiObjectNotFoundException, IOException {
         launchApp(PACKAGE_NAME);
         mDevice.waitForIdle();
         // To infer that test is ready to be executed
@@ -85,10 +94,21 @@ public class ContactsJankTests extends JankTestBase {
         Cursor cursor =  getInstrumentation().getContext().getContentResolver().query(
                 ContactsContract.CommonDataKinds.Phone.CONTENT_URI, null, null, null, null);
         Assert.assertTrue("There are not enough contacts", cursor.getCount() > MIN_CONTACT_COUNT);
+        TimeResultLogger.writeTimeStampLogStart(String.format("%s-%s",
+                getClass().getSimpleName(), getName()), TIMESTAMP_FILE);
+    }
+
+    public void afterTestAllContactsFling(Bundle metrics) throws IOException {
+        TimeResultLogger.writeTimeStampLogEnd(String.format("%s-%s",
+                getClass().getSimpleName(), getName()), TIMESTAMP_FILE);
+        TimeResultLogger.writeResultToFile(String.format("%s-%s",
+                getClass().getSimpleName(), getName()), RESULTS_FILE, metrics);
+        super.afterTest(metrics);
     }
 
     // Measures jank while flinging contacts list
-    @JankTest(beforeTest="launchContacts", expectedFrames=EXPECTED_FRAMES)
+    @JankTest(beforeTest="launchContacts", expectedFrames=EXPECTED_FRAMES,
+            afterTest="afterTestAllContactsFling")
     @GfxMonitor(processName=PACKAGE_NAME)
     public void testAllContactsFling() {
         UiObject2 contactList = null;

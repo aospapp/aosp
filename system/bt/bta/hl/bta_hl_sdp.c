@@ -50,7 +50,7 @@ BOOLEAN bta_hl_fill_sup_feature_list( const tSDP_DISC_ATTR  *p_attr,
         {
             return(FALSE);
         }
-        SDP_DISC_ATTR_LEN(p_attr->attr_len_type);
+
         item_cnt=0;
 
         for (p_sattr = p_attr->attr_value.v.p_sub_attr; p_sattr && (item_cnt < 4) ; p_sattr = p_sattr->p_next_attr)
@@ -144,17 +144,16 @@ int bta_hl_compose_supported_feature_list( UINT8 *p, UINT16 num_elem,
 BOOLEAN bta_hl_add_sup_feature_list (UINT32 handle, UINT16 num_elem,
                                      const tBTA_HL_SUP_FEATURE_ELEM *p_elem_list)
 {
-    UINT8       *p_buf;
-    int         offset;
-    BOOLEAN     result = FALSE;
+    int offset;
+    BOOLEAN result;
+    UINT8 *p_buf = (UINT8 *)osi_malloc(BTA_HL_SUP_FEATURE_SDP_BUF_SIZE);
 
-    if ((p_buf = (UINT8 *)GKI_getbuf(BTA_HL_SUP_FEATURE_SDP_BUF_SIZE)) != NULL)
-    {
-        offset = bta_hl_compose_supported_feature_list(p_buf, num_elem, p_elem_list);
-        result = SDP_AddAttribute (handle, ATTR_ID_HDP_SUP_FEAT_LIST,
-                                   DATA_ELE_SEQ_DESC_TYPE, (UINT32) offset, p_buf);
-        GKI_freebuf(p_buf);
-    }
+    offset = bta_hl_compose_supported_feature_list(p_buf, num_elem,
+                                                   p_elem_list);
+    result = SDP_AddAttribute(handle, ATTR_ID_HDP_SUP_FEAT_LIST,
+                              DATA_ELE_SEQ_DESC_TYPE, (UINT32) offset, p_buf);
+    osi_free(p_buf);
+
     return result;
 }
 

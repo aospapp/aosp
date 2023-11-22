@@ -18,7 +18,7 @@ package android.widget.cts;
 
 import android.graphics.drawable.Icon;
 import android.test.UiThreadTest;
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 
 import android.app.Activity;
@@ -59,7 +59,7 @@ import java.io.OutputStream;
  * Test {@link RemoteViews}.
  */
 public class RemoteViewsTest extends ActivityInstrumentationTestCase2<RemoteViewsCtsActivity> {
-    private static final String PACKAGE_NAME = "com.android.cts.widget";
+    private static final String PACKAGE_NAME = "android.widget.cts";
 
     private static final int INVALD_ID = -1;
 
@@ -633,7 +633,7 @@ public class RemoteViewsTest extends ActivityInstrumentationTestCase2<RemoteView
                 if (target != null) {
                     target.close();
                 }
-            } catch (IOException _) {
+            } catch (IOException ignored) {
                 // Ignore the IOException.
             }
         }

@@ -1,9 +1,6 @@
 # Bug 19641084
 dEQP-GLES31.functional.image_load_store.*.atomic.comp_swap_*_return_value
 
-# Bug 20698928
-dEQP-GLES31.functional.copy_image.*.*.*.renderbuffer_*
-
 # Bug 18323265
 dEQP-GLES31.functional.shaders.builtin_functions.precision.dot.highp_compute.vec4
 dEQP-GLES31.functional.shaders.builtin_functions.precision.smoothstep.mediump_compute.scalar
@@ -14,16 +11,6 @@ dEQP-GLES31.functional.shaders.builtin_functions.precision.smoothstep.mediump_co
 # Bug 18033342
 dEQP-GLES31.functional.debug.negative_coverage.get_error.state.get_framebuffer_attachment_parameteriv
 
-# Bug 20302019
-dEQP-GLES31.functional.copy_image.non_compressed.viewclass_32_bits.rgba8_snorm_*
-dEQP-GLES31.functional.copy_image.non_compressed.viewclass_32_bits.*_rgba8_snorm.*
-dEQP-GLES31.functional.copy_image.non_compressed.viewclass_24_bits.rgb8_snorm_*
-dEQP-GLES31.functional.copy_image.non_compressed.viewclass_24_bits.*_rgb8_snorm.*
-dEQP-GLES31.functional.copy_image.non_compressed.viewclass_16_bits.rg8_snorm_*
-dEQP-GLES31.functional.copy_image.non_compressed.viewclass_16_bits.*_rg8_snorm.*
-dEQP-GLES31.functional.copy_image.non_compressed.viewclass_8_bits.r8_snorm_*
-dEQP-GLES31.functional.copy_image.non_compressed.viewclass_8_bits.*_r8_snorm.*
-
 # Bug 20453509
 dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_centroid.consistency.*
 dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_centroid.array_element.*
@@ -32,9 +19,6 @@ dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_centroid
 dEQP-GLES31.functional.shaders.builtin_functions.precision.atan2.mediump_*
 dEQP-GLES31.functional.shaders.builtin_functions.precision.atan2.highp_*
 
-# Bug 22180525
-dEQP-GLES31.functional.shaders.helper_invocation.derivate.wide_lines_*_samples_*
-
 # Bug 22302334
 dEQP-GLES31.functional.shaders.builtin_functions.precision.acosh.highp_*
 dEQP-GLES31.functional.shaders.builtin_functions.precision.atanh.highp_*
@@ -42,3 +26,29 @@ dEQP-GLES31.functional.shaders.builtin_functions.precision.atanh.highp_*
 # Bug 22859221
 dEQP-GLES31.functional.shaders.builtin_functions.precision.reflect.*mediump*.scalar
 dEQP-GLES31.functional.shaders.builtin_functions.precision.reflect.*highp*.scalar
+
+# Bug 28196756
+dEQP-GLES31.functional.shaders.builtin_functions.precision.acos.mediump_compute.*
+dEQP-GLES31.functional.shaders.builtin_functions.precision.atan.mediump_compute.*
+
+# Bug 28090252
+dEQP-GLES31.functional.debug.negative_coverage.*.buffer.framebuffer_texture_layer
+
+# Bug 28381693
+dEQP-GLES31.functional.debug.negative_coverage.get_error.texture.compressedteximage3d_invalid_width_height
+
+# Bug 28813504
+dEQP-GLES31.functional.ubo.random.all_per_block_buffers.41
+
+# Bug 28767510
+dEQP-GLES31.functional.shaders.builtin_functions.precision.dot.lowp_compute.vec3
+dEQP-GLES31.functional.shaders.builtin_functions.precision.dot.lowp_compute.vec4
+dEQP-GLES31.functional.shaders.builtin_functions.precision.dot.mediump_compute.vec3
+dEQP-GLES31.functional.shaders.builtin_functions.precision.dot.mediump_compute.vec4
+dEQP-GLES31.functional.shaders.builtin_functions.precision.dot.highp_compute.vec3
+
+dEQP-GLES31.functional.shaders.builtin_functions.precision.reflect.lowp_compute.vec3
+dEQP-GLES31.functional.shaders.builtin_functions.precision.reflect.lowp_compute.vec4
+dEQP-GLES31.functional.shaders.builtin_functions.precision.reflect.mediump_compute.vec3
+dEQP-GLES31.functional.shaders.builtin_functions.precision.reflect.mediump_compute.vec4
+dEQP-GLES31.functional.shaders.builtin_functions.precision.reflect.highp_compute.vec3

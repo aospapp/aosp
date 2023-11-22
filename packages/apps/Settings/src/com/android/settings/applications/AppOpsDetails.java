@@ -18,7 +18,6 @@ package com.android.settings.applications;
 
 import android.app.Activity;
 import android.app.AppOpsManager;
-import android.app.Fragment;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
@@ -39,7 +38,7 @@ import android.widget.LinearLayout;
 import android.widget.Switch;
 import android.widget.TextView;
 
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.settings.InstrumentedFragment;
 import com.android.settings.R;
 import com.android.settings.SettingsActivity;
@@ -182,7 +181,7 @@ public class AppOpsDetails extends InstrumentedFragment {
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.APP_OPS_DETAILS;
+        return MetricsEvent.APP_OPS_DETAILS;
     }
 
     @Override

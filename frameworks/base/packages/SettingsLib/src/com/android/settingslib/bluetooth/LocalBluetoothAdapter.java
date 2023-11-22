@@ -19,6 +19,7 @@ package com.android.settingslib.bluetooth;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.le.BluetoothLeScanner;
 import android.content.Context;
 import android.os.ParcelUuid;
 import android.util.Log;
@@ -106,6 +107,10 @@ public final class LocalBluetoothAdapter {
         return mAdapter.getScanMode();
     }
 
+    public BluetoothLeScanner getBluetoothLeScanner() {
+        return mAdapter.getBluetoothLeScanner();
+    }
+
     public int getState() {
         return mAdapter.getState();
     }
@@ -157,6 +162,10 @@ public final class LocalBluetoothAdapter {
                 if (a2dp != null && a2dp.isA2dpPlaying()) {
                     return;
                 }
+                A2dpSinkProfile a2dpSink = mProfileManager.getA2dpSinkProfile();
+                if ((a2dpSink != null) && (a2dpSink.isA2dpPlaying())){
+                    return;
+                }
             }
 
             if (mAdapter.startDiscovery()) {
@@ -199,7 +208,7 @@ public final class LocalBluetoothAdapter {
         return false;
     }
 
-    public void setBluetoothEnabled(boolean enabled) {
+    public boolean setBluetoothEnabled(boolean enabled) {
         boolean success = enabled
                 ? mAdapter.enable()
                 : mAdapter.disable();
@@ -216,6 +225,7 @@ public final class LocalBluetoothAdapter {
 
             syncBluetoothState();
         }
+        return success;
     }
 
     public BluetoothDevice getRemoteDevice(String address) {

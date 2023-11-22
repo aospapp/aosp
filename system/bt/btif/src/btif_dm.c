@@ -27,50 +27,57 @@
 
 #define LOG_TAG "bt_btif_dm"
 
+#include "btif_dm.h"
+
 #include <assert.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <hardware/bluetooth.h>
 
-#include <cutils/properties.h>
-#include "gki.h"
-#include "btu.h"
-#include "btcore/include/bdaddr.h"
-#include "bta_api.h"
+#include "bdaddr.h"
+#include "bta_gatt_api.h"
 #include "btif_api.h"
-#include "btif_util.h"
-#include "btif_dm.h"
-#include "btif_storage.h"
-#include "btif_hh.h"
 #include "btif_config.h"
+#include "btif_hh.h"
 #include "btif_sdp.h"
+#include "btif_storage.h"
+#include "btif_util.h"
+#include "btu.h"
+#include "bt_common.h"
 #include "bta_gatt_api.h"
 #include "device/include/interop.h"
 #include "include/stack_config.h"
-#include "osi/include/log.h"
 #include "osi/include/allocator.h"
+#include "osi/include/log.h"
+#include "osi/include/metrics.h"
+#include "osi/include/properties.h"
+#include "stack_config.h"
 #include "stack/btm/btm_int.h"
 
 /******************************************************************************
 **  Constants & Macros
 ******************************************************************************/
 
+#define COD_MASK                            0x07FF
+
 #define COD_UNCLASSIFIED ((0x1F) << 8)
 #define COD_HID_KEYBOARD                    0x0540
 #define COD_HID_POINTING                    0x0580
 #define COD_HID_COMBO                       0x05C0
 #define COD_HID_MAJOR                       0x0500
+#define COD_HID_MASK                        0x0700
 #define COD_AV_HEADSETS                     0x0404
 #define COD_AV_HANDSFREE                    0x0408
 #define COD_AV_HEADPHONES                   0x0418
 #define COD_AV_PORTABLE_AUDIO               0x041C
 #define COD_AV_HIFI_AUDIO                   0x0428
-
 
 #define BTIF_DM_DEFAULT_INQ_MAX_RESULTS     0
 #define BTIF_DM_DEFAULT_INQ_MAX_DURATION    10
@@ -90,8 +97,6 @@
 #define BTIF_DM_INTERLEAVE_DURATION_BR_TWO    3
 #define BTIF_DM_INTERLEAVE_DURATION_LE_TWO    4
 #endif
-
-#define MAX_SDP_BL_ENTRIES 3
 
 #define ENCRYPTED_BREDR       2
 #define ENCRYPTED_LE          4
@@ -117,7 +122,6 @@ typedef struct
 #endif
 } btif_dm_pairing_cb_t;
 
-
 typedef struct
 {
     UINT8       ir[BT_OCTET16_LEN];
@@ -140,11 +144,11 @@ typedef struct
     BD_NAME bd_name;
 } btif_dm_remote_name_t;
 
+/* this structure holds optional OOB data for remote device */
 typedef struct
 {
-    BT_OCTET16 sp_c;
-    BT_OCTET16 sp_r;
-    BD_ADDR  oob_bdaddr;  /* peer bdaddr*/
+    BD_ADDR  bdaddr;    /* peer bdaddr */
+    bt_out_of_band_data_t oob_data;
 } btif_dm_oob_cb_t;
 
 typedef struct
@@ -168,22 +172,49 @@ typedef struct
     unsigned int   manufact_id;
 }skip_sdp_entry_t;
 
+typedef enum
+{
+    BTIF_DM_FUNC_CREATE_BOND,
+    BTIF_DM_FUNC_CANCEL_BOND,
+    BTIF_DM_FUNC_REMOVE_BOND,
+    BTIF_DM_FUNC_BOND_STATE_CHANGED,
+} bt_bond_function_t;
+
+typedef struct
+{
+    bt_bdaddr_t bd_addr;
+    bt_bond_function_t function;
+    bt_bond_state_t state;
+    struct timespec timestamp;
+} btif_bond_event_t;
+
 #define BTA_SERVICE_ID_TO_SERVICE_MASK(id)       (1 << (id))
 
-#define MAX_SDP_BL_ENTRIES 3
 #define UUID_HUMAN_INTERFACE_DEVICE "00001124-0000-1000-8000-00805f9b34fb"
+
+#define MAX_BTIF_BOND_EVENT_ENTRIES 15
 
 static skip_sdp_entry_t sdp_blacklist[] = {{76}}; //Apple Mouse and Keyboard
 
 /* This flag will be true if HCI_Inquiry is in progress */
 static BOOLEAN btif_dm_inquiry_in_progress = FALSE;
 
-
-
 /************************************************************************************
 **  Static variables
 ************************************************************************************/
 static char btif_default_local_name[DEFAULT_LOCAL_NAME_MAX+1] = {'\0'};
+static uid_set_t* uid_set = NULL;
+
+/* A circular array to keep track of the most recent bond events */
+static btif_bond_event_t btif_dm_bond_events[MAX_BTIF_BOND_EVENT_ENTRIES + 1];
+
+static pthread_mutex_t bond_event_lock;
+
+/* |btif_num_bond_events| keeps track of the total number of events and can be
+   greater than |MAX_BTIF_BOND_EVENT_ENTRIES| */
+static size_t btif_num_bond_events = 0;
+static size_t btif_events_start_index = 0;
+static size_t btif_events_end_index = 0;
 
 /******************************************************************************
 **  Static functions
@@ -201,13 +232,20 @@ static void btif_dm_ble_key_notif_evt(tBTA_DM_SP_KEY_NOTIF *p_ssp_key_notif);
 static void btif_dm_ble_auth_cmpl_evt (tBTA_DM_AUTH_CMPL *p_auth_cmpl);
 static void btif_dm_ble_passkey_req_evt(tBTA_DM_PIN_REQ *p_pin_req);
 static void btif_dm_ble_key_nc_req_evt(tBTA_DM_SP_KEY_NOTIF *p_notif_req) ;
+static void btif_dm_ble_oob_req_evt(tBTA_DM_SP_RMT_OOB *req_oob_type);
 #endif
 
 static void bte_scan_filt_param_cfg_evt(UINT8 action_type,
                                            tBTA_DM_BLE_PF_AVBL_SPACE avbl_space,
-                                           tBTA_DM_BLE_REF_VALUE ref_value, tBTA_STATUS status);
+                                           tBTA_DM_BLE_REF_VALUE ref_value,
+                                           tBTA_STATUS status);
 
 static char* btif_get_default_local_name();
+
+static void btif_stats_add_bond_event(const bt_bdaddr_t *bd_addr,
+                                      bt_bond_function_t function,
+                                      bt_bond_state_t state);
+
 /******************************************************************************
 **  Externs
 ******************************************************************************/
@@ -221,10 +259,15 @@ extern bt_status_t btif_sdp_execute_service(BOOLEAN b_enable);
 extern int btif_hh_connect(bt_bdaddr_t *bd_addr);
 extern void bta_gatt_convert_uuid16_to_uuid128(UINT8 uuid_128[LEN_UUID_128], UINT16 uuid_16);
 
-
 /******************************************************************************
 **  Functions
 ******************************************************************************/
+
+static bool is_empty_128bit(uint8_t *data)
+{
+    static const uint8_t zero[16] = { 0 };
+    return !memcmp(zero, data, sizeof(zero));
+}
 
 static void btif_dm_data_copy(uint16_t event, char *dst, char *src)
 {
@@ -235,13 +278,12 @@ static void btif_dm_data_copy(uint16_t event, char *dst, char *src)
         return;
 
     assert(dst_dm_sec);
-    memcpy(dst_dm_sec, src_dm_sec, sizeof(tBTA_DM_SEC));
+    maybe_non_aligned_memcpy(dst_dm_sec, src_dm_sec, sizeof(*src_dm_sec));
 
     if (event == BTA_DM_BLE_KEY_EVT)
     {
         dst_dm_sec->ble_key.p_key_value = osi_malloc(sizeof(tBTM_LE_KEY_VALUE));
         assert(src_dm_sec->ble_key.p_key_value);
-        assert(dst_dm_sec->ble_key.p_key_value);
         memcpy(dst_dm_sec->ble_key.p_key_value, src_dm_sec->ble_key.p_key_value, sizeof(tBTM_LE_KEY_VALUE));
     }
 }
@@ -249,7 +291,22 @@ static void btif_dm_data_copy(uint16_t event, char *dst, char *src)
 static void btif_dm_data_free(uint16_t event, tBTA_DM_SEC *dm_sec)
 {
     if (event == BTA_DM_BLE_KEY_EVT)
-        osi_free(dm_sec->ble_key.p_key_value);
+        osi_free_and_reset((void **)&dm_sec->ble_key.p_key_value);
+}
+
+void btif_dm_init(uid_set_t* set)
+{
+    uid_set = set;
+    pthread_mutex_init(&bond_event_lock, NULL);
+}
+
+void btif_dm_cleanup(void)
+{
+    if (uid_set) {
+        uid_set_destroy(uid_set);
+        uid_set = NULL;
+    }
+    pthread_mutex_destroy(&bond_event_lock);
 }
 
 bt_status_t btif_in_execute_service_request(tBTA_SERVICE_ID service_id,
@@ -285,7 +342,9 @@ bt_status_t btif_in_execute_service_request(tBTA_SERVICE_ID service_id,
              btif_sdp_execute_service(b_enable);
          }break;
          default:
-              BTIF_TRACE_ERROR("%s: Unknown service being enabled", __FUNCTION__);
+           BTIF_TRACE_ERROR("%s: Unknown service %d being %s",
+                            __func__, service_id,
+                            (b_enable) ? "enabled" : "disabled");
               return BT_STATUS_FAIL;
     }
     return BT_STATUS_SUCCESS;
@@ -373,8 +432,7 @@ static BOOLEAN check_cached_remote_name(tBTA_DM_SEARCH *p_search_data,
     return FALSE;
 }
 
-BOOLEAN check_cod(const bt_bdaddr_t *remote_bdaddr, uint32_t cod)
-{
+static uint32_t get_cod(const bt_bdaddr_t *remote_bdaddr) {
     uint32_t    remote_cod;
     bt_property_t prop_name;
 
@@ -383,30 +441,21 @@ BOOLEAN check_cod(const bt_bdaddr_t *remote_bdaddr, uint32_t cod)
                                sizeof(uint32_t), &remote_cod);
     if (btif_storage_get_remote_device_property((bt_bdaddr_t *)remote_bdaddr, &prop_name) == BT_STATUS_SUCCESS)
     {
-        LOG_INFO("%s remote_cod = 0x%08x cod = 0x%08x", __func__, remote_cod, cod);
-        if ((remote_cod & 0x7ff) == cod)
-            return TRUE;
+        LOG_INFO(LOG_TAG, "%s remote_cod = 0x%08x", __func__, remote_cod);
+        return remote_cod & COD_MASK;
     }
 
-    return FALSE;
+    return 0;
 }
 
-BOOLEAN check_cod_hid(const bt_bdaddr_t *remote_bdaddr, uint32_t cod)
+BOOLEAN check_cod(const bt_bdaddr_t *remote_bdaddr, uint32_t cod)
 {
-    uint32_t    remote_cod;
-    bt_property_t prop_name;
+    return get_cod(remote_bdaddr) == cod;
+}
 
-    /* check if we already have it in our btif_storage cache */
-    BTIF_STORAGE_FILL_PROPERTY(&prop_name, BT_PROPERTY_CLASS_OF_DEVICE,
-                               sizeof(uint32_t), &remote_cod);
-    if (btif_storage_get_remote_device_property((bt_bdaddr_t *)remote_bdaddr,
-                                &prop_name) == BT_STATUS_SUCCESS)
-    {
-        BTIF_TRACE_DEBUG("%s: remote_cod = 0x%06x", __FUNCTION__, remote_cod);
-        if ((remote_cod & 0x700) == cod)
-            return TRUE;
-    }
-    return FALSE;
+BOOLEAN check_cod_hid(const bt_bdaddr_t *remote_bdaddr)
+{
+    return (get_cod(remote_bdaddr) & COD_HID_MASK) == COD_HID_MAJOR;
 }
 
 BOOLEAN check_hid_le(const bt_bdaddr_t *remote_bdaddr)
@@ -450,15 +499,12 @@ BOOLEAN check_sdp_bl(const bt_bdaddr_t *remote_bdaddr)
     bt_property_t prop_name;
     bt_remote_version_t info;
 
-
     if (remote_bdaddr == NULL)
         return FALSE;
 
 /* fetch additional info about remote device used in iop query */
     BTM_ReadRemoteVersion(*(BD_ADDR*)remote_bdaddr, &lmp_ver,
                     &manufacturer, &lmp_subver);
-
-
 
  /* if not available yet, try fetching from config database */
     BTIF_STORAGE_FILL_PROPERTY(&prop_name, BT_PROPERTY_REMOTE_VERSION_INFO,
@@ -472,7 +518,7 @@ BOOLEAN check_sdp_bl(const bt_bdaddr_t *remote_bdaddr)
     }
     manufacturer = info.manufacturer;
 
-    for (int i = 0; i < MAX_SDP_BL_ENTRIES; i++)
+    for (unsigned int i = 0; i < ARRAY_SIZE(sdp_blacklist); i++)
     {
         if (manufacturer == sdp_blacklist[i].manufact_id)
             return TRUE;
@@ -480,9 +526,11 @@ BOOLEAN check_sdp_bl(const bt_bdaddr_t *remote_bdaddr)
     return FALSE;
 }
 
-
 static void bond_state_changed(bt_status_t status, bt_bdaddr_t *bd_addr, bt_bond_state_t state)
 {
+
+    btif_stats_add_bond_event(bd_addr, BTIF_DM_FUNC_BOND_STATE_CHANGED, state);
+
     // Send bonding state only once - based on outgoing/incoming we may receive duplicates
     if ((pairing_cb.state == state) && (state == BT_BOND_STATE_BONDING))
     {
@@ -530,7 +578,7 @@ static void btif_update_remote_version_property(bt_bdaddr_t *p_bd)
     btm_status = BTM_ReadRemoteVersion(*(BD_ADDR*)p_bd, &lmp_ver,
                           &mfct_set, &lmp_subver);
 
-    LOG_DEBUG("remote version info [%s]: %x, %x, %x", bdaddr_to_string(p_bd, bdstr, sizeof(bdstr)),
+    LOG_DEBUG(LOG_TAG, "remote version info [%s]: %x, %x, %x", bdaddr_to_string(p_bd, bdstr, sizeof(bdstr)),
                lmp_ver, mfct_set, lmp_subver);
 
     if (btm_status == BTM_SUCCESS)
@@ -546,7 +594,6 @@ static void btif_update_remote_version_property(bt_bdaddr_t *p_bd)
         ASSERTC(status == BT_STATUS_SUCCESS, "failed to save remote version", status);
     }
 }
-
 
 static void btif_update_remote_properties(BD_ADDR bd_addr, BD_NAME bd_name,
                                           DEV_CLASS dev_class, tBT_DEVICE_TYPE device_type)
@@ -776,7 +823,7 @@ static void search_devices_copy_cb(UINT16 event, char *p_dest, char *p_src)
         return;
 
     BTIF_TRACE_DEBUG("%s: event=%s", __FUNCTION__, dump_dm_search_event(event));
-    memcpy(p_dest_data, p_src_data, sizeof(tBTA_DM_SEARCH));
+    maybe_non_aligned_memcpy(p_dest_data, p_src_data, sizeof(*p_src_data));
     switch (event)
     {
         case BTA_DM_INQ_RES_EVT:
@@ -809,7 +856,7 @@ static void search_services_copy_cb(UINT16 event, char *p_dest, char *p_src)
 
     if (!p_src)
         return;
-    memcpy(p_dest_data, p_src_data, sizeof(tBTA_DM_SEARCH));
+    maybe_non_aligned_memcpy(p_dest_data, p_src_data, sizeof(*p_src_data));
     switch (event)
     {
          case BTA_DM_DISC_RES_EVT:
@@ -822,12 +869,9 @@ static void search_services_copy_cb(UINT16 event, char *p_dest, char *p_src)
                                                         (UINT8*)(p_dest + sizeof(tBTA_DM_SEARCH));
                        memcpy(p_dest_data->disc_res.p_uuid_list, p_src_data->disc_res.p_uuid_list,
                               p_src_data->disc_res.num_uuids*MAX_UUID_SIZE);
-                       GKI_freebuf(p_src_data->disc_res.p_uuid_list);
+                       osi_free_and_reset((void **)&p_src_data->disc_res.p_uuid_list);
                   }
-                  if (p_src_data->disc_res.p_raw_data != NULL)
-                  {
-                      GKI_freebuf(p_src_data->disc_res.p_raw_data);
-                  }
+                  osi_free_and_reset((void **)&p_src_data->disc_res.p_raw_data);
               }
          } break;
     }
@@ -885,9 +929,9 @@ static void btif_dm_pin_req_evt(tBTA_DM_PIN_REQ *p_pin_req)
             check_cod(&bd_addr, COD_AV_HIFI_AUDIO) ||
             check_cod(&bd_addr, COD_HID_POINTING))
         {
-            BTIF_TRACE_DEBUG("%s()cod matches for auto pair", __FUNCTION__);
             /*  Check if this device can be auto paired  */
-            if ((btif_storage_is_device_autopair_blacklisted(&bd_addr) == FALSE) &&
+            if (!interop_match_addr(INTEROP_DISABLE_AUTO_PAIRING, &bd_addr) &&
+                !interop_match_name(INTEROP_DISABLE_AUTO_PAIRING, (const char *)bd_name.name) &&
                 (pairing_cb.autopair_attempts == 0))
             {
                 BTIF_TRACE_DEBUG("%s() Attempting auto pair", __FUNCTION__);
@@ -904,8 +948,8 @@ static void btif_dm_pin_req_evt(tBTA_DM_PIN_REQ *p_pin_req)
         else if (check_cod(&bd_addr, COD_HID_KEYBOARD) ||
                  check_cod(&bd_addr, COD_HID_COMBO))
         {
-            if(( btif_storage_is_fixed_pin_zeros_keyboard (&bd_addr) == TRUE) &&
-               (pairing_cb.autopair_attempts == 0))
+            if ((interop_match_addr(INTEROP_KEYBOARD_REQUIRES_FIXED_PIN, &bd_addr) == TRUE) &&
+                (pairing_cb.autopair_attempts == 0))
             {
                 BTIF_TRACE_DEBUG("%s() Attempting auto pair", __FUNCTION__);
                 pin_code.pin[0] = 0x30;
@@ -995,7 +1039,7 @@ static void btif_dm_ssp_cfm_req_evt(tBTA_DM_SP_CFM_REQ *p_ssp_cfm_req)
     cod = devclass2uint(p_ssp_cfm_req->dev_class);
 
     if (cod == 0) {
-        LOG_DEBUG("%s cod is 0, set as unclassified", __func__);
+        LOG_DEBUG(LOG_TAG, "%s cod is 0, set as unclassified", __func__);
         cod = COD_UNCLASSIFIED;
     }
 
@@ -1030,7 +1074,7 @@ static void btif_dm_ssp_key_notif_evt(tBTA_DM_SP_KEY_NOTIF *p_ssp_key_notif)
     cod = devclass2uint(p_ssp_key_notif->dev_class);
 
     if (cod == 0) {
-        LOG_DEBUG("%s cod is 0, set as unclassified", __func__);
+        LOG_DEBUG(LOG_TAG, "%s cod is 0, set as unclassified", __func__);
         cod = COD_UNCLASSIFIED;
     }
 
@@ -1089,6 +1133,20 @@ static void btif_dm_auth_cmpl_evt (tBTA_DM_AUTH_CMPL *p_auth_cmpl)
         }
     }
 
+    // We could have received a new link key without going through the pairing flow.
+    // If so, we don't want to perform SDP or any other operations on the authenticated
+    // device.
+    if (bdcmp(p_auth_cmpl->bd_addr, pairing_cb.bd_addr) != 0) {
+      char address[32];
+      bt_bdaddr_t bt_bdaddr;
+
+      memcpy(bt_bdaddr.address, p_auth_cmpl->bd_addr,
+             sizeof(bt_bdaddr.address));
+      bdaddr_to_string(&bt_bdaddr, address, sizeof(address));
+      LOG_INFO(LOG_TAG, "%s skipping SDP since we did not initiate pairing to %s.", __func__, address);
+      return;
+    }
+
     // Skip SDP for certain  HID Devices
     if (p_auth_cmpl->success)
     {
@@ -1102,16 +1160,16 @@ static void btif_dm_auth_cmpl_evt (tBTA_DM_AUTH_CMPL *p_auth_cmpl)
         state = BT_BOND_STATE_BONDED;
         bdcpy(bd_addr.address, p_auth_cmpl->bd_addr);
 
-        if (check_sdp_bl(&bd_addr) && check_cod_hid(&bd_addr, COD_HID_MAJOR))
+        if (check_sdp_bl(&bd_addr) && check_cod_hid(&bd_addr))
         {
-            LOG_WARN("%s:skip SDP", __FUNCTION__);
+            LOG_WARN(LOG_TAG, "%s:skip SDP", __FUNCTION__);
             skip_sdp = TRUE;
         }
         if(!pairing_cb.is_local_initiated && skip_sdp)
         {
             bond_state_changed(status, &bd_addr, state);
 
-            LOG_WARN("%s: Incoming HID Connection",__FUNCTION__);
+            LOG_WARN(LOG_TAG, "%s: Incoming HID Connection",__FUNCTION__);
             bt_property_t prop;
             bt_bdaddr_t bd_addr;
             bt_uuid_t  uuid;
@@ -1129,10 +1187,8 @@ static void btif_dm_auth_cmpl_evt (tBTA_DM_AUTH_CMPL *p_auth_cmpl)
         }
         else
         {
-            /* Trigger SDP on the device */
-            pairing_cb.sdp_attempts = 1;;
-
 #if BLE_INCLUDED == TRUE
+            BOOLEAN is_crosskey = FALSE;
             /* If bonded due to cross-key, save the static address too*/
             if(pairing_cb.state == BT_BOND_STATE_BONDING &&
               (bdcmp(p_auth_cmpl->bd_addr, pairing_cb.bd_addr) != 0))
@@ -1140,13 +1196,21 @@ static void btif_dm_auth_cmpl_evt (tBTA_DM_AUTH_CMPL *p_auth_cmpl)
                 BTIF_TRACE_DEBUG("%s: bonding initiated due to cross key, adding static address",
                                  __func__);
                 bdcpy(pairing_cb.static_bdaddr.address, p_auth_cmpl->bd_addr);
+                is_crosskey = TRUE;
             }
+            if (!is_crosskey || !(stack_config_get_interface()->get_pts_crosskey_sdp_disable()))
+            {
 #endif
 
-            if(btif_dm_inquiry_in_progress)
+                // Ensure inquiry is stopped before attempting service discovery
                 btif_dm_cancel_discovery();
 
-            btif_dm_get_remote_services(&bd_addr);
+                /* Trigger SDP on the device */
+                pairing_cb.sdp_attempts = 1;
+                btif_dm_get_remote_services(&bd_addr);
+#if BLE_INCLUDED == TRUE
+            }
+#endif
         }
         // Do not call bond_state_changed_cb yet. Wait until remote service discovery is complete
     }
@@ -1156,7 +1220,7 @@ static void btif_dm_auth_cmpl_evt (tBTA_DM_AUTH_CMPL *p_auth_cmpl)
         switch(p_auth_cmpl->fail_reason)
         {
             case HCI_ERR_PAGE_TIMEOUT:
-                if (interop_match(INTEROP_AUTO_RETRY_PAIRING, &bd_addr)
+                if (interop_match_addr(INTEROP_AUTO_RETRY_PAIRING, &bd_addr)
                     && pairing_cb.timeout_retries)
                 {
                     BTIF_TRACE_WARNING("%s() - Pairing timeout; retrying (%d) ...", __FUNCTION__, pairing_cb.timeout_retries);
@@ -1192,22 +1256,8 @@ static void btif_dm_auth_cmpl_evt (tBTA_DM_AUTH_CMPL *p_auth_cmpl)
                     __FUNCTION__, p_auth_cmpl->fail_reason);
                 if (pairing_cb.autopair_attempts  == 1)
                 {
-                    BTIF_TRACE_DEBUG("%s(): Adding device to blacklist ", __FUNCTION__);
-
-                    /* Add the device to dynamic black list only if this device belongs to Audio/pointing dev class  */
-                    if (check_cod(&bd_addr, COD_AV_HEADSETS) ||
-                        check_cod(&bd_addr, COD_AV_HANDSFREE) ||
-                        check_cod(&bd_addr, COD_AV_HEADPHONES) ||
-                        check_cod(&bd_addr, COD_AV_PORTABLE_AUDIO) ||
-                        check_cod(&bd_addr, COD_AV_HIFI_AUDIO) ||
-                        check_cod(&bd_addr, COD_HID_POINTING))
-                    {
-                        btif_storage_add_device_to_autopair_blacklist (&bd_addr);
-                    }
-                    pairing_cb.autopair_attempts++;
-
                     /* Create the Bond once again */
-                    BTIF_TRACE_DEBUG("%s() auto pair failed. Reinitiate Bond", __FUNCTION__);
+                    BTIF_TRACE_WARNING("%s() auto pair failed. Reinitiate Bond", __FUNCTION__);
                     btif_dm_cb_create_bond (&bd_addr, BTA_TRANSPORT_UNKNOWN);
                     return;
                 }
@@ -1295,7 +1345,7 @@ static void btif_dm_search_devices_evt (UINT16 event, char *p_param)
             cod = devclass2uint (p_search_data->inq_res.dev_class);
 
             if (cod == 0) {
-                LOG_DEBUG("%s cod is 0, set as unclassified", __func__);
+                LOG_DEBUG(LOG_TAG, "%s cod is 0, set as unclassified", __func__);
                 cod = COD_UNCLASSIFIED;
             }
 
@@ -1309,7 +1359,6 @@ static void btif_dm_search_devices_evt (UINT16 event, char *p_param)
                 BTIF_TRACE_DEBUG("%s()EIR BTA services = %08X", __FUNCTION__, (UINT32)services);
                 /* TODO:  Get the service list and check to see which uuids we got and send it back to the client. */
             }
-
 
             {
                 bt_property_t properties[5];
@@ -1344,9 +1393,9 @@ static void btif_dm_search_devices_evt (UINT16 event, char *p_param)
                 /* Verify if the device is dual mode in NVRAM */
                 int stored_device_type = 0;
                 if (btif_get_device_type(bdaddr.address, &stored_device_type) &&
-                    ((stored_device_type == BT_DEVICE_TYPE_BLE &&
+                    ((stored_device_type != BT_DEVICE_TYPE_BREDR &&
                         p_search_data->inq_res.device_type == BT_DEVICE_TYPE_BREDR) ||
-                     (stored_device_type == BT_DEVICE_TYPE_BREDR &&
+                     (stored_device_type != BT_DEVICE_TYPE_BLE &&
                         p_search_data->inq_res.device_type == BT_DEVICE_TYPE_BLE))) {
                     dev_type = BT_DEVICE_TYPE_DUMO;
                 } else {
@@ -1466,7 +1515,7 @@ static void btif_dm_search_services_evt(UINT16 event, char *p_param)
                  {
                       char temp[256];
                       uuid_to_string_legacy((bt_uuid_t*)(p_data->disc_res.p_uuid_list + (i*MAX_UUID_SIZE)), temp);
-                      LOG_INFO("%s index:%d uuid:%s", __func__, i, temp);
+                      LOG_INFO(LOG_TAG, "%s index:%d uuid:%s", __func__, i, temp);
                  }
             }
 
@@ -1533,7 +1582,7 @@ static void btif_dm_search_services_evt(UINT16 event, char *p_param)
                 }
 
                 uuid_to_string_legacy(&uuid, temp);
-                LOG_INFO("%s uuid:%s", __func__, temp);
+                LOG_INFO(LOG_TAG, "%s uuid:%s", __func__, temp);
 
                 bdcpy(bd_addr.address, p_data->disc_ble_res.bd_addr);
                 prop.type = BT_PROPERTY_UUIDS;
@@ -1678,8 +1727,6 @@ static void btif_dm_upstreams_evt(UINT16 event, char* p_param)
              ** and bonded_devices_info_cb
              */
              btif_storage_load_bonded_devices();
-
-             btif_storage_load_autopair_device_list();
 
              btif_enable_bluetooth_evt(p_data->enable.status);
         }
@@ -1866,6 +1913,7 @@ static void btif_dm_upstreams_evt(UINT16 event, char* p_param)
             break;
         case BTA_DM_BLE_OOB_REQ_EVT:
             BTIF_TRACE_DEBUG("BTA_DM_BLE_OOB_REQ_EVT. ");
+            btif_dm_ble_oob_req_evt(&p_data->rmt_oob);
             break;
         case BTA_DM_BLE_LOCAL_IR_EVT:
             BTIF_TRACE_DEBUG("BTA_DM_BLE_LOCAL_IR_EVT. ");
@@ -1946,7 +1994,10 @@ static void btif_dm_upstreams_evt(UINT16 event, char* p_param)
             energy_info.tx_time = p_ener_data->tx_time;
             energy_info.idle_time = p_ener_data->idle_time;
             energy_info.energy_used = p_ener_data->energy_used;
-            HAL_CBACK(bt_hal_cbacks, energy_info_cb, &energy_info);
+
+            bt_uid_traffic_t* data = uid_set_read_and_clear(uid_set);
+            HAL_CBACK(bt_hal_cbacks, energy_info_cb, &energy_info, data);
+            osi_free(data);
             break;
         }
 #endif
@@ -2306,10 +2357,31 @@ bt_status_t btif_dm_create_bond(const bt_bdaddr_t *bd_addr, int transport)
     if (pairing_cb.state != BT_BOND_STATE_NONE)
         return BT_STATUS_BUSY;
 
+    btif_stats_add_bond_event(bd_addr, BTIF_DM_FUNC_CREATE_BOND, pairing_cb.state);
+
     btif_transfer_context(btif_dm_generic_evt, BTIF_DM_CB_CREATE_BOND,
                           (char *)&create_bond_cb, sizeof(btif_dm_create_bond_cb_t), NULL);
 
     return BT_STATUS_SUCCESS;
+}
+
+/*******************************************************************************
+**
+** Function         btif_dm_create_bond_out_of_band
+**
+** Description      Initiate bonding with the specified device using out of band data
+**
+** Returns          bt_status_t
+**
+*******************************************************************************/
+bt_status_t btif_dm_create_bond_out_of_band(const bt_bdaddr_t *bd_addr, int transport, const bt_out_of_band_data_t *oob_data)
+{
+    bdcpy(oob_cb.bdaddr, bd_addr->address);
+    memcpy(&oob_cb.oob_data, oob_data, sizeof(bt_out_of_band_data_t));
+
+    bdstr_t bdstr;
+    BTIF_TRACE_EVENT("%s: bd_addr=%s, transport=%d", __FUNCTION__, bdaddr_to_string(bd_addr, bdstr, sizeof(bdstr)), transport);
+    return btif_dm_create_bond(bd_addr, transport);
 }
 
 /*******************************************************************************
@@ -2327,6 +2399,8 @@ bt_status_t btif_dm_cancel_bond(const bt_bdaddr_t *bd_addr)
     bdstr_t bdstr;
 
     BTIF_TRACE_EVENT("%s: bd_addr=%s", __FUNCTION__, bdaddr_to_string(bd_addr, bdstr, sizeof(bdstr)));
+
+    btif_stats_add_bond_event(bd_addr, BTIF_DM_FUNC_CANCEL_BOND, pairing_cb.state);
 
     /* TODO:
     **  1. Restore scan modes
@@ -2416,6 +2490,9 @@ bt_status_t btif_dm_remove_bond(const bt_bdaddr_t *bd_addr)
     bdstr_t bdstr;
 
     BTIF_TRACE_EVENT("%s: bd_addr=%s", __FUNCTION__, bdaddr_to_string(bd_addr, bdstr, sizeof(bdstr)));
+
+    btif_stats_add_bond_event(bd_addr, BTIF_DM_FUNC_REMOVE_BOND, pairing_cb.state);
+
     btif_transfer_context(btif_dm_generic_evt, BTIF_DM_CB_REMOVE_BOND,
                           (char *)bd_addr, sizeof(bt_bdaddr_t), NULL);
 
@@ -2436,7 +2513,7 @@ bt_status_t btif_dm_pin_reply( const bt_bdaddr_t *bd_addr, uint8_t accept,
                                uint8_t pin_len, bt_pin_code_t *pin_code)
 {
     BTIF_TRACE_EVENT("%s: accept=%d", __FUNCTION__, accept);
-    if (pin_code == NULL)
+    if (pin_code == NULL || pin_len > PIN_CODE_LEN)
         return BT_STATUS_FAIL;
 #if (defined(BLE_INCLUDED) && (BLE_INCLUDED == TRUE))
 
@@ -2675,7 +2752,6 @@ void btif_dm_proc_io_req(BD_ADDR bd_addr, tBTA_IO_CAP *p_io_cap, tBTA_OOB_DATA *
     UNUSED (p_io_cap);
     UNUSED (p_oob_data);
 
-
     BTIF_TRACE_DEBUG("+%s: p_auth_req=%d", __FUNCTION__, *p_auth_req);
     if(pairing_cb.is_local_initiated)
     {
@@ -2717,40 +2793,63 @@ void btif_dm_proc_io_rsp(BD_ADDR bd_addr, tBTA_IO_CAP io_cap,
     }
 }
 
-#if (BTM_OOB_INCLUDED == TRUE)
-void btif_dm_set_oob_for_io_req(tBTA_OOB_DATA  *p_oob_data)
+void btif_dm_set_oob_for_io_req(tBTA_OOB_DATA  *p_has_oob_data)
 {
-    if (oob_cb.sp_c[0] == 0 && oob_cb.sp_c[1] == 0 &&
-        oob_cb.sp_c[2] == 0 && oob_cb.sp_c[3] == 0 )
+    if (is_empty_128bit(oob_cb.oob_data.c192))
     {
-        *p_oob_data = FALSE;
+        *p_has_oob_data = FALSE;
     }
     else
     {
-        *p_oob_data = TRUE;
+        *p_has_oob_data = TRUE;
     }
-    BTIF_TRACE_DEBUG("btif_dm_set_oob_for_io_req *p_oob_data=%d", *p_oob_data);
+    BTIF_TRACE_DEBUG("%s: *p_has_oob_data=%d", __func__, *p_has_oob_data);
 }
-#endif /* BTM_OOB_INCLUDED */
+
+void btif_dm_set_oob_for_le_io_req(BD_ADDR bd_addr, tBTA_OOB_DATA  *p_has_oob_data,
+                                   tBTA_LE_AUTH_REQ *p_auth_req)
+{
+
+    /* We currently support only Security Manager TK as OOB data for LE transport.
+       If it's not present mark no OOB data.
+     */
+    if (!is_empty_128bit(oob_cb.oob_data.sm_tk))
+    {
+        /* make sure OOB data is for this particular device */
+        if (memcmp(bd_addr, oob_cb.bdaddr, BD_ADDR_LEN) == 0) {
+            // When using OOB with TK, SC Secure Connections bit must be disabled.
+            tBTA_LE_AUTH_REQ mask = ~BTM_LE_AUTH_REQ_SC_ONLY;
+            *p_auth_req = ((*p_auth_req) & mask);
+
+            *p_has_oob_data = TRUE;
+        }
+        else
+        {
+            *p_has_oob_data = FALSE;
+            BTIF_TRACE_WARNING("%s: remote address didn't match OOB data address",
+                               __func__);
+        }
+    }
+    else
+    {
+        *p_has_oob_data = FALSE;
+    }
+    BTIF_TRACE_DEBUG("%s *p_has_oob_data=%d", __func__, *p_has_oob_data);
+}
 
 #ifdef BTIF_DM_OOB_TEST
 void btif_dm_load_local_oob(void)
 {
     char prop_oob[PROPERTY_VALUE_MAX];
-    property_get("service.brcm.bt.oob", prop_oob, "3");
-    BTIF_TRACE_DEBUG("btif_dm_load_local_oob prop_oob = %s",prop_oob);
+    osi_property_get("service.brcm.bt.oob", prop_oob, "3");
+    BTIF_TRACE_DEBUG("%s: prop_oob = %s", __func__, prop_oob);
     if (prop_oob[0] != '3')
     {
-#if (BTM_OOB_INCLUDED == TRUE)
-        if (oob_cb.sp_c[0] == 0 && oob_cb.sp_c[1] == 0 &&
-            oob_cb.sp_c[2] == 0 && oob_cb.sp_c[3] == 0 )
+        if (is_empty_128bit(oob_cb.oob_data.c192))
         {
-            BTIF_TRACE_DEBUG("btif_dm_load_local_oob: read OOB, call BTA_DmLocalOob()");
+            BTIF_TRACE_DEBUG("%s: read OOB, call BTA_DmLocalOob()", __func__);
             BTA_DmLocalOob();
         }
-#else
-        BTIF_TRACE_ERROR("BTM_OOB_INCLUDED is FALSE!!(btif_dm_load_local_oob)");
-#endif
     }
 }
 
@@ -2761,16 +2860,14 @@ void btif_dm_proc_loc_oob(BOOLEAN valid, BT_OCTET16 c, BT_OCTET16 r)
     char *path_b = "/data/misc/bluedroid/LOCAL/b.key";
     char *path = NULL;
     char prop_oob[PROPERTY_VALUE_MAX];
-    BTIF_TRACE_DEBUG("btif_dm_proc_loc_oob: valid=%d", valid);
-    if (oob_cb.sp_c[0] == 0 && oob_cb.sp_c[1] == 0 &&
-        oob_cb.sp_c[2] == 0 && oob_cb.sp_c[3] == 0 &&
-        valid)
+    BTIF_TRACE_DEBUG("%s: valid=%d", __func__, valid);
+    if (is_empty_128bit(oob_cb.oob_data.c192) && valid)
     {
         BTIF_TRACE_DEBUG("save local OOB data in memory");
-        memcpy(oob_cb.sp_c, c, BT_OCTET16_LEN);
-        memcpy(oob_cb.sp_r, r, BT_OCTET16_LEN);
-        property_get("service.brcm.bt.oob", prop_oob, "3");
-        BTIF_TRACE_DEBUG("btif_dm_proc_loc_oob prop_oob = %s",prop_oob);
+        memcpy(oob_cb.oob_data.c192, c, BT_OCTET16_LEN);
+        memcpy(oob_cb.oob_data.r192, r, BT_OCTET16_LEN);
+        osi_property_get("service.brcm.bt.oob", prop_oob, "3");
+        BTIF_TRACE_DEBUG("%s: prop_oob = %s", __func__, prop_oob);
         if (prop_oob[0] == '1')
             path = path_a;
         else if (prop_oob[0] == '2')
@@ -2780,11 +2877,11 @@ void btif_dm_proc_loc_oob(BOOLEAN valid, BT_OCTET16 c, BT_OCTET16 r)
             fp = fopen(path, "wb+");
             if (fp == NULL)
             {
-                BTIF_TRACE_DEBUG("btif_dm_proc_loc_oob: failed to save local OOB data to %s", path);
+                BTIF_TRACE_DEBUG("%s: failed to save local OOB data to %s", __func__, path);
             }
             else
             {
-                BTIF_TRACE_DEBUG("btif_dm_proc_loc_oob: save local OOB data into file %s",path);
+                BTIF_TRACE_DEBUG("%s: save local OOB data into file %s", __func__, path);
                 fwrite (c , 1 , BT_OCTET16_LEN , fp );
                 fwrite (r , 1 , BT_OCTET16_LEN , fp );
                 fclose(fp);
@@ -2792,6 +2889,66 @@ void btif_dm_proc_loc_oob(BOOLEAN valid, BT_OCTET16 c, BT_OCTET16 r)
         }
     }
 }
+
+/*******************************************************************************
+**
+** Function         btif_dm_get_smp_config
+**
+** Description      Retrieve the SMP pairing options from the bt_stack.conf
+**                  file. To provide specific pairing options for the host
+**                  add a node with label "SmpOptions" to the config file
+**                  and assign it a comma separated list of 5 values in the
+**                  format: auth, io, ikey, rkey, ksize, oob
+**                  eg: PTS_SmpOptions=0xD,0x4,0xf,0xf,0x10
+**
+** Parameters:      tBTE_APPL_CFG*: pointer to struct defining pairing options
+**
+** Returns          TRUE if the options were successfully read, else FALSE
+**
+*******************************************************************************/
+BOOLEAN btif_dm_get_smp_config(tBTE_APPL_CFG* p_cfg) {
+
+    if(!stack_config_get_interface()->get_pts_smp_options()) {
+        BTIF_TRACE_DEBUG ("%s: SMP options not found in configuration", __func__);
+        return FALSE;
+    }
+
+    char conf[64];
+    const char* recv = stack_config_get_interface()->get_pts_smp_options();
+    char* pch;
+    char* endptr;
+
+    strncpy(conf, recv, 64);
+    conf[63] = 0; // null terminate
+
+    if ((pch = strtok(conf, ",")) != NULL)
+        p_cfg->ble_auth_req = (UINT8) strtoul(pch, &endptr, 16);
+    else
+        return FALSE;
+
+    if ((pch = strtok(NULL, ",")) != NULL)
+        p_cfg->ble_io_cap =  (UINT8) strtoul(pch, &endptr, 16);
+    else
+        return FALSE;
+
+    if ((pch = strtok(NULL, ",")) != NULL)
+        p_cfg->ble_init_key =  (UINT8) strtoul(pch, &endptr, 16);
+    else
+        return FALSE;
+
+    if ((pch = strtok(NULL, ",")) != NULL)
+        p_cfg->ble_resp_key =  (UINT8) strtoul(pch, &endptr, 16);
+    else
+        return FALSE;
+
+    if ((pch = strtok(NULL, ",")) != NULL)
+        p_cfg->ble_max_key_size =  (UINT8) strtoul(pch, &endptr, 16);
+    else
+        return FALSE;
+
+    return TRUE;
+}
+
 BOOLEAN btif_dm_proc_rmt_oob(BD_ADDR bd_addr,  BT_OCTET16 p_c, BT_OCTET16 p_r)
 {
     char t[128];
@@ -2802,9 +2959,9 @@ BOOLEAN btif_dm_proc_rmt_oob(BD_ADDR bd_addr,  BT_OCTET16 p_c, BT_OCTET16 p_r)
     char prop_oob[PROPERTY_VALUE_MAX];
     BOOLEAN result = FALSE;
     bt_bdaddr_t bt_bd_addr;
-    bdcpy(oob_cb.oob_bdaddr, bd_addr);
-    property_get("service.brcm.bt.oob", prop_oob, "3");
-    BTIF_TRACE_DEBUG("btif_dm_proc_rmt_oob prop_oob = %s",prop_oob);
+    bdcpy(oob_cb.bdaddr, bd_addr);
+    osi_property_get("service.brcm.bt.oob", prop_oob, "3");
+    BTIF_TRACE_DEBUG("%s: prop_oob = %s", __func__, prop_oob);
     if (prop_oob[0] == '1')
         path = path_b;
     else if (prop_oob[0] == '2')
@@ -2814,35 +2971,35 @@ BOOLEAN btif_dm_proc_rmt_oob(BD_ADDR bd_addr,  BT_OCTET16 p_c, BT_OCTET16 p_r)
         fp = fopen(path, "rb");
         if (fp == NULL)
         {
-            BTIF_TRACE_DEBUG("btapp_dm_rmt_oob_reply: failed to read OOB keys from %s",path);
+            BTIF_TRACE_DEBUG("%s: failed to read OOB keys from %s", __func__, path);
             return FALSE;
         }
         else
         {
-            BTIF_TRACE_DEBUG("btif_dm_proc_rmt_oob: read OOB data from %s",path);
+            BTIF_TRACE_DEBUG("%s: read OOB data from %s", __func__, path);
             fread (p_c , 1 , BT_OCTET16_LEN , fp );
             fread (p_r , 1 , BT_OCTET16_LEN , fp );
             fclose(fp);
         }
-        BTIF_TRACE_DEBUG("----btif_dm_proc_rmt_oob: TRUE");
+        BTIF_TRACE_DEBUG("----%s: TRUE", __func__);
         sprintf(t, "%02x:%02x:%02x:%02x:%02x:%02x",
-                oob_cb.oob_bdaddr[0], oob_cb.oob_bdaddr[1], oob_cb.oob_bdaddr[2],
-                oob_cb.oob_bdaddr[3], oob_cb.oob_bdaddr[4], oob_cb.oob_bdaddr[5]);
-        BTIF_TRACE_DEBUG("----btif_dm_proc_rmt_oob: peer_bdaddr = %s", t);
+                oob_cb.bdaddr[0], oob_cb.bdaddr[1], oob_cb.bdaddr[2],
+                oob_cb.bdaddr[3], oob_cb.bdaddr[4], oob_cb.bdaddr[5]);
+        BTIF_TRACE_DEBUG("----%s: peer_bdaddr = %s", __func__, t);
         sprintf(t, "%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
                 p_c[0], p_c[1], p_c[2],  p_c[3],  p_c[4],  p_c[5],  p_c[6],  p_c[7],
                 p_c[8], p_c[9], p_c[10], p_c[11], p_c[12], p_c[13], p_c[14], p_c[15]);
-        BTIF_TRACE_DEBUG("----btif_dm_proc_rmt_oob: c = %s",t);
+        BTIF_TRACE_DEBUG("----%s: c = %s", __func__, t);
         sprintf(t, "%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
                 p_r[0], p_r[1], p_r[2],  p_r[3],  p_r[4],  p_r[5],  p_r[6],  p_r[7],
                 p_r[8], p_r[9], p_r[10], p_r[11], p_r[12], p_r[13], p_r[14], p_r[15]);
-        BTIF_TRACE_DEBUG("----btif_dm_proc_rmt_oob: r = %s",t);
+        BTIF_TRACE_DEBUG("----%s: r = %s", __func__, t);
         bdcpy(bt_bd_addr.address, bd_addr);
         btif_transfer_context(btif_dm_generic_evt, BTIF_DM_CB_BOND_STATE_BONDING,
                               (char *)&bt_bd_addr, sizeof(bt_bdaddr_t), NULL);
         result = TRUE;
     }
-    BTIF_TRACE_DEBUG("btif_dm_proc_rmt_oob result=%d",result);
+    BTIF_TRACE_DEBUG("%s: result=%d", __func__, result);
     return result;
 }
 #endif /*  BTIF_DM_OOB_TEST */
@@ -2893,6 +3050,10 @@ static void btif_dm_ble_auth_cmpl_evt (tBTA_DM_AUTH_CMPL *p_auth_cmpl)
     bt_bond_state_t state = BT_BOND_STATE_NONE;
 
     bdcpy(bd_addr.address, p_auth_cmpl->bd_addr);
+
+    /* Clear OOB data */
+    memset(&oob_cb, 0, sizeof(oob_cb));
+
     if ( (p_auth_cmpl->success == TRUE) && (p_auth_cmpl->key_present) )
     {
         /* store keys */
@@ -2915,9 +3076,9 @@ static void btif_dm_ble_auth_cmpl_evt (tBTA_DM_AUTH_CMPL *p_auth_cmpl)
             state = BT_BOND_STATE_NONE;
         } else {
             btif_dm_save_ble_bonding_keys();
+            BTA_GATTC_Refresh(bd_addr.address);
+            btif_dm_get_remote_services_by_transport(&bd_addr, BTA_GATT_TRANSPORT_LE);
         }
-        BTA_GATTC_Refresh(bd_addr.address);
-        btif_dm_get_remote_services_by_transport(&bd_addr, BTA_GATT_TRANSPORT_LE);
     }
     else
     {
@@ -2940,8 +3101,6 @@ static void btif_dm_ble_auth_cmpl_evt (tBTA_DM_AUTH_CMPL *p_auth_cmpl)
     }
     bond_state_changed(status, &bd_addr, state);
 }
-
-
 
 void    btif_dm_load_ble_local_keys(void)
 {
@@ -3010,7 +3169,6 @@ void btif_dm_save_ble_bonding_keys(void)
                                          sizeof(tBTM_LE_PID_KEYS));
     }
 
-
     if (pairing_cb.ble.is_pcsrk_key_rcvd)
     {
         btif_storage_add_ble_bonding_key(&bd_addr,
@@ -3018,7 +3176,6 @@ void btif_dm_save_ble_bonding_keys(void)
                                          BTIF_DM_LE_KEY_PCSRK,
                                          sizeof(tBTM_LE_PCSRK_KEYS));
     }
-
 
     if (pairing_cb.ble.is_lenc_key_rcvd)
     {
@@ -3046,7 +3203,6 @@ void btif_dm_save_ble_bonding_keys(void)
 
 }
 
-
 void btif_dm_remove_ble_bonding_keys(void)
 {
     bt_bdaddr_t bd_addr;
@@ -3056,7 +3212,6 @@ void btif_dm_remove_ble_bonding_keys(void)
     bdcpy(bd_addr.address, pairing_cb.bd_addr);
     btif_storage_remove_ble_bonding_keys(&bd_addr);
 }
-
 
 /*******************************************************************************
 **
@@ -3106,8 +3261,6 @@ void btif_dm_ble_sec_req_evt(tBTA_DM_BLE_SEC_REQ *p_ble_req)
     HAL_CBACK(bt_hal_cbacks, ssp_request_cb, &bd_addr, &bd_name, cod,
               BT_SSP_VARIANT_CONSENT, 0);
 }
-
-
 
 /*******************************************************************************
 **
@@ -3167,6 +3320,39 @@ static void btif_dm_ble_key_nc_req_evt(tBTA_DM_SP_KEY_NOTIF *p_notif_req)
     HAL_CBACK(bt_hal_cbacks, ssp_request_cb, &bd_addr, &bd_name,
               COD_UNCLASSIFIED, BT_SSP_VARIANT_PASSKEY_CONFIRMATION,
               p_notif_req->passkey);
+}
+
+static void btif_dm_ble_oob_req_evt(tBTA_DM_SP_RMT_OOB *req_oob_type)
+{
+    BTIF_TRACE_DEBUG("%s", __FUNCTION__);
+
+    bt_bdaddr_t bd_addr;
+    bdcpy(bd_addr.address, req_oob_type->bd_addr);
+
+    /* We currently support only Security Manager TK as OOB data. We already
+     * checked if it's present in btif_dm_set_oob_for_le_io_req, but check here
+     * again. If it's not present do nothing, pairing will timeout.
+     */
+    if (is_empty_128bit(oob_cb.oob_data.sm_tk)) {
+        return;
+    }
+
+    /* make sure OOB data is for this particular device */
+    if (memcmp(req_oob_type->bd_addr, oob_cb.bdaddr, BD_ADDR_LEN) != 0) {
+        BTIF_TRACE_WARNING("%s: remote address didn't match OOB data address", __func__);
+        return;
+    }
+
+    /* Remote name update */
+    btif_update_remote_properties(req_oob_type->bd_addr , req_oob_type->bd_name,
+                                          NULL, BT_DEVICE_TYPE_BLE);
+
+    bond_state_changed(BT_STATUS_SUCCESS, &bd_addr, BT_BOND_STATE_BONDING);
+    pairing_cb.is_ssp = FALSE;
+    pairing_cb.is_le_only = TRUE;
+    pairing_cb.is_le_nc = FALSE;
+
+    BTM_BleOobDataReply(req_oob_type->bd_addr, 0, 16, oob_cb.oob_data.sm_tk);
 }
 
 void btif_dm_update_ble_remote_properties( BD_ADDR bd_addr, BD_NAME bd_name,
@@ -3263,10 +3449,111 @@ static char* btif_get_default_local_name() {
         else
         {
             char prop_model[PROPERTY_VALUE_MAX];
-            property_get(PROPERTY_PRODUCT_MODEL, prop_model, "");
+            osi_property_get(PROPERTY_PRODUCT_MODEL, prop_model, "");
             strncpy(btif_default_local_name, prop_model, max_len);
         }
         btif_default_local_name[max_len] = '\0';
     }
     return btif_default_local_name;
+}
+
+static void btif_stats_add_bond_event(const bt_bdaddr_t *bd_addr,
+                                      bt_bond_function_t function,
+                                      bt_bond_state_t state) {
+    pthread_mutex_lock(&bond_event_lock);
+
+    btif_bond_event_t* event = &btif_dm_bond_events[btif_events_end_index];
+    memcpy(&event->bd_addr, bd_addr, sizeof(bt_bdaddr_t));
+    event->function = function;
+    event->state = state;
+    clock_gettime(CLOCK_REALTIME, &event->timestamp);
+
+    btif_num_bond_events++;
+    btif_events_end_index = (btif_events_end_index + 1) % (MAX_BTIF_BOND_EVENT_ENTRIES + 1);
+    if (btif_events_end_index == btif_events_start_index) {
+        btif_events_start_index = (btif_events_start_index + 1) % (MAX_BTIF_BOND_EVENT_ENTRIES + 1);
+    }
+
+    int type;
+    btif_get_device_type(bd_addr->address, &type);
+
+    device_type_t device_type;
+    switch (type) {
+        case BT_DEVICE_TYPE_BREDR:
+            device_type = DEVICE_TYPE_BREDR;
+            break;
+        case BT_DEVICE_TYPE_BLE:
+            device_type = DEVICE_TYPE_LE;
+            break;
+        case BT_DEVICE_TYPE_DUMO:
+            device_type = DEVICE_TYPE_DUMO;
+            break;
+        default:
+            device_type = DEVICE_TYPE_UNKNOWN;
+            break;
+    }
+
+    uint32_t cod = get_cod(bd_addr);
+    uint64_t ts = event->timestamp.tv_sec * 1000 +
+                  event->timestamp.tv_nsec / 1000000;
+    metrics_pair_event(0, ts, cod, device_type);
+
+    pthread_mutex_unlock(&bond_event_lock);
+}
+
+void btif_debug_bond_event_dump(int fd) {
+    pthread_mutex_lock(&bond_event_lock);
+    dprintf(fd, "\nBond Events: \n");
+    dprintf(fd, "  Total Number of events: %zu\n", btif_num_bond_events);
+    if (btif_num_bond_events > 0)
+        dprintf(fd, "  Time          BD_ADDR            Function             State\n");
+
+    for (size_t i = btif_events_start_index; i != btif_events_end_index;
+         i = (i + 1) % (MAX_BTIF_BOND_EVENT_ENTRIES + 1)) {
+        btif_bond_event_t* event = &btif_dm_bond_events[i];
+
+        char eventtime[20];
+        char temptime[20];
+        struct tm *tstamp = localtime(&event->timestamp.tv_sec);
+        strftime(temptime, sizeof(temptime), "%H:%M:%S", tstamp);
+        snprintf(eventtime, sizeof(eventtime), "%s.%03ld", temptime,
+                 event->timestamp.tv_nsec / 1000000);
+
+        char bdaddr[18];
+        bdaddr_to_string(&event->bd_addr, bdaddr, sizeof(bdaddr));
+
+        char* func_name;
+        switch (event->function) {
+            case BTIF_DM_FUNC_CREATE_BOND:
+                func_name = "btif_dm_create_bond";
+                break;
+            case BTIF_DM_FUNC_REMOVE_BOND:
+                func_name = "btif_dm_remove_bond";
+                break;
+            case BTIF_DM_FUNC_BOND_STATE_CHANGED:
+                func_name = "bond_state_changed ";
+                break;
+            default:
+                func_name = "Invalid value      ";
+                break;
+        }
+
+        char* bond_state;
+        switch (event->state) {
+            case BT_BOND_STATE_NONE:
+                bond_state = "BOND_STATE_NONE";
+                break;
+            case BT_BOND_STATE_BONDING:
+                bond_state = "BOND_STATE_BONDING";
+                break;
+            case BT_BOND_STATE_BONDED:
+                bond_state = "BOND_STATE_BONDED";
+                break;
+            default:
+                bond_state = "Invalid bond state";
+                break;
+        }
+        dprintf(fd, "  %s  %s  %s  %s\n", eventtime, bdaddr, func_name, bond_state);
+    }
+    pthread_mutex_unlock(&bond_event_lock);
 }

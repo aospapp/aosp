@@ -19,5 +19,4 @@ PRODUCT_COPY_FILES := \
     vendor/broadcom/fugu/proprietary/bcmdhd_sr2.cal:system/etc/wifi/bcmdhd_sr2.cal:broadcom \
     vendor/broadcom/fugu/proprietary/BCM4350C0.hcd:system/vendor/firmware/BCM4350C0.hcd:broadcom \
     vendor/broadcom/fugu/proprietary/BCM4350C0_SR2.hcd:system/vendor/firmware/BCM4350C0_SR2.hcd:broadcom \
-    vendor/broadcom/fugu/proprietary/wlutil:system/xbin/wlutil:broadcom \
 

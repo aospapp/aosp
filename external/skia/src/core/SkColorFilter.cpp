@@ -7,8 +7,17 @@
 
 #include "SkColorFilter.h"
 #include "SkReadBuffer.h"
+#include "SkRefCnt.h"
 #include "SkString.h"
+#include "SkTDArray.h"
+#include "SkUnPreMultiply.h"
 #include "SkWriteBuffer.h"
+#include "SkPM4f.h"
+#include "SkNx.h"
+
+#if SK_SUPPORT_GPU
+#include "GrFragmentProcessor.h"
+#endif
 
 bool SkColorFilter::asColorMode(SkColor* color, SkXfermode::Mode* mode) const {
     return false;
@@ -22,10 +31,33 @@ bool SkColorFilter::asComponentTable(SkBitmap*) const {
     return false;
 }
 
+void SkColorFilter::filterSpan4f(const SkPM4f[], int count, SkPM4f span[]) const {
+    const int N = 128;
+    SkPMColor tmp[N];
+    while (count > 0) {
+        int n = SkTMin(count, N);
+        for (int i = 0; i < n; ++i) {
+            SkNx_cast<uint8_t>(Sk4f::Load(span[i].fVec) * Sk4f(255) + Sk4f(0.5f)).store(&tmp[i]);
+        }
+        this->filterSpan(tmp, n, tmp);
+        for (int i = 0; i < n; ++i) {
+            span[i] = SkPM4f::FromPMColor(tmp[i]);
+        }
+        span += n;
+        count -= n;
+    }
+}
+
 SkColor SkColorFilter::filterColor(SkColor c) const {
     SkPMColor dst, src = SkPreMultiplyColor(c);
     this->filterSpan(&src, 1, &dst);
     return SkUnPreMultiply::PMColorToColor(dst);
+}
+
+SkColor4f SkColorFilter::filterColor4f(const SkColor4f& c) const {
+    SkPM4f dst, src = c.premul();
+    this->filterSpan4f(&src, 1, &dst);
+    return dst.unpremul();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -43,13 +75,18 @@ SkColor SkColorFilter::filterColor(SkColor c) const {
 class SkComposeColorFilter : public SkColorFilter {
 public:
     uint32_t getFlags() const override {
-        // Can only claim alphaunchanged and 16bit support if both our proxys do.
+        // Can only claim alphaunchanged and SkPM4f support if both our proxys do.
         return fOuter->getFlags() & fInner->getFlags();
     }
     
     void filterSpan(const SkPMColor shader[], int count, SkPMColor result[]) const override {
         fInner->filterSpan(shader, count, result);
         fOuter->filterSpan(result, count, result);
+    }
+    
+    void filterSpan4f(const SkPM4f shader[], int count, SkPM4f result[]) const override {
+        fInner->filterSpan4f(shader, count, result);
+        fOuter->filterSpan4f(result, count, result);
     }
     
 #ifndef SK_IGNORE_TO_STRING
@@ -62,11 +99,14 @@ public:
 #endif
 
 #if SK_SUPPORT_GPU
-    bool asFragmentProcessors(GrContext* context,
-                              SkTDArray<GrFragmentProcessor*>* array) const override {
-        bool hasFrags = fInner->asFragmentProcessors(context, array);
-        hasFrags |= fOuter->asFragmentProcessors(context, array);
-        return hasFrags;
+    const GrFragmentProcessor* asFragmentProcessor(GrContext* context) const override {
+        SkAutoTUnref<const GrFragmentProcessor> innerFP(fInner->asFragmentProcessor(context));
+        SkAutoTUnref<const GrFragmentProcessor> outerFP(fOuter->asFragmentProcessor(context));
+        if (!innerFP || !outerFP) {
+            return nullptr;
+        }
+        const GrFragmentProcessor* series[] = { innerFP, outerFP };
+        return GrFragmentProcessor::RunInSeries(series, 2);
     }
 #endif
 
@@ -125,12 +165,15 @@ SkColorFilter* SkColorFilter::CreateComposeFilter(SkColorFilter* outer, SkColorF
 
     int count = inner->privateComposedFilterCount() + outer->privateComposedFilterCount();
     if (count > SK_MAX_COMPOSE_COLORFILTER_COUNT) {
-        return NULL;
+        return nullptr;
     }
-    return SkNEW_ARGS(SkComposeColorFilter, (outer, inner, count));
+    return new SkComposeColorFilter(outer, inner, count);
 }
+
+#include "SkModeColorFilter.h"
 
 SK_DEFINE_FLATTENABLE_REGISTRAR_GROUP_START(SkColorFilter)
 SK_DEFINE_FLATTENABLE_REGISTRAR_ENTRY(SkComposeColorFilter)
+SK_DEFINE_FLATTENABLE_REGISTRAR_ENTRY(SkModeColorFilter)
 SK_DEFINE_FLATTENABLE_REGISTRAR_GROUP_END
 

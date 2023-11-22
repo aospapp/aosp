@@ -38,7 +38,7 @@ size_t clampToSize(T x) {
 // In general, this means (new_self) returned is max(self, other) + 1.
 
 static uint32_t incrementSequence(uint32_t self, uint32_t other) {
-    int32_t diff = self - other;
+    int32_t diff = (int32_t) self - (int32_t) other;
     if (diff >= 0 && diff < INT32_MAX) {
         return self + 1; // we're already ahead of other.
     }
@@ -46,8 +46,10 @@ static uint32_t incrementSequence(uint32_t self, uint32_t other) {
 }
 
 audio_track_cblk_t::audio_track_cblk_t()
-    : mServer(0), mFutex(0), mMinimum(0),
-    mVolumeLR(GAIN_MINIFLOAT_PACKED_UNITY), mSampleRate(0), mSendLevel(0), mFlags(0)
+    : mServer(0), mFutex(0), mMinimum(0)
+    , mVolumeLR(GAIN_MINIFLOAT_PACKED_UNITY), mSampleRate(0), mSendLevel(0)
+    , mBufferSizeInFrames(0)
+    , mFlags(0)
 {
     memset(&u, 0, sizeof(u));
 }
@@ -66,8 +68,11 @@ Proxy::Proxy(audio_track_cblk_t* cblk, void *buffers, size_t frameCount, size_t 
 
 ClientProxy::ClientProxy(audio_track_cblk_t* cblk, void *buffers, size_t frameCount,
         size_t frameSize, bool isOut, bool clientInServer)
-    : Proxy(cblk, buffers, frameCount, frameSize, isOut, clientInServer), mEpoch(0)
+    : Proxy(cblk, buffers, frameCount, frameSize, isOut, clientInServer)
+    , mEpoch(0)
+    , mTimestampObserver(&cblk->mExtendedTimestampQueue)
 {
+    setBufferSizeInFrames(frameCount);
 }
 
 const struct timespec ClientProxy::kForever = {INT_MAX /*tv_sec*/, 0 /*tv_nsec*/};
@@ -81,6 +86,28 @@ const struct timespec ClientProxy::kNonBlocking = {0 /*tv_sec*/, 0 /*tv_nsec*/};
 // order of minutes.
 #define MAX_SEC    5
 
+uint32_t ClientProxy::setBufferSizeInFrames(uint32_t size)
+{
+    // The minimum should be  greater than zero and less than the size
+    // at which underruns will occur.
+    const uint32_t minimum = 16; // based on AudioMixer::BLOCKSIZE
+    const uint32_t maximum = frameCount();
+    uint32_t clippedSize = size;
+    if (maximum < minimum) {
+        clippedSize = maximum;
+    } else if (clippedSize < minimum) {
+        clippedSize = minimum;
+    } else if (clippedSize > maximum) {
+        clippedSize = maximum;
+    }
+    // for server to read
+    android_atomic_release_store(clippedSize, (int32_t *)&mCblk->mBufferSizeInFrames);
+    // for client to read
+    mBufferSizeInFrames = clippedSize;
+    return clippedSize;
+}
+
+__attribute__((no_sanitize("integer")))
 status_t ClientProxy::obtainBuffer(Buffer* buffer, const struct timespec *requested,
         struct timespec *elapsed)
 {
@@ -126,6 +153,11 @@ status_t ClientProxy::obtainBuffer(Buffer* buffer, const struct timespec *reques
             status = DEAD_OBJECT;
             goto end;
         }
+        if (flags & CBLK_DISABLED) {
+            ALOGV("Track disabled");
+            status = NOT_ENOUGH_DATA;
+            goto end;
+        }
         // check for obtainBuffer interrupted by client
         if (!ignoreInitialPendingInterrupt && (flags & CBLK_INTERRUPT)) {
             ALOGV("obtainBuffer() interrupted by client");
@@ -151,6 +183,7 @@ status_t ClientProxy::obtainBuffer(Buffer* buffer, const struct timespec *reques
             rear = android_atomic_acquire_load(&cblk->u.mStreaming.mRear);
             front = cblk->u.mStreaming.mFront;
         }
+        // write to rear, read from front
         ssize_t filled = rear - front;
         // pipe should not be overfull
         if (!(0 <= filled && (size_t) filled <= mFrameCount)) {
@@ -166,9 +199,15 @@ status_t ClientProxy::obtainBuffer(Buffer* buffer, const struct timespec *reques
             cblk->u.mStreaming.mFront = rear;
             (void) android_atomic_or(CBLK_OVERRUN, &cblk->mFlags);
         }
-        // don't allow filling pipe beyond the nominal size
-        size_t avail = mIsOut ? mFrameCount - filled : filled;
-        if (avail > 0) {
+        // Don't allow filling pipe beyond the user settable size.
+        // The calculation for avail can go negative if the buffer size
+        // is suddenly dropped below the amount already in the buffer.
+        // So use a signed calculation to prevent a numeric overflow abort.
+        ssize_t adjustableSize = (ssize_t) getBufferSizeInFrames();
+        ssize_t avail =  (mIsOut) ? adjustableSize - filled : filled;
+        if (avail < 0) {
+            avail = 0;
+        } else if (avail > 0) {
             // 'avail' may be non-contiguous, so return only the first contiguous chunk
             size_t part1;
             if (mIsOut) {
@@ -178,7 +217,7 @@ status_t ClientProxy::obtainBuffer(Buffer* buffer, const struct timespec *reques
                 front &= mFrameCountP2 - 1;
                 part1 = mFrameCountP2 - front;
             }
-            if (part1 > avail) {
+            if (part1 > (size_t)avail) {
                 part1 = avail;
             }
             if (part1 > buffer->mFrameCount) {
@@ -240,6 +279,7 @@ status_t ClientProxy::obtainBuffer(Buffer* buffer, const struct timespec *reques
             errno = 0;
             (void) syscall(__NR_futex, &cblk->mFutex,
                     mClientInServer ? FUTEX_WAIT_PRIVATE : FUTEX_WAIT, old & ~CBLK_FUTEX_WAKE, ts);
+            status_t error = errno; // clock_gettime can affect errno
             // update total elapsed time spent waiting
             if (measure) {
                 struct timespec after;
@@ -257,7 +297,7 @@ status_t ClientProxy::obtainBuffer(Buffer* buffer, const struct timespec *reques
                 before = after;
                 beforeIsValid = true;
             }
-            switch (errno) {
+            switch (error) {
             case 0:            // normal wakeup by server, or by binderDied()
             case EWOULDBLOCK:  // benign race condition with server
             case EINTR:        // wait was interrupted by signal or other spurious wakeup
@@ -265,7 +305,7 @@ status_t ClientProxy::obtainBuffer(Buffer* buffer, const struct timespec *reques
                 // FIXME these error/non-0 status are being dropped
                 break;
             default:
-                status = errno;
+                status = error;
                 ALOGE("%s unexpected error %s", __func__, strerror(status));
                 goto end;
             }
@@ -293,6 +333,7 @@ end:
     return status;
 }
 
+__attribute__((no_sanitize("integer")))
 void ClientProxy::releaseBuffer(Buffer* buffer)
 {
     LOG_ALWAYS_FATAL_IF(buffer == NULL);
@@ -338,32 +379,12 @@ void ClientProxy::interrupt()
     }
 }
 
+__attribute__((no_sanitize("integer")))
 size_t ClientProxy::getMisalignment()
 {
     audio_track_cblk_t* cblk = mCblk;
     return (mFrameCountP2 - (mIsOut ? cblk->u.mStreaming.mRear : cblk->u.mStreaming.mFront)) &
             (mFrameCountP2 - 1);
-}
-
-size_t ClientProxy::getFramesFilled() {
-    audio_track_cblk_t* cblk = mCblk;
-    int32_t front;
-    int32_t rear;
-
-    if (mIsOut) {
-        front = android_atomic_acquire_load(&cblk->u.mStreaming.mFront);
-        rear = cblk->u.mStreaming.mRear;
-    } else {
-        rear = android_atomic_acquire_load(&cblk->u.mStreaming.mRear);
-        front = cblk->u.mStreaming.mFront;
-    }
-    ssize_t filled = rear - front;
-    // pipe should not be overfull
-    if (!(0 <= filled && (size_t) filled <= mFrameCount)) {
-        ALOGE("Shared memory control block is corrupt (filled=%zd); shutting down", filled);
-        return 0;
-    }
-    return (size_t)filled;
 }
 
 // ---------------------------------------------------------------------------
@@ -420,7 +441,8 @@ status_t AudioTrackClientProxy::waitStreamEndDone(const struct timespec *request
             status = DEAD_OBJECT;
             goto end;
         }
-        if (flags & CBLK_STREAM_END_DONE) {
+        // a track is not supposed to underrun at this stage but consider it done
+        if (flags & (CBLK_STREAM_END_DONE | CBLK_DISABLED)) {
             ALOGV("stream end received");
             status = NO_ERROR;
             goto end;
@@ -593,10 +615,13 @@ void StaticAudioTrackClientProxy::getBufferPositionAndLoopCount(
 ServerProxy::ServerProxy(audio_track_cblk_t* cblk, void *buffers, size_t frameCount,
         size_t frameSize, bool isOut, bool clientInServer)
     : Proxy(cblk, buffers, frameCount, frameSize, isOut, clientInServer),
-      mAvailToClient(0), mFlush(0)
+      mAvailToClient(0), mFlush(0), mReleased(0), mFlushed(0)
+    , mTimestampMutator(&cblk->mExtendedTimestampQueue)
 {
+    cblk->mBufferSizeInFrames = frameCount;
 }
 
+__attribute__((no_sanitize("integer")))
 status_t ServerProxy::obtainBuffer(Buffer* buffer, bool ackFlush)
 {
     LOG_ALWAYS_FATAL_IF(buffer == NULL || buffer->mFrameCount == 0);
@@ -646,6 +671,7 @@ status_t ServerProxy::obtainBuffer(Buffer* buffer, bool ackFlush)
                             mClientInServer ? FUTEX_WAKE_PRIVATE : FUTEX_WAKE, 1);
                 }
             }
+            mFlushed += (newFront - front) & mask;
             front = newFront;
         }
     } else {
@@ -706,6 +732,7 @@ no_init:
     return NO_INIT;
 }
 
+__attribute__((no_sanitize("integer")))
 void ServerProxy::releaseBuffer(Buffer* buffer)
 {
     LOG_ALWAYS_FATAL_IF(buffer == NULL);
@@ -729,6 +756,7 @@ void ServerProxy::releaseBuffer(Buffer* buffer)
     }
 
     cblk->mServer += stepCount;
+    mReleased += stepCount;
 
     size_t half = mFrameCount / 2;
     if (half == 0) {
@@ -757,6 +785,7 @@ void ServerProxy::releaseBuffer(Buffer* buffer)
 
 // ---------------------------------------------------------------------------
 
+__attribute__((no_sanitize("integer")))
 size_t AudioTrackServerProxy::framesReady()
 {
     LOG_ALWAYS_FATAL_IF(!mIsOut);
@@ -800,10 +829,25 @@ bool  AudioTrackServerProxy::setStreamEndDone() {
 void AudioTrackServerProxy::tallyUnderrunFrames(uint32_t frameCount)
 {
     audio_track_cblk_t* cblk = mCblk;
-    cblk->u.mStreaming.mUnderrunFrames += frameCount;
+    if (frameCount > 0) {
+        cblk->u.mStreaming.mUnderrunFrames += frameCount;
 
-    // FIXME also wake futex so that underrun is noticed more quickly
-    (void) android_atomic_or(CBLK_UNDERRUN, &cblk->mFlags);
+        if (!mUnderrunning) { // start of underrun?
+            mUnderrunCount++;
+            cblk->u.mStreaming.mUnderrunCount = mUnderrunCount;
+            mUnderrunning = true;
+            ALOGV("tallyUnderrunFrames(%3u) at uf = %u, bump mUnderrunCount = %u",
+                frameCount, cblk->u.mStreaming.mUnderrunFrames, mUnderrunCount);
+        }
+
+        // FIXME also wake futex so that underrun is noticed more quickly
+        (void) android_atomic_or(CBLK_UNDERRUN, &cblk->mFlags);
+    } else {
+        ALOGV_IF(mUnderrunning,
+            "tallyUnderrunFrames(%3u) at uf = %u, underrun finished",
+            frameCount, cblk->u.mStreaming.mUnderrunFrames);
+        mUnderrunning = false; // so we can detect the next edge
+    }
 }
 
 AudioPlaybackRate AudioTrackServerProxy::getPlaybackRate()
@@ -893,7 +937,7 @@ ssize_t StaticAudioTrackServerProxy::pollPosition()
     if (mObserver.poll(state)) {
         StaticAudioTrackState trystate = mState;
         bool result;
-        const int32_t diffSeq = state.mLoopSequence - state.mPositionSequence;
+        const int32_t diffSeq = (int32_t) state.mLoopSequence - (int32_t) state.mPositionSequence;
 
         if (diffSeq < 0) {
             result = updateStateWithLoop(&trystate, state) == OK &&
@@ -932,7 +976,7 @@ ssize_t StaticAudioTrackServerProxy::pollPosition()
     return (ssize_t) mState.mPosition;
 }
 
-status_t StaticAudioTrackServerProxy::obtainBuffer(Buffer* buffer, bool ackFlush __unused)
+status_t StaticAudioTrackServerProxy::obtainBuffer(Buffer* buffer, bool ackFlush)
 {
     if (mIsShutdown) {
         buffer->mFrameCount = 0;
@@ -970,7 +1014,9 @@ status_t StaticAudioTrackServerProxy::obtainBuffer(Buffer* buffer, bool ackFlush
     // it is always larger or equal to avail.
     LOG_ALWAYS_FATAL_IF(mFramesReady < (int64_t) avail);
     buffer->mNonContig = mFramesReady == INT64_MAX ? SIZE_MAX : clampToSize(mFramesReady - avail);
-    mUnreleased = avail;
+    if (!ackFlush) {
+        mUnreleased = avail;
+    }
     return NO_ERROR;
 }
 
@@ -1012,6 +1058,8 @@ void StaticAudioTrackServerProxy::releaseBuffer(Buffer* buffer)
     mFramesReadySafe = clampToSize(mFramesReady);
 
     cblk->mServer += stepCount;
+    mReleased += stepCount;
+
     // This may overflow, but client is not supposed to rely on it
     StaticAudioTrackPosLoop posLoop;
     posLoop.mBufferPosition = mState.mPosition;
@@ -1027,7 +1075,7 @@ void StaticAudioTrackServerProxy::releaseBuffer(Buffer* buffer)
     buffer->mNonContig = 0;
 }
 
-void StaticAudioTrackServerProxy::tallyUnderrunFrames(uint32_t frameCount __unused)
+void StaticAudioTrackServerProxy::tallyUnderrunFrames(uint32_t frameCount)
 {
     // Unlike AudioTrackServerProxy::tallyUnderrunFrames() used for streaming tracks,
     // we don't have a location to count underrun frames.  The underrun frame counter
@@ -1035,7 +1083,9 @@ void StaticAudioTrackServerProxy::tallyUnderrunFrames(uint32_t frameCount __unus
     // possible for static buffer tracks other than at end of buffer, so this is not a loss.
 
     // FIXME also wake futex so that underrun is noticed more quickly
-    (void) android_atomic_or(CBLK_UNDERRUN, &mCblk->mFlags);
+    if (frameCount > 0) {
+        (void) android_atomic_or(CBLK_UNDERRUN, &mCblk->mFlags);
+    }
 }
 
 // ---------------------------------------------------------------------------

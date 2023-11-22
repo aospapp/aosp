@@ -11,11 +11,7 @@
 
 #ifdef __GNUC__
 #define noreturn	__attribute__((noreturn))
-#if CFG_TOYBOX_DEBUG
 #define printf_format	__attribute__((format(printf, 1, 2)))
-#else
-#define printf_format
-#endif
 #else
 #define noreturn
 #define printf_format
@@ -43,6 +39,10 @@
 
 #ifndef AT_REMOVEDIR
 #define AT_REMOVEDIR 0x200
+#endif
+
+#ifndef RLIMIT_RTTIME
+#define RLIMIT_RTTIME 15
 #endif
 
 // We don't define GNU_dammit because we're not part of the gnu project, and
@@ -79,7 +79,7 @@ char *strptime(const char *buf, const char *format, struct tm *tm);
 // correct name to the broken name.
 
 char *dirname(char *path);
-char *__xpg_basename (char *path);
+char *__xpg_basename(char *path);
 static inline char *basename(char *path) { return __xpg_basename(path); }
 
 // uClibc pretends to be glibc and copied a lot of its bugs, but has a few more
@@ -154,9 +154,17 @@ int utimensat(int fd, const char *path, const struct timespec times[2], int flag
 
 #endif // glibc in general
 
-#ifndef __GLIBC__
+#if !defined(__GLIBC__) && !defined(__BIONIC__)
 // POSIX basename.
 #include <libgen.h>
+#endif
+
+// glibc was handled above; for 32-bit bionic we need to avoid a collision
+// with toybox's basename_r so we can't include <libgen.h> even though that
+// would give us a POSIX basename(3).
+#if defined(__BIONIC__)
+char *basename(char *path);
+char *dirname(char *path);
 #endif
 
 // Work out how to do endianness
@@ -217,6 +225,12 @@ ssize_t getline(char **lineptr, size_t *n, FILE *stream);
 #endif
 #if CFG_TOYBOX_UTMPX
 #include <utmpx.h>
+#else
+struct utmpx {int ut_type;};
+#define USER_PROCESS 0
+static inline struct utmpx *getutxent(void) {return 0;}
+static inline void setutxent(void) {;}
+static inline void endutxent(void) {;}
 #endif
 
 // Some systems don't define O_NOFOLLOW, and it varies by architecture, so...
@@ -225,12 +239,26 @@ ssize_t getline(char **lineptr, size_t *n, FILE *stream);
 #define O_NOFOLLOW 0
 #endif
 
+#ifndef O_NOATIME
+#define O_NOATIME 01000000
+#endif
+
 #ifndef O_CLOEXEC
 #define O_CLOEXEC 02000000
 #endif
 
 #ifndef O_PATH
 #define O_PATH   010000000
+#endif
+
+// Glibc won't give you linux-kernel constants unless you say "no, a BUD lite"
+// even though linux has nothing to do with the FSF and never has.
+#ifndef F_SETPIPE_SZ
+#define F_SETPIPE_SZ 1031
+#endif
+
+#ifndef F_GETPIPE_SZ
+#define F_GETPIPE_SZ 1032
 #endif
 
 #if defined(__SIZEOF_DOUBLE__) && defined(__SIZEOF_LONG__) \
@@ -246,25 +274,4 @@ pid_t xfork(void);
 
 //#define strncpy(...) @@strncpyisbadmmkay@@
 //#define strncat(...) @@strncatisbadmmkay@@
-
-#if CFG_TOYBOX_SELINUX
-#include <selinux/selinux.h>
-#else
-#define is_selinux_enabled() 0
-int getcon(void* con);
-#endif
-
-#if CFG_TOYBOX_SMACK
-#include <sys/smack.h>
-#include <sys/xattr.h>
-#include <linux/xattr.h>
-#else
-#define smack_new_label_from_path(...) (-1)
-#define smack_set_label_for_path(...)  (-1)
-#define smack_set_label_for_self(...)  (-1)
-#define XATTR_NAME_SMACK ""
-#define SMACK_LABEL_LEN  (1) /* for just ? */
-
-ssize_t fgetxattr (int fd, char *name, void *value, size_t size);
-#endif
 

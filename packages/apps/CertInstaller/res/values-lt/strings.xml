@@ -34,8 +34,7 @@
     <string name="password_empty_error" msgid="591713406761723025">"Įveskite slaptažodį."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"Įveskite pavadinimą."</string>
     <string name="name_char_error" msgid="3176618568784938968">"Įveskite pavadinimą, sudarytą tik iš raidžių ir skaičių."</string>
-    <string name="storage_error" msgid="8306802455802770779">"Nepavyko išsaugoti sertifikato. Jei norite bandyti iš naujo, palieskite „Gerai“."</string>
-    <string name="unable_to_save_cert" msgid="9178604087335389686">"Nepavyko išsaugoti sertifikato. Kredencialų atmintinė neįgalinta arba netinkamai inicijuota."</string>
+    <string name="unable_to_save_cert" msgid="9178604087335389686">"Nepavyko išsaugoti sertifikato. Prisijungimo duomenų saugykla neįgalinta arba netinkamai inicijuota."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"Sertifikatas neįdiegtas."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"Nėra diegiamo sertifikato."</string>
     <string name="invalid_cert" msgid="7704228670980743590">"Sertifikatas negalioja."</string>

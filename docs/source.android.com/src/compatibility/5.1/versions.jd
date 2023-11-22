@@ -11,8 +11,9 @@ running on their devices.</p>
 <p>Because subsequent releases of the Android software may revise this string,
 but not change any API behavior, such releases may not be accompanied by a new
 Compatibility Definition Document. This page lists the versions that are
-allowable by an Android 5.0-based system. The only permitted values for
+allowable by an Android 5.1-based system. The only permitted values for
 <code>android.os.Build.VERSION.RELEASE</code> for Android 5.1 are:</p>
 <ul>
 <li>5.1</li>
+<li>5.1.1</li>
 </ul>

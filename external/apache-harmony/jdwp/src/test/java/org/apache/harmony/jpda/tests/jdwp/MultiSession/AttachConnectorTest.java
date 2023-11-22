@@ -101,12 +101,12 @@ public class AttachConnectorTest extends JDWPSyncTestCase {
         logWriter.println("==> testAttachConnector001 PASSED!");
     }
 
-    protected void beforeDebuggeeStart(JDWPUnitDebuggeeWrapper debuggeeWrapper) {
+    protected void beforeConnectionSetUp() {
         settings.setAttachConnectorKind();
         if (settings.getTransportAddress() == null) {
             settings.setTransportAddress(TestOptions.DEFAULT_ATTACHING_ADDRESS);
         }
         logWriter.println("ATTACH connector kind");
-        super.beforeDebuggeeStart(debuggeeWrapper);
+        super.beforeConnectionSetUp();
     }
 }

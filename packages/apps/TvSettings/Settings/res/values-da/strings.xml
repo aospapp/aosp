@@ -24,30 +24,35 @@
     <string name="header_category_preferences" msgid="175105555164713972">"Præferencer"</string>
     <string name="header_category_accessories" msgid="823295909353025991">"Fjernbetjening og tilbehør"</string>
     <string name="header_category_personal" msgid="8893959635328775096">"Personligt"</string>
+    <string name="accounts_category_title" msgid="7591072907146317425">"Konti"</string>
     <string name="add_account" msgid="4098060223200619258">"Tilføj konto"</string>
-    <string name="account_header_sync" msgid="2679585471372319471">"Synkronisering"</string>
     <string name="account_header_remove_account" msgid="3288957118207682685">"Fjern konto"</string>
     <string name="account_sync" msgid="773808124331714965">"Vælg synkroniserede apps"</string>
     <string name="sync_now" msgid="8732244492880016471">"Synkroniser nu"</string>
-    <string name="sync_cancel" msgid="5839264070098894371">"Annuller synkronisering"</string>
     <string name="sync_in_progress" msgid="1330721038775646022">"Synkroniserer…"</string>
     <string name="last_synced" msgid="6178494892357077274">"Sidst synkroniseret <xliff:g id="TIME">%1s</xliff:g>"</string>
     <string name="sync_disabled" msgid="3089360175872892781">"Deaktiveret"</string>
-    <string name="sync_is_failing" msgid="8229476000384257186">"Synkronisering fungerer ikke lige nu. Det vil snart være tilgængeligt igen."</string>
     <string name="account_remove" msgid="4313580520737295272">"Fjern konto"</string>
     <string name="account_remove_failed" msgid="980654375770693544">"Kontoen kan ikke fjernes"</string>
+    <!-- no translation found for sync_item_title (2716687595867726981) -->
+    <skip />
+    <string name="sync_one_time_sync" msgid="3575080833667908804">"Synkroniser nu<xliff:g id="LAST_SYNC_TIME">
+%1$s</xliff:g>"</string>
+    <string name="sync_failed" msgid="5514824149810480551">"Synkroniseringen mislykkedes"</string>
+    <string name="sync_active" msgid="6891115263481154378">"Synkronisering er aktiveret"</string>
     <string name="connectivity_network" msgid="8321537111272398501">"Netværk"</string>
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Scanning altid tilgængelig"</string>
     <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Lad Googles placeringstjeneste og andre apps scanne efter netværk, selv når Wi-Fi er slået fra"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
-    <string name="device_daydream" msgid="4933581408059561077">"Dagdrøm"</string>
+    <string name="device_daydream" msgid="3354366974209179614">"Pauseskærm"</string>
     <string name="device_display" msgid="101455384386372747">"Skærm"</string>
+    <string name="device_sound" msgid="9214182566287657481">"Lyd"</string>
+    <string name="device_surround_sound" msgid="6272196310566546860">"Surroundsound"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"Systemlyde"</string>
     <string name="device_apps" msgid="9180435229638772838">"Apps"</string>
     <string name="device_storage_reset" msgid="1425978936501134425">"Lagerplads og nulstilling"</string>
-    <string name="device_storage" msgid="5536683600091277826">"Lager"</string>
     <string name="device_backup_restore" msgid="5627523987587511884">"Sikkerhedskopiering og gendannelse"</string>
     <string name="device_reset" msgid="2827002349560023125">"Nulstilling af fabriksdata"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Kalibrering"</string>
@@ -57,14 +62,12 @@
     <string name="apps_system" msgid="2499191125802829425">"Systemapps"</string>
     <string name="apps_running" msgid="6430310491739956228">"Kørende apps"</string>
     <string name="accessories_add" msgid="1347802656349218830">"Tilføj tilbehør"</string>
-    <string name="accessories_wifi_display" msgid="1107690327150126038">"Wi-Fi Display"</string>
     <string name="accessory_state_pairing" msgid="7501989679637780963">"Parrer..."</string>
     <string name="accessory_state_connecting" msgid="8777884957977608529">"Forbinder..."</string>
     <string name="accessory_state_error" msgid="4529815543328841909">"Der kunne ikke parres"</string>
     <string name="accessory_state_canceled" msgid="4419328837733619447">"Annulleret"</string>
     <string name="accessory_state_paired" msgid="1959238931866401476">"Parret"</string>
     <string name="accessory_options" msgid="4799658564005710297">"Tilbehør"</string>
-    <string name="accessory_rename" msgid="3250766501262581206">"Omdøb"</string>
     <string name="accessory_unpair" msgid="8242725516604465355">"Ophæv parring"</string>
     <string name="accessory_battery" msgid="7021788232835772126">"Batteri <xliff:g id="PERCENTAGE">%1$d</xliff:g> %%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Parring af enhed ophæves..."</string>
@@ -72,9 +75,6 @@
     <string name="accessories_add_title" msgid="6940361421891873321">"Søger efter tilbehør..."</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Inden du parrer dine Bluetooth-enheder, skal du sørge for, at de er i parringstilstand"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"Der blev fundet en enhed, og den parres automatisk om <xliff:g id="COUNTDOWN">%1$s</xliff:g> sekunder"</string>
-    <string name="accessories_add_title_multiple" msgid="8455249961819802466">"Der blev fundet flere enheder"</string>
-    <string name="accessories_add_multiple" msgid="3900633668371061399">"Hvis du vil vælge en anden enhed, skal du trykke på parringsknappen på denne enhed"</string>
-    <string name="accessories_add_multiple_select" msgid="3696794187001405647">"Hvis du vil parre med den valgte enhed, skal du trykke på parringsknappen på denne enhed og holde fingeren nede i fem sekunder."</string>
     <string name="error_action_not_supported" msgid="300552308104354666">"Denne handling understøttes ikke"</string>
     <string name="bluetooth_pairing_request" msgid="4523088117471287665">"Anmodning om Bluetooth-parring"</string>
     <string name="bluetooth_confirm_passkey_msg" msgid="7031117992819855434">"Hvis du vil parre med: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;, skal du sørge for, at den viser denne adgangsnøgle: &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt;"</string>
@@ -97,6 +97,7 @@
     <string name="system_accessibility" msgid="6215431399759498005">"Hjælpefunktioner"</string>
     <string name="system_developer_options" msgid="3237985523474863638">"Valgmuligheder for udviklere"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Ingen"</string>
+    <string name="system_diagnostic" msgid="7269638365915225701">"Forbrug og diagnostik"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Systemopdatering"</string>
     <string name="about_preference" msgid="4131396784531360434">"Om"</string>
     <string name="device_name" msgid="2670488158531273028">"Enhedens navn"</string>
@@ -116,6 +117,36 @@
     <string name="about_ads" msgid="3364786994943748337">"Annoncer"</string>
     <string name="show_dev_on" msgid="8997172736024819952">"Nu er du udvikler."</string>
     <string name="show_dev_already" msgid="7525967300421794483">"Det behøver du ikke. Du er allerede udvikler."</string>
+    <string name="device_info_default" msgid="4519181343309136050">"Ukendt"</string>
+    <string name="selinux_status" msgid="8000422283341040360">"SELinux-status"</string>
+    <string name="selinux_status_disabled" msgid="4925733135520787807">"Deaktiveret"</string>
+    <string name="selinux_status_permissive" msgid="4806219236988993826">"Eftergivende"</string>
+    <string name="selinux_status_enforcing" msgid="8839484208185347776">"Håndhæver"</string>
+    <string name="additional_system_update_settings_list_item_title" msgid="6285273598178967613">"Flere systemopdateringer"</string>
+    <string name="device_status" msgid="4379924151946190768">"Status"</string>
+    <string name="device_status_summary" msgid="180586140242936323">"Netværk, serienumre og andre oplysninger"</string>
+    <string name="manual" msgid="4957388668881541669">"Brugervejledning"</string>
+    <string name="regulatory_information" msgid="5448865708097003189">"Oplysninger om lovgivning"</string>
+    <string name="device_feedback" msgid="209146642122579479">"Send feedback om denne enhed"</string>
+    <string name="fcc_equipment_id" msgid="8295142996591094301">"Udstyrs-id"</string>
+    <string name="baseband_version" msgid="2229081246529676107">"Basebandversion"</string>
+    <string name="kernel_version" msgid="2418845475938044903">"Kernesystem"</string>
+    <string name="status_unavailable" msgid="831018565485085059">"Ikke tilgængelig"</string>
+    <string name="device_status_title" msgid="1629253652287243543">"Status"</string>
+    <string name="battery_status_title" msgid="2557264957661087826">"Batteristatus"</string>
+    <string name="battery_level_title" msgid="100046129713781009">"Batteriniveau"</string>
+    <string name="sim_status_title" msgid="498929467188844611">"SIM-status"</string>
+    <string name="imei_information_title" msgid="5208860549282877136">"IMEI-oplysninger"</string>
+    <string name="status_bt_address" msgid="1571721865060122393">"Bluetooth-adresse"</string>
+    <string name="status_up_time" msgid="1674116490191446110">"Oppetid"</string>
+    <string name="status_wimax_mac_address" msgid="1102907383444152052">"4G MAC-adresse"</string>
+    <string name="legal_information" msgid="2346024659831852038">"Juridiske oplysninger"</string>
+    <string name="copyright_title" msgid="5564228453228549353">"Ophavsret"</string>
+    <string name="license_title" msgid="4482927105870812604">"Licens"</string>
+    <string name="terms_title" msgid="8480859222932736291">"Vilkår og betingelser"</string>
+    <string name="webview_license_title" msgid="8843666223583780825">"System WebView-licens"</string>
+    <string name="wallpaper_attributions" msgid="8622098625739634898">"Baggrunde"</string>
+    <string name="wallpaper_attributions_values" msgid="1565931506291182879">"Leverandører af satellitbilleder:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"Dårlig"</item>
     <item msgid="5986166866411161790">"Rimelig"</item>
@@ -129,10 +160,10 @@
     <string name="title_internet_connection" msgid="8710084774588697646">"Internetforbindelse"</string>
     <string name="connected" msgid="7563100162902079938">"Tilsluttet"</string>
     <string name="not_connected" msgid="6858480380326923017">"Ikke tilsluttet"</string>
-    <string name="wifi_setting_header_available_networks" msgid="6244107218643835636">"Wi-Fi"</string>
-    <string name="wifi_setting_header_other_options" msgid="1530334691232749342">"ANDRE MULIGHEDER"</string>
+    <string name="wifi_setting_header_other_options" msgid="3638677601577777216">"Andre valgmuligheder"</string>
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"Se alle"</string>
-    <string name="wifi_setting_available_networks" msgid="1244646604369133314">"TILGÆNGELIGE NETVÆRK"</string>
+    <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"Se færre"</string>
+    <string name="wifi_setting_available_networks" msgid="6713791371350513043">"Tilgængelige netværk"</string>
     <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"Tilslut via WPS"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"Tilføj nyt netværk"</string>
     <string name="security_type" msgid="524443802004143058">"Sikkerhedstype"</string>
@@ -146,7 +177,7 @@
     <string name="title_wifi_no_networks_available" msgid="7127675763248224969">"Søger…"</string>
     <string name="title_wifi_could_not_save" msgid="708638317882707069">"Konfigurationen for <xliff:g id="SSID">%1$s</xliff:g> kunne ikke gemmes"</string>
     <string name="title_wifi_could_not_connect" msgid="9080004548419447580">"Der kunne ikke oprettes forbindelse til <xliff:g id="SSID">%1$s</xliff:g>"</string>
-    <string name="title_wifi_could_not_connect_timeout" msgid="5158184646985406394">"<xliff:g id="SSID">%1$s</xliff:g> kunne ikke findes"</string>
+    <string name="title_wifi_could_not_connect_timeout" msgid="5158184646985406394">"<xliff:g id="SSID">%1$s</xliff:g> blev ikke fundet"</string>
     <string name="title_wifi_could_not_connect_authentication_failure" msgid="4836595650380723944">"Wi-Fi-adgangskoden er ikke gyldig"</string>
     <string name="title_wifi_could_not_connect_ap_reject" msgid="328274688839033015">"Wi-Fi-netværket accepterede ikke forbindelsen"</string>
     <string name="title_wifi_advanced_options" msgid="5389467736846644832">"Vil du konfigurere proxy- og IP-indstillingerne for <xliff:g id="SSID">%1$s</xliff:g>?"</string>
@@ -185,20 +216,20 @@
     <string name="wifi_ip_settings_invalid_gateway" msgid="3292444764474145026">"Indtast en gyldig gateway-adresse"</string>
     <string name="wifi_ip_settings_invalid_dns" msgid="6172189835428184828">"Indtast en gyldig DNS-adresse"</string>
     <string name="wifi_ip_settings_invalid_network_prefix_length" msgid="6209978918929182270">"Indtast et gyldigt netværkspræfiks på 0-32 tegn"</string>
-    <string name="wifi_ip_address_hint" msgid="1895267564692073689">"Indtast en gyldig IP-adresse.\nEksempel: 192.168.1.128"</string>
-    <string name="wifi_dns1_hint" msgid="214345156394229347">"Indtast en gyldig IP-adresse, eller lad feltet stå tomt.\nEksempel: 8.8.8.8"</string>
-    <string name="wifi_dns2_hint" msgid="1075709328208368894">"Indtast en gyldig IP-adresse, eller lad feltet stå tomt.\nEksempel: 8.8.4.4"</string>
-    <string name="wifi_gateway_hint" msgid="7687219682024189028">"Indtast en gyldig IP-adresse, eller lad feltet stå tomt.\nEksempel: 192.168.1.1"</string>
-    <string name="wifi_network_prefix_length_hint" msgid="332915798888599682">"Indtast en gyldig præfikslængde for netværk.\nEksempel: 24"</string>
+    <string name="wifi_ip_address_description" msgid="6548838784556001283">"Indtast en gyldig IP-adresse.\nEksempel: <xliff:g id="ID_1">192.168.1.128</xliff:g>"</string>
+    <string name="wifi_dns1_description" msgid="2463500547232077393">"Indtast en gyldig IP-adresse, eller lad feltet stå tomt.\nEksempel: <xliff:g id="ID_1">8.8.8.8</xliff:g>"</string>
+    <string name="wifi_dns2_description" msgid="8005473174044015359">"Indtast en gyldig IP-adresse, eller lad feltet stå tomt.\nEksempel: <xliff:g id="ID_1">8.8.4.4</xliff:g>"</string>
+    <string name="wifi_gateway_description" msgid="4773751224452216231">"Indtast en gyldig IP-adresse, eller lad feltet stå tomt.\nEksempel: <xliff:g id="ID_1">192.168.1.1</xliff:g>"</string>
+    <string name="wifi_network_prefix_length_description" msgid="4849589333293194414">"Indtast en gyldig længde på netværkspræfiks.\nEksempel: <xliff:g id="ID_1">24</xliff:g>"</string>
     <string name="proxy_error_invalid_host" msgid="3660415920668138953">"Hostname er ikke gyldigt"</string>
     <string name="proxy_error_invalid_exclusion_list" msgid="4921547051724987804">"Udeladelseslisten er ikke gyldig. Angiv en kommasepareret liste over udeladte domæner."</string>
     <string name="proxy_error_empty_port" msgid="6835658067776408062">"Feltet Port må ikke være tomt"</string>
     <string name="proxy_error_empty_host_set_port" msgid="4428793978424303244">"Hvis feltet Host er tomt, skal feltet Port også være tomt"</string>
     <string name="proxy_error_invalid_port" msgid="1434922103959603993">"Porten er ikke gyldig"</string>
     <string name="proxy_warning_limited_support" msgid="6160239282535986523">"HTTP-proxyen anvendes af browseren, men må ikke bruges af andre apps."</string>
-    <string name="proxy_port_hint" msgid="8532733797275927007">"Indtast en gyldig port.\nEksempel: 8080"</string>
-    <string name="proxy_exclusionlist_hint" msgid="86175095050438325">"Indtast en kommasepareret liste over udelukkede domæner, eller lad feltet stå tomt.\nEksempel: example.com,mycomp.test.com,localhost"</string>
-    <string name="proxy_hostname_hint" msgid="3719688422767210803">"Indtast et gyldigt hostname.\nEksempel: proxy.example.com"</string>
+    <string name="proxy_port_description" msgid="6791098212244367568">"Angiv en gyldig port.\nEksempel: <xliff:g id="ID_1">8080</xliff:g>"</string>
+    <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"Indtast en kommasepareret liste over udelukkede domæner, eller lad feltet stå tomt.\nEksempel: <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>"</string>
+    <string name="proxy_hostname_description" msgid="5824391500254472447">"Indtast et gyldigt hostnavn.\nEksempel: <xliff:g id="ID_1">proxy.example.com</xliff:g>"</string>
     <string name="wifi_summary_title_connected" msgid="8329216588732277139">"Der er forbindelse til netværket"</string>
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"Netværket er ikke tilsluttet"</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"Der er allerede forbindelse til <xliff:g id="SSID">%1$s</xliff:g>. Vil du oprette forbindelse til et andet netværk?"</string>
@@ -217,27 +248,33 @@
     <string name="storage_media_cache_usage" msgid="5906737163212649904">"Cachelagrede data"</string>
     <string name="storage_eject" msgid="113476702798691558">"Skub ud"</string>
     <string name="storage_format" msgid="3759273736493279595">"Slet og formatér"</string>
+    <string name="storage_format_as_private" msgid="4169495230765116075">"Slet og formatér som internt lager"</string>
+    <string name="storage_format_as_public" msgid="8568317076021814054">"Slet og formatér som flytbar lagerplads"</string>
     <string name="storage_format_for_private" msgid="7095270113028182032">"Formatér lagerplads på enheden"</string>
     <string name="storage_not_connected" msgid="6378589497819596096">"Ikke tilsluttet"</string>
-    <string name="storage_migrate" msgid="658894157418304023">"Flyt data"</string>
-    <string name="storage_forget" msgid="8541387048014779836">"Glem denne interne lagerplads"</string>
+    <string name="storage_migrate" msgid="1304058078948715456">"Migrer data til dette lager"</string>
+    <string name="storage_migrate_away" msgid="3410590501311323877">"Migrer data til en anden lagerplads"</string>
+    <string name="storage_no_apps" msgid="579118619398668670">"Ingen apps til sikkerhedskopiering"</string>
+    <string name="storage_forget" msgid="8731986045697320463">"Glem dette interne lager"</string>
     <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"Hvis du vil bruge de apps eller data, der er på dette drev, skal du indsætte det igen.\n\nHvis du vælger Glem, mister du alle de data, der er på drevet, permanent.\n\nDu kan installere appene igen på et senere tidspunkt, men de data, der er gemt på drevet, vil gå tabt."</string>
     <string name="storage_device_storage_section" msgid="7797805634316822741">"Lagerplads på enheden"</string>
     <string name="storage_removable_storage_section" msgid="3264955106565590076">"Flytbart lager"</string>
     <string name="storage_reset_section" msgid="7324235036547192861">"Nulstil"</string>
     <string name="storage_mount_success" msgid="4624254886950093443">"<xliff:g id="NAME">%1$s</xliff:g> blev tilsluttet"</string>
     <string name="storage_mount_failure" msgid="2469026716895846633">"<xliff:g id="NAME">%1$s</xliff:g> kunne ikke tilsluttes"</string>
+    <string name="storage_mount_adopted" msgid="3360994581083675640">"USB-lageret blev tilsluttet igen"</string>
     <string name="storage_unmount_success" msgid="7921627277443856151">"<xliff:g id="NAME">%1$s</xliff:g> blev skubbet sikkert ud"</string>
     <string name="storage_unmount_failure" msgid="6322048355281833871">"<xliff:g id="NAME">%1$s</xliff:g> kunne ikke skubbes sikkert ud"</string>
     <string name="storage_unmount_failure_cant_find" msgid="240731723168567217">"Der er ingen drev, der kan skubbes ud"</string>
     <string name="storage_format_success" msgid="6252068844653804319">"<xliff:g id="NAME">%1$s</xliff:g> blev formateret"</string>
     <string name="storage_format_failure" msgid="7336977074523932399">"<xliff:g id="NAME">%1$s</xliff:g> kunne ikke formateres"</string>
-    <string name="storage_wizard_format_as_private_title" msgid="1433086533563409114">"Formatér som internt lager"</string>
+    <string name="storage_wizard_format_as_private_title" msgid="1887035626526247913">"Formatér som internt lager"</string>
     <string name="storage_wizard_format_as_private_description" msgid="5814513630861655168">"Dette kræver, at USB-drevet sikres ved hjælp af formatering. Efter formateringen fungerer dette drev kun på denne enhed. Ved formatering slettes alle data, der i øjeblikket er gemt på drevet. Du bør overveje at tage en sikkerhedskopi for at undgå at miste dine data."</string>
     <string name="storage_wizard_format_as_public_title" msgid="977475385015522171">"Slet og formatér"</string>
-    <string name="storage_wizard_format_as_public_description" msgid="8591201523650249337">"Når du har formateret USB-drevet, kan du bruge det i andre enheder. Alle data bliver slettet. Du bør overveje at sikkerhedskopiere appen først ved at flytte den til et andet internt lager."</string>
+    <string name="storage_wizard_format_as_public_description" msgid="184405877453834449">"Når du har formateret USB-drevet, kan du bruge det i andre enheder. Alle data slettes. Du bør overveje at sikkerhedskopiere først ved at flytte dine apps til et andet internt lager."</string>
     <string name="storage_wizard_format_progress_title" msgid="143911640282435570">"Formaterer USB-drev…"</string>
     <string name="storage_wizard_format_progress_description" msgid="5320980721352781920">"Dette kan tage lidt tid. Undgå at fjerne drevet."</string>
+    <string name="storage_wizard_migrate_choose_title" msgid="4247584708563925746">"Vælg, hvilken lagerplads dataene skal migreres til"</string>
     <string name="storage_wizard_migrate_confirm_title" msgid="369820166257265495">"Flyt data til <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_wizard_migrate_confirm_description" msgid="2916497196106413598">"Flyt dine billeder, filer og appdata til <xliff:g id="NAME">%1$s</xliff:g>. Dette kan tage et par minutter. Nogle apps vil ikke fungere korrekt under flytningen."</string>
     <string name="storage_wizard_migrate_confirm_action_move_now" msgid="512504294066473542">"Flyt nu"</string>
@@ -253,18 +290,18 @@
     <string name="storage_wizard_back_up_apps_title" msgid="452805102278225533">"Apps, der er gemt på <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_wizard_back_up_apps_and_data_title" msgid="1738767666148200795">"Apps og data, der er gemt på <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_wizard_back_up_apps_space_available" msgid="7209210725057470544">"<xliff:g id="SIZE">%1$s</xliff:g> ledig lagerplads"</string>
-    <string name="storage_wizard_eject_internal_title" msgid="3717872796166039893">"Skub det interne lager ud"</string>
-    <string name="storage_wizard_eject_internal_description" msgid="6107781224687080575">"Apps på denne lagerenhed fungerer ikke længere, når du skubber enheden ud. Dette USB-drev er formateret til kun at fungere på denne enhed og ikke på nogen andre."</string>
-    <string name="sotrage_wizard_eject_progress_title" msgid="8034235439954334978">"Skubber <xliff:g id="NAME">%1$s</xliff:g> ud…"</string>
+    <string name="storage_wizard_eject_private_title" msgid="2844023177159233031">"Skub det interne lager ud"</string>
+    <string name="storage_wizard_eject_private_description" msgid="8966427719795472538">"Apps på dette interne lager fungerer ikke længere, når du skubber det ud. Dette USB-drev er formateret til kun at fungere på denne enhed og ikke på nogen andre."</string>
+    <string name="storage_wizard_eject_progress_title" msgid="8823133087157003820">"Skubber <xliff:g id="NAME">%1$s</xliff:g> ud…"</string>
     <string name="storage_wizard_move_app_title" msgid="37057801779891287">"Brugt lagerplads"</string>
     <string name="storage_wizard_move_app_progress_title" msgid="7807062446517628864">"Flytter <xliff:g id="NAME">%1$s</xliff:g>…"</string>
     <string name="storage_wizard_move_app_progress_description" msgid="3693104566187904724">"Fjern ikke drevet under flytningen.\nAppen <xliff:g id="APPNAME">%1$s</xliff:g> på denne enhed er først tilgængelig, når flytningen er gennemført."</string>
-    <string name="storage_wizard_forget_confirm_title" msgid="1183642893909026951">"Vil du glemme den interne lagerplads?"</string>
+    <string name="storage_wizard_forget_confirm_title" msgid="4321200084208420221">"Vil du gemme det interne lager?"</string>
     <string name="storage_wizard_forget_confirm_description" msgid="4264263982217111372">"Alle dine data, der er gemt på dette drev, slettes permanent, hvis du vælger \"Glem\". Vil du fortsætte?"</string>
     <string name="storage_wizard_forget_action" msgid="2532812620271112355">"Glem"</string>
     <string name="storage_new_title" msgid="3098495209500607438">"USB-drevet er tilsluttet"</string>
     <string name="storage_new_action_browse" msgid="9041125660441839453">"Gennemse"</string>
-    <string name="storage_new_action_adopt" msgid="1903427557119380415">"Konfigurer som intern lagerplads"</string>
+    <string name="storage_new_action_adopt" msgid="880224317112988974">"Konfigurer som internt lager"</string>
     <string name="storage_new_action_format_public" msgid="5604328981214071670">"Konfigurer som flytbar lagerplads"</string>
     <string name="storage_new_action_eject" msgid="4069294152676217949">"Skub ud"</string>
     <string name="storage_missing_title" msgid="2803464623922381858">"<xliff:g id="NAME">%1$s</xliff:g> blev fjernet"</string>
@@ -274,13 +311,14 @@
     <string name="app_forward_locked" msgid="6078781450044847966">"Appen er kopibeskyttet."</string>
     <string name="invalid_location" msgid="5269044848535157307">"Installationsplaceringen er ikke gyldig."</string>
     <string name="system_package" msgid="9200255718634512790">"Systemopdateringer kan ikke installeres på eksterne medier."</string>
+    <string name="move_error_device_admin" msgid="2060627704270836951">"Enhedsadministratoren kan ikke installeres på eksterne medier."</string>
     <string name="learn_more_action" msgid="7015991954404958779">"Få flere oplysninger"</string>
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"Prøv igen"</string>
     <string name="wifi_wps_title" msgid="1872305810119408482">"Søger efter WPS-router…"</string>
     <string name="wifi_wps_instructions" msgid="3618110962669110034">"Tryk på knappen for Wi-Fi Protected Setup på din router.\nDen kaldes muligvis \"WPS\" eller indeholder symbolet til venstre."</string>
     <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"Indtast pinkoden <xliff:g id="NUMBER">%1$s</xliff:g> på din Wi-Fi-router."</string>
     <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"Når pinkoden er indtastet, kan det tage op til to minutter at fuldføre konfigurationen."</string>
-    <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"Wi-Fi-routeren kunne ikke findes"</string>
+    <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"Wi-Fi-routeren blev ikke fundet"</string>
     <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"Sikkerhedsindstillingen for Wi-Fi-routeren (WEP) understøttes ikke"</string>
     <string name="wifi_wps_failed_tkip" msgid="1712545345594227319">"Sikkerhedsindstillingen for Wi-Fi-routeren (TKIP) understøttes ikke"</string>
     <string name="wifi_wps_failed_overlap" msgid="3091222818050940041">"Der er en anden igangværende WPS-session. Prøv igen om et par minutter."</string>
@@ -293,7 +331,15 @@
     <string name="system_set_time_format" msgid="4447882066895090612">"Brug 24-timers format"</string>
     <string name="desc_set_time_format" msgid="3131006238681763219">"<xliff:g id="STATE">%1$s</xliff:g> (<xliff:g id="SAMPLE">%2$s</xliff:g>)"</string>
     <string name="system_auto_date_time" msgid="3629668599205033272">"Automatisk dato og tid"</string>
-    <string name="desc_auto_date_time" msgid="6997571927680580633">"Brug netværkets tid"</string>
+  <string-array name="auto_date_time_entries">
+    <item msgid="4590792581242018007">"Brug netværkets tid"</item>
+    <item msgid="3807025813081244357">"Fra"</item>
+  </string-array>
+  <string-array name="auto_date_time_ts_entries">
+    <item msgid="8463479794795616025">"Brug netværkets tid"</item>
+    <item msgid="2475903014233987786">"Brug transportstrømmens tid"</item>
+    <item msgid="150957081326946463">"Fra"</item>
+  </string-array>
     <string name="system_location" msgid="502463575930545806">"Placering"</string>
     <string name="system_desc_location" msgid="4243551425631207495">"Tillad, at apps, der har bedt om din tilladelse, bruger dine placeringsoplysninger"</string>
     <string name="system_network_location_confirm" msgid="8435144328428634060">"Placeringssamtykke"</string>
@@ -317,6 +363,7 @@
     <string name="delete_location_history_desc" msgid="4142806827237093397">"Dette vil slette alt, som Placeringshistorik har gemt fra denne enhed for denne Google-konto. Du kan ikke fortryde denne sletning. Nogle apps, herunder Google Nu, vil stoppe med at virke."</string>
     <string name="system_services" msgid="7230571820151215779">"Tjenester"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Tjenesteindstillinger"</string>
+    <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Tekst med stor kontrast"</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Undertekster"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Indstillinger for tekstoverlejring af undertekster på video"</string>
     <string name="captions_display" msgid="735692527287125548">"Visning"</string>
@@ -324,7 +371,7 @@
     <string name="captions_display_off" msgid="496953007835201523">"Fra"</string>
     <string name="display_options" msgid="5504549024985225774">"Valgmuligheder for visning"</string>
     <string name="captions_configure" msgid="5537548915977371014">"Konfigurer"</string>
-    <string name="captions_lanaguage" msgid="3291057448460880449">"Sprog"</string>
+    <string name="captions_language" msgid="2835554055388996343">"Sprog"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"Tekststørrelse"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"Underteksttype"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"Tilpassede valgmuligheder"</string>
@@ -332,12 +379,19 @@
     <string name="captions_textcolor" msgid="3233568269335050287">"Tekstfarve"</string>
     <string name="captions_edgetype" msgid="841331274533086103">"Rammetype"</string>
     <string name="captions_edgecolor" msgid="845125757332620884">"Rammens farve"</string>
+    <string name="captions_backgroundshow" msgid="9177987321551275698">"Vis baggrund"</string>
     <string name="captions_backgroundcolor" msgid="448518890988125453">"Baggrundsfarve"</string>
     <string name="captions_backgroundopacity" msgid="2643722493273126220">"Baggrundens gennemsigtighed"</string>
     <string name="captioning_preview_text" msgid="72080729155950127">"Underteksterne vil se sådan ud"</string>
     <string name="captions_textopacity" msgid="5536765490446288641">"Tekstens gennemsigtighed"</string>
+    <string name="captions_windowshow" msgid="5716898740522196707">"Vis vindue"</string>
     <string name="captions_windowcolor" msgid="8986165172260903279">"Farve på vinduet"</string>
     <string name="captions_windowopacity" msgid="2784473496224936703">"Gennemsigtighedsniveau for vinduet"</string>
+    <string name="captions_style_0" msgid="2068865433439146533">"Hvidt på sort"</string>
+    <string name="captions_style_1" msgid="8878565905353923498">"Sort på hvidt"</string>
+    <string name="captions_style_2" msgid="1486695984924671199">"Gult på sort"</string>
+    <string name="captions_style_3" msgid="3217829874170162074">"Gult på blåt"</string>
+    <string name="captions_style_custom" msgid="3645114505000714364">"Tilpasset"</string>
     <string name="color_white" msgid="65537523012024751">"Hvid"</string>
     <string name="color_black" msgid="8804213372565106403">"Sort"</string>
     <string name="color_red" msgid="5630553203246525989">"Rød"</string>
@@ -346,13 +400,14 @@
     <string name="color_cyan" msgid="796226330055745">"Cyan"</string>
     <string name="color_yellow" msgid="1023390829879874964">"Gul"</string>
     <string name="color_magenta" msgid="6395786485839439122">"Lyslilla"</string>
-    <string name="system_accessibility_status" msgid="4389074529913575327">"Tilstand"</string>
+    <string name="system_accessibility_status" msgid="6150600992901856367">"Aktivér"</string>
     <string name="system_accessibility_config" msgid="3216531917536720277">"Konfiguration"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="8200707259067035823">"Vil du bruge <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
     <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"<xliff:g id="SERVICE">%1$s</xliff:g> kan indsamle al den tekst, du skriver, undtagen adgangskoder. Dette omfatter personlige data såsom kreditkortnumre."</string>
     <string name="system_accessibility_service_off_confirm_title" msgid="963297812889694832">"Vil du stoppe <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
     <string name="system_accessibility_service_off_confirm_desc" msgid="6714782635926048678">"Hvis du vælger OK, stoppes <xliff:g id="SERVICE">%1$s</xliff:g>."</string>
     <string name="system_accessibility_tts_output" msgid="8905477795536714590">"Oplæsning"</string>
+    <string name="system_accessibility_tts_engine_config" msgid="5331139536083054552">"Konfiguration af maskinen"</string>
     <string name="system_speak_passwords" msgid="5264650214879185873">"Oplæs adgangskoder"</string>
     <string name="system_preferred_engine" msgid="8258210139854655567">"Foretrukken maskine"</string>
     <string name="system_speech_rate" msgid="8099856582088545576">"Talehastighed"</string>
@@ -421,6 +476,7 @@
     <string name="disagree" msgid="9170636026862400981">"Uenig"</string>
     <string name="security_unknown_sources_title" msgid="769762478057744545">"Ukendte kilder"</string>
     <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Tillad installation af apps fra andre kilder end Play Butik"</string>
+    <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"Tillad ukendte kilder"</string>
     <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"Din enhed og dine personlige data er mere sårbare over for angreb fra apps fra ukendte kilder. Du accepterer, at du alene er ansvarlig for eventuelle skader på din enhed eller tab af data, der kan skyldes brugen af disse apps."</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"Bekræft apps"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"Bloker eller advar mod potentielt skadelige apps inden installation"</string>
@@ -479,26 +535,27 @@
     <string name="inputs_game" msgid="1114086481110094757">"Spillekonsol"</string>
     <string name="inputs_aux" msgid="5704676433978730340">"Aux"</string>
     <string name="inputs_custom_name" msgid="5584925321693432362">"Tilpasset navn"</string>
+    <string name="inputs_custom_name_description_fmt" msgid="7123031859468901866">"Indtast et navn på <xliff:g id="INPUT">%1$s</xliff:g>-indgangen."</string>
     <string name="inputs_hide" msgid="1575971556150395486">"Skjult"</string>
-    <string name="inputs_hide_desc" msgid="8172670556559886526">"Vises ikke, når du skifter inputmetode"</string>
-    <string name="inputs_custom_title" msgid="374036983231176581">"Tilpasset navn:"</string>
+    <string name="inputs_show" msgid="5069718540369447778">"Vis denne indgang"</string>
+    <string name="input_header_names" msgid="6958427658951236078">"Navn"</string>
     <string name="inputs_hdmi_control" msgid="2462240356665628563">"HDMI-styring"</string>
     <string name="inputs_hdmi_control_desc" msgid="2300590479729796132">"Tillad, at tv\'et styrer HDMI-enheder"</string>
     <string name="inputs_device_auto_off" msgid="7510049770946999285">"Sluk enhed automatisk"</string>
     <string name="inputs_device_auto_off_desc" msgid="2679638131351116942">"Sluk HDMI-enheder med tv\'et"</string>
     <string name="inputs_tv_auto_on" msgid="2627932269256793797">"Tænd tv automatisk"</string>
     <string name="inputs_tv_auto_on_desc" msgid="7658625130577708249">"Tænd tv\'et med HDMI-enhed"</string>
-    <plurals name="inputs_header_connected_input" formatted="false" msgid="4694899943180976672">
-      <item quantity="one">INPUTENHEDERNE ER TILSLUTTET</item>
-      <item quantity="other">INPUTENHEDERNE ER TILSLUTTET</item>
+    <plurals name="inputs_header_connected_input" formatted="false" msgid="3158173055262045630">
+      <item quantity="one">Indgang er tilsluttet</item>
+      <item quantity="other">Indgange er tilsluttet</item>
     </plurals>
-    <plurals name="inputs_header_standby_input" formatted="false" msgid="1903575597797993135">
-      <item quantity="one">AFVENTER INPUTENHEDER</item>
-      <item quantity="other">AFVENTER INPUTENHEDER</item>
+    <plurals name="inputs_header_standby_input" formatted="false" msgid="8614849472167217134">
+      <item quantity="one">Standby indbang</item>
+      <item quantity="other">Standby indgange</item>
     </plurals>
-    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="2979766871256996256">
-      <item quantity="one">INPUTENHEDER IKKE TILSLUTTET</item>
-      <item quantity="other">INPUTENHEDER IKKE TILSLUTTET</item>
+    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="1092697966171944243">
+      <item quantity="one">Indgang er ikke tilsluttet</item>
+      <item quantity="other">Indgange er ikke tilsluttet</item>
     </plurals>
     <string name="user_add_profile_item_summary" msgid="2946168478936086933">"Begræns adgangen til apps og andet indhold på din konto"</string>
     <string name="user_new_profile_name" msgid="336521054830056189">"Begrænset profil"</string>
@@ -510,6 +567,7 @@
     <string name="restricted_profile_switch_to" msgid="1926433350907032138">"Skift til begrænset profil"</string>
     <string name="restricted_profile_switch_out" msgid="1893784095623209495">"Forlad begrænset profil"</string>
     <string name="restricted_profile_delete_title" msgid="3445944923018324707">"Slet begrænset profil"</string>
+    <string name="restricted_profile_create_title" msgid="1392190365829029390">"Opret en begrænset profil"</string>
     <string name="restricted_profile_configure_title" msgid="4684188123147519620">"Indstillinger"</string>
     <string name="restricted_profile_configure_apps_title" msgid="11507255932348492">"Tilladte apps"</string>
     <plurals name="restricted_profile_configure_apps_description" formatted="false" msgid="1138147479259808487">
@@ -522,6 +580,7 @@
     <string name="restricted_profile_configure_apps_description_loading" msgid="5269477581791409700">"Et øjeblik..."</string>
     <string name="restricted_profile_change_password_title" msgid="2848537651211816659">"Skift pinkode"</string>
     <string name="restriction_description" msgid="3104855945910233028">"<xliff:g id="DESCRIPTION">%1$s</xliff:g>\n<xliff:g id="VALUE">%2$s</xliff:g>"</string>
+    <string name="app_sees_restricted_accounts_and_controlled_by" msgid="6677671440081319908">"Denne app har adgang til dine konti. Administreres af <xliff:g id="APP">%1$s</xliff:g>"</string>
     <string name="pin_enter_unlock_channel" msgid="5980400420298506069">"Angiv pinkode for at se denne kanal"</string>
     <string name="pin_enter_unlock_program" msgid="52453773316071511">"Angiv pinkode for at se dette program"</string>
     <string name="pin_enter_pin" msgid="821552376577935497">"Indtast pinkode"</string>
@@ -532,9 +591,9 @@
     <string name="pin_toast_wrong" msgid="4628358195224633248">"Forkert pinkode. Prøv igen"</string>
     <string name="pin_toast_not_match" msgid="5886041789737632996">"Prøv igen. Pinkoden var forkert"</string>
     <string name="wifi_setup_input_password" msgid="1596168874369038536">"Angiv adgangskoden til <xliff:g id="SSID">%1$s</xliff:g>"</string>
-    <string name="wifi_setup_connection_success" msgid="6262755735033937164">"Forbundet."</string>
-    <string name="wifi_setup_save_success" msgid="4829154865874318015">"Er blevet gemt."</string>
-    <string name="device_apps_app_management_version" msgid="1004679024556315208">"version <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
+    <string name="wifi_setup_connection_success" msgid="3846993789166071184">"Forbundet"</string>
+    <string name="wifi_setup_save_success" msgid="4785799603638549254">"Gemt"</string>
+    <string name="device_apps_app_management_version" msgid="2267065043941006486">"Version <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
     <string name="device_apps_app_management_open" msgid="8009823973422120839">"Åben"</string>
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Tving til at standse"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Hvis du tvinger en app til at standse, kan det medføre, at den ikke fungerer korrekt."</string>
@@ -560,13 +619,13 @@
     <string name="settings_cancel" msgid="304280412158061225">"Annuller"</string>
     <string name="settings_on" msgid="6892236264945435013">"Til"</string>
     <string name="settings_off" msgid="449272161738237637">"Fra"</string>
-    <string name="device_daydreams_none" msgid="7364189761517824834">"Ingen"</string>
-    <string name="device_daydreams_select" msgid="3691552535056569158">"Dagdrøm"</string>
+    <string name="device_daydreams_none" msgid="2767107052779579259">"Sluk skærmen"</string>
+    <string name="device_daydreams_select" msgid="2112338101206187695">"Pauseskærm"</string>
     <string name="device_daydreams_test" msgid="9038920213402659591">"Start nu"</string>
-    <string name="device_daydreams_sleep" msgid="8766795993034660366">"Hvornår der skal dagdrømmes"</string>
-    <string name="device_daydreams_sleep_description" msgid="5269460120567642259">"Dagdrømmen vises først efter dette tidsrum uden aktivitet. Hvis der ikke er valgt nogen dagdrøm, slukkes skærmen."</string>
+    <string name="device_daydreams_sleep" msgid="7676938708373592766">"Starttidspunkt"</string>
+    <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"Pauseskærmen starter efter dette tidsrum uden aktivitet. Hvis der ikke er valgt nogen pauseskærm, slukkes displayet."</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"Efter <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>s inaktivitet"</string>
-    <string name="device_daydreams_screen_off" msgid="5002473979169042970">"Hvornår dvaletilstand skal slås til"</string>
+    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Sæt enheden i dvaletilstand"</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"Skærmen slukker efter denne inaktivitetsperiode."</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"Der er i øjeblikket ikke nogen konto, der lagrer sikkerhedskopierede data"</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
@@ -578,8 +637,8 @@
     <string name="factory_reset_description" msgid="5381170999141355891">"Dette medfører sletning af alle data fra enhedens interne lager, herunder din Google-konto, data og indstillinger for system og apps samt downloadede apps"</string>
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Vil du slette alle dine personlige oplysninger og downloadede apps? Denne handling kan ikke fortrydes."</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Slet alt"</string>
-    <string name="select_title" msgid="3905067953686121845">"Vælg et navn til din ^1"</string>
-    <string name="select_description" msgid="4070142015460337658">"Et navn kan hjælpe dig med at identificere din ^1, når du skal have adgang til den fra andre enheder, f.eks. din telefon, tablet eller computer."</string>
+    <string name="select_device_name_title" msgid="5165800500130943604">"Vælg et navn til din <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
+    <string name="select_device_name_description" msgid="2697127827643821315">"Et navn kan hjælpe dig med at identificere din <xliff:g id="DEVICEMODEL">%1$s</xliff:g>, når du skal have adgang til den fra andre enheder, f.eks. din telefon, tablet eller computer."</string>
   <string-array name="rooms">
     <item msgid="7085399612393981553">"Stue"</item>
     <item msgid="3722089849939477581">"Spillerum"</item>
@@ -590,12 +649,18 @@
     <item msgid="8120010459866284578">"Køkken"</item>
   </string-array>
     <string name="custom_room" msgid="8991561978321502549">"Angiv et tilpasset navn…"</string>
-    <string name="settings_status_title" msgid="3890412726442124167">"Denne ^1 er navngivet"</string>
-    <string name="settings_status_description" msgid="3600745966132434139">"\"^1\" er navnet på denne ^2. Vil du ændre navnet?"</string>
+    <string name="device_rename_title" msgid="2629557295786267185">"Omdøb denne <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
+    <string name="device_rename_description" msgid="2461752788563877107">"Denne <xliff:g id="DEVICEMODEL">%1$s</xliff:g> har i øjeblikket navnet \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\""</string>
     <string name="change_setting" msgid="2047402388786162246">"Skift"</string>
     <string name="keep_settings" msgid="6798327196645732517">"Skift ikke ejer"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"Tilladelser"</string>
     <string name="device_apps_permissions" msgid="2966387603529725982">"Apptilladelser"</string>
     <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%d</xliff:g> ud af <xliff:g id="COUNT_1">%d</xliff:g> apps har tilladelse"</string>
+    <string name="bluetooth_permission_request" msgid="6649813878683015301">"Anmodning om Bluetooth-tilladelse"</string>
     <string name="security_patch" msgid="2131617390189164481">"Niveau for sikkerhedsrettelse på Android"</string>
+    <string name="choose_application" msgid="5662960665577780353">"Vælg app"</string>
+    <string name="experimental_preference" msgid="1137673985823581797">"(Eksperimentel)"</string>
+    <string name="reboot_safemode_action" msgid="8129550438717110406">"Genstart i sikker tilstand"</string>
+    <string name="reboot_safemode_confirm" msgid="3329475617645192086">"Vil du genstarte i sikker tilstand?"</string>
+    <string name="reboot_safemode_desc" msgid="5031024337104679492">"Dette deaktiverer alle de tredjepartsapps, du har installeret. De genoprettes, når du genstarter igen."</string>
 </resources>

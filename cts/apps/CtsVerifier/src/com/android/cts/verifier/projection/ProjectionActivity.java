@@ -123,8 +123,7 @@ public abstract class ProjectionActivity extends PassFailButtons.Activity
         mWidth = width;
         mHeight = height;
         if (mService == null) {
-            bindService(mStartIntent, mConnection,
-                    Context.BIND_AUTO_CREATE);
+            bindService(mStartIntent, mConnection, Context.BIND_AUTO_CREATE);
         }
 
     }
@@ -143,6 +142,7 @@ public abstract class ProjectionActivity extends PassFailButtons.Activity
         mSurface = null;
 
         unbindService(mConnection);
+        mService = null;
         return true;
     }
 

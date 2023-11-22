@@ -16,32 +16,26 @@
 
 package com.android.wallpaper.livepicker;
 
-import java.io.IOException;
-import java.util.List;
-
-import org.xmlpull.v1.XmlPullParserException;
-
-import android.app.Activity;
 import android.app.WallpaperInfo;
 import android.app.WallpaperManager;
-import android.os.Bundle;
-import android.os.Parcelable;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.ResolveInfo;
-import android.content.pm.ServiceInfo;
+import android.os.Parcelable;
 import android.service.wallpaper.WallpaperService;
 import android.util.Log;
 
-public class LiveWallpaperChange extends Activity {
+import org.xmlpull.v1.XmlPullParserException;
+
+import java.io.IOException;
+import java.util.List;
+
+public class LiveWallpaperChange extends LiveWallpaperPreview {
     private static final String TAG = "CHANGE_LIVE_WALLPAPER";
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
+    protected void init() {
         Parcelable obj = getIntent().getParcelableExtra(
                 WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT);
         if (obj == null || !(obj instanceof ComponentName)) {
@@ -63,36 +57,22 @@ public class LiveWallpaperChange extends Activity {
             for (int i=0; i<list.size(); i++) {
                 ResolveInfo ri = list.get(i);
                 if (ri.serviceInfo.name.equals(comp.getClassName())) {
-                    WallpaperInfo info = null;
+                    WallpaperInfo info;
                     try {
                         info = new WallpaperInfo(this, ri);
-                    } catch (XmlPullParserException e) {
-                        Log.w(TAG, "Bad wallpaper " + ri.serviceInfo, e);
-                        finish();
-                        return;
-                    } catch (IOException e) {
+                    } catch (XmlPullParserException|IOException e) {
                         Log.w(TAG, "Bad wallpaper " + ri.serviceInfo, e);
                         finish();
                         return;
                     }
-                    Intent intent = new Intent(WallpaperService.SERVICE_INTERFACE);
-                    intent.setClassName(info.getPackageName(), info.getServiceName());
-                    LiveWallpaperPreview.showPreview(this, 0, intent, info);
+
+                    initUI(info);
                     return;
                 }
             }
         }
 
         Log.w(TAG, "Not a live wallpaper: " + comp);
-        finish();
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        // forward result code
-        setResult(resultCode);
         finish();
     }
 }

@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <mutex>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,7 +36,30 @@
 #include <utils/SystemClock.h>
 
 #include <processgroup/processgroup.h>
-#include "processgroup_priv.h"
+
+// Uncomment line below use memory cgroups for keeping track of (forked) PIDs
+// #define USE_MEMCG 1
+
+#define MEM_CGROUP_PATH "/dev/memcg/apps"
+#define MEM_CGROUP_TASKS "/dev/memcg/apps/tasks"
+#define ACCT_CGROUP_PATH "/acct"
+
+#define PROCESSGROUP_UID_PREFIX "uid_"
+#define PROCESSGROUP_PID_PREFIX "pid_"
+#define PROCESSGROUP_CGROUP_PROCS_FILE "/cgroup.procs"
+#define PROCESSGROUP_MAX_UID_LEN 11
+#define PROCESSGROUP_MAX_PID_LEN 11
+#define PROCESSGROUP_MAX_PATH_LEN \
+        ((sizeof(MEM_CGROUP_PATH) > sizeof(ACCT_CGROUP_PATH) ? \
+          sizeof(MEM_CGROUP_PATH) : sizeof(ACCT_CGROUP_PATH)) + \
+         sizeof(PROCESSGROUP_UID_PREFIX) + 1 + \
+         PROCESSGROUP_MAX_UID_LEN + \
+         sizeof(PROCESSGROUP_PID_PREFIX) + 1 + \
+         PROCESSGROUP_MAX_PID_LEN + \
+         sizeof(PROCESSGROUP_CGROUP_PROCS_FILE) + \
+         1)
+
+std::once_flag init_path_flag;
 
 struct ctx {
     bool initialized;
@@ -45,10 +69,25 @@ struct ctx {
     size_t buf_len;
 };
 
+static const char* getCgroupRootPath() {
+#ifdef USE_MEMCG
+    static const char* cgroup_root_path = NULL;
+    std::call_once(init_path_flag, [&]() {
+            // Check if mem cgroup is mounted, only then check for write-access to avoid
+            // SELinux denials
+            cgroup_root_path = access(MEM_CGROUP_TASKS, F_OK) || access(MEM_CGROUP_PATH, W_OK) ?
+                    ACCT_CGROUP_PATH : MEM_CGROUP_PATH;
+            });
+    return cgroup_root_path;
+#else
+    return ACCT_CGROUP_PATH;
+#endif
+}
+
 static int convertUidToPath(char *path, size_t size, uid_t uid)
 {
     return snprintf(path, size, "%s/%s%d",
-            PROCESSGROUP_CGROUP_PATH,
+            getCgroupRootPath(),
             PROCESSGROUP_UID_PREFIX,
             uid);
 }
@@ -56,7 +95,7 @@ static int convertUidToPath(char *path, size_t size, uid_t uid)
 static int convertUidPidToPath(char *path, size_t size, uid_t uid, int pid)
 {
     return snprintf(path, size, "%s/%s%d/%s%d",
-            PROCESSGROUP_CGROUP_PATH,
+            getCgroupRootPath(),
             PROCESSGROUP_UID_PREFIX,
             uid,
             PROCESSGROUP_PID_PREFIX,
@@ -188,9 +227,10 @@ static void removeUidProcessGroups(const char *uid_path)
 void removeAllProcessGroups()
 {
     SLOGV("removeAllProcessGroups()");
-    DIR *root = opendir(PROCESSGROUP_CGROUP_PATH);
+    const char *cgroup_root_path = getCgroupRootPath();
+    DIR *root = opendir(cgroup_root_path);
     if (root == NULL) {
-        SLOGE("failed to open %s: %s", PROCESSGROUP_CGROUP_PATH, strerror(errno));
+        SLOGE("failed to open %s: %s", cgroup_root_path, strerror(errno));
     } else {
         struct dirent cur;
         struct dirent *dir;
@@ -204,7 +244,7 @@ void removeAllProcessGroups()
                 continue;
             }
 
-            snprintf(path, sizeof(path), "%s/%s", PROCESSGROUP_CGROUP_PATH, dir->d_name);
+            snprintf(path, sizeof(path), "%s/%s", cgroup_root_path, dir->d_name);
             removeUidProcessGroups(path);
             SLOGV("removing %s\n", path);
             rmdir(path);

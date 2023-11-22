@@ -16,7 +16,7 @@
 
 package android.widget.cts;
 
-import com.android.cts.widget.R;
+import android.widget.cts.R;
 
 
 import android.app.Activity;
@@ -44,7 +44,7 @@ public class ToastTest extends ActivityInstrumentationTestCase2<CtsActivity> {
     private ViewTreeObserver.OnGlobalLayoutListener mLayoutListener;
 
     public ToastTest() {
-        super("com.android.cts.widget", CtsActivity.class);
+        super("android.widget.cts", CtsActivity.class);
     }
 
     @Override

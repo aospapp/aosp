@@ -3,6 +3,8 @@
  * Copyright 2012 Ashwini Kumar <ak.ashwini@gmail.com>
  *
  * See http://opengroup.org/onlinepubs/9699919799/utilities/du.html
+ *
+ * TODO: cleanup
 
 USE_DU(NEWTOY(du, "d#<0hmlcaHkKLsx[-HL][-kKmh]", TOYFLAG_USR|TOYFLAG_BIN))
 
@@ -55,7 +57,7 @@ static void print(long long size, struct dirtree *node)
   if (TT.maxdepth && TT.depth > TT.maxdepth) return;
 
   if (toys.optflags & FLAG_h) {
-    human_readable(toybuf, size);
+    human_readable(toybuf, size, 0);
     printf("%s", toybuf);
   } else {
     int bits = 10;

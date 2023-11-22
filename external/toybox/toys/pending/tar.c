@@ -190,7 +190,7 @@ static void add_file(struct archive_handler *tar, char **nam, struct stat *st)
   }
 
   memset(&hdr, 0, sizeof(hdr));
-  xstrncpy(hdr.name, hname, sizeof(hdr.name));
+  strncpy(hdr.name, hname, sizeof(hdr.name));
   itoo(hdr.mode, sizeof(hdr.mode), st->st_mode &07777);
   itoo(hdr.uid, sizeof(hdr.uid), st->st_uid);
   itoo(hdr.gid, sizeof(hdr.gid), st->st_gid);
@@ -287,7 +287,7 @@ static void compress_stream(struct archive_handler *tar_hdl)
   int pipefd[2];
   pid_t cpid;
 
-  if (pipe(pipefd) == -1) error_exit("pipe");
+  xpipe(pipefd);
 
   signal(SIGPIPE, SIG_IGN);
   cpid = fork();

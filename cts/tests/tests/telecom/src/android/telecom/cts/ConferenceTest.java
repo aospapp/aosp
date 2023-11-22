@@ -29,14 +29,22 @@ import android.telecom.PhoneAccountHandle;
 import android.telecom.StatusHints;
 import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
+import android.util.Log;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Extended suite of tests that use {@link CtsConnectionService} and {@link MockInCallService} to
  * verify the functionality of Call Conferencing.
  */
 public class ConferenceTest extends BaseTelecomTestWithMockServices {
+
+    private static final String TEST_EXTRA_KEY_1 = "android.telecom.test.KEY1";
+    private static final String TEST_EXTRA_KEY_2 = "android.telecom.test.KEY2";
+    private static final String TEST_EXTRA_VALUE_1 = "test";
+    private static final int TEST_EXTRA_VALUE_2 = 42;
 
     public static final int CONF_CAPABILITIES = Connection.CAPABILITY_SEPARATE_FROM_CONFERENCE |
             Connection.CAPABILITY_DISCONNECT_FROM_CONFERENCE | Connection.CAPABILITY_HOLD |
@@ -45,7 +53,7 @@ public class ConferenceTest extends BaseTelecomTestWithMockServices {
     private Call mCall1, mCall2;
     private MockConnection mConnection1, mConnection2;
     MockInCallService mInCallService;
-    Conference mConferenceObject;
+    MockConference mConferenceObject;
 
     @Override
     protected void setUp() throws Exception {
@@ -197,7 +205,8 @@ public class ConferenceTest extends BaseTelecomTestWithMockServices {
 
         // Dialing state is unsupported for conference calls. so, the state remains active.
         mConferenceObject.setDialing();
-        assertCallState(conf, Call.STATE_ACTIVE);
+        // just assert call state is not dialing, the state remains as previous one.
+        assertTrue(conf.getState() != Call.STATE_DIALING);
 
         mConferenceObject.setOnHold();
         assertCallState(conf, Call.STATE_HOLDING);

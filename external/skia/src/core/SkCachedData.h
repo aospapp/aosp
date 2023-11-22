@@ -8,7 +8,8 @@
 #ifndef SkCachedData_DEFINED
 #define SkCachedData_DEFINED
 
-#include "SkThread.h"
+#include "SkMutex.h"
+#include "SkTypes.h"
 
 class SkDiscardableMemory;
 
@@ -30,8 +31,12 @@ public:
     bool testing_only_isLocked() const { return fIsLocked; }
     bool testing_only_isInCache() const { return fInCache; }
 
+    SkDiscardableMemory* diagnostic_only_getDiscardable() const {
+        return kDiscardableMemory_StorageType == fStorageType ? fStorage.fDM : nullptr;
+    }
+
 protected:
-    // called when fData changes. could be NULL.
+    // called when fData changes. could be nullptr.
     virtual void onDataChange(void* oldData, void* newData) {}
 
 private:
@@ -78,7 +83,7 @@ public:
 #else
     void validate() const {}
 #endif
-    
+
    /*
      *  Attaching a data to to a SkResourceCache (only one at a time) enables the data to be
      *  unlocked when the cache is the only owner, thus freeing it to be purged (assuming the
@@ -88,7 +93,7 @@ public:
      *  ref's the data (typically from a find(key, visitor) call).
      *
      *  Thus the data will always be "locked" when a non-cache has a ref on it (whether or not
-     *  the lock succeeded to recover the memory -- check data() to see if it is NULL).
+     *  the lock succeeded to recover the memory -- check data() to see if it is nullptr).
      */
 
     /*

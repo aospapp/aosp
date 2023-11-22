@@ -16,9 +16,12 @@
 
 package com.android.services.telephony;
 
+import com.android.phone.PhoneUtils;
+
 import android.os.Handler;
 import android.telecom.Connection;
 import android.telecom.DisconnectCause;
+import android.telecom.PhoneAccountHandle;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,7 +35,7 @@ import java.util.List;
  *    indication given to us as to what state they are in.
  *
  * To make life easier on the user we do the following: Whenever there exist 2 or more calls, we
- * say that we are in a conference call with {@link Connection#CAPABILITY_GENERIC_CONFERENCE}.
+ * say that we are in a conference call with {@link Connection#PROPERTY_GENERIC_CONFERENCE}.
  * Generic indicates that this is a simple conference that doesn't support conference management.
  * The conference call will also support "MERGE" to begin with and stop supporting it the first time
  * we are asked to actually execute a merge. I emphasize when "we are asked" because we get no
@@ -144,15 +147,18 @@ final class CdmaConferenceController {
         if (conferenceConnections.size() >= 2) {
             boolean isNewlyCreated = false;
 
+            CdmaConnection newConnection = mCdmaConnections.get(mCdmaConnections.size() - 1);
+
             // There are two or more CDMA connections. Do the following:
             // 1) Create a new conference connection if it doesn't exist.
             if (mConference == null) {
                 Log.i(this, "Creating new Cdma conference call");
-                mConference = new CdmaConference(null);
+                PhoneAccountHandle phoneAccountHandle =
+                        PhoneUtils.makePstnPhoneAccountHandle(newConnection.getPhone());
+                mConference = new CdmaConference(phoneAccountHandle);
                 isNewlyCreated = true;
             }
 
-            CdmaConnection newConnection = mCdmaConnections.get(mCdmaConnections.size() - 1);
             if (newConnection.isOutgoing()) {
                 // Only an outgoing call can be merged with an ongoing call.
                 mConference.updateCapabilities(Connection.CAPABILITY_MERGE_CONFERENCE);

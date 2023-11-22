@@ -12,6 +12,8 @@
 #include "SkDrawFilter.h"
 #include "SkPaint.h"
 
+#ifdef SK_SUPPORT_LEGACY_DRAWFILTER
+
 /**
  * Initial test coverage for SkDrawFilter.
  * Draws two rectangles; if draw filters are broken, they will match.
@@ -24,7 +26,7 @@ class TestFilter : public SkDrawFilter {
 public:
     bool filter(SkPaint* p, Type) override {
         p->setColor(SK_ColorRED);
-        p->setMaskFilter(NULL);
+        p->setMaskFilter(nullptr);
         return true;
     }
 };
@@ -53,7 +55,7 @@ protected:
         p.setColor(SK_ColorBLUE);
         p.setMaskFilter(fBlur.get());
         SkRect r = { 20, 20, 100, 100 };
-        canvas->setDrawFilter(NULL);
+        canvas->setDrawFilter(nullptr);
         canvas->drawRect(r, p);
         TestFilter redNoBlur;
         canvas->setDrawFilter(&redNoBlur);
@@ -61,13 +63,13 @@ protected:
         canvas->drawRect(r, p);
 
         // Must unset if the DrawFilter is from the stack to avoid refcount errors!
-        canvas->setDrawFilter(NULL);
+        canvas->setDrawFilter(nullptr);
     }
 
 private:
     typedef GM INHERITED;
 };
 
-static skiagm::GM* MyFactory(void*) { return new DrawFilterGM; }
-static skiagm::GMRegistry reg(MyFactory);
+DEF_GM( return new DrawFilterGM; )
 
+#endif

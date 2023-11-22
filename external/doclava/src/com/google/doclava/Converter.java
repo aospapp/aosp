@@ -227,7 +227,8 @@ public class Converter {
     if (p == null) return null;
     ParameterInfo pi =
         new ParameterInfo(p.name(), p.typeName(), Converter.obtainType(p.type()), isVarArg,
-          Converter.convertSourcePosition(pos));
+          Converter.convertSourcePosition(pos),
+          Arrays.asList(Converter.convertAnnotationInstances(p.annotations())));
     return pi;
   }
 
@@ -403,8 +404,9 @@ public class Converter {
                     m.name(), m.signature(), Converter.obtainClass(m.containingClass()),
                     Converter.obtainClass(m.containingClass()), m.isPublic(), m.isProtected(), m
                     .isPackagePrivate(), m.isPrivate(), m.isFinal(), m.isStatic(), m.isSynthetic(),
-                    m.isAbstract(), m.isSynchronized(), m.isNative(), true, "annotationElement",
-                    m.flatSignature(), Converter.obtainMethod(m.overriddenMethod()),
+                    m.isAbstract(), m.isSynchronized(), m.isNative(), m.isDefault(), true,
+                    "annotationElement", m.flatSignature(),
+                    Converter.obtainMethod(m.overriddenMethod()),
                     Converter.obtainType(m.returnType()),
                     new ArrayList<ParameterInfo>(Arrays.asList(
                             Converter.convertParameters(m.parameters(), m))),
@@ -424,8 +426,8 @@ public class Converter {
                     Converter.obtainClass(m.containingClass()),
                     Converter.obtainClass(m.containingClass()), m.isPublic(), m.isProtected(),
                     m.isPackagePrivate(), m.isPrivate(), m.isFinal(), m.isStatic(), m.isSynthetic(),
-                    m.isAbstract(), m.isSynchronized(), m.isNative(), false, "method",
-                    m.flatSignature(), Converter.obtainMethod(m.overriddenMethod()),
+                    m.isAbstract(), m.isSynchronized(), m.isNative(), m.isDefault(), false,
+                    "method", m.flatSignature(), Converter.obtainMethod(m.overriddenMethod()),
                     Converter.obtainType(m.returnType()),
                     new ArrayList<ParameterInfo>(Arrays.asList(
                             Converter.convertParameters(m.parameters(), m))),
@@ -439,12 +441,26 @@ public class Converter {
         return result;
       } else {
         ConstructorDoc m = (ConstructorDoc) o;
+        // Workaround for a JavaDoc behavior change introduced in OpenJDK 8 that breaks
+        // links in documentation and the content of API files like current.txt.
+        // http://b/18051133.
+        String name = m.name();
+        ClassDoc containingClass = m.containingClass();
+        if (containingClass.containingClass() != null) {
+          // This should detect the new behavior and be bypassed otherwise.
+          if (!name.contains(".")) {
+            // Constructors of inner classes do not contain the name of the enclosing class
+            // with OpenJDK 8. This simulates the old behavior:
+            name = containingClass.name();
+          }
+        }
+        // End of workaround.
         MethodInfo result =
-            new MethodInfo(m.getRawCommentText(), new ArrayList<TypeInfo>(Arrays.asList(Converter.convertTypes(m.typeParameters()))), m
-                .name(), m.signature(), Converter.obtainClass(m.containingClass()), Converter
+            new MethodInfo(m.getRawCommentText(), new ArrayList<TypeInfo>(Arrays.asList(Converter.convertTypes(m.typeParameters()))), 
+                name, m.signature(), Converter.obtainClass(m.containingClass()), Converter
                 .obtainClass(m.containingClass()), m.isPublic(), m.isProtected(), m
                 .isPackagePrivate(), m.isPrivate(), m.isFinal(), m.isStatic(), m.isSynthetic(),
-                false, m.isSynchronized(), m.isNative(), false, "constructor", m.flatSignature(),
+                false, m.isSynchronized(), m.isNative(), false/*isDefault*/, false, "constructor", m.flatSignature(),
                 null, null, new ArrayList<ParameterInfo>(Arrays.asList(Converter.convertParameters(m.parameters(), m))),
                 new ArrayList<ClassInfo>(Arrays.asList(Converter.convertClasses(m.thrownExceptions()))), Converter.convertSourcePosition(m
                     .position()), new ArrayList<AnnotationInstanceInfo>(Arrays.asList(Converter.convertAnnotationInstances(m.annotations()))));

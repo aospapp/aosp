@@ -43,8 +43,13 @@ public class AudioTrackNative {
     // numBuffers is the number of internal buffers before hitting the OpenSL ES.
     // A value of 0 means that all writes are blocking.
     public boolean open(int numChannels, int sampleRate, boolean useFloat, int numBuffers) {
-        if (nativeOpen(mNativeTrackInJavaObj, numChannels, sampleRate, useFloat, numBuffers)
-                == STATUS_OK) {
+        return open(numChannels, 0, sampleRate, useFloat, numBuffers);
+    }
+
+    public boolean open(int numChannels, int channelMask, int sampleRate,
+            boolean useFloat, int numBuffers) {
+        if (nativeOpen(mNativeTrackInJavaObj, numChannels, channelMask,
+                sampleRate, useFloat, numBuffers) == STATUS_OK) {
             mChannelCount = numChannels;
             return true;
         }
@@ -111,7 +116,12 @@ public class AudioTrackNative {
 
     public static boolean test(int numChannels, int sampleRate, boolean useFloat,
             int msecPerBuffer, int numBuffers) {
-        return nativeTest(numChannels, sampleRate, useFloat, msecPerBuffer, numBuffers)
+        return test(numChannels, 0, sampleRate, useFloat, msecPerBuffer, numBuffers);
+    }
+
+    public static boolean test(int numChannels, int channelMask, int sampleRate, boolean useFloat,
+            int msecPerBuffer, int numBuffers) {
+        return nativeTest(numChannels, channelMask, sampleRate, useFloat, msecPerBuffer, numBuffers)
                 == STATUS_OK;
     }
 
@@ -139,7 +149,8 @@ public class AudioTrackNative {
     private static native long nativeCreateTrack();
     private static native void nativeDestroyTrack(long track);
     private static native int nativeOpen(
-            long track, int numChannels, int sampleRate, boolean useFloat, int numBuffers);
+            long track, int numChannels, int channelMask,
+            int sampleRate, boolean useFloat, int numBuffers);
     private static native void nativeClose(long track);
     private static native int nativeStart(long track);
     private static native int nativeStop(long track);
@@ -156,5 +167,6 @@ public class AudioTrackNative {
 
     // native interface for all-in-one testing, no track handle required.
     private static native int nativeTest(
-            int numChannels, int sampleRate, boolean useFloat, int msecPerBuffer, int numBuffers);
+            int numChannels, int channelMask, int sampleRate,
+            boolean useFloat, int msecPerBuffer, int numBuffers);
 }

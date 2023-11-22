@@ -45,6 +45,7 @@ import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -81,6 +82,12 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
     InvokeCounter mOnCallAudioStateChangedCounter;
     InvokeCounter mOnPostDialWaitCounter;
     InvokeCounter mOnCannedTextResponsesLoadedCounter;
+    InvokeCounter mOnSilenceRingerCounter;
+    InvokeCounter mOnConnectionEventCounter;
+    InvokeCounter mOnExtrasChangedCounter;
+    InvokeCounter mOnPropertiesChangedCounter;
+    Bundle mPreviousExtras;
+    int mPreviousProperties = -1;
 
     InCallServiceCallbacks mInCallCallbacks;
     String mPreviousDefaultDialer = null;
@@ -138,7 +145,9 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
     }
 
     protected void tearDownConnectionService(PhoneAccountHandle accountHandle) throws Exception {
-        assertNumConnections(this.connectionService, 0);
+        if (this.connectionService != null) {
+            assertNumConnections(this.connectionService, 0);
+        }
         mTelecomManager.unregisterPhoneAccount(accountHandle);
         CtsConnectionService.tearDown();
         assertCtsConnectionServiceUnbound();
@@ -190,6 +199,17 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
             @Override
             public void onDetailsChanged(Call call, Call.Details details) {
                 Log.i(TAG, "onDetailsChanged, Call: " + call + ", Details: " + details);
+                if (!areBundlesEqual(mPreviousExtras, details.getExtras())) {
+                    mOnExtrasChangedCounter.invoke(call, details);
+                }
+                mPreviousExtras = details.getExtras();
+
+                if (mPreviousProperties != details.getCallProperties()) {
+                    mOnPropertiesChangedCounter.invoke(call, details);
+                    Log.i(TAG, "onDetailsChanged; properties changed from " + Call.Details.propertiesToString(mPreviousProperties) +
+                            " to " + Call.Details.propertiesToString(details.getCallProperties()));
+                }
+                mPreviousProperties = details.getCallProperties();
             }
             @Override
             public void onCallDestroyed(Call call) {
@@ -216,6 +236,16 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
             public void onCannedTextResponsesLoaded(Call call, List<String> cannedTextResponses) {
                 mOnCannedTextResponsesLoadedCounter.invoke(call, cannedTextResponses);
             }
+            @Override
+            public void onConnectionEvent(Call call, String event, Bundle extras) {
+                mOnConnectionEventCounter.invoke(call, event, extras);
+            }
+
+            @Override
+            public void onSilenceRinger() {
+                Log.i(TAG, "onSilenceRinger");
+                mOnSilenceRingerCounter.invoke();
+            }
         };
 
         MockInCallService.setCallbacks(mInCallCallbacks);
@@ -226,6 +256,10 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
         mOnCallAudioStateChangedCounter = new InvokeCounter("OnCallAudioStateChanged");
         mOnPostDialWaitCounter = new InvokeCounter("OnPostDialWait");
         mOnCannedTextResponsesLoadedCounter = new InvokeCounter("OnCannedTextResponsesLoaded");
+        mOnSilenceRingerCounter = new InvokeCounter("OnSilenceRinger");
+        mOnConnectionEventCounter = new InvokeCounter("OnConnectionEvent");
+        mOnExtrasChangedCounter = new InvokeCounter("OnDetailsChangedCounter");
+        mOnPropertiesChangedCounter = new InvokeCounter("OnPropertiesChangedCounter");
     }
 
     /**
@@ -246,7 +280,8 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
         mTelecomManager.addNewIncomingCall(TEST_PHONE_ACCOUNT_HANDLE, extras);
 
         try {
-            if (!mInCallCallbacks.lock.tryAcquire(3, TimeUnit.SECONDS)) {
+            if (!mInCallCallbacks.lock.tryAcquire(TestUtils.WAIT_FOR_CALL_ADDED_TIMEOUT_S,
+                        TimeUnit.SECONDS)) {
                 fail("No call added to InCallService.");
             }
         } catch (InterruptedException e) {
@@ -294,10 +329,12 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
         if (mInCallCallbacks.getService() != null) {
             currentCallCount = mInCallCallbacks.getService().getCallCount();
         }
+        int currentConnectionCount = getNumberOfConnections();
         placeNewCallWithPhoneAccount(extras, videoState);
 
         try {
-            if (!mInCallCallbacks.lock.tryAcquire(3, TimeUnit.SECONDS)) {
+            if (!mInCallCallbacks.lock.tryAcquire(TestUtils.WAIT_FOR_CALL_ADDED_TIMEOUT_S,
+                        TimeUnit.SECONDS)) {
                 fail("No call added to InCallService.");
             }
         } catch (InterruptedException e) {
@@ -307,6 +344,20 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
         assertEquals("InCallService should contain 1 more call after adding a call.",
                 currentCallCount + 1,
                 mInCallCallbacks.getService().getCallCount());
+
+        // The connectionService.lock is released in
+        // MockConnectionService#onCreateOutgoingConnection, however the connection will not
+        // actually be added to the list of connections in the ConnectionService until shortly
+        // afterwards.  So there is still a potential for the lock to be released before it would
+        // be seen by calls to ConnectionService#getAllConnections().
+        // We will wait here until the list of connections includes one more connection to ensure
+        // that placing the call has fully completed.
+        final int expectedConnectionCount = currentConnectionCount + 1;
+        assertCSConnections(expectedConnectionCount);
+    }
+
+    int getNumberOfConnections() {
+        return CtsConnectionService.getAllConnectionsFromTelecom().size();
     }
 
     MockConnection verifyConnectionForOutgoingCall() {
@@ -516,6 +567,24 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
     );
     }
 
+    void assertCSConnections(final int numConnections) {
+        waitUntilConditionIsTrueOrTimeout(new Condition() {
+                                              @Override
+                                              public Object expected() {
+                                                  return numConnections;
+                                              }
+
+                                              @Override
+                                              public Object actual() {
+                                                  return CtsConnectionService
+                                                          .getAllConnectionsFromTelecom()
+                                                          .size();
+                                              }
+                                          },
+                WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
+                "ConnectionService should contain " + numConnections + " connections."
+        );
+    }
 
     void assertNumConnections(final MockConnectionService connService, final int numConnections) {
         waitUntilConditionIsTrueOrTimeout(new Condition() {
@@ -587,6 +656,25 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
                 },
                 WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
                 "Phone's audio route should be: " + route
+        );
+    }
+
+    void assertNotAudioRoute(final InCallService incallService, final int route) {
+        waitUntilConditionIsTrueOrTimeout(
+                new Condition() {
+                    @Override
+                    public Object expected() {
+                        return new Boolean(true);
+                    }
+
+                    @Override
+                    public Object actual() {
+                        final CallAudioState state = incallService.getCallAudioState();
+                        return route != state.getRoute();
+                    }
+                },
+                WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
+                "Phone's audio route should not be: " + route
         );
     }
 
@@ -733,6 +821,24 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
         );
     }
 
+    void assertDisconnectReason(final Connection connection, final String disconnectReason) {
+        waitUntilConditionIsTrueOrTimeout(
+                new Condition() {
+                    @Override
+                    public Object expected() {
+                        return disconnectReason;
+                    }
+
+                    @Override
+                    public Object actual() {
+                        return connection.getDisconnectCause().getReason();
+                    }
+                },
+                WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
+                "Connection should have been disconnected with reason: " + disconnectReason
+        );
+    }
+
     void assertConferenceState(final Conference conference, final int state) {
         waitUntilConditionIsTrueOrTimeout(
                 new Condition() {
@@ -793,12 +899,12 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
                 new Condition() {
                     @Override
                     public Object expected() {
-                        return true;
+                        return false;
                     }
 
                     @Override
                     public Object actual() {
-                        return CtsConnectionService.isServiceUnbound();
+                        return CtsConnectionService.isServiceBound();
                     }
                 },
                 WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
@@ -811,16 +917,65 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
                 new Condition() {
                     @Override
                     public Object expected() {
+                        return false;
+                    }
+
+                    @Override
+                    public Object actual() {
+                        return MockInCallService.isServiceBound();
+                    }
+                },
+                WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
+                "MockInCallService not yet unbound!"
+        );
+    }
+
+    /**
+     * Asserts that a call's properties are as expected.
+     *
+     * @param call The call.
+     * @param properties The expected properties.
+     */
+    public void assertCallProperties(final Call call, final int properties) {
+        waitUntilConditionIsTrueOrTimeout(
+                new Condition() {
+                    @Override
+                    public Object expected() {
                         return true;
                     }
 
                     @Override
                     public Object actual() {
-                        return MockInCallService.isServiceUnbound();
+                        return call.getDetails().hasProperty(properties);
                     }
                 },
-                WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
-                "MockInCallService not yet unbound!"
+                TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
+                "Call should have properties " + properties
+        );
+    }
+
+    /**
+     * Asserts that a call's capabilities are as expected.
+     *
+     * @param call The call.
+     * @param capabilities The expected capabiltiies.
+     */
+    public void assertCallCapabilities(final Call call, final int capabilities) {
+        waitUntilConditionIsTrueOrTimeout(
+                new Condition() {
+                    @Override
+                    public Object expected() {
+                        return true;
+                    }
+
+                    @Override
+                    public Object actual() {
+                        return (call.getDetails().getCallCapabilities() & capabilities) ==
+                                capabilities;
+                    }
+                },
+                TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
+                "Call should have properties " + capabilities
         );
     }
 
@@ -869,7 +1024,7 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
      * was invoked with. This class is prefixed Invoke rather than the more typical Call for
      * disambiguation purposes.
      */
-    protected static final class InvokeCounter {
+    public static final class InvokeCounter {
         private final String mName;
         private final Object mLock = new Object();
         private final ArrayList<Object[]> mInvokeArgs = new ArrayList<>();
@@ -908,6 +1063,16 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
             waitForCount(count, timeoutMillis, null);
         }
 
+        public void waitForCount(long timeoutMillis) {
+             synchronized (mLock) {
+             try {
+                  mLock.wait(timeoutMillis);
+             }catch (InterruptedException ex) {
+                  ex.printStackTrace();
+             }
+           }
+        }
+
         public void waitForCount(int count, long timeoutMillis, String message) {
             synchronized (mLock) {
                 final long startTimeMillis = SystemClock.uptimeMillis();
@@ -930,5 +1095,26 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
                 }
             }
         }
+    }
+
+    public static boolean areBundlesEqual(Bundle extras, Bundle newExtras) {
+        if (extras == null || newExtras == null) {
+            return extras == newExtras;
+        }
+
+        if (extras.size() != newExtras.size()) {
+            return false;
+        }
+
+        for (String key : extras.keySet()) {
+            if (key != null) {
+                final Object value = extras.get(key);
+                final Object newValue = newExtras.get(key);
+                if (!Objects.equals(value, newValue)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 }

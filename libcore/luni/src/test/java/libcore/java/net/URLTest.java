@@ -22,6 +22,8 @@ import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URI;
 import java.net.URL;
+
+import dalvik.system.BlockGuard;
 import junit.framework.TestCase;
 import libcore.util.SerializationTester;
 
@@ -712,35 +714,47 @@ public final class URLTest extends TestCase {
         assertEquals("a_b.c.d.net", url.getHost());
     }
 
-    // http://b/7369778
-    public void testToURILeniantThrowsURISyntaxExceptionWithPartialTrailingEscape()
-            throws Exception {
-        // make sure if there a partial trailing escape that we don't throw the wrong exception
-        URL[] badUrls = new URL[] {
-            new URL("http://example.com/?foo=%%bar"),
-            new URL("http://example.com/?foo=%%bar%"),
-            new URL("http://example.com/?foo=%%bar%2"),
-            new URL("http://example.com/?foo=%%bar%%"),
-            new URL("http://example.com/?foo=%%bar%%%"),
-            new URL("http://example.com/?foo=%%bar%%%%"),
-        };
-        for (URL badUrl : badUrls) {
-            try {
-                badUrl.toURILenient();
-                fail();
-            } catch (URISyntaxException expected) {
+    // http://b/26895969
+    // http://b/26798800
+    public void testHashCodeAndEqualsDoesNotPerformNetworkIo() throws Exception {
+        final BlockGuard.Policy oldPolicy = BlockGuard.getThreadPolicy();
+        BlockGuard.setThreadPolicy(new BlockGuard.Policy() {
+            @Override
+            public void onWriteToDisk() {
+                fail("Blockguard.Policy.onWriteToDisk");
             }
-        }
 
-        // make sure we properly handle an normal escape at the end of a string
-        String[] goodUrls = new String[] {
-            "http://example.com/?foo=bar",
-            "http://example.com/?foo=bar%20",
-        };
-        for (String goodUrl : goodUrls) {
-            assertEquals(new URI(goodUrl), new URL(goodUrl).toURILenient());
+            @Override
+            public void onReadFromDisk() {
+                fail("Blockguard.Policy.onReadFromDisk");
+            }
+
+            @Override
+            public void onNetwork() {
+                fail("Blockguard.Policy.onNetwork");
+            }
+
+            @Override
+            public int getPolicyMask() {
+                return 0;
+            }
+        });
+
+        try {
+            URL url = new URL("http://www.google.com/");
+            URL url2 = new URL("http://www.nest.com/");
+
+            url.equals(url2);
+            url2.hashCode();
+        } finally {
+            BlockGuard.setThreadPolicy(oldPolicy);
         }
     }
 
-    // Adding a new test? Consider adding an equivalent test to URITest.java
+    // http://27444667
+    public void testEmptyQueryAndAnchor() throws Exception {
+        assertEquals("/some/path", new URL("http://foobar.com/some/path?").getFile());
+        assertEquals("/some/path", new URL("http://foobar.com/some/path#").getFile());
+        assertEquals("/some/path", new URL("http://foobar.com/some/path?#").getFile());
+    }
 }

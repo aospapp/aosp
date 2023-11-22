@@ -1,3 +1,10 @@
+/*
+ * Copyright 2015 Google Inc.
+ *
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
 #include "Test.h"
 
 #include "SkRecord.h"
@@ -6,9 +13,9 @@
 #include "SkRecords.h"
 
 using namespace SkRecords;
-typedef Pattern3<Is<Save>,
-                 Is<ClipRect>,
-                 Is<Restore> >
+typedef Pattern<Is<Save>,
+                Is<ClipRect>,
+                Is<Restore>>
     SaveClipRectRestore;
 
 DEF_TEST(RecordPattern_Simple, r) {
@@ -28,9 +35,9 @@ DEF_TEST(RecordPattern_Simple, r) {
 
     recorder.restore();
     REPORTER_ASSERT(r, pattern.match(&record, 0));
-    REPORTER_ASSERT(r, pattern.first<Save>()      != NULL);
-    REPORTER_ASSERT(r, pattern.second<ClipRect>() != NULL);
-    REPORTER_ASSERT(r, pattern.third<Restore>()   != NULL);
+    REPORTER_ASSERT(r, pattern.first<Save>()      != nullptr);
+    REPORTER_ASSERT(r, pattern.second<ClipRect>() != nullptr);
+    REPORTER_ASSERT(r, pattern.third<Restore>()   != nullptr);
 }
 
 DEF_TEST(RecordPattern_StartingIndex, r) {
@@ -47,7 +54,7 @@ DEF_TEST(RecordPattern_StartingIndex, r) {
     }
 
     // We should match only at 0 and 3.  Going over the length should fail gracefully.
-    for (unsigned i = 0; i < 8; i++) {
+    for (int i = 0; i < 8; i++) {
         if (i == 0 || i == 3) {
             REPORTER_ASSERT(r, pattern.match(&record, i) == i + 3);
         } else {
@@ -70,8 +77,8 @@ DEF_TEST(RecordPattern_DontMatchSubsequences, r) {
     REPORTER_ASSERT(r, !pattern.match(&record, 0));
 }
 
-DEF_TEST(RecordPattern_Star, r) {
-    Pattern3<Is<Save>, Star<Is<ClipRect> >, Is<Restore> > pattern;
+DEF_TEST(RecordPattern_Greedy, r) {
+    Pattern<Is<Save>, Greedy<Is<ClipRect>>, Is<Restore>> pattern;
 
     SkRecord record;
     SkRecorder recorder(&record, 1920, 1200);
@@ -91,15 +98,15 @@ DEF_TEST(RecordPattern_Star, r) {
 }
 
 DEF_TEST(RecordPattern_Complex, r) {
-    Pattern3<Is<Save>,
-             Star<Not<Or3<Is<Save>,
+    Pattern<Is<Save>,
+            Greedy<Not<Or<Is<Save>,
                           Is<Restore>,
-                          IsDraw> > >,
-             Is<Restore> > pattern;
+                          IsDraw>>>,
+            Is<Restore>> pattern;
 
     SkRecord record;
     SkRecorder recorder(&record, 1920, 1200);
-    unsigned start, begin, end;
+    int start, begin, end;
 
     start = record.count();
     recorder.save();
@@ -135,11 +142,11 @@ DEF_TEST(RecordPattern_Complex, r) {
 }
 
 DEF_TEST(RecordPattern_SaveLayerIsNotADraw, r) {
-    Pattern1<IsDraw> pattern;
+    Pattern<IsDraw> pattern;
 
     SkRecord record;
     SkRecorder recorder(&record, 1920, 1200);
-    recorder.saveLayer(NULL, NULL);
+    recorder.saveLayer(nullptr, nullptr);
 
     REPORTER_ASSERT(r, !pattern.match(&record, 0));
 }

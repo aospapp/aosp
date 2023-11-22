@@ -152,24 +152,37 @@ def fastest_auto_capture_request(props):
 
     return req
 
-def get_available_output_sizes(fmt, props):
+def get_available_output_sizes(fmt, props, max_size=None, match_ar_size=None):
     """Return a sorted list of available output sizes for a given format.
 
     Args:
         fmt: the output format, as a string in
             ["jpg", "yuv", "raw", "raw10", "raw12"].
         props: the object returned from its.device.get_camera_properties().
+        max_size: (Optional) A (w,h) tuple.
+            Sizes larger than max_size (either w or h)  will be discarded.
+        match_ar_size: (Optional) A (w,h) tuple.
+            Sizes not matching the aspect ratio of match_ar_size will be
+            discarded.
 
     Returns:
         A sorted list of (w,h) tuples (sorted large-to-small).
     """
-    fmt_codes = {"raw":0x20, "raw10":0x25, "raw12":0x26, "yuv":0x23,
+    AR_TOLERANCE = 0.03
+    fmt_codes = {"raw":0x20, "raw10":0x25, "raw12":0x26,"yuv":0x23,
                  "jpg":0x100, "jpeg":0x100}
     configs = props['android.scaler.streamConfigurationMap']\
                    ['availableStreamConfigurations']
     fmt_configs = [cfg for cfg in configs if cfg['format'] == fmt_codes[fmt]]
     out_configs = [cfg for cfg in fmt_configs if cfg['input'] == False]
     out_sizes = [(cfg['width'],cfg['height']) for cfg in out_configs]
+    if max_size:
+        out_sizes = [s for s in out_sizes if
+                s[0] <= max_size[0] and s[1] <= max_size[1]]
+    if match_ar_size:
+        ar = match_ar_size[0] / float(match_ar_size[1])
+        out_sizes = [s for s in out_sizes if
+                abs(ar - s[0] / float(s[1])) <= AR_TOLERANCE]
     out_sizes.sort(reverse=True)
     return out_sizes
 

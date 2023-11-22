@@ -30,6 +30,7 @@
     <dimen name="chip_icon_margin_end">12dp</dimen>
     <dimen name="chip_dropdown_height">72dp</dimen>
     <dimen name="chip_custom_divider_height">0.5dp</dimen>
+    <dimen name="chip_icon_padding">8dp</dimen>
     <!-- autocomplete dropdown -->
     <dimen name="chip_wrapper_start_padding">16dp</dimen>
     <dimen name="chip_wrapper_top_padding">16dp</dimen>

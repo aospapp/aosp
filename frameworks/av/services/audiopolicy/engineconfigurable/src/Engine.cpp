@@ -106,25 +106,11 @@ void Engine::setObserver(AudioPolicyManagerObserver *observer)
 
 status_t Engine::initCheck()
 {
-    if (mPolicyParameterMgr != NULL && mPolicyParameterMgr->start() != NO_ERROR) {
+    if (mPolicyParameterMgr == NULL || mPolicyParameterMgr->start() != NO_ERROR) {
         ALOGE("%s: could not start Policy PFW", __FUNCTION__);
-        delete mPolicyParameterMgr;
-        mPolicyParameterMgr = NULL;
         return NO_INIT;
     }
     return (mApmObserver != NULL)? NO_ERROR : NO_INIT;
-}
-
-bool Engine::setVolumeProfileForStream(const audio_stream_type_t &streamType,
-                                       Volume::device_category deviceCategory,
-                                       const VolumeCurvePoints &points)
-{
-    Stream *stream = getFromCollection<audio_stream_type_t>(streamType);
-    if (stream == NULL) {
-        ALOGE("%s: stream %d not found", __FUNCTION__, streamType);
-        return false;
-    }
-    return stream->setVolumeProfile(deviceCategory, points) == NO_ERROR;
 }
 
 template <typename Key>
@@ -154,13 +140,6 @@ Property Engine::getPropertyForKey(Key key) const
 
 routing_strategy Engine::ManagerInterfaceImpl::getStrategyForUsage(audio_usage_t usage)
 {
-    const SwAudioOutputCollection &outputs = mPolicyEngine->mApmObserver->getOutputs();
-
-    if (usage == AUDIO_USAGE_ASSISTANCE_ACCESSIBILITY &&
-            (outputs.isStreamActive(AUDIO_STREAM_RING) ||
-             outputs.isStreamActive(AUDIO_STREAM_ALARM))) {
-        return STRATEGY_SONIFICATION;
-    }
     return mPolicyEngine->getPropertyForKey<routing_strategy, audio_usage_t>(usage);
 }
 
@@ -185,8 +164,28 @@ audio_devices_t Engine::ManagerInterfaceImpl::getDeviceForStrategy(routing_strat
             outputs.isStreamActive(AUDIO_STREAM_MUSIC, SONIFICATION_RESPECTFUL_AFTER_MUSIC_DELAY)) {
         return mPolicyEngine->getPropertyForKey<audio_devices_t, routing_strategy>(STRATEGY_MEDIA);
     }
+    if (strategy == STRATEGY_ACCESSIBILITY &&
+        (outputs.isStreamActive(AUDIO_STREAM_RING) || outputs.isStreamActive(AUDIO_STREAM_ALARM))) {
+            // do not route accessibility prompts to a digital output currently configured with a
+            // compressed format as they would likely not be mixed and dropped.
+            // Device For Sonification conf file has HDMI, SPDIF and HDMI ARC unreacheable.
+        return mPolicyEngine->getPropertyForKey<audio_devices_t, routing_strategy>(
+                    STRATEGY_SONIFICATION);
+    }
     return mPolicyEngine->getPropertyForKey<audio_devices_t, routing_strategy>(strategy);
 }
+
+bool Engine::PluginInterfaceImpl::setVolumeProfileForStream(const audio_stream_type_t &stream,
+                                                            const audio_stream_type_t &profile)
+{
+    if (mPolicyEngine->setPropertyForKey<audio_stream_type_t, audio_stream_type_t>(stream,
+                                                                                   profile)) {
+        mPolicyEngine->mApmObserver->getVolumeCurves().switchVolumeCurve(profile, stream);
+        return true;
+    }
+    return false;
+}
+
 
 template <typename Property, typename Key>
 bool Engine::setPropertyForKey(const Property &property, const Key &key)
@@ -197,32 +196,6 @@ bool Engine::setPropertyForKey(const Property &property, const Key &key)
         return BAD_VALUE;
     }
     return element->template set<Property>(property) == NO_ERROR;
-}
-
-float Engine::volIndexToDb(Volume::device_category category,
-                             audio_stream_type_t streamType,
-                             int indexInUi)
-{
-    Stream *stream = getFromCollection<audio_stream_type_t>(streamType);
-    if (stream == NULL) {
-        ALOGE("%s: Element indexed by key=%d not found", __FUNCTION__, streamType);
-        return 1.0f;
-    }
-    return stream->volIndexToDb(category, indexInUi);
-}
-
-status_t Engine::initStreamVolume(audio_stream_type_t streamType,
-                                           int indexMin, int indexMax)
-{
-    Stream *stream = getFromCollection<audio_stream_type_t>(streamType);
-    if (stream == NULL) {
-        ALOGE("%s: Stream Type %d not found", __FUNCTION__, streamType);
-        return BAD_TYPE;
-    }
-    mApmObserver->getStreamDescriptors().setVolumeIndexMin(streamType, indexMin);
-    mApmObserver->getStreamDescriptors().setVolumeIndexMax(streamType, indexMax);
-
-    return stream->initVolume(indexMin, indexMax);
 }
 
 status_t Engine::setPhoneState(audio_mode_t mode)
@@ -246,10 +219,17 @@ audio_policy_forced_cfg_t Engine::getForceUse(audio_policy_force_use_t usage) co
     return mPolicyParameterMgr->getForceUse(usage);
 }
 
-status_t Engine::setDeviceConnectionState(audio_devices_t devices, audio_policy_dev_state_t state,
-                                          const char *deviceAddress)
+status_t Engine::setDeviceConnectionState(const sp<DeviceDescriptor> devDesc,
+                                          audio_policy_dev_state_t /*state*/)
 {
-    return mPolicyParameterMgr->setDeviceConnectionState(devices, state, deviceAddress);
+    if (audio_is_output_device(devDesc->type())) {
+        return mPolicyParameterMgr->setAvailableOutputDevices(
+                    mApmObserver->getAvailableOutputDevices().types());
+    } else if (audio_is_input_device(devDesc->type())) {
+        return mPolicyParameterMgr->setAvailableInputDevices(
+                    mApmObserver->getAvailableInputDevices().types());
+    }
+    return BAD_TYPE;
 }
 
 template <>

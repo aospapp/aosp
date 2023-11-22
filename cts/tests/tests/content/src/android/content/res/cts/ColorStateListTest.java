@@ -20,51 +20,110 @@ import java.io.IOException;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
+import android.content.pm.ActivityInfo;
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.content.res.Resources.NotFoundException;
+import android.content.res.Resources.Theme;
 import android.graphics.Color;
 import android.os.Parcel;
 import android.test.AndroidTestCase;
 
-import com.android.cts.content.R;
-
+import android.content.cts.R;
+import android.test.suitebuilder.annotation.SmallTest;
 
 public class ColorStateListTest extends AndroidTestCase {
-    public void testColorStateList() throws NotFoundException, XmlPullParserException, IOException {
-        final int[][] state = new int[][] { { 0 }, { 0 } };
-        final int[] colors = new int[] { Color.RED, Color.BLUE };
-        ColorStateList c = new ColorStateList(state, colors);
+
+    @SmallTest
+    public void testConstructor() {
+        final int[][] state = new int[][]{{0}, {0}};
+        final int[] colors = new int[]{Color.RED, Color.BLUE};
+        final ColorStateList c = new ColorStateList(state, colors);
         assertTrue(c.isStateful());
         assertEquals(Color.RED, c.getDefaultColor());
+    }
 
-        final int alpha = 36;
-        final ColorStateList c1 = c.withAlpha(alpha);
-        assertNotSame(Color.RED, c1.getDefaultColor());
-        // check alpha
-        assertEquals(alpha, c1.getDefaultColor() >>> 24);
-        assertEquals(Color.RED & 0x00FF0000, c1.getDefaultColor() & 0x00FF0000);
-
-        final int xmlId = R.drawable.testcolor;
-        final int colorInXml = 0xFFA6C839;// this color value is define in testcolor.xml file.
+    @SmallTest
+    public void testCreateFromXml() throws Exception {
+        final int xmlId = R.color.testcolor;
+        final int colorInXml = 0xFFA6C839; // this color value is defined in testcolor.xml file.
         final Resources res = getContext().getResources();
-        c = ColorStateList.createFromXml(res, res.getXml(xmlId));
+        final ColorStateList c = ColorStateList.createFromXml(res, res.getXml(xmlId));
         assertEquals(colorInXml, c.getDefaultColor());
         assertEquals(0, c.describeContents());
         assertFalse(c.isStateful());
         assertNotNull(c.toString());
         assertEquals(colorInXml, c.getColorForState(new int[]{0}, 0));
+    }
 
-        c = ColorStateList.valueOf(Color.GRAY);
+    @SmallTest
+    public void testCreateFromXmlThemed() throws Exception {
+        final int xmlId = R.color.testcolor_themed;
+        final int colorInXml = Color.BLACK; // this color value is defined in styles.xml file.
+        final Resources res = getContext().getResources();
+        final Theme theme = res.newTheme();
+        theme.applyStyle(R.style.Theme_ThemedDrawableTest, true);
+        final ColorStateList c = ColorStateList.createFromXml(res, res.getXml(xmlId), theme);
+        assertEquals(colorInXml, c.getDefaultColor());
+        assertEquals(0, c.describeContents());
+        assertFalse(c.isStateful());
+        assertNotNull(c.toString());
+        assertEquals(colorInXml, c.getColorForState(new int[]{0}, 0));
+    }
+
+    @SmallTest
+    public void testGetChangingConfigurations() {
+        final Resources res = getContext().getResources();
+        ColorStateList c;
+
+        c = res.getColorStateList(R.color.testcolor, null);
+        assertEquals(c.getChangingConfigurations(), 0);
+
+        c = res.getColorStateList(R.color.testcolor_orientation, null);
+        assertEquals(ActivityInfo.CONFIG_ORIENTATION, c.getChangingConfigurations());
+    }
+
+    @SmallTest
+    public void testWithAlpha() {
+        final int[][] state = new int[][]{{0}, {0}};
+        final int[] colors = new int[]{Color.RED, Color.BLUE};
+        final ColorStateList c = new ColorStateList(state, colors);
+        final int alpha = 36;
+        final ColorStateList c1 = c.withAlpha(alpha);
+        assertNotSame(Color.RED, c1.getDefaultColor());
+        assertEquals(alpha, c1.getDefaultColor() >>> 24);
+        assertEquals(Color.RED & 0x00FF0000, c1.getDefaultColor() & 0x00FF0000);
+    }
+
+    @SmallTest
+    public void testValueOf() {
+        final ColorStateList c = ColorStateList.valueOf(Color.GRAY);
         assertEquals(Color.GRAY, c.getDefaultColor());
+    }
 
+    @SmallTest
+    public void testParcelable() {
+        final ColorStateList c = ColorStateList.valueOf(Color.GRAY);
         final Parcel parcel = Parcel.obtain();
         c.writeToParcel(parcel, 0);
         parcel.setDataPosition(0);
-        ColorStateList actual = ColorStateList.CREATOR.createFromParcel(parcel);
-        // can only compare the state and the default color. because no API to
-        // get every color of ColorStateList
+
+        final ColorStateList actual = ColorStateList.CREATOR.createFromParcel(parcel);
         assertEquals(c.isStateful(), actual.isStateful());
         assertEquals(c.getDefaultColor(), actual.getDefaultColor());
+    }
+
+    @SmallTest
+    public void testIsOpaque() {
+        ColorStateList c;
+
+        c = ColorStateList.valueOf(Color.GRAY);
+        assertTrue(c.isOpaque());
+
+        c = ColorStateList.valueOf(0x80FFFFFF);
+        assertFalse(c.isOpaque());
+
+        c = ColorStateList.valueOf(Color.TRANSPARENT);
+        assertFalse(c.isOpaque());
     }
 }

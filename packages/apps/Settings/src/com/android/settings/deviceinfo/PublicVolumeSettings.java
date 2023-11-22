@@ -19,6 +19,7 @@ package com.android.settings.deviceinfo;
 import android.app.ActivityManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Resources;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.UserManager;
@@ -27,14 +28,17 @@ import android.os.storage.StorageEventListener;
 import android.os.storage.StorageManager;
 import android.os.storage.VolumeInfo;
 import android.os.storage.VolumeRecord;
-import android.preference.Preference;
-import android.preference.PreferenceScreen;
 import android.provider.DocumentsContract;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.PreferenceScreen;
 import android.text.TextUtils;
 import android.text.format.Formatter;
 import android.text.format.Formatter.BytesResult;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Button;
 
-import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.internal.util.Preconditions;
 import com.android.settings.R;
 import com.android.settings.SettingsPreferenceFragment;
@@ -60,9 +64,9 @@ public class PublicVolumeSettings extends SettingsPreferenceFragment {
     private StorageSummaryPreference mSummary;
 
     private Preference mMount;
-    private Preference mUnmount;
     private Preference mFormatPublic;
     private Preference mFormatPrivate;
+    private Button mUnmount;
 
     private boolean mIsPermittedToAdopt;
 
@@ -73,7 +77,7 @@ public class PublicVolumeSettings extends SettingsPreferenceFragment {
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.DEVICEINFO_STORAGE;
+        return MetricsEvent.DEVICEINFO_STORAGE;
     }
 
     @Override
@@ -110,14 +114,30 @@ public class PublicVolumeSettings extends SettingsPreferenceFragment {
         addPreferencesFromResource(R.xml.device_info_storage_volume);
         getPreferenceScreen().setOrderingAsAdded(true);
 
-        mSummary = new StorageSummaryPreference(context);
+        mSummary = new StorageSummaryPreference(getPrefContext());
 
         mMount = buildAction(R.string.storage_menu_mount);
-        mUnmount = buildAction(R.string.storage_menu_unmount);
+        mUnmount = new Button(getActivity());
+        mUnmount.setText(R.string.storage_menu_unmount);
+        mUnmount.setOnClickListener(mUnmountListener);
         mFormatPublic = buildAction(R.string.storage_menu_format);
         if (mIsPermittedToAdopt) {
             mFormatPrivate = buildAction(R.string.storage_menu_format_private);
         }
+    }
+
+    @Override
+    public void onActivityCreated(Bundle savedInstanceState) {
+        super.onActivityCreated(savedInstanceState);
+        final Resources resources = getResources();
+        final int padding = resources.getDimensionPixelSize(
+                R.dimen.unmount_button_padding);
+        final ViewGroup buttonBar = getButtonBar();
+        buttonBar.removeAllViews();
+        buttonBar.setPadding(padding, padding, padding, padding);
+        buttonBar.addView(mUnmount, new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
     }
 
     public void update() {
@@ -153,7 +173,7 @@ public class PublicVolumeSettings extends SettingsPreferenceFragment {
             addPreference(mMount);
         }
         if (mVolume.isMountedReadable()) {
-            addPreference(mUnmount);
+            getButtonBar().setVisibility(View.VISIBLE);
         }
         addPreference(mFormatPublic);
         if (mDisk.isAdoptable() && mIsPermittedToAdopt) {
@@ -167,7 +187,7 @@ public class PublicVolumeSettings extends SettingsPreferenceFragment {
     }
 
     private Preference buildAction(int titleRes) {
-        final Preference pref = new Preference(getActivity());
+        final Preference pref = new Preference(getPrefContext());
         pref.setTitle(titleRes);
         return pref;
     }
@@ -194,12 +214,10 @@ public class PublicVolumeSettings extends SettingsPreferenceFragment {
     }
 
     @Override
-    public boolean onPreferenceTreeClick(PreferenceScreen preferenceScreen, Preference pref) {
+    public boolean onPreferenceTreeClick(Preference pref) {
         final Context context = getActivity();
         if (pref == mMount) {
             new MountTask(context, mVolume).execute();
-        } else if (pref == mUnmount) {
-            new UnmountTask(context, mVolume).execute();
         } else if (pref == mFormatPublic) {
             final Intent intent = new Intent(context, StorageWizardFormatConfirm.class);
             intent.putExtra(DiskInfo.EXTRA_DISK_ID, mDisk.getId());
@@ -212,8 +230,15 @@ public class PublicVolumeSettings extends SettingsPreferenceFragment {
             startActivity(intent);
         }
 
-        return super.onPreferenceTreeClick(preferenceScreen, pref);
+        return super.onPreferenceTreeClick(pref);
     }
+
+    private final View.OnClickListener mUnmountListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            new UnmountTask(getActivity(), mVolume).execute();
+        }
+    };
 
     private final StorageEventListener mStorageListener = new StorageEventListener() {
         @Override

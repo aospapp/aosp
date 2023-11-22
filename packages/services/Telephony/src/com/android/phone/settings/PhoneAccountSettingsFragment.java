@@ -7,6 +7,7 @@ import android.content.pm.ResolveInfo;
 import android.graphics.drawable.Icon;
 import android.net.sip.SipManager;
 import android.os.Bundle;
+import android.os.UserManager;
 import android.preference.CheckBoxPreference;
 import android.preference.ListPreference;
 import android.preference.Preference;
@@ -26,7 +27,7 @@ import com.android.phone.PhoneUtils;
 import com.android.phone.R;
 import com.android.phone.SubscriptionInfoHelper;
 import com.android.services.telephony.sip.SipAccountRegistry;
-import com.android.services.telephony.sip.SipSharedPreferences;
+import com.android.services.telephony.sip.SipPreferences;
 import com.android.services.telephony.sip.SipUtil;
 
 import java.util.ArrayList;
@@ -73,7 +74,7 @@ public class PhoneAccountSettingsFragment extends PreferenceFragment
 
     private ListPreference mUseSipCalling;
     private CheckBoxPreference mSipReceiveCallsPreference;
-    private SipSharedPreferences mSipSharedPreferences;
+    private SipPreferences mSipPreferences;
 
     @Override
     public void onCreate(Bundle icicle) {
@@ -150,8 +151,8 @@ public class PhoneAccountSettingsFragment extends PreferenceFragment
             getPreferenceScreen().removePreference(mAccountList);
         }
 
-        if (SipUtil.isVoipSupported(getActivity())) {
-            mSipSharedPreferences = new SipSharedPreferences(getActivity());
+        if (isPrimaryUser() && SipUtil.isVoipSupported(getActivity())) {
+            mSipPreferences = new SipPreferences(getActivity());
 
             mUseSipCalling = (ListPreference)
                     getPreferenceScreen().findPreference(USE_SIP_PREF_KEY);
@@ -161,13 +162,13 @@ public class PhoneAccountSettingsFragment extends PreferenceFragment
             mUseSipCalling.setOnPreferenceChangeListener(this);
 
             int optionsValueIndex =
-                    mUseSipCalling.findIndexOfValue(mSipSharedPreferences.getSipCallOption());
+                    mUseSipCalling.findIndexOfValue(mSipPreferences.getSipCallOption());
             if (optionsValueIndex == -1) {
                 // If the option is invalid (eg. deprecated value), default to SIP_ADDRESS_ONLY.
-                mSipSharedPreferences.setSipCallOption(
+                mSipPreferences.setSipCallOption(
                         getResources().getString(R.string.sip_address_only));
                 optionsValueIndex =
-                        mUseSipCalling.findIndexOfValue(mSipSharedPreferences.getSipCallOption());
+                        mUseSipCalling.findIndexOfValue(mSipPreferences.getSipCallOption());
             }
             mUseSipCalling.setValueIndex(optionsValueIndex);
             mUseSipCalling.setSummary(mUseSipCalling.getEntry());
@@ -176,7 +177,7 @@ public class PhoneAccountSettingsFragment extends PreferenceFragment
                     getPreferenceScreen().findPreference(SIP_RECEIVE_CALLS_PREF_KEY);
             mSipReceiveCallsPreference.setEnabled(SipUtil.isPhoneIdle(getActivity()));
             mSipReceiveCallsPreference.setChecked(
-                    mSipSharedPreferences.isReceivingCallsEnabled());
+                    mSipPreferences.isReceivingCallsEnabled());
             mSipReceiveCallsPreference.setOnPreferenceChangeListener(this);
         } else {
             getPreferenceScreen().removePreference(
@@ -195,7 +196,7 @@ public class PhoneAccountSettingsFragment extends PreferenceFragment
     public boolean onPreferenceChange(Preference pref, Object objValue) {
         if (pref == mUseSipCalling) {
             String option = objValue.toString();
-            mSipSharedPreferences.setSipCallOption(option);
+            mSipPreferences.setSipCallOption(option);
             mUseSipCalling.setValueIndex(mUseSipCalling.findIndexOfValue(option));
             mUseSipCalling.setSummary(mUseSipCalling.getEntry());
             return true;
@@ -249,7 +250,7 @@ public class PhoneAccountSettingsFragment extends PreferenceFragment
             return;
         }
 
-        mSipSharedPreferences.setReceivingCallsEnabled(isEnabled);
+        mSipPreferences.setReceivingCallsEnabled(isEnabled);
 
         SipUtil.useSipToReceiveIncomingCalls(context, isEnabled);
 
@@ -305,6 +306,14 @@ public class PhoneAccountSettingsFragment extends PreferenceFragment
                     retval = isSim1 ? -1 : 1;
                 }
 
+                int subId1 = mTelephonyManager.getSubIdForPhoneAccount(account1);
+                int subId2 = mTelephonyManager.getSubIdForPhoneAccount(account2);
+                if (subId1 != SubscriptionManager.INVALID_SUBSCRIPTION_ID &&
+                        subId2 != SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+                    retval = (mSubscriptionManager.getSlotId(subId1) <
+                        mSubscriptionManager.getSlotId(subId2)) ? -1 : 1;
+                }
+
                 // Then order by package
                 if (retval == 0) {
                     String pkg1 = account1.getAccountHandle().getComponentName().getPackageName();
@@ -356,7 +365,11 @@ public class PhoneAccountSettingsFragment extends PreferenceFragment
 
             // Create the preference & add the label
             Preference accountPreference = new Preference(getActivity());
-            accountPreference.setTitle(account.getLabel());
+            CharSequence accountLabel = account.getLabel();
+            boolean isSimAccount =
+                    account.hasCapabilities(PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION);
+            accountPreference.setTitle((TextUtils.isEmpty(accountLabel) && isSimAccount)
+                    ? getString(R.string.phone_accounts_default_account_label) : accountLabel);
 
             // Add an icon.
             Icon icon = account.getIcon();
@@ -449,5 +462,14 @@ public class PhoneAccountSettingsFragment extends PreferenceFragment
         }
 
         return intent;
+    }
+
+    /**
+     * @return Whether the current user is the primary user.
+     */
+    private boolean isPrimaryUser() {
+        final UserManager userManager = (UserManager) getActivity()
+                .getSystemService(Context.USER_SERVICE);
+        return userManager.isPrimaryUser();
     }
 }

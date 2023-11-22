@@ -26,6 +26,7 @@ import android.view.SurfaceView;
 import android.view.ViewGroup;
 
 import java.io.IOException;
+import java.lang.Math;
 
 /** Camera preview class */
 public class RVCVCameraPreview extends SurfaceView implements SurfaceHolder.Callback {
@@ -94,10 +95,10 @@ public class RVCVCameraPreview extends SurfaceView implements SurfaceHolder.Call
             ViewGroup.LayoutParams layout = getLayoutParams();
             if ( (float)v_height/v_width  >
                     mAspect) {
-                layout.height = (int)(v_width * mAspect);
+                layout.height = (int)Math.round(v_width * mAspect);
                 layout.width = v_width;
             }else {
-                layout.width = (int)(v_height / mAspect);
+                layout.width = (int)Math.round(v_height / mAspect);
                 layout.height = v_height;
             }
             Log.d(TAG, String.format("Layout (%d, %d) -> (%d, %d)", v_width, v_height,

@@ -20,9 +20,12 @@ import android.graphics.Canvas;
 import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Region;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.test.suitebuilder.annotation.MediumTest;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
-import android.uirendering.cts.testinfrastructure.CanvasClient;
+import org.junit.Test;
+
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Tests of state query-able from canvas at draw time.
@@ -30,96 +33,84 @@ import android.uirendering.cts.testinfrastructure.CanvasClient;
  * Although these tests don't verify drawing content, they still make use of ActivityTestBase's
  * capability to test the hardware accelerated Canvas in the way that it is used by Views.
  */
+@MediumTest
 public class CanvasStateTests extends ActivityTestBase {
-
-    @SmallTest
+    @Test
     public void testClipRectReturnValues() {
         createTest()
-                .addCanvasClient(new CanvasClient() {
-                    @Override
-                    public void draw(Canvas canvas, int width, int height) {
-                        canvas.save();
-                        boolean isNonEmpty = canvas.clipRect(0, 0, 20, 20);
-                        assertTrue("clip state should be non empty", isNonEmpty);
+                .addCanvasClient((canvas, width, height) -> {
+                    canvas.save();
+                    boolean isNonEmpty = canvas.clipRect(0, 0, 20, 20);
+                    assertTrue("clip state should be non empty", isNonEmpty);
 
-                        isNonEmpty = canvas.clipRect(0, 40, 20, 60);
-                        assertFalse("clip state should be empty", isNonEmpty);
-                        canvas.restore();
-                    }
+                    isNonEmpty = canvas.clipRect(0, 40, 20, 60);
+                    assertFalse("clip state should be empty", isNonEmpty);
+                    canvas.restore();
                 })
                 .runWithoutVerification();
     }
 
-    @SmallTest
+    @Test
     public void testClipRegionReturnValues() {
         createTest()
-                .addCanvasClient(new CanvasClient() {
-                    @Override
-                    public void draw(Canvas canvas, int width, int height) {
-                        canvas.save();
-                        RectF clipRectF = new RectF(0, 0, 20, 20);
+                .addCanvasClient((canvas, width, height) -> {
+                    canvas.save();
+                    RectF clipRectF = new RectF(0, 0, 20, 20);
 
-                        assertFalse(canvas.quickReject(0, 0, 20, 20, Canvas.EdgeType.BW));
-                        if (!canvas.isHardwareAccelerated()) {
-                            // SW canvas may not be in View space, so we offset the clipping region
-                            // so it will operate within the canvas client's window.
-                            // (Currently, this isn't necessary, since SW layer size == draw area)
-                            canvas.getMatrix().mapRect(clipRectF);
-                        }
-
-                        Region rectRegion = new Region();
-                        rectRegion.set((int) clipRectF.left, (int) clipRectF.top,
-                                (int) clipRectF.right, (int) clipRectF.bottom);
-
-                        boolean isNonEmpty = canvas.clipRegion(rectRegion);
-                        assertTrue("clip state should be non empty", isNonEmpty);
-
-                        // Note: we don't test that non-intersecting clip regions empty the clip,
-                        // For region clipping, the impl is allowed to return true conservatively
-                        // in many cases.
-                        canvas.restore();
+                    assertFalse(canvas.quickReject(0, 0, 20, 20, Canvas.EdgeType.BW));
+                    if (!canvas.isHardwareAccelerated()) {
+                        // SW canvas may not be in View space, so we offset the clipping region
+                        // so it will operate within the canvas client's window.
+                        // (Currently, this isn't necessary, since SW layer size == draw area)
+                        canvas.getMatrix().mapRect(clipRectF);
                     }
+
+                    Region rectRegion = new Region();
+                    rectRegion.set((int) clipRectF.left, (int) clipRectF.top,
+                            (int) clipRectF.right, (int) clipRectF.bottom);
+
+                    boolean isNonEmpty = canvas.clipRegion(rectRegion);
+                    assertTrue("clip state should be non empty", isNonEmpty);
+
+                    // Note: we don't test that non-intersecting clip regions empty the clip,
+                    // For region clipping, the impl is allowed to return true conservatively
+                    // in many cases.
+                    canvas.restore();
                 })
                 .runWithoutVerification();
     }
 
-    @SmallTest
+    @Test
     public void testClipPathReturnValues() {
         createTest()
-                .addCanvasClient(new CanvasClient() {
-                    @Override
-                    public void draw(Canvas canvas, int width, int height) {
-                        canvas.save();
-                        Path rectPath = new Path();
-                        rectPath.addRect(0, 0, 20, 20, Path.Direction.CW);
+                .addCanvasClient((canvas, width, height) -> {
+                    canvas.save();
+                    Path rectPath = new Path();
+                    rectPath.addRect(0, 0, 20, 20, Path.Direction.CW);
 
-                        boolean isNonEmpty = canvas.clipPath(rectPath);
-                        assertTrue("clip state should be non empty", isNonEmpty);
+                    boolean isNonEmpty = canvas.clipPath(rectPath);
+                    assertTrue("clip state should be non empty", isNonEmpty);
 
-                        rectPath.offset(0, 40);
-                        isNonEmpty = canvas.clipPath(rectPath);
-                        assertFalse("clip state should be empty", isNonEmpty);
-                        canvas.restore();
-                    }
+                    rectPath.offset(0, 40);
+                    isNonEmpty = canvas.clipPath(rectPath);
+                    assertFalse("clip state should be empty", isNonEmpty);
+                    canvas.restore();
                 })
                 .runWithoutVerification();
     }
-    @SmallTest
+    @Test
     public void testQuickReject() {
         createTest()
-                .addCanvasClient(new CanvasClient() {
-                    @Override
-                    public void draw(Canvas canvas, int width, int height) {
-                        canvas.save();
-                        canvas.clipRect(0, 0, 20, 20);
+                .addCanvasClient((canvas, width, height) -> {
+                    canvas.save();
+                    canvas.clipRect(0, 0, 20, 20);
 
-                        // not rejected!
-                        assertFalse(canvas.quickReject(0, 0, 20, 20, Canvas.EdgeType.BW));
+                    // not rejected!
+                    assertFalse(canvas.quickReject(0, 0, 20, 20, Canvas.EdgeType.BW));
 
-                        // rejected!
-                        assertTrue(canvas.quickReject(0, 40, 20, 60, Canvas.EdgeType.BW));
-                        canvas.restore();
-                    }
+                    // rejected!
+                    assertTrue(canvas.quickReject(0, 40, 20, 60, Canvas.EdgeType.BW));
+                    canvas.restore();
                 })
                 .runWithoutVerification();
     }

@@ -11,7 +11,7 @@ Introduction
 [SensorEventListener][1] offers you methods used for receiving notifications from the
 [SensorManager][2] when sensor values have changed.
 
-This example counts how many times Jumping Jakcs are performed by detecting the value
+This example counts how many times Jumping Jacks are performed by detecting the value
 of the Gravity sensor by the following code:
 
 ```java
@@ -44,8 +44,8 @@ TIME_THRESHOLD_NS (2000000000 nanoseconds).
 Pre-requisites
 --------------
 
-- Android SDK v23
-- Android Build Tools v23.0.0
+- Android SDK 23
+- Android Build Tools v23.0.3
 - Android Support Repository
 
 Screenshots
@@ -74,7 +74,7 @@ submitting a pull request through GitHub. Please see CONTRIBUTING.md for more de
 License
 -------
 
-Copyright 2014 The Android Open Source Project, Inc.
+Copyright 2016 The Android Open Source Project, Inc.
 
 Licensed to the Apache Software Foundation (ASF) under one or more contributor
 license agreements.  See the NOTICE file distributed with this work for

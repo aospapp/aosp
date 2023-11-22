@@ -18,6 +18,7 @@ package com.android.tv.settings.device.storage;
 
 import android.os.Bundle;
 import android.support.annotation.NonNull;
+import android.support.v17.leanback.app.GuidedStepFragment;
 import android.support.v17.leanback.widget.GuidanceStylist;
 import android.support.v17.leanback.widget.GuidedAction;
 
@@ -25,7 +26,7 @@ import com.android.tv.settings.R;
 
 import java.util.List;
 
-public class SlowDriveStepFragment extends StorageGuidedStepFragment {
+public class SlowDriveStepFragment extends GuidedStepFragment {
 
     public interface Callback {
         void onSlowDriveWarningComplete();
@@ -41,13 +42,13 @@ public class SlowDriveStepFragment extends StorageGuidedStepFragment {
                 getString(R.string.storage_wizard_format_slow_title),
                 getString(R.string.storage_wizard_format_slow_summary),
                 null,
-                getActivity().getDrawable(R.drawable.ic_settings_error));
+                getActivity().getDrawable(R.drawable.ic_error_132dp));
     }
 
     @Override
     public void onCreateActions(@NonNull List<GuidedAction> actions, Bundle savedInstanceState) {
-        actions.add(new GuidedAction.Builder()
-                .title(getString(android.R.string.ok))
+        actions.add(new GuidedAction.Builder(getContext())
+                .clickAction(GuidedAction.ACTION_ID_OK)
                 .build());
     }
 

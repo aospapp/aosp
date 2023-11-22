@@ -3,6 +3,8 @@
  * Copyright 2011 Rob Landley <rob@landley.net>
  *
  * See http://opengroup.org/onlinepubs/9699919799/utilities/xargs.html
+ *
+ * TODO: Rich's whitespace objection, env size isn't fixed anymore.
 
 USE_XARGS(NEWTOY(xargs, "^I:E:L#ptxrn#<1s#0", TOYFLAG_USR|TOYFLAG_BIN))
 
@@ -109,6 +111,7 @@ void xargs_main(void)
   struct double_list *dlist = NULL, *dtemp;
   int entries, bytes, done = 0, status;
   char *data = NULL, **out;
+  pid_t pid;
 
   if (!(toys.optflags & FLAG_0)) TT.delim = '\n';
 
@@ -166,8 +169,7 @@ void xargs_main(void)
     for (dtemp = dlist; dtemp; dtemp = dtemp->next)
       handle_entries(dtemp->data, out+entries);
 
-    pid_t pid=xfork();
-    if (!pid) {
+    if (!(pid = XVFORK())) {
       xclose(0);
       open("/dev/null", O_RDONLY);
       xexec(out);

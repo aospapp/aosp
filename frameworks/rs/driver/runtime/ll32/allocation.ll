@@ -693,18 +693,17 @@ define void @rsSetElementAtImpl_half3([1 x i32] %a.coerce, <3 x half> %val, i32 
   ret void
 }
 
-define void @rsGetElementAtImpl_half3(<3 x half>* noalias nocapture sret %agg.result, [1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #1 {
-  %1 = tail call i8* @rsOffset([1 x i32] %a.coerce, i32 32, i32 %x, i32 %y, i32 %z) #2
+define <3 x half> @rsGetElementAtImpl_half3([1 x i32] %a.coerce, i32 %x, i32 %y, i32 %z) #1 {
+  %1 = tail call i8* @rsOffset([1 x i32] %a.coerce, i32 8, i32 %x, i32 %y, i32 %z) #2
   %2 = bitcast i8* %1 to <4 x half>*
-  %3 = load <4 x half>, <4 x half>* %2, align 8
-  %4 = bitcast <3 x half>* %agg.result to <4 x half>*
-  store <4 x half> %3, <4 x half>* %4, align 8, !tbaa !63
-  ret void
+  %3 = load <4 x half>, <4 x half>* %2, align 8, !tbaa !63
+  %4 = shufflevector <4 x half> %3, <4 x half> undef, <3 x i32> <i32 0, i32 1, i32 2>
+  ret <3 x half> %4
 }
 
 !64 = !{!"half4", !15}
 define void @rsSetElementAtImpl_half4([1 x i32] %a.coerce, <4 x half> %val, i32 %x, i32 %y, i32 %z) #1 {
-  %1 = tail call i8* @rsOffset([1 x i32] %a.coerce, i32 4, i32 %x, i32 %y, i32 %z) #2
+  %1 = tail call i8* @rsOffset([1 x i32] %a.coerce, i32 8, i32 %x, i32 %y, i32 %z) #2
   %2 = bitcast i8* %1 to <4 x half>*
   store <4 x half> %val, <4 x half>* %2, align 8, !tbaa !64
   ret void

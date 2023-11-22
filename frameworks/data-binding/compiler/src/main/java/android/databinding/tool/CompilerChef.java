@@ -13,10 +13,14 @@
 
 package android.databinding.tool;
 
+import android.databinding.tool.reflection.ModelAnalyzer;
+import android.databinding.tool.reflection.ModelClass;
 import android.databinding.tool.store.ResourceBundle;
 import android.databinding.tool.util.L;
+import android.databinding.tool.util.Preconditions;
 import android.databinding.tool.writer.BRWriter;
 import android.databinding.tool.writer.DataBinderWriter;
+import android.databinding.tool.writer.DynamicUtilWriter;
 import android.databinding.tool.writer.JavaFileWriter;
 
 import java.util.Set;
@@ -27,6 +31,31 @@ import java.util.Set;
  * Different build systems can initiate a version of this to handle their work
  */
 public class CompilerChef {
+    private static final String[] VERSION_CODES = {
+            "BASE",                 // 1
+            "BASE_1_1",             // 2
+            "CUPCAKE",              // 3
+            "DONUT",                // 4
+            "ECLAIR",               // 5
+            "ECLAIRE_0_1",          // 6
+            "ECLAIR_MR1",           // 7
+            "FROYO",                // 8
+            "GINGERBREAD",          // 9
+            "GINGERBREAD_MR1",      // 10
+            "HONEYCOMB",            // 11
+            "HONEYCOMB_MR1",        // 12
+            "HONEYCOMB_MR2",        // 13
+            "ICE_CREAM_SANDWICH",   // 14
+            "ICE_CREAM_SANDWICH_MR1",// 15
+            "JELLY_BEAN",           // 16
+            "JELLY_BEAN_MR1",       // 17
+            "JELLY_BEAN_MR2",       // 18
+            "KITKAT",               // 19
+            "KITKAT_WATCH",         // 20
+            "LOLLIPOP",             // 21
+            "LOLLIPOP_MR1",         // 22
+            "M",                    // 23
+    };
     private JavaFileWriter mFileWriter;
     private ResourceBundle mResourceBundle;
     private DataBinder mDataBinder;
@@ -66,6 +95,23 @@ public class CompilerChef {
         DataBinderWriter dbr = new DataBinderWriter(pkg, mResourceBundle.getAppPackage(),
                 "DataBinderMapper", mDataBinder.getLayoutBinders(), minSdk);
         mFileWriter.writeToFile(pkg + "." + dbr.getClassName(), dbr.write(brWriter));
+    }
+
+    public void writeDynamicUtil() {
+        DynamicUtilWriter dynamicUtil = new DynamicUtilWriter();
+        // TODO: Replace this with targetSDK check from plugin
+        ModelClass versionCodes = ModelAnalyzer.getInstance().findClass(
+                "android.os.Build.VERSION_CODES", null);
+        Preconditions.checkNotNull(versionCodes, "Could not find compile SDK");
+        int compileVersion = 1;
+        for (int i = VERSION_CODES.length - 1; i >= 0; i--) {
+            if (versionCodes.findGetterOrField(VERSION_CODES[i], true) != null) {
+                compileVersion = i + 1;
+                break;
+            }
+        }
+        mFileWriter.writeToFile("android.databinding.DynamicUtil",
+                dynamicUtil.write(compileVersion).generate());
     }
 
     /**

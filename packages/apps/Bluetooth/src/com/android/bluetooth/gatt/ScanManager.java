@@ -31,11 +31,13 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.os.RemoteException;
+import android.os.ServiceManager;
 import android.os.SystemClock;
 import android.util.Log;
 
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AdapterService;
+import com.android.internal.app.IBatteryStats;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -64,6 +66,10 @@ public class ScanManager {
     private static final int MSG_START_BLE_SCAN = 0;
     private static final int MSG_STOP_BLE_SCAN = 1;
     private static final int MSG_FLUSH_BATCH_RESULTS = 2;
+    private static final int MSG_SCAN_TIMEOUT = 3;
+
+    // Maximum msec before scan gets downgraded to opportunistic
+    private static final int SCAN_TIMEOUT_MS = 30 * 60 * 1000;
 
     private static final String ACTION_REFRESH_BATCHED_SCAN =
             "com.android.bluetooth.gatt.REFRESH_BATCHED_SCAN";
@@ -77,6 +83,7 @@ public class ScanManager {
 
     private Integer curUsedTrackableAdvertisements;
     private GattService mService;
+    private IBatteryStats mBatteryStats;
     private BroadcastReceiver mBatchAlarmReceiver;
     private boolean mBatchAlarmReceiverRegistered;
     private ScanNative mScanNative;
@@ -96,6 +103,7 @@ public class ScanManager {
     }
 
     void start() {
+        mBatteryStats = IBatteryStats.Stub.asInterface(ServiceManager.getService("batterystats"));
         HandlerThread thread = new HandlerThread("BluetoothScanManager");
         thread.start();
         mHandler = new ClientHandler(thread.getLooper());
@@ -188,6 +196,9 @@ public class ScanManager {
                 case MSG_FLUSH_BATCH_RESULTS:
                     handleFlushBatchResults(client);
                     break;
+                case MSG_SCAN_TIMEOUT:
+                    mScanNative.regularScanTimeout();
+                    break;
                 default:
                     // Shouldn't happen.
                     Log.e(TAG, "received an unkown message : " + msg.what);
@@ -216,6 +227,21 @@ public class ScanManager {
                 mScanNative.startRegularScan(client);
                 if (!mScanNative.isOpportunisticScanClient(client)) {
                     mScanNative.configureRegularScanParams();
+
+                    if (!mScanNative.isFirstMatchScanClient(client)) {
+                        Message msg = mHandler.obtainMessage(MSG_SCAN_TIMEOUT);
+                        msg.obj = client;
+                        // Only one timeout message should exist at any time
+                        mHandler.removeMessages(SCAN_TIMEOUT_MS);
+                        mHandler.sendMessageDelayed(msg, SCAN_TIMEOUT_MS);
+                    }
+                }
+
+                // Update BatteryStats with this workload.
+                try {
+                    mBatteryStats.noteBleScanStarted(client.workSource);
+                } catch (RemoteException e) {
+                    /* ignore */
                 }
             }
         }
@@ -223,10 +249,28 @@ public class ScanManager {
         void handleStopScan(ScanClient client) {
             Utils.enforceAdminPermission(mService);
             if (client == null) return;
+
             if (mRegularScanClients.contains(client)) {
+                // The ScanClient passed in just holds the clientIf. We retrieve the real client,
+                // which may have workSource set.
+                client = mScanNative.getRegularScanClient(client.clientIf);
+                if (client == null) return;
+
                 mScanNative.stopRegularScan(client);
+
+                if (mScanNative.numRegularScanClients() == 0) {
+                    mHandler.removeMessages(MSG_SCAN_TIMEOUT);
+                }
+
                 if (!mScanNative.isOpportunisticScanClient(client)) {
                     mScanNative.configureRegularScanParams();
+                }
+
+                // Update BatteryStats with this workload.
+                try {
+                    mBatteryStats.noteBleScanStopped(client.workSource);
+                } catch (RemoteException e) {
+                    /* ignore */
                 }
             } else {
                 mScanNative.stopBatchScan(client);
@@ -484,6 +528,10 @@ public class ScanManager {
             return client.settings.getScanMode() == ScanSettings.SCAN_MODE_OPPORTUNISTIC;
         }
 
+        private boolean isFirstMatchScanClient(ScanClient client) {
+            return (client.settings.getCallbackType() & ScanSettings.CALLBACK_TYPE_FIRST_MATCH) != 0;
+        }
+
         private void resetBatchScan(ScanClient client) {
             int clientIf = client.clientIf;
             BatchScanParams batchScanParams = getBatchScanParams();
@@ -598,7 +646,6 @@ public class ScanManager {
 
         void stopRegularScan(ScanClient client) {
             // Remove scan filters and recycle filter indices.
-            client = getClient(client.clientIf);
             if (client == null) return;
             int deliveryMode = getDeliveryMode(client);
             if (deliveryMode == DELIVERY_MODE_ON_FOUND_LOST) {
@@ -624,8 +671,38 @@ public class ScanManager {
             removeScanFilters(client.clientIf);
         }
 
-        // Find the scan client information
-        ScanClient getClient(int clientIf) {
+        void regularScanTimeout() {
+            for (ScanClient client : mRegularScanClients) {
+                if (!isOpportunisticScanClient(client) && !isFirstMatchScanClient(client)) {
+                    logd("clientIf set to scan opportunisticly: " + client.clientIf);
+                    setOpportunisticScanClient(client);
+                    client.stats.setScanTimeout();
+                }
+            }
+
+            // The scan should continue for background scans
+            configureRegularScanParams();
+            if (numRegularScanClients() == 0) {
+                logd("stop scan");
+                gattClientScanNative(false);
+            }
+        }
+
+        void setOpportunisticScanClient(ScanClient client) {
+            // TODO: Add constructor to ScanSettings.Builder
+            // that can copy values from an existing ScanSettings object
+            ScanSettings.Builder builder = new ScanSettings.Builder();
+            ScanSettings settings = client.settings;
+            builder.setScanMode(ScanSettings.SCAN_MODE_OPPORTUNISTIC);
+            builder.setCallbackType(settings.getCallbackType());
+            builder.setScanResultType(settings.getScanResultType());
+            builder.setReportDelay(settings.getReportDelayMillis());
+            builder.setNumOfMatches(settings.getNumOfMatches());
+            client.settings = builder.build();
+        }
+
+        // Find the regular scan client information.
+        ScanClient getRegularScanClient(int clientIf) {
             for (ScanClient client : mRegularScanClients) {
               if (client.clientIf == clientIf) return client;
             }

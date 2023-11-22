@@ -36,6 +36,30 @@ def skip_unless(cond):
         print "Test skipped"
         sys.exit(SKIP_RET_CODE)
 
+def full_or_better(props):
+    """Returns whether a device is a FULL or better camera2 device.
+
+    Args:
+        props: Camera properties object.
+
+    Returns:
+        Boolean.
+    """
+    return props.has_key("android.info.supportedHardwareLevel") and \
+            props["android.info.supportedHardwareLevel"] != 2 and \
+            props["android.info.supportedHardwareLevel"] > 1
+
+def level3(props):
+    """Returns whether a device is a LEVEL3 capability camera2 device.
+
+    Args:
+        props: Camera properties object.
+
+    Returns:
+        Boolean.
+    """
+    return props.has_key("android.info.supportedHardwareLevel") and \
+           props["android.info.supportedHardwareLevel"] == 3
 
 def full(props):
     """Returns whether a device is a FULL capability camera2 device.
@@ -73,6 +97,19 @@ def legacy(props):
     return props.has_key("android.info.supportedHardwareLevel") and \
            props["android.info.supportedHardwareLevel"] == 2
 
+def radial_distortion_correction(props):
+    """Returns whether a device supports RADIAL_DISTORTION_CORRECTION
+    capabilities.
+
+    Args:
+        props: Camera properties object.
+
+    Returns:
+        Boolean.
+    """
+    return props.has_key("android.lens.radialDistortion") and \
+           props["android.lens.radialDistortion"] is not None
+
 def manual_sensor(props):
     """Returns whether a device supports MANUAL_SENSOR capabilities.
 
@@ -83,8 +120,7 @@ def manual_sensor(props):
         Boolean.
     """
     return    props.has_key("android.request.availableCapabilities") and \
-              1 in props["android.request.availableCapabilities"] \
-           or full(props)
+              1 in props["android.request.availableCapabilities"]
 
 def manual_post_proc(props):
     """Returns whether a device supports MANUAL_POST_PROCESSING capabilities.
@@ -96,8 +132,7 @@ def manual_post_proc(props):
         Boolean.
     """
     return    props.has_key("android.request.availableCapabilities") and \
-              2 in props["android.request.availableCapabilities"] \
-           or full(props)
+              2 in props["android.request.availableCapabilities"]
 
 def raw(props):
     """Returns whether a device supports RAW capabilities.
@@ -143,6 +178,29 @@ def raw12(props):
         Boolean.
     """
     return len(its.objects.get_available_output_sizes("raw12", props)) > 0
+
+def raw_output(props):
+    """Returns whether a device supports any of RAW output format.
+
+    Args:
+        props: Camera properties object.
+
+    Returns:
+        Boolean.
+    """
+    return raw16(props) or raw10(props) or raw12(props)
+
+def post_raw_sensitivity_boost(props):
+    """Returns whether a device supports post RAW sensitivity boost..
+
+    Args:
+        props: Camera properties object.
+
+    Returns:
+        Boolean.
+    """
+    return props.has_key("android.control.postRawSensitivityBoostRange") and \
+            props["android.control.postRawSensitivityBoostRange"] != [100, 100]
 
 def sensor_fusion(props):
     """Returns whether the camera and motion sensor timestamps for the device

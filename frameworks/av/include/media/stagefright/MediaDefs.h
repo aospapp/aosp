@@ -30,6 +30,7 @@ extern const char *MEDIA_MIMETYPE_VIDEO_MPEG4;
 extern const char *MEDIA_MIMETYPE_VIDEO_H263;
 extern const char *MEDIA_MIMETYPE_VIDEO_MPEG2;
 extern const char *MEDIA_MIMETYPE_VIDEO_RAW;
+extern const char *MEDIA_MIMETYPE_VIDEO_DOLBY_VISION;
 
 extern const char *MEDIA_MIMETYPE_AUDIO_AMR_NB;
 extern const char *MEDIA_MIMETYPE_AUDIO_AMR_WB;
@@ -64,7 +65,17 @@ extern const char *MEDIA_MIMETYPE_TEXT_3GPP;
 extern const char *MEDIA_MIMETYPE_TEXT_SUBRIP;
 extern const char *MEDIA_MIMETYPE_TEXT_VTT;
 extern const char *MEDIA_MIMETYPE_TEXT_CEA_608;
+extern const char *MEDIA_MIMETYPE_TEXT_CEA_708;
 extern const char *MEDIA_MIMETYPE_DATA_TIMED_ID3;
+
+// These are values exported to JAVA API that need to be in sync with
+// frameworks/base/media/java/android/media/AudioFormat.java. Unfortunately,
+// they are not defined in frameworks/av, so defining them here.
+enum AudioEncoding {
+    kAudioEncodingPcm16bit = 2,
+    kAudioEncodingPcm8bit = 3,
+    kAudioEncodingPcmFloat = 4,
+};
 
 }  // namespace android
 

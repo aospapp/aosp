@@ -30,7 +30,9 @@ __BEGIN_DECLS
  * frameworks/base/include/media/AudioSystem.h
  */
 
-/* device categories used for audio_policy->set_force_use() */
+/* device categories used for audio_policy->set_force_use()
+ * These must match the values in AudioSystem.java
+ */
 typedef enum {
     AUDIO_POLICY_FORCE_NONE,
     AUDIO_POLICY_FORCE_SPEAKER,
@@ -45,6 +47,8 @@ typedef enum {
     AUDIO_POLICY_FORCE_NO_BT_A2DP, /* A2DP sink is not preferred to speaker or wired HS */
     AUDIO_POLICY_FORCE_SYSTEM_ENFORCED,
     AUDIO_POLICY_FORCE_HDMI_SYSTEM_AUDIO_ENFORCED,
+    AUDIO_POLICY_FORCE_ENCODED_SURROUND_NEVER,
+    AUDIO_POLICY_FORCE_ENCODED_SURROUND_ALWAYS,
 
     AUDIO_POLICY_FORCE_CFG_CNT,
     AUDIO_POLICY_FORCE_CFG_MAX = AUDIO_POLICY_FORCE_CFG_CNT - 1,
@@ -52,7 +56,9 @@ typedef enum {
     AUDIO_POLICY_FORCE_DEFAULT = AUDIO_POLICY_FORCE_NONE,
 } audio_policy_forced_cfg_t;
 
-/* usages used for audio_policy->set_force_use() */
+/* usages used for audio_policy->set_force_use()
+ * These must match the values in AudioSystem.java
+ */
 typedef enum {
     AUDIO_POLICY_FORCE_FOR_COMMUNICATION,
     AUDIO_POLICY_FORCE_FOR_MEDIA,
@@ -60,6 +66,7 @@ typedef enum {
     AUDIO_POLICY_FORCE_FOR_DOCK,
     AUDIO_POLICY_FORCE_FOR_SYSTEM,
     AUDIO_POLICY_FORCE_FOR_HDMI_SYSTEM_AUDIO,
+    AUDIO_POLICY_FORCE_FOR_ENCODED_SURROUND,
 
     AUDIO_POLICY_FORCE_USE_CNT,
     AUDIO_POLICY_FORCE_USE_MAX = AUDIO_POLICY_FORCE_USE_CNT - 1,

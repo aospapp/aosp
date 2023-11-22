@@ -10,7 +10,6 @@ on init
 
     export EXTERNAL_STORAGE /storage/sdcard
 
-    # Support legacy paths
     #symlink /storage/sdcard /sdcard
     #symlink /storage/sdcard /mnt/sdcard
 

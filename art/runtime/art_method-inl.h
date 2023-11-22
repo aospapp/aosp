@@ -21,31 +21,35 @@
 
 #include "art_field.h"
 #include "base/logging.h"
+#include "class_linker-inl.h"
+#include "common_throws.h"
 #include "dex_file.h"
 #include "dex_file-inl.h"
 #include "gc_root-inl.h"
+#include "jit/profiling_info.h"
 #include "mirror/class-inl.h"
-#include "mirror/dex_cache.h"
+#include "mirror/dex_cache-inl.h"
 #include "mirror/object-inl.h"
 #include "mirror/object_array.h"
 #include "oat.h"
 #include "quick/quick_method_frame_info.h"
 #include "read_barrier-inl.h"
 #include "runtime-inl.h"
+#include "scoped_thread_state_change.h"
+#include "thread-inl.h"
 #include "utils.h"
 
 namespace art {
 
+template <ReadBarrierOption kReadBarrierOption>
 inline mirror::Class* ArtMethod::GetDeclaringClassUnchecked() {
-  return declaring_class_.Read();
+  GcRootSource gc_root_source(this);
+  return declaring_class_.Read<kReadBarrierOption>(&gc_root_source);
 }
 
-inline mirror::Class* ArtMethod::GetDeclaringClassNoBarrier() {
-  return declaring_class_.Read<kWithoutReadBarrier>();
-}
-
+template <ReadBarrierOption kReadBarrierOption>
 inline mirror::Class* ArtMethod::GetDeclaringClass() {
-  mirror::Class* result = GetDeclaringClassUnchecked();
+  mirror::Class* result = GetDeclaringClassUnchecked<kReadBarrierOption>();
   if (kIsDebugBuild) {
     if (!IsRuntimeMethod()) {
       CHECK(result != nullptr) << this;
@@ -62,9 +66,41 @@ inline void ArtMethod::SetDeclaringClass(mirror::Class* new_declaring_class) {
   declaring_class_ = GcRoot<mirror::Class>(new_declaring_class);
 }
 
+inline bool ArtMethod::CASDeclaringClass(mirror::Class* expected_class,
+                                         mirror::Class* desired_class) {
+  GcRoot<mirror::Class> expected_root(expected_class);
+  GcRoot<mirror::Class> desired_root(desired_class);
+  return reinterpret_cast<Atomic<GcRoot<mirror::Class>>*>(&declaring_class_)->
+      CompareExchangeStrongSequentiallyConsistent(
+          expected_root, desired_root);
+}
+
+// AssertSharedHeld doesn't work in GetAccessFlags, so use a NO_THREAD_SAFETY_ANALYSIS helper.
+// TODO: Figure out why ASSERT_SHARED_CAPABILITY doesn't work.
+template <ReadBarrierOption kReadBarrierOption>
+ALWAYS_INLINE static inline void DoGetAccessFlagsHelper(ArtMethod* method)
+    NO_THREAD_SAFETY_ANALYSIS {
+  CHECK(method->IsRuntimeMethod() ||
+        method->GetDeclaringClass<kReadBarrierOption>()->IsIdxLoaded() ||
+        method->GetDeclaringClass<kReadBarrierOption>()->IsErroneous());
+}
+
+template <ReadBarrierOption kReadBarrierOption>
 inline uint32_t ArtMethod::GetAccessFlags() {
-  DCHECK(IsRuntimeMethod() || GetDeclaringClass()->IsIdxLoaded() ||
-         GetDeclaringClass()->IsErroneous());
+  if (kIsDebugBuild) {
+    Thread* self = Thread::Current();
+    if (!Locks::mutator_lock_->IsSharedHeld(self)) {
+      ScopedObjectAccess soa(self);
+      CHECK(IsRuntimeMethod() ||
+            GetDeclaringClass<kReadBarrierOption>()->IsIdxLoaded() ||
+            GetDeclaringClass<kReadBarrierOption>()->IsErroneous());
+    } else {
+      // We cannot use SOA in this case. We might be holding the lock, but may not be in the
+      // runnable state (e.g., during GC).
+      Locks::mutator_lock_->AssertSharedHeld(self);
+      DoGetAccessFlagsHelper<kReadBarrierOption>(this);
+    }
+  }
   return access_flags_;
 }
 
@@ -84,13 +120,20 @@ inline uint32_t ArtMethod::GetDexMethodIndex() {
   return dex_method_index_;
 }
 
-inline mirror::PointerArray* ArtMethod::GetDexCacheResolvedMethods() {
-  return dex_cache_resolved_methods_.Read();
+inline ArtMethod** ArtMethod::GetDexCacheResolvedMethods(size_t pointer_size) {
+  return GetNativePointer<ArtMethod**>(DexCacheResolvedMethodsOffset(pointer_size),
+                                       pointer_size);
 }
 
 inline ArtMethod* ArtMethod::GetDexCacheResolvedMethod(uint16_t method_index, size_t ptr_size) {
-  auto* method = GetDexCacheResolvedMethods()->GetElementPtrSize<ArtMethod*>(
-      method_index, ptr_size);
+  // NOTE: Unchecked, i.e. not throwing AIOOB. We don't even know the length here
+  // without accessing the DexCache and we don't want to do that in release build.
+  DCHECK_LT(method_index,
+            GetInterfaceMethodIfProxy(ptr_size)->GetDeclaringClass()
+                ->GetDexCache()->NumResolvedMethods());
+  ArtMethod* method = mirror::DexCache::GetElementPtrSize(GetDexCacheResolvedMethods(ptr_size),
+                                                          method_index,
+                                                          ptr_size);
   if (LIKELY(method != nullptr)) {
     auto* declaring_class = method->GetDeclaringClass();
     if (LIKELY(declaring_class == nullptr || !declaring_class->IsErroneous())) {
@@ -100,68 +143,75 @@ inline ArtMethod* ArtMethod::GetDexCacheResolvedMethod(uint16_t method_index, si
   return nullptr;
 }
 
-inline void ArtMethod::SetDexCacheResolvedMethod(uint16_t method_idx, ArtMethod* new_method,
+inline void ArtMethod::SetDexCacheResolvedMethod(uint16_t method_index, ArtMethod* new_method,
                                                  size_t ptr_size) {
+  // NOTE: Unchecked, i.e. not throwing AIOOB. We don't even know the length here
+  // without accessing the DexCache and we don't want to do that in release build.
+  DCHECK_LT(method_index,
+            GetInterfaceMethodIfProxy(ptr_size)->GetDeclaringClass()
+                ->GetDexCache()->NumResolvedMethods());
   DCHECK(new_method == nullptr || new_method->GetDeclaringClass() != nullptr);
-  GetDexCacheResolvedMethods()->SetElementPtrSize(method_idx, new_method, ptr_size);
+  mirror::DexCache::SetElementPtrSize(GetDexCacheResolvedMethods(ptr_size),
+                                      method_index,
+                                      new_method,
+                                      ptr_size);
 }
 
-inline bool ArtMethod::HasDexCacheResolvedMethods() {
-  return GetDexCacheResolvedMethods() != nullptr;
+inline bool ArtMethod::HasDexCacheResolvedMethods(size_t pointer_size) {
+  return GetDexCacheResolvedMethods(pointer_size) != nullptr;
 }
 
-inline bool ArtMethod::HasSameDexCacheResolvedMethods(mirror::PointerArray* other_cache) {
-  return GetDexCacheResolvedMethods() == other_cache;
+inline bool ArtMethod::HasSameDexCacheResolvedMethods(ArtMethod** other_cache,
+                                                      size_t pointer_size) {
+  return GetDexCacheResolvedMethods(pointer_size) == other_cache;
 }
 
-inline bool ArtMethod::HasSameDexCacheResolvedMethods(ArtMethod* other) {
-  return GetDexCacheResolvedMethods() == other->GetDexCacheResolvedMethods();
+inline bool ArtMethod::HasSameDexCacheResolvedMethods(ArtMethod* other, size_t pointer_size) {
+  return GetDexCacheResolvedMethods(pointer_size) ==
+      other->GetDexCacheResolvedMethods(pointer_size);
 }
 
-inline mirror::ObjectArray<mirror::Class>* ArtMethod::GetDexCacheResolvedTypes() {
-  return dex_cache_resolved_types_.Read();
+inline GcRoot<mirror::Class>* ArtMethod::GetDexCacheResolvedTypes(size_t pointer_size) {
+  return GetNativePointer<GcRoot<mirror::Class>*>(DexCacheResolvedTypesOffset(pointer_size),
+                                                  pointer_size);
 }
 
 template <bool kWithCheck>
-inline mirror::Class* ArtMethod::GetDexCacheResolvedType(uint32_t type_index) {
-  mirror::Class* klass = kWithCheck ?
-      GetDexCacheResolvedTypes()->Get(type_index) :
-      GetDexCacheResolvedTypes()->GetWithoutChecks(type_index);
+inline mirror::Class* ArtMethod::GetDexCacheResolvedType(uint32_t type_index, size_t ptr_size) {
+  if (kWithCheck) {
+    mirror::DexCache* dex_cache =
+        GetInterfaceMethodIfProxy(ptr_size)->GetDeclaringClass()->GetDexCache();
+    if (UNLIKELY(type_index >= dex_cache->NumResolvedTypes())) {
+      ThrowArrayIndexOutOfBoundsException(type_index, dex_cache->NumResolvedTypes());
+      return nullptr;
+    }
+  }
+  mirror::Class* klass = GetDexCacheResolvedTypes(ptr_size)[type_index].Read();
   return (klass != nullptr && !klass->IsErroneous()) ? klass : nullptr;
 }
 
-inline bool ArtMethod::HasDexCacheResolvedTypes() {
-  return GetDexCacheResolvedTypes() != nullptr;
+inline bool ArtMethod::HasDexCacheResolvedTypes(size_t pointer_size) {
+  return GetDexCacheResolvedTypes(pointer_size) != nullptr;
 }
 
-inline bool ArtMethod::HasSameDexCacheResolvedTypes(
-    mirror::ObjectArray<mirror::Class>* other_cache) {
-  return GetDexCacheResolvedTypes() == other_cache;
+inline bool ArtMethod::HasSameDexCacheResolvedTypes(GcRoot<mirror::Class>* other_cache,
+                                                    size_t pointer_size) {
+  return GetDexCacheResolvedTypes(pointer_size) == other_cache;
 }
 
-inline bool ArtMethod::HasSameDexCacheResolvedTypes(ArtMethod* other) {
-  return GetDexCacheResolvedTypes() == other->GetDexCacheResolvedTypes();
+inline bool ArtMethod::HasSameDexCacheResolvedTypes(ArtMethod* other, size_t pointer_size) {
+  return GetDexCacheResolvedTypes(pointer_size) == other->GetDexCacheResolvedTypes(pointer_size);
 }
 
-inline mirror::Class* ArtMethod::GetClassFromTypeIndex(uint16_t type_idx, bool resolve) {
-  mirror::Class* type = GetDexCacheResolvedType(type_idx);
+inline mirror::Class* ArtMethod::GetClassFromTypeIndex(uint16_t type_idx,
+                                                       bool resolve,
+                                                       size_t ptr_size) {
+  mirror::Class* type = GetDexCacheResolvedType(type_idx, ptr_size);
   if (type == nullptr && resolve) {
     type = Runtime::Current()->GetClassLinker()->ResolveType(type_idx, this);
     CHECK(type != nullptr || Thread::Current()->IsExceptionPending());
   }
   return type;
-}
-
-inline uint32_t ArtMethod::GetCodeSize() {
-  DCHECK(!IsRuntimeMethod() && !IsProxyMethod()) << PrettyMethod(this);
-  return GetCodeSize(EntryPointToCodePointer(GetEntryPointFromQuickCompiledCode()));
-}
-
-inline uint32_t ArtMethod::GetCodeSize(const void* code) {
-  if (code == nullptr) {
-    return 0u;
-  }
-  return reinterpret_cast<const OatQuickMethodHeader*>(code)[-1].code_size_;
 }
 
 inline bool ArtMethod::CheckIncompatibleClassChange(InvokeType type) {
@@ -171,13 +221,13 @@ inline bool ArtMethod::CheckIncompatibleClassChange(InvokeType type) {
     case kDirect:
       return !IsDirect() || IsStatic();
     case kVirtual: {
+      // We have an error if we are direct or a non-default, non-miranda interface method.
       mirror::Class* methods_class = GetDeclaringClass();
-      return IsDirect() || (methods_class->IsInterface() && !IsMiranda());
+      return IsDirect() || (methods_class->IsInterface() && !IsDefault() && !IsMiranda());
     }
     case kSuper:
       // Constructors and static methods are called with invoke-direct.
-      // Interface methods cannot be invoked with invoke-super.
-      return IsConstructor() || IsStatic() || GetDeclaringClass()->IsInterface();
+      return IsConstructor() || IsStatic();
     case kInterface: {
       mirror::Class* methods_class = GetDeclaringClass();
       return IsDirect() || !(methods_class->IsInterface() || methods_class->IsObjectClass());
@@ -186,85 +236,6 @@ inline bool ArtMethod::CheckIncompatibleClassChange(InvokeType type) {
       LOG(FATAL) << "Unreachable - invocation type: " << type;
       UNREACHABLE();
   }
-}
-
-inline uint32_t ArtMethod::GetQuickOatCodeOffset() {
-  DCHECK(!Runtime::Current()->IsStarted());
-  return PointerToLowMemUInt32(GetEntryPointFromQuickCompiledCode());
-}
-
-inline void ArtMethod::SetQuickOatCodeOffset(uint32_t code_offset) {
-  DCHECK(!Runtime::Current()->IsStarted());
-  SetEntryPointFromQuickCompiledCode(reinterpret_cast<void*>(code_offset));
-}
-
-inline const uint8_t* ArtMethod::GetMappingTable(size_t pointer_size) {
-  const void* code_pointer = GetQuickOatCodePointer(pointer_size);
-  if (code_pointer == nullptr) {
-    return nullptr;
-  }
-  return GetMappingTable(code_pointer, pointer_size);
-}
-
-inline const uint8_t* ArtMethod::GetMappingTable(const void* code_pointer, size_t pointer_size) {
-  DCHECK(code_pointer != nullptr);
-  DCHECK_EQ(code_pointer, GetQuickOatCodePointer(pointer_size));
-  uint32_t offset =
-      reinterpret_cast<const OatQuickMethodHeader*>(code_pointer)[-1].mapping_table_offset_;
-  if (UNLIKELY(offset == 0u)) {
-    return nullptr;
-  }
-  return reinterpret_cast<const uint8_t*>(code_pointer) - offset;
-}
-
-inline const uint8_t* ArtMethod::GetVmapTable(size_t pointer_size) {
-  const void* code_pointer = GetQuickOatCodePointer(pointer_size);
-  if (code_pointer == nullptr) {
-    return nullptr;
-  }
-  return GetVmapTable(code_pointer, pointer_size);
-}
-
-inline const uint8_t* ArtMethod::GetVmapTable(const void* code_pointer, size_t pointer_size) {
-  CHECK(!IsOptimized(pointer_size)) << "Unimplemented vmap table for optimized compiler";
-  DCHECK(code_pointer != nullptr);
-  DCHECK_EQ(code_pointer, GetQuickOatCodePointer(pointer_size));
-  uint32_t offset =
-      reinterpret_cast<const OatQuickMethodHeader*>(code_pointer)[-1].vmap_table_offset_;
-  if (UNLIKELY(offset == 0u)) {
-    return nullptr;
-  }
-  return reinterpret_cast<const uint8_t*>(code_pointer) - offset;
-}
-
-inline CodeInfo ArtMethod::GetOptimizedCodeInfo() {
-  DCHECK(IsOptimized(sizeof(void*)));
-  const void* code_pointer = GetQuickOatCodePointer(sizeof(void*));
-  DCHECK(code_pointer != nullptr);
-  uint32_t offset =
-      reinterpret_cast<const OatQuickMethodHeader*>(code_pointer)[-1].vmap_table_offset_;
-  const void* data =
-      reinterpret_cast<const void*>(reinterpret_cast<const uint8_t*>(code_pointer) - offset);
-  return CodeInfo(data);
-}
-
-inline const uint8_t* ArtMethod::GetNativeGcMap(size_t pointer_size) {
-  const void* code_pointer = GetQuickOatCodePointer(pointer_size);
-  if (code_pointer == nullptr) {
-    return nullptr;
-  }
-  return GetNativeGcMap(code_pointer, pointer_size);
-}
-
-inline const uint8_t* ArtMethod::GetNativeGcMap(const void* code_pointer, size_t pointer_size) {
-  DCHECK(code_pointer != nullptr);
-  DCHECK_EQ(code_pointer, GetQuickOatCodePointer(pointer_size));
-  uint32_t offset =
-      reinterpret_cast<const OatQuickMethodHeader*>(code_pointer)[-1].gc_map_offset_;
-  if (UNLIKELY(offset == 0u)) {
-    return nullptr;
-  }
-  return reinterpret_cast<const uint8_t*>(code_pointer) - offset;
 }
 
 inline bool ArtMethod::IsRuntimeMethod() {
@@ -293,32 +264,11 @@ inline bool ArtMethod::IsResolutionMethod() {
   return result;
 }
 
-inline bool ArtMethod::IsImtConflictMethod() {
-  bool result = this == Runtime::Current()->GetImtConflictMethod();
-  // Check that if we do think it is phony it looks like the imt conflict method.
-  DCHECK(!result || IsRuntimeMethod());
-  return result;
-}
-
 inline bool ArtMethod::IsImtUnimplementedMethod() {
   bool result = this == Runtime::Current()->GetImtUnimplementedMethod();
   // Check that if we do think it is phony it looks like the imt unimplemented method.
   DCHECK(!result || IsRuntimeMethod());
   return result;
-}
-
-inline uintptr_t ArtMethod::NativeQuickPcOffset(const uintptr_t pc) {
-  const void* code = Runtime::Current()->GetInstrumentation()->GetQuickCodeFor(
-      this, sizeof(void*));
-  return pc - reinterpret_cast<uintptr_t>(code);
-}
-
-inline QuickMethodFrameInfo ArtMethod::GetQuickFrameInfo(const void* code_pointer) {
-  DCHECK(code_pointer != nullptr);
-  if (kIsDebugBuild && !IsProxyMethod()) {
-    CHECK_EQ(code_pointer, GetQuickOatCodePointer(sizeof(void*)));
-  }
-  return reinterpret_cast<const OatQuickMethodHeader*>(code_pointer)[-1].frame_info_;
 }
 
 inline const DexFile* ArtMethod::GetDexFile() {
@@ -378,9 +328,9 @@ inline const DexFile::CodeItem* ArtMethod::GetCodeItem() {
   return GetDeclaringClass()->GetDexFile().GetCodeItem(GetCodeItemOffset());
 }
 
-inline bool ArtMethod::IsResolvedTypeIdx(uint16_t type_idx) {
+inline bool ArtMethod::IsResolvedTypeIdx(uint16_t type_idx, size_t ptr_size) {
   DCHECK(!IsProxyMethod());
-  return GetDexCacheResolvedType(type_idx) != nullptr;
+  return GetDexCacheResolvedType(type_idx, ptr_size) != nullptr;
 }
 
 inline int32_t ArtMethod::GetLineNumFromDexPC(uint32_t dex_pc) {
@@ -454,30 +404,33 @@ inline ArtMethod* ArtMethod::GetInterfaceMethodIfProxy(size_t pointer_size) {
     return this;
   }
   mirror::Class* klass = GetDeclaringClass();
-  auto interface_method = GetDexCacheResolvedMethods()->GetElementPtrSize<ArtMethod*>(
-      GetDexMethodIndex(), pointer_size);
+  ArtMethod* interface_method = mirror::DexCache::GetElementPtrSize(
+      GetDexCacheResolvedMethods(pointer_size),
+      GetDexMethodIndex(),
+      pointer_size);
   DCHECK(interface_method != nullptr);
   DCHECK_EQ(interface_method,
             Runtime::Current()->GetClassLinker()->FindMethodForProxy(klass, this));
   return interface_method;
 }
 
-inline void ArtMethod::SetDexCacheResolvedMethods(mirror::PointerArray* new_dex_cache_methods) {
-  dex_cache_resolved_methods_ = GcRoot<mirror::PointerArray>(new_dex_cache_methods);
+inline void ArtMethod::SetDexCacheResolvedMethods(ArtMethod** new_dex_cache_methods,
+                                                  size_t ptr_size) {
+  SetNativePointer(DexCacheResolvedMethodsOffset(ptr_size), new_dex_cache_methods, ptr_size);
 }
 
-inline void ArtMethod::SetDexCacheResolvedTypes(
-    mirror::ObjectArray<mirror::Class>* new_dex_cache_types) {
-  dex_cache_resolved_types_ = GcRoot<mirror::ObjectArray<mirror::Class>>(new_dex_cache_types);
+inline void ArtMethod::SetDexCacheResolvedTypes(GcRoot<mirror::Class>* new_dex_cache_types,
+                                                size_t ptr_size) {
+  SetNativePointer(DexCacheResolvedTypesOffset(ptr_size), new_dex_cache_types, ptr_size);
 }
 
-inline mirror::Class* ArtMethod::GetReturnType(bool resolve) {
+inline mirror::Class* ArtMethod::GetReturnType(bool resolve, size_t ptr_size) {
   DCHECK(!IsProxyMethod());
   const DexFile* dex_file = GetDexFile();
   const DexFile::MethodId& method_id = dex_file->GetMethodId(GetDexMethodIndex());
   const DexFile::ProtoId& proto_id = dex_file->GetMethodPrototype(method_id);
   uint16_t return_type_idx = proto_id.return_type_idx_;
-  mirror::Class* type = GetDexCacheResolvedType(return_type_idx);
+  mirror::Class* type = GetDexCacheResolvedType(return_type_idx, ptr_size);
   if (type == nullptr && resolve) {
     type = Runtime::Current()->GetClassLinker()->ResolveType(return_type_idx, this);
     CHECK(type != nullptr || Thread::Current()->IsExceptionPending());
@@ -486,20 +439,76 @@ inline mirror::Class* ArtMethod::GetReturnType(bool resolve) {
 }
 
 template<typename RootVisitorType>
-void ArtMethod::VisitRoots(RootVisitorType& visitor) {
-  visitor.VisitRootIfNonNull(declaring_class_.AddressWithoutBarrier());
-  visitor.VisitRootIfNonNull(dex_cache_resolved_methods_.AddressWithoutBarrier());
-  visitor.VisitRootIfNonNull(dex_cache_resolved_types_.AddressWithoutBarrier());
+void ArtMethod::VisitRoots(RootVisitorType& visitor, size_t pointer_size) {
+  ArtMethod* interface_method = nullptr;
+  mirror::Class* klass = declaring_class_.Read();
+  if (LIKELY(klass != nullptr)) {
+    if (UNLIKELY(klass->IsProxyClass())) {
+      // For normal methods, dex cache shortcuts will be visited through the declaring class.
+      // However, for proxies we need to keep the interface method alive, so we visit its roots.
+      interface_method = mirror::DexCache::GetElementPtrSize(
+          GetDexCacheResolvedMethods(pointer_size),
+          GetDexMethodIndex(),
+          pointer_size);
+      DCHECK(interface_method != nullptr);
+      DCHECK_EQ(interface_method,
+                Runtime::Current()->GetClassLinker()->FindMethodForProxy(klass, this));
+      interface_method->VisitRoots(visitor, pointer_size);
+    }
+    visitor.VisitRoot(declaring_class_.AddressWithoutBarrier());
+    // We know we don't have profiling information if the class hasn't been verified. Note
+    // that this check also ensures the IsNative call can be made, as IsNative expects a fully
+    // created class (and not a retired one).
+    if (klass->IsVerified()) {
+      // Runtime methods and native methods use the same field as the profiling info for
+      // storing their own data (jni entrypoint for native methods, and ImtConflictTable for
+      // some runtime methods).
+      if (!IsNative() && !IsRuntimeMethod()) {
+        ProfilingInfo* profiling_info = GetProfilingInfo(pointer_size);
+        if (profiling_info != nullptr) {
+          profiling_info->VisitRoots(visitor);
+        }
+      }
+    }
+  }
 }
 
-inline void ArtMethod::CopyFrom(const ArtMethod* src, size_t image_pointer_size) {
-  memcpy(reinterpret_cast<void*>(this), reinterpret_cast<const void*>(src),
-         ObjectSize(image_pointer_size));
-  declaring_class_ = GcRoot<mirror::Class>(const_cast<ArtMethod*>(src)->GetDeclaringClass());
-  dex_cache_resolved_methods_ = GcRoot<mirror::PointerArray>(
-      const_cast<ArtMethod*>(src)->GetDexCacheResolvedMethods());
-  dex_cache_resolved_types_ = GcRoot<mirror::ObjectArray<mirror::Class>>(
-      const_cast<ArtMethod*>(src)->GetDexCacheResolvedTypes());
+template <typename Visitor>
+inline void ArtMethod::UpdateObjectsForImageRelocation(const Visitor& visitor,
+                                                       size_t pointer_size) {
+  mirror::Class* old_class = GetDeclaringClassUnchecked<kWithoutReadBarrier>();
+  mirror::Class* new_class = visitor(old_class);
+  if (old_class != new_class) {
+    SetDeclaringClass(new_class);
+  }
+  ArtMethod** old_methods = GetDexCacheResolvedMethods(pointer_size);
+  ArtMethod** new_methods = visitor(old_methods);
+  if (old_methods != new_methods) {
+    SetDexCacheResolvedMethods(new_methods, pointer_size);
+  }
+  GcRoot<mirror::Class>* old_types = GetDexCacheResolvedTypes(pointer_size);
+  GcRoot<mirror::Class>* new_types = visitor(old_types);
+  if (old_types != new_types) {
+    SetDexCacheResolvedTypes(new_types, pointer_size);
+  }
+}
+
+template <ReadBarrierOption kReadBarrierOption, typename Visitor>
+inline void ArtMethod::UpdateEntrypoints(const Visitor& visitor, size_t pointer_size) {
+  if (IsNative<kReadBarrierOption>()) {
+    const void* old_native_code = GetEntryPointFromJniPtrSize(pointer_size);
+    const void* new_native_code = visitor(old_native_code);
+    if (old_native_code != new_native_code) {
+      SetEntryPointFromJniPtrSize(new_native_code, pointer_size);
+    }
+  } else {
+    DCHECK(GetEntryPointFromJniPtrSize(pointer_size) == nullptr);
+  }
+  const void* old_code = GetEntryPointFromQuickCompiledCodePtrSize(pointer_size);
+  const void* new_code = visitor(old_code);
+  if (old_code != new_code) {
+    SetEntryPointFromQuickCompiledCodePtrSize(new_code, pointer_size);
+  }
 }
 
 }  // namespace art

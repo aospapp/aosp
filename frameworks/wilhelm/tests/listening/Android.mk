@@ -21,6 +21,8 @@ endif
 
 LOCAL_MODULE:= slesTest_seekTorture
 
+LOCAL_CFLAGS := -Werror -Wall
+
 include $(BUILD_EXECUTABLE)
 
 #
@@ -43,5 +45,7 @@ ifeq ($(TARGET_OS),linux)
 endif
 
 LOCAL_MODULE:= slesTest_playMuteSolo
+
+LOCAL_CFLAGS := -Werror -Wall
 
 include $(BUILD_EXECUTABLE)

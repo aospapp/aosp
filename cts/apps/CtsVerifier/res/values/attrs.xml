@@ -15,7 +15,7 @@
   -->
 <resources>
     <declare-styleable name="BoxInsetLayout_Layout">
-        <attr name="layout_box">
+        <attr name="ctsv_layout_box">
             <flag name="left" value="0x01" />
             <flag name="top" value="0x02" />
             <flag name="right" value="0x04" />

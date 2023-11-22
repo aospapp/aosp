@@ -76,6 +76,7 @@ struct fd_device * fd_device_new(int fd);
 struct fd_device * fd_device_new_dup(int fd);
 struct fd_device * fd_device_ref(struct fd_device *dev);
 void fd_device_del(struct fd_device *dev);
+int fd_device_fd(struct fd_device *dev);
 
 
 /* pipe functions:
@@ -86,6 +87,9 @@ void fd_pipe_del(struct fd_pipe *pipe);
 int fd_pipe_get_param(struct fd_pipe *pipe, enum fd_param_id param,
 		uint64_t *value);
 int fd_pipe_wait(struct fd_pipe *pipe, uint32_t timestamp);
+/* timeout in nanosec */
+int fd_pipe_wait_timeout(struct fd_pipe *pipe, uint32_t timestamp,
+		uint64_t timeout);
 
 
 /* buffer-object functions:

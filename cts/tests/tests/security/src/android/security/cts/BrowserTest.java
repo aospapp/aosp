@@ -16,23 +16,22 @@
 
 package android.security.cts;
 
-import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
+import android.os.StrictMode;
 import android.test.AndroidTestCase;
 import android.webkit.cts.CtsTestServer;
 
+import org.apache.http.HttpEntity;
+
+import java.io.File;
 import java.io.FileOutputStream;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.http.HttpEntity;
 /**
  * Test file for browser security issues.
  */
@@ -138,6 +137,8 @@ public class BrowserTest extends AndroidTestCase {
      * See Bug 6212665 for detailed information about this issue.
      */
     public void testBrowserPrivateDataAccess() throws Throwable {
+        // Yucky workaround to let us launch file:// Uris
+        StrictMode.setVmPolicy(new StrictMode.VmPolicy.Builder().build());
 
         // Create a list of all intents for http display. This includes all browsers.
         List<Intent> intents = createAllIntents(Uri.parse("http://www.google.com"));
@@ -146,8 +147,10 @@ public class BrowserTest extends AndroidTestCase {
         for (Intent intent : intents) {
             // reset state
             mWebServer.resetRequestState();
+
             // define target file, which is supposedly protected from this app
-            String targetFile = "file://" + getTargetFilePath();
+            final File secretFile = exposeFile(stageFile("target.txt", "SECRETS!"));
+
             String html =
                 "<html><body>\n" +
                 "  <form name=\"myform\" action=" + action + " method=\"post\">\n" +
@@ -155,7 +158,7 @@ public class BrowserTest extends AndroidTestCase {
                 "  <a href=\"javascript :submitform()\">Search</a></form>\n" +
                 "<script>\n" +
                 "  var client = new XMLHttpRequest();\n" +
-                "  client.open('GET', '" + targetFile + "');\n" +
+                "  client.open('GET', '" + Uri.fromFile(secretFile) + "');\n" +
                 "  client.onreadystatechange = function() {\n" +
                 "  if(client.readyState == 4) {\n" +
                 "    myform.val.value = client.responseText;\n" +
@@ -163,20 +166,14 @@ public class BrowserTest extends AndroidTestCase {
                 "  }}\n" +
                 "  client.send();\n" +
                 "</script></body></html>\n";
-            String filename = "jsfileaccess.html";
-            // create a local HTML to access protected file
-            FileOutputStream out = mContext.openFileOutput(filename,
-                                                           mContext.MODE_WORLD_READABLE);
-            Writer writer = new OutputStreamWriter(out, "UTF-8");
-            writer.write(html);
-            writer.flush();
-            writer.close();
 
-            String filepath = mContext.getFileStreamPath(filename).getAbsolutePath();
-            Uri uri = Uri.parse("file://" + filepath);
+            // create a local HTML to access protected file
+            final File htmlFile = exposeFile(stageFile("jsfileaccess.html", html));
+
             // do a file request
-            intent.setData(uri);
+            intent.setData(Uri.fromFile(htmlFile));
             mContext.startActivity(intent);
+
             /*
              * Wait 5 seconds for the browser to contact the server, but
              * fail fast if we detect the bug
@@ -199,14 +196,26 @@ public class BrowserTest extends AndroidTestCase {
         }
     }
 
-    private String getTargetFilePath() throws Exception {
-        FileOutputStream out = mContext.openFileOutput("target.txt",
-                                                       mContext.MODE_WORLD_READABLE);
-        Writer writer = new OutputStreamWriter(out, "UTF-8");
-        writer.write("testing");
-        writer.flush();
-        writer.close();
-        return mContext.getFileStreamPath("target.txt").getAbsolutePath();
+    private File stageFile(String name, String contents) throws Exception {
+        final File file = mContext.getFileStreamPath(name);
+        try (FileOutputStream out = new FileOutputStream(file)) {
+            out.write(contents.getBytes(StandardCharsets.UTF_8));
+        }
+        return file;
+    }
+
+    private File exposeFile(File file) throws Exception {
+        file.setReadable(true, false);
+        file.setReadable(true, true);
+
+        File dir = file.getParentFile();
+        do {
+            dir.setExecutable(true, false);
+            dir.setExecutable(true, true);
+            dir = dir.getParentFile();
+        } while (dir != null);
+
+        return file;
     }
 
     /**

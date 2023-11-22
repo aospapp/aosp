@@ -54,7 +54,8 @@ static int msm_pipe_get_param(struct fd_pipe *pipe,
 	}
 }
 
-static int msm_pipe_wait(struct fd_pipe *pipe, uint32_t timestamp)
+static int msm_pipe_wait(struct fd_pipe *pipe, uint32_t timestamp,
+		uint64_t timeout)
 {
 	struct fd_device *dev = pipe->dev;
 	struct drm_msm_wait_fence req = {
@@ -62,7 +63,7 @@ static int msm_pipe_wait(struct fd_pipe *pipe, uint32_t timestamp)
 	};
 	int ret;
 
-	get_abs_timeout(&req.timeout, 5000);
+	get_abs_timeout(&req.timeout, timeout);
 
 	ret = drmCommandWrite(dev->fd, DRM_MSM_WAIT_FENCE, &req, sizeof(req));
 	if (ret) {
@@ -79,7 +80,7 @@ static void msm_pipe_destroy(struct fd_pipe *pipe)
 	free(msm_pipe);
 }
 
-static struct fd_pipe_funcs funcs = {
+static const struct fd_pipe_funcs funcs = {
 		.ringbuffer_new = msm_ringbuffer_new,
 		.get_param = msm_pipe_get_param,
 		.wait = msm_pipe_wait,
@@ -103,7 +104,8 @@ static uint64_t get_param(struct fd_device *dev, uint32_t pipe, uint32_t param)
 	return req.value;
 }
 
-struct fd_pipe * msm_pipe_new(struct fd_device *dev, enum fd_pipe_id id)
+drm_private struct fd_pipe * msm_pipe_new(struct fd_device *dev,
+		enum fd_pipe_id id)
 {
 	static const uint32_t pipe_id[] = {
 			[FD_PIPE_3D] = MSM_PIPE_3D0,

@@ -66,5 +66,5 @@ RS_COMPAT_TRIPLE := aarch64-linux-android
 TARGET_LIBPROFILE_RT := $(LLVM_RTLIB_PATH)/libclang_rt.profile-aarch64-android.a
 
 # Address sanitizer clang config
-ADDRESS_SANITIZER_RUNTIME_LIBRARY := libclang_rt.asan-arm64-android
-ADDRESS_SANITIZER_RPATH := /system/lib64/asan
+ADDRESS_SANITIZER_RUNTIME_LIBRARY := libclang_rt.asan-aarch64-android
+ADDRESS_SANITIZER_LINKER := /system/bin/linker_asan64

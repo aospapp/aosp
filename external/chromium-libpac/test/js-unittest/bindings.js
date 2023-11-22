@@ -21,13 +21,13 @@ function FindProxyForURL(url, host) {
   // Those expected to fail (because we have passed a non-string parameter)
   // will return |null|, whereas those that have called through to the C++
   // bindings will return '127.0.0.1'.
-  expectEquals(null, dnsResolve());
-  expectEquals(null, dnsResolve(null));
-  expectEquals(null, dnsResolve(undefined));
+  expectEquals(undefined, dnsResolve());
+  expectEquals(undefined, dnsResolve(null));
+  expectEquals(undefined, dnsResolve(undefined));
   expectEquals('127.0.0.1', dnsResolve(""));
-  expectEquals(null, dnsResolve({foo: 'bar'}));
-  expectEquals(null, dnsResolve(fn));
-  expectEquals(null, dnsResolve(['3']));
+  expectEquals(undefined, dnsResolve({foo: 'bar'}));
+  expectEquals(undefined, dnsResolve(fn));
+  expectEquals(undefined, dnsResolve(['3']));
   expectEquals('127.0.0.1', dnsResolve("arg1", "arg2", "arg3", "arg4"));
 
   // Call alert with some wonky arguments.

@@ -1,9 +1,9 @@
-/*	$OpenBSD: syn.c,v 1.29 2013/06/03 18:40:05 jca Exp $	*/
+/*	$OpenBSD: syn.c,v 1.30 2015/09/01 13:12:31 tedu Exp $	*/
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009,
- *		 2011, 2012, 2013, 2014, 2015
- *	Thorsten Glaser <tg@mirbsd.org>
+ *		 2011, 2012, 2013, 2014, 2015, 2016
+ *	mirabilos <m@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
  * are retained or reproduced in an accompanying document, permission
@@ -23,7 +23,7 @@
 
 #include "sh.h"
 
-__RCSID("$MirOS: src/bin/mksh/syn.c,v 1.94.2.3 2015/04/12 22:32:35 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/syn.c,v 1.109 2016/01/19 23:12:15 tg Exp $");
 
 struct nesting_state {
 	int start_token;	/* token than began nesting (eg, FOR) */
@@ -172,6 +172,8 @@ c_list(bool multi)
 	return (t);
 }
 
+static const char IONDELIM_delim[] = { CHAR, '<', CHAR, '<', EOS };
+
 static struct ioword *
 synio(int cf)
 {
@@ -189,35 +191,43 @@ synio(int cf)
 		return (NULL);
 	ACCEPT;
 	iop = yylval.iop;
-	if (iop->ioflag & IONDELIM)
-		goto gotnulldelim;
 	ishere = (iop->ioflag & IOTYPE) == IOHERE;
-	musthave(LWORD, ishere ? HEREDELIM : 0);
+	if (iop->ioflag & IOHERESTR) {
+		musthave(LWORD, 0);
+	} else if (ishere && tpeek(HEREDELIM) == '\n') {
+		ACCEPT;
+		yylval.cp = wdcopy(IONDELIM_delim, ATEMP);
+		iop->ioflag |= IOEVAL | IONDELIM;
+	} else
+		musthave(LWORD, ishere ? HEREDELIM : 0);
 	if (ishere) {
 		iop->delim = yylval.cp;
-		if (*ident != 0) {
+		if (*ident != 0 && !(iop->ioflag & IOHERESTR)) {
 			/* unquoted */
- gotnulldelim:
 			iop->ioflag |= IOEVAL;
 		}
 		if (herep > &heres[HERES - 1])
 			yyerror("too many %ss\n", "<<");
 		*herep++ = iop;
 	} else
-		iop->name = yylval.cp;
+		iop->ioname = yylval.cp;
 
 	if (iop->ioflag & IOBASH) {
 		char *cp;
 
 		nextiop = alloc(sizeof(*iop), ATEMP);
-		nextiop->name = cp = alloc(5, ATEMP);
+#ifdef MKSH_CONSERVATIVE_FDS
+		nextiop->ioname = cp = alloc(3, ATEMP);
+#else
+		nextiop->ioname = cp = alloc(5, ATEMP);
 
 		if (iop->unit > 9) {
 			*cp++ = CHAR;
-			*cp++ = '0' + (iop->unit / 10);
+			*cp++ = digits_lc[iop->unit / 10];
 		}
+#endif
 		*cp++ = CHAR;
-		*cp++ = '0' + (iop->unit % 10);
+		*cp++ = digits_lc[iop->unit % 10];
 		*cp = EOS;
 
 		iop->ioflag &= ~IOBASH;
@@ -243,10 +253,10 @@ nested(int type, int smark, int emark)
 }
 
 static const char let_cmd[] = {
-	CHAR, 'l', CHAR, 'e', CHAR, 't', CHAR, ']', EOS
+	QCHAR, 'l', CHAR, 'e', CHAR, 't', CHAR, ']', EOS
 };
 static const char setA_cmd0[] = {
-	CHAR, 's', CHAR, 'e', CHAR, 't', EOS
+	QCHAR, 's', CHAR, 'e', CHAR, 't', EOS
 };
 static const char setA_cmd1[] = {
 	CHAR, '-', CHAR, 'A', EOS
@@ -262,7 +272,6 @@ get_command(int cf)
 	int c, iopn = 0, syniocf, lno;
 	struct ioword *iop, **iops;
 	XPtrV args, vars;
-	char *tcp;
 	struct nesting_state old_nesting;
 
 	/* NUFILE is small enough to leave this addition unchecked */
@@ -271,7 +280,7 @@ get_command(int cf)
 	XPinit(vars, 16);
 
 	syniocf = KEYWORD|sALIAS;
-	switch (c = token(cf|KEYWORD|sALIAS|VARASN)) {
+	switch (c = token(cf|KEYWORD|sALIAS|CMDASN)) {
 	default:
 		REJECT;
 		afree(iops, ATEMP);
@@ -286,9 +295,18 @@ get_command(int cf)
 		syniocf &= ~(KEYWORD|sALIAS);
 		t = newtp(TCOM);
 		t->lineno = source->line;
+		goto get_command_begin;
 		while (/* CONSTCOND */ 1) {
-			cf = (t->u.evalflags ? ARRAYVAR : 0) |
-			    (XPsize(args) == 0 ? sALIAS|VARASN : 0);
+			bool check_assign_cmd;
+
+			if (XPsize(args) == 0) {
+ get_command_begin:
+				check_assign_cmd = true;
+				cf = sALIAS | CMDASN;
+			} else if (t->u.evalflags)
+				cf = CMDWORD | CMDASN;
+			else
+				cf = CMDWORD;
 			switch (tpeek(cf)) {
 			case REDIR:
 				while ((iop = synio(cf)) != NULL) {
@@ -306,9 +324,12 @@ get_command(int cf)
 				 * dubious but AT&T ksh acts this way
 				 */
 				if (iopn == 0 && XPsize(vars) == 0 &&
-				    XPsize(args) == 0 &&
-				    assign_command(ident))
-					t->u.evalflags = DOVACHECK;
+				    check_assign_cmd) {
+					if (assign_command(ident, false))
+						t->u.evalflags = DOVACHECK;
+					else if (strcmp(ident, Tcommand) != 0)
+						check_assign_cmd = false;
+				}
 				if ((XPsize(args) == 0 || Flag(FKEYWORD)) &&
 				    is_wdvarassign(yylval.cp))
 					XPput(vars, yylval.cp);
@@ -319,6 +340,8 @@ get_command(int cf)
 			case '(' /*)*/:
 				if (XPsize(args) == 0 && XPsize(vars) == 1 &&
 				    is_wdvarassign(yylval.cp)) {
+					char *tcp;
+
 					/* wdarrassign: foo=(bar) */
 					ACCEPT;
 
@@ -390,6 +413,7 @@ get_command(int cf)
 		case LWORD:
 			break;
 		case '(': /*)*/
+			c = '(';
 			goto Subshell;
 		default:
 			syntaxerr(NULL);
@@ -421,7 +445,7 @@ get_command(int cf)
 	case FOR:
 	case SELECT:
 		t = newtp((c == FOR) ? TFOR : TSELECT);
-		musthave(LWORD, ARRAYVAR);
+		musthave(LWORD, CMDASN);
 		if (!is_wdvarname(yylval.cp, true))
 			yyerror("%s: %s\n", c == FOR ? "for" : Tselect,
 			    "bad identifier");
@@ -510,6 +534,12 @@ get_command(int cf)
 		XPfree(vars);
 	}
 
+	if (c == MDPAREN) {
+		t = block(TBRACE, t, NULL);
+		t->ioact = t->left->ioact;
+		t->left->ioact = NULL;
+	}
+
 	return (t);
 }
 
@@ -556,7 +586,7 @@ elsepart(void)
 {
 	struct op *t;
 
-	switch (token(KEYWORD|sALIAS|VARASN)) {
+	switch (token(KEYWORD|sALIAS|CMDASN)) {
 	case ELSE:
 		if ((t = c_list(true)) == NULL)
 			syntaxerr(NULL);
@@ -712,7 +742,7 @@ function_body(char *name,
 		/* (2 * sizeof(char *)) is small enough */
 		t->left->args = alloc(2 * sizeof(char *), ATEMP);
 		t->left->args[0] = tv = alloc(3, ATEMP);
-		tv[0] = CHAR;
+		tv[0] = QCHAR;
 		tv[1] = ':';
 		tv[2] = EOS;
 		t->left->args[1] = NULL;
@@ -822,8 +852,8 @@ initkeywords(void)
 static void
 syntaxerr(const char *what)
 {
-	/* 2<<- is the longest redirection, I think */
-	char redir[6];
+	/* 23<<- is the longest redirection, I think */
+	char redir[8];
 	const char *s;
 	struct tokeninfo const *tt;
 	int c;
@@ -927,13 +957,14 @@ compile(Source *s, bool skiputf8bom)
  *	$
  */
 int
-assign_command(const char *s)
+assign_command(const char *s, bool docommand)
 {
 	if (!*s)
 		return (0);
 	return ((strcmp(s, Talias) == 0) ||
 	    (strcmp(s, Texport) == 0) ||
 	    (strcmp(s, Treadonly) == 0) ||
+	    (docommand && (strcmp(s, Tcommand) == 0)) ||
 	    (strcmp(s, Ttypeset) == 0));
 }
 
@@ -975,7 +1006,7 @@ static const char db_gthan[] = { CHAR, '>', EOS };
 static Test_op
 dbtestp_isa(Test_env *te, Test_meta meta)
 {
-	int c = tpeek(ARRAYVAR | (meta == TM_BINOP ? 0 : CONTIN));
+	int c = tpeek(CMDASN | (meta == TM_BINOP ? 0 : CONTIN));
 	bool uqword;
 	char *save = NULL;
 	Test_op ret = TO_NONOP;
@@ -1021,7 +1052,7 @@ static const char *
 dbtestp_getopnd(Test_env *te, Test_op op MKSH_A_UNUSED,
     bool do_eval MKSH_A_UNUSED)
 {
-	int c = tpeek(ARRAYVAR);
+	int c = tpeek(CMDASN);
 
 	if (c != LWORD)
 		return (NULL);
@@ -1074,7 +1105,8 @@ parse_usec(const char *s, struct timeval *tv)
 	tv->tv_sec = 0;
 	/* parse integral part */
 	while (ksh_isdigit(*s)) {
-		tt.tv_sec = tv->tv_sec * 10 + (*s++ - '0');
+		tt.tv_sec = tv->tv_sec * 10 + ksh_numdig(*s++);
+		/*XXX this overflow check maybe UB */
 		if (tt.tv_sec / 10 != tv->tv_sec) {
 			errno = EOVERFLOW;
 			return (true);
@@ -1095,7 +1127,7 @@ parse_usec(const char *s, struct timeval *tv)
 	/* parse decimal fraction */
 	i = 100000;
 	while (ksh_isdigit(*s)) {
-		tv->tv_usec += i * (*s++ - '0');
+		tv->tv_usec += i * ksh_numdig(*s++);
 		if (i == 1)
 			break;
 		i /= 10;

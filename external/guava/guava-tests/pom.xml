@@ -4,11 +4,11 @@
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>com.google.guava</groupId>
-    <artifactId>guava-parent-jdk5</artifactId>
-    <version>17.0</version>
+    <artifactId>guava-parent</artifactId>
+    <version>18.0</version>
   </parent>
-  <artifactId>guava-tests-jdk5</artifactId>
-  <name>Guava Unit Tests (JDK5 Backport)</name>
+  <artifactId>guava-tests</artifactId>
+  <name>Guava Unit Tests</name>
   <description>
     The unit tests for the Guava libraries - separated into a
     separate artifact to allow for the testlibs to depend on guava
@@ -17,15 +17,9 @@
   <dependencies>
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>guava-testlib-jdk5</artifactId>
+      <artifactId>guava-testlib</artifactId>
       <version>${project.version}</version>
       <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>${project.groupId}</groupId>
-      <artifactId>guava-bootstrap-jdk5</artifactId>
-      <version>${project.version}</version>
-      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>com.google.code.findbugs</groupId>
@@ -44,7 +38,7 @@
       <artifactId>mockito-core</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.truth0</groupId>
+      <groupId>com.google.truth</groupId>
       <artifactId>truth</artifactId>
     </dependency>
     <dependency>
@@ -56,23 +50,6 @@
     <plugins>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <!-- Prepend guava-bootstrap to avoid an API incompatibility between JDK5 and JDK6 -->
-          <compilerArgument>-Xbootclasspath/p:${project.build.directory}/dependency/guava-bootstrap-jdk5-${project.version}.jar</compilerArgument>
-        </configuration>
-      </plugin>
-      <plugin>
-        <artifactId>maven-dependency-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>prep-guava-bootstrap</id>
-            <phase>process-sources</phase>
-            <goals><goal>copy-dependencies</goal></goals>
-            <configuration>
-              <includeArtifactIds>guava-bootstrap-jdk5</includeArtifactIds>
-            </configuration>
-          </execution>
-        </executions>
       </plugin>
       <plugin>
         <artifactId>maven-source-plugin</artifactId>

@@ -68,10 +68,6 @@ public class LauncherAppWidgetInfo extends ItemInfo {
 
     ComponentName providerName;
 
-    // TODO: Are these necessary here?
-    int minWidth = -1;
-    int minHeight = -1;
-
     /**
      * Indicates the restore status of the widget.
      */
@@ -127,17 +123,11 @@ public class LauncherAppWidgetInfo extends ItemInfo {
      */
     void onBindAppWidget(Launcher launcher) {
         if (!mHasNotifiedInitialWidgetSizeChanged) {
-            notifyWidgetSizeChanged(launcher);
+            AppWidgetResizeFrame.updateWidgetSizeRanges(hostView, launcher, spanX, spanY);
+            mHasNotifiedInitialWidgetSizeChanged = true;
         }
     }
 
-    /**
-     * Trigger an update callback to the widget to notify it that its size has changed.
-     */
-    void notifyWidgetSizeChanged(Launcher launcher) {
-        AppWidgetResizeFrame.updateWidgetSizeRanges(hostView, launcher, spanX, spanY);
-        mHasNotifiedInitialWidgetSizeChanged = true;
-    }
 
     @Override
     public String toString() {

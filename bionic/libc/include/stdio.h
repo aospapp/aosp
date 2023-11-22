@@ -38,14 +38,6 @@
 #ifndef	_STDIO_H_
 #define	_STDIO_H_
 
-/*
- * This file must contain a reference to __gnuc_va_list so that GCC's
- * fixincludes knows that that's what's being used for va_list, and so
- * to leave our <stdio.h> alone. (fixincludes gets in the way of pointing
- * one toolchain at various different sets of platform headers.)
- * If you alter this comment, be sure to keep "__gnuc_va_list" in it!
- */
-
 #include <sys/cdefs.h>
 #include <sys/types.h>
 
@@ -57,96 +49,12 @@
 
 __BEGIN_DECLS
 
-typedef off_t fpos_t;		/* stdio file position type */
+typedef off_t fpos_t;
+typedef off64_t fpos64_t;
 
-/*
- * NB: to fit things in six character monocase externals, the stdio
- * code uses the prefix `__s' for stdio objects, typically followed
- * by a three-character attempt at a mnemonic.
- */
+struct __sFILE;
+typedef struct __sFILE FILE;
 
-/* stdio buffers */
-#if defined(__LP64__)
-struct __sbuf {
-  unsigned char* _base;
-  size_t _size;
-};
-#else
-struct __sbuf {
-	unsigned char *_base;
-	int	_size;
-};
-#endif
-
-/*
- * stdio state variables.
- *
- * The following always hold:
- *
- *	if (_flags&(__SLBF|__SWR)) == (__SLBF|__SWR),
- *		_lbfsize is -_bf._size, else _lbfsize is 0
- *	if _flags&__SRD, _w is 0
- *	if _flags&__SWR, _r is 0
- *
- * This ensures that the getc and putc macros (or inline functions) never
- * try to write or read from a file that is in `read' or `write' mode.
- * (Moreover, they can, and do, automatically switch from read mode to
- * write mode, and back, on "r+" and "w+" files.)
- *
- * _lbfsize is used only to make the inline line-buffered output stream
- * code as compact as possible.
- *
- * _ub, _up, and _ur are used when ungetc() pushes back more characters
- * than fit in the current _bf, or when ungetc() pushes back a character
- * that does not match the previous one in _bf.  When this happens,
- * _ub._base becomes non-nil (i.e., a stream has ungetc() data iff
- * _ub._base!=NULL) and _up and _ur save the current values of _p and _r.
- *
- * NOTE: if you change this structure, you also need to update the
- * std() initializer in findfp.c.
- */
-typedef	struct __sFILE {
-	unsigned char *_p;	/* current position in (some) buffer */
-	int	_r;		/* read space left for getc() */
-	int	_w;		/* write space left for putc() */
-#if defined(__LP64__)
-	int	_flags;		/* flags, below; this FILE is free if 0 */
-	int	_file;		/* fileno, if Unix descriptor, else -1 */
-#else
-	short	_flags;		/* flags, below; this FILE is free if 0 */
-	short	_file;		/* fileno, if Unix descriptor, else -1 */
-#endif
-	struct	__sbuf _bf;	/* the buffer (at least 1 byte, if !NULL) */
-	int	_lbfsize;	/* 0 or -_bf._size, for inline putc */
-
-	/* operations */
-	void	*_cookie;	/* cookie passed to io functions */
-	int	(*_close)(void *);
-	int	(*_read)(void *, char *, int);
-	fpos_t	(*_seek)(void *, fpos_t, int);
-	int	(*_write)(void *, const char *, int);
-
-	/* extension data, to avoid further ABI breakage */
-	struct	__sbuf _ext;
-	/* data for long sequences of ungetc() */
-	unsigned char *_up;	/* saved _p when _p is doing ungetc data */
-	int	_ur;		/* saved _r when _r is counting ungetc data */
-
-	/* tricks to meet minimum requirements even when malloc() fails */
-	unsigned char _ubuf[3];	/* guarantee an ungetc() buffer */
-	unsigned char _nbuf[1];	/* guarantee a getc() buffer */
-
-	/* separate buffer for fgetln() when line crosses buffer boundary */
-	struct	__sbuf _lb;	/* buffer for fgetln() */
-
-	/* Unix stdio files get aligned to block boundaries on fseek() */
-	int	_blksize;	/* stat.st_blksize (may be != _bf._size) */
-	fpos_t	_offset;	/* current lseek offset */
-} FILE;
-
-/* Legacy BSD implementation of stdin/stdout/stderr. */
-extern FILE __sF[];
-/* More obvious implementation. */
 extern FILE* stdin;
 extern FILE* stdout;
 extern FILE* stderr;
@@ -154,24 +62,6 @@ extern FILE* stderr;
 #define stdin stdin
 #define stdout stdout
 #define stderr stderr
-
-#define	__SLBF	0x0001		/* line buffered */
-#define	__SNBF	0x0002		/* unbuffered */
-#define	__SRD	0x0004		/* OK to read */
-#define	__SWR	0x0008		/* OK to write */
-	/* RD and WR are never simultaneously asserted */
-#define	__SRW	0x0010		/* open for reading & writing */
-#define	__SEOF	0x0020		/* found EOF */
-#define	__SERR	0x0040		/* found error */
-#define	__SMBF	0x0080		/* _buf is from malloc */
-#define	__SAPP	0x0100		/* fdopen()ed in append mode */
-#define	__SSTR	0x0200		/* this is an sprintf/snprintf string */
-#define	__SOPT	0x0400		/* do fseek() optimization */
-#define	__SNPT	0x0800		/* do not do fseek() optimization */
-#define	__SOFF	0x1000		/* set iff _offset is in fact correct */
-#define	__SMOD	0x2000		/* true => fgetln modified _p text */
-#define	__SALC	0x4000		/* allocate string space dynamically */
-#define	__SIGN	0x8000		/* ignore this file in _fwalk */
 
 /*
  * The following three definitions are for ANSI C, which took them
@@ -219,18 +109,13 @@ int	 ferror(FILE *);
 int	 fflush(FILE *);
 int	 fgetc(FILE *);
 char	*fgets(char * __restrict, int, FILE * __restrict);
-FILE	*fopen(const char * __restrict , const char * __restrict);
 int	 fprintf(FILE * __restrict , const char * __restrict, ...)
 		__printflike(2, 3);
 int	 fputc(int, FILE *);
 int	 fputs(const char * __restrict, FILE * __restrict);
 size_t	 fread(void * __restrict, size_t, size_t, FILE * __restrict);
-FILE	*freopen(const char * __restrict, const char * __restrict,
-	    FILE * __restrict);
 int	 fscanf(FILE * __restrict, const char * __restrict, ...)
 		__scanflike(2, 3);
-int	 fseek(FILE *, long, int);
-long	 ftell(FILE *);
 size_t	 fwrite(const void * __restrict, size_t, size_t, FILE * __restrict);
 int	 getc(FILE *);
 int	 getchar(void);
@@ -252,7 +137,6 @@ void	 setbuf(FILE * __restrict, char * __restrict);
 int	 setvbuf(FILE * __restrict, char * __restrict, int, size_t);
 int	 sscanf(const char * __restrict, const char * __restrict, ...)
 		__scanflike(2, 3);
-FILE	*tmpfile(void);
 int	 ungetc(int, FILE *);
 int	 vfprintf(FILE * __restrict, const char * __restrict, __va_list)
 		__printflike(2, 0);
@@ -277,25 +161,55 @@ char* tempnam(const char*, const char*)
 #endif
 #endif
 
-extern int rename(const char*, const char*);
-extern int renameat(int, const char*, int, const char*);
+int rename(const char*, const char*);
+int renameat(int, const char*, int, const char*);
+
+int fseek(FILE*, long, int);
+long ftell(FILE*);
 
 #if defined(__USE_FILE_OFFSET64)
-/* Not possible. */
-int	 fgetpos(FILE * __restrict, fpos_t * __restrict)
-	__attribute__((__error__("not available with _FILE_OFFSET_BITS=64")));
-int	 fsetpos(FILE *, const fpos_t *)
-	__attribute__((__error__("not available with _FILE_OFFSET_BITS=64")));
-int	 fseeko(FILE *, off_t, int)
-	__attribute__((__error__("not available with _FILE_OFFSET_BITS=64")));
-off_t	 ftello(FILE *)
-	__attribute__((__error__("not available with _FILE_OFFSET_BITS=64")));
+int fgetpos(FILE*, fpos_t*) __RENAME(fgetpos64);
+int fsetpos(FILE*, const fpos_t*) __RENAME(fsetpos64);
+int fseeko(FILE*, off_t, int) __RENAME(fseeko64);
+off_t ftello(FILE*) __RENAME(ftello64);
+#  if defined(__USE_BSD)
+FILE* funopen(const void*,
+              int (*)(void*, char*, int),
+              int (*)(void*, const char*, int),
+              fpos_t (*)(void*, fpos_t, int),
+              int (*)(void*)) __RENAME(funopen64);
+#  endif
 #else
-int	 fgetpos(FILE * __restrict, fpos_t * __restrict);
-int	 fsetpos(FILE *, const fpos_t *);
-int	 fseeko(FILE *, off_t, int);
-off_t	 ftello(FILE *);
+int fgetpos(FILE*, fpos_t*);
+int fsetpos(FILE*, const fpos_t*);
+int fseeko(FILE*, off_t, int);
+off_t ftello(FILE*);
+#  if defined(__USE_BSD)
+FILE* funopen(const void*,
+              int (*)(void*, char*, int),
+              int (*)(void*, const char*, int),
+              fpos_t (*)(void*, fpos_t, int),
+              int (*)(void*));
+#  endif
 #endif
+int fgetpos64(FILE*, fpos64_t*);
+int fsetpos64(FILE*, const fpos64_t*);
+int fseeko64(FILE*, off64_t, int);
+off64_t ftello64(FILE*);
+#if defined(__USE_BSD)
+FILE* funopen64(const void*,
+                int (*)(void*, char*, int),
+                int (*)(void*, const char*, int),
+                fpos64_t (*)(void*, fpos64_t, int),
+                int (*)(void*));
+#endif
+
+FILE* fopen(const char* __restrict, const char* __restrict);
+FILE* fopen64(const char* __restrict, const char* __restrict);
+FILE* freopen(const char* __restrict, const char* __restrict, FILE* __restrict);
+FILE* freopen64(const char* __restrict, const char* __restrict, FILE* __restrict);
+FILE* tmpfile(void);
+FILE* tmpfile64(void);
 
 #if __ISO_C_VISIBLE >= 1999 || __BSD_VISIBLE
 int	 snprintf(char * __restrict, size_t, const char * __restrict, ...)
@@ -363,24 +277,26 @@ int	 vasprintf(char ** __restrict, const char * __restrict,
 void clearerr_unlocked(FILE*);
 int feof_unlocked(FILE*);
 int ferror_unlocked(FILE*);
+int fileno_unlocked(FILE*);
 
-/*
- * Stdio function-access interface.
- */
-FILE	*funopen(const void *,
-		int (*)(void *, char *, int),
-		int (*)(void *, const char *, int),
-		fpos_t (*)(void *, fpos_t, int),
-		int (*)(void *));
-
-#define	fropen(cookie, fn) funopen(cookie, fn, 0, 0, 0)
-#define	fwopen(cookie, fn) funopen(cookie, 0, fn, 0, 0)
+#define fropen(cookie, fn) funopen(cookie, fn, 0, 0, 0)
+#define fwopen(cookie, fn) funopen(cookie, 0, fn, 0, 0)
 #endif /* __BSD_VISIBLE */
 
 extern char* __fgets_chk(char*, int, FILE*, size_t);
 extern char* __fgets_real(char*, int, FILE*) __RENAME(fgets);
 __errordecl(__fgets_too_big_error, "fgets called with size bigger than buffer");
 __errordecl(__fgets_too_small_error, "fgets called with size less than zero");
+
+extern size_t __fread_chk(void * __restrict, size_t, size_t, FILE * __restrict, size_t);
+extern size_t __fread_real(void * __restrict, size_t, size_t, FILE * __restrict) __RENAME(fread);
+__errordecl(__fread_too_big_error, "fread called with size * count bigger than buffer");
+__errordecl(__fread_overflow, "fread called with overflowing size * count");
+
+extern size_t __fwrite_chk(const void * __restrict, size_t, size_t, FILE * __restrict, size_t);
+extern size_t __fwrite_real(const void * __restrict, size_t, size_t, FILE * __restrict) __RENAME(fwrite);
+__errordecl(__fwrite_too_big_error, "fwrite called with size * count bigger than buffer");
+__errordecl(__fwrite_overflow, "fwrite called with overflowing size * count");
 
 #if defined(__BIONIC_FORTIFY)
 
@@ -427,6 +343,58 @@ int sprintf(char *dest, const char *format, ...)
         __bos(dest), format, __builtin_va_arg_pack());
 }
 #endif
+
+__BIONIC_FORTIFY_INLINE
+size_t fread(void * __restrict buf, size_t size, size_t count, FILE * __restrict stream) {
+    size_t bos = __bos0(buf);
+
+#if !defined(__clang__)
+    if (bos == __BIONIC_FORTIFY_UNKNOWN_SIZE) {
+        return __fread_real(buf, size, count, stream);
+    }
+
+    if (__builtin_constant_p(size) && __builtin_constant_p(count)) {
+        size_t total;
+        if (__size_mul_overflow(size, count, &total)) {
+            __fread_overflow();
+        }
+
+        if (total > bos) {
+            __fread_too_big_error();
+        }
+
+        return __fread_real(buf, size, count, stream);
+    }
+#endif
+
+    return __fread_chk(buf, size, count, stream, bos);
+}
+
+__BIONIC_FORTIFY_INLINE
+size_t fwrite(const void * __restrict buf, size_t size, size_t count, FILE * __restrict stream) {
+    size_t bos = __bos0(buf);
+
+#if !defined(__clang__)
+    if (bos == __BIONIC_FORTIFY_UNKNOWN_SIZE) {
+        return __fwrite_real(buf, size, count, stream);
+    }
+
+    if (__builtin_constant_p(size) && __builtin_constant_p(count)) {
+        size_t total;
+        if (__size_mul_overflow(size, count, &total)) {
+            __fwrite_overflow();
+        }
+
+        if (total > bos) {
+            __fwrite_too_big_error();
+        }
+
+        return __fwrite_real(buf, size, count, stream);
+    }
+#endif
+
+    return __fwrite_chk(buf, size, count, stream, bos);
+}
 
 #if !defined(__clang__)
 

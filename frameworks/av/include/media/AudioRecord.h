@@ -19,7 +19,9 @@
 
 #include <cutils/sched_policy.h>
 #include <media/AudioSystem.h>
+#include <media/AudioTimestamp.h>
 #include <media/IAudioRecord.h>
+#include <media/Modulo.h>
 #include <utils/threads.h>
 
 namespace android {
@@ -143,7 +145,7 @@ public:
      * Parameters:
      *
      * inputSource:        Select the audio input to record from (e.g. AUDIO_SOURCE_DEFAULT).
-     * sampleRate:         Data sink sampling rate in Hz.
+     * sampleRate:         Data sink sampling rate in Hz.  Zero means to use the source sample rate.
      * format:             Audio format (e.g AUDIO_FORMAT_PCM_16_BIT for signed
      *                     16 bits per sample).
      * channelMask:        Channel mask, such that audio_is_input_channel(channelMask) is true.
@@ -175,7 +177,7 @@ public:
                                     callback_t cbf = NULL,
                                     void* user = NULL,
                                     uint32_t notificationFrames = 0,
-                                    int sessionId = AUDIO_SESSION_ALLOCATE,
+                                    audio_session_t sessionId = AUDIO_SESSION_ALLOCATE,
                                     transfer_type transferType = TRANSFER_DEFAULT,
                                     audio_input_flags_t flags = AUDIO_INPUT_FLAG_NONE,
                                     int uid = -1,
@@ -213,7 +215,7 @@ public:
                             void* user = NULL,
                             uint32_t notificationFrames = 0,
                             bool threadCanCallJava = false,
-                            int sessionId = AUDIO_SESSION_ALLOCATE,
+                            audio_session_t sessionId = AUDIO_SESSION_ALLOCATE,
                             transfer_type transferType = TRANSFER_DEFAULT,
                             audio_input_flags_t flags = AUDIO_INPUT_FLAG_NONE,
                             int uid = -1,
@@ -247,7 +249,7 @@ public:
      * the specified event occurs on the specified trigger session.
      */
             status_t    start(AudioSystem::sync_event_t event = AudioSystem::SYNC_EVENT_NONE,
-                              int triggerSession = 0);
+                              audio_session_t triggerSession = AUDIO_SESSION_NONE);
 
     /* Stop a track.  The callback will cease being called.  Note that obtainBuffer() still
      * works and will drain buffers until the pool is exhausted, and then will return WOULD_BLOCK.
@@ -256,6 +258,7 @@ public:
             bool        stopped() const;
 
     /* Return the sink sample rate for this record track in Hz.
+     * If specified as zero in constructor or set(), this will be the source sample rate.
      * Unlike AudioTrack, the sample rate is const after initialization, so doesn't need a lock.
      */
             uint32_t    getSampleRate() const   { return mSampleRate; }
@@ -313,6 +316,17 @@ public:
      */
             status_t    getPosition(uint32_t *position) const;
 
+    /* Return the record timestamp.
+     *
+     * Parameters:
+     *  timestamp: A pointer to the timestamp to be filled.
+     *
+     * Returned status (from utils/Errors.h) can be:
+     *  - NO_ERROR: successful operation
+     *  - BAD_VALUE: timestamp is NULL
+     */
+            status_t getTimestamp(ExtendedTimestamp *timestamp);
+
     /* Returns a handle on the audio input used by this AudioRecord.
      *
      * Parameters:
@@ -338,7 +352,7 @@ public:
      *
      * No lock needed because session ID doesn't change after first set().
      */
-            int    getSessionId() const { return mSessionId; }
+            audio_session_t getSessionId() const { return mSessionId; }
 
     /* Public API for TRANSFER_OBTAIN mode.
      * Obtains a buffer of up to "audioBuffer->frameCount" full frames.
@@ -526,7 +540,7 @@ private:
 
             // caller must hold lock on mLock for all _l methods
 
-            status_t openRecord_l(size_t epoch, const String16& opPackageName);
+            status_t openRecord_l(const Modulo<uint32_t> &epoch, const String16& opPackageName);
 
             // FIXME enum is faster than strcmp() for parameter 'from'
             status_t restoreRecord_l(const char *from);
@@ -556,9 +570,9 @@ private:
     bool                    mRetryOnPartialBuffer;  // sleep and retry after partial obtainBuffer()
     uint32_t                mObservedSequence;      // last observed value of mSequence
 
-    uint32_t                mMarkerPosition;        // in wrapping (overflow) frame units
+    Modulo<uint32_t>        mMarkerPosition;        // in wrapping (overflow) frame units
     bool                    mMarkerReached;
-    uint32_t                mNewPosition;           // in frames
+    Modulo<uint32_t>        mNewPosition;           // in frames
     uint32_t                mUpdatePeriod;          // in frames, zero means no EVENT_NEW_POS
 
     status_t                mStatus;
@@ -570,6 +584,11 @@ private:
     size_t                  mReqFrameCount;         // frame count to request the first or next time
                                                     // a new IAudioRecord is needed, non-decreasing
 
+    int64_t                 mFramesRead;            // total frames read. reset to zero after
+                                                    // the start() following stop(). It is not
+                                                    // changed after restoring the track.
+    int64_t                 mFramesReadServerOffset; // An offset to server frames read due to
+                                                    // restoring AudioRecord, or stop/start.
     // constant after constructor or set()
     uint32_t                mSampleRate;
     audio_format_t          mFormat;
@@ -577,8 +596,14 @@ private:
     size_t                  mFrameSize;         // app-level frame size == AudioFlinger frame size
     uint32_t                mLatency;           // in ms
     audio_channel_mask_t    mChannelMask;
-    audio_input_flags_t     mFlags;
-    int                     mSessionId;
+
+    audio_input_flags_t     mFlags;                 // same as mOrigFlags, except for bits that may
+                                                    // be denied by client or server, such as
+                                                    // AUDIO_INPUT_FLAG_FAST.  mLock must be
+                                                    // held to read or write those bits reliably.
+    audio_input_flags_t     mOrigFlags;             // as specified in constructor or set(), const
+
+    audio_session_t         mSessionId;
     transfer_type           mTransfer;
 
     // Next 5 fields may be changed if IAudioRecord is re-created, but always != 0

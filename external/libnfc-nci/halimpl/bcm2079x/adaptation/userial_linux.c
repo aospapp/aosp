@@ -29,6 +29,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <gki_int.h>
 #include "hcidefs.h"
 #include <poll.h>
@@ -633,7 +634,7 @@ int my_read(int fd, uchar *pbuf, int len)
     fds[1].events = POLLIN | POLLERR | POLLRDNORM;
     fds[1].revents = 0;
     t1 = clock();
-    n = poll(fds, 2, _timeout);
+    n = TEMP_FAILURE_RETRY(poll(fds, 2, _timeout));
     t2 = clock();
     perf_update(&perf_poll, t2 - t1, 0);
     if (_poll_t0)
@@ -661,7 +662,7 @@ int my_read(int fd, uchar *pbuf, int len)
         count = 1;
     do {
         t2 = clock();
-        ret = read(fd, pbuf+offset, (size_t)count);
+        ret = TEMP_FAILURE_RETRY(read(fd, pbuf+offset, (size_t)count));
         if (ret > 0)
             perf_update(&perf_read, clock()-t2, ret);
 
@@ -1253,7 +1254,7 @@ UDRV_API UINT16  USERIAL_Write(tUSERIAL_PORT port, UINT8 *p_data, UINT16 len)
     t = clock();
     while (len != 0 && linux_cb.sock != -1)
     {
-        ret = write(linux_cb.sock, p_data + total, len);
+        ret = TEMP_FAILURE_RETRY(write(linux_cb.sock, p_data + total, len));
         if (ret < 0)
         {
             ALOGE("USERIAL_Write len = %d, ret = %d, errno = %d", len, ret, errno);
@@ -1767,7 +1768,7 @@ static int change_client_addr(int addr)
     /* always revert back to the default client address */
     ioctl(linux_cb.sock, BCMNFC_SET_CLIENT_ADDR, DEFAULT_CLIENT_ADDRESS);
     /* Send address change command (skipping first byte) */
-    ret = write(linux_cb.sock, &addr_data[1], size);
+    ret = TEMP_FAILURE_RETRY(write(linux_cb.sock, &addr_data[1], size));
 
     /* If it fails, it is likely a B3 we are talking to */
     if (ret != size) {

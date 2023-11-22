@@ -20,6 +20,7 @@
 #include "llvm/CodeGen/CommandFlags.h"
 #include "llvm/CodeGen/LinkAllAsmWriterComponents.h"
 #include "llvm/CodeGen/LinkAllCodegenComponents.h"
+#include "llvm/CodeGen/MIRParser/MIRParser.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LLVMContext.h"
@@ -44,6 +45,7 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 #include <memory>
 using namespace llvm;
 
@@ -95,6 +97,12 @@ static cl::opt<bool> AsmVerbose("asm-verbose",
                                 cl::desc("Add comments to directives."),
                                 cl::init(true));
 
+static cl::opt<bool>
+    CompileTwice("compile-twice", cl::Hidden,
+                 cl::desc("Run everything twice, re-using the same pass "
+                          "manager and verify the result is the same."),
+                 cl::init(false));
+
 static int compileModule(char **, LLVMContext &);
 
 static std::unique_ptr<tool_output_file>
@@ -109,6 +117,8 @@ GetOutputStream(const char *TargetName, Triple::OSType OS,
       StringRef IFN = InputFilename;
       if (IFN.endswith(".bc") || IFN.endswith(".ll"))
         OutputFilename = IFN.drop_back(3);
+      else if (IFN.endswith(".mir"))
+        OutputFilename = IFN.drop_back(4);
       else
         OutputFilename = IFN;
 
@@ -207,6 +217,7 @@ static int compileModule(char **argv, LLVMContext &Context) {
   // Load the module to be compiled...
   SMDiagnostic Err;
   std::unique_ptr<Module> M;
+  std::unique_ptr<MIRParser> MIR;
   Triple TheTriple;
 
   bool SkipModule = MCPU == "help" ||
@@ -214,7 +225,14 @@ static int compileModule(char **argv, LLVMContext &Context) {
 
   // If user just wants to list available options, skip module loading
   if (!SkipModule) {
-    M = parseIRFile(InputFilename, Err, Context);
+    if (StringRef(InputFilename).endswith_lower(".mir")) {
+      MIR = createMIRParserFromFile(InputFilename, Err, Context);
+      if (MIR) {
+        M = MIR->parseLLVMModule();
+        assert(M && "parseLLVMModule should exit on failure");
+      }
+    } else
+      M = parseIRFile(InputFilename, Err, Context);
     if (!M) {
       Err.print(argv[0], errs());
       return 1;
@@ -248,32 +266,7 @@ static int compileModule(char **argv, LLVMContext &Context) {
     return 1;
   }
 
-  // Package up features to be passed to target/subtarget
-  std::string FeaturesStr;
-  if (!MAttrs.empty() || MCPU == "native") {
-    SubtargetFeatures Features;
-
-    // If user asked for the 'native' CPU, we need to autodetect features.
-    // This is necessary for x86 where the CPU might not support all the
-    // features the autodetected CPU name lists in the target. For example,
-    // not all Sandybridge processors support AVX.
-    if (MCPU == "native") {
-      StringMap<bool> HostFeatures;
-      if (sys::getHostCPUFeatures(HostFeatures))
-        for (auto &F : HostFeatures)
-          Features.AddFeature(F.first(), F.second);
-    }
-
-    for (unsigned i = 0; i != MAttrs.size(); ++i)
-      Features.AddFeature(MAttrs[i]);
-    FeaturesStr = Features.getString();
-  }
-
-  // If user asked for the 'native' CPU, autodetect here. If autodection fails,
-  // this will set the CPU to an empty string which tells the target to
-  // pick a basic default.
-  if (MCPU == "native")
-    MCPU = sys::getHostCPUName();
+  std::string CPUStr = getCPUStr(), FeaturesStr = getFeaturesStr();
 
   CodeGenOpt::Level OLvl = CodeGenOpt::Default;
   switch (OptLevel) {
@@ -294,8 +287,9 @@ static int compileModule(char **argv, LLVMContext &Context) {
   Options.MCOptions.AsmVerbose = AsmVerbose;
 
   std::unique_ptr<TargetMachine> Target(
-      TheTarget->createTargetMachine(TheTriple.getTriple(), MCPU, FeaturesStr,
+      TheTarget->createTargetMachine(TheTriple.getTriple(), CPUStr, FeaturesStr,
                                      Options, RelocModel, CMModel, OLvl));
+
   assert(Target && "Could not allocate target machine!");
 
   // If we don't have a module then just exit now. We do this down
@@ -305,9 +299,8 @@ static int compileModule(char **argv, LLVMContext &Context) {
     return 0;
 
   assert(M && "Should have exited if we didn't have a module!");
-
-  if (GenerateSoftFloatCalls)
-    FloatABIForCalls = FloatABI::Soft;
+  if (FloatABIForCalls != FloatABI::Default)
+    Options.FloatABIType = FloatABIForCalls;
 
   // Figure out where we are going to send the output.
   std::unique_ptr<tool_output_file> Out =
@@ -326,8 +319,11 @@ static int compileModule(char **argv, LLVMContext &Context) {
   PM.add(new TargetLibraryInfoWrapperPass(TLII));
 
   // Add the target data from the target machine, if it exists, or the module.
-  if (const DataLayout *DL = Target->getDataLayout())
-    M->setDataLayout(*DL);
+  M->setDataLayout(Target->createDataLayout());
+
+  // Override function attributes based on CPUStr, FeaturesStr, and command line
+  // flags.
+  setFunctionAttributes(CPUStr, FeaturesStr, *M);
 
   if (RelaxAll.getNumOccurrences() > 0 &&
       FileType != TargetMachine::CGFT_ObjectFile)
@@ -336,36 +332,56 @@ static int compileModule(char **argv, LLVMContext &Context) {
 
   {
     raw_pwrite_stream *OS = &Out->os();
-    std::unique_ptr<buffer_ostream> BOS;
-    if (FileType != TargetMachine::CGFT_AssemblyFile &&
-        !Out->os().supportsSeeking()) {
-      BOS = make_unique<buffer_ostream>(*OS);
+
+    // Manually do the buffering rather than using buffer_ostream,
+    // so we can memcmp the contents in CompileTwice mode
+    SmallVector<char, 0> Buffer;
+    std::unique_ptr<raw_svector_ostream> BOS;
+    if ((FileType != TargetMachine::CGFT_AssemblyFile &&
+         !Out->os().supportsSeeking()) ||
+        CompileTwice) {
+      BOS = make_unique<raw_svector_ostream>(Buffer);
       OS = BOS.get();
     }
 
+    AnalysisID StartBeforeID = nullptr;
     AnalysisID StartAfterID = nullptr;
     AnalysisID StopAfterID = nullptr;
     const PassRegistry *PR = PassRegistry::getPassRegistry();
-    if (!StartAfter.empty()) {
-      const PassInfo *PI = PR->getPassInfo(StartAfter);
-      if (!PI) {
-        errs() << argv[0] << ": start-after pass is not registered.\n";
+    if (!RunPass.empty()) {
+      if (!StartAfter.empty() || !StopAfter.empty()) {
+        errs() << argv[0] << ": start-after and/or stop-after passes are "
+                             "redundant when run-pass is specified.\n";
         return 1;
       }
-      StartAfterID = PI->getTypeInfo();
-    }
-    if (!StopAfter.empty()) {
-      const PassInfo *PI = PR->getPassInfo(StopAfter);
+      const PassInfo *PI = PR->getPassInfo(RunPass);
       if (!PI) {
-        errs() << argv[0] << ": stop-after pass is not registered.\n";
+        errs() << argv[0] << ": run-pass pass is not registered.\n";
         return 1;
       }
-      StopAfterID = PI->getTypeInfo();
+      StopAfterID = StartBeforeID = PI->getTypeInfo();
+    } else {
+      if (!StartAfter.empty()) {
+        const PassInfo *PI = PR->getPassInfo(StartAfter);
+        if (!PI) {
+          errs() << argv[0] << ": start-after pass is not registered.\n";
+          return 1;
+        }
+        StartAfterID = PI->getTypeInfo();
+      }
+      if (!StopAfter.empty()) {
+        const PassInfo *PI = PR->getPassInfo(StopAfter);
+        if (!PI) {
+          errs() << argv[0] << ": stop-after pass is not registered.\n";
+          return 1;
+        }
+        StopAfterID = PI->getTypeInfo();
+      }
     }
 
     // Ask the target to add backend passes as necessary.
-    if (Target->addPassesToEmitFile(PM, *OS, FileType, NoVerify, StartAfterID,
-                                    StopAfterID)) {
+    if (Target->addPassesToEmitFile(PM, *OS, FileType, NoVerify, StartBeforeID,
+                                    StartAfterID, StopAfterID, MIR.get())) {
       errs() << argv[0] << ": target does not support generation of this"
              << " file type!\n";
       return 1;
@@ -374,7 +390,39 @@ static int compileModule(char **argv, LLVMContext &Context) {
     // Before executing passes, print the final values of the LLVM options.
     cl::PrintOptionValues();
 
+    // If requested, run the pass manager over the same module again,
+    // to catch any bugs due to persistent state in the passes. Note that
+    // opt has the same functionality, so it may be worth abstracting this out
+    // in the future.
+    SmallVector<char, 0> CompileTwiceBuffer;
+    if (CompileTwice) {
+      std::unique_ptr<Module> M2(llvm::CloneModule(M.get()));
+      PM.run(*M2);
+      CompileTwiceBuffer = Buffer;
+      Buffer.clear();
+    }
+
     PM.run(*M);
+
+    // Compare the two outputs and make sure they're the same
+    if (CompileTwice) {
+      if (Buffer.size() != CompileTwiceBuffer.size() ||
+          (memcmp(Buffer.data(), CompileTwiceBuffer.data(), Buffer.size()) !=
+           0)) {
+        errs()
+            << "Running the pass manager twice changed the output.\n"
+               "Writing the result of the second run to the specified output\n"
+               "To generate the one-run comparison binary, just run without\n"
+               "the compile-twice option\n";
+        Out->os() << Buffer;
+        Out->keep();
+        return 1;
+      }
+    }
+
+    if (BOS) {
+      Out->os() << Buffer;
+    }
   }
 
   // Declare success.

@@ -68,6 +68,7 @@ final class CharsetDecoderICU extends CharsetDecoder {
     private CharsetDecoderICU(Charset cs, float averageCharsPerByte, long address) {
         super(cs, averageCharsPerByte, MAX_CHARS_PER_BYTE);
         this.converterHandle = address;
+        NativeConverter.registerConverter(this, converterHandle);
     }
 
     @Override protected void implReplaceWith(String newReplacement) {
@@ -155,14 +156,6 @@ final class CharsetDecoderICU extends CharsetDecoder {
         }
     }
 
-    @Override protected void finalize() throws Throwable {
-        try {
-            NativeConverter.closeConverter(converterHandle);
-            converterHandle = 0;
-        } finally {
-            super.finalize();
-        }
-    }
 
     private int getArray(CharBuffer out) {
         if (out.hasArray()) {
@@ -202,7 +195,7 @@ final class CharsetDecoderICU extends CharsetDecoder {
 
     private void setPosition(CharBuffer out) {
         if (out.hasArray()) {
-            out.position(out.position() + data[OUTPUT_OFFSET] - out.arrayOffset());
+            out.position(out.position() + data[OUTPUT_OFFSET]);
         } else {
             out.put(output, 0, data[OUTPUT_OFFSET]);
         }

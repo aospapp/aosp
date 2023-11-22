@@ -33,7 +33,7 @@ import android.view.animation.ScaleAnimation;
 import android.view.animation.Transformation;
 import android.view.animation.TranslateAnimation;
 
-import com.android.cts.view.R;
+import android.view.cts.R;
 
 
 public class AnimationSetTest
@@ -51,7 +51,7 @@ public class AnimationSetTest
     private Activity mActivity;
 
     public AnimationSetTest() {
-        super("com.android.cts.view", AnimationTestCtsActivity.class);
+        super("android.view.cts", AnimationTestCtsActivity.class);
     }
 
     @Override

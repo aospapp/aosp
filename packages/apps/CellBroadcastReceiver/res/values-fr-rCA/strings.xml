@@ -20,7 +20,7 @@
     <string name="sms_cb_settings" msgid="971917159442705371">"Paramètres de diffusion cellulaire"</string>
     <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"Les paramètres de diffusion cellulaire ne sont pas disponibles pour cet utilisateur"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"OK"</string>
-    <string name="no_cell_broadcasts" msgid="5409324337492758562">"Il n\'existe aucune alerte active dans votre région. Vous pouvez modifier les paramètres d\'alerte à l\'aide de l\'option de menu \"Paramètres\"."</string>
+    <string name="no_cell_broadcasts" msgid="5409324337492758562">"Il n\'existe aucune alerte active dans votre région. Vous pouvez modifier les paramètres d\'alerte à l\'aide de l\'option de menu « Paramètres »."</string>
     <string name="menu_preferences" msgid="3596514894131599202">"Paramètres"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"Supprimer les diffusions"</string>
     <string name="message_options" msgid="3178489901903589574">"Options relatives aux messages"</string>
@@ -39,7 +39,7 @@
     <string name="cmas_presidential_level_alert" msgid="1209234030582361001">"Alerte présidentielle"</string>
     <string name="cmas_extreme_alert" msgid="2588720613319969289">"Alerte d\'urgence : extrême"</string>
     <string name="cmas_severe_alert" msgid="4135809475315826913">"Alerte d\'urgence : grave"</string>
-    <string name="cmas_amber_alert" msgid="6154867710264778887">"Enlèvement d\'enfants (alerte AMBER)"</string>
+    <string name="cmas_amber_alert" msgid="6154867710264778887">"Enlèvement enfant (alerte Amber)"</string>
     <string name="cmas_required_monthly_test" msgid="6464047268150108932">"Test mensuel d\'alerte d\'urgence"</string>
     <string name="cmas_exercise_alert" msgid="2892255514938370321">"Alerte d\'urgence (exercice)"</string>
     <string name="cmas_operator_defined_alert" msgid="8755372450810011476">"Alerte d\'urgence (opérateur)"</string>

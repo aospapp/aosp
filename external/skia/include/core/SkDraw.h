@@ -119,7 +119,7 @@ public:
     void        drawPosText_asPaths(const char text[], size_t byteLength,
                                     const SkScalar pos[], int scalarsPerPosition,
                                     const SkPoint& offset, const SkPaint&) const;
-
+    static SkScalar ComputeResScaleForStroking(const SkMatrix& );
 private:
     void    drawDevMask(const SkMask& mask, const SkPaint&) const;
     void    drawBitmapAsMask(const SkBitmap&, const SkPaint&) const;
@@ -139,15 +139,17 @@ private:
     bool SK_WARN_UNUSED_RESULT
     computeConservativeLocalClipBounds(SkRect* bounds) const;
 
+    /** Returns the current setting for using fake gamma. */
+    SkPaint::FakeGamma SK_WARN_UNUSED_RESULT fakeGamma() const;
+
 public:
-    const SkBitmap* fBitmap;        // required
+    SkPixmap        fDst;
     const SkMatrix* fMatrix;        // required
     const SkRegion* fClip;          // DEPRECATED
     const SkRasterClip* fRC;        // required
 
     const SkClipStack* fClipStack;  // optional
     SkBaseDevice*   fDevice;        // optional
-    SkDrawProcs*    fProcs;         // optional
 
 #ifdef SK_DEBUG
     void validate() const;

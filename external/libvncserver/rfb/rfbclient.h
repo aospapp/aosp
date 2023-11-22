@@ -31,6 +31,10 @@
  * @file rfbclient.h
  */
 
+#ifdef WIN32
+#define WIN32_LEAN_AND_MEAN /* Prevent loading any Winsock 1.x headers from windows.h */
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -346,6 +350,10 @@ typedef struct _rfbClient {
         int listen6Sock;
         char* listen6Address;
         int listen6Port;
+
+        /* Output Window ID. When set, client application enables libvncclient to perform direct rendering in its window */
+        unsigned long outputWindow;
+
 } rfbClient;
 
 /* cursor.c */

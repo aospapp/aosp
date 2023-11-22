@@ -24,7 +24,7 @@
 #include "gc_root-inl.h"
 #include "gc/accounting/card_table-inl.h"
 #include "jvalue.h"
-#include "mirror/dex_cache.h"
+#include "mirror/dex_cache-inl.h"
 #include "mirror/object-inl.h"
 #include "primitive.h"
 #include "thread-inl.h"
@@ -34,9 +34,10 @@
 namespace art {
 
 inline mirror::Class* ArtField::GetDeclaringClass() {
-  mirror::Class* result = declaring_class_.Read();
+  GcRootSource gc_root_source(this);
+  mirror::Class* result = declaring_class_.Read(&gc_root_source);
   DCHECK(result != nullptr);
-  DCHECK(result->IsLoaded() || result->IsErroneous());
+  DCHECK(result->IsLoaded() || result->IsErroneous()) << result->GetStatus();
   return result;
 }
 
@@ -252,7 +253,7 @@ inline void ArtField::SetObject(mirror::Object* object, mirror::Object* l) {
   SetObj<kTransactionActive>(object, l);
 }
 
-inline const char* ArtField::GetName() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+inline const char* ArtField::GetName() SHARED_REQUIRES(Locks::mutator_lock_) {
   uint32_t field_index = GetDexFieldIndex();
   if (UNLIKELY(GetDeclaringClass()->IsProxyClass())) {
     DCHECK(IsStatic());
@@ -263,7 +264,7 @@ inline const char* ArtField::GetName() SHARED_LOCKS_REQUIRED(Locks::mutator_lock
   return dex_file->GetFieldName(dex_file->GetFieldId(field_index));
 }
 
-inline const char* ArtField::GetTypeDescriptor() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+inline const char* ArtField::GetTypeDescriptor() SHARED_REQUIRES(Locks::mutator_lock_) {
   uint32_t field_index = GetDexFieldIndex();
   if (UNLIKELY(GetDeclaringClass()->IsProxyClass())) {
     DCHECK(IsStatic());
@@ -277,11 +278,11 @@ inline const char* ArtField::GetTypeDescriptor() SHARED_LOCKS_REQUIRED(Locks::mu
 }
 
 inline Primitive::Type ArtField::GetTypeAsPrimitiveType()
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    SHARED_REQUIRES(Locks::mutator_lock_) {
   return Primitive::GetType(GetTypeDescriptor()[0]);
 }
 
-inline bool ArtField::IsPrimitiveType() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+inline bool ArtField::IsPrimitiveType() SHARED_REQUIRES(Locks::mutator_lock_) {
   return GetTypeAsPrimitiveType() != Primitive::kPrimNot;
 }
 
@@ -303,15 +304,15 @@ inline mirror::Class* ArtField::GetType() {
   return type;
 }
 
-inline size_t ArtField::FieldSize() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+inline size_t ArtField::FieldSize() SHARED_REQUIRES(Locks::mutator_lock_) {
   return Primitive::ComponentSize(GetTypeAsPrimitiveType());
 }
 
-inline mirror::DexCache* ArtField::GetDexCache() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+inline mirror::DexCache* ArtField::GetDexCache() SHARED_REQUIRES(Locks::mutator_lock_) {
   return GetDeclaringClass()->GetDexCache();
 }
 
-inline const DexFile* ArtField::GetDexFile() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+inline const DexFile* ArtField::GetDexFile() SHARED_REQUIRES(Locks::mutator_lock_) {
   return GetDexCache()->GetDexFile();
 }
 
@@ -331,6 +332,58 @@ inline mirror::String* ArtField::GetStringName(Thread* self, bool resolve) {
 template<typename RootVisitorType>
 inline void ArtField::VisitRoots(RootVisitorType& visitor) {
   visitor.VisitRoot(declaring_class_.AddressWithoutBarrier());
+}
+
+template <typename Visitor>
+inline void ArtField::UpdateObjects(const Visitor& visitor) {
+  mirror::Class* old_class = DeclaringClassRoot().Read<kWithoutReadBarrier>();
+  mirror::Class* new_class = visitor(old_class);
+  if (old_class != new_class) {
+    SetDeclaringClass(new_class);
+  }
+}
+
+// If kExactOffset is true then we only find the matching offset, not the field containing the
+// offset.
+template <bool kExactOffset>
+static inline ArtField* FindFieldWithOffset(
+    const IterationRange<StrideIterator<ArtField>>& fields,
+    uint32_t field_offset) SHARED_REQUIRES(Locks::mutator_lock_) {
+  for (ArtField& field : fields) {
+    if (kExactOffset) {
+      if (field.GetOffset().Uint32Value() == field_offset) {
+        return &field;
+      }
+    } else {
+      const uint32_t offset = field.GetOffset().Uint32Value();
+      Primitive::Type type = field.GetTypeAsPrimitiveType();
+      const size_t field_size = Primitive::ComponentSize(type);
+      DCHECK_GT(field_size, 0u);
+      if (offset <= field_offset && field_offset < offset + field_size) {
+        return &field;
+      }
+    }
+  }
+  return nullptr;
+}
+
+template <bool kExactOffset>
+inline ArtField* ArtField::FindInstanceFieldWithOffset(mirror::Class* klass,
+                                                       uint32_t field_offset) {
+  DCHECK(klass != nullptr);
+  ArtField* field = FindFieldWithOffset<kExactOffset>(klass->GetIFields(), field_offset);
+  if (field != nullptr) {
+    return field;
+  }
+  // We did not find field in the class: look into superclass.
+  return (klass->GetSuperClass() != nullptr) ?
+      FindInstanceFieldWithOffset<kExactOffset>(klass->GetSuperClass(), field_offset) : nullptr;
+}
+
+template <bool kExactOffset>
+inline ArtField* ArtField::FindStaticFieldWithOffset(mirror::Class* klass, uint32_t field_offset) {
+  DCHECK(klass != nullptr);
+  return FindFieldWithOffset<kExactOffset>(klass->GetSFields(), field_offset);
 }
 
 }  // namespace art

@@ -23,27 +23,22 @@ using android::routing_strategy;
 
 Strategy::Strategy(const string &mappingValue,
                    CInstanceConfigurableElement *instanceConfigurableElement,
-                   const CMappingContext &context)
+                   const CMappingContext &context,
+                   core::log::Logger& logger)
     : CFormattedSubsystemObject(instanceConfigurableElement,
+                                logger,
                                 mappingValue,
                                 MappingKeyAmend1,
                                 (MappingKeyAmendEnd - MappingKeyAmend1 + 1),
                                 context),
       mPolicySubsystem(static_cast<const PolicySubsystem *>(
                            instanceConfigurableElement->getBelongingSubsystem())),
-      mPolicyPluginInterface(mPolicySubsystem->getPolicyPluginInterface()),
-      mApplicableOutputDevice(mDefaultApplicableOutputDevice)
+      mPolicyPluginInterface(mPolicySubsystem->getPolicyPluginInterface())
 {
     mId = static_cast<routing_strategy>(context.getItemAsInteger(MappingKeyIdentifier));
 
     // Declares the strategy to audio policy engine
     mPolicyPluginInterface->addStrategy(getFormattedMappingValue(), mId);
-}
-
-bool Strategy::receiveFromHW(string & /*error*/)
-{
-    blackboardWrite(&mApplicableOutputDevice, sizeof(mApplicableOutputDevice));
-    return true;
 }
 
 bool Strategy::sendToHW(string & /*error*/)

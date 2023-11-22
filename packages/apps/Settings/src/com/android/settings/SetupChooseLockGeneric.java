@@ -16,21 +16,29 @@
 
 package com.android.settings;
 
-import com.android.internal.widget.LockPatternUtils;
-import com.android.setupwizardlib.SetupWizardListLayout;
-import com.android.setupwizardlib.view.NavigationBar;
-
 import android.app.Activity;
 import android.app.admin.DevicePolicyManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.UserHandle;
-import android.preference.PreferenceFragment;
+import android.support.v7.preference.Preference;
+import android.support.v14.preference.PreferenceFragment;
+import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.LinearLayout;
+
+import com.android.internal.widget.LockPatternUtils;
+import com.android.settings.fingerprint.SetupSkipDialog;
+import com.android.setupwizardlib.SetupWizardLayout;
+import com.android.setupwizardlib.SetupWizardPreferenceLayout;
+import com.android.setupwizardlib.view.NavigationBar;
 
 /**
  * Setup Wizard's version of ChooseLockGeneric screen. It inherits the logic and basic structure
@@ -40,6 +48,8 @@ import android.view.ViewGroup;
  * those changes.
  */
 public class SetupChooseLockGeneric extends ChooseLockGeneric {
+
+    private static final String KEY_UNLOCK_SET_DO_LATER = "unlock_set_do_later";
 
     @Override
     protected boolean isValidFragment(String fragmentName) {
@@ -57,29 +67,53 @@ public class SetupChooseLockGeneric extends ChooseLockGeneric {
         super.onApplyThemeResource(theme, resid, first);
     }
 
+    @Override
+    protected void onCreate(Bundle savedInstance) {
+        super.onCreate(savedInstance);
+        LinearLayout layout = (LinearLayout) findViewById(R.id.content_parent);
+        layout.setFitsSystemWindows(false);
+    }
+
     public static class SetupChooseLockGenericFragment extends ChooseLockGenericFragment
             implements NavigationBar.NavigationBarListener {
 
-        private static final String EXTRA_PASSWORD_QUALITY = ":settings:password_quality";
-
-        @Override
-        public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                Bundle savedInstanceState) {
-            final SetupWizardListLayout layout = (SetupWizardListLayout) inflater.inflate(
-                    R.layout.setup_choose_lock_generic, container, false);
-            layout.setHeaderText(getActivity().getTitle());
-
-            final NavigationBar navigationBar = layout.getNavigationBar();
-            navigationBar.getNextButton().setEnabled(false);
-            navigationBar.setNavigationBarListener(this);
-
-            return layout;
-        }
+        public static final String EXTRA_PASSWORD_QUALITY = ":settings:password_quality";
 
         @Override
         public void onViewCreated(View view, Bundle savedInstanceState) {
             super.onViewCreated(view, savedInstanceState);
+
             SetupWizardUtils.setImmersiveMode(getActivity());
+
+            SetupWizardPreferenceLayout layout = (SetupWizardPreferenceLayout) view;
+            layout.setDividerInset(getContext().getResources().getDimensionPixelSize(
+                    R.dimen.suw_items_text_divider_inset));
+            final NavigationBar navigationBar = layout.getNavigationBar();
+            Button nextButton = navigationBar.getNextButton();
+            nextButton.setText(null);
+            nextButton.setEnabled(false);
+            navigationBar.setNavigationBarListener(this);
+
+            layout.setIllustration(R.drawable.setup_illustration_lock_screen,
+                    R.drawable.setup_illustration_horizontal_tile);
+            if (!mForFingerprint) {
+                layout.setHeaderText(R.string.setup_lock_settings_picker_title);
+            } else {
+                layout.setHeaderText(R.string.lock_settings_picker_title);
+            }
+
+            // Use the dividers in SetupWizardRecyclerLayout. Suppress the dividers in
+            // PreferenceFragment.
+            setDivider(null);
+        }
+
+        @Override
+        protected void addHeaderView() {
+            if (mForFingerprint) {
+                setHeaderView(R.layout.setup_choose_lock_generic_fingerprint_header);
+            } else {
+                setHeaderView(R.layout.setup_choose_lock_generic_header);
+            }
         }
 
         @Override
@@ -94,10 +128,23 @@ public class SetupChooseLockGeneric extends ChooseLockGeneric {
                 data.putExtra(EXTRA_PASSWORD_QUALITY,
                         lockPatternUtils.getKeyguardStoredPasswordQuality(UserHandle.myUserId()));
 
+                PackageManager packageManager = getPackageManager();
+                ComponentName componentName = new ComponentName("com.android.settings",
+                        "com.android.settings.SetupRedactionInterstitial");
+                packageManager.setComponentEnabledSetting(componentName,
+                        PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                        PackageManager.DONT_KILL_APP);
                 super.onActivityResult(requestCode, resultCode, data);
             }
             // If the started activity was cancelled (e.g. the user presses back), then this
             // activity will be resumed to foreground.
+        }
+
+        @Override
+        public RecyclerView onCreateRecyclerView(LayoutInflater inflater, ViewGroup parent,
+                Bundle savedInstanceState) {
+            SetupWizardPreferenceLayout layout = (SetupWizardPreferenceLayout) parent;
+            return layout.onCreateRecyclerView(inflater, parent, savedInstanceState);
         }
 
         /***
@@ -119,9 +166,31 @@ public class SetupChooseLockGeneric extends ChooseLockGeneric {
         }
 
         @Override
+        protected void addPreferences() {
+            if (mForFingerprint) {
+                super.addPreferences();
+            } else {
+                addPreferencesFromResource(R.xml.setup_security_settings_picker);
+            }
+        }
+
+        @Override
+        public boolean onPreferenceTreeClick(Preference preference) {
+            final String key = preference.getKey();
+            if (KEY_UNLOCK_SET_DO_LATER.equals(key)) {
+                // show warning.
+                SetupSkipDialog dialog = SetupSkipDialog.newInstance(getActivity().getIntent()
+                        .getBooleanExtra(SetupSkipDialog.EXTRA_FRP_SUPPORTED, false));
+                dialog.show(getFragmentManager());
+                return true;
+            }
+            return super.onPreferenceTreeClick(preference);
+        }
+
+        @Override
         protected Intent getLockPasswordIntent(Context context, int quality,
                 int minLength, final int maxLength,
-                boolean requirePasswordToDecrypt, boolean confirmCredentials) {
+                boolean requirePasswordToDecrypt, boolean confirmCredentials, int userId) {
             final Intent intent = SetupChooseLockPassword.createIntent(context, quality, minLength,
                     maxLength, requirePasswordToDecrypt, confirmCredentials);
             SetupWizardUtils.copySetupExtras(getActivity().getIntent(), intent);
@@ -131,7 +200,7 @@ public class SetupChooseLockGeneric extends ChooseLockGeneric {
         @Override
         protected Intent getLockPasswordIntent(Context context, int quality,
                 int minLength, final int maxLength,
-                boolean requirePasswordToDecrypt, long challenge) {
+                boolean requirePasswordToDecrypt, long challenge, int userId) {
             final Intent intent = SetupChooseLockPassword.createIntent(context, quality, minLength,
                     maxLength, requirePasswordToDecrypt, challenge);
             SetupWizardUtils.copySetupExtras(getActivity().getIntent(), intent);
@@ -140,7 +209,7 @@ public class SetupChooseLockGeneric extends ChooseLockGeneric {
 
         @Override
         protected Intent getLockPasswordIntent(Context context, int quality, int minLength,
-                final int maxLength, boolean requirePasswordToDecrypt, String password) {
+                int maxLength, boolean requirePasswordToDecrypt, String password, int userId) {
             final Intent intent = SetupChooseLockPassword.createIntent(context, quality, minLength,
                     maxLength, requirePasswordToDecrypt, password);
             SetupWizardUtils.copySetupExtras(getActivity().getIntent(), intent);
@@ -149,7 +218,7 @@ public class SetupChooseLockGeneric extends ChooseLockGeneric {
 
         @Override
         protected Intent getLockPatternIntent(Context context, final boolean requirePassword,
-                final boolean confirmCredentials) {
+                final boolean confirmCredentials, int userId) {
             final Intent intent = SetupChooseLockPattern.createIntent(context, requirePassword,
                     confirmCredentials);
             SetupWizardUtils.copySetupExtras(getActivity().getIntent(), intent);
@@ -158,7 +227,7 @@ public class SetupChooseLockGeneric extends ChooseLockGeneric {
 
         @Override
         protected Intent getLockPatternIntent(Context context, final boolean requirePassword,
-                long challenge) {
+                long challenge, int userId) {
             final Intent intent = SetupChooseLockPattern.createIntent(context, requirePassword,
                     challenge);
             SetupWizardUtils.copySetupExtras(getActivity().getIntent(), intent);
@@ -167,7 +236,7 @@ public class SetupChooseLockGeneric extends ChooseLockGeneric {
 
         @Override
         protected Intent getLockPatternIntent(Context context, final boolean requirePassword,
-                final String pattern) {
+                final String pattern, int userId) {
             final Intent intent = SetupChooseLockPattern.createIntent(context, requirePassword,
                     pattern);
             SetupWizardUtils.copySetupExtras(getActivity().getIntent(), intent);
@@ -176,9 +245,9 @@ public class SetupChooseLockGeneric extends ChooseLockGeneric {
 
         @Override
         protected Intent getEncryptionInterstitialIntent(Context context, int quality,
-                boolean required) {
+                boolean required, Intent unlockMethodIntent) {
             Intent intent = SetupEncryptionInterstitial.createStartIntent(context, quality,
-                    required);
+                    required, unlockMethodIntent);
             SetupWizardUtils.copySetupExtras(getActivity().getIntent(), intent);
             return intent;
         }

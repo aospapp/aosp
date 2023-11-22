@@ -26,6 +26,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 
 /**
  * Helper classes for various benchmarks.
@@ -170,6 +171,12 @@ final class BenchmarkHelpers {
         SortedMap<K, V> result = Maps.newTreeMap();
         result.putAll(map);
         return result;
+      }
+    },
+    ConcurrentSkipList {
+      @Override
+      <K extends Comparable<K>, V> SortedMap<K, V> create(Map<K, V> map) {
+        return new ConcurrentSkipListMap<K, V>(map);
       }
     },
     ImmutableSorted {

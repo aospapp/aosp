@@ -78,7 +78,7 @@ static inline void ThrowOnError(
   env->ThrowNew(exceptionClass, methodName);
 }
 
-static bool IsValidCallbackThread() {
+static bool IsValidCallbackThreadEnvOnly() {
   JNIEnv* env = AndroidRuntime::getJNIEnv();
 
   if(sCallbackEnv == NULL || sCallbackEnv != env) {
@@ -87,6 +87,20 @@ static bool IsValidCallbackThread() {
   }
 
   return true;
+}
+
+static bool IsValidCallbackThread() {
+  // sCallbacksObject is created when FlpHardwareProvider on Java side is
+  // initialized. Sometimes the hardware may call a function before the Java
+  // side is ready. In order to prevent a system crash, check whether
+  // sCallbacksObj has been created. If not, simply ignore this event from
+  // hardware.
+  if (sCallbacksObj == NULL) {
+    ALOGE("Attempt to use FlpHardwareProvider blocked, because it hasn't been initialized.");
+    return false;
+  }
+
+  return IsValidCallbackThreadEnvOnly();
 }
 
 static void BatchingCapabilitiesCallback(int32_t capabilities) {
@@ -154,7 +168,7 @@ static int SetThreadEvent(ThreadEvent event) {
     }
     case DISASSOCIATE_JVM:
     {
-      if (!IsValidCallbackThread()) {
+      if (!IsValidCallbackThreadEnvOnly()) {
         ALOGE(
             "Attempted to dissasociate an unnownk callback thread : '%s'.",
             __FUNCTION__
@@ -840,16 +854,6 @@ static void Cleanup(JNIEnv* env, jobject /* object */) {
     env->DeleteGlobalRef(sCallbacksObj);
     sCallbacksObj = NULL;
   }
-
-  sFlpInterface = NULL;
-  sFlpDiagnosticInterface = NULL;
-  sFlpDeviceContextInterface = NULL;
-  sFlpGeofencingInterface = NULL;
-
-  if(sHardwareDevice != NULL) {
-    sHardwareDevice->close(sHardwareDevice);
-    sHardwareDevice = NULL;
-  }
 }
 
 static void GetBatchedLocation(JNIEnv* env, jobject /* object */, jint lastNLocations) {
@@ -1033,7 +1037,7 @@ static void RemoveGeofences(
   env->ReleaseIntArrayElements(geofenceIdsArray, geofenceIds, 0 /*mode*/);
 }
 
-static JNINativeMethod sMethods[] = {
+static const JNINativeMethod sMethods[] = {
   //{"name", "signature", functionPointer }
   {"nativeClassInit", "()V", reinterpret_cast<void*>(ClassInit)},
   {"nativeInit", "()V", reinterpret_cast<void*>(Init)},

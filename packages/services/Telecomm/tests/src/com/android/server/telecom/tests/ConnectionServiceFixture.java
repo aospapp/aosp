@@ -27,35 +27,142 @@ import junit.framework.TestCase;
 import org.mockito.Mockito;
 
 import android.content.ComponentName;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.IInterface;
 import android.os.RemoteException;
 import android.telecom.CallAudioState;
+import android.telecom.Conference;
 import android.telecom.Connection;
 import android.telecom.ConnectionRequest;
+import android.telecom.ConnectionService;
 import android.telecom.DisconnectCause;
 import android.telecom.ParcelableConference;
 import android.telecom.ParcelableConnection;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.StatusHints;
+import android.telecom.TelecomManager;
 
+import com.google.android.collect.Lists;
+
+import java.lang.Override;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import static org.mockito.Matchers.any;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Controls a test {@link IConnectionService} as would be provided by a source of connectivity
  * to the Telecom framework.
  */
 public class ConnectionServiceFixture implements TestFixture<IConnectionService> {
+    static int INVALID_VIDEO_STATE = -1;
+    public CountDownLatch mExtrasLock = new CountDownLatch(1);
+    static int NOT_SPECIFIED = 0;
+
+    /**
+     * Implementation of ConnectionService that performs no-ops for tasks normally meant for
+     * Telephony and reports success back to Telecom
+     */
+    public class FakeConnectionServiceDelegate extends ConnectionService {
+        int mVideoState = INVALID_VIDEO_STATE;
+        int mCapabilities = NOT_SPECIFIED;
+        int mProperties = NOT_SPECIFIED;
+
+        @Override
+        public Connection onCreateUnknownConnection(
+                PhoneAccountHandle connectionManagerPhoneAccount, ConnectionRequest request) {
+            mLatestConnection = new FakeConnection(request.getVideoState(), request.getAddress());
+            return mLatestConnection;
+        }
+
+        @Override
+        public Connection onCreateIncomingConnection(
+                PhoneAccountHandle connectionManagerPhoneAccount, ConnectionRequest request) {
+            FakeConnection fakeConnection =  new FakeConnection(
+                    mVideoState == INVALID_VIDEO_STATE ? request.getVideoState() : mVideoState,
+                    request.getAddress());
+            mLatestConnection = fakeConnection;
+            if (mCapabilities != NOT_SPECIFIED) {
+                fakeConnection.setConnectionCapabilities(mCapabilities);
+            }
+            if (mProperties != NOT_SPECIFIED) {
+                fakeConnection.setConnectionProperties(mProperties);
+            }
+
+            return fakeConnection;
+        }
+
+        @Override
+        public Connection onCreateOutgoingConnection(
+                PhoneAccountHandle connectionManagerPhoneAccount, ConnectionRequest request) {
+            mLatestConnection = new FakeConnection(request.getVideoState(), request.getAddress());
+            return mLatestConnection;
+        }
+
+        @Override
+        public void onConference(Connection cxn1, Connection cxn2) {
+            // Usually, this is implemented by something in Telephony, which does a bunch of radio
+            // work to conference the two connections together. Here we just short-cut that and
+            // declare them conferenced.
+            Conference fakeConference = new FakeConference();
+            fakeConference.addConnection(cxn1);
+            fakeConference.addConnection(cxn2);
+            mLatestConference = fakeConference;
+            addConference(fakeConference);
+        }
+    }
+
+    public class FakeConnection extends Connection {
+        public FakeConnection(int videoState, Uri address) {
+            super();
+            int capabilities = getConnectionCapabilities();
+            capabilities |= CAPABILITY_MUTE;
+            capabilities |= CAPABILITY_SUPPORT_HOLD;
+            capabilities |= CAPABILITY_HOLD;
+            setVideoState(videoState);
+            setConnectionCapabilities(capabilities);
+            setActive();
+            setAddress(address, TelecomManager.PRESENTATION_ALLOWED);
+        }
+
+        @Override
+        public void onExtrasChanged(Bundle extras) {
+            mExtrasLock.countDown();
+        }
+    }
+
+    public class FakeConference extends Conference {
+        public FakeConference() {
+            super(null);
+            setConnectionCapabilities(
+                    Connection.CAPABILITY_SUPPORT_HOLD
+                            | Connection.CAPABILITY_HOLD
+                            | Connection.CAPABILITY_MUTE
+                            | Connection.CAPABILITY_MANAGE_CONFERENCE);
+        }
+
+        @Override
+        public void onMerge(Connection connection) {
+            // Do nothing besides inform the connection that it was merged into this conference.
+            connection.setConference(this);
+        }
+
+        @Override
+        public void onExtrasChanged(Bundle extras) {
+            Log.w(this, "FakeConference onExtrasChanged");
+            mExtrasLock.countDown();
+        }
+    }
 
     public class FakeConnectionService extends IConnectionService.Stub {
+        List<String> rejectedCallIds = Lists.newArrayList();
 
         @Override
         public void addConnectionServiceAdapter(IConnectionServiceAdapter adapter)
@@ -63,6 +170,7 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
             if (!mConnectionServiceAdapters.add(adapter)) {
                 throw new RuntimeException("Adapter already added: " + adapter);
             }
+            mConnectionServiceDelegateAdapter.addConnectionServiceAdapter(adapter);
         }
 
         @Override
@@ -71,6 +179,7 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
             if (!mConnectionServiceAdapters.remove(adapter)) {
                 throw new RuntimeException("Adapter never added: " + adapter);
             }
+            mConnectionServiceDelegateAdapter.removeConnectionServiceAdapter(adapter);
         }
 
         @Override
@@ -91,7 +200,12 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
             c.isIncoming = isIncoming;
             c.isUnknown = isUnknown;
             c.capabilities |= Connection.CAPABILITY_HOLD | Connection.CAPABILITY_SUPPORT_HOLD;
+            c.videoState = request.getVideoState();
+            c.mockVideoProvider = new MockVideoProvider();
+            c.videoProvider = c.mockVideoProvider.getInterface();
             mConnectionById.put(id, c);
+            mConnectionServiceDelegateAdapter.createConnection(connectionManagerPhoneAccount,
+                    id, request, isIncoming, isUnknown);
         }
 
         @Override
@@ -104,10 +218,18 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
         public void answer(String callId) throws RemoteException { }
 
         @Override
-        public void reject(String callId) throws RemoteException { }
+        public void reject(String callId) throws RemoteException {
+            rejectedCallIds.add(callId);
+        }
+
+        @Override
+        public void rejectWithMessage(String callId, String message) throws RemoteException { }
 
         @Override
         public void disconnect(String callId) throws RemoteException { }
+
+        @Override
+        public void silence(String callId) throws RemoteException { }
 
         @Override
         public void hold(String callId) throws RemoteException { }
@@ -126,7 +248,9 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
         public void stopDtmfTone(String callId) throws RemoteException { }
 
         @Override
-        public void conference(String conferenceCallId, String callId) throws RemoteException { }
+        public void conference(String conferenceCallId, String callId) throws RemoteException {
+            mConnectionServiceDelegateAdapter.conference(conferenceCallId, callId);
+        }
 
         @Override
         public void splitFromConference(String callId) throws RemoteException { }
@@ -141,6 +265,17 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
         public void onPostDialContinue(String callId, boolean proceed) throws RemoteException { }
 
         @Override
+        public void pullExternalCall(String callId) throws RemoteException { }
+
+        @Override
+        public void sendCallEvent(String callId, String event, Bundle extras) throws RemoteException
+        {}
+
+        public void onExtrasChanged(String callId, Bundle extras) throws RemoteException {
+            mConnectionServiceDelegateAdapter.onExtrasChanged(callId, extras);
+        }
+
+        @Override
         public IBinder asBinder() {
             return this;
         }
@@ -149,9 +284,14 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
         public IInterface queryLocalInterface(String descriptor) {
             return this;
         }
-    };
+    }
 
-    private IConnectionService.Stub mConnectionService = new FakeConnectionService();
+    FakeConnectionServiceDelegate mConnectionServiceDelegate =
+            new FakeConnectionServiceDelegate();
+    private IConnectionService mConnectionServiceDelegateAdapter =
+            IConnectionService.Stub.asInterface(mConnectionServiceDelegate.onBind(null));
+
+    FakeConnectionService mConnectionService = new FakeConnectionService();
     private IConnectionService.Stub mConnectionServiceSpy = Mockito.spy(mConnectionService);
 
     public class ConnectionInfo {
@@ -164,6 +304,7 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
         int state;
         int addressPresentation;
         int capabilities;
+        int properties;
         StatusHints statusHints;
         DisconnectCause disconnectCause;
         String conferenceId;
@@ -171,6 +312,8 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
         int callerDisplayNamePresentation;
         final List<String> conferenceableConnectionIds = new ArrayList<>();
         IVideoProvider videoProvider;
+        Connection.VideoProvider videoProviderImpl;
+        MockVideoProvider mockVideoProvider;
         int videoState;
         boolean isVoipAudioMode;
         Bundle extras;
@@ -180,6 +323,7 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
         PhoneAccountHandle phoneAccount;
         int state;
         int capabilities;
+        int properties;
         final List<String> connectionIds = new ArrayList<>();
         IVideoProvider videoProvider;
         int videoState;
@@ -189,6 +333,8 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
     }
 
     public String mLatestConnectionId;
+    public Connection mLatestConnection;
+    public Conference mLatestConference;
     public final Set<IConnectionServiceAdapter> mConnectionServiceAdapters = new HashSet<>();
     public final Map<String, ConnectionInfo> mConnectionById = new HashMap<>();
     public final Map<String, ConferenceInfo> mConferenceById = new HashMap<>();
@@ -370,11 +516,30 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
         }
     }
 
+    public void sendConnectionEvent(String id, String event, Bundle extras) throws Exception {
+        for (IConnectionServiceAdapter a : mConnectionServiceAdapters) {
+            a.onConnectionEvent(id, event, extras);
+        }
+    }
+
+    /**
+     * Waits until the {@link Connection#onExtrasChanged(Bundle)} API has been called on a
+     * {@link Connection} or {@link Conference}.
+     */
+    public void waitForExtras() {
+        try {
+            mExtrasLock.await(TelecomSystemTest.TEST_TIMEOUT, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException ie) {
+        }
+        mExtrasLock = new CountDownLatch(1);
+    }
+
     private ParcelableConference parcelable(ConferenceInfo c) {
         return new ParcelableConference(
                 c.phoneAccount,
                 c.state,
                 c.capabilities,
+                c.properties,
                 c.connectionIds,
                 c.videoProvider,
                 c.videoState,
@@ -388,6 +553,7 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
                 c.request.getAccountHandle(),
                 c.state,
                 c.capabilities,
+                c.properties,
                 c.request.getAddress(),
                 c.addressPresentation,
                 c.callerDisplayName,

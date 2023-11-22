@@ -29,7 +29,7 @@
 #include <string.h>
 #include "bta_api.h"
 #include "bta_sys.h"
-#include "gki.h"
+#include "bt_common.h"
 #include "pan_api.h"
 #include "bta_pan_api.h"
 #include "bta_pan_int.h"
@@ -304,6 +304,7 @@ static void bta_pan_api_open(tBTA_PAN_DATA *p_data)
 void bta_pan_scb_dealloc(tBTA_PAN_SCB *p_scb)
 {
     APPL_TRACE_DEBUG("bta_pan_scb_dealloc %d", bta_pan_scb_to_idx(p_scb));
+    fixed_queue_free(p_scb->data_queue, NULL);
     memset(p_scb, 0, sizeof(tBTA_PAN_SCB));
 }
 

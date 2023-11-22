@@ -25,8 +25,10 @@ page.title=Downloading the Source
 </div>
 
 <p>
-  The Android source tree is located in a Git repository hosted by Google. This document
-  describes how to download the source tree for a specific Android code-line.
+  The Android source tree is located in a Git repository hosted by Google. The Git repository
+  includes metadata for the Android source, including those related to changes to the source
+  and the date they were made. This document describes how to download the source tree for a
+  specific Android code-line.
 </p>
 <h2 id="installing-repo">
   Installing Repo
@@ -72,6 +74,9 @@ $ chmod a+x ~/bin/repo
 <p>
   For version 1.21, the SHA-1 checksum for repo is b8bd1804f432ecf1bab730949c82b93b0fc5fede
 </p>
+<p>
+  For version 1.22, the SHA-1 checksum for repo is da0514e484f74648a890c0467d61ca415379f791
+</p>
 <h2 id="initializing-a-repo-client">
   Initializing a Repo client
 </h2>
@@ -91,6 +96,20 @@ $ cd WORKING_DIRECTORY
   </li>
   <li>
     <p>
+      Configure git with your real name and email address. To use the Gerrit code-review tool,
+      you will need an email address that is connected with a <a href=
+      "https://www.google.com/accounts">registered Google account</a>. Make sure this is a live
+      address at which you can receive messages. The name that you provide here will show up in
+      attributions for your code submissions.
+    </p>
+<pre>
+$ git config --global user.name "Your Name"
+$ git config --global user.email "you@example.com"
+</pre>
+  </li>
+  </li>
+  <li>
+    <p>
       Run <code>repo init</code> to bring down the latest version of Repo with all its most
       recent bug fixes. You must specify a URL for the manifest, which specifies where the
       various repositories included in the Android source will be placed within your working
@@ -105,15 +124,6 @@ $ repo init -u https://android.googlesource.com/platform/manifest
 <pre>
 $ repo init -u https://android.googlesource.com/platform/manifest -b android-4.0.1_r1
 </pre>
-  </li>
-  <li>
-    <p>
-      When prompted, configure Repo with your real name and email address. To use the Gerrit
-      code-review tool, you will need an email address that is connected with a <a href= 
-      "https://www.google.com/accounts">registered Google account</a>. Make sure this is a live
-      address at which you can receive messages. The name that you provide here will show up in
-      attributions for your code submissions.
-    </p>
   </li>
 </ol>
 <p>

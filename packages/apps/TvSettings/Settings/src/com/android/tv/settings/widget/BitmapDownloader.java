@@ -17,8 +17,11 @@
 package com.android.tv.settings.widget;
 
 import android.app.ActivityManager;
+import android.content.ComponentCallbacks2;
 import android.content.ContentResolver;
 import android.content.Context;
+import android.content.pm.ActivityInfo;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.util.Log;
 import android.util.LruCache;
@@ -88,6 +91,8 @@ public class BitmapDownloader {
     // Bitmaps within same bucket share the largest cache item.
     private static final int[] SIZE_BUCKET = new int[]{128, 512, Integer.MAX_VALUE};
 
+    private Configuration mConfiguration;
+
     public static abstract class BitmapCallback {
         SoftReference<BitmapWorkerTask> mTask;
 
@@ -122,6 +127,27 @@ public class BitmapDownloader {
                 return bitmap.mBitmap.getByteCount();
             }
         };
+
+        final Context applicationContext = context.getApplicationContext();
+        mConfiguration = new Configuration(applicationContext.getResources().getConfiguration());
+
+        applicationContext.registerComponentCallbacks(new ComponentCallbacks2() {
+            @Override
+            public void onTrimMemory(int level) {
+                mMemoryCache.evictAll();
+            }
+
+            @Override
+            public void onConfigurationChanged(Configuration newConfig) {
+                int changes = mConfiguration.updateFrom(newConfig);
+                if (Configuration.needNewResources(changes, ActivityInfo.CONFIG_LAYOUT_DIRECTION)) {
+                    invalidateCachedResources();
+                }
+            }
+
+            @Override
+            public void onLowMemory() {}
+        });
     }
 
     /**

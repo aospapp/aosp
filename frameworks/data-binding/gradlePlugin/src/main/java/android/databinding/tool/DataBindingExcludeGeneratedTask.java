@@ -88,6 +88,7 @@ public class DataBindingExcludeGeneratedTask extends DefaultTask {
         exclude(EXCLUDE_PATTERN);
         if (isLibrary) {
             exclude(appPkgAsClass + "/BR.*");
+            exclude("android/databinding/DynamicUtil.class");
             List<String> generatedClasses = readGeneratedClasses();
             for (String klass : generatedClasses) {
                 exclude(klass.replace('.', '/') + ".class");

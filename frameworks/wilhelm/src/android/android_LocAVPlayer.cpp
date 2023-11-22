@@ -54,12 +54,21 @@ void LocAVPlayer::onPrepare() {
                     mPlaybackParams.sessionId);
             if (mPlayer == NULL) {
                 SL_LOGE("media player service failed to create player by URI");
-            } else if (mPlayer->setDataSource(
-                        CreateHTTPServiceInCurrentJavaContext(),
-                        mDataLocator.uriRef,
-                        NULL /*headers*/) != NO_ERROR) {
-                SL_LOGE("setDataSource failed");
-                mPlayer.clear();
+            } else {
+                sp <IMediaHTTPService> mediaHTTPService;
+#ifndef __BRILLO__
+                // As Brillo doesn't have a Java layer, we don't have to call this
+                // function since it would return NULL anyways. Not having this
+                // function call allows us to significantly reduce the size of the
+                // Brillo checkout.
+                mediaHTTPService = CreateHTTPServiceInCurrentJavaContext();
+#endif
+                status_t status =  mPlayer->setDataSource(
+                    mediaHTTPService, mDataLocator.uriRef, NULL /*headers*/);
+                if (status != NO_ERROR) {
+                    SL_LOGE("setDataSource failed");
+                    mPlayer.clear();
+                }
             }
             break;
         case kDataLocatorFd:

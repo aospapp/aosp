@@ -17,7 +17,7 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.cts.appwidget">
+    package="android.appwidget.cts">
 
   <application>
       <uses-library android:name="android.test.runner"/>
@@ -45,7 +45,7 @@
   </application>
 
   <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-      android:targetPackage="android.cts.appwidget"
+      android:targetPackage="android.appwidget.cts"
       android:label="Tests for the app widget APIs.">
       <meta-data android:name="listener"
           android:value="com.android.cts.runner.CtsTestRunListener" />

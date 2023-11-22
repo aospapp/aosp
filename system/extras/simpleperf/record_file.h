@@ -18,40 +18,43 @@
 #define SIMPLE_PERF_RECORD_FILE_H_
 
 #include <stdio.h>
+
+#include <functional>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include <base/macros.h>
+#include <android-base/macros.h>
 
 #include "perf_event.h"
 #include "record.h"
 #include "record_file_format.h"
 
-class EventFd;
+struct AttrWithId {
+  const perf_event_attr* attr;
+  std::vector<uint64_t> ids;
+};
 
 // RecordFileWriter writes to a perf record file, like perf.data.
 class RecordFileWriter {
  public:
-  static std::unique_ptr<RecordFileWriter> CreateInstance(
-      const std::string& filename, const perf_event_attr& event_attr,
-      const std::vector<std::unique_ptr<EventFd>>& event_fds);
+  static std::unique_ptr<RecordFileWriter> CreateInstance(const std::string& filename);
 
   ~RecordFileWriter();
 
+  bool WriteAttrSection(const std::vector<AttrWithId>& attr_ids);
   bool WriteData(const void* buf, size_t len);
 
   bool WriteData(const std::vector<char>& data) {
     return WriteData(data.data(), data.size());
   }
 
-  // Use MmapRecords and SampleRecords in record file to conclude which modules/files were executing
-  // at sample times.
-  bool GetHitModules(std::vector<std::string>* hit_kernel_modules,
-                     std::vector<std::string>* hit_user_files);
-
   bool WriteFeatureHeader(size_t feature_count);
   bool WriteBuildIdFeature(const std::vector<BuildIdRecord>& build_id_records);
+  bool WriteFeatureString(int feature, const std::string& s);
+  bool WriteCmdlineFeature(const std::vector<std::string>& cmdline);
+  bool WriteBranchStackFeature();
 
   // Normally, Close() should be called after writing. But if something
   // wrong happens and we need to finish in advance, the destructor
@@ -60,13 +63,14 @@ class RecordFileWriter {
 
  private:
   RecordFileWriter(const std::string& filename, FILE* fp);
-  bool WriteAttrSection(const perf_event_attr& event_attr,
-                        const std::vector<std::unique_ptr<EventFd>>& event_fds);
   void GetHitModulesInBuffer(const char* p, const char* end,
                              std::vector<std::string>* hit_kernel_modules,
                              std::vector<std::string>* hit_user_files);
   bool WriteFileHeader();
   bool Write(const void* buf, size_t len);
+  bool SeekFileEnd(uint64_t* file_end);
+  bool WriteFeatureBegin(uint64_t* start_offset);
+  bool WriteFeatureEnd(int feature, uint64_t start_offset);
 
   const std::string filename_;
   FILE* record_fp_;
@@ -91,25 +95,42 @@ class RecordFileReader {
 
   ~RecordFileReader();
 
-  const PerfFileFormat::FileHeader* FileHeader();
-  std::vector<const PerfFileFormat::FileAttr*> AttrSection();
-  std::vector<uint64_t> IdsForAttr(const PerfFileFormat::FileAttr* attr);
-  std::vector<std::unique_ptr<const Record>> DataSection();
-  std::vector<PerfFileFormat::SectionDesc> FeatureSectionDescriptors();
-  const char* DataAtOffset(uint64_t offset) {
-    return mmap_addr_ + offset;
+  const PerfFileFormat::FileHeader& FileHeader() const {
+    return header_;
   }
+
+  const std::vector<PerfFileFormat::FileAttr>& AttrSection() const {
+    return file_attrs_;
+  }
+
+  const std::map<int, PerfFileFormat::SectionDesc>& FeatureSectionDescriptors() const {
+    return feature_section_descriptors_;
+  }
+
+  bool ReadIdsForAttr(const PerfFileFormat::FileAttr& attr, std::vector<uint64_t>* ids);
+  // If sorted is true, sort records before passing them to callback function.
+  bool ReadDataSection(std::function<bool(std::unique_ptr<Record>)> callback, bool sorted = true);
+  std::vector<std::string> ReadCmdlineFeature();
+  std::vector<BuildIdRecord> ReadBuildIdFeature();
+  std::string ReadFeatureString(int feature);
   bool Close();
 
+  // For testing only.
+  std::vector<std::unique_ptr<Record>> DataSection();
+
  private:
-  RecordFileReader(const std::string& filename, int fd);
-  bool MmapFile();
+  RecordFileReader(const std::string& filename, FILE* fp);
+  bool ReadHeader();
+  bool ReadAttrSection();
+  bool ReadFeatureSectionDescriptors();
+  bool ReadFeatureSection(int feature, std::vector<char>* data);
 
   const std::string filename_;
-  int record_fd_;
+  FILE* record_fp_;
 
-  const char* mmap_addr_;
-  size_t mmap_len_;
+  PerfFileFormat::FileHeader header_;
+  std::vector<PerfFileFormat::FileAttr> file_attrs_;
+  std::map<int, PerfFileFormat::SectionDesc> feature_section_descriptors_;
 
   DISALLOW_COPY_AND_ASSIGN(RecordFileReader);
 };

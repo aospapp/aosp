@@ -23,6 +23,7 @@
 #include "art_method-inl.h"
 #include "base/stl_util.h"
 #include "mirror/class.h"
+#include "oat_quick_method_header.h"
 #include "sigchain.h"
 #include "thread-inl.h"
 #include "verify_object-inl.h"
@@ -145,43 +146,17 @@ void FaultManager::Shutdown() {
   }
 }
 
-void FaultManager::HandleFault(int sig, siginfo_t* info, void* context) {
-  // BE CAREFUL ALLOCATING HERE INCLUDING USING LOG(...)
-  //
-  // If malloc calls abort, it will be holding its lock.
-  // If the handler tries to call malloc, it will deadlock.
-  VLOG(signals) << "Handling fault";
-  if (IsInGeneratedCode(info, context, true)) {
-    VLOG(signals) << "in generated code, looking for handler";
-    for (const auto& handler : generated_code_handlers_) {
-      VLOG(signals) << "invoking Action on handler " << handler;
-      if (handler->Action(sig, info, context)) {
-#ifdef TEST_NESTED_SIGNAL
-        // In test mode we want to fall through to stack trace handler
-        // on every signal (in reality this will cause a crash on the first
-        // signal).
-        break;
-#else
-        // We have handled a signal so it's time to return from the
-        // signal handler to the appropriate place.
-        return;
-#endif
-      }
-    }
+bool FaultManager::HandleFaultByOtherHandlers(int sig, siginfo_t* info, void* context) {
+  if (other_handlers_.empty()) {
+    return false;
   }
-
-  // We hit a signal we didn't handle.  This might be something for which
-  // we can give more information about so call all registered handlers to see
-  // if it is.
 
   Thread* self = Thread::Current();
 
-  // If ART is not running, or the thread is not attached to ART pass the
-  // signal on to the next handler in the chain.
-  if (self == nullptr || Runtime::Current() == nullptr || !Runtime::Current()->IsStarted()) {
-    InvokeUserSignalHandler(sig, info, context);
-    return;
-  }
+  DCHECK(self != nullptr);
+  DCHECK(Runtime::Current() != nullptr);
+  DCHECK(Runtime::Current()->IsStarted());
+
   // Now set up the nested signal handler.
 
   // TODO: add SIGSEGV back to the nested signals when we can handle running out stack gracefully.
@@ -230,6 +205,7 @@ void FaultManager::HandleFault(int sig, siginfo_t* info, void* context) {
       break;
     }
   }
+
   if (success) {
     // Save the current state and call the handlers.  If anything causes a signal
     // our nested signal handler will be invoked and this will longjmp to the saved
@@ -246,7 +222,7 @@ void FaultManager::HandleFault(int sig, siginfo_t* info, void* context) {
             }
           }
           fault_manager.Init();
-          return;
+          return true;
         }
       }
     } else {
@@ -264,6 +240,40 @@ void FaultManager::HandleFault(int sig, siginfo_t* info, void* context) {
 
   // Now put the fault manager back in place.
   fault_manager.Init();
+  return false;
+}
+
+void FaultManager::HandleFault(int sig, siginfo_t* info, void* context) {
+  // BE CAREFUL ALLOCATING HERE INCLUDING USING LOG(...)
+  //
+  // If malloc calls abort, it will be holding its lock.
+  // If the handler tries to call malloc, it will deadlock.
+  VLOG(signals) << "Handling fault";
+  if (IsInGeneratedCode(info, context, true)) {
+    VLOG(signals) << "in generated code, looking for handler";
+    for (const auto& handler : generated_code_handlers_) {
+      VLOG(signals) << "invoking Action on handler " << handler;
+      if (handler->Action(sig, info, context)) {
+#ifdef TEST_NESTED_SIGNAL
+        // In test mode we want to fall through to stack trace handler
+        // on every signal (in reality this will cause a crash on the first
+        // signal).
+        break;
+#else
+        // We have handled a signal so it's time to return from the
+        // signal handler to the appropriate place.
+        return;
+#endif
+      }
+    }
+
+    // We hit a signal we didn't handle.  This might be something for which
+    // we can give more information about so call all registered handlers to see
+    // if it is.
+    if (HandleFaultByOtherHandlers(sig, info, context)) {
+        return;
+    }
+  }
 
   // Set a breakpoint in this function to catch unhandled signals.
   art_sigsegv_fault();
@@ -320,7 +330,7 @@ bool FaultManager::IsInGeneratedCode(siginfo_t* siginfo, void* context, bool che
     return false;
   }
 
-  ArtMethod* method_obj = 0;
+  ArtMethod* method_obj = nullptr;
   uintptr_t return_pc = 0;
   uintptr_t sp = 0;
 
@@ -331,7 +341,9 @@ bool FaultManager::IsInGeneratedCode(siginfo_t* siginfo, void* context, bool che
   // If we don't have a potential method, we're outta here.
   VLOG(signals) << "potential method: " << method_obj;
   // TODO: Check linear alloc and image.
-  if (method_obj == 0 || !IsAligned<kObjectAlignment>(method_obj)) {
+  DCHECK_ALIGNED(ArtMethod::Size(sizeof(void*)), sizeof(void*))
+      << "ArtMethod is not pointer aligned";
+  if (method_obj == nullptr || !IsAligned<sizeof(void*)>(method_obj)) {
     VLOG(signals) << "no method";
     return false;
   }
@@ -341,7 +353,7 @@ bool FaultManager::IsInGeneratedCode(siginfo_t* siginfo, void* context, bool che
   // Check that the class pointer inside the object is not null and is aligned.
   // TODO: Method might be not a heap address, and GetClass could fault.
   // No read barrier because method_obj may not be a real object.
-  mirror::Class* cls = method_obj->GetDeclaringClassNoBarrier();
+  mirror::Class* cls = method_obj->GetDeclaringClassUnchecked<kWithoutReadBarrier>();
   if (cls == nullptr) {
     VLOG(signals) << "not a class";
     return false;
@@ -357,16 +369,17 @@ bool FaultManager::IsInGeneratedCode(siginfo_t* siginfo, void* context, bool che
     return false;
   }
 
+  const OatQuickMethodHeader* method_header = method_obj->GetOatQuickMethodHeader(return_pc);
+
   // We can be certain that this is a method now.  Check if we have a GC map
   // at the return PC address.
   if (true || kIsDebugBuild) {
     VLOG(signals) << "looking for dex pc for return pc " << std::hex << return_pc;
-    const void* code = Runtime::Current()->GetInstrumentation()->GetQuickCodeFor(method_obj,
-                                                                                 sizeof(void*));
-    uint32_t sought_offset = return_pc - reinterpret_cast<uintptr_t>(code);
+    uint32_t sought_offset = return_pc -
+        reinterpret_cast<uintptr_t>(method_header->GetEntryPoint());
     VLOG(signals) << "pc offset: " << std::hex << sought_offset;
   }
-  uint32_t dexpc = method_obj->ToDexPc(return_pc, false);
+  uint32_t dexpc = method_header->ToDexPc(method_obj, return_pc, false);
   VLOG(signals) << "dexpc: " << dexpc;
   return !check_dex_pc || dexpc != DexFile::kDexNoIndex;
 }
@@ -402,9 +415,8 @@ JavaStackTraceHandler::JavaStackTraceHandler(FaultManager* manager) : FaultHandl
   manager_->AddHandler(this, false);
 }
 
-bool JavaStackTraceHandler::Action(int sig, siginfo_t* siginfo, void* context) {
+bool JavaStackTraceHandler::Action(int sig ATTRIBUTE_UNUSED, siginfo_t* siginfo, void* context) {
   // Make sure that we are in the generated code, but we may not have a dex pc.
-  UNUSED(sig);
 #ifdef TEST_NESTED_SIGNAL
   bool in_generated_code = true;
 #else

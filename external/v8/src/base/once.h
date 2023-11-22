@@ -52,6 +52,8 @@
 #ifndef V8_BASE_ONCE_H_
 #define V8_BASE_ONCE_H_
 
+#include <stddef.h>
+
 #include "src/base/atomicops.h"
 
 namespace v8 {
@@ -95,6 +97,7 @@ inline void CallOnce(OnceType* once,
   }
 }
 
-} }  // namespace v8::base
+}  // namespace base
+}  // namespace v8
 
 #endif  // V8_BASE_ONCE_H_

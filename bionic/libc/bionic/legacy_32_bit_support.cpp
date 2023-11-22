@@ -33,6 +33,7 @@
 #include <stdarg.h>
 #include <sys/resource.h>
 #include <sys/types.h>
+#include <sys/uio.h>
 #include <sys/vfs.h>
 #include <unistd.h>
 
@@ -43,6 +44,8 @@
 // System calls we need.
 extern "C" int __fcntl64(int, int, void*);
 extern "C" int __llseek(int, unsigned long, unsigned long, off64_t*, int);
+extern "C" int __preadv64(int, const struct iovec*, int, long, long);
+extern "C" int __pwritev64(int, const struct iovec*, int, long, long);
 
 // For fcntl we use the fcntl64 system call to signal that we're using struct flock64.
 int fcntl(int fd, int cmd, ...) {
@@ -77,6 +80,23 @@ ssize_t pwrite(int fd, const void* buf, size_t byte_count, off_t offset) {
   return pwrite64(fd, buf, byte_count, static_cast<off64_t>(offset));
 }
 
+// On LP32, there is no off_t preadv/pwritev, and even the 64-bit preadv/pwritev
+// don't use off64_t (see SYSCALLS.TXT for more). Here, this means that we need
+// to implement all four functions because the two system calls don't match any
+// of the userspace functions. Unlike llseek, the pair is split lo-hi, not hi-lo.
+ssize_t preadv(int fd, const struct iovec* ios, int count, off_t offset) {
+  return __preadv64(fd, ios, count, offset, 0);
+}
+ssize_t preadv64(int fd, const struct iovec* ios, int count, off64_t offset) {
+  return __preadv64(fd, ios, count, offset, offset >> 32);
+}
+ssize_t pwritev(int fd, const struct iovec* ios, int count, off_t offset) {
+  return __pwritev64(fd, ios, count, offset, 0);
+}
+ssize_t pwritev64(int fd, const struct iovec* ios, int count, off64_t offset) {
+  return __pwritev64(fd, ios, count, offset, offset >> 32);
+}
+
 // There is no fallocate for 32-bit off_t, so we need to widen and call fallocate64.
 int fallocate(int fd, int mode, off_t offset, off_t length) {
   return fallocate64(fd, mode, static_cast<off64_t>(offset), static_cast<off64_t>(length));
@@ -90,4 +110,23 @@ int getrlimit64(int resource, rlimit64* limits64) {
 // There is no setrlimit64 system call, so we need to use prlimit64.
 int setrlimit64(int resource, const rlimit64* limits64) {
   return prlimit64(0, resource, limits64, NULL);
+}
+
+// There is no prlimit system call, so we need to use prlimit64.
+int prlimit(pid_t pid, int resource, const rlimit* n32, rlimit* o32) {
+  rlimit64 n64;
+  if (n32 != nullptr) {
+    n64.rlim_cur = (n32->rlim_cur == RLIM_INFINITY) ? RLIM64_INFINITY : n32->rlim_cur;
+    n64.rlim_max = (n32->rlim_max == RLIM_INFINITY) ? RLIM64_INFINITY : n32->rlim_max;
+  }
+
+  rlimit64 o64;
+  int result = prlimit64(pid, resource,
+                         (n32 != nullptr) ? &n64 : nullptr,
+                         (o32 != nullptr) ? &o64 : nullptr);
+  if (result != -1 && o32 != nullptr) {
+    o32->rlim_cur = (o64.rlim_cur == RLIM64_INFINITY) ? RLIM_INFINITY : o64.rlim_cur;
+    o32->rlim_max = (o64.rlim_max == RLIM64_INFINITY) ? RLIM_INFINITY : o64.rlim_max;
+  }
+  return result;
 }

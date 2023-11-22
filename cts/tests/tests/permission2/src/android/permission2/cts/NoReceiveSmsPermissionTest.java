@@ -26,6 +26,7 @@ import android.content.pm.PackageManager;
 import android.telephony.SmsManager;
 import android.telephony.TelephonyManager;
 import android.test.AndroidTestCase;
+import android.text.TextUtils;
 import android.util.Log;
 
 /**
@@ -78,7 +79,7 @@ public class NoReceiveSmsPermissionTest extends AndroidTestCase {
             }
         }
 
-        assertTrue("Sms not sent successfully, test environment problem?",
+        assertTrue("[RERUN] Sms not sent successfully. Check signal.",
                 receiver.isMessageSent());
         assertFalse("Sms received without proper permissions", receiver.isSmsReceived());
     }
@@ -93,6 +94,9 @@ public class NoReceiveSmsPermissionTest extends AndroidTestCase {
                  getContext().getSystemService(Context.TELEPHONY_SERVICE);
         // get current phone number
         String currentNumber = telephony.getLine1Number();
+        assertFalse("[RERUN] SIM card does not provide phone number. Use a suitable SIM Card.",
+                TextUtils.isEmpty(currentNumber));
+
         Log.i(LOG_TAG, String.format("Sending SMS to self: %s", currentNumber));
         sendSms(currentNumber, "test message", sentIntent, deliveryIntent);
     }

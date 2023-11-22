@@ -15,8 +15,11 @@ ip-rule \- routing policy database management
 
 .ti -8
 .B  ip rule
-.RB " [ " list " | " add " | " del " | " flush " ]"
+.RB " [ " list " | " add " | " del " | " flush " | " save " ]"
 .I  SELECTOR ACTION
+
+.ti -8
+.B  ip rule  " restore "
 
 .ti -8
 .IR SELECTOR " := [ "
@@ -41,8 +44,16 @@ ip-rule \- routing policy database management
 .IR TABLE_ID " ] [ "
 .B  nat
 .IR ADDRESS " ] [ "
-.BR prohibit " | " reject " | " unreachable " ] [ " realms
+.B realms
 .RI "[" SRCREALM "/]" DSTREALM " ]"
+.I  SUPPRESSOR
+
+.ti -8
+.IR SUPPRESSOR " := [ "
+.B  suppress_prefixlength
+.IR NUMBER " ] [ "
+.B  suppress_ifgroup
+.IR GROUP " ]"
 
 .ti -8
 .IR TABLE_ID " := [ "
@@ -51,7 +62,7 @@ ip-rule \- routing policy database management
 
 .SH DESCRIPTION
 .I ip rule
-manipulates rules 
+manipulates rules
 in the routing policy database control the route selection algorithm.
 
 .P
@@ -75,16 +86,16 @@ Each policy routing rule consists of a
 .B selector
 and an
 .B action predicate.
-The RPDB is scanned in the order of increasing priority. The selector
+The RPDB is scanned in order of decreasing priority. The selector
 of each rule is applied to {source address, destination address, incoming
 interface, tos, fwmark} and, if the selector matches the packet,
-the action is performed.  The action predicate may return with success.
+the action is performed. The action predicate may return with success.
 In this case, it will either give a route or failure indication
 and the RPDB lookup is terminated. Otherwise, the RPDB program
-continues on the next rule.
+continues with the next rule.
 
 .P
-Semantically, natural action is to select the nexthop and the output device.
+Semantically, the natural action is to select the nexthop and the output device.
 
 .P
 At startup time the kernel configures the default RPDB consisting of three
@@ -123,24 +134,24 @@ table
 (ID 253).
 The
 .B default
-table is empty.  It is reserved for some post-processing if no previous
+table is empty. It is reserved for some post-processing if no previous
 default rules selected the packet.
 This rule may also be deleted.
 
 .P
 Each RPDB entry has additional
-attributes.  F.e. each rule has a pointer to some routing
-table.  NAT and masquerading rules have an attribute to select new IP
-address to translate/masquerade.  Besides that, rules have some
+attributes. F.e. each rule has a pointer to some routing
+table. NAT and masquerading rules have an attribute to select new IP
+address to translate/masquerade. Besides that, rules have some
 optional attributes, which routes have, namely
 .BR "realms" .
-These values do not override those contained in the routing tables.  They
+These values do not override those contained in the routing tables. They
 are only used if the route did not select any attributes.
 
 .sp
 The RPDB may contain rules of the following types:
 
-.in +8
+.RS
 .B unicast
 - the rule prescribes to return the route found
 in the routing table referenced by the rule.
@@ -158,14 +169,16 @@ prohibited' error.
 .B nat
 - the rule prescribes to translate the source address
 of the IP packet into some other value.
-.in -8
-
-.SS ip rule add - insert a new rule
-.SS ip rule delete - delete a rule
+.RE
 
 .TP
+.B ip rule add - insert a new rule
+.TP
+.B ip rule delete - delete a rule
+.RS
+.TP
 .BI type " TYPE " (default)
-the type of this rule.  The list of valid types was given in the previous
+the type of this rule. The list of valid types was given in the previous
 subsection.
 
 .TP
@@ -178,14 +191,14 @@ select the destination prefix to match.
 
 .TP
 .BI iif " NAME"
-select the incoming device to match.  If the interface is loopback,
-the rule only matches packets originating from this host.  This means
+select the incoming device to match. If the interface is loopback,
+the rule only matches packets originating from this host. This means
 that you may create separate routing tables for forwarded and local
 packets and, hence, completely segregate them.
 
 .TP
 .BI oif " NAME"
-select the outgoing device to match.  The outgoing interface is only
+select the outgoing device to match. The outgoing interface is only
 available for packets originating from local sockets that are bound to
 a device.
 
@@ -203,7 +216,7 @@ value to match.
 
 .TP
 .BI priority " PREFERENCE"
-the priority of this rule.  Each rule should have an explicitly
+the priority of this rule. Each rule should have an explicitly
 set
 .I unique
 priority value.
@@ -215,9 +228,18 @@ the routing table identifier to lookup if the rule selector matches.
 It is also possible to use lookup instead of table.
 
 .TP
+.BI suppress_prefixlength " NUMBER"
+reject routing decisions that have a prefix length of NUMBER or less.
+
+.TP
+.BI suppress_ifgroup " GROUP"
+reject routing decisions that use a device belonging to the interface
+group GROUP.
+
+.TP
 .BI realms " FROM/TO"
 Realms to select if the rule matched and the routing table lookup
-succeeded.  Realm
+succeeded. Realm
 .I TO
 is only used if the route did not select any realm.
 
@@ -234,16 +256,38 @@ Using map-to instead of nat means the same thing.
 
 .B Warning:
 Changes to the RPDB made with these commands do not become active
-immediately.  It is assumed that after a script finishes a batch of
+immediately. It is assumed that after a script finishes a batch of
 updates, it flushes the routing cache with
 .BR "ip route flush cache" .
-
-.SS ip rule flush - also dumps all the deleted rules.
+.RE
+.TP
+.B ip rule flush - also dumps all the deleted rules.
 This command has no arguments.
-
-.SS ip rule show - list rules
+.TP
+.B ip rule show - list rules
 This command has no arguments.
 The options list or lst are synonyms with show.
+
+.TP
+.B ip rule save
+save rules table information to stdout
+.RS
+This command behaves like
+.BR "ip rule show"
+except that the output is raw data suitable for passing to
+.BR "ip rule restore" .
+.RE
+
+.TP
+.B ip rule restore
+restore rules table information from stdin
+.RS
+This command expects to read a data stream as returned from
+.BR "ip rule save" .
+It will attempt to restore the rules table information exactly as
+it was at the time of the save. Any rules already in the table are
+left unchanged, and duplicates are not ignored.
+.RE
 
 .SH SEE ALSO
 .br

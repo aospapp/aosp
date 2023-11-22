@@ -57,21 +57,6 @@ public class CurrentContendedMonitorTest extends JDWPSyncTestCase {
     public void testCurrentContendedMonitor001() {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        //check capability, relevant for this test
-        debuggeeWrapper.vmMirror.capabilities();
-        logWriter.println("=> Check capability: canGetMonitorInfo");
-        boolean isCapability = debuggeeWrapper.vmMirror.targetVMCapabilities.canGetMonitorInfo;
-        if (!isCapability) {
-            logWriter.println("##WARNING: this VM doesn't possess capability: canGetMonitorInfo");
-            return;
-        }
-        logWriter.println("=> Check capability: canGetCurrentContendedMonitor");
-        isCapability = debuggeeWrapper.vmMirror.targetVMCapabilities.canGetCurrentContendedMonitor;
-        if (!isCapability) {
-            logWriter.println("##WARNING: this VM doesn't possess capability: canGetCurrentContendedMonitor");
-            return;
-        }
-
         // getting ID of the tested thread
         logWriter.println
         ("==> testedThreadName = " + CurrentContendedMonitorDebuggee.TESTED_THREAD);
